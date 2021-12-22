@@ -16,7 +16,7 @@ Please note this license only applies to **Little Big Adventure 2** engine sourc
 Read our [Contribution Guidelines](https://github.com/2point21/lba2-classic-community/blob/main/CONTRIBUTING.md).
 
 ## Links:
-**Official Website:** https://www.2point21.com/games/little-big-adventure-2-twinsen-odyssey
+**Official Website:** https://twinsenslittlebigadventure.com/
 
 **Discord:** https://discord.gg/gfzna5SfZ5
 
