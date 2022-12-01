@@ -3,8 +3,8 @@
 #define	LIB_SVGA_CLRBOX
 
 //****************************************************************************
-#include	<svga/dirtybox.h>
-#include	<svga/box.h>
+#include	<SVGA/DIRTYBOX.H>
+#include	<SVGA/BOX.H>
 
 //****************************************************************************
 #ifdef	__cplusplus

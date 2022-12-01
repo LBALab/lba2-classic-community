@@ -1,6 +1,6 @@
-#include	<system.h>
-#include	<svga.h>
-#include	<menu.h>
+#include	<SYSTEM.H>
+#include	<SVGA.H>
+#include	<MENU.H>
 
 #include	<stdlib.h>
 #include	<stdio.h>
