@@ -30,8 +30,8 @@
 #endif//_BUILDING_LIB
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<SMACKER\SMACK.H>
-#include	<SMACKER\SMACKER.H>
+#include	<SMACKER/SMACK.H>
+#include	<SMACKER/SMACKER.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_SMACKER

@@ -3,8 +3,8 @@
 #define LIB_SYSTEM_A_MALLOC
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\s_malloc.h>
-#include	<system\n_malloc.h>
+#include	<system/s_malloc.h>
+#include	<system/n_malloc.h>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus

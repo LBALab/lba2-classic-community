@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------
-#include <system\adeline.h>
-#include <system\a_malloc.h>
-#include <system\exit.h>
-#include <system\files.h>
-#include <system\deffile.h>
-#include <system\cmdline.h>
+#include <system/adeline.h>
+#include <system/a_malloc.h>
+#include <system/exit.h>
+#include <system/files.h>
+#include <system/deffile.h>
+#include <system/cmdline.h>
 
 #include <stdlib.h>
 #include <stdio.h>

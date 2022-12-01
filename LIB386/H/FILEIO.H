@@ -26,8 +26,8 @@
 #endif//_BUILDING_LIB
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<FILEIO\LOADPCX.H>
-#include	<FILEIO\SAVEPCX.H>
+#include	<FILEIO/LOADPCX.H>
+#include	<FILEIO/SAVEPCX.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_FILEIO

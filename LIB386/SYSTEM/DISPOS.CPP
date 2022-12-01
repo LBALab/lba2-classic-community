@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------
-#include <system\adeline.h>
-#include <system\logprint.h>
-#include <system\cmdline.h>
-#include <system\dispos.h>
+#include <system/adeline.h>
+#include <system/logprint.h>
+#include <system/cmdline.h>
+#include <system/dispos.h>
 
 #include <stdlib.h>
 #include <stdio.h>

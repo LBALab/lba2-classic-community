@@ -1,13 +1,13 @@
 //--------------------------------------------------------------------------
-#include	<system\adeline.h>
-#include	<system\exit.h>
-#include	<system\a_malloc.h>
-#include	<system\logprint.h>
-#include	<system\cmdline.h>
-#include	<polygon\poly.h>
-#include	<svga\clip.h>
-#include	<svga\logphys.h>
-#include	<svga\initmode.h>
+#include	<system/adeline.h>
+#include	<system/exit.h>
+#include	<system/a_malloc.h>
+#include	<system/logprint.h>
+#include	<system/cmdline.h>
+#include	<polygon/poly.h>
+#include	<svga/clip.h>
+#include	<svga/logphys.h>
+#include	<svga/initmode.h>
 
 #include	<mem.h>
 #include	<ctype.h>
@@ -16,14 +16,14 @@
 #ifdef	_WIN32
 
 //--------------------------------------------------------------------------
-#include	<svga\ddraw.h>
+#include	<svga/ddraw.h>
 
 //--------------------------------------------------------------------------
 #else //_WIN32
 
 //--------------------------------------------------------------------------
-#include	<svga\vesa.h>
-#include	<svga\copybov.h>
+#include	<svga/vesa.h>
+#include	<svga/copybov.h>
 
 //--------------------------------------------------------------------------
 #endif//_WIN32

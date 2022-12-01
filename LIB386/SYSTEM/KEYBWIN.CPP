@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------
-#include	<system\adeline.h>
-#include	<system\winsys.h>
-#include	<system\keybwin.h>
+#include	<system/adeline.h>
+#include	<system/winsys.h>
+#include	<system/keybwin.h>
 
 //----------------------------------------------------------------------------
 S32	AsciiMode = FALSE	;

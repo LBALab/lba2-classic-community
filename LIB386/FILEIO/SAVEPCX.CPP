@@ -1,7 +1,7 @@
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM.H>
-#include <SVGA\INITMODE.H>
-#include <FILEIO\SAVEPCX.H>
+#include <SVGA/INITMODE.H>
+#include <FILEIO/SAVEPCX.H>
 
 #include "PCXHEAD.H"
 

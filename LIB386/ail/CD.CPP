@@ -1,17 +1,17 @@
-#include	<system\adeline.h>
+#include	<system/adeline.h>
 
 #include	<stdio.h>
 #include	<string.h>
 #include	<dos.h>
 
-#include	<ail\cd.h>
+#include	<ail/cd.h>
 
 #include 	<stdlib.h>
 
 #ifdef	_WIN32
-#include	<ail\mssw.h>
+#include	<ail/mssw.h>
 #else
-#include	<ail\mss.h>
+#include	<ail/mss.h>
 #endif
 
 //████████████████████████████████████████████████████████████████████████████

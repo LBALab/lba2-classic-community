@@ -1,7 +1,7 @@
 #include "adeline.h"
 #include "lib_sys.h"
-#include "f:\projet\lib386\lib_svg4\lib_svga.h"
-#include "f:\projet\lib386\lib_ail4\lib_ail.h"
+#include "f:/projet/lib386/lib_svg4/lib_svga.h"
+#include "f:/projet/lib386/lib_ail4/lib_ail.h"
 
 #include <windows.h>
 #include <windowsx.h>

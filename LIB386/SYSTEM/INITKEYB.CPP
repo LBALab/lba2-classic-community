@@ -1,13 +1,13 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
-#include	<system\initkeyb.h>
+#include	<system/adeline.h>
+#include	<system/initkeyb.h>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\winsys.h>
-#include	<system\keybwin.h>
+#include	<system/winsys.h>
+#include	<system/keybwin.h>
 
 //──────────────────────────────────────────────────────────────────────────
 void	InitKeyboard()
@@ -33,8 +33,8 @@ void	ClearKeyboard()
 #else //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<ail\mss.h>
-#include	<system\exit.h>
+#include	<ail/mss.h>
+#include	<system/exit.h>
 
 //──────────────────────────────────────────────────────────────────────────
 #include	<i86.h>

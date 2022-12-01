@@ -6,8 +6,8 @@
 #define	LIB_SVGA_COPYBOV
 
 //****************************************************************************
-#include	<svga\dirtybox.h>
-#include	<svga\box.h>
+#include	<svga/dirtybox.h>
+#include	<svga/box.h>
 
 //****************************************************************************
 #ifdef	__cplusplus
