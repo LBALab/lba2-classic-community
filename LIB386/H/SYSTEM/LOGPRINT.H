@@ -6,7 +6,7 @@
 #include	<stdarg.h>
 #include	<stdio.h>
 
-#include	<system/logprint.h>
+#include	<SYSTEM/LOGPRINT.H>
 
 //--------------------------------------------------------------------------//
 #ifdef	__cplusplus
