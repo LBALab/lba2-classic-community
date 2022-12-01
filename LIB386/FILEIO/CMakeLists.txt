@@ -1,0 +1,1 @@
+add_library(fio PCX.CPP LOADPCX.CPP SAVEPCX.CPP)
