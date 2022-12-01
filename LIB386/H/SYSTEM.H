@@ -72,7 +72,9 @@
 
 #ifdef	_WIN32
 #include	<SYSTEM/WINSYS.H>
-#include	<AIL/MSSW.H>
+  #ifdef SOUND_BACKEND_MILES
+  #include	<AIL/MSSW.H>
+  #endif // SOUND_BACKEND_MILES
 #else// _WIN32
 #include	<SYSTEM/DOSSYS.H>
 #include	<AIL/MSS.H>
