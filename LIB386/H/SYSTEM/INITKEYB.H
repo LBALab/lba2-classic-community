@@ -4,9 +4,9 @@
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
-#include	<system\keybwin.h>
+#include	<system/keybwin.h>
 #else //_WIN32
-#include	<system\keybdos.h>
+#include	<system/keybdos.h>
 #endif//_WIN32
 
 //──────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 //-------------------------------------------------------------------------//
-#include <system\adeline.h>
-#include <system\filename.h>
+#include <system/adeline.h>
+#include <system/filename.h>
 
 #include <stdlib.h>
 

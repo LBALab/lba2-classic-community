@@ -1,16 +1,16 @@
 //****************************************************************************
-#include	<system\adeline.h>
-#include	<system\cpu.h>
-#include	<system\a_malloc.h>
-#include	<svga\screenxy.h>
-#include	<svga\logphys.h>
-#include	<svga\clrbox.h>
-#include	<svga\copybox.h>
-#include	<svga\savblock.h>
-#include	<svga\resblock.h>
-#include	<svga\graph.h>
-#include	<svga\inimouse.h>
-#include	<svga\dirtybox.h>
+#include	<system/adeline.h>
+#include	<system/cpu.h>
+#include	<system/a_malloc.h>
+#include	<svga/screenxy.h>
+#include	<svga/logphys.h>
+#include	<svga/clrbox.h>
+#include	<svga/copybox.h>
+#include	<svga/savblock.h>
+#include	<svga/resblock.h>
+#include	<svga/graph.h>
+#include	<svga/inimouse.h>
+#include	<svga/dirtybox.h>
 
 #include	<stdlib.h>
 #include	<string.h>
@@ -18,13 +18,13 @@
 
 //****************************************************************************
 #ifdef	_WIN32
-#include	<system\winsys.h>
-#include	<svga\ddraw.h>
+#include	<system/winsys.h>
+#include	<svga/ddraw.h>
 
 #else //_WIN32
-#include	<system\dossys.h>
-#include	<svga\copybov.h>
-#include	<svga\cleabov.h>
+#include	<system/dossys.h>
+#include	<svga/copybov.h>
+#include	<svga/cleabov.h>
 
 #endif//_WIN32
 

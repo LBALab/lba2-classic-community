@@ -16,13 +16,13 @@
 /*-------------------------------------------------------------------------*/
 
 #ifdef  LORAN
-#include "f:\projet\lib386\lib_sys4\adeline.h"
-#include "f:\projet\lib386\lib_sys4\lib_sys.h"
-#include "f:\projet\lib386\lib_svg5\lib_svga.h"
-#include "f:\projet\lib386\lib_men2\lib_menu.h"
-#include "f:\projet\lib386\lib_cd\lib_cd.h"
-#include "f:\projet\lib386\lib_3d6\lib_3d.h"
-#include "f:\projet\lib386\lib_ail4\lib_ail.h"
+#include "f:/projet/lib386/lib_sys4/adeline.h"
+#include "f:/projet/lib386/lib_sys4/lib_sys.h"
+#include "f:/projet/lib386/lib_svg5/lib_svga.h"
+#include "f:/projet/lib386/lib_men2/lib_menu.h"
+#include "f:/projet/lib386/lib_cd/lib_cd.h"
+#include "f:/projet/lib386/lib_3d6/lib_3d.h"
+#include "f:/projet/lib386/lib_ail4/lib_ail.h"
 
 #include        <stdlib.h>
 #include        <string.h>

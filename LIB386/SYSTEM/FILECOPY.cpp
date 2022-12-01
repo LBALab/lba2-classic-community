@@ -2,9 +2,9 @@
 #ifndef	_WIN32
 
 //--------------------------------------------------------------------------//
-#include <system\adeline.h>
-#include <system\files.h>
-#include <system\filecopy.h>
+#include <system/adeline.h>
+#include <system/files.h>
+#include <system/filecopy.h>
 
 //--------------------------------------------------------------------------//
 S32    Copy( char *sname, char *dname )

@@ -1,16 +1,16 @@
-#include	<system\adeline.h>
+#include	<system/adeline.h>
 
 #ifdef	_WIN32
-#include	<system\winsys.h>
-#include	<ail\mssw.h>
+#include	<system/winsys.h>
+#include	<ail/mssw.h>
 #else
-#include	<system\dossys.h>
-#include	<ail\mss.h>
+#include	<system/dossys.h>
+#include	<ail/mss.h>
 #endif
 
-#include	<ail\common.h>
-#include	<ail\sample.h>
-#include	<ail\stream.h>
+#include	<ail/common.h>
+#include	<ail/sample.h>
+#include	<ail/stream.h>
 
 #include 	<stdlib.h>
 #include 	<string.h>

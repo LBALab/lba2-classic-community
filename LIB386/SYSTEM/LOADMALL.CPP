@@ -1,8 +1,8 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
-#include	<system\files.h>
-#include	<system\a_malloc.h>
-#include	<system\loadmall.h>
+#include	<system/adeline.h>
+#include	<system/files.h>
+#include	<system/a_malloc.h>
+#include	<system/loadmall.h>
 
 //──────────────────────────────────────────────────────────────────────────
 U32	LoadMallocFileSize ;

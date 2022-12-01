@@ -1,19 +1,19 @@
-#include	<system\adeline.h>
-#include	<system\logprint.h>
-#include	<system\exit.h>
+#include	<system/adeline.h>
+#include	<system/logprint.h>
+#include	<system/exit.h>
 
-#include	<ail\common.h>
-#include	<ail\midi.h>
+#include	<ail/common.h>
+#include	<ail/midi.h>
 
 #include 	<stdio.h>
 #include 	<stdlib.h>
 #include 	<string.h>
 
 #ifdef	_WIN32
-#include	<system\winsys.h>
-#include	<ail\mssw.h>
+#include	<system/winsys.h>
+#include	<ail/mssw.h>
 #else
-#include	<ail\mss.h>
+#include	<ail/mss.h>
 #endif
 
 //████████████████████████████████████████████████████████████████████████████

@@ -1,15 +1,15 @@
-#include	<system\adeline.h>
+#include	<system/adeline.h>
 
 #ifdef	_WIN32
-#include	<ail\mssw.h>
+#include	<ail/mssw.h>
 #else
-#include	<ail\mss.h>
+#include	<ail/mss.h>
 #endif
 
-#include	<ail\common.h>
-#include	<ail\sample.h>
-#include	<ail\midi.h>
-#include	<ail\middig.h>
+#include	<ail/common.h>
+#include	<ail/sample.h>
+#include	<ail/midi.h>
+#include	<ail/middig.h>
 
 #include 	<stdlib.h>
 

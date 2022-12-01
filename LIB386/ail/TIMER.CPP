@@ -1,14 +1,14 @@
-#include	<system\adeline.h>
-#include	<system\exit.h>
-#include	<system\initimer.h>
-#include	<system\timerdos.h>
+#include	<system/adeline.h>
+#include	<system/exit.h>
+#include	<system/initimer.h>
+#include	<system/timerdos.h>
 
-#include	<ail\timer.h>
+#include	<ail/timer.h>
 
 #ifdef	_WIN32
-#include	<ail\mssw.h>
+#include	<ail/mssw.h>
 #else//	_WIN32
-#include	<ail\mss.h>
+#include	<ail/mss.h>
 #endif//_WIN32
 
 //████████████████████████████████████████████████████████████████████████████

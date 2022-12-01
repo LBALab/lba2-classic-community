@@ -5,9 +5,9 @@
 //--------------------------------------------------------------------------//
 #include	<stdio.h>
 #include	<io.h>
-#include	<sys\types.h>
-#include	<sys\stat.h>
-#include        <sys\utime.h>
+#include	<sys/types.h>
+#include	<sys/stat.h>
+#include        <sys/utime.h>
 #include	<fcntl.h>
 
 //--------------------------------------------------------------------------//

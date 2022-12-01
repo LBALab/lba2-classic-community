@@ -38,16 +38,16 @@
 #include	<OBJECT.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<ANIM\ANIM.H>
-#include	<ANIM\BODY.H>
-#include	<ANIM\CLEAR.H>
-#include	<ANIM\FRAME.H>
-#include	<ANIM\INTANIM.H>
-#include	<ANIM\INTERDEP.H>
-#include	<ANIM\INTFRAME.H>
-#include	<ANIM\LIBINIT.H>
-#include	<ANIM\STOFRAME.H>
-#include	<ANIM\TEXTURE.H>
+#include	<ANIM/ANIM.H>
+#include	<ANIM/BODY.H>
+#include	<ANIM/CLEAR.H>
+#include	<ANIM/FRAME.H>
+#include	<ANIM/INTANIM.H>
+#include	<ANIM/INTERDEP.H>
+#include	<ANIM/INTFRAME.H>
+#include	<ANIM/LIBINIT.H>
+#include	<ANIM/STOFRAME.H>
+#include	<ANIM/TEXTURE.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_ANIM

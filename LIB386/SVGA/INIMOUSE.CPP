@@ -1,23 +1,23 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
+#include	<system/adeline.h>
 
-#include	<svga\initmode.h>
-#include	<svga\dirtybox.h>
-#include	<svga\inimouse.h>
-#include	<svga\mouse.h>
+#include	<svga/initmode.h>
+#include	<svga/dirtybox.h>
+#include	<svga/inimouse.h>
+#include	<svga/mouse.h>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\winsys.h>
+#include	<system/winsys.h>
 
 //──────────────────────────────────────────────────────────────────────────
 #else //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\exit.h>
-#include	<ail\mss.h>
+#include	<system/exit.h>
+#include	<ail/mss.h>
 
 #include 	<i86.h>
 #include 	<stdlib.h>

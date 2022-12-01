@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
-#include	<system\adeline.h>
-#include	<system\dossys.h>
+#include	<system/adeline.h>
+#include	<system/dossys.h>
 
 //----------------------------------------------------------------------------
 VOID_FUNC	*ManageProc	;

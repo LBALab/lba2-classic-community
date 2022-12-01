@@ -1,6 +1,6 @@
-#include	<system\adeline.h>
-#include	<system\logprint.h>
-#include	<system\exit.h>
+#include	<system/adeline.h>
+#include	<system/logprint.h>
+#include	<system/exit.h>
 
 #include 	<stdio.h>
 #include 	<stdlib.h>
@@ -8,17 +8,17 @@
 
 #ifdef	_WIN32
 #include 	"mixer.h"
-#include	<system\winsys.h>
-#include	<system\timerwin.h>
-#include	<ail\mssw.h>
+#include	<system/winsys.h>
+#include	<system/timerwin.h>
+#include	<ail/mssw.h>
 #else
-#include	<system\timerdos.h>
-#include	<ail\mss.h>
+#include	<system/timerdos.h>
+#include	<ail/mss.h>
 #endif
 
-#include	<ail\common.h>
-#include	<ail\sample.h>
-#include	<ail\stream.h>
+#include	<ail/common.h>
+#include	<ail/sample.h>
+#include	<ail/stream.h>
 
 //████████████████████████████████████████████████████████████████████████████
 

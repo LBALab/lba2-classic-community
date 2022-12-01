@@ -7,7 +7,7 @@
 #include	<i86.h>
 #include	<conio.h>
 
-#include	"f:\projet\lib386\lib_sys4\lib_sys.h"
+#include	"f:/projet/lib386/lib_sys4/lib_sys.h"
 #include	"hercule.h"
 #else
 #include	"c_extern.h"

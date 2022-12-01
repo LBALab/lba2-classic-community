@@ -1,8 +1,8 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
-#include	<svga\logphys.h>
-#include	<svga\clip.h>
-#include	<svga\plot.h>
+#include	<system/adeline.h>
+#include	<svga/logphys.h>
+#include	<svga/clip.h>
+#include	<svga/plot.h>
 
 //──────────────────────────────────────────────────────────────────────────
 void	Plot(S32 x0, S32 y0, S32 coul)

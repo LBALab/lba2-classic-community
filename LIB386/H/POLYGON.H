@@ -28,12 +28,12 @@
 #endif//_BUILDING_LIB
 
 //──────────────────────────────────────────────────────────────────────────
-#include <SYSTEM\ADELINE.H>
+#include <SYSTEM/ADELINE.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#include <POLYGON\POLY.H>
-#include <POLYGON\TESTVUE.H>
-#include <POLYGON\CLIPPERZ.H>
+#include <POLYGON/POLY.H>
+#include <POLYGON/TESTVUE.H>
+#include <POLYGON/CLIPPERZ.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_POLYGON

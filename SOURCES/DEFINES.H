@@ -202,11 +202,11 @@
 #include	<fileio.h>
 
 #ifdef	DEMO
-#include 	"\projet\lib386\lib_cd\lib_cd.h"
+#include 	"/projet/lib386/lib_cd/lib_cd.h"
 #endif
 /*
 #ifdef	CDROM
-#include 	"\projet\lib386\lib_cd\lib_cd.h"
+#include 	"/projet/lib386/lib_cd/lib_cd.h"
 #endif
 */
 #endif	// EDITLBA2
@@ -510,7 +510,7 @@ typedef	struct
 
 #ifndef	EDITLBA2
 
-#include	"F:\PROJET\LBA2\TOOLS\PERSO\3DEXT\EXTERN.H"
+#include	"F:/PROJET/LBA2/TOOLS/PERSO/3DEXT/EXTERN.H"
 #include	"PTRFUNC.H"
 //#include	"OLDSORT.H"
 #include	"SORT.H"

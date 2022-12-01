@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------//
-#include 	<system\adeline.h>
-#include 	<system\itoa.h>
+#include 	<system/adeline.h>
+#include 	<system/itoa.h>
 
 //--------------------------------------------------------------------------//
 char	ItoaTempoString[33]     ;

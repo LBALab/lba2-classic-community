@@ -26,9 +26,9 @@
 #endif//_BUILDING_LIB
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<MENU\MENULIB.H>
-#include	<MENU\MENUFUNC.H>
-#include	<MENU\SELECTOR.H>
+#include	<MENU/MENULIB.H>
+#include	<MENU/MENUFUNC.H>
+#include	<MENU/SELECTOR.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_MENU

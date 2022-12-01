@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM.H>
-#include <FILEIO\LOADPCX.H>
+#include <FILEIO/LOADPCX.H>
 
 #include "PCXHEAD.H"
 
