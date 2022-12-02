@@ -1,0 +1,2 @@
+add_library(men SORT.ASM MENULIB.CPP MENUFUNC.CPP #[[SELECTOR.CPP]])
+set_source_files_properties(SORT.ASM PROPERTIES LANGUAGE ASM_MASM)
