@@ -2,13 +2,13 @@
 #define	INITGUID
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
-#include	<system/logprint.h>
-#include	<system/winsys.h>
-#include	<svga/logphys.h>
-#include	<svga/initmode.h>
-#include	<svga/dirtybox.h>
-#include	<svga/ddraw.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/LOGPRINT.H>
+#include	<SYSTEM/WINSYS.H>
+#include	<SVGA/LOGPHYS.H>
+#include	<SVGA/INITMODE.H>
+#include	<SVGA/DIRTYBOX.H>
+#include	<SVGA/DDRAW.H>
 
 //──────────────────────────────────────────────────────────────────────────
 LPDIRECTDRAWSURFACE		lpDDS	= NULL	;
