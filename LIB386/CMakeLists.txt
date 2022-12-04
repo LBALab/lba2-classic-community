@@ -1,5 +1,6 @@
 include_directories(H)
 
+add_subdirectory(3D)
 add_subdirectory(ANIM)
 add_subdirectory(FILEIO)
 add_subdirectory(MENU)
