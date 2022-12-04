@@ -53,7 +53,7 @@ PUBLIC	SYSCALL		Fill_VLTextureZFog3
 ;			*** INCLUDE ***
 ;			***************
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 ;			**************

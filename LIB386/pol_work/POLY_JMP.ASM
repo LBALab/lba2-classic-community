@@ -50,7 +50,7 @@ PUBLIC	SYSCALL		Fill_FogNZW_Table_Jumps
 ;			*** INCLUDE ***
 ;			***************
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 ;			**************
