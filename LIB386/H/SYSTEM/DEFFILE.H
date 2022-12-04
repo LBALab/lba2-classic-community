@@ -22,7 +22,7 @@ extern	S32	DefFileReadSkipComments	;
 S32	DefFileBufferInit(char *file, void *buffer, S32 maxsize)	;
 
 //****************************************************************************
-char	*DefFileBufferReadString(char *ident)				;
+char	*DefFileBufferReadString(const char *ident)				;
 
 //****************************************************************************
 char	*DefFileBufferReadStringDefault(char *ident, char *def)		;

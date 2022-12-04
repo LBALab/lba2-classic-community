@@ -55,7 +55,7 @@ U32	Read(S32 handle, void *buffer, U32 size)
 }
 
 //--------------------------------------------------------------------------//
-U32	Write(S32 handle, void *buffer, U32 size)
+U32	Write(S32 handle, const void *buffer, U32 size)
 {
 	U32	len	;
 

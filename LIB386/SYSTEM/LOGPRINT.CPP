@@ -34,7 +34,7 @@ void	CreateLog(char *fname)
 }
 
 //----------------------------------------------------------------------------
-void	LogPrintf(char *format, ...)
+void	LogPrintf(const char *format, ...)
 {
 	char	*ptr	;
 	va_list	arglist	;
@@ -74,7 +74,7 @@ void	LogPrintf(char *format, ...)
 }
 
 //----------------------------------------------------------------------------
-void	LogPuts(char *string)
+void	LogPuts(const char *string)
 {
 	LogPrintf("%s\n", string);
 }

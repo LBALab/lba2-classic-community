@@ -8,7 +8,7 @@ extern	"C"	{
 #endif
 
 //--------------------------------------------------------------------------//
-extern	char	*AddExt( char *path, char *ext )	;
+extern	char	*AddExt( char *path, const char *ext )	;
 
 //--------------------------------------------------------------------------//
 extern	char	*AddExtIfNot( char *path, char *ext )	;

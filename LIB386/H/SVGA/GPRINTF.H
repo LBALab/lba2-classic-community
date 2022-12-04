@@ -14,7 +14,7 @@ extern	S32	TextYMin	;
 extern	S32	TextYMax	;
 
 //****************************************************************************
-void	GraphPrintf( U32 flagflip, U32 x, U32 y, char *format, ... )	;
+void	GraphPrintf( U32 flagflip, U32 x, U32 y, const char *format, ... )	;
 
 //****************************************************************************
 #ifdef	__cplusplus
