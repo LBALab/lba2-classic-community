@@ -1,10 +1,10 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
+#include	<SYSTEM/ADELINE.H>
 
-#include	<svga/logphys.h>
-#include	<svga/dirtybox.h>
-#include	<svga/inimouse.h>
-#include	<svga/mouse.h>
+#include	<SVGA/LOGPHYS.H>
+#include	<SVGA/DIRTYBOX.H>
+#include	<SVGA/INIMOUSE.H>
+#include	<SVGA/MOUSE.H>
 
 //──────────────────────────────────────────────────────────────────────────
 static	S32	LibMouseXDep, LibMouseYDep			;

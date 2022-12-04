@@ -1,7 +1,7 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
-#include	<svga/ddraw.h>
-#include 	<svga/pal.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SVGA/DDRAW.H>
+#include 	<SVGA/PAL.H>
 
 //──────────────────────────────────────────────────────────────────────────
 static	S32	ColMin	= 0	;
