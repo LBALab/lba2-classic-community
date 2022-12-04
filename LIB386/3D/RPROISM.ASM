@@ -1,11 +1,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
 
-		include mat.inc
-		include iammx.inc
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -39,11 +39,11 @@
 RotateProjectPointIsoM proc
 
 
-		movdt		mm0, eax	; mm0 =  0  0  .  X
+		movd		mm0, eax	; mm0 =  0  0  .  X
 
-		movdt		mm1, ebx	; mm0 =  0  0  .  Y
+		movd		mm1, ebx	; mm0 =  0  0  .  Y
 
-		movdt		mm2, ecx	; mm0 =  0  0  .  Z
+		movd		mm2, ecx	; mm0 =  0  0  .  Z
 		punpcklwd	mm0, mm1	; mm0 =  .  .  Y  X
 
 		movq		mm5, [esi]	; mm5 =	 0 13 12 11
@@ -74,12 +74,12 @@ RotateProjectPointIsoM proc
 
 		psrad		mm2, 14		; mm2 =  .     Z'
 
-		movdf		eax, mm5
+		movd		eax, mm5
 		psrlq		mm5, 32
 
-		movdf		ecx, mm2
+		movd		ecx, mm2
 
-		movdf		ebx, mm5
+		movd		ebx, mm5
 
 		mov		edx, CameraY
 		sub		eax, ecx

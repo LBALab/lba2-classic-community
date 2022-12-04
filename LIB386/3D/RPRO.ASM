@@ -3,7 +3,7 @@
 
 		.model SMALL, SYSCALL
 
-		include	3d.inc
+		include	3D.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA

@@ -1,11 +1,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
 
-		include mat.inc
-		include iammx.inc
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -38,12 +38,12 @@
 
 LongRotateProjectPointIsoM proc
 
-		movdt		mm5, ecx	; mm5 = 0  0  Zh Zl
+		movd		mm5, ecx	; mm5 = 0  0  Zh Zl
 
-		movdt		mm6, eax	; mm6 = 0  0  Xh Xl
+		movd		mm6, eax	; mm6 = 0  0  Xh Xl
 		movq		mm4, mm5	; mm4 = 0  0  Zh Zl
 
-		movdt		mm7, ebx	; mm7 = 0  0  Yh Yl
+		movd		mm7, ebx	; mm7 = 0  0  Yh Yl
 		psllq		mm5, 16		; mm5 = 0  Zh Zl 0
 
 		movq		mm0, [esi]	; mm0 = 0  3  2  1		1
@@ -91,7 +91,7 @@ LongRotateProjectPointIsoM proc
 		paddd		mm0, mm3	; mm0 =  Y'    X'
 		pslld		mm7, 2		; mm7 = Zh'Z  Zh'XY		3
 
-		movdf		eax, mm0
+		movd		eax, mm0
 		psrad		mm6, 13		; mm6 = Zl'Z  Zl'XY		3
 
 		psrlq		mm0, 32
@@ -100,10 +100,10 @@ LongRotateProjectPointIsoM proc
 		movq		mm7, mm6	; mm7 =  Z'Z   Z'XY		3
 		psrlq		mm6, 32		; mm6 =   0    Z'Z		3
 
-		movdf		ebx, mm0
+		movd		ebx, mm0
 		paddd		mm7, mm6	; mm7 =   .    Z'		3
 
-		movdf		ecx, mm7
+		movd		ecx, mm7
 
 		mov		edx, CameraY
 		sub		eax, ecx

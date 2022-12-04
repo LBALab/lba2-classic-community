@@ -1,9 +1,9 @@
 ;*?????????????????????????????????????*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
-		INCLUDE	IAMMX.INC		; Pour pouvoir assembler du MMx
 
 ;*?????????????????????????????????????*
 
@@ -38,14 +38,14 @@ RotateM		proc
 		add		edx, edx
 		pxor		mm2, mm2	; mm2 = 0  0  0  0
 
-		movdt		mm7, eax	; mm7 = 0  0  .  X
+		movd		mm7, eax	; mm7 = 0  0  .  X
 
-		movdt		mm6, ecx	; mm6 = 0  0  .  Z
+		movd		mm6, ecx	; mm6 = 0  0  .  Z
 
-		movdt		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
+		movd		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
 		punpcklwd	mm7, mm6	; mm7 = .  .  Z  X
 
-		movdt		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
+		movd		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
 		punpckldq	mm7, mm7	; mm7 = Z  X  Z  X
 
 		psubw		mm2, mm0	; mm2 = 0  0  . -S
@@ -62,10 +62,10 @@ RotateM		proc
 
 		psrad		mm7, 14		; mm7 =  X'    Z'
 
-		movdf		[Z0], mm7
+		movd		[Z0], mm7
 		psrlq		mm7, 32		; mm7 =  0     X'
 
-		movdf		[X0], mm7
+		movd		[X0], mm7
 
 		ret
 norot:

@@ -1,11 +1,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
 
-		include iammx.inc
-		include mat.inc
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -48,12 +48,12 @@ LongRotateListM	proc
 NextPoint:
 		movq		mm6, [esi+ecx]	; mm6 = Yh Yl Xh Xl
 
-		movdt		mm5, [esi+ecx+8]; mm5 = 0  0  Zh Zl
+		movd		mm5, [esi+ecx+8]; mm5 = 0  0  Zh Zl
 
 		movq		mm4, mm5	; mm4 = 0  0  Zh Zl
 		movq		mm7, mm6	; mm6 = Yh Yl Xh Xl
 
-		movdt		mm7, [esi+ecx+4]; mm7 = 0  0  Yh Yl
+		movd		mm7, [esi+ecx+4]; mm7 = 0  0  Yh Yl
 		psllq		mm5, 16		; mm5 = 0  Zh Zl 0
 
 		movq		mm0, [ebx]	; mm0 = 0  3  2  1		1
@@ -113,7 +113,7 @@ NextPoint:
 		movq		[edi+ecx], mm0
 		paddd		mm5, mm4	; mm5 =   .    Z'		3
 
-		movdf		[edi+ecx+8], mm5
+		movd		[edi+ecx+8], mm5
 
 		add		ecx, 12
 		jnz		NextPoint
@@ -125,4 +125,3 @@ LongRotateListM	endp
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		End
-

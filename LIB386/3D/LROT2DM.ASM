@@ -1,9 +1,9 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
-		INCLUDE	IAMMX.INC		; Pour pouvoir assembler du MMx
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -41,14 +41,14 @@ LongRotateM	proc
 		add		edx, edx
 		pxor		mm2, mm2	; mm2 = 0  0  0  0
 
-		movdt		mm6, eax	; mm6 = 0  0  Xh Xl
+		movd		mm6, eax	; mm6 = 0  0  Xh Xl
 
-		movdt		mm7, ecx	; mm7 = 0  0  Zh Zl
+		movd		mm7, ecx	; mm7 = 0  0  Zh Zl
 
-		movdt		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
+		movd		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
 		punpcklwd	mm6, mm7	; mm6 = Zh Xh Zl Xl
 
-		movdt		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
+		movd		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
 		psubw		mm2, mm0	; mm2 = 0  0  .  -S
 
 		punpcklwd	mm2, mm1	; mm2 = .  .  C  -S
@@ -83,9 +83,9 @@ LongRotateM	proc
 		movq		mm2, mm1	; mm2 =  Z'    X'
 		psrlq		mm1, 32		; mm1 =  0     Z'
 
-		movdf		[X0], mm2	; X'
+		movd		[X0], mm2	; X'
 
-		movdf		[Z0], mm1	; Z'
+		movd		[Z0], mm1	; Z'
 
 		ret
 norot:
@@ -107,17 +107,17 @@ LongRotateM	proc
 		add		edx, edx
 		pxor		mm2, mm2	; mm2 = 0  0  0  0
 
-		movdt		mm6, eax	; mm6 = 0  0  Xh Xl
+		movd		mm6, eax	; mm6 = 0  0  Xh Xl
 
-		movdt		mm7, ecx	; mm7 = 0  0  Zh Zl
+		movd		mm7, ecx	; mm7 = 0  0  Zh Zl
 
-		movdt		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
+		movd		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
 		punpcklwd	mm6, mm7	; mm6 = Zh Xh Zl Xl
 
 		movq		mm7, mm6	; mm7 = Zh Xh Zl Xl
 		psrlw		mm6, 1		; mm6 = .  .  Zl Xl	(>>1)
 
-		movdt		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
+		movd		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
 		psrlq		mm7, 32		; mm7 = 0  0  Zh Xh
 
 		punpckldq	mm6, mm7	; mm6 = Zh Xh Zl Xl	(>>0  >>1)
@@ -149,9 +149,9 @@ LongRotateM	proc
 		movq		mm2, mm1	; mm2 =  Z'    X'
 		psrlq		mm1, 32		; mm1 =  0     Z'
 
-		movdf		[X0], mm2	; X'
+		movd		[X0], mm2	; X'
 
-		movdf		[Z0], mm1	; Z'
+		movd		[Z0], mm1	; Z'
 
 		ret
 norot:

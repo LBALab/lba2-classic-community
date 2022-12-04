@@ -1,11 +1,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
 
-		include mat.inc
-		INCLUDE	IAMMX.INC		; Pour pouvoir assembler du MMx
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 

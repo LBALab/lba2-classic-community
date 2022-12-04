@@ -1,9 +1,9 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
-		INCLUDE	IAMMX.INC		; Pour pouvoir assembler du MMx
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -30,12 +30,12 @@
 
 LongRotatePointM proc
 
-		movdt		mm5, ecx	; mm5 = 0  0  Zh Zl
+		movd		mm5, ecx	; mm5 = 0  0  Zh Zl
 
-		movdt		mm6, eax	; mm6 = 0  0  Xh Xl
+		movd		mm6, eax	; mm6 = 0  0  Xh Xl
 		movq		mm4, mm5	; mm4 = 0  0  Zh Zl
 
-		movdt		mm7, ebx	; mm7 = 0  0  Yh Yl
+		movd		mm7, ebx	; mm7 = 0  0  Yh Yl
 		psllq		mm5, 16		; mm5 = 0  Zh Zl 0
 
 		movq		mm0, [esi]	; mm0 = 0  3  2  1		1
@@ -85,7 +85,8 @@ LongRotatePointM proc
 
 		psrad		mm6, 13		; mm6 = Zl'Z  Zl'XY		3
 
-		movq		[X0], mm0
+        ; Originally was movq, but X0 is DWORD same as Z0 (which was correct). Was there a bug here?
+		movd		[X0], mm0
 		paddd		mm6, mm7	; mm6 =  Z'Z   Z'XY		3
 
 		movq		mm7, mm6	; mm7 =  Z'Z   Z'XY		3
@@ -93,7 +94,7 @@ LongRotatePointM proc
 
 		paddd		mm7, mm6	; mm7 =   .    Z'		3
 
-		movdf		[Z0], mm7
+		movd		[Z0], mm7
 
 		ret
 
