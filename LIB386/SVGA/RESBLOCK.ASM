@@ -1,5 +1,6 @@
 ;----------------------------------------------------------------------------
-			.386P
+			.686P
+			.XMM
 			.MODEL SMALL, SYSCALL
 
 ;----------------------------------------------------------------------------
@@ -47,6 +48,8 @@ RestoreBlock		proc
 			jnc	odd
 Again:
 			mov	ecx, ebx		; Delta X
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			mov	ecx, ebp
 			rep	movsb
@@ -54,6 +57,8 @@ Again:
 			add	edi, eax
 odd:
 			mov	ecx, ebx		; Delta X
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			mov	ecx, ebp
 			rep	movsb

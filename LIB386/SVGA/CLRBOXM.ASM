@@ -1,9 +1,8 @@
 ;----------------------------------------------------------------------------
-			.386
+			.586
+			.MMX
 
 			.MODEL	FLAT, SYSCALL
-
-			include	iammx.inc
 
 ;----------------------------------------------------------------------------
 			.DATA
@@ -50,7 +49,8 @@ ClearBoxM		PROC
 			sub 	ebx, esi		; deltaY
 			mov	ecx, eax
 
-			movq	mm0, [ClearColor]
+			; Was movq, had a bug here? For sure correct for old assembler, maybe implied behavior different from now?
+			movd	mm0, [ClearColor]
 
 			test	eax, 8
 			jnz	odd
