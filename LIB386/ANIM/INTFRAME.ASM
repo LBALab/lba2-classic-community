@@ -44,7 +44,7 @@ ObjectSetInterFrame proc uses ebp
 		mov	eax, [TransFctAnim]
 
 		test	eax, eax
-		jz	skiptrans
+		jz	skipTrans
 
 		call	eax
 skipTrans:

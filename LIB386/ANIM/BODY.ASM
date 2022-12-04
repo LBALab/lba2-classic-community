@@ -26,7 +26,7 @@ ObjectInitBody	proc
 		or	ecx, STATUS_BODY
 		cmp	[ebx].Body, -1
 		mov	[ebx].Status, ecx
-		je	firstbody
+		je	firstBody
 		ret
 firstBody:
 		mov	[ebx].Body, eax
