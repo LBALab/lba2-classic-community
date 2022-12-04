@@ -174,7 +174,7 @@ static void CreateIdentityPalette()
 {
 	PALETTE	tmppal = { 0x300, 256 }	;	// Palette entries
 	HDC	dc			;
-	HANDLE	hpal			;
+	HPALETTE	hpal		;
 	S32	i			;
 
 	memset(tmppal.ppe, 0, sizeof(PALETTEENTRY)*256);

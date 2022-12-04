@@ -26,7 +26,7 @@ void	GraphPrintf( U32 flagflip, U32 x, U32 y, char *format, ... )
 	if( (y<ClipYMin) OR (y>ClipYMax-7) OR (x>ClipXMax))	return ;
 
         va_start( arglist, format );
-        len = _vbprintf( msgbuf, 256, format, arglist );
+        len = vsnprintf( msgbuf, 256, format, arglist );
         va_end( arglist );
 
 	if(len==-1)						return ;
