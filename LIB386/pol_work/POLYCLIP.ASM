@@ -69,7 +69,8 @@ INCLUDE			FILLER.INC
 ;			*** SEGMENTATION MODEL ***
 ;			**************************
 
-			.386
+			.586
+			.MMX
 ;			.MODEL	FLAT, SYSCALL
 
 
