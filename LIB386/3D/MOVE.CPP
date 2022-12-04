@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
-#include	<system/adeline.h>
-#include	<system/initimer.h>
-#include	<3d/move.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/INITIMER.H>
+#include	<3D/MOVE.H>
 
 //---------------------------------------------------------------------------
 void	ChangeSpeedMove(MOVE *pmove, S32 speed)
