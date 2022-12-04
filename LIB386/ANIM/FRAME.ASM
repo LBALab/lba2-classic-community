@@ -1,9 +1,10 @@
 
-		.386p
+		.686p
+		.XMM
 
 		.MODEL	SMALL, SYSCALL
 
-		include	aff_obj.inc
+		include	AFF_OBJ.INC
 
 ;*──────────────────────────────────────────────────────────────────────────*
 		.DATA
@@ -80,7 +81,9 @@ skiptrans:
 		lea	edi, [ebx].CurrentFrame
 		inc	edx
 
-		rep	movsd			; init frame
+        ; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
+		rep movsd			; init frame
 
 		cmp	edx, [ebx].NbFrames
 		je	lloopframe
