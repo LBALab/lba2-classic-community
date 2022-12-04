@@ -7,6 +7,7 @@ set(CMAKE_ASM_MASM_COMPILER uasm) # TODO: Move to toolchain file
 set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -nologo -Cx -Zm -c -Sa -Zd") # TODO: Move to toolchain file
 # TODO: Check if assembler flags for /DREG_CALL or /DSTACK_CALL are necessary and if move to toolchain or target config
 enable_language(C CXX ASM_MASM)
+set(CMAKE_CXX_STANDARD 98)
 
 # Compilation options
 set(SOUND_BACKEND "miles" CACHE STRING "Sound backend to be used")
