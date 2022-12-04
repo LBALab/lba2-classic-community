@@ -86,7 +86,7 @@ PUBLIC	SYSCALL		Fill_VLGouraud18
 ;			*** INCLUDE ***
 ;			***************
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 ;			**************

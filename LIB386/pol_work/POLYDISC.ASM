@@ -20,6 +20,8 @@
 
 
 
+OPTION SCOPED
+
 PUBLIC			Fill_Sphere
 
 PUBLIC			Fill_VLDisc1
@@ -34,7 +36,7 @@ PUBLIC			Last_POLYDISCPatch
 
 
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 			.386

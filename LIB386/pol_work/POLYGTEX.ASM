@@ -64,7 +64,7 @@ PUBLIC	SYSCALL		Fill_VLGouraudTexture8
 ;			*** INCLUDE ***
 ;			***************
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 ;			**************
