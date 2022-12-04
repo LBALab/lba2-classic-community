@@ -1,5 +1,6 @@
 ;----------------------------------------------------------------------------
-			.386P
+			.686P
+			.XMM
 			.MODEL FLAT, SYSCALL
 
 ;----------------------------------------------------------------------------
@@ -154,6 +155,8 @@ startend:
 			mov	cl, bl
 			rep	movsb
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			xor	ecx, ecx
 			mov	cl, bh
@@ -172,6 +175,8 @@ juststart:
 			mov	cl, bl
 			rep	movsb
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+			;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 
 			add	esi, eax
@@ -187,6 +192,8 @@ checkend:
 			jz	noend
 justend:
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			xor	ecx, ecx
 			mov	cl, bh
@@ -202,6 +209,8 @@ justend:
 			ret
 noend:
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 
 			add	esi, eax
