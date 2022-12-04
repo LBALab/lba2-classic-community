@@ -1,9 +1,10 @@
 
+        OPTION SCOPED
 		.386p
 
 		.MODEL	SMALL, SYSCALL
 
-		include	aff_obj.inc
+		include	AFF_OBJ.INC
 
 ;*──────────────────────────────────────────────────────────────────────────*
 		.DATA

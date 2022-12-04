@@ -1,9 +1,10 @@
 
-		.386p
+		.686p
+		.XMM
 
 		.MODEL	SMALL, SYSCALL
 
-		include	aff_obj.inc
+		include	AFF_OBJ.INC
 
 ;*──────────────────────────────────────────────────────────────────────────*
 		.DATA
@@ -111,6 +112,8 @@ okgroups:
 		mov	dword ptr[edi-4], eax
 		dec	eax
 		mov	[ebx].LastFrame, eax	; LastFrame = -1
+		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd			; do copy...
 
 		test	ebp, ebp
@@ -132,6 +135,8 @@ skiptrans2:
 		shl	ecx, 1			; *2
 		lea	esi, [esi+ebp*8+8]
 
+        ; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd
 noincrease:
 		cmp	edi, EndLib3DBufferAnim	; check buffer for next time
@@ -177,6 +182,8 @@ firstanim:
 		add	esi, 16+8		; esi -> group 1
 		lea	edi, [ebx].CurrentFrame
 
+        ; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd			; init frame
 
 		cmp	[ebx].NbFrames, 1
