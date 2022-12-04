@@ -4,7 +4,7 @@
 
 		.model SMALL, SYSCALL
 
-		include mat.inc
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 

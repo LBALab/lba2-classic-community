@@ -1,10 +1,9 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
 		.model SMALL, SYSCALL
-
-		INCLUDE	IAMMX.INC		; Pour pouvoir assembler du MMx
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -31,11 +30,11 @@
 
 RotatePointM	proc
 
-		movdt		mm0, eax	; mm0 =  0  0  .  X
+		movd		mm0, eax	; mm0 =  0  0  .  X
 
-		movdt		mm1, ebx	; mm0 =  0  0  .  Y
+		movd		mm1, ebx	; mm0 =  0  0  .  Y
 
-		movdt		mm2, ecx	; mm0 =  0  0  .  Z
+		movd		mm2, ecx	; mm0 =  0  0  .  Z
 		punpcklwd	mm0, mm1	; mm0 =  .  .  Y  X
 
 		movq		mm5, [esi]	; mm5 =	 0 13 12 11
@@ -66,11 +65,12 @@ RotatePointM	proc
 
 		psrad		mm2, 14		; mm1 =  .     Z'
 
-		movq		[X0], mm5
+        ; Originally was movq, but X0 is DWORD same as Z0 (which was correct). Was there a bug here?
+		movd		[X0], mm5
 
 		;
 
-		movdf		[Z0], mm2
+		movd		[Z0], mm2
 
  		ret
 

@@ -1,10 +1,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.686p
+		.XMM
 
 		.model SMALL, SYSCALL
 
-		include	mat.inc
+		include	MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -215,6 +216,8 @@ b:		pop	edx
 		mov	edi, esi
 		mov	esi, Offset MatrixLib1
 		mov	ecx, 9
+		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd
 exit:
 		ret
@@ -240,6 +243,8 @@ nopb:
 		mov	edi, Offset MatrixLib1
 @@Copy_Mat:
 		mov	ecx, 9
+		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd
 @@CorrectPtr:	mov	edi, eax
 		mov	esi, Offset MatrixLib1
@@ -320,6 +325,8 @@ nopb:
 		pop	eax			; Just copy the matrix if no
 		pop	ebx			; rotation to apply
 		mov	ecx, 9
+		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+        ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd
 		ret
 RotateMatrixI	endp

@@ -1,10 +1,10 @@
 ;*══════════════════════════════════════════════════════════════════════════*
-			.386p
+			.586p
+			.MMX
 
 			.model SMALL, SYSCALL
 
-			INCLUDE	IAMMX.INC		; Pour pouvoir assembler du MMx
-			include mat.inc
+			include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 			.DATA
@@ -83,18 +83,18 @@ LightListM		PROC
 			and	ecx,not 11b		; Main loop handles 4 points at a time
 			and	edx,0FFFFh
 
-			movdt	mm7,eax			; MM7 = | 0000 | Y | X |
+			movd	mm7,eax			; MM7 = | 0000 | Y | X |
 
 			lea	edi,[edi+ecx*2]		; EDI = End of dst list for the main loop
 							;       (ie: not obviously the end of the list)
 			add	ecx,ecx
 
-			movdt	mm6,edx
+			movd	mm6,edx
 
 			lea	esi,[esi+ecx*4]		; ECX*4 => *32
 			mov	eax, 80008000h
 
-			movdt	mm2, eax		; mm2 = 0000000080008000h
+			movd	mm2, eax		; mm2 = 0000000080008000h
 			punpckldq mm7,mm6		; vector in MM7
 
 			punpckldq mm2, mm2		; mm2 = 8000800080008000h
@@ -226,7 +226,7 @@ LightListM		PROC
 
 			psubusw	mm0, mm2                ; is performed by those two instr.
 
-			movdf	eax,mm0
+			movd	eax,mm0
 
 			mov	[edi-2],ax
 			jne	@@Loop_End
@@ -237,4 +237,3 @@ LightListM		ENDP
 ;*══════════════════════════════════════════════════════════════════════════*
 ;			The
 			END
-

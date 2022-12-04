@@ -5,7 +5,7 @@
 
 		.model FLAT, SYSCALL
 
-		include mat.inc
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 

@@ -4,7 +4,7 @@
 		OPTION	LANGUAGE:SYSCALL
 		OPTION	SCOPED
 
-		include	3d.inc
+		include	3D.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 DGROUP		GROUP	_DATA
