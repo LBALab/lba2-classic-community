@@ -3,7 +3,7 @@
 
 		.model SMALL, SYSCALL
 
-		include cpu.inc
+		include CPU.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
