@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 //-------------------------------------------------------------------------//
-char	*AddExt( char *path, char *ext )
+char	*AddExt( char *path, const char *ext )
 {
 
 	char	drive[_MAX_DRIVE];

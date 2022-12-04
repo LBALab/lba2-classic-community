@@ -16,7 +16,7 @@ S32	TextYMin	= 0	;
 S32	TextYMax	= 0	;
 
 //──────────────────────────────────────────────────────────────────────────
-void	GraphPrintf( U32 flagflip, U32 x, U32 y, char *format, ... )
+void	GraphPrintf( U32 flagflip, U32 x, U32 y, const char *format, ... )
 {
 	S32	len ;
 	char	*ptr ;

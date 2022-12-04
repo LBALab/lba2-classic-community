@@ -45,7 +45,7 @@ static void TerminateWindow()
 }
 
 //----------------------------------------------------------------------------
-void	InitWindow( HANDLE hinstance, int nCmdShow, char *title)
+void	InitWindow( HINSTANCE hinstance, int nCmdShow, char *title)
 {
    	WNDCLASSEX	wc		;
 	char		semname[_MAX_PATH];

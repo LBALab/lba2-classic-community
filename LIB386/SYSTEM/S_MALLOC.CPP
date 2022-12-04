@@ -23,7 +23,7 @@ void	SafeErrorMallocMsg()
 }
 
 //──────────────────────────────────────────────────────────────────────────
-static	void	SafeErrorMalloc(char *msg, char *file, U32 line)
+static	void	SafeErrorMalloc(const char *msg, char *file, U32 line)
 {
 	strcpy(MallocErrorString, msg);
 	strcpy(MallocErrorFile, file);

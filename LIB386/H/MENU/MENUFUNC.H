@@ -30,7 +30,7 @@ extern void 		ChangeButtonValueLimit( T_MENU *ptrmenu, S32 handle,
 //──────────────────────────────────────────────────────────────────────────
 extern	S32		GetButtonFlags(		T_MENU *ptrmenu, S32 handle );
 
-extern	char*		GetButtonString(	T_MENU *ptrmenu, S32 handle );
+extern	const char*		GetButtonString(	T_MENU *ptrmenu, S32 handle );
 
 //──────────────────────────────────────────────────────────────────────────
 extern T_CLICK_BOX 	*GetPtrLcb(		T_MENU *ptrmenu,S32 handle  );

@@ -39,7 +39,7 @@ extern	S32	OpenMode(char *name, int mode)			;
 extern	U32	Read(S32 handle, void *buffer, U32 lenread)	;
 
 //--------------------------------------------------------------------------//
-extern	U32	Write(S32 handle, void *buffer, U32 lenwrite)	;
+extern	U32	Write(S32 handle, const void *buffer, U32 lenwrite)	;
 
 //--------------------------------------------------------------------------//
 extern	void	Touch(char *name)				;

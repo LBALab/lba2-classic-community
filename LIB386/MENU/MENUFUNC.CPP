@@ -126,7 +126,7 @@ void	ChangeButtonString( T_MENU *ptrmenu, S32 handle, char *string, S32 flagaff 
 
 /*──────────────────────────────────────────────────────────────────────────*/
 //	Remise en fonction le 09/10/95
-char	*GetButtonString( T_MENU *ptrmenu, S32 handle )
+const char	*GetButtonString( T_MENU *ptrmenu, S32 handle )
 {
 	S32	n, nblcb ;
 	T_CLICK_BOX	*ptrlcb ;
