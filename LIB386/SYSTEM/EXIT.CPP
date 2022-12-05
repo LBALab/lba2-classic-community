@@ -54,7 +54,6 @@ void	InitAll()
 {
 	char		path2[_MAX_PATH]	;
 	S32		i			;
-	unsigned	dummy			;
 	char		full_path[ _MAX_PATH ]	;
 	char 		drive[ _MAX_DRIVE ]	;
         char 		dir[ _MAX_DIR ]		;
@@ -80,7 +79,7 @@ void	InitAll()
 	{
 		full_path[i] = 0 ;
 	}
-	_dos_setdrive((char)(toupper(drive[0])-'A'+1), &dummy)	;
+	_chdrive(toupper(drive[0])-'A'+1);
 	getcwd(path2, _MAX_PATH)				;
 	chdir(full_path)					;
 
@@ -94,7 +93,7 @@ void	InitAll()
 	DontRegister = 0 ;
 
 	chdir(path2)			;
-	_dos_setdrive((char)(toupper(Path1[0])-'A'+1), &dummy)	;
+	_chdrive(toupper(drive[0])-'A'+1);
 	chdir(Path1)			;
 }
 

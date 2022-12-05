@@ -135,7 +135,7 @@ void	InitWindow( HINSTANCE hinstance, int nCmdShow, char *title)
 }
 
 //----------------------------------------------------------------------------
-static S32 SystemWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+S32 SystemWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	DWORD	dwstyle	;
 
