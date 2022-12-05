@@ -1,10 +1,10 @@
 /*──────────────────────────────────────────────────────────────────────────*/
-#include	<system/adeline.h>
-#include	<system/a_malloc.h>
-#include	<system/loadmall.h>
-#include	<system/lz.h>
-#include	<system/hqfile.h>
-#include	<system/hqrload.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/A_MALLOC.H>
+#include	<SYSTEM/LOADMALL.H>
+#include	<SYSTEM/LZ.H>
+#include	<SYSTEM/HQFILE.H>
+#include	<SYSTEM/HQRLOAD.H>
 
 //──────────────────────────────────────────────────────────────────────────
 // alloue la memoire necessaire

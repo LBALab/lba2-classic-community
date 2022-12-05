@@ -1,13 +1,13 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
-#include	<system/initkeyb.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/INITKEYB.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/winsys.h>
-#include	<system/keybwin.h>
+#include	<SYSTEM/WINSYS.H>
+#include	<SYSTEM/KEYBWIN.H>
 
 //──────────────────────────────────────────────────────────────────────────
 void	InitKeyboard()

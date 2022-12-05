@@ -1,10 +1,10 @@
 //══════════════════════════════════════════════════════════════════════════
-#include	<system/adeline.h>
-#include 	<system/logprint.h>
-#include	<system/files.h>
-#include	<system/loadsave.h>
-#include	<system/itoa.h>
-#include	<system/deffile.h>
+#include	<SYSTEM/ADELINE.H>
+#include 	<SYSTEM/LOGPRINT.H>
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/LOADSAVE.H>
+#include	<SYSTEM/ITOA.H>
+#include	<SYSTEM/DEFFILE.H>
 
 #include	<stdlib.h>
 #include	<string.h>

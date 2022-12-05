@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------
-#include	<system/adeline.h>
-#include	<system/winsys.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/WINSYS.H>
 
 //----------------------------------------------------------------------------
 #define	STYLE_FULLSCREEN	WS_EX_APPWINDOW

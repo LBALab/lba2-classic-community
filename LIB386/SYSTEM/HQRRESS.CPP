@@ -1,11 +1,11 @@
 /*──────────────────────────────────────────────────────────────────────────*/
-#include	<system/adeline.h>
-#include	<system/initimer.h>
-#include	<system/a_malloc.h>
-#include	<system/lz.h>
-#include	<system/files.h>
-#include	<system/hqfile.h>
-#include	<system/hqrress.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/INITIMER.H>
+#include	<SYSTEM/A_MALLOC.H>
+#include	<SYSTEM/LZ.H>
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/HQFILE.H>
+#include	<SYSTEM/HQRRESS.H>
 
 #ifndef	_WIN32
 #include	<ail/mss.h>

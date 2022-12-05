@@ -1,7 +1,7 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
-#include	<system/dosmallo.h>
-#include	<system/n_malloc.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/DOSMALLO.H>
+#include	<SYSTEM/N_MALLOC.H>
 
 #include	<malloc.h>
 
