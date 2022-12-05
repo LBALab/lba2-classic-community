@@ -3,6 +3,7 @@ set(SOURCES_FILES_ASM POLY.ASM POLYCLIP.ASM POLYDISC.ASM POLYFLAT.ASM POLYGOUR.A
         TESTVUE.ASM TESTVUEF.ASM TESTVUEI.ASM TESTVUEM.ASM)
 
 add_library(poly ${SOURCES_FILES_ASM})
+target_compile_definitions(poly PRIVATE _BUILDING_LIB LIB_LOCAL)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)
