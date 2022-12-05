@@ -1,8 +1,8 @@
 //--------------------------------------------------------------------------//
-#include 	<system/adeline.h>
-#include 	<system/filename.h>
-#include 	<system/filecopy.h>
-#include 	<system/filebak.h>
+#include 	<SYSTEM/ADELINE.H>
+#include 	<SYSTEM/FILENAME.H>
+#include 	<SYSTEM/FILECOPY.H>
+#include 	<SYSTEM/FILEBAK.H>
 
 #include	<stdlib.h>
 #include	<string.h>

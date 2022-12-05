@@ -1,8 +1,8 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
-#include	<system/logprint.h>
-#include	<system/n_malloc.h>
-#include	<system/s_malloc.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/LOGPRINT.H>
+#include	<SYSTEM/N_MALLOC.H>
+#include	<SYSTEM/S_MALLOC.H>
 
 #include	<stdlib.h>
 #include	<stdio.h>

@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------//
-#include <system/adeline.h>
-#include <system/diskdir.h>
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/DISKDIR.H>
 
 #include <stdlib.h>
 #include <string.h>

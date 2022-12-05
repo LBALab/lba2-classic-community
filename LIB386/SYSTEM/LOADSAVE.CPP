@@ -1,7 +1,7 @@
 //──────────────────────────────────────────────────────────────────────────
-#include <system/adeline.h>
-#include <system/files.h>
-#include <system/loadsave.h>
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/FILES.H>
+#include <SYSTEM/LOADSAVE.H>
 
 #include <stdlib.h>
 #include <limits.h>

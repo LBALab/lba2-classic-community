@@ -1,6 +1,6 @@
-#include <system/adeline.h>
-#include <system/initkeyb.h>
-#include <system/input.h>
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/INITKEYB.H>
+#include <SYSTEM/INPUT.H>
 
 #ifndef	_WIN32
 #include <system/dossys.h>

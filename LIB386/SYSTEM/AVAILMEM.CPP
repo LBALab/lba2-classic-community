@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system/adeline.h>
-#include	<system/availmem.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/AVAILMEM.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
