@@ -25,7 +25,8 @@ ENDIF
 
 
 
-			.486P
+			.586P
+			.MMX
 ;			.MODEL	FLAT, SYSCALL
 
 			OPTION	PROC:PRIVATE
@@ -39,7 +40,6 @@ ENDIF
 ; ║                                                                            ║
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
-INCLUDE			IAMMX.INC
 INCLUDE			AFF_OBJ.INC
 INCLUDE			FILLER.INC
 INCLUDE			3D.INC
