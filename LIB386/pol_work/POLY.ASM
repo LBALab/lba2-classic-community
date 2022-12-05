@@ -147,7 +147,6 @@ PUBLIC	SYSCALL		Status_Float		; FPU control word for nearest rounding mode
 ;			***************
 
 INCLUDE			FILLER.INC
-INCLUDE			IAMMX.INC		; For MMx instr.
 
 
 ;			***************
@@ -335,8 +334,8 @@ M_FILL_CLIP		MACRO	Type
 ;			*** SEGMENTATION MODEL ***
 ;			**************************
 
-			.386
-			.387
+			.586
+			.MMX
 ;			.MODEL	FLAT, SYSCALL
 
 
