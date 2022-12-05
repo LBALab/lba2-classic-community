@@ -14,6 +14,7 @@ set(SOURCES_FILES_ASM TANTAB.ASM SINTAB.ASM SINTABF.ASM SQRROOT.ASM DISTANCE.ASM
         RPROISM.ASM RPRO.ASM WRPRO.ASM WRPRO3D.ASM LITLIST.ASM LITLISTI.ASM LITLISTF.ASM LITLISTM.ASM)
 
 add_library(3D MOVE.CPP ${SOURCES_FILES_ASM})
+target_compile_definitions(3D PRIVATE _BUILDING_LIB LIB_LOCAL)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)

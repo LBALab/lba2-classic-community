@@ -14,6 +14,7 @@ set(SOURCES_FILES_ASM_DOS VESA.ASM COPYBOV.ASM COPYBOVF.ASM COPYBOVI.ASM COPYBOV
         BLITBOVI.ASM BLITBOVM.ASM CLEABOV.ASM CLEABOVF.ASM CLEABOVI.ASM CLEABOVM.ASM)
 
 add_library(svg ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN})
+target_compile_definitions(svg PRIVATE _BUILDING_LIB LIB_LOCAL)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM SOURCES_FILES_ASM_DOS)
