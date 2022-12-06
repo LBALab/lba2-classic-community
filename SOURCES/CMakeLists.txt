@@ -1,0 +1,40 @@
+add_subdirectory(3DEXT)
+
+# TODO Add Flags to C compiler:
+# -fh -w4 -e25 -d_WIN32 -zq -otexan -d1 -zld -5r -bt=nt -mf
+# TODO Recheck that LBA2WIN links to c:\dxsdk\sdk\lib\ddraw.lib
+
+# TODO: Compile resource file "lba2.rc" or reuse "lba2.res"
+
+# General sources
+set(SOURCES_FILES AMBIANCE.CPP ANIMTEX.CPP BEZIER.CPP BUGGY.CPP CHEATCOD.CPP COMPORTE.CPP CONFIG.CPP CREDITS.CPP
+        DART.CPP DISKFUNC.CPP EXTFUNC.CPP EXTRA.CPP FICHE.CPP FLOW.CPP GAMEMENU.CPP GERELIFE.CPP GERETRAK.CPP GLOBAL.CPP
+        GRILLE.CPP HOLOBODY.CPP HOLOGLOB.CPP HOLOPLAN.CPP IMPACT.CPP INCRUST.CPP INPUT.CPP INTEXT.CPP INVENT.CPP
+        LZSS.CPP MEM.CPP MESSAGE.CPP MUSIC.CPP OBJECT.CPP PATCH.CPP PERSO.CPP PLAYACF.CPP POF.CPP RAIN.CPP SAVEGAME.CPP
+        SCAN.CPP SORT.CPP VALIDPOS.CPP VERSION.CPP WAGON.CPP ZV.CPP)
+set(SOURCES_FILES_ASM COMPRESS.ASM COPY.ASM FIRE.ASM FLOW_A.ASM FUNC.ASM GRILLE_A.ASM PLASMA.ASM)
+
+# Windows specific sources
+set(SOURCES_FILES_WIN JOYSTICK.CPP)
+
+# DOS specific sources
+set(SOURCES_FILES_DOS CRITICAL.CPP HERCULE.CPP)
+set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
+
+add_library(lba2 ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN})
+target_link_libraries(lba2 PRIVATE 3dext)
+target_include_directories(lba2 PRIVATE ../LIB386/H)
+target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
+        $<$<STREQUAL:SOUND_BACKEND,miles>:USE_SOUND_MILES>
+        $<$<STREQUAL:SOUND_BACKEND,none>:USE_SOUND_NONE>
+        $<$<STREQUAL:MVIDEO_BACKEND,smacker>:USE_MVIDEO_SMACKER>
+        $<$<STREQUAL:MVIDEO_BACKEND,none>:USE_MVIDEO_NONE>)
+
+# Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
+foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM SOURCES_FILES_ASM_DOS)
+    set_source_files_properties(${FILE_ASM} PROPERTIES LANGUAGE ASM_MASM)
+endforeach ()
+
+# Source files in folder but not used on CMakeScript:
+# - DEC.ASM
+# - MESSTWIN.CPP (Commented on source file "GERELIFE.CPP")
