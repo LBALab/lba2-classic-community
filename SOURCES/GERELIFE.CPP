@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 //#include	"messtwin.cpp"
 
 U8	*PtrPrg ;

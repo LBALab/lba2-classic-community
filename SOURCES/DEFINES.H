@@ -191,15 +191,15 @@
 #include	<stdarg.h>
 #include	<time.h>
 
-#include	<system.h>
-#include	<svga.h>
-#include	<3d.h>
-#include	<object.h>
-#include	<anim.h>
-#include	<ail.h>
-#include	<smacker.h>
+#include	<SYSTEM.H>
+#include	<SVGA.H>
+#include	<3D.H>
+#include	<OBJECT.H>
+#include	<ANIM.H>
+#include	<AIL.H>
+#include	<SMACKER.H>
 
-#include	<fileio.h>
+#include	<FILEIO.H>
 
 #ifdef	DEMO
 #include 	"/projet/lib386/lib_cd/lib_cd.h"
@@ -211,7 +211,7 @@
 */
 #endif	// EDITLBA2
 
-#include 	"common.h"
+#include 	"COMMON.H"
 
 // Puisqu'on n'inclue pas LIB_MEN3\LIB_MENU.H :
 #ifdef		WHITE
@@ -510,7 +510,7 @@ typedef	struct
 
 #ifndef	EDITLBA2
 
-#include	"F:/PROJET/LBA2/TOOLS/PERSO/3DEXT/EXTERN.H"
+#include	"3DEXT/EXTERN.H"
 #include	"PTRFUNC.H"
 //#include	"OLDSORT.H"
 #include	"SORT.H"

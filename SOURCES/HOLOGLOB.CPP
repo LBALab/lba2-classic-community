@@ -2,7 +2,7 @@
 //	TEST VERSION ZBUFFER PAR 
 //
 
-#include	"c_extern.h"	// include LBA2
+#include	"C_EXTERN.H"	// include LBA2
 
 //────────────────────────────────────────────────────────────────────────────
 //	Concerning BODY and ANIM

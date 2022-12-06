@@ -1,4 +1,4 @@
-#include 	"c_extern.h"
+#include 	"C_EXTERN.H"
 
 extern	S32	Nxw, Nyw, Nzw ;	// Object.c
 

@@ -10,7 +10,7 @@
 			       LE 21/06/93
 */
 
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 /*
  * Various constants used to define the compression parameters.  The
