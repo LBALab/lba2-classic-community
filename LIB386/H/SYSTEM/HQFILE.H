@@ -14,7 +14,7 @@ extern	"C"	{
 extern	S32	HQF_File			;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	HQF_Init(char *name, S32 index)	;
+extern	U32	HQF_Init(const char *name, S32 index)	;
 
 //──────────────────────────────────────────────────────────────────────────
 extern	void	HQF_Close()			;

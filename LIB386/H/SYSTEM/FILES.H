@@ -33,7 +33,7 @@ enum	{	MODE_READ,
 #define SEEK_END	            	FILE_END
 
 //--------------------------------------------------------------------------//
-extern	S32	OpenMode(char *name, int mode)			;
+extern	S32	OpenMode(const char *name, int mode)			;
 
 //--------------------------------------------------------------------------//
 extern	U32	Read(S32 handle, void *buffer, U32 lenread)	;
@@ -109,7 +109,7 @@ extern	U32	Delete(char *name)		;
 #define	OpenReadWrite(name)		OpenMode(name, MODE_READWRITE)
 
 //--------------------------------------------------------------------------//
-extern	U32	FileSize( char *name )		;
+extern	U32	FileSize( const char *name )		;
 
 //--------------------------------------------------------------------------//
 #ifdef	__cplusplus

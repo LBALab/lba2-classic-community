@@ -54,7 +54,7 @@ static inline void	InitCheatCode()
 	NbKeyInBuffer = 0;
 }
 
-char *CheatText[] = {
+const char *CheatText[] = {
 	"Life Found",
 	"Magic Found",
 	"Found Everything !",
