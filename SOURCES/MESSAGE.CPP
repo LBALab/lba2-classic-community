@@ -46,7 +46,7 @@ S32     QuickMessage  = 0               ;
 //----------------------------------------------------------------------------
 
 #else
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
 #endif
 
 S32     FlagRestoreCD = 0               ;

@@ -1,4 +1,4 @@
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
 
 /*#ifndef DEMO
 #define THOMAS  1

@@ -1,4 +1,4 @@
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
 
 #define BCL_FADE        50
 #define FADE_DELAY      200

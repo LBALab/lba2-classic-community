@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 S32	MyKey	;
 

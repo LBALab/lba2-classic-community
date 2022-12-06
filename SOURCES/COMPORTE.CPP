@@ -6,7 +6,7 @@
 
  *══════════════════════════════════════════════════════════════════════════*/
 
-#include 	"c_extern.h"
+#include 	"C_EXTERN.H"
 
 #define	ULTRA	-1L
 #define	ALWAYS	ULTRA

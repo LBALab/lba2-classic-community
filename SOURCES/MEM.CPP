@@ -6,7 +6,7 @@
 */
 
 
-#include	"c_extern.h"	// include LBA2
+#include	"C_EXTERN.H"	// include LBA2
 
 extern	U8  	*BufferSmack ;// tempo ?
 

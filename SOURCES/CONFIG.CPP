@@ -14,7 +14,7 @@
   ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 */
 
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
 
 #define CONFIG_SHADE_LVL        MENU_SHADE_LVL
 

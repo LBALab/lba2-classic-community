@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 U8	*PtrSce ;
 U8	*PtrScene ;

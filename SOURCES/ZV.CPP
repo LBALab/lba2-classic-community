@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 #define		TESTINZV(X, Y, Z)				\
 		if ( ((X)>=x2) && ((X)<=x2+dx2) &&		\

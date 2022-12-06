@@ -1,4 +1,4 @@
-#include        "defines.h"
+#include        "DEFINES.H"
 
 /*--------- divers ---------------------------------------------*/
 extern	S32	BodyComportement;

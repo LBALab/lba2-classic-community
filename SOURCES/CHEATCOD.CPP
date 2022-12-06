@@ -1,4 +1,4 @@
-#include "c_extern.h"
+#include "C_EXTERN.H"
 
 #define	TAILLE_MAX_CHEAT_CODE	10
 

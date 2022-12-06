@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 #define	ZOOM_A	2048	//	Big Islands
 #define	ZOOM_B	1024	//	Islands with 4 cubes
