@@ -1,6 +1,6 @@
-#include	"defines.h"
+#include	"DEFINES.H"
 
-#include	"var_ext.cpp"	// variables pour le terrain
+#include	"VAR_EXT.CPP"	// variables pour le terrain
 
 char	IslandName[ADELINE_MAX_PATH] ;
 

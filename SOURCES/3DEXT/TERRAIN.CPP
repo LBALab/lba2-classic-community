@@ -1,4 +1,4 @@
-#include "defines.h"
+#include "DEFINES.H"
 
 #define	 	LIMITE_LOIN 	(60*1024)
 #define		COLOR_LIMITE	255
@@ -11,7 +11,7 @@
 #define	ANI_POLY_STEP_Y		2
 #define	ANI_POLY_STEP_X		5
 
-#include	"drawsky.cpp"
+#include	"DRAWSKY.CPP"
 
 S32	Sky_Y ;
 //S32	NbDrawnPolys ;
