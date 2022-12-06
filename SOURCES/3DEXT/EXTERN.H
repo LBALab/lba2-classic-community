@@ -4,8 +4,8 @@
 #define	EXT_EXTERN_H
 
 // vars terrain game
-#include	"lba_ext.h"
-#include	"var_ext.h"
+#include	"LBA_EXT.H"
+#include	"VAR_EXT.H"
 
 
 #define	SIZE_Z_BUFFER	(640*480*2)

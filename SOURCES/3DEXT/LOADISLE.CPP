@@ -1,4 +1,4 @@
-#include	"defines.h"
+#include	"DEFINES.H"
 
 // nom du HQR (citadele.hqr)
 
