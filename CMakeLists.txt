@@ -21,3 +21,4 @@ if (NOT SOUND_BACKEND IN_LIST SOUND_BACKEND_OPTIONS)
 endif ()
 
 add_subdirectory(LIB386)
+add_subdirectory(SOURCES)
