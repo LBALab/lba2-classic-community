@@ -165,7 +165,7 @@ char	*DefFileBufferReadStringDefault(char *ident, char *def)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferReadValue2(char *ident, S32 *result)
+S32	DefFileBufferReadValue2(const char *ident, S32 *result)
 {
 	char	*ptrdef	;
 	S32	i 	;
@@ -207,7 +207,7 @@ S32	DefFileBufferReadValue2(char *ident, S32 *result)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferReadValueDefault(char *ident, S32 def)
+S32	DefFileBufferReadValueDefault(const char *ident, S32 def)
 {
 	DefFileBufferReadValue2( ident, &def)	;
 
@@ -221,7 +221,7 @@ S32	DefFileBufferReadValue(char *ident)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferWriteString(char *ident, char *string)
+S32	DefFileBufferWriteString(const char *ident, const char *string)
 {
 	char	crlf[2]={13, 10}	;
 	S32	handle			;

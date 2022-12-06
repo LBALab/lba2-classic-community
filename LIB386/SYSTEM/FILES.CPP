@@ -11,7 +11,7 @@
 #ifdef	_WIN32
 
 //--------------------------------------------------------------------------//
-S32	OpenMode( char *name, int mode)
+S32	OpenMode( const char *name, int mode)
 {
 	HANDLE	handle	;
 
@@ -65,7 +65,7 @@ U32	Write(S32 handle, const void *buffer, U32 size)
 }
 
 //--------------------------------------------------------------------------//
-U32	FileSize(char *name)
+U32	FileSize(const char *name)
 {
 	HANDLE	handle	;
 	U32	size	;

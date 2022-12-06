@@ -1853,7 +1853,7 @@ void    WriteConfigFile( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 
 static  S32     End_Num = -1    ;
-static  char    *End_Error      ;
+static  const char    *End_Error      ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
@@ -1896,7 +1896,7 @@ void    InitProgram()
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void    TheEndCheckFile( char *filename )
+void    TheEndCheckFile( const char *filename )
 {
         if( FileSize( filename) )       End_Num = NOT_ENOUGH_MEM ;
         else                            End_Num = ERROR_NOT_FOUND_FILE ;
@@ -1914,7 +1914,7 @@ void    InitTheEnd( S32 num, char *error )
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void    TheEnd( S32 num, char *error )
+void    TheEnd( S32 num, const char *error )
 {
         End_Num = num           ;
         End_Error = error       ;

@@ -150,7 +150,7 @@ char    OldGamePathname[_MAX_PATH] ;
 #endif
 char    PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
-char    *MenuIncrustText = NULL ;
+const char    *MenuIncrustText = NULL ;
 S32     MenuIncrustTimer = 0 ;
 S32     MenuIncrustSprite= -1 ;
 
@@ -237,7 +237,7 @@ void    SetDetailLevel( void )
 }
 
 //──────────────────────────────────────────────────────────────────────────
-void    InitMenuIncrustText( char *text, S32 sprite, S32 time )
+void    InitMenuIncrustText( const char *text, S32 sprite, S32 time )
 {
         ManageTime() ;
         MenuIncrustText = text ;

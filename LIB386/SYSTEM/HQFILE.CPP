@@ -10,7 +10,7 @@
 static	COMPRESSED_HEADER 	HQF_header	;
 
 /*──────────────────────────────────────────────────────────────────────────*/
-U32	HQF_Init(char *name, S32 index)
+U32	HQF_Init(const char *name, S32 index)
 {
 	S32	nbbloc	;
 
