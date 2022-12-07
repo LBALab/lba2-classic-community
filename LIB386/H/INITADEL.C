@@ -153,7 +153,7 @@
 		{
 			strcat(PathConfigFile, name)	;
 		}
-		_dos_setdrive(toupper(drive[0])-'A'+1, &n);
+		_chdrive(toupper(drive[0])-'A'+1);
 		n = strlen(dir)-1		;
 		while((dir[n]=='\\')||(dir[n]=='/'))
 		{

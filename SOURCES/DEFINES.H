@@ -184,7 +184,7 @@
 #include	<conio.h>
 #include	<stdio.h>
 #include	<ctype.h>
-#include	<i86.h>
+//#include	<i86.h>
 #include	<process.h>
 #include	<limits.h>
 #include	<direct.h>

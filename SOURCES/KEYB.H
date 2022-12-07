@@ -16,10 +16,11 @@ extern  U32	Int15CodeEnd	;
 extern  volatile U32	Int15Trans	;
 
 //──────────────────────────────────────────────────────────────────────────
+#ifndef _WIN32
 extern	void	__interrupt	Int15Handler(void)	;
 
 #pragma	aux	Int15Handler	"*"
-
+#endif
 //──────────────────────────────────────────────────────────────────────────
 extern	void	keyboard_cmd(U8 cmd)	;
 

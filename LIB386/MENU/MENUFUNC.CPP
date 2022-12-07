@@ -390,7 +390,10 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 
 	if( (mykey==A_RETURN) OR (myclick) )
 	{
-		strcpy( ptrlcb->PtrString, string ) ;
+                // FIXME: This compilation fix is dangerous, but reflects the
+                //    same behavior as before (possible writing over static mem)
+                //    The intention right now is just to compile, not fix bugs
+		strcpy( (char*)ptrlcb->PtrString, string ) ;
 	}
 
 	DrawBox( ptrmenu, numlcb, NO_FLAG) ;
@@ -410,7 +413,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 /*══════════════════════════════════════════════════════════════════════════*/
 /* fontions evoluées */
 
-void	Message( char *message, S32 flag )
+void	Message( const char *message, S32 flag )
 {
 	T_MENU	menu ;
 	S32	len ;

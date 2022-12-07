@@ -24,7 +24,7 @@ void    DetectJoys()
         U32             i, j, n, k      ;
         JOYCAPS         caps            ;
 
-        n = min(joyGetNumDevs(), 16) 	;
+        n = __min(joyGetNumDevs(), 16) 	;
 
         JoyInfoEx.dwSize = sizeof(JoyInfoEx)    ;
         JoyInfoEx.dwFlags = JOY_RETURNALL       ;

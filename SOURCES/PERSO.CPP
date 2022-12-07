@@ -71,18 +71,20 @@ void    AffDebugMenu()
 // Pour eviter d'ecraser les anciennes copies d'ecran !!!!
 void    GetNumPcxSave()
 {
-        struct find_t find      ;
-        S32 done                ;
-        S32 num                 ;
+        _finddata_t find;
+        intptr_t rc;
+        S32 num;
 
-        done = _dos_findfirst( PATH_PCX_SAVE"LBA*.PCX", _A_NORMAL, &find ) ;
-
-        while (!done)
-        {
-                num = atoi( &find.name[3] ) ;
-                if( num>=NumPcxSave )   NumPcxSave = num+1 ;
-
-                done = _dos_findnext( &find ) ;
+        rc = _findfirst(PATH_PCX_SAVE "LBA*.PCX", &find);
+        if (rc != -1) {
+          do {
+            if (find.attrib == _A_NORMAL) {
+              num = atoi(&find.name[3]);
+              if (num >= NumPcxSave)
+                NumPcxSave = num + 1;
+            }
+          } while (_findnext(rc, &find) == 0);
+          _findclose(rc);
         }
 }
 
