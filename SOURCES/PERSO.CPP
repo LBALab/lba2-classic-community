@@ -2186,7 +2186,7 @@ int main(S32 argc, char *argv[])
 	#define ibuffersize     (640*480+RECOVER_AREA)
 	#define lname   "lba2.cfg"
 	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_SVGA|INIT_KEYB|INIT_SAMPLE|INIT_SMACKER
-	#include <initadel.c>
+	#include <INITADEL.C>
 
 #ifdef	_WIN32
 	atexit(TheEndInfo)      ;
