@@ -1,6 +1,7 @@
 
 
-		.386p
+		.686p
+		.XMM
 
 		.model SMALL, SYSCALL
 
@@ -143,6 +144,8 @@ nodec:
 		add	esi, 32
 		mov	edi, ptrwork1
 		mov	ecx, 32 * 34 / 4
+		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+		;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd
 
 		; genere texture

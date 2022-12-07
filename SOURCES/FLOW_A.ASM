@@ -1,3 +1,4 @@
+				OPTION SCOPED
 				.386P
 				.model SMALL, SYSCALL
 
