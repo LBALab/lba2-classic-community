@@ -921,7 +921,7 @@ void	AffichageTerrainZBuf( void )
 	ptra  = &SommetAffichable[0][0] ;
 	ptrs  = &SommetRot[0][0] ;
 
-	for(z=0; z<NB_COTE; z++)
+	for(S32 z=0; z<NB_COTE; z++)
 	{
 		for(S32 x=0; x<NB_COTE; x++)
 		{

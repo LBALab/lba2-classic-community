@@ -190,18 +190,18 @@ static void	ScanDirs( char *selection )
 static void	ScanDrives()
 {
 	unsigned	total ;
-	unsigned	drive ;
-	unsigned	orgdrive ;
+	int	        drive ;
+	int	        orgdrive ;
 	S32		n ;
  	char		*ptr ;
 
-	_dos_getdrive( &orgdrive ) ;
+	orgdrive = _getdrive();
 	NbDirs = 0 ;
 	ptr = ListDirs ;
 	for( n=1; n<=26; n++ )
 	{
-		_dos_setdrive( n, &total ) ;
-		_dos_getdrive( &drive ) ;
+		_chdrive(n);
+		drive = _getdrive();
 		if( drive == n )
 		{
 			IndexDirs[NbDirs] = ptr ;
@@ -211,7 +211,7 @@ static void	ScanDrives()
 			NbDirs++ ;
 		}
 	}
-	_dos_setdrive( orgdrive, &total ) ;
+	_chdrive(orgdrive);
 
 	GetWindowButton( &Selector, 11, &DirsWindow ) ;
 	WinList( &DirsWindow, IndexDirs, NbDirs, 14 ) ;

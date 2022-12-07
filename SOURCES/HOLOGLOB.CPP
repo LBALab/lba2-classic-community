@@ -455,7 +455,12 @@ void	DrawListHoloGlobe(S32 pos)
 			{
 				angle = (angle+timer)&4095	;
 
-				if ( abs (angle-3072) < 64 )
+                                // angle-3072 results in long unsigned int
+                                // but interpreting that an implicit cast to
+                                // int is happening since this is the signature
+                                // of the abs function in Watcom lib.
+                                int tmpFix = angle-3072;
+                                if ( abs (tmpFix) < 64 )
 					DecalTimerRef[arrow] = 3072	;
 			}
 		}

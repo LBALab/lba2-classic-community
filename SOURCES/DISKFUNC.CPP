@@ -353,8 +353,8 @@ U8	AddDirIfNot( const char *path )
 	char		name[_MAX_PATH] ;
 	char		drive[_MAX_DRIVE];
 	char		dir[_MAX_DIR] 	 ;
-	struct find_t 	ffblk ;
-	S32 		done ;
+	_finddata_t     ffblk;
+	intptr_t	done ;
 
 	if( !path OR !strcmp(path,"") )	return FALSE ;
 
@@ -366,9 +366,10 @@ U8	AddDirIfNot( const char *path )
 	if( name[strlen(name)-1]==':' )		return FALSE ;
 
 	// teste si le répertoire existe
-	done = _dos_findfirst( name, _A_SUBDIR, &ffblk ) ;
+	done = _findfirst( name, &ffblk );
+	_findclose(done);
 
-	if( done )	// il n'existe pas
+	if( (done == -1) || (ffblk.attrib != _A_SUBDIR) ) // il n'existe pas
 	{
 		if( mkdir( name )!=0 )
 		{

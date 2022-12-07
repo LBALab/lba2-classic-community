@@ -441,37 +441,23 @@ CDROM PART
 void    InitVoiceFile()
 {
         char    pathname[_MAX_PATH];
-        struct  find_t  fileinfo;
-        U32     rc              ;
+        _finddata_t fileinfo ;
+        intptr_t    rc ;
 
-        rc = _dos_findfirst( PATH_VOX_HD"*.VOX", _A_NORMAL, &fileinfo )         ;
+        rc = _findfirst( PATH_VOX_HD"*.VOX", &fileinfo );
+        if (rc != -1) {
+                do {
+                        if (fileinfo.attrib == _A_NORMAL) {
+                          strcpy( pathname, PATH_VOX_HD ) ;
+                          strcat( pathname, fileinfo.name);
 
-        while( !rc )
-        {
-                struct tm       time    ;
-
-                strcpy( pathname, PATH_VOX_HD ) ;
-                strcat( pathname, fileinfo.name);
-
-                time.tm_sec = (fileinfo.wr_time&0x1F)*2 ;
-                fileinfo.wr_time >>= 5  ;
-                time.tm_min = fileinfo.wr_time&0x3F     ;
-                fileinfo.wr_time >>= 6  ;
-                time.tm_hour = fileinfo.wr_time ;
-
-                time.tm_mday = fileinfo.wr_date&0x1F    ;
-                fileinfo.wr_date >>= 5  ;
-                time.tm_mon  = fileinfo.wr_date&0xF     ;
-                fileinfo.wr_date >>= 4  ;
-                time.tm_year = fileinfo.wr_date+80      ;
-
-                time.tm_isdst = -1      ;
-
-                AddFileNameOnHD( pathname, fileinfo.size, mktime(&time) ) ;
+                          AddFileNameOnHD( pathname, fileinfo.size, fileinfo.time_write ) ;
 #ifdef  LORAN
-                AffStatusVoiceFile()            ;
+                          AffStatusVoiceFile()            ;
 #endif
-                rc = _dos_findnext( &fileinfo ) ;
+                        }
+                } while (_findnext(rc, &fileinfo) == 0);
+                _findclose(rc);
         }
 }
 /*-------------------------------------------------------------------------*/

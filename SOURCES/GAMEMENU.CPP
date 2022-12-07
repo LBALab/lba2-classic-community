@@ -307,8 +307,8 @@ int my_sort_function( const void *a, const void *b)
 /*──────────────────────────────────────────────────────────────────────────*/
 S32     PlayerGameList( char **ptrlistname, char *listname, S32 flagnew )
 {
-        struct  find_t  fileinfo ;
-        U32     rc ;
+        _finddata_t  fileinfo ;
+        intptr_t     rc ;
         S32     wlong ;
         char    pathname[_MAX_PATH] ;
         S32     nb = 0 ;
@@ -319,38 +319,41 @@ S32     PlayerGameList( char **ptrlistname, char *listname, S32 flagnew )
         strcpy( pathname, PathSave ) ;
         strcat( pathname, "*.LBA"  ) ;
 
-        rc = _dos_findfirst( pathname, _A_NORMAL, &fileinfo ) ;
-        while( !rc )
-        {
-                strcpy( pathname, PathSave  ) ;
-                strcat( pathname,  fileinfo.name ) ;
+        rc = _findfirst( pathname, &fileinfo );
+        if (rc != -1) {
+          do {
+            if (fileinfo.attrib == _A_NORMAL) {
+              strcpy( pathname, PathSave  ) ;
+              strcat( pathname,  fileinfo.name ) ;
 
-                // On ne liste pas l'autosave ni la currentsave
-                // D'ailleurs ces sauvegardes pourraient avoir une autre
-                // extension que .LBA ce qui éviterait ce test !
-                if( stricmp(pathname,AUTOSAVE_FILENAME)
-                AND stricmp(pathname,CURRENTSAVE_FILENAME) )
+              // On ne liste pas l'autosave ni la currentsave
+              // D'ailleurs ces sauvegardes pourraient avoir une autre
+              // extension que .LBA ce qui éviterait ce test !
+              if( stricmp(pathname,AUTOSAVE_FILENAME)
+                      AND stricmp(pathname,CURRENTSAVE_FILENAME) )
+              {
+                handle = OpenRead( pathname ) ;
+                if( handle )
                 {
-                        handle = OpenRead( pathname ) ;
-                        if( handle )
-                        {
-                                Read( handle, &wbyte, 1 ) ;     // num version
-                                Read( handle, &wlong, sizeof(wlong) ) ; // num cube
+                  Read( handle, &wbyte, 1 ) ;     // num version
+                  Read( handle, &wlong, sizeof(wlong) ) ; // num cube
 
-                                *ptrlistname++ = listname ;
-                                do
-                                {
-                                        Read( handle, &wbyte, 1 ) ;
-                                        *listname++ = wbyte ;
-                                } while( wbyte != 0 ) ;
+                  *ptrlistname++ = listname ;
+                  do
+                  {
+                    Read( handle, &wbyte, 1 ) ;
+                    *listname++ = wbyte ;
+                  } while( wbyte != 0 ) ;
 
-                                Close( handle ) ;
+                  Close( handle ) ;
 
-                                nb++ ;
-                                if( nb == MAX_PLAYER )  return nb ;
-                        }
+                  nb++ ;
+                  if( nb == MAX_PLAYER )  return nb ;
                 }
-                rc = _dos_findnext( &fileinfo ) ;
+              }
+            }
+          } while (_findnext(rc, &fileinfo) == 0);
+          _findclose(rc);
         }
 
         qsort(  (void *)startptrlist,
@@ -374,8 +377,8 @@ S32     PlayerGameList( char **ptrlistname, char *listname, S32 flagnew )
 
 S32     FindPlayerFile()
 {
-        struct  find_t  fileinfo ;
-        U32     rc ;
+        _finddata_t fileinfo ;
+        intptr_t     rc ;
         char    pathname[_MAX_PATH] ;
         char    playername[MAX_SIZE_PLAYER_NAME+1] ;
         U8      *ptr ;
@@ -386,35 +389,37 @@ S32     FindPlayerFile()
         strcpy( pathname, PathSave ) ;
         strcat( pathname, "*.LBA"  ) ;
 
-        rc = _dos_findfirst( pathname, _A_NORMAL, &fileinfo ) ;
-        while( !rc )
-        {
-                strcpy( pathname, PathSave  ) ;
-                strcat( pathname,  fileinfo.name ) ;
+        rc = _findfirst( pathname, &fileinfo );
+        if (rc != -1) {
+          do {
+            if (fileinfo.attrib == _A_NORMAL) {
+              strcpy( pathname, PathSave  ) ;
+              strcat( pathname,  fileinfo.name ) ;
 
-                handle = OpenRead( pathname ) ;
+              handle = OpenRead( pathname ) ;
 
-                Read( handle, &wbyte, 1 ) ;     // num version
-                Read( handle, &wlong, sizeof(wlong) ) ; // num cube
+              Read( handle, &wbyte, 1 ) ;     // num version
+              Read( handle, &wlong, sizeof(wlong) ) ; // num cube
 
-                ptr = (U8*)playername ;
-                do
-                {
-                        Read( handle, &wbyte, 1 ) ;
-                        *ptr++ = wbyte ;
+              ptr = (U8*)playername ;
+              do
+              {
+                Read( handle, &wbyte, 1 ) ;
+                *ptr++ = wbyte ;
 
-                } while( wbyte != 0 ) ;
+              } while( wbyte != 0 ) ;
 
-                Close( handle ) ;
+              Close( handle ) ;
 
-                if( !stricmp( PlayerName, playername ) )
-                {
-                        strcpy( GamePathname, PathSave  ) ;
-                        strcat( GamePathname, fileinfo.name ) ;
-                        return TRUE ;
-                }
-
-                rc = _dos_findnext( &fileinfo ) ;
+              if( !stricmp( PlayerName, playername ) )
+              {
+                strcpy( GamePathname, PathSave  ) ;
+                strcat( GamePathname, fileinfo.name ) ;
+                return TRUE ;
+              }
+            }
+          } while (_findnext(rc, &fileinfo) == 0);
+          _findclose(rc);
         }
 
         if( FileSize( AUTOSAVE_FILENAME ) )
