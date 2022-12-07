@@ -17,7 +17,7 @@ extern	char	*ArgV[]	;
 extern	void	RemoveParam(S32 param)			;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	FindAndRemoveParam(char *str)		;
+extern	S32	FindAndRemoveParam(const char *str)	;
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32

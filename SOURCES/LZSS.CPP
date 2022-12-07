@@ -27,8 +27,8 @@
  *
  */
 
-char *CompressionName = "LZSS Encoder";
-char *Usage           = "in-file out-file\n\n";
+const char *CompressionName = "LZSS Encoder";
+const char *Usage           = "in-file out-file\n\n";
 
 int Current_position;
 int Match_position;

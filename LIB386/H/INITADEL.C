@@ -100,8 +100,8 @@
 {
 
 //··········································································
-        char    *Adeline="ADELINE" 	;
-        char    *name=lname	 	;
+        const char    *Adeline="ADELINE";
+        const char    *name=lname 	;
 	char	*defname		;
 	char	old_path[_MAX_PATH]=""	;
 	char	old_path2[_MAX_PATH]=""	;

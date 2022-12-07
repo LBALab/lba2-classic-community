@@ -63,7 +63,7 @@ typedef struct	{	S32	X1 ;		// size/pos pixel box
 			S32	Flags ; 	// texte centré...
 
 			S32	Handle ;	// info retournée si != -1
-			char	*PtrString ;
+			const char	*PtrString ;
 
 			S32	*PtrVar ;	// info switch
 			S32	Mask ;
@@ -166,7 +166,7 @@ extern void 		AddSwitch(	T_MENU *ptrmenu, S32 handle,
 
 extern void 		AddText(	T_MENU *ptrmenu,
 					S32 x1, S32 y1, S32 width, S32 height,
-					S32 flags, char *ptrstring	);
+					S32 flags, const char *ptrstring);
 
 extern void 		AddWindow(	T_MENU *ptrmenu, S32 handle,
 					S32 x1, S32 y1 ,S32 width, S32 height,

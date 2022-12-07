@@ -84,7 +84,7 @@ U32	HQF_LoadClose(void *ptr)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-S32	HQF_ResSize(char *name, S32 index)
+S32	HQF_ResSize(const char *name, S32 index)
 {
 	U32	size			;
 

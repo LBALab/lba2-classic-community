@@ -1785,7 +1785,7 @@ startloop:
 
 void    ReadConfigFile( void )
 {
-        char *ptr ;
+        const char *ptr ;
 
         ReadInputConfig() ;     // Lit Config Clavier dans LBA2.CFG
         ReadVolumeSettings() ;  // Lit Volumes dans LBA2.CFG
@@ -2073,7 +2073,7 @@ void    Message( char *mess, S32 flag )
         RestoreClip() ;
 }
 #else
-void    Message(  char *mess, S32 flag )
+void    Message( const char *mess, S32 flag )
 {
         // pour virer warnings !!!! Baaahhhh ! Que j'aime pas ça, c'est pas
         // beau !!! mais ça marche et ça ne génère pas de code !!!

@@ -192,7 +192,7 @@ void	InitGrilleExt( char *defpathname )
 }
 #else
 
-char	*IleLst[] = {
+const char	*IleLst[] = {
 	"citadel",
 	"sendell",
 	"desert",

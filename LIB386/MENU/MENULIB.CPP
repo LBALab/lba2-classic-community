@@ -575,7 +575,7 @@ void	AddText(	T_MENU	*ptrmenu,
 			S32	x1, S32 y1,
 			S32	largeur, S32 hauteur,
 			S32	flags,
-			char	*ptrstring	)
+			const char	*ptrstring)
 {
 	T_CLICK_BOX	*ptrlcb ;
 
@@ -795,7 +795,7 @@ S32	GereMenu( T_MENU *ptrmenu )
 	S32		value, ivalue ;
 	S32		vmin, vmax ;
 	S32		click ;
-	char		*memostring ;
+	const char	*memostring ;
 
 
 	select = ScanListClick( ptrmenu ) ;

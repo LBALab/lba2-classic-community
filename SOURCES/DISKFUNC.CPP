@@ -348,7 +348,7 @@ S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-U8	AddDirIfNot( char *path )
+U8	AddDirIfNot( const char *path )
 {
 	char		name[_MAX_PATH] ;
 	char		drive[_MAX_DRIVE];

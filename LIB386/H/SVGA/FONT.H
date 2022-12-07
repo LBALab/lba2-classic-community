@@ -45,7 +45,7 @@ extern	S32	CarFont(S32 x, S32 y, char c)	;
 	modify		[edx esi edi]
 
 //--------------------------------------------------------------------------
-extern	S32	Font(S32 x, S32 y, char *str);
+extern	S32	Font(S32 x, S32 y, const char *str);
 
 #pragma aux Font	"*"			\
 	parm caller	[ebx] [ecx] [esi]	\

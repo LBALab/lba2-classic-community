@@ -166,7 +166,7 @@ static char     FileText[256]   ;
 S32     Language = 1    ;               // English
 S32     LastFileInit=-1 ;
 
-char    *TabLanguage[] = {
+const char    *TabLanguage[] = {
                         //      Ne pas toucher l'ordre cause HQR
         "English",
         "Français",
@@ -176,23 +176,23 @@ char    *TabLanguage[] = {
         "Portugues"     }       ;
 
 
-char  *ListLanguage[] = {     "EN_", "FR_", "DE_", "SP_", "IT_", "PO_" } ;
+const char  *ListLanguage[] = {     "EN_", "FR_", "DE_", "SP_", "IT_", "PO_" } ;
 
-char    *ListFileText[] = {     "sys",
-                                "cre",
-                                "gam",
-                                "000",
-                                "001",
-                                "002",
-                                "003",
-                                "004",
-                                "005",
-                                "006",
-                                "007",
-                                "008",
-                                "009",
-                                "010",
-                                "011"     } ;
+const char    *ListFileText[] = {     "sys",
+                                      "cre",
+                                      "gam",
+                                      "000",
+                                      "001",
+                                      "002",
+                                      "003",
+                                      "004",
+                                      "005",
+                                      "006",
+                                      "007",
+                                      "008",
+                                      "009",
+                                      "010",
+                                      "011"     } ;
 // flag de cadre shade
 
 S32     FlagMessageShade = TRUE ;

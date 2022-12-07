@@ -27,6 +27,6 @@ typedef struct {
 
 #define	CREDITS_HQR_NAME	PATH_RESSOURCE"lba2.hqr"
 
-extern	S32     GamePlayCredits( char *file_name, S32 mode ) ;
+extern	S32     GamePlayCredits( const char *file_name, S32 mode ) ;
 
 #endif	// CREDITS_H
