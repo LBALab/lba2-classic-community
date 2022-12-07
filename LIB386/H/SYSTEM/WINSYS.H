@@ -24,7 +24,7 @@ extern	VOID_FUNC	*ManageProc	;
 extern	WINDOW_PROC	*WindowProc	;
 
 //──────────────────────────────────────────────────────────────────────────
-void	InitWindow( HINSTANCE hinstance, int nCmdShow, char *title )	;
+void	InitWindow( HINSTANCE hinstance, int nCmdShow, const char *title )	;
 
 //──────────────────────────────────────────────────────────────────────────
 void	ManageEvents()	;

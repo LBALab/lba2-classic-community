@@ -23,7 +23,7 @@ extern	void	HQF_Close()			;
 extern	U32	HQF_LoadClose(void *ptr)	;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	HQF_ResSize(char *name, S32 index);
+extern	S32	HQF_ResSize(const char *name, S32 index);
 
 //──────────────────────────────────────────────────────────────────────────
 extern	S32	HQF_NbRes(char *name)		;

@@ -789,7 +789,7 @@ U8	*HoloMalloc( U32 size )
 	return(ptret)		;
 }
 //────────────────────────────────────────────────────────────────────────────
-U8	*LoadHoloMalloc_HQR( char *name, S32 index )
+U8	*LoadHoloMalloc_HQR( const char *name, S32 index )
 {
 	U8	*pt	;
 	U32	size	;
@@ -1191,7 +1191,7 @@ void	HoloMap()
 	SizeCurrentBody = GetSizeBody3D( PtCurrentBody );
 	SizeCurrentAnim = GetSizeAnim3D( PtCurrentAnim );
 
-	InitObjects( NULL, NULL, HoloGivePtrBody, HoloGivePtrAnim )	;
+	InitObjects( NULL, 0, HoloGivePtrBody, HoloGivePtrAnim )	;
 
 	FlagMap = 0		;
 	FlagHoloEnd = FALSE	;
@@ -1223,7 +1223,7 @@ void	HoloMap()
 
 	InitDial( START_FILE_ISLAND+Island ) ;
 
-	InitObjects( NULL, NULL, GivePtrBody, GivePtrAnim )	;
+	InitObjects( NULL, 0, GivePtrBody, GivePtrAnim )	;
 
 	FadeToBlack( PtrPal ) ;	// Restauration + Fade
 	FlagFade = TRUE ;

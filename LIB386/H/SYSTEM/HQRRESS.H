@@ -43,7 +43,7 @@ extern	HQR_GET_CALLBACK	*HQRGetDelFunc	;
 extern	S32	HQR_Flag ;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	T_HQR_HEADER	*HQR_Init_Ressource(	char	*hqrname,
+extern	T_HQR_HEADER	*HQR_Init_Ressource(	const char	*hqrname,
  						S32	maxsize,
 						S32	maxrsrc		);
 
@@ -60,7 +60,7 @@ extern	void		HQR_Reset_Ressource(	T_HQR_HEADER *header	);
 
 //──────────────────────────────────────────────────────────────────────────
 extern	S32		HQR_Change_Ressource(	T_HQR_HEADER *header,
-						char *newhqrname	);
+						const char *newhqrname	);
 
 //──────────────────────────────────────────────────────────────────────────
 extern	void		HQR_Free_Ressource(	T_HQR_HEADER *header	);

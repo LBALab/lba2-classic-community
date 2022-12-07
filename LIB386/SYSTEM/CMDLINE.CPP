@@ -69,7 +69,7 @@ void	RemoveParam(S32	param)
 }
 
 //----------------------------------------------------------------------------
-S32	FindAndRemoveParam(char *str)
+S32	FindAndRemoveParam(const char *str)
 {
 	S32 i, res ;
 

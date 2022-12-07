@@ -25,10 +25,10 @@ S32	DefFileBufferInit(char *file, void *buffer, S32 maxsize)	;
 char	*DefFileBufferReadString(const char *ident)				;
 
 //****************************************************************************
-char	*DefFileBufferReadStringDefault(char *ident, char *def)		;
+const char *DefFileBufferReadStringDefault(const char *ident, const char *def)  ;
 
 //****************************************************************************
-S32	DefFileBufferReadValue(char *ident)				;
+S32	DefFileBufferReadValue(const char *ident)				;
 
 //****************************************************************************
 S32	DefFileBufferReadValueDefault(const char *ident, S32 def)		;

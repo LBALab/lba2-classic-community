@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern void 		Message(char *message, S32 flag			);
+extern void 		Message(const char *message, S32 flag		);
 extern S32 		Confirm(char *message, char *yes, char *no	);
 
 //──────────────────────────────────────────────────────────────────────────

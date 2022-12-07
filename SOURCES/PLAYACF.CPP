@@ -126,7 +126,7 @@ char	*GetAcfName( char *name )
 
 //---------------------------------------------------------------------------
 
-S32	GetNumAcf( char *name )
+S32	GetNumAcf( const char *name )
 {
 	S32	n = 0 ;
 	char	getname[15] ;

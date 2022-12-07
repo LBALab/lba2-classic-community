@@ -33,7 +33,7 @@ S32	HQR_Flag ;	// flag "load done" par HQR_Get
 // maxsize: taille buffer memoire
 // MaxIndex: nombre de fiche max stocké
 // (devrait être > maxsize/average file size )
-T_HQR_HEADER	*HQR_Init_Ressource(	char	*hqrname,
+T_HQR_HEADER	*HQR_Init_Ressource(	const char	*hqrname,
  					S32	maxsize,
 					S32	maxrsrc	)
 {
@@ -93,7 +93,7 @@ void	HQR_Reset_Ressource(T_HQR_HEADER *header)
 
 //──────────────────────────────────────────────────────────────────────────
 // change le nom du fichiers HQR qui contient les fiches (vide le buffer)
-S32	HQR_Change_Ressource(T_HQR_HEADER *header, char *newhqrname)
+S32	HQR_Change_Ressource(T_HQR_HEADER *header, const char *newhqrname)
 {
 	if(newhqrname && newhqrname[0])
 	{

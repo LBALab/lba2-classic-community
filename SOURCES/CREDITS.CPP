@@ -79,7 +79,7 @@ void	AddTri( S32 type, S32 num )
 
 #define	PtrCredits	((U8*)ScreenAux)
 
-S32     GamePlayCredits( char *file_name, S32 mode )
+S32     GamePlayCredits( const char *file_name, S32 mode )
 {
 	S32     flagexit = FALSE ;
 	S32     flag = 1 ;

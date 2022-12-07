@@ -34,7 +34,7 @@ extern void TheEnd(S32 num, const char *error);
 /*--------------------------------------------------------------------------*/
 extern void TheEndInfo(void);
 /*--------------------------------------------------------------------------*/
-extern void Message(char *mess,S32 flag);
+extern void Message(const char *mess,S32 flag);
 /*--------------------------------------------------------------------------*/
 
 #endif	// PERSO_H
