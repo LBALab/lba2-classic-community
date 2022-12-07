@@ -11,6 +11,7 @@ YMIN_640x480		EQU	40
 DY_IMAGE		EQU	200
 
 ;//***************************************************************************
+			OPTION SCOPED
 			.586
 			.MMX
 			.MODEL SMALL, SYSCALL
