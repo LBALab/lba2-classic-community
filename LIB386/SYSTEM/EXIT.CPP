@@ -79,7 +79,7 @@ void	InitAll()
 	{
 		full_path[i] = 0 ;
 	}
-	_chdrive(toupper(drive[0])-'A'+1);
+	_chdrive((char)(toupper(drive[0])-'A'+1));
 	getcwd(path2, _MAX_PATH)				;
 	chdir(full_path)					;
 
@@ -93,7 +93,7 @@ void	InitAll()
 	DontRegister = 0 ;
 
 	chdir(path2)			;
-	_chdrive(toupper(drive[0])-'A'+1);
+	_chdrive((char)(toupper(Path1[0])-'A'+1));
 	chdir(Path1)			;
 }
 
