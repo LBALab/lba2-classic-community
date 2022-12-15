@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	RotTransList
+		public	C	RotTransList
 
 RotTransList	dd	offset RotTransListInit
 
@@ -27,13 +27,13 @@ RotTransList	dd	offset RotTransListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	RotTransListI:PROC
-		extrn	SYSCALL	RotTransListF:PROC
-		extrn	SYSCALL	RotTransListM:PROC
+		extrn	C	RotTransListI:PROC
+		extrn	C	RotTransListF:PROC
+		;extrn	C	RotTransListM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotTransList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
@@ -44,10 +44,10 @@ RotTransList	dd	offset RotTransListInit
 
 RotTransListInit proc
 
-		mov	[Chooser_RtnI], offset RotTransListI	; Integer
-		mov	[Chooser_RtnF], offset RotTransListF	; FPU
-		mov	[Chooser_RtnM], offset RotTransListM	; MMX
-		mov	[Chooser_Result], offset RotTransList	; Pointer
+		mov	[ds:Chooser_RtnI], offset RotTransListI	; Integer
+		mov	[ds:Chooser_RtnF], offset RotTransListF	; FPU
+		;mov	[ds:Chooser_RtnM], offset RotTransListM	; MMX
+		mov	[ds:Chooser_Result], offset RotTransList	; Pointer
 		jmp	Chooser
 
 RotTransListInit endp

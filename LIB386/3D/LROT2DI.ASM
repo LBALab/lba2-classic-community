@@ -2,23 +2,25 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:WORD
-		extrn	SYSCALL	CosTab:WORD
+		extrn	C	SinTab:WORD
+		extrn	C	CosTab:WORD
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Z0:DWORD
+
+		ASSUME  DS:SEG SinTab
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	LongRotateI
+		public	C	LongRotateI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateI(S32 x, S32 z, S32 angle)	;

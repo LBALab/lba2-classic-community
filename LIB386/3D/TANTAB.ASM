@@ -1,9 +1,9 @@
 		.386p
-		.model	SMALL, SYSCALL
+		.model	SMALL, C
 
 		.data
 
-		public	SYSCALL		TanTab
+		public	C		TanTab
 
 ALIGN	4
 

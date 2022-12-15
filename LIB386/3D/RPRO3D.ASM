@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL RotateProjectPoint3D
+		public	C RotateProjectPoint3D
 
 RotateProjectPoint3D	dd	offset	RotateProjectPoint3DInit
 
@@ -27,13 +27,13 @@ RotateProjectPoint3D	dd	offset	RotateProjectPoint3DInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	RotateProjectPoint3DI:PROC
-		extrn	SYSCALL	LongRotateProjectPoint3DF:PROC
-		extrn	SYSCALL	RotateProjectPoint3DM:PROC
+		extrn	C	RotateProjectPoint3DI:PROC
+		extrn	C	LongRotateProjectPoint3DF:PROC
+		;extrn	C	RotateProjectPoint3DM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotateProjectPoint3D(S32 *Mat, S32 x, S32 y, S32 z)	;
@@ -44,10 +44,10 @@ RotateProjectPoint3D	dd	offset	RotateProjectPoint3DInit
 
 RotateProjectPoint3DInit proc
 
-		mov	[Chooser_RtnI], offset RotateProjectPoint3DI	; Integer
-		mov	[Chooser_RtnF], offset LongRotateProjectPoint3DF; FPU
-		mov	[Chooser_RtnM], offset RotateProjectPoint3DM	; MMX
-		mov	[Chooser_Result], offset RotateProjectPoint3D	; Pointer
+		mov	[ds:Chooser_RtnI], offset RotateProjectPoint3DI	; Integer
+		mov	[ds:Chooser_RtnF], offset LongRotateProjectPoint3DF; FPU
+		;mov	[ds:Chooser_RtnM], offset RotateProjectPoint3DM	; MMX
+		mov	[ds:Chooser_Result], offset RotateProjectPoint3D	; Pointer
 		jmp	Chooser
 
 RotateProjectPoint3DInit endp

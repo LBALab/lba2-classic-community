@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,14 +10,14 @@
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:WORD
-		extrn	SYSCALL	CosTab:WORD
-
+		extrn	C	SinTab:WORD
+		extrn	C	CosTab:WORD
+		ASSUME ds:SEG CosTab
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	InitMatrixStdI
+		public	C	InitMatrixStdI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitMatrixStdI(S32 *MatDst, S32 alpha, S32 beta, S32 gamma) ;
@@ -49,9 +49,9 @@ InitMatrixStdI	proc
 		movsx	ecx, CosTab[eax]	; ecx = cos(a)
 
 		neg	edx
-		mov	[edi].MAT_M11, ebx	; cos(g)
+		mov	[edi].Struc_MatriceMAT.MAT_M11, ebx	; cos(g)
 
-		mov	[edi].MAT_M12, edx	; -sin(g)
+		mov	[edi].Struc_MatriceMAT.MAT_M12, edx	; -sin(g)
 		mov	edx, ebp
 
 		imul	edx, ecx
@@ -61,7 +61,7 @@ InitMatrixStdI	proc
 		adc	edx, 0
 		mov	eax, ebx
 
-		mov	[edi].MAT_M21, edx	; sin(g)*cos(a)
+		mov	[edi].Struc_MatriceMAT.MAT_M21, edx	; sin(g)*cos(a)
 		mov	edx, ebp
 
 		imul	eax, ecx
@@ -74,9 +74,9 @@ InitMatrixStdI	proc
 		pop	ebp			; EBP = Beta
 
 		sar	edx, 14
-		mov	[edi].MAT_M22, eax	; cos(g)*cos(a)
+		mov	[edi].Struc_MatriceMAT.MAT_M22, eax	; cos(g)*cos(a)
 
-		mov	[edi].MAT_M31, edx	; sin(g)*sin(a)
+		mov	[edi].Struc_MatriceMAT.MAT_M31, edx	; sin(g)*sin(a)
 		mov	edx, ebx
 
 		imul	edx, esi
@@ -85,11 +85,11 @@ InitMatrixStdI	proc
 		movsx	ebp, SinTab[ebp]	; ebp = sin(b)
 
 		sar	edx, 14
-		mov	eax, [edi].MAT_M11	; EAX = Cos(g)
+		mov	eax, [edi].Struc_MatriceMAT.MAT_M11	; EAX = Cos(g)
 
 		adc	edx, 0
 
-		mov	[edi].MAT_M32, edx	; cos(g)*sin(a)
+		mov	[edi].Struc_MatriceMAT.MAT_M32, edx	; cos(g)*sin(a)
 		mov	edx, ebx
 
 		imul    edx, eax
@@ -101,10 +101,10 @@ InitMatrixStdI	proc
 		adc	edx, 0
 
 		sar	eax, 14
-		mov	[edi].MAT_M11, edx	; cos(g)*cos(b)
+		mov	[edi].Struc_MatriceMAT.MAT_M11, edx	; cos(g)*cos(b)
 
-		mov	[edi].MAT_M13, eax	; cos(g)*sin(b)
-		mov	eax, [edi].MAT_M21	; EAX = sin(g)*cos(a)
+		mov	[edi].Struc_MatriceMAT.MAT_M13, eax	; cos(g)*sin(b)
+		mov	eax, [edi].Struc_MatriceMAT.MAT_M21	; EAX = sin(g)*cos(a)
 
 		mov	edx, ebp
 		push	eax
@@ -117,7 +117,7 @@ InitMatrixStdI	proc
 		sar	edx, 14
 		pop	eax
 
-		mov	[edi].MAT_M21, edx	; sin(b)*sin(a)+sin(g)*cos(a)*cos(b)
+		mov	[edi].Struc_MatriceMAT.MAT_M21, edx	; sin(b)*sin(a)+sin(g)*cos(a)*cos(b)
 		mov	edx, ebp
 
 		imul	esi, ebx
@@ -127,12 +127,12 @@ InitMatrixStdI	proc
 		xor	eax, eax
 
 		sar	edx, 14
-		mov	esi, [edi].MAT_M31	; ESI = sin(g)*sin(a)
+		mov	esi, [edi].Struc_MatriceMAT.MAT_M31	; ESI = sin(g)*sin(a)
 
 		adc	edx, 0
-		mov	[edi].MAT_MTX, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTX, eax
 
-		mov	[edi].MAT_M23, edx	; sin(b)*sin(g)*cos(a)-sin(a)*cos(b)
+		mov	[edi].Struc_MatriceMAT.MAT_M23, edx	; sin(b)*sin(g)*cos(a)-sin(a)*cos(b)
 		mov	edx, ecx
 
 		imul	ecx, ebx		; ca*cb
@@ -144,18 +144,18 @@ InitMatrixStdI	proc
 		sub	esi, edx
 
 		sar	ebp, 14
-		mov	[edi].MAT_MTY, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTY, eax
 
 		adc	ebp, 0
-		mov	[edi].MAT_MTZ, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTZ, eax
 
 		sar	esi, 14
-		mov	[edi].MAT_M33, ebp	; sin(b)*sin(g)*sin(a)+cos(a)*cos(b)
+		mov	[edi].Struc_MatriceMAT.MAT_M33, ebp	; sin(b)*sin(g)*sin(a)+cos(a)*cos(b)
 
 		adc	esi, 0
 		pop	ebp
 
-		mov	[edi].MAT_M31, esi	; sin(g)*sin(a)*cos(b)-cos(a)*sin(b)
+		mov	[edi].Struc_MatriceMAT.MAT_M31, esi	; sin(g)*sin(a)*cos(b)-cos(a)*sin(b)
 
 		ret
 

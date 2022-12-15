@@ -1,19 +1,19 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386P
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL		TanTab	: DWORD
+		extrn	C		TanTab	: DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		PUBLIC  SYSCALL 	GetAngleVector2D
+		PUBLIC  C 	GetAngleVector2D
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;S32 	GetAngleVector2D( S32 x, S32 z)			;
@@ -22,7 +22,11 @@
 ;	parm		[eax] [ebx]	 		\
 ;	modify 		[ecx edx esi]
 
-GetAngleVector2D proc
+GetAngleVector2D 	PROC \
+			uses ebx ecx edx edi esi ebp\
+			x: DWORD, z: DWORD
+			mov eax, x
+			mov ebx, z
 
 		xor	esi, esi		; ESI = Bit field
 
@@ -69,7 +73,7 @@ noswap:
 		xor	edx, edx
 
 		mov     ecx, 512*2
-		cmp	eax, TanTab[ebx]
+		cmp	eax, ds:TanTab[ebx]
 		jge	ga3
 ga0:
 		shr	ebx, 1
@@ -80,7 +84,7 @@ ga2:
 		test	ebx, 2
 		jnz	angle
 
-		cmp	eax, TanTab[ebx]
+		cmp	eax, ds:TanTab[ebx]
 		jl	ga0
 ga3:
 		shr	ebx, 1
@@ -90,8 +94,8 @@ ga3:
 
 		jmp	ga2
 angle:
-		mov	ebx, TanTab[edx*2]
-		mov	ecx, TanTab[edx*2+4]
+		mov	ebx, ds:TanTab[edx*2]
+		mov	ecx, ds:TanTab[edx*2+4]
 
 		shr	edx, 1
 		sub	ecx, eax

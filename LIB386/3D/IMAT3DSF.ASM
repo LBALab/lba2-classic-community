@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,13 +10,14 @@
 
 		.DATA
 
-		extrn	SYSCALL SinTabF:DWORD
+		extrn	C SinTabF:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	InitMatrix3DSF
+		public	C	InitMatrix3DSF
+		;ASSUME ds:SEG COSB
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitMatrix3DSF(S32 *MatDst, S32 alpha, S32 beta, S32 gamma) ;
@@ -27,13 +28,13 @@
 
 InitMatrix3DSF	PROC
 
-		fld	[edi].MAT_M11
-		fld	[edi].MAT_M12
-		fld	[edi].MAT_M13
+		fld	[edi].Struc_MatriceMAT.MAT_M11
+		fld	[edi].Struc_MatriceMAT.MAT_M12
+		fld	[edi].Struc_MatriceMAT.MAT_M13
 
-		fld	[esi].MAT_M11
-		fld	[esi].MAT_M21
-		fld	[esi].MAT_M31
+		fld	[esi].Struc_MatriceMAT.MAT_M11
+		fld	[esi].Struc_MatriceMAT.MAT_M21
+		fld	[esi].Struc_MatriceMAT.MAT_M31
 
 		and	eax,4095
 		and	ebx,4095
@@ -45,12 +46,12 @@ InitMatrix3DSF	PROC
 
 		shl	ecx,2
 
-SINA		EQU	[SinTabF+eax]		; Mettre l'adresse dans les reg
-COSA		EQU	[SinTabF+eax+1024*4]	; pour l'optimisation
-SINB		EQU	[SinTabF+ebx]
-COSB		EQU	[SinTabF+ebx+1024*4]
-SING		EQU	[SinTabF+ecx]
-COSG		EQU	[SinTabF+ecx+1024*4]
+SINA		EQU	[ds:SinTabF+eax]		; Mettre l'adresse dans les reg
+COSA		EQU	[ds:SinTabF+eax+1024*4]	; pour l'optimisation
+SINB		EQU	[ds:SinTabF+ebx]
+COSB		EQU	[ds:SinTabF+ebx+1024*4]
+SING		EQU	[ds:SinTabF+ecx]
+COSG		EQU	[ds:SinTabF+ecx+1024*4]
 
 
 		fld	COSG
@@ -59,13 +60,13 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	SING
 		fmul	SINB
 		fsubp	st(1),st
-		fstp	[edi].MAT_M11		; M11 = Cos(Gamma)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M11		; M11 = Cos(Gamma)*Cos(Beta)
 						;      -Sin(Alpha)*Sin(Gamma)*Sin(Beta)
 
 		fld	COSA
 		fmul	SING
 		fchs
-		fstp	[edi].MAT_M12		; M12 = -Cos(Alpha)*Sin(Gamma)
+		fstp	[edi].Struc_MatriceMAT.MAT_M12		; M12 = -Cos(Alpha)*Sin(Gamma)
 
 		fld	SINA
 		fmul	SING
@@ -73,7 +74,7 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fld	COSG
 		fmul	SINB
 		faddp	st(1),st
-		fstp	[edi].MAT_M13		; M13 = Sin(Alpha)*Sin(Gamma)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M13		; M13 = Sin(Alpha)*Sin(Gamma)*Cos(Beta)
 						;      +Cos(Gamma)*Sin(Beta)
 
 		fld	SING
@@ -82,12 +83,12 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	COSG
 		fmul	SINB
 		faddp	st(1),st
-		fstp	[edi].MAT_M21		; M21 = Sin(Gamma)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M21		; M21 = Sin(Gamma)*Cos(Beta)
 						;      +Sin(Alpha)*Cos(Gamma)*Sin(Beta)
 
 		fld	COSA
 		fmul	COSG
-		fstp	[edi].MAT_M22		; M22 = Cos(Alpha)*Cos(Gamma)
+		fstp	[edi].Struc_MatriceMAT.MAT_M22		; M22 = Cos(Alpha)*Cos(Gamma)
 
 		fld	SING
 		fmul	SINB
@@ -95,29 +96,29 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	COSG
 		fmul	COSB
 		fsubp	st(1),st
-		fstp	[edi].MAT_M23		; M23 = Sin(Gamma)*Sin(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M23		; M23 = Sin(Gamma)*Sin(Beta)
 						;      -Sin(Alpha)*Cos(Gamma)*Cos(Beta)
 
 		fld	COSA
 		fmul	SINB
 		fchs
-		fstp	[edi].MAT_M31		; M31 = -Cos(Alpha)*Sin(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M31		; M31 = -Cos(Alpha)*Sin(Beta)
 
 					; *** A remplacer par 2 MOV!!!!!!
 		fld	SINA
-		fstp	[edi].MAT_M32		; M32 = Sin(Alpha)
+		fstp	[edi].Struc_MatriceMAT.MAT_M32		; M32 = Sin(Alpha)
 
 		fld	COSA
 		fmul	COSB
 
 		xor	eax, eax
 
-		fstp	[edi].MAT_M33		; M33 = Cos(Alpha)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M33		; M33 = Cos(Alpha)*Cos(Beta)
 
-		mov	[edi].MAT_MTX, eax
-		mov	[edi].MAT_MTY, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTX, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTY, eax
 
-		mov	[edi].MAT_MTZ, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTZ, eax
 
 		ret
 InitMatrix3DSF	ENDP

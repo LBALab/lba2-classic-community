@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 		include MAT.INC
 
@@ -10,36 +10,36 @@
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	NextPointRotListI:PROC
+		extrn	C	NextPointRotListI:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-                extrn   SYSCALL patch_MTX       :DWORD
-                extrn   SYSCALL patch_MTY       :DWORD
-                extrn   SYSCALL patch_MTZ       :DWORD
-                extrn   SYSCALL patch_M11       :DWORD
-                extrn   SYSCALL patch_M12       :DWORD
-                extrn   SYSCALL patch_M13       :DWORD
-                extrn   SYSCALL patch_M21       :DWORD
-                extrn   SYSCALL patch_M22_M32   :DWORD
-                extrn   SYSCALL patch_M23       :DWORD
-                extrn   SYSCALL patch_M31       :DWORD
-                extrn   SYSCALL patch_M32       :DWORD
-                extrn   SYSCALL patch_M33       :DWORD
-                extrn   SYSCALL patch_End       :DWORD
-                extrn   SYSCALL patch_Delta0    :DWORD
-                extrn   SYSCALL patch_Delta1    :DWORD
-                extrn   SYSCALL patch_Delta2    :DWORD
+                extrn   C patch_MTX       :DWORD
+                extrn   C patch_MTY       :DWORD
+                extrn   C patch_MTZ       :DWORD
+                extrn   C patch_M11       :DWORD
+                extrn   C patch_M12       :DWORD
+                extrn   C patch_M13       :DWORD
+                extrn   C patch_M21       :DWORD
+                extrn   C patch_M22_M32   :DWORD
+                extrn   C patch_M23       :DWORD
+                extrn   C patch_M31       :DWORD
+                extrn   C patch_M32       :DWORD
+                extrn   C patch_M33       :DWORD
+                extrn   C patch_End       :DWORD
+                extrn   C patch_Delta0    :DWORD
+                extrn   C patch_Delta1    :DWORD
+                extrn   C patch_Delta2    :DWORD
 
-                extrn   SYSCALL RotateListI	:DWORD
-                extrn   SYSCALL RotateListIEnd	:DWORD
+                extrn   C RotateListI	:DWORD
+                extrn   C RotateListIEnd	:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public SYSCALL	RotTransListI
+		public C	RotTransListI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 IFDEF	_WIN32
-		extrn  SYSCALL	AllowPatch	:PROC
-		extrn  SYSCALL	AllowPatchAndPatch:PROC
+		extrn  C	AllowPatch	:PROC
+		extrn  C	AllowPatchAndPatch:PROC
 ENDIF
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -124,15 +124,15 @@ ENDIF
 		mov	End_Loop, ecx	; final address for end of loop
 		mov	Delta2, esi	; delta+4
 
-		mov	esi, [ebx].MAT_M11
-		mov	edi, [ebx].MAT_M12
+		mov	esi, [ebx].Struc_MatriceMAT.MAT_M11
+		mov	edi, [ebx].Struc_MatriceMAT.MAT_M12
 
 		mov	ebp, esi
-		mov	ecx, [ebx].MAT_M13
+		mov	ecx, [ebx].Struc_MatriceMAT.MAT_M13
 
 		imul	ebp, edi	; M11*M12
 
-		mov	eax,[ebx].MAT_MTX
+		mov	eax,[ebx].Struc_MatriceMAT.MAT_MTX
 		mov	Mat_11, esi
 
 		shl	eax,14
@@ -144,20 +144,20 @@ ENDIF
 		add	eax, 1 SHL 13
 
 		mov	[Trans_X], eax
-		mov	eax, [ebx].MAT_M32
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M32
 
-		mov	esi, [ebx].MAT_M21
-		mov	edi, [ebx].MAT_M22
+		mov	esi, [ebx].Struc_MatriceMAT.MAT_M21
+		mov	edi, [ebx].Struc_MatriceMAT.MAT_M22
 
 		mov	ebp, esi
-		mov	ecx, [ebx].MAT_M23
+		mov	ecx, [ebx].Struc_MatriceMAT.MAT_M23
 
 		imul	ebp, edi	; M21*M22
 
 		sub	edi, eax	; trick. see below
 		mov	Mat_21, esi
 
-		mov	edx,[ebx].MAT_MTY
+		mov	edx,[ebx].Struc_MatriceMAT.MAT_MTY
 		mov	Mat_22_32, edi
 
 		shl	edx,14
@@ -169,15 +169,15 @@ ENDIF
 		add	edx, 1 SHL 13
 
 		mov	[Trans_Y],edx
-		mov	edx, [ebx].MAT_M31
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M31
 
 		mov	ebp, edx
 		mov	Mat_31, edx
 
 		imul	ebp, eax	; M31*M32
 
-		mov	eax,[ebx].MAT_MTZ
-		mov	ebx, [ebx].MAT_M33
+		mov	eax,[ebx].Struc_MatriceMAT.MAT_MTZ
+		mov	ebx, [ebx].Struc_MatriceMAT.MAT_M33
 
 		shl	eax,14
 		mov	Mat_33, ebx

@@ -2,19 +2,20 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:WORD
+		extrn	C	SinTab:WORD
+		ASSUME ds:SEG SinTab
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	ArcSin
+		public	C	ArcSin
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ArcSin(S32 sin)		;

@@ -3,7 +3,7 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -11,7 +11,7 @@
 
 		.CODE
 
-		public	SYSCALL	CopyMatrixM
+		public	C	CopyMatrixM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	CopyMatrixM(S32 *MatDst, S32 *MatSrc) ;

@@ -3,23 +3,23 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Y0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Y0:DWORD
+		extrn C	Z0:DWORD
 
-		extrn SYSCALL	MMX_DEMI:DWORD
+		extrn C	MMX_DEMI:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	RotatePointM
+		public C	RotatePointM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotatePointM(S32 *Mat, S32 x, S32 y, S32 z)	;

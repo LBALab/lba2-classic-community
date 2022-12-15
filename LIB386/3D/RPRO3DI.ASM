@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -12,29 +12,31 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	MatriceWorld:DWORD
+		extrn	C	MatriceWorld:DWORD
 
-		extrn	SYSCALL CameraXr:DWORD
-		extrn	SYSCALL CameraYr:DWORD
-		extrn	SYSCALL CameraZr:DWORD
+		extrn	C CameraXr:DWORD
+		extrn	C CameraYr:DWORD
+		extrn	C CameraZr:DWORD
 
-		extrn	SYSCALL CameraZrClip:DWORD
+		extrn	C CameraZrClip:DWORD
 
-		extrn	SYSCALL LFactorX:DWORD
-		extrn	SYSCALL LFactorY:DWORD
+		extrn	C LFactorX:DWORD
+		extrn	C LFactorY:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL	Xp:DWORD
-		extrn	SYSCALL	Yp:DWORD
+		extrn	C	Xp:DWORD
+		extrn	C	Yp:DWORD
+
+		ASSUME  DS:SEG MatriceWorld
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	RotateProjectPoint3DI
-		public SYSCALL	WorldRotateProjectPoint3DI
+		public C	RotateProjectPoint3DI
+		public C	WorldRotateProjectPoint3DI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	WorldRotateProjectPoint3DI(S32 x, S32 y, S32 z)	;
@@ -57,33 +59,33 @@ WorldRotateProjectPoint3DI	proc
 RotateProjectPoint3DI::
 
 		push	ebp
-		mov	edi, [esi].MAT_M11
+		mov	edi, [esi].Struc_MatriceMAT.MAT_M11
 
-		mov	ebp, [esi].MAT_M12
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M12
 
 		imul	edi, eax
 		imul	ebp, ebx
 
-		mov	edx, [esi].MAT_M13
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M13
 		add	edi, ebp
 
 		imul	edx, ecx
 
-		mov	ebp, [esi].MAT_M22
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M22
 		lea	edx, [edx+edi+(1 SHL 13)]
 
 		sar	edx, 14
-		mov	edi, [esi].MAT_M21
+		mov	edi, [esi].Struc_MatriceMAT.MAT_M21
 
 		mov	[Xp], edx
-		mov	edx, [esi].MAT_M23
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M23
 
 		imul	ebp, ebx
 		imul	edi, eax
 		imul	edx, ecx
-		imul	eax, [esi].MAT_M31
-		imul	ebx, [esi].MAT_M32
-		imul	ecx, [esi].MAT_M33
+		imul	eax, [esi].Struc_MatriceMAT.MAT_M31
+		imul	ebx, [esi].Struc_MatriceMAT.MAT_M32
+		imul	ecx, [esi].Struc_MatriceMAT.MAT_M33
 
 		lea	edx, [edx+ebp+(1 SHL 13)]
 		lea	ebx, [ebx+eax+(1 SHL 13)]

@@ -34,44 +34,8 @@ typedef	struct
 //---------------------------------------------------------------------------
 S32	GetDeltaAccMove(S32 *acc)	;
 
-#pragma aux GetDeltaAccMove	=       \
-"       mov     ecx, 1000       "       \
-"       mov     eax, [ebx]      "       \
-"	cmp	eax, ecx	"	\
-"	jge	ok		"	\
-"	cmp	eax, -1000	"	\
-"	jg	skip		"	\
-"ok:    mov     edx, eax        "       \
-"       sar     edx, 31         "       \
-"       idiv    ecx            	"       \
-"       mov     [ebx], edx      "       \
-"	jmp	end		"	\
-"skip:	xor	eax, eax	"	\
-"end:				"	\
-        parm    caller  [ebx]           \
-	modify	exact	[ecx edx]	\
-	value		[eax]
-
 //---------------------------------------------------------------------------
 S32	AdjustSpeedAngle(S32 speed, S32 start, S32 end)	;
-
-#pragma aux AdjustSpeedAngle	=       	\
-"	xor	eax, eax	"		\
-"	and	ecx, 4095	"		\
-"	and	edx, 4095	"		\
-"	sub	edx, ecx	"		\
-"	jz	ok		"		\
-"	mov	eax, ebx	"		\
-"	jns	skip		"		\
-"	neg	edx		"		\
-"	neg	eax		"		\
-"skip:	cmp	edx, 2048	"		\
-"	jl      ok		"		\
-"chg:	neg	eax		"		\
-"ok:				"		\
-        parm    caller  [ebx] [ecx] [edx]	\
-	modify	exact	[ecx edx]		\
-	value		[eax]
 
 //---------------------------------------------------------------------------
 #define	GetSpeedMove(pmove)		(pmove)->Speed

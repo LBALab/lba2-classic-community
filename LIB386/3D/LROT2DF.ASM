@@ -2,23 +2,25 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn	SYSCALL	SinTabF:DWORD
-		extrn	SYSCALL	CosTabF:DWORD
+		extrn	C	SinTabF:DWORD
+		extrn	C	CosTabF:DWORD
 
-		extrn	SYSCALL	X0:DWORD
-		extrn	SYSCALL	Z0:DWORD
+		extrn	C	X0:DWORD
+		extrn	C	Z0:DWORD
+
+		ASSUME  DS:SEG SinTabF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	LongRotateF
+		public	C	LongRotateF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateF(S32 x, S32 z, S32 angle)	;
@@ -27,7 +29,12 @@
 ;	parm		[eax] [ecx] [edx]	\
 ;	modify exact	[edx]
 
-LongRotateF	proc
+LongRotateF	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, z: DWORD, angle: DWORD
+			mov eax, x
+			mov ecx, z
+			mov edx, angle
 
 		mov	[X0], eax
 		mov	[Z0], ecx

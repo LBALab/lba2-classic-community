@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	FlipMatrix
+		public	C	FlipMatrix
 
 FlipMatrix	dd	offset FlipMatrixInit
 
@@ -27,12 +27,12 @@ FlipMatrix	dd	offset FlipMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	FlipMatrixI:PROC
-		extrn	SYSCALL	FlipMatrixM:PROC
+		extrn	C	FlipMatrixI:PROC
+		;extrn	C	FlipMatrixM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	FlipMatrix(S32 *MatDst, S32 *MatSrc) ;
@@ -43,9 +43,9 @@ FlipMatrix	dd	offset FlipMatrixInit
 
 FlipMatrixInit proc
 
-		mov	[Chooser_RtnI], offset FlipMatrixI	; Integer or FPU
-		mov	[Chooser_RtnM], offset FlipMatrixM	; MMX
-		mov	[Chooser_Result], offset FlipMatrix	; Pointer
+		mov	[ds:Chooser_RtnI], offset FlipMatrixI	; Integer or FPU
+		;mov	[ds:Chooser_RtnM], offset FlipMatrixM	; MMX
+		mov	[ds:Chooser_Result], offset FlipMatrix	; Pointer
 		jmp	Chooser
 
 FlipMatrixInit endp

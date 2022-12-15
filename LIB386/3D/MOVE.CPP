@@ -184,3 +184,124 @@ over:				cur = end		;
 }
 
 //---------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+S32 AdjustSpeedAngle(S32 speed, S32 start, S32 end) {
+  S32 returnValue;
+
+#ifdef __MSC_VER
+  __asm {
+		pusha
+		mov	ebx, speed
+		mov	ecx, start
+		mov	edx, end
+
+		xor	eax, eax
+		and	ecx, 4095
+		and	edx, 4095
+		sub	edx, ecx
+		jz	ok
+		mov	eax, ebx
+		jns	skip
+		neg	edx
+		neg	eax
+	skip:	cmp	edx, 2048
+		jl	ok
+	chg:	neg	eax
+	ok:
+		mov returnValue, eax
+		popa
+  }
+#elif __GNUC__
+  __asm__ __volatile__("pusha\n\t"
+                       "movl %1, %%ebx\n\t"
+                       "movl %2, %%ecx\n\t"
+                       "movl %3, %%edx\n\t"
+                       "xorl %%eax, %%eax\n\t"
+                       "andl $4095, %%ecx\n\t"
+                       "andl $4095, %%edx\n\t"
+                       "subl %%ecx, %%edx\n\t"
+                       "jz ok%=\n\t"
+                       "movl %%ebx, %%eax\n\t"
+                       "jns skip%=\n\t"
+                       "negl %%edx\n\t"
+                       "negl %%eax\n\t"
+             "skip%=:\n\t"
+                       "cmpl $2048, %%edx\n\t"
+                       "jl ok%=\n\t"
+             "chg%=:\n\t"
+                       "negl %%eax\n\t"
+             "ok%=:\n\t"
+                       "movl %%eax, %0\n\t"
+                       "popa\n\t"
+                       : "=m"(returnValue)
+                       : "m"(speed), "m"(start), "m"(end)
+                       : "%eax", "%ebx", "%ecx", "%edx");
+#else
+#error "Unsupported compiler!"
+#endif
+
+  return returnValue;
+}
+
+S32 GetDeltaAccMove(S32 *acc) {
+  S32 returnValue;
+
+#ifdef __MSC_VER
+  __asm {
+		pusha
+		mov ebx, acc
+		mov     ecx, 1000
+		mov     eax, [ebx]
+		cmp	eax, ecx
+		jge	ok
+		cmp	eax, -1000
+		jg	skip
+	ok:	mov     edx, eax
+		sar     edx, 31
+		idiv    ecx
+		mov     [ebx], edx
+		jmp	end
+	skip:	xor	eax, eax
+	end:
+		mov returnValue, eax
+		popa
+  }
+#elif __GNUC__
+  __asm__ __volatile__("pusha\n\t"
+                       "movl %1, %%ebx\n\t"
+                       "movl $1000, %%ecx\n\t"
+                       "movl (%%ebx), %%eax\n\t"
+                       "cmpl %%ecx, %%eax\n\t"
+                       "jge ok%=\n\t"
+                       "cmpl $-1000, %%eax\n\t"
+                       "jg skip%=\n\t"
+             "ok%=:\n\t"
+                       "movl %%eax, %%edx\n\t"
+                       "sarl $31, %%edx\n\t"
+                       "idivl %%ecx\n\t"
+                       "movl %%edx, (%%ebx)\n\t"
+                       "jmp end%=\n\t"
+             "skip%=:\n\t"
+                       "xorl %%eax, %%eax\n\t"
+             "end%=:\n\t"
+                       "movl %%eax, %0\n\t"
+                       "popa\n\t"
+                       : "=m"(returnValue)
+                       : "m"(acc)
+                       : "%eax", "%ebx", "%ecx", "%edx");
+#else
+#error "Unsupported compiler!"
+#endif
+
+  return returnValue;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+
+//---------------------------------------------------------------------------

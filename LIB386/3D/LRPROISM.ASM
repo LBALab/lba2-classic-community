@@ -3,7 +3,7 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -11,23 +11,23 @@
 
 		.DATA
 
-		extrn	SYSCALL CameraX:DWORD
-		extrn	SYSCALL CameraY:DWORD
-		extrn	SYSCALL CameraZ:DWORD
+		extrn	C CameraX:DWORD
+		extrn	C CameraY:DWORD
+		extrn	C CameraZ:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL	Xp:DWORD
-		extrn	SYSCALL	Yp:DWORD
+		extrn	C	Xp:DWORD
+		extrn	C	Yp:DWORD
 
-		extrn SYSCALL	MMX_DEMI2:DWORD
+		extrn C	MMX_DEMI2:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	LongRotateProjectPointIsoM
+		public C	LongRotateProjectPointIsoM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateProjectPointIsoM(S32 *Mat, S32 x, S32 y, S32 z)	;

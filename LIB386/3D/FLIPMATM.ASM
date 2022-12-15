@@ -3,7 +3,7 @@
 			.586
 			.MMX
 
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 			include MAT.INC
 
@@ -16,7 +16,7 @@
 
 			.CODE
 
-			public	SYSCALL	FlipMatrixM
+			public	C	FlipMatrixM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	FlipMatrixM(S32 *MatDst, S32 *MatSrc) ;

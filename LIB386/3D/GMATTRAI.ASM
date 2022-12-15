@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,14 +10,14 @@
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:WORD
-		extrn	SYSCALL	CosTab:WORD
+		extrn	C	SinTab:WORD
+		extrn	C	CosTab:WORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	GetMatrixTransI
+		public	C	GetMatrixTransI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	GetMatrixTransI(S32 *MatDst, S32 *tx, S32 *ty, S32 *tz) ;
@@ -28,9 +28,9 @@
 
 GetMatrixTransI	proc
 
-		mov	edx, [esi].MAT_MTX
-		mov	edi, [esi].MAT_MTY
-		mov	esi, [esi].MAT_MTZ
+		mov	edx, [esi].Struc_MatriceMAT.MAT_MTX
+		mov	edi, [esi].Struc_MatriceMAT.MAT_MTY
+		mov	esi, [esi].Struc_MatriceMAT.MAT_MTZ
 
 		mov	[eax], edx
 		mov	[ebx], edi

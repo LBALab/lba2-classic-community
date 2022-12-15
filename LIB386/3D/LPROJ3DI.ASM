@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,20 +10,23 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL CameraXr:DWORD
-		extrn	SYSCALL CameraYr:DWORD
-		extrn	SYSCALL CameraZr:DWORD
+		extrn	C CameraXr:DWORD
+		extrn	C CameraYr:DWORD
+		extrn	C CameraZr:DWORD
 
-		extrn	SYSCALL CameraZrClip:DWORD
+		extrn	C CameraZrClip:DWORD
 
-		extrn	SYSCALL LFactorX:DWORD
-		extrn	SYSCALL LFactorY:DWORD
+		extrn	C LFactorX:DWORD
+		extrn	C LFactorY:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL	Xp:DWORD
-		extrn	SYSCALL	Yp:DWORD
+		extrn	C	Xp:DWORD
+		extrn	C	Yp:DWORD
+
+		ASSUME  DS:SEG CameraXr
+
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -31,7 +34,7 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	LongProjectPoint3DI
+		public	C	LongProjectPoint3DI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongProjectPoint3DI(S32 x, S32 y, S32 z)		;

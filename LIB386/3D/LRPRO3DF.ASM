@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -11,31 +11,33 @@
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL MatriceWorld:DWORD
+		extrn	C MatriceWorld:DWORD
 
-		extrn	SYSCALL CameraXr:DWORD
-		extrn	SYSCALL CameraYr:DWORD
-		extrn	SYSCALL CameraZr:DWORD
+		extrn	C CameraXr:DWORD
+		extrn	C CameraYr:DWORD
+		extrn	C CameraZr:DWORD
 
-		extrn	SYSCALL CameraZrClip:DWORD
+		extrn	C CameraZrClip:DWORD
 
-		extrn	SYSCALL NearClip:DWORD
+		extrn	C NearClip:DWORD
 
-		extrn	SYSCALL FRatioX:DWORD
-		extrn	SYSCALL FRatioY:DWORD
+		extrn	C FRatioX:DWORD
+		extrn	C FRatioY:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL Xp:DWORD
-		extrn	SYSCALL Yp:DWORD
+		extrn	C Xp:DWORD
+		extrn	C Yp:DWORD
+
+		ASSUME  DS:SEG CameraXr
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	LongWorldRotateProjectPoint3DF
-		public SYSCALL	LongRotateProjectPoint3DF
+		public C	LongWorldRotateProjectPoint3DF
+		public C	LongRotateProjectPoint3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongWorldRotateProjectPoint3DF(S32 x, S32 y, S32 z)	;
@@ -71,40 +73,40 @@ LongRotateProjectPoint3DF::
 
 		fld	st(2)		; Z  X  Y  Z
 
-		fmul	[esi].MAT_M31	; Z1 X  Y  Z
+		fmul	[esi].Struc_MatriceMAT.MAT_M31	; Z1 X  Y  Z
 
 		fld	st(2)		; Y  Z1 X  Y  Z
 
-		fmul	[esi].MAT_M32	; Y1 Z1 X  Y  Z
+		fmul	[esi].Struc_MatriceMAT.MAT_M32	; Y1 Z1 X  Y  Z
 
 		fld	st(2)		; X  Y1 Z1 X  Y  Z
 
-		fmul	[esi].MAT_M33	; X1 Y1 Z1 X  Y  Z
+		fmul	[esi].Struc_MatriceMAT.MAT_M33	; X1 Y1 Z1 X  Y  Z
 
 		fld	st(5)		; Z  X1 Y1 Z1 X  Y  Z
 
-		fmul	[esi].MAT_M21   ; Z2 X1 Y1 Z1 X  Y  Z
+		fmul	[esi].Struc_MatriceMAT.MAT_M21   ; Z2 X1 Y1 Z1 X  Y  Z
 
 		fld	st(5)		; Y  Z2 X1 Y1 Z1 X  Y  Z
 
-		fmul	[esi].MAT_M22   ; Y2 Z2 X1 Y1 Z1 X  Y  Z
+		fmul	[esi].Struc_MatriceMAT.MAT_M22   ; Y2 Z2 X1 Y1 Z1 X  Y  Z
 		fxch	st(3)		; Y1 Z2 X1 Y2 Z1 X  Y  Z
 
 		faddp	st(4), st(0)    ; Z2 X1 Y2 P1 X  Y  Z
 		fxch	st(6)		; Z  X1 Y2 P1 X  Y  Z2
 
-		fmul	[esi].MAT_M11	; Z3 X1 Y2 P1 X  Y  Z2
+		fmul	[esi].Struc_MatriceMAT.MAT_M11	; Z3 X1 Y2 P1 X  Y  Z2
 		fxch	st(6)		; Z2 X1 Y2 P1 X  Y  Z3
 
 		fld	st(4)		; X  Z2 X1 Y2 P1 X  Y  Z3
 
-		fmul	[esi].MAT_M23	; X2 Z2 X1 Y2 P1 X  Y  Z3
+		fmul	[esi].Struc_MatriceMAT.MAT_M23	; X2 Z2 X1 Y2 P1 X  Y  Z3
 		fxch	st(1)		; Z2 X2 X1 Y2 P1 X  Y  Z3
 
 		faddp	st(3), st(0)	; X2 X1 P2 P1 X  Y  Z3
 		fxch	st(5)		; Y  X1 P2 P1 X  X2 Z3
 
-		fmul	[esi].MAT_M12	; Y3 X1 P2 P1 X  X2 Z3
+		fmul	[esi].Struc_MatriceMAT.MAT_M12	; Y3 X1 P2 P1 X  X2 Z3
 
 		fild	[CameraZrClip]	; ZC Y3 X1 P2 P1 X  X2 Z3
 
@@ -113,7 +115,7 @@ LongRotateProjectPoint3DF::
 		faddp	st(4), st(0)	; Y3 ZC P2 Z' X  X2 Z3
 		fxch	st(4)		; X  ZC P2 Z' Y3 X2 Z3
 
-		fmul	[esi].MAT_M13	; X3 ZC P2 Z' Y3 X2 Z3
+		fmul	[esi].Struc_MatriceMAT.MAT_M13	; X3 ZC P2 Z' Y3 X2 Z3
 		fxch	st(4)		; Y3 ZC P2 Z' X3 X2 Z3
 
 		faddp	st(6), st(0)	; ZC P2 Z' X3 X2 P3

@@ -4,28 +4,30 @@
 		include	MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-DGROUP		GROUP	_DATA
+;DGROUP		GROUP	_DATA
 
-_DATA		SEGMENT USE32 PARA PUBLIC 'DATA'
+;_DATA		SEGMENT USE32 PARA PUBLIC 'DATA'
+		.model FLAT, C
+		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ALIGN 8
-		public	SYSCALL	MatriceWorld
+		public	C	MatriceWorld
 
 MatriceWorld	Struc_MatriceMAT	<>
 
 ALIGN 8
-		public	SYSCALL	MatrixLib1
+		public	C	MatrixLib1
 
 MatrixLib1	Struc_MatriceMAT	<>
 
 ALIGN 8
-		public	SYSCALL MatrixLib2
+		public	C MatrixLib2
 
 MatrixLib2	Struc_MatriceMAT	<>
 
 ALIGN 8
-		public	SYSCALL MatriceRot
+		public	C MatriceRot
 
 MatriceRot	Struc_MatriceMAT	<>
 

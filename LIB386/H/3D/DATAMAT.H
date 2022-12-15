@@ -2,6 +2,8 @@
 #ifndef	LIB_3D_DATAMAT
 #define	LIB_3D_DATAMAT
 
+#include <SYSTEM/ADELINE.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

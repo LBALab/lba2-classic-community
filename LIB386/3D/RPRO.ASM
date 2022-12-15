@@ -1,7 +1,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -9,7 +9,7 @@
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL RotateProjectPoint
+		public	C RotateProjectPoint
 
 ;*══════════════════════════════════════════════════════════════════════════*
 RotateProjectPoint	dd	offset RotateProjectPointInit
@@ -17,18 +17,20 @@ RotateProjectPoint	dd	offset RotateProjectPointInit
 ;*══════════════════════════════════════════════════════════════════════════*
 temp		dd	?
 
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	TypeProj:DWORD
+		ASSUME  DS:SEG temp
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	RotateProjectPoint3D:DWORD
-		extrn	SYSCALL	RotateProjectPointIso:DWORD
+		extrn	C	TypeProj:DWORD
+
+;*══════════════════════════════════════════════════════════════════════════*
+		extrn	C	RotateProjectPoint3D:DWORD
+		extrn	C	RotateProjectPointIso:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	RotateProjectPointInit
+		public	C	RotateProjectPointInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 RotateProjectPointInit proc

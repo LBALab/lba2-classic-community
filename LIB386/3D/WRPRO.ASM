@@ -1,13 +1,13 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL WorldRotateProjectPoint
+		public	C WorldRotateProjectPoint
 
 ;*══════════════════════════════════════════════════════════════════════════*
 WorldRotateProjectPoint	dd	offset WorldRotateProjectPointInit
@@ -15,14 +15,16 @@ WorldRotateProjectPoint	dd	offset WorldRotateProjectPointInit
 ;*══════════════════════════════════════════════════════════════════════════*
 temp		dd	?
 
+		ASSUME  DS:SEG temp
+
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	WorldRotateProjectPoint3D:DWORD
+		extrn	C	WorldRotateProjectPoint3D:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	WorldRotateProjectPointInit
+		public	C	WorldRotateProjectPointInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 WorldRotateProjectPointInit proc

@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,13 +10,15 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL ScreenXMin:DWORD
-		extrn	SYSCALL ScreenXMax:DWORD
-		extrn	SYSCALL ScreenYMin:DWORD
-		extrn	SYSCALL ScreenYMax:DWORD
+		extrn	C ScreenXMin:DWORD
+		extrn	C ScreenXMax:DWORD
+		extrn	C ScreenYMin:DWORD
+		extrn	C ScreenYMax:DWORD
+
+		ASSUME  DS:SEG XCentre
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -24,7 +26,7 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	ProjectListIso
+		public	C	ProjectListIso
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ProjectListIso(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);

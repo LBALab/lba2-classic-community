@@ -2,7 +2,7 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -10,51 +10,53 @@
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	ProcessorSignature:DWORD
-		extrn	SYSCALL	ProcessorFeatureFlags:DWORD
+		extrn	C	ProcessorSignature:DWORD
+		extrn	C	ProcessorFeatureFlags:DWORD
+
+		 ASSUME DS:SEG ProcessorFeatureFlags
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	XCentre:	DWORD
-		extrn	SYSCALL	YCentre:	DWORD
+		extrn	C	XCentre:	DWORD
+		extrn	C	YCentre:	DWORD
 
-		extrn	SYSCALL	NearClip:	DWORD
+		extrn	C	NearClip:	DWORD
 
-		extrn	SYSCALL	LFactorX:	DWORD
-		extrn	SYSCALL	LFactorY:	DWORD
+		extrn	C	LFactorX:	DWORD
+		extrn	C	LFactorY:	DWORD
 
-		extrn	SYSCALL	TypeProj:	DWORD
+		extrn	C	TypeProj:	DWORD
 
-		extrn	SYSCALL	FRatioX:	DWORD
-		extrn	SYSCALL	FRatioY:	DWORD
+		extrn	C	FRatioX:	DWORD
+		extrn	C	FRatioY:	DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-	        extrn   SYSCALL LongProjectPoint:		DWORD
-	        extrn   SYSCALL LongRotateProjectPoint:		DWORD
-	        extrn   SYSCALL LongWorldRotateProjectPoint:	DWORD
+	        extrn   C LongProjectPoint:		DWORD
+	        extrn   C LongRotateProjectPoint:		DWORD
+	        extrn   C LongWorldRotateProjectPoint:	DWORD
 
-                extrn   SYSCALL ProjectList:			DWORD
-                extrn   SYSCALL LongProjectList:		DWORD
+                extrn   C ProjectList:			DWORD
+                extrn   C LongProjectList:		DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-                extrn   SYSCALL LongProjectPointInit:           PROC
-                extrn   SYSCALL LongRotateProjectPointInit:     PROC
-                extrn   SYSCALL LongWorldRotateProjectPointInit:PROC
+                extrn   C LongProjectPointInit:           PROC
+                extrn   C LongRotateProjectPointInit:     PROC
+                extrn   C LongWorldRotateProjectPointInit:PROC
 
-                extrn   SYSCALL LongProjectPointIso:		PROC
-                extrn   SYSCALL LongWorldRotateProjectPointIso:	PROC
+                extrn   C LongProjectPointIso:		PROC
+                extrn   C LongWorldRotateProjectPointIso:	PROC
 
-                extrn   SYSCALL ProjectListInit:		PROC
-                extrn   SYSCALL LongProjectListInit:		PROC
+                extrn   C ProjectListInit:		PROC
+                extrn   C LongProjectListInit:		PROC
 
-                extrn   SYSCALL ProjectListIso:			PROC
-                extrn   SYSCALL LongProjectListIso:		PROC
+                extrn   C ProjectListIso:			PROC
+                extrn   C LongProjectListIso:		PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	SetProjection
-		public	SYSCALL	SetIsoProjection
+		public	C	SetProjection
+		public	C	SetIsoProjection
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	SetProjection(xc, yc, clip, factorx, factory)
@@ -63,7 +65,14 @@
 ;	parm caller [eax] [ebx] [ecx] [edx] [esi]	\
 ;	modify exact [eax ebx ecx edx]
 
-SetProjection	PROC
+SetProjection	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			xc: DWORD, yc: DWORD, clip:DWORD, factorx: DWORD, factory: DWORD
+			mov eax, xc
+			mov ebx, yc
+			mov ecx, clip
+			mov edx, factorx
+			mov esi, factory
 
 		mov	[LFactorX], edx
 		mov	[LFactorY], esi
@@ -76,7 +85,8 @@ SetProjection	PROC
 		test	[ProcessorFeatureFlags], 1 SHL 23
 		jz	noMMX
 
-		emms
+; TODO: Recheck, was commented by yaz0r so must be right
+;		emms
 noMMX:
 		fild	[LFactorX]	; fx
 		fild	[LFactorY]	; fy fx
@@ -118,7 +128,11 @@ SetProjection	ENDP
 ;	parm caller [eax] [ebx]		\
 ;	modify	[ecx]
 
-SetIsoProjection PROC
+SetIsoProjection PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			xc: DWORD, yc: DWORD
+			mov eax, xc
+			mov ebx, yc
 
 		mov	[XCentre], eax
 		mov	[YCentre], ebx

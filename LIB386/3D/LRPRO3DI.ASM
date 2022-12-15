@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,29 +10,31 @@
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL MatriceWorld:DWORD
+		extrn	C MatriceWorld:DWORD
 
-		extrn	SYSCALL CameraXr:DWORD
-		extrn	SYSCALL CameraYr:DWORD
-		extrn	SYSCALL CameraZr:DWORD
+		extrn	C CameraXr:DWORD
+		extrn	C CameraYr:DWORD
+		extrn	C CameraZr:DWORD
 
-		extrn	SYSCALL CameraZrClip:DWORD
+		extrn	C CameraZrClip:DWORD
 
-		extrn	SYSCALL LFactorX:DWORD
-		extrn	SYSCALL LFactorY:DWORD
+		extrn	C LFactorX:DWORD
+		extrn	C LFactorY:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL	Xp:DWORD
-		extrn	SYSCALL	Yp:DWORD
+		extrn	C	Xp:DWORD
+		extrn	C	Yp:DWORD
+
+		ASSUME  DS:SEG CameraXr
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	LongRotateProjectPoint3DI
-		public SYSCALL	LongWorldRotateProjectPoint3DI
+		public C	LongRotateProjectPoint3DI
+		public C	LongWorldRotateProjectPoint3DI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongWorldRotateProjectPoint3DI(S32 x, S32 y, S32 z)	;
@@ -57,22 +59,22 @@ LongRotateProjectPoint3DI::
 		push	ebp
 		mov	[Yp], eax
 
-		imul	[esi].MAT_M11
+		imul	[esi].Struc_MatriceMAT.MAT_M11
 
 		mov     ebp, eax
- 		mov	eax, [esi].MAT_M12
+ 		mov	eax, [esi].Struc_MatriceMAT.MAT_M12
 		mov     edi, edx
 
 		imul	ebx
 
 		add     ebp, eax
-		mov	eax, [esi].MAT_M13
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M13
 		adc     edi, edx
 
 		imul	ecx
 
 		add     ebp, eax
-		mov     eax, [esi].MAT_M21
+		mov     eax, [esi].Struc_MatriceMAT.MAT_M21
 		adc     edi, edx
 
 		imul    [Yp]
@@ -82,18 +84,18 @@ LongRotateProjectPoint3DI::
 		mov     edi, edx
 		mov	[Xp], ebp
 		mov     ebp, eax
-		mov	eax, [esi].MAT_M22
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M22
 
 		imul	ebx
 
 		add     ebp, eax
-		mov	eax, [esi].MAT_M23
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M23
 		adc     edi, edx
 
 		imul	ecx
 
 		add     ebp, eax
-		mov     eax, [esi].MAT_M31
+		mov     eax, [esi].Struc_MatriceMAT.MAT_M31
 		adc     edi, edx
 
 		imul    [Yp]
@@ -103,12 +105,12 @@ LongRotateProjectPoint3DI::
 		mov     edi, edx
 		mov	[Yp], ebp
 		mov     ebp, eax
-		mov	eax, [esi].MAT_M32
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M32
 
 		imul	ebx
 
 		add     ebp, eax
-		mov	eax, [esi].MAT_M33
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M33
 		adc     edi, edx
 
 		imul	ecx

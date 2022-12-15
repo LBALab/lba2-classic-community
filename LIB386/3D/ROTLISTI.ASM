@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 		include MAT.INC
 
@@ -12,31 +12,31 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public SYSCALL	RotateListI
-		public SYSCALL	NextPointRotListI
+		public C	RotateListI
+		public C	NextPointRotListI
 
 ;*══════════════════════════════════════════════════════════════════════════*
-                public SYSCALL	patch_MTX
-                public SYSCALL	patch_MTY
-                public SYSCALL	patch_MTZ
-                public SYSCALL	patch_M11
-                public SYSCALL	patch_M12
-                public SYSCALL	patch_M13
-                public SYSCALL	patch_M21
-                public SYSCALL	patch_M22_M32
-                public SYSCALL	patch_M23
-                public SYSCALL	patch_M31
-                public SYSCALL	patch_M32
-                public SYSCALL	patch_M33
-                public SYSCALL	patch_End
-                public SYSCALL	patch_Delta0
-                public SYSCALL	patch_Delta1
-                public SYSCALL	patch_Delta2
-                public SYSCALL	RotateListIEnd
+                public C	patch_MTX
+                public C	patch_MTY
+                public C	patch_MTZ
+                public C	patch_M11
+                public C	patch_M12
+                public C	patch_M13
+                public C	patch_M21
+                public C	patch_M22_M32
+                public C	patch_M23
+                public C	patch_M31
+                public C	patch_M32
+                public C	patch_M33
+                public C	patch_End
+                public C	patch_Delta0
+                public C	patch_Delta1
+                public C	patch_Delta2
+                public C	RotateListIEnd
 
 ;*══════════════════════════════════════════════════════════════════════════*
 IFDEF	_WIN32
-		extrn  SYSCALL	AllowPatchAndPatch:PROC
+		extrn  C	AllowPatchAndPatch:PROC
 ENDIF
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -114,11 +114,11 @@ ENDIF
 		mov	End_Loop, ecx	; final address for end of loop
 		mov	Delta2, esi	; delta+4
 
-		mov	esi, [ebx].MAT_M11
-		mov	edi, [ebx].MAT_M12
+		mov	esi, [ebx].Struc_MatriceMAT.MAT_M11
+		mov	edi, [ebx].Struc_MatriceMAT.MAT_M12
 
 		mov	ebp, esi
-		mov	ecx, [ebx].MAT_M13
+		mov	ecx, [ebx].Struc_MatriceMAT.MAT_M13
 
 		imul	ebp, edi	; M11*M12
 
@@ -131,13 +131,13 @@ ENDIF
 		mov	[Trans_X], ebp	; - M11*M12
 
 		mov	Mat_13, ecx
-		mov	eax, [ebx].MAT_M32
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M32
 
-		mov	esi, [ebx].MAT_M21
-		mov	edi, [ebx].MAT_M22
+		mov	esi, [ebx].Struc_MatriceMAT.MAT_M21
+		mov	edi, [ebx].Struc_MatriceMAT.MAT_M22
 
 		mov	ebp, esi
-		mov	ecx, [ebx].MAT_M23
+		mov	ecx, [ebx].Struc_MatriceMAT.MAT_M23
 
 		imul	ebp, edi	; M21*M22
 
@@ -151,10 +151,10 @@ ENDIF
 		mov	Mat_23, ecx
 
 		mov	[Trans_Y], ebp	; - M21*M22
-		mov	edx, [ebx].MAT_M31
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M31
 
 		mov	ebp, edx
-		mov	ebx, [ebx].MAT_M33
+		mov	ebx, [ebx].Struc_MatriceMAT.MAT_M33
 
 		imul	ebp, eax	; M31*M32
 
