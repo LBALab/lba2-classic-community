@@ -21,6 +21,6 @@ foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM SOURCES_FILES_ASM_WIN SOURCES_FILES
     set_source_files_properties(${FILE_ASM} PROPERTIES LANGUAGE ASM_MASM)
 endforeach ()
 
-# Files in folder but not used:
+# Source files in folder but not used on CMakeScript:
 # - SCANINP.CPP
 # - WIN.CPP
