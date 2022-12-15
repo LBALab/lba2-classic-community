@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23
+  },
+  "configurePresets": [
+    {
+      "hidden": true,
+      "name": "default",
+      "generator": "Ninja",
+      "warnings": {
+        "deprecated": true
+      }
+    },
+    {
+      "name": "cross_linux2win",
+      "inherits": "default",
+      "displayName": "Cross Linux 2 Windows",
+      "description": "Cross compilation from Linux targeting Windows using MinGW-w64",
+      "toolchainFile": "cmake/mingw-w64-i686.cmake"
+    },
+    {
+      "name": "linux",
+      "inherits": "default",
+      "displayName": "Linux",
+      "description": "Normal compilation on Linux"
+    },
+    {
+      "hidden": true,
+      "name": "no_sound",
+      "description": "Configure project to disable the compilation of all sound backends",
+      "cacheVariables": {
+        "SOUND_BACKEND": {
+          "type": "STRING",
+          "value": "none"
+        },
+        "MVIDEO_BACKEND": {
+          "type": "STRING",
+          "value": "none"
+        }
+      }
+    }
+  ]
+}
