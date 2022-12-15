@@ -30,8 +30,13 @@
 #endif//_BUILDING_LIB
 
 //──────────────────────────────────────────────────────────────────────────
+#ifdef MVIDEO_USE_SMACKER
 #include	<SMACKER/SMACK.H>
 #include	<SMACKER/SMACKER.H>
+#else
+// TODO: Remove comment, enable warning
+//#warning "Compiling without any Motion Video playback support!"
+#endif
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_SMACKER
