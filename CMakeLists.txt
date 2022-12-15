@@ -4,8 +4,13 @@ project(LBA2)
 
 # Configure languages and compilers
 set(CMAKE_ASM_MASM_COMPILER uasm) # TODO: Move to toolchain file
-set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -nologo -Cx -Zm -c -Sa -Zd") # TODO: Move to toolchain file
-# TODO: Check if assembler flags for /DREG_CALL or /DSTACK_CALL are necessary and if move to toolchain or target config
+set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -DREG_CALL -coff -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd") # TODO: Move to toolchain file
+# TODO: Add /Zd only in debug mode
+
+# TODO: Re-check ASM "rep movsd", UASM may be thinking it is XMM when it is not (I think 486 should support it)
+# TODO: Check if all compilations use flat memory model /mf (ASM too, check for flags and ".MODEL")
+# TODO: Check all uses of structure alignment /zp8 and /zp2 (ASM code also uses ALIGN)
+# TODO: Re-check all source files for all folders and list non used ones on CMakeScript
 enable_language(C CXX ASM_MASM)
 set(CMAKE_CXX_STANDARD 98)
 
