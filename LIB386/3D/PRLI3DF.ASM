@@ -3,7 +3,7 @@
 		.586p
 		.MMX
 
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 		include	MAT.INC
 
@@ -13,25 +13,25 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL NearClip:DWORD
+		extrn	C NearClip:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL Xp:DWORD
-		extrn	SYSCALL Yp:DWORD
+		extrn	C Xp:DWORD
+		extrn	C Yp:DWORD
 
-		extrn	SYSCALL X0:DWORD
-		extrn	SYSCALL Y0:DWORD
-		extrn	SYSCALL Z0:DWORD
+		extrn	C X0:DWORD
+		extrn	C Y0:DWORD
+		extrn	C Z0:DWORD
 
-		extrn	SYSCALL FRatioX:DWORD
-		extrn	SYSCALL FRatioY:DWORD
+		extrn	C FRatioX:DWORD
+		extrn	C FRatioY:DWORD
 
-		extrn	SYSCALL ScreenXMin:DWORD
-		extrn	SYSCALL ScreenXMax:DWORD
-		extrn	SYSCALL ScreenYMin:DWORD
-		extrn	SYSCALL ScreenYMax:DWORD
+		extrn	C ScreenXMin:DWORD
+		extrn	C ScreenXMax:DWORD
+		extrn	C ScreenYMin:DWORD
+		extrn	C ScreenYMax:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -39,8 +39,8 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	ProjectList3DMF
-		public	SYSCALL	ProjectList3DF
+		;public	C	ProjectList3DMF
+		public	C	ProjectList3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ProjectList3DF(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
@@ -65,7 +65,8 @@ ProjectList3DMF	PROC
 		test	ecx, ecx
 		jz	RetProj
 
-		emms
+; TODO: Recheck, was commented by yaz0r so must be right, but recheck on problems
+;		emms
 
 		jmp	enterprojli
 ProjectList3DF::
@@ -291,7 +292,8 @@ UpdateYMax1:
 		mov	[ScreenYMax], eax
 		jmp	OkYMax1
 Clip0:
-     		mov	[edi], 80008000h
+		mov eax, 80008000h
+     	mov	[edi], eax
 		add	edi, 4
 
 		cmp	esi, ebp
@@ -312,7 +314,8 @@ Clip0:
 Clip:
   		mov	edx, [NearClip]
 ClipLoop:
-		mov	[edi], 80008000h
+		mov eax, 80008000h
+     	mov	[edi], eax
 		add	edi, 4
 
 		cmp	esi, ebp

@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL LongRotateProjectPointIso
+		public	C LongRotateProjectPointIso
 
 LongRotateProjectPointIso	dd	offset	LongRotateProjectPointIsoInit
 
@@ -27,13 +27,13 @@ LongRotateProjectPointIso	dd	offset	LongRotateProjectPointIsoInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	LongRotateProjectPointIsoI:PROC
-		extrn	SYSCALL	LongRotateProjectPointIsoF:PROC
-		extrn	SYSCALL	LongRotateProjectPointIsoM:PROC
+		extrn	C	LongRotateProjectPointIsoI:PROC
+		extrn	C	LongRotateProjectPointIsoF:PROC
+		;extrn	C	LongRotateProjectPointIsoM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateProjectPointIso(S32 *Mat, S32 x, S32 y, S32 z)	;
@@ -44,10 +44,10 @@ LongRotateProjectPointIso	dd	offset	LongRotateProjectPointIsoInit
 
 LongRotateProjectPointIsoInit proc
 
-		mov	[Chooser_RtnI], offset LongRotateProjectPointIsoI	; Integer
-		mov	[Chooser_RtnF], offset LongRotateProjectPointIsoF	; FPU
-		mov	[Chooser_RtnM], offset LongRotateProjectPointIsoM	; MMX
-		mov	[Chooser_Result], offset LongRotateProjectPointIso	; Pointer
+		mov	[ds:Chooser_RtnI], offset LongRotateProjectPointIsoI	; Integer
+		mov	[ds:Chooser_RtnF], offset LongRotateProjectPointIsoF	; FPU
+		;mov	[ds:Chooser_RtnM], offset LongRotateProjectPointIsoM	; MMX
+		mov	[ds:Chooser_Result], offset LongRotateProjectPointIso	; Pointer
 		jmp	Chooser
 
 LongRotateProjectPointIsoInit endp

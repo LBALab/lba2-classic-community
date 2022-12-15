@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -12,7 +12,7 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	MulMatrixI
+		public	C	MulMatrixI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	MulMAtrixI(S32 *MatDst, S32 *MatSrc1, S32* MatSrc2) ;
@@ -23,167 +23,167 @@
 
 MulMatrixI	proc uses ebp
 
-		mov	eax, [esi].MAT_M11
-		mov	ebp, [esi].MAT_M12
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M11
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M12
 
-		imul	eax, [ebx].MAT_M11
-		imul	ebp, [ebx].MAT_M21
-
-		add	eax, ebp
-		mov	ebp, [esi].MAT_M13
-
-		imul	ebp, [ebx].MAT_M31
+		imul	eax, [ebx].Struc_MatriceMAT.MAT_M11
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M21
 
 		add	eax, ebp
-		mov	ecx, [esi].MAT_M11
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M13
 
-		mov	ebp, [esi].MAT_M12
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M31
 
-		imul	ecx, [ebx].MAT_M12
-		imul	ebp, [ebx].MAT_M22
+		add	eax, ebp
+		mov	ecx, [esi].Struc_MatriceMAT.MAT_M11
+
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M12
+
+		imul	ecx, [ebx].Struc_MatriceMAT.MAT_M12
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M22
 
 		add	ecx, ebp
-		mov	ebp, [esi].MAT_M13
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M13
 
-		imul	ebp, [ebx].MAT_M32
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M32
 
 		sar	eax, 14
-		mov	edx, [esi].MAT_M11
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M11
 
 		adc	eax, 0
 		add	ecx, ebp
 
 		sar	ecx, 14
-		mov	ebp, [esi].MAT_M12
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M12
 
 		adc	ecx, 0
 
-		imul	edx, [ebx].MAT_M13
-		imul	ebp, [ebx].MAT_M23
+		imul	edx, [ebx].Struc_MatriceMAT.MAT_M13
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M23
 
 		add	edx, ebp
-		mov	ebp, [esi].MAT_M13
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M13
 
-		imul	ebp, [ebx].MAT_M33
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M33
 
 		add	edx, ebp
-		mov	[edi].MAT_M11, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M11, eax
 
 		sar	edx, 14
-		mov	[edi].MAT_M12, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M12, ecx
 
 		adc	edx, 0
-		mov	eax, [esi].MAT_M21
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M21
 
-		mov	[edi].MAT_M13, edx
-		mov	ebp, [esi].MAT_M22
+		mov	[edi].Struc_MatriceMAT.MAT_M13, edx
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M22
 
-		imul	eax, [ebx].MAT_M11
-		imul	ebp, [ebx].MAT_M21
-
-		add	eax, ebp
-		mov	ebp, [esi].MAT_M23
-
-		imul	ebp, [ebx].MAT_M31
+		imul	eax, [ebx].Struc_MatriceMAT.MAT_M11
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M21
 
 		add	eax, ebp
-		mov	ecx, [esi].MAT_M21
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M23
+
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M31
+
+		add	eax, ebp
+		mov	ecx, [esi].Struc_MatriceMAT.MAT_M21
 
 		sar	eax, 14
-		mov	ebp, [esi].MAT_M22
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M22
 
 		adc	eax, 0
 
-		imul	ecx, [ebx].MAT_M12
-		imul	ebp, [ebx].MAT_M22
+		imul	ecx, [ebx].Struc_MatriceMAT.MAT_M12
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M22
 
 		add	ecx, ebp
-		mov	ebp, [esi].MAT_M23
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M23
 
-		imul	ebp, [ebx].MAT_M32
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M32
 
 		add	ecx, ebp
-		mov	edx, [esi].MAT_M21
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M21
 
-		mov	ebp, [esi].MAT_M22
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M22
 
-		imul	edx, [ebx].MAT_M13
-		imul	ebp, [ebx].MAT_M23
+		imul	edx, [ebx].Struc_MatriceMAT.MAT_M13
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M23
 
 		add	edx, ebp
-		mov	ebp, [esi].MAT_M23
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M23
 
-		imul	ebp, [ebx].MAT_M33
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M33
 
 		sar	ecx, 14
-		mov	[edi].MAT_M21, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M21, eax
 
 		adc	ecx, 0
 		add	edx, ebp
 
 		sar	edx, 14
-		mov	[edi].MAT_M22, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M22, ecx
 
 		adc	edx, 0
-		mov	eax, [esi].MAT_M31
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M31
 
-		mov	[edi].MAT_M23, edx
-		mov	ebp, [esi].MAT_M32
+		mov	[edi].Struc_MatriceMAT.MAT_M23, edx
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M32
 
-		imul	eax, [ebx].MAT_M11
-		imul	ebp, [ebx].MAT_M21
-
-		add	eax, ebp
-		mov	ebp, [esi].MAT_M33
-
-		imul	ebp, [ebx].MAT_M31
+		imul	eax, [ebx].Struc_MatriceMAT.MAT_M11
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M21
 
 		add	eax, ebp
-		mov	ecx, [esi].MAT_M31
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M33
 
-		mov	ebp, [esi].MAT_M32
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M31
 
-		imul	ecx, [ebx].MAT_M12
-		imul	ebp, [ebx].MAT_M22
+		add	eax, ebp
+		mov	ecx, [esi].Struc_MatriceMAT.MAT_M31
+
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M32
+
+		imul	ecx, [ebx].Struc_MatriceMAT.MAT_M12
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M22
 
 		add	ecx, ebp
-		mov	ebp, [esi].MAT_M33
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M33
 
-		imul	ebp, [ebx].MAT_M32
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M32
 
 		sar	eax, 14
-		mov	edx, [esi].MAT_M31
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M31
 
 		adc	eax, 0
 		add	ecx, ebp
 
 		sar	ecx, 14
-		mov	ebp, [esi].MAT_M32
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M32
 
 		adc	ecx, 0
 
-		imul	edx, [ebx].MAT_M13
-		imul	ebp, [ebx].MAT_M23
+		imul	edx, [ebx].Struc_MatriceMAT.MAT_M13
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M23
 
 		add	edx, ebp
-		mov	ebp, [esi].MAT_M33
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M33
 
-		imul	ebp, [ebx].MAT_M33
+		imul	ebp, [ebx].Struc_MatriceMAT.MAT_M33
 
-		mov	[edi].MAT_M31, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M31, eax
 		xor	eax, eax
 
 		add	edx, ebp
-		mov	[edi].MAT_M32, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M32, ecx
 
 		sar	edx, 14
-		mov	[edi].MAT_MTX, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTX, eax
 
 		adc	edx, eax
-		mov	[edi].MAT_MTY, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTY, eax
 
-		mov	[edi].MAT_M33, edx
-		mov	[edi].MAT_MTZ, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M33, edx
+		mov	[edi].Struc_MatriceMAT.MAT_MTZ, eax
 
 		ret
 

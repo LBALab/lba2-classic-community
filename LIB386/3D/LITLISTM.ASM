@@ -2,7 +2,7 @@
 			.586p
 			.MMX
 
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 			include MAT.INC
 

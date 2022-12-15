@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -10,13 +10,13 @@
 
 		.DATA
 
-		public	SYSCALL InitMatrix
+		public	C InitMatrix
 InitMatrix	dd	offset InitMatrixInitStd
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	InitMatrixStd:DWORD
-		extrn	SYSCALL	InitMatrix3DS:DWORD
+		extrn	C	InitMatrixStd:DWORD
+		extrn	C	InitMatrix3DS:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -24,18 +24,18 @@ InitMatrix	dd	offset InitMatrixInitStd
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	MatrixStd
-		public	SYSCALL	Matrix3DS
+		public	C	MatrixStd
+		public	C	Matrix3DS
 
 ;*══════════════════════════════════════════════════════════════════════════*
 InitMatrixInitStd proc
 
-		call	[InitMatrixStd]
+		call	[ds:InitMatrixStd]
 
 		push	eax
-		mov	eax, [InitMatrixStd]
+		mov	eax, [ds:InitMatrixStd]
 
-		mov	[InitMatrix], eax
+		mov	[ds:InitMatrix], eax
 		pop	eax
 
 		ret
@@ -45,12 +45,12 @@ InitMatrixInitStd endp
 ;*══════════════════════════════════════════════════════════════════════════*
 InitMatrixInit3DS proc
 
-		call	[InitMatrix3DS]
+		call	[ds:InitMatrix3DS]
 
 		push	eax
-		mov	eax, [InitMatrix3DS]
+		mov	eax, [ds:InitMatrix3DS]
 
-		mov	[InitMatrix], eax
+		mov	[ds:InitMatrix], eax
 		pop	eax
 
 		ret
@@ -65,7 +65,7 @@ InitMatrixInit3DS endp
 
 MatrixStd	proc
 
-		mov	[InitMatrix], offset InitMatrixInitStd
+		mov	[ds:InitMatrix], offset InitMatrixInitStd
 		ret
 
 MatrixStd	endp
@@ -78,7 +78,7 @@ MatrixStd	endp
 
 Matrix3DS	proc
 
-		mov	[InitMatrix], offset InitMatrixInitStd
+		mov	[ds:InitMatrix], offset InitMatrixInitStd
 		ret
 
 Matrix3DS	endp

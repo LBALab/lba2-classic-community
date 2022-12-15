@@ -1,7 +1,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -9,7 +9,7 @@
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL LongRotateProjectPoint
+		public	C LongRotateProjectPoint
 
 ;*══════════════════════════════════════════════════════════════════════════*
 LongRotateProjectPoint	dd	offset LongRotateProjectPointInit
@@ -17,18 +17,20 @@ LongRotateProjectPoint	dd	offset LongRotateProjectPointInit
 ;*══════════════════════════════════════════════════════════════════════════*
 temp		dd	?
 
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	TypeProj:DWORD
+			ASSUME  DS:SEG temp
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	LongRotateProjectPoint3D:DWORD
-		extrn	SYSCALL	LongRotateProjectPointIso:DWORD
+		extrn	C	TypeProj:DWORD
+
+;*══════════════════════════════════════════════════════════════════════════*
+		extrn	C	LongRotateProjectPoint3D:DWORD
+		extrn	C	LongRotateProjectPointIso:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	LongRotateProjectPointInit
+		public	C	LongRotateProjectPointInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 LongRotateProjectPointInit proc

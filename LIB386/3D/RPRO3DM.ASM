@@ -3,7 +3,7 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -13,31 +13,31 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	MatriceWorld:DWORD
+		extrn	C	MatriceWorld:DWORD
 
-		extrn	SYSCALL CameraXr:DWORD
-		extrn	SYSCALL CameraYr:DWORD
-		extrn	SYSCALL CameraZr:DWORD
+		extrn	C CameraXr:DWORD
+		extrn	C CameraYr:DWORD
+		extrn	C CameraZr:DWORD
 
-		extrn	SYSCALL CameraZrClip:DWORD
+		extrn	C CameraZrClip:DWORD
 
-		extrn	SYSCALL LFactorX:DWORD
-		extrn	SYSCALL LFactorY:DWORD
+		extrn	C LFactorX:DWORD
+		extrn	C LFactorY:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL	Xp:DWORD
-		extrn	SYSCALL	Yp:DWORD
+		extrn	C	Xp:DWORD
+		extrn	C	Yp:DWORD
 
-		extrn	SYSCALL	MMX_DEMI:DWORD
+		extrn	C	MMX_DEMI:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	RotateProjectPoint3DM
-		public SYSCALL	WorldRotateProjectPoint3DM
+		public C	RotateProjectPoint3DM
+		public C	WorldRotateProjectPoint3DM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	WorldRotateProjectPoint3DM(S32 x, S32 y, S32 z)	;

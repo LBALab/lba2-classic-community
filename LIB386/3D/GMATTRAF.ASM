@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,7 +10,7 @@
 
 		.CODE
 
-		public	SYSCALL	GetMatrixTransF
+		public	C	GetMatrixTransF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	GetMatrixTransF(S32 *MatDst, S32 *tx, S32 *ty, S32 *tz) ;
@@ -21,11 +21,11 @@
 
 GetMatrixTransF	PROC
 
-		fld	[esi].MAT_MTX	; X
+		fld	[esi].Struc_MatriceMAT.MAT_MTX	; X
 
-		fld	[esi].MAT_MTY	; Y X
+		fld	[esi].Struc_MatriceMAT.MAT_MTY	; Y X
 
-		fld	[esi].MAT_MTZ	; Z Y X
+		fld	[esi].Struc_MatriceMAT.MAT_MTZ	; Z Y X
 
 		fistp	dword ptr[ecx]	; Y X
 

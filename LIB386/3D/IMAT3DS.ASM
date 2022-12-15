@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	InitMatrix3DS
+		public	C	InitMatrix3DS
 
 InitMatrix3DS	dd	offset InitMatrix3DSInit
 
@@ -27,13 +27,13 @@ InitMatrix3DS	dd	offset InitMatrix3DSInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	InitMatrix3DSI:PROC
-		extrn	SYSCALL	InitMatrix3DSF:PROC
-		extrn	SYSCALL	InitMatrix3DSM:PROC
+		extrn	C	InitMatrix3DSI:PROC
+		extrn	C	InitMatrix3DSF:PROC
+		;extrn	C	InitMatrix3DSM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitMatrix3DS(S32 *MatDst, S32 alpha, S32 beta, S32 gamma) ;
@@ -44,10 +44,10 @@ InitMatrix3DS	dd	offset InitMatrix3DSInit
 
 InitMatrix3DSInit proc
 
-		mov	[Chooser_RtnI], offset InitMatrix3DSI	; Integer
-		mov	[Chooser_RtnF], offset InitMatrix3DSF	; FPU
-		mov	[Chooser_RtnM], offset InitMatrix3DSM	; MMX
-		mov	[Chooser_Result], offset InitMatrix3DS	; Pointer
+		mov	[ds:Chooser_RtnI], offset InitMatrix3DSI	; Integer
+		mov	[ds:Chooser_RtnF], offset InitMatrix3DSF	; FPU
+		;mov	[ds:Chooser_RtnM], offset InitMatrix3DSM	; MMX
+		mov	[ds:Chooser_Result], offset InitMatrix3DS	; Pointer
 		jmp	Chooser
 
 InitMatrix3DSInit endp

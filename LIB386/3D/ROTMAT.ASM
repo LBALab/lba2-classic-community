@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	RotateMatrix
+		public	C	RotateMatrix
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -29,16 +29,16 @@ RotateMatrix	dd	offset RotateMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	RotateMatrixI:PROC
-		extrn	SYSCALL	RotateMatrixU:PROC
+		extrn	C	RotateMatrixI:PROC
+		extrn	C	RotateMatrixU:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	RotateMatrixInit
+		public	C	RotateMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotateMatrix(S32 *MatDst, S32 *MatSrc, S32 alpha, S32 beta, S32 gamma) ;
@@ -49,10 +49,10 @@ RotateMatrix	dd	offset RotateMatrixInit
 
 RotateMatrixInit proc
 
-		mov	[Chooser_RtnI], offset RotateMatrixI	; Integer
-		mov	[Chooser_RtnF], offset RotateMatrixU	; FPU
-		mov	[Chooser_RtnM], offset RotateMatrixU	; MMX
-		mov	[Chooser_Result], offset RotateMatrix	; Pointer
+		mov	[ds:Chooser_RtnI], offset RotateMatrixI	; Integer
+		mov	[ds:Chooser_RtnF], offset RotateMatrixU	; FPU
+		;mov	[ds:Chooser_RtnM], offset RotateMatrixU	; MMX
+		mov	[ds:Chooser_Result], offset RotateMatrix	; Pointer
 		jmp	Chooser
 
 RotateMatrixInit endp

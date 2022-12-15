@@ -3,25 +3,25 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:DWORD
-		extrn	SYSCALL	CosTab:DWORD
+		extrn	C	SinTab:DWORD
+		extrn	C	CosTab:DWORD
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Z0:DWORD
 
-		extrn SYSCALL	MMX_DEMI2:DWORD
+		extrn C	MMX_DEMI2:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	LongRotateM
+		public C	LongRotateM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateM(S32 x, S32 z, S32 angle)	;

@@ -3,14 +3,14 @@
         OPTION SCOPED
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
-		public	SYSCALL	QSqr
-		public	SYSCALL	Sqr
+		public	C	QSqr
+		public	C	Sqr
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;U32	QSqr(U32 xLow, U32 xHigh)	;
@@ -19,12 +19,23 @@
 ;	parm		[eax] [edx]		\
 ;	modify		[ebx ecx edx esi edi]
 
-QSqr		proc
+QSqr			PROC \
+			uses ebx ecx edx edi esi ebp\
+			xLow: DWORD, xHigh:DWORD
+			mov eax, xLow
+			mov edx, xHigh
 
 		test	edx, edx
-		jz	Sqr
+		jnz	Sqr_ok
 
-		cmp	edx, 3
+		push eax
+
+		call Sqr
+
+		add esp, 4
+		ret
+
+Sqr_ok:		cmp	edx, 3
 		jbe	easy
 
 		mov	cl, 33
@@ -72,7 +83,7 @@ easy:
 		mov	ecx, 16
 		mov	eax, 1
 		jmp	Sqr_loop
-ok:
+
 QSqr		endp
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -82,7 +93,10 @@ QSqr		endp
 ;	parm		[eax]			\
 ;	modify		[ebx ecx edx esi]
 
-Sqr		proc
+Sqr		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			xLow: DWORD
+			mov eax, xLow
 
 		cmp	eax, 3
 		jbe	short Sqr_0_1

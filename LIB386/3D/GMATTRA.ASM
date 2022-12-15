@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	GetMatrixTrans
+		public	C	GetMatrixTrans
 
 GetMatrixTrans	dd	offset GetMatrixTransGet
 
@@ -27,13 +27,13 @@ GetMatrixTrans	dd	offset GetMatrixTransGet
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	GetMatrixTransI:PROC
-		extrn	SYSCALL	GetMatrixTransF:PROC
-		extrn	SYSCALL	GetMatrixTransM:PROC
+		extrn	C	GetMatrixTransI:PROC
+		extrn	C	GetMatrixTransF:PROC
+		;extrn	C	GetMatrixTransM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	GetMatrixTrans(S32 *MatDst, S32 *tx, S32 *ty, S32 *tz) ;
@@ -44,10 +44,10 @@ GetMatrixTrans	dd	offset GetMatrixTransGet
 
 GetMatrixTransGet proc
 
-		mov	[Chooser_RtnI], offset GetMatrixTransI	; Integer
-		mov	[Chooser_RtnF], offset GetMatrixTransF	; FPU
-		mov	[Chooser_RtnM], offset GetMatrixTransM	; MMX
-		mov	[Chooser_Result], offset GetMatrixTrans	; Pointer
+		mov	[ds:Chooser_RtnI], offset GetMatrixTransI	; Integer
+		mov	[ds:Chooser_RtnF], offset GetMatrixTransF	; FPU
+		;mov	[ds:Chooser_RtnM], offset GetMatrixTransM	; MMX
+		mov	[ds:Chooser_Result], offset GetMatrixTrans	; Pointer
 		jmp	Chooser
 
 GetMatrixTransGet endp

@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	MulMatrix
+		public	C	MulMatrix
 
 MulMatrix	dd	offset MulMatrixInit
 
@@ -27,13 +27,13 @@ MulMatrix	dd	offset MulMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	MulMatrixI:PROC
-		extrn	SYSCALL	MulMatrixF:PROC
-		extrn	SYSCALL	MulMatrixM:PROC
+		extrn	C	MulMatrixI:PROC
+		extrn	C	MulMatrixF:PROC
+		;extrn	C	MulMatrixM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	MulMAtrix(S32 *MatDst, S32 *MatSrc1, S32* MatSrc2) ;
@@ -46,10 +46,10 @@ MulMatrix	dd	offset MulMatrixInit
 
 MulMatrixInit	proc
 
-		mov	[Chooser_RtnI], offset MulMatrixI	; Integer
-		mov	[Chooser_RtnF], offset MulMatrixF	; FPU
-		mov	[Chooser_RtnM], offset MulMatrixM	; MMX
-		mov	[Chooser_Result], offset MulMatrix	; Pointer
+		mov	[ds:Chooser_RtnI], offset MulMatrixI	; Integer
+		mov	[ds:Chooser_RtnF], offset MulMatrixF	; FPU
+		;mov	[ds:Chooser_RtnM], offset MulMatrixM	; MMX
+		mov	[ds:Chooser_Result], offset MulMatrix	; Pointer
 		jmp	Chooser
 
 MulMatrixInit	endp

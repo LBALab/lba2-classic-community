@@ -1,97 +1,100 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.386p
-		OPTION	LANGUAGE:SYSCALL
+		OPTION	LANGUAGE:C
 		OPTION	SCOPED
 
 		include	3D.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-DGROUP		GROUP	_DATA
+;DGROUP		GROUP	_DATA
 
-_DATA		SEGMENT USE32 PAGE PUBLIC 'DATA'
+;_DATA		SEGMENT USE32 PAGE PUBLIC 'DATA'
 
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	MatriceWorld:DWORD
-
-		extrn	SYSCALL	InitMatrix:DWORD
-		extrn	SYSCALL	LongRotatePoint:DWORD
-		extrn	SYSCALL	LongInverseRotatePoint:DWORD
+		.model SMALL, C
+		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-ALIGN	32					; already aligned
-		public	SYSCALL Xp
-		public	SYSCALL Yp
+		extrn	C	MatriceWorld:DWORD
+
+		extrn	C	InitMatrix:DWORD
+		extrn	C	LongRotatePoint:DWORD
+		extrn	C	LongInverseRotatePoint:DWORD
+
+;*══════════════════════════════════════════════════════════════════════════*
+;ALIGN	32					; already aligned
+		public	C Xp
+		public	C Yp
 
 Xp		dd	0000
 Yp		dd	0000
 
-		public	SYSCALL XCentre
-		public	SYSCALL YCentre
+		public	C XCentre
+		public	C YCentre
 
 XCentre		dd	0000
 YCentre		dd	0000
 
-		public	SYSCALL X0
-		public	SYSCALL Y0
-		public	SYSCALL Z0
+		public	C X0
+		public	C Y0
+		public	C Z0
 
 X0		dd	0000
 Y0		dd	0000
 Z0		dd	0000
 
-		public	SYSCALL NearClip
+		public	C NearClip
 NearClip	dd	1
 
-ALIGN	32					; already aligned
-		public	SYSCALL LFactorX
-		public	SYSCALL LFactorY
+;ALIGN	32					; already aligned
+		public	C LFactorX
+		public	C LFactorY
 
 LFactorX	dd	0000
 LFactorY	dd	0000
 
-		public	SYSCALL FRatioX
-		public	SYSCALL FRatioY
+		public	C FRatioX
+		public	C FRatioY
 
 FRatioX		dd	0000
 FRatioY		dd	0000
 
-		public	SYSCALL CameraXr
-		public	SYSCALL CameraYr
-		public	SYSCALL CameraZr
+		public	C CameraXr
+		public	C CameraYr
+		public	C CameraZr
 CameraXr	dd	0000
 CameraYr	dd	0000
 CameraZr	dd	0000
 
-		public	SYSCALL TypeProj
+		public	C TypeProj
 TypeProj	dd	0000
 
-ALIGN	32					; already aligned
-		public	SYSCALL CameraX
-		public	SYSCALL CameraY
-		public	SYSCALL CameraZ
+;ALIGN	32					; already aligned
+		public	C CameraX
+		public	C CameraY
+		public	C CameraZ
 CameraX		dd	0000
 CameraY		dd	0000
 CameraZ		dd	0000
 
-		public	SYSCALL CameraZrClip
+		public	C CameraZrClip
 CameraZrClip	dd	0000
 
-		public	SYSCALL CameraAlpha
-		public	SYSCALL CameraBeta
-		public	SYSCALL CameraGamma
+		public	C CameraAlpha
+		public	C CameraBeta
+		public	C CameraGamma
 
 CameraAlpha	dd	0000
 CameraBeta	dd	0000
 CameraGamma	dd	0000
 
 		; One DWORD Available HERE
-ALIGN	32
-		public	SYSCALL MMX_DEMI
+;ALIGN	32
+		public	C MMX_DEMI
 MMX_DEMI	dd	1 SHL 13
 		dd	1 SHL 13
 
-		public	SYSCALL MMX_DEMI2
+		public	C MMX_DEMI2
 MMX_DEMI2	dd	1 SHL 12
 		dd	1 SHL 12
 
@@ -99,21 +102,22 @@ MMX_DEMI2	dd	1 SHL 12
 _DATA		ENDS
 
 ;*══════════════════════════════════════════════════════════════════════════*
-_TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
+.CODE
+;_TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
        		ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	GetAngleVector3D:PROC
-		extrn	SYSCALL	RecomputeLight:PROC
+		extrn	C	GetAngleVector3D:PROC
+		extrn	C	RecomputeLight:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	SetTargetCamera
-		public	SYSCALL	SetAngleCamera
-		public	SYSCALL	SetPosCamera
-		public	SYSCALL	SetFollowCamera
+		public	C	SetTargetCamera
+		public	C	SetAngleCamera
+		public	C	SetPosCamera
+		public	C	SetFollowCamera
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	SetCamera	; for use in LIB ONLY
+;		public	C	SetCamera	; for use in LIB ONLY
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitCamera(	S32 camx, S32 camy, S32 camz,
@@ -125,26 +129,53 @@ _TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
 
 ; WARNING: Gamma goes ON THE STACK
 
-InitCamera	proc
+InitCamera	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			camx: DWORD, camy: DWORD, camz: DWORD, \
+			tgtx: DWORD, tgty: DWORD, tgtz: DWORD, \
+			gamma: DWORD
+
+			mov edx, camx
+			mov esi, camy
+			mov edi, camz
+			mov eax, tgtx
+			mov ecx, tgty
+			mov ebx, tgtz
 
 		mov	CameraX, edx
 		mov	CameraY, esi
 		mov	CameraZ, edi
 
-		pop	esi	; return address
-		pop	edx	; gamma
-		push	esi	; return address
+		mov edx, gamma
+
+		push tgtx
+		push tgty
+		push tgtz
+		push gamma
+		call SetTargetCamera
+		add esp, 4*4
+
+		ret
 
 ;		WARNING continue below
+
+InitCamera endp
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	SetTargetCamera(S32 x, S32 y, S32 z, S32 gamma)	;
 
 ;#pragma aux SetTargetCamera	"*"		\
 ;	parm		[eax] [ecx] [ebx] [edx]	\
+
 ;	modify		[esi edi]
 
-SetTargetCamera::
+SetTargetCamera PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, z: DWORD, gamma: DWORD
+			mov eax, x
+			mov ecx, y
+			mov ebx, z
+			mov edx, gamma
 
 		push	edx
 
@@ -160,6 +191,16 @@ SetTargetCamera::
 
 ;		WARNING continue below
 
+		push ecx
+		push ebx
+		push eax
+
+		call SetAngleCamera
+		add esp, 3*4
+		ret
+
+SetTargetCamera endp
+
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	SetAngleCamera(S32 alpha, S32 beta, S32 gamma)	;
 
@@ -167,7 +208,13 @@ SetTargetCamera::
 ;	parm		[eax] [ebx] [ecx]	\
 ;	modify		[edx esi edi]
 
-SetAngleCamera::
+SetAngleCamera PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			alpha: DWORD, beta: DWORD, gamma: DWORD
+			mov eax, alpha
+			mov ebx, beta
+			mov ecx, gamma
+
 		cmp	[TypeProj], TYPE_3D
 		jne	tiso
 
@@ -189,7 +236,7 @@ tback:
 		mov     ebx, CameraY
 		mov     ecx, CameraZ
 
-SetCamera::					; for use in lib
+				; for use in lib
 						; see SetPosCamera
 		cmp	[TypeProj], TYPE_3D
 		jne	iso
@@ -225,7 +272,7 @@ tiso:
 		xor	ecx, ecx
 		jmp	tback
 
-InitCamera	endp
+SetAngleCamera	endp
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	SetPosCamera(S32 x, S32 y, S32 z)	;
@@ -234,12 +281,45 @@ InitCamera	endp
 ;	parm		[eax] [ebx] [ecx]	\
 ;	modify		[edx esi edi]
 
-SetPosCamera	proc
+SetPosCamera	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, z: DWORD
+			mov eax, x
+			mov ebx, y
+			mov ecx, z
 
 		mov	CameraX, eax
 		mov	CameraY, ebx
 		mov	CameraZ, ecx
-		jmp	SetCamera
+
+		cmp	[TypeProj], TYPE_3D
+		jne	iso
+
+		mov	esi, offset MatriceWorld
+
+		call    [LongRotatePoint]
+
+		mov     eax, X0
+		mov     ebx, Y0
+		mov     ecx, Z0
+
+		mov     CameraXr, eax
+		mov     edx, ecx
+		mov     CameraYr, ebx
+		sub	edx, NearClip
+		mov     CameraZr, ecx
+		mov     CameraZrClip, edx
+
+		ret
+iso:
+		mov	CameraXr, eax
+		xor	eax, eax
+		mov	CameraYr, ebx
+		mov	CameraZr, ecx
+		mov	CameraZrClip, ecx
+		mov	NearClip, eax
+
+		ret
 
 SetPosCamera	endp
 
@@ -253,14 +333,28 @@ SetPosCamera	endp
 
 ; WARNING : last param "camzoom" passed on the stack!
 
-SetFollowCamera	proc,	\
-		camzoom:DWORD
+SetFollowCamera	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			targetx: DWORD, targety: DWORD, targetz: DWORD, alpha: DWORD, beta: DWORD, gamma: DWORD, camzoom: DWORD
+			
+			mov edx, targetx
+			mov esi, targety
+			mov edi, targetz
+			mov eax, alpha
+			mov ebx, beta
+			mov ecx, gamma
 
 		mov     [CameraX], edx
 		mov     [CameraY], esi
 		mov     [CameraZ], edi
 
+		push ecx
+		push ebx
+		push eax
+
 		call	SetAngleCamera
+
+		add esp, 4*3
 
 		cmp	[TypeProj], TYPE_3D
 		jne	iso

@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -10,13 +10,13 @@
 
 		.DATA
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 
-		public	SYSCALL LightList
+		public	C LightList
 LightList	dd	offset LightListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -24,13 +24,13 @@ LightList	dd	offset LightListInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		Extrn	SYSCALL	LightListI	:	PROC
-		Extrn	SYSCALL	LightListF	:	PROC
-		Extrn	SYSCALL	LightListM	:	PROC
+		Extrn	C	LightListI	:	PROC
+		Extrn	C	LightListF	:	PROC
+		;Extrn	C	LightListM	:	PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -42,10 +42,10 @@ LightList	dd	offset LightListInit
 
 LightListInit	proc
 
-		mov	[Chooser_RtnI],   offset LightListI	; Integer
-		mov	[Chooser_RtnF],   offset LightListF	; FPU
-		mov	[Chooser_RtnM],   offset LightListM	; MMX
-		mov	[Chooser_Result], offset LightList	; Pointer
+		mov	[ds:Chooser_RtnI],   offset LightListI	; Integer
+		mov	[ds:Chooser_RtnF],   offset LightListF	; FPU
+		;mov	[ds:Chooser_RtnM],   offset LightListM	; MMX
+		mov	[ds:Chooser_Result], offset LightList	; Pointer
 		jmp	Chooser
 
 LightListInit	endp

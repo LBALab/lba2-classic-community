@@ -3,18 +3,18 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
-		extrn SYSCALL	MMX_DEMI:DWORD
+		extrn C	MMX_DEMI:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	RotTransListM
+		public C	RotTransListM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotTransListM(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;

@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -15,7 +15,7 @@
 
 		.CODE
 
-		public	SYSCALL	FlipMatrixI
+		public	C	FlipMatrixI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	FlipMatrixI(S32 *MatDst, S32 *MatSrc) ;
@@ -29,32 +29,32 @@
 
 FlipMatrixI	proc
 
-		mov	eax, [esi].MAT_M11
-		mov	ebx, [esi].MAT_M12
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M11
+		mov	ebx, [esi].Struc_MatriceMAT.MAT_M12
 
-		mov	ecx, [esi].MAT_M21
-		mov	[edi].MAT_M11, eax
+		mov	ecx, [esi].Struc_MatriceMAT.MAT_M21
+		mov	[edi].Struc_MatriceMAT.MAT_M11, eax
 
-		mov	[edi].MAT_M21, ebx
-		mov	[edi].MAT_M12, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M21, ebx
+		mov	[edi].Struc_MatriceMAT.MAT_M12, ecx
 
-		mov	eax, [esi].MAT_M31
-		mov	ebx, [esi].MAT_M13
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M31
+		mov	ebx, [esi].Struc_MatriceMAT.MAT_M13
 
-		mov	ecx, [esi].MAT_M33
-		mov	[edi].MAT_M13, eax
+		mov	ecx, [esi].Struc_MatriceMAT.MAT_M33
+		mov	[edi].Struc_MatriceMAT.MAT_M13, eax
 
-		mov	[edi].MAT_M31, ebx
-		mov	[edi].MAT_M33, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M31, ebx
+		mov	[edi].Struc_MatriceMAT.MAT_M33, ecx
 
-		mov	eax, [esi].MAT_M22
-		mov	ebx, [esi].MAT_M23
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M22
+		mov	ebx, [esi].Struc_MatriceMAT.MAT_M23
 
-		mov	ecx, [esi].MAT_M32
-		mov	[edi].MAT_M22, eax
+		mov	ecx, [esi].Struc_MatriceMAT.MAT_M32
+		mov	[edi].Struc_MatriceMAT.MAT_M22, eax
 
-		mov	[edi].MAT_M32, ebx
-		mov	[edi].MAT_M23, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M32, ebx
+		mov	[edi].Struc_MatriceMAT.MAT_M23, ecx
 
 		ret
 FlipMatrixI	endp

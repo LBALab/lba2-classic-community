@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	LongRotateList
+		public	C	LongRotateList
 
 LongRotateList	dd	offset LongRotateListInit
 
@@ -27,13 +27,13 @@ LongRotateList	dd	offset LongRotateListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	LongRotateListI:PROC
-		extrn	SYSCALL	LongRotateListF:PROC
-		extrn	SYSCALL	LongRotateListM:PROC
+		extrn	C	LongRotateListI:PROC
+		extrn	C	LongRotateListF:PROC
+		;extrn	C	LongRotateListM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
@@ -44,10 +44,10 @@ LongRotateList	dd	offset LongRotateListInit
 
 LongRotateListInit proc
 
-		mov	[Chooser_RtnI], offset LongRotateListI	; Integer
-		mov	[Chooser_RtnF], offset LongRotateListF	; FPU
-		mov	[Chooser_RtnM], offset LongRotateListM	; MMX
-		mov	[Chooser_Result], offset LongRotateList	; Pointer
+		mov	[ds:Chooser_RtnI], offset LongRotateListI	; Integer
+		mov	[ds:Chooser_RtnF], offset LongRotateListF	; FPU
+		;mov	[ds:Chooser_RtnM], offset LongRotateListM	; MMX
+		mov	[ds:Chooser_Result], offset LongRotateList	; Pointer
 		jmp	Chooser
 
 LongRotateListInit endp

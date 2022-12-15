@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnMF:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnMF:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	LongProjectList3D
+		public	C	LongProjectList3D
 
 LongProjectList3D	dd	offset LongProjectList3DInit
 
@@ -27,13 +27,13 @@ LongProjectList3D	dd	offset LongProjectList3DInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	LongProjectList3DI:PROC
-		extrn	SYSCALL	LongProjectList3DF:PROC
-		extrn	SYSCALL	LongProjectList3DMF:PROC
+		extrn	C	LongProjectList3DI:PROC
+		extrn	C	LongProjectList3DF:PROC
+		;extrn	C	LongProjectList3DMF:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongProjectList3D(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
@@ -46,10 +46,10 @@ LongProjectList3D	dd	offset LongProjectList3DInit
 
 LongProjectList3DInit	proc
 
-		mov	[Chooser_RtnI], offset LongProjectList3DI	; Integer
-		mov	[Chooser_RtnF], offset LongProjectList3DF	; FPU
-		mov	[Chooser_RtnMF], offset LongProjectList3DMF	; MMX+FPU
-		mov	[Chooser_Result], offset LongProjectList3D	; Pointer
+		mov	[ds:Chooser_RtnI], offset LongProjectList3DI	; Integer
+		mov	[ds:Chooser_RtnF], offset LongProjectList3DF	; FPU
+		;mov	[ds:Chooser_RtnMF], offset LongProjectList3DMF	; MMX+FPU
+		mov	[ds:Chooser_Result], offset LongProjectList3D	; Pointer
 		jmp	Chooser
 
 LongProjectList3DInit	endp

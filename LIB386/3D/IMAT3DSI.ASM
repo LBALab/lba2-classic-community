@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,14 +10,15 @@
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:WORD
-		extrn	SYSCALL	CosTab:WORD
+		extrn	C	SinTab:WORD
+		extrn	C	CosTab:WORD
+		ASSUME ds:SEG SinTab
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	InitMatrix3DSI
+		public	C	InitMatrix3DSI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitMatrix3DSI(S32 *MatDst, S32 alpha, S32 beta, S32 gamma) ;
@@ -59,13 +60,13 @@ InitMatrix3DSI	proc
 		xor	edx, -1				; END : neg edx
 
 
-		mov	[edi].MAT_M21, ebp
-		mov	[edi].MAT_M13, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M21, ebp
+		mov	[edi].Struc_MatriceMAT.MAT_M13, eax
 
 		sar	edx, 14
-		mov	[edi].MAT_M32, esi
+		mov	[edi].Struc_MatriceMAT.MAT_M32, esi
 
-		mov	[edi].MAT_M12, edx
+		mov	[edi].Struc_MatriceMAT.MAT_M12, edx
 		mov	edx, esi
 
 		pop	esi
@@ -83,11 +84,11 @@ InitMatrix3DSI	proc
 		xor	edx, -1				; END : neg edx
 
 		sar	edx, 14
-		mov	[edi].MAT_M22, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M22, eax
 
 		movsx	esi, CosTab[esi]
 
-		mov	[edi].MAT_M23, edx
+		mov	[edi].Struc_MatriceMAT.MAT_M23, edx
 		mov	eax, ecx
 
 		imul	ecx, esi
@@ -100,10 +101,10 @@ InitMatrix3DSI	proc
 		xor	eax, -1				; END : neg eax
 
 		sar	eax, 14
-		mov	edx, [edi].MAT_M13
+		mov	edx, [edi].Struc_MatriceMAT.MAT_M13
 
-		mov	[edi].MAT_M33, ecx
-		mov	[edi].MAT_M31, eax
+		mov	[edi].Struc_MatriceMAT.MAT_M33, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M31, eax
 
 		mov	eax, ebx
 		mov	ecx, edx
@@ -120,13 +121,13 @@ InitMatrix3DSI	proc
 		lea	eax, [eax + (1 SHL 13)]
 
 		adc	ecx, 0
-		mov	ebx, [edi].MAT_M21
+		mov	ebx, [edi].Struc_MatriceMAT.MAT_M21
 
 		sar	eax, 14
-		mov	[edi].MAT_M13, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M13, ecx
 
-		mov	[edi].MAT_M11, eax
-		mov	ecx, [edi].MAT_M23
+		mov	[edi].Struc_MatriceMAT.MAT_M11, eax
+		mov	ecx, [edi].Struc_MatriceMAT.MAT_M23
 
 		mov	eax, ebx
 		mov	edx, ecx
@@ -146,15 +147,15 @@ InitMatrix3DSI	proc
 		xor	ebx, ebx
 
 		sar	eax, 14
-		mov	[edi].MAT_M23, ecx
+		mov	[edi].Struc_MatriceMAT.MAT_M23, ecx
 
 		adc	eax, 0
-		mov	[edi].MAT_MTX, ebx
+		mov	[edi].Struc_MatriceMAT.MAT_MTX, ebx
 
-		mov	[edi].MAT_M21, eax
-		mov	[edi].MAT_MTY, ebx
+		mov	[edi].Struc_MatriceMAT.MAT_M21, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTY, ebx
 
-		mov	[edi].MAT_MTZ, ebx
+		mov	[edi].Struc_MatriceMAT.MAT_MTZ, ebx
 		ret
 
 InitMatrix3DSI	endp

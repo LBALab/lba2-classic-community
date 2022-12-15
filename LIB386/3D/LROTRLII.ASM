@@ -3,7 +3,7 @@
 
 		.386p
 
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 		include MAT.INC
 
@@ -11,9 +11,9 @@
 
 		.DATA
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Y0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Y0:DWORD
+		extrn C	Z0:DWORD
 
 Mat_11			equ	dword ptr[patch_M11+1]
 Mat_12			equ	dword ptr[patch_M12+1]
@@ -39,7 +39,7 @@ IFDEF	_WIN32
 ENDIF
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	LongRotTransListI
+		public	C	LongRotTransListI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 IFDEF	_WIN32
@@ -52,7 +52,7 @@ LongRotTransListIInit	proc
 
 		jmp	AllowPatchAndPatch
 Patch_Jump::
-		mov	eax, [ebx].MAT_M11
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M11
 
 LongRotTransListIInit	endp
 
@@ -67,8 +67,8 @@ ENDIF
 
 LongRotTransListI	proc
 
-		mov	eax, [ebx].MAT_M11
-		mov	edx, [ebx].MAT_M12
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M11
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M12
 
 IFDEF	_WIN32				; This code is 5 bytes long
 x:
@@ -86,39 +86,39 @@ ENDIF
 		mov	[Mat_11], eax
 
 		mov	[Mat_12], edx
-		mov	eax, [ebx].MAT_M13
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M13
 
 		lea	esi, [esi+ecx*4]
 		lea	ecx, [ecx*4]
 
 		add	edi, ecx
-		mov	edx, [ebx].MAT_MTX
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_MTX
 
 		neg	ecx
 
 		mov	[Mat_13], eax
 		mov	[Mat_TX], edx
 
-		mov	eax, [ebx].MAT_M21
-		mov	edx, [ebx].MAT_M22
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M21
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M22
 
 		mov	[Mat_21], eax
 		mov	[Mat_22], edx
 
-		mov	eax, [ebx].MAT_M23
-		mov	edx, [ebx].MAT_MTY
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M23
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_MTY
 
 		mov	[Mat_23], eax
 		mov	[Mat_TY], edx
 
-		mov	eax, [ebx].MAT_M31
-		mov	edx, [ebx].MAT_M32
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M31
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M32
 
 		mov	[Mat_31], eax
 		mov	[Mat_32], edx
 
-		mov	eax, [ebx].MAT_M33
-		mov	edx, [ebx].MAT_MTZ
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M33
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_MTZ
 
 		mov	[Mat_33], eax
 		mov	[Mat_TZ], edx

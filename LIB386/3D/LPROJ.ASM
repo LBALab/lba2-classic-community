@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -10,12 +10,15 @@
 
 		.DATA
 
-		public	SYSCALL LongProjectPoint
+		public	C LongProjectPoint
 LongProjectPoint	dd	offset LongProjectPointInit
+
+		ASSUME  DS:SEG LongProjectPoint
+
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	LongProjectPoint3D:DWORD
+		extrn	C	LongProjectPoint3D:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -23,7 +26,7 @@ LongProjectPoint	dd	offset LongProjectPointInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	LongProjectPointInit
+		public	C	LongProjectPointInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 LongProjectPointInit proc

@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	InitMatrixStd
+		public	C	InitMatrixStd
 
 InitMatrixStd	dd	offset InitMatrixStdInit
 
@@ -27,13 +27,13 @@ InitMatrixStd	dd	offset InitMatrixStdInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	InitMatrixStdI:PROC
-		extrn	SYSCALL	InitMatrixStdF:PROC
-		extrn	SYSCALL	InitMatrixStdM:PROC
+		extrn	C	InitMatrixStdI:PROC
+		extrn	C	InitMatrixStdF:PROC
+		;extrn	C	InitMatrixStdM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitMatrixStd(S32 *MatDst, S32 alpha, S32 beta, S32 gamma) ;
@@ -44,10 +44,10 @@ InitMatrixStd	dd	offset InitMatrixStdInit
 
 InitMatrixStdInit proc
 
-		mov	[Chooser_RtnI], offset InitMatrixStdI	; Integer
-		mov	[Chooser_RtnF], offset InitMatrixStdF	; FPU
-		mov	[Chooser_RtnM], offset InitMatrixStdM	; MMX
-		mov	[Chooser_Result], offset InitMatrixStd	; Pointer
+		mov	[ds:Chooser_RtnI], offset InitMatrixStdI	; Integer
+		mov	[ds:Chooser_RtnF], offset InitMatrixStdF	; FPU
+		;mov	[ds:Chooser_RtnM], offset InitMatrixStdM	; MMX
+		mov	[ds:Chooser_Result], offset InitMatrixStd	; Pointer
 		jmp	Chooser
 
 InitMatrixStdInit endp

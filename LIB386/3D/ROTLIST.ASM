@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	RotateList
+		public	C	RotateList
 
 RotateList	dd	offset RotateListInit
 
@@ -27,13 +27,13 @@ RotateList	dd	offset RotateListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	RotateListI:PROC
-		extrn	SYSCALL	RotateListF:PROC
-		extrn	SYSCALL	RotateListM:PROC
+		extrn	C	RotateListI:PROC
+		extrn	C	RotateListF:PROC
+		;extrn	C	RotateListM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotateList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
@@ -44,10 +44,10 @@ RotateList	dd	offset RotateListInit
 
 RotateListInit proc
 
-		mov	[Chooser_RtnI], offset RotateListI	; Integer
-		mov	[Chooser_RtnF], offset RotateListF	; FPU
-		mov	[Chooser_RtnM], offset RotateListM	; MMX
-		mov	[Chooser_Result], offset RotateList	; Pointer
+		mov	[ds:Chooser_RtnI], offset RotateListI	; Integer
+		mov	[ds:Chooser_RtnF], offset RotateListF	; FPU
+		;mov	[ds:Chooser_RtnM], offset RotateListM	; MMX
+		mov	[ds:Chooser_Result], offset RotateList	; Pointer
 		jmp	Chooser
 
 RotateListInit endp

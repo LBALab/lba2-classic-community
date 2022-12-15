@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	CopyMatrix
+		public	C	CopyMatrix
 
 CopyMatrix	dd	offset CopyMatrixInit
 
@@ -27,13 +27,13 @@ CopyMatrix	dd	offset CopyMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	CopyMatrixI:PROC
-		extrn	SYSCALL	CopyMatrixF:PROC
-		extrn	SYSCALL	CopyMatrixM:PROC
+		extrn	C	CopyMatrixI:PROC
+		extrn	C	CopyMatrixF:PROC
+		;extrn	C	CopyMatrixM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	CopyMatrix(S32 *MatDst, S32 *MatSrc) ;
@@ -44,10 +44,10 @@ CopyMatrix	dd	offset CopyMatrixInit
 
 CopyMatrixInit proc
 
-		mov	[Chooser_RtnI], offset CopyMatrixI	; Integer
-		mov	[Chooser_RtnF], offset CopyMatrixF	; FPU
-		mov	[Chooser_RtnM], offset CopyMatrixM	; MMX
-		mov	[Chooser_Result], offset CopyMatrix	; Pointer
+		mov	[ds:Chooser_RtnI], offset CopyMatrixI	; Integer
+		mov	[ds:Chooser_RtnF], offset CopyMatrixF	; FPU
+		;mov	[ds:Chooser_RtnM], offset CopyMatrixM	; MMX
+		mov	[ds:Chooser_Result], offset CopyMatrix	; Pointer
 		jmp	Chooser
 
 CopyMatrixInit endp

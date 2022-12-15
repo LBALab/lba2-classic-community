@@ -30,7 +30,10 @@ extern	Func_LongRotatePoint	*FastLongRotatePoint	;
 #pragma aux	FastLongRotatePoint	"*"
 
 //****************************************************************************
-#define	LongWorldRotatePoint(x, y, z)		LongRotatePoint(&MatriceWorld, x, y, z)
+//#define	LongWorldRotatePoint(x, y, z)		LongRotatePoint(&MatriceWorld, x, y, z)
+#define LongWorldRotatePoint LongWorldRotatePoint_C
+
+void LongWorldRotatePoint_C(S32 x, S32 y, S32 z);
 
 //****************************************************************************
 #define	FastLongWorldRotatePoint(x, y, z)	FastLongRotatePoint(&MatriceWorld, x, y, z)

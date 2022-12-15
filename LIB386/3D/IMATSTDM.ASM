@@ -3,7 +3,7 @@
 		.586p
 		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -11,18 +11,18 @@
 
 		.DATA
 
-		extrn	SYSCALL	SinTab:WORD
-		extrn	SYSCALL	CosTab:WORD
-		extrn	SYSCALL	MatrixLib1:DWORD
+		extrn	C	SinTab:WORD
+		extrn	C	CosTab:WORD
+		extrn	C	MatrixLib1:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
-		extrn	SYSCALL	MulMatrixM:PROC
+		extrn	C	MulMatrixM:PROC
 
 
 
-		public	SYSCALL	InitMatrixStdM
+		public	C	InitMatrixStdM
 
 COMMENT \
 Explication sur la composition de la matrice de rotation:

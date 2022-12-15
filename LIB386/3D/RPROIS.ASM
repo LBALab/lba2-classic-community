@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL RotateProjectPointIso
+		public	C RotateProjectPointIso
 
 RotateProjectPointIso	dd	offset	RotateProjectPointIsoInit
 
@@ -27,13 +27,13 @@ RotateProjectPointIso	dd	offset	RotateProjectPointIsoInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	RotateProjectPointIsoI:PROC
-		extrn	SYSCALL	LongRotateProjectPointIsoF:PROC
-		extrn	SYSCALL	RotateProjectPointIsoM:PROC
+		extrn	C	RotateProjectPointIsoI:PROC
+		extrn	C	LongRotateProjectPointIsoF:PROC
+		;extrn	C	RotateProjectPointIsoM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotateProjectPointIso(S32 *Mat, S32 x, S32 y, S32 z)	;
@@ -44,10 +44,10 @@ RotateProjectPointIso	dd	offset	RotateProjectPointIsoInit
 
 RotateProjectPointIsoInit proc
 
-		mov	[Chooser_RtnI], offset RotateProjectPointIsoI	; Integer
-		mov	[Chooser_RtnF], offset LongRotateProjectPointIsoF; FPU
-		mov	[Chooser_RtnM], offset RotateProjectPointIsoM	; MMX
-		mov	[Chooser_Result], offset RotateProjectPointIso	; Pointer
+		mov	[ds:Chooser_RtnI], offset RotateProjectPointIsoI	; Integer
+		mov	[ds:Chooser_RtnF], offset LongRotateProjectPointIsoF; FPU
+		;mov	[ds:Chooser_RtnM], offset RotateProjectPointIsoM	; MMX
+		mov	[ds:Chooser_Result], offset RotateProjectPointIso	; Pointer
 		jmp	Chooser
 
 RotateProjectPointIsoInit endp

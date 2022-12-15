@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,15 +10,16 @@
 
 		.DATA
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Y0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Y0:DWORD
+		extrn C	Z0:DWORD
+		ASSUME ds:SEG X0
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	InverseRotatePointI
+		public C	InverseRotatePointI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InverseRotatePointI(S32 *Mat, S32 x, S32 y, S32 z)	;
@@ -30,33 +31,33 @@
 InverseRotatePointI	proc
 
 		push	ebp
-		mov	edi, [esi].MAT_M11
+		mov	edi, [esi].Struc_MatriceMAT.MAT_M11
 
-		mov	ebp, [esi].MAT_M21
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M21
 
 		imul	edi, eax
 		imul	ebp, ebx
 
-		mov	edx, [esi].MAT_M31
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M31
 		add	edi, ebp
 
 		imul	edx, ecx
 
-		mov	ebp, [esi].MAT_M22
+		mov	ebp, [esi].Struc_MatriceMAT.MAT_M22
 		lea	edx, [edx+edi+(1 SHL 13)]
 
 		sar	edx, 14
-		mov	edi, [esi].MAT_M12
+		mov	edi, [esi].Struc_MatriceMAT.MAT_M12
 
 		mov	X0, edx
-		mov	edx, [esi].MAT_M32
+		mov	edx, [esi].Struc_MatriceMAT.MAT_M32
 
 		imul	ebp, ebx
 		imul	edi, eax
 		imul	edx, ecx
-		imul	eax, [esi].MAT_M13
-		imul	ebx, [esi].MAT_M23
-		imul	ecx, [esi].MAT_M33
+		imul	eax, [esi].Struc_MatriceMAT.MAT_M13
+		imul	ebx, [esi].Struc_MatriceMAT.MAT_M23
+		imul	ecx, [esi].Struc_MatriceMAT.MAT_M33
 
 		add	edx, ebp
 		add	ebx, eax

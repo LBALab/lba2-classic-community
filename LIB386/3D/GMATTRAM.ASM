@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,7 +10,7 @@
 
 		.CODE
 
-		public	SYSCALL	GetMatrixTransM
+		public	C	GetMatrixTransM
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	GetMatrixTransM(S32 *MatDst, S32 *tx, S32 *ty, S32 *tz) ;

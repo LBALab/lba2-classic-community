@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -10,14 +10,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	Rotate
+		public	C	Rotate
 
 Rotate	dd	offset RotateInit
 
@@ -27,13 +27,13 @@ Rotate	dd	offset RotateInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	RotateI:PROC
-		extrn	SYSCALL	LongRotateF:PROC
-		extrn	SYSCALL	RotateM:PROC
+		extrn	C	RotateI:PROC
+		extrn	C	LongRotateF:PROC
+		;extrn	C	RotateM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	Rotate(S32 x, S32 z, S32 angle)	;
@@ -44,10 +44,10 @@ Rotate	dd	offset RotateInit
 
 RotateInit	proc
 
-		mov	[Chooser_RtnI], offset RotateI		; Integer
-		mov	[Chooser_RtnF], offset LongRotateF	; FPU
-		mov	[Chooser_RtnM], offset RotateM		; MMX
-		mov	[Chooser_Result], offset Rotate		; Pointer
+		mov	[ds:Chooser_RtnI], offset RotateI		; Integer
+		mov	[ds:Chooser_RtnF], offset LongRotateF	; FPU
+		;mov	[ds:Chooser_RtnM], offset RotateM		; MMX
+		mov	[ds:Chooser_Result], offset Rotate		; Pointer
 		jmp	Chooser
 
 RotateInit	endp

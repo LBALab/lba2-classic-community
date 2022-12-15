@@ -1,24 +1,24 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	X0			:DWORD
-		extrn	SYSCALL	Y0			:DWORD
+		extrn	C	X0			:DWORD
+		extrn	C	Y0			:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	GetAngleVector2D	:PROC
-		extrn	SYSCALL	QSqr			:PROC
+		extrn	C	GetAngleVector2D	:PROC
+		extrn	C	QSqr			:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	GetAngleVector3D
+		public	C	GetAngleVector3D
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	GetAngleVector3D(S32 x, S32 y, S32 z)	;
@@ -54,7 +54,7 @@ GetAngleVector3D proc
 		imul	eax		; X^2
 
 		add	eax, esi
-		mov	[Y0], ebx
+		mov	[ds:Y0], ebx
 
 		adc	edx, edi
 		call	QSqr
@@ -68,7 +68,7 @@ GetAngleVector3D proc
 
 		and	eax, 4095
 
-		mov	[X0], eax
+		mov	[ds:X0], eax
 
 		ret
 

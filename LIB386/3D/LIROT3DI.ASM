@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include MAT.INC
 
@@ -10,15 +10,17 @@
 
 		.DATA
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Y0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Y0:DWORD
+		extrn C	Z0:DWORD
+
+		ASSUME ds:SEG X0
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public SYSCALL	LongInverseRotatePointI
+		public C	LongInverseRotatePointI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongInverseRotatePointI(S32 *Mat, S32 x, S32 y, S32 z)	;
@@ -32,22 +34,22 @@ LongInverseRotatePointI proc
 		push	ebp
 		mov	[ Z0 ], eax
 
-		imul	[esi].MAT_M11		; EBP:EDI = x*M11
+		imul	[esi].Struc_MatriceMAT.MAT_M11		; EBP:EDI = x*M11
 
 		mov     ebp, eax
- 		mov	eax, [esi].MAT_M21
+ 		mov	eax, [esi].Struc_MatriceMAT.MAT_M21
 		mov     edi, edx
 
 		imul	ebx
 
 		add     ebp, eax		; EBP:EDI = x*M11 + y*M21
-		mov	eax, [esi].MAT_M31
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M31
 		adc     edi, edx
 
 		imul	ecx
 
 		add     ebp, eax		; EBP:EDI = x*M11 + y*M21 + z*M31
-		mov     eax, [esi].MAT_M12
+		mov     eax, [esi].Struc_MatriceMAT.MAT_M12
 		adc     edi, edx
 
 		imul    [ Z0 ]
@@ -59,18 +61,18 @@ LongInverseRotatePointI proc
 		mov	[ X0 ], ebp
 		mov     ebp, eax		; EBP:EDI = x*M12
 
-		mov	eax, [esi].MAT_M22
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M22
 
 		imul	ebx
 
 		add     ebp, eax		; EBP:EDI = x*M12 + y*M22
-		mov	eax, [esi].MAT_M32
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M32
 		adc     edi, edx
 
 		imul	ecx
 
 		add     ebp, eax		; EBP:EDI = x*M12 + y*M22 + z*M32
-		mov     eax, [esi].MAT_M13
+		mov     eax, [esi].Struc_MatriceMAT.MAT_M13
 		adc     edi, edx
 
 		imul    [ Z0 ]
@@ -81,12 +83,12 @@ LongInverseRotatePointI proc
 
 		mov	[ Y0 ], ebp
 		mov     ebp, eax		; EBP:EDI = x*M13
-		mov	eax, [esi].MAT_M23
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M23
 
 		imul	ebx
 
 		add     ebp, eax		; EBP:EDI = x*M13 + y*M23
-		mov	eax, [esi].MAT_M33
+		mov	eax, [esi].Struc_MatriceMAT.MAT_M33
 		adc     edi, edx
 
 		imul	ecx

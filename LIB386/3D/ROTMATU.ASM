@@ -2,23 +2,25 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn	SYSCALL	InitMatrixStd:DWORD
-		extrn	SYSCALL	CopyMatrix:DWORD
-		extrn	SYSCALL	MulMatrix:DWORD
+		extrn	C	InitMatrixStd:DWORD
+		extrn	C	CopyMatrix:DWORD
+		extrn	C	MulMatrix:DWORD
 
-		extrn	SYSCALL	MatrixLib2:DWORD
+		extrn	C	MatrixLib2:DWORD
+
+		ASSUME  DS:SEG MatrixLib2
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	RotateMatrixU
+		public	C	RotateMatrixU
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotateMatrixU(S32 *MatDst, S32 *MatSrc, S32 alpha, S32 beta, S32 gamma) ;

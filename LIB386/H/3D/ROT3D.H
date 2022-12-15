@@ -27,7 +27,9 @@ extern	Func_RotatePoint	*RotatePointNoMMX;
 #pragma aux	RotatePointNoMMX	"*"
 
 //****************************************************************************
-#define	WorldRotatePoint(x, y, z)	RotatePoint(&MatriceWorld, x, y, z)
+#define	WorldRotatePoint(x, y, z)	RotatePoint_C(&MatriceWorld, x, y, z)
+
+void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 
 //****************************************************************************
 // These functions should not be called directly but through the above pointer

@@ -3,6 +3,9 @@
 #define	LIB_3D_LPROJ
 
 //****************************************************************************
+#include	"DATAMAT.H"
+
+//****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{
 #endif
@@ -17,9 +20,11 @@ typedef	S32 (Func_LongProjectPoint)(S32 x, S32 y, S32 z)	;
 #pragma aux (Args_LongProjectPoint) Func_LongProjectPoint
 
 //****************************************************************************
-extern	Func_LongProjectPoint	*LongProjectPoint	;
+//extern	Func_LongProjectPoint	*LongProjectPoint	;
 
-#pragma	aux LongProjectPoint		"*"
+#define LongProjectPoint LongProjectPoint_C
+
+S32 LongProjectPoint_C(S32 x, S32 y, S32 z);
 
 //****************************************************************************
 extern	Func_LongProjectPoint	LongProjectPointIso	;

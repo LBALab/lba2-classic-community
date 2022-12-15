@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 		include	3D.INC
 
@@ -10,30 +10,32 @@
 
 		.DATA
 
-		public	SYSCALL ProjectList
+		public	C ProjectList
 ProjectList	dd	offset ProjectListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 temp		dd	?
 
+		ASSUME  DS:SEG temp
+
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	TypeProj:DWORD
+		extrn	C	TypeProj:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL	ProjectList3D:DWORD
+		extrn	C	ProjectList3D:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	ProjectListIso:PROC
+		extrn	C	ProjectListIso:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	ProjectListInit
+		public	C	ProjectListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ProjectListInit proc

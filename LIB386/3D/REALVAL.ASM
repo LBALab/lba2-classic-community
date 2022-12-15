@@ -2,7 +2,7 @@
         OPTION SCOPED
 		.386p
 
-		.model	SMALL, SYSCALL
+		.model	SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.data
@@ -16,16 +16,18 @@ T_REAL_VALUE_HR	STRUCT
 
 T_REAL_VALUE_HR	ENDS
 
-		extrn	SYSCALL	TimerRefHR:DWORD
+		extrn	C	TimerRefHR:DWORD
+
+		ASSUME  DS:SEG TimerRefHR
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.code
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	InitRealAngleHR
-		public	SYSCALL	InitRealValueHR
-		public	SYSCALL	GetRealValueHR
-		public	SYSCALL	InitRealAngleConstHR
+		public	C	InitRealAngleHR
+		public	C	InitRealValueHR
+		public	C	GetRealValueHR
+		public	C	InitRealAngleConstHR
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitRealAngleHR(	S32 StartAngle, S32 EndAngle, S32 TimeValue,
@@ -51,10 +53,10 @@ InitRealAngleHR	proc
 InitRealValueHR::
 
 		mov	edx, [TimerRefHR]
-		mov	[edi].StartValue, eax
-		mov	[edi].EndValue, ebx
-		mov	[edi].TimeValue, ecx
-		mov	[edi].MemoTicks, edx		; memoticks init
+		mov	[edi].T_REAL_VALUE_HR.StartValue, eax
+		mov	[edi].T_REAL_VALUE_HR.EndValue, ebx
+		mov	[edi].T_REAL_VALUE_HR.TimeValue, ecx
+		mov	[edi].T_REAL_VALUE_HR.MemoTicks, edx		; memoticks init
 
 		ret
 
@@ -106,13 +108,13 @@ InitRealAngleConstHR	endp
 GetRealValueHR	proc
 
 		mov	edx, [TimerRefHR]
-		mov	ecx, [esi].MemoTicks	; memoticks
+		mov	ecx, [esi].T_REAL_VALUE_HR.MemoTicks	; memoticks
 
-		mov	eax, [esi].EndValue	; End Value
+		mov	eax, [esi].T_REAL_VALUE_HR.EndValue	; End Value
 		sub	edx, ecx
 
-		mov	ebx, [esi].StartValue	; StartValue
-		mov	ecx, [esi].TimeValue	; TimeValue
+		mov	ebx, [esi].T_REAL_VALUE_HR.StartValue	; StartValue
+		mov	ecx, [esi].T_REAL_VALUE_HR.TimeValue	; TimeValue
 
 		cmp	edx, ecx		; if step >= nbstep
 		jae	elapsed			; exit
@@ -136,7 +138,7 @@ GetRealValueHR	proc
 elapsed:
 		xor	ecx, ecx
 
-		mov	[esi].TimeValue, ecx
+		mov	[esi].T_REAL_VALUE_HR.TimeValue, ecx
 		ret
 
 GetRealValueHR	endp
@@ -151,13 +153,13 @@ GetRealValueHR	endp
 GetRealAngleHR	proc
 
 		mov	edx, [TimerRefHR]
-		mov	ecx, [esi].MemoTicks	; memoticks
+		mov	ecx, [esi].T_REAL_VALUE_HR.MemoTicks	; memoticks
 
-		mov	eax, [esi].EndValue	; End Value
+		mov	eax, [esi].T_REAL_VALUE_HR.EndValue	; End Value
 		sub	edx, ecx
 
-		mov	ebx, [esi].StartValue	; StartValue
-		mov	ecx, [esi].TimeValue	; TimeValue
+		mov	ebx, [esi].T_REAL_VALUE_HR.StartValue	; StartValue
+		mov	ecx, [esi].T_REAL_VALUE_HR.TimeValue	; TimeValue
 
 		cmp	edx, ecx		; if step >= nbstep
 		jae	elapsed			; exit
@@ -194,7 +196,7 @@ elapsed:
 		xor	ecx, ecx
 		and	eax, 4095
 
-		mov	[esi].TimeValue, ecx
+		mov	[esi].T_REAL_VALUE_HR.TimeValue, ecx
 		ret
 
 GetRealAngleHR	endp

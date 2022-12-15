@@ -2,7 +2,7 @@
 
 		.386p
 
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 		include MAT.INC
 
@@ -10,9 +10,9 @@
 
 		.DATA
 
-		extrn SYSCALL	X0:DWORD
-		extrn SYSCALL	Y0:DWORD
-		extrn SYSCALL	Z0:DWORD
+		extrn C	X0:DWORD
+		extrn C	Y0:DWORD
+		extrn C	Z0:DWORD
 
 Mat_11			equ	dword ptr[patch_M11+1]
 Mat_12			equ	dword ptr[patch_M12+1]
@@ -35,7 +35,7 @@ IFDEF	_WIN32
 ENDIF
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	LongRotateListI
+		public	C	LongRotateListI
 
 ;*══════════════════════════════════════════════════════════════════════════*
 IFDEF	_WIN32
@@ -48,7 +48,7 @@ LongRotateListIInit	proc
 
 		jmp	AllowPatchAndPatch
 Patch_Jump::
-		mov	eax, [ebx].MAT_M11
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M11
 
 LongRotateListIInit	endp
 
@@ -63,8 +63,8 @@ ENDIF
 
 LongRotateListI	proc
 
-		mov	eax, [ebx].MAT_M11
-		mov	edx, [ebx].MAT_M12
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M11
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M12
 
 IFDEF	_WIN32				; This code is 5 bytes long
 x:
@@ -81,7 +81,7 @@ ENDIF
 		mov	[Mat_11], eax
 
 		mov	[Mat_12], edx
-		mov	eax, [ebx].MAT_M13
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M13
 
 		lea	esi, [esi+ecx*4]
 		lea	ecx, [ecx*4]
@@ -91,20 +91,20 @@ ENDIF
 
 		neg	ecx
 
-		mov	eax, [ebx].MAT_M21
-		mov	edx, [ebx].MAT_M22
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M21
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M22
 
 		mov	[Mat_21], eax
 		mov	[Mat_22], edx
 
-		mov	eax, [ebx].MAT_M23
-		mov	edx, [ebx].MAT_M31
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M23
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M31
 
 		mov	[Mat_23], eax
 		mov	[Mat_31], edx
 
-		mov	eax, [ebx].MAT_M32
-		mov	edx, [ebx].MAT_M33
+		mov	eax, [ebx].Struc_MatriceMAT.MAT_M32
+		mov	edx, [ebx].Struc_MatriceMAT.MAT_M33
 
 		mov	[Mat_32], eax
 		mov	[Mat_33], edx
