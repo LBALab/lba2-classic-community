@@ -26,47 +26,48 @@
 
 #endif
 
-//··········································································
-#ifndef	_STDLIB_H_INCLUDED
-
-#error ADELINE: you need to include STDLIB.H
-
-#endif
-
-//··········································································
-#ifndef	_STDIO_H_INCLUDED
-
-#error ADELINE: you need to include STDIO.H
-
-#endif
-
-//··········································································
-#ifndef	_STRING_H_INCLUDED
-
-#error ADELINE: you need to include STRING.H
-
-#endif
-
-//··········································································
-#ifndef	_DOS_H_INCLUDED
-
-#error ADELINE: you need to include DOS.H
-
-#endif
-
-//··········································································
-#ifndef	_DIRECT_H_INCLUDED
-
-#error ADELINE: you need to include DIRECT.H
-
-#endif
-
-//··········································································
-#ifndef	_CTYPE_H_INCLUDED
-
-#error ADELINE: you need to include CTYPE.H
-
-#endif
+// TODO: Uncomment and fix includes check
+////··········································································
+//#ifndef	_STDLIB_H_INCLUDED
+//
+//#error ADELINE: you need to include STDLIB.H
+//
+//#endif
+//
+////··········································································
+//#ifndef	_STDIO_H_INCLUDED
+//
+//#error ADELINE: you need to include STDIO.H
+//
+//#endif
+//
+////··········································································
+//#ifndef	_STRING_H_INCLUDED
+//
+//#error ADELINE: you need to include STRING.H
+//
+//#endif
+//
+////··········································································
+//#ifndef	_DOS_H_INCLUDED
+//
+//#error ADELINE: you need to include DOS.H
+//
+//#endif
+//
+////··········································································
+//#ifndef	_DIRECT_H_INCLUDED
+//
+//#error ADELINE: you need to include DIRECT.H
+//
+//#endif
+//
+////··········································································
+//#ifndef	_CTYPE_H_INCLUDED
+//
+//#error ADELINE: you need to include CTYPE.H
+//
+//#endif
 
 //··········································································
 #ifndef	RESOLUTION_X
@@ -333,7 +334,8 @@
 
 	LogPuts("\nInitialising Smacker. Please wait...\n");
 
-	InitSmacker()	;
+        // FIXME: Uncomment, now just for testing build...
+	//InitSmacker()	;
 
 #endif
 
