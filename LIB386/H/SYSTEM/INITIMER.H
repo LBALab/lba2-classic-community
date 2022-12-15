@@ -6,7 +6,7 @@
 #ifdef	_WIN32
 #include	<SYSTEM/TIMERWIN.H>
 #else //_WIN32
-#include	<system/timerdos.h>
+//#include	<system/timerdos.h>
 #endif//_WIN32
 
 //──────────────────────────────────────────────────────────────────────────

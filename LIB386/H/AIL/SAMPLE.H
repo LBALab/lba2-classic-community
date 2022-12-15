@@ -160,6 +160,8 @@ void	ChangeVolumePanSample(	U32 sample,
 //
 //	Returns	:			HSAMPLE (see MSS doc)
 //--------------------------------------------------------------------------
+// TODO Temporary define for HSAMPLE, remove when implement sound abstraction
+#define HSAMPLE void*
 HSAMPLE	GetSampleMSSHandle( 	U32 sample 	)	;
 
 //--------------------------------------------------------------------------
