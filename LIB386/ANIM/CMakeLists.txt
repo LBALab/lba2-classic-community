@@ -2,7 +2,6 @@ set(SOURCES_FILES_ASM ANIM.ASM BODY.ASM CLEAR.ASM FRAME.ASM INTANIM.ASM INTERDEP
         STOFRAME.ASM TEXTURE.ASM)
 
 add_library(ani ${SOURCES_FILES_ASM})
-target_compile_definitions(ani PRIVATE _BUILDING_LIB LIB_LOCAL)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)

@@ -2,7 +2,7 @@
 		.686p
 		.XMM
 
-		.MODEL	SMALL, SYSCALL
+		.MODEL	SMALL, C
 
 		include	AFF_OBJ.INC
 
@@ -10,20 +10,22 @@
 		.DATA
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	TimerRefHR		:DWORD
+		EXTRN	C	TimerRefHR		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	Lib3DBufferAnim		:DWORD
-		EXTRN	SYSCALL	EndLib3DBufferAnim	:DWORD
-		EXTRN	SYSCALL	PtrLib3DBufferAnim	:DWORD
+		EXTRN	C	Lib3DBufferAnim		:DWORD
+		EXTRN	C	EndLib3DBufferAnim	:DWORD
+		EXTRN	C	PtrLib3DBufferAnim	:DWORD
 
-		EXTRN	SYSCALL	TransFctAnim		:DWORD
+		EXTRN	C	TransFctAnim		:DWORD
+
+		ASSUME  DS:SEG TimerRefHR
 
 ;*──────────────────────────────────────────────────────────────────────────*
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	SYSCALL	ObjectInitAnim
+		PUBLIC	C	ObjectInitAnim
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ObjectInitAnim(T_OBJ *obj, void *anim)
@@ -32,63 +34,71 @@
 ;	parm		[ebx] [esi]		\
 ;	modify exact 	[eax ecx edx esi edi]
 
-ObjectInitAnim	proc uses ebp
+ObjectInitAnim	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			obj: DWORD, \
+			anim: DWORD
+			mov ebx, obj
+			mov esi, anim
 
-		mov	ecx, [ebx].NextBody
-		mov	eax, [ebx].NextTexture
-		cmp	esi, [ebx].Anim		; same anim ?
-		mov	[ebx].Body, ecx
-		mov	[ebx].Texture, eax
+		mov	ecx, [ebx].OBJ_3D.NextBody
+		mov	eax, [ebx].OBJ_3D.NextTexture
+		cmp	esi, [ebx].OBJ_3D.Anim		; same anim ?
+		mov	[ebx].OBJ_3D.Body, ecx
+		mov	[ebx].OBJ_3D.Texture, eax
 		je	exit
 
-		mov	[ebx].Anim, esi		; init struct -> anim
+		mov	[ebx].OBJ_3D.Anim, esi		; init struct -> anim
 		mov	eax, [TransFctAnim]
 
 		test	eax, eax
 		jz	skiptrans
 
+		push	esi
 		call	eax
+		mov		esi, eax
+		add		esp,4
 skiptrans:
 		xor	ebp, ebp
 		movzx	eax, word ptr[esi+16]
 
-		mov	[ebx].Interpolator, ebp
-		mov	[ebx].Master, eax
+		mov	[ebx].OBJ_3D.Interpolator, ebp
+		mov	[ebx].OBJ_3D.Master, eax
 
 		movzx	eax, word ptr[esi]	; eax = nb frames
 		movzx	ecx, word ptr[esi+2]	; ecx = nb groups in anim
 		movzx	edx, word ptr[esi+4]	; edx = loop frame
 
-		mov	[ebx].NbFrames, eax	; struct -> NbFrames
+		mov	[ebx].OBJ_3D.NbFrames, eax	; struct -> NbFrames
 		lea	eax, [ecx*8+8]		; infos frame + 4 WORD per group
-		mov	[ebx].LoopFrame, edx	; struct -> LoopFrame
+		mov	[ebx].OBJ_3D.LoopFrame, edx	; struct -> LoopFrame
 		imul    edx, eax
-		mov	[ebx].NextNbGroups, ecx	; struct -> NextNbGroups
+		mov	[ebx].OBJ_3D.NextNbGroups, ecx	; struct -> NextNbGroups
 		add	edx, 8			; skip header anim
 
-		mov	[ebx].LastAnimStepX, ebp; struct -> stepX = 0
-		mov	[ebx].LastAnimStepY, ebp; struct -> stepY = 0
-		mov	[ebx].LastAnimStepZ, ebp; struct -> stepZ = 0
+		mov	[ebx].OBJ_3D.LastAnimStepX, ebp; struct -> stepX = 0
+		mov	[ebx].OBJ_3D.LastAnimStepY, ebp; struct -> stepY = 0
+		mov	[ebx].OBJ_3D.LastAnimStepZ, ebp; struct -> stepZ = 0
 
-		mov	[ebx].LoopOfsFrame, edx	; struct -> LoopOfsFrame
+		mov	[ebx].OBJ_3D.LoopOfsFrame, edx	; struct -> LoopOfsFrame
 
-		mov	[ebx].LastAnimStepAlpha, ebp; struct -> stepAlpha = 0
-		mov	[ebx].LastAnimStepBeta, ebp ; struct -> stepBeta  = 0
-		mov	[ebx].LastAnimStepGamma, ebp; struct -> stepGamma = 0
+		mov	[ebx].OBJ_3D.LastAnimStepAlpha, ebp; struct -> stepAlpha = 0
+		mov	[ebx].OBJ_3D.LastAnimStepBeta, ebp ; struct -> stepBeta  = 0
+		mov	[ebx].OBJ_3D.LastAnimStepGamma, ebp; struct -> stepGamma = 0
 
 		mov	edx, TimerRefHR
-		cmp	[ebx].LastOfsFrame, ebp	; First anim ?
-		mov	[ebx].LastTimer, edx	; struct -> LastTimer
-		mov	[ebx].ObjTime, edx	; struct -> ObjTime
+		cmp	[ebx].OBJ_3D.LastOfsFrame, ebp	; First anim ?
+		mov	[ebx].OBJ_3D.LastTimer, edx	; struct -> LastTimer
+		mov	[ebx].OBJ_3D.ObjTime, edx	; struct -> ObjTime
 		je	firstanim
 
 		mov	eax, 8
-		mov	[ebx].Status, ebp
-		mov	[ebx].NextOfsFrame, eax	; struct -> NextFrame 0
-		mov	eax, [ebx].NbGroups
-		mov	[ebx].NextFrame, ebp	; struct -> NextFrame 0
+		mov	[ebx].OBJ_3D.Status, ebp
+		mov	[ebx].OBJ_3D.NextOfsFrame, eax	; struct -> NextFrame 0
+		mov	eax, [ebx].OBJ_3D.NbGroups
+		mov	[ebx].OBJ_3D.NextFrame, ebp	; struct -> NextFrame 0
 
-		mov	[ebx].LastNbGroups, ecx	; struct -> LastNbGroups
+		mov	[ebx].OBJ_3D.LastNbGroups, ecx	; struct -> LastNbGroups
 
 		cmp	ecx, eax
 		jne	changegroups
@@ -99,19 +109,19 @@ okgroups:
 		xor	eax, eax
 		mov	edi, PtrLib3DBufferAnim	; edi -> looping anim buffer
 		inc	eax
-		mov	[ebx].NextTimer, edx	; struct -> NextTimer
-		mov	[ebx].LastOfsFrame, edi	; copy will be last frame
-		mov	[ebx].LastOfsIsPtr, eax
+		mov	[ebx].OBJ_3D.NextTimer, edx	; struct -> NextTimer
+		mov	[ebx].OBJ_3D.LastOfsFrame, edi	; copy will be last frame
+		mov	[ebx].OBJ_3D.LastOfsIsPtr, eax
 		add	edi, 16
 		dec	eax
-		lea	esi, [ebx].CurrentFrame	; esi -> CurrentFrame
+		lea	esi, [ebx].OBJ_3D.CurrentFrame	; esi -> CurrentFrame
 
 		mov	dword ptr[edi-16], eax
 		mov	dword ptr[edi-12], eax
 		mov	dword ptr[edi-8], eax
 		mov	dword ptr[edi-4], eax
 		dec	eax
-		mov	[ebx].LastFrame, eax	; LastFrame = -1
+		mov	[ebx].OBJ_3D.LastFrame, eax	; LastFrame = -1
 		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
         ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd			; do copy...
@@ -120,15 +130,18 @@ okgroups:
 		jz	noincrease
 
 		mov	eax, [TransFctAnim]
-		mov	esi, [ebx].Anim
+		mov	esi, [ebx].OBJ_3D.Anim
 
 		test	eax, eax
 		jz	skiptrans2
 
+		push	esi
 		call	eax
+		mov		esi, eax
+		add		esp,4
 skiptrans2:
-		add	esi, [ebx].NextOfsFrame
-		mov	ecx, [ebx].NbGroups
+		add	esi, [ebx].OBJ_3D.NextOfsFrame
+		mov	ecx, [ebx].OBJ_3D.NbGroups
 
 		sub	ecx, ebp
 
@@ -150,11 +163,11 @@ changegroups:
 		jb	reducegroups
 increasegroups:
 		mov	ebp, eax
-		mov	[ebx].NbGroups, ecx
+		mov	[ebx].OBJ_3D.NbGroups, ecx
 		mov	ecx, eax
 		jmp	okgroups
 reducegroups:
-		mov	[ebx].NbGroups, ecx
+		mov	[ebx].OBJ_3D.NbGroups, ecx
 		mov	eax, ecx
 		jmp	okgroups
 
@@ -168,36 +181,36 @@ lloopframe:
 firstanim:
 		mov	ebp, 8
 		xor	eax, eax
-		mov	[ebx].Status, STATUS_FRAME
-		mov	[ebx].LastOfsFrame, ebp	; struct -> LastOfsFrame -> 0
-		mov	[ebx].LastOfsIsPtr, eax
-		mov	[ebx].LastFrame, eax	; struct -> LastFrame 0
+		mov	[ebx].OBJ_3D.Status, STATUS_FRAME
+		mov	[ebx].OBJ_3D.LastOfsFrame, ebp	; struct -> LastOfsFrame -> 0
+		mov	[ebx].OBJ_3D.LastOfsIsPtr, eax
+		mov	[ebx].OBJ_3D.LastFrame, eax	; struct -> LastFrame 0
 
-		mov	[ebx].LastNbGroups, ecx	; struct -> LastNbGroups
-		mov	[ebx].NbGroups, ecx	; struct -> NbGroups
+		mov	[ebx].OBJ_3D.LastNbGroups, ecx	; struct -> LastNbGroups
+		mov	[ebx].OBJ_3D.NbGroups, ecx	; struct -> NbGroups
 
 		lea	ecx, [ecx*2-2]		; 2 DWORDs per group, no group 0
 
 		mov	ebp, esi		; save ptr
 		add	esi, 16+8		; esi -> group 1
-		lea	edi, [ebx].CurrentFrame
+		lea	edi, [ebx].OBJ_3D.CurrentFrame
 
         ; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
         ;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd			; init frame
 
-		cmp	[ebx].NbFrames, 1
+		cmp	[ebx].OBJ_3D.NbFrames, 1
 		je	lloopframe
 
 		movzx	eax, word ptr[esi]	; get time
 		sub	esi, ebp
 		inc	ecx
 fixedloop:
-		mov	[ebx].NextOfsFrame, esi	; struct -> NextOfsFrame -> 1
-		mov	[ebx].NextFrame, ecx	; struct -> NextFrame (0/1)
+		mov	[ebx].OBJ_3D.NextOfsFrame, esi	; struct -> NextOfsFrame -> 1
+		mov	[ebx].OBJ_3D.NextFrame, ecx	; struct -> NextFrame (0/1)
 		add	edx, eax
 		mov     eax, 1			; ok
-		mov	[ebx].NextTimer, edx	; struct -> NextTimer
+		mov	[ebx].OBJ_3D.NextTimer, edx	; struct -> NextTimer
 		ret				; exit
 
 ObjectInitAnim	endp

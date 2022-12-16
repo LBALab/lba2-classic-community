@@ -2,7 +2,7 @@
         OPTION SCOPED
 		.386p
 
-		.MODEL	SMALL, SYSCALL
+		.MODEL	FLAT, C
 
 		include	AFF_OBJ.INC
 
@@ -10,14 +10,16 @@
 		.DATA
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	TransFctBody	:DWORD
+		EXTRN	C	TransFctBody	:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	SYSCALL	Lib3DBufferAnim
-		PUBLIC	SYSCALL	EndLib3DBufferAnim
-		PUBLIC	SYSCALL	PtrLib3DBufferAnim
+		PUBLIC	C	Lib3DBufferAnim
+		PUBLIC	C	EndLib3DBufferAnim
+		PUBLIC	C	PtrLib3DBufferAnim
 
-		PUBLIC	SYSCALL	TransFctAnim
+		PUBLIC	C	TransFctAnim
+
+		ASSUME  DS:SEG Lib3DBufferAnim
 
 ;*──────────────────────────────────────────────────────────────────────────*
 ;	Buffer
@@ -34,18 +36,18 @@ TransFctAnim		dd	00
 
 ;*──────────────────────────────────────────────────────────────────────────*
 IFDEF	REG_CALL
-		EXTRN	SYSCALL	malloc_:PROC
-		EXTRN	SYSCALL	free_:	PROC
-		EXTRN	SYSCALL	atexit_:PROC
+		EXTRN	C	malloc_:PROC
+		EXTRN	C	free_:	PROC
+		EXTRN	C	atexit_:PROC
 ELSE
-		EXTRN	SYSCALL	malloc:	PROC
-		EXTRN	SYSCALL	free:	PROC
-		EXTRN	SYSCALL	atexit:	PROC
+		EXTRN	C	malloc:	PROC
+		EXTRN	C	free:	PROC
+		EXTRN	C	atexit:	PROC
 ENDIF
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	SYSCALL	InitObjects
-		PUBLIC	SYSCALL	ClearObjects
+		PUBLIC	C	InitObjects
+		PUBLIC	C	ClearObjects
 
 ;*──────────────────────────────────────────────────────────────────────────*
 ;void	InitObjects(void *buffer, U32 size, TRANS_FUNC *fctbody, TRANS_FUNC *fctanim)
@@ -54,7 +56,16 @@ ENDIF
 ;	parm		[eax] [ecx] [edx] [ebx]	\
 ;	modify exact 	[eax ecx edx]
 
-InitObjects	proc
+InitObjects	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			buffer: DWORD, \
+			size_: DWORD, \
+			fctbody: DWORD, \
+			fctanim: DWORD
+			mov eax, buffer
+			mov ecx, size_
+			mov edx, fctbody
+			mov ebx, fctanim
 
 		mov	TransFctBody, edx
 		mov	TransFctAnim, ebx
@@ -83,6 +94,12 @@ ELSE
 ENDIF
 		test	eax, eax
 		jz	error
+
+		mov	Lib3DBufferAnim, eax
+		lea	ecx, [eax+ecx-31*(SIZEOF GROUP_INFO)+1]
+		mov	PtrLib3DBufferAnim, eax
+		mov	EndLib3DBufferAnim, ecx
+
 		push	eax
 IFDEF	REG_CALL
 		mov	eax, offset ClearObjects; register ClearObjects
@@ -95,7 +112,7 @@ ENDIF
 		pop	eax
 
 		mov	MallocBuffer, eax
-		jmp	returnalloc
+		
 error:
 		ret
 
