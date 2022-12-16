@@ -2,7 +2,7 @@
 		.686p
 		.XMM
 
-		.MODEL	SMALL, SYSCALL
+		.MODEL	SMALL, C
 
 		include	AFF_OBJ.INC
 
@@ -10,28 +10,30 @@
 		.DATA
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	X0			:DWORD
-		EXTRN	SYSCALL	Y0			:DWORD
-		EXTRN	SYSCALL	Z0			:DWORD
+		EXTRN	C	X0			:DWORD
+		EXTRN	C	Y0			:DWORD
+		EXTRN	C	Z0			:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	MatrixLib2		:DWORD
+		EXTRN	C	MatrixLib2		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	InitMatrixStd		:DWORD
-		EXTRN	SYSCALL	RotatePoint		:DWORD
+		EXTRN	C	InitMatrixStd		:DWORD
+		EXTRN	C	RotatePoint		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	TimerRefHR		:DWORD
+		EXTRN	C	TimerRefHR		:DWORD
+
+		ASSUME  DS:SEG TimerRefHR
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	TransFctAnim		:DWORD
+		EXTRN	C	TransFctAnim		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	SYSCALL	ObjectSetInterDep
+		PUBLIC	C	ObjectSetInterDep
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ObjectSetInterDep(T_OBJ *obj)
@@ -40,46 +42,52 @@
 ;	parm		[ebx]			\
 ;	modify exact 	[eax ecx edx esi edi]
 
-ObjectSetInterDep proc uses ebp
+ObjectSetInterDep PROC \
+			uses ebx ecx edx edi esi ebp\
+			obj: DWORD
+			mov ebx, obj
 
-		mov	eax, [ebx].NextTexture
-		mov	ecx, [ebx].NextBody
+		mov	eax, [ebx].OBJ_3D.NextTexture
+		mov	ecx, [ebx].OBJ_3D.NextBody
 
-		mov	[ebx].Texture, eax
+		mov	[ebx].OBJ_3D.Texture, eax
 		mov	eax, [TimerRefHR]
 
-		mov	[ebx].Body, ecx
-		mov	edx, [ebx].ObjTime		; same time as before?
+		mov	[ebx].OBJ_3D.Body, ecx
+		mov	edx, [ebx].OBJ_3D.ObjTime		; same time as before?
 
 		cmp	eax,edx
 		je	exit1
 		jb	fixerror
 forcerecomp:
-		mov	[ebx].ObjTime, eax		; upgrade time
+		mov	[ebx].OBJ_3D.ObjTime, eax		; upgrade time
 
-		mov	esi, [ebx].Anim
+		mov	esi, [ebx].OBJ_3D.Anim
 		mov	eax, [TransFctAnim]
 
 		test	eax, eax
 		jz	skiptrans
 
+		push	esi
 		call	eax
+		mov		esi, eax
+		add		esp,4
 skiptrans:
 		push	esi
-		mov	eax, [ebx].ObjTime
+		mov	eax, [ebx].OBJ_3D.ObjTime
 
-		mov	edx, [ebx].NextOfsFrame
+		mov	edx, [ebx].OBJ_3D.NextOfsFrame
 		add	esi, edx
 
 		xor	edx, edx
-		mov	ecx, [ebx].NextTimer
+		mov	ecx, [ebx].OBJ_3D.NextTimer
 
-		mov	ebp, [ebx].LastTimer
+		mov	ebp, [ebx].OBJ_3D.LastTimer
 
 		cmp	eax, ecx
 		jae	timesup
 
-		mov	[ebx].Status, STATUS_CHANGE
+		mov	[ebx].OBJ_3D.Status, STATUS_CHANGE
 
 		sub	ecx, ebp		; ecx = nb steps
 		sub	eax, ebp		; eax = delta steps
@@ -92,12 +100,12 @@ skiptrans:
 		mov	ebp, eax		; factor (1.15.16)
 
 returntime:
-		mov	ecx, [ebx].Master	; Master
-		mov	eax, [ebx].ObjAlpha
-		mov	edx, [ebx].ObjBeta
+		mov	ecx, [ebx].OBJ_3D.Master	; Master
+		mov	eax, [ebx].OBJ_3D.ObjAlpha
+		mov	edx, [ebx].OBJ_3D.ObjBeta
 		test	ecx, 1			; MasterRot ?
 		jnz	animmaster
-		mov	ecx, [ebx].ObjGamma
+		mov	ecx, [ebx].OBJ_3D.ObjGamma
 returnmaster:
 
 		push	ebx
@@ -120,17 +128,17 @@ returnmaster:
 		imul	eax, ebp
 		mov	ecx, edx
 		sar	edi, 16
-		sub	ecx, [ebx].LastAnimStepX
-		mov	[ebx].LastAnimStepX, edx; X
+		sub	ecx, [ebx].OBJ_3D.LastAnimStepX
+		mov	[ebx].OBJ_3D.LastAnimStepX, edx; X
 		push	ecx
 		sar	eax, 16
 		mov	edx, edi
 		mov	ecx, eax
-		sub	edx, [ebx].LastAnimStepY
-		sub	ecx, [ebx].LastAnimStepZ
-		mov	[ebx].LastAnimStepY, edi; Y
-		mov	[ebx].LastAnimStepZ, eax; Z
-		mov	[ebx].Interpolator, ebp	; interpolator
+		sub	edx, [ebx].OBJ_3D.LastAnimStepY
+		sub	ecx, [ebx].OBJ_3D.LastAnimStepZ
+		mov	[ebx].OBJ_3D.LastAnimStepY, edi; Y
+		mov	[ebx].OBJ_3D.LastAnimStepZ, eax; Z
+		mov	[ebx].OBJ_3D.Interpolator, ebp	; interpolator
 
 		pop	eax
 		mov	esi, offset MatrixLib2
@@ -144,21 +152,21 @@ returnmaster:
 		mov	eax, [X0]
 		mov	edx, [Y0]
 		mov	ecx, [Z0]
-		add	eax, [ebx].ObjX
-		add	edx, [ebx].ObjY
-		add	ecx, [ebx].ObjZ
-		mov	[ebx].ObjX, eax
-		mov	eax, [ebx].Status
-		mov	[ebx].ObjY, edx
+		add	eax, [ebx].OBJ_3D.ObjX
+		add	edx, [ebx].OBJ_3D.ObjY
+		add	ecx, [ebx].OBJ_3D.ObjZ
+		mov	[ebx].OBJ_3D.ObjX, eax
+		mov	eax, [ebx].OBJ_3D.Status
+		mov	[ebx].OBJ_3D.ObjY, edx
 		cmp	eax, STATUS_CHANGE
 		pop	ebp
-		mov	[ebx].ObjZ, ecx
+		mov	[ebx].OBJ_3D.ObjZ, ecx
 		jne	frame
 
 		ret
 timesup:
 		mov	ebp, 10000h
-		mov	[ebx].Status, STATUS_FRAME+STATUS_CHANGE
+		mov	[ebx].OBJ_3D.Status, STATUS_FRAME+STATUS_CHANGE
 		jmp	returntime
 animmaster:
 		mov	dx, [esi+10]		; Alpha
@@ -173,28 +181,28 @@ animmaster:
 		imul	edx, ebp		; result	(1.15.16)
 		imul	edi, ebp
 		sar	edx, 16			; result	(17.15.0)
-		mov	ecx, [ebx].ObjAlpha
+		mov	ecx, [ebx].OBJ_3D.ObjAlpha
 		imul	eax, ebp
 		sar	edi, 16
 		add	ecx, edx
-		sub	ecx, [ebx].LastAnimStepAlpha
-		mov	[ebx].LastAnimStepAlpha, edx	; Alpha
+		sub	ecx, [ebx].OBJ_3D.LastAnimStepAlpha
+		mov	[ebx].OBJ_3D.LastAnimStepAlpha, edx	; Alpha
 		and	ecx, 4095
-		mov	edx, [ebx].ObjBeta
-		mov	[ebx].ObjAlpha, ecx
+		mov	edx, [ebx].OBJ_3D.ObjBeta
+		mov	[ebx].OBJ_3D.ObjAlpha, ecx
 		push	ecx
 		add	edx, edi
 		sar	eax, 16
-		mov	ecx, [ebx].ObjGamma
-		sub	edx, [ebx].LastAnimStepBeta
+		mov	ecx, [ebx].OBJ_3D.ObjGamma
+		sub	edx, [ebx].OBJ_3D.LastAnimStepBeta
 		add	ecx, eax
 		and	edx, 4095
-		mov	[ebx].LastAnimStepBeta, edi	; Beta
-		sub	ecx, [ebx].LastAnimStepGamma
-		mov	[ebx].LastAnimStepGamma, eax	; Gamma
+		mov	[ebx].OBJ_3D.LastAnimStepBeta, edi	; Beta
+		sub	ecx, [ebx].OBJ_3D.LastAnimStepGamma
+		mov	[ebx].OBJ_3D.LastAnimStepGamma, eax	; Gamma
 		and	ecx, 4095
-		mov	[ebx].ObjBeta, edx
-		mov	[ebx].ObjGamma, ecx
+		mov	[ebx].OBJ_3D.ObjBeta, edx
+		mov	[ebx].OBJ_3D.ObjGamma, ecx
 		pop	eax
 		jmp	returnmaster
 
@@ -216,48 +224,48 @@ optequal1:
 
 frame:
 		xor	eax, eax
-		mov	[ebx].Interpolator, eax
+		mov	[ebx].OBJ_3D.Interpolator, eax
 
-		mov	[ebx].LastAnimStepX, eax; struct -> stepX = 0
-		mov	[ebx].LastAnimStepY, eax; struct -> stepY = 0
-		mov	[ebx].LastAnimStepZ, eax; struct -> stepZ = 0
+		mov	[ebx].OBJ_3D.LastAnimStepX, eax; struct -> stepX = 0
+		mov	[ebx].OBJ_3D.LastAnimStepY, eax; struct -> stepY = 0
+		mov	[ebx].OBJ_3D.LastAnimStepZ, eax; struct -> stepZ = 0
 
-		mov	[ebx].LastAnimStepAlpha, eax ; struct -> stepAlpha = 0
-		mov	[ebx].LastAnimStepBeta, eax  ; struct -> stepBeta  = 0
-		mov	[ebx].LastAnimStepGamma, eax ; struct -> stepGamma = 0
+		mov	[ebx].OBJ_3D.LastAnimStepAlpha, eax ; struct -> stepAlpha = 0
+		mov	[ebx].OBJ_3D.LastAnimStepBeta, eax  ; struct -> stepBeta  = 0
+		mov	[ebx].OBJ_3D.LastAnimStepGamma, eax ; struct -> stepGamma = 0
 
-		mov	edx, [ebx].NextFrame
-		mov	esi, [ebx].NextOfsFrame
-		mov	[ebx].LastFrame, edx
-		mov	[ebx].LastOfsFrame, esi
-		mov	[ebx].LastOfsIsPtr, eax
+		mov	edx, [ebx].OBJ_3D.NextFrame
+		mov	esi, [ebx].OBJ_3D.NextOfsFrame
+		mov	[ebx].OBJ_3D.LastFrame, edx
+		mov	[ebx].OBJ_3D.LastOfsFrame, esi
+		mov	[ebx].OBJ_3D.LastOfsIsPtr, eax
 
 		inc	edx			; next frame
 
-		mov	eax, [ebx].NextNbGroups	; nb groups
-		mov	[ebx].LastNbGroups, eax	; LastNbGroups
-		mov	[ebx].NbGroups, eax	; nb groups
+		mov	eax, [ebx].OBJ_3D.NextNbGroups	; nb groups
+		mov	[ebx].OBJ_3D.LastNbGroups, eax	; LastNbGroups
+		mov	[ebx].OBJ_3D.NbGroups, eax	; nb groups
 
 		lea	ecx, [eax*2-2]		; 2 dwords per group, no group 0
-		cmp	edx, [ebx].NbFrames
+		cmp	edx, [ebx].OBJ_3D.NbFrames
 		jge	lframe
 
 		lea	eax, [esi+ecx*4+8+8]
 backframe:
 		add	esi, 16			; esi -> group 1
-		mov	[ebx].NextOfsFrame, eax
+		mov	[ebx].OBJ_3D.NextOfsFrame, eax
 		add	eax, ebp
 		add	esi, ebp
-		mov     edi, [ebx].ObjTime
+		mov     edi, [ebx].OBJ_3D.ObjTime
 		movzx	ebp, word ptr[eax+8]
 		movzx	eax, word ptr[eax]
-		mov	[ebx].Master, ebp
-		mov	[ebx].NextFrame, edx
-		mov	[ebx].LastTimer, edi	; this time
+		mov	[ebx].OBJ_3D.Master, ebp
+		mov	[ebx].OBJ_3D.NextFrame, edx
+		mov	[ebx].OBJ_3D.LastTimer, edi	; this time
 		add	eax, edi
-		lea	edi, [ebx].CurrentFrame
-		mov	[ebx].NextTimer, eax	; next time
-		mov	eax, [ebx].Status
+		lea	edi, [ebx].OBJ_3D.CurrentFrame
+		mov	[ebx].OBJ_3D.NextTimer, eax	; next time
+		mov	eax, [ebx].OBJ_3D.Status
 
         ; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
         ;   is it confusing it with some other instruction? Is it not supported by 486?
@@ -265,27 +273,27 @@ backframe:
 
 		ret				; ok, return
 lframe:
-		mov	edx, [ebx].LoopFrame
-		mov	eax, [ebx].LoopOfsFrame
-		mov	[ebx].Status, STATUS_FRAME+STATUS_LAST+STATUS_CHANGE
+		mov	edx, [ebx].OBJ_3D.LoopFrame
+		mov	eax, [ebx].OBJ_3D.LoopOfsFrame
+		mov	[ebx].OBJ_3D.Status, STATUS_FRAME+STATUS_LAST+STATUS_CHANGE
 		jmp	backframe
 exit1:
-		test	[ebx].Status, STATUS_BODY
+		test	[ebx].OBJ_3D.Status, STATUS_BODY
 		jnz	forcerecomp
 		jmp	exit0
 fixerror:
-		mov	edx, [ebx].ObjTime
-		mov	[ebx].ObjTime, eax
+		mov	edx, [ebx].OBJ_3D.ObjTime
+		mov	[ebx].OBJ_3D.ObjTime, eax
 		sub	edx, eax
-		mov	eax, [ebx].NextTimer
-		mov	ecx, [ebx].LastTimer
+		mov	eax, [ebx].OBJ_3D.NextTimer
+		mov	ecx, [ebx].OBJ_3D.LastTimer
 		sub	eax, edx
 		sub	ecx, edx
-		mov	[ebx].NextTimer, eax
-		mov	[ebx].LastTimer, ecx
+		mov	[ebx].OBJ_3D.NextTimer, eax
+		mov	[ebx].OBJ_3D.LastTimer, ecx
 exit0:
 		xor	eax, eax
-		mov	[ebx].Status, eax	; didn't do anything
+		mov	[ebx].OBJ_3D.Status, eax	; didn't do anything
 		ret
 
 ObjectSetInterDep endp

@@ -1,7 +1,7 @@
 
 		.386p
 
-		.MODEL	SMALL, SYSCALL
+		.MODEL	SMALL, C
 
 		include	AFF_OBJ.INC
 
@@ -9,11 +9,11 @@
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	SYSCALL	ObjectSetInterDep	:PROC
-		EXTRN	SYSCALL	ObjectSetInterFrame	:PROC
+		EXTRN	C	ObjectSetInterDep	:PROC
+		EXTRN	C	ObjectSetInterFrame	:PROC
 
 ;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	SYSCALL	ObjectSetInterAnim
+		PUBLIC	C	ObjectSetInterAnim
 
 ;*──────────────────────────────────────────────────────────────────────────*
 ;void	ObjectSetInterAnim(T_OBJ *obj)
@@ -23,10 +23,15 @@
 ;	modify	[eax ecx edx esi edi]
 
 
-ObjectSetInterAnim proc
+ObjectSetInterAnim PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			obj: DWORD
+			mov ebx, obj
 
 		push	ebx
+		push	ebx
 		call	ObjectSetInterDep
+		add esp, 4
 		pop	ebx
 		test	eax, STATUS_CHANGE	; any change?
 		jz	exit
@@ -34,7 +39,9 @@ ObjectSetInterAnim proc
 		jnz	exit
 
 		push	eax
+		push ebx
 		call	ObjectSetInterFrame
+		add esp, 4
 		pop	eax
 exit:
 		ret

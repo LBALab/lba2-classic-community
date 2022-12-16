@@ -3,29 +3,6 @@
 #define	LIB_ANIM
 
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	_BUILDING_LIB
-
-#ifdef	_WIN32
-
-#ifdef	__SW_3R
-#pragma library ("NT_ANIR.LIB")
-#else//	__SW_3R
-#pragma library ("NT_ANIS.LIB")
-#endif//__SW_3R
-
-#else//	_WIN32
-
-#ifdef	__SW_3R
-#pragma library ("DOS_ANIR.LIB")
-#else//	__SW_3R
-#pragma library ("DOS_ANIS.LIB")
-#endif//__SW_3R
-
-#endif//_WIN32
-
-#endif//_BUILDING_LIB
-
-//──────────────────────────────────────────────────────────────────────────
 #define	FLAG_FRAME		1
 #define	FLAG_LAST_FRAME		2
 #define	FLAG_CHANGE		4
