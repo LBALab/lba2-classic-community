@@ -13,9 +13,13 @@
 ; **************************************************************************
 ; **************************************************************************
 
+			.586P
+			.MODEL SMALL, C
 			OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+            OPTION	SCOPED
+
+;----------------------------------------------------------------------------
+			.CODE
 
 
 ;CORRECT_TEXTURE	EQU	0	; IF DEFINED: Correct the mapping coord
@@ -32,21 +36,21 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	SYSCALL		Fill_Poly		; Polygon filler (Variable Pointer)
-PUBLIC	SYSCALL		Fill_PolyFast		; Polygon filler (Direct call without EMMS)
-PUBLIC	SYSCALL		SetScreenPitch		; Change the pitch of the screen
-PUBLIC	SYSCALL		SetFog			; Initialize the fog
-PUBLIC	SYSCALL		SetCLUT			; Set the CLUT pointer
-PUBLIC	SYSCALL		Switch_Fillers		; To change the filling method
+PUBLIC	C		Fill_Poly		; Polygon filler (Variable Pointer)
+PUBLIC	C		Fill_PolyFast		; Polygon filler (Direct call without EMMS)
+PUBLIC	C		SetScreenPitch		; Change the pitch of the screen
+PUBLIC	C		SetFog			; Initialize the fog
+PUBLIC	C		SetCLUT			; Set the CLUT pointer
+PUBLIC	C		Switch_Fillers		; To change the filling method
 
 
-PUBLIC	SYSCALL		Fill_PolyClip
-PUBLIC	SYSCALL		Fill_ClipXMin		; Clipping procedures
-PUBLIC	SYSCALL		Fill_ClipXMax
-PUBLIC	SYSCALL		Fill_ClipYMin
-PUBLIC	SYSCALL		Fill_ClipYMax
+PUBLIC	C		Fill_PolyClip
+PUBLIC	C		Fill_ClipXMin		; Clipping procedures
+PUBLIC	C		Fill_ClipXMax
+PUBLIC	C		Fill_ClipYMin
+PUBLIC	C		Fill_ClipYMax
 
-PUBLIC	SYSCALL		Triangle_ReadNextEdge	; Entry point that reads the next point in the triangle
+PUBLIC	C		Triangle_ReadNextEdge	; Entry point that reads the next point in the triangle
 
 
 
@@ -55,89 +59,89 @@ PUBLIC	SYSCALL		Triangle_ReadNextEdge	; Entry point that reads the next point in
 ;					*****************
 
 ;					*** PUBLIC DATA ***
-PUBLIC	SYSCALL		ScreenPitch		; Screen width in bytes
-PUBLIC	SYSCALL		PTR_TabOffLine		; Ptr on a LUT containing a list of line-offsets
-PUBLIC	SYSCALL		PtrZBuffer		; ZBuffer pointer
-PUBLIC	SYSCALL		PtrCLUTGouraud		; Pointer to a Gouraud CLUT
-PUBLIC	SYSCALL		PtrCLUTFog		; Pointer to a Fog CLUT
-PUBLIC	SYSCALL		PtrTruePal		; Pointer to the palette CLUT
-PUBLIC	SYSCALL		RepMask			; Repeat zone for texture mapping
-PUBLIC	SYSCALL		PtrMap			; Pointer of the texture map
-PUBLIC	SYSCALL		Fill_Z_Fog_Near		; Near Fog
-PUBLIC	SYSCALL		Fill_Z_Fog_Far		; Far Fog
-PUBLIC	SYSCALL		Fill_ZBuffer_Factor	; ZBuffer factor
-PUBLIC	SYSCALL		Fill_Fog_Factor		; Fog factor
-PUBLIC	SYSCALL		Fill_ScaledFogNear	; Scaled FogNear value
-PUBLIC	SYSCALL		IsPolygonHidden		; Flag for Poly type 25
+PUBLIC	C		ScreenPitch		; Screen width in bytes
+PUBLIC	C		PTR_TabOffLine		; Ptr on a LUT containing a list of line-offsets
+PUBLIC	C		PtrZBuffer		; ZBuffer pointer
+PUBLIC	C		PtrCLUTGouraud		; Pointer to a Gouraud CLUT
+PUBLIC	C		PtrCLUTFog		; Pointer to a Fog CLUT
+PUBLIC	C		PtrTruePal		; Pointer to the palette CLUT
+PUBLIC	C		RepMask			; Repeat zone for texture mapping
+PUBLIC	C		PtrMap			; Pointer of the texture map
+PUBLIC	C		Fill_Z_Fog_Near		; Near Fog
+PUBLIC	C		Fill_Z_Fog_Far		; Far Fog
+PUBLIC	C		Fill_ZBuffer_Factor	; ZBuffer factor
+PUBLIC	C		Fill_Fog_Factor		; Fog factor
+PUBLIC	C		Fill_ScaledFogNear	; Scaled FogNear value
+PUBLIC	C		IsPolygonHidden		; Flag for Poly type 25
 
 
 ;					*** MODULE DATA ***
-PUBLIC	SYSCALL		Fill_Restart		; Return entry point from clipping proc
-PUBLIC	SYSCALL		Fill_Filler		; Chooser filler
-PUBLIC	SYSCALL		Fill_Patch		; Flag 1 means we should patch the filler proc; 0 means nothing to do
-PUBLIC	SYSCALL		Fill_Color		; The polygon color
-PUBLIC	SYSCALL		Fill_Trame_Parity	; Trame parity for Filler_Trame
+PUBLIC	C		Fill_Restart		; Return entry point from clipping proc
+PUBLIC	C		Fill_Filler		; Chooser filler
+PUBLIC	C		Fill_Patch		; Flag 1 means we should patch the filler proc; 0 means nothing to do
+PUBLIC	C		Fill_Color		; The polygon color
+PUBLIC	C		Fill_Trame_Parity	; Trame parity for Filler_Trame
 
-PUBLIC	SYSCALL		Fill_FirstPoint		; Pointer of the first point of the list
-PUBLIC	SYSCALL		Fill_LastPoint		; Pointer of the last point of the list
-PUBLIC	SYSCALL		Fill_LeftPoint		; Pointer of the current point of the left edge
-PUBLIC	SYSCALL		Fill_RightPoint		; Pointer of the current point of the right edge
+PUBLIC	C		Fill_FirstPoint		; Pointer of the first point of the list
+PUBLIC	C		Fill_LastPoint		; Pointer of the last point of the list
+PUBLIC	C		Fill_LeftPoint		; Pointer of the current point of the left edge
+PUBLIC	C		Fill_RightPoint		; Pointer of the current point of the right edge
 
-PUBLIC	SYSCALL		Fill_LeftSlope		; Left slope
-PUBLIC	SYSCALL		Fill_RightSlope		; Right slope
+PUBLIC	C		Fill_LeftSlope		; Left slope
+PUBLIC	C		Fill_RightSlope		; Right slope
 
-PUBLIC	SYSCALL		Fill_CurY		; Current Y
-PUBLIC	SYSCALL		Fill_CurXMin		; Current XMin
-PUBLIC	SYSCALL		Fill_CurXMax		; Current XMax
-PUBLIC	SYSCALL		Fill_CurOffLine		; Offset of the current video line
+PUBLIC	C		Fill_CurY		; Current Y
+PUBLIC	C		Fill_CurXMin		; Current XMin
+PUBLIC	C		Fill_CurXMax		; Current XMax
+PUBLIC	C		Fill_CurOffLine		; Offset of the current video line
 
-PUBLIC	SYSCALL		Fill_CurGouraudMin	; Left edge: gouraud value
-PUBLIC	SYSCALL		Fill_Gouraud_LeftSlope	; Left slope for Gouraud shading
-PUBLIC	SYSCALL		Fill_Gouraud_XSlope	; X Slope for Gouraud shading
+PUBLIC	C		Fill_CurGouraudMin	; Left edge: gouraud value
+PUBLIC	C		Fill_Gouraud_LeftSlope	; Left slope for Gouraud shading
+PUBLIC	C		Fill_Gouraud_XSlope	; X Slope for Gouraud shading
 
-PUBLIC	SYSCALL		Fill_CurMapUMin		; Left edge: MapU value
-PUBLIC	SYSCALL		Fill_MapU_LeftSlope	; Left slope for MapU
-PUBLIC	SYSCALL		Fill_MapU_XSlope	; X Slope for MapU
+PUBLIC	C		Fill_CurMapUMin		; Left edge: MapU value
+PUBLIC	C		Fill_MapU_LeftSlope	; Left slope for MapU
+PUBLIC	C		Fill_MapU_XSlope	; X Slope for MapU
 
-PUBLIC	SYSCALL		Fill_CurMapVMin		; Left edge: MapV value
-PUBLIC	SYSCALL		Fill_MapV_LeftSlope	; Left slope for MapV
-PUBLIC	SYSCALL		Fill_MapV_XSlope	; X Slope for MapV
+PUBLIC	C		Fill_CurMapVMin		; Left edge: MapV value
+PUBLIC	C		Fill_MapV_LeftSlope	; Left slope for MapV
+PUBLIC	C		Fill_MapV_XSlope	; X Slope for MapV
 
-PUBLIC	SYSCALL		Fill_CurWMin		; Left edge: W value
-PUBLIC	SYSCALL		Fill_W_LeftSlope	; Left slope for W
-PUBLIC	SYSCALL		Fill_W_XSlope		; X Slope for W
+PUBLIC	C		Fill_CurWMin		; Left edge: W value
+PUBLIC	C		Fill_W_LeftSlope	; Left slope for W
+PUBLIC	C		Fill_W_XSlope		; X Slope for W
 
-PUBLIC	SYSCALL		Fill_CurZBufMin		; Left edge: ZBuf value
-PUBLIC	SYSCALL		Fill_ZBuf_LeftSlope	; Left slope for ZBuf
-PUBLIC	SYSCALL		Fill_ZBuf_XSlope	; X Slope for ZBuf
-PUBLIC	SYSCALL		Fill_CurZBuf		; Current value of ZBuf in the scanline
+PUBLIC	C		Fill_CurZBufMin		; Left edge: ZBuf value
+PUBLIC	C		Fill_ZBuf_LeftSlope	; Left slope for ZBuf
+PUBLIC	C		Fill_ZBuf_XSlope	; X Slope for ZBuf
+PUBLIC	C		Fill_CurZBuf		; Current value of ZBuf in the scanline
 
-PUBLIC	SYSCALL		Fill_Cur_W
-PUBLIC	SYSCALL		Fill_Next_W
-PUBLIC	SYSCALL		Fill_Cur_MapU
-PUBLIC	SYSCALL		Fill_Next_MapU
-PUBLIC	SYSCALL		Fill_Cur_MapV
-PUBLIC	SYSCALL		Fill_Next_MapV
-PUBLIC	SYSCALL		Fill_Cur_MapUOverW
-PUBLIC	SYSCALL		Fill_Next_MapUOverW
-PUBLIC	SYSCALL		Fill_Cur_MapVOverW
-PUBLIC	SYSCALL		Fill_Next_MapVOverW
+PUBLIC	C		Fill_Cur_W
+PUBLIC	C		Fill_Next_W
+PUBLIC	C		Fill_Cur_MapU
+PUBLIC	C		Fill_Next_MapU
+PUBLIC	C		Fill_Cur_MapV
+PUBLIC	C		Fill_Next_MapV
+PUBLIC	C		Fill_Cur_MapUOverW
+PUBLIC	C		Fill_Next_MapUOverW
+PUBLIC	C		Fill_Cur_MapVOverW
+PUBLIC	C		Fill_Next_MapVOverW
 
 
-PUBLIC	SYSCALL		Fill_ReadFlag		; Flag telling which point to read
-PUBLIC	SYSCALL		Fill_ClipFlag		; Flag telling us what to clip (ie: edges, gouraud...)
-PUBLIC	SYSCALL		Fill_Flag_Fog		; True if FOG is active
-PUBLIC	SYSCALL		Fill_Flag_ZBuffer	; True if ZBUFFER is active
-PUBLIC	SYSCALL		Fill_Flag_NZW		; True if NZW is active
+PUBLIC	C		Fill_ReadFlag		; Flag telling which point to read
+PUBLIC	C		Fill_ClipFlag		; Flag telling us what to clip (ie: edges, gouraud...)
+PUBLIC	C		Fill_Flag_Fog		; True if FOG is active
+PUBLIC	C		Fill_Flag_ZBuffer	; True if ZBUFFER is active
+PUBLIC	C		Fill_Flag_NZW		; True if NZW is active
 
-PUBLIC	SYSCALL		Fill_Logical_Palette	; Logical palette
+PUBLIC	C		Fill_Logical_Palette	; Logical palette
 
-PUBLIC	SYSCALL		F_1			; 1 in float
-PUBLIC	SYSCALL		F_256			; 256 in float
-PUBLIC	SYSCALL		Fill_UseFPU		; Flag that tells us weither we should use the FPU or not
+PUBLIC	C		F_1			; 1 in float
+PUBLIC	C		F_256			; 256 in float
+PUBLIC	C		Fill_UseFPU		; Flag that tells us weither we should use the FPU or not
 
-PUBLIC	SYSCALL		Status_Int		; FPU control word for CHOP rounding mode
-PUBLIC	SYSCALL		Status_Float		; FPU control word for nearest rounding mode
+PUBLIC	C		Status_Int		; FPU control word for CHOP rounding mode
+PUBLIC	C		Status_Float		; FPU control word for nearest rounding mode
 
 
 
@@ -204,7 +208,7 @@ M_FILL_CLIP		MACRO	Type
 	ENDIF
 
 			shl	ebp,16
-			mov	eax,dword ptr [ebx].Pt_XE
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE
 
 	IF Type EQ CLIP_XMIN
 			shl	eax,16
@@ -243,7 +247,7 @@ M_FILL_CLIP		MACRO	Type
 			cmp	esi,eax
 			je	@@End
 
-			mov	eax,dword ptr [esi+Size STRUC_POINT].Pt_XE
+			mov	eax,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
 			add	esi,Size STRUC_POINT	; ESI = Current point
 
 	IF Type EQ CLIP_XMIN
@@ -287,17 +291,17 @@ M_FILL_CLIP		MACRO	Type
 			add	edi,Size STRUC_POINT
 			inc	ecx
 @@Pas_Inters:
-			mov	eax,dword ptr [esi].Pt_XE	; Visible
-			mov	edx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE	; Visible
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_Light
 
-			mov	dword ptr [edi].Pt_XE,eax
-			mov	dword ptr [edi].Pt_Light,edx
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_Light,edx
 
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	edx,[esi].Pt_W
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	edx,[esi].STRUC_POINT.Pt_W
 
-			mov	dword ptr [edi].Pt_MapU,eax
-			mov	[edi].Pt_W,edx
+			mov	dword ptr [edi].STRUC_POINT.Pt_MapU,eax
+			mov	[edi].STRUC_POINT.Pt_W,edx
 
 			inc	ecx
 			add	edi,Size STRUC_POINT
@@ -336,7 +340,7 @@ M_FILL_CLIP		MACRO	Type
 
 			.586
 			.MMX
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -350,124 +354,124 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		ProcessorSignature	:	DWORD
+Extrn	C		ProcessorSignature	:	DWORD
 
 
-Extrn	SYSCALL		TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_N_Table_Jumps	:	DWORD
-Extrn	SYSCALL		Fill_Fog_Table_Jumps	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_Table_Jumps	:	DWORD
-Extrn	SYSCALL		Fill_FogZBuf_Table_Jumps:	DWORD
-Extrn	SYSCALL		Fill_NZW_Table_Jumps	:	DWORD
-Extrn	SYSCALL		Fill_FogNZW_Table_Jumps	:	DWORD
+Extrn	C		TabOffLine		:	DWORD
+Extrn	C		Fill_N_Table_Jumps	:	DWORD
+Extrn	C		Fill_Fog_Table_Jumps	:	DWORD
+Extrn	C		Fill_ZBuf_Table_Jumps	:	DWORD
+Extrn	C		Fill_FogZBuf_Table_Jumps:	DWORD
+Extrn	C		Fill_NZW_Table_Jumps	:	DWORD
+Extrn	C		Fill_FogNZW_Table_Jumps	:	DWORD
 
-Extrn	SYSCALL		ClipXMin		:	DWORD
-Extrn	SYSCALL		ClipXMax		:	DWORD
-Extrn	SYSCALL		ClipYMin		:	DWORD
-Extrn	SYSCALL		ClipYMax		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-
-
-Extrn	SYSCALL		Fill_VLDisc1		:	DWORD
-Extrn	SYSCALL		Fill_VLDisc2		:	DWORD
-Extrn	SYSCALL		Fill_VLDisc3		:	DWORD
-Extrn	SYSCALL		Fill_VLDisc4		:	DWORD
-
-Extrn	SYSCALL		Fill_VLFlat1		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat2		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat3		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat4		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat5		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat6		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat7		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat8		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat9		:	DWORD
-Extrn	SYSCALL		Fill_VLFlat10		:	DWORD
-
-Extrn	SYSCALL		Fill_VLGouraud1		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud2		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud3		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud4		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud5		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud6		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud7		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud8		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud9		:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud10	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud11	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud12	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud13	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud14	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud15	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud16	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud17	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraud18	:	DWORD
-
-Extrn	SYSCALL		Fill_VLTexture1		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture2		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture3		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture4		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture5		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture6		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture7		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture8		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture9		:	DWORD
-Extrn	SYSCALL		Fill_VLTexture10	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture11	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture12	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture13	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture14	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture15	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture16	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture17	:	DWORD
-Extrn	SYSCALL		Fill_VLTexture18	:	DWORD
-
-Extrn	SYSCALL		Fill_VLGouraudTexture1	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture2	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture3	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture4	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture5	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture6	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture7	:	DWORD
-Extrn	SYSCALL		Fill_VLGouraudTexture8	:	DWORD
-
-Extrn	SYSCALL		Fill_VLTextureZ1	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ2	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ3	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ4	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ5	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ6	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ7	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ8	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ9	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ10	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ11	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ12	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ13	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ14	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ15	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ16	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ17	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZ18	:	DWORD
+Extrn	C		ClipXMin		:	DWORD
+Extrn	C		ClipXMax		:	DWORD
+Extrn	C		ClipYMin		:	DWORD
+Extrn	C		ClipYMax		:	DWORD
+Extrn	C		Log			:	DWORD
 
 
-Extrn	SYSCALL		Fill_VLTextureZGouraud1	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZGouraud2	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZGouraud3	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZGouraud4	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZGouraud5	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZGouraud6	:	DWORD
+Extrn	C		Fill_VLDisc1		:	DWORD
+Extrn	C		Fill_VLDisc2		:	DWORD
+Extrn	C		Fill_VLDisc3		:	DWORD
+Extrn	C		Fill_VLDisc4		:	DWORD
 
-Extrn	SYSCALL		Fill_VLTextureZFog1	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZFog2	:	DWORD
-Extrn	SYSCALL		Fill_VLTextureZFog3	:	DWORD
+Extrn	C		Fill_VLFlat1		:	DWORD
+Extrn	C		Fill_VLFlat2		:	DWORD
+Extrn	C		Fill_VLFlat3		:	DWORD
+Extrn	C		Fill_VLFlat4		:	DWORD
+Extrn	C		Fill_VLFlat5		:	DWORD
+Extrn	C		Fill_VLFlat6		:	DWORD
+Extrn	C		Fill_VLFlat7		:	DWORD
+Extrn	C		Fill_VLFlat8		:	DWORD
+Extrn	C		Fill_VLFlat9		:	DWORD
+Extrn	C		Fill_VLFlat10		:	DWORD
+
+Extrn	C		Fill_VLGouraud1		:	DWORD
+Extrn	C		Fill_VLGouraud2		:	DWORD
+Extrn	C		Fill_VLGouraud3		:	DWORD
+Extrn	C		Fill_VLGouraud4		:	DWORD
+Extrn	C		Fill_VLGouraud5		:	DWORD
+Extrn	C		Fill_VLGouraud6		:	DWORD
+Extrn	C		Fill_VLGouraud7		:	DWORD
+Extrn	C		Fill_VLGouraud8		:	DWORD
+Extrn	C		Fill_VLGouraud9		:	DWORD
+Extrn	C		Fill_VLGouraud10	:	DWORD
+Extrn	C		Fill_VLGouraud11	:	DWORD
+Extrn	C		Fill_VLGouraud12	:	DWORD
+Extrn	C		Fill_VLGouraud13	:	DWORD
+Extrn	C		Fill_VLGouraud14	:	DWORD
+Extrn	C		Fill_VLGouraud15	:	DWORD
+Extrn	C		Fill_VLGouraud16	:	DWORD
+Extrn	C		Fill_VLGouraud17	:	DWORD
+Extrn	C		Fill_VLGouraud18	:	DWORD
+
+Extrn	C		Fill_VLTexture1		:	DWORD
+Extrn	C		Fill_VLTexture2		:	DWORD
+Extrn	C		Fill_VLTexture3		:	DWORD
+Extrn	C		Fill_VLTexture4		:	DWORD
+Extrn	C		Fill_VLTexture5		:	DWORD
+Extrn	C		Fill_VLTexture6		:	DWORD
+Extrn	C		Fill_VLTexture7		:	DWORD
+Extrn	C		Fill_VLTexture8		:	DWORD
+Extrn	C		Fill_VLTexture9		:	DWORD
+Extrn	C		Fill_VLTexture10	:	DWORD
+Extrn	C		Fill_VLTexture11	:	DWORD
+Extrn	C		Fill_VLTexture12	:	DWORD
+Extrn	C		Fill_VLTexture13	:	DWORD
+Extrn	C		Fill_VLTexture14	:	DWORD
+Extrn	C		Fill_VLTexture15	:	DWORD
+Extrn	C		Fill_VLTexture16	:	DWORD
+Extrn	C		Fill_VLTexture17	:	DWORD
+Extrn	C		Fill_VLTexture18	:	DWORD
+
+Extrn	C		Fill_VLGouraudTexture1	:	DWORD
+Extrn	C		Fill_VLGouraudTexture2	:	DWORD
+Extrn	C		Fill_VLGouraudTexture3	:	DWORD
+Extrn	C		Fill_VLGouraudTexture4	:	DWORD
+Extrn	C		Fill_VLGouraudTexture5	:	DWORD
+Extrn	C		Fill_VLGouraudTexture6	:	DWORD
+Extrn	C		Fill_VLGouraudTexture7	:	DWORD
+Extrn	C		Fill_VLGouraudTexture8	:	DWORD
+
+Extrn	C		Fill_VLTextureZ1	:	DWORD
+Extrn	C		Fill_VLTextureZ2	:	DWORD
+Extrn	C		Fill_VLTextureZ3	:	DWORD
+Extrn	C		Fill_VLTextureZ4	:	DWORD
+Extrn	C		Fill_VLTextureZ5	:	DWORD
+Extrn	C		Fill_VLTextureZ6	:	DWORD
+Extrn	C		Fill_VLTextureZ7	:	DWORD
+Extrn	C		Fill_VLTextureZ8	:	DWORD
+Extrn	C		Fill_VLTextureZ9	:	DWORD
+Extrn	C		Fill_VLTextureZ10	:	DWORD
+Extrn	C		Fill_VLTextureZ11	:	DWORD
+Extrn	C		Fill_VLTextureZ12	:	DWORD
+Extrn	C		Fill_VLTextureZ13	:	DWORD
+Extrn	C		Fill_VLTextureZ14	:	DWORD
+Extrn	C		Fill_VLTextureZ15	:	DWORD
+Extrn	C		Fill_VLTextureZ16	:	DWORD
+Extrn	C		Fill_VLTextureZ17	:	DWORD
+Extrn	C		Fill_VLTextureZ18	:	DWORD
+
+
+Extrn	C		Fill_VLTextureZGouraud1	:	DWORD
+Extrn	C		Fill_VLTextureZGouraud2	:	DWORD
+Extrn	C		Fill_VLTextureZGouraud3	:	DWORD
+Extrn	C		Fill_VLTextureZGouraud4	:	DWORD
+Extrn	C		Fill_VLTextureZGouraud5	:	DWORD
+Extrn	C		Fill_VLTextureZGouraud6	:	DWORD
+
+Extrn	C		Fill_VLTextureZFog1	:	DWORD
+Extrn	C		Fill_VLTextureZFog2	:	DWORD
+Extrn	C		Fill_VLTextureZFog3	:	DWORD
 
 
 				; Chooser.asm
-Extrn	SYSCALL		Chooser_RtnI	:	DWORD
-Extrn	SYSCALL		Chooser_RtnF	:	DWORD
-Extrn	SYSCALL		Chooser_RtnM	:	DWORD
-Extrn	SYSCALL		Chooser_Result	:	DWORD
+Extrn	C		Chooser_RtnI	:	DWORD
+Extrn	C		Chooser_RtnF	:	DWORD
+Extrn	C		Chooser_RtnM	:	DWORD
+Extrn	C		Chooser_Result	:	DWORD
 
 
 
@@ -882,50 +886,50 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				*** Extrn proc ***
 ;				******************
 IFDEF	_WIN32
-Extrn	SYSCALL		AllowPatch		:	PROC
-Extrn	SYSCALL		AllowPatchAndPatch	:	PROC
+Extrn	C		AllowPatch		:	PROC
+Extrn	C		AllowPatchAndPatch	:	PROC
 ENDIF	; _WIN32
 
 
 					; *** POLYLINE.ASM ***
-Extrn	SYSCALL		First_POLYLINEPatch	:	DWORD
-Extrn	SYSCALL		Last_POLYLINEPatch	:	DWORD
+Extrn	C		First_POLYLINEPatch	:	DWORD
+Extrn	C		Last_POLYLINEPatch	:	DWORD
 
 					; *** POLYDISC.ASM ***
-Extrn	SYSCALL		First_POLYDISCPatch	:	DWORD
-Extrn	SYSCALL		Last_POLYDISCPatch	:	DWORD
+Extrn	C		First_POLYDISCPatch	:	DWORD
+Extrn	C		Last_POLYDISCPatch	:	DWORD
 
 					; *** POLYFLAT.ASM ***
-Extrn	SYSCALL		First_POLYFLATPatch	:	DWORD
-Extrn	SYSCALL		Last_POLYFLATPatch	:	DWORD
+Extrn	C		First_POLYFLATPatch	:	DWORD
+Extrn	C		Last_POLYFLATPatch	:	DWORD
 
 					; *** POLYGOUR.ASM ***
-Extrn	SYSCALL		First_POLYGOURAUDPatch	:	DWORD
-Extrn	SYSCALL		Last_POLYGOURAUDPatch	:	DWORD
+Extrn	C		First_POLYGOURAUDPatch	:	DWORD
+Extrn	C		Last_POLYGOURAUDPatch	:	DWORD
 
 					; *** POLYTEXT.ASM ***
-Extrn	SYSCALL		First_POLYTEXTUREPatch	:	DWORD
-Extrn	SYSCALL		Last_POLYTEXTUREPatch	:	DWORD
+Extrn	C		First_POLYTEXTUREPatch	:	DWORD
+Extrn	C		Last_POLYTEXTUREPatch	:	DWORD
 
 					; *** POLYGTEX.ASM ***
-Extrn	SYSCALL		First_POLYGOURAUDTEXTUREPatch:	DWORD
-Extrn	SYSCALL		Last_POLYGOURAUDTEXTUREPatch :	DWORD
+Extrn	C		First_POLYGOURAUDTEXTUREPatch:	DWORD
+Extrn	C		Last_POLYGOURAUDTEXTUREPatch :	DWORD
 
 					; *** POLYTEXZ.ASM ***
-Extrn	SYSCALL		First_POLYTEXTUREZPatch	:	DWORD
-Extrn	SYSCALL		Last_POLYTEXTUREZPatch	:	DWORD
+Extrn	C		First_POLYTEXTUREZPatch	:	DWORD
+Extrn	C		Last_POLYTEXTUREZPatch	:	DWORD
 
 					; *** POLYTZG.ASM ***
-Extrn	SYSCALL		First_POLYTEXTUREZGOURAUDPatch:	DWORD
-Extrn	SYSCALL		Last_POLYTEXTUREZGOURAUDPatch:	DWORD
+Extrn	C		First_POLYTEXTUREZGOURAUDPatch:	DWORD
+Extrn	C		Last_POLYTEXTUREZGOURAUDPatch:	DWORD
 
 					; *** POLYTZF.ASM ***
-Extrn	SYSCALL		First_POLYTEXTUREZFOGPatch:	DWORD
-Extrn	SYSCALL		Last_POLYTEXTUREZFOGPatch:	DWORD
+Extrn	C		First_POLYTEXTUREZFOGPatch:	DWORD
+Extrn	C		Last_POLYTEXTUREZFOGPatch:	DWORD
 
 
 					; *** Chooser.asm ***
-Extrn	SYSCALL		Chooser			:	PROC
+Extrn	C		Chooser			:	PROC
 
 
 
@@ -934,13 +938,13 @@ Extrn	SYSCALL		Chooser			:	PROC
 ;				*** Global proc ***
 ;				*******************
 
-
+	.CODE
 
 
 Fill_PolyInit		PROC
-			mov	[Chooser_RtnI], Offset Fill_PolyFast	; Integer
-			mov	[Chooser_RtnM], Offset Fill_PolyMMX	; MMX
-			mov	[Chooser_Result], Offset Fill_Poly	; Pointer
+			mov	[ds:Chooser_RtnI], Offset Fill_PolyFast	; Integer
+			;mov	[ds:Chooser_RtnM], Offset Fill_PolyMMX	; MMX
+			mov	[ds:Chooser_Result], Offset Fill_Poly	; Pointer
 			jmp	Chooser
 Fill_PolyInit		ENDP
 
@@ -1179,7 +1183,12 @@ SetScreenPitch		ENDP
 ; ║                                                                                  ║
 ; ╚══════════════════════════════════════════════════════════════════════════════════╝
 
-SetFog			PROC
+SetFog			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			znear: DWORD, zfar:DWORD
+			mov eax, znear
+			mov ebx, zfar
+
 			pushad
 
 			test	ebx,ebx
@@ -1225,12 +1234,14 @@ SetFog			ENDP
 ; ║                                                                                  ║
 ; ╚══════════════════════════════════════════════════════════════════════════════════╝
 
-SetCLUT			PROC
+SetCLUT			PROC clut_ptr:	DWORD
 			push	eax
 			push	ebx
 			push	ecx
 			push	esi
 			push	edi
+
+			mov eax, clut_ptr
 
 			shl	eax,8
 			mov	ecx,[PtrCLUTFog]
@@ -1461,8 +1472,8 @@ Generic_ClipXMin	PROC
 			push	ecx
 			push	ebp
 
-			mov	edx,dword ptr [esi].Pt_XE	; Current point
-			mov	eax,dword ptr [ebx].Pt_XE	; Last point
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; Current point
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; Last point
 
 			mov	ecx,edx
 			mov	ebp,eax
@@ -1499,21 +1510,21 @@ Generic_ClipXMin	PROC
 
 			or	ecx,eax
 
-			mov	dword ptr [edi].Pt_XE,ecx
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,ecx
 EnterClip::
 			mov	eax,[Fill_ClipFlag]
 			test	eax,CLIP_LIGHT
 			je	@@No_ClipLight
 
-			mov	eax,dword ptr [ebx].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
 			sub	eax,ecx
 			imul	[Clip_Num]
 			idiv	ebp
 			add	eax,ecx
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 @@No_ClipLight:
 
 			mov	eax,[Fill_ClipFlag]
@@ -1521,26 +1532,26 @@ EnterClip::
 			je	@@No_ClipTexture
 
 					; ** MapU **
-			mov	eax,dword ptr [ebx].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
 			sub	eax,ecx
 			imul	[Clip_Num]
 			idiv	ebp
 			add	eax,ecx
-			mov	[edi].Pt_MapU,ax
+			mov	[edi].STRUC_POINT.Pt_MapU,ax
 
 					; ** MapV **
-			mov	eax,dword ptr [ebx].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 			shr	eax,16
 			shr	ecx,16
 			sub	eax,ecx
 			imul	[Clip_Num]
 			idiv	ebp
 			add	eax,ecx
-			mov	[edi].Pt_MapV,ax
+			mov	[edi].STRUC_POINT.Pt_MapV,ax
 @@No_ClipTexture:
 
 			mov	eax,[Fill_ClipFlag]
@@ -1548,26 +1559,26 @@ EnterClip::
 			je	@@No_ClipTextureZ
 
 					; ** W **
-			mov	eax,dword ptr [ebx].Pt_W
-			mov	ecx,dword ptr [esi].Pt_W
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_W
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_W
 			sub	eax,ecx
 			imul	[Clip_Num]
 			idiv	ebp
 			add	eax,ecx
-			mov	[edi].Pt_W,eax
+			mov	[edi].STRUC_POINT.Pt_W,eax
 
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 			and	eax,0FFFFh
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shr	eax,8
 			shl	edx,24
 			or	eax,edx
 			mov	ecx,eax
 
-			mov	eax,dword ptr [ebx].Pt_MapU
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
 			and	eax,0FFFFh
-			imul	[ebx].Pt_W
+			imul	[ebx].STRUC_POINT.Pt_W
 			shr	eax,8
 			shl	edx,24
 			or	eax,edx
@@ -1580,21 +1591,21 @@ EnterClip::
 			mov	edx,eax
 			shl	eax,8
 			sar	edx,24
-			idiv	[edi].Pt_W
-			mov	[edi].Pt_MapU,ax
+			idiv	[edi].STRUC_POINT.Pt_W
+			mov	[edi].STRUC_POINT.Pt_MapU,ax
 
 					; ** MapV **
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 			shr	eax,16
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shr	eax,8
 			shl	edx,24
 			or	eax,edx
 			mov	ecx,eax
 
-			mov	eax,dword ptr [ebx].Pt_MapU
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
 			shr	eax,16
-			imul	[ebx].Pt_W
+			imul	[ebx].STRUC_POINT.Pt_W
 			shr	eax,8
 			shl	edx,24
 			or	eax,edx
@@ -1607,8 +1618,8 @@ EnterClip::
 			mov	edx,eax
 			shl	eax,8
 			sar	edx,24
-			idiv	[edi].Pt_W
-			mov	[edi].Pt_MapV,ax
+			idiv	[edi].STRUC_POINT.Pt_W
+			mov	[edi].STRUC_POINT.Pt_MapV,ax
 
 			mov	eax,[Fill_ClipFlag]
 			test	eax,CLIP_ZBUFFER
@@ -1618,17 +1629,17 @@ EnterClip::
 							; If persp correct and Zbuf,
 							; then we clip the zbuf with a
 							; perspective correction
-			mov	eax,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
 			shr	eax,16
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shr	eax,8
 			shl	edx,24
 			or	eax,edx
 			mov	ecx,eax
 
-			mov	eax,dword ptr [ebx].Pt_Light
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
 			shr	eax,16
-			imul	[ebx].Pt_W
+			imul	[ebx].STRUC_POINT.Pt_W
 			shr	eax,8
 			shl	edx,24
 			or	eax,edx
@@ -1641,8 +1652,8 @@ EnterClip::
 			mov	edx,eax
 			shl	eax,8
 			sar	edx,24
-			idiv	[edi].Pt_W
-			mov	[edi].Pt_ZO,ax
+			idiv	[edi].STRUC_POINT.Pt_W
+			mov	[edi].STRUC_POINT.Pt_ZO,ax
 
 			jmp	@@No_ClipZBuffer
 
@@ -1651,8 +1662,8 @@ EnterClip::
 			test	eax,CLIP_ZBUFFER
 			je	@@No_ClipZBuffer
 
-			mov	eax,dword ptr [ebx].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
@@ -1662,7 +1673,7 @@ EnterClip::
 			imul	[Clip_Num]
 			idiv	ebp
 			add	eax,ecx
-			mov	[edi].Pt_ZO,ax
+			mov	[edi].STRUC_POINT.Pt_ZO,ax
 @@No_ClipZBuffer:
 
 			pop	ebp
@@ -1682,8 +1693,8 @@ Generic_ClipXMax	PROC
 			push	ecx
 			push	ebp
 
-			mov	edx,dword ptr [esi].Pt_XE	; Current point
-			mov	eax,dword ptr [ebx].Pt_XE	; Last point
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; Current point
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; Last point
 
 			mov	ecx,edx
 			mov	ebp,eax
@@ -1723,7 +1734,7 @@ Generic_ClipXMax	PROC
 
 			or	eax,ecx
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 
 			jmp	EnterClip
 Generic_ClipXMax	ENDP
@@ -1735,8 +1746,8 @@ Generic_ClipXMax	ENDP
 ; x=xA+[(YMin-ya)*(xB-xA)]/(yB-yA)
 
 Generic_ClipYMin	PROC
-			mov	edx,dword ptr [esi].Pt_XE	; A
-			mov	eax,dword ptr [ebx].Pt_XE	; B
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; A
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; B
 
 			push	ecx
 			mov	ecx,edx
@@ -1776,7 +1787,7 @@ Generic_ClipYMin	PROC
 
 			or	eax,ecx
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 
 			jmp	EnterClip
 Generic_ClipYMin	ENDP
@@ -1788,8 +1799,8 @@ Generic_ClipYMin	ENDP
 ; x=xA+[(YMax-ya)*(xB-xA)]/(yB-yA)
 
 Generic_ClipYMax	PROC
-			mov	edx,dword ptr [esi].Pt_XE	; A
-			mov	eax,dword ptr [ebx].Pt_XE	; B
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; A
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; B
 
 			push	ecx
 			mov	ecx,edx
@@ -1829,7 +1840,7 @@ Generic_ClipYMax	PROC
 
 			or	eax,ecx
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 
 			jmp	EnterClip
 Generic_ClipYMax	ENDP
@@ -1863,7 +1874,7 @@ Fill_PolyClip		PROC
 			lea	eax,[ecx-1]		; Loop counter in EAX
 			push	ecx
 
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 			push	esi
 
 			mov	edx,ecx
@@ -1882,7 +1893,7 @@ Fill_PolyClip		PROC
 							; (XMin, YMin, XMax, YMax)
 @@Bounding_Box:
 			push	eax			; What follows has a bad pairing... How can we pair when we have NOTHING to do ?
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 			mov	ebx,eax
 
 			shl	eax,16
@@ -2053,13 +2064,13 @@ Draw_Triangle		PROC
 			mov	[Fill_FirstPoint],esi
 
 			mov	[Fill_Patch],eax	;
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			sar	eax,16			; EAX = Ya
 			mov	edi,esi			; EDI = Highest point
 
 			mov	ebp,eax			; EBP = Highest Y (least value)
-			mov	ebx,dword ptr [esi+Size STRUC_POINT].Pt_XE
+			mov	ebx,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
 
 			sar	ebx,16			; EBX = Yb
 			add	esi,Size STRUC_POINT
@@ -2070,7 +2081,7 @@ Draw_Triangle		PROC
 			mov	ebp,ebx
 			mov	edi,esi
 @@Not_Second:
-			mov	ecx,dword ptr [esi+Size STRUC_POINT].Pt_XE
+			mov	ecx,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
 
 			sar	ecx,16			; ECX = Yc
 			add	esi,Size STRUC_POINT
@@ -2137,12 +2148,12 @@ Draw_Triangle		PROC
 			; K4 = (Xb-Xa)
 			; Denom = K1*K2 - K3*K4
 						; 0   1   2   3   4   5   6   7
-			fild	[esi].Pt_XE	; Xa
-			fild	[esi].Pt_YE	; Ya  Xa
-			fild	[edi].Pt_XE	; Xb  Ya  Xa
-			fild	[edi].Pt_YE	; Yb  Xb  Ya  Xa
-			fild	[ebp].Pt_XE	; Xc  Yb  Xb  Ya  Xa
-			fild	[ebp].Pt_YE	; Yc  Xc  Yb  Xb  Ya  Xa
+			fild	[esi].STRUC_POINT.Pt_XE	; Xa
+			fild	[esi].STRUC_POINT.Pt_YE	; Ya  Xa
+			fild	[edi].STRUC_POINT.Pt_XE	; Xb  Ya  Xa
+			fild	[edi].STRUC_POINT.Pt_YE	; Yb  Xb  Ya  Xa
+			fild	[ebp].STRUC_POINT.Pt_XE	; Xc  Yb  Xb  Ya  Xa
+			fild	[ebp].STRUC_POINT.Pt_YE	; Yc  Xc  Yb  Xb  Ya  Xa
 
 			fxch	st(2)		; Yb  Xc  Yc  Xb  Ya  Xa
 
@@ -2191,8 +2202,8 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
 
 					; *** Integer math. ***
 @@DenomInt:
-			mov	eax,dword ptr [edi].Pt_XE
-			mov	edx,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_XE
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			sar	eax,16			; EAX = YB
 			mov	ecx,edx
@@ -2201,7 +2212,7 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
 			and	ecx,0FFFFh		; ECX = XA (always>0)
 
 			sub	eax,edx			; EAX = YB-YA
-			mov	ebx,dword ptr [ebp].Pt_XE
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_XE
 
 			mov	[YB_YA],eax
 			and	ebx,0FFFFh		; EBX = XC
@@ -2211,13 +2222,13 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
 			imul	eax,ebx			; EAX = (YB-YA)*(XC-XA)
 
 			push	eax
-			mov	eax,dword ptr [ebp].Pt_XE
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_XE
 
 			sar	eax,16			; EAX = YC
-			mov	edx,dword ptr [esi].Pt_XE
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			mov	ecx,edx
-			mov	ebx,dword ptr [edi].Pt_XE
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
 
 			sar	edx,16			; EDX = YA
 			and	ecx,0FFFFh		; ECX = XA
@@ -2281,8 +2292,8 @@ Triangle_ReadNextEdge::
 @@No_LoopLeft:
 							; EDI = Old point
 							; ESI = New point
-			mov	edx,dword ptr [edi].Pt_XE
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	edx,dword ptr [edi].STRUC_POINT.Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			mov	ebx,edx
 			and	ecx,0FFFF0000h		; ECX = NewY shl 16
@@ -2303,7 +2314,7 @@ Triangle_ReadNextEdge::
 			je	@@CalcLeftSlopeInt
 
 			push	ecx
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			fild	dword ptr [esp]	; dY
 
@@ -2328,7 +2339,7 @@ Patch_Jmp_LeftSlopeFPU::jmp	[Jmp_LeftSlopeFPU+edx*4]
 
 
 @@CalcLeftSlopeInt:
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			shl	eax,16
 			mov	[Fill_CurXMin],ebx
@@ -2388,8 +2399,8 @@ Read_Next_Right::
 @@No_LoopRight:
 							; EDI = Old point
 							; ESI = New point
-			mov	ebx,dword ptr [edi].Pt_XE
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			mov	edx,ebx
 			and	ecx,0FFFF0000h		; ECX = NewY shl 16
@@ -2410,7 +2421,7 @@ Read_Next_Right::
 			je	@@CalcRightSlopeInt
 
 			push	ecx
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			fild	dword ptr [esp]	; dY
 
@@ -2440,7 +2451,7 @@ Read_Next_Right::
 
 
 @@CalcRightSlopeInt:
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 			mov	[Fill_CurXMax],ebx
 
 			shl	eax,16
@@ -2468,10 +2479,10 @@ Read_Next_Right::
 			mov	edi,[Fill_RightPoint]
 
 			; AGI
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			sar	ecx,16
-			mov	ebx,dword ptr [edi].Pt_XE
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
 
 			sar	ebx,16
 
@@ -2565,8 +2576,8 @@ Last_FillerPatch	Label	DWORD
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_GouraudXSlope	PROC
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2580,8 +2591,8 @@ Calc_GouraudXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2625,14 +2636,14 @@ Calc_GouraudXSlopeFPU	PROC
 						; EBP = PtC
 					; (Yb-Ya)  (Yc-Ya)   D
 
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_Light
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			push	eax
 			and	ebx,0FFFFh
@@ -2684,8 +2695,8 @@ Calc_GouraudXSlopeFPU	ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_DitherXSlope	PROC
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2709,8 +2720,8 @@ Calc_DitherXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2744,27 +2755,27 @@ Calc_DitherXSlope	PROC
 
 @@SatEDIUp:
 			mov	eax,14*256-1
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatEDILow:
 			mov	eax,256
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatESIUp:
 			mov	ecx,14*256-1
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatESILow:
 			mov	ecx,256
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatEBPUp:
 			mov	eax,14*256-1
-			mov	[ebp].Pt_Light,ax
+			mov	[ebp].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEBP
 @@SatEBPLow:
 			mov	eax,256
-			mov	[ebp].Pt_Light,ax
+			mov	[ebp].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEBP
 Calc_DitherXSlope	ENDP
 
@@ -2780,8 +2791,8 @@ Calc_DitherXSlope	ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_DitherXSlopeFPU	PROC
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2797,7 +2808,7 @@ Calc_DitherXSlopeFPU	PROC
 			jbe	@@SatESILow
 @@RetESI:
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_Light
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			push	eax
 			and	ebx,0FFFFh
@@ -2816,27 +2827,27 @@ Calc_DitherXSlopeFPU	PROC
 
 @@SatEDIUp:
 			mov	eax,14*256-1
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatEDILow:
 			mov	eax,256
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatESIUp:
 			mov	ecx,14*256-1
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatESILow:
 			mov	ecx,256
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatEBPUp:
 			mov	ebx,14*256-1
-			mov	[ebp].Pt_Light,bx
+			mov	[ebp].STRUC_POINT.Pt_Light,bx
 			jmp	@@RetEBP
 @@SatEBPLow:
 			mov	ebx,256
-			mov	[ebp].Pt_Light,bx
+			mov	[ebp].STRUC_POINT.Pt_Light,bx
 			jmp	@@RetEBP
 Calc_DitherXSlopeFPU	ENDP
 
@@ -2852,8 +2863,8 @@ Calc_DitherXSlopeFPU	ENDP
 
 Calc_TextureXSlope	PROC
 					; ** MapU **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2867,8 +2878,8 @@ Calc_TextureXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -2895,8 +2906,8 @@ Calc_TextureXSlope	PROC
 			mov	[Fill_MapU_XSlope],eax
 
 					; ** MapV **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
@@ -2911,8 +2922,8 @@ Calc_TextureXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
@@ -2957,29 +2968,29 @@ Calc_TextureXSlopeFPU	PROC
 			; -----------------------------
 			; (Yb-Ya)(Xc-Xa)-(Yc-Ya)(Xb-Xa)
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_MapU
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			push	eax			; Save (LB-LA)U
 			and	ebx,0FFFFh
 
 			sub	ebx,ecx			; EBX = LC-LA
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	ecx,16
 			push	ebx			; Save (LC-LA)U
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_MapU
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	ebx,16
 			push	eax			; Save (LB-LA)V
@@ -3052,8 +3063,8 @@ Calc_TextureXSlopeFPU	ENDP
 
 Calc_TextureGouraudXSlope PROC
 					; ** Gouraud **
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3067,8 +3078,8 @@ Calc_TextureGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3093,8 +3104,8 @@ Calc_TextureGouraudXSlope PROC
 			mov	[Fill_Gouraud_XSlope],eax
 
 					; ** MapU **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3108,8 +3119,8 @@ Calc_TextureGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3134,8 +3145,8 @@ Calc_TextureGouraudXSlope PROC
 			mov	[Fill_MapU_XSlope],eax
 
 					; ** MapV **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
@@ -3150,8 +3161,8 @@ Calc_TextureGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
@@ -3195,41 +3206,41 @@ Calc_TextureGouraudXSlopeFPU PROC
 			; -----------------------------
 			; (Yb-Ya)(Xc-Xa)-(Yc-Ya)(Xb-Xa)
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_MapU
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			push	eax			; Save (LB-LA)U
 			and	ebx,0FFFFh
 
 			sub	ebx,ecx			; EBX = LC-LA
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	ecx,16
 			push	ebx			; Save (LC-LA)U
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_MapU
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	ebx,16
 			push	eax			; Save (LB-LA)V
 
 			sub	ebx,ecx			; EBX = LC-LA
-			mov	eax,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			push	ebx			; Save (LC-LA)V
 			and	eax,0FFFFh
 
-			mov	ecx,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [ebp].Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			and	ecx,0FFFFh
 			and	ebx,0FFFFh
@@ -3332,8 +3343,8 @@ Calc_TextureGouraudXSlopeFPU ENDP
 
 Calc_TextureDitherXSlope PROC
 				; ** Gouraud **
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3357,8 +3368,8 @@ Calc_TextureDitherXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3389,8 +3400,8 @@ Calc_TextureDitherXSlope PROC
 
 
 					; ** MapU **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3404,8 +3415,8 @@ Calc_TextureDitherXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -3430,8 +3441,8 @@ Calc_TextureDitherXSlope PROC
 			mov	[Fill_MapU_XSlope],eax
 
 					; ** MapV **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
@@ -3446,8 +3457,8 @@ Calc_TextureDitherXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
@@ -3476,27 +3487,27 @@ Calc_TextureDitherXSlope PROC
 			jmp	Triangle_ReadNextEdge
 @@SatEDIUp:
 			mov	eax,14*256-1
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatEDILow:
 			mov	eax,256
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatESIUp:
 			mov	ecx,14*256-1
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatESILow:
 			mov	ecx,256
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatEBPUp:
 			mov	eax,14*256-1
-			mov	[ebp].Pt_Light,ax
+			mov	[ebp].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEBP
 @@SatEBPLow:
 			mov	eax,256
-			mov	[ebp].Pt_Light,ax
+			mov	[ebp].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEBP
 Calc_TextureDitherXSlope ENDP
 
@@ -3514,41 +3525,41 @@ Calc_TextureDitherXSlopeFPU PROC
 			; -----------------------------
 			; (Yb-Ya)(Xc-Xa)-(Yc-Ya)(Xb-Xa)
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_MapU
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			push	eax			; Save (LB-LA)U
 			and	ebx,0FFFFh
 
 			sub	ebx,ecx			; EBX = LC-LA
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	ecx,16
 			push	ebx			; Save (LC-LA)U
 
 			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].Pt_MapU
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	ebx,16
 			push	eax			; Save (LB-LA)V
 
 			sub	ebx,ecx			; EBX = LC-LA
-			mov	eax,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			push	ebx			; Save (LC-LA)V
 			and	eax,0FFFFh
 
-			mov	ecx,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [ebp].Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			and	ecx,0FFFFh
 			and	ebx,0FFFFh
@@ -3572,27 +3583,27 @@ Calc_TextureDitherXSlopeFPU PROC
 
 @@SatEDIUp:
 			mov	eax,14*256-1
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatEDILow:
 			mov	eax,256
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 			jmp	@@RetEDI
 @@SatESIUp:
 			mov	ecx,14*256-1
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatESILow:
 			mov	ecx,256
-			mov	[esi].Pt_Light,cx
+			mov	[esi].STRUC_POINT.Pt_Light,cx
 			jmp	@@RetESI
 @@SatEBPUp:
 			mov	ebx,14*256-1
-			mov	[ebp].Pt_Light,bx
+			mov	[ebp].STRUC_POINT.Pt_Light,bx
 			jmp	CalcGouraudTextureXFPU
 @@SatEBPLow:
 			mov	ebx,256
-			mov	[ebp].Pt_Light,bx
+			mov	[ebp].STRUC_POINT.Pt_Light,bx
 			jmp	CalcGouraudTextureXFPU
 Calc_TextureDitherXSlopeFPU ENDP
 
@@ -3623,11 +3634,11 @@ Calc_TextureZXSlope	PROC
 
 					; ** MapU **
 
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -3638,11 +3649,11 @@ Calc_TextureZXSlope	PROC
 			ROUND_CHOP eax,edx
 
 			mov	ecx,eax
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -3659,11 +3670,11 @@ Calc_TextureZXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -3694,11 +3705,11 @@ Calc_TextureZXSlope	PROC
 
 					; ** MapV **
 
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -3710,11 +3721,11 @@ Calc_TextureZXSlope	PROC
 
 			mov	ecx,eax
 
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -3731,11 +3742,11 @@ Calc_TextureZXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -3765,8 +3776,8 @@ Calc_TextureZXSlope	PROC
 
 
 					; ** W **
-			mov	eax,[edi].Pt_W
-			mov	ecx,[esi].Pt_W
+			mov	eax,[edi].STRUC_POINT.Pt_W
+			mov	ecx,[esi].STRUC_POINT.Pt_W
 
 			sub	eax,ecx			; EAX = LB-LA
 
@@ -3775,7 +3786,7 @@ Calc_TextureZXSlope	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,[ebp].Pt_W
+			mov	eax,[ebp].STRUC_POINT.Pt_W
 
 			sub	eax,ecx			; EAX = LC-LA
 
@@ -3827,11 +3838,11 @@ Calc_TextureZXSlopeFPU	PROC
 
 
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
-			mov	ecx,dword ptr [ebp].Pt_MapU
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	ebx,16
 			push	eax			; Save VA
@@ -3840,12 +3851,12 @@ Calc_TextureZXSlopeFPU	PROC
 			push	ebx			; Save VB
 
 			push	ecx			; Save VC
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
-			mov	ecx,dword ptr [ebp].Pt_MapU
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 			and	ebx,0FFFFh
 
 			and	ecx,0FFFFh
@@ -3856,11 +3867,11 @@ Calc_TextureZXSlopeFPU	PROC
 
 			fild	dword ptr [esp+2*4]; UA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[esi].Pt_W	; WA  UA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[esi].STRUC_POINT.Pt_W	; WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
 			fild	dword ptr [esp+1*4]; UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[edi].Pt_W	; WB  UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[edi].STRUC_POINT.Pt_W	; WB  UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; WA  UB  WB  UA  (Yb-Ya)  (Yc-Ya)  D
 
@@ -3868,7 +3879,7 @@ Calc_TextureZXSlopeFPU	PROC
 
 			fild	dword ptr [esp+0*4]; UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[ebp].Pt_W	; WC  UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; UB  UC  WC  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
@@ -3904,11 +3915,11 @@ Calc_TextureZXSlopeFPU	PROC
 
 			fild	dword ptr [esp+5*4]; VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[esi].Pt_W	; WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
+			fild	[esi].STRUC_POINT.Pt_W	; WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
 			fild	dword ptr [esp+4*4]; VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[edi].Pt_W	; WB  VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
+			fild	[edi].STRUC_POINT.Pt_W	; WB  VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(2)		; WA  VB  WB  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
@@ -3926,7 +3937,7 @@ Calc_TextureZXSlopeFPU	PROC
 
 			fild	dword ptr [esp+3*4]; VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[ebp].Pt_W	; WC  VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(2)		; USlope  VC  WC  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
@@ -3951,11 +3962,11 @@ Calc_TextureZXSlopeFPU	PROC
 			fmul	st,st(2)	; MVC  MVB (Yb-Ya)  (Yc-Ya)  D'
 			fxch	st(1)		; MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[esi].Pt_W	; WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[esi].STRUC_POINT.Pt_W	; WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[edi].Pt_W	; WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[edi].STRUC_POINT.Pt_W	; WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[ebp].Pt_W	; WC  WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(3)		; MVB  WB  WA  WC  MVC (Yb-Ya)  (Yc-Ya)  D'
 
@@ -4026,8 +4037,8 @@ Calc_TextureZGouraudXSlope PROC
 @@Ok:
 
 					; ** Gouraud **
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -4041,8 +4052,8 @@ Calc_TextureZGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ecx,0FFFFh
@@ -4069,11 +4080,11 @@ Calc_TextureZGouraudXSlope PROC
 
 					; ** MapU **
 
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4085,11 +4096,11 @@ Calc_TextureZGouraudXSlope PROC
 
 			mov	ecx,eax
 
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4106,11 +4117,11 @@ Calc_TextureZGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4141,11 +4152,11 @@ Calc_TextureZGouraudXSlope PROC
 
 					; ** MapV **
 
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4157,11 +4168,11 @@ Calc_TextureZGouraudXSlope PROC
 
 			mov	ecx,eax
 
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4178,11 +4189,11 @@ Calc_TextureZGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4212,8 +4223,8 @@ Calc_TextureZGouraudXSlope PROC
 
 
 					; ** W **
-			mov	eax,[edi].Pt_W
-			mov	ecx,[esi].Pt_W
+			mov	eax,[edi].STRUC_POINT.Pt_W
+			mov	ecx,[esi].STRUC_POINT.Pt_W
 
 			sub	eax,ecx			; EAX = LB-LA
 
@@ -4222,7 +4233,7 @@ Calc_TextureZGouraudXSlope PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,[ebp].Pt_W
+			mov	eax,[ebp].STRUC_POINT.Pt_W
 
 			sub	eax,ecx			; EAX = LC-LA
 
@@ -4263,11 +4274,11 @@ Calc_TextureZGouraudXSlopeFPU PROC
 
 
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
-			mov	ecx,dword ptr [ebp].Pt_MapU
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	ebx,16
 			push	eax			; Save VA
@@ -4276,12 +4287,12 @@ Calc_TextureZGouraudXSlopeFPU PROC
 			push	ebx			; Save VB
 
 			push	ecx			; Save VC
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
-			mov	ecx,dword ptr [ebp].Pt_MapU
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 			and	ebx,0FFFFh
 
 			and	ecx,0FFFFh
@@ -4290,10 +4301,10 @@ Calc_TextureZGouraudXSlopeFPU PROC
 			push	ebx			; Save UB
 			push	ecx			; Save UC
 
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
-			mov	ecx,dword ptr [ebp].Pt_Light
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_Light
 			and	eax,0FFFFh
 
 			and	ebx,0FFFFh
@@ -4304,11 +4315,11 @@ Calc_TextureZGouraudXSlopeFPU PROC
 
 			fild	dword ptr [esp+2*4]; UA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[esi].Pt_W	; WA  UA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[esi].STRUC_POINT.Pt_W	; WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
 			fild	dword ptr [esp+1*4]; UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[edi].Pt_W	; WB  UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[edi].STRUC_POINT.Pt_W	; WB  UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; WA  UB  WB  UA  (Yb-Ya)  (Yc-Ya)  D
 
@@ -4316,7 +4327,7 @@ Calc_TextureZGouraudXSlopeFPU PROC
 
 			fild	dword ptr [esp+0*4]; UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[ebp].Pt_W	; WC  UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; UB  UC  WC  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
@@ -4350,11 +4361,11 @@ Calc_TextureZGouraudXSlopeFPU PROC
 
 			fild	dword ptr [esp+5*4]; VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[esi].Pt_W	; WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
+			fild	[esi].STRUC_POINT.Pt_W	; WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
 			fild	dword ptr [esp+4*4]; VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[edi].Pt_W	; WB  VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
+			fild	[edi].STRUC_POINT.Pt_W	; WB  VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(2)		; WA  VB  WB  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
@@ -4372,7 +4383,7 @@ Calc_TextureZGouraudXSlopeFPU PROC
 
 			fild	dword ptr [esp+3*4]; VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[ebp].Pt_W	; WC  VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(2)		; USlope  VC  WC  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
@@ -4398,11 +4409,11 @@ Calc_TextureZGouraudXSlopeFPU PROC
 			fmul	st,st(2)	; MVC  MVB (Yb-Ya)  (Yc-Ya)  D'
 			fxch	st(1)		; MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[esi].Pt_W	; WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[esi].STRUC_POINT.Pt_W	; WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[edi].Pt_W	; WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[edi].STRUC_POINT.Pt_W	; WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[ebp].Pt_W	; WC  WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(3)		; MVB  WB  WA  WC  MVC (Yb-Ya)  (Yc-Ya)  D'
 
@@ -4486,8 +4497,8 @@ Calc_TextureZGouraudXSlopeFPU ENDP
 
 Calc_ZBufXSlope		PROC
 					; ** ZBuf **
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
@@ -4502,8 +4513,8 @@ Calc_ZBufXSlope		PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
@@ -4538,11 +4549,11 @@ Calc_ZBufXSlope		ENDP
 
 Calc_ZBufXSlopeFPU	PROC
 					; ** ZBuf **
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ecx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
-			mov	ebx,dword ptr [ebp].Pt_Light
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			shr	ecx,16
 
@@ -4653,11 +4664,11 @@ Calc_TextureZXSlopeZBuf	PROC
 
 					; ** MapU **
 
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4669,11 +4680,11 @@ Calc_TextureZXSlopeZBuf	PROC
 
 			mov	ecx,eax
 
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4690,11 +4701,11 @@ Calc_TextureZXSlopeZBuf	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4725,11 +4736,11 @@ Calc_TextureZXSlopeZBuf	PROC
 
 					; ** MapV **
 
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4739,11 +4750,11 @@ Calc_TextureZXSlopeZBuf	PROC
 
 			mov	ecx,eax
 
-			mov	eax,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4760,11 +4771,11 @@ Calc_TextureZXSlopeZBuf	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_MapU
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4794,11 +4805,11 @@ Calc_TextureZXSlopeZBuf	PROC
 
 					; ** ZBuf **
 
-			mov	eax,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4810,11 +4821,11 @@ Calc_TextureZXSlopeZBuf	PROC
 
 			mov	ecx,eax
 
-			mov	eax,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4829,11 +4840,11 @@ Calc_TextureZXSlopeZBuf	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,dword ptr [ebp].Pt_Light
+			mov	eax,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
-			imul	[ebp].Pt_W
+			imul	[ebp].STRUC_POINT.Pt_W
 
 			shr	eax,8
 
@@ -4863,8 +4874,8 @@ Calc_TextureZXSlopeZBuf	PROC
 
 
 					; ** W **
-			mov	eax,[edi].Pt_W
-			mov	ecx,[esi].Pt_W
+			mov	eax,[edi].STRUC_POINT.Pt_W
+			mov	ecx,[esi].STRUC_POINT.Pt_W
 
 			sub	eax,ecx			; EAX = LB-LA
 
@@ -4873,7 +4884,7 @@ Calc_TextureZXSlopeZBuf	PROC
 			push	eax
 			push	edx			; Save (Yc-Ya)(LB-LA)
 
-			mov	eax,[ebp].Pt_W
+			mov	eax,[ebp].STRUC_POINT.Pt_W
 
 			sub	eax,ecx			; EAX = LC-LA
 
@@ -4909,11 +4920,11 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 
 					; ** ZBuf **
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
-			mov	ecx,dword ptr [ebp].Pt_Light
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_Light
 
 			shr	ebx,16
 			push	eax			; Save ZA
@@ -4924,11 +4935,11 @@ Calc_TextureZXSlopeZBufFPU PROC
 			push	ecx			; Save ZX
 
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
-			mov	ecx,dword ptr [ebp].Pt_MapU
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 
 			shr	ebx,16
 			push	eax			; Save VA
@@ -4937,12 +4948,12 @@ Calc_TextureZXSlopeZBufFPU PROC
 			push	ebx			; Save VB
 
 			push	ecx			; Save VC
-			mov	eax,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
-			mov	ecx,dword ptr [ebp].Pt_MapU
+			mov	ecx,dword ptr [ebp].STRUC_POINT.Pt_MapU
 			and	ebx,0FFFFh
 
 			and	ecx,0FFFFh
@@ -4954,11 +4965,11 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 			fild	dword ptr [esp+8*4]; ZA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[esi].Pt_W	; WA  ZA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[esi].STRUC_POINT.Pt_W	; WA  ZA  (Yb-Ya)  (Yc-Ya)  D
 
 			fild	dword ptr [esp+7*4]; ZB  WA  ZA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[edi].Pt_W	; WB  ZB  WA  ZA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[edi].STRUC_POINT.Pt_W	; WB  ZB  WA  ZA  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; WA  ZB  WB  ZA  (Yb-Ya)  (Yc-Ya)  D
 
@@ -4966,7 +4977,7 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 			fild	dword ptr [esp+6*4]; ZC  ZB  WB  ZA'  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[ebp].Pt_W	; WC  ZC  ZB  WB  ZA'  (Yb-Ya)  (Yc-Ya)  D
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  ZC  ZB  WB  ZA'  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; ZB  ZC  WC  WB  ZA'  (Yb-Ya)  (Yc-Ya)  D
 
@@ -5011,11 +5022,11 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 			fild	dword ptr [esp+2*4]; UA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[esi].Pt_W	; WA  UA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[esi].STRUC_POINT.Pt_W	; WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
 			fild	dword ptr [esp+1*4]; UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[edi].Pt_W	; WB  UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
+			fild	[edi].STRUC_POINT.Pt_W	; WB  UB  WA  UA  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; WA  UB  WB  UA  (Yb-Ya)  (Yc-Ya)  D
 
@@ -5023,7 +5034,7 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 			fild	dword ptr [esp+0*4]; UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
-			fild	[ebp].Pt_W	; WC  UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  UC  UB  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
 			fxch	st(2)		; UB  UC  WC  WB  UA'  (Yb-Ya)  (Yc-Ya)  D
 
@@ -5056,11 +5067,11 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 			fild	dword ptr [esp+5*4]; VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[esi].Pt_W	; WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
+			fild	[esi].STRUC_POINT.Pt_W	; WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
 			fild	dword ptr [esp+4*4]; VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[edi].Pt_W	; WB  VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
+			fild	[edi].STRUC_POINT.Pt_W	; WB  VB  WA  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(2)		; WA  VB  WB  VA  (MUC-MUB)  (Yb-Ya)  (Yc-Ya)  D'
 
@@ -5078,7 +5089,7 @@ Calc_TextureZXSlopeZBufFPU PROC
 
 			fild	dword ptr [esp+3*4]; VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[ebp].Pt_W	; WC  VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  VC  USlope  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(2)		; USlope  VC  WC  VA' VB' (Yb-Ya)  (Yc-Ya)  D'
 
@@ -5103,11 +5114,11 @@ Calc_TextureZXSlopeZBufFPU PROC
 			fmul	st,st(2)	; MVC  MVB (Yb-Ya)  (Yc-Ya)  D'
 			fxch	st(1)		; MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[esi].Pt_W	; WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[esi].STRUC_POINT.Pt_W	; WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[edi].Pt_W	; WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[edi].STRUC_POINT.Pt_W	; WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
-			fild	[ebp].Pt_W	; WC  WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
+			fild	[ebp].STRUC_POINT.Pt_W	; WC  WB  WA  MVB  MVC (Yb-Ya)  (Yc-Ya)  D'
 
 			fxch	st(3)		; MVB  WB  WA  WC  MVC (Yb-Ya)  (Yc-Ya)  D'
 
@@ -5168,8 +5179,8 @@ Calc_TextureZXSlopeZBufFPU ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_GouraudLeftSlope	PROC
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5205,8 +5216,8 @@ Calc_GouraudLeftSlope	ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_GouraudLeftSlopeFPU PROC
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5261,8 +5272,8 @@ Calc_GouraudLeftSlopeFPU ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_GouraudTableLeftSlope PROC
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5297,8 +5308,8 @@ Calc_GouraudTableLeftSlope ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_GouraudTableLeftSlopeFPU PROC
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5332,8 +5343,8 @@ Calc_GouraudTableLeftSlopeFPU ENDP
 
 Calc_TextureLeftSlope	PROC
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5359,8 +5370,8 @@ ENDIF
 			mov	[Fill_MapU_LeftSlope],eax
 
 					; ** MapV **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
@@ -5399,8 +5410,8 @@ Calc_TextureLeftSlope	ENDP
 
 Calc_TextureLeftSlopeFPU PROC
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5409,10 +5420,10 @@ IFDEF CORRECT_TEXTURE
 			add	ebx,80h
 ENDIF
 			sub	eax,ebx
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shl	eax,8
-			mov	edx,dword ptr [edi].Pt_MapU
+			mov	edx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shl	ebx,8
 			mov	[esp+4],eax	; Save dU
@@ -5478,8 +5489,8 @@ Calc_TextureLeftSlopeFPU ENDP
 
 Calc_TextureGouraudLeftSlope PROC
 				       ; ** Gouraud **
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5504,8 +5515,8 @@ Calc_TextureGouraudLeftSlope PROC
 			mov	[Fill_Gouraud_LeftSlope],eax
 
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5530,8 +5541,8 @@ ENDIF
 			mov	[Fill_MapU_LeftSlope],eax
 
 					; ** MapV **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
@@ -5571,8 +5582,8 @@ Calc_TextureGouraudLeftSlope ENDP
 
 Calc_TextureGouraudLeftSlopeFPU PROC
 					; ** MapU **
-			mov	eax,dword ptr [esi].Pt_MapU
-			mov	ebx,dword ptr [edi].Pt_MapU
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5581,10 +5592,10 @@ IFDEF CORRECT_TEXTURE
 			add	ebx,80h
 ENDIF
 			sub	eax,ebx
-			mov	ecx,dword ptr [esi].Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shl	eax,8
-			mov	edx,dword ptr [edi].Pt_MapU
+			mov	edx,dword ptr [edi].STRUC_POINT.Pt_MapU
 
 			shl	ebx,8
 			mov	[esp+4],eax	; Save dU
@@ -5606,8 +5617,8 @@ ENDIF
 			push	ecx		; Save dV
 			mov	[Fill_CurMapVMin],edx
 
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5682,8 +5693,8 @@ Calc_TextureGouraudLeftSlopeFPU ENDP
 Calc_TextureZLeftSlope	PROC
 					; ** MapU **
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5693,7 +5704,7 @@ IFDEF CORRECT_TEXTURE
 			add	ebx,80h
 ENDIF
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 
 			shl	edx,24
 			shr	eax,8
@@ -5703,7 +5714,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 
 			shl	edx,24
 			shr	eax,8
@@ -5723,8 +5734,8 @@ ENDIF
 
 
 					; ** MapV **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
@@ -5735,7 +5746,7 @@ IFDEF CORRECT_TEXTURE
 			add	eax,80h
 ENDIF
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	edx,eax
@@ -5744,7 +5755,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	eax,edx
@@ -5763,8 +5774,8 @@ ENDIF
 
 
 					; ** W **
-			mov	eax,[esi].Pt_W
-			mov	ebx,[edi].Pt_W
+			mov	eax,[esi].STRUC_POINT.Pt_W
+			mov	ebx,[edi].STRUC_POINT.Pt_W
 
 			sub	eax,ebx
 			mov	edx,eax
@@ -5791,8 +5802,8 @@ Calc_TextureZLeftSlopeFPU PROC
 			;			 esp   => dX
 			; ** in the Stack(FPU) : 1/dY
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5804,8 +5815,8 @@ ENDIF
 			mov	[esp+4],eax	; Save UA
 			push	ebx		; Save UB
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
@@ -5816,7 +5827,7 @@ IFDEF CORRECT_TEXTURE
 			add	eax,80h
 ENDIF
 			push	eax             ; Save VA
-			mov	eax,[edi].Pt_W
+			mov	eax,[edi].STRUC_POINT.Pt_W
 
 			push	ebx		; Save VB
 			mov	[Fill_CurWMin],eax
@@ -5833,7 +5844,7 @@ ENDIF
 
 			fild	dword ptr [esp+4*4]; UA  dX  1/dY
 
-			fild	[edi].Pt_W	; WA  UA  dX  1/dY
+			fild	[edi].STRUC_POINT.Pt_W	; WA  UA  dX  1/dY
 
 			fxch	st(2)		; dX  UA  WA  1/dY
 
@@ -5849,7 +5860,7 @@ ENDIF
 
 			fild	dword ptr [esp+2*4]; UB XSlope' UA' WA  1/dY
 
-			fild	[esi].Pt_W	; WB UB XSlope' UA' WA  1/dY
+			fild	[esi].STRUC_POINT.Pt_W	; WB UB XSlope' UA' WA  1/dY
 
 			fxch	st(2)		; XSlope' UB WB UA' WA  1/dY
 
@@ -5927,8 +5938,8 @@ Calc_TextureZLeftSlopeFPU ENDP
 Calc_TextureZGouraudLeftSlope PROC
 
 				       ; ** Gouraud **
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -5954,15 +5965,15 @@ Calc_TextureZGouraudLeftSlope PROC
 
 
 					; ** MapU **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
 IFDEF CORRECT_TEXTURE
 			add	eax,80h
 			add	ebx,80h
 ENDIF
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	edx,eax
@@ -5971,7 +5982,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	eax,edx
@@ -5990,8 +6001,8 @@ ENDIF
 
 
 					; ** MapV **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
 			add	ebx,80h shl 16
@@ -6000,7 +6011,7 @@ ENDIF
 IFDEF CORRECT_TEXTURE
 			add	eax,80h
 ENDIF
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	edx,eax
@@ -6009,7 +6020,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	eax,edx
@@ -6028,8 +6039,8 @@ ENDIF
 
 
 					; ** W **
-			mov	eax,[esi].Pt_W
-			mov	ebx,[edi].Pt_W
+			mov	eax,[esi].STRUC_POINT.Pt_W
+			mov	ebx,[edi].STRUC_POINT.Pt_W
 
 			sub	eax,ebx
 			mov	edx,eax
@@ -6055,8 +6066,8 @@ Calc_TextureZGouraudLeftSlopeFPU PROC
 			;			 esp   => dX
 			; ** in the Stack(FPU) : 1/dY
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -6068,8 +6079,8 @@ ENDIF
 			mov	[esp+4],eax	; Save UA
 			push	ebx		; Save UB
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
@@ -6080,13 +6091,13 @@ IFDEF CORRECT_TEXTURE
 			add	eax,80h
 ENDIF
 			push	eax             ; Save VA
-			mov	eax,[edi].Pt_W
+			mov	eax,[edi].STRUC_POINT.Pt_W
 
 			push	ebx		; Save VB
 			mov	[Fill_CurWMin],eax
 
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -6120,7 +6131,7 @@ ENDIF
 
 			fmul	st,st(3)	; LSlope  UA  dX  1/dY
 
-			fild	[edi].Pt_W	; WA  LSlope  UA  dX  1/dY
+			fild	[edi].STRUC_POINT.Pt_W	; WA  LSlope  UA  dX  1/dY
 
 			fxch	st(1)
 
@@ -6140,7 +6151,7 @@ ENDIF
 
 			fild	dword ptr [esp+3*4]; UB XSlope' UA' WA  1/dY
 
-			fild	[esi].Pt_W	; WB UB XSlope' UA' WA  1/dY
+			fild	[esi].STRUC_POINT.Pt_W	; WB UB XSlope' UA' WA  1/dY
 
 			fxch	st(2)		; XSlope' UB WB UA' WA  1/dY
 
@@ -6217,8 +6228,8 @@ Calc_TextureZGouraudLeftSlopeFPU ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 
 Calc_ZBufLeftSlope	PROC
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
@@ -6252,8 +6263,8 @@ Calc_ZBufLeftSlope	ENDP
 Calc_ZBufLeftSlopeFPU	PROC
 			; WARNING : DON'T MODIFY EDX
 
-			mov	eax,dword ptr [esi].Pt_Light
-			mov	ebx,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			shr	eax,8
 			and	ebx,0FFFF0000h
@@ -6320,15 +6331,15 @@ Calc_LeftSlopeZBufferFlagFPU ENDP
 
 Calc_TextureZLeftSlopeZBuf PROC
 					; ** MapU **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
 IFDEF CORRECT_TEXTURE
 			add	eax,80h
 			add	ebx,80h
 ENDIF
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	edx,eax
@@ -6337,7 +6348,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	eax,edx
@@ -6356,8 +6367,8 @@ ENDIF
 
 
 					; ** MapV **
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
 			add	ebx,80h shl 16
@@ -6366,7 +6377,7 @@ ENDIF
 IFDEF CORRECT_TEXTURE
 			add	eax,80h
 ENDIF
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	edx,eax
@@ -6375,7 +6386,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	eax,edx
@@ -6394,14 +6405,14 @@ ENDIF
 
 
 					; ** ZBuf **
-			mov	ebx,dword ptr [esi].Pt_Light
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	ebx,16
-			mov	eax,dword ptr [edi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
-			imul	[edi].Pt_W
+			imul	[edi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	edx,eax
@@ -6410,7 +6421,7 @@ ENDIF
 			mov	eax,ebx
 			mov	ebx,edx
 
-			imul	[esi].Pt_W
+			imul	[esi].STRUC_POINT.Pt_W
 			shl	edx,24
 			shr	eax,8
 			or	eax,edx
@@ -6429,8 +6440,8 @@ ENDIF
 
 
 					; ** W **
-			mov	eax,[esi].Pt_W
-			mov	ebx,[edi].Pt_W
+			mov	eax,[esi].STRUC_POINT.Pt_W
+			mov	ebx,[edi].STRUC_POINT.Pt_W
 
 			sub	eax,ebx
 			mov	edx,eax
@@ -6457,8 +6468,8 @@ Calc_TextureZLeftSlopeZBufFPU PROC
 			;			 esp   => dX
 			; ** in the Stack(FPU) : 1/dY
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			and	eax,0FFFFh
 			and	ebx,0FFFFh
@@ -6470,8 +6481,8 @@ ENDIF
 			mov	[esp+4],eax	; Save UA
 			push	ebx		; Save UB
 
-			mov	eax,dword ptr [edi].Pt_MapU
-			mov	ebx,dword ptr [esi].Pt_MapU
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_MapU
 
 			shr	eax,16
 IFDEF CORRECT_TEXTURE
@@ -6482,14 +6493,14 @@ IFDEF CORRECT_TEXTURE
 			add	eax,80h
 ENDIF
 			push	eax             ; Save VA
-			mov	eax,[edi].Pt_W
+			mov	eax,[edi].STRUC_POINT.Pt_W
 
 			push	ebx		; Save VB
 			mov	[Fill_CurWMin],eax
 
 
-			mov	eax,dword ptr [edi].Pt_Light
-			mov	ebx,dword ptr [esi].Pt_Light
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [esi].STRUC_POINT.Pt_Light
 
 			shr	eax,16
 
@@ -6512,9 +6523,9 @@ ENDIF
 
 			fild	dword ptr [esp+0*4]; ZB  ZA  1/dY
 
-			fild	[edi].Pt_W	; WA  ZB  ZA  1/dY
+			fild	[edi].STRUC_POINT.Pt_W	; WA  ZB  ZA  1/dY
 
-			fild	[esi].Pt_W	; WB  WA  ZB  ZA  1/dY
+			fild	[esi].STRUC_POINT.Pt_W	; WB  WA  ZB  ZA  1/dY
 
 			fxch	st(1)		; WA  WB  ZB  ZA  1/dY
 
@@ -6556,7 +6567,7 @@ ENDIF
 
 			fild	dword ptr [esp+6*4]; UA  dX  1/dY
 
-			fild	[edi].Pt_W	; WA  UA  dX  1/dY
+			fild	[edi].STRUC_POINT.Pt_W	; WA  UA  dX  1/dY
 
 			fxch	st(2)		; dX  UA  WA  1/dY
 
@@ -6572,7 +6583,7 @@ ENDIF
 
 			fild	dword ptr [esp+4*4]; UB XSlope' UA' WA  1/dY
 
-			fild	[esi].Pt_W	; WB UB XSlope' UA' WA  1/dY
+			fild	[esi].STRUC_POINT.Pt_W	; WB UB XSlope' UA' WA  1/dY
 
 			fxch	st(2)		; XSlope' UB WB UA' WA  1/dY
 

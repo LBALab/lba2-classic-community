@@ -5,7 +5,7 @@
             OPTION SCOPED
 
 			.386
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 			INCLUDE FILLER.INC
 
@@ -13,18 +13,18 @@
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL ClipXMin		:DWORD
-			extrn	SYSCALL ClipYMin		:DWORD
-			extrn	SYSCALL ClipXMax		:DWORD
-			extrn	SYSCALL ClipYMax		:DWORD
-			extrn	SYSCALL Log			:DWORD
-			extrn	SYSCALL PtrZBuffer		:DWORD
-			extrn	SYSCALL PTR_TabOffLine		:DWORD
-			extrn	SYSCALL ScreenPitch		:DWORD
-			Extrn	SYSCALL	Fill_Flag_Fog		:BYTE
-			Extrn	SYSCALL	Fill_Flag_ZBuffer	:BYTE
-			Extrn	SYSCALL	Fill_Flag_NZW		:BYTE
-			Extrn	SYSCALL	Fill_Logical_Palette	:BYTE
+			extrn	C ClipXMin		:DWORD
+			extrn	C ClipYMin		:DWORD
+			extrn	C ClipXMax		:DWORD
+			extrn	C ClipYMax		:DWORD
+			extrn	C Log			:DWORD
+			extrn	C PtrZBuffer		:DWORD
+			extrn	C PTR_TabOffLine		:DWORD
+			extrn	C ScreenPitch		:DWORD
+			Extrn	C	Fill_Flag_Fog		:BYTE
+			Extrn	C	Fill_Flag_ZBuffer	:BYTE
+			Extrn	C	Fill_Flag_NZW		:BYTE
+			Extrn	C	Fill_Logical_Palette	:BYTE
 
 Z1			dd	0			; For the ZBuffer
 Z2			dd	0
@@ -43,13 +43,13 @@ s_ebp			dd	0
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	Line
-			public	SYSCALL	LineZBufNZW
-			public	SYSCALL	LineZBuf
-			public	SYSCALL	Line_A
+			public	C	Line
+			public	C	LineZBufNZW
+			public	C	LineZBuf
+			public	C	Line_A
 
-			PUBLIC	SYSCALL	First_POLYLINEPatch
-			PUBLIC	SYSCALL	Last_POLYLINEPatch
+			PUBLIC	C	First_POLYLINEPatch
+			PUBLIC	C	Last_POLYLINEPatch
 
 
 ;----------------------------------------------------------------------------

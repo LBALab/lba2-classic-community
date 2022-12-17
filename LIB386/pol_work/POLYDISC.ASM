@@ -40,7 +40,7 @@ INCLUDE			FILLER.INC
 
 
 			.386
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 
 
@@ -51,10 +51,10 @@ INCLUDE			FILLER.INC
 ; ╚═══════════════════════════════════════════════════════════════════════════╝
 
 			.DATA
-Extrn	SYSCALL	ClipXMin		:	DWORD	; Fenetre de clipping
-Extrn	SYSCALL	ClipXMax		:	DWORD
-Extrn	SYSCALL	ClipYMin		:	DWORD
-Extrn	SYSCALL	ClipYMax		:	DWORD
+Extrn	C	ClipXMin		:	DWORD	; Fenetre de clipping
+Extrn	C	ClipXMax		:	DWORD
+Extrn	C	ClipYMin		:	DWORD
+Extrn	C	ClipYMax		:	DWORD
 
 Extrn			TabOffLine		:	DWORD	; Table des offsets des debuts de ligne
 Extrn			Log			:	DWORD	; PTR sur l'ecran logique

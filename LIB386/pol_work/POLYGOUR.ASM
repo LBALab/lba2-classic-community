@@ -16,7 +16,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 ;			**************
@@ -31,27 +31,27 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	SYSCALL		First_POLYGOURAUDPatch
-PUBLIC	SYSCALL		Last_POLYGOURAUDPatch
+PUBLIC	C		First_POLYGOURAUDPatch
+PUBLIC	C		Last_POLYGOURAUDPatch
 
-PUBLIC	SYSCALL		Filler_Gouraud
-PUBLIC	SYSCALL		Filler_Dither
-PUBLIC	SYSCALL		Filler_GouraudTable
-PUBLIC	SYSCALL		Filler_DitherTable
-PUBLIC	SYSCALL		Filler_GouraudFog
-PUBLIC	SYSCALL		Filler_DitherFog
-PUBLIC	SYSCALL		Filler_GouraudZBuf
-PUBLIC	SYSCALL		Filler_DitherZBuf
-PUBLIC	SYSCALL		Filler_GouraudTableZBuf
-PUBLIC	SYSCALL		Filler_DitherTableZBuf
-PUBLIC	SYSCALL		Filler_GouraudFogZBuf
-PUBLIC	SYSCALL		Filler_DitherFogZBuf
-PUBLIC	SYSCALL		Filler_GouraudNZW
-PUBLIC	SYSCALL		Filler_DitherNZW
-PUBLIC	SYSCALL		Filler_GouraudTableNZW
-PUBLIC	SYSCALL		Filler_DitherTableNZW
-PUBLIC	SYSCALL		Filler_GouraudFogNZW
-PUBLIC	SYSCALL		Filler_DitherFogNZW
+PUBLIC	C		Filler_Gouraud
+PUBLIC	C		Filler_Dither
+PUBLIC	C		Filler_GouraudTable
+PUBLIC	C		Filler_DitherTable
+PUBLIC	C		Filler_GouraudFog
+PUBLIC	C		Filler_DitherFog
+PUBLIC	C		Filler_GouraudZBuf
+PUBLIC	C		Filler_DitherZBuf
+PUBLIC	C		Filler_GouraudTableZBuf
+PUBLIC	C		Filler_DitherTableZBuf
+PUBLIC	C		Filler_GouraudFogZBuf
+PUBLIC	C		Filler_DitherFogZBuf
+PUBLIC	C		Filler_GouraudNZW
+PUBLIC	C		Filler_DitherNZW
+PUBLIC	C		Filler_GouraudTableNZW
+PUBLIC	C		Filler_DitherTableNZW
+PUBLIC	C		Filler_GouraudFogNZW
+PUBLIC	C		Filler_DitherFogNZW
 
 ;					*****************
 ;					*** VARIABLES ***
@@ -61,24 +61,24 @@ PUBLIC	SYSCALL		Filler_DitherFogNZW
 
 
 ;					*** MODULE DATA ***
-PUBLIC	SYSCALL		Fill_VLGouraud1
-PUBLIC	SYSCALL		Fill_VLGouraud2
-PUBLIC	SYSCALL		Fill_VLGouraud3
-PUBLIC	SYSCALL		Fill_VLGouraud4
-PUBLIC	SYSCALL		Fill_VLGouraud5
-PUBLIC	SYSCALL		Fill_VLGouraud6
-PUBLIC	SYSCALL		Fill_VLGouraud7
-PUBLIC	SYSCALL		Fill_VLGouraud8
-PUBLIC	SYSCALL		Fill_VLGouraud9
-PUBLIC	SYSCALL		Fill_VLGouraud10
-PUBLIC	SYSCALL		Fill_VLGouraud11
-PUBLIC	SYSCALL		Fill_VLGouraud12
-PUBLIC	SYSCALL		Fill_VLGouraud13
-PUBLIC	SYSCALL		Fill_VLGouraud14
-PUBLIC	SYSCALL		Fill_VLGouraud15
-PUBLIC	SYSCALL		Fill_VLGouraud16
-PUBLIC	SYSCALL		Fill_VLGouraud17
-PUBLIC	SYSCALL		Fill_VLGouraud18
+PUBLIC	C		Fill_VLGouraud1
+PUBLIC	C		Fill_VLGouraud2
+PUBLIC	C		Fill_VLGouraud3
+PUBLIC	C		Fill_VLGouraud4
+PUBLIC	C		Fill_VLGouraud5
+PUBLIC	C		Fill_VLGouraud6
+PUBLIC	C		Fill_VLGouraud7
+PUBLIC	C		Fill_VLGouraud8
+PUBLIC	C		Fill_VLGouraud9
+PUBLIC	C		Fill_VLGouraud10
+PUBLIC	C		Fill_VLGouraud11
+PUBLIC	C		Fill_VLGouraud12
+PUBLIC	C		Fill_VLGouraud13
+PUBLIC	C		Fill_VLGouraud14
+PUBLIC	C		Fill_VLGouraud15
+PUBLIC	C		Fill_VLGouraud16
+PUBLIC	C		Fill_VLGouraud17
+PUBLIC	C		Fill_VLGouraud18
 
 
 
@@ -106,7 +106,7 @@ INCLUDE			FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -120,32 +120,32 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Restart		:	DWORD
-Extrn	SYSCALL		Fill_Patch		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
 
-Extrn	SYSCALL		Fill_LeftSlope		:	DWORD
-Extrn	SYSCALL		Fill_RightSlope		:	DWORD
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurY		:	DWORD
-Extrn	SYSCALL		Fill_CurXMin		:	DWORD
-Extrn	SYSCALL		Fill_CurXMax		:	DWORD
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
 
-Extrn	SYSCALL		PTR_TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_CurOffLine		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		ScreenPitch		:	DWORD
-Extrn	SYSCALL		PtrZBuffer		:	DWORD
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
 
-Extrn	SYSCALL		Fill_CurGouraudMin	:	DWORD
-Extrn	SYSCALL		Fill_Gouraud_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_Gouraud_XSlope	:	DWORD
+Extrn	C		Fill_CurGouraudMin	:	DWORD
+Extrn	C		Fill_Gouraud_LeftSlope	:	DWORD
+Extrn	C		Fill_Gouraud_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurZBufMin		:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_Logical_Palette	:	BYTE
+Extrn	C		Fill_Logical_Palette	:	BYTE
 
 
 
@@ -190,7 +190,7 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-Extrn	SYSCALL		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
+Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
 
 
 

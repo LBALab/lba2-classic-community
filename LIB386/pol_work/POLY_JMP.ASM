@@ -15,7 +15,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 
@@ -35,12 +35,12 @@
 ;					*****************
 
 ;					*** PUBLIC DATA ***
-PUBLIC	SYSCALL		Fill_N_Table_Jumps
-PUBLIC	SYSCALL		Fill_Fog_Table_Jumps
-PUBLIC	SYSCALL		Fill_ZBuf_Table_Jumps
-PUBLIC	SYSCALL		Fill_FogZBuf_Table_Jumps
-PUBLIC	SYSCALL		Fill_NZW_Table_Jumps
-PUBLIC	SYSCALL		Fill_FogNZW_Table_Jumps
+PUBLIC	C		Fill_N_Table_Jumps
+PUBLIC	C		Fill_Fog_Table_Jumps
+PUBLIC	C		Fill_ZBuf_Table_Jumps
+PUBLIC	C		Fill_FogZBuf_Table_Jumps
+PUBLIC	C		Fill_NZW_Table_Jumps
+PUBLIC	C		Fill_FogNZW_Table_Jumps
 
 ;					*** MODULE DATA ***
 
@@ -70,7 +70,7 @@ INCLUDE			FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -84,13 +84,13 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Filler		:	DWORD
-Extrn	SYSCALL		Fill_ClipFlag		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
-Extrn	SYSCALL		Fill_Trame_Parity	:	DWORD
-Extrn	SYSCALL		PtrCLUTGouraud		:	DWORD
-Extrn	SYSCALL		Fill_Logical_Palette	:	BYTE
-Extrn	SYSCALL		IsPolygonHidden		:	DWORD
+Extrn	C		Fill_Filler		:	DWORD
+Extrn	C		Fill_ClipFlag		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
+Extrn	C		Fill_Trame_Parity	:	DWORD
+Extrn	C		PtrCLUTGouraud		:	DWORD
+Extrn	C		Fill_Logical_Palette	:	BYTE
+Extrn	C		IsPolygonHidden		:	DWORD
 
 
 
@@ -476,109 +476,109 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 
 
 				; ** POLY.ASM **
-Extrn	SYSCALL		Fill_PolyClip		:	PROC
+Extrn	C		Fill_PolyClip		:	PROC
 
 
 				; ** POLYFLAT.ASM **
-;Extrn	SYSCALL		Fill_PolyFlat		:	PROC
-Extrn	SYSCALL		Filler_Flat		:	PROC
-Extrn	SYSCALL		Filler_Transparent	:	PROC
-Extrn	SYSCALL		Filler_Trame		:	PROC
-Extrn	SYSCALL		Filler_FlatZBuf		:	PROC
-Extrn	SYSCALL		Filler_TransparentZBuf	:	PROC
-Extrn	SYSCALL		Filler_TrameZBuf	:	PROC
-Extrn	SYSCALL		Filler_FlatNZW		:	PROC
-Extrn	SYSCALL		Filler_TransparentNZW	:	PROC
-Extrn	SYSCALL		Filler_TrameNZW		:	PROC
-Extrn	SYSCALL		Filler_FlagZBuffer	:	PROC
+;Extrn	C		Fill_PolyFlat		:	PROC
+Extrn	C		Filler_Flat		:	PROC
+Extrn	C		Filler_Transparent	:	PROC
+Extrn	C		Filler_Trame		:	PROC
+Extrn	C		Filler_FlatZBuf		:	PROC
+Extrn	C		Filler_TransparentZBuf	:	PROC
+Extrn	C		Filler_TrameZBuf	:	PROC
+Extrn	C		Filler_FlatNZW		:	PROC
+Extrn	C		Filler_TransparentNZW	:	PROC
+Extrn	C		Filler_TrameNZW		:	PROC
+Extrn	C		Filler_FlagZBuffer	:	PROC
 
 
 				; ** POLYGOUR.ASM **
-Extrn	SYSCALL		Filler_Gouraud		:	PROC
-Extrn	SYSCALL		Filler_Dither		:	PROC
-Extrn	SYSCALL		Filler_GouraudTable	:	PROC
-Extrn	SYSCALL		Filler_DitherTable	:	PROC
-Extrn	SYSCALL		Filler_GouraudFog	:	PROC
-Extrn	SYSCALL		Filler_DitherFog	:	PROC
-Extrn	SYSCALL		Filler_GouraudZBuf	:	PROC
-Extrn	SYSCALL		Filler_DitherZBuf	:	PROC
-Extrn	SYSCALL		Filler_GouraudTableZBuf	:	PROC
-Extrn	SYSCALL		Filler_DitherTableZBuf	:	PROC
-Extrn	SYSCALL		Filler_GouraudFogZBuf	:	PROC
-Extrn	SYSCALL		Filler_DitherFogZBuf	:	PROC
-Extrn	SYSCALL		Filler_GouraudNZW	:	PROC
-Extrn	SYSCALL		Filler_DitherNZW	:	PROC
-Extrn	SYSCALL		Filler_GouraudTableNZW	:	PROC
-Extrn	SYSCALL		Filler_DitherTableNZW	:	PROC
-Extrn	SYSCALL		Filler_GouraudFogNZW	:	PROC
-Extrn	SYSCALL		Filler_DitherFogNZW	:	PROC
+Extrn	C		Filler_Gouraud		:	PROC
+Extrn	C		Filler_Dither		:	PROC
+Extrn	C		Filler_GouraudTable	:	PROC
+Extrn	C		Filler_DitherTable	:	PROC
+Extrn	C		Filler_GouraudFog	:	PROC
+Extrn	C		Filler_DitherFog	:	PROC
+Extrn	C		Filler_GouraudZBuf	:	PROC
+Extrn	C		Filler_DitherZBuf	:	PROC
+Extrn	C		Filler_GouraudTableZBuf	:	PROC
+Extrn	C		Filler_DitherTableZBuf	:	PROC
+Extrn	C		Filler_GouraudFogZBuf	:	PROC
+Extrn	C		Filler_DitherFogZBuf	:	PROC
+Extrn	C		Filler_GouraudNZW	:	PROC
+Extrn	C		Filler_DitherNZW	:	PROC
+Extrn	C		Filler_GouraudTableNZW	:	PROC
+Extrn	C		Filler_DitherTableNZW	:	PROC
+Extrn	C		Filler_GouraudFogNZW	:	PROC
+Extrn	C		Filler_DitherFogNZW	:	PROC
 
 
 				; ** POLYTEXT.ASM **
-Extrn	SYSCALL		Filler_Texture		:	PROC
-Extrn	SYSCALL		Filler_TextureFlat	:	PROC
-Extrn	SYSCALL		Filler_TextureChromaKey	:	PROC
-Extrn	SYSCALL		Filler_TextureFlatChromaKey:	PROC
-Extrn	SYSCALL		Filler_TextureFog	:	PROC
-Extrn	SYSCALL		Filler_TextureChromaKeyFog:	PROC
-Extrn	SYSCALL		Filler_TextureZBuf	:	PROC
-Extrn	SYSCALL		Filler_TextureChromaKeyZBuf:	PROC
-Extrn	SYSCALL		Filler_TextureFlatZBuf	:	PROC
-Extrn	SYSCALL		Filler_TextureFlatChromaKeyZBuf:PROC
-Extrn	SYSCALL		Filler_TextureFogZBuf	:	PROC
-Extrn	SYSCALL		Filler_TextureChromaKeyFogZBuf:	PROC
-Extrn	SYSCALL		Filler_TextureNZW	:	PROC
-Extrn	SYSCALL		Filler_TextureChromaKeyNZW:	PROC
-Extrn	SYSCALL		Filler_TextureFlatNZW	:	PROC
-Extrn	SYSCALL		Filler_TextureFlatChromaKeyNZW:PROC
-Extrn	SYSCALL		Filler_TextureFogNZW	:	PROC
-Extrn	SYSCALL		Filler_TextureChromaKeyFogNZW:	PROC
+Extrn	C		Filler_Texture		:	PROC
+Extrn	C		Filler_TextureFlat	:	PROC
+Extrn	C		Filler_TextureChromaKey	:	PROC
+Extrn	C		Filler_TextureFlatChromaKey:	PROC
+Extrn	C		Filler_TextureFog	:	PROC
+Extrn	C		Filler_TextureChromaKeyFog:	PROC
+Extrn	C		Filler_TextureZBuf	:	PROC
+Extrn	C		Filler_TextureChromaKeyZBuf:	PROC
+Extrn	C		Filler_TextureFlatZBuf	:	PROC
+Extrn	C		Filler_TextureFlatChromaKeyZBuf:PROC
+Extrn	C		Filler_TextureFogZBuf	:	PROC
+Extrn	C		Filler_TextureChromaKeyFogZBuf:	PROC
+Extrn	C		Filler_TextureNZW	:	PROC
+Extrn	C		Filler_TextureChromaKeyNZW:	PROC
+Extrn	C		Filler_TextureFlatNZW	:	PROC
+Extrn	C		Filler_TextureFlatChromaKeyNZW:PROC
+Extrn	C		Filler_TextureFogNZW	:	PROC
+Extrn	C		Filler_TextureChromaKeyFogNZW:	PROC
 
 
 				; ** POLYGTEX.ASM **
-Extrn	SYSCALL		Filler_TextureGouraud	:	PROC
-Extrn	SYSCALL		Filler_TextureDither	:	PROC
-Extrn	SYSCALL		Filler_TextureGouraudChromaKey:	PROC
-Extrn	SYSCALL		Filler_TextureDitherChromaKey:	PROC
-Extrn	SYSCALL		Filler_TextureGouraudZBuf:	PROC
-Extrn	SYSCALL		Filler_TextureGouraudChromaKeyZBuf:PROC
-Extrn	SYSCALL		Filler_TextureGouraudNZW:	PROC
-Extrn	SYSCALL		Filler_TextureGouraudChromaKeyNZW:PROC
+Extrn	C		Filler_TextureGouraud	:	PROC
+Extrn	C		Filler_TextureDither	:	PROC
+Extrn	C		Filler_TextureGouraudChromaKey:	PROC
+Extrn	C		Filler_TextureDitherChromaKey:	PROC
+Extrn	C		Filler_TextureGouraudZBuf:	PROC
+Extrn	C		Filler_TextureGouraudChromaKeyZBuf:PROC
+Extrn	C		Filler_TextureGouraudNZW:	PROC
+Extrn	C		Filler_TextureGouraudChromaKeyNZW:PROC
 
 				; ** POLYTEXZ.ASM **
-Extrn	SYSCALL		Filler_TextureZ		:	PROC
-Extrn	SYSCALL		Filler_TextureZFlat	:	PROC
-Extrn	SYSCALL		Filler_TextureZChromaKey:	PROC
-Extrn	SYSCALL		Filler_TextureZFlatChromaKey:	PROC
-Extrn	SYSCALL		Filler_TextureZFog	:	PROC
-Extrn	SYSCALL		Filler_TextureZChromaKeyFog:	PROC
-Extrn	SYSCALL		Filler_TextureZZBuf	:	PROC
-Extrn	SYSCALL		Filler_TextureZFlatZBuf	:	PROC
-Extrn	SYSCALL		Filler_TextureZChromaKeyZBuf:	PROC
-Extrn	SYSCALL		Filler_TextureZFlatChromaKeyZBuf:PROC
-Extrn	SYSCALL		Filler_TextureZFogZBuf	:	PROC
-Extrn	SYSCALL		Filler_TextureZChromaKeyFogZBuf:PROC
-Extrn	SYSCALL		Filler_TextureZNZW	:	PROC
-Extrn	SYSCALL		Filler_TextureZFlatNZW	:	PROC
-Extrn	SYSCALL		Filler_TextureZChromaKeyNZW:	PROC
-Extrn	SYSCALL		Filler_TextureZFlatChromaKeyNZW:PROC
-Extrn	SYSCALL		Filler_TextureZFogNZW	:	PROC
-Extrn	SYSCALL		Filler_TextureZChromaKeyFogNZW:PROC
+Extrn	C		Filler_TextureZ		:	PROC
+Extrn	C		Filler_TextureZFlat	:	PROC
+Extrn	C		Filler_TextureZChromaKey:	PROC
+Extrn	C		Filler_TextureZFlatChromaKey:	PROC
+Extrn	C		Filler_TextureZFog	:	PROC
+Extrn	C		Filler_TextureZChromaKeyFog:	PROC
+Extrn	C		Filler_TextureZZBuf	:	PROC
+Extrn	C		Filler_TextureZFlatZBuf	:	PROC
+Extrn	C		Filler_TextureZChromaKeyZBuf:	PROC
+Extrn	C		Filler_TextureZFlatChromaKeyZBuf:PROC
+Extrn	C		Filler_TextureZFogZBuf	:	PROC
+Extrn	C		Filler_TextureZChromaKeyFogZBuf:PROC
+Extrn	C		Filler_TextureZNZW	:	PROC
+Extrn	C		Filler_TextureZFlatNZW	:	PROC
+Extrn	C		Filler_TextureZChromaKeyNZW:	PROC
+Extrn	C		Filler_TextureZFlatChromaKeyNZW:PROC
+Extrn	C		Filler_TextureZFogNZW	:	PROC
+Extrn	C		Filler_TextureZChromaKeyFogNZW:PROC
 
 
 				; ** POLYTZG.ASM **
-Extrn	SYSCALL		Filler_TextureZGouraud	:	PROC
-Extrn	SYSCALL		Filler_TextureZGouraudChromaKey:PROC
-Extrn	SYSCALL		Filler_TextureZGouraudZBuf:	PROC
-Extrn	SYSCALL		Filler_TextureZGouraudChromaKeyZBuf:PROC
-Extrn	SYSCALL		Filler_TextureZGouraudNZW:	PROC
-Extrn	SYSCALL		Filler_TextureZGouraudChromaKeyNZW:PROC
+Extrn	C		Filler_TextureZGouraud	:	PROC
+Extrn	C		Filler_TextureZGouraudChromaKey:PROC
+Extrn	C		Filler_TextureZGouraudZBuf:	PROC
+Extrn	C		Filler_TextureZGouraudChromaKeyZBuf:PROC
+Extrn	C		Filler_TextureZGouraudNZW:	PROC
+Extrn	C		Filler_TextureZGouraudChromaKeyNZW:PROC
 
 
 				; ** POLYTZF.ASM **
-Extrn	SYSCALL		Filler_TextureZFogSmooth:	PROC
-Extrn	SYSCALL		Filler_TextureZFogSmoothZBuf:	PROC
-Extrn	SYSCALL		Filler_TextureZFogSmoothNZW:	PROC
+Extrn	C		Filler_TextureZFogSmooth:	PROC
+Extrn	C		Filler_TextureZFogSmoothZBuf:	PROC
+Extrn	C		Filler_TextureZFogSmoothNZW:	PROC
 
 
 

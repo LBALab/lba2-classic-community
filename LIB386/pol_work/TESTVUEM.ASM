@@ -2,14 +2,14 @@
 			.MMX
 			INCLUDE	FILLER.INC
 
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 			.DATA
 
 			.CODE
 
 
-			public	SYSCALL	TestVuePolyM
+			public	C	TestVuePolyM
 
 ; ╔═════════════════════════════════════════════════════════════════╗
 ; ║ TestVisible : Tests the visibility of a poly                    ║
