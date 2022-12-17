@@ -46,7 +46,7 @@ Struc_Entity		ENDS
 
 
 			.486P
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;                  █▄ ▄█       █▀▀▀█ █▀▀█      █ █▀▀▀▀ ▀▀█▀▀
@@ -57,47 +57,47 @@ Struc_Entity		ENDS
 ;*──────────────────────────────────────────────────────────────────────────*
 			.DATA
 ;*──────────────────────────────────────────────────────────────────────────*
-PUBLIC	SYSCALL	PosXWr
-PUBLIC	SYSCALL	PosYWr
-PUBLIC	SYSCALL	PosZWr
-PUBLIC	SYSCALL	TotalEntite
-PUBLIC	SYSCALL	OffsetDefPoint
-PUBLIC	SYSCALL	PointeurListTri
-PUBLIC	SYSCALL	ListGroupAnim
-PUBLIC	SYSCALL	NbGroupes
-PUBLIC	SYSCALL	ListGroupe
-PUBLIC	SYSCALL	List_Tri
-PUBLIC	SYSCALL	List_Normal
-PUBLIC	SYSCALL	List_Entity
-PUBLIC	SYSCALL	TabMat
-PUBLIC	SYSCALL	ObjPtrMap
-PUBLIC	SYSCALL	Line_In_Deg
-PUBLIC	SYSCALL	Object_Flags
+PUBLIC	C	PosXWr
+PUBLIC	C	PosYWr
+PUBLIC	C	PosZWr
+PUBLIC	C	TotalEntite
+PUBLIC	C	OffsetDefPoint
+PUBLIC	C	PointeurListTri
+PUBLIC	C	ListGroupAnim
+PUBLIC	C	NbGroupes
+PUBLIC	C	ListGroupe
+PUBLIC	C	List_Tri
+PUBLIC	C	List_Normal
+PUBLIC	C	List_Entity
+PUBLIC	C	TabMat
+PUBLIC	C	ObjPtrMap
+PUBLIC	C	Line_In_Deg
+PUBLIC	C	Object_Flags
 ;*──────────────────────────────────────────────────────────────────────────*
 
 INCLUDE			p_data.ash
 
 			; extern LIB_SVGA
 
-			extrn	SYSCALL RepMask:DWORD
-			extrn	SYSCALL PtrMap:DWORD
+			extrn	C RepMask:DWORD
+			extrn	C PtrMap:DWORD
 
 
 			; extern P_ANIM
 
-			extrn	SYSCALL TransFctBody:DWORD
+			extrn	C TransFctBody:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
 
-			public	SYSCALL List_Point
-			public	SYSCALL List_Anim_Point
-			public	SYSCALL NbPoints
+			public	C List_Point
+			public	C List_Anim_Point
+			public	C NbPoints
 
 			; Extrn SCMINMAX.ASM de LIB_SYSn
-			Extrn	SYSCALL ScreenXmin			:	DWORD
-			Extrn	SYSCALL ScreenYmin			:	DWORD
-			Extrn	SYSCALL ScreenXmax			:	DWORD
-			Extrn	SYSCALL ScreenYmax			:	DWORD
+			Extrn	C ScreenXmin			:	DWORD
+			Extrn	C ScreenYmin			:	DWORD
+			Extrn	C ScreenXmax			:	DWORD
+			Extrn	C ScreenYmax			:	DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
 
@@ -220,29 +220,29 @@ Line_In_Deg		db	0			; No de ligne de depart dans un Gouraud Compatible
 ;*──────────────────────────────────────────────────────────────────────────*
 
 
-public	SYSCALL	BodyDisplay
-public	SYSCALL	BodyDisplay_AlphaBeta
-public	SYSCALL	ObjectDisplay
-public	SYSCALL	TestVuePoly
-public	SYSCALL	TestVuePolyOld
+public	C	BodyDisplay
+public	C	BodyDisplay_AlphaBeta
+public	C	ObjectDisplay
+public	C	TestVuePoly
+public	C	TestVuePolyOld
 
-public	SYSCALL		First_3DPatch
-public	SYSCALL		Last_3DPatch
+public	C		First_3DPatch
+public	C		Last_3DPatch
 
 ;*──────────────────────────────────────────────────────────────────────────*
 
-extrn	SYSCALL		RotMatIndex_A		:	PROC
-extrn	SYSCALL		LongWorldRotatePoint	:	PROC
+extrn	C		RotMatIndex_A		:	PROC
+extrn	C		LongWorldRotatePoint	:	PROC
 
 					; extrn LIB_SVGA
-extrn	SYSCALL	Line_A			:	PROC
+extrn	C	Line_A			:	PROC
 
 					; FILLER.ASM
-Extrn	SYSCALL	Fill_Poly		:	PROC
-Extrn	SYSCALL	Fill_Sphere		:	PROC
+Extrn	C	Fill_Poly		:	PROC
+Extrn	C	Fill_Sphere		:	PROC
 
 					; P_FUNC.ASM
-Extrn	SYSCALL	Sqr_A			:	PROC
+Extrn	C	Sqr_A			:	PROC
 
 
 ;*══════════════════════════════════════════════════════════════════════════*
