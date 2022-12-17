@@ -1,6 +1,6 @@
 ;----------------------------------------------------------------------------
 			.486
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
@@ -95,36 +95,36 @@ R_SP			dw	0
 R_SS			dw	0
 
 ;----------------------------------------------------------------------------
-			Extrn	SYSCALL		PhysHard	:DWORD
-			Extrn	SYSCALL		Phys		:DWORD
+			Extrn	C		PhysHard	:DWORD
+			Extrn	C		Phys		:DWORD
 
-			Extrn	SYSCALL		ModeResX	:DWORD
-			Extrn	SYSCALL		ModeResY	:DWORD
-			Extrn	SYSCALL		ModeMemory	:DWORD
+			Extrn	C		ModeResX	:DWORD
+			Extrn	C		ModeResY	:DWORD
+			Extrn	C		ModeMemory	:DWORD
 
-			Extrn	SYSCALL		ModePages	:DWORD
+			Extrn	C		ModePages	:DWORD
 
-			Extrn	SYSCALL		ModeDesiredDepth:DWORD
-			Extrn	SYSCALL		ModeDesiredX	:DWORD
-			Extrn	SYSCALL		ModeDesiredY	:DWORD
+			Extrn	C		ModeDesiredDepth:DWORD
+			Extrn	C		ModeDesiredX	:DWORD
+			Extrn	C		ModeDesiredY	:DWORD
 
-			Extrn	SYSCALL		BytesScanLine	:DWORD
-
-;----------------------------------------------------------------------------
-			Extrn	SYSCALL		QuietLog	:DWORD
+			Extrn	C		BytesScanLine	:DWORD
 
 ;----------------------------------------------------------------------------
-			Public	SYSCALL		PtrVbeInfoBlock
-			Public	SYSCALL		PtrModeInfoBlock
+			Extrn	C		QuietLog	:DWORD
 
-			Public	SYSCALL		VESAMode
+;----------------------------------------------------------------------------
+			Public	C		PtrVbeInfoBlock
+			Public	C		PtrModeInfoBlock
 
-			Public	SYSCALL		BankSize
+			Public	C		VESAMode
 
-			Public	SYSCALL		SetPaletteVESA
-			Public	SYSCALL		SwitchBankVESA
+			Public	C		BankSize
 
-			Public	SYSCALL		VirtualLinearFirst
+			Public	C		SetPaletteVESA
+			Public	C		SwitchBankVESA
+
+			Public	C		VirtualLinearFirst
 
 ;----------------------------------------------------------------------------
 			ALIGN	4
@@ -329,77 +329,77 @@ Data_256		label	DWORD
 
 ;----------------------------------------------------------------------------
 IFDEF	REG_CALL
-			extrn	SYSCALL		malloc_	:PROC
-			extrn	SYSCALL		free_	:PROC
+			extrn	C		malloc_	:PROC
+			extrn	C		free_	:PROC
 ELSE
-			extrn	SYSCALL		malloc	:PROC
-			extrn	SYSCALL		free	:PROC
+			extrn	C		malloc	:PROC
+			extrn	C		free	:PROC
 ENDIF
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL		InitVESA
-			public	SYSCALL		EndVESA
-			public	SYSCALL		ScanVESAModes
-			public	SYSCALL		DetectVESAMode
-			public	SYSCALL		InitVESAMode
-			public	SYSCALL		DetectInitVESAMode
+			public	C		InitVESA
+			public	C		EndVESA
+			public	C		ScanVESAModes
+			public	C		DetectVESAMode
+			public	C		InitVESAMode
+			public	C		DetectInitVESAMode
 
-			public	SYSCALL		SetPaletteOneVESA
+			public	C		SetPaletteOneVESA
 
-			Public	SYSCALL		VblVESA
-			Public	SYSCALL		PaletteVblVESA
+			Public	C		VblVESA
+			Public	C		PaletteVblVESA
 
 ;----------------------------------------------------------------------------
-                        extrn   SYSCALL CopyBoxVESAM1:DWORD
-                        extrn   SYSCALL CopyBoxVESAM2:DWORD
-                        extrn   SYSCALL CopyBoxVESAM3:DWORD
-                        extrn   SYSCALL CopyBoxVESAM4:DWORD
-                        extrn   SYSCALL CopyBoxVESAM5:DWORD
-                        extrn   SYSCALL CopyBoxVESAM6:DWORD
+                        extrn   C CopyBoxVESAM1:DWORD
+                        extrn   C CopyBoxVESAM2:DWORD
+                        extrn   C CopyBoxVESAM3:DWORD
+                        extrn   C CopyBoxVESAM4:DWORD
+                        extrn   C CopyBoxVESAM5:DWORD
+                        extrn   C CopyBoxVESAM6:DWORD
 
-                        extrn   SYSCALL CopyBoxVESAF1:DWORD
-                        extrn   SYSCALL CopyBoxVESAF2:DWORD
-                        extrn   SYSCALL CopyBoxVESAF3:DWORD
-                        extrn   SYSCALL CopyBoxVESAF4:DWORD
-                        extrn   SYSCALL CopyBoxVESAF5:DWORD
-                        extrn   SYSCALL CopyBoxVESAF6:DWORD
+                        extrn   C CopyBoxVESAF1:DWORD
+                        extrn   C CopyBoxVESAF2:DWORD
+                        extrn   C CopyBoxVESAF3:DWORD
+                        extrn   C CopyBoxVESAF4:DWORD
+                        extrn   C CopyBoxVESAF5:DWORD
+                        extrn   C CopyBoxVESAF6:DWORD
 
-                        extrn   SYSCALL CopyBoxVESAI1:DWORD
-                        extrn   SYSCALL CopyBoxVESAI2:DWORD
-                        extrn   SYSCALL CopyBoxVESAI3:DWORD
-                        extrn   SYSCALL CopyBoxVESAI4:DWORD
-                        extrn   SYSCALL CopyBoxVESAI5:DWORD
-                        extrn   SYSCALL CopyBoxVESAI6:DWORD
+                        extrn   C CopyBoxVESAI1:DWORD
+                        extrn   C CopyBoxVESAI2:DWORD
+                        extrn   C CopyBoxVESAI3:DWORD
+                        extrn   C CopyBoxVESAI4:DWORD
+                        extrn   C CopyBoxVESAI5:DWORD
+                        extrn   C CopyBoxVESAI6:DWORD
 
-                        extrn   SYSCALL ClearBoxVESAM1:DWORD
-                        extrn   SYSCALL ClearBoxVESAM2:DWORD
-                        extrn   SYSCALL ClearBoxVESAM3:DWORD
-                        extrn   SYSCALL ClearBoxVESAM4:DWORD
-                        extrn   SYSCALL ClearBoxVESAM5:DWORD
-                        extrn   SYSCALL ClearBoxVESAM6:DWORD
+                        extrn   C ClearBoxVESAM1:DWORD
+                        extrn   C ClearBoxVESAM2:DWORD
+                        extrn   C ClearBoxVESAM3:DWORD
+                        extrn   C ClearBoxVESAM4:DWORD
+                        extrn   C ClearBoxVESAM5:DWORD
+                        extrn   C ClearBoxVESAM6:DWORD
 
-                        extrn   SYSCALL ClearBoxVESAF1:DWORD
-                        extrn   SYSCALL ClearBoxVESAF2:DWORD
-                        extrn   SYSCALL ClearBoxVESAF3:DWORD
-                        extrn   SYSCALL ClearBoxVESAF4:DWORD
-                        extrn   SYSCALL ClearBoxVESAF5:DWORD
-                        extrn   SYSCALL ClearBoxVESAF6:DWORD
+                        extrn   C ClearBoxVESAF1:DWORD
+                        extrn   C ClearBoxVESAF2:DWORD
+                        extrn   C ClearBoxVESAF3:DWORD
+                        extrn   C ClearBoxVESAF4:DWORD
+                        extrn   C ClearBoxVESAF5:DWORD
+                        extrn   C ClearBoxVESAF6:DWORD
 
-                        extrn   SYSCALL ClearBoxVESAI1:DWORD
-                        extrn   SYSCALL ClearBoxVESAI2:DWORD
-                        extrn   SYSCALL ClearBoxVESAI3:DWORD
-                        extrn   SYSCALL ClearBoxVESAI4:DWORD
-                        extrn   SYSCALL ClearBoxVESAI5:DWORD
-                        extrn   SYSCALL ClearBoxVESAI6:DWORD
+                        extrn   C ClearBoxVESAI1:DWORD
+                        extrn   C ClearBoxVESAI2:DWORD
+                        extrn   C ClearBoxVESAI3:DWORD
+                        extrn   C ClearBoxVESAI4:DWORD
+                        extrn   C ClearBoxVESAI5:DWORD
+                        extrn   C ClearBoxVESAI6:DWORD
 
-                        extrn   SYSCALL BlitBoxVESAM1:DWORD
-                        extrn   SYSCALL BlitBoxVESAM2:DWORD
+                        extrn   C BlitBoxVESAM1:DWORD
+                        extrn   C BlitBoxVESAM2:DWORD
 
-                        extrn   SYSCALL BlitBoxVESAF1:DWORD
-                        extrn   SYSCALL BlitBoxVESAF2:DWORD
+                        extrn   C BlitBoxVESAF1:DWORD
+                        extrn   C BlitBoxVESAF2:DWORD
 
-                        extrn   SYSCALL BlitBoxVESAI1:DWORD
-                        extrn   SYSCALL BlitBoxVESAI2:DWORD
+                        extrn   C BlitBoxVESAI1:DWORD
+                        extrn   C BlitBoxVESAI2:DWORD
 
 ;----------------------------------------------------------------------------
 GPFHandler		PROC

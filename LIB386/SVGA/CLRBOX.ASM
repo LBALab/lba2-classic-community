@@ -1,43 +1,51 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
-		OPTION	LANGUAGE:SYSCALL
+		OPTION	LANGUAGE:C
 		OPTION	SCOPED
 
-;*══════════════════════════════════════════════════════════════════════════*
-DGROUP		GROUP	_DATA
-
-_DATA		SEGMENT USE32 PARA PUBLIC 'DATA'
+		.MODEL SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		.DATA
+
+;DGROUP		GROUP	_DATA
+
+;_DATA		SEGMENT USE32 PARA PUBLIC 'DATA'
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	ClearColor
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
+
+;*══════════════════════════════════════════════════════════════════════════*
+		public	C	ClearColor
 
 ClearColor	dq	0
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	ClearBox
+		public	C	ClearBox
 
 ClearBox	dd	offset ClearBoxInit
 
-;*══════════════════════════════════════════════════════════════════════════*
-_DATA		ENDS
+		ASSUME DS:SEG ClearColor
 
 ;*══════════════════════════════════════════════════════════════════════════*
-_TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
-       		ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
+;_DATA		ENDS
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	ClearBoxI:PROC
-		extrn	SYSCALL	ClearBoxF:PROC
-		extrn	SYSCALL	ClearBoxM:PROC
+;_TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
+;       		ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
+
+		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	ClearBoxI:PROC
+		extrn	C	ClearBoxF:PROC
+		;extrn	C	ClearBoxM:PROC
+
+;*══════════════════════════════════════════════════════════════════════════*
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ClearBox(void *dst, U32 *TabOffDst, T_BOX *box) ;
@@ -48,10 +56,10 @@ _TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
 
 ClearBoxInit	proc
 
-		mov	[Chooser_RtnI], offset ClearBoxI	; Integer
-		mov	[Chooser_RtnF], offset ClearBoxF	; FPU
-		mov	[Chooser_RtnM], offset ClearBoxM	; MMX
-		mov	[Chooser_Result], offset ClearBox	; Pointer
+		mov	[ds:Chooser_RtnI], offset ClearBoxI	; Integer
+		mov	[ds:Chooser_RtnF], offset ClearBoxF	; FPU
+		;mov	[ds:Chooser_RtnM], offset ClearBoxM	; MMX
+		mov	[ds:Chooser_Result], offset ClearBox	; Pointer
 		jmp	Chooser
 
 ClearBoxInit	endp
@@ -87,7 +95,7 @@ SetClearColor	proc
 SetClearColor	endp
 
 ;*══════════════════════════════════════════════════════════════════════════*
-_TEXT		ENDS
+;_TEXT		ENDS
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The

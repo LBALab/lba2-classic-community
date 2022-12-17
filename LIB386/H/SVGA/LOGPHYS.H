@@ -4,6 +4,7 @@
 
 //--------------------------------------------------------------------------
 #include	"INITMODE.H"
+#include <SYSTEM/ADELINE.H>
 
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus
@@ -34,8 +35,8 @@ extern	U32	ModeMemory		;
 extern	U32	BytesScanLine		;
 
 //--------------------------------------------------------------------------
-extern	U32	TabOffLine[]		;
-extern	U32	TabOffPhysLine[]	;
+extern	U32	TabOffLine[MAX_SCREEN_Y_RES]		;
+extern	U32	TabOffPhysLine[MAX_SCREEN_Y_RES]	;
 
 #pragma	aux	TabOffLine	"*"
 #pragma	aux	TabOffPhysLine	"*"

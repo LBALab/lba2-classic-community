@@ -19,7 +19,9 @@
 #include	<system/exit.h>
 #include	<ail/mss.h>
 
+#ifdef DOS_PURE
 #include 	<i86.h>
+#endif
 #include 	<stdlib.h>
 
 //──────────────────────────────────────────────────────────────────────────
@@ -85,7 +87,7 @@ void	ClearMouse()
 #else //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-static void _loadds far click_handler (int max, int mcx, int mdx)
+static void click_handler (int max, int mcx, int mdx)
 {
 	MouseX = mcx>>3	;
 	MouseY = mdx>>3	;
@@ -102,6 +104,7 @@ static void _loadds far click_handler (int max, int mcx, int mdx)
 //──────────────────────────────────────────────────────────────────────────
 void 	InitMouse()
 {
+#ifdef DOS_PURE
 	struct SREGS sregs		;
 	union REGS inregs, outregs	;
 
@@ -116,6 +119,7 @@ void 	InitMouse()
 	// check for mouse driver
 	inregs.w.ax = 0			;
 	int386 (0x33, &inregs, &outregs);
+#endif
 
 	SetMouseBox(0, 0, ModeDesiredX, ModeDesiredY)	;
 	SetMouseSpeed(4, 4)		;
@@ -127,12 +131,14 @@ void 	InitMouse()
 
 	UpdateMouseRes()		;
 
+#ifdef DOS_PURE
 	// install click watcher
 	inregs.w.ax = 0xC				;
 	inregs.w.cx = 0x01 | 0x02 | 0x04 | 0x08 | 0x10 	;
 	inregs.x.edx = FP_OFF( click_handler )		;
 	sregs.es     = FP_SEG( click_handler )		;
 	int386x( 0x33, &inregs, &outregs, &sregs )	;
+#endif
 
 	RegisterInitClear( InitMouse, ClearMouse )	;
 
@@ -144,6 +150,7 @@ void 	InitMouse()
 //──────────────────────────────────────────────────────────────────────────
 void	ClearMouse()
 {
+#ifdef DOS_PURE
 	union REGS inregs, outregs	;
 
 	if(!Installed)
@@ -160,7 +167,7 @@ void	ClearMouse()
 	AIL_vmm_unlock_range((void*)&MouseX, (void*)&MouseY)			;
 	AIL_vmm_unlock_range((void*)&Click, (void*)((&Click)+1))			;
 	AIL_vmm_unlock_range((void *)FP_OFF(click_handler), (void*)ShowMouse)	;
-
+#endif
 	Installed	= FALSE		;
 }
 

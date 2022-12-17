@@ -1,38 +1,46 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
-		OPTION	LANGUAGE:SYSCALL
+		OPTION	LANGUAGE:C
 		OPTION	SCOPED
 
-;*══════════════════════════════════════════════════════════════════════════*
-DGROUP		GROUP	_DATA
-
-_DATA		SEGMENT USE32 PARA PUBLIC 'DATA'
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		.DATA
+;DGROUP		GROUP	_DATA
+
+;_DATA		SEGMENT USE32 PARA PUBLIC 'DATA'
+
+		
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	BlitBox
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
+
+;*══════════════════════════════════════════════════════════════════════════*
+		public	C	BlitBox
+
+		ASSUME DS:SEG BlitBox
 
 BlitBox	dd	offset BlitBoxInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
-_DATA		ENDS
+;_DATA		ENDS
 
 ;*══════════════════════════════════════════════════════════════════════════*
-_TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
+.CODE
+;_TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
        		ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	BlitBoxI:PROC
-		extrn	SYSCALL	BlitBoxF:PROC
-		extrn	SYSCALL	BlitBoxM:PROC
+		extrn	C	BlitBoxI:PROC
+		extrn	C	BlitBoxF:PROC
+		;extrn	C	BlitBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	BlitBox(void *dst, U32 *TabOffDst, void *src) ;
@@ -43,16 +51,16 @@ _TEXT		SEGMENT	USE32 PARA PUBLIC 'CODE'
 
 BlitBoxInit	proc
 
-		mov	[Chooser_RtnI], offset BlitBoxI	; Integer
-		mov	[Chooser_RtnF], offset BlitBoxF	; FPU
-		mov	[Chooser_RtnM], offset BlitBoxM	; MMX
-		mov	[Chooser_Result], offset BlitBox	; Pointer
+		mov	[ds:Chooser_RtnI], offset BlitBoxI	; Integer
+		mov	[ds:Chooser_RtnF], offset BlitBoxF	; FPU
+		;mov	[ds:Chooser_RtnM], offset BlitBoxM	; MMX
+		mov	[ds:Chooser_Result], offset BlitBox	; Pointer
 		jmp	Chooser
 
 BlitBoxInit	endp
 
 ;*══════════════════════════════════════════════════════════════════════════*
-_TEXT		ENDS
+;_TEXT		ENDS
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The

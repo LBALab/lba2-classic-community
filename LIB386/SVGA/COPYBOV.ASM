@@ -1,22 +1,24 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	VESAMode:DWORD
+		extrn	C	VESAMode:DWORD
+
+		ASSUME DS:SEG VESAMode
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	CopyBoxVESA
+		public	C	CopyBoxVESA
 
 CopyBoxVESA	dd	offset CopyBoxVESAInit
 
@@ -24,19 +26,19 @@ CopyBoxVESA	dd	offset CopyBoxVESAInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	CopyBoxVESAI:PROC
-		extrn	SYSCALL	CopyBoxVESAF:PROC
-		extrn	SYSCALL	CopyBoxVESAM:PROC
+		extrn	C	CopyBoxVESAI:PROC
+		extrn	C	CopyBoxVESAF:PROC
+		;extrn	C	CopyBoxVESAM:PROC
 
-		extrn	SYSCALL	CopyBoxI:PROC
-		extrn	SYSCALL	CopyBoxF:PROC
-		extrn	SYSCALL	CopyBoxM:PROC
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	CopyBoxI:PROC
+		extrn	C	CopyBoxF:PROC
+		;extrn	C	CopyBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	CopyBoxVESAInit
+		extrn	C	Chooser:PROC
+
+;*══════════════════════════════════════════════════════════════════════════*
+		public	C	CopyBoxVESAInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	CopyBoxVESA(void *dst, void *src, U32 *TabOffDst, T_BOX *box) ;
@@ -47,20 +49,20 @@ CopyBoxVESA	dd	offset CopyBoxVESAInit
 
 CopyBoxVESAInit	proc
 
-		mov	[Chooser_Result], offset CopyBoxVESA	; Pointer
+		mov	[ds:Chooser_Result], offset CopyBoxVESA	; Pointer
 
 		test	[VESAMode], 4000h
 		jnz	OkLinear
 
-		mov	[Chooser_RtnI], offset CopyBoxVESAI	; Integer
-		mov	[Chooser_RtnF], offset CopyBoxVESAF	; FPU
-		mov	[Chooser_RtnM], offset CopyBoxVESAM	; MMX
+		mov	[ds:Chooser_RtnI], offset CopyBoxVESAI	; Integer
+		mov	[ds:Chooser_RtnF], offset CopyBoxVESAF	; FPU
+		;mov	[ds:Chooser_RtnM], offset CopyBoxVESAM	; MMX
 
 		jmp	Chooser
 OkLinear:
-		mov	[Chooser_RtnI], offset CopyBoxI		; Integer
-		mov	[Chooser_RtnF], offset CopyBoxF		; FPU
-		mov	[Chooser_RtnM], offset CopyBoxM		; MMX
+		mov	[ds:Chooser_RtnI], offset CopyBoxI		; Integer
+		mov	[ds:Chooser_RtnF], offset CopyBoxF		; FPU
+		;mov	[ds:Chooser_RtnM], offset CopyBoxM		; MMX
 
 		jmp	Chooser
 

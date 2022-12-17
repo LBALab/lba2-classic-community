@@ -100,7 +100,7 @@ extern	void	VblVESA()	;
 	modify	[eax ebx ecx edx esi edi]
 
 //--------------------------------------------------------------------------
-extern	void	PaletteVblVESA(S32 bool)	;
+extern	void	PaletteVblVESA(S32 _bool)	;
 
 #pragma	aux	PaletteVblVESA	"*"		\
 	parm	[eax]

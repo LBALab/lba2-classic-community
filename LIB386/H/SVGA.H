@@ -3,57 +3,6 @@
 #define	LIB_SVGA
 
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	_BUILDING_LIB
-
-#ifdef	_WIN32
-
-#ifdef cedric
-
-#ifdef	__SW_3R
-#pragma library ("F:\PROJET\LIB386\SVGA\NT_SVGR.LIB")
-#else//	__SW_3R
-#pragma library ("F:\PROJET\LIB386\SVGA\NT_SVGS.LIB")
-#endif//__SW_3R
-
-#else//cedric
-
-#ifdef	__SW_3R
-#pragma library ("NT_SVGR.LIB")
-#else//	__SW_3R
-#pragma library ("NT_SVGS.LIB")
-#endif//__SW_3R
-
-#endif//cedric
-
-
-
-#pragma library ("DDRAW.LIB")
-
-#else//	_WIN32
-
-#ifdef cedric
-
-#ifdef	__SW_3R
-#pragma library ("F:\PROJET\LIB386\SVGA\DOS_SVGR.LIB")
-#else//	__SW_3R
-#pragma library ("F:\PROJET\LIB386\SVGA\DOS_SVGS.LIB")
-#endif//__SW_3R
-
-#else //cedric
-
-#ifdef	__SW_3R
-#pragma library ("DOS_SVGR.LIB")
-#else//	__SW_3R
-#pragma library ("DOS_SVGS.LIB")
-#endif//__SW_3R
-
-#endif //cedric
-
-#endif//_WIN32
-
-#endif//_BUILDING_LIB
-
-//──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM/ADELINE.H>
 
 //──────────────────────────────────────────────────────────────────────────

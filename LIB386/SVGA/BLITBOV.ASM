@@ -1,22 +1,24 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	VESAMode:DWORD
+		extrn	C	VESAMode:DWORD
+
+		ASSUME DS:SEG VESAMode
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	BlitBoxVESA
+		public	C	BlitBoxVESA
 
 BlitBoxVESA	dd	offset BlitBoxVESAInit
 
@@ -24,19 +26,19 @@ BlitBoxVESA	dd	offset BlitBoxVESAInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	BlitBoxVESAI:PROC
-		extrn	SYSCALL	BlitBoxVESAF:PROC
-		extrn	SYSCALL	BlitBoxVESAM:PROC
+		extrn	C	BlitBoxVESAI:PROC
+		extrn	C	BlitBoxVESAF:PROC
+		;extrn	C	BlitBoxVESAM:PROC
 
-		extrn	SYSCALL	BlitBoxI:PROC
-		extrn	SYSCALL	BlitBoxF:PROC
-		extrn	SYSCALL	BlitBoxM:PROC
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	BlitBoxI:PROC
+		extrn	C	BlitBoxF:PROC
+		;extrn	C	BlitBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	BlitBoxVESAInit
+		extrn	C	Chooser:PROC
+
+;*══════════════════════════════════════════════════════════════════════════*
+		public	C	BlitBoxVESAInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	BlitBoxVESA(void *dst, U32 *TabOffDst, void *box) ;
@@ -47,20 +49,20 @@ BlitBoxVESA	dd	offset BlitBoxVESAInit
 
 BlitBoxVESAInit	proc
 
-		mov	[Chooser_Result], offset BlitBoxVESA	; Pointer
+		mov	[ds:Chooser_Result], offset BlitBoxVESA	; Pointer
 
 		test	[VESAMode], 4000h
 		jnz	OkLinear
 
-		mov	[Chooser_RtnI], offset BlitBoxVESAI	; Integer
-		mov	[Chooser_RtnF], offset BlitBoxVESAF	; FPU
-		mov	[Chooser_RtnM], offset BlitBoxVESAM	; MMX
+		mov	[ds:Chooser_RtnI], offset BlitBoxVESAI	; Integer
+		mov	[ds:Chooser_RtnF], offset BlitBoxVESAF	; FPU
+		;mov	[ds:Chooser_RtnM], offset BlitBoxVESAM	; MMX
 
 		jmp	Chooser
 OkLinear:
-		mov	[Chooser_RtnI], offset BlitBoxI		; Integer
-		mov	[Chooser_RtnF], offset BlitBoxF		; FPU
-		mov	[Chooser_RtnM], offset BlitBoxM		; MMX
+		mov	[ds:Chooser_RtnI], offset BlitBoxI		; Integer
+		mov	[ds:Chooser_RtnF], offset BlitBoxF		; FPU
+		;mov	[ds:Chooser_RtnM], offset BlitBoxM		; MMX
 
 		jmp	Chooser
 

@@ -1,19 +1,19 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	CopyBox
+		public	C	CopyBox
 
 CopyBox		dd	offset CopyBoxInit
 
@@ -21,12 +21,12 @@ CopyBox		dd	offset CopyBoxInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	CopyBoxI:PROC
-		extrn	SYSCALL	CopyBoxF:PROC
-		extrn	SYSCALL	CopyBoxM:PROC
+		extrn	C	CopyBoxI:PROC
+		extrn	C	CopyBoxF:PROC
+		;extrn	C	CopyBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	CopyBox(void *dst, void *src, U32 *TabOffDst, T_BOX *box) ;
@@ -37,10 +37,10 @@ CopyBox		dd	offset CopyBoxInit
 
 CopyBoxInit	proc
 
-		mov	[Chooser_RtnI], offset CopyBoxI	; Integer
-		mov	[Chooser_RtnF], offset CopyBoxF	; FPU
-		mov	[Chooser_RtnM], offset CopyBoxM	; MMX
-		mov	[Chooser_Result], offset CopyBox; Pointer
+		mov	[ds:Chooser_RtnI], offset CopyBoxI	; Integer
+		mov	[ds:Chooser_RtnF], offset CopyBoxF	; FPU
+		;mov	[ds:Chooser_RtnM], offset CopyBoxM	; MMX
+		mov	[ds:Chooser_Result], offset CopyBox; Pointer
 		jmp	Chooser
 
 CopyBoxInit	endp

@@ -7,6 +7,7 @@
 #include	<SVGA/MOUSE.H>
 
 //──────────────────────────────────────────────────────────────────────────
+// TODO: Review, yaz0r removed static but so far I don't know why
 static	S32	LibMouseXDep, LibMouseYDep			;
 static	S32	MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1	;
 
@@ -78,7 +79,7 @@ void	SetMousePos( S32 x, S32 y )
 	if(MouseY<MouseBoxY0)		MouseY = MouseBoxY0;
 	else if(MouseY>MouseBoxY1)	MouseY = MouseBoxY1;
 
-	SetCursorPos(160, 100)	;
+	//yaz SetCursorPos(160, 100)	;
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ void	GetMouseDep()
 	MouseXDep = LibMouseXDep	;
 	MouseYDep = LibMouseYDep	;
 
-	SetCursorPos(160, 100)		;
+	//yaz SetCursorPos(160, 100)		;
 
 	LibMouseXDep = 0		;
 	LibMouseYDep = 0		;

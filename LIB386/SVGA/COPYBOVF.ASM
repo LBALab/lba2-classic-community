@@ -1,29 +1,29 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	TabOffLine:DWORD
+			extrn	C	TabOffLine:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	CopyBoxVESAF
+			public	C	CopyBoxVESAF
 
-			public	SYSCALL	CopyBoxVESAF1
-			public	SYSCALL	CopyBoxVESAF2
-			public	SYSCALL	CopyBoxVESAF3
-			public	SYSCALL	CopyBoxVESAF4
-			public	SYSCALL	CopyBoxVESAF5
-			public	SYSCALL	CopyBoxVESAF6
+			public	C	CopyBoxVESAF1
+			public	C	CopyBoxVESAF2
+			public	C	CopyBoxVESAF3
+			public	C	CopyBoxVESAF4
+			public	C	CopyBoxVESAF5
+			public	C	CopyBoxVESAF6
 
 ;----------------------------------------------------------------------------
-			Extrn	SYSCALL	VirtualLinearFirst:PROC
+			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
 ;void	CopyBoxVESAF(void *dst, void *src, U32 *TabOffDst, T_BOX *box) ;

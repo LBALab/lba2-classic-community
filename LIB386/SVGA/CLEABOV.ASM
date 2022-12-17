@@ -1,42 +1,46 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	VESAMode:DWORD
+		extrn	C	VESAMode:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	ClearBoxVESA
+		public	C	ClearBoxVESA
 
 ClearBoxVESA	dd	offset ClearBoxVESAInit
+
+	ASSUME DS:SEG ClearBoxVESAInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	ClearBoxVESAI:PROC
-		extrn	SYSCALL	ClearBoxVESAF:PROC
-		extrn	SYSCALL	ClearBoxVESAM:PROC
+		extrn	C	ClearBoxVESAI:PROC
+		extrn	C	ClearBoxVESAF:PROC
+		;extrn	C	ClearBoxVESAM:PROC
 
-		extrn	SYSCALL	ClearBoxI:PROC
-		extrn	SYSCALL	ClearBoxF:PROC
-		extrn	SYSCALL	ClearBoxM:PROC
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	ClearBoxI:PROC
+		extrn	C	ClearBoxF:PROC
+		;extrn	C	ClearBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	ClearBoxVESAInit
+		extrn	C	Chooser:PROC
+
+;*══════════════════════════════════════════════════════════════════════════*
+		public	C	ClearBoxVESAInit
+
+		ASSUME DS:SEG VESAMode
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ClearBoxVESA(void *dst, U32 *TabOffDst, T_BOX *box) ;
@@ -47,20 +51,20 @@ ClearBoxVESA	dd	offset ClearBoxVESAInit
 
 ClearBoxVESAInit	proc
 
-		mov	[Chooser_Result], offset ClearBoxVESA	; Pointer
+		mov	[ds:Chooser_Result], offset ClearBoxVESA	; Pointer
 
 		test	[VESAMode], 4000h
 		jnz	OkLinear
 
-		mov	[Chooser_RtnI], offset ClearBoxVESAI	; Integer
-		mov	[Chooser_RtnF], offset ClearBoxVESAF	; FPU
-		mov	[Chooser_RtnM], offset ClearBoxVESAM	; MMX
+		mov	[ds:Chooser_RtnI], offset ClearBoxVESAI	; Integer
+		mov	[ds:Chooser_RtnF], offset ClearBoxVESAF	; FPU
+		;mov	[ds:Chooser_RtnM], offset ClearBoxVESAM	; MMX
 
 		jmp	Chooser
 OkLinear:
-		mov	[Chooser_RtnI], offset ClearBoxI	; Integer
-		mov	[Chooser_RtnF], offset ClearBoxF	; FPU
-		mov	[Chooser_RtnM], offset ClearBoxM	; MMX
+		mov	[ds:Chooser_RtnI], offset ClearBoxI	; Integer
+		mov	[ds:Chooser_RtnF], offset ClearBoxF	; FPU
+		;mov	[ds:Chooser_RtnM], offset ClearBoxM	; MMX
 
 		jmp	Chooser
 

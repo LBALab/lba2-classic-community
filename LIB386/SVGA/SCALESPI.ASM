@@ -1,6 +1,6 @@
 ;*══════════════════════════════════════════════════════════════════════════*/
 		.386p
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 Struc_Sprite	STRUC
@@ -14,20 +14,20 @@ Struc_Sprite	ENDS
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-		extrn	SYSCALL	Log		:DWORD
-		extrn	SYSCALL	TabOffLine	:DWORD
+		extrn	C	Log		:DWORD
+		extrn	C	TabOffLine	:DWORD
 
-		extrn	SYSCALL	ScreenXMin	:DWORD
-		extrn	SYSCALL	ScreenXMax	:DWORD
-		extrn	SYSCALL	ScreenYMin	:DWORD
-		extrn	SYSCALL	ScreenYMax	:DWORD
+		extrn	C	ScreenXMin	:DWORD
+		extrn	C	ScreenXMax	:DWORD
+		extrn	C	ScreenYMin	:DWORD
+		extrn	C	ScreenYMax	:DWORD
 
-		extrn	SYSCALL	ClipXMin	:DWORD
-		extrn	SYSCALL	ClipXMax	:DWORD
-		extrn	SYSCALL	ClipYMin	:DWORD
-		extrn	SYSCALL	ClipYMax	:DWORD
+		extrn	C	ClipXMin	:DWORD
+		extrn	C	ClipXMax	:DWORD
+		extrn	C	ClipYMin	:DWORD
+		extrn	C	ClipYMax	:DWORD
 
-		extrn	SYSCALL	ModeDesiredX	:DWORD
+		extrn	C	ModeDesiredX	:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 Start		dd	0000
@@ -40,11 +40,12 @@ Skip_Next_Line	dd	0
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-		public   SYSCALL     ScaleSprite
+		public   C     ScaleSprite
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 IFDEF	_WIN32
-		extrn  SYSCALL	AllowPatchAndPatch:PROC
+		extrn  C	AllowPatchAndPatch:PROC
+		extrn  C	AllowPatch:PROC
 ENDIF
 
 ;*══════════════════════════════════════════════════════════════════════════*/
@@ -70,6 +71,10 @@ ScaleSprite	proc uses ebp,		\
 		xbrick:		DWORD,	ybrick:		DWORD, \
 		factorx:	DWORD,	factory:	DWORD, \
 		bankbrick:	DWORD
+
+		mov eax, ScaleSpritePatch
+		mov edx, ScaleSpriteEnd
+		call	AllowPatch
 
 		mov	eax,[factorx]
 		mov	ebx,[factory]
@@ -101,23 +106,23 @@ x:
 
 		org	x
 ENDIF
-		mov	al,[esi].Delta_X
+		mov	al,[esi].Struc_Sprite.Delta_X
 
-;		movzx	eax,[esi].Delta_X
+;		movzx	eax,[esi].Struc_Sprite.Delta_X
 		imul	[factorx]
 
 		shl	edx,16
 		mov	ecx,eax
 
 		shr	ecx,16
-		mov	eax,dword ptr [esi].Delta_X
+		mov	eax,dword ptr [esi].Struc_Sprite.Delta_X
 
 		shl	eax,8
 		or	ecx,edx			; ECX = New Delta_X
 
 		sar	eax,24
 
-;		movsx	eax,[esi].Hot_X
+;		movsx	eax,[esi].Struc_Sprite.Hot_X
 		imul	[factorx]
 
 		shl	edx,16
@@ -134,10 +139,10 @@ ENDIF
 		mov	[factorx],eax		; Inverse factorx
 						; factorx now contains the gradiant
 						; for x interpolation
-		mov	edx,dword ptr [esi].Delta_X
+		mov	edx,dword ptr [esi].Struc_Sprite.Delta_X
 
 		and	edx,0FFh
-		mov	edi,dword ptr [esi].Delta_X
+		mov	edi,dword ptr [esi].Struc_Sprite.Delta_X
 
 		shr	edx,1
 
@@ -195,25 +200,25 @@ No_ClipXMin:
 		jl	No_ClipXMax
 		mov	[ScreenXMax],eax
 No_ClipXMax:
-		mov	eax,dword ptr [esi].Delta_X
+		mov	eax,dword ptr [esi].Struc_Sprite.Delta_X
 
 		shr	eax,8
 
 		and	eax,0FFh
 
-;		movzx	eax,[esi].Delta_X
+;		movzx	eax,[esi].Struc_Sprite.Delta_X
 		imul	[factory]
 
 		shl	edx,16
 		mov	ecx,eax
 
 		shr	ecx,16
-		mov	eax,dword ptr [esi].Delta_X
+		mov	eax,dword ptr [esi].Struc_Sprite.Delta_X
 
 		sar	eax,24
 		or	ecx,edx			; ECX = New Delta_Y
 
-;		movsx	eax,[esi].Hot_Y
+;		movsx	eax,[esi].Struc_Sprite.Hot_Y
 		imul	[factory]
 
 		shl	edx,16
@@ -228,10 +233,10 @@ No_ClipXMax:
 		idiv	[factory]
 
 		mov	[factory],eax		; Inverse factory
-		mov	edx,dword ptr [esi].Delta_Y
+		mov	edx,dword ptr [esi].Struc_Sprite.Delta_Y
 
 		and	edx,0FFh
-		mov	edi,dword ptr [esi].Delta_Y
+		mov	edi,dword ptr [esi].Struc_Sprite.Delta_Y
 
 		shr	edx,1
 
@@ -302,7 +307,7 @@ No_ClipYMax:
 				; Get pointer on sprite's raw buffer
 				; according to the first scanline to be drawn
 		shr	eax,16
-		mov	ebx,dword ptr [esi].Delta_X
+		mov	ebx,dword ptr [esi].Struc_Sprite.Delta_X
 
 		and	ebx,0FFh
 
@@ -435,13 +440,13 @@ exit:
 		; AGI
 
 		inc	eax
-		mov	ecx,dword ptr [esi].Delta_X
+		mov	ecx,dword ptr [esi].Struc_Sprite.Delta_X
 
 		shl	ecx,8
 		mov	ebx,[ClipXMin]
 
 		sar	ecx,24
-		mov	edx,dword ptr [esi].Delta_X
+		mov	edx,dword ptr [esi].Struc_Sprite.Delta_X
 
 		add	edi,ecx
 		and	edx,0FFh
@@ -478,7 +483,7 @@ exit:
 		mov	edi,[ybrick]
 		mov	eax,[ClipYMax]
 
-		mov	ecx,dword ptr [esi].Delta_X
+		mov	ecx,dword ptr [esi].Struc_Sprite.Delta_X
 		mov	ebx,[ClipYMin]
 
 		sar	ecx,24
@@ -503,7 +508,7 @@ exit:
 		mov	[Start_Y],ebx
 		pop	ebx
 @@NoClipYMin:
-		mov	edx,dword ptr [esi].Delta_X
+		mov	edx,dword ptr [esi].Struc_Sprite.Delta_X
 
 		shr	edx,8
 
@@ -522,7 +527,7 @@ exit:
 		mov	[ScreenYMax],eax
 
 @@NoClipYMax:
-		mov	ebp,dword ptr [esi].Delta_X
+		mov	ebp,dword ptr [esi].Struc_Sprite.Delta_X
 		mov	eax,[ScreenYMin]
 
 		and	ebp,0FFh

@@ -1,18 +1,20 @@
 ;----------------------------------------------------------------------------
 			.386
-			.MODEL	SMALL, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	Log		:DWORD
-			EXTRN	SYSCALL	TabOffLine	:DWORD
+			EXTRN	C	Log		:DWORD
+			EXTRN	C	TabOffLine	:DWORD
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL SizeChar
-			PUBLIC	SYSCALL TextInk
-			PUBLIC	SYSCALL TextPaper
+			PUBLIC	C SizeChar
+			PUBLIC	C TextInk
+			PUBLIC	C TextPaper
+
+			ASSUME DS:SEG SizeChar
 
 ;----------------------------------------------------------------------------
 SizeChar		dd	8
@@ -283,7 +285,7 @@ Font8X8			db	0, 0, 0, 0, 0, 0, 0, 0
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	 AffString
+			public	C	 AffString
 
 ;----------------------------------------------------------------------------
 ;void	AffString(S32 x, S32 y, char *str)
@@ -292,7 +294,12 @@ Font8X8			db	0, 0, 0, 0, 0, 0, 0, 0
 ;	parm	[eax] [ebx] [esi]	\
 ;	modify	[ecx edx edi]
 
-AffString		PROC	uses ebp
+AffString		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, string: DWORD
+			mov eax, x
+			mov ebx, y
+			mov esi, string
 
 
 			test	esi, esi

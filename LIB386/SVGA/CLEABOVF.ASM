@@ -1,29 +1,29 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	ClearColor:QWORD
+			extrn	C	ClearColor:QWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	ClearBoxVESAF
+			public	C	ClearBoxVESAF
 
-			public	SYSCALL	ClearBoxVESAF1
-			public	SYSCALL	ClearBoxVESAF2
-			public	SYSCALL	ClearBoxVESAF3
-			public	SYSCALL	ClearBoxVESAF4
-			public	SYSCALL	ClearBoxVESAF5
-			public	SYSCALL	ClearBoxVESAF6
+			public	C	ClearBoxVESAF1
+			public	C	ClearBoxVESAF2
+			public	C	ClearBoxVESAF3
+			public	C	ClearBoxVESAF4
+			public	C	ClearBoxVESAF5
+			public	C	ClearBoxVESAF6
 
 ;----------------------------------------------------------------------------
-			Extrn	SYSCALL	VirtualLinearFirst:PROC
+			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
 ;void	ClearBoxVESAF(void *dst, U32 *TabOffDst, T_BOX *box) ;

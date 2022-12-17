@@ -1,22 +1,22 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	ClearColor:QWORD
+			extrn	C	ClearColor:QWORD
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	TabOffLine:DWORD
+			extrn	C	TabOffLine:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	ClearBoxF
+			public	C	ClearBoxF
 
 ;----------------------------------------------------------------------------
 ;void	ClearBoxF(void *dst,  U32 *TabOffDst, T_BOX *box) ;
@@ -25,7 +25,13 @@
 ;	parm	[edi] [edx] [ebx]	\
 ;	modify	[eax ecx esi]
 
-ClearBoxF		PROC
+ClearBoxF		PROC \
+			uses edi edx ebx eax ecx esi \
+			dst: DWORD, TabOffDst: DWORD, box: DWORD
+
+			mov edi, dst
+			mov edx, TabOffDst
+			mov ebx, box
 
 			mov	esi, [ebx]
 			mov	ebx, [ebx+4]

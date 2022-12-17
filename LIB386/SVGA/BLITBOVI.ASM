@@ -1,24 +1,24 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL TabOffPhysLine:DWORD
+			extrn	C TabOffPhysLine:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	VirtualLinearFirst:PROC
+			extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	BlitBoxVESAI
-			public	SYSCALL	BlitBoxVESAI1
-			public	SYSCALL	BlitBoxVESAI2
+			public	C	BlitBoxVESAI
+			public	C	BlitBoxVESAI1
+			public	C	BlitBoxVESAI2
 
 ;----------------------------------------------------------------------------
 ;void	BlitBoxVESAI(void *dst, void *src) ;

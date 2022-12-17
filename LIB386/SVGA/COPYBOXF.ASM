@@ -1,19 +1,19 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	TabOffLine:DWORD
+			extrn	C	TabOffLine:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	CopyBoxF
+			public	C	CopyBoxF
 
 ;----------------------------------------------------------------------------
 ;void	CopyBoxF(void *dst, void *src, U32 *TabOffDst, T_BOX *box) ;
@@ -22,7 +22,17 @@
 ;	parm	[edi] [esi] [edx] [ebx]	\
 ;	modify	[eax ecx]
 
-CopyBoxF		PROC
+CopyBoxF		proc \
+			uses edi esi edx ebx eax ecx ebp,
+			dst:DWORD,\
+			src:DWORD,\
+			TabOffDst:DWORD, box:DWORD,
+
+			mov edi, dst
+			mov esi, src
+			mov edx, TabOffDst
+			mov ebx, box
+			
 
 			push	ebp
 			mov	ebp, [ebx]

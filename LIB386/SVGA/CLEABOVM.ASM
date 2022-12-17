@@ -2,7 +2,7 @@
 			.586
 			.MMX
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			SEG_FS	equ	db 64h
@@ -10,23 +10,23 @@
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	ClearColor:DWORD
+			extrn	C	ClearColor:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	ClearBoxVESAM
+			public	C	ClearBoxVESAM
 
-                        public  SYSCALL ClearBoxVESAM1
-                        public  SYSCALL ClearBoxVESAM2
-                        public  SYSCALL ClearBoxVESAM3
-                        public  SYSCALL ClearBoxVESAM4
-                        public  SYSCALL ClearBoxVESAM5
-                        public  SYSCALL ClearBoxVESAM6
+                        public  C ClearBoxVESAM1
+                        public  C ClearBoxVESAM2
+                        public  C ClearBoxVESAM3
+                        public  C ClearBoxVESAM4
+                        public  C ClearBoxVESAM5
+                        public  C ClearBoxVESAM6
 
 ;----------------------------------------------------------------------------
-			Extrn	SYSCALL	VirtualLinearFirst:PROC
+			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
 ;void	ClearBoxVESAM(void *dst, U32 *TabOffDst, T_BOX *box) ;
