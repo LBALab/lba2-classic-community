@@ -489,7 +489,7 @@ void	AddButton(	T_MENU	*ptrmenu,
 			S32	x1, S32 y1,
 			S32	largeur, S32 hauteur,
 			S32	flags,
-			char	*ptrstring	)
+			const char	*ptrstring	)
 {
 	T_CLICK_BOX	*ptrlcb ;
 
@@ -554,7 +554,7 @@ void	AddSwitch(	T_MENU	*ptrmenu,
 			S32	x1, S32 y1,
 			S32	largeur, S32 hauteur,
 			S32	flags,
-			char	*ptrstring,
+			const char	*ptrstring,
 			S32	*ptrvar,
 			S32	mask	)
 {

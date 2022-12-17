@@ -152,7 +152,7 @@ extern S32 		OpenMenu(	T_MENU *ptrmenu, S32 width, S32 height);
 
 extern void 		AddButton(	T_MENU *ptrmenu, S32 handle,
 					S32 x1, S32 y1, S32 width, S32 height,
-					S32 flags, char *ptrstring	);
+					S32 flags, const char *ptrstring	);
 
 extern void 		AddChangeValue(	T_MENU *ptrmenu, S32 handle,
 					S32 x1, S32 y1, S32 width, S32 height,
@@ -161,7 +161,7 @@ extern void 		AddChangeValue(	T_MENU *ptrmenu, S32 handle,
 
 extern void 		AddSwitch(	T_MENU *ptrmenu, S32 handle,
 					S32 x1, S32 y1, S32 width, S32 height,
-					S32 flags, char *ptrstring, S32 *ptrvar,
+					S32 flags, const char *ptrstring, S32 *ptrvar,
 					S32 mask			);
 
 extern void 		AddText(	T_MENU *ptrmenu,
