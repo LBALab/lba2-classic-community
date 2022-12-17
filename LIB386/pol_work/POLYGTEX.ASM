@@ -15,7 +15,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 
@@ -26,17 +26,17 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	SYSCALL		First_POLYGOURAUDTEXTUREPatch
-PUBLIC	SYSCALL		Last_POLYGOURAUDTEXTUREPatch
+PUBLIC	C		First_POLYGOURAUDTEXTUREPatch
+PUBLIC	C		Last_POLYGOURAUDTEXTUREPatch
 
-PUBLIC	SYSCALL		Filler_TextureGouraud
-PUBLIC	SYSCALL		Filler_TextureDither
-PUBLIC	SYSCALL		Filler_TextureGouraudChromaKey
-PUBLIC	SYSCALL		Filler_TextureDitherChromaKey
-PUBLIC	SYSCALL		Filler_TextureGouraudZBuf
-PUBLIC	SYSCALL		Filler_TextureGouraudChromaKeyZBuf
-PUBLIC	SYSCALL		Filler_TextureGouraudNZW
-PUBLIC	SYSCALL		Filler_TextureGouraudChromaKeyNZW
+PUBLIC	C		Filler_TextureGouraud
+PUBLIC	C		Filler_TextureDither
+PUBLIC	C		Filler_TextureGouraudChromaKey
+PUBLIC	C		Filler_TextureDitherChromaKey
+PUBLIC	C		Filler_TextureGouraudZBuf
+PUBLIC	C		Filler_TextureGouraudChromaKeyZBuf
+PUBLIC	C		Filler_TextureGouraudNZW
+PUBLIC	C		Filler_TextureGouraudChromaKeyNZW
 
 
 
@@ -45,14 +45,14 @@ PUBLIC	SYSCALL		Filler_TextureGouraudChromaKeyNZW
 ;					*****************
 
 ;					*** PUBLIC DATA ***
-PUBLIC	SYSCALL		Fill_VLGouraudTexture1
-PUBLIC	SYSCALL		Fill_VLGouraudTexture2
-PUBLIC	SYSCALL		Fill_VLGouraudTexture3
-PUBLIC	SYSCALL		Fill_VLGouraudTexture4
-PUBLIC	SYSCALL		Fill_VLGouraudTexture5
-PUBLIC	SYSCALL		Fill_VLGouraudTexture6
-PUBLIC	SYSCALL		Fill_VLGouraudTexture7
-PUBLIC	SYSCALL		Fill_VLGouraudTexture8
+PUBLIC	C		Fill_VLGouraudTexture1
+PUBLIC	C		Fill_VLGouraudTexture2
+PUBLIC	C		Fill_VLGouraudTexture3
+PUBLIC	C		Fill_VLGouraudTexture4
+PUBLIC	C		Fill_VLGouraudTexture5
+PUBLIC	C		Fill_VLGouraudTexture6
+PUBLIC	C		Fill_VLGouraudTexture7
+PUBLIC	C		Fill_VLGouraudTexture8
 
 
 ;					*** MODULE DATA ***
@@ -84,7 +84,7 @@ INCLUDE			FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -97,42 +97,42 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Restart		:	DWORD
-Extrn	SYSCALL		Fill_Patch		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
 
-Extrn	SYSCALL		PtrMap			:	DWORD
-Extrn	SYSCALL		RepMask			:	DWORD
-Extrn	SYSCALL		PtrCLUTGouraud		:	DWORD
-Extrn	SYSCALL		PtrZBuffer		:	DWORD
+Extrn	C		PtrMap			:	DWORD
+Extrn	C		RepMask			:	DWORD
+Extrn	C		PtrCLUTGouraud		:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
 
-Extrn	SYSCALL		Fill_LeftSlope		:	DWORD
-Extrn	SYSCALL		Fill_RightSlope		:	DWORD
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurY		:	DWORD
-Extrn	SYSCALL		Fill_CurXMin		:	DWORD
-Extrn	SYSCALL		Fill_CurXMax		:	DWORD
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
 
-Extrn	SYSCALL		PTR_TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_CurOffLine		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		ScreenPitch		:	DWORD
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
 
-Extrn	SYSCALL		Fill_CurMapUMin		:	DWORD
-Extrn	SYSCALL		Fill_MapU_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_MapU_XSlope	:	DWORD
+Extrn	C		Fill_CurMapUMin		:	DWORD
+Extrn	C		Fill_MapU_LeftSlope	:	DWORD
+Extrn	C		Fill_MapU_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurMapVMin		:	DWORD
-Extrn	SYSCALL		Fill_MapV_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_MapV_XSlope	:	DWORD
+Extrn	C		Fill_CurMapVMin		:	DWORD
+Extrn	C		Fill_MapV_LeftSlope	:	DWORD
+Extrn	C		Fill_MapV_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurGouraudMin	:	DWORD
-Extrn	SYSCALL		Fill_Gouraud_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_Gouraud_XSlope	:	DWORD
+Extrn	C		Fill_CurGouraudMin	:	DWORD
+Extrn	C		Fill_Gouraud_LeftSlope	:	DWORD
+Extrn	C		Fill_Gouraud_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurZBufMin		:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
 
 
 
@@ -179,7 +179,7 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-Extrn	SYSCALL		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
+Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
 
 
 ;				*******************

@@ -16,7 +16,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 ;			**************
@@ -31,21 +31,21 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-;PUBLIC	SYSCALL		Fill_PolyFlat
+;PUBLIC	C		Fill_PolyFlat
 
-PUBLIC	SYSCALL		First_POLYFLATPatch
-PUBLIC	SYSCALL		Last_POLYFLATPatch
+PUBLIC	C		First_POLYFLATPatch
+PUBLIC	C		Last_POLYFLATPatch
 
-PUBLIC	SYSCALL		Filler_Flat
-PUBLIC	SYSCALL		Filler_Transparent
-PUBLIC	SYSCALL		Filler_Trame
-PUBLIC	SYSCALL		Filler_FlatZBuf
-PUBLIC	SYSCALL		Filler_TransparentZBuf
-PUBLIC	SYSCALL		Filler_TrameZBuf
-PUBLIC	SYSCALL		Filler_FlatNZW
-PUBLIC	SYSCALL		Filler_TransparentNZW
-PUBLIC	SYSCALL		Filler_TrameNZW
-PUBLIC	SYSCALL		Filler_FlagZBuffer
+PUBLIC	C		Filler_Flat
+PUBLIC	C		Filler_Transparent
+PUBLIC	C		Filler_Trame
+PUBLIC	C		Filler_FlatZBuf
+PUBLIC	C		Filler_TransparentZBuf
+PUBLIC	C		Filler_TrameZBuf
+PUBLIC	C		Filler_FlatNZW
+PUBLIC	C		Filler_TransparentNZW
+PUBLIC	C		Filler_TrameNZW
+PUBLIC	C		Filler_FlagZBuffer
 
 
 ;					*****************
@@ -56,16 +56,16 @@ PUBLIC	SYSCALL		Filler_FlagZBuffer
 
 
 ;					*** MODULE DATA ***
-PUBLIC	SYSCALL		Fill_VLFlat1
-PUBLIC	SYSCALL		Fill_VLFlat2
-PUBLIC	SYSCALL		Fill_VLFlat3
-PUBLIC	SYSCALL		Fill_VLFlat4
-PUBLIC	SYSCALL		Fill_VLFlat5
-PUBLIC	SYSCALL		Fill_VLFlat6
-PUBLIC	SYSCALL		Fill_VLFlat7
-PUBLIC	SYSCALL		Fill_VLFlat8
-PUBLIC	SYSCALL		Fill_VLFlat9
-PUBLIC	SYSCALL		Fill_VLFlat10
+PUBLIC	C		Fill_VLFlat1
+PUBLIC	C		Fill_VLFlat2
+PUBLIC	C		Fill_VLFlat3
+PUBLIC	C		Fill_VLFlat4
+PUBLIC	C		Fill_VLFlat5
+PUBLIC	C		Fill_VLFlat6
+PUBLIC	C		Fill_VLFlat7
+PUBLIC	C		Fill_VLFlat8
+PUBLIC	C		Fill_VLFlat9
+PUBLIC	C		Fill_VLFlat10
 
 
 
@@ -93,7 +93,7 @@ INCLUDE			FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -107,45 +107,45 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Restart		:	DWORD
-Extrn	SYSCALL		Fill_Filler		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
-Extrn	SYSCALL		Fill_Trame_Parity	:	DWORD
-Extrn	SYSCALL		Fill_Patch		:	DWORD
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Filler		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
+Extrn	C		Fill_Trame_Parity	:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
 
-Extrn	SYSCALL		Fill_FirstPoint		:	DWORD
-Extrn	SYSCALL		Fill_LastPoint		:	DWORD
-Extrn	SYSCALL		Fill_LeftPoint		:	DWORD
-Extrn	SYSCALL		Fill_RightPoint		:	DWORD
+Extrn	C		Fill_FirstPoint		:	DWORD
+Extrn	C		Fill_LastPoint		:	DWORD
+Extrn	C		Fill_LeftPoint		:	DWORD
+Extrn	C		Fill_RightPoint		:	DWORD
 
-Extrn	SYSCALL		Fill_LeftSlope		:	DWORD
-Extrn	SYSCALL		Fill_RightSlope		:	DWORD
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurY		:	DWORD
-Extrn	SYSCALL		Fill_CurXMin		:	DWORD
-Extrn	SYSCALL		Fill_CurXMax		:	DWORD
-
-
-Extrn	SYSCALL		Fill_ClipFlag		:	DWORD
-Extrn	SYSCALL		Fill_ReadFlag		:	DWORD
-
-Extrn	SYSCALL		PTR_TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_CurOffLine		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		PtrZBuffer		:	DWORD
-Extrn	SYSCALL		ScreenPitch		:	DWORD
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
 
 
-Extrn	SYSCALL		ClipXMin		:	DWORD
-Extrn	SYSCALL		ClipXMax		:	DWORD
-Extrn	SYSCALL		ClipYMin		:	DWORD
-Extrn	SYSCALL		ClipYMax		:	DWORD
+Extrn	C		Fill_ClipFlag		:	DWORD
+Extrn	C		Fill_ReadFlag		:	DWORD
 
-Extrn	SYSCALL		Fill_CurZBufMin		:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
 
-Extrn	SYSCALL		IsPolygonHidden		:	DWORD
+
+Extrn	C		ClipXMin		:	DWORD
+Extrn	C		ClipXMax		:	DWORD
+Extrn	C		ClipYMin		:	DWORD
+Extrn	C		ClipYMax		:	DWORD
+
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
+
+Extrn	C		IsPolygonHidden		:	DWORD
 
 
 
@@ -191,12 +191,12 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-Extrn	SYSCALL		Fill_ClipXMin		:	PROC
-Extrn	SYSCALL		Fill_ClipXMax		:	PROC
-Extrn	SYSCALL		Fill_ClipYMin		:	PROC
-Extrn	SYSCALL		Fill_ClipYMax		:	PROC
+Extrn	C		Fill_ClipXMin		:	PROC
+Extrn	C		Fill_ClipXMax		:	PROC
+Extrn	C		Fill_ClipYMin		:	PROC
+Extrn	C		Fill_ClipYMax		:	PROC
 
-Extrn	SYSCALL		Triangle_ReadNextEdge	:	PROC
+Extrn	C		Triangle_ReadNextEdge	:	PROC
 
 
 
@@ -230,7 +230,7 @@ Fill_PolyFlat		PROC
 			; *** And get the poly-box so as to test the clipping ***
 
 			lea	eax,[ecx-1]		; Loop counter in EAX
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			mov	edx,ecx
 			mov	[Fill_FirstPoint],esi
@@ -249,7 +249,7 @@ Fill_PolyFlat		PROC
 							; (XMin, YMin, XMax, YMax)
 @@Search_TopPoint:
 			push	eax			; What follows has a bad pairing... How can we pair when we have NOTHING to do ?
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 			mov	ebx,eax
 
 			shl	eax,16
@@ -374,8 +374,8 @@ Flat_ReadNextEdge::
 @@No_LoopLeft:
 							; EDI = Old point
 							; ESI = New point
-			mov	edx,dword ptr [edi].Pt_XE
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	edx,dword ptr [edi].STRUC_POINT.Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			mov	ebx,edx
 			and	ecx,0FFFF0000h		; ECX = NewY shl 16
@@ -390,7 +390,7 @@ Flat_ReadNextEdge::
 			js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
 
 			shr	ecx,16
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			shl	eax,16
 			mov	[Fill_CurXMin],ebx
@@ -436,8 +436,8 @@ Flat_ReadNextEdge::
 @@No_LoopRight:
 							; EDI = Old point
 							; ESI = New point
-			mov	ebx,dword ptr [edi].Pt_XE
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			mov	edx,ebx
 			and	ecx,0FFFF0000h		; ECX = NewY shl 16
@@ -452,7 +452,7 @@ Flat_ReadNextEdge::
 			js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
 
 			shr	ecx,16
-			mov	eax,dword ptr [esi].Pt_XE
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			shl	eax,16
 			mov	[Fill_CurXMax],ebx
@@ -481,10 +481,10 @@ Flat_ReadNextEdge::
 			mov	edi,[Fill_RightPoint]
 
 			; AGI
-			mov	ecx,dword ptr [esi].Pt_XE
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
 
 			sar	ecx,16
-			mov	ebx,dword ptr [edi].Pt_XE
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
 
 			sar	ebx,16
 

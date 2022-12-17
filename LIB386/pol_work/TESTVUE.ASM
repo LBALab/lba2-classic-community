@@ -1,16 +1,16 @@
 			.386
 
-PUBLIC	SYSCALL		TestVuePoly
+PUBLIC	C		TestVuePoly
 
 
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 			.DATA
 				; Chooser.asm
-Extrn	SYSCALL		Chooser_RtnI	:	DWORD
-Extrn	SYSCALL		Chooser_RtnF	:	DWORD
-Extrn	SYSCALL		Chooser_RtnM	:	DWORD
-Extrn	SYSCALL		Chooser_Result	:	DWORD
+Extrn	C		Chooser_RtnI	:	DWORD
+Extrn	C		Chooser_RtnF	:	DWORD
+Extrn	C		Chooser_RtnM	:	DWORD
+Extrn	C		Chooser_Result	:	DWORD
 
 TestVuePoly		dd	Init_TestVuePoly
 
@@ -18,16 +18,16 @@ TestVuePoly		dd	Init_TestVuePoly
 
 
 			.CODE
-Extrn	SYSCALL		Chooser		:	PROC
-Extrn	SYSCALL		TestVuePolyI	:	PROC
-Extrn	SYSCALL		TestVuePolyF	:	PROC
-Extrn	SYSCALL		TestVuePolyM	:	PROC
+Extrn	C		Chooser		:	PROC
+Extrn	C		TestVuePolyI	:	PROC
+Extrn	C		TestVuePolyF	:	PROC
+;Extrn	C		TestVuePolyM	:	PROC
 
 Init_TestVuePoly	PROC
-			mov	[Chooser_RtnI],Offset TestVuePolyI	; Integer
-			mov	[Chooser_RtnF],Offset TestVuePolyF	; FPU
-			mov	[Chooser_RtnM],Offset TestVuePolyM	; MMX
-			mov	[Chooser_Result],Offset TestVuePoly	; Pointer
+			mov	[ds:Chooser_RtnI],Offset TestVuePolyI	; Integer
+			mov	[ds:Chooser_RtnF],Offset TestVuePolyF	; FPU
+			;mov	[ds:Chooser_RtnM],Offset TestVuePolyM	; MMX
+			mov	[ds:Chooser_Result],Offset TestVuePoly	; Pointer
 			jmp	Chooser
 Init_TestVuePoly	ENDP
 

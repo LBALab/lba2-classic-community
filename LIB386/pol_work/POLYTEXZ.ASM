@@ -15,7 +15,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 
@@ -26,27 +26,27 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	SYSCALL		First_POLYTEXTUREZPatch
-PUBLIC	SYSCALL		Last_POLYTEXTUREZPatch
+PUBLIC	C		First_POLYTEXTUREZPatch
+PUBLIC	C		Last_POLYTEXTUREZPatch
 
-PUBLIC	SYSCALL		Filler_TextureZ
-PUBLIC	SYSCALL		Filler_TextureZFlat
-PUBLIC	SYSCALL		Filler_TextureZChromaKey
-PUBLIC	SYSCALL		Filler_TextureZFlatChromaKey
-PUBLIC	SYSCALL		Filler_TextureZFog
-PUBLIC	SYSCALL		Filler_TextureZChromaKeyFog
-PUBLIC	SYSCALL		Filler_TextureZZBuf
-PUBLIC	SYSCALL		Filler_TextureZChromaKeyZBuf
-PUBLIC	SYSCALL		Filler_TextureZFlatZBuf
-PUBLIC	SYSCALL		Filler_TextureZFlatChromaKeyZBuf
-PUBLIC	SYSCALL		Filler_TextureZFogZBuf
-PUBLIC	SYSCALL		Filler_TextureZChromaKeyFogZBuf
-PUBLIC	SYSCALL		Filler_TextureZNZW
-PUBLIC	SYSCALL		Filler_TextureZChromaKeyNZW
-PUBLIC	SYSCALL		Filler_TextureZFlatNZW
-PUBLIC	SYSCALL		Filler_TextureZFlatChromaKeyNZW
-PUBLIC	SYSCALL		Filler_TextureZFogNZW
-PUBLIC	SYSCALL		Filler_TextureZChromaKeyFogNZW
+PUBLIC	C		Filler_TextureZ
+PUBLIC	C		Filler_TextureZFlat
+PUBLIC	C		Filler_TextureZChromaKey
+PUBLIC	C		Filler_TextureZFlatChromaKey
+PUBLIC	C		Filler_TextureZFog
+PUBLIC	C		Filler_TextureZChromaKeyFog
+PUBLIC	C		Filler_TextureZZBuf
+PUBLIC	C		Filler_TextureZChromaKeyZBuf
+PUBLIC	C		Filler_TextureZFlatZBuf
+PUBLIC	C		Filler_TextureZFlatChromaKeyZBuf
+PUBLIC	C		Filler_TextureZFogZBuf
+PUBLIC	C		Filler_TextureZChromaKeyFogZBuf
+PUBLIC	C		Filler_TextureZNZW
+PUBLIC	C		Filler_TextureZChromaKeyNZW
+PUBLIC	C		Filler_TextureZFlatNZW
+PUBLIC	C		Filler_TextureZFlatChromaKeyNZW
+PUBLIC	C		Filler_TextureZFogNZW
+PUBLIC	C		Filler_TextureZChromaKeyFogNZW
 
 
 
@@ -56,28 +56,28 @@ PUBLIC	SYSCALL		Filler_TextureZChromaKeyFogNZW
 ;					*****************
 
 ;					*** PUBLIC DATA ***
-PUBLIC	SYSCALL		Fill_VLTextureZ1
-PUBLIC	SYSCALL		Fill_VLTextureZ2
-PUBLIC	SYSCALL		Fill_VLTextureZ3
-PUBLIC	SYSCALL		Fill_VLTextureZ4
-PUBLIC	SYSCALL		Fill_VLTextureZ5
-PUBLIC	SYSCALL		Fill_VLTextureZ6
-PUBLIC	SYSCALL		Fill_VLTextureZ7
-PUBLIC	SYSCALL		Fill_VLTextureZ8
-PUBLIC	SYSCALL		Fill_VLTextureZ9
-PUBLIC	SYSCALL		Fill_VLTextureZ10
-PUBLIC	SYSCALL		Fill_VLTextureZ11
-PUBLIC	SYSCALL		Fill_VLTextureZ12
-PUBLIC	SYSCALL		Fill_VLTextureZ13
-PUBLIC	SYSCALL		Fill_VLTextureZ14
-PUBLIC	SYSCALL		Fill_VLTextureZ15
-PUBLIC	SYSCALL		Fill_VLTextureZ16
-PUBLIC	SYSCALL		Fill_VLTextureZ17
-PUBLIC	SYSCALL		Fill_VLTextureZ18
+PUBLIC	C		Fill_VLTextureZ1
+PUBLIC	C		Fill_VLTextureZ2
+PUBLIC	C		Fill_VLTextureZ3
+PUBLIC	C		Fill_VLTextureZ4
+PUBLIC	C		Fill_VLTextureZ5
+PUBLIC	C		Fill_VLTextureZ6
+PUBLIC	C		Fill_VLTextureZ7
+PUBLIC	C		Fill_VLTextureZ8
+PUBLIC	C		Fill_VLTextureZ9
+PUBLIC	C		Fill_VLTextureZ10
+PUBLIC	C		Fill_VLTextureZ11
+PUBLIC	C		Fill_VLTextureZ12
+PUBLIC	C		Fill_VLTextureZ13
+PUBLIC	C		Fill_VLTextureZ14
+PUBLIC	C		Fill_VLTextureZ15
+PUBLIC	C		Fill_VLTextureZ16
+PUBLIC	C		Fill_VLTextureZ17
+PUBLIC	C		Fill_VLTextureZ18
 
 
-PUBLIC	SYSCALL		Fill_Init_Perspective
-PUBLIC	SYSCALL		Fill_Loop_Perspective
+PUBLIC	C		Fill_Init_Perspective
+PUBLIC	C		Fill_Loop_Perspective
 
 
 ;					*** MODULE DATA ***
@@ -109,7 +109,7 @@ INCLUDE			FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -122,60 +122,60 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Restart		:	DWORD
-Extrn	SYSCALL		Fill_Patch		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
-Extrn	SYSCALL		Fill_Logical_Palette	:	BYTE
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
+Extrn	C		Fill_Logical_Palette	:	BYTE
 
-Extrn	SYSCALL		PtrMap			:	DWORD
-Extrn	SYSCALL		RepMask			:	DWORD
-Extrn	SYSCALL		PtrCLUTGouraud		:	DWORD
-Extrn	SYSCALl		PtrZBuffer		:	DWORD
+Extrn	C		PtrMap			:	DWORD
+Extrn	C		RepMask			:	DWORD
+Extrn	C		PtrCLUTGouraud		:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
 
-Extrn	SYSCALL		Fill_LeftSlope		:	DWORD
-Extrn	SYSCALL		Fill_RightSlope		:	DWORD
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurY		:	DWORD
-Extrn	SYSCALL		Fill_CurXMin		:	DWORD
-Extrn	SYSCALL		Fill_CurXMax		:	DWORD
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
 
-Extrn	SYSCALL		PTR_TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_CurOffLine		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		ScreenPitch		:	DWORD
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
 
-Extrn	SYSCALL		Fill_CurMapUMin		:	DWORD
-Extrn	SYSCALL		Fill_MapU_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_MapU_XSlope	:	DWORD
+Extrn	C		Fill_CurMapUMin		:	DWORD
+Extrn	C		Fill_MapU_LeftSlope	:	DWORD
+Extrn	C		Fill_MapU_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurMapVMin		:	DWORD
-Extrn	SYSCALL		Fill_MapV_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_MapV_XSlope	:	DWORD
+Extrn	C		Fill_CurMapVMin		:	DWORD
+Extrn	C		Fill_MapV_LeftSlope	:	DWORD
+Extrn	C		Fill_MapV_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurWMin		:	DWORD
-Extrn	SYSCALL		Fill_W_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_W_XSlope		:	DWORD
+Extrn	C		Fill_CurWMin		:	DWORD
+Extrn	C		Fill_W_LeftSlope	:	DWORD
+Extrn	C		Fill_W_XSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurZBufMin		:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_XSlope	:	DWORD
-Extrn	SYSCALL		Fill_CurZBuf		:	DWORD
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		Fill_CurZBuf		:	DWORD
 
-Extrn	SYSCALL		Fill_Cur_W		:	DWORD
-Extrn	SYSCALL		Fill_Next_W		:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapU		:	DWORD
-Extrn	SYSCALL		Fill_Next_MapU		:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapV		:	DWORD
-Extrn	SYSCALL		Fill_Next_MapV		:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapUOverW	:	DWORD
-Extrn	SYSCALL		Fill_Next_MapUOverW	:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapVOverW	:	DWORD
-Extrn	SYSCALL		Fill_Next_MapVOverW	:	DWORD
+Extrn	C		Fill_Cur_W		:	DWORD
+Extrn	C		Fill_Next_W		:	DWORD
+Extrn	C		Fill_Cur_MapU		:	DWORD
+Extrn	C		Fill_Next_MapU		:	DWORD
+Extrn	C		Fill_Cur_MapV		:	DWORD
+Extrn	C		Fill_Next_MapV		:	DWORD
+Extrn	C		Fill_Cur_MapUOverW	:	DWORD
+Extrn	C		Fill_Next_MapUOverW	:	DWORD
+Extrn	C		Fill_Cur_MapVOverW	:	DWORD
+Extrn	C		Fill_Next_MapVOverW	:	DWORD
 
-Extrn	SYSCALL		F_1			:	DWORD
-Extrn	SYSCALL		F_256			:	DWORD
+Extrn	C		F_1			:	DWORD
+Extrn	C		F_256			:	DWORD
 
-Extrn	SYSCALL		Fill_UseFPU		:	BYTE
+Extrn	C		Fill_UseFPU		:	BYTE
 
 
 
@@ -223,7 +223,7 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-Extrn	SYSCALL		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
+Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
 
 
 ;				*******************

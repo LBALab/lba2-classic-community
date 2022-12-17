@@ -1,13 +1,13 @@
 			.386
 			INCLUDE	FILLER.INC
 
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 			.DATA
 
 			.CODE
 
-			public	SYSCALL	TestVuePolyI
+			public	C	TestVuePolyI
 
 ; ╔═════════════════════════════════════════════════════════════════╗
 ; ║ TestVisible : Tests the visibility of a poly                    ║
@@ -20,8 +20,8 @@
 
 TestVuePolyI		PROC
 
-			mov	eax,dword ptr[esi].Pt_XE
-			mov	ecx,dword ptr[esi+Size STRUC_POINT].Pt_XE
+			mov	eax,dword ptr[esi].STRUC_POINT.Pt_XE
+			mov	ecx,dword ptr[esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
 
 			mov	ebx,eax
 			mov	edx,ecx
@@ -30,7 +30,7 @@ TestVuePolyI		PROC
 			movsx	ecx,cx	; ecx = X1
 
 			sar	ebx,16	; ebx = Y0
-			mov	edi,dword ptr[esi+2*(Size STRUC_POINT)].Pt_XE
+			mov	edi,dword ptr[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE
 
 			sar	edx,16	; edx = Y1
 			mov	esi,edi
