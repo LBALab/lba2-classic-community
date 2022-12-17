@@ -9,7 +9,7 @@
 #include	<SVGA/LOGPHYS.H>
 #include	<SVGA/INITMODE.H>
 
-#include	<mem.h>
+#include	<string.h>
 #include	<ctype.h>
 
 //--------------------------------------------------------------------------
@@ -46,12 +46,11 @@ void	*MemoScreen		;
 //----------------------------------------------------------------------------
 S32	ParamsSvga()
 {
-	char	str[256];
+	char	str[256] = "";
 	char	*ptr	;
 	S32	result	;
 	S32	i	;
 
-	str[256] = 0	;
 	result = FALSE	;
 
 	i = 1	;
@@ -152,6 +151,19 @@ static	S32	InitDesiredMode()
 		TabOffLine[i] = off	;
 		off += ModeDesiredX	;
 	}
+
+#ifdef __MSC_VER
+	__asm{
+		mov ebx, offset TabOffLine
+	}
+#elif __GNUC__
+        __asm__ __volatile__ ("movl %0, %%ebx\n\t"
+                              :
+                              : "m" (TabOffLine)
+                              : "%ebx");
+#else
+#error "Unsupported compiler!"
+#endif
 
 	SetScreenPitch(TabOffLine)	;
 
@@ -471,6 +483,7 @@ static	void	GetBiosInfo()
 }
 
 //--------------------------------------------------------------------------
+/*
 S32	InitGraphSvga(U32 resx, U32 resy, U32 depth)
 {
 	static S32	flag = 0	;
@@ -610,6 +623,7 @@ S32	InitGraphSvga(U32 resx, U32 resy, U32 depth)
 
 	return	0				;
 }
+*/
 
 //--------------------------------------------------------------------------
 #endif//_WIN32

@@ -1,31 +1,33 @@
 ;----------------------------------------------------------------------------
             OPTION SCOPED
 			.386p
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	PtrFont
-			PUBLIC	SYSCALL	InterLeave
-			PUBLIC	SYSCALL	InterSpace
+			PUBLIC	C	PtrFont
+			PUBLIC	C	InterLeave
+			PUBLIC	C	InterSpace
 
 ;----------------------------------------------------------------------------
 PtrFont			dd	0
 InterLeave		dd	1
 InterSpace		dd	10
 
+			ASSUME DS:SEG PtrFont
+
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	AffMask	:PROC
+			EXTRN	C	AffMask	:PROC
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	SizeFont
-			PUBLIC	SYSCALL	CarFont
-			PUBLIC	SYSCALL	Font
+			PUBLIC	C	SizeFont
+			PUBLIC	C	CarFont
+			PUBLIC	C	Font
 
 ;----------------------------------------------------------------------------
 ;#define	ColorFont(color)	ColorMask(color)
@@ -45,7 +47,10 @@ InterSpace		dd	10
 ;	parm	[esi]		\
 ;	modify	[eax ecx edx edi]
 
-SizeFont		proc
+SizeFont		PROC \
+			uses ebx ecx edx edi esi ebp\
+			string: DWORD
+			mov esi, string
 
 			mov	edi, [PtrFont]
 			xor	eax, eax
@@ -82,7 +87,12 @@ SizeFont		endp
 ;	parm	[ebx] [ecx] [eax]	\
 ;	modify	[edx esi edi]
 
-CarFont			proc
+CarFont			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, character:DWORD
+			mov ebx, x
+			mov ecx, y
+			mov eax, character
 
 			cmp	eax, 32			;' SPACE
 			je	Space
@@ -116,7 +126,12 @@ CarFont			endp
 ;	parm	[ebx] [ecx] [esi]	\
 ;	modify	[edx esi edi]
 
-Font			proc	uses ebp
+Font			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, string:DWORD
+			mov ebx, x
+			mov ecx, y
+			mov esi, string
 
 			mov	ebp, [PtrFont]
 			xor	eax, eax

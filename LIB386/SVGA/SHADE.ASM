@@ -1,23 +1,23 @@
 ;----------------------------------------------------------------------------
 			.386p
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
-			extrn	SYSCALL	ClipXMin	:DWORD
-			extrn	SYSCALL	ClipXMax	:DWORD
-			extrn	SYSCALL	ClipYMin	:DWORD
-			extrn	SYSCALL	ClipYMax	:DWORD
+			extrn	C	ClipXMin	:DWORD
+			extrn	C	ClipXMax	:DWORD
+			extrn	C	ClipYMin	:DWORD
+			extrn	C	ClipYMax	:DWORD
 
-			extrn	SYSCALL	TabOffLine	:DWORD
+			extrn	C	TabOffLine	:DWORD
 
-			extrn	SYSCALL	Log		:DWORD
+			extrn	C	Log		:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
-			public	SYSCALL	ShadeBox
+			public	C	ShadeBox
 
 ;----------------------------------------------------------------------------
 ;void	ShadeBox(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul)	;

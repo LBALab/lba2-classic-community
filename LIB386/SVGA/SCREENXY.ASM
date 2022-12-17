@@ -1,15 +1,15 @@
 ;----------------------------------------------------------------------------
 			.386P
-			.MODEL SMALL, SYSCALL
+			.MODEL SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	ScreenXMin
-			PUBLIC	SYSCALL	ScreenYMin
-			PUBLIC	SYSCALL	ScreenXMax
-			PUBLIC	SYSCALL	ScreenYMax
+			PUBLIC	C	ScreenXMin
+			PUBLIC	C	ScreenYMin
+			PUBLIC	C	ScreenXMax
+			PUBLIC	C	ScreenYMax
 
 ;----------------------------------------------------------------------------
 ScreenXMin		dd	0

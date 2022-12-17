@@ -1,19 +1,21 @@
 ;----------------------------------------------------------------------------
 			.686P
 			.XMM
-			.MODEL SMALL, SYSCALL
+			.MODEL SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	TabOffLine:DWORD
+			EXTRN	C	TabOffLine:DWORD
+
+			ASSUME DS:SEG TabOffLine
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	SaveBlock
+			PUBLIC	C	SaveBlock
 
 ;----------------------------------------------------------------------------
 ;void	SaveBlock( void *screen, void *buffer, S32 x0, S32 y0, S32 x1, S32 y1)
@@ -21,7 +23,19 @@
 ;#pragma aux SaveBlock	"*"				\
 ;	parm	[esi] [edi] [eax] [ebx] [ecx] [edx]
 
-SaveBlock		proc
+SaveBlock		proc \
+			uses esi edi eax ebx ecx edx ebp,
+			screen:DWORD,\
+			buffer:DWORD,\
+			x0:DWORD, y0:DWORD,\
+			x1:DWORD, y1:DWORD,
+
+			mov esi, screen
+			mov edi, buffer
+			mov eax, x0
+			mov ebx, y0
+			mov ecx, x1
+			mov edx, y1
 
 			sub	ecx, eax		; ECX = DeltaX-1
 			sub	edx, ebx		; EDX = DeltaY-1

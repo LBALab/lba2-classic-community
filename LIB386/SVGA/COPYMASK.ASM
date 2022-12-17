@@ -1,6 +1,6 @@
 ;----------------------------------------------------------------------------
 			.386p
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 STRUC_MASK		STRUC
   Mask_DeltaX		db	0
@@ -31,12 +31,15 @@ comment @
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN   SYSCALL      ClipXMin        :DWORD
-			EXTRN   SYSCALL      ClipYMin        :DWORD
-			EXTRN   SYSCALL      ClipXMax        :DWORD
-			EXTRN   SYSCALL      ClipYMax        :DWORD
-			EXTRN   SYSCALL      Log             :DWORD
-			EXTRN   SYSCALL      TabOffLine      :DWORD
+			EXTRN   C      ClipXMin        :DWORD
+			EXTRN   C      ClipYMin        :DWORD
+			EXTRN   C      ClipXMax        :DWORD
+			EXTRN   C      ClipYMax        :DWORD
+			EXTRN   C      Log             :DWORD
+			EXTRN   C      TabOffLine      :DWORD
+
+			ASSUME DS:SEG TabOffLine
+
 
 ;----------------------------------------------------------------------------
 			OffsetBegin	dd	0
@@ -46,7 +49,7 @@ comment @
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC  SYSCALL      CopyMask
+			PUBLIC  C      CopyMask
 
 ;----------------------------------------------------------------------------
 ;S32	CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src)	;
@@ -55,7 +58,14 @@ comment @
 ;	parm	[eax] [ebx] [ecx] [esi] [edx]	\
 ;	modify	[edi]
 
-CopyMask		proc	uses ebp
+CopyMask		PROC \
+			uses ebx ecx edx edi esi ebp\
+			nummask: DWORD, x: DWORD, y: DWORD, bankmask: DWORD, src: DWORD
+			mov eax, nummask
+			mov ebx, x
+			mov ecx, y
+			mov esi, bankmask
+			mov edx, src
 
 			add	esi, [esi+eax*4]	; ESI = Begin Data
 
@@ -63,16 +73,16 @@ CopyMask		proc	uses ebp
 			xor	eax, eax
 
 			xor	edx, edx
-			mov	al, [esi].Mask_HotX	; Hot X
+			mov	al, [esi].STRUC_MASK.Mask_HotX	; Hot X
 
-			mov	dl, [esi].Mask_HotY	; Hot Y
+			mov	dl, [esi].STRUC_MASK.Mask_HotY	; Hot Y
 			add	ebx, eax
 
 			add	ecx, edx
 ;-----------------------------------------------
-			mov	dl, [esi].Mask_DeltaX	; Delta X
+			mov	dl, [esi].STRUC_MASK.Mask_DeltaX	; Delta X
 
-			mov	al, [esi].Mask_DeltaY	; Nb Line ( Delta Y )
+			mov	al, [esi].STRUC_MASK.Mask_DeltaY	; Nb Line ( Delta Y )
 			add	esi, Size STRUC_MASK	; Skip header
 
 ;----------------------------------------------- Test Clipping

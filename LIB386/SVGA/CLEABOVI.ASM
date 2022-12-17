@@ -1,33 +1,33 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	ClearColor:DWORD
+			extrn	C	ClearColor:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	ClearBoxVESAI
+			public	C	ClearBoxVESAI
 
-                        public  SYSCALL ClearBoxVESAI1
-                        public  SYSCALL ClearBoxVESAI2
-                        public  SYSCALL ClearBoxVESAI3
-                        public  SYSCALL ClearBoxVESAI4
-                        public  SYSCALL ClearBoxVESAI5
-                        public  SYSCALL ClearBoxVESAI6
+                        public  C ClearBoxVESAI1
+                        public  C ClearBoxVESAI2
+                        public  C ClearBoxVESAI3
+                        public  C ClearBoxVESAI4
+                        public  C ClearBoxVESAI5
+                        public  C ClearBoxVESAI6
 
 ;----------------------------------------------------------------------------
-			Extrn	SYSCALL	VirtualLinearFirst:PROC
+			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
 IFDEF	_WIN32
-			extrn  SYSCALL	AllowPatchAndPatch:PROC
+			extrn  C	AllowPatchAndPatch:PROC
 ENDIF
 
 ;----------------------------------------------------------------------------

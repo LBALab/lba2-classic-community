@@ -1,21 +1,23 @@
 ;----------------------------------------------------------------------------
 			.386p
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN   SYSCALL      ClipXMin        :DWORD
-			EXTRN   SYSCALL      ClipYMin        :DWORD
-			EXTRN   SYSCALL      ClipXMax        :DWORD
-			EXTRN   SYSCALL      ClipYMax        :DWORD
-			EXTRN   SYSCALL      ScreenXMin      :DWORD
-			EXTRN   SYSCALL      ScreenYMin      :DWORD
-			EXTRN   SYSCALL      ScreenXMax      :DWORD
-			EXTRN   SYSCALL      ScreenYMax      :DWORD
-			EXTRN   SYSCALL      Log             :DWORD
-			EXTRN   SYSCALL      TabOffLine      :DWORD
+			EXTRN   C      ClipXMin        :DWORD
+			EXTRN   C      ClipYMin        :DWORD
+			EXTRN   C      ClipXMax        :DWORD
+			EXTRN   C      ClipYMax        :DWORD
+			EXTRN   C      ScreenXMin      :DWORD
+			EXTRN   C      ScreenYMin      :DWORD
+			EXTRN   C      ScreenXMax      :DWORD
+			EXTRN   C      ScreenYMax      :DWORD
+			EXTRN   C      Log             :DWORD
+			EXTRN   C      TabOffLine      :DWORD
+
+			ASSUME DS:SEG ClipXMin
 
 ;----------------------------------------------------------------------------
 comment @
@@ -32,7 +34,7 @@ comment @
 @
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	ColMask
+			PUBLIC	C	ColMask
 
 OffsetBegin     dd      0
 
@@ -42,8 +44,8 @@ ColMask         db      0       ; Noir par Defaut
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC  SYSCALL      AffMask
-			PUBLIC  SYSCALL      GetDxDyMask
+			PUBLIC  C      AffMask
+			PUBLIC  C      GetDxDyMask
 
 ;----------------------------------------------------------------------------
 ;#define	ColorMask(color)	ColMask = (U8)(color)

@@ -2,7 +2,7 @@
 			.586
 			.MMX
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			SEG_FS	equ	db 64h
@@ -10,23 +10,23 @@
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	TabOffLine:DWORD
+			extrn	C	TabOffLine:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	CopyBoxVESAM
+			public	C	CopyBoxVESAM
 
-                        public  SYSCALL CopyBoxVESAM1
-                        public  SYSCALL CopyBoxVESAM2
-                        public  SYSCALL CopyBoxVESAM3
-                        public  SYSCALL CopyBoxVESAM4
-                        public  SYSCALL CopyBoxVESAM5
-                        public  SYSCALL CopyBoxVESAM6
+                        public  C CopyBoxVESAM1
+                        public  C CopyBoxVESAM2
+                        public  C CopyBoxVESAM3
+                        public  C CopyBoxVESAM4
+                        public  C CopyBoxVESAM5
+                        public  C CopyBoxVESAM6
 
 ;----------------------------------------------------------------------------
-			Extrn	SYSCALL	VirtualLinearFirst:PROC
+			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
 ;void	CopyBoxVESAM(void *dst, void *src, U32 *TabOffDst, U32 *TabOffSrc, T_BOX *box) ;

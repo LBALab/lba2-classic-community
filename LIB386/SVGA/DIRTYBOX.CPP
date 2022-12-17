@@ -683,7 +683,8 @@ S32 BoxInit( S32 nbBox )
 	}
 
 	SetBoxScreenGet(NULL)			;
-	SetBoxScreenRelease(NULL)		;
+        // TODO Review this, as comment may not reflect further changes
+	//yaz I set that in screen init SetBoxScreenRelease(NULL)		;
 	SetBoxScreenFlip(NULL)			;
 	SetBoxOneBlit(NULL)			;
 	SetBoxOneClean(NULL)			;

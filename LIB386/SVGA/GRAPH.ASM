@@ -1,21 +1,23 @@
 ;----------------------------------------------------------------------------
 			.386p
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN   SYSCALL      ClipXMin        :DWORD
-			EXTRN   SYSCALL      ClipYMin        :DWORD
-			EXTRN   SYSCALL      ClipXMax        :DWORD
-			EXTRN   SYSCALL      ClipYMax        :DWORD
-			EXTRN   SYSCALL      ScreenXMin      :DWORD
-			EXTRN   SYSCALL      ScreenYMin      :DWORD
-			EXTRN   SYSCALL      ScreenXMax      :DWORD
-			EXTRN   SYSCALL      ScreenYMax      :DWORD
-			EXTRN   SYSCALL      Log             :DWORD
-			EXTRN   SYSCALL      TabOffLine      :DWORD
+			EXTRN   C      ClipXMin        :DWORD
+			EXTRN   C      ClipYMin        :DWORD
+			EXTRN   C      ClipXMax        :DWORD
+			EXTRN   C      ClipYMax        :DWORD
+			EXTRN   C      ScreenXMin      :DWORD
+			EXTRN   C      ScreenYMin      :DWORD
+			EXTRN   C      ScreenXMax      :DWORD
+			EXTRN   C      ScreenYMax      :DWORD
+			EXTRN   C      Log             :DWORD
+			EXTRN   C      TabOffLine      :DWORD
+
+			ASSUME DS:SEG ClipXMin
 
 ;----------------------------------------------------------------------------
 ;               DWORD   TabOffset[]     ( Un de plus pointe fin de fichier )
@@ -46,9 +48,9 @@ BufferClip	db	512 dup (?)
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	AffGraph
-			PUBLIC	SYSCALL	GetDxDyGraph
-			PUBLIC	SYSCALL	GetBoxGraph
+			PUBLIC	C	AffGraph
+			PUBLIC	C	GetDxDyGraph
+			PUBLIC	C	GetBoxGraph
 
 ;----------------------------------------------------------------------------
 ;S32	AffGraph(S32 numgraph, S32 x, S32 y, void *bankgraph)	;
@@ -57,7 +59,13 @@ BufferClip	db	512 dup (?)
 ;	parm	[eax] [ebx] [ecx] [esi]	\
 ;	modify	[edx edi]
 
-AffGraph		proc	uses ebp
+AffGraph		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			numgraph: DWORD, x: DWORD, y: DWORD, bankgraph: DWORD
+			mov eax, numgraph
+			mov ebx, x
+			mov ecx, y
+			mov esi, bankgraph
 
 			add	esi, [esi+eax*4]	; ESI = Begin Data
 
@@ -331,7 +339,16 @@ AffGraph		endp
 ;	parm		[eax] [ebx] [ecx] [esi]	\
 ;	modify exact	[eax edx esi]
 
-GetDxDyGraph		proc
+GetDxDyGraph		proc \
+			uses ebx ecx edx edi esi ebp,
+			numgraph:DWORD,\
+			x:DWORD, y:DWORD,\
+			bankgraph:DWORD
+
+			mov eax, numgraph
+			mov ebx, x
+			mov ecx, y
+			mov esi, bankgraph
 
 			add     esi, [esi+eax*4]
 			xor     eax, eax
@@ -352,7 +369,19 @@ GetDxDyGraph		endp
 ;	parm		[eax] [ebx] [ecx] [edx] [edi] [esi]	\
 ;	modify exact	[eax ebx ecx esi]
 
-GetBoxGraph		proc	uses	ebp
+GetBoxGraph	proc \
+			uses eax ebx ecx edx edi esi ebp,
+			numgraph:DWORD,\
+			x0:DWORD, y0:DWORD,\
+			x1:DWORD, y1:DWORD,\
+			bankgraph:DWORD
+
+			mov eax, numgraph
+			mov ebx, x0
+			mov ecx, y0
+			mov edx, x1
+			mov edi, y1
+			mov esi, bankgraph
 
 			add	esi, [esi+eax*4]
 

@@ -1,38 +1,38 @@
 ;----------------------------------------------------------------------------
             OPTION SCOPED
 			.386p
-			.model FLAT, SYSCALL
+			.model FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	ModeResX:DWORD
-			EXTRN	SYSCALL	ModeResY:DWORD
+			EXTRN	C	ModeResX:DWORD
+			EXTRN	C	ModeResY:DWORD
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL ClipXMin
-			PUBLIC	SYSCALL ClipYMin
-			PUBLIC	SYSCALL ClipXMax
-			PUBLIC	SYSCALL ClipYMax
+			PUBLIC	C ClipXMin
+			PUBLIC	C ClipYMin
+			PUBLIC	C ClipXMax
+			PUBLIC	C ClipYMax
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL ClipWindowXMin
-			PUBLIC	SYSCALL ClipWindowYMin
-			PUBLIC	SYSCALL ClipWindowXMax
-			PUBLIC	SYSCALL ClipWindowYMax
+			PUBLIC	C ClipWindowXMin
+			PUBLIC	C ClipWindowYMin
+			PUBLIC	C ClipWindowXMax
+			PUBLIC	C ClipWindowYMax
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL MemoClipXMin
-			PUBLIC	SYSCALL MemoClipYMin
-			PUBLIC	SYSCALL MemoClipXMax
-			PUBLIC	SYSCALL MemoClipYMax
+			PUBLIC	C MemoClipXMin
+			PUBLIC	C MemoClipYMin
+			PUBLIC	C MemoClipXMax
+			PUBLIC	C MemoClipYMax
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL MemoClipWindowXMin
-			PUBLIC	SYSCALL MemoClipWindowYMin
-			PUBLIC	SYSCALL MemoClipWindowXMax
-			PUBLIC	SYSCALL MemoClipWindowYMax
+			PUBLIC	C MemoClipWindowXMin
+			PUBLIC	C MemoClipWindowYMin
+			PUBLIC	C MemoClipWindowXMax
+			PUBLIC	C MemoClipWindowYMax
 
 ;----------------------------------------------------------------------------
 ClipXMin		dd	0
@@ -62,12 +62,12 @@ MemoClipWindowYMax	dd	0
 				.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	SetClipWindow
-			PUBLIC	SYSCALL	UnsetClipWindow
-			PUBLIC	SYSCALL	SetClip
-			PUBLIC	SYSCALL	UnsetClip
-			PUBLIC	SYSCALL	MemoClip
-			PUBLIC	SYSCALL	RestoreClip
+			PUBLIC	C	SetClipWindow
+			PUBLIC	C	UnsetClipWindow
+			PUBLIC	C	SetClip
+			PUBLIC	C	UnsetClip
+			PUBLIC	C	MemoClip
+			PUBLIC	C	RestoreClip
 
 ;----------------------------------------------------------------------------
 ;void	SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)	;
@@ -75,7 +75,13 @@ MemoClipWindowYMax	dd	0
 ;#pragma aux SetClipWindow	"*"	\
 ;	parm	[eax] [ebx] [ecx] [edx]
 
-SetClipWindow		proc
+SetClipWindow		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x0: DWORD, y0: DWORD, x1: DWORD, y1: DWORD
+			mov eax, x0
+			mov ebx, y0
+			mov ecx, x1
+			mov edx, y1
 
 			test	eax, eax
 			jae	OkLeft
@@ -104,7 +110,13 @@ OkDown:			mov	ClipWindowYMax, edx
 			mov     ecx, ClipXMax
 			mov	edx, ClipYMax
 
-			jmp	SetClip
+			push edx
+			push ecx
+			push ebx
+			push eax
+			call SetClip
+			add esp, 4*4
+			ret
 
 SetClipWindow		endp
 
@@ -114,7 +126,9 @@ SetClipWindow		endp
 ;#pragma aux UnsetClipWindow	"*"	\
 ;	modify	[eax ebx]
 
-UnsetClipWindow		proc
+UnsetClipWindow		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			
 
 			mov     eax, ModeResX
 			mov	ebx, ModeResY
@@ -140,7 +154,9 @@ UnsetClipWindow		endp
 ;#pragma aux MemoClipWindow		"*"	\
 ;	modify	[eax ebx]
 
-MemoClipWindow		proc
+MemoClipWindow		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			
 
 			mov	eax,ClipWindowXMin
 			mov	ebx,ClipWindowYMin
@@ -161,14 +177,23 @@ MemoClipWindow		endp
 ;#pragma aux RestoreClipWindow	"*"	\
 ;	modify	[eax ebx ecx edx]
 
-RestoreClipWindow	proc
+RestoreClipWindow	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			
 
 			mov	eax,MemoClipWindowXMin
 			mov	ebx,MemoClipWindowYMin
 			mov	ecx,MemoClipWindowXMax
 			mov	edx,MemoClipWindowYMax
 
-			jmp	SetClipWindow
+			push edx
+			push ecx
+			push ebx
+			push eax
+			call SetClipWindow
+			add esp, 4*4
+
+			ret
 
 RestoreClipWindow	endp
 
@@ -178,7 +203,13 @@ RestoreClipWindow	endp
 ;#pragma aux SetClip		"*"	\
 ;	parm	[eax] [ebx] [ecx] [edx]
 
-SetClip			proc
+SetClip			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x0: DWORD, y0: DWORD, x1: DWORD, y1: DWORD
+			mov eax, x0
+			mov ebx, y0
+			mov ecx, x1
+			mov edx, y1
 
 			cmp	eax, ClipWindowXMin
 			jge	OkLeft
@@ -210,7 +241,9 @@ SetClip			endp
 ;#pragma aux UnsetClip		"*"	\
 ;	modify	[eax ebx]
 
-UnsetClip		proc
+UnsetClip		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x0: DWORD, y0: DWORD, x1: DWORD, y1: DWORD
 
 			mov     eax, ClipWindowXMin
 			mov	ebx, ClipWindowYMin
@@ -231,7 +264,9 @@ UnsetClip		endp
 ;#pragma aux MemoClip		"*"	\
 ;	modify	[eax ebx]
 
-MemoClip		proc
+MemoClip		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x0: DWORD, y0: DWORD, x1: DWORD, y1: DWORD
 
 			mov	eax,ClipXMin
 			mov	ebx,ClipYMin
@@ -252,14 +287,22 @@ MemoClip		endp
 ;#pragma aux RestoreClip	"*"	\
 ;	modify	[eax ebx ecx edx]
 
-RestoreClip		proc
+RestoreClip		PROC \
+			uses eax ebx ecx edx edi esi ebp\
 
 			mov	eax,MemoClipXMin
 			mov	ebx,MemoClipYMin
 			mov	ecx,MemoClipXMax
 			mov	edx,MemoClipYMax
 
-			jmp	SetClip
+			push edx
+			push ecx
+			push ebx
+			push eax
+			call SetClip
+			add esp, 4*4
+
+			ret
 
 RestoreClip		endp
 
