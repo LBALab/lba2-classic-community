@@ -13,6 +13,7 @@
 //──────────────────────────────────────────────────────────────────────────
 #define MAX_FILES	800
 #define MAX_DIRS	100
+#define _MAX_NAME (8+3)
 
 #ifndef	MAX_NAME
 #define	MAX_NAME	MAX_FNAME
@@ -87,30 +88,34 @@ static void	DrawListFiles( S32 flag )
 //──────────────────────────────────────────────────────────────────────────
 static void	ScanFiles( char *selection, S32 flag )
 {
-	struct	find_t	fileinfo ;
-	U32	rc ;
+	_finddata_t	fileinfo ;
+	intptr_t	rc ;
 	char	*ptr ;
 	char	path[_MAX_PATH] ;
 
 	_splitpath( selection, SDrive, SDir, SName, SExt ) ;
 	_makepath( path, "", SearchPathname, SName, SExt ) ;
 
-	rc = _dos_findfirst( path, _A_NORMAL, &fileinfo ) ;
+	rc = _findfirst( path, &fileinfo ) ;
 	NbFiles = 0 ;
 	ptr = ListFiles ;
-	while( !rc )
-	{
-		if( NbFiles == MAX_FILES )
-		{
-			Message( "Warning: Truncated List", TRUE ) ;
-			break ;
-		}
-		IndexFiles[NbFiles] = ptr ;
-		if( !(flag & SELECT_SHOW_EXT) ) CutFileName( fileinfo.name ) ;
-		strcpy( ptr, fileinfo.name ) ;
-		ptr += _MAX_NAME ;
-		NbFiles++ ;
-		rc = _dos_findnext( &fileinfo ) ;
+	if (rc != -1) {
+		do {
+			if ( fileinfo.attrib & _A_NORMAL )
+			{
+				if( NbFiles == MAX_FILES )
+				{
+					Message( "Warning: Truncated List", TRUE ) ;
+					break ;
+				}
+				IndexFiles[NbFiles] = ptr ;
+				if( !(flag & SELECT_SHOW_EXT) ) CutFileName( fileinfo.name ) ;
+				strcpy( ptr, fileinfo.name ) ;
+				ptr += _MAX_NAME ;
+				NbFiles++ ;
+			}
+		} while (_findnext(rc, &fileinfo) == 0);
+		_findclose(rc);
 	}
 
 	if( NbFiles )	// ?
@@ -122,21 +127,24 @@ static void	ScanFiles( char *selection, S32 flag )
 //──────────────────────────────────────────────────────────────────────────
 static inline S32 ThereIsFiles( char *path )
 {
-	struct	find_t	fileinfo ;
+	_finddata_t	fileinfo ;
+	intptr_t	rc ;
 
-	return !_dos_findfirst( path, _A_NORMAL, &fileinfo )	;
+	rc = _findfirst( path, &fileinfo );
+	return ((rc != -1) && (fileinfo.attrib & _A_NORMAL));
 }
 
 //──────────────────────────────────────────────────────────────────────────
 static void	ScanDirs( char *selection )
 {
-	struct	find_t	fileinfo ;
-	U32	rc ;
+	_finddata_t	fileinfo ;
+	intptr_t	rc ;
 	char	*ptr ;
 	S32	n ;
 	char	path[_MAX_PATH] ;
 
-	rc = _dos_findfirst( "*.*", _A_SUBDIR, &fileinfo ) ;
+	rc = _findfirst( "*.*", &fileinfo );
+
 	NbDirs = 0 ;
 	ptr = ListDirs ;
 
@@ -145,24 +153,25 @@ static void	ScanDirs( char *selection )
 	ptr += _MAX_NAME 	;
 	NbDirs++ 		;
 
-	while( !rc )
-	{
-		if( fileinfo.attrib & _A_SUBDIR )
-		{
-			if( NbDirs == MAX_FILES )
+	if (rc != -1) {
+		do {
+			if ( fileinfo.attrib & _A_SUBDIR )
 			{
-				Message( "Warning: Truncated List", TRUE ) ;
-				break ;
+				if( NbDirs == MAX_FILES )
+				{
+					Message( "Warning: Truncated List", TRUE ) ;
+					break ;
+				}
+				if( strcmp(fileinfo.name, "..") AND strcmp(fileinfo.name, ".") )
+				{
+					IndexDirs[NbDirs] = ptr ;
+					strcpy( ptr, fileinfo.name ) ;
+					ptr += _MAX_NAME ;
+					NbDirs++ ;
+				}
 			}
-			if( strcmp(fileinfo.name, "..") AND strcmp(fileinfo.name, ".") )
-			{
-				IndexDirs[NbDirs] = ptr ;
-				strcpy( ptr, fileinfo.name ) ;
-				ptr += _MAX_NAME ;
-				NbDirs++ ;
-			}
-		}
-		rc = _dos_findnext( &fileinfo ) ;
+		} while (_findnext(rc, &fileinfo) == 0);
+		_findclose(rc);
 	}
 
 	GetWindowButton( &Selector, 11, &DirsWindow ) ;
@@ -189,7 +198,6 @@ static void	ScanDirs( char *selection )
 //──────────────────────────────────────────────────────────────────────────
 static void	ScanDrives()
 {
-	unsigned	total ;
 	int	        drive ;
 	int	        orgdrive ;
 	S32		n ;
@@ -227,8 +235,7 @@ S32	FileSelector(	char *titre,
 	S32		n, num ;
 	S32		flag, handle ;
 	S32		mode = 0 ;
-	unsigned	total ;
-	unsigned	testdrive = 0 ;
+	int		testdrive = 0 ;
 	S32		rcode ;
 	S32		oldnum = -1 ;
 	char		memopath[_MAX_PATH] ;
@@ -256,8 +263,8 @@ S32	FileSelector(	char *titre,
 	{
 		SDrive[0] &= ~0x20 ;
 
-		_dos_setdrive( SDrive[0]-'A'+1, &total ) ;
-		_dos_getdrive( &testdrive ) ;
+		_chdrive( SDrive[0]-'A'+1) ;
+		testdrive = _getdrive() ;
 		if( testdrive == SDrive[0]-'A'+1 )
 		{
 			chdir( SDir ) ;
@@ -410,7 +417,7 @@ S32	FileSelector(	char *titre,
 					n = IndexDirs[num][0] - 'A' + 1 ;
 					memoasciimode = AsciiMode ;
 					AsciiMode = TRUE ;
-					_dos_setdrive( n, &total ) ;
+					_chdrive( n ) ;
 					getcwd( SearchPathname, _MAX_PATH ) ;
 					AsciiMode = memoasciimode ;
 					ScanDrives() ;
@@ -429,7 +436,7 @@ S32	FileSelector(	char *titre,
 		case 0: // input new searchpath
 			InputString( &Selector, 0, _MAX_PATH ) ;
 			_splitpath( SearchPathname, SDrive,SDir,SName,SExt ) ;
-			_dos_setdrive( SDrive[0]-'A'+1, &total ) ;
+			_chdrive( SDrive[0]-'A'+1 ) ;
 			chdir( SDir ) ;
 			getcwd( SearchPathname, _MAX_PATH ) ;
 			ChangeButtonString( &Selector, 0, SearchPathname, TRUE ) ;
@@ -570,7 +577,7 @@ S32	FileSelector(	char *titre,
 	RestoreClip() 		;
 
 	// restore drive/dir org
-	_dos_setdrive( memopath[0]-'A'+1, &total ) ;
+	_chdrive( memopath[0]-'A'+1 ) ;
 	chdir( memopath ) ;
 
 	return rcode ;

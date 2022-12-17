@@ -1,18 +1,18 @@
 			.386P
-			.model FLAT, SYSCALL
+			.model FLAT, C
 
 ;----------------------------------------------------------------------------
 			.data
 
 ;----------------------------------------------------------------------------
 
-			public	SYSCALL		MySortCompFunc
+			public	C		MySortCompFunc
 
 ;----------------------------------------------------------------------------
 ifdef	REG_CALL
-			extrn	SYSCALL		strcmp_	:PROC
+			extrn	C		strcmp_	:PROC
 else
-			extrn	SYSCALL		strcmp	:PROC
+			extrn	C		strcmp	:PROC
 endif
 
 ;----------------------------------------------------------------------------

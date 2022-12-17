@@ -160,7 +160,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 	S32		myclick, mykey ;
 	S32		memoasciimode ;
 
-	char		car ;
+	S32		car ;
 	char		string[256] ;
 	S32	memoclipxmin ;
 	S32	memoclipxmax ;
@@ -293,7 +293,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 			break ;
 		}
 
-		car = (char)mykey ;
+		car = mykey ;
 
 		if( (car >= 32) AND (car < 255) )
 		{
@@ -439,7 +439,7 @@ void	Message( const char *message, S32 flag )
 
 		CloseMenu(&menu)	;
 
-		while( Click OR Key)	;
+		while( Click OR Key)
 		{
 			BoxUpdate()	;
 		}
@@ -453,7 +453,7 @@ void	Message( const char *message, S32 flag )
 /*══════════════════════════════════════════════════════════════════════════*/
 /* Confirm( "Voulez-vous vraiment ?", "OUI" (RETURN), "NON"(ESC) ) ; */
 
-S32	Confirm( char *message, char *oui, char *non )
+S32	Confirm( const char *message, const char *oui, const char *non )
 {
 	T_MENU	menu ;
 	S32	len, select ;

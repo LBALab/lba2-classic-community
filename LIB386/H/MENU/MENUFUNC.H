@@ -9,7 +9,7 @@ extern "C" {
 
 //──────────────────────────────────────────────────────────────────────────
 extern void 		Message(const char *message, S32 flag		);
-extern S32 		Confirm(char *message, char *yes, char *no	);
+extern S32 		Confirm(const char *message, const char *yes, const char *no	);
 
 //──────────────────────────────────────────────────────────────────────────
 extern void 		InputString(		T_MENU *ptrmenu, S32 handle,
