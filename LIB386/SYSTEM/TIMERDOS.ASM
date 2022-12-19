@@ -1,6 +1,6 @@
 			.386p
 
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
@@ -12,17 +12,19 @@ FREQUENCE		equ	200		; 1193180 (Base Freq) / 5966
 ;----------------------------------------------------------------------------
 ALIGN 4
 
-		public	SYSCALL	TimerDataStart	; for VMM_lock !!!
-		public	SYSCALL	TimerDataEnd
+		public	C	TimerDataStart	; for VMM_lock !!!
+		public	C	TimerDataEnd
 
 TimerDataStart		label	dword
 
-		public	SYSCALL	TimerSystemHR
-		public	SYSCALL	TimerRefHR
-		public	SYSCALL	TimerRef
-		public	SYSCALL	NbFramePerSecond
-		public	SYSCALL	TimerLock
-		public	SYSCALL	CmptFrame
+		public	C	TimerSystemHR
+		public	C	TimerRefHR
+		public	C	TimerRef
+		public	C	NbFramePerSecond
+		public	C	TimerLock
+		public	C	CmptFrame
+
+		ASSUME DS:SEG TimerSystemHR
 
 TimerSystemHR		dd	0000		; always running at 1000 Hz
 TimerRefHR		dd	0000		; running at 1000 Hz if not locked
@@ -33,7 +35,7 @@ NbFramePerSecond      	dd	0000
 WaitNbTicks		dd	1
 CmptFrame		dd	0000
 
-		public	SYSCALL	CmptMemoTimerRef
+		public	C	CmptMemoTimerRef
 
 CmptMemoTimerRef	dd	0000
 MemoTimerRefHR		dd	0000
@@ -42,8 +44,8 @@ MemoTimerRef		dd	0000
 ;Cmpt_18			dw	00
 Cmpt_50Hz		db	0
 
-;		public	SYSCALL	Old_PM08_Sel
-;		public	SYSCALL	Old_PM08_Off
+;		public	C	Old_PM08_Sel
+;		public	C	Old_PM08_Off
 
 ;Old_PM08_Sel		dw	0
 ;Old_PM08_Off		dd	0
@@ -54,15 +56,15 @@ TimerDataEnd		label	dword
 			.CODE
 
 ;----------------------------------------------------------------------------
-		public	SYSCALL	TimerStart	; for VMM_lock !!!
-		public	SYSCALL	TimerEnd
+		public	C	TimerStart	; for VMM_lock !!!
+		public	C	TimerEnd
 
-;		public	SYSCALL	SetDivisor
-;		public	SYSCALL	NewIntPM08
-		public	SYSCALL	NewProc08
-		public	SYSCALL	SaveTimer
-		public	SYSCALL	RestoreTimer
-		public	SYSCALL	SetTimerHR
+;		public	C	SetDivisor
+;		public	C	NewIntPM08
+		public	C	NewProc08
+		public	C	SaveTimer
+		public	C	RestoreTimer
+		public	C	SetTimerHR
 
 ;----------------------------------------------------------------------------
 ;void	SaveTimer()	;
@@ -233,8 +235,8 @@ NewProc08	proc
 		push	ecx
 		push	ds
 
-		mov	eax, DGROUP
-		mov	ds, eax
+		;yaz mov	eax, DGROUP
+		;yaz mov	ds, eax
 
 		add	dword ptr [TimerSystemHR], 1000/FREQUENCE
 

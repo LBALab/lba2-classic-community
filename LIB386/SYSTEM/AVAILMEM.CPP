@@ -44,11 +44,12 @@ U32	GetMemInfo(MEMINFO *buffer)	;
 
 U32	AvailableMem()
 {
-	MEMINFO	meminfo			;
-
-	GetMemInfo(&meminfo)		;
-
-	return meminfo.LargestBlockAvail;
+//	MEMINFO	meminfo			;
+//
+//	GetMemInfo(&meminfo)		;
+//
+//	return meminfo.LargestBlockAvail;
+	return 1000000;
 }
 
 //──────────────────────────────────────────────────────────────────────────

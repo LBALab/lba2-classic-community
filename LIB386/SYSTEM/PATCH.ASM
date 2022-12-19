@@ -1,19 +1,19 @@
 ;*──────────────────────────────────────────────────────────────────────────*
 			.386P
-			.MODEL	SMALL, SYSCALL
+			.MODEL	SMALL, C
 
 ;*──────────────────────────────────────────────────────────────────────────*
 			.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
 IFDEF	_WIN32
-			public	SYSCALL	AllowPatchAndPatch
-			public	SYSCALL	AllowPatch
+			public	C	AllowPatchAndPatch
+			public	C	AllowPatch
 ENDIF;	_WIN32
 
 ;*──────────────────────────────────────────────────────────────────────────*
 IFDEF	_WIN32
-			extrn	SYSCALL	_VirtualProtect:PROC
+			extrn	C	_VirtualProtect:PROC
 ENDIF;	_WIN32
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -39,6 +39,7 @@ AllowPatch		PROC
 
 			call	_VirtualProtect		; allow EXECUTE_READWRITE on range
 
+			add esp, 16 ; yaz
 			pop	edx
 
 			ret

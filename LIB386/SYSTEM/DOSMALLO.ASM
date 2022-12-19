@@ -1,7 +1,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
@@ -24,10 +24,10 @@ Reserved                dd      3 dup (?)
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	NormDosMalloc
-		public	SYSCALL	NormDosFree
-		public	SYSCALL	NormDosMshrink
-		public	SYSCALL	DosAvailableMem
+		public	C	NormDosMalloc
+		public	C	NormDosFree
+		public	C	NormDosMshrink
+		public	C	DosAvailableMem
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	*NormDosMalloc( S32 size)

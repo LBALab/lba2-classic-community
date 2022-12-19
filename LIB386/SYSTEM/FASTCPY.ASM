@@ -1,19 +1,19 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	FastCopy
+		public	C	FastCopy
 
 FastCopy	dd	offset FastCopyInit
 
@@ -21,12 +21,12 @@ FastCopy	dd	offset FastCopyInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	FastCopyI:PROC
-		extrn	SYSCALL	FastCopyF:PROC
-		extrn	SYSCALL	FastCopyM:PROC
+		extrn	C	FastCopyI:PROC
+		extrn	C	FastCopyF:PROC
+		;extrn	C	FastCopyM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	FastCopy(void *dst, void *src, U32 len) ;
@@ -37,10 +37,10 @@ FastCopy	dd	offset FastCopyInit
 
 FastCopyInit	proc
 
-		mov	[Chooser_RtnI], offset FastCopyI	; Integer
-		mov	[Chooser_RtnF], offset FastCopyF	; FPU
-		mov	[Chooser_RtnM], offset FastCopyM	; MMX
-		mov	[Chooser_Result], offset FastCopy	; Pointer
+		mov	[ds:Chooser_RtnI], offset FastCopyI	; Integer
+		mov	[ds:Chooser_RtnF], offset FastCopyF	; FPU
+		;mov	[ds:Chooser_RtnM], offset FastCopyM	; MMX
+		mov	[ds:Chooser_Result], offset FastCopy	; Pointer
 		jmp	Chooser
 
 FastCopyInit	endp

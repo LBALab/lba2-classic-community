@@ -16,7 +16,7 @@ static	char	*PtrEndIdent			;
 	char	*OrgPtrDef			;
 	char	*EndPtrDef			;
 
-	S32	DefFileReadSkipComments	= FALSE	;
+	S32	DefFileReadSkipComments	= TRUE	;
 
 static	S32	BufferSize			;
 static	char	FileName[_MAX_PATH]		;
@@ -25,7 +25,7 @@ static	char	FileName[_MAX_PATH]		;
 static inline S32 ReadBufferString(const char *identificateur)
 {
 	char	*ptrdef	;
-	char	*ptr	;
+	U8	*ptr	;
 	S32	len	;
 
 	DefString[0]	= 0	;
@@ -58,7 +58,7 @@ static inline S32 ReadBufferString(const char *identificateur)
 
 				while(*ptrdef==32) 	ptrdef++;//skip leading spaces
 
-				ptr = ptrdef;
+				ptr = (U8*)ptrdef;
 
 				while(*ptr>=32)
 				{
@@ -72,7 +72,7 @@ static inline S32 ReadBufferString(const char *identificateur)
 
 				while(*ptr<=32)    	ptr--;	// skip ending spaces
 
-				LenDefString = ptr-ptrdef+1;
+				LenDefString = (char*)ptr-ptrdef+1;
 
 				if(LenDefString<0)	LenDefString = 0;	// security
 				if(LenDefString>255)	LenDefString = 255;

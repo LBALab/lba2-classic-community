@@ -75,10 +75,10 @@ void	HQR_Lock_Ressource(T_HQR_HEADER *header)
 {
 	header = header	;
 
-	AIL_vmm_lock((void*)header, sizeof(T_HQR_HEADER) +
+	/*AIL_vmm_lock((void*)header, sizeof(T_HQR_HEADER) +
 				sizeof(T_HQR_BLOC) * header->MaxIndex   ) ;
 
-	AIL_vmm_lock(header->Buffer, header->MaxSize+RECOVER_AREA);
+	AIL_vmm_lock(header->Buffer, header->MaxSize+RECOVER_AREA);*/
 }
 
 #endif//_WIN32
@@ -124,40 +124,87 @@ void	HQR_Free_Ressource(T_HQR_HEADER *header)
 		return		;
 	}
 
-	AIL_vmm_unlock((void*)header, sizeof(T_HQR_HEADER) +
+	/*AIL_vmm_unlock((void*)header, sizeof(T_HQR_HEADER) +
 				  sizeof(T_HQR_BLOC) * header->MaxIndex ) ;
 
 	AIL_vmm_unlock(header->Buffer, header->MaxSize+RECOVER_AREA);
-
+	*/
 	Free(header->Buffer)	;
 	Free(header)		;
 }
 
 //──────────────────────────────────────────────────────────────────────────
 // retourne le pointeur mémoire de la fiche (index) demandée
-T_HQR_BLOC	*HQR_GiveBloc(S32 index, S32 nbindex, T_HQR_BLOC *bloc)	;
+T_HQR_BLOC *HQR_GiveBloc(S32 index, S32 nbindex, T_HQR_BLOC *bloc) {
+	T_HQR_BLOC *returnValue;
 
-#pragma aux HQR_GiveBloc       =               	\
-"               shl     ecx, 4          "       \
-"               jz      notfound        "       \
-"               lea     ebx, [eax+ecx]  "       \
-"               sub     eax, 16         "       \
-"               test    ecx, 16         "       \
-"               jnz     se1             "       \
-"               add     eax, 16         "       \
-"se0:           cmp     edx, [eax]      "       \
-"               je      quit            "       \
-"se1:           cmp     edx, [eax+16]   "       \
-"               je      quit2           "       \
-"               add     eax, 32         "       \
-"               cmp     eax, ebx        "       \
-"               jne     se0             "       \
-"notfound:      xor     eax, eax        "       \
-"               jmp     quit            "       \
-"quit2:         add     eax, 16         "       \
-"quit:                                  "       \
-        parm    [edx] [ecx] [eax]               \
-	modify	[ebx]
+#ifdef __MSC_VER
+	__asm
+	{
+		pusha
+
+			mov edx, index
+			mov ecx, nbindex
+			mov eax, bloc
+		               shl     ecx, 4          
+			               jz      notfound        
+			               lea     ebx, [eax+ecx]  
+			               sub     eax, 16         
+			               test    ecx, 16         
+			               jnz     se1             
+			               add     eax, 16         
+			se0:           cmp     edx, [eax]      
+			               je      quit            
+			se1:           cmp     edx, [eax+16]   
+			               je      quit2           
+			               add     eax, 32         
+			               cmp     eax, ebx        
+			               jne     se0             
+			notfound:      xor     eax, eax        
+			               jmp     quit            
+			quit2:         add     eax, 16         
+			quit:
+					mov returnValue, eax
+					popa
+	}
+#elif __GNUC__
+	__asm__ __volatile__("pusha\n\t"
+                             "movl %1, %%edx\n\t"
+                             "movl %2, %%ecx\n\t"
+                             "movl %3, %%eax\n\t"
+                             "shll $4, %%ecx\n\t"
+                             "jz notfound\n\t"
+                             "leal (%%eax,%%ecx), %%ebx\n\t"
+                             "subl $16, %%eax\n\t"
+                             "testl $16, %%ecx\n\t"
+                             "jnz se1\n\t"
+                             "addl $16, %%eax\n\t"
+		"se0:\n\t"
+                             "cmpl (%%eax), %%edx\n\t"
+                             "je quit\n\t"
+		"se1:\n\t"
+                             "cmpl 16(%%eax), %%edx\n\t"
+                             "je quit2\n\t"
+                             "addl $32, %%eax\n\t"
+                             "cmpl %%ebx, %%eax\n\t"
+                             "jne se0\n\t"
+		"notfound:\n\t"
+                             "xorl %%eax, %%eax\n\t"
+                             "jmp quit\n\t"
+		"quit2:\n\t"
+                             "addl $16, %%eax\n"
+		"quit:\n\t"
+                             "movl %%eax, %0\n\t"
+                             "popa\n\t"
+                             : "=m"(returnValue)
+                             : "m"(index), "m"(nbindex), "m"(bloc)
+                             : "%eax", "%ecx", "%edx", "%ebx");
+#else
+#error "Unsupported compiler!"
+#endif
+
+	return returnValue;
+}
 
 //──────────────────────────────────────────────────────────────────────────
 // supprime une fiche dans le buffer d'une ressource
