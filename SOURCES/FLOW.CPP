@@ -311,7 +311,7 @@ U32	CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
 	S32	poids ;
 	S32	delay ;
 	S32	speedrot ;
-	S32	shadow ;
+	S32	shadow = 0; // yaz
 
 	flow = LoadPartFlow( num_flow ) ;
 	if( !flow )	return( FALSE ) ;

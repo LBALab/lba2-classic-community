@@ -1,5 +1,5 @@
 //
-//	TEST VERSION ZBUFFER PAR 
+//	TEST VERSION ZBUFFER
 //
 
 #include	"C_EXTERN.H"	// include LBA2
@@ -1196,7 +1196,7 @@ void	HoloMap()
 	SizeCurrentBody = GetSizeBody3D( PtCurrentBody );
 	SizeCurrentAnim = GetSizeAnim3D( PtCurrentAnim );
 
-	InitObjects( NULL, 0, HoloGivePtrBody, HoloGivePtrAnim )	;
+	InitObjects( NULL, NULL, HoloGivePtrBody, HoloGivePtrAnim )	;
 
 	FlagMap = 0		;
 	FlagHoloEnd = FALSE	;
@@ -1228,7 +1228,7 @@ void	HoloMap()
 
 	InitDial( START_FILE_ISLAND+Island ) ;
 
-	InitObjects( NULL, 0, GivePtrBody, GivePtrAnim )	;
+	InitObjects( NULL, NULL, GivePtrBody, GivePtrAnim )	;
 
 	FadeToBlack( PtrPal ) ;	// Restauration + Fade
 	FlagFade = TRUE ;

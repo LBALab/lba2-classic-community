@@ -16,10 +16,10 @@ extern "C" {
 #endif
 
 extern	int Current_position;
-#pragma	aux	Current_position	"*"
+//#pragma	aux	Current_position	"*"
 
 extern	int Match_position;
-#pragma	aux	Match_position	"*"
+//#pragma	aux	Match_position	"*"
 
 /*
  * These are the two global data structures used in this program.
@@ -30,7 +30,7 @@ extern	int Match_position;
 */
 
 extern	unsigned char window[ WINDOW_SIZE * 5 ];
-#pragma	aux	window	"*"
+//#pragma	aux	window	"*"
 
 struct deftree {
     long parent;
@@ -39,22 +39,22 @@ struct deftree {
 } ;
 
 extern	struct deftree tree [ WINDOW_SIZE + 2 ];
-#pragma	aux	tree	"*"
+//#pragma	aux	tree	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	int	AddString();
 
-#pragma	aux	AddString	"*"	\
+/*#pragma	aux	AddString	"*"	\
 		parm caller []		\
 		modify [eax ecx edx]
-
+		*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	int	DeleteString(int p);
 
-#pragma	aux	DeleteString	"*"	\
+/*#pragma	aux	DeleteString	"*"	\
 		parm caller []		\
 		modify [eax ecx edx]
-
+		*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 #ifdef __cplusplus

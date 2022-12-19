@@ -65,7 +65,7 @@ void	DrawObjFix(T_SORT *ptt)
 	SetClip( 0, 0, ModeDesiredX-1, Dial_Y0-1 )	;
 
 //	buf = (S16*)HQR_Get( HQR_ObjFix, ptt->NumObj );
-	buf = (S16*)GivePtrObjFix( ptt->NumObj );	//
+	buf = (S16*)GivePtrObjFix( ptt->NumObj );
 	if ( !buf )	return			;
 
 	ymin = *(buf+3)	;
