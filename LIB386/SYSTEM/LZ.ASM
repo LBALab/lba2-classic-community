@@ -1,16 +1,19 @@
 ;*──────────────────────────────────────────────────────────────────────────*
 			.386P
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
+
+			.DATA
 
 ;*──────────────────────────────────────────────────────────────────────────*
 			.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
-			public	SYSCALL	ExpandLZ
+			public	C	ExpandLZ
 
 ;*──────────────────────────────────────────────────────────────────────────*
 IFDEF	_WIN32
-			extrn	SYSCALL	AllowPatchAndPatch:PROC
+			extrn	C	AllowPatchAndPatch:PROC
+			Extrn	C		AllowPatch		:	PROC
 ENDIF
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -40,13 +43,25 @@ ENDIF
 ;	parm	[edi] [ebx] [ecx] [eax]	\
 ;	modify	[edx esi]
 
-ExpandLZ		PROC
+ExpandLZ		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			Dst: DWORD, Src: DWORD, DecompSize: DWORD, MinBloc: DWORD
 
-IFDEF	_WIN32
-			jmp	NEAR PTR ExpandLZInit	; This code is 5 bytes long
-ELSE
+			; yaz: this used to call AllowPatchAndPatch but I think it can't be reused as-is
+			; as it expected there was no code executed in the function prolog
+			pushad
+			mov	eax,Offset ExpandLZ
+			mov	edx,Offset ExpandLZEnd
+			call	AllowPatch
+			popad
+
+			mov edi, Dst
+			mov ebx, Src
+			mov ecx, DecompSize
+			mov eax, MinBloc
+
 			mov	BlockSize, al		; This code is 5 bytes long TOO!
-ENDIF
+
 			push	ebp
 
 			mov	ebp, ecx		; EBP = decomp size

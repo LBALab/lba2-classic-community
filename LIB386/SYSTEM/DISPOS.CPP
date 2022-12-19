@@ -61,9 +61,9 @@ S32	DOSVer()	;
 
 void	DetectOS()
 {
-	S32	ver ;
+	S32	ver = 0;
 
-	ver = DOSVer()	;
+	//ver = DOSVer()	;
 
 	OSType = OS_DOS	;
 
@@ -105,12 +105,11 @@ void	DisplayOS()
 //----------------------------------------------------------------------------
 S32	ParamsOS()
 {
-	char	str[256];
+	char	str[256] = "";
 	char	*ptr	;
 	S32	result	;
 	S32	i	;
 
-	str[256] = 0	;
 	result = FALSE	;
 
 	i = 1	;

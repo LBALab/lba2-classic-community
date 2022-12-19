@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	struct
+struct s_ProcessorSignature
 	{
 		U32	Stepping		:4	;
 		U32	Model			:4	;
@@ -21,10 +21,9 @@ extern	struct
 		U32	CacheAllocOnWrite	:1	;
 		U32	CacheDisabled		:1	;
 		U32	Undefined		:9	;
-	}
-	ProcessorSignature	;
+	};
 
-#pragma aux ProcessorSignature	"*"
+extern s_ProcessorSignature ProcessorSignature;
 
 /*
 ; CacheDisabled :	     1 = L1 and L2 cache are disabled
@@ -86,7 +85,7 @@ extern	struct
 */
 
 //──────────────────────────────────────────────────────────────────────────
-extern	struct
+struct s_ProcessorFeatureFlags
 	{
 		U32	FPUOnChip			:1	;
 		U32	VitualModeExtensions		:1	;
@@ -106,10 +105,9 @@ extern	struct
 		U32	Reserved2			:7	;
 		U32	MMX				:1	;
 		U32	Reserved3			:8	;
-	}
-	ProcessorFeatureFlags	;
+	};
 
-#pragma aux ProcessorFeatureFlags	"*"
+extern s_ProcessorFeatureFlags ProcessorFeatureFlags;
 
 /*
 ;                                  3.......222211111111110000000000

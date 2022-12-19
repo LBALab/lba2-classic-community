@@ -3,33 +3,6 @@
 #define	LIB_SYSTEM
 
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	_BUILDING_LIB
-
-#ifdef	_WIN32
-
-#ifdef	__SW_3R
-#pragma library ("NT_SYSR.LIB")
-#else//	__SW_3R
-#pragma library ("NT_SYSS.LIB")
-#endif//__SW_3R
-
-#pragma library ("MSS32.LIB")
-
-#else//	_WIN32
-
-#ifdef	__SW_3R
-#pragma library ("DOS_SYSR.LIB")
-#else//	__SW_3R
-#pragma library ("DOS_SYSS.LIB")
-#endif//__SW_3R
-
-#pragma library ("MSS.LIB")
-
-#endif//_WIN32
-
-#endif//_BUILDING_LIB
-
-//──────────────────────────────────────────────────────────────────────────
 #include	<stdlib.h>
 
 //──────────────────────────────────────────────────────────────────────────
@@ -106,12 +79,6 @@
 
 //──────────────────────────────────────────────────────────────────────────
 S32		MULDIV64( S32 x, S32 mul, S32 div ); // (x*mul)/div
-
-#pragma	aux	MULDIV64= 				\
-		"	imul	edx		"	\
-		"	idiv	ecx		"	\
-		parm	caller 	[eax] [edx] [ecx]	\
-		modify	exact	[eax edx]
 
 //──────────────────────────────────────────────────────────────────────────
 // Hard coded breakpoint

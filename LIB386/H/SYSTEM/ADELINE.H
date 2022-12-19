@@ -3,6 +3,7 @@
 #define LIB_SYSTEM_ADELINE
 
 //──────────────────────────────────────────────────────────────────────────
+#pragma pack(8)   // n = 4
 #ifdef	_WIN32
 #include	<windows.h>
 #include 	<windowsx.h>
@@ -12,6 +13,7 @@
 #include 	<ddraw.h>
 #endif//_NO_DDRAW
 #endif//_WIN32
+#pragma pack(1)
 
 //──────────────────────────────────────────────────────────────────────────
 #ifndef TYPEDEFS
@@ -92,8 +94,8 @@ typedef unsigned long  ULONG;
 
 #ifndef	_WIN32
 
-typedef char  BYTE;
-typedef short WORD;
+//typedef char  BYTE;
+//typedef short WORD;
 
 #endif//_WIN32
 
@@ -134,8 +136,8 @@ typedef	WINDOW_PROC * WINDOW_PROC_PTR	;
 #else//	_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#define		ManageTime()
-#define		ManageSystem()	ManageEvents()
+//#define		ManageTime()
+#define	ManageSystem()	{ ManageEvents(); ManageTime(); } // to get time
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//_WIN32

@@ -110,12 +110,13 @@ void	Touch(char *name)
 //--------------------------------------------------------------------------//
 #else// _WIN32
 
+#include <assert.h>
 //--------------------------------------------------------------------------//
 S32    OpenMode( char *name, int mode)
 {
 	S32	handle	;
 
-	handle = open( name, mode, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)	;
+	handle = _open(name, mode, S_IREAD | S_IWRITE);
 
 	return handle == -1 ? 0 : handle	;
 }
@@ -133,6 +134,12 @@ U32   FileSize( char *name )
 	Close( handle )				;
 
 	return (U32)(fsize == -1 ? 0 : fsize)	;
+}
+
+//--------------------------------------------------------------------------//
+U32 Delete(char* name)
+{
+	return 0;
 }
 
 //--------------------------------------------------------------------------//

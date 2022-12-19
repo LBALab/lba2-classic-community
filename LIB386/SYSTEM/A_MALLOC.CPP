@@ -8,15 +8,16 @@
 //──────────────────────────────────────────────────────────────────────────
 void	*SmartMalloc(S32 size)
 {
-	void 	*addr ;
-
-	addr = DosMalloc(size)		;
-	if( !addr )
-	{
-		addr = Malloc(size)	;
-	}
-
-	return(addr)	;
+//	void 	*addr ;
+//
+//	addr = DosMalloc(size)		;
+//	if( !addr )
+//	{
+//		addr = Malloc(size)	;
+//	}
+//
+//	return(addr)	;
+	return malloc(size);
 }
 
 //──────────────────────────────────────────────────────────────────────────

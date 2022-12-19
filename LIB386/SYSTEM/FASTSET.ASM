@@ -1,19 +1,19 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
+		extrn	C	Chooser_RtnI:DWORD
+		extrn	C	Chooser_RtnF:DWORD
+		extrn	C	Chooser_RtnM:DWORD
+		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	FastSet
+		public	C	FastSet
 
 FastSet	dd	offset FastSetInit
 
@@ -21,12 +21,12 @@ FastSet	dd	offset FastSetInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	FastSetI:PROC
-		extrn	SYSCALL	FastSetF:PROC
-		extrn	SYSCALL	FastSetM:PROC
+		extrn	C	FastSetI:PROC
+		extrn	C	FastSetF:PROC
+		;extrn	C	FastSetM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	Chooser:PROC
+		extrn	C	Chooser:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	FastSet(void *dst, S32 val, U32 len) ;
@@ -37,10 +37,10 @@ FastSet	dd	offset FastSetInit
 
 FastSetInit	proc
 
-		mov	[Chooser_RtnI], offset FastSetI	; Integer
-		mov	[Chooser_RtnF], offset FastSetF	; FPU
-		mov	[Chooser_RtnM], offset FastSetM	; MMX
-		mov	[Chooser_Result], offset FastSet; Pointer
+		mov	[ds:Chooser_RtnI], offset FastSetI	; Integer
+		mov	[ds:Chooser_RtnF], offset FastSetF	; FPU
+		;mov	[ds:Chooser_RtnM], offset FastSetM	; MMX
+		mov	[ds:Chooser_Result], offset FastSet; Pointer
 		jmp	Chooser
 
 FastSetInit	endp

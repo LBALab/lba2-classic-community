@@ -36,7 +36,7 @@ extern volatile	S32	Key		;
 extern  	S32	AsciiMode	;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	__interrupt	KeybHandler(void)	;
+extern	void	KeybHandler(void)	;
 
 #pragma	aux	KeybHandler	"*"
 
