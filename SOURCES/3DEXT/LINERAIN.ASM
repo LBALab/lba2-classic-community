@@ -3,7 +3,7 @@
 ;			      (c) Adeline 1993-96
 ;----------------------------------------------------------------------------
 			.386
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 
 			INCLUDE	FILLER.INC
@@ -16,23 +16,23 @@
 RAIN_RANGE		=	200
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL	ScreenXMin:	DWORD
-			extrn	SYSCALL	ScreenYMin:	DWORD
-			extrn	SYSCALL	ScreenXMax:	DWORD
-			extrn	SYSCALL	ScreenYMax:	DWORD
+			extrn	C	ScreenXMin:	DWORD
+			extrn	C	ScreenYMin:	DWORD
+			extrn	C	ScreenXMax:	DWORD
+			extrn	C	ScreenYMax:	DWORD
 
 ;----------------------------------------------------------------------------
-extrn	SYSCALL 	ClipXMin		:	DWORD
-extrn	SYSCALL 	ClipYMin		:	DWORD
-extrn	SYSCALL 	ClipXMax		:	DWORD
-extrn	SYSCALL 	ClipYMax		:	DWORD
-extrn	SYSCALL 	Log			:	DWORD
-extrn	SYSCALL 	PtrZBuffer		:	DWORD
-extrn	SYSCALL 	PTR_TabOffLine		:	DWORD
-extrn	SYSCALL 	ScreenPitch		:	DWORD
-Extrn	SYSCALL		Fill_Flag_Fog		:	BYTE
-Extrn	SYSCALL		Fill_Flag_ZBuffer	:	BYTE
-Extrn	SYSCALL	  	Fill_Logical_Palette	:	BYTE
+extrn	C 	ClipXMin		:	DWORD
+extrn	C 	ClipYMin		:	DWORD
+extrn	C 	ClipXMax		:	DWORD
+extrn	C 	ClipYMax		:	DWORD
+extrn	C 	Log			:	DWORD
+extrn	C 	PtrZBuffer		:	DWORD
+extrn	C 	PTR_TabOffLine		:	DWORD
+extrn	C 	ScreenPitch		:	DWORD
+Extrn	C		Fill_Flag_Fog		:	BYTE
+Extrn	C		Fill_Flag_ZBuffer	:	BYTE
+Extrn	C	  	Fill_Logical_Palette	:	BYTE
 
 ;----------------------------------------------------------------------------
 CurrentZ1		dd	0			; For the ZBuffer
@@ -45,11 +45,12 @@ Color	       		db	0
 
 ;----------------------------------------------------------------------------
 IFDEF	_WIN32
-			Extrn	SYSCALL	AllowPatchAndPatch	:PROC
+			Extrn	C	AllowPatchAndPatch	:PROC
+			Extrn	C	AllowPatch	:PROC
 ENDIF	; _WIN32
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	LineRain
+			public	C	LineRain
 
 
 ;----------------------------------------------------------------------------
@@ -92,14 +93,28 @@ endif;	_WIN32
 ;	parm caller [eax] [ebx] [edi] [ecx] [edx] [esi]
 
 			ALIGN	4
-LineRain		PROC
+LineRain		PROC \
+			uses ebx ecx edx edi esi ebp\
+			x0: DWORD, y0: DWORD, z0: DWORD, x1: DWORD, y1: DWORD, z1: DWORD, coul:DWORD
+
+			mov eax, LineRain
+			mov edx, EndLineRain
+			call AllowPatch
+
+			mov eax, x0
+			mov ebx, y0
+			mov edi, z0
+			mov ecx, x1
+			mov edx, y1
+			mov esi, z1
+
 x:
 
 			shl	esi,16
 			push	ebp
 
 			shl	edi,16
-			mov	ebp, [esp+8]
+			mov	ebp, coul
 ifdef	_WIN32
 y:
 			org	x

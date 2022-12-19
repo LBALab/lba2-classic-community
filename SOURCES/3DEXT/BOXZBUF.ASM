@@ -10,7 +10,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 
@@ -23,7 +23,7 @@
 ;					******************
 
 
-			PUBLIC	SYSCALL	ZBufBoxOverWrite2
+			PUBLIC	C	ZBufBoxOverWrite2
 
 
 ;					*****************
@@ -61,7 +61,7 @@
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -74,12 +74,12 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		ScreenPitch	:	DWORD
-Extrn	SYSCALL		Fill_ZBuffer_Factor	:	DWORD
-Extrn	SYSCALL		Screen			:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		PtrZBuffer		:	DWORD
-Extrn	SYSCALL		TabOffLine		:	DWORD
+Extrn	C		ScreenPitch	:	DWORD
+Extrn	C		Fill_ZBuffer_Factor	:	DWORD
+Extrn	C		Screen			:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
+Extrn	C		TabOffLine		:	DWORD
 
 
 
@@ -139,7 +139,17 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ; EDX, EAX = YMin, YMax
 ; ESI = Z High
 ; EDI = Z Bottom
-ZBufBoxOverWrite2	PROC
+ZBufBoxOverWrite2	PROC \
+					uses ebx ecx edx edi esi ebp\
+					z0:DWORD, z1:DWORD, xmin:DWORD, ymin:DWORD, xmax:DWORD, ymax:DWORD \
+
+					mov edi, z0
+					mov esi, z1
+					mov ecx, xmin
+					mov edx, ymin
+					mov ebx, xmax
+					mov eax, ymax
+
 			push	ebp
 			sub	ebx,ecx		; EBX = DeltaX-1
 

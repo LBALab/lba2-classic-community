@@ -829,8 +829,62 @@ if( ModeHercule )	HPrintf( "CubeBitField= %d\n", CubeBitField ) ;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-U32	MaskVisible(U8 *ptr)	;
+U32 MaskVisible(U8 *in_ptr) {
+        U32 mask;
 
+#ifdef __MSC_VER
+        __asm {
+		pusha
+		mov esi, in_ptr
+		mov     al, [esi]
+		mov     dl, [esi+65] 
+
+		mov	ah, al
+		and	al, dl
+
+		or	ah, dl
+		mov     dl, [esi+1] 
+
+		and     al, dl   
+		or	ah, dl	
+
+		mov     dl, [esi+66] 
+
+		or	ah, dl	
+		and     al, dl       
+
+		and     eax, 20FFh  
+
+		mov mask, eax
+		popa
+        }
+#elif __GNUC__
+        __asm__ __volatile__("pusha\n\t"
+                             "movl %1, %%esi\n\t"
+                             "movb (%%esi), %%al\n\t"
+                             "movb 65(%%esi), %%dl\n\t"
+                             "movb %%al, %%ah\n\t"
+                             "andb %%dl, %%al\n\t"
+                             "orb %%dl, %%ah\n\t"
+                             "movb 1(%%esi), %%dl\n\t"
+                             "andb %%dl, %%al\n\t"
+                             "orb %%dl, %%ah\n\t"
+                             "movb 66(%%esi), %%dl\n\t"
+                             "orb %%dl, %%ah\n\t"
+                             "andb %%dl, %%al\n\t"
+                             "andl $0x20FF, %%eax\n\t"
+                             "movl %%eax, %0\n\t"
+                             "popa\n\t"
+                             : "=m"(mask)
+                             : "m"(in_ptr)
+                             : "%eax", "%esi", "%ah", "%al", "%dl");
+#else
+#error "Unsupported compiler!"
+#endif
+
+        return mask;
+}
+/*
 #pragma	aux MaskVisible	=		\
 "       mov     al, [esi]       "       \
 "       mov     dl, [esi+65]    "       \
@@ -851,7 +905,7 @@ U32	MaskVisible(U8 *ptr)	;
 "				"	\
 "       and     eax, 20FFh      "       \
 	parm		[esi]		\
-	modify exact	[eax edx]
+	modify exact	[eax edx]*/
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void	AffichageTerrainZBuf( void )
