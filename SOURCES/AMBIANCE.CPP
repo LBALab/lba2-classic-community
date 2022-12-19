@@ -27,7 +27,7 @@ S32     RestartRainSample = FALSE       ;
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-//HQR_GET_CALLBACK      DelBlocHQRSample ;
+HQR_GET_CALLBACK      DelBlocHQRSample ;
 
 void    DelBlocHQRSample( char *name, S32 index )
 {

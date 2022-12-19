@@ -1,26 +1,27 @@
 				OPTION SCOPED
 				.386P
-				.model SMALL, SYSCALL
+				.model FLAT, C
 
 				.data
 ;*══════════════════════════════════════════════════════════════════════════*
 
-			Extrn	SYSCALL		PtrCLUTGouraud:DWORD
+			extrn  C		PtrCLUTGouraud:DWORD
 
-			extrn	SYSCALL		ClipXMin:DWORD
-			extrn	SYSCALL		ClipYMin:DWORD
-			extrn	SYSCALL		ClipXMax:DWORD
-			extrn	SYSCALL		ClipYMax:DWORD
+			extrn  C		ClipXMin:DWORD 
+			extrn  C		ClipYMin:DWORD
+			extrn  C		ClipXMax:DWORD
+			extrn  C		ClipYMax:DWORD
 
-			extrn	SYSCALL		TabOffLine:DWORD
-			extrn	SYSCALL		Log:DWORD
+			extrn  C		TabOffLine:DWORD
+			extrn  C		Log:DWORD
 
-			public	SYSCALL      	BoxFlow
-			public	SYSCALL      	ShadeBoxBlk
-			public	SYSCALL      	CopyBlockShade
 
-;//				.code
-Seg_Code		SEGMENT	PUBLIC PARA USE32
+
+				.code
+			public	C      	BoxFlow
+			public	C      	ShadeBoxBlk
+			public	C      	CopyBlockShade
+;Seg_Code		SEGMENT	PUBLIC PARA USE32
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;----------------------------------------------------------------------------
@@ -36,7 +37,7 @@ Seg_Code		SEGMENT	PUBLIC PARA USE32
 ;
 BoxFlow			proc
 
-			cmp	eax, ClipXMax
+			cmp	eax, ds:ClipXMax
 			jge	Box_End
 			cmp     eax, ClipXMin
 			jl	Box_End
@@ -229,7 +230,7 @@ CopyBlockShade		endp
 ;//*══════════════════════════════════════════════════════════════════════════*
 
 ;*══════════════════════════════════════════════════════════════════════════*
-Seg_Code		ENDS
+;Seg_Code		ENDS
 ;*══════════════════════════════════════════════════════════════════════════*
 ;				The
 				End

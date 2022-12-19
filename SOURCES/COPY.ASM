@@ -14,7 +14,7 @@ DY_IMAGE		EQU	200
 			OPTION SCOPED
 			.586
 			.MMX
-			.MODEL SMALL, SYSCALL
+			.MODEL FLAT, SYSCALL
 
 
 ;//***************************************************************************
@@ -52,9 +52,9 @@ CopyFrameDoubleXY	dd	offset CopyFrameDoubleXYInit
 ;//***************************************************************************
 CopyFrameDoubleXYInit	proc
 
-		mov	[Chooser_RtnI], offset CopyFrameDoubleXYI	; Integer
-		mov	[Chooser_RtnM], offset CopyFrameDoubleXYM	; MMX
-		mov	[Chooser_Result], offset CopyFrameDoubleXY	; Pointer
+		mov	[ds:Chooser_RtnI], offset CopyFrameDoubleXYI	; Integer
+		mov	[ds:Chooser_RtnM], offset CopyFrameDoubleXYM	; MMX
+		mov	[ds:Chooser_Result], offset CopyFrameDoubleXY	; Pointer
 
 		jmp	Chooser
 

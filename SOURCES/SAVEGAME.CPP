@@ -245,7 +245,7 @@ void	SaveGame( S32 flagmess )
 {
 	U8	*sizeptr ;
 	U8	*memoptr ;
-	S32	sizefile ;
+	S32	sizefile = 0 ;
 #ifndef	EDITLBA2
 	S32	savetimerrefhr ;
 //	char string[30] ;

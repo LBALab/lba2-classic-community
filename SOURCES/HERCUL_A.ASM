@@ -57,13 +57,13 @@ TestHercule	proc
 		jne	NoHerc		;// Fonction BIOS non supportée
 
 		and	ebx, 0101h	;// regarde les 2 cartes videos possibles
-		mov     [ModeHercule], ebx
+		mov     [ds:ModeHercule], ebx
 
 		mov	eax, ebx	;// valeur de retour
 		ret
 
 NoHerc:         xor	eax, eax
-		mov	[ModeHercule], eax
+		mov	[ds:ModeHercule], eax
 		ret
 
 TestHercule	endp
@@ -83,8 +83,8 @@ TestHercule	endp
 HCls		proc	uses edi
 
 		xor	eax, eax
-		mov	HCurX, eax
-		mov	HCurY, eax
+		mov	ds:HCurX, eax
+		mov	ds:HCurY, eax
 
 		mov	edi, SCRBASE
 		mov	eax, 07000700h
@@ -101,7 +101,7 @@ HCls		endp
 
 HPrintCar	proc
 
-		mov	ebx, HTabY[ebx*4]
+		mov	ebx, ds:HTabY[ebx*4]
 		shl	eax, 1
 		add	ebx, eax
 		mov	byte ptr [ebx], cl
@@ -116,7 +116,7 @@ HPrintCar	endp
 
 HPrintCarC	proc
 
-		mov	ebx, HTabY[ebx*4]
+		mov	ebx, ds:HTabY[ebx*4]
 		shl	eax, 1
 		add	ebx, eax
 		mov	dh, cl
@@ -133,7 +133,7 @@ HPrintCarC	endp
 
 HString		proc
 
-		mov	ebx, HTabY[ebx*4]
+		mov	ebx, ds:HTabY[ebx*4]
 		shl	eax, 1
 		add	ebx, eax
 
@@ -155,7 +155,7 @@ HString		endp
 
 HStringC	proc
 
-		mov	ebx, HTabY[ebx*4]
+		mov	ebx, ds:HTabY[ebx*4]
 		shl	eax, 1
 		add	ebx, eax
 
@@ -232,7 +232,7 @@ HScrollDown	endp
 
 HLineH		proc
 
-		mov	eax, HTabY[eax*4]
+		mov	eax, ds:HTabY[eax*4]
 		sub	ecx, ebx		;// x1-x0
 		inc	ecx
 		shl	ebx, 1
@@ -256,7 +256,7 @@ HLineV		proc
 
 		sub	ecx, ebx		;// y1-y0
 		inc	ecx
-		mov	ebx, HTabY[ebx*4]
+		mov	ebx, ds:HTabY[ebx*4]
 		shl	eax, 1
 		add	ebx, eax
 
@@ -275,7 +275,7 @@ HLineV		endp
 
 HColor		proc
 
-		mov	eax, HTabY[eax*4]
+		mov	eax, ds:HTabY[eax*4]
 		sub	ecx, ebx		;// x1-x0
 		inc	ecx
 		shl	ebx, 1
@@ -302,7 +302,7 @@ HColorBox	proc
 		sub	ecx, eax		;// y1-y0
 		inc	ecx
 
-		mov	eax, HTabY[eax*4]	;// calcul adresse de debut
+		mov	eax, ds:HTabY[eax*4]	;// calcul adresse de debut
 		shl	esi, 1
 		add	eax, esi
 		inc	eax			;// passe sur l'attribut
@@ -335,7 +335,7 @@ HClsBox		proc
 		sub	ecx, eax		;// y1-y0
 		inc	ecx
 
-		mov	eax, HTabY[eax*4]	;// calcul adresse de debut
+		mov	eax, ds:HTabY[eax*4]	;// calcul adresse de debut
 		shl	esi, 1
 		add	eax, esi
 

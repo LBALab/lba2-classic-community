@@ -583,7 +583,7 @@ S32     InputPlayerName( S32 choice, char *name )
         S32     retval = FALSE ;
         S32     akey ;
         S32     memoasciimode = AsciiMode ;
-        S32     x, y ;
+        S32     x=0, y=0;
         S32     len ;
         S32     timeraff, timernoaff ;
 

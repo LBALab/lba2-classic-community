@@ -59,12 +59,16 @@ LLFLAGS = $+$(LLFLAGS)$- DEBUG ALL OP STUB=STUB.EXE
 
 VERSION	= version.obj
 
-OBJETS  = ambiance.obj animtex.obj bezier.obj buggy.obj cheatcod.obj comporte.obj compress.obj config.obj copy.obj
-          credits.obj critical.obj dart.obj dec_xcf.obj diskfunc.obj extfunc.obj extra.obj fiche.obj fire.obj
-          flow.obj flow_a.obj func.obj gamemenu.obj gerelife.obj geretrak.obj global.obj grille.obj grille_a.obj
-          hercul_a.obj hercule.obj holobody.obj hologlob.obj holoplan.obj impact.obj incrust.obj input.obj intext.obj
-          invent.obj keyb.obj lzss.obj mem.obj Message.obj music.obj object.obj patch.obj perso.obj plasma.obj
-          playacf.obj pof.obj rain.obj savegame.obj scan.obj sort.obj validpos.obj wagon.obj zv.obj
+OBJETS  = perso.obj bezier.obj diskfunc.obj fiche.obj extra.obj incrust.obj  &
+	  global.obj input.obj grille.obj grille_a.obj func.obj cheatcod.obj &
+	  animtex.obj impact.obj buggy.obj wagon.obj ambiance.obj gamemenu.obj &
+	  fire.obj plasma.obj pof.obj patch.obj geretrak.obj gerelife.obj &
+	  flow.obj flow_a.obj dart.obj hercule.obj hercul_a.obj validpos.obj &
+	  dec_xcf.obj playacf.obj copy.obj object.obj savegame.obj mem.obj &
+	  intext.obj extfunc.obj rain.obj compress.obj lzss.obj Message.obj &
+	  invent.obj comporte.obj hologlob.obj holoplan.obj holobody.obj &
+	  sort.obj config.obj credits.obj zv.obj scan.obj keyb.obj music.obj &
+	  critical.obj
 
 LIBS	= ..\tools\perso\3dext\3dextg.lib
 

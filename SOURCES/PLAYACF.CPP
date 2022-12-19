@@ -219,6 +219,7 @@ void	PlayAllAcf( void )
 // FIXME: Uncomment implementation, for now just to text more compilation
 S32	PlayAcf( const char *name )
 {
+  return 0;
 //	Smack		*smk	      	;
 //	U32		frame	      	;
 //	S32		n 		;

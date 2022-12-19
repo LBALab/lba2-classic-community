@@ -31,8 +31,6 @@ extern	U8	FlagSlideShow ;
 
 extern "C" U8   *BufSpeak       ;
 
-#pragma	aux	BufSpeak	"*"	;
-
 extern  char   	PathSave[] ;
 extern  char   	GamePathname[] ;
 #ifdef	_WIN32

@@ -10,17 +10,17 @@ extern "C" {
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 typedef	void	Func_CopyFrameDoubleXY(void *src)	;
-
+/*
 #pragma aux Arg_CopyFrameDoubleXY	"*"	\
 	parm caller	[esi]			\
 	modify		[eax ebx ecx edx edi]
 
 #pragma	aux (Arg_CopyFrameDoubleXY)	Func_CopyFrameDoubleXY
-
+	*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_CopyFrameDoubleXY	*CopyFrameDoubleXY	;
 
-#pragma	aux	CopyFrameDoubleXY	"*"
+//#pragma	aux	CopyFrameDoubleXY	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
