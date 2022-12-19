@@ -16,10 +16,10 @@ extern "C" {
 #endif
 
 S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul );
-
+/*
 #pragma aux LineRain	"*"				\
 	parm caller [eax] [ebx] [edi] [ecx] [edx] [esi]
-
+*/
 #ifdef __cplusplus
 }
 #endif

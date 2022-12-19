@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <mem.h>
+//#include <mem.h>
 #include <string.h>
-#include <dos.h>
+//#include <dos.h>
 
 #include <SYSTEM.H>
 #include <SVGA.H>
