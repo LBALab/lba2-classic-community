@@ -45,12 +45,8 @@
 
 #ifdef	_WIN32
 #include	<SYSTEM/WINSYS.H>
-  #ifdef SOUND_BACKEND_MILES
-  #include	<AIL/MSSW.H>
-  #endif // SOUND_BACKEND_MILES
 #else// _WIN32
 #include	<SYSTEM/DOSSYS.H>
-#include	<AIL/MSS.H>
 #endif//_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
