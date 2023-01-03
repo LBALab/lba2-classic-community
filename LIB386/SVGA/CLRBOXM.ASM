@@ -64,7 +64,7 @@ loopClear:
 			dec	ebx
 			jnz	loopClear
 
-;			emms
+			emms
 			ret
 odd:
 			add	eax, 8
@@ -84,7 +84,7 @@ loopClearX:
 			dec	ebx
 			jnz	loopClearY
 ClearBoxFEnd::
-;			emms
+			emms
 			ret
 
 @@Just_A_Col:
@@ -94,7 +94,7 @@ ClearBoxFEnd::
 			dec	ebx
 			jnz	@@Just_A_Col
 
-;			emms
+			emms
 			ret
 
 ClearBoxM		ENDP

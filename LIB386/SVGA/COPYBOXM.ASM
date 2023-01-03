@@ -67,7 +67,7 @@ loopCopy:
 			dec	ebx
 			jnz	loopCopy
 
-;			emms
+			emms
 
 			pop	ebp
 			ret
@@ -96,7 +96,7 @@ loopCopyX:
 			dec	ebx
 			jnz	loopCopyY
 CopyBoxFEnd::
-;			emms
+			emms
 
 			pop	ebp
 			ret
@@ -112,7 +112,7 @@ CopyBoxFEnd::
 			lea	edi, [edi+edx]
 			jnz	@@Just_A_Col
 
-;			emms
+			emms
 
 			pop	ebp
 			ret

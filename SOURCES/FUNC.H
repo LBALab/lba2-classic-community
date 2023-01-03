@@ -44,16 +44,10 @@ extern void	VsyncTimer( void ) ;
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 // Pour l'instant, en attendant d'avoir un PaletteSync propre !!!!!!!!!
 
-//yaz #define	PaletteSync(pal)	{ PaletteVblVESA(TRUE); Palette(pal); PaletteVblVESA(FALSE); }
+#define	PaletteSync(pal)	{ PaletteVblVESA(TRUE); Palette(pal); PaletteVblVESA(FALSE); }
 //#define	PaletteSync(pal)	{ VsyncTimer(); Palette(pal); }
 
-extern void	PaletteSync( U8 *palette ) ;
-
-#pragma	aux	VsyncTimer
-
-#pragma	aux	PaletteSync \
-		parm caller [esi] \
-		modify [esi]
+//extern void	PaletteSync( U8 *palette ) ;
 
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀

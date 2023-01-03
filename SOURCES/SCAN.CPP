@@ -38,11 +38,10 @@ S32     ScanToAscii(S32 scan)
 }
 
 //──────────────────────────────────────────────────────────────────────────
-U32     GetBit(U32 val);
-
-#pragma aux GetBit =            \
-"       bsf     eax, eax"       \
-        parm    [eax]
+U32     GetBit(U32 val) {
+        unsigned long index;
+        return _BitScanForward(&index, val);
+}
 
 //──────────────────────────────────────────────────────────────────────────
 S32     KeyDown()

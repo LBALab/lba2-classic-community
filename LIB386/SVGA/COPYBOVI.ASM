@@ -26,12 +26,12 @@
 			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 			extrn  C	AllowPatchAndPatch:PROC
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 CopyBoxVESAIInit	proc
 
@@ -48,7 +48,7 @@ Patch_Jump::
 
 CopyBoxVESAIInit	endp
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 ;void	CopyBoxVESAI(void *dst, void *src, U32 *TabOffDst, T_BOX *box) ;
@@ -65,14 +65,14 @@ CopyBoxVESAI		PROC
 
 			mov	ebx, [ebx+4]		; ebx = (XMax, YMax)
 			mov	eax, ebp
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 x:
 			org	CopyBoxVESAI
 
 			jmp	NEAR PTR CopyBoxVESAIInit	; 5 bytes
 
 			org	x
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 			shr	ebp, 16			; EBP = YMin
 			and	eax, 0FFFFh		; EAX = XMin
 

@@ -30,15 +30,15 @@ Mat_33			equ	dword ptr[patch_M33+1]
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 		extrn	AllowPatchAndPatch: PROC
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		public	C	LongRotateListI
 
 ;*══════════════════════════════════════════════════════════════════════════*
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 LongRotateListIInit	proc
 
@@ -52,7 +52,7 @@ Patch_Jump::
 
 LongRotateListIInit	endp
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotateListI(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
@@ -66,14 +66,14 @@ LongRotateListI	proc
 		mov	eax, [ebx].Struc_MatriceMAT.MAT_M11
 		mov	edx, [ebx].Struc_MatriceMAT.MAT_M12
 
-IFDEF	_WIN32				; This code is 5 bytes long
+IFDEF	_WIN32_PATCH_ENABLE				; This code is 5 bytes long
 x:
 		org	LongRotateListI
 
 		jmp	NEAR PTR LongRotateListIInit
 
 		org	x
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 		test	ecx, ecx
 		jz	Exit
 

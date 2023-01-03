@@ -44,12 +44,15 @@ Skip_Next_Line	dd	0
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 IFDEF	_WIN32
-		extrn  C	AllowPatchAndPatch:PROC
 		extrn  C	AllowPatch:PROC
-ENDIF
+ENDIF ; _WIN32
+
+IFDEF	_WIN32_PATCH_ENABLE
+		extrn  C	AllowPatchAndPatch:PROC
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 ScaleSpriteInit proc
 
@@ -63,7 +66,7 @@ Patch_Jump::
 
 ScaleSpriteInit endp
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 ScaleSprite	proc uses ebp,		\
@@ -98,14 +101,14 @@ oky:
 
 ScaleSpritePatch::
 		mov	[Start],esi
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 x:
 		org	ScaleSpritePatch
 
 		jmp	NEAR PTR ScaleSpriteInit; 5 bytes
 
 		org	x
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 		mov	al,[esi].Struc_Sprite.Delta_X
 
 ;		movzx	eax,[esi].Struc_Sprite.Delta_X

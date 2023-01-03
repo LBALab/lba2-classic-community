@@ -4,7 +4,7 @@ project(LBA2)
 
 # Configure languages and compilers
 set(CMAKE_ASM_MASM_COMPILER uasm) # TODO: Move to toolchain file
-set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -DREG_CALL -coff -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd") # TODO: Move to toolchain file
+set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -coff -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd") # TODO: Move to toolchain file
 # TODO: Add /Zd only in debug mode
 
 # TODO: Re-check ASM "rep movsd", UASM may be thinking it is XMM when it is not (I think 486 should support it)

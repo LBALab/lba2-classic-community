@@ -15,7 +15,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		public	C	CopyBox
 
-CopyBox		dd	offset CopyBoxInit
+CopyBox		dd	offset CopyBoxF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
@@ -23,7 +23,7 @@ CopyBox		dd	offset CopyBoxInit
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C	CopyBoxI:PROC
 		extrn	C	CopyBoxF:PROC
-		;extrn	C	CopyBoxM:PROC
+		extrn	C	CopyBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C	Chooser:PROC

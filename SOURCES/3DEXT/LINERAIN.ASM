@@ -45,16 +45,19 @@ Color	       		db	0
 
 ;----------------------------------------------------------------------------
 IFDEF	_WIN32
-			Extrn	C	AllowPatchAndPatch	:PROC
 			Extrn	C	AllowPatch	:PROC
 ENDIF	; _WIN32
+
+IFDEF	_WIN32_PATCH_ENABLE
+			Extrn	C	AllowPatchAndPatch	:PROC
+ENDIF	; _WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 			public	C	LineRain
 
 
 ;----------------------------------------------------------------------------
-ifdef	_WIN32
+ifdef	_WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 Init_LineRain 		PROC
@@ -71,7 +74,7 @@ Good_Code:
 Init_LineRain 		ENDP
 
 ;----------------------------------------------------------------------------
-endif;	_WIN32
+endif;	_WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 ; ╔════════════════════════════════════════════════════════════════════════╗
@@ -115,12 +118,12 @@ x:
 
 			shl	edi,16
 			mov	ebp, coul
-ifdef	_WIN32
+ifdef	_WIN32_PATCH_ENABLE
 y:
 			org	x
 			jmp	Init_LineRain
 			org	y
-endif;	_WIN32
+endif;	_WIN32_PATCH_ENABLE
 			mov	[CurrentZ2],esi
 			mov	[CurrentZ1],edi
 			push	eax

@@ -79,7 +79,7 @@ void	SetMousePos( S32 x, S32 y )
 	if(MouseY<MouseBoxY0)		MouseY = MouseBoxY0;
 	else if(MouseY>MouseBoxY1)	MouseY = MouseBoxY1;
 
-	//yaz SetCursorPos(160, 100)	;
+	SetCursorPos(160, 100)	;
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ void	GetMouseDep()
 	MouseXDep = LibMouseXDep	;
 	MouseYDep = LibMouseYDep	;
 
-	//yaz SetCursorPos(160, 100)		;
+	SetCursorPos(160, 100)		;
 
 	LibMouseXDep = 0		;
 	LibMouseYDep = 0		;

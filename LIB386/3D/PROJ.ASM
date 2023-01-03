@@ -85,8 +85,7 @@ SetProjection	PROC \
 		test	[ProcessorFeatureFlags], 1 SHL 23
 		jz	noMMX
 
-; TODO: Recheck, was commented by yaz0r so must be right
-;		emms
+		emms
 noMMX:
 		fild	[LFactorX]	; fx
 		fild	[LFactorY]	; fy fx

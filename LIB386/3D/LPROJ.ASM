@@ -11,7 +11,8 @@
 		.DATA
 
 		public	C LongProjectPoint
-LongProjectPoint	dd	offset LongProjectPointInit
+;LongProjectPoint	dd	offset LongProjectPointInit
+LongProjectPoint	dd	offset LongProjectPoint3D
 
 		ASSUME  DS:SEG LongProjectPoint
 
