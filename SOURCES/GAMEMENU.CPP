@@ -322,7 +322,7 @@ S32     PlayerGameList( char **ptrlistname, char *listname, S32 flagnew )
         rc = _findfirst( pathname, &fileinfo );
         if (rc != -1) {
           do {
-            if (fileinfo.attrib == _A_NORMAL) {
+            if (fileinfo.attrib & _A_NORMAL) {
               strcpy( pathname, PathSave  ) ;
               strcat( pathname,  fileinfo.name ) ;
 
@@ -392,7 +392,7 @@ S32     FindPlayerFile()
         rc = _findfirst( pathname, &fileinfo );
         if (rc != -1) {
           do {
-            if (fileinfo.attrib == _A_NORMAL) {
+            if (fileinfo.attrib & _A_NORMAL) {
               strcpy( pathname, PathSave  ) ;
               strcat( pathname,  fileinfo.name ) ;
 
