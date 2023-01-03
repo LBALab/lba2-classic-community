@@ -35,9 +35,9 @@
                 public C	RotateListIEnd
 
 ;*══════════════════════════════════════════════════════════════════════════*
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 		extrn  C	AllowPatchAndPatch:PROC
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*
 Trans_X			equ	dword ptr[patch_MTX+3]
@@ -61,7 +61,7 @@ Delta1			equ	dword ptr[patch_Delta1+3]
 Delta2			equ	dword ptr[patch_Delta2+3]
 
 ;*══════════════════════════════════════════════════════════════════════════*
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 RotateListIInit	proc
 
@@ -79,7 +79,7 @@ Patch_Jump::
 
 RotateListIInit	endp
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	RotateListI(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
@@ -96,7 +96,7 @@ RotateListI	proc
 		push	edi		; target
 		mov	[Delta0], esi	; delta+0
 
-IFDEF	_WIN32				; This code is 5 bytes long
+IFDEF	_WIN32_PATCH_ENABLE				; This code is 5 bytes long
 x:
 		org	RotateListI
 
@@ -104,7 +104,7 @@ x:
 
 		org	x
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 		add	esi, 2
 		lea	ecx, [ecx*8+edi]; final address
 

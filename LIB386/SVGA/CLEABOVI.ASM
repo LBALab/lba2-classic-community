@@ -26,9 +26,9 @@
 			Extrn	C	VirtualLinearFirst:PROC
 
 ;----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 			extrn  C	AllowPatchAndPatch:PROC
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 ;void	ClearBoxVESAI(void *dst, U32 *TabOffDst, T_BOX *box) ;

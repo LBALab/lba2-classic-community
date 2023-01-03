@@ -62,8 +62,7 @@
 
 LongProjectList3DMF PROC
 
-; TODO Review, yaz0r commit commented it so it should be right, but at any problem recheck this
-;		emms
+		emms
 
 LongProjectList3DF::
 

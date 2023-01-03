@@ -68,6 +68,8 @@ MemoClipWindowYMax	dd	0
 			PUBLIC	C	UnsetClip
 			PUBLIC	C	MemoClip
 			PUBLIC	C	RestoreClip
+			PUBLIC	C	RestoreClipWindow
+			PUBLIC	C	MemoClipWindow
 
 ;----------------------------------------------------------------------------
 ;void	SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)	;

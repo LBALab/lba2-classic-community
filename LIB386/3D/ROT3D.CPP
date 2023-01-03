@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+// TODO: Improve as in the end RotatePoint_C and LongWorldRotatePoint_C call _LongRotatePointF
 void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 #ifdef __MSC_VER
   __asm {
@@ -21,7 +22,7 @@ void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
                        "movl %1, %%eax\n\t"
                        "movl %2, %%ebx\n\t"
                        "movl %3, %%ecx\n\t"
-                       "call RotatePoint\n\t"
+                       "call _LongRotatePointF\n\t"
                        "popa\n\t"
                        :
                        : "m"(Mat), "m"(x), "m"(y), "m"(z)

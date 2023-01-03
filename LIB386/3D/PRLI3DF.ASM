@@ -65,8 +65,7 @@ ProjectList3DMF	PROC
 		test	ecx, ecx
 		jz	RetProj
 
-; TODO: Recheck, was commented by yaz0r so must be right, but recheck on problems
-;		emms
+		emms
 
 		jmp	enterprojli
 ProjectList3DF::

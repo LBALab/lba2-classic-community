@@ -115,7 +115,7 @@ S32 IsStreamPlaying() { return FALSE; }
 char *StreamName() { return ""; }
 
 // === CD ======================================================================
-char OpenCD(char *volume_name) { return 0; }
+char OpenCD(char *volume_name) { return 'D'; }
 void CloseCD() {}
 void PlayCD(S32 track) {}
 void ChangeVolumeCD(S32 volume) {}

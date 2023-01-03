@@ -76,7 +76,7 @@ ClearBoxVESAM2::	SEG_FS
 			dec	ebx
 			jnz	loopCopy
 
-;			emms
+			emms
 
 			pop	ebp
 			ret
@@ -103,7 +103,7 @@ ClearBoxVESAM5::	SEG_FS
 			dec	ebx
 			jnz	loopCopyY
 ClearBoxVESAFEnd::
-;			emms
+			emms
 
 			pop	ebp
 			ret
@@ -117,7 +117,7 @@ ClearBoxVESAM6::	SEG_FS
 			lea	edi, [edi+edx]
 			jnz	@@Just_A_Col
 
-;			emms
+			emms
 
 			pop	ebp
 			ret

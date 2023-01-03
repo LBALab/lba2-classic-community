@@ -4,9 +4,6 @@
 extern "C" {
 #endif
 
-#undef LongWorldRotatePoint
-typedef void(Func_LongRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
-
 void LongWorldRotatePoint_C(S32 x, S32 y, S32 z) {
 #ifdef __MSC_VER
   __asm {
@@ -24,10 +21,10 @@ void LongWorldRotatePoint_C(S32 x, S32 y, S32 z) {
                        "movl %1, %%eax\n\t"
                        "movl %2, %%ebx\n\t"
                        "movl %3, %%ecx\n\t"
-                       "call LongRotatePoint\n\t"
+                       "call _LongRotatePointF\n\t"
                        "popa\n\t"
                        :
-                       : "m"(MatriceWorld), "m"(x), "m"(y), "m"(z)
+                       : "r"(&MatriceWorld), "m"(x), "m"(y), "m"(z)
                        : "%esi", "%eax", "%ebx", "%ecx");
 #else
 #error "Unsupported compiler!"

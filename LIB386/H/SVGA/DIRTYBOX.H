@@ -2,6 +2,8 @@
 #ifndef LIB_SVGA_DIRTYBOX
 #define LIB_SVGA_DIRTYBOX
 
+#include <SYSTEM/ADELINE.H>
+
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus
 extern	"C"	{

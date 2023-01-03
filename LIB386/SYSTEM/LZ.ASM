@@ -12,15 +12,18 @@
 
 ;*──────────────────────────────────────────────────────────────────────────*
 IFDEF	_WIN32
-			extrn	C	AllowPatchAndPatch:PROC
 			Extrn	C		AllowPatch		:	PROC
-ENDIF
+ENDIF ; _WIN32
+
+IFDEF	_WIN32_PATCH_ENABLE
+			extrn	C	AllowPatchAndPatch:PROC
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*──────────────────────────────────────────────────────────────────────────*
 BlockSize		equ	byte ptr[PatchBlockSize+2]
 
 ;*──────────────────────────────────────────────────────────────────────────*
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 ExpandLZInit		PROC
 
@@ -34,7 +37,7 @@ Patch_Jump:
 
 ExpandLZInit		ENDP
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*──────────────────────────────────────────────────────────────────────────*
 ;void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)

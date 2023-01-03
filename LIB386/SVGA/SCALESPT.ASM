@@ -44,12 +44,15 @@ Skip_Next_Line	dd	0
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 IFDEF	_WIN32
-		extrn  C	AllowPatchAndPatch:PROC
 		extrn  C	AllowPatch:PROC
-ENDIF
+ENDIF ; _WIN32
+
+IFDEF	_WIN32_PATCH_ENABLE
+		extrn  C	AllowPatchAndPatch:PROC
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 ScaleSpriteTranspInit proc
 
@@ -63,7 +66,7 @@ Patch_Jump::
 
 ScaleSpriteTranspInit endp
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 ScaleSpriteTransp	proc uses ebp,				\
@@ -80,16 +83,16 @@ ScaleSpriteTransp	proc uses ebp,				\
 
 ScaleSpriteTranspPatch::
 		mov	dword ptr [Ptr_Transp+2],edx
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 x:
 		org	ScaleSpriteTranspPatch
 
 		jmp	NEAR PTR ScaleSpriteTranspInit; 5 bytes
 
 		org	x
-ELSE
+ELSE ; _WIN32_PATCH_ENABLE
 		mov	dword ptr [Ptr_Transp+2],edx
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 		mov	dword ptr [Ptr_Transp1+2],edx
 
 		mov	eax,[factorx]

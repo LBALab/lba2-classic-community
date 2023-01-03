@@ -159,7 +159,7 @@ static	S32	InitDesiredMode()
 #elif __GNUC__
         __asm__ __volatile__ ("movl %0, %%ebx\n\t"
                               :
-                              : "m" (TabOffLine)
+                              : "r" (&TabOffLine)
                               : "%ebx");
 #else
 #error "Unsupported compiler!"

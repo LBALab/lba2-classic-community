@@ -73,6 +73,7 @@ ASSUME ds:SEG LightNormalUnit
 		public	C SetPosLight
 		public	C SetTargetLight
 		public	C SetLightVector
+		public	C RecomputeLight
 
 ;****************************************************************************
 ;void	SetPosLight(S32 x, S32 y, S32 z);

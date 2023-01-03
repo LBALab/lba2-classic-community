@@ -19,7 +19,7 @@
 
 		public	C LongProjectPoint3D
 
-LongProjectPoint3D	dd	offset	LongProjectPoint3DInit
+LongProjectPoint3D	dd	offset	LongProjectPoint3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 

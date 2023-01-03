@@ -16,12 +16,12 @@
 			public	C	CopyBoxI
 
 ;----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 		extrn  C	AllowPatchAndPatch:PROC
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 
 CopyBoxIInit	proc
 
@@ -38,7 +38,7 @@ Patch_Jump::
 
 CopyBoxIInit	endp
 
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 ;void	CopyBoxI(void *dst, void *src, U32 *TabOffDst, T_BOX *box) ;
@@ -54,14 +54,14 @@ CopyBoxI		PROC
 
 			mov	ebx, [ebx+4]		; ebx = (XMax, YMax)
 			mov	eax, ebp
-IFDEF	_WIN32
+IFDEF	_WIN32_PATCH_ENABLE
 x:
 			org	CopyBoxI
 
 			jmp	NEAR PTR CopyBoxIInit	; 5 bytes
 
 			org	x
-ENDIF
+ENDIF ; _WIN32_PATCH_ENABLE
 			shr	ebp, 16			; EBP = YMin
 			and	eax, 0FFFFh		; EAX = XMin
 

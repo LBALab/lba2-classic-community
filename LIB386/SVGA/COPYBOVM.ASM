@@ -82,7 +82,7 @@ CopyBoxVESAM2::		SEG_FS
 			dec	ebx
 			jnz	loopCopy
 
-;			emms
+			emms
 
 			pop	ebp
 			ret
@@ -114,7 +114,7 @@ CopyBoxVESAM5::		SEG_FS
 			dec	ebx
 			jnz	loopCopyY
 CopyBoxVESAFEnd::
-;			emms
+			emms
 
 			pop	ebp
 			ret
@@ -131,7 +131,7 @@ CopyBoxVESAM6::		SEG_FS
 			lea	edi, [edi+edx]
 			jnz	@@Just_A_Col
 
-;			emms
+			emms
 
 			pop	ebp
 			ret

@@ -25,7 +25,7 @@
 ;CORRECT_TEXTURE	EQU	0	; IF DEFINED: Correct the mapping coord
 					; (add 1/2 on u and v)
 
-;FORCE_FPU		EQU	0
+FORCE_FPU		EQU	1
 ;FORCE_INT		EQU	0
 
 
@@ -37,6 +37,7 @@
 ;					*** PROCEDURES ***
 ;					******************
 PUBLIC	C		Fill_Poly		; Polygon filler (Variable Pointer)
+PUBLIC	C		Fill_PolyMMX
 PUBLIC	C		Fill_PolyFast		; Polygon filler (Direct call without EMMS)
 PUBLIC	C		SetScreenPitch		; Change the pitch of the screen
 PUBLIC	C		SetFog			; Initialize the fog
@@ -575,7 +576,7 @@ Fill_ClipFlag		dd	0		; Flag telling us what to clip
 Fill_Flag_Fog		db	FALSE		; True if FOG is active
 Fill_Flag_ZBuffer	db	FALSE		; True if ZBUFFER is active
 Fill_Flag_NZW		db	FALSE		; True if NZW active
-Fill_UseFPU		db	FALSE		; True if we should use the FPU
+Fill_UseFPU		db	TRUE		; True if we should use the FPU
 
 
 Fill_Logical_Palette	db	256 dup (?)	; Logical palette
@@ -887,8 +888,11 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 IFDEF	_WIN32
 Extrn	C		AllowPatch		:	PROC
+;ENDIF ; _WIN32
+
+;IFDEF	_WIN32_PATCH_ENABLE
 Extrn	C		AllowPatchAndPatch	:	PROC
-ENDIF	; _WIN32
+ENDIF	; _WIN32_PATCH_ENABLE
 
 
 					; *** POLYLINE.ASM ***
@@ -6668,6 +6672,7 @@ InitFillPoly_WIN32	PROC
 			call	SetScreenPitch
 			popad
 
+;IFDEF _WIN32_PATCH_ENABLE
 			push	Offset First_FillerPatch
 			push	Offset Last_FillerPatch
 			push	Offset Good_CodeFillPoly
@@ -6676,6 +6681,7 @@ Good_CodeFillPoly:
 			push	ebp			; ** THERE MUST BE AT LEAST
 			xor	ebp,ebp			; ** 5 BYTES B4 THE
 			mov	[Fill_LeftSlope],ebp	; ** PATCH CODE
+;ENDIF ; _WIN32_PATCH_ENABLE
 InitFillPoly_WIN32	ENDP
 
 
@@ -6689,6 +6695,7 @@ InitFillPoly_WIN32	ENDP
 Init_SetScreenPitch_WIN32 PROC
 			call	Init_Fillers_WIN32
 
+;IFDEF _WIN32_PATCH_ENABLE
 			push	Offset SetScreenPitch
 			push	Offset SetScreenPitch+5		; COZ we'll patch at least 5 bytes
 			push	Offset @@Good_Code		;		   ^^^^exactly ;)
@@ -6699,6 +6706,7 @@ Init_SetScreenPitch_WIN32 PROC
 REPT	3
 			NOP
 ENDM
+;ENDIF ; _WIN32_PATCH_ENABLE
 Init_SetScreenPitch_WIN32 ENDP
 
 
@@ -6709,6 +6717,7 @@ Init_SetScreenPitch_WIN32 ENDP
 Init_SwitchFillers_WIN32 PROC
 			call	Init_Fillers_WIN32
 
+;IFDEF _WIN32_PATCH_ENABLE
 			push	Offset Switch_Fillers
 			push	Offset Switch_Fillers+5		; COZ we'll patch at least 5 bytes
 			push	Offset @@Good_Code		;		   ^^^^exactly ;)
@@ -6719,6 +6728,7 @@ Init_SwitchFillers_WIN32 PROC
 			push	ecx
 			push	edx
 			nop
+;ENDIF ; _WIN32_PATCH_ENABLE
 Init_SwitchFillers_WIN32 ENDP
 
 

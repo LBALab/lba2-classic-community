@@ -19,6 +19,8 @@
 		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
+		public	C	SetClearColor
+
 		public	C	ClearColor
 
 ClearColor	dq	0
