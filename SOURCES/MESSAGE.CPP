@@ -447,7 +447,7 @@ void    InitVoiceFile()
         rc = _findfirst( PATH_VOX_HD"*.VOX", &fileinfo );
         if (rc != -1) {
                 do {
-                        if (fileinfo.attrib == _A_NORMAL) {
+                        if (fileinfo.attrib & _A_NORMAL) {
                           strcpy( pathname, PATH_VOX_HD ) ;
                           strcat( pathname, fileinfo.name);
 
