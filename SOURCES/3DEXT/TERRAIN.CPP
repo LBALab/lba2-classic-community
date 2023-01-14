@@ -830,82 +830,30 @@ if( ModeHercule )	HPrintf( "CubeBitField= %d\n", CubeBitField ) ;
 
 /*──────────────────────────────────────────────────────────────────────────*/
 U32 MaskVisible(U8 *in_ptr) {
-        U32 mask;
+        // This code conversion could be improved...
 
-#ifdef __MSC_VER
-        __asm {
-		pusha
-		mov esi, in_ptr
-		mov     al, [esi]
-		mov     dl, [esi+65] 
+        U8 *firstRow = in_ptr;
+        U8 *secondRow = in_ptr + 65;
 
-		mov	ah, al
-		and	al, dl
+        U8 maskH = *firstRow;
+        U8 maskL = *firstRow;
 
-		or	ah, dl
-		mov     dl, [esi+1] 
+        maskH |= *secondRow;
+        maskL &= *secondRow;
 
-		and     al, dl   
-		or	ah, dl	
+        maskH |= *(firstRow + 1);
+        maskL &= *(firstRow + 1);
 
-		mov     dl, [esi+66] 
+        maskH |= *(secondRow + 1);
+        maskL &= *(secondRow + 1);
 
-		or	ah, dl	
-		and     al, dl       
+        U32 finalMask = 0;
+        finalMask |= (maskH << 8);
+        finalMask |= maskL;
+        finalMask &= 0x20FF;
 
-		and     eax, 20FFh  
-
-		mov mask, eax
-		popa
-        }
-#elif __GNUC__
-        __asm__ __volatile__("pusha\n\t"
-                             "movl %1, %%esi\n\t"
-                             "movb (%%esi), %%al\n\t"
-                             "movb 65(%%esi), %%dl\n\t"
-                             "movb %%al, %%ah\n\t"
-                             "andb %%dl, %%al\n\t"
-                             "orb %%dl, %%ah\n\t"
-                             "movb 1(%%esi), %%dl\n\t"
-                             "andb %%dl, %%al\n\t"
-                             "orb %%dl, %%ah\n\t"
-                             "movb 66(%%esi), %%dl\n\t"
-                             "orb %%dl, %%ah\n\t"
-                             "andb %%dl, %%al\n\t"
-                             "andl $0x20FF, %%eax\n\t"
-                             "movl %%eax, %0\n\t"
-                             "popa\n\t"
-                             : "=m"(mask)
-                             : "m"(in_ptr)
-                             : "%eax", "%esi", "%ah", "%al", "%dl");
-#else
-#error "Unsupported compiler!"
-#endif
-
-        return mask;
+        return finalMask;
 }
-/*
-#pragma	aux MaskVisible	=		\
-"       mov     al, [esi]       "       \
-"       mov     dl, [esi+65]    "       \
-"				"	\
-"	mov	ah, al		"	\
-"	and	al, dl		"	\
-"				"	\
-"	or	ah, dl		"	\
-"       mov     dl, [esi+1]     "       \
-"				"	\
-"       and     al, dl          "       \
-"	or	ah, dl		"	\
-"				"	\
-"       mov     dl, [esi+66]    "       \
-"				"	\
-"	or	ah, dl		"	\
-"       and     al, dl          "       \
-"				"	\
-"       and     eax, 20FFh      "       \
-	parm		[esi]		\
-	modify exact	[eax edx]*/
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void	AffichageTerrainZBuf( void )
