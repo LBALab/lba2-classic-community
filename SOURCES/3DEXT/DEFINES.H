@@ -10,7 +10,6 @@
 #include <3D.H>
 #include <OBJECT.H>
 #include <POLYGON.H>
-#include <MENU.H>
 
 #ifndef	_WIN32
 #define	DEBUG_TOOLS	1
