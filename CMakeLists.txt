@@ -32,6 +32,9 @@ if (NOT MVIDEO_BACKEND IN_LIST MVIDEO_BACKEND_OPTIONS)
     message(SEND_ERROR "MVIDEO_BACKEND set with invalid option '${MVIDEO_BACKEND}'. Valid options are: ${MVIDEO_BACKEND_OPTIONS}")
 endif ()
 
+# Dependencies
+find_package(SDL2 REQUIRED)
+
 # Process the targets
 add_subdirectory(LIB386)
 add_subdirectory(SOURCES)

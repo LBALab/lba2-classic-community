@@ -3,10 +3,10 @@
 #define LIB_SYSTEM_LOGPRINT
 
 //----------------------------------------------------------------------------
+#include	<SYSTEM/ADELINE_TYPES.H>
+
 #include	<stdarg.h>
 #include	<stdio.h>
-
-#include	<SYSTEM/LOGPRINT.H>
 
 //--------------------------------------------------------------------------//
 #ifdef	__cplusplus

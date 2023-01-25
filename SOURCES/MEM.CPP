@@ -8,6 +8,8 @@
 
 #include	"C_EXTERN.H"	// include LBA2
 
+#include <SVGA/SCREEN.H>
+
 extern	U8  	*BufferSmack ;// tempo ?
 
 S32	PtrSceneMem	;

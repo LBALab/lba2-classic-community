@@ -7,6 +7,8 @@
 
 #include 	"C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+
 extern	char	PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
 extern	S32	LastMyJoy ;

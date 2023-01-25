@@ -33,19 +33,19 @@ extern	S32	PaletteVbl	;
 #define	PaletteVblVESA(bool)	PaletteVbl = bool	;
 
 //--------------------------------------------------------------------------
-extern	void	SetPaletteVESA(void *pal, S32 start, S32 n)		;
+extern	void	SetVideoPalette(const U8 src[], S32 start, S32 n)		;
 
 //--------------------------------------------------------------------------
-extern	void	SetPaletteOneVESA(S32 col, S32 red, S32 green, S32 blue);
+extern	void	SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b);
 
 //--------------------------------------------------------------------------
 #endif//_WIN32
 
 //--------------------------------------------------------------------------
-#define	Palette(Pal)		SetPaletteVESA(Pal, 0, 256)
+#define	Palette(Pal)		SetVideoPalette(Pal, 0, 256)
 
 //--------------------------------------------------------------------------
-#define	PalOne(col, r, g, b)	SetPaletteOneVESA(col, r, g, b)
+#define	PalOne(col, r, g, b)	SetVideoPaletteCol(col, r, g, b)
 
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus

@@ -16,6 +16,11 @@
 
 #include        "C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+
 #define CONFIG_SHADE_LVL        MENU_SHADE_LVL
 
 #define START_ACTION_TXT        100

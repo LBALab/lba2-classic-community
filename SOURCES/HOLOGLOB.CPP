@@ -4,6 +4,9 @@
 
 #include	"C_EXTERN.H"	// include LBA2
 
+#include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+
 //────────────────────────────────────────────────────────────────────────────
 //	Concerning BODY and ANIM
 T_OBJ_3D ObjTwinsen	;

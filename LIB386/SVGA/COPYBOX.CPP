@@ -1,6 +1,5 @@
 #include "SVGA/COPYBOX.H"
 
-#include <SVGA/LOGPHYS.H>
 
 #ifdef __cplusplus
 extern "C" {

@@ -43,6 +43,7 @@ S32     QuickMessage  = 0               ;
 
 #else
 #include        "C_EXTERN.H"
+#include <SYSTEM/KEYBOARD_KEYS.H>
 #endif
 
 S32     FlagRestoreCD = 0               ;

@@ -1,6 +1,6 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 #include	<SYSTEM/ADELINE.H>
-#include	<SYSTEM/INITIMER.H>
+#include	<SYSTEM/TIMER.H>
 #include	<SYSTEM/A_MALLOC.H>
 #include	<SYSTEM/LZ.H>
 #include	<SYSTEM/FILES.H>

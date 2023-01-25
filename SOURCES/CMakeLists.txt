@@ -19,7 +19,7 @@ set(SOURCES_FILES_DOS CRITICAL.CPP HERCULE.CPP)
 set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
 
 add_executable(lba2 ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN})
-target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio men obj poly svg sys gdi32 user32 ddraw winmm kernel32)
+target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio men obj poly svg sys gdi32 user32 ddraw winmm kernel32 SDL2::SDL2main)
 target_include_directories(lba2 PRIVATE ../LIB386/H)
 target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
         $<$<STREQUAL:MVIDEO_BACKEND,smacker>:USE_MVIDEO_SMACKER>

@@ -2,6 +2,11 @@
 #include	<SVGA.H>
 #include	<MENU.H>
 
+#include <SYSTEM/EVENTS.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/MOUSE.H>
+
 #include	<stdio.h>
 #include	<stdlib.h>
 #include	<sys/types.h>
@@ -305,7 +310,7 @@ S32	FileSelector(	char *titre,
 	AddButton( &Selector, 6,  0,18, 16, 2, FLAG_CENTRE+FLAG_CONTOUR+FLAG_RED, "OK" ) ;
 
 	DrawMenu( &Selector, -1,-1 ) ;
-	ShowMouse( 1 ) ;
+	ShowMouse( true ) ;
 
 	BoxUpdate()	;
 
@@ -331,6 +336,7 @@ S32	FileSelector(	char *titre,
 
 	while( Click )
 	{
+                ManageEvents();
 		BoxUpdate()	;
 	}
 
@@ -350,14 +356,15 @@ S32	FileSelector(	char *titre,
 		case 10:	// files list
 			if( Click & 2 )
 			{
-				GetMouseDep() ;
+				ManageMouse() ;
 				while( Click & 2 )
 				{
-					GetMouseDep() ;
+					ManageMouse() ;
 					StartFile -= MouseYDep ;
 					if( StartFile < 0 )	StartFile = 0 ;
 					DrawListFiles(flags) ;
 					BoxUpdate()	;
+                                        ManageEvents();
 				}
 				oldnum = -1 ;
 			}

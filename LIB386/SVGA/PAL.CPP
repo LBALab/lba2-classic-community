@@ -21,7 +21,7 @@ static void ResetPalette()
 {
 	if(!lpDDPal)	return	;
 
-	if(PaletteVbl)	VblVESA();
+	WaitVideoSync();
 
 	lpDDPal->SetEntries(0, ColMin, ColMax-ColMin, &(WinPal.ppe[ColMin]) );
 }
@@ -55,7 +55,7 @@ void SetPaletteOneVESA(S32 col, S32 r, S32 g, S32 b)
 	WinPal.ppe[col].peGreen	= (U8)g;
 	WinPal.ppe[col].peBlue	= (U8)b;
 
-	if(PaletteVbl)	VblVESA()	;
+	WaitVideoSync()	;
 
 	lpDDPal->SetEntries(0, col, 1, &(WinPal.ppe[col]) );
 }

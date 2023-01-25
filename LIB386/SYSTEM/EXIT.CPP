@@ -1,6 +1,7 @@
 //----------------------------------------------------------------------------
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/EXIT.H>
+#include <SYSTEM/LIMITS.H>
 
 #include	<string.h>
 #include	<dos.h>
@@ -10,11 +11,11 @@
 //----------------------------------------------------------------------------
 PTR_VOID_FUNC 	Inits[32]		;
 PTR_VOID_FUNC 	Clears[32]		;
-char		PathConfigFile[_MAX_PATH];
+char		PathConfigFile[ADELINE_MAX_PATH];
 static U32	NbFuncs=0		;
 static U32	DontRegister=0		;
 static U32	CntClears=0		;
-static char	Path1[_MAX_PATH]	;
+static char	Path1[ADELINE_MAX_PATH]	;
 
 //----------------------------------------------------------------------------
 U32	RegisterInitClear(PTR_VOID_FUNC init, PTR_VOID_FUNC clear)

@@ -7,9 +7,8 @@
 #include	<SVGA/MOUSE.H>
 
 //──────────────────────────────────────────────────────────────────────────
-// TODO: Review, yaz0r removed static but so far I don't know why
-static	S32	LibMouseXDep, LibMouseYDep			;
-static	S32	MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1	;
+S32	LibMouseXDep, LibMouseYDep			;
+S32	MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1	;
 
 //──────────────────────────────────────────────────────────────────────────
 WINDOW_PROC_PTR	OldMouseWindowProc;

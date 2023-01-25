@@ -1,4 +1,5 @@
 #include        "C_EXTERN.H"
+#include <SVGA/VIDEO.H>
 
 #define BCL_FADE        50
 #define FADE_DELAY      200

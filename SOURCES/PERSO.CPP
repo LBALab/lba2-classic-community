@@ -1,5 +1,15 @@
 #include        "C_EXTERN.H"
 
+#include <SVGA/INITMODE.H> // Init events on INITADEL.C
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/EVENTS.H> // Init events on INITADEL.C
+#include <SYSTEM/WINDOW.H> // Init events on INITADEL.C
+
+#include <SDL2/SDL.h> // For SDL_main
+
 /*#ifndef DEMO
 #define THOMAS  1
 #endif
@@ -2140,7 +2150,7 @@ void    ChangeProgDir( char *path )
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
-#ifdef  _WIN32
+#ifdef  _WIN32_XXX
 int PASCAL WinMain(     HINSTANCE hInstance, HINSTANCE hPrevInstance,
                         LPSTR lpCmdLine, int nCmdShow                   )
 {
@@ -2152,7 +2162,7 @@ int PASCAL WinMain(     HINSTANCE hInstance, HINSTANCE hPrevInstance,
         nCmdShow = nCmdShow ;
 
 #else //_WIN32
-int main(S32 argc, char *argv[])
+int main(int argc, char *argv[])
 {
         S32     load = FALSE ;
         U8      *ptrdos4gw ;
@@ -2187,7 +2197,7 @@ int main(S32 argc, char *argv[])
 	#define ibuffer ScreenAux
 	#define ibuffersize     (640*480+RECOVER_AREA)
 	#define lname   "lba2.cfg"
-	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_SVGA|INIT_KEYB|INIT_SAMPLE|INIT_SMACKER
+	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_WINDOW|INIT_VIDEO|INIT_KEYB|INIT_SAMPLE|INIT_SMACKER
 	#include <INITADEL.C>
 
 #ifdef	_WIN32
@@ -2195,9 +2205,6 @@ int main(S32 argc, char *argv[])
 #endif
 
 	End_Error = ""  ;
-
-	// Passe en clavier "Splitté" (différenciation de chaque touche)
-	AllowExtendedKeyb() ;
 
 	InitProgram()   ;
 	InitMemory()    ;       // Alloue petits buffers
