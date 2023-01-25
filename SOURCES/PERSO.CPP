@@ -1,12 +1,11 @@
 #include        "C_EXTERN.H"
 
-#include <SVGA/INITMODE.H> // Init events on INITADEL.C
+#include <SYSTEM/INITADEL.H>
+
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
-#include <SYSTEM/KEYBOARD.H>
+//#include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
-#include <SYSTEM/EVENTS.H> // Init events on INITADEL.C
-#include <SYSTEM/WINDOW.H> // Init events on INITADEL.C
 
 #include <SDL2/SDL.h> // For SDL_main
 
@@ -2189,16 +2188,8 @@ int main(int argc, char *argv[])
 
 	End_Error = PathConfigFile ;
 
-#ifdef  DEMO
-	#define APPNAME "LBA2 Twinsen's Odyssey Demo"
-#else //DEMO
-	#define APPNAME "LBA2"
-#endif//DEMO
-	#define ibuffer ScreenAux
-	#define ibuffersize     (640*480+RECOVER_AREA)
-	#define lname   "lba2.cfg"
-	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_WINDOW|INIT_VIDEO|INIT_KEYB|INIT_SAMPLE|INIT_SMACKER
-	#include <INITADEL.C>
+
+	InitAdeline(argc, argv);
 
 #ifdef	_WIN32
 	atexit(TheEndInfo)      ;
