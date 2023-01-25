@@ -1,5 +1,7 @@
 #include "DEFINES.H"
 
+#include <SVGA/SCREEN.H>
+
 #define	 	LIMITE_LOIN 	(60*1024)
 #define		COLOR_LIMITE	255
 #define		SIZE_TEXTURE	64

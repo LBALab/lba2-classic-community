@@ -8,6 +8,10 @@
 
 #include 	"C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+
 #define	ULTRA	-1L
 #define	ALWAYS	ULTRA
 

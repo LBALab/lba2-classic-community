@@ -229,7 +229,7 @@ S32	PlayAcf( const char *name )
 //#ifdef	LBA_EDITOR
 //	char		name_acf[256] 	;
 //
-//	ShowMouse( 0 ) ;
+//	ShowMouse( false ) ;
 //
 //	smackflags = SMACKTRACK1|SMACKNEEDVOLUME ;
 //#else
@@ -484,7 +484,7 @@ S32	PlayAcf( const char *name )
 //	InitWaitNoInput( I_MENUS ) ;
 //
 //#ifdef	LBA_EDITOR
-//	ShowMouse( 1 ) ;
+//	ShowMouse( true ) ;
 //#endif
 //
 //	return ret ;

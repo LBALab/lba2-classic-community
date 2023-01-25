@@ -12,6 +12,9 @@
 
 #include	"C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD.H>
+
 #define	GridSizeX  40000
 #define	GridSizeZ  40000
 

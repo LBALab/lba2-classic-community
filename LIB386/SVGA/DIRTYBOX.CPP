@@ -3,30 +3,21 @@
 #include	<SYSTEM/CPU.H>
 #include	<SYSTEM/A_MALLOC.H>
 #include	<SVGA/SCREENXY.H>
-#include	<SVGA/LOGPHYS.H>
 #include	<SVGA/CLRBOX.H>
 #include	<SVGA/COPYBOX.H>
 #include	<SVGA/SAVBLOCK.H>
 #include	<SVGA/RESBLOCK.H>
 #include	<SVGA/GRAPH.H>
-#include	<SVGA/INIMOUSE.H>
 #include	<SVGA/DIRTYBOX.H>
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/MOUSE.H>
+#include <SYSTEM/EVENTS.H>
 
 #include	<stdlib.h>
 #include	<string.h>
 #include	<limits.h>
-
-//****************************************************************************
-#ifdef	_WIN32
-#include	<SYSTEM/WINSYS.H>
-#include	<SVGA/DDRAW.H>
-
-#else //_WIN32
-#include	<system/dossys.h>
-#include	<svga/copybov.h>
-#include	<svga/cleabov.h>
-
-#endif//_WIN32
 
 //****************************************************************************
 #ifdef	__cplusplus
@@ -48,10 +39,6 @@ S32	BoxCleanClip						;
 //****************************************************************************
 BOX_FUNC  *BoxOneBlit, *BoxOneClean				;
 VOID_FUNC *BoxScreenGet, *BoxScreenRelease, *BoxScreenFlip	;
-
-//****************************************************************************
-S32	DefSprite	= 0			;
-void	*GphSprite 	= NULL			;
 
 //****************************************************************************
 static U8	BufferSprite[48*48] 		;
@@ -303,7 +290,7 @@ void DefaultBoxOneBlit(T_BOX *pbox)
 	if((pbox->x1<=pbox->x0) || (pbox->y1<=pbox->y0)) return	;
 
 #ifdef	_WIN32
-	CopyBox(Phys, Log, TabOffPhysLine, pbox);
+        CopyVideoArea(Phys, Log, TabOffPhysLine, pbox);
 #else
 	CopyBoxVESA(Phys, Log, TabOffPhysLine, pbox);
 #endif
@@ -312,7 +299,7 @@ void DefaultBoxOneBlit(T_BOX *pbox)
 //****************************************************************************
 void DefaultBoxOneClean(T_BOX *pbox)
 {
-	CopyBox(Log, Screen, TabOffLine, pbox)	;
+        CopyVideoArea(Log, Screen, TabOffLine, pbox)	;
 }
 
 //****************************************************************************
@@ -487,7 +474,7 @@ void	BoxBlitStaticListToScreen()
 
 	while(pBox)		 // walk the list
 	{
-		CopyBox(Screen, Log, TabOffLine, pBox);
+                CopyVideoArea(Screen, Log, TabOffLine, pBox);
 		pBox = pBox->pBoxNext ;
 	}
 }
@@ -511,7 +498,7 @@ void	BoxBlit()
 	{
 		S32	sx, sy	;
 
-		GetBoxGraph(DefSprite, &x0, &y0, &x1, &y1, GphSprite)	;
+		GetBoxGraph(MouseSpriteGraphicNum, &x0, &y0, &x1, &y1, MouseSpriteGraphic)	;
 
 		sx = MouseX	;
 		sy = MouseY	;
@@ -542,14 +529,14 @@ void	BoxBlit()
 			ClipXMax	= ModeDesiredX-1		;
 			ClipYMax	= ModeDesiredY-1		;
 
-			AffGraph(DefSprite, sx, sy, GphSprite)		;
+			AffGraph(MouseSpriteGraphicNum, sx, sy, MouseSpriteGraphic)		;
 
 			// add box in optlist for immediate blit
 			NewBox(&pBoxOptList, x0, y0, x1, y1)		;
 		}
 	}
 
-	if(BoxScreenGet)	(*BoxScreenGet)()	;// Get access to the screen
+        LockVideoSurface(); // Get access to the screen
 
 	BltListAndEmpty(&pBoxOptList)			;// Blit boxes to screen
 
@@ -578,7 +565,7 @@ void	BoxBlit()
 		BoxCleanClip = FALSE	;
 	}
 
-	if(BoxScreenRelease)	(*BoxScreenRelease)()	;// Release screen
+        UnlockVideoSurface(); // Release screen
 
 	if( FlagMouse && (x1>x0) && (y1>y0)) // remove sprite from Log
 	{
@@ -682,9 +669,9 @@ S32 BoxInit( S32 nbBox )
 		nbBox = 4	;
 	}
 
-	SetBoxScreenGet(NULL)			;
-	SetBoxScreenRelease(NULL);
-	SetBoxScreenFlip(NULL)			;
+	//SetBoxScreenGet(NULL)			;
+	//SetBoxScreenRelease(NULL);
+	//SetBoxScreenFlip(NULL)			;
 	SetBoxOneBlit(NULL)			;
 	SetBoxOneClean(NULL)			;
 

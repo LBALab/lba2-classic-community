@@ -2,6 +2,10 @@
 #include	<SVGA.H>
 #include	<MENU.H>
 
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/MOUSE.H>
+
 #include	<stdlib.h>
 #include	<stdio.h>
 #include	<string.h>
@@ -840,10 +844,10 @@ S32	GereMenu( T_MENU *ptrmenu )
 					value = *(ptrlcb->PtrVar) ;
 					if( click & 2 ) /* slide value */
 					{
-						GetMouseDep() ;
+						ManageMouse() ;
 						while( Click )
 						{
-							GetMouseDep() ;
+							ManageMouse() ;
 							value += (MouseXDep/4) * ptrlcb->Mask ;
 							if( value < vmin ) value = vmin ;
 							if( value > vmax ) value = vmax ;

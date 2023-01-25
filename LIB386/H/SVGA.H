@@ -17,8 +17,6 @@
 #include <SVGA/CLRBOX.H>
 #include <SVGA/CLEABOV.H>
 #include <SVGA/DIRTYBOX.H>
-#include <SVGA/LOGPHYS.H>
-#include <SVGA/INITMODE.H>
 #include <SVGA/VESA.H>
 #include <SVGA/DDRAW.H>
 #include <SVGA/AFFSTR.H>
@@ -41,8 +39,6 @@
 #include <SVGA/SCALEBOX.H>
 #include <SVGA/SCALESPT.H>
 #include <SVGA/SCALESPI.H>
-#include <SVGA/INIMOUSE.H>
-#include <SVGA/MOUSE.H>
 #include <SVGA/PAL.H>
 
 //──────────────────────────────────────────────────────────────────────────

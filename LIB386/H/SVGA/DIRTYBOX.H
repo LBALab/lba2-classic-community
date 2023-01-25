@@ -27,40 +27,12 @@ extern	"C"	{
 //
 
 //-----------------------------------------------------------------------------
-#pragma pack(push, 1)
 
-//-----------------------------------------------------------------------------
-typedef struct	STR_T_BOX
-	{
-		S16			x0	;
-		S16			y0	;
-		S16			x1	;
-		S16			y1	;
-		struct STR_T_BOX	*pBoxNext;
-	}	T_BOX	;
-
-//-----------------------------------------------------------------------------
-#pragma pack(pop)
-
-//-----------------------------------------------------------------------------
-typedef void (BOX_FUNC)(T_BOX *pbox)	;
-
-#pragma aux	ARG_BOX_FUNC		\
-	parm caller	[ebx]		\
-	modify	[eax ecx edx esi edi]
-
-#pragma aux	(ARG_BOX_FUNC)	BOX_FUNC
-
-//-----------------------------------------------------------------------------
 extern S32	BoxClipXMin, BoxClipXMax,
 		BoxClipYMin, BoxClipYMax	;
 
 //-----------------------------------------------------------------------------
 extern		S32	BoxCleanClip		;
-
-//-----------------------------------------------------------------------------
-extern		void	*GphSprite			;
-extern		S32	DefSprite			;
 
 //-----------------------------------------------------------------------------
 extern BOX_FUNC  *BoxOneBlit, *BoxOneClean			;

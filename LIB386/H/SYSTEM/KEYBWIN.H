@@ -1,130 +1,111 @@
-//──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_KEYBWIN
-#define LIB_SYSTEM_KEYBWIN
+#pragma once
 
-//──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#include <SDL2/SDL_keycode.h>
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//──────────────────────────────────────────────────────────────────────────
-extern	S32		AsciiMode		;
-extern	S32		Key			;
+// -----------------------------------------------------------------------------
+extern S32              AsciiMode;
+extern S32              Key;
+extern U8               TabKeys[];
+extern WINDOW_PROC_PTR  OldKeybWindowProc;
+extern WINDOW_PROC      KeybWindowProc;
+extern HANDLE           AsciiMutex;
 
-//──────────────────────────────────────────────────────────────────────────
-extern	U8		TabKeys[]		;
+// -----------------------------------------------------------------------------
+extern S32   GetAscii();
+extern void  ClearAsciiBuffer();
+extern void  ManageKeyboard();
 
-//──────────────────────────────────────────────────────────────────────────
-extern	WINDOW_PROC_PTR	OldKeybWindowProc	;
+// -----------------------------------------------------------------------------
+#define AllowExtendedKeyb()
+#define KeyIndex(x)          ((x) < 256 ? (x) : 256 - 32 + ((x) >> 3))
+#define KeyBit(x)            ((x) < 256 ? 0x80 : (1 << ((x)&7)))
+#define CheckKey(x)                                                            \
+  ((x) < 256 ? TabKeys[(x)] & 0x80                                             \
+             : TabKeys[256 - 32 + ((x) >> 3)] & (1 << ((x)&7)))
 
-//──────────────────────────────────────────────────────────────────────────
-extern	WINDOW_PROC	KeybWindowProc		;
+// -----------------------------------------------------------------------------
+#define K_UP            SDL_SCANCODE_UP
+#define K_DOWN          SDL_SCANCODE_DOWN
+#define K_LEFT          SDL_SCANCODE_LEFT
+#define K_RIGHT         SDL_SCANCODE_RIGHT
+#define K_HOME          SDL_SCANCODE_HOME
+#define K_PAGE_UP       SDL_SCANCODE_PAGEUP
+#define K_PAGE_DOWN     SDL_SCANCODE_PAGEDOWN
+#define K_END           SDL_SCANCODE_END
 
-//──────────────────────────────────────────────────────────────────────────
-extern	void	ManageKeyboard()		;
+#define K_SPACE         SDL_SCANCODE_SPACE
+#define K_ENTER         SDL_SCANCODE_RETURN
+#define K_SUPPR         SDL_SCANCODE_DELETE
+#define K_INSER         SDL_SCANCODE_INSERT
+#define K_CAPSLOCK      SDL_SCANCODE_CAPSLOCK
+#define K_ALT           SDL_SCANCODE_LALT
+#define K_CTRL          SDL_SCANCODE_LCTRL
+#define K_CTRL_LEFT     SDL_SCANCODE_LCTRL
+#define K_CTRL_RIGHT    SDL_SCANCODE_RCTRL
+#define K_ALT_LEFT      SDL_SCANCODE_LALT
+#define K_ALT_RIGHT     SDL_SCANCODE_RALT
+#define K_SHIFT         SDL_SCANCODE_LSHIFT
+#define K_SHIFT_LEFT    SDL_SCANCODE_LSHIFT
+#define K_SHIFT_RIGHT   SDL_SCANCODE_RSHIFT
 
-//──────────────────────────────────────────────────────────────────────────
-extern	S32	GetAscii()			;
+#define K_ESC           SDL_SCANCODE_ESCAPE
 
-//──────────────────────────────────────────────────────────────────────────
-extern	void	ClearAsciiBuffer()		;
+#define K_F1            SDL_SCANCODE_F1
+#define K_F2            SDL_SCANCODE_F2
+#define K_F3            SDL_SCANCODE_F3
+#define K_F4            SDL_SCANCODE_F4
+#define K_F5            SDL_SCANCODE_F5
+#define K_F6            SDL_SCANCODE_F6
+#define K_F7            SDL_SCANCODE_F7
+#define K_F8            SDL_SCANCODE_F8
+#define K_F9            SDL_SCANCODE_F9
+#define K_F10           SDL_SCANCODE_F10
+#define K_F11           SDL_SCANCODE_F11
+#define K_F12           SDL_SCANCODE_F12
 
-//──────────────────────────────────────────────────────────────────────────
-extern	HANDLE	AsciiMutex			;
+#define K_PLUS          SDL_SCANCODE_PLUS
+#define K_MOINS         SDL_SCANCODE_MINUS
+#define K_BACKSPACE     SDL_SCANCODE_BACKSPACE
+#define K_TAB           SDL_SCANCODE_TAB
+#define K_NUMLOCK       SDL_SCANCODE_NUMLOCKCLEAR
 
-//──────────────────────────────────────────────────────────────────────────
-#define	AllowExtendedKeyb()
+#define	K_PRINTSCR      SDL_SCANCODE_PRINTSCREEN
+#define	K_SCROLLLOCK	SDL_SCANCODE_SCROLLLOCK
+#define	K_PAUSE         SDL_SCANCODE_PAUSE
 
-//──────────────────────────────────────────────────────────────────────────
-#define KeyIndex(x)     ((x)<256?(x):256-32+((x)>>3))
-#define KeyBit(x)       ((x)<256?0x80:(1<<((x)&7)))
-//#define CheckKey(x)     (TabKeys[KeyIndex(x)]&KeyBit(x))
-#define CheckKey(x)     ((x)<256?TabKeys[(x)]&0x80:TabKeys[256-32+((x)>>3)]&(1<<((x)&7)))
-#define FlagKey(x)      (CheckKey(x)>>((x)<256?7:(x)&7))
-/*
-#define KeyIndex(x)     ((x)/4)
-#define KeyBit(x)       (128 << (((x)&3)*8))
-#define CheckKey(x)     (TabKeys[KeyIndex(x)]&KeyBit(x))
-#define FlagKey(x)      ((CheckKey(x)>>(((x)&3)*8))/128)
-*/
-//──────────────────────────────────────────────────────────────────────────
-#define K_UP            VK_UP
-#define K_DOWN          VK_DOWN
-#define K_LEFT          VK_LEFT
-#define K_RIGHT         VK_RIGHT
-#define K_HOME          VK_HOME
-#define K_PAGE_UP       VK_PRIOR
-#define K_PAGE_DOWN     VK_NEXT
-#define K_END           VK_END
+#define K_NUMPAD_1      SDL_SCANCODE_KP_1
+#define K_NUMPAD_2      SDL_SCANCODE_KP_2
+#define K_NUMPAD_3      SDL_SCANCODE_KP_3
+#define K_NUMPAD_4      SDL_SCANCODE_KP_4
+#define K_NUMPAD_5      SDL_SCANCODE_KP_5
+#define K_NUMPAD_6      SDL_SCANCODE_KP_6
+#define K_NUMPAD_7      SDL_SCANCODE_KP_7
+#define K_NUMPAD_8      SDL_SCANCODE_KP_8
+#define K_NUMPAD_9      SDL_SCANCODE_KP_9
+#define K_NUMPAD_0      SDL_SCANCODE_KP_0
 
-#define K_SPACE         VK_SPACE
-#define K_ENTER         VK_RETURN
-#define K_SUPPR         VK_DELETE
-#define K_INSER		VK_INSERT
-#define K_CAPSLOCK      VK_CAPITAL
-#define K_ALT           VK_MENU
-#define K_CTRL          VK_CONTROL
-#define K_CTRL_LEFT     VK_LCONTROL
-#define K_CTRL_RIGHT    VK_RCONTROL
-#define K_ALT_LEFT      VK_LMENU
-#define K_ALT_RIGHT	VK_RMENU
-#define K_SHIFT         VK_SHIFT
-#define K_SHIFT_LEFT    VK_LSHIFT
-#define K_SHIFT_RIGHT   VK_RSHIFT
+#define	K_NUMPAD_ENTER	SDL_SCANCODE_KP_ENTER
 
-#define K_ESC           VK_ESCAPE
+#define	K_NUMPAD_POINT	SDL_SCANCODE_KP_DECIMAL
 
-#define K_F1            VK_F1
-#define K_F2            VK_F2
-#define K_F3            VK_F3
-#define K_F4            VK_F4
-#define K_F5            VK_F5
-#define K_F6            VK_F6
-#define K_F7            VK_F7
-#define K_F8            VK_F8
-#define K_F9            VK_F9
-#define K_F10           VK_F10
-#define K_F11           VK_F11
-#define K_F12           VK_F12
+#define	K_NUMPAD_DIV	SDL_SCANCODE_KP_DIVIDE
+#define	K_NUMPAD_MUL	SDL_SCANCODE_KP_MULTIPLY
+#define K_NUMPAD_PLUS   SDL_SCANCODE_KP_PLUS
+#define K_NUMPAD_MOINS  SDL_SCANCODE_KP_MINUS
 
-#define K_PLUS          VK_ADD
-#define K_MOINS         VK_SUBTRACT
-#define K_BACKSPACE     VK_BACK
-#define K_TAB           VK_TAB
-#define K_NUMLOCK       VK_NUMLOCK
+#define K_WINDOWS_LEFT	SDL_SCANCODE_LGUI
+#define K_WINDOWS_RIGHT	SDL_SCANCODE_RGUI
+#define K_APPLICATION	SDL_SCANCODE_APPLICATION
 
-#define	K_PRINTSCR	VK_SNAPSHOT
-#define	K_SCROLLLOCK	VK_SCROLL
-#define	K_PAUSE		VK_PAUSE
-
-#define K_NUMPAD_1      VK_NUMPAD1
-#define K_NUMPAD_2      VK_NUMPAD2
-#define K_NUMPAD_3      VK_NUMPAD3
-#define K_NUMPAD_4      VK_NUMPAD4
-#define K_NUMPAD_5      VK_NUMPAD5
-#define K_NUMPAD_6      VK_NUMPAD6
-#define K_NUMPAD_7      VK_NUMPAD7
-#define K_NUMPAD_8      VK_NUMPAD8
-#define K_NUMPAD_9      VK_NUMPAD9
-#define K_NUMPAD_0      VK_NUMPAD0
-
-#define	K_NUMPAD_ENTER	VK_SEPARATOR
-
-#define	K_NUMPAD_POINT	VK_DECIMAL
-
-#define	K_NUMPAD_DIV	VK_DIVIDE
-#define	K_NUMPAD_MUL	VK_MULTIPLY
-#define K_NUMPAD_PLUS   VK_ADD
-#define K_NUMPAD_MOINS  VK_SUBTRACT
-
-#define K_WINDOWS_LEFT	VK_LWIN
-#define K_WINDOWS_RIGHT	VK_RWIN
-#define K_APPLICATION	VK_APPS
-
-#define K_GRAY_UP	K_UP
-#define K_GRAY_DOWN	K_DOWN
-#define K_GRAY_LEFT	K_LEFT
-#define K_GRAY_RIGHT 	K_RIGHT
+#define K_GRAY_UP	SDL_SCANCODE_UP
+#define K_GRAY_DOWN	SDL_SCANCODE_DOWN
+#define K_GRAY_LEFT	SDL_SCANCODE_LEFT
+#define K_GRAY_RIGHT 	SDL_SCANCODE_RIGHT
 #define K_GRAY_HOME	K_HOME
 #define K_GRAY_END	K_END
 #define K_GRAY_PAGE_UP	K_PAGE_UP
@@ -132,83 +113,87 @@ extern	HANDLE	AsciiMutex			;
 #define K_GRAY_INSER	K_INSER
 #define K_GRAY_SUPPR	K_SUPPR
 
-#define	K_CARRE		0xDE
+#define	K_CARRE         SDL_SCANCODE_GRAVE
 
-#define K_A             'A'
-#define K_B             'B'
-#define K_C             'C'
-#define K_D             'D'
-#define K_E             'E'
-#define K_F             'F'
-#define K_G             'G'
-#define K_H             'H'
-#define K_I             'I'
-#define K_J             'J'
-#define K_K             'K'
-#define K_L             'L'
-#define K_M             'M'
-#define K_N             'N'
-#define K_O             'O'
-#define K_P             'P'
-#define K_Q             'Q'
-#define K_R             'R'
-#define K_S             'S'
-#define K_T             'T'
-#define K_U             'U'
-#define K_V             'V'
-#define K_W             'W'
-#define K_X             'X'
-#define K_Y             'Y'
-#define K_Z             'Z'
+#define K_A             SDL_SCANCODE_A
+#define K_B             SDL_SCANCODE_B
+#define K_C             SDL_SCANCODE_C
+#define K_D             SDL_SCANCODE_D
+#define K_E             SDL_SCANCODE_E
+#define K_F             SDL_SCANCODE_F
+#define K_G             SDL_SCANCODE_G
+#define K_H             SDL_SCANCODE_H
+#define K_I             SDL_SCANCODE_I
+#define K_J             SDL_SCANCODE_J
+#define K_K             SDL_SCANCODE_K
+#define K_L             SDL_SCANCODE_L
+#define K_M             SDL_SCANCODE_M
+#define K_N             SDL_SCANCODE_N
+#define K_O             SDL_SCANCODE_O
+#define K_P             SDL_SCANCODE_P
+#define K_Q             SDL_SCANCODE_Q
+#define K_R             SDL_SCANCODE_R
+#define K_S             SDL_SCANCODE_S
+#define K_T             SDL_SCANCODE_T
+#define K_U             SDL_SCANCODE_U
+#define K_V             SDL_SCANCODE_V
+#define K_W             SDL_SCANCODE_W
+#define K_X             SDL_SCANCODE_X
+#define K_Y             SDL_SCANCODE_Y
+#define K_Z             SDL_SCANCODE_Z
 
-#define K_1             '1'
-#define K_2             '2'
-#define K_3             '3'
-#define K_4             '4'
-#define K_5             '5'
-#define K_6             '6'
-#define K_7             '7'
-#define K_8             '8'
-#define K_9             '9'
-#define K_0             '0'
+#define K_1             SDL_SCANCODE_1
+#define K_2             SDL_SCANCODE_2
+#define K_3             SDL_SCANCODE_3
+#define K_4             SDL_SCANCODE_4
+#define K_5             SDL_SCANCODE_5
+#define K_6             SDL_SCANCODE_6
+#define K_7             SDL_SCANCODE_7
+#define K_8             SDL_SCANCODE_8
+#define K_9             SDL_SCANCODE_9
+#define K_0             SDL_SCANCODE_0
 
-//──────────────────────────────────────────────────────────────────────────
-#define A_UP            VK_UP
-#define A_DOWN          VK_DOWN
-#define A_LEFT          VK_LEFT
-#define A_RIGHT         VK_RIGHT
+#define K_INF		SDL_SCANCODE_KP_LESS
+#define K_EXC		SDL_SCANCODE_SLASH
 
-#define A_HOME          VK_HOME
-#define A_END           VK_END
-#define A_PGUP          VK_PRIOR
-#define A_PGDN          VK_NEXT
+// -----------------------------------------------------------------------------
+#define A_UP            SDLK_UP
+#define A_DOWN          SDLK_DOWN
+#define A_LEFT          SDLK_LEFT
+#define A_RIGHT         SDLK_RIGHT
 
-#define A_SPACE         VK_SPACE
-#define A_RETURN        VK_RETURN
+#define A_HOME          SDLK_HOME
+#define A_END           SDLK_END
+#define A_PGUP          SDLK_PAGEUP
+#define A_PGDN          SDLK_PAGEDOWN
 
-#define A_SUPPR         VK_DELETE
+#define A_SPACE         SDLK_SPACE
+#define A_RETURN        SDLK_RETURN
 
-#define A_ESC           VK_ESCAPE
+#define A_SUPPR         SDLK_DELETE
+#define A_INS		SDLK_INSERT
+#define A_CARRE		SDL_SCANCODE_TO_KEYCODE(SDL_SCANCODE_GRAVE)
 
-#define A_F1            VK_F1
-#define A_F2            VK_F2
-#define A_F3            VK_F3
-#define A_F4            VK_F4
-#define A_F5            VK_F5
-#define A_F6            VK_F6
-#define A_F7            VK_F7
-#define A_F8            VK_F8
-#define A_F9            VK_F9
-#define A_F10           VK_F10
-#define A_F11           VK_F11
-#define A_F12           VK_F12
+#define A_ESC           SDLK_ESCAPE
 
+#define A_F1            SDLK_F1
+#define A_F2            SDLK_F2
+#define A_F3            SDLK_F3
+#define A_F4            SDLK_F4
+#define A_F5            SDLK_F5
+#define A_F6            SDLK_F6
+#define A_F7            SDLK_F7
+#define A_F8            SDLK_F8
+#define A_F9            SDLK_F9
+#define A_F10           SDLK_F10
+#define A_F11           SDLK_F11
+#define A_F12           SDLK_F12
 
-#define A_N_PLUS        VK_ADD
-#define A_N_MOINS       VK_SUBSTRACT
-#define A_BACKSPACE     VK_BACK
-#define A_TAB           VK_TAB
-#define A_NUMLOCK       VK_NUMLOCK
+#define A_N_PLUS        SDLK_KP_PLUS
+#define A_N_MOINS       SDLK_KP_MINUS
+#define A_BACKSPACE     SDL_SCANCODE_BACKSPACE
+#define A_TAB           SDLK_TAB
+#define A_NUMLOCK       SDLK_NUMLOCKCLEAR
 
 #define A_A             'A'
 #define A_B             'B'
@@ -248,12 +233,7 @@ extern	HANDLE	AsciiMutex			;
 #define A_9             '9'
 #define A_0             '0'
 
-//──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_KEYBWIN
-
-//──────────────────────────────────────────────────────────────────────────

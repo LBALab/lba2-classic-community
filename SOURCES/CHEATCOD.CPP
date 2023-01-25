@@ -1,5 +1,8 @@
 #include "C_EXTERN.H"
 
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+
 #define	TAILLE_MAX_CHEAT_CODE	10
 
 typedef	struct	{

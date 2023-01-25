@@ -2,6 +2,7 @@
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/WINSYS.H>
 #include	<SYSTEM/KEYBWIN.H>
+#include <SDL2/SDL.h>
 
 //----------------------------------------------------------------------------
 S32	AsciiMode = FALSE	;
@@ -26,10 +27,11 @@ static	S32	StartKey = 0		;
 static	S32	EndKey = 0		;
 
 //----------------------------------------------------------------------------
+// FIXME: Implement Correctly
 void	ManageKeyboard()
 {
 	ManageEvents()	;
-	GetKeyboardState(TabKeys);
+	//GetKeyboardState(TabKeys);
 }
 
 //----------------------------------------------------------------------------
@@ -100,7 +102,32 @@ endkey:
 }
 
 //----------------------------------------------------------------------------
-S32	GetAscii()
+// FIXME: Implement Correctly
+S32 lastReturnedAscii = 0;
+S32 GetAscii() {
+        S32 asciiValue = 0;
+        ManageEvents();
+
+        const Uint8 *keystate = SDL_GetKeyboardState(NULL);
+        for (int keyIndex = 0; keyIndex < SDL_NUM_SCANCODES; keyIndex++) {
+                        if (keystate[keyIndex]) {
+                        asciiValue =
+                            SDL_GetKeyFromScancode((SDL_Scancode)keyIndex);
+
+                        if (lastReturnedAscii == asciiValue)
+                                return 0;
+
+                        lastReturnedAscii = asciiValue;
+                        return asciiValue;
+                        }
+        }
+
+        lastReturnedAscii = 0;
+
+        return 0;
+}
+
+/*S32	GetAscii()
 {
 	U32	ret = 0	;
 
@@ -121,7 +148,7 @@ S32	GetAscii()
         ReleaseMutex(AsciiMutex);
 
 	return ret ;
-}
+}*/
 
 //----------------------------------------------------------------------------
 void	ClearAsciiBuffer()

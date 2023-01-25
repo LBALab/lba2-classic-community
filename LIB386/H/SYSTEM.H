@@ -31,30 +31,24 @@
 #include	<SYSTEM/HQRMEM.H>
 #include	<SYSTEM/HQRMLOAD.H>
 #include	<SYSTEM/HQRRESS.H>
-#include	<SYSTEM/INITKEYB.H>
+#include	<SYSTEM/KEYBOARD.H>
 #include	<SYSTEM/INPUT.H>
 #include	<SYSTEM/LOADMALL.H>
 #include	<SYSTEM/LOADSAVE.H>
 #include	<SYSTEM/LZ.H>
 #include	<SYSTEM/PATCH.H>
-#include	<SYSTEM/INITIMER.H>
+#include	<SYSTEM/TIMER.H>
 #include	<SYSTEM/LOGPRINT.H>
 #include	<SYSTEM/ITOA.H>
 #include	<SYSTEM/CMDLINE.H>
 #include	<SYSTEM/DISKDIR.H>
 
-#ifdef	_WIN32
-#include	<SYSTEM/WINSYS.H>
-#else// _WIN32
-#include	<SYSTEM/DOSSYS.H>
-#endif//_WIN32
-
 //──────────────────────────────────────────────────────────────────────────
-#define INIT_SVGA               (1<<0)
+#define INIT_VIDEO              (1<<0)
 #define INIT_SAMPLE             (1<<1)
 #define INIT_MIDI               (1<<2)
 #define INIT_SMACKER            (1<<3)
-#define INIT_VESA               (1<<4)
+#define INIT_WINDOW             (1<<4)
 
 #define INIT_SYSTEM             (1<<6)
 #define INIT_KEYB               (1<<7)

@@ -1,6 +1,12 @@
 //----------------------------------------------------------------------------
+#include <SYSTEM.H>
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/WINSYS.H>
+#include <SVGA.H>
+
+#include <SYSTEM/MOUSE.H>
+
+#include <SDL2/SDL.h>
 
 //----------------------------------------------------------------------------
 #define	STYLE_FULLSCREEN	WS_EX_APPWINDOW
@@ -196,8 +202,7 @@ static long FAR PASCAL WrapWindowProc(	HWND hWnd, UINT message,
 	return	WindowProc(hWnd, message, wParam, lParam)	;
 }
 
-//----------------------------------------------------------------------------
-void	ManageEvents()
+/*void	ManageEvents()
 {
 	U32	milespaused = FALSE	;
 	MSG	msg			;
@@ -236,6 +241,6 @@ void	ManageEvents()
 	{
 		ResumeMiles()	;
 	}
-}
+}*/
 
 //----------------------------------------------------------------------------

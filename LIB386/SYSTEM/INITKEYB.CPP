@@ -10,8 +10,9 @@
 #include	<SYSTEM/KEYBWIN.H>
 
 //──────────────────────────────────────────────────────────────────────────
+// FIXME: Implement correctly
 void	InitKeyboard()
-{
+{/*
 	AsciiMutex = CreateMutex(NULL, FALSE, NULL);
 
 	if(!AsciiMutex)
@@ -21,7 +22,7 @@ void	InitKeyboard()
 
 	OldKeybWindowProc = WindowProc	;
 	WindowProc = KeybWindowProc	;
-}
+*/}
 
 //──────────────────────────────────────────────────────────────────────────
 void	ClearKeyboard()

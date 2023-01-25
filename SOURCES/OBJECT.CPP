@@ -1,5 +1,8 @@
 #include 	"C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+
 extern	S32	FlagAnimWhoSpeak	;	// MESSAGE.CPP
 
 //#########################################################################

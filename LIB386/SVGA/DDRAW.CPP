@@ -9,6 +9,7 @@
 #include	<SVGA/INITMODE.H>
 #include	<SVGA/DIRTYBOX.H>
 #include	<SVGA/DDRAW.H>
+#include	<SVGA/PAL.H>
 
 //──────────────────────────────────────────────────────────────────────────
 LPDIRECTDRAWSURFACE		lpDDS	= NULL	;
@@ -378,7 +379,9 @@ void	ClearPrimary()
 //──────────────────────────────────────────────────────────────────────────
 void	VblVESA()
 {
-	while(lpDD2->WaitForVerticalBlank(DDWAITVB_BLOCKBEGIN, NULL) == DDERR_WASSTILLDRAWING)	;
+        if(PaletteVbl) {
+	    while(lpDD2->WaitForVerticalBlank(DDWAITVB_BLOCKBEGIN, NULL) == DDERR_WASSTILLDRAWING)	;
+        }
 }
 
 //──────────────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 //──────────────────────────────────────────────────────────────────────────
 #include	<SYSTEM/ADELINE.H>
-#include	<SVGA/LOGPHYS.H>
 #include	<SVGA/CLIP.H>
 #include	<SVGA/PLOT.H>
+#include <SVGA/SCREEN.H>
 
 //──────────────────────────────────────────────────────────────────────────
 void	Plot(S32 x0, S32 y0, S32 coul)

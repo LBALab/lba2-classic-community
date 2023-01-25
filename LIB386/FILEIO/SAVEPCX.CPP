@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM.H>
-#include <SVGA/INITMODE.H>
+#include <SVGA/SCREEN.H>
 #include <FILEIO/SAVEPCX.H>
 
 #include "PCXHEAD.H"

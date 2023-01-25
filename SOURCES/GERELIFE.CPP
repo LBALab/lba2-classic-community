@@ -1,6 +1,10 @@
 #include	"C_EXTERN.H"
 //#include	"messtwin.cpp"
 
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+
 U8	*PtrPrg ;
 U8	TypeAnswer ;
 

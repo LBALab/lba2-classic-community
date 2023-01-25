@@ -1,5 +1,8 @@
 #include	"C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+
 #define	ZOOM_A	2048	//	Big Islands
 #define	ZOOM_B	1024	//	Islands with 4 cubes
 #define	ZOOM_C	768	//	Islands with 1 cube
