@@ -15,7 +15,7 @@ extern	"C"	{
 
 //----------------------------------------------------------------------------
 extern	U32	Log2File;
-extern	U32	QuietLog;
+extern	U32	QuietLog; ///< If TRUE then will not write to console, only to file
 
 //----------------------------------------------------------------------------
 extern	void	CreateLog(char *name);

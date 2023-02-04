@@ -307,6 +307,7 @@ AffMask			endp
 ;	parm		[eax] [ebx] [ecx] [esi]	\
 ;	modify exact	[eax edx esi]
 
+;TODO: Remove, same as GetDxDyGraph
 GetDxDyMask             proc
 
 			add     esi, [esi+eax*4]
