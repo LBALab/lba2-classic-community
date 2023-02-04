@@ -49,7 +49,7 @@ BufferClip	db	512 dup (?)
 
 ;----------------------------------------------------------------------------
 			PUBLIC	C	AffGraph
-			PUBLIC	C	GetDxDyGraph
+			PUBLIC	C	GetDxDyGraph_ASM
 			PUBLIC	C	GetBoxGraph
 
 ;----------------------------------------------------------------------------
@@ -339,7 +339,7 @@ AffGraph		endp
 ;	parm		[eax] [ebx] [ecx] [esi]	\
 ;	modify exact	[eax edx esi]
 
-GetDxDyGraph		proc \
+GetDxDyGraph_ASM		proc \
 			uses ebx ecx edx edi esi ebp,
 			numgraph:DWORD,\
 			x:DWORD, y:DWORD,\
@@ -360,7 +360,7 @@ GetDxDyGraph		proc \
 
 			ret
 
-GetDxDyGraph		endp
+GetDxDyGraph_ASM		endp
 
 ;----------------------------------------------------------------------------
 ;S32	GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1, void *bankgraph);

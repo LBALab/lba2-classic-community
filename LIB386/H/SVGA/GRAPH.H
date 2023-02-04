@@ -2,6 +2,8 @@
 #ifndef	LIB_SVGA_GRAPH
 #define	LIB_SVGA_GRAPH
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus
 extern	"C"	{
@@ -15,11 +17,7 @@ S32	AffGraph(S32 numgraph, S32 x, S32 y, const void *bankgraph)	;
 	modify	[edx edi]
 
 //--------------------------------------------------------------------------
-S32	GetDxDyGraph(S32 numgraph, S32 *x, S32 *y, void *bankgraph);
-
-#pragma aux GetDxDyGraph	"*"		\
-	parm caller		[eax] [ebx] [ecx] [esi]	\
-	modify exact	[eax edx esi]
+S32	GetDxDyGraph(S32 numgraph, S32 *x, S32 *y, const void *bankgraph);
 
 //--------------------------------------------------------------------------
 S32	GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1, const void *bankgraph);
