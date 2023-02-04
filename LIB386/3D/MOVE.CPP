@@ -3,6 +3,8 @@
 #include	<SYSTEM/TIMER.H>
 #include	<3D/MOVE.H>
 
+#include <stdlib.h>
+
 //---------------------------------------------------------------------------
 void	ChangeSpeedMove(MOVE *pmove, S32 speed)
 {

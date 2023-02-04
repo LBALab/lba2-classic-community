@@ -466,7 +466,7 @@ void	MenuComportement( S32 affone )
 
 		// pour pouvoir restaurer anim marche protopack
 #ifdef	LBA_EDITOR
-		if( !stricmp(ptrobj->StringAnim,GEN_ANIM_MARCHE) )
+		if( !strcasecmp(ptrobj->StringAnim,GEN_ANIM_MARCHE) )
 #else
 		if( ptrobj->GenAnim==GEN_ANIM_MARCHE )
 #endif

@@ -31,15 +31,7 @@ extern void	SmallSort(T_SORT *, U32, U32);
 
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#ifdef	_WIN32
 #define		VsyncTimer()
-#else
-extern void	VsyncTimer( void ) ;
-
-#pragma	aux     VsyncTimer	"*"	\
-		parm caller []		\
-		modify [eax ecx edx]
-#endif
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 // Pour l'instant, en attendant d'avoir un PaletteSync propre !!!!!!!!!

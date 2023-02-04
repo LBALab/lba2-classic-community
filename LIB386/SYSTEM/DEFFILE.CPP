@@ -5,6 +5,7 @@
 #include	<SYSTEM/LOADSAVE.H>
 #include	<SYSTEM/ITOA.H>
 #include	<SYSTEM/DEFFILE.H>
+#include <SYSTEM/LIMITS.H>
 
 #include	<stdlib.h>
 #include	<string.h>
@@ -19,7 +20,7 @@ static	char	*PtrEndIdent			;
 	S32	DefFileReadSkipComments	= TRUE	;
 
 static	S32	BufferSize			;
-static	char	FileName[_MAX_PATH]		;
+static	char	FileName[ADELINE_MAX_PATH]		;
 
 //══════════════════════════════════════════════════════════════════════════
 static inline S32 ReadBufferString(const char *identificateur)
@@ -44,7 +45,7 @@ static inline S32 ReadBufferString(const char *identificateur)
 	{
 		while (*ptrdef==32)	ptrdef++	;	// skip blanks
 
-		if(!strnicmp(ptrdef,identificateur, len))	// look for ident
+		if(!strncasecmp(ptrdef,identificateur, len))	// look for ident
 		{
 			ptrdef+=len;
 

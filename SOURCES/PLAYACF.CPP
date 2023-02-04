@@ -126,28 +126,32 @@ char	*GetAcfName( char *name )
 }
 
 //---------------------------------------------------------------------------
+// TODO: New implementation was not tested yet
+S32 GetNumAcf(const char *name) {
+  S32 n = 0;
 
-S32	GetNumAcf( const char *name )
-{
-	S32	n = 0 ;
-	char	getname[15] ;
-	char	*ptr ;
+  const char *nameDotAt = strchr(name, '.');
+  const size_t nameNoDotLen = (nameDotAt)
+                                  ? (nameDotAt - name)
+                                  : strlen(name);
 
-	PtrAcf = ListAcf ;
+  char getname[15];
+  PtrAcf = ListAcf;
+  while (GetAcfName(getname)) {
+    const char *getNameDotAt = strchr(getname, '.');
+    const size_t getNameNoDotLen = (getNameDotAt)
+                                       ? (getNameDotAt - getname)
+                                       : strlen(getname);
 
-	ptr = strchr(name,'.') ;
-	if( ptr )	*ptr = 0 ;
+    const bool sameLen = (nameNoDotLen == getNameNoDotLen);
+    if (sameLen && !strncasecmp(name, getname, nameNoDotLen)) {
+      return n;
+    }
 
-	while( GetAcfName( getname ) )
-	{
-		ptr = strchr(getname,'.') ;
-		if( ptr )	*ptr = 0 ;
+    n++;
+  }
 
-		if( !stricmp(name,getname) )	return n ;
-		n++ ;
-	}
-
-	return -1 ;
+  return -1;
 }
 
 //---------------------------------------------------------------------------
@@ -172,7 +176,7 @@ void	PlayAllAcf( void )
 #else
 		if( (ListVarGame[var] & (1<<n))
 #endif
-		AND (strnicmp(getname,"INTRO",5)) )// on ne rejoue pas l'intro
+		AND (strncasecmp(getname,"INTRO",5)) )// on ne rejoue pas l'intro
 		{
 			if( !FlagFade )
 			{
@@ -216,7 +220,7 @@ void	PlayAllAcf( void )
 |*									   *|
 \***************************************************************************/
 
-// FIXME: Uncomment implementation, for now just to text more compilation
+// TODO: Implement SMACK video playback
 S32	PlayAcf( const char *name )
 {
   return 0;
@@ -237,7 +241,7 @@ S32	PlayAcf( const char *name )
 //#endif
 //
 //	// si c'est l'intro, on joue la track de la langue choisie
-//	if( !strnicmp(name,"INTRO",5) )
+//	if( !strncasecmp(name,"INTRO",5) )
 //	{
 //#ifdef	CDROM
 //		if( FlagSpeak )
@@ -349,13 +353,11 @@ S32	PlayAcf( const char *name )
 //	{
 //		S32	vol ;
 //
-//#ifdef	_WIN32
 //		if( UseWaveMixer )
 //		{
 //			vol = SampleVolume ;
 //		}
 //		else
-//#endif
 //		{
 //#ifdef	LBA_EDITOR
 //			vol = SampleVolume ;
@@ -392,12 +394,7 @@ S32	PlayAcf( const char *name )
 //#endif
 //				Palette(smk->Palette) ;
 //			}
-//#ifdef	_WIN32
 //			BlitBox( (void*)Phys, (void*)decompbuf ) ;
-//#else
-//			BlitBoxVESA( (void*)Phys, (void*)decompbuf ) ;
-//#endif
-//
 //		}
 //		else
 //#endif

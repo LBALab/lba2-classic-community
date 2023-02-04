@@ -1,5 +1,7 @@
 #include	"C_EXTERN.H"
 
+#include <SYSTEM/ADELINE.H>
+
 U8	*PtrSce ;
 U8	*PtrScene ;
 S32	CubeMode = 0 ; // 0-->Intérieur - 1-->Extérieur
@@ -348,42 +350,27 @@ S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-U8	AddDirIfNot( const char *path )
-{
-	char		name[_MAX_PATH] ;
-	char		drive[_MAX_DRIVE];
-	char		dir[_MAX_DIR] 	 ;
-	_finddata_t     ffblk;
-	intptr_t	done ;
+U8 AddDirIfNot( const char *path ) {
+  char *copypath = strdup(path);
+  int status = 0;
+  char *pp = copypath;
+  char *sp;
+  while (status == 0 && (sp = strchr(pp, '/')) != 0) {
+    if (sp != pp) {
+      *sp = '\0';
+      status = ADELINE_MKDIR(copypath);
+      *sp = '/';
+    }
+    pp = sp + 1;
+  }
 
-	if( !path OR !strcmp(path,"") )	return FALSE ;
+  if (status == 0) {
+    status = ADELINE_MKDIR(path);
+  }
 
-	_splitpath( path, drive, dir, NULL, NULL ) ;
-	_makepath( name, drive, dir, NULL, NULL ) ;
+  free(copypath);
 
-	if( name[strlen(name)-1]=='\\' )	name[strlen(name)-1] = '\0' ;
-
-	if( name[strlen(name)-1]==':' )		return FALSE ;
-
-	// teste si le répertoire existe
-	done = _findfirst( name, &ffblk );
-	_findclose(done);
-
-	if( (done == -1) || (ffblk.attrib != _A_SUBDIR) ) // il n'existe pas
-	{
-		if( mkdir( name )!=0 )
-		{
-			// impossible de creer le repertoire
-			// essaie de creer le repertoire parent
-			if( AddDirIfNot( name ) )
-			{
-				if( mkdir(name)!=0 )	return FALSE ;
-			}
-			else	return FALSE ;
-		}
-	}
-
-	return TRUE ;
+  return (status == 0);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

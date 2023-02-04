@@ -180,14 +180,8 @@
 
 #include	<stdlib.h>
 #include	<string.h>
-#include	<dos.h>
-#include	<conio.h>
 #include	<stdio.h>
 #include	<ctype.h>
-//#include	<i86.h>
-#include	<process.h>
-#include	<limits.h>
-#include	<direct.h>
 #include	<stdarg.h>
 #include	<time.h>
 
@@ -559,12 +553,8 @@ typedef	struct
 #include	"ZV.H"
 #include	"SCAN.H"
 #include	"KEYB.H"
-#ifdef	_WIN32
+
 #include	"JOYSTICK.H"
-#else
-#include	"CRITICAL.H"
-#include	"HERCULE.H"
-#endif
 
 #endif	// EDITLBA2
 

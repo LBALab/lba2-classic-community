@@ -6,6 +6,8 @@
 #include	<SYSTEM/HQFILE.H>
 #include	<SYSTEM/HQRLOAD.H>
 
+#include <stddef.h>
+
 //──────────────────────────────────────────────────────────────────────────
 // alloue la memoire necessaire
 // et charge une fiche(index) d'une ressource .HQR

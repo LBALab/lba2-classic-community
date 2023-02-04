@@ -1,5 +1,4 @@
 //----------------------------------------------------------------------------
-#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/A_MALLOC.H>
 #include <SYSTEM/EXIT.H>
 #include <SYSTEM/FILES.H>
@@ -9,6 +8,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#include <SYSTEM/ADELINE.H>
 
 //----------------------------------------------------------------------------
 #define	MAX_ARGC	30
@@ -78,7 +79,7 @@ S32	FindAndRemoveParam(const char *str)
 restart:
 	for(i=1; i<ArgC; i++)
 	{
-		if(!stricmp(ArgV[i], str))
+		if(!strcasecmp(ArgV[i], str))
 		{
 			res = TRUE	;
 			RemoveParam(i)	;
@@ -130,37 +131,6 @@ static void ParseString(char *str)
 }
 
 //----------------------------------------------------------------------------
-#ifdef	_WIN32
-
-//----------------------------------------------------------------------------
-void	GetCmdLineWin(char *cmdline)
-{
-	static	char modulefilename[_MAX_PATH] ;
-	char	*ptr	;
-
-	GetModuleFileName(NULL, modulefilename, _MAX_PATH)	;
-	ArgV[0] = modulefilename	;
-	ArgC = 1			;
-
-	// Get "CmdLine"
-	ptr = DefFileBufferReadString( "CmdLine") ;
-
-	// process it
-	if(ptr)
-	{
-		strncpy(ExtraCmd, ptr, MAX_EXTRA_CMD-2);
-		ParseString(ExtraCmd)	;
-	}
-
-	// process cmdline
-	strncpy(ExtraCmd, cmdline, MAX_EXTRA_CMD-2)	;
-	ParseString(ExtraCmd)	;
-}
-
-//----------------------------------------------------------------------------
-#endif//_WIN32
-
-//----------------------------------------------------------------------------
 void	GetCmdLine(S32 argc, char *argv[])
 {
 	char	*ptr		;
@@ -177,7 +147,7 @@ void	GetCmdLine(S32 argc, char *argv[])
 		ParseString(ExtraCmd)	;
 	}
 
-	argc = __min(argc-1, MAX_ARGC-ArgC)	;
+	argc = ade_min(argc-1, MAX_ARGC-ArgC)	;
 
 	memcpy(&ArgV[ArgC], &argv[1], argc*sizeof(char *));
 

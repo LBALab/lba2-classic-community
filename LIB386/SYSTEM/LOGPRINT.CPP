@@ -1,26 +1,28 @@
 //----------------------------------------------------------------------------
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/LOGPRINT.H>
+#include <SYSTEM/LIMITS.H>
 
-#include	<stdlib.h>
 #include	<stdarg.h>
 #include	<stdio.h>
 #include	<string.h>
 
 //----------------------------------------------------------------------------
 	U32	QuietLog = FALSE	;
-static	char	LogName[_MAX_PATH]=""	;
+static	char	LogName[ADELINE_MAX_PATH]=""	;
 static	char	LogStr[256]		;
 
 //----------------------------------------------------------------------------
 void	CreateLog(char *fname)
 {
-	char 	drive[ _MAX_DRIVE ]	;
-	char 	dir[ _MAX_DIR ]		;
 	FILE	*logfile 		;
 
-	_splitpath( fname, drive, dir, NULL, NULL )	;
-	_makepath(LogName, drive, dir, "ADELINE", "LOG");
+        strncpy(LogName, fname, ADELINE_MAX_PATH);
+        LogName[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+
+        const char* logFileName = ADELINE_PATH_SEPARATOR"ADELINE.LOG";
+        strncat(LogName, logFileName, strlen(logFileName));
+        LogName[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
 	logfile	= fopen(LogName, "wb")	;
 	if(!logfile)

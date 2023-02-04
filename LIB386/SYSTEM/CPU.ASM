@@ -134,7 +134,7 @@ ProcessorManufacturerIDString	db	12 dup (0),0	; Manufacturer Identification
 ProcessorRevision		db	0
 
 ;-----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	NOP_WIN32
 
 _SYSTEM_INFO	STRUCT
 			wProcessorArchitecture		WORD	?
@@ -164,7 +164,7 @@ ENDIF
 			.CODE
 
 ;-----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	NOP_WIN32
 			EXTERN	C	GetSystemInfo_C:PROC
 			EXTERN	C	RegOpenKeyExA_C:PROC
 			EXTERN	C	RegCloseKey_C:PROC
@@ -334,7 +334,7 @@ ProcessorIdentification	PROC
 			LOCAL	fp_status:DWORD
 
 
-IFDEF	_WIN32
+IFDEF	NOP_WIN32
 			LOCAL	Key	:DWORD
 			LOCAL	SysInfo	:SYSTEM_INFO
 

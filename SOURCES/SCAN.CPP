@@ -2,47 +2,26 @@
 
 #include <SYSTEM/KEYBOARD.H>
 
-//──────────────────────────────────────────────────────────────────────────
-#ifdef  _WIN32
+#ifdef _WIN32 // Portability - Intrinsics are different for MSVC and GCC
+#include <intrin.h>
+#endif
 
 //──────────────────────────────────────────────────────────────────────────
 static  U8      KeyState[256+16*8]   ;
 
 //──────────────────────────────────────────────────────────────────────────
-S32     ScanToAscii(S32 scan)
-{
-        S32     res             ;
-        char    buf[2]          ;
-        char    buf2[4]         ;
+U32 GetBit(U32 val) {
+  if (val == 0) {
+    return 0;
+  }
 
-        memset(KeyState, 0, sizeof(KeyState))   ;
-
-        // dummy in case of previous dead_key
-        ToAscii(scan, 0, KeyState, (LPWORD)buf, 0)      ;
-
-        // translate key
-        res = ToAscii(scan, 0, KeyState, (LPWORD)buf, 0);
-
-        // if dead-key, send a 'p'
-        if(res==-1)
-        {
-                res = ToAscii(VkKeyScan('p')&0xFF, 0, KeyState, (LPWORD)buf, 0);
-                if(res!=2)      res = 0 ;
-        }
-
-        if(!res|(buf[0]<32))    return 0 ;
-
-        buf[1] = 0      ;
-
-        CharToOem(buf, buf2)    ;
-
-        return  toupper(buf2[0]);
-}
-
-//──────────────────────────────────────────────────────────────────────────
-U32     GetBit(U32 val) {
-        unsigned long index;
-        return _BitScanForward(&index, val);
+#ifdef _WIN32 // Portability - Intrinsics are different for MSVC and GCC
+  unsigned long index;
+  _BitScanForward(&index, val);
+  return index;
+#else // _WIN32
+  return __builtin_ctz(val);
+#endif // _WIN32
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -68,10 +47,11 @@ S32     KeyDown()
 
                 TabKeys[i] &= key       ;
 
-                if(     (i>VK_MBUTTON)  &&
+                // FIXME: Add checks back
+                if(    /* (i>VK_MBUTTON)  &&
                         (i!=VK_EXECUTE) &&
                         (i!=VK_LWIN)    &&
-                        (i!=VK_RWIN)    &&
+                        (i!=VK_RWIN)    &&*/
                         !found&&TabKeys[i]      )
                 {
                         found = i       ;
@@ -98,237 +78,5 @@ S32     KeyDown()
 
         return  found   ;
 }
-
-//──────────────────────────────────────────────────────────────────────────
-#else// _WIN32
-
-//──────────────────────────────────────────────────────────────────────────
-typedef struct {
-        S32     ScanCode ;
-        char    Ascii    ;
-       } T_KEY ;
-
-//──────────────────────────────────────────────────────────────────────────
-T_KEY   ScanUnknown[] = {
-        { K_A, 'Q' },
-        { K_Z, 'W' },
-        { K_E, 'E' },
-        { K_R, 'R' },
-        { K_T, 'T' },
-        { K_Y, 'Y' },
-        { K_U, 'U' },
-        { K_I, 'I' },
-        { K_O, 'O' },
-        { K_P, 'P' },
-        { K_CHAPEAU, '[' },
-        { K_DOLLAR, ']' },
-        { K_Q, 'A' },
-        { K_S, 'S' },
-        { K_D, 'D' },
-        { K_F, 'F' },
-        { K_G, 'G' },
-        { K_H, 'H' },
-        { K_J, 'J' },
-        { K_K, 'K' },
-        { K_L, 'L' },
-        { K_M, ';' },
-        { K_OU, '\'' },
-        { K_MUL, '*' },
-        { K_INF, '\\' },
-        { K_W, 'Z' },
-        { K_X, 'X' },
-        { K_C, 'C' },
-        { K_V, 'V' },
-        { K_B, 'B' },
-        { K_N, 'N' },
-        { K_VIRGULE, 'M' },
-        { K_PT_VIRGULE, ',' },
-        { K_2_PTS, '.' },
-        { K_EXC, '/' },
-        { K_CARRE, '~' },
-        { K_PARENTHESE, '-' },
-        { K_EGAL, '+' },
-        { 0, 0 }        // End
-        } ;
-
-//──────────────────────────────────────────────────────────────────────────
-#define DisableKeyb()   keyboard_cmd(0xAD)
-
-//──────────────────────────────────────────────────────────────────────────
-#define EnableKeyb()    keyboard_cmd(0xAE)
-
-//──────────────────────────────────────────────────────────────────────────
-void    InitInt15()
-{
-        union   REGS    r               ;
-        struct  SREGS   sr              ;
-        void    far     *fh             ;
-
-        if(Old_PM15_Sel) return         ;
-
-        if(     !AIL_vmm_lock_range(&Int15CodeStart, &Int15CodeEnd)     OR
-                !AIL_vmm_lock_range(&Int15DataStart, &Int15DataEnd)             )
-        {
-                exit(1);
-        }
-
-//----- Save Old Protected Mode Vector 15 ------
-        r.x.eax = 0x3515                ;//     Function 35h, for Int 15
-        sr.ds = sr.es = 0               ;//     Security (kill the cat)
-        int386x( 0x21, &r, &r, &sr )    ;//     Call Int 21
-        Old_PM15_Sel = (U32)sr.es       ;//     ES:EBX=Old Interrupt 15
-        Old_PM15_Off = r.x.ebx          ;
-
-//----- Install New Protected Vector 15 --------
-        r.x.eax = 0x2515                ;//     Function 25h for int 15
-        fh = (void far*)Int15Handler    ;//     Get far Pointer
-        r.x.edx = FP_OFF( fh )          ;//     Get Offset
-        sr.ds   = FP_SEG( fh )          ;//     Get Segment
-        sr.es   = 0                     ;//     Security
-        int386x( 0x21, &r, &r, &sr )    ;//     Invoke DPMI
-
-        RegisterInitClear(InitInt15, ClearInt15);
-}
-
-//──────────────────────────────────────────────────────────────────────────
-void    ClearInt15()
-{
-        union   REGS    r               ;
-        struct  SREGS   sr              ;
-
-        if(!Old_PM15_Sel) return        ;
-
-//----- Restore Old Protected Vector 15 --------
-        r.x.eax = 0x2515                ;//     Set Vector Interupt 15
-        r.x.edx = Old_PM15_Off          ;//     Adr Old Interrupt 15
-        sr.ds = (U16)Old_PM15_Sel       ;
-        sr.es = 0                       ;//     Security
-        int386x( 0x21, &r, &r, &sr )    ;//     Invoke int 21
-
-        Old_PM15_Sel = 0                ;
-        Old_PM15_Off = 0                ;
-
-        AIL_vmm_unlock_range(&Int15CodeStart, &Int15CodeEnd)    ;
-        AIL_vmm_unlock_range(&Int15DataStart, &Int15DataEnd)    ;
-}
-
-//──────────────────────────────────────────────────────────────────────────
-void    ForceScanCode(U8 scan)
-{
-        Int15Trans = scan       ;
-
-/*
-        keyboard_cmd(0xD0)      ;
-        scan = keyboard_read()  ;
-        keyboard_cmd(0xD1)      ;
-        keyboard_write(scan|0x10);
-*/
-        keyboard_write(0xEE)    ;
-
-        while(Int15Trans)       ;
-}
-
-//──────────────────────────────────────────────────────────────────────────
-S32     ScanToAscii(S32 scan)
-{
-        S32     memoasciimode   ;
-        S32     key, res        ;
-        U32     timer           ;
-        S32     restart = FALSE ;
-        S32     i ;
-
-        for(i=0; ScanUnknown[i].ScanCode; i++)
-        {
-                if(ScanUnknown[i].ScanCode==scan)       return ScanUnknown[i].Ascii ;
-        }
-
-        return 0 ;
-
-        scan &= 0xFF            ;       // ignore high bits
-
-        memoasciimode = AsciiMode;      // backup AsciiMode
-
-        if((scan>127)||!scan)
-        {
-                return  0       ;
-        }
-
-        if(!Old_PM15_Sel)               // initialized ?
-        {
-                InitInt15()     ;       // init
-        }
-
-//      DisableKeyb()           ;
-
-        AsciiMode = TRUE        ;       // set AsciiMode
-
-        while(GetAscii())       ;       // empty Keyb buffer
-
-        // Key DOWN
-
-        ForceScanCode((U8)scan) ;       // send down scan code
-
-        timer = TimerSystemHR+105;      // wait between 100 and 105 ms
-
-        do
-        {
-                key = GetAscii();
-                if(TimerSystemHR>timer)
-                {
-                        if(restart)     break;
-
-                        if(scan==0x1F)  break;
-
-                        ForceScanCode(0x1F);            // send down scan code for S
-
-                        timer = TimerSystemHR+105;      // wait between 100 and 105 ms
-
-                        restart = TRUE ;
-                }
-        }
-        while(!key);                    // wait until Keyb Int taken
-
-        res = key&0xFF  ;
-        key >>= 8       ;
-
-        if((key==0x1F)&&(scan!=0x1F))   res = 0 ;
-
-        res = toupper(res);
-
-        // Key UP
-
-        if(restart)
-        {
-                ForceScanCode(0x1F|0x80);//send up scan code for S
-        }
-
-        ForceScanCode((U8)(scan|0x80)); // send up scan code
-
-        // Reset status
-
-        if(scan==0x3A)                  // CAPS LOCK
-        {
-                ForceScanCode(0x2A)     ;       // send shift down
-                ForceScanCode(0x2A|0x80);       // send shift up
-        }
-        else if((scan==0x45)||(scan==0x46))// NUM LOCK/SCROLL LOCK
-        {
-                ForceScanCode((U8)scan);                // send down scan code
-                ForceScanCode((U8)(scan|0x80)); // send up scan code
-        }
-
-        // clear and exit
-
-        AsciiMode = memoasciimode;      // reset AsciiMode
-
-//      EnableKeyb()            ;
-
-        while(GetAscii())       ;       // empty Keyb buffer
-
-        return(res)             ;       // return Ascii only
-}
-
-//──────────────────────────────────────────────────────────────────────────
-#endif//_WIN32
 
 //──────────────────────────────────────────────────────────────────────────

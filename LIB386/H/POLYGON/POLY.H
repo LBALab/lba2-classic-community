@@ -109,10 +109,8 @@ S32		INV64(S32 a);
 // Renvoie :    Le Z norme sur 16 bitspour le zbuffer 16 bits
 
 //--------------------------------------------------------------------------
-//extern	void	Switch_Fillers(U32 Bank)	;
-
+extern void Switch_Fillers_ASM(U32 Bank);
 extern void Switch_Fillers_C(U32 Bank);
-
 #define Switch_Fillers Switch_Fillers_C
 
 #define         FILL_POLY_TEXTURES	0       // Normal

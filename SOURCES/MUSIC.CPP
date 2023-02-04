@@ -141,7 +141,7 @@ S32	GetNumJingle( char *name )
 
 		for( n=1; n<NB_JINGLE; n++ )
 		{
-			if( !stricmp(ListJingle[n],filename) )
+			if( !strcasecmp(ListJingle[n],filename) )
 			{
 				return (n+FIRST_JINGLE-1) ;// -1 car 0==NO_TRACK
 			}
@@ -182,7 +182,7 @@ void	PlayJingle( S32 num )
 		}
 
 		// a remplacer par GetNumJingle() ?
-		if( stricmp(name_jingle,StreamName()) )
+		if( strcasecmp(name_jingle,StreamName()) )
 		{
 			PlayStream( name_jingle ) ;
 		}

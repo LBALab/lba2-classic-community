@@ -163,6 +163,8 @@
 #define A_F10           SDLK_F10
 #define A_F11           SDLK_F11
 #define A_F12           SDLK_F12
+// ...
+#define A_F24           SDLK_F24
 
 #define A_N_PLUS        SDLK_KP_PLUS
 #define A_N_MOINS       SDLK_KP_MINUS

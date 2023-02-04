@@ -7,11 +7,6 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
 
-#include	<stdlib.h>
-#include	<stdio.h>
-#include	<string.h>
-#include	<dos.h>
-
 /*══════════════════════════════════════════════════════════════════════════*/
 
 

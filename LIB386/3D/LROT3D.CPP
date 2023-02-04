@@ -21,10 +21,11 @@ void LongWorldRotatePoint_C(S32 x, S32 y, S32 z) {
                        "movl %1, %%eax\n\t"
                        "movl %2, %%ebx\n\t"
                        "movl %3, %%ecx\n\t"
-                       "call _LongRotatePointF\n\t"
+                       "call %4\n\t"
                        "popa\n\t"
                        :
-                       : "r"(&MatriceWorld), "m"(x), "m"(y), "m"(z)
+                       : "r"(&MatriceWorld), "m"(x), "m"(y), "m"(z),
+                         "m"(LongRotatePointF)
                        : "%esi", "%eax", "%ebx", "%ecx");
 #else
 #error "Unsupported compiler!"

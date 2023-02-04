@@ -153,7 +153,7 @@ S32	LoadUsedBrick()
 	handle = OpenRead( BKG_HQR_NAME )			;
 	if ( !handle )	return(0L)			;
 
-	Seek( handle, BkgHeader.Brk_Start<<2, SEEK_START);// Begin offsets Brk
+	Seek( handle, BkgHeader.Brk_Start<<2, SEEK_FROM_START);// Begin offsets Brk
 
 	Read( handle, Screen, BkgHeader.Max_Brk<<2 )	;// Read Offsets Brk
 
@@ -178,7 +178,7 @@ S32	LoadUsedBrick()
 			nbbrick++		;/*	One More*/
 			*ptflag = (S16)nbbrick	;/*	Brick+1, for BLL */
 			offseek = *(ptseek+i)	;
-			Seek( handle, offseek, SEEK_START ) 	;
+			Seek( handle, offseek, SEEK_FROM_START ) 	;
 			Read( handle, &header, sizeof(header))	;
 			switch( header.CompressMethod )
 			{
@@ -548,7 +548,7 @@ void	InitBufferCube()
 		+(SIZE_CUBE_X*SIZE_CUBE_Y*SIZE_CUBE_Z*2L) ;	// BufCube
 
 //	PtrZvBuffer sert aussi pour les décors intérieurs
-	ListMem[MEM_PTR_ZBUFFER].Size = __max(intmem,SIZE_Z_BUFFER) ;
+	ListMem[MEM_PTR_ZBUFFER].Size = ade_max(intmem,SIZE_Z_BUFFER) ;
 
 	ListMem[MEM_BUFFER_MASK_BRICK].Size 	= BkgHeader.Max_Size_Mask_Brick_Cube ;
 	ListMem[MEM_BUF_MAP].Size 		= BkgHeader.Max_Size_Gri + RECOVER_AREA ;

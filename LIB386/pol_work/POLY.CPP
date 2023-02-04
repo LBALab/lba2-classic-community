@@ -1,5 +1,7 @@
 #include <POLYGON/POLY.H>
 
+#include <limits.h>
+
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
 #undef Fill_Poly
@@ -24,12 +26,12 @@ S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
                        "mov %2, %%ebx\n\t"
                        "mov %3, %%ecx\n\t"
                        "mov %4, %%esi\n\t"
-                       "call _Fill_PolyFast\n\t"
+                       "call %5\n\t"
                        "mov %%eax, %0\n\t"
                        "popa\n\t"
                        : "=m"(returnValue)
                        : "m"(Type_Poly), "m"(Color_Poly), "m"(Nb_Points),
-                         "m"(Ptr_Points)
+                         "m"(Ptr_Points), "m"(Fill_PolyFast)
                        : "%eax", "%ebx", "%ecx", "%esi");
 #else
 #error "Unsupported compiler!"
@@ -38,24 +40,21 @@ S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
   return returnValue;
 }
 
-#undef Switch_Fillers
-extern void Switch_Fillers(U32 Bank);
-
 void Switch_Fillers_C(U32 Bank) {
 #ifdef __MSC_VER
   __asm {
 		pusha
 		mov eax, Bank
-		call Switch_Fillers
+		call Switch_Fillers_ASM
 		popa
   }
 #elif __GNUC__
   __asm__ __volatile__("pusha\n\t"
                        "movl %0, %%eax\n\t"
-                       "call _Switch_Fillers\n\t"
+                       "call %1\n\t"
                        "popa\n\t"
                        :
-                       : "m"(Bank)
+                       : "m"(Bank), "m"(Switch_Fillers_ASM)
                        : "%eax");
 #else
 #error "Unsupported compiler!"

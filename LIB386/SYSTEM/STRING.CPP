@@ -1,4 +1,6 @@
-#pragma once
+#include <SYSTEM/STRING.H>
+
+#include <SDL2/SDL_stdinc.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -6,9 +8,9 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-void StripExt(char *fname);
-char *AddExt(char *path, const char *ext);
-char *GetFileName(char *pathname);
+char *ade_strcasestr(const char *haystack, const char *needle) {
+  return SDL_strcasestr(haystack, needle);
+}
 
 // =============================================================================
 #ifdef __cplusplus

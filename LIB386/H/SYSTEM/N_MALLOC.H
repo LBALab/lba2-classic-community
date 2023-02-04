@@ -2,6 +2,8 @@
 #ifndef	LIB_SYSTEM_N_MALLOC
 #define LIB_SYSTEM_N_MALLOC
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
 extern	"C"	{

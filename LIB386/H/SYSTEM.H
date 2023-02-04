@@ -17,7 +17,6 @@
 #include	<SYSTEM/CPU.H>
 #include	<SYSTEM/DISPCPU.H>
 #include	<SYSTEM/DISPOS.H>
-//#include	<SYSTEM/DLLLOAD.H>
 #include	<SYSTEM/EXIT.H>
 #include	<SYSTEM/FILEBAK.H>
 #include	<SYSTEM/FILECOPY.H>
@@ -41,7 +40,6 @@
 #include	<SYSTEM/LOGPRINT.H>
 #include	<SYSTEM/ITOA.H>
 #include	<SYSTEM/CMDLINE.H>
-#include	<SYSTEM/DISKDIR.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #define INIT_VIDEO              (1<<0)

@@ -1,58 +1,19 @@
-//──────────────────────────────────────────────────────────────────────────
-#include	<SYSTEM/ADELINE.H>
-#include	<SYSTEM/AVAILMEM.H>
+#include <SYSTEM/AVAILMEM.H>
 
-//──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
+#include <SDL2/SDL_cpuinfo.h>
 
-U32	AvailableMem()
-{
-	MEMORYSTATUS	mem				;
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	GlobalMemoryStatus(&mem)			;
-
-	return mem.dwAvailPageFile+mem.dwAvailPhys	;
+// --- Interface ---------------------------------------------------------------
+U64 AvailableMem() {
+  // Not the same as available, but good enough for now...
+  return SDL_GetSystemRAM();
 }
 
-
-//──────────────────────────────────────────────────────────────────────────
-#else// _WIN32
-
-typedef	struct
-	{
-                U32     LargestBlockAvail       ;
-                U32     MaxUnlockedPage         ;
-                U32     LargestLockablePage     ;
-                U32     LinAddrSpace            ;
-                U32     NumFreePagesAvail       ;
-                U32     NumPhysicalPagesFree    ;
-                U32     TotalPhysicalPages      ;
-                U32     FreeLinAddrSpace        ;
-                U32     SizeOfPageFile          ;
-                U32     Reserved[3]             ;
-	}	MEMINFO	;
-
-U32	GetMemInfo(MEMINFO *buffer)	;
-
-#pragma aux	GetMemInfo	=	\
-"	mov	eax, 0500h	"	\
-"	push	ebp		"	\
-"	int	31h		"	\
-"	pop	ebp		"	\
-	parm	[edi]			\
-	modify 	[eax ebx ecx edx esi]
-
-U32	AvailableMem()
-{
-//	MEMINFO	meminfo			;
-//
-//	GetMemInfo(&meminfo)		;
-//
-//	return meminfo.LargestBlockAvail;
-	return 1000000;
+// =============================================================================
+#ifdef __cplusplus
 }
-
-//──────────────────────────────────────────────────────────────────────────
-#endif//_WIN32
-
-//──────────────────────────────────────────────────────────────────────────
+#endif

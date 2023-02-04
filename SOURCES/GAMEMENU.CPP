@@ -4,6 +4,13 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/STRING.H>
+
+#include <dirent.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 
 /*══════════════════════════════════════════════════════════════════════════*
  *══════════════════════════════════════════════════════════════════════════*/
@@ -148,11 +155,9 @@ extern  S32     EscTimer ;
 #define NB_CAR_H        14
 #define NB_CAR_V        5
 
-char    PathSave[_MAX_PATH] ;
-char    GamePathname[_MAX_PATH] ;
-#ifdef	_WIN32
-char    OldGamePathname[_MAX_PATH] ;
-#endif
+char    PathSave[ADELINE_MAX_PATH] ;
+char    GamePathname[ADELINE_MAX_PATH] ;
+char    OldGamePathname[ADELINE_MAX_PATH] ;
 char    PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
 const char    *MenuIncrustText = NULL ;
@@ -306,144 +311,132 @@ void    DrawFireBar( S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul )
 
 int my_sort_function( const void *a, const void *b)
 {
-        return( stricmp( *(char**)a, *(char**)b) ) ;
-}
-
-/*──────────────────────────────────────────────────────────────────────────*/
-S32     PlayerGameList( char **ptrlistname, char *listname, S32 flagnew )
-{
-        _finddata_t  fileinfo ;
-        intptr_t     rc ;
-        S32     wlong ;
-        char    pathname[_MAX_PATH] ;
-        S32     nb = 0 ;
-        U32     handle ;
-        char    **startptrlist = ptrlistname ;
-        U8      wbyte ;
-
-        strcpy( pathname, PathSave ) ;
-        strcat( pathname, "*.LBA"  ) ;
-
-        rc = _findfirst( pathname, &fileinfo );
-        if (rc != -1) {
-          do {
-            if (fileinfo.attrib & _A_NORMAL) {
-              strcpy( pathname, PathSave  ) ;
-              strcat( pathname,  fileinfo.name ) ;
-
-              // On ne liste pas l'autosave ni la currentsave
-              // D'ailleurs ces sauvegardes pourraient avoir une autre
-              // extension que .LBA ce qui éviterait ce test !
-              if( stricmp(pathname,AUTOSAVE_FILENAME)
-                      AND stricmp(pathname,CURRENTSAVE_FILENAME) )
-              {
-                handle = OpenRead( pathname ) ;
-                if( handle )
-                {
-                  Read( handle, &wbyte, 1 ) ;     // num version
-                  Read( handle, &wlong, sizeof(wlong) ) ; // num cube
-
-                  *ptrlistname++ = listname ;
-                  do
-                  {
-                    Read( handle, &wbyte, 1 ) ;
-                    *listname++ = wbyte ;
-                  } while( wbyte != 0 ) ;
-
-                  Close( handle ) ;
-
-                  nb++ ;
-                  if( nb == MAX_PLAYER )  return nb ;
-                }
-              }
-            }
-          } while (_findnext(rc, &fileinfo) == 0);
-          _findclose(rc);
-        }
-
-        qsort(  (void *)startptrlist,
-                nb,
-                sizeof( char * ),
-                my_sort_function ) ;
-
-        if( !flagnew AND nb<MAX_PLAYER AND FileSize( AUTOSAVE_FILENAME ) )
-        {
-                strcpy( GamePathname, AUTOSAVE_FILENAME ) ;
-                LoadGamePlayerName() ;
-                *ptrlistname = listname  ;
-                strcpy( listname, PlayerName ) ;
-                nb++ ;
-        }
-
-        return nb ;
+        return( strcasecmp( *(char**)a, *(char**)b) ) ;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-S32     FindPlayerFile()
-{
-        _finddata_t fileinfo ;
-        intptr_t     rc ;
-        char    pathname[_MAX_PATH] ;
-        char    playername[MAX_SIZE_PLAYER_NAME+1] ;
-        U8      *ptr ;
-        U32     handle ;
-        S32     wlong ;
-        U8      wbyte ;
+S32 PlayerGameList(char **ptrlistname, char *listname, S32 flagnew) {
+  struct dirent *file;
+  DIR *dir;
+  S32 wlong;
+  char pathname[ADELINE_MAX_PATH];
+  S32 nb = 0;
+  S32 handle;
+  char **startptrlist = ptrlistname;
+  U8 wbyte;
 
-        strcpy( pathname, PathSave ) ;
-        strcat( pathname, "*.LBA"  ) ;
+  dir = opendir(PathSave);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".LBA") != NULL) {
+        snprintf(pathname, sizeof(pathname), "%s%s", PathSave, file->d_name);
 
-        rc = _findfirst( pathname, &fileinfo );
-        if (rc != -1) {
-          do {
-            if (fileinfo.attrib & _A_NORMAL) {
-              strcpy( pathname, PathSave  ) ;
-              strcat( pathname,  fileinfo.name ) ;
+        struct stat st;
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          // On ne liste pas l'autosave ni la currentsave
+          // D'ailleurs ces sauvegardes pourraient avoir une autre
+          // extension que .LBA ce qui éviterait ce test !
+          if (strcasecmp(pathname, AUTOSAVE_FILENAME)
+              AND strcasecmp(pathname, CURRENTSAVE_FILENAME)) {
+            handle = OpenRead(pathname);
+            if (handle) {
+              Read(handle, &wbyte, 1);             // num version
+              Read(handle, &wlong, sizeof(wlong)); // num cube
 
-              handle = OpenRead( pathname ) ;
+              *ptrlistname++ = listname;
+              do {
+                Read(handle, &wbyte, 1);
+                *listname++ = wbyte;
+              } while (wbyte != 0);
 
-              Read( handle, &wbyte, 1 ) ;     // num version
-              Read( handle, &wlong, sizeof(wlong) ) ; // num cube
+              Close(handle);
 
-              ptr = (U8*)playername ;
-              do
-              {
-                Read( handle, &wbyte, 1 ) ;
-                *ptr++ = wbyte ;
-
-              } while( wbyte != 0 ) ;
-
-              Close( handle ) ;
-
-              if( !stricmp( PlayerName, playername ) )
-              {
-                strcpy( GamePathname, PathSave  ) ;
-                strcat( GamePathname, fileinfo.name ) ;
-                return TRUE ;
-              }
+              nb++;
+              if (nb == MAX_PLAYER)
+                return nb;
             }
-          } while (_findnext(rc, &fileinfo) == 0);
-          _findclose(rc);
+          }
         }
+      }
+    }
+    closedir(dir);
+  }
 
-        if( FileSize( AUTOSAVE_FILENAME ) )
-        {
-                strcpy( playername, PlayerName ) ;
+  qsort((void *)startptrlist, nb, sizeof(char *), my_sort_function);
 
-                strcpy( GamePathname, AUTOSAVE_FILENAME ) ;
-                LoadGamePlayerName() ;
+  if (!flagnew AND nb < MAX_PLAYER AND FileSize(AUTOSAVE_FILENAME)) {
+    strcpy(GamePathname, AUTOSAVE_FILENAME);
+    LoadGamePlayerName();
+    *ptrlistname = listname;
+    strcpy(listname, PlayerName);
+    nb++;
+  }
 
-                if( !stricmp( PlayerName, playername ) )
-                {
-                        strcpy( PlayerName, playername ) ;
-                        return TRUE ;
-                }
+  return nb;
+}
 
-                strcpy( PlayerName, playername ) ;
+/*──────────────────────────────────────────────────────────────────────────*/
+
+S32 FindPlayerFile() {
+  struct dirent *file;
+  DIR *dir;
+  char pathname[ADELINE_MAX_PATH];
+  char playername[MAX_SIZE_PLAYER_NAME + 1];
+  U8 *ptr;
+  S32 handle;
+  S32 wlong;
+  U8 wbyte;
+
+  dir = opendir(PathSave);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".LBA") != NULL) {
+        snprintf(pathname, sizeof(pathname), "%s%s", PathSave, file->d_name);
+
+        struct stat st;
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          handle = OpenRead(pathname);
+          Read(handle, &wbyte, 1);             // num version
+          Read(handle, &wlong, sizeof(wlong)); // num cube
+
+          ptr = (U8 *)playername;
+          do {
+            Read(handle, &wbyte, 1);
+            *ptr++ = wbyte;
+
+          } while (wbyte != 0);
+
+          Close(handle);
+
+          if (!strcasecmp(PlayerName, playername)) {
+            snprintf(GamePathname, sizeof(GamePathname), "%s%s", PathSave,
+                     file->d_name);
+            return TRUE;
+          }
         }
+      }
+    }
+    closedir(dir);
+  }
 
-        return FALSE ;
+  if (FileSize(AUTOSAVE_FILENAME)) {
+    strcpy(playername, PlayerName);
+
+    strcpy(GamePathname, AUTOSAVE_FILENAME);
+    LoadGamePlayerName();
+
+    if (!strcasecmp(PlayerName, playername)) {
+      strcpy(PlayerName, playername);
+      return TRUE;
+    }
+
+    strcpy(PlayerName, playername);
+  }
+
+  return FALSE;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -598,20 +591,18 @@ S32     InputPlayerName( S32 choice, char *name )
 	strcpy( memoplayername, name ) ;
         strcpy( PlayerName, name ) ;
 
-#ifdef	_WIN32
 	FindPlayerFile() ;
 
 	// pour pouvoir effacer une sauvegarde sous Windows si le joueur
 	// change le nom de la sauvegarde
-	if( stricmp(PlayerName,AUTOSAVE_NAME)		// on n'efface pas l'autosave !
-	AND stricmp(PlayerName,CURRENTSAVE_NAME)	// ni le currentsave !
-	AND stricmp(PlayerName,"")
-	AND stricmp(GamePathname,AUTOSAVE_FILENAME)		// on n'efface pas l'autosave !
-	AND stricmp(GamePathname,CURRENTSAVE_FILENAME) )	// ni le currentsave !
+	if( strcasecmp(PlayerName,AUTOSAVE_NAME)		// on n'efface pas l'autosave !
+	AND strcasecmp(PlayerName,CURRENTSAVE_NAME)	// ni le currentsave !
+	AND strcasecmp(PlayerName,"")
+	AND strcasecmp(GamePathname,AUTOSAVE_FILENAME)		// on n'efface pas l'autosave !
+	AND strcasecmp(GamePathname,CURRENTSAVE_FILENAME) )	// ni le currentsave !
 	{
 		strcpy( OldGamePathname, GamePathname ) ;
 	}
-#endif
 
 	len = strlen( PlayerName ) ;
 
@@ -745,9 +736,7 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         U32     newcube = NewCube ;
         char    memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
 
-#ifdef	_WIN32
 	strcpy( OldGamePathname, "" ) ;
-#endif
 
 	strcpy( memoplayername, PlayerName ) ;
 
@@ -803,7 +792,7 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         {
                 for( select=0; select<nb-1; select++ )
                 {
-                        if( !stricmp(PlayerName,ptrlist[select]) )
+                        if( !strcasecmp(PlayerName,ptrlist[select]) )
                                 break ;
                 }
 
@@ -1126,25 +1115,16 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
                                                 {
                                                         strcpy( GamePathname, PathSave ) ;
 
-#ifdef  _WIN32  // Gestion des noms longs
-                                                        strncat( GamePathname, PlayerName, _MAX_PATH-(strlen(GamePathname)+1) ) ;
-#else
-                                                        strcat( GamePathname, "S" ) ;
-                                                        strcat( GamePathname, Itoa( MyRnd(10000) ) ) ;
-#endif
+                                                        strncat( GamePathname, PlayerName, ADELINE_MAX_PATH-(strlen(GamePathname)+1) ) ;
 							AddExt( GamePathname, ".LBA" ) ;
                                                 }
                                                 while( FileSize( GamePathname ) != 0 ) ;
                                         }
                                         else    // renommer une sauvegarde
 					{
-#ifdef  _WIN32  // Gestion des noms longs (renomme la sauvegarde)
 						strcpy( GamePathname, PathSave ) ;
-						strncat( GamePathname, PlayerName, _MAX_PATH-(strlen(GamePathname)+1) ) ;
+						strncat( GamePathname, PlayerName, ADELINE_MAX_PATH-(strlen(GamePathname)+1) ) ;
 						AddExt( GamePathname, ".LBA" ) ;
-#else
-						strcpy( GamePathname, memoname ) ;
-#endif
                                         }
 
                                         retval = 2 ;
@@ -1219,7 +1199,7 @@ S32     HQR_GiveOffset( T_HQR_HEADER *header, S32 index )
                 return 0                        ;
         }
 
-        Seek(handle, index, SEEK_START)         ;
+        Seek(handle, index, SEEK_FROM_START)         ;
         Read(handle, &index, 4)                 ;
 
         Close( handle ) ;
@@ -1549,9 +1529,7 @@ S32     DoGameMenu( U16 *ptrmenu )
 
 	InitShakeChoice()       ;//     NEW
 
-#ifdef  _WIN32
         AsciiMode = TRUE        ;
-#endif
 
         while( TRUE )
         {
@@ -1598,9 +1576,7 @@ S32     DoGameMenu( U16 *ptrmenu )
                                 if( !FlagBlackPal )     FadeToBlack( PtrPal ) ;
 
                                 FadeMenu = TRUE ;
-#ifdef  _WIN32
                                 AsciiMode = FALSE ;
-#endif
                                 return 9999 ;
                         }
                 }
@@ -1873,18 +1849,14 @@ S32     DoGameMenu( U16 *ptrmenu )
                 OR  MyKey==K_NUMPAD_ENTER )
                 {
                         WaitNoInput() ;
-#ifdef  _WIN32
                         AsciiMode = FALSE ;
-#endif
                         return ptrmenu[4 + 1 + selected*2] ; // num mess
                 }
 
                 if( MyKey == K_ESC
                 OR  Input & I_MENUS )
                 {
-#ifdef  _WIN32
                         AsciiMode = FALSE ;
-#endif
                         return 1000 ;
                 }
 
@@ -1894,18 +1866,14 @@ S32     DoGameMenu( U16 *ptrmenu )
                         // chargement d'un bug
                         if( MyKey == K_L )
                         {
-#ifdef  _WIN32
                                 AsciiMode = FALSE ;
-#endif
                                 return 2000 ;
                         }
 
                         // sauvegarde d'un bug
                         if( MyKey == K_G )
                         {
-#ifdef  _WIN32
                                 AsciiMode = FALSE ;
-#endif
                                 return 2001 ;
                         }
                 }
@@ -2230,7 +2198,7 @@ S32	IsFirstGameLaunched( void )
 void    BuildGameMainMenu( S32 firstloop )
 {
         char    memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
-        char    memogamepathname[_MAX_PATH] ;
+        char    memogamepathname[ADELINE_MAX_PATH] ;
         U16     *ptrreal = RealGameMainMenu ;
         U16     *ptrmain = GameMainMenu ;
         U16     nb = 0 ;
@@ -2609,9 +2577,7 @@ load_game:                                      firstloop = FALSE ;
                                         {
                                                 NumVersion = NUM_VERSION|SAVE_COMPRESS ;
 						CopyScreen( Screen, Log ) ;
-#ifdef	_WIN32
 						if( FileSize(OldGamePathname) )	Delete( OldGamePathname ) ;
-#endif
                                                 SaveGame( TRUE ) ;
                                                 HQ_ResumeSamples() ;
                                                 UnsetClipWindow() ;

@@ -7,7 +7,6 @@
 #include <SYSTEM/DISPCPU.H>
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 //----------------------------------------------------------------------------
@@ -94,12 +93,6 @@ void	DisplayCPU()
 
 	LogPuts("");
 
-	if(OSType<OS_NT)
-	{
-		LogPrintf("Caching %sabled\n", ProcessorSignature.CacheDisabled ? "Dis" : "En");
-		LogPrintf("Cache is Write-%s\n", ProcessorSignature.CacheWriteBack ? "Back" : "Through");
-	}
-
 	LogPrintf("Cache allocate on Read%s\n", ProcessorSignature.CacheAllocOnWrite ? " and Write" : "");
 }
 
@@ -118,7 +111,7 @@ S32	ParamsCPU()
 	while(i<ArgC)
 	{
 		strncpy(str, ArgV[i], 255)	;
-		if(strnicmp("/Cpu", str, 4))
+		if(strncasecmp("/Cpu", str, 4))
 		{
 			i++		;
 			continue	;
@@ -128,22 +121,22 @@ S32	ParamsCPU()
 
 		ptr = str+4	;
 
-		if(!strnicmp("Manufacturer=", ptr, 12))
+		if(!strncasecmp("Manufacturer=", ptr, 12))
 		{
 			ProcessorSignature.Manufacturer= atoi(ptr+13)	;
 			result = TRUE	;
 		}
-		else if(!strnicmp("Family=", ptr, 7))
+		else if(!strncasecmp("Family=", ptr, 7))
 		{
 			ProcessorSignature.Family = atoi(ptr+7)		;
 			result = TRUE	;
 		}
-		else if(!strnicmp("FPU=", ptr, 4))
+		else if(!strncasecmp("FPU=", ptr, 4))
 		{
 			ProcessorSignature.FPU = atoi(ptr+4) ? 1 : 0	;
 			result = TRUE	;
 		}
-		else if(!strnicmp("MMX=", ptr, 4))
+		else if(!strncasecmp("MMX=", ptr, 4))
 		{
 			ProcessorFeatureFlags.MMX = atoi(ptr+4) ? 1 : 0	;
 			result = TRUE	;

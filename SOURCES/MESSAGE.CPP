@@ -43,8 +43,19 @@ S32     QuickMessage  = 0               ;
 
 #else
 #include        "C_EXTERN.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/STRING.H>
+
 #endif
+
+#include <dirent.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 
 S32     FlagRestoreCD = 0               ;
 
@@ -111,7 +122,7 @@ U8   *PalOrg ;
 //--------------------------------------------------------------
 #define PATH_VOX_CD     "\\LBA2\\VOX\\"
 #define PATH_VOX_CD_US  "\\TWINSEN\\VOX\\"
-char    PathVoxCD[_MAX_PATH] ;
+char    PathVoxCD[ADELINE_MAX_PATH] ;
 
 #define PATH_VOX_HD     PATH_RESSOURCE"VOX\\"
 #define NB_LANGUAGES    6
@@ -284,24 +295,11 @@ S32     NbMess = 0 ;            // nombre de messages dans le .txt
 #endif
 
 /*-------------------------------------------------------------------------*/
-#ifdef  _WIN32
-
-/*-------------------------------------------------------------------------*/
 U32     GetHDFreeSize()
 {
-        U32     sectorpercluster, bytespersector, freeclusters, nbclusters ;
-
-        if(!GetDiskFreeSpace(   NULL, &sectorpercluster, &bytespersector,
-                                &freeclusters, &nbclusters)             )
-        {
-                return 0        ;
-        }
-
-        return sectorpercluster*bytespersector*freeclusters     ;
+  // FIXME: Implement in a portable way
+  return 10000000;
 }
-
-/*-------------------------------------------------------------------------*/
-#endif//_WIN32
 
 /*-------------------------------------------------------------------------*/
 #ifdef  CDROM
@@ -378,7 +376,7 @@ void    InitLanguage()
 
         for( n=0; n<NB_LANGUAGES; n++ )
         {
-                if( !stricmp( string, TabLanguage[n] ) )
+                if( !strcasecmp( string, TabLanguage[n] ) )
                 {
                         Language = n    ;
                         break           ;
@@ -393,7 +391,7 @@ void    InitLanguage()
 
         for( n=0; n<NB_LANGUAGES; n++ )
         {
-                if( !stricmp( string, TabLanguage[n] ) )
+                if( !strcasecmp( string, TabLanguage[n] ) )
                 {
                         LanguageCD = n  ;
                         FlagSpeak = TRUE;
@@ -405,7 +403,7 @@ void    InitLanguage()
 
         strcpy( string, DefFileBufferReadStringDefault( "FlagKeepVoice", "ON" ) ) ;
 
-        if ( !strcmpi( string, "ON" ))  FlagKeepVoice = 1       ;// default
+        if ( !strcasecmp( string, "ON" ))  FlagKeepVoice = 1       ;// default
         else                            FlagKeepVoice = 0       ;
 
         if( !FlagSpeak )
@@ -439,28 +437,28 @@ CDROM PART
 #ifdef  CDROM
 /*-------------------------------------------------------------------------*/
 //      Pour prendre en compte les eventuels fichiers déjà sur HD
-void    InitVoiceFile()
-{
-        char    pathname[_MAX_PATH];
-        _finddata_t fileinfo ;
-        intptr_t    rc ;
+void InitVoiceFile() {
+  char pathname[ADELINE_MAX_PATH];
+  dirent *file;
+  DIR *dir;
 
-        rc = _findfirst( PATH_VOX_HD"*.VOX", &fileinfo );
-        if (rc != -1) {
-                do {
-                        if (fileinfo.attrib & _A_NORMAL) {
-                          strcpy( pathname, PATH_VOX_HD ) ;
-                          strcat( pathname, fileinfo.name);
+  dir = opendir(PATH_VOX_HD);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".VOX") != NULL) {
+        snprintf(pathname, sizeof(pathname), "%s%s", PATH_VOX_HD, file->d_name);
 
-                          AddFileNameOnHD( pathname, fileinfo.size, fileinfo.time_write ) ;
-#ifdef  LORAN
-                          AffStatusVoiceFile()            ;
-#endif
-                        }
-                } while (_findnext(rc, &fileinfo) == 0);
-                _findclose(rc);
+        struct stat fileInfo;
+        stat(pathname, &fileInfo);
+        if (S_ISREG(fileInfo.st_mode)) {
+          AddFileNameOnHD(pathname, fileInfo.st_size, fileInfo.st_mtime);
         }
+      }
+    }
+    closedir(dir);
+  }
 }
+
 /*-------------------------------------------------------------------------*/
 void    ClearVoiceFile()
 {
@@ -528,14 +526,13 @@ void    AddFileNameOnHD( char *filename, U32 size, U32 timer )
         S32     i       ;
 
         // on n'insere pas FR_GAM.VOX dans cette liste
-        strupr( filename ) ;
-        if( strstr(filename,"_GAM.VOX") )       return ;
+        if( ade_strcasestr(filename,"_GAM.VOX") )       return ;
 
         pt = TabFileOnHD;
 
         for ( i = 0 ; i < NbFileOnHD ; i++, pt++ )
         {
-                if ( !strcmp( pt->NameHD, filename ))   break   ;
+                if ( !strcasecmp( pt->NameHD, filename ))   break   ;
         }
 
         strcpy( pt->NameHD, filename )  ;//     Eventuelle recopie...
@@ -779,7 +776,7 @@ void    InitFileNar( char *file, S32 from )
         MaxVoice = (offset/4)-1                 ;// Normalement en phase
                                                  // avec MaxText mais bon,
                                                  // en chantier... {:) --D      (un ouvrier, je sais, il est nul celui la, désolé...)
-        Seek( FdNar, 0L, SEEK_START )           ;
+        Seek( FdNar, 0L, SEEK_FROM_START )           ;
 
         if ( Read( FdNar, BufMemoSeek, offset ) != offset )
         {
@@ -1012,7 +1009,7 @@ void    SpeakFromCD( S32 file, S32 text )
         FdCd = OpenRead( tmpname )      ;
         if ( !FdCd )    return          ;
 
-        Seek( FdCd, num*4L, SEEK_START );
+        Seek( FdCd, num*4L, SEEK_FROM_START );
 
         Read( FdCd, &offset, 4L )       ;
 
@@ -1022,7 +1019,7 @@ void    SpeakFromCD( S32 file, S32 text )
                 return          ;
         }
 
-        Seek( FdCd, offset, SEEK_START );
+        Seek( FdCd, offset, SEEK_FROM_START );
         PlaySpeakVoc(FdCd)              ;
 }
 */
@@ -1078,7 +1075,7 @@ S32    Speak( S32 text )
                 }
         }
 
-        Seek( FdNar, offset, SEEK_START );
+        Seek( FdNar, offset, SEEK_FROM_START );
         PlaySpeakVoc( FdNar )           ;
 
         return(1L)                      ;
@@ -1169,7 +1166,8 @@ S32     FlagGui = 0     ;
 
 void    GetNextWord(char *ptchaine, char *mot)
 {
-        char    *dst, *pt       ;
+        char *dst;
+        const char *pt;
 
         dst = mot       ;
         LenWord = 0     ;
@@ -1843,7 +1841,12 @@ S32     NextDialCar()
                                 {
                                         break   ;
                                 }
-
+                                // FIXME: There is a bug here, *PtLine may be
+                                //  negative (character with accent, past 127
+                                //  value on a signed char).
+                                //  Can reproduce by interacting with
+                                //  Twinsen and Zoe statue on the main square at
+                                //  the first external scenario of the game.
                                 GetDxDyMask( *PtLine, &dx, &dy, LbaFont );
 
                                 if ( *PtLine != ' ' )

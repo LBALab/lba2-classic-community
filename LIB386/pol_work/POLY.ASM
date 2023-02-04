@@ -42,7 +42,7 @@ PUBLIC	C		Fill_PolyFast		; Polygon filler (Direct call without EMMS)
 PUBLIC	C		SetScreenPitch		; Change the pitch of the screen
 PUBLIC	C		SetFog			; Initialize the fog
 PUBLIC	C		SetCLUT			; Set the CLUT pointer
-PUBLIC	C		Switch_Fillers		; To change the filling method
+PUBLIC	C		Switch_Fillers_ASM		; To change the filling method
 
 
 PUBLIC	C		Fill_PolyClip
@@ -1290,12 +1290,12 @@ SetCLUT			ENDP
 
 
 ; ╔══════════════════════════════════════════════════════════════════════════════════╗
-; ║ Switch_Fillers                                                                   ║
+; ║ Switch_Fillers_ASM                                                               ║
 ; ╟──────────────────────────────────────────────────────────────────────────────────╢
 ; ║                                                                                  ║
 ; ╚══════════════════════════════════════════════════════════════════════════════════╝
 
-Switch_Fillers		PROC
+Switch_Fillers_ASM	PROC
 			push	eax
 			push	ebx
 			push	ecx
@@ -1305,7 +1305,7 @@ Switch_Fillers		PROC
 IFDEF	_WIN32
 			nop
 x:
-			org	Switch_Fillers
+			org	Switch_Fillers_ASM
 			jmp	NEAR PTR Init_SwitchFillers_WIN32
 			org	x
 ENDIF	; _WIN32
@@ -1440,7 +1440,7 @@ Switch_FogNZW::
 			pop	ebx
 			pop	eax
 			ret
-Switch_Fillers		ENDP
+Switch_Fillers_ASM		ENDP
 
 
 
@@ -6712,14 +6712,14 @@ Init_SetScreenPitch_WIN32 ENDP
 
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Initialize 'Switch_Fillers' under a WIN32 system                         ║
+; ║ Initialize 'Switch_Fillers_ASM' under a WIN32 system                     ║
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 Init_SwitchFillers_WIN32 PROC
 			call	Init_Fillers_WIN32
 
 ;IFDEF _WIN32_PATCH_ENABLE
-			push	Offset Switch_Fillers
-			push	Offset Switch_Fillers+5		; COZ we'll patch at least 5 bytes
+			push	Offset Switch_Fillers_ASM
+			push	Offset Switch_Fillers_ASM+5		; COZ we'll patch at least 5 bytes
 			push	Offset @@Good_Code		;		   ^^^^exactly ;)
 			jmp	AllowPatchAndPatch
 @@Good_Code:

@@ -26,7 +26,7 @@ error:		HQF_Close()			;
 		return 0			;
 	}
 
-	Seek(HQF_File, index, SEEK_START) 	;
+	Seek(HQF_File, index, SEEK_FROM_START) 	;
 	Read(HQF_File, &index, 4) 		;
 
 	if(!index)
@@ -34,7 +34,7 @@ error:		HQF_Close()			;
 		goto	error			;
 	}
 
-	Seek(HQF_File, index, SEEK_START) 	;
+	Seek(HQF_File, index, SEEK_FROM_START) 	;
 	Read(HQF_File, (void*)&HQF_header, sizeof(HQF_header));
 
 	return HQF_header.SizeFile		;

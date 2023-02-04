@@ -6,9 +6,9 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-void StripExt(char *fname);
-char *AddExt(char *path, const char *ext);
-char *GetFileName(char *pathname);
+void GetRunningPath(char* outPath);   ///< Path where application was run
+void GetUserPath(char* outPath);      ///< Path for user writable data
+void GetResourcesPath(char *outPath); ///< Path for game resources
 
 // =============================================================================
 #ifdef __cplusplus

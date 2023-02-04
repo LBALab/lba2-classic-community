@@ -11,6 +11,16 @@
       "generator": "Ninja",
       "warnings": {
         "deprecated": true
+      },
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": {
+          "type": "STRING",
+          "value": "-m32"
+        },
+        "CMAKE_CXX_FLAGS": {
+          "type": "STRING",
+          "value": "-m32"
+        }
       }
     },
     {

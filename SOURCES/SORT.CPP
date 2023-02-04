@@ -58,7 +58,7 @@ static inline S32 BaseDistance(S32 after, S32 before)
 	dya = pt2->YMin-pt1->YMax	;
 	dza = pt2->ZMin-pt1->ZMax	;
 
-	va = __max(Max3(dxa, dya, dza), Max3(dxb, dyb, dzb)) ;
+	va = ade_max(Max3(dxa, dya, dza), Max3(dxb, dyb, dzb)) ;
 
 	if(va<0)	va = 0	;
 

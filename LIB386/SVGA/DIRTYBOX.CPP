@@ -79,10 +79,10 @@ static void	CollapseList(T_BOX **boxlist)
 
 		do	// compute bounding box
 		{
-			x0 = __min(x0, pbox->x0)	;
-			y0 = __min(y0, pbox->y0)	;
-			x1 = __max(x1, pbox->x1)	;
-			y1 = __max(y1, pbox->y1)	;
+			x0 = ade_min(x0, pbox->x0)	;
+			y0 = ade_min(y0, pbox->y0)	;
+			x1 = ade_max(x1, pbox->x1)	;
+			y1 = ade_max(y1, pbox->y1)	;
 
 			pbox2   = pbox			;
 			pbox	= pbox->pBoxNext	;
@@ -176,10 +176,10 @@ again:
 				return		;// box included in another one
 			}
 
-                        cx0 = __min(cx0,x0)     ;
-                        cx1 = __max(cx1,x1)     ;
-                        cy0 = __min(cy0,y0)     ;
-                        cy1 = __max(cy1,y1)     ;
+                        cx0 = ade_min(cx0,x0)     ;
+                        cx1 = ade_max(cx1,x1)     ;
+                        cy0 = ade_min(cy0,y0)     ;
+                        cy1 = ade_max(cy1,y1)     ;
 
 			comsurf	  = (cx1-cx0) * (cy1-cy0) ;
 			totalsurf = testsurf + (pbox->x1-pbox->x0) * (pbox->y1-pbox->y0) ;
@@ -289,11 +289,7 @@ void DefaultBoxOneBlit(T_BOX *pbox)
 
 	if((pbox->x1<=pbox->x0) || (pbox->y1<=pbox->y0)) return	;
 
-#ifdef	_WIN32
         CopyVideoArea(Phys, Log, TabOffPhysLine, pbox);
-#else
-	CopyBoxVESA(Phys, Log, TabOffPhysLine, pbox);
-#endif
 }
 
 //****************************************************************************
@@ -450,11 +446,7 @@ static void BoxPhysClear(S32 x0, S32 y0, S32 x1, S32 y1)
 	box.y1	= (S16)y1	;
 	box.pBoxNext = NULL	;
 
-#ifdef	_WIN32
 	ClearBox(Phys, TabOffPhysLine, &box)	;
-#else
-	ClearBoxVESA(Phys, TabOffPhysLine, &box);
-#endif
 }
 
 //****************************************************************************

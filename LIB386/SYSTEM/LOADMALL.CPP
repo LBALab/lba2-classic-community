@@ -4,6 +4,8 @@
 #include	<SYSTEM/A_MALLOC.H>
 #include	<SYSTEM/LOADMALL.H>
 
+#include <stddef.h>
+
 //──────────────────────────────────────────────────────────────────────────
 U32	LoadMallocFileSize ;
 
