@@ -1,10 +1,11 @@
 //──────────────────────────────────────────────────────────────────────────
-#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LOADSAVE.H>
 
 #include <stdlib.h>
 #include <limits.h>
+
+#include <SYSTEM/ADELINE.H>
 
 //──────────────────────────────────────────────────────────────────────────
 U32	Load( char *name, void *buffer )
@@ -36,7 +37,7 @@ S32	LoadSize( char *name, void *buffer, S32 size )
 	handle = OpenRead( name )	;
 	if ( handle )
 	{
-		sizetoread = __min(maxsize, size)		;
+		sizetoread = ade_min(maxsize, size)		;
 		sizeread = Read( handle, buffer, sizetoread )	;
 		Close( handle )					;
 		if(sizeread < sizetoread)

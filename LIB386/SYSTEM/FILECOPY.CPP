@@ -1,48 +1,50 @@
-//--------------------------------------------------------------------------//
-#ifndef	_WIN32
+#include <SYSTEM/FILECOPY.H>
 
-//--------------------------------------------------------------------------//
-#include <system/adeline.h>
-#include <system/files.h>
-#include <system/filecopy.h>
+#include <SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/FILES.H>
 
-//--------------------------------------------------------------------------//
-S32    Copy( char *sname, char *dname )
-{
-	S32	shandle, dhandle 	;
-	U32   	size, n , buf		;
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	size = FileSize( sname ) 	;
-	if( !size )     return FALSE 	;
+// -----------------------------------------------------------------------------
+bool Copy(const char *sname, const char *dname) {
+  S32 shandle, dhandle;
+  U32 size, n, buf;
 
-	shandle = OpenRead( sname ) 	;
-	if( !shandle )  return FALSE 	;
+  size = FileSize(sname);
+  if (!size) {
+    return false;
+  }
 
-	dhandle = OpenWrite( dname ) 	;
-	if( !dhandle )
-	{
-		Close( shandle );
-		return FALSE 	;
-	}
+  shandle = OpenRead(sname);
+  if (!shandle) {
+    return false;
+  }
 
-	for( n=size; n>0; n-- )	// faster and smaller to count down 8-)
-	{
-		U32	s;
+  dhandle = OpenWrite(dname);
+  if (!dhandle) {
+    Close(shandle);
+    return false;
+  }
 
-		s = Read( shandle, &buf, 4 ) ;
-		if( s != Write( dhandle, &buf, s ) )
-		{
-			break	;
-		}
-	}
+  for (n = size; n > 0; n--) { // faster and smaller to count down 8-)
+    U32 s;
 
-	Close( shandle ) ;
-	Close( dhandle ) ;
+    s = Read(shandle, &buf, 4);
+    if (s != Write(dhandle, &buf, s)) {
+      break;
+    }
+  }
 
-	return (n==0)	;	// if n=0 then copy is ok so return TRUE
+  Close(shandle);
+  Close(dhandle);
+
+  return (n == 0); // if n=0 then copy is ok so return TRUE
 }
 
-//--------------------------------------------------------------------------//
-#endif//_WIN32
-
-//--------------------------------------------------------------------------//
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif

@@ -11,10 +11,6 @@
 #include <OBJECT.H>
 #include <POLYGON.H>
 
-#ifndef	_WIN32
-#define	DEBUG_TOOLS	1
-#endif
-
 // Just because Ink_Text et Ink_Paper are not LONG in Lib
 #undef	WHITE
 #define		WHITE	254

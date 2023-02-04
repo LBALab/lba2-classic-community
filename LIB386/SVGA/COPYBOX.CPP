@@ -1,6 +1,8 @@
 #include "SVGA/COPYBOX.H"
 
 
+#include <string.h> // For memcpy
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -1,6 +1,8 @@
 #ifndef	COMMON_H
 #define	COMMON_H
 
+#include <SYSTEM/LIMITS.H>
+
 // j'en ai marre de planter sur des Rnd(0) !!!!!!!!!!!!!!!!!!!!!
 // Méfie quand même à ne pas passer d'affectation ou d'incrémentation de
 // pointeur !!!!!!!!!!!!
@@ -30,21 +32,11 @@
 #endif
 
 // Macro pour lancer une fonction de la lib Hercule
-#ifdef	_WIN32
 #define	HERCULE( func )
-#else
-#define	HERCULE( func )	if( ModeHercule )	func
-#endif
-
-//#define Max3(x, y, z) __max(x, __max(y, z))
-//#define Min3(x, y, z) __min(x, __min(y, z))
 
 // Macro definissant si un caracteres est valide pour un nom de fichier (Windows)
 
 #define	IsValidChar(c)	!strchr( "<>:\"|\\/", c )
-
-/*---------------- MAX LENGTH OF A PATH ----------------------*/
-#define	ADELINE_MAX_PATH	144	// compatible with 10.5 and WindowsNT
 
 /*---------------- BUFFER_ANIM ----------------------*/
 #define	SIZE_BUFFER_ANIM	5000L

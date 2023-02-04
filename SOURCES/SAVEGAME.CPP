@@ -155,7 +155,7 @@ void	AutoSaveGame()
 #ifndef	DEMO
 	U8	memonumversion = NumVersion ;
 	char	memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
-	char	memogamepathname[_MAX_PATH] ;
+	char	memogamepathname[ADELINE_MAX_PATH] ;
 
 	if( DemoSlide OR PLAY_THE_END )	return ;
 
@@ -201,7 +201,7 @@ void	CurrentSaveGame()
 {
 	U8	memonumversion = NumVersion ;
 	char	memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
-	char	memogamepathname[_MAX_PATH] ;
+	char	memogamepathname[ADELINE_MAX_PATH] ;
 
 	if( DemoSlide OR PLAY_THE_END )	return ;
 

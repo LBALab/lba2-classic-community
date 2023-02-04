@@ -33,9 +33,7 @@ extern "C" U8   *BufSpeak       ;
 
 extern  char   	PathSave[] ;
 extern  char   	GamePathname[] ;
-#ifdef	_WIN32
 extern  char   	OldGamePathname[] ;
-#endif
 extern	char	PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
 extern	U8	*PtrScene	;

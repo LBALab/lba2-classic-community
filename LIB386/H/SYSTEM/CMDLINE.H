@@ -20,12 +20,6 @@ extern	void	RemoveParam(S32 param)			;
 extern	S32	FindAndRemoveParam(const char *str)	;
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
-extern	void	GetCmdLineWin(char *cmdline)		;
-
-#endif//_WIN32
-
-//──────────────────────────────────────────────────────────────────────────
 extern	void	GetCmdLine(S32 argc, char *argv[])	;
 
 //──────────────────────────────────────────────────────────────────────────

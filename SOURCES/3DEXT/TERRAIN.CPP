@@ -823,11 +823,6 @@ void DrawHorizon2ZBuf()
 		}
 
 	}
-
-/*#ifndef	_WIN32
-if( ModeHercule )	HPrintf( "CubeBitField= %d\n", CubeBitField ) ;
-#endif
-*/
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

@@ -91,7 +91,7 @@ S32	FlagShadeMenu = FALSE ;
 S32	DrawZVObjets = FALSE ;
 #endif
 
-char	PathFla[_MAX_PATH] ;
+char	PathFla[ADELINE_MAX_PATH] ;
 
 S32	Version_US = TRUE ;
 

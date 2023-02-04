@@ -11,14 +11,9 @@
 //──────────────────────────────────────────────────────────────────────────
 #include <SVGA/SCREENXY.H>
 #include <SVGA/COPYBOX.H>
-#include <SVGA/COPYBOV.H>
 #include <SVGA/BLITBOX.H>
-#include <SVGA/BLITBOV.H>
 #include <SVGA/CLRBOX.H>
-#include <SVGA/CLEABOV.H>
 #include <SVGA/DIRTYBOX.H>
-#include <SVGA/VESA.H>
-#include <SVGA/DDRAW.H>
 #include <SVGA/AFFSTR.H>
 #include <SVGA/MASK.H>
 #include <SVGA/CALCMASK.H>
@@ -39,7 +34,7 @@
 #include <SVGA/SCALEBOX.H>
 #include <SVGA/SCALESPT.H>
 #include <SVGA/SCALESPI.H>
-#include <SVGA/PAL.H>
+//#include <SVGA/PAL.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_SVGA

@@ -3,10 +3,6 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/KEYBOARD.H>
 
-#ifndef	_WIN32
-#include <system/dossys.h>
-#endif
-
 //***************************************************************************
 	U32	Input		;
 

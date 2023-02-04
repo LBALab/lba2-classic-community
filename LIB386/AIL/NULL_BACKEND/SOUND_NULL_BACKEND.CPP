@@ -1,5 +1,9 @@
 #include "AIL.H"
 
+#include <SYSTEM/LIMITS.H>
+
+#include <stdlib.h>
+
 // === TIMER ===================================================================
 void InitAIL() {}
 
@@ -8,8 +12,8 @@ S32 Midi_Driver_Enabled = FALSE;   // Exposed by COMMON.H and MIDI.H
 S32 Sample_Driver_Enabled = FALSE; // Exposed by COMMON.H and SAMPLE.H
 S32 SamplingRate = 22050;          // Exposed by COMMON.H and SAMPLE.H
 
-char SampleDriverName[_MAX_PATH] = ""; // Exposed by COMMON.H and SAMPLE.H
-char MidiDriverName[_MAX_PATH] = "";   // Exposed by COMMON.H and MIDI.H
+char SampleDriverName[ADELINE_MAX_PATH] = ""; // Exposed by COMMON.H and SAMPLE.H
+char MidiDriverName[ADELINE_MAX_PATH] = "";   // Exposed by COMMON.H and MIDI.H
 
 VOID_FUNC *PauseMidiPtr = NULL;
 VOID_FUNC *ResumeMidiPtr = NULL;

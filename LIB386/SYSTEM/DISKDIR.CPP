@@ -3,10 +3,11 @@
 #include <SYSTEM/DISKDIR.H>
 #include <SYSTEM/LIMITS.H>
 
-#include <stdlib.h>
-#include <string.h>
-#include <dos.h>
+// TODO: Remove this includes on portable code
+#include <windows.h>
 #include <direct.h>
+
+#include <unistd.h>
 #include <ctype.h>
 
 //--------------------------------------------------------------------------//

@@ -6,9 +6,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-void StripExt(char *fname);
-char *AddExt(char *path, const char *ext);
-char *GetFileName(char *pathname);
+char *ade_strcasestr(const char *haystack, const char *needle);
 
 // =============================================================================
 #ifdef __cplusplus

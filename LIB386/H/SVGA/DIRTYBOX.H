@@ -46,26 +46,12 @@ extern BOX_FUNC DefaultBoxOneClean	;
 extern BOX_FUNC DefaultBoxOneClear	;
 
 //-----------------------------------------------------------------------------
-#ifdef	_WIN32
 #define SetBoxScreenGet(boxscreenget)		\
 	BoxScreenGet = ( (boxscreenget) ? (boxscreenget) : LockPrimary )
 
-#else// _WIN32
-#define SetBoxScreenGet(boxscreenget)		\
-	BoxScreenGet = (boxscreenget)
-
-#endif//_WIN32
-
 //-----------------------------------------------------------------------------
-#ifdef	_WIN32
 #define SetBoxScreenRelease(boxscreenrelease)	\
 	BoxScreenRelease = ( (boxscreenrelease) ? (boxscreenrelease) : UnlockPrimary )
-
-#else// _WIN32
-#define SetBoxScreenRelease(boxscreenrelease)	\
-	BoxScreenRelease = (boxscreenrelease)
-
-#endif//_WIN32
 
 //-----------------------------------------------------------------------------
 #define SetBoxScreenFlip(boxscreenflip)	\

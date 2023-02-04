@@ -1177,7 +1177,7 @@ void	HoloMap()
 	{
 		// pour pouvoir restaurer anim marche protopack
 #ifdef	LBA_EDITOR
-		if( !stricmp(ListObjet[NUM_PERSO].StringAnim,GEN_ANIM_MARCHE) )
+		if( !strcasecmp(ListObjet[NUM_PERSO].StringAnim,GEN_ANIM_MARCHE) )
 #else
 		if( ListObjet[NUM_PERSO].GenAnim==GEN_ANIM_MARCHE )
 #endif

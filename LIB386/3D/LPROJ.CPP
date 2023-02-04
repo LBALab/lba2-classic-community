@@ -1,7 +1,5 @@
 #include <3D/LPROJ.H>
 
-//#include <3D/CAMERA.H>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,11 +26,11 @@ S32 LongProjectPoint_C(S32 x, S32 y, S32 z) {
                        "movl %1, %%eax\n\t"
                        "movl %2, %%ebx\n\t"
                        "movl %3, %%ecx\n\t"
-                       "call _LongProjectPoint3DF\n\t"
+                       "call %4\n\t"
                        "movl %%eax, %0\n\t"
                        "popa\n\t"
                        : "=m"(result)
-                       : "m"(x), "m"(y), "m"(z)
+                       : "m"(x), "m"(y), "m"(z), "m"(LongProjectPoint3DF)
                        : "%eax", "%ebx", "%ecx");
 #else
 #error "Unsupported compiler!"

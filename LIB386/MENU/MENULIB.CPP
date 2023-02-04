@@ -6,10 +6,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/MOUSE.H>
 
-#include	<stdlib.h>
-#include	<stdio.h>
 #include	<string.h>
-#include	<dos.h>
 
 /*──────────────────────────────────────────────────────────────────────────*/
 static	U8	PalMenu[] =	{
@@ -355,7 +352,8 @@ void	DrawBox( T_MENU *ptrmenu, S32 numlcb, S32 pushed)
 	strcpy( string, ptrlcb->PtrString ) ;
 	if( ptrlcb->Type == TYPE_CHANGE_VALUE )
 	{
-		strcat( string, itoa( *(ptrlcb->PtrVar), valuestring, 10 ) ) ;
+                sprintf(valuestring, "%d", *(ptrlcb->PtrVar));
+		strcat( string, valuestring ) ;
 	}
 
 	nbaffcar = ((ptrlcb->X2-3)-(ptrlcb->X1+3))/SizeChar ;
@@ -859,7 +857,7 @@ S32	GereMenu( T_MENU *ptrmenu )
 					else		/* input value */
 					{
 						memostring = ptrlcb->PtrString ;
-						itoa( value, inputvaluestring, 10 ) ;
+                                                sprintf(inputvaluestring, "%d", value);
 						ptrlcb->PtrString = inputvaluestring ;
 						ptrlcb->Type = TYPE_TEXT ;
 						DrawBox( ptrmenu, select, FLAG_PUSHED) ;

@@ -32,9 +32,7 @@ extern	VOID_FUNC	PauseSamples		;
 extern	VOID_FUNC	ResumeSamples		;
 
 //--------------------------------------------------------------------------
-#ifdef	_WIN32
 extern	S32		UseWaveMixer		;
-#endif//_WIN32
 
 //--------------------------------------------------------------------------
 S32	InitSampleDriver(	char *driver_name	)	;

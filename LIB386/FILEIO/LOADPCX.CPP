@@ -69,7 +69,7 @@ void	LoadPCX(char *file_name, void *screen, S32 *resx, S32 *resy, void *tabcol)
 		}
 	}
 
-	Seek( fd, -768, SEEK_END )	;
+	Seek( fd, -768, SEEK_FROM_END )	;
 
 	Read( fd, tabcol, 768 )		;
 

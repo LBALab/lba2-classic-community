@@ -674,7 +674,7 @@ S32    DoTest()
 //---------------------------------------------------------------------------
 	case RET_STRING:
 
-		valueword = stricmp( String, (char *)PtrPrg ) ;
+		valueword = strcasecmp( String, (char *)PtrPrg ) ;
 		PtrPrg += strlen( (char *)PtrPrg ) + 1 ;
 
 		switch( test )

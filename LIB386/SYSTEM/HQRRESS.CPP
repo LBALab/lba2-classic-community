@@ -7,10 +7,6 @@
 #include	<SYSTEM/HQFILE.H>
 #include	<SYSTEM/HQRRESS.H>
 
-#ifndef	_WIN32
-#include	<ail/mss.h>
-#endif
-
 #include	<string.h>
 
 //──────────────────────────────────────────────────────────────────────────
@@ -67,21 +63,6 @@ error:		Free(header)	;
 
 	return header		;// header
 }
-
-//──────────────────────────────────────────────────────────────────────────
-// lock le buffer
-#ifndef	_WIN32
-void	HQR_Lock_Ressource(T_HQR_HEADER *header)
-{
-	header = header	;
-
-	/*AIL_vmm_lock((void*)header, sizeof(T_HQR_HEADER) +
-				sizeof(T_HQR_BLOC) * header->MaxIndex   ) ;
-
-	AIL_vmm_lock(header->Buffer, header->MaxSize+RECOVER_AREA);*/
-}
-
-#endif//_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
 // vide le buffer d'une ressource

@@ -7,7 +7,7 @@
 #include <SYSTEM/CMDLINE.H>
 #include <SYSTEM/CPU.H>
 #include <SYSTEM/DEFFILE.H>
-#include <SYSTEM/DISKDIR.H>
+#include <SYSTEM/DIRECTORIES.H>
 #include <SYSTEM/DISPCPU.H>
 #include <SYSTEM/DISPOS.H>
 #include <SYSTEM/EVENTS.H>
@@ -16,23 +16,12 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/LZ.H>
+#include <SYSTEM/MOUSE.H>
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/WINDOW.H>
 
-
-// FIXME: Remove, here only for testing...
-#pragma pack(8) // n = 4
-#ifdef _WIN32
-//#include <mmsystem.h>
-//#include <winbase.h>
-//#include <windows.h>
-//#include <windowsx.h>
-#include <direct.h>
-#endif //_WIN32
-#pragma pack(1)
-
-#include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 // -----------------------------------------------------------------------------
@@ -69,79 +58,39 @@ atexit(SafeErrorMallocMsg);
 #endif
 
 // ··········································································
+
+void DisplayGeneralInfo();
+void InitSystem();
+void InitDisplay();
+void InitSound();
+void InitInputs();
+
 void InitAdeline(S32 argc, char *argv[]) {
 
   // ··········································································
-  const char *Adeline = "ADELINE";
-  const char *name = lname;
-  char *defname;
-  char old_path[_MAX_PATH] = "";
-  char old_path2[_MAX_PATH] = "";
+  char resFolderPath[ADELINE_MAX_PATH] = "";  ///< Path for game resources
+  char userFolderPath[ADELINE_MAX_PATH] = ""; ///< Path for user writable data
 
   // ··········································································
   {
-    getcwd(old_path, _MAX_PATH); // old_path is current directory
-
     PathConfigFile[0] = 0;
 
-    // If env var ADELINE is specified...
-    defname = getenv(Adeline);
-    if (defname) {
-      char drive[_MAX_DRIVE];
-      char dir[_MAX_DIR];
-      unsigned int n;
+    GetResourcesPath(resFolderPath);
+    GetUserPath(userFolderPath);
 
-      // Guarantee 'drive' and 'dir' are filled
-      if (FileSize(defname)) {
-        _splitpath(defname, drive, dir, NULL, NULL);
-      } else {
-        // env var contain only directory name with no file specified
-        strcpy(PathConfigFile, defname);
-        strcat(PathConfigFile, "\\dummy.tmp");
-        _splitpath(PathConfigFile, drive, dir, NULL, NULL);
-      }
-
-      // Set PathConfigFile to full path
-      _makepath(PathConfigFile, drive, dir, "", "");
-
-      // If config file name specified, add it to PathConfigFile
-      if (name) {
-        strcat(PathConfigFile, name);
-      }
-
-      // Change drive to one from env path, keeps current directory
-      _chdrive(toupper(drive[0]) - 'A' + 1);
-
-      // Set dir to path without ending path separator '\' or '/'
-      n = strlen(dir) - 1;
-      while ((dir[n] == '\\') || (dir[n] == '/')) {
-        dir[n] = 0;
-        n--;
-      }
-
-      getcwd(old_path2,
-             _MAX_PATH); // old_path2 is current dir with the new drive
-      chdir(dir);        // change dir to env path
-    } else {
-      // Set PathConfigFile to current running path + config file name (if
-      // specified)
-      strcpy(PathConfigFile, old_path);
-      strcat(PathConfigFile, "\\");
-      if (name) {
-        strcat(PathConfigFile, name);
-      }
-
-      chdir("Drivers"); // ???????????
-    }
-
-    // ===> Here we have PathConfigFile with full path to config file
-    // ===> Here the current path is the path that should contain the config
-    //      file + "Drivers" (????)
+    strcpy(PathConfigFile, userFolderPath);
+    strcat(PathConfigFile, ADELINE_PATH_SEPARATOR);
+    strcat(PathConfigFile, lname);
   }
 
   // ··········································································
   //  LOG
-  CreateLog(PathConfigFile);
+  CreateLog(userFolderPath);
+  LogPuts("Starting game...");
+  LogPuts("Paths used:");
+  LogPrintf("\t* Game assets:\t\t%s\n"
+            "\t* Save/Preferences:\t%s\n",
+            resFolderPath, userFolderPath);
 
   // ··········································································
   InitEvents();
@@ -156,7 +105,8 @@ void InitAdeline(S32 argc, char *argv[]) {
 
   // ··········································································
   //  Config File
-  if (name && !FileSize(PathConfigFile)) {
+  if (!FileSize(PathConfigFile)) {
+    // TODO: Create default config file if does not already exists
     LogPrintf("Error: Can't find config file %s\n\n", PathConfigFile);
     exit(1);
   }
@@ -175,7 +125,10 @@ void InitAdeline(S32 argc, char *argv[]) {
   LogPuts("\nIdentifying CPU. Please wait...\n");
 
   if (!FindAndRemoveParam("/CPUNodetect")) {
-    ProcessorIdentification();
+    //ProcessorIdentification();
+    ProcessorSignature.FPU = 1;
+    ProcessorSignature.Family = 5;
+    ProcessorSignature.Manufacturer = 1;
   }
 
   DisplayCPU();
@@ -186,26 +139,6 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     DisplayCPU();
   }
-
-// ··········································································
-//  CmdLine Parser
-#ifdef paramparser
-
-  {
-    char cur_path[_MAX_PATH];
-
-    getcwd(cur_path, _MAX_PATH);
-    if (defname) {
-      chdir(old_path2);
-    }
-    ChDiskDir(old_path);
-
-    paramparser();
-
-    ChDiskDir(cur_path);
-  }
-
-#endif
 
   // ··········································································
   //  AIL API init (for vmm_lock/timer)
@@ -279,12 +212,9 @@ void InitAdeline(S32 argc, char *argv[]) {
 
   InitKeyboard();
 
-// ··········································································
-//  mouse
-#if ((inits)&INIT_MOUSE)
-
+  // ··········································································
+  //  mouse
   InitMouse();
-#endif
 
   // ··········································································
   //  init Timer
@@ -292,11 +222,7 @@ void InitAdeline(S32 argc, char *argv[]) {
   InitTimer();
 
   // ··········································································
-  if (defname) {
-    chdir(old_path2);
-  }
-
-  ChDiskDir(old_path);
+  chdir(resFolderPath);
 
   // ··········································································
   //  DefFile

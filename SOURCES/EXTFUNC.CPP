@@ -783,7 +783,7 @@ void	ReajustPosExt( U8 col )
 							Nxw+APtObj->XMax, Nzw+APtObj->ZMax,
 							coly, Nyw ) ;
 
-				Nyw = __max(Nyw,ny) ;
+				Nyw = ade_max(Nyw,ny) ;
 
 				if( ShadowTestObject!=AnimNumObj )
 				{
@@ -1617,7 +1617,7 @@ void	DoAnimExt( U8 numobj  )
 								OR !FlagClimbing )
 								{
 /*#ifdef	LBA_EDITOR
-									if( stricmp(APtObj->StringAnim,GEN_ANIM_ARRIMAGE) )
+									if( strcasecmp(APtObj->StringAnim,GEN_ANIM_ARRIMAGE) )
 #else
 									if( APtObj->GenAnim!=GEN_ANIM_ARRIMAGE )
 #endif
@@ -1688,9 +1688,9 @@ void	DoAnimExt( U8 numobj  )
 		if( numobj==NUM_PERSO )
 		{
 #ifdef	LBA_EDITOR
-			if( !stricmp(APtObj->StringAnim,GEN_ANIM_CHOC)
-			OR  !stricmp(APtObj->StringAnim,GEN_ANIM_CHOC2)
-			OR  !stricmp(APtObj->StringAnim,GEN_ANIM_ENCAISSE) )
+			if( !strcasecmp(APtObj->StringAnim,GEN_ANIM_CHOC)
+			OR  !strcasecmp(APtObj->StringAnim,GEN_ANIM_CHOC2)
+			OR  !strcasecmp(APtObj->StringAnim,GEN_ANIM_ENCAISSE) )
 #else
 			if( APtObj->GenAnim==GEN_ANIM_CHOC
 			OR  APtObj->GenAnim==GEN_ANIM_CHOC2
@@ -1740,7 +1740,7 @@ void	DoAnimExt( U8 numobj  )
 	AND ((Comportement != C_PROTOPACK)	// on ne meurre pas en marche jetpack
 	AND (Comportement != C_JETPACK)
 #ifdef	LBA_EDITOR
-	OR  stricmp(APtObj->StringAnim,GEN_ANIM_MARCHE)) )
+	OR  strcasecmp(APtObj->StringAnim,GEN_ANIM_MARCHE)) )
 #else
 	OR  APtObj->GenAnim!=GEN_ANIM_MARCHE) )
 #endif
@@ -1833,7 +1833,7 @@ findoanimext:
 		// pour le protopack
 		if( Comportement==C_PROTOPACK
 #ifdef	LBA_EDITOR
-		AND stricmp(APtObj->StringAnim,GEN_ANIM_MARCHE) )
+		AND strcasecmp(APtObj->StringAnim,GEN_ANIM_MARCHE) )
 #else
 		AND APtObj->GenAnim==GEN_ANIM_MARCHE )
 #endif
@@ -1936,10 +1936,10 @@ void	DrawGrilleFeuille3D( S32 xi, S32 zi )
 
 	UnsetClip() ;
 
-	cx0 = __min( __min(x0,x1), __min(x2,x3) ) ;
-	cy0 = __min( __min(z0,z1), __min(z2,z3) ) ;
-	cx1 = __max( __max(x0,x1), __max(x2,x3) ) ;
-	cy1 = __max( __max(z0,z1), __max(z2,z3) ) ;
+	cx0 = ade_min( ade_min(x0,x1), ade_min(x2,x3) ) ;
+	cy0 = ade_min( ade_min(z0,z1), ade_min(z2,z3) ) ;
+	cx1 = ade_max( ade_max(x0,x1), ade_max(x2,x3) ) ;
+	cy1 = ade_max( ade_max(z0,z1), ade_max(z2,z3) ) ;
 
 	sens = MapPolyGround[zi*64*2+xi*2].Sens ;
 
@@ -2565,7 +2565,7 @@ S16	SearchNumCube( S32 x, S32 y )
 		if( pt AND strchr(pt,';') )
 			*(char *)strchr(pt,';') = '\0' ;
 
-		if( pt!=0 AND !strnicmp(scename,pt,len) )	return n ;
+		if( pt!=0 AND !strncasecmp(scename,pt,len) )	return n ;
 
 		n++ ;
 	}

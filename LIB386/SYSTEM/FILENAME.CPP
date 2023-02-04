@@ -1,52 +1,69 @@
-//-------------------------------------------------------------------------//
-#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILENAME.H>
 
-#include <stdlib.h>
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/LIMITS.H>
 
-//-------------------------------------------------------------------------//
-char	*AddExt( char *path, const char *ext )
-{
+#include <string.h>
 
-	char	drive[_MAX_DRIVE];
-	char	dir[_MAX_DIR]    ;
-	char	fname[_MAX_FNAME];
-	char	oldext[_MAX_EXT] ;
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	_splitpath( path, drive, dir, fname, oldext ) ;
-	_makepath( path, drive, dir, fname, ext ) ;
+// -----------------------------------------------------------------------------
+void StripExt(char *fname) {
+  // Copied from:
+  // https://stackoverflow.com/questions/43163677/how-do-i-strip-a-file-extension-from-a-string-in-c
+  char *end = fname + strlen(fname);
 
-	return( path )	;
+  while (end > fname && *end != '.' && *end != '\\' && *end != '/') {
+    --end;
+  }
+
+  if ((end > fname && *end == '.') &&
+      (*(end - 1) != '\\' && *(end - 1) != '/')) {
+    *end = '\0';
+  }
 }
 
-//-------------------------------------------------------------------------//
-char	*AddExtIfNot( char *path, char *ext )
-{
+char *AddExt(char *path, const char *ext) {
+  if (ext[0] == '.') {
+    ++ext;
+  }
 
-	char	drive[_MAX_DRIVE];
-	char	dir[_MAX_DIR]	 ;
-	char	fname[_MAX_FNAME];
-	char	oldext[_MAX_EXT] ;
+  StripExt(path);
+  strcat(path, ".");
+  strcat(path, ext);
 
-	_splitpath( path, drive, dir, fname, oldext ) ;
-
-	if(!oldext[0])	_makepath( path, drive, dir, fname, ext ) ;
-
-	return( path )	;
+  return (path);
 }
 
-//-------------------------------------------------------------------------//
-char	*GetFileName( char *pathname )
-{
+char *GetFileName(char *pathname) {
+  static char fileName[ADELINE_MAX_FILENAME];
+  fileName[0] = '\0';
 
-	char		drive[_MAX_DRIVE];
-	char		dir[_MAX_DIR] 	 ;
-	static char	fname[_MAX_FNAME];
-	char		ext[_MAX_EXT]    ;
+  // If file name comes as a string from a resource and uses a different path
+  //  separator than the platform one, this may fail. Should implement for any
+  //  possibility?
+  char *lastSlash = strrchr(pathname, ADELINE_PATH_SEPARATOR_CHAR);
+  if (lastSlash != NULL) {
+    char *filenameStart = lastSlash + 1;
 
-	_splitpath( pathname, drive, dir, fname, ext ) ;
+    size_t fileNameLen = ADELINE_MAX_FILENAME - 1;
+    char *lastDot = strrchr(filenameStart, '.');
+    if (lastDot != NULL) {
+      fileNameLen = lastDot - filenameStart;
+      fileNameLen = ade_min(fileNameLen, ADELINE_MAX_FILENAME - 1);
+    }
 
-	return( fname )	;
+    strncpy(fileName, filenameStart, fileNameLen);
+    fileName[fileNameLen] = '\0';
+  }
+
+  return fileName;
 }
 
-//--------------------------------------------------------------------------//
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif

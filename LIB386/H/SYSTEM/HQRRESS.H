@@ -3,6 +3,8 @@
 #define LIB_SYSTEM_HQRRESS
 
 //──────────────────────────────────────────────────────────────────────────
+#include <SYSTEM/LIMITS.H>
+
 #include	<stdlib.h>
 
 //──────────────────────────────────────────────────────────────────────────
@@ -20,7 +22,7 @@ typedef struct  {
                         S32		MaxIndex;
                         S32		NbIndex	;
                         void		*Buffer	;
-                        char		Name[_MAX_PATH];
+                        char		Name[ADELINE_MAX_PATH];
 		}	T_HQR_HEADER 		;
 
 //──────────────────────────────────────────────────────────────────────────
@@ -48,13 +50,8 @@ extern	T_HQR_HEADER	*HQR_Init_Ressource(	const char	*hqrname,
 						S32	maxrsrc		);
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
 #define			HQR_Lock_Ressource(header)
 
-#else //_WIN32
-extern	void		HQR_Lock_Ressource(	T_HQR_HEADER *header	);
-
-#endif//_WIN32
 //──────────────────────────────────────────────────────────────────────────
 extern	void		HQR_Reset_Ressource(	T_HQR_HEADER *header	);
 
