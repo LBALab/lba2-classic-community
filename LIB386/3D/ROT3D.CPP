@@ -13,7 +13,7 @@ void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 		mov eax, x
 		mov ebx, y
 		mov ecx, z
-		call RotatePoint
+		call LongRotatePointF
 		popa
   }
 #elif __GNUC__

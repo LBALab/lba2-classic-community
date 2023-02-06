@@ -29,7 +29,6 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		public	C	LongProjectPointIso
-		public	C	LongWorldRotateProjectPointIso
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongProjectPointIso(S32 x, S32 y, S32 z)		;
@@ -39,9 +38,6 @@
 ;	modify		[edx]
 
 LongProjectPointIso PROC 
-
-
-LongWorldRotateProjectPointIso::
 
 		sub	eax, CameraX
 		sub	ebx, CameraY

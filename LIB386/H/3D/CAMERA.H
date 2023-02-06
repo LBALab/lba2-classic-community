@@ -47,17 +47,6 @@ extern  float FRatioY	            	;
 #pragma aux FRatioY	"*"
 
 //****************************************************************************
-extern void	InitCamera(	S32 camx, S32 camy, S32 camz,
-				S32 tgtx, S32 tgty, S32 tgtz,
-				S32 gamma)			;
-
-#pragma aux InitCamera	"*"					\
-	parm		[edx] [esi] [edi] [eax] [ecx] [ebx]
-
-// WARNING this function uses PASCAL calling convention for 'gamma' on the stack.
-// DO NOT ADD 'CALLER' in the PRAGMA
-
-//****************************************************************************
 extern void	SetTargetCamera(S32 x, S32 y, S32 z, S32 gamma);
 
 #pragma aux SetTargetCamera	"*"		\

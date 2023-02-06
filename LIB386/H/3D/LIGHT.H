@@ -19,20 +19,6 @@ extern		S32	TargetXLight,	TargetYLight,	TargetZLight	;
 extern		S32	LightNormalUnit					;
 
 //****************************************************************************
-void	SetPosLight(S32 x, S32 y, S32 z);
-
-#pragma aux SetPosLight	"*"			\
-	parm caller		[eax] [ebx] [ecx]	\
-	modify		[edx esi edi]
-
-//****************************************************************************
-void	SetTargetLight(S32 targetx, S32 targety, S32 targetz);
-
-#pragma aux SetTargetLight	"*"		\
-	parm caller		[eax] [ebx] [ecx]	\
-	modify		[edx esi edi]
-
-//****************************************************************************
 void	SetLightVector( S32 alpha, S32 beta, S32 gamma ) ;
 
 #pragma aux SetLightVector	"*"		\
