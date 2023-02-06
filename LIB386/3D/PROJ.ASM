@@ -30,29 +30,17 @@
 		extrn	C	FRatioY:	DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-	        extrn   C LongProjectPoint:		DWORD
-	        extrn   C LongRotateProjectPoint:		DWORD
-	        extrn   C LongWorldRotateProjectPoint:	DWORD
-
-                extrn   C ProjectList:			DWORD
-                extrn   C LongProjectList:		DWORD
+		extrn   C LongProjectPoint:		DWORD
+		extrn   C ProjectList:			DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-                extrn   C LongProjectPointInit:           PROC
-                extrn   C LongRotateProjectPointInit:     PROC
-                extrn   C LongWorldRotateProjectPointInit:PROC
-
-                extrn   C LongProjectPointIso:		PROC
-                extrn   C LongWorldRotateProjectPointIso:	PROC
-
-                extrn   C ProjectListInit:		PROC
-                extrn   C LongProjectListInit:		PROC
-
-                extrn   C ProjectListIso:			PROC
-                extrn   C LongProjectListIso:		PROC
+		extrn   C LongProjectPointInit:           PROC
+		extrn   C LongProjectPointIso:		PROC
+		extrn   C ProjectListInit:		PROC
+		extrn   C ProjectListIso:			PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		public	C	SetProjection
@@ -101,15 +89,9 @@ noFPU:
 		mov	[TypeProj], TYPE_3D
 
 		mov	eax, offset LongProjectPointInit
-		mov	ebx, offset LongRotateProjectPointInit
-		mov	ecx, offset LongWorldRotateProjectPointInit
+		mov	ebx, offset ProjectListInit
 		mov	LongProjectPoint, eax
-		mov	LongRotateProjectPoint, ebx
-		mov	LongWorldRotateProjectPoint, ecx
-		mov	eax, offset ProjectListInit
-		mov	ebx, offset LongProjectListInit
-		mov	ProjectList, eax
-		mov	LongProjectList, ebx
+		mov	ProjectList, ebx
 
 		test	edx, edx
 		jz	noFPU2
@@ -139,15 +121,9 @@ SetIsoProjection PROC \
 		mov	[TypeProj], TYPE_ISO
 
 		mov	eax, offset LongProjectPointIso
-		mov	ebx, offset LongRotateProjectPointInit
-		mov	ecx, offset LongWorldRotateProjectPointIso
+		mov	ebx, offset ProjectListIso
 		mov	LongProjectPoint, eax
-		mov	LongRotateProjectPoint, ebx
-		mov	LongWorldRotateProjectPoint, ecx
-		mov	eax, offset ProjectListIso
-		mov	ebx, offset LongProjectListIso
-		mov	ProjectList, eax
-		mov	LongProjectList, ebx
+		mov	ProjectList, ebx
 
 		ret
 

@@ -25,24 +25,7 @@ extern	Func_InitMatrix	*InitMatrix	;
 #pragma	aux	InitMatrix	"*"
 
 //****************************************************************************
-extern	void	MatrixSTD();
 
-#pragma	aux MatrixSTD	"*"	\
-	modify exact []
-
-// Switch to a 3DS camera orientation
-// call this function BEFORE initialising camera
-
-//****************************************************************************
-extern	void	Matrix3DS();
-
-#pragma	aux Matrix3DS	"*"	\
-	modify exact []
-
-// Switch to a "Normal" camera orientation
-// call this function BEFORE initialising camera
-
-//****************************************************************************
 #ifdef	__cplusplus
 }
 #endif

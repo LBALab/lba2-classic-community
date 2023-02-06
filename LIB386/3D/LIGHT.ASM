@@ -67,34 +67,8 @@ ASSUME ds:SEG LightNormalUnit
 		.CODE
 
 ;****************************************************************************
-		extrn	C	GetAngleVector3D:PROC
-
-;****************************************************************************
-		public	C SetPosLight
-		public	C SetTargetLight
 		public	C SetLightVector
 		public	C RecomputeLight
-
-;****************************************************************************
-;void	SetPosLight(S32 x, S32 y, S32 z);
-
-;#pragma aux SetPosLight	"*"		\
-;	parm		[eax] [ebx] [ecx]	\
-;	modify		[edx esi edi]
-
-SetPosLight	proc
-
-		mov	[PosXLight], eax
-		mov	[PosYLight], ebx
-		mov	[PosZLight], ecx
-
-                mov     eax, [TargetXLight]
-                mov     ebx, [TargetYLight]
-                mov     ecx, [TargetZLight]
-
-		jmp	ComputeLightVector
-
-SetPosLight	endp
 
 ;****************************************************************************
 ;void	RecomputeLight();
@@ -125,38 +99,6 @@ RecomputeLight	proc
 
 
 RecomputeLight	endp
-
-;****************************************************************************
-;void	SetTargetLight(S32 targetx, S32 targety, S32 targetz);
-
-;#pragma aux SetTargetLight	"*"		\
-;	parm		[eax] [ebx] [ecx]	\
-;	modify		[edx esi edi]
-
-SetTargetLight	proc
-
-                mov     [TargetXLight], eax
-                mov     [TargetYLight], ebx
-
-                mov     [TargetZLight], ecx
-ComputeLightVector::
-		sub	eax, [PosXLight]
-
-		sub	ebx, [PosYLight]
-		sub	ecx, [PosZLight]
-
-		call	GetAngleVector3D
-
-		mov	eax, [X0]
-		mov	ebx, [Y0]
-
-		push ebx
-		push eax
-		call SetLightVector
-		add esp, 4*2
-		ret
-
-SetTargetLight endp
 
 ;****************************************************************************
 ;void	SetLightVector( S32 alpha, S32 beta) ;

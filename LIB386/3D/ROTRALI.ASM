@@ -27,7 +27,7 @@ RotTransList	dd	offset RotTransListInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	RotTransListI:PROC
+		;extrn	C	RotTransListI:PROC
 		extrn	C	RotTransListF:PROC
 		;extrn	C	RotTransListM:PROC
 
@@ -44,7 +44,7 @@ RotTransList	dd	offset RotTransListInit
 
 RotTransListInit proc
 
-		mov	[ds:Chooser_RtnI], offset RotTransListI	; Integer
+		;mov	[ds:Chooser_RtnI], offset RotTransListI	; Integer
 		mov	[ds:Chooser_RtnF], offset RotTransListF	; FPU
 		;mov	[ds:Chooser_RtnM], offset RotTransListM	; MMX
 		mov	[ds:Chooser_Result], offset RotTransList	; Pointer
