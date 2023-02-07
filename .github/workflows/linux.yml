@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
-        packages: gcc-multilib libsdl2-dev:i386
+        packages: gcc-multilib g++-multilib libsdl2-dev:i386
         version: '1.0'
 
     - name: Install tool UASM
