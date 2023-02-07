@@ -571,7 +571,7 @@ Filler_TextureZ		PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ1::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ1::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -877,7 +877,7 @@ Filler_TextureZFlat	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ2::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ2::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1125,7 +1125,7 @@ Filler_TextureZChromaKey PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ3::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ3::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1374,7 +1374,7 @@ Filler_TextureZFlatChromaKey PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ4::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ4::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1646,7 +1646,7 @@ Filler_TextureZFog	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ5::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ5::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1894,7 +1894,7 @@ Filler_TextureZChromaKeyFog PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ6::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ6::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2167,7 +2167,7 @@ Filler_TextureZZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ7::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ7::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2460,7 +2460,7 @@ Filler_TextureZChromaKeyZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ8::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ8::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2771,7 +2771,7 @@ Filler_TextureZFlatZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ9::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ9::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3093,7 +3093,7 @@ Filler_TextureZFlatChromaKeyZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ10::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ10::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3403,7 +3403,7 @@ Filler_TextureZFogZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ11::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ11::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3724,7 +3724,7 @@ Filler_TextureZChromaKeyFogZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ12::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ12::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4027,7 +4027,7 @@ Filler_TextureZNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ13::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ13::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4318,7 +4318,7 @@ Filler_TextureZChromaKeyNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ14::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ14::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4626,7 +4626,7 @@ Filler_TextureZFlatNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ15::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ15::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4946,7 +4946,7 @@ Filler_TextureZFlatChromaKeyNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ16::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ16::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -5254,7 +5254,7 @@ Filler_TextureZFogNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ17::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ17::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -5573,7 +5573,7 @@ Filler_TextureZChromaKeyFogNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ18::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZ18::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

@@ -53,7 +53,7 @@ CopyFrameDoubleXY	dd	offset CopyFrameDoubleXYInit
 CopyFrameDoubleXYInit	proc
 
 		mov	[ds:Chooser_RtnI], offset CopyFrameDoubleXYI	; Integer
-		mov	[ds:Chooser_RtnM], offset CopyFrameDoubleXYM	; MMX
+		;mov	[ds:Chooser_RtnM], offset CopyFrameDoubleXYM	; MMX
 		mov	[ds:Chooser_Result], offset CopyFrameDoubleXY	; Pointer
 
 		jmp	Chooser

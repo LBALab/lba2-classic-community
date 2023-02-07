@@ -42,7 +42,7 @@ ClearBox	dd	offset ClearBoxInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	ClearBoxI:PROC
+		;extrn	C	ClearBoxI:PROC
 		extrn	C	ClearBoxF:PROC
 		;extrn	C	ClearBoxM:PROC
 
@@ -58,7 +58,7 @@ ClearBox	dd	offset ClearBoxInit
 
 ClearBoxInit	proc
 
-		mov	[ds:Chooser_RtnI], offset ClearBoxI	; Integer
+		;mov	[ds:Chooser_RtnI], offset ClearBoxI	; Integer
 		mov	[ds:Chooser_RtnF], offset ClearBoxF	; FPU
 		;mov	[ds:Chooser_RtnM], offset ClearBoxM	; MMX
 		mov	[ds:Chooser_Result], offset ClearBox	; Pointer

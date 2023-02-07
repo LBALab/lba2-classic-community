@@ -619,7 +619,7 @@ Filler_TextureZFogSmooth PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZFog1::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZFog1::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -929,7 +929,7 @@ Filler_TextureZFogSmoothZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZFog2::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZFog2::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1271,7 +1271,7 @@ Filler_TextureZFogSmoothNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZFog3::	add	edi,SIZE_VIDEOLINE
+Fill_VLTextureZFog3::	add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

@@ -15,15 +15,15 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		public	C	CopyBox
 
-CopyBox		dd	offset CopyBoxF
+CopyBox		dd	offset CopyBoxInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	CopyBoxI:PROC
+		;extrn	C	CopyBoxI:PROC
 		extrn	C	CopyBoxF:PROC
-		extrn	C	CopyBoxM:PROC
+		;extrn	C	CopyBoxM:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C	Chooser:PROC
@@ -37,7 +37,7 @@ CopyBox		dd	offset CopyBoxF
 
 CopyBoxInit	proc
 
-		mov	[ds:Chooser_RtnI], offset CopyBoxI	; Integer
+		;mov	[ds:Chooser_RtnI], offset CopyBoxI	; Integer
 		mov	[ds:Chooser_RtnF], offset CopyBoxF	; FPU
 		;mov	[ds:Chooser_RtnM], offset CopyBoxM	; MMX
 		mov	[ds:Chooser_Result], offset CopyBox; Pointer

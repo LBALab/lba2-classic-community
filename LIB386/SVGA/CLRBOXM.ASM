@@ -26,7 +26,13 @@
 ;	parm	[edi] [edx] [ebx]	\
 ;	modify	[eax ecx esi]
 
-ClearBoxM		PROC
+ClearBoxM		PROC \
+			uses edi edx ebx eax ecx esi \
+			dst: DWORD, TabOffDst: DWORD, box: DWORD
+
+			mov edi, dst
+			mov edx, TabOffDst
+			mov ebx, box
 
 			mov	esi, [ebx]
 			mov	ebx, [ebx+4]
@@ -64,7 +70,7 @@ loopClear:
 			dec	ebx
 			jnz	loopClear
 
-			emms
+;			emms
 			ret
 odd:
 			add	eax, 8
@@ -84,7 +90,7 @@ loopClearX:
 			dec	ebx
 			jnz	loopClearY
 ClearBoxFEnd::
-			emms
+;			emms
 			ret
 
 @@Just_A_Col:
@@ -94,7 +100,7 @@ ClearBoxFEnd::
 			dec	ebx
 			jnz	@@Just_A_Col
 
-			emms
+;			emms
 			ret
 
 ClearBoxM		ENDP

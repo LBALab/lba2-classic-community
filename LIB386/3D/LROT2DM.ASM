@@ -17,6 +17,8 @@
 
 		extrn C	MMX_DEMI2:DWORD
 
+		ASSUME  DS:SEG SinTab
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -31,75 +33,12 @@
 ;	modify exact	[edx]
 
 
-comment	@
-
-LongRotateM	proc
-
-		and		edx, 4095
-		jz		norot
-
-		add		edx, edx
-		pxor		mm2, mm2	; mm2 = 0  0  0  0
-
-		movd		mm6, eax	; mm6 = 0  0  Xh Xl
-
-		movd		mm7, ecx	; mm7 = 0  0  Zh Zl
-
-		movd		mm0, SinTab[edx]; mm0 = 0  0  .  S	Penalty of 3 cycles with 50% chances
-		punpcklwd	mm6, mm7	; mm6 = Zh Xh Zl Xl
-
-		movd		mm1, CosTab[edx]; mm1 = 0  0  .  C	If penalty above then another 3 cyles penalty
-		psubw		mm2, mm0	; mm2 = 0  0  .  -S
-
-		punpcklwd	mm2, mm1	; mm2 = .  .  C  -S
-
-		punpcklwd	mm1, mm0	; mm1 = .  .  S  C
-
-		movq		mm3, mm1	; mm3 = .  .  S  C
-		psrlw		mm1, 1		; mm1 = .  .  S2 C2
-
-		movq		mm4, mm2	; mm4 = .  .  C  -S
-		psrlw		mm2, 1		; mm2 = .  .  C2 -S2
-
-		punpckldq	mm1, mm3	; mm1 = S  C  S2 C2
-
-		pmaddwd		mm1, mm6	; mm1 =  X'h   X'l	(>>2  <<13)
-		punpckldq	mm2, mm4	; mm2 = C  -S C2 -S2
-
-		pmaddwd		mm6, mm2	; mm6 =  Z'h   Z'l	(>>2  <<13)
-		movq		mm3, mm1
-
-		punpckldq	mm1, mm6	; mm1 =  Z'l   X'l	(<<13)
-
-		paddd		mm1, [MMX_DEMI2]
-		punpckhdq	mm3, mm6	; mm3 =  Z'h   X'h	(>>2)
-
-		psrad		mm1, 13		; mm1 =  Z'l   X'l
-
-		pslld		mm3, 2		; mm3 =  Z'h   X'h
-
-		paddd		mm1, mm3	; mm1 =  Z'    X'
-
-		movq		mm2, mm1	; mm2 =  Z'    X'
-		psrlq		mm1, 32		; mm1 =  0     Z'
-
-		movd		[X0], mm2	; X'
-
-		movd		[Z0], mm1	; Z'
-
-		ret
-norot:
-		mov		[X0], eax
-		mov		[Z0], ecx
-
-		ret
-
-LongRotateM	endp
-
-	@
-
-
-LongRotateM	proc
+LongRotateM	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, z: DWORD, angle: DWORD
+			mov eax, x
+			mov ecx, z
+			mov edx, angle
 
 		and		edx, 4095
 		jz		norot

@@ -21,7 +21,7 @@ FastSet	dd	offset FastSetInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	FastSetI:PROC
+		;extrn	C	FastSetI:PROC
 		extrn	C	FastSetF:PROC
 		;extrn	C	FastSetM:PROC
 
@@ -37,7 +37,7 @@ FastSet	dd	offset FastSetInit
 
 FastSetInit	proc
 
-		mov	[ds:Chooser_RtnI], offset FastSetI	; Integer
+		;mov	[ds:Chooser_RtnI], offset FastSetI	; Integer
 		mov	[ds:Chooser_RtnF], offset FastSetF	; FPU
 		;mov	[ds:Chooser_RtnM], offset FastSetM	; MMX
 		mov	[ds:Chooser_Result], offset FastSet; Pointer

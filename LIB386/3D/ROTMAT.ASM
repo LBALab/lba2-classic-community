@@ -29,7 +29,7 @@ RotateMatrix	dd	offset RotateMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	RotateMatrixI:PROC
+		;extrn	C	RotateMatrixI:PROC
 		extrn	C	RotateMatrixU:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -49,7 +49,7 @@ RotateMatrix	dd	offset RotateMatrixInit
 
 RotateMatrixInit proc
 
-		mov	[ds:Chooser_RtnI], offset RotateMatrixI	; Integer
+		;mov	[ds:Chooser_RtnI], offset RotateMatrixI	; Integer
 		mov	[ds:Chooser_RtnF], offset RotateMatrixU	; FPU
 		;mov	[ds:Chooser_RtnM], offset RotateMatrixU	; MMX
 		mov	[ds:Chooser_Result], offset RotateMatrix	; Pointer
@@ -60,4 +60,3 @@ RotateMatrixInit endp
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		END
-

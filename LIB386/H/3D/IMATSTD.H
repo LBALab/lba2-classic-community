@@ -3,7 +3,7 @@
 #define	LIB_3D_IMATSTD
 
 //****************************************************************************
-#include	"IMAT.H"
+#include	"DATAMAT.H"
 
 //****************************************************************************
 #ifdef	__cplusplus
@@ -11,6 +11,8 @@ extern	"C"	{
 #endif
 
 //****************************************************************************
+typedef	void (Func_InitMatrix)(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma) ;
+
 extern	Func_InitMatrix	*InitMatrixStd	;
 
 #pragma aux	InitMatrixStd	"*"

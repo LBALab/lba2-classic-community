@@ -26,11 +26,11 @@ BlitBoxVESA	dd	offset BlitBoxVESAInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	BlitBoxVESAI:PROC
+		;extrn	C	BlitBoxVESAI:PROC
 		extrn	C	BlitBoxVESAF:PROC
 		;extrn	C	BlitBoxVESAM:PROC
 
-		extrn	C	BlitBoxI:PROC
+		;extrn	C	BlitBoxI:PROC
 		extrn	C	BlitBoxF:PROC
 		;extrn	C	BlitBoxM:PROC
 
@@ -54,13 +54,13 @@ BlitBoxVESAInit	proc
 		test	[VESAMode], 4000h
 		jnz	OkLinear
 
-		mov	[ds:Chooser_RtnI], offset BlitBoxVESAI	; Integer
+		;mov	[ds:Chooser_RtnI], offset BlitBoxVESAI	; Integer
 		mov	[ds:Chooser_RtnF], offset BlitBoxVESAF	; FPU
 		;mov	[ds:Chooser_RtnM], offset BlitBoxVESAM	; MMX
 
 		jmp	Chooser
 OkLinear:
-		mov	[ds:Chooser_RtnI], offset BlitBoxI		; Integer
+		;mov	[ds:Chooser_RtnI], offset BlitBoxI		; Integer
 		mov	[ds:Chooser_RtnF], offset BlitBoxF		; FPU
 		;mov	[ds:Chooser_RtnM], offset BlitBoxM		; MMX
 

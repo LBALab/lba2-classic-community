@@ -50,7 +50,7 @@ Chooser		proc
 		xor	esi, esi			; esi = 0
 
 		cmp	bl, 45h				; 4 = FPU; 5 = Pentium
-		;yaz jb 	noFPU				; FPU+Pentium or better?
+		jb 	noFPU				; FPU+Pentium or better?
 
 		test	eax, 1 SHL 23			; MMX flag ?
 		jz	noMMX
@@ -69,7 +69,7 @@ noMMXFPU:
 		jnz	ok
 noMMX:
 		cmp	bh, 1				; Manufacturer should be
-		;yaz jne	noFPU				; Intel to use FPU
+		jne	noFPU				; Intel to use FPU
 
 		mov	edx, [ds:Chooser_RtnF]		; try FPU
 

@@ -4767,8 +4767,7 @@ BodyDisplay_AlphaBeta	ENDP
 
 Init_TestVisible	PROC
 			mov	[ds:Chooser_RtnI], Offset TestVisibleI	; Integer
-			mov	[ds:Chooser_RtnF], Offset TestVisibleF	; FPU
-			;mov	[ds:Chooser_RtnF], Offset TestVisibleI	; FPU ; yaz disabled FPU visibility, broken for some unknown reason
+			;mov	[ds:Chooser_RtnF], Offset TestVisibleF	; FPU
 			mov	[ds:Chooser_Result], Offset TestVisible	; Pointer
 			jmp	Chooser
 Init_TestVisible	ENDP

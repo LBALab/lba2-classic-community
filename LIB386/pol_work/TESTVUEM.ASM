@@ -20,7 +20,11 @@
 ; ║                                                                 ║
 ; ╚═════════════════════════════════════════════════════════════════╝
 
-TestVuePolyM		PROC	; Pentium 13
+TestVuePolyM		PROC \	; Pentium 13
+				uses eax ebx ecx edx edi esi ebp\
+				input: DWORD
+				mov esi, input
+
 ;(x2-x1)*(y1-y3)-(y2-y1)*(x1-x3)
 ;   P1  *  P2   -   P3  *  P4
 

@@ -17,7 +17,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C	MatriceWorld:DWORD
 
-		extrn	C	InitMatrix:DWORD
+		extrn	C	InitMatrixStd:DWORD
 		extrn	C	LongRotatePoint:DWORD
 		extrn	C	LongInverseRotatePoint:DWORD
 
@@ -228,7 +228,7 @@ tback:
 		mov	CameraBeta, ebx
 
 		mov	CameraGamma, ecx
-		call	[InitMatrix]
+		call	[InitMatrixStd]
 
 		call	RecomputeLight
 

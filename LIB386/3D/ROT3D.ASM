@@ -33,7 +33,7 @@ RotatePointNoMMX dd	offset RotatePointInitNoMMX
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	RotatePointI:PROC
+		;extrn	C	RotatePointI:PROC
 		extrn	C	LongRotatePointF:PROC
 		;extrn	C	RotatePointM:PROC
 
@@ -50,7 +50,7 @@ RotatePointNoMMX dd	offset RotatePointInitNoMMX
 
 RotatePointInit proc
 
-		mov	[ds:Chooser_RtnI], offset RotatePointI	; Integer
+		;mov	[ds:Chooser_RtnI], offset RotatePointI	; Integer
 		mov	[ds:Chooser_RtnF], offset LongRotatePointF	; FPU
 		;mov	[ds:Chooser_RtnM], offset RotatePointM	; MMX
 		mov	[ds:Chooser_Result], offset RotatePoint	; Pointer
@@ -61,7 +61,7 @@ RotatePointInit endp
 
 RotatePointInitNoMMX proc
 
-		mov	[ds:Chooser_RtnI], offset RotatePointI	; Integer
+		;mov	[ds:Chooser_RtnI], offset RotatePointI	; Integer
 		mov	[ds:Chooser_RtnF], offset LongRotatePointF	; FPU
 		mov	[ds:Chooser_Result], offset RotatePointNoMMX; Pointer
 		jmp	Chooser

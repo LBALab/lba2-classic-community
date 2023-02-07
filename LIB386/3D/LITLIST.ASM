@@ -24,7 +24,7 @@ LightList	dd	offset LightListInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		Extrn	C	LightListI	:	PROC
+		;Extrn	C	LightListI	:	PROC
 		Extrn	C	LightListF	:	PROC
 		;Extrn	C	LightListM	:	PROC
 
@@ -42,7 +42,7 @@ LightList	dd	offset LightListInit
 
 LightListInit	proc
 
-		mov	[ds:Chooser_RtnI],   offset LightListI	; Integer
+		;mov	[ds:Chooser_RtnI],   offset LightListI	; Integer
 		mov	[ds:Chooser_RtnF],   offset LightListF	; FPU
 		;mov	[ds:Chooser_RtnM],   offset LightListM	; MMX
 		mov	[ds:Chooser_Result], offset LightList	; Pointer

@@ -28,18 +28,14 @@ IFDEF	_WIN32
 
 AllowPatch		PROC
 
-			push	0			; dummy (local variable)
 			sub	edx, eax
-
-			push	esp			; ->dummy
-			push	40h			; PAGE_EXECUTE_READWRITE
 
 			push	edx
 			push	eax
 
 			call	_VirtualProtect		; allow EXECUTE_READWRITE on range
 
-			add esp, 16 ; yaz
+			add esp, 4
 			pop	edx
 
 			ret

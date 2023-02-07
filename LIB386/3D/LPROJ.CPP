@@ -1,11 +1,12 @@
 #include <3D/LPROJ.H>
 
+// -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// -----------------------------------------------------------------------------
 #undef LongProjectPoint
-typedef S32(Func_LongProjectPoint)(S32 x, S32 y, S32 z);
 extern Func_LongProjectPoint *LongProjectPoint;
 
 S32 LongProjectPoint_C(S32 x, S32 y, S32 z) {
@@ -26,11 +27,11 @@ S32 LongProjectPoint_C(S32 x, S32 y, S32 z) {
                        "movl %1, %%eax\n\t"
                        "movl %2, %%ebx\n\t"
                        "movl %3, %%ecx\n\t"
-                       "call %4\n\t"
+                       "call *%4\n\t"
                        "movl %%eax, %0\n\t"
                        "popa\n\t"
                        : "=m"(result)
-                       : "m"(x), "m"(y), "m"(z), "m"(LongProjectPoint3DF)
+                       : "m"(x), "m"(y), "m"(z), "m"(LongProjectPoint)
                        : "%eax", "%ebx", "%ecx");
 #else
 #error "Unsupported compiler!"
@@ -39,6 +40,7 @@ S32 LongProjectPoint_C(S32 x, S32 y, S32 z) {
   return result;
 }
 
+// =============================================================================
 #ifdef __cplusplus
 }
 #endif
