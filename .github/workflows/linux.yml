@@ -14,15 +14,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-        
+
     - name: Install dependencies
-      run: apt-get install -y libsdl2-dev
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: libsdl2-dev
+        version: '1.0'
 
     - name: Install tool UASM
       uses: supplypike/setup-bin@v3
       with:
         uri: 'https://github.com/Terraspace/UASM/files/9881874/uasm256_linux64.zip'
         name: 'uasm'
+        version: '2.56'
 
     - name: Get latest CMake and ninja
       uses: lukka/get-cmake@latest
