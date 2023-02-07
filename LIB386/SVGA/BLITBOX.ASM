@@ -35,7 +35,7 @@ BlitBox	dd	offset BlitBoxInit
        		ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	BlitBoxI:PROC
+		;extrn	C	BlitBoxI:PROC
 		extrn	C	BlitBoxF:PROC
 		;extrn	C	BlitBoxM:PROC
 
@@ -51,7 +51,7 @@ BlitBox	dd	offset BlitBoxInit
 
 BlitBoxInit	proc
 
-		mov	[ds:Chooser_RtnI], offset BlitBoxI	; Integer
+		;mov	[ds:Chooser_RtnI], offset BlitBoxI	; Integer
 		mov	[ds:Chooser_RtnF], offset BlitBoxF	; FPU
 		;mov	[ds:Chooser_RtnM], offset BlitBoxM	; MMX
 		mov	[ds:Chooser_Result], offset BlitBox	; Pointer

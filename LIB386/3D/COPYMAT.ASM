@@ -27,7 +27,7 @@ CopyMatrix	dd	offset CopyMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	CopyMatrixI:PROC
+		;extrn	C	CopyMatrixI:PROC
 		extrn	C	CopyMatrixF:PROC
 		;extrn	C	CopyMatrixM:PROC
 
@@ -44,7 +44,7 @@ CopyMatrix	dd	offset CopyMatrixInit
 
 CopyMatrixInit proc
 
-		mov	[ds:Chooser_RtnI], offset CopyMatrixI	; Integer
+		;mov	[ds:Chooser_RtnI], offset CopyMatrixI	; Integer
 		mov	[ds:Chooser_RtnF], offset CopyMatrixF	; FPU
 		;mov	[ds:Chooser_RtnM], offset CopyMatrixM	; MMX
 		mov	[ds:Chooser_Result], offset CopyMatrix	; Pointer

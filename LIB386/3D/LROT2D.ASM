@@ -27,7 +27,7 @@ LongRotate	dd	offset LongRotateInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	LongRotateI:PROC
+		;extrn	C	LongRotateI:PROC
 		extrn	C	LongRotateF:PROC
 		;extrn	C	LongRotateM:PROC
 
@@ -44,7 +44,7 @@ LongRotate	dd	offset LongRotateInit
 
 LongRotateInit	proc
 
-		mov	[ds:Chooser_RtnI], offset LongRotateI	; Integer
+		;mov	[ds:Chooser_RtnI], offset LongRotateI	; Integer
 		mov	[ds:Chooser_RtnF], offset LongRotateF	; FPU
 		;mov	[ds:Chooser_RtnM], offset LongRotateM	; MMX
 		mov	[ds:Chooser_Result], offset LongRotate	; Pointer

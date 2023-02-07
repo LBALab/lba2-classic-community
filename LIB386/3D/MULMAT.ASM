@@ -27,7 +27,7 @@ MulMatrix	dd	offset MulMatrixInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	MulMatrixI:PROC
+		;extrn	C	MulMatrixI:PROC
 		extrn	C	MulMatrixF:PROC
 		;extrn	C	MulMatrixM:PROC
 
@@ -46,7 +46,7 @@ MulMatrix	dd	offset MulMatrixInit
 
 MulMatrixInit	proc
 
-		mov	[ds:Chooser_RtnI], offset MulMatrixI	; Integer
+		;mov	[ds:Chooser_RtnI], offset MulMatrixI	; Integer
 		mov	[ds:Chooser_RtnF], offset MulMatrixF	; FPU
 		;mov	[ds:Chooser_RtnM], offset MulMatrixM	; MMX
 		mov	[ds:Chooser_Result], offset MulMatrix	; Pointer
@@ -57,4 +57,3 @@ MulMatrixInit	endp
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		END
-

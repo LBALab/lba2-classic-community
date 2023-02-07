@@ -20,9 +20,10 @@ typedef	void (Func_LongInverseRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 #pragma	aux (Arg_LongInverseRotatePoint)	Func_LongInverseRotatePoint
 
 //****************************************************************************
-extern	Func_LongInverseRotatePoint	*LongInverseRotatePoint	;
+//extern	Func_LongInverseRotatePoint	*LongInverseRotatePoint	;
 
-#pragma aux	LongInverseRotatePoint		"*"
+#define LongInverseRotatePoint LongInverseRotatePoint_C
+void LongInverseRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
 
 //****************************************************************************
 #define	LongWorldInverseRotatePoint(x, y, z)	LongInverseRotatePoint(&MatriceWorld, x, y, z)

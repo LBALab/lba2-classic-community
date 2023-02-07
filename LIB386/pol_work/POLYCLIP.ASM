@@ -699,7 +699,7 @@ Clipping_ZMMX		ENDP
 
 Init_Clip		PROC
 
-			mov	[ds:Chooser_RtnI], offset Clipping_Z	; Integer
+			;mov	[ds:Chooser_RtnI], offset Clipping_Z	; Integer
 			mov	[ds:Chooser_RtnF], offset Clipping_ZFPU	; FPU
 			;mov	[ds:Chooser_RtnM], offset Clipping_ZMMX	; MMX
 			mov	[ds:Chooser_Result], offset Clip_Funct	; Pointer

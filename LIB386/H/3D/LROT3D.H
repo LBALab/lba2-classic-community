@@ -20,9 +20,10 @@ typedef	void (Func_LongRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 #pragma	aux (Arg_LongRotatePoint)	Func_LongRotatePoint
 
 //****************************************************************************
-extern	Func_LongRotatePoint	*LongRotatePoint	;
+//extern	Func_LongRotatePoint	*LongRotatePoint	;
 
-#pragma aux	LongRotatePoint		"*"
+#define LongRotatePoint LongRotatePoint_C
+void LongRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
 
 //****************************************************************************
 extern	Func_LongRotatePoint	*FastLongRotatePoint	;
@@ -30,10 +31,7 @@ extern	Func_LongRotatePoint	*FastLongRotatePoint	;
 #pragma aux	FastLongRotatePoint	"*"
 
 //****************************************************************************
-//#define	LongWorldRotatePoint(x, y, z)		LongRotatePoint(&MatriceWorld, x, y, z)
-#define LongWorldRotatePoint LongWorldRotatePoint_C
-
-void LongWorldRotatePoint_C(S32 x, S32 y, S32 z);
+#define	LongWorldRotatePoint(x, y, z) LongRotatePoint(&MatriceWorld, x, y, z)
 
 //****************************************************************************
 #define	FastLongWorldRotatePoint(x, y, z)	FastLongRotatePoint(&MatriceWorld, x, y, z)

@@ -12,7 +12,7 @@
 
 		extrn	C	Chooser_RtnI:DWORD
 		extrn	C	Chooser_RtnF:DWORD
-		;extrn	C	Chooser_RtnMF:DWORD
+		extrn	C	Chooser_RtnMF:DWORD
 		extrn	C	Chooser_Result:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -27,7 +27,7 @@ ProjectList3D	dd	offset ProjectList3DInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	ProjectList3DI:PROC
+		;extrn	C	ProjectList3DI:PROC
 		extrn	C	ProjectList3DF:PROC
 		;extrn	C	ProjectList3DMF:PROC
 
@@ -46,7 +46,7 @@ ProjectList3D	dd	offset ProjectList3DInit
 
 ProjectList3DInit	proc
 
-		mov	[ds:Chooser_RtnI], offset ProjectList3DI	; Integer
+		;mov	[ds:Chooser_RtnI], offset ProjectList3DI	; Integer
 		mov	[ds:Chooser_RtnF], offset ProjectList3DF	; FPU
 		;mov	[ds:Chooser_RtnMF], offset ProjectList3DMF	; MMX+FPU
 		mov	[ds:Chooser_Result], offset ProjectList3D	; Pointer
@@ -57,4 +57,3 @@ ProjectList3DInit	endp
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		END
-

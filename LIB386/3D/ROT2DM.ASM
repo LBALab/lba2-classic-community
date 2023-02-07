@@ -17,6 +17,8 @@
 
 		extrn C	MMX_DEMI:DWORD
 
+		ASSUME  DS:SEG SinTab
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -30,7 +32,12 @@
 ;	parm		[eax] [ecx] [edx]	\
 ;	modify		[ebx esi edi]
 
-RotateM		proc
+RotateM		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, z: DWORD, angle: DWORD
+			mov eax, x
+			mov ecx, z
+			mov edx, angle
 
 		and		edx, 4095
 		jz		norot

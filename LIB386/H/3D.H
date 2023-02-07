@@ -12,7 +12,6 @@
 #include <3D/DISTANCE.H>
 #include <3D/GETANG2D.H>
 #include <3D/GETANG3D.H>
-#include <3D/IMAT.H>
 #include <3D/IMATSTD.H>
 #include <3D/IMATTRA.H>
 #include <3D/INVCAM.H>

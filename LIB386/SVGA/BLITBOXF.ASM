@@ -22,7 +22,12 @@
 ;	parm	[edi] [esi]	\
 ;	modify	[eax ebx ecx edx]
 
-BlitBoxF		PROC
+BlitBoxF		PROC \
+			uses eax ebx ecx edx edi esi \
+			dst: DWORD, src: DWORD
+
+			mov edi, dst
+			mov esi, src
 
 			mov	edx, offset TabOffPhysLine
 			mov	ecx, 200

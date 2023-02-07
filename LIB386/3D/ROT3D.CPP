@@ -1,10 +1,14 @@
 #include <3D/ROT3D.H>
 
+// -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// TODO: Improve as in the end RotatePoint_C and LongWorldRotatePoint_C call _LongRotatePointF
+// -----------------------------------------------------------------------------
+#undef RotatePoint
+extern Func_RotatePoint *RotatePoint;
+
 void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 #ifdef __MSC_VER
   __asm {
@@ -13,7 +17,7 @@ void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 		mov eax, x
 		mov ebx, y
 		mov ecx, z
-		call LongRotatePointF
+		call RotatePoint
 		popa
   }
 #elif __GNUC__
@@ -22,16 +26,17 @@ void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
                        "movl %1, %%eax\n\t"
                        "movl %2, %%ebx\n\t"
                        "movl %3, %%ecx\n\t"
-                       "call %4\n\t"
+                       "call *%4\n\t"
                        "popa\n\t"
                        :
-                       : "m"(Mat), "m"(x), "m"(y), "m"(z), "m"(LongRotatePointF)
+                       : "r"(Mat), "m"(x), "m"(y), "m"(z), "m"(RotatePoint)
                        : "%esi", "%eax", "%ebx", "%ecx");
 #else
 #error "Unsupported compiler!"
 #endif
 }
 
+// =============================================================================
 #ifdef __cplusplus
 }
 #endif

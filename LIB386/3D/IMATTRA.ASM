@@ -27,7 +27,7 @@ InitMatrixTrans	dd	offset InitMatrixTransInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	InitMatrixTransI:PROC
+		;extrn	C	InitMatrixTransI:PROC
 		extrn	C	InitMatrixTransF:PROC
 		;extrn	C	InitMatrixTransM:PROC
 
@@ -44,7 +44,7 @@ InitMatrixTrans	dd	offset InitMatrixTransInit
 
 InitMatrixTransInit proc
 
-		mov	[ds:Chooser_RtnI], offset InitMatrixTransI	; Integer
+		;mov	[ds:Chooser_RtnI], offset InitMatrixTransI	; Integer
 		mov	[ds:Chooser_RtnF], offset InitMatrixTransF	; FPU
 		;mov	[ds:Chooser_RtnM], offset InitMatrixTransM	; MMX
 		mov	[ds:Chooser_Result], offset InitMatrixTrans	; Pointer

@@ -15,6 +15,8 @@
 		extrn	C	CosTab:WORD
 		extrn	C	MatrixLib1:DWORD
 
+		ASSUME ds:SEG SinTab
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -66,47 +68,47 @@ InitMatrixStdM		PROC
 			mov	dx,[CosTab+eax]
 			xor	esi,esi
 							; EDI = M(Alpha)
-			mov	[edi].MMX_M22,dx
+			mov	[edi].Struc_MatriceMMX.MMX_M22,dx
 
-			mov	word ptr [edi].MMX_M21,si
+			mov	word ptr [edi].Struc_MatriceMMX.MMX_M21,si
 			mov	dword ptr [edi],16384	; .MMX_M11=+0
 
-			mov	word ptr [edi].MMX_M31,si
-			mov	dword ptr [edi].MMX_M13,esi
+			mov	word ptr [edi].Struc_MatriceMMX.MMX_M31,si
+			mov	dword ptr [edi].Struc_MatriceMMX.MMX_M13,esi
 
-			mov	dword ptr[edi].MMX_M33,edx
+			mov	dword ptr[edi].Struc_MatriceMMX.MMX_M33,edx
 
 			mov	dx,[SinTab+eax]
 			lea	eax, [ebx*2]
 
-			mov	[edi].MMX_M32,dx
+			mov	[edi].Struc_MatriceMMX.MMX_M32,dx
 			lea	ebx,MatrixLib1
 
 			neg	dx
 
 			xor	esi,esi
-			mov	dword ptr[edi].MMX_M23,edx
+			mov	dword ptr[edi].Struc_MatriceMMX.MMX_M23,edx
 
 
 							; ebx = M(Gamma)
 			mov	dx,[CosTab+ecx]
-			mov	dword ptr [ebx].MMX_M13,esi
+			mov	dword ptr [ebx].Struc_MatriceMMX.MMX_M13,esi
 
-			mov	[ebx].MMX_M11,dx
-			mov	dword ptr [ebx].MMX_M23,esi
+			mov	[ebx].Struc_MatriceMMX.MMX_M11,dx
+			mov	dword ptr [ebx].Struc_MatriceMMX.MMX_M23,esi
 
-			mov	[ebx].MMX_M22,dx
-			mov	dword ptr[ebx].MMX_M31,esi
+			mov	[ebx].Struc_MatriceMMX.MMX_M22,dx
+			mov	dword ptr[ebx].Struc_MatriceMMX.MMX_M31,esi
 
 			mov	dx,[SinTab+ecx]
 			mov	ecx,16384
 
-			mov	[ebx].MMX_M21,dx
-			mov	dword ptr[ebx].MMX_M33,ecx
+			mov	[ebx].Struc_MatriceMMX.MMX_M21,dx
+			mov	dword ptr[ebx].Struc_MatriceMMX.MMX_M33,ecx
 
 			neg	dx
 
-			mov	[ebx].MMX_M12,dx
+			mov	[ebx].Struc_MatriceMMX.MMX_M12,dx
 			mov	esi,edi
 
 			call	MulMatrixM		; Registers not modified
@@ -116,19 +118,19 @@ InitMatrixStdM		PROC
 			mov	dx,[CosTab+eax]
 			mov	ecx,16384 shl 16
 
-			mov	dword ptr[esi].MMX_M11,edx
-			mov	dword ptr[esi].MMX_M33,edx
+			mov	dword ptr[esi].Struc_MatriceMMX.MMX_M11,edx
+			mov	dword ptr[esi].Struc_MatriceMMX.MMX_M33,edx
 
 			mov	dx,[SinTab+eax]
-			mov	dword ptr[esi].MMX_M21,ecx
+			mov	dword ptr[esi].Struc_MatriceMMX.MMX_M21,ecx
 
-			mov	dword ptr[esi].MMX_M13,edx
+			mov	dword ptr[esi].Struc_MatriceMMX.MMX_M13,edx
 			xor	ebx, ebx
 
 			neg	dx
-			mov	dword ptr[esi].MMX_M23, ebx
+			mov	dword ptr[esi].Struc_MatriceMMX.MMX_M23, ebx
 
-			mov	dword ptr[esi].MMX_M31, edx
+			mov	dword ptr[esi].Struc_MatriceMMX.MMX_M31, edx
 			pxor	mm0, mm0
 
 			movq	[esi+24], mm0
@@ -145,4 +147,3 @@ InitMatrixStdM		ENDP
 ;*══════════════════════════════════════════════════════════════════════════*
 ;			The
 			End
-

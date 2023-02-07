@@ -26,11 +26,11 @@ CopyBoxVESA	dd	offset CopyBoxVESAInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	CopyBoxVESAI:PROC
+		;extrn	C	CopyBoxVESAI:PROC
 		extrn	C	CopyBoxVESAF:PROC
 		;extrn	C	CopyBoxVESAM:PROC
 
-		extrn	C	CopyBoxI:PROC
+		;extrn	C	CopyBoxI:PROC
 		extrn	C	CopyBoxF:PROC
 		;extrn	C	CopyBoxM:PROC
 
@@ -54,13 +54,13 @@ CopyBoxVESAInit	proc
 		test	[VESAMode], 4000h
 		jnz	OkLinear
 
-		mov	[ds:Chooser_RtnI], offset CopyBoxVESAI	; Integer
+		;mov	[ds:Chooser_RtnI], offset CopyBoxVESAI	; Integer
 		mov	[ds:Chooser_RtnF], offset CopyBoxVESAF	; FPU
 		;mov	[ds:Chooser_RtnM], offset CopyBoxVESAM	; MMX
 
 		jmp	Chooser
 OkLinear:
-		mov	[ds:Chooser_RtnI], offset CopyBoxI		; Integer
+		;mov	[ds:Chooser_RtnI], offset CopyBoxI		; Integer
 		mov	[ds:Chooser_RtnF], offset CopyBoxF		; FPU
 		;mov	[ds:Chooser_RtnM], offset CopyBoxM		; MMX
 

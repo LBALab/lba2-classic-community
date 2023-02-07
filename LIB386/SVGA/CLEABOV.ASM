@@ -26,11 +26,11 @@ ClearBoxVESA	dd	offset ClearBoxVESAInit
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	ClearBoxVESAI:PROC
+		;extrn	C	ClearBoxVESAI:PROC
 		extrn	C	ClearBoxVESAF:PROC
 		;extrn	C	ClearBoxVESAM:PROC
 
-		extrn	C	ClearBoxI:PROC
+		;extrn	C	ClearBoxI:PROC
 		extrn	C	ClearBoxF:PROC
 		;extrn	C	ClearBoxM:PROC
 
@@ -56,13 +56,13 @@ ClearBoxVESAInit	proc
 		test	[VESAMode], 4000h
 		jnz	OkLinear
 
-		mov	[ds:Chooser_RtnI], offset ClearBoxVESAI	; Integer
+		;mov	[ds:Chooser_RtnI], offset ClearBoxVESAI	; Integer
 		mov	[ds:Chooser_RtnF], offset ClearBoxVESAF	; FPU
 		;mov	[ds:Chooser_RtnM], offset ClearBoxVESAM	; MMX
 
 		jmp	Chooser
 OkLinear:
-		mov	[ds:Chooser_RtnI], offset ClearBoxI	; Integer
+		;mov	[ds:Chooser_RtnI], offset ClearBoxI	; Integer
 		mov	[ds:Chooser_RtnF], offset ClearBoxF	; FPU
 		;mov	[ds:Chooser_RtnM], offset ClearBoxM	; MMX
 

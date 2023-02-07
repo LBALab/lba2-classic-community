@@ -19,12 +19,12 @@ TestVuePoly		dd	Init_TestVuePoly
 
 			.CODE
 Extrn	C		Chooser		:	PROC
-Extrn	C		TestVuePolyI	:	PROC
+;Extrn	C		TestVuePolyI	:	PROC
 Extrn	C		TestVuePolyF	:	PROC
 ;Extrn	C		TestVuePolyM	:	PROC
 
 Init_TestVuePoly	PROC
-			mov	[ds:Chooser_RtnI],Offset TestVuePolyI	; Integer
+			;mov	[ds:Chooser_RtnI],Offset TestVuePolyI	; Integer
 			mov	[ds:Chooser_RtnF],Offset TestVuePolyF	; FPU
 			;mov	[ds:Chooser_RtnM],Offset TestVuePolyM	; MMX
 			mov	[ds:Chooser_Result],Offset TestVuePoly	; Pointer

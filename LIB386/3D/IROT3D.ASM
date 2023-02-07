@@ -27,7 +27,7 @@ InverseRotatePoint	dd	offset InverseRotatePointInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	InverseRotatePointI:PROC
+		;extrn	C	InverseRotatePointI:PROC
 		extrn	C	LongInverseRotatePointF:PROC
 		;extrn	C	InverseRotatePointM:PROC
 
@@ -44,7 +44,7 @@ InverseRotatePoint	dd	offset InverseRotatePointInit
 
 InverseRotatePointInit proc
 
-		mov	[ds:Chooser_RtnI], offset InverseRotatePointI	; Integer
+		;mov	[ds:Chooser_RtnI], offset InverseRotatePointI	; Integer
 		mov	[ds:Chooser_RtnF], offset LongInverseRotatePointF	; FPU
 		;mov	[ds:Chooser_RtnM], offset InverseRotatePointM	; MMX
 		mov	[ds:Chooser_Result], offset InverseRotatePoint	; Pointer

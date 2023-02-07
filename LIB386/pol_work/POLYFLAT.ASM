@@ -587,7 +587,7 @@ Filler_Flat		PROC
 			add	ebx,esi
 			add	edx,eax
 
-Fill_VLFlat1::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat1::		add	edi,[ScreenPitch]
 @@EnterLoop:
 			mov	esi,ebx
 			mov	ecx,edx
@@ -693,7 +693,7 @@ Filler_Transparent	PROC
 			add	ebx,esi
 			add	edx,eax
 
-Fill_VLFlat2::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat2::		add	edi,[ScreenPitch]
 @@EnterLoop:
 			mov	esi,ebx
 			mov	ecx,edx
@@ -760,7 +760,7 @@ Filler_Trame		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat3::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat3::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -884,7 +884,7 @@ Filler_FlatZBuf		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat4::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat4::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1022,7 +1022,7 @@ Filler_TransparentZBuf	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat5::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat5::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1144,7 +1144,7 @@ Filler_TrameZBuf	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat6::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat6::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1314,7 +1314,7 @@ Filler_FlatNZW		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat7::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat7::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1449,7 +1449,7 @@ Filler_TransparentNZW	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat8::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat8::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1567,7 +1567,7 @@ Filler_TrameNZW		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat9::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat9::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1730,7 +1730,7 @@ Filler_FlagZBuffer	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat10::		add	edi,SIZE_VIDEOLINE
+Fill_VLFlat10::		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

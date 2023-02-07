@@ -19,7 +19,7 @@
 
 		public	C LongProjectPoint3D
 
-LongProjectPoint3D	dd	offset	LongProjectPoint3DF
+LongProjectPoint3D	dd	offset	LongProjectPoint3DInit
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -27,7 +27,7 @@ LongProjectPoint3D	dd	offset	LongProjectPoint3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	C	LongProjectPoint3DI:PROC
+		;extrn	C	LongProjectPoint3DI:PROC
 		extrn	C	LongProjectPoint3DF:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -43,7 +43,7 @@ LongProjectPoint3D	dd	offset	LongProjectPoint3DF
 
 LongProjectPoint3DInit proc
 
-		mov	[ds:Chooser_RtnI], offset LongProjectPoint3DI	; Integer
+		;mov	[ds:Chooser_RtnI], offset LongProjectPoint3DI	; Integer
 		mov	[ds:Chooser_RtnF], offset LongProjectPoint3DF	; FPU
 		;mov	[ds:Chooser_RtnM], offset LongProjectPoint3DI	; MMX = Integer
 		mov	[ds:Chooser_Result], offset LongProjectPoint3D	; Pointer
@@ -54,4 +54,3 @@ LongProjectPoint3DInit endp
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		END
-

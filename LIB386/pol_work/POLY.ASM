@@ -946,7 +946,8 @@ Extrn	C		Chooser			:	PROC
 
 
 Fill_PolyInit		PROC
-			mov	[ds:Chooser_RtnI], Offset Fill_PolyFast	; Integer
+			;mov	[ds:Chooser_RtnI], Offset Fill_PolyFast	; Integer
+			mov	[ds:Chooser_RtnF], Offset Fill_PolyFast	; FPU
 			;mov	[ds:Chooser_RtnM], Offset Fill_PolyMMX	; MMX
 			mov	[ds:Chooser_Result], Offset Fill_Poly	; Pointer
 			jmp	Chooser
@@ -1039,106 +1040,106 @@ ENDIF	; _WIN32
 
 
 						; DISC
-			mov	dword ptr [Fill_VLDisc1+3],ebx
-			mov	dword ptr [Fill_VLDisc2+3],ebx
-			mov	dword ptr [Fill_VLDisc3+3],ebx
-			mov	dword ptr [Fill_VLDisc4+3],ebx
-
-						; FLAT
-			mov	dword ptr [Fill_VLFlat1+2],eax
-			mov	dword ptr [Fill_VLFlat2+2],eax
-			mov	dword ptr [Fill_VLFlat3+2],eax
-			mov	dword ptr [Fill_VLFlat4+2],eax
-			mov	dword ptr [Fill_VLFlat5+2],eax
-			mov	dword ptr [Fill_VLFlat6+2],eax
-			mov	dword ptr [Fill_VLFlat7+2],eax
-			mov	dword ptr [Fill_VLFlat8+2],eax
-			mov	dword ptr [Fill_VLFlat9+2],eax
-			mov	dword ptr [Fill_VLFlat10+2],eax
-
-						; GOURAUD
-			mov	dword ptr [Fill_VLGouraud1+2],eax
-			mov	dword ptr [Fill_VLGouraud2+2],eax
-			mov	dword ptr [Fill_VLGouraud3+2],eax
-			mov	dword ptr [Fill_VLGouraud4+2],eax
-			mov	dword ptr [Fill_VLGouraud5+2],eax
-			mov	dword ptr [Fill_VLGouraud6+2],eax
-			mov	dword ptr [Fill_VLGouraud7+2],eax
-			mov	dword ptr [Fill_VLGouraud8+2],eax
-			mov	dword ptr [Fill_VLGouraud9+2],eax
-			mov	dword ptr [Fill_VLGouraud10+2],eax
-			mov	dword ptr [Fill_VLGouraud11+2],eax
-			mov	dword ptr [Fill_VLGouraud12+2],eax
-			mov	dword ptr [Fill_VLGouraud13+2],eax
-			mov	dword ptr [Fill_VLGouraud14+2],eax
-			mov	dword ptr [Fill_VLGouraud15+2],eax
-			mov	dword ptr [Fill_VLGouraud16+2],eax
-			mov	dword ptr [Fill_VLGouraud17+2],eax
-			mov	dword ptr [Fill_VLGouraud18+2],eax
-
-
-						; TEXTURE
-			mov	dword ptr [Fill_VLTexture1+2],eax
-			mov	dword ptr [Fill_VLTexture2+2],eax
-			mov	dword ptr [Fill_VLTexture3+2],eax
-			mov	dword ptr [Fill_VLTexture4+2],eax
-			mov	dword ptr [Fill_VLTexture5+2],eax
-			mov	dword ptr [Fill_VLTexture6+2],eax
-			mov	dword ptr [Fill_VLTexture7+2],eax
-			mov	dword ptr [Fill_VLTexture8+2],eax
-			mov	dword ptr [Fill_VLTexture9+2],eax
-			mov	dword ptr [Fill_VLTexture10+2],eax
-			mov	dword ptr [Fill_VLTexture11+2],eax
-			mov	dword ptr [Fill_VLTexture12+2],eax
-			mov	dword ptr [Fill_VLTexture13+2],eax
-			mov	dword ptr [Fill_VLTexture14+2],eax
-			mov	dword ptr [Fill_VLTexture15+2],eax
-			mov	dword ptr [Fill_VLTexture16+2],eax
-			mov	dword ptr [Fill_VLTexture17+2],eax
-			mov	dword ptr [Fill_VLTexture18+2],eax
-
-						; GOURAUD TEXTURE
-			mov	dword ptr [Fill_VLGouraudTexture1+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture2+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture3+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture4+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture5+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture6+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture7+2],eax
-			mov	dword ptr [Fill_VLGouraudTexture8+2],eax
-
-						; TEXTURE Z
-			mov	dword ptr [Fill_VLTextureZ1+2],eax
-			mov	dword ptr [Fill_VLTextureZ2+2],eax
-			mov	dword ptr [Fill_VLTextureZ3+2],eax
-			mov	dword ptr [Fill_VLTextureZ4+2],eax
-			mov	dword ptr [Fill_VLTextureZ5+2],eax
-			mov	dword ptr [Fill_VLTextureZ6+2],eax
-			mov	dword ptr [Fill_VLTextureZ7+2],eax
-			mov	dword ptr [Fill_VLTextureZ8+2],eax
-			mov	dword ptr [Fill_VLTextureZ9+2],eax
-			mov	dword ptr [Fill_VLTextureZ10+2],eax
-			mov	dword ptr [Fill_VLTextureZ11+2],eax
-			mov	dword ptr [Fill_VLTextureZ12+2],eax
-			mov	dword ptr [Fill_VLTextureZ13+2],eax
-			mov	dword ptr [Fill_VLTextureZ14+2],eax
-			mov	dword ptr [Fill_VLTextureZ15+2],eax
-			mov	dword ptr [Fill_VLTextureZ16+2],eax
-			mov	dword ptr [Fill_VLTextureZ17+2],eax
-			mov	dword ptr [Fill_VLTextureZ18+2],eax
-
-						; TEXTURE Z GOURAUD
-			mov	dword ptr [Fill_VLTextureZGouraud1+2],eax
-			mov	dword ptr [Fill_VLTextureZGouraud2+2],eax
-			mov	dword ptr [Fill_VLTextureZGouraud3+2],eax
-			mov	dword ptr [Fill_VLTextureZGouraud4+2],eax
-			mov	dword ptr [Fill_VLTextureZGouraud5+2],eax
-			mov	dword ptr [Fill_VLTextureZGouraud6+2],eax
-
-						; TEXTURE Z FOG
-			mov	dword ptr [Fill_VLTextureZFog1+2],eax
-			mov	dword ptr [Fill_VLTextureZFog2+2],eax
-			mov	dword ptr [Fill_VLTextureZFog3+2],eax
+;			mov	dword ptr [Fill_VLDisc1+3],ebx
+;			mov	dword ptr [Fill_VLDisc2+3],ebx
+;			mov	dword ptr [Fill_VLDisc3+3],ebx
+;			mov	dword ptr [Fill_VLDisc4+3],ebx
+;
+;						; FLAT
+;			mov	dword ptr [Fill_VLFlat1+2],eax
+;			mov	dword ptr [Fill_VLFlat2+2],eax
+;			mov	dword ptr [Fill_VLFlat3+2],eax
+;			mov	dword ptr [Fill_VLFlat4+2],eax
+;			mov	dword ptr [Fill_VLFlat5+2],eax
+;			mov	dword ptr [Fill_VLFlat6+2],eax
+;			mov	dword ptr [Fill_VLFlat7+2],eax
+;			mov	dword ptr [Fill_VLFlat8+2],eax
+;			mov	dword ptr [Fill_VLFlat9+2],eax
+;			mov	dword ptr [Fill_VLFlat10+2],eax
+;
+;						; GOURAUD
+;			mov	dword ptr [Fill_VLGouraud1+2],eax
+;			mov	dword ptr [Fill_VLGouraud2+2],eax
+;			mov	dword ptr [Fill_VLGouraud3+2],eax
+;			mov	dword ptr [Fill_VLGouraud4+2],eax
+;			mov	dword ptr [Fill_VLGouraud5+2],eax
+;			mov	dword ptr [Fill_VLGouraud6+2],eax
+;			mov	dword ptr [Fill_VLGouraud7+2],eax
+;			mov	dword ptr [Fill_VLGouraud8+2],eax
+;			mov	dword ptr [Fill_VLGouraud9+2],eax
+;			mov	dword ptr [Fill_VLGouraud10+2],eax
+;			mov	dword ptr [Fill_VLGouraud11+2],eax
+;			mov	dword ptr [Fill_VLGouraud12+2],eax
+;			mov	dword ptr [Fill_VLGouraud13+2],eax
+;			mov	dword ptr [Fill_VLGouraud14+2],eax
+;			mov	dword ptr [Fill_VLGouraud15+2],eax
+;			mov	dword ptr [Fill_VLGouraud16+2],eax
+;			mov	dword ptr [Fill_VLGouraud17+2],eax
+;			mov	dword ptr [Fill_VLGouraud18+2],eax
+;
+;
+;						; TEXTURE
+;			mov	dword ptr [Fill_VLTexture1+2],eax
+;			mov	dword ptr [Fill_VLTexture2+2],eax
+;			mov	dword ptr [Fill_VLTexture3+2],eax
+;			mov	dword ptr [Fill_VLTexture4+2],eax
+;			mov	dword ptr [Fill_VLTexture5+2],eax
+;			mov	dword ptr [Fill_VLTexture6+2],eax
+;			mov	dword ptr [Fill_VLTexture7+2],eax
+;			mov	dword ptr [Fill_VLTexture8+2],eax
+;			mov	dword ptr [Fill_VLTexture9+2],eax
+;			mov	dword ptr [Fill_VLTexture10+2],eax
+;			mov	dword ptr [Fill_VLTexture11+2],eax
+;			mov	dword ptr [Fill_VLTexture12+2],eax
+;			mov	dword ptr [Fill_VLTexture13+2],eax
+;			mov	dword ptr [Fill_VLTexture14+2],eax
+;			mov	dword ptr [Fill_VLTexture15+2],eax
+;			mov	dword ptr [Fill_VLTexture16+2],eax
+;			mov	dword ptr [Fill_VLTexture17+2],eax
+;			mov	dword ptr [Fill_VLTexture18+2],eax
+;
+;						; GOURAUD TEXTURE
+;			mov	dword ptr [Fill_VLGouraudTexture1+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture2+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture3+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture4+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture5+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture6+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture7+2],eax
+;			mov	dword ptr [Fill_VLGouraudTexture8+2],eax
+;
+;						; TEXTURE Z
+;			mov	dword ptr [Fill_VLTextureZ1+2],eax
+;			mov	dword ptr [Fill_VLTextureZ2+2],eax
+;			mov	dword ptr [Fill_VLTextureZ3+2],eax
+;			mov	dword ptr [Fill_VLTextureZ4+2],eax
+;			mov	dword ptr [Fill_VLTextureZ5+2],eax
+;			mov	dword ptr [Fill_VLTextureZ6+2],eax
+;			mov	dword ptr [Fill_VLTextureZ7+2],eax
+;			mov	dword ptr [Fill_VLTextureZ8+2],eax
+;			mov	dword ptr [Fill_VLTextureZ9+2],eax
+;			mov	dword ptr [Fill_VLTextureZ10+2],eax
+;			mov	dword ptr [Fill_VLTextureZ11+2],eax
+;			mov	dword ptr [Fill_VLTextureZ12+2],eax
+;			mov	dword ptr [Fill_VLTextureZ13+2],eax
+;			mov	dword ptr [Fill_VLTextureZ14+2],eax
+;			mov	dword ptr [Fill_VLTextureZ15+2],eax
+;			mov	dword ptr [Fill_VLTextureZ16+2],eax
+;			mov	dword ptr [Fill_VLTextureZ17+2],eax
+;			mov	dword ptr [Fill_VLTextureZ18+2],eax
+;
+;						; TEXTURE Z GOURAUD
+;			mov	dword ptr [Fill_VLTextureZGouraud1+2],eax
+;			mov	dword ptr [Fill_VLTextureZGouraud2+2],eax
+;			mov	dword ptr [Fill_VLTextureZGouraud3+2],eax
+;			mov	dword ptr [Fill_VLTextureZGouraud4+2],eax
+;			mov	dword ptr [Fill_VLTextureZGouraud5+2],eax
+;			mov	dword ptr [Fill_VLTextureZGouraud6+2],eax
+;
+;						; TEXTURE Z FOG
+;			mov	dword ptr [Fill_VLTextureZFog1+2],eax
+;			mov	dword ptr [Fill_VLTextureZFog2+2],eax
+;			mov	dword ptr [Fill_VLTextureZFog3+2],eax
 
 
 						; Set the flag that tells us if we should use the FPU
