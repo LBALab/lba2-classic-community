@@ -1,0 +1,34 @@
+name: Linux
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+        
+    - name: Install dependencies
+      run: apt-get install -y libsdl2-dev
+
+    - name: Install tool UASM
+      uses: supplypike/setup-bin@v3
+      with:
+        uri: 'https://github.com/Terraspace/UASM/files/9881874/uasm256_linux64.zip'
+        name: 'uasm'
+
+    - name: Get latest CMake and ninja
+      uses: lukka/get-cmake@latest
+
+    - name: Run CMake
+      run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --preset linux
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --target lba2
