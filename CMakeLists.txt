@@ -2,24 +2,21 @@ cmake_minimum_required(VERSION 3.23)
 
 project(LBA2)
 
-# Configure languages and compilers
-set(CMAKE_ASM_MASM_COMPILER uasm) # TODO: Move to toolchain file
-set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd") # TODO: Move to toolchain file
+# Bruteforce setup of UASM assembly compiler (must happen before enable_language)
+set(CMAKE_ASM_MASM_COMPILER uasm)
+set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd")
 if (WIN32)
-    set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -coff") # TODO: Move to toolchain file
+    set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -coff")
 else ()
-    set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -elf -zcw") # TODO: Move to toolchain file
+    set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -elf -zcw")
 endif ()
-# TODO: Add /Zd only in debug mode
 
-# TODO: Check all uses of structure alignment /zp8 and /zp2 (ASM code also uses ALIGN)
-# TODO: Re-check all source files for all folders and list non used ones on CMakeScript
 enable_language(C CXX ASM_MASM)
 set(CMAKE_CXX_STANDARD 98)
 
 # Compilation options
-set(SOUND_BACKEND "miles" CACHE STRING "Sound backend to be used")
-set(MVIDEO_BACKEND "smacker" CACHE STRING "Motion Video backend to be used")
+set(SOUND_BACKEND "none" CACHE STRING "Sound backend to be used")
+set(MVIDEO_BACKEND "none" CACHE STRING "Motion Video backend to be used")
 
 # Compilation options sanitization
 ## Sound backend

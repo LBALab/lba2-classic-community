@@ -35,21 +35,6 @@
       "inherits": "default",
       "displayName": "Linux",
       "description": "Normal compilation on Linux"
-    },
-    {
-      "hidden": true,
-      "name": "no_sound",
-      "description": "Configure project to disable the compilation of all sound backends",
-      "cacheVariables": {
-        "SOUND_BACKEND": {
-          "type": "STRING",
-          "value": "none"
-        },
-        "MVIDEO_BACKEND": {
-          "type": "STRING",
-          "value": "none"
-        }
-      }
     }
   ]
 }
