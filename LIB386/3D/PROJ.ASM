@@ -37,10 +37,10 @@
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn   C LongProjectPointInit:           PROC
-		extrn   C LongProjectPointIso:		PROC
-		extrn   C ProjectListInit:		PROC
-		extrn   C ProjectListIso:			PROC
+		extrn   C LongProjectPoint3DF:	PROC
+		extrn   C LongProjectPointIso:	PROC
+		extrn   C ProjectList3DF:		PROC
+		extrn   C ProjectListIso:		PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		public	C	SetProjection
@@ -88,8 +88,8 @@ noFPU:
 		mov	[NearClip], ecx
 		mov	[TypeProj], TYPE_3D
 
-		mov	eax, offset LongProjectPointInit
-		mov	ebx, offset ProjectListInit
+		mov	eax, offset LongProjectPoint3DF
+		mov	ebx, offset ProjectList3DF
 		mov	LongProjectPoint, eax
 		mov	ProjectList, ebx
 

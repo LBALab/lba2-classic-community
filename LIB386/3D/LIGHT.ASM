@@ -61,7 +61,7 @@ ASSUME ds:SEG LightNormalUnit
 
 		extrn	C	InitMatrixStd:DWORD
 		extrn	C	RotatePoint:DWORD
-		extrn	C	InverseRotatePoint:DWORD
+		extrn	C	LongInverseRotatePoint:DWORD
 
 ;****************************************************************************
 		.CODE
@@ -131,7 +131,7 @@ SetLightVector PROC \
 		mov	ecx, [LightNormalUnit]
 		mov	esi, offset MatrixLib2
 
-		call	[InverseRotatePoint]
+		call	[LongInverseRotatePoint]
 
 		mov	eax, [X0]
 		mov	ebx, [Y0]

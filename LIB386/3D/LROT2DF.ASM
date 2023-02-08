@@ -14,6 +14,12 @@
 		extrn	C	X0:DWORD
 		extrn	C	Z0:DWORD
 
+		public	C	LongRotate
+		public	C	Rotate
+
+		LongRotate	dd	offset LongRotateF
+		Rotate		dd	offset LongRotateF
+
 		ASSUME  DS:SEG SinTabF
 
 ;*══════════════════════════════════════════════════════════════════════════*

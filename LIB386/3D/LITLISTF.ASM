@@ -18,6 +18,10 @@
 			Extrn	Y0			:DWORD
 			Extrn	Z0			:DWORD
 
+			PUBLIC	C LightList
+
+			LightList	dd	offset LightListF
+
 			ASSUME ds:SEG X0
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -27,7 +31,7 @@
 			Extrn	LongInverseRotatePointF	:PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-			PUBLIC	LightListF
+			PUBLIC	C LightListF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LightListF(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;

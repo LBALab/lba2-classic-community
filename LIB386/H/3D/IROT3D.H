@@ -25,7 +25,7 @@ extern	Func_InverseRotatePoint	*InverseRotatePoint	;
 #pragma aux	InverseRotatePoint		"*"
 
 //****************************************************************************
-#define	WorldInverseRotatePoint(x, y, z)	InverseRotatePoint(&MatriceWorld, x, y, z)
+#define	WorldInverseRotatePoint(x, y, z)	LongInverseRotatePoint(&MatriceWorld, x, y, z)
 
 //****************************************************************************
 // These functions should not be called directly but through the above pointer

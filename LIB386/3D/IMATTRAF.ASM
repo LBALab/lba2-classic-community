@@ -7,6 +7,13 @@
 		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
+		.DATA
+
+		public	C	InitMatrixTrans
+
+		InitMatrixTrans	dd	offset InitMatrixTransF
+
+;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 

@@ -14,6 +14,10 @@
 		extrn C	Y0:DWORD
 		extrn C	Z0:DWORD
 
+		public	C	RotTransList
+
+		RotTransList	dd	offset RotTransListF
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE

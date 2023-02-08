@@ -31,6 +31,12 @@
 		extrn	C Xp:DWORD
 		extrn	C Yp:DWORD
 
+		public	C	LongProjectPoint3D
+		public	C	LongProjectPoint
+
+		LongProjectPoint3D	dd	offset LongProjectPoint3DF
+		LongProjectPoint	dd	offset LongProjectPoint3DF
+
 		ASSUME  DS:SEG CameraX
 
 ;*══════════════════════════════════════════════════════════════════════════*

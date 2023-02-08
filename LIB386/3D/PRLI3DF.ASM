@@ -33,6 +33,12 @@
 		extrn	C ScreenYMin:DWORD
 		extrn	C ScreenYMax:DWORD
 
+		public	C	ProjectList3D
+		public	C	ProjectList
+
+		ProjectList3D	dd	offset ProjectList3DF
+		ProjectList		dd	offset ProjectList3DF
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
