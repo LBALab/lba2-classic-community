@@ -28,7 +28,7 @@ extern	Func_Rotate	*Rotate	;
 // These functions should not be called directly but through the above pointer
 // which auto-initalize to point to the right routine at runtime.
 extern	Func_Rotate	RotateI	;
-#define			RotateF(x, z, angle)	LongRotateF(x, z, angle)
+//#define			RotateF(x, z, angle)	LongRotateF(x, z, angle)
 extern	Func_Rotate	RotateM	;
 
 //****************************************************************************

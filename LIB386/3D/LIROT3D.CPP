@@ -1,9 +1,11 @@
 #include <3D/LIROT3D.H>
 
+// -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// -----------------------------------------------------------------------------
 #undef LongInverseRotatePoint
 extern Func_LongInverseRotatePoint *LongInverseRotatePoint;
 
@@ -35,6 +37,7 @@ void LongInverseRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 #endif
 }
 
+// =============================================================================
 #ifdef __cplusplus
 }
 #endif
