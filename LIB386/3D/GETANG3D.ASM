@@ -27,7 +27,13 @@
 ;	parm		[eax] [ebx] [ecx]	\
 ;	modify		[edx esi edi]
 
-GetAngleVector3D proc
+GetAngleVector3D PROC \
+			uses ebx ecx edx edi esi ebp \
+			x: DWORD, y: DWORD, z: DWORD
+
+			mov eax, x
+			mov ebx, y
+			mov ecx, z
 
 		push	ebx		; Y
 		push	eax		; X

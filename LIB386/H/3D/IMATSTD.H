@@ -13,9 +13,9 @@ extern	"C"	{
 //****************************************************************************
 typedef	void (Func_InitMatrix)(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma) ;
 
-extern	Func_InitMatrix	*InitMatrixStd	;
-
-#pragma aux	InitMatrixStd	"*"
+//extern	Func_InitMatrix	*InitMatrixStd	;
+#define InitMatrixStd InitMatrixStd_C
+void InitMatrixStd_C(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma);
 
 //****************************************************************************
 // These should not be called directly but through the above pointer
