@@ -1,39 +1,20 @@
-//****************************************************************************
-#ifndef	LIB_3D_IMATTRA
-#define	LIB_3D_IMATTRA
+#pragma once
 
-//****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#include <3D/DATAMAT.H>
+#include <SYSTEM/ADELINE_TYPES.H>
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//****************************************************************************
-typedef	void (Func_InitMatrixTrans)(TYPE_MAT *MatDst, S32 tx, S32 ty, S32 tz) ;
+// -----------------------------------------------------------------------------
+typedef void(Func_InitMatrixTrans)(TYPE_MAT *MatDst, S32 tx, S32 ty, S32 tz);
 
-#pragma	aux Arg_InitMatrixTrans	"*"		\
-	parm caller		[edi] [eax] [ebx] [ecx]	\
-	modify exact	[]
+// -----------------------------------------------------------------------------
+extern Func_InitMatrixTrans *InitMatrixTrans; ///< Do Not call from C
 
-#pragma	aux (Arg_InitMatrixTrans)	Func_InitMatrixTrans
-
-//****************************************************************************
-extern	Func_InitMatrixTrans	*InitMatrixTrans	;
-
-#pragma aux	InitMatrixTrans	"*"
-
-//****************************************************************************
-// These should not be called directly but through the above pointer
-extern	Func_InitMatrixTrans	InitMatrixTransI	;
-extern	Func_InitMatrixTrans	InitMatrixTransF	;
-extern	Func_InitMatrixTrans	InitMatrixTransM	;
-
-//****************************************************************************
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//****************************************************************************
-#endif//LIB_3D_IMATTRA
-
-//****************************************************************************
-
