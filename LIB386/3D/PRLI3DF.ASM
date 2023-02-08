@@ -39,7 +39,6 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	C	ProjectList3DMF
 		public	C	ProjectList3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -51,24 +50,7 @@
 
 ;WARNING: OrgX, OrgY OrgZ pushed on the stack
 
-;*══════════════════════════════════════════════════════════════════════════*
-;void	ProjectList3DMF(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
-
-;#pragma aux ProjectList3DMF			\
-;	parm		[edi] [esi] [ecx]	\
-;	modify		[eax ebx edx]
-
-;WARNING: OrgX, OrgY OrgZ pushed on the stack
-
-ProjectList3DMF	PROC
-
-		test	ecx, ecx
-		jz	RetProj
-
-		emms
-
-		jmp	enterprojli
-ProjectList3DF::
+ProjectList3DF PROC
 		test	ecx, ecx
 		jz	RetProj
 enterprojli:
@@ -339,7 +321,7 @@ OverFlow1:
 		mov	ecx,80008000h
 		jmp	FixedOverFlow1
 
-ProjectList3DMF	ENDP
+ProjectList3DF	ENDP
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
