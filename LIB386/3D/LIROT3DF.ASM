@@ -18,6 +18,14 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
+		.DATA
+
+		public	C	LongInverseRotatePoint
+
+		LongInverseRotatePoint	dd	offset LongInverseRotatePointF
+
+;*══════════════════════════════════════════════════════════════════════════*
+
 		.CODE
 
 		public C	LongInverseRotatePointF

@@ -14,13 +14,21 @@
 		extrn C	Y0:DWORD
 		extrn C	Z0:DWORD
 
+		public	C	LongRotatePoint
+		public	C	RotatePoint
+		public	C	RotatePointNoMMX
+
+		LongRotatePoint		dd	offset LongRotatePointF
+		RotatePoint			dd	offset LongRotatePointF
+		RotatePointNoMMX	dd	offset LongRotatePointF
+
 		ASSUME  DS:SEG X0
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public C	LongRotatePointF
+		public	C	LongRotatePointF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongRotatePointF(S32 *Mat, S32 x, S32 y, S32 z)	;

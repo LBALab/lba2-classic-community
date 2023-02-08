@@ -14,6 +14,10 @@
 
 		extrn	C	MatrixLib2:DWORD
 
+		public	C	RotateMatrix
+
+		RotateMatrix	dd	offset RotateMatrixU
+
 		ASSUME  DS:SEG MatrixLib2
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -48,4 +52,3 @@ RotateMatrixU	endp
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		END
-

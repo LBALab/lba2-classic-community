@@ -11,6 +11,13 @@
 		.DATA
 
 		extrn	C	SinTabF:DWORD
+
+		public	C	InitMatrixStd
+		public	C	InitMatrix
+
+		InitMatrixStd	dd	offset InitMatrixStdF
+		InitMatrix		dd	offset InitMatrixStdF
+
 		ASSUME ds:SEG SinTabF
 
 ;*══════════════════════════════════════════════════════════════════════════*
