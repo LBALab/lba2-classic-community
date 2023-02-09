@@ -1,7 +1,7 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/TIMER.H>
-#include	<SYSTEM/A_MALLOC.H>
+#include	<SYSTEM/N_MALLOC.H>
 #include	<SYSTEM/LZ.H>
 #include	<SYSTEM/FILES.H>
 #include	<SYSTEM/HQFILE.H>

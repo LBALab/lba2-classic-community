@@ -1,8 +1,7 @@
-//──────────────────────────────────────────────────────────────────────────
-#include	<SYSTEM/ADELINE.H>
-#include	<SYSTEM/FILES.H>
-#include	<SYSTEM/A_MALLOC.H>
 #include	<SYSTEM/LOADMALL.H>
+
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/N_MALLOC.H>
 
 #include <stddef.h>
 

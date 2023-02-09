@@ -1,8 +1,7 @@
-//──────────────────────────────────────────────────────────────────────────
-#include	<SYSTEM/ADELINE.H>
-#include	<SYSTEM/LZ.H>
-#include	<SYSTEM/A_MALLOC.H>
 #include	<SYSTEM/HQMEM.H>
+
+#include	<SYSTEM/LZ.H>
+#include	<SYSTEM/N_MALLOC.H>
 
 #include	<string.h>
 

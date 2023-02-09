@@ -8,12 +8,8 @@
 //──────────────────────────────────────────────────────────────────────────
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/FASTCPY.H>
-#include	<SYSTEM/FASTSET.H>
 #include	<SYSTEM/AVAILMEM.H>
-#include	<SYSTEM/A_MALLOC.H>
 #include	<SYSTEM/N_MALLOC.H>
-#include	<SYSTEM/S_MALLOC.H>
-#include	<SYSTEM/DOSMALLO.H>
 #include	<SYSTEM/CPU.H>
 #include	<SYSTEM/DISPCPU.H>
 #include	<SYSTEM/DISPOS.H>

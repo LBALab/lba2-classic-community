@@ -2109,9 +2109,6 @@ int main(int argc, char *argv[])
         S32     load = FALSE ;
         U8      *ptrdos4gw ;
 
-        // protect DOS4GW car il a besoin d'un peu de mémoire pour ses transferts fichiers
-        ptrdos4gw = (U8*)DosMalloc( 256*256L ) ;
-
 #ifdef  DEBUG_TOOLS
         MemoMemory = AvailableMem() ;  // memory at start
         MemoDosMemory = DosAvailableMem() ;// Dos memory at start
