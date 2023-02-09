@@ -4,7 +4,6 @@
 #include <SYSTEM/A_MALLOC.H>
 #include <SYSTEM/LOGPRINT.H>
 
-#include <assert.h>
 #include <string.h>
 
 // -----------------------------------------------------------------------------

@@ -10,7 +10,6 @@
 
 //──────────────────────────────────────────────────────────────────────────
 #include <SVGA/SCREENXY.H>
-#include <SVGA/COPYBOX.H>
 #include <SVGA/BLITBOX.H>
 #include <SVGA/CLRBOX.H>
 #include <SVGA/DIRTYBOX.H>
