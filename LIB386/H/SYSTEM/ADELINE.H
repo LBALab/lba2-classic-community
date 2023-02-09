@@ -1,6 +1,4 @@
-//──────────────────────────────────────────────────────────────────────────
-#ifndef LIB_SYSTEM_ADELINE
-#define LIB_SYSTEM_ADELINE
+#pragma once
 
 #ifdef _WIN32 // Portability - mkdir has different includes and signature
 #include <direct.h> // For ADELINE_MKDIR
@@ -9,8 +7,12 @@
 #include <sys/types.h> // For ADELINE_MKDIR
 #endif // _WIN32
 
-//──────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+// -----------------------------------------------------------------------------
 #define ade_max(a, b)                                                          \
   ({                                                                           \
     __typeof__(a) _a = (a);                                                    \
@@ -25,7 +27,8 @@
     _a < _b ? _a : _b;                                                         \
   })
 
-//──────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// FIXME: Find places that depend on this pack(1) and do the correct push/pop
 #pragma pack(1)
 
 #include "ADELINE_TYPES.H"
@@ -38,7 +41,7 @@
 #define ADELINE_PATH_SEPARATOR_CHAR '/'
 #endif // _WIN32
 
-//──────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // There is no single portable mkdir function
 #ifdef _WIN32 // Portability - mkdir has different includes and signature
 #define ADELINE_MKDIR(path) _mkdir(path)
@@ -46,28 +49,7 @@
 #define ADELINE_MKDIR(path) mkdir(path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 #endif // _WIN32
 
-//──────────────────────────────────────────────────────────────────────────
-#ifndef TYPEDEFS
-#define TYPEDEFS
-
-//──────────────────────────────────────────────────────────────────────────
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-//──────────────────────────────────────────────────────────────────────────
-#define	AIL_vmm_lock(a, b)
-#define	AIL_vmm_unlock(a, b)
-
-//──────────────────────────────────────────────────────────────────────────
-#endif//TYPEDEFS
-
-//──────────────────────────────────────────────────────────────────────────
+// =============================================================================
 #ifdef __cplusplus
 }
 #endif
-
-//──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_ADELINE
-
-//──────────────────────────────────────────────────────────────────────────

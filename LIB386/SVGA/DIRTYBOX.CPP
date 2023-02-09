@@ -8,10 +8,10 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/ADELINE.H>
-#include <SYSTEM/A_MALLOC.H>
 #include <SYSTEM/CPU.H>
 #include <SYSTEM/EVENTS.H>
 #include <SYSTEM/MOUSE.H>
+#include <SYSTEM/N_MALLOC.H>
 
 #include <limits.h>
 #include <stdlib.h>

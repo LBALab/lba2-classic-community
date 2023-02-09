@@ -2,6 +2,8 @@
 #ifndef	LIB_SYSTEM_LOADMALL
 #define LIB_SYSTEM_LOADMALL
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
 extern	"C"	{

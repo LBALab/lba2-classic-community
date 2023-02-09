@@ -1,8 +1,8 @@
 #include <SVGA/SCREEN.H>
 
 #include <POLYGON/POLY.H> // For SetScreenPitch()
-#include <SYSTEM/A_MALLOC.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/N_MALLOC.H>
 
 #include <string.h>
 
