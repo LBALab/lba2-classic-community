@@ -310,9 +310,6 @@ Local			@@NoZBuf
 ;DGROUP			GROUP	_DATA
 ;_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 
-Extrn	C		ProcessorFeatureFlags:	DWORD	; Contains MMX flag
-
-
 Extrn	C		LongRotatePoint	:	DWORD	; Point rotation (32 bit)
 Extrn	C		RotatePoint	:	DWORD	; Point rotation (16 bit)
 Extrn	C		RotatePointNoMMX:	DWORD	; Point rotation (16 bit)
@@ -365,16 +362,9 @@ Extrn	C		CameraZrClip	:	DWORD
 Extrn	C		LFactorX	:	DWORD
 
 
-				; Chooser.asm
-Extrn	C		Chooser_RtnI	:	DWORD
-Extrn	C		Chooser_RtnF	:	DWORD
-Extrn	C		Chooser_RtnM	:	DWORD
-Extrn	C		Chooser_Result	:	DWORD
-
-
-
 			ALIGN	4
-TestVisible		dd	Init_TestVisible	; Fastest method
+TestVisible		dd	TestVisibleI
+;TestVisible		dd	TestVisibleF
 
 PtrTextures		dd	0		; Ptr of texture handles
 ObjPtrMap		dd	0		; Ptr of the texture page for the current object
@@ -469,7 +459,6 @@ ENDM
 Extrn	C		Fill_PolyFast	:	PROC
 Extrn	C		Fill_Sphere	:	PROC
 Extrn	C		Line_A		:	PROC
-Extrn	C		Chooser		:	PROC
 
 
 
@@ -4740,22 +4729,6 @@ BodyDisplay_AlphaBeta	PROC \
 			jmp	Return_BodyDisplay
 
 BodyDisplay_AlphaBeta	ENDP
-
-
-
-
-
-
-Init_TestVisible	PROC
-			mov	[ds:Chooser_RtnI], Offset TestVisibleI	; Integer
-			;mov	[ds:Chooser_RtnF], Offset TestVisibleF	; FPU
-			mov	[ds:Chooser_Result], Offset TestVisible	; Pointer
-			jmp	Chooser
-Init_TestVisible	ENDP
-
-
-
-
 
 
 ; ╔═════════════════════════════════════════════════════════════════╗
