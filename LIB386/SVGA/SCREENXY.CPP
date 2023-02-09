@@ -1,6 +1,4 @@
-#pragma once
-
-#include <SYSTEM/ADELINE_TYPES.H>
+#include <SVGA/SCREENXY.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -8,10 +6,10 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-extern S32 ScreenXMin;
-extern S32 ScreenYMin;
-extern S32 ScreenXMax;
-extern S32 ScreenYMax;
+S32 ScreenXMin = 0;
+S32 ScreenYMin = 0;
+S32 ScreenXMax = 0;
+S32 ScreenYMax = 0;
 
 // =============================================================================
 #ifdef __cplusplus

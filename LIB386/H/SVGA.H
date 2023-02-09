@@ -22,7 +22,6 @@
 #include <SVGA/FONT.H>
 #include <SVGA/GPRINTF.H>
 #include <SVGA/CLIP.H>
-#include <SVGA/SHADE.H>
 #include <SVGA/CPYBLOCK.H>
 #include <SVGA/CPYBLOCI.H>
 #include <SVGA/RESBLOCK.H>
@@ -34,7 +33,6 @@
 #include <SVGA/SCALEBOX.H>
 #include <SVGA/SCALESPT.H>
 #include <SVGA/SCALESPI.H>
-//#include <SVGA/PAL.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #endif//LIB_SVGA
