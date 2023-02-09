@@ -11,20 +11,6 @@
 
 ; This flag must be defined if you want to bypass the standard polygon engine
 
-ENABLE_INDIRECT_FILL_POLY EQU	0
-
-
-
-JMP_FILL_POLY		MACRO
-IFDEF	ENABLE_INDIRECT_FILL_POLY
-			jmp	[Fill_Poly]
-ELSE
-			jmp	Fill_PolyFast
-ENDIF
-			ENDM
-
-
-
 			.586P
 			.MMX
 			.MODEL	FLAT, C
@@ -362,9 +348,6 @@ Extrn	C		Y0		:	DWORD	; Return value of RotatePoint
 Extrn	C		Z0		:	DWORD	; Return value of RotatePoint
 
 				; poly.asm
-IFDEF	ENABLE_INDIRECT_FILL_POLY
-Extrn	C		Fill_Poly	:	DWORD
-ENDIF
 Extrn	C		RepMask		:	DWORD	; Repeat zone for texture mapping
 Extrn	C		PtrMap		:	DWORD	; Ptr of texture
 Extrn	C		Fill_Flag_ZBuffer:	BYTE	; TRUE if Zbuffer active
@@ -483,9 +466,7 @@ ENDM
 			.CODE
 
 
-IFNDEF	ENABLE_INDIRECT_FILL_POLY
 Extrn	C		Fill_PolyFast	:	PROC
-ENDIF
 Extrn	C		Fill_Sphere	:	PROC
 Extrn	C		Line_A		:	PROC
 Extrn	C		Chooser		:	PROC
@@ -1123,7 +1104,7 @@ ByeBye::
 			and	ebx,0FFh
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 @@Quad_Solid:
 			shr	eax,2
@@ -1164,7 +1145,7 @@ ByeBye::
 			and	ebx,0FFh
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1210,7 +1191,7 @@ ByeBye::
 			mov	eax,1
 
 			and	ebx,0FFh
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Flat:
@@ -1257,7 +1238,7 @@ ByeBye::
 			mov	eax,1
 
 			and	ebx,0FFh
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1306,7 +1287,7 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 @@Quad_Gouraud:
 			shr	eax,2
@@ -1360,7 +1341,7 @@ ByeBye::
 			mov	dx,[ListLights+edx*2]
 
 			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1425,7 +1406,7 @@ ByeBye::
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Texture_Solid:
@@ -1495,7 +1476,7 @@ ByeBye::
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 			; ********************
@@ -1565,7 +1546,7 @@ ByeBye::
 			shr	ebx,8
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Texture_Flat:
@@ -1639,7 +1620,7 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			shr	ebx,8
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1714,7 +1695,7 @@ ByeBye::
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Texture_Gouraud:
@@ -1796,7 +1777,7 @@ ByeBye::
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 			; ***********************
@@ -1899,7 +1880,7 @@ ByeBye::
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_TextureZ_Solid:
@@ -2030,7 +2011,7 @@ ByeBye::
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2144,7 +2125,7 @@ ByeBye::
 			mov	ecx,3
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_TextureZ_Flat:
@@ -2283,7 +2264,7 @@ ByeBye::
 			mov	ecx,4
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2397,7 +2378,7 @@ ByeBye::
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_TextureZ_Gouraud:
@@ -2543,7 +2524,7 @@ ByeBye::
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2764,7 +2745,7 @@ ByeBye::
 			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebx
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3034,7 +3015,7 @@ ByeBye::
 			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3261,7 +3242,7 @@ ByeBye::
 			shr	ebx,8
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3536,7 +3517,7 @@ ByeBye::
 			shr	ebx,8
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3765,7 +3746,7 @@ ByeBye::
 			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebx
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -4050,7 +4031,7 @@ ByeBye::
 			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 

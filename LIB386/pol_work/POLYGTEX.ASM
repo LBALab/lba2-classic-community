@@ -44,22 +44,6 @@ PUBLIC	C		Filler_TextureGouraudChromaKeyNZW
 ;					*** VARIABLES ***
 ;					*****************
 
-;					*** PUBLIC DATA ***
-PUBLIC	C		Fill_VLGouraudTexture1
-PUBLIC	C		Fill_VLGouraudTexture2
-PUBLIC	C		Fill_VLGouraudTexture3
-PUBLIC	C		Fill_VLGouraudTexture4
-PUBLIC	C		Fill_VLGouraudTexture5
-PUBLIC	C		Fill_VLGouraudTexture6
-PUBLIC	C		Fill_VLGouraudTexture7
-PUBLIC	C		Fill_VLGouraudTexture8
-
-
-;					*** MODULE DATA ***
-
-
-
-
 ;			***************
 ;			*** INCLUDE ***
 ;			***************
@@ -249,7 +233,7 @@ Filler_TextureGouraud	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture1::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -489,7 +473,7 @@ Filler_TextureDither	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture2::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -721,7 +705,7 @@ Filler_TextureGouraudChromaKey	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture3::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -993,7 +977,7 @@ Filler_TextureDitherChromaKey	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture4::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1262,7 +1246,7 @@ Filler_TextureGouraudZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture5::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1537,7 +1521,7 @@ Filler_TextureGouraudChromaKeyZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture6::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1818,7 +1802,7 @@ Filler_TextureGouraudNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture7::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2091,7 +2075,7 @@ Filler_TextureGouraudChromaKeyNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraudTexture8::add	edi,[ScreenPitch]
+		add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

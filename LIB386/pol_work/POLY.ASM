@@ -25,9 +25,6 @@
 ;CORRECT_TEXTURE	EQU	0	; IF DEFINED: Correct the mapping coord
 					; (add 1/2 on u and v)
 
-FORCE_FPU		EQU	1
-;FORCE_INT		EQU	0
-
 
 ;			**************
 ;			*** PUBLIC ***
@@ -36,8 +33,6 @@ FORCE_FPU		EQU	1
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	C		Fill_Poly		; Polygon filler (Variable Pointer)
-PUBLIC	C		Fill_PolyMMX
 PUBLIC	C		Fill_PolyFast		; Polygon filler (Direct call without EMMS)
 PUBLIC	C		SetScreenPitch		; Change the pitch of the screen
 PUBLIC	C		SetFog			; Initialize the fog
@@ -139,7 +134,6 @@ PUBLIC	C		Fill_Logical_Palette	; Logical palette
 
 PUBLIC	C		F_1			; 1 in float
 PUBLIC	C		F_256			; 256 in float
-PUBLIC	C		Fill_UseFPU		; Flag that tells us weither we should use the FPU or not
 
 PUBLIC	C		Status_Int		; FPU control word for CHOP rounding mode
 PUBLIC	C		Status_Float		; FPU control word for nearest rounding mode
@@ -372,112 +366,6 @@ Extrn	C		ClipYMin		:	DWORD
 Extrn	C		ClipYMax		:	DWORD
 Extrn	C		Log			:	DWORD
 
-
-Extrn	C		Fill_VLDisc1		:	DWORD
-Extrn	C		Fill_VLDisc2		:	DWORD
-Extrn	C		Fill_VLDisc3		:	DWORD
-Extrn	C		Fill_VLDisc4		:	DWORD
-
-Extrn	C		Fill_VLFlat1		:	DWORD
-Extrn	C		Fill_VLFlat2		:	DWORD
-Extrn	C		Fill_VLFlat3		:	DWORD
-Extrn	C		Fill_VLFlat4		:	DWORD
-Extrn	C		Fill_VLFlat5		:	DWORD
-Extrn	C		Fill_VLFlat6		:	DWORD
-Extrn	C		Fill_VLFlat7		:	DWORD
-Extrn	C		Fill_VLFlat8		:	DWORD
-Extrn	C		Fill_VLFlat9		:	DWORD
-Extrn	C		Fill_VLFlat10		:	DWORD
-
-Extrn	C		Fill_VLGouraud1		:	DWORD
-Extrn	C		Fill_VLGouraud2		:	DWORD
-Extrn	C		Fill_VLGouraud3		:	DWORD
-Extrn	C		Fill_VLGouraud4		:	DWORD
-Extrn	C		Fill_VLGouraud5		:	DWORD
-Extrn	C		Fill_VLGouraud6		:	DWORD
-Extrn	C		Fill_VLGouraud7		:	DWORD
-Extrn	C		Fill_VLGouraud8		:	DWORD
-Extrn	C		Fill_VLGouraud9		:	DWORD
-Extrn	C		Fill_VLGouraud10	:	DWORD
-Extrn	C		Fill_VLGouraud11	:	DWORD
-Extrn	C		Fill_VLGouraud12	:	DWORD
-Extrn	C		Fill_VLGouraud13	:	DWORD
-Extrn	C		Fill_VLGouraud14	:	DWORD
-Extrn	C		Fill_VLGouraud15	:	DWORD
-Extrn	C		Fill_VLGouraud16	:	DWORD
-Extrn	C		Fill_VLGouraud17	:	DWORD
-Extrn	C		Fill_VLGouraud18	:	DWORD
-
-Extrn	C		Fill_VLTexture1		:	DWORD
-Extrn	C		Fill_VLTexture2		:	DWORD
-Extrn	C		Fill_VLTexture3		:	DWORD
-Extrn	C		Fill_VLTexture4		:	DWORD
-Extrn	C		Fill_VLTexture5		:	DWORD
-Extrn	C		Fill_VLTexture6		:	DWORD
-Extrn	C		Fill_VLTexture7		:	DWORD
-Extrn	C		Fill_VLTexture8		:	DWORD
-Extrn	C		Fill_VLTexture9		:	DWORD
-Extrn	C		Fill_VLTexture10	:	DWORD
-Extrn	C		Fill_VLTexture11	:	DWORD
-Extrn	C		Fill_VLTexture12	:	DWORD
-Extrn	C		Fill_VLTexture13	:	DWORD
-Extrn	C		Fill_VLTexture14	:	DWORD
-Extrn	C		Fill_VLTexture15	:	DWORD
-Extrn	C		Fill_VLTexture16	:	DWORD
-Extrn	C		Fill_VLTexture17	:	DWORD
-Extrn	C		Fill_VLTexture18	:	DWORD
-
-Extrn	C		Fill_VLGouraudTexture1	:	DWORD
-Extrn	C		Fill_VLGouraudTexture2	:	DWORD
-Extrn	C		Fill_VLGouraudTexture3	:	DWORD
-Extrn	C		Fill_VLGouraudTexture4	:	DWORD
-Extrn	C		Fill_VLGouraudTexture5	:	DWORD
-Extrn	C		Fill_VLGouraudTexture6	:	DWORD
-Extrn	C		Fill_VLGouraudTexture7	:	DWORD
-Extrn	C		Fill_VLGouraudTexture8	:	DWORD
-
-Extrn	C		Fill_VLTextureZ1	:	DWORD
-Extrn	C		Fill_VLTextureZ2	:	DWORD
-Extrn	C		Fill_VLTextureZ3	:	DWORD
-Extrn	C		Fill_VLTextureZ4	:	DWORD
-Extrn	C		Fill_VLTextureZ5	:	DWORD
-Extrn	C		Fill_VLTextureZ6	:	DWORD
-Extrn	C		Fill_VLTextureZ7	:	DWORD
-Extrn	C		Fill_VLTextureZ8	:	DWORD
-Extrn	C		Fill_VLTextureZ9	:	DWORD
-Extrn	C		Fill_VLTextureZ10	:	DWORD
-Extrn	C		Fill_VLTextureZ11	:	DWORD
-Extrn	C		Fill_VLTextureZ12	:	DWORD
-Extrn	C		Fill_VLTextureZ13	:	DWORD
-Extrn	C		Fill_VLTextureZ14	:	DWORD
-Extrn	C		Fill_VLTextureZ15	:	DWORD
-Extrn	C		Fill_VLTextureZ16	:	DWORD
-Extrn	C		Fill_VLTextureZ17	:	DWORD
-Extrn	C		Fill_VLTextureZ18	:	DWORD
-
-
-Extrn	C		Fill_VLTextureZGouraud1	:	DWORD
-Extrn	C		Fill_VLTextureZGouraud2	:	DWORD
-Extrn	C		Fill_VLTextureZGouraud3	:	DWORD
-Extrn	C		Fill_VLTextureZGouraud4	:	DWORD
-Extrn	C		Fill_VLTextureZGouraud5	:	DWORD
-Extrn	C		Fill_VLTextureZGouraud6	:	DWORD
-
-Extrn	C		Fill_VLTextureZFog1	:	DWORD
-Extrn	C		Fill_VLTextureZFog2	:	DWORD
-Extrn	C		Fill_VLTextureZFog3	:	DWORD
-
-
-				; Chooser.asm
-Extrn	C		Chooser_RtnI	:	DWORD
-Extrn	C		Chooser_RtnF	:	DWORD
-Extrn	C		Chooser_RtnM	:	DWORD
-Extrn	C		Chooser_Result	:	DWORD
-
-
-
-
-
 ;				*******************
 ;				*** Global data ***
 ;				*******************
@@ -486,7 +374,6 @@ Extrn	C		Chooser_Result	:	DWORD
 ;					*** PUBLIC data ***
 ;					*******************
 			ALIGN	4
-Fill_Poly		dd	Fill_PolyInit	; Fill_Poly pointer
 PtrZBuffer		dd	0		; ZBuffer pointer
 ScreenPitch		dd	0		; Screen width in bytes
 PTR_TabOffLine		dd	0		; Ptr on a LUT containing a list of line-offsets
@@ -576,7 +463,6 @@ Fill_ClipFlag		dd	0		; Flag telling us what to clip
 Fill_Flag_Fog		db	FALSE		; True if FOG is active
 Fill_Flag_ZBuffer	db	FALSE		; True if ZBUFFER is active
 Fill_Flag_NZW		db	FALSE		; True if NZW active
-Fill_UseFPU		db	TRUE		; True if we should use the FPU
 
 
 Fill_Logical_Palette	db	256 dup (?)	; Logical palette
@@ -932,34 +818,11 @@ Extrn	C		First_POLYTEXTUREZFOGPatch:	DWORD
 Extrn	C		Last_POLYTEXTUREZFOGPatch:	DWORD
 
 
-					; *** Chooser.asm ***
-Extrn	C		Chooser			:	PROC
-
-
-
-
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
 
 	.CODE
-
-
-Fill_PolyInit		PROC
-			;mov	[ds:Chooser_RtnI], Offset Fill_PolyFast	; Integer
-			mov	[ds:Chooser_RtnF], Offset Fill_PolyFast	; FPU
-			;mov	[ds:Chooser_RtnM], Offset Fill_PolyMMX	; MMX
-			mov	[ds:Chooser_Result], Offset Fill_Poly	; Pointer
-			jmp	Chooser
-Fill_PolyInit		ENDP
-
-
-
-
-
-
-
-
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
 ; ║ Fill_Poly : Polygon filler                                               ║
@@ -981,9 +844,7 @@ Fill_PolyInit		ENDP
 ; ║                                                                          ║
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 			ALIGN	4
-Fill_PolyMMX		PROC
-			emms
-Fill_PolyFast::
+Fill_PolyFast		PROC
 First_FillerPatch	Label	DWORD
 			; ****** First_FillerPatch MUST STAY HERE ************
 
@@ -1007,7 +868,7 @@ ENDIF	; _WIN32
 
 Fill_Saut_Normal::	jmp	[Fill_N_Table_Jumps+eax*4]
 
-Fill_PolyMMX		ENDP
+Fill_PolyFast		ENDP
 
 
 
@@ -1037,140 +898,6 @@ ENDIF	; _WIN32
 
 			mov	[ScreenPitch],eax
 			mov	[PTR_TabOffLine],ebx
-
-
-						; DISC
-;			mov	dword ptr [Fill_VLDisc1+3],ebx
-;			mov	dword ptr [Fill_VLDisc2+3],ebx
-;			mov	dword ptr [Fill_VLDisc3+3],ebx
-;			mov	dword ptr [Fill_VLDisc4+3],ebx
-;
-;						; FLAT
-;			mov	dword ptr [Fill_VLFlat1+2],eax
-;			mov	dword ptr [Fill_VLFlat2+2],eax
-;			mov	dword ptr [Fill_VLFlat3+2],eax
-;			mov	dword ptr [Fill_VLFlat4+2],eax
-;			mov	dword ptr [Fill_VLFlat5+2],eax
-;			mov	dword ptr [Fill_VLFlat6+2],eax
-;			mov	dword ptr [Fill_VLFlat7+2],eax
-;			mov	dword ptr [Fill_VLFlat8+2],eax
-;			mov	dword ptr [Fill_VLFlat9+2],eax
-;			mov	dword ptr [Fill_VLFlat10+2],eax
-;
-;						; GOURAUD
-;			mov	dword ptr [Fill_VLGouraud1+2],eax
-;			mov	dword ptr [Fill_VLGouraud2+2],eax
-;			mov	dword ptr [Fill_VLGouraud3+2],eax
-;			mov	dword ptr [Fill_VLGouraud4+2],eax
-;			mov	dword ptr [Fill_VLGouraud5+2],eax
-;			mov	dword ptr [Fill_VLGouraud6+2],eax
-;			mov	dword ptr [Fill_VLGouraud7+2],eax
-;			mov	dword ptr [Fill_VLGouraud8+2],eax
-;			mov	dword ptr [Fill_VLGouraud9+2],eax
-;			mov	dword ptr [Fill_VLGouraud10+2],eax
-;			mov	dword ptr [Fill_VLGouraud11+2],eax
-;			mov	dword ptr [Fill_VLGouraud12+2],eax
-;			mov	dword ptr [Fill_VLGouraud13+2],eax
-;			mov	dword ptr [Fill_VLGouraud14+2],eax
-;			mov	dword ptr [Fill_VLGouraud15+2],eax
-;			mov	dword ptr [Fill_VLGouraud16+2],eax
-;			mov	dword ptr [Fill_VLGouraud17+2],eax
-;			mov	dword ptr [Fill_VLGouraud18+2],eax
-;
-;
-;						; TEXTURE
-;			mov	dword ptr [Fill_VLTexture1+2],eax
-;			mov	dword ptr [Fill_VLTexture2+2],eax
-;			mov	dword ptr [Fill_VLTexture3+2],eax
-;			mov	dword ptr [Fill_VLTexture4+2],eax
-;			mov	dword ptr [Fill_VLTexture5+2],eax
-;			mov	dword ptr [Fill_VLTexture6+2],eax
-;			mov	dword ptr [Fill_VLTexture7+2],eax
-;			mov	dword ptr [Fill_VLTexture8+2],eax
-;			mov	dword ptr [Fill_VLTexture9+2],eax
-;			mov	dword ptr [Fill_VLTexture10+2],eax
-;			mov	dword ptr [Fill_VLTexture11+2],eax
-;			mov	dword ptr [Fill_VLTexture12+2],eax
-;			mov	dword ptr [Fill_VLTexture13+2],eax
-;			mov	dword ptr [Fill_VLTexture14+2],eax
-;			mov	dword ptr [Fill_VLTexture15+2],eax
-;			mov	dword ptr [Fill_VLTexture16+2],eax
-;			mov	dword ptr [Fill_VLTexture17+2],eax
-;			mov	dword ptr [Fill_VLTexture18+2],eax
-;
-;						; GOURAUD TEXTURE
-;			mov	dword ptr [Fill_VLGouraudTexture1+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture2+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture3+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture4+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture5+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture6+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture7+2],eax
-;			mov	dword ptr [Fill_VLGouraudTexture8+2],eax
-;
-;						; TEXTURE Z
-;			mov	dword ptr [Fill_VLTextureZ1+2],eax
-;			mov	dword ptr [Fill_VLTextureZ2+2],eax
-;			mov	dword ptr [Fill_VLTextureZ3+2],eax
-;			mov	dword ptr [Fill_VLTextureZ4+2],eax
-;			mov	dword ptr [Fill_VLTextureZ5+2],eax
-;			mov	dword ptr [Fill_VLTextureZ6+2],eax
-;			mov	dword ptr [Fill_VLTextureZ7+2],eax
-;			mov	dword ptr [Fill_VLTextureZ8+2],eax
-;			mov	dword ptr [Fill_VLTextureZ9+2],eax
-;			mov	dword ptr [Fill_VLTextureZ10+2],eax
-;			mov	dword ptr [Fill_VLTextureZ11+2],eax
-;			mov	dword ptr [Fill_VLTextureZ12+2],eax
-;			mov	dword ptr [Fill_VLTextureZ13+2],eax
-;			mov	dword ptr [Fill_VLTextureZ14+2],eax
-;			mov	dword ptr [Fill_VLTextureZ15+2],eax
-;			mov	dword ptr [Fill_VLTextureZ16+2],eax
-;			mov	dword ptr [Fill_VLTextureZ17+2],eax
-;			mov	dword ptr [Fill_VLTextureZ18+2],eax
-;
-;						; TEXTURE Z GOURAUD
-;			mov	dword ptr [Fill_VLTextureZGouraud1+2],eax
-;			mov	dword ptr [Fill_VLTextureZGouraud2+2],eax
-;			mov	dword ptr [Fill_VLTextureZGouraud3+2],eax
-;			mov	dword ptr [Fill_VLTextureZGouraud4+2],eax
-;			mov	dword ptr [Fill_VLTextureZGouraud5+2],eax
-;			mov	dword ptr [Fill_VLTextureZGouraud6+2],eax
-;
-;						; TEXTURE Z FOG
-;			mov	dword ptr [Fill_VLTextureZFog1+2],eax
-;			mov	dword ptr [Fill_VLTextureZFog2+2],eax
-;			mov	dword ptr [Fill_VLTextureZFog3+2],eax
-
-
-						; Set the flag that tells us if we should use the FPU
-			; use if FPU only if the current CPU has an FPU and this
-			; one is made by Intel
-
-			mov	ebx,[ProcessorSignature]
-
-			shr	ebx,8
-
-			and	ebx,0F4Fh
-
-			cmp	bl,045h
-
-			setae	bl			; BL = 1 if we should use FPU
-
-			cmp	bh,1			; BH = 1 if Intel
-
-			sete	bh
-
-			and	bl,bh
-
-			mov	[Fill_UseFPU],bl
-
-IFDEF FORCE_FPU
-			mov	[Fill_UseFPU],TRUE
-ENDIF
-IFDEF FORCE_INT
-			mov	[Fill_UseFPU],FALSE
-ENDIF
-
 
 			pop	ebx
 			pop	eax
@@ -1426,15 +1153,9 @@ Switch_FogNZW::
 			jmp	@@End
 
 @@End:
-			cmp	[Fill_UseFPU],TRUE
-			jne	@@NoZBuf
-
 			mov	dword ptr [Patch_Jmp_XSlopeFPU+3],ecx
 			mov	dword ptr [Patch_Jmp_LeftSlopeFPU+3],edx
 			jmp	@@TrueEnd
-@@NoZBuf:
-			mov	dword ptr [Patch_Jmp_XSlope+3],eax
-			mov	dword ptr [Patch_Jmp_LeftSlope+3],ebx
 @@TrueEnd:
 			pop	edx
 			pop	ecx
@@ -2139,9 +1860,7 @@ Draw_Triangle		PROC
 							; ESI = PtA
 							; EDI = PtB
 							; EBP = PtC
-			mov	al,[Fill_UseFPU]	; Should we use FPU or not?
-			test	al,al
-			je	@@DenomInt
+
 					; *** FPU math. ***
 			fldcw	[Status_Int]	; 7 cycles lost (not pipelined...)
 
@@ -2313,10 +2032,6 @@ Triangle_ReadNextEdge::
 			js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
 
 			shr	ecx,16
-			mov	dl,[Fill_UseFPU]
-
-			cmp	dl,FALSE
-			je	@@CalcLeftSlopeInt
 
 			push	ecx
 			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
@@ -2420,10 +2135,6 @@ Read_Next_Right::
 			js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
 
 			shr	ecx,16
-			mov	dl,[Fill_UseFPU]
-
-			cmp	dl,FALSE
-			je	@@CalcRightSlopeInt
 
 			push	ecx
 			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
@@ -2551,12 +2262,7 @@ Read_Next_Right::
 			faddp	st(0),st	; 65536
 			faddp	st(0),st
 @@End:
-			mov	dl,[Fill_UseFPU]
 			mov	eax,[Fill_LeftSlope]
-
-			cmp	dl,FALSE
-			je	@@EndRet
-
 			fldcw	[Status_Float]
 @@EndRet:
 			pop	ebp

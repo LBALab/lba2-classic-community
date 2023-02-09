@@ -238,7 +238,7 @@ extrn	C		LongWorldRotatePoint	:	PROC
 extrn	C	Line_A			:	PROC
 
 					; FILLER.ASM
-Extrn	C	Fill_Poly		:	PROC
+Extrn	C	Fill_PolyFast	:	PROC
 Extrn	C	Fill_Sphere		:	PROC
 
 					; P_FUNC.ASM
@@ -2998,7 +2998,7 @@ aff_E_POLY::
 			and	eax,0FFh
 
 			push	Offset nextaff		; Equivalent call/jmp, mais plus
-			jmp	Fill_Poly		; rapide!!! :)
+			jmp	Fill_PolyFast		; rapide!!! :)
 
 ;*──────────────────────────────────────────────────────────────────────────*
 			ALIGN	4

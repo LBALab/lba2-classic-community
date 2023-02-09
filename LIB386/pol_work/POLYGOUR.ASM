@@ -60,28 +60,6 @@ PUBLIC	C		Filler_DitherFogNZW
 ;					*** PUBLIC DATA ***
 
 
-;					*** MODULE DATA ***
-PUBLIC	C		Fill_VLGouraud1
-PUBLIC	C		Fill_VLGouraud2
-PUBLIC	C		Fill_VLGouraud3
-PUBLIC	C		Fill_VLGouraud4
-PUBLIC	C		Fill_VLGouraud5
-PUBLIC	C		Fill_VLGouraud6
-PUBLIC	C		Fill_VLGouraud7
-PUBLIC	C		Fill_VLGouraud8
-PUBLIC	C		Fill_VLGouraud9
-PUBLIC	C		Fill_VLGouraud10
-PUBLIC	C		Fill_VLGouraud11
-PUBLIC	C		Fill_VLGouraud12
-PUBLIC	C		Fill_VLGouraud13
-PUBLIC	C		Fill_VLGouraud14
-PUBLIC	C		Fill_VLGouraud15
-PUBLIC	C		Fill_VLGouraud16
-PUBLIC	C		Fill_VLGouraud17
-PUBLIC	C		Fill_VLGouraud18
-
-
-
 ;			***************
 ;			*** INCLUDE ***
 ;			***************
@@ -225,7 +203,7 @@ Filler_Gouraud		PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud1::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -358,7 +336,7 @@ Filler_Dither		PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud2::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -509,7 +487,7 @@ Filler_GouraudTable	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud3::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -646,7 +624,7 @@ Filler_DitherTable	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud4::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -826,7 +804,7 @@ Filler_GouraudFog	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud5::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -963,7 +941,7 @@ Filler_DitherFog	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud6::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1159,7 +1137,7 @@ Filler_GouraudZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud7::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1371,7 +1349,7 @@ Filler_DitherZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud8::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1590,7 +1568,7 @@ Filler_GouraudTableZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud9::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1819,7 +1797,7 @@ Filler_DitherTableZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud10::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2077,7 +2055,7 @@ Filler_GouraudFogZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud11::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2271,7 +2249,7 @@ Filler_DitherFogZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud12::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2506,7 +2484,7 @@ Filler_GouraudNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud13::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2710,7 +2688,7 @@ Filler_DitherNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud14::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2924,7 +2902,7 @@ Filler_GouraudTableNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud15::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3145,7 +3123,7 @@ Filler_DitherTableNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud16::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3397,7 +3375,7 @@ Filler_GouraudFogNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud17::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3590,7 +3568,7 @@ Filler_DitherFogNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud18::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

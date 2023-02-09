@@ -5,6 +5,9 @@
 
 		.DATA
 
+PUBLIC	C		TestVuePoly
+TestVuePoly		dd	TestVuePolyF
+
 		.CODE
 
 		public	C	TestVuePolyF
