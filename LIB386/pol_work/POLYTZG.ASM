@@ -43,15 +43,6 @@ PUBLIC	C		Filler_TextureZGouraudChromaKeyNZW
 ;					*** VARIABLES ***
 ;					*****************
 
-;					*** PUBLIC DATA ***
-PUBLIC	C		Fill_VLTextureZGouraud1
-PUBLIC	C		Fill_VLTextureZGouraud2
-PUBLIC	C		Fill_VLTextureZGouraud3
-PUBLIC	C		Fill_VLTextureZGouraud4
-PUBLIC	C		Fill_VLTextureZGouraud5
-PUBLIC	C		Fill_VLTextureZGouraud6
-
-
 ;					*** MODULE DATA ***
 
 
@@ -256,7 +247,7 @@ Filler_TextureZGouraud	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZGouraud1::add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -558,7 +549,7 @@ Filler_TextureZGouraudChromaKey	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZGouraud2::add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -903,7 +894,7 @@ Filler_TextureZGouraudZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZGouraud3::add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1253,7 +1244,7 @@ Filler_TextureZGouraudChromaKeyZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZGouraud4::add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1590,7 +1581,7 @@ Filler_TextureZGouraudNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZGouraud5::add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1938,7 +1929,7 @@ Filler_TextureZGouraudChromaKeyNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZGouraud6::add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

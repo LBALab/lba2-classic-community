@@ -480,7 +480,6 @@ Extrn	C		Fill_PolyClip		:	PROC
 
 
 				; ** POLYFLAT.ASM **
-;Extrn	C		Fill_PolyFlat		:	PROC
 Extrn	C		Filler_Flat		:	PROC
 Extrn	C		Filler_Transparent	:	PROC
 Extrn	C		Filler_Trame		:	PROC

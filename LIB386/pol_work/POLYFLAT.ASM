@@ -31,8 +31,6 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-;PUBLIC	C		Fill_PolyFlat
-
 PUBLIC	C		First_POLYFLATPatch
 PUBLIC	C		Last_POLYFLATPatch
 
@@ -51,23 +49,6 @@ PUBLIC	C		Filler_FlagZBuffer
 ;					*****************
 ;					*** VARIABLES ***
 ;					*****************
-
-;					*** PUBLIC DATA ***
-
-
-;					*** MODULE DATA ***
-PUBLIC	C		Fill_VLFlat1
-PUBLIC	C		Fill_VLFlat2
-PUBLIC	C		Fill_VLFlat3
-PUBLIC	C		Fill_VLFlat4
-PUBLIC	C		Fill_VLFlat5
-PUBLIC	C		Fill_VLFlat6
-PUBLIC	C		Fill_VLFlat7
-PUBLIC	C		Fill_VLFlat8
-PUBLIC	C		Fill_VLFlat9
-PUBLIC	C		Fill_VLFlat10
-
-
 
 ;			***************
 ;			*** INCLUDE ***
@@ -203,353 +184,6 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
-COMMENT \
-; ************************************************************************
-; ************************************************************************
-; ***  Fill_PolyFlat : Polygon filler (solid/flat model)               ***
-; ***                                                                  ***
-; ************************************************************************
-; ***  Call: ESI = Pointer to point-list (STRUC_POINT)                 ***
-; ***        ECX = Nb of points                                        ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-			ALIGN	4
-Fill_PolyFlat		PROC
-			mov	eax,CLIP_FLAT
-			mov	ebx,Offset @@Fill_Restart
-
-			mov	[Fill_ClipFlag],eax
-			mov	eax,1
-
-			mov	[Fill_Restart],ebx
-			mov	[Fill_Patch],eax
-
-@@Fill_Restart:
-			; *** Search the highest point in the list ***
-			; *** And get the poly-box so as to test the clipping ***
-
-			lea	eax,[ecx-1]		; Loop counter in EAX
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			mov	edx,ecx
-			mov	[Fill_FirstPoint],esi
-
-			shl	ecx,16
-			push	esi			; Local variable: TopPoint
-
-			sar	edx,16
-			add	esi,Size STRUC_POINT
-
-			sar	ecx,16
-			mov	ebp,edx
-
-			mov	edi,ecx
-							; (ECX, EDX, EDI, EBP)
-							; (XMin, YMin, XMax, YMax)
-@@Search_TopPoint:
-			push	eax			; What follows has a bad pairing... How can we pair when we have NOTHING to do ?
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
-			mov	ebx,eax
-
-			shl	eax,16
-			sar	ebx,16
-			sar	eax,16
-
-			cmp	edx,ebx
-			jle	@@Not_YMin
-
-			mov	edx,ebx
-			mov	[esp+4],esi
-@@Not_YMin:
-			cmp	ebp,ebx
-			jge	@@Not_YMax
-			mov	ebp,ebx
-@@Not_YMax:
-			cmp	ecx,eax
-			jle	@@Not_XMin
-			mov	ecx,eax
-@@Not_XMin:
-			cmp	edi,eax
-			jge	@@Not_XMax
-			mov	edi,eax
-@@Not_XMax:
-			pop	eax
-			add	esi,Size STRUC_POINT
-
-			dec	eax
-			jne	@@Search_TopPoint
-
-			pop	eax			; Get highest point pointer
-			sub	esi,Size STRUC_POINT
-
-			mov	[Fill_LeftPoint],eax
-			mov	[Fill_RightPoint],eax
-
-			cmp	ebp,edx
-			jle	@@End			; Skip poly if DeltaY<=0
-
-				; *** Is the polygon at least visible ? ***
-
-			mov	eax,[ClipXMax]
-			mov	ebx,[ClipXMin]
-
-			cmp	ecx,eax
-			jg	@@End
-
-			cmp	edi,ebx
-			jl	@@End
-
-			mov	eax,[ClipYMax]
-			mov	ebx,[ClipYMin]
-
-			cmp	edx,eax
-			jg	@@End
-
-			cmp	ebp,ebx
-			jl	@@End
-
-			mov	[Fill_LastPoint],esi	; Last point pointer
-			mov	esi,[Fill_LeftPoint]
-
-				; *** Should we clip the polygon ? ***
-
-			mov	eax,[ClipXMin]
-			mov	ebx,[ClipXMax]
-
-			cmp	ecx,eax
-			jl	Fill_ClipXMin
-
-			cmp	edi,ebx
-			jg	Fill_ClipXMax
-
-			mov	eax,[ClipYMin]
-			mov	ebx,[ClipYMax]
-
-			cmp	edx,eax
-			jl	Fill_ClipYMin
-
-			cmp	ebp,ebx
-			jg	Fill_ClipYMax
-
-
-			mov	edi,esi
-			mov	ebp,[PTR_TabOffLine]
-
-			mov	[Fill_CurY],edx
-			mov	eax,[Log]
-
-			mov	ebx,[ebp+edx*4]
-			mov	ecx,READ_NEXT_L + READ_NEXT_R
-
-			add	ebx,eax
-			mov	[Fill_ReadFlag],ecx
-
-			mov	[Fill_CurOffLine],ebx	; Current offset in log screen
-
-
-;			*****************
-;			*** LEFT EDGE ***
-;			*****************
-
-Flat_ReadNextEdge::
-			mov	eax,[Fill_ReadFlag]
-
-			test	eax,READ_NEXT_L
-			je	@@Read_Next_Right
-
-			mov	esi,[Fill_LeftPoint]
-			and	eax,not READ_NEXT_L
-
-			mov	[Fill_ReadFlag],eax
-			mov	eax,[Fill_LastPoint]
-@@Read_Next_L:
-			mov	edi,esi
-			add	esi,Size STRUC_POINT
-
-			cmp	esi,eax
-			jbe	@@No_LoopLeft
-
-			mov	esi,[Fill_FirstPoint]
-@@No_LoopLeft:
-							; EDI = Old point
-							; ESI = New point
-			mov	edx,dword ptr [edi].STRUC_POINT.Pt_XE
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			mov	ebx,edx
-			and	ecx,0FFFF0000h		; ECX = NewY shl 16
-
-			shl	ebx,16			; EBX = OldXMin
-			and	edx,0FFFF0000h		; EDX = OldY shl 16
-
-			sub	ecx,edx			; If same Y then get next point
-			je	@@Read_Next_L
-
-			lea	ebx,[ebx+8000h]
-			js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
-
-			shr	ecx,16
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			shl	eax,16
-			mov	[Fill_CurXMin],ebx
-
-			sub	ebx,8000h
-			mov	edx,eax
-
-			sub	eax,ebx
-			sub	edx,ebx
-
-			sar	edx,31
-			mov	[Fill_LeftPoint],esi
-
-			idiv	ecx
-
-			or	eax,1
-
-			mov	[Fill_LeftSlope],eax
-
-;			******************
-;			*** RIGHT EDGE ***
-;			******************
-
-@@Read_Next_Right:
-			mov	eax,[Fill_ReadFlag]
-
-			test	eax,READ_NEXT_R
-			je	@@Test_Scan
-
-			mov	esi,[Fill_RightPoint]
-			and	eax,not READ_NEXT_R
-
-			mov	[Fill_ReadFlag],eax
-			mov	eax,[Fill_FirstPoint]
-@@Read_Next_R:
-			mov	edi,esi
-			sub	esi,Size STRUC_POINT
-
-			cmp	esi,eax
-			jae	@@No_LoopRight
-
-			mov	esi,[Fill_LastPoint]
-@@No_LoopRight:
-							; EDI = Old point
-							; ESI = New point
-			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			mov	edx,ebx
-			and	ecx,0FFFF0000h		; ECX = NewY shl 16
-
-			shl	ebx,16			; EBX = OldXMin
-			and	edx,0FFFF0000h		; EDX = OldY shl 16
-
-			sub	ecx,edx			; If same Y then get next point
-			je	@@Read_Next_R
-
-			lea	ebx,[ebx+8000h]
-			js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
-
-			shr	ecx,16
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			shl	eax,16
-			mov	[Fill_CurXMax],ebx
-
-			sub	ebx,8000h
-			mov	edx,eax
-
-			sub	eax,ebx
-			sub	edx,ebx
-
-			sar	edx,31
-			mov	[Fill_RightPoint],esi
-
-			idiv	ecx
-
-			or	eax,1
-
-			mov	[Fill_RightSlope],eax
-
-
-;			***************
-;			*** DISPLAY ***
-;			***************
-@@Test_Scan:
-			mov	esi,[Fill_LeftPoint]
-			mov	edi,[Fill_RightPoint]
-
-			; AGI
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			sar	ecx,16
-			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
-
-			sar	ebx,16
-
-			cmp	ecx,ebx
-			jl	@@Case_Left
-
-			jg	@@Case_Right
-
-;					*** Case 'both' ***
-			mov	eax,READ_NEXT_L + READ_NEXT_R
-			mov	ebx,[Fill_CurY]
-
-			mov	[Fill_ReadFlag],eax
-			sub	ecx,ebx				; DeltaY
-
-			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
-			je	Flat_ReadNextEdge
-
-			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
-			jmp	[Fill_Filler]
-
-			ALIGN	4
-;					*** Case 'left' ***
-@@Case_Left:
-			mov	eax,READ_NEXT_L
-			mov	ebx,[Fill_CurY]
-
-			sub	ecx,ebx				; DeltaY
-			mov	[Fill_ReadFlag],eax
-
-			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
-			je	Flat_ReadNextEdge
-
-			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
-			jmp	[Fill_Filler]
-
-
-			ALIGN	4
-;					*** Case 'right' ***
-@@Case_Right:
-			mov	eax,READ_NEXT_R
-			mov	ecx,ebx
-
-			mov	ebx,[Fill_CurY]
-			mov	[Fill_ReadFlag],eax
-
-			sub	ecx,ebx				; DeltaY
-			je	Flat_ReadNextEdge
-
-			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
-			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
-
-			jmp	[Fill_Filler]
-
-
-			ALIGN	4
-@@End:
-			pop	ebp
-			mov	eax,[Fill_LeftSlope]
-			ret
-Fill_PolyFlat		ENDP
-
-
-\
-
 
 ;				******************
 ;				*** Local proc ***
@@ -587,7 +221,7 @@ Filler_Flat		PROC
 			add	ebx,esi
 			add	edx,eax
 
-Fill_VLFlat1::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 @@EnterLoop:
 			mov	esi,ebx
 			mov	ecx,edx
@@ -693,7 +327,7 @@ Filler_Transparent	PROC
 			add	ebx,esi
 			add	edx,eax
 
-Fill_VLFlat2::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 @@EnterLoop:
 			mov	esi,ebx
 			mov	ecx,edx
@@ -760,7 +394,7 @@ Filler_Trame		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat3::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -884,7 +518,7 @@ Filler_FlatZBuf		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat4::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1022,7 +656,7 @@ Filler_TransparentZBuf	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat5::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1144,7 +778,7 @@ Filler_TrameZBuf	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat6::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1314,7 +948,7 @@ Filler_FlatNZW		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat7::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1449,7 +1083,7 @@ Filler_TransparentNZW	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat8::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1567,7 +1201,7 @@ Filler_TrameNZW		PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat9::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1730,7 +1364,7 @@ Filler_FlagZBuffer	PROC
 			ALIGN	4
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLFlat10::		add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

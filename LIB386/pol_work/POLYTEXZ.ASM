@@ -48,33 +48,9 @@ PUBLIC	C		Filler_TextureZFlatChromaKeyNZW
 PUBLIC	C		Filler_TextureZFogNZW
 PUBLIC	C		Filler_TextureZChromaKeyFogNZW
 
-
-
-
 ;					*****************
 ;					*** VARIABLES ***
 ;					*****************
-
-;					*** PUBLIC DATA ***
-PUBLIC	C		Fill_VLTextureZ1
-PUBLIC	C		Fill_VLTextureZ2
-PUBLIC	C		Fill_VLTextureZ3
-PUBLIC	C		Fill_VLTextureZ4
-PUBLIC	C		Fill_VLTextureZ5
-PUBLIC	C		Fill_VLTextureZ6
-PUBLIC	C		Fill_VLTextureZ7
-PUBLIC	C		Fill_VLTextureZ8
-PUBLIC	C		Fill_VLTextureZ9
-PUBLIC	C		Fill_VLTextureZ10
-PUBLIC	C		Fill_VLTextureZ11
-PUBLIC	C		Fill_VLTextureZ12
-PUBLIC	C		Fill_VLTextureZ13
-PUBLIC	C		Fill_VLTextureZ14
-PUBLIC	C		Fill_VLTextureZ15
-PUBLIC	C		Fill_VLTextureZ16
-PUBLIC	C		Fill_VLTextureZ17
-PUBLIC	C		Fill_VLTextureZ18
-
 
 PUBLIC	C		Fill_Init_Perspective
 PUBLIC	C		Fill_Loop_Perspective
@@ -175,12 +151,6 @@ Extrn	C		Fill_Next_MapVOverW	:	DWORD
 Extrn	C		F_1			:	DWORD
 Extrn	C		F_256			:	DWORD
 
-Extrn	C		Fill_UseFPU		:	BYTE
-
-
-
-
-
 ;				*******************
 ;				*** Global data ***
 ;				*******************
@@ -197,17 +167,12 @@ Extrn	C		Fill_UseFPU		:	BYTE
 			ALIGN	4
 
 
-
-
-
-
-
 ;				******************
 ;				*** Local data ***
 ;				******************
 			ALIGN	4
-Fill_Init_Perspective	dd	Offset Choose_Init
-Fill_Loop_Perspective	dd	Offset Choose_Loop
+Fill_Init_Perspective	dd	Offset Init_PerspFPU
+Fill_Loop_Perspective	dd	Offset Loop_PerspFPU
 
 _DATA			ENDS
 
@@ -230,163 +195,6 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;				*** Global proc ***
 ;				*******************
 First_POLYTEXTUREZPatch	Label	DWORD
-
-
-
-Choose_Init		PROC
-			mov	[Fill_Init_Perspective],Offset Init_PerspINT
-
-			cmp	[Fill_UseFPU],TRUE
-			jne	@@End
-
-			mov	[Fill_Init_Perspective],Offset Init_PerspFPU
-@@End:
-			jmp	[Fill_Init_Perspective]
-Choose_Init		ENDP
-
-
-
-Choose_Loop		PROC
-			mov	[Fill_Loop_Perspective],Offset Loop_PerspINT
-
-			cmp	[Fill_UseFPU],TRUE
-			jne	@@End
-
-			mov	[Fill_Loop_Perspective],Offset Loop_PerspFPU
-@@End:
-			jmp	[Fill_Loop_Perspective]
-Choose_Loop		ENDP
-
-
-
-
-
-
-
-; ╔═════════════════════════════════════════════════════════════╗
-; ║ Initialize the gradiants of a scanline                      ║
-; ╚═════════════════════════════════════════════════════════════╝
-
-Init_PerspINT		PROC
-			mov	ebx,[Fill_Cur_W]		; Current W
-
-			test	ebx,ebx
-			je	@@W_Nul1
-			cmp	ebx,-1
-			je	@@W_Nul1
-			cmp	ebx,1
-			je	@@W_Nul1
-@@Return_Error1:
-			mov	eax,-1
-			xor	edx,edx
-
-			idiv	ebx
-
-			mov	ebx,eax
-			mov	eax,esi
-			imul	ebx
-
-			shr	eax,24
-			mov	[Fill_Cur_MapUOverW],esi
-
-			shl	edx,8
-			mov	[Fill_Cur_MapVOverW],ebp
-
-			or	eax,edx
-
-			mov	[Fill_Cur_MapU],eax		; Current U
-			mov	eax,ebp
-
-			imul	ebx
-
-			shr	eax,24
-
-			shl	edx,8
-
-			or	eax,edx
-
-			mov	[Fill_Cur_MapV],eax		; Current V
-
-			ret
-@@W_Nul1:
-			mov	ebx,2
-			jmp	@@Return_Error1
-Init_PerspINT		ENDP
-
-
-
-
-
-; ╔═════════════════════════════════════════════════════════════╗
-; ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
-; ╚═════════════════════════════════════════════════════════════╝
-
-Loop_PerspINT		PROC
-			mov	edx,[Fill_W_XSlope]
-			mov	ebx,[Fill_Cur_W]
-
-			shl	edx,PERSP_SHIFT
-			mov	eax,-1
-
-			add	ebx,edx
-			je	@@W_Nul
-			cmp	ebx,-1
-			je	@@W_Nul
-			cmp	ebx,1
-			je	@@W_Nul
-@@Return_Error:
-			mov	[Fill_Next_W],ebx		; Next W
-			xor	edx,edx
-
-			idiv	ebx
-
-			mov	ebx,eax
-			mov	eax,[Fill_MapU_XSlope]
-
-			shl	eax,PERSP_SHIFT
-			mov	edx,[Fill_Cur_MapUOverW]
-
-			add	eax,edx
-
-			mov	[Fill_Next_MapUOverW],eax
-
-			imul	ebx
-
-			shr	eax,24
-			mov	esi,[Fill_MapV_XSlope]
-
-			shl	edx,8
-			mov	ebp,[Fill_Cur_MapVOverW]
-
-			shl	esi,PERSP_SHIFT
-			or	eax,edx
-
-			mov	[Fill_Next_MapU],eax		; EBP = Next MapU
-			add	esi,ebp
-
-			mov	[Fill_Next_MapVOverW],esi
-			mov	eax,esi
-
-			imul	ebx
-
-			shr	eax,24
-
-			shl	edx,8
-
-			or	eax,edx
-
-			mov	[Fill_Next_MapV],eax		; EAX = Next MapV
-
-			ret
-@@W_Nul:
-			mov	ebx,2
-			jmp	@@Return_Error
-Loop_PerspINT		ENDP
-
-
-
-
-
 
 ; ╔═════════════════════════════════════════════════════════════╗
 ; ║ Initialize the gradiants of a scanline                      ║
@@ -475,12 +283,6 @@ Init_PerspFPU		PROC
 Init_PerspFPU		ENDP
 
 
-
-
-
-
-
-
 ; ╔═════════════════════════════════════════════════════════════╗
 ; ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
 ; ╚═════════════════════════════════════════════════════════════╝
@@ -535,18 +337,6 @@ Loop_PerspFPU		PROC
 Loop_PerspFPU		ENDP
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -571,7 +361,7 @@ Filler_TextureZ		PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ1::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3093,7 +2883,7 @@ Filler_TextureZFlatChromaKeyZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ10::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3403,7 +3193,7 @@ Filler_TextureZFogZBuf	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ11::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3724,7 +3514,7 @@ Filler_TextureZChromaKeyFogZBuf PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ12::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4027,7 +3817,7 @@ Filler_TextureZNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ13::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4318,7 +4108,7 @@ Filler_TextureZChromaKeyNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ14::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4626,7 +4416,7 @@ Filler_TextureZFlatNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ15::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -4946,7 +4736,7 @@ Filler_TextureZFlatChromaKeyNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ16::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -5254,7 +5044,7 @@ Filler_TextureZFogNZW	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ17::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -5573,7 +5363,7 @@ Filler_TextureZChromaKeyFogNZW PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZ18::	add	edi,[ScreenPitch]
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]

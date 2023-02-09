@@ -24,12 +24,6 @@ OPTION SCOPED
 
 PUBLIC			Fill_Sphere
 
-PUBLIC			Fill_VLDisc1
-PUBLIC			Fill_VLDisc2
-PUBLIC			Fill_VLDisc3
-PUBLIC			Fill_VLDisc4
-
-
 PUBLIC			First_POLYDISCPatch
 PUBLIC			Last_POLYDISCPatch
 
@@ -450,7 +444,7 @@ First_POLYDISCPatch	Label	DWORD
 Sph_Line_Flat		PROC
 			pushad
 
-Fill_VLDisc1::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			add	edi,[Log]		; Ecran logique
 
 			mov	ebx,[Sph_XMin]
@@ -483,7 +477,7 @@ Sph_Line_Flat		ENDP
 Sph_Line_FlatZBuf	PROC
 			pushad
 
-Fill_VLDisc3::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			mov	ebx,edi
 			add	edi,[Log]		; Ecran logique
 			add	ebx,ebx
@@ -522,7 +516,7 @@ Sph_Line_FlatZBuf	ENDP
 Sph_Line_FlatNZW	PROC
 			pushad
 
-Fill_VLDisc4::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			mov	ebx,edi
 			add	edi,[Log]		; Ecran logique
 			add	ebx,ebx
@@ -575,7 +569,7 @@ Sph_Line_FlatNZW	ENDP
 Sph_Line_Transp		PROC
 			pushad
 
-Fill_VLDisc2::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			add	edi,[Log]		; Ecran logique
 
 			mov	ebx,[Sph_XMin]

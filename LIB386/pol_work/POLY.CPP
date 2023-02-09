@@ -2,6 +2,12 @@
 
 #include <limits.h>
 
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
 #undef Fill_Poly
@@ -60,3 +66,8 @@ void Switch_Fillers_C(U32 Bank) {
 #error "Unsupported compiler!"
 #endif
 }
+
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif

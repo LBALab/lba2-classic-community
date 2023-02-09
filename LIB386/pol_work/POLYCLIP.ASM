@@ -85,11 +85,6 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				*** Extrn data ***
 ;				******************
 
-		extrn	C	Chooser_RtnI:DWORD
-		extrn	C	Chooser_RtnF:DWORD
-		extrn	C	Chooser_RtnM:DWORD
-		extrn	C	Chooser_Result:DWORD
-
 Extrn	C		Status_Int		:	WORD
 Extrn	C		Status_Float		:	WORD
 
@@ -109,7 +104,7 @@ Extrn	C		Status_Float		:	WORD
 ;					*** MODULE data ***
 ;					*******************
 			ALIGN	4
-Clip_Funct		dd	Init_Clip
+Clip_Funct		dd	Clipping_ZFPU
 
 Precalc_Offset		Label	DWORD
 AA			=	0
@@ -142,22 +137,9 @@ _DATA			ENDS
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
-
-;				******************
-;				*** Extrn proc ***
-;				******************
-		extrn	C	Chooser:PROC
-
-
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
-
-
-
-
-
-
 
 ; Call:
 ;	ESI = Src vertex list (list of STRUC_CLIPVERTEX)
@@ -387,137 +369,11 @@ ClipperZ		PROC \
 ClipperZ		ENDP
 
 
-
-
-
 ;				*******************
 ;				*** Local proc ***
 ;				*******************
 
-Clipping_Z		PROC
-			push	ecx
-			push	ebp
-
-					; *** Factor ***
-			mov	ecx,[esi].STRUC_CLIPVERTEX.V_Z0
-			mov	edx,[ebx].STRUC_CLIPVERTEX.V_Z0
-
-			sub	ecx,edx			; ECX = (CurZ-LastZ)
-			sub	edx,ebp
-
-			mov	eax,edx			; EAX:EDX = 65536*(LastZ-ClipZ)
-			mov	[edi].STRUC_CLIPVERTEX.V_Z0,ebp
-
-			shl	eax,24
-
-			sar	edx,8
-
-			idiv	ecx
-
-			mov	ecx,eax
-			neg	ecx			; ECX = (65536*(ClipZ-LastZ)) / (CurZ-LastZ)
-
-					; *** X0 ***
-			mov	eax,[esi].STRUC_CLIPVERTEX.V_X0
-			mov	ebp,[ebx].STRUC_CLIPVERTEX.V_X0
-			sub	eax,ebp			; EAX = CurX-LastX
-
-			imul	ecx
-
-			shr	eax,24
-			shl	edx,8
-			or	eax,edx
-
-			add	ebp,eax
-			mov	[edi].STRUC_CLIPVERTEX.V_X0,ebp
-
-					; *** Y0 ***
-			mov	eax,[esi].STRUC_CLIPVERTEX.V_Y0
-			mov	ebp,[ebx].STRUC_CLIPVERTEX.V_Y0
-			sub	eax,ebp
-
-			imul	ecx
-
-			shr	eax,24
-			shl	edx,8
-			or	eax,edx
-
-			add	ebp,eax
-			mov	[edi].STRUC_CLIPVERTEX.V_Y0,ebp
-
-					; *** MapU ***
-			mov	eax,dword ptr [esi].STRUC_CLIPVERTEX.V_MapU
-			mov	ebp,dword ptr [ebx].STRUC_CLIPVERTEX.V_MapU
-
-			and	eax,0FFFFh
-			and	ebp,0FFFFh
-
-			sub	eax,ebp
-
-			imul	ecx
-
-			shr	eax,24
-			shl	edx,8
-			or	eax,edx
-
-			add	ebp,eax
-			mov	[edi].STRUC_CLIPVERTEX.V_MapU,bp
-
-
-					; *** MapV ***
-			mov	eax,dword ptr [esi].STRUC_CLIPVERTEX.V_MapU
-			mov	ebp,dword ptr [ebx].STRUC_CLIPVERTEX.V_MapU
-
-			shr	eax,16
-			shr	ebp,16
-
-			sub	eax,ebp
-
-			imul	ecx
-
-			shr	eax,24
-			shl	edx,8
-			or	eax,edx
-
-			add	ebp,eax
-			mov	[edi].STRUC_CLIPVERTEX.V_MapV,bp
-
-
-			; bof		; dummy (index point)
-
-			mov	ax,word ptr [esi].STRUC_CLIPVERTEX.V_Dummy
-			mov	[edi].STRUC_CLIPVERTEX.V_Dummy, ax
-
-					; *** Light ***
-			mov	eax,dword ptr [esi].STRUC_CLIPVERTEX.V_Light
-			mov	ebp,dword ptr [ebx].STRUC_CLIPVERTEX.V_Light
-
-			and	eax,0FFFFh
-			and	ebp,0FFFFh
-
-			sub	eax,ebp
-
-			imul	ecx
-
-			shr	eax,24
-			shl	edx,8
-			or	eax,edx
-
-			add	ebp,eax
-			mov	[edi].STRUC_CLIPVERTEX.V_Light,bp
-
-			pop	ebp
-			pop	ecx
-
-			ret
-Clipping_Z		ENDP
-
-
-
-
-Clipping_ZMMX		PROC
-			emms
-Clipping_ZFPU::
+Clipping_ZFPU		PROC
 			push	ecx
 			push	ebp
 
@@ -692,21 +548,7 @@ Clipping_ZFPU::
 			fldcw	[Status_Float]
 
 			ret
-Clipping_ZMMX		ENDP
-
-
-
-
-Init_Clip		PROC
-
-			;mov	[ds:Chooser_RtnI], offset Clipping_Z	; Integer
-			mov	[ds:Chooser_RtnF], offset Clipping_ZFPU	; FPU
-			;mov	[ds:Chooser_RtnM], offset Clipping_ZMMX	; MMX
-			mov	[ds:Chooser_Result], offset Clip_Funct	; Pointer
-			jmp	Chooser
-
-Init_Clip		ENDP
-
+Clipping_ZFPU		ENDP
 
 
 _TEXT			ENDS
