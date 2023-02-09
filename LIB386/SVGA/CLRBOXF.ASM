@@ -7,10 +7,16 @@
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	C	ClearColor:QWORD
+			extrn	C	TabOffLine:DWORD
 
 ;----------------------------------------------------------------------------
-			extrn	C	TabOffLine:DWORD
+;*══════════════════════════════════════════════════════════════════════════*
+			public	C	ClearBox
+			public	C	SetClearColor
+			public	C	ClearColor
+
+			ClearBox	dd	offset ClearBoxF
+			ClearColor	dq	0
 
 ;----------------------------------------------------------------------------
 			.CODE
@@ -102,6 +108,36 @@ ClearBoxFEnd::
 			ret
 
 ClearBoxF		ENDP
+
+;----------------------------------------------------------------------------
+;void	SetClearColor(U32 color)	;
+
+;#pragma aux SetClearColor		\
+;	parm	[eax]			\
+;	modify	[ecx edx]
+
+SetClearColor	proc
+
+		and	eax, 0FFh	; 000C
+
+		mov	edx, eax	; 000C
+
+		shl	edx, 8		; 00C0
+
+		mov	ecx, edx	; 00C0
+		or	edx, eax	; 00CC
+
+		shl	edx, 16		; CC00
+		or	eax, ecx	; 00CC
+
+		or	eax, edx	; CCCC
+
+		mov	dword ptr[ClearColor], eax
+		mov	dword ptr[ClearColor+4], eax
+
+		ret
+
+SetClearColor	endp
 
 ;----------------------------------------------------------------------------
 ;			The

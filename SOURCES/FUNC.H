@@ -37,7 +37,6 @@ extern void	SmallSort(T_SORT *, U32, U32);
 // Pour l'instant, en attendant d'avoir un PaletteSync propre !!!!!!!!!
 
 #define	PaletteSync(pal)	{ SetVideoPaletteSync(pal); }
-//#define	PaletteSync(pal)	{ PaletteVblVESA(TRUE); Palette(pal); PaletteVblVESA(FALSE); }
 //#define	PaletteSync(pal)	{ VsyncTimer(); Palette(pal); }
 
 //extern void	PaletteSync( U8 *palette ) ;

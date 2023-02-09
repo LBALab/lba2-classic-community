@@ -49,7 +49,6 @@ BufferClip	db	512 dup (?)
 
 ;----------------------------------------------------------------------------
 			PUBLIC	C	AffGraph
-			PUBLIC	C	GetDxDyGraph_ASM
 			PUBLIC	C	GetBoxGraph
 
 ;----------------------------------------------------------------------------
@@ -331,36 +330,6 @@ Incrust:		inc	edi
 EndGraph:		ret
 
 AffGraph		endp
-
-;----------------------------------------------------------------------------
-;S32	GetDxDyGraph(S32 numgraph, S32 *x, S32 *y, void *bankgraph);
-
-;#pragma aux GetDxDyGraph	"*"		\
-;	parm		[eax] [ebx] [ecx] [esi]	\
-;	modify exact	[eax edx esi]
-
-GetDxDyGraph_ASM		proc \
-			uses ebx ecx edx edi esi ebp,
-			numgraph:DWORD,\
-			x:DWORD, y:DWORD,\
-			bankgraph:DWORD
-
-			mov eax, numgraph
-			mov ebx, x
-			mov ecx, y
-			mov esi, bankgraph
-
-			add     esi, [esi+eax*4]
-			xor     eax, eax
-			xor     edx, edx
-			mov     al, [esi]
-			mov     dl, [esi+1]
-			mov     [ebx], eax
-			mov     [ecx], edx
-
-			ret
-
-GetDxDyGraph_ASM		endp
 
 ;----------------------------------------------------------------------------
 ;S32	GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1, void *bankgraph);
