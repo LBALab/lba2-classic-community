@@ -45,7 +45,6 @@ ColMask         db      0       ; Noir par Defaut
 
 ;----------------------------------------------------------------------------
 			PUBLIC  C      AffMask
-			PUBLIC  C      GetDxDyMask
 
 ;----------------------------------------------------------------------------
 ;#define	ColorMask(color)	ColMask = (U8)(color)
@@ -299,28 +298,6 @@ End_Line:		mov	cl,bl
 EndMask:                ret
 
 AffMask			endp
-
-;----------------------------------------------------------------------------
-;S32	GetDxDyMask(S32 nummask, S32 *x, S32 *y, void *bankmask);
-
-;#pragma aux GetDxDyMask	"*"		\
-;	parm		[eax] [ebx] [ecx] [esi]	\
-;	modify exact	[eax edx esi]
-
-;TODO: Remove, same as GetDxDyGraph
-GetDxDyMask             proc
-
-			add     esi, [esi+eax*4]
-			xor     eax, eax
-			xor     edx, edx
-			mov     al, [esi]
-			mov     dl, [esi+1]
-			mov     [ebx], eax
-			mov     [ecx], edx
-
-			ret
-
-GetDxDyMask             endp
 
 ;----------------------------------------------------------------------------
 ;			The
