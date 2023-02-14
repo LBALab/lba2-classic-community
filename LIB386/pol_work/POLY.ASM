@@ -781,10 +781,6 @@ Extrn	C		AllowPatchAndPatch	:	PROC
 ENDIF	; _WIN32_PATCH_ENABLE
 
 
-					; *** POLYLINE.ASM ***
-Extrn	C		First_POLYLINEPatch	:	DWORD
-Extrn	C		Last_POLYLINEPatch	:	DWORD
-
 					; *** POLYDISC.ASM ***
 Extrn	C		First_POLYDISCPatch	:	DWORD
 Extrn	C		Last_POLYDISCPatch	:	DWORD
@@ -6446,11 +6442,6 @@ Init_Fillers_WIN32	PROC
 					; *** Disc ***
 			mov	eax,Offset First_POLYDISCPatch
 			mov	edx,Offset Last_POLYDISCPatch
-			call	AllowPatch
-
-					; *** Line ***
-			mov	eax,Offset First_POLYLINEPatch
-			mov	edx,Offset Last_POLYLINEPatch
 			call	AllowPatch
 
 					; *** Gouraud ***
