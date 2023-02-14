@@ -36,37 +36,19 @@ Start_X		dd	0
 Start_Y		dd	0
 Skip_Next_Line	dd	0
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+X_Dec       DWORD 12345678h
+X_Int       DWORD 12345678h
+Y_Dec       DWORD 12345678h
+Y_Int       DWORD 12345678h
+Ptr_Transp  DWORD 12345678h
+Ptr_Transp1 DWORD 12345678h
+
 ;*══════════════════════════════════════════════════════════════════════════*/
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 		public   C     ScaleSpriteTransp
-
-;*══════════════════════════════════════════════════════════════════════════*/
-IFDEF	_WIN32
-		extrn  C	AllowPatch:PROC
-ENDIF ; _WIN32
-
-IFDEF	_WIN32_PATCH_ENABLE
-		extrn  C	AllowPatchAndPatch:PROC
-ENDIF ; _WIN32_PATCH_ENABLE
-
-;*══════════════════════════════════════════════════════════════════════════*/
-IFDEF	_WIN32_PATCH_ENABLE
-
-ScaleSpriteTranspInit proc
-
-		push	offset ScaleSpriteTranspPatch
-		push	offset ScaleSpriteTranspEnd
-		push	offset Patch_Jump
-
-		jmp	AllowPatchAndPatch
-Patch_Jump::
-		mov	dword ptr [Ptr_Transp+2],edx
-
-ScaleSpriteTranspInit endp
-
-ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 ScaleSpriteTransp	proc uses ebp,				\
@@ -75,25 +57,11 @@ ScaleSpriteTransp	proc uses ebp,				\
 		factorx:	DWORD,	factory:	DWORD,	\
 		bankbrick:	DWORD,  PtrTransp:	DWORD
 
-		mov eax, ScaleSpriteTranspPatch
-		mov edx, ScaleSpriteTranspEnd
-		call AllowPatch
-
 		mov	edx,[PtrTransp]
 
 ScaleSpriteTranspPatch::
-		mov	dword ptr [Ptr_Transp+2],edx
-IFDEF	_WIN32_PATCH_ENABLE
-x:
-		org	ScaleSpriteTranspPatch
-
-		jmp	NEAR PTR ScaleSpriteTranspInit; 5 bytes
-
-		org	x
-ELSE ; _WIN32_PATCH_ENABLE
-		mov	dword ptr [Ptr_Transp+2],edx
-ENDIF ; _WIN32_PATCH_ENABLE
-		mov	dword ptr [Ptr_Transp1+2],edx
+		mov	[Ptr_Transp],edx
+		mov	[Ptr_Transp1],edx
 
 		mov	eax,[factorx]
 		mov	ebx,[factory]
@@ -334,18 +302,18 @@ No_ClipYMax:
 		mov	ebx,[factorx]
 
 		shr	ebx,16
-		mov	dword ptr [X_Dec+2],eax
+		mov	[X_Dec],eax
 
-		mov	dword ptr [X_Int+2],ebx
+		mov	[X_Int],ebx
 		mov	eax,[factory]
 
 		shl	eax,16
 		mov	ebx,[factory]
 
 		shr	ebx,16
-		mov	dword ptr [Y_Dec+2],eax
+		mov	[Y_Dec],eax
 
-		mov	dword ptr [Y_Int+2],ebx
+		mov	[Y_Int],ebx
 		mov	ebp,[ScreenYMax]
 
 		mov	eax,[ScreenYMin]
@@ -386,15 +354,18 @@ Each_Line:
 		xor	eax,eax
 Each_Col:
 		mov	ah,[esi]
-X_Dec:		add	ebx,12345678h
+		add	ebx,[X_Dec]
 
-X_Int:		adc	esi,12345678h
+		adc	esi,[X_Int]
 		mov	al,[edi]
 
 		test	eax,0FF00h
 		je	Opacity
 
-Ptr_Transp::	mov	al,[eax+12345678h]
+    push ebx
+    mov ebx,[Ptr_Transp]
+	mov	al,[eax+ebx]
+	pop ebx
 
 		mov	[edi],al
 Opacity:	inc	edi
@@ -406,9 +377,9 @@ Opacity:	inc	edi
 		pop	edi
 
 		pop	esi
-Y_Dec:		add	ebx,12345678h
+		add	ebx,[Y_Dec]
 
-Y_Int:		adc	edx,12345678h
+		adc	edx,[Y_Int]
 		pop	ecx
 
 		mov	eax,[Skip_Next_Line]
@@ -591,7 +562,11 @@ exit:
 		test	eax,0FF00h
 		je	@@Hide
 						; AGI
-Ptr_Transp1:	mov	al,[eax+12345678h]
+
+		push ebx
+		mov ebx,[Ptr_Transp1]
+		mov	al,[eax+ebx]
+		pop ebx
 
 		mov	[edi],al
 @@Hide:		inc	edi
@@ -608,8 +583,6 @@ Ptr_Transp1:	mov	al,[eax+12345678h]
 		jne	@@LoopY
 
 		ret
-
-ScaleSpriteTranspEnd::
 
 ScaleSpriteTransp	endp
 

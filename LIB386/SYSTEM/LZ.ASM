@@ -5,39 +5,13 @@
 			.DATA
 
 ;*──────────────────────────────────────────────────────────────────────────*
+; Runtime code patch refactor, uses memory instead of instruction substitution
+BlockSize DWORD 2
+;*──────────────────────────────────────────────────────────────────────────*
 			.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
 			public	C	ExpandLZ
-
-;*──────────────────────────────────────────────────────────────────────────*
-IFDEF	_WIN32
-			Extrn	C		AllowPatch		:	PROC
-ENDIF ; _WIN32
-
-IFDEF	_WIN32_PATCH_ENABLE
-			extrn	C	AllowPatchAndPatch:PROC
-ENDIF ; _WIN32_PATCH_ENABLE
-
-;*──────────────────────────────────────────────────────────────────────────*
-BlockSize		equ	byte ptr[PatchBlockSize+2]
-
-;*──────────────────────────────────────────────────────────────────────────*
-IFDEF	_WIN32_PATCH_ENABLE
-
-ExpandLZInit		PROC
-
-			push	offset ExpandLZ
-			push	offset ExpandLZEnd
-			push	offset Patch_Jump
-
-			jmp	AllowPatchAndPatch
-Patch_Jump:
-			mov	BlockSize, al		; This code is 5 bytes long
-
-ExpandLZInit		ENDP
-
-ENDIF ; _WIN32_PATCH_ENABLE
 
 ;*──────────────────────────────────────────────────────────────────────────*
 ;void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
@@ -50,20 +24,12 @@ ExpandLZ		PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			Dst: DWORD, Src: DWORD, DecompSize: DWORD, MinBloc: DWORD
 
-			; yaz: this used to call AllowPatchAndPatch but I think it can't be reused as-is
-			; as it expected there was no code executed in the function prolog
-			pushad
-			mov	eax,Offset ExpandLZ
-			mov	edx,Offset ExpandLZEnd
-			call	AllowPatch
-			popad
-
 			mov edi, Dst
 			mov ebx, Src
 			mov ecx, DecompSize
 			mov eax, MinBloc
 
-			mov	BlockSize, al		; This code is 5 bytes long TOO!
+			mov	[BlockSize], eax
 
 			push	ebp
 
@@ -106,7 +72,7 @@ copie:							; ici on a 16 bits formant un offset
 			and	ecx, 0Fh		; longueur; on masque nos registres
 
 			add	ebx, 2
-PatchBlockSize::	add	ecx, 2			; on ajuste car pas de copie de moins de 2 (ou 3)
+			add	ecx, [BlockSize]			; on ajuste car pas de copie de moins de 2 (ou 3)
 
 							; XOR EAX,-1  <=> NOT EAX, sauf que ca
 							; permet le "pairing"
@@ -179,7 +145,7 @@ Fast_Done:
 termine:
 			pop	ebp
 			ret
-ExpandLZEnd::
+
 ExpandLZ		ENDP
 
 ;*──────────────────────────────────────────────────────────────────────────*
