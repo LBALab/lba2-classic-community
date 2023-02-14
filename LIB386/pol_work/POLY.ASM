@@ -809,15 +809,6 @@ Extrn	C		Last_POLYGOURAUDTEXTUREPatch :	DWORD
 Extrn	C		First_POLYTEXTUREZPatch	:	DWORD
 Extrn	C		Last_POLYTEXTUREZPatch	:	DWORD
 
-					; *** POLYTZG.ASM ***
-Extrn	C		First_POLYTEXTUREZGOURAUDPatch:	DWORD
-Extrn	C		Last_POLYTEXTUREZGOURAUDPatch:	DWORD
-
-					; *** POLYTZF.ASM ***
-Extrn	C		First_POLYTEXTUREZFOGPatch:	DWORD
-Extrn	C		Last_POLYTEXTUREZFOGPatch:	DWORD
-
-
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
@@ -855,11 +846,6 @@ IFDEF	_WIN32
 x:
 			org	Fill_PolyFast
 			jmp	NEAR PTR InitFillPoly_WIN32
-			org	x
-ELSE	; _WIN32
-x:
-			org	Fill_PolyFast
-			jmp	NEAR PTR InitFillPoly_DOS
 			org	x
 ENDIF	; _WIN32
 
@@ -6487,49 +6473,9 @@ Init_Fillers_WIN32	PROC
 			mov	edx,Offset Last_POLYTEXTUREZPatch
 			call	AllowPatch
 
-					; *** Texture Z Gouraud ***
-			mov	eax,Offset First_POLYTEXTUREZGOURAUDPatch
-			mov	edx,Offset Last_POLYTEXTUREZGOURAUDPatch
-			call	AllowPatch
-
-					; *** Texture Z Fog ***
-			mov	eax,Offset First_POLYTEXTUREZFOGPatch
-			mov	edx,Offset Last_POLYTEXTUREZFOGPatch
-			call	AllowPatch
-
 			popad
 			ret
 Init_Fillers_WIN32	ENDP
-
-
-
-ELSE	; _WIN32
-
-
-
-
-
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Initialize 'Fill_Poly' under DOS                                         ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-InitFillPoly_DOS	PROC
-			pushad
-			mov	ebx,Offset TabOffLine
-			call	SetScreenPitch
-
-			mov	eax,dword ptr[Good_CodeFillPoly]
-			mov	dword ptr [Fill_PolyFast],eax
-			mov	al,byte ptr[Good_CodeFillPoly+4]
-			mov	byte ptr [Fill_PolyFast+4],al
-
-			popad
-			jmp	Fill_PolyFast
-Good_CodeFillPoly:
-			push	ebp			; ** THERE MUST BE AT LEAST
-			xor	ebp,ebp			; ** 5 BYTES B4 THE
-			mov	[Fill_LeftSlope],ebp	; ** PATCH CODE
-InitFillPoly_DOS	ENDP
-
 
 ENDIF	; _WIN32
 

@@ -26,9 +26,6 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	C		First_POLYTEXTUREZFOGPatch
-PUBLIC	C		Last_POLYTEXTUREZFOGPatch
-
 PUBLIC	C		Filler_TextureZFogSmooth
 PUBLIC	C		Filler_TextureZFogSmoothZBuf
 PUBLIC	C		Filler_TextureZFogSmoothNZW
@@ -175,6 +172,19 @@ Fill_Next_ZBuf		dd	0
 Fill_Init_Perspective	dd	Offset Init_PerspFPU
 Fill_Loop_Perspective	dd	Offset Loop_PerspFPU
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+PtrMapPatch     DWORD 12345678h
+PtrCLUT         DWORD 12345678h
+PtrLog          DWORD 12345678h
+PtrZBufferPatch DWORD 12345678h
+PtrZBuffer1     DWORD 12345678h
+PtrZBuffer2     DWORD 12345678h
+DecZBuf         DWORD 12345678h
+DecZBuf2        DWORD 12345678h
+IntZBuf         DWORD 12345678h
+IntZBuf2        DWORD 12345678h
+RepMask2        DWORD 12345678h
+RepMaskPatch    DWORD 12345678h
 
 _DATA			ENDS
 
@@ -192,11 +202,6 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
 
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-First_POLYTEXTUREZFOGPatch Label	DWORD
 
 ; ╔═════════════════════════════════════════════════════════════╗
 ; ║ Initialize the gradiants of a scanline                      ║
@@ -418,10 +423,10 @@ Filler_TextureZFogSmooth PROC
 
 			add	eax,12*256
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
+			mov	[RepMaskPatch],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
@@ -606,11 +611,15 @@ Filler_TextureZFogSmooth PROC
 			shr	eax,16
 			add	ebx,ebp
 
-@@PtrCLUT:		mov	dl,[edx+12345678h]
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
 			mov	al,bh
 
 			mov	[edi+ecx],dl
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			inc	ecx
 			jne	@@LoopX
@@ -699,30 +708,30 @@ Filler_TextureZFogSmoothZBuf PROC
 
 			add	eax,12*256
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
-			mov	dword ptr [@@RepMask2+1],eax
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
 
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
+			mov	[PtrZBuffer2],eax
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shl	eax,32-8
 
-			mov	dword ptr [@@DecZBuf+2],eax
-			mov	dword ptr [@@DecZBuf2+2],eax
+			mov	[DecZBuf],eax
+			mov	[DecZBuf2],eax
 
 			mov	eax,[Fill_ZBuf_XSlope]
 
@@ -730,8 +739,8 @@ Filler_TextureZFogSmoothZBuf PROC
 
 			and	eax,0FFFFh
 
-			mov	dword ptr [@@IntZBuf+2],eax
-			mov	dword ptr [@@IntZBuf2+2],eax
+			mov	[IntZBuf],eax
+			mov	[IntZBuf2],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
@@ -911,25 +920,46 @@ Filler_TextureZFogSmoothZBuf PROC
 @@Go:
 			ror	esi,8
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],si
+
+			push eax
+			mov eax,[PtrZBufferPatch]
+			cmp	[edi*2+eax],si
+			pop eax
+
 			jb	@@NoDisp
 @@Disp:
-@@PtrZBuffer1:		mov	[edi*2+12345678h],si
-@@PtrMap:		mov	dl,[eax+12345678h]
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],si
+		pop eax
+
+			push ebx
+			mov ebx,[PtrMapPatch]
+			mov	dl,[eax+ebx]
+			pop ebx
 
 			lea	eax,[ebx+ebp]
 			add	ebx,ebp
 
 			shr	eax,16
-@@PtrCLUT:		mov	dl,[edx+12345678h]
 
-@@PtrLog:		mov	[edi+12345678h],dl
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
+			push eax
+			mov eax,[PtrLog]
+			mov	[edi+eax],dl
+			pop eax
+
 			mov	al,bh
 
-@@RepMask:		and	eax,12345678h
-@@DecZBuf:		add	esi,12345678h
+			and	eax,[RepMaskPatch]
+			add	esi,[DecZBuf]
 
-@@IntZBuf:		adc	esi,12345678h
+			adc	esi,[IntZBuf]
 			inc	edi
 
 			dec	ecx
@@ -938,7 +968,10 @@ Filler_TextureZFogSmoothZBuf PROC
 			jmp	@@End16
 
 @@NoDisp:
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],si
+			push eax
+			mov eax,[PtrZBuffer2]
+			cmp	[edi*2+eax],si
+			pop eax
 			jae	@@Disp
 
 			lea	eax,[ebx+ebp]
@@ -948,10 +981,10 @@ Filler_TextureZFogSmoothZBuf PROC
 			inc	edi
 
 			mov	al,bh
-@@DecZBuf2:		add	esi,12345678h
+			add	esi,[DecZBuf2]
 
-@@IntZBuf2:		adc	esi,12345678h
-@@RepMask2:		and	eax,12345678h
+			adc	esi,[IntZBuf2]
+			and	eax,[RepMask2]
 
 			dec	ecx
 			jne	@@NoDisp
@@ -1042,29 +1075,29 @@ Filler_TextureZFogSmoothNZW PROC
 
 			add	eax,12*256
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
-			mov	dword ptr [@@RepMask2+1],eax
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
 
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer2+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer2],eax
 
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shl	eax,32-8
 
-			mov	dword ptr [@@DecZBuf+2],eax
-			mov	dword ptr [@@DecZBuf2+2],eax
+			mov	[DecZBuf],eax
+			mov	[DecZBuf2],eax
 
 			mov	eax,[Fill_ZBuf_XSlope]
 
@@ -1072,8 +1105,8 @@ Filler_TextureZFogSmoothNZW PROC
 
 			and	eax,0FFFFh
 
-			mov	dword ptr [@@IntZBuf+2],eax
-			mov	dword ptr [@@IntZBuf2+2],eax
+			mov	[IntZBuf],eax
+			mov	[IntZBuf2],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
@@ -1253,24 +1286,41 @@ Filler_TextureZFogSmoothNZW PROC
 @@Go:
 			ror	esi,8
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],si
+
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],si
+		pop eax
+
 			jb	@@NoDispFast
 @@Disp:
-@@PtrMap:		mov	dl,[eax+12345678h]
+			push ebx
+			mov ebx,[PtrMapPatch]
+			mov	dl,[eax+ebx]
+			pop ebx
+
 			lea	eax,[ebx+ebp]
 
 			shr	eax,16
 			add	ebx,ebp
 
-@@PtrCLUT:		mov	dl,[edx+12345678h]
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
 			mov	al,bh
 
-@@PtrLog:		mov	[edi+12345678h],dl
-@@RepMask:		and	eax,12345678h
+			push eax
+			mov eax,[PtrLog]
+			mov	[edi+eax],dl
+			pop eax
 
-@@DecZBuf:		add	esi,12345678h
+			and	eax,[RepMaskPatch]
 
-@@IntZBuf:		adc	esi,12345678h
+			add	esi,[DecZBuf]
+
+			adc	esi,[IntZBuf]
 			inc	edi
 
 			dec	ecx
@@ -1279,7 +1329,10 @@ Filler_TextureZFogSmoothNZW PROC
 			jmp	@@End16
 
 @@NoDisp:
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],si
+			push eax
+			mov eax,[PtrZBuffer2]
+			cmp	[edi*2+eax],si
+			pop eax
 			jae	@@Disp
 @@NoDispFast:
 			lea	eax,[ebx+ebp]
@@ -1289,10 +1342,10 @@ Filler_TextureZFogSmoothNZW PROC
 			inc	edi
 
 			mov	al,bh
-@@DecZBuf2:		add	esi,12345678h
+			add	esi,[DecZBuf2]
 
-@@IntZBuf2:		adc	esi,12345678h
-@@RepMask2:		and	eax,12345678h
+			adc	esi,[IntZBuf2]
+			and	eax,[RepMask2]
 
 			dec	ecx
 			jne	@@NoDisp
@@ -1352,21 +1405,6 @@ Filler_TextureZFogSmoothNZW PROC
 			mov	[Fill_CurMapVMin],ebp
 			jmp	Triangle_ReadNextEdge
 Filler_TextureZFogSmoothNZW ENDP
-
-
-
-
-
-
-;				*******************
-;				*** Local proc ***
-;				*******************
-
-
-
-
-
-Last_POLYTEXTUREZFOGPatch Label	DWORD
 
 _TEXT			ENDS
 
