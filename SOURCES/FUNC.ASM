@@ -41,7 +41,6 @@ endif
 ;----------------------------------------------------------------------------
 ;		U8 SearchBoundColRGB( U8 Rouge, U8 Vert, U8 Bleu, (U8*)Palette )
 ;
-;//	ATTENTION:	Mettre un AllowPatch pour la version Windows
 
 SearchBoundColRGB	PROC	Rouge: DWORD, Vert: DWORD, Bleu: DWORD, Palette: DWORD,\
 				coulmin:DWORD, coulmax:DWORD

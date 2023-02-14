@@ -40,41 +40,31 @@ CurrentZ2		dd	0
 DZ	       		dd	0
 Color	       		db	0
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+YPtrZBuf    DWORD 12345678h
+YPtrLog     DWORD 12345678h
+PtrLog      DWORD 12345678h
+PtrZBuf     DWORD 12345678h
+DELTA_Y     DWORD 12345678h
+DELTA_X     DWORD 12345678h
+DELTA_X1    DWORD 12345678h
+Line        DWORD 12345678h
+Col         DWORD 12345678h
+DELTA_Z     DWORD 12345678h
+IZ          DWORD 12345678h
+YDELTA_X    DWORD 12345678h
+YDELTA_Y    DWORD 12345678h
+YDELTA_Y1   DWORD 12345678h
+Col2        DWORD 12345678h
+Line2       DWORD 12345678h
+YDELTA_Z    DWORD 12345678h
+YIZ         DWORD 12345678h
+
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-IFDEF	_WIN32
-			Extrn	C	AllowPatch	:PROC
-ENDIF	; _WIN32
-
-IFDEF	_WIN32_PATCH_ENABLE
-			Extrn	C	AllowPatchAndPatch	:PROC
-ENDIF	; _WIN32_PATCH_ENABLE
-
-;----------------------------------------------------------------------------
 			public	C	LineRain
-
-
-;----------------------------------------------------------------------------
-ifdef	_WIN32_PATCH_ENABLE
-
-;----------------------------------------------------------------------------
-Init_LineRain 		PROC
-
-			push	Offset LineRain
-			push	Offset EndLineRain
-			push	Offset Good_Code
-			jmp	AllowPatchAndPatch
-Good_Code:
-			shl	esi,16
-			push	ebp
-			shl	edi,16
-
-Init_LineRain 		ENDP
-
-;----------------------------------------------------------------------------
-endif;	_WIN32_PATCH_ENABLE
 
 ;----------------------------------------------------------------------------
 ; ╔════════════════════════════════════════════════════════════════════════╗
@@ -100,10 +90,6 @@ LineRain		PROC \
 			uses ebx ecx edx edi esi ebp\
 			x0: DWORD, y0: DWORD, z0: DWORD, x1: DWORD, y1: DWORD, z1: DWORD, coul:DWORD
 
-			mov eax, LineRain
-			mov edx, EndLineRain
-			call AllowPatch
-
 			mov eax, x0
 			mov ebx, y0
 			mov edi, z0
@@ -112,18 +98,11 @@ LineRain		PROC \
 			mov esi, z1
 
 x:
-
 			shl	esi,16
 			push	ebp
-
 			shl	edi,16
 			mov	ebp, coul
-ifdef	_WIN32_PATCH_ENABLE
-y:
-			org	x
-			jmp	Init_LineRain
-			org	y
-endif;	_WIN32_PATCH_ENABLE
+
 			mov	[CurrentZ2],esi
 			mov	[CurrentZ1],edi
 			push	eax
@@ -218,9 +197,9 @@ DeltaY_Pos:						; ESI = ABS(Delta_Y)
 			jb	Draw_Y
 
 							; Delta_X > Delta_Y
-			mov	dword ptr[DELTA_Y+2],esi
-			mov	dword ptr[DELTA_X+2],edi
-			mov	dword ptr[DELTA_X1+2],edi
+			mov	[DELTA_Y],esi
+			mov	[DELTA_X],edi
+			mov	[DELTA_X1],edi
 
 			mov	eax,[DZ]
 
@@ -240,16 +219,16 @@ Pos1:
 			mov	edx,eax
 			shl	eax,16
 			sar	edx,16
-			mov	dword ptr[DELTA_Z+2],eax
-			mov	dword ptr[IZ+2],edx
+			mov	[DELTA_Z],eax
+			mov	[IZ],edx
 
-			mov	dword ptr[Line+2],ebp
-			mov	dword ptr[Col+2],ecx
+			mov	[Line],ebp
+			mov	[Col],ecx
 
 			mov	eax,[Log]
 			mov	edx,[PtrZBuffer]
-			mov	dword ptr[PtrLog+2],eax
-			mov	dword ptr[PtrZBuf+4],edx
+			mov	[PtrLog],eax
+			mov	[PtrZBuf],edx
 
 
 			mov	edx,edi
@@ -268,7 +247,10 @@ Pos1:
 
 			jmp	$+2
 Do_X:
-PtrZBuf:		mov	cx,[ebx*2+12345678h]
+			push eax
+			mov eax,[PtrZBuf]
+			mov	cx,[ebx*2+eax]
+			pop eax
 
 			sub	ecx,edi
 			js	NoDisp
@@ -280,21 +262,24 @@ PtrZBuf:		mov	cx,[ebx*2+12345678h]
 			or	ah,2
 Disp:
 			or	ah,1
-PtrLog:			mov	[ebx+12345678h],al
+			push ecx
+			mov ecx,[PtrLog]
+			mov	[ebx+ecx],al
+			pop ecx
 NoDisp:
-DELTA_Y:		add	edx,12345678h
+			add	edx,[DELTA_Y]
 
-DELTA_X:		cmp	edx,12345678h
+			cmp	edx,[DELTA_X]
 			jb	Plot_X
 
-DELTA_X1:		sub	edx,12345678h
-Line:			add	ebx,12345678h
+			sub	edx,[DELTA_X1]
+			add	ebx,[Line]
 Plot_X:
-Col:			add	ebx,12345678h
+			add	ebx,[Col]
 			xor	ecx,ecx
 
-DELTA_Z:		add	esi,12345678h
-IZ:			adc	edi,12345678h
+			add	esi,[DELTA_Z]
+			adc	edi,[IZ]
 
 			dec	ebp
 			jge	Do_X
@@ -304,9 +289,9 @@ IZ:			adc	edi,12345678h
 
 			ret
 Draw_Y:
-			mov	dword ptr [YDELTA_X+2],edi
-			mov	dword ptr [YDELTA_Y+2],esi
-			mov	dword ptr [YDELTA_Y1+2],esi
+			mov	[YDELTA_X],edi
+			mov	[YDELTA_Y],esi
+			mov	[YDELTA_Y1],esi
 
 			mov	eax,[DZ]
 
@@ -326,16 +311,16 @@ Pos2:
 			mov	edx,eax
 			shl	eax,16
 			sar	edx,16
-			mov	dword ptr [YDELTA_Z+2],eax
-			mov	dword ptr [YIZ+2],edx
+			mov	[YDELTA_Z],eax
+			mov	[YIZ],edx
 
-			mov	dword ptr [Col2+2],ecx
-			mov	dword ptr [Line2+2],ebp
+			mov	[Col2],ecx
+			mov	[Line2],ebp
 
 			mov	eax,[Log]
 			mov	edx,[PtrZBuffer]
-			mov	dword ptr [YPtrLog+2],eax
-			mov	dword ptr [YPtrZBuf+4],edx
+			mov	[YPtrLog],eax
+			mov	[YPtrZBuf],edx
 
 			mov	edx,esi
 			mov	ecx,esi
@@ -353,7 +338,10 @@ Pos2:
 
 			jmp	$+2
 Do_Y:
-YPtrZBuf:		mov	bp,[ebx*2+12345678h]
+			push eax
+			mov eax,[YPtrZBuf]
+			mov	bp,[ebx*2+eax]
+			pop eax
 
 			sub	ebp,edi
 			js	YNoDisp
@@ -364,21 +352,24 @@ YPtrZBuf:		mov	bp,[ebx*2+12345678h]
 			or	ah,2
 YDisp:
 			or	ah,1
-YPtrLog:		mov	[ebx+12345678h],al
+			push ecx
+			mov ecx,[YPtrLog]
+			mov	[ebx+ecx],al
+			pop ecx
 YNoDisp:
-YDELTA_X:		add	edx,12345678h
+			add	edx,[YDELTA_X]
 
-YDELTA_Y:		cmp	edx,12345678h
+			cmp	edx,[YDELTA_Y]
 			jb	Plot_Y
 
-YDELTA_Y1:		sub	edx,12345678h
-Col2:			add	ebx,12345678h
+			sub	edx,[YDELTA_Y1]
+			add	ebx,[Col2]
 Plot_Y:
-Line2:			add	ebx,12345678h
+			add	ebx,[Line2]
 			xor	ebp,ebp
 
-YDELTA_Z:		add	esi,12345678h
-YIZ:			adc	edi,12345678h
+			add	esi,[YDELTA_Z]
+			adc	edi,[YIZ]
 
 			dec	ecx
 			jge	Do_Y
@@ -857,7 +848,6 @@ PlotDisp:		mov	[ebx+edi],al
 			shr	eax, 8
 
 			ret
-EndLineRain::
 
 LineRain		ENDP
 

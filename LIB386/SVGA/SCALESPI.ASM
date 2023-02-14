@@ -36,6 +36,12 @@ Start_X		dd	0
 Start_Y		dd	0
 Skip_Next_Line	dd	0
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+X_Dec   DWORD 12345678h
+X_Int   DWORD 12345678h
+Y_Dec   DWORD 12345678h
+Y_Int   DWORD 12345678h
+
 ;*══════════════════════════════════════════════════════════════════════════*/
 		.CODE
 
@@ -43,41 +49,11 @@ Skip_Next_Line	dd	0
 		public   C     ScaleSprite
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-IFDEF	_WIN32
-		extrn  C	AllowPatch:PROC
-ENDIF ; _WIN32
-
-IFDEF	_WIN32_PATCH_ENABLE
-		extrn  C	AllowPatchAndPatch:PROC
-ENDIF ; _WIN32_PATCH_ENABLE
-
-;*══════════════════════════════════════════════════════════════════════════*/
-IFDEF	_WIN32_PATCH_ENABLE
-
-ScaleSpriteInit proc
-
-		push	offset ScaleSpritePatch
-		push	offset ScaleSpriteEnd
-		push	offset Patch_Jump
-
-		jmp	AllowPatchAndPatch
-Patch_Jump::
-		mov	[Start],esi
-
-ScaleSpriteInit endp
-
-ENDIF ; _WIN32_PATCH_ENABLE
-
-;*══════════════════════════════════════════════════════════════════════════*/
 ScaleSprite	proc uses ebp,		\
 		numbrick:	DWORD, 	\
 		xbrick:		DWORD,	ybrick:		DWORD, \
 		factorx:	DWORD,	factory:	DWORD, \
 		bankbrick:	DWORD
-
-		mov eax, ScaleSpritePatch
-		mov edx, ScaleSpriteEnd
-		call	AllowPatch
 
 		mov	eax,[factorx]
 		mov	ebx,[factory]
@@ -101,14 +77,6 @@ oky:
 
 ScaleSpritePatch::
 		mov	[Start],esi
-IFDEF	_WIN32_PATCH_ENABLE
-x:
-		org	ScaleSpritePatch
-
-		jmp	NEAR PTR ScaleSpriteInit; 5 bytes
-
-		org	x
-ENDIF ; _WIN32_PATCH_ENABLE
 		mov	al,[esi].Struc_Sprite.Delta_X
 
 ;		movzx	eax,[esi].Struc_Sprite.Delta_X
@@ -326,18 +294,18 @@ No_ClipYMax:
 		mov	ebx,[factorx]
 
 		shr	ebx,16
-		mov	dword ptr [X_Dec+2],eax
+		mov	[X_Dec],eax
 
-		mov	dword ptr [X_Int+2],ebx
+		mov	[X_Int],ebx
 		mov	eax,[factory]
 
 		shl	eax,16
 		mov	ebx,[factory]
 
 		shr	ebx,16
-		mov	dword ptr [Y_Dec+2],eax
+		mov	[Y_Dec],eax
 
-		mov	dword ptr [Y_Int+2],ebx
+		mov	[Y_Int],ebx
 		mov	ebp,[ScreenYMax]
 
 		mov	eax,[ScreenYMin]
@@ -382,9 +350,9 @@ Each_Col:
 		je	Opacity
 		mov	[edi],al
 Opacity:
-X_Dec:		add	ebx,12345678h
+		add	ebx,[X_Dec]
 
-X_Int:		adc	esi,12345678h
+		adc	esi,[X_Int]
 		inc	edi
 
 		dec	ecx
@@ -394,9 +362,9 @@ X_Int:		adc	esi,12345678h
 		pop	edi
 
 		pop	esi
-Y_Dec:		add	ebx,12345678h
+		add	ebx,[Y_Dec]
 
-Y_Int:		adc	edx,12345678h
+		adc	edx,[Y_Int]
 		pop	ecx
 
 		mov	eax,[Skip_Next_Line]
@@ -591,7 +559,7 @@ exit:
 		jne	@@LoopY
 
 		ret
-ScaleSpriteEnd::
+
 ScaleSprite	endp
 
 ;*══════════════════════════════════════════════════════════════════════════*/
