@@ -785,10 +785,6 @@ ENDIF	; _WIN32_PATCH_ENABLE
 Extrn	C		First_POLYDISCPatch	:	DWORD
 Extrn	C		Last_POLYDISCPatch	:	DWORD
 
-					; *** POLYFLAT.ASM ***
-Extrn	C		First_POLYFLATPatch	:	DWORD
-Extrn	C		Last_POLYFLATPatch	:	DWORD
-
 					; *** POLYGOUR.ASM ***
 Extrn	C		First_POLYGOURAUDPatch	:	DWORD
 Extrn	C		Last_POLYGOURAUDPatch	:	DWORD
@@ -6432,11 +6428,6 @@ Init_Fillers_WIN32	PROC
 					; *** Poly ***
 			mov	eax,Offset First_FillerPatch
 			mov	edx,Offset Last_FillerPatch
-			call	AllowPatch
-
-					; *** Flat ***
-			mov	eax,Offset First_POLYFLATPatch
-			mov	edx,Offset Last_POLYFLATPatch
 			call	AllowPatch
 
 					; *** Disc ***

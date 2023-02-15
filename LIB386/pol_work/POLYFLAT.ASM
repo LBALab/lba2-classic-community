@@ -31,9 +31,6 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	C		First_POLYFLATPatch
-PUBLIC	C		Last_POLYFLATPatch
-
 PUBLIC	C		Filler_Flat
 PUBLIC	C		Filler_Transparent
 PUBLIC	C		Filler_Trame
@@ -156,7 +153,14 @@ Extrn	C		IsPolygonHidden		:	DWORD
 ;				*** Local data ***
 ;				******************
 			ALIGN	4
-
+; Runtime code patch refactor, uses memory instead of instruction substitution
+PtrLog              DWORD 12345678h
+PtrLog1             DWORD 12345678h
+PtrLog2             DWORD 12345678h
+PtrZBuffer1         DWORD 12345678h
+PtrZBuffer2         DWORD 12345678h
+PtrZBuffer3         DWORD 12345678h
+PtrZBufferPatch     DWORD 12345678h
 
 
 _DATA			ENDS
@@ -188,9 +192,6 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC
 ;				******************
 ;				*** Local proc ***
 ;				******************
-
-First_POLYFLATPatch	Label	DWORD
-
 
 
 ; *** CALL: 	ECX = Nb lines to draw
@@ -509,11 +510,11 @@ Filler_FlatZBuf		PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			jmp	@@EnterLoop
 			ALIGN	4
 @@Each_Line:
@@ -584,10 +585,23 @@ Filler_FlatZBuf		PROC
 			shr	edx,8
 			mov	eax,[Fill_Color]	; Color
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrZBuffer1:		mov	[edi*2+12345678h],dx
-@@PtrLog:		mov	[edi+12345678h],al
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],dx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp:
 			inc	edi
 			add	esi,ebp
@@ -644,13 +658,13 @@ Filler_TransparentZBuf	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
-			mov	dword ptr [@@PtrLog1+2],eax
+			mov	[PtrLog],eax
+			mov	[PtrLog1],eax
 
 			jmp	@@EnterLoop
 			ALIGN	4
@@ -700,16 +714,32 @@ Filler_TransparentZBuf	PROC
 
 			shl	ebp,32-8
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrZBuffer1:		mov	[edi*2+12345678h],dx
-@@PtrLog:		mov	al,[edi+12345678h]
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],dx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	al,[edi+ebx]
+		pop ebx
 
 			and	al,0Fh
 
 			or	al,ah
 
-@@PtrLog1:		mov	[edi+12345678h],al
+		push ebx
+		mov ebx,[PtrLog1]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp:		inc	edi
 			add	esi,ebp
 
@@ -763,16 +793,16 @@ Filler_TrameZBuf	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
-			mov	dword ptr [@@PtrZBuffer3+4],eax
+			mov	[PtrZBuffer2],eax
+			mov	[PtrZBuffer3],eax
 
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
-			mov	dword ptr [@@PtrLog2+2],eax
+			mov	[PtrLog],eax
+			mov	[PtrLog2],eax
 
 			jmp	@@EnterLoop
 			ALIGN	4
@@ -871,19 +901,45 @@ Filler_TrameZBuf	PROC
 			shr	ecx,1
 			jnc	@@Odd
 @@Each_X:
-@@PtrZBuffer:  		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp0
-@@PtrZBuffer1:  	mov	[edi*2+12345678h],dx
-@@PtrLog:		mov	[edi+12345678h],al
+
+	push eax
+	mov eax,[PtrZBuffer1]
+	mov	[edi*2+eax],dx
+	pop eax
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp0:		add	edi,2
 			add	esi,ebp
 
 			adc	edx,ebx
 @@Odd:
-@@PtrZBuffer2:  	cmp	[edi*2+12345678h],dx
+	push eax
+	mov eax,[PtrZBuffer2]
+	cmp	[edi*2+eax],dx
+	pop eax
+
 			jb	@@NoDisp2
-@@PtrZBuffer3:  	mov	[edi*2+12345678h],dx
-@@PtrLog2:		mov	[edi+12345678h],al
+
+	push eax
+	mov eax,[PtrZBuffer3]
+	mov	[edi*2+eax],dx
+	pop eax
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp2:		add	edi,2
 
 			dec	ecx
@@ -940,10 +996,10 @@ Filler_FlatNZW		PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			jmp	@@EnterLoop
 			ALIGN	4
 @@Each_Line:
@@ -1014,9 +1070,18 @@ Filler_FlatNZW		PROC
 			shr	edx,8
 			mov	eax,[Fill_Color]	; Color
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrLog:		mov	[edi+12345678h],al
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp:
 			inc	edi
 			add	esi,ebp
@@ -1073,11 +1138,11 @@ Filler_TransparentNZW	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
-			mov	dword ptr [@@PtrLog1+2],eax
+			mov	[PtrLog],eax
+			mov	[PtrLog1],eax
 
 			jmp	@@EnterLoop
 			ALIGN	4
@@ -1127,15 +1192,28 @@ Filler_TransparentNZW	PROC
 
 			shl	ebp,32-8
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrLog:		mov	al,[edi+12345678h]
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	al,[edi+ebx]
+		pop ebx
 
 			and	al,0Fh
 
 			or	al,ah
 
-@@PtrLog1:		mov	[edi+12345678h],al
+
+		push ebx
+		mov ebx,[PtrLog1]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp:		inc	edi
 			add	esi,ebp
 
@@ -1189,13 +1267,13 @@ Filler_TrameNZW		PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer2+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer2],eax
 
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
-			mov	dword ptr [@@PtrLog2+2],eax
+			mov	[PtrLog],eax
+			mov	[PtrLog2],eax
 
 			jmp	@@EnterLoop
 			ALIGN	4
@@ -1294,17 +1372,35 @@ Filler_TrameNZW		PROC
 			shr	ecx,1
 			jnc	@@Odd
 @@Each_X:
-@@PtrZBuffer:  		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp0
-@@PtrLog:		mov	[edi+12345678h],al
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp0:		add	edi,2
 			add	esi,ebp
 
 			adc	edx,ebx
 @@Odd:
-@@PtrZBuffer2:  	cmp	[edi*2+12345678h],dx
+	push eax
+	mov eax,[PtrZBuffer2]
+	cmp	[edi*2+eax],dx
+	pop eax
+
 			jb	@@NoDisp2
-@@PtrLog2:		mov	[edi+12345678h],al
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp2:		add	edi,2
 
 			dec	ecx
@@ -1359,7 +1455,7 @@ Filler_FlagZBuffer	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
 			jmp	@@EnterLoop
 			ALIGN	4
 @@Each_Line:
@@ -1410,7 +1506,11 @@ Filler_FlagZBuffer	PROC
 			shr	edx,8
 			xor	eax,eax
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
 			mov	[IsPolygonHidden],eax
 @@NoDisp:
@@ -1441,25 +1541,6 @@ Filler_FlagZBuffer	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_FlagZBuffer	ENDP
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Last_POLYFLATPatch	Label	DWORD
-
-
 
 _TEXT			ENDS
 
