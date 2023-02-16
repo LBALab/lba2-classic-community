@@ -789,10 +789,6 @@ Extrn	C		Last_POLYDISCPatch	:	DWORD
 Extrn	C		First_POLYGOURAUDPatch	:	DWORD
 Extrn	C		Last_POLYGOURAUDPatch	:	DWORD
 
-					; *** POLYTEXT.ASM ***
-Extrn	C		First_POLYTEXTUREPatch	:	DWORD
-Extrn	C		Last_POLYTEXTUREPatch	:	DWORD
-
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
@@ -6430,11 +6426,6 @@ Init_Fillers_WIN32	PROC
 					; *** Gouraud ***
 			mov	eax,Offset First_POLYGOURAUDPatch
 			mov	edx,Offset Last_POLYGOURAUDPatch
-			call	AllowPatch
-
-					; *** Texture ***
-			mov	eax,Offset First_POLYTEXTUREPatch
-			mov	edx,Offset Last_POLYTEXTUREPatch
 			call	AllowPatch
 
 			popad
