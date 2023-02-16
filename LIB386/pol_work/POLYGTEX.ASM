@@ -26,9 +26,6 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	C		First_POLYGOURAUDTEXTUREPatch
-PUBLIC	C		Last_POLYGOURAUDTEXTUREPatch
-
 PUBLIC	C		Filler_TextureGouraud
 PUBLIC	C		Filler_TextureDither
 PUBLIC	C		Filler_TextureGouraudChromaKey
@@ -146,8 +143,25 @@ Extrn	C		Fill_ZBuf_XSlope	:	DWORD
 ;				******************
 			ALIGN	4
 
-
-
+; Runtime code patch refactor, uses memory instead of instruction substitution
+PtrLog              DWORD 12345678h;
+PtrCLUT             DWORD 12345678h
+PtrZBuffer1         DWORD 12345678h
+PtrZBufferPatch     DWORD 12345678h
+PtrMap2             DWORD 12345678h
+PtrMapPatch         DWORD 12345678h
+RepMask2            DWORD 12345678h
+RepMaskPatch        DWORD 12345678h
+DecZBuf_Gour        DWORD 12345678h
+DecMapU             DWORD 12345678h
+DecMapU2            DWORD 12345678h
+DecMapV_Gour        DWORD 12345678h
+DecMapV_Gour2       DWORD 12345678h
+DecMapV_IntZBuf     DWORD 12345678h
+IntMapV             BYTE  12h
+IntMapV2            BYTE  12h
+IntMapU             BYTE  12h
+IntMapU2            BYTE  12h
 
 _DATA			ENDS
 
@@ -169,7 +183,6 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
-First_POLYGOURAUDTEXTUREPatch	Label	DWORD
 
 
 ; *** CALL: 	ECX = Nb lines to draw
@@ -195,10 +208,10 @@ Filler_TextureGouraud	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[PtrCLUTGouraud]
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			push	ebx
@@ -208,9 +221,9 @@ Filler_TextureGouraud	PROC
 			push	ecx
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapU+2],eax
+			mov	[DecMapU],eax
 
-			mov	byte ptr [@@IntMapU+1],bl
+			mov	[IntMapU],bl
 			mov	eax,[Fill_MapV_XSlope]
 
 			mov	ecx,[Fill_Gouraud_XSlope]
@@ -222,12 +235,12 @@ Filler_TextureGouraud	PROC
 			and	ecx,0FFFFh
 
 			shl	eax,16
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 
 			or	eax,ecx
 			pop	ecx
 
-			mov	dword ptr [@@DecMapV_Gour+2],eax
+			mov	[DecMapV_Gour],eax
 
 			pop	ebx
 			jmp	@@EnterLoop
@@ -363,14 +376,20 @@ Filler_TextureGouraud	PROC
 			and	eax,ebp
 
 @@Each_X:
-@@PtrMap:		mov	bl,[eax+12345678h]
-@@DecMapU:		add	esi,12345678h
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@IntMapU:		adc	al,12h
-@@DecMapV_Gour:		add	edx,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	edx,[DecMapV_Gour]
+		adc	ah,[IntMapV]
 
-@@IntMapV:		adc	ah,12h
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
 
 			mov	[edi],bl
 			inc	edi
@@ -432,10 +451,10 @@ Filler_TextureDither	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[PtrCLUTGouraud]
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			push	ebx
@@ -445,9 +464,9 @@ Filler_TextureDither	PROC
 			push	ecx
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapU+2],eax
+			mov	[DecMapU],eax
 
-			mov	byte ptr [@@IntMapU+1],bl
+			mov	[IntMapU],bl
 			mov	eax,[Fill_MapV_XSlope]
 
 			mov	ecx,[Fill_Gouraud_XSlope]
@@ -459,17 +478,17 @@ Filler_TextureDither	PROC
 			and	ecx,0FFFFh
 
 			shl	eax,16
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 
 			or	eax,ecx
 			pop	ecx
 
-			mov	dword ptr [@@DecMapV_Gour+2],eax
+			mov	[DecMapV_Gour],eax
 
 			pop	ebx
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
+			mov	[RepMaskPatch],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
@@ -588,14 +607,20 @@ Filler_TextureDither	PROC
 			and	eax,[RepMask]
 
 @@Each_X:
-@@PtrMap:		mov	bl,[eax+12345678h]
-@@DecMapU:		add	esi,12345678h
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@IntMapU:		adc	al,12h
-@@DecMapV_Gour:		add	ebp,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	ebp,[DecMapV_Gour]
+		adc	ah,[IntMapV]
 
-@@IntMapV:		adc	ah,12h
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
 
 			xor	dh,dh
 			mov	[edi],bl
@@ -604,7 +629,7 @@ Filler_TextureDither	PROC
 			inc	edi
 
 			mov	bh,dh
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			dec	ecx
 			jne	@@Each_X
@@ -660,12 +685,12 @@ Filler_TextureGouraudChromaKey	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
-			mov	dword ptr [@@PtrMap2+2],eax
+			mov	[PtrMapPatch],eax
+			mov	[PtrMap2],eax
 
 			mov	eax,[PtrCLUTGouraud]
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			push	ebx
@@ -675,12 +700,12 @@ Filler_TextureGouraudChromaKey	PROC
 			push	ecx
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapU+2],eax
+			mov	[DecMapU],eax
 
-			mov	dword ptr [@@DecMapU2+2],eax
-			mov	byte ptr [@@IntMapU+1],bl
+			mov	[DecMapU2],eax
+			mov	[IntMapU],bl
 
-			mov	byte ptr [@@IntMapU2+1],bl
+			mov	[IntMapU2],bl
 			mov	eax,[Fill_MapV_XSlope]
 
 			mov	ecx,[Fill_Gouraud_XSlope]
@@ -692,14 +717,14 @@ Filler_TextureGouraudChromaKey	PROC
 			and	ecx,0FFFFh
 
 			shl	eax,16
-			mov	byte ptr [@@IntMapV+2],bl
-			mov	byte ptr [@@IntMapV2+2],bl
+			mov	[IntMapV],bl
+			mov	[IntMapV2],bl
 
 			or	eax,ecx
 			pop	ecx
 
-			mov	dword ptr [@@DecMapV_Gour+2],eax
-			mov	dword ptr [@@DecMapV_Gour2+2],eax
+			mov	[DecMapV_Gour],eax
+			mov	[DecMapV_Gour2],eax
 
 			pop	ebx
 			jmp	@@EnterLoop
@@ -835,19 +860,26 @@ Filler_TextureGouraudChromaKey	PROC
 			and	eax,ebp
 
 @@Each_X:
-@@PtrMap:		mov	bl,[eax+12345678h]
-@@DecMapU:		add	esi,12345678h
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@IntMapU:		adc	al,12h
-@@DecMapV_Gour:		add	edx,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	edx,[DecMapV_Gour]
+		adc	ah,[IntMapV]
 
-@@IntMapV:		adc	ah,12h
 			inc	edi
 
 			test	bl,bl
 			je	@@NotVisible
 @@Visible:
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
+
 			and	eax,ebp
 
 			mov	[edi-1],bl
@@ -858,13 +890,16 @@ Filler_TextureGouraudChromaKey	PROC
 			jmp	@@End_X
 
 @@Each_X2:
-@@PtrMap2:		mov	bl,[eax+12345678h]
-@@DecMapU2:		add	esi,12345678h
+		push ecx
+		mov ecx,[PtrMap2]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@IntMapU2:		adc	al,12h
-@@DecMapV_Gour2:	add	edx,12345678h
+		add	esi,[DecMapU2]
+		adc	al,[IntMapU2]
+		add	edx,[DecMapV_Gour2]
+		adc	ah,[IntMapV2]
 
-@@IntMapV2:		adc	ah,12h
 			inc	edi
 
 			test	bl,bl
@@ -927,12 +962,12 @@ Filler_TextureDitherChromaKey	PROC
 			mov	[Fill_Patch],eax
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
-			mov	dword ptr [@@PtrMap2+2],eax
+			mov	[PtrMapPatch],eax
+			mov	[PtrMap2],eax
 
 			mov	eax,[PtrCLUTGouraud]
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			push	ebx
@@ -942,12 +977,12 @@ Filler_TextureDitherChromaKey	PROC
 			push	ecx
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapU+2],eax
+			mov	[DecMapU],eax
 
-			mov	dword ptr [@@DecMapU2+2],eax
-			mov	byte ptr [@@IntMapU+1],bl
+			mov	[DecMapU2],eax
+			mov	[IntMapU],bl
 
-			mov	byte ptr [@@IntMapU2+1],bl
+			mov	[IntMapU2],bl
 			mov	eax,[Fill_MapV_XSlope]
 
 			mov	ecx,[Fill_Gouraud_XSlope]
@@ -959,19 +994,19 @@ Filler_TextureDitherChromaKey	PROC
 			and	ecx,0FFFFh
 
 			shl	eax,16
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 
-			mov	byte ptr [@@IntMapV2+2],bl
+			mov	[IntMapV2],bl
 			or	eax,ecx
 
 			pop	ecx
-			mov	dword ptr [@@DecMapV_Gour+2],eax
+			mov	[DecMapV_Gour],eax
 
-			mov	dword ptr [@@DecMapV_Gour2+2],eax
+			mov	[DecMapV_Gour2],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
-			mov	dword ptr [@@RepMask2+1],eax
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
 
 			pop	ebx
 			jmp	@@EnterLoop
@@ -1092,46 +1127,56 @@ Filler_TextureDitherChromaKey	PROC
 			and	eax,[RepMask]
 
 @@Each_X:
-@@PtrMap:		mov	bl,[eax+12345678h]
-@@DecMapU:		add	esi,12345678h
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@IntMapU:		adc	al,12h
-@@DecMapV_Gour:		add	ebp,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	ebp,[DecMapV_Gour]
+		adc	ah,[IntMapV]
 
-@@IntMapV:		adc	ah,12h
 			inc	edi
 
 			test	bl,bl
 			je	@@NotVisible
 @@Visible:
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
+
 			xor	dh,dh
 
 			mov	[edi-1],bl
 			add	edx,ebp
 
 			mov	bh,dh
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			dec	ecx
 			jne	@@Each_X
 			jmp	@@End_X
 
 @@Each_X2:
-@@PtrMap2:		mov	bl,[eax+12345678h]
-@@DecMapU2:		add	esi,12345678h
+		push ecx
+		mov ecx,[PtrMap2]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@IntMapU2:		adc	al,12h
-@@DecMapV_Gour2:	add	ebp,12345678h
+		add	esi,[DecMapU2]
+		adc	al,[IntMapU2]
+		add	ebp,[DecMapV_Gour2]
+		adc	ah,[IntMapV2]
 
-@@IntMapV2:		adc	ah,12h
 			inc	edi
 
 			test	bl,bl
 			jne	@@Visible
 @@NotVisible:
 			xor	dh,dh
-@@RepMask2:		and	eax,12345678h
+		and	eax,[RepMask2]
 
 			add	edx,ebp
 			dec	ecx
@@ -1194,28 +1239,28 @@ Filler_TextureGouraudZBuf PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[PtrCLUTGouraud]
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
+			mov	[RepMaskPatch],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			shr	eax,16
 			mov	ebx,[Fill_MapU_XSlope]
 
 			shl	ebx,16
-			mov	byte ptr [@@IntMapU+1],al
+			mov	[IntMapU],al
 
-			mov	dword ptr [@@DecMapU+2],ebx
+			mov	[DecMapU],ebx
 			mov	ebx,[Fill_Gouraud_XSlope]
 
 			shr	ebx,8
@@ -1228,7 +1273,7 @@ Filler_TextureGouraudZBuf PROC
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shr	ebx,8
-			mov	dword ptr [@@DecZBuf_Gour+2],eax
+			mov	[DecZBuf_Gour],eax
 
 			mov	eax,[Fill_MapV_XSlope]
 
@@ -1238,9 +1283,9 @@ Filler_TextureGouraudZBuf PROC
 			mov	ebx,[Fill_MapV_XSlope]
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapV_IntZBuf+2],eax
+			mov	[DecMapV_IntZBuf],eax
 
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 			pop	ebx
 
 			jmp	@@EnterLoop
@@ -1388,27 +1433,45 @@ Filler_TextureGouraudZBuf PROC
 			xor	ebx,ebx
 			mov	bh,dh
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bp
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bp
+		pop eax
+
 			jb	@@NoDisp
-@@PtrMap:		mov	bl,[eax+12345678h]
 
-@@PtrZBuffer1:		mov	[edi*2+12345678h],bp
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@PtrLog:		mov	[edi+12345678h],bl
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],bp
+		pop eax
+
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
+
+		push eax
+		mov eax,[PtrLog]
+		mov	[edi+eax],bl
+		pop eax
+
 @@NoDisp:
-@@DecMapU:		add	esi,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	edx,[DecZBuf_Gour]
+		adc	ebp,[DecMapV_IntZBuf]
 
-@@IntMapU:		adc	al,12h
-@@DecZBuf_Gour:		add	edx,12345678h
-
-@@DecMapV_IntZBuf:	adc	ebp,12345678h
 			inc	edi
 
-@@IntMapV:		adc	ah,12h
+		adc	ah,[IntMapV]
 			mov	bh,dh
 
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			dec	ecx
 			jne	@@Each_X
@@ -1469,28 +1532,28 @@ Filler_TextureGouraudChromaKeyZBuf PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[PtrCLUTGouraud]
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
+			mov	[RepMaskPatch],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			shr	eax,16
 			mov	ebx,[Fill_MapU_XSlope]
 
 			shl	ebx,16
-			mov	byte ptr [@@IntMapU+1],al
+			mov	[IntMapU],al
 
-			mov	dword ptr [@@DecMapU+2],ebx
+			mov	[DecMapU],ebx
 			mov	ebx,[Fill_Gouraud_XSlope]
 
 			shr	ebx,8
@@ -1503,7 +1566,7 @@ Filler_TextureGouraudChromaKeyZBuf PROC
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shr	ebx,8
-			mov	dword ptr [@@DecZBuf_Gour+2],eax
+			mov	[DecZBuf_Gour],eax
 
 			mov	eax,[Fill_MapV_XSlope]
 
@@ -1513,9 +1576,9 @@ Filler_TextureGouraudChromaKeyZBuf PROC
 			mov	ebx,[Fill_MapV_XSlope]
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapV_IntZBuf+2],eax
+			mov	[DecMapV_IntZBuf],eax
 
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 			pop	ebx
 
 			jmp	@@EnterLoop
@@ -1663,31 +1726,48 @@ Filler_TextureGouraudChromaKeyZBuf PROC
 			xor	ebx,ebx
 			mov	bh,dh
 @@Each_X:
-@@PtrMap:		mov	bl,[eax+12345678h]
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
 			test	bl,bl
 			je	@@NoDisp
 
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bp
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bp
+		pop eax
+
 			jb	@@NoDisp
 
-@@PtrZBuffer1:		mov	[edi*2+12345678h],bp
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],bp
+		pop eax
 
-@@PtrLog:		mov	[edi+12345678h],bl
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
+
+		push eax
+		mov eax,[PtrLog]
+		mov	[edi+eax],bl
+		pop eax
+
 @@NoDisp:
-@@DecMapU:		add	esi,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	edx,[DecZBuf_Gour]
+		adc	ebp,[DecMapV_IntZBuf]
 
-@@IntMapU:		adc	al,12h
-@@DecZBuf_Gour:		add	edx,12345678h
-
-@@DecMapV_IntZBuf:	adc	ebp,12345678h
 			inc	edi
 
-@@IntMapV:		adc	ah,12h
+		adc	ah,[IntMapV]
 			mov	bh,dh
 
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			dec	ecx
 			jne	@@Each_X
@@ -1751,27 +1831,27 @@ Filler_TextureGouraudNZW PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrLog],ebx
 
-			mov	dword ptr [@@PtrLog+2],ebx
 			mov	eax,[PtrMap]
+			mov	[PtrMapPatch],eax
 
-			mov	dword ptr [@@PtrMap+2],eax
 			mov	eax,[PtrCLUTGouraud]
+			mov	[PtrCLUT],eax
 
-			mov	dword ptr [@@PtrCLUT+2],eax
 			mov	eax,[RepMask]
+			mov	[RepMaskPatch],eax
 
-			mov	dword ptr [@@RepMask+1],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			shr	eax,16
 			mov	ebx,[Fill_MapU_XSlope]
 
 			shl	ebx,16
-			mov	byte ptr [@@IntMapU+1],al
+			mov	[IntMapU],al
 
-			mov	dword ptr [@@DecMapU+2],ebx
+			mov	[DecMapU],ebx
 			mov	ebx,[Fill_Gouraud_XSlope]
 
 			shr	ebx,8
@@ -1784,7 +1864,7 @@ Filler_TextureGouraudNZW PROC
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shr	ebx,8
-			mov	dword ptr [@@DecZBuf_Gour+2],eax
+			mov	[DecZBuf_Gour],eax
 
 			mov	eax,[Fill_MapV_XSlope]
 
@@ -1794,9 +1874,9 @@ Filler_TextureGouraudNZW PROC
 			mov	ebx,[Fill_MapV_XSlope]
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapV_IntZBuf+2],eax
+			mov	[DecMapV_IntZBuf],eax
 
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 			pop	ebx
 
 			jmp	@@EnterLoop
@@ -1944,26 +2024,40 @@ Filler_TextureGouraudNZW PROC
 			xor	ebx,ebx
 			mov	bh,dh
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bp
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bp
+		pop eax
+
 			jb	@@NoDisp
-@@PtrMap:		mov	bl,[eax+12345678h]
 
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
-@@PtrLog:		mov	[edi+12345678h],bl
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
+
+		push eax
+		mov eax,[PtrLog]
+		mov	[edi+eax],bl
+		pop eax
+
 @@NoDisp:
-@@DecMapU:		add	esi,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	edx,[DecZBuf_Gour]
+		adc	ebp,[DecMapV_IntZBuf]
 
-@@IntMapU:		adc	al,12h
-@@DecZBuf_Gour:		add	edx,12345678h
-
-@@DecMapV_IntZBuf:	adc	ebp,12345678h
 			inc	edi
 
-@@IntMapV:		adc	ah,12h
+		adc	ah,[IntMapV]
 			mov	bh,dh
 
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			dec	ecx
 			jne	@@Each_X
@@ -2024,27 +2118,27 @@ Filler_TextureGouraudChromaKeyNZW PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrLog],ebx
 
-			mov	dword ptr [@@PtrLog+2],ebx
 			mov	eax,[PtrMap]
+			mov	[PtrMapPatch],eax
 
-			mov	dword ptr [@@PtrMap+2],eax
 			mov	eax,[PtrCLUTGouraud]
+			mov	[PtrCLUT],eax
 
-			mov	dword ptr [@@PtrCLUT+2],eax
 			mov	eax,[RepMask]
+			mov	[RepMaskPatch],eax
 
-			mov	dword ptr [@@RepMask+1],eax
 			mov	eax,[Fill_MapU_XSlope]
 
 			shr	eax,16
 			mov	ebx,[Fill_MapU_XSlope]
 
 			shl	ebx,16
-			mov	byte ptr [@@IntMapU+1],al
+			mov	[IntMapU],al
 
-			mov	dword ptr [@@DecMapU+2],ebx
+			mov	[DecMapU],ebx
 			mov	ebx,[Fill_Gouraud_XSlope]
 
 			shr	ebx,8
@@ -2057,7 +2151,7 @@ Filler_TextureGouraudChromaKeyNZW PROC
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shr	ebx,8
-			mov	dword ptr [@@DecZBuf_Gour+2],eax
+			mov	[DecZBuf_Gour],eax
 
 			mov	eax,[Fill_MapV_XSlope]
 
@@ -2067,9 +2161,9 @@ Filler_TextureGouraudChromaKeyNZW PROC
 			mov	ebx,[Fill_MapV_XSlope]
 
 			shr	ebx,16
-			mov	dword ptr [@@DecMapV_IntZBuf+2],eax
+			mov	[DecMapV_IntZBuf],eax
 
-			mov	byte ptr [@@IntMapV+2],bl
+			mov	[IntMapV],bl
 			pop	ebx
 
 			jmp	@@EnterLoop
@@ -2217,30 +2311,43 @@ Filler_TextureGouraudChromaKeyNZW PROC
 			xor	ebx,ebx
 			mov	bh,dh
 @@Each_X:
-@@PtrMap:		mov	bl,[eax+12345678h]
+		push ecx
+		mov ecx,[PtrMapPatch]
+		mov	bl,[eax+ecx]
+		pop ecx
 
 			test	bl,bl
 			je	@@NoDisp
 
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bp
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bp
+		pop eax
+
 			jb	@@NoDisp
 
-@@PtrCLUT:		mov	bl,[ebx+12345678h]
+		push eax
+		mov eax,[PtrCLUT]
+		mov	bl,[ebx+eax]
+		pop eax
 
-@@PtrLog:		mov	[edi+12345678h],bl
+		push eax
+		mov eax,[PtrLog]
+		mov	[edi+eax],bl
+		pop eax
+
 @@NoDisp:
-@@DecMapU:		add	esi,12345678h
+		add	esi,[DecMapU]
+		adc	al,[IntMapU]
+		add	edx,[DecZBuf_Gour]
+		adc	ebp,[DecMapV_IntZBuf]
 
-@@IntMapU:		adc	al,12h
-@@DecZBuf_Gour:		add	edx,12345678h
-
-@@DecMapV_IntZBuf:	adc	ebp,12345678h
 			inc	edi
 
-@@IntMapV:		adc	ah,12h
+		adc	ah,[IntMapV]
 			mov	bh,dh
 
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			dec	ecx
 			jne	@@Each_X
@@ -2267,26 +2374,6 @@ Filler_TextureGouraudChromaKeyNZW PROC
 			mov	[Fill_CurMapVMin],ebp
 			jmp	Triangle_ReadNextEdge
 Filler_TextureGouraudChromaKeyNZW ENDP
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;				*******************
-;				*** Local proc ***
-;				*******************
-
-
-Last_POLYGOURAUDTEXTUREPatch Label	DWORD
 
 _TEXT			ENDS
 
