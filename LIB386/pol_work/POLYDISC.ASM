@@ -24,12 +24,6 @@ OPTION SCOPED
 
 PUBLIC			Fill_Sphere
 
-PUBLIC			First_POLYDISCPatch
-PUBLIC			Last_POLYDISCPatch
-
-
-
-
 INCLUDE			FILLER.INC
 
 
@@ -420,16 +414,6 @@ nosphere:
 			ret
 Fill_Sphere		ENDP
 
-
-
-
-
-
-First_POLYDISCPatch	Label	DWORD
-
-
-
-
 ; ╔═════════════════════════════════════════════════════════════════════════════════╗
 ; ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
 ; ╟─────────────────────────────────────────────────────────────────────────────────╢
@@ -623,12 +607,6 @@ Sph_Line_Transp		PROC
 			popad
 			ret
 Sph_Line_Transp		ENDP
-
-
-
-Last_POLYDISCPatch	Label	DWORD
-
-
 
 ;Seg_Code		ENDS
 
