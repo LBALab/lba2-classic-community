@@ -785,10 +785,6 @@ ENDIF	; _WIN32_PATCH_ENABLE
 Extrn	C		First_POLYDISCPatch	:	DWORD
 Extrn	C		Last_POLYDISCPatch	:	DWORD
 
-					; *** POLYGOUR.ASM ***
-Extrn	C		First_POLYGOURAUDPatch	:	DWORD
-Extrn	C		Last_POLYGOURAUDPatch	:	DWORD
-
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
@@ -6421,11 +6417,6 @@ Init_Fillers_WIN32	PROC
 					; *** Disc ***
 			mov	eax,Offset First_POLYDISCPatch
 			mov	edx,Offset Last_POLYDISCPatch
-			call	AllowPatch
-
-					; *** Gouraud ***
-			mov	eax,Offset First_POLYGOURAUDPatch
-			mov	edx,Offset Last_POLYGOURAUDPatch
 			call	AllowPatch
 
 			popad
