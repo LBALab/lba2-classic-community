@@ -757,6 +757,11 @@ Status_Int		dw	111101111111b
 Status_Float		dw	001101111111b
 
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+Fill_Saut_Normal        DWORD Offset Fill_N_Table_Jumps
+;Patch_Jmp_XSlopeFPU     DWORD Offset Jmp_XSlopeFPU
+;Patch_Jmp_LeftSlopeFPU  DWORD Offset Jmp_LeftSlopeFPU
+
 _DATA			ENDS
 
 
@@ -772,13 +777,6 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-IFDEF	_WIN32
-Extrn	C		AllowPatch		:	PROC
-;ENDIF ; _WIN32
-
-;IFDEF	_WIN32_PATCH_ENABLE
-Extrn	C		AllowPatchAndPatch	:	PROC
-ENDIF	; _WIN32_PATCH_ENABLE
 
 ;				*******************
 ;				*** Global proc ***
@@ -807,23 +805,23 @@ ENDIF	; _WIN32_PATCH_ENABLE
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 			ALIGN	4
 Fill_PolyFast		PROC
-First_FillerPatch	Label	DWORD
-			; ****** First_FillerPatch MUST STAY HERE ************
+			push	ebp
+			xor	ebp,ebp
+			mov	[Fill_LeftSlope],ebp
 
-			push	ebp			; ** THERE MUST BE AT LEAST
-			xor	ebp,ebp			; ** 5 BYTES B4 THE
-			mov	[Fill_LeftSlope],ebp	; ** PATCH CODE
-IFDEF	_WIN32
-x:
-			org	Fill_PolyFast
-			jmp	NEAR PTR InitFillPoly_WIN32
-			org	x
-ENDIF	; _WIN32
+			pushad
+			mov	ebx,Offset TabOffLine
+			call	SetScreenPitch
+			popad
 
 			mov	[Fill_Type],eax
 			and	ebx,0FFh
 
-Fill_Saut_Normal::	jmp	[Fill_N_Table_Jumps+eax*4]
+	push ebx
+	mov ebx,[Fill_Saut_Normal]
+	lea eax,[ebx+eax*4]
+	pop ebx
+	jmp	[eax]
 
 Fill_PolyFast		ENDP
 
@@ -840,17 +838,7 @@ Fill_PolyFast		ENDP
 SetScreenPitch		PROC
 			push	eax
 			push	ebx
-					; *** THINK B4 CHANGING THIS CODE!!!!
-IFDEF	_WIN32
-REPT 3
-			NOP
-ENDM
-x:
-			org	SetScreenPitch
-			jmp	NEAR PTR Init_SetScreenPitch_WIN32
-			org	x
-ENDIF	; _WIN32
-					; *** YOU CAN DO WHAT YOU WANT NOW!
+
 			mov	eax,[ebx+4]		; Get screen-pitch
 
 			mov	[ScreenPitch],eax
@@ -986,22 +974,13 @@ Switch_Fillers_ASM	PROC
 			push	ecx
 			push	edx
 
-					; *** THINK B4 CHANGING THIS CODE!!!!
-IFDEF	_WIN32
-			nop
-x:
-			org	Switch_Fillers_ASM
-			jmp	NEAR PTR Init_SwitchFillers_WIN32
-			org	x
-ENDIF	; _WIN32
-					; *** YOU CAN DO WHAT YOU WANT NOW!
 			jmp	[Table_Switch+eax*4]
 
 Switch_Normal::
 			mov	eax,Offset Fill_N_Table_Jumps
 			mov	bl,FALSE
 
-			mov	dword ptr [Fill_Saut_Normal+3],eax
+			mov	[Fill_Saut_Normal],eax
 			mov	[Fill_Flag_Fog],bl
 
 			mov	[Fill_Flag_ZBuffer],bl
@@ -1019,7 +998,7 @@ Switch_Fog::
 			mov	eax,Offset Fill_Fog_Table_Jumps
 			mov	bl,FALSE
 
-			mov	dword ptr [Fill_Saut_Normal+3],eax
+			mov	[Fill_Saut_Normal],eax
 			mov	al,TRUE
 
 			mov	[Fill_Flag_ZBuffer],bl
@@ -1038,7 +1017,7 @@ Switch_ZBuffer::
 			mov	eax,Offset Fill_ZBuf_Table_Jumps
 			mov	bl,FALSE
 
-			mov	dword ptr [Fill_Saut_Normal+3],eax
+			mov	[Fill_Saut_Normal],eax
 			mov	al,TRUE
 
 			mov	[Fill_Flag_Fog],bl
@@ -1057,7 +1036,7 @@ Switch_FogZBuffer::
 			mov	eax,Offset Fill_FogZBuf_Table_Jumps
 			mov	bl,TRUE
 
-			mov	dword ptr [Fill_Saut_Normal+3],eax
+			mov	[Fill_Saut_Normal],eax
 			mov	al,FALSE
 
 			mov	[Fill_Flag_Fog],bl
@@ -1076,7 +1055,7 @@ Switch_NZW::
 			mov	eax,Offset Fill_NZW_Table_Jumps
 			mov	bl,FALSE
 
-			mov	dword ptr [Fill_Saut_Normal+3],eax
+			mov	[Fill_Saut_Normal],eax
 			mov	al,TRUE
 
 			mov	[Fill_Flag_Fog],bl
@@ -1095,7 +1074,7 @@ Switch_FogNZW::
 			mov	eax,Offset Fill_FogNZW_Table_Jumps
 			mov	bl,TRUE
 
-			mov	dword ptr [Fill_Saut_Normal+3],eax
+			mov	[Fill_Saut_Normal],eax
 			mov	[Fill_Flag_Fog],bl
 
 			mov	[Fill_Flag_ZBuffer],bl
@@ -1110,8 +1089,10 @@ Switch_FogNZW::
 			jmp	@@End
 
 @@End:
-			mov	dword ptr [Patch_Jmp_XSlopeFPU+3],ecx
-			mov	dword ptr [Patch_Jmp_LeftSlopeFPU+3],edx
+;			mov	dword ptr [Patch_Jmp_XSlopeFPU+3],ecx
+;			mov	dword ptr [Patch_Jmp_LeftSlopeFPU+3],edx
+;			mov	[Patch_Jmp_XSlopeFPU],ecx
+;			mov	[Patch_Jmp_LeftSlopeFPU],edx
 			jmp	@@TrueEnd
 @@TrueEnd:
 			pop	edx
@@ -1877,12 +1858,20 @@ Draw_Triangle		PROC
 
 			fdivp	st(3),st	; K1  K3  D
 
-Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
+; Here we are always using ZBuffer, not needed but works for now...
+;Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
+Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
+
+;	push ebx
+;	mov ebx,dword ptr [Patch_Jmp_XSlopeFPU]
+;	lea edx,[ebx+edx*4]
+;	pop ebx
+;	jmp	[edx]
 
 
 
 					; *** Integer math. ***
-@@DenomInt:
+@@DenomInt: ; TODO: Remove, only used for int math
 			mov	eax,dword ptr [edi].STRUC_POINT.Pt_XE
 			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE
 
@@ -2007,7 +1996,16 @@ Triangle_ReadNextEdge::
 			mov	[Fill_LeftPoint],esi
 
 			push	eax		; Save dX
-Patch_Jmp_LeftSlopeFPU::jmp	[Jmp_LeftSlopeFPU+edx*4]
+
+; Here we are always using ZBuffer, not needed but works for now...
+;Patch_Jmp_LeftSlopeFPU::jmp	[Jmp_LeftSlopeFPU+edx*4]
+Patch_Jmp_LeftSlopeFPU::jmp	[Jmp_LeftSlopeZBufFPU+edx*4]
+
+;			push eax
+;			mov eax,dword ptr [Patch_Jmp_LeftSlopeFPU]
+;			lea edx,[eax+edx*4]
+;			pop eax
+;			jmp	[edx]
 
 			; here we have :
 			; ** in the Stack(ESP) : esp+4 => ??
@@ -2225,17 +2223,6 @@ Read_Next_Right::
 			pop	ebp
 			ret
 Draw_Triangle		ENDP
-
-
-
-
-Last_FillerPatch	Label	DWORD
-
-
-
-
-
-
 
 
 ; ╔══════════════════════════════════════════════════════════════════════════╗
@@ -6317,110 +6304,7 @@ ENDIF
 			jmp	Read_Next_Right
 Calc_TextureZLeftSlopeZBufFPU ENDP
 
-
-
-
-
-;				******************
-;				*** Local proc ***
-;				******************
-
-IFDEF	_WIN32
-
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Initialize 'Fill_Poly' under a WIN32 system                              ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-InitFillPoly_WIN32	PROC
-			pushad
-			mov	ebx,Offset TabOffLine
-			call	SetScreenPitch
-			popad
-
-;IFDEF _WIN32_PATCH_ENABLE
-			push	Offset First_FillerPatch
-			push	Offset Last_FillerPatch
-			push	Offset Good_CodeFillPoly
-			jmp	AllowPatchAndPatch
-Good_CodeFillPoly:
-			push	ebp			; ** THERE MUST BE AT LEAST
-			xor	ebp,ebp			; ** 5 BYTES B4 THE
-			mov	[Fill_LeftSlope],ebp	; ** PATCH CODE
-;ENDIF ; _WIN32_PATCH_ENABLE
-InitFillPoly_WIN32	ENDP
-
-
-
-
-
-
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Initialize 'SetScreenPitch' under a WIN32 system                         ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-Init_SetScreenPitch_WIN32 PROC
-			call	Init_Fillers_WIN32
-
-;IFDEF _WIN32_PATCH_ENABLE
-			push	Offset SetScreenPitch
-			push	Offset SetScreenPitch+5		; COZ we'll patch at least 5 bytes
-			push	Offset @@Good_Code		;		   ^^^^exactly ;)
-			jmp	AllowPatchAndPatch
-@@Good_Code:
-			push	eax
-			push	ebx
-REPT	3
-			NOP
-ENDM
-;ENDIF ; _WIN32_PATCH_ENABLE
-Init_SetScreenPitch_WIN32 ENDP
-
-
-
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Initialize 'Switch_Fillers_ASM' under a WIN32 system                     ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-Init_SwitchFillers_WIN32 PROC
-			call	Init_Fillers_WIN32
-
-;IFDEF _WIN32_PATCH_ENABLE
-			push	Offset Switch_Fillers_ASM
-			push	Offset Switch_Fillers_ASM+5		; COZ we'll patch at least 5 bytes
-			push	Offset @@Good_Code		;		   ^^^^exactly ;)
-			jmp	AllowPatchAndPatch
-@@Good_Code:
-			push	eax
-			push	ebx
-			push	ecx
-			push	edx
-			nop
-;ENDIF ; _WIN32_PATCH_ENABLE
-Init_SwitchFillers_WIN32 ENDP
-
-
-
-
-
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Allow patches for all fillers                                            ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-Init_Fillers_WIN32	PROC
-			pushad
-					; *** Poly ***
-			mov	eax,Offset First_FillerPatch
-			mov	edx,Offset Last_FillerPatch
-			call	AllowPatch
-
-			popad
-			ret
-Init_Fillers_WIN32	ENDP
-
-ENDIF	; _WIN32
-
-
-
 _TEXT			ENDS
-
-
-
 
 ;			The
 			End

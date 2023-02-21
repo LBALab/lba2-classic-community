@@ -31,7 +31,6 @@
 #include	<SYSTEM/LOADMALL.H>
 #include	<SYSTEM/LOADSAVE.H>
 #include	<SYSTEM/LZ.H>
-#include	<SYSTEM/PATCH.H>
 #include	<SYSTEM/TIMER.H>
 #include	<SYSTEM/LOGPRINT.H>
 #include	<SYSTEM/ITOA.H>
