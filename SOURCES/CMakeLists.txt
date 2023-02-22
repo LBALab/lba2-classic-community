@@ -19,7 +19,7 @@ set(SOURCES_FILES_DOS CRITICAL.CPP HERCULE.CPP)
 set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
 
 add_executable(lba2 ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN})
-target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL2::SDL2 SDL2::SDL2main)
+target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL2::SDL2 SDL2::SDL2main ${SDL2_LIBRARIES})
 if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
 endif ()
