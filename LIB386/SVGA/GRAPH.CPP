@@ -19,6 +19,19 @@ S32 GetDxDyGraph(S32 numgraph, S32 *x, S32 *y, const void *bankgraph) {
   return 0; // TODO: Remove, make void
 }
 
+S32 AffGraph(S32 numgraph, S32 x, S32 y, const void *bankgraph)
+{
+  // TODO: Implement
+  return 0;
+}
+
+S32 GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1,
+                const void *bankgraph)
+{
+  // TODO: Implement
+  return 0;
+}
+
 // =============================================================================
 #ifdef __cplusplus
 }

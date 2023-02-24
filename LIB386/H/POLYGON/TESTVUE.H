@@ -9,10 +9,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-typedef S32(Func_TestVuePoly)(Struc_Point *ptr);
-
-// -----------------------------------------------------------------------------
-extern Func_TestVuePoly *TestVuePoly;
+extern S32 TestVuePoly(Struc_Point *ptr);
 
 // =============================================================================
 #ifdef __cplusplus

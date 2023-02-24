@@ -1,0 +1,162 @@
+/*
+;----------------------------------------------------------------------------
+			.386
+
+			.MODEL	FLAT, C
+
+;----------------------------------------------------------------------------
+			.DATA
+
+;----------------------------------------------------------------------------
+			extrn	C	TabOffLine:DWORD
+
+;----------------------------------------------------------------------------
+;*══════════════════════════════════════════════════════════════════════════*
+			public	C	ClearBox
+			public	C	SetClearColor
+			public	C	ClearColor
+
+			ClearBox	dd	offset ClearBoxF
+			ClearColor	dq	0
+
+;----------------------------------------------------------------------------
+			.CODE
+
+;----------------------------------------------------------------------------
+			public	C	ClearBoxF
+
+;----------------------------------------------------------------------------
+;void	ClearBoxF(void *dst,  U32 *TabOffDst, T_BOX *box) ;
+
+;#pragma aux ClearBoxF	       	       	\
+;	parm	[edi] [edx] [ebx]	\
+;	modify	[eax ecx esi]
+
+ClearBoxF		PROC \
+			uses edi edx ebx eax ecx esi \
+			dst: DWORD, TabOffDst: DWORD, box: DWORD
+
+			mov edi, dst
+			mov edx, TabOffDst
+			mov ebx, box
+
+			mov	esi, [ebx]
+			mov	ebx, [ebx+4]
+
+			mov	eax, esi
+			mov	ecx, ebx
+
+			shr	esi, 16
+			and	eax, 0FFFFh
+
+			shr	ebx, 16
+			add	edi, [edx+esi*4]
+
+			mov	edx, [edx+1*4]
+			and	ecx, 0FFFFh
+
+			sub	eax, ecx		; -deltaX
+			add	edi, ecx
+
+			sub 	ebx, esi		; deltaY
+			mov	ecx, eax
+
+			fld	[ClearColor]
+
+			test	eax, 8
+			jnz	odd
+loopClear:
+			fst	REAL8 ptr[edi+eax]
+			fst	REAL8 ptr[edi+eax+8]
+			add	eax, 16
+			jnz	loopClear
+			mov	eax, ecx
+			add	edi, edx
+			dec	ebx
+			jnz	loopClear
+
+			fsubp	st(0), st(0)
+			ret
+odd:
+			add	eax, 8
+			je	@@Just_A_Col
+
+			sub	edi, 8
+
+			add	ecx, 8
+loopClearY:
+			fst	REAL8 ptr[edi+eax]
+loopClearX:
+			fst	REAL8 ptr[edi+eax+8]
+			fst	REAL8 ptr[edi+eax+16]
+			add	eax, 16
+			jnz	loopClearX
+			mov	eax, ecx
+			add	edi, edx
+			dec	ebx
+			jnz	loopClearY
+ClearBoxFEnd::
+			fsubp	st(0), st(0)
+			ret
+@@Just_A_Col:
+			fst	REAL8 ptr[edi-8]
+			add	edi, edx
+
+			dec	ebx
+			jnz	@@Just_A_Col
+
+			fsubp	st(0), st(0)
+			ret
+
+ClearBoxF		ENDP
+
+;----------------------------------------------------------------------------
+;void	SetClearColor(U32 color)	;
+
+;#pragma aux SetClearColor		\
+;	parm	[eax]			\
+;	modify	[ecx edx]
+
+SetClearColor	proc
+
+		and	eax, 0FFh	; 000C
+
+		mov	edx, eax	; 000C
+
+		shl	edx, 8		; 00C0
+
+		mov	ecx, edx	; 00C0
+		or	edx, eax	; 00CC
+
+		shl	edx, 16		; CC00
+		or	eax, ecx	; 00CC
+
+		or	eax, edx	; CCCC
+
+		mov	dword ptr[ClearColor], eax
+		mov	dword ptr[ClearColor+4], eax
+
+		ret
+
+SetClearColor	endp
+
+;----------------------------------------------------------------------------
+;			The
+			End
+*/
+
+#include <SVGA/CLRBOX.H>
+#include <stdio.h>
+
+void ClearBox(void *dst, U32 *TabOffDst, T_BOX *box)
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+void SetClearColor(U32 color)
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+

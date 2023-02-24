@@ -78,6 +78,7 @@ bool CreateScreenMemory(U32 resX, U32 resY) {
 
   // Adjust memory according to pitch
   {
+    /*
 #ifdef __MSC_VER
     __asm {
       mov ebx, offset TabOffLine
@@ -87,7 +88,7 @@ bool CreateScreenMemory(U32 resX, U32 resY) {
 #else
 #error "Unsupported compiler!"
 #endif
-
+*/
     SetScreenPitch(TabOffLine);
   }
 

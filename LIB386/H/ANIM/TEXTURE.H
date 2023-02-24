@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_TEXTURE
 #define	LIB_ANI_TEXTURE
 
+#include <OBJECT/AFF_OBJ.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

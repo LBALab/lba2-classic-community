@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_INTFRAME
 #define	LIB_ANI_INTFRAME
 
+#include <OBJECT/AFF_OBJ.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

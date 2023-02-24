@@ -25,7 +25,7 @@ void SafeErrorMalloc(const char *msg, char *file, U32 line) {
 }
 
 void CheckPtr(void *ptr, char *file, U32 line) {
-  if ((S32)ptr & (MALLOC_ALIGN - 1)) {
+  if ((U64)ptr & (MALLOC_ALIGN - 1)) {
   error:
     SafeErrorMalloc("Trying to Free or Mshrink a block not allocated with "
                     "Malloc/SMartMalloc/DosMalloc",

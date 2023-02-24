@@ -11,7 +11,6 @@ extern	"C"	{
 #endif
 
 //****************************************************************************
-typedef	void (Func_Rotate)(S32 x, S32 z, S32 angle) ;
 
 #pragma aux Arg_Rotate	"*"	       		\
 	parm caller	[eax] [ecx] [edx]	\
@@ -20,16 +19,9 @@ typedef	void (Func_Rotate)(S32 x, S32 z, S32 angle) ;
 #pragma	aux (Arg_Rotate)	Func_Rotate
 
 //****************************************************************************
-extern	Func_Rotate	*Rotate	;
+extern	void Rotate(S32 x, S32 z, S32 angle)	;
 
 #pragma aux	Rotate		"*"
-
-//****************************************************************************
-// These functions should not be called directly but through the above pointer
-// which auto-initalize to point to the right routine at runtime.
-extern	Func_Rotate	RotateI	;
-//#define			RotateF(x, z, angle)	LongRotateF(x, z, angle)
-extern	Func_Rotate	RotateM	;
 
 //****************************************************************************
 #ifdef	__cplusplus

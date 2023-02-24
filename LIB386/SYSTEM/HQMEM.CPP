@@ -100,11 +100,11 @@ void	HQM_Free_All()
 void	HQM_Shrink_Last(void *ptr, U32 newsize)
 {
 	HQM_HEADER	*ptrh		;
-	U32		deltasize	;
+	U64		deltasize	;
 
 	if(!Ptr_HQM_Memory.b)	return 	;
 
-	ptrh = (HQM_HEADER*)((U32)ptr - sizeof(HQM_HEADER)) ;
+	ptrh = (HQM_HEADER*)((U64)ptr - sizeof(HQM_HEADER)) ;
 
 	if( ptrh->Id != 0x12345678 )	return ;	// erreur grave
 

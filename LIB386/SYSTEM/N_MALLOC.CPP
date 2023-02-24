@@ -1,6 +1,6 @@
 #include <SYSTEM/N_MALLOC.H>
 
-#include <malloc.h>
+#include <stdlib.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -12,9 +12,9 @@ extern "C" {
 
 // -----------------------------------------------------------------------------
 void *NormMalloc(U32 size) {
-  S32 addr, temp;
+  U64 addr, temp;
 
-  temp = (S32)malloc(size + MALLOC_ALIGN);
+  temp = (U64)malloc(size + MALLOC_ALIGN);
 
   if (!temp) {
     return NULL;
@@ -29,7 +29,7 @@ void *NormMalloc(U32 size) {
 }
 
 void NormFree(void *addr) {
-  addr = (void *)((S32)addr - *((S8 *)addr - 1));
+  addr = (void *)((U64)addr - *((S8 *)addr - 1));
   free(addr);
 }
 

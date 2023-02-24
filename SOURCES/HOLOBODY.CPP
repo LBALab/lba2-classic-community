@@ -175,6 +175,6 @@ U32	GetSizeAnim3D( U8 *ptanim )
 
 	pt += (3+(nbframe*(nbgroup+1)*4))	;
 
-	return((U32)pt-(U32)ptanim)	;
+	return((U64)pt-(U64)ptanim)	;
 }
 //────────────────────────────────────────────────────────────────────────────

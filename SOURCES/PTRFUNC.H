@@ -1,6 +1,8 @@
 #ifndef	PTRFUNC_H
 #define	PTRFUNC_H
 
+#include "COMMON.H"
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 //
 //		     Definition des types de pointeurs de fonction

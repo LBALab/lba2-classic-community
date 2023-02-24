@@ -1,0 +1,1414 @@
+/*
+; **************************************************************************
+; **************************************************************************
+; **************************************************************************
+; ***                                                                    ***
+; ***                         POLYGON LIBRARY                            ***
+; ***                                                                    ***
+; **************************************************************************
+; ***                                                                    ***
+; ***            (Adeline Software Intl.)                                ***
+; ***                           1995-96-97                               ***
+; ***                                                                    ***
+; **************************************************************************
+; **************************************************************************
+; **************************************************************************
+
+			OPTION	PROC:PRIVATE
+			OPTION	SCOPED
+			OPTION	LANGUAGE:C
+
+
+
+;			**************
+;			*** PUBLIC ***
+;			**************
+
+;					******************
+;					*** PROCEDURES ***
+;					******************
+PUBLIC	C		Filler_TextureZFogSmooth
+PUBLIC	C		Filler_TextureZFogSmoothZBuf
+PUBLIC	C		Filler_TextureZFogSmoothNZW
+
+
+;					*****************
+;					*** VARIABLES ***
+;					*****************
+
+;					*** MODULE DATA ***
+
+
+
+
+;			***************
+;			*** INCLUDE ***
+;			***************
+
+INCLUDE			FILLER.INC
+
+
+;			**************
+;			*** MACROS ***
+;			**************
+
+
+;			***************
+;			*** EQUATES ***
+;			***************
+
+
+
+
+;			**************************
+;			*** SEGMENTATION MODEL ***
+;			**************************
+
+			.386
+;			.MODEL	FLAT, C
+
+
+
+;			************
+;			*** DATA ***
+;			************
+;			.DATA
+_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
+
+;				******************
+;				*** Extrn data ***
+;				******************
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
+Extrn	C		Fill_Logical_Palette	:	BYTE
+
+Extrn	C		PtrMap			:	DWORD
+Extrn	C		RepMask			:	DWORD
+Extrn	C		PtrCLUTGouraud		:	DWORD
+Extrn	C		PtrCLUTFog		:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
+
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
+
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
+
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
+
+Extrn	C		Fill_CurMapUMin		:	DWORD
+Extrn	C		Fill_MapU_LeftSlope	:	DWORD
+Extrn	C		Fill_MapU_XSlope	:	DWORD
+
+Extrn	C		Fill_CurMapVMin		:	DWORD
+Extrn	C		Fill_MapV_LeftSlope	:	DWORD
+Extrn	C		Fill_MapV_XSlope	:	DWORD
+
+Extrn	C		Fill_CurWMin		:	DWORD
+Extrn	C		Fill_W_LeftSlope	:	DWORD
+Extrn	C		Fill_W_XSlope		:	DWORD
+
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		Fill_CurZBuf		:	DWORD
+
+Extrn	C		Fill_Cur_W		:	DWORD
+Extrn	C		Fill_Next_W		:	DWORD
+Extrn	C		Fill_Cur_MapU		:	DWORD
+Extrn	C		Fill_Next_MapU		:	DWORD
+Extrn	C		Fill_Cur_MapV		:	DWORD
+Extrn	C		Fill_Next_MapV		:	DWORD
+Extrn	C		Fill_Cur_MapUOverW	:	DWORD
+Extrn	C		Fill_Next_MapUOverW	:	DWORD
+Extrn	C		Fill_Cur_MapVOverW	:	DWORD
+Extrn	C		Fill_Next_MapVOverW	:	DWORD
+
+
+Extrn	C		F_256			:	DWORD
+
+Extrn	C		Fill_Z_Fog_Near		:	DWORD
+Extrn	C		Fill_Fog_Factor		:	DWORD
+
+Extrn	C		Fill_ScaledFogNear	:	DWORD
+
+
+
+
+;				*******************
+;				*** Global data ***
+;				*******************
+
+;					*******************
+;					*** PUBLIC data ***
+;					*******************
+
+
+
+;					*******************
+;					*** MODULE data ***
+;					*******************
+			ALIGN	4
+
+
+
+
+
+
+
+;				******************
+;				*** Local data ***
+;				******************
+			ALIGN	4
+Fill_Cur_ZBufOverW	dd	0
+Fill_Next_ZBufOverW	dd	0
+Fill_Next_ZBuf		dd	0
+
+			ALIGN	4
+Fill_Init_Perspective	dd	Offset Init_PerspFPU
+Fill_Loop_Perspective	dd	Offset Loop_PerspFPU
+
+; Runtime code patch refactor, uses memory instead of instruction substitution
+PtrMapPatch     DWORD 12345678h
+PtrCLUT         DWORD 12345678h
+PtrLog          DWORD 12345678h
+PtrZBufferPatch DWORD 12345678h
+PtrZBuffer1     DWORD 12345678h
+PtrZBuffer2     DWORD 12345678h
+DecZBuf         DWORD 12345678h
+DecZBuf2        DWORD 12345678h
+IntZBuf         DWORD 12345678h
+IntZBuf2        DWORD 12345678h
+RepMask2        DWORD 12345678h
+RepMaskPatch    DWORD 12345678h
+
+_DATA			ENDS
+
+
+;			************
+;			*** CODE ***
+;			************
+;			.CODE
+_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
+			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
+
+
+;				******************
+;				*** Extrn proc ***
+;				******************
+Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
+
+
+; ╔═════════════════════════════════════════════════════════════╗
+; ║ Initialize the gradiants of a scanline                      ║
+; ╚═════════════════════════════════════════════════════════════╝
+
+Init_PerspFPU		PROC
+			mov	ebx,[Fill_Cur_W]		; Current W
+
+			test	ebx,ebx
+			je	@@W_Nul1
+			cmp	ebx,-1
+			je	@@W_Nul1
+			cmp	ebx,1
+			je	@@W_Nul1
+@@Return_Error1:
+			fild	[Fill_Cur_W]	; W
+
+			mov	[Fill_Cur_MapUOverW],esi
+			mov	edx,[Fill_W_XSlope]
+
+			shl	edx,5
+			mov	[Fill_Cur_MapVOverW],ebp
+
+			fdivr	[F_256]		; 1/W
+
+			; Here, we precalc an array in the stack. This array
+			; contains valid Cur_W values
+
+			pop	ebp		; EBP = Return address
+			lea	eax,[ecx+32-1]
+
+			shr	eax,5-2
+			xor	esi,esi
+
+			and	eax,not 11b
+
+			sub	esp,eax
+@@CreateStack:
+			add	ebx,edx
+			je	@@W_Nul
+			cmp	ebx,-1
+			je	@@W_Nul
+			cmp	ebx,1
+			je	@@W_Nul
+@@Return_Error:
+			mov	[esp+esi],ebx
+			add	esi,4
+
+			cmp	esi,eax
+			jne	@@CreateStack
+
+			pop	ebx
+			mov	eax,[Fill_CurZBufMin]
+
+			mov	[Fill_Cur_W],ebx
+			mov	[Fill_Cur_ZBufOverW],eax	; Cur ZBuf
+
+			fild	[Fill_Cur_MapUOverW]; MapU/Z  1/W
+
+			fild	[Fill_Cur_MapVOverW]; MapV/Z  MapU/Z  1/W
+
+			fild	[Fill_CurZBufMin]; ZBuf/Z  MapV/Z  MapU/Z  1/W
+
+			fxch	st(2)		; MapU/Z  MapV/Z  ZBuf/Z  1/W
+
+			fmul	st,st(3)	; MapU  MapV/Z  ZBuf/Z  1/W
+
+			fild	[Fill_Cur_W]	; W' MapU  MapV/Z  ZBuf/Z  1/W
+
+			fxch	st(2)		; MapV/Z  MapU  W'  ZBuf/Z  1/W
+
+			fmul	st,st(4)	; MapV  MapU  W'  ZBuf/Z  1/W
+			fxch	st(1)		; MapU  MapV  W'  ZBuf/Z  1/W
+
+			fistp	[Fill_Cur_MapU]	; MapV  W'  ZBuf/Z  1/W
+
+			fxch	st(2)		; ZBuf/Z  W'  MapV  1/W
+
+			fmulp	st(3),st	; W'  MapV  ZBuf
+			fxch	st(1)		; MapV  W'  ZBuf
+
+			fistp	[Fill_Cur_MapV]	; W'  ZBuf
+
+			fxch	st(1)		; ZBuf  W'
+
+			fmul	[F_256]
+			fistp	[Fill_CurZBuf]	; W'
+
+			fdivr	[F_256]		; 1/W'
+
+			jmp	ebp		; RET
+@@W_Nul1:
+			mov	ebx,2
+			mov	[Fill_Cur_W],ebx
+			jmp	@@Return_Error1
+@@W_Nul:
+			mov	ebx,2
+			jmp	@@Return_Error
+Init_PerspFPU		ENDP
+
+
+
+
+
+
+
+
+; ╔═════════════════════════════════════════════════════════════╗
+; ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
+; ╚═════════════════════════════════════════════════════════════╝
+
+Loop_PerspFPU		PROC
+			mov	eax,[Fill_MapU_XSlope]
+			mov	esi,[Fill_MapV_XSlope]
+
+			shl	eax,5
+			mov	edx,[Fill_Cur_MapUOverW]
+
+			add	eax,edx
+			mov	ebp,[Fill_Cur_MapVOverW]
+
+			shl	esi,5
+			mov	[Fill_Next_MapUOverW],eax
+
+			add	esi,ebp
+			mov	edx,[Fill_ZBuf_XSlope]
+
+			shl	edx,5
+			mov	eax,[Fill_Cur_ZBufOverW]
+
+			pop	ebp		; EBP = Return address
+			add	eax,edx
+
+			mov	[Fill_Next_MapVOverW],esi
+			mov	[Fill_Next_ZBufOverW],eax
+
+			fild	[Fill_Next_MapUOverW]; U/Z  1/W
+
+			fild	[Fill_Next_MapVOverW]; V/Z  U/Z  1/W
+
+			fild	[Fill_Next_ZBufOverW]; ZBuf/Z  V/Z  U/Z  1/W
+
+			fxch	st(2)		; U/Z  V/Z  ZBuf/Z  1/W
+
+			fmul	st,st(3)	; U  V/Z  ZBuf/Z  1/W
+			fxch	st(1)		; V/Z  U  ZBuf/Z  1/W
+
+			; **
+
+			fmul	st,st(3)	; V  U  ZBuf/Z  1/W
+			fxch	st(1)		; U  V  ZBuf/Z  1/W
+
+			fistp	[Fill_Next_MapU]; V  ZBuf/Z  1/W
+
+			fxch	st(1)		; ZBuf/Z  V  1/W
+
+			fmulp	st(2),st	; V  ZBuf
+
+			fistp	[Fill_Next_MapV]
+
+			fmul	[F_256]
+			fistp	[Fill_Next_ZBuf]
+
+			cmp	ecx,32
+			jbe	@@Less32
+
+			fild	dword ptr [esp]	; W
+
+			pop	ebx
+
+			mov	[Fill_Next_W],ebx	; Next W
+
+			fdivr	[F_256]		; 1/W
+@@Less32:
+			jmp	ebp		; RET
+Loop_PerspFPU		ENDP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+; *** CALL: 	ECX = Nb lines to draw
+;		EBX = Fill_CurXMin
+;		EDX = Fill_CurXMax
+			ALIGN	4
+Filler_TextureZFogSmooth PROC
+			inc	ecx
+			mov	eax,[Fill_CurY]
+
+			add	eax,ecx
+			mov	edi,[Fill_CurOffLine]
+
+			mov	[Fill_CurY],eax
+			mov	esi,[Fill_CurMapUMin]	; ESI = MapU
+
+			mov	eax,[Fill_Patch]
+			mov	ebp,[Fill_CurMapVMin]	; EBP = MapV
+
+			dec	eax
+			jne	@@Each_Line
+
+			mov	[Fill_Patch],eax
+			mov	eax,[PtrCLUTFog]
+
+			add	eax,12*256
+
+			mov	[PtrCLUT],eax
+			mov	eax,[RepMask]
+
+			mov	[RepMaskPatch],eax
+			jmp	@@EnterLoop
+@@Each_Line:
+			mov	eax,[Fill_LeftSlope]
+			add	edi,[ScreenPitch]
+
+			add	ebx,eax
+			mov	eax,[Fill_RightSlope]
+
+			add	edx,eax
+			mov	eax,[Fill_MapU_LeftSlope]
+
+			add	esi,eax
+			mov	eax,[Fill_MapV_LeftSlope]
+
+			add	ebp,eax
+			push	ebx
+
+			mov	ebx,[Fill_W_LeftSlope]
+			mov	eax,[Fill_CurWMin]
+
+			add	eax,ebx
+			mov	ebx,[Fill_ZBuf_LeftSlope]
+
+			mov	[Fill_CurWMin],eax
+			mov	eax,[Fill_CurZBufMin]
+
+			add	eax,ebx
+			pop	ebx
+
+			mov	[Fill_CurZBufMin],eax
+@@EnterLoop:
+			push	ecx
+			mov	eax,ebx
+
+			shr	eax,16
+			mov	ecx,edx
+
+			shr	ecx,16
+			push	edi
+
+			sub	ecx,eax
+			jle	@@EndScanLine
+
+			add	edi,eax
+			push	ebp
+
+			push	esi
+			push	ebx
+
+			push	edx
+			and	ebx,0FFFFh
+
+			mov	dl,[edi]	; Load 1st dst cache line
+			mov	eax,[Fill_CurWMin]
+
+			xor	ebx,0FFFFh
+			mov	[Fill_Cur_W],eax
+
+			cmp	ecx,32
+			jbe	@@FastInit
+
+			mov	eax,[Fill_W_XSlope]
+
+			imul	ebx
+
+			shl	edx,16
+
+			shr	eax,16
+
+			or	eax,edx
+
+			mov	edx,[Fill_CurWMin]
+
+			add	edx,eax
+			mov	eax,[Fill_MapU_XSlope]
+
+			mov	[Fill_Cur_W],edx
+
+			imul	ebx
+
+			shl	edx,16
+
+			shr	eax,16
+
+			or	edx,eax
+			mov	eax,[Fill_MapV_XSlope]
+
+			add	esi,edx
+
+			imul	ebx
+
+			shl	edx,16
+			push	edi
+
+			shr	eax,16
+			and	edi,not 31
+
+			or	eax,edx
+			lea	edx,[edi+ecx]
+
+			add	ebp,eax
+			and	edx,not 31	; AGI on EDI on first loop
+
+				; *** Load dst in WB cache ***
+
+@@Preload:
+			mov	al,[edi]
+			add	edi,32
+
+			cmp	edi,edx
+			jbe	@@Preload
+
+			pop	edi
+@@FastInit:
+					; *** Init Scanline ***
+			call	[Fill_Init_Perspective]
+@@FastFill:
+			call	[Fill_Loop_Perspective]
+
+			mov	ebx,[Fill_Cur_MapU]	; EBX = CurMapU
+			mov	ebp,[Fill_Next_MapU]	; EBP = NextMapU
+
+			sub	ebp,ebx
+			mov	edx,[Fill_Cur_MapV]	; EDX = CurMapV
+
+			sar	ebp,5			; EBP = IncMapU
+			mov	eax,[Fill_Next_MapV]	; EAX = Next MapV
+
+			sub	eax,edx
+			and	ebp,0FFFFh
+
+			sar	eax,5	       		; EAX = IncMapV
+			and	ebx,0FFFFh
+
+			shl	eax,16
+
+			shl	edx,16
+			or	ebp,eax			; EBP = IncV | IncU
+
+			or	ebx,edx			; EBX = MapV | MapU
+			mov	edx,[Fill_CurZBuf]
+
+			shr	edx,8
+			mov	eax,ebx
+
+			shr	eax,16
+			push	ecx
+
+			cmp	ecx,32
+			jb	@@Less32
+
+			mov	ecx,32
+@@Less32:
+			mov	esi,[RepMask]
+			mov	al,bh
+
+			add	edi,ecx			; EDI = End on scanline
+			xor	ecx,-1
+
+			and	eax,esi
+			mov	esi,[Fill_ScaledFogNear]
+
+			sub	edx,esi
+			js	@@CaseNull
+
+			imul	edx,[Fill_Fog_Factor]
+
+			shr	edx,8
+			mov	esi,[PtrMap]
+
+			and	edx,0F000h
+			jmp	@@Go
+@@CaseNull:
+			mov	esi,[PtrMap]
+			xor	edx,edx
+@@Go:
+			inc	ecx
+@@LoopX:
+			mov	dl,[eax+esi]
+			lea	eax,[ebx+ebp]
+
+			shr	eax,16
+			add	ebx,ebp
+
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
+			mov	al,bh
+
+			mov	[edi+ecx],dl
+		and	eax,[RepMaskPatch]
+
+			inc	ecx
+			jne	@@LoopX
+
+			pop	ecx
+			mov	eax,[Fill_Next_MapU]
+
+			cmp	ecx,32
+			jle	@@End_X
+
+			mov	ebx,[Fill_Next_MapV]
+			mov	[Fill_Cur_MapU],eax
+
+			mov	[Fill_Cur_MapV],ebx
+			mov	eax,[Fill_Next_MapUOverW]
+
+			mov	ebx,[Fill_Next_MapVOverW]
+			mov	[Fill_Cur_MapUOverW],eax
+
+			mov	[Fill_Cur_MapVOverW],ebx
+			mov	eax,[Fill_Next_W]
+
+			mov	[Fill_Cur_W],eax
+			mov	ebx,[Fill_Next_ZBuf]
+
+			mov	[Fill_CurZBuf],ebx
+			mov	ebx,[Fill_Next_ZBufOverW]
+
+			mov	[Fill_Cur_ZBufOverW],ebx
+			sub	ecx,32
+
+			jg	@@FastFill
+
+@@End_X:
+			pop	edx
+			pop	ebx
+
+			pop	esi
+			pop	ebp
+
+@@EndScanLine:		pop	edi
+			pop	ecx
+
+			dec	ecx
+			jne	@@Each_Line
+
+			mov	[Fill_CurXMin],ebx
+			mov	[Fill_CurXMax],edx
+
+			mov	[Fill_CurOffLine],edi
+			mov	[Fill_CurMapUMin],esi
+
+			mov	[Fill_CurMapVMin],ebp
+			jmp	Triangle_ReadNextEdge
+Filler_TextureZFogSmooth ENDP
+
+
+
+
+
+
+
+
+; *** CALL: 	ECX = Nb lines to draw
+;		EBX = Fill_CurXMin
+;		EDX = Fill_CurXMax
+			ALIGN	4
+Filler_TextureZFogSmoothZBuf PROC
+			inc	ecx
+			mov	eax,[Fill_CurY]
+
+			add	eax,ecx
+			mov	edi,[Fill_CurOffLine]
+
+			mov	[Fill_CurY],eax
+			mov	esi,[Fill_CurMapUMin]	; ESI = MapU
+
+			mov	eax,[Fill_Patch]
+			mov	ebp,[Fill_CurMapVMin]	; EBP = MapV
+
+			dec	eax
+			jne	@@Each_Line
+
+			mov	[Fill_Patch],eax
+			mov	eax,[PtrCLUTFog]
+
+			add	eax,12*256
+
+			mov	[PtrCLUT],eax
+			mov	eax,[RepMask]
+
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
+
+			mov	eax,[PtrMap]
+
+			mov	[PtrMapPatch],eax
+			mov	eax,[Log]
+
+			mov	[PtrLog],eax
+			mov	eax,[PtrZBuffer]
+
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
+
+			mov	[PtrZBuffer2],eax
+			mov	eax,[Fill_ZBuf_XSlope]
+
+			shl	eax,32-8
+
+			mov	[DecZBuf],eax
+			mov	[DecZBuf2],eax
+
+			mov	eax,[Fill_ZBuf_XSlope]
+
+			shr	eax,8
+
+			and	eax,0FFFFh
+
+			mov	[IntZBuf],eax
+			mov	[IntZBuf2],eax
+			jmp	@@EnterLoop
+@@Each_Line:
+			mov	eax,[Fill_LeftSlope]
+			add	edi,[ScreenPitch]
+
+			add	ebx,eax
+			mov	eax,[Fill_RightSlope]
+
+			add	edx,eax
+			mov	eax,[Fill_MapU_LeftSlope]
+
+			add	esi,eax
+			mov	eax,[Fill_MapV_LeftSlope]
+
+			add	ebp,eax
+			push	ebx
+
+			mov	ebx,[Fill_W_LeftSlope]
+			mov	eax,[Fill_CurWMin]
+
+			add	eax,ebx
+			mov	ebx,[Fill_ZBuf_LeftSlope]
+
+			mov	[Fill_CurWMin],eax
+			mov	eax,[Fill_CurZBufMin]
+
+			add	eax,ebx
+			pop	ebx
+
+			mov	[Fill_CurZBufMin],eax
+@@EnterLoop:
+			push	ecx
+			mov	eax,ebx
+
+			shr	eax,16
+			mov	ecx,edx
+
+			shr	ecx,16
+			push	edi
+
+			sub	ecx,eax
+			jle	@@EndScanLine
+
+			add	edi,eax
+			push	ebp
+
+			push	esi
+			push	ebx
+
+			push	edx
+			and	ebx,0FFFFh
+
+			mov	dl,[edi]	; Load 1st dst cache line
+			mov	eax,[Fill_CurWMin]
+
+			xor	ebx,0FFFFh
+			mov	[Fill_Cur_W],eax
+
+			cmp	ecx,32
+			jbe	@@FastInit
+
+			mov	eax,[Fill_W_XSlope]
+
+			imul	ebx
+
+			shl	edx,16
+
+			shr	eax,16
+
+			or	eax,edx
+
+			mov	edx,[Fill_CurWMin]
+
+			add	edx,eax
+			mov	eax,[Fill_MapU_XSlope]
+
+			mov	[Fill_Cur_W],edx
+
+			imul	ebx
+
+			shl	edx,16
+
+			shr	eax,16
+
+			or	edx,eax
+			mov	eax,[Fill_MapV_XSlope]
+
+			add	esi,edx
+
+			imul	ebx
+
+			shl	edx,16
+			push	edi
+
+			shr	eax,16
+			and	edi,not 31
+
+			or	eax,edx
+			lea	edx,[edi+ecx]
+
+			add	ebp,eax
+			and	edx,not 31	; AGI on EDI on first loop
+
+				; *** Load dst in WB cache ***
+
+@@Preload:
+			mov	al,[edi]
+			add	edi,32
+
+			cmp	edi,edx
+			jbe	@@Preload
+
+			pop	edi
+@@FastInit:
+					; *** Init Scanline ***
+			call	[Fill_Init_Perspective]
+@@FastFill:
+			call	[Fill_Loop_Perspective]
+
+			mov	ebx,[Fill_Cur_MapU]	; EBX = CurMapU
+			mov	ebp,[Fill_Next_MapU]	; EBP = NextMapU
+
+			sub	ebp,ebx
+			mov	edx,[Fill_Cur_MapV]	; EDX = CurMapV
+
+			sar	ebp,5			; EBP = IncMapU
+			mov	eax,[Fill_Next_MapV]	; EAX = Next MapV
+
+			sub	eax,edx
+			and	ebp,0FFFFh
+
+			sar	eax,5			; EAX = IncMapV
+			and	ebx,0FFFFh
+
+			shl	eax,16
+
+			shl	edx,16
+			or	ebp,eax			; EBP = IncV | IncU
+
+			or	ebx,edx			; EBX = MapV | MapU
+			mov	edx,[Fill_CurZBuf]
+
+			shr	edx,8
+			mov	eax,ebx
+
+			shr	eax,16
+			mov	esi,[RepMask]
+
+			mov	al,bh
+
+			and	eax,esi
+			mov	esi,[Log]
+
+			sub	edi,esi
+			push	ecx
+
+			cmp	ecx,32
+			jbe	@@Less32
+
+			mov	ecx,32
+@@Less32:
+			mov	esi,[Fill_ScaledFogNear]
+
+			sub	edx,esi
+			js	@@CaseNull
+
+			imul	edx,[Fill_Fog_Factor]
+
+			shr	edx,8
+			mov	esi,[Fill_CurZBuf]
+
+			and	edx,0F000h
+			jmp	@@Go
+@@CaseNull:
+			mov	esi,[Fill_CurZBuf]
+			xor	edx,edx
+@@Go:
+			ror	esi,8
+@@LoopX:
+
+			push eax
+			mov eax,[PtrZBufferPatch]
+			cmp	[edi*2+eax],si
+			pop eax
+
+			jb	@@NoDisp
+@@Disp:
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],si
+		pop eax
+
+			push ebx
+			mov ebx,[PtrMapPatch]
+			mov	dl,[eax+ebx]
+			pop ebx
+
+			lea	eax,[ebx+ebp]
+			add	ebx,ebp
+
+			shr	eax,16
+
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
+			push eax
+			mov eax,[PtrLog]
+			mov	[edi+eax],dl
+			pop eax
+
+			mov	al,bh
+
+			and	eax,[RepMaskPatch]
+			add	esi,[DecZBuf]
+
+			adc	esi,[IntZBuf]
+			inc	edi
+
+			dec	ecx
+			jne	@@LoopX
+
+			jmp	@@End16
+
+@@NoDisp:
+			push eax
+			mov eax,[PtrZBuffer2]
+			cmp	[edi*2+eax],si
+			pop eax
+			jae	@@Disp
+
+			lea	eax,[ebx+ebp]
+			add	ebx,ebp
+
+			shr	eax,16
+			inc	edi
+
+			mov	al,bh
+			add	esi,[DecZBuf2]
+
+			adc	esi,[IntZBuf2]
+			and	eax,[RepMask2]
+
+			dec	ecx
+			jne	@@NoDisp
+@@End16:
+			pop	ecx
+			mov	eax,[Fill_Next_MapU]
+
+			cmp	ecx,32
+			jle	@@End_X
+
+			mov	ebx,[Fill_Next_MapV]
+			mov	[Fill_Cur_MapU],eax
+
+			mov	[Fill_Cur_MapV],ebx
+			mov	eax,[Fill_Next_MapUOverW]
+
+			mov	ebx,[Fill_Next_MapVOverW]
+			mov	[Fill_Cur_MapUOverW],eax
+
+			mov	eax,[Fill_Next_W]
+			mov	[Fill_Cur_MapVOverW],ebx
+
+			mov	[Fill_Cur_W],eax
+			mov	ebx,[Fill_Next_ZBuf]
+
+			mov	eax,[Log]
+			mov	[Fill_CurZBuf],ebx
+
+			add	edi,eax
+			mov	ebx,[Fill_Next_ZBufOverW]
+
+			mov	[Fill_Cur_ZBufOverW],ebx
+			sub	ecx,32
+
+			jg	@@FastFill
+@@End_X:
+			pop	edx
+			pop	ebx
+
+			pop	esi
+			pop	ebp
+
+@@EndScanLine:		pop	edi
+			pop	ecx
+
+			dec	ecx
+			jne	@@Each_Line
+
+			mov	[Fill_CurXMin],ebx
+			mov	[Fill_CurXMax],edx
+
+			mov	[Fill_CurOffLine],edi
+			mov	[Fill_CurMapUMin],esi
+
+			mov	[Fill_CurMapVMin],ebp
+			jmp	Triangle_ReadNextEdge
+Filler_TextureZFogSmoothZBuf ENDP
+
+
+
+
+
+
+
+
+; *** CALL: 	ECX = Nb lines to draw
+;		EBX = Fill_CurXMin
+;		EDX = Fill_CurXMax
+			ALIGN	4
+Filler_TextureZFogSmoothNZW PROC
+			inc	ecx
+			mov	eax,[Fill_CurY]
+
+			add	eax,ecx
+			mov	edi,[Fill_CurOffLine]
+
+			mov	[Fill_CurY],eax
+			mov	esi,[Fill_CurMapUMin]	; ESI = MapU
+
+			mov	eax,[Fill_Patch]
+			mov	ebp,[Fill_CurMapVMin]	; EBP = MapV
+
+			dec	eax
+			jne	@@Each_Line
+
+			mov	[Fill_Patch],eax
+			mov	eax,[PtrCLUTFog]
+
+			add	eax,12*256
+
+			mov	[PtrCLUT],eax
+			mov	eax,[RepMask]
+
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
+
+			mov	eax,[PtrMap]
+
+			mov	[PtrMapPatch],eax
+			mov	eax,[Log]
+
+			mov	[PtrLog],eax
+			mov	eax,[PtrZBuffer]
+
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer2],eax
+
+			mov	eax,[Fill_ZBuf_XSlope]
+
+			shl	eax,32-8
+
+			mov	[DecZBuf],eax
+			mov	[DecZBuf2],eax
+
+			mov	eax,[Fill_ZBuf_XSlope]
+
+			shr	eax,8
+
+			and	eax,0FFFFh
+
+			mov	[IntZBuf],eax
+			mov	[IntZBuf2],eax
+			jmp	@@EnterLoop
+@@Each_Line:
+			mov	eax,[Fill_LeftSlope]
+			add	edi,[ScreenPitch]
+
+			add	ebx,eax
+			mov	eax,[Fill_RightSlope]
+
+			add	edx,eax
+			mov	eax,[Fill_MapU_LeftSlope]
+
+			add	esi,eax
+			mov	eax,[Fill_MapV_LeftSlope]
+
+			add	ebp,eax
+			push	ebx
+
+			mov	ebx,[Fill_W_LeftSlope]
+			mov	eax,[Fill_CurWMin]
+
+			add	eax,ebx
+			mov	ebx,[Fill_ZBuf_LeftSlope]
+
+			mov	[Fill_CurWMin],eax
+			mov	eax,[Fill_CurZBufMin]
+
+			add	eax,ebx
+			pop	ebx
+
+			mov	[Fill_CurZBufMin],eax
+@@EnterLoop:
+			push	ecx
+			mov	eax,ebx
+
+			shr	eax,16
+			mov	ecx,edx
+
+			shr	ecx,16
+			push	edi
+
+			sub	ecx,eax
+			jle	@@EndScanLine
+
+			add	edi,eax
+			push	ebp
+
+			push	esi
+			push	ebx
+
+			push	edx
+			and	ebx,0FFFFh
+
+			mov	dl,[edi]	; Load 1st dst cache line
+			mov	eax,[Fill_CurWMin]
+
+			xor	ebx,0FFFFh
+			mov	[Fill_Cur_W],eax
+
+			cmp	ecx,32
+			jbe	@@FastInit
+
+			mov	eax,[Fill_W_XSlope]
+
+			imul	ebx
+
+			shl	edx,16
+
+			shr	eax,16
+
+			or	eax,edx
+
+			mov	edx,[Fill_CurWMin]
+
+			add	edx,eax
+			mov	eax,[Fill_MapU_XSlope]
+
+			mov	[Fill_Cur_W],edx
+
+			imul	ebx
+
+			shl	edx,16
+
+			shr	eax,16
+
+			or	edx,eax
+			mov	eax,[Fill_MapV_XSlope]
+
+			add	esi,edx
+
+			imul	ebx
+
+			shl	edx,16
+			push	edi
+
+			shr	eax,16
+			and	edi,not 31
+
+			or	eax,edx
+			lea	edx,[edi+ecx]
+
+			add	ebp,eax
+			and	edx,not 31	; AGI on EDI on first loop
+
+				; *** Load dst in WB cache ***
+
+@@Preload:
+			mov	al,[edi]
+			add	edi,32
+
+			cmp	edi,edx
+			jbe	@@Preload
+
+			pop	edi
+@@FastInit:
+					; *** Init Scanline ***
+			call	[Fill_Init_Perspective]
+@@FastFill:
+			call	[Fill_Loop_Perspective]
+
+			mov	ebx,[Fill_Cur_MapU]	; EBX = CurMapU
+			mov	ebp,[Fill_Next_MapU]	; EBP = NextMapU
+
+			sub	ebp,ebx
+			mov	edx,[Fill_Cur_MapV]	; EDX = CurMapV
+
+			sar	ebp,5			; EBP = IncMapU
+			mov	eax,[Fill_Next_MapV]	; EAX = Next MapV
+
+			sub	eax,edx
+			and	ebp,0FFFFh
+
+			sar	eax,5			; EAX = IncMapV
+			and	ebx,0FFFFh
+
+			shl	eax,16
+
+			shl	edx,16
+			or	ebp,eax			; EBP = IncV | IncU
+
+			or	ebx,edx			; EBX = MapV | MapU
+			mov	edx,[Fill_CurZBuf]
+
+			shr	edx,8
+			mov	eax,ebx
+
+			shr	eax,16
+			mov	esi,[RepMask]
+
+			mov	al,bh
+
+			and	eax,esi
+			mov	esi,[Log]
+
+			sub	edi,esi
+			push	ecx
+
+			cmp	ecx,32
+			jbe	@@Less32
+
+			mov	ecx,32
+@@Less32:
+			mov	esi,[Fill_ScaledFogNear]
+
+			sub	edx,esi
+			js	@@CaseNull
+
+			imul	edx,[Fill_Fog_Factor]
+
+			shr	edx,8
+			mov	esi,[Fill_CurZBuf]
+
+			and	edx,0F000h
+			jmp	@@Go
+@@CaseNull:
+			mov	esi,[Fill_CurZBuf]
+			xor	edx,edx
+@@Go:
+			ror	esi,8
+@@LoopX:
+
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],si
+		pop eax
+
+			jb	@@NoDispFast
+@@Disp:
+			push ebx
+			mov ebx,[PtrMapPatch]
+			mov	dl,[eax+ebx]
+			pop ebx
+
+			lea	eax,[ebx+ebp]
+
+			shr	eax,16
+			add	ebx,ebp
+
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
+			mov	al,bh
+
+			push eax
+			mov eax,[PtrLog]
+			mov	[edi+eax],dl
+			pop eax
+
+			and	eax,[RepMaskPatch]
+
+			add	esi,[DecZBuf]
+
+			adc	esi,[IntZBuf]
+			inc	edi
+
+			dec	ecx
+			jne	@@LoopX
+
+			jmp	@@End16
+
+@@NoDisp:
+			push eax
+			mov eax,[PtrZBuffer2]
+			cmp	[edi*2+eax],si
+			pop eax
+			jae	@@Disp
+@@NoDispFast:
+			lea	eax,[ebx+ebp]
+			add	ebx,ebp
+
+			shr	eax,16
+			inc	edi
+
+			mov	al,bh
+			add	esi,[DecZBuf2]
+
+			adc	esi,[IntZBuf2]
+			and	eax,[RepMask2]
+
+			dec	ecx
+			jne	@@NoDisp
+
+@@End16:
+			pop	ecx
+			mov	eax,[Fill_Next_MapU]
+
+			cmp	ecx,32
+			jle	@@End_X
+
+			mov	ebx,[Fill_Next_MapV]
+			mov	[Fill_Cur_MapU],eax
+
+			mov	[Fill_Cur_MapV],ebx
+			mov	eax,[Fill_Next_MapUOverW]
+
+			mov	ebx,[Fill_Next_MapVOverW]
+			mov	[Fill_Cur_MapUOverW],eax
+
+			mov	eax,[Fill_Next_W]
+			mov	[Fill_Cur_MapVOverW],ebx
+
+			mov	[Fill_Cur_W],eax
+			mov	eax,[Log]
+
+			add	edi,eax
+			mov	ebx,[Fill_Next_ZBuf]
+
+			mov	[Fill_CurZBuf],ebx
+			mov	ebx,[Fill_Next_ZBufOverW]
+
+			mov	[Fill_Cur_ZBufOverW],ebx
+			sub	ecx,32
+
+			jg	@@FastFill
+
+@@End_X:
+			pop	edx
+			pop	ebx
+
+			pop	esi
+			pop	ebp
+
+@@EndScanLine:		pop	edi
+			pop	ecx
+
+			dec	ecx
+			jne	@@Each_Line
+
+			mov	[Fill_CurXMin],ebx
+			mov	[Fill_CurXMax],edx
+
+			mov	[Fill_CurOffLine],edi
+			mov	[Fill_CurMapUMin],esi
+
+			mov	[Fill_CurMapVMin],ebp
+			jmp	Triangle_ReadNextEdge
+Filler_TextureZFogSmoothNZW ENDP
+
+_TEXT			ENDS
+
+;			The
+			End
+*/

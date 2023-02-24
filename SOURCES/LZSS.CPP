@@ -337,5 +337,16 @@ unsigned long 	save_length;
 	return( len );
 }
 
+int AddString() {
+	// TODO: Implement (original impl in COMPRESS.ASM)
+	return 0;
+}
+
+int DeleteString(int p) {
+	// TODO: Implement (original impl in COMPRESS.ASM)
+	return 0;
+}
+
 /************************** End of LZSS.C *************************/
+
 

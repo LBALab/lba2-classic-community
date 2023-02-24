@@ -2,6 +2,8 @@
 #ifndef LIB_SYSTEM_CPU
 #define LIB_SYSTEM_CPU
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
 extern "C" {

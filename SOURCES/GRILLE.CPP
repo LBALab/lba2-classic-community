@@ -40,11 +40,19 @@ typedef	struct
 
 T_COLONB	ListBrickColon[NB_COLON][MAX_BRICK] ;
 
-U8	*BufferMaskBrick ;
+U8	*BufferMaskBrick = NULL;
 S32	NbBlock			;
 S32	DxBlock, DyBlock, DzBlock;
 
 S32	ForbidenBrick = 0 ;
+
+U8	CodeJeu = 0;
+S32	XMap = 0, YMap = 0, ZMap = 0;
+S32	XScreen = 0, YScreen = 0;
+PTR_U8	BufCube = 0;
+PTR_U8	BufMap = 0;
+PTR_U8	TabBlock = 0;
+PTR_U8	BufferBrick = 0;
 
 extern	S32	Nxw, Nyw, Nzw ;
 //void	ReajustPos( U8 col ) ;
@@ -1155,3 +1163,66 @@ void	RedrawGRMs( void )
 	}
 }
 /*--------------------------------------------------------------------------*/
+
+#include <stdio.h>
+
+U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+ return 0;
+}
+
+//-------------------------------------------------------------------
+U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+ return 0;
+}
+
+//-------------------------------------------------------------------
+U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+ return 0;
+}
+
+//-------------------------------------------------------------------
+U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+ return 0;
+}
+
+//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+ return 0;
+}
+
+//-------------------------------------------------------------------
+void	DecompColonne( U8 *pts, U8 *ptd  )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+//-------------------------------------------------------------------
+void	Map2Screen( S32 x, S32 y, S32 z )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+//-------------------------------------------------------------------
+U8	*GetAdrBlock( S32 numblock )
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+ return NULL;
+}

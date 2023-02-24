@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_BODY
 #define	LIB_ANI_BODY
 
+#include <OBJECT/AFF_OBJ.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

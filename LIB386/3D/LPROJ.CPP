@@ -11,7 +11,7 @@ extern Func_LongProjectPoint *LongProjectPoint;
 
 S32 LongProjectPoint_C(S32 x, S32 y, S32 z) {
   S32 result;
-
+/*
 #ifdef __MSC_VER
   __asm {
 		pusha
@@ -36,7 +36,7 @@ S32 LongProjectPoint_C(S32 x, S32 y, S32 z) {
 #else
 #error "Unsupported compiler!"
 #endif
-
+*/
   return result;
 }
 

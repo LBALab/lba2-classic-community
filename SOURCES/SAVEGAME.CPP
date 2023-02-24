@@ -796,7 +796,7 @@ void	SaveContexte( S32 savetimerrefhr )
 	LbaWriteLong( ExtraConque ) ;
 	LbaWriteByte( PingouinActif ) ;
 
-	LbaWriteLong( (S32)PtrZoneClimb ) ;
+	LbaWriteLong( (U64)PtrZoneClimb ) ;
 
 	// Flechettes
 	ptrd = ListDart ;

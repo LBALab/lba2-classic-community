@@ -10,6 +10,7 @@ extern "C" {
 extern Func_InitMatrix *InitMatrixStd;
 
 void InitMatrixStd_C(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma) {
+  /*
 #ifdef __MSC_VER
   __asm {
 		pusha
@@ -35,6 +36,7 @@ void InitMatrixStd_C(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma) {
 #else
 #error "Unsupported compiler!"
 #endif
+*/
 }
 
 // =============================================================================
