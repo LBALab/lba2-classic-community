@@ -368,6 +368,7 @@ AffString		ENDP
 */
 
 #include <SVGA/AFFSTR.H>
+#include <stdio.h>
 
 U32 SizeChar = 8;
 U8 TextInk = 15;
@@ -376,4 +377,5 @@ U8 TextPaper = -1;
 void AffString(S32 x, S32 y, char *str)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

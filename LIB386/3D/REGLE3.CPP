@@ -55,15 +55,18 @@ RegleTrois	endp
 END*/
 
 #include <3D/REGLE3.H>
+#include <stdio.h>
 
 S32 RegleTrois(S32 Val1, S32 Val2, S32 NbSteps, S32 CurrentStep)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
 S32 BoundRegleTrois(S32 Val1, S32 Val2, S32 NbSteps, S32 CurrentStep)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }

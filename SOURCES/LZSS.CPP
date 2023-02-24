@@ -337,13 +337,17 @@ unsigned long 	save_length;
 	return( len );
 }
 
+#include <stdio.h>
+
 int AddString() {
 	// TODO: Implement (original impl in COMPRESS.ASM)
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
 int DeleteString(int p) {
 	// TODO: Implement (original impl in COMPRESS.ASM)
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 

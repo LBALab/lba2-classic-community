@@ -5037,6 +5037,7 @@ _TEXT			ENDS
 */
 
 #include <OBJECT/AFF_OBJ.H>
+#include <stdio.h>
 
 #define MAX_NB_POINTS 550
 
@@ -5046,6 +5047,7 @@ T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
@@ -5053,6 +5055,7 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
                        void *obj)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
@@ -5060,5 +5063,6 @@ S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
                                  S32 gamma, void *obj)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
