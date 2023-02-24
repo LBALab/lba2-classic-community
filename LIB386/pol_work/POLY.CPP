@@ -82,11 +82,13 @@ S32 Fill_Z_Fog_Near = 0;     ///< Fog Range
 S32 Fill_Z_Fog_Far = 0;      ///< Fog Range
 U32 Fill_ZBuffer_Factor = 0; ///< normalizing factor for Z Buffer
 U32 IsPolygonHidden = 0;     ///< normalizing factor for Z Buffer
+U32 ScreenPitch = 0;         ///< Screen Pitch
+PTR_U32 PTR_TabOffLine = NULL;  ///< Screen Pitch
 
 void SetScreenPitch(U32 *New_TabOffLine)
 {
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  ScreenPitch = New_TabOffLine[1];
+  PTR_TabOffLine = New_TabOffLine;
 }
 
 void SetCLUT(U32 defaultline)
