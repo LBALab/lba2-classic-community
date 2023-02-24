@@ -104,7 +104,7 @@ S32	ParamsCPU()
 	S32	result	;
 	S32	i	;
 
-	str[256] = 0	;
+	str[255] = 0	;
 	result = FALSE	;
 
 	i = 1	;
