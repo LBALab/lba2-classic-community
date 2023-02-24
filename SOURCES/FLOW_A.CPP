@@ -238,19 +238,23 @@ CopyBlockShade		endp
 */
 
 #include "FLOW.H"
+#include <stdio.h>
 
 void	BoxFlow( S32 x, S32 y, S32 coul )
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void	ShadeBoxBlk(S32 X0, S32 Y0, S32 X1, S32 Y1, S32 deccoul)
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void	CopyBlockShade( S32 x0, S32 y0, S32 x1, S32 y1, U8 *src,
 				S32 xd, S32 yd, U8 *dst, S32 shade )
 {
 	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
