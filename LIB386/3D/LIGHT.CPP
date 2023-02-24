@@ -175,13 +175,13 @@ S32 LightNormalUnit = 0;
 
 void SetLightVector(S32 alpha, S32 beta, S32 gamma)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void RecomputeLight()
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 

@@ -346,7 +346,7 @@ CopyMask		endp
 
 S32 CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }

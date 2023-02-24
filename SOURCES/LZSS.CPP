@@ -340,13 +340,13 @@ unsigned long 	save_length;
 #include <stdio.h>
 
 int AddString() {
-	// TODO: Implement (original impl in COMPRESS.ASM)
+	// TODO: Implement ASM (original impl in COMPRESS.ASM)
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
 int DeleteString(int p) {
-	// TODO: Implement (original impl in COMPRESS.ASM)
+	// TODO: Implement ASM (original impl in COMPRESS.ASM)
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }

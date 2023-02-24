@@ -58,6 +58,6 @@ RotateVector	endp
 
 void RotateVector(S32 norme, S32 alpha, S32 beta, S32 gamma)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

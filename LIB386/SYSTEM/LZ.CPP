@@ -159,6 +159,6 @@ ExpandLZ		ENDP
 
 void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
