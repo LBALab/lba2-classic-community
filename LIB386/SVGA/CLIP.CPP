@@ -73,7 +73,38 @@ MemoClipWindowYMax	dd	0
 			PUBLIC	C	MemoClipWindow
 
 ;----------------------------------------------------------------------------
-;void	SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)	;
+;				The
+				End
+*/
+
+#include <SVGA/CLIP.H>
+#include <SVGA/VIDEO.H>
+#include <stdio.h>
+
+S32 ClipXMin = 0;
+S32 ClipYMin = 0;
+S32 ClipXMax = 0;
+S32 ClipYMax = 0;
+
+S32 ClipWindowXMin = 0;
+S32 ClipWindowYMin = 0;
+S32 ClipWindowXMax = 0;
+S32 ClipWindowYMax = 0;
+
+S32 MemoClipXMin = 0;
+S32 MemoClipYMin = 0;
+S32 MemoClipXMax = 0;
+S32 MemoClipYMax = 0;
+
+S32 MemoClipWindowXMin = 0;
+S32 MemoClipWindowYMin = 0;
+S32 MemoClipWindowXMax = 0;
+S32 MemoClipWindowYMax = 0;
+
+void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)
+{
+ /*
+ ;void	SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)	;
 
 ;#pragma aux SetClipWindow	"*"	\
 ;	parm	[eax] [ebx] [ecx] [edx]
@@ -122,8 +153,33 @@ OkDown:			mov	ClipWindowYMax, edx
 			ret
 
 SetClipWindow		endp
+ */
+		if (x0 >= 0)
+        ClipWindowXMin = x0;
+    else
+        ClipWindowXMin = 0;
 
-;----------------------------------------------------------------------------
+    if (y0 >= 0)
+        ClipWindowYMin = y0;
+    else
+        ClipWindowYMin = 0;
+
+    if (x1 < ModeResX)
+        ClipWindowXMax = x1;
+    else
+        ClipWindowXMax = ModeResX - 1;
+
+    if (y1 < ModeResY)
+        ClipWindowYMax = y1;
+    else
+        ClipWindowYMax = ModeResY - 1;
+
+    SetClip(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+}
+
+void UnsetClipWindow()
+{
+/*
 ;void	UnsetClipWindow()				;
 
 ;#pragma aux UnsetClipWindow	"*"	\
@@ -150,8 +206,20 @@ UnsetClipWindow		PROC \
 			ret
 
 UnsetClipWindow		endp
+*/
+	ClipWindowXMax = ModeResX - 1;
+	ClipWindowYMax = ModeResY - 1;
+	ClipWindowXMin = 0;
+	ClipWindowYMin = 0;
+	ClipXMax = ModeResX - 1;
+	ClipYMax = ModeResY - 1;
+	ClipXMin = 0;
+	ClipYMin = 0;
+}
 
-;----------------------------------------------------------------------------
+void MemoClipWindow()
+{
+	/*
 ;void	MemoClipWindow()					;
 
 ;#pragma aux MemoClipWindow		"*"	\
@@ -173,8 +241,16 @@ MemoClipWindow		PROC \
 			ret
 
 MemoClipWindow		endp
+	*/
+	MemoClipWindowXMin = ClipWindowXMin;
+	MemoClipWindowYMin = ClipWindowYMin;
+	MemoClipWindowXMax = ClipWindowXMax;
+	MemoClipWindowYMax = ClipWindowYMax;
+}
 
-;----------------------------------------------------------------------------
+void RestoreClipWindow()
+{
+	/*
 ;void	RestoreClipWindow()					;
 
 ;#pragma aux RestoreClipWindow	"*"	\
@@ -199,8 +275,13 @@ RestoreClipWindow	PROC \
 			ret
 
 RestoreClipWindow	endp
+	*/
+	SetClipWindow(MemoClipWindowXMin, MemoClipWindowYMin, MemoClipWindowXMax, MemoClipWindowYMax);
+}
 
-;----------------------------------------------------------------------------
+void SetClip(S32 x0, S32 y0, S32 x1, S32 y1)
+{
+	/*
 ;void	SetClip(S32 x0, S32 y0, S32 x1, S32 y1)		;
 
 ;#pragma aux SetClip		"*"	\
@@ -237,8 +318,31 @@ OkDown:			mov	ClipYMax, edx
 			ret
 
 SetClip			endp
+	*/
+	if (x0 >= ClipWindowXMin)
+			ClipXMin = x0;
+	else
+			ClipXMin = ClipWindowXMin;
 
-;----------------------------------------------------------------------------
+	if (y0 >= ClipWindowYMin)
+			ClipYMin = y0;
+	else
+			ClipYMin = ClipWindowYMin;
+
+	if (x1 <= ClipWindowXMax)
+			ClipXMax = x1;
+	else
+			ClipXMax = ClipWindowXMax;
+
+	if (y1 <= ClipWindowYMax)
+			ClipYMax = y1;
+	else
+			ClipYMax = ClipWindowYMax;
+}
+
+void UnsetClip()
+{
+ /*
 ;void	UnsetClip()					;
 
 ;#pragma aux UnsetClip		"*"	\
@@ -260,8 +364,16 @@ UnsetClip		PROC \
 			ret
 
 UnsetClip		endp
+ */
+	ClipXMin = ClipWindowXMin;
+	ClipYMin = ClipWindowYMin;
+	ClipXMax = ClipWindowXMax;
+	ClipYMax = ClipWindowYMax;
+}
 
-;----------------------------------------------------------------------------
+void MemoClip()
+{
+	/*
 ;void	MemoClip()					;
 
 ;#pragma aux MemoClip		"*"	\
@@ -283,8 +395,16 @@ MemoClip		PROC \
 			ret
 
 MemoClip		endp
+	*/
+	MemoClipXMin = ClipXMin;
+	MemoClipYMin = ClipYMin;
+	MemoClipXMax = ClipXMax;
+	MemoClipYMax = ClipYMax;
+}
 
-;----------------------------------------------------------------------------
+void RestoreClip()
+{
+	/*
 ;void	RestoreClip()					;
 
 ;#pragma aux RestoreClip	"*"	\
@@ -308,80 +428,7 @@ RestoreClip		PROC \
 			ret
 
 RestoreClip		endp
-
-;----------------------------------------------------------------------------
-;				The
-				End
-*/
-
-#include <SVGA/CLIP.H>
-#include <stdio.h>
-
-S32 ClipXMin = 0;
-S32 ClipYMin = 0;
-S32 ClipXMax = 0;
-S32 ClipYMax = 0;
-
-S32 ClipWindowXMin = 0;
-S32 ClipWindowYMin = 0;
-S32 ClipWindowXMax = 0;
-S32 ClipWindowYMax = 0;
-
-S32 MemoClipXMin = 0;
-S32 MemoClipYMin = 0;
-S32 MemoClipXMax = 0;
-S32 MemoClipYMax = 0;
-
-S32 MemoClipWindowXMin = 0;
-S32 MemoClipWindowYMin = 0;
-S32 MemoClipWindowXMax = 0;
-S32 MemoClipWindowYMax = 0;
-
-void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void UnsetClipWindow()
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void MemoClipWindow()
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void RestoreClipWindow()
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void SetClip(S32 x0, S32 y0, S32 x1, S32 y1)
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void UnsetClip()
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void MemoClip()
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void RestoreClip()
-{
- // TODO: Implement
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	*/
+	SetClip(MemoClipXMin, MemoClipYMin, MemoClipXMax, MemoClipYMax);
 }
 
