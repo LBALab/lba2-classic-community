@@ -141,13 +141,13 @@ SetIsoProjection ENDP
 void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
                    S32 factory)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void SetIsoProjection(S32 xcentre, S32 ycentre)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 

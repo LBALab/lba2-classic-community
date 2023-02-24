@@ -134,7 +134,7 @@ CalcGraphMsk		endp
 
 S32 CalcGraphMsk(S32 numbrick, void *bankbrick, void *ptmask)
 {
-	// TODO: Implement
+	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }

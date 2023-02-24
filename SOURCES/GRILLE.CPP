@@ -1168,7 +1168,7 @@ void	RedrawGRMs( void )
 
 U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
@@ -1176,7 +1176,7 @@ U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
 //-------------------------------------------------------------------
 U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
@@ -1184,7 +1184,7 @@ U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 //-------------------------------------------------------------------
 U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
@@ -1192,7 +1192,7 @@ U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 //-------------------------------------------------------------------
 U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
@@ -1200,7 +1200,7 @@ U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
@@ -1208,21 +1208,21 @@ U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
 //-------------------------------------------------------------------
 void	DecompColonne( U8 *pts, U8 *ptd  )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 //-------------------------------------------------------------------
 void	Map2Screen( S32 x, S32 y, S32 z )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 //-------------------------------------------------------------------
 U8	*GetAdrBlock( S32 numblock )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return NULL;
 }

@@ -312,7 +312,7 @@ U8 ColMask = 0;
 
 S32 AffMask(S32 nummask, S32 x, S32 y, void *bankmask)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }

@@ -100,12 +100,12 @@ LongRotateF	endp
 
 void Rotate(S32 x, S32 z, S32 angle)
 {
- // TODO: Implement. Just call LongRotate(x, z, angle)??
+ // TODO: Implement ASM. Just call LongRotate(x, z, angle)??
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void LongRotate(S32 x, S32 z, S32 angle)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

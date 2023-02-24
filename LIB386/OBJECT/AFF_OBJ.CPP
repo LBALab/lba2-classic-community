@@ -5046,7 +5046,7 @@ T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {
-	// TODO: Implement
+	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
@@ -5054,7 +5054,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
                        void *obj)
 {
-	// TODO: Implement
+	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
@@ -5062,7 +5062,7 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
 S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
                                  S32 gamma, void *obj)
 {
-	// TODO: Implement
+	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }

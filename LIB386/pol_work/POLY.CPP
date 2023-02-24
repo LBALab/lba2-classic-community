@@ -93,13 +93,13 @@ void SetScreenPitch(U32 *New_TabOffLine)
 
 void SetCLUT(U32 defaultline)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void SetFog(S32 z_near, S32 z_far)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 

@@ -290,7 +290,7 @@ S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
 		S32 xmin, S32 ymin,
 		S32 xmax, S32 ymax
 ) {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }

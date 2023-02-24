@@ -41,6 +41,6 @@ ObjectInitTexture endp
 
 void	ObjectInitTexture(T_OBJ_3D *obj, void *texture)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

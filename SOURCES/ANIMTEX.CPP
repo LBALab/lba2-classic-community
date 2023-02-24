@@ -409,12 +409,12 @@ void    FixePlasmaPtrMap( void )
 
 void	Do_Plasma( U8 *PtrEffectStruct )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void	Do_Fire( U8 *buff1, U8 *buff2, U8 *colortable, U8 *TileMap )
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

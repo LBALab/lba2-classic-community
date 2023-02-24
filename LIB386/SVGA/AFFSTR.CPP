@@ -376,6 +376,6 @@ U8 TextPaper = -1;
 
 void AffString(S32 x, S32 y, char *str)
 {
-	// TODO: Implement
+	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

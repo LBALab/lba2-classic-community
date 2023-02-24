@@ -91,7 +91,7 @@ GetAngleVector3D endp
 
 S32 GetAngleVector3D(S32 x, S32 y, S32 z)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }

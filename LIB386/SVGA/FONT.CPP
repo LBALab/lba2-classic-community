@@ -199,21 +199,21 @@ S32 InterSpace = 10;
 
 S32 SizeFont(char *str)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
 
 S32 CarFont(S32 x, S32 y, char c)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
 
 S32 Font(S32 x, S32 y, const char *str)
 {
- // TODO: Implement
+ // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
  return 0;
 }
