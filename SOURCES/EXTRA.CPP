@@ -797,7 +797,7 @@ void	AffSpecial( S32 numextra )
 			{
 				if( !FlagAnimWhoSpeak )	// pas de gestion pendant les messages
 				{
-					scale = BoundRegleTrois( scale, ptrextra->Beta, (S32)(ptrextra->PtrBody), TimerRefHR-ptrextra->Timer ) ;
+					scale = BoundRegleTrois( scale, ptrextra->Beta, (U64)(ptrextra->PtrBody), TimerRefHR-ptrextra->Timer ) ;
 
 					if( scale==ptrextra->Beta )
 					{

@@ -10,10 +10,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-typedef void (Func_ClearBox)(void *dst, U32 *TabOffDst, T_BOX *box);
-
-// -----------------------------------------------------------------------------
-extern Func_ClearBox *ClearBox;
+extern void ClearBox(void *dst, U32 *TabOffDst, T_BOX *box);
 extern void SetClearColor(U32 color);
 
 // =============================================================================

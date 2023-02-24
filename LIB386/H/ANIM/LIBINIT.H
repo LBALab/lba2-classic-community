@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_LIBINIT
 #define	LIB_ANI_LIBINIT
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

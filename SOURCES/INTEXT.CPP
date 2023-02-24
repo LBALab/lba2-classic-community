@@ -332,7 +332,8 @@ void	PtrAffGraph( S32 xp, S32 yp, S32 sprite )
 	}
 	else
 	{
-		ScaleSprite( 0, xp, yp, ScaleFactorSprite, ScaleFactorSprite, HQR_Get( HQRPtrSpriteRaw, sprite ) ) ;
+		// TODO: Fix link error here
+		// ScaleSprite( 0, xp, yp, ScaleFactorSprite, ScaleFactorSprite, HQR_Get( HQRPtrSpriteRaw, sprite ) ) ;
 	}
 }
 

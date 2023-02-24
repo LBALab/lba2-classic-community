@@ -148,7 +148,7 @@ static inline void HQR_Del_Bloc(T_HQR_HEADER *header, S32 index)
 		// shift buffer
 		ptrd = ptrbloc[index].Ptr 		;
 		ptrs = (void*)((U8*)ptrd + delsize)	;
-		memmove(ptrd, ptrs, (header->MaxSize-header->FreeSize)-((U32)ptrs-(U32)(header->Buffer)) ) ;
+		memmove(ptrd, ptrs, (header->MaxSize-header->FreeSize)-((U64)ptrs-(U64)(header->Buffer)) ) ;
 
 		// shift index table
 		ptrd = (void*)&ptrbloc[index]		;

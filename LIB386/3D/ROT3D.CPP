@@ -10,6 +10,7 @@ extern "C" {
 extern Func_RotatePoint *RotatePoint;
 
 void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
+/*
 #ifdef __MSC_VER
   __asm {
 		pusha
@@ -34,6 +35,7 @@ void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 #else
 #error "Unsupported compiler!"
 #endif
+*/
 }
 
 // =============================================================================

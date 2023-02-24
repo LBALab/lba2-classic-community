@@ -2,6 +2,9 @@
 extern "C" {
 #endif
 
+#include <SYSTEM/ADELINE_TYPES.H>
+#include "SORT.H"
+
 #ifndef	FUNC_H
 #define	FUNC_H
 

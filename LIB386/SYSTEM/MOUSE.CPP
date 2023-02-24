@@ -27,13 +27,13 @@ U32 MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1;
 
 // --- Extern state ------------------------------------------------------------
 // TODO: Convert the asm to .h to hold the data (currently on MOUSEDAT.ASM)
-extern U8 BinGphMouse;
+extern U8 *BinGphMouse;
 
 // --- Initialization ----------------------------------------------------------
 void InitMouse() {
   ClearMouseBox();
 
-  MouseSpriteGraphic = &BinGphMouse;
+  MouseSpriteGraphic = BinGphMouse;
   MouseSpriteGraphicNum = 0;
 }
 

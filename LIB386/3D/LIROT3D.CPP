@@ -10,6 +10,7 @@ extern "C" {
 extern Func_LongInverseRotatePoint *LongInverseRotatePoint;
 
 void LongInverseRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
+/*
 #ifdef __MSC_VER
   __asm {
 		pusha
@@ -35,6 +36,7 @@ void LongInverseRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 #else
 #error "Unsupported compiler!"
 #endif
+*/
 }
 
 // =============================================================================

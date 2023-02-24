@@ -2,6 +2,8 @@
 #ifndef BOXZBUF
 #define BOXZBUF
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus
 extern	"C"	{

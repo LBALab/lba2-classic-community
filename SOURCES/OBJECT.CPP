@@ -3181,7 +3181,7 @@ S32	CheckCarryBy( U8 numobj )
 				dangle = (ptrobjc->Obj.Beta+APtObj->OldBeta) ;
 
 				// Est-ce plus rapide qu'un Rotate() ?
-				LongRotate( 0, (S32)APtObj->PtrZoneRail, dangle ) ;
+				LongRotate( 0, (U64)APtObj->PtrZoneRail, dangle ) ;
 
 				Nxw = X0 ;
 				Nzw = Z0 ;
@@ -3729,7 +3729,7 @@ static void	DoAnimSprite3D()
 					APtObj->Coord.A3DS.Deb,	// start
 					APtObj->Coord.A3DS.Fin+1,// end
 					((APtObj->Coord.A3DS.Fin-APtObj->Coord.A3DS.Deb+1)*1000)/APtObj->SizeSHit,	// TotalTime
-					TimerRefHR-(U32)APtObj->PtrFile3D );
+					TimerRefHR-(U64)APtObj->PtrFile3D );
 
 			if( newsprite>APtObj->Coord.A3DS.Fin )
 			{
@@ -3744,7 +3744,7 @@ static void	DoAnimSprite3D()
 					APtObj->Coord.A3DS.Deb,	// start
 					APtObj->Coord.A3DS.Fin-1,// end
 					((APtObj->Coord.A3DS.Deb-APtObj->Coord.A3DS.Fin+1)*1000)/APtObj->SizeSHit,	// TotalTime
-					TimerRefHR-(U32)APtObj->PtrFile3D );
+					TimerRefHR-(U64)APtObj->PtrFile3D );
 
 			if( newsprite<APtObj->Coord.A3DS.Fin )
 			{
@@ -5755,16 +5755,18 @@ S32	AffOneObject(T_SORT *pt)
 
 			if( ptrextra->Flags&EXTRA_TRANSPARENT )
 			{
-				ScaleSpriteTransp( 0, SpriteX, SpriteY,
-					     ScaleFactorSprite, ScaleFactorSprite,
-					     HQR_Get( HQRPtrSpriteRaw, num ),
-					     PtrTransPal ) ;
+				// TODO: Fix link error here
+				// ScaleSpriteTransp( 0, SpriteX, SpriteY,
+				// 	     ScaleFactorSprite, ScaleFactorSprite,
+				// 	     HQR_Get( HQRPtrSpriteRaw, num ),
+				// 	     PtrTransPal ) ;
 			}
 			else
 			{
-				ScaleSprite( 0, SpriteX, SpriteY,
-					     ScaleFactorSprite, ScaleFactorSprite,
-					     HQR_Get( HQRPtrSpriteRaw, num ) ) ;
+				// TODO: Fix link error here
+				// ScaleSprite( 0, SpriteX, SpriteY,
+				// 	     ScaleFactorSprite, ScaleFactorSprite,
+				// 	     HQR_Get( HQRPtrSpriteRaw, num ) ) ;
 			}
 		}
 

@@ -6,8 +6,8 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-extern float SinTabF[];
-extern float CosTabF[];
+extern float *SinTabF;
+extern float *CosTabF;
 
 // =============================================================================
 #ifdef __cplusplus
