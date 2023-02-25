@@ -58,7 +58,8 @@ void	InitAcf( void )
 				sprintf( PathAcf, "%c:\\TWINSEN\\VIDEO\\VIDEO.HQR", CDDrive ) ;
 		}
 
-		if( !FileSize( PathAcf ) )	TheEnd( PROGRAM_OK, MessageNoCD ) ;
+		// TODO: enable this later?
+		// if( !FileSize( PathAcf ) )	TheEnd( PROGRAM_OK, MessageNoCD ) ;
 #endif
 #else
 		// default path Acf
