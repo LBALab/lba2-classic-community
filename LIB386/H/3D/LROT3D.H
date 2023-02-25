@@ -9,11 +9,10 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-typedef void(Func_LongRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
+//****************************************************************************
+typedef	void (Func_LongRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 
-// -----------------------------------------------------------------------------
-void LongRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
-#define LongRotatePoint LongRotatePoint_C
+extern Func_LongRotatePoint *LongRotatePoint;
 
 // -----------------------------------------------------------------------------
 #define LongWorldRotatePoint(x, y, z) LongRotatePoint(&MatriceWorld, x, y, z)

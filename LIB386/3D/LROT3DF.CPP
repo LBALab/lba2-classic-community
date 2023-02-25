@@ -108,3 +108,4 @@ LongRotatePointF endp
 
 Func_RotatePoint *RotatePoint = LongRotatePointF;
 Func_RotatePoint *RotatePointNoMMX = LongRotatePointF;
+Func_LongRotatePoint *LongRotatePoint = LongRotatePointF;
