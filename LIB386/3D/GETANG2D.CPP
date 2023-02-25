@@ -1,22 +1,10 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
-		.386P
+#include <3D/GETANG2D.H>
+#include <3D/TANTAB.H>
+#include <stdio.h>
 
-		.model SMALL, C
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.DATA
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C		TanTab	: DWORD
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.CODE
-
-;*══════════════════════════════════════════════════════════════════════════*
-		PUBLIC  C 	GetAngleVector2D
-
-;*══════════════════════════════════════════════════════════════════════════*
+S32 GetAngleVector2D(S32 x, S32 z)
+{
+	/*
 ;S32 	GetAngleVector2D( S32 x, S32 z)			;
 
 ;#pragma aux GetAngleVector2D	"*"			\
@@ -56,8 +44,8 @@ ok2:
 		mov	ebx, edx
 		or	esi, 4			; ESI : bit 2 = 1 if |z|>|x|
 noswap:
-		mov	ecx, ebx
-		mov	edx, eax
+		mov	ecx, ebx 		; ECX = major
+		mov	edx, eax		; EDX = minor
 
 		shl	eax, 30
 
@@ -99,9 +87,9 @@ angle:
 		mov	ecx, ds:TanTab[edx*2+4]
 
 		shr	edx, 1
-		sub	ecx, eax
+		sub	ecx, eax ; ECX = next - tangent
 
-		sub	eax, ebx
+		sub	eax, ebx ; EAX = tangent - prev
 
 		cmp	eax, ecx
 		jbe	ok
@@ -151,18 +139,119 @@ no3:
 		ret
 
 GetAngleVector2D endp
+	*/
+	U8 isXNegative = FALSE;
+	U8 isZNegative = FALSE;
+	U8 isXZSwapped = FALSE;
 
-;*══════════════════════════════════════════════════════════════════════════*
-		;The
-		 End
-*/
+	if (x == 0)
+	{
+		return z < 0 ? 2048 : 0;
+	}
 
-#include <3D/GETANG2D.H>
-#include <stdio.h>
+	if (x < 0)
+	{
+		x = -x;
+		isXNegative = TRUE;
+	}
 
-S32 GetAngleVector2D(S32 x, S32 z)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	if (z == 0)
+	{
+		return isXNegative ? 4096 - 1024 : 1024;
+	}
+
+	if (z < 0)
+	{
+		z = -z;
+		isZNegative = TRUE;
+	}
+
+	// This is wrong in the ASM comment, which says |z|>|x|, but the code
+	// actually swaps if |x|>|z|
+	if (x > z)
+	{
+		S32 tmp = x;
+		x = z;
+		z = tmp;
+		isXZSwapped = TRUE;
+	}
+
+	S32 major = z;
+	S32 minor = x;
+
+	x <<= 30;
+	major >>= 1;
+	minor >>= 2;
+	x += major;
+
+	U64 tangent = (((U64)x + major) + ((U64)minor << 32)) / z;
+
+
+	// Binary search tangent in TanTab. The algorithm is a bit weird but
+	// it's what the original implementation in ASM did.
+	int i = 256;
+	int lastIDecreasing = i;
+	int lastIIncreasing = 0;
+	U8 found = FALSE;
+	while (!found)
+	{
+		while(tangent < TanTab[i])
+		{
+			i >>= 1;
+			lastIDecreasing = i;
+			i += lastIIncreasing;
+
+			if ( i % 2 != 0)
+			{
+				found = TRUE;
+				break;
+			}
+		}
+
+		if (found)
+		{
+			break;
+		}
+
+		while(tangent >= TanTab[i])
+		{
+			i >>= 1;
+			lastIIncreasing = i;
+			i += lastIDecreasing;
+
+			if ( i % 2 != 0)
+			{
+				found = TRUE;
+				break;
+			}
+		}
+	}
+
+	S32 currentTangent = TanTab[i];
+	S32 nextTangent = TanTab[i + 1];
+
+	S32 currentDiff = tangent - currentTangent;
+	S32 nextDiff = nextTangent - tangent;
+
+	if (currentDiff > nextDiff)
+	{
+		++i;
+	}
+
+	if (isXZSwapped)
+	{
+		i = 1024 - i;
+	}
+
+	if (isZNegative)
+	{
+		i = 2048 - i;
+	}
+
+	if (isXNegative)
+	{
+		i = -i;
+	}
+
+	return i & 4095;
 }
