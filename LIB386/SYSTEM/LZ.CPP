@@ -160,13 +160,6 @@ ExpandLZ		ENDP
 
 void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
 {
-	if (MinBloc != 2)
-	{
-		// TODO: Just to make sure when this happens that the code is ready to decompress data
-		printf("ExpandLZ: MinBloc is %d, not 2", MinBloc);
-		exit(1);
-	}
-
 	U8 *dst = (U8 *)Dst;
 	U8 *src = (U8 *)Src;
 	U32 srcOffset = 0;
