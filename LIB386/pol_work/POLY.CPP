@@ -1,6 +1,7 @@
 #include <POLYGON/POLY.H>
 
 #include <limits.h>
+#include <stdio.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -13,6 +14,9 @@ S32 INV64(S32 a) { return LONG_MIN / a; }
 #undef Fill_Poly
 S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
                 Struc_Point *Ptr_Points) {
+  // TODO: Implement
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+
   S32 returnValue;
 /*
 #ifdef __MSC_VER
@@ -47,6 +51,8 @@ S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 }
 
 void Switch_Fillers_C(U32 Bank) {
+  // TODO: Implement
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   /*
 #ifdef __MSC_VER
   __asm {
