@@ -63,49 +63,6 @@ ASSUME ds:SEG LightNormalUnit
 		extrn	C	InitMatrixStd:DWORD
 		extrn	C	RotatePoint:DWORD
 		extrn	C	LongInverseRotatePoint:DWORD
-
-;****************************************************************************
-		.CODE
-
-;****************************************************************************
-		public	C SetLightVector
-		public	C RecomputeLight
-
-;****************************************************************************
-;void	RecomputeLight();
-
-;#pragma aux RecomputeLight	"*"		\
-;	modify		[eax ebx ecx edx esi edi]
-
-RecomputeLight	proc
-
-		mov	eax, [NormalXLight]
-		mov	ebx, [NormalYLight]
-
-		mov	ecx, [NormalZLight]
-
-		mov	esi, offset MatriceWorld
-		call	[RotatePoint]
-
-		mov	eax, [X0]
-		mov	ebx, [Y0]
-
-		mov	ecx, [Z0]
-		mov	[CameraXLight], eax
-
-		mov	[CameraYLight], ebx
-		mov	[CameraZLight], ecx
-
-		ret
-
-
-RecomputeLight	endp
-
-;****************************************************************************
-
-;****************************************************************************
-;		The
-		End
 */
 
 #include <3D/LIGHT.H>
@@ -203,7 +160,38 @@ SetLightVector	endp
 
 void RecomputeLight()
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	/*
+;void	RecomputeLight();
+
+;#pragma aux RecomputeLight	"*"		\
+;	modify		[eax ebx ecx edx esi edi]
+
+RecomputeLight	proc
+
+		mov	eax, [NormalXLight]
+		mov	ebx, [NormalYLight]
+
+		mov	ecx, [NormalZLight]
+
+		mov	esi, offset MatriceWorld
+		call	[RotatePoint]
+
+		mov	eax, [X0]
+		mov	ebx, [Y0]
+
+		mov	ecx, [Z0]
+		mov	[CameraXLight], eax
+
+		mov	[CameraYLight], ebx
+		mov	[CameraZLight], ecx
+
+		ret
+RecomputeLight	endp
+	*/
+	RotatePoint(&MatriceWorld, NormalXLight, NormalYLight, NormalZLight);
+
+	CameraXLight = X0;
+	CameraYLight = Y0;
+	CameraZLight = Z0;
 }
 
