@@ -23,15 +23,17 @@
 
 		ASSUME  DS:SEG CameraX
 
-;*══════════════════════════════════════════════════════════════════════════*
+*/
 
-		.CODE
+#include <3D/LPROJ.H>
+#include <3D/CAMERA.H>
+#include <3D/SINTAB.H>
+#include <3D/CAMERA.H>
+#include <stdio.h>
 
-;*══════════════════════════════════════════════════════════════════════════*
-
-		public	C	LongProjectPointIso
-
-;*══════════════════════════════════════════════════════════════════════════*
+S32 LongProjectPointIso(S32 x, S32 y, S32 z)
+{
+	/*
 ;void	LongProjectPointIso(S32 x, S32 y, S32 z)		;
 
 ;#pragma aux LongProjectPointIso		\
@@ -76,18 +78,31 @@ LongProjectPointIso PROC
 		ret
 
 LongProjectPointIso endp
+	*/
+	x -= CameraX;
+	y -= CameraY;
+	z -= CameraZ;
+	int tmpx = x;
+	x = x - z;
+	z = z + x;
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+	int tmpy = y;
+	z = z * 2;
+	y = y * 16;
+	x = x * 3;
 
-#include <3D/LPROJ.H>
-#include <stdio.h>
+	y = y - tmpy;
+	z = z * 3;
 
-S32 LongProjectPointIso(S32 x, S32 y, S32 z)
-{
-	// TODO: Implement
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+	x = x / 64;
+	x = x + XCentre;
+	z = z - y;
+
+	z = z / 256;
+	z = z + YCentre + 1;
+
+	Xp = x;
+	Yp = z;
+
+	return -1;
 }
