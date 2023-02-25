@@ -182,7 +182,7 @@ void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
 			{
 				break;
 			}
-			if ((flag & 0x1) == 0)
+			if ((flag & 0x1) != 0)
 			{
 				// Literal byte
 				dst[dstOffset++] = src[srcOffset++];
@@ -190,13 +190,18 @@ void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
 			else
 			{
 				// Back-reference
-				U32 blockOffset = ((U32)(src[srcOffset]) << 4) | (src[srcOffset + 1] >> 4);
-				U32 blockLength = (src[srcOffset + 1] & 0x0f) + MinBloc;
+				U32 blockLength = (src[srcOffset] & 0x0f) + MinBloc;
+				U32 blockOffset = ((U32)(src[srcOffset + 1]) << 4) | (src[srcOffset] >> 4);
 
 				for (U32 j = 0; j < blockLength; j++)
 				{
 					dst[dstOffset] = dst[dstOffset - blockOffset - 1];
 					dstOffset++;
+
+					if (dstOffset >= DecompSize)
+					{
+						break;
+					}
 				}
 				srcOffset += 2;
 			}
