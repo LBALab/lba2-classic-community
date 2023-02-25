@@ -1,18 +1,9 @@
-/*
+#include <ANIM/CLEAR.H>
+#include <string.h>
 
-		.386p
-
-		.MODEL	SMALL, C
-
-		include	AFF_OBJ.INC
-
-;*──────────────────────────────────────────────────────────────────────────*
-		.CODE
-
-;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	C	ObjectClear
-
-;*══════════════════════════════════════════════════════════════════════════*
+void	ObjectClear(T_OBJ_3D *obj)
+{
+	/*
 ;void	ObjectClear(T_OBJ *obj)
 
 ;#pragma aux ObjectClear		\
@@ -38,17 +29,12 @@ ObjectClear	PROC \
 		ret
 
 ObjectClear	endp
+	*/
+	memset(obj, 0, sizeof(T_OBJ_3D));
 
-;*══════════════════════════════════════════════════════════════════════════*
-; 		The
-		END
-*/
-
-#include <ANIM/CLEAR.H>
-#include <stdio.h>
-
-void	ObjectClear(T_OBJ_3D *obj)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	obj->Body.Num = -1;
+	obj->NextBody.Num = -1;
+	obj->Texture = (void *)-1;
+	obj->NextTexture = (void *)-1;
+	obj->Anim.Num = -1;
 }
