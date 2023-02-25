@@ -48,6 +48,19 @@
 		public	C	SetIsoProjection
 
 ;*══════════════════════════════════════════════════════════════════════════*
+;		The
+		END
+*/
+
+#include <3D/PROJ.H>
+#include <3D/CAMERA.H>
+#include <3D/LPROJ.H>
+#include <stdio.h>
+
+void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
+                   S32 factory)
+{
+	/*
 ;void	SetProjection(xc, yc, clip, factorx, factory)
 
 ;#pragma aux SetProjection	"*"			\
@@ -102,22 +115,22 @@ noFPU2:
 		ret
 
 SetProjection	ENDP
+	*/
+	XCentre = xcentre;
+	YCentre = ycentre;
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+	NearClip = clip;
 
-#include <3D/PROJ.H>
-#include <3D/CAMERA.H>
-#include <3D/LPROJ.H>
-#include <stdio.h>
+	LFactorX = factorx;
+	LFactorY = factory;
 
-void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
-                   S32 factory)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	TypeProj = TYPE_3D;
+
+	LongProjectPoint = LongProjectPoint3D;
+	ProjectList = ProjectList3D;
+
+	FRatioX = (float)LFactorX;
+	FRatioY = -(float)LFactorY / FRatioX;
 }
 
 void SetIsoProjection(S32 xcentre, S32 ycentre)
