@@ -5043,6 +5043,7 @@ _TEXT			ENDS
 
 U8 *ObjPtrMap = 0;
 T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
+Func_TransNumPtr *TransFctBody = NULL;
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {

@@ -32,25 +32,58 @@ PtrLib3DBufferAnim	dd	00
 ;	Translation Function
 TransFctAnim		dd	00
 
-;*──────────────────────────────────────────────────────────────────────────*
-		.CODE
+;*══════════════════════════════════════════════════════════════════════════*
+;		The
+		END
+*/
 
-;*──────────────────────────────────────────────────────────────────────────*
-IFDEF	REG_CALL
-		EXTRN	C	malloc_:PROC
-		EXTRN	C	free_:	PROC
-		EXTRN	C	atexit_:PROC
-ELSE
-		EXTRN	C	malloc:	PROC
-		EXTRN	C	free:	PROC
-		EXTRN	C	atexit:	PROC
-ENDIF
+#include <ANIM/LIBINIT.H>
+#include <OBJECT/AFF_OBJ.H>
+#include <stdlib.h>
+#include <stdio.h>
 
-;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	C	InitObjects
-		PUBLIC	C	ClearObjects
+Func_TransNumPtr *TransFctAnim = NULL;
+U8 *Lib3DBufferAnim = NULL;
+U8 *EndLib3DBufferAnim = NULL;
+U8 *PtrLib3DBufferAnim = NULL;
+U8 *MallocBuffer = NULL;
 
-;*──────────────────────────────────────────────────────────────────────────*
+void ClearObjects()
+{
+	/*
+	ClearObjects	proc
+
+			mov	eax, MallocBuffer
+			test	eax, eax
+			jz	exit
+
+	IFDEF	REG_CALL
+			call	free_
+	ELSE
+			push	eax
+			call	free
+			pop	eax
+	ENDIF
+			xor	eax, eax
+			mov	MallocBuffer, eax
+			mov	Lib3DBufferAnim, eax
+	exit:
+			ret
+
+	ClearObjects	endp
+	*/
+
+	if (MallocBuffer != NULL)
+	{
+		free(MallocBuffer);
+		MallocBuffer = NULL;
+		Lib3DBufferAnim = NULL;
+	}
+}
+
+void InitObjects(void *buffer, U32 size, Func_TransNumPtr *fctbody, Func_TransNumPtr *fctanim)
+{
+	/*
 ;void	InitObjects(void *buffer, U32 size, TRANS_FUNC *fctbody, TRANS_FUNC *fctanim)
 
 ;#pragma aux InitObjects	       		\
@@ -118,44 +151,32 @@ error:
 		ret
 
 InitObjects	endp
+	*/
+	TransFctBody = fctbody;
+	TransFctAnim = fctanim;
 
-;*──────────────────────────────────────────────────────────────────────────*
-;void	ClearObjects()
+	if (buffer == NULL)
+	{
+		if (Lib3DBufferAnim == NULL)
+		{
+			Lib3DBufferAnim = (U8 *)malloc(size);
+			if (Lib3DBufferAnim == NULL)
+			{
+				return;
+			}
 
-;#pragma aux ClearObjects	       	\
-;	modify	[eax ecx edx]
+			PtrLib3DBufferAnim = Lib3DBufferAnim;
+			EndLib3DBufferAnim = Lib3DBufferAnim + size - 31 * sizeof(T_GROUP_INFO) + 1;
 
-ClearObjects	proc
+			atexit(ClearObjects);
 
-		mov	eax, MallocBuffer
-		test	eax, eax
-		jz	exit
-
-IFDEF	REG_CALL
-		call	free_
-ELSE
-		push	eax
-		call	free
-		pop	eax
-ENDIF
-		xor	eax, eax
-		mov	MallocBuffer, eax
-		mov	Lib3DBufferAnim, eax
-exit:
-		ret
-
-ClearObjects	endp
-
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
-
-#include <ANIM/LIBINIT.H>
-#include <stdio.h>
-
-void	InitObjects(void *buffer, U32 size, Func_TransNumPtr *fctbody, Func_TransNumPtr *fctanim)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+			MallocBuffer = Lib3DBufferAnim;
+		}
+	}
+	else
+	{
+		Lib3DBufferAnim = (U8 *)buffer;
+		PtrLib3DBufferAnim = Lib3DBufferAnim;
+		EndLib3DBufferAnim = Lib3DBufferAnim + size - 31 * sizeof(T_GROUP_INFO) + 1;
+	}
 }
