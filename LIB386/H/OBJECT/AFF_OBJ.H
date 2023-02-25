@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <ANIM/LIBINIT.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -132,6 +133,8 @@ typedef struct {
 // -----------------------------------------------------------------------------
 extern U8 *ObjPtrMap; // Ptr on the current texture page
 extern T_OBJ_POINT Obj_ListRotatedPoints[];
+
+extern Func_TransNumPtr *TransFctBody; // Pointer to a conversion fct that converts a body number into its address
 
 // -----------------------------------------------------------------------------
 extern S32 ObjectDisplay(T_OBJ_3D *obj);
