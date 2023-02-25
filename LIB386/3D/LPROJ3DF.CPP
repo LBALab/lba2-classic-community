@@ -129,3 +129,16 @@ LongProjectPoint3DF endp
 ;		The
 		END
 */
+
+
+#include <3D/LPROJ.H>
+#include <stdio.h>
+
+S32 LongProjectPoint3D(S32 x, S32 y, S32 z)
+{
+	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+Func_LongProjectPoint *LongProjectPoint = LongProjectPoint3D;

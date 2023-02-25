@@ -104,6 +104,25 @@ noFPU2:
 SetProjection	ENDP
 
 ;*══════════════════════════════════════════════════════════════════════════*
+;		The
+		END
+*/
+
+#include <3D/PROJ.H>
+#include <3D/CAMERA.H>
+#include <3D/LPROJ.H>
+#include <stdio.h>
+
+void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
+                   S32 factory)
+{
+ // TODO: Implement ASM
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+void SetIsoProjection(S32 xcentre, S32 ycentre)
+{
+	/*
 ;void	SetIsoProjection(xc, yc)
 
 ;#pragma aux SetIsoProjection	"*"	\
@@ -129,25 +148,13 @@ SetIsoProjection PROC \
 		ret
 
 SetIsoProjection ENDP
+	*/
+	XCentre = xcentre;
+	YCentre = ycentre;
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+	TypeProj = TYPE_ISO;
 
-#include <3D/PROJ.H>
-#include <stdio.h>
-
-void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
-                   S32 factory)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-}
-
-void SetIsoProjection(S32 xcentre, S32 ycentre)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	LongProjectPoint = LongProjectPointIso;
+	ProjectList = ProjectListIso;
 }
 

@@ -162,3 +162,14 @@ ProjectListIso	endp
 		END
 
 */
+
+#include <3D/LPROJ.H>
+#include <stdio.h>
+
+S32 ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
+														S32 OrgY, S32 OrgZ)
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
