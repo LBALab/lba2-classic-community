@@ -1,18 +1,9 @@
-/*
+#include <ANIM/BODY.H>
+#include <ANIM.H>
 
-		.386p
-
-		.MODEL	SMALL, C
-
-		include	AFF_OBJ.INC
-
-;*──────────────────────────────────────────────────────────────────────────*
-		.CODE
-
-;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	C	ObjectInitBody
-
-;*══════════════════════════════════════════════════════════════════════════*
+void	ObjectInitBody(T_OBJ_3D *obj, void *body)
+{
+	/*
 ;void	ObjectInitBody(T_OBJ *obj, T_BODY *body)
 
 ;#pragma aux ObjectInitBody		\
@@ -38,17 +29,13 @@ firstBody:
 		ret
 
 ObjectInitBody	endp
+	*/
+	obj->Status |= FLAG_BODY;
 
-;*══════════════════════════════════════════════════════════════════════════*
-; 		The
-		END
-*/
-
-#include <ANIM/BODY.H>
-#include <stdio.h>
-
-void	ObjectInitBody(T_OBJ_3D *obj, void *body)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	// TODO: this mix of Ptr and Num is confusing and might not work on 64bit systems
+	obj->NextBody.Ptr = body;
+	if (obj->Body.Num == -1)
+	{
+		obj->Body.Ptr = body;
+	}
 }
