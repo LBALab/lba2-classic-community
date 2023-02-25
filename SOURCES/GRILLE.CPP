@@ -1168,9 +1168,168 @@ void	RedrawGRMs( void )
 
 U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	/*
+WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
+
+	;' ptc = BufCube
+		mov	ecx, [ds:BufCube]
+
+	;' + (xm*SIZE_CUBE_Y*2)
+		mov	eax, xw
+
+	;' xm = (xw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+	;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+		mov	[ds:XMap], eax
+
+	;' + ym*2
+		mov	eax, yw
+	;' ym = yw/SIZE_BRICK_Y
+
+		shr	eax, 8			; /256
+		mov	[ds:YMap], eax
+
+	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
+
+		mov	eax, zw
+
+	;' zm = (zw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+		mov	[ds:ZMap], eax
+
+
+
+		mov	eax, [ds:XMap]
+
+		or	eax, eax		; bound
+		jl	ovfw
+		cmp	eax, 64
+		jge	ovfw
+
+		lea	eax, [eax*2]		; *2
+		mov	edx, eax		; =
+		lea	eax, [eax*8]		; *16
+		add	edx, eax		; 2  + 16 = 18
+		lea	edx, [edx+eax*2]	; 18 + 32 = 50
+
+		add	ecx, edx
+
+		mov	eax, [ds:YMap]
+		cmp	eax, -1
+		jle	col_1
+		or	eax, eax		; check bound
+		jl	ovfw
+		cmp	eax, 25
+		jge	ovfw
+
+		lea	ecx, [ecx+eax*2]
+
+		mov	eax, [ds:ZMap]
+
+		or	eax, eax		; check bound
+		jl	ovfw
+		cmp	eax, 64
+		jge	ovfw
+
+		shl	eax, 7			; *128
+		mov	edx, eax		; = 128
+		lea	eax, [eax*8]		; *1024
+		add	edx, eax		; 128  + 1024 = 1152
+		lea	edx, [edx+eax*2]	; 1152 + 2048 = 3200
+
+		add	ecx, edx
+
+		xor	eax, eax
+		mov	al, [ecx]
+
+		or	al, al
+		jz	nocol
+
+	;'	if( *ptc != 0 )
+	;'	{
+	;'		block = (*ptc++) - 1 ;
+	;'		adr = GetAdrBlock( block )	;
+	;'		adr += HEADER_BLOCK		;
+	;'		adr += (*ptc)<<2 		;/ * 4 Bytes to Jump	* /
+	;'		return *adr ;
+	;'	}
+
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
+		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
+
+		add	edx, HEADER_BLOCK
+
+
+;'	essai	mov	al, byte ptr[edx+1]		; code jeu
+;'		mov	[CodeJeu], al
+
+
+		mov	al, byte ptr[ecx+1]
+		lea	edx, [edx + eax*4 ]
+
+		mov	al, [edx]
+
+		ret
+
+nocol:	;' return *(ptc+1)
+
+		mov	al, byte ptr[ecx+1]			; eventuelle col transparente
+		ret
+
+col_1:		mov	[ds:YMap], 0
+		mov	eax, 1
+		ret
+
+ovfw:		mov	eax, 0
+		ret
+
+WorldColBrick	endp
+	*/
+	XMap = xw / SIZE_BRICK_XZ;
+	YMap = yw / SIZE_BRICK_Y;
+	ZMap = zw / SIZE_BRICK_XZ;
+
+	if (XMap < 0 || XMap >= 64)
+	{
+		return 0;
+	}
+
+	int cubeIndex = (XMap * 50);
+
+	if (YMap <= -1)
+	{
+		YMap = 0;
+		return 1;
+	}
+	else if (YMap < 0 || YMap >= 25)
+	{
+		return 0;
+	}
+
+	cubeIndex += YMap * 2;
+
+	if (ZMap < 0 || ZMap >= 64)
+	{
+		return 0;
+	}
+
+	cubeIndex += ZMap * 3200;
+
+	U8 value = BufCube[cubeIndex];
+
+	if (value == 0)
+	{
+		return BufCube[cubeIndex + 1];
+	}
+
+	U32 numBlock = value - 1;
+	U8 *addr = GetAdrBlock(numBlock);
+	addr += HEADER_BLOCK;
+	addr += BufCube[cubeIndex + 1] * 4;
+
+	return *addr;
 }
 
 //-------------------------------------------------------------------
@@ -1222,7 +1381,20 @@ void	Map2Screen( S32 x, S32 y, S32 z )
 //-------------------------------------------------------------------
 U8	*GetAdrBlock( S32 numblock )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return NULL;
+	/*
+GetAdrBlock	proc	,\
+		numblock:DWORD
+
+		mov	ecx, numblock
+
+		mov	eax, [ds:TabBlock]		; pto = (ULONG*)TabBlock
+		add	eax, [ eax + ecx*4 ]	; TabBlock + pto[numbloc]
+
+		ret
+
+GetAdrBlock	endp
+	*/
+ U32 *pto = (U32 *)TabBlock;
+ U32 *adr = pto + pto[numblock];
+ return (U8 *)adr;
 }
