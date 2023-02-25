@@ -377,10 +377,10 @@ U8 AddDirIfNot( const char *path ) {
 
 void	CreateLbaDirectories( void )
 {
-	AddDirIfNot( PATH_RESSOURCE"SAVE\\SHOOT\\" ) ;
+	AddDirIfNot( PATH_RESSOURCE"SAVE/SHOOT/" ) ;
 
 #ifndef	DEMO
-	AddDirIfNot( PATH_RESSOURCE"VOX\\" ) ;
+	AddDirIfNot( PATH_RESSOURCE"VOX/" ) ;
 #endif
 }
 
