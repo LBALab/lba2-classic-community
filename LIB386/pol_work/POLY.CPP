@@ -1,6 +1,7 @@
 #include <POLYGON/POLY.H>
 
 #include <limits.h>
+#include <string.h>
 #include <stdio.h>
 
 // -----------------------------------------------------------------------------
@@ -79,6 +80,7 @@ void Switch_Fillers_C(U32 Bank) {
 
 PTR_U8 PtrCLUTGouraud = NULL;
 PTR_U8 PtrCLUTFog = NULL;
+PTR_U8 PtrTruePal = NULL;
 
 PTR_U8 PtrMap = NULL;
 PTR_U16 PtrZBuffer = NULL;
@@ -90,6 +92,7 @@ U32 Fill_ZBuffer_Factor = 0; ///< normalizing factor for Z Buffer
 U32 Fill_Fog_Factor = 0;     ///< Fog Factor
 U32 Fill_ScaledFogNear = 0;  ///< Scaled Near Fog value
 U32 IsPolygonHidden = 0;     ///< normalizing factor for Z Buffer
+U8 Fill_Logical_Palette[256]; ///< Logical Palette
 U32 ScreenPitch = 0;         ///< Screen Pitch
 PTR_U32 PTR_TabOffLine = NULL;  ///< Screen Pitch
 
@@ -101,8 +104,83 @@ void SetScreenPitch(U32 *New_TabOffLine)
 
 void SetCLUT(U32 defaultline)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  /*
+; ╔══════════════════════════════════════════════════════════════════════════════════╗
+; ║ SetCLUT: Initialize some CLUT pointers                                           ║
+; ╟──────────────────────────────────────────────────────────────────────────────────╢
+; ║ Appel: EAX = Line number in PtrCLUTFog that represents the palette CLUT.         ║
+; ║                                                                                  ║
+; ╚══════════════════════════════════════════════════════════════════════════════════╝
+
+SetCLUT			PROC clut_ptr:	DWORD
+			push	eax
+			push	ebx
+			push	ecx
+			push	esi
+			push	edi
+
+			mov eax, clut_ptr
+
+			shl	eax,8
+			mov	ecx,[PtrCLUTFog]
+
+			mov	ebx,eax
+			add	eax,ecx
+
+			mov	ecx,[PtrTruePal]
+			and	ebx,0F000h
+
+			cmp	eax,ecx
+			je	@@End
+
+			mov	[PtrTruePal],eax
+			mov	ecx,[PtrCLUTFog]
+
+			add	ebx,ecx
+			mov	esi,eax
+
+			mov	[PtrCLUTGouraud],ebx
+			mov	edi,Offset Fill_Logical_Palette
+
+			mov	ecx,256/8
+@@Copy:
+			mov	eax,[esi]
+			mov	ebx,[esi+4]
+			mov	[edi],eax
+			mov	[edi+4],ebx
+			add	esi,8
+			add	edi,8
+			dec	ecx
+			jne	@@Copy
+@@End:
+			pop	edi
+			pop	esi
+			pop	ecx
+			pop	ebx
+			pop	eax
+			ret
+SetCLUT			ENDP
+  */
+  U8 *nextPtrTruePal = PtrCLUTFog + (defaultline << 8);
+
+  // compare and jump to end if equal
+  if (PtrTruePal == nextPtrTruePal)
+  {
+    return;
+  }
+
+  // update PtrTruePal and calculate new value for PtrCLUTGouraud
+  PtrTruePal = nextPtrTruePal;
+  PtrCLUTGouraud = PtrCLUTFog + ((defaultline << 8) & 0xF000);
+  U8 *dst = (U8 *)Fill_Logical_Palette;
+  U8 *src = (U8 *)PtrTruePal;
+
+  for (int i = 0; i < 256 / 8; i++)
+  {
+    memcpy(dst, src, 8);
+    dst += 8;
+    src += 8;
+  }
 }
 
 void SetFog(S32 z_near, S32 z_far)

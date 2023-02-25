@@ -82,6 +82,7 @@ typedef struct {
 // -----------------------------------------------------------------------------
 extern PTR_U8 PtrCLUTGouraud;
 extern PTR_U8 PtrCLUTFog;
+extern PTR_U8 PtrTruePal;
 
 extern PTR_U8 PtrMap;
 extern PTR_U16 PtrZBuffer;
@@ -91,6 +92,8 @@ extern S32 Fill_Z_Fog_Near;     ///< Fog Range
 extern S32 Fill_Z_Fog_Far;      ///< Fog Range
 extern U32 Fill_ZBuffer_Factor; ///< normalizing factor for Z Buffer
 extern U32 IsPolygonHidden;     ///< normalizing factor for Z Buffer
+
+extern U8 Fill_Logical_Palette[256];
 
 // -----------------------------------------------------------------------------
 typedef S32(FUNC_FILL_POLY)(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
