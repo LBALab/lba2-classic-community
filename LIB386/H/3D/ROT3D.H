@@ -20,21 +20,11 @@ typedef	void (Func_RotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 #pragma	aux (Arg_RotatePoint)	Func_RotatePoint
 
 //****************************************************************************
-//extern	Func_RotatePoint	*RotatePoint	;
+extern	Func_RotatePoint	*RotatePoint	;
 extern	Func_RotatePoint	*RotatePointNoMMX;
-
-#define RotatePoint RotatePoint_C
-void RotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 
 //****************************************************************************
 #define	WorldRotatePoint(x, y, z) RotatePoint(&MatriceWorld, x, y, z)
-
-//****************************************************************************
-// These functions should not be called directly but through the above pointer
-// which auto-initalize to point to the right routine at runtime.
-extern	Func_RotatePoint RotatePointI	;
-//#define			 RotatePointF(mat, x, y, z)	LongRotatePointF(mat, x, y, z)
-extern	Func_RotatePoint RotatePointM	;
 
 //****************************************************************************
 #ifdef	__cplusplus

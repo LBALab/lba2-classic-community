@@ -102,6 +102,30 @@ RecomputeLight	proc
 RecomputeLight	endp
 
 ;****************************************************************************
+
+;****************************************************************************
+;		The
+		End
+*/
+
+#include <3D/LIGHT.H>
+
+#include <stdio.h>
+#include <3D/IMATSTD.H>
+#include <3D/LIROT3D.H>
+#include <3D/ROT3D.H>
+#include <3D/CAMERA.H>
+
+S32 AlphaLight = 0, BetaLight = 0, GammaLight = 0;
+S32 NormalXLight = 0, NormalYLight = 0, NormalZLight = 0;
+S32 CameraXLight = 0, CameraYLight = 0, CameraZLight = 0;
+S32 PosXLight = 0, PosYLight = 0, PosZLight = 0;
+S32 TargetXLight = 0, TargetYLight = 0, TargetZLight = 0;
+S32 LightNormalUnit = 0;
+
+void SetLightVector(S32 alpha, S32 beta, S32 gamma)
+{
+	/*
 ;void	SetLightVector( S32 alpha, S32 beta) ;
 
 ;#pragma aux SetLightVector	"*"		\
@@ -157,26 +181,24 @@ SetLightVector PROC \
 		ret
 
 SetLightVector	endp
+	*/
+		// For some reason, gamma is not used in the original implementation :shrug:
+    AlphaLight = alpha & 4095;
+    BetaLight = beta & 4095;
 
-;****************************************************************************
-;		The
-		End
-*/
+    InitMatrixStd(&MatrixLib2, alpha, beta, gamma);
 
-#include <3D/LIGHT.H>
-#include <stdio.h>
+    LongInverseRotatePoint(&MatrixLib2, 0, 0, LightNormalUnit);
 
-S32 AlphaLight = 0, BetaLight = 0, GammaLight = 0;
-S32 NormalXLight = 0, NormalYLight = 0, NormalZLight = 0;
-S32 CameraXLight = 0, CameraYLight = 0, CameraZLight = 0;
-S32 PosXLight = 0, PosYLight = 0, PosZLight = 0;
-S32 TargetXLight = 0, TargetYLight = 0, TargetZLight = 0;
-S32 LightNormalUnit = 0;
+    NormalXLight = X0;
+    NormalYLight = Y0;
+    NormalZLight = Z0;
 
-void SetLightVector(S32 alpha, S32 beta, S32 gamma)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+    RotatePoint(&MatriceWorld, X0, Y0, Z0);
+
+    CameraXLight = X0;
+    CameraYLight = Y0;
+    CameraZLight = Z0;
 }
 
 void RecomputeLight()

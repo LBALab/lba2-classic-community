@@ -46,11 +46,14 @@ M(Beta)  =	Cb  0   Sb
 
 M(Finale) = {M(Alpha)*M(Gamma)}*M(Beta)
 
-\
 
+*/
 
+#include <3D/IMATSTD.H>
 
-;*══════════════════════════════════════════════════════════════════════════*
+void InitMatrixStdF(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma)
+{
+/*
 ;void	InitMatrixStdF(S32 *MatDst, S32 alpha, S32 beta, S32 gamma) ;
 
 ;#pragma aux InitMatrixStdF	"*"		\
@@ -190,8 +193,8 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		ret
 
 InitMatrixStdF	ENDP
-
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
 */
+
+}
+
+Func_InitMatrix *InitMatrixStd = InitMatrixStdF;

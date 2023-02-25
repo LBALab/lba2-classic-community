@@ -12,8 +12,7 @@ extern "C" {
 typedef void(Func_LongInverseRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
 
 // -----------------------------------------------------------------------------
-void LongInverseRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
-#define LongInverseRotatePoint LongInverseRotatePoint_C
+extern Func_LongInverseRotatePoint *LongInverseRotatePoint;
 
 // -----------------------------------------------------------------------------
 #define LongWorldInverseRotatePoint(x, y, z)                                   \
