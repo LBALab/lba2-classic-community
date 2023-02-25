@@ -59,90 +59,6 @@ Box_End:
 			ret
 BoxFlow			endp
 
-;*══════════════════════════════════════════════════════════════════════════*
-
-ShadeBoxBlk		PROC	USES esi edi ebp ebx,\
-			x0:DWORD, y0:DWORD, x1:DWORD, y1:DWORD,\
-			deccoul:DWORD
-
-			mov	eax,[x0]
-			mov	ebx,[y0]
-			mov	ecx,[x1]
-			mov	edx,[y1]
-
-			cmp	eax,[ClipXMax]
-			jg	Box_End
-			cmp     ecx,[ClipXMin]
-			jl	Box_End
-			cmp	ebx,[ClipYMax]
-			jg	Box_End
-			cmp	edx,[ClipYMin]
-			jl	Box_End
-
-
-			cmp	eax,[ClipXMin]
-			jl	Bad_Left
-@@Test_Right:
-			cmp	ecx,[ClipXMax]
-			jg	Bad_Right
-@@Test_Up:
-			cmp	ebx,[ClipYMin]
-			jl	Bad_Up
-@@Test_Down:
-			cmp	edx,[ClipYMax]
-			jg	Bad_Down
-
-@@Disp:
-			mov	edi,TabOffLine[ebx*4]
-			sub	edx,ebx			; Init Delta Y
-			add	edi,[Log]
-			mov	ebx,edx
-			add	edi,eax			; EDI Offset Src
-			inc	ebx
-
-
-			mov	edx,ecx			; Init Delta X
-			mov	esi,TabOffLine[1*4]	; ScanLine
-			sub	edx,eax
-			mov	ecx,15*256
-			inc	edx
-			sub	ch,byte ptr [deccoul]
-			sub	esi,edx			; ebp Delta Screen
-			add	ecx,[PtrCLUTGouraud]
-			xor	eax,eax
-
-Again:
-			mov	al,[edi]
-			mov	ebp,edx
-loopx:
-			mov	al,[ecx+eax]
-			mov	[edi],al
-			inc	edi
-
-			dec	ebp
-			mov	al,[edi]
-			jne	loopx
-
-			add	edi,esi
-			dec	ebx
-			jne	Again
-Box_End:
-			ret
-
-Bad_Left:
-			mov	eax,[ClipXMin]
-			jmp	@@Test_Right
-Bad_Right:
-			mov	ecx,[ClipXMax]
-			jmp	@@Test_Up
-Bad_Up:
-			mov	ebx,[ClipYMin]
-			jmp	@@Test_Down
-Bad_Down:
-			mov	edx,[ClipYMax]
-			jmp	@@Disp
-ShadeBoxBlk		ENDP
-
 ;***************************************************************************
 ;			CopyBlockShade( x0, y0, x1, y1, *src, xd, yd, *dst, shade )
 ;                                      edx ecx ebx eax   esi
@@ -238,6 +154,10 @@ CopyBlockShade		endp
 */
 
 #include "FLOW.H"
+
+#include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
+#include <POLYGON/POLY.H>
 #include <stdio.h>
 
 void	BoxFlow( S32 x, S32 y, S32 coul )
@@ -246,10 +166,129 @@ void	BoxFlow( S32 x, S32 y, S32 coul )
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
-void	ShadeBoxBlk(S32 X0, S32 Y0, S32 X1, S32 Y1, S32 deccoul)
+void ShadeBoxBlk(S32 X0, S32 Y0, S32 X1, S32 Y1, S32 deccoul)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	/*
+ShadeBoxBlk		PROC	USES esi edi ebp ebx,\
+			x0:DWORD, y0:DWORD, x1:DWORD, y1:DWORD,\
+			deccoul:DWORD
+
+			mov	eax,[x0]
+			mov	ebx,[y0]
+			mov	ecx,[x1]
+			mov	edx,[y1]
+
+			cmp	eax,[ClipXMax]
+			jg	Box_End
+			cmp     ecx,[ClipXMin]
+			jl	Box_End
+			cmp	ebx,[ClipYMax]
+			jg	Box_End
+			cmp	edx,[ClipYMin]
+			jl	Box_End
+
+
+			cmp	eax,[ClipXMin]
+			jl	Bad_Left
+@@Test_Right:
+			cmp	ecx,[ClipXMax]
+			jg	Bad_Right
+@@Test_Up:
+			cmp	ebx,[ClipYMin]
+			jl	Bad_Up
+@@Test_Down:
+			cmp	edx,[ClipYMax]
+			jg	Bad_Down
+
+@@Disp:
+			mov	edi,TabOffLine[ebx*4]
+			sub	edx,ebx			; Init Delta Y
+			add	edi,[Log]
+			mov	ebx,edx
+			add	edi,eax			; EDI Offset Src
+			inc	ebx
+
+
+			mov	edx,ecx			; Init Delta X
+			mov	esi,TabOffLine[1*4]	; ScanLine
+			sub	edx,eax
+			mov	ecx,15*256
+			inc	edx
+			sub	ch,byte ptr [deccoul]
+			sub	esi,edx			; ebp Delta Screen
+			add	ecx,[PtrCLUTGouraud]
+			xor	eax,eax
+
+Again:
+			mov	al,[edi]
+			mov	ebp,edx
+loopx:
+			mov	al,[ecx+eax]
+			mov	[edi],al
+			inc	edi
+
+			dec	ebp
+			mov	al,[edi]
+			jne	loopx
+
+			add	edi,esi
+			dec	ebx
+			jne	Again
+Box_End:
+			ret
+
+Bad_Left:
+			mov	eax,[ClipXMin]
+			jmp	@@Test_Right
+Bad_Right:
+			mov	ecx,[ClipXMax]
+			jmp	@@Test_Up
+Bad_Up:
+			mov	ebx,[ClipYMin]
+			jmp	@@Test_Down
+Bad_Down:
+			mov	edx,[ClipYMax]
+			jmp	@@Disp
+ShadeBoxBlk		ENDP
+	*/
+	if (X0 > ClipXMax || X1 < ClipXMin || Y0 > ClipYMax || Y1 < ClipYMin)
+	{
+		return;
+	}
+
+	if (X0 < ClipXMin)
+	{
+		X0 = ClipXMin;
+	}
+	if (X1 > ClipXMax)
+	{
+		X1 = ClipXMax;
+	}
+	if (Y0 < ClipYMin)
+	{
+		Y0 = ClipYMin;
+	}
+	if (Y1 > ClipYMax)
+	{
+		Y1 = ClipYMax;
+	}
+
+	S32 deltaY = Y1 - Y0;
+	S32 deltaX = X1 - X0;
+
+	U8 *dst = (U8 *)Log + TabOffLine[Y0] + X0;
+	U32 lineOffset = TabOffLine[1] - deltaX - 1;
+
+	U8 *clut = PtrCLUTGouraud + 15 * 256 - deccoul;
+
+	for (S32 y = 0; y <= deltaY; y++)
+	{
+		for (S32 x = 0; x <= deltaX; x++)
+		{
+			dst[x] = clut[dst[x]];
+		}
+		dst += lineOffset;
+	}
 }
 
 void	CopyBlockShade( S32 x0, S32 y0, S32 x1, S32 y1, U8 *src,
