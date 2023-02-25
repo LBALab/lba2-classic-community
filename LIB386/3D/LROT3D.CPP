@@ -5,10 +5,6 @@
 extern "C" {
 #endif
 
-// -----------------------------------------------------------------------------
-#undef LongRotatePoint
-extern Func_LongRotatePoint *LongRotatePoint;
-
 void LongRotatePoint_C(TYPE_MAT *Mat, S32 x, S32 y, S32 z) {
 /*
 #ifdef __MSC_VER
