@@ -81,6 +81,8 @@ S32 RepMask = 0;
 S32 Fill_Z_Fog_Near = 0;     ///< Fog Range
 S32 Fill_Z_Fog_Far = 0;      ///< Fog Range
 U32 Fill_ZBuffer_Factor = 0; ///< normalizing factor for Z Buffer
+U32 Fill_Fog_Factor = 0;     ///< Fog Factor
+U32 Fill_ScaledFogNear = 0;  ///< Scaled Near Fog value
 U32 IsPolygonHidden = 0;     ///< normalizing factor for Z Buffer
 U32 ScreenPitch = 0;         ///< Screen Pitch
 PTR_U32 PTR_TabOffLine = NULL;  ///< Screen Pitch
@@ -99,8 +101,71 @@ void SetCLUT(U32 defaultline)
 
 void SetFog(S32 z_near, S32 z_far)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  /*
+; ╔══════════════════════════════════════════════════════════════════════════════════╗
+; ║ Set_Fog: Initialize the fog parameters                                           ║
+; ╟──────────────────────────────────────────────────────────────────────────────────╢
+; ║ Appel: EAX = Z near (at which the fog starts)                                    ║
+; ║        EBX = Z far (at which everything is under fog)                            ║
+; ║                                                                                  ║
+; ╚══════════════════════════════════════════════════════════════════════════════════╝
+
+SetFog			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			znear: DWORD, zfar:DWORD
+			mov eax, znear
+			mov ebx, zfar
+
+			pushad
+
+			test	ebx,ebx
+			jne	@@Ok1
+			mov	ebx,1
+@@Ok1:
+
+			mov	[Fill_Z_Fog_Near],eax
+			mov	[Fill_Z_Fog_Far],ebx
+
+			xor	eax,eax
+			mov	edx,1
+			div	ebx
+			mov	[Fill_ZBuffer_Factor],eax	; Pt_ZO = (Z*Fill_ZBuffer_Factor) SHR 16
+
+
+			imul	eax,[Fill_Z_Fog_Near]
+			shr	eax,16
+			mov	[Fill_ScaledFogNear],eax
+
+
+			mov	ebx,65535
+			sub	ebx,eax
+			test	ebx,ebx
+			jne	@@Ok2
+			mov	ebx,1
+@@Ok2:
+			mov	eax,256*65536
+			xor	edx,edx
+			div	ebx
+			mov	[Fill_Fog_Factor],eax		; Fog value= 0 if Zbuf<FogNear
+								;	   = (Zbuf-Near)*FogFactor SHR 20 if ZBuf>FogNear
+			popad
+			ret
+SetFog			ENDP
+  */
+    if (z_far == 0)
+        z_far = 1;
+
+    Fill_Z_Fog_Near = z_near;
+    Fill_Z_Fog_Far = z_far;
+
+    Fill_ZBuffer_Factor = 0x100000000 / z_far;
+    Fill_ScaledFogNear = (Fill_Z_Fog_Near * Fill_ZBuffer_Factor) >> 16;
+
+    U32 temp = 65535 - Fill_ScaledFogNear;
+    if (temp == 0)
+        temp = 1;
+
+    Fill_Fog_Factor = 256 * 65536 / temp;
 }
 
 // =============================================================================
