@@ -140,3 +140,15 @@ LongRotatePointF endp
 ;		The
 		END
 */
+
+#include <3D/ROT3D.H>
+#include <stdio.h>
+
+void LongRotatePointF(TYPE_MAT *Mat, S32 x, S32 y, S32 z)
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+Func_RotatePoint *RotatePoint = LongRotatePointF;
+Func_RotatePoint *RotatePointNoMMX = LongRotatePointF;
