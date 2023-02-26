@@ -1,21 +1,10 @@
-/*
-;----------------------------------------------------------------------------
-			.386
 
-			.MODEL	SMALL, C
+#include <SYSTEM/FASTCPY.H>
+#include <string.h>
 
-;----------------------------------------------------------------------------
-			.DATA
-
-			public	C	FastCopy
-			FastCopy	dd	offset FastCopyF
-
-;----------------------------------------------------------------------------
-			.CODE
-
-			public	C	FastCopyF
-
-;----------------------------------------------------------------------------
+void FastCopy(void *dst, void *src, U32 len)
+{
+	/*
 ;void	FastCopyF(void *dst, void *src, U32 len) ;
 
 ;#pragma aux FastCopyF	       	       	\
@@ -60,17 +49,7 @@ cpybyte:
 			ret
 
 FastCopyF		ENDP
+	*/
 
-;----------------------------------------------------------------------------
-;			The
-			End
-*/
-
-#include <SYSTEM/FASTCPY.H>
-#include <stdio.h>
-
-void FastCopy(void *dst, void *src, U32 len)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	memcpy(dst, src, len);
 }
