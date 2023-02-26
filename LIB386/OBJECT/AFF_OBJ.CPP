@@ -4234,408 +4234,6 @@ ByeBye::
 
 BodyDisplay		ENDP
 
-
-
-
-
-
-
-; ╔════════════════════════════════════════════════════════════════════════════╗
-; ║ ObjectDisplay: Affiche un objet animé                                      ║
-; ╟────────────────────────────────────────────────────────────────────────────╢
-; ║ Call: EAX = PTR on the object                                              ║
-; ║                                                                            ║
-; ║                                                                            ║
-; ╚════════════════════════════════════════════════════════════════════════════╝
-
-ObjectDisplay		PROC \
-			uses ebx ecx edx edi esi ebp, \
-			object: DWORD
-
-			mov eax, object
-
-
-			push	ebp
-			mov	ebp,eax			; EBP = PTR on object
-
-			mov	ebx,[eax].OBJ_3D.Texture	; Must we change the texture pointer ?
-			mov	edx,7FFFFFFFh
-
-			test	ebx,ebx
-			je	@@NoTextureChange
-			cmp	ebx,-1
-			jne	@@TextureChange
-@@NoTextureChange:
-			mov	[ScreenXMin],edx	; Init 2D box
-			mov	[ScreenYMin],edx
-
-			inc	edx			; edx = 80000000h
-			mov	edi,[TypeProj]
-
-			mov	[ScreenXMax],edx
-			mov	[ScreenYMax],edx
-
-			cmp	edi,TYPE_3D
-			mov	eax,[ebp].OBJ_3D.ObjX		; Get object's position
-
-			mov	ebx,[ebp].OBJ_3D.ObjY		; in world space
-			mov	ecx,[ebp].OBJ_3D.ObjZ
-
-			jne	@@Init_Iso		; Calc object position
-							; in camera space
-			mov	esi,Offset MatriceWorld
-			call	[LongRotatePoint]	; If perspective
-
-			mov	eax,[X0]
-			mov	ebx,[Y0]
-
-			mov	ecx,[Z0]
-@@Init_Iso:
-			mov	edi,[CameraXr]
-
-			sub	eax,edi
-			mov	edi,[CameraYr]
-
-			sub	ebx,edi
-			mov	edi,[CameraZr]
-
-			sub	ecx,edi
-			mov	[PosXWr],eax		; Object world position
-
-			mov	[PosYWr],ebx
-			mov	[PosZWr],ecx
-
-			mov	esi,[ebp].OBJ_3D.Body		; Get either body's number or body's ptr
-			mov	eax,[TransFctBody]
-
-			test	eax,eax			; Convert it to a ptr
-			je	@@NoConversion
-
-			push	esi
-			call	TransFctBody
-			mov	esi, eax
-			add	esp, 4
-@@NoConversion:
-
-; ┌─────────────────────────────────────────────────────────────────┐
-; │                                                                 │
-; │                          GEOMETRY                               │
-; │                                                                 │
-; └─────────────────────────────────────────────────────────────────┘
-							; ESI = Body's Ptr
-			mov	[lBody],esi
-			lea	ecx,[ebp-Size GROUP_INFO].OBJ_3D.CurrentFrame
-
-			mov	[ListGroupAnim],ecx
-			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Off_Points
-
-			add	eax,esi
-			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Off_Normales
-
-			mov	[PtrPoints],eax
-			add	ebx,esi
-
-			mov	[PtrNormales],ebx
-			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Off_NormFaces
-
-			add	eax,esi
-			mov	ebx,Offset Obj_ListRotatedPoints
-
-			mov	[PtrNormFaces],eax
-			mov	[PtrRotPoints],ebx
-
-			mov	eax,Offset ListLights
-			mov	ecx,[esi].STRUC_OBJ_HEADER.Obj_Nb_Points
-
-			mov	[PtrListLights],eax
-			add	ecx,ecx				; Skip vertex light
-
-			add	eax,ecx				; to calculate the offset of face-lights
-			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Nb_Groupes
-
-			mov	[PtrListLightsFaces],eax
-			mov	[NbGroupes],ebx
-
-			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Off_Groupes
-			mov	edi,offset TabMat		; Target Matrix
-
-			add	ebx,esi
-			mov	esi,offset MatriceWorld		; Source Matrix
-
-			mov	[PtrGroupes],ebx
-			xor	eax,eax
-
-			mov	[Current_Matrix],edi
-			mov	[TransX],eax
-
-			mov	[TransY],eax
-			mov	[TransZ],eax
-
-			mov	eax,[ebp].OBJ_3D.ObjAlpha
-			mov	ebx,[ebp].OBJ_3D.ObjBeta
-
-			mov	ecx,[ebp].OBJ_3D.ObjGamma
-			jmp	@@Apply_Rotation
-
-			ALIGN	4
-@@Next_Group:
-			add	ebx,Size STRUC_OBJ_GROUPE
-			mov	[NbGroupes],eax
-
-			mov	[PtrGroupes],ebx
-			mov	ebp,[ListGroupAnim]
-
-			mov	esi,dword ptr [ebx].STRUC_OBJ_GROUPE.Obj_OrgGroupe; OrgGroup | OrgPt
-			add	ebp,Size GROUP_INFO
-
-			mov	ebx,esi
-			and	esi,0FFFFh		; OrgMatrix
-
-			shr	ebx,16			; EBX = OrgPt
-			mov	[ListGroupAnim],ebp
-
-			mov	esi,[Table_Matrix+esi*4]
-			mov	edi,[Current_Matrix]
-
-			mov	eax,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PX
-			mov	edx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
-
-			mov	ebx,eax			; Get father's position
-			add	edi,SIZE_MATRICE
-
-			shl	eax,16
-			mov	[Current_Matrix],edi
-
-			sar	eax,16
-			mov	ecx,dword ptr [ebp].GROUP_INFO.GroupBeta
-
-			sar	ebx,16
-			mov	[TransX],eax
-
-			shl	edx,16
-			mov	eax,dword ptr [ebp].GROUP_INFO.GroupType
-
-			sar	edx,16
-			mov	[TransY],ebx
-
-			mov	ebx,ecx
-
-			shl	ebx,16
-			mov	[TransZ],edx
-
-			sar	ebx,16
-			mov	ebp,eax
-
-			sar	eax,16
-
-			sar	ecx,16
-
-			test	ebp,TYPE_TRANSLATE
-			je	@@Apply_Rotation
-@@Apply_Translation:
-			push	esi
-			push	edi
-
-			call	[RotatePoint]
-
-			mov	edi,[esp]
-			mov	esi,[esp+4]
-
-			call	[CopyMatrix]
-
-			mov	eax,[X0]
-			mov	edx,[TransX]
-
-			add	eax,edx
-			mov	ebx,[Y0]
-
-			mov	edx,[TransY]
-			mov	ecx,[Z0]
-
-			add	ebx,edx
-			pop	edi
-
-			mov	edx,[TransZ]
-			pop	esi
-
-			add	ecx,edx
-			push	Offset @@Transform
-
-			mov	ebp,[PtrGroupes]
-			jmp	[InitMatrixTrans]
-
-@@Apply_Rotation:
-			call	[RotateMatrix]		; Target=Source*Rot
-
-			mov	eax,[TransX]
-			mov	ebx,[TransY]
-
-			mov	ecx,[TransZ]
-			mov	edi,[Current_Matrix]	; EDI = Current Matrix
-
-			mov	ebp,[PtrGroupes]
-			call	[InitMatrixTrans]
-@@Transform:
-			; *****************
-			; *** TRANSFORM ***
-			; *****************
-
-			mov	ecx,dword ptr [ebp].STRUC_OBJ_GROUPE.Obj_NbPts
-			mov	esi,[PtrPoints]
-
-			push	ecx			; Save NbNFaces || NbPts
-			mov	edi,[PtrRotPoints]
-
-			and	ecx,0FFFFh		; ECX = Nb Pts in group
-			mov	ebx,[Current_Matrix]	; EBX = Current Matrix
-
-			call	[RotTransList]		; Transformation
-
-			mov	ecx,[esp]		; This piece of code
-			mov	edi,[PtrRotPoints]	; just to adjust esi and edi
-
-			and	ecx,0FFFFh
-			mov	esi,[PtrPoints]
-
-			shl	ecx,3
-			mov	ebx,[Current_Matrix]	; EBX = Current Matrix
-
-			add	esi,ecx
-			add	edi,ecx
-
-			mov	[PtrRotPoints],edi
-			mov	[PtrPoints],esi
-
-
-
-			; *****************
-			; *** LIGHTING  ***
-			; *****************
-
-						; *** Calculate the intensities ***
-
-			mov	ecx,[esp]		; Restore Nb Pts
-			mov	esi,[PtrNormales]
-
-			and	ecx,0FFFFh
-			mov	edi,[PtrListLights]
-
-			call	[LightList]
-
-			mov	edx,[esp]		; Pointer adjustment...
-			mov	esi,[PtrNormales]
-
-			and	edx,0FFFFh
-			mov	edi,[PtrListLights]
-
-			pop	ecx
-
-			shr	ecx,16			; Get Nb Norm Faces
-			lea	esi,[esi+edx*8]
-
-			lea	edi,[edi+edx*2]
-			mov	[PtrNormales],esi
-
-			mov	[PtrListLights],edi
-			je	@@No_NormFaces		; Skip this part if nothing to do ;)
-
-			mov	ebx,[Current_Matrix]	; EBX = Current Matrix
-			mov	esi,[PtrNormFaces]
-
-			mov	edi,[PtrListLightsFaces]
-			push	ecx
-
-			call	[LightList]
-
-			pop	ecx
-			mov	edi,[PtrListLightsFaces]
-
-			mov	esi,[PtrNormFaces]
-			add	edi,ecx
-
-			lea	esi,[esi+ecx*8]		; AGI
-			add	edi,ecx
-
-			mov	[PtrNormFaces],esi
-			mov	[PtrListLightsFaces],edi
-
-@@No_NormFaces:
-			mov	eax,[NbGroupes]
-			mov	ebx,[PtrGroupes]
-
-			dec	eax
-			jne	@@Next_Group
-
-
-			; ******************
-			; *** PROJECTION ***
-			; ******************
-
-			mov	ebp,[lBody]
-
-			xor	eax,eax
-			mov	esi,[PosZWr]
-
-			sub	eax,esi			; OrgZ=-PosZWr
-			mov	esi,[PosYWr]
-
-			push	eax			; Push OrgZ
-			xor	eax,eax
-
-			sub	eax,esi			; OrgY=-PosYWr
-			mov	esi,[PosXWr]
-
-			push	eax			; Push OrgY
-			xor	eax,eax
-
-			sub	eax,esi			; OrgX=-PosXWr
-			mov	esi,Offset Obj_ListRotatedPoints
-
-			push	eax			; Push OrgX
-			mov	edi,Offset Obj_ListProjectedPoints
-
-			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Points
-			call	[ProjectList]		; Projection
-
-			add	esp,3*4			; Pop parameters
-
-
-							; Is the object visible?
-			mov	eax,[ScreenXMin]
-			mov	ebx,[ClipXMax]
-
-			cmp	eax,ebx
-			jg	ByeBye
-
-			mov	eax,[ScreenYMin]
-			mov	ebx,[ClipYMax]
-
-			cmp	eax,ebx
-			jg	ByeBye
-
-			mov	eax,[ScreenXMax]
-			mov	ebx,[ClipXMin]
-
-			cmp	eax,ebx
-			jl	ByeBye
-
-			mov	eax,[ScreenYMax]
-			mov	ebx,[ClipYMin]
-
-			cmp	eax,ebx
-			jnl	EntityCreation
-
-			jmp	ByeBye
-
-			ALIGN	4
-@@TextureChange:
-			mov	[ObjPtrMap],ebx
-			jmp	@@NoTextureChange
-ObjectDisplay		ENDP
-
-
-
-
 ; ╔════════════════════════════════════════════════════════════════════════════╗
 ; ║ BodyDisplay_AlphaBeta: Display a non-animated object (rotation Alp*Bet*Gam)║
 ; ╟────────────────────────────────────────────────────────────────────────────╢
@@ -5037,18 +4635,626 @@ _TEXT			ENDS
 */
 
 #include <OBJECT/AFF_OBJ.H>
+
+#include <SVGA/SCREENXY.H>
+#include <3D/CAMERA.H>
+#include <3D/PROJ.H>
+#include <3D/ROT3D.H>
+#include <3D/LROT3D.H>
+#include <3D/ROTMAT.H>
+#include <3D/IMATTRA.H>
+#include <3D/ROTRALIS.H>
+#include <3D/LITLISTF.H>
+#include <3D/COPYMAT.H>
+
 #include <stdio.h>
 
 #define MAX_NB_POINTS 550
+#define MAX_NB_POLYS 550
+#define MAX_NB_GROUPES 30
+#define SIZE_MATRICE (sizeof(S16) * 15)
+
+typedef struct {
+  U64 OrgGroupe;
+  U64 OrgPoint;
+  U64 NbPts;
+  U64 NbNorm;
+} T_OBJ_GROUPE;
 
 U8 *ObjPtrMap = 0;
 T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
-Func_TransNumPtr *TransFctBody = NULL;
+
+// Ptr of the object
+T_BODY_HEADER *lBody = NULL;
+
+T_GROUP_INFO *ListGroupAnim = NULL; // Current frame anim info
+TYPE_VT16 *PtrPoints = NULL; // Current point pointer
+TYPE_VT16 *PtrNormales = NULL; // Current normals pointer
+PTR_U8 PtrNormFaces = 0; // Current norm-faces pointer
+TYPE_VT16 *PtrRotPoints = NULL; // Current rotated points pointer
+PTR_U64 PtrListLights = NULL; // Current lights pointer
+PTR_U64 PtrListLightsFaces = NULL; // Current light-faces pointer
+U32 NbGroupes = 0; // Nb of groups in object
+T_OBJ_GROUPE *PtrGroupes = 0; // Pointer on groups definition
+TYPE_MAT *Current_Matrix = NULL; // Pointer on current matrix
+Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that converts a body number into its address
+
+// Light list
+U64 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
+
+// Object position in world space
+S32 PosXWr = 0;
+S32 PosYWr = 0;
+S32 PosZWr = 0;
+
+// Temporary translation components
+S32 TransX = 0;
+S32 TransY = 0;
+S32 TransZ = 0;
+
+// Matrix list
+TYPE_MAT TabMat[MAX_NB_GROUPES];
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {
+	/*
+; ╔════════════════════════════════════════════════════════════════════════════╗
+; ║ ObjectDisplay: Affiche un objet animé                                      ║
+; ╟────────────────────────────────────────────────────────────────────────────╢
+; ║ Call: EAX = PTR on the object                                              ║
+; ║                                                                            ║
+; ║                                                                            ║
+; ╚════════════════════════════════════════════════════════════════════════════╝
+
+
+ObjectDisplay		PROC \
+			uses ebx ecx edx edi esi ebp, \
+			object: DWORD
+
+			mov eax, object
+
+
+			push	ebp
+			mov	ebp,eax			; EBP = PTR on object
+
+			mov	ebx,[eax].OBJ_3D.Texture	; Must we change the texture pointer ?
+			mov	edx,7FFFFFFFh
+
+			test	ebx,ebx
+			je	@@NoTextureChange
+			cmp	ebx,-1
+			jne	@@TextureChange
+@@NoTextureChange:
+			mov	[ScreenXMin],edx	; Init 2D box
+			mov	[ScreenYMin],edx
+
+			inc	edx			; edx = 80000000h
+			mov	edi,[TypeProj]
+
+			mov	[ScreenXMax],edx
+			mov	[ScreenYMax],edx
+
+			cmp	edi,TYPE_3D
+			mov	eax,[ebp].OBJ_3D.ObjX		; Get object's position
+
+			mov	ebx,[ebp].OBJ_3D.ObjY		; in world space
+			mov	ecx,[ebp].OBJ_3D.ObjZ
+
+			jne	@@Init_Iso		; Calc object position
+							; in camera space
+			mov	esi,Offset MatriceWorld
+			call	[LongRotatePoint]	; If perspective
+
+			mov	eax,[X0]
+			mov	ebx,[Y0]
+
+			mov	ecx,[Z0]
+@@Init_Iso:
+			mov	edi,[CameraXr]
+
+			sub	eax,edi
+			mov	edi,[CameraYr]
+
+			sub	ebx,edi
+			mov	edi,[CameraZr]
+
+			sub	ecx,edi
+			mov	[PosXWr],eax		; Object world position
+
+			mov	[PosYWr],ebx
+			mov	[PosZWr],ecx
+
+			mov	esi,[ebp].OBJ_3D.Body		; Get either body's number or body's ptr
+			mov	eax,[TransFctBody]
+
+			test	eax,eax			; Convert it to a ptr
+			je	@@NoConversion
+
+			push	esi
+			call	TransFctBody
+			mov	esi, eax
+			add	esp, 4
+@@NoConversion:
+
+; ┌─────────────────────────────────────────────────────────────────┐
+; │                                                                 │
+; │                          GEOMETRY                               │
+; │                                                                 │
+; └─────────────────────────────────────────────────────────────────┘
+							; ESI = Body's Ptr
+			mov	[lBody],esi
+			lea	ecx,[ebp-Size GROUP_INFO].OBJ_3D.CurrentFrame
+
+			mov	[ListGroupAnim],ecx
+			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Off_Points
+
+			add	eax,esi
+			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Off_Normales
+
+			mov	[PtrPoints],eax
+			add	ebx,esi
+
+			mov	[PtrNormales],ebx
+			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Off_NormFaces
+
+			add	eax,esi
+			mov	ebx,Offset Obj_ListRotatedPoints
+
+			mov	[PtrNormFaces],eax
+			mov	[PtrRotPoints],ebx
+
+			mov	eax,Offset ListLights
+			mov	ecx,[esi].STRUC_OBJ_HEADER.Obj_Nb_Points
+
+			mov	[PtrListLights],eax
+			add	ecx,ecx				; Skip vertex light
+
+			add	eax,ecx				; to calculate the offset of face-lights
+			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Nb_Groupes
+
+			mov	[PtrListLightsFaces],eax
+			mov	[NbGroupes],ebx
+
+			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Off_Groupes
+			mov	edi,offset TabMat		; Target Matrix
+
+			add	ebx,esi
+			mov	esi,offset MatriceWorld		; Source Matrix
+
+			mov	[PtrGroupes],ebx
+			xor	eax,eax
+
+			mov	[Current_Matrix],edi
+			mov	[TransX],eax
+
+			mov	[TransY],eax
+			mov	[TransZ],eax
+
+			mov	eax,[ebp].OBJ_3D.ObjAlpha
+			mov	ebx,[ebp].OBJ_3D.ObjBeta
+
+			mov	ecx,[ebp].OBJ_3D.ObjGamma
+			jmp	@@Apply_Rotation
+
+			ALIGN	4
+@@Next_Group:
+			add	ebx,Size STRUC_OBJ_GROUPE
+			mov	[NbGroupes],eax
+
+			mov	[PtrGroupes],ebx
+			mov	ebp,[ListGroupAnim]
+
+			mov	esi,dword ptr [ebx].STRUC_OBJ_GROUPE.Obj_OrgGroupe; OrgGroup | OrgPt
+			add	ebp,Size GROUP_INFO
+
+			mov	ebx,esi
+			and	esi,0FFFFh		; OrgMatrix
+
+			shr	ebx,16			; EBX = OrgPt
+			mov	[ListGroupAnim],ebp
+
+			mov	esi,[Table_Matrix+esi*4]
+			mov	edi,[Current_Matrix]
+
+			mov	eax,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PX
+			mov	edx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+
+			mov	ebx,eax			; Get father's position
+			add	edi,SIZE_MATRICE
+
+			shl	eax,16
+			mov	[Current_Matrix],edi
+
+			sar	eax,16
+			mov	ecx,dword ptr [ebp].GROUP_INFO.GroupBeta
+
+			sar	ebx,16
+			mov	[TransX],eax
+
+			shl	edx,16
+			mov	eax,dword ptr [ebp].GROUP_INFO.GroupType
+
+			sar	edx,16
+			mov	[TransY],ebx
+
+			mov	ebx,ecx
+
+			shl	ebx,16
+			mov	[TransZ],edx
+
+			sar	ebx,16
+			mov	ebp,eax
+
+			sar	eax,16
+
+			sar	ecx,16
+
+			test	ebp,TYPE_TRANSLATE
+			je	@@Apply_Rotation
+@@Apply_Translation:
+			push	esi
+			push	edi
+
+			call	[RotatePoint]
+
+			mov	edi,[esp]
+			mov	esi,[esp+4]
+
+			call	[CopyMatrix]
+
+			mov	eax,[X0]
+			mov	edx,[TransX]
+
+			add	eax,edx
+			mov	ebx,[Y0]
+
+			mov	edx,[TransY]
+			mov	ecx,[Z0]
+
+			add	ebx,edx
+			pop	edi
+
+			mov	edx,[TransZ]
+			pop	esi
+
+			add	ecx,edx
+			push	Offset @@Transform
+
+			mov	ebp,[PtrGroupes]
+			jmp	[InitMatrixTrans]
+
+@@Apply_Rotation:
+			call	[RotateMatrix]		; Target=Source*Rot
+
+			mov	eax,[TransX]
+			mov	ebx,[TransY]
+
+			mov	ecx,[TransZ]
+			mov	edi,[Current_Matrix]	; EDI = Current Matrix
+
+			mov	ebp,[PtrGroupes]
+			call	[InitMatrixTrans]
+@@Transform:
+			; *****************
+			; *** TRANSFORM ***
+			; *****************
+
+			mov	ecx,dword ptr [ebp].STRUC_OBJ_GROUPE.Obj_NbPts
+			mov	esi,[PtrPoints]
+
+			push	ecx			; Save NbNFaces || NbPts
+			mov	edi,[PtrRotPoints]
+
+			and	ecx,0FFFFh		; ECX = Nb Pts in group
+			mov	ebx,[Current_Matrix]	; EBX = Current Matrix
+
+			call	[RotTransList]		; Transformation
+
+			mov	ecx,[esp]		; This piece of code
+			mov	edi,[PtrRotPoints]	; just to adjust esi and edi
+
+			and	ecx,0FFFFh
+			mov	esi,[PtrPoints]
+
+			shl	ecx,3
+			mov	ebx,[Current_Matrix]	; EBX = Current Matrix
+
+			add	esi,ecx
+			add	edi,ecx
+
+			mov	[PtrRotPoints],edi
+			mov	[PtrPoints],esi
+
+
+
+			; *****************
+			; *** LIGHTING  ***
+			; *****************
+
+						; *** Calculate the intensities ***
+
+			mov	ecx,[esp]		; Restore Nb Pts
+			mov	esi,[PtrNormales]
+
+			and	ecx,0FFFFh
+			mov	edi,[PtrListLights]
+
+			call	[LightList]
+
+			mov	edx,[esp]		; Pointer adjustment...
+			mov	esi,[PtrNormales]
+
+			and	edx,0FFFFh
+			mov	edi,[PtrListLights]
+
+			pop	ecx
+
+			shr	ecx,16			; Get Nb Norm Faces
+			lea	esi,[esi+edx*8]
+
+			lea	edi,[edi+edx*2]
+			mov	[PtrNormales],esi
+
+			mov	[PtrListLights],edi
+			je	@@No_NormFaces		; Skip this part if nothing to do ;)
+
+			mov	ebx,[Current_Matrix]	; EBX = Current Matrix
+			mov	esi,[PtrNormFaces]
+
+			mov	edi,[PtrListLightsFaces]
+			push	ecx
+
+			call	[LightList]
+
+			pop	ecx
+			mov	edi,[PtrListLightsFaces]
+
+			mov	esi,[PtrNormFaces]
+			add	edi,ecx
+
+			lea	esi,[esi+ecx*8]		; AGI
+			add	edi,ecx
+
+			mov	[PtrNormFaces],esi
+			mov	[PtrListLightsFaces],edi
+
+@@No_NormFaces:
+			mov	eax,[NbGroupes]
+			mov	ebx,[PtrGroupes]
+
+			dec	eax
+			jne	@@Next_Group
+
+
+			; ******************
+			; *** PROJECTION ***
+			; ******************
+
+			mov	ebp,[lBody]
+
+			xor	eax,eax
+			mov	esi,[PosZWr]
+
+			sub	eax,esi			; OrgZ=-PosZWr
+			mov	esi,[PosYWr]
+
+			push	eax			; Push OrgZ
+			xor	eax,eax
+
+			sub	eax,esi			; OrgY=-PosYWr
+			mov	esi,[PosXWr]
+
+			push	eax			; Push OrgY
+			xor	eax,eax
+
+			sub	eax,esi			; OrgX=-PosXWr
+			mov	esi,Offset Obj_ListRotatedPoints
+
+			push	eax			; Push OrgX
+			mov	edi,Offset Obj_ListProjectedPoints
+
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Points
+			call	[ProjectList]		; Projection
+
+			add	esp,3*4			; Pop parameters
+
+
+							; Is the object visible?
+			mov	eax,[ScreenXMin]
+			mov	ebx,[ClipXMax]
+
+			cmp	eax,ebx
+			jg	ByeBye
+
+			mov	eax,[ScreenYMin]
+			mov	ebx,[ClipYMax]
+
+			cmp	eax,ebx
+			jg	ByeBye
+
+			mov	eax,[ScreenXMax]
+			mov	ebx,[ClipXMin]
+
+			cmp	eax,ebx
+			jl	ByeBye
+
+			mov	eax,[ScreenYMax]
+			mov	ebx,[ClipYMin]
+
+			cmp	eax,ebx
+			jnl	EntityCreation
+
+			jmp	ByeBye
+
+			ALIGN	4
+@@TextureChange:
+			mov	[ObjPtrMap],ebx
+			jmp	@@NoTextureChange
+ObjectDisplay		ENDP
+	*/
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+
+	// Must we change the texture pointer ?
+	if (obj->Texture != NULL && obj->Texture != (void *)-1)
+	{
+		ObjPtrMap = (U8 *)obj->Texture;
+	}
+
+	// Init 2D box
+	ScreenXMin = 0x7FFFFFFF;
+	ScreenYMin = 0x7FFFFFFF;
+
+	ScreenXMax = 0x80000000;
+	ScreenYMax = 0x80000000;
+
+	S32 x = obj->X;
+	S32 y = obj->Y;
+	S32 z = obj->Z;
+
+	if (TypeProj == TYPE_3D)
+	{
+		LongRotatePoint(&MatriceWorld, x, y, z);
+
+		x = X0;
+		y = Y0;
+		z = Z0;
+	}
+
+	x -= CameraXr;
+	y -= CameraYr;
+	z -= CameraZr;
+
+	// Object world position
+	PosXWr = x;
+	PosYWr = y;
+	PosZWr = z;
+
+	// Get either body's number or body's ptr
+	void *body = obj->Body.Ptr;
+
+	// Convert it to a ptr
+	if (TransFctBody != NULL)
+	{
+		body = TransFctBody(obj->Body.Num);
+	}
+
+// ┌─────────────────────────────────────────────────────────────────┐
+// │                                                                 │
+// │                          GEOMETRY                               │
+// │                                                                 │
+// └─────────────────────────────────────────────────────────────────┘
+
+	lBody = (T_BODY_HEADER *)body;
+	ListGroupAnim = obj->CurrentFrame;
+	PtrPoints = (TYPE_VT16 *)lBody + lBody->OffPoints;
+	PtrNormales = (TYPE_VT16 *)lBody + lBody->OffNormales;
+	PtrNormFaces = (U8 *)lBody + lBody->OffNormFaces;
+	PtrListLights = ListLights;
+
+	// Skip vertex light
+	// to calculate the offset of face-lights
+	PtrListLightsFaces = ListLights + lBody->NbPoints * 2;
+	NbGroupes = lBody->NbGroupes;
+
+	PtrGroupes = (T_OBJ_GROUPE *)lBody + lBody->OffGroupes;
+	Current_Matrix = TabMat;
+
+	TransX = 0;
+	TransY = 0;
+	TransZ = 0;
+
+// ;void	RotateMatrixU(S32 *MatDst, S32 *MatSrc, S32 alpha, S32 beta, S32 gamma) ;
+
+// ;#pragma aux RotateMatrixU				\
+// ;	parm		[edi] [esi] [eax] [ebx] [ecx]
+
+	RotateMatrix(Current_Matrix, &MatriceWorld,
+							obj->Alpha, obj->Beta, obj->Gamma);
+
+	InitMatrixTrans(Current_Matrix, TransX, TransY, TransZ);
+
+	// *****************
+	// *** TRANSFORM ***
+	// *****************
+
+// ;void	RotTransListF(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
+
+// ;#pragma aux RotTransListF			\
+// ;	parm 		[ebx] [edi] [esi] [ecx]	\
+
+	RotTransList(Current_Matrix, PtrRotPoints, PtrPoints,
+							lBody->NbPoints & 0xFFFF);
+
+	PtrRotPoints = PtrRotPoints + (lBody->NbPoints & 0xFFFF);
+	PtrPoints = PtrPoints + (lBody->NbPoints & 0xFFFF);
+
+	// *****************
+	// *** LIGHTING  ***
+	// *****************
+
+	// *** Calculate the intensities ***
+
+//;void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
+// ;	parm 	[ebx] [edi] [esi] [ecx]	\
+
+	LightList(Current_Matrix, (S32 *)PtrListLights,
+						(S32 *)PtrNormales, lBody->NbPoints & 0xFFFF);
+
+	PtrNormales = PtrNormales + (lBody->NbPoints & 0xFFFF);
+	PtrListLights = PtrListLights + (lBody->NbPoints & 0xFFFF);
+
+	if (lBody->NbNormFaces != 0)
+	{
+		LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
+						(S32 *)PtrNormFaces, lBody->NbNormFaces /* >> 16 ???*/);
+
+		PtrNormFaces = PtrNormFaces + (lBody->NbNormFaces /* >> 16 ???*/);
+		PtrListLightsFaces = PtrListLightsFaces + (lBody->NbNormFaces /* >> 16 ???*/);
+	}
+
+/*
+	mov	eax,[NbGroupes]
+	mov	ebx,[PtrGroupes]
+
+	dec	eax
+*/
+	while (NbGroupes > 1)
+	{
+		NbGroupes--;
+		PtrGroupes = PtrGroupes + 1; //sizeof(T_OBJ_GROUPE);
+		ListGroupAnim = ListGroupAnim + 1; //sizeof(T_GROUP_INFO);
+
+		Current_Matrix = Current_Matrix + 1;
+
+		U64 groupe = PtrGroupes->OrgGroupe >> 16;
+		T_OBJ_POINT *point = &Obj_ListRotatedPoints[groupe];
+
+		TransX = point->X;
+		TransY = point->Y;
+		TransZ = point->Z;
+
+		TYPE_MAT *mat = &TabMat[PtrGroupes->OrgGroupe];
+
+		if (ListGroupAnim->Type == TYPE_TRANSLATE)
+		{
+			// 	parm caller	[esi] [eax] [ebx] [ecx]
+			RotatePoint(mat, ListGroupAnim->Alpha,
+									ListGroupAnim->Beta, ListGroupAnim->Gamma);
+
+			CopyMatrix(mat, Current_Matrix);
+
+// ;void	InitMatrixTransF(S32 *MatDst, S32 tx, S32 ty, S32 tz) ;
+
+// ;#pragma aux InitMatrixTransF	"*"		\
+// ;	parm		[edi] [eax] [ebx] [ecx]	\
+
+			InitMatrixTrans(Current_Matrix, X0 + TransX,
+									Y0 + TransY, Z0 + TransZ);
+		}
+	}
+
+
 	return 0;
 }
 
