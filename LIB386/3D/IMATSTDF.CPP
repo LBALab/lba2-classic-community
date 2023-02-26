@@ -50,6 +50,7 @@ M(Finale) = {M(Alpha)*M(Gamma)}*M(Beta)
 */
 
 #include <3D/IMATSTD.H>
+#include <stdio.h>
 
 void InitMatrixStdF(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma)
 {
@@ -194,7 +195,8 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 
 InitMatrixStdF	ENDP
 */
-
+	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 Func_InitMatrix *InitMatrixStd = InitMatrixStdF;

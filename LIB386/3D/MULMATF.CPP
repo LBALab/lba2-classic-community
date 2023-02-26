@@ -150,3 +150,16 @@ MulMatrixF	ENDP
 ;		The
 		END
 */
+
+#include <3D/MULMAT.H>
+#include <stdio.h>
+
+void MulMatrixF(TYPE_MAT *MatDst, TYPE_MAT *MatSrc1, TYPE_MAT *MatSrc2)
+{
+	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+// -----------------------------------------------------------------------------
+Func_MulMatrix *MulMatrix = MulMatrixF; ///< Do Not call from C
+
