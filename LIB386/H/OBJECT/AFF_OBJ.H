@@ -47,12 +47,12 @@ typedef struct {
   U32 LastOfsIsPtr;
 
   S32 LastFrame;
-  U32 LastOfsFrame;
+  PTR_U32 LastOfsFrame;
   U32 LastTimer; // last TimerRef
   U32 LastNbGroups;
 
   S32 NextFrame;
-  U32 NextOfsFrame;
+  PTR_U32 NextOfsFrame;
   U32 NextTimer; // TimerRef when frame reached
   U32 NextNbGroups;
 
