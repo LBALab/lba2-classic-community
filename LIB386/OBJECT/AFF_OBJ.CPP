@@ -4646,10 +4646,10 @@ _TEXT			ENDS
 #define SIZE_MATRICE (sizeof(S16) * 15)
 
 typedef struct {
-  U64 OrgGroupe;
-  U64 OrgPoint;
-  U64 NbPts;
-  U64 NbNorm;
+  U16 OrgGroupe;
+  U16 OrgPoint;
+  U16 NbPts;
+  U16 NbNorm;
 } T_OBJ_GROUPE;
 
 U8 *ObjPtrMap = 0;
@@ -4664,15 +4664,15 @@ TYPE_VT16 *PtrPoints = NULL; // Current point pointer
 TYPE_VT16 *PtrNormales = NULL; // Current normals pointer
 PTR_U8 PtrNormFaces = 0; // Current norm-faces pointer
 TYPE_VT16 *PtrRotPoints = NULL; // Current rotated points pointer
-PTR_U64 PtrListLights = NULL; // Current lights pointer
-PTR_U64 PtrListLightsFaces = NULL; // Current light-faces pointer
+PTR_U16 PtrListLights = NULL; // Current lights pointer
+PTR_U16 PtrListLightsFaces = NULL; // Current light-faces pointer
 U32 NbGroupes = 0; // Nb of groups in object
 T_OBJ_GROUPE *PtrGroupes = 0; // Pointer on groups definition
 TYPE_MAT *Current_Matrix = NULL; // Pointer on current matrix
 Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that converts a body number into its address
 
 // Light list
-U64 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
+U16 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
 
 // Object position in world space
 S32 PosXWr = 0;
@@ -5091,7 +5091,6 @@ ObjectDisplay		PROC \
 			jmp	@@NoTextureChange
 ObjectDisplay		ENDP
 	*/
-	// TODO: Revisit this code, it's a mess
 
 	// Must we change the texture pointer ?
 	if (obj->Texture != NULL && obj->Texture != (void *)-1)
@@ -5144,10 +5143,11 @@ ObjectDisplay		ENDP
 // └─────────────────────────────────────────────────────────────────┘
 
 	lBody = (T_BODY_HEADER *)body;
-	ListGroupAnim = obj->CurrentFrame;
-	PtrPoints = (TYPE_VT16 *)lBody + lBody->OffPoints;
-	PtrNormales = (TYPE_VT16 *)lBody + lBody->OffNormales;
+	ListGroupAnim = obj->CurrentFrame - sizeof(T_GROUP_INFO);
+	PtrPoints = (TYPE_VT16 *)((U8 *)lBody + lBody->OffPoints);
+	PtrNormales = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
 	PtrNormFaces = (U8 *)lBody + lBody->OffNormFaces;
+	PtrRotPoints = (TYPE_VT16 *)Obj_ListRotatedPoints;
 	PtrListLights = ListLights;
 
 	// Skip vertex light
@@ -5155,7 +5155,7 @@ ObjectDisplay		ENDP
 	PtrListLightsFaces = ListLights + lBody->NbPoints * 2;
 	NbGroupes = lBody->NbGroupes;
 
-	PtrGroupes = (T_OBJ_GROUPE *)lBody + lBody->OffGroupes;
+	PtrGroupes = (T_OBJ_GROUPE *)((U8 *)lBody + lBody->OffGroupes);
 	Current_Matrix = TabMat;
 
 	TransX = 0;
@@ -5181,14 +5181,14 @@ ObjectDisplay		ENDP
 // ;#pragma aux RotTransListF			\
 // ;	parm 		[ebx] [edi] [esi] [ecx]	\
 
-	U64 groupeNbPts = PtrGroupes->NbPts;
-	U64 groupeNbNorm = PtrGroupes->NbNorm;
+	U32 groupeNbPts = PtrGroupes->NbPts;
+	U32 groupeNbNorm = PtrGroupes->NbNorm;
 
 	RotTransList(Current_Matrix, PtrRotPoints, PtrPoints,
-							groupeNbPts & 0xFFFF);
+							groupeNbPts);
 
-	PtrRotPoints = PtrRotPoints + (groupeNbPts & 0xFFFF);
-	PtrPoints = PtrPoints + (groupeNbPts & 0xFFFF);
+	PtrRotPoints = (TYPE_VT16 *)((U8 *)PtrRotPoints + (groupeNbPts << 3));
+	PtrPoints = (TYPE_VT16 *)((U8 *)PtrPoints + (groupeNbPts << 3));
 
 	// *****************
 	// *** LIGHTING  ***
@@ -5200,18 +5200,18 @@ ObjectDisplay		ENDP
 // ;	parm 	[ebx] [edi] [esi] [ecx]	\
 
 	LightList(Current_Matrix, (S32 *)PtrListLights,
-						(S32 *)PtrNormales, groupeNbPts & 0xFFFF);
+						(S32 *)PtrNormales, groupeNbPts);
 
-	PtrNormales = PtrNormales + (groupeNbPts & 0xFFFF);
-	PtrListLights = PtrListLights + (groupeNbPts & 0xFFFF);
+	PtrNormales = (TYPE_VT16 *)((U8 *)PtrNormales + groupeNbPts * 8);
+	PtrListLights = (PTR_U16)((U8 *)PtrListLights + groupeNbPts * 2);
 
 	if (groupeNbNorm != 0)
 	{
 		LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
-						(S32 *)PtrNormFaces, groupeNbNorm /* >> 16 ???*/);
+						(S32 *)PtrNormFaces, groupeNbNorm);
 
-		PtrNormFaces = PtrNormFaces + (groupeNbNorm /* >> 16 ???*/);
-		PtrListLightsFaces = PtrListLightsFaces + (groupeNbNorm /* >> 16 ???*/);
+		PtrNormFaces = (PTR_U8)((U8 *)PtrNormFaces + groupeNbNorm * 8);
+		PtrListLightsFaces = (PTR_U16)((U8 *)PtrListLightsFaces + groupeNbNorm * 2);
 	}
 
 /*
@@ -5222,19 +5222,20 @@ ObjectDisplay		ENDP
 */
 	while (--NbGroupes > 1)
 	{
-		PtrGroupes = PtrGroupes + 1; //sizeof(T_OBJ_GROUPE);
-		ListGroupAnim = ListGroupAnim + 1; //sizeof(T_GROUP_INFO);
+		PtrGroupes = PtrGroupes + 1;
+		ListGroupAnim = ListGroupAnim + 1;
 
 		Current_Matrix = Current_Matrix + 1;
 
-		U64 groupe = PtrGroupes->OrgGroupe >> 16;
-		T_OBJ_POINT *point = &Obj_ListRotatedPoints[groupe];
+		U16 orgGroupe = PtrGroupes->OrgGroupe;
+		U16 orgPoint = PtrGroupes->OrgPoint;
 
+		T_OBJ_POINT *point = &Obj_ListRotatedPoints[orgPoint];
 		TransX = point->X;
 		TransY = point->Y;
 		TransZ = point->Z;
 
-		TYPE_MAT *mat = &TabMat[PtrGroupes->OrgGroupe];
+		TYPE_MAT *mat = &TabMat[orgGroupe];
 
 		if (ListGroupAnim->Type == TYPE_TRANSLATE)
 		{
@@ -5242,7 +5243,7 @@ ObjectDisplay		ENDP
 			RotatePoint(mat, ListGroupAnim->Alpha,
 									ListGroupAnim->Beta, ListGroupAnim->Gamma);
 
-			CopyMatrix(mat, Current_Matrix);
+			CopyMatrix(Current_Matrix, mat);
 
 // ;void	InitMatrixTransF(S32 *MatDst, S32 tx, S32 ty, S32 tz) ;
 
@@ -5254,7 +5255,7 @@ ObjectDisplay		ENDP
 		}
 		else
 		{
-			RotateMatrix(Current_Matrix, &MatriceWorld,
+			RotateMatrix(Current_Matrix, mat,
 									 obj->Alpha, obj->Beta, obj->Gamma);
 
 			InitMatrixTrans(Current_Matrix, TransX, TransY, TransZ);
@@ -5269,14 +5270,14 @@ ObjectDisplay		ENDP
 		// ;#pragma aux RotTransListF			\
 // ;	parm 		[ebx] [edi] [esi] [ecx]	\
 
-		U64 groupeNbPts = PtrGroupes->NbPts;
-		U64 groupeNbNorm = PtrGroupes->NbNorm;
+		U32 groupeNbPts = PtrGroupes->NbPts;
+		U32 groupeNbNorm = PtrGroupes->NbNorm;
 
 		RotTransList(Current_Matrix, PtrRotPoints, PtrPoints,
-								 groupeNbPts & 0xFFFF);
+								 groupeNbPts);
 
-		PtrRotPoints = PtrRotPoints + (groupeNbPts & 0xFFFF);
-		PtrPoints = PtrPoints + (groupeNbPts & 0xFFFF);
+		PtrRotPoints = (TYPE_VT16 *)((U8 *)PtrRotPoints + (groupeNbPts << 3));
+		PtrPoints = (TYPE_VT16 *)((U8 *)PtrPoints + (groupeNbPts << 3));
 
 		// *****************
 		// *** LIGHTING  ***
@@ -5288,18 +5289,18 @@ ObjectDisplay		ENDP
 		// ;	parm 	[ebx] [edi] [esi] [ecx]	\
 
 		LightList(Current_Matrix, (S32 *)PtrListLights,
-							(S32 *)PtrNormales, groupeNbPts & 0xFFFF);
+							(S32 *)PtrNormales, groupeNbPts);
 
-		PtrNormales = PtrNormales + (groupeNbPts & 0xFFFF);
-		PtrListLights = PtrListLights + (groupeNbPts & 0xFFFF);
+		PtrNormales = (TYPE_VT16 *)((U8 *)PtrNormales + groupeNbPts * 8);
+		PtrListLights = (PTR_U16)((U8 *)PtrListLights + groupeNbPts * 2);
 
 		if (groupeNbNorm != 0)
 		{
 			LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
-								(S32 *)PtrNormFaces, groupeNbNorm /* >> 16 ???*/);
+							(S32 *)PtrNormFaces, groupeNbNorm);
 
-			PtrNormFaces = PtrNormFaces + (groupeNbNorm /* >> 16 ???*/);
-			PtrListLightsFaces = PtrListLightsFaces + (groupeNbNorm /* >> 16 ???*/);
+			PtrNormFaces = (PTR_U8)((U8 *)PtrNormFaces + groupeNbNorm * 8);
+			PtrListLightsFaces = (PTR_U16)((U8 *)PtrListLightsFaces + groupeNbNorm * 2);
 		}
 	}
 
