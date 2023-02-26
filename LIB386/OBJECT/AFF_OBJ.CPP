@@ -5091,8 +5091,7 @@ ObjectDisplay		PROC \
 			jmp	@@NoTextureChange
 ObjectDisplay		ENDP
 	*/
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	// TODO: Revisit this code, it's a mess
 
 	// Must we change the texture pointer ?
 	if (obj->Texture != NULL && obj->Texture != (void *)-1)
