@@ -227,6 +227,13 @@ LightListF		ENDP
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The
 		END
-
-
 */
+
+#include <3D/LITLISTF.H>
+#include <stdio.h>
+
+void LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)
+{
+ // TODO: Implement
+ printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}

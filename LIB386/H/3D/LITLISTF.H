@@ -1,0 +1,20 @@
+#pragma once
+
+#include <SYSTEM/ADELINE_TYPES.H>
+#include <3D/DATAMAT.H>
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n);
+
+#pragma aux LightList	"*"		\
+	parm 	[ebx] [edi] [esi] [ecx]	\
+	modify	[eax ebx edx]
+
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif
