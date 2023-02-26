@@ -1,27 +1,9 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
+#include <3D/COPYMAT.H>
+#include <string.h>
 
-		.386p
-
-		.model SMALL, C
-
-		include MAT.INC
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.DATA
-
-		public	C	CopyMatrix
-
-		CopyMatrix	dd	offset CopyMatrixF
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-		public	C	CopyMatrixF
-
-;*══════════════════════════════════════════════════════════════════════════*
+void CopyMatrixF(TYPE_MAT *MatDst, TYPE_MAT *MatSrc)
+{
+	/*
 ;void	CopyMatrixF(S32 *MatDst, S32 *MatSrc) ;
 
 ;#pragma aux CopyMatrixF	"*"	\
@@ -53,8 +35,9 @@ CopyMatrixF	proc
 
 		ret
 CopyMatrixF	endp
+	*/
+	memcpy(MatDst, MatSrc, sizeof(TYPE_MAT));
+}
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+// -----------------------------------------------------------------------------
+Func_CopyFlipMatrix *CopyMatrix = CopyMatrixF; ///< Do Not call from C
