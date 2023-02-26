@@ -290,17 +290,6 @@ Local			@@NoZBuf
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 ; ╔════════════════════════════════════════════════════════════════════════════╗
 ; ║                                                                            ║
 ; ║  Les DATA                                                                  ║
@@ -4646,6 +4635,8 @@ _TEXT			ENDS
 #include <3D/ROTRALIS.H>
 #include <3D/LITLISTF.H>
 #include <3D/COPYMAT.H>
+#include <3D/LPROJ.H>
+#include <SVGA/CLIP.H>
 
 #include <stdio.h>
 
@@ -4663,6 +4654,7 @@ typedef struct {
 
 U8 *ObjPtrMap = 0;
 T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
+TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
 
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
@@ -4694,6 +4686,13 @@ S32 TransZ = 0;
 
 // Matrix list
 TYPE_MAT TabMat[MAX_NB_GROUPES];
+
+S32 EntityCreation()
+{
+	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {
@@ -5183,11 +5182,14 @@ ObjectDisplay		ENDP
 // ;#pragma aux RotTransListF			\
 // ;	parm 		[ebx] [edi] [esi] [ecx]	\
 
-	RotTransList(Current_Matrix, PtrRotPoints, PtrPoints,
-							lBody->NbPoints & 0xFFFF);
+	U64 groupeNbPts = PtrGroupes->NbPts;
+	U64 groupeNbNorm = PtrGroupes->NbNorm;
 
-	PtrRotPoints = PtrRotPoints + (lBody->NbPoints & 0xFFFF);
-	PtrPoints = PtrPoints + (lBody->NbPoints & 0xFFFF);
+	RotTransList(Current_Matrix, PtrRotPoints, PtrPoints,
+							groupeNbPts & 0xFFFF);
+
+	PtrRotPoints = PtrRotPoints + (groupeNbPts & 0xFFFF);
+	PtrPoints = PtrPoints + (groupeNbPts & 0xFFFF);
 
 	// *****************
 	// *** LIGHTING  ***
@@ -5199,18 +5201,18 @@ ObjectDisplay		ENDP
 // ;	parm 	[ebx] [edi] [esi] [ecx]	\
 
 	LightList(Current_Matrix, (S32 *)PtrListLights,
-						(S32 *)PtrNormales, lBody->NbPoints & 0xFFFF);
+						(S32 *)PtrNormales, groupeNbPts & 0xFFFF);
 
-	PtrNormales = PtrNormales + (lBody->NbPoints & 0xFFFF);
-	PtrListLights = PtrListLights + (lBody->NbPoints & 0xFFFF);
+	PtrNormales = PtrNormales + (groupeNbPts & 0xFFFF);
+	PtrListLights = PtrListLights + (groupeNbPts & 0xFFFF);
 
-	if (lBody->NbNormFaces != 0)
+	if (groupeNbNorm != 0)
 	{
 		LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
-						(S32 *)PtrNormFaces, lBody->NbNormFaces /* >> 16 ???*/);
+						(S32 *)PtrNormFaces, groupeNbNorm /* >> 16 ???*/);
 
-		PtrNormFaces = PtrNormFaces + (lBody->NbNormFaces /* >> 16 ???*/);
-		PtrListLightsFaces = PtrListLightsFaces + (lBody->NbNormFaces /* >> 16 ???*/);
+		PtrNormFaces = PtrNormFaces + (groupeNbNorm /* >> 16 ???*/);
+		PtrListLightsFaces = PtrListLightsFaces + (groupeNbNorm /* >> 16 ???*/);
 	}
 
 /*
@@ -5219,9 +5221,8 @@ ObjectDisplay		ENDP
 
 	dec	eax
 */
-	while (NbGroupes > 1)
+	while (--NbGroupes > 1)
 	{
-		NbGroupes--;
 		PtrGroupes = PtrGroupes + 1; //sizeof(T_OBJ_GROUPE);
 		ListGroupAnim = ListGroupAnim + 1; //sizeof(T_GROUP_INFO);
 
@@ -5250,12 +5251,80 @@ ObjectDisplay		ENDP
 // ;	parm		[edi] [eax] [ebx] [ecx]	\
 
 			InitMatrixTrans(Current_Matrix, X0 + TransX,
-									Y0 + TransY, Z0 + TransZ);
+											Y0 + TransY, Z0 + TransZ);
+		}
+		else
+		{
+			RotateMatrix(Current_Matrix, &MatriceWorld,
+									 obj->Alpha, obj->Beta, obj->Gamma);
+
+			InitMatrixTrans(Current_Matrix, TransX, TransY, TransZ);
+		}
+
+		// *****************
+		// *** TRANSFORM ***
+		// *****************
+
+		// ;void	RotTransListF(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
+
+		// ;#pragma aux RotTransListF			\
+// ;	parm 		[ebx] [edi] [esi] [ecx]	\
+
+		U64 groupeNbPts = PtrGroupes->NbPts;
+		U64 groupeNbNorm = PtrGroupes->NbNorm;
+
+		RotTransList(Current_Matrix, PtrRotPoints, PtrPoints,
+								 groupeNbPts & 0xFFFF);
+
+		PtrRotPoints = PtrRotPoints + (groupeNbPts & 0xFFFF);
+		PtrPoints = PtrPoints + (groupeNbPts & 0xFFFF);
+
+		// *****************
+		// *** LIGHTING  ***
+		// *****************
+
+		// *** Calculate the intensities ***
+
+		//;void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
+		// ;	parm 	[ebx] [edi] [esi] [ecx]	\
+
+		LightList(Current_Matrix, (S32 *)PtrListLights,
+							(S32 *)PtrNormales, groupeNbPts & 0xFFFF);
+
+		PtrNormales = PtrNormales + (groupeNbPts & 0xFFFF);
+		PtrListLights = PtrListLights + (groupeNbPts & 0xFFFF);
+
+		if (groupeNbNorm != 0)
+		{
+			LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
+								(S32 *)PtrNormFaces, groupeNbNorm /* >> 16 ???*/);
+
+			PtrNormFaces = PtrNormFaces + (groupeNbNorm /* >> 16 ???*/);
+			PtrListLightsFaces = PtrListLightsFaces + (groupeNbNorm /* >> 16 ???*/);
 		}
 	}
 
+	// ******************
+	// *** PROJECTION ***
+	// ******************
 
-	return 0;
+// ;void	ProjectList3DF(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
+
+// ;#pragma aux ProjectList3DF			\
+// ;	parm		[edi] [esi] [ecx]	\
+// ;	modify		[eax ebx edx]
+
+	ProjectList(Obj_ListProjectedPoints, (TYPE_VT16 *)Obj_ListRotatedPoints,
+							lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
+
+	// Is the object visible?
+	if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
+		ScreenXMax < ClipXMin || ScreenYMax < ClipYMin)
+	{
+		return 0;
+	}
+
+	return EntityCreation();
 }
 
 S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,

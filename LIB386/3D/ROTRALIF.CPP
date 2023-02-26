@@ -135,3 +135,17 @@ RotTransListF	endp
 ;		The
 		END
 */
+
+#include <3D/ROTRALIS.H>
+#include <stdio.h>
+
+void RotTransListF(TYPE_MAT *Mat, TYPE_VT16 *Dst, TYPE_VT16 *Src,
+                                S32 NbPoints)
+{
+	// TODO: Implement
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+// -----------------------------------------------------------------------------
+Func_RotTransList *RotTransList = RotTransListF;
+
