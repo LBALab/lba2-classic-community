@@ -1,27 +1,9 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+#include <3D/MULMAT.H>
 
-		.model SMALL, C
-
-		include MAT.INC
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.DATA
-
-		public	C	MulMatrix
-
-		MulMatrix	dd	offset MulMatrixF
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-		public	C	MulMatrixF
-
-;*══════════════════════════════════════════════════════════════════════════*
+void MulMatrixF(TYPE_MAT *MatDst, TYPE_MAT *MatSrc1, TYPE_MAT *MatSrc2)
+{
+	/*
 ;void	MulMAtrixF(S32 *MatDst, S32 *MatSrc1, S32* MatSrc2) ;
 
 ;#pragma aux MulMAtrixF		       		\
@@ -145,21 +127,24 @@ MulMatrixF	PROC
 
 		ret
 MulMatrixF	ENDP
+	*/
+    TYPE_MAT *m1 = MatSrc1;
+    TYPE_MAT *m2 = MatSrc2;
+    TYPE_MAT *m3 = MatDst;
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+    m3->F.M11 = m1->F.M11 * m2->F.M11 + m1->F.M12 * m2->F.M21 + m1->F.M13 * m2->F.M31;
+    m3->F.M12 = m1->F.M11 * m2->F.M12 + m1->F.M12 * m2->F.M22 + m1->F.M13 * m2->F.M32;
+    m3->F.M13 = m1->F.M11 * m2->F.M13 + m1->F.M12 * m2->F.M23 + m1->F.M13 * m2->F.M33;
 
-#include <3D/MULMAT.H>
-#include <stdio.h>
+    m3->F.M21 = m1->F.M21 * m2->F.M11 + m1->F.M22 * m2->F.M21 + m1->F.M23 * m2->F.M31;
+    m3->F.M22 = m1->F.M21 * m2->F.M12 + m1->F.M22 * m2->F.M22 + m1->F.M23 * m2->F.M32;
+    m3->F.M23 = m1->F.M21 * m2->F.M13 + m1->F.M22 * m2->F.M23 + m1->F.M23 * m2->F.M33;
 
-void MulMatrixF(TYPE_MAT *MatDst, TYPE_MAT *MatSrc1, TYPE_MAT *MatSrc2)
-{
-	// TODO: Implement
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+    m3->F.M31 = m1->F.M31 * m2->F.M11 + m1->F.M32 * m2->F.M21 + m1->F.M33 * m2->F.M31;
+    m3->F.M32 = m1->F.M31 * m2->F.M12 + m1->F.M32 * m2->F.M22 + m1->F.M33 * m2->F.M32;
+    m3->F.M33 = m1->F.M31 * m2->F.M13 + m1->F.M32 * m2->F.M23 + m1->F.M33 * m2->F.M33;
 }
 
 // -----------------------------------------------------------------------------
-Func_MulMatrix *MulMatrix = MulMatrixF; ///< Do Not call from C
+Func_MulMatrix *MulMatrix = MulMatrixF;
 
