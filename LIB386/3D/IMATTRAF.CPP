@@ -1,26 +1,8 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
+#include <3D/IMATTRA.H>
 
-		.386p
-
-		.model SMALL, C
-
-		include MAT.INC
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.DATA
-
-		public	C	InitMatrixTrans
-
-		InitMatrixTrans	dd	offset InitMatrixTransF
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-		public	C	InitMatrixTransF
-
-;*══════════════════════════════════════════════════════════════════════════*
+void InitMatrixTransF(TYPE_MAT *MatDst, S32 tx, S32 ty, S32 tz)
+{
+	/*
 ;void	InitMatrixTransF(S32 *MatDst, S32 tx, S32 ty, S32 tz) ;
 
 ;#pragma aux InitMatrixTransF	"*"		\
@@ -51,8 +33,12 @@ InitMatrixTransF	PROC
 		ret
 
 InitMatrixTransF	ENDP
+	*/
+	MatDst->F.TX = tx;
+	MatDst->F.TY = ty;
+	MatDst->F.TZ = tz;
+}
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+// -----------------------------------------------------------------------------
+Func_InitMatrixTrans *InitMatrixTrans = InitMatrixTransF; ///< Do Not call from C
+
