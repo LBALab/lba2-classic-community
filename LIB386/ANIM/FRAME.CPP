@@ -104,9 +104,6 @@ error:
 
 ObjectSetFrame	endp
 	*/
-
-	// TODO: Revisit this function, it's a mess
-
 	T_PTR_NUM nextBody = obj->NextBody;
 	void *nextTexture = obj->NextTexture;
 	if (frame >= obj->NbFrames)
@@ -148,29 +145,28 @@ ObjectSetFrame	endp
 	obj->LastOfsFrame = (PTR_U32)ofsFrame;
 	obj->LastFrame = frame;
 
-	U32 *animFrame = (U32 *)((U8 *)anim + ofsFrame);
+	U32 *animFrame = (U32 *)((U8 *)anim + ofsFrame + 16);
 	U32 *currentFrame = (U32 *)obj->CurrentFrame;
 	for (U32 i = 0; i < nbGroups * 2 - 2; i++)
 	{
-		(currentFrame++)[i] = (animFrame++)[i];
+		*(currentFrame++) = *(animFrame++);
 	}
 	frame++;
 
-	if (frame != obj->NbFrames)
+	if (frame == obj->NbFrames)
+	{
+		U16 animTime = animPtr[0];
+		obj->NextFrame = 0;
+		obj->NextOfsFrame = (PTR_U32)8;
+		obj->NextTimer = obj->LastTimer + animTime;
+		obj->Master = ((U16 *)animFrame)[8];
+	}
+	else
 	{
 		U16 animTime = ((U16 *)animFrame)[0];
 		obj->NextFrame = frame;
 		obj->NextOfsFrame = (U32 *)((U64)animFrame - (U64)anim);
 		obj->NextTimer = obj->LastTimer + animTime;
 		obj->Master = ((U16 *)animFrame)[4];
-		return;
-	}
-	else
-	{
-		U16 animTime = animPtr[0];
-		obj->NextFrame = 0;
-		obj->NextOfsFrame = (PTR_U32)8;
-		obj->NextTimer = obj->LastTimer + animTime;
-		obj->Master = animFrame[4];
 	}
 }
