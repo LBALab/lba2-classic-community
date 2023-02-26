@@ -1,33 +1,11 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
+#include <3D/ROTMAT.H>
+#include <3D/IMATSTD.H>
+#include <3D/MULMAT.H>
 
-		.386p
-
-		.model SMALL, C
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.DATA
-
-		extrn	C	InitMatrixStd:DWORD
-		extrn	C	CopyMatrix:DWORD
-		extrn	C	MulMatrix:DWORD
-
-		extrn	C	MatrixLib2:DWORD
-
-		public	C	RotateMatrix
-
-		RotateMatrix	dd	offset RotateMatrixU
-
-		ASSUME  DS:SEG MatrixLib2
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-		public	C	RotateMatrixU
-
-;*══════════════════════════════════════════════════════════════════════════*
+void RotateMatrixU(TYPE_MAT *MatDst, TYPE_MAT *MatSrc, S32 x,
+                                S32 y, S32 z)
+{
+	/*
 ;void	RotateMatrixU(S32 *MatDst, S32 *MatSrc, S32 alpha, S32 beta, S32 gamma) ;
 
 ;#pragma aux RotateMatrixU				\
@@ -49,8 +27,10 @@ RotateMatrixU	proc
 		jmp	[MulMatrix]		; MatDst = MatSrc * Alpha * Gamma * Beta
 
 RotateMatrixU	endp
+	*/
+	InitMatrixStd(&MatrixLib2, x, y, z);
+	MulMatrix(MatDst, MatSrc, &MatrixLib2);
+}
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+// -----------------------------------------------------------------------------
+Func_RotateMatrix *RotateMatrix = RotateMatrixU;
