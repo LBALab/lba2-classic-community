@@ -152,20 +152,17 @@ ObjectSetFrame	endp
 	U32 *currentFrame = (U32 *)obj->CurrentFrame;
 	for (U32 i = 0; i < nbGroups * 2 - 2; i++)
 	{
-		currentFrame[i] = animFrame[i];
+		(currentFrame++)[i] = (animFrame++)[i];
 	}
-	currentFrame += nbGroups;
-	animFrame += nbGroups;
 	frame++;
 
 	if (frame != obj->NbFrames)
 	{
 		U16 animTime = ((U16 *)animFrame)[0];
-		animFrame = (U32 *)((U64)animFrame - (U64)anim);
 		obj->NextFrame = frame;
-		obj->NextOfsFrame = animFrame;
+		obj->NextOfsFrame = (U32 *)((U64)animFrame - (U64)anim);
 		obj->NextTimer = obj->LastTimer + animTime;
-		obj->Master = animFrame[4];
+		obj->Master = ((U16 *)animFrame)[4];
 		return;
 	}
 	else

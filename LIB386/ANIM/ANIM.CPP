@@ -222,7 +222,7 @@ ObjectInitAnim	endp
 	obj->LastAnimStepY = 0;
 	obj->LastAnimStepZ = 0;
 
-	obj->LoopOfsFrame = obj->LoopFrame * obj->NbFrames;
+	obj->LoopOfsFrame = animLoopFrame * (obj->NbFrames + 1) * 8 + 8;
 
 	obj->LastAnimStepAlpha = 0;
 	obj->LastAnimStepBeta = 0;
