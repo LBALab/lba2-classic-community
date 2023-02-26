@@ -1,32 +1,10 @@
-/*
-		.686p
-		.XMM
+#include <ANIM/STOFRAME.H>
 
-		.MODEL	SMALL, C
+#include <SYSTEM/TIMER.H>
 
-		include	AFF_OBJ.INC
-
-;*──────────────────────────────────────────────────────────────────────────*
-
-		.DATA
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	TimerRefHR		:DWORD
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	Lib3DBufferAnim		:DWORD
-		EXTRN	C	EndLib3DBufferAnim	:DWORD
-		EXTRN	C	PtrLib3DBufferAnim	:DWORD
-
-		ASSUME  DS:SEG Lib3DBufferAnim
-
-;*──────────────────────────────────────────────────────────────────────────*
-		.CODE
-
-;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	C	ObjectStoreFrame
-
-;*──────────────────────────────────────────────────────────────────────────*
+void	ObjectStoreFrame(T_OBJ_3D *Obj)
+{
+	/*
 ;void	ObjectStoreFrame(T_OBJ *Obj)
 
 ;#pragma aux ObjectStoreFrame		\
@@ -58,7 +36,7 @@ ObjectStoreFrame proc
 		mov	dword ptr[edi-4], eax
 		dec	eax
 		; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
-        ;   is it confusing it with some other instruction? Is it not supported by 486?
+				;   is it confusing it with some other instruction? Is it not supported by 486?
 		rep	movsd			; do copy...
 
 		cmp	edi, EndLib3DBufferAnim	; check buffer for next time
@@ -72,8 +50,32 @@ okbuf:
 		ret
 
 ObjectStoreFrame endp
+	*/
+	Obj->LastTimer = TimerRefHR;
+	Obj->Time = TimerRefHR;
 
-;*──────────────────────────────────────────────────────────────────────────*
-;		The
-		END
-*/
+	Obj->LastNbGroups = Obj->NbGroups;
+	Obj->LastOfsFrame = (PTR_U32)PtrLib3DBufferAnim;
+	Obj->LastOfsIsPtr = 1;
+
+	Obj->Status = 0;
+	U32 *esi = (U32 *)(Obj->CurrentFrame);
+	U32 *edi = (U32 *)(PtrLib3DBufferAnim);
+	edi[0] = edi[1] = edi[2] = edi[3] = 0; // initialize memory at edi to 0
+	edi += 4;
+
+	for (U32 i = 0; i < Obj->NbGroups * 2; i++)
+	{
+		edi[i] = esi[i];
+	}
+	edi += Obj->NbGroups * 2;
+	esi += Obj->NbGroups * 2;
+
+	if (edi > (PTR_U32)EndLib3DBufferAnim)
+	{
+		edi = (PTR_U32)Lib3DBufferAnim;
+	}
+
+	PtrLib3DBufferAnim = (PTR_U8)edi;
+	Obj->LastFrame = -1;
+}
