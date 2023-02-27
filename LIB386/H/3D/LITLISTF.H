@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-extern void	LightList(TYPE_MAT *Mat, S32 *dst, TYPE_VT16 *src, S32 n);
+extern void	LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n);
 
 #pragma aux LightList	"*"		\
 	parm 	[ebx] [edi] [esi] [ecx]	\
