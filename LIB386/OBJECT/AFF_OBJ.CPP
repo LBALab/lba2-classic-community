@@ -4223,102 +4223,6 @@ ByeBye::
 
 BodyDisplay		ENDP
 
-; ╔════════════════════════════════════════════════════════════════════════════╗
-; ║ BodyDisplay_AlphaBeta: Display a non-animated object (rotation Alp*Bet*Gam)║
-; ╟────────────────────────────────────────────────────────────────────────────╢
-; ║ Appel : (EAX, EBX, ECX) = (X, Y, Z)                                        ║
-; ║         (EDX, ESI, EDI) = (Alpha, Beta, Gamma)                             ║
-; ║         Stack           = Off_Body                                         ║
-; ║                                                                            ║
-; ║                                                                            ║
-; ╚════════════════════════════════════════════════════════════════════════════╝
-
-BodyDisplay_AlphaBeta	PROC \
-			uses ebx ecx edx edi esi ebp\
-			x: DWORD, y: DWORD, z: DWORD, alpha: DWORD, beta: DWORD, gamma: DWORD, body: DWORD
-			mov eax, x
-			mov ebx, y
-			mov ecx, z
-			mov edx, alpha
-			mov esi, beta
-			mov edi, gamma
-
-			push	ebp
-			push	edx			; Push angles
-
-			push	esi
-			push	edi
-
-			mov	ebp,body		; EBP = PTR on object
-			mov	edx,7FFFFFFFh
-
-			mov	[lBody],ebp
-			mov	[ScreenXMin],edx	; Init 2D box
-
-			mov	[ScreenYMin],edx
-			inc	edx			; edx = 80000000h
-
-			mov	[ScreenXMax],edx
-			mov	edi,[TypeProj]
-
-			mov	[ScreenYMax],edx
-			cmp	edi,TYPE_3D
-
-			jne	@@Init_Iso		; Object position
-
-			mov	esi,Offset MatriceWorld
-			call	[LongRotatePoint]	; If perspective
-
-			mov	eax,[X0]
-			mov	ebx,[Y0]
-
-			mov	ecx,[Z0]
-@@Init_Iso:		mov	edi,[CameraXr]
-
-			sub	eax,edi
-			mov	edi,[CameraYr]
-
-			sub	ebx,edi
-			mov	edi,[CameraZr]
-
-			sub	ecx,edi
-			mov	[PosXWr],eax		; Object world position
-
-			mov	[PosYWr],ebx
-			mov	[PosZWr],ecx
-
-
-; ┌─────────────────────────────────────────────────────────────────┐
-; │                                                                 │
-; │                          GEOMETRY                               │
-; │                                                                 │
-; └─────────────────────────────────────────────────────────────────┘
-
-			; **************
-			; *** MATRIX ***
-			; **************
-
-			mov	esi,Offset MatriceWorld
-			pop	ecx			; Get angles
-
-			mov	edi,Offset TabMat+SIZE_MATRICE
-			pop	ebx
-
-			xor	eax,eax			; Alpha = 0
-			call	[RotateMatrix]		; Mat_World*Mat_Obj
-
-			pop	eax			; Restore Alpha
-			mov	esi,Offset TabMat+SIZE_MATRICE
-
-			xor	ebx,ebx			; Beta = 0
-			mov	edi,Offset TabMat
-
-			xor	ecx,ecx
-			jmp	Return_BodyDisplay
-
-BodyDisplay_AlphaBeta	ENDP
-
-
 ; ╔═════════════════════════════════════════════════════════════════╗
 ; ║ TestVisible : Tests the visibility of a poly                    ║
 ; ╟─────────────────────────────────────────────────────────────────╢
@@ -4689,7 +4593,7 @@ TYPE_MAT TabMat[MAX_NB_GROUPES];
 
 S32 EntityCreation()
 {
-	// TODO: Implement
+	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
@@ -5335,10 +5239,157 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
 	return 0;
 }
 
-S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
-                                 S32 gamma, void *obj)
+S32 Return_BodyDisplay()
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
+}
+
+S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
+                                 S32 gamma, void *obj)
+{
+	/*
+; ╔════════════════════════════════════════════════════════════════════════════╗
+; ║ BodyDisplay_AlphaBeta: Display a non-animated object (rotation Alp*Bet*Gam)║
+; ╟────────────────────────────────────────────────────────────────────────────╢
+; ║ Appel : (EAX, EBX, ECX) = (X, Y, Z)                                        ║
+; ║         (EDX, ESI, EDI) = (Alpha, Beta, Gamma)                             ║
+; ║         Stack           = Off_Body                                         ║
+; ║                                                                            ║
+; ║                                                                            ║
+; ╚════════════════════════════════════════════════════════════════════════════╝
+
+BodyDisplay_AlphaBeta	PROC \
+			uses ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, z: DWORD, alpha: DWORD, beta: DWORD, gamma: DWORD, body: DWORD
+			mov eax, x
+			mov ebx, y
+			mov ecx, z
+			mov edx, alpha
+			mov esi, beta
+			mov edi, gamma
+
+			push	ebp
+			push	edx			; Push angles
+
+			push	esi
+			push	edi
+
+			mov	ebp,body		; EBP = PTR on object
+			mov	edx,7FFFFFFFh
+
+			mov	[lBody],ebp
+			mov	[ScreenXMin],edx	; Init 2D box
+
+			mov	[ScreenYMin],edx
+			inc	edx			; edx = 80000000h
+
+			mov	[ScreenXMax],edx
+			mov	edi,[TypeProj]
+
+			mov	[ScreenYMax],edx
+			cmp	edi,TYPE_3D
+
+			jne	@@Init_Iso		; Object position
+
+			mov	esi,Offset MatriceWorld
+			call	[LongRotatePoint]	; If perspective
+
+			mov	eax,[X0]
+			mov	ebx,[Y0]
+
+			mov	ecx,[Z0]
+@@Init_Iso:		mov	edi,[CameraXr]
+
+			sub	eax,edi
+			mov	edi,[CameraYr]
+
+			sub	ebx,edi
+			mov	edi,[CameraZr]
+
+			sub	ecx,edi
+			mov	[PosXWr],eax		; Object world position
+
+			mov	[PosYWr],ebx
+			mov	[PosZWr],ecx
+
+
+; ┌─────────────────────────────────────────────────────────────────┐
+; │                                                                 │
+; │                          GEOMETRY                               │
+; │                                                                 │
+; └─────────────────────────────────────────────────────────────────┘
+
+			; **************
+			; *** MATRIX ***
+			; **************
+
+			mov	esi,Offset MatriceWorld
+			pop	ecx			; Get angles
+
+			mov	edi,Offset TabMat+SIZE_MATRICE
+			pop	ebx
+
+			xor	eax,eax			; Alpha = 0
+			call	[RotateMatrix]		; Mat_World*Mat_Obj
+
+			pop	eax			; Restore Alpha
+			mov	esi,Offset TabMat+SIZE_MATRICE
+
+			xor	ebx,ebx			; Beta = 0
+			mov	edi,Offset TabMat
+
+			xor	ecx,ecx
+			jmp	Return_BodyDisplay
+
+BodyDisplay_AlphaBeta	ENDP
+	*/
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+
+	lBody = (T_BODY_HEADER *)obj;
+	ScreenXMin = 0x7FFFFFFF; // Init 2D box
+	ScreenYMin = 0x7FFFFFFF;
+	ScreenXMax = 0x80000000;
+	ScreenYMax = 0x80000000;
+
+	// Object position
+	if (TypeProj == TYPE_3D)
+	{
+		LongRotatePoint(&MatriceWorld, x, y, z); // If perspective
+		PosXWr = X0 - CameraXr;
+		PosYWr = Y0 - CameraYr;
+		PosZWr = Z0 - CameraZr;
+	}
+	else
+	{
+		PosXWr = x - CameraXr;
+		PosYWr = y - CameraYr;
+		PosZWr = z - CameraZr;
+	}
+
+// ; ┌─────────────────────────────────────────────────────────────────┐
+// ; │                                                                 │
+// ; │                          GEOMETRY                               │
+// ; │                                                                 │
+// ; └─────────────────────────────────────────────────────────────────┘
+
+// ; **************
+// ; *** MATRIX ***
+// ; **************
+
+	TYPE_MAT *mat = &TabMat[1];
+	RotateMatrix(mat, &MatriceWorld, 0, beta, gamma);
+
+	// pop	eax			; Restore Alpha
+	// mov	esi,Offset TabMat+SIZE_MATRICE
+
+	// xor	ebx,ebx			; Beta = 0
+	// mov	edi,Offset TabMat
+
+	// xor	ecx,ecx
+	// jmp	Return_BodyDisplay
+
+	return Return_BodyDisplay();
 }
