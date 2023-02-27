@@ -29,14 +29,15 @@ extern S32 MemoClipWindowXMax;
 extern S32 MemoClipWindowYMax;
 
 // -----------------------------------------------------------------------------
-void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1);
-void UnsetClipWindow();
-void MemoClipWindow();
-void RestoreClipWindow();
-void SetClip(S32 x0, S32 y0, S32 x1, S32 y1);
-void UnsetClip();
 void MemoClip();
 void RestoreClip();
+void SetClip(S32 x0, S32 y0, S32 x1, S32 y1);
+void UnsetClip();
+
+void MemoClipWindow();
+void RestoreClipWindow();
+void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1);
+void UnsetClipWindow();
 
 // =============================================================================
 #ifdef __cplusplus
