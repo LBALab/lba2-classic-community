@@ -79,6 +79,7 @@ S32 CameraXLight = 0, CameraYLight = 0, CameraZLight = 0;
 S32 PosXLight = 0, PosYLight = 0, PosZLight = 0;
 S32 TargetXLight = 0, TargetYLight = 0, TargetZLight = 0;
 S32 LightNormalUnit = 0;
+float FactorLight = 1.52587890625E-5;	// 1.0 / 65536.0
 
 void SetLightVector(S32 alpha, S32 beta, S32 gamma)
 {

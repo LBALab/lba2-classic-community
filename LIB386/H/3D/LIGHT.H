@@ -17,6 +17,7 @@ extern S32 CameraXLight, CameraYLight, CameraZLight;
 extern S32 PosXLight, PosYLight, PosZLight;
 extern S32 TargetXLight, TargetYLight, TargetZLight;
 extern S32 LightNormalUnit;
+extern float FactorLight;
 
 // -----------------------------------------------------------------------------
 void SetLightVector(S32 alpha, S32 beta, S32 gamma);
