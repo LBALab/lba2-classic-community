@@ -4,6 +4,8 @@
 #include <3D/LIROT3D.H>
 #include <3D/CAMERA.H>
 
+#include <stdio.h>
+
 void LightList(TYPE_MAT *Mat, S32 *dst, TYPE_VT16 *src, S32 n)
 {
 	/*
@@ -173,6 +175,10 @@ LightListF		PROC
 
 LightListF		ENDP
 	*/
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+
 	if (n == 0)
 		return;
 
@@ -182,6 +188,18 @@ LightListF		ENDP
 	X0 *= FactorLight;
 	Y0 *= FactorLight;
 	Z0 *= FactorLight;
+
+	TYPE_VT16 *v1 = &src[n - 1];
+	float Xp = X0 * v1->X;
+	float Yp = Y0 * v1->Y;
+	float Zp = Z0 * v1->Z;
+
+	TYPE_VT16 *v2 = &src[n];
+	float yp = v2->Y * Y0;
+	float xp = v2->X * X0;
+	float zp = v2->Z * Z0;
+	float I = Zp + Yp;
+	float L = Xp + I;
 /*
 	float X1, Y1, Z1;
 
