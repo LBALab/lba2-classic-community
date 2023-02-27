@@ -1846,7 +1846,8 @@ S32     NextDialCar()
                                 //  value on a signed char).
                                 //  Can reproduce by interacting with
                                 //  Twinsen and Zoe statue on the main square at
-                                //  the first external scenario of the game.
+                                //  the first external scenario of the game or
+                                //  fisher in yellow cap on the docs.
                                 GetDxDyMask( *PtLine, &dx, &dy, LbaFont );
 
                                 if ( *PtLine != ' ' )

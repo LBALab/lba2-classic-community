@@ -11,9 +11,9 @@ extern "C" {
 enum ProjectionType { TYPE_3D = 0, TYPE_ISO = 1 };
 
 // -----------------------------------------------------------------------------
-void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
-                   S32 factory);
-void SetIsoProjection(S32 xcentre, S32 ycentre);
+extern void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
+                          S32 factory);
+extern void SetIsoProjection(S32 xcentre, S32 ycentre);
 
 // =============================================================================
 #ifdef __cplusplus
