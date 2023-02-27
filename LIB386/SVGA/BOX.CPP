@@ -1,28 +1,11 @@
-/*
-;----------------------------------------------------------------------------
-			.386P
-			.MODEL SMALL, C
+#include <SVGA/BOX.H>
 
-;----------------------------------------------------------------------------
-			.DATA
+#include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
 
-;----------------------------------------------------------------------------
-			EXTRN	C	ClipXMin	:DWORD
-			EXTRN	C	ClipYMin	:DWORD
-			EXTRN	C	ClipXMax	:DWORD
-			EXTRN	C	ClipYMax	:DWORD
-			EXTRN	C	Log		:DWORD
-			EXTRN	C	TabOffLine	:DWORD
-
-			ASSUME DS:SEG Log
-
-;----------------------------------------------------------------------------
-			.CODE
-
-;----------------------------------------------------------------------------
-			PUBLIC	C Box
-
-;----------------------------------------------------------------------------
+void Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
+{
+	/*
 ;void	Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 
 ;#pragma aux Box	"*"			\
@@ -109,18 +92,42 @@ Again:
 Box_End:
 			ret
 Box			endp
+	*/
+	if (x0 > ClipXMax || x1 < ClipXMin || y0 > ClipYMax || y1 < ClipYMin)
+	{
+		return;
+	}
 
-;----------------------------------------------------------------------------
-;			The
-       			End
+	if (x0 < ClipXMin)
+	{
+		x0 = ClipXMin;
+	}
+	if (x1 > ClipXMax)
+	{
+		x1 = ClipXMax;
+	}
+	if (y0 < ClipYMin)
+	{
+		y0 = ClipYMin;
+	}
+	if (y1 > ClipYMax)
+	{
+		y1 = ClipYMax;
+	}
 
-*/
+	U32 screenWidth = TabOffLine[1];
+	U32 deltaY = y1 - y0;
+	U32 deltaX = x1 - x0;
+	U32 deltaScreen = screenWidth - deltaX;
+	U32 offset = TabOffLine[y0] + x0;
 
-#include <SVGA/BOX.H>
-#include <stdio.h>
+	for (int j = 0; j <= deltaY; j++)
+	{
+		U32 yOffset = offset + j * screenWidth;
 
-void Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		for (int i = 0; i <= deltaX; i++)
+		{
+			((U8 *)Log)[yOffset + i] = col;
+		}
+	}
 }
