@@ -32,7 +32,6 @@ INCLUDE			AFF_OBJ.INC
 INCLUDE			FILLER.INC
 INCLUDE			3D.INC
 INCLUDE			MAT.INC
-INCLUDE			CPU.INC
 
 
 
@@ -658,8 +657,6 @@ Return_BodyDisplay::
 ; │                                                                 │
 ; └─────────────────────────────────────────────────────────────────┘
 EntityCreation::
-			emms			; ObjectDisplay should
-							; do the EMMS
 			; *****************
 			; *** POLYGONES ***
 			; *****************

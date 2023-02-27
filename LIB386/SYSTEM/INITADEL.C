@@ -130,7 +130,7 @@ void InitAdeline(S32 argc, char *argv[]) {
     ProcessorSignature.Family = 5;
     ProcessorSignature.Model = 4;
     ProcessorSignature.Manufacturer = 1;
-    ProcessorFeatureFlags.MMX = 1;
+    ProcessorFeatureFlags.MMX = 0;
   }
 
   DisplayCPU();
