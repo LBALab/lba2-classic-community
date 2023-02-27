@@ -338,12 +338,11 @@ ProjectList3DF	ENDP
 #include <3D/LPROJ.H>
 #include <stdio.h>
 
-S32 ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
-														S32 OrgY, S32 OrgZ)
+void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
+										S32 OrgY, S32 OrgZ)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
 }
 
 Func_ProjectList *ProjectList3D = ProjectList3DF;
