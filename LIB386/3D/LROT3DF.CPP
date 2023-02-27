@@ -1,46 +1,5 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.386p
-
-		.model SMALL, C
-
-		include MAT.INC
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.DATA
-
-		extrn C	X0:DWORD
-		extrn C	Y0:DWORD
-		extrn C	Z0:DWORD
-
-		public	C	LongRotatePoint
-		public	C	RotatePoint
-		public	C	RotatePointNoMMX
-
-		LongRotatePoint		dd	offset LongRotatePointF
-		RotatePoint			dd	offset LongRotatePointF
-		RotatePointNoMMX	dd	offset LongRotatePointF
-
-		ASSUME  DS:SEG X0
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-		public	C	LongRotatePointF
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
-
 #include <3D/ROT3D.H>
 #include <3D/CAMERA.H>
-#include <stdio.h>
 
 void LongRotatePointF(TYPE_MAT *Mat, S32 x, S32 y, S32 z)
 {

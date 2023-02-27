@@ -15,7 +15,7 @@ S32 INV64(S32 a) { return LONG_MIN / a; }
 #undef Fill_Poly
 S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
                 Struc_Point *Ptr_Points) {
-  // TODO: Implement
+  // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 
   S32 returnValue;
@@ -52,7 +52,7 @@ S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 }
 
 void Switch_Fillers_C(U32 Bank) {
-  // TODO: Implement
+  // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   /*
 #ifdef __MSC_VER
