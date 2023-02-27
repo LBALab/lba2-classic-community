@@ -1,35 +1,14 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
+#include <3D/LPROJ.H>
 
-		.386p
+#include <3D/CAMERA.H>
+#include <SVGA/SCREENXY.H>
 
-		.model SMALL, C
+#include <stdio.h>
 
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.DATA
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		extrn	C XCentre:DWORD
-		extrn	C YCentre:DWORD
-
-		extrn	C ScreenXMin:DWORD
-		extrn	C ScreenXMax:DWORD
-		extrn	C ScreenYMin:DWORD
-		extrn	C ScreenYMax:DWORD
-
-		ASSUME  DS:SEG XCentre
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		public	C	ProjectListIso
-
-;*══════════════════════════════════════════════════════════════════════════*
+void ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
+										S32 OrgY, S32 OrgZ)
+{
+	/*
 ;void	ProjectListIso(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
 
 ;#pragma aux ProjectListIso			\
@@ -61,16 +40,16 @@ LoopProj:
 		mov	edx, ecx
 
 		sar	eax, 16
-		sub	ecx, [esp+16]		; ecx = z
+		sub	ecx, [esp+16]		; ecx = Z - OrgZ = z
 
 		sar	ebx, 16
 		add	edx, eax		; new Z for sort
 
 		sar	edx, 1			; /2 to avoid overflows
-		sub	eax, [esp+8]		; eax = x
+		sub	eax, [esp+8]		; eax = X - OrgX = x
 
 		mov	[esi+ebp*2+4], edx	; write back new Z
-		sub	ebx, [esp+12]		; ebx = y
+		sub	ebx, [esp+12]		; ebx = Y - OrgY = y
 
 		lea 	edx, [ecx+eax]		; x+z
 		sub	eax, ecx		; x-z
@@ -156,20 +135,48 @@ OverFlow:
 		ret
 
 ProjectListIso	endp
+	*/
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
+	for (int i = 0; i < NbPt; i++)
+	{
+		TYPE_VT16 *v = &Src[i];
+		v->Z = (v->X + v->Z) / 2;
 
-*/
+		S16 x = v->X - OrgX;
+		S16 y = v->Y - OrgY;
+		S16 z = v->Z - OrgZ;
 
-#include <3D/LPROJ.H>
-#include <stdio.h>
+		S32 newX = XCentre + (((x - z) * 3) >> 6); // IsoScale
+		S32 newY = YCentre + 1 + (((x + z) * 6 - y * 15) >> 8); // IsoScale
 
-S32 ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
-														S32 OrgY, S32 OrgZ)
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+		if (newX > 32767 || newX < -32767 || newY > 32767 || newY < -32767)
+		{
+			TYPE_PT *p = &Dst[i];
+			p->X = 0x8000;
+			p->Y = 0x8000;
+			continue;
+		}
+
+		if (newX < ScreenXMin)
+		{
+			ScreenXMin = newX;
+		}
+		if (newX > ScreenXMax)
+		{
+			ScreenXMax = newX;
+		}
+
+		if (newY < ScreenYMin)
+		{
+			ScreenYMin = newY;
+		}
+		if (newY > ScreenYMax)
+		{
+			ScreenYMax = newY;
+		}
+
+		TYPE_PT *p = &Dst[i];
+		p->X = newX;
+		p->Y = newY;
+	}
 }
