@@ -5199,7 +5199,7 @@ ObjectDisplay		ENDP
 //;void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
 // ;	parm 	[ebx] [edi] [esi] [ecx]	\
 
-	LightList(Current_Matrix, (S32 *)PtrListLights,
+	LightList(Current_Matrix, PtrListLights,
 						PtrNormales, groupeNbPts);
 
 	PtrNormales = (TYPE_VT16 *)((U8 *)PtrNormales + groupeNbPts * 8);
@@ -5207,7 +5207,7 @@ ObjectDisplay		ENDP
 
 	if (groupeNbNorm != 0)
 	{
-		LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
+		LightList(Current_Matrix, PtrListLightsFaces,
 							PtrNormFaces, groupeNbNorm);
 
 		PtrNormFaces = (TYPE_VT16 *)((U8 *)PtrNormFaces + groupeNbNorm * 8);
@@ -5288,7 +5288,7 @@ ObjectDisplay		ENDP
 		//;void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
 		// ;	parm 	[ebx] [edi] [esi] [ecx]	\
 
-		LightList(Current_Matrix, (S32 *)PtrListLights,
+		LightList(Current_Matrix, PtrListLights,
 							PtrNormales, groupeNbPts);
 
 		PtrNormales = (TYPE_VT16 *)((U8 *)PtrNormales + groupeNbPts * 8);
@@ -5296,7 +5296,7 @@ ObjectDisplay		ENDP
 
 		if (groupeNbNorm != 0)
 		{
-			LightList(Current_Matrix, (S32 *)PtrListLightsFaces,
+			LightList(Current_Matrix, PtrListLightsFaces,
 								PtrNormFaces, groupeNbNorm);
 
 			PtrNormFaces = (TYPE_VT16 *)((U8 *)PtrNormFaces + groupeNbNorm * 8);

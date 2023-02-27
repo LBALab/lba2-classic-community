@@ -4,9 +4,7 @@
 #include <3D/LIROT3D.H>
 #include <3D/CAMERA.H>
 
-#include <stdio.h>
-
-void LightList(TYPE_MAT *Mat, S32 *dst, TYPE_VT16 *src, S32 n)
+void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 {
 	/*
 ;void	LightListF(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
@@ -175,10 +173,6 @@ LightListF		PROC
 
 LightListF		ENDP
 	*/
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
-
 	if (n == 0)
 		return;
 
@@ -189,42 +183,9 @@ LightListF		ENDP
 	Y0 *= FactorLight;
 	Z0 *= FactorLight;
 
-	TYPE_VT16 *v1 = &src[n - 1];
-	float Xp = X0 * v1->X;
-	float Yp = Y0 * v1->Y;
-	float Zp = Z0 * v1->Z;
-
-	TYPE_VT16 *v2 = &src[n];
-	float yp = v2->Y * Y0;
-	float xp = v2->X * X0;
-	float zp = v2->Z * Z0;
-	float I = Zp + Yp;
-	float L = Xp + I;
-/*
-	float X1, Y1, Z1;
-
-	for (int i = n; i > 0; i--, src += 8, dst++)
+	for (int i = 0; i < n; i++)
 	{
-
-
-		X1 = src[0];
-		Y1 = src[1];
-		Z1 = src[2];
-
-		float Xp = Y0 * Z1 - Z0 * Y1;
-		float Yp = Z0 * X1 - X0 * Z1;
-		float Zp = X0 * Y1 - Y0 * X1;
-
-		if (i != 1)
-		{
-			float Z2 = src[8 + 2];
-			float Y2 = src[8 + 1];
-			float X2 = src[8 + 0];
-
-			*(float *)(dst + 1) = Xp * X2 + Yp * Y2 + Zp * Z2;
-		}
-
-		*dst = (int)(Zp * 256.0f);
+		TYPE_VT16 *v = &src[n - 1];
+		dst[i] = (U16)(X0 * v->X + Y0 * v->Y + Z0 * v->Z);
 	}
-	*/
 }
