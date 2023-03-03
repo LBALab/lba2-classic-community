@@ -324,11 +324,10 @@ AffGraph		endp
   S32 x1 = ScreenXMax = (x + hotX) + deltaX - 1;
   S32 y1 = ScreenYMax = (y + hotY) + nbLine - 1;
 
-  if (ScreenXMin < ClipXMin || ScreenYMin < ClipYMin ||
-      ScreenXMax > ClipXMax || ScreenYMax > ClipYMax)
+  if (x0 < ClipXMin || y0 < ClipYMin ||
+      x1 > ClipXMax || y1 > ClipYMax)
   {
-    // TODO: jmp ClippingGraph
-    return 1;
+    return ClippingGraph(x0, y0, x1, y1);
   }
 
   x1++;
@@ -337,10 +336,116 @@ AffGraph		endp
   y1 -= y0;
 
 // ;-------------------- Calcul Offset Ecran
+	U8 *screen = (U8 *)Log + TabOffLine[y0] + x0;
+	U32 offsetScreen = TabOffLine[1] - x1;
 
+// ;-------------------- Init NbBlock for this line
+	while(true)
+	{
+		// NextLine:
+		U8 nbBlock = graphics[0];
+		graphics++;
 
+		// ;-------------------- Manage One Line
+		while(true)
+		{
+			// SameLine:
+			U8 control = graphics[0];
+			U8 opCode = (control & 0b11000000) >> 6;
+			U32 counter = control & 0b00111111;
+			if (opCode == 0) // Incrust
+			{
+				// JumpZero:
+				graphics++;
+				screen = screen + counter + 1;
+				nbBlock--;
+				if (nbBlock == 0)
+				{
+					screen += offsetScreen;
+					nbLine--;
+					if (nbLine == 0)
+					{
+						return 0;
+					}
+					// Next Line
+					// jmp NextLine
+					break;
+				}
+				// Continue Same Line
+				// jmp SameLine
+				continue;
+			}
+			counter++; // One More Please...
+			if (opCode == 1)
+			{
+				// jmp	WriteDiffPix	; Pix Differents
+				graphics++;
+				while (counter != 0)
+				{
+					*(screen++) = *(graphics++);
+					counter--;
+				}
+				nbBlock--;
+				if (nbBlock == 0)
+				{
+					screen += offsetScreen;
+					nbLine--;
+					if (nbLine == 0)
+					{
+						return 0;
+					}
+					// Next Line
+					// jmp NextLine
+					break;
+				}
+				// Continue Same Line
+				// jmp SameLine
+				continue;
+			}
+			if (opCode == 2)
+			{
+		// ;-------------------- Repeat Same Color
+				U8 color = graphics[1]; // Color to Repeat
+				graphics += 2;
+				while (counter != 0)
+				{
+					*(screen++) = color;
+					counter--;
+				}
+				// nobytec:
+				nbBlock--;
+				if (nbBlock == 0)
+				{
+					screen += offsetScreen;
+					nbLine--;
+					if (nbLine == 0)
+					{
+						return 0;
+					}
+					// Next Line
+					// jmp NextLine
+					break;
+				}
+				// Continue Same Line
+				// jmp SameLine
+				continue;
+			}
+		}
+	}
 
   return 0;
+}
+
+S32 ClippingGraph(S32 x0, S32 y0, S32 x1, S32 y1)
+{
+	if (x0 > ClipXMax || y0 > ClipYMax ||
+		x1 < ClipXMin || y1 < ClipYMin)
+	{
+		return 0;
+	}
+
+	// ---------------------- Clipping Haut, Saute ClipYMin-ECX Line(s)
+
 }
 
 S32 GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1,
