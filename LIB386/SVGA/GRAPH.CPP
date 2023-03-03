@@ -602,8 +602,65 @@ Incrust:		inc	edi
 S32 GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1,
                 const void *bankgraph)
 {
-  // TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	/*
+;----------------------------------------------------------------------------
+;S32	GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1, void *bankgraph);
+
+;#pragma aux GetBoxGraph	"*"				\
+;	parm		[eax] [ebx] [ecx] [edx] [edi] [esi]	\
+;	modify exact	[eax ebx ecx esi]
+
+GetBoxGraph	proc \
+			uses eax ebx ecx edx edi esi ebp,
+			numgraph:DWORD,\
+			x0:DWORD, y0:DWORD,\
+			x1:DWORD, y1:DWORD,\
+			bankgraph:DWORD
+
+			mov eax, numgraph
+			mov ebx, x0
+			mov ecx, y0
+			mov edx, x1
+			mov edi, y1
+			mov esi, bankgraph
+
+			add	esi, [esi+eax*4]
+
+			movsx	eax, byte ptr[esi+2]		; Hot X
+
+			movsx	ebp, byte ptr[esi+3]		; Hot Y
+
+			mov	dword ptr[ebx], eax
+			mov	dword ptr[ecx], ebp
+
+			xor	ebx, ebx
+			xor	ecx, ecx
+
+			mov	bl, byte ptr[esi]		; Dx
+			mov	cl, byte ptr[esi+1]		; Dy
+
+			add	eax, ebx
+			add	ebp, ecx
+
+			mov	dword ptr[edx], eax
+			mov	dword ptr[edi], ebp
+
+			ret
+
+GetBoxGraph		endp
+	*/
+	U8 *bank = (U8 *)bankgraph + numgraph * 4;
+
+	U8 dx = bank[0];
+	U8 dy = bank[1];
+	U8 hotX = bank[2];
+	U8 hotY = bank[3];
+
+	*x0 = hotX;
+	*y0 = hotY;
+	*x1 = hotX + dx;
+	*y1 = hotY + dy;
+
   return 0;
 }
 
