@@ -206,7 +206,7 @@ AffGraph		endp
   if (x0 < ClipXMin || y0 < ClipYMin ||
       x1 > ClipXMax || y1 > ClipYMax)
   {
-    return ClippingGraph(x0, y0, x1, y1, graphics);
+    return 0; //ClippingGraph(x0, y0, x1, y1, graphics);
   }
 
   x1++;
@@ -219,14 +219,14 @@ AffGraph		endp
 	U32 offsetScreen = TabOffLine[1] - x1;
 
 // ;-------------------- Init NbBlock for this line
-	while(true)
+	for (int i = 0; i <= nbLine; i++)
 	{
 		// NextLine:
 		U8 nbBlock = graphics[0];
 		graphics++;
 
 		// ;-------------------- Manage One Line
-		while(true)
+		for (int j = 0; j < nbBlock; j++)
 		{
 			// SameLine:
 			U8 control = graphics[0];
@@ -237,79 +237,34 @@ AffGraph		endp
 				// JumpZero:
 				graphics++;
 				screen = screen + counter + 1;
-				nbBlock--;
-				if (nbBlock == 0)
-				{
-					screen += offsetScreen;
-					nbLine--;
-					if (nbLine == 0)
-					{
-						return 0;
-					}
-					// Next Line
-					// jmp NextLine
-					break;
-				}
-				// Continue Same Line
-				// jmp SameLine
-				continue;
-			}
-			counter++; // One More Please...
-			if (opCode == 1)
-			{
-				// jmp	WriteDiffPix	; Pix Differents
-				graphics++;
-				while (counter != 0)
-				{
-					*(screen++) = *(graphics++);
-					counter--;
-				}
-				nbBlock--;
-				if (nbBlock == 0)
-				{
-					screen += offsetScreen;
-					nbLine--;
-					if (nbLine == 0)
-					{
-						return 0;
-					}
-					// Next Line
-					// jmp NextLine
-					break;
-				}
-				// Continue Same Line
-				// jmp SameLine
-				continue;
 			}
 			else
 			{
-				// ;-------------------- Repeat Same Color
-				U8 color = graphics[1]; // Color to Repeat
-				graphics += 2;
-				while (counter != 0)
+				counter++; // One More Please...
+				if (opCode == 1)
 				{
-					*(screen++) = color;
-					counter--;
-				}
-				// nobytec:
-				nbBlock--;
-				if (nbBlock == 0)
-				{
-					screen += offsetScreen;
-					nbLine--;
-					if (nbLine == 0)
+					// jmp	WriteDiffPix	; Pix Differents
+					graphics++;
+					while (counter > 0)
 					{
-						return 0;
+						*(screen++) = *(graphics++);
+						counter--;
 					}
-					// Next Line
-					// jmp NextLine
-					break;
 				}
-				// Continue Same Line
-				// jmp SameLine
-				continue;
+				else
+				{
+					// ;-------------------- Repeat Same Color
+					U8 color = graphics[1]; // Color to Repeat
+					graphics += 2;
+					while (counter > 0)
+					{
+						*(screen++) = color;
+						counter--;
+					}
+				}
 			}
 		}
+		screen += offsetScreen;
 	}
 
   return 0;
@@ -477,12 +432,12 @@ Incrust:		inc	edi
 		// ---------------------- Clipping Top, Skip ClipYMin-ECX Line(s)
 
 		S32 yDiff = ClipYMin - y0;
-		do
+		for (int i = 0; i < yDiff; i++)
 		{
 			// NextH:
 			U8 nbBlock = graphics[0];
 			graphics++;
-			do
+			for (int j = 0; j < nbBlock; j++)
 			{
 				// SameH:
 				U8 control = graphics[0];
@@ -497,10 +452,8 @@ Incrust:		inc	edi
 					}
 					graphics += jump + 1;
 				}
-				nbBlock--;
-			} while (nbBlock > 0);
-			yDiff--;
-		} while (yDiff > 0);
+			}
+		}
 
 		y0 = ClipYMin;
 	}
@@ -543,7 +496,7 @@ Incrust:		inc	edi
 		U8 nbBlock = graphics[0];
 		graphics++;
 
-		do
+		for (int j = 0; j < nbBlock; j++)
 		{
 			U8 control = graphics[0];
 			graphics++;
@@ -578,8 +531,7 @@ Incrust:		inc	edi
 					counter--;
 				}
 			}
-			nbBlock--;
-		} while (nbBlock > 0);
+		}
 
 		U8 *src = BufferClip + OffsetBegin;
 		U8 *dst = screen + OffsetBegin;
