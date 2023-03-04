@@ -125,7 +125,36 @@ LineZBuf		ENDP
 
 #include <SVGA/FIL_LINE.H>
 #include <POLYGON/POLY.H>
+#include <SVGA/CLIP.H>
 #include <stdio.h>
+
+S32 Z1 = 0;			// For the ZBuffer
+S32 Z2 = 0;
+S32 DZ = 0;
+U8 Color = 0;
+
+// Runtime code patch refactor, uses memory instead of instruction substitution
+U32 LinePatch = 0x12345678;
+U32 PtrLog = 0x12345678;
+U32 PtrZBuf = 0x12345678;
+U32 PtrZBuf1 = 0x12345678;
+U32 YPtrZBuf = 0x12345678;
+U32 YPtrZBuf1 = 0x12345678;
+U32 YPtrLog = 0x12345678;
+U32 Row = 0x12345678;
+U32 YDX = 0x12345678;
+U32 YDY = 0x12345678;
+U32 YDY1 = 0x12345678;
+U32 YDZ = 0x12345678;
+U32 DXPatch = 0x12345678;
+U32 DY = 0x12345678;
+U32 DZPatch = 0x12345678;
+U32 DX1 = 0x12345678;
+U32 IZ = 0x12345678;
+U32 YIZ = 0x12345678;
+U8 ColorX = 0x12;
+U8 ColorY = 0x12;
+
 
 void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
 {
@@ -1287,6 +1316,10 @@ Line_ZBuffer_NZW	ENDP
 void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 {
 	/*
+; ╔════════════════════════════════════════════════════════════════════════╗
+; ║ Appel : (EAX,EBX), (ECX,EDX) : points extremes                         ║
+; ║         EBP = Color                                                    ║
+; ╚════════════════════════════════════════════════════════════════════════╝
 Line_Entry::
 			push	eax
 			mov	eax,ebp
@@ -1642,6 +1675,114 @@ Line_Entry::
 			ret
 Line_A			ENDP
 	*/
+	S32 color = col;
+	col &= 0xFF;
+	if (Fill_Flag_Fog)
+	{
+		color = Fill_Logical_Palette[col];
+	}
+	ColorX = color;
+	ColorY = color;
+	Color = color;
+
+	while (true)
+	{
+		// @@Trace_Still:
+		S32 diffX = x1 - x0;
+		if (diffX == 0)
+		{
+			// jmp @@DX_Nul
+		}
+		S32 diffY = y1 - y0;
+		if (diffY == 0)
+		{
+			// jmp @@DY_Nul
+		}
+
+		if (x0 >= ClipXMin)
+		{
+			// @@Clip_X0:
+			if (x0 <= ClipXMax)
+			{
+				// @@Clip_X1:
+				if (x1 >= ClipXMin)
+				{
+					// @@Clip_X2:
+					if (x1 <= ClipXMax)
+					{
+						// @@Clip_X3:
+						if (y0 >= ClipYMin)
+						{
+							// @@Clip_Y0:
+							if (y0 <= ClipYMax)
+							{
+								// @@Clip_Y1:
+								if (y1 >= ClipYMin)
+								{
+									// @@Clip_Y2:
+									if (y1 <= ClipYMax)
+									{
+										// @@Clip_Y3:
+
+									}
+									else
+									{
+										x1 = x1 + (ClipYMax - y1) * diffX / diffY;
+										y1 = ClipYMax;
+									}
+								}
+								else
+								{
+									x1 = x1 + (ClipYMin - y1) * diffX / diffY;
+									y1 = ClipYMin;
+								}
+							}
+							else
+							{
+								x0 = (ClipYMax - y0) * diffX / diffY + x0;
+								y0 = ClipYMax;
+							}
+						}
+						else
+						{
+							x0 = (ClipYMin - y0) * diffX / diffY + x0;
+							y0 = ClipYMin;
+						}
+					}
+					else
+					{
+						y1 = y1 - (x1 - ClipXMax) * diffY / diffX;
+						x1 = ClipXMax;
+					}
+				}
+				else
+				{
+					y1 = y1 - (x1 - ClipXMin) * diffY / diffX;
+					x1 = ClipXMin;
+				}
+			}
+			else if (x1 > ClipXMax)
+			{
+				return;
+			}
+			else
+			{
+				y0 = y0 - (x0 - ClipXMax) * diffY / diffX;
+				x0 = ClipXMax;
+			}
+		}
+		else if (x1 < ClipXMin)
+		{
+			return;
+		}
+		else
+		{
+			y0 = y0 - (x0 - ClipXMin) * diffY / diffX;
+			x0 = ClipXMin;
+		}
+	}
+
+
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
