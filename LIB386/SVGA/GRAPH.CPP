@@ -206,7 +206,7 @@ AffGraph		endp
   if (x0 < ClipXMin || y0 < ClipYMin ||
       x1 > ClipXMax || y1 > ClipYMax)
   {
-    return 0; //ClippingGraph(x0, y0, x1, y1, graphics);
+    return ClippingGraph(x0, y0, x1, y1, graphics);
   }
 
   x1++;
@@ -537,12 +537,12 @@ Incrust:		inc	edi
 		U8 *dst = screen + OffsetBegin;
 		for (int j = 0; j < NbPix; j++)
 		{
-			U8 value = *(dst++);
+			U8 value = *(src++);
 			if (value != 0)
 			{
-				*src = value;
+				*dst = value;
 			}
-			src++;
+			dst++;
 		}
 
 		screen += TabOffLine[1];
