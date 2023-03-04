@@ -1,6 +1,6 @@
 /*
 ;----------------------------------------------------------------------------
-            OPTION SCOPED
+						OPTION SCOPED
 			.386p
 			.model SMALL, C
 
@@ -29,57 +29,6 @@ InterSpace		dd	10
 			PUBLIC	C	SizeFont
 			PUBLIC	C	CarFont
 			PUBLIC	C	Font
-
-;----------------------------------------------------------------------------
-;#define	ColorFont(color)	ColorMask(color)
-
-;----------------------------------------------------------------------------
-;#define	SetFont(ptrfont, interleave, interspace)	\
-;{								\
-;	PtrFont		= ptrfont	;			\
-;	InterLeave	= interleave	;			\
-;	InterSpace	= interspace	;			\
-;}
-
-;----------------------------------------------------------------------------
-;S32	SizeFont(char *str)	;
-
-;#pragma aux SizeFont	"*"	\
-;	parm	[esi]		\
-;	modify	[eax ecx edx edi]
-
-SizeFont		PROC \
-			uses ebx ecx edx edi esi ebp\
-			string: DWORD
-			mov esi, string
-
-			mov	edi, [PtrFont]
-			xor	eax, eax
-			xor	edx, edx
-;			--------------------------------
-NextCar:
-			mov	dl,[esi]
-			inc	esi
-
-			test	edx, edx
-			jz	EndSizeFont
-
-			cmp	edx, 32
-			jne	PlusLoin0
-
-			add	eax, [InterSpace]
-			jmp	NextCar
-PlusLoin0:
-			mov	ecx, [edi+edx*4]
-			add	eax, [InterLeave]
-			mov	dl,  [edi+ecx]
-			add	eax, edx
-			jmp	NextCar
-
-;			--------------------------------
-EndSizeFont:
-			ret
-SizeFont		endp
 
 ;----------------------------------------------------------------------------
 ;S32	CarFont(S32 x, S32 y, char c)	;
@@ -199,22 +148,75 @@ S32 InterSpace = 10;
 
 S32 SizeFont(char *str)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	/*
+;S32	SizeFont(char *str)	;
+
+;#pragma aux SizeFont	"*"	\
+;	parm	[esi]		\
+;	modify	[eax ecx edx edi]
+
+SizeFont		PROC \
+			uses ebx ecx edx edi esi ebp\
+			string: DWORD
+			mov esi, string
+
+			mov	edi, [PtrFont]
+			xor	eax, eax
+			xor	edx, edx
+;			--------------------------------
+NextCar:
+			mov	dl,[esi]
+			inc	esi
+
+			test	edx, edx
+			jz	EndSizeFont
+
+			cmp	edx, 32
+			jne	PlusLoin0
+
+			add	eax, [InterSpace]
+			jmp	NextCar
+PlusLoin0:
+			mov	ecx, [edi+edx*4]
+			add	eax, [InterLeave]
+			mov	dl,  [edi+ecx]
+			add	eax, edx
+			jmp	NextCar
+
+;			--------------------------------
+EndSizeFont:
+			ret
+SizeFont		endp
+	*/
+	S32 size = 0;
+	while (*str != '\0')
+	{
+		char c = *str;
+		if (c == 32)
+		{
+			size += InterSpace;
+		}
+		else
+		{
+			S32 charSize = *(S32 *)((U8 *)PtrFont + c * 4);
+			size += InterLeave;
+			size += *(S32 *)((U8 *)PtrFont + charSize);
+		}
+	}
+
+	return size;
 }
 
 S32 CarFont(S32 x, S32 y, char c)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
 }
 
 S32 Font(S32 x, S32 y, const char *str)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
 }
-
