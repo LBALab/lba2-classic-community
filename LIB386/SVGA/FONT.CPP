@@ -1,107 +1,6 @@
-/*
-;----------------------------------------------------------------------------
-						OPTION SCOPED
-			.386p
-			.model SMALL, C
-
-;----------------------------------------------------------------------------
-			.DATA
-
-;----------------------------------------------------------------------------
-			PUBLIC	C	PtrFont
-			PUBLIC	C	InterLeave
-			PUBLIC	C	InterSpace
-
-;----------------------------------------------------------------------------
-PtrFont			dd	0
-InterLeave		dd	1
-InterSpace		dd	10
-
-			ASSUME DS:SEG PtrFont
-
-;----------------------------------------------------------------------------
-			.CODE
-
-;----------------------------------------------------------------------------
-			EXTRN	C	AffMask	:PROC
-
-;----------------------------------------------------------------------------
-			PUBLIC	C	SizeFont
-			PUBLIC	C	CarFont
-			PUBLIC	C	Font
-
-;----------------------------------------------------------------------------
-;S32	Font(S32 x, S32 y, char *str);
-
-;#pragma aux Font	"*"		\
-;	parm	[ebx] [ecx] [esi]	\
-;	modify	[edx esi edi]
-
-Font			PROC \
-			uses eax ebx ecx edx edi esi ebp\
-			x: DWORD, y: DWORD, string:DWORD
-			mov ebx, x
-			mov ecx, y
-			mov esi, string
-
-			mov	ebp, [PtrFont]
-			xor	eax, eax
-
-			test	ebp, ebp
-			jz	EndFont
-
-			jmp	NextCar
-
-;			--------------------------------
-Space:			add	ebx, [InterSpace]
-NextCar:
-			mov	al,[esi]
-			inc	esi
-
-			test	al, al
-			je	short EndFont
-
-			cmp	al, 32
-			je	Space
-PasSpace:
-			mov	edi, [ebp+eax*4]
-			push	esi
-
-			mov	esi, [PtrFont]
-			push	edi
-
-			push	ecx
-			push	ebx
-
-			Call	AffMask
-
-			pop	ebx
-			pop	ecx
-
-			pop	edi
-			pop	esi
-
-			xor	eax, eax
-			mov	edx, [InterLeave]
-
-			mov	al, [ebp+edi]
-			add	ebx, edx
-
-			add	ebx, eax
-			jmp	short NextCar
-;			--------------------------------
-EndFont:
-			ret
-
-Font			endp
-
-;----------------------------------------------------------------------------
-;				The
-				End
-*/
-
 #include <SVGA/FONT.H>
-#include <stdio.h>
+
+#include <unistd.h>
 
 void *PtrFont = NULL;
 S32 InterLeave = 1;
@@ -222,7 +121,91 @@ CarFont			endp
 
 S32 Font(S32 x, S32 y, const char *str)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+	/*
+;S32	Font(S32 x, S32 y, char *str);
+
+;#pragma aux Font	"*"		\
+;	parm	[ebx] [ecx] [esi]	\
+;	modify	[edx esi edi]
+
+Font			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, string:DWORD
+			mov ebx, x
+			mov ecx, y
+			mov esi, string
+
+			mov	ebp, [PtrFont]
+			xor	eax, eax
+
+			test	ebp, ebp
+			jz	EndFont
+
+			jmp	NextCar
+
+;			--------------------------------
+Space:			add	ebx, [InterSpace]
+NextCar:
+			mov	al,[esi]
+			inc	esi
+
+			test	al, al
+			je	short EndFont
+
+			cmp	al, 32
+			je	Space
+PasSpace:
+			mov	edi, [ebp+eax*4]
+			push	esi
+
+			mov	esi, [PtrFont]
+			push	edi
+
+			push	ecx
+			push	ebx
+
+			Call	AffMask
+
+			pop	ebx
+			pop	ecx
+
+			pop	edi
+			pop	esi
+
+			xor	eax, eax
+			mov	edx, [InterLeave]
+
+			mov	al, [ebp+edi]
+			add	ebx, edx
+
+			add	ebx, eax
+			jmp	short NextCar
+;			--------------------------------
+EndFont:
+			ret
+
+Font			endp
+	*/
+	if (PtrFont == NULL)
+	{
+		return 0;
+	}
+
+	while (*str != '\0')
+	{
+		char c = *str;
+		if (c == 32)
+		{
+			x += InterSpace;
+		}
+		else
+		{
+			AffMask(c, x, y, PtrFont);
+			S32 charSize = *(S32 *)((U8 *)PtrFont + c * 4);
+			x += InterLeave;
+			x += *((U8 *)PtrFont + charSize);
+		}
+	}
+
+	return 0; // TODO: make this void
 }
