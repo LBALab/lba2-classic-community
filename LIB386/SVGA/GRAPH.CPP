@@ -218,9 +218,9 @@ AffGraph		endp
 	U8 *screen = (U8 *)Log + TabOffLine[y0] + x0;
 	U32 offsetScreen = TabOffLine[1] - x1;
 
-// ;-------------------- Init NbBlock for this line
 	for (int i = 0; i <= nbLine; i++)
 	{
+// ;-------------------- Init NbBlock for this line
 		// NextLine:
 		U8 nbBlock = graphics[0];
 		graphics++;
