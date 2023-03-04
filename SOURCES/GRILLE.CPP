@@ -1571,9 +1571,116 @@ WorldColBrickFull	endp
 //-------------------------------------------------------------------
 U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	/*
+WorldCodeBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
+
+	;' ptc = BufCube
+
+		mov	ecx, [ds:BufCube]
+
+	;' + (xm*SIZE_CUBE_Y*2)
+
+		mov	eax, xw
+
+	;' xm = (xw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+
+		mov	[ds:XMap], eax
+
+		lea	eax, [eax*2]		; *2
+		mov	edx, eax		; =
+		lea	eax, [eax*8]		; *16
+		add	edx, eax		; 2  + 16 = 18
+		lea	edx, [edx+eax*2]	; 18 + 32 = 50
+
+		add	ecx, edx
+
+	;' + ym*2
+
+		mov	eax, yw
+
+		cmp	eax, -1
+		jle	nocode
+
+	;' ym = yw/SIZE_BRICK_Y
+
+		shr	eax, 8			; /256
+
+		mov	[ds:YMap], eax
+		lea	ecx, [ecx+eax*2]
+
+	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
+
+		mov	eax, zw
+
+	;' zm = (zw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+
+		mov	[ds:ZMap], eax
+
+		shl	eax, 7			; *128
+		mov	edx, eax		; = 128
+		lea	eax, [eax*8]		; *1024
+		add	edx, eax		; 128  + 1024 = 1152
+		lea	edx, [edx+eax*2]	; 1152 + 2048 = 3200
+
+		add	ecx, edx
+
+		xor	eax, eax
+		mov	al, [ecx]
+
+		or	al, al
+		jz	nocode
+
+	;'	if( *ptc != 0 )
+	;'	{
+	;'		block = (*ptc++) - 1 ;
+	;'		adr = GetAdrBlock( block )	;
+	;'		adr += HEADER_BLOCK		;
+	;'		adr += (*ptc)<<2 		;/ * 4 Bytes to Jump	* /
+	;'		return *adr ;
+	;'	}
+
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
+		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
+
+		add	edx, HEADER_BLOCK
+
+		mov	al, byte ptr[edx+1]
+		ret
+
+nocode:	;' return *(ptc+1)
+
+		mov	al, 00h
+		ret
+
+WorldCodeBrick	endp
+	*/
+	PTR_U8 ptc = BufCube + (xw / SIZE_BRICK_XZ);
+	XMap = xw / SIZE_BRICK_XZ;
+
+	if (yw <= -1)
+	{
+		return 0;
+	}
+
+	YMap = yw / SIZE_BRICK_Y;
+	ZMap = zw / SIZE_BRICK_XZ;
+	ptc += XMap * 50 + YMap * 2 + ZMap * 3200;
+	U8 col = *ptc;
+
+	if (col == 0)
+	{
+		return 0;
+	}
+
+	U8 *adr = GetAdrBlock(col - 1);
+	adr += HEADER_BLOCK + 1;
+	return *adr;
 }
 
 //-------------------------------------------------------------------
