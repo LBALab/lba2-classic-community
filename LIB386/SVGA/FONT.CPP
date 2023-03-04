@@ -62,6 +62,7 @@ SizeFont		endp
 			size += InterLeave;
 			size += *(S32 *)((U8 *)PtrFont + charSize);
 		}
+		str++;
 	}
 
 	return size;
@@ -205,6 +206,7 @@ Font			endp
 			x += InterLeave;
 			x += *((U8 *)PtrFont + charSize);
 		}
+		str++;
 	}
 
 	return 0; // TODO: make this void
