@@ -1,5 +1,5 @@
-#pragma once
 
+#pragma once
 #include <SYSTEM/ADELINE_TYPES.H>
 
 // -----------------------------------------------------------------------------
@@ -92,6 +92,12 @@ extern S32 Fill_Z_Fog_Near;     ///< Fog Range
 extern S32 Fill_Z_Fog_Far;      ///< Fog Range
 extern U32 Fill_ZBuffer_Factor; ///< normalizing factor for Z Buffer
 extern U32 IsPolygonHidden;     ///< normalizing factor for Z Buffer
+
+extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
+extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
+extern U8 Fill_Flag_Fog;        ///< True if FOG is active
+extern U8 Fill_Flag_ZBuffer;    ///< True if ZBUFFER is active
+extern U8 Fill_Flag_NZW;        ///< True if NZW is active
 
 extern U8 Fill_Logical_Palette[256];
 
