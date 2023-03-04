@@ -9,6 +9,12 @@
 extern "C" {
 #endif
 
+U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
+U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
+U8 Fill_Flag_Fog = FALSE;     // True if FOG active
+U8 Fill_Flag_ZBuffer = FALSE;	// True if ZBUFFER is active
+U8 Fill_Flag_NZW = FALSE;     // True if NZW active
+
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
