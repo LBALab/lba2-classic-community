@@ -202,6 +202,11 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
     LockVideoSurface();
   }
 
+  sdlPalette->colors[1].r = 0xFF;
+  sdlPalette->colors[1].g = 0x00;
+  sdlPalette->colors[1].b = 0x00;
+  sdlPalette->colors[1].a = 0xFF;
+
   for (int x = area->x0; x < area->x1; ++x) {
     for (int y = area->y0; y < area->y1; ++y) {
 
