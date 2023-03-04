@@ -31,45 +31,6 @@ InterSpace		dd	10
 			PUBLIC	C	Font
 
 ;----------------------------------------------------------------------------
-;S32	CarFont(S32 x, S32 y, char c)	;
-
-;#pragma aux CarFont	"*"		\
-;	parm	[ebx] [ecx] [eax]	\
-;	modify	[edx esi edi]
-
-CarFont			PROC \
-			uses eax ebx ecx edx edi esi ebp\
-			x: DWORD, y: DWORD, character:DWORD
-			mov ebx, x
-			mov ecx, y
-			mov eax, character
-
-			cmp	eax, 32			;' SPACE
-			je	Space
-
-			mov	edi, [PtrFont]
-
-			mov	esi, edi
-			add	edi, [edi+eax*4]
-
-			movzx	edx, byte ptr[edi]
-
-			add	edx, [InterLeave]
-
-			push	edx
-
-			Call	AffMask
-
-			pop	eax
-
-			ret
-Space:
-			mov	eax, [InterSpace]
-			ret
-
-CarFont			endp
-
-;----------------------------------------------------------------------------
 ;S32	Font(S32 x, S32 y, char *str);
 
 ;#pragma aux Font	"*"		\
@@ -209,9 +170,54 @@ SizeFont		endp
 
 S32 CarFont(S32 x, S32 y, char c)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+	/*
+;S32	CarFont(S32 x, S32 y, char c)	;
+
+;#pragma aux CarFont	"*"		\
+;	parm	[ebx] [ecx] [eax]	\
+;	modify	[edx esi edi]
+
+CarFont			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, character:DWORD
+			mov ebx, x
+			mov ecx, y
+			mov eax, character
+
+			cmp	eax, 32			;' SPACE
+			je	Space
+
+			mov	edi, [PtrFont]
+
+			mov	esi, edi
+			add	edi, [edi+eax*4]
+
+			movzx	edx, byte ptr[edi]
+
+			add	edx, [InterLeave]
+
+			push	edx
+
+			Call	AffMask
+
+			pop	eax
+
+			ret
+Space:
+			mov	eax, [InterSpace]
+			ret
+
+CarFont			endp
+	*/
+	if (c == 32)
+	{
+		return InterSpace;
+	}
+
+	S32 charSize = *(S32 *)((U8 *)PtrFont + c * 4);
+	S32 size = InterLeave + *((U8 *)PtrFont + charSize);
+	AffMask(c, x, y, PtrFont);
+	return size;
 }
 
 S32 Font(S32 x, S32 y, const char *str)
