@@ -104,8 +104,8 @@ LongRotateF	endp
 		return;
 	}
 
-	double cosVal = CosTabF[angle << 2];
-	double sinVal = SinTabF[angle << 2];
+	double cosVal = CosTabF[angle];
+	double sinVal = SinTabF[angle];
 
 	double X = (double)x;
 	double Z = (double)z;
