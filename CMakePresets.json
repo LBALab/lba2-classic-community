@@ -47,6 +47,19 @@
         "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    },
+    {
+      "name": "windows",
+      "inherits": "default",
+      "displayName": "GCC 12.2.0 x86_64-w64-mingw32",
+      "description": "Using compilers: C = C:/msys64/mingw32/bin/gcc.exe, CXX = C:/msys64/mingw32/bin/g++.exe",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_C_COMPILER": "C:/msys64/mingw32/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/msys64/mingw32/bin/g++.exe",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
     }
   ]
 }
