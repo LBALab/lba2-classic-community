@@ -5755,18 +5755,16 @@ S32	AffOneObject(T_SORT *pt)
 
 			if( ptrextra->Flags&EXTRA_TRANSPARENT )
 			{
-				// TODO: Fix link error here
-				// ScaleSpriteTransp( 0, SpriteX, SpriteY,
-				// 	     ScaleFactorSprite, ScaleFactorSprite,
-				// 	     HQR_Get( HQRPtrSpriteRaw, num ),
-				// 	     PtrTransPal ) ;
+				ScaleSpriteTransp( 0, SpriteX, SpriteY,
+					     ScaleFactorSprite, ScaleFactorSprite,
+					     HQR_Get( HQRPtrSpriteRaw, num ),
+					     PtrTransPal ) ;
 			}
 			else
 			{
-				// TODO: Fix link error here
-				// ScaleSprite( 0, SpriteX, SpriteY,
-				// 	     ScaleFactorSprite, ScaleFactorSprite,
-				// 	     HQR_Get( HQRPtrSpriteRaw, num ) ) ;
+				ScaleSprite( 0, SpriteX, SpriteY,
+					     ScaleFactorSprite, ScaleFactorSprite,
+					     HQR_Get( HQRPtrSpriteRaw, num ) ) ;
 			}
 		}
 
