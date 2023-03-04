@@ -1692,12 +1692,142 @@ Line_A			ENDP
 		S32 diffX = x1 - x0;
 		if (diffX == 0)
 		{
-			// jmp @@DX_Nul
+			// *** DeltaX nul ***
+			// @@DX_Nul:
+			if (x0 < ClipXMin || x0 > ClipXMax)
+			{
+				return;
+			}
+
+			S32 diffY = y1 - y0;
+			if (diffY == 0)
+			{
+				// *** Plot ***
+				// @@Plot:
+				if (y0 < ClipYMin || y0 > ClipYMax)
+				{
+					return;
+				}
+
+				U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+				*dst = Color;
+				return;
+			}
+
+			if (y0 < ClipYMin)
+			{
+				if (y1 < ClipYMin)
+				{
+					return;
+				}
+
+				y0 = ClipYMin;
+			}
+
+			// @@DX_Y1:
+			if (y0 > ClipYMax)
+			{
+				if (y1 > ClipYMax)
+				{
+					return;
+				}
+
+				y0 = ClipYMax;
+			}
+
+			// @@DX_Y1b:
+			if (y1 < ClipYMin)
+			{
+				y1 = ClipYMin;
+			}
+
+			// @@DX_Y2:
+			if (y1 > ClipYMax)
+			{
+				y1 = ClipYMax;
+			}
+
+			// @@DX_Y2b:
+			S32 newDiffY = y1 - y0;
+			if (newDiffY < 0)
+			{
+				newDiffY = -newDiffY;
+				y0 = y1;
+			}
+
+			// @@DX_Ok:
+			U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x1;
+			newDiffY++;
+			do
+			{
+				*dst = Color;
+				dst += ScreenPitch;
+				newDiffY--;
+			} while (newDiffY > 0);
+
+			return;
 		}
+
 		S32 diffY = y1 - y0;
 		if (diffY == 0)
 		{
-			// jmp @@DY_Nul
+			// *** DeltaY nul ***
+			// @@DY_Nul:
+			if (y0 < ClipYMin || y0 > ClipYMax)
+			{
+				return;
+			}
+
+			if (x0 < ClipXMin)
+			{
+				if (x1 < ClipXMin)
+				{
+					return;
+				}
+
+				x0 = ClipXMin;
+			}
+
+			// @@DY_X1:
+			if (x0 > ClipXMax)
+			{
+				if (x1 > ClipXMax)
+				{
+					return;
+				}
+
+				x0 = ClipXMax;
+			}
+
+			// @@DY_X1b:
+			if (x1 < ClipXMin)
+			{
+				x1 = ClipXMin;
+			}
+
+			// @@DY_X2:
+			if (x1 > ClipXMax)
+			{
+				x1 = ClipXMax;
+			}
+
+			// @@DY_X2b:
+			S32 newDiffX = x1 - x0;
+			if (newDiffX < 0)
+			{
+				newDiffX = -newDiffX;
+				x0 = x1;
+			}
+
+			// @@DY_Ok:
+			U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+			newDiffX++;
+			do
+			{
+				*dst = Color;
+				dst++;
+				newDiffX--;
+			} while (newDiffX > 0);
 		}
 
 		if (x0 < ClipXMin)
@@ -1827,9 +1957,6 @@ Line_A			ENDP
 			}
 		}
 	}
-
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
