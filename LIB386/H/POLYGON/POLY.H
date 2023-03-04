@@ -80,18 +80,18 @@ typedef struct {
 #pragma pack(pop)
 
 // -----------------------------------------------------------------------------
-extern PTR_U8 PtrCLUTGouraud;
-extern PTR_U8 PtrCLUTFog;
-extern PTR_U8 PtrTruePal;
-
-extern PTR_U8 PtrMap;
-extern PTR_U16 PtrZBuffer;
-extern S32 RepMask;
-
-extern S32 Fill_Z_Fog_Near;     ///< Fog Range
-extern S32 Fill_Z_Fog_Far;      ///< Fog Range
-extern U32 Fill_ZBuffer_Factor; ///< normalizing factor for Z Buffer
-extern U32 IsPolygonHidden;     ///< normalizing factor for Z Buffer
+extern U32 ScreenPitch;         ///< Screen Pitch in bytes
+extern PTR_U32 PTR_TabOffLine;   ///< Ptr on a LUT containing a list of line-offsets
+extern PTR_U16 PtrZBuffer;      ///< ZBuffer pointer
+extern PTR_U8 PtrCLUTGouraud;   ///< Pointer to a Gouraud CLUT
+extern PTR_U8 PtrCLUTFog;       ///< Pointer to a Fog CLUT
+extern PTR_U8 PtrTruePal;       ///< Pointer to the palette CLUT
+extern S32 RepMask;             ///< Repeat zone for texture mapping
+extern PTR_U8 PtrMap;           ///< Pointer of the texture map
+extern S32 Fill_Z_Fog_Near;     ///< Near Fog
+extern S32 Fill_Z_Fog_Far;      ///< Far Fog
+extern U32 Fill_ZBuffer_Factor; ///< ZBuffer factor
+extern U32 IsPolygonHidden;     ///< Flag for Poly type 25
 
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip

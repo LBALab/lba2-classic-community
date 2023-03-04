@@ -126,6 +126,7 @@ LineZBuf		ENDP
 #include <SVGA/FIL_LINE.H>
 #include <POLYGON/POLY.H>
 #include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
 #include <stdio.h>
 
 S32 Z1 = 0;			// For the ZBuffer
@@ -1699,89 +1700,133 @@ Line_A			ENDP
 			// jmp @@DY_Nul
 		}
 
-		if (x0 >= ClipXMin)
+		if (x0 < ClipXMin)
 		{
-			// @@Clip_X0:
-			if (x0 <= ClipXMax)
+			if (x1 < ClipXMin)
 			{
-				// @@Clip_X1:
-				if (x1 >= ClipXMin)
-				{
-					// @@Clip_X2:
-					if (x1 <= ClipXMax)
-					{
-						// @@Clip_X3:
-						if (y0 >= ClipYMin)
-						{
-							// @@Clip_Y0:
-							if (y0 <= ClipYMax)
-							{
-								// @@Clip_Y1:
-								if (y1 >= ClipYMin)
-								{
-									// @@Clip_Y2:
-									if (y1 <= ClipYMax)
-									{
-										// @@Clip_Y3:
-
-									}
-									else
-									{
-										x1 = x1 + (ClipYMax - y1) * diffX / diffY;
-										y1 = ClipYMax;
-									}
-								}
-								else
-								{
-									x1 = x1 + (ClipYMin - y1) * diffX / diffY;
-									y1 = ClipYMin;
-								}
-							}
-							else
-							{
-								x0 = (ClipYMax - y0) * diffX / diffY + x0;
-								y0 = ClipYMax;
-							}
-						}
-						else
-						{
-							x0 = (ClipYMin - y0) * diffX / diffY + x0;
-							y0 = ClipYMin;
-						}
-					}
-					else
-					{
-						y1 = y1 - (x1 - ClipXMax) * diffY / diffX;
-						x1 = ClipXMax;
-					}
-				}
-				else
-				{
-					y1 = y1 - (x1 - ClipXMin) * diffY / diffX;
-					x1 = ClipXMin;
-				}
+				return;
 			}
-			else if (x1 > ClipXMax)
+
+			y0 = y0 - (x0 - ClipXMin) * diffY / diffX;
+			x0 = ClipXMin;
+		}
+		// @@Clip_X0:
+		else if (x0 > ClipXMax)
+		{
+			if (x1 > ClipXMax)
 			{
+				return;
+			}
+
+			y0 = y0 - (x0 - ClipXMax) * diffY / diffX;
+			x0 = ClipXMax;
+		}
+		// @@Clip_X1:
+		else if (x1 < ClipXMin)
+		{
+			y1 = y1 - (x1 - ClipXMin) * diffY / diffX;
+			x1 = ClipXMin;
+		}
+		// @@Clip_X2:
+		else if (x1 > ClipXMax)
+		{
+			y1 = y1 - (x1 - ClipXMax) * diffY / diffX;
+			x1 = ClipXMax;
+		}
+		// @@Clip_X3:
+		else if (y0 < ClipYMin)
+		{
+			x0 = (ClipYMin - y0) * diffX / diffY + x0;
+			y0 = ClipYMin;
+		}
+		// @@Clip_Y0:
+		else if (y0 > ClipYMax)
+		{
+			x0 = (ClipYMax - y0) * diffX / diffY + x0;
+			y0 = ClipYMax;
+		}
+		// @@Clip_Y1:
+		else if (y1 < ClipYMin)
+		{
+			x1 = x1 + (ClipYMin - y1) * diffX / diffY;
+			y1 = ClipYMin;
+		}
+		// @@Clip_Y2:
+		else if (y1 > ClipYMax)
+		{
+			x1 = x1 + (ClipYMax - y1) * diffX / diffY;
+			y1 = ClipYMax;
+		}
+		// @@Clip_Y3:
+		else
+		{
+			U32 incrY = ScreenPitch;
+			U32 incrX = 1;
+			S32 deltaX = x1 - x0;
+			if (deltaX < 0)
+			{
+				deltaX = -deltaX;
+				incrX = -incrX;
+			}
+
+			S32 deltaY = y1 - y0;
+			if (deltaY < 0)
+			{
+				deltaY = -deltaY;
+				incrY = -incrY;
+			}
+
+			U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+
+			if (deltaX > deltaY)
+			{
+				S32 halfX = deltaX / 2;
+				S32 x = deltaX;
+
+				do
+				{
+					// @@Do_X:
+					*dst = ColorX;
+
+					halfX += deltaY;
+					if (halfX >= deltaX)
+					{
+						halfX -= deltaX;
+						dst += incrY;
+					}
+
+					dst += incrX;
+					x--;
+				} while (x >= 0);
+
 				return;
 			}
 			else
 			{
-				y0 = y0 - (x0 - ClipXMax) * diffY / diffX;
-				x0 = ClipXMax;
+				// @@Draw_Y:
+				S32 halfY = deltaY / 2;
+				S32 y = deltaY;
+
+				do
+				{
+					// @@Do_Y:
+					*dst = ColorY;
+
+					halfY += deltaX;
+					if (halfY >= deltaY)
+					{
+						halfY -= deltaY;
+						dst += incrX;
+					}
+
+					dst += incrY;
+					y--;
+				} while (y >= 0);
+
+				return;
 			}
 		}
-		else if (x1 < ClipXMin)
-		{
-			return;
-		}
-		else
-		{
-			y0 = y0 - (x0 - ClipXMin) * diffY / diffX;
-			x0 = ClipXMin;
-		}
 	}
-
 
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
