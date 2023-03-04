@@ -592,7 +592,7 @@ ScaleSpriteTransp	endp
 			End
 */
 
-#include <SVGA/SCALESPT.H>
+#include <SVGA/SCALESPI.H>
 #include <stdio.h>
 
 void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
