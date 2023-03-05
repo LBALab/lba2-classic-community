@@ -189,7 +189,7 @@ EndGraph:		ret
 
 AffGraph		endp
   */
-  U8 *data = (U8 *)bankgraph + numgraph * 4;
+  U8 *data = (U8 *)bankgraph + ((U32 *)bankgraph)[numgraph];
   U8 deltaX = data[0];
   U8 nbLine = data[1]; // delta Y
   S32 hotX = data[2];
