@@ -1,5 +1,7 @@
 #include <POLYGON/POLY.H>
 
+#include <SVGA/SCREEN.H>
+
 #include <limits.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,52 +11,80 @@
 extern "C" {
 #endif
 
+U32 Fill_Type = 0; // Polygon type number
+
+U32 Fill_LeftSlope = 0;      ///< Left slope
+U32 Fill_RightSlope = 0;     ///< Right slope
+
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
 U8 Fill_Flag_Fog = FALSE;     // True if FOG active
 U8 Fill_Flag_ZBuffer = FALSE;	// True if ZBUFFER is active
 U8 Fill_Flag_NZW = FALSE;     // True if NZW active
 
+void *Fill_Saut_Normal = NULL; // Filler table
+
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
-#undef Fill_Poly
-S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
-                Struc_Point *Ptr_Points) {
+S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
+							Struc_Point *Ptr_Points) {
+	/*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Fill_Poly : Polygon filler                                               ║
+; ╟──────────────────────────────────────────────────────────────────────────╢
+; ║ Call  : EAX = Polygon type (ie flat, gouraud, textured...)               ║
+; ║         EBX = Polygon color (if needed by the type)                      ║
+; ║         ECX = Nb of points in that polygon                               ║
+; ║         ESI = Ptr on the point list of this polygon                      ║
+; ║               (list of STRUC_POLY_POINT)                                 ║
+; ║                                                                          ║
+; ╟──────────────────────────────────────────────────────────────────────────╢
+; ║ Return: EAX = 0 if error (polygon not filled)                            ║
+; ║                                                                          ║
+; ╟──────────────────────────────────────────────────────────────────────────╢
+; ║ ALL REGISTERS ARE MODIFIED (EXCEPT EBP)                                  ║
+; ║                                                                          ║
+; ║ The value given to EAX is not check for validity, so be sure to fill it  ║
+; ║ with a correct poly type number                                          ║
+; ║                                                                          ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+			ALIGN	4
+Fill_PolyFast		PROC
+			push	ebp
+			xor	ebp,ebp
+			mov	[Fill_LeftSlope],ebp
+
+			pushad
+			mov	ebx,Offset TabOffLine
+			call	SetScreenPitch
+			popad
+
+			mov	[Fill_Type],eax
+			and	ebx,0FFh
+
+	push ebx
+	mov ebx,[Fill_Saut_Normal]
+	lea eax,[ebx+eax*4]
+	pop ebx
+	jmp	[eax]
+
+Fill_PolyFast		ENDP
+	*/
+	Fill_LeftSlope = 0;
+	SetScreenPitch(TabOffLine);
+
+	Fill_Type = Type_Poly;
+	Color_Poly = Color_Poly & 0xFF;
+
+	// TODO: This filler is a pointer to the filler function to call. I still
+	// need to figure out the signature of those fillers which are in POLY_JMP.
+	// U32 *filler = ((U32 **)Fill_Saut_Normal)[Type_Poly];
+	// return filler();
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 
-  S32 returnValue;
-/*
-#ifdef __MSC_VER
-  __asm {
-		pusha
-		mov eax, Type_Poly
-		mov ebx, Color_Poly
-		mov ecx, Nb_Points
-		mov esi, Ptr_Points
-		call Fill_PolyMMX
-		mov returnValue, eax
-		popa
-  }
-#elif __GNUC__
-  __asm__ __volatile__("pusha\n\t"
-                       "mov %1, %%eax\n\t"
-                       "mov %2, %%ebx\n\t"
-                       "mov %3, %%ecx\n\t"
-                       "mov %4, %%esi\n\t"
-                       "call %5\n\t"
-                       "mov %%eax, %0\n\t"
-                       "popa\n\t"
-                       : "=m"(returnValue)
-                       : "m"(Type_Poly), "m"(Color_Poly), "m"(Nb_Points),
-                         "m"(Ptr_Points), "m"(Fill_PolyFast)
-                       : "%eax", "%ebx", "%ecx", "%esi");
-#else
-#error "Unsupported compiler!"
-#endif
-*/
-  return returnValue;
+  return 0;
 }
 
 void Switch_Fillers_C(U32 Bank) {
