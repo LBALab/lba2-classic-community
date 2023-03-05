@@ -1,3 +1,8 @@
+#include <POLYGON/POLYFLAT.H>
+#include <POLYGON/POLY.H>
+
+#include <stdio.h>
+
 /*
 ; **************************************************************************
 ; **************************************************************************
@@ -194,7 +199,11 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC
 ;				*** Local proc ***
 ;				******************
 
+*/
 
+void Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+	/*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -296,11 +305,79 @@ Filler_Flat		PROC
 			mov	[Fill_CurOffLine],edi
 			jmp	Triangle_ReadNextEdge
 Filler_Flat		ENDP
+	*/
+
+	U8 *curOffLine = (U8 *)Fill_CurOffLine;
+	Fill_CurY = Fill_CurY + nbLines + 1;
+	U32 patch = Fill_Patch - 1;
+
+	if (patch != 0)
+	{
+		// @@Each_Line:
+		fillCurXMin += Fill_LeftSlope;
+		fillCurXMax += Fill_RightSlope;
+
+		curOffLine += ScreenPitch;
+	}
+	else
+	{
+		Fill_Patch = patch;
+	}
+
+	for (int i = 0; i < nbLines + 1; i++)
+	{
+		// @@EnterLoop:
+		U32 a = (fillCurXMin >> 16);
+		U8 *lineCurOffLine = curOffLine + a;
+		U32 b = (fillCurXMax >> 16) - a;
+		if (b > 0)
+		{
+			// U8 c = *curOffLine; // Load 1st dst cache line
+			// Is the scanline big enough to load the dst lines in cache
+			if (b < 32)
+			{
+				// @@SmallScanLine:
+				U8 color = Fill_Color; // Color
+				for (int i = 0; i < b; i++)
+				{
+					*lineCurOffLine = color;
+					lineCurOffLine++;
+				}
+			}
+			else
+			{
+				// *** Load dst in WB cache ***
+				U8 *d = lineCurOffLine + b;
+				U8 *lineCurOffLine2 = (U8 *)((U64)lineCurOffLine & ~31);
+				U8 *d2 = (U8 *)((U64)d & ~31); // AGI on EDI on first loop
+
+				// @@Preload:
+				do
+				{
+					U8 e = *(U8 *)lineCurOffLine2;
+					lineCurOffLine2 += 32;
+				} while (lineCurOffLine2 <= d2);
+
+				U8 color = Fill_Color; // Color
+				for (int i = 0; i < b; i++)
+				{
+					*lineCurOffLine = color;
+					lineCurOffLine++;
+				}
+			}
+		}
+		// @@EndScanLine:
+	}
+
+	Fill_CurXMin = fillCurXMin;
+	Fill_CurXMax = fillCurXMax;
+	Fill_CurOffLine = (U32)curOffLine;
+
+	Triangle_ReadNextEdge();
+}
 
 
-
-
-
+/*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
