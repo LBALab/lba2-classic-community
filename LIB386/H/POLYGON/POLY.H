@@ -93,6 +93,9 @@ extern S32 Fill_Z_Fog_Far;      ///< Far Fog
 extern U32 Fill_ZBuffer_Factor; ///< ZBuffer factor
 extern U32 IsPolygonHidden;     ///< Flag for Poly type 25
 
+extern U32 Fill_LeftSlope;      ///< Left slope
+extern U32 Fill_RightSlope;     ///< Right slope
+
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
 extern U8 Fill_Flag_Fog;        ///< True if FOG is active
@@ -102,18 +105,12 @@ extern U8 Fill_Flag_NZW;        ///< True if NZW is active
 extern U8 Fill_Logical_Palette[256];
 
 // -----------------------------------------------------------------------------
-typedef S32(FUNC_FILL_POLY)(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
-                            Struc_Point *Ptr_Points);
-
-// -----------------------------------------------------------------------------
 extern void Switch_Fillers_ASM(U32 Bank); ///< Do Not call from C
 void Switch_Fillers_C(U32 Bank);
 #define Switch_Fillers Switch_Fillers_C
 
-extern FUNC_FILL_POLY Fill_PolyFast; ///< Do Not call from C
-S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
-                Struc_Point *Ptr_Points);
-#define Fill_Poly Fill_Poly_C
+S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
+              Struc_Point *Ptr_Points);
 
 extern void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
                         S32 Centre_Y, S32 Rayon); ///< Do Not call from C
