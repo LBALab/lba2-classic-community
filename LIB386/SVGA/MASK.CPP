@@ -221,9 +221,156 @@ End_Line:		mov	cl,bl
 ;----------------------
 EndMask:                ret
 	*/
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+	if (x0 > ClipXMax || y0 > ClipYMax ||
+		x1 < ClipXMin || y1 < ClipYMin)
+	{
+		return 0;
+	}
+
+	if (y0 < ClipYMin)
+	{
+		// ---------------------- Clipping Top, Skip ClipYMin-ECX Line(s)
+
+		S32 yDiff = ClipYMin - y0;
+		for (int i = 0; i < yDiff; i++)
+		{
+			// NextH:
+			U8 nbBlock = graphics[0];
+			graphics += nbBlock + 1; // Jump data
+		}
+
+		y0 = ClipYMin;
+	}
+
+	// ;---------------------- Clipping Bottom
+	// PasHaut:
+	if (y1 > ClipYMax)
+	{
+		y1 = ClipYMax;
+	}
+
+	// ;---------------------- Clipping Left
+	// PasBas:
+	U32 OffsetBegin = 0;
+	if (x0 < ClipXMin)
+	{
+		OffsetBegin = ClipXMin - x0;
+	}
+
+	// PasGauche:
+	// ;---------------------- Clipping Right
+	S32 offsetEnd = x1 - x0 - OffsetBegin + 1;
+
+	if (x1 > ClipXMax)
+	{
+		x1 -= ClipXMax;
+		offsetEnd -= x1;
+		x1 = ClipXMax;
+	}
+
+	// PasDroit:
+	ScreenXMax = x1;
+	x1 = OffsetBegin;
+
+	x1 += x0;
+	ScreenYMin = y0;
+	ScreenXMin = x1;
+	ScreenYMax = y1;
+
+	U8 *screen = (U8 *)Log + TabOffLine[y0] + x0 + OffsetBegin;
+
+	S32 deltaY = y1 - y0;
+	for (int i = 0; i <= deltaY; i++)
+	{
+		U8 color = ColMask;
+		U8 nbBlock = graphics[0];
+		graphics++;
+		U32 bytesToSkip = OffsetBegin;
+		S32 offset = offsetEnd;
+
+		while (nbBlock > 0)
+		{
+			// Clipper:
+			U8 nbTransp = graphics[0];
+			graphics++;
+			nbBlock--;
+			if (nbBlock == 0)
+			{
+				break;
+			}
+
+			bytesToSkip -= nbTransp;
+			if (bytesToSkip < 0)
+			{
+				// Start_Transp:
+				offset += bytesToSkip;
+				if (offset <= 0)
+				{
+					break;
+				}
+				screen -= bytesToSkip;
+				// Do_Fill:
+				U8 counter = graphics[0];
+				graphics++;
+				if (offset < nbTransp)
+				{
+					nbTransp = offset;
+				}
+				offset -= nbTransp;
+
+				// Do_Fill_1:
+				for (int j = 0; j < nbTransp; j++)
+				{
+					*screen = color;
+					screen++;
+				}
+
+				nbBlock--;
+				if (nbBlock == 0)
+				{
+					break;
+				}
+			}
+
+			U8 nbFill = graphics[0];
+			graphics++;
+			bytesToSkip -= nbFill;
+			if (bytesToSkip < 0)
+			{
+				// Start_Fill:
+				bytesToSkip = -bytesToSkip;
+				if (offset < bytesToSkip)
+				{
+					bytesToSkip = offset;
+				}
+				offset -= bytesToSkip;
+				nbFill = bytesToSkip;
+				// Do_Fill_1:
+				for (int j = 0; j < nbFill; j++)
+				{
+					*screen = color;
+					screen++;
+				}
+
+				nbBlock--;
+				if (nbBlock == 0)
+				{
+					break;
+				}
+			}
+
+			nbBlock--;
+			if (nbBlock == 0)
+			{
+				break;
+			}
+		}
+
+		screen += TabOffLine[1];
+		graphics += nbBlock;
+	}
+
+	return 0; // TODO: Remove, make void
 }
 
 S32 AffMask(S32 nummask, S32 x, S32 y, void *bankmask)
