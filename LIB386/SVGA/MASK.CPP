@@ -500,7 +500,7 @@ AffMask			endp
 
 	// ----------------------------------------------- Compute Offset Ecran
 	U8 *screen = (U8 *)Log + TabOffLine[y] + x;
-	U32 offsetScreen = TabOffLine[1] - x1;
+	U32 offsetScreen = TabOffLine[1] - deltaX;
 	U8 color = ColMask;
 
 	for (int i = 0; i < nbLine; i++)
@@ -532,12 +532,6 @@ AffMask			endp
 			}
 
 			nbBlock--;
-			if (nbBlock == 0)
-			{
-				// EndBlock:
-				graphics += 2;
-				break;
-			}
 		}
 		screen += offsetScreen;
 	}
