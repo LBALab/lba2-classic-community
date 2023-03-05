@@ -13,7 +13,12 @@
 ; **************************************************************************
 ; **************************************************************************
 ; **************************************************************************
+*/
 
+#include <POLYGON/POLY.H>
+#include <POLYGON/POLYFLAT.H>
+
+/*
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
 			OPTION	LANGUAGE:C
@@ -595,8 +600,11 @@ Extrn	C		Filler_TextureZFogSmoothNZW:	PROC
 ;			**************
 ;			***  FLAT  ***
 ;			**************
+*/
 
-
+void Jmp_Solid()
+{
+	/*
 Jmp_Solid		PROC
 			mov	eax,Offset Filler_Flat
 			mov	edx,ebx
@@ -612,10 +620,12 @@ Jmp_Solid		PROC
 
 			jmp	Fill_PolyClip
 Jmp_Solid		ENDP
+	*/
+	Fill_Filler = (U32 **)Filler_Flat;
+}
 
 
-
-
+/*
 Jmp_Transparent		PROC
 			mov	eax,Offset Filler_Transparent
 			and	ebx,0F0h

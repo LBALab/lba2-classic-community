@@ -93,8 +93,18 @@ extern S32 Fill_Z_Fog_Far;      ///< Far Fog
 extern U32 Fill_ZBuffer_Factor; ///< ZBuffer factor
 extern U32 IsPolygonHidden;     ///< Flag for Poly type 25
 
+// TODO: it's not U32 **, it s a function. Still have to find the right signature
+extern U32 **Fill_Filler;       ///< Chooser filler
+extern U32 Fill_Patch;          ///< Flag 1 means we should patch the filler proc; 0 means nothing to do
+extern U8 Fill_Color;          ///< The polygon color
+
 extern U32 Fill_LeftSlope;      ///< Left slope
 extern U32 Fill_RightSlope;     ///< Right slope
+
+extern U32 Fill_CurY;           ///< Current Y
+extern U32 Fill_CurXMin;        ///< Current XMin
+extern U32 Fill_CurXMax;        ///< Current XMax
+extern U32 Fill_CurOffLine;     ///< Offset of the current video line
 
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
@@ -123,6 +133,8 @@ extern void SetScreenPitch(U32 *New_TabOffLine); ///< Do Not call from C
 extern void SetCLUT(U32 defaultline);
 
 extern void SetFog(S32 z_near, S32 z_far);
+
+extern void Triangle_ReadNextEdge(void);
 
 S32 INV64(S32 a);
 

@@ -13,8 +13,17 @@ extern "C" {
 
 U32 Fill_Type = 0; // Polygon type number
 
+U32 **Fill_Filler = NULL;
+U32 Fill_Patch = 0;
+U8 Fill_Color = 0;
+
 U32 Fill_LeftSlope = 0;      ///< Left slope
 U32 Fill_RightSlope = 0;     ///< Right slope
+
+U32 Fill_CurY = 0;           ///< Current Y
+U32 Fill_CurXMin = 0;        ///< Current XMin
+U32 Fill_CurXMax = 0;        ///< Current XMax
+U32 Fill_CurOffLine = 0;     ///< Offset of the current video line
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
@@ -286,6 +295,12 @@ SetFog			ENDP
         temp = 1;
 
     Fill_Fog_Factor = 256 * 65536 / temp;
+}
+
+void Triangle_ReadNextEdge(void)
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 // =============================================================================
