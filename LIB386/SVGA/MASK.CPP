@@ -51,100 +51,23 @@ ColMask         db      0       ; Noir par Defaut
 ;#define	ColorMask(color)	ColMask = (U8)(color)
 
 ;----------------------------------------------------------------------------
-;S32	AffMask(S32 nummask, S32 x, S32 y, void *bankmask)	;
 
-;#pragma aux AffMask	"*"		\
-;	parm	[eax] [ebx] [ecx] [esi]	\
-;	modify	[edx edi]
+;----------------------------------------------------------------------------
+;			The
+			End
+*/
 
-AffMask                 proc    uses ebp
+#include <SVGA/MASK.H>
+#include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
+#include <SVGA/SCREENXY.H>
+#include <stdio.h>
 
-			add     esi, [esi+eax*4]; ESI = Begin Data
+U8 ColMask = 0;
 
-			xor     eax, eax
-			xor	edx, edx
-			mov     al, [esi+2]
-			mov     dl, [esi+3]
-			add     ebx, eax        ; Hot X
-			add     ecx, edx        ; Hot Y
-
-;-----------------------------------------------
-			mov     dl, [esi]       ; Delta X
-			mov     al, [esi+1]     ; Nb Lines ( Delta Y )
-			add     esi, 4          ; Jump HotX & HotY
-
-;----------------------------------------------- Test Clipping
-			add     edx, ebx
-			add     eax, ecx
-			dec     edx
-			dec     eax
-
-			cmp     ebx, ClipXMin
-			jl      ClippingMask
-			cmp     ecx, ClipYMin
-			jl      ClippingMask
-			cmp     edx, ClipXMax
-			jg      ClippingMask
-			cmp     eax, ClipYMax
-			jg      ClippingMask
-
-			mov     [ScreenXMin],ebx
-			mov     [ScreenXMax],edx
-			mov     [ScreenYMin],ecx
-			mov     [ScreenYMax],eax
-
-			inc     edx
-			inc     eax
-			sub     edx, ebx
-			sub     eax, ecx
-
-;----------------------------------------------- Compute Offset Ecran
-			mov     edi, Log
-			sub     edx, TabOffLine[1*4]; EDX = Offset Screen
-
-			add     edi, TabOffLine[ecx*4]
-			xor     ecx, ecx        ; Raz Compteur
-
-			add     edi, ebx
-			mov     bh, al          ; BH = NbLine
-
-			neg     edx             ; EDX = width-edx
-
-			mov     al, byte ptr [ColMask]; mask color
-			mov     ebp, edx        ; EBP Offset Next Line
-
-			mov     ah, al
-
-;----------------------------------------------- Init NbBlock for this line
-NextLine:               mov     bl, [esi]       ; BL = Nb Block for this line
-			inc     esi
-
-;----------------------------------------------- Manage One Line
-SameLine:               mov     cl, [esi]       ; Nb Zero to Jump
-			add     edi, ecx        ; Incrust
-			dec     bl
-			je      EndBlock
-			mov     cl, [esi+1]     ; Nb Zero to Write
-			add     esi, 2
-;			shr     ecx,1
-			db	0C1h, 0E9h, 001h
-			rep     stosw           ; Write Zero
-			jnc     nobyte
-			mov	[edi],al
-			inc	edi
-nobyte:                 dec     bl              ; Nb Block--
-			jne     SameLine        ; Continue Same Line
-			add     edi, ebp        ; EDI += Offset Next Line
-			dec     bh              ; NbLine--
-			jne     NextLine        ; Next Line
-			ret
-EndBlock:
-			inc     esi
-			add     edi, ebp        ; EDI += Offset Next Line
-			dec     bh              ; NbLine--
-			jne     NextLine        ; Next Line
-			ret
-
+S32 ClippingMask(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics)
+{
+	/*
 ;-------------------------------------------------------------------- Clipping
 ;               Graph : ( EBX, ECX ) ( EDX, EAX )
 ClippingMask:
@@ -297,22 +220,180 @@ End_Line:		mov	cl,bl
 
 ;----------------------
 EndMask:                ret
-
-AffMask			endp
-
-;----------------------------------------------------------------------------
-;			The
-			End
-*/
-
-#include <SVGA/MASK.H>
-#include <stdio.h>
-
-U8 ColMask = 0;
+	*/
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
 
 S32 AffMask(S32 nummask, S32 x, S32 y, void *bankmask)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	/*
+;S32	AffMask(S32 nummask, S32 x, S32 y, void *bankmask)	;
+
+;#pragma aux AffMask	"*"		\
+;	parm	[eax] [ebx] [ecx] [esi]	\
+;	modify	[edx edi]
+
+AffMask                 proc    uses ebp
+
+			add     esi, [esi+eax*4]; ESI = Begin Data
+
+			xor     eax, eax
+			xor	edx, edx
+			mov     al, [esi+2]
+			mov     dl, [esi+3]
+			add     ebx, eax        ; Hot X
+			add     ecx, edx        ; Hot Y
+
+;-----------------------------------------------
+			mov     dl, [esi]       ; Delta X
+			mov     al, [esi+1]     ; Nb Lines ( Delta Y )
+			add     esi, 4          ; Jump HotX & HotY
+
+;----------------------------------------------- Test Clipping
+			add     edx, ebx
+			add     eax, ecx
+			dec     edx
+			dec     eax
+
+			cmp     ebx, ClipXMin
+			jl      ClippingMask
+			cmp     ecx, ClipYMin
+			jl      ClippingMask
+			cmp     edx, ClipXMax
+			jg      ClippingMask
+			cmp     eax, ClipYMax
+			jg      ClippingMask
+
+			mov     [ScreenXMin],ebx
+			mov     [ScreenXMax],edx
+			mov     [ScreenYMin],ecx
+			mov     [ScreenYMax],eax
+
+			inc     edx
+			inc     eax
+			sub     edx, ebx
+			sub     eax, ecx
+			; edx = delta X
+			; eax = delta Y
+
+;----------------------------------------------- Compute Offset Ecran
+			mov     edi, Log
+			sub     edx, TabOffLine[1*4]; EDX = Offset Screen
+
+			add     edi, TabOffLine[ecx*4]
+			xor     ecx, ecx        ; Raz Compteur
+
+			add     edi, ebx
+			mov     bh, al          ; BH = NbLine
+
+			neg     edx             ; EDX = width-edx
+
+			mov     al, byte ptr [ColMask]; mask color
+			mov     ebp, edx        ; EBP Offset Next Line
+
+			mov     ah, al
+
+;----------------------------------------------- Init NbBlock for this line
+NextLine:               mov     bl, [esi]       ; BL = Nb Block for this line
+			inc     esi
+
+;----------------------------------------------- Manage One Line
+SameLine:               mov     cl, [esi]       ; Nb Zero to Jump
+			add     edi, ecx        ; Incrust
+			dec     bl
+			je      EndBlock
+			mov     cl, [esi+1]     ; Nb Zero to Write
+			add     esi, 2
+;			shr     ecx,1
+			db	0C1h, 0E9h, 001h
+			rep     stosw           ; Write Zero
+			jnc     nobyte
+			mov	[edi],al
+			inc	edi
+nobyte:                 dec     bl              ; Nb Block--
+			jne     SameLine        ; Continue Same Line
+			add     edi, ebp        ; EDI += Offset Next Line
+			dec     bh              ; NbLine--
+			jne     NextLine        ; Next Line
+			ret
+EndBlock:
+			inc     esi
+			add     edi, ebp        ; EDI += Offset Next Line
+			dec     bh              ; NbLine--
+			jne     NextLine        ; Next Line
+			ret
+AffMask			endp
+	*/
+  U8 *data = (U8 *)bankmask + ((U32 *)bankmask)[nummask];
+	U8 deltaX = data[0];
+	U8 nbLine = data[1]; // delta Y
+	S32 hotX = data[2];
+	S32 hotY = data[3];
+
+  U8 *graphics = data + 4;
+
+	x += hotX;
+	y += hotY;
+
+	S32 x1 = x + deltaX - 1;
+	S32 y1 = y + nbLine - 1;
+
+	// ----------------------------------------------- Test Clipping
+	if (x < ClipXMin || y < ClipYMin || x1 > ClipXMax || y1 > ClipYMax)
+	{
+		return ClippingMask(x, y, x1, y1, graphics);
+	}
+
+	ScreenXMin = x;
+	ScreenXMax = x1;
+	ScreenYMin = y;
+	ScreenYMax = y1;
+
+	// ----------------------------------------------- Compute Offset Ecran
+	U8 *screen = (U8 *)Log + TabOffLine[y] + x;
+	U32 offsetScreen = TabOffLine[1] - x1;
+	U8 color = ColMask;
+
+	for (int i = 0; i < nbLine; i++)
+	{
+		// ;-------------------- Init NbBlock for this line
+		// NextLine:
+		U8 nbBlock = graphics[0];
+		graphics++;
+
+		while (nbBlock > 0)
+		{
+			// ;-------------------- Manage One Line
+			// SameLine:
+			U8 toJump = graphics[0]; // Nb Zero to jump
+			screen += toJump;
+			nbBlock--;
+			if (nbBlock == 0)
+			{
+				// EndBlock:
+				graphics++;
+				break;
+			}
+
+			U8 toWrite = graphics[1]; // Nb Zero to write
+			graphics += 2;
+			for (int k = 0; k < toWrite; k++)
+			{
+				*(screen++) = color;
+			}
+
+			nbBlock--;
+			if (nbBlock == 0)
+			{
+				// EndBlock:
+				graphics += 2;
+				break;
+			}
+		}
+		screen += offsetScreen;
+	}
+
+	return 0; // TODO: make it void?
 }
