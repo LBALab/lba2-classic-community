@@ -601,7 +601,7 @@ GetBoxGraph	proc \
 
 GetBoxGraph		endp
 	*/
-	U8 *bank = (U8 *)bankgraph + numgraph * 4;
+	U8 *bank = (U8 *)bankgraph + ((U32 *)bankgraph)[numgraph];
 
 	U8 dx = bank[0];
 	U8 dy = bank[1];
