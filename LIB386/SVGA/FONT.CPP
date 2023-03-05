@@ -48,7 +48,7 @@ EndSizeFont:
 			ret
 SizeFont		endp
 	*/
-	S32 size = 0;
+	U32 size = 0;
 	while (*str != '\0')
 	{
 		char c = *str;
@@ -58,9 +58,9 @@ SizeFont		endp
 		}
 		else
 		{
-			S32 charSize = *(S32 *)((U8 *)PtrFont + c * 4);
+			U32 charSize = *(U32 *)((U8 *)PtrFont + c * 4);
 			size += InterLeave;
-			size += *(S32 *)((U8 *)PtrFont + charSize);
+			size += *((U8 *)PtrFont + charSize);
 		}
 		str++;
 	}
