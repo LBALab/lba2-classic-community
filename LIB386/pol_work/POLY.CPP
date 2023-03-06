@@ -88,12 +88,8 @@ Fill_PolyFast		ENDP
 	Fill_Type = Type_Poly;
 	Color_Poly = Color_Poly & 0xFF;
 
-	// TODO: This filler is a pointer to the filler function to call. I still
-	// need to figure out the signature of those fillers which are in POLY_JMP.
 	Fill_Jump_Fn filler = Fill_Saut_Normal[Type_Poly];
-	return filler();
-
-  return 0;
+	return filler(Nb_Points, Ptr_Points);
 }
 
 void Switch_Fillers_C(U32 Bank) {
@@ -301,6 +297,179 @@ void Triangle_ReadNextEdge(void)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
+{
+	/*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Fill_PolyClip: Display a n-angle (provided that the poly is convex)      ║
+; ╟──────────────────────────────────────────────────────────────────────────╢
+; ║ Appel : ECX = Nb points                                                  ║
+; ║         ESI = PTR on the list of points                                  ║
+; ║                                                                          ║
+; ╟──────────────────────────────────────────────────────────────────────────╢
+; ║ Retour: EAX = 0 if error (non-visible poly)                              ║
+; ║                                                                          ║
+; ╟──────────────────────────────────────────────────────────────────────────╢
+; ║ ALL REGISTERS MODIFIED                                                   ║
+; ║                                                                          ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+			ALIGN	4
+Fill_PolyClip		PROC
+			mov	ebx,Offset @@Fill_Restart
+			mov	[Fill_Restart],ebx
+
+@@Fill_Restart:
+			; *** Get the poly-box so as to test the clipping ***
+
+			lea	eax,[ecx-1]		; Loop counter in EAX
+			push	ecx
+
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
+			push	esi
+
+			mov	edx,ecx
+			mov	[Fill_FirstPoint],esi
+
+			sar	edx,16
+			add	esi,Size STRUC_POINT
+
+			shl	ecx,16
+			mov	ebp,edx
+
+			sar	ecx,16
+
+			mov	edi,ecx
+							; (ECX, EDX, EDI, EBP)
+							; (XMin, YMin, XMax, YMax)
+@@Bounding_Box:
+			push	eax			; What follows has a bad pairing... How can we pair when we have NOTHING to do ?
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
+			mov	ebx,eax
+
+			shl	eax,16
+			sar	ebx,16
+			sar	eax,16
+
+			cmp	edx,ebx
+			jle	@@Not_YMin
+
+			mov	edx,ebx
+@@Not_YMin:
+			cmp	ebp,ebx
+			jge	@@Not_YMax
+			mov	ebp,ebx
+@@Not_YMax:
+			cmp	ecx,eax
+			jle	@@Not_XMin
+			mov	ecx,eax
+@@Not_XMin:
+			cmp	edi,eax
+			jge	@@Not_XMax
+			mov	edi,eax
+@@Not_XMax:
+			pop	eax
+			add	esi,Size STRUC_POINT
+
+			dec	eax
+			jne	@@Bounding_Box
+
+			cmp	ebp,edx
+			jle	@@End			; Skip poly if DeltaY<=0
+
+				; *** Is the polygon at least visible ? ***
+
+			mov	eax,[ClipXMax]
+			mov	ebx,[ClipXMin]
+
+			inc	eax			; Bcoz we don't draw the last pixel on a scanline
+
+			cmp	ecx,eax
+			jg	@@End
+
+			cmp	edi,ebx
+			jl	@@End
+
+			mov	eax,[ClipYMax]
+			mov	ebx,[ClipYMin]
+
+			cmp	edx,eax
+			jg	@@End
+
+			cmp	ebp,ebx
+			jl	@@End
+
+
+				; *** Should we clip the polygon ? ***
+
+			mov	eax,[ClipXMin]
+			sub	esi,Size STRUC_POINT
+
+			mov	ebx,[ClipXMax]
+			mov	[Fill_LastPoint],esi
+
+			cmp	ecx,eax
+			pop	esi			; Restore List pointer
+
+			pop	ecx			; Restore Nb Pts
+			jl	Fill_ClipXMin
+
+			inc	ebx			; Bcoz we don't draw the last pixel on a scanline
+
+			cmp	edi,ebx
+			jg	Fill_ClipXMax
+
+			mov	eax,[ClipYMin]
+			mov	ebx,[ClipYMax]
+
+			cmp	edx,eax
+			jl	Fill_ClipYMin
+
+			cmp	ebp,ebx
+			jg	Fill_ClipYMax
+
+
+Fill_PolyNoClip::
+			cmp	ecx,3			; Is it a triangle ?
+			je	Draw_Triangle
+
+			push	ecx
+			push	Offset @@Ret_Triangle
+
+			push	esi			; Will be poped by Draw_Triangle in EBP
+			mov	ecx,3			; (BCOZ EBP is saved in Fill_Poly and restored in Draw_Triangle)
+
+			jmp	Draw_Triangle
+@@Ret_Triangle:
+			pop	ecx
+			lea	esi,[ebp+Size STRUC_POINT]; Next ListPoint pointer
+
+			mov	eax,[ebp]		; Copy the first point in the new location (the following one)
+			mov	ebx,[ebp+4]
+
+			mov	[esi],eax
+			mov	[esi+4],ebx
+
+			mov	eax,[ebp+8]
+			mov	ebx,[ebp+12]
+
+			mov	[esi+8],eax
+			mov	[esi+12],ebx
+
+			dec	ecx
+			jmp	Fill_PolyNoClip
+@@End:
+			pop	esi
+			pop	ecx
+			pop	ebp
+			mov	eax,[Fill_LeftSlope]
+			ret
+Fill_PolyClip		ENDP
+	*/
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
 }
 
 // =============================================================================
