@@ -1,15 +1,13 @@
 
 #pragma once
-#include <POLYGON/POLY.H>
+#include <SYSTEM/ADELINE_TYPES.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef S32 (*Fill_Jump_Fn)(S32 Nb_Points, Struc_Point *Ptr_Points);
-
-extern Fill_Jump_Fn Fill_N_Table_Jumps[];
+S32 Filler_Texture(U32 fillCurXMin, U32 fillCurXMax);
 
 // =============================================================================
 #ifdef __cplusplus

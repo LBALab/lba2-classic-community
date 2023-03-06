@@ -13,7 +13,13 @@
 ; **************************************************************************
 ; **************************************************************************
 ; **************************************************************************
+*/
 
+#include <POLYGON/POLYTEXT.H>
+
+#include <stdio.h>
+
+/*
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
 			OPTION	LANGUAGE:C
@@ -187,7 +193,12 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;				*** Global proc ***
 ;				*******************
 
+*/
 
+
+S32 Filler_Texture(U32 fillCurXMin, U32 fillCurXMax)
+{
+/*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -374,10 +385,14 @@ Filler_Texture		PROC
 			mov	[Fill_CurMapVMin],ebp
 			jmp	Triangle_ReadNextEdge
 Filler_Texture		ENDP
+	*/
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
 
 
-
-
+/*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
