@@ -15,8 +15,11 @@
 ; **************************************************************************
 */
 
+#include <POLYGON/POLY_JMP.H>
 #include <POLYGON/POLY.H>
 #include <POLYGON/POLYFLAT.H>
+
+#include <stdio.h>
 
 /*
 			OPTION	PROC:PRIVATE
@@ -97,384 +100,6 @@ Extrn	C		Fill_Trame_Parity	:	DWORD
 Extrn	C		PtrCLUTGouraud		:	DWORD
 Extrn	C		Fill_Logical_Palette	:	BYTE
 Extrn	C		IsPolygonHidden		:	DWORD
-
-
-
-
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-; ************************************************************************
-; ************************************************************************
-; ***                                                                  ***
-; ***           JUMP TABLE (DEFAULT POLYGONS)                          ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-Fill_N_Table_Jumps	Label	DWORD
-						; **** FLAT + SPECIAUX ****
-			dd	Jmp_Solid		; 0 Solid
-			dd	Jmp_Solid		; 1 Flat
-			dd	Jmp_Transparent		; 2 Transparent
-			dd	Jmp_Trame		; 3 Trame
-
-						; **** GOURAUD ****
-			dd	Jmp_Gouraud		; 4 Gouraud
-			dd	Jmp_Dither		; 5 Gouraud Dither
-			dd	Jmp_GouraudTable	; 6 Gouraud table
-			dd	Jmp_DitherTable		; 7 Gouraud Dither table
-
-						; **** MAPPING ****
-								; ** Without Chromakey **
-			dd	Jmp_Texture		; 8 Texture Solid
-			dd	Jmp_TextureFlat		; 9 Texture Flat
-
-			dd	Jmp_GouraudTexture	; 10 Texture Gouraud
-			dd	Jmp_DitherTexture	; 11 Texture Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureChromaKey	; 12 Texture Solid Chromakey
-			dd	Jmp_TextureFlatChromaKey; 13 Texture Flat Chromakey
-
-			dd	Jmp_GouraudTextureChromaKey; 14 Texture Gouraud Chromakey
-			dd	Jmp_DitherTextureChromaKey; 15 Texture Gouraud Dither Chromakey
-
-
-						; **** MAPPING + PERSPECTIVE CORRECTED ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZ		; 16 Texture Z Solid
-			dd	Jmp_TextureZFlat	; 17 Texture Z Flat
-
-			dd	Jmp_TextureZGouraud	; 18 Texture Z Gouraud
-			dd	Jmp_TextureZGouraud	; 19 Texture Z Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureZChromaKey	; 20  Texture Z Solid Chromakey
-			dd	Jmp_TextureZFlatChromaKey;21  Texture Z Flat Chromakey
-
-			dd	Jmp_TextureZGouraudChromaKey; 22  Texture Z Gouraud Chromakey
-			dd	Jmp_TextureZGouraudChromaKey; 23  Texture Z Gouraud Dither Chromakey
-
-			dd	Jmp_TextureZFogSmooth	; 24 Texture Z Fog Smooth
-			dd	Jmp_FlagZBuffer		; 25 Flag if object totally hidden
-
-
-
-
-; ************************************************************************
-; ************************************************************************
-; ***                                                                  ***
-; ***           JUMP TABLE (FOGGED  POLYGONS)                          ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-Fill_Fog_Table_Jumps	Label	DWORD
-						; **** FLAT + SPECIAUX ****
-			dd	Jmp_SolidFog		; 0 Solid
-			dd	Jmp_SolidFog		; 1 Flat
-			dd	Jmp_Transparent		; 2 Transparent
-			dd	Jmp_TrameFog		; 3 Trame
-
-						; **** GOURAUD ****
-			dd	Jmp_GouraudFog		; 4 Gouraud
-			dd	Jmp_DitherFog		; 5 Gouraud Dither
-			dd	Jmp_GouraudTable	; 6 Gouraud table
-			dd	Jmp_DitherTable		; 7 Gouraud Dither table
-
-						; **** MAPPING ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureFog		; 8 Texture Solid
-			dd	Jmp_TextureFlat		; 9 Texture Flat
-
-			dd	Jmp_GouraudTexture	; 10 Texture Gouraud
-			dd	Jmp_DitherTexture	; 11 Texture Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureChromaKeyFog	; 12 Texture Solid Chromakey
-			dd	Jmp_TextureFlatChromaKey; 13 Texture Flat Chromakey
-
-			dd	Jmp_GouraudTextureChromaKey; 14 Texture Gouraud Chromakey
-			dd	Jmp_DitherTextureChromaKey; 15 Texture Gouraud Dither Chromakey
-
-
-						; **** MAPPING + PERSPECTIVE CORRECTED ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZFog		; 16 Texture Z Solid
-			dd	Jmp_TextureZFlat	; 17 Texture Z Flat
-
-			dd	Jmp_TextureZGouraud	; 18 Texture Z Gouraud
-			dd	Jmp_TextureZGouraud	; 19 Texture Z Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureZChromaKeyFog; 20  Texture Z Solid Chromakey
-			dd	Jmp_TextureZFlatChromaKey;21  Texture Z Flat Chromakey
-
-			dd	Jmp_TextureZGouraudChromaKey; 22  Texture Z Gouraud Chromakey
-			dd	Jmp_TextureZGouraudChromaKey; 23  Texture Z Gouraud Dither Chromakey
-
-			dd	Jmp_TextureZFogSmooth	; 24 Texture Z Fog Smooth
-			dd	Jmp_FlagZBuffer		; 25 Flag if object totally hidden
-
-
-
-; ************************************************************************
-; ************************************************************************
-; ***                                                                  ***
-; ***           JUMP TABLE (ZBUFFERED POLYGONS)                        ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-Fill_ZBuf_Table_Jumps	Label	DWORD
-						; **** FLAT + SPECIAUX ****
-			dd	Jmp_SolidZBuf		; 0 Solid
-			dd	Jmp_SolidZBuf		; 1 Flat
-			dd	Jmp_TransparentZBuf	; 2 Transparent
-			dd	Jmp_TrameZBuf		; 3 Trame
-
-						; **** GOURAUD ****
-			dd	Jmp_GouraudZBuf		; 4 Gouraud
-			dd	Jmp_DitherZBuf		; 5 Gouraud Dither
-			dd	Jmp_GouraudTableZBuf	; 6 Gouraud table
-			dd	Jmp_DitherTableZBuf	; 7 Gouraud Dither table
-
-						; **** MAPPING ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZBuf		; 8 Texture Solid
-			dd	Jmp_TextureFlatZBuf	; 9 Texture Flat
-
-			dd	Jmp_GouraudTextureZBuf	; 10 Texture Gouraud
-			dd	Jmp_GouraudTextureZBuf	; 11 Texture Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureChromaKeyZBuf; 12 Texture Solid Chromakey
-			dd	Jmp_TextureFlatChromaKeyZBuf; 13 Texture Flat Chromakey
-
-			dd	Jmp_GouraudTextureChromaKeyZBuf; 14 Texture Gouraud Chromakey
-			dd	Jmp_GouraudTextureChromaKeyZBuf; 15 Texture Gouraud Dither Chromakey
-
-
-						; **** MAPPING + PERSPECTIVE CORRECTED ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZZBuf	; 16 Texture Z Solid
-			dd	Jmp_TextureZFlatZBuf	; 17 Texture Z Flat
-
-			dd	Jmp_TextureZGouraudZBuf	; 18 Texture Z Gouraud
-			dd	Jmp_TextureZGouraudZBuf	; 19 Texture Z Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureZChromaKeyZBuf; 20  Texture Z Solid Chromakey
-			dd	Jmp_TextureZFlatChromaKeyZBuf;21  Texture Z Flat Chromakey
-
-			dd	Jmp_TextureZGouraudChromaKeyZBuf; 22  Texture Z Gouraud Chromakey
-			dd	Jmp_TextureZGouraudChromaKeyZBuf; 23  Texture Z Gouraud Dither Chromakey
-
-			dd	Jmp_TextureZFogSmoothZBuf; 24 Texture Z Fog Smooth
-			dd	Jmp_FlagZBuffer		; 25 Flag if object totally hidden
-
-
-; ************************************************************************
-; ************************************************************************
-; ***                                                                  ***
-; ***           JUMP TABLE (ZBUFFERED POLYGONS)                        ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-Fill_FogZBuf_Table_Jumps Label	DWORD
-						; **** FLAT + SPECIAUX ****
-			dd	Jmp_SolidFogZBuf	; 0 Solid
-			dd	Jmp_SolidFogZBuf	; 1 Flat
-			dd	Jmp_TransparentZBuf	; 2 Transparent
-			dd	Jmp_TrameFogZBuf	; 3 Trame
-
-						; **** GOURAUD ****
-			dd	Jmp_GouraudFogZBuf	; 4 Gouraud
-			dd	Jmp_DitherFogZBuf	; 5 Gouraud Dither
-			dd	Jmp_GouraudTableZBuf	; 6 Gouraud table
-			dd	Jmp_DitherTableZBuf	; 7 Gouraud Dither table
-
-						; **** MAPPING ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureFogZBuf	; 8 Texture Solid
-			dd	Jmp_TextureFlatZBuf	; 9 Texture Flat
-
-			dd	Jmp_GouraudTextureZBuf	; 10 Texture Gouraud
-			dd	Jmp_GouraudTextureZBuf	; 11 Texture Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureChromaKeyFogZBuf; 12 Texture Solid Chromakey
-			dd	Jmp_TextureFlatChromaKeyZBuf; 13 Texture Flat Chromakey
-
-			dd	Jmp_GouraudTextureChromaKeyZBuf; 14 Texture Gouraud Chromakey
-			dd	Jmp_GouraudTextureChromaKeyZBuf; 15 Texture Gouraud Dither Chromakey
-
-
-						; **** MAPPING + PERSPECTIVE CORRECTED ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZFogZBuf	; 16 Texture Z Solid
-			dd	Jmp_TextureZFlatZBuf	; 17 Texture Z Flat
-
-			dd	Jmp_TextureZGouraudZBuf	; 18 Texture Z Gouraud
-			dd	Jmp_TextureZGouraudZBuf	; 19 Texture Z Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureZChromaKeyFogZBuf; 20  Texture Z Solid Chromakey
-			dd	Jmp_TextureZFlatChromaKeyZBuf;21  Texture Z Flat Chromakey
-
-			dd	Jmp_TextureZGouraudChromaKeyZBuf; 22  Texture Z Gouraud Chromakey
-			dd	Jmp_TextureZGouraudChromaKeyZBuf; 23  Texture Z Gouraud Dither Chromakey
-
-			dd	Jmp_TextureZFogSmoothZBuf; 24 Texture Z Fog Smooth
-			dd	Jmp_FlagZBuffer		; 25 Flag if object totally hidden
-
-
-
-; ************************************************************************
-; ************************************************************************
-; ***                                                                  ***
-; ***           JUMP TABLE (ZBUFFERED without ZBuf update POLYGONS)    ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-Fill_NZW_Table_Jumps	Label	DWORD
-						; **** FLAT + SPECIAUX ****
-			dd	Jmp_SolidNZW		; 0 Solid
-			dd	Jmp_SolidNZW		; 1 Flat
-			dd	Jmp_TransparentNZW	; 2 Transparent
-			dd	Jmp_TrameNZW		; 3 Trame
-
-						; **** GOURAUD ****
-			dd	Jmp_GouraudNZW		; 4 Gouraud
-			dd	Jmp_DitherNZW		; 5 Gouraud Dither
-			dd	Jmp_GouraudTableNZW	; 6 Gouraud table
-			dd	Jmp_DitherTableNZW	; 7 Gouraud Dither table
-
-						; **** MAPPING ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureNZW		; 8 Texture Solid
-			dd	Jmp_TextureFlatNZW	; 9 Texture Flat
-
-			dd	Jmp_GouraudTextureNZW	; 10 Texture Gouraud
-			dd	Jmp_GouraudTextureNZW	; 11 Texture Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureChromaKeyNZW; 12 Texture Solid Chromakey
-			dd	Jmp_TextureFlatChromaKeyNZW; 13 Texture Flat Chromakey
-
-			dd	Jmp_GouraudTextureChromaKeyNZW; 14 Texture Gouraud Chromakey
-			dd	Jmp_GouraudTextureChromaKeyNZW; 15 Texture Gouraud Dither Chromakey
-
-
-						; **** MAPPING + PERSPECTIVE CORRECTED ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZNZW	; 16 Texture Z Solid
-			dd	Jmp_TextureZFlatNZW	; 17 Texture Z Flat
-
-			dd	Jmp_TextureZGouraudNZW	; 18 Texture Z Gouraud
-			dd	Jmp_TextureZGouraudNZW	; 19 Texture Z Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureZChromaKeyNZW; 20  Texture Z Solid Chromakey
-			dd	Jmp_TextureZFlatChromaKeyNZW;21  Texture Z Flat Chromakey
-
-			dd	Jmp_TextureZGouraudChromaKeyNZW; 22  Texture Z Gouraud Chromakey
-			dd	Jmp_TextureZGouraudChromaKeyNZW; 23  Texture Z Gouraud Dither Chromakey
-
-			dd	Jmp_TextureZFogSmoothNZW; 24 Texture Z Fog Smooth
-			dd	Jmp_FlagZBuffer		; 25 Flag if object totally hidden
-
-
-; ************************************************************************
-; ************************************************************************
-; ***                                                                  ***
-; ***           JUMP TABLE (ZBUFFERED without ZBuf update POLYGONS)    ***
-; ***                                                                  ***
-; ************************************************************************
-; ************************************************************************
-Fill_FogNZW_Table_Jumps Label	DWORD
-						; **** FLAT + SPECIAUX ****
-			dd	Jmp_SolidFogNZW		; 0 Solid
-			dd	Jmp_SolidFogNZW		; 1 Flat
-			dd	Jmp_TransparentNZW	; 2 Transparent
-			dd	Jmp_TrameFogNZW		; 3 Trame
-
-						; **** GOURAUD ****
-			dd	Jmp_GouraudFogNZW	; 4 Gouraud
-			dd	Jmp_DitherFogNZW	; 5 Gouraud Dither
-			dd	Jmp_GouraudTableNZW	; 6 Gouraud table
-			dd	Jmp_DitherTableNZW	; 7 Gouraud Dither table
-
-						; **** MAPPING ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureFogNZW	; 8 Texture Solid
-			dd	Jmp_TextureFlatNZW	; 9 Texture Flat
-
-			dd	Jmp_GouraudTextureNZW	; 10 Texture Gouraud
-			dd	Jmp_GouraudTextureNZW	; 11 Texture Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureChromaKeyFogNZW; 12 Texture Solid Chromakey
-			dd	Jmp_TextureFlatChromaKeyNZW; 13 Texture Flat Chromakey
-
-			dd	Jmp_GouraudTextureChromaKeyNZW; 14 Texture Gouraud Chromakey
-			dd	Jmp_GouraudTextureChromaKeyNZW; 15 Texture Gouraud Dither Chromakey
-
-
-						; **** MAPPING + PERSPECTIVE CORRECTED ****
-								; ** Without Chromakey **
-			dd	Jmp_TextureZFogNZW	; 16 Texture Z Solid
-			dd	Jmp_TextureZFlatNZW	; 17 Texture Z Flat
-
-			dd	Jmp_TextureZGouraudNZW	; 18 Texture Z Gouraud
-			dd	Jmp_TextureZGouraudNZW	; 19 Texture Z Gouraud Dither
-
-								; ** With Chromakey **
-			dd	Jmp_TextureZChromaKeyFogNZW; 20  Texture Z Solid Chromakey
-			dd	Jmp_TextureZFlatChromaKeyNZW;21  Texture Z Flat Chromakey
-
-			dd	Jmp_TextureZGouraudChromaKeyNZW; 22  Texture Z Gouraud Chromakey
-			dd	Jmp_TextureZGouraudChromaKeyNZW; 23  Texture Z Gouraud Dither Chromakey
-
-			dd	Jmp_TextureZFogSmoothNZW	; 24 Texture Z Fog Smooth
-			dd	Jmp_FlagZBuffer		; 25 Flag if object totally hidden
-
-
-
-
-
-
-
-
-
-;				******************
-;				*** Local data ***
-;				******************
-			ALIGN	4
-
-
-
-
-_DATA			ENDS
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
 
 ;				******************
 ;				*** Extrn proc ***
@@ -602,7 +227,7 @@ Extrn	C		Filler_TextureZFogSmoothNZW:	PROC
 ;			**************
 */
 
-void Jmp_Solid()
+S32 Jmp_Solid()
 {
 	/*
 Jmp_Solid		PROC
@@ -622,10 +247,13 @@ Jmp_Solid		PROC
 Jmp_Solid		ENDP
 	*/
 	Fill_Filler = (U32 **)Filler_Flat;
+	return 0;
 }
 
 
-/*
+S32 Jmp_Transparent()
+{
+	/*
 Jmp_Transparent		PROC
 			mov	eax,Offset Filler_Transparent
 			and	ebx,0F0h
@@ -638,11 +266,17 @@ Jmp_Transparent		PROC
 
 			jmp	Fill_PolyClip
 Jmp_Transparent		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
-
-
+S32 Jmp_Trame()
+{
+	/*
 Jmp_Trame		PROC
 			mov	eax,Offset Filler_Trame
 			mov	[Fill_Color],ebx
@@ -656,10 +290,18 @@ Jmp_Trame		PROC
 			mov	[Fill_Trame_Parity],eax
 			jmp	Fill_PolyClip
 Jmp_Trame		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_SolidFog()
+{
+	/*
 Jmp_SolidFog		PROC
 			mov	bl,[Fill_Logical_Palette+ebx]
 			mov	eax,Offset Filler_Flat
@@ -676,10 +318,18 @@ Jmp_SolidFog		PROC
 
 			jmp	Fill_PolyClip
 Jmp_SolidFog		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TrameFog()
+{
+	/*
 Jmp_TrameFog		PROC
 			mov	bl,[Fill_Logical_Palette+ebx]
 			mov	eax,Offset Filler_Trame
@@ -694,11 +344,19 @@ Jmp_TrameFog		PROC
 			mov	[Fill_Trame_Parity],eax
 			jmp	Fill_PolyClip
 Jmp_TrameFog		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_SolidZBuf()
+{
+	/*
 Jmp_SolidZBuf		PROC
 			mov	eax,Offset Filler_FlatZBuf
 			mov	edx,ebx
@@ -714,9 +372,17 @@ Jmp_SolidZBuf		PROC
 
 			jmp	Fill_PolyClip
 Jmp_SolidZBuf		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TransparentZBuf()
+{
+	/*
 Jmp_TransparentZBuf	PROC
 			mov	eax,Offset Filler_TransparentZBuf
 			and	ebx,0F0h
@@ -728,11 +394,19 @@ Jmp_TransparentZBuf	PROC
 			mov	[Fill_ClipFlag],eax
 			jmp	Fill_PolyClip
 Jmp_TransparentZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TrameZBuf()
+{
+	/*
 Jmp_TrameZBuf		PROC
 			mov	eax,Offset Filler_TrameZBuf
 			mov	[Fill_Color],ebx
@@ -746,10 +420,18 @@ Jmp_TrameZBuf		PROC
 			mov	[Fill_ClipFlag],eax
 			jmp	Fill_PolyClip
 Jmp_TrameZBuf		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_SolidFogZBuf()
+{
+	/*
 Jmp_SolidFogZBuf	PROC
 			mov	bl,[Fill_Logical_Palette+ebx]
 			mov	eax,Offset Filler_FlatZBuf
@@ -767,12 +449,20 @@ Jmp_SolidFogZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_SolidFogZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
 
+S32 Jmp_TrameFogZBuf()
+{
+	/*
 Jmp_TrameFogZBuf	PROC
 			mov	bl,[Fill_Logical_Palette]
 			mov	eax,Offset Filler_TrameZBuf
@@ -788,11 +478,19 @@ Jmp_TrameFogZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TrameFogZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_SolidNZW()
+{
+	/*
 Jmp_SolidNZW		PROC
 			mov	eax,Offset Filler_FlatNZW
 			mov	edx,ebx
@@ -808,9 +506,17 @@ Jmp_SolidNZW		PROC
 
 			jmp	Fill_PolyClip
 Jmp_SolidNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TransparentNZW()
+{
+	/*
 Jmp_TransparentNZW	PROC
 			mov	eax,Offset Filler_TransparentNZW
 			and	ebx,0F0h
@@ -822,11 +528,19 @@ Jmp_TransparentNZW	PROC
 			mov	[Fill_ClipFlag],eax
 			jmp	Fill_PolyClip
 Jmp_TransparentNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TrameNZW()
+{
+	/*
 Jmp_TrameNZW		PROC
 			mov	eax,Offset Filler_TrameNZW
 			mov	[Fill_Color],ebx
@@ -840,10 +554,18 @@ Jmp_TrameNZW		PROC
 			mov	[Fill_ClipFlag],eax
 			jmp	Fill_PolyClip
 Jmp_TrameNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_SolidFogNZW()
+{
+	/*
 Jmp_SolidFogNZW		PROC
 			mov	bl,[Fill_Logical_Palette+ebx]
 			mov	eax,Offset Filler_FlatNZW
@@ -861,12 +583,20 @@ Jmp_SolidFogNZW		PROC
 
 			jmp	Fill_PolyClip
 Jmp_SolidFogNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
 
+S32 Jmp_TrameFogNZW()
+{
+	/*
 Jmp_TrameFogNZW		PROC
 			mov	bl,[Fill_Logical_Palette]
 			mov	eax,Offset Filler_TrameNZW
@@ -882,23 +612,19 @@ Jmp_TrameFogNZW		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TrameFogNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
+// *****************
+// ***  GOURAUD  ***
+// *****************
 
-
-
-
-
-
-
-
-
-
-
-
-;			*****************
-;			***  GOURAUD  ***
-;			*****************
-
+S32 Jmp_Gouraud()
+{
+	/*
 Jmp_Gouraud		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_Gouraud
@@ -911,8 +637,16 @@ Jmp_Gouraud		PROC
 
 			jmp	Fill_PolyClip
 Jmp_Gouraud		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_Dither()
+{
+	/*
 Jmp_Dither		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_Dither
@@ -925,9 +659,17 @@ Jmp_Dither		PROC
 
 			jmp	Fill_PolyClip
 Jmp_Dither		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_GouraudTable()
+{
+	/*
 Jmp_GouraudTable	PROC
 			mov	eax,Offset Filler_GouraudTable
 			mov	edx,CLIP_FLAT+CLIP_LIGHT
@@ -941,10 +683,18 @@ Jmp_GouraudTable	PROC
 			mov	[Fill_Color],ebx
 			jmp	Fill_PolyClip
 Jmp_GouraudTable	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_DitherTable()
+{
+	/*
 Jmp_DitherTable		PROC
 			mov	eax,Offset Filler_DitherTable
 			mov	edx,CLIP_FLAT+CLIP_LIGHT
@@ -958,10 +708,18 @@ Jmp_DitherTable		PROC
 			mov	[Fill_Color],ebx
 			jmp	Fill_PolyClip
 Jmp_DitherTable		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_GouraudFog()
+{
+	/*
 Jmp_GouraudFog		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_GouraudFog
@@ -974,8 +732,16 @@ Jmp_GouraudFog		PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudFog		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherFog()
+{
+	/*
 Jmp_DitherFog		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_DitherFog
@@ -988,10 +754,18 @@ Jmp_DitherFog		PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherFog		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_GouraudZBuf()
+{
+	/*
 Jmp_GouraudZBuf		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_GouraudZBuf
@@ -1004,8 +778,16 @@ Jmp_GouraudZBuf		PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudZBuf		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherZBuf()
+{
+	/*
 Jmp_DitherZBuf		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_DitherZBuf
@@ -1018,10 +800,18 @@ Jmp_DitherZBuf		PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherZBuf		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_GouraudTableZBuf()
+{
+	/*
 Jmp_GouraudTableZBuf	PROC
 			mov	eax,Offset Filler_GouraudTableZBuf
 			mov	edx,CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1035,10 +825,18 @@ Jmp_GouraudTableZBuf	PROC
 			mov	[Fill_Color],ebx
 			jmp	Fill_PolyClip
 Jmp_GouraudTableZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_DitherTableZBuf()
+{
+	/*
 Jmp_DitherTableZBuf	PROC
 			mov	eax,Offset Filler_DitherTableZBuf
 			mov	edx,CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1052,9 +850,17 @@ Jmp_DitherTableZBuf	PROC
 			mov	[Fill_Color],ebx
 			jmp	Fill_PolyClip
 Jmp_DitherTableZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_GouraudFogZBuf()
+{
+	/*
 Jmp_GouraudFogZBuf	PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_GouraudFogZBuf
@@ -1067,8 +873,16 @@ Jmp_GouraudFogZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudFogZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherFogZBuf()
+{
+	/*
 Jmp_DitherFogZBuf	PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_DitherFogZBuf
@@ -1081,11 +895,19 @@ Jmp_DitherFogZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherFogZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_GouraudNZW()
+{
+	/*
 Jmp_GouraudNZW		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_GouraudNZW
@@ -1098,8 +920,16 @@ Jmp_GouraudNZW		PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherNZW()
+{
+	/*
 Jmp_DitherNZW		PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_DitherNZW
@@ -1112,10 +942,18 @@ Jmp_DitherNZW		PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_GouraudTableNZW()
+{
+	/*
 Jmp_GouraudTableNZW	PROC
 			mov	eax,Offset Filler_GouraudTableNZW
 			mov	edx,CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1129,10 +967,18 @@ Jmp_GouraudTableNZW	PROC
 			mov	[Fill_Color],ebx
 			jmp	Fill_PolyClip
 Jmp_GouraudTableNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_DitherTableNZW()
+{
+	/*
 Jmp_DitherTableNZW	PROC
 			mov	eax,Offset Filler_DitherTableNZW
 			mov	edx,CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1146,9 +992,17 @@ Jmp_DitherTableNZW	PROC
 			mov	[Fill_Color],ebx
 			jmp	Fill_PolyClip
 Jmp_DitherTableNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_GouraudFogNZW()
+{
+	/*
 Jmp_GouraudFogNZW	PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_GouraudFogNZW
@@ -1161,8 +1015,16 @@ Jmp_GouraudFogNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudFogNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherFogNZW()
+{
+	/*
 Jmp_DitherFogNZW	PROC
 			shl	ebx,16
 			mov	eax,Offset Filler_DitherFogNZW
@@ -1175,16 +1037,19 @@ Jmp_DitherFogNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherFogNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
+// *****************
+// ***  TEXTURE  ***
+// *****************
 
-
-
-
-
-;			*****************
-;			***  TEXTURE  ***
-;			*****************
-
+S32 Jmp_Texture()
+{
+	/*
 Jmp_Texture		PROC
 			mov	eax,Offset Filler_Texture
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE
@@ -1194,8 +1059,16 @@ Jmp_Texture		PROC
 
 			jmp	Fill_PolyClip
 Jmp_Texture		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_TextureFlat()
+{
+	/*
 Jmp_TextureFlat		PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureFlat
@@ -1208,8 +1081,16 @@ Jmp_TextureFlat		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFlat		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_TextureChromaKey()
+{
+	/*
 Jmp_TextureChromaKey	PROC
 			mov	eax,Offset Filler_TextureChromaKey
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE
@@ -1219,9 +1100,17 @@ Jmp_TextureChromaKey	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureChromaKey	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureFlatChromaKey()
+{
+	/*
 Jmp_TextureFlatChromaKey PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureFlatChromaKey
@@ -1234,10 +1123,18 @@ Jmp_TextureFlatChromaKey PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFlatChromaKey ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureFog()
+{
+	/*
 Jmp_TextureFog		PROC
 			mov	eax,Offset Filler_TextureFog
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE
@@ -1247,9 +1144,17 @@ Jmp_TextureFog		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFog		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureChromaKeyFog()
+{
+	/*
 Jmp_TextureChromaKeyFog	PROC
 			mov	eax,Offset Filler_TextureChromaKeyFog
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE
@@ -1259,10 +1164,18 @@ Jmp_TextureChromaKeyFog	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureChromaKeyFog	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZBuf()
+{
+	/*
 Jmp_TextureZBuf		PROC
 			mov	eax,Offset Filler_TextureZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1272,9 +1185,17 @@ Jmp_TextureZBuf		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZBuf		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureChromaKeyZBuf()
+{
+	/*
 Jmp_TextureChromaKeyZBuf PROC
 			mov	eax,Offset Filler_TextureChromaKeyZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1284,8 +1205,16 @@ Jmp_TextureChromaKeyZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureChromaKeyZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_TextureFlatZBuf()
+{
+	/*
 Jmp_TextureFlatZBuf	PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureFlatZBuf
@@ -1301,11 +1230,19 @@ Jmp_TextureFlatZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFlatZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TextureFlatChromaKeyZBuf()
+{
+	/*
 Jmp_TextureFlatChromaKeyZBuf PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureFlatChromaKeyZBuf
@@ -1321,9 +1258,17 @@ Jmp_TextureFlatChromaKeyZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFlatChromaKeyZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureFogZBuf()
+{
+	/*
 Jmp_TextureFogZBuf	PROC
 			mov	eax,Offset Filler_TextureFogZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1333,9 +1278,17 @@ Jmp_TextureFogZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFogZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureChromaKeyFogZBuf()
+{
+	/*
 Jmp_TextureChromaKeyFogZBuf PROC
 			mov	eax,Offset Filler_TextureChromaKeyFogZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1345,9 +1298,17 @@ Jmp_TextureChromaKeyFogZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureChromaKeyFogZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureNZW()
+{
+	/*
 Jmp_TextureNZW		PROC
 			mov	eax,Offset Filler_TextureNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1357,9 +1318,17 @@ Jmp_TextureNZW		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureNZW		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureChromaKeyNZW()
+{
+	/*
 Jmp_TextureChromaKeyNZW PROC
 			mov	eax,Offset Filler_TextureChromaKeyNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1369,8 +1338,16 @@ Jmp_TextureChromaKeyNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureChromaKeyNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_TextureFlatNZW()
+{
+	/*
 Jmp_TextureFlatNZW	PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureFlatNZW
@@ -1386,11 +1363,19 @@ Jmp_TextureFlatNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFlatNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TextureFlatChromaKeyNZW()
+{
+	/*
 Jmp_TextureFlatChromaKeyNZW PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureFlatChromaKeyNZW
@@ -1406,9 +1391,17 @@ Jmp_TextureFlatChromaKeyNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFlatChromaKeyNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureFogNZW()
+{
+	/*
 Jmp_TextureFogNZW	PROC
 			mov	eax,Offset Filler_TextureFogNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1418,9 +1411,17 @@ Jmp_TextureFogNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureFogNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureChromaKeyFogNZW()
+{
+	/*
 Jmp_TextureChromaKeyFogNZW PROC
 			mov	eax,Offset Filler_TextureChromaKeyFogNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_ZBUFFER
@@ -1430,16 +1431,19 @@ Jmp_TextureChromaKeyFogNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureChromaKeyFogNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
+// *************************
+// ***  GOURAUD TEXTURE  ***
+// *************************
 
-
-
-
-
-;			*************************
-;			***  GOURAUD TEXTURE  ***
-;			*************************
-
+S32 Jmp_GouraudTexture()
+{
+	/*
 Jmp_GouraudTexture	PROC
 			mov	eax,Offset Filler_TextureGouraud
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT
@@ -1449,8 +1453,16 @@ Jmp_GouraudTexture	PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudTexture	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherTexture()
+{
+	/*
 Jmp_DitherTexture	PROC
 			mov	eax,Offset Filler_TextureDither
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT
@@ -1460,8 +1472,16 @@ Jmp_DitherTexture	PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherTexture	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_GouraudTextureChromaKey()
+{
+	/*
 Jmp_GouraudTextureChromaKey PROC
 			mov	eax,Offset Filler_TextureGouraudChromaKey
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT
@@ -1471,8 +1491,16 @@ Jmp_GouraudTextureChromaKey PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudTextureChromaKey ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_DitherTextureChromaKey()
+{
+	/*
 Jmp_DitherTextureChromaKey PROC
 			mov	eax,Offset Filler_TextureDitherChromaKey
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT
@@ -1482,9 +1510,17 @@ Jmp_DitherTextureChromaKey PROC
 
 			jmp	Fill_PolyClip
 Jmp_DitherTextureChromaKey ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_GouraudTextureZBuf()
+{
+	/*
 Jmp_GouraudTextureZBuf	PROC
 			mov	eax,Offset Filler_TextureGouraudZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1494,9 +1530,17 @@ Jmp_GouraudTextureZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudTextureZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_GouraudTextureChromaKeyZBuf()
+{
+	/*
 Jmp_GouraudTextureChromaKeyZBuf PROC
 			mov	eax,Offset Filler_TextureGouraudChromaKeyZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1506,11 +1550,19 @@ Jmp_GouraudTextureChromaKeyZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudTextureChromaKeyZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_GouraudTextureNZW()
+{
+	/*
 Jmp_GouraudTextureNZW	PROC
 			mov	eax,Offset Filler_TextureGouraudNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1520,9 +1572,17 @@ Jmp_GouraudTextureNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudTextureNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_GouraudTextureChromaKeyNZW()
+{
+	/*
 Jmp_GouraudTextureChromaKeyNZW PROC
 			mov	eax,Offset Filler_TextureGouraudChromaKeyNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1532,15 +1592,19 @@ Jmp_GouraudTextureChromaKeyNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_GouraudTextureChromaKeyNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
+//			********************************************
+//			***  TEXTURE with PERSPECTIVE CORRECTION ***
+//			********************************************
 
-
-
-
-;			********************************************
-;			***  TEXTURE with PERSPECTIVE CORRECTION ***
-;			********************************************
-
+S32 Jmp_TextureZ()
+{
+	/*
 Jmp_TextureZ		PROC
 			mov	eax,Offset Filler_TextureZ
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ
@@ -1550,8 +1614,16 @@ Jmp_TextureZ		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZ		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_TextureZFlat()
+{
+	/*
 Jmp_TextureZFlat	PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureZFlat
@@ -1567,10 +1639,18 @@ Jmp_TextureZFlat	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFlat	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZChromaKey()
+{
+	/*
 Jmp_TextureZChromaKey	PROC
 			mov	eax,Offset Filler_TextureZChromaKey
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ
@@ -1580,9 +1660,17 @@ Jmp_TextureZChromaKey	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZChromaKey	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFlatChromaKey()
+{
+	/*
 Jmp_TextureZFlatChromaKey PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureZFlatChromaKey
@@ -1598,9 +1686,17 @@ Jmp_TextureZFlatChromaKey PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFlatChromaKey ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFog()
+{
+	/*
 Jmp_TextureZFog		PROC
 			mov	eax,Offset Filler_TextureZFog
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ
@@ -1610,10 +1706,18 @@ Jmp_TextureZFog		PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFog		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZChromaKeyFog()
+{
+	/*
 Jmp_TextureZChromaKeyFog PROC
 			mov	eax,Offset Filler_TextureZChromaKeyFog
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ
@@ -1623,10 +1727,18 @@ Jmp_TextureZChromaKeyFog PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZChromaKeyFog ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZZBuf()
+{
+	/*
 Jmp_TextureZZBuf	PROC
 			mov	eax,Offset Filler_TextureZZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1636,9 +1748,17 @@ Jmp_TextureZZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFlatZBuf()
+{
+	/*
 Jmp_TextureZFlatZBuf	PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureZFlatZBuf
@@ -1654,10 +1774,18 @@ Jmp_TextureZFlatZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFlatZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZChromaKeyZBuf()
+{
+	/*
 Jmp_TextureZChromaKeyZBuf PROC
 			mov	eax,Offset Filler_TextureZChromaKeyZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1667,9 +1795,17 @@ Jmp_TextureZChromaKeyZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZChromaKeyZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFlatChromaKeyZBuf()
+{
+	/*
 Jmp_TextureZFlatChromaKeyZBuf PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureZFlatChromaKeyZBuf
@@ -1685,11 +1821,19 @@ Jmp_TextureZFlatChromaKeyZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFlatChromaKeyZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TextureZFogZBuf()
+{
+	/*
 Jmp_TextureZFogZBuf	PROC
 			mov	eax,Offset Filler_TextureZFogZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1699,12 +1843,20 @@ Jmp_TextureZFogZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFogZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
 
+S32 Jmp_TextureZChromaKeyFogZBuf()
+{
+	/*
 Jmp_TextureZChromaKeyFogZBuf PROC
 			mov	eax,Offset Filler_TextureZChromaKeyFogZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1714,12 +1866,20 @@ Jmp_TextureZChromaKeyFogZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZChromaKeyFogZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
 
+S32 Jmp_TextureZNZW()
+{
+	/*
 Jmp_TextureZNZW	PROC
 			mov	eax,Offset Filler_TextureZNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1729,9 +1889,17 @@ Jmp_TextureZNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFlatNZW()
+{
+	/*
 Jmp_TextureZFlatNZW	PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureZFlatNZW
@@ -1747,10 +1915,18 @@ Jmp_TextureZFlatNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFlatNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZChromaKeyNZW()
+{
+	/*
 Jmp_TextureZChromaKeyNZW PROC
 			mov	eax,Offset Filler_TextureZChromaKeyNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1760,9 +1936,17 @@ Jmp_TextureZChromaKeyNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZChromaKeyNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFlatChromaKeyNZW()
+{
+	/*
 Jmp_TextureZFlatChromaKeyNZW PROC
 			shl	ebx,8
 			mov	eax,Offset Filler_TextureZFlatChromaKeyNZW
@@ -1778,11 +1962,19 @@ Jmp_TextureZFlatChromaKeyNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFlatChromaKeyNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TextureZFogNZW()
+{
+	/*
 Jmp_TextureZFogNZW	PROC
 			mov	eax,Offset Filler_TextureZFogNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1792,12 +1984,20 @@ Jmp_TextureZFogNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFogNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
 
+S32 Jmp_TextureZChromaKeyFogNZW()
+{
+	/*
 Jmp_TextureZChromaKeyFogNZW PROC
 			mov	eax,Offset Filler_TextureZChromaKeyFogNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1807,16 +2007,19 @@ Jmp_TextureZChromaKeyFogNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZChromaKeyFogNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
+// ****************************************************************
+// ***  TEXTURE with PERSPECTIVE CORRECTION and GOURAUD SHADING ***
+// ****************************************************************
 
-
-
-
-
-;			****************************************************************
-;			***  TEXTURE with PERSPECTIVE CORRECTION and GOURAUD SHADING ***
-;			****************************************************************
-
+S32 Jmp_TextureZGouraud()
+{
+	/*
 Jmp_TextureZGouraud	PROC
 			mov	eax,Offset Filler_TextureZGouraud
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_LIGHT
@@ -1826,8 +2029,16 @@ Jmp_TextureZGouraud	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZGouraud	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
+S32 Jmp_TextureZGouraudChromaKey()
+{
+	/*
 Jmp_TextureZGouraudChromaKey PROC
 			mov	eax,Offset Filler_TextureZGouraudChromaKey
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_LIGHT
@@ -1837,10 +2048,18 @@ Jmp_TextureZGouraudChromaKey PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZGouraudChromaKey ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_TextureZGouraudZBuf()
+{
+	/*
 Jmp_TextureZGouraudZBuf	PROC
 			mov	eax,Offset Filler_TextureZGouraudZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1850,9 +2069,17 @@ Jmp_TextureZGouraudZBuf	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZGouraudZBuf	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZGouraudChromaKeyZBuf()
+{
+	/*
 Jmp_TextureZGouraudChromaKeyZBuf PROC
 			mov	eax,Offset Filler_TextureZGouraudChromaKeyZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1862,9 +2089,17 @@ Jmp_TextureZGouraudChromaKeyZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZGouraudChromaKeyZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZGouraudNZW()
+{
+	/*
 Jmp_TextureZGouraudNZW	PROC
 			mov	eax,Offset Filler_TextureZGouraudNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1874,9 +2109,17 @@ Jmp_TextureZGouraudNZW	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZGouraudNZW	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZGouraudChromaKeyNZW()
+{
+	/*
 Jmp_TextureZGouraudChromaKeyNZW PROC
 			mov	eax,Offset Filler_TextureZGouraudChromaKeyNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_LIGHT+CLIP_ZBUFFER
@@ -1886,18 +2129,19 @@ Jmp_TextureZGouraudChromaKeyNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZGouraudChromaKeyNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
+// ************************************************
+// ***  TEXTURE FOG with PERSPECTIVE CORRECTION ***
+// ************************************************
 
-
-
-
-
-
-
-;			************************************************
-;			***  TEXTURE FOG with PERSPECTIVE CORRECTION ***
-;			************************************************
-
+S32 Jmp_TextureZFogSmooth()
+{
+	/*
 Jmp_TextureZFogSmooth	PROC
 			mov	eax,Offset Filler_TextureZFogSmooth
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1907,11 +2151,19 @@ Jmp_TextureZFogSmooth	PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFogSmooth	ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
 
+S32 Jmp_TextureZFogSmoothZBuf()
+{
+	/*
 Jmp_TextureZFogSmoothZBuf PROC
 			mov	eax,Offset Filler_TextureZFogSmoothZBuf
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1921,9 +2173,17 @@ Jmp_TextureZFogSmoothZBuf PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFogSmoothZBuf ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
+S32 Jmp_TextureZFogSmoothNZW()
+{
+	/*
 Jmp_TextureZFogSmoothNZW PROC
 			mov	eax,Offset Filler_TextureZFogSmoothNZW
 			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
@@ -1933,10 +2193,18 @@ Jmp_TextureZFogSmoothNZW PROC
 
 			jmp	Fill_PolyClip
 Jmp_TextureZFogSmoothNZW ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
 
 
 
 
+S32 Jmp_FlagZBuffer()
+{
+	/*
 Jmp_FlagZBuffer		PROC
 			mov	eax,Offset Filler_FlagZBuffer
 			mov	edx,CLIP_FLAT+CLIP_ZBUFFER
@@ -1949,13 +2217,339 @@ Jmp_FlagZBuffer		PROC
 
 			jmp	Fill_PolyClip
 Jmp_FlagZBuffer		ENDP
+	*/
+    // TODO: Implement ASM
+    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+		return 0;
+}
+
+// ************************************************************************
+// ************************************************************************
+// ***                                                                  ***
+// ***           JUMP TABLE (DEFAULT POLYGONS)                          ***
+// ***                                                                  ***
+// ************************************************************************
+// ************************************************************************
+Fill_Jump_Fn Fill_N_Table_Jumps[] = {
+	// **** FLAT + SPECIAUX ****
+	Jmp_Solid,		// 0 Solid
+	Jmp_Solid,		// 1 Flat
+	Jmp_Transparent,		// 2 Transparent
+	Jmp_Trame,		// 3 Trame
+
+	// **** GOURAUD ****
+	Jmp_Gouraud,		// 4 Gouraud
+	Jmp_Dither,		// 5 Gouraud Dither
+	Jmp_GouraudTable,	// 6 Gouraud table
+	Jmp_DitherTable,		// 7 Gouraud Dither table
+
+	// **** MAPPING ****
+	// ** Without Chromakey **
+	Jmp_Texture,		// 8 Texture Solid
+	Jmp_TextureFlat,		// 9 Texture Flat
+
+	Jmp_GouraudTexture,	// 10 Texture Gouraud
+	Jmp_DitherTexture,	// 11 Texture Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureChromaKey,	// 12 Texture Solid Chromakey
+	Jmp_TextureFlatChromaKey,// 13 Texture Flat Chromakey
+
+	Jmp_GouraudTextureChromaKey,// 14 Texture Gouraud Chromakey
+	Jmp_DitherTextureChromaKey,// 15 Texture Gouraud Dither Chromakey
 
 
+	// **** MAPPING + PERSPECTIVE CORRECTED ****
+	// ** Without Chromakey **
+	Jmp_TextureZ,		// 16 Texture Z Solid
+	Jmp_TextureZFlat,	// 17 Texture Z Flat
+
+	Jmp_TextureZGouraud,	// 18 Texture Z Gouraud
+	Jmp_TextureZGouraud,	// 19 Texture Z Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureZChromaKey,	// 20  Texture Z Solid Chromakey
+	Jmp_TextureZFlatChromaKey,//21  Texture Z Flat Chromakey
+
+	Jmp_TextureZGouraudChromaKey,// 22  Texture Z Gouraud Chromakey
+	Jmp_TextureZGouraudChromaKey,// 23  Texture Z Gouraud Dither Chromakey
+
+	Jmp_TextureZFogSmooth,	// 24 Texture Z Fog Smooth
+	Jmp_FlagZBuffer,		// 25 Flag if object totally hidden
+};
+
+// ************************************************************************
+// ************************************************************************
+// ***                                                                  ***
+// ***           JUMP TABLE (FOGGED  POLYGONS)                          ***
+// ***                                                                  ***
+// ************************************************************************
+// ************************************************************************
+Fill_Jump_Fn Fill_Fog_Table_Jumps[] = {
+	// **** FLAT + SPECIAUX ****
+	Jmp_SolidFog,		// 0 Solid
+	Jmp_SolidFog,		// 1 Flat
+	Jmp_Transparent,		// 2 Transparent
+	Jmp_TrameFog,		// 3 Trame
+
+	// **** GOURAUD ****
+	Jmp_GouraudFog,		// 4 Gouraud
+	Jmp_DitherFog,		// 5 Gouraud Dither
+	Jmp_GouraudTable,	// 6 Gouraud table
+	Jmp_DitherTable,		// 7 Gouraud Dither table
+
+	// **** MAPPING ****
+	// ** Without Chromakey **
+	Jmp_TextureFog,		// 8 Texture Solid
+	Jmp_TextureFlat,		// 9 Texture Flat
+
+	Jmp_GouraudTexture,	// 10 Texture Gouraud
+	Jmp_DitherTexture,	// 11 Texture Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureChromaKeyFog,	// 12 Texture Solid Chromakey
+	Jmp_TextureFlatChromaKey,// 13 Texture Flat Chromakey
+
+	Jmp_GouraudTextureChromaKey,// 14 Texture Gouraud Chromakey
+	Jmp_DitherTextureChromaKey,// 15 Texture Gouraud Dither Chromakey
 
 
+	// **** MAPPING + PERSPECTIVE CORRECTED ****
+	// ** Without Chromakey **
+	Jmp_TextureZFog,		// 16 Texture Z Solid
+	Jmp_TextureZFlat,	// 17 Texture Z Flat
 
-_TEXT			ENDS
+	Jmp_TextureZGouraud,	// 18 Texture Z Gouraud
+	Jmp_TextureZGouraud,	// 19 Texture Z Gouraud Dither
 
-;			The
-			End
-*/
+	// ** With Chromakey **
+	Jmp_TextureZChromaKeyFog,// 20  Texture Z Solid Chromakey
+	Jmp_TextureZFlatChromaKey,//21  Texture Z Flat Chromakey
+
+	Jmp_TextureZGouraudChromaKey,// 22  Texture Z Gouraud Chromakey
+	Jmp_TextureZGouraudChromaKey,// 23  Texture Z Gouraud Dither Chromakey
+
+	Jmp_TextureZFogSmooth,	// 24 Texture Z Fog Smooth
+	Jmp_FlagZBuffer,		// 25 Flag if object totally hidden
+};
+
+// ************************************************************************
+// ************************************************************************
+// ***                                                                  ***
+// ***           JUMP TABLE (ZBUFFERED POLYGONS)                        ***
+// ***                                                                  ***
+// ************************************************************************
+// ************************************************************************
+Fill_Jump_Fn Fill_ZBuf_Table_Jumps[] = {
+	// **** FLAT + SPECIAUX ****
+	Jmp_SolidZBuf,		// 0 Solid
+	Jmp_SolidZBuf,		// 1 Flat
+	Jmp_TransparentZBuf,	// 2 Transparent
+	Jmp_TrameZBuf,		// 3 Trame
+
+	// **** GOURAUD ****
+	Jmp_GouraudZBuf,		// 4 Gouraud
+	Jmp_DitherZBuf,		// 5 Gouraud Dither
+	Jmp_GouraudTableZBuf,	// 6 Gouraud table
+	Jmp_DitherTableZBuf,	// 7 Gouraud Dither table
+
+	// **** MAPPING ****
+	// ** Without Chromakey **
+	Jmp_TextureZBuf,		// 8 Texture Solid
+	Jmp_TextureFlatZBuf,	// 9 Texture Flat
+
+	Jmp_GouraudTextureZBuf,	// 10 Texture Gouraud
+	Jmp_GouraudTextureZBuf,	// 11 Texture Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureChromaKeyZBuf,// 12 Texture Solid Chromakey
+	Jmp_TextureFlatChromaKeyZBuf,// 13 Texture Flat Chromakey
+
+	Jmp_GouraudTextureChromaKeyZBuf,// 14 Texture Gouraud Chromakey
+	Jmp_GouraudTextureChromaKeyZBuf,// 15 Texture Gouraud Dither Chromakey
+
+
+	// **** MAPPING + PERSPECTIVE CORRECTED ****
+	// ** Without Chromakey **
+	Jmp_TextureZZBuf,	// 16 Texture Z Solid
+	Jmp_TextureZFlatZBuf,	// 17 Texture Z Flat
+
+	Jmp_TextureZGouraudZBuf,	// 18 Texture Z Gouraud
+	Jmp_TextureZGouraudZBuf,	// 19 Texture Z Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureZChromaKeyZBuf,// 20  Texture Z Solid Chromakey
+	Jmp_TextureZFlatChromaKeyZBuf,//21  Texture Z Flat Chromakey
+
+	Jmp_TextureZGouraudChromaKeyZBuf,// 22  Texture Z Gouraud Chromakey
+	Jmp_TextureZGouraudChromaKeyZBuf,// 23  Texture Z Gouraud Dither Chromakey
+
+	Jmp_TextureZFogSmoothZBuf,// 24 Texture Z Fog Smooth
+	Jmp_FlagZBuffer,		// 25 Flag if object totally hidden
+};
+
+// ************************************************************************
+// ************************************************************************
+// ***                                                                  ***
+// ***           JUMP TABLE (ZBUFFERED POLYGONS)                        ***
+// ***                                                                  ***
+// ************************************************************************
+// ************************************************************************
+Fill_Jump_Fn Fill_FogZBuf_Table_Jumps[] = {
+	// **** FLAT + SPECIAUX ****
+	Jmp_SolidFogZBuf,	// 0 Solid
+	Jmp_SolidFogZBuf,	// 1 Flat
+	Jmp_TransparentZBuf,	// 2 Transparent
+	Jmp_TrameFogZBuf,	// 3 Trame
+
+	// **** GOURAUD ****
+	Jmp_GouraudFogZBuf,	// 4 Gouraud
+	Jmp_DitherFogZBuf,	// 5 Gouraud Dither
+	Jmp_GouraudTableZBuf,	// 6 Gouraud table
+	Jmp_DitherTableZBuf,	// 7 Gouraud Dither table
+
+	// **** MAPPING ****
+	// ** Without Chromakey **
+	Jmp_TextureFogZBuf,	// 8 Texture Solid
+	Jmp_TextureFlatZBuf,	// 9 Texture Flat
+
+	Jmp_GouraudTextureZBuf,	// 10 Texture Gouraud
+	Jmp_GouraudTextureZBuf,	// 11 Texture Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureChromaKeyFogZBuf,// 12 Texture Solid Chromakey
+	Jmp_TextureFlatChromaKeyZBuf,// 13 Texture Flat Chromakey
+
+	Jmp_GouraudTextureChromaKeyZBuf,// 14 Texture Gouraud Chromakey
+	Jmp_GouraudTextureChromaKeyZBuf,// 15 Texture Gouraud Dither Chromakey
+
+
+	// **** MAPPING + PERSPECTIVE CORRECTED ****
+	// ** Without Chromakey **
+	Jmp_TextureZFogZBuf,	// 16 Texture Z Solid
+	Jmp_TextureZFlatZBuf,	// 17 Texture Z Flat
+
+	Jmp_TextureZGouraudZBuf,	// 18 Texture Z Gouraud
+	Jmp_TextureZGouraudZBuf,	// 19 Texture Z Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureZChromaKeyFogZBuf,// 20  Texture Z Solid Chromakey
+	Jmp_TextureZFlatChromaKeyZBuf,//21  Texture Z Flat Chromakey
+
+	Jmp_TextureZGouraudChromaKeyZBuf,// 22  Texture Z Gouraud Chromakey
+	Jmp_TextureZGouraudChromaKeyZBuf,// 23  Texture Z Gouraud Dither Chromakey
+
+	Jmp_TextureZFogSmoothZBuf,// 24 Texture Z Fog Smooth
+	Jmp_FlagZBuffer,		// 25 Flag if object totally hidden
+};
+
+
+// ************************************************************************
+// ************************************************************************
+// ***                                                                  ***
+// ***           JUMP TABLE (ZBUFFERED without ZBuf update POLYGONS)    ***
+// ***                                                                  ***
+// ************************************************************************
+// ************************************************************************
+Fill_Jump_Fn Fill_NZW_Table_Jumps[] = {
+	// **** FLAT + SPECIAUX ****
+	Jmp_SolidNZW,		// 0 Solid
+	Jmp_SolidNZW,		// 1 Flat
+	Jmp_TransparentNZW,	// 2 Transparent
+	Jmp_TrameNZW,		// 3 Trame
+
+	// **** GOURAUD ****
+	Jmp_GouraudNZW,		// 4 Gouraud
+	Jmp_DitherNZW,		// 5 Gouraud Dither
+	Jmp_GouraudTableNZW,	// 6 Gouraud table
+	Jmp_DitherTableNZW,	// 7 Gouraud Dither table
+
+	// **** MAPPING ****
+	// ** Without Chromakey **
+	Jmp_TextureNZW,		// 8 Texture Solid
+	Jmp_TextureFlatNZW,	// 9 Texture Flat
+
+	Jmp_GouraudTextureNZW,	// 10 Texture Gouraud
+	Jmp_GouraudTextureNZW,	// 11 Texture Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureChromaKeyNZW,// 12 Texture Solid Chromakey
+	Jmp_TextureFlatChromaKeyNZW,// 13 Texture Flat Chromakey
+
+	Jmp_GouraudTextureChromaKeyNZW,// 14 Texture Gouraud Chromakey
+	Jmp_GouraudTextureChromaKeyNZW,// 15 Texture Gouraud Dither Chromakey
+
+
+	// **** MAPPING + PERSPECTIVE CORRECTED ****
+	// ** Without Chromakey **
+	Jmp_TextureZNZW,	// 16 Texture Z Solid
+	Jmp_TextureZFlatNZW,	// 17 Texture Z Flat
+
+	Jmp_TextureZGouraudNZW,	// 18 Texture Z Gouraud
+	Jmp_TextureZGouraudNZW,	// 19 Texture Z Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureZChromaKeyNZW,// 20  Texture Z Solid Chromakey
+	Jmp_TextureZFlatChromaKeyNZW,//21  Texture Z Flat Chromakey
+
+	Jmp_TextureZGouraudChromaKeyNZW,// 22  Texture Z Gouraud Chromakey
+	Jmp_TextureZGouraudChromaKeyNZW,// 23  Texture Z Gouraud Dither Chromakey
+
+	Jmp_TextureZFogSmoothNZW,// 24 Texture Z Fog Smooth
+	Jmp_FlagZBuffer,		// 25 Flag if object totally hidden
+};
+
+// ************************************************************************
+// ************************************************************************
+// ***                                                                  ***
+// ***           JUMP TABLE (ZBUFFERED without ZBuf update POLYGONS)    ***
+// ***                                                                  ***
+// ************************************************************************
+// ************************************************************************
+Fill_Jump_Fn Fill_FogNZW_Table_Jumps[] = {
+	// **** FLAT + SPECIAUX ****
+	Jmp_SolidFogNZW,		// 0 Solid
+	Jmp_SolidFogNZW,		// 1 Flat
+	Jmp_TransparentNZW,	// 2 Transparent
+	Jmp_TrameFogNZW,		// 3 Trame
+
+	// **** GOURAUD ****
+	Jmp_GouraudFogNZW,	// 4 Gouraud
+	Jmp_DitherFogNZW,	// 5 Gouraud Dither
+	Jmp_GouraudTableNZW,	// 6 Gouraud table
+	Jmp_DitherTableNZW,	// 7 Gouraud Dither table
+
+	// **** MAPPING ****
+	// ** Without Chromakey **
+	Jmp_TextureFogNZW,	// 8 Texture Solid
+	Jmp_TextureFlatNZW,	// 9 Texture Flat
+
+	Jmp_GouraudTextureNZW,	// 10 Texture Gouraud
+	Jmp_GouraudTextureNZW,	// 11 Texture Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureChromaKeyFogNZW,// 12 Texture Solid Chromakey
+	Jmp_TextureFlatChromaKeyNZW,// 13 Texture Flat Chromakey
+
+	Jmp_GouraudTextureChromaKeyNZW,// 14 Texture Gouraud Chromakey
+	Jmp_GouraudTextureChromaKeyNZW,// 15 Texture Gouraud Dither Chromakey
+
+
+	// **** MAPPING + PERSPECTIVE CORRECTED ****
+	// ** Without Chromakey **
+	Jmp_TextureZFogNZW,	// 16 Texture Z Solid
+	Jmp_TextureZFlatNZW,	// 17 Texture Z Flat
+
+	Jmp_TextureZGouraudNZW,	// 18 Texture Z Gouraud
+	Jmp_TextureZGouraudNZW,	// 19 Texture Z Gouraud Dither
+
+	// ** With Chromakey **
+	Jmp_TextureZChromaKeyFogNZW,// 20  Texture Z Solid Chromakey
+	Jmp_TextureZFlatChromaKeyNZW,//21  Texture Z Flat Chromakey
+
+	Jmp_TextureZGouraudChromaKeyNZW,// 22  Texture Z Gouraud Chromakey
+	Jmp_TextureZGouraudChromaKeyNZW,// 23  Texture Z Gouraud Dither Chromakey
+
+	Jmp_TextureZFogSmoothNZW,	// 24 Texture Z Fog Smooth
+	Jmp_FlagZBuffer,		// 25 Flag if object totally hidden
+};
