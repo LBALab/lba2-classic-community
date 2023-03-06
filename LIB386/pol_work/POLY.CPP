@@ -1,5 +1,7 @@
 #include <POLYGON/POLY.H>
 
+#include <POLYGON/POLY_JMP.H>
+
 #include <SVGA/SCREEN.H>
 
 #include <limits.h>
@@ -31,7 +33,7 @@ U8 Fill_Flag_Fog = FALSE;     // True if FOG active
 U8 Fill_Flag_ZBuffer = FALSE;	// True if ZBUFFER is active
 U8 Fill_Flag_NZW = FALSE;     // True if NZW active
 
-void *Fill_Saut_Normal = NULL; // Filler table
+Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
 
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
@@ -88,10 +90,8 @@ Fill_PolyFast		ENDP
 
 	// TODO: This filler is a pointer to the filler function to call. I still
 	// need to figure out the signature of those fillers which are in POLY_JMP.
-	// U32 *filler = ((U32 **)Fill_Saut_Normal)[Type_Poly];
-	// return filler();
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	Fill_Jump_Fn filler = Fill_Saut_Normal[Type_Poly];
+	return filler();
 
   return 0;
 }
