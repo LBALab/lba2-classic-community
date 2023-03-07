@@ -93,10 +93,16 @@ extern S32 Fill_Z_Fog_Far;      ///< Far Fog
 extern U32 Fill_ZBuffer_Factor; ///< ZBuffer factor
 extern U32 IsPolygonHidden;     ///< Flag for Poly type 25
 
+extern U32 **Fill_Restart;      ///< Return entry point from clipping procedure
 // TODO: it's not U32 **, it s a function. Still have to find the right signature
 extern U32 **Fill_Filler;       ///< Chooser filler
 extern U32 Fill_Patch;          ///< Flag 1 means we should patch the filler proc; 0 means nothing to do
 extern U8 Fill_Color;          ///< The polygon color
+
+extern Struc_Point *Fill_FirstPoint; // Pointer to the first point of the list
+extern Struc_Point *Fill_LastPoint; // Pointer to the last point of the list
+extern Struc_Point *Fill_LeftPoint; // Pointer of the current point of the left edge
+extern Struc_Point *Fill_RightPoint; // Pointer of the current point of the right edge
 
 extern U32 Fill_LeftSlope;      ///< Left slope
 extern U32 Fill_RightSlope;     ///< Right slope
