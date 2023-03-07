@@ -558,9 +558,30 @@ Fill_PolyClip		ENDP
 		// TODO: Fill_ClipYMax(Nb_Points, Ptr_Points);
 	}
 
+	// Fill_PolyNoClip::
+	if (Nb_Points == 3)
+	{
+		// TODO: return Draw_Triangle(Nb_Points, Ptr_Points);
+	}
+
+	// TODO: No idea why this is here...
+	/*
+		push	ecx
+		push	Offset @@Ret_Triangle
+
+		push	esi			; Will be poped by Draw_Triangle in EBP
+		mov	ecx,3			; (BCOZ EBP is saved in Fill_Poly and restored in Draw_Triangle)
+
+		jmp	Draw_Triangle
+	*/
+
+	// @@Ret_Triangle:
+	// TODO: copy points
+	// TODO: return Fill_PolyNoCLip(); ??
+
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+	return Fill_LeftSlope;
 }
 
 // =============================================================================
