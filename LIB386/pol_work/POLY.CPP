@@ -3,6 +3,7 @@
 #include <POLYGON/POLY_JMP.H>
 
 #include <SVGA/SCREEN.H>
+#include <SVGA/CLIP.H>
 
 #include <limits.h>
 #include <string.h>
@@ -15,9 +16,15 @@ extern "C" {
 
 U32 Fill_Type = 0; // Polygon type number
 
+U32 **Fill_Restart = NULL;
 U32 **Fill_Filler = NULL;
 U32 Fill_Patch = 0;
 U8 Fill_Color = 0;
+
+Struc_Point *Fill_FirstPoint = NULL;
+Struc_Point *Fill_LastPoint = NULL;
+Struc_Point *Fill_LeftPoint = NULL;
+Struc_Point *Fill_RightPoint = NULL;
 
 U32 Fill_LeftSlope = 0;      ///< Left slope
 U32 Fill_RightSlope = 0;     ///< Right slope
@@ -467,6 +474,90 @@ Fill_PolyNoClip::
 			ret
 Fill_PolyClip		ENDP
 	*/
+	// *** Get the poly-box so as to test the clipping ***
+	Fill_FirstPoint = Ptr_Points;
+	U32 counter = Nb_Points - 1;
+	Struc_Point *points = Ptr_Points;
+
+	S16 XMin = 0;
+	S16 XMax = 0;
+	S16 YMin = 0;
+	S16 YMax = 0;
+
+	do
+	{
+		// @@Bounding_Box:
+		XMin = points->Pt_XE;
+		XMax = XMin;
+		YMin = points->Pt_YE;
+		YMax = YMin;
+
+		points++;
+
+		// What follows has a bad pairing... How can we pair when we have NOTHING to do ?
+		if (YMin > points->Pt_YE)
+		{
+			YMin = points->Pt_YE;
+		}
+
+		if (YMax < points->Pt_YE)
+		{
+			YMax = points->Pt_YE;
+		}
+
+		if (XMin > points->Pt_XE)
+		{
+			XMin = points->Pt_XE;
+		}
+
+		if (XMax < points->Pt_XE)
+		{
+			XMax = points->Pt_XE;
+		}
+
+		points++;
+		counter--;
+	} while (counter > 0);
+
+	if (YMax <= YMin)
+	{
+		return Fill_LeftSlope; // Skip poly if DeltaY<=0
+	}
+
+	// *** Is the polygon at least visible ? ***
+
+	// +1 because we don't draw the last pixel on a scanline
+	if (XMin > ClipXMax + 1 || XMax < ClipXMin
+			|| YMin > ClipYMax || YMax < ClipYMin)
+	{
+		return Fill_LeftSlope;
+	}
+
+	// *** Should we clip the polygon ? ***
+	points--;
+	Fill_LastPoint = points;
+
+	if (XMin < ClipXMin)
+	{
+		// TODO: Fill_ClipXMin(Nb_Points, Ptr_Points);
+	}
+
+	// +1 because we don't draw the last pixel on a scanline
+	if (XMax > ClipXMax + 1)
+	{
+		// TODO: Fill_ClipXMax(Nb_Points, Ptr_Points);
+	}
+
+	if (YMin < ClipYMin)
+	{
+		// TODO: Fill_ClipYMin(Nb_Points, Ptr_Points);
+	}
+
+	if (YMax > ClipYMax)
+	{
+		// TODO: Fill_ClipYMax(Nb_Points, Ptr_Points);
+	}
+
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
