@@ -945,29 +945,198 @@ S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points)
 	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_YMAX);
 }
 
-S32 Draw_Triangle(Struc_Point *a1 /*Ptr_Points*/)
-// void __usercall DrawTriangle(int a1@<esi>)
+S32 Draw_Triangle(Struc_Point *Ptr_Points)
 {
+/*
+; ╔════════════════════════════════════════════════════════════════════════════════╗
+; ║  Draw_Triangle : Remplissage d'un triangle                                     ║
+; ╟────────────────────────────────────────────────────────────────────────────────╢
+; ║  Appel : ESI = PTR sur une table du type Struc_Point (table des sommets)       ║
+; ╟────────────────────────────────────────────────────────────────────────────────╢
+; ║  Retour: Rien                                                                  ║
+; ╟────────────────────────────────────────────────────────────────────────────────╢
+; ║  Remarque: les sommets doivent etre ordonnes dans le sens trigo. (anti-        ║
+; ║            horlogique).                                                        ║
+; ║                                                                                ║
+; ╟────────────────────────────────────────────────────────────────────────────────╢
+; ║  Principe: (Exemple sur le Gouraud)                                            ║
+; ║            (En fait le commentaire etait sur une routine dediee Gouraud et     ║
+; ║            j'ai la flemme de le reecrire ;)                                    ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ║   Dans un triangle, l'increment du gouraud est constant.. Sisi, voici la       ║
+; ║  preuve:                                                                       ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ║  Soit ABC notre triangle de coordonnees A(xa,ya,ga); B(xb,yb,gb); C(xc,yc,gc)  ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ║                   [(ga+y*Pente_Gouraud_Droite) - (ga+y*Pente_Gouraud_Gauche)]  ║
+; ║  Inc_Gouraud(y) = ───────────────────────────────────────────────────────────  ║
+; ║                           [(xa+y*Pente_Droite) - (xa+y*Pente_Gauche)]          ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ║                   Pente_Gouraud_Droite-Pente_Gouraud_Gauche                    ║
+; ║                 = ─────────────────────────────────────────                    ║
+; ║                           Pente_Droite-Pente_Gauche                            ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ║                 = Cste; d'ou gain.... :)                                       ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ║                                                                                ║
+; ╚════════════════════════════════════════════════════════════════════════════════╝
+			ALIGN	4
+Draw_Triangle		PROC esi
+			; *** Search the highest point in the list ***
+
+			mov	eax,1
+			mov	[Fill_FirstPoint],esi
+
+			mov	[Fill_Patch],eax	;
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
+
+			sar	eax,16			; EAX = Ya
+			mov	edi,esi			; EDI = Highest point
+
+			mov	ebp,eax			; EBP = Highest Y (least value)
+			mov	ebx,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
+
+			sar	ebx,16			; EBX = Yb
+			add	esi,Size STRUC_POINT
+
+			cmp	ebx,ebp
+			jg	@@Not_Second
+
+			mov	ebp,ebx
+			mov	edi,esi
+@@Not_Second:
+			mov	ecx,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
+
+			sar	ecx,16			; ECX = Yc
+			add	esi,Size STRUC_POINT
+
+			cmp	ecx,ebp
+			jg	@@Not_Third
+
+			mov	ebp,ecx
+			mov	edi,esi
+@@Not_Third:
+			mov	[Fill_LeftPoint],edi
+			mov	[Fill_RightPoint],edi
+
+			cmp	eax,ebx			; Test if the poly is flat
+			jne	@@Not_Flat
+
+			cmp	ebx,ecx
+			je	@@End
+@@Not_Flat:
+			mov	[Fill_LastPoint],esi	; Last point pointer
+			mov	ebx,[PTR_TabOffLine]
+
+			mov	eax,[Log]
+			mov	[Fill_CurY],ebp		; EBP = Highest point_Y
+
+			mov	ebx,[ebx+ebp*4]
+			mov	ecx,READ_NEXT_L + READ_NEXT_R
+
+			add	ebx,eax
+			mov	esi,[Fill_LeftPoint]
+
+			mov	[Fill_ReadFlag],ecx
+			mov	[Fill_CurOffLine],ebx	; Current offset in log screen
+
+					; *** Calculate the common denominator
+					; for interpolation calculation ***
+
+			mov	eax,[Fill_LastPoint]
+			lea	edi,[esi+Size STRUC_POINT]
+
+			cmp	edi,eax
+			jbe	@@No_Wrap1
+			mov	edi,[Fill_FirstPoint]
+@@No_Wrap1:
+			lea	ebp,[edi+Size STRUC_POINT]
+			cmp	ebp,eax
+			jbe	@@No_Wrap2
+			mov	ebp,[Fill_FirstPoint]
+@@No_Wrap2:
+							; ESI = PtA
+							; EDI = PtB
+							; EBP = PtC
+
+					; *** FPU math. ***
+			fldcw	[Status_Int]	; 7 cycles lost (not pipelined...)
+
+
+
+			; K1 = (Yb-Ya)
+			; K2 = (Xc-Xa)
+			; K3 = (Yc-Ya)
+			; K4 = (Xb-Xa)
+			; Denom = K1*K2 - K3*K4
+						; 0   1   2   3   4   5   6   7
+			fild	[esi].STRUC_POINT.Pt_XE	; Xa
+			fild	[esi].STRUC_POINT.Pt_YE	; Ya  Xa
+			fild	[edi].STRUC_POINT.Pt_XE	; Xb  Ya  Xa
+			fild	[edi].STRUC_POINT.Pt_YE	; Yb  Xb  Ya  Xa
+			fild	[ebp].STRUC_POINT.Pt_XE	; Xc  Yb  Xb  Ya  Xa
+			fild	[ebp].STRUC_POINT.Pt_YE	; Yc  Xc  Yb  Xb  Ya  Xa
+
+			fxch	st(2)		; Yb  Xc  Yc  Xb  Ya  Xa
+
+			fsub	st,st(4)	; K1  Xc  Yc  Xb  Ya  Xa
+			fxch	st(2)		; Yc  Xc  K1  Xb  Ya  Xa
+
+			fsubrp	st(4),st	; Xc  K1  Xb  K3  Xa
+
+			fsub	st,st(4)	; K2  K1  Xb  K3  Xa
+			fxch	st(2)		; Xb  K1  K2  K3  Xa
+
+			fsubrp	st(4),st	; K1  K2  K3  K4
+
+			fld	st(0)		; K1  K1  K2  K3  K4
+
+			fmulp	st(2),st	; K1  K12 K3  K4
+
+			fld	st(2)		; K3  K1  K12 K3  K4
+
+			fmulp	st(4),st	; K1  K12 K3  K34
+			fxch	st(1)		; K12 K1  K3  K34
+
+						; 2 cycles penalty
+
+			fsubrp	st(3),st	; K1  K3  Denom
+
+			mov	edx,[Fill_Type]
+
+			fld	[F_256]		; 256 K1  K3  Denom
+			fxch	st(3)		; Denom K1  K3  256
+
+						; 1 cycle penalty
+
+			fst	[Denom]		; Denom K1  K3  256
+
+			mov	eax,[Denom]
+
+			test	eax,eax
+			je	@@EndFPU
+
+			fdivp	st(3),st	; K1  K3  D
+
+; Here we are always using ZBuffer, not needed but works for now...
+;Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
+Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
+*/
 	// *** Search the highest point in the list ***
-
-  int currentY; // eax@1
-  Struc_Point *highestPoint; // edi@1
-  int highestY; // ebp@1
-  S32 nextY; // ebx@1
-  Struc_Point *nextPoint; // esi@1
-  int nextNextY; // ecx@3
-  Struc_Point *nextNextPoint; // esi@3
-  PTR_U8 screen; // ebx@7
-  Struc_Point *leftPoint; // edi@7
-  Struc_Point *rightPoint; // ebp@9
-
-  Fill_FirstPoint = a1;
+  Fill_FirstPoint = Ptr_Points;
   Fill_Patch = 1;
-  currentY = a1[0].Pt_YE;
-  highestPoint = a1;
-  highestY = a1[0].Pt_YE; // lowest value
-  nextY = a1[1].Pt_YE;
-  nextPoint = a1 + 1;
+
+  S16 currentY = Ptr_Points[0].Pt_YE;
+  Struc_Point *highestPoint = Ptr_Points;
+  S16 highestY = Ptr_Points[0].Pt_YE; // lowest value
+  S16 nextY = Ptr_Points[1].Pt_YE;
+  Struc_Point *nextPoint = Ptr_Points + 1;
 
   if (nextY <= highestY)
   {
@@ -975,8 +1144,8 @@ S32 Draw_Triangle(Struc_Point *a1 /*Ptr_Points*/)
     highestPoint = nextPoint;
   }
 
-  nextNextY = nextPoint[1].Pt_YE;
-  nextNextPoint = nextPoint + 1;
+  S16 nextNextY = nextPoint[1].Pt_YE;
+  Struc_Point *nextNextPoint = nextPoint + 1;
   if (nextNextY <= highestY)
   {
     highestY = nextNextY;
@@ -995,19 +1164,19 @@ S32 Draw_Triangle(Struc_Point *a1 /*Ptr_Points*/)
   Fill_LastPoint = nextNextPoint;
   Fill_CurY = highestY;
 
-  screen = (PTR_U8)Log + PTR_TabOffLine[highestY];
+  PTR_U8 screen = (PTR_U8)Log + PTR_TabOffLine[highestY];
   Fill_ReadFlag = READ_NEXT_L + READ_NEXT_R;
   Fill_CurOffLine = screen; // Current offset in log screen
 
 	// *** Calculate the common denominator
 	// for interpolation calculation ***
-  leftPoint = Fill_LeftPoint + 1;
+  Struc_Point *leftPoint = Fill_LeftPoint + 1;
   if (leftPoint > Fill_LastPoint)
 	{
     leftPoint = Fill_FirstPoint;
 	}
 
-  rightPoint = leftPoint + 1;
+  Struc_Point *rightPoint = leftPoint + 1;
   if (rightPoint > Fill_LastPoint)
 	{
     rightPoint = Fill_FirstPoint;
