@@ -140,7 +140,7 @@ extern void SetCLUT(U32 defaultline);
 
 extern void SetFog(S32 z_near, S32 z_far);
 
-extern void Triangle_ReadNextEdge(void);
+extern S32 Triangle_ReadNextEdge(void);
 extern S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points);
 
 S32 INV64(S32 a);
