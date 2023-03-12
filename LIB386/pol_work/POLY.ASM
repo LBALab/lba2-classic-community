@@ -1721,7 +1721,7 @@ Fill_PolyClip		ENDP
 ; ║                                                                                ║
 ; ╚════════════════════════════════════════════════════════════════════════════════╝
 			ALIGN	4
-Draw_Triangle		PROC
+Draw_Triangle		PROC esi
 			; *** Search the highest point in the list ***
 
 			mov	eax,1

@@ -371,7 +371,7 @@ Filler_Flat		ENDP
 
 	Fill_CurXMin = fillCurXMin;
 	Fill_CurXMax = fillCurXMax;
-	Fill_CurOffLine = (U32)curOffLine;
+	Fill_CurOffLine = curOffLine;
 
 	Triangle_ReadNextEdge();
 }

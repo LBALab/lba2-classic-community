@@ -15,6 +15,10 @@
 extern "C" {
 #endif
 
+typedef S32 (*Jmp_XSlopeFunc)(void);
+
+extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
+
 U32 Fill_Type = 0; // Polygon type number
 
 U32 **Fill_Restart = NULL;
@@ -33,7 +37,7 @@ U32 Fill_RightSlope = 0;     ///< Right slope
 U32 Fill_CurY = 0;           ///< Current Y
 U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
-U32 Fill_CurOffLine = 0;     ///< Offset of the current video line
+PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
@@ -150,6 +154,9 @@ Struc_Point List_Clip_XMax[NB_MAX_EDGES];
 Struc_Point List_Clip_YMin[NB_MAX_EDGES];
 Struc_Point List_Clip_YMax[NB_MAX_EDGES];
 
+S32 YB_YA = 0;
+S32 YC_YA = 0;
+S32 Denom = 0;
 S32 Clip_Num = 0;
 
 void SetScreenPitch(U32 *New_TabOffLine)
@@ -938,6 +945,86 @@ S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points)
 	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_YMAX);
 }
 
+S32 Draw_Triangle(Struc_Point *a1 /*Ptr_Points*/)
+// void __usercall DrawTriangle(int a1@<esi>)
+{
+	// *** Search the highest point in the list ***
+
+  int currentY; // eax@1
+  Struc_Point *highestPoint; // edi@1
+  int highestY; // ebp@1
+  S32 nextY; // ebx@1
+  Struc_Point *nextPoint; // esi@1
+  int nextNextY; // ecx@3
+  Struc_Point *nextNextPoint; // esi@3
+  PTR_U8 screen; // ebx@7
+  Struc_Point *leftPoint; // edi@7
+  Struc_Point *rightPoint; // ebp@9
+
+  Fill_FirstPoint = a1;
+  Fill_Patch = 1;
+  currentY = a1[0].Pt_YE;
+  highestPoint = a1;
+  highestY = a1[0].Pt_YE; // lowest value
+  nextY = a1[1].Pt_YE;
+  nextPoint = a1 + 1;
+
+  if (nextY <= highestY)
+  {
+    highestY = nextY;
+    highestPoint = nextPoint;
+  }
+
+  nextNextY = nextPoint[1].Pt_YE;
+  nextNextPoint = nextPoint + 1;
+  if (nextNextY <= highestY)
+  {
+    highestY = nextNextY;
+    highestPoint = nextNextPoint;
+  }
+
+  Fill_LeftPoint = highestPoint;
+  Fill_RightPoint = highestPoint;
+
+	// Test if the poly is flat
+  if (currentY == nextY && nextY == nextNextY)
+	{
+		return Fill_LeftSlope;
+	}
+
+  Fill_LastPoint = nextNextPoint;
+  Fill_CurY = highestY;
+
+  screen = (PTR_U8)Log + PTR_TabOffLine[highestY];
+  Fill_ReadFlag = READ_NEXT_L + READ_NEXT_R;
+  Fill_CurOffLine = screen; // Current offset in log screen
+
+	// *** Calculate the common denominator
+	// for interpolation calculation ***
+  leftPoint = Fill_LeftPoint + 1;
+  if (leftPoint > Fill_LastPoint)
+	{
+    leftPoint = Fill_FirstPoint;
+	}
+
+  rightPoint = leftPoint + 1;
+  if (rightPoint > Fill_LastPoint)
+	{
+    rightPoint = Fill_FirstPoint;
+	}
+
+  Denom = (rightPoint->Pt_XE - Fill_LeftPoint->Pt_XE)
+        * (leftPoint->Pt_YE - Fill_LeftPoint->Pt_YE)
+        - (leftPoint->Pt_XE - Fill_LeftPoint->Pt_XE)
+        * (rightPoint->Pt_YE - Fill_LeftPoint->Pt_YE);
+	if (Denom == 0)
+	{
+		return Fill_LeftSlope;
+	}
+
+	return Jmp_XSlopeFPU[Fill_Type]();
+}
+
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
 {
 	/*
@@ -1195,34 +1282,51 @@ Fill_PolyClip		ENDP
 		// Fill_PolyNoClip::
 		if (Nb_Points == 3)
 		{
-			// TODO: return Draw_Triangle(Nb_Points, Ptr_Points);
+			return Draw_Triangle(points);
 		}
 
-		// TODO: No idea why this is here...
-		/*
-			push	ecx
-			push	Offset @@Ret_Triangle
-
-			push	esi			; Will be poped by Draw_Triangle in EBP
-			mov	ecx,3			; (BCOZ EBP is saved in Fill_Poly and restored in Draw_Triangle)
-
-			jmp	Draw_Triangle
-		*/
+		Draw_Triangle(points);
 
 		// @@Ret_Triangle:
-		// TODO: copy points
-		Struc_Point *next = points + 1;
 
 		// Copy the first point in the new location (the following one)
+		Struc_Point *next = points + 1;
 		memcpy(next, points, sizeof(Struc_Point));
+
+		Nb_Points--;
 	}
 
-	// TODO: return Fill_PolyNoCLip(); ??
-
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return Fill_LeftSlope;
 }
+
+Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
+	// Triangle_ReadNextEdgeFPU, // Solid
+	// Triangle_ReadNextEdgeFPU, // Flat
+	// Triangle_ReadNextEdgeFPU, // Transp.
+	// Triangle_ReadNextEdgeFPU, // Trame
+	// Calc_GouraudXSlopeFPU, // Gouraud
+	// Calc_DitherXSlopeFPU, // Dither
+	// Calc_GouraudXSlopeFPU, // Gouraud table
+	// Calc_DitherXSlopeFPU, // Dither table
+	// Calc_TextureXSlopeFPU, // Texture Solid
+	// Calc_TextureXSlopeFPU, // Texture Flat
+	// Calc_TextureGouraudXSlopeFPU, // Texture Gouraud
+	// Calc_TextureDitherXSlopeFPU, // Texture Gouraud Dither
+	// Calc_TextureXSlopeFPU, // Texture Solid Chroma Key
+	// Calc_TextureXSlopeFPU, // Texture Flat Chroma Key
+	// Calc_TextureGouraudXSlopeFPU, // Texture Gouraud Chroma Key
+	// Calc_TextureDitherXSlopeFPU, // Texture Gouraud Dither Chroma Key
+	// Calc_TextureZXSlopeFPU, // Texture Z Solid
+	// Calc_TextureZXSlopeFPU, // Texture Z Flat
+	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud
+	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither
+	// Calc_TextureZXSlopeFPU, // Texture Z Solid Chroma Key
+	// Calc_TextureZXSlopeFPU, // Texture Z Flat Chroma Key
+	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud Chroma Key
+	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither Chroma Key
+	// Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
+	// Calc_XSlopeZBufferFlagFPU, // ZBuffer only
+};
 
 // =============================================================================
 #ifdef __cplusplus
