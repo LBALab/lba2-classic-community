@@ -18,6 +18,7 @@ extern "C" {
 typedef S32 (*Jmp_XSlopeFunc)(void);
 
 extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
+extern Jmp_XSlopeFunc Jmp_LeftSlopeFPU[];
 
 U32 Fill_Type = 0; // Polygon type number
 
@@ -313,12 +314,6 @@ SetFog			ENDP
         temp = 1;
 
     Fill_Fog_Factor = 256 * 65536 / temp;
-}
-
-void Triangle_ReadNextEdge(void)
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
 void EnterClip(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
@@ -1468,11 +1463,51 @@ Fill_PolyClip		ENDP
 	return Fill_LeftSlope;
 }
 
+S32 Triangle_ReadNextEdge()
+{
+	if ((Fill_ReadFlag & READ_NEXT_L) == 0)
+	{
+		// TODO: jmp Read_Next_Right
+	}
+
+  Struc_Point *newPoint = Fill_LeftPoint;
+  Fill_ReadFlag &= ~READ_NEXT_L;
+
+  while ( 1 )
+  {
+		// @@Read_Next_L:
+    Struc_Point *oldPoint = newPoint;
+    newPoint += 4;
+    if (newPoint > Fill_LastPoint)
+		{
+      newPoint = Fill_FirstPoint;
+		}
+
+    if (newPoint->Pt_YE != oldPoint->Pt_YE)
+    {
+			// If (NewY-OldY)<0 then we must end the rasterization
+			if (newPoint->Pt_YE < oldPoint->Pt_YE)
+			{
+				return Fill_LeftSlope;
+			}
+
+      Fill_CurXMin = -oldPoint->Pt_YE;
+      Fill_LeftPoint = newPoint;
+      return Jmp_LeftSlopeFPU[Fill_Type]();
+    }
+  }
+}
+
+S32 Triangle_ReadNextEdgeFPU()
+{
+  return Triangle_ReadNextEdge();
+}
+
 Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
-	// Triangle_ReadNextEdgeFPU, // Solid
-	// Triangle_ReadNextEdgeFPU, // Flat
-	// Triangle_ReadNextEdgeFPU, // Transp.
-	// Triangle_ReadNextEdgeFPU, // Trame
+	Triangle_ReadNextEdgeFPU, // Solid
+	Triangle_ReadNextEdgeFPU, // Flat
+	Triangle_ReadNextEdgeFPU, // Transp.
+	Triangle_ReadNextEdgeFPU, // Trame
 	// Calc_GouraudXSlopeFPU, // Gouraud
 	// Calc_DitherXSlopeFPU, // Dither
 	// Calc_GouraudXSlopeFPU, // Gouraud table
@@ -1495,6 +1530,35 @@ Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
 	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither Chroma Key
 	// Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
 	// Calc_XSlopeZBufferFlagFPU, // ZBuffer only
+};
+
+Jmp_XSlopeFunc Jmp_LeftSlopeFPU[] = {
+	// Read_Next_RightFPU, // Solid
+	// Read_Next_RightFPU, // Flat
+	// Read_Next_RightFPU, // Transp.
+	// Read_Next_RightFPU, // Trame
+	// Calc_GouraudLeftSlopeFPU, // Gouraud
+	// Calc_GouraudLeftSlopeFPU, // Dither
+	// Calc_GouraudTableLeftSlopeFPU, // Gouraud table
+	// Calc_GouraudTableLeftSlopeFPU, // Dither table
+	// Calc_TextureLeftSlopeFPU, // Texture Solid
+	// Calc_TextureLeftSlopeFPU, // Texture Flat
+	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud
+	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Dither
+	// Calc_TextureLeftSlopeFPU, // Texture Solid Chroma Key
+	// Calc_TextureLeftSlopeFPU, // Texture Flat Chroma Key
+	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Chroma Key
+	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Dither Chroma Key
+	// Calc_TextureZLeftSlopeFPU, // Texture Z Solid
+	// Calc_TextureZLeftSlopeFPU, // Texture Z Flat
+	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud
+	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither
+	// Calc_TextureZLeftSlopeFPU, // Texture Z Solid Chroma Key
+	// Calc_TextureZLeftSlopeFPU, // Texture Z Flat Chroma Key
+	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud Chroma Key
+	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither Chroma Key
+	// Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
+	// Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
 };
 
 // =============================================================================
