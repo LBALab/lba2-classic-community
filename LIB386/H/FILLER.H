@@ -71,15 +71,14 @@ SIZE_VIDEOLINE		EQU	640
 PERSP_SHIFT		EQU	4		; Shift value (log2(PERSP_VALUE))
 PERSP_VALUE		EQU	(1 SHL PERSP_SHIFT); Nb of pixels rendered between two corrections
 
-						; Pour le Flag_Display
-						; Champ de bits
-READ_NEXT_G		EQU	1		; Bit 0 : Lire le prochain sommet a gauche?
-READ_NEXT_D		EQU	2		; Bit 1	: idem a droite ?
-END_READ		EQU	4		; Bit 2	: quitter ?
-READ_NEXT_L		EQU	1		; Bit 0 : Read next left point
-READ_NEXT_R		EQU	2		; Bit 1	: Read next right point
-
 */
+// Pour le Flag_Display
+// Champ de bits
+#define READ_NEXT_G 1		// Bit 0 : Lire le prochain sommet a gauche?
+#define READ_NEXT_D 2		// Bit 1	: idem a droite ?
+#define END_READ 4		// Bit 2	: quitter ?
+#define READ_NEXT_L 1		// Bit 0 : Read next left point
+#define READ_NEXT_R 2		// Bit 1	: Read next right point
 
 #define CLIP_FLAT	1		// Clipper les bords des polys
 #define CLIP_LIGHT	2		// Clipper la couleur

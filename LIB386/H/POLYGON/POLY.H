@@ -110,7 +110,7 @@ extern U32 Fill_RightSlope;     ///< Right slope
 extern U32 Fill_CurY;           ///< Current Y
 extern U32 Fill_CurXMin;        ///< Current XMin
 extern U32 Fill_CurXMax;        ///< Current XMax
-extern U32 Fill_CurOffLine;     ///< Offset of the current video line
+extern PTR_U8 Fill_CurOffLine;     ///< Offset of the current video line
 
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
