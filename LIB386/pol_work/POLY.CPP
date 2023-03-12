@@ -317,7 +317,6 @@ void Triangle_ReadNextEdge(void)
 // ESI = PtA; EBX = Pt_B with PtA: point to clip; and PtB: valid point
 // y=yA+[(XMin-xa)*(yB-yA)]/(xB-xA)
 void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
-//int Generic_ClipXMin@<eax>(Struc_Point *a1@<ebx>, Struc_Point *a2@<edi>, Struc_Point *a3@<esi>)
 {
   S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
 
@@ -373,6 +372,31 @@ void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA
   }
 }
 
+// Clip types
+#define CLIP_XMIN	0
+#define CLIP_XMAX	1
+#define CLIP_YMIN	2
+#define CLIP_YMAX	3
+
+void Clipper_Jmp(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA, U8 type)
+{
+	switch (type)
+	{
+		case CLIP_XMIN:
+			Generic_ClipXMin(pointB, dst, pointA);
+			break;
+		// case CLIP_XMAX:
+		// 	Generic_ClipXMax(pointB, dst, pointA);
+		// 	break;
+		// case CLIP_YMIN:
+		// 	Generic_ClipYMin(pointB, dst, pointA);
+		// 	break;
+		// case CLIP_YMAX:
+		// 	Generic_ClipYMax(pointB, dst, pointA);
+		// 	break;
+	}
+}
+
 /*
  ╔═══════════════════════════════════════════════════════════════════════════╗
  ║ Clipping : Generic macro                                                  ║
@@ -385,18 +409,39 @@ void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA
  ║                                                                           ║
  ╚═══════════════════════════════════════════════════════════════════════════╝
 */
-S32 Fill_ClipXMin(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Fill_Clip(S32 Nb_Points, Struc_Point *Ptr_Points, U8 type)
 {
 	Struc_Point *prevPoint = NULL; // Previous point
   Struc_Point *currentPoint = Fill_FirstPoint; // Current point
 
-  Struc_Point *clipPoints = List_Clip_XMin;
+  Struc_Point *clipPoints = NULL;
+
   S32 newNbPoints = 0;
   currentPoint--;
-  S32 clipValue = ClipXMin;
+
+	if (type == CLIP_XMIN)
+	{
+		clipPoints = List_Clip_XMin;
+	}
+	else if (type == CLIP_XMAX)
+	{
+		clipPoints = List_Clip_XMax;
+	}
+	else if (type == CLIP_YMIN)
+	{
+		clipPoints = List_Clip_YMin;
+	}
+	else if (type == CLIP_YMAX)
+	{
+		clipPoints = List_Clip_YMax;
+	}
+
   U8 isPointInvisible = 1;
 
-  if (Fill_LastPoint->Pt_XE >= ClipXMin)
+  if ((type == CLIP_XMIN && Fill_LastPoint->Pt_XE >= ClipXMin)
+		|| (type == CLIP_XMAX && Fill_LastPoint->Pt_XE <= ClipXMax)
+		|| (type == CLIP_YMIN && Fill_LastPoint->Pt_YE >= ClipYMin)
+		|| (type == CLIP_YMAX && Fill_LastPoint->Pt_YE <= ClipYMax))
 	{
     isPointInvisible = 0;
 	}
@@ -404,11 +449,14 @@ S32 Fill_ClipXMin(S32 Nb_Points, Struc_Point *Ptr_Points)
   while (currentPoint != Fill_LastPoint)
   {
     currentPoint++;
-    if (currentPoint->Pt_XE >= clipValue)
+    if ((type == CLIP_XMIN && currentPoint->Pt_XE >= ClipXMin)
+			|| (type == CLIP_XMAX && currentPoint->Pt_XE <= ClipXMax)
+			|| (type == CLIP_YMIN && currentPoint->Pt_YE >= ClipYMin)
+			|| (type == CLIP_YMAX && currentPoint->Pt_YE <= ClipYMax))
     {
       if (isPointInvisible)
       {
-        Generic_ClipXMin(prevPoint, clipPoints, currentPoint);
+        Clipper_Jmp(prevPoint, clipPoints, currentPoint, type);
         clipPoints++;
         newNbPoints++;
       }
@@ -419,10 +467,10 @@ S32 Fill_ClipXMin(S32 Nb_Points, Struc_Point *Ptr_Points)
       clipPoints++;
       isPointInvisible = 0;
     }
-    else if ( !isPointInvisible )
+    else if (!isPointInvisible)
     {
 			// Current point is off-screen
-			Generic_ClipXMin(prevPoint, clipPoints, currentPoint);
+			Clipper_Jmp(prevPoint, clipPoints, currentPoint, type);
       clipPoints++; // A point was created: registers it!
       newNbPoints++;
       isPointInvisible = 1; // Last point not visible
@@ -431,7 +479,45 @@ S32 Fill_ClipXMin(S32 Nb_Points, Struc_Point *Ptr_Points)
 		prevPoint = currentPoint;
   }
 
-  return Fill_PolyClip(newNbPoints, List_Clip_XMin);
+	Struc_Point *nextPtrPoints = NULL;
+	if (type == CLIP_XMIN)
+	{
+		nextPtrPoints = List_Clip_XMin;
+	}
+	else if (type == CLIP_XMAX)
+	{
+		nextPtrPoints = List_Clip_XMax;
+	}
+	else if (type == CLIP_YMIN)
+	{
+		nextPtrPoints = List_Clip_YMin;
+	}
+	else if (type == CLIP_YMAX)
+	{
+		nextPtrPoints = List_Clip_YMax;
+	}
+
+  return Fill_PolyClip(newNbPoints, nextPtrPoints);
+}
+
+S32 Fill_ClipXMin(S32 Nb_Points, Struc_Point *Ptr_Points)
+{
+	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_XMIN);
+}
+
+S32 Fill_ClipXMax(S32 Nb_Points, Struc_Point *Ptr_Points)
+{
+	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_XMAX);
+}
+
+S32 Fill_ClipYMin(S32 Nb_Points, Struc_Point *Ptr_Points)
+{
+	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_YMIN);
+}
+
+S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points)
+{
+	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_YMAX);
 }
 
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
@@ -667,23 +753,23 @@ Fill_PolyClip		ENDP
 
 	if (XMin < ClipXMin)
 	{
-		// TODO: Fill_ClipXMin(Nb_Points, Ptr_Points);
+		return Fill_ClipXMin(Nb_Points, Ptr_Points);
 	}
 
 	// +1 because we don't draw the last pixel on a scanline
 	if (XMax > ClipXMax + 1)
 	{
-		// TODO: Fill_ClipXMax(Nb_Points, Ptr_Points);
+		return Fill_ClipXMax(Nb_Points, Ptr_Points);
 	}
 
 	if (YMin < ClipYMin)
 	{
-		// TODO: Fill_ClipYMin(Nb_Points, Ptr_Points);
+		return Fill_ClipYMin(Nb_Points, Ptr_Points);
 	}
 
 	if (YMax > ClipYMax)
 	{
-		// TODO: Fill_ClipYMax(Nb_Points, Ptr_Points);
+		return Fill_ClipYMax(Nb_Points, Ptr_Points);
 	}
 
 	while (true)
