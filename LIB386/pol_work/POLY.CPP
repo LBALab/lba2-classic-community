@@ -314,15 +314,181 @@ void Triangle_ReadNextEdge(void)
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
-// ESI = PtA; EBX = Pt_B with PtA: point to clip; and PtB: valid point
-// y=yA+[(XMin-xa)*(yB-yA)]/(xB-xA)
-void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+void EnterClip(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
 {
-  S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
+	/*
+EnterClip::
+			mov	eax,[Fill_ClipFlag]
+			test	eax,CLIP_LIGHT
+			je	@@No_ClipLight
 
-  Clip_Num = ClipXMin - pointA->Pt_XE;
-	dst->Pt_XE = ClipXMin;
-	dst->Pt_YE = pointA->Pt_YE + (pointB->Pt_YE - pointA->Pt_YE * Clip_Num) / xDiff;
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+			and	eax,0FFFFh
+			and	ecx,0FFFFh
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+			mov	[edi].STRUC_POINT.Pt_Light,ax
+@@No_ClipLight:
+
+			mov	eax,[Fill_ClipFlag]
+			test	eax,CLIP_TEXTURE
+			je	@@No_ClipTexture
+
+					; ** MapU **
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
+			and	eax,0FFFFh
+			and	ecx,0FFFFh
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+			mov	[edi].STRUC_POINT.Pt_MapU,ax
+
+					; ** MapV **
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
+			shr	eax,16
+			shr	ecx,16
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+			mov	[edi].STRUC_POINT.Pt_MapV,ax
+@@No_ClipTexture:
+
+			mov	eax,[Fill_ClipFlag]
+			test	eax,CLIP_TEXTUREZ
+			je	@@No_ClipTextureZ
+
+					; ** W **
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_W
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_W
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+			mov	[edi].STRUC_POINT.Pt_W,eax
+
+					; ** MapU **
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			and	eax,0FFFFh
+			imul	[esi].STRUC_POINT.Pt_W
+			shr	eax,8
+			shl	edx,24
+			or	eax,edx
+			mov	ecx,eax
+
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
+			and	eax,0FFFFh
+			imul	[ebx].STRUC_POINT.Pt_W
+			shr	eax,8
+			shl	edx,24
+			or	eax,edx
+
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+
+			mov	edx,eax
+			shl	eax,8
+			sar	edx,24
+			idiv	[edi].STRUC_POINT.Pt_W
+			mov	[edi].STRUC_POINT.Pt_MapU,ax
+
+					; ** MapV **
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
+			shr	eax,16
+			imul	[esi].STRUC_POINT.Pt_W
+			shr	eax,8
+			shl	edx,24
+			or	eax,edx
+			mov	ecx,eax
+
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
+			shr	eax,16
+			imul	[ebx].STRUC_POINT.Pt_W
+			shr	eax,8
+			shl	edx,24
+			or	eax,edx
+
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+
+			mov	edx,eax
+			shl	eax,8
+			sar	edx,24
+			idiv	[edi].STRUC_POINT.Pt_W
+			mov	[edi].STRUC_POINT.Pt_MapV,ax
+
+			mov	eax,[Fill_ClipFlag]
+			test	eax,CLIP_ZBUFFER
+			je	@@No_ClipZBuffer
+
+					; ** ZBuf **
+							; If persp correct and Zbuf,
+							; then we clip the zbuf with a
+							; perspective correction
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			shr	eax,16
+			imul	[esi].STRUC_POINT.Pt_W
+			shr	eax,8
+			shl	edx,24
+			or	eax,edx
+			mov	ecx,eax
+
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
+			shr	eax,16
+			imul	[ebx].STRUC_POINT.Pt_W
+			shr	eax,8
+			shl	edx,24
+			or	eax,edx
+
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+
+			mov	edx,eax
+			shl	eax,8
+			sar	edx,24
+			idiv	[edi].STRUC_POINT.Pt_W
+			mov	[edi].STRUC_POINT.Pt_ZO,ax
+
+			jmp	@@No_ClipZBuffer
+
+@@No_ClipTextureZ:
+			mov	eax,[Fill_ClipFlag]
+			test	eax,CLIP_ZBUFFER
+			je	@@No_ClipZBuffer
+
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+
+			shr	eax,16
+
+			shr	ecx,16
+
+			sub	eax,ecx
+			imul	[Clip_Num]
+			idiv	ebp
+			add	eax,ecx
+			mov	[edi].STRUC_POINT.Pt_ZO,ax
+@@No_ClipZBuffer:
+
+			pop	ebp
+			pop	ecx
+
+			ret
+	*/
+	S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
+
   if (Fill_ClipFlag & CLIP_LIGHT)
 	{
 		dst->Pt_Light = pointA->Pt_Light + (pointB->Pt_Light - pointA->Pt_Light) * Clip_Num / xDiff;
@@ -372,6 +538,258 @@ void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA
   }
 }
 
+// ESI = PtA; EBX = Pt_B with PtA: point to clip; and PtB: valid point
+// y=yA+[(XMin-xa)*(yB-yA)]/(xB-xA)
+void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+{
+	/*
+Generic_ClipXMin	PROC
+			push	ecx
+			push	ebp
+
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; Current point
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; Last point
+
+			mov	ecx,edx
+			mov	ebp,eax
+
+			shl	ecx,16
+			and	edx,0FFFF0000h			; EDX = Ya shl 16
+
+			shl	ebp,16
+			and	eax,0FFFF0000h			; EAX = Yb shl 16
+
+			sar	ecx,16				; ECX = Xa
+			sub	eax,edx				; EAX = (Yb-Ya) shl 16
+
+			sar	ebp,16				; EBP = Xb
+			push	edx
+
+			sub	ebp,ecx				; EBP = (Xb-Xa)
+			mov	edx,[ClipXMin]
+
+			sub	edx,ecx				; EDX = (XMin-Xa)
+
+			mov	[Clip_Num],edx
+
+			imul	edx
+			idiv	ebp
+
+			pop	edx
+			mov	ecx,[ClipXMin]
+
+			add	eax,edx
+			and	ecx,0FFFFh
+
+			and	eax,0FFFF0000h
+
+			or	ecx,eax
+
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,ecx
+
+			jmp EnterClip
+Generic_ClipXMin	ENDP
+	*/
+  S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
+
+  Clip_Num = ClipXMin - pointA->Pt_XE;
+	dst->Pt_XE = ClipXMin;
+	dst->Pt_YE = pointA->Pt_YE + (pointB->Pt_YE - pointA->Pt_YE) * Clip_Num / xDiff;
+
+	EnterClip(pointB, dst, pointA);
+}
+
+// ESI = PtA; EBX = Pt_B
+// y=yA+[(XMax-xa)*(yB-yA)]/(xB-xA)
+void Generic_ClipXMax(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+{
+	/*
+Generic_ClipXMax	PROC
+			push	ecx
+			push	ebp
+
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; Current point
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; Last point
+
+			mov	ecx,edx
+			mov	ebp,eax
+
+			shl	ecx,16
+			and	edx,0FFFF0000h			; EDX = Ya shl 16
+
+			shl	ebp,16
+			and	eax,0FFFF0000h			; EAX = Yb shl 16
+
+			sar	ecx,16				; ECX = Xa
+			sub	eax,edx				; EAX = (Yb-Ya) shl 16
+
+			sar	ebp,16				; EBP = Xb
+			push	edx
+
+			sub	ebp,ecx				; EBP = (Xb-Xa)
+			mov	edx,[ClipXMax]
+
+			inc	edx				; XMax++ bcoz we don't draw the last pixel on a scanline
+
+			sub	edx,ecx				; EDX = (XMin-Xa)
+
+			mov	[Clip_Num],edx
+
+			imul	edx
+			idiv	ebp
+
+			pop	edx
+			mov	ecx,[ClipXMax]
+
+			add	eax,edx
+			and	ecx,0FFFFh
+
+			and	eax,0FFFF0000h
+			inc	ecx				; XMax++ bcoz we don't draw the last pixel on a scanline
+
+			or	eax,ecx
+
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
+
+			jmp	EnterClip
+Generic_ClipXMax	ENDP
+	*/
+
+	S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
+
+	// ClipXMax + 1 bcoz we don't draw the last pixel on a scanline
+	Clip_Num = ClipXMax + 1 - pointA->Pt_XE;
+
+	dst->Pt_XE = ClipXMax + 1;
+	dst->Pt_YE = pointA->Pt_YE + (pointB->Pt_YE - pointA->Pt_YE) * Clip_Num / xDiff;
+
+	EnterClip(pointB, dst, pointA);
+}
+
+// ESI = PtA; EBX = Pt_B
+// x=xa+[(YMin-ya)*(xB-xA)]/(yB-ya)
+void Generic_ClipYMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+{
+	/*
+Generic_ClipYMin	PROC
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; A
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; B
+
+			push	ecx
+			mov	ecx,edx
+
+			shl	edx,16
+			push	ebp
+
+			sar	ecx,16				; ECX = Ya
+			mov	ebp,eax
+
+			shl	eax,16
+
+			sar	ebp,16				; EBP = Yb
+			sub	eax,edx				; EAX = (Xb-Xa) shl 16
+
+			sar	edx,16				; EDX = Xa
+			sub	ebp,ecx				; EBP = (Yb-Ya)
+
+			push	edx
+			mov	edx,[ClipYMin]
+
+			sub	edx,ecx				; EDX = (YMin-Ya)
+
+			mov	[Clip_Num],edx
+
+			imul	edx				; EAX = (Ymin-Ya)(Xb-Xa)
+			idiv	ebp
+
+			sar	eax,16
+			pop	edx
+
+			add	eax,edx
+			mov	ecx,[ClipYMin]
+
+			shl	ecx,16
+			and	eax,0FFFFh
+
+			or	eax,ecx
+
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
+
+			jmp	EnterClip
+Generic_ClipYMin	ENDP
+*/
+
+	S32 yDiff = pointB->Pt_YE - pointA->Pt_YE;
+
+	Clip_Num = ClipYMin - pointA->Pt_YE;
+	dst->Pt_XE = pointA->Pt_XE + (pointB->Pt_XE - pointA->Pt_XE) * Clip_Num / yDiff;
+	dst->Pt_YE = ClipYMin;
+
+	EnterClip(pointB, dst, pointA);
+}
+
+// ESI = PtA; EBX = Pt_B
+// x=xa+[(YMax-ya)*(xB-xA)]/(yB-ya)
+void Generic_ClipYMax(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+{
+	/*
+Generic_ClipYMax	PROC
+			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; A
+			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; B
+
+			push	ecx
+			mov	ecx,edx
+
+			shl	edx,16
+			push	ebp
+
+			sar	ecx,16				; ECX = Ya
+			mov	ebp,eax
+
+			shl	eax,16
+
+			sar	ebp,16				; EBP = Yb
+			sub	eax,edx				; EAX = (Xb-Xa) shl 16
+
+			sar	edx,16				; EDX = Xa
+			sub	ebp,ecx				; EBP = (Yb-Ya)
+
+			push	edx
+			mov	edx,[ClipYMax]
+
+			sub	edx,ecx				; EDX = (YMin-Ya)
+
+			mov	[Clip_Num],edx
+
+			imul	edx				; EAX = (Ymin-Ya)(Xb-Xa)
+			idiv	ebp
+
+			sar	eax,16
+			pop	edx
+
+			add	eax,edx
+			mov	ecx,[ClipYMax]
+
+			shl	ecx,16
+			and	eax,0FFFFh
+
+			or	eax,ecx
+
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
+
+			jmp	EnterClip
+Generic_ClipYMax	ENDP
+	*/
+
+	S32 yDiff = pointB->Pt_YE - pointA->Pt_YE;
+
+	Clip_Num = ClipYMax - pointA->Pt_YE;
+	dst->Pt_XE = pointA->Pt_XE + (pointB->Pt_XE - pointA->Pt_XE) * Clip_Num / yDiff;
+	dst->Pt_YE = ClipYMax;
+
+	EnterClip(pointB, dst, pointA);
+}
+
 // Clip types
 #define CLIP_XMIN	0
 #define CLIP_XMAX	1
@@ -385,15 +803,15 @@ void Clipper_Jmp(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA, U8 
 		case CLIP_XMIN:
 			Generic_ClipXMin(pointB, dst, pointA);
 			break;
-		// case CLIP_XMAX:
-		// 	Generic_ClipXMax(pointB, dst, pointA);
-		// 	break;
-		// case CLIP_YMIN:
-		// 	Generic_ClipYMin(pointB, dst, pointA);
-		// 	break;
-		// case CLIP_YMAX:
-		// 	Generic_ClipYMax(pointB, dst, pointA);
-		// 	break;
+		case CLIP_XMAX:
+			Generic_ClipXMax(pointB, dst, pointA);
+			break;
+		case CLIP_YMIN:
+			Generic_ClipYMin(pointB, dst, pointA);
+			break;
+		case CLIP_YMAX:
+			Generic_ClipYMax(pointB, dst, pointA);
+			break;
 	}
 }
 
