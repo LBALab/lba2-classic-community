@@ -4,6 +4,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
+#include <FILLER.H>
 
 #include <limits.h>
 #include <string.h>
@@ -143,6 +144,13 @@ U32 IsPolygonHidden = 0;     ///< normalizing factor for Z Buffer
 U8 Fill_Logical_Palette[256]; ///< Logical Palette
 U32 ScreenPitch = 0;         ///< Screen Pitch
 PTR_U32 PTR_TabOffLine = NULL;  ///< Screen Pitch
+
+Struc_Point List_Clip_XMin[NB_MAX_EDGES];
+Struc_Point List_Clip_XMax[NB_MAX_EDGES];
+Struc_Point List_Clip_YMin[NB_MAX_EDGES];
+Struc_Point List_Clip_YMax[NB_MAX_EDGES];
+
+S32 Clip_Num = 0;
 
 void SetScreenPitch(U32 *New_TabOffLine)
 {
@@ -304,6 +312,126 @@ void Triangle_ReadNextEdge(void)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+}
+
+// ESI = PtA; EBX = Pt_B with PtA: point to clip; and PtB: valid point
+// y=yA+[(XMin-xa)*(yB-yA)]/(xB-xA)
+void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+//int Generic_ClipXMin@<eax>(Struc_Point *a1@<ebx>, Struc_Point *a2@<edi>, Struc_Point *a3@<esi>)
+{
+  S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
+
+  Clip_Num = ClipXMin - pointA->Pt_XE;
+	dst->Pt_XE = ClipXMin;
+	dst->Pt_YE = pointA->Pt_YE + (pointB->Pt_YE - pointA->Pt_YE * Clip_Num) / xDiff;
+  if (Fill_ClipFlag & CLIP_LIGHT)
+	{
+		dst->Pt_Light = pointA->Pt_Light + (pointB->Pt_Light - pointA->Pt_Light) * Clip_Num / xDiff;
+	}
+
+  if (Fill_ClipFlag & CLIP_TEXTURE)
+  {
+		dst->Pt_MapU = pointA->Pt_MapU + (pointB->Pt_MapU - pointA->Pt_MapU) * Clip_Num / xDiff;
+		dst->Pt_MapV = pointA->Pt_MapV + (pointB->Pt_MapV - pointA->Pt_MapV) * Clip_Num / xDiff;
+  }
+
+  if (Fill_ClipFlag & CLIP_TEXTUREZ)
+  {
+		// W
+		dst->Pt_W = pointA->Pt_W + (pointB->Pt_W - pointA->Pt_W) * Clip_Num / xDiff;
+
+		// MapU
+		S32 uwA = (pointA->Pt_MapU * pointA->Pt_W / 256);
+		S32 uwB = (pointB->Pt_MapU * pointB->Pt_W / 256);
+		S32 U_tmp = (uwB - uwA) * Clip_Num / xDiff + uwA;
+		dst->Pt_MapU = U_tmp * 256 / dst->Pt_W;
+
+		// MapV
+		S32 vwA = (pointA->Pt_MapV * pointA->Pt_W / 256);
+		S32 vwB = (pointB->Pt_MapV * pointB->Pt_W / 256);
+		S32 V_tmp = (vwB - vwA) * Clip_Num / xDiff + vwA;
+		dst->Pt_MapV = V_tmp * 256 / dst->Pt_W;
+
+    if (Fill_ClipFlag & CLIP_ZBUFFER)
+    {
+			// ** ZBuf **
+			// If persp correct and Zbuf,
+			// then we clip the zbuf with a
+			// perspective correction
+			S32 zA = pointA->Pt_ZO * pointA->Pt_W / 256;
+			S32 zB = pointB->Pt_ZO * pointB->Pt_W / 256;
+			S32 ZO_tmp = (zB - zA) * Clip_Num / xDiff + zA;
+			dst->Pt_ZO = ZO_tmp * 256 / dst->Pt_W;
+    }
+  }
+  else
+  {
+    if ( Fill_ClipFlag & CLIP_ZBUFFER )
+    {
+			dst->Pt_ZO = pointA->Pt_ZO + (pointB->Pt_ZO - pointA->Pt_ZO) * Clip_Num / xDiff;
+    }
+  }
+}
+
+/*
+ ╔═══════════════════════════════════════════════════════════════════════════╗
+ ║ Clipping : Generic macro                                                  ║
+ ╟───────────────────────────────────────────────────────────────────────────╢
+ ║ Call : [Fill_FirstPoint] = Ptr on the beginning of the list               ║
+ ║        [Fill_LastPoint]  = Ptr on the end of the list                     ║
+ ╟───────────────────────────────────────────────────────────────────────────╢
+ ║ Return: ESI = Ptr on the new points-list                                  ║
+ ║         ECX = Nb of points in that new list                               ║
+ ║                                                                           ║
+ ╚═══════════════════════════════════════════════════════════════════════════╝
+*/
+S32 Fill_ClipXMin(S32 Nb_Points, Struc_Point *Ptr_Points)
+{
+	Struc_Point *prevPoint = NULL; // Previous point
+  Struc_Point *currentPoint = Fill_FirstPoint; // Current point
+
+  Struc_Point *clipPoints = List_Clip_XMin;
+  S32 newNbPoints = 0;
+  currentPoint--;
+  S32 clipValue = ClipXMin;
+  U8 isPointInvisible = 1;
+
+  if (Fill_LastPoint->Pt_XE >= ClipXMin)
+	{
+    isPointInvisible = 0;
+	}
+
+  while (currentPoint != Fill_LastPoint)
+  {
+    currentPoint++;
+    if (currentPoint->Pt_XE >= clipValue)
+    {
+      if (isPointInvisible)
+      {
+        Generic_ClipXMin(prevPoint, clipPoints, currentPoint);
+        clipPoints++;
+        newNbPoints++;
+      }
+
+			memcpy(clipPoints, currentPoint, sizeof(Struc_Point));
+
+      ++newNbPoints;
+      clipPoints++;
+      isPointInvisible = 0;
+    }
+    else if ( !isPointInvisible )
+    {
+			// Current point is off-screen
+			Generic_ClipXMin(prevPoint, clipPoints, currentPoint);
+      clipPoints++; // A point was created: registers it!
+      newNbPoints++;
+      isPointInvisible = 1; // Last point not visible
+    }
+
+		prevPoint = currentPoint;
+  }
+
+  return Fill_PolyClip(newNbPoints, List_Clip_XMin);
 }
 
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
@@ -558,25 +686,33 @@ Fill_PolyClip		ENDP
 		// TODO: Fill_ClipYMax(Nb_Points, Ptr_Points);
 	}
 
-	// Fill_PolyNoClip::
-	if (Nb_Points == 3)
+	while (true)
 	{
-		// TODO: return Draw_Triangle(Nb_Points, Ptr_Points);
+		// Fill_PolyNoClip::
+		if (Nb_Points == 3)
+		{
+			// TODO: return Draw_Triangle(Nb_Points, Ptr_Points);
+		}
+
+		// TODO: No idea why this is here...
+		/*
+			push	ecx
+			push	Offset @@Ret_Triangle
+
+			push	esi			; Will be poped by Draw_Triangle in EBP
+			mov	ecx,3			; (BCOZ EBP is saved in Fill_Poly and restored in Draw_Triangle)
+
+			jmp	Draw_Triangle
+		*/
+
+		// @@Ret_Triangle:
+		// TODO: copy points
+		Struc_Point *next = points + 1;
+
+		// Copy the first point in the new location (the following one)
+		memcpy(next, points, sizeof(Struc_Point));
 	}
 
-	// TODO: No idea why this is here...
-	/*
-		push	ecx
-		push	Offset @@Ret_Triangle
-
-		push	esi			; Will be poped by Draw_Triangle in EBP
-		mov	ecx,3			; (BCOZ EBP is saved in Fill_Poly and restored in Draw_Triangle)
-
-		jmp	Draw_Triangle
-	*/
-
-	// @@Ret_Triangle:
-	// TODO: copy points
 	// TODO: return Fill_PolyNoCLip(); ??
 
 	// TODO: Implement ASM

@@ -61,9 +61,11 @@ FALSE			EQU	0
 
 
 SIZE_VIDEOLINE		EQU	640
-
-NB_MAX_EDGES		EQU	NB_MAX_COTES
-NB_MAX_COTES		EQU	16		; Nb de cotes max apres clipping
+*/
+// Nb de cotes max apres clipping
+#define NB_MAX_COTES	16
+#define NB_MAX_EDGES	NB_MAX_COTES
+/*
 
 
 PERSP_SHIFT		EQU	4		; Shift value (log2(PERSP_VALUE))
