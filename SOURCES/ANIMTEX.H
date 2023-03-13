@@ -7,13 +7,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*--------------------------------------------------------------------------*/
-extern	void	Do_Plasma( U8 *PtrEffectStruct ) ;
 
-/*--------------------------------------------------------------------------*/
-extern	void	Do_Fire( U8 *buff1, U8 *buff2, U8 *colortable, U8 *TileMap ) ;
-
-/*--------------------------------------------------------------------------*/
 #ifdef __cplusplus
 }
 #endif
