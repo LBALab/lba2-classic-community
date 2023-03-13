@@ -618,11 +618,11 @@ Do_Fire		endp
   __int16 v21; // ax@5
   unsigned __int8 *v22; // esi@10
   U8 *v23; // edi@10
-  int v24; // ebx@10
+  U8 *v24; // ebx@10
   int v25; // ecx@10
   int v26; // eax@10
   signed int v27; // ecx@11
-  char result; // al@14
+  U8 result; // al@14
   int v29; // [sp-4h] [bp-14h]@4
   int v30; // [sp-4h] [bp-14h]@11
 
@@ -687,9 +687,11 @@ Do_Fire		endp
 
       v21 = ROR(v6 + v19, 3);
 
-      if ( !(HIBYTE(v21) & 0x60) && (_BYTE)v21 )
-        LOBYTE(v21) = v21 - 1;
-      *v5++ = v21;
+      if ((v21 & 0x6000) == 0 && (v21 & 0xFF))
+      {
+        v21--;
+      }
+      *v5++ = v21 & 0xFF;
       v9 = v20 & 0x1F;
       --v8;
     }
@@ -698,23 +700,28 @@ Do_Fire		endp
     v7 = v29 - 1;
   }
   while ( v29 != 1 );
-  qmemcpy(*(void **)(a1 + 8), (const void *)(*(_DWORD *)(a1 + 12) + 32), 0x440u);
-  v22 = *(unsigned __int8 **)(a1 + 8);
-  v23 = *(_BYTE **)(a1 + 20);
-  v24 = *(_DWORD *)(a1 + 16);
-  v25 = 32;
+
+  // copy scroll results
+  memcpy(ptrwork1, ptrwork2 + 32, 32 * 34);
+
+  // genere texture
+  v22 = ptrwork1;
+  v23 = ptrtex;
+  v24 = colortable;
+  v25 = 32; // Y
   v26 = 0;
   do
   {
     v30 = v25;
-    v27 = 32;
+    v27 = 32; // X
     do
     {
-      LOBYTE(v26) = *v22 >> 1;
-      if ( (unsigned __int8)v26 > 0x1Fu )
-        LOBYTE(v26) = 31;
-      result = *(_BYTE *)(v24 + v26);
-      *v23 = result;
+      v26 = *v22 >> 1;
+      if (v26 > 31)
+      {
+        v26 = 31;
+      }
+      *v23 = *(v24 + v26);
       ++v22;
       ++v23;
       --v27;
@@ -724,7 +731,4 @@ Do_Fire		endp
     v25 = v30 - 1;
   }
   while ( v30 != 1 );
-  return result;
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
