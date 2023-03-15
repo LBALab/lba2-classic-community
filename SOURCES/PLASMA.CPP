@@ -30,20 +30,6 @@ Nb_Pts_Control		dd	0
 
 #include "PLASMA.H"
 
-
-typedef struct {
-  U16 *Plasma_PTR_TabVirgule;
-  U8 *Plasma_PTR_TabSpeed;
-  U8 *Plasma_PTR_TabAcc;
-  U8 *Plasma_PTR_TabCouls;
-  U8 *Plasma_PTR_TexOff;
-
-  U8 Plasma_Interleave;
-  U8 Plasma_Nb_PtsActifs;
-  U8 Plasma_Nb_Couleurs;
-  U8 Plasma_Speed;
-} Struc_Plasma;
-
 // typedef struct {
 //   Struc_Plasma plasma;
 
@@ -53,7 +39,7 @@ typedef struct {
 U32 Nb_Pts_Inter = 0;
 U32 Nb_Pts_Control = 0;
 
-void	Do_Plasma( Struc_Plasma *PtrEffectStruct )
+void	Do_Plasma( T_PLASMA *PtrEffectStruct )
 {
   /*
 Do_Plasma		PROC \
@@ -233,12 +219,12 @@ Do_Plasma		PROC \
 
 Do_Plasma		ENDP
   */
-  Struc_Plasma *v1; // esi@1
+  T_PLASMA *v1; // esi@1
   int v2; // ecx@1
   int v3; // ebp@1
   signed int v4; // edx@1
-  U16 *v5; // esi@1
-  U16 *v6; // edi@2
+  S16 *v5; // esi@1
+  S16 *v6; // edi@2
   char v7; // ch@2
   int v8; // edx@3
   int v9; // ebx@3
@@ -248,12 +234,12 @@ Do_Plasma		ENDP
   int v13; // ebx@6
   int v14; // eax@6
   U8 *v15; // edi@9
-  int v16; // ebx@9
-  U16 *v17; // esi@9
+  U8 *v16; // ebx@9
+  S16 *v17; // esi@9
   int v18; // ebp@9
   bool v19; // zf@10
   char v20; // dl@10
-  int v21; // eax@12
+  U16 v21; // eax@12
   char v22; // dh@12
   int v23; // ebp@12
   int v24; // ecx@12
@@ -272,17 +258,17 @@ Do_Plasma		ENDP
   int v38; // [sp+4h] [bp-4h]@0
 
   v1 = PtrEffectStruct;
-  v36 = PtrEffectStruct->Plasma_PTR_TexOff;
+  v36 = PtrEffectStruct->TexOffset;
 	// *** Calcul des coeff de Gouraud ***
   v34 = *(U8 **)(v1 + 16);
-  v2 = PtrEffectStruct->Plasma_Interleave;
-	int v2_b1 = PtrEffectStruct->Plasma_Nb_PtsActifs;
+  v2 = PtrEffectStruct->Interleave;
+	int v2_b1 = PtrEffectStruct->NbActivePoints;
   v4 = 1 << v2;
-  Nb_Pts_Inter = 1 << v2;
-  v3 = (1 << v2) - 1;
+  Nb_Pts_Inter = v4;
+  v3 = v4 - 1;
   Nb_Pts_Control = v2_b1;
   v4 = v2_b1;
-  v5 = PtrEffectStruct->Plasma_PTR_TabVirgule;
+  v5 = PtrEffectStruct->TabVirgule;
   do
   {
 		// Chaque ligne
@@ -299,10 +285,7 @@ Do_Plasma		ENDP
       v9 = *v5;
       v10 = v5[v3 + 1];
       ++v5;
-      v11 = (((v10 - v9) >> v2
-							+ (v10 - v9) >> v2)
-           		+ 2 * ((v10 - v9) >> v2)
-           		+ 1) >> 1;
+      v11 = (2 * ((v10 - v9) >> v2)+ 1) >> 1;
       do
       {
         v9 += v11;
@@ -314,13 +297,11 @@ Do_Plasma		ENDP
       --v7;
     }
     while ( v7 );
+    // Traite le dernier point
     v12 = v3;
     v13 = *v5;
-    ++v5;
-		// Le premier point existe deja
-    v14 = (((*v6 - v13) >> v2 + (*v6 - v13) >> v2)
-         		+ 2 * ((*v6 - v13) >> v2)
-         		+ 1) >> 1;
+    ++v5; // Le premier point existe deja
+    v14 = (2 * ((*v6 - v13) >> v2) + 1) >> 1;
     do
     {
       v13 += v14;
@@ -331,13 +312,15 @@ Do_Plasma		ENDP
     while ( v12 );
     v2 = v30;
     v4 = v32;
-    LOBYTE(v4) = v32 - 1;
+    v4 = (v4 & 0xFFFFFF00) + (v4 & 0xFF) - 1;
   }
-  while ( (_BYTE)v32 != 1 );
+  while (v4 & 0xFF);
   v15 = v34;
-  v16 = *(_DWORD *)(v36 + 12);
-  v17 = *(_WORD **)v36;
-  LOBYTE(v4) = v2_b1;
+  // *** Copy ***
+  v16 = PtrEffectStruct->TabColors; // *(_DWORD *)(v36 + 12);
+  v17 = PtrEffectStruct->TabVirgule; // *(_WORD **)v36;
+  v4 = (v4 & 0xFFFFFF00) + (v2_b1 & 0xFF);
+  // v18: Offset de la ligne suivante
   v18 = Nb_Pts_Inter * v2_b1;
   do
   {
@@ -345,10 +328,13 @@ Do_Plasma		ENDP
     v35 = v2;
     v33 = v15;
     v31 = v18;
-    v19 = (_BYTE)v4 == 1;
+    v19 = (v4 & 0xFF) == 1;
     v20 = v18;
-    if ( v19 )
+    if (v19)
+    {
       v18 = -(Nb_Pts_Control * v18 - v18);
+    }
+
     do
     {
       v29 = v18;
@@ -358,28 +344,27 @@ Do_Plasma		ENDP
       v22 = Nb_Pts_Inter;
       v23 = (v17[v18] - v21) >> v2;
       v24 = 0;
-      v25 = (__CFADD__(v23, v23) + 2 * v23 + 1) >> 1;
+      v25 = (2 * v23 + 1) >> 1;
       do
       {
-        LOBYTE(v24) = BYTE1(v21);
+        v24 = (v24 & 0xFFFFFF00) + ((v21 & 0xFF00) >> 8);
         v21 += v25;
-        *v15++ = *(U8 *)(v16 + v24);
+        *v15++ = *(v16 + v24);
         --v22;
       }
-      while ( v22 );
+      while (v22);
       v2 = v28;
       v18 = v29;
       v15 = v27 + 256;
       ++v17;
       --v20;
     }
-    while ( v20 );
+    while (v20);
     v18 = v31;
     v2 = v35;
     v4 = v37;
     v15 = &v33[Nb_Pts_Inter];
-    LOBYTE(v4) = v37 - 1;
+    v4 = (v4 & 0xFFFFFF00) + (v4 & 0xFF) - 1;
   }
-  while ( (_BYTE)v37 != 1 );
-  return v38;
+  while ((v4 & 0xFF) != 1);
 }

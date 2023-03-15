@@ -7,7 +7,25 @@ extern "C" {
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
-void Do_Plasma( U8 *PtrEffectStruct );
+typedef struct  {
+
+        S16     *TabVirgule ;
+        S16     *TabSpeed   ;
+        S32     *TabAcc     ;
+        U8      *TabColors  ;
+
+        U8      *TexOffset  ;           // devenu ptr sur effet dans tex
+
+        U8      Interleave ;
+        U8      NbActivePoints ;
+        U8      NbColors ;
+        U8      Speed ;
+
+        U8      data_start ;
+
+        }       T_PLASMA ;
+
+void Do_Plasma( T_PLASMA *PtrEffectStruct );
 
 #endif
 
