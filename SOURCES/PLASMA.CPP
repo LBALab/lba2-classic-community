@@ -260,7 +260,7 @@ Do_Plasma		ENDP
   v1 = PtrEffectStruct;
   v36 = PtrEffectStruct->TexOffset;
 	// *** Calcul des coeff de Gouraud ***
-  v34 = *(U8 **)(v1 + 16);
+  v34 = PtrEffectStruct->TexOffset;
   v2 = PtrEffectStruct->Interleave;
 	int v2_b1 = PtrEffectStruct->NbActivePoints;
   v4 = 1 << v2;
