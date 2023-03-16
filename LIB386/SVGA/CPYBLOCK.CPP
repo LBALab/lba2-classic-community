@@ -7,7 +7,6 @@
 
 void CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd,
                void *dst)
-// int __cdecl __spoils<ecx> CopyBlock(int x0, int y0, int x1, int y1, int src, int xd, int yd, int dst)
 {
 	/*
 ;void	CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd, void *dst)
@@ -219,30 +218,6 @@ noend:
 
 CopyBlock		endp
 	*/
-  int width; // ecx@11
-  int height; // edx@12
-  int v14; // edi@17
-  unsigned __int8 v15; // of@18
-  int v16; // edi@19
-  U8 *v17; // esi@21
-  unsigned int v18; // ebx@21
-  U8 *v19; // edi@21
-  int v20; // edx@21
-  int v21; // eax@21
-  int result; // eax@23
-  unsigned __int8 v23; // bl@24
-  unsigned __int8 v24; // bh@24
-  U8 *v25; // edi@26
-  U8 *v26; // esi@26
-  U8 *v27; // edi@26
-  U8 *v28; // esi@26
-  U8 *v29; // edi@28
-  U8 *v30; // esi@28
-  U8 *v31; // edi@31
-  U8 *v32; // esi@31
-  int v33; // [sp+4h] [bp-4h]@0
-  int savedregs; // [sp+8h] [bp+0h]@26
-
   if (x0 > ClipXMax || y0 > ClipYMax)
 	{
     return;
@@ -270,13 +245,13 @@ CopyBlock		endp
     y1 = ClipYMax;
   }
 
-  width = x1 - x0;
-  if (width < 0)
+  U32 width = x1 - x0;
+  if (x0 > x1)
   {
     return;
   }
-  height = y1 - y0;
-  if (height < 0)
+  U32 height = y1 - y0;
+  if (y0 > y1)
   {
     return;
   }
@@ -296,42 +271,40 @@ CopyBlock		endp
   {
     return;
   }
-  v14 = width + xd - ClipXMax;
+  S32 distanceToXMax = width + xd - ClipXMax;
   if (width + xd > ClipXMax)
   {
-    v15 = width <= v14;
-    width -= v14;
-    if (v15)
+    if (width <= distanceToXMax)
     {
       return;
     }
+    width -= distanceToXMax;
   }
-  v16 = height + yd - ClipYMax;
+  S32 distanceToYMax = height + yd - ClipYMax;
   if (height + yd > ClipYMax)
   {
-    v15 = height <= v16;
-    height -= v16;
-    if (v15)
+    if (height <= distanceToYMax)
     {
       return;
     }
+    height -= distanceToYMax;
   }
   // Offset Src
-  v17 = (U8 *)(TabOffLine[y0] + x0 + (U8 *)src);
+  U8 *srcOffset = (U8 *)(TabOffLine[y0] + x0 + (U8 *)src);
   // Delta X
-  v18 = width + 1;
+  U32 deltaX = width + 1;
   // Offset Dst
-  v19 = (U8 *)(TabOffLine[yd] + xd + (U8 *)dst);
+  U8 *dstOffset = (U8 *)(TabOffLine[yd] + xd + (U8 *)dst);
   // Delta Y
-  v20 = height + 1;
-  v21 = TabOffLine[1] - (width + 1);
+  U32 deltaY = height + 1;
+  U32 screenOffset = TabOffLine[1] - (width + 1);
 
   do
   {
-    memcpy(v19, v17, v18);
-    v17 += v21 + v18;
-    v19 += v21 + v18;
-    --v20;
+    memcpy(dstOffset, srcOffset, deltaX);
+    srcOffset += screenOffset + deltaX;
+    dstOffset += screenOffset + deltaX;
+    --deltaY;
   }
-  while (v20);
+  while (deltaY);
 }
