@@ -219,167 +219,119 @@ noend:
 
 CopyBlock		endp
 	*/
-  int v8; // eax@1
-  int v9; // ebx@1
-  int v10; // ecx@1
-  int v11; // edx@1
-  int v12; // ecx@11
-  int v13; // edx@12
+  int width; // ecx@11
+  int height; // edx@12
   int v14; // edi@17
   unsigned __int8 v15; // of@18
   int v16; // edi@19
-  char *v17; // esi@21
+  U8 *v17; // esi@21
   unsigned int v18; // ebx@21
-  char *v19; // edi@21
+  U8 *v19; // edi@21
   int v20; // edx@21
   int v21; // eax@21
   int result; // eax@23
   unsigned __int8 v23; // bl@24
   unsigned __int8 v24; // bh@24
-  char *v25; // edi@26
-  char *v26; // esi@26
-  char *v27; // edi@26
-  char *v28; // esi@26
-  char *v29; // edi@28
-  char *v30; // esi@28
-  char *v31; // edi@31
-  char *v32; // esi@31
+  U8 *v25; // edi@26
+  U8 *v26; // esi@26
+  U8 *v27; // edi@26
+  U8 *v28; // esi@26
+  U8 *v29; // edi@28
+  U8 *v30; // esi@28
+  U8 *v31; // edi@31
+  U8 *v32; // esi@31
   int v33; // [sp+4h] [bp-4h]@0
   int savedregs; // [sp+8h] [bp+0h]@26
 
-  v8 = x0;
-  v9 = y0;
-  v10 = x1;
-  v11 = y1;
-  if ( x0 > ClipXMax || y0 > ClipYMax )
+  if (x0 > ClipXMax || y0 > ClipYMax)
 	{
     return;
 	}
 
-  if ( ClipXMin > x0 )
+  if (ClipXMin > x0)
   {
-    v8 = ClipXMin;
+    x0 = ClipXMin;
     xd += ClipXMin - x0;
   }
-  if ( ClipYMin > y0 )
+
+  if (ClipYMin > y0)
   {
-    v9 = ClipYMin;
+    y0 = ClipYMin;
     yd += ClipYMin - y0;
   }
-  if ( x1 > ClipXMax )
-    v10 = ClipXMax;
-  if ( y1 > ClipYMax )
-    v11 = ClipYMax;
-  v12 = v10 - v8;
-  if ( v12 < 0 )
-    return;
-  v13 = v11 - v9;
-  if ( v13 < 0 )
-    return;
-  if ( xd < ClipXMin )
-    return;
-  if ( xd > ClipXMax )
-    return;
-  if ( yd < ClipYMin )
-    return;
-  if ( yd > ClipYMax )
-    return;
-  v14 = v12 + xd - ClipXMax;
-  if ( v12 + xd > ClipXMax )
+
+  if (x1 > ClipXMax)
   {
-    v15 = v12 <= v14;
-    v12 -= v14;
+    x1 = ClipXMax;
+  }
+
+  if (y1 > ClipYMax)
+  {
+    y1 = ClipYMax;
+  }
+
+  width = x1 - x0;
+  if (width < 0)
+  {
+    return;
+  }
+  height = y1 - y0;
+  if (height < 0)
+  {
+    return;
+  }
+  if (xd < ClipXMin)
+  {
+    return;
+  }
+  if (xd > ClipXMax)
+  {
+    return;
+  }
+  if (yd < ClipYMin)
+  {
+    return;
+  }
+  if (yd > ClipYMax)
+  {
+    return;
+  }
+  v14 = width + xd - ClipXMax;
+  if (width + xd > ClipXMax)
+  {
+    v15 = width <= v14;
+    width -= v14;
     if (v15)
+    {
       return;
+    }
   }
-  v16 = v13 + yd - ClipYMax;
-  if ( v13 + yd > ClipYMax )
+  v16 = height + yd - ClipYMax;
+  if (height + yd > ClipYMax)
   {
-    v15 = v13 <= v16;
-    v13 -= v16;
+    v15 = height <= v16;
+    height -= v16;
     if (v15)
+    {
       return;
+    }
   }
-  v17 = (char *)(TabOffLine[v9] + v8 + (U8 *)src);
-  v18 = v12 + 1;
-  v19 = (char *)(TabOffLine[yd] + xd + (U8 *)dst);
-  v20 = v13 + 1;
-  v21 = TabOffLine[1] - (v12 + 1);
-  if ( (unsigned int)(v12 + 1) < 0xA )
+  // Offset Src
+  v17 = (U8 *)(TabOffLine[y0] + x0 + (U8 *)src);
+  // Delta X
+  v18 = width + 1;
+  // Offset Dst
+  v19 = (U8 *)(TabOffLine[yd] + xd + (U8 *)dst);
+  // Delta Y
+  v20 = height + 1;
+  v21 = TabOffLine[1] - (width + 1);
+
+  do
   {
-    do
-    {
-      memcpy(v19, v17, v18);
-      v17 += v21 + v18;
-      v19 += v21 + v18;
-      --v20;
-    }
-    while ( v20 );
-    return;
+    memcpy(v19, v17, v18);
+    v17 += v21 + v18;
+    v19 += v21 + v18;
+    --v20;
   }
-  v23 = (4 - v19) & 3;
-  v24 = (v12 + 1 - v23) & 3;
-  if ( v23 )
-  {
-    if ( v24 )
-    {
-      do
-      {
-        memcpy(v19, v17, v23);
-        v26 = &v17[v23];
-        v25 = &v19[v23];
-        memcpy(v25, v26, 4 * (_DWORD)&savedregs);
-        v28 = &v26[4 * (_DWORD)&savedregs];
-        v27 = &v25[4 * (_DWORD)&savedregs];
-        memcpy(v27, v28, v24);
-        v17 = &v28[v24] + v21;
-        v19 = &v27[v24] + v21;
-        --v20;
-      }
-      while ( v20 );
-      result = v33;
-    }
-    else
-    {
-      do
-      {
-        memcpy(v19, v17, v23);
-        v30 = &v17[v23];
-        v29 = &v19[v23];
-        memcpy(v29, v30, 4 * (_DWORD)&savedregs);
-        v17 = &v30[4 * (_DWORD)&savedregs] + v21;
-        v19 = &v29[4 * (_DWORD)&savedregs] + v21;
-        --v20;
-      }
-      while ( v20 );
-      result = v33;
-    }
-  }
-  else if ( v24 )
-  {
-    do
-    {
-      memcpy(v19, v17, 4 * (_DWORD)&savedregs);
-      v32 = &v17[4 * (_DWORD)&savedregs];
-      v31 = &v19[4 * (_DWORD)&savedregs];
-      memcpy(v31, v32, v24);
-      v17 = &v32[v24] + v21;
-      v19 = &v31[v24] + v21;
-      --v20;
-    }
-    while ( v20 );
-    result = v33;
-  }
-  else
-  {
-    do
-    {
-      memcpy(v19, v17, 4 * (_DWORD)&savedregs);
-      v17 += 4 * (_DWORD)&savedregs + v21;
-      v19 += 4 * (_DWORD)&savedregs + v21;
-      --v20;
-    }
-    while ( v20 );
-    result = v33;
-  }
+  while (v20);
 }
