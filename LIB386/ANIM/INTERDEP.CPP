@@ -37,6 +37,16 @@
 		PUBLIC	C	ObjectSetInterDep
 
 ;*══════════════════════════════════════════════════════════════════════════*
+*/
+#include <ANIM/INTERDEP.H>
+
+#include <SYSTEM/TIMER.H>
+#include <ANIM.H>
+
+S32	ObjectSetInterDep(T_OBJ_3D *obj)
+// int __usercall __spoils<ecx> ObjectSetInterDep@<eax>(int a1@<ebp>, int a2@<edi>)
+{
+	/*
 ;void	ObjectSetInterDep(T_OBJ *obj)
 
 ;#pragma aux ObjectSetInterDep			\
@@ -298,18 +308,188 @@ exit0:
 		ret
 
 ObjectSetInterDep endp
+	*/
+  int v2; // ebx@1
+  int v3; // ecx@1
+  unsigned int v4; // eax@1
+  unsigned int v5; // edx@1
+  int v6; // esi@3
+  unsigned int v7; // eax@5
+  int v8; // esi@5
+  unsigned int v9; // ecx@5
+  int v10; // ebp@5
+  unsigned int v11; // ebp@6
+  int v12; // eax@7
+  int v13; // ecx@8
+  signed int v14; // eax@9
+  int v15; // edi@9
+  int v16; // ecx@9
+  int v17; // edx@9
+  int v18; // ecx@9
+  int v19; // edx@9
+  int v20; // ecx@9
+  int result; // eax@9
+  __int16 v22; // dx@12
+  int v23; // edx@12
+  int v24; // edi@12
+  int v25; // ecx@12
+  int v26; // edx@12
+  int v27; // eax@12
+  int v28; // ecx@12
+  int v29; // edx@12
+  int v30; // ecx@12
+  int v31; // edx@13
+  int v32; // esi@13
+  int v33; // edx@13
+  int v34; // eax@13
+  int v35; // ecx@13
+  int v36; // eax@14
+  int v37; // eax@15
+  int v38; // edi@15
+  int v39; // ebp@15
+  int v40; // eax@15
+  int v41; // edx@19
+  int v42; // edx@19
+  int v43; // ecx@19
+  int v44; // [sp-18h] [bp-1Ch]@5
 
-;*══════════════════════════════════════════════════════════════════════════*
-; 		The
-		END
-*/
+  v2 = obj->NextTexture;
+  v3 = obj->NextBody;
 
-#include <ANIM/INTERDEP.H>
-#include <stdio.h>
+	obj->Texture = v2;
+  v4 = TimerRefHR;
+	obj->Body = v3;
+  v5 = obj->Time;
+	// Same time as before?
+  if ( v4 == v5 )
+  {
+    if (obj->Status & FLAG_BODY)
+		{
+      goto LABEL_3;
+		}
+		obj->Status = 0;
+    return obj->Status;
+  }
+  if ( v4 < v5 )
+  {
+    v41 = obj->Time;
+		obj->Time = v4;
+    v42 = v41 - v4;
+    v43 = obj->LastTimer - v42;
+    obj->NextTimer -= v42;
+    obj->LastTimer = v43;
+		obj->Status = 0;
+    return obj->Status;
+  }
+LABEL_3:
+	obj->Time = v4; // Upgrade time
+	T_PTR_NUM anim = obj->Anim;
 
-S32	ObjectSetInterDep(T_OBJ_3D *obj)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+	if (TransFctAnim !== NULL)
+	{
+		anim.Ptr = TransFctAnim(anim.Num);
+	}
+  if ( TransFctAnim )
+    v6 = TransFctAnim(*(_DWORD *)(v2 + 32));
+  v44 = v6;
+  v7 = *(_DWORD *)(v2 + 120);
+  v8 = *(_DWORD *)(v2 + 68) + v6;
+  v9 = *(_DWORD *)(v2 + 72);
+  v10 = *(_DWORD *)(v2 + 56);
+  if ( v7 >= v9 )
+  {
+    v11 = 0x10000;
+    *(_DWORD *)(v2 + 124) = 5;
+  }
+  else
+  {
+    *(_DWORD *)(v2 + 124) = 4;
+    v11 = (((v9 - v10 + 1) >> 1) + ((v7 - v10) << 16)) / (v9 - v10);
+  }
+  v12 = *(_DWORD *)(v2 + 12);
+  if ( *(_DWORD *)(v2 + 128) & 1 )
+  {
+    v22 = *(_WORD *)(v8 + 10);
+    LOWORD(a2) = *(_WORD *)(v8 + 12);
+    LOWORD(v12) = *(_WORD *)(v8 + 14);
+    v23 = (signed int)(v11 * (*(_DWORD *)(v2 + 16) << 20 >> 20)) >> 16;
+    v24 = (signed int)(v11 * (a2 << 20 >> 20)) >> 16;
+    v25 = v23 + *(_DWORD *)(v2 + 12) - *(_DWORD *)(v2 + 104);
+    *(_DWORD *)(v2 + 104) = v23;
+    v26 = *(_DWORD *)(v2 + 16);
+    *(_DWORD *)(v2 + 12) = v25 & 0xFFF;
+    v27 = (signed int)(v11 * (v12 << 20 >> 20)) >> 16;
+    v28 = v27 + *(_DWORD *)(v2 + 20);
+    v29 = (v24 + v26 - *(_DWORD *)(v2 + 108)) & 0xFFF;
+    *(_DWORD *)(v2 + 108) = v24;
+    v30 = v28 - *(_DWORD *)(v2 + 112);
+    *(_DWORD *)(v2 + 112) = v27;
+    v13 = v30 & 0xFFF;
+    *(_DWORD *)(v2 + 16) = v29;
+    *(_DWORD *)(v2 + 20) = v13;
+  }
+  else
+  {
+    v13 = *(_DWORD *)(v2 + 20);
+  }
+  InitMatrixStd(v13);
+  v14 = v11 * *(_WORD *)(v8 + 6);
+  v15 = (signed int)(v11 * *(_WORD *)(v8 + 4)) >> 16;
+  v16 = ((signed int)(v11 * *(_WORD *)(v8 + 2)) >> 16) - *(_DWORD *)(v2 + 92);
+  *(_DWORD *)(v2 + 92) = (signed int)(v11 * *(_WORD *)(v8 + 2)) >> 16;
+  v14 >>= 16;
+  v17 = v15 - *(_DWORD *)(v2 + 96);
+  v18 = v14 - *(_DWORD *)(v2 + 100);
+  *(_DWORD *)(v2 + 96) = v15;
+  *(_DWORD *)(v2 + 100) = v14;
+  *(_DWORD *)(v2 + 116) = v11;
+  RotatePoint(v18);
+  v19 = *(_DWORD *)(v2 + 4) + Y0;
+  v20 = *(_DWORD *)(v2 + 8) + Z0;
+  *(_DWORD *)v2 += X0;
+  result = *(_DWORD *)(v2 + 124);
+  *(_DWORD *)(v2 + 4) = v19;
+  *(_DWORD *)(v2 + 8) = v20;
+  if ( result != 4 )
+  {
+    *(_DWORD *)(v2 + 116) = 0;
+    *(_DWORD *)(v2 + 92) = 0;
+    *(_DWORD *)(v2 + 96) = 0;
+    *(_DWORD *)(v2 + 100) = 0;
+    *(_DWORD *)(v2 + 104) = 0;
+    *(_DWORD *)(v2 + 108) = 0;
+    *(_DWORD *)(v2 + 112) = 0;
+    v31 = *(_DWORD *)(v2 + 64);
+    v32 = *(_DWORD *)(v2 + 68);
+    *(_DWORD *)(v2 + 48) = v31;
+    *(_DWORD *)(v2 + 52) = v32;
+    *(_DWORD *)(v2 + 44) = 0;
+    v33 = v31 + 1;
+    v34 = *(_DWORD *)(v2 + 76);
+    *(_DWORD *)(v2 + 60) = v34;
+    *(_DWORD *)(v2 + 132) = v34;
+    v35 = 2 * v34 - 2;
+    if ( v33 >= *(_DWORD *)(v2 + 88) )
+    {
+      v33 = *(_DWORD *)(v2 + 80);
+      v36 = *(_DWORD *)(v2 + 84);
+      *(_DWORD *)(v2 + 124) = 7;
+    }
+    else
+    {
+      v36 = v32 + 4 * v35 + 16;
+    }
+    *(_DWORD *)(v2 + 68) = v36;
+    v37 = v44 + v36;
+    v38 = *(_DWORD *)(v2 + 120);
+    v39 = *(_WORD *)(v37 + 8);
+    v40 = *(_WORD *)v37;
+    *(_DWORD *)(v2 + 128) = v39;
+    *(_DWORD *)(v2 + 64) = v33;
+    *(_DWORD *)(v2 + 56) = v38;
+    *(_DWORD *)(v2 + 72) = v38 + v40;
+    result = *(_DWORD *)(v2 + 124);
+    qmemcpy((void *)(v2 + 136), (const void *)(v44 + v32 + 16), 4 * v35);
+  }
+  return result;
 }
