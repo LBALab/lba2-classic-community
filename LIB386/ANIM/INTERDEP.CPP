@@ -42,6 +42,9 @@
 
 #include <SYSTEM/TIMER.H>
 #include <ANIM.H>
+#include <3D/IMATSTD.H>
+#include <3D/ROT3D.H>
+#include <3D/CAMERA.H>
 
 S32	ObjectSetInterDep(T_OBJ_3D *obj)
 // int __usercall __spoils<ecx> ObjectSetInterDep@<eax>(int a1@<ebp>, int a2@<edi>)
@@ -309,13 +312,12 @@ exit0:
 
 ObjectSetInterDep endp
 	*/
-  int v2; // ebx@1
-  int v3; // ecx@1
+  void *v2; // ebx@1
+  T_PTR_NUM v3; // ecx@1
   unsigned int v4; // eax@1
   unsigned int v5; // edx@1
-  int v6; // esi@3
   unsigned int v7; // eax@5
-  int v8; // esi@5
+  S16 *v8; // esi@5
   unsigned int v9; // ecx@5
   int v10; // ebp@5
   unsigned int v11; // ebp@6
@@ -339,19 +341,20 @@ ObjectSetInterDep endp
   int v29; // edx@12
   int v30; // ecx@12
   int v31; // edx@13
-  int v32; // esi@13
+  PTR_U32 v32; // esi@13
   int v33; // edx@13
   int v34; // eax@13
   int v35; // ecx@13
-  int v36; // eax@14
-  int v37; // eax@15
+  PTR_U32 v36; // eax@14
+  S16 *v37; // eax@15
   int v38; // edi@15
   int v39; // ebp@15
   int v40; // eax@15
   int v41; // edx@19
   int v42; // edx@19
   int v43; // ecx@19
-  int v44; // [sp-18h] [bp-1Ch]@5
+  void *v44; // [sp-18h] [bp-1Ch]@5
+	int a2; // edi
 
   v2 = obj->NextTexture;
   v3 = obj->NextBody;
@@ -383,113 +386,113 @@ ObjectSetInterDep endp
   }
 LABEL_3:
 	obj->Time = v4; // Upgrade time
-	T_PTR_NUM anim = obj->Anim;
+	T_PTR_NUM v6 = obj->Anim;
 
-	if (TransFctAnim !== NULL)
+	if (TransFctAnim != NULL)
 	{
-		anim.Ptr = TransFctAnim(anim.Num);
+		v6.Ptr = TransFctAnim(v6.Num);
 	}
-  if ( TransFctAnim )
-    v6 = TransFctAnim(*(_DWORD *)(v2 + 32));
-  v44 = v6;
-  v7 = *(_DWORD *)(v2 + 120);
-  v8 = *(_DWORD *)(v2 + 68) + v6;
-  v9 = *(_DWORD *)(v2 + 72);
-  v10 = *(_DWORD *)(v2 + 56);
+
+  v44 = v6.Ptr;
+  v7 = obj->Time;
+  v8 = (S16 *)((U64)obj->NextOfsFrame + (U64)v6.Ptr);
+  v9 = obj->NextTimer;
+  v10 = obj->LastTimer;
   if ( v7 >= v9 )
   {
     v11 = 0x10000;
-    *(_DWORD *)(v2 + 124) = 5;
+		obj->Status = FLAG_FRAME + FLAG_CHANGE;
   }
   else
   {
-    *(_DWORD *)(v2 + 124) = 4;
+		obj->Status = FLAG_CHANGE;
     v11 = (((v9 - v10 + 1) >> 1) + ((v7 - v10) << 16)) / (v9 - v10);
   }
-  v12 = *(_DWORD *)(v2 + 12);
-  if ( *(_DWORD *)(v2 + 128) & 1 )
+  v25 = obj->Alpha;
+	v29 = obj->Beta;
+  if (obj->Master & 1 )
   {
-    v22 = *(_WORD *)(v8 + 10);
-    LOWORD(a2) = *(_WORD *)(v8 + 12);
-    LOWORD(v12) = *(_WORD *)(v8 + 14);
-    v23 = (signed int)(v11 * (*(_DWORD *)(v2 + 16) << 20 >> 20)) >> 16;
+    v22 = v8[5]; // Alpha
+    a2 = v8[6]; // Beta
+    v12 = v8[7]; // Gamma
+    v23 = (signed int)(v11 * (obj->Beta << 20 >> 20)) >> 16;
     v24 = (signed int)(v11 * (a2 << 20 >> 20)) >> 16;
-    v25 = v23 + *(_DWORD *)(v2 + 12) - *(_DWORD *)(v2 + 104);
-    *(_DWORD *)(v2 + 104) = v23;
-    v26 = *(_DWORD *)(v2 + 16);
-    *(_DWORD *)(v2 + 12) = v25 & 0xFFF;
+    v25 = v23 + obj->Alpha - obj->LastAnimStepAlpha;
+    obj->LastAnimStepAlpha = v23;
+    v26 = obj->Beta;
+    obj->Alpha = v25 & 0xFFF;
     v27 = (signed int)(v11 * (v12 << 20 >> 20)) >> 16;
-    v28 = v27 + *(_DWORD *)(v2 + 20);
-    v29 = (v24 + v26 - *(_DWORD *)(v2 + 108)) & 0xFFF;
-    *(_DWORD *)(v2 + 108) = v24;
-    v30 = v28 - *(_DWORD *)(v2 + 112);
-    *(_DWORD *)(v2 + 112) = v27;
+    v28 = v27 + obj->Gamma;
+    v29 = (v24 + v26 - obj->LastAnimStepBeta) & 0xFFF;
+    obj->LastAnimStepBeta = v24;
+    v30 = v28 - obj->LastAnimStepGamma;
+    obj->LastAnimStepGamma = v27;
     v13 = v30 & 0xFFF;
-    *(_DWORD *)(v2 + 16) = v29;
-    *(_DWORD *)(v2 + 20) = v13;
+    obj->Beta = v29;
+    obj->Gamma = v13;
+	}
+	else
+	{
+		v13 = obj->Gamma;
   }
-  else
-  {
-    v13 = *(_DWORD *)(v2 + 20);
-  }
-  InitMatrixStd(v13);
-  v14 = v11 * *(_WORD *)(v8 + 6);
-  v15 = (signed int)(v11 * *(_WORD *)(v8 + 4)) >> 16;
-  v16 = ((signed int)(v11 * *(_WORD *)(v8 + 2)) >> 16) - *(_DWORD *)(v2 + 92);
-  *(_DWORD *)(v2 + 92) = (signed int)(v11 * *(_WORD *)(v8 + 2)) >> 16;
+  InitMatrixStd(&MatrixLib2, v25, v29, v13);
+  v14 = v11 * v8[3];
+  v15 = (signed int)(v11 * v8[2]) >> 16;
+  v16 = ((signed int)(v11 * v8[1]) >> 16) - obj->LastAnimStepX;
+  obj->LastAnimStepX = (signed int)(v11 * v8[1]) >> 16;
   v14 >>= 16;
-  v17 = v15 - *(_DWORD *)(v2 + 96);
-  v18 = v14 - *(_DWORD *)(v2 + 100);
-  *(_DWORD *)(v2 + 96) = v15;
-  *(_DWORD *)(v2 + 100) = v14;
-  *(_DWORD *)(v2 + 116) = v11;
-  RotatePoint(v18);
-  v19 = *(_DWORD *)(v2 + 4) + Y0;
-  v20 = *(_DWORD *)(v2 + 8) + Z0;
-  *(_DWORD *)v2 += X0;
-  result = *(_DWORD *)(v2 + 124);
-  *(_DWORD *)(v2 + 4) = v19;
-  *(_DWORD *)(v2 + 8) = v20;
+  v17 = v15 - obj->LastAnimStepY;
+  v18 = v14 - obj->LastAnimStepZ;
+  obj->LastAnimStepY = v15;
+  obj->LastAnimStepZ = v14;
+  obj->Interpolator = v11;
+  RotatePoint(&MatrixLib2, v16, v17, v18);
+  v19 = obj->Y + Y0;
+  v20 = obj->Z + Z0;
+  obj->X += X0;
+  result = obj->Status;
+  obj->Y = v19;
+  obj->Z = v20;
   if ( result != 4 )
   {
-    *(_DWORD *)(v2 + 116) = 0;
-    *(_DWORD *)(v2 + 92) = 0;
-    *(_DWORD *)(v2 + 96) = 0;
-    *(_DWORD *)(v2 + 100) = 0;
-    *(_DWORD *)(v2 + 104) = 0;
-    *(_DWORD *)(v2 + 108) = 0;
-    *(_DWORD *)(v2 + 112) = 0;
-    v31 = *(_DWORD *)(v2 + 64);
-    v32 = *(_DWORD *)(v2 + 68);
-    *(_DWORD *)(v2 + 48) = v31;
-    *(_DWORD *)(v2 + 52) = v32;
-    *(_DWORD *)(v2 + 44) = 0;
+    obj->Interpolator = 0;
+    obj->LastAnimStepX = 0;
+    obj->LastAnimStepY = 0;
+    obj->LastAnimStepZ = 0;
+    obj->LastAnimStepAlpha = 0;
+    obj->LastAnimStepBeta = 0;
+    obj->LastAnimStepGamma = 0;
+    v31 = obj->NextFrame;
+    v32 = obj->NextOfsFrame;
+    obj->LastFrame = v31;
+    obj->LastOfsFrame = v32;
+    obj->LastOfsIsPtr = 0;
     v33 = v31 + 1;
-    v34 = *(_DWORD *)(v2 + 76);
-    *(_DWORD *)(v2 + 60) = v34;
-    *(_DWORD *)(v2 + 132) = v34;
+    v34 = obj->NextNbGroups;
+    obj->LastNbGroups = v34;
+    obj->NbGroups = v34;
     v35 = 2 * v34 - 2;
-    if ( v33 >= *(_DWORD *)(v2 + 88) )
+    if ( v33 >= obj->NbFrames )
     {
-      v33 = *(_DWORD *)(v2 + 80);
-      v36 = *(_DWORD *)(v2 + 84);
-      *(_DWORD *)(v2 + 124) = 7;
+      v33 = obj->LoopFrame;
+      v36 = (PTR_U32)obj->LoopOfsFrame;
+      obj->Status = FLAG_FRAME + FLAG_LAST_FRAME + FLAG_CHANGE;
     }
     else
     {
       v36 = v32 + 4 * v35 + 16;
     }
-    *(_DWORD *)(v2 + 68) = v36;
-    v37 = v44 + v36;
-    v38 = *(_DWORD *)(v2 + 120);
-    v39 = *(_WORD *)(v37 + 8);
-    v40 = *(_WORD *)v37;
-    *(_DWORD *)(v2 + 128) = v39;
-    *(_DWORD *)(v2 + 64) = v33;
-    *(_DWORD *)(v2 + 56) = v38;
-    *(_DWORD *)(v2 + 72) = v38 + v40;
-    result = *(_DWORD *)(v2 + 124);
-    qmemcpy((void *)(v2 + 136), (const void *)(v44 + v32 + 16), 4 * v35);
+		obj->NextOfsFrame = v36;
+    v37 = (S16 *)((U64)v44 + (U64)v36);
+    v38 = obj->Time;
+    v39 = v37[4];
+    v40 = v37[0];
+    obj->Master = v39;
+    obj->NextFrame = v33;
+    obj->LastTimer = v38;
+    obj->NextTimer = v38 + v40;
+    result = obj->Status;
+    memcpy(obj->CurrentFrame, (const void *)((U64)v44 + (U64)v32 + 16), 4 * v35);
   }
   return result;
 }
