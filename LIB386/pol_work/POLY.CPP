@@ -15,10 +15,11 @@
 extern "C" {
 #endif
 
-typedef S32 (*Jmp_XSlopeFunc)(void);
+typedef S32 (*Jmp_XSlopeFunc)(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
+typedef S32 (*Jmp_LeftSlopeFunc)(void);
 
 extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
-extern Jmp_XSlopeFunc Jmp_LeftSlopeFPU[];
+extern Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[];
 
 U32 Fill_Type = 0; // Polygon type number
 
@@ -39,6 +40,9 @@ U32 Fill_CurY = 0;           ///< Current Y
 U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
+
+U32 Fill_MapU_XSlope = 0;	// X Slope for MapU
+U32 Fill_MapV_XSlope = 0;	// X Slope for MapV
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
@@ -1186,7 +1190,11 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
 		return Fill_LeftSlope;
 	}
 
-	return Jmp_XSlopeFPU[Fill_Type]();
+	// esi = Fill_LeftPoint = PtA
+	// edi = leftPoint = PtB
+	// ebp = rightPoint = PtC
+
+	return Jmp_XSlopeFPU[Fill_Type](Fill_LeftPoint, leftPoint, rightPoint);
 }
 
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
@@ -1495,68 +1503,168 @@ S32 Triangle_ReadNextEdge()
   }
 }
 
-S32 Triangle_ReadNextEdgeFPU()
+S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
   return Triangle_ReadNextEdge();
 }
 
-S32 Calc_GouraudXSlopeFPU()
+S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_DitherXSlopeFPU()
+S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureXSlopeFPU()
+S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+{
+	/*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Calculate the XSlope for Texture Mapping                                 ║
+; ║                                                                          ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+Calc_TextureXSlopeFPU	PROC
+			; (Yb-Ya)(LC-LA)-(Yc-Ya)(LB-LA)
+			; -----------------------------
+			; (Yb-Ya)(Xc-Xa)-(Yc-Ya)(Xb-Xa)
+
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
+
+			and	eax,0FFFFh
+			and	ecx,0FFFFh
+
+			sub	eax,ecx			; EAX = LB-LA
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
+
+			push	eax			; Save (LB-LA)U
+			and	ebx,0FFFFh
+
+			sub	ebx,ecx			; EBX = LC-LA
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
+
+			shr	eax,16
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
+
+			shr	ecx,16
+			push	ebx			; Save (LC-LA)U
+
+			sub	eax,ecx			; EAX = LB-LA
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
+
+			shr	ebx,16
+			push	eax			; Save (LB-LA)V
+
+			sub	ebx,ecx			; EBX = LC-LA
+
+			; Stack FPU		; (Yb-Ya)  (Yc-Ya)  D
+
+			fild	dword ptr [esp+2*4]; (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D
+
+			fild	dword ptr [esp+1*4]; (LC-LA)U  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D
+
+			push	ebx			; Save (LC-LA)V
+
+			; ***
+
+			fmul	st,st(2)	; K1  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D'
+
+			fild	dword ptr [esp+1*4]; (LB-LA)V  K1  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D'
+
+			fild	dword ptr [esp+0*4]; (LC-LA)V  (LB-LA)V  K1  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D'
+
+			fxch	st(3)		; (LB-LA)U  (LB-LA)V  K1  (LC-LA)V  (Yb-Ya)  (Yc-Ya)  D'
+
+			fmul	st,st(5)	; K2  (LB-LA)V  K1  (LC-LA)V  (Yb-Ya)  (Yc-Ya)  D'
+			fxch	st(1)		; (LB-LA)V  K2  K1  (LC-LA)V  (Yb-Ya)  (Yc-Ya)  D'
+
+			add	esp,4*4
+
+			fmulp	st(5),st	; K2  K1  (LC-LA)V  (Yb-Ya)  K3  D'
+
+			fsubp	st(1),st	; M1  (LC-LA)V  (Yb-Ya)  K3  D'
+			fxch	st(1)		; (LC-LA)V  M1  (Yb-Ya)  K3  D'
+
+			fmulp	st(2),st	; M1  K4  K3  D'
+
+			; ***
+
+			fmul	st,st(3)	; SlopeU  K4  K3  D'
+			fxch	st(2)		; K3  K4  SlopeU  D'
+
+			fsubp	st(1),st	; M2  SlopeU  D'
+
+			; ***
+			; ***
+
+			fmulp	st(2),st	; SlopeU  SlopeV
+
+
+;		fadd	[FInv_2]
+			fistp	[Fill_MapU_XSlope]
+;		fadd	[FInv_2]
+			fistp	[Fill_MapV_XSlope]
+
+			jmp	Triangle_ReadNextEdge
+Calc_TextureXSlopeFPU	ENDP
+	*/
+  unsigned int v3; // eax@1
+  unsigned int v4; // eax@1
+
+  v3 = (YB_YA * (S64)((PtA->Pt_MapU - PtC->Pt_MapU) << 8)
+      - YC_YA * (S64)((PtB->Pt_MapU - PtC->Pt_MapU) << 8))
+     / Denom;
+  Fill_MapU_XSlope = v3 + (v3 >> 31);
+  v4 = (YB_YA * (S64)((PtA->Pt_MapV - PtC->Pt_MapV) << 8)
+      - YC_YA * (S64)((PtA->Pt_MapV - PtC->Pt_MapV) << 8))
+     / Denom;
+  Fill_MapV_XSlope = v4 + (v4 >> 31);
+  return Triangle_ReadNextEdge();
+}
+
+S32 Calc_TextureGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureGouraudXSlopeFPU()
+S32 Calc_TextureDitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureDitherXSlopeFPU()
+S32 Calc_TextureZXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZXSlopeFPU()
+S32 Calc_TextureZGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZGouraudXSlopeFPU()
+S32 Calc_TextureZXSlopeZBufFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZXSlopeZBufFPU()
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
-}
-
-S32 Calc_XSlopeZBufferFlagFPU()
+S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
@@ -1655,7 +1763,7 @@ Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
 	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
 };
 
-Jmp_XSlopeFunc Jmp_LeftSlopeFPU[] = {
+Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[] = {
 	Read_Next_RightFPU, // Solid
 	Read_Next_RightFPU, // Flat
 	Read_Next_RightFPU, // Transp.
