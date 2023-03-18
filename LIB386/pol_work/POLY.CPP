@@ -1414,6 +1414,7 @@ Fill_PolyClip		ENDP
 	// *** Should we clip the polygon ? ***
 	points--;
 	Fill_LastPoint = points;
+	points = Ptr_Points; // Restore List pointer
 
 	if (XMin < ClipXMin)
 	{
