@@ -93,9 +93,10 @@ extern S32 Fill_Z_Fog_Far;      ///< Far Fog
 extern U32 Fill_ZBuffer_Factor; ///< ZBuffer factor
 extern U32 IsPolygonHidden;     ///< Flag for Poly type 25
 
+typedef S32 (*Fill_Filler_Func)(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
+
 extern U32 **Fill_Restart;      ///< Return entry point from clipping procedure
-// TODO: it's not U32 **, it s a function. Still have to find the right signature
-extern U32 **Fill_Filler;       ///< Chooser filler
+extern Fill_Filler_Func Fill_Filler;       ///< Chooser filler
 extern U32 Fill_Patch;          ///< Flag 1 means we should patch the filler proc; 0 means nothing to do
 extern U8 Fill_Color;          ///< The polygon color
 
@@ -140,7 +141,7 @@ extern void SetCLUT(U32 defaultline);
 
 extern void SetFog(S32 z_near, S32 z_far);
 
-extern S32 Triangle_ReadNextEdge(void);
+extern S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB);
 extern S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points);
 
 S32 INV64(S32 a);

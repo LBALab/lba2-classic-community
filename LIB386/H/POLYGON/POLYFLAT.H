@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
+S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
 
 // =============================================================================
 #ifdef __cplusplus

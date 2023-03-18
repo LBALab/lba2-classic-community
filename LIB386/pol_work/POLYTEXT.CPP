@@ -196,7 +196,7 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 */
 
 
-S32 Filler_Texture(U32 fillCurXMin, U32 fillCurXMax)
+S32 Filler_Texture(U32 nbPoints, U32 fillCurXMin, U32 fillCurXMax)
 {
 /*
 ; *** CALL: 	ECX = Nb lines to draw
