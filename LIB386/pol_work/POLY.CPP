@@ -1467,6 +1467,7 @@ S32 Triangle_ReadNextEdge()
 {
 	if ((Fill_ReadFlag & READ_NEXT_L) == 0)
 	{
+		printf("ASM FUNCTION %s (%s:%d) (Read_Next_Right)\n", __func__, __FILE__, __LINE__);
 		// TODO: jmp Read_Next_Right
 	}
 
@@ -1503,62 +1504,188 @@ S32 Triangle_ReadNextEdgeFPU()
   return Triangle_ReadNextEdge();
 }
 
+S32 Calc_GouraudXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_DitherXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureGouraudXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureDitherXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureZXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureZGouraudXSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureZXSlopeZBufFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_XSlopeZBufferFlagFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Read_Next_RightFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_GouraudLeftSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_GouraudTableLeftSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureLeftSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureGouraudLeftSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureZLeftSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureZGouraudLeftSlopeFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_TextureZLeftSlopeZBufFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_LeftSlopeZBufferFlagFPU()
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
 Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
 	Triangle_ReadNextEdgeFPU, // Solid
 	Triangle_ReadNextEdgeFPU, // Flat
 	Triangle_ReadNextEdgeFPU, // Transp.
 	Triangle_ReadNextEdgeFPU, // Trame
-	// Calc_GouraudXSlopeFPU, // Gouraud
-	// Calc_DitherXSlopeFPU, // Dither
-	// Calc_GouraudXSlopeFPU, // Gouraud table
-	// Calc_DitherXSlopeFPU, // Dither table
-	// Calc_TextureXSlopeFPU, // Texture Solid
-	// Calc_TextureXSlopeFPU, // Texture Flat
-	// Calc_TextureGouraudXSlopeFPU, // Texture Gouraud
-	// Calc_TextureDitherXSlopeFPU, // Texture Gouraud Dither
-	// Calc_TextureXSlopeFPU, // Texture Solid Chroma Key
-	// Calc_TextureXSlopeFPU, // Texture Flat Chroma Key
-	// Calc_TextureGouraudXSlopeFPU, // Texture Gouraud Chroma Key
-	// Calc_TextureDitherXSlopeFPU, // Texture Gouraud Dither Chroma Key
-	// Calc_TextureZXSlopeFPU, // Texture Z Solid
-	// Calc_TextureZXSlopeFPU, // Texture Z Flat
-	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud
-	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither
-	// Calc_TextureZXSlopeFPU, // Texture Z Solid Chroma Key
-	// Calc_TextureZXSlopeFPU, // Texture Z Flat Chroma Key
-	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud Chroma Key
-	// Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither Chroma Key
-	// Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
-	// Calc_XSlopeZBufferFlagFPU, // ZBuffer only
+	Calc_GouraudXSlopeFPU, // Gouraud
+	Calc_DitherXSlopeFPU, // Dither
+	Calc_GouraudXSlopeFPU, // Gouraud table
+	Calc_DitherXSlopeFPU, // Dither table
+	Calc_TextureXSlopeFPU, // Texture Solid
+	Calc_TextureXSlopeFPU, // Texture Flat
+	Calc_TextureGouraudXSlopeFPU, // Texture Gouraud
+	Calc_TextureDitherXSlopeFPU, // Texture Gouraud Dither
+	Calc_TextureXSlopeFPU, // Texture Solid Chroma Key
+	Calc_TextureXSlopeFPU, // Texture Flat Chroma Key
+	Calc_TextureGouraudXSlopeFPU, // Texture Gouraud Chroma Key
+	Calc_TextureDitherXSlopeFPU, // Texture Gouraud Dither Chroma Key
+	Calc_TextureZXSlopeFPU, // Texture Z Solid
+	Calc_TextureZXSlopeFPU, // Texture Z Flat
+	Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud
+	Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither
+	Calc_TextureZXSlopeFPU, // Texture Z Solid Chroma Key
+	Calc_TextureZXSlopeFPU, // Texture Z Flat Chroma Key
+	Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud Chroma Key
+	Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither Chroma Key
+	Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
+	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
 };
 
 Jmp_XSlopeFunc Jmp_LeftSlopeFPU[] = {
-	// Read_Next_RightFPU, // Solid
-	// Read_Next_RightFPU, // Flat
-	// Read_Next_RightFPU, // Transp.
-	// Read_Next_RightFPU, // Trame
-	// Calc_GouraudLeftSlopeFPU, // Gouraud
-	// Calc_GouraudLeftSlopeFPU, // Dither
-	// Calc_GouraudTableLeftSlopeFPU, // Gouraud table
-	// Calc_GouraudTableLeftSlopeFPU, // Dither table
-	// Calc_TextureLeftSlopeFPU, // Texture Solid
-	// Calc_TextureLeftSlopeFPU, // Texture Flat
-	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud
-	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Dither
-	// Calc_TextureLeftSlopeFPU, // Texture Solid Chroma Key
-	// Calc_TextureLeftSlopeFPU, // Texture Flat Chroma Key
-	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Chroma Key
-	// Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Dither Chroma Key
-	// Calc_TextureZLeftSlopeFPU, // Texture Z Solid
-	// Calc_TextureZLeftSlopeFPU, // Texture Z Flat
-	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud
-	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither
-	// Calc_TextureZLeftSlopeFPU, // Texture Z Solid Chroma Key
-	// Calc_TextureZLeftSlopeFPU, // Texture Z Flat Chroma Key
-	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud Chroma Key
-	// Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither Chroma Key
-	// Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
-	// Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
+	Read_Next_RightFPU, // Solid
+	Read_Next_RightFPU, // Flat
+	Read_Next_RightFPU, // Transp.
+	Read_Next_RightFPU, // Trame
+	Calc_GouraudLeftSlopeFPU, // Gouraud
+	Calc_GouraudLeftSlopeFPU, // Dither
+	Calc_GouraudTableLeftSlopeFPU, // Gouraud table
+	Calc_GouraudTableLeftSlopeFPU, // Dither table
+	Calc_TextureLeftSlopeFPU, // Texture Solid
+	Calc_TextureLeftSlopeFPU, // Texture Flat
+	Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud
+	Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Dither
+	Calc_TextureLeftSlopeFPU, // Texture Solid Chroma Key
+	Calc_TextureLeftSlopeFPU, // Texture Flat Chroma Key
+	Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Chroma Key
+	Calc_TextureGouraudLeftSlopeFPU, // Texture Gouraud Dither Chroma Key
+	Calc_TextureZLeftSlopeFPU, // Texture Z Solid
+	Calc_TextureZLeftSlopeFPU, // Texture Z Flat
+	Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud
+	Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither
+	Calc_TextureZLeftSlopeFPU, // Texture Z Solid Chroma Key
+	Calc_TextureZLeftSlopeFPU, // Texture Z Flat Chroma Key
+	Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud Chroma Key
+	Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither Chroma Key
+	Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
+	Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
 };
 
 // =============================================================================
