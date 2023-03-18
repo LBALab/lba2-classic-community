@@ -155,7 +155,7 @@ void    ScanTextureAnimation( U8 *ptrtex, S32 nbscanlines )
 			        U8      *ptrcol 	;
 
 	                        // init structures
-	                        PtrFire = (U8*)Malloc( + 4     // tex ptr
+	                        PtrFire = (U8*)Malloc( + sizeof(U8 *)     // tex ptr
 	                        		       + 32*36
 	                        		       + 32*36
 	                        		       + 32
@@ -174,11 +174,11 @@ void    ScanTextureAnimation( U8 *ptrtex, S32 nbscanlines )
 	                        // color table
 	                        for(n=0; n<16; n++ )
 	                        {
-	                                PtrFire[4+32*36*2+n] = 0 ;
+	                                PtrFire[sizeof(U8 *)+32*36*2+n] = 0 ;
 	                        }
 	                        for(n=0; n<16; n++ )
 	                        {
-	                                PtrFire[4+32*36*2+n+16] = *ptrcol++ ;
+	                                PtrFire[sizeof(U8 *)+32*36*2+n+16] = *ptrcol++ ;
 	                        }
 			}
                         break ;
@@ -286,7 +286,7 @@ void    DoTextureAnimation()
                 	U8	*ptrb	;
 
                         ptrb = (U8*)TexEffectList[n].PtrStruct ;
-                        Do_Fire( ptrb+4, ptrb+32*36+4, ptrb+32*36*2+4, *(U8**)ptrb ) ;
+                        Do_Fire( ptrb+sizeof(U8*), ptrb+32*36+sizeof(U8*), ptrb+32*36*2+sizeof(U8*), *(U8**)ptrb ) ;
                 }
 		break ;
 //--------------------------------------------------------------------
