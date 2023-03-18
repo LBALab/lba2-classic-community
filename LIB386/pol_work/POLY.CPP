@@ -60,6 +60,8 @@ Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
+S32 Read_Next_Right();
+
 S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 							Struc_Point *Ptr_Points) {
 	/*
@@ -1476,8 +1478,7 @@ S32 Triangle_ReadNextEdge()
 {
 	if ((Fill_ReadFlag & READ_NEXT_L) == 0)
 	{
-		printf("ASM FUNCTION %s (%s:%d) (Read_Next_Right)\n", __func__, __FILE__, __LINE__);
-		// TODO: jmp Read_Next_Right
+		return Read_Next_Right();
 	}
 
   Struc_Point *newPoint = Fill_LeftPoint;
@@ -1680,11 +1681,229 @@ S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 	return 0;
 }
 
-S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Test_Scan()
 {
+	/*
+;			***************
+;			*** DISPLAY ***
+;			***************
+@@Test_Scan:
+			mov	esi,[Fill_LeftPoint]
+			mov	edi,[Fill_RightPoint]
+
+			; AGI
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
+
+			sar	ecx,16
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
+
+			sar	ebx,16
+
+			cmp	ecx,ebx
+			jl	@@Case_Left
+
+			jg	@@Case_Right
+
+;					*** Case 'both' ***
+			mov	eax,READ_NEXT_L + READ_NEXT_R
+			mov	ebx,[Fill_CurY]
+
+			mov	[Fill_ReadFlag],eax
+			sub	ecx,ebx				; DeltaY
+
+			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
+			je	Triangle_ReadNextEdge
+
+			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
+			jmp	[Fill_Filler]
+
+			ALIGN	4
+;					*** Case 'left' ***
+@@Case_Left:
+			mov	eax,READ_NEXT_L
+			mov	ebx,[Fill_CurY]
+
+			sub	ecx,ebx				; DeltaY
+			mov	[Fill_ReadFlag],eax
+
+			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
+			je	Triangle_ReadNextEdge
+
+			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
+			jmp	[Fill_Filler]
+
+
+			ALIGN	4
+;					*** Case 'right' ***
+@@Case_Right:
+			mov	eax,READ_NEXT_R
+			mov	ecx,ebx
+
+			mov	ebx,[Fill_CurY]
+			mov	[Fill_ReadFlag],eax
+
+			sub	ecx,ebx				; DeltaY
+			je	Triangle_ReadNextEdge
+
+			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
+			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
+
+			jmp	[Fill_Filler]
+
+			ALIGN	4
+
+@@EndFPU:
+						; Denom K1  K3  65536
+			faddp	st(0),st	; K1  K3  65536
+			faddp	st(0),st	; K3  65536
+			faddp	st(0),st	; 65536
+			faddp	st(0),st
+@@End:
+			mov	eax,[Fill_LeftSlope]
+			fldcw	[Status_Float]
+@@EndRet:
+			pop	ebp
+			ret
+	*/
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
+}
+
+S32 Read_Next_Right()
+{
+/*
+Read_Next_Right::
+		mov	eax,[Fill_ReadFlag]
+
+		test	eax,READ_NEXT_R
+		je	@@Test_Scan
+
+		mov	esi,[Fill_RightPoint]
+		and	eax,not READ_NEXT_R
+
+		mov	[Fill_ReadFlag],eax
+		mov	eax,[Fill_FirstPoint]
+@@Read_Next_R:
+		mov	edi,esi
+		sub	esi,Size STRUC_POINT
+
+		cmp	esi,eax
+		jae	@@No_LoopRight
+
+		mov	esi,[Fill_LastPoint]
+@@No_LoopRight:
+						; EDI = Old point
+						; ESI = New point
+		mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
+		mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
+
+		mov	edx,ebx
+		and	ecx,0FFFF0000h		; ECX = NewY shl 16
+
+		shl	ebx,16			; EBX = OldXMin
+		and	edx,0FFFF0000h		; EDX = OldY shl 16
+
+		sub	ecx,edx			; If same Y then get next point
+		je	@@Read_Next_R
+
+		lea	ebx,[ebx+8000h]
+		js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
+
+		shr	ecx,16
+
+		push	ecx
+		mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
+
+		fild	dword ptr [esp]	; dY
+
+		shl	eax,16
+		mov	[Fill_CurXMax],ebx
+
+		fdivr	[F_1]		; 1/dY
+
+		sub	ebx,8000h
+
+		sub	eax,ebx
+		mov	[Fill_RightPoint],esi
+
+		mov	[esp],eax
+
+		fild	dword ptr [esp]	; dX  1/dY
+
+		fmulp	st(1),st; dX/dY
+
+		pop	eax
+
+		fadd	[F_1]	; dX/dY+1
+
+		fistp	[Fill_RightSlope]
+
+		jmp	@@Test_Scan
+	*/
+	if ((Fill_ReadFlag & READ_NEXT_R) == 0)
+	{
+		return Test_Scan();
+	}
+
+	Struc_Point *point = Fill_RightPoint;
+	Fill_ReadFlag &= ~READ_NEXT_R;
+	Struc_Point *first = Fill_FirstPoint;
+	S32 oldXMin = 0;
+	S32 diffY = 0;
+
+	do
+	{
+		// @@Read_Next_R:
+		Struc_Point *oldPoint = point;
+		point--;
+
+		if (point < first)
+		{
+			point = Fill_LastPoint;
+		}
+
+		// @@No_LoopRight:
+		S32 oldYMin = oldPoint->Pt_YE;
+		S32 newYMin = point->Pt_YE;
+		oldXMin = oldPoint->Pt_XE;
+		diffY = newYMin - oldYMin;
+	} while (diffY == 0); // If same Y then get next point
+
+	if (oldXMin < 0)
+	{
+		return Fill_LeftSlope;
+	}
+
+	Fill_CurXMax = -oldXMin;
+	Fill_RightPoint = point;
+	S32 diffX = point->Pt_XE - oldXMin;
+	Fill_RightSlope = diffX / diffY + 1;
+
+	return Test_Scan();
+}
+
+S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+{
+/*
+;			******************
+;			*** RIGHT EDGE ***
+;			******************
+
+Read_Next_RightFPU::
+			fild	dword ptr [esp]	; dX  1/dY
+
+			fmulp	st(1),st; dX/dY
+
+			pop	eax
+			pop	ebx
+
+			fadd	[F_1]	; dX/dY+1
+
+			fistp	[Fill_LeftSlope]
+*/
+	Fill_LeftSlope = diffX / diffY + 1;
+	return Read_Next_Right();
 }
 
 S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
