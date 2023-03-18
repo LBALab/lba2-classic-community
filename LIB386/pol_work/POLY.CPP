@@ -1362,20 +1362,15 @@ Fill_PolyClip		ENDP
 	U32 counter = Nb_Points - 1;
 	Struc_Point *points = Ptr_Points;
 
-	S16 XMin = 0;
-	S16 XMax = 0;
-	S16 YMin = 0;
-	S16 YMax = 0;
+	S16 XMin = points[0].Pt_XE;
+	S16 YMin = points[0].Pt_YE;
+	S16 XMax = XMin;
+	S16 YMax = YMin;
+	points++;
 
 	do
 	{
 		// @@Bounding_Box:
-		XMin = points->Pt_XE;
-		XMax = XMin;
-		YMin = points->Pt_YE;
-		YMax = YMin;
-
-		points++;
 
 		// What follows has a bad pairing... How can we pair when we have NOTHING to do ?
 		if (YMin > points->Pt_YE)
