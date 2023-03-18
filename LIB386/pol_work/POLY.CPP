@@ -24,7 +24,7 @@ extern Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[];
 U32 Fill_Type = 0; // Polygon type number
 
 U32 **Fill_Restart = NULL;
-U32 **Fill_Filler = NULL;
+Fill_Filler_Func Fill_Filler = NULL;
 U32 Fill_Patch = 0;
 U8 Fill_Color = 0;
 
@@ -60,7 +60,7 @@ Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
-S32 Read_Next_Right();
+S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB);
 
 S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 							Struc_Point *Ptr_Points) {
@@ -1474,11 +1474,12 @@ Fill_PolyClip		ENDP
 	return Fill_LeftSlope;
 }
 
-S32 Triangle_ReadNextEdge()
+S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
+// edi, esi
 {
 	if ((Fill_ReadFlag & READ_NEXT_L) == 0)
 	{
-		return Read_Next_Right();
+		return Read_Next_Right(PtA, PtB);
 	}
 
   Struc_Point *newPoint = Fill_LeftPoint;
@@ -1515,7 +1516,7 @@ S32 Triangle_ReadNextEdge()
 
 S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-  return Triangle_ReadNextEdge();
+  return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
@@ -1636,7 +1637,7 @@ Calc_TextureXSlopeFPU	ENDP
       - YC_YA * (S64)((PtA->Pt_MapV - PtC->Pt_MapV) << 8))
      / Denom;
   Fill_MapV_XSlope = v4 + (v4 >> 31);
-  return Triangle_ReadNextEdge();
+  return Triangle_ReadNextEdge(PtB, PtC);
 }
 
 S32 Calc_TextureGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
@@ -1681,7 +1682,8 @@ S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 	return 0;
 }
 
-S32 Test_Scan()
+S32 Test_Scan(Struc_Point *PtA, Struc_Point *PtB)
+// edi, esi
 {
 	/*
 ;			***************
@@ -1766,12 +1768,38 @@ S32 Test_Scan()
 			ret
 	*/
 	// TODO: Implement ASM
+
+	// AGI
+	if (PtB->Pt_YE < PtA->Pt_YE)
+	{
+		// Left
+		Fill_ReadFlag = READ_NEXT_L;
+	}
+	else if (PtB->Pt_YE > PtA->Pt_YE)
+	{
+		// Right
+		Fill_ReadFlag = READ_NEXT_R;
+	}
+	else
+	{
+		// Both
+		Fill_ReadFlag = READ_NEXT_L | READ_NEXT_R;
+		S32 diffY = PtB->Pt_YE - PtA->Pt_YE;
+		if (diffY == 0)
+		{
+			return Triangle_ReadNextEdge(PtA, PtB);
+		}
+
+		return Fill_Filler(diffY, Fill_CurXMin, Fill_CurXMax);
+	}
+
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Read_Next_Right()
+S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 {
+	// edi, esi
 /*
 Read_Next_Right::
 		mov	eax,[Fill_ReadFlag]
@@ -1843,7 +1871,7 @@ Read_Next_Right::
 	*/
 	if ((Fill_ReadFlag & READ_NEXT_R) == 0)
 	{
-		return Test_Scan();
+		return Test_Scan(PtA, PtB);
 	}
 
 	Struc_Point *point = Fill_RightPoint;
@@ -1880,7 +1908,7 @@ Read_Next_Right::
 	S32 diffX = point->Pt_XE - oldXMin;
 	Fill_RightSlope = diffX / diffY + 1;
 
-	return Test_Scan();
+	return Test_Scan(PtA, PtB);
 }
 
 S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
@@ -1903,7 +1931,7 @@ Read_Next_RightFPU::
 			fistp	[Fill_LeftSlope]
 */
 	Fill_LeftSlope = diffX / diffY + 1;
-	return Read_Next_Right();
+	return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)

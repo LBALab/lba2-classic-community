@@ -248,7 +248,7 @@ Jmp_Solid		PROC
 			jmp	Fill_PolyClip
 Jmp_Solid		ENDP
 	*/
-	Fill_Filler = (U32 **)Filler_Flat;
+	Fill_Filler = Filler_Flat;
 	return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
@@ -1062,7 +1062,7 @@ Jmp_Texture		PROC
 			jmp	Fill_PolyClip
 Jmp_Texture		ENDP
 	*/
-	Fill_Filler = (U32 **)Filler_Texture;
+	Fill_Filler = Filler_Texture;
 	Fill_ClipFlag = CLIP_FLAT+CLIP_TEXTURE;
 
 	return Fill_PolyClip(Nb_Points, Ptr_Points);

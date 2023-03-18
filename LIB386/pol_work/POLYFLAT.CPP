@@ -201,7 +201,7 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC
 
 */
 
-void Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
 	/*
 ; *** CALL: 	ECX = Nb lines to draw
@@ -373,7 +373,7 @@ Filler_Flat		ENDP
 	Fill_CurXMax = fillCurXMax;
 	Fill_CurOffLine = curOffLine;
 
-	Triangle_ReadNextEdge();
+	return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 

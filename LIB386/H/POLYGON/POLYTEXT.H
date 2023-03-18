@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-S32 Filler_Texture(U32 fillCurXMin, U32 fillCurXMax);
+S32 Filler_Texture(U32 nbPoints, U32 fillCurXMin, U32 fillCurXMax);
 
 // =============================================================================
 #ifdef __cplusplus
