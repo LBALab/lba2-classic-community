@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 typedef S32 (*Jmp_XSlopeFunc)(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
-typedef S32 (*Jmp_LeftSlopeFunc)(void);
+typedef S32 (*Jmp_LeftSlopeFunc)(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 
 extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
 extern Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[];
@@ -41,7 +41,12 @@ U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
+U32 Fill_CurMapUMin; // Left edge: MapU value
+U32 Fill_MapU_LeftSlope; // Left slope for MapU
 U32 Fill_MapU_XSlope = 0;	// X Slope for MapU
+
+U32 Fill_CurMapVMin; // Left edge: MapV value
+U32 Fill_MapV_LeftSlope; // Left slope for MapV
 U32 Fill_MapV_XSlope = 0;	// X Slope for MapV
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
@@ -1498,7 +1503,11 @@ S32 Triangle_ReadNextEdge()
 
       Fill_CurXMin = -oldPoint->Pt_YE;
       Fill_LeftPoint = newPoint;
-      return Jmp_LeftSlopeFPU[Fill_Type]();
+      return Jmp_LeftSlopeFPU[Fill_Type](
+				newPoint->Pt_XE - oldPoint->Pt_XE,
+				newPoint->Pt_YE - oldPoint->Pt_YE,
+				oldPoint,
+				newPoint);
     }
   }
 }
@@ -1671,63 +1680,71 @@ S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 	return 0;
 }
 
-S32 Read_Next_RightFPU()
+S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_GouraudLeftSlopeFPU()
+S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_GouraudTableLeftSlopeFPU()
+S32 Calc_GouraudTableLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureLeftSlopeFPU()
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the LeftSlope for Texture Mapping                              ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+//int __usercall Calc_TextureLeftSlope@<eax>(signed int a1@<ecx>, int a2@<edi>, int a3@<esi>)
+{
+  Fill_CurMapUMin = PtA->Pt_MapU << 8;
+  Fill_MapU_LeftSlope = ((PtB->Pt_MapU - PtA->Pt_MapU) << 8) / diffY;
+  Fill_CurMapVMin = PtA->Pt_MapV << 8;
+  Fill_MapV_LeftSlope = ((PtB->Pt_MapV - PtA->Pt_MapV) << 8) / diffY;
+	Fill_LeftSlope = diffX / diffY + 1;
+  return Read_Next_RightFPU(diffX, diffY, PtA, PtB);
+}
+
+S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureGouraudLeftSlopeFPU()
+S32 Calc_TextureZLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZLeftSlopeFPU()
+S32 Calc_TextureZGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZGouraudLeftSlopeFPU()
+S32 Calc_TextureZLeftSlopeZBufFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZLeftSlopeZBufFPU()
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
-}
-
-S32 Calc_LeftSlopeZBufferFlagFPU()
+S32 Calc_LeftSlopeZBufferFlagFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
