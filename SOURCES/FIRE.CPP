@@ -390,18 +390,18 @@ Do_Fire		endp
   signed int v8; // ecx@4
   int v9; // ebx@4
   int v10; // ebx@5
-  __int16 v11; // ax@5
-  __int16 v12; // ax@5
+  S16 v11; // ax@5
+  S16 v12; // ax@5
   int v13; // ebx@5
-  __int16 v14; // ax@5
-  __int16 v15; // ax@5
-  __int16 v16; // ax@5
+  S16 v14; // ax@5
+  S16 v15; // ax@5
+  S16 v16; // ax@5
   int v17; // ebx@5
-  __int16 v18; // ax@5
+  S16 v18; // ax@5
   U16 v19; // ax@5
   int v20; // ebx@5
-  __int16 v21; // ax@5
-  unsigned __int8 *v22; // esi@10
+  S16 v21; // ax@5
+  U8 *v22; // esi@10
   U8 *v23; // edi@10
   U8 *v24; // ebx@10
   int v25; // ecx@10
