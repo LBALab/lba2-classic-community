@@ -1767,13 +1767,12 @@ S32 Test_Scan(Struc_Point *PtA, Struc_Point *PtB)
 			pop	ebp
 			ret
 	*/
-	// TODO: Implement ASM
-
 	// AGI
 	if (PtB->Pt_YE < PtA->Pt_YE)
 	{
 		// Left
 		Fill_ReadFlag = READ_NEXT_L;
+
 	}
 	else if (PtB->Pt_YE > PtA->Pt_YE)
 	{
@@ -1784,17 +1783,15 @@ S32 Test_Scan(Struc_Point *PtA, Struc_Point *PtB)
 	{
 		// Both
 		Fill_ReadFlag = READ_NEXT_L | READ_NEXT_R;
-		S32 diffY = PtB->Pt_YE - PtA->Pt_YE;
-		if (diffY == 0)
-		{
-			return Triangle_ReadNextEdge(PtA, PtB);
-		}
-
-		return Fill_Filler(diffY, Fill_CurXMin, Fill_CurXMax);
 	}
 
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+	S32 diffY = PtB->Pt_YE - PtA->Pt_YE;
+	if (diffY == 0)
+	{
+		return Triangle_ReadNextEdge(PtA, PtB);
+	}
+
+	return Fill_Filler(diffY, Fill_CurXMin, Fill_CurXMax);
 }
 
 S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
