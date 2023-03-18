@@ -40,6 +40,9 @@
 */
 #include <ANIM/INTERDEP.H>
 
+#include <stdlib.h>
+#include <string.h>
+
 #include <SYSTEM/TIMER.H>
 #include <ANIM.H>
 #include <3D/IMATSTD.H>
@@ -331,7 +334,7 @@ ObjectSetInterDep endp
   int v19; // edx@9
   int v20; // ecx@9
   int result; // eax@9
-  __int16 v22; // dx@12
+  S16 v22; // dx@12
   int v23; // edx@12
   int v24; // edi@12
   int v25; // ecx@12
