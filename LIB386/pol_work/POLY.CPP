@@ -1482,7 +1482,7 @@ S32 Triangle_ReadNextEdge()
   {
 		// @@Read_Next_L:
     Struc_Point *oldPoint = newPoint;
-    newPoint += 4;
+    newPoint++;
     if (newPoint > Fill_LastPoint)
 		{
       newPoint = Fill_FirstPoint;
