@@ -1876,11 +1876,12 @@ Read_Next_Right::
 	Struc_Point *first = Fill_FirstPoint;
 	S32 oldXMin = 0;
 	S32 diffY = 0;
+	Struc_Point *oldPoint = NULL;
 
 	do
 	{
 		// @@Read_Next_R:
-		Struc_Point *oldPoint = point;
+		oldPoint = point;
 		point--;
 
 		if (point < first)
@@ -1905,7 +1906,7 @@ Read_Next_Right::
 	S32 diffX = point->Pt_XE - oldXMin;
 	Fill_RightSlope = diffX / diffY + 1;
 
-	return Test_Scan(PtA, PtB);
+	return Test_Scan(oldPoint, point);
 }
 
 S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
