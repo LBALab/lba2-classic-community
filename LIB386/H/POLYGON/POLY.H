@@ -113,6 +113,14 @@ extern U32 Fill_CurXMin;        ///< Current XMin
 extern U32 Fill_CurXMax;        ///< Current XMax
 extern PTR_U8 Fill_CurOffLine;     ///< Offset of the current video line
 
+extern U32 Fill_CurMapUMin; // Left edge: MapU value
+extern U32 Fill_MapU_LeftSlope; // Left slope for MapU
+extern U32 Fill_MapU_XSlope;	// X Slope for MapU
+
+extern U32 Fill_CurMapVMin; // Left edge: MapV value
+extern U32 Fill_MapV_LeftSlope; // Left slope for MapV
+extern U32 Fill_MapV_XSlope;	// X Slope for MapV
+
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
 extern U8 Fill_Flag_Fog;        ///< True if FOG is active

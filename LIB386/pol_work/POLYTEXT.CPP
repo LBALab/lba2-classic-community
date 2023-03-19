@@ -18,6 +18,7 @@
 #include <POLYGON/POLYTEXT.H>
 
 #include <stdio.h>
+#include <POLYGON/POLY.H>
 
 /*
 			OPTION	PROC:PRIVATE
@@ -52,151 +53,32 @@ PUBLIC	C		Filler_TextureFlatChromaKeyNZW
 PUBLIC	C		Filler_TextureFogNZW
 PUBLIC	C		Filler_TextureChromaKeyFogNZW
 
-;					*****************
-;					*** VARIABLES ***
-;					*****************
-
-;			***************
-;			*** INCLUDE ***
-;			***************
-
-INCLUDE			FILLER.INC
-
-
-;			**************
-;			*** MACROS ***
-;			**************
-
-
-;			***************
-;			*** EQUATES ***
-;			***************
-
-
-
-
-;			**************************
-;			*** SEGMENTATION MODEL ***
-;			**************************
-
-			.386
-;			.MODEL	FLAT, C
-
-
-
-;			************
-;			*** DATA ***
-;			************
-;			.DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
-
-;				******************
-;				*** Extrn data ***
-;				******************
-Extrn	C		Fill_Restart		:	DWORD
-Extrn	C		Fill_Patch		:	DWORD
-Extrn	C		Fill_Color		:	DWORD
-Extrn	C		Fill_Logical_Palette	:	BYTE
-
-Extrn	C		PtrMap			:	DWORD
-Extrn	C		RepMask			:	DWORD
-Extrn	C		PtrCLUTGouraud		:	DWORD
-Extrn	C		PtrZBuffer		:	DWORD
-
-Extrn	C		Fill_LeftSlope		:	DWORD
-Extrn	C		Fill_RightSlope		:	DWORD
-
-Extrn	C		Fill_CurY		:	DWORD
-Extrn	C		Fill_CurXMin		:	DWORD
-Extrn	C		Fill_CurXMax		:	DWORD
-
-Extrn	C		PTR_TabOffLine		:	DWORD
-Extrn	C		Fill_CurOffLine		:	DWORD
-Extrn	C		Log			:	DWORD
-Extrn	C		ScreenPitch		:	DWORD
-
-Extrn	C		Fill_CurMapUMin		:	DWORD
-Extrn	C		Fill_MapU_LeftSlope	:	DWORD
-Extrn	C		Fill_MapU_XSlope	:	DWORD
-
-Extrn	C		Fill_CurMapVMin		:	DWORD
-Extrn	C		Fill_MapV_LeftSlope	:	DWORD
-Extrn	C		Fill_MapV_XSlope	:	DWORD
-
-Extrn	C		Fill_CurZBufMin		:	DWORD
-Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	C		Fill_ZBuf_XSlope	:	DWORD
-
-
-
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-
-
-
-
-
-
 ;				******************
 ;				*** Local data ***
 ;				******************
-			ALIGN	4
-Precalc_Inc		dd	0		; Precalc value
+*/
+U32 Precalc_Inc = 0; // Precalc value
 
-; Runtime code patch refactor, uses memory instead of instruction substitution
-PtrZBuffer1         DWORD 12345678h
-PtrZBufferPatch     DWORD 12345678h
-PtrMapPatch         DWORD 12345678h
-PtrCLUT             DWORD 12345678h
-PtrLog              DWORD 12345678h
-RepMaskPatch        DWORD 12345678h
-DecMapUIntZBuf      DWORD 12345678h
-DecMapV             DWORD 12345678h
-DecMapU             DWORD 12345678h
-DecZBuf             DWORD 12345678h
-IntZBuf             DWORD 12345678h
-IntMapV             BYTE  12h
-IntMapU             BYTE  12h
-
-_DATA			ENDS
-
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
-
-;				******************
-;				*** Extrn proc ***
-;				******************
+// Runtime code patch refactor, uses memory instead of instruction substitution
+U32 PtrZBuffer1 = 0x12345678;
+U32 PtrZBufferPatch = 0x12345678;
+U32 PtrMapPatch = 0x12345678;
+U32 PtrCLUT = 0x12345678;
+//U32 PtrLog = 0x12345678;
+U32 RepMaskPatch = 0x12345678;
+U32 DecMapUIntZBuf = 0x12345678;
+U32 DecMapV = 0x12345678;
+U32 DecMapU = 0x12345678;
+U32 DecZBuf = 0x12345678;
+U32 IntZBuf = 0x12345678;
+U8 IntMapV = 0x12;
+U8 IntMapU = 0x12;
+/*
 Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-
 */
 
 
-S32 Filler_Texture(U32 nbPoints, U32 fillCurXMin, U32 fillCurXMax)
+S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // void __usercall Filler_Texture(unsigned int a1@<edx>, int a2@<ecx>, unsigned int a3@<ebx>)
 {
 /*
@@ -388,73 +270,84 @@ Filler_Texture		PROC
 Filler_Texture		ENDP
 	*/
   int v3; // ecx@1
-  int v4; // edi@1
+  U8 *v4; // edi@1
   int v5; // esi@1
   unsigned int v6; // ebp@1
   unsigned int v7; // ecx@4
-  int v8; // edi@5
-  char v9; // dl@5
+  U8 *v8; // edi@5
+  U8 v9; // dl@5
   int v10; // ebx@5
-  char *v11; // edi@6
+  U8 *v11; // edi@6
   unsigned int v12; // edx@6
   char v13; // al@7
   int v14; // eax@9
   unsigned int v15; // ebp@9
   int v16; // edx@9
   unsigned int v17; // eax@9
-  int v18; // esi@9
+  U8 *v18; // esi@9
   int v19; // edx@9
-  __int16 v20; // bx@9
-  unsigned __int8 v21; // cf@10
-  int v22; // [sp-1Ch] [bp-1Ch]@6
+  S16 v20; // bx@9
+  U8 v21; // cf@10
+  U8 *v22; // [sp-1Ch] [bp-1Ch]@6
   unsigned int v23; // [sp-18h] [bp-18h]@5
   unsigned int v24; // [sp-14h] [bp-14h]@5
   int v25; // [sp-10h] [bp-10h]@5
   unsigned int v26; // [sp-Ch] [bp-Ch]@5
-  int v27; // [sp-8h] [bp-8h]@4
+  U8 *v27; // [sp-8h] [bp-8h]@4
   int v28; // [sp-4h] [bp-4h]@4
 
-  v3 = a2 + 1;
+  v3 = nbLines + 1;
   v4 = Fill_CurOffLine;
   Fill_CurY += v3;
   v5 = Fill_CurMapUMin;
   v6 = Fill_CurMapVMin;
-  if ( Fill_Patch != 1 )
-    goto LABEL_3;
-  --Fill_Patch;
-  DecMapU_0 = Fill_MapU_XSlope << 16;
-  DecMapV = Fill_MapV_XSlope << 16;
-  RepMaskPatch_0 = RepMask;
-  Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000u) >> 8) | ((unsigned int)Fill_MapU_XSlope >> 16) & 0xFF;
-  while ( 1 )
+  if (Fill_Patch != 1)
+	{
+    v4 += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    v5 += Fill_MapU_LeftSlope;
+    v6 += Fill_MapV_LeftSlope;
+	}
+	else
+	{
+		--Fill_Patch;
+		DecMapU = Fill_MapU_XSlope << 16;
+		DecMapV = Fill_MapV_XSlope << 16;
+		RepMaskPatch = RepMask;
+		Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000u) >> 8) | ((U32)Fill_MapU_XSlope >> 16) & 0xFF;
+	}
+
+  while (1)
   {
     v28 = v3;
     v27 = v4;
-    v7 = (a1 >> 16) - (a3 >> 16);
-    if ( (signed int)(a1 >> 16) > (signed int)(a3 >> 16) )
+    v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
     {
-      v8 = (a3 >> 16) + v4;
+      v8 = (fillCurXMin >> 16) + v4;
       v26 = v6;
       v25 = v5;
-      v24 = a3;
-      v23 = a1;
-      v9 = *(_BYTE *)v8;
-      v10 = (unsigned __int16)a3 ^ 0xFFFF;
-      if ( v7 > 0x10 )
+      v24 = fillCurXMin;
+      v23 = fillCurXMax;
+      v9 = *v8; // Load 1st dst cache line
+      v10 = (U16)fillCurXMin ^ 0xFFFF;
+      if (v7 > 16)
       {
-        v5 += v10 * (signed __int64)Fill_MapU_XSlope >> 16;
+        v5 += (v10 * (S64)Fill_MapU_XSlope) >> 16;
         v22 = v8;
-        v11 = (char *)(v8 & 0xFFFFFFE0);
-        v6 += v10 * (signed __int64)Fill_MapV_XSlope >> 16;
-        v12 = (unsigned int)&v11[v7] & 0xFFFFFFE0;
+        v11 = (U8 *)((U64)v8 & 0xFFFFFFE0);
+        v6 += (v10 * (S64)Fill_MapV_XSlope) >> 16;
+        v12 = (U32)&v11[v7] & 0xFFFFFFE0;
         do
         {
           v13 = *v11;
           v11 += 32;
         }
-        while ( (unsigned int)v11 <= v12 );
+        while ((U32)v11 <= v12);
         v8 = v22;
       }
+			// @@FastInit:
       v14 = (v6 >> 8) & 0xFF00;
       v15 = v6 << 16;
       v16 = v5;
@@ -464,40 +357,40 @@ Filler_Texture		ENDP
       v20 = Precalc_Inc;
       do
       {
-        LOBYTE(v19) = *(_BYTE *)(v17 + v18);
-        v21 = __CFADD__(DecMapV, v15);
+				v19 = (v19 & 0xFFFFFF00) | (*(v17 + v18) & 0xFF);
+        v21 = DecMapV + v15;
         v15 += DecMapV;
-        BYTE1(v17) += HIBYTE(v20) + v21;
-        v21 = __CFADD__(DecMapU_0, v19);
-        v19 += DecMapU_0;
-        LOBYTE(v17) = v20 + v21 + v17;
-        *(_BYTE *)v8++ = v19;
-        v17 &= RepMaskPatch_0;
+        v17 += (v17 & 0xFFFF00FF) | (((((v20 >> 8) & 0xFF) + v21) & 0xFF) << 8);
+        v21 = DecMapU + v19;
+        v19 += DecMapU;
+				v17 = (v17 & 0xFFFFFF00) | ((v20 + v21 + v17) & 0xFF);
+        *v8++ = v19;
+        v17 &= RepMaskPatch;
         --v7;
       }
-      while ( v7 );
-      a1 = v23;
-      a3 = v24;
+      while (v7);
+      fillCurXMax = v23;
+      fillCurXMin = v24;
       v5 = v25;
       v6 = v26;
     }
     v4 = v27;
     v3 = v28 - 1;
-    if ( v28 == 1 )
+    if (v3 == 0)
       break;
-LABEL_3:
+
     v4 += ScreenPitch;
-    a3 += Fill_LeftSlope;
-    a1 += Fill_RightSlope;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
     v5 += Fill_MapU_LeftSlope;
     v6 += Fill_MapV_LeftSlope;
   }
-  Fill_CurXMin = a3;
-  Fill_CurXMax = a1;
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
   Fill_CurOffLine = v27;
   Fill_CurMapUMin = v5;
   Fill_CurMapVMin = v6;
-  return Triangle_ReadNextEdge();
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 
