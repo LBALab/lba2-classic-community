@@ -1503,7 +1503,7 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
 				return Fill_LeftSlope;
 			}
 
-      Fill_CurXMin = -oldPoint->Pt_YE;
+      Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
       Fill_LeftPoint = newPoint;
       return Jmp_LeftSlopeFPU[Fill_Type](
 				newPoint->Pt_XE - oldPoint->Pt_XE,
