@@ -1682,7 +1682,7 @@ S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 	return 0;
 }
 
-S32 Test_Scan(Struc_Point *PtA, Struc_Point *PtB)
+S32 Test_Scan()
 // edi, esi
 {
 	/*
@@ -1767,14 +1767,17 @@ S32 Test_Scan(Struc_Point *PtA, Struc_Point *PtB)
 			pop	ebp
 			ret
 	*/
+	Struc_Point *right = Fill_RightPoint;
+	Struc_Point *left = Fill_LeftPoint;
+
 	// AGI
-	if (PtB->Pt_YE < PtA->Pt_YE)
+	if (left->Pt_YE < right->Pt_YE)
 	{
 		// Left
 		Fill_ReadFlag = READ_NEXT_L;
 
 	}
-	else if (PtB->Pt_YE > PtA->Pt_YE)
+	else if (left->Pt_YE > right->Pt_YE)
 	{
 		// Right
 		Fill_ReadFlag = READ_NEXT_R;
@@ -1785,10 +1788,10 @@ S32 Test_Scan(Struc_Point *PtA, Struc_Point *PtB)
 		Fill_ReadFlag = READ_NEXT_L | READ_NEXT_R;
 	}
 
-	S32 diffY = PtB->Pt_YE - PtA->Pt_YE;
+	S32 diffY = left->Pt_YE - right->Pt_YE;
 	if (diffY == 0)
 	{
-		return Triangle_ReadNextEdge(PtA, PtB);
+		return Triangle_ReadNextEdge(right, left);
 	}
 
 	return Fill_Filler(diffY, Fill_CurXMin, Fill_CurXMax);
@@ -1868,7 +1871,7 @@ Read_Next_Right::
 	*/
 	if ((Fill_ReadFlag & READ_NEXT_R) == 0)
 	{
-		return Test_Scan(PtA, PtB);
+		return Test_Scan();
 	}
 
 	Struc_Point *point = Fill_RightPoint;
@@ -1906,7 +1909,7 @@ Read_Next_Right::
 	S32 diffX = point->Pt_XE - oldXMin;
 	Fill_RightSlope = diffX / diffY + 1;
 
-	return Test_Scan(oldPoint, point);
+	return Test_Scan();
 }
 
 S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
