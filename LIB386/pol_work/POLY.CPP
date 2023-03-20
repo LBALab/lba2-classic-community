@@ -1773,7 +1773,6 @@ S32 Test_Scan()
 	{
 		// Left
 		Fill_ReadFlag = READ_NEXT_L;
-
 	}
 	else if (left->Pt_YE > right->Pt_YE)
 	{
@@ -1897,7 +1896,7 @@ Read_Next_Right::
 		diffY = newYMin - oldYMin;
 	} while (diffY == 0); // If same Y then get next point
 
-	if (oldXMin < 0)
+	if (diffY < 0)
 	{
 		return Fill_LeftSlope;
 	}
