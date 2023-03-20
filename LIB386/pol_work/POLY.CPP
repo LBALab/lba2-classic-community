@@ -166,8 +166,6 @@ Struc_Point List_Clip_XMax[NB_MAX_EDGES];
 Struc_Point List_Clip_YMin[NB_MAX_EDGES];
 Struc_Point List_Clip_YMax[NB_MAX_EDGES];
 
-S32 YB_YA = 0;
-S32 YC_YA = 0;
 S32 Denom = 0;
 S32 Clip_Num = 0;
 
@@ -1628,17 +1626,15 @@ Calc_TextureXSlopeFPU	PROC
 			jmp	Triangle_ReadNextEdge
 Calc_TextureXSlopeFPU	ENDP
 	*/
-  unsigned int v3; // eax@1
-  unsigned int v4; // eax@1
+	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
+	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
 
-  v3 = (YB_YA * (S64)((PtA->Pt_MapU - PtC->Pt_MapU) << 8)
-      - YC_YA * (S64)((PtB->Pt_MapU - PtC->Pt_MapU) << 8))
+  Fill_MapU_XSlope = (YB_YA * (PtC->Pt_MapU - PtA->Pt_MapU)
+      - YC_YA * (PtB->Pt_MapU - PtA->Pt_MapU))
      / Denom;
-  Fill_MapU_XSlope = v3 + (v3 >> 31);
-  v4 = (YB_YA * (S64)((PtA->Pt_MapV - PtC->Pt_MapV) << 8)
-      - YC_YA * (S64)((PtA->Pt_MapV - PtC->Pt_MapV) << 8))
+  Fill_MapV_XSlope = (YB_YA * (PtC->Pt_MapV - PtA->Pt_MapV)
+      - YC_YA * (PtB->Pt_MapV - PtA->Pt_MapV))
      / Denom;
-  Fill_MapV_XSlope = v4 + (v4 >> 31);
   return Triangle_ReadNextEdge(PtB, PtC);
 }
 
