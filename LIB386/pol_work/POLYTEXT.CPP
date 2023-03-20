@@ -322,10 +322,13 @@ Filler_Texture		ENDP
   {
     v28 = v3;
     v27 = v4;
-    v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
-    if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
+    // v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    v7 = fillCurXMax - fillCurXMin;
+    // if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
+    if ((S32)fillCurXMax > (S32)fillCurXMin)
     {
-      v8 = (fillCurXMin >> 16) + v4;
+      // v8 = (fillCurXMin >> 16) + v4;
+      v8 = fillCurXMin + v4;
       v26 = v6;
       v25 = v5;
       v24 = fillCurXMin;
