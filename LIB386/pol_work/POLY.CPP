@@ -1681,7 +1681,6 @@ S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 }
 
 S32 Test_Scan()
-// edi, esi
 {
 	/*
 ;			***************
@@ -1767,25 +1766,31 @@ S32 Test_Scan()
 	*/
 	Struc_Point *right = Fill_RightPoint;
 	Struc_Point *left = Fill_LeftPoint;
+	S32 diffY = 0;
 
 	// AGI
 	if (left->Pt_YE < right->Pt_YE)
 	{
 		// Left
 		Fill_ReadFlag = READ_NEXT_L;
+
+		diffY = left->Pt_YE - Fill_CurY;
 	}
 	else if (left->Pt_YE > right->Pt_YE)
 	{
 		// Right
 		Fill_ReadFlag = READ_NEXT_R;
+
+		diffY = right->Pt_YE - Fill_CurY;
 	}
 	else
 	{
 		// Both
 		Fill_ReadFlag = READ_NEXT_L | READ_NEXT_R;
+
+		diffY = left->Pt_YE - Fill_CurY;
 	}
 
-	S32 diffY = left->Pt_YE - right->Pt_YE;
 	if (diffY == 0)
 	{
 		return Triangle_ReadNextEdge(right, left);
