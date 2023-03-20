@@ -1188,20 +1188,22 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
     rightPoint = Fill_FirstPoint;
 	}
 
-  Denom = (rightPoint->Pt_XE - Fill_LeftPoint->Pt_XE)
-        * (leftPoint->Pt_YE - Fill_LeftPoint->Pt_YE)
-        - (leftPoint->Pt_XE - Fill_LeftPoint->Pt_XE)
-        * (rightPoint->Pt_YE - Fill_LeftPoint->Pt_YE);
+	// esi = Fill_LeftPoint = PtA
+	// edi = leftPoint = PtB
+	// ebp = rightPoint = PtC
+	Struc_Point *PtA = Fill_LeftPoint;
+	Struc_Point *PtB = leftPoint;
+	Struc_Point *PtC = rightPoint;
+
+  Denom = (PtB->Pt_YE - PtA->Pt_YE) * (PtC->Pt_XE - PtA->Pt_XE)
+				- (PtC->Pt_YE - PtA->Pt_YE) * (PtB->Pt_XE - PtA->Pt_XE);
+
 	if (Denom == 0)
 	{
 		return Fill_LeftSlope;
 	}
 
-	// esi = Fill_LeftPoint = PtA
-	// edi = leftPoint = PtB
-	// ebp = rightPoint = PtC
-
-	return Jmp_XSlopeFPU[Fill_Type](Fill_LeftPoint, leftPoint, rightPoint);
+	return Jmp_XSlopeFPU[Fill_Type](PtA, PtB, PtC);
 }
 
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
