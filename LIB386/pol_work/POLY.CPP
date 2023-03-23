@@ -166,7 +166,7 @@ Struc_Point List_Clip_XMax[NB_MAX_EDGES];
 Struc_Point List_Clip_YMin[NB_MAX_EDGES];
 Struc_Point List_Clip_YMax[NB_MAX_EDGES];
 
-S32 Denom = 0;
+double Denom = 0;
 S32 Clip_Num = 0;
 
 void SetScreenPitch(U32 *New_TabOffLine)
@@ -1195,6 +1195,10 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
 
   Denom = (PtB->Pt_YE - PtA->Pt_YE) * (PtC->Pt_XE - PtA->Pt_XE)
 				- (PtC->Pt_YE - PtA->Pt_YE) * (PtB->Pt_XE - PtA->Pt_XE);
+
+	// FPU version divides Denom by 256.0, while integer versions
+	// multiply by 256 the rest of values that will be divided by Denom.
+	Denom /= 256.0;
 
 	if (Denom == 0)
 	{
