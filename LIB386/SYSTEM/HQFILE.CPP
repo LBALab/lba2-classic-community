@@ -5,6 +5,8 @@
 #include	<SYSTEM/HQR.H>
 #include	<SYSTEM/HQFILE.H>
 
+#include <stdio.h>
+
 /*──────────────────────────────────────────────────────────────────────────*/
 	S32			HQF_File	;
 static	COMPRESSED_HEADER 	HQF_header	;
@@ -15,7 +17,11 @@ U32	HQF_Init(const char *name, S32 index)
 	S32	nbbloc	;
 
 	HQF_File = OpenRead( name ) 		;
-	if( !HQF_File )	return 0		;
+	if( !HQF_File )
+	{
+		printf("Error loading file %s\n", name);
+		return 0		;
+	}
 
 	index *= 4				;
 	Read(HQF_File, &nbbloc, 4) 		;
