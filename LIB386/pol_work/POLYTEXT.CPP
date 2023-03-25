@@ -286,8 +286,6 @@ Filler_Texture		ENDP
   int v19; // edx@9
   U8 v21; // cf@10
   U8 *v22; // [sp-1Ch] [bp-1Ch]@6
-  unsigned int v23; // [sp-18h] [bp-18h]@5
-  unsigned int v24; // [sp-14h] [bp-14h]@5
   int v25; // [sp-10h] [bp-10h]@5
   unsigned int v26; // [sp-Ch] [bp-Ch]@5
 
@@ -314,25 +312,21 @@ Filler_Texture		ENDP
 
   while (1)
   {
-    // v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
-    v7 = fillCurXMax - fillCurXMin;
-    // if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
-    if ((S32)fillCurXMax > (S32)fillCurXMin)
+    v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
     {
-      // v8 = (fillCurXMin >> 16) + v4;
-      v8 = fillCurXMin + Fill_CurOffLine;
+      v8 = (fillCurXMin >> 16) + Fill_CurOffLine;
       v26 = v6;
       v25 = v5;
-      v24 = fillCurXMin;
-      v23 = fillCurXMax;
-      v9 = *v8; // Load 1st dst cache line
+			// Load 1st dst cache line
+      v9 = (*v8 | (fillCurXMax & 0xFFFFFF00)) << 16;
       v10 = (U16)fillCurXMin ^ 0xFFFF;
       if (v7 > 16)
       {
         v5 += (v10 * (S64)Fill_MapU_XSlope) >> 16;
         v22 = v8;
         v11 = (U8 *)((U64)v8 & 0xFFFFFFE0);
-        v6 += (v10 * (S64)Fill_MapV_XSlope) >> 16;
+        v6 += ((v10 * (S64)Fill_MapV_XSlope) >> 16) | v9;
         v12 = (U32)&v11[v7] & 0xFFFFFFE0;
         do
         {
@@ -363,8 +357,6 @@ Filler_Texture		ENDP
         --v7;
       }
       while (v7);
-      fillCurXMax = v23;
-      fillCurXMin = v24;
       v5 = v25;
       v6 = v26;
     }
