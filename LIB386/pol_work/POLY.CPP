@@ -1510,8 +1510,9 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
       Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
       Fill_LeftPoint = newPoint;
       return Jmp_LeftSlopeFPU[Fill_Type](
-				newPoint->Pt_XE - oldPoint->Pt_XE,
-				newPoint->Pt_YE - oldPoint->Pt_YE,
+				// For some reason diffX is << 16 but diffY is not
+				(newPoint->Pt_XE - oldPoint->Pt_XE) << 16,
+				(newPoint->Pt_YE - oldPoint->Pt_YE),
 				oldPoint,
 				newPoint);
     }
@@ -1912,8 +1913,8 @@ Read_Next_Right::
 
 	Fill_CurXMax = (oldXMin << 16) + 0x8000;
 	Fill_RightPoint = point;
-	S32 diffX = point->Pt_XE - oldXMin;
-	Fill_RightSlope = (diffX / diffY + 1) << 16;
+	S32 diffX = (point->Pt_XE - oldXMin) << 16;
+	Fill_RightSlope = diffX / diffY + 1;
 
 	return Test_Scan();
 }
@@ -1937,7 +1938,7 @@ Read_Next_RightFPU::
 
 			fistp	[Fill_LeftSlope]
 */
-	Fill_LeftSlope = (diffX / diffY + 1) << 16;
+	Fill_LeftSlope = diffX / diffY + 1;
 	return Read_Next_Right(PtA, PtB);
 }
 
@@ -1966,8 +1967,8 @@ S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
   Fill_MapU_LeftSlope = ((PtB->Pt_MapU - PtA->Pt_MapU) << 8) / diffY;
   Fill_CurMapVMin = PtA->Pt_MapV << 8;
   Fill_MapV_LeftSlope = ((PtB->Pt_MapV - PtA->Pt_MapV) << 8) / diffY;
-	Fill_LeftSlope = (diffX / diffY + 1) << 16;
-  return Read_Next_RightFPU(diffX, diffY, PtA, PtB);
+	Fill_LeftSlope = diffX / diffY + 1;
+  return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
