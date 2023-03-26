@@ -273,7 +273,7 @@ Filler_Texture		ENDP
   unsigned int v6; // ebp@1
   unsigned int v7; // ecx@4
   U8 *v8; // edi@5
-  U8 v9; // dl@5
+  U32 v9; // dl@5
   int v10; // ebx@5
   U8 *v11; // edi@6
   unsigned int v12; // edx@6
@@ -284,7 +284,6 @@ Filler_Texture		ENDP
   unsigned int v17; // eax@9
   U8 *v18; // esi@9
   int v19; // edx@9
-  U8 v21; // cf@10
   U8 *v22; // [sp-1Ch] [bp-1Ch]@6
   int v25; // [sp-10h] [bp-10h]@5
   unsigned int v26; // [sp-Ch] [bp-Ch]@5
@@ -319,10 +318,10 @@ Filler_Texture		ENDP
       v26 = v6;
       v25 = v5;
 			// Load 1st dst cache line
-      v9 = (*v8 | (fillCurXMax & 0xFFFFFF00)) << 16;
       v10 = (U16)fillCurXMin ^ 0xFFFF;
       if (v7 > 16)
       {
+      	v9 = (*v8 | (fillCurXMax & 0xFFFFFF00)) << 16;
         v5 += (v10 * (S64)Fill_MapU_XSlope) >> 16;
         v22 = v8;
         v11 = (U8 *)((U64)v8 & 0xFFFFFFE0);
@@ -346,12 +345,12 @@ Filler_Texture		ENDP
       do
       {
 				v19 = (v19 & 0xFFFFFF00) | (*(v17 + v18) & 0xFF);
-        v21 = DecMapV + v15;
+        U8 carryFlag = ((U64)DecMapV + (U64)v15) > 0xFFFFFFFF;
         v15 += DecMapV;
-        v17 += (v17 & 0xFFFF00FF) | (((((Precalc_Inc >> 8) & 0xFF) + v21) & 0xFF) << 8);
-        v21 = DecMapU + v19;
+        v17 = (v17 & 0xFFFF00FF) | ((((Precalc_Inc >> 8) & 0xFF) + ((v17 >> 8) & 0xFF) + carryFlag) << 8);
+        carryFlag = ((U64)DecMapU + (U64)v19) > 0xFFFFFFFF;
         v19 += DecMapU;
-				v17 = (v17 & 0xFFFFFF00) | ((Precalc_Inc + v21 + v17) & 0xFF);
+				v17 = (v17 & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (v17 & 0xFF) + carryFlag) & 0xFF);
         *v8++ = v19;
         v17 &= RepMaskPatch;
         --v7;
