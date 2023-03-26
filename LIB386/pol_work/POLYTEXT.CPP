@@ -279,11 +279,11 @@ Filler_Texture		ENDP
   unsigned int v12; // edx@6
   char v13; // al@7
   int v14; // eax@9
-  unsigned int v15; // ebp@9
+  U32 v15; // ebp@9
   int v16; // edx@9
   unsigned int v17; // eax@9
   U8 *v18; // esi@9
-  int v19; // edx@9
+  U32 v19; // edx@9
   U8 *v22; // [sp-1Ch] [bp-1Ch]@6
   int v25; // [sp-10h] [bp-10h]@5
   unsigned int v26; // [sp-Ch] [bp-Ch]@5
@@ -344,7 +344,7 @@ Filler_Texture		ENDP
       v19 = v16 << 16;
       do
       {
-				v19 = (v19 & 0xFFFFFF00) | (*(v17 + v18) & 0xFF);
+				v19 = (v19 & 0xFFFFFF00) | (v18[v17] & 0xFF);
         U8 carryFlag = ((U64)DecMapV + (U64)v15) > 0xFFFFFFFF;
         v15 += DecMapV;
         v17 = (v17 & 0xFFFF00FF) | ((((Precalc_Inc >> 8) & 0xFF) + ((v17 >> 8) & 0xFF) + carryFlag) << 8);
