@@ -269,11 +269,10 @@ Filler_Texture		PROC
 			jmp	Triangle_ReadNextEdge
 Filler_Texture		ENDP
 	*/
-  int v5; // esi@1
+  U32 v5; // esi@1
   unsigned int v6; // ebp@1
   unsigned int v7; // ecx@4
   U8 *v8; // edi@5
-  U32 v9; // dl@5
   int v10; // ebx@5
   U8 *v11; // edi@6
   unsigned int v12; // edx@6
@@ -318,24 +317,36 @@ Filler_Texture		ENDP
       v26 = v6;
       v25 = v5;
 			// Load 1st dst cache line
-      v10 = (U16)fillCurXMin ^ 0xFFFF;
+      v10 = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (v7 > 16)
       {
-      	v9 = (*v8 | (fillCurXMax & 0xFFFFFF00)) << 16;
-        v5 += (v10 * (S64)Fill_MapU_XSlope) >> 16;
+        U64 product = ((U64)v10 * (U64)Fill_MapU_XSlope);
+        U32 edx = (U32)(product >> 32);
+        U32 eax = (U32)(product & 0xFFFFFFFF);
+        edx = edx << 16;
+        eax = eax >> 16;
+        edx |= eax;
+        v5 += edx;
+
+        product = ((U64)v10 * (U64)Fill_MapV_XSlope);
+        edx = (U32)(product >> 32);
+        eax = (U32)(product & 0xFFFFFFFF);
+        edx = edx << 16;
         v22 = v8;
+        eax = eax >> 16;
         v11 = (U8 *)((U64)v8 & 0xFFFFFFE0);
-        v6 += ((v10 * (S64)Fill_MapV_XSlope) >> 16) | v9;
+        eax |= edx;
         v12 = (U32)&v11[v7] & 0xFFFFFFE0;
+        v6 += eax;
+        // *** Load dst in WB cache ***
         do
         {
           v13 = *v11;
           v11 += 32;
-        }
-        while ((U32)v11 <= v12);
+        } while ((U32)v11 <= v12);
         v8 = v22;
       }
-			// @@FastInit:
+      // @@FastInit:
       v14 = (v6 >> 8) & 0xFF00;
       v15 = v6 << 16;
       v16 = v5;
