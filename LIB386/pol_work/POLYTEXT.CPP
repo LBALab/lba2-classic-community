@@ -351,7 +351,7 @@ Filler_Texture		ENDP
         carryFlag = ((U64)DecMapU + (U64)v19) > 0xFFFFFFFF;
         v19 += DecMapU;
 				v17 = (v17 & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (v17 & 0xFF) + carryFlag) & 0xFF);
-        *v8++ = v19;
+        *v8++ = v19 & 0xFF;
         v17 &= RepMaskPatch;
         --v7;
       }
