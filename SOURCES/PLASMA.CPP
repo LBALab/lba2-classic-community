@@ -222,7 +222,7 @@ Do_Plasma		ENDP
   T_PLASMA *v1; // esi@1
   int v2; // ecx@1
   int v3; // ebp@1
-  signed int v4; // edx@1
+  U32 v4; // edx@1
   S16 *v5; // esi@1
   S16 *v6; // edi@2
   char v7; // ch@2
@@ -253,31 +253,29 @@ Do_Plasma		ENDP
   U8 *v33; // [sp-24h] [bp-2Ch]@10
   U8 *v34; // [sp-20h] [bp-28h]@1
   int v35; // [sp-20h] [bp-28h]@10
-  U8 *v36; // [sp-1Ch] [bp-24h]@1
   signed int v37; // [sp-1Ch] [bp-24h]@10
   int v38; // [sp+4h] [bp-4h]@0
 
   v1 = PtrEffectStruct;
-  v36 = PtrEffectStruct->TexOffset;
 	// *** Calcul des coeff de Gouraud ***
   v34 = PtrEffectStruct->TexOffset;
   v2 = PtrEffectStruct->Interleave;
-	int v2_b1 = PtrEffectStruct->NbActivePoints;
+  U32 v2_b1 = PtrEffectStruct->NbActivePoints;
   v4 = 1 << v2;
   Nb_Pts_Inter = v4;
   v3 = v4 - 1;
   Nb_Pts_Control = v2_b1;
-  v4 = v2_b1;
+  v4 = (v4 & 0xFFFFFF00) | (v2_b1 & 0xFF);
   v5 = PtrEffectStruct->TabVirgule;
   do
   {
-		// Chaque ligne
+    // Each line
     v32 = v4;
     v30 = v2;
-		// Memo le ptr de controle
+    // Memo le ptr de controle
     v6 = v5;
-		// si 4 pts de controle, alors 3 iterations plus le cas particulier
-		// du dernier point, qui doit boucler avec le premier
+    // If 4 control points, then 3 iterations plus the special case of the last
+    // point, which must loop with the first
     v7 = v2_b1 - 1;
     do
     {
@@ -285,7 +283,9 @@ Do_Plasma		ENDP
       v9 = *v5;
       v10 = v5[v3 + 1];
       ++v5;
-      v11 = (2 * ((v10 - v9) >> v2)+ 1) >> 1;
+      U32 diff = ((v10 - v9) >> v2);
+      U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
+      v11 = ((diff << 1) + 1 + carry) >> 1;
       do
       {
         v9 += v11;
@@ -293,15 +293,17 @@ Do_Plasma		ENDP
         *v5 = v9;
         ++v5;
       }
-      while ( v8 );
+      while (v8);
       --v7;
     }
-    while ( v7 );
-    // Traite le dernier point
+    while (v7);
+    // Treat the last point
     v12 = v3;
     v13 = *v5;
-    ++v5; // Le premier point existe deja
-    v14 = (2 * ((*v6 - v13) >> v2) + 1) >> 1;
+    ++v5; // The first point already exists
+    U32 diff = ((*v6 - v13) >> v2);
+    U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
+    v14 = ((diff << 1) + 1 + carry) >> 1;
     do
     {
       v13 += v14;
