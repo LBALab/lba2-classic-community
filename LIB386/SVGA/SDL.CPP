@@ -222,11 +222,11 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
         *dstPixel = *srcPixel;
       }
     }
+  }
 
-    if (dst == Phys) {
-      UnlockVideoSurface();
-      UpdateWindowSurfaceArea(area, 1);
-    }
+  if (dst == Phys) {
+    UnlockVideoSurface();
+    UpdateWindowSurfaceArea(area, 1);
   }
 }
 
