@@ -219,31 +219,18 @@ Do_Plasma		PROC \
 
 Do_Plasma		ENDP
   */
-  int v9; // ebx@3
-  U16 v10; // ax@3
-  int v11; // eax@3
-  int v14; // eax@6
-  U8 *v16; // ebx@9
-  S16 *v17; // esi@9
-  int v18; // ebp@9
-  int v23; // ebp@12
-  int v24; // ecx@12
-  int v25; // ebp@12
-  U8 *v27; // [sp-34h] [bp-3Ch]@12
-  int v31; // [sp-28h] [bp-30h]@10
-  U8 *v33; // [sp-24h] [bp-2Ch]@10
-  int v38; // [sp+4h] [bp-4h]@0
 
 	// *** Calcul des coeff de Gouraud ***
   U8 interleave = PtrEffectStruct->Interleave;
   U32 nbActivePoints = PtrEffectStruct->NbActivePoints;
   Nb_Pts_Inter = 1 << interleave;
-  U32 currentPtInter = Nb_Pts_Inter - 1;
+  U32 lastPtInter = Nb_Pts_Inter - 1;
   Nb_Pts_Control = nbActivePoints;
 
   S16 *tabVirgule = PtrEffectStruct->TabVirgule;
   for (U32 k = 0; k < nbActivePoints; ++k)
   {
+    // @@Lines:
     // Each line
     // Memo le ptr de controle
     S16 *prevTabVirgule = tabVirgule;
@@ -252,16 +239,18 @@ Do_Plasma		ENDP
     // point, which must loop with the first
     for (U32 i = 0; i < nbActivePoints - 1; ++i)
     {
-      v9 = *tabVirgule;
-      v10 = tabVirgule[currentPtInter + 1];
+      // @@Col:
+      U32 current = *tabVirgule;
+      U32 last = tabVirgule[lastPtInter + 1];
       ++tabVirgule;
-      U32 diff = ((v10 - v9) >> interleave);
+      U32 diff = ((last - current) >> interleave);
       U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
-      v11 = ((diff << 1) + 1 + carry) >> 1;
-      for (U32 j = 0; j < currentPtInter; ++j)
+      U32 step = ((diff << 1) + 1 + carry) >> 1;
+      for (U32 j = 0; j < lastPtInter; ++j)
       {
-        v9 += v11;
-        *tabVirgule = v9;
+        // @@Fill:
+        current += step;
+        *tabVirgule = current;
         ++tabVirgule;
       }
     }
@@ -271,11 +260,12 @@ Do_Plasma		ENDP
     ++tabVirgule; // The first point already exists
     U32 diff = ((*prevTabVirgule - lastPoint) >> interleave);
     U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
-    v14 = ((diff << 1) + 1 + carry) >> 1;
+    U32 step = ((diff << 1) + 1 + carry) >> 1;
 
-    for (U32 j = 0; j < currentPtInter; ++j)
+    for (U32 j = 0; j < lastPtInter; ++j)
     {
-      lastPoint += v14;
+      // @@Fill_Last:
+      lastPoint += step;
       *tabVirgule = lastPoint;
       ++tabVirgule;
     }
@@ -283,40 +273,41 @@ Do_Plasma		ENDP
 
   U8 *texture = PtrEffectStruct->TexOffset;
   // *** Copy ***
-  v16 = PtrEffectStruct->TabColors;
-  v17 = PtrEffectStruct->TabVirgule;
+  S16 *tabVirguleCopy = PtrEffectStruct->TabVirgule;
 
-  // v18: Next line offset
-  v18 = Nb_Pts_Inter * nbActivePoints;
+  // Next line offset
+  U32 nextLineOffset = Nb_Pts_Inter * nbActivePoints;
 
   for (U32 k = 0; k < nbActivePoints; ++k)
   {
-    v33 = texture;
-    v31 = v18;
+    // @@Copy_0:
+    U8 *originalTexture = texture;
+    U32 originalNextLineOffset = nextLineOffset;
     if (k == nbActivePoints - 1)
     {
-      v18 = -(Nb_Pts_Control * v18 - v18);
+      nextLineOffset = -(Nb_Pts_Control * nextLineOffset - nextLineOffset);
     }
 
-    for (U32 y = 0; y < v31; y++)
+    for (U32 y = 0; y < originalNextLineOffset; y++)
     {
-      v27 = texture;
-      S16 v21 = *v17;
-      v23 = (v17[v18] - v21) >> interleave;
-      v24 = 0;
-      U8 carry = ((U64)v23 << 1) & 0x100000000 != 0;
-      v25 = ((v23 << 1) + 1 + carry) >> 1;
+      // @@Copy_1:
+      U8 *baseTexture = texture;
+      S16 current = *tabVirguleCopy;
+      S16 next = (tabVirguleCopy[nextLineOffset] - current) >> interleave;
+      U8 carry = ((U64)next << 1) & 0x100000000 != 0;
+      U32 step = ((next << 1) + 1 + carry) >> 1;
       for (U32 x = 0; x < Nb_Pts_Inter; x++)
       {
-        v24 = (v24 & 0xFFFFFF00) + ((v21 & 0xFF00) >> 8);
-        v21 += v25;
-        *texture = v16[v24];
+        // @@Copy_2:
+        U32 color = (current & 0xFF00) >> 8;
+        current += step;
+        *texture = PtrEffectStruct->TabColors[color];
         texture++;
       }
-      texture = v27 + 256;
-      ++v17;
+      texture = baseTexture + 256;
+      ++tabVirguleCopy;
     }
-    v18 = v31;
-    texture = &v33[Nb_Pts_Inter];
+    nextLineOffset = originalNextLineOffset;
+    texture = &originalTexture[Nb_Pts_Inter];
   }
 }
