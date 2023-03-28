@@ -247,11 +247,9 @@ Do_Plasma		ENDP
   int v29; // [sp-2Ch] [bp-34h]@12
   int v30; // [sp-28h] [bp-30h]@2
   int v31; // [sp-28h] [bp-30h]@10
-  signed int v32; // [sp-24h] [bp-2Ch]@2
   U8 *v33; // [sp-24h] [bp-2Ch]@10
   U8 *v34; // [sp-20h] [bp-28h]@1
   int v35; // [sp-20h] [bp-28h]@10
-  signed int v37; // [sp-1Ch] [bp-24h]@10
   int v38; // [sp+4h] [bp-4h]@0
 
   v1 = PtrEffectStruct;
@@ -263,12 +261,11 @@ Do_Plasma		ENDP
   Nb_Pts_Inter = v4;
   v3 = v4 - 1;
   Nb_Pts_Control = v2_b1;
-  v4 = (v4 & 0xFFFFFF00) | (v2_b1 & 0xFF);
+  v4 = v2_b1;
   v5 = PtrEffectStruct->TabVirgule;
   do
   {
     // Each line
-    v32 = v4;
     v30 = v2;
     // Memo le ptr de controle
     v6 = v5;
@@ -311,24 +308,22 @@ Do_Plasma		ENDP
     }
     while ( v12 );
     v2 = v30;
-    v4 = v32;
-    v4 = (v4 & 0xFFFFFF00) + (v4 & 0xFF) - 1;
+    v4--;
   }
-  while (v4 & 0xFF);
+  while (v4);
   v15 = v34;
   // *** Copy ***
   v16 = PtrEffectStruct->TabColors; // *(_DWORD *)(v36 + 12);
   v17 = PtrEffectStruct->TabVirgule; // *(_WORD **)v36;
-  v4 = (v4 & 0xFFFFFF00) + (v2_b1 & 0xFF);
+  v4 = v2_b1;
   // v18: Next line offset
   v18 = Nb_Pts_Inter * v2_b1;
   do
   {
-    v37 = v4;
     v35 = v2;
     v33 = v15;
     v31 = v18;
-    v19 = (v4 & 0xFF) == 1;
+    v19 = (v4 == 1);
     if (v19)
     {
       v18 = -(Nb_Pts_Control * v18 - v18);
@@ -358,9 +353,8 @@ Do_Plasma		ENDP
     }
     v18 = v31;
     v2 = v35;
-    v4 = v37;
     v15 = &v33[Nb_Pts_Inter];
-    v4 = (v4 & 0xFFFFFF00) + (v4 & 0xFF) - 1;
+    v4--;
   }
-  while ((v4 & 0xFF) != 0);
+  while (v4);
 }
