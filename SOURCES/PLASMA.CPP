@@ -220,8 +220,6 @@ Do_Plasma		PROC \
 Do_Plasma		ENDP
   */
   S16 *v6; // edi@2
-  char v7; // ch@2
-  int v8; // edx@3
   int v9; // ebx@3
   U16 v10; // ax@3
   int v11; // eax@3
@@ -232,13 +230,10 @@ Do_Plasma		ENDP
   U8 *v16; // ebx@9
   S16 *v17; // esi@9
   int v18; // ebp@9
-  bool v19; // zf@10
-  U32 v21; // eax@12
   int v23; // ebp@12
   int v24; // ecx@12
   int v25; // ebp@12
   U8 *v27; // [sp-34h] [bp-3Ch]@12
-  int v29; // [sp-2Ch] [bp-34h]@12
   int v31; // [sp-28h] [bp-30h]@10
   U8 *v33; // [sp-24h] [bp-2Ch]@10
   int v38; // [sp+4h] [bp-4h]@0
@@ -247,9 +242,8 @@ Do_Plasma		ENDP
   U8 *texture = PtrEffectStruct->TexOffset;
   U8 interleave = PtrEffectStruct->Interleave;
   U32 nbActivePoints = PtrEffectStruct->NbActivePoints;
-  U32 nbPtsInter = 1 << interleave;
-  Nb_Pts_Inter = nbPtsInter;
-  U32 currentPtInter = nbPtsInter - 1;
+  Nb_Pts_Inter = 1 << interleave;
+  U32 currentPtInter = Nb_Pts_Inter - 1;
   Nb_Pts_Control = nbActivePoints;
 
   U32 segments = nbActivePoints;
@@ -261,27 +255,21 @@ Do_Plasma		ENDP
     v6 = tabVirgule;
     // If 4 control points, then 3 iterations plus the special case of the last
     // point, which must loop with the first
-    v7 = nbActivePoints - 1;
-    do
+    for (U32 i = 0; i < nbActivePoints - 1; ++i)
     {
-      v8 = currentPtInter;
       v9 = *tabVirgule;
       v10 = tabVirgule[currentPtInter + 1];
       ++tabVirgule;
       U32 diff = ((v10 - v9) >> interleave);
       U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
       v11 = ((diff << 1) + 1 + carry) >> 1;
-      do
+      for (U32 j = 0; j < currentPtInter; ++j)
       {
         v9 += v11;
-        --v8;
         *tabVirgule = v9;
         ++tabVirgule;
       }
-      while (v8);
-      --v7;
     }
-    while (v7);
     // Treat the last point
     v12 = currentPtInter;
     v13 = *tabVirgule;
@@ -311,17 +299,15 @@ Do_Plasma		ENDP
   {
     v33 = v15;
     v31 = v18;
-    v19 = (segments == 1);
-    if (v19)
+    if (segments == 1)
     {
       v18 = -(Nb_Pts_Control * v18 - v18);
     }
 
     for (U32 y = 0; y < v31; y++)
     {
-      v29 = v18;
       v27 = v15;
-      v21 = *v17;
+      S16 v21 = *v17;
       v23 = (v17[v18] - v21) >> interleave;
       v24 = 0;
       U8 carry = ((U64)v23 << 1) & 0x100000000 != 0;
@@ -333,7 +319,6 @@ Do_Plasma		ENDP
         *v15 = v16[v24];
         v15++;
       }
-      v18 = v29;
       v15 = v27 + 256;
       ++v17;
     }
