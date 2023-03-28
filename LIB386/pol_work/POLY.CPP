@@ -1471,6 +1471,7 @@ Fill_PolyClip		ENDP
 		// Copy the first point in the new location (the following one)
 		Struc_Point *next = points + 1;
 		memcpy(next, points, sizeof(Struc_Point));
+		points = next;
 
 		Nb_Points--;
 	}
