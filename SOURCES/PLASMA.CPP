@@ -219,11 +219,6 @@ Do_Plasma		PROC \
 
 Do_Plasma		ENDP
   */
-  T_PLASMA *v1; // esi@1
-  int v2; // ecx@1
-  int v3; // ebp@1
-  U32 v4; // edx@1
-  S16 *v5; // esi@1
   S16 *v6; // edi@2
   char v7; // ch@2
   int v8; // edx@3
@@ -243,87 +238,80 @@ Do_Plasma		ENDP
   int v24; // ecx@12
   int v25; // ebp@12
   U8 *v27; // [sp-34h] [bp-3Ch]@12
-  int v28; // [sp-30h] [bp-38h]@12
   int v29; // [sp-2Ch] [bp-34h]@12
-  int v30; // [sp-28h] [bp-30h]@2
   int v31; // [sp-28h] [bp-30h]@10
   U8 *v33; // [sp-24h] [bp-2Ch]@10
-  U8 *v34; // [sp-20h] [bp-28h]@1
-  int v35; // [sp-20h] [bp-28h]@10
   int v38; // [sp+4h] [bp-4h]@0
 
-  v1 = PtrEffectStruct;
 	// *** Calcul des coeff de Gouraud ***
-  v34 = PtrEffectStruct->TexOffset;
-  v2 = PtrEffectStruct->Interleave;
-  U32 v2_b1 = PtrEffectStruct->NbActivePoints;
-  v4 = 1 << v2;
-  Nb_Pts_Inter = v4;
-  v3 = v4 - 1;
-  Nb_Pts_Control = v2_b1;
-  v4 = v2_b1;
-  v5 = PtrEffectStruct->TabVirgule;
+  U8 *texture = PtrEffectStruct->TexOffset;
+  U8 interleave = PtrEffectStruct->Interleave;
+  U32 nbActivePoints = PtrEffectStruct->NbActivePoints;
+  U32 nbPtsInter = 1 << interleave;
+  Nb_Pts_Inter = nbPtsInter;
+  U32 currentPtInter = nbPtsInter - 1;
+  Nb_Pts_Control = nbActivePoints;
+
+  U32 segments = nbActivePoints;
+  S16 *tabVirgule = PtrEffectStruct->TabVirgule;
   do
   {
     // Each line
-    v30 = v2;
     // Memo le ptr de controle
-    v6 = v5;
+    v6 = tabVirgule;
     // If 4 control points, then 3 iterations plus the special case of the last
     // point, which must loop with the first
-    v7 = v2_b1 - 1;
+    v7 = nbActivePoints - 1;
     do
     {
-      v8 = v3;
-      v9 = *v5;
-      v10 = v5[v3 + 1];
-      ++v5;
-      U32 diff = ((v10 - v9) >> v2);
+      v8 = currentPtInter;
+      v9 = *tabVirgule;
+      v10 = tabVirgule[currentPtInter + 1];
+      ++tabVirgule;
+      U32 diff = ((v10 - v9) >> interleave);
       U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
       v11 = ((diff << 1) + 1 + carry) >> 1;
       do
       {
         v9 += v11;
         --v8;
-        *v5 = v9;
-        ++v5;
+        *tabVirgule = v9;
+        ++tabVirgule;
       }
       while (v8);
       --v7;
     }
     while (v7);
     // Treat the last point
-    v12 = v3;
-    v13 = *v5;
-    ++v5; // The first point already exists
-    U32 diff = ((*v6 - v13) >> v2);
+    v12 = currentPtInter;
+    v13 = *tabVirgule;
+    ++tabVirgule; // The first point already exists
+    U32 diff = ((*v6 - v13) >> interleave);
     U8 carry = ((U64)diff << 1) & 0x100000000 != 0;
     v14 = ((diff << 1) + 1 + carry) >> 1;
     do
     {
       v13 += v14;
       --v12;
-      *v5 = v13;
-      ++v5;
+      *tabVirgule = v13;
+      ++tabVirgule;
     }
     while ( v12 );
-    v2 = v30;
-    v4--;
+    segments--;
   }
-  while (v4);
-  v15 = v34;
+  while (segments);
+  v15 = texture;
   // *** Copy ***
   v16 = PtrEffectStruct->TabColors; // *(_DWORD *)(v36 + 12);
   v17 = PtrEffectStruct->TabVirgule; // *(_WORD **)v36;
-  v4 = v2_b1;
+  segments = nbActivePoints;
   // v18: Next line offset
-  v18 = Nb_Pts_Inter * v2_b1;
+  v18 = Nb_Pts_Inter * nbActivePoints;
   do
   {
-    v35 = v2;
     v33 = v15;
     v31 = v18;
-    v19 = (v4 == 1);
+    v19 = (segments == 1);
     if (v19)
     {
       v18 = -(Nb_Pts_Control * v18 - v18);
@@ -332,10 +320,9 @@ Do_Plasma		ENDP
     for (U32 y = 0; y < v31; y++)
     {
       v29 = v18;
-      v28 = v2;
       v27 = v15;
       v21 = *v17;
-      v23 = (v17[v18] - v21) >> v2;
+      v23 = (v17[v18] - v21) >> interleave;
       v24 = 0;
       U8 carry = ((U64)v23 << 1) & 0x100000000 != 0;
       v25 = ((v23 << 1) + 1 + carry) >> 1;
@@ -346,15 +333,13 @@ Do_Plasma		ENDP
         *v15 = v16[v24];
         v15++;
       }
-      v2 = v28;
       v18 = v29;
       v15 = v27 + 256;
       ++v17;
     }
     v18 = v31;
-    v2 = v35;
     v15 = &v33[Nb_Pts_Inter];
-    v4--;
+    segments--;
   }
-  while (v4);
+  while (segments);
 }
