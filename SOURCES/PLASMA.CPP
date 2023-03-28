@@ -238,9 +238,7 @@ Do_Plasma		ENDP
   S16 *v17; // esi@9
   int v18; // ebp@9
   bool v19; // zf@10
-  char v20; // dl@10
-  U16 v21; // eax@12
-  char v22; // dh@12
+  U32 v21; // eax@12
   int v23; // ebp@12
   int v24; // ecx@12
   int v25; // ebp@12
@@ -322,7 +320,7 @@ Do_Plasma		ENDP
   v16 = PtrEffectStruct->TabColors; // *(_DWORD *)(v36 + 12);
   v17 = PtrEffectStruct->TabVirgule; // *(_WORD **)v36;
   v4 = (v4 & 0xFFFFFF00) + (v2_b1 & 0xFF);
-  // v18: Offset de la ligne suivante
+  // v18: Next line offset
   v18 = Nb_Pts_Inter * v2_b1;
   do
   {
@@ -331,42 +329,38 @@ Do_Plasma		ENDP
     v33 = v15;
     v31 = v18;
     v19 = (v4 & 0xFF) == 1;
-    v20 = v18;
     if (v19)
     {
       v18 = -(Nb_Pts_Control * v18 - v18);
     }
 
-    do
+    for (U32 y = 0; y < v31; y++)
     {
       v29 = v18;
       v28 = v2;
       v27 = v15;
       v21 = *v17;
-      v22 = Nb_Pts_Inter;
       v23 = (v17[v18] - v21) >> v2;
       v24 = 0;
-      v25 = (2 * v23 + 1) >> 1;
-      do
+      U8 carry = ((U64)v23 << 1) & 0x100000000 != 0;
+      v25 = ((v23 << 1) + 1 + carry) >> 1;
+      for (U32 x = 0; x < Nb_Pts_Inter; x++)
       {
         v24 = (v24 & 0xFFFFFF00) + ((v21 & 0xFF00) >> 8);
         v21 += v25;
-        *v15++ = *(v16 + v24);
-        --v22;
+        *v15 = v16[v24];
+        v15++;
       }
-      while (v22);
       v2 = v28;
       v18 = v29;
       v15 = v27 + 256;
       ++v17;
-      --v20;
     }
-    while (v20);
     v18 = v31;
     v2 = v35;
     v4 = v37;
     v15 = &v33[Nb_Pts_Inter];
     v4 = (v4 & 0xFFFFFF00) + (v4 & 0xFF) - 1;
   }
-  while ((v4 & 0xFF) != 1);
+  while ((v4 & 0xFF) != 0);
 }
