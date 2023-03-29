@@ -18,13 +18,13 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-#define DIR_NAME_SAVE "save"
-#define DIR_NAME_SHOOT "shoot"
-#define DIR_NAME_JINGLE "music"
-#define DIR_NAME_MOVIE "video"
-#define DIR_NAME_VOICE_HD "vox"
-#define DIR_NAME_VOICE_CD "LBA2/VOX"
-#define DIR_NAME_VOICE_CD_US "TWINSEN/VOX"
+#define DIR_NAME_SAVE "save"ADELINE_PATH_SEP
+#define DIR_NAME_SHOOT "shoot"ADELINE_PATH_SEP
+#define DIR_NAME_JINGLE "music"ADELINE_PATH_SEP
+#define DIR_NAME_MOVIE "video"ADELINE_PATH_SEP
+#define DIR_NAME_VOICE_HD "vox"ADELINE_PATH_SEP
+#define DIR_NAME_VOICE_CD "lba2"ADELINE_PATH_SEP"vox"ADELINE_PATH_SEP
+#define DIR_NAME_VOICE_CD_US "twinsen"ADELINE_PATH_SEP"vox"ADELINE_PATH_SEP
 #define FILE_VALID_RES_DIR "lba2.hqr"
 
 // --- Private state -----------------------------------------------------------
@@ -44,7 +44,7 @@ S32 directoriesDistVersion;
  * @param foundMaxSize Max size of \p outFound string, including null
  *        terminator.
  * @param baseDir Part of path that don't change, wont be tested for
- * variations.
+ * variations. Must include ending '\'.
  * @param checkPath Ending part of path that will be tested for multiple
  *        case variations.
  * @return TRUE if discovered. When FALSE \p outFound is unchanged.
@@ -64,20 +64,20 @@ bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
   variation[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
   // Try as is
-  snprintf(fullPath, ADELINE_MAX_PATH, "%s/%s", baseDir, variation);
-  found = ExistsFileOrDir(checkPath);
+  snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+  found = ExistsFileOrDir(fullPath);
 
   if (!found) {
     // Try uppercase
     SDL_strupr(variation);
-    snprintf(fullPath, ADELINE_MAX_PATH, "%s/%s", baseDir, variation);
-    found = ExistsFileOrDir(checkPath);
+    snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+    found = ExistsFileOrDir(fullPath);
 
     if (!found) {
       // Try lowercase
       SDL_strlwr(variation);
-      snprintf(fullPath, ADELINE_MAX_PATH, "%s/%s", baseDir, variation);
-      found = ExistsFileOrDir(checkPath);
+      snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+      found = ExistsFileOrDir(fullPath);
     }
 
     // TODO: Implement try with first letter uppercase (eg: "Music")
@@ -99,7 +99,7 @@ bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
  * @param pathMaxSize Max size of \p outPath string, including null
  *        terminator.
  * @param baseDir Directory path that contains file to be discovered and
- *        composes \p outPath.
+ *        composes \p outPath.  Must include ending '\'.
  * @param endingPath Name of directory of file contained in \p baseDir to be
  *        discovered. If no case variation is found, \p outPath will be
  *        composed using unmodified \p baseDir + \p endingPath.
@@ -116,7 +116,7 @@ void DiscoverEndingAndAppend(char *outPath, U16 pathMaxSize,
     char discFile[ADELINE_MAX_PATH];
     bool found = Discover(discFile, ADELINE_MAX_PATH, baseDir, endingPath);
 
-    snprintf(outPath, pathMaxSize, "%s/%s", baseDir,
+    snprintf(outPath, pathMaxSize, "%s%s", baseDir,
              (found ? discFile : endingPath));
   } else {
     snprintf(outPath, pathMaxSize, "%s", baseDir);
@@ -146,21 +146,21 @@ void InitDirectories(const char *userDir, const char *resDir,
   strncpy(directoriesUserDir, userDir, ADELINE_MAX_PATH);
   directoriesUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
   if (!ExistsFileOrDir(directoriesUserDir)) {
-    LogPrintf("Error: Invalid user directory \"%s\"\n", directoriesUserDir);
+    LogPrintf("Error: Invalid user directory '%s'\n", directoriesUserDir);
     exit(EXIT_FAILURE);
   }
 
   strncpy(directoriesResDir, resDir, ADELINE_MAX_PATH);
   directoriesResDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
   if (!IsValidResourceDir(directoriesResDir)) {
-    LogPrintf("Error: Invalid resource directory \"%s\"\n", directoriesResDir);
+    LogPrintf("Error: Invalid resource directory '%s'\n", directoriesResDir);
     exit(EXIT_FAILURE);
   }
 
   strncpy(directoriesCfgDir, cfgDir, ADELINE_MAX_PATH);
   directoriesCfgDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
   if (!ExistsFileOrDir(directoriesCfgDir)) {
-    LogPrintf("Error: Invalid config directory \"%s\"\n", directoriesCfgDir);
+    LogPrintf("Error: Invalid config directory '%s'\n", directoriesCfgDir);
     exit(EXIT_FAILURE);
   }
 
@@ -168,7 +168,7 @@ void InitDirectories(const char *userDir, const char *resDir,
   directoriesCDPrefix[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
   if (strlen(directoriesCDPrefix) > 0) {
     if (!ExistsFileOrDir(directoriesCDPrefix)) {
-      LogPrintf("Error: Invalid CD drive or directory \"%s\"\n",
+      LogPrintf("Error: Invalid CD drive or directory '%s'\n",
                 directoriesCDPrefix);
       exit(EXIT_FAILURE);
     }

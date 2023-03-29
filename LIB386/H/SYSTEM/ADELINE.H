@@ -34,11 +34,11 @@ extern "C" {
 #include "ADELINE_TYPES.H"
 
 #ifdef _WIN32
-#define ADELINE_PATH_SEPARATOR "\\"
-#define ADELINE_PATH_SEPARATOR_CHAR '\\'
+#define ADELINE_PATH_SEP "\\"
+#define ADELINE_PATH_SEP_CHAR '\\'
 #else // _WIN32
-#define ADELINE_PATH_SEPARATOR "/"
-#define ADELINE_PATH_SEPARATOR_CHAR '/'
+#define ADELINE_PATH_SEP "/"
+#define ADELINE_PATH_SEP_CHAR '/'
 #endif // _WIN32
 
 // -----------------------------------------------------------------------------
