@@ -15,6 +15,7 @@
 */
 
 #include        "C_EXTERN.H"
+#include "DIRECTORIES.H"
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -1112,6 +1113,7 @@ S32     AskForCD( void )
         char    ask_txt[255]    ;
         char    ok_txt[20]      ;
         char    cancel_txt[20]  ;
+        char    tmpFilePath[ADELINE_MAX_PATH];
 
         // ATTENTION: pour entrer là, le InitDial(0) doit etre fait avant !
 
@@ -1133,7 +1135,8 @@ S32     AskForCD( void )
 
         ret = ConfirmMenu( ask_txt, ok_txt, cancel_txt ) ;
 
-        Load_HQR( SCREEN_HQR_NAME, Log, PCR_CDROM ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+        Load_HQR( tmpFilePath, Log, PCR_CDROM ) ;
         BoxStaticFullflip() ;
 
         return ret ;

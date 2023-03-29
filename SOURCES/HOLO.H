@@ -2,10 +2,6 @@
 //────────────────────────────────────────────────────────────────────────────
 
 
-#define	HOLO_HQR_NAME		PATH_RESSOURCE"holomap.hqr"
-//#define	HOLO_HQR_NAME		"f:\\projet\\lba2\\sourcesn\\ress\\holomap.hqr"
-
-
 //#define	MAX_TRI	25
 //#define	ONE_DIR		1	//	all datas in current directory...
 #define	P_TWINSUN	0

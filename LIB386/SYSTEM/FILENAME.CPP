@@ -26,6 +26,7 @@ void StripExt(char *fname) {
   }
 }
 
+// TODO: Review uses, probably not conformant to file path from DIRECTORIES.H
 char *AddExt(char *path, const char *ext) {
   if (ext[0] == '.') {
     ++ext;

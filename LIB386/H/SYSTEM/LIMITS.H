@@ -1,7 +1,7 @@
 #pragma once
 
-/// Max length of a path - Compatible with 10.5 and WindowsNT, equals _MAX_PATH
-#define ADELINE_MAX_PATH 144
+/// Max length of a path
+#define ADELINE_MAX_PATH 256
 
 /// Max char length for disk component of path (Eg: C:\, A:\, etc...)
 #define ADELINE_MAX_DRIVE 3
