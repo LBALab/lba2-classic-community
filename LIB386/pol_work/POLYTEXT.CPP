@@ -336,14 +336,14 @@ Filler_Texture		ENDP
         eax = eax >> 16;
         v11 = (U8 *)((U64)v8 & 0xFFFFFFE0);
         eax |= edx;
-        v12 = (U32)&v11[v7] & 0xFFFFFFE0;
+        v12 = (U64)&v11[v7] & 0xFFFFFFE0;
         v6 += eax;
         // *** Load dst in WB cache ***
         do
         {
           v13 = *v11;
           v11 += 32;
-        } while ((U32)v11 <= v12);
+        } while ((U64)v11 <= v12);
         v8 = v22;
       }
       // @@FastInit:
