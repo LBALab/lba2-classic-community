@@ -1915,9 +1915,6 @@ Read_Next_Right::
 	Fill_CurXMax = (oldXMin << 16) + 0x8000;
 	Fill_RightPoint = point;
 	S32 diffX = (point->Pt_XE - oldXMin) << 16;
-	// TODO: For some reason this division in the original code with
-	// FPU is -1 compared to what it's here, despite being in some
-	// cases an int division nonetheless. Should I just remove the +1?
 	Fill_RightSlope = diffX / diffY + 1;
 
 	return Test_Scan();
