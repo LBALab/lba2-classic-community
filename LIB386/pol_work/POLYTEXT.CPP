@@ -269,35 +269,26 @@ Filler_Texture		PROC
 			jmp	Triangle_ReadNextEdge
 Filler_Texture		ENDP
 	*/
-  U32 v5; // esi@1
-  unsigned int v6; // ebp@1
-  unsigned int v7; // ecx@4
-  U8 *v8; // edi@5
-  int v10; // ebx@5
   U8 *v11; // edi@6
   unsigned int v12; // edx@6
   char v13; // al@7
   int v14; // eax@9
   U32 v15; // ebp@9
-  int v16; // edx@9
   unsigned int v17; // eax@9
   U8 *v18; // esi@9
   U32 v19; // edx@9
-  U8 *v22; // [sp-1Ch] [bp-1Ch]@6
-  int v25; // [sp-10h] [bp-10h]@5
-  unsigned int v26; // [sp-Ch] [bp-Ch]@5
 
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
-  v5 = Fill_CurMapUMin;
-  v6 = Fill_CurMapVMin;
+  U32 u = Fill_CurMapUMin;
+  U32 v = Fill_CurMapVMin;
   if (Fill_Patch != 1)
 	{
     Fill_CurOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    v5 += Fill_MapU_LeftSlope;
-    v6 += Fill_MapV_LeftSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
 	}
 	else
 	{
@@ -310,49 +301,46 @@ Filler_Texture		ENDP
 
   while (1)
   {
-    v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
     {
-      v8 = (fillCurXMin >> 16) + Fill_CurOffLine;
-      v26 = v6;
-      v25 = v5;
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+      U32 prevV = v;
+      U32 prevU = u;
 			// Load 1st dst cache line
-      v10 = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
-      if (v7 > 16)
+      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16)
       {
-        U64 product = ((U64)v10 * (U64)Fill_MapU_XSlope);
+        U64 product = ((U64)factor * (U64)Fill_MapU_XSlope);
         U32 edx = (U32)(product >> 32);
         U32 eax = (U32)(product & 0xFFFFFFFF);
         edx = edx << 16;
         eax = eax >> 16;
         edx |= eax;
-        v5 += edx;
+        u += edx;
 
-        product = ((U64)v10 * (U64)Fill_MapV_XSlope);
+        product = ((U64)factor * (U64)Fill_MapV_XSlope);
         edx = (U32)(product >> 32);
         eax = (U32)(product & 0xFFFFFFFF);
         edx = edx << 16;
-        v22 = v8;
         eax = eax >> 16;
-        v11 = (U8 *)((U64)v8 & 0xFFFFFFE0);
+        v11 = (U8 *)((U64)line & 0xFFFFFFE0);
         eax |= edx;
-        v12 = (U64)&v11[v7] & 0xFFFFFFE0;
-        v6 += eax;
+        v12 = (U64)&v11[fillWidth] & 0xFFFFFFE0;
+        v += eax;
         // *** Load dst in WB cache ***
         do
         {
           v13 = *v11;
           v11 += 32;
         } while ((U64)v11 <= v12);
-        v8 = v22;
       }
       // @@FastInit:
-      v14 = (v6 >> 8) & 0xFF00;
-      v15 = v6 << 16;
-      v16 = v5;
-      v17 = RepMask & (((v5 & 0xFF0000u) >> 16) | v14);
+      v14 = (v >> 8) & 0xFF00;
+      v15 = v << 16;
+      v17 = RepMask & (((u & 0xFF0000u) >> 16) | v14);
       v18 = PtrMap;
-      v19 = v16 << 16;
+      v19 = u << 16;
       do
       {
 				v19 = (v19 & 0xFFFFFF00) | (v18[v17] & 0xFF);
@@ -362,13 +350,13 @@ Filler_Texture		ENDP
         carryFlag = ((U64)DecMapU + (U64)v19) > 0xFFFFFFFF;
         v19 += DecMapU;
 				v17 = (v17 & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (v17 & 0xFF) + carryFlag) & 0xFF);
-        *v8++ = v19 & 0xFF;
+        *line++ = v19 & 0xFF;
         v17 &= RepMaskPatch;
-        --v7;
+        --fillWidth;
       }
-      while (v7);
-      v5 = v25;
-      v6 = v26;
+      while (fillWidth);
+      u = prevU;
+      v = prevV;
     }
     diffY--;
     if (diffY == 0)
@@ -377,13 +365,13 @@ Filler_Texture		ENDP
     Fill_CurOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    v5 += Fill_MapU_LeftSlope;
-    v6 += Fill_MapV_LeftSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
   }
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
-  Fill_CurMapUMin = v5;
-  Fill_CurMapVMin = v6;
+  Fill_CurMapUMin = u;
+  Fill_CurMapVMin = v;
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
