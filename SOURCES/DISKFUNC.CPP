@@ -51,8 +51,6 @@ S32	LoadScene( S32 numscene )
 	char tmpFilePath[ADELINE_MAX_PATH];
 //        U8	t ;
 
-	PIRACY_PROTECT() ;
-
 	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
 	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
 	if( !Load_HQR( tmpFilePath, PtrScene, numscene+1 ) )

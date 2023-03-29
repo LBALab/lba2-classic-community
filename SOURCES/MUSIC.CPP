@@ -244,8 +244,6 @@ void	PlayMusic( S32 num, S32 playit )
 {
 	NextMusic = -1 ;
 
-	PIRACY_PROTECT() ;
-
 	if( num!=-1 )
 	{
 		S32 cur ;
