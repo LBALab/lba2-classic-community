@@ -11,7 +11,6 @@
 #include	<SYSTEM/AVAILMEM.H>
 #include	<SYSTEM/N_MALLOC.H>
 #include	<SYSTEM/CPU.H>
-#include	<SYSTEM/DISPCPU.H>
 #include	<SYSTEM/DISPOS.H>
 #include	<SYSTEM/EXIT.H>
 #include	<SYSTEM/FILEBAK.H>

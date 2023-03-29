@@ -10,7 +10,6 @@
 #include "SYSTEM/CMDLINE.H"
 #include "SYSTEM/CPU.H"
 #include "SYSTEM/DEFFILE.H"
-#include "SYSTEM/DISPCPU.H"
 #include "SYSTEM/DISPOS.H"
 #include "SYSTEM/EVENTS.H"
 #include "SYSTEM/EXIT.H"
@@ -113,8 +112,7 @@ void InitAdeline(S32 argc, char *argv[]) {
 
   // ··········································································
   //  CPU
-  LogPuts("\nIdentifying CPU. Please wait...\n");
-
+  // TODO: Remove when all ASM is ported to C
   if (!FindAndRemoveParam("/CPUNodetect")) {
     //ProcessorIdentification();
     ProcessorSignature.FPU = 1;
@@ -122,15 +120,6 @@ void InitAdeline(S32 argc, char *argv[]) {
     ProcessorSignature.Model = 4;
     ProcessorSignature.Manufacturer = 1;
     ProcessorFeatureFlags.MMX = 0;
-  }
-
-  DisplayCPU();
-
-  if (ParamsCPU()) {
-    LogPuts("\nSome command Line Parameters override CPU detection.\nNew CPU "
-            "parameters:\n");
-
-    DisplayCPU();
   }
 
   // ··········································································
