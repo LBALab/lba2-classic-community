@@ -272,32 +272,30 @@ Filler_Texture		ENDP
   U8 *v11; // edi@6
   unsigned int v12; // edx@6
   char v13; // al@7
-  int v14; // eax@9
   U32 v15; // ebp@9
   unsigned int v17; // eax@9
-  U8 *v18; // esi@9
-  U32 v19; // edx@9
+  U32 v19;          // edx@9
 
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   U32 u = Fill_CurMapUMin;
   U32 v = Fill_CurMapVMin;
   if (Fill_Patch != 1)
-	{
+  {
     Fill_CurOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
-	}
-	else
-	{
-		--Fill_Patch;
-		DecMapU = Fill_MapU_XSlope << 16;
-		DecMapV = Fill_MapV_XSlope << 16;
-		RepMaskPatch = RepMask;
-		Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000u) >> 8) | ((U32)Fill_MapU_XSlope >> 16) & 0xFF;
-	}
+  }
+  else
+  {
+    --Fill_Patch;
+    DecMapU = Fill_MapU_XSlope << 16;
+    DecMapV = Fill_MapV_XSlope << 16;
+    RepMaskPatch = RepMask;
+    Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000u) >> 8) | ((U32)Fill_MapU_XSlope >> 16) & 0xFF;
+  }
 
   while (1)
   {
@@ -307,7 +305,7 @@ Filler_Texture		ENDP
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 prevV = v;
       U32 prevU = u;
-			// Load 1st dst cache line
+      // Load 1st dst cache line
       U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -324,43 +322,47 @@ Filler_Texture		ENDP
         eax = (U32)(product & 0xFFFFFFFF);
         edx = edx << 16;
         eax = eax >> 16;
-        v11 = (U8 *)((U64)line & 0xFFFFFFE0);
+        v11 = (U8 *)((U64)line & ~((U64)31));
         eax |= edx;
-        v12 = (U64)&v11[fillWidth] & 0xFFFFFFE0;
+        v12 = (U64)&v11[fillWidth] & ~((U64)31);
         v += eax;
         // *** Load dst in WB cache ***
         do
         {
+          // @@Preload:
           v13 = *v11;
           v11 += 32;
         } while ((U64)v11 <= v12);
       }
       // @@FastInit:
-      v14 = (v >> 8) & 0xFF00;
       v15 = v << 16;
-      v17 = RepMask & (((u & 0xFF0000u) >> 16) | v14);
-      v18 = PtrMap;
+      v17 = RepMask & (((u & 0xFF0000u) >> 16) | ((v >> 8) & 0xFF00));
       v19 = u << 16;
       do
       {
-				v19 = (v19 & 0xFFFFFF00) | (v18[v17] & 0xFF);
+        // @@Each_X:
+        v19 = (v19 & 0xFFFFFF00) | (PtrMap[v17] & 0xFF);
         U8 carryFlag = ((U64)DecMapV + (U64)v15) > 0xFFFFFFFF;
         v15 += DecMapV;
         v17 = (v17 & 0xFFFF00FF) | ((((Precalc_Inc >> 8) & 0xFF) + ((v17 >> 8) & 0xFF) + carryFlag) << 8);
         carryFlag = ((U64)DecMapU + (U64)v19) > 0xFFFFFFFF;
         v19 += DecMapU;
-				v17 = (v17 & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (v17 & 0xFF) + carryFlag) & 0xFF);
+        v17 = (v17 & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (v17 & 0xFF) + carryFlag) & 0xFF);
         *line++ = v19 & 0xFF;
         v17 &= RepMaskPatch;
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
       u = prevU;
       v = prevV;
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
+    {
       break;
+      }
 
     Fill_CurOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
