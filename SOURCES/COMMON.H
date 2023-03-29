@@ -8,13 +8,6 @@
 // pointeur !!!!!!!!!!!!
 #define	MyRnd(n)	(n!=0?Rnd(n):0)
 
-// protec piratage
-#if defined(ONE_GAME_DIRECTORY)&&defined(CDROM)&&!defined(DEBUG_TOOLS)&&!defined(TEST_TOOLS)
-#define	PIRACY_PROTECT()	if( !CDDrive )	TheEnd( PROGRAM_OK, MESSAGE_NO_CD ) ;
-#else
-#define	PIRACY_PROTECT()
-#endif
-
 #define	PLAY_THE_END	(ListVarGame[157]>0)
 
 
