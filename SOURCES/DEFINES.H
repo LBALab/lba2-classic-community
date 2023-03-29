@@ -51,37 +51,8 @@
 //#define	ONE_GAME_DIRECTORY	1
 //=======================================================================
 
-//path des ressources
-#ifdef	ONE_GAME_DIRECTORY
-#define	PATH_RESSOURCE		""
-#define	PATH_SAVE		PATH_RESSOURCE"SAVE\\"
-#else
-#ifdef	DEMO
-#define	PATH_RESSOURCE		"f:\\projet\\lba2\\demo\\"
-#else
-#define	PATH_RESSOURCE		"f:\\projet\\lba2\\game\\"
-#endif
-#define	PATH_SAVE		"c:\\adeline\\"
-#endif
-
-#ifdef	ONE_GAME_DIRECTORY
-#define	PATH_PCX_SAVE		PATH_SAVE"shoot\\"
-#else
-#define	PATH_PCX_SAVE		"f:\\projet\\lba2\\graph\\shoot\\"
-#endif
-
 // repertoire ou sauver les bugs
-#define	PATH_SAVE_BUGS		"f:\\panier\\lba2\\save\\bugs\\"
-
-//#define	PATH_ACF	PATH_RESSOURCE"ACF\\"
-#define	PATH_ACF	PATH_RESSOURCE"VIDEO\\VIDEO.HQR"
-
-
-#ifdef	ONE_GAME_DIRECTORY
-#define	PATH_JINGLE	"MUSIC\\"
-#else
-#define	PATH_JINGLE	"F:\\PROJET\\LBA2\\MUSIC\\WAV_LBA2\\"
-#endif
+#define PATH_SAVE_BUGS "f:\\panier\\lba2\\save\\bugs\\" // TODO: Review all uses when DEBUG_TOOLS enabled
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /*----------------------------- camera -----------------------------*/
@@ -238,12 +209,6 @@
 // on stocke les sauvegardes dans BufSpeak
 #define	MAX_PLAYER	((640*480)/(MAX_SIZE_PLAYER_NAME+1+sizeof(char*)))
 #define	MAX_SIZE_PLAYER_NAME	100	// Calculé avec des ',' par Isabelle
-
-#define	AUTOSAVE_NAME		"AUTOSAVE"
-#define	AUTOSAVE_FILENAME	PATH_SAVE"autosave.lba"
-
-#define	CURRENTSAVE_NAME	"CURRENT"
-#define	CURRENTSAVE_FILENAME	PATH_SAVE"current.lba"
 
 /*---------------- CONSTANTE ------------------*/
 

@@ -1,24 +1,26 @@
-#include <SYSTEM/INITADEL.H>
+#include "INITADEL.H"
 
-#include <AIL/TIMER.H>
-#include <SVGA/INITMODE.H>
-#include <SVGA/SCREEN.H>
-#include <SVGA/VIDEO.H>
-#include <SYSTEM/CMDLINE.H>
-#include <SYSTEM/CPU.H>
-#include <SYSTEM/DEFFILE.H>
-#include <SYSTEM/DIRECTORIES.H>
-#include <SYSTEM/DISPCPU.H>
-#include <SYSTEM/DISPOS.H>
-#include <SYSTEM/EVENTS.H>
-#include <SYSTEM/EXIT.H>
-#include <SYSTEM/FILES.H>
-#include <SYSTEM/KEYBOARD.H>
-#include <SYSTEM/LOGPRINT.H>
-#include <SYSTEM/LZ.H>
-#include <SYSTEM/MOUSE.H>
-#include <SYSTEM/TIMER.H>
-#include <SYSTEM/WINDOW.H>
+#include "C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include "AIL/TIMER.H"
+#include "SVGA/INITMODE.H"
+#include "SVGA/SCREEN.H"
+#include "SVGA/VIDEO.H"
+#include "SYSTEM/CMDLINE.H"
+#include "SYSTEM/CPU.H"
+#include "SYSTEM/DEFFILE.H"
+#include "SYSTEM/DISPCPU.H"
+#include "SYSTEM/DISPOS.H"
+#include "SYSTEM/EVENTS.H"
+#include "SYSTEM/EXIT.H"
+#include "SYSTEM/FILES.H"
+#include "SYSTEM/KEYBOARD.H"
+#include "SYSTEM/LOGPRINT.H"
+#include "SYSTEM/LZ.H"
+#include "SYSTEM/MOUSE.H"
+#include "SYSTEM/TIMER.H"
+#include "SYSTEM/WINDOW.H"
 
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +35,6 @@
 
 #define ibuffer ScreenAux
 #define ibuffersize (640 * 480 + RECOVER_AREA)
-#define lname "lba2.cfg"
 
 // -----------------------------------------------------------------------------
 #ifndef RESOLUTION_X
@@ -59,38 +60,27 @@ atexit(SafeErrorMallocMsg);
 
 // ··········································································
 
-void DisplayGeneralInfo();
-void InitSystem();
-void InitDisplay();
-void InitSound();
-void InitInputs();
-
 void InitAdeline(S32 argc, char *argv[]) {
 
-  // ··········································································
-  char resFolderPath[ADELINE_MAX_PATH] = "";  ///< Path for game resources
-  char userFolderPath[ADELINE_MAX_PATH] = ""; ///< Path for user writable data
-
-  // ··········································································
   {
-    PathConfigFile[0] = 0;
+    char resFolderPath[ADELINE_MAX_PATH] = "";
+    char saveFolderPath[ADELINE_MAX_PATH] = "";
+    char cfgFolderPath[ADELINE_MAX_PATH] = "";
+    char logFilePath[ADELINE_MAX_PATH] = "";
 
-    GetResourcesPath(resFolderPath);
-    GetUserPath(userFolderPath);
+    GetResPath(resFolderPath, ADELINE_MAX_PATH, NULL);
+    GetSavePath(saveFolderPath, ADELINE_MAX_PATH, NULL);
+    GetCfgPath(cfgFolderPath, ADELINE_MAX_PATH, NULL);
 
-    strcpy(PathConfigFile, userFolderPath);
-    strcat(PathConfigFile, ADELINE_PATH_SEPARATOR);
-    strcat(PathConfigFile, lname);
+    GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
+    CreateLog(logFilePath);
+    LogPuts("Starting game...");
+    LogPuts("Paths used:");
+    LogPrintf("\t* Assets:\t%s\n"
+              "\t* Saves:\t%s\n"
+              "\t* Config:\t%s\n",
+              resFolderPath, saveFolderPath, cfgFolderPath);
   }
-
-  // ··········································································
-  //  LOG
-  CreateLog(userFolderPath);
-  LogPuts("Starting game...");
-  LogPuts("Paths used:");
-  LogPrintf("\t* Game assets:\t\t%s\n"
-            "\t* Save/Preferences:\t%s\n",
-            resFolderPath, userFolderPath);
 
   // ··········································································
   InitEvents();
@@ -105,7 +95,8 @@ void InitAdeline(S32 argc, char *argv[]) {
 
   // ··········································································
   //  Config File
-  if (!FileSize(PathConfigFile)) {
+  GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+  if (!ExistsFileOrDir(PathConfigFile)) {
     // TODO: Create default config file if does not already exists
     LogPrintf("Error: Can't find config file %s\n\n", PathConfigFile);
     exit(1);
@@ -224,7 +215,7 @@ void InitAdeline(S32 argc, char *argv[]) {
   InitTimer();
 
   // ··········································································
-  chdir(resFolderPath);
+  //chdir(resFolderPath);
 
   // ··········································································
   //  DefFile

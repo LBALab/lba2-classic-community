@@ -11,45 +11,13 @@
 //#define LBA_EDITOR 1
 /*-------------------------------------------------------------------------*/
 
-#ifdef  LORAN
-#include "f:/projet/lib386/lib_sys4/adeline.h"
-#include "f:/projet/lib386/lib_sys4/lib_sys.h"
-#include "f:/projet/lib386/lib_svg5/lib_svga.h"
-#include "f:/projet/lib386/lib_men2/lib_menu.h"
-#include "f:/projet/lib386/lib_cd/lib_cd.h"
-#include "f:/projet/lib386/lib_3d6/lib_3d.h"
-#include "f:/projet/lib386/lib_ail4/lib_ail.h"
-
-#include        <stdlib.h>
-#include        <string.h>
-#include        <stdio.h>
-#include        <conio.h>
-#include        <dos.h>
-#include        <i86.h>
-//----------------------------------------------------------------------------
-//              Tout ce qui me manque en local
-
-#define PATH_RESSOURCE          "f:\\projet\\lba2\\game\\"
-
-#define GEN_ANIM_RIEN   0
-
-#define GEN_ANIM_PARLE  28
-
-char    PleaseWait[]="Please wait..."   ;
-
-S32     QuickMessage  = 0               ;
-
-//----------------------------------------------------------------------------
-
-#else
 #include        "C_EXTERN.H"
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include "DIRECTORIES.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
-
-#endif
 
 #include <dirent.h>
 #include <stdint.h>
@@ -120,11 +88,6 @@ U8   *PalOrg ;
 #endif
 
 //--------------------------------------------------------------
-#define PATH_VOX_CD     "\\LBA2\\VOX\\"
-#define PATH_VOX_CD_US  "\\TWINSEN\\VOX\\"
-char    PathVoxCD[ADELINE_MAX_PATH] ;
-
-#define PATH_VOX_HD     PATH_RESSOURCE"VOX\\"
 #define NB_LANGUAGES    6
 #define MAX_TEXT_LANG   15              // Attention, pour 1 langue seulement!
 #define MAX_FILE_VOICE  (MAX_TEXT_LANG*NB_LANGUAGES)    // ( SYS CRE GAM 0 ... 11 ) * MaxLang
@@ -133,8 +96,6 @@ char    PathVoxCD[ADELINE_MAX_PATH] ;
 #define FROM_CD         1
 #define CDBLOCK         (256L*256L)
 //-------------------------------------------------------------- #endif
-
-#define NAME_HQR_TEXT   "TEXT.HQR"
 
 #define INTER_LINE      38
 #define INTER_SPACE     7               //  16/08/94  de 5 a 7 !
@@ -173,7 +134,7 @@ S32     FlecheForcee = FALSE ;
 
 U16    MaxText          ;
 
-static char     FileText[256]   ;
+static char     FileText[ADELINE_MAX_PATH]   ;
 
 S32     Language = 1    ;               // English
 S32     LastFileInit=-1 ;
@@ -253,7 +214,7 @@ static  U32     FdNar=0                 ;
 
 typedef struct
 {
-        char    NameHD[13+sizeof(PATH_VOX_HD)]  ;
+        char    NameHD[13+ADELINE_MAX_PATH]  ;
         U32     SaveTimer                       ;
         U32     SizeFileHD                      ;
 
@@ -356,21 +317,6 @@ void    InitLanguage()
         char    string[256] ;
         S32     n ;
 
-#ifdef  LBA_EDITOR
-        strcpy( PathVoxCD, PATH_VOX_CD ) ;
-#else
-        switch( DistribVersion )
-        {
-                case UNKNOWN_VERSION:
-                case EA_VERSION:
-                        strcpy( PathVoxCD, PATH_VOX_CD ) ;
-                        break ;
-
-                default:
-                        strcpy( PathVoxCD, PATH_VOX_CD_US ) ;
-        }
-#endif
-
         // Attention: Textes toujours Valides ???
         strcpy( string, DefFileBufferReadStringDefault( "Language", TabLanguage[1] ) ) ;
 
@@ -439,14 +385,16 @@ CDROM PART
 //      Pour prendre en compte les eventuels fichiers déjà sur HD
 void InitVoiceFile() {
   char pathname[ADELINE_MAX_PATH];
+  char filesDir[ADELINE_MAX_PATH];
   dirent *file;
   DIR *dir;
 
-  dir = opendir(PATH_VOX_HD);
+  GetVoicePath(filesDir, ADELINE_MAX_PATH, NULL);
+  dir = opendir(filesDir);
   if (dir != NULL) {
     while ((file = readdir(dir)) != NULL) {
       if (ade_strcasestr(file->d_name, ".VOX") != NULL) {
-        snprintf(pathname, sizeof(pathname), "%s%s", PATH_VOX_HD, file->d_name);
+        GetVoicePath(pathname, ADELINE_MAX_PATH, file->d_name);
 
         struct stat fileInfo;
         stat(pathname, &fileInfo);
@@ -590,6 +538,7 @@ S32     CopyFileCD_HD( char *filecd, char *filehd )
         S32     size    ;
         S32     i       ;
         S32     sizefile;
+        char    tmpFilePath[ADELINE_MAX_PATH];
 
 
         sizefile = FileSize( filecd )   ;
@@ -623,7 +572,8 @@ error:          Close(fdr)      ;
 
         FadeToBlack( PtrPal ) ;
 
-        Load_HQR( SCREEN_HQR_NAME, Log, PCR_CDROM ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+        Load_HQR( tmpFilePath, Log, PCR_CDROM ) ;
         BoxUpdate() ;
 
         FadeToPal( PtrPalNormal) ;
@@ -794,8 +744,9 @@ error:
 void    InitSpeak( S32 file )
 {
         S32     size            ;
-        char    filehd[256]     ;
-        char    filecd[256]     ;
+        char    filehd[ADELINE_MAX_PATH];
+        char    filecd[ADELINE_MAX_PATH];
+        char    fileName[ADELINE_MAX_PATH];
 
 //      if ( CDDrive < 0 )      return          ;// a virer, d'ailleur c'est fait... ;-)
 
@@ -814,10 +765,8 @@ void    InitSpeak( S32 file )
         }
 #endif
 
-        strcpy( filehd, PATH_VOX_HD )           ;
-        strcat( filehd, ListLanguage[LanguageCD] );
-        strcat( filehd, ListFileText[file])     ;
-        AddExt( filehd, EXT_VOX)                ;
+        snprintf(fileName, ADELINE_MAX_PATH, "%s%s%s", ListLanguage[LanguageCD], ListFileText[file], EXT_VOX);
+        GetVoicePath(filehd, ADELINE_MAX_PATH, fileName);
 
         size = FileSize( filehd )               ;
 
@@ -833,14 +782,7 @@ void    InitSpeak( S32 file )
                 return                          ;
         }
 
-        filecd[0] = CDDrive     ;
-        filecd[1] = ':'         ;
-        filecd[2] = 0           ;
-
-        strcat( filecd, PathVoxCD )             ;
-        strcat( filecd, ListLanguage[LanguageCD] );
-        strcat( filecd, ListFileText[file])     ;
-        AddExt( filecd, EXT_VOX)                ;
+        GetVoicePath(filecd, ADELINE_MAX_PATH, fileName, true);
 
 	CloseFdNar()	;	// To close last file so that it can be deleted
 
@@ -968,19 +910,13 @@ void    SpeakFromCD( S32 file, S32 text )
         U16     *pt             ;
         S32    num, offset     ;
         S32     max             ;
-        char    tmpname[256]    ;
+        char    tmpname[ADELINE_MAX_PATH]    ;
+        char    tmpFilename[ADELINE_MAX_PATH];
 
         if ( !CDDrive ) return  ;
 
-#ifdef  LBA_EDITOR
-        strcpy( tmpname, PathRessource )                        ;// Pas FileText!
-#else
-        strcpy( tmpname, PATH_RESSOURCE )                       ;// Pas FileText!
-#endif
-
-        strcat( tmpname, ListLanguage[LanguageCD] )     ;
-        strcat( tmpname, ListFileText[file])            ;
-        AddExt( tmpname, ".ord")                        ;
+        snprintf(tmpFilename, ADELINE_MAX_PATH, "%s%s.ord, ListLanguage[LanguageCD], ListFileText[file]);
+        GetResPath(tmpname, ADELINE_MAX_PATH, tmpFilename);
 
 
 //--------------------------------------
@@ -1136,14 +1072,7 @@ void    InitDial( S32 file )
         if ( LastFileInit == file )     return  ;
         LastFileInit = file                     ;
 
-#ifdef  LBA_EDITOR
-        strcpy( FileText, PathRessource )       ;
-#else
-        strcpy( FileText, PATH_RESSOURCE )      ;
-#endif
-
-        strcat( FileText, NAME_HQR_TEXT )       ;
-
+        GetResPath(FileText, ADELINE_MAX_PATH, TEXT_HQR_NAME);
         MaxText = (U16)(Load_HQR( FileText, BufOrder,
                           ( Language*MAX_TEXT_LANG*2)+(file*2)+0)/2) ;
 

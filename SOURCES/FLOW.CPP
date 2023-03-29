@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "DIRECTORIES.H"
 
 /*══════════════════════════════════════════════════════════════════════════*
 	     █▀▀▀█ █▀▀▀█ █▀▀▀█ ▀▀█▀▀  █    █▀▀▀▀ █     █▀▀▀▀ ██▀▀▀
@@ -43,6 +44,7 @@ U32	InitPartFlow()
 	S_ONE_DOT	*ptrd ;
 	S_PART_FLOW	*ptrf = ListPartFlow ;
 	S32 n;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 #ifdef	LBA_EDITOR
 	char	filename[ADELINE_MAX_PATH] ;
@@ -114,7 +116,8 @@ U32	InitPartFlow()
 	Cls() ;		// Efface message
 	BoxUpdate() ;
 #else
-	Load_HQR( RESS_HQR_NAME, TabPartFlow, RESS_FLOW ) ;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+	Load_HQR( tmpFilePath, TabPartFlow, RESS_FLOW ) ;
 #endif
 
 #ifdef	LBA_EDITOR

@@ -1,5 +1,7 @@
 #include 	"C_EXTERN.H"
 
+#include "DIRECTORIES.H"
+
 extern	S32	Nxw, Nyw, Nzw ;	// Object.c
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -23,7 +25,11 @@ void	InitDarts()
 	ptrbody = PtrBody[NbBodys] ;
 #else
 	ptrbody = (U8*)GivePtrObjFix( BODY_3D_DART ) ;
-	if( !ptrbody )	TheEndCheckFile( PATH_RESSOURCE"ObjFix.hqr" ) ;
+	if( !ptrbody ) {
+		char tmpFilePath[ADELINE_MAX_PATH];
+		GetResPath(tmpFilePath, ADELINE_MAX_PATH, OBJFIX_HQR_NAME);
+		TheEndCheckFile( tmpFilePath ) ;
+	}
 #endif
 	// Calcule ZV des flechettes
 	ptr = (T_BODY_HEADER *)ptrbody ;

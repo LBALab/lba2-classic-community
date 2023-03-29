@@ -13,16 +13,12 @@ static	char	LogName[ADELINE_MAX_PATH]=""	;
 static	char	LogStr[256]		;
 
 //----------------------------------------------------------------------------
-void	CreateLog(char *fname)
+void	CreateLog(const char *filePath)
 {
 	FILE	*logfile 		;
 
-        strncpy(LogName, fname, ADELINE_MAX_PATH);
-        LogName[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-
-        const char* logFileName = ADELINE_PATH_SEPARATOR"ADELINE.LOG";
-        strncat(LogName, logFileName, strlen(logFileName));
-        LogName[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+	strncpy(LogName, filePath, ADELINE_MAX_PATH);
+	LogName[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
 	logfile	= fopen(LogName, "wb")	;
 	if(!logfile)
@@ -32,6 +28,14 @@ void	CreateLog(char *fname)
 	else
 	{
 		fclose(logfile)		;
+	}
+
+	if (logfile) {
+		LogPrintf("Creating log file at '%s'...\n", LogName);
+	}
+	else {
+		LogPrintf("Warning: Unable to create log file at '%s', "
+			  "outputting only to console...\n", LogName);
 	}
 }
 

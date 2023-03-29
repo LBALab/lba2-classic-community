@@ -96,6 +96,13 @@ U32 FileSize(const char *filename) {
   return (U32)((fsize == -1) ? 0 : fsize);
 }
 
+bool ExistsFileOrDir(const char* path) {
+  assert(path != NULL);
+
+  struct stat status = {};
+  return (stat(path, &status) == 0);
+}
+
 // =============================================================================
 #ifdef __cplusplus
 }

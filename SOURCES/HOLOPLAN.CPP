@@ -1,4 +1,5 @@
 #include	"C_EXTERN.H"
+#include "DIRECTORIES.H"
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
@@ -408,6 +409,7 @@ void	InitHoloPlan()
 	S32	lalpha, lbeta	;
 	S32	distance	;
 	S32	id		;
+	char	tmpFilePath[ADELINE_MAX_PATH];
 
 	InitHoloMalloc()	;
 
@@ -428,9 +430,11 @@ void	InitHoloPlan()
 	}
 	else	id = HQR_BEGIN_MAP+(2*ZoomedIsland)	;
 
-	Load_HQR( HOLO_HQR_NAME, Log, id )	;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
 
-	Load_HQR( HOLO_HQR_NAME, buffer, id+1 )	;
+	Load_HQR( tmpFilePath, Log, id )	;
+
+	Load_HQR( tmpFilePath, buffer, id+1 )	;
 
 	AffUpperLeft( 0, 0, 0 )		;
 	AffLowerLeft( 0, 479, 0 )	;
@@ -457,10 +461,10 @@ void	InitHoloPlan()
 	orgmx = (orgmx*SCE)+offx;
 	orgmz = (orgmz*SCE)+offz;
 
-	BufFleche = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_FLECHE )	;
-	BufLoFleche = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_LOFLECHE );
-	BufBuggy = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_BUGGY )	;
-	BufDyno = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_DYNO )	;
+	BufFleche = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_FLECHE )	;
+	BufLoFleche = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_LOFLECHE );
+	BufBuggy = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_BUGGY )	;
+	BufDyno = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_DYNO )	;
 
 	ScaleRotBody3D( BufFleche, ArrowFactorScale[ZoomedIsland], FALSE )  ;
 	ScaleRotBody3D( BufLoFleche, ArrowFactorScale[ZoomedIsland], FALSE );
@@ -867,7 +871,7 @@ void	HoloPlan(S32 numplan)
 		AffHoloMess()	;
 
 #ifndef	LBA_EDITOR
-		CheckSaveLogPcx( PtrPal ) ;// F9: Sauve Screen dans PATH_PCX_SAVE
+		CheckSaveLogPcx( PtrPal ) ;// F9: Sauve Screen
 #endif
 
 		BoxUpdate()	;

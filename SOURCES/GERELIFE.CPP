@@ -2236,7 +2236,7 @@ void	DoLife( U8 numobj )
 			case LM_POPCORN:
 /*				SaveTimer( ) ;
 
-				if( AdelineSystem( PATH_RESSOURCE"pop\\popcorn.exe" )==-1 )
+				if( AdelineSystem( "pop\\popcorn.exe" )==-1 )
 				{
 HERCULE( HPrintf( "errno= %d: %s\n", errno, strerror(errno) ) ) ;
 				}

@@ -1,6 +1,7 @@
 #include	"C_EXTERN.H"
 
 #include <SYSTEM/ADELINE.H>
+#include "DIRECTORIES.H"
 
 U8	*PtrSce ;
 U8	*PtrScene ;
@@ -47,14 +48,16 @@ S32	LoadScene( S32 numscene )
 	S32	sizetoload ;
 	S32	indexfile3d ;
 	U8	n ;
+	char tmpFilePath[ADELINE_MAX_PATH];
 //        U8	t ;
 
 	PIRACY_PROTECT() ;
 
 	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
-	if( !Load_HQR( PATH_RESSOURCE"scene.hqr", PtrScene, numscene+1 ) )
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, PtrScene, numscene+1 ) )
 	{
-		TheEndCheckFile( PATH_RESSOURCE"scene.hqr" ) ;
+		TheEndCheckFile( tmpFilePath ) ;
 	}
 
 	ManageSystem() ;// for streaming
@@ -308,14 +311,16 @@ S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
 {
 	S32	x, y 	;
 	U8	island, shadowlvl, modelaby, cubemode ;
+	char tmpFilePath[ADELINE_MAX_PATH];
 
 	// ATTENTION: chargée dans ScreenAux car normalement appelée dans le
 	//	      comportement d'init du buggy
 
 	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
-	if( !Load_HQR( PATH_RESSOURCE"scene.hqr", ScreenAux, numcube+1 ) )
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, ScreenAux, numcube+1 ) )
 	{
-		TheEndCheckFile( PATH_RESSOURCE"scene.hqr" ) ;
+		TheEndCheckFile( tmpFilePath ) ;
 	}
 
 	*cubex = *cubey = 0 ;
@@ -355,11 +360,11 @@ U8 AddDirIfNot( const char *path ) {
   int status = 0;
   char *pp = copypath;
   char *sp;
-  while (status == 0 && (sp = strchr(pp, '/')) != 0) {
+  while (status == 0 && (sp = strchr(pp, ADELINE_PATH_SEPARATOR_CHAR)) != 0) {
     if (sp != pp) {
       *sp = '\0';
       status = ADELINE_MKDIR(copypath);
-      *sp = '/';
+      *sp = ADELINE_PATH_SEPARATOR_CHAR;
     }
     pp = sp + 1;
   }
@@ -377,10 +382,14 @@ U8 AddDirIfNot( const char *path ) {
 
 void	CreateLbaDirectories( void )
 {
-	AddDirIfNot( PATH_RESSOURCE"SAVE\\SHOOT\\" ) ;
+	char tmpDirPath[ADELINE_MAX_PATH];
+
+	GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
 
 #ifndef	DEMO
-	AddDirIfNot( PATH_RESSOURCE"VOX\\" ) ;
+	GetVoicePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
 #endif
 }
 
