@@ -276,13 +276,13 @@ Do_Plasma		ENDP
   S16 *tabVirguleCopy = PtrEffectStruct->TabVirgule;
 
   // Next line offset
-  U32 nextLineOffset = Nb_Pts_Inter * nbActivePoints;
+  S32 nextLineOffset = Nb_Pts_Inter * nbActivePoints;
 
   for (U32 k = 0; k < nbActivePoints; ++k)
   {
     // @@Copy_0:
     U8 *originalTexture = texture;
-    U32 originalNextLineOffset = nextLineOffset;
+    S32 originalNextLineOffset = nextLineOffset;
     if (k == nbActivePoints - 1)
     {
       nextLineOffset = -(Nb_Pts_Control * nextLineOffset - nextLineOffset);
