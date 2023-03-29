@@ -27,17 +27,19 @@ S32 Fill_Poly_C(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 		popa
   }
 #elif __GNUC__
+  FUNC_FILL_POLY *fn = &Fill_PolyFast;
+
   __asm__ __volatile__("pusha\n\t"
                        "mov %1, %%eax\n\t"
                        "mov %2, %%ebx\n\t"
                        "mov %3, %%ecx\n\t"
                        "mov %4, %%esi\n\t"
-                       "call %5\n\t"
+                       "call *%5\n\t"
                        "mov %%eax, %0\n\t"
                        "popa\n\t"
                        : "=m"(returnValue)
                        : "m"(Type_Poly), "m"(Color_Poly), "m"(Nb_Points),
-                         "m"(Ptr_Points), "m"(Fill_PolyFast)
+                         "m"(Ptr_Points), "m"(fn)
                        : "%eax", "%ebx", "%ecx", "%esi");
 #else
 #error "Unsupported compiler!"
@@ -55,12 +57,15 @@ void Switch_Fillers_C(U32 Bank) {
 		popa
   }
 #elif __GNUC__
+  typedef void(FUNC_SWITCH_FILLERS)(U32);
+  FUNC_SWITCH_FILLERS *fn = &Switch_Fillers_ASM;
+
   __asm__ __volatile__("pusha\n\t"
                        "movl %0, %%eax\n\t"
-                       "call %1\n\t"
+                       "call *%1\n\t"
                        "popa\n\t"
                        :
-                       : "m"(Bank), "m"(Switch_Fillers_ASM)
+                       : "m"(Bank), "m"(fn)
                        : "%eax");
 #else
 #error "Unsupported compiler!"
