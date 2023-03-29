@@ -358,11 +358,11 @@ U8 AddDirIfNot( const char *path ) {
   int status = 0;
   char *pp = copypath;
   char *sp;
-  while (status == 0 && (sp = strchr(pp, ADELINE_PATH_SEPARATOR_CHAR)) != 0) {
+  while (status == 0 && (sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != 0) {
     if (sp != pp) {
       *sp = '\0';
       status = ADELINE_MKDIR(copypath);
-      *sp = ADELINE_PATH_SEPARATOR_CHAR;
+      *sp = ADELINE_PATH_SEP_CHAR;
     }
     pp = sp + 1;
   }

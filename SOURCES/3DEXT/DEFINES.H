@@ -22,8 +22,6 @@
 #define NAME_NOT_FOUND          3
 /*---------------------------------------------------*/
 
-#define	ADELINE_MAX_PATH	144
-
 #ifdef	MOUNFRAC
 typedef struct {
 
