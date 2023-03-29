@@ -269,8 +269,6 @@ Filler_Texture		PROC
 			jmp	Triangle_ReadNextEdge
 Filler_Texture		ENDP
 	*/
-  U8 *v11; // edi@6
-  unsigned int v12; // edx@6
   char v13; // al@7
   U32 v15; // ebp@9
   unsigned int v17; // eax@9
@@ -322,17 +320,14 @@ Filler_Texture		ENDP
         eax = (U32)(product & 0xFFFFFFFF);
         edx = edx << 16;
         eax = eax >> 16;
-        v11 = (U8 *)((U64)line & ~((U64)31));
         eax |= edx;
-        v12 = (U64)&v11[fillWidth] & ~((U64)31);
         v += eax;
-        // *** Load dst in WB cache ***
-        do
-        {
-          // @@Preload:
-          v13 = *v11;
-          v11 += 32;
-        } while ((U64)v11 <= v12);
+
+        // There was some @@Preload code here, but it did nothing other
+        // than reading some bytes but not doing anything with it. It
+        // also had the comment "Load dst in WB cache", which means nothing
+        // to me. I'm guessing it was some kind of prefetching, but I'm
+        // not sure. I'm leaving it out for now.
       }
       // @@FastInit:
       v15 = v << 16;
@@ -362,7 +357,7 @@ Filler_Texture		ENDP
     if (diffY == 0)
     {
       break;
-      }
+    }
 
     Fill_CurOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
