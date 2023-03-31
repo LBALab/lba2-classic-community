@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-extern S32 CalcGraphMsk(S32 numbrick, void *bankbrick, void *ptmask);
+extern S32 CalcGraphMsk(S32 numbrick, U8 *bankbrick, U8 *ptmask);
 
 // =============================================================================
 #ifdef __cplusplus
