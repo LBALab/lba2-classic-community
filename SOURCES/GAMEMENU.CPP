@@ -341,6 +341,13 @@ S32 PlayerGameList(char **ptrlistname, char *listname, S32 flagnew) {
           // extension que .LBA ce qui éviterait ce test !
           if ((ade_strcasestr(pathname, AUTOSAVE_FILENAME) == NULL)
               AND ade_strcasestr(pathname, CURRENTSAVE_FILENAME) == NULL) {
+
+            // BUG WORKAROUND!
+            // Take the path again because, for some reason, on Wine the call to
+            //   stat() changes the disk letter on the path
+            //   passed (even parameter being a constant). Possibly a Bug on
+            //   WINE or/and MinGW libraries used.
+            GetSavePath(pathname, ADELINE_MAX_PATH, file->d_name);
             handle = OpenRead(pathname);
             if (handle) {
               Read(handle, &wbyte, 1);             // num version
