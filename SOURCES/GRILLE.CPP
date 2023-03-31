@@ -1700,10 +1700,82 @@ U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
 }
 
 //-------------------------------------------------------------------
-void	DecompColonne( U8 *pts, U8 *ptd  )
+void DecompColonne( U8 *pts, U8 *ptd  )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  U8 *dstData; // edi@1
+  U8 count; // ecx@1
+  U8 nbEntity; // bl@1
+  U8 *srcData; // esi@1
+
+  dstData = ptd;
+  count = 0;
+  srcData = pts;
+	// Get Nb Entity
+  nbEntity = *srcData;
+	srcData++;
+
+	// For Every Entity
+  do
+  {
+		// NewEntity:
+    while ( 1 )
+    {
+			U8 opCode = 0;
+      while ( 1 )
+      {
+        opCode = *srcData++;
+        count = (opCode & 0x3F) + 1;
+				// Incrust?
+        if (opCode & 0xC0)
+				{
+          break;
+				}
+				// Incrust ( Full off Nothing )
+        opCode = 0;
+        while (count)
+        {
+          dstData[0] = 0;
+          dstData[1] = 0;
+          dstData += 2;
+          --count;
+        }
+				--nbEntity;
+        if (!nbEntity)
+				{
+          return;
+				}
+      }
+			// Diff brick ?
+      if ( opCode & 0x40 )
+			{
+        break;
+			}
+      U8 numBlock = srcData[0];
+			U8 posBlock = srcData[1];
+      srcData += 2;
+      while ( count )
+      {
+        dstData[0] = numBlock;
+				dstData[1] = posBlock;
+				dstData += 2;
+        --count;
+      }
+      if ( !--nbEntity )
+			{
+        return;
+			}
+    }
+    while ( count )
+    {
+			dstData[0] = srcData[0];
+			dstData[1] = srcData[1];
+      srcData += 2;
+			dstData += 2;
+      --count;
+    }
+    --nbEntity;
+  }
+  while ( nbEntity );
 }
 
 //-------------------------------------------------------------------
