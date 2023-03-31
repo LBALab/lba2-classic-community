@@ -1,11 +1,12 @@
 //──────────────────────────────────────────────────────────────────────────
-#include <SYSTEM/FILES.H>
 #include <SYSTEM/LOADSAVE.H>
+
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/FILES.H>
+#include <SYSTEM/LOGPRINT.H>
 
 #include <stdlib.h>
 #include <limits.h>
-
-#include <SYSTEM/ADELINE.H>
 
 //──────────────────────────────────────────────────────────────────────────
 U32	Load( char *name, void *buffer )
@@ -72,6 +73,11 @@ U32	Save( char *name, void *buffer, U32 size )
 		written = Write( handle, buffer, size )	;
 		Close( handle )				;
 	}
+	else
+	{
+		LogPrintf("Warning: Unable to save game to file '%s'\n", name);
+	}
+
 	return( written == size )	;
 }
 
