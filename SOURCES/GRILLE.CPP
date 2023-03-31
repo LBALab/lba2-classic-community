@@ -1781,8 +1781,8 @@ void DecompColonne( U8 *pts, U8 *ptd  )
 //-------------------------------------------------------------------
 void	Map2Screen( S32 x, S32 y, S32 z )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  XScreen = 24 * (x - z) + 288;
+  YScreen = 12 * (z + x) - 15 * y + 226;
 }
 
 //-------------------------------------------------------------------
