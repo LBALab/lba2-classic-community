@@ -46,7 +46,7 @@ extern "C" {
 #ifdef _WIN32 // Portability - mkdir has different includes and signature
 #define ADELINE_MKDIR(path) _mkdir(path)
 #else // _WIN32
-#define ADELINE_MKDIR(path) mkdir(path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+#define ADELINE_MKDIR(path) mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH)
 #endif // _WIN32
 
 // =============================================================================

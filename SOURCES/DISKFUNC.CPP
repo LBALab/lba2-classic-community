@@ -1,7 +1,9 @@
 #include	"C_EXTERN.H"
+#include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
-#include "DIRECTORIES.H"
+
+#include <errno.h>
 
 U8	*PtrSce ;
 U8	*PtrScene ;
@@ -354,11 +356,24 @@ S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
 /*──────────────────────────────────────────────────────────────────────────*/
 
 U8 AddDirIfNot( const char *path ) {
+  if (ExistsFileOrDir(path)) {
+    return IsDirectory(path);
+  }
+
   char *copypath = strdup(path);
+
+  { // If path ends in separator, remove it
+    size_t copyLen = strlen(copypath);
+    if ((copyLen > 0) && (copypath[copyLen - 1] == ADELINE_PATH_SEP_CHAR)) {
+      copypath[copyLen - 1] = '\0';
+    }
+  }
+
   int status = 0;
   char *pp = copypath;
   char *sp;
-  while (status == 0 && (sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != 0) {
+  while ((status == 0 || errno == EEXIST) &&
+         ((sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != NULL)) {
     if (sp != pp) {
       *sp = '\0';
       status = ADELINE_MKDIR(copypath);
@@ -382,13 +397,19 @@ void	CreateLbaDirectories( void )
 {
 	char tmpDirPath[ADELINE_MAX_PATH];
 
-	GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	AddDirIfNot( tmpDirPath ) ;
-
 #ifndef	DEMO
 	GetVoicePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
 	AddDirIfNot( tmpDirPath ) ;
 #endif
+
+	GetSavePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
+
+	GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
+
+	GetLogPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/

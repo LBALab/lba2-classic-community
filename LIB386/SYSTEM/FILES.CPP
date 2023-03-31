@@ -103,6 +103,13 @@ bool ExistsFileOrDir(const char* path) {
   return (stat(path, &status) == 0);
 }
 
+bool IsDirectory(const char* path) {
+  assert(path != NULL);
+
+  struct stat status = {};
+  return ((stat(path, &status) == 0) && ((status.st_mode & S_IFMT) == S_IFDIR));
+}
+
 // =============================================================================
 #ifdef __cplusplus
 }
