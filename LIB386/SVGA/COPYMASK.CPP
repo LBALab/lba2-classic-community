@@ -1,60 +1,22 @@
 /*
-;----------------------------------------------------------------------------
-			.386p
-			.model SMALL, C
+    DWORD	TabOffset[]
+      Brick:
+          - BYTE Delta X
+          - BYTE Delta Y
+        Line(Delta Y):
+        - BYTE NbBlock
+           Block 0:	Nb Zero to Jump
+           Block 1:	Nb Zero to Write
+           Block 2:	Nb Zero to Jump
+          etc...
+*/
 
-STRUC_MASK		STRUC
-  Mask_DeltaX		db	0
-  Mask_DeltaY		db	0
-  Mask_HotX		db	0
-  Mask_HotY		db	0
-STRUC_MASK		ENDS
+#include <SVGA/COPYMASK.H>
+#include <stdio.h>
 
-
-
-
-
-;----------------------------------------------------------------------------
-comment @
-		DWORD	TabOffset[]
-			Brick:
-			    - BYTE Delta X
-			    - BYTE Delta Y
-				Line(Delta Y):
-				- BYTE NbBlock
-				   Block 0:	Nb Zero to Jump
-				   Block 1:	Nb Zero to Write
-				   Block 2:	Nb Zero to Jump
-					etc...
-@
-
-;----------------------------------------------------------------------------
-			.DATA
-
-;----------------------------------------------------------------------------
-			EXTRN   C      ClipXMin        :DWORD
-			EXTRN   C      ClipYMin        :DWORD
-			EXTRN   C      ClipXMax        :DWORD
-			EXTRN   C      ClipYMax        :DWORD
-			EXTRN   C      Log             :DWORD
-			EXTRN   C      TabOffLine      :DWORD
-
-			ASSUME DS:SEG TabOffLine
-
-
-;----------------------------------------------------------------------------
-			OffsetBegin	dd	0
-			NbPix		dd	0
-
-;----------------------------------------------------------------------------
-			.CODE
-
-;----------------------------------------------------------------------------
-			PUBLIC  C      CopyMask
-
-;----------------------------------------------------------------------------
-;S32	CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src)	;
-
+S32 CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src)
+{
+  /*
 ;#pragma aux CopyMask	"*"			\
 ;	parm	[eax] [ebx] [ecx] [esi] [edx]	\
 ;	modify	[edi]
@@ -335,18 +297,8 @@ aplus:			; ligne finie
 EndMask:		ret
 
 CopyMask		endp
-
-;----------------------------------------------------------------------------
-;				The
-				End
-*/
-
-#include <SVGA/COPYMASK.H>
-#include <stdio.h>
-
-S32 CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src)
-{
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
 }
