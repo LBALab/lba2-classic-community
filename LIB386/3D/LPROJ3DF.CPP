@@ -1,54 +1,10 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
+#include <3D/LPROJ.H>
+#include <3D/CAMERA.H>
+#include <stdio.h>
 
-		.386p
-
-		.model SMALL, C
-
-		include	MAT.INC
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.DATA
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		extrn	C CameraX:DWORD
-		extrn	C CameraY:DWORD
-		extrn	C CameraZ:DWORD
-
-		extrn	C CameraXr:DWORD
-		extrn	C CameraYr:DWORD
-		extrn	C CameraZr:DWORD
-
-		extrn	C CameraZrClip:DWORD
-
-		extrn	C FRatioX:DWORD
-		extrn	C FRatioY:DWORD
-
-		extrn	C XCentre:DWORD
-		extrn	C YCentre:DWORD
-
-		extrn	C Xp:DWORD
-		extrn	C Yp:DWORD
-
-		public	C	LongProjectPoint3D
-		public	C	LongProjectPoint
-
-		LongProjectPoint3D	dd	offset LongProjectPoint3DF
-		LongProjectPoint	dd	offset LongProjectPoint3DF
-
-		ASSUME  DS:SEG CameraX
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		.CODE
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-		public	C	LongProjectPoint3DF
-
-;*══════════════════════════════════════════════════════════════════════════*
+S32 LongProjectPoint3D(S32 x, S32 y, S32 z)
+{
+  /*
 ;void	LongProjectPoint3DF(S32 x, S32 y, S32 z)		;
 
 ;#pragma aux LongProjectPoint3DF		\
@@ -57,88 +13,91 @@
 
 LongProjectPoint3DF proc
 
-		cmp	ecx, [CameraZrClip]	; -Z
-		jg	error
+    cmp	ecx, [CameraZrClip]	; -Z
+    jg	error
 
-		mov	edx, [CameraZr]
+    mov	edx, [CameraZr]
 
-		sub	edx, ecx
+    sub	edx, ecx
 
-		push	 edx			; Z
+    push	 edx			; Z
 
-		fild	dword ptr[esp]		; Z
+    fild	dword ptr[esp]		; Z
 
-		; PENALTY 2 cycle on Pentium
+    ; PENALTY 2 cycle on Pentium
 
-		fdivr	[FRatioX]		; fx/Z
+    fdivr	[FRatioX]		; fx/Z
 
-		sub	eax, [CameraXr]
-		sub	ebx, [CameraYr]
+    sub	eax, [CameraXr]
+    sub	ebx, [CameraYr]
 
-		mov	[esp], eax
-		push	ebx
+    mov	[esp], eax
+    push	ebx
 
-		mov	ecx, [XCentre]
-		mov	edx, [YCentre]
+    mov	ecx, [XCentre]
+    mov	edx, [YCentre]
 
-		fild	dword ptr[esp]		; Y   fx/Z
+    fild	dword ptr[esp]		; Y   fx/Z
 
-		fild	dword ptr[esp+4]	; X   Y   fx/Z
+    fild	dword ptr[esp+4]	; X   Y   fx/Z
 
-		fxch	st(2)			; fx/Z Y    X
+    fxch	st(2)			; fx/Z Y    X
 
-		fmul	st(1),st		; fx/Z Y'   X
+    fmul	st(1),st		; fx/Z Y'   X
 
-		; PENALTY 1 cycle on Pentium
+    ; PENALTY 1 cycle on Pentium
 
-		fmulp	st(2),st		; Y'   Xe
+    fmulp	st(2),st		; Y'   Xe
 
-		; PENALTY 1 cycle on Pentium
+    ; PENALTY 1 cycle on Pentium
 
-		fmul	[FRatioY]		; Ye   Xe
-		fxch	st(1)			; Xe   Ye
+    fmul	[FRatioY]		; Ye   Xe
+    fxch	st(1)			; Xe   Ye
 
-		fistp	dword ptr[esp+4]	; Ye
+    fistp	dword ptr[esp+4]	; Ye
 
-		fistp	dword ptr[esp]
+    fistp	dword ptr[esp]
 
-		pop	ebx
-		pop	eax
+    pop	ebx
+    pop	eax
 
-		add	eax, ecx
-		add	ebx, edx
+    add	eax, ecx
+    add	ebx, edx
 
-		mov	[Xp], eax
-		mov	[Yp], ebx
+    mov	[Xp], eax
+    mov	[Yp], ebx
 
-		mov	eax, 1
+    mov	eax, 1
 
-		ret
+    ret
 
 error:          mov	ebx, 80000000h
-		xor	eax, eax
+    xor	eax, eax
 
-		mov	[Xp], ebx
-		mov	[Yp], ebx
+    mov	[Xp], ebx
+    mov	[Yp], ebx
 
-		ret
+    ret
 
 LongProjectPoint3DF endp
+  */
 
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
+  signed int result; // eax@2
 
+  if (z > CameraZrClip)
+  {
+    result = 0;
+    Xp = 2147483648;
+    Yp = 2147483648;
+  }
+  else
+  {
+    Xp = XCentre + (signed int)((long double)(x - CameraXr) * (FRatioX / (long double)(CameraZr - z)));
+    Yp = YCentre + y - CameraYr;
+    result = 1;
+  }
 
-#include <3D/LPROJ.H>
-#include <stdio.h>
-
-S32 LongProjectPoint3D(S32 x, S32 y, S32 z)
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  return result;
 }
 
 Func_LongProjectPoint *LongProjectPoint = LongProjectPoint3D;
