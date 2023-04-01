@@ -84,7 +84,7 @@ LongProjectPointIso endp
 	z -= CameraZ;
 	int tmpx = x;
 	x = x - z;
-	z = z + x;
+	z = z + tmpx;
 
 	int tmpy = y;
 	z = z * 2;
