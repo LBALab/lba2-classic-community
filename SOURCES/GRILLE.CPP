@@ -1802,6 +1802,6 @@ GetAdrBlock	proc	,\
 GetAdrBlock	endp
 	*/
  U32 *pto = (U32 *)TabBlock;
- U32 *adr = pto + pto[numblock];
- return (U8 *)adr;
+ U8 *adr = (U8 *)pto + pto[numblock];
+ return adr;
 }
