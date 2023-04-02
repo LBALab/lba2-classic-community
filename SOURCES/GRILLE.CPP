@@ -1702,16 +1702,12 @@ U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
 //-------------------------------------------------------------------
 void DecompColonne( U8 *pts, U8 *ptd  )
 {
-  U8 *dstData; // edi@1
-  U8 count; // ecx@1
-  U8 nbEntity; // bl@1
-  U8 *srcData; // esi@1
+  U8 *dstData = ptd;
+  U8 count = 0;
+  U8 *srcData = pts;
 
-  dstData = ptd;
-  count = 0;
-  srcData = pts;
 	// Get Nb Entity
-  nbEntity = *srcData;
+  U8 nbEntity = *srcData;
 	srcData++;
 
 	// For Every Entity
