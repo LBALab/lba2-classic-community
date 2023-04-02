@@ -13,6 +13,7 @@
 
 #include <SVGA/COPYMASK.H>
 
+#include <string.h>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 
@@ -332,29 +333,29 @@ CopyMask		endp
   int v24; // edi@20
   int v25; // eax@20
   int v26; // edi@27
-  char *v27; // edi@29
-  int v28; // esi@29
-  char *v29; // ebp@29
+  U8 *v27; // edi@29
+  U8 *v28; // esi@29
+  U8 *v29; // ebp@29
   int v30; // edi@29
-  int v31; // esi@29
-  int v32; // edi@29
+  U8 *v31; // esi@29
+  U8 *v32; // edi@29
   int v33; // edx@29
   unsigned __int8 v34; // bl@30
-  char *v35; // ebp@30
+  U8 *v35; // ebp@30
   unsigned __int8 v36; // bh@30
   unsigned int v37; // ecx@30
   unsigned __int8 v38; // ah@30
-  char *v39; // edi@30
-  char *v40; // esi@30
+  U8 *v39; // edi@30
+  U8 *v40; // esi@30
   unsigned __int8 v41; // al@31
   bool v42; // cf@31
   unsigned __int8 v43; // ah@31
   unsigned __int8 v44; // al@34
   bool v45; // cf@34
   U8 *v47; // [sp-1Ch] [bp-20h]@8
-  int v48; // [sp-1Ch] [bp-20h]@30
+  U8 *v48; // [sp-1Ch] [bp-20h]@30
   int v49; // [sp-18h] [bp-1Ch]@8
-  int v50; // [sp-18h] [bp-1Ch]@30
+  U8 *v50; // [sp-18h] [bp-1Ch]@30
 
   v1 = x;
   v2 = y;
@@ -373,134 +374,185 @@ CopyMask		endp
   v11 = v5 + v8 - 1;
   if ( v7 < ClipXMin || v8 < ClipYMin || v10 > ClipXMax || v11 > ClipYMax )
   {
-    if ( v7 <= ClipXMax && v8 <= ClipYMax && v10 >= ClipXMin && v11 >= ClipYMin )
+		// ClippingMask:
+    if ( v7 > ClipXMax || v8 > ClipYMax || v10 < ClipXMin || v11 < ClipYMin )
     {
-      if ( v8 < ClipYMin )
-      {
-        v23 = -(v8 - ClipYMin);
-        v24 = v11;
-        v25 = 0;
-        do
-        {
-          LOBYTE(v25) = *v9;
-          v9 += v25 + 1;
-          --v23;
-        }
-        while ( v23 );
-        v8 = ClipYMin;
-        v11 = v24;
-      }
-      if ( v11 > ClipYMax )
-        v11 = ClipYMax;
-      OffsetBegin = 0;
-      if ( v7 < ClipXMin )
-        OffsetBegin = ClipXMin - v7;
-      v26 = v10 - v7 - OffsetBegin + 1;
-      if ( v10 > ClipXMax )
-        v26 -= v10 - ClipXMax;
-      NbPix = v26;
-      v27 = v9;
-      v28 = v4;
-      v29 = v27;
-      v30 = v7 + TabOffLine[v8];
-      v31 = v30 + v28;
-      v32 = Log + v30;
-      v33 = v11 - v8 + 1;
-      do
-      {
-        v50 = v31;
-        v48 = v32;
-        v34 = *v29;
-        v35 = v29 + 1;
-        v36 = NbPix;
-        v37 = OffsetBegin;
-        v38 = OffsetBegin;
-        v39 = (char *)(OffsetBegin + v32);
-        v40 = (char *)(OffsetBegin + v31);
-        while ( 1 )
-        {
-          v41 = *v35++;
-          --v34;
-          v42 = v38 < v41;
-          v43 = v38 - v41;
-          if ( !v43 )
-            goto LABEL_47;
-          if ( v42 )
-          {
-            LOBYTE(v37) = -v43;
-            v36 = NbPix + v43;
-            if ( (char)NbPix >= (char)-v43 && (_BYTE)NbPix + v43 != 0 )
-            {
-              v39 += v37;
-              v40 += v37;
-              goto LABEL_47;
-            }
-            goto LABEL_50;
-          }
-          if ( !v34 )
-            goto LABEL_50;
-          v44 = *v35++;
-          --v34;
-          v45 = v43 < v44;
-          v38 = v43 - v44;
-          if ( !v38 )
-            goto LABEL_44;
-          if ( v45 )
-            break;
-          if ( !v34 )
-            goto LABEL_50;
-        }
-        LOBYTE(v37) = -v38;
-        v36 = NbPix + v38;
-        if ( (unsigned __int8)NbPix < (unsigned __int8)-v38 )
-          goto LABEL_54;
-        qmemcpy(v39, v40, v37);
-        v40 += v37;
-        v39 += v37;
-        v37 = 0;
-        if ( !v36 )
-          goto LABEL_50;
-LABEL_44:
-        while ( 2 )
-        {
-          LOBYTE(v37) = *v35++;
-          if ( !--v34 )
-            break;
-          v22 = __OFSUB__(v36, (_BYTE)v37);
-          v36 -= v37;
-          if ( (unsigned __int8)(((v36 & 0x80u) != 0) ^ v22) | (v36 == 0) )
-            break;
-          v39 += v37;
-          v40 += v37;
-LABEL_47:
-          LOBYTE(v37) = *v35++;
-          --v34;
-          v42 = v36 < (unsigned __int8)v37;
-          v36 -= v37;
-          if ( v42 )
-          {
+			return;
+		}
+
+		if ( v8 < ClipYMin )
+		{
+			// Clipping top
+			v23 = ClipYMin - v8;
+			v24 = v11;
+			v25 = 0;
+			do
+			{
+				// NextH:
+				v25 = *v9;
+				v9 += v25 + 1;
+				--v23;
+			}
+			while ( v23 );
+			v8 = ClipYMin;
+			v11 = v24;
+		}
+		// Clipping bottom
+		// PasHaut:
+		if ( v11 > ClipYMax )
+		{
+			v11 = ClipYMax;
+		}
+		// Clipping left
+		// PasBas:
+		S32 OffsetBegin = 0;
+		if ( v7 < ClipXMin )
+		{
+			OffsetBegin = ClipXMin - v7;
+		}
+		// Clipping right
+		// PasGauche:
+		v26 = v10 - v7 - OffsetBegin + 1;
+		if ( v10 > ClipXMax )
+		{
+			v26 -= v10 - ClipXMax;
+		}
+		// PasDroit:
+		U32 NbPix = v26;
+		v27 = v9;
+		v28 = v4;
+		v29 = v27;
+		v30 = v7 + TabOffLine[v8];
+		v31 = v30 + v28;
+		v32 = (U8 *)Log + v30;
+		v33 = v11 - v8 + 1;
+		do
+		{
+			// l1:
+			v50 = v31;
+			v48 = v32;
+			v34 = *v29; // nb blocks
+			v35 = v29 + 1;
+			v36 = NbPix; // nb points to copy
+			v37 = OffsetBegin; // start x
+			v38 = OffsetBegin; // nb pix count
+			v39 = v32 + OffsetBegin; // new pos screen
+			v40 = v31 + OffsetBegin;
+			while ( 1 )
+			{
+				// l0:
+				v41 = *v35; // nb pix to jump
+				v35++;
+				--v34;
+				v42 = v38 < v41;
+				v43 = v38 - v41;
+				if ( v43 == 0 )
+				{
+					// falls flat
+					goto LABEL_OKDRAW;
+				}
+
+				if (v42)
+				{
+					// rptj:
+					v43 = v43;
+					v37 = v43; // nb pix to jump
+					U8 something = v36 <= v43;
+					v36 -= v43; // remains to write
+					if (something)
+					{
+						v39 += v37;
+						v40 += v37;
+						goto LABEL_OKDRAW;
+					}
+					goto LABEL_APLUS;
+				}
+				if (v34 == 0)
+				{
+					goto LABEL_APLUS;
+				}
+
+				v44 = *v35; // nb copy point
+				v35++;
+				--v34;
+				v45 = v43 < v44;
+				v38 = v43 - v44;
+				if (v38 == 0)
+				{
+					goto LABEL_OKJUMP;
+				}
+				if (v45)
+				{
+					break;
+				}
+				if (v34 == 0)
+				{
+					goto LABEL_APLUS;
+				}
+			}
+			// rgtc:
+			v38 = -v38; // nb pix to copy
+			v37 = v38;
+			U8 something = v36 < v38;
+			v36 -= v38;
+			if ( something )
+			{
+				goto LABEL_54;
+			}
+			memcpy(v39, v40, v37);
+			v40 += v37;
+			v39 += v37;
+			v37 = 0;
+			if ( !v36 )
+			{
+				goto LABEL_APLUS;
+			}
+LABEL_OKJUMP:
+			while ( 2 )
+			{
+				LOBYTE(v37) = *v35++;
+				if ( !--v34 )
+				{
+					break;
+				}
+				v22 = __OFSUB__(v36, (_BYTE)v37);
+				v36 -= v37;
+				if ( (unsigned __int8)(((v36 & 0x80u) != 0) ^ v22) | (v36 == 0) )
+				{
+					break;
+				}
+				v39 += v37;
+				v40 += v37;
+LABEL_OKDRAW:
+				LOBYTE(v37) = *v35++;
+				--v34;
+				v42 = v36 < (unsigned __int8)v37;
+				v36 -= v37;
+				if ( v42 )
+				{
 LABEL_54:
-            LOBYTE(v37) = v36 + v37;
-            qmemcpy(v39, v40, v37);
-            break;
-          }
-          qmemcpy(v39, v40, v37);
-          v40 += v37;
-          v39 += v37;
-          v37 = 0;
-          if ( v36 && v34 )
-            continue;
-          break;
-        }
-LABEL_50:
-        LOBYTE(v11) = v34;
-        v32 = dword_EE664 + v48;
-        v29 = &v35[v34];
-        v31 = dword_EE664 + v50;
-        LOBYTE(v33) = v33 - 1;
-      }
-      while ( (_BYTE)v33 );
-    }
+					LOBYTE(v37) = v36 + v37;
+					qmemcpy(v39, v40, v37);
+					break;
+				}
+				qmemcpy(v39, v40, v37);
+				v40 += v37;
+				v39 += v37;
+				v37 = 0;
+				if ( v36 && v34 )
+				{
+					continue;
+				}
+				break;
+			}
+LABEL_APLUS:
+			LOBYTE(v11) = v34;
+			v32 = dword_EE664 + v48;
+			v29 = &v35[v34];
+			v31 = dword_EE664 + v50;
+			LOBYTE(v33) = v33 - 1;
+		}
+		while ( (_BYTE)v33 );
   }
   else
   {
