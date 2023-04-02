@@ -308,7 +308,10 @@ EndMask:		ret
 
 CopyMask		endp
   */
-  int v1; // ebx@1
+  // TODO: revisit and clean this up when characters are rendered
+	// This function is supposed (I think) to make items in indoor levels to
+	// be drawn on top of the character.
+	int v1; // ebx@1
   int v2; // ecx@1
   Struc_Mask_Header *v3; // esi@1
   U8 *v4; // ebp@1
@@ -356,6 +359,10 @@ CopyMask		endp
   U8 *v48; // [sp-1Ch] [bp-20h]@30
   int v49; // [sp-18h] [bp-1Ch]@8
   U8 *v50; // [sp-18h] [bp-1Ch]@30
+
+	U8 something1 = 0;
+	U8 something2 = 0;
+	U32 screenWidth = TabOffLine[1];
 
   v1 = x;
   v2 = y;
@@ -457,9 +464,9 @@ CopyMask		endp
 					// rptj:
 					v43 = v43;
 					v37 = v43; // nb pix to jump
-					U8 something = v36 <= v43;
+					something1 = v36 <= v43;
 					v36 -= v43; // remains to write
-					if (something)
+					if (something1)
 					{
 						v39 += v37;
 						v40 += v37;
@@ -493,66 +500,71 @@ CopyMask		endp
 			// rgtc:
 			v38 = -v38; // nb pix to copy
 			v37 = v38;
-			U8 something = v36 < v38;
+			something2 = v36 < v38;
 			v36 -= v38;
-			if ( something )
+			if (something2)
 			{
-				goto LABEL_54;
+				// don't copy everything
+				goto LABEL_CPT;
 			}
 			memcpy(v39, v40, v37);
 			v40 += v37;
 			v39 += v37;
 			v37 = 0;
-			if ( !v36 )
+			if (v36 == 0)
 			{
 				goto LABEL_APLUS;
 			}
 LABEL_OKJUMP:
 			while ( 2 )
 			{
-				LOBYTE(v37) = *v35++;
-				if ( !--v34 )
+				v37 = *v35; // nb pix to jump
+				v35++;
+				--v34;
+				if (v34 == 0)
 				{
 					break;
 				}
-				v22 = __OFSUB__(v36, (_BYTE)v37);
+				v22 = v36 <= v37;
 				v36 -= v37;
-				if ( (unsigned __int8)(((v36 & 0x80u) != 0) ^ v22) | (v36 == 0) )
+				if (v22)
 				{
 					break;
 				}
 				v39 += v37;
 				v40 += v37;
 LABEL_OKDRAW:
-				LOBYTE(v37) = *v35++;
+				v37 = *v35; // nb pix to copy
+				v35++;
 				--v34;
-				v42 = v36 < (unsigned __int8)v37;
+				v42 = v36 < v37;
 				v36 -= v37;
-				if ( v42 )
+				if (v42)
 				{
-LABEL_54:
-					LOBYTE(v37) = v36 + v37;
-					qmemcpy(v39, v40, v37);
+LABEL_CPT:
+					v37 += v36;
+					memcpy(v39, v40, v37);
+					// No need to advance v39 and v40
 					break;
 				}
-				qmemcpy(v39, v40, v37);
+				memcpy(v39, v40, v37);
 				v40 += v37;
 				v39 += v37;
 				v37 = 0;
-				if ( v36 && v34 )
+				if (v36 != 0 && v34)
 				{
 					continue;
 				}
 				break;
 			}
 LABEL_APLUS:
-			LOBYTE(v11) = v34;
-			v32 = dword_EE664 + v48;
+			v11 = v34;
+			v32 = screenWidth + v48;
 			v29 = &v35[v34];
-			v31 = dword_EE664 + v50;
-			LOBYTE(v33) = v33 - 1;
+			v31 = screenWidth + v50;
+			v33--;
 		}
-		while ( (_BYTE)v33 );
+		while (v33);
   }
   else
   {
@@ -562,7 +574,6 @@ LABEL_APLUS:
     v14 = (U8 *)Log + v13;
     v15 = (U8 *)v4 + v13;
     v16 = v11 - v8 + 1; // NbLine (deltaY)
-		U32 screenWidth = TabOffLine[1];
     v17 = screenWidth - v12;
     v18 = 0; // counter
     v11 = 0;
