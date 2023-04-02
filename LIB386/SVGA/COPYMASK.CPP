@@ -12,9 +12,18 @@
 */
 
 #include <SVGA/COPYMASK.H>
-#include <stdio.h>
 
-S32 CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src)
+#include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
+
+typedef struct {
+	U8 DeltaX;
+	U8 DeltaY;
+	U8 HotX;
+	U8 HotY;
+} Struc_Mask_Header;
+
+void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 {
   /*
 ;#pragma aux CopyMask	"*"			\
@@ -298,7 +307,263 @@ EndMask:		ret
 
 CopyMask		endp
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  int v1; // ebx@1
+  int v2; // ecx@1
+  Struc_Mask_Header *v3; // esi@1
+  U8 *v4; // ebp@1
+  int v5; // eax@1
+  int v6; // edx@1
+  int v7; // ebx@1
+  int v8; // ecx@1
+  U8 *v9; // esi@1
+  int v10; // edx@1
+  int v11; // eax@1
+  int v12; // edx@5
+  int v13; // ebx@5
+  U8 *v14; // edi@5
+  U8 *v15; // ebp@5
+  char v16; // bh@5
+  int v17; // edx@5
+  int v18; // ecx@5
+  char v19; // bl@6
+  char v21; // al@9
+  unsigned __int8 v22; // of@9
+  int v23; // ecx@20
+  int v24; // edi@20
+  int v25; // eax@20
+  int v26; // edi@27
+  char *v27; // edi@29
+  int v28; // esi@29
+  char *v29; // ebp@29
+  int v30; // edi@29
+  int v31; // esi@29
+  int v32; // edi@29
+  int v33; // edx@29
+  unsigned __int8 v34; // bl@30
+  char *v35; // ebp@30
+  unsigned __int8 v36; // bh@30
+  unsigned int v37; // ecx@30
+  unsigned __int8 v38; // ah@30
+  char *v39; // edi@30
+  char *v40; // esi@30
+  unsigned __int8 v41; // al@31
+  bool v42; // cf@31
+  unsigned __int8 v43; // ah@31
+  unsigned __int8 v44; // al@34
+  bool v45; // cf@34
+  U8 *v47; // [sp-1Ch] [bp-20h]@8
+  int v48; // [sp-1Ch] [bp-20h]@30
+  int v49; // [sp-18h] [bp-1Ch]@8
+  int v50; // [sp-18h] [bp-1Ch]@30
+
+  v1 = x;
+  v2 = y;
+  v3 = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
+  v4 = (U8 *)src;
+  v5 = v3->HotX;
+  v6 = v3->HotY;
+  v7 = v5 + v1;
+  v8 = v6 + v2;
+  v6 = v3->DeltaX;
+  v5 = v3->DeltaY;
+  v9 = (U8 *)v3 + sizeof(Struc_Mask_Header); // Skip header
+
+	// Test Clipping
+  v10 = v6 + v7 - 1;
+  v11 = v5 + v8 - 1;
+  if ( v7 < ClipXMin || v8 < ClipYMin || v10 > ClipXMax || v11 > ClipYMax )
+  {
+    if ( v7 <= ClipXMax && v8 <= ClipYMax && v10 >= ClipXMin && v11 >= ClipYMin )
+    {
+      if ( v8 < ClipYMin )
+      {
+        v23 = -(v8 - ClipYMin);
+        v24 = v11;
+        v25 = 0;
+        do
+        {
+          LOBYTE(v25) = *v9;
+          v9 += v25 + 1;
+          --v23;
+        }
+        while ( v23 );
+        v8 = ClipYMin;
+        v11 = v24;
+      }
+      if ( v11 > ClipYMax )
+        v11 = ClipYMax;
+      OffsetBegin = 0;
+      if ( v7 < ClipXMin )
+        OffsetBegin = ClipXMin - v7;
+      v26 = v10 - v7 - OffsetBegin + 1;
+      if ( v10 > ClipXMax )
+        v26 -= v10 - ClipXMax;
+      NbPix = v26;
+      v27 = v9;
+      v28 = v4;
+      v29 = v27;
+      v30 = v7 + TabOffLine[v8];
+      v31 = v30 + v28;
+      v32 = Log + v30;
+      v33 = v11 - v8 + 1;
+      do
+      {
+        v50 = v31;
+        v48 = v32;
+        v34 = *v29;
+        v35 = v29 + 1;
+        v36 = NbPix;
+        v37 = OffsetBegin;
+        v38 = OffsetBegin;
+        v39 = (char *)(OffsetBegin + v32);
+        v40 = (char *)(OffsetBegin + v31);
+        while ( 1 )
+        {
+          v41 = *v35++;
+          --v34;
+          v42 = v38 < v41;
+          v43 = v38 - v41;
+          if ( !v43 )
+            goto LABEL_47;
+          if ( v42 )
+          {
+            LOBYTE(v37) = -v43;
+            v36 = NbPix + v43;
+            if ( (char)NbPix >= (char)-v43 && (_BYTE)NbPix + v43 != 0 )
+            {
+              v39 += v37;
+              v40 += v37;
+              goto LABEL_47;
+            }
+            goto LABEL_50;
+          }
+          if ( !v34 )
+            goto LABEL_50;
+          v44 = *v35++;
+          --v34;
+          v45 = v43 < v44;
+          v38 = v43 - v44;
+          if ( !v38 )
+            goto LABEL_44;
+          if ( v45 )
+            break;
+          if ( !v34 )
+            goto LABEL_50;
+        }
+        LOBYTE(v37) = -v38;
+        v36 = NbPix + v38;
+        if ( (unsigned __int8)NbPix < (unsigned __int8)-v38 )
+          goto LABEL_54;
+        qmemcpy(v39, v40, v37);
+        v40 += v37;
+        v39 += v37;
+        v37 = 0;
+        if ( !v36 )
+          goto LABEL_50;
+LABEL_44:
+        while ( 2 )
+        {
+          LOBYTE(v37) = *v35++;
+          if ( !--v34 )
+            break;
+          v22 = __OFSUB__(v36, (_BYTE)v37);
+          v36 -= v37;
+          if ( (unsigned __int8)(((v36 & 0x80u) != 0) ^ v22) | (v36 == 0) )
+            break;
+          v39 += v37;
+          v40 += v37;
+LABEL_47:
+          LOBYTE(v37) = *v35++;
+          --v34;
+          v42 = v36 < (unsigned __int8)v37;
+          v36 -= v37;
+          if ( v42 )
+          {
+LABEL_54:
+            LOBYTE(v37) = v36 + v37;
+            qmemcpy(v39, v40, v37);
+            break;
+          }
+          qmemcpy(v39, v40, v37);
+          v40 += v37;
+          v39 += v37;
+          v37 = 0;
+          if ( v36 && v34 )
+            continue;
+          break;
+        }
+LABEL_50:
+        LOBYTE(v11) = v34;
+        v32 = dword_EE664 + v48;
+        v29 = &v35[v34];
+        v31 = dword_EE664 + v50;
+        LOBYTE(v33) = v33 - 1;
+      }
+      while ( (_BYTE)v33 );
+    }
+  }
+  else
+  {
+		// Calculate Offset Screen
+    v12 = v10 - v7 + 1; // (deltaX)
+    v13 = TabOffLine[v8] + v7;
+    v14 = (U8 *)Log + v13;
+    v15 = (U8 *)v4 + v13;
+    v16 = v11 - v8 + 1; // NbLine (deltaY)
+		U32 screenWidth = TabOffLine[1];
+    v17 = screenWidth - v12;
+    v18 = 0; // counter
+    v11 = 0;
+    do
+    {
+			// NextLine:
+      v19 = *v9; // Nb Block for this line
+			v9++;
+      do
+      {
+				// SameLine:
+        v11 = *v9; // Nb Zero to Jump
+				v9++;
+        v14 += v11; // Incrust on Log
+        v15 += v11; // And on PtSrc
+        v19--;
+        if (!v19 == 0)
+				{
+          break;
+				}
+        v18 = *v9; // Nb Zero to Write
+				v9++;
+				// TODO: I don't know what this "cache" part is for, but I think
+				// it can be safely removed
+        v49 = v18;
+        v47 = v14;
+        do
+        {
+					// @@LoopLoadCache:
+          v21 = *v14;
+          v14 += 32;
+          v18 -= 32;
+        }
+        while (v18 > 0);
+        v14 = v47;
+        v18 = v49;
+				// TODO: remove the code above until this line?
+        do
+        {
+					// loopb:
+          *v14 = *v15;
+					v15++;
+					v14++;
+          --v18;
+        }
+        while ( v18 );
+        v19--;
+      }
+      while ( v19 );
+      v14 += v17;
+      v15 += v17;
+      --v16;
+    }
+    while ( v16 );
+  }
 }

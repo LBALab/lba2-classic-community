@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-S32 CopyMask(S32 nummask, S32 x, S32 y, void *bankmask, void *src);
+void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src);
 
 // =============================================================================
 #ifdef __cplusplus
