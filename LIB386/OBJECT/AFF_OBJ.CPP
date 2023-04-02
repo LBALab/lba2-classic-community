@@ -4541,6 +4541,7 @@ _TEXT			ENDS
 #include <3D/COPYMAT.H>
 #include <3D/LPROJ.H>
 #include <SVGA/CLIP.H>
+#include <POLYGON/POLY.H>
 
 #include <stdio.h>
 
@@ -4563,6 +4564,9 @@ TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
 
+U32 *Off_Sort = NULL; // Current offset in sort list
+U32 Nb_Sort = 0; // Nb entries in sort list
+
 T_GROUP_INFO *ListGroupAnim = NULL; // Current frame anim info
 TYPE_VT16 *PtrPoints = NULL; // Current point pointer
 TYPE_VT16 *PtrNormales = NULL; // Current normals pointer
@@ -4578,6 +4582,11 @@ Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that conve
 // Light list
 U16 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
 
+// Sort list:
+// * First half of list contain Z:Number
+// * Second half: one pointer for each number
+U32 ListSort[MAX_NB_POLYS * 2];
+
 // Object position in world space
 S32 PosXWr = 0;
 S32 PosYWr = 0;
@@ -4591,11 +4600,72 @@ S32 TransZ = 0;
 // Matrix list
 TYPE_MAT TabMat[MAX_NB_GROUPES];
 
-S32 EntityCreation()
+
+// *** Bits de flag ***
+#define MASK_QUADRILATERE (1 << 15)	// Au niveau des faces
+#define MASK_ENVIRONMENT (1 << 14)
+
+typedef struct {
+  U16 TypePoly;
+  U16 NbPoly;
+  U32 OffNextType;
+} T_POLY_HEADER;
+
+S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  // *****************
+  // *** POLYGONES ***
+  // *****************
+
+  Off_Sort = ListSort;
+  Nb_Sort = 0;
+
+  T_POLY_HEADER *endPoly = (T_POLY_HEADER *)((U8 *)body + body->OffLines);
+  T_POLY_HEADER *currentPoly = (T_POLY_HEADER *)((U8 *)body + body->OffPolys);
+
+  // @@Loop_Polys:
+  while (1)
+  {
+    if (currentPoly == endPoly)
+    {
+      break;
+    }
+
+    T_POLY_HEADER *poly = currentPoly;
+    currentPoly++;
+
+    // *** Type dispatch ***
+    if (poly->TypePoly == MASK_QUADRILATERE)
+    {
+      // Dispatch a quad
+      // TODO: @@Do_Quad
+    }
+    else if (poly->TypePoly == MASK_ENVIRONMENT)
+    {
+      // Dispatch a triangle
+      // TODO: @@Do_Triangle_Env
+    }
+    else
+    {
+      if (poly->TypePoly <= POLY_DITHER_TABLE)
+      {
+        // TODO: @@Do_Triangle_Light
+      }
+      else
+      {
+        // TODO: @@Do_Triangle_Text
+      }
+    }
+  }
+
+  // *************
+  // *** LINES ***
+  // *************
+  // @@Do_Lines:
+
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
 }
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
@@ -5228,7 +5298,7 @@ ObjectDisplay		ENDP
 		return 0;
 	}
 
-	return EntityCreation();
+	return EntityCreation(obj, lBody);
 }
 
 S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
