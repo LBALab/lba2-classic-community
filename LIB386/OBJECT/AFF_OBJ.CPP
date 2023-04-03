@@ -1,27 +1,136 @@
+#include <OBJECT/AFF_OBJ.H>
+
+#include <SVGA/SCREENXY.H>
+#include <3D/CAMERA.H>
+#include <3D/PROJ.H>
+#include <3D/ROT3D.H>
+#include <3D/LROT3D.H>
+#include <3D/ROTMAT.H>
+#include <3D/IMATTRA.H>
+#include <3D/ROTRALIS.H>
+#include <3D/LITLISTF.H>
+#include <3D/COPYMAT.H>
+#include <3D/LPROJ.H>
+#include <SVGA/CLIP.H>
+#include <POLYGON/POLY.H>
+
+#include <stdio.h>
+
+#define MAX_NB_POINTS 550
+#define MAX_NB_POLYS 550
+#define MAX_NB_GROUPES 30
+#define SIZE_MATRICE (sizeof(S16) * 15)
+
+typedef struct {
+  U16 OrgGroupe;
+  U16 OrgPoint;
+  U16 NbPts;
+  U16 NbNorm;
+} T_OBJ_GROUPE;
+
+U8 *ObjPtrMap = 0;
+T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
+TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
+
+// Ptr of the object
+T_BODY_HEADER *lBody = NULL;
+
+U32 *Off_Sort = NULL; // Current offset in sort list
+U32 Nb_Sort = 0; // Nb entries in sort list
+
+T_GROUP_INFO *ListGroupAnim = NULL; // Current frame anim info
+TYPE_VT16 *PtrPoints = NULL; // Current point pointer
+TYPE_VT16 *PtrNormales = NULL; // Current normals pointer
+TYPE_VT16 *PtrNormFaces = NULL; // Current norm-faces pointer
+TYPE_VT16 *PtrRotPoints = NULL; // Current rotated points pointer
+PTR_U16 PtrListLights = NULL; // Current lights pointer
+PTR_U16 PtrListLightsFaces = NULL; // Current light-faces pointer
+U32 NbGroupes = 0; // Nb of groups in object
+T_OBJ_GROUPE *PtrGroupes = 0; // Pointer on groups definition
+TYPE_MAT *Current_Matrix = NULL; // Pointer on current matrix
+Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that converts a body number into its address
+
+// Light list
+U16 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
+
+// Sort list:
+// * First half of list contain Z:Number
+// * Second half: one pointer for each number
+U32 ListSort[MAX_NB_POLYS * 2];
+
+// Object position in world space
+S32 PosXWr = 0;
+S32 PosYWr = 0;
+S32 PosZWr = 0;
+
+// Temporary translation components
+S32 TransX = 0;
+S32 TransY = 0;
+S32 TransZ = 0;
+
+// Matrix list
+TYPE_MAT TabMat[MAX_NB_GROUPES];
+
+// *** Types des polygones ***
+#define POLY_SOLID 0
+#define POLY_FLAT 1
+#define POLY_TRANSPARENT 2
+#define POLY_TRAME 3
+#define POLY_GOURAUD 4
+#define POLY_DITHER 5
+#define POLY_GOURAUD_TABLE 6
+#define POLY_DITHER_TABLE 7
+
+#define POLY_TEXTURE_SOLID 8
+#define POLY_TEXTURE_FLAT 9
+#define POLY_TEXTURE_GOURAUD 10
+#define POLY_TEXTURE_DITHER 11
+#define POLY_TEXTURE_SOLID_INC 12
+#define POLY_TEXTURE_FLAT_INC 13
+#define POLY_TEXTURE_GOURAUD_INC 14
+#define POLY_TEXTURE_DITHER_INC 15
+
+#define POLY_TEXTUREZ_SOLID 16
+#define POLY_TEXTUREZ_FLAT 17
+#define POLY_TEXTUREZ_GOURAUD 18
+#define POLY_TEXTUREZ_DITHER 19
+#define POLY_TEXTUREZ_SOLID_INC 20
+#define POLY_TEXTUREZ_FLAT_INC 21
+#define POLY_TEXTUREZ_GOURAUD_INC 22
+#define POLY_TEXTUREZ_DITHER_INC 23
+
+#define MAX_POLYS_TYPE 24
+#define MAX_LINES_TYPE 1
+
+// *** Bits de flag ***
+#define MASK_QUADRILATERE (1 << 15)	// Au niveau des faces
+#define MASK_ENVIRONMENT (1 << 14)
+
+typedef struct {
+  U16 TypePoly;
+  U16 NbPoly;
+  U32 OffNextType;
+} T_POLY_HEADER;
+
+typedef struct {
+  U16 Type;
+  U16 Coul;
+  U16 P1;
+  U16 P2;
+} T_OBJ_LINE;
+
+typedef struct {
+  U16 P1;
+  U16 P2;
+  U16 P3;
+  U16 HandleEnv;
+  U16 Couleur;
+  U16 Normale;
+  U16 Scale;
+	U16 nothing;
+} STRUC_POLY3_ENV;
+
 /*
-; ╔════════════════════════════════════════════════════════════════════════════╗
-; ║                                                                            ║
-; ║  AFFICHAGE D'OBJETS 3D                                                     ║
-; ║                                                                            ║
-; ║                                                                            ║
-; ║                                                                            ║
-; ╟────────────────────────────────────────────────────────────────────────────╢
-; ║  Version: Oct 1996 / Jan 1997                                              ║
-; ╚════════════════════════════════════════════════════════════════════════════╝
-
-
-; This flag must be defined if you want to bypass the standard polygon engine
-
-			.586P
-			.MMX
-			.MODEL	FLAT, C
-
-			;OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			;OPTION	LANGUAGE:C
-
-			.DATA
-
 
 ; ╔════════════════════════════════════════════════════════════════════════════╗
 ; ║                                                                            ║
@@ -4330,11 +4439,11 @@ TestVisibleI		PROC
 			add	edx,-1
 			ret
 TestVisibleI		ENDP
+*/
 
-
-
-
-
+bool TestVisible(STRUC_POLY3_ENV *poly)
+{
+  /*
 ; ╔═════════════════════════════════════════════════════════════════╗
 ; ║ TestVisible : Tests the visibility of a poly                    ║
 ; ╟─────────────────────────────────────────────────────────────────╢
@@ -4348,74 +4457,82 @@ TestVisibleI		ENDP
 ; ╚═════════════════════════════════════════════════════════════════╝
 
 TestVisibleF		PROC
-			mov	ebx,dword ptr [esi].STRUC_POLY3_ENV.Poly3_P1
-			mov	ebp,dword ptr [esi].STRUC_POLY3_ENV.Poly3_P3
+      mov	ebx,dword ptr [esi].STRUC_POLY3_ENV.Poly3_P1
+      mov	ebp,dword ptr [esi].STRUC_POLY3_ENV.Poly3_P3
 
-			mov	ecx,ebx
-			and	ebp,0FFFFh			; EBP = P3
+      mov	ecx,ebx
+      and	ebp,0FFFFh			; EBP = P3
 
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
+      shr	ecx,16				; ECX = P2
+      and	ebx,0FFFFh			; EBX = P1
 
-			mov	eax,dword ptr [Obj_ListProjectedPoints+ebp*4]
+      mov	eax,dword ptr [Obj_ListProjectedPoints+ebp*4]
 
-			cmp	eax,80008000h
-			je	@@Eject
+      cmp	eax,80008000h
+      je	@@Eject
 
-			mov	eax,dword ptr [Obj_ListProjectedPoints+ebx*4]
-			mov	edx,dword ptr [Obj_ListProjectedPoints+ecx*4]
+      mov	eax,dword ptr [Obj_ListProjectedPoints+ebx*4]
+      mov	edx,dword ptr [Obj_ListProjectedPoints+ecx*4]
 
-			cmp	eax,80008000h
-			je	@@Eject
+      cmp	eax,80008000h
+      je	@@Eject
 
-			cmp	edx,80008000h
-			je	@@Eject1
+      cmp	edx,80008000h
+      je	@@Eject1
 
 
 ;(x2-x1)*(y1-y3)-(y2-y1)*(x1-x3)
 ;   P1  *  P2   -   P3  *  P4
-							; 0   1   2   3   4   5   6   7
-	fild	[Obj_ListProjectedPoints+ebx*4+0]	; x1
-	fild	[Obj_ListProjectedPoints+ebx*4+4]	; y1  x1
-	fild	[Obj_ListProjectedPoints+ecx*4+0]	; x2  y1  x1
-	fild	[Obj_ListProjectedPoints+ebp*4+4]	; y3  x2  y1  x1
-	fild	[Obj_ListProjectedPoints+ecx*4+4]	; y2  y3  x2  y1  x1
-	fild	[Obj_ListProjectedPoints+ebp*4+0]	; x3  y2  y3  x2  y1  x1
-	fld	st(5)					; x1  x3  y2  y3  x2  y1  x1
-	fsubp	st(4),st				; x3  y2  y3  P1  y1  x1
-	fld	st(4)					; y1  x3  y2  y3  P1  y1  x1
-	fsubrp	st(3),st				; x3  y2  P2  P1  y1  x1
-	fsubp	st(5),st				; y2  P2  P1  y1  P4
-	fsubrp	st(3),st				; P2  P1  P3  P4
-	fmulp	st(1),st				; PP1 P3  P4
-	fxch	st(1)					; P3  PP1 P4
-	; *
-	fmulp	st(2),st				; PP1 PP2
-	push	eax
-	; 1
-	fsubrp	st(1),st
-	; 2+1
-	fstp	dword ptr [esp]
+              ; 0   1   2   3   4   5   6   7
+  fild	[Obj_ListProjectedPoints+ebx*4+0]	; x1
+  fild	[Obj_ListProjectedPoints+ebx*4+4]	; y1  x1
+  fild	[Obj_ListProjectedPoints+ecx*4+0]	; x2  y1  x1
+  fild	[Obj_ListProjectedPoints+ebp*4+4]	; y3  x2  y1  x1
+  fild	[Obj_ListProjectedPoints+ecx*4+4]	; y2  y3  x2  y1  x1
+  fild	[Obj_ListProjectedPoints+ebp*4+0]	; x3  y2  y3  x2  y1  x1
+  fld	st(5)					; x1  x3  y2  y3  x2  y1  x1
+  fsubp	st(4),st				; x3  y2  y3  P1  y1  x1
+  fld	st(4)					; y1  x3  y2  y3  P1  y1  x1
+  fsubrp	st(3),st				; x3  y2  P2  P1  y1  x1
+  fsubp	st(5),st				; y2  P2  P1  y1  P4
+  fsubrp	st(3),st				; P2  P1  P3  P4
+  fmulp	st(1),st				; PP1 P3  P4
+  fxch	st(1)					; P3  PP1 P4
+  ; *
+  fmulp	st(2),st				; PP1 PP2
+  push	eax
+  ; 1
+  fsubrp	st(1),st
+  ; 2+1
+  fstp	dword ptr [esp]
 
-	pop	eax
+  pop	eax
 
-	add	eax,eax
+  add	eax,eax
 
-			ret
+      ret
 @@Eject:
-			add	eax,-1			; Set Carry Flag
-			ret
+      add	eax,-1			; Set Carry Flag
+      ret
 @@Eject1:
-			add	edx,-1			; Set Carry Flag
-			ret
+      add	edx,-1			; Set Carry Flag
+      ret
 TestVisibleF		ENDP
+  */
+  TYPE_PT projectedP1 = Obj_ListProjectedPoints[poly->P1];
+  TYPE_PT projectedP2 = Obj_ListProjectedPoints[poly->P2];
+  TYPE_PT projectedP3 = Obj_ListProjectedPoints[poly->P3];
 
+  if ((projectedP1.X == 0x8000 && projectedP1.Y == 0x8000) || (projectedP2.X == 0x8000 && projectedP2.Y == 0x8000) || (projectedP3.X == 0x8000 && projectedP3.Y == 0x8000))
+  {
+    return true;
+  }
 
+  U32 value = (projectedP2.X - projectedP1.X) * (projectedP1.Y - projectedP3.Y) - (projectedP2.Y - projectedP1.Y) * (projectedP1.X - projectedP3.X);
+  return (value & 0x80000000) != 0;
+}
 
-
-
-
-
+/*
 ; ╔════════════════════════════════════════════════════════════════════════╗
 ; ║  Le Quick-Sort                                                         ║
 ; ╟────────────────────────────────────────────────────────────────────────╢
@@ -4527,126 +4644,15 @@ _TEXT			ENDS
 			End
 */
 
-#include <OBJECT/AFF_OBJ.H>
+U32 InsertQuad(U8 type, STRUC_POLY3_ENV *poly)
+{
+  if (!TestVisible(poly))
+  {
+    return 0;
+  }
 
-#include <SVGA/SCREENXY.H>
-#include <3D/CAMERA.H>
-#include <3D/PROJ.H>
-#include <3D/ROT3D.H>
-#include <3D/LROT3D.H>
-#include <3D/ROTMAT.H>
-#include <3D/IMATTRA.H>
-#include <3D/ROTRALIS.H>
-#include <3D/LITLISTF.H>
-#include <3D/COPYMAT.H>
-#include <3D/LPROJ.H>
-#include <SVGA/CLIP.H>
-#include <POLYGON/POLY.H>
-
-#include <stdio.h>
-
-#define MAX_NB_POINTS 550
-#define MAX_NB_POLYS 550
-#define MAX_NB_GROUPES 30
-#define SIZE_MATRICE (sizeof(S16) * 15)
-
-typedef struct {
-  U16 OrgGroupe;
-  U16 OrgPoint;
-  U16 NbPts;
-  U16 NbNorm;
-} T_OBJ_GROUPE;
-
-U8 *ObjPtrMap = 0;
-T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
-TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
-
-// Ptr of the object
-T_BODY_HEADER *lBody = NULL;
-
-U32 *Off_Sort = NULL; // Current offset in sort list
-U32 Nb_Sort = 0; // Nb entries in sort list
-
-T_GROUP_INFO *ListGroupAnim = NULL; // Current frame anim info
-TYPE_VT16 *PtrPoints = NULL; // Current point pointer
-TYPE_VT16 *PtrNormales = NULL; // Current normals pointer
-TYPE_VT16 *PtrNormFaces = NULL; // Current norm-faces pointer
-TYPE_VT16 *PtrRotPoints = NULL; // Current rotated points pointer
-PTR_U16 PtrListLights = NULL; // Current lights pointer
-PTR_U16 PtrListLightsFaces = NULL; // Current light-faces pointer
-U32 NbGroupes = 0; // Nb of groups in object
-T_OBJ_GROUPE *PtrGroupes = 0; // Pointer on groups definition
-TYPE_MAT *Current_Matrix = NULL; // Pointer on current matrix
-Func_TransNumPtr *TransFctBody = NULL; // Pointer to a conversion fct that converts a body number into its address
-
-// Light list
-U16 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
-
-// Sort list:
-// * First half of list contain Z:Number
-// * Second half: one pointer for each number
-U32 ListSort[MAX_NB_POLYS * 2];
-
-// Object position in world space
-S32 PosXWr = 0;
-S32 PosYWr = 0;
-S32 PosZWr = 0;
-
-// Temporary translation components
-S32 TransX = 0;
-S32 TransY = 0;
-S32 TransZ = 0;
-
-// Matrix list
-TYPE_MAT TabMat[MAX_NB_GROUPES];
-
-// *** Types des polygones ***
-#define POLY_SOLID 0
-#define POLY_FLAT 1
-#define POLY_TRANSPARENT 2
-#define POLY_TRAME 3
-#define POLY_GOURAUD 4
-#define POLY_DITHER 5
-#define POLY_GOURAUD_TABLE 6
-#define POLY_DITHER_TABLE 7
-
-#define POLY_TEXTURE_SOLID 8
-#define POLY_TEXTURE_FLAT 9
-#define POLY_TEXTURE_GOURAUD 10
-#define POLY_TEXTURE_DITHER 11
-#define POLY_TEXTURE_SOLID_INC 12
-#define POLY_TEXTURE_FLAT_INC 13
-#define POLY_TEXTURE_GOURAUD_INC 14
-#define POLY_TEXTURE_DITHER_INC 15
-
-#define POLY_TEXTUREZ_SOLID 16
-#define POLY_TEXTUREZ_FLAT 17
-#define POLY_TEXTUREZ_GOURAUD 18
-#define POLY_TEXTUREZ_DITHER 19
-#define POLY_TEXTUREZ_SOLID_INC 20
-#define POLY_TEXTUREZ_FLAT_INC 21
-#define POLY_TEXTUREZ_GOURAUD_INC 22
-#define POLY_TEXTUREZ_DITHER_INC 23
-
-#define MAX_POLYS_TYPE 24
-#define MAX_LINES_TYPE 1
-
-// *** Bits de flag ***
-#define MASK_QUADRILATERE (1 << 15)	// Au niveau des faces
-#define MASK_ENVIRONMENT (1 << 14)
-
-typedef struct {
-  U16 TypePoly;
-  U16 NbPoly;
-  U32 OffNextType;
-} T_POLY_HEADER;
-
-typedef struct {
-  U16 Type;
-  U16 Coul;
-  U16 P1;
-  U16 P2;
-} T_OBJ_LINE;
+  return 0;
+}
 
 S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 {
@@ -4662,30 +4668,47 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 
   // @@Loop_Polys:
   while (currentPoly != (T_POLY_HEADER *)lines)
-	{
+  {
     T_POLY_HEADER *poly = currentPoly;
     currentPoly++;
 
     // *** Type dispatch ***
-    if (poly->TypePoly == MASK_QUADRILATERE)
+    if (poly->TypePoly & MASK_QUADRILATERE)
     {
       // Dispatch a quad
-      // TODO: @@Do_Quad
-    }
-    else if (poly->TypePoly == MASK_ENVIRONMENT)
-    {
-      // Dispatch a triangle
-      // TODO: @@Do_Triangle_Env
-    }
-    else
-    {
-      if (poly->TypePoly <= POLY_DITHER_TABLE)
+      if (poly->TypePoly & MASK_ENVIRONMENT)
       {
-        // TODO: @@Do_Triangle_Light
+        // TODO: @@Do_Quad_Env
       }
       else
       {
-        // TODO: @@Do_Triangle_Text
+        if (poly->TypePoly <= POLY_DITHER_TABLE)
+        {
+          // TODO: @@Do_Quad_Light
+        }
+        else
+        {
+          // TODO: @@Do_Quad_Text
+        }
+      }
+    }
+    else
+    {
+      // Dispatch a triangle
+      if (poly->TypePoly & MASK_ENVIRONMENT)
+      {
+        // TODO: @@Do_Triangle_Env
+      }
+      else
+      {
+        if (poly->TypePoly <= POLY_DITHER_TABLE)
+        {
+          // TODO: @@Do_Triangle_Light
+        }
+        else
+        {
+          // TODO: @@Do_Triangle_Text
+        }
       }
     }
   }
@@ -4696,35 +4719,35 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // @@Do_Lines:
   if (lBody->NbLines != 0)
   {
-		T_OBJ_LINE *line = lines;
-		U32 offset = body->OffLines;
+    T_OBJ_LINE *line = lines;
+    U32 offset = body->OffLines;
 
-		for (int i = 0; i < body->NbLines; ++i)
-		{
-			// @@Loop_Lines:
-			T_OBJ_POINT p1 = Obj_ListRotatedPoints[line->P1];
-			T_OBJ_POINT p2 = Obj_ListRotatedPoints[line->P2];
-			S16 minZ = p1.Z;
+    for (int i = 0; i < body->NbLines; ++i)
+    {
+      // @@Loop_Lines:
+      T_OBJ_POINT p1 = Obj_ListRotatedPoints[line->P1];
+      T_OBJ_POINT p2 = Obj_ListRotatedPoints[line->P2];
+      S16 minZ = p1.Z;
 
-			if (p1.Z > p2.Z)
-			{
-				minZ = p2.Z;
-			}
+      if (p1.Z > p2.Z)
+      {
+        minZ = p2.Z;
+      }
 
-			// @@Line_Sup:
-			// | ZFar | Poly Number |
-			Off_Sort[0] = (minZ << 16) | Nb_Sort;
-			U8 polyType = line->Type;
-			polyType += MAX_POLYS_TYPE * 4; // Get correct pos for a line
-			polyType <<= 24; // Line type in bit 24-31
-			// | PolyType (8 bit) | Poly Offset (24 bit) |
-			Off_Sort[MAX_NB_POLYS] = polyType | (offset & 0xFFFFFF);
+      // @@Line_Sup:
+      // | ZFar | Poly Number |
+      Off_Sort[0] = (minZ << 16) | Nb_Sort;
+      U8 polyType = line->Type;
+      polyType += MAX_POLYS_TYPE * 4; // Get correct pos for a line
+      polyType <<= 24;                // Line type in bit 24-31
+      // | PolyType (8 bit) | Poly Offset (24 bit) |
+      Off_Sort[MAX_NB_POLYS] = polyType | (offset & 0xFFFFFF);
 
-			Off_Sort++;
-			Nb_Sort++;
-			line++;
-			offset += sizeof(T_OBJ_LINE);
-		}
+      Off_Sort++;
+      Nb_Sort++;
+      line++;
+      offset += sizeof(T_OBJ_LINE);
+    }
   }
 
   // ***************
@@ -4733,7 +4756,6 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // @@Do_Spheres:
   if (lBody->NbSpheres != 0)
   {
-
   }
 
   // ┌─────────────────────────────────────────────────────────────────┐
@@ -4741,7 +4763,6 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // │                      ENTITIES SORTING                           │
   // │                                                                 │
   // └─────────────────────────────────────────────────────────────────┘
-
 
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
