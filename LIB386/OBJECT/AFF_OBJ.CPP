@@ -130,6 +130,45 @@ typedef struct {
 	U16 nothing;
 } STRUC_POLY3_ENV;
 
+typedef struct {
+  U16 P1;
+  U16 P2;
+  U16 P3;
+  U16 P4;
+  U16 Couleur;
+  U16 Normale;
+} STRUC_POLY4_LIGHT;
+
+typedef struct {
+  U16 P1;
+  U16 P2;
+  U16 P3;
+  U16 P4;
+  U16 Couleur;
+  U16 Normale;
+  U16 U1;
+  U16 V1;
+  U16 U2;
+  U16 V2;
+  U16 U3;
+  U16 V3;
+  U16 U4;
+  U16 V4;
+  U16 HandleText;
+	U16 nothing;
+} STRUC_POLY4_TEXTURE;
+
+typedef struct {
+  U16 P1;
+  U16 P2;
+  U16 P3;
+  U16 P4;
+  U16 Couleur;
+  U16 Normale;
+  U16 Scale;
+  U16 HandleEnv;
+} STRUC_POLY4_ENV;
+
 /*
 
 ; ╔════════════════════════════════════════════════════════════════════════════╗
@@ -4525,11 +4564,11 @@ TestVisibleF		ENDP
 
   if ((projectedP1.X == 0x8000 && projectedP1.Y == 0x8000) || (projectedP2.X == 0x8000 && projectedP2.Y == 0x8000) || (projectedP3.X == 0x8000 && projectedP3.Y == 0x8000))
   {
-    return true;
+    return false;
   }
 
   U32 value = (projectedP2.X - projectedP1.X) * (projectedP1.Y - projectedP3.Y) - (projectedP2.Y - projectedP1.Y) * (projectedP1.X - projectedP3.X);
-  return (value & 0x80000000) != 0;
+  return (value & 0x80000000) == 0;
 }
 
 /*
@@ -4644,11 +4683,160 @@ _TEXT			ENDS
 			End
 */
 
-U32 InsertQuad(U8 type, STRUC_POLY3_ENV *poly)
+S16 TestZFar4(STRUC_POLY3_ENV *poly)
 {
-  if (!TestVisible(poly))
+  /*
+TEST_ZFAR4		MACRO
+Local			@@Sup1, @@Sup2, @@Sup3
+						; Find the furthest point
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			mov	ebx,dword ptr [esi].STRUC_POLY4_LIGHT.Poly4_P3
+
+			cmp	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			jle	@@Sup1
+			mov	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+@@Sup1:
+			shr	ebx,16
+			cmp	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			jle	@@Sup2
+			mov	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+@@Sup2:
+			cmp	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			jle	@@Sup3
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+@@Sup3:
+			ENDM
+  */
+  S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
+
+  if (Obj_ListRotatedPoints[poly->P2].Z > zFar)
+  {
+    zFar = Obj_ListRotatedPoints[poly->P2].Z;
+  }
+
+  if (Obj_ListRotatedPoints[poly->P3].Z > zFar)
+  {
+    zFar = Obj_ListRotatedPoints[poly->P3].Z;
+  }
+
+  U16 poly4P4 = ((STRUC_POLY4_LIGHT *)poly)->P4;
+
+  if (Obj_ListRotatedPoints[poly4P4].Z > zFar)
+  {
+    zFar = Obj_ListRotatedPoints[poly4P4].Z;
+  }
+
+  return zFar;
+}
+
+U32 InsertQuad(U8 type, STRUC_POLY3_ENV **poly, U32 *polyOffset)
+{
+  /*
+INSERT_QUAD		MACRO	Type
+Local			@@Do_Quad, @@Next_Quad
+						; *** Triangle ***
+@@Do_Quad:
+			push	ecx
+			call	[TestVisible]
+			jc	@@Next_Quad		; Carry = 0 if visible
+
+
+			TEST_ZFAR4			; AX = ZFar
+							; EBX = P4
+			shl	eax,16
+			mov	ebx,dword ptr [Obj_ListProjectedPoints+ebx*4]
+
+			cmp	ebx,80008000h
+			je	@@Next_Quad
+
+			mov	ebx,[Off_Sort]		; offset of sort list
+			mov	ecx,[esp+4]		; Poly type
+
+			shl	ecx,26			; Poly type in bit 24-31
+			mov	edx,[Nb_Sort]		; Number of entries in sort list
+
+			or	eax,edx			; EAX = | ZFar | Poly Number |
+IF Type EQ 2
+			or	ecx,11b shl 24		; Bit quad+environment
+ELSE
+			or	ecx,01b shl 24		; Bit quad
+ENDIF
+			mov	[ebx],eax
+			or	ecx,edi			; ECX = | PolyType (8 bit) | Poly Offset (24 bit) |
+
+			inc	edx
+			mov	[ebx+MAX_NB_POLYS*4],ecx
+
+			add	ebx,4
+			mov	[Nb_Sort],edx
+
+			mov	[Off_Sort],ebx
+@@Next_Quad:
+			pop	ecx
+
+IF Type EQ 0
+			add	esi,Size STRUC_POLY4_LIGHT
+			add	edi,Size STRUC_POLY4_LIGHT
+ELSEIF Type EQ 1
+			add	esi,Size STRUC_POLY4_TEXTURE
+			add	edi,Size STRUC_POLY4_TEXTURE
+ELSE
+			add	esi,Size STRUC_POLY4_ENV
+			add	edi,Size STRUC_POLY4_ENV
+ENDIF
+			dec	ecx
+			jne	@@Do_Quad
+
+			pop	eax			; POP Poly type
+			jmp	@@Loop_Polys
+			ENDM
+  */
+  // @@Do_Quad:
+  if (!TestVisible(*poly))
   {
     return 0;
+  }
+
+  S16 zFar = TestZFar4(*poly);
+  U16 poly4P4 = ((STRUC_POLY4_LIGHT *)*poly)->P4;
+
+  TYPE_PT p4 = Obj_ListProjectedPoints[poly4P4];
+  if (p4.X != 0x8000 || p4.Y != 0x8000)
+  {
+    U32 polyType = (type << 26);
+    if (type == 2)
+    {
+      polyType |= (0b11 << 24); // Bit quad+environment
+    }
+    else
+    {
+      polyType |= (0b01 << 24); // Bit quad
+    }
+
+    // | ZFar | Poly Number |
+    Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
+
+    // | PolyType (8 bit) | Poly Offset (24 bit) |
+    Off_Sort[MAX_NB_POLYS] = polyType | (*polyOffset & 0xFFFFFF);
+
+    Nb_Sort++;
+    Off_Sort++;
+  }
+  // @@Next_Quad:
+  if (type == 0)
+  {
+    *((U8 *)*poly) += sizeof(STRUC_POLY4_LIGHT);
+    *((U8 *)polyOffset) += sizeof(STRUC_POLY4_LIGHT);
+  }
+  else if (type == 1)
+  {
+    *((U8 *)*poly) += sizeof(STRUC_POLY4_TEXTURE);
+    *((U8 *)polyOffset) += sizeof(STRUC_POLY4_TEXTURE);
+  }
+  else
+  {
+    *((U8 *)*poly) += sizeof(STRUC_POLY4_ENV);
+    *((U8 *)polyOffset) += sizeof(STRUC_POLY4_ENV);
   }
 
   return 0;
@@ -4665,6 +4853,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 
   T_OBJ_LINE *lines = (T_OBJ_LINE *)((U8 *)body + body->OffLines);
   T_POLY_HEADER *currentPoly = (T_POLY_HEADER *)((U8 *)body + body->OffPolys);
+  U32 polyOffset = body->OffPolys;
 
   // @@Loop_Polys:
   while (currentPoly != (T_POLY_HEADER *)lines)
@@ -4678,17 +4867,17 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
       // Dispatch a quad
       if (poly->TypePoly & MASK_ENVIRONMENT)
       {
-        // TODO: @@Do_Quad_Env
+          InsertQuad(2, (STRUC_POLY3_ENV **)&currentPoly, &polyOffset);
       }
       else
       {
         if (poly->TypePoly <= POLY_DITHER_TABLE)
         {
-          // TODO: @@Do_Quad_Light
+          InsertQuad(0, (STRUC_POLY3_ENV **)&currentPoly, &polyOffset);
         }
         else
         {
-          // TODO: @@Do_Quad_Text
+          InsertQuad(1, (STRUC_POLY3_ENV **)&currentPoly, &polyOffset);
         }
       }
     }
