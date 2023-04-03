@@ -4729,7 +4729,9 @@ Local			@@Sup1, @@Sup2, @@Sup3
   return zFar;
 }
 
-U32 InsertQuad(U8 type, STRUC_POLY3_ENV **poly, U32 *polyOffset)
+
+
+void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
 {
   /*
 INSERT_QUAD		MACRO	Type
@@ -4792,54 +4794,60 @@ ENDIF
 			ENDM
   */
   // @@Do_Quad:
-  if (!TestVisible(*poly))
+  STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
+  if (!TestVisible(poly3))
   {
-    return 0;
+    return;
   }
 
-  S16 zFar = TestZFar4(*poly);
-  U16 poly4P4 = ((STRUC_POLY4_LIGHT *)*poly)->P4;
+  STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
 
-  TYPE_PT p4 = Obj_ListProjectedPoints[poly4P4];
-  if (p4.X != 0x8000 || p4.Y != 0x8000)
+  for (int i = 0; i < header->NbPoly; i++)
   {
-    U32 polyType = (type << 26);
-    if (type == 2)
+    S16 zFar = TestZFar4(poly3);
+
+    TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
+    if (p4.X != 0x8000 || p4.Y != 0x8000)
     {
-      polyType |= (0b11 << 24); // Bit quad+environment
+      U32 polyType = (type << 26);
+      if (type == 2)
+      {
+        polyType |= (0b11 << 24); // Bit quad+environment
+      }
+      else
+      {
+        polyType |= (0b01 << 24); // Bit quad
+      }
+
+      // | ZFar | Poly Number |
+      Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
+
+      // | PolyType (8 bit) | Poly Offset (24 bit) |
+      Off_Sort[MAX_NB_POLYS] = polyType | (*polyOffset & 0xFFFFFF);
+
+      Nb_Sort++;
+      Off_Sort++;
+    }
+    // @@Next_Quad:
+    U32 size = 0;
+    if (type == 0)
+    {
+      size = sizeof(STRUC_POLY4_LIGHT);
+    }
+    else if (type == 1)
+    {
+      size = sizeof(STRUC_POLY4_TEXTURE);
     }
     else
     {
-      polyType |= (0b01 << 24); // Bit quad
+      size = sizeof(STRUC_POLY4_ENV);
     }
 
-    // | ZFar | Poly Number |
-    Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
-
-    // | PolyType (8 bit) | Poly Offset (24 bit) |
-    Off_Sort[MAX_NB_POLYS] = polyType | (*polyOffset & 0xFFFFFF);
-
-    Nb_Sort++;
-    Off_Sort++;
-  }
-  // @@Next_Quad:
-  if (type == 0)
-  {
-    *((U8 *)*poly) += sizeof(STRUC_POLY4_LIGHT);
-    *((U8 *)polyOffset) += sizeof(STRUC_POLY4_LIGHT);
-  }
-  else if (type == 1)
-  {
-    *((U8 *)*poly) += sizeof(STRUC_POLY4_TEXTURE);
-    *((U8 *)polyOffset) += sizeof(STRUC_POLY4_TEXTURE);
-  }
-  else
-  {
-    *((U8 *)*poly) += sizeof(STRUC_POLY4_ENV);
-    *((U8 *)polyOffset) += sizeof(STRUC_POLY4_ENV);
+    *((U8 *)*poly) += size;
+    *((U8 *)polyOffset) += size;
   }
 
-  return 0;
+  return;
 }
 
 S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
@@ -4851,54 +4859,45 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   Off_Sort = ListSort;
   Nb_Sort = 0;
 
-  T_OBJ_LINE *lines = (T_OBJ_LINE *)((U8 *)body + body->OffLines);
-  T_POLY_HEADER *currentPoly = (T_POLY_HEADER *)((U8 *)body + body->OffPolys);
+  void *lines = (void *)((U8 *)body + body->OffLines);
+  void *currentPoly = (void *)((U8 *)body + body->OffPolys);
   U32 polyOffset = body->OffPolys;
 
   // @@Loop_Polys:
-  while (currentPoly != (T_POLY_HEADER *)lines)
+  while (currentPoly != lines)
   {
-    T_POLY_HEADER *poly = currentPoly;
-    currentPoly++;
+    T_POLY_HEADER *header = (T_POLY_HEADER *)currentPoly;
+    currentPoly = (void *)((U8 *)currentPoly + sizeof(T_POLY_HEADER));
 
     // *** Type dispatch ***
-    if (poly->TypePoly & MASK_QUADRILATERE)
+    if (header->TypePoly & MASK_QUADRILATERE)
     {
       // Dispatch a quad
-      if (poly->TypePoly & MASK_ENVIRONMENT)
+      if (header->TypePoly & MASK_ENVIRONMENT)
       {
-          InsertQuad(2, (STRUC_POLY3_ENV **)&currentPoly, &polyOffset);
+          InsertQuad(2, header, &currentPoly, &polyOffset);
+      }
+      else if (header->TypePoly <= POLY_DITHER_TABLE)
+      {
+        InsertQuad(0, header, &currentPoly, &polyOffset);
       }
       else
       {
-        if (poly->TypePoly <= POLY_DITHER_TABLE)
-        {
-          InsertQuad(0, (STRUC_POLY3_ENV **)&currentPoly, &polyOffset);
-        }
-        else
-        {
-          InsertQuad(1, (STRUC_POLY3_ENV **)&currentPoly, &polyOffset);
-        }
+        InsertQuad(1, header, &currentPoly, &polyOffset);
       }
+    }
+    // Dispatch a triangle
+    else if (header->TypePoly & MASK_ENVIRONMENT)
+    {
+      // TODO: @@Do_Triangle_Env
+    }
+    else if (header->TypePoly <= POLY_DITHER_TABLE)
+    {
+      // TODO: @@Do_Triangle_Light
     }
     else
     {
-      // Dispatch a triangle
-      if (poly->TypePoly & MASK_ENVIRONMENT)
-      {
-        // TODO: @@Do_Triangle_Env
-      }
-      else
-      {
-        if (poly->TypePoly <= POLY_DITHER_TABLE)
-        {
-          // TODO: @@Do_Triangle_Light
-        }
-        else
-        {
-          // TODO: @@Do_Triangle_Text
-        }
-      }
+      // TODO: @@Do_Triangle_Text
     }
   }
 
@@ -4908,7 +4907,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // @@Do_Lines:
   if (lBody->NbLines != 0)
   {
-    T_OBJ_LINE *line = lines;
+    T_OBJ_LINE *line = (T_OBJ_LINE *)lines;
     U32 offset = body->OffLines;
 
     for (int i = 0; i < body->NbLines; ++i)
