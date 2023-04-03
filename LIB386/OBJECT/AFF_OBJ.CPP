@@ -4661,13 +4661,8 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   T_POLY_HEADER *currentPoly = (T_POLY_HEADER *)((U8 *)body + body->OffPolys);
 
   // @@Loop_Polys:
-  while (1)
-  {
-    if (currentPoly == (T_POLY_HEADER *)lines)
-    {
-      break;
-    }
-
+  while (currentPoly != (T_POLY_HEADER *)lines)
+	{
     T_POLY_HEADER *poly = currentPoly;
     currentPoly++;
 
