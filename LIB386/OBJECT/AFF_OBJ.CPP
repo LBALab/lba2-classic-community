@@ -4600,6 +4600,36 @@ S32 TransZ = 0;
 // Matrix list
 TYPE_MAT TabMat[MAX_NB_GROUPES];
 
+// *** Types des polygones ***
+#define POLY_SOLID 0
+#define POLY_FLAT 1
+#define POLY_TRANSPARENT 2
+#define POLY_TRAME 3
+#define POLY_GOURAUD 4
+#define POLY_DITHER 5
+#define POLY_GOURAUD_TABLE 6
+#define POLY_DITHER_TABLE 7
+
+#define POLY_TEXTURE_SOLID 8
+#define POLY_TEXTURE_FLAT 9
+#define POLY_TEXTURE_GOURAUD 10
+#define POLY_TEXTURE_DITHER 11
+#define POLY_TEXTURE_SOLID_INC 12
+#define POLY_TEXTURE_FLAT_INC 13
+#define POLY_TEXTURE_GOURAUD_INC 14
+#define POLY_TEXTURE_DITHER_INC 15
+
+#define POLY_TEXTUREZ_SOLID 16
+#define POLY_TEXTUREZ_FLAT 17
+#define POLY_TEXTUREZ_GOURAUD 18
+#define POLY_TEXTUREZ_DITHER 19
+#define POLY_TEXTUREZ_SOLID_INC 20
+#define POLY_TEXTUREZ_FLAT_INC 21
+#define POLY_TEXTUREZ_GOURAUD_INC 22
+#define POLY_TEXTUREZ_DITHER_INC 23
+
+#define MAX_POLYS_TYPE 24
+#define MAX_LINES_TYPE 1
 
 // *** Bits de flag ***
 #define MASK_QUADRILATERE (1 << 15)	// Au niveau des faces
@@ -4611,6 +4641,13 @@ typedef struct {
   U32 OffNextType;
 } T_POLY_HEADER;
 
+typedef struct {
+  U16 Type;
+  U16 Coul;
+  U16 P1;
+  U16 P2;
+} T_OBJ_LINE;
+
 S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 {
   // *****************
@@ -4620,13 +4657,13 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   Off_Sort = ListSort;
   Nb_Sort = 0;
 
-  T_POLY_HEADER *endPoly = (T_POLY_HEADER *)((U8 *)body + body->OffLines);
+  T_OBJ_LINE *lines = (T_OBJ_LINE *)((U8 *)body + body->OffLines);
   T_POLY_HEADER *currentPoly = (T_POLY_HEADER *)((U8 *)body + body->OffPolys);
 
   // @@Loop_Polys:
   while (1)
   {
-    if (currentPoly == endPoly)
+    if (currentPoly == (T_POLY_HEADER *)lines)
     {
       break;
     }
@@ -4662,6 +4699,54 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // *** LINES ***
   // *************
   // @@Do_Lines:
+  if (lBody->NbLines != 0)
+  {
+		T_OBJ_LINE *line = lines;
+		U32 offset = body->OffLines;
+
+		for (int i = 0; i < body->NbLines; ++i)
+		{
+			// @@Loop_Lines:
+			T_OBJ_POINT p1 = Obj_ListRotatedPoints[line->P1];
+			T_OBJ_POINT p2 = Obj_ListRotatedPoints[line->P2];
+			S16 minZ = p1.Z;
+
+			if (p1.Z > p2.Z)
+			{
+				minZ = p2.Z;
+			}
+
+			// @@Line_Sup:
+			// | ZFar | Poly Number |
+			Off_Sort[0] = (minZ << 16) | Nb_Sort;
+			U8 polyType = line->Type;
+			polyType += MAX_POLYS_TYPE * 4; // Get correct pos for a line
+			polyType <<= 24; // Line type in bit 24-31
+			// | PolyType (8 bit) | Poly Offset (24 bit) |
+			Off_Sort[MAX_NB_POLYS] = polyType | (offset & 0xFFFFFF);
+
+			Off_Sort++;
+			Nb_Sort++;
+			line++;
+			offset += sizeof(T_OBJ_LINE);
+		}
+  }
+
+  // ***************
+  // *** SPHERES ***
+  // ***************
+  // @@Do_Spheres:
+  if (lBody->NbSpheres != 0)
+  {
+
+  }
+
+  // ┌─────────────────────────────────────────────────────────────────┐
+  // │                                                                 │
+  // │                      ENTITIES SORTING                           │
+  // │                                                                 │
+  // └─────────────────────────────────────────────────────────────────┘
+
 
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
