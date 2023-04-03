@@ -15,6 +15,7 @@
 #include <POLYGON/POLY.H>
 
 #include <stdio.h>
+#include <string.h>
 
 #define MAX_NB_POINTS 550
 #define MAX_NB_POLYS 550
@@ -5017,17 +5018,20 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   while (currentPoly != lines)
   {
     T_POLY_HEADER *header = (T_POLY_HEADER *)currentPoly;
+    U32 mask = 0;
+    memcpy(&mask, header, sizeof(U32));
+    U8 typePoly = header->TypePoly & 0xFF;
     currentPoly = (void *)((U8 *)currentPoly + sizeof(T_POLY_HEADER));
 
     // *** Type dispatch ***
-    if (header->TypePoly & MASK_QUADRILATERE)
+    if (mask & MASK_QUADRILATERE)
     {
       // Dispatch a quad
-      if (header->TypePoly & MASK_ENVIRONMENT)
+      if (mask & MASK_ENVIRONMENT)
       {
-          InsertQuad(2, header, &currentPoly, &polyOffset);
+        InsertQuad(2, header, &currentPoly, &polyOffset);
       }
-      else if (header->TypePoly <= POLY_DITHER_TABLE)
+      else if (typePoly <= POLY_DITHER_TABLE)
       {
         InsertQuad(0, header, &currentPoly, &polyOffset);
       }
@@ -5037,11 +5041,11 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
       }
     }
     // Dispatch a triangle
-    else if (header->TypePoly & MASK_ENVIRONMENT)
+    else if (mask & MASK_ENVIRONMENT)
     {
       InsertTriangle(2, header, &currentPoly, &polyOffset);
     }
-    else if (header->TypePoly <= POLY_DITHER_TABLE)
+    else if (typePoly <= POLY_DITHER_TABLE)
     {
       InsertTriangle(0, header, &currentPoly, &polyOffset);
     }
