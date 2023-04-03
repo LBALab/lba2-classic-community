@@ -123,11 +123,35 @@ typedef struct {
   U16 P1;
   U16 P2;
   U16 P3;
+  U16 __padding;
+  U16 Couleur;
+  U16 Normale;
+} STRUC_POLY3_LIGHT;
+
+typedef struct {
+  U16 P1;
+  U16 P2;
+  U16 P3;
+  U16 HandleText;
+  U16 Couleur;
+  U16 Normale;
+  U16 U1;
+  U16 V1;
+  U16 U2;
+  U16 V2;
+  U16 U3;
+  U16 V3;
+} STRUC_POLY3_TEXTURE;
+
+typedef struct {
+  U16 P1;
+  U16 P2;
+  U16 P3;
   U16 HandleEnv;
   U16 Couleur;
   U16 Normale;
   U16 Scale;
-	U16 nothing;
+	U16 __padding;
 } STRUC_POLY3_ENV;
 
 typedef struct {
@@ -155,7 +179,7 @@ typedef struct {
   U16 U4;
   U16 V4;
   U16 HandleText;
-	U16 nothing;
+	U16 __padding;
 } STRUC_POLY4_TEXTURE;
 
 typedef struct {
@@ -4729,7 +4753,136 @@ Local			@@Sup1, @@Sup2, @@Sup3
   return zFar;
 }
 
+S16 TestZFar3(STRUC_POLY3_ENV *poly)
+{
+  /*
+  TEST_ZFAR3		MACRO
+Local			@@Sup1, @@Sup2
+						; Find the furthest point
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
+			cmp	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			jle	@@Sup1
+			mov	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+@@Sup1:
+			cmp	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			jle	@@Sup2
+			mov	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+@@Sup2:
+			ENDM
+  */
+  S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
+
+  if (Obj_ListRotatedPoints[poly->P2].Z > zFar)
+  {
+    zFar = Obj_ListRotatedPoints[poly->P2].Z;
+  }
+
+  if (Obj_ListRotatedPoints[poly->P3].Z > zFar)
+  {
+    zFar = Obj_ListRotatedPoints[poly->P3].Z;
+  }
+
+  return zFar;
+}
+
+void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
+{
+  /*
+INSERT_TRIANGLE		MACRO	Type
+Local			@@Do_Triangle, @@Next_Triangle
+						; *** Triangle ***
+@@Do_Triangle:
+			push	ecx
+			call	[TestVisible]
+			jc	@@Next_Triangle		; Carry = 0 if visible
+
+			TEST_ZFAR3			; AX = ZFar
+
+			shl	eax,16
+			mov	ebx,[Off_Sort]		; offset of sort list
+
+			mov	edx,[Nb_Sort]		; Number of entries in sort list
+			mov	ecx,[esp+4]		; Poly type
+
+			shl	ecx,26			; Poly type in bit 24-31
+			or	eax,edx			; EAX = | ZFar | Poly Number |
+IF Type EQ 2
+			or	ecx,10b shl 24		; Bit environment
+ENDIF
+			mov	[ebx],eax
+			or	ecx,edi			; ECX = | PolyType (8 bit) | Poly Offset (24 bit) |
+
+			inc	edx
+			mov	[ebx+MAX_NB_POLYS*4],ecx
+
+			add	ebx,4
+			mov	[Nb_Sort],edx
+
+			mov	[Off_Sort],ebx
+@@Next_Triangle:
+			pop	ecx
+
+IF Type EQ 0
+			add	esi,Size STRUC_POLY3_LIGHT
+			add	edi,Size STRUC_POLY3_LIGHT
+ELSEIF Type EQ 1
+			add	esi,Size STRUC_POLY3_TEXTURE
+			add	edi,Size STRUC_POLY3_TEXTURE
+ELSE
+			add	esi,Size STRUC_POLY3_ENV
+			add	edi,Size STRUC_POLY3_ENV
+ENDIF
+			dec	ecx
+			jne	@@Do_Triangle
+
+			pop	eax			; POP Poly type
+			jmp	@@Loop_Polys
+			ENDM
+  */
+  for (int i = 0; i < header->NbPoly; i++)
+  {
+    // @@Do_Triangle:
+    STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
+
+    if (TestVisible(poly3))
+    {
+      U32 zFar = TestZFar3(poly3);
+
+      // | ZFar | Poly Number |
+      Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
+
+      U32 polyType = type << 26;
+      if (type == 2)
+      {
+        polyType |= 0b10 << 24; // Bit environment
+      }
+        // | PolyType (8 bit) | Poly Offset (24 bit) |
+      Off_Sort[MAX_NB_POLYS] = polyType | (*polyOffset & 0xFFFFFF);
+
+      Nb_Sort++;
+      Off_Sort++;
+    }
+
+    // @@Next_Triangle:
+    U32 size = 0;
+    if (type == 0)
+    {
+      size = sizeof(STRUC_POLY3_LIGHT);
+    }
+    else if (type == 1)
+    {
+      size = sizeof(STRUC_POLY3_TEXTURE);
+    }
+    else
+    {
+      size = sizeof(STRUC_POLY3_ENV);
+    }
+
+    *poly = ((U8 *)*poly) + size;
+    *polyOffset += size;
+  }
+}
 
 void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
 {
@@ -4793,40 +4946,39 @@ ENDIF
 			jmp	@@Loop_Polys
 			ENDM
   */
-  // @@Do_Quad:
-  STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
-  if (!TestVisible(poly3))
-  {
-    return;
-  }
-
-  STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
-
   for (int i = 0; i < header->NbPoly; i++)
   {
-    S16 zFar = TestZFar4(poly3);
+    // @@Do_Quad:
+    STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-    TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
-    if (p4.X != 0x8000 || p4.Y != 0x8000)
+    if (TestVisible(poly3))
     {
-      U32 polyType = (type << 26);
-      if (type == 2)
+      STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
+
+      S16 zFar = TestZFar4(poly3);
+
+      TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
+      if (p4.X != 0x8000 || p4.Y != 0x8000)
       {
-        polyType |= (0b11 << 24); // Bit quad+environment
+        U32 polyType = (type << 26);
+        if (type == 2)
+        {
+          polyType |= (0b11 << 24); // Bit quad+environment
+        }
+        else
+        {
+          polyType |= (0b01 << 24); // Bit quad
+        }
+
+        // | ZFar | Poly Number |
+        Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
+
+        // | PolyType (8 bit) | Poly Offset (24 bit) |
+        Off_Sort[MAX_NB_POLYS] = polyType | (*polyOffset & 0xFFFFFF);
+
+        Nb_Sort++;
+        Off_Sort++;
       }
-      else
-      {
-        polyType |= (0b01 << 24); // Bit quad
-      }
-
-      // | ZFar | Poly Number |
-      Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
-
-      // | PolyType (8 bit) | Poly Offset (24 bit) |
-      Off_Sort[MAX_NB_POLYS] = polyType | (*polyOffset & 0xFFFFFF);
-
-      Nb_Sort++;
-      Off_Sort++;
     }
     // @@Next_Quad:
     U32 size = 0;
@@ -4843,11 +4995,9 @@ ENDIF
       size = sizeof(STRUC_POLY4_ENV);
     }
 
-    *((U8 *)*poly) += size;
-    *((U8 *)polyOffset) += size;
+    *poly = ((U8 *)*poly) + size;
+    *polyOffset += size;
   }
-
-  return;
 }
 
 S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
@@ -4889,15 +5039,15 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
     // Dispatch a triangle
     else if (header->TypePoly & MASK_ENVIRONMENT)
     {
-      // TODO: @@Do_Triangle_Env
+      InsertTriangle(2, header, &currentPoly, &polyOffset);
     }
     else if (header->TypePoly <= POLY_DITHER_TABLE)
     {
-      // TODO: @@Do_Triangle_Light
+      InsertTriangle(0, header, &currentPoly, &polyOffset);
     }
     else
     {
-      // TODO: @@Do_Triangle_Text
+      InsertTriangle(1, header, &currentPoly, &polyOffset);
     }
   }
 
