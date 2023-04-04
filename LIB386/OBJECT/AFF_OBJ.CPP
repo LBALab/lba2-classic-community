@@ -4603,7 +4603,9 @@ TestVisibleF		ENDP
   return (value & 0x80000000) == 0;
 }
 
-/*
+void QuickSort(U32 *beginning, U32 *end)
+{
+	/*
 ; ╔════════════════════════════════════════════════════════════════════════╗
 ; ║  Le Quick-Sort                                                         ║
 ; ╟────────────────────────────────────────────────────────────────────────╢
@@ -4674,9 +4676,40 @@ QuickSort		PROC
 			ALIGN	4
 EndQSort::		ret
 QuickSort		ENDP
+	*/
+	if (end <= beginning)
+	{
+		return;
+	}
 
+	U32 *left = beginning;
+	U32 *next = left + 1;
+	U32 pivot = *beginning;
 
+	do
+	{
+		// @Next:
+		U32 nextValue = *next;
+		next++;
 
+		if (pivot >= nextValue)
+		{
+			*left = nextValue;
+			*(next - 1) = *(left + 1);
+			*(left + 1) = pivot;
+			left += 1;
+		}
+
+		// @Ordre:
+	} while (next <= end);
+
+	QuickSort(beginning, left);
+	QuickSort(next + 1, end);
+}
+
+void QuickSortInv(U32 *beginning, U32 *end)
+{
+	/*
 ; Sort from near to far
 			ALIGN	4
 QuickSortInv		PROC
@@ -4705,15 +4738,36 @@ QuickSortInv		PROC
 			add	ebx,4
 			jmp	QuickSortInv
 QuickSortInv		ENDP
+	*/
+	if (end <= beginning)
+	{
+		return;
+	}
 
+	U32 *left = beginning;
+	U32 *next = left + 1;
+	U32 pivot = *beginning;
 
+	do
+	{
+		// @Next:
+		U32 nextValue = *next;
+		next++;
 
-_TEXT			ENDS
+		if (pivot <= nextValue)
+		{
+			*left = nextValue;
+			*(next - 1) = *(left + 1);
+			*(left + 1) = pivot;
+			left += 1;
+		}
 
+		// @Ordre:
+	} while (next <= end);
 
-;			The
-			End
-*/
+	QuickSortInv(beginning, left);
+	QuickSortInv(next + 1, end);
+}
 
 S16 TestZFar4(STRUC_POLY3_ENV *poly)
 {
@@ -5019,7 +5073,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 
   void *lines = (void *)((U8 *)body + body->OffLines);
   void *currentPoly = (void *)((U8 *)body + body->OffPolys);
-  U32 polyOffset = body->OffPolys;
+  U32 bodyOffset = body->OffPolys;
 
   // @@Loop_Polys:
   while (currentPoly != lines)
@@ -5036,29 +5090,29 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
       // Dispatch a quad
       if (mask & MASK_ENVIRONMENT)
       {
-        InsertQuad(2, header, &currentPoly, &polyOffset);
+        InsertQuad(2, header, &currentPoly, &bodyOffset);
       }
       else if (typePoly <= POLY_DITHER_TABLE)
       {
-        InsertQuad(0, header, &currentPoly, &polyOffset);
+        InsertQuad(0, header, &currentPoly, &bodyOffset);
       }
       else
       {
-        InsertQuad(1, header, &currentPoly, &polyOffset);
+        InsertQuad(1, header, &currentPoly, &bodyOffset);
       }
     }
     // Dispatch a triangle
     else if (mask & MASK_ENVIRONMENT)
     {
-      InsertTriangle(2, header, &currentPoly, &polyOffset);
+      InsertTriangle(2, header, &currentPoly, &bodyOffset);
     }
     else if (typePoly <= POLY_DITHER_TABLE)
     {
-      InsertTriangle(0, header, &currentPoly, &polyOffset);
+      InsertTriangle(0, header, &currentPoly, &bodyOffset);
     }
     else
     {
-      InsertTriangle(1, header, &currentPoly, &polyOffset);
+      InsertTriangle(1, header, &currentPoly, &bodyOffset);
     }
   }
 
@@ -5069,7 +5123,6 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   if (lBody->NbLines != 0)
   {
     T_OBJ_LINE *line = (T_OBJ_LINE *)lines;
-    U32 offset = body->OffLines;
 
     for (int i = 0; i < body->NbLines; ++i)
     {
@@ -5090,12 +5143,12 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
       polyType += MAX_POLYS_TYPE * 4; // Get correct pos for a line
       polyType <<= 24;                // Line type in bit 24-31
       // | PolyType (8 bit) | Poly Offset (24 bit) |
-      Off_Sort[MAX_NB_POLYS] = polyType | (offset & 0xFFFFFF);
+      Off_Sort[MAX_NB_POLYS] = polyType | (bodyOffset & 0xFFFFFF);
 
       Off_Sort++;
       Nb_Sort++;
       line++;
-      offset += sizeof(T_OBJ_LINE);
+      bodyOffset += sizeof(T_OBJ_LINE);
     }
   }
 
@@ -5106,7 +5159,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   if (lBody->NbSpheres != 0)
   {
     T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)((U8 *)lBody + lBody->OffSpheres);
-    U32 sphereOffset = lBody->OffSpheres;
+
     for (int i = 0; i < body->NbSpheres; ++i)
     {
       // @@Loop_Spheres:
@@ -5116,18 +5169,48 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
 
       U8 polyType = sphere->Type + MAX_POLYS_TYPE * 4 + MAX_LINES_TYPE;
       // | PolyType (8 bit) | Poly Offset (24 bit) |
-      Off_Sort[MAX_NB_POLYS] = (polyType << 24) | (sphereOffset & 0xFFFFFF);
+      Off_Sort[MAX_NB_POLYS] = (polyType << 24) | (bodyOffset & 0xFFFFFF);
 
       Off_Sort++;
       Nb_Sort++;
       sphere++;
-      sphereOffset += sizeof(T_OBJ_SPHERE);
+      bodyOffset += sizeof(T_OBJ_SPHERE);
     }
   }
 
   // ┌─────────────────────────────────────────────────────────────────┐
   // │                                                                 │
   // │                      ENTITIES SORTING                           │
+  // │                                                                 │
+  // └─────────────────────────────────────────────────────────────────┘
+
+	// @@Do_Sort:
+	// Anything to do ?
+	if (Off_Sort == ListSort)
+	{
+		return 0;
+	}
+
+	if (!(lBody->Info & MASK_OBJECT_NO_SORT))
+	{
+		if (!Fill_Flag_ZBuffer
+				|| (lBody->Info & MASK_OBJECT_TRANSPARENT)
+				|| Fill_Flag_NZW)
+		{
+			// @@SortNormal:
+			QuickSort(ListSort, Off_Sort - 1);
+		}
+		else
+		{
+			// @@SortZBuffer:
+			QuickSortInv(ListSort, Off_Sort - 1);
+		}
+	}
+	// @@NoSort:
+
+  // ┌─────────────────────────────────────────────────────────────────┐
+  // │                                                                 │
+  // │                             DISPLAY                             │
   // │                                                                 │
   // └─────────────────────────────────────────────────────────────────┘
 
