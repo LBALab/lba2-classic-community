@@ -121,6 +121,13 @@ typedef struct {
 } T_OBJ_LINE;
 
 typedef struct {
+  U16 Type;
+  U16 Coul;
+  U16 P1;
+  U16 Rayon;
+} T_OBJ_SPHERE;
+
+typedef struct {
   U16 P1;
   U16 P2;
   U16 P3;
@@ -5098,6 +5105,24 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // @@Do_Spheres:
   if (lBody->NbSpheres != 0)
   {
+    T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)((U8 *)lBody + lBody->OffSpheres);
+    U32 sphereOffset = lBody->OffSpheres;
+    for (int i = 0; i < body->NbSpheres; ++i)
+    {
+      // @@Loop_Spheres:
+      S16 zFar = Obj_ListRotatedPoints[sphere->P1].Z;
+      // | ZFar | Poly Number |
+      Off_Sort[0] = (zFar << 16) | Nb_Sort;
+
+      U8 polyType = sphere->Type + MAX_POLYS_TYPE * 4 + MAX_LINES_TYPE;
+      // | PolyType (8 bit) | Poly Offset (24 bit) |
+      Off_Sort[MAX_NB_POLYS] = (polyType << 24) | (sphereOffset & 0xFFFFFF);
+
+      Off_Sort++;
+      Nb_Sort++;
+      sphere++;
+      sphereOffset += sizeof(T_OBJ_SPHERE);
+    }
   }
 
   // ┌─────────────────────────────────────────────────────────────────┐
