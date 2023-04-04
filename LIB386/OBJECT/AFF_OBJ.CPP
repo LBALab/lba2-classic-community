@@ -22,6 +22,10 @@
 #define MAX_NB_GROUPES 30
 #define SIZE_MATRICE (sizeof(S16) * 15)
 
+typedef S32 (*Poly_Jump_Fn)(void);
+
+extern Poly_Jump_Fn Poly_Jump[];
+
 typedef struct {
   U16 OrgGroupe;
   U16 OrgPoint;
@@ -29,9 +33,11 @@ typedef struct {
   U16 NbNorm;
 } T_OBJ_GROUPE;
 
-U8 *ObjPtrMap = 0;
 T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
 TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
+
+U8 *ObjPtrMap = 0; // Ptr of the texture page for the current object
+U8 *PtrTextures = 0; // Ptr of texture handles
 
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
@@ -1096,175 +1102,57 @@ ByeBye::
 			pop	ebp
 			xor	eax,eax			; Object not displayed
 			ret
+*/
 
-
-			ALIGN	4
-@@Poly_Jump		dd	@@Triangle_Solid		;  0
-			dd	@@Quad_Solid			;  0
-			dd	@@Triangle_Solid		;  0
-			dd	@@Quad_Solid			;  0
-
-			dd	@@Triangle_Flat			;  1
-			dd	@@Quad_Flat			;  1
-			dd	@@Triangle_Flat			;  1
-			dd	@@Quad_Flat			;  1
-
-			dd	@@Triangle_Solid		;  2
-			dd	@@Quad_Solid			;  2
-			dd	@@Triangle_Solid		;  2
-			dd	@@Quad_Solid			;  2
-
-			dd	@@Triangle_Solid		;  3
-			dd	@@Quad_Solid			;  3
-			dd	@@Triangle_Solid		;  3
-			dd	@@Quad_Solid			;  3
-
-			dd	@@Triangle_Gouraud		;  4
-			dd	@@Quad_Gouraud			;  4
-			dd	@@Triangle_Gouraud		;  4
-			dd	@@Quad_Gouraud			;  4
-
-			dd	@@Triangle_Gouraud		;  5
-			dd	@@Quad_Gouraud			;  5
-			dd	@@Triangle_Gouraud		;  5
-			dd	@@Quad_Gouraud			;  5
-
-			dd	@@Triangle_Gouraud		;  6
-			dd	@@Quad_Gouraud			;  6
-			dd	@@Triangle_Gouraud		;  6
-			dd	@@Quad_Gouraud			;  6
-
-			dd	@@Triangle_Gouraud		;  7
-			dd	@@Quad_Gouraud			;  7
-			dd	@@Triangle_Gouraud		;  7
-			dd	@@Quad_Gouraud			;  7
-
-			dd	@@Triangle_Texture_Solid	;  8
-			dd	@@Quad_Texture_Solid		;  8
-			dd	@@Triangle_EnvTexture_Solid	;  8
-			dd	@@Quad_EnvTexture_Solid		;  8
-
-			dd	@@Triangle_Texture_Flat		;  9
-			dd	@@Quad_Texture_Flat		;  9
-			dd	@@Triangle_EnvTexture_Flat	;  9
-			dd	@@Quad_EnvTexture_Flat		;  9
-
-			dd	@@Triangle_Texture_Gouraud	; 10
-			dd	@@Quad_Texture_Gouraud		; 10
-			dd	@@Triangle_EnvTexture_Gouraud	; 10
-			dd	@@Quad_EnvTexture_Gouraud	; 10
-
-			dd	@@Triangle_Texture_Gouraud	; 11
-			dd	@@Quad_Texture_Gouraud		; 11
-			dd	@@Triangle_EnvTexture_Gouraud	; 11
-			dd	@@Quad_EnvTexture_Gouraud	; 11
-
-			dd	@@Triangle_Texture_Solid	; 12
-			dd	@@Quad_Texture_Solid		; 12
-			dd	@@Triangle_EnvTexture_Solid	; 12
-			dd	@@Quad_EnvTexture_Solid		; 12
-
-			dd	@@Triangle_Texture_Flat		; 13
-			dd	@@Quad_Texture_Flat		; 13
-			dd	@@Triangle_EnvTexture_Flat	; 13
-			dd	@@Quad_EnvTexture_Flat		; 13
-
-			dd	@@Triangle_Texture_Gouraud	; 14
-			dd	@@Quad_Texture_Gouraud		; 14
-			dd	@@Triangle_EnvTexture_Gouraud	; 14
-			dd	@@Quad_EnvTexture_Gouraud	; 14
-
-			dd	@@Triangle_Texture_Gouraud	; 15
-			dd	@@Quad_Texture_Gouraud		; 15
-			dd	@@Triangle_EnvTexture_Gouraud	; 15
-			dd	@@Quad_EnvTexture_Gouraud	; 15
-
-			dd	@@Triangle_TextureZ_Solid	; 16
-			dd	@@Quad_TextureZ_Solid		; 16
-			dd	@@Triangle_EnvTexture_Solid	; 16
-			dd	@@Quad_EnvTexture_Solid		; 16
-
-			dd	@@Triangle_TextureZ_Flat	; 17
-			dd	@@Quad_TextureZ_Flat		; 17
-			dd	@@Triangle_EnvTexture_Flat	; 17
-			dd	@@Quad_EnvTexture_Flat		; 17
-
-			dd	@@Triangle_TextureZ_Gouraud	; 18
-			dd	@@Quad_TextureZ_Gouraud		; 18
-			dd	@@Triangle_EnvTexture_Gouraud	; 18
-			dd	@@Quad_EnvTexture_Gouraud	; 18
-
-			dd	@@Triangle_TextureZ_Gouraud	; 19
-			dd	@@Quad_TextureZ_Gouraud		; 19
-			dd	@@Triangle_EnvTexture_Gouraud	; 19
-			dd	@@Quad_EnvTexture_Gouraud	; 19
-
-			dd	@@Triangle_TextureZ_Solid	; 20
-			dd	@@Quad_TextureZ_Solid		; 20
-			dd	@@Triangle_EnvTexture_Solid	; 20
-			dd	@@Quad_EnvTexture_Solid		; 20
-
-			dd	@@Triangle_TextureZ_Flat	; 21
-			dd	@@Quad_TextureZ_Flat		; 21
-			dd	@@Triangle_EnvTexture_Flat	; 21
-			dd	@@Quad_EnvTexture_Flat		; 21
-
-			dd	@@Triangle_TextureZ_Gouraud	; 22
-			dd	@@Quad_TextureZ_Gouraud		; 22
-			dd	@@Triangle_EnvTexture_Gouraud	; 22
-			dd	@@Quad_EnvTexture_Gouraud	; 22
-
-			dd	@@Triangle_TextureZ_Gouraud	; 23
-			dd	@@Quad_TextureZ_Gouraud		; 23
-			dd	@@Triangle_EnvTexture_Gouraud	; 23
-			dd	@@Quad_EnvTexture_Gouraud	; 23
-
-
-
-			dd	@@Line				; Line
-			dd	@@Sphere			; Sphere
-			dd	@@Sphere_Transp			; Sphere transparent
-
-
-
-			; *************
-			; *** SOLID ***
-			; *************
+// *************
+// *** SOLID ***
+// *************
+S32 Triangle_Solid()
+{
+  /*
 @@Triangle_Solid:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
+  shr	eax,2
+  mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
-			push	eax				; Save poly type
-			mov	ecx,ebx
+  push	eax				; Save poly type
+  mov	ecx,ebx
 
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
+  shr	ecx,16				; ECX = P2
+  and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
-			lea	esi,ListFillPoly
+  mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
+  lea	esi,ListFillPoly
 
-			and	edi,0FFFFh			; EDI = P3
+  and	edi,0FFFFh			; EDI = P3
 
-			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
+  GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
 
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
+  mov	eax,[Obj_ListProjectedPoints+ebx*4]
+  mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
+  mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
+  mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
+  mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
+  mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	ecx,3
+  mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+  mov	ecx,3
 
-			pop	eax
-			and	ebx,0FFh
+  pop	eax
+  and	ebx,0FFh
 
-			push	Offset @@Return_Display
-			jmp	Fill_PolyFast
+  push	Offset @@Return_Display
+  jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
+S32 Quad_Solid()
+{
+  /*
 @@Quad_Solid:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -1305,13 +1193,18 @@ ByeBye::
 
 			push	Offset @@Return_Display
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; ************
-			; *** FLAT ***
-			; ************
+// ************
+// *** FLAT ***
+// ************
+S32 Triangle_Flat()
+{
+  /*
 @@Triangle_Flat:
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 			mov	ecx,ebx
@@ -1351,8 +1244,15 @@ ByeBye::
 
 			and	ebx,0FFh
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_Flat()
+{
+  /*
 @@Quad_Flat:
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 			mov	ecx,ebx
@@ -1398,13 +1298,18 @@ ByeBye::
 
 			and	ebx,0FFh
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; ***************
-			; *** GOURAUD ***
-			; ***************
+// ***************
+// *** GOURAUD ***
+// ***************
+S32 Triangle_Gouraud()
+{
+  /*
 @@Triangle_Gouraud:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -1447,7 +1352,15 @@ ByeBye::
 
 			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
+S32 Quad_Gouraud()
+{
+  /*
 @@Quad_Gouraud:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -1501,12 +1414,18 @@ ByeBye::
 
 			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-			; *********************
-			; *** TEXTURE SOLID ***
-			; *********************
+// *********************
+// *** TEXTURE SOLID ***
+// *********************
+S32 Triangle_Texture_Solid()
+{
+  /*
 @@Triangle_Texture_Solid:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -1566,8 +1485,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_Texture_Solid()
+{
+  /*
 @@Quad_Texture_Solid:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -1636,11 +1562,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-			; ********************
-			; *** TEXTURE FLAT ***
-			; ********************
+// ********************
+// *** TEXTURE FLAT ***
+// ********************
+S32 Triangle_Texture_Flat()
+{
+  /*
 @@Triangle_Texture_Flat:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -1706,8 +1639,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_Texture_Flat()
+{
+  /*
 @@Quad_Texture_Flat:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -1780,13 +1720,18 @@ ByeBye::
 
 			shr	ebx,8
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; ***********************
-			; *** TEXTURE GOURAUD ***
-			; ***********************
+// ***********************
+// *** TEXTURE GOURAUD ***
+// ***********************
+S32 Triangle_Texture_Gouraud()
+{
+  /*
 @@Triangle_Texture_Gouraud:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -1855,8 +1800,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_Texture_Gouraud()
+{
+  /*
 @@Quad_Texture_Gouraud:
 			shr	eax,2
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -1937,11 +1889,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-			; ***********************
-			; *** TEXTURE Z SOLID ***
-			; ***********************
+// ***********************
+// *** TEXTURE Z SOLID ***
+// ***********************
+S32 Triangle_TextureZ_Solid()
+{
+  /*
 @@Triangle_TextureZ_Solid:
 			shr	eax,2				; Get poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -2040,8 +1999,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_TextureZ_Solid()
+{
+  /*
 @@Quad_TextureZ_Solid:
 			shr	eax,2				; Get poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -2171,14 +2137,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; **********************
-			; *** TEXTURE Z FLAT ***
-			; **********************
-
+// **********************
+// *** TEXTURE Z FLAT ***
+// **********************
+S32 Triangle_TextureZ_Flat()
+{
+  /*
 @@Triangle_TextureZ_Flat:
 			shr	eax,2				; Get poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -2285,8 +2255,15 @@ ByeBye::
 
 			push	Offset @@Return_Display
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_TextureZ_Flat()
+{
+  /*
 @@Quad_TextureZ_Flat:
 			shr	eax,2				; Get poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -2424,13 +2401,18 @@ ByeBye::
 
 			push	Offset @@Return_Display
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; *************************
-			; *** TEXTURE Z GOURAUD ***
-			; *************************
+// *************************
+// *** TEXTURE Z GOURAUD ***
+// *************************
+S32 Triangle_TextureZ_Gouraud()
+{
+  /*
 @@Triangle_TextureZ_Gouraud:
 			shr	eax,2				; Get poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -2538,8 +2520,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
+S32 Quad_TextureZ_Gouraud()
+{
+  /*
 @@Quad_TextureZ_Gouraud:
 			shr	eax,2				; Get poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -2684,19 +2673,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-
-
-
-
-
-			; *************************
-			; *** TEXTURE ENV SOLID ***
-			; *************************
-
+// *************************
+// *** TEXTURE ENV SOLID ***
+// *************************
+S32 Triangle_EnvTexture_Solid()
+{
+  /*
 @@Triangle_EnvTexture_Solid:
 			shr	eax,2				; Get Poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -2905,11 +2893,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-
+S32 Quad_EnvTexture_Solid()
+{
+  /*
 @@Quad_EnvTexture_Solid:
 			shr	eax,2				; Get Poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -3175,15 +3167,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; ************************
-			; *** TEXTURE ENV FLAT ***
-			; ************************
-
-
+// ************************
+// *** TEXTURE ENV FLAT ***
+// ************************
+S32 Triangle_EnvTexture_Flat()
+{
+  /*
 @@Triangle_EnvTexture_Flat:
 			shr	eax,2				; Get Poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -3402,9 +3397,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
+S32 Quad_EnvTexture_Flat()
+{
+  /*
 @@Quad_EnvTexture_Flat:
 			shr	eax,2				; Get Poly type
 			mov	edx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
@@ -3677,13 +3678,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-			; ***************************
-			; *** TEXTURE ENV GOURAUD ***
-			; ***************************
-
+// ***************************
+// *** TEXTURE ENV GOURAUD ***
+// ***************************
+S32 Triangle_EnvTexture_Gouraud()
+{
+  /*
 @@Triangle_EnvTexture_Gouraud:
 			shr	eax,2				; Get Poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
@@ -3906,11 +3912,15 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-
+S32 Quad_EnvTexture_Gouraud()
+{
+  /*
 @@Quad_EnvTexture_Gouraud:
 			shr	eax,2				; Get Poly type
 			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
@@ -4191,12 +4201,18 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			jmp	Fill_PolyFast
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-			; ************
-			; *** LINE ***
-			; ************
+// ************
+// *** LINE ***
+// ************
+S32 Line()
+{
+  /*
 @@Line:
 			mov	eax,dword ptr [ebp].STRUC_OBJ_LINE.Obj_Line_P1
 			mov	ebp,dword ptr [ebp].STRUC_OBJ_LINE.Obj_LineType
@@ -4264,14 +4280,18 @@ ByeBye::
 
 			sar	ecx,16
 			jmp	Line_A
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; **************
-			; *** SPHERE ***
-			; **************
-
+// **************
+// *** SPHERE ***
+// **************
+S32 Sphere()
+{
+  /*
 @@Sphere:
 			push	Offset @@Return_Display
 			push	0
@@ -4387,20 +4407,29 @@ ByeBye::
 @@MAJ_XMax:
 			mov	[ScreenXMax],esi
 			jmp	@@Ret_XMax
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-			; *********************
-			; *** SPHERE TRANSP ***
-			; *********************
+// *********************
+// *** SPHERE TRANSP ***
+// *********************
+S32 Sphere_Transp()
+{
+  /*
 @@Sphere_Transp:
 			push	Offset @@Return_Display
 			push	2
 			jmp	@@DispSph
+  */
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
+/*
 BodyDisplay		ENDP
 
 ; ╔═════════════════════════════════════════════════════════════════╗
@@ -5214,9 +5243,25 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // │                                                                 │
   // └─────────────────────────────────────────────────────────────────┘
 
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  PtrTextures = ((U8 *)lBody + lBody->OffTextures);
+  U32 *list = ListSort;
+  U32 *polyInfo = ListSort + MAX_NB_POLYS;
+  for (int i = 0; i < Nb_Sort; i++)
+  {
+    // @@ Do_Display:
+    U16 number = *list & 0xFFFF;
+    U32 info = polyInfo[number];
+    list++;
+
+    U8 type = info >> 24;
+    U32 offset = info & 0xFFFFFF;
+
+    void *poly = (void *)((U8 *)lBody + offset);
+    Poly_Jump[type]();
+    // @@Return_Display:
+  }
+
+  return 1;
 }
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
@@ -6014,3 +6059,129 @@ BodyDisplay_AlphaBeta	ENDP
 
 	return Return_BodyDisplay();
 }
+
+Poly_Jump_Fn Poly_Jump[] = {
+  Triangle_Solid, //  0
+  Quad_Solid, //  0
+  Triangle_Solid, //  0
+  Quad_Solid, //  0
+
+  Triangle_Flat, //  1
+  Quad_Flat, //  1
+  Triangle_Flat, //  1
+  Quad_Flat, //  1
+
+  Triangle_Solid, //  2
+  Quad_Solid, //  2
+  Triangle_Solid, //  2
+  Quad_Solid, //  2
+
+  Triangle_Solid, //  3
+  Quad_Solid, //  3
+  Triangle_Solid, //  3
+  Quad_Solid, //  3
+
+  Triangle_Gouraud, //  4
+  Quad_Gouraud, //  4
+  Triangle_Gouraud, //  4
+  Quad_Gouraud, //  4
+
+  Triangle_Gouraud, //  5
+  Quad_Gouraud, //  5
+  Triangle_Gouraud, //  5
+  Quad_Gouraud, //  5
+
+  Triangle_Gouraud, //  6
+  Quad_Gouraud, //  6
+  Triangle_Gouraud, //  6
+  Quad_Gouraud, //  6
+
+  Triangle_Gouraud, //  7
+  Quad_Gouraud, //  7
+  Triangle_Gouraud, //  7
+  Quad_Gouraud, //  7
+
+  Triangle_Texture_Solid, //  8
+  Quad_Texture_Solid, //  8
+  Triangle_EnvTexture_Solid, //  8
+  Quad_EnvTexture_Solid, //  8
+
+  Triangle_Texture_Flat, //  9
+  Quad_Texture_Flat, //  9
+  Triangle_EnvTexture_Flat, //  9
+  Quad_EnvTexture_Flat, //  9
+
+  Triangle_Texture_Gouraud, // 10
+  Quad_Texture_Gouraud, // 10
+  Triangle_EnvTexture_Gouraud, // 10
+  Quad_EnvTexture_Gouraud, // 10
+
+  Triangle_Texture_Gouraud, // 11
+  Quad_Texture_Gouraud, // 11
+  Triangle_EnvTexture_Gouraud, // 11
+  Quad_EnvTexture_Gouraud, // 11
+
+  Triangle_Texture_Solid, // 12
+  Quad_Texture_Solid, // 12
+  Triangle_EnvTexture_Solid, // 12
+  Quad_EnvTexture_Solid, // 12
+
+  Triangle_Texture_Flat, // 13
+  Quad_Texture_Flat, // 13
+  Triangle_EnvTexture_Flat, // 13
+  Quad_EnvTexture_Flat, // 13
+
+  Triangle_Texture_Gouraud, // 14
+  Quad_Texture_Gouraud, // 14
+  Triangle_EnvTexture_Gouraud, // 14
+  Quad_EnvTexture_Gouraud, // 14
+
+  Triangle_Texture_Gouraud, // 15
+  Quad_Texture_Gouraud, // 15
+  Triangle_EnvTexture_Gouraud, // 15
+  Quad_EnvTexture_Gouraud, // 15
+
+  Triangle_TextureZ_Solid, // 16
+  Quad_TextureZ_Solid, // 16
+  Triangle_EnvTexture_Solid, // 16
+  Quad_EnvTexture_Solid, // 16
+
+  Triangle_TextureZ_Flat, // 17
+  Quad_TextureZ_Flat, // 17
+  Triangle_EnvTexture_Flat, // 17
+  Quad_EnvTexture_Flat, // 17
+
+  Triangle_TextureZ_Gouraud, // 18
+  Quad_TextureZ_Gouraud, // 18
+  Triangle_EnvTexture_Gouraud, // 18
+  Quad_EnvTexture_Gouraud, // 18
+
+  Triangle_TextureZ_Gouraud, // 19
+  Quad_TextureZ_Gouraud, // 19
+  Triangle_EnvTexture_Gouraud, // 19
+  Quad_EnvTexture_Gouraud, // 19
+
+  Triangle_TextureZ_Solid, // 20
+  Quad_TextureZ_Solid, // 20
+  Triangle_EnvTexture_Solid, // 20
+  Quad_EnvTexture_Solid, // 20
+
+  Triangle_TextureZ_Flat, // 21
+  Quad_TextureZ_Flat, // 21
+  Triangle_EnvTexture_Flat, // 21
+  Quad_EnvTexture_Flat, // 21
+
+  Triangle_TextureZ_Gouraud, // 22
+  Quad_TextureZ_Gouraud, // 22
+  Triangle_EnvTexture_Gouraud, // 22
+  Quad_EnvTexture_Gouraud, // 22
+
+  Triangle_TextureZ_Gouraud, // 23
+  Quad_TextureZ_Gouraud, // 23
+  Triangle_EnvTexture_Gouraud, // 23
+  Quad_EnvTexture_Gouraud, // 23
+
+  Line, // Line
+  Sphere, // Sphere
+  Sphere_Transp, // Sphere transparent
+};
