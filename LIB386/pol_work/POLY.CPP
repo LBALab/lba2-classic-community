@@ -113,7 +113,7 @@ Fill_PolyFast		ENDP
 	Color_Poly = Color_Poly & 0xFF;
 
 	Fill_Jump_Fn filler = Fill_Saut_Normal[Type_Poly];
-	return filler(Nb_Points, Ptr_Points);
+	return filler(Nb_Points, Ptr_Points, Color_Poly);
 }
 
 void Switch_Fillers_C(U32 Bank) {
