@@ -22,7 +22,7 @@
 #define MAX_NB_GROUPES 30
 #define SIZE_MATRICE (sizeof(S16) * 15)
 
-typedef S32 (*Poly_Jump_Fn)(void);
+typedef S32 (*Poly_Jump_Fn)(U32 typePoly, void *poly);
 
 extern Poly_Jump_Fn Poly_Jump[];
 
@@ -64,6 +64,9 @@ U16 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
 // * First half of list contain Z:Number
 // * Second half: one pointer for each number
 U32 ListSort[MAX_NB_POLYS * 2];
+
+// List of vertex for Fill_Poly
+Struc_Point ListFillPoly[4];
 
 // Object position in world space
 S32 PosXWr = 0;
@@ -399,10 +402,11 @@ ENDIF
 			pop	eax			; POP Poly type
 			jmp	@@Loop_Polys
 			ENDM
+*/
 
-
-
-
+void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3)
+{
+  /*
 ; Calculate, if needed, the Zbuf value on each vertex of the poly
 GET_ZO3			MACRO	Dst, P1, P2, P3
 Local			@@NoZBuf
@@ -434,8 +438,26 @@ Local			@@NoZBuf
 			mov	[Dst+2*(Size STRUC_POINT)].STRUC_POINT.Pt_ZO,ax
 @@NoZBuf:
 			ENDM
+  */
 
+  if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D)
+  {
+    return;
+  }
 
+  U16 indices[3] = { index1, index2, index3 };
+
+  for (int i = 0; i < 3; i++)
+  {
+    U16 idx = indices[i];
+    S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
+    dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
+  }
+}
+
+void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4)
+{
+  /*
 GET_ZO4			MACRO	Dst, P1, P2, P3, P4
 Local			@@NoZBuf
 			cmp	[Fill_Flag_ZBuffer],TRUE
@@ -473,9 +495,24 @@ Local			@@NoZBuf
 			mov	[Dst+3*(Size STRUC_POINT)].STRUC_POINT.Pt_ZO,ax
 @@NoZBuf:
 			ENDM
+  */
 
+  if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D)
+  {
+    return;
+  }
 
+  U16 indices[4] = { index1, index2, index3, index4 };
 
+  for (int i = 0; i < 4; i++)
+  {
+    U16 idx = indices[i];
+    S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
+    dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
+  }
+}
+
+/*
 ; ╔════════════════════════════════════════════════════════════════════════════╗
 ; ║                                                                            ║
 ; ║  Les DATA                                                                  ║
@@ -1107,7 +1144,7 @@ ByeBye::
 // *************
 // *** SOLID ***
 // *************
-S32 Triangle_Solid()
+S32 Triangle_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_Solid:
@@ -1145,12 +1182,20 @@ S32 Triangle_Solid()
   push	Offset @@Return_Display
   jmp	Fill_PolyFast
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+
+  return Fill_Poly(typePoly >> 2, poly3->Couleur & 0xFF, 3, ListFillPoly);
 }
 
-S32 Quad_Solid()
+S32 Quad_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Quad_Solid:
@@ -1202,7 +1247,7 @@ S32 Quad_Solid()
 // ************
 // *** FLAT ***
 // ************
-S32 Triangle_Flat()
+S32 Triangle_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_Flat:
@@ -1250,7 +1295,7 @@ S32 Triangle_Flat()
   return 0;
 }
 
-S32 Quad_Flat()
+S32 Quad_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Quad_Flat:
@@ -1307,7 +1352,7 @@ S32 Quad_Flat()
 // ***************
 // *** GOURAUD ***
 // ***************
-S32 Triangle_Gouraud()
+S32 Triangle_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_Gouraud:
@@ -1358,7 +1403,7 @@ S32 Triangle_Gouraud()
   return 0;
 }
 
-S32 Quad_Gouraud()
+S32 Quad_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Quad_Gouraud:
@@ -1423,7 +1468,7 @@ S32 Quad_Gouraud()
 // *********************
 // *** TEXTURE SOLID ***
 // *********************
-S32 Triangle_Texture_Solid()
+S32 Triangle_Texture_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_Texture_Solid:
@@ -1491,7 +1536,7 @@ S32 Triangle_Texture_Solid()
   return 0;
 }
 
-S32 Quad_Texture_Solid()
+S32 Quad_Texture_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Quad_Texture_Solid:
@@ -1571,7 +1616,7 @@ S32 Quad_Texture_Solid()
 // ********************
 // *** TEXTURE FLAT ***
 // ********************
-S32 Triangle_Texture_Flat()
+S32 Triangle_Texture_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_Texture_Flat:
@@ -1645,7 +1690,7 @@ S32 Triangle_Texture_Flat()
   return 0;
 }
 
-S32 Quad_Texture_Flat()
+S32 Quad_Texture_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Quad_Texture_Flat:
@@ -1729,7 +1774,7 @@ S32 Quad_Texture_Flat()
 // ***********************
 // *** TEXTURE GOURAUD ***
 // ***********************
-S32 Triangle_Texture_Gouraud()
+S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_Texture_Gouraud:
@@ -1806,7 +1851,7 @@ S32 Triangle_Texture_Gouraud()
   return 0;
 }
 
-S32 Quad_Texture_Gouraud()
+S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Quad_Texture_Gouraud:
@@ -1898,7 +1943,7 @@ S32 Quad_Texture_Gouraud()
 // ***********************
 // *** TEXTURE Z SOLID ***
 // ***********************
-S32 Triangle_TextureZ_Solid()
+S32 Triangle_TextureZ_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_TextureZ_Solid:
@@ -2005,7 +2050,7 @@ S32 Triangle_TextureZ_Solid()
   return 0;
 }
 
-S32 Quad_TextureZ_Solid()
+S32 Quad_TextureZ_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Quad_TextureZ_Solid:
@@ -2146,7 +2191,7 @@ S32 Quad_TextureZ_Solid()
 // **********************
 // *** TEXTURE Z FLAT ***
 // **********************
-S32 Triangle_TextureZ_Flat()
+S32 Triangle_TextureZ_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_TextureZ_Flat:
@@ -2261,7 +2306,7 @@ S32 Triangle_TextureZ_Flat()
   return 0;
 }
 
-S32 Quad_TextureZ_Flat()
+S32 Quad_TextureZ_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Quad_TextureZ_Flat:
@@ -2410,7 +2455,7 @@ S32 Quad_TextureZ_Flat()
 // *************************
 // *** TEXTURE Z GOURAUD ***
 // *************************
-S32 Triangle_TextureZ_Gouraud()
+S32 Triangle_TextureZ_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_TextureZ_Gouraud:
@@ -2526,7 +2571,7 @@ S32 Triangle_TextureZ_Gouraud()
   return 0;
 }
 
-S32 Quad_TextureZ_Gouraud()
+S32 Quad_TextureZ_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Quad_TextureZ_Gouraud:
@@ -2682,7 +2727,7 @@ S32 Quad_TextureZ_Gouraud()
 // *************************
 // *** TEXTURE ENV SOLID ***
 // *************************
-S32 Triangle_EnvTexture_Solid()
+S32 Triangle_EnvTexture_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_EnvTexture_Solid:
@@ -2899,7 +2944,7 @@ S32 Triangle_EnvTexture_Solid()
   return 0;
 }
 
-S32 Quad_EnvTexture_Solid()
+S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly)
 {
   /*
 @@Quad_EnvTexture_Solid:
@@ -3176,7 +3221,7 @@ S32 Quad_EnvTexture_Solid()
 // ************************
 // *** TEXTURE ENV FLAT ***
 // ************************
-S32 Triangle_EnvTexture_Flat()
+S32 Triangle_EnvTexture_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_EnvTexture_Flat:
@@ -3403,7 +3448,7 @@ S32 Triangle_EnvTexture_Flat()
   return 0;
 }
 
-S32 Quad_EnvTexture_Flat()
+S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly)
 {
   /*
 @@Quad_EnvTexture_Flat:
@@ -3687,7 +3732,7 @@ S32 Quad_EnvTexture_Flat()
 // ***************************
 // *** TEXTURE ENV GOURAUD ***
 // ***************************
-S32 Triangle_EnvTexture_Gouraud()
+S32 Triangle_EnvTexture_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Triangle_EnvTexture_Gouraud:
@@ -3918,7 +3963,7 @@ S32 Triangle_EnvTexture_Gouraud()
   return 0;
 }
 
-S32 Quad_EnvTexture_Gouraud()
+S32 Quad_EnvTexture_Gouraud(U32 typePoly, void *poly)
 {
   /*
 @@Quad_EnvTexture_Gouraud:
@@ -4210,7 +4255,7 @@ S32 Quad_EnvTexture_Gouraud()
 // ************
 // *** LINE ***
 // ************
-S32 Line()
+S32 Line(U32 typePoly, void *poly)
 {
   /*
 @@Line:
@@ -4289,7 +4334,7 @@ S32 Line()
 // **************
 // *** SPHERE ***
 // **************
-S32 Sphere()
+S32 Sphere(U32 typePoly, void *poly)
 {
   /*
 @@Sphere:
@@ -4416,7 +4461,7 @@ S32 Sphere()
 // *********************
 // *** SPHERE TRANSP ***
 // *********************
-S32 Sphere_Transp()
+S32 Sphere_Transp(U32 typePoly, void *poly)
 {
   /*
 @@Sphere_Transp:
@@ -5257,7 +5302,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
     U32 offset = info & 0xFFFFFF;
 
     void *poly = (void *)((U8 *)lBody + offset);
-    Poly_Jump[type]();
+    Poly_Jump[type](type, poly);
     // @@Return_Display:
   }
 

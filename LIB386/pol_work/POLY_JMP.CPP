@@ -229,7 +229,7 @@ Extrn	C		Filler_TextureZFogSmoothNZW:	PROC
 ;			**************
 */
 
-S32 Jmp_Solid(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_Solid(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_Solid		PROC
@@ -249,11 +249,13 @@ Jmp_Solid		PROC
 Jmp_Solid		ENDP
 	*/
 	Fill_Filler = Filler_Flat;
+	Fill_ClipFlag = CLIP_FLAT;
+	Fill_Color = color | (color << 8);
 	return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 
-S32 Jmp_Transparent(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_Transparent(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_Transparent		PROC
@@ -276,7 +278,7 @@ Jmp_Transparent		ENDP
 
 
 
-S32 Jmp_Trame(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_Trame(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_Trame		PROC
@@ -301,7 +303,7 @@ Jmp_Trame		ENDP
 
 
 
-S32 Jmp_SolidFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_SolidFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_SolidFog		PROC
@@ -329,7 +331,7 @@ Jmp_SolidFog		ENDP
 
 
 
-S32 Jmp_TrameFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TrameFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TrameFog		PROC
@@ -356,7 +358,7 @@ Jmp_TrameFog		ENDP
 
 
 
-S32 Jmp_SolidZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_SolidZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_SolidZBuf		PROC
@@ -382,7 +384,7 @@ Jmp_SolidZBuf		ENDP
 
 
 
-S32 Jmp_TransparentZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TransparentZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TransparentZBuf	PROC
@@ -406,7 +408,7 @@ Jmp_TransparentZBuf	ENDP
 
 
 
-S32 Jmp_TrameZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TrameZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TrameZBuf		PROC
@@ -431,7 +433,7 @@ Jmp_TrameZBuf		ENDP
 
 
 
-S32 Jmp_SolidFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_SolidFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_SolidFogZBuf	PROC
@@ -462,7 +464,7 @@ Jmp_SolidFogZBuf	ENDP
 
 
 
-S32 Jmp_TrameFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TrameFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TrameFogZBuf	PROC
@@ -490,7 +492,7 @@ Jmp_TrameFogZBuf	ENDP
 
 
 
-S32 Jmp_SolidNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_SolidNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_SolidNZW		PROC
@@ -516,7 +518,7 @@ Jmp_SolidNZW		ENDP
 
 
 
-S32 Jmp_TransparentNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TransparentNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TransparentNZW	PROC
@@ -540,7 +542,7 @@ Jmp_TransparentNZW	ENDP
 
 
 
-S32 Jmp_TrameNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TrameNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TrameNZW		PROC
@@ -565,7 +567,7 @@ Jmp_TrameNZW		ENDP
 
 
 
-S32 Jmp_SolidFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_SolidFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_SolidFogNZW		PROC
@@ -596,7 +598,7 @@ Jmp_SolidFogNZW		ENDP
 
 
 
-S32 Jmp_TrameFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TrameFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TrameFogNZW		PROC
@@ -624,7 +626,7 @@ Jmp_TrameFogNZW		ENDP
 // ***  GOURAUD  ***
 // *****************
 
-S32 Jmp_Gouraud(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_Gouraud(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_Gouraud		PROC
@@ -646,7 +648,7 @@ Jmp_Gouraud		ENDP
 }
 
 
-S32 Jmp_Dither(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_Dither(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_Dither		PROC
@@ -669,7 +671,7 @@ Jmp_Dither		ENDP
 
 
 
-S32 Jmp_GouraudTable(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTable(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTable	PROC
@@ -694,7 +696,7 @@ Jmp_GouraudTable	ENDP
 
 
 
-S32 Jmp_DitherTable(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherTable(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherTable		PROC
@@ -719,7 +721,7 @@ Jmp_DitherTable		ENDP
 
 
 
-S32 Jmp_GouraudFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudFog		PROC
@@ -741,7 +743,7 @@ Jmp_GouraudFog		ENDP
 }
 
 
-S32 Jmp_DitherFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherFog		PROC
@@ -765,7 +767,7 @@ Jmp_DitherFog		ENDP
 
 
 
-S32 Jmp_GouraudZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudZBuf		PROC
@@ -787,7 +789,7 @@ Jmp_GouraudZBuf		ENDP
 }
 
 
-S32 Jmp_DitherZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherZBuf		PROC
@@ -811,7 +813,7 @@ Jmp_DitherZBuf		ENDP
 
 
 
-S32 Jmp_GouraudTableZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTableZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTableZBuf	PROC
@@ -836,7 +838,7 @@ Jmp_GouraudTableZBuf	ENDP
 
 
 
-S32 Jmp_DitherTableZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherTableZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherTableZBuf	PROC
@@ -860,7 +862,7 @@ Jmp_DitherTableZBuf	ENDP
 
 
 
-S32 Jmp_GouraudFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudFogZBuf	PROC
@@ -882,7 +884,7 @@ Jmp_GouraudFogZBuf	ENDP
 }
 
 
-S32 Jmp_DitherFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherFogZBuf	PROC
@@ -907,7 +909,7 @@ Jmp_DitherFogZBuf	ENDP
 
 
 
-S32 Jmp_GouraudNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudNZW		PROC
@@ -929,7 +931,7 @@ Jmp_GouraudNZW		ENDP
 }
 
 
-S32 Jmp_DitherNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherNZW		PROC
@@ -953,7 +955,7 @@ Jmp_DitherNZW		ENDP
 
 
 
-S32 Jmp_GouraudTableNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTableNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTableNZW	PROC
@@ -978,7 +980,7 @@ Jmp_GouraudTableNZW	ENDP
 
 
 
-S32 Jmp_DitherTableNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherTableNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherTableNZW	PROC
@@ -1002,7 +1004,7 @@ Jmp_DitherTableNZW	ENDP
 
 
 
-S32 Jmp_GouraudFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudFogNZW	PROC
@@ -1024,7 +1026,7 @@ Jmp_GouraudFogNZW	ENDP
 }
 
 
-S32 Jmp_DitherFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherFogNZW	PROC
@@ -1049,7 +1051,7 @@ Jmp_DitherFogNZW	ENDP
 // ***  TEXTURE  ***
 // *****************
 
-S32 Jmp_Texture(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_Texture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_Texture		PROC
@@ -1069,7 +1071,7 @@ Jmp_Texture		ENDP
 }
 
 
-S32 Jmp_TextureFlat(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFlat(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFlat		PROC
@@ -1091,7 +1093,7 @@ Jmp_TextureFlat		ENDP
 }
 
 
-S32 Jmp_TextureChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureChromaKey	PROC
@@ -1111,7 +1113,7 @@ Jmp_TextureChromaKey	ENDP
 
 
 
-S32 Jmp_TextureFlatChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFlatChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFlatChromaKey PROC
@@ -1135,7 +1137,7 @@ Jmp_TextureFlatChromaKey ENDP
 
 
 
-S32 Jmp_TextureFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFog		PROC
@@ -1155,7 +1157,7 @@ Jmp_TextureFog		ENDP
 
 
 
-S32 Jmp_TextureChromaKeyFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureChromaKeyFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureChromaKeyFog	PROC
@@ -1176,7 +1178,7 @@ Jmp_TextureChromaKeyFog	ENDP
 
 
 
-S32 Jmp_TextureZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZBuf		PROC
@@ -1196,7 +1198,7 @@ Jmp_TextureZBuf		ENDP
 
 
 
-S32 Jmp_TextureChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureChromaKeyZBuf PROC
@@ -1215,7 +1217,7 @@ Jmp_TextureChromaKeyZBuf ENDP
 }
 
 
-S32 Jmp_TextureFlatZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFlatZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFlatZBuf	PROC
@@ -1243,7 +1245,7 @@ Jmp_TextureFlatZBuf	ENDP
 
 
 
-S32 Jmp_TextureFlatChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFlatChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFlatChromaKeyZBuf PROC
@@ -1269,7 +1271,7 @@ Jmp_TextureFlatChromaKeyZBuf ENDP
 
 
 
-S32 Jmp_TextureFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFogZBuf	PROC
@@ -1289,7 +1291,7 @@ Jmp_TextureFogZBuf	ENDP
 
 
 
-S32 Jmp_TextureChromaKeyFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureChromaKeyFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureChromaKeyFogZBuf PROC
@@ -1309,7 +1311,7 @@ Jmp_TextureChromaKeyFogZBuf ENDP
 
 
 
-S32 Jmp_TextureNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureNZW		PROC
@@ -1329,7 +1331,7 @@ Jmp_TextureNZW		ENDP
 
 
 
-S32 Jmp_TextureChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureChromaKeyNZW PROC
@@ -1348,7 +1350,7 @@ Jmp_TextureChromaKeyNZW ENDP
 }
 
 
-S32 Jmp_TextureFlatNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFlatNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFlatNZW	PROC
@@ -1376,7 +1378,7 @@ Jmp_TextureFlatNZW	ENDP
 
 
 
-S32 Jmp_TextureFlatChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFlatChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFlatChromaKeyNZW PROC
@@ -1402,7 +1404,7 @@ Jmp_TextureFlatChromaKeyNZW ENDP
 
 
 
-S32 Jmp_TextureFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureFogNZW	PROC
@@ -1422,7 +1424,7 @@ Jmp_TextureFogNZW	ENDP
 
 
 
-S32 Jmp_TextureChromaKeyFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureChromaKeyFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureChromaKeyFogNZW PROC
@@ -1444,7 +1446,7 @@ Jmp_TextureChromaKeyFogNZW ENDP
 // ***  GOURAUD TEXTURE  ***
 // *************************
 
-S32 Jmp_GouraudTexture(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTexture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTexture	PROC
@@ -1463,7 +1465,7 @@ Jmp_GouraudTexture	ENDP
 }
 
 
-S32 Jmp_DitherTexture(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherTexture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherTexture	PROC
@@ -1482,7 +1484,7 @@ Jmp_DitherTexture	ENDP
 }
 
 
-S32 Jmp_GouraudTextureChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTextureChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTextureChromaKey PROC
@@ -1501,7 +1503,7 @@ Jmp_GouraudTextureChromaKey ENDP
 }
 
 
-S32 Jmp_DitherTextureChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_DitherTextureChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_DitherTextureChromaKey PROC
@@ -1521,7 +1523,7 @@ Jmp_DitherTextureChromaKey ENDP
 
 
 
-S32 Jmp_GouraudTextureZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTextureZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTextureZBuf	PROC
@@ -1541,7 +1543,7 @@ Jmp_GouraudTextureZBuf	ENDP
 
 
 
-S32 Jmp_GouraudTextureChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTextureChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTextureChromaKeyZBuf PROC
@@ -1563,7 +1565,7 @@ Jmp_GouraudTextureChromaKeyZBuf ENDP
 
 
 
-S32 Jmp_GouraudTextureNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTextureNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTextureNZW	PROC
@@ -1583,7 +1585,7 @@ Jmp_GouraudTextureNZW	ENDP
 
 
 
-S32 Jmp_GouraudTextureChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_GouraudTextureChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_GouraudTextureChromaKeyNZW PROC
@@ -1605,7 +1607,7 @@ Jmp_GouraudTextureChromaKeyNZW ENDP
 //			***  TEXTURE with PERSPECTIVE CORRECTION ***
 //			********************************************
 
-S32 Jmp_TextureZ(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZ(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZ		PROC
@@ -1624,7 +1626,7 @@ Jmp_TextureZ		ENDP
 }
 
 
-S32 Jmp_TextureZFlat(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFlat(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFlat	PROC
@@ -1651,7 +1653,7 @@ Jmp_TextureZFlat	ENDP
 
 
 
-S32 Jmp_TextureZChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZChromaKey	PROC
@@ -1671,7 +1673,7 @@ Jmp_TextureZChromaKey	ENDP
 
 
 
-S32 Jmp_TextureZFlatChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFlatChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFlatChromaKey PROC
@@ -1697,7 +1699,7 @@ Jmp_TextureZFlatChromaKey ENDP
 
 
 
-S32 Jmp_TextureZFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFog		PROC
@@ -1718,7 +1720,7 @@ Jmp_TextureZFog		ENDP
 
 
 
-S32 Jmp_TextureZChromaKeyFog(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZChromaKeyFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZChromaKeyFog PROC
@@ -1739,7 +1741,7 @@ Jmp_TextureZChromaKeyFog ENDP
 
 
 
-S32 Jmp_TextureZZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZZBuf	PROC
@@ -1759,7 +1761,7 @@ Jmp_TextureZZBuf	ENDP
 
 
 
-S32 Jmp_TextureZFlatZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFlatZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFlatZBuf	PROC
@@ -1786,7 +1788,7 @@ Jmp_TextureZFlatZBuf	ENDP
 
 
 
-S32 Jmp_TextureZChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZChromaKeyZBuf PROC
@@ -1806,7 +1808,7 @@ Jmp_TextureZChromaKeyZBuf ENDP
 
 
 
-S32 Jmp_TextureZFlatChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFlatChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFlatChromaKeyZBuf PROC
@@ -1834,7 +1836,7 @@ Jmp_TextureZFlatChromaKeyZBuf ENDP
 
 
 
-S32 Jmp_TextureZFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFogZBuf	PROC
@@ -1857,7 +1859,7 @@ Jmp_TextureZFogZBuf	ENDP
 
 
 
-S32 Jmp_TextureZChromaKeyFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZChromaKeyFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZChromaKeyFogZBuf PROC
@@ -1880,7 +1882,7 @@ Jmp_TextureZChromaKeyFogZBuf ENDP
 
 
 
-S32 Jmp_TextureZNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZNZW	PROC
@@ -1900,7 +1902,7 @@ Jmp_TextureZNZW	ENDP
 
 
 
-S32 Jmp_TextureZFlatNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFlatNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFlatNZW	PROC
@@ -1927,7 +1929,7 @@ Jmp_TextureZFlatNZW	ENDP
 
 
 
-S32 Jmp_TextureZChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZChromaKeyNZW PROC
@@ -1947,7 +1949,7 @@ Jmp_TextureZChromaKeyNZW ENDP
 
 
 
-S32 Jmp_TextureZFlatChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFlatChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFlatChromaKeyNZW PROC
@@ -1975,7 +1977,7 @@ Jmp_TextureZFlatChromaKeyNZW ENDP
 
 
 
-S32 Jmp_TextureZFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFogNZW	PROC
@@ -1998,7 +2000,7 @@ Jmp_TextureZFogNZW	ENDP
 
 
 
-S32 Jmp_TextureZChromaKeyFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZChromaKeyFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZChromaKeyFogNZW PROC
@@ -2020,7 +2022,7 @@ Jmp_TextureZChromaKeyFogNZW ENDP
 // ***  TEXTURE with PERSPECTIVE CORRECTION and GOURAUD SHADING ***
 // ****************************************************************
 
-S32 Jmp_TextureZGouraud(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZGouraud(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZGouraud	PROC
@@ -2039,7 +2041,7 @@ Jmp_TextureZGouraud	ENDP
 }
 
 
-S32 Jmp_TextureZGouraudChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZGouraudChromaKey(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZGouraudChromaKey PROC
@@ -2060,7 +2062,7 @@ Jmp_TextureZGouraudChromaKey ENDP
 
 
 
-S32 Jmp_TextureZGouraudZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZGouraudZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZGouraudZBuf	PROC
@@ -2080,7 +2082,7 @@ Jmp_TextureZGouraudZBuf	ENDP
 
 
 
-S32 Jmp_TextureZGouraudChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZGouraudChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZGouraudChromaKeyZBuf PROC
@@ -2100,7 +2102,7 @@ Jmp_TextureZGouraudChromaKeyZBuf ENDP
 
 
 
-S32 Jmp_TextureZGouraudNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZGouraudNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZGouraudNZW	PROC
@@ -2120,7 +2122,7 @@ Jmp_TextureZGouraudNZW	ENDP
 
 
 
-S32 Jmp_TextureZGouraudChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZGouraudChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZGouraudChromaKeyNZW PROC
@@ -2142,7 +2144,7 @@ Jmp_TextureZGouraudChromaKeyNZW ENDP
 // ***  TEXTURE FOG with PERSPECTIVE CORRECTION ***
 // ************************************************
 
-S32 Jmp_TextureZFogSmooth(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFogSmooth(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFogSmooth	PROC
@@ -2164,7 +2166,7 @@ Jmp_TextureZFogSmooth	ENDP
 
 
 
-S32 Jmp_TextureZFogSmoothZBuf(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFogSmoothZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFogSmoothZBuf PROC
@@ -2184,7 +2186,7 @@ Jmp_TextureZFogSmoothZBuf ENDP
 
 
 
-S32 Jmp_TextureZFogSmoothNZW(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_TextureZFogSmoothNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_TextureZFogSmoothNZW PROC
@@ -2202,7 +2204,7 @@ Jmp_TextureZFogSmoothNZW ENDP
 		return 0;
 }
 
-S32 Jmp_FlagZBuffer(S32 Nb_Points, Struc_Point *Ptr_Points)
+S32 Jmp_FlagZBuffer(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
 Jmp_FlagZBuffer		PROC
