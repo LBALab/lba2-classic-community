@@ -1290,8 +1290,21 @@ S32 Triangle_Flat(U32 typePoly, void *poly)
 			and	ebx,0FFh
 			jmp	Fill_PolyFast
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
+
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+
+  U16 normal = ListLights[poly3->Normale] >> 8;
+  U8 color = (poly3->Couleur + normal) & 0xFF;
+
+  Fill_Poly(1, color, 3, ListFillPoly);
   return 0;
 }
 
