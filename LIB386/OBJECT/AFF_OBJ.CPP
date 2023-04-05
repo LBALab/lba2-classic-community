@@ -1494,9 +1494,23 @@ S32 Quad_Gouraud(U32 typePoly, void *poly)
 			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
 			jmp	Fill_PolyFast
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[0].Pt_Light = ListLights[poly4->P1];
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[1].Pt_Light = ListLights[poly4->P2];
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[2].Pt_Light = ListLights[poly4->P3];
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+  ListFillPoly[3].Pt_Light = ListLights[poly4->P4];
+
+  return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 4, ListFillPoly);
 }
 
 // *********************
