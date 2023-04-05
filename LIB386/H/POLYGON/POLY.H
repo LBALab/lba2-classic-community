@@ -154,6 +154,8 @@ extern S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points);
 
 S32 INV64(S32 a);
 
+void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2);
+
 // -----------------------------------------------------------------------------
 /// 16-bit Z standard for 16-bit zbuffer
 #define GET_ZO(a) (U16)(((a)*Fill_ZBuffer_Factor) >> 16)
