@@ -1420,9 +1420,21 @@ S32 Triangle_Gouraud(U32 typePoly, void *poly)
 			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
 			jmp	Fill_PolyFast
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
+
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[0].Pt_Light = ListLights[poly3->P1];
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[1].Pt_Light = ListLights[poly3->P2];
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  ListFillPoly[2].Pt_Light = ListLights[poly3->P3];
+
+  return Fill_Poly(typePoly >> 2, poly3->Couleur, 3, ListFillPoly);
 }
 
 S32 Quad_Gouraud(U32 typePoly, void *poly)
