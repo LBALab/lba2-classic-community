@@ -5216,9 +5216,8 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
       Off_Sort[0] = (minZ << 16) | Nb_Sort;
       U8 polyType = line->Type;
       polyType += MAX_POLYS_TYPE * 4; // Get correct pos for a line
-      polyType <<= 24;                // Line type in bit 24-31
       // | PolyType (8 bit) | Poly Offset (24 bit) |
-      Off_Sort[MAX_NB_POLYS] = polyType | (bodyOffset & 0xFFFFFF);
+      Off_Sort[MAX_NB_POLYS] = (polyType << 24) | (bodyOffset & 0xFFFFFF);
 
       Off_Sort++;
       Nb_Sort++;
