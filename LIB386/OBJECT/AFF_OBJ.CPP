@@ -5157,6 +5157,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
     memcpy(&mask, header, sizeof(U32));
     U8 typePoly = header->TypePoly & 0xFF;
     currentPoly = (void *)((U8 *)currentPoly + sizeof(T_POLY_HEADER));
+    bodyOffset += sizeof(T_POLY_HEADER);
 
     // *** Type dispatch ***
     if (mask & MASK_QUADRILATERE)
