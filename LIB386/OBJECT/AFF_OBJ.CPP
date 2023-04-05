@@ -1366,9 +1366,23 @@ S32 Quad_Flat(U32 typePoly, void *poly)
 			and	ebx,0FFh
 			jmp	Fill_PolyFast
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
+
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+
+  U16 normal = ListLights[poly4->Normale] >> 8;
+  U8 color = (poly4->Couleur + normal) & 0xFF;
+
+  return Fill_Poly(1, color, 4, ListFillPoly);
 }
 
 // ***************
