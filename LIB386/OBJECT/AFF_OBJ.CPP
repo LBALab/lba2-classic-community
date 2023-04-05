@@ -4326,8 +4326,30 @@ S32 Line(U32 typePoly, void *poly)
 			sar	ecx,16
 			jmp	Line_A
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  T_OBJ_LINE *line = (T_OBJ_LINE *)poly;
+
+  TYPE_PT p1 = Obj_ListProjectedPoints[line->P1];
+  TYPE_PT p2 = Obj_ListProjectedPoints[line->P2];
+
+  S32 z1 = 0;
+  S32 z2 = 0;
+
+  if (Fill_Flag_ZBuffer && TypeProj != TYPE_3D)
+  {
+    T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
+    T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
+
+    // For some reason, z1 is calculated with p2 and z2 with p1
+    z1 = Fill_ZBuffer_Factor * (~rotatedP1.Z - (PosZWr - 1)) >> 16;
+    z2 = Fill_ZBuffer_Factor * (~rotatedP2.Z - (PosZWr - 1)) >> 16;
+  }
+
+  if ((p1.X == 0x8000 && p1.Y == 0x8000) || (p2.X == 0x8000 && p2.Y == 0x8000))
+  {
+    return 0;
+  }
+
+  Line_A(p1.X, p1.Y, p2.X, p2.Y, line->Coul, z1, z2);
   return 0;
 }
 
