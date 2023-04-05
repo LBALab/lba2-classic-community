@@ -4988,7 +4988,7 @@ ENDIF
       // | ZFar | Poly Number |
       Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
 
-      U32 polyType = type << 26;
+      U32 polyType = header->TypePoly << 26;
       if (type == 2)
       {
         polyType |= 0b10 << 24; // Bit environment
@@ -5096,7 +5096,7 @@ ENDIF
       TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
       if (p4.X != 0x8000 || p4.Y != 0x8000)
       {
-        U32 polyType = (type << 26);
+        U32 polyType = (header->TypePoly << 26);
         if (type == 2)
         {
           polyType |= (0b11 << 24); // Bit quad+environment
