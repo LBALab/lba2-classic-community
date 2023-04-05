@@ -1314,8 +1314,7 @@ S32 Triangle_Flat(U32 typePoly, void *poly)
   U16 normal = ListLights[poly3->Normale] >> 8;
   U8 color = (poly3->Couleur + normal) & 0xFF;
 
-  Fill_Poly(1, color, 3, ListFillPoly);
-  return 0;
+  return Fill_Poly(1, color, 3, ListFillPoly);
 }
 
 S32 Quad_Flat(U32 typePoly, void *poly)
