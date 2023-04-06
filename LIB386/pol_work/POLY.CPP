@@ -840,7 +840,7 @@ void Clipper_Jmp(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA, U8 
 */
 S32 Fill_Clip(S32 Nb_Points, Struc_Point *Ptr_Points, U8 type)
 {
-	Struc_Point *prevPoint = NULL; // Previous point
+  Struc_Point *prevPoint = Fill_LastPoint; // Previous point
   Struc_Point *currentPoint = Fill_FirstPoint; // Current point
 
   Struc_Point *clipPoints = NULL;
@@ -868,7 +868,7 @@ S32 Fill_Clip(S32 Nb_Points, Struc_Point *Ptr_Points, U8 type)
   U8 isPointInvisible = 1;
 
   if ((type == CLIP_XMIN && Fill_LastPoint->Pt_XE >= ClipXMin)
-		|| (type == CLIP_XMAX && Fill_LastPoint->Pt_XE <= ClipXMax)
+		|| (type == CLIP_XMAX && Fill_LastPoint->Pt_XE <= ClipXMax + 1)
 		|| (type == CLIP_YMIN && Fill_LastPoint->Pt_YE >= ClipYMin)
 		|| (type == CLIP_YMAX && Fill_LastPoint->Pt_YE <= ClipYMax))
 	{
@@ -879,7 +879,7 @@ S32 Fill_Clip(S32 Nb_Points, Struc_Point *Ptr_Points, U8 type)
   {
     currentPoint++;
     if ((type == CLIP_XMIN && currentPoint->Pt_XE >= ClipXMin)
-			|| (type == CLIP_XMAX && currentPoint->Pt_XE <= ClipXMax)
+			|| (type == CLIP_XMAX && currentPoint->Pt_XE <= ClipXMax + 1)
 			|| (type == CLIP_YMIN && currentPoint->Pt_YE >= ClipYMin)
 			|| (type == CLIP_YMAX && currentPoint->Pt_YE <= ClipYMax))
     {
