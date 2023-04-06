@@ -37,7 +37,7 @@ T_OBJ_POINT Obj_ListRotatedPoints[MAX_NB_POINTS];
 TYPE_PT Obj_ListProjectedPoints[MAX_NB_POINTS];
 
 U8 *ObjPtrMap = 0; // Ptr of the texture page for the current object
-U8 *PtrTextures = 0; // Ptr of texture handles
+U32 *PtrTextures = 0; // Ptr of texture handles
 
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
@@ -1593,9 +1593,27 @@ S32 Triangle_Texture_Solid(U32 typePoly, void *poly)
 
 			jmp	Fill_PolyFast
   */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[0].Pt_MapU = poly3->U1;
+  ListFillPoly[0].Pt_MapV = poly3->V1;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[1].Pt_MapU = poly3->U2;
+  ListFillPoly[1].Pt_MapV = poly3->V2;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  ListFillPoly[2].Pt_MapU = poly3->U3;
+  ListFillPoly[2].Pt_MapV = poly3->V3;
+
+  U32 textureInfo = PtrTextures[poly3->HandleText];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+  return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
 
 S32 Quad_Texture_Solid(U32 typePoly, void *poly)
@@ -5372,7 +5390,7 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // │                                                                 │
   // └─────────────────────────────────────────────────────────────────┘
 
-  PtrTextures = ((U8 *)lBody + lBody->OffTextures);
+  PtrTextures = (U32 *)((U8 *)lBody + lBody->OffTextures);
   U32 *list = ListSort;
   U32 *polyInfo = ListSort + MAX_NB_POLYS;
   for (int i = 0; i < Nb_Sort; i++)
