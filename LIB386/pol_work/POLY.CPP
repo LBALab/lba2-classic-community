@@ -45,6 +45,10 @@ U32 Fill_CurMapUMin = 0; // Left edge: MapU value
 U32 Fill_MapU_LeftSlope = 0; // Left slope for MapU
 U32 Fill_MapU_XSlope = 0;	// X Slope for MapU
 
+U32 Fill_CurGouraudMin = 0;	// Left edge: gouraud value
+U32 Fill_Gouraud_LeftSlope = 0;	// Left slope for Gouraud shading
+U32 Fill_Gouraud_XSlope = 0;	// X Slope for Gouraud shading
+
 U32 Fill_CurMapVMin = 0; // Left edge: MapV value
 U32 Fill_MapV_LeftSlope = 0; // Left slope for MapV
 U32 Fill_MapV_XSlope = 0;	// X Slope for MapV
@@ -1525,9 +1529,72 @@ S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *Pt
 
 S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  /*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Calculate the XSlope for Gouraud shading                                 ║
+; ║                                                                          ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+Calc_GouraudXSlopeFPU	PROC
+						; ESI = PtA
+						; EDI = PtB
+						; EBP = PtC
+					; (Yb-Ya)  (Yc-Ya)   D
+
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+
+			and	eax,0FFFFh
+			and	ecx,0FFFFh
+
+			sub	eax,ecx			; EAX = LB-LA
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
+
+			push	eax
+			and	ebx,0FFFFh
+
+			sub	ebx,ecx			; EBX = LC-LA
+
+			push	ebx
+Gouraud_XSlopeFPU::
+			fild	dword ptr [esp+4]; (LB-LA)  (Yb-Ya)  (Yc-Ya)  D
+
+			fild	dword ptr [esp]	; (LC-LA)  (LB-LA)  (Yb-Ya)  (Yc-Ya)  D
+
+			fxch	st(1)		; (LB-LA)  (LC-LA)  (Yb-Ya)  (Yc-Ya)  D
+
+			fmulp	st(3),st	; (LC-LA) (Yb-Ya)  M1  D'
+
+			add	esp,2*4
+
+			fmulp	st(1),st	; M1  M2  D'
+
+			; ***
+			; ***
+
+			fsubrp	st(1),st	; F  D'
+
+			; ***
+			; ***
+
+			fmulp	st(1),st	; GSlope
+
+			; ***
+			; ***
+			; ***
+
+			fistp	[Fill_Gouraud_XSlope]
+
+			jmp	Triangle_ReadNextEdge
+Calc_GouraudXSlopeFPU	ENDP
+  */
+	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
+	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
+  S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
+  S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
+
+  Fill_Gouraud_XSlope = (YB_YA * LC_LA - YC_YA * LB_LA) / Denom;
+  return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
