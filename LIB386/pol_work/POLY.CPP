@@ -325,7 +325,7 @@ SetFog			ENDP
     Fill_Fog_Factor = 256 * 65536 / temp;
 }
 
-void EnterClip(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
+void EnterClip(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA, S32 diff)
 {
 	/*
 EnterClip::
@@ -498,34 +498,32 @@ EnterClip::
 
 			ret
 	*/
-	S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
-
   if (Fill_ClipFlag & CLIP_LIGHT)
 	{
-		dst->Pt_Light = pointA->Pt_Light + (pointB->Pt_Light - pointA->Pt_Light) * Clip_Num / xDiff;
+		dst->Pt_Light = pointA->Pt_Light + (pointB->Pt_Light - pointA->Pt_Light) * Clip_Num / diff;
 	}
 
   if (Fill_ClipFlag & CLIP_TEXTURE)
   {
-		dst->Pt_MapU = pointA->Pt_MapU + (pointB->Pt_MapU - pointA->Pt_MapU) * Clip_Num / xDiff;
-		dst->Pt_MapV = pointA->Pt_MapV + (pointB->Pt_MapV - pointA->Pt_MapV) * Clip_Num / xDiff;
+		dst->Pt_MapU = pointA->Pt_MapU + (pointB->Pt_MapU - pointA->Pt_MapU) * Clip_Num / diff;
+		dst->Pt_MapV = pointA->Pt_MapV + (pointB->Pt_MapV - pointA->Pt_MapV) * Clip_Num / diff;
   }
 
   if (Fill_ClipFlag & CLIP_TEXTUREZ)
   {
 		// W
-		dst->Pt_W = pointA->Pt_W + (pointB->Pt_W - pointA->Pt_W) * Clip_Num / xDiff;
+		dst->Pt_W = pointA->Pt_W + (pointB->Pt_W - pointA->Pt_W) * Clip_Num / diff;
 
 		// MapU
 		S32 uwA = (pointA->Pt_MapU * pointA->Pt_W / 256);
 		S32 uwB = (pointB->Pt_MapU * pointB->Pt_W / 256);
-		S32 U_tmp = (uwB - uwA) * Clip_Num / xDiff + uwA;
+		S32 U_tmp = (uwB - uwA) * Clip_Num / diff + uwA;
 		dst->Pt_MapU = U_tmp * 256 / dst->Pt_W;
 
 		// MapV
 		S32 vwA = (pointA->Pt_MapV * pointA->Pt_W / 256);
 		S32 vwB = (pointB->Pt_MapV * pointB->Pt_W / 256);
-		S32 V_tmp = (vwB - vwA) * Clip_Num / xDiff + vwA;
+		S32 V_tmp = (vwB - vwA) * Clip_Num / diff + vwA;
 		dst->Pt_MapV = V_tmp * 256 / dst->Pt_W;
 
     if (Fill_ClipFlag & CLIP_ZBUFFER)
@@ -536,7 +534,7 @@ EnterClip::
 			// perspective correction
 			S32 zA = pointA->Pt_ZO * pointA->Pt_W / 256;
 			S32 zB = pointB->Pt_ZO * pointB->Pt_W / 256;
-			S32 ZO_tmp = (zB - zA) * Clip_Num / xDiff + zA;
+			S32 ZO_tmp = (zB - zA) * Clip_Num / diff + zA;
 			dst->Pt_ZO = ZO_tmp * 256 / dst->Pt_W;
     }
   }
@@ -544,7 +542,7 @@ EnterClip::
   {
     if ( Fill_ClipFlag & CLIP_ZBUFFER )
     {
-			dst->Pt_ZO = pointA->Pt_ZO + (pointB->Pt_ZO - pointA->Pt_ZO) * Clip_Num / xDiff;
+			dst->Pt_ZO = pointA->Pt_ZO + (pointB->Pt_ZO - pointA->Pt_ZO) * Clip_Num / diff;
     }
   }
 }
@@ -607,7 +605,7 @@ Generic_ClipXMin	ENDP
 	dst->Pt_XE = ClipXMin;
 	dst->Pt_YE = pointA->Pt_YE + (pointB->Pt_YE - pointA->Pt_YE) * Clip_Num / xDiff;
 
-	EnterClip(pointB, dst, pointA);
+	EnterClip(pointB, dst, pointA, xDiff);
 }
 
 // ESI = PtA; EBX = Pt_B
@@ -674,7 +672,7 @@ Generic_ClipXMax	ENDP
 	dst->Pt_XE = ClipXMax + 1;
 	dst->Pt_YE = pointA->Pt_YE + (pointB->Pt_YE - pointA->Pt_YE) * Clip_Num / xDiff;
 
-	EnterClip(pointB, dst, pointA);
+	EnterClip(pointB, dst, pointA, xDiff);
 }
 
 // ESI = PtA; EBX = Pt_B
@@ -736,7 +734,7 @@ Generic_ClipYMin	ENDP
 	dst->Pt_XE = pointA->Pt_XE + (pointB->Pt_XE - pointA->Pt_XE) * Clip_Num / yDiff;
 	dst->Pt_YE = ClipYMin;
 
-	EnterClip(pointB, dst, pointA);
+	EnterClip(pointB, dst, pointA, yDiff);
 }
 
 // ESI = PtA; EBX = Pt_B
@@ -798,7 +796,7 @@ Generic_ClipYMax	ENDP
 	dst->Pt_XE = pointA->Pt_XE + (pointB->Pt_XE - pointA->Pt_XE) * Clip_Num / yDiff;
 	dst->Pt_YE = ClipYMax;
 
-	EnterClip(pointB, dst, pointA);
+	EnterClip(pointB, dst, pointA, yDiff);
 }
 
 // Clip types
