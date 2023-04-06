@@ -41,6 +41,10 @@ U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
+U32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
+U32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading
+U32 Fill_Gouraud_XSlope = 0; // X Slope for Gouraud shading
+
 U32 Fill_CurMapUMin = 0; // Left edge: MapU value
 U32 Fill_MapU_LeftSlope = 0; // Left slope for MapU
 U32 Fill_MapU_XSlope = 0;	// X Slope for MapU
