@@ -1,5 +1,7 @@
 #include <POLYGON/POLYGOUR.H>
 
+#include <POLYGON/POLY.H>
+
 #include <stdio.h>
 
 /*
@@ -377,8 +379,137 @@ Filler_Dither		PROC
 			jmp	Triangle_ReadNextEdge
 Filler_Dither		ENDP
   */
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  int v3; // ebp@1
+  U8 *v4; // edi@1
+  signed int v5; // esi@1
+  U8 *v6; // edi@4
+  unsigned int v7; // ecx@4
+  U8 v8; // dl@5
+  U8 *v9; // edx@6
+  U8 *v10; // edi@6
+  U8 *v11; // edx@6
+  char v12; // ah@7
+  int v13; // edx@9
+  int v14; // ebp@9
+  signed int v15; // eax@9
+  char v16; // cf@9
+  unsigned int v17; // ecx@9
+  int v18; // edx@12
+  int v19; // edx@15
+  U8 *v20; // [sp-10h] [bp-10h]@6
+  int v21; // [sp-Ch] [bp-Ch]@5
+  unsigned int v22; // [sp-8h] [bp-8h]@5
+  U8 *v23; // [sp-4h] [bp-4h]@4
+
+  Fill_CurY += nbLines + 1;
+  v4 = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+  }
+  else
+  {
+    // @@Each_Line:
+    v4 += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  while ( 1 )
+  {
+    // @@EnterLoop:
+//     ; *** CALL: 	ECX = Nb lines to draw
+// ;		EBX = Fill_CurXMin
+// ;		EDX = Fill_CurXMax
+    // unsigned int a1@<edx>, int a2@<ecx>, unsigned int a3@<ebx>
+    v23 = v4;
+    v6 = v4 + (fillCurXMin >> 16);
+    v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      // *** Gouraud dither loop ***
+      v22 = fillCurXMax;
+      v21 = v3;
+      v8 = *v6;
+      // Is the scanline big enough to load the dst lines in cache
+      if (v7 >= 32)
+      {
+        // *** Load dst in WB cache ***
+        v20 = v6;
+        v9 = v6 + v7;
+        v10 = (U8 *)((U64)v6 & (U64)~31);
+        v11 = (U8 *)((U64)v9 & (U64)~31); // AGI on EDI on first loop
+        do
+        {
+          // @@Preload:
+          v12 = *v10;
+          v10 += 32;
+        }
+        while (v10 <= v11);
+        v6 = v20;
+      }
+      // @@NoPreload:
+      v13 = v5 >> 8;
+      v14 = Fill_Gouraud_XSlope >> 8;
+      v15 = v5 >> 8;
+      v16 = v7 & 1;
+      v17 = v7 >> 1;
+      if ( v16 )
+      {
+        if ( v17 )
+        {
+          LOBYTE(v15) = __ROL1__(BYTE1(v5), v17);
+          do
+          {
+            LOWORD(v15) = v13 + (unsigned __int8)v15;
+            v18 = v14 + v13;
+            *(_BYTE *)v6 = BYTE1(v15);
+            LOWORD(v15) = v18 + (unsigned __int8)v15;
+            v13 = v14 + v18;
+            *(_BYTE *)(v6 + 1) = BYTE1(v15);
+            v6 += 2;
+            LOBYTE(v15) = __ROL1__(v15, v17--);
+          }
+          while ( v17 );
+        }
+        *(_BYTE *)v6 = (unsigned __int16)(v13 + (unsigned __int8)v15) >> 8;
+      }
+      else
+      {
+        for ( ; v17; --v17 )
+        {
+          LOWORD(v15) = v13 + (unsigned __int8)v15;
+          v19 = v14 + v13;
+          *(_BYTE *)v6 = BYTE1(v15);
+          LOWORD(v15) = v19 + (unsigned __int8)v15;
+          v13 = v14 + v19;
+          *(_BYTE *)(v6 + 1) = BYTE1(v15);
+          v6 += 2;
+          LOBYTE(v15) = __ROL1__(v15, v17);
+        }
+      }
+      v3 = v21;
+      fillCurXMax = v22;
+    }
+    v4 = v23;
+    if ( !--v3 )
+      break;
+LABEL_3:
+    v4 += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    v5 += Fill_Gouraud_LeftSlope;
+  }
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = v23;
+  Fill_CurGouraudMin = v5;
+  Triangle_ReadNextEdge();
 }
 
 
