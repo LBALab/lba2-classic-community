@@ -2010,9 +2010,65 @@ Read_Next_RightFPU::
 
 S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  /*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Calculate the LeftSlope for Gouraud shading                              ║
+; ║                                                                          ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+Calc_GouraudLeftSlopeFPU PROC
+			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
+			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
+
+			and	eax,0FFFFh
+			and	ebx,0FFFFh
+
+			shl	ebx,8
+			add	eax,80h
+
+			shl	eax,8
+			add	ebx,8000h
+
+			sub	eax,ebx
+			mov	edx,[Fill_Color]
+
+			add	ebx,edx
+			mov	[esp+4],eax
+
+			mov	[Fill_CurGouraudMin],ebx
+CalcGouraudTableFPU::
+			fild	dword ptr [esp]; dX  1/dY
+
+			fild	dword ptr [esp+4]; dG  dX  1/dY
+
+			fxch	st(1)		; dX  dG  1/dY
+
+			fmul	st,st(2)	; dX/dY  dG  1/dY
+			fxch	st(1)		; dG  dX/dY  1/dY
+
+			pop	ebx
+			pop	eax
+
+			fmulp	st(2),st	; dX/dY  dG/dY
+
+			fadd	[F_1]		; (dX/dY or 1)  dG/dY
+			fxch	st(1)		; dG/dY  (dX/dY or 1)
+
+			fistp	[Fill_Gouraud_LeftSlope]
+
+			fistp	[Fill_LeftSlope]
+
+			jmp	Read_Next_Right
+Calc_GouraudLeftSlopeFPU ENDP
+  */
+	U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
+  U32 lightB = (PtB->Pt_Light + 0x80) << 8;
+  U32 diffLight = lightB - lightA;
+  Fill_CurGouraudMin = lightA + Fill_Color;
+  Fill_Gouraud_LeftSlope = diffLight / diffY;
+  Fill_LeftSlope = diffX / diffY + 1;
+
+	return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_GouraudTableLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
