@@ -1527,35 +1527,13 @@ S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *Pt
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
-S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Gouraud_XSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
 {
   /*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Calculate the XSlope for Gouraud shading                                 ║
-; ║                                                                          ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-
-Calc_GouraudXSlopeFPU	PROC
 						; ESI = PtA
 						; EDI = PtB
 						; EBP = PtC
 					; (Yb-Ya)  (Yc-Ya)   D
-
-			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
-
-			and	eax,0FFFFh
-			and	ecx,0FFFFh
-
-			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
-
-			push	eax
-			and	ebx,0FFFFh
-
-			sub	ebx,ecx			; EBX = LC-LA
-
-			push	ebx
 Gouraud_XSlopeFPU::
 			fild	dword ptr [esp+4]; (LB-LA)  (Yb-Ya)  (Yc-Ya)  D
 
@@ -1586,22 +1564,156 @@ Gouraud_XSlopeFPU::
 			fistp	[Fill_Gouraud_XSlope]
 
 			jmp	Triangle_ReadNextEdge
-Calc_GouraudXSlopeFPU	ENDP
   */
 	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
 	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
-  S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
-  S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
 
   Fill_Gouraud_XSlope = (YB_YA * LC_LA - YC_YA * LB_LA) / Denom;
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
+S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+{
+  /*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Calculate the XSlope for Gouraud shading                                 ║
+; ║                                                                          ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+Calc_GouraudXSlopeFPU	PROC
+						; ESI = PtA
+						; EDI = PtB
+						; EBP = PtC
+					; (Yb-Ya)  (Yc-Ya)   D
+
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+
+			and	eax,0FFFFh
+			and	ecx,0FFFFh
+
+			sub	eax,ecx			; EAX = LB-LA
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
+
+			push	eax
+			and	ebx,0FFFFh
+
+			sub	ebx,ecx			; EBX = LC-LA
+
+			push	ebx
+Gouraud_XSlopeFPU::
+      ...
+Calc_GouraudXSlopeFPU	ENDP
+  */
+  S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
+  S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
+  return Gouraud_XSlopeFPU(PtA, PtB, PtC, LB_LA, LC_LA);
+}
+
 S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  /*
+; ╔══════════════════════════════════════════════════════════════════════════╗
+; ║ Calculate the XSlope for Dithered Gouraud shading (the intensity is      ║
+; ║ saturated)                                                               ║
+; ╚══════════════════════════════════════════════════════════════════════════╝
+
+Calc_DitherXSlopeFPU	PROC
+			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
+			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
+
+			and	eax,0FFFFh
+			and	ecx,0FFFFh
+
+			cmp	eax,14*256
+			jae	@@SatEDIUp
+			cmp	eax,255
+			jbe	@@SatEDILow
+@@RetEDI:
+			cmp	ecx,14*256
+			jae	@@SatESIUp
+			cmp	ecx,255
+			jbe	@@SatESILow
+@@RetESI:
+			sub	eax,ecx			; EAX = LB-LA
+			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
+
+			push	eax
+			and	ebx,0FFFFh
+
+			cmp	ebx,14*256
+			jae	@@SatEBPUp
+			cmp	ebx,255
+			jbe	@@SatEBPLow
+@@RetEBP:
+			sub	ebx,ecx			; EAX = LC-LA
+
+			push	ebx
+			jmp	Gouraud_XSlopeFPU	; Go to Gouraud function
+							; (don't lose any time bcoz
+							; the div is still being evaluated)
+
+@@SatEDIUp:
+			mov	eax,14*256-1
+			mov	[edi].STRUC_POINT.Pt_Light,ax
+			jmp	@@RetEDI
+@@SatEDILow:
+			mov	eax,256
+			mov	[edi].STRUC_POINT.Pt_Light,ax
+			jmp	@@RetEDI
+@@SatESIUp:
+			mov	ecx,14*256-1
+			mov	[esi].STRUC_POINT.Pt_Light,cx
+			jmp	@@RetESI
+@@SatESILow:
+			mov	ecx,256
+			mov	[esi].STRUC_POINT.Pt_Light,cx
+			jmp	@@RetESI
+@@SatEBPUp:
+			mov	ebx,14*256-1
+			mov	[ebp].STRUC_POINT.Pt_Light,bx
+			jmp	@@RetEBP
+@@SatEBPLow:
+			mov	ebx,256
+			mov	[ebp].STRUC_POINT.Pt_Light,bx
+			jmp	@@RetEBP
+Calc_DitherXSlopeFPU	ENDP
+  */
+  if (PtA->Pt_Light >= 14 * 256)
+  {
+    // @@SatEDIUp:
+    PtA->Pt_Light = 14 * 256 - 1;
+  } else if (PtA->Pt_Light <= 255)
+  {
+    // @@SatEDILow:
+    PtA->Pt_Light = 256;
+  }
+
+  if (PtB->Pt_Light >= 14 * 256)
+  {
+    // @@SatESIUp:
+    PtB->Pt_Light = 14 * 256 - 1;
+  }
+  else if (PtB->Pt_Light <= 255)
+  {
+    // @@SatESILow:
+    PtB->Pt_Light = 256;
+  }
+
+  if (PtC->Pt_Light >= 14 * 256)
+  {
+    // @@SatEBPUp:
+    PtC->Pt_Light = 14 * 256 - 1;
+  }
+  else if (PtC->Pt_Light <= 255)
+  {
+    // @@SatEBPLow:
+    PtC->Pt_Light = 256;
+  }
+
+  S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
+  S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
+  return Gouraud_XSlopeFPU(PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
 S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
