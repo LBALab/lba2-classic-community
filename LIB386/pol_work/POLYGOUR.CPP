@@ -1,3 +1,7 @@
+#include <POLYGON/POLYGOUR.H>
+
+#include <stdio.h>
+
 /*
 ; **************************************************************************
 ; **************************************************************************
@@ -13,85 +17,6 @@
 ; **************************************************************************
 ; **************************************************************************
 ; **************************************************************************
-
-
-			OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			OPTION	LANGUAGE:C
-
-
-;			**************
-;			*** PUBLIC ***
-;			**************
-
-
-
-
-
-
-;					******************
-;					*** PROCEDURES ***
-;					******************
-PUBLIC	C		Filler_Gouraud
-PUBLIC	C		Filler_Dither
-PUBLIC	C		Filler_GouraudTable
-PUBLIC	C		Filler_DitherTable
-PUBLIC	C		Filler_GouraudFog
-PUBLIC	C		Filler_DitherFog
-PUBLIC	C		Filler_GouraudZBuf
-PUBLIC	C		Filler_DitherZBuf
-PUBLIC	C		Filler_GouraudTableZBuf
-PUBLIC	C		Filler_DitherTableZBuf
-PUBLIC	C		Filler_GouraudFogZBuf
-PUBLIC	C		Filler_DitherFogZBuf
-PUBLIC	C		Filler_GouraudNZW
-PUBLIC	C		Filler_DitherNZW
-PUBLIC	C		Filler_GouraudTableNZW
-PUBLIC	C		Filler_DitherTableNZW
-PUBLIC	C		Filler_GouraudFogNZW
-PUBLIC	C		Filler_DitherFogNZW
-
-;					*****************
-;					*** VARIABLES ***
-;					*****************
-
-;					*** PUBLIC DATA ***
-
-
-;			***************
-;			*** INCLUDE ***
-;			***************
-
-INCLUDE			FILLER.INC
-
-
-;			**************
-;			*** MACROS ***
-;			**************
-
-
-;			***************
-;			*** EQUATES ***
-;			***************
-
-
-
-
-;			**************************
-;			*** SEGMENTATION MODEL ***
-;			**************************
-
-			.386
-;			.MODEL	FLAT, C
-
-
-
-;			************
-;			*** DATA ***
-;			************
-;			.DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
-
 
 ;				******************
 ;				*** Extrn data ***
@@ -122,29 +47,6 @@ Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
 Extrn	C		Fill_ZBuf_XSlope	:	DWORD
 
 Extrn	C		Fill_Logical_Palette	:	BYTE
-
-
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-
-
-
-
-
 
 ;				******************
 ;				*** Local data ***
@@ -191,27 +93,10 @@ PtrColor3           DWORD 12345678h
 PtrColor4           DWORD 12345678h
 IntGour             BYTE  12h
 
-_DATA			ENDS
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
-
-;				******************
-;				*** Extrn proc ***
-;				******************
-Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
-
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-
+*/
+S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -340,11 +225,12 @@ Filler_Gouraud		PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_Gouraud		ENDP
+  */
+}
 
-
-
-
-
+S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -490,12 +376,18 @@ Filler_Dither		PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_Dither		ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
-
+S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -626,13 +518,19 @@ Filler_GouraudTable	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudTable	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -806,13 +704,19 @@ Filler_DitherTable	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherTable	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_GouraudFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -945,11 +849,17 @@ Filler_GouraudFog	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudFog	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
-
+S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -1114,6 +1024,10 @@ Filler_DitherFog	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherFog	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
@@ -1121,7 +1035,9 @@ Filler_DitherFog	ENDP
 
 
 
-
+S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -1307,11 +1223,17 @@ Filler_GouraudZBuf	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudZBuf	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
-
+S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -1628,12 +1550,18 @@ Filler_DitherZBuf	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherZBuf	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
-
+S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -1823,13 +1751,19 @@ Filler_GouraudTableZBuf	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudTableZBuf	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -2200,13 +2134,19 @@ Filler_DitherTableZBuf	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherTableZBuf	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -2400,11 +2340,17 @@ Filler_GouraudFogZBuf	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudFogZBuf	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
-
+S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -2674,13 +2620,19 @@ Filler_DitherFogZBuf	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherFogZBuf	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -2860,11 +2812,17 @@ Filler_GouraudNZW	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudNZW	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
-
+S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -3148,12 +3106,18 @@ Filler_DitherNZW	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherNZW	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
-
+S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -3337,13 +3301,19 @@ Filler_GouraudTableNZW	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudTableNZW	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_DitherTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -3682,13 +3652,19 @@ Filler_DitherTableNZW	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherTableNZW	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
 
 
-
+S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -3875,11 +3851,17 @@ Filler_GouraudFogNZW	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_GouraudFogNZW	ENDP
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 
 
 
-
+S32 Filler_DitherFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  /*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
@@ -4144,9 +4126,7 @@ Filler_DitherFogNZW	PROC
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherFogNZW	ENDP
-
-_TEXT			ENDS
-
-;			The
-			End
-*/
+  */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}

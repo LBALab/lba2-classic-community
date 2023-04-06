@@ -19,6 +19,7 @@
 #include <POLYGON/POLY.H>
 #include <POLYGON/POLYFLAT.H>
 #include <POLYGON/POLYTEXT.H>
+#include <POLYGON/POLYGOUR.H>
 #include <FILLER.H>
 
 #include <stdio.h>
@@ -254,7 +255,6 @@ Jmp_Solid		ENDP
 	return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
-
 S32 Jmp_Transparent(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
@@ -275,8 +275,6 @@ Jmp_Transparent		ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
 
 S32 Jmp_Trame(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -299,9 +297,6 @@ Jmp_Trame		ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
 
 S32 Jmp_SolidFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -328,9 +323,6 @@ Jmp_SolidFog		ENDP
 		return 0;
 }
 
-
-
-
 S32 Jmp_TrameFog(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
@@ -353,10 +345,6 @@ Jmp_TrameFog		ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
-
 
 S32 Jmp_SolidZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -382,8 +370,6 @@ Jmp_SolidZBuf		ENDP
 		return 0;
 }
 
-
-
 S32 Jmp_TransparentZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
@@ -403,10 +389,6 @@ Jmp_TransparentZBuf	ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
-
 
 S32 Jmp_TrameZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -429,9 +411,6 @@ Jmp_TrameZBuf		ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
 
 S32 Jmp_SolidFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -459,11 +438,6 @@ Jmp_SolidFogZBuf	ENDP
 		return 0;
 }
 
-
-
-
-
-
 S32 Jmp_TrameFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
@@ -487,10 +461,6 @@ Jmp_TrameFogZBuf	ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
-
 
 S32 Jmp_SolidNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -516,8 +486,6 @@ Jmp_SolidNZW		ENDP
 		return 0;
 }
 
-
-
 S32 Jmp_TransparentNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
@@ -537,10 +505,6 @@ Jmp_TransparentNZW	ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
-
 
 S32 Jmp_TrameNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -563,9 +527,6 @@ Jmp_TrameNZW		ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
 
 S32 Jmp_SolidFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -592,11 +553,6 @@ Jmp_SolidFogNZW		ENDP
     printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 		return 0;
 }
-
-
-
-
-
 
 S32 Jmp_TrameFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -642,11 +598,11 @@ Jmp_Gouraud		PROC
 			jmp	Fill_PolyClip
 Jmp_Gouraud		ENDP
 	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  Fill_Filler = Filler_Gouraud;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_LIGHT;
+  Fill_Color = color << 16;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
-
 
 S32 Jmp_Dither(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
@@ -664,9 +620,10 @@ Jmp_Dither		PROC
 			jmp	Fill_PolyClip
 Jmp_Dither		ENDP
 	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  Fill_Filler = Filler_Dither;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_LIGHT;
+  Fill_Color = color << 16;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 
