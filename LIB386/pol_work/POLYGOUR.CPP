@@ -1,6 +1,7 @@
 #include <POLYGON/POLYGOUR.H>
 
 #include <POLYGON/POLY.H>
+#include <SYSTEM/UTILS.H>
 
 #include <stdio.h>
 
@@ -228,6 +229,8 @@ Filler_Gouraud		PROC
 			jmp	Triangle_ReadNextEdge
 Filler_Gouraud		ENDP
   */
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
 }
 
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
@@ -463,43 +466,51 @@ Filler_Dither		ENDP
       {
         if ( v17 )
         {
-          LOBYTE(v15) = __ROL1__(BYTE1(v5), v17);
+          v15 = (v15 & 0xFFFFFF00) | ROL8(v5 & 0xFF, v17);
           do
           {
-            LOWORD(v15) = v13 + (unsigned __int8)v15;
+            // @@Each_X:
+            v15 = (v15 & 0xFF) + v13;
             v18 = v14 + v13;
-            *(_BYTE *)v6 = BYTE1(v15);
-            LOWORD(v15) = v18 + (unsigned __int8)v15;
+            *v6 = (v15 >> 8) & 0xFF;
+            v15 = (v15 & 0xFF) + v18;
             v13 = v14 + v18;
-            *(_BYTE *)(v6 + 1) = BYTE1(v15);
+            *(v6 + 1) = (v15 >> 8) & 0xFF;
             v6 += 2;
-            LOBYTE(v15) = __ROL1__(v15, v17--);
+            v15 = (v15 & 0xFFFFFF00) | ROL8(v5 & 0xFF, v17);
+            v17--;
           }
           while ( v17 );
         }
-        *(_BYTE *)v6 = (unsigned __int16)(v13 + (unsigned __int8)v15) >> 8;
+        // @@Add_One:
+        *v6 = (((v15 & 0xFF) + v13) >> 8) & 0xFF;
       }
       else
       {
+        // @@Pas_Add1:
         for ( ; v17; --v17 )
         {
-          LOWORD(v15) = v13 + (unsigned __int8)v15;
+          // @@Each_X2:
+          v15 = (v15 & 0xFF) + v13;
           v19 = v14 + v13;
-          *(_BYTE *)v6 = BYTE1(v15);
-          LOWORD(v15) = v19 + (unsigned __int8)v15;
+          *v6 = (v15 >> 8) & 0xFF;
+          v15 = (v15 & 0xFF) + v19;
           v13 = v14 + v19;
-          *(_BYTE *)(v6 + 1) = BYTE1(v15);
+          *(v6 + 1) = (v15 >> 8) & 0xFF;
           v6 += 2;
-          LOBYTE(v15) = __ROL1__(v15, v17);
+          v15 = (v15 & 0xFFFFFF00) | ROL8(v5 & 0xFF, v17);
         }
       }
+      // @@End_X:
       v3 = v21;
       fillCurXMax = v22;
     }
+    // @@EndScanLine:
     v4 = v23;
     if ( !--v3 )
       break;
-LABEL_3:
+
+    // @@Each_Line:
     v4 += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
@@ -509,12 +520,8 @@ LABEL_3:
   Fill_CurXMax = fillCurXMax;
   Fill_CurOffLine = v23;
   Fill_CurGouraudMin = v5;
-  Triangle_ReadNextEdge();
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
-
-
-
-
 
 S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -653,11 +660,6 @@ Filler_GouraudTable	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
-
-
 
 S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -840,11 +842,6 @@ Filler_DitherTable	ENDP
   return 0;
 }
 
-
-
-
-
-
 S32 Filler_GouraudFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   /*
@@ -984,9 +981,6 @@ Filler_GouraudFog	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
 
 S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -1159,12 +1153,6 @@ Filler_DitherFog	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
-
-
-
 
 S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -1358,9 +1346,6 @@ Filler_GouraudZBuf	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
 
 S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -1686,10 +1671,6 @@ Filler_DitherZBuf	ENDP
   return 0;
 }
 
-
-
-
-
 S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   /*
@@ -1886,11 +1867,6 @@ Filler_GouraudTableZBuf	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
-
-
 
 S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -2270,11 +2246,6 @@ Filler_DitherTableZBuf	ENDP
   return 0;
 }
 
-
-
-
-
-
 S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   /*
@@ -2475,9 +2446,6 @@ Filler_GouraudFogZBuf	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
 
 S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -2756,11 +2724,6 @@ Filler_DitherFogZBuf	ENDP
   return 0;
 }
 
-
-
-
-
-
 S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   /*
@@ -2947,9 +2910,6 @@ Filler_GouraudNZW	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
 
 S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -3242,10 +3202,6 @@ Filler_DitherNZW	ENDP
   return 0;
 }
 
-
-
-
-
 S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   /*
@@ -3436,11 +3392,6 @@ Filler_GouraudTableNZW	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
-
-
 
 S32 Filler_DitherTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
@@ -3788,11 +3739,6 @@ Filler_DitherTableNZW	ENDP
   return 0;
 }
 
-
-
-
-
-
 S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   /*
@@ -3986,9 +3932,6 @@ Filler_GouraudFogNZW	ENDP
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
-
-
-
 
 S32 Filler_DitherFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {

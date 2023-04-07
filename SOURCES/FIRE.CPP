@@ -196,19 +196,11 @@ Do_Fire		endp
 
 #include "FIRE.H"
 
+#include <SYSTEM/UTILS.H>
+
 #include <string.h>
 
 U32 FireSeed = 1876351;
-
-U32 ROR(U32 value, U32 shift)
-{
-    return (value >> shift) | (value << (32 - shift));
-}
-
-U32 ROL(U32 value, U32 shift)
-{
-    return (value << shift) | (value >> (32 - shift));
-}
 
 //void Do_Fire( U8 *buff1, U8 *buff2, U8 *colortable, U8 *TileMap )
 // uses           esi            edi            ebx            ebp
@@ -417,7 +409,7 @@ Do_Fire		endp
   v2 = 64;
   do
   {
-    v3 = ROL(FireSeed, (FireSeed >> 8) & 0xFF);
+    v3 = ROL32(FireSeed, (FireSeed >> 8) & 0xFF);
     v3 = ((v3 & 0xFFFF0000) + (v3 & 0xFFFF) * v2) & 0x80;
     FireSeed += 5137827;
     *v1 = v3 & 0xFF;
@@ -470,7 +462,7 @@ Do_Fire		endp
       v20 = v17 + 64;
       v6 = *v4 + v20;
 
-      v21 = ROR(v6 + v19, 3);
+      v21 = ROR16(v6 + v19, 3);
 
       if ((v21 & 0x6000) == 0 && (v21 & 0xFF))
       {
