@@ -404,6 +404,7 @@ Filler_Dither		ENDP
   unsigned int v22; // [sp-8h] [bp-8h]@5
   U8 *v23; // [sp-4h] [bp-4h]@4
 
+  v3 = nbLines + 1;
   Fill_CurY += nbLines + 1;
   v4 = Fill_CurOffLine;
 
