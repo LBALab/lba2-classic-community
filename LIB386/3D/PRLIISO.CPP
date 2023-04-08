@@ -140,11 +140,12 @@ ProjectListIso	endp
 	for (int i = 0; i < NbPt; i++)
 	{
 		TYPE_VT16 *v = &Src[i];
-		v->Z = (v->X + v->Z) >> 1;
 
 		S16 x = v->X - OrgX;
 		S16 y = v->Y - OrgY;
 		S16 z = v->Z - OrgZ;
+
+		v->Z = (v->X + v->Z) >> 1;
 
 		S32 newX = XCentre + (((x - z) * 3) >> 6); // IsoScale
 		S32 newY = YCentre + 1 + (((x + z) * 6 - y * 15) >> 8); // IsoScale
