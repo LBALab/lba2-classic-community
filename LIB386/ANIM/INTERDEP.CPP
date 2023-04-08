@@ -51,9 +51,7 @@
 
 S32	ObjectSetInterDep(T_OBJ_3D *obj)
 {
-  int v12; // eax@7
-  int v13; // ecx@8
-  signed int v14; // eax@9
+  S32 v14; // eax@9
   int v15; // edi@9
   int v16; // ecx@9
   int v17; // edx@9
@@ -61,15 +59,6 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
   int v19; // edx@9
   int v20; // ecx@9
   int result; // eax@9
-  S16 v22; // dx@12
-  int v23; // edx@12
-  int v24; // edi@12
-  int v25; // ecx@12
-  int v26; // edx@12
-  int v27; // eax@12
-  int v28; // ecx@12
-  int v29; // edx@12
-  int v30; // ecx@12
   int v31; // edx@13
   PTR_U32 v32; // esi@13
   int v33; // edx@13
@@ -80,7 +69,6 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
   int v38; // edi@15
   int v39; // ebp@15
   int v40; // eax@15
-	int a2; // edi
 
 	obj->Texture = obj->NextTexture;
 	obj->Body = obj->NextBody;
@@ -129,38 +117,37 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
     U32 deltaSteps = obj->Time - obj->NextTimer;
     interpolator = ((deltaSteps << 16) + ((nbSteps + 1) >> 1)) / nbSteps;
   }
-  v25 = obj->Alpha;
-	v29 = obj->Beta;
-  if (obj->Master & 1 )
+
+  S32 newAlpha = obj->Alpha;
+  S32 newBeta = obj->Beta;
+  S32 newGamma = obj->Gamma;
+
+  if (obj->Master & 1)
   {
-    v22 = frame[5]; // Alpha
-    a2 = frame[6]; // Beta
-    v12 = frame[7]; // Gamma
-    v23 = (signed int)(interpolator * (obj->Beta << 20 >> 20)) >> 16;
-    v24 = (signed int)(interpolator * (a2 << 20 >> 20)) >> 16;
-    v25 = v23 + obj->Alpha - obj->LastAnimStepAlpha;
-    obj->LastAnimStepAlpha = v23;
-    v26 = obj->Beta;
-    obj->Alpha = v25 & 0xFFF;
-    v27 = (signed int)(interpolator * (v12 << 20 >> 20)) >> 16;
-    v28 = v27 + obj->Gamma;
-    v29 = (v24 + v26 - obj->LastAnimStepBeta) & 0xFFF;
-    obj->LastAnimStepBeta = v24;
-    v30 = v28 - obj->LastAnimStepGamma;
-    obj->LastAnimStepGamma = v27;
-    v13 = v30 & 0xFFF;
-    obj->Beta = v29;
-    obj->Gamma = v13;
-	}
-	else
-	{
-		v13 = obj->Gamma;
+    S32 alpha = frame[5]; // Alpha
+    S32 alphaDelta = (S32)(interpolator * (alpha << 20 >> 20)) >> 16;
+    obj->LastAnimStepAlpha = alphaDelta;
+    newAlpha = (obj->Alpha + alphaDelta - obj->LastAnimStepAlpha) & 0xFFF;
+    obj->Alpha = newAlpha;
+
+    S32 beta = frame[6]; // Beta
+    S32 betaDelta = (S32)(interpolator * (beta << 20 >> 20)) >> 16;
+    obj->LastAnimStepBeta = betaDelta;
+    newBeta = (obj->Beta + betaDelta - obj->LastAnimStepBeta) & 0xFFF;
+    obj->Beta = newBeta;
+
+    S32 gamma = frame[7]; // Gamma
+    S32 gammaDelta = (S32)(interpolator * (gamma << 20 >> 20)) >> 16;
+    obj->LastAnimStepGamma = gammaDelta;
+    newGamma = (obj->Gamma + gammaDelta - obj->LastAnimStepGamma) & 0xFFF;
+    obj->Gamma = newGamma;
   }
-  InitMatrixStd(&MatrixLib2, v25, v29, v13);
+
+  InitMatrixStd(&MatrixLib2, newAlpha, newBeta, newGamma);
   v14 = interpolator * frame[3];
-  v15 = (signed int)(interpolator * frame[2]) >> 16;
-  v16 = ((signed int)(interpolator * frame[1]) >> 16) - obj->LastAnimStepX;
-  obj->LastAnimStepX = (signed int)(interpolator * frame[1]) >> 16;
+  v15 = (S32)(interpolator * frame[2]) >> 16;
+  v16 = ((S32)(interpolator * frame[1]) >> 16) - obj->LastAnimStepX;
+  obj->LastAnimStepX = (S32)(interpolator * frame[1]) >> 16;
   v14 >>= 16;
   v17 = v15 - obj->LastAnimStepY;
   v18 = v14 - obj->LastAnimStepZ;
@@ -203,7 +190,7 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
     {
       v36 = v32 + 4 * v35 + 16;
     }
-		obj->NextOfsFrame = v36;
+    obj->NextOfsFrame = v36;
     v37 = (S16 *)((U64)anim + (U64)v36);
     v38 = obj->Time;
     v39 = v37[4];
