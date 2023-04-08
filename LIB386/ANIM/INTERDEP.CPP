@@ -1,43 +1,3 @@
-/*
-
-		.686p
-		.XMM
-
-		.MODEL	SMALL, C
-
-		include	AFF_OBJ.INC
-
-;*──────────────────────────────────────────────────────────────────────────*
-		.DATA
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	X0			:DWORD
-		EXTRN	C	Y0			:DWORD
-		EXTRN	C	Z0			:DWORD
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	MatrixLib2		:DWORD
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	InitMatrixStd		:DWORD
-		EXTRN	C	RotatePoint		:DWORD
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	TimerRefHR		:DWORD
-
-		ASSUME  DS:SEG TimerRefHR
-
-;*──────────────────────────────────────────────────────────────────────────*
-		EXTRN	C	TransFctAnim		:DWORD
-
-;*──────────────────────────────────────────────────────────────────────────*
-		.CODE
-
-;*──────────────────────────────────────────────────────────────────────────*
-		PUBLIC	C	ObjectSetInterDep
-
-;*══════════════════════════════════════════════════════════════════════════*
-*/
 #include <ANIM/INTERDEP.H>
 
 #include <stdlib.h>
@@ -49,48 +9,37 @@
 #include <3D/ROT3D.H>
 #include <3D/CAMERA.H>
 
-S32	ObjectSetInterDep(T_OBJ_3D *obj)
+S32 ObjectSetInterDep(T_OBJ_3D *obj)
 {
-  int v31; // edx@13
-  PTR_U32 v32; // esi@13
-  int v33; // edx@13
-  int v34; // eax@13
-  int v35; // ecx@13
-  PTR_U32 v36; // eax@14
-  S16 *v37; // eax@15
-  int v38; // edi@15
-  int v39; // ebp@15
-  int v40; // eax@15
+  obj->Texture = obj->NextTexture;
+  obj->Body = obj->NextBody;
 
-	obj->Texture = obj->NextTexture;
-	obj->Body = obj->NextBody;
-
-	// Same time as before?
+  // Same time as before?
   if (TimerRefHR == obj->Time)
   {
     if (!(obj->Status & FLAG_BODY))
-		{
+    {
       obj->Status = 0; // didn't do anything
       return obj->Status;
-		}
+    }
   }
-  else if ( TimerRefHR < obj->Time )
+  else if (TimerRefHR < obj->Time)
   {
     U32 delta = obj->Time - TimerRefHR;
     obj->NextTimer -= delta;
     obj->LastTimer -= delta;
-		obj->Time = TimerRefHR;
-		obj->Status = 0;
+    obj->Time = TimerRefHR;
+    obj->Status = 0;
     return obj->Status; // didn't do anything
   }
 
-	obj->Time = TimerRefHR; // Upgrade time
-	T_PTR_NUM objAnim = obj->Anim;
+  obj->Time = TimerRefHR; // Upgrade time
+  T_PTR_NUM objAnim = obj->Anim;
 
-	if (TransFctAnim != NULL)
-	{
-		objAnim.Ptr = TransFctAnim(objAnim.Num);
-	}
+  if (TransFctAnim != NULL)
+  {
+    objAnim.Ptr = TransFctAnim(objAnim.Num);
+  }
 
   void *anim = objAnim.Ptr;
   S16 *frame = (S16 *)((U8 *)objAnim.Ptr + (U64)obj->NextOfsFrame); // esi
@@ -100,11 +49,11 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
   if (obj->Time >= obj->NextTimer)
   {
     interpolator = 0x10000;
-		obj->Status = FLAG_FRAME + FLAG_CHANGE;
+    obj->Status = FLAG_FRAME + FLAG_CHANGE;
   }
   else
   {
-		obj->Status = FLAG_CHANGE;
+    obj->Status = FLAG_CHANGE;
     U32 nbSteps = obj->NextTimer - obj->LastTimer;
     U32 deltaSteps = obj->Time - obj->NextTimer;
     interpolator = ((deltaSteps << 16) + ((nbSteps + 1) >> 1)) / nbSteps;
@@ -166,44 +115,50 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
   }
 
   obj->Interpolator = 0;
+
   obj->LastAnimStepX = 0;
   obj->LastAnimStepY = 0;
   obj->LastAnimStepZ = 0;
+
   obj->LastAnimStepAlpha = 0;
   obj->LastAnimStepBeta = 0;
   obj->LastAnimStepGamma = 0;
-  v31 = obj->NextFrame;
-  v32 = obj->NextOfsFrame;
-  obj->LastFrame = v31;
-  obj->LastOfsFrame = v32;
-  obj->LastOfsIsPtr = 0;
-  v33 = v31 + 1;
-  v34 = obj->NextNbGroups;
-  obj->LastNbGroups = v34;
-  obj->NbGroups = v34;
-  v35 = 2 * v34 - 2;
 
-  if ( v33 >= obj->NbFrames )
+  PTR_U32 prevNextOfsFrame = obj->NextOfsFrame;
+  obj->LastFrame = obj->NextFrame;
+  obj->LastOfsFrame = prevNextOfsFrame;
+  obj->LastOfsIsPtr = 0;
+
+  S32 nextFrame = obj->NextFrame + 1;
+
+  S32 nextNbGroups = obj->NextNbGroups;
+  obj->LastNbGroups = nextNbGroups;
+  obj->NbGroups = nextNbGroups;
+
+  S32 size = 2 * nextNbGroups - 2;
+
+  PTR_U32 nextOfsFrame = NULL; // eax@14
+
+  if (nextFrame >= obj->NbFrames)
   {
-    v33 = obj->LoopFrame;
-    v36 = (PTR_U32)obj->LoopOfsFrame;
+    nextFrame = obj->LoopFrame;
+    nextOfsFrame = (PTR_U32)obj->LoopOfsFrame;
     obj->Status = FLAG_FRAME + FLAG_LAST_FRAME + FLAG_CHANGE;
   }
   else
   {
-    v36 = v32 + 4 * v35 + 16;
+    nextOfsFrame = (U32 *)((U8 *)prevNextOfsFrame + 4 * size + 16);
   }
 
-  obj->NextOfsFrame = v36;
-  v37 = (S16 *)((U64)anim + (U64)v36);
-  v38 = obj->Time;
-  v39 = v37[4];
-  v40 = v37[0];
-  obj->Master = v39;
-  obj->NextFrame = v33;
-  obj->LastTimer = v38;
-  obj->NextTimer = v38 + v40;
-  memcpy(obj->CurrentFrame, (const void *)((U64)anim + (U64)v32 + 16), 4 * v35);
+  obj->NextOfsFrame = nextOfsFrame;
+  S16 *nextFrameData = (S16 *)((U8 *)anim + (U64)nextOfsFrame);
+  obj->Master = nextFrameData[4];
+  obj->NextFrame = nextFrame;
+  obj->LastTimer = obj->Time;
+  obj->NextTimer = obj->Time + nextFrameData[0];
+  memcpy(obj->CurrentFrame,
+         ((U8 *)anim + (U64)prevNextOfsFrame + 16),
+         4 * size);
 
   return obj->Status;
 }
