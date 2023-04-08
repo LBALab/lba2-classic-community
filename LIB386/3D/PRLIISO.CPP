@@ -140,7 +140,7 @@ ProjectListIso	endp
 	for (int i = 0; i < NbPt; i++)
 	{
 		TYPE_VT16 *v = &Src[i];
-		v->Z = (v->X + v->Z) / 2;
+		v->Z = (v->X + v->Z) >> 1;
 
 		S16 x = v->X - OrgX;
 		S16 y = v->Y - OrgY;
