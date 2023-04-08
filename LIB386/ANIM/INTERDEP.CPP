@@ -51,7 +51,6 @@
 
 S32	ObjectSetInterDep(T_OBJ_3D *obj)
 {
-  S16 *v8; // esi@5
   int v12; // eax@7
   int v13; // ecx@8
   signed int v14; // eax@9
@@ -114,13 +113,13 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
 	}
 
   void *anim = objAnim.Ptr;
-  v8 = (S16 *)((U64)obj->NextOfsFrame + (U64)objAnim.Ptr);
+  S16 *frame = (S16 *)((U8 *)objAnim.Ptr + (U64)obj->NextOfsFrame); // esi
 
-  unsigned int v11 = 0; // ebp@6
+  U32 interpolator = 0; // ebp@6
 
   if (obj->Time >= obj->NextTimer)
   {
-    v11 = 0x10000;
+    interpolator = 0x10000;
 		obj->Status = FLAG_FRAME + FLAG_CHANGE;
   }
   else
@@ -128,22 +127,22 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
 		obj->Status = FLAG_CHANGE;
     U32 nbSteps = obj->NextTimer - obj->LastTimer;
     U32 deltaSteps = obj->Time - obj->NextTimer;
-    v11 = ((deltaSteps << 16) + ((nbSteps + 1) >> 1)) / nbSteps;
+    interpolator = ((deltaSteps << 16) + ((nbSteps + 1) >> 1)) / nbSteps;
   }
   v25 = obj->Alpha;
 	v29 = obj->Beta;
   if (obj->Master & 1 )
   {
-    v22 = v8[5]; // Alpha
-    a2 = v8[6]; // Beta
-    v12 = v8[7]; // Gamma
-    v23 = (signed int)(v11 * (obj->Beta << 20 >> 20)) >> 16;
-    v24 = (signed int)(v11 * (a2 << 20 >> 20)) >> 16;
+    v22 = frame[5]; // Alpha
+    a2 = frame[6]; // Beta
+    v12 = frame[7]; // Gamma
+    v23 = (signed int)(interpolator * (obj->Beta << 20 >> 20)) >> 16;
+    v24 = (signed int)(interpolator * (a2 << 20 >> 20)) >> 16;
     v25 = v23 + obj->Alpha - obj->LastAnimStepAlpha;
     obj->LastAnimStepAlpha = v23;
     v26 = obj->Beta;
     obj->Alpha = v25 & 0xFFF;
-    v27 = (signed int)(v11 * (v12 << 20 >> 20)) >> 16;
+    v27 = (signed int)(interpolator * (v12 << 20 >> 20)) >> 16;
     v28 = v27 + obj->Gamma;
     v29 = (v24 + v26 - obj->LastAnimStepBeta) & 0xFFF;
     obj->LastAnimStepBeta = v24;
@@ -158,16 +157,16 @@ S32	ObjectSetInterDep(T_OBJ_3D *obj)
 		v13 = obj->Gamma;
   }
   InitMatrixStd(&MatrixLib2, v25, v29, v13);
-  v14 = v11 * v8[3];
-  v15 = (signed int)(v11 * v8[2]) >> 16;
-  v16 = ((signed int)(v11 * v8[1]) >> 16) - obj->LastAnimStepX;
-  obj->LastAnimStepX = (signed int)(v11 * v8[1]) >> 16;
+  v14 = interpolator * frame[3];
+  v15 = (signed int)(interpolator * frame[2]) >> 16;
+  v16 = ((signed int)(interpolator * frame[1]) >> 16) - obj->LastAnimStepX;
+  obj->LastAnimStepX = (signed int)(interpolator * frame[1]) >> 16;
   v14 >>= 16;
   v17 = v15 - obj->LastAnimStepY;
   v18 = v14 - obj->LastAnimStepZ;
   obj->LastAnimStepY = v15;
   obj->LastAnimStepZ = v14;
-  obj->Interpolator = v11;
+  obj->Interpolator = interpolator;
   RotatePoint(&MatrixLib2, v16, v17, v18);
   v19 = obj->Y + Y0;
   v20 = obj->Z + Z0;
