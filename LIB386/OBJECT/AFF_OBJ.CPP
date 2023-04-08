@@ -5926,7 +5926,7 @@ ObjectDisplay		ENDP
 // └─────────────────────────────────────────────────────────────────┘
 
 	lBody = (T_BODY_HEADER *)body;
-	ListGroupAnim = obj->CurrentFrame - sizeof(T_GROUP_INFO);
+	ListGroupAnim = obj->CurrentFrame - 1;
 	PtrPoints = (TYPE_VT16 *)((U8 *)lBody + lBody->OffPoints);
 	PtrNormales = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
 	PtrNormFaces = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormFaces);
@@ -6020,7 +6020,7 @@ ObjectDisplay		ENDP
 
 		TYPE_MAT *mat = &TabMat[orgGroupe];
 
-		if (ListGroupAnim->Type == TYPE_TRANSLATE)
+		if (ListGroupAnim->Type & TYPE_TRANSLATE)
 		{
 			// 	parm caller	[esi] [eax] [ebx] [ecx]
 			RotatePoint(mat, ListGroupAnim->Alpha,
