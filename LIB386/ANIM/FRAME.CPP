@@ -1,7 +1,6 @@
 #include <ANIM/FRAME.H>
 #include <ANIM.H>
 #include <SYSTEM/TIMER.H>
-#include <stdio.h>
 
 void ObjectSetFrame(T_OBJ_3D *obj, U32 frame)
 {
