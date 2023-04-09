@@ -55,7 +55,7 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
   {
     obj->Status = FLAG_CHANGE;
     U32 nbSteps = obj->NextTimer - obj->LastTimer;
-    U32 deltaSteps = obj->Time - obj->NextTimer;
+    U32 deltaSteps = obj->Time - obj->LastTimer;
     interpolator = ((deltaSteps << 16) + ((nbSteps + 1) >> 1)) / nbSteps;
   }
 
