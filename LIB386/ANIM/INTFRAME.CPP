@@ -4,11 +4,15 @@
 
 void ObjectSetInterFrame(T_OBJ_3D *obj)
 {
-  if (obj->Status == FLAG_FRAME)
+  if (obj->Status & FLAG_FRAME)
+  {
     return;
+  }
 
-  if (obj->Status != FLAG_CHANGE)
+  if (!(obj->Status & FLAG_CHANGE))
+  {
     return;
+  }
 
   obj->Status = 0;
 
@@ -18,19 +22,21 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
     anim = TransFctAnim(obj->Anim.Num);
   }
 
-  U16 *nextPtr = (U16 *)((U64)anim + (U64)obj->NextOfsFrame + 16);
-  U16 *lastPtr = (U16 *)((U64)anim + 16);
+  U16 *nextPtr = (U16 *)((U8 *)anim + (U64)obj->NextOfsFrame + 16);
+  U16 *lastPtr = (U16 *)((U8 *)obj->LastOfsFrame + 16);
 
   if (obj->LastOfsIsPtr != 1)
   {
-    lastPtr = (U16 *)((U64)lastPtr + (U64)obj->LastOfsFrame);
+    lastPtr = (U16 *)((U8 *)lastPtr + (U64)anim);
   }
 
   // only one group? exit
   if (obj->NbGroups == 1)
+  {
     return;
+  }
 
-  T_GROUP_INFO *group = &obj->CurrentFrame[0];
+  T_GROUP_INFO *group = obj->CurrentFrame;
 
   for (U32 i = 0; i < obj->NbGroups; i++)
   {
@@ -78,8 +84,8 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       group->Gamma = last;
       last = lastPtr[4];
 
-      nextPtr = (U16 *)((U64)nextPtr + 8);
-      lastPtr = (U16 *)((U64)lastPtr + 8);
+      nextPtr += 4;
+      lastPtr += 4;
       group++;
     }
     else // Translations
@@ -90,7 +96,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       if (diffX != 0)
       {
         diffX = (diffX * obj->Interpolator) >> 16;
-        last = last + diffX;
+        last += diffX;
       }
 
       next = nextPtr[2];
@@ -101,7 +107,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       if (diffY != 0)
       {
         diffY = (diffY * obj->Interpolator) >> 16;
-        last = last + diffY;
+        last += diffY;
       }
 
       next = nextPtr[3];
@@ -112,15 +118,15 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       if (diffZ != 0)
       {
         diffZ = (diffZ * obj->Interpolator) >> 16;
-        last = last + diffZ;
+        last += diffZ;
       }
 
       next = nextPtr[4];
       group->Gamma = last; // Z
       last = lastPtr[4];
 
-      nextPtr = (U16 *)((U64)nextPtr + 8);
-      lastPtr = (U16 *)((U64)lastPtr + 8);
+      nextPtr += 4;
+      lastPtr += 4;
       group++;
     }
   }
