@@ -5137,8 +5137,8 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 		}
 		else
 		{
-			RotateMatrix(Current_Matrix, mat,
-									 obj->Alpha, obj->Beta, obj->Gamma);
+			RotateMatrix(Current_Matrix, mat, ListGroupAnim->Alpha,
+									ListGroupAnim->Beta, ListGroupAnim->Gamma);
 
 			InitMatrixTrans(Current_Matrix, TransX, TransY, TransZ);
 		}
