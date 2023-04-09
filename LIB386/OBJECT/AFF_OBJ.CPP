@@ -5108,7 +5108,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 		PtrListLightsFaces = (PTR_U16)((U8 *)PtrListLightsFaces + groupeNbNorm * 2);
 	}
 
-	while (--NbGroupes > 1)
+	while (--NbGroupes > 0)
 	{
 		PtrGroupes = PtrGroupes + 1;
 		ListGroupAnim = ListGroupAnim + 1;
