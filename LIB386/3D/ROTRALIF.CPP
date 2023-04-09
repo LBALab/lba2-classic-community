@@ -1,6 +1,7 @@
 
 #include <3D/ROTRALIS.H>
 
+#include <math.h>
 void RotTransListF(TYPE_MAT *Mat, TYPE_VT16 *Dst, TYPE_VT16 *Src,
 									 S32 NbPoints)
 {
@@ -82,9 +83,9 @@ RotTransListF	endp
 
 	for (S32 i = 0; i < NbPoints; i++)
 	{
-		Dst[i].X = Src[i].X * Mat->F.M11 + Src[i].Y * Mat->F.M12 + Src[i].Z * Mat->F.M13 + Mat->F.TX;
-		Dst[i].Y = Src[i].X * Mat->F.M21 + Src[i].Y * Mat->F.M22 + Src[i].Z * Mat->F.M23 + Mat->F.TY;
-		Dst[i].Z = Src[i].X * Mat->F.M31 + Src[i].Y * Mat->F.M32 + Src[i].Z * Mat->F.M33 + Mat->F.TZ;
+		Dst[i].X = roundf(Src[i].X * Mat->F.M11 + Src[i].Y * Mat->F.M12 + Src[i].Z * Mat->F.M13 + Mat->F.TX);
+		Dst[i].Y = roundf(Src[i].X * Mat->F.M21 + Src[i].Y * Mat->F.M22 + Src[i].Z * Mat->F.M23 + Mat->F.TY);
+		Dst[i].Z = roundf(Src[i].X * Mat->F.M31 + Src[i].Y * Mat->F.M32 + Src[i].Z * Mat->F.M33 + Mat->F.TZ);
 	}
 }
 
