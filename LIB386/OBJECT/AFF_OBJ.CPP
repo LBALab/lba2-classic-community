@@ -5069,11 +5069,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 	TransY = 0;
 	TransZ = 0;
 
-// ;void	RotateMatrixU(S32 *MatDst, S32 *MatSrc, S32 alpha, S32 beta, S32 gamma) ;
-
-// ;#pragma aux RotateMatrixU				\
-// ;	parm		[edi] [esi] [eax] [ebx] [ecx]
-
 	RotateMatrix(Current_Matrix, &MatriceWorld,
 							obj->Alpha, obj->Beta, obj->Gamma);
 
@@ -5082,11 +5077,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 	// *****************
 	// *** TRANSFORM ***
 	// *****************
-
-// ;void	RotTransListF(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
-
-// ;#pragma aux RotTransListF			\
-// ;	parm 		[ebx] [edi] [esi] [ecx]	\
 
 	U32 groupeNbPts = PtrGroupes->NbPts;
 	U32 groupeNbNorm = PtrGroupes->NbNorm;
@@ -5103,9 +5093,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
 	// *** Calculate the intensities ***
 
-//;void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
-// ;	parm 	[ebx] [edi] [esi] [ecx]	\
-
 	LightList(Current_Matrix, PtrListLights,
 						PtrNormales, groupeNbPts);
 
@@ -5121,12 +5108,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 		PtrListLightsFaces = (PTR_U16)((U8 *)PtrListLightsFaces + groupeNbNorm * 2);
 	}
 
-/*
-	mov	eax,[NbGroupes]
-	mov	ebx,[PtrGroupes]
-
-	dec	eax
-*/
 	while (--NbGroupes > 1)
 	{
 		PtrGroupes = PtrGroupes + 1;
@@ -5146,16 +5127,10 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
 		if (ListGroupAnim->Type & TYPE_TRANSLATE)
 		{
-			// 	parm caller	[esi] [eax] [ebx] [ecx]
 			RotatePoint(mat, ListGroupAnim->Alpha,
 									ListGroupAnim->Beta, ListGroupAnim->Gamma);
 
 			CopyMatrix(Current_Matrix, mat);
-
-// ;void	InitMatrixTransF(S32 *MatDst, S32 tx, S32 ty, S32 tz) ;
-
-// ;#pragma aux InitMatrixTransF	"*"		\
-// ;	parm		[edi] [eax] [ebx] [ecx]	\
 
 			InitMatrixTrans(Current_Matrix, X0 + TransX,
 											Y0 + TransY, Z0 + TransZ);
@@ -5172,11 +5147,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 		// *** TRANSFORM ***
 		// *****************
 
-		// ;void	RotTransListF(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
-
-		// ;#pragma aux RotTransListF			\
-// ;	parm 		[ebx] [edi] [esi] [ecx]	\
-
 		U32 groupeNbPts = PtrGroupes->NbPts;
 		U32 groupeNbNorm = PtrGroupes->NbNorm;
 
@@ -5191,9 +5161,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 		// *****************
 
 		// *** Calculate the intensities ***
-
-		//;void	LightList(TYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
-		// ;	parm 	[ebx] [edi] [esi] [ecx]	\
 
 		LightList(Current_Matrix, PtrListLights,
 							PtrNormales, groupeNbPts);
