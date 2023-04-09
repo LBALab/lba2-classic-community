@@ -46,9 +46,9 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
     // Rotations
     if (type == TYPE_ROTATE)
     {
-      U16 next = nextPtr[1];
-      U16 last = lastPtr[1];
-      U32 diffAlpha = (next - last) & 0xFFF; // & 4095
+      S16 next = nextPtr[1];
+      S16 last = lastPtr[1];
+      S32 diffAlpha = (next - last) & 0xFFF; // & 4095
       if (diffAlpha != 0)
       {
         diffAlpha = (diffAlpha << 20) >> 20;
@@ -60,7 +60,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       group->Alpha = last;
       last = lastPtr[2];
 
-      U32 diffBeta = (next - last) & 0xFFF;
+      S32 diffBeta = (next - last) & 0xFFF;
       if (diffBeta != 0)
       {
         diffBeta = (diffBeta << 20) >> 20;
@@ -72,7 +72,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       group->Beta = last;
       last = lastPtr[3];
 
-      U32 diffGamma = (next - last) & 0xFFF;
+      S32 diffGamma = (next - last) & 0xFFF;
       if (diffGamma != 0)
       {
         diffGamma = (diffGamma << 20) >> 20;
@@ -90,9 +90,9 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
     }
     else // Translations
     {
-      U16 next = nextPtr[1];
-      U16 last = lastPtr[1];
-      U32 diffX = (next - last);
+      S16 next = nextPtr[1];
+      S16 last = lastPtr[1];
+      S32 diffX = (next - last);
       if (diffX != 0)
       {
         diffX = (diffX * obj->Interpolator) >> 16;
@@ -103,7 +103,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       group->Alpha = last; // X
       last = lastPtr[2];
 
-      U32 diffY = (next - last);
+      S32 diffY = (next - last);
       if (diffY != 0)
       {
         diffY = (diffY * obj->Interpolator) >> 16;
@@ -114,7 +114,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
       group->Beta = last; // Y
       last = lastPtr[3];
 
-      U32 diffZ = (next - last);
+      S32 diffZ = (next - last);
       if (diffZ != 0)
       {
         diffZ = (diffZ * obj->Interpolator) >> 16;
