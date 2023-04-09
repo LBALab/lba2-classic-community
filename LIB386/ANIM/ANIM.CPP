@@ -5,8 +5,6 @@
 
 void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
 {
-  printf("ObjectInitAnim\n");
-  // TODO: Revisit this whole function, it's a mess
   if (obj->Anim.Ptr == anim)
   {
     return;
@@ -55,21 +53,21 @@ void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
     obj->NbGroups = animNbGroups;
 
     U32 *currentFrame = (U32 *)obj->CurrentFrame;
-    U32 *dstAnim = (U32 *)animPtr + 4 + 2; // group 1?
+    U32 *srcAnim = (U32 *)animPtr + 4 + 2; // group 1?
     U32 count = animNbGroups * 2 - 2;
 
     for (int i = 0; i < count; i++)
     {
-      currentFrame[i] = dstAnim[i];
+      currentFrame[i] = srcAnim[i];
     }
     currentFrame += count;
-    dstAnim += count;
+    srcAnim += count;
 
     if (obj->NbFrames != 1)
     {
-      obj->NextOfsFrame = (PTR_U32)((U64)dstAnim - (U64)animPtr);
+      obj->NextOfsFrame = (PTR_U32)((U64)srcAnim - (U64)animPtr);
       obj->NextFrame = 1;
-      obj->NextTimer = TimerRefHR + ((U16 *)dstAnim)[0];
+      obj->NextTimer = TimerRefHR + ((U16 *)srcAnim)[0];
     }
     else
     {
