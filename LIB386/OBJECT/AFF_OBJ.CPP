@@ -5182,12 +5182,6 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 	// *** PROJECTION ***
 	// ******************
 
-// ;void	ProjectList3DF(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
-
-// ;#pragma aux ProjectList3DF			\
-// ;	parm		[edi] [esi] [ecx]	\
-// ;	modify		[eax ebx edx]
-
 	ProjectList(Obj_ListProjectedPoints, (TYPE_VT16 *)Obj_ListRotatedPoints,
 							lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
 
