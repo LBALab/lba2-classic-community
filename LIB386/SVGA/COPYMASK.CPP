@@ -331,7 +331,7 @@ CopyMask		endp
   int v18; // ecx@5
   char v19; // bl@6
   char v21; // al@9
-  unsigned __int8 v22; // of@9
+  U8 v22; // of@9
   int v23; // ecx@20
   int v24; // edi@20
   int v25; // eax@20
@@ -343,17 +343,17 @@ CopyMask		endp
   U8 *v31; // esi@29
   U8 *v32; // edi@29
   int v33; // edx@29
-  unsigned __int8 v34; // bl@30
+  U8 v34; // bl@30
   U8 *v35; // ebp@30
-  unsigned __int8 v36; // bh@30
+  U8 v36; // bh@30
   unsigned int v37; // ecx@30
-  unsigned __int8 v38; // ah@30
+  U8 v38; // ah@30
   U8 *v39; // edi@30
   U8 *v40; // esi@30
-  unsigned __int8 v41; // al@31
+  U8 v41; // al@31
   bool v42; // cf@31
-  unsigned __int8 v43; // ah@31
-  unsigned __int8 v44; // al@34
+  U8 v43; // ah@31
+  U8 v44; // al@34
   bool v45; // cf@34
   U8 *v47; // [sp-1Ch] [bp-20h]@8
   U8 *v48; // [sp-1Ch] [bp-20h]@30
@@ -590,7 +590,7 @@ LABEL_APLUS:
         v14 += v11; // Incrust on Log
         v15 += v11; // And on PtSrc
         v19--;
-        if (!v19 == 0)
+        if (v19 == 0)
 				{
           break;
 				}
