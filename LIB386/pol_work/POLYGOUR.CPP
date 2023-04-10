@@ -99,138 +99,74 @@ IntGour             BYTE  12h
 */
 S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  /*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_Gouraud		PROC
-			lea	ebp,[ecx+1]
-			mov	eax,[Fill_CurY]
+  char *v9; // edi@6
+  unsigned int v10; // edx@6
+  char v11; // al@7
+  int v13; // ebx@9
+  int color; // eax@9
+  U8 carryFlag; // cf@10
+  int v17; // [sp-18h] [bp-18h]@6
 
-			add	eax,ebp
-			mov	edi,[Fill_CurOffLine]
+  U32 count = nbLines + 1;
+  U8 *curOffLine = Fill_CurOffLine;
+  Fill_CurY += count;
+  U32 curGouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
 
-			mov	[Fill_CurY],eax
-			mov	eax,[Fill_Patch]
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+  }
+  else
+  {
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
 
-			mov	esi,[Fill_CurGouraudMin]
-			dec	eax
+  while ( 1 )
+  {
+    U8 *screen = (fillCurXMin >> 16) + curOffLine;
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      // There is a bunch of cache-related stuff here in the original ASM, but
+      // it's not needed in the C version AFAICT.
 
-			jne	@@Each_Line
+      // @@NoPreload:
+      U32 gouraudSlope = Fill_Gouraud_XSlope << 16;
+      v13 = Fill_Gouraud_XSlope >> 16;
+      U32 color = curGouraud >> 16;
+      U32 gouraud = curGouraud << 16;
+      do
+      {
+        *screen = color;
+        carryFlag = ((U64)gouraudSlope + (U64)gouraud) > 0xFFFFFFFF;
+        gouraud += gouraudSlope;
+        color = (color & 0xFFFFFF00) | ((v13 + carryFlag + color) & 0xFF);
+        ++screen;
+        --diffX;
+      }
+      while (diffX);
+    }
 
-			mov	[Fill_Patch],eax
-			jmp	@@EnterLoop
-@@Each_Line:
-			mov	eax,[Fill_LeftSlope]
-			add	edi,[ScreenPitch]
+    if ( !--count )
+      break;
 
-			add	ebx,eax
-			mov	eax,[Fill_RightSlope]
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
 
-			add	edx,eax
-			mov	eax,[Fill_Gouraud_LeftSlope]
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
 
-			add	esi,eax
-@@EnterLoop:
-			mov	eax,ebx
-			mov	ecx,edx
-
-			shr	eax,16
-			push	edi
-
-			shr	ecx,16
-			add	edi,eax
-
-			sub	ecx,eax
-			jle	@@EndScanLine
-
-			push	ebp
-			push	esi
-
-			push	ebx
-			push	edx
-
-			mov	eax,ebx
-			mov	ebx,[Fill_Gouraud_XSlope]
-
-			and	eax,0FFFFh
-			mov	dl,[edi]	; Load 1st dst cache line
-
-			xor	eax,0FFFFh
-
-			cmp	ecx,16
-			jbe	@@FastInit
-
-			imul	ebx
-
-			shl	edx,16
-			push	edi
-
-			shr	eax,16
-			and	edi,not 31
-
-			or	eax,edx
-			lea	edx,[edi+ecx]
-
-			add	esi,eax
-			and	edx,not 31	; AGI on EDI on first loop
-
-				; *** Load dst in WB cache ***
-
-@@Preload:
-			mov	al,[edi]
-			add	edi,32
-
-			cmp	edi,edx
-			jbe	@@Preload
-
-			pop	edi
-@@FastInit:		mov	ebp,ebx		; EBP = Gouraud_XSlope(Frac part)
-
-			shl	ebp,16
-
-			sar	ebx,16		; EBX = Gouraud_XSlope(Int part)
-			mov	eax,esi
-
-			shr	eax,16
-
-			shl	esi,16
-
-				; *** Gouraud loop ***
-@@Each_X:
-			mov	[edi],al
-			add	esi,ebp
-
-			adc	al,bl
-			inc	edi
-
-			dec	ecx
-			jne	@@Each_X
-@@End_X:
-
-			pop	edx
-			pop	ebx
-
-			pop	esi
-			pop	ebp
-
-@@EndScanLine:		pop	edi
-
-			dec	ebp
-			jne	@@Each_Line
-
-			mov	[Fill_CurXMin],ebx
-			mov	[Fill_CurXMax],edx
-
-			mov	[Fill_CurOffLine],edi
-			mov	[Fill_CurGouraudMin],esi
-
-			jmp	Triangle_ReadNextEdge
-Filler_Gouraud		ENDP
-  */
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
