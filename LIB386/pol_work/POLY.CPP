@@ -26,7 +26,7 @@ U32 Fill_Type = 0; // Polygon type number
 U32 **Fill_Restart = NULL;
 Fill_Filler_Func Fill_Filler = NULL;
 U32 Fill_Patch = 0;
-U8 Fill_Color = 0;
+U32 Fill_Color = 0;
 
 Struc_Point *Fill_FirstPoint = NULL;
 Struc_Point *Fill_LastPoint = NULL;
