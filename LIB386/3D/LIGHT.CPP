@@ -74,8 +74,8 @@ ASSUME ds:SEG LightNormalUnit
 #include <3D/CAMERA.H>
 
 S32 AlphaLight = 0, BetaLight = 0, GammaLight = 0;
-S32 NormalXLight = 0, NormalYLight = 0, NormalZLight = 0;
-S32 CameraXLight = 0, CameraYLight = 0, CameraZLight = 0;
+S32 NormalXLight = LIB_NORMAL_UNIT, NormalYLight = 0, NormalZLight = 0;
+S32 CameraXLight = LIB_NORMAL_UNIT, CameraYLight = 0, CameraZLight = 0;
 S32 PosXLight = 0, PosYLight = 0, PosZLight = 0;
 S32 TargetXLight = 0, TargetYLight = 0, TargetZLight = 0;
 S32 LightNormalUnit = LIB_NORMAL_UNIT;
