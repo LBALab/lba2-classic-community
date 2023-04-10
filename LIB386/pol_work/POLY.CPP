@@ -1680,7 +1680,7 @@ S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
 {
   U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
   U32 lightB = (PtB->Pt_Light + 0x80) << 8;
-  U32 diffLight = lightB - lightA;
+  S32 diffLight = lightB - lightA;
   Fill_CurGouraudMin = lightA + Fill_Color;
   Fill_Gouraud_LeftSlope = diffLight / diffY;
   Fill_LeftSlope = diffX / diffY + 1;
