@@ -235,176 +235,19 @@ Filler_Gouraud		ENDP
 
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  /*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_Dither		PROC
-			lea	ebp,[ecx+1]
-			mov	eax,[Fill_CurY]
-
-			add	eax,ebp
-			mov	edi,[Fill_CurOffLine]
-
-			mov	[Fill_CurY],eax
-			mov	eax,[Fill_Patch]
-
-			mov	esi,[Fill_CurGouraudMin]
-			dec	eax
-
-			jne	@@Each_Line
-
-			mov	[Fill_Patch],eax
-			jmp	@@EnterLoop
-@@Each_Line:
-			mov	eax,[Fill_LeftSlope]
-			add	edi,[ScreenPitch]
-
-			add	ebx,eax
-			mov	eax,[Fill_RightSlope]
-
-			add	edx,eax
-			mov	eax,[Fill_Gouraud_LeftSlope]
-
-			add	esi,eax
-@@EnterLoop:
-			mov	eax,ebx
-			mov	ecx,edx
-
-			shr	eax,16
-			push	edi
-
-			shr	ecx,16
-			add	edi,eax
-
-			sub	ecx,eax
-			jle	@@EndScanLine
-
-
-				; *** Gouraud dither loop ***
-			push	edx
-			push	ebp
-
-			mov	dl,[edi]	; Load 1st dst cache line
-
-			cmp	ecx,32		; Is the scanline big enough to load the dst lines in cache
-			jb	@@NoPreload
-
-				; *** Load dst in WB cache ***
-			push	edi
-			lea	edx,[edi+ecx]
-
-			and	edi,not 31
-			and	edx,not 31	; AGI on EDI on first loop
-@@Preload:
-			mov	ah,[edi]
-			add	edi,32
-
-			cmp	edi,edx
-			jbe	@@Preload
-
-			pop	edi
-@@NoPreload:		mov	edx,esi
-
-			sar	edx,8
-			mov	ebp,[Fill_Gouraud_XSlope]
-
-			sar	ebp,8
-			mov	eax,edx
-
-			shr	ecx,1
-			jnc	@@Pas_Add1
-			je	@@Add_One
-
-			rol	al,cl
-@@Each_X:
-			and	eax,0FFh
-
-			add	eax,edx
-			add	edx,ebp
-
-			mov	[edi],ah
-			and	eax,0FFh
-
-			add	eax,edx
-			add	edx,ebp
-
-			mov	[edi+1],ah
-			add	edi,2
-
-			rol	al,cl
-
-			dec	ecx
-			jne	@@Each_X
-
-@@Add_One:
-			and	eax,0FFh
-			add	eax,edx
-			mov	[edi],ah
-			jmp	@@End_X
-@@Pas_Add1:
-			je	@@End_X
-@@Each_X2:
-			and	eax,0FFh
-
-			add	eax,edx
-			add	edx,ebp
-
-			mov	[edi],ah
-			and	eax,0FFh
-
-			add	eax,edx
-			add	edx,ebp
-
-			mov	[edi+1],ah
-			add	edi,2
-
-			rol	al,cl
-
-			dec	ecx
-			jne	@@Each_X2
-@@End_X:
-			pop	ebp
-			pop	edx
-
-@@EndScanLine:		pop	edi
-
-			dec	ebp
-			jne	@@Each_Line
-
-			mov	[Fill_CurXMin],ebx
-			mov	[Fill_CurXMax],edx
-
-			mov	[Fill_CurOffLine],edi
-			mov	[Fill_CurGouraudMin],esi
-
-			jmp	Triangle_ReadNextEdge
-Filler_Dither		ENDP
-  */
-  int v3; // ebp@1
   U8 *v4; // edi@1
-  signed int v5; // esi@1
   U8 *v6; // edi@4
-  unsigned int v7; // ecx@4
+  U32 v7; // ecx@4
   U8 v8; // dl@5
-  U8 *v9; // edx@6
-  U8 *v10; // edi@6
-  U8 *v11; // edx@6
-  char v12; // ah@7
-  int v13; // edx@9
-  int v14; // ebp@9
-  signed int v15; // eax@9
-  char v16; // cf@9
-  unsigned int v17; // ecx@9
-  int v18; // edx@12
-  int v19; // edx@15
-  U8 *v20; // [sp-10h] [bp-10h]@6
-  int v21; // [sp-Ch] [bp-Ch]@5
-  unsigned int v22; // [sp-8h] [bp-8h]@5
-  U8 *v23; // [sp-4h] [bp-4h]@4
+  U8 v12; // ah@7
+  U32 v13; // edx@9
+  U32 v14; // ebp@9
+  U32 v15; // eax@9
+  U8 v16; // cf@9
+  U32 v17; // ecx@9
+  U32 v22; // [sp-8h] [bp-8h]@5
 
-  v3 = nbLines + 1;
+  U32 v3 = nbLines + 1;
   Fill_CurY += nbLines + 1;
   v4 = Fill_CurOffLine;
 
@@ -431,83 +274,67 @@ Filler_Dither		ENDP
 // ;		EBX = Fill_CurXMin
 // ;		EDX = Fill_CurXMax
     // unsigned int a1@<edx>, int a2@<ecx>, unsigned int a3@<ebx>
-    v23 = v4;
     v6 = v4 + (fillCurXMin >> 16);
     v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       // *** Gouraud dither loop ***
       v22 = fillCurXMax;
-      v21 = v3;
       v8 = *v6;
-      // Is the scanline big enough to load the dst lines in cache
-      if (v7 >= 32)
-      {
-        // *** Load dst in WB cache ***
-        v20 = v6;
-        v9 = v6 + v7;
-        v10 = (U8 *)((U64)v6 & (U64)~31);
-        v11 = (U8 *)((U64)v9 & (U64)~31); // AGI on EDI on first loop
-        do
-        {
-          // @@Preload:
-          v12 = *v10;
-          v10 += 32;
-        }
-        while (v10 <= v11);
-        v6 = v20;
-      }
+
+      // There is a bunch of cache-related stuff here in the original ASM, but
+      // it's not needed in the C version AFAICT.
+
       // @@NoPreload:
-      v13 = v5 >> 8;
+      v13 = curGouraud >> 8;
       v14 = Fill_Gouraud_XSlope >> 8;
-      v15 = v5 >> 8;
+      v15 = v13;
       v16 = v7 & 1;
       v17 = v7 >> 1;
-      if ( v16 )
+      if (v16)
       {
-        if ( v17 )
+        if (v17 != 0)
         {
-          v15 = (v15 & 0xFFFFFF00) | ROL8(v5 & 0xFF, v17);
+          v15 = (v15 & 0xFFFFFF00) | ROL8(v15 & 0xFF, v17);
           do
           {
             // @@Each_X:
             v15 = (v15 & 0xFF) + v13;
-            v18 = v14 + v13;
+            v13 += v14;
             *v6 = (v15 >> 8) & 0xFF;
-            v15 = (v15 & 0xFF) + v18;
-            v13 = v14 + v18;
+            v15 = (v15 & 0xFF) + v13;
+            v13 += v14;
             *(v6 + 1) = (v15 >> 8) & 0xFF;
             v6 += 2;
-            v15 = (v15 & 0xFFFFFF00) | ROL8(v5 & 0xFF, v17);
+            v15 = (v15 & 0xFFFFFF00) | ROL8(v15 & 0xFF, v17);
             v17--;
           }
           while ( v17 );
         }
         // @@Add_One:
-        *v6 = (((v15 & 0xFF) + v13) >> 8) & 0xFF;
+        v15 = (v15 & 0xFF) + v13;
+        *v6 = (v15 >> 8) & 0xFF;
       }
       else
       {
         // @@Pas_Add1:
-        for ( ; v17; --v17 )
+        for ( ; v17 != 0; --v17 )
         {
           // @@Each_X2:
           v15 = (v15 & 0xFF) + v13;
-          v19 = v14 + v13;
+          v13 += v14;
           *v6 = (v15 >> 8) & 0xFF;
-          v15 = (v15 & 0xFF) + v19;
-          v13 = v14 + v19;
+          v15 = (v15 & 0xFF) + v13;
+          v13 += v14;
           *(v6 + 1) = (v15 >> 8) & 0xFF;
           v6 += 2;
-          v15 = (v15 & 0xFFFFFF00) | ROL8(v5 & 0xFF, v17);
+          v15 = (v15 & 0xFFFFFF00) | ROL8(v15 & 0xFF, v17);
         }
       }
       // @@End_X:
-      v3 = v21;
       fillCurXMax = v22;
     }
     // @@EndScanLine:
-    v4 = v23;
     if ( !--v3 )
       break;
 
@@ -515,12 +342,14 @@ Filler_Dither		ENDP
     v4 += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    v5 += Fill_Gouraud_LeftSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
   }
+
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
-  Fill_CurOffLine = v23;
-  Fill_CurGouraudMin = v5;
+  Fill_CurOffLine = v4;
+  Fill_CurGouraudMin = curGouraud;
+
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
