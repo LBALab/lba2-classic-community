@@ -235,24 +235,13 @@ Filler_Gouraud		ENDP
 
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  U8 *v4; // edi@1
-  U8 *v6; // edi@4
-  U32 v7; // ecx@4
-  U8 v8; // dl@5
-  U8 v12; // ah@7
-  U32 v13; // edx@9
-  U32 v14; // ebp@9
-  U32 v15; // eax@9
-  U8 v16; // cf@9
-  U32 v17; // ecx@9
-  U32 v22; // [sp-8h] [bp-8h]@5
-
-  U32 v3 = nbLines + 1;
-  Fill_CurY += nbLines + 1;
-  v4 = Fill_CurOffLine;
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
 
   U32 patch = Fill_Patch - 1;
   U32 curGouraud = Fill_CurGouraudMin;
+  U32 gouraudSlope = Fill_Gouraud_XSlope >> 8;
 
   if (patch == 0)
   {
@@ -261,7 +250,7 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   else
   {
     // @@Each_Line:
-    v4 += ScreenPitch;
+    curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
     curGouraud += Fill_Gouraud_LeftSlope;
@@ -270,76 +259,68 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   while ( 1 )
   {
     // @@EnterLoop:
-//     ; *** CALL: 	ECX = Nb lines to draw
-// ;		EBX = Fill_CurXMin
-// ;		EDX = Fill_CurXMax
-    // unsigned int a1@<edx>, int a2@<ecx>, unsigned int a3@<ebx>
-    v6 = v4 + (fillCurXMin >> 16);
-    v7 = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    U8 *screen = curOffLine + (fillCurXMin >> 16);
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       // *** Gouraud dither loop ***
-      v22 = fillCurXMax;
-      v8 = *v6;
 
       // There is a bunch of cache-related stuff here in the original ASM, but
       // it's not needed in the C version AFAICT.
 
       // @@NoPreload:
-      v13 = curGouraud >> 8;
-      v14 = Fill_Gouraud_XSlope >> 8;
-      v15 = v13;
-      v16 = v7 & 1;
-      v17 = v7 >> 1;
-      if (v16)
+      U32 gouraud = curGouraud >> 8;
+      U32 color = gouraud;
+      U8 isOdd = diffX & 1;
+      U32 pixelCount = diffX >> 1;
+      if (isOdd)
       {
-        if (v17 != 0)
+        if (pixelCount != 0)
         {
-          v15 = (v15 & 0xFFFFFF00) | ROL8(v15 & 0xFF, v17);
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
           do
           {
             // @@Each_X:
-            v15 = (v15 & 0xFF) + v13;
-            v13 += v14;
-            *v6 = (v15 >> 8) & 0xFF;
-            v15 = (v15 & 0xFF) + v13;
-            v13 += v14;
-            *(v6 + 1) = (v15 >> 8) & 0xFF;
-            v6 += 2;
-            v15 = (v15 & 0xFFFFFF00) | ROL8(v15 & 0xFF, v17);
-            v17--;
+            color = (color & 0xFF) + gouraud;
+            gouraud += gouraudSlope;
+            *screen = (color >> 8) & 0xFF;
+            color = (color & 0xFF) + gouraud;
+            gouraud += gouraudSlope;
+            *(screen + 1) = (color >> 8) & 0xFF;
+            screen += 2;
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+            pixelCount--;
           }
-          while ( v17 );
+          while ( pixelCount );
         }
         // @@Add_One:
-        v15 = (v15 & 0xFF) + v13;
-        *v6 = (v15 >> 8) & 0xFF;
+        color = (color & 0xFF) + gouraud;
+        *screen = (color >> 8) & 0xFF;
       }
       else
       {
         // @@Pas_Add1:
-        for ( ; v17 != 0; --v17 )
+        for ( ; pixelCount != 0; --pixelCount )
         {
           // @@Each_X2:
-          v15 = (v15 & 0xFF) + v13;
-          v13 += v14;
-          *v6 = (v15 >> 8) & 0xFF;
-          v15 = (v15 & 0xFF) + v13;
-          v13 += v14;
-          *(v6 + 1) = (v15 >> 8) & 0xFF;
-          v6 += 2;
-          v15 = (v15 & 0xFFFFFF00) | ROL8(v15 & 0xFF, v17);
+          color = (color & 0xFF) + gouraud;
+          gouraud += gouraudSlope;
+          *screen = (color >> 8) & 0xFF;
+          color = (color & 0xFF) + gouraud;
+          gouraud += gouraudSlope;
+          *(screen + 1) = (color >> 8) & 0xFF;
+          screen += 2;
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
         }
       }
       // @@End_X:
-      fillCurXMax = v22;
     }
     // @@EndScanLine:
-    if ( !--v3 )
+    if ( !--count )
       break;
 
     // @@Each_Line:
-    v4 += ScreenPitch;
+    curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
     curGouraud += Fill_Gouraud_LeftSlope;
@@ -347,7 +328,7 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
-  Fill_CurOffLine = v4;
+  Fill_CurOffLine = curOffLine;
   Fill_CurGouraudMin = curGouraud;
 
   return Triangle_ReadNextEdge(NULL, NULL);
