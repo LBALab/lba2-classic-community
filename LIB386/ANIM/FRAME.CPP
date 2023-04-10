@@ -2,6 +2,8 @@
 #include <ANIM.H>
 #include <SYSTEM/TIMER.H>
 
+#include <stddef.h>
+
 void ObjectSetFrame(T_OBJ_3D *obj, U32 frame)
 {
   T_PTR_NUM nextBody = obj->NextBody;
