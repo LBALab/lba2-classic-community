@@ -917,47 +917,6 @@ S32 Quad_Solid(U32 typePoly, void *poly)
 // ************
 S32 Triangle_Flat(U32 typePoly, void *poly)
 {
-  /*
-@@Triangle_Flat:
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
-			lea	esi,ListFillPoly
-
-			and	edi,0FFFFh			; EDI = P3
-
-			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
-
-			mov	edx,[Obj_ListProjectedPoints+edi*4]
-			mov	eax,ebx
-
-			shr	eax,16				; Face normal number
-			push	Offset @@Return_Display
-
-			mov	ax,[ListLights+eax*2]		; No AGI thanx to prefix ;)
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,edx
-
-			shr	eax,8
-			mov	ecx,3
-
-			add	ebx,eax
-			mov	eax,1
-
-			and	ebx,0FFh
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
 
   GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
@@ -977,53 +936,6 @@ S32 Triangle_Flat(U32 typePoly, void *poly)
 
 S32 Quad_Flat(U32 typePoly, void *poly)
 {
-  /*
-@@Quad_Flat:
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
-			lea	esi,ListFillPoly
-
-			mov	edx,edi
-			and	edi,0FFFFh			; EDI = P3
-
-			shr	edx,16				; EDX = P4
-
-			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
-
-			mov	eax,ebx
-			mov	ecx,[Obj_ListProjectedPoints+edx*4]
-
-			shr	eax,16				; EAX = Face normal number
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,ecx
-
-			mov	ax,[ListLights+eax*2]
-			mov	ecx,4
-
-			shr	eax,8
-			push	Offset @@Return_Display
-
-			add	ebx,eax
-			mov	eax,1
-
-			and	ebx,0FFh
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
 
   GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
@@ -1048,50 +960,6 @@ S32 Quad_Flat(U32 typePoly, void *poly)
 // ***************
 S32 Triangle_Gouraud(U32 typePoly, void *poly)
 {
-  /*
-@@Triangle_Gouraud:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
-
-			push	eax				; Save poly type
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
-			lea	esi,ListFillPoly
-
-			and	edi,0FFFFh			; EDI = P3
-
-			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	dx,[ListLights+ebx*2]
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			mov	ax,[ListLights+ecx*2]
-			mov	ecx,3
-
-			mov	[esi].STRUC_POINT.Pt_Light,dx
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
-
-			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,ax
-			pop	eax
-
-			mov	dx,[ListLights+edi*2]
-			push	Offset @@Return_Display
-
-			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
 
   GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
@@ -1111,61 +979,6 @@ S32 Triangle_Gouraud(U32 typePoly, void *poly)
 
 S32 Quad_Gouraud(U32 typePoly, void *poly)
 {
-  /*
-@@Quad_Gouraud:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
-
-			push	eax				; Save poly type
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
-			lea	esi,ListFillPoly
-
-			mov	edx,edi
-			and	edi,0FFFFh			; EDI = P3
-
-			shr	edx,16				; EDX = P4
-
-			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edx*4]
-
-			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			mov	[esi].STRUC_POINT.Pt_Light,bx
-			pop	eax
-
-			mov	cx,[ListLights+ecx*2]
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
-
-			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,cx
-			and	ebx,0FFh
-
-			mov	cx,[ListLights+edi*2]
-			push	Offset @@Return_Display
-
-			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,cx
-			mov	ecx,4
-
-			mov	dx,[ListLights+edx*2]
-
-			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
   GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -1190,67 +1003,6 @@ S32 Quad_Gouraud(U32 typePoly, void *poly)
 // *********************
 S32 Triangle_Texture_Solid(U32 typePoly, void *poly)
 {
-  /*
-@@Triangle_Texture_Solid:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
-
-			push	eax				; Save poly type
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
-			lea	esi,ListFillPoly
-
-			and	edi,0FFFFh			; EDI = P3
-
-			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
-
-			shr	edx,16-2
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
-
-			mov	edx,[edx]			; Get texture infos
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
-
-			mov	ecx,edx
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
-
-			shr	ecx,16				; ECX = RepMask
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-
-			and	edx,0FFFFh			; EDX = OrgMap
-			mov	eax,[ObjPtrMap]
-
-			mov	[RepMask],ecx
-			add	edx,eax
-
-			mov	[PtrMap],edx
-			pop	eax
-
-			mov	ecx,3
-			push	Offset @@Return_Display
-
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
   GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -1276,76 +1028,6 @@ S32 Triangle_Texture_Solid(U32 typePoly, void *poly)
 
 S32 Quad_Texture_Solid(U32 typePoly, void *poly)
 {
-  /*
-@@Quad_Texture_Solid:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
-
-			push	eax				; Save poly type
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
-			lea	esi,ListFillPoly
-
-			mov	edx,edi
-			and	edi,0FFFFh			; EDI = P3
-
-			shr	edx,16				; EDX = P4
-
-			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText
-
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-			and	ebx,0FFFFh
-
-			shl	ebx,2
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-
-			add	ebx,[PtrTextures]
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edx*4]
-
-			mov	ebx,[ebx]
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			mov	ecx,ebx
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
-
-			shr	ebx,16				; EBX = RepMask
-			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
-
-			and	ecx,0FFFFh			; ECX = OrgMap
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
-
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-			mov	eax,[ObjPtrMap]
-
-			mov	[RepMask],ebx
-			add	ecx,eax
-
-			mov	[PtrMap],ecx
-			pop	eax
-
-			mov	ecx,4
-			push	Offset @@Return_Display
-
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
   GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -1378,73 +1060,6 @@ S32 Quad_Texture_Solid(U32 typePoly, void *poly)
 // ********************
 S32 Triangle_Texture_Flat(U32 typePoly, void *poly)
 {
-  /*
-@@Triangle_Texture_Flat:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
-
-			push	eax				; Save poly type
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
-			lea	esi,ListFillPoly
-
-			and	edi,0FFFFh			; EDI = P3
-
-			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle in high word
-
-			shr	edx,16-2
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			and	edx,not 11b
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-
-			add	edx,[PtrTextures]
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
-
-			mov	edx,[edx]			; get texture infos
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
-
-			mov	ecx,edx
-			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
-
-			shr	ebx,16
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
-
-			shr	edx,16
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
-
-			and	ecx,0FFFFh
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-			mov	eax,[ObjPtrMap]
-
-			mov	[RepMask],edx
-			add	ecx,eax
-
-			mov	[PtrMap],ecx
-			mov	ecx,3
-
-			mov	bx,[ListLights+ebx*2]
-			pop	eax
-
-			shr	ebx,8
-			push	Offset @@Return_Display
-
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
   GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -1472,80 +1087,6 @@ S32 Triangle_Texture_Flat(U32 typePoly, void *poly)
 
 S32 Quad_Texture_Flat(U32 typePoly, void *poly)
 {
-  /*
-@@Quad_Texture_Flat:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
-
-			push	eax				; Save poly type
-			mov	ecx,ebx
-
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
-
-			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
-			lea	esi,ListFillPoly
-
-			mov	edx,edi
-			and	edi,0FFFFh			; EDI = P3
-
-			shr	edx,16				; EDX = P4
-
-			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+edx*4]
-
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-			mov	edx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText	; Get texture handle
-
-			shl	edx,2
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
-
-			add	edx,[PtrTextures]
-			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
-
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur; Get normal in high word
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
-
-			shr	ebx,16
-			mov	edx,[edx]			; Get texture infos
-
-			mov	edi,edx
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
-
-			shr	edx,16
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
-
-			and	edi,0FFFFh
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-
-			mov	[RepMask],edx
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
-
-			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-
-			mov	ecx,4				; Nb pts
-			mov	eax,[ObjPtrMap]
-
-			add	edi,eax
-			pop	eax				; Poly type
-
-			mov	[PtrMap],edi
-			push	Offset @@Return_Display
-
-			shr	ebx,8
-			jmp	Fill_PolyFast
-  */
   STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
   GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 

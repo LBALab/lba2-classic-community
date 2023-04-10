@@ -1210,174 +1210,21 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
 	return Jmp_XSlopeFPU[Fill_Type](PtA, PtB, PtC);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Fill_PolyClip: Display a n-angle (provided that the poly is convex)      ║
+// ╟──────────────────────────────────────────────────────────────────────────╢
+// ║ Appel : ECX = Nb points                                                  ║
+// ║         ESI = PTR on the list of points                                  ║
+// ║                                                                          ║
+// ╟──────────────────────────────────────────────────────────────────────────╢
+// ║ Retour: EAX = 0 if error (non-visible poly)                              ║
+// ║                                                                          ║
+// ╟──────────────────────────────────────────────────────────────────────────╢
+// ║ ALL REGISTERS MODIFIED                                                   ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
 {
-	/*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Fill_PolyClip: Display a n-angle (provided that the poly is convex)      ║
-; ╟──────────────────────────────────────────────────────────────────────────╢
-; ║ Appel : ECX = Nb points                                                  ║
-; ║         ESI = PTR on the list of points                                  ║
-; ║                                                                          ║
-; ╟──────────────────────────────────────────────────────────────────────────╢
-; ║ Retour: EAX = 0 if error (non-visible poly)                              ║
-; ║                                                                          ║
-; ╟──────────────────────────────────────────────────────────────────────────╢
-; ║ ALL REGISTERS MODIFIED                                                   ║
-; ║                                                                          ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Fill_PolyClip		PROC
-			mov	ebx,Offset @@Fill_Restart
-			mov	[Fill_Restart],ebx
-
-@@Fill_Restart:
-			; *** Get the poly-box so as to test the clipping ***
-
-			lea	eax,[ecx-1]		; Loop counter in EAX
-			push	ecx
-
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-			push	esi
-
-			mov	edx,ecx
-			mov	[Fill_FirstPoint],esi
-
-			sar	edx,16
-			add	esi,Size STRUC_POINT
-
-			shl	ecx,16
-			mov	ebp,edx
-
-			sar	ecx,16
-
-			mov	edi,ecx
-							; (ECX, EDX, EDI, EBP)
-							; (XMin, YMin, XMax, YMax)
-@@Bounding_Box:
-			push	eax			; What follows has a bad pairing... How can we pair when we have NOTHING to do ?
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
-			mov	ebx,eax
-
-			shl	eax,16
-			sar	ebx,16
-			sar	eax,16
-
-			cmp	edx,ebx
-			jle	@@Not_YMin
-
-			mov	edx,ebx
-@@Not_YMin:
-			cmp	ebp,ebx
-			jge	@@Not_YMax
-			mov	ebp,ebx
-@@Not_YMax:
-			cmp	ecx,eax
-			jle	@@Not_XMin
-			mov	ecx,eax
-@@Not_XMin:
-			cmp	edi,eax
-			jge	@@Not_XMax
-			mov	edi,eax
-@@Not_XMax:
-			pop	eax
-			add	esi,Size STRUC_POINT
-
-			dec	eax
-			jne	@@Bounding_Box
-
-			cmp	ebp,edx
-			jle	@@End			; Skip poly if DeltaY<=0
-
-				; *** Is the polygon at least visible ? ***
-
-			mov	eax,[ClipXMax]
-			mov	ebx,[ClipXMin]
-
-			inc	eax			; Bcoz we don't draw the last pixel on a scanline
-
-			cmp	ecx,eax
-			jg	@@End
-
-			cmp	edi,ebx
-			jl	@@End
-
-			mov	eax,[ClipYMax]
-			mov	ebx,[ClipYMin]
-
-			cmp	edx,eax
-			jg	@@End
-
-			cmp	ebp,ebx
-			jl	@@End
-
-
-				; *** Should we clip the polygon ? ***
-
-			mov	eax,[ClipXMin]
-			sub	esi,Size STRUC_POINT
-
-			mov	ebx,[ClipXMax]
-			mov	[Fill_LastPoint],esi
-
-			cmp	ecx,eax
-			pop	esi			; Restore List pointer
-
-			pop	ecx			; Restore Nb Pts
-			jl	Fill_ClipXMin
-
-			inc	ebx			; Bcoz we don't draw the last pixel on a scanline
-
-			cmp	edi,ebx
-			jg	Fill_ClipXMax
-
-			mov	eax,[ClipYMin]
-			mov	ebx,[ClipYMax]
-
-			cmp	edx,eax
-			jl	Fill_ClipYMin
-
-			cmp	ebp,ebx
-			jg	Fill_ClipYMax
-
-
-Fill_PolyNoClip::
-			cmp	ecx,3			; Is it a triangle ?
-			je	Draw_Triangle
-
-			push	ecx
-			push	Offset @@Ret_Triangle
-
-			push	esi			; Will be poped by Draw_Triangle in EBP
-			mov	ecx,3			; (BCOZ EBP is saved in Fill_Poly and restored in Draw_Triangle)
-
-			jmp	Draw_Triangle
-@@Ret_Triangle:
-			pop	ecx
-			lea	esi,[ebp+Size STRUC_POINT]; Next ListPoint pointer
-
-			mov	eax,[ebp]		; Copy the first point in the new location (the following one)
-			mov	ebx,[ebp+4]
-
-			mov	[esi],eax
-			mov	[esi+4],ebx
-
-			mov	eax,[ebp+8]
-			mov	ebx,[ebp+12]
-
-			mov	[esi+8],eax
-			mov	[esi+12],ebx
-
-			dec	ecx
-			jmp	Fill_PolyNoClip
-@@End:
-			pop	esi
-			pop	ecx
-			pop	ebp
-			mov	eax,[Fill_LeftSlope]
-			ret
-Fill_PolyClip		ENDP
-	*/
 	// *** Get the poly-box so as to test the clipping ***
 	Fill_FirstPoint = Ptr_Points;
 	U32 counter = Nb_Points - 1;
@@ -1529,42 +1376,6 @@ S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *Pt
 
 S32 Gouraud_XSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
 {
-  /*
-						; ESI = PtA
-						; EDI = PtB
-						; EBP = PtC
-					; (Yb-Ya)  (Yc-Ya)   D
-Gouraud_XSlopeFPU::
-			fild	dword ptr [esp+4]; (LB-LA)  (Yb-Ya)  (Yc-Ya)  D
-
-			fild	dword ptr [esp]	; (LC-LA)  (LB-LA)  (Yb-Ya)  (Yc-Ya)  D
-
-			fxch	st(1)		; (LB-LA)  (LC-LA)  (Yb-Ya)  (Yc-Ya)  D
-
-			fmulp	st(3),st	; (LC-LA) (Yb-Ya)  M1  D'
-
-			add	esp,2*4
-
-			fmulp	st(1),st	; M1  M2  D'
-
-			; ***
-			; ***
-
-			fsubrp	st(1),st	; F  D'
-
-			; ***
-			; ***
-
-			fmulp	st(1),st	; GSlope
-
-			; ***
-			; ***
-			; ***
-
-			fistp	[Fill_Gouraud_XSlope]
-
-			jmp	Triangle_ReadNextEdge
-  */
 	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
 	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
 
@@ -1572,113 +1383,23 @@ Gouraud_XSlopeFPU::
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the XSlope for Gouraud shading                                 ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-  /*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Calculate the XSlope for Gouraud shading                                 ║
-; ║                                                                          ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-
-Calc_GouraudXSlopeFPU	PROC
-						; ESI = PtA
-						; EDI = PtB
-						; EBP = PtC
-					; (Yb-Ya)  (Yc-Ya)   D
-
-			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
-
-			and	eax,0FFFFh
-			and	ecx,0FFFFh
-
-			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
-
-			push	eax
-			and	ebx,0FFFFh
-
-			sub	ebx,ecx			; EBX = LC-LA
-
-			push	ebx
-Gouraud_XSlopeFPU::
-      ...
-Calc_GouraudXSlopeFPU	ENDP
-  */
   S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
   S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
   return Gouraud_XSlopeFPU(PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the XSlope for Dithered Gouraud shading (the intensity is      ║
+// ║ saturated)                                                               ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-  /*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Calculate the XSlope for Dithered Gouraud shading (the intensity is      ║
-; ║ saturated)                                                               ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-
-Calc_DitherXSlopeFPU	PROC
-			mov	eax,dword ptr [edi].STRUC_POINT.Pt_Light
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
-
-			and	eax,0FFFFh
-			and	ecx,0FFFFh
-
-			cmp	eax,14*256
-			jae	@@SatEDIUp
-			cmp	eax,255
-			jbe	@@SatEDILow
-@@RetEDI:
-			cmp	ecx,14*256
-			jae	@@SatESIUp
-			cmp	ecx,255
-			jbe	@@SatESILow
-@@RetESI:
-			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_Light
-
-			push	eax
-			and	ebx,0FFFFh
-
-			cmp	ebx,14*256
-			jae	@@SatEBPUp
-			cmp	ebx,255
-			jbe	@@SatEBPLow
-@@RetEBP:
-			sub	ebx,ecx			; EAX = LC-LA
-
-			push	ebx
-			jmp	Gouraud_XSlopeFPU	; Go to Gouraud function
-							; (don't lose any time bcoz
-							; the div is still being evaluated)
-
-@@SatEDIUp:
-			mov	eax,14*256-1
-			mov	[edi].STRUC_POINT.Pt_Light,ax
-			jmp	@@RetEDI
-@@SatEDILow:
-			mov	eax,256
-			mov	[edi].STRUC_POINT.Pt_Light,ax
-			jmp	@@RetEDI
-@@SatESIUp:
-			mov	ecx,14*256-1
-			mov	[esi].STRUC_POINT.Pt_Light,cx
-			jmp	@@RetESI
-@@SatESILow:
-			mov	ecx,256
-			mov	[esi].STRUC_POINT.Pt_Light,cx
-			jmp	@@RetESI
-@@SatEBPUp:
-			mov	ebx,14*256-1
-			mov	[ebp].STRUC_POINT.Pt_Light,bx
-			jmp	@@RetEBP
-@@SatEBPLow:
-			mov	ebx,256
-			mov	[ebp].STRUC_POINT.Pt_Light,bx
-			jmp	@@RetEBP
-Calc_DitherXSlopeFPU	ENDP
-  */
   if (PtA->Pt_Light >= 14 * 256)
   {
     // @@SatEDIUp:
@@ -1716,99 +1437,12 @@ Calc_DitherXSlopeFPU	ENDP
   return Gouraud_XSlopeFPU(PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the XSlope for Texture Mapping                                 ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	/*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Calculate the XSlope for Texture Mapping                                 ║
-; ║                                                                          ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-
-Calc_TextureXSlopeFPU	PROC
-			; (Yb-Ya)(LC-LA)-(Yc-Ya)(LB-LA)
-			; -----------------------------
-			; (Yb-Ya)(Xc-Xa)-(Yc-Ya)(Xb-Xa)
-
-			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
-
-			and	eax,0FFFFh
-			and	ecx,0FFFFh
-
-			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
-
-			push	eax			; Save (LB-LA)U
-			and	ebx,0FFFFh
-
-			sub	ebx,ecx			; EBX = LC-LA
-			mov	eax,dword ptr [edi].STRUC_POINT.Pt_MapU
-
-			shr	eax,16
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
-
-			shr	ecx,16
-			push	ebx			; Save (LC-LA)U
-
-			sub	eax,ecx			; EAX = LB-LA
-			mov	ebx,dword ptr [ebp].STRUC_POINT.Pt_MapU
-
-			shr	ebx,16
-			push	eax			; Save (LB-LA)V
-
-			sub	ebx,ecx			; EBX = LC-LA
-
-			; Stack FPU		; (Yb-Ya)  (Yc-Ya)  D
-
-			fild	dword ptr [esp+2*4]; (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D
-
-			fild	dword ptr [esp+1*4]; (LC-LA)U  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D
-
-			push	ebx			; Save (LC-LA)V
-
-			; ***
-
-			fmul	st,st(2)	; K1  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D'
-
-			fild	dword ptr [esp+1*4]; (LB-LA)V  K1  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D'
-
-			fild	dword ptr [esp+0*4]; (LC-LA)V  (LB-LA)V  K1  (LB-LA)U  (Yb-Ya)  (Yc-Ya)  D'
-
-			fxch	st(3)		; (LB-LA)U  (LB-LA)V  K1  (LC-LA)V  (Yb-Ya)  (Yc-Ya)  D'
-
-			fmul	st,st(5)	; K2  (LB-LA)V  K1  (LC-LA)V  (Yb-Ya)  (Yc-Ya)  D'
-			fxch	st(1)		; (LB-LA)V  K2  K1  (LC-LA)V  (Yb-Ya)  (Yc-Ya)  D'
-
-			add	esp,4*4
-
-			fmulp	st(5),st	; K2  K1  (LC-LA)V  (Yb-Ya)  K3  D'
-
-			fsubp	st(1),st	; M1  (LC-LA)V  (Yb-Ya)  K3  D'
-			fxch	st(1)		; (LC-LA)V  M1  (Yb-Ya)  K3  D'
-
-			fmulp	st(2),st	; M1  K4  K3  D'
-
-			; ***
-
-			fmul	st,st(3)	; SlopeU  K4  K3  D'
-			fxch	st(2)		; K3  K4  SlopeU  D'
-
-			fsubp	st(1),st	; M2  SlopeU  D'
-
-			; ***
-			; ***
-
-			fmulp	st(2),st	; SlopeU  SlopeV
-
-
-;		fadd	[FInv_2]
-			fistp	[Fill_MapU_XSlope]
-;		fadd	[FInv_2]
-			fistp	[Fill_MapV_XSlope]
-
-			jmp	Triangle_ReadNextEdge
-Calc_TextureXSlopeFPU	ENDP
-	*/
 	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
 	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
 
@@ -1865,88 +1499,6 @@ S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 
 S32 Test_Scan()
 {
-	/*
-;			***************
-;			*** DISPLAY ***
-;			***************
-@@Test_Scan:
-			mov	esi,[Fill_LeftPoint]
-			mov	edi,[Fill_RightPoint]
-
-			; AGI
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			sar	ecx,16
-			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
-
-			sar	ebx,16
-
-			cmp	ecx,ebx
-			jl	@@Case_Left
-
-			jg	@@Case_Right
-
-;					*** Case 'both' ***
-			mov	eax,READ_NEXT_L + READ_NEXT_R
-			mov	ebx,[Fill_CurY]
-
-			mov	[Fill_ReadFlag],eax
-			sub	ecx,ebx				; DeltaY
-
-			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
-			je	Triangle_ReadNextEdge
-
-			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
-			jmp	[Fill_Filler]
-
-			ALIGN	4
-;					*** Case 'left' ***
-@@Case_Left:
-			mov	eax,READ_NEXT_L
-			mov	ebx,[Fill_CurY]
-
-			sub	ecx,ebx				; DeltaY
-			mov	[Fill_ReadFlag],eax
-
-			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
-			je	Triangle_ReadNextEdge
-
-			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
-			jmp	[Fill_Filler]
-
-
-			ALIGN	4
-;					*** Case 'right' ***
-@@Case_Right:
-			mov	eax,READ_NEXT_R
-			mov	ecx,ebx
-
-			mov	ebx,[Fill_CurY]
-			mov	[Fill_ReadFlag],eax
-
-			sub	ecx,ebx				; DeltaY
-			je	Triangle_ReadNextEdge
-
-			mov	edx,[Fill_CurXMax]		; EDX = XMax SHL 16
-			mov	ebx,[Fill_CurXMin]		; EBX = XMin SHL 16
-
-			jmp	[Fill_Filler]
-
-			ALIGN	4
-
-@@EndFPU:
-						; Denom K1  K3  65536
-			faddp	st(0),st	; K1  K3  65536
-			faddp	st(0),st	; K3  65536
-			faddp	st(0),st	; 65536
-			faddp	st(0),st
-@@End:
-			mov	eax,[Fill_LeftSlope]
-			fldcw	[Status_Float]
-@@EndRet:
-			pop	ebp
-			ret
-	*/
 	Struc_Point *right = Fill_RightPoint;
 	Struc_Point *left = Fill_LeftPoint;
 	S32 diffY = 0;
@@ -2120,67 +1672,20 @@ Read_Next_RightFPU::
 	return Read_Next_Right(PtA, PtB);
 }
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the LeftSlope for Gouraud shading                              ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-  /*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Calculate the LeftSlope for Gouraud shading                              ║
-; ║                                                                          ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-
-Calc_GouraudLeftSlopeFPU PROC
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
-			mov	ebx,dword ptr [edi].STRUC_POINT.Pt_Light
-
-			and	eax,0FFFFh
-			and	ebx,0FFFFh
-
-			shl	ebx,8
-			add	eax,80h
-
-			shl	eax,8
-			add	ebx,8000h
-
-			sub	eax,ebx
-			mov	edx,[Fill_Color]
-
-			add	ebx,edx
-			mov	[esp+4],eax
-
-			mov	[Fill_CurGouraudMin],ebx
-CalcGouraudTableFPU::
-			fild	dword ptr [esp]; dX  1/dY
-
-			fild	dword ptr [esp+4]; dG  dX  1/dY
-
-			fxch	st(1)		; dX  dG  1/dY
-
-			fmul	st,st(2)	; dX/dY  dG  1/dY
-			fxch	st(1)		; dG  dX/dY  1/dY
-
-			pop	ebx
-			pop	eax
-
-			fmulp	st(2),st	; dX/dY  dG/dY
-
-			fadd	[F_1]		; (dX/dY or 1)  dG/dY
-			fxch	st(1)		; dG/dY  (dX/dY or 1)
-
-			fistp	[Fill_Gouraud_LeftSlope]
-
-			fistp	[Fill_LeftSlope]
-
-			jmp	Read_Next_Right
-Calc_GouraudLeftSlopeFPU ENDP
-  */
-	U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
+  U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
   U32 lightB = (PtB->Pt_Light + 0x80) << 8;
   U32 diffLight = lightB - lightA;
   Fill_CurGouraudMin = lightA + Fill_Color;
   Fill_Gouraud_LeftSlope = diffLight / diffY;
   Fill_LeftSlope = diffX / diffY + 1;
 
-	return Read_Next_Right(PtA, PtB);
+  return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_GouraudTableLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
