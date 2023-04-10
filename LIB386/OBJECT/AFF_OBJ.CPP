@@ -42,7 +42,7 @@ U32 *PtrTextures = 0; // Ptr of texture handles
 // Ptr of the object
 T_BODY_HEADER *lBody = NULL;
 
-U32 *Off_Sort = NULL; // Current offset in sort list
+S32 *Off_Sort = NULL; // Current offset in sort list
 U32 Nb_Sort = 0; // Nb entries in sort list
 
 T_GROUP_INFO *ListGroupAnim = NULL; // Current frame anim info
@@ -63,7 +63,7 @@ U16 ListLights[MAX_NB_POINTS+MAX_NB_POLYS];
 // Sort list:
 // * First half of list contain Z:Number
 // * Second half: one pointer for each number
-U32 ListSort[MAX_NB_POLYS * 2];
+S32 ListSort[MAX_NB_POLYS * 2];
 
 // List of vertex for Fill_Poly
 Struc_Point ListFillPoly[4];
@@ -4358,21 +4358,21 @@ bool TestVisible(STRUC_POLY3_ENV *poly)
   return (value & 0x80000000) == 0;
 }
 
-void QuickSort(U32 *beginning, U32 *end)
+void QuickSort(S32 *beginning, S32 *end)
 {
 	if (end <= beginning)
 	{
 		return;
 	}
 
-	U32 *left = beginning;
-	U32 *next = left + 1;
-	U32 pivot = *beginning;
+	S32 *left = beginning;
+	S32 *next = left + 1;
+	S32 pivot = *beginning;
 
 	do
 	{
 		// @Next:
-		U32 nextValue = *next;
+		S32 nextValue = *next;
 		next++;
 
 		if (pivot >= nextValue)
@@ -4380,31 +4380,31 @@ void QuickSort(U32 *beginning, U32 *end)
 			*left = nextValue;
 			*(next - 1) = *(left + 1);
 			*(left + 1) = pivot;
-			left += 1;
+			left++;
 		}
 
 		// @Ordre:
 	} while (next <= end);
 
 	QuickSort(beginning, left);
-	QuickSort(next + 1, end);
+	QuickSort(left + 1, end);
 }
 
-void QuickSortInv(U32 *beginning, U32 *end)
+void QuickSortInv(S32 *beginning, S32 *end)
 {
 	if (end <= beginning)
 	{
 		return;
 	}
 
-	U32 *left = beginning;
-	U32 *next = left + 1;
-	U32 pivot = *beginning;
+	S32 *left = beginning;
+	S32 *next = left + 1;
+	S32 pivot = *beginning;
 
 	do
 	{
 		// @Next:
-		U32 nextValue = *next;
+		S32 nextValue = *next;
 		next++;
 
 		if (pivot <= nextValue)
@@ -4718,17 +4718,17 @@ S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
   // └─────────────────────────────────────────────────────────────────┘
 
   PtrTextures = (U32 *)((U8 *)lBody + lBody->OffTextures);
-  U32 *list = ListSort;
-  U32 *polyInfo = ListSort + MAX_NB_POLYS;
+  S32 *list = ListSort;
+  S32 *polyInfo = ListSort + MAX_NB_POLYS;
   for (int i = 0; i < Nb_Sort; i++)
   {
     // @@ Do_Display:
     U16 number = *list & 0xFFFF;
-    U32 info = polyInfo[number];
+    S32 info = polyInfo[number];
     list++;
 
     U8 type = info >> 24;
-    U32 offset = info & 0xFFFFFF;
+    S32 offset = info & 0xFFFFFF;
 
     void *poly = (void *)((U8 *)lBody + offset);
     Poly_Jump[type](type, poly);
