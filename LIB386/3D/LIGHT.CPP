@@ -78,7 +78,7 @@ S32 NormalXLight = 0, NormalYLight = 0, NormalZLight = 0;
 S32 CameraXLight = 0, CameraYLight = 0, CameraZLight = 0;
 S32 PosXLight = 0, PosYLight = 0, PosZLight = 0;
 S32 TargetXLight = 0, TargetYLight = 0, TargetZLight = 0;
-S32 LightNormalUnit = 0;
+S32 LightNormalUnit = LIB_NORMAL_UNIT;
 float FactorLight = 1.52587890625E-5;	// 1.0 / 65536.0
 
 void SetLightVector(S32 alpha, S32 beta, S32 gamma)
@@ -140,11 +140,11 @@ SetLightVector PROC \
 
 SetLightVector	endp
 	*/
-		// For some reason, gamma is not used in the original implementation :shrug:
     AlphaLight = alpha & 4095;
     BetaLight = beta & 4095;
 
-    InitMatrixStd(&MatrixLib2, alpha, beta, gamma);
+    // For some reason, gamma is not used in the original implementation :shrug:
+    InitMatrixStd(&MatrixLib2, alpha, beta, 0);
 
     LongInverseRotatePoint(&MatrixLib2, 0, 0, LightNormalUnit);
 
