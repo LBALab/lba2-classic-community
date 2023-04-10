@@ -4426,19 +4426,19 @@ S16 TestZFar4(STRUC_POLY3_ENV *poly)
 {
   S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
 
-  if (Obj_ListRotatedPoints[poly->P2].Z > zFar)
+  if (zFar > Obj_ListRotatedPoints[poly->P2].Z)
   {
     zFar = Obj_ListRotatedPoints[poly->P2].Z;
   }
 
-  if (Obj_ListRotatedPoints[poly->P3].Z > zFar)
+  if (zFar > Obj_ListRotatedPoints[poly->P3].Z)
   {
     zFar = Obj_ListRotatedPoints[poly->P3].Z;
   }
 
   U16 poly4P4 = ((STRUC_POLY4_LIGHT *)poly)->P4;
 
-  if (Obj_ListRotatedPoints[poly4P4].Z > zFar)
+  if (zFar > Obj_ListRotatedPoints[poly4P4].Z)
   {
     zFar = Obj_ListRotatedPoints[poly4P4].Z;
   }
@@ -4450,12 +4450,12 @@ S16 TestZFar3(STRUC_POLY3_ENV *poly)
 {
   S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
 
-  if (Obj_ListRotatedPoints[poly->P2].Z > zFar)
+  if (zFar> Obj_ListRotatedPoints[poly->P2].Z)
   {
     zFar = Obj_ListRotatedPoints[poly->P2].Z;
   }
 
-  if (Obj_ListRotatedPoints[poly->P3].Z > zFar)
+  if (zFar > Obj_ListRotatedPoints[poly->P3].Z)
   {
     zFar = Obj_ListRotatedPoints[poly->P3].Z;
   }
