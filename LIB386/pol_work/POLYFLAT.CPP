@@ -7,7 +7,7 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
   U8 *curOffLine = (U8 *)Fill_CurOffLine;
-  Fill_CurY = Fill_CurY + nbLines + 1;
+  Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
