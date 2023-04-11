@@ -20,6 +20,7 @@
 #include <POLYGON/POLYFLAT.H>
 #include <POLYGON/POLYTEXT.H>
 #include <POLYGON/POLYGOUR.H>
+#include <POLYGON/POLYGTEX.H>
 #include <FILLER.H>
 
 #include <stdio.h>
@@ -232,23 +233,6 @@ Extrn	C		Filler_TextureZFogSmoothNZW:	PROC
 
 S32 Jmp_Solid(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_Solid		PROC
-			mov	eax,Offset Filler_Flat
-			mov	edx,ebx
-
-			shl	edx,8
-			mov	[Fill_Filler],eax
-
-			or	ebx,edx
-			mov	edx,CLIP_FLAT
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_Solid		ENDP
-	*/
 	Fill_Filler = Filler_Flat;
 	Fill_ClipFlag = CLIP_FLAT;
 	Fill_Color = color | (color << 8);
@@ -584,20 +568,6 @@ Jmp_TrameFogNZW		ENDP
 
 S32 Jmp_Gouraud(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_Gouraud		PROC
-			shl	ebx,16
-			mov	eax,Offset Filler_Gouraud
-
-			mov	edx,CLIP_FLAT+CLIP_LIGHT
-			mov	[Fill_Filler],eax
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_Gouraud		ENDP
-	*/
   Fill_Filler = Filler_Gouraud;
   Fill_ClipFlag = CLIP_FLAT + CLIP_LIGHT;
   Fill_Color = color << 16;
@@ -606,20 +576,6 @@ Jmp_Gouraud		ENDP
 
 S32 Jmp_Dither(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_Dither		PROC
-			shl	ebx,16
-			mov	eax,Offset Filler_Dither
-
-			mov	edx,CLIP_FLAT+CLIP_LIGHT
-			mov	[Fill_Filler],eax
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_Dither		ENDP
-	*/
   Fill_Filler = Filler_Dither;
   Fill_ClipFlag = CLIP_FLAT + CLIP_LIGHT;
   Fill_Color = color << 16;
@@ -1010,17 +966,6 @@ Jmp_DitherFogNZW	ENDP
 
 S32 Jmp_Texture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_Texture		PROC
-			mov	eax,Offset Filler_Texture
-			mov	edx,CLIP_FLAT+CLIP_TEXTURE
-
-			mov	[Fill_Filler],eax
-			mov	[Fill_ClipFlag],edx
-
-			jmp	Fill_PolyClip
-Jmp_Texture		ENDP
-	*/
 	Fill_Filler = Filler_Texture;
 	Fill_ClipFlag = CLIP_FLAT+CLIP_TEXTURE;
 
@@ -1379,8 +1324,6 @@ Jmp_TextureFogNZW	ENDP
 		return 0;
 }
 
-
-
 S32 Jmp_TextureChromaKeyFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	/*
@@ -1405,20 +1348,10 @@ Jmp_TextureChromaKeyFogNZW ENDP
 
 S32 Jmp_GouraudTexture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_GouraudTexture	PROC
-			mov	eax,Offset Filler_TextureGouraud
-			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT
+	Fill_Filler = Filler_TextureGouraud;
+	Fill_ClipFlag = CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT;
 
-			mov	[Fill_Filler],eax
-			mov	[Fill_ClipFlag],edx
-
-			jmp	Fill_PolyClip
-Jmp_GouraudTexture	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+	return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 
