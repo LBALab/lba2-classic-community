@@ -31,7 +31,6 @@ extern	U8	FlagSlideShow ;
 
 extern "C" U8   *BufSpeak       ;
 
-extern  char   	PathSave[] ;
 extern  char   	GamePathname[] ;
 extern  char   	OldGamePathname[] ;
 extern	char	PlayerName[MAX_SIZE_PLAYER_NAME+1] ;

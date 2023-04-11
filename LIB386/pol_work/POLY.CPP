@@ -136,12 +136,15 @@ void Switch_Fillers_C(U32 Bank) {
 		popa
   }
 #elif __GNUC__
+  typedef void(FUNC_SWITCH_FILLERS)(U32);
+  FUNC_SWITCH_FILLERS *fn = &Switch_Fillers_ASM;
+
   __asm__ __volatile__("pusha\n\t"
                        "movl %0, %%eax\n\t"
-                       "call %1\n\t"
+                       "call *%1\n\t"
                        "popa\n\t"
                        :
-                       : "m"(Bank), "m"(Switch_Fillers_ASM)
+                       : "m"(Bank), "m"(fn)
                        : "%eax");
 #else
 #error "Unsupported compiler!"

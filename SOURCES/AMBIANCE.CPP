@@ -1,4 +1,6 @@
 #include        "C_EXTERN.H"
+#include "DIRECTORIES.H"
+
 #include <SVGA/VIDEO.H>
 
 #define BCL_FADE        50
@@ -425,19 +427,25 @@ void    ClearAmbiance( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 void    InitPalette( void )
 {
-        PtrPalNormal = (U8*)LoadMalloc_HQR( RESS_HQR_NAME, RESS_PAL ) ;
-        if( !PtrPalNormal )     TheEndCheckFile( RESS_HQR_NAME ) ;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
-        PtrPalEclair = (U8*)LoadMalloc_HQR( RESS_HQR_NAME, RESS_PAL_ECLAIR ) ;
-        if( !PtrPalEclair )     TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
 
-        PtrPalBlack = (U8*)LoadMalloc_HQR( RESS_HQR_NAME, RESS_PAL_BLACK ) ;
-        if( !PtrPalBlack )      TheEndCheckFile( RESS_HQR_NAME ) ;
+        PtrPalNormal = (U8*)LoadMalloc_HQR( tmpFilePath, RESS_PAL ) ;
+        if( !PtrPalNormal )     TheEndCheckFile( tmpFilePath ) ;
+
+        PtrPalEclair = (U8*)LoadMalloc_HQR( tmpFilePath, RESS_PAL_ECLAIR ) ;
+        if( !PtrPalEclair )     TheEndCheckFile( tmpFilePath ) ;
+
+        PtrPalBlack = (U8*)LoadMalloc_HQR( tmpFilePath, RESS_PAL_BLACK ) ;
+        if( !PtrPalBlack )      TheEndCheckFile( tmpFilePath ) ;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void    ChoicePalette( void )
 {
+        char tmpFilePath[ADELINE_MAX_PATH];
+
         if( CubeMode==CUBE_INTERIEUR
         OR  (Island==0 AND TEMPETE_FINIE) )
         {
@@ -450,8 +458,9 @@ void    ChoicePalette( void )
 
         if( IdxPalette!=LastIdxPalette )
         {
-                if( !Load_HQR( RESS_HQR_NAME, PtrXplPalette, IdxPalette ) )
-                        TheEnd( ERROR_NOT_FOUND_FILE, RESS_HQR_NAME ) ;
+                GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+                if( !Load_HQR( tmpFilePath, PtrXplPalette, IdxPalette ) )
+                        TheEnd( ERROR_NOT_FOUND_FILE, tmpFilePath ) ;
 
                 LastIdxPalette = IdxPalette ;
         }

@@ -26,6 +26,7 @@ void StripExt(char *fname) {
   }
 }
 
+// TODO: Review uses, probably not conformant to file path from DIRECTORIES.H
 char *AddExt(char *path, const char *ext) {
   if (ext[0] == '.') {
     ++ext;
@@ -45,7 +46,7 @@ char *GetFileName(char *pathname) {
   // If file name comes as a string from a resource and uses a different path
   //  separator than the platform one, this may fail. Should implement for any
   //  possibility?
-  char *lastSlash = strrchr(pathname, ADELINE_PATH_SEPARATOR_CHAR);
+  char *lastSlash = strrchr(pathname, ADELINE_PATH_SEP_CHAR);
   if (lastSlash != NULL) {
     char *filenameStart = lastSlash + 1;
 

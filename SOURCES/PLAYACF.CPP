@@ -1,5 +1,7 @@
 #include	"C_EXTERN.H"
 
+#include "DIRECTORIES.H"
+
 char		PathAcf[ADELINE_MAX_PATH] ;
 
 char		*ListAcf ;
@@ -21,68 +23,34 @@ U8  	*BufferSmack ;// initialisé dans MEM.CPP
 \***************************************************************************/
 
 //---------------------------------------------------------------------------
-void	InitAcf( void )
-{
-#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-	char    *path ;
+void InitAcf(void) {
+  char tmpFilePath[ADELINE_MAX_PATH];
 
-	path = DefFileBufferReadString( "PathAcf" ) ;
+  GetMoviePath(PathAcf, ADELINE_MAX_PATH, VIDEO_HQR_NAME);
+  if (!ExistsFileOrDir(PathAcf)) {
+    TheEndCheckFile(PathAcf);
+  }
 
-	if( path AND strcmp(path,"") )
-	{
-		strcpy( PathAcf, path ) ;
-		if( PathAcf[strlen(PathAcf)-1]!='\\'
-		AND PathAcf[strlen(PathAcf)-1]!=':' )
-			strcat( PathAcf, "\\" ) ;
-	}
-	else
-#endif
-	{
-#if defined(ONE_GAME_DIRECTORY)&&defined(CDROM)
+  GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+  ListAcf = (char *)LoadMalloc_HQR(tmpFilePath, RESS_ACFLIST);
+  if (!ListAcf) {
+    TheEndCheckFile(tmpFilePath);
+  }
 
-#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-		if( !CDDrive )
-		{
-			strcpy( PathAcf, PATH_ACF ) ;
-		}
-		else	sprintf( PathAcf, "%c:\\LBA2\\VIDEO\\VIDEO.HQR", CDDrive ) ;
+  EndListAcf = ListAcf + LoadMallocFileSize;
+
+#ifdef LBA_EDITOR
+  // dispo Screen,ScreenAux,BufSpeak
+  SmackRegisterMemory(Screen, (ModeDesiredX * ModeDesiredY + RECOVER_AREA) * 3);
+
+  BufferSmack = (U8 *)Malloc(SIZE_BUFFER_SMACK);
+  if (!BufferSmack)
+    TheEnd(NOT_ENOUGH_MEM, "BufferSmack (InitAcf())");
+
+  SmackRegisterMemory((void *)BufferSmack, SIZE_BUFFER_SMACK);
 #else
-		switch( DistribVersion )
-		{
-			case UNKNOWN_VERSION:
-			case EA_VERSION:
-				sprintf( PathAcf, "%c:\\LBA2\\VIDEO\\VIDEO.HQR", CDDrive ) ;
-				break ;
-
-			default:
-				sprintf( PathAcf, "%c:\\TWINSEN\\VIDEO\\VIDEO.HQR", CDDrive ) ;
-		}
-
-		// TODO: enable this later?
-		// if( !FileSize( PathAcf ) )	TheEnd( PROGRAM_OK, MessageNoCD ) ;
-#endif
-#else
-		// default path Acf
-		strcpy( PathAcf, PATH_ACF ) ;
-#endif
-	}
-
-	ListAcf = (char *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_ACFLIST ) ;
-	if( !ListAcf )	TheEndCheckFile( RESS_HQR_NAME ) ;
-
-	EndListAcf = ListAcf + LoadMallocFileSize ;
-
-#ifdef	LBA_EDITOR
-	// dispo Screen,ScreenAux,BufSpeak
-	SmackRegisterMemory( Screen, (ModeDesiredX*ModeDesiredY+RECOVER_AREA)*3 ) ;
-
-	BufferSmack = (U8*)Malloc( SIZE_BUFFER_SMACK ) ;
-	if( !BufferSmack )	TheEnd( NOT_ENOUGH_MEM, "BufferSmack (InitAcf())" ) ;
-
-	SmackRegisterMemory( (void*)BufferSmack, SIZE_BUFFER_SMACK ) ;
-#else
-        // FIXME: Uncomment, SmackRegisterMemory(), just commented for build tests
-	//SmackRegisterMemory( MainBuffer, SizeOfMemAllocated ) ;
+  // TODO: Check if still useful when movie playback implemented
+  // SmackRegisterMemory( MainBuffer, SizeOfMemAllocated ) ;
 #endif
 }
 
@@ -441,7 +409,7 @@ S32	PlayAcf( const char *name )
 //			ManageTime() ;
 //
 //#ifndef	LBA_EDITOR
-//			CheckSaveLogPcx( smk->Palette ) ;// F9: Sauve Screen dans PATH_PCX_SAVE
+//			CheckSaveLogPcx( smk->Palette ) ;// F9: Sauve Screen
 //#endif
 //
 //			if( (MyKey==K_ESC OR (Input&I_MENUS))

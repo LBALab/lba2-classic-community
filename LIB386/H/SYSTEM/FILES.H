@@ -28,6 +28,10 @@ U32 Delete(const char* filename);
 S32 Touch(const char* filename);
 U32 FileSize(const char* filename);
 
+/// Check if file or directory \p path exists.
+bool ExistsFileOrDir(const char* path);
+bool IsDirectory(const char* path);
+
 // =============================================================================
 #ifdef __cplusplus
 }
