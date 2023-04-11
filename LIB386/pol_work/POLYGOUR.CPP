@@ -99,14 +99,6 @@ IntGour             BYTE  12h
 */
 S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  char *v9; // edi@6
-  unsigned int v10; // edx@6
-  char v11; // al@7
-  int v13; // ebx@9
-  int color; // eax@9
-  U8 carryFlag; // cf@10
-  int v17; // [sp-18h] [bp-18h]@6
-
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -137,15 +129,15 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       // @@NoPreload:
       U32 gouraudSlope = Fill_Gouraud_XSlope << 16;
-      v13 = Fill_Gouraud_XSlope >> 16;
+      U32 gouraudSlopeMinor = Fill_Gouraud_XSlope >> 16;
       U32 color = curGouraud >> 16;
       U32 gouraud = curGouraud << 16;
       do
       {
         *screen = color;
-        carryFlag = ((U64)gouraudSlope + (U64)gouraud) > 0xFFFFFFFF;
+        U8 carryFlag = ((U64)gouraudSlope + (U64)gouraud) > 0xFFFFFFFF;
         gouraud += gouraudSlope;
-        color = (color & 0xFFFFFF00) | ((v13 + carryFlag + color) & 0xFF);
+        color = (color & 0xFFFFFF00) | ((gouraudSlopeMinor + carryFlag + color) & 0xFF);
         ++screen;
         --diffX;
       }
