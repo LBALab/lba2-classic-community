@@ -153,8 +153,10 @@ S32     GamePlayCredits( const char *file_name, S32 mode )
 	InitObjects( BufferAnim, SIZE_BUFFER_ANIM, NULL, NULL ) ;
 
 
-/*	if( !Load_HQR( RESS_HQR_NAME, PtrXplPalette, RESS_XPL0 ) )
-		TheEnd( ERROR_NOT_FOUND_FILE, RESS_HQR_NAME ) ;
+/*	char tmpFilePath[ADELINE_MAX_PATH];
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, PtrXplPalette, RESS_XPL0 ) )
+		TheEnd( ERROR_NOT_FOUND_FILE, tmpFilePath ) ;
 	LastIdxPalette = RESS_XPL0 ;
 */
 	LastIdxPalette = -1 ;

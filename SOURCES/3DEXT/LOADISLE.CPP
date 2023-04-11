@@ -1,5 +1,7 @@
 #include	"DEFINES.H"
 
+#include "../DIRECTORIES.H"
+
 // nom du HQR (citadele.hqr)
 
 // contient:
@@ -123,42 +125,47 @@ void	ClearExternalView()
 
 void	LoadIsland()
 {
+	char islandFilename[ADELINE_MAX_PATH];
+	char islandFilePath[ADELINE_MAX_PATH];
+
 	// reinit ressources HQR
 
-	AddExt( IslandName, "OBL" ) ;
-	if( !HQR_Change_Ressource( HQR_Isle_Obj, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	snprintf(islandFilename, ADELINE_MAX_PATH, "%s.obl", IslandName);
+	GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
+	if( !HQR_Change_Ressource( HQR_Isle_Obj, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	AddExt( IslandName, "ILE" ) ;
+	snprintf(islandFilename, ADELINE_MAX_PATH, "%s.ile", IslandName);
+	GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
 
-	if( !HQR_Change_Ressource( HQR_CubeInfos, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !HQR_Change_Ressource( HQR_CubeInfos, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !HQR_Change_Ressource( HQR_ListDecors, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !HQR_Change_Ressource( HQR_ListDecors, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !HQR_Change_Ressource( HQR_MapPGround, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !HQR_Change_Ressource( HQR_MapPGround, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !HQR_Change_Ressource( HQR_ListTexDef, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !HQR_Change_Ressource( HQR_ListTexDef, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !HQR_Change_Ressource( HQR_MapSommetY, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !HQR_Change_Ressource( HQR_MapSommetY, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !HQR_Change_Ressource( HQR_MapIntensity, IslandName ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !HQR_Change_Ressource( HQR_MapIntensity, islandFilePath ) )
+		TheEndCheckFile( islandFilePath ) ;
 
 	// Charge buffer permanent par ile
 
-	if( !Load_HQR( IslandName, IsleMapIndex, HQR_MAP_IDM ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !Load_HQR( islandFilePath, IsleMapIndex, HQR_MAP_IDM ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !Load_HQR( IslandName, GroundTexture, HQR_TEX_GROUND ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !Load_HQR( islandFilePath, GroundTexture, HQR_TEX_GROUND ) )
+		TheEndCheckFile( islandFilePath ) ;
 
-	if( !Load_HQR( IslandName, ObjTexture, HQR_TEX_OBJ ) )
-		TheEndCheckFile( IslandName ) ;
+	if( !Load_HQR( islandFilePath, ObjTexture, HQR_TEX_OBJ ) )
+		TheEndCheckFile( islandFilePath ) ;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

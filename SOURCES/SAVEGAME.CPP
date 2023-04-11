@@ -8,6 +8,7 @@
 #include 	"C_EXTERN.H"
 
 #include <SVGA/SCREEN.H>
+#include "DIRECTORIES.H"
 
 extern	char	PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
@@ -133,9 +134,7 @@ S32	SetDemoSaveGame( S32 num )
 
 	if( num<NB_DEMOSAVE )
 	{
-		strcpy( GamePathname, PATH_SAVE ) ;
-		strcat( GamePathname, ListDemoSave[CurrentDemoSave] ) ;
-
+		GetSavePath(GamePathname, ADELINE_MAX_PATH, ListDemoSave[CurrentDemoSave]);
 		return TRUE ;
 	}
 
@@ -164,7 +163,7 @@ void	AutoSaveGame()
 	strcpy( memoplayername, PlayerName ) ;
 	strcpy( memogamepathname, GamePathname ) ;
 
-	strcpy( GamePathname, AUTOSAVE_FILENAME ) ;
+	GetSavePath(GamePathname, ADELINE_MAX_PATH, AUTOSAVE_FILENAME);
 	strcpy( PlayerName, AUTOSAVE_NAME ) ;
 
 #ifdef	DEBUG_TOOLS
@@ -210,7 +209,7 @@ void	CurrentSaveGame()
 	strcpy( memoplayername, PlayerName ) ;
 	strcpy( memogamepathname, GamePathname ) ;
 
-	strcpy( GamePathname, CURRENTSAVE_FILENAME ) ;
+	GetSavePath(GamePathname, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
 	strcpy( PlayerName, CURRENTSAVE_NAME ) ;
 
 #ifdef	DEBUG_TOOLS

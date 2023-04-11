@@ -10,12 +10,6 @@
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	ProcessorSignature:DWORD
-		extrn	C	ProcessorFeatureFlags:DWORD
-
-		 ASSUME DS:SEG ProcessorFeatureFlags
-
-;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C	XCentre:	DWORD
 		extrn	C	YCentre:	DWORD
 
@@ -32,6 +26,10 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn   C LongProjectPoint:		DWORD
 		extrn   C ProjectList:			DWORD
+
+;*══════════════════════════════════════════════════════════════════════════*
+
+		 ASSUME DS:SEG XCentre
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
@@ -65,23 +63,13 @@ SetProjection	PROC \
 		mov	[LFactorX], edx
 		mov	[LFactorY], esi
 
-		mov	edx, [ProcessorSignature]
-
-		and	edx, 400h
-		jz	noFPU
-
-		test	[ProcessorFeatureFlags], 1 SHL 23
-		jz	noMMX
-
-		emms
-noMMX:
 		fild	[LFactorX]	; fx
 		fild	[LFactorY]	; fy fx
 		fxch	st(1)		; fx fy
 		fst	[FRatioX]	; fx fy
 		fchs			;-fx fy
 		fdivp	st(1), st(0)	; -fy/fx
-noFPU:
+
 		mov	[XCentre], eax
 		mov	[YCentre], ebx
 
@@ -93,11 +81,8 @@ noFPU:
 		mov	LongProjectPoint, eax
 		mov	ProjectList, ebx
 
-		test	edx, edx
-		jz	noFPU2
-
 		fstp	[FRatioY]
-noFPU2:
+
 		ret
 
 SetProjection	ENDP

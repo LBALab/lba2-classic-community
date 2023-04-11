@@ -3,6 +3,7 @@
 //
 
 #include	"C_EXTERN.H"	// include LBA2
+#include "DIRECTORIES.H"
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
@@ -806,7 +807,7 @@ U8	*LoadHoloMalloc_HQR( const char *name, S32 index )
 
 	pt = HoloMalloc( size )		;
 
-	if( !Load_HQR( name, pt, index ) ) TheEndCheckFile( HOLO_HQR_NAME ) ;
+	if( !Load_HQR( name, pt, index ) ) TheEndCheckFile( name ) ;
 
 	return(pt)	;
 }
@@ -814,6 +815,7 @@ U8	*LoadHoloMalloc_HQR( const char *name, S32 index )
 void	InitHoloGlobe(S32 planet)
 {
 	S32	id	;
+        char    tmpFilePath[ADELINE_MAX_PATH];
 
 	Planet = planet	;
 
@@ -826,10 +828,12 @@ void	InitHoloGlobe(S32 planet)
 	BufBodyTempo = (U8*)HoloMalloc(SizeCurrentBody)	;
 	BufAnimTempo = (U8*)HoloMalloc(SizeCurrentAnim)	;
 
-	BufFleche = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_FLECHE )	;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
+
+	BufFleche = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_FLECHE )	;
 	ScaleRotBody3D( BufFleche, SCALE_OBJ_GLOBE, TRUE )	;
 
-	BufLoFleche = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_LOFLECHE );
+	BufLoFleche = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_LOFLECHE );
 	ScaleRotBody3D( BufLoFleche, SCALE_OBJ_GLOBE, TRUE )	;
 
 //----- Recuperation Body Twinsen et Scale
@@ -851,13 +855,13 @@ void	InitHoloGlobe(S32 planet)
 
 	PtrCoorGlobe = (U16*)HoloMalloc(SIZE_COOR_GLOBE)	;
 
-	PtrMapping = (U16*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_COORMAPP_HMM );// CoorMapp.HMM
+	PtrMapping = (U16*)LoadHoloMalloc_HQR( tmpFilePath, HQR_COORMAPP_HMM );// CoorMapp.HMM
 
 	id = HQR_TWINSUN_HMT+(Planet*2)			;
 
-	PtrAlt = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, id ) 		;// .HMT
+	PtrAlt = (U8*)LoadHoloMalloc_HQR( tmpFilePath, id ) 		;// .HMT
 
-	PtrTextMap   = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, id+1 ) 	;// .HMG
+	PtrTextMap   = (U8*)LoadHoloMalloc_HQR( tmpFilePath, id+1 ) 	;// .HMG
 
 	RayonPlanet = RAYON_PLANET		;
 
@@ -1110,7 +1114,7 @@ CoulText( 255, 0 )				;
 CmptFrame++ ;
 GraphPrintf( FALSE, 0, 0, "%d     ", NbFramePerSecond )	;
 #else
-		CheckSaveLogPcx( PtrPal ) ;// F9: Sauve Screen dans PATH_PCX_SAVE
+		CheckSaveLogPcx( PtrPal ) ;// F9: Sauve Screen
 #endif
 
 		BoxUpdate()	;
@@ -1159,8 +1163,11 @@ void	*HoloGivePtrBody(S32 index)
 /*══════════════════════════════════════════════════════════════════════════*/
 void	InitHoloMap()
 {
-	if( !Load_HQR( HOLO_HQR_NAME, TabArrow, HQR_ARROWBIN ) )
-		TheEndCheckFile( HOLO_HQR_NAME ) ;
+	char tmpFilePath[ADELINE_MAX_PATH];
+
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, TabArrow, HQR_ARROWBIN ) )
+		TheEndCheckFile( tmpFilePath ) ;
 }
 /*══════════════════════════════════════════════════════════════════════════*/
 void	HoloMap()

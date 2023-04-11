@@ -8,6 +8,7 @@
  *══════════════════════════════════════════════════════════════════════════*/
 
 #include "C_EXTERN.H"
+#include "DIRECTORIES.H"
 
 #include <SVGA/SCREEN.H>
 
@@ -69,7 +70,7 @@ void	Init3DExt( )
 #ifdef	LBA_EDITOR
 	strcpy( IslandName, GetRessName("citadele") ) ;
 #else
-	strcpy( IslandName, PATH_RESSOURCE"citadele" ) ;
+	strcpy( IslandName, "citadele" ) ;
 #endif
 }
 
@@ -130,6 +131,7 @@ void	Init3DExtGame()
 void	InitGrilleExt( char *defpathname )
 {
 	S32	numskysea ;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	InitDefFile( defpathname ) ;
 	CubeMode = DefFileBufferReadValue( "Mode" )	;
@@ -175,7 +177,8 @@ void	InitGrilleExt( char *defpathname )
 
 		if( LastIsland!=Island )
 		{
-			Load_HQR( RESS_HQR_NAME, SkySeaTexture, numskysea ) ;
+                        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+			Load_HQR( tmpFilePath, SkySeaTexture, numskysea ) ;
 			LoadIsland() ;
 
 			LastIsland = Island ;
@@ -212,6 +215,7 @@ const char	*IleLst[] = {
 void	InitGrilleExt( U32 numcube )
 {
 	S32	numskysea ;
+	char	tmpFilePath[ADELINE_MAX_PATH];
 
 	// Pour virer Warning
 	numcube = numcube ;
@@ -231,8 +235,7 @@ void	InitGrilleExt( U32 numcube )
 				if( !strstr(IslandName,"citabeau") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "citabau" ) ;
+				strcpy( IslandName, "citabau" ) ;
 				numskysea = RESS_SKYSEA00 ;
 			}
 			else
@@ -240,8 +243,7 @@ void	InitGrilleExt( U32 numcube )
 				if( !strstr(IslandName,"citadel") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "citadel" ) ;
+				strcpy( IslandName, "citadel" ) ;
 
 				numskysea = RESS_SKYSEA0 ;
 			}
@@ -253,24 +255,22 @@ void	InitGrilleExt( U32 numcube )
 				if( !strstr(IslandName,"celebra2") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "celebra2" ) ;
+				strcpy( IslandName, "celebra2" ) ;
 			}
 			else
 			{
 				if( !strstr(IslandName,"celebrat") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "celebrat" ) ;
+				strcpy( IslandName, "celebrat" ) ;
 			}
 			numskysea = RESS_SKYSEA5 ;
 			break ;
 
 		default:
-//			DefFileBufferInit( PATH_RESSOURCE"ile.lst", Screen, 640*480 ) ;
+//			DefFileBufferInit( "ile.lst", Screen, 640*480 ) ;
 
-			strcpy( IslandName, PATH_RESSOURCE ) ;
+			strcpy( IslandName, "" ) ;
 //			strcat( IslandName, DefFileBufferReadStringDefault( Itoa( Island ), "citadel" ) ) ;
 			strcat( IslandName, IleLst[Island] ) ;
 
@@ -284,7 +284,8 @@ void	InitGrilleExt( U32 numcube )
 	{
 		if( LastIsland!=Island )
 		{
-			Load_HQR( RESS_HQR_NAME, SkySeaTexture, numskysea ) ;
+			GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+			Load_HQR( tmpFilePath, SkySeaTexture, numskysea ) ;
 
 			LoadIsland() ;
 			LastIsland = Island ;

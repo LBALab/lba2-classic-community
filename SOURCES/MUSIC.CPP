@@ -1,5 +1,7 @@
 #include	"C_EXTERN.H"
 
+#include "DIRECTORIES.H"
+
 /*══════════════════════════════════════════════════════════════════════════*
 				  █▀▀▀▀ █▀▀▀▄
 				  ██    ██  █
@@ -8,7 +10,7 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 
 #ifdef	CDROM
-char		CDDrive = 'Z'	;// Z by default
+const char*		CDDrive = "Z"	;// Z by default
 U32		CDVolume     = DEF_CD_VOLUME	;
 
 #ifndef	LBA_EDITOR
@@ -41,8 +43,6 @@ S32	InitCD( char *name )
 		      ▀▀▀▀▀  ▀▀   ▀▀  ▀ ▀▀▀▀▀ ▀▀▀▀▀ ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
-
-char	PathJingle[ADELINE_MAX_PATH] ;
 
 U32	JingleVolume = DEF_JINGLE_VOLUME ;
 
@@ -82,50 +82,9 @@ char	ListJingle[NB_JINGLE][9] = {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-void	InitJingle( void )
-{
-	char    *path ;
-
-	OpenStream() ;// init Stream System
-
-	// fix path jingles
-	path = DefFileBufferReadString( "PathJingle" ) ;
-
-	if( path AND strcmp(path,"") )
-	{
-		strcpy( PathJingle, path ) ;
-		if( PathJingle[strlen(PathJingle)-1]!='\\'
-		AND PathJingle[strlen(PathJingle)-1]!=':' )
-			strcat( PathJingle, "\\" ) ;
-	}
-	else
-	{
-#if defined(ONE_GAME_DIRECTORY)&&defined(CDROM)
-		switch( DistribVersion )
-		{
-			case UNKNOWN_VERSION:
-			case EA_VERSION:
-				sprintf( PathJingle, "%c:\\LBA2\\MUSIC\\", CDDrive ) ;
-				break ;
-
-			default:
-				sprintf( PathJingle, "%c:\\TWINSEN\\MUSIC\\", CDDrive ) ;
-		}
-#else
-#ifdef	CDROM
-		if( CDDrive )
-		{
-			sprintf( PathJingle, "%c:\\LBA2\\MUSIC\\", CDDrive ) ;
-		}
-		else
-#endif
-		{	// default path Acf
-			strcpy( PathJingle, PATH_JINGLE ) ;
-		}
-#endif
-	}
-
-	SetVolumeJingle( JingleVolume ) ;
+void InitJingle(void) {
+        OpenStream(); // init Stream System
+        SetVolumeJingle(JingleVolume);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -153,42 +112,26 @@ S32	GetNumJingle( char *name )
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-void	PlayJingle( S32 num )
-{
-	char	name_jingle[ADELINE_MAX_PATH] ;
+void PlayJingle(S32 num) {
+  if (num >= FIRST_JINGLE AND num <= LAST_JINGLE AND JingleVolume > 0) {
+    LockTimer();
 
-	if( num>=FIRST_JINGLE
-	AND num<=LAST_JINGLE
-	AND JingleVolume>0 )
-	{
-		LockTimer() ;
+    num -= FIRST_JINGLE;
+    num++; // car track 0 == NO_TRACK
 
-		num -= FIRST_JINGLE ;
-		num++ ;// car track 0 == NO_TRACK
+    char jingleFilename[ADELINE_MAX_PATH];
+    snprintf(jingleFilename, ADELINE_MAX_PATH, "%s.WAV", ListJingle[num]);
 
-#ifdef ONE_GAME_DIRECTORY
-		// tente d'abord de jouer le jingle dans le sous-répertoire
-		// MUSIC
-		strcpy( name_jingle, "MUSIC\\" ) ;
-		strcat( name_jingle, ListJingle[num] ) ;
-		AddExt( name_jingle, ".WAV" ) ;
+    char jinglePath[ADELINE_MAX_PATH];
+    GetJinglePath(jinglePath, ADELINE_MAX_PATH, jingleFilename);
 
-		if( !FileSize( name_jingle ) )
-#endif
-		{
-			strcpy( name_jingle, PathJingle ) ;
-			strcat( name_jingle, ListJingle[num] ) ;
-			AddExt( name_jingle, ".WAV" ) ;
-		}
+    const bool playingTheSame = (strcasecmp(jinglePath, StreamName()) == 0);
+    if (!playingTheSame) {
+      PlayStream(jinglePath);
+    }
 
-		// a remplacer par GetNumJingle() ?
-		if( strcasecmp(name_jingle,StreamName()) )
-		{
-			PlayStream( name_jingle ) ;
-		}
-
-		UnlockTimer() ;
-	}
+    UnlockTimer();
+  }
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -300,8 +243,6 @@ void	InitTabTracks( void )
 void	PlayMusic( S32 num, S32 playit )
 {
 	NextMusic = -1 ;
-
-	PIRACY_PROTECT() ;
 
 	if( num!=-1 )
 	{

@@ -1,4 +1,5 @@
 #include	"C_EXTERN.H"
+#include "DIRECTORIES.H"
 
 #include <SVGA/SCREEN.H>
 
@@ -113,6 +114,7 @@ S32	LoadUsedBrick()
 	U8 	*ptdecomp ;
 	COMPRESSED_HEADER header	;
 	S32	nbbrick	;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	tabflag = (U16*)((U8*)Screen+OFFSET_BUFFER_FLAG) ;
 
@@ -158,7 +160,8 @@ S32	LoadUsedBrick()
 
 //-------------------------------------- Deuxieme Passe, Load Brick
 
-	handle = OpenRead( BKG_HQR_NAME )			;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
+	handle = OpenRead( tmpFilePath )			;
 	if ( !handle )	return(0L)			;
 
 	Seek( handle, BkgHeader.Brk_Start<<2, SEEK_FROM_START);// Begin offsets Brk
@@ -236,6 +239,7 @@ void	InitGrille( U32 numcube )
 {
 	U32	id_gri	;
 	U32	id_bll	;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	numcube = TabAllCube[numcube].Num	;//	Indirection
 
@@ -243,13 +247,14 @@ void	InitGrille( U32 numcube )
 
 	GriHeader = (T_GRI_HEADER *)BufMap			;
 
-	Load_HQR( BKG_HQR_NAME, BufMap, id_gri )			;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
+	Load_HQR( tmpFilePath, BufMap, id_gri )			;
 
 	ManageSystem() ;// for streaming
 
 	id_bll = BkgHeader.Bll_Start+GriHeader->My_Bll		;//+numcube
 
-	Load_HQR( BKG_HQR_NAME, TabBlock, id_bll )		;
+	Load_HQR( tmpFilePath, TabBlock, id_bll )		;
 
 //----------------------------------------------	NEW
 	if( !LoadUsedBrick() )	return 		;
@@ -544,12 +549,15 @@ void	CopyMapToCube()
 void	InitBufferCube()
 {
 	S32	intmem ;
+        char tmpFilePath[ADELINE_MAX_PATH];
+
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
 
 //	pas de RECOVER_AREA car BkgHeader en stored et pas en LZSS
-	Load_HQR( BKG_HQR_NAME, &BkgHeader, 0 )			;// HEADER
+        Load_HQR( tmpFilePath, &BkgHeader, 0 )			;// HEADER
 
 // 	pas de RECOVER_AREA car TabAllCube en stored et pas en LZSS
-	Load_HQR( BKG_HQR_NAME, (void *)TabAllCube, BkgHeader.Brk_Start+BkgHeader.Max_Brk ) ;
+	Load_HQR( tmpFilePath, (void *)TabAllCube, BkgHeader.Brk_Start+BkgHeader.Max_Brk ) ;
 
 // 	Calcul des tailles nécessaires
 	intmem = (BkgHeader.Max_Size_Brick_Cube+RECOVER_AREA)	// BufferBrick
@@ -1071,10 +1079,12 @@ void	IncrustGrm( T_ZONE *ptrz )
 	U8	*pts, *ptd	;
 	S32	x, z	 	;
 	S32	dx, dy, dz	;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	numgrm = ptrz->Info0		;
 
-	Load_HQR( BKG_HQR_NAME, Screen,
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
+	Load_HQR( tmpFilePath, Screen,
 			BkgHeader.Grm_Start+GriHeader->My_Grm+numgrm ) ;
 
 	xo = ptrz->X0/SIZE_BRICK_XZ	;

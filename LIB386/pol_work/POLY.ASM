@@ -33,7 +33,7 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	C		Fill_PolyFast		; Polygon filler (Direct call without EMMS)
+PUBLIC	C		Fill_PolyFast		; Polygon filler
 PUBLIC	C		SetScreenPitch		; Change the pitch of the screen
 PUBLIC	C		SetFog			; Initialize the fog
 PUBLIC	C		SetCLUT			; Set the CLUT pointer
@@ -349,9 +349,6 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	C		ProcessorSignature	:	DWORD
-
-
 Extrn	C		TabOffLine		:	DWORD
 Extrn	C		Fill_N_Table_Jumps	:	DWORD
 Extrn	C		Fill_Fog_Table_Jumps	:	DWORD
