@@ -3,379 +3,57 @@
 
 #include <stdio.h>
 
-/*
-; **************************************************************************
-; **************************************************************************
-; **************************************************************************
-; ***                                                                    ***
-; ***                         POLYGON LIBRARY                            ***
-; ***                                                                    ***
-; **************************************************************************
-; ***                                                                    ***
-; ***                              (Adeline Software Intl.)              ***
-; ***                           1995-96-97                               ***
-; ***                                                                    ***
-; **************************************************************************
-; **************************************************************************
-; **************************************************************************
-
-
-			OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			OPTION	LANGUAGE:C
-
-
-;			**************
-;			*** PUBLIC ***
-;			**************
-
-
-
-
-
-
-;					******************
-;					*** PROCEDURES ***
-;					******************
-PUBLIC	C		Filler_Flat
-PUBLIC	C		Filler_Transparent
-PUBLIC	C		Filler_Trame
-PUBLIC	C		Filler_FlatZBuf
-PUBLIC	C		Filler_TransparentZBuf
-PUBLIC	C		Filler_TrameZBuf
-PUBLIC	C		Filler_FlatNZW
-PUBLIC	C		Filler_TransparentNZW
-PUBLIC	C		Filler_TrameNZW
-PUBLIC	C		Filler_FlagZBuffer
-
-
-;					*****************
-;					*** VARIABLES ***
-;					*****************
-
-;			***************
-;			*** INCLUDE ***
-;			***************
-
-INCLUDE			FILLER.INC
-
-
-;			**************
-;			*** MACROS ***
-;			**************
-
-
-;			***************
-;			*** EQUATES ***
-;			***************
-
-
-
-
-;			**************************
-;			*** SEGMENTATION MODEL ***
-;			**************************
-
-			.386
-;			.MODEL	FLAT, C
-
-
-
-;			************
-;			*** DATA ***
-;			************
-;			.DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
-
-
-;				******************
-;				*** Extrn data ***
-;				******************
-Extrn	C		Fill_Restart		:	DWORD
-Extrn	C		Fill_Filler		:	DWORD
-Extrn	C		Fill_Color		:	DWORD
-Extrn	C		Fill_Trame_Parity	:	DWORD
-Extrn	C		Fill_Patch		:	DWORD
-
-Extrn	C		Fill_FirstPoint		:	DWORD
-Extrn	C		Fill_LastPoint		:	DWORD
-Extrn	C		Fill_LeftPoint		:	DWORD
-Extrn	C		Fill_RightPoint		:	DWORD
-
-Extrn	C		Fill_LeftSlope		:	DWORD
-Extrn	C		Fill_RightSlope		:	DWORD
-
-Extrn	C		Fill_CurY		:	DWORD
-Extrn	C		Fill_CurXMin		:	DWORD
-Extrn	C		Fill_CurXMax		:	DWORD
-
-
-Extrn	C		Fill_ClipFlag		:	DWORD
-Extrn	C		Fill_ReadFlag		:	DWORD
-
-Extrn	C		PTR_TabOffLine		:	DWORD
-Extrn	C		Fill_CurOffLine		:	DWORD
-Extrn	C		Log			:	DWORD
-Extrn	C		PtrZBuffer		:	DWORD
-Extrn	C		ScreenPitch		:	DWORD
-
-
-Extrn	C		ClipXMin		:	DWORD
-Extrn	C		ClipXMax		:	DWORD
-Extrn	C		ClipYMin		:	DWORD
-Extrn	C		ClipYMax		:	DWORD
-
-Extrn	C		Fill_CurZBufMin		:	DWORD
-Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	C		Fill_ZBuf_XSlope	:	DWORD
-
-Extrn	C		IsPolygonHidden		:	DWORD
-
-
-
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-
-
-
-
-
-
-;				******************
-;				*** Local data ***
-;				******************
-			ALIGN	4
-; Runtime code patch refactor, uses memory instead of instruction substitution
-PtrLog              DWORD 12345678h
-PtrLog1             DWORD 12345678h
-PtrLog2             DWORD 12345678h
-PtrZBuffer1         DWORD 12345678h
-PtrZBuffer2         DWORD 12345678h
-PtrZBuffer3         DWORD 12345678h
-PtrZBufferPatch     DWORD 12345678h
-
-
-_DATA			ENDS
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
-
-;				******************
-;				*** Extrn proc ***
-;				******************
-Extrn	C		Fill_ClipXMin		:	PROC
-Extrn	C		Fill_ClipXMax		:	PROC
-Extrn	C		Fill_ClipYMin		:	PROC
-Extrn	C		Fill_ClipYMax		:	PROC
-
-Extrn	C		Triangle_ReadNextEdge	:	PROC
-
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-
-;				******************
-;				*** Local proc ***
-;				******************
-
-*/
-
 S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-	/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_Flat		PROC
-			lea	ebp,[ecx+1]
-			mov	eax,[Fill_CurY]
+  U32 count = nbLines + 1;
+  U8 *curOffLine = (U8 *)Fill_CurOffLine;
+  Fill_CurY = Fill_CurY + nbLines + 1;
+  U32 patch = Fill_Patch - 1;
 
-			mov	edi,[Fill_CurOffLine]
-			add	eax,ebp
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+  }
+  else
+  {
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+  }
 
-			mov	[Fill_CurY],eax
-			mov	eax,[Fill_Patch]
+  while (1)
+  {
+    // @@EnterLoop:
+    U8 *screen = (fillCurXMin >> 16) + curOffLine;
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      // Is the scanline big enough to load the dst lines in cache
+      // @@SmallScanLine:
+      U8 color = Fill_Color; // Color
+      do
+      {
+        *screen = color;
+        screen++;
+        --diffX;
+      } while (diffX);
+    }
+    // @@EndScanLine:
+    if (!--count)
+      break;
 
-			dec	eax
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+  }
 
-			jne	@@Each_Line
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
 
-			mov	[Fill_Patch],eax
-			jmp	@@EnterLoop
-			ALIGN	4
-@@Each_Line:
-			mov	esi,[Fill_LeftSlope]
-			mov	eax,[Fill_RightSlope]
-
-			add	ebx,esi
-			add	edx,eax
-
-			add	edi,[ScreenPitch]
-@@EnterLoop:
-			mov	esi,ebx
-			mov	ecx,edx
-
-			shr	esi,16
-			push	edi
-
-			shr	ecx,16
-			add	edi,esi
-
-			sub	ecx,esi
-			jle	@@EndScanLine
-
-			mov	al,[edi]	; Load 1st dst cache line
-			cmp	ecx,32		; Is the scanline big enough to load the dst lines in cache
-
-			jb	@@SmallScanLine
-
-				; *** Load dst in WB cache ***
-			push	edi
-			push	edx
-
-			lea	edx,[edi+ecx]
-			and	edi,not 31
-
-			and	edx,not 31	; AGI on EDI on first loop
-@@Preload:
-			mov	ah,[edi]
-			add	edi,32
-
-			cmp	edi,edx
-			jbe	@@Preload
-
-			pop	edx
-			pop	edi
-
-			mov	eax,[Fill_Color]	; Color
-			test	edi,1b			; alignment test
-			je	@@ALIGN_Ok
-
-			mov	[edi],al
-			inc	edi
-			dec	ecx
-@@ALIGN_Ok:
-			shr	ecx,1
-			rep	stosw			; Should we make a rep stosd (and making the code more complicated for small polys ?)
-			jnc	@@EndScanLine
-			mov	[edi],al
-			jmp	@@EndScanLine
-
-				; *** Flat loop ***
-@@SmallScanLine:
-			mov	eax,[Fill_Color]	; Color
-@@LoopX:
-			mov	[edi],al
-			inc	edi
-
-			dec	ecx
-			jne	@@LoopX
-
-@@EndScanLine:
-			pop	edi
-
-			dec	ebp
-			jne	@@Each_Line
-
-			mov	[Fill_CurXMin],ebx
-			mov	[Fill_CurXMax],edx
-
-			mov	[Fill_CurOffLine],edi
-			jmp	Triangle_ReadNextEdge
-Filler_Flat		ENDP
-	*/
-
-	U8 *curOffLine = (U8 *)Fill_CurOffLine;
-	Fill_CurY = Fill_CurY + nbLines + 1;
-	U32 patch = Fill_Patch - 1;
-
-	if (patch != 0)
-	{
-		// @@Each_Line:
-		fillCurXMin += Fill_LeftSlope;
-		fillCurXMax += Fill_RightSlope;
-
-		curOffLine += ScreenPitch;
-	}
-	else
-	{
-		Fill_Patch = patch;
-	}
-
-	for (int i = 0; i < nbLines + 1; i++)
-	{
-		// @@EnterLoop:
-		U32 a = (fillCurXMin >> 16);
-		U8 *lineCurOffLine = curOffLine + a;
-		U32 b = (fillCurXMax >> 16) - a;
-		if (b > 0)
-		{
-			// U8 c = *curOffLine; // Load 1st dst cache line
-			// Is the scanline big enough to load the dst lines in cache
-			if (b < 32)
-			{
-				// @@SmallScanLine:
-				U8 color = Fill_Color; // Color
-				for (int i = 0; i < b; i++)
-				{
-					*lineCurOffLine = color;
-					lineCurOffLine++;
-				}
-			}
-			else
-			{
-				// *** Load dst in WB cache ***
-				U8 *d = lineCurOffLine + b;
-				U8 *lineCurOffLine2 = (U8 *)((U64)lineCurOffLine & ~31);
-				U8 *d2 = (U8 *)((U64)d & ~31); // AGI on EDI on first loop
-
-				// @@Preload:
-				do
-				{
-					U8 e = *(U8 *)lineCurOffLine2;
-					lineCurOffLine2 += 32;
-				} while (lineCurOffLine2 <= d2);
-
-				U8 color = Fill_Color; // Color
-				for (int i = 0; i < b; i++)
-				{
-					*lineCurOffLine = color;
-					lineCurOffLine++;
-				}
-			}
-		}
-		// @@EndScanLine:
-	}
-
-	Fill_CurXMin = fillCurXMin;
-	Fill_CurXMax = fillCurXMax;
-	Fill_CurOffLine = curOffLine;
-
-	return Triangle_ReadNextEdge(NULL, NULL);
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
-
 
 /*
 ; *** CALL: 	ECX = Nb lines to draw
