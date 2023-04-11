@@ -7,6 +7,7 @@
 #include <FILLER.H>
 
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -60,6 +61,9 @@ U8 Fill_Flag_ZBuffer = FALSE;	// True if ZBUFFER is active
 U8 Fill_Flag_NZW = FALSE;     // True if NZW active
 
 Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
+
+S32 YB_YA = 0;
+S32 YC_YA = 0;
 
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
@@ -1376,8 +1380,8 @@ S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *Pt
 
 S32 Gouraud_XSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
 {
-	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
-	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
+  YB_YA = PtB->Pt_YE - PtA->Pt_YE;
+  YC_YA = PtC->Pt_YE - PtA->Pt_YE;
 
   Fill_Gouraud_XSlope = (YB_YA * LC_LA - YC_YA * LB_LA) / Denom;
   return Triangle_ReadNextEdge(PtA, PtB);
@@ -1443,8 +1447,8 @@ S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	S32 YB_YA = PtB->Pt_YE - PtA->Pt_YE;
-	S32 YC_YA = PtC->Pt_YE - PtA->Pt_YE;
+	YB_YA = PtB->Pt_YE - PtA->Pt_YE;
+	YC_YA = PtC->Pt_YE - PtA->Pt_YE;
 
   Fill_MapU_XSlope = (YB_YA * (PtC->Pt_MapU - PtA->Pt_MapU)
       - YC_YA * (PtB->Pt_MapU - PtA->Pt_MapU))
@@ -1457,9 +1461,16 @@ S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 
 S32 Calc_TextureGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  S32 UA_UB = PtA->Pt_MapU - PtB->Pt_MapU;
+  S32 UC_UB = PtC->Pt_MapU - PtB->Pt_MapU;
+  S32 VA_VB = PtA->Pt_MapV - PtB->Pt_MapV;
+  S32 VC_VB = PtC->Pt_MapV - PtB->Pt_MapV;
+  S32 LC_LB = PtC->Pt_Light - PtB->Pt_Light;
+  S32 LA_LB = PtA->Pt_Light - PtB->Pt_Light;
+  Fill_MapU_XSlope = roundf((UC_UB * YB_YA - UA_UB * YC_YA) * Denom);
+  Fill_MapV_XSlope = roundf((VC_VB * YB_YA - VA_VB * YC_YA) * Denom);
+  Fill_Gouraud_XSlope = roundf(Denom * (YB_YA * LC_LB - YC_YA * LA_LB));
+  return Triangle_ReadNextEdge(PtB, PtC);
 }
 
 S32 Calc_TextureDitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
