@@ -1736,13 +1736,13 @@ S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Stru
   LODWORD(v5) = (v3 - v4) << 8;
   HIDWORD(v5) = (v3 - v4) >> 24;
   Fill_CurGouraudMin = v4 << 8;
-  Fill_Gouraud_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
+  Fill_Gouraud_LeftSlope = roundf(v5 / a1) + (roundf(v5 / a1) >> 31);
   v6 = PtB->Pt_Light;
   v7 = PtA->Pt_Light;
   LODWORD(v5) = (v6 - v7) << 8;
   HIDWORD(v5) = (v6 - v7) >> 24;
   Fill_CurMapUMin = v7 << 8;
-  Fill_MapU_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
+  Fill_MapU_LeftSlope = roundf(v5 / a1) + (roundf(v5 / a1) >> 31);
   v8 = PtB->Pt_MapV;
   v9 = PtA->Pt_MapV;
   LODWORD(v5) = (v8 - v9) << 8;
