@@ -1,9 +1,4 @@
 /*
-;*══════════════════════════════════════════════════════════════════════════*
-		.386p
-		.model FLAT, C
-
-;*══════════════════════════════════════════════════════════════════════════*
 Struc_Sprite	STRUC
   Delta_X	db	0
   Delta_Y	db	0
@@ -11,26 +6,6 @@ Struc_Sprite	STRUC
   Hot_Y		db	0
 Struc_Sprite	ENDS
 
-;*══════════════════════════════════════════════════════════════════════════*
-		.DATA
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	Log		:DWORD
-		extrn	C	TabOffLine	:DWORD
-
-		extrn	C	ScreenXMin	:DWORD
-		extrn	C	ScreenXMax	:DWORD
-		extrn	C	ScreenYMin	:DWORD
-		extrn	C	ScreenYMax	:DWORD
-
-		extrn	C	ClipXMin	:DWORD
-		extrn	C	ClipXMax	:DWORD
-		extrn	C	ClipYMin	:DWORD
-		extrn	C	ClipYMax	:DWORD
-
-		extrn	C	ModeDesiredX	:DWORD
-
-;*══════════════════════════════════════════════════════════════════════════*
 Start		dd	0000
 
 Start_X		dd	0
@@ -574,6 +549,6 @@ ScaleSprite	endp
 void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
 										void *ptrbank)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }

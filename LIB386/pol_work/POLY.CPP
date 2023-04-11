@@ -1726,6 +1726,7 @@ S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
 
 S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  /*
   int v3; // eax@1
   int v4; // ebx@1
   signed __int64 v5; // rtt@1
@@ -1752,6 +1753,7 @@ S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Stru
   HIDWORD(v5) = (v8 - v9) >> 24;
   Fill_CurMapVMin = v9 << 8;
   Fill_MapV_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
+  */
   return Read_Next_Right(PtA, PtB);
 }
 
