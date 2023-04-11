@@ -13,177 +13,6 @@
 ; **************************************************************************
 ; **************************************************************************
 ; **************************************************************************
-
-			OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			OPTION	LANGUAGE:C
-
-
-
-;			**************
-;			*** PUBLIC ***
-;			**************
-
-;					******************
-;					*** PROCEDURES ***
-;					******************
-PUBLIC	C		Filler_TextureGouraud
-PUBLIC	C		Filler_TextureDither
-PUBLIC	C		Filler_TextureGouraudChromaKey
-PUBLIC	C		Filler_TextureDitherChromaKey
-PUBLIC	C		Filler_TextureGouraudZBuf
-PUBLIC	C		Filler_TextureGouraudChromaKeyZBuf
-PUBLIC	C		Filler_TextureGouraudNZW
-PUBLIC	C		Filler_TextureGouraudChromaKeyNZW
-
-
-
-;					*****************
-;					*** VARIABLES ***
-;					*****************
-
-;			***************
-;			*** INCLUDE ***
-;			***************
-
-INCLUDE			FILLER.INC
-
-
-;			**************
-;			*** MACROS ***
-;			**************
-
-
-;			***************
-;			*** EQUATES ***
-;			***************
-
-
-
-
-;			**************************
-;			*** SEGMENTATION MODEL ***
-;			**************************
-
-			.386
-;			.MODEL	FLAT, C
-
-
-
-;			************
-;			*** DATA ***
-;			************
-;			.DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
-
-;				******************
-;				*** Extrn data ***
-;				******************
-Extrn	C		Fill_Restart		:	DWORD
-Extrn	C		Fill_Patch		:	DWORD
-Extrn	C		Fill_Color		:	DWORD
-
-Extrn	C		PtrMap			:	DWORD
-Extrn	C		RepMask			:	DWORD
-Extrn	C		PtrCLUTGouraud		:	DWORD
-Extrn	C		PtrZBuffer		:	DWORD
-
-Extrn	C		Fill_LeftSlope		:	DWORD
-Extrn	C		Fill_RightSlope		:	DWORD
-
-Extrn	C		Fill_CurY		:	DWORD
-Extrn	C		Fill_CurXMin		:	DWORD
-Extrn	C		Fill_CurXMax		:	DWORD
-
-Extrn	C		PTR_TabOffLine		:	DWORD
-Extrn	C		Fill_CurOffLine		:	DWORD
-Extrn	C		Log			:	DWORD
-Extrn	C		ScreenPitch		:	DWORD
-
-Extrn	C		Fill_CurMapUMin		:	DWORD
-Extrn	C		Fill_MapU_LeftSlope	:	DWORD
-Extrn	C		Fill_MapU_XSlope	:	DWORD
-
-Extrn	C		Fill_CurMapVMin		:	DWORD
-Extrn	C		Fill_MapV_LeftSlope	:	DWORD
-Extrn	C		Fill_MapV_XSlope	:	DWORD
-
-Extrn	C		Fill_CurGouraudMin	:	DWORD
-Extrn	C		Fill_Gouraud_LeftSlope	:	DWORD
-Extrn	C		Fill_Gouraud_XSlope	:	DWORD
-
-Extrn	C		Fill_CurZBufMin		:	DWORD
-Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	C		Fill_ZBuf_XSlope	:	DWORD
-
-
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-
-
-
-
-
-
-;				******************
-;				*** Local data ***
-;				******************
-			ALIGN	4
-
-; Runtime code patch refactor, uses memory instead of instruction substitution
-PtrLog              DWORD 12345678h;
-PtrCLUT             DWORD 12345678h
-PtrZBuffer1         DWORD 12345678h
-PtrZBufferPatch     DWORD 12345678h
-PtrMap2             DWORD 12345678h
-PtrMapPatch         DWORD 12345678h
-RepMask2            DWORD 12345678h
-RepMaskPatch        DWORD 12345678h
-DecZBuf_Gour        DWORD 12345678h
-DecMapU             DWORD 12345678h
-DecMapU2            DWORD 12345678h
-DecMapV_Gour        DWORD 12345678h
-DecMapV_Gour2       DWORD 12345678h
-DecMapV_IntZBuf     DWORD 12345678h
-IntMapV             BYTE  12h
-IntMapV2            BYTE  12h
-IntMapU             BYTE  12h
-IntMapU2            BYTE  12h
-
-_DATA			ENDS
-
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
-
-;				******************
-;				*** Extrn proc ***
-;				******************
-Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
 */
 
 #include <POLYGON/POLYGTEX.H>
@@ -192,11 +21,117 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 
 #include <stdio.h>
 
+PTR_U8 GTEX_PtrLog = (PTR_U8)0x12345678;
+PTR_U8 GTEX_PtrCLUT = (PTR_U8)0x12345678;
+PTR_U8 GTEX_PtrZBuffer1 = (PTR_U8)0x12345678;
+PTR_U8 GTEX_PtrZBufferPatch = (PTR_U8)0x12345678;
+PTR_U8 GTEX_PtrMap2 = (PTR_U8)0x12345678;
+PTR_U8 GTEX_PtrMapPatch = (PTR_U8)0x12345678;
+U32 GTEX_RepMask2 = 0x12345678;
+U32 GTEX_RepMaskPatch = 0x12345678;
+U32 GTEX_DecZBuf_Gour = 0x12345678;
+U32 GTEX_DecMapU = 0x12345678;
+U32 GTEX_DecMapU2 = 0x12345678;
+U32 GTEX_DecMapV_Gour = 0x12345678;
+U32 GTEX_DecMapV_Gour2 = 0x12345678;
+U32 GTEX_DecMapV_IntZBuf = 0x12345678;
+U8 GTEX_IntMapV = 0x12;
+U8 GTEX_IntMapV2 = 0x12;
+U8 GTEX_IntMapU = 0x12;
+U8 GTEX_IntMapU2 = 0x12;
+
 S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  int v11; // eax@5
+  char *v12; // edi@6
+  unsigned int v13; // edx@6
+  char v14; // al@7
+  char v15; // bl@9
+  int v16; // esi@9
+  int v17; // edx@9
+  int v18; // ebp@9
+  int v19; // ebx@9
+  int v20; // eax@9
+  int v22; // [sp-20h] [bp-20h]@6
+  unsigned int v23; // [sp-1Ch] [bp-1Ch]@5
+
+  U32 count = nbLines + 1;
+  U8 *curOffLine = Fill_CurOffLine;
+  U32 curMapU = Fill_CurMapUMin;
+  U32 curMapV = Fill_CurMapVMin;
+  Fill_CurY += count;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch != 0)
+  {
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curMapU += Fill_MapU_LeftSlope;
+    curMapV += Fill_MapV_LeftSlope;
+    Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_Patch = patch;
+
+  GTEX_PtrMapPatch = PtrMap;
+  GTEX_PtrCLUT = PtrCLUTGouraud;
+  GTEX_DecMapU = Fill_MapU_XSlope << 16;
+  GTEX_IntMapU = Fill_MapU_XSlope >> 16;
+  GTEX_IntMapV = Fill_MapV_XSlope >> 16;
+  GTEX_DecMapV_Gour = (Fill_Gouraud_XSlope >> 8) & 0xFFFF | (Fill_MapV_XSlope << 16);
+  while (1)
+  {
+    U32 diffX = (fillCurXMin >> 16) - (fillCurXMax >> 16);
+    if ((fillCurXMin >> 16) > (fillCurXMax >> 16))
+    {
+      U8 *screen = (fillCurXMax >> 16) + curOffLine;
+      v11 = Fill_Gouraud_XSlope;
+      v23 = Fill_CurGouraudMin;
+      v11 = (v11 & 0xFFFF00FF) | (((curMapV >> 16) & 0xFF) << 8);
+      v15 = (curMapU >> 16) & 0xFF;
+      v16 = curMapU << 16;
+      v11 = (v11 & 0xFFFFFF00) | (v15 & 0xFF);
+      v17 = (curMapV << 16) | (v23 >> 8) & 0xFFFF;
+      v18 = RepMask;
+      v19 = (v23 >> 8);
+      v20 = RepMask & v11;
+      do
+      {
+        v19 = (v19 & 0xFFFFFF00) | (*(v20 + GTEX_PtrMapPatch) & 0xFF);
+        U8 carry = ((U64)GTEX_DecMapU + (U64)v16) > 0xFFFFFFFF;
+        v16 += GTEX_DecMapU;
+        v20 = (v20 & 0xFFFFFF00) | ((GTEX_IntMapU + carry + v20) & 0xFF);
+        carry = ((U64)GTEX_DecMapV_Gour + (U64)v17) > 0xFFFFFFFF;
+        v17 += GTEX_DecMapV_Gour;
+        v20 = (v20 & 0xFFFF00FF) | ((((v20 >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
+        *screen++ = *(v19 + GTEX_PtrCLUT);
+        v19 = (v19 & 0xFFFF00FF) | (v17 & 0xFF00);
+        v20 &= v18;
+        --diffX;
+      }
+      while (diffX);
+    }
+    // @@EndScanLine:
+    if (!--count)
+      break;
+
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curMapU += Fill_MapU_LeftSlope;
+    curMapV += Fill_MapV_LeftSlope;
+    Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurMapUMin = curMapU;
+  Fill_CurMapVMin = curMapV;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 /*
