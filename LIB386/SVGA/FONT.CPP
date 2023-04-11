@@ -51,7 +51,7 @@ SizeFont		endp
 	U32 size = 0;
 	while (*str != '\0')
 	{
-		char c = *str;
+		U8 c = *str;
 		if (c == 32)
 		{
 			size += InterSpace;
