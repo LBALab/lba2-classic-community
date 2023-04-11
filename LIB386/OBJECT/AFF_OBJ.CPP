@@ -1121,79 +1121,30 @@ S32 Quad_Texture_Flat(U32 typePoly, void *poly)
 // ***********************
 S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly)
 {
-  /*
-@@Triangle_Texture_Gouraud:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
+  STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
-			push	eax				; Save poly type
-			mov	ecx,ebx
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[0].Pt_MapU = poly3->U1;
+  ListFillPoly[0].Pt_MapV = poly3->V1;
+  ListFillPoly[0].Pt_Light = ListLights[poly3->P1];
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[1].Pt_MapU = poly3->U2;
+  ListFillPoly[1].Pt_MapV = poly3->V2;
+  ListFillPoly[1].Pt_Light = ListLights[poly3->P2];
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  ListFillPoly[2].Pt_MapU = poly3->U3;
+  ListFillPoly[2].Pt_MapV = poly3->V3;
+  ListFillPoly[2].Pt_Light = ListLights[poly3->P3];
 
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
+  U32 textureInfo = PtrTextures[poly3->HandleText];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
 
-			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
-			lea	esi,ListFillPoly
-
-			and	edi,0FFFFh			; EDI = P3
-
-			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
-
-			shr	edx,16-2
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
-
-			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
-
-			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
-
-			mov	[esi].STRUC_POINT.Pt_Light,bx
-			mov	edx,[edx]			; Get texture infos
-
-			mov	bx,[ListLights+ecx*2]
-			mov	ecx,edx
-
-			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,bx
-			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
-
-			mov	bx,[ListLights+edi*2]
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-
-			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,bx
-			and	edx,0FFFFh			; EDX = OrgMap
-
-			shr	ecx,16				; ECX = RepMask
-			mov	eax,[ObjPtrMap]
-
-			mov	[RepMask],ecx
-			add	edx,eax
-
-			mov	[PtrMap],edx
-			pop	eax
-
-			mov	ecx,3
-			push	Offset @@Return_Display
-
-			jmp	Fill_PolyFast
-  */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  return Fill_Poly(typePoly >> 2, ListLights[poly3->P3], 3, ListFillPoly);
 }
 
 S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
