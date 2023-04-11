@@ -1723,9 +1723,33 @@ S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
 
 S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  int v3; // eax@1
+  int v4; // ebx@1
+  signed __int64 v5; // rtt@1
+  int v6; // eax@1
+  int v7; // ebx@1
+  int v8; // eax@1
+  int v9; // ebx@1
+
+  v3 = PtB->Pt_MapU + 128;
+  v4 = PtA->Pt_MapU + 128;
+  LODWORD(v5) = (v3 - v4) << 8;
+  HIDWORD(v5) = (v3 - v4) >> 24;
+  Fill_CurGouraudMin = v4 << 8;
+  Fill_Gouraud_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
+  v6 = PtB->Pt_Light;
+  v7 = PtA->Pt_Light;
+  LODWORD(v5) = (v6 - v7) << 8;
+  HIDWORD(v5) = (v6 - v7) >> 24;
+  Fill_CurMapUMin = v7 << 8;
+  Fill_MapU_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
+  v8 = PtB->Pt_MapV;
+  v9 = PtA->Pt_MapV;
+  LODWORD(v5) = (v8 - v9) << 8;
+  HIDWORD(v5) = (v8 - v9) >> 24;
+  Fill_CurMapVMin = v9 << 8;
+  Fill_MapV_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
+  return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_TextureZLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
