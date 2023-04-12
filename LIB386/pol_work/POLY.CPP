@@ -188,63 +188,6 @@ void SetScreenPitch(U32 *New_TabOffLine)
 
 void SetCLUT(U32 defaultline)
 {
-  /*
-; ╔══════════════════════════════════════════════════════════════════════════════════╗
-; ║ SetCLUT: Initialize some CLUT pointers                                           ║
-; ╟──────────────────────────────────────────────────────────────────────────────────╢
-; ║ Appel: EAX = Line number in PtrCLUTFog that represents the palette CLUT.         ║
-; ║                                                                                  ║
-; ╚══════════════════════════════════════════════════════════════════════════════════╝
-
-SetCLUT			PROC clut_ptr:	DWORD
-			push	eax
-			push	ebx
-			push	ecx
-			push	esi
-			push	edi
-
-			mov eax, clut_ptr
-
-			shl	eax,8
-			mov	ecx,[PtrCLUTFog]
-
-			mov	ebx,eax
-			add	eax,ecx
-
-			mov	ecx,[PtrTruePal]
-			and	ebx,0F000h
-
-			cmp	eax,ecx
-			je	@@End
-
-			mov	[PtrTruePal],eax
-			mov	ecx,[PtrCLUTFog]
-
-			add	ebx,ecx
-			mov	esi,eax
-
-			mov	[PtrCLUTGouraud],ebx
-			mov	edi,Offset Fill_Logical_Palette
-
-			mov	ecx,256/8
-@@Copy:
-			mov	eax,[esi]
-			mov	ebx,[esi+4]
-			mov	[edi],eax
-			mov	[edi+4],ebx
-			add	esi,8
-			add	edi,8
-			dec	ecx
-			jne	@@Copy
-@@End:
-			pop	edi
-			pop	esi
-			pop	ecx
-			pop	ebx
-			pop	eax
-			ret
-SetCLUT			ENDP
-  */
   U8 *nextPtrTruePal = PtrCLUTFog + (defaultline << 8);
 
   // compare and jump to end if equal
@@ -269,57 +212,6 @@ SetCLUT			ENDP
 
 void SetFog(S32 z_near, S32 z_far)
 {
-  /*
-; ╔══════════════════════════════════════════════════════════════════════════════════╗
-; ║ Set_Fog: Initialize the fog parameters                                           ║
-; ╟──────────────────────────────────────────────────────────────────────────────────╢
-; ║ Appel: EAX = Z near (at which the fog starts)                                    ║
-; ║        EBX = Z far (at which everything is under fog)                            ║
-; ║                                                                                  ║
-; ╚══════════════════════════════════════════════════════════════════════════════════╝
-
-SetFog			PROC \
-			uses eax ebx ecx edx edi esi ebp\
-			znear: DWORD, zfar:DWORD
-			mov eax, znear
-			mov ebx, zfar
-
-			pushad
-
-			test	ebx,ebx
-			jne	@@Ok1
-			mov	ebx,1
-@@Ok1:
-
-			mov	[Fill_Z_Fog_Near],eax
-			mov	[Fill_Z_Fog_Far],ebx
-
-			xor	eax,eax
-			mov	edx,1
-			div	ebx
-			mov	[Fill_ZBuffer_Factor],eax	; Pt_ZO = (Z*Fill_ZBuffer_Factor) SHR 16
-
-
-			imul	eax,[Fill_Z_Fog_Near]
-			shr	eax,16
-			mov	[Fill_ScaledFogNear],eax
-
-
-			mov	ebx,65535
-			sub	ebx,eax
-			test	ebx,ebx
-			jne	@@Ok2
-			mov	ebx,1
-@@Ok2:
-			mov	eax,256*65536
-			xor	edx,edx
-			div	ebx
-			mov	[Fill_Fog_Factor],eax		; Fog value= 0 if Zbuf<FogNear
-								;	   = (Zbuf-Near)*FogFactor SHR 20 if ZBuf>FogNear
-			popad
-			ret
-SetFog			ENDP
-  */
     if (z_far == 0)
         z_far = 1;
 
@@ -338,177 +230,6 @@ SetFog			ENDP
 
 void EnterClip(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA, S32 diff)
 {
-	/*
-EnterClip::
-			mov	eax,[Fill_ClipFlag]
-			test	eax,CLIP_LIGHT
-			je	@@No_ClipLight
-
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
-			and	eax,0FFFFh
-			and	ecx,0FFFFh
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-			mov	[edi].STRUC_POINT.Pt_Light,ax
-@@No_ClipLight:
-
-			mov	eax,[Fill_ClipFlag]
-			test	eax,CLIP_TEXTURE
-			je	@@No_ClipTexture
-
-					; ** MapU **
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
-			and	eax,0FFFFh
-			and	ecx,0FFFFh
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-			mov	[edi].STRUC_POINT.Pt_MapU,ax
-
-					; ** MapV **
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_MapU
-			shr	eax,16
-			shr	ecx,16
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-			mov	[edi].STRUC_POINT.Pt_MapV,ax
-@@No_ClipTexture:
-
-			mov	eax,[Fill_ClipFlag]
-			test	eax,CLIP_TEXTUREZ
-			je	@@No_ClipTextureZ
-
-					; ** W **
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_W
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_W
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-			mov	[edi].STRUC_POINT.Pt_W,eax
-
-					; ** MapU **
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
-			and	eax,0FFFFh
-			imul	[esi].STRUC_POINT.Pt_W
-			shr	eax,8
-			shl	edx,24
-			or	eax,edx
-			mov	ecx,eax
-
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
-			and	eax,0FFFFh
-			imul	[ebx].STRUC_POINT.Pt_W
-			shr	eax,8
-			shl	edx,24
-			or	eax,edx
-
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-
-			mov	edx,eax
-			shl	eax,8
-			sar	edx,24
-			idiv	[edi].STRUC_POINT.Pt_W
-			mov	[edi].STRUC_POINT.Pt_MapU,ax
-
-					; ** MapV **
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_MapU
-			shr	eax,16
-			imul	[esi].STRUC_POINT.Pt_W
-			shr	eax,8
-			shl	edx,24
-			or	eax,edx
-			mov	ecx,eax
-
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_MapU
-			shr	eax,16
-			imul	[ebx].STRUC_POINT.Pt_W
-			shr	eax,8
-			shl	edx,24
-			or	eax,edx
-
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-
-			mov	edx,eax
-			shl	eax,8
-			sar	edx,24
-			idiv	[edi].STRUC_POINT.Pt_W
-			mov	[edi].STRUC_POINT.Pt_MapV,ax
-
-			mov	eax,[Fill_ClipFlag]
-			test	eax,CLIP_ZBUFFER
-			je	@@No_ClipZBuffer
-
-					; ** ZBuf **
-							; If persp correct and Zbuf,
-							; then we clip the zbuf with a
-							; perspective correction
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_Light
-			shr	eax,16
-			imul	[esi].STRUC_POINT.Pt_W
-			shr	eax,8
-			shl	edx,24
-			or	eax,edx
-			mov	ecx,eax
-
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
-			shr	eax,16
-			imul	[ebx].STRUC_POINT.Pt_W
-			shr	eax,8
-			shl	edx,24
-			or	eax,edx
-
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-
-			mov	edx,eax
-			shl	eax,8
-			sar	edx,24
-			idiv	[edi].STRUC_POINT.Pt_W
-			mov	[edi].STRUC_POINT.Pt_ZO,ax
-
-			jmp	@@No_ClipZBuffer
-
-@@No_ClipTextureZ:
-			mov	eax,[Fill_ClipFlag]
-			test	eax,CLIP_ZBUFFER
-			je	@@No_ClipZBuffer
-
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_Light
-			mov	ecx,dword ptr [esi].STRUC_POINT.Pt_Light
-
-			shr	eax,16
-
-			shr	ecx,16
-
-			sub	eax,ecx
-			imul	[Clip_Num]
-			idiv	ebp
-			add	eax,ecx
-			mov	[edi].STRUC_POINT.Pt_ZO,ax
-@@No_ClipZBuffer:
-
-			pop	ebp
-			pop	ecx
-
-			ret
-	*/
   if (Fill_ClipFlag & CLIP_LIGHT)
 	{
 		dst->Pt_Light = pointA->Pt_Light + (pointB->Pt_Light - pointA->Pt_Light) * Clip_Num / diff;
@@ -562,54 +283,6 @@ EnterClip::
 // y=yA+[(XMin-xa)*(yB-yA)]/(xB-xA)
 void Generic_ClipXMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
 {
-	/*
-Generic_ClipXMin	PROC
-			push	ecx
-			push	ebp
-
-			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; Current point
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; Last point
-
-			mov	ecx,edx
-			mov	ebp,eax
-
-			shl	ecx,16
-			and	edx,0FFFF0000h			; EDX = Ya shl 16
-
-			shl	ebp,16
-			and	eax,0FFFF0000h			; EAX = Yb shl 16
-
-			sar	ecx,16				; ECX = Xa
-			sub	eax,edx				; EAX = (Yb-Ya) shl 16
-
-			sar	ebp,16				; EBP = Xb
-			push	edx
-
-			sub	ebp,ecx				; EBP = (Xb-Xa)
-			mov	edx,[ClipXMin]
-
-			sub	edx,ecx				; EDX = (XMin-Xa)
-
-			mov	[Clip_Num],edx
-
-			imul	edx
-			idiv	ebp
-
-			pop	edx
-			mov	ecx,[ClipXMin]
-
-			add	eax,edx
-			and	ecx,0FFFFh
-
-			and	eax,0FFFF0000h
-
-			or	ecx,eax
-
-			mov	dword ptr [edi].STRUC_POINT.Pt_XE,ecx
-
-			jmp EnterClip
-Generic_ClipXMin	ENDP
-	*/
   S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
 
   Clip_Num = ClipXMin - pointA->Pt_XE;
@@ -623,58 +296,6 @@ Generic_ClipXMin	ENDP
 // y=yA+[(XMax-xa)*(yB-yA)]/(xB-xA)
 void Generic_ClipXMax(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
 {
-	/*
-Generic_ClipXMax	PROC
-			push	ecx
-			push	ebp
-
-			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; Current point
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; Last point
-
-			mov	ecx,edx
-			mov	ebp,eax
-
-			shl	ecx,16
-			and	edx,0FFFF0000h			; EDX = Ya shl 16
-
-			shl	ebp,16
-			and	eax,0FFFF0000h			; EAX = Yb shl 16
-
-			sar	ecx,16				; ECX = Xa
-			sub	eax,edx				; EAX = (Yb-Ya) shl 16
-
-			sar	ebp,16				; EBP = Xb
-			push	edx
-
-			sub	ebp,ecx				; EBP = (Xb-Xa)
-			mov	edx,[ClipXMax]
-
-			inc	edx				; XMax++ bcoz we don't draw the last pixel on a scanline
-
-			sub	edx,ecx				; EDX = (XMin-Xa)
-
-			mov	[Clip_Num],edx
-
-			imul	edx
-			idiv	ebp
-
-			pop	edx
-			mov	ecx,[ClipXMax]
-
-			add	eax,edx
-			and	ecx,0FFFFh
-
-			and	eax,0FFFF0000h
-			inc	ecx				; XMax++ bcoz we don't draw the last pixel on a scanline
-
-			or	eax,ecx
-
-			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
-
-			jmp	EnterClip
-Generic_ClipXMax	ENDP
-	*/
-
 	S32 xDiff = pointB->Pt_XE - pointA->Pt_XE;
 
 	// ClipXMax + 1 bcoz we don't draw the last pixel on a scanline
@@ -690,55 +311,6 @@ Generic_ClipXMax	ENDP
 // x=xa+[(YMin-ya)*(xB-xA)]/(yB-ya)
 void Generic_ClipYMin(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
 {
-	/*
-Generic_ClipYMin	PROC
-			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; A
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; B
-
-			push	ecx
-			mov	ecx,edx
-
-			shl	edx,16
-			push	ebp
-
-			sar	ecx,16				; ECX = Ya
-			mov	ebp,eax
-
-			shl	eax,16
-
-			sar	ebp,16				; EBP = Yb
-			sub	eax,edx				; EAX = (Xb-Xa) shl 16
-
-			sar	edx,16				; EDX = Xa
-			sub	ebp,ecx				; EBP = (Yb-Ya)
-
-			push	edx
-			mov	edx,[ClipYMin]
-
-			sub	edx,ecx				; EDX = (YMin-Ya)
-
-			mov	[Clip_Num],edx
-
-			imul	edx				; EAX = (Ymin-Ya)(Xb-Xa)
-			idiv	ebp
-
-			sar	eax,16
-			pop	edx
-
-			add	eax,edx
-			mov	ecx,[ClipYMin]
-
-			shl	ecx,16
-			and	eax,0FFFFh
-
-			or	eax,ecx
-
-			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
-
-			jmp	EnterClip
-Generic_ClipYMin	ENDP
-*/
-
 	S32 yDiff = pointB->Pt_YE - pointA->Pt_YE;
 
 	Clip_Num = ClipYMin - pointA->Pt_YE;
@@ -752,55 +324,6 @@ Generic_ClipYMin	ENDP
 // x=xa+[(YMax-ya)*(xB-xA)]/(yB-ya)
 void Generic_ClipYMax(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA)
 {
-	/*
-Generic_ClipYMax	PROC
-			mov	edx,dword ptr [esi].STRUC_POINT.Pt_XE	; A
-			mov	eax,dword ptr [ebx].STRUC_POINT.Pt_XE	; B
-
-			push	ecx
-			mov	ecx,edx
-
-			shl	edx,16
-			push	ebp
-
-			sar	ecx,16				; ECX = Ya
-			mov	ebp,eax
-
-			shl	eax,16
-
-			sar	ebp,16				; EBP = Yb
-			sub	eax,edx				; EAX = (Xb-Xa) shl 16
-
-			sar	edx,16				; EDX = Xa
-			sub	ebp,ecx				; EBP = (Yb-Ya)
-
-			push	edx
-			mov	edx,[ClipYMax]
-
-			sub	edx,ecx				; EDX = (YMin-Ya)
-
-			mov	[Clip_Num],edx
-
-			imul	edx				; EAX = (Ymin-Ya)(Xb-Xa)
-			idiv	ebp
-
-			sar	eax,16
-			pop	edx
-
-			add	eax,edx
-			mov	ecx,[ClipYMax]
-
-			shl	ecx,16
-			and	eax,0FFFFh
-
-			or	eax,ecx
-
-			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
-
-			jmp	EnterClip
-Generic_ClipYMax	ENDP
-	*/
-
 	S32 yDiff = pointB->Pt_YE - pointA->Pt_YE;
 
 	Clip_Num = ClipYMax - pointA->Pt_YE;
@@ -958,189 +481,46 @@ S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points)
 	return Fill_Clip(Nb_Points, Ptr_Points, CLIP_YMAX);
 }
 
+// ╔════════════════════════════════════════════════════════════════════════════════╗
+// ║  Draw_Triangle : Remplissage d'un triangle                                     ║
+// ╟────────────────────────────────────────────────────────────────────────────────╢
+// ║  Appel : ESI = PTR sur une table du type Struc_Point (table des sommets)       ║
+// ╟────────────────────────────────────────────────────────────────────────────────╢
+// ║  Retour: Rien                                                                  ║
+// ╟────────────────────────────────────────────────────────────────────────────────╢
+// ║  Remarque: les sommets doivent etre ordonnes dans le sens trigo. (anti-        ║
+// ║            horlogique).                                                        ║
+// ║                                                                                ║
+// ╟────────────────────────────────────────────────────────────────────────────────╢
+// ║  Principe: (Exemple sur le Gouraud)                                            ║
+// ║            (En fait le commentaire etait sur une routine dediee Gouraud et     ║
+// ║            j'ai la flemme de le reecrire ;)                                    ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ║   Dans un triangle, l'increment du gouraud est constant.. Sisi, voici la       ║
+// ║  preuve:                                                                       ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ║  Soit ABC notre triangle de coordonnees A(xa,ya,ga); B(xb,yb,gb); C(xc,yc,gc)  ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ║                   [(ga+y*Pente_Gouraud_Droite) - (ga+y*Pente_Gouraud_Gauche)]  ║
+// ║  Inc_Gouraud(y) = ───────────────────────────────────────────────────────────  ║
+// ║                           [(xa+y*Pente_Droite) - (xa+y*Pente_Gauche)]          ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ║                   Pente_Gouraud_Droite-Pente_Gouraud_Gauche                    ║
+// ║                 = ─────────────────────────────────────────                    ║
+// ║                           Pente_Droite-Pente_Gauche                            ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ║                 = Cste; d'ou gain.... :)                                       ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ║                                                                                ║
+// ╚════════════════════════════════════════════════════════════════════════════════╝
 S32 Draw_Triangle(Struc_Point *Ptr_Points)
 {
-/*
-; ╔════════════════════════════════════════════════════════════════════════════════╗
-; ║  Draw_Triangle : Remplissage d'un triangle                                     ║
-; ╟────────────────────────────────────────────────────────────────────────────────╢
-; ║  Appel : ESI = PTR sur une table du type Struc_Point (table des sommets)       ║
-; ╟────────────────────────────────────────────────────────────────────────────────╢
-; ║  Retour: Rien                                                                  ║
-; ╟────────────────────────────────────────────────────────────────────────────────╢
-; ║  Remarque: les sommets doivent etre ordonnes dans le sens trigo. (anti-        ║
-; ║            horlogique).                                                        ║
-; ║                                                                                ║
-; ╟────────────────────────────────────────────────────────────────────────────────╢
-; ║  Principe: (Exemple sur le Gouraud)                                            ║
-; ║            (En fait le commentaire etait sur une routine dediee Gouraud et     ║
-; ║            j'ai la flemme de le reecrire ;)                                    ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ║   Dans un triangle, l'increment du gouraud est constant.. Sisi, voici la       ║
-; ║  preuve:                                                                       ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ║  Soit ABC notre triangle de coordonnees A(xa,ya,ga); B(xb,yb,gb); C(xc,yc,gc)  ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ║                   [(ga+y*Pente_Gouraud_Droite) - (ga+y*Pente_Gouraud_Gauche)]  ║
-; ║  Inc_Gouraud(y) = ───────────────────────────────────────────────────────────  ║
-; ║                           [(xa+y*Pente_Droite) - (xa+y*Pente_Gauche)]          ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ║                   Pente_Gouraud_Droite-Pente_Gouraud_Gauche                    ║
-; ║                 = ─────────────────────────────────────────                    ║
-; ║                           Pente_Droite-Pente_Gauche                            ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ║                 = Cste; d'ou gain.... :)                                       ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ║                                                                                ║
-; ╚════════════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Draw_Triangle		PROC esi
-			; *** Search the highest point in the list ***
-
-			mov	eax,1
-			mov	[Fill_FirstPoint],esi
-
-			mov	[Fill_Patch],eax	;
-			mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
-
-			sar	eax,16			; EAX = Ya
-			mov	edi,esi			; EDI = Highest point
-
-			mov	ebp,eax			; EBP = Highest Y (least value)
-			mov	ebx,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
-
-			sar	ebx,16			; EBX = Yb
-			add	esi,Size STRUC_POINT
-
-			cmp	ebx,ebp
-			jg	@@Not_Second
-
-			mov	ebp,ebx
-			mov	edi,esi
-@@Not_Second:
-			mov	ecx,dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE
-
-			sar	ecx,16			; ECX = Yc
-			add	esi,Size STRUC_POINT
-
-			cmp	ecx,ebp
-			jg	@@Not_Third
-
-			mov	ebp,ecx
-			mov	edi,esi
-@@Not_Third:
-			mov	[Fill_LeftPoint],edi
-			mov	[Fill_RightPoint],edi
-
-			cmp	eax,ebx			; Test if the poly is flat
-			jne	@@Not_Flat
-
-			cmp	ebx,ecx
-			je	@@End
-@@Not_Flat:
-			mov	[Fill_LastPoint],esi	; Last point pointer
-			mov	ebx,[PTR_TabOffLine]
-
-			mov	eax,[Log]
-			mov	[Fill_CurY],ebp		; EBP = Highest point_Y
-
-			mov	ebx,[ebx+ebp*4]
-			mov	ecx,READ_NEXT_L + READ_NEXT_R
-
-			add	ebx,eax
-			mov	esi,[Fill_LeftPoint]
-
-			mov	[Fill_ReadFlag],ecx
-			mov	[Fill_CurOffLine],ebx	; Current offset in log screen
-
-					; *** Calculate the common denominator
-					; for interpolation calculation ***
-
-			mov	eax,[Fill_LastPoint]
-			lea	edi,[esi+Size STRUC_POINT]
-
-			cmp	edi,eax
-			jbe	@@No_Wrap1
-			mov	edi,[Fill_FirstPoint]
-@@No_Wrap1:
-			lea	ebp,[edi+Size STRUC_POINT]
-			cmp	ebp,eax
-			jbe	@@No_Wrap2
-			mov	ebp,[Fill_FirstPoint]
-@@No_Wrap2:
-							; ESI = PtA
-							; EDI = PtB
-							; EBP = PtC
-
-					; *** FPU math. ***
-			fldcw	[Status_Int]	; 7 cycles lost (not pipelined...)
-
-
-
-			; K1 = (Yb-Ya)
-			; K2 = (Xc-Xa)
-			; K3 = (Yc-Ya)
-			; K4 = (Xb-Xa)
-			; Denom = K1*K2 - K3*K4
-						; 0   1   2   3   4   5   6   7
-			fild	[esi].STRUC_POINT.Pt_XE	; Xa
-			fild	[esi].STRUC_POINT.Pt_YE	; Ya  Xa
-			fild	[edi].STRUC_POINT.Pt_XE	; Xb  Ya  Xa
-			fild	[edi].STRUC_POINT.Pt_YE	; Yb  Xb  Ya  Xa
-			fild	[ebp].STRUC_POINT.Pt_XE	; Xc  Yb  Xb  Ya  Xa
-			fild	[ebp].STRUC_POINT.Pt_YE	; Yc  Xc  Yb  Xb  Ya  Xa
-
-			fxch	st(2)		; Yb  Xc  Yc  Xb  Ya  Xa
-
-			fsub	st,st(4)	; K1  Xc  Yc  Xb  Ya  Xa
-			fxch	st(2)		; Yc  Xc  K1  Xb  Ya  Xa
-
-			fsubrp	st(4),st	; Xc  K1  Xb  K3  Xa
-
-			fsub	st,st(4)	; K2  K1  Xb  K3  Xa
-			fxch	st(2)		; Xb  K1  K2  K3  Xa
-
-			fsubrp	st(4),st	; K1  K2  K3  K4
-
-			fld	st(0)		; K1  K1  K2  K3  K4
-
-			fmulp	st(2),st	; K1  K12 K3  K4
-
-			fld	st(2)		; K3  K1  K12 K3  K4
-
-			fmulp	st(4),st	; K1  K12 K3  K34
-			fxch	st(1)		; K12 K1  K3  K34
-
-						; 2 cycles penalty
-
-			fsubrp	st(3),st	; K1  K3  Denom
-
-			mov	edx,[Fill_Type]
-
-			fld	[F_256]		; 256 K1  K3  Denom
-			fxch	st(3)		; Denom K1  K3  256
-
-						; 1 cycle penalty
-
-			fst	[Denom]		; Denom K1  K3  256
-
-			mov	eax,[Denom]
-
-			test	eax,eax
-			je	@@EndFPU
-
-			fdivp	st(3),st	; K1  K3  D
-
-; Here we are always using ZBuffer, not needed but works for now...
-;Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeFPU+edx*4]
-Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
-*/
 	// *** Search the highest point in the list ***
   Fill_FirstPoint = Ptr_Points;
   Fill_Patch = 1;
@@ -1662,23 +1042,6 @@ Read_Next_Right::
 
 S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-/*
-;			******************
-;			*** RIGHT EDGE ***
-;			******************
-
-Read_Next_RightFPU::
-			fild	dword ptr [esp]	; dX  1/dY
-
-			fmulp	st(1),st; dX/dY
-
-			pop	eax
-			pop	ebx
-
-			fadd	[F_1]	; dX/dY+1
-
-			fistp	[Fill_LeftSlope]
-*/
 	Fill_LeftSlope = diffX / diffY + 1;
 	return Read_Next_Right(PtA, PtB);
 }
