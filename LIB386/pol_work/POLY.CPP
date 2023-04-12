@@ -1086,34 +1086,19 @@ S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
 
 S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-  /*
-  int v3; // eax@1
-  int v4; // ebx@1
-  signed __int64 v5; // rtt@1
-  int v6; // eax@1
-  int v7; // ebx@1
-  int v8; // eax@1
-  int v9; // ebx@1
+  double diffU = (PtB->Pt_MapU - PtA->Pt_MapU) << 8;
+  double diffLight = (PtB->Pt_Light - PtA->Pt_Light) << 8;
+  double diffV = (PtB->Pt_MapV - PtA->Pt_MapV) << 8;
 
-  v3 = PtB->Pt_MapU + 128;
-  v4 = PtA->Pt_MapU + 128;
-  LODWORD(v5) = (v3 - v4) << 8;
-  HIDWORD(v5) = (v3 - v4) >> 24;
-  Fill_CurGouraudMin = v4 << 8;
-  Fill_Gouraud_LeftSlope = roundf(v5 / a1) + (roundf(v5 / a1) >> 31);
-  v6 = PtB->Pt_Light;
-  v7 = PtA->Pt_Light;
-  LODWORD(v5) = (v6 - v7) << 8;
-  HIDWORD(v5) = (v6 - v7) >> 24;
-  Fill_CurMapUMin = v7 << 8;
-  Fill_MapU_LeftSlope = roundf(v5 / a1) + (roundf(v5 / a1) >> 31);
-  v8 = PtB->Pt_MapV;
-  v9 = PtA->Pt_MapV;
-  LODWORD(v5) = (v8 - v9) << 8;
-  HIDWORD(v5) = (v8 - v9) >> 24;
-  Fill_CurMapVMin = v9 << 8;
-  Fill_MapV_LeftSlope = (unsigned __int64)(v5 / a1) + ((unsigned int)(v5 / a1) >> 31);
-  */
+  Fill_CurMapUMin = (PtA->Pt_MapU /*+ 0x80*/) << 8;
+  Fill_CurMapVMin = (PtA->Pt_MapV /*+ 0x80*/) << 8;
+  Fill_CurGouraudMin = (PtA->Pt_Light + 0x80) << 8;
+
+  Fill_Gouraud_LeftSlope = roundf(diffLight / diffY);
+  Fill_MapV_LeftSlope = roundf(diffV / diffY);
+  Fill_MapU_LeftSlope = roundf(diffU / diffY);
+  Fill_LeftSlope = roundf(diffX / diffY + 1);
+
   return Read_Next_Right(PtA, PtB);
 }
 
