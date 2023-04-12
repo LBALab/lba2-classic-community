@@ -595,9 +595,17 @@ ScaleSpriteTransp	endp
 #include <SVGA/SCALESPI.H>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
                        void *ptrbank, void *ptr_transp)
 {
  // TODO: Implement ASM
  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
+
+#ifdef __cplusplus
+}
+#endif
