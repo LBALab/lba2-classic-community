@@ -62,9 +62,6 @@ U8 Fill_Flag_NZW = FALSE;     // True if NZW active
 
 Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
 
-S32 YB_YA = 0;
-S32 YC_YA = 0;
-
 // -----------------------------------------------------------------------------
 S32 INV64(S32 a) { return LONG_MIN / a; }
 
@@ -178,6 +175,9 @@ Struc_Point List_Clip_YMin[NB_MAX_EDGES];
 Struc_Point List_Clip_YMax[NB_MAX_EDGES];
 
 double Denom = 0;
+double YB_YA = 0;
+double YC_YA = 0;
+
 S32 Clip_Num = 0;
 
 void SetScreenPitch(U32 *New_TabOffLine)
@@ -1202,8 +1202,11 @@ Patch_Jmp_XSlopeFPU::	jmp	[Jmp_XSlopeZBufFPU+edx*4]
 	Struc_Point *PtB = leftPoint;
 	Struc_Point *PtC = rightPoint;
 
-  Denom = (PtB->Pt_YE - PtA->Pt_YE) * (PtC->Pt_XE - PtA->Pt_XE)
-				- (PtC->Pt_YE - PtA->Pt_YE) * (PtB->Pt_XE - PtA->Pt_XE);
+  YB_YA = PtB->Pt_YE - PtA->Pt_YE;
+  YC_YA = PtC->Pt_YE - PtA->Pt_YE;
+
+  Denom = YB_YA * (PtC->Pt_XE - PtA->Pt_XE)
+				- YC_YA * (PtB->Pt_XE - PtA->Pt_XE);
 
 	// FPU version divides Denom by 256.0, while integer versions
 	// multiply by 256 the rest of values that will be divided by Denom.
@@ -1383,10 +1386,7 @@ S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *Pt
 
 S32 Gouraud_XSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
 {
-  YB_YA = PtB->Pt_YE - PtA->Pt_YE;
-  YC_YA = PtC->Pt_YE - PtA->Pt_YE;
-
-  Fill_Gouraud_XSlope = (YB_YA * LC_LA - YC_YA * LB_LA) / Denom;
+  Fill_Gouraud_XSlope = roundf((YB_YA * LC_LA - YC_YA * LB_LA) / Denom);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
@@ -1450,15 +1450,12 @@ S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	YB_YA = PtB->Pt_YE - PtA->Pt_YE;
-	YC_YA = PtC->Pt_YE - PtA->Pt_YE;
-
-  Fill_MapU_XSlope = (YB_YA * (PtC->Pt_MapU - PtA->Pt_MapU)
+  Fill_MapU_XSlope = roundf((YB_YA * (PtC->Pt_MapU - PtA->Pt_MapU)
       - YC_YA * (PtB->Pt_MapU - PtA->Pt_MapU))
-     / Denom;
-  Fill_MapV_XSlope = (YB_YA * (PtC->Pt_MapV - PtA->Pt_MapV)
+     / Denom);
+  Fill_MapV_XSlope = roundf((YB_YA * (PtC->Pt_MapV - PtA->Pt_MapV)
       - YC_YA * (PtB->Pt_MapV - PtA->Pt_MapV))
-     / Denom;
+     / Denom);
   return Triangle_ReadNextEdge(PtB, PtC);
 }
 
