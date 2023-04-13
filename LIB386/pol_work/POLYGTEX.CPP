@@ -29,32 +29,19 @@ PTR_U8 GTEX_PtrMap2 = (PTR_U8)0x12345678;
 PTR_U8 GTEX_PtrMapPatch = (PTR_U8)0x12345678;
 U32 GTEX_RepMask2 = 0x12345678;
 U32 GTEX_RepMaskPatch = 0x12345678;
-U32 GTEX_DecZBuf_Gour = 0x12345678;
-U32 GTEX_DecMapU = 0x12345678;
-U32 GTEX_DecMapU2 = 0x12345678;
-U32 GTEX_DecMapV_Gour = 0x12345678;
-U32 GTEX_DecMapV_Gour2 = 0x12345678;
-U32 GTEX_DecMapV_IntZBuf = 0x12345678;
-U8 GTEX_IntMapV = 0x12;
-U8 GTEX_IntMapV2 = 0x12;
-U8 GTEX_IntMapU = 0x12;
-U8 GTEX_IntMapU2 = 0x12;
+S32 GTEX_DecZBuf_Gour = 0x12345678;
+S32 GTEX_DecMapU = 0x12345678;
+S32 GTEX_DecMapU2 = 0x12345678;
+S32 GTEX_DecMapV_Gour = 0x12345678;
+S32 GTEX_DecMapV_Gour2 = 0x12345678;
+S32 GTEX_DecMapV_IntZBuf = 0x12345678;
+S8 GTEX_IntMapV = 0x12;
+S8 GTEX_IntMapV2 = 0x12;
+S8 GTEX_IntMapU = 0x12;
+S8 GTEX_IntMapU2 = 0x12;
 
 S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  int v11; // eax@5
-  char *v12; // edi@6
-  unsigned int v13; // edx@6
-  char v14; // al@7
-  char v15; // bl@9
-  int v16; // esi@9
-  int v17; // edx@9
-  int v18; // ebp@9
-  int v19; // ebx@9
-  int v20; // eax@9
-  int v22; // [sp-20h] [bp-20h]@6
-  unsigned int v23; // [sp-1Ch] [bp-1Ch]@5
-
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   U32 curMapU = Fill_CurMapUMin;
@@ -78,37 +65,35 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   GTEX_PtrMapPatch = PtrMap;
   GTEX_PtrCLUT = PtrCLUTGouraud;
   GTEX_DecMapU = Fill_MapU_XSlope << 16;
-  GTEX_IntMapU = Fill_MapU_XSlope >> 16;
-  GTEX_IntMapV = Fill_MapV_XSlope >> 16;
-  GTEX_DecMapV_Gour = (Fill_Gouraud_XSlope >> 8) & 0xFFFF | (Fill_MapV_XSlope << 16);
+  GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
+  GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
+  GTEX_DecMapV_Gour = (Fill_MapV_XSlope << 16) | (Fill_Gouraud_XSlope >> 8) & 0xFFFF;
   while (1)
   {
-    U32 diffX = (fillCurXMin >> 16) - (fillCurXMax >> 16);
-    if ((fillCurXMin >> 16) > (fillCurXMax >> 16))
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      U8 *screen = (fillCurXMax >> 16) + curOffLine;
-      v11 = Fill_Gouraud_XSlope;
-      v23 = Fill_CurGouraudMin;
-      v11 = (v11 & 0xFFFF00FF) | (((curMapV >> 16) & 0xFF) << 8);
-      v15 = (curMapU >> 16) & 0xFF;
-      v16 = curMapU << 16;
-      v11 = (v11 & 0xFFFFFF00) | (v15 & 0xFF);
-      v17 = (curMapV << 16) | (v23 >> 8) & 0xFFFF;
-      v18 = RepMask;
-      v19 = (v23 >> 8);
-      v20 = RepMask & v11;
+      U8 *screen = (fillCurXMin >> 16) + curOffLine;
+      U32 gouraudXSlope = Fill_Gouraud_XSlope;
+      S32 curGouraudMin = Fill_CurGouraudMin;
+      gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((curMapV >> 16) & 0xFF) << 8);
+      U32 u = curMapU << 16;
+      gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((curMapU >> 16) & 0xFF);
+      U32 v = (curMapV << 16) | (curGouraudMin >> 8) & 0xFFFF;
+      U32 colorIndex = (curGouraudMin >> 8);
+      U32 mask = RepMask & gouraudXSlope;
       do
       {
-        v19 = (v19 & 0xFFFFFF00) | (*(v20 + GTEX_PtrMapPatch) & 0xFF);
-        U8 carry = ((U64)GTEX_DecMapU + (U64)v16) > 0xFFFFFFFF;
-        v16 += GTEX_DecMapU;
-        v20 = (v20 & 0xFFFFFF00) | ((GTEX_IntMapU + carry + v20) & 0xFF);
-        carry = ((U64)GTEX_DecMapV_Gour + (U64)v17) > 0xFFFFFFFF;
-        v17 += GTEX_DecMapV_Gour;
-        v20 = (v20 & 0xFFFF00FF) | ((((v20 >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
-        *screen++ = *(v19 + GTEX_PtrCLUT);
-        v19 = (v19 & 0xFFFF00FF) | (v17 & 0xFF00);
-        v20 &= v18;
+        colorIndex = (colorIndex & 0xFFFFFF00) | (*(mask + GTEX_PtrMapPatch) & 0xFF);
+        U8 carry = ((U64)GTEX_DecMapU + (U64)u) > 0xFFFFFFFF;
+        u += GTEX_DecMapU;
+        mask = (mask & 0xFFFFFF00) | ((GTEX_IntMapU + carry + mask) & 0xFF);
+        carry = ((U64)GTEX_DecMapV_Gour + (U64)v) > 0xFFFFFFFF;
+        v += GTEX_DecMapV_Gour;
+        mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
+        *screen++ = *(colorIndex + GTEX_PtrCLUT);
+        colorIndex = (colorIndex & 0xFFFF00FF) | (v & 0xFF00);
+        mask &= RepMask;
         --diffX;
       }
       while (diffX);
