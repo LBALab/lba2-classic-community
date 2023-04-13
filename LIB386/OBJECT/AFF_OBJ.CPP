@@ -3585,125 +3585,61 @@ S32 Line(U32 typePoly, void *poly)
 // **************
 S32 Sphere(U32 typePoly, void *poly)
 {
-  /*
-@@Sphere:
-			push	Offset @@Return_Display
-			push	0
-@@DispSph:
-			mov	ebx,dword ptr [ebp].STRUC_OBJ_SPHERE.Obj_Sphere_P1
-			mov	edi,dword ptr [ebp].STRUC_OBJ_SPHERE.Obj_SphereType
+  T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)poly;
 
-			mov	eax,ebx
-			and	ebx,0FFFFh
+  S32 radius = sphere->Rayon;
 
-			sar	eax,16			; EAX = Radius
-			mov	edx,[TypeProj]
+  if (TypeProj == TYPE_3D)
+  {
+    radius += radius + (radius << 5);
+    radius >>= 9;
+    radius = ~radius;
+  }
+  else
+  {
+    // @@Radius_Proj:
+    S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
+    radius *= LFactorX;
+    radius /= z + PosZWr;
+  }
 
-			cmp	edx,TYPE_3D
-			je	@@Radius_Proj
+  // @@Return_Radius:
+  TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];
 
-			mov	edx,eax			; Magic formula: *34/512
-			add	eax,eax			; 34 = SQRT(sx²+sy²)
+  radius = ((radius ^ -1) + 1);
+  S32 topY = p1.Y - radius;
+  if (topY < ScreenYMin)
+  {
+    ScreenYMin = topY;
+  }
 
-			shl	edx,5			; *32
-			push	ebx			; Save point index
+  S32 bottomY = topY + 2*radius;
+  if (bottomY > ScreenYMax)
+  {
+    ScreenYMax = bottomY;
+  }
 
-			add	eax,edx
+  S32 leftX = p1.X - radius;
+  if (leftX < ScreenXMin)
+  {
+    ScreenXMin = leftX;
+  }
 
-			sar	eax,9
+  S32 rightX = leftX + 2*radius;
+  if (rightX > ScreenXMax)
+  {
+    ScreenXMax = rightX;
+  }
 
-			neg	eax
-			jmp	@@Return_Radius
-@@Radius_Proj:
-			mov	ecx,[PosZWr]
+  if (Fill_Flag_ZBuffer && TypeProj != TYPE_3D)
+  {
+    T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
+    S32 z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+  }
+  // @@NoZBufSphere:
+  // TODO: pass z to Fill_Sphere
+  Fill_Sphere(sphere->Type, sphere->Coul, p1.X, p1.Y, radius);
 
-			mov	ebp,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
-			push	ebx			; Save point index
-
-			shl	ebp,16
-
-			sar	ebp,16
-
-			add	ebp,ecx
-			je	@@SkipSphere
-
-			imul	[LFactorX]
-			idiv	ebp
-@@Return_Radius:
-			mov	ecx,eax
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	edx,edi
-			mov	ebx,eax
-
-			shr	edx,16			; EDX = Color
-			xor	ecx,-1
-
-			sar	ebx,16
-			inc	ecx
-
-			shl	eax,16
-			mov	esi,ebx
-
-			sar	eax,16
-			sub	esi,ecx
-
-			mov	edi,[ScreenYMin]
-
-			cmp	esi,edi
-			jl	@@MAJ_YMin
-@@Ret_YMin:
-			lea	esi,[esi+ecx*2]
-			mov	edi,[ScreenYMax]
-			cmp	esi,edi
-			jg	@@MAJ_YMax
-@@Ret_YMax:
-			mov	esi,eax
-			sub	esi,ecx
-			mov	edi,[ScreenXMin]
-			cmp	esi,edi
-			jl	@@MAJ_XMin
-@@Ret_XMin:
-			lea	esi,[esi+ecx*2]
-			mov	edi,[ScreenXMax]
-			cmp	esi,edi
-			jg	@@MAJ_XMax
-@@Ret_XMax:
-			pop	edi
-			cmp	[Fill_Flag_ZBuffer],TRUE
-			jne	@@NoZBufSphere
-
-			cmp	[TypeProj],TYPE_3D
-			jne	@@NoZBufSphere
-
-			movsx	edi,word ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
-			neg	edi
-			sub	edi,[PosZWr]
-			imul	edi,[Fill_ZBuffer_Factor]
-			sar	edi,16
-@@NoZBufSphere:
-			pop	esi			; POP disc type
-			jmp	Fill_Sphere
-
-@@SkipSphere:						; Skip this sphere (behind the camera)
-			pop	edi
-			pop	esi
-			ret
-@@MAJ_YMin:
-			mov	[ScreenYMin],esi
-			jmp	@@Ret_YMin
-@@MAJ_YMax:
-			mov	[ScreenYMax],esi
-			jmp	@@Ret_YMax
-@@MAJ_XMin:
-			mov	[ScreenXMin],esi
-			jmp	@@Ret_XMin
-@@MAJ_XMax:
-			mov	[ScreenXMax],esi
-			jmp	@@Ret_XMax
-  */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
   return 0;
 }
 
