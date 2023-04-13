@@ -34,25 +34,25 @@ Struc_Point *Fill_LastPoint = NULL;
 Struc_Point *Fill_LeftPoint = NULL;
 Struc_Point *Fill_RightPoint = NULL;
 
-U32 Fill_LeftSlope = 0;      ///< Left slope
-U32 Fill_RightSlope = 0;     ///< Right slope
+S32 Fill_LeftSlope = 0;      ///< Left slope
+S32 Fill_RightSlope = 0;     ///< Right slope
 
 U32 Fill_CurY = 0;           ///< Current Y
 U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
-U32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
-U32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading
-U32 Fill_Gouraud_XSlope = 0; // X Slope for Gouraud shading
+S32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
+S32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading
+S32 Fill_Gouraud_XSlope = 0; // X Slope for Gouraud shading
 
-U32 Fill_CurMapUMin = 0; // Left edge: MapU value
-U32 Fill_MapU_LeftSlope = 0; // Left slope for MapU
-U32 Fill_MapU_XSlope = 0;	// X Slope for MapU
+S32 Fill_CurMapUMin = 0; // Left edge: MapU value
+S32 Fill_MapU_LeftSlope = 0; // Left slope for MapU
+S32 Fill_MapU_XSlope = 0;	// X Slope for MapU
 
-U32 Fill_CurMapVMin = 0; // Left edge: MapV value
-U32 Fill_MapV_LeftSlope = 0; // Left slope for MapV
-U32 Fill_MapV_XSlope = 0;	// X Slope for MapV
+S32 Fill_CurMapVMin = 0; // Left edge: MapV value
+S32 Fill_MapV_LeftSlope = 0; // Left slope for MapV
+S32 Fill_MapV_XSlope = 0;	// X Slope for MapV
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip

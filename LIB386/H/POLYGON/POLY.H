@@ -105,25 +105,25 @@ extern Struc_Point *Fill_LastPoint; // Pointer to the last point of the list
 extern Struc_Point *Fill_LeftPoint; // Pointer of the current point of the left edge
 extern Struc_Point *Fill_RightPoint; // Pointer of the current point of the right edge
 
-extern U32 Fill_LeftSlope;      ///< Left slope
-extern U32 Fill_RightSlope;     ///< Right slope
+extern S32 Fill_LeftSlope;      ///< Left slope
+extern S32 Fill_RightSlope;     ///< Right slope
 
 extern U32 Fill_CurY;           ///< Current Y
 extern U32 Fill_CurXMin;        ///< Current XMin
 extern U32 Fill_CurXMax;        ///< Current XMax
 extern PTR_U8 Fill_CurOffLine;     ///< Offset of the current video line
 
-extern U32 Fill_CurGouraudMin; // Left edge: gouraud value
-extern U32 Fill_Gouraud_LeftSlope; // Left slope for Gouraud shading
-extern U32 Fill_Gouraud_XSlope; // X Slope for Gouraud shading
+extern S32 Fill_CurGouraudMin; // Left edge: gouraud value
+extern S32 Fill_Gouraud_LeftSlope; // Left slope for Gouraud shading
+extern S32 Fill_Gouraud_XSlope; // X Slope for Gouraud shading
 
-extern U32 Fill_CurMapUMin; // Left edge: MapU value
-extern U32 Fill_MapU_LeftSlope; // Left slope for MapU
-extern U32 Fill_MapU_XSlope;	// X Slope for MapU
+extern S32 Fill_CurMapUMin; // Left edge: MapU value
+extern S32 Fill_MapU_LeftSlope; // Left slope for MapU
+extern S32 Fill_MapU_XSlope;	// X Slope for MapU
 
-extern U32 Fill_CurMapVMin; // Left edge: MapV value
-extern U32 Fill_MapV_LeftSlope; // Left slope for MapV
-extern U32 Fill_MapV_XSlope;	// X Slope for MapV
+extern S32 Fill_CurMapVMin; // Left edge: MapV value
+extern S32 Fill_MapV_LeftSlope; // Left slope for MapV
+extern S32 Fill_MapV_XSlope;	// X Slope for MapV
 
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
