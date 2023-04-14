@@ -1,5 +1,6 @@
 #include <POLYGON/POLY.H>
 
+#include <stdio.h>
 
 S32 Z_Value = 0; // Z Value for the ZBuffer
 S32 Sph_YMin = 0; // YMin et YMax du disque a l'ecran
@@ -7,6 +8,182 @@ S32 Sph_YMax = 0;
 S32 Sph_XMin = 0; // XMin et XMax pour le trace d'une ligne de balayage du disque
 S32 Sph_XMax = 0;
 U8 Sph_Coul = 0;
+
+// ╔═════════════════════════════════════════════════════════════════════════════════╗
+// ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
+// ╟─────────────────────────────────────────────────────────────────────────────────╢
+// ║ Appel : [Sph_XMin], [Sph_XMax] : Extremites du segment                          ║
+// ║         EBX = Y a l'ecran                                                       ║
+// ║         [Sph_XCoul] : Couleur                                                   ║
+// ╟─────────────────────────────────────────────────────────────────────────────────╢
+// ║ REGISTRES NON MODIFIES                                                          ║
+// ║                                                                                 ║
+// ╚═════════════════════════════════════════════════════════════════════════════════╝
+__int64 Sph_Line_Flat(__int64 a1, int a2)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+  /*
+  int v2; // edi@1
+  unsigned int v3; // ecx@1
+  __int16 v4; // ax@2
+  char v5; // cf@4
+  unsigned int i; // ecx@4
+  __int64 v8; // [sp-20h] [bp-20h]@1
+
+  v8 = a1;
+  v2 = Sph_XMin + Log + TabOffLine[a2];
+  v3 = Sph_XMax - Sph_XMin;
+  if ( Sph_XMax > Sph_XMin )
+  {
+    LOBYTE(v4) = Sph_Coul;
+    HIBYTE(v4) = Sph_Coul;
+    if ( v2 & 1 )
+    {
+      *(_BYTE *)v2++ = Sph_Coul;
+      --v3;
+    }
+    v5 = v3 & 1;
+    for ( i = v3 >> 1; i; --i )
+    {
+      *(_WORD *)v2 = v4;
+      v2 += 2;
+    }
+    if ( v5 )
+      *(_BYTE *)v2 = v4;
+  }
+  return v8;
+  */
+}
+
+__int64 Sph_Line_FlatZBuf(__int64 a1, int a2)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+  /*
+
+  int v2; // ebx@1
+  char *v3; // edi@1
+  unsigned __int16 *v4; // ebx@1
+  int v5; // ecx@1
+  char v6; // al@2
+  unsigned __int16 v7; // dx@2
+  __int64 v9; // [sp-20h] [bp-20h]@1
+
+  v9 = a1;
+  v2 = TabOffLine[a2];
+  v3 = (char *)(Sph_XMin + Log + v2);
+  v4 = (unsigned __int16 *)(Sph_XMin + Sph_XMin + PtrZBuffer + 2 * v2);
+  v5 = Sph_XMax - Sph_XMin;
+  if ( Sph_XMax > Sph_XMin )
+  {
+    v6 = Sph_Coul;
+    v7 = Z_Value;
+    do
+    {
+      if ( *v4 >= v7 )
+      {
+        *v4 = v7;
+        *v3 = v6;
+      }
+      ++v4;
+      ++v3;
+      --v5;
+    }
+    while ( v5 );
+  }
+  return v9;
+  */
+}
+
+__int64 Sph_Line_FlatNZW(__int64 a1, int a2)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+  /*
+  int v2; // ebx@1
+  char *v3; // edi@1
+  unsigned __int16 *v4; // ebx@1
+  int v5; // ecx@1
+  char v6; // al@2
+  unsigned __int16 v7; // dx@2
+  __int64 v9; // [sp-20h] [bp-20h]@1
+
+  v9 = a1;
+  v2 = TabOffLine[a2];
+  v3 = (char *)(Sph_XMin + Log + v2);
+  v4 = (unsigned __int16 *)(Sph_XMin + Sph_XMin + PtrZBuffer + 2 * v2);
+  v5 = Sph_XMax - Sph_XMin;
+  if ( Sph_XMax > Sph_XMin )
+  {
+    v6 = Sph_Coul;
+    v7 = Z_Value;
+    do
+    {
+      if ( *v4 >= v7 )
+        *v3 = v6;
+      ++v4;
+      ++v3;
+      --v5;
+    }
+    while ( v5 );
+  }
+  return v9;
+  */
+}
+
+// ╔═════════════════════════════════════════════════════════════════════════════════╗
+// ║ Sph_Line_Transp : Trace un segment horizontal en Transparence                   ║
+// ╟─────────────────────────────────────────────────────────────────────────────────╢
+// ║ Appel : [Sph_XMin], [Sph_XMax] : Extremites du segment                          ║
+// ║         EBX = Y a l'ecran                                                       ║
+// ║         [Sph_XCoul] : Couleur                                                   ║
+// ╟─────────────────────────────────────────────────────────────────────────────────╢
+// ║ REGISTRES NON MODIFIES                                                          ║
+// ║                                                                                 ║
+// ╚═════════════════════════════════════════════════════════════════════════════════╝
+void Sph_Line_Transp(int a1)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return;
+  /*
+  int v1; // edi@1
+  unsigned int v2; // ecx@1
+  __int16 v3; // bx@2
+  char v4; // dl@4
+  unsigned int v5; // ecx@4
+  int v6; // edx@4
+
+  v1 = Sph_XMin + Log + TabOffLine[a1];
+  v2 = Sph_XMax - Sph_XMin;
+  if ( Sph_XMax > Sph_XMin )
+  {
+    LOBYTE(v3) = Sph_Coul & 0xF0;
+    HIBYTE(v3) = Sph_Coul & 0xF0;
+    if ( v1 & 1 )
+    {
+      *(_BYTE *)v1 = v3 + (*(_BYTE *)v1 & 0xF);
+      ++v1;
+      --v2;
+    }
+    v4 = v2;
+    v5 = v2 >> 1;
+    v6 = v4 & 1;
+    while ( v5 )
+    {
+      *(_WORD *)v1 = v3 + (*(_WORD *)v1 & 0xF0F);
+      v1 += 2;
+      --v5;
+    }
+    if ( v6 )
+      *(_BYTE *)v1 = v3 + (*(_BYTE *)v1 & 0xF);
+  }
+  */
+}
 
 // ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
 // ║  Fill_Sphere : Trace un disque a l'ecran                                                                   ║
@@ -257,204 +434,3 @@ LABEL_75:
 
   return; // 0;
 }
-
-/*
-; ╔═════════════════════════════════════════════════════════════════════════════════╗
-; ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
-; ╟─────────────────────────────────────────────────────────────────────────────────╢
-; ║ Appel : [Sph_XMin], [Sph_XMax] : Extremites du segment                          ║
-; ║         EBX = Y a l'ecran                                                       ║
-; ║         [Sph_XCoul] : Couleur                                                   ║
-; ╟─────────────────────────────────────────────────────────────────────────────────╢
-; ║ REGISTRES NON MODIFIES                                                          ║
-; ║                                                                                 ║
-; ╚═════════════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Sph_Line_Flat		PROC
-			pushad
-
-			mov	edi,[TabOffLine+ebx*4]
-			add	edi,[Log]		; Ecran logique
-
-			mov	ebx,[Sph_XMin]
-			mov	ecx,[Sph_XMax]
-			add	edi,ebx
-			sub	ecx,ebx
-			jle	@@Fin
-
-			mov	al,[Sph_Coul]
-			test	edi,1			; Test de l'alignement
-			mov	ah,al
-			je	@@Align_Ok
-			mov	[edi],al
-			inc	edi
-			dec	ecx
-@@Align_Ok:
-;			shr	ecx,1
-			db	0C1h,0E9h,01h
-			rep	stosw
-			jnc	@@Fin
-			mov	[edi],al
-@@Fin:
-			popad
-			ret
-Sph_Line_Flat		ENDP
-
-
-
-
-Sph_Line_FlatZBuf	PROC
-			pushad
-
-			mov	edi,[TabOffLine+ebx*4]
-			mov	ebx,edi
-			add	edi,[Log]		; Ecran logique
-			add	ebx,ebx
-			add	ebx,[PtrZBuffer]
-
-			mov	edx,[Sph_XMin]
-			mov	ecx,[Sph_XMax]
-			add	edi,edx
-			add	ebx,edx
-			add	ebx,edx
-			sub	ecx,edx
-			jle	@@Fin
-
-			mov	al,[Sph_Coul]
-			mov	edx,[Z_Value]
-@@Loop:
-			cmp	[ebx],dx
-			jb	@@NoDisp
-			mov	[ebx],dx
-			mov	[edi],al
-@@NoDisp:
-			add	ebx,2
-			inc	edi
-
-			dec	ecx
-			jne	@@Loop
-@@Fin:
-			popad
-			ret
-Sph_Line_FlatZBuf	ENDP
-
-
-
-
-
-Sph_Line_FlatNZW	PROC
-			pushad
-
-			mov	edi,[TabOffLine+ebx*4]
-			mov	ebx,edi
-			add	edi,[Log]		; Ecran logique
-			add	ebx,ebx
-			add	ebx,[PtrZBuffer]
-
-			mov	edx,[Sph_XMin]
-			mov	ecx,[Sph_XMax]
-			add	edi,edx
-			add	ebx,edx
-			add	ebx,edx
-			sub	ecx,edx
-			jle	@@Fin
-
-			mov	al,[Sph_Coul]
-			mov	edx,[Z_Value]
-@@Loop:
-			cmp	[ebx],dx
-			jb	@@NoDisp
-			mov	[edi],al
-@@NoDisp:
-			add	ebx,2
-			inc	edi
-
-			dec	ecx
-			jne	@@Loop
-@@Fin:
-			popad
-			ret
-Sph_Line_FlatNZW	ENDP
-
-
-
-
-
-
-
-
-
-; ╔═════════════════════════════════════════════════════════════════════════════════╗
-; ║ Sph_Line_Transp : Trace un segment horizontal en Transparence                   ║
-; ╟─────────────────────────────────────────────────────────────────────────────────╢
-; ║ Appel : [Sph_XMin], [Sph_XMax] : Extremites du segment                          ║
-; ║         EBX = Y a l'ecran                                                       ║
-; ║         [Sph_XCoul] : Couleur                                                   ║
-; ╟─────────────────────────────────────────────────────────────────────────────────╢
-; ║ REGISTRES NON MODIFIES                                                          ║
-; ║                                                                                 ║
-; ╚═════════════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Sph_Line_Transp		PROC
-			pushad
-
-			mov	edi,[TabOffLine+ebx*4]
-			add	edi,[Log]		; Ecran logique
-
-			mov	ebx,[Sph_XMin]
-			mov	ecx,[Sph_XMax]
-			add	edi,ebx
-			sub	ecx,ebx
-			jle	@@Fin
-
-			mov	bl,[Sph_Coul]
-			and	bl,0F0h
-			mov	bh,bl
-
-			test	edi,1			; Test de l'alignement
-			mov	ah,al
-			je	@@Align_Ok
-			mov	al,[edi]
-			and	al,0Fh
-			add	al,bl
-			mov	[edi],al
-			inc	edi
-			dec	ecx
-@@Align_Ok:
-			mov	edx,ecx
-;			shr	ecx,1
-			db	0C1h,0E9h,01h
-			and	edx,1
-			ALIGN	4
-@@Fill:
-			test	ecx,ecx
-			je	@@Add_One
-
-			mov	ax,[edi]
-			and	eax,0F0Fh
-			add	eax,ebx
-			mov	[edi],ax
-
-			add	edi,2
-			dec	ecx
-			jmp	@@Fill
-
-
-			ALIGN	4
-@@Add_One:
-			test	edx,edx
-			je	@@Fin
-			mov	al,[edi]
-			and	al,0Fh
-			add	al,bl
-			mov	[edi],al
-@@Fin:
-			popad
-			ret
-Sph_Line_Transp		ENDP
-
-;Seg_Code		ENDS
-
-;			The
-			End
-*/
