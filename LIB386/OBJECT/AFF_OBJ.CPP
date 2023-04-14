@@ -3631,14 +3631,16 @@ S32 Sphere(U32 typePoly, void *poly)
     ScreenXMax = rightX;
   }
 
+  S32 z = 0;
+
   if (Fill_Flag_ZBuffer && TypeProj != TYPE_3D)
   {
     T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
-    S32 z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+    z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
   }
   // @@NoZBufSphere:
   // TODO: pass z to Fill_Sphere
-  Fill_Sphere(sphere->Type, sphere->Coul, p1.X, p1.Y, radius);
+  Fill_Sphere(sphere->Type, sphere->Coul, p1.X, p1.Y, radius, z);
 
   return 0;
 }
