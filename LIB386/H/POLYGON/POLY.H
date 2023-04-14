@@ -142,7 +142,7 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
               Struc_Point *Ptr_Points);
 
 extern void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
-                        S32 Centre_Y, S32 Rayon); ///< Do Not call from C
+                        S32 Centre_Y, S32 Rayon, S32 zBufferValue); ///< Do Not call from C
 
 /// Patch all the fillers routine with the new scanlines offsets
 extern void SetScreenPitch(U32 *New_TabOffLine); ///< Do Not call from C

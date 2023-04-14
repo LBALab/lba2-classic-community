@@ -1,420 +1,264 @@
+#include <POLYGON/POLY.H>
+
+
+S32 Z_Value = 0; // Z Value for the ZBuffer
+S32 Sph_YMin = 0; // YMin et YMax du disque a l'ecran
+S32 Sph_YMax = 0;
+S32 Sph_XMin = 0; // XMin et XMax pour le trace d'une ligne de balayage du disque
+S32 Sph_XMax = 0;
+U8 Sph_Coul = 0;
+
+// ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║  Fill_Sphere : Trace un disque a l'ecran                                                                   ║
+// ╟────────────────────────────────────────────────────────────────────────────────────────────────────────────╢
+// ║  Appel : EAX = C_x                                                                                         ║
+// ║          EBI = C_y                                                                                         ║
+// ║          ECX = Rayon                                                                                       ║
+// ║          EDX = Couleur                                                                                     ║
+// ║          ESI = Type du disque (soit Flat, soit Transparent=2)                                              ║
+// ║          EDI = Zbuffer value for the sphere                                                                ║
+// ║                                                                                                            ║
+// ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
+                 S32 Centre_Y, S32 Rayon, S32 zBufferValue)
+{
+  int (*v6)(void); // edi@2
+  int v7; // ebp@10
+  int v8; // edi@10
+  int v9; // ecx@10
+  int v10; // esi@10
+  int v11; // edx@10
+  int v12; // ebp@10
+  int v13; // eax@10
+  signed int v14; // ebx@10
+  int v15; // eax@10
+  int v16; // eax@13
+  int v17; // ecx@24
+  int v18; // edx@24
+  unsigned __int8 v19; // cf@24
+  int v20; // edx@25
+  int v21; // ecx@25
+  int v23; // ebx@29
+  int v24; // eax@31
+  int v25; // eax@35
+  int v26; // ebx@40
+  int v27; // eax@42
+  int v28; // eax@46
+  int v29; // ebx@52
+  int v30; // eax@54
+  int v31; // eax@58
+  int v32; // ebx@63
+  int v33; // eax@65
+  int v34; // eax@69
+
+  if (Fill_Flag_ZBuffer == 1)
+  {
+    Z_Value = zBufferValue;
+    v6 = (int (*)(void))Sph_Line_FlatZBuf;
+    if (Fill_Flag_NZW == 1)
+      v6 = (int (*)(void))Sph_Line_FlatNZW;
+    if (Type_Sphere == 2)
+      v6 = (int (*)(void))Sph_Line_Transp;
+  }
+  else
+  {
+    v6 = (int (*)(void))Sph_Line_Flat;
+    if (Type_Sphere == 2)
+      v6 = (int (*)(void))Sph_Line_Transp;
+  }
+  Color_Sphere = (unsigned __int8)Color_Sphere;
+  if (Fill_Flag_Fog == 1)
+    LOBYTE(Color_Sphere) = Fill_Logical_Palette[Color_Sphere];
+  Sph_Coul = Color_Sphere;
+  Fill_Filler = v6;
+  v7 = Rayon;
+  v8 = Rayon;
+  v9 = Centre_Y;
+  v10 = Centre_Y;
+  v11 = 0;
+  v12 = -v7;
+  v13 = Centre_Y;
+  v14 = 0;
+  v15 = v13 - v8;
+  if (v15 > ClipYMax)
+    return; // 0;
+  if (v15 < ClipYMin)
+  {
+    v14 = 1;
+    v15 = ClipYMin;
+  }
+  Sph_YMin = v15;
+  v16 = v10 + v8;
+  if (v10 + v8 < ClipYMin)
+    return; // 0;
+  if (v16 > ClipYMax)
+  {
+    ++v14;
+    v16 = ClipYMax;
+  }
+  Sph_YMax = v16;
+  if (v9 + v8 < ClipXMin)
+    return; // 0;
+  if (v9 + v8 > ClipXMax)
+    ++v14;
+  if (v9 - v8 > ClipXMax)
+    return; // 0;
+  if (v9 - v8 < ClipXMin)
+    ++v14;
+  if (!v14)
+  {
+    while (v11 <= v8)
+    {
+      Sph_XMax = v9 + v8;
+      Sph_XMin = v9 - v8;
+      Sph_XMin = Fill_Filler();
+      Sph_XMax = v17 + v8;
+      Fill_Filler();
+      v19 = __CFADD__(v18, v12);
+      v12 += v18;
+      if (v19)
+      {
+        Sph_XMax = v9 + v18;
+        Sph_XMin = v9 - v18;
+        Sph_XMin = Fill_Filler();
+        Sph_XMax = v21 + v20;
+        Fill_Filler();
+        v12 -= --v8;
+      }
+      v11 = v18 + 1;
+    }
+    return; // 1;
+  }
+  while (v11 <= v8)
+  {
+    v23 = v10 + v11;
+    if (v10 + v11 <= Sph_YMax && v23 >= Sph_YMin)
+    {
+      v24 = v9 - v8;
+      if (v9 - v8 < ClipXMin)
+      {
+        v24 = ClipXMin;
+      }
+      else if (v24 > ClipXMax)
+      {
+        Sph_YMax = v23 - 1;
+        goto LABEL_40;
+      }
+      Sph_XMin = v24;
+      v25 = v9 + v8;
+      if (v9 + v8 > ClipXMax)
+      {
+        v25 = ClipXMax;
+LABEL_39:
+        Sph_XMax = v25;
+        Fill_Filler();
+        goto LABEL_40;
+      }
+      if (v25 >= ClipXMin)
+        goto LABEL_39;
+      Sph_YMax = v23 - 1;
+    }
+LABEL_40:
+    v26 = v10 - v11;
+    if (v10 - v11 <= Sph_YMax && v26 >= Sph_YMin)
+    {
+      v27 = v9 - v8;
+      if (v9 - v8 < ClipXMin)
+      {
+        v27 = ClipXMin;
+      }
+      else if (v27 > ClipXMax)
+      {
+        Sph_YMin = v26 + 1;
+        goto LABEL_51;
+      }
+      Sph_XMin = v27;
+      v28 = v9 + v8;
+      if (v9 + v8 > ClipXMax)
+      {
+        v28 = ClipXMax;
+      }
+      else if (v28 < ClipXMin)
+      {
+        Sph_YMin = v26 + 1;
+        goto LABEL_51;
+      }
+      Sph_XMax = v28;
+      Fill_Filler();
+    }
+LABEL_51:
+    v19 = __CFADD__(v11, v12);
+    v12 += v11;
+    if (!v19)
+      goto LABEL_75;
+    v29 = v10 + v8;
+    if (v10 + v8 <= Sph_YMax && v29 >= Sph_YMin)
+    {
+      v30 = v9 - v11;
+      if (v9 - v11 < ClipXMin)
+      {
+        v30 = ClipXMin;
+      }
+      else if (v30 > ClipXMax)
+      {
+        Sph_YMax = v29 - 1;
+        goto LABEL_63;
+      }
+      Sph_XMin = v30;
+      v31 = v9 + v11;
+      if (v9 + v11 > ClipXMax)
+      {
+        v31 = ClipXMax;
+LABEL_62:
+        Sph_XMax = v31;
+        Fill_Filler();
+        goto LABEL_63;
+      }
+      if (v31 >= ClipXMin)
+        goto LABEL_62;
+      Sph_YMax = v29 - 1;
+    }
+LABEL_63:
+    v32 = v10 - v8;
+    if (v10 - v8 > Sph_YMax || v32 < Sph_YMin)
+      goto LABEL_74;
+    v33 = v9 - v11;
+    if (v9 - v11 < ClipXMin)
+    {
+      v33 = ClipXMin;
+    }
+    else if (v33 > ClipXMax)
+    {
+      Sph_YMin = v32 + 1;
+      goto LABEL_74;
+    }
+    Sph_XMin = v33;
+    v34 = v9 + v11;
+    if (v9 + v11 > ClipXMax)
+    {
+      v34 = ClipXMax;
+LABEL_73:
+      Sph_XMax = v34;
+      Fill_Filler();
+      goto LABEL_74;
+    }
+    if (v34 >= ClipXMin)
+      goto LABEL_73;
+    Sph_YMin = v32 + 1;
+LABEL_74:
+    v12 -= --v8;
+LABEL_75:
+    ++v11;
+  }
+  if (Sph_YMin < Sph_YMax)
+  {
+    return; // 1;
+  }
+
+  return; // 0;
+}
+
 /*
-
-; ╔═══════════════════════════════════════════╗
-; ║ ┌─────┐ ┌─────┐ │      │    │             ║
-; ║ │     │ │     │ │      │    │             ║
-; ║ │     │ │     │ │      │    │             ╚═══════════════════════╤═══════════╗
-; ║ │     │ │     │ │      │    │    ┌──── ─                          │Début:     ║
-; ║ ├─────┘ │     │ │      └────┤    │       │    │    ┌─── ├──┐      │le 02/08/95║
-; ║ │       │     │ │           │    ├──   │ │    │    │    │         │           ║
-; ║ │       │     │ │           │ /  │     │ │    │    ├─   │         │           ║
-; ║ │       │     │ │           │ \  │     │ │    │    │    │         │           ║
-; ║ │       └─────┘ └─────      │ /  │     │ └─── └─── └─── │         │           ║
-; ║                                                                   │           ║
-; ║                                                                   │           ║
-; ╟────────────────────────────────────────┐                          │           ║
-; ║Module: Fillers DISQUE                  │                          │           ║
-; ╚════════════════════════════════════════╧╗                         │ MAJ:      ║
-;                                           ║                         │ 09/11/95  ║
-;                                           ╚═════════════════════════╧═══════════╝
-
-
-
-
-OPTION SCOPED
-
-PUBLIC			Fill_Sphere
-
-INCLUDE			FILLER.INC
-
-
-			.386
-			.MODEL FLAT, C
-
-
-
-; ╔═══════════════════════════════════════════════════════════════════════════╗
-; ║                                                                           ║
-; ║  Les donnees                                                              ║
-; ║                                                                           ║
-; ╚═══════════════════════════════════════════════════════════════════════════╝
-
-			.DATA
-Extrn	C	ClipXMin		:	DWORD	; Fenetre de clipping
-Extrn	C	ClipXMax		:	DWORD
-Extrn	C	ClipYMin		:	DWORD
-Extrn	C	ClipYMax		:	DWORD
-
-Extrn			TabOffLine		:	DWORD	; Table des offsets des debuts de ligne
-Extrn			Log			:	DWORD	; PTR sur l'ecran logique
-
-Extrn			Fill_Filler		:	DWORD
-
-Extrn			Fill_Flag_Fog		:	BYTE	; Flag pour savoir si l'on est en mode Fog ou non
-Extrn			Fill_Flag_ZBuffer	:	BYTE	; TRUE if Zbuffer active
-Extrn			Fill_Flag_NZW		:	BYTE	; TRUE if Zbuffer without ZBuf update active
-Extrn			Fill_Logical_Palette	:	BYTE	; Table de conversion de la palette en mode fog
-Extrn			PtrZBuffer		: 	DWORD
-
-
-			ALIGN	4
-Z_Value			dd	0			; Z Value for the ZBuffer
-Sph_YMin		dd	0			; YMin et YMax du disque a l'ecran
-Sph_YMax		dd	0
-Sph_XMin		dd	0			; XMin et XMax pour le trace d'une ligne de balayage du disque
-Sph_XMax		dd	0
-Sph_Coul		db	0
-
-
-
-
-
-
-
-
-; ╔═══════════════════════════════════════════════════════════════════════════╗
-; ║                                                                           ║
-; ║  Le code                                                                  ║
-; ║                                                                           ║
-; ╚═══════════════════════════════════════════════════════════════════════════╝
-			.CODE
-;Seg_Code		SEGMENT	PUBLIC PARA USE32
-
-
-
-
-
-; ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
-; ║  Fill_Sphere : Trace un disque a l'ecran                                                                   ║
-; ╟────────────────────────────────────────────────────────────────────────────────────────────────────────────╢
-; ║  Appel : EAX = C_x                                                                                         ║
-; ║          EBI = C_y                                                                                         ║
-; ║          ECX = Rayon                                                                                       ║
-; ║          EDX = Couleur                                                                                     ║
-; ║          ESI = Type du disque (soit Flat, soit Transparent=2)                                              ║
-; ║          EDI = Zbuffer value for the sphere                                                                ║
-; ║                                                                                                            ║
-; ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Fill_Sphere		PROC
-							; xc	equ	ecx
-							; yc	equ	esi
-
-							; px	equ	edi
-							; py	equ	edx
-							; sum	equ	ebp
-
-			cmp	[Fill_Flag_ZBuffer],TRUE
-			jne	@@No_ZBuff
-			mov	[Z_Value],edi
-
-			mov	edi,Offset Sph_Line_FlatZBuf
-			cmp	[Fill_Flag_NZW],TRUE
-			jne	@@No_NZW
-			mov	edi,Offset Sph_Line_FlatNZW
-@@No_NZW:
-			cmp	esi,2			; Type Transparent
-			jne	@@Type_Ok
-			mov	edi,Offset Sph_Line_Transp
-			jmp	@@Type_Ok
-
-@@No_ZBuff:
-			mov	edi,Offset Sph_Line_Flat
-			cmp	esi,2			; Type Transparent
-			jne	@@Type_Ok
-			mov	edi,Offset Sph_Line_Transp
-@@Type_Ok:
-			and	edx,0FFh
-			cmp	[Fill_Flag_Fog],TRUE
-			jne	@@No_Coul_Convert
-			mov	dl,[Fill_Logical_Palette+edx]
-@@No_Coul_Convert:
-			mov	[Sph_Coul],dl
-			mov	[Fill_Filler],edi
-
-
-			mov	ebp,ecx
-			mov	edi,ecx
-			mov	ecx,eax
-			mov	esi,ebx
-			xor	edx,edx
-			neg	ebp
-
-			mov	eax,esi
-			xor	ebx,ebx
-			sub	eax,edi			; esi - rayon
-			cmp	eax,[ClipYMax]
-			jg	nosphere
-			cmp	eax,[ClipYMin]
-			jge	csc0
-			inc	ebx
-			mov	eax,[ClipYMin]
-csc0:
-			mov	[Sph_YMin],eax
-
-			lea	eax,[esi+edi]		; esi + rayon
-			cmp	eax,[ClipYMin]
-			jl	nosphere
-			cmp	eax,[ClipYMax]
-			jle	csc1
-			inc	ebx
-			mov	eax,[ClipYMax]
-csc1:
-			mov	[Sph_YMax],eax
-
-			lea	eax,[ecx+edi]		; ecx + rayon
-			cmp	eax,[ClipXMin]
-			jl	nosphere
-			cmp	eax,[ClipXMax]
-			jle	csc2
-			inc	ebx
-
-csc2:
-			mov	eax,ecx
-			sub	eax,edi			; ecx - rayon
-			cmp	eax,[ClipXMax]
-			jg	nosphere
-
-			cmp	eax,[ClipXMin]
-			jge	csc3
-			inc	ebx
-
-csc3:
-			test	ebx,ebx
-			jne	clipping
-
-
-			ALIGN 4
-nccs0:
-			cmp	edx,edi				; while( edx <= edi )
-			jg	fin
-
-			lea	ebx,[esi+edx]
-			lea	eax,[ecx+edi]
-			mov	[Sph_XMax],eax
-			mov	eax,ecx
-			sub	eax,edi
-			mov	[Sph_XMin],eax
-			call	[Fill_Filler]
-
-			mov	ebx,esi
-			sub	ebx,edx
-			mov	[Sph_XMin],eax
-			lea	eax,[ecx+edi]
-			mov	[Sph_XMax],eax
-
-			call	[Fill_Filler]
-
-			add	ebp,edx
-			jnc	ncnoovf
-
-			lea	ebx,[esi+edi]
-			lea	eax,[ecx+edx]
-			mov	[Sph_XMax],eax
-			mov	eax,ecx
-			sub	eax,edx
-			mov	[Sph_XMin],eax
-
-			call	[Fill_Filler]
-
-			mov	ebx,esi
-			sub	ebx,edi
-			mov	[Sph_XMin],eax
-			lea	eax,[ecx+edx]
-			mov	[Sph_XMax],eax
-
-			call	[Fill_Filler]
-
-			dec	edi
-			sub	ebp,edi
-
-ncnoovf:
-			inc	edx
-			jmp	nccs0
-
-fin:
-			mov	eax,1
-			ret
-
-						; *** Gestion du clipping ***
-			ALIGN	4
-clipping:
-cs0:
-			cmp	edx,edi			; while( edx <= edi )
-			jg	finclip
-
-			lea	ebx,[esi+edx]
-			cmp	ebx,[Sph_YMax]
-			jg	cs1
-			cmp	ebx,[Sph_YMin]
-			jl	cs1
-
-			; gauche
-			mov	eax,ecx
-			sub	eax,edi
-			cmp	eax,[ClipXMin]
-			jl	nocxi
-			cmp	eax,[ClipXMax]
-			jle	nocxi2
-			lea	eax,[ebx-1]
-			mov	[Sph_YMax],eax
-			jmp	cs1
-nocxi:
-			mov	eax,[ClipXMin]
-nocxi2:
-			mov	[Sph_XMin],eax
-
-			; droite
-			lea	eax,[ecx+edi]
-			cmp	eax,[ClipXMax]
-			jg	nocxa
-			cmp	eax,[ClipXMin]
-			jge	nocxa2
-			lea	eax,[ebx-1]
-			mov	[Sph_YMax],eax
-			jmp	cs1
-nocxa:
-			mov	eax,[ClipXMax]
-nocxa2:
-			mov	[Sph_XMax],eax
-
-			call	[Fill_Filler]
-
-cs1:
-			mov	ebx,esi
-			sub	ebx,edx
-			cmp	ebx,[Sph_YMax]
-			jg	cs2
-			cmp	ebx,[Sph_YMin]
-			jl	cs2
-			; gauche
-			mov	eax,ecx
-			sub	eax,edi
-			cmp	eax,[ClipXMin]
-			jl	nocxia
-			cmp	eax,[ClipXMax]
-			jle	nocxia2
-			lea	eax,[ebx+1]
-			mov	[Sph_YMin],eax
-			jmp	short cs2
-nocxia:			mov	eax,[ClipXMin]
-nocxia2:
-			mov	[Sph_XMin],eax
-			; droite
-			lea	eax,[ecx+edi]
-			cmp	eax,[ClipXMax]
-			jg	nocxaa
-			cmp	eax,[ClipXMin]
-			jge	nocxaa2
-			lea	eax,[ebx+1]
-			mov	[Sph_YMin],eax
-			jmp	cs2
-nocxaa:
-			mov	eax,[ClipXMax]
-nocxaa2:
-			mov	[Sph_XMax],eax
-
-			call	[Fill_Filler]
-
-cs2:
-			add	ebp,edx
-			jnc	noovf
-
-			lea	ebx,[esi+edi]
-			cmp	ebx,[Sph_YMax]
-			jg	cs3
-			cmp	ebx,[Sph_YMin]
-			jl	cs3
-			; gauche
-			mov	eax,ecx
-			sub	eax,edx
-			cmp	eax,[ClipXMin]
-			jl	nocxib
-			cmp	eax,[ClipXMax]
-			jle	nocxib2
-			lea	eax,[ebx-1]
-			mov	[Sph_YMax],eax
-			jmp	cs3
-nocxib:
-			mov	eax,[ClipXMin]
-nocxib2:
-			mov	[Sph_XMin],eax
-			; droite
-			lea	eax,[ecx+edx]
-			cmp	eax,[ClipXMax]
-			jg	nocxab
-			cmp	eax,[ClipXMin]
-			jge	nocxab2
-			lea	eax,[ebx-1]
-			mov	[Sph_YMax],eax
-			jmp	cs3
-nocxab:
-			mov	eax,[ClipXMax]
-nocxab2:
-			mov	[Sph_XMax],eax
-
-			call	[Fill_Filler]
-
-cs3:
-			mov	ebx,esi
-			sub	ebx,edi
-			cmp	ebx,[Sph_YMax]
-			jg	cs4
-			cmp	ebx,[Sph_YMin]
-			jl	cs4
-			; gauche
-			mov	eax,ecx
-			sub	eax,edx
-			cmp	eax,[ClipXMin]
-			jl	nocxic
-			cmp	eax,[ClipXMax]
-			jle	nocxic2
-			lea	eax,[ebx+1]
-			mov	[Sph_YMin],eax
-			jmp	cs4
-nocxic:
-			mov	eax,[ClipXMin]
-nocxic2:
-			mov	[Sph_XMin],eax
-			; droite
-			lea	eax,[ecx+edx]
-			cmp	eax,[ClipXMax]
-			jg	nocxac
-			cmp	eax,[ClipXMin]
-			jge	nocxac2
-			lea	eax,[ebx+1]
-			mov	[Sph_YMin],eax
-			jmp	cs4
-nocxac:
-			mov	eax,[ClipXMax]
-nocxac2:
-			mov	[Sph_XMax],eax
-
-			call	[Fill_Filler]
-
-cs4:
-			dec	edi
-			sub	ebp,edi
-
-noovf:
-			inc	edx
-			jmp     cs0
-
-finclip:
-			mov	eax,[Sph_YMin]
-			cmp	eax,[Sph_YMax]
-
-; 11/9/94 pas de sphere d'une ligne ??? (jg -> jge)
-			jge	nosphere
-
-			mov	eax,1			; ok sphere
-			ret
-
-nosphere:
-			xor	eax,eax
-			ret
-Fill_Sphere		ENDP
-
 ; ╔═════════════════════════════════════════════════════════════════════════════════╗
 ; ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
 ; ╟─────────────────────────────────────────────────────────────────────────────────╢
