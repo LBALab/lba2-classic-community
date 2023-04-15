@@ -3589,7 +3589,7 @@ S32 Sphere(U32 typePoly, void *poly)
 
   S32 radius = sphere->Rayon;
 
-  if (TypeProj == TYPE_3D)
+  if (TypeProj != TYPE_3D)
   {
     radius += radius + (radius << 5);
     radius >>= 9;
