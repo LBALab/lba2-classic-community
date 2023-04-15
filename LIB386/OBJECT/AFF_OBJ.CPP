@@ -1149,91 +1149,35 @@ S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly)
 
 S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
 {
-  /*
-@@Quad_Texture_Gouraud:
-			shr	eax,2
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
+  STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
-			push	eax				; Save poly type
-			mov	ecx,ebx
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[0].Pt_MapU = poly4->U1;
+  ListFillPoly[0].Pt_MapV = poly4->V1;
+  ListFillPoly[0].Pt_Light = ListLights[poly4->P1];
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[1].Pt_MapU = poly4->U2;
+  ListFillPoly[1].Pt_MapV = poly4->V2;
+  ListFillPoly[1].Pt_Light = ListLights[poly4->P2];
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[2].Pt_MapU = poly4->U3;
+  ListFillPoly[2].Pt_MapV = poly4->V3;
+  ListFillPoly[2].Pt_Light = ListLights[poly4->P3];
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+  ListFillPoly[3].Pt_MapU = poly4->U4;
+  ListFillPoly[3].Pt_MapV = poly4->V4;
+  ListFillPoly[3].Pt_Light = ListLights[poly4->P4];
 
-			shr	ecx,16				; ECX = P2
-			and	ebx,0FFFFh			; EBX = P1
+  U32 textureInfo = PtrTextures[poly4->HandleText];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
 
-			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
-			lea	esi,ListFillPoly
-
-			mov	edx,edi
-			and	edi,0FFFFh			; EDI = P3
-
-			shr	edx,16				; EDX = P4
-
-			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
-
-			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-
-			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
-
-			mov	[esi].STRUC_POINT.Pt_Light,bx
-			mov	ebx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText
-
-			mov	eax,[Obj_ListProjectedPoints+ecx*4]
-			and	ebx,0FFFFh
-
-			shl	ebx,2
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
-
-			mov	cx,[ListLights+ecx*2]
-			add	ebx,[PtrTextures]
-
-			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,cx
-			mov	eax,[Obj_ListProjectedPoints+edi*4]
-
-			mov	di,[ListLights+edi*2]
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,di
-			mov	eax,[Obj_ListProjectedPoints+edx*4]
-
-			mov	dx,[ListLights+edx*2]
-			mov	ebx,[ebx]
-
-			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
-
-			mov	ecx,ebx
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
-
-			shr	ebx,16				; EBX = RepMask
-			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
-
-			and	ecx,0FFFFh			; ECX = OrgMap
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
-
-			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
-
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
-
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
-			mov	eax,[ObjPtrMap]
-
-			add	ecx,eax
-			mov	[RepMask],ebx
-
-			mov	[PtrMap],ecx
-			pop	eax
-
-			mov	ecx,4
-			push	Offset @@Return_Display
-
-			jmp	Fill_PolyFast
-  */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  return Fill_Poly(typePoly >> 2, ListLights[poly4->P3], 4, ListFillPoly);
 }
 
 // ***********************
