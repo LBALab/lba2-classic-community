@@ -37,8 +37,8 @@ extern "C" {
 U8 BufferClip[512];
 
 // -----------------------------------------------------------------------------
-S32 GetDxDyGraph(S32 numgraph, S32 *x, S32 *y, const void *bankgraph) {
-  const S32 *graphMem = (const S32 *)bankgraph;
+S32 GetDxDyGraph(U8 numgraph, S32 *x, S32 *y, const void *bankgraph) {
+  const U32 *graphMem = (const U32 *)bankgraph;
   const U8 *graphBytes = (const U8 *)bankgraph;
 
   // Don't know if the value is really a signed int, but works for now
