@@ -190,11 +190,11 @@ void ShadeBoxBlk(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul)
     y1 = ClipYMax;
   }
 
-  S32 deltaY = y1 - y0;
-  S32 deltaX = x1 - x0;
+  S32 deltaY = y1 - y0 + 1;
+  S32 deltaX = x1 - x0 + 1;
 
   U8 *dst = (U8 *)Log + TabOffLine[y0] + x0;
-  U32 lineOffset = TabOffLine[1] - deltaX - 1;
+  U32 screenWidth = TabOffLine[1];
 
   U32 clutOffset = 15 * 256;
   U8 clutOffsetHighByte = (clutOffset >> 8) & 0xFF;
@@ -202,13 +202,13 @@ void ShadeBoxBlk(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul)
   clutOffset = (clutOffset & 0xFFFF00FF) | (clutOffsetHighByte << 8);
   U8 *clut = PtrCLUTGouraud + clutOffset;
 
-  for (S32 y = 0; y <= deltaY; y++)
+  for (S32 y = 0; y < deltaY; y++)
   {
-    for (S32 x = 0; x <= deltaX; x++)
+    for (S32 x = 0; x < deltaX; x++)
     {
       dst[x] = clut[dst[x]];
     }
-    dst += lineOffset;
+    dst += screenWidth;
   }
 }
 
