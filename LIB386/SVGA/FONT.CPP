@@ -68,7 +68,7 @@ SizeFont		endp
 	return size;
 }
 
-S32 CarFont(S32 x, S32 y, char c)
+S32 CarFont(S32 x, S32 y, U8 c)
 {
 	/*
 ;S32	CarFont(S32 x, S32 y, char c)	;
@@ -194,7 +194,7 @@ Font			endp
 
 	while (*str != '\0')
 	{
-		char c = *str;
+		U8 c = *str;
 		if (c == 32)
 		{
 			x += InterSpace;

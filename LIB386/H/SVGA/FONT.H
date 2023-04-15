@@ -15,7 +15,7 @@ extern S32 InterSpace;
 
 // -----------------------------------------------------------------------------
 extern S32 SizeFont(char *str);
-extern S32 CarFont(S32 x, S32 y, char c);
+extern S32 CarFont(S32 x, S32 y, U8 c);
 extern S32 Font(S32 x, S32 y, const char *str);
 
 // -----------------------------------------------------------------------------
