@@ -166,129 +166,50 @@ void	BoxFlow( S32 x, S32 y, S32 coul )
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 }
 
-void ShadeBoxBlk(S32 X0, S32 Y0, S32 X1, S32 Y1, S32 deccoul)
+void ShadeBoxBlk(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul)
 {
-	/*
-ShadeBoxBlk		PROC	USES esi edi ebp ebx,\
-			x0:DWORD, y0:DWORD, x1:DWORD, y1:DWORD,\
-			deccoul:DWORD
+  if (x0 > ClipXMax || x1 < ClipXMin || y0 > ClipYMax || y1 < ClipYMin)
+  {
+    return;
+  }
 
-			mov	eax,[x0]
-			mov	ebx,[y0]
-			mov	ecx,[x1]
-			mov	edx,[y1]
+  if (x0 < ClipXMin)
+  {
+    x0 = ClipXMin;
+  }
+  if (x1 > ClipXMax)
+  {
+    x1 = ClipXMax;
+  }
+  if (y0 < ClipYMin)
+  {
+    y0 = ClipYMin;
+  }
+  if (y1 > ClipYMax)
+  {
+    y1 = ClipYMax;
+  }
 
-			cmp	eax,[ClipXMax]
-			jg	Box_End
-			cmp     ecx,[ClipXMin]
-			jl	Box_End
-			cmp	ebx,[ClipYMax]
-			jg	Box_End
-			cmp	edx,[ClipYMin]
-			jl	Box_End
+  S32 deltaY = y1 - y0;
+  S32 deltaX = x1 - x0;
 
+  U8 *dst = (U8 *)Log + TabOffLine[y0] + x0;
+  U32 lineOffset = TabOffLine[1] - deltaX - 1;
 
-			cmp	eax,[ClipXMin]
-			jl	Bad_Left
-@@Test_Right:
-			cmp	ecx,[ClipXMax]
-			jg	Bad_Right
-@@Test_Up:
-			cmp	ebx,[ClipYMin]
-			jl	Bad_Up
-@@Test_Down:
-			cmp	edx,[ClipYMax]
-			jg	Bad_Down
+  U32 clutOffset = 15 * 256;
+  U8 clutOffsetHighByte = (clutOffset >> 8) & 0xFF;
+  clutOffsetHighByte -= (U8)(deccoul & 0xFF);
+  clutOffset = (clutOffset & 0xFFFF00FF) | (clutOffsetHighByte << 8);
+  U8 *clut = PtrCLUTGouraud + clutOffset;
 
-@@Disp:
-			mov	edi,TabOffLine[ebx*4]
-			sub	edx,ebx			; Init Delta Y
-			add	edi,[Log]
-			mov	ebx,edx
-			add	edi,eax			; EDI Offset Src
-			inc	ebx
-
-
-			mov	edx,ecx			; Init Delta X
-			mov	esi,TabOffLine[1*4]	; ScanLine
-			sub	edx,eax
-			mov	ecx,15*256
-			inc	edx
-			sub	ch,byte ptr [deccoul]
-			sub	esi,edx			; ebp Delta Screen
-			add	ecx,[PtrCLUTGouraud]
-			xor	eax,eax
-
-Again:
-			mov	al,[edi]
-			mov	ebp,edx
-loopx:
-			mov	al,[ecx+eax]
-			mov	[edi],al
-			inc	edi
-
-			dec	ebp
-			mov	al,[edi]
-			jne	loopx
-
-			add	edi,esi
-			dec	ebx
-			jne	Again
-Box_End:
-			ret
-
-Bad_Left:
-			mov	eax,[ClipXMin]
-			jmp	@@Test_Right
-Bad_Right:
-			mov	ecx,[ClipXMax]
-			jmp	@@Test_Up
-Bad_Up:
-			mov	ebx,[ClipYMin]
-			jmp	@@Test_Down
-Bad_Down:
-			mov	edx,[ClipYMax]
-			jmp	@@Disp
-ShadeBoxBlk		ENDP
-	*/
-	if (X0 > ClipXMax || X1 < ClipXMin || Y0 > ClipYMax || Y1 < ClipYMin)
-	{
-		return;
-	}
-
-	if (X0 < ClipXMin)
-	{
-		X0 = ClipXMin;
-	}
-	if (X1 > ClipXMax)
-	{
-		X1 = ClipXMax;
-	}
-	if (Y0 < ClipYMin)
-	{
-		Y0 = ClipYMin;
-	}
-	if (Y1 > ClipYMax)
-	{
-		Y1 = ClipYMax;
-	}
-
-	S32 deltaY = Y1 - Y0;
-	S32 deltaX = X1 - X0;
-
-	U8 *dst = (U8 *)Log + TabOffLine[Y0] + X0;
-	U32 lineOffset = TabOffLine[1] - deltaX - 1;
-
-	U8 *clut = PtrCLUTGouraud + 15 * 256 - deccoul;
-
-	for (S32 y = 0; y <= deltaY; y++)
-	{
-		for (S32 x = 0; x <= deltaX; x++)
-		{
-			dst[x] = clut[dst[x]];
-		}
-		dst += lineOffset;
-	}
+  for (S32 y = 0; y <= deltaY; y++)
+  {
+    for (S32 x = 0; x <= deltaX; x++)
+    {
+      dst[x] = clut[dst[x]];
+    }
+    dst += lineOffset;
+  }
 }
 
 void	CopyBlockShade( S32 x0, S32 y0, S32 x1, S32 y1, U8 *src,
