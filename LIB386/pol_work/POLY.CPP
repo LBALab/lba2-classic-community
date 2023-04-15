@@ -67,50 +67,27 @@ S32 INV64(S32 a) { return LONG_MIN / a; }
 
 S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB);
 
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Fill_Poly : Polygon filler                                               ║
+// ╟──────────────────────────────────────────────────────────────────────────╢
+// ║ Call  : EAX = Polygon type (ie flat, gouraud, textured...)               ║
+// ║         EBX = Polygon color (if needed by the type)                      ║
+// ║         ECX = Nb of points in that polygon                               ║
+// ║         ESI = Ptr on the point list of this polygon                      ║
+// ║               (list of STRUC_POLY_POINT)                                 ║
+// ║                                                                          ║
+// ╟──────────────────────────────────────────────────────────────────────────╢
+// ║ Return: EAX = 0 if error (polygon not filled)                            ║
+// ║                                                                          ║
+// ╟──────────────────────────────────────────────────────────────────────────╢
+// ║ ALL REGISTERS ARE MODIFIED (EXCEPT EBP)                                  ║
+// ║                                                                          ║
+// ║ The value given to EAX is not check for validity, so be sure to fill it  ║
+// ║ with a correct poly type number                                          ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 							Struc_Point *Ptr_Points) {
-	/*
-; ╔══════════════════════════════════════════════════════════════════════════╗
-; ║ Fill_Poly : Polygon filler                                               ║
-; ╟──────────────────────────────────────────────────────────────────────────╢
-; ║ Call  : EAX = Polygon type (ie flat, gouraud, textured...)               ║
-; ║         EBX = Polygon color (if needed by the type)                      ║
-; ║         ECX = Nb of points in that polygon                               ║
-; ║         ESI = Ptr on the point list of this polygon                      ║
-; ║               (list of STRUC_POLY_POINT)                                 ║
-; ║                                                                          ║
-; ╟──────────────────────────────────────────────────────────────────────────╢
-; ║ Return: EAX = 0 if error (polygon not filled)                            ║
-; ║                                                                          ║
-; ╟──────────────────────────────────────────────────────────────────────────╢
-; ║ ALL REGISTERS ARE MODIFIED (EXCEPT EBP)                                  ║
-; ║                                                                          ║
-; ║ The value given to EAX is not check for validity, so be sure to fill it  ║
-; ║ with a correct poly type number                                          ║
-; ║                                                                          ║
-; ╚══════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Fill_PolyFast		PROC
-			push	ebp
-			xor	ebp,ebp
-			mov	[Fill_LeftSlope],ebp
-
-			pushad
-			mov	ebx,Offset TabOffLine
-			call	SetScreenPitch
-			popad
-
-			mov	[Fill_Type],eax
-			and	ebx,0FFh
-
-	push ebx
-	mov ebx,[Fill_Saut_Normal]
-	lea eax,[ebx+eax*4]
-	pop ebx
-	jmp	[eax]
-
-Fill_PolyFast		ENDP
-	*/
 	Fill_LeftSlope = 0;
 	SetScreenPitch(TabOffLine);
 
