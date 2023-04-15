@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 
 S32 Z_Value = 0; // Z Value for the ZBuffer
@@ -10,6 +11,8 @@ S32 Sph_YMax = 0;
 S32 Sph_XMin = 0; // XMin et XMax pour le trace d'une ligne de balayage du disque
 S32 Sph_XMax = 0;
 U8 Sph_Coul = 0;
+
+typedef S32 (*Sphere_Filler_Func)(U32 screenY);
 
 // ╔═════════════════════════════════════════════════════════════════════════════════╗
 // ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
@@ -21,45 +24,26 @@ U8 Sph_Coul = 0;
 // ║ REGISTRES NON MODIFIES                                                          ║
 // ║                                                                                 ║
 // ╚═════════════════════════════════════════════════════════════════════════════════╝
-S32 Sph_Line_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+S32 Sph_Line_Flat(U32 screenY)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
-  /*
-  int v2; // edi@1
+  U8 *v2; // edi@1
   unsigned int v3; // ecx@1
   __int16 v4; // ax@2
   char v5; // cf@4
   unsigned int i; // ecx@4
   __int64 v8; // [sp-20h] [bp-20h]@1
 
-  v8 = a1;
-  v2 = Sph_XMin + Log + TabOffLine[a2];
+  v2 = (U8 *)Log + TabOffLine[screenY] + Sph_XMin;
   v3 = Sph_XMax - Sph_XMin;
-  if ( Sph_XMax > Sph_XMin )
+  for (int i = 0; i < v3; ++i)
   {
-    LOBYTE(v4) = Sph_Coul;
-    HIBYTE(v4) = Sph_Coul;
-    if ( v2 & 1 )
-    {
-      *(_BYTE *)v2++ = Sph_Coul;
-      --v3;
-    }
-    v5 = v3 & 1;
-    for ( i = v3 >> 1; i; --i )
-    {
-      *(_WORD *)v2 = v4;
-      v2 += 2;
-    }
-    if ( v5 )
-      *(_BYTE *)v2 = v4;
+    v2[i] = Sph_Coul;
   }
+
   return v8;
-  */
 }
 
-S32 Sph_Line_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+S32 Sph_Line_FlatZBuf(U32 screenY)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
@@ -100,7 +84,7 @@ S32 Sph_Line_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   */
 }
 
-S32 Sph_Line_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+S32 Sph_Line_FlatNZW(U32 screenY)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
@@ -147,7 +131,7 @@ S32 Sph_Line_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // ║ REGISTRES NON MODIFIES                                                          ║
 // ║                                                                                 ║
 // ╚═════════════════════════════════════════════════════════════════════════════════╝
-S32 Sph_Line_Transp(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+S32 Sph_Line_Transp(U32 screenY)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
@@ -201,7 +185,7 @@ S32 Sph_Line_Transp(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
                  S32 Centre_Y, S32 Rayon, S32 zBufferValue)
 {
-  Fill_Filler_Func lineFunct; // edi@2
+  Sphere_Filler_Func lineFunct; // edi@2
   int v7; // ebp@10
   int v8; // edi@10
   int v11; // edx@10
@@ -250,7 +234,6 @@ void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
     Color_Sphere = Fill_Logical_Palette[Color_Sphere];
   }
   Sph_Coul = Color_Sphere;
-  Fill_Filler = lineFunct;
   v7 = Rayon;
   v8 = Rayon;
   v11 = 0;
@@ -300,18 +283,20 @@ void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
     {
       Sph_XMax = Centre_X + v8;
       Sph_XMin = Centre_X - v8;
-      Sph_XMin = Fill_Filler(0, 0, 0);
+      lineFunct(Centre_Y + v11);
+      Sph_XMin = Centre_X - v8;
       Sph_XMax = Centre_X + v8;
-      Fill_Filler(0, 0, 0);
+      lineFunct(Centre_Y - v11);
       v19 = (U64)v11 + (U64)v7 > 0xFFFFFFFF;
       v7 += v11;
       if (v19)
       {
         Sph_XMax = Centre_X + v11;
         Sph_XMin = Centre_X - v11;
-        Sph_XMin = Fill_Filler(0, 0, 0);
+        lineFunct(Centre_Y + v11);
+        Sph_XMin = Centre_X - v11;
         Sph_XMax = Centre_X + v11;
-        Fill_Filler(0, 0, 0);
+        lineFunct(Centre_Y - v11);
         --v8;
         v7 -= v8;
       }
@@ -326,129 +311,160 @@ void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
     if (v23 <= Sph_YMax && v23 >= Sph_YMin)
     {
       v24 = Centre_X - v8;
-      if (Centre_X - v8 < ClipXMin)
-      {
-        v24 = ClipXMin;
-      }
-      else if (v24 > ClipXMax)
+      if (v24 > ClipXMax)
       {
         Sph_YMax = v23 - 1;
-        goto LABEL_40;
       }
-      Sph_XMin = v24;
-      v25 = Centre_X + v8;
-      if (Centre_X + v8 > ClipXMax)
+      else
       {
-        v25 = ClipXMax;
-LABEL_39:
-        Sph_XMax = v25;
-        Fill_Filler(0, 0, 0);
-        goto LABEL_40;
+        if (v24 < ClipXMin)
+        {
+          v24 = ClipXMin;
+        }
+
+        Sph_XMin = v24;
+        v25 = Centre_X + v8;
+        if (Centre_X + v8 > ClipXMax)
+        {
+          v25 = ClipXMax;
+          Sph_XMax = v25;
+          lineFunct(v23);
+        }
+        else
+        {
+          if (v25 >= ClipXMin)
+          {
+            Sph_XMax = v25;
+            lineFunct(v23);
+          }
+          else
+          {
+            Sph_YMax = v23 - 1;
+          }
+        }
       }
-      if (v25 >= ClipXMin)
-        goto LABEL_39;
-      Sph_YMax = v23 - 1;
     }
-LABEL_40:
+
     v26 = Centre_Y - v11;
     if (v26 <= Sph_YMax && v26 >= Sph_YMin)
     {
       v27 = Centre_X - v8;
-      if (Centre_X - v8 < ClipXMin)
-      {
-        v27 = ClipXMin;
-      }
-      else if (v27 > ClipXMax)
+      if (v27 > ClipXMax)
       {
         Sph_YMin = v26 + 1;
-        goto LABEL_51;
       }
-      Sph_XMin = v27;
-      v28 = Centre_X + v8;
-      if (Centre_X + v8 > ClipXMax)
+      else
       {
-        v28 = ClipXMax;
+        if (v27 < ClipXMin)
+        {
+          v27 = ClipXMin;
+        }
+
+        Sph_XMin = v27;
+        v28 = Centre_X + v8;
+        if (v28 < ClipXMin)
+        {
+          Sph_YMin = v26 + 1;
+        }
+        else
+        {
+          if (v28 > ClipXMax)
+          {
+            v28 = ClipXMax;
+          }
+
+          Sph_XMax = v28;
+          lineFunct(v26);
+        }
       }
-      else if (v28 < ClipXMin)
-      {
-        Sph_YMin = v26 + 1;
-        goto LABEL_51;
-      }
-      Sph_XMax = v28;
-      Fill_Filler(0, 0, 0);
     }
-LABEL_51:
+
     v19 = (U64)v11 + (U64)v7 > 0xFFFFFFFF;
     v7 += v11;
-    if (!v19)
+    if (v19)
     {
-      goto LABEL_75;
-    }
-    v29 = Centre_Y + v8;
-    if (v29 <= Sph_YMax && v29 >= Sph_YMin)
-    {
-      v30 = Centre_X - v11;
-      if (Centre_X - v11 < ClipXMin)
+      v29 = Centre_Y + v8;
+      if (v29 <= Sph_YMax && v29 >= Sph_YMin)
       {
-        v30 = ClipXMin;
+        v30 = Centre_X - v11;
+        if (v30 > ClipXMax)
+        {
+          Sph_YMax = v29 - 1;
+        }
+        else
+        {
+          if (v30 < ClipXMin)
+          {
+            v30 = ClipXMin;
+          }
+
+          Sph_XMin = v30;
+          v31 = Centre_X + v11;
+          if (Centre_X + v11 > ClipXMax)
+          {
+            v31 = ClipXMax;
+            Sph_XMax = v31;
+            lineFunct(v29);
+          }
+          else
+          {
+            if (v31 >= ClipXMin)
+            {
+              Sph_XMax = v31;
+              lineFunct(v29);
+            }
+            else
+            {
+              Sph_YMax = v29 - 1;
+            }
+          }
+        }
       }
-      else if (v30 > ClipXMax)
+
+      v32 = Centre_Y - v8;
+      if (v32 <= Sph_YMax && v32 >= Sph_YMin)
       {
-        Sph_YMax = v29 - 1;
-        goto LABEL_63;
+        v33 = Centre_X - v11;
+        if (v33 > ClipXMax)
+        {
+          Sph_YMin = v32 + 1;
+        }
+        else
+        {
+          if (v33 < ClipXMin)
+          {
+            v33 = ClipXMin;
+          }
+
+          Sph_XMin = v33;
+          v34 = Centre_X + v11;
+          if (Centre_X + v11 > ClipXMax)
+          {
+            v34 = ClipXMax;
+            Sph_XMax = v34;
+            lineFunct(v32);
+          }
+          else
+          {
+            if (v34 >= ClipXMin)
+            {
+              Sph_XMax = v34;
+              lineFunct(v32);
+            }
+            else
+            {
+              Sph_YMin = v32 + 1;
+            }
+          }
+        }
       }
-      Sph_XMin = v30;
-      v31 = Centre_X + v11;
-      if (Centre_X + v11 > ClipXMax)
-      {
-        v31 = ClipXMax;
-LABEL_62:
-        Sph_XMax = v31;
-        Fill_Filler(0, 0, 0);
-        goto LABEL_63;
-      }
-      if (v31 >= ClipXMin)
-      {
-        goto LABEL_62;
-      }
-      Sph_YMax = v29 - 1;
+
+      v7 -= --v8;
     }
-LABEL_63:
-    v32 = Centre_Y - v8;
-    if (v32 > Sph_YMax || v32 < Sph_YMin)
-    {
-      goto LABEL_74;
-    }
-    v33 = Centre_X - v11;
-    if (Centre_X - v11 < ClipXMin)
-    {
-      v33 = ClipXMin;
-    }
-    else if (v33 > ClipXMax)
-    {
-      Sph_YMin = v32 + 1;
-      goto LABEL_74;
-    }
-    Sph_XMin = v33;
-    v34 = Centre_X + v11;
-    if (Centre_X + v11 > ClipXMax)
-    {
-      v34 = ClipXMax;
-LABEL_73:
-      Sph_XMax = v34;
-      Fill_Filler(0, 0, 0);
-      goto LABEL_74;
-    }
-    if (v34 >= ClipXMin)
-    {
-      goto LABEL_73;
-    }
-    Sph_YMin = v32 + 1;
-LABEL_74:
-    v7 -= --v8;
-LABEL_75:
+
     ++v11;
   }
+
   if (Sph_YMin < Sph_YMax)
   {
     return; // 1;
