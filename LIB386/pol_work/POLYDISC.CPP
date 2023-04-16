@@ -12,7 +12,7 @@ S32 Sph_XMin = 0; // XMin et XMax pour le trace d'une ligne de balayage du disqu
 S32 Sph_XMax = 0;
 U8 Sph_Coul = 0;
 
-typedef S32 (*Sphere_Filler_Func)(U32 screenY);
+typedef void (*Sphere_Filler_Func)(U32 screenY);
 
 // ╔═════════════════════════════════════════════════════════════════════════════════╗
 // ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
@@ -24,30 +24,21 @@ typedef S32 (*Sphere_Filler_Func)(U32 screenY);
 // ║ REGISTRES NON MODIFIES                                                          ║
 // ║                                                                                 ║
 // ╚═════════════════════════════════════════════════════════════════════════════════╝
-S32 Sph_Line_Flat(U32 screenY)
+void Sph_Line_Flat(U32 screenY)
 {
-  U8 *v2; // edi@1
-  unsigned int v3; // ecx@1
-  __int16 v4; // ax@2
-  char v5; // cf@4
-  unsigned int i; // ecx@4
-  __int64 v8; // [sp-20h] [bp-20h]@1
-
-  v2 = (U8 *)Log + TabOffLine[screenY] + Sph_XMin;
-  v3 = Sph_XMax - Sph_XMin;
-  for (int i = 0; i < v3; ++i)
+  U8* dst = (U8 *)Log + TabOffLine[screenY] + Sph_XMin;
+  U32 nbCols = Sph_XMax - Sph_XMin;
+  for (int i = 0; i < nbCols; ++i)
   {
-    v2[i] = Sph_Coul;
+    dst[i] = Sph_Coul;
   }
-
-  return v8;
 }
 
-S32 Sph_Line_FlatZBuf(U32 screenY)
+void Sph_Line_FlatZBuf(U32 screenY)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  return;
   /*
 
   int v2; // ebx@1
@@ -84,11 +75,11 @@ S32 Sph_Line_FlatZBuf(U32 screenY)
   */
 }
 
-S32 Sph_Line_FlatNZW(U32 screenY)
+void Sph_Line_FlatNZW(U32 screenY)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  return;
   /*
   int v2; // ebx@1
   char *v3; // edi@1
@@ -131,11 +122,11 @@ S32 Sph_Line_FlatNZW(U32 screenY)
 // ║ REGISTRES NON MODIFIES                                                          ║
 // ║                                                                                 ║
 // ╚═════════════════════════════════════════════════════════════════════════════════╝
-S32 Sph_Line_Transp(U32 screenY)
+void Sph_Line_Transp(U32 screenY)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  return;
   /*
   int v1; // edi@1
   unsigned int v2; // ecx@1
@@ -192,7 +183,7 @@ void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X,
   signed int v14; // ebx@10
   int yMin; // eax@10
   int yMax; // eax@13
-  unsigned __int8 v19; // cf@24
+  U8 v19; // cf@24
   int v23; // ebx@29
   int v24; // eax@31
   int v25; // eax@35
