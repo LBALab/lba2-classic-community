@@ -52,13 +52,13 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   int offFirstPix;         // edi@29
   U8 *pixDst;              // edi@29
   int v33;                 // edx@29
-  U8 v34;                  // bl@30
+  U8 nbBlocks;                  // bl@30
   U8 v36;                  // bh@30
   unsigned int v37;        // ecx@30
   U8 v38;                  // ah@30
   U8 *v39;                 // edi@30
   U8 *v40;                 // esi@30
-  U8 v41;                  // al@31
+  U8 nbPixToJump;                  // al@31
   bool v42;                // cf@31
   U8 v43;                  // ah@31
   U8 v44;                  // al@34
@@ -127,21 +127,21 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
     do
     {
       // l1:
-      v34 = *v29; // nb blocks
+      nbBlocks = *v29; // nb blocks
       v29++;
       v36 = NbPix;                // nb points to copy
       v37 = OffsetBegin;          // start x
-      v38 = OffsetBegin & 0xFF;   // nb pix count
+      U8 nbPixCount = OffsetBegin & 0xFF;   // nb pix count
       v39 = pixDst + OffsetBegin; // new pos screen
       v40 = pixSrc + OffsetBegin;
       while (1)
       {
         // l0:
-        v41 = *v29; // nb pix to jump
+        nbPixToJump = *v29; // nb pix to jump
         v29++;
-        --v34;
-        v42 = v38 < v41;
-        v43 = v38 - v41;
+        --nbBlocks;
+        v42 = nbPixCount < nbPixToJump;
+        v43 = nbPixCount - nbPixToJump;
         if (v43 == 0)
         {
           // falls flat
@@ -151,9 +151,9 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         if (v42)
         {
           // rptj:
-          v43 = v43;
+          v43 = -v43;
           v37 = v43; // nb pix to jump
-          something1 = v36 <= v43;
+          something1 = v36 > v43;
           v36 -= v43; // remains to write
           if (something1)
           {
@@ -163,14 +163,14 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
           }
           goto LABEL_APLUS;
         }
-        if (v34 == 0)
+        if (nbBlocks == 0)
         {
           goto LABEL_APLUS;
         }
 
         v44 = *v29; // nb copy point
         v29++;
-        --v34;
+        --nbBlocks;
         v45 = v43 < v44;
         v38 = v43 - v44;
         if (v38 == 0)
@@ -181,7 +181,7 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         {
           break;
         }
-        if (v34 == 0)
+        if (nbBlocks == 0)
         {
           goto LABEL_APLUS;
         }
@@ -212,8 +212,8 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
       {
         v37 = *v29; // nb pix to jump
         v29++;
-        --v34;
-        if (v34 == 0)
+        --nbBlocks;
+        if (nbBlocks == 0)
         {
           break;
         }
@@ -228,7 +228,7 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
       LABEL_OKDRAW:
         v37 = *v29; // nb pix to copy
         v29++;
-        --v34;
+        --nbBlocks;
         v42 = v36 < v37;
         v36 -= v37;
         if (v42)
@@ -242,16 +242,16 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         v40 += v37;
         v39 += v37;
         v37 = 0;
-        if (v36 != 0 && v34)
+        if (v36 != 0 && nbBlocks)
         {
           continue;
         }
         break;
       }
     LABEL_APLUS:
-      yMax = v34;
+      yMax = nbBlocks;
       pixDst += screenWidth;
-      v29 += v34;
+      v29 += nbBlocks;
       pixSrc += screenWidth;
       v33--;
     } while (v33);
