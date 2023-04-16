@@ -132,7 +132,7 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 			v29++;
 			v36 = NbPix; // nb points to copy
 			v37 = OffsetBegin; // start x
-			v38 = OffsetBegin; // nb pix count
+			v38 = OffsetBegin & 0xFF; // nb pix count
 			v39 = pixDst + OffsetBegin; // new pos screen
 			v40 = pixSrc + OffsetBegin;
 			while (1)
@@ -195,7 +195,10 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 			if (something2)
 			{
 				// don't copy everything
-				goto LABEL_CPT;
+        v37 += v36;
+        memcpy(v39, v40, v37);
+        // No need to advance v39 and v40
+        break;
 			}
 			memcpy(v39, v40, v37);
 			v40 += v37;
@@ -231,7 +234,6 @@ LABEL_OKDRAW:
 				v36 -= v37;
 				if (v42)
 				{
-LABEL_CPT:
 					v37 += v36;
 					memcpy(v39, v40, v37);
 					// No need to advance v39 and v40
