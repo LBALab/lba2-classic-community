@@ -64,8 +64,6 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   U8 v43; // ah@31
   U8 v44; // al@34
   bool v45; // cf@34
-  U8 *v48; // [sp-1Ch] [bp-20h]@30
-  U8 *v50; // [sp-18h] [bp-1Ch]@30
 
 	U8 something1 = 0;
 	U8 something2 = 0;
@@ -131,8 +129,6 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 		do
 		{
 			// l1:
-			v50 = pixSrc;
-			v48 = pixDst;
 			v34 = *v29; // nb blocks
 			v35 = v29 + 1;
 			v36 = NbPix; // nb points to copy
@@ -254,9 +250,9 @@ LABEL_CPT:
 			}
 LABEL_APLUS:
 			yMax = v34;
-			pixDst = screenWidth + v48;
+			pixDst += screenWidth;
 			v29 = &v35[v34];
-			pixSrc = screenWidth + v50;
+			pixSrc += screenWidth;
 			v33--;
 		}
 		while (v33);
