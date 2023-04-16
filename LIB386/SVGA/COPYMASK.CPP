@@ -14,6 +14,8 @@
 #include <SVGA/COPYMASK.H>
 
 #include <string.h>
+
+#include <SYSTEM/ADELINE.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 
@@ -29,46 +31,22 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   // TODO: revisit and clean this up when characters are rendered
   // This function is supposed (I think) to make items in indoor levels to
   // be drawn on top of the character.
-  Struc_Mask_Header *mask; // esi@1
-  U8 *v4;                  // ebp@1
-  U32 xMin;                // ebx@1
-  U32 yMin;                // ecx@1
-  U8 *maskData;            // esi@1
-  U32 xMax;                // edx@1
-  U32 yMax;                // eax@1
-  char v21;                // al@9
-  U8 v22;                  // of@9
-  U32 NbPix;               // edi@27
-  U8 *pixSrc;              // esi@29
-  U8 *v29;                 // ebp@29
-  int offFirstPix;         // edi@29
-  U8 *pixDst;              // edi@29
-  int v33;                 // edx@29
-  U8 nbBlocks;                  // bl@30
-  U8 v36;                  // bh@30
-  unsigned int v37;        // ecx@30
-  U8 v38;                  // ah@30
-  U8 *v39;                 // edi@30
-  U8 *v40;                 // esi@30
-  U8 nbPixToJump;                  // al@31
-  bool v42;                // cf@31
-  U8 v43;                  // ah@31
-  U8 v44;                  // al@34
-  bool v45;                // cf@34
-
-  U8 something1 = 0;
-  U8 something2 = 0;
   U32 screenWidth = TabOffLine[1];
 
-  mask = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
-  v4 = (U8 *)src;
-  xMin = mask->HotX + x;
-  yMin = mask->HotY + y;
-  maskData = (U8 *)mask + sizeof(Struc_Mask_Header); // Skip header
+  Struc_Mask_Header *maskHeader = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
+  U32 xMin = maskHeader->HotX + x;
+  U32 yMin = maskHeader->HotY + y;
+  U8 *maskData = (U8 *)maskHeader + sizeof(Struc_Mask_Header); // Skip header
 
   // Test Clipping
-  xMax = mask->DeltaX + xMin - 1;
-  yMax = mask->DeltaY + yMin - 1;
+  U32 xMax = maskHeader->DeltaX + xMin - 1;
+  U32 yMax = maskHeader->DeltaY + yMin - 1;
+
+  U32 marginTop = 0;
+  U32 marginLeft = 0;
+  U32 marginRight = 0;
+  U32 marginBottom = 0;
+
   if (xMin < ClipXMin || yMin < ClipYMin || xMax > ClipXMax || yMax > ClipYMax)
   {
     // ClippingMask:
@@ -80,191 +58,42 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
     if (yMin < ClipYMin)
     {
       // Clipping top
-      yMin = ClipYMin - yMin;
-      do
-      {
-        // NextH:
-        maskData += *maskData + 1;
-        --yMin;
-      } while (yMin != 0);
-      yMin = ClipYMin;
+      marginTop = ClipYMin - yMin;
     }
     // Clipping bottom
     // PasHaut:
     if (yMax > ClipYMax)
     {
-      yMax = ClipYMax;
+      marginBottom = yMax - ClipYMax;
     }
     // Clipping left
     // PasBas:
-    S32 OffsetBegin = 0;
     if (xMin < ClipXMin)
     {
-      OffsetBegin = ClipXMin - xMin;
+      marginLeft = ClipXMin - xMin;
     }
     // Clipping right
     // PasGauche:
     if (xMax > ClipXMax)
     {
-      xMax = ClipXMax;
+      marginRight = xMax - ClipXMax;
     }
-    NbPix = xMax - xMin - OffsetBegin + 1;
-    // PasDroit:
-    v29 = maskData;
-    offFirstPix = TabOffLine[yMin] + xMin;
-    pixSrc = v4 + offFirstPix;
-    pixDst = (U8 *)Log + offFirstPix;
-    v33 = yMax - yMin + 1;
-    do
-    {
-      // l1:
-      nbBlocks = *v29; // nb blocks
-      v29++;
-      v36 = NbPix;                // nb points to copy
-      v37 = OffsetBegin;          // start x
-      U8 nbPixCount = OffsetBegin & 0xFF;   // nb pix count
-      v39 = pixDst + OffsetBegin; // new pos screen
-      v40 = pixSrc + OffsetBegin;
-      while (1)
-      {
-        // l0:
-        nbPixToJump = *v29; // nb pix to jump
-        v29++;
-        --nbBlocks;
-        v42 = nbPixCount < nbPixToJump;
-        v43 = nbPixCount - nbPixToJump;
-        if (v43 == 0)
-        {
-          // falls flat
-          goto LABEL_OKDRAW;
-        }
-
-        if (v42)
-        {
-          // rptj:
-          v43 = -v43;
-          v37 = v43; // nb pix to jump
-          something1 = v36 > v43;
-          v36 -= v43; // remains to write
-          if (something1)
-          {
-            v39 += v37;
-            v40 += v37;
-            goto LABEL_OKDRAW;
-          }
-          goto LABEL_APLUS;
-        }
-        if (nbBlocks == 0)
-        {
-          goto LABEL_APLUS;
-        }
-
-        v44 = *v29; // nb copy point
-        v29++;
-        --nbBlocks;
-        v45 = v43 < v44;
-        v38 = v43 - v44;
-        if (v38 == 0)
-        {
-          goto LABEL_OKJUMP;
-        }
-        if (v45)
-        {
-          break;
-        }
-        if (nbBlocks == 0)
-        {
-          goto LABEL_APLUS;
-        }
-      }
-      // rgtc:
-      v38 = -v38; // nb pix to copy
-      v37 = v38;
-      something2 = v36 < v38;
-      v36 -= v38;
-      if (something2)
-      {
-        // don't copy everything
-        v37 += v36;
-        memcpy(v39, v40, v37);
-        v40 += v37;
-        v39 += v37;
-        v37 = 0;
-        goto LABEL_APLUS;
-      }
-      memcpy(v39, v40, v37);
-      v40 += v37;
-      v39 += v37;
-      v37 = 0;
-      if (v36 == 0)
-      {
-        goto LABEL_APLUS;
-      }
-    LABEL_OKJUMP:
-      while (2)
-      {
-        v37 = *v29; // nb pix to jump
-        v29++;
-        --nbBlocks;
-        if (nbBlocks == 0)
-        {
-          goto LABEL_APLUS;
-        }
-        v22 = v36 <= v37;
-        v36 -= v37;
-        if (v22)
-        {
-          goto LABEL_APLUS;
-        }
-        v39 += v37;
-        v40 += v37;
-      LABEL_OKDRAW:
-        v37 = *v29; // nb pix to copy
-        v29++;
-        --nbBlocks;
-        v42 = v36 < v37;
-        v36 -= v37;
-        if (v42)
-        {
-          v37 += v36;
-          memcpy(v39, v40, v37);
-          v39 += v37;
-          v40 += v37;
-          v37 = 0;
-          goto LABEL_APLUS;
-        }
-        memcpy(v39, v40, v37);
-        v40 += v37;
-        v39 += v37;
-        v37 = 0;
-        if (v36 != 0 && nbBlocks)
-        {
-          goto LABEL_OKJUMP;
-        }
-        goto LABEL_APLUS;
-      }
-    LABEL_APLUS:
-      pixDst += screenWidth;
-      v29 += nbBlocks;
-      pixSrc += screenWidth;
-      v33--;
-    } while (v33);
-
-    return;
   }
 
   // Calculate Offset Screen
   U32 deltaX = xMax - xMin + 1; // (deltaX)
   U32 initialOffset = TabOffLine[yMin] + xMin;
   U8 *screen = (U8 *)Log + initialOffset;
-  U8 *source = (U8 *)v4 + initialOffset;
+  U8 *source = (U8 *)src + initialOffset;
   U32 deltaY = yMax - yMin + 1; // NbLine (deltaY)
   U32 lineOffset = screenWidth - deltaX;
-  do
+  for (U32 y = 0; y < deltaY; y++)
   {
     // NextLine:
     U8 numberOfBlocks = *maskData; // Nb Block for this line
     maskData++;
+    U32 x = 0;
+
     do
     {
       // SameLine:
@@ -277,20 +106,28 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
       {
         break;
       }
+
+      x += numberOfZeroToJump;
+
       U32 numberOfPixelToCopy = *maskData; // Nb Zero to Write
       maskData++;
       do
       {
         // loopb:
-        *screen = *source;
+        if (x >= marginLeft && x < deltaX - marginRight
+            && y >= marginTop && y < deltaY - marginBottom)
+        {
+          *screen = *source;
+        }
+        x++;
         source++;
         screen++;
         --numberOfPixelToCopy;
       } while (numberOfPixelToCopy);
       numberOfBlocks--;
     } while (numberOfBlocks);
+
     screen += lineOffset;
     source += lineOffset;
-    --deltaY;
-  } while (deltaY);
+  }
 }
