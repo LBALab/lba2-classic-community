@@ -1506,12 +1506,21 @@ void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 		// @@Clip_X3:
 		else if (y0 < ClipYMin)
 		{
+      if (y1 < ClipYMin)
+      {
+        return;
+      }
 			x0 = (ClipYMin - y0) * diffX / diffY + x0;
 			y0 = ClipYMin;
 		}
 		// @@Clip_Y0:
 		else if (y0 > ClipYMax)
 		{
+      if (y1 > ClipYMax)
+      {
+        return;
+      }
+
 			x0 = (ClipYMax - y0) * diffX / diffY + x0;
 			y0 = ClipYMax;
 		}
