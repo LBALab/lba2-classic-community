@@ -36,14 +36,6 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   U8 *maskData;            // esi@1
   U32 xMax;                // edx@1
   U32 yMax;                // eax@1
-  int v12;                 // edx@5
-  int v13;                 // ebx@5
-  U8 *v14;                 // edi@5
-  U8 *v15;                 // ebp@5
-  char v16;                // bh@5
-  int v17;                 // edx@5
-  int v18;                 // ecx@5
-  char v19;                // bl@6
   char v21;                // al@9
   U8 v22;                  // of@9
   U32 NbPix;               // edi@27
@@ -257,50 +249,48 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
       pixSrc += screenWidth;
       v33--;
     } while (v33);
+
+    return;
   }
-  else
+
+  // Calculate Offset Screen
+  U32 deltaX = xMax - xMin + 1; // (deltaX)
+  U32 initialOffset = TabOffLine[yMin] + xMin;
+  U8 *screen = (U8 *)Log + initialOffset;
+  U8 *source = (U8 *)v4 + initialOffset;
+  U32 deltaY = yMax - yMin + 1; // NbLine (deltaY)
+  U32 lineOffset = screenWidth - deltaX;
+  do
   {
-    // Calculate Offset Screen
-    v12 = xMax - xMin + 1; // (deltaX)
-    v13 = TabOffLine[yMin] + xMin;
-    v14 = (U8 *)Log + v13;
-    v15 = (U8 *)v4 + v13;
-    v16 = yMax - yMin + 1; // NbLine (deltaY)
-    v17 = screenWidth - v12;
-    v18 = 0; // counter
-    yMax = 0;
+    // NextLine:
+    U8 numberOfBlocks = *maskData; // Nb Block for this line
+    maskData++;
     do
     {
-      // NextLine:
-      v19 = *maskData; // Nb Block for this line
+      // SameLine:
+      U32 numberOfZeroToJump = *maskData; // Nb Zero to Jump
+      maskData++;
+      screen += numberOfZeroToJump; // Incrust on Log
+      source += numberOfZeroToJump; // And on PtSrc
+      numberOfBlocks--;
+      if (numberOfBlocks == 0)
+      {
+        break;
+      }
+      U32 numberOfPixelToCopy = *maskData; // Nb Zero to Write
       maskData++;
       do
       {
-        // SameLine:
-        yMax = *maskData; // Nb Zero to Jump
-        maskData++;
-        v14 += yMax; // Incrust on Log
-        v15 += yMax; // And on PtSrc
-        v19--;
-        if (v19 == 0)
-        {
-          break;
-        }
-        v18 = *maskData; // Nb Zero to Write
-        maskData++;
-        do
-        {
-          // loopb:
-          *v14 = *v15;
-          v15++;
-          v14++;
-          --v18;
-        } while (v18);
-        v19--;
-      } while (v19);
-      v14 += v17;
-      v15 += v17;
-      --v16;
-    } while (v16);
-  }
+        // loopb:
+        *screen = *source;
+        source++;
+        screen++;
+        --numberOfPixelToCopy;
+      } while (numberOfPixelToCopy);
+      numberOfBlocks--;
+    } while (numberOfBlocks);
+    screen += lineOffset;
+    source += lineOffset;
+    --deltaY;
+  } while (deltaY);
 }
