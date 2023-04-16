@@ -29,17 +29,13 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   // TODO: revisit and clean this up when characters are rendered
 	// This function is supposed (I think) to make items in indoor levels to
 	// be drawn on top of the character.
-	int v1; // ebx@1
-  int v2; // ecx@1
-  Struc_Mask_Header *v3; // esi@1
+  Struc_Mask_Header *mask; // esi@1
   U8 *v4; // ebp@1
-  int v5; // eax@1
-  int v6; // edx@1
-  int v7; // ebx@1
-  int v8; // ecx@1
-  U8 *v9; // esi@1
-  int v10; // edx@1
-  int v11; // eax@1
+  U32 xMin; // ebx@1
+  U32 yMin; // ecx@1
+  U8 *maskData; // esi@1
+  U32 xMax; // edx@1
+  U32 yMax; // eax@1
   int v12; // edx@5
   int v13; // ebx@5
   U8 *v14; // edi@5
@@ -50,16 +46,11 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   char v19; // bl@6
   char v21; // al@9
   U8 v22; // of@9
-  int v23; // ecx@20
-  int v24; // edi@20
-  int v25; // eax@20
-  int v26; // edi@27
-  U8 *v27; // edi@29
-  U8 *v28; // esi@29
+  U32 NbPix; // edi@27
+  U8 *pixSrc; // esi@29
   U8 *v29; // ebp@29
-  int v30; // edi@29
-  U8 *v31; // esi@29
-  U8 *v32; // edi@29
+  int offFirstPix; // edi@29
+  U8 *pixDst; // edi@29
   int v33; // edx@29
   U8 v34; // bl@30
   U8 *v35; // ebp@30
@@ -73,97 +64,83 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
   U8 v43; // ah@31
   U8 v44; // al@34
   bool v45; // cf@34
-  U8 *v47; // [sp-1Ch] [bp-20h]@8
   U8 *v48; // [sp-1Ch] [bp-20h]@30
-  int v49; // [sp-18h] [bp-1Ch]@8
   U8 *v50; // [sp-18h] [bp-1Ch]@30
 
 	U8 something1 = 0;
 	U8 something2 = 0;
 	U32 screenWidth = TabOffLine[1];
 
-  v1 = x;
-  v2 = y;
-  v3 = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
+  mask = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
   v4 = (U8 *)src;
-  v5 = v3->HotX;
-  v6 = v3->HotY;
-  v7 = v5 + v1;
-  v8 = v6 + v2;
-  v6 = v3->DeltaX;
-  v5 = v3->DeltaY;
-  v9 = (U8 *)v3 + sizeof(Struc_Mask_Header); // Skip header
+  xMin = mask->HotX + x;
+  yMin = mask->HotY + y;
+  maskData = (U8 *)mask + sizeof(Struc_Mask_Header); // Skip header
 
 	// Test Clipping
-  v10 = v6 + v7 - 1;
-  v11 = v5 + v8 - 1;
-  if ( v7 < ClipXMin || v8 < ClipYMin || v10 > ClipXMax || v11 > ClipYMax )
+  xMax = mask->DeltaX + xMin - 1;
+  yMax = mask->DeltaY + yMin - 1;
+  if (xMin < ClipXMin || yMin < ClipYMin || xMax > ClipXMax || yMax > ClipYMax)
   {
 		// ClippingMask:
-    if ( v7 > ClipXMax || v8 > ClipYMax || v10 < ClipXMin || v11 < ClipYMin )
+    if (xMin > ClipXMax || yMin > ClipYMax || xMax < ClipXMin || yMax < ClipYMin)
     {
 			return;
 		}
 
-		if ( v8 < ClipYMin )
+		if (yMin < ClipYMin)
 		{
 			// Clipping top
-			v23 = ClipYMin - v8;
-			v24 = v11;
-			v25 = 0;
+			yMin = ClipYMin - yMin;
 			do
 			{
 				// NextH:
-				v25 = *v9;
-				v9 += v25 + 1;
-				--v23;
+				maskData += *maskData + 1;
+				--yMin;
 			}
-			while ( v23 );
-			v8 = ClipYMin;
-			v11 = v24;
+			while (yMin != 0);
+			yMin = ClipYMin;
 		}
 		// Clipping bottom
 		// PasHaut:
-		if ( v11 > ClipYMax )
+		if (yMax > ClipYMax)
 		{
-			v11 = ClipYMax;
+			yMax = ClipYMax;
 		}
 		// Clipping left
 		// PasBas:
 		S32 OffsetBegin = 0;
-		if ( v7 < ClipXMin )
+		if (xMin < ClipXMin)
 		{
-			OffsetBegin = ClipXMin - v7;
+			OffsetBegin = ClipXMin - xMin;
 		}
 		// Clipping right
 		// PasGauche:
-		v26 = v10 - v7 - OffsetBegin + 1;
-		if ( v10 > ClipXMax )
+		NbPix = xMax - xMin - OffsetBegin + 1;
+		if (xMax > ClipXMax)
 		{
-			v26 -= v10 - ClipXMax;
+			NbPix -= xMax - ClipXMax;
+      xMax = ClipXMax;
 		}
 		// PasDroit:
-		U32 NbPix = v26;
-		v27 = v9;
-		v28 = v4;
-		v29 = v27;
-		v30 = v7 + TabOffLine[v8];
-		v31 = v30 + v28;
-		v32 = (U8 *)Log + v30;
-		v33 = v11 - v8 + 1;
+		v29 = maskData;
+		offFirstPix = TabOffLine[yMin] + xMin;
+		pixSrc = v4 + offFirstPix;
+		pixDst = (U8 *)Log + offFirstPix;
+		v33 = yMax - yMin + 1;
 		do
 		{
 			// l1:
-			v50 = v31;
-			v48 = v32;
+			v50 = pixSrc;
+			v48 = pixDst;
 			v34 = *v29; // nb blocks
 			v35 = v29 + 1;
 			v36 = NbPix; // nb points to copy
 			v37 = OffsetBegin; // start x
 			v38 = OffsetBegin; // nb pix count
-			v39 = v32 + OffsetBegin; // new pos screen
-			v40 = v31 + OffsetBegin;
-			while ( 1 )
+			v39 = pixDst + OffsetBegin; // new pos screen
+			v40 = pixSrc + OffsetBegin;
+			while (1)
 			{
 				// l0:
 				v41 = *v35; // nb pix to jump
@@ -171,7 +148,7 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 				--v34;
 				v42 = v38 < v41;
 				v43 = v38 - v41;
-				if ( v43 == 0 )
+				if (v43 == 0)
 				{
 					// falls flat
 					goto LABEL_OKDRAW;
@@ -234,7 +211,7 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 				goto LABEL_APLUS;
 			}
 LABEL_OKJUMP:
-			while ( 2 )
+			while (2)
 			{
 				v37 = *v35; // nb pix to jump
 				v35++;
@@ -276,10 +253,10 @@ LABEL_CPT:
 				break;
 			}
 LABEL_APLUS:
-			v11 = v34;
-			v32 = screenWidth + v48;
+			yMax = v34;
+			pixDst = screenWidth + v48;
 			v29 = &v35[v34];
-			v31 = screenWidth + v50;
+			pixSrc = screenWidth + v50;
 			v33--;
 		}
 		while (v33);
@@ -287,48 +264,33 @@ LABEL_APLUS:
   else
   {
 		// Calculate Offset Screen
-    v12 = v10 - v7 + 1; // (deltaX)
-    v13 = TabOffLine[v8] + v7;
+    v12 = xMax - xMin + 1; // (deltaX)
+    v13 = TabOffLine[yMin] + xMin;
     v14 = (U8 *)Log + v13;
     v15 = (U8 *)v4 + v13;
-    v16 = v11 - v8 + 1; // NbLine (deltaY)
+    v16 = yMax - yMin + 1; // NbLine (deltaY)
     v17 = screenWidth - v12;
     v18 = 0; // counter
-    v11 = 0;
+    yMax = 0;
     do
     {
 			// NextLine:
-      v19 = *v9; // Nb Block for this line
-			v9++;
+      v19 = *maskData; // Nb Block for this line
+			maskData++;
       do
       {
 				// SameLine:
-        v11 = *v9; // Nb Zero to Jump
-				v9++;
-        v14 += v11; // Incrust on Log
-        v15 += v11; // And on PtSrc
+        yMax = *maskData; // Nb Zero to Jump
+				maskData++;
+        v14 += yMax; // Incrust on Log
+        v15 += yMax; // And on PtSrc
         v19--;
         if (v19 == 0)
 				{
           break;
 				}
-        v18 = *v9; // Nb Zero to Write
-				v9++;
-				// TODO: I don't know what this "cache" part is for, but I think
-				// it can be safely removed
-        v49 = v18;
-        v47 = v14;
-        do
-        {
-					// @@LoopLoadCache:
-          v21 = *v14;
-          v14 += 32;
-          v18 -= 32;
-        }
-        while (v18 > 0);
-        v14 = v47;
-        v18 = v49;
-				// TODO: remove the code above until this line?
+        v18 = *maskData; // Nb Zero to Write
+				maskData++;
         do
         {
 					// loopb:
@@ -337,14 +299,14 @@ LABEL_APLUS:
 					v14++;
           --v18;
         }
-        while ( v18 );
+        while (v18);
         v19--;
       }
-      while ( v19 );
+      while (v19);
       v14 += v17;
       v15 += v17;
       --v16;
     }
-    while ( v16 );
+    while (v16);
   }
 }
