@@ -112,12 +112,11 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
     }
     // Clipping right
     // PasGauche:
-    NbPix = xMax - xMin - OffsetBegin + 1;
     if (xMax > ClipXMax)
     {
-      NbPix -= xMax - ClipXMax;
       xMax = ClipXMax;
     }
+    NbPix = xMax - xMin - OffsetBegin + 1;
     // PasDroit:
     v29 = maskData;
     offFirstPix = TabOffLine[yMin] + xMin;
