@@ -195,8 +195,10 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         // don't copy everything
         v37 += v36;
         memcpy(v39, v40, v37);
-        // No need to advance v39 and v40
-        break;
+        v40 += v37;
+        v39 += v37;
+        v37 = 0;
+        goto LABEL_APLUS;
       }
       memcpy(v39, v40, v37);
       v40 += v37;
@@ -214,13 +216,13 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         --nbBlocks;
         if (nbBlocks == 0)
         {
-          break;
+          goto LABEL_APLUS;
         }
         v22 = v36 <= v37;
         v36 -= v37;
         if (v22)
         {
-          break;
+          goto LABEL_APLUS;
         }
         v39 += v37;
         v40 += v37;
@@ -234,8 +236,10 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         {
           v37 += v36;
           memcpy(v39, v40, v37);
-          // No need to advance v39 and v40
-          break;
+          v39 += v37;
+          v40 += v37;
+          v37 = 0;
+          goto LABEL_APLUS;
         }
         memcpy(v39, v40, v37);
         v40 += v37;
@@ -243,12 +247,11 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
         v37 = 0;
         if (v36 != 0 && nbBlocks)
         {
-          continue;
+          goto LABEL_OKJUMP;
         }
-        break;
+        goto LABEL_APLUS;
       }
     LABEL_APLUS:
-      yMax = nbBlocks;
       pixDst += screenWidth;
       v29 += nbBlocks;
       pixSrc += screenWidth;
