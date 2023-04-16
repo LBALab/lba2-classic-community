@@ -1316,296 +1316,296 @@ Line_ZBuffer_NZW	ENDP
 
 void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 {
-	S32 color = col;
-	col &= 0xFF;
-	if (Fill_Flag_Fog)
-	{
-		color = Fill_Logical_Palette[col];
-	}
-	ColorX = color;
-	ColorY = color;
-	Color = color;
+  S32 color = col;
+  col &= 0xFF;
+  if (Fill_Flag_Fog)
+  {
+    color = Fill_Logical_Palette[col];
+  }
+  ColorX = color;
+  ColorY = color;
+  Color = color;
 
-	while (true)
-	{
-		// @@Trace_Still:
-		S32 diffX = x1 - x0;
-		if (diffX == 0)
-		{
-			// *** DeltaX nul ***
-			// @@DX_Nul:
-			if (x0 < ClipXMin || x0 > ClipXMax)
-			{
-				return;
-			}
+  while (true)
+  {
+    // @@Trace_Still:
+    S32 diffX = x1 - x0;
+    if (diffX == 0)
+    {
+      // *** DeltaX nul ***
+      // @@DX_Nul:
+      if (x0 < ClipXMin || x0 > ClipXMax)
+      {
+        return;
+      }
 
-			S32 diffY = y1 - y0;
-			if (diffY == 0)
-			{
-				// *** Plot ***
-				// @@Plot:
-				if (y0 < ClipYMin || y0 > ClipYMax)
-				{
-					return;
-				}
+      S32 diffY = y1 - y0;
+      if (diffY == 0)
+      {
+        // *** Plot ***
+        // @@Plot:
+        if (y0 < ClipYMin || y0 > ClipYMax)
+        {
+          return;
+        }
 
-				U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
-				*dst = Color;
-				return;
-			}
+        U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+        *dst = Color;
+        return;
+      }
 
-			if (y0 < ClipYMin)
-			{
-				if (y1 < ClipYMin)
-				{
-					return;
-				}
+      if (y0 < ClipYMin)
+      {
+        if (y1 < ClipYMin)
+        {
+          return;
+        }
 
-				y0 = ClipYMin;
-			}
+        y0 = ClipYMin;
+      }
 
-			// @@DX_Y1:
-			if (y0 > ClipYMax)
-			{
-				if (y1 > ClipYMax)
-				{
-					return;
-				}
+      // @@DX_Y1:
+      if (y0 > ClipYMax)
+      {
+        if (y1 > ClipYMax)
+        {
+          return;
+        }
 
-				y0 = ClipYMax;
-			}
+        y0 = ClipYMax;
+      }
 
-			// @@DX_Y1b:
-			if (y1 < ClipYMin)
-			{
-				y1 = ClipYMin;
-			}
+      // @@DX_Y1b:
+      if (y1 < ClipYMin)
+      {
+        y1 = ClipYMin;
+      }
 
-			// @@DX_Y2:
-			if (y1 > ClipYMax)
-			{
-				y1 = ClipYMax;
-			}
+      // @@DX_Y2:
+      if (y1 > ClipYMax)
+      {
+        y1 = ClipYMax;
+      }
 
-			// @@DX_Y2b:
-			S32 newDiffY = y1 - y0;
-			if (newDiffY < 0)
-			{
-				newDiffY = -newDiffY;
-				y0 = y1;
-			}
+      // @@DX_Y2b:
+      S32 newDiffY = y1 - y0;
+      if (newDiffY < 0)
+      {
+        newDiffY = -newDiffY;
+        y0 = y1;
+      }
 
-			// @@DX_Ok:
-			U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x1;
-			newDiffY++;
-			do
-			{
-				*dst = Color;
-				dst += ScreenPitch;
-				newDiffY--;
-			} while (newDiffY > 0);
+      // @@DX_Ok:
+      U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x1;
+      newDiffY++;
+      do
+      {
+        *dst = Color;
+        dst += ScreenPitch;
+        newDiffY--;
+      } while (newDiffY > 0);
 
-			return;
-		}
+      return;
+    }
 
-		S32 diffY = y1 - y0;
-		if (diffY == 0)
-		{
-			// *** DeltaY nul ***
-			// @@DY_Nul:
-			if (y0 < ClipYMin || y0 > ClipYMax)
-			{
-				return;
-			}
+    S32 diffY = y1 - y0;
+    if (diffY == 0)
+    {
+      // *** DeltaY nul ***
+      // @@DY_Nul:
+      if (y0 < ClipYMin || y0 > ClipYMax)
+      {
+        return;
+      }
 
-			if (x0 < ClipXMin)
-			{
-				if (x1 < ClipXMin)
-				{
-					return;
-				}
+      if (x0 < ClipXMin)
+      {
+        if (x1 < ClipXMin)
+        {
+          return;
+        }
 
-				x0 = ClipXMin;
-			}
+        x0 = ClipXMin;
+      }
 
-			// @@DY_X1:
-			if (x0 > ClipXMax)
-			{
-				if (x1 > ClipXMax)
-				{
-					return;
-				}
+      // @@DY_X1:
+      if (x0 > ClipXMax)
+      {
+        if (x1 > ClipXMax)
+        {
+          return;
+        }
 
-				x0 = ClipXMax;
-			}
+        x0 = ClipXMax;
+      }
 
-			// @@DY_X1b:
-			if (x1 < ClipXMin)
-			{
-				x1 = ClipXMin;
-			}
+      // @@DY_X1b:
+      if (x1 < ClipXMin)
+      {
+        x1 = ClipXMin;
+      }
 
-			// @@DY_X2:
-			if (x1 > ClipXMax)
-			{
-				x1 = ClipXMax;
-			}
+      // @@DY_X2:
+      if (x1 > ClipXMax)
+      {
+        x1 = ClipXMax;
+      }
 
-			// @@DY_X2b:
-			S32 newDiffX = x1 - x0;
-			if (newDiffX < 0)
-			{
-				newDiffX = -newDiffX;
-				x0 = x1;
-			}
+      // @@DY_X2b:
+      S32 newDiffX = x1 - x0;
+      if (newDiffX < 0)
+      {
+        newDiffX = -newDiffX;
+        x0 = x1;
+      }
 
-			// @@DY_Ok:
-			U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
-			newDiffX++;
-			do
-			{
-				*dst = Color;
-				dst++;
-				newDiffX--;
-			} while (newDiffX > 0);
-		}
+      // @@DY_Ok:
+      U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+      newDiffX++;
+      do
+      {
+        *dst = Color;
+        dst++;
+        newDiffX--;
+      } while (newDiffX > 0);
+    }
 
-		if (x0 < ClipXMin)
-		{
-			if (x1 < ClipXMin)
-			{
-				return;
-			}
+    if (x0 < ClipXMin)
+    {
+      if (x1 < ClipXMin)
+      {
+        return;
+      }
 
-			y0 = y0 - (x0 - ClipXMin) * diffY / diffX;
-			x0 = ClipXMin;
-		}
-		// @@Clip_X0:
-		else if (x0 > ClipXMax)
-		{
-			if (x1 > ClipXMax)
-			{
-				return;
-			}
+      y0 = y0 - (x0 - ClipXMin) * diffY / diffX;
+      x0 = ClipXMin;
+    }
+    // @@Clip_X0:
+    else if (x0 > ClipXMax)
+    {
+      if (x1 > ClipXMax)
+      {
+        return;
+      }
 
-			y0 = y0 - (x0 - ClipXMax) * diffY / diffX;
-			x0 = ClipXMax;
-		}
-		// @@Clip_X1:
-		else if (x1 < ClipXMin)
-		{
-			y1 = y1 - (x1 - ClipXMin) * diffY / diffX;
-			x1 = ClipXMin;
-		}
-		// @@Clip_X2:
-		else if (x1 > ClipXMax)
-		{
-			y1 = y1 - (x1 - ClipXMax) * diffY / diffX;
-			x1 = ClipXMax;
-		}
-		// @@Clip_X3:
-		else if (y0 < ClipYMin)
-		{
+      y0 = y0 - (x0 - ClipXMax) * diffY / diffX;
+      x0 = ClipXMax;
+    }
+    // @@Clip_X1:
+    else if (x1 < ClipXMin)
+    {
+      y1 = y1 - (x1 - ClipXMin) * diffY / diffX;
+      x1 = ClipXMin;
+    }
+    // @@Clip_X2:
+    else if (x1 > ClipXMax)
+    {
+      y1 = y1 - (x1 - ClipXMax) * diffY / diffX;
+      x1 = ClipXMax;
+    }
+    // @@Clip_X3:
+    else if (y0 < ClipYMin)
+    {
       if (y1 < ClipYMin)
       {
         return;
       }
-			x0 = (ClipYMin - y0) * diffX / diffY + x0;
-			y0 = ClipYMin;
-		}
-		// @@Clip_Y0:
-		else if (y0 > ClipYMax)
-		{
+      x0 = (ClipYMin - y0) * diffX / diffY + x0;
+      y0 = ClipYMin;
+    }
+    // @@Clip_Y0:
+    else if (y0 > ClipYMax)
+    {
       if (y1 > ClipYMax)
       {
         return;
       }
 
-			x0 = (ClipYMax - y0) * diffX / diffY + x0;
-			y0 = ClipYMax;
-		}
-		// @@Clip_Y1:
-		else if (y1 < ClipYMin)
-		{
-			x1 = x1 + (ClipYMin - y1) * diffX / diffY;
-			y1 = ClipYMin;
-		}
-		// @@Clip_Y2:
-		else if (y1 > ClipYMax)
-		{
-			x1 = x1 + (ClipYMax - y1) * diffX / diffY;
-			y1 = ClipYMax;
-		}
-		// @@Clip_Y3:
-		else
-		{
-			S32 incrY = ScreenPitch;
-			S32 incrX = 1;
-			S32 deltaX = x1 - x0;
-			if (deltaX < 0)
-			{
-				deltaX = -deltaX;
-				incrX = -incrX;
-			}
+      x0 = (ClipYMax - y0) * diffX / diffY + x0;
+      y0 = ClipYMax;
+    }
+    // @@Clip_Y1:
+    else if (y1 < ClipYMin)
+    {
+      x1 = x1 + (ClipYMin - y1) * diffX / diffY;
+      y1 = ClipYMin;
+    }
+    // @@Clip_Y2:
+    else if (y1 > ClipYMax)
+    {
+      x1 = x1 + (ClipYMax - y1) * diffX / diffY;
+      y1 = ClipYMax;
+    }
+    // @@Clip_Y3:
+    else
+    {
+      S32 incrY = ScreenPitch;
+      S32 incrX = 1;
+      S32 deltaX = x1 - x0;
+      if (deltaX < 0)
+      {
+        deltaX = -deltaX;
+        incrX = -incrX;
+      }
 
-			S32 deltaY = y1 - y0;
-			if (deltaY < 0)
-			{
-				deltaY = -deltaY;
-				incrY = -incrY;
-			}
+      S32 deltaY = y1 - y0;
+      if (deltaY < 0)
+      {
+        deltaY = -deltaY;
+        incrY = -incrY;
+      }
 
-			U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+      U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
 
-			if (deltaX > deltaY)
-			{
-				S32 halfX = deltaX / 2;
-				S32 x = deltaX;
+      if (deltaX > deltaY)
+      {
+        S32 halfX = deltaX / 2;
+        S32 x = deltaX;
 
-				do
-				{
-					// @@Do_X:
-					*dst = ColorX;
+        do
+        {
+          // @@Do_X:
+          *dst = ColorX;
 
-					halfX += deltaY;
-					if (halfX >= deltaX)
-					{
-						halfX -= deltaX;
-						dst += incrY;
-					}
+          halfX += deltaY;
+          if (halfX >= deltaX)
+          {
+            halfX -= deltaX;
+            dst += incrY;
+          }
 
-					dst += incrX;
-					x--;
-				} while (x >= 0);
+          dst += incrX;
+          x--;
+        } while (x >= 0);
 
-				return;
-			}
-			else
-			{
-				// @@Draw_Y:
-				S32 halfY = deltaY / 2;
-				S32 y = deltaY;
+        return;
+      }
+      else
+      {
+        // @@Draw_Y:
+        S32 halfY = deltaY / 2;
+        S32 y = deltaY;
 
-				do
-				{
-					// @@Do_Y:
-					*dst = ColorY;
+        do
+        {
+          // @@Do_Y:
+          *dst = ColorY;
 
-					halfY += deltaX;
-					if (halfY >= deltaY)
-					{
-						halfY -= deltaY;
-						dst += incrX;
-					}
+          halfY += deltaX;
+          if (halfY >= deltaY)
+          {
+            halfY -= deltaY;
+            dst += incrX;
+          }
 
-					dst += incrY;
-					y--;
-				} while (y >= 0);
+          dst += incrY;
+          y--;
+        } while (y >= 0);
 
-				return;
-			}
-		}
-	}
+        return;
+      }
+    }
+  }
 }
 
 void Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
