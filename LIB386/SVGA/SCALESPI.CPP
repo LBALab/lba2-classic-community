@@ -1,560 +1,360 @@
-/*
-Struc_Sprite	STRUC
-  Delta_X	db	0
-  Delta_Y	db	0
-  Hot_X		db	0
-  Hot_Y		db	0
-Struc_Sprite	ENDS
-
-Start		dd	0000
-
-Start_X		dd	0
-Start_Y		dd	0
-Skip_Next_Line	dd	0
-
-; Runtime code patch refactor, uses memory instead of instruction substitution
-X_Dec   DWORD 12345678h
-X_Int   DWORD 12345678h
-Y_Dec   DWORD 12345678h
-Y_Int   DWORD 12345678h
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.CODE
-
-;*══════════════════════════════════════════════════════════════════════════*
-		public   C     ScaleSprite
-
-;*══════════════════════════════════════════════════════════════════════════*
-ScaleSprite	proc uses ebp,		\
-		numbrick:	DWORD, 	\
-		xbrick:		DWORD,	ybrick:		DWORD, \
-		factorx:	DWORD,	factory:	DWORD, \
-		bankbrick:	DWORD
-
-		mov	eax,[factorx]
-		mov	ebx,[factory]
-
-		mov	ecx,[numbrick]
-		mov	esi,[bankbrick]
-
-		test	eax,eax
-		jle	@@CareFactorX
-okx:
-		cmp	eax,65536
-		je	@@TestFastMode
-@@NoFastMode:
-		test	ebx,ebx
-		jle	@@CareFactorY
-oky:
-		mov	edx,[esi+ecx*4]
-		xor	eax,eax
-
-		add	esi,edx
-
-ScaleSpritePatch::
-		mov	[Start],esi
-		mov	al,[esi].Struc_Sprite.Delta_X
-
-;		movzx	eax,[esi].Struc_Sprite.Delta_X
-		imul	[factorx]
-
-		shl	edx,16
-		mov	ecx,eax
-
-		shr	ecx,16
-		mov	eax,dword ptr [esi].Struc_Sprite.Delta_X
-
-		shl	eax,8
-		or	ecx,edx			; ECX = New Delta_X
-
-		sar	eax,24
-
-;		movsx	eax,[esi].Struc_Sprite.Hot_X
-		imul	[factorx]
-
-		shl	edx,16
-		mov	ebx,eax
-
-		shr	ebx,16
-		xor	eax,eax
-
-		or	ebx,edx			; EBX = New Hot_X
-		mov	edx,1
-
-		idiv	[factorx]
-
-		mov	[factorx],eax		; Inverse factorx
-						; factorx now contains the gradiant
-						; for x interpolation
-		mov	edx,dword ptr [esi].Struc_Sprite.Delta_X
-
-		and	edx,0FFh
-		mov	edi,dword ptr [esi].Struc_Sprite.Delta_X
-
-		shr	edx,1
-
-		shl	edx,16
-
-		shr	edi,1
-		jnc	@@NoX
-
-		add	edx,8000h
-@@NoX:		mov	edi,ecx
-
-		shr	edi,1
-
-		imul	eax,edi
-
-		sub	edx,eax
-		mov	edi,[xbrick]		; gets sprite posX
-
-		mov	[Start_X],edx
-		add	edi,ebx			; EDI = Left_X
-
-		mov	eax,[ClipXMax]
-		mov	ebx,[ClipXMin]
-
-		inc	eax
-		mov	[ScreenXMin],edi	; Offset in Log screen (X coord)
-
-		cmp	edi,eax			; Out of the screen ?
-		jg	exit
-
-		cmp	edi,[ClipXMin]
-		jge	No_ClipXMin
-
-		mov	[ScreenXMin],ebx
-		dec	ebx
-
-		mov	edx,[Start_X]
-		sub	ebx,edi
-
-		imul	ebx,[factorx]
-
-		add	edx,ebx
-		mov	ebx,[ClipXMin]
-
-		add	[Start_X],edx		; 16:16
-No_ClipXMin:
-		add	edi,ecx			; EDI = Right_X
-
-		cmp	edi,ebx
-		jl	exit
-
-		mov	[ScreenXMax],edi
-
-		cmp	edi,eax
-		jl	No_ClipXMax
-		mov	[ScreenXMax],eax
-No_ClipXMax:
-		mov	eax,dword ptr [esi].Struc_Sprite.Delta_X
-
-		shr	eax,8
-
-		and	eax,0FFh
-
-;		movzx	eax,[esi].Struc_Sprite.Delta_X
-		imul	[factory]
-
-		shl	edx,16
-		mov	ecx,eax
-
-		shr	ecx,16
-		mov	eax,dword ptr [esi].Struc_Sprite.Delta_X
-
-		sar	eax,24
-		or	ecx,edx			; ECX = New Delta_Y
-
-;		movsx	eax,[esi].Struc_Sprite.Hot_Y
-		imul	[factory]
-
-		shl	edx,16
-		mov	ebx,eax
-
-		shr	ebx,16
-		xor	eax,eax
-
-		or	ebx,edx			; EBX = New Hot_Y
-		mov	edx,1
-
-		idiv	[factory]
-
-		mov	[factory],eax		; Inverse factory
-		mov	edx,dword ptr [esi].Struc_Sprite.Delta_Y
-
-		and	edx,0FFh
-		mov	edi,dword ptr [esi].Struc_Sprite.Delta_Y
-
-		shr	edx,1
-
-		shl	edx,16
-
-		shr	edi,1
-		jnc	@@NoY
-
-		add	edx,8000h
-@@NoY:		mov	edi,ecx
-
-		shr	edi,1
-
-		imul	eax,edi
-
-		sub	edx,eax
-		mov	edi,[ybrick]		; gets sprite posY
-
-		mov	[Start_Y],edx
-		add	edi,ebx			; EDI = Top Y
-
-		mov	eax,[ClipYMax]
-		mov	ebx,[ClipYMin]
-
-		inc	eax
-		mov	[ScreenYMin],edi	; Offset in Log screen (Y coord)
-
-		cmp	edi,eax			; Out of the screen ?
-		jg	exit
-
-		cmp	edi,ebx
-		jge	No_ClipYMin
-
-		mov	[ScreenYMin],ebx
-		dec	ebx
-
-		mov	edx,[Start_Y]
-		sub	ebx,edi
-
-		imul	ebx,[factory]
-
-		add	edx,ebx
-		mov	ebx,[ClipYMin]
-
-		add	[Start_Y],edx		; 16:16
-No_ClipYMin:
-		add	edi,ecx			; EDI = Low_Y
-
-		mov	[ScreenYMax],edi
-
-		cmp	edi,[ClipYMin]
-		jle	exit
-
-		cmp	edi,eax
-		jle	No_ClipYMax
-		mov	[ScreenYMax],eax
-No_ClipYMax:
-
-		mov	edi,[Log]
-		mov	eax,[ScreenYMin]
-
-		add	edi,[ScreenXMin]
-		mov	ebx,TabOffLine[eax*4]
-
-		mov	eax,[Start_Y]
-		add	edi,ebx			; EDI = PTR in Log screen
-
-				; Get pointer on sprite's raw buffer
-				; according to the first scanline to be drawn
-		shr	eax,16
-		mov	ebx,dword ptr [esi].Struc_Sprite.Delta_X
-
-		and	ebx,0FFh
-
-		imul	eax,ebx
-
-		mov	[Skip_Next_Line],ebx
-
-		lea	esi,[esi+eax+Size Struc_Sprite]
-						; ESI = PTR in RAW
-		mov	eax,[factorx]
-
-		shl	eax,16
-		mov	ebx,[factorx]
-
-		shr	ebx,16
-		mov	[X_Dec],eax
-
-		mov	[X_Int],ebx
-		mov	eax,[factory]
-
-		shl	eax,16
-		mov	ebx,[factory]
-
-		shr	ebx,16
-		mov	[Y_Dec],eax
-
-		mov	[Y_Int],ebx
-		mov	ebp,[ScreenYMax]
-
-		mov	eax,[ScreenYMin]
-		mov	ecx,[ScreenXMax]
-
-		sub	ebp,eax			; EBP = Delta Y
-		jle	exit
-
-		mov	eax,[Start_X]
-		mov	edx,[ScreenXMin]
-
-		sub	ecx,edx			; ECX = Delta X
-		jle	exit
-
-		mov	edx,eax
-		mov	ebx,[Start_Y]
-
-		shr	eax,16
-
-		add	esi,eax			; ESI = ESI + (Clipped Zone)
-
-		shl	edx,16
-
-		shl	ebx,16
-		mov	[Start_X],edx
-
-		xor	edx,edx
-		jmp	$+2
-
-Each_Line:
-		push	ecx			; ECX = DeltaX
-		push	esi			; ESI = Sprite's raw
-
-		push	edi			; EDI = Log
-		push	ebx			; EBX = Fract. part of StartY
-
-		mov	ebx,[Start_X]		; EBX = Fract. part of StartX
-Each_Col:
-		mov	al,[esi]
-		test	al,al
-
-		je	Opacity
-		mov	[edi],al
-Opacity:
-		add	ebx,[X_Dec]
-
-		adc	esi,[X_Int]
-		inc	edi
-
-		dec	ecx
-		jne	Each_Col
-
-		pop	ebx
-		pop	edi
-
-		pop	esi
-		add	ebx,[Y_Dec]
-
-		adc	edx,[Y_Int]
-		pop	ecx
-
-		mov	eax,[Skip_Next_Line]
-		je	Next_Line
-Skip_Line:
-		add	esi,eax
-		dec	edx
-		jne	Skip_Line
-Next_Line:
-		add	edi,[ModeDesiredX]
-
-		dec	ebp
-		jne	Each_Line
-
-		ret
-		ALIGN	4
-exit:
-		mov	[ScreenXMin], 32000
-		mov	[ScreenXMax], -32000
-		mov	[ScreenYMin], 32000
-		mov	[ScreenYMax], -32000
-
-		ret
-@@CareFactorX:
-		je	exit
-		mov	[factorx],7FFFFFFFh
-		jmp	okx
-@@CareFactorY:
-		je	exit
-		mov	[factory],7FFFFFFFh
-		jmp	oky
-
-
-@@TestFastMode:
-		cmp	ebx,65536
-		jne	@@NoFastMode
-
-		mov	edx,[esi+ecx*4]
-		mov	edi,[xbrick]
-
-		add	esi,edx
-		mov	eax,[ClipXMax]
-
-		; AGI
-
-		inc	eax
-		mov	ecx,dword ptr [esi].Struc_Sprite.Delta_X
-
-		shl	ecx,8
-		mov	ebx,[ClipXMin]
-
-		sar	ecx,24
-		mov	edx,dword ptr [esi].Struc_Sprite.Delta_X
-
-		add	edi,ecx
-		and	edx,0FFh
-
-		cmp	edi,eax
-		jg	exit
-
-		mov	[ScreenXMin],edi
-		mov	[Start_X],0
-
-		cmp	edi,ebx
-		jge	@@NoClipXMin
-
-		push	ebx
-		mov	[ScreenXMin],ebx
-
-		sub	ebx,edi
-
-		mov	[Start_X],ebx
-		pop	ebx
-@@NoClipXMin:
-		add	edi,edx
-
-		mov	[ScreenXMax],edi
-
-		cmp	edi,ebx
-		jl	exit
-
-		cmp	edi,eax
-		jl	@@NoClipXMax
-
-		mov	[ScreenXMax],eax
-@@NoClipXMax:
-		mov	edi,[ybrick]
-		mov	eax,[ClipYMax]
-
-		mov	ecx,dword ptr [esi].Struc_Sprite.Delta_X
-		mov	ebx,[ClipYMin]
-
-		sar	ecx,24
-		add	edi,ecx
-
-		inc	eax
-		mov	[ScreenYMin],edi
-
-		cmp	edi,eax
-		jg	exit
-
-		mov	[Start_Y],0
-
-		cmp	edi,ebx
-		jg	@@NoClipYMin
-
-		push	ebx
-		mov	[ScreenYMin],ebx
-
-		sub	ebx,edi
-
-		mov	[Start_Y],ebx
-		pop	ebx
-@@NoClipYMin:
-		mov	edx,dword ptr [esi].Struc_Sprite.Delta_X
-
-		shr	edx,8
-
-		and	edx,0FFh
-
-		add	edi,edx
-
-		cmp	edi,ebx
-		jl	exit
-
-		mov	[ScreenYMax],edi
-
-		cmp	edi,eax
-		jl	@@NoClipYMax
-
-		mov	[ScreenYMax],eax
-
-@@NoClipYMax:
-		mov	ebp,dword ptr [esi].Struc_Sprite.Delta_X
-		mov	eax,[ScreenYMin]
-
-		and	ebp,0FFh
-		mov	ebx,[ScreenXMin]
-
-		mov	ecx,[ScreenXMax]
-		mov	edx,[ScreenYMax]
-
-		sub	ecx,ebx
-		jle	exit
-
-		sub	edx,eax
-		jle	exit
-
-		mov	edi,[Log]
-		mov	eax,TabOffLine[eax*4]
-
-		add	edi,eax
-		add	esi,Size Struc_Sprite
-
-		add	edi,ebx
-		mov	ebx,[Start_X]
-
-		mov	eax,[Start_Y]
-
-		test	eax,eax
-		je	@@NoSkip
-		imul	eax,ebp
-		add	esi,eax
-@@NoSkip:
-		add	esi,ebx
-		mov	ebx,[ModeDesiredX]
-
-		sub	ebp,ecx
-		sub	ebx,ecx
-@@LoopY:
-		push	ecx
-@@LoopX:
-		mov	al,[esi]
-
-		test	al,al
-		je	@@Hide
-
-		mov	[edi],al
-@@Hide:
-		inc	edi
-		inc	esi
-
-		dec	ecx
-		jne	@@LoopX
-
-		pop	ecx
-		add	esi,ebp
-
-		add	edi,ebx
-
-		dec	edx
-		jne	@@LoopY
-
-		ret
-
-ScaleSprite	endp
-
-;*══════════════════════════════════════════════════════════════════════════*
-;                       The
-			End
-*/
 
 #include <SVGA/SCALESPT.H>
-#include <stdio.h>
+
+#include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
+#include <SVGA/SCREENXY.H>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+typedef struct {
+  U8 Delta_X;
+  U8 Delta_Y;
+  U8 Hot_X;
+  U8 Hot_Y;
+} Struc_Sprite;
+
+void *Start = 0;
+
+U32 Start_X = 0;
+U32 Start_Y = 0;
+U32 Skip_Next_Line = 0;
+
+U32 X_Dec = 0x12345678;
+U32 X_Int = 0x12345678;
+U32 Y_Dec = 0x12345678;
+U32 Y_Int = 0x12345678;
+
 void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
 										void *ptrbank)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  S32 v1; // eax@1
+  S32 v2; // ebx@1
+  S32 v3; // ecx@1
+  U32 *v4; // esi@1
+  Struc_Sprite *v5; // esi@4
+  unsigned int v6; // ecx@4
+  int v7; // ebx@4
+  int v8; // eax@4
+  unsigned int v9; // edx@4
+  int v11; // edi@6
+  int v12; // ebx@6
+  int v13; // edi@9
+  unsigned int v14; // ecx@12
+  int v15; // ebx@12
+  int v16; // eax@12
+  unsigned int v17; // edx@12
+  int v18; // edi@14
+  int v19; // edi@14
+  int v20; // edi@17
+  U8 *v21; // edi@20
+  unsigned int v22; // esi@20
+  int v23; // ebx@20
+  int v24; // ebx@20
+  int v25; // ebp@20
+  int v26; // ecx@21
+  U8 *v27; // esi@22
+  int v28; // ebx@22
+  unsigned int v29; // edx@22
+  int v30; // ebx@23
+  Struc_Sprite *v31; // esi@37
+  int v34; // edi@37
+  int v35; // edx@37
+  int v36; // edi@40
+  int v37; // ebx@43
+  int v38; // edi@43
+  int v39; // edi@46
+  int v40; // ebp@49
+  int v41; // ecx@49
+  int v42; // edx@50
+  U8 *v43; // esi@51
+  U8 *v44; // edi@51
+  U8 *v45; // esi@53
+  int v46; // ebp@53
+  int v47; // ebx@53
+  int v49; // [sp-10h] [bp-14h]@23
+  U8 *v50; // [sp-Ch] [bp-10h]@23
+  U8 *v51; // [sp-8h] [bp-Ch]@23
+  int v52; // [sp-4h] [bp-8h]@23
+  int v53; // [sp-4h] [bp-8h]@54
+
+  // mov	eax,[factorx]
+  // mov	ebx,[factory]
+
+  // mov	ecx,[numbrick]
+  // mov	esi,[bankbrick]
+  v1 = factorx;
+  v2 = factory;
+  v3 = num;
+  v4 = (U32 *)ptrbank;
+  if (v1 <= 0)
+  {
+    if (!v1)
+    {
+      ScreenXMin = 32000;
+      ScreenXMax = -32000;
+      ScreenYMin = 32000;
+      ScreenYMax = -32000;
+      return;
+    }
+    factorx = 0x7FFFFFFF;
+  }
+  if (v1 == 65536 && v2 == 65536)
+  {
+    v31 = (Struc_Sprite *)((U8 *)v4 + v4[v3]);
+    v1 = ClipXMax + 1;
+    v34 = v31->Hot_X + x;
+    v35 = v31->Delta_X;
+    if (v34 <= v1)
+    {
+      ScreenXMin = v34;
+      Start_X = 0;
+      if (v34 < ClipXMin)
+      {
+        ScreenXMin = ClipXMin;
+        Start_X = ClipXMin - v34;
+      }
+      v34 += v35;
+      ScreenXMax = v34;
+      if (v34 >= ClipXMin)
+      {
+        if (v34 >= v1)
+        {
+          ScreenXMax = v1;
+        }
+        v37 = ClipYMin;
+        v38 = v31->Hot_Y + y;
+        v1 = ClipYMax + 1;
+        ScreenYMin = v38;
+        if (v38 <= v1)
+        {
+          Start_Y = 0;
+          if (v38 <= ClipYMin)
+          {
+            ScreenYMin = ClipYMin;
+            Start_Y = ClipYMin - v38;
+            v37 = ClipYMin;
+          }
+          v38 += v31->Delta_Y;
+          if (v38 >= v37)
+          {
+            ScreenYMax = v38;
+            if (v38 >= v1)
+            {
+              ScreenYMax = ClipYMax + 1;
+            }
+            v1 = (v1 & 0xFFFFFF00) | (ScreenYMin & 0xFF);
+            v40 = v31->Delta_X;
+            v41 = ScreenXMax - ScreenXMin;
+            if (ScreenXMax > ScreenXMin)
+            {
+              v42 = ScreenYMax - ScreenYMin;
+              if (ScreenYMax > ScreenYMin)
+              {
+                v43 = (U8 *)(v31 + 1);
+                v44 = (U8 *)((U8 *)Log + ScreenXMin + TabOffLine[ScreenYMin]);
+                if (Start_Y)
+                {
+                  v43 += v40 * Start_Y;
+                }
+                v45 = (U8 *)(Start_X + v43);
+                v46 = v40 - v41;
+                v47 = ModeDesiredX - v41;
+                do
+                {
+                  v53 = v41;
+                  do
+                  {
+                    v1 = (v1 & 0xFFFFFF00) | *v45;
+                    if (*v45)
+                    {
+                      *v44 = v1;
+                    }
+                    ++v44;
+                    ++v45;
+                    --v41;
+                  }
+                  while (v41);
+                  v41 = v53;
+                  v45 += v46;
+                  v44 += v47;
+                  --v42;
+                }
+                while (v42);
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  if (v2 <= 0)
+  {
+    if (!v2)
+    {
+      ScreenXMin = 32000;
+      ScreenXMax = -32000;
+      ScreenYMin = 32000;
+      ScreenYMax = -32000;
+      return;
+    }
+    factory = 0x7FFFFFFF;
+  }
+  v5 = (Struc_Sprite *)((U8 *)v4 + v4[v3]);
+  Start = v5;
+  v6 = (S64)(factorx * v5->Delta_X) >> 16;
+  v6 |= v4[v3] << 16; // New Delta_X
+  v7 = (S64)(factorx * v5->Hot_X) >> 16;
+  v7 |= (v4[v3] << 16) << 16; // New Hot_X
+  v8 = 0x100000000LL / factorx;
+  factorx = v8;
+  v9 = (v5->Delta_X >> 1) << 16;
+  if (v5->Delta_X & 1)
+  {
+    v9 += 0x8000;
+  }
+  Start_X = v9 - (v6 >> 1) * v8;
+  v11 = v7 + x; // Left_X
+  v12 = ClipXMin;
+  v1 = ClipXMax + 1;
+  ScreenXMin = v11; // Offset in Log screen (X coord)
+  if (v11 > ClipXMax + 1) // Out of the screen ?
+  {
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  if (v11 < ClipXMin)
+  {
+    ScreenXMin = ClipXMin;
+    v12 = ClipXMin;
+    Start_X += factorx * (ClipXMin - 1 - v11) + Start_X;
+  }
+  v13 = v6 + v11;
+  if (v13 < v12)
+  {
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  ScreenXMax = v13;
+  if (v13 >= v1)
+  {
+    ScreenXMax = ClipXMax + 1;
+  }
+  v14 = factory * (S64)(v5->Delta_Y) >> 16;
+  v15 = factory * (S64)(v5->Hot_Y) >> 16;
+  v16 = 0x100000000LL / factory;
+  factory = v16;
+  v17 = ((v5 + 1)->Delta_X) >> 1 << 16;
+  if ((v5 + 1)->Delta_X & 1)
+    v17 += 0x8000;
+  v18 = y;
+  Start_Y = v17 - (v14 >> 1) * v16;
+  v19 = v15 + v18;
+  v1 = ClipYMax + 1;
+  ScreenYMin = v19;
+  if (v19 > ClipYMax + 1)
+  {
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  if (v19 < ClipYMin)
+  {
+    ScreenYMin = ClipYMin;
+    Start_Y += factory * (ClipYMin - 1 - v19) + Start_Y;
+  }
+  v20 = v14 + v19;
+  ScreenYMax = v20;
+  if (v20 <= ClipYMin)
+  {
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  if (v20 > v1)
+  {
+    ScreenYMax = ClipYMax + 1;
+  }
+  v21 = (U8 *)((U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin);
+  Skip_Next_Line = v5->Delta_X;
+  v22 = v5 + Skip_Next_Line * ((U32)Start_Y >> 16) + 4;
+  v23 = (U64)factorx >> 16;
+  X_Dec = factorx << 16;
+  X_Int = v23;
+  v24 = (U64)factory >> 16;
+  Y_Dec = factory << 16;
+  Y_Int = v24;
+  v1 = (v1 & 0xFFFFFF00) | (ScreenYMin & 0xFF);
+  v25 = ScreenYMax - ScreenYMin;
+  if (ScreenYMax <= ScreenYMin)
+  {
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  v1 = (v1 & 0xFFFFFF00) | (Start_X & 0xFF);
+  v26 = ScreenXMax - ScreenXMin;
+  if (ScreenXMax <= ScreenXMin)
+  {
+    ScreenXMin = 32000;
+    ScreenXMax = -32000;
+    ScreenYMin = 32000;
+    ScreenYMax = -32000;
+    return;
+  }
+  v27 = (U8 *)(((unsigned int)Start_X >> 16) + v22);
+  v28 = Start_Y << 16;
+  Start_X <<= 16;
+  v29 = 0;
+  do
+  {
+    v52 = v26;
+    v51 = v27;
+    v50 = v21;
+    v49 = v28;
+    v30 = Start_X;
+    do
+    {
+      if (*v27)
+        *v21 = *v27;
+      v27 = (U8 *)((__PAIR__(X_Int, X_Dec) + __PAIR__((unsigned int)v27, v30)) >> 32);
+      v30 += X_Dec;
+      ++v21;
+      --v26;
+    }
+    while (v26);
+    v27 = v51;
+    v29 = (__PAIR__(Y_Int, Y_Dec) + __PAIR__(v29, v49)) >> 32;
+    v28 = Y_Dec + v49;
+    v26 = v52;
+    for (LOBYTE(v1) = Skip_Next_Line; v29; --v29)
+      v27 += Skip_Next_Line;
+    v21 = &v50[ModeDesiredX];
+    --v25;
+  }
+  while (v25);
+  return;
 }
 
 #ifdef __cplusplus
