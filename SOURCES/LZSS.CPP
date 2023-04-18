@@ -423,78 +423,60 @@ void Replace_Node(U32 oldNode, U32 newNode)
 // ║                                                                        ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 int AddString() {
-  int v0; // ebp@1
-  long v1; // edi@1
-  unsigned int v2; // ecx@2
-  U32 v3; // si@2
-  U32 v4; // bx@2
-  int v5; // edx@2
-  int v8; // eax@3
-  int v9; // eax@3
-  int v10; // esi@7
-  long *v11; // esi@9
-  int v13; // ebp@12
-
-  v0 = Current_position;
-  v1 = tree[TREE_ROOT].larger_child;
+  long *targetChild = NULL;
+  long rootLargerChild = tree[TREE_ROOT].larger_child;
   U32 Match_Length = 0;
+
   while (1)
   {
-    v2 = 0; // le compteur: i
-    v3 = Current_position; // Current_position+i
-    v4 = v1; // Test_Node+i
-    v5 = 0;
+    // @@Main_Loop:
+    unsigned int i = 0; // counter
+    int position = Current_position; // Current_position+i
+    long testNode = rootLargerChild; // Test_Node+i
+    int delta = 0;
     do
     {
-      v3 = v3 & (WINDOW_SIZE - 1); // The AND for the modulo
-      v4 = v4 & (WINDOW_SIZE - 1); // in the dictionary window
-      v8 = window[v3]; // Delta
-      v5 = window[v4];
-      v3++;
-      v9 = v8 - v5;
-      if (v9)
+      position &= (WINDOW_SIZE - 1); // The AND for the modulo
+      testNode &= (WINDOW_SIZE - 1); // in the dictionary window
+      position++;
+      delta = window[position] - window[testNode];
+      if (delta != 0)
       {
         break;
       }
-      v2++;
-      v4++;
+      i++;
+      testNode++;
     }
-    while (v2 < LOOK_AHEAD_SIZE);
+    while (i < LOOK_AHEAD_SIZE);
     // @@Found:
-    if (v2 >= Match_Length)
+    if (i >= Match_Length)
     {
-      Match_Length = v2;
-      Match_position = v1;
-      if (v2 >= LOOK_AHEAD_SIZE)
+      Match_Length = i;
+      Match_position = rootLargerChild;
+      if (i >= LOOK_AHEAD_SIZE)
       {
-        // TODO: Replace_Node
-        // ebp new node
-        // edi old node
-        Replace_Node(Current_position, v1);
+        Replace_Node(rootLargerChild, Current_position);
         return Match_Length;
       }
     }
     // @@Not_Better:
-    v10 = 3 * v1;
-    if (v9 < 0)
+    targetChild = &tree[rootLargerChild].larger_child;
+    if (delta < 0)
     {
-      struct deftree dummy;
-      v10 += &dummy.smaller_child - &dummy.larger_child;
+      targetChild = &tree[rootLargerChild].smaller_child;
     }
     // @@PTR_Ok:
-    v11 = &tree[v10].larger_child;
-    if (*v11 == UNUSED)
+    if (*targetChild == UNUSED)
     {
       break;
     }
-    v1 = *v11;
+    rootLargerChild = *targetChild;
   }
   // @@Add_Leaf:
-  *v11 = Current_position;
-  v13 = 3 * v0;
-  tree[v13].parent = v1;
-  tree[v13].larger_child = UNUSED;
-  tree[v13].smaller_child = UNUSED;
+  *targetChild = Current_position;
+  tree[Current_position].parent = rootLargerChild;
+  tree[Current_position].larger_child = UNUSED;
+  tree[Current_position].smaller_child = UNUSED;
   return Match_Length;
 }
 
