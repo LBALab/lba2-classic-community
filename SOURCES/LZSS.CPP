@@ -499,6 +499,24 @@ int AddString() {
 }
 
 // ╔════════════════════════════════════════════════════════════════════════╗
+// ║                                                                        ║
+// ╟────────────────────────────────────────────────────────────────────────╢
+// ║ Call : ESI = Node                                                     ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
+int Find_Next_Node(int node)
+{
+  int next = tree[node].smaller_child;
+
+  while (tree[next].larger_child != UNUSED)
+  {
+    next = tree[next].larger_child;
+  }
+
+  return next;
+}
+
+// ╔════════════════════════════════════════════════════════════════════════╗
 // ║  Deletes a string in the dictionary (to be exact, in the tree).        ║
 // ║ You need all that, because you have to reorder the tree correctly      ║
 // ║                                                                        ║
