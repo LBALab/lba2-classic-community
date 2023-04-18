@@ -46,13 +46,10 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   int v15; // ebx@12
   int v16; // eax@12
   unsigned int v17; // edx@12
-  int v18; // edi@14
   int v19; // edi@14
   int v20; // edi@17
   U8 *v21; // edi@20
-  unsigned int v22; // esi@20
-  int v23; // ebx@20
-  int v24; // ebx@20
+  U8 *v22; // esi@20
   int v25; // ebp@20
   int v26; // ecx@21
   U8 *v27; // esi@22
@@ -268,15 +265,14 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   v17 = (v5->Delta_Y >> 1) << 16;
   if (v5->Delta_Y & 1)
   {
-    // @@NoY:
     v17 += 0x8000;
   }
-  v18 = y;
+  // @@NoY:
   Start_Y = v17 - (v14 >> 1) * v16;
-  v19 = v15 + v18;
+  v19 = v15 + y; // Top Y
   v1 = ClipYMax + 1;
-  ScreenYMin = v19;
-  if (v19 > ClipYMax + 1)
+  ScreenYMin = v19; // Offset in Log screen (Y coord)
+  if (v19 > v1) // Out of the screen ?
   {
     ScreenXMin = 32000;
     ScreenXMax = -32000;
@@ -287,9 +283,10 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   if (v19 < ClipYMin)
   {
     ScreenYMin = ClipYMin;
-    Start_Y += factory * (ClipYMin - 1 - v19) + Start_Y;
+    Start_Y += factory * (ClipYMin - 1 - v19) + Start_Y; // 16:16
   }
-  v20 = v14 + v19;
+  // No_ClipYMin:
+  v20 = v14 + v19; // Low_Y
   ScreenYMax = v20;
   if (v20 <= ClipYMin)
   {
@@ -301,19 +298,20 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   }
   if (v20 > v1)
   {
-    ScreenYMax = ClipYMax + 1;
+    ScreenYMax = v1;
   }
+  // No_ClipYMax:
   v21 = (U8 *)((U8 *)Log + TabOffLine[ScreenYMin] + ScreenXMin);
+  // Get pointer on sprite's raw buffer
+  // according to the first scanline to be drawn
   Skip_Next_Line = v5->Delta_X;
-  v22 = v5 + Skip_Next_Line * ((U32)Start_Y >> 16) + 4;
-  v23 = (U64)factorx >> 16;
+  v22 = (U8 *)v5 + sizeof(Struc_Sprite) + Skip_Next_Line * ((U32)Start_Y >> 16);
   X_Dec = factorx << 16;
-  X_Int = v23;
-  v24 = (U64)factory >> 16;
+  X_Int = factorx >> 16;
   Y_Dec = factory << 16;
-  Y_Int = v24;
-  v1 = (v1 & 0xFFFFFF00) | (ScreenYMin & 0xFF);
-  v25 = ScreenYMax - ScreenYMin;
+  Y_Int = factory >> 16;
+  //v1 = (v1 & 0xFFFFFF00) | (ScreenYMin & 0xFF);
+  v25 = ScreenYMax - ScreenYMin; // deltaY
   if (ScreenYMax <= ScreenYMin)
   {
     ScreenXMin = 32000;
@@ -322,8 +320,8 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
     ScreenYMax = -32000;
     return;
   }
-  v1 = (v1 & 0xFFFFFF00) | (Start_X & 0xFF);
-  v26 = ScreenXMax - ScreenXMin;
+  //v1 = (v1 & 0xFFFFFF00) | (Start_X & 0xFF);
+  v26 = ScreenXMax - ScreenXMin; // deltaX
   if (ScreenXMax <= ScreenXMin)
   {
     ScreenXMin = 32000;
@@ -332,38 +330,43 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
     ScreenYMax = -32000;
     return;
   }
-  v27 = (U8 *)((Start_X >> 16) + v22);
+  v27 = v22 + (Start_X >> 16);
   v28 = Start_Y << 16;
   Start_X <<= 16;
   v29 = 0;
   do
   {
-    v52 = v26;
-    v51 = v27;
-    v50 = v21;
-    v49 = v28;
-    v30 = Start_X;
+    v52 = v26; // deltaX
+    v51 = v27; // Pointer on sprite's raw buffer
+    v50 = v21; // Pointer on Log screen
+    v49 = v28; // Fract. part of StartY
+    v30 = Start_X; // Fract. part of StartX
     do
     {
       if (*v27)
+      {
         *v21 = *v27;
-      v27 = (U8 *)((__PAIR__(X_Int, X_Dec) + __PAIR__((unsigned int)v27, v30)) >> 32);
+      }
+      U8 carry = ((U64)v30 + (U64)X_Dec) > 0xFFFFFFFF;
       v30 += X_Dec;
+      v27 += X_Int + carry;
       ++v21;
       --v26;
     }
     while (v26);
     v27 = v51;
-    v29 = (__PAIR__(Y_Int, Y_Dec) + __PAIR__(v29, v49)) >> 32;
+    U8 carry = ((U64)v49 + (U64)Y_Dec) > 0xFFFFFFFF;
     v28 = Y_Dec + v49;
+    v29 += Y_Int + carry;
     v26 = v52;
-    for (LOBYTE(v1) = Skip_Next_Line; v29; --v29)
+    for (; v29 != 0; --v29)
+    {
       v27 += Skip_Next_Line;
+    }
     v21 = &v50[ModeDesiredX];
     --v25;
   }
   while (v25);
-  return;
 }
 
 #ifdef __cplusplus
