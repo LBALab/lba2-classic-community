@@ -222,7 +222,8 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   {
     v9 += 0x8000;
   }
-  Start_X = v9 - (v6 >> 1) * v8;
+  v9 -= (v6 >> 1) * v8;
+  Start_X = v9;
   v11 = v7 + x; // Left_X
   v12 = ClipXMin;
   v1 = ClipXMax + 1;
@@ -239,9 +240,10 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   {
     ScreenXMin = ClipXMin;
     v12 = ClipXMin;
-    Start_X += factorx * (ClipXMin - 1 - v11) + Start_X;
+    v9 = factorx * (ClipXMin - 1 - v11) + Start_X;
+    Start_X += v9; // 16:16
   }
-  v13 = v6 + v11;
+  v13 = v6 + v11; // Right_X
   if (v13 < v12)
   {
     ScreenXMin = 32000;
@@ -253,15 +255,22 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
   ScreenXMax = v13;
   if (v13 >= v1)
   {
-    ScreenXMax = ClipXMax + 1;
+    ScreenXMax = v1;
   }
   v14 = factory * (S64)(v5->Delta_Y) >> 16;
+  v9 <<= 16;
+  v14 |= v9; // New Delta_Y
   v15 = factory * (S64)(v5->Hot_Y) >> 16;
+  v9 <<= 16;
+  v15 |= v9; // New Hot_Y
   v16 = 0x100000000LL / factory;
-  factory = v16;
-  v17 = ((v5 + 1)->Delta_X) >> 1 << 16;
-  if ((v5 + 1)->Delta_X & 1)
+  factory = v16; // Inverse factory
+  v17 = (v5->Delta_Y >> 1) << 16;
+  if (v5->Delta_Y & 1)
+  {
+    // @@NoY:
     v17 += 0x8000;
+  }
   v18 = y;
   Start_Y = v17 - (v14 >> 1) * v16;
   v19 = v15 + v18;
@@ -323,7 +332,7 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
     ScreenYMax = -32000;
     return;
   }
-  v27 = (U8 *)(((unsigned int)Start_X >> 16) + v22);
+  v27 = (U8 *)((Start_X >> 16) + v22);
   v28 = Start_Y << 16;
   Start_X <<= 16;
   v29 = 0;
