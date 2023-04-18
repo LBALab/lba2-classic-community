@@ -49,7 +49,7 @@ extern	int	AddString();
 		modify [eax ecx edx]
 		*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	int	DeleteString(int p);
+extern	void	DeleteString(int p);
 
 /*#pragma	aux	DeleteString	"*"	\
 		parm caller []		\
