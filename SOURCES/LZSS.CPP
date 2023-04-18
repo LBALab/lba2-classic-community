@@ -243,106 +243,164 @@ int AddStringOld()
 
 unsigned long Compress_LZSS(char *input,char *output, unsigned long length )
 {
-int 		i;
-char 		*read;
-char 		*write;
-char 		*info;
-int 		look_ahead_bytes;
-int 		replace_count;
-int 		match_length;
-int 		count_bits	= 0;
-char 		mask		= 1;
-unsigned long 	len		= 0;
-unsigned long 	save_length;
+  int i;
+  char *read;
+  char *write;
+  char *info;
+  int look_ahead_bytes;
+  int replace_count;
+  int match_length;
+  int count_bits = 0;
+  char mask = 1;
+  unsigned long len = 0;
+  unsigned long save_length;
 
+  save_length = length;
+  write = output;
+  read = input;
+  Current_position = 0;
 
+  for (i = 0; i < LOOK_AHEAD_SIZE; i++)
+  {
+    if (length == 0)
+      break;
+    window[Current_position + i] = *read++;
+    length--;
+  }
 
-	save_length = length;
-	write = output;
-	read = input;
-	Current_position = 0;
+  look_ahead_bytes = i;
+  InitTree(Current_position);
+  match_length = 0;
+  Match_position = 0;
+  info = write++;
 
-	for ( i = 0 ; i < LOOK_AHEAD_SIZE ; i++ )
-	{
-		if (length == 0 ) break;
-		window[ Current_position + i ] = *read++;
-		length--;
-	}
+  if (++len >= save_length)
+    return (save_length);
 
-	look_ahead_bytes = i;
-	InitTree( Current_position );
-	match_length = 0;
-	Match_position = 0;
-	info = write++;
+  *info = 0;
 
-	if ( ++len >= save_length ) return( save_length );
+  while (look_ahead_bytes > 0)
+  {
+    if (match_length > look_ahead_bytes)
+      match_length = look_ahead_bytes;
 
-	*info = 0;
+    if (match_length <= BREAK_EVEN)
+    {
+      replace_count = 1;
+      *info |= mask;
+      *write++ = window[Current_position];
+      if (++len >= save_length)
+        return (save_length);
+    }
+    else
+    {
+      if ((len = len + 2) >= save_length)
+        return (save_length);
 
-	while ( look_ahead_bytes > 0 )
-	{
-		if ( match_length > look_ahead_bytes )
-    			match_length = look_ahead_bytes;
+      *(short *)write =
+          (short)((MOD_WINDOW(Current_position - Match_position - 1)
+                  << LENGTH_BIT_COUNT) |
+                  (match_length - BREAK_EVEN - 1));
 
-		if ( match_length <= BREAK_EVEN )
-		{
-    			replace_count = 1;
-    			*info |= mask;
-    			*write++ = window[ Current_position ];
-    			if ( ++len >= save_length )
-			return( save_length );
-		}
-		else
-		{
-    			if ( ( len = len + 2 ) >= save_length )
-			return( save_length );
+      write += 2;
+      replace_count = match_length;
+    }
 
+    if (++count_bits == 8)
+    {
+      if (++len >= save_length)
+        return (save_length);
+      info = write++;
+      *info = 0;
+      count_bits = 0;
+      mask = 1;
+    }
+    else
+      mask = (char)(mask << 1);
 
-			*(short *)write =
-		(short)(( MOD_WINDOW( Current_position - Match_position - 1 )
-		<< LENGTH_BIT_COUNT ) | ( match_length - BREAK_EVEN - 1 ));
+    for (i = 0; i < replace_count; i++)
+    {
+      DeleteString(MOD_WINDOW(Current_position + LOOK_AHEAD_SIZE));
+      if (length == 0)
+        look_ahead_bytes--;
+      else
+      {
+        window[MOD_WINDOW(Current_position + LOOK_AHEAD_SIZE)] = *read++;
+        length--;
+      }
 
-			write+=2;
-    			replace_count = match_length;
-		}
+      Current_position = MOD_WINDOW(Current_position + 1);
+      if (look_ahead_bytes)
+        match_length = AddString();
+    }
+  }
 
-		if (++count_bits == 8)
-		{
-    			if ( ++len >= save_length ) return( save_length );
-    			info = write++;
-    			*info = 0;
-    			count_bits = 0;
-    			mask = 1;
-		}
-		else mask = (char)(mask << 1);
-
-		for ( i = 0 ; i < replace_count ; i++ )
-		{
-    			DeleteString( MOD_WINDOW( Current_position + LOOK_AHEAD_SIZE ) );
-    			if ( length == 0 ) look_ahead_bytes--;
-    			else
-    			{
-				window[ MOD_WINDOW( Current_position + LOOK_AHEAD_SIZE ) ]
-				= *read++;
-				length--;
-    			}
-
-			Current_position = MOD_WINDOW( Current_position + 1 );
-    			if ( look_ahead_bytes )
-				match_length = AddString();
-		}
-	}
-
-	if ( count_bits == 0 ) len--;
-	return( len );
+  if (count_bits == 0)
+    len--;
+  return (len);
 }
 
 #include <stdio.h>
 
 int AddString() {
-	// TODO: Implement ASM (original impl in COMPRESS.ASM)
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  int v0; // ebp@1
+  int v1; // edi@1
+  unsigned int v2; // ecx@2
+  S16 v3; // si@2
+  S16 v4; // bx@2
+  int v5; // edx@2
+  int v6; // esi@3
+  int v7; // ebx@3
+  int v8; // eax@3
+  int v9; // eax@3
+  int v10; // esi@7
+  int *v11; // esi@9
+  int v13; // ebp@12
+
+  v0 = Current_position;
+  v1 = dword_DFB88;
+  Match_Length = 0;
+  while ( 1 )
+  {
+    v2 = 0;
+    v3 = Current_position;
+    v4 = v1;
+    v5 = 0;
+    do
+    {
+      v6 = v3 & 0xFFF;
+      v7 = v4 & 0xFFF;
+      v8 = (unsigned __int8)window[v6];
+      LOBYTE(v5) = window[v7];
+      v3 = v6 + 1;
+      v9 = v8 - v5;
+      if ( v9 )
+        break;
+      ++v2;
+      v4 = v7 + 1;
+    }
+    while ( v2 < 0x11 );
+    if ( v2 >= Match_Length )
+    {
+      Match_Length = v2;
+      Match_position = v1;
+      if ( v2 >= 0x11 )
+        return sub_67ECC(Current_position, v1);
+    }
+    v10 = 3 * v1;
+    if ( v9 < 0 )
+      --v10;
+    v11 = &dword_D3B88[v10];
+    if ( *v11 == -1 )
+      break;
+    v1 = *v11;
+  }
+  *v11 = Current_position;
+  v13 = 3 * v0;
+  tree[v13] = v1;
+  dword_D3B88[v13] = -1;
+  dword_D3B84[v13] = -1;
+  return _Exit();
 }
 
 int DeleteString(int p) {
