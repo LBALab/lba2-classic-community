@@ -525,35 +525,33 @@ int Find_Next_Node(int node)
 // ║                                                                        ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 void DeleteString(int p) {
-  int v1; // edi@1
-  int result; // eax@2
-  int v3; // ST04_4@5
+  int newNode = UNUSED;
 
-  v1 = 3 * p;
-  if (tree[v1].parent == UNUSED)
+  if (tree[p].parent == UNUSED)
   {
     return;
   }
 
-  if (tree[v1].larger_child == UNUSED)
+  if (tree[p].larger_child == UNUSED)
   {
-    result = tree[v1].smaller_child;
+    newNode = tree[p].smaller_child;
   }
   else
   {
     // @@Not_This_One:
-    if (tree[v1].smaller_child != UNUSED)
+    if (tree[p].smaller_child != UNUSED)
     {
       // @@Not_This_One_Too:
-      v3 = Find_Next_Node(p);
-      DeleteString(v3);
-      Replace_Node(p, v3);
+      int next = Find_Next_Node(p);
+      DeleteString(next);
+      Replace_Node(p, next);
       return;
     }
-    result = tree[v1].larger_child;
+
+    newNode = tree[p].larger_child;
   }
 
-  Contract_Node(p, result);
+  Contract_Node(p, newNode);
 }
 
 /************************** End of LZSS.C *************************/
