@@ -343,12 +343,47 @@ unsigned long Compress_LZSS(char *input,char *output, unsigned long length )
 #include <stdio.h>
 
 // ╔════════════════════════════════════════════════════════════════════════╗
+// ║                                                                        ║
+// ╟────────────────────────────────────────────────────────────────────────╢
+// ║ Call : EAX = New Node                                                  ║
+// ║        ESI = Old Node                                                  ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
+void Contract_Node(U32 oldNode, U32 newNode)
+{
+  long parent = UNUSED;
+
+  if (newNode == UNUSED)
+  {
+    // @@skip1:
+    parent = tree[oldNode].parent;
+    tree[oldNode].parent = UNUSED;
+  }
+  else
+  {
+    parent = tree[oldNode].parent;
+    tree[oldNode].parent = UNUSED;
+    tree[newNode].parent = parent;
+  }
+
+  // @@skip2:
+  if (tree[parent].larger_child == oldNode)
+  {
+    tree[parent].larger_child = newNode;
+  }
+  else
+  {
+    tree[parent].smaller_child = newNode;
+  }
+}
+
+// ╔════════════════════════════════════════════════════════════════════════╗
 // ║  Replaces a node with a new one. Useful for example, when a new string ║
 // ║ is also in the dictionary, it is better to put the new one, because    ║
 // ║ it will be deleted after the old one... but if it is clear! :)         ║
 // ╟────────────────────────────────────────────────────────────────────────╢
-// ║ Appel : EBP = New_Node (its index)                                     ║
-// ║         EDI = Old_Node (its index)                                     ║
+// ║ Call : EBP = New_Node (its index)                                      ║
+// ║        EDI = Old_Node (its index)                                      ║
 // ║                                                                        ║
 // ╚════════════════════════════════════════════════════════════════════════╝
 void Replace_Node(U32 oldNode, U32 newNode)
@@ -463,10 +498,44 @@ int AddString() {
   return Match_Length;
 }
 
-int DeleteString(int p) {
-	// TODO: Implement ASM (original impl in COMPRESS.ASM)
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║  Deletes a string in the dictionary (to be exact, in the tree).        ║
+// ║ You need all that, because you have to reorder the tree correctly      ║
+// ║                                                                        ║
+// ╟────────────────────────────────────────────────────────────────────────╢
+// ║ Call: Parameter passing by stack: P = Index of the node to delete      ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
+void DeleteString(int p) {
+  int v1; // edi@1
+  int result; // eax@2
+  int v3; // ST04_4@5
+
+  v1 = 3 * p;
+  if (tree[v1].parent == UNUSED)
+  {
+    return;
+  }
+
+  if (tree[v1].larger_child == UNUSED)
+  {
+    result = tree[v1].smaller_child;
+  }
+  else
+  {
+    // @@Not_This_One:
+    if (tree[v1].smaller_child != UNUSED)
+    {
+      // @@Not_This_One_Too:
+      v3 = Find_Next_Node(p);
+      DeleteString(v3);
+      Replace_Node(p, v3);
+      return;
+    }
+    result = tree[v1].larger_child;
+  }
+
+  Contract_Node(p, result);
 }
 
 /************************** End of LZSS.C *************************/
