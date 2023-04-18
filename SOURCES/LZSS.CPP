@@ -342,6 +342,51 @@ unsigned long Compress_LZSS(char *input,char *output, unsigned long length )
 
 #include <stdio.h>
 
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║  Replaces a node with a new one. Useful for example, when a new string ║
+// ║ is also in the dictionary, it is better to put the new one, because    ║
+// ║ it will be deleted after the old one... but if it is clear! :)         ║
+// ╟────────────────────────────────────────────────────────────────────────╢
+// ║ Appel : EBP = New_Node (its index)                                     ║
+// ║         EDI = Old_Node (its index)                                     ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
+void Replace_Node(U32 oldNode, U32 newNode)
+{
+  U32 parent = tree[oldNode].parent;
+  if (tree[parent].smaller_child == oldNode)
+  {
+    tree[parent].smaller_child = newNode;
+  }
+  else
+  {
+    tree[parent].larger_child = newNode;
+  }
+  // @@Chain_Next:
+  tree[newNode].parent = parent;
+  tree[newNode].larger_child = tree[oldNode].larger_child;
+  tree[newNode].smaller_child = tree[oldNode].smaller_child;
+
+  tree[oldNode].parent = UNUSED;
+
+  if (tree[newNode].smaller_child != UNUSED)
+  {
+    tree[tree[newNode].smaller_child].parent = newNode;
+  }
+
+  // @@Et_Non0:
+  if (tree[newNode].larger_child != UNUSED)
+  {
+    tree[tree[newNode].larger_child].parent = newNode;
+  }
+  // @@Exit:
+}
+
+// ╔════════════════════════════════════════════════════════════════════════╗
+// ║ Finds whether all or part of the current string is already in the      ║
+// ║ dictionary, constitutes strings already read.                          ║
+// ║                                                                        ║
+// ╚════════════════════════════════════════════════════════════════════════╝
 int AddString() {
   int v0; // ebp@1
   long v1; // edi@1
@@ -388,7 +433,9 @@ int AddString() {
       if (v2 >= LOOK_AHEAD_SIZE)
       {
         // TODO: Replace_Node
-        sub_67ECC(Current_position, v1);
+        // ebp new node
+        // edi old node
+        Replace_Node(Current_position, v1);
         return Match_Length;
       }
     }
