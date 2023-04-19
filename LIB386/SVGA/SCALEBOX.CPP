@@ -1,175 +1,64 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
-		.386p
-		.model FLAT, C
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.DATA
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C 	Log		:DWORD
-		extrn	C 	ModeDesiredX	:DWORD
-		extrn	C 	TabOffLine	:DWORD
-
-;*══════════════════════════════════════════════════════════════════════════*
-PoidFort	dd	0000
-AccuVirguleH	dd	0000
-VirguleH	dd	0000
-PoidFortH	dd	0000
-OffsetLine	dd	0000
-Largeur 	dd	0000
-Hauteur 	dd	0000
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.CODE
-
-;*══════════════════════════════════════════════════════════════════════════*
-		public   C     ScaleBox
-
-;*══════════════════════════════════════════════════════════════════════════*
-;void	ScaleBox(	S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs,
-;			S32 xd0, S32 yd0, S32 xd1, S32 yd1, void *ptrd	)	;
-
-;#pragma aux	ScaleBox	"*"	\
-;	parm	[edx] [ecx] [eax] [edi] [esi] [ebx]
-
-ScaleBox	proc	\
-		uses eax ebx ecx edx edi esi ebp,\
-		xs0:DWORD, ys0:DWORD, xs1:DWORD, ys1:DWORD, ptrs:DWORD, xd0:DWORD, \
-		yd0:DWORD, xd1:DWORD, yd1:DWORD, ptrd:DWORD
-
-		mov edx, xs0
-		mov ecx, ys0
-		mov eax, xs1
-		mov edi, ys1
-		mov esi, ptrs
-		mov ebx, xd0
-
-		push	edi			; ys1
-		push	ecx			; ys0
-
-		mov	edi, ptrd
-		mov	ecx, xd1
-
-		sub	eax, edx		; delta source
-		add	esi, edx
-
-		sub	ecx, ebx		; ECX delta x screen
-		add	edi, ebx
-
-		inc	eax
-		inc	ecx
-
-		shl	eax, 16 		; *65536
-		xor	edx, edx
-
-		div	ecx
-
-		mov	[Largeur], ecx
-		mov	edx, eax
-
-		shl	eax, 16
-		mov	ebx, [ModeDesiredX]
-
-		shr	edx, 16
-		sub	ebx, ecx
-
-		mov	[OffsetLine], ebx
-		mov	ebx, eax
-
-		mov	ecx, yd1
-		mov	[PoidFort], edx
-
-		pop	edx
-		mov	eax, yd0
-
-		sub	ecx, eax
-		add	edi, TabOffLine[eax*4]
-
-		pop	eax
-		add	esi, TabOffLine[edx*4]
-
-		sub	eax, edx
-		xor	edx, edx
-
-		inc	ecx
-		inc	eax
-
-		shl	eax, 16
-		push	ebp
-
-		div	ecx
-
-		mov	[Hauteur], ecx
-		mov	edx, eax
-
-		shl	eax, 16
-		mov	ebp, esi
-
-		shr	edx, 16
-		mov	[VirguleH], eax
-
-		mov	[PoidFortH], edx
-		xor	edx, edx
-
-		mov	[AccuVirguleH], edx
-
-yloop:		mov	ecx, [Largeur]
-		xor	edx, edx
-
-xloop:		mov	al, byte ptr[esi]
-		add	edx, ebx		; virgule 16 bits
-
-		mov	[edi], al
-		mov	eax, [PoidFort]
-
-		adc	esi, eax	 	; poid fort
-		inc	edi
-
-		dec	ecx
-		jnz	xloop
-
-		xor	eax, eax
-		mov	edx, [AccuVirguleH]
-
-		mov	esi, [VirguleH]
-		add	edx, esi	 	; virgule 16 bits
-
-		mov	esi, [PoidFortH]
-		mov	[AccuVirguleH], edx
-
-		adc	eax, esi		; poid fort
-		mov	esi, [OffsetLine]
-
-		add	edi, esi		; width-delta x screen
-		mov	edx, [Hauteur]
-
-		mov	esi, ebp
-		mov	eax, TabOffLine[eax*4]
-
-		add	ebp, eax
-		dec	edx
-
-		mov	[Hauteur], edx
-		jnz	yloop
-
-		pop	ebp
-
-		ret
-
-ScaleBox	endp
-
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		End
-*/
+U32 PoidFort = 0;
+U32 AccuVirguleH = 0;
+U32 VirguleH = 0;
+U32 PoidFortH = 0;
+U32 OffsetLine = 0;
+U32 Largeur = 0;
+U32 Hauteur = 0;
 
 #include <SVGA/SCALEBOX.H>
-#include <stdio.h>
+
+#include <SVGA/SCREEN.H>
 
 void ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32 xd0, S32 yd0,
               S32 xd1, S32 yd1, void *ptrd)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  unsigned int v10; // ecx@1
+  unsigned int v11; // eax@1
+  unsigned int v12; // ebx@1
+  U8 *v13; // edi@1
+  int *v14; // esi@1
+  unsigned int v15; // eax@1
+  int v16; // ecx@2
+  unsigned int v17; // edx@2
+  int v18; // eax@4
+  int v19; // eax@4
+  int v21; // [sp+4h] [bp-4h]@0
+  int savedregs; // [sp+8h] [bp+0h]@4
+
+  v10 = xd1 - xd0 + 1;
+  v11 = ((xs1 - xs0 + 1) << 16) / v10;
+  Largeur = xd1 - xd0 + 1;
+  OffsetLine = ModeDesiredX - v10;
+  v12 = v11 << 16;
+  PoidFort = v11 >> 16;
+  v13 = (U8 *)ptrd + TabOffLine[yd0] + xd0;
+  v14 = (int *)((U8 *)ptrs + TabOffLine[ys0] + xs0);
+  v15 = ((ys1 - ys0 + 1) << 16) / (unsigned int)(yd1 - yd0 + 1);
+  Hauteur = yd1 - yd0 + 1;
+  VirguleH = v15 << 16;
+  PoidFortH = v15 >> 16;
+  AccuVirguleH = 0;
+  do
+  {
+    v16 = Largeur;
+    v17 = 0;
+    do
+    {
+      *v13 = *(U8 *)v14;
+      v14 = (int *)((__PAIR__((unsigned int)v14, v12) + __PAIR__(PoidFort, v17)) >> 32);
+      v17 += v12;
+      ++v13;
+      --v16;
+    }
+    while ( v16 );
+    v18 = (__PAIR__(PoidFortH, VirguleH) + (unsigned __int64)(unsigned int)AccuVirguleH) >> 32;
+    AccuVirguleH += VirguleH;
+    v13 += OffsetLine;
+    v14 = &savedregs;
+    v19 = TabOffLine[v18];
+    --Hauteur;
+  }
+  while ( Hauteur );
+  return v21;
 }
