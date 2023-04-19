@@ -1,118 +1,36 @@
-/*
-		.386p
-
-		.model FLAT, C
-
-;*══════════════════════════════════════════════════════════════════════════*
-;*──────────────────────────────────────────────────────────────────────────*
-		.code
-
-;*──────────────────────────────────────────────────────────────────────────*
-ifndef	_WIN32
-		public	C	GetHDFreeSize
-endif
-		public	C	SearchBoundColRGB
-
-;----------------------------------------------------------------------------
-ifndef	_WIN32
-
-;*══════════════════════════════════════════════════════════════════════════*
-
-;GetHDFreeSize		proc
-
-;			xor	eax, eax	;' Cause IMUL
-;			xor	ebx, ebx	;' Cause IMUL
-;			xor	ecx, ecx	;' Cause IMUL
-
-;			mov	ah, 36h
-;			xor	edx, edx	;' Current Drive
-;			int	21h		;' Get Free Space
-
-;			imul	ebx
-;			imul	ecx		;' Bytes*Sectors*Clusters
-
-;			ret
-
-;GetHDFreeSize		endp
-
-;*══════════════════════════════════════════════════════════════════════════*
-endif
-
-;*══════════════════════════════════════════════════════════════════════════*
-;----------------------------------------------------------------------------
-;		U8 SearchBoundColRGB( U8 Rouge, U8 Vert, U8 Bleu, (U8*)Palette )
-;
-
-SearchBoundColRGB	PROC	Rouge: DWORD, Vert: DWORD, Bleu: DWORD, Palette: DWORD,\
-				coulmin:DWORD, coulmax:DWORD
-
-			push	ebx
-			mov	ecx,coulmin
-
-			mov	ebx,coulmax
-			push	edi
-
-			push	esi
-			mov	edi,-1			; Norme de la meilleure couleur
-
-			lea	esi,[ecx*2+ecx]
-			push	ecx
-
-			add	esi,[Palette]
-			jmp	Search_Coul
-Pas_La_Plus_Proche:
-			cmp	ecx,ebx
-			ja	exit
-Search_Coul:
-			xor	edx,edx
-			xor	eax,eax
-			mov	dl,[esi]
-			mov	al,[esi+1]
-			sub	edx,[Rouge]
-			sub	eax,[Vert]
-			imul	edx,edx
-			imul	eax,eax
-			add	edx,eax
-			xor	eax,eax
-			mov	al,[esi+2]
-			add	esi,3
-			sub	eax,[Bleu]
-			imul	eax,eax
-			inc	ecx
-			add	edx,eax
-
-			cmp	edx,edi
-			jae	Pas_La_Plus_Proche
-
-			mov	edi,edx
-			mov	[esp],ecx
-
-			cmp	ecx,ebx
-			jbe	Search_Coul
-exit:
-			pop	eax
-			pop	esi
-
-			dec	eax
-			pop	edi
-
-			and	eax,0FFh
-			pop	ebx
-
-			ret
-
-SearchBoundColRGB	ENDP
-
-;*──────────────────────────────────────────────────────────────────────────*
-			END
-*/
-
 #include "FUNC.H"
-#include <stdio.h>
 
-U8	SearchBoundColRGB( U8 Rouge, U8 Vert, U8 Bleu, U8 *Palette, U8 coulmin, U8 coulmax )
+U8 SearchBoundColRGB( U8 Rouge, U8 Vert, U8 Bleu, U8 *Palette, U8 coulmin, U8 coulmax )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  unsigned int v6; // ecx@1
+  unsigned int v7; // edi@1
+  U8 *v8; // esi@1
+  int v9; // edx@3
+  int v10; // eax@3
+  unsigned int v11; // edx@3
+  U32 v13; // [sp-4h] [bp-10h]@1
+
+  v6 = coulmin;
+  v7 = -1;
+  v13 = coulmin;
+  v8 = Palette + 3 * coulmin;
+  do
+  {
+    while ( 1 )
+    {
+      v9 = (*(v8 + 1) - Rouge) * (*(v8 + 1) - Rouge) + (*v8 - Vert) * (*v8 - Vert);
+      v10 = *(v8 + 2);
+      v8 += 3;
+      ++v6;
+      v11 = (v10 - Bleu) * (v10 - Bleu) + v9;
+      if ( v11 < v7 )
+        break;
+      if ( v6 > coulmax )
+        return (v13 - 1) & 0xFF;
+    }
+    v7 = v11;
+    v13 = v6;
+  }
+  while ( v6 <= coulmax );
+  return (v13 - 1) & 0xFF;
 }
