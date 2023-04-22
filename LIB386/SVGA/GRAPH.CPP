@@ -192,8 +192,8 @@ AffGraph		endp
   U8 *data = (U8 *)bankgraph + ((U32 *)bankgraph)[numgraph];
   U8 deltaX = data[0];
   U8 nbLine = data[1]; // delta Y
-  S32 hotX = data[2];
-  S32 hotY = data[3];
+  S8 hotX = data[2];
+  S8 hotY = data[3];
 
   U8 *graphics = data + 4;
 
