@@ -33,7 +33,7 @@ void UpdateKeyboardState() {
     if (keystate[keyIndex]) {
       TabKeys[KeyIndex(keyIndex)] |= KeyBit(keyIndex);
 
-      if (Key != 0) {
+      if (Key == 0) {
         Key = keyIndex;
       }
     }
