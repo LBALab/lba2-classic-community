@@ -15,8 +15,8 @@ U8 SearchBoundColRGB(U8 Rouge, U8 Vert, U8 Bleu, U8 *Palette, U8 coulmin, U8 cou
   {
     while ( 1 )
     {
-      U8 r = colors[1];
-      U8 g = colors[0];
+      U8 r = colors[0];
+      U8 g = colors[1];
       U8 b = colors[2];
 
       newCol = (r - Rouge) * (r - Rouge) + (g - Vert) * (g - Vert) + (b - Bleu) * (b - Bleu);
