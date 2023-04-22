@@ -22,8 +22,6 @@ void ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32 xd0, S32 yd0,
   int v16; // ecx@2
   unsigned int v17; // edx@2
   int v18; // eax@4
-  int v19; // eax@4
-  int v21; // [sp+4h] [bp-4h]@0
   U8 *savedregs; // [sp+8h] [bp+0h]@4
 
   v10 = xd1 - xd0 + 1;
@@ -34,7 +32,7 @@ void ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32 xd0, S32 yd0,
   PoidFort = v11 >> 16;
   v13 = (U8 *)ptrd + TabOffLine[yd0] + xd0;
   v14 = (U8 *)ptrs + TabOffLine[ys0] + xs0;
-  v15 = ((ys1 - ys0 + 1) << 16) / (unsigned int)(yd1 - yd0 + 1);
+  v15 = ((ys1 - ys0 + 1) << 16) / (yd1 - yd0 + 1);
   Hauteur = yd1 - yd0 + 1;
   VirguleH = v15 << 16;
   PoidFortH = v15 >> 16;
@@ -53,14 +51,14 @@ void ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32 xd0, S32 yd0,
       ++v13;
       --v16;
     }
-    while ( v16 );
+    while (v16);
     U8 carry = (U64)AccuVirguleH + (U64)VirguleH > 0xFFFFFFFF;
     AccuVirguleH += VirguleH;
     v18 = PoidFortH + carry;
     v13 += OffsetLine;
     v14 = savedregs;
-    v19 = TabOffLine[v18];
+    savedregs += TabOffLine[v18];
     --Hauteur;
   }
-  while ( Hauteur );
+  while (Hauteur);
 }
