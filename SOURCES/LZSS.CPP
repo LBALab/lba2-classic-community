@@ -79,11 +79,7 @@ void InitTree( int r )
  * its descendant is broken by pulling the descendant in to overlay
  * the existing link.
  */
-
-/*
-void ContractNode( old_node, new_node )
-int old_node;
-int new_node;
+void ContractNode( int old_node, int new_node )
 {
     tree[ new_node ].parent = tree[ old_node ].parent;
     if ( tree[ tree[ old_node ].parent ].larger_child == old_node )
@@ -92,16 +88,13 @@ int new_node;
 	tree[ tree[ old_node ].parent ].smaller_child = new_node;
     tree[ old_node ].parent = UNUSED;
 }
-*/
+
 /*
  * This routine is also used when a node is being deleted.  However,
  * in this case, it is being replaced by a node that was not previously
  * in the tree.
  */
-/*
-void ReplaceNode( old_node, new_node )
-int old_node;
-int new_node;
+void ReplaceNode( int old_node, int new_node )
 {
     int parent;
 
@@ -117,16 +110,14 @@ int new_node;
 	tree[ tree[ new_node ].larger_child ].parent = new_node;
     tree[ old_node ].parent = UNUSED;
 }
-*/
+
 /*
  * This routine is used to find the next smallest node after the node
  * argument.  It assumes that the node has a smaller child.  We find
  * the next smallest child by going to the smaller_child node, then
  * going to the end of the larger_child descendant chain.
 */
-/*
-int FindNextNode( node )
-int node;
+int FindNextNode( int node )
 {
     int next;
 
@@ -135,7 +126,7 @@ int node;
 	next = tree[ next ].larger_child;
     return( next );
 }
-*/
+
 /*
  * This routine performs the classic binary tree deletion algorithm.
  * If the node to be deleted has a null link in either direction, we
@@ -144,9 +135,7 @@ int node;
  * is guaranteed to have a null link, then replace the node to be deleted
  * with the next link.
  */
-/*
-void DeleteStringOld( p )
-int p;
+void DeleteString( int p )
 {
     int  replacement;
 
@@ -162,7 +151,7 @@ int p;
 	ReplaceNode( p, replacement );
     }
 }
-*/
+
 /*
  * This where most of the work done by the encoder takes place.  This
  * routine is responsible for adding the new node to the binary tree.
@@ -171,8 +160,7 @@ int p;
  * even more complicated, if the new_node has a duplicate in the tree,
  * the old_node is deleted, for reasons of efficiency.
  */
-/*
-int AddStringOld()
+int AddString()
 {
 	int	i;
 	int	test_node;
@@ -223,9 +211,6 @@ int AddStringOld()
 		test_node = *child;
     	}
 }
-
-
-*/
 
 
 
@@ -338,202 +323,6 @@ unsigned long Compress_LZSS(char *input,char *output, unsigned long length )
   if (count_bits == 0)
     len--;
   return (len);
-}
-
-#include <stdio.h>
-
-// ╔════════════════════════════════════════════════════════════════════════╗
-// ║                                                                        ║
-// ╟────────────────────────────────────────────────────────────────────────╢
-// ║ Call : EAX = New Node                                                  ║
-// ║        ESI = Old Node                                                  ║
-// ║                                                                        ║
-// ╚════════════════════════════════════════════════════════════════════════╝
-void Contract_Node(U32 oldNode, U32 newNode)
-{
-  long parent = UNUSED;
-
-  if (newNode == UNUSED)
-  {
-    // @@skip1:
-    parent = tree[oldNode].parent;
-    tree[oldNode].parent = UNUSED;
-  }
-  else
-  {
-    parent = tree[oldNode].parent;
-    tree[oldNode].parent = UNUSED;
-    tree[newNode].parent = parent;
-  }
-
-  // @@skip2:
-  if (tree[parent].larger_child == oldNode)
-  {
-    tree[parent].larger_child = newNode;
-  }
-  else
-  {
-    tree[parent].smaller_child = newNode;
-  }
-}
-
-// ╔════════════════════════════════════════════════════════════════════════╗
-// ║  Replaces a node with a new one. Useful for example, when a new string ║
-// ║ is also in the dictionary, it is better to put the new one, because    ║
-// ║ it will be deleted after the old one... but if it is clear! :)         ║
-// ╟────────────────────────────────────────────────────────────────────────╢
-// ║ Call : EBP = New_Node (its index)                                      ║
-// ║        EDI = Old_Node (its index)                                      ║
-// ║                                                                        ║
-// ╚════════════════════════════════════════════════════════════════════════╝
-void Replace_Node(U32 oldNode, U32 newNode)
-{
-  U32 parent = tree[oldNode].parent;
-  if (tree[parent].smaller_child == oldNode)
-  {
-    tree[parent].smaller_child = newNode;
-  }
-  else
-  {
-    tree[parent].larger_child = newNode;
-  }
-  // @@Chain_Next:
-  tree[newNode].parent = parent;
-  tree[newNode].larger_child = tree[oldNode].larger_child;
-  tree[newNode].smaller_child = tree[oldNode].smaller_child;
-
-  tree[oldNode].parent = UNUSED;
-
-  if (tree[newNode].smaller_child != UNUSED)
-  {
-    tree[tree[newNode].smaller_child].parent = newNode;
-  }
-
-  // @@Et_Non0:
-  if (tree[newNode].larger_child != UNUSED)
-  {
-    tree[tree[newNode].larger_child].parent = newNode;
-  }
-  // @@Exit:
-}
-
-// ╔════════════════════════════════════════════════════════════════════════╗
-// ║ Finds whether all or part of the current string is already in the      ║
-// ║ dictionary, constitutes strings already read.                          ║
-// ║                                                                        ║
-// ╚════════════════════════════════════════════════════════════════════════╝
-int AddString() {
-  long *targetChild = NULL;
-  long rootLargerChild = tree[TREE_ROOT].larger_child;
-  U32 Match_Length = 0;
-
-  while (1)
-  {
-    // @@Main_Loop:
-    unsigned int i = 0; // counter
-    int position = Current_position; // Current_position+i
-    long testNode = rootLargerChild; // Test_Node+i
-    int delta = 0;
-    do
-    {
-      position &= (WINDOW_SIZE - 1); // The AND for the modulo
-      testNode &= (WINDOW_SIZE - 1); // in the dictionary window
-      position++;
-      delta = window[position] - window[testNode];
-      if (delta != 0)
-      {
-        break;
-      }
-      i++;
-      testNode++;
-    }
-    while (i < LOOK_AHEAD_SIZE);
-    // @@Found:
-    if (i >= Match_Length)
-    {
-      Match_Length = i;
-      Match_position = rootLargerChild;
-      if (i >= LOOK_AHEAD_SIZE)
-      {
-        Replace_Node(rootLargerChild, Current_position);
-        return Match_Length;
-      }
-    }
-    // @@Not_Better:
-    targetChild = &tree[rootLargerChild].larger_child;
-    if (delta < 0)
-    {
-      targetChild = &tree[rootLargerChild].smaller_child;
-    }
-    // @@PTR_Ok:
-    if (*targetChild == UNUSED)
-    {
-      break;
-    }
-    rootLargerChild = *targetChild;
-  }
-  // @@Add_Leaf:
-  *targetChild = Current_position;
-  tree[Current_position].parent = rootLargerChild;
-  tree[Current_position].larger_child = UNUSED;
-  tree[Current_position].smaller_child = UNUSED;
-  return Match_Length;
-}
-
-// ╔════════════════════════════════════════════════════════════════════════╗
-// ║                                                                        ║
-// ╟────────────────────────────────────────────────────────────────────────╢
-// ║ Call : ESI = Node                                                     ║
-// ║                                                                        ║
-// ╚════════════════════════════════════════════════════════════════════════╝
-int Find_Next_Node(int node)
-{
-  int next = tree[node].smaller_child;
-
-  while (tree[next].larger_child != UNUSED)
-  {
-    next = tree[next].larger_child;
-  }
-
-  return next;
-}
-
-// ╔════════════════════════════════════════════════════════════════════════╗
-// ║  Deletes a string in the dictionary (to be exact, in the tree).        ║
-// ║ You need all that, because you have to reorder the tree correctly      ║
-// ║                                                                        ║
-// ╟────────────────────────────────────────────────────────────────────────╢
-// ║ Call: Parameter passing by stack: P = Index of the node to delete      ║
-// ║                                                                        ║
-// ╚════════════════════════════════════════════════════════════════════════╝
-void DeleteString(int p) {
-  int newNode = UNUSED;
-
-  if (tree[p].parent == UNUSED)
-  {
-    return;
-  }
-
-  if (tree[p].larger_child == UNUSED)
-  {
-    newNode = tree[p].smaller_child;
-  }
-  else
-  {
-    // @@Not_This_One:
-    if (tree[p].smaller_child != UNUSED)
-    {
-      // @@Not_This_One_Too:
-      int next = Find_Next_Node(p);
-      DeleteString(next);
-      Replace_Node(p, next);
-      return;
-    }
-
-    newNode = tree[p].larger_child;
-  }
-
-  Contract_Node(p, newNode);
 }
 
 /************************** End of LZSS.C *************************/
