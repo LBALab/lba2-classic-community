@@ -2,9 +2,9 @@
 
 U8 SearchBoundColRGB(U8 Rouge, U8 Vert, U8 Bleu, U8 *Palette, U8 coulmin, U8 coulmax)
 {
-  unsigned int coul; // ecx@1
-  unsigned int prevCol; // edi@1
-  S32 newCol; // edx@3
+  U32 coul; // ecx@1
+  U32 prevCol; // edi@1
+  U32 newCol; // edx@3
   U32 boundCol; // [sp-4h] [bp-10h]@1
 
   coul = coulmin;
