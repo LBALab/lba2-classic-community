@@ -15,7 +15,7 @@ void SaveBlock(void *screen, void *buffer, S32 x0, S32 y0, S32 x1,
 
   do
   {
-    memcpy(src, dst, deltaX);
+    memcpy(dst, src, deltaX);
     dst += deltaX;
     src += deltaX + lineOffset;
     --deltaY;
