@@ -1337,9 +1337,33 @@ U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  XMap = x / SIZE_BRICK_XZ;
+  YMap = y / SIZE_BRICK_Y;
+  ZMap = z / SIZE_BRICK_XZ;
+
+  if (XMap >= 0 && XMap < 64 )
+  {
+    if ( YMap <= -1 )
+    {
+      YMap = 0;
+      return 1;
+    }
+    if ( YMap >= 0 && YMap < 25 && ZMap >= 0 && ZMap < 64 )
+    {
+      U8 *ptc = 3200 * ZMap + 50 * XMap + BufCube + 2 * YMap;
+
+      if( *ptc != 0 )
+      {
+        U8 block = (*ptc++) - 1 ;
+        U8 *adr = GetAdrBlock( block )	;
+        adr += HEADER_BLOCK		;
+        adr += (*ptc)<<2 		;/* 4 Bytes to Jump	*/
+        return *adr ;
+      }
+    }
+  }
+
+  return 0;
 }
 
 //-------------------------------------------------------------------
