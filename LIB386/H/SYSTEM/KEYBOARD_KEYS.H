@@ -168,7 +168,7 @@
 
 #define A_N_PLUS        SDLK_KP_PLUS
 #define A_N_MOINS       SDLK_KP_MINUS
-#define A_BACKSPACE     SDL_SCANCODE_BACKSPACE
+#define A_BACKSPACE     SDLK_BACKSPACE
 #define A_TAB           SDLK_TAB
 #define A_NUMLOCK       SDLK_NUMLOCKCLEAR
 
