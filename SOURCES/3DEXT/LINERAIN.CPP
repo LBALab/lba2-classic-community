@@ -1,73 +1,29 @@
+#include "EXTERN.H"
+
+#include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
+#include <SVGA/SCREENXY.H>
+
+U16 *YPtrZBuf = NULL;
+U8 *YPtrLog = NULL;
+U8 *PtrLog = NULL;
+U16 *PtrZBuf = NULL;
+S32 DELTA_Y = 0x12345678;
+S32 DELTA_X = 0x12345678;
+S32 DELTA_X1 = 0x12345678;
+S32 Line = 0x12345678;
+S32 Col = 0x12345678;
+S32 DELTA_Z = 0x12345678;
+S32 IZ = 0x12345678;
+S32 YDELTA_X = 0x12345678;
+S32 YDELTA_Y = 0x12345678;
+S32 YDELTA_Y1 = 0x12345678;
+S32 Col2 = 0x12345678;
+S32 Line2 = 0x12345678;
+S32 YDELTA_Z = 0x12345678;
+S32 YIZ = 0x12345678;
+
 /*
-;----------------------------------------------------------------------------
-;				S_LINE.ASM 386
-;			      (c) Adeline 1993-96
-;----------------------------------------------------------------------------
-			.386
-			.MODEL FLAT, C
-
-
-			INCLUDE	FILLER.INC
-
-
-;----------------------------------------------------------------------------
-			.DATA
-
-;----------------------------------------------------------------------------
-RAIN_RANGE		=	200
-
-;----------------------------------------------------------------------------
-			extrn	C	ScreenXMin:	DWORD
-			extrn	C	ScreenYMin:	DWORD
-			extrn	C	ScreenXMax:	DWORD
-			extrn	C	ScreenYMax:	DWORD
-
-;----------------------------------------------------------------------------
-extrn	C 	ClipXMin		:	DWORD
-extrn	C 	ClipYMin		:	DWORD
-extrn	C 	ClipXMax		:	DWORD
-extrn	C 	ClipYMax		:	DWORD
-extrn	C 	Log			:	DWORD
-extrn	C 	PtrZBuffer		:	DWORD
-extrn	C 	PTR_TabOffLine		:	DWORD
-extrn	C 	ScreenPitch		:	DWORD
-Extrn	C		Fill_Flag_Fog		:	BYTE
-Extrn	C		Fill_Flag_ZBuffer	:	BYTE
-Extrn	C	  	Fill_Logical_Palette	:	BYTE
-
-;----------------------------------------------------------------------------
-CurrentZ1		dd	0			; For the ZBuffer
-CurrentZ2		dd	0
-DZ	       		dd	0
-Color	       		db	0
-
-; Runtime code patch refactor, uses memory instead of instruction substitution
-YPtrZBuf    DWORD 12345678h
-YPtrLog     DWORD 12345678h
-PtrLog      DWORD 12345678h
-PtrZBuf     DWORD 12345678h
-DELTA_Y     DWORD 12345678h
-DELTA_X     DWORD 12345678h
-DELTA_X1    DWORD 12345678h
-Line        DWORD 12345678h
-Col         DWORD 12345678h
-DELTA_Z     DWORD 12345678h
-IZ          DWORD 12345678h
-YDELTA_X    DWORD 12345678h
-YDELTA_Y    DWORD 12345678h
-YDELTA_Y1   DWORD 12345678h
-Col2        DWORD 12345678h
-Line2       DWORD 12345678h
-YDELTA_Z    DWORD 12345678h
-YIZ         DWORD 12345678h
-
-;----------------------------------------------------------------------------
-			.CODE
-
-;----------------------------------------------------------------------------
-			public	C	LineRain
-
-;----------------------------------------------------------------------------
 ; ╔════════════════════════════════════════════════════════════════════════╗
 ; ║   Trace de droite Zbuffer (methode toute con (Lucas)) No ZBuf write    ║
 ; ╟────────────────────────────────────────────────────────────────────────╢
@@ -75,793 +31,427 @@ YIZ         DWORD 12345678h
 ; ║         STACK= Color                                                   ║
 ; ║         EDI  = CurrentZ1                                               ║
 ; ║         ESI  = CurrentZ2                                               ║
-; ║			; Return value: bit field                          ║
-; ║			;		0 : line not displayed             ║
-; ║			;		1 : line at least partially visible║
-; ║			;		2 : line intersects the background ║
+; ║			; Return value: bit field                                          ║
+; ║			;		0 : line not displayed                                         ║
+; ║			;		1 : line at least partially visible                            ║
+; ║			;		2 : line intersects the background                             ║
 ; ╚════════════════════════════════════════════════════════════════════════╝
-
-;S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul );
-
-;#pragma aux LineRain	"*"				\
-;	parm caller [eax] [ebx] [edi] [ecx] [edx] [esi]
-
-			ALIGN	4
-LineRain		PROC \
-			uses ebx ecx edx edi esi ebp\
-			x0: DWORD, y0: DWORD, z0: DWORD, x1: DWORD, y1: DWORD, z1: DWORD, coul:DWORD
-
-			mov eax, x0
-			mov ebx, y0
-			mov edi, z0
-			mov ecx, x1
-			mov edx, y1
-			mov esi, z1
-
-x:
-			shl	esi,16
-			push	ebp
-			shl	edi,16
-			mov	ebp, coul
-
-			mov	[CurrentZ2],esi
-			mov	[CurrentZ1],edi
-			push	eax
-			mov	eax,ebp
-			and	ebp,0FFh
-			cmp	[Fill_Flag_Fog],TRUE
-			jne	Pas_Coul_Convert
-			mov	al,[Fill_Logical_Palette+ebp]
-Pas_Coul_Convert:
-			mov	[Color],al
-			pop	eax
-
-Trace_Still:
-			mov	edi,[CurrentZ1]
-			mov	esi,[CurrentZ2]
-
-			sub	esi,edi
-			mov	edi,ecx
-
-			mov	[DZ],esi
-			mov	esi,edx
-
-			sub	edi,eax			; EDI = DELTA_X
-			jz	DX_Nul
-
-			sub	esi,ebx			; ESI = DELTA_Y
-			jz	DY_Nul
-
-			cmp	eax,[ClipXMin]
-			jl	Clip_X0
-
-			cmp	eax,[ClipXMax]
-			jg	Clip_X1
-
-			cmp	ecx,[ClipXMin]
-			jl	Clip_X2
-
-			cmp	ecx,[ClipXMax]
-			jg	Clip_X3
-
-			cmp	ebx,[ClipYMin]
-			jl	Clip_Y0
-
-			cmp	ebx,[ClipYMax]
-			jg	Clip_Y1
-
-			cmp	edx,[ClipYMin]
-			jl	Clip_Y2
-
-			cmp	edx,[ClipYMax]
-			jg	Clip_Y3
-Draw_Line:
-			mov	[ScreenXMin],eax
-			mov	[ScreenXMax],ecx
-
-			mov	edi,ecx
-			mov	ecx,1			; ECX = Incr_X
-
-			sub	edi,eax
-			jns	DeltaX_Pos
-
-			neg	edi
-			neg	ecx
-
-			mov	[ScreenXMin],ecx
-			mov	[ScreenXMax],eax
-DeltaX_Pos:						; EDI = ABS(Delta_X)
-
-			mov	[ScreenYMin],ebx
-			mov	[ScreenYMax],edx
-
-			mov	esi,edx
-			mov	ebp,[ScreenPitch]	; EBP = Incr_Y
-
-			sub	esi,ebx
-			jns	DeltaY_Pos
-
-			neg	esi
-			neg	ebp
-
-			mov	[ScreenYMin],edx
-			mov	[ScreenYMax],ebx
-DeltaY_Pos:						; ESI = ABS(Delta_Y)
-			shl	ebx,2
-			add	ebx,[PTR_TabOffLine]
-
-			mov	ebx,[ebx]
-
-			add	ebx,eax			; EBX = start offset
-
-			cmp	edi,esi
-			jb	Draw_Y
-
-							; Delta_X > Delta_Y
-			mov	[DELTA_Y],esi
-			mov	[DELTA_X],edi
-			mov	[DELTA_X1],edi
-
-			mov	eax,[DZ]
-
-			test	ecx,ecx
-			jns	Pos1
-
-			neg	eax
-Pos1:
-			mov	edx,eax			; compute Z gradient
-			sar	edx,31
-			idiv	edi
-
-			mov	edx,eax
-			shr	edx,31
-			add	eax,edx
-
-			mov	edx,eax
-			shl	eax,16
-			sar	edx,16
-			mov	[DELTA_Z],eax
-			mov	[IZ],edx
-
-			mov	[Line],ebp
-			mov	[Col],ecx
-
-			mov	eax,[Log]
-			mov	edx,[PtrZBuffer]
-			mov	[PtrLog],eax
-			mov	[PtrZBuf],edx
-
-
-			mov	edx,edi
-			mov	ebp,edi
-			shr	edx,1
-
-			xor	eax,eax
-			mov	esi,[CurrentZ1]
-			mov	edi,esi
-			shl	esi,16
-			mov	al,[Color]
-			shr	edi,16
-
-			sub	edi,RAIN_RANGE/2
-			xor	ecx,ecx
-
-			jmp	$+2
-Do_X:
-			push eax
-			mov eax,[PtrZBuf]
-			mov	cx,[ebx*2+eax]
-			pop eax
-
-			sub	ecx,edi
-			js	NoDisp
-
-;			cmp	esi,RAIN_RANGE
-			cmp	ecx,RAIN_RANGE
-			jge	Disp
-
-			or	ah,2
-Disp:
-			or	ah,1
-			push ecx
-			mov ecx,[PtrLog]
-			mov	[ebx+ecx],al
-			pop ecx
-NoDisp:
-			add	edx,[DELTA_Y]
-
-			cmp	edx,[DELTA_X]
-			jb	Plot_X
-
-			sub	edx,[DELTA_X1]
-			add	ebx,[Line]
-Plot_X:
-			add	ebx,[Col]
-			xor	ecx,ecx
-
-			add	esi,[DELTA_Z]
-			adc	edi,[IZ]
-
-			dec	ebp
-			jge	Do_X
-
-			shr	eax,8
-			pop	ebp
-
-			ret
-Draw_Y:
-			mov	[YDELTA_X],edi
-			mov	[YDELTA_Y],esi
-			mov	[YDELTA_Y1],esi
-
-			mov	eax,[DZ]
-
-			test	ebp,ebp
-			jns	Pos2
-
-			neg	eax
-Pos2:
-			mov	edx,eax
-			sar	edx,31
-			idiv	esi
-
-			mov	edx,eax
-			shr	edx,31
-			add	eax,edx
-
-			mov	edx,eax
-			shl	eax,16
-			sar	edx,16
-			mov	[YDELTA_Z],eax
-			mov	[YIZ],edx
-
-			mov	[Col2],ecx
-			mov	[Line2],ebp
-
-			mov	eax,[Log]
-			mov	edx,[PtrZBuffer]
-			mov	[YPtrLog],eax
-			mov	[YPtrZBuf],edx
-
-			mov	edx,esi
-			mov	ecx,esi
-			shr	edx,1
-
-			mov	esi,[CurrentZ1]
-			xor	eax,eax
-			mov	edi,esi
-			mov	al,[Color]
-			shl	esi,16
-			shr	edi,16
-
-			sub	edi,RAIN_RANGE/2
-			xor	ebp,ebp
-
-			jmp	$+2
-Do_Y:
-			push eax
-			mov eax,[YPtrZBuf]
-			mov	bp,[ebx*2+eax]
-			pop eax
-
-			sub	ebp,edi
-			js	YNoDisp
-
-			cmp	ebp,RAIN_RANGE
-			jge	YDisp
-
-			or	ah,2
-YDisp:
-			or	ah,1
-			push ecx
-			mov ecx,[YPtrLog]
-			mov	[ebx+ecx],al
-			pop ecx
-YNoDisp:
-			add	edx,[YDELTA_X]
-
-			cmp	edx,[YDELTA_Y]
-			jb	Plot_Y
-
-			sub	edx,[YDELTA_Y1]
-			add	ebx,[Col2]
-Plot_Y:
-			add	ebx,[Line2]
-			xor	ebp,ebp
-
-			add	esi,[YDELTA_Z]
-			adc	edi,[YIZ]
-
-			dec	ecx
-			jge	Do_Y
-
-			shr	eax,8
-			pop	ebp
-
-			ret
-Exit:
-			mov	ebx,7FFFFFFFh
-			xor	eax,eax
-
-			mov	[ScreenXMin],ebx
-			mov	[ScreenYMin],ebx
-
-			inc	ebx
-			pop	ebp
-
-			mov	[ScreenXMax],ebx
-			mov	[ScreenYMax],ebx
-
-			ret
-
-Clip_X0:						; Case X1<XMin
-			cmp	ecx,[ClipXMin]
-			jl	Exit
-
-			push	edx
-			sub	eax,[ClipXMin]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ1],eax		; z1-=(x1-XMin)*dz/dx
-			pop	eax
-
-			imul	esi
-			idiv	edi
-
-			sub	ebx,eax			; y1-=(x1-XMin)*dy/dx
-			mov	eax,[ClipXMin]		; x1 = ClipXMin
-
-			pop	edx
-			jmp	Trace_Still
-Clip_X1:						; Case X1>XMax
-			cmp	ecx,[ClipXMax]
-			jg	Exit
-
-			push	edx
-			sub	eax,[ClipXMax]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ1],eax		; z1-=(x1-XMax)*dz/dx
-			pop	eax
-
-			imul	esi
-			idiv	edi
-
-			sub	ebx,eax			; y1-=(x1-XMax)*dy/dx
-			pop	edx
-
-			mov	eax,[ClipXMax]		; x1 = ClipXMax
-			jmp	Trace_Still
-
-Clip_X2:						; Case X2<XMin
-			push	eax
-			push	edx
-
-			mov	eax,ecx
-			sub	eax,[ClipXMin]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ2],eax		; z2-=(x2-XMin)*dz/dx
-			pop	eax
-
-			imul	esi
-			idiv	edi
-
-			pop	edx
-			mov	ecx,[ClipXMin]		; x2 = ClipXMin
-
-			sub	edx,eax			; y2-=(x2-XMin)*dy/dx
-			pop	eax
-
-			jmp	Trace_Still
-
-Clip_X3:						; Case X2>XMax
-			push	eax
-			mov	eax,ecx
-
-			push	edx
-			sub	eax,[ClipXMax]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ2],eax		; z2-=(x2-XMax)*dz/dx
-			pop	eax
-
-			imul	esi
-			idiv	edi
-
-			pop	edx
-			mov	ecx,[ClipXMax]		; x2 = ClipXMax
-
-			sub	edx,eax			; y2-=(x2-XMax)*dy/dx
-			pop	eax
-
-			jmp	Trace_Still
-
-Clip_Y0:						; Case Y1<YMin
-			cmp	edx,[ClipYMin]
-			jl	Exit
-
-			push	edx
-			push	eax
-
-			mov	eax,ebx
-
-			sub	eax,[ClipYMin]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ1],eax		; z1-=(y1-YMin)*dz/dy
-			pop	eax
-
-			imul	edi
-			idiv	esi
-
-			mov	edx,eax
-			pop	eax
-
-			sub	eax,edx			; x1-=(y1-YMin)*dz/dy
-			mov	ebx,[ClipYMin]		; y1 = ClipYMin
-
-			pop	edx
-			jmp	Trace_Still
-
-Clip_Y1:						; Case Y1>YMax
-			cmp	edx,[ClipYMax]
-			jg	Exit
-
-			push	edx
-			push	eax
-
-			mov	eax,ebx
-
-			sub	eax,[ClipYMax]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ1],eax		; z1-=(y1-YMax)*dz/dy
-			pop	eax
-
-			imul	edi
-			idiv	esi
-
-			mov	edx,eax
-			pop	eax
-
-			sub	eax,edx			; x1-=(y1-YMax)*dz/dy
-			mov	ebx,[ClipYMax]		; y1 = ClipYMax
-
-			pop	edx
-			jmp	Trace_Still
-
-Clip_Y2:						; Case Y2<YMin
-			push	eax
-			mov	eax,edx
-
-			sub	eax,[ClipYMin]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ2],eax		; z2-=(y2-YMin)*dz/dy
-			pop	eax
-
-			imul	edi
-			idiv	esi
-
-			sub	ecx,eax			; x2-=(y2-YMin)*dz/dy
-			mov	edx,[ClipYMin]		; y2 = ClipYMin
-
-			pop	eax
-			jmp	Trace_Still
-
-Clip_Y3:						; Case Y2>YMax
-			push	eax
-			mov	eax,edx
-
-			sub	eax,[ClipYMax]
-
-			push	eax
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ2],eax		; z2-=(y2-YMax)*dz/dy
-			pop	eax
-
-			imul	edi
-			idiv	esi
-
-			sub	ecx,eax			; x2-=(y2-YMax)*dz/dy
-			mov	edx,[ClipYMax]		; y2 = ClipYMax
-
-			pop	eax
-			jmp	Trace_Still
-
-							; *** DeltaX nul ***
-DX_Nul:
-			cmp	eax,[ClipXMin]
-			jl	Exit
-			cmp	eax,[ClipXMax]
-			jg	Exit
-
-			sub	esi,ebx			; ESI = DELTA_Y
-			jz	Plot
-
-			cmp	ebx,[ClipYMin]
-			jge	DX_Y1
-			cmp	edx,[ClipYMin]
-			jl	Exit
-
-			push	edx
-			push	eax
-
-			mov	eax,ebx
-			sub	eax,[ClipYMin]
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ1],eax		; z1-=(y1-YMin)*dz/dy
-			pop	eax
-
-			pop	edx
-			mov	ebx,[ClipYMin]		; y1 = YMin
-
-			mov	esi,edx
-
-			sub	esi,ebx			; ESI = DELTA_Y
-			jz	Plot
-
-DX_Y1:
-			cmp	ebx,[ClipYMax]
-			jle	DX_Y1b
-			cmp	edx,[ClipYMax]
-			jg	Exit
-
-			push	edx
-			push	eax
-
-			mov	eax,ebx
-			sub	eax,[ClipYMax]
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ1],eax		; z1-=(y1-YMax)*dz/dy
-			pop	eax
-
-			pop	edx
-			mov	ebx,[ClipYMax]		; y1 = YMax
-
-			mov	esi,edx
-
-			sub	esi,ebx			; ESI = DELTA_Y
-			jz	Plot
-DX_Y1b:
-			cmp	edx,[ClipYMin]
-			jge	DX_Y2
-
-			push	eax
-			mov	eax,edx
-
-			sub	eax,[ClipYMin]
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ2],eax		; z2-=(y2-YMin)*dz/dy
-			mov	edx,[ClipYMin]		; y2 = YMin
-
-			pop	eax
-			mov	esi,edx
-
-			sub	esi,ebx			; ESI = DELTA_Y
-			jz	Plot
-DX_Y2:
-			cmp	edx,[ClipYMax]
-			jle	Draw_Line
-
-			push	eax
-			mov	eax,edx
-
-			sub	eax,[ClipYMax]
-
-			imul	[DZ]
-			idiv	esi
-
-			sub	[CurrentZ2],eax		; z2-=(y2-YMax)*dz/dy
-			mov	edx,[ClipYMax]		; y2 = YMax
-
-			mov	esi,edx
-			pop	eax
-
-			sub	esi,ebx			; ESI = DELTA_Y
-			jnz	Draw_Line
-
-			jmp	Plot
-							; *** DeltaY nul ***
-DY_Nul:
-			cmp	ebx,[ClipYMin]
-			jl	Exit
-			cmp	ebx,[ClipYMax]
-			jg	Exit
-
-			cmp	eax,[ClipXMin]
-			jge	DY_X1
-			cmp	ecx,[ClipXMin]
-			jl	Exit
-
-			push	edx
-			sub	eax,[ClipXMin]
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ1],eax		; z1-=(x1-XMin)*dz/dx
-			mov	edi,ecx
-
-			mov	eax,[ClipXMin]		; x1 = XMin
-			pop	edx
-
-			sub	edi,eax
-			jz	Plot
-
-DY_X1:
-			cmp	eax,[ClipXMax]
-			jle	DY_X1b
-			cmp	ecx,[ClipXMin]
-			jg	Exit
-
-			push	edx
-			sub	eax,[ClipXMax]
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ1],eax		; z1-=(x1-XMax)*dz/dx
-			mov	edi,ecx
-
-			mov	eax,[ClipXMax]		; x1 = XMax
-			pop	edx
-
-			sub	edi,eax
-			jz	Plot
-DY_X1b:
-
-			cmp	ecx,[ClipXMin]
-			jge	DY_X2
-
-			push	eax
-			mov	eax,ecx
-
-			push	edx
-			sub	eax,[ClipXMin]
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ2],eax		; z2-=(x2-XMin)*dz/dx
-			mov	ecx,[ClipXMin]		; x2 = XMin
-
-			pop	edx
-			mov	edi,ecx
-
-			pop	eax
-
-			sub	edi,eax
-			jz	Plot
-DY_X2:
-			cmp	ecx,[ClipXMax]
-			jle	Draw_Line
-
-			push	eax
-			mov	eax,ecx
-
-			push	edx
-			sub	eax,[ClipXMax]
-
-			imul	[DZ]
-			idiv	edi
-
-			sub	[CurrentZ2],eax		; z2-=(x2-XMax)*dz/dx
-			mov	ecx,[ClipXMax]		; x2 = XMax
-
-			pop	edx
-			mov	edi,ecx
-
-			pop	eax
-
-			sub	edi,eax
-			jnz	Draw_Line
-							; *** Plot ***
-Plot:
-			cmp	ebx,[ClipYMin]
-			jl	Exit
-			cmp	ebx,[ClipYMax]
-			jg	Exit
-			cmp	eax,[ClipXMin]
-			jl	Exit
-			cmp	eax,[ClipXMax]
-			jg	Exit
-
-			mov	[ScreenXMin],eax
-			mov	[ScreenYMin],ebx
-			mov	[ScreenXMax],eax
-			mov	[ScreenYMax],ebx
-
-			shl	ebx,2
-			mov	edi,[PTR_TabOffLine]
-
-			add	ebx,edi
-			mov	edi,[Log]
-
-			mov	edx,[CurrentZ1]
-			mov	esi,[PtrZBuffer]
-
-			sar	edx,16
-			mov	ebx,[ebx]
-
-			add	ebx,eax			; EBX = start offset
-			xor	eax,eax
-
-			xor	ebp,ebp
-			mov	al,[Color]
-
-			mov	bp,word ptr[ebx*2+esi]
-			sub	edx,RAIN_RANGE/2
-
-			sub	ebp,edx
-			js	Exit
-
-			cmp	ebp,RAIN_RANGE
-			jge	PlotDisp
-
-			or	ah,2
-PlotDisp:		mov	[ebx+edi],al
-
-	        	or	ah,1
-			pop	ebp
-
-			shr	eax, 8
-
-			ret
-
-LineRain		ENDP
-
-;			The
-			End
 */
-
-#include "EXTERN.H"
-#include <stdio.h>
-
 S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  int v1; // eax@1
+  int v2; // ebx@1
+  int v3; // ecx@1
+  int v4; // edx@1
+  int v5; // esi@1
+  int v6; // edi@1
+  int v7; // ebp@1
+  U8 v8; // al@1
+  int v9; // eax@3
+  signed int v10; // edi@4
+  signed int v11; // esi@5
+  int v12; // edi@14
+  signed int v13; // ecx@14
+  int v14; // edi@14
+  int v15; // ebp@16
+  int v16; // esi@16
+  int v17; // ebx@18
+  signed int v18; // eax@19
+  signed int v19; // eax@21
+  int v20; // ebp@21
+  unsigned int v21; // edx@21
+  int v22; // esi@21
+  unsigned int v23; // eax@21
+  unsigned int v24; // edi@21
+  int v25; // ecx@22
+  unsigned __int8 v26; // of@28
+  unsigned int result; // eax@29
+  signed int v28; // eax@30
+  signed int v29; // eax@32
+  int v30; // ecx@32
+  unsigned int v31; // edx@32
+  unsigned int v32; // eax@32
+  int v33; // esi@32
+  unsigned int v34; // edi@32
+  int v35; // ebp@33
+  int v36; // eax@43
+  int v37; // eax@45
+  int v38; // ST08_4@46
+  int v39; // eax@46
+  int v40; // ST08_4@47
+  int v41; // eax@47
+  signed int v42; // esi@56
+  int v43; // ebx@84
+  unsigned int v44; // eax@84
+  int v45; // ebp@84
+  int v46; // [sp-1Ch] [bp-20h]@1
+
+  v1 = x0;
+  v2 = y0;
+  v3 = x1;
+  v4 = y1;
+  v5 = z1 << 16;
+  v6 = z0 << 16;
+  v7 = coul;
+  S32 CurrentZ2 = v5;
+  S32 CurrentZ1 = v6;
+  S32 DZ = 0;
+  v46 = v1;
+  v8 = v7 & 0xFF;
+  if ( Fill_Flag_Fog == 1 )
+  {
+    v8 = Fill_Logical_Palette[v8];
+  }
+  U8 Color = v8;
+  v9 = v46;
+  while ( 1 )
+  {
+    DZ = CurrentZ2 - CurrentZ1;
+    v10 = v3 - v9;
+    if ( v3 == v9 )
+    {
+      if ( v9 < ClipXMin || v9 > ClipXMax )
+      {
+        goto LABEL_41;
+      }
+      v42 = v4 - v2;
+      if ( v4 == v2 )
+      {
+        goto LABEL_80;
+      }
+      if ( v2 < ClipYMin )
+      {
+        if ( v4 < ClipYMin )
+        {
+          goto LABEL_41;
+        }
+        CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMin) / v42;
+        v2 = ClipYMin;
+        v42 = v4 - ClipYMin;
+        if ( v4 == ClipYMin )
+        {
+          goto LABEL_80;
+        }
+      }
+      if ( v2 > ClipYMax )
+      {
+        if ( v4 > ClipYMax )
+        {
+          goto LABEL_41;
+        }
+        CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMax) / v42;
+        v2 = ClipYMax;
+        v42 = v4 - ClipYMax;
+        if ( v4 == ClipYMax )
+          goto LABEL_80;
+      }
+      if ( v4 < ClipYMin )
+      {
+        CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMin) / v42;
+        v4 = ClipYMin;
+        v42 = ClipYMin - v2;
+        if ( ClipYMin == v2 )
+        {
+          goto LABEL_80;
+        }
+      }
+      if ( v4 > ClipYMax )
+      {
+        CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMax) / v42;
+        v4 = ClipYMax;
+        if ( ClipYMax == v2 )
+        {
+          goto LABEL_80;
+        }
+      }
+      goto LABEL_14;
+    }
+    v11 = v4 - v2;
+    if ( v4 == v2 )
+    {
+      break;
+    }
+    if ( v9 < ClipXMin )
+    {
+      if ( v3 < ClipXMin )
+      {
+        goto LABEL_41;
+      }
+      v36 = v9 - ClipXMin;
+      CurrentZ1 -= DZ * (signed __int64)v36 / v10;
+      v2 -= v11 * (signed __int64)v36 / v10;
+      v9 = ClipXMin;
+    }
+    else if ( v9 > ClipXMax )
+    {
+      if ( v3 > ClipXMax )
+      {
+        goto LABEL_41;
+      }
+      v37 = v9 - ClipXMax;
+      CurrentZ1 -= DZ * (signed __int64)v37 / v10;
+      v2 -= v11 * (signed __int64)v37 / v10;
+      v9 = ClipXMax;
+    }
+    else if ( v3 < ClipXMin )
+    {
+      v38 = v9;
+      CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMin) / v10;
+      v39 = v11 * (signed __int64)(v3 - ClipXMin) / v10;
+      v3 = ClipXMin;
+      v4 -= v39;
+      v9 = v38;
+    }
+    else if ( v3 > ClipXMax )
+    {
+      v40 = v9;
+      CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMax) / v10;
+      v41 = v11 * (signed __int64)(v3 - ClipXMax) / v10;
+      v3 = ClipXMax;
+      v4 -= v41;
+      v9 = v40;
+    }
+    else if ( v2 < ClipYMin )
+    {
+      if ( v4 < ClipYMin )
+      {
+        goto LABEL_41;
+      }
+      CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMin) / v11;
+      v9 -= v10 * (signed __int64)(v2 - ClipYMin) / v11;
+      v2 = ClipYMin;
+    }
+    else if ( v2 > ClipYMax )
+    {
+      if ( v4 > ClipYMax )
+      {
+        goto LABEL_41;
+      }
+      CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMax) / v11;
+      v9 -= v10 * (signed __int64)(v2 - ClipYMax) / v11;
+      v2 = ClipYMax;
+    }
+    else if ( v4 < ClipYMin )
+    {
+      CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMin) / v11;
+      v3 -= v10 * (signed __int64)(v4 - ClipYMin) / v11;
+      v4 = ClipYMin;
+    }
+    else
+    {
+      if ( v4 <= ClipYMax )
+      {
+        goto LABEL_14;
+      }
+      CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMax) / v11;
+      v3 -= v10 * (signed __int64)(v4 - ClipYMax) / v11;
+      v4 = ClipYMax;
+    }
+  }
+  if ( v2 < ClipYMin || v2 > ClipYMax )
+  {
+    goto LABEL_41;
+  }
+  if ( v9 >= ClipXMin )
+  {
+    goto LABEL_73;
+  }
+  if ( v3 < ClipXMin )
+  {
+    goto LABEL_41;
+  }
+  CurrentZ1 -= DZ * (signed __int64)(v9 - ClipXMin) / v10;
+  v9 = ClipXMin;
+  v10 = v3 - ClipXMin;
+  if ( v3 == ClipXMin )
+  {
+    goto LABEL_80;
+  }
+LABEL_73:
+  if ( v9 <= ClipXMax )
+  {
+    goto LABEL_76;
+  }
+  if ( v3 > ClipXMin )
+  {
+LABEL_41:
+    result = 0;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return result;
+  }
+  CurrentZ1 -= DZ * (signed __int64)(v9 - ClipXMax) / v10;
+  v9 = ClipXMax;
+  v10 = v3 - ClipXMax;
+  if ( v3 == ClipXMax )
+  {
+    goto LABEL_80;
+  }
+LABEL_76:
+  if ( v3 >= ClipXMin
+    || (CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMin) / v10, v3 = ClipXMin, v10 = ClipXMin - v9, ClipXMin != v9) )
+  {
+    if ( v3 <= ClipXMax || (CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMax) / v10, v3 = ClipXMax, ClipXMax != v9) )
+    {
+LABEL_14:
+      ScreenXMin = v9;
+      ScreenXMax = v3;
+      v12 = v3;
+      v13 = 1;
+      v14 = v12 - v9;
+      if ( v14 < 0 )
+      {
+        v14 = -v14;
+        v13 = -1;
+        ScreenXMin = -1;
+        ScreenXMax = v9;
+      }
+      ScreenYMin = v2;
+      ScreenYMax = v4;
+      v15 = ScreenPitch;
+      v16 = v4 - v2;
+      if ( v4 - v2 < 0 )
+      {
+        v16 = -v16;
+        v15 = -ScreenPitch;
+        ScreenYMin = v4;
+        ScreenYMax = v2;
+      }
+      v17 = v9 + PTR_TabOffLine[v2];
+      if ( v14 < (unsigned int)v16 )
+      {
+        S32 YDELTA_X = v14;
+        S32 YDELTA_Y = v16;
+        S32 YDELTA_Y1 = v16;
+        v28 = DZ;
+        if ( v15 < 0 )
+        {
+          v28 = -DZ;
+        }
+        v29 = ((unsigned int)(v28 / v16) >> 31) + v28 / v16;
+        S32 YDELTA_Z = v29 << 16;
+        S32 YIZ = v29 >> 16;
+        S32 Col2 = v13;
+        S32 Line2 = v15;
+        U8 *YPtrLog = (U8 *)Log;
+        U16 *YPtrZBuf = PtrZBuffer;
+        v30 = v16;
+        v31 = (unsigned int)v16 >> 1;
+        v32 = (unsigned __int8)Color;
+        v33 = CurrentZ1 << 16;
+        v34 = ((unsigned int)CurrentZ1 >> 16) - 100;
+        do
+        {
+          v35 = YPtrZBuf[v17] - v34;
+          if ( v35 >= 0 )
+          {
+            if ( v35 < 200 )
+            {
+              BYTE1(v32) |= 2u;
+            }
+            BYTE1(v32) |= 1u;
+            *(_BYTE *)(v17 + YPtrLog) = v32;
+          }
+          v31 += YDELTA_X;
+          if ( v31 >= YDELTA_Y )
+          {
+            v31 -= YDELTA_Y1;
+            v17 += Col2;
+          }
+          v17 += Line2;
+          v34 = (__PAIR__(YIZ, YDELTA_Z) + __PAIR__(v34, v33)) >> 32;
+          v33 += YDELTA_Z;
+          v26 = __OFSUB__(v30--, 1);
+        }
+        while ( !((v30 < 0) ^ v26) );
+        result = v32 >> 8;
+      }
+      else
+      {
+        DELTA_Y = v16;
+        DELTA_X = v14;
+        DELTA_X1 = v14;
+        v18 = DZ;
+        if ( v13 < 0 )
+        {
+          v18 = -DZ;
+        }
+        v19 = ((unsigned int)(v18 / v14) >> 31) + v18 / v14;
+        DELTA_Z = v19 << 16;
+        IZ = v19 >> 16;
+        Line = v15;
+        Col = v13;
+        PtrLog = Log;
+        PtrZBuf = PtrZBuffer;
+        v20 = v14;
+        v21 = (unsigned int)v14 >> 1;
+        v22 = CurrentZ1 << 16;
+        v23 = (unsigned __int8)Color;
+        v24 = ((unsigned int)CurrentZ1 >> 16) - 100;
+        do
+        {
+          v25 = PtrZBuf[v17] - v24;
+          if ( v25 >= 0 )
+          {
+            if ( v25 < 200 )
+            {
+              BYTE1(v23) |= 2u;
+            }
+            BYTE1(v23) |= 1u;
+            PtrLog[v17] = v23;
+          }
+          v21 += DELTA_Y;
+          if ( v21 >= DELTA_X )
+          {
+            v21 -= DELTA_X1;
+            v17 += Line;
+          }
+          v17 += Col;
+          v24 = (__PAIR__(IZ, DELTA_Z) + __PAIR__(v24, v22)) >> 32;
+          v22 += DELTA_Z;
+          v26 = __OFSUB__(v20--, 1);
+        }
+        while ( !((v20 < 0) ^ v26) );
+        result = v23 >> 8;
+      }
+      return result;
+    }
+  }
+LABEL_80:
+  if ( v2 < ClipYMin )
+  {
+    goto LABEL_41;
+  }
+  if ( v2 > ClipYMax )
+  {
+    goto LABEL_41;
+  }
+  if ( v9 < ClipXMin )
+  {
+    goto LABEL_41;
+  }
+  if ( v9 > ClipXMax )
+  {
+    goto LABEL_41;
+  }
+  ScreenXMin = v9;
+  ScreenYMin = v2;
+  ScreenXMax = v9;
+  ScreenYMax = v2;
+  v43 = v9 + PTR_TabOffLine[v2];
+  v44 = (unsigned __int8)Color;
+  v45 = PtrZBuffer[v43] - ((CurrentZ1 >> 16) - 100);
+  if ( v45 < 0 )
+  {
+    goto LABEL_41;
+  }
+  if ( v45 < 200 )
+  {
+    BYTE1(v44) |= 2u;
+  }
+  Log[v43] = v44;
+  BYTE1(v44) |= 1u;
+  return v44 >> 8;
 }
