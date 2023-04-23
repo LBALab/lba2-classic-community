@@ -1,9 +1,17 @@
 #include <ANIM/INTANIM.H>
-#include <stdio.h>
+
+#include <ANIM.H>
+#include <ANIM/INTFRAME.H>
+#include <ANIM/INTERDEP.H>
 
 S32	ObjectSetInterAnim(T_OBJ_3D *obj)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  S32 status = ObjectSetInterDep(obj);
+  if ((status & FLAG_CHANGE) // any change?
+      && !(status & FLAG_FRAME)) // frame ?
+  {
+    ObjectSetInterFrame(obj);
+  }
+
+  return status;
 }
