@@ -60,62 +60,6 @@
 void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
                    S32 factory)
 {
-	/*
-;void	SetProjection(xc, yc, clip, factorx, factory)
-
-;#pragma aux SetProjection	"*"			\
-;	parm caller [eax] [ebx] [ecx] [edx] [esi]	\
-;	modify exact [eax ebx ecx edx]
-
-SetProjection	PROC \
-			uses eax ebx ecx edx edi esi ebp\
-			xc: DWORD, yc: DWORD, clip:DWORD, factorx: DWORD, factory: DWORD
-			mov eax, xc
-			mov ebx, yc
-			mov ecx, clip
-			mov edx, factorx
-			mov esi, factory
-
-		mov	[LFactorX], edx
-		mov	[LFactorY], esi
-
-		mov	edx, [ProcessorSignature]
-
-		and	edx, 400h
-		jz	noFPU
-
-		test	[ProcessorFeatureFlags], 1 SHL 23
-		jz	noMMX
-
-		emms
-noMMX:
-		fild	[LFactorX]	; fx
-		fild	[LFactorY]	; fy fx
-		fxch	st(1)		; fx fy
-		fst	[FRatioX]	; fx fy
-		fchs			;-fx fy
-		fdivp	st(1), st(0)	; -fy/fx
-noFPU:
-		mov	[XCentre], eax
-		mov	[YCentre], ebx
-
-		mov	[NearClip], ecx
-		mov	[TypeProj], TYPE_3D
-
-		mov	eax, offset LongProjectPoint3DF
-		mov	ebx, offset ProjectList3DF
-		mov	LongProjectPoint, eax
-		mov	ProjectList, ebx
-
-		test	edx, edx
-		jz	noFPU2
-
-		fstp	[FRatioY]
-noFPU2:
-		ret
-
-SetProjection	ENDP
-	*/
 	XCentre = xcentre;
 	YCentre = ycentre;
 
