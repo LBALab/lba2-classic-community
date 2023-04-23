@@ -7,7 +7,7 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
   //       fractional part.
   int currentZ; // ecx@1
   int lastZ; // edx@1
-  long double v6; // fst7@1
+  long double factor; // fst7@1
   int v7; // ST14_4@1
   int v8; // eax@1
   int v9; // ST04_4@1
@@ -19,19 +19,19 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
   currentZ = current->V_Z0;
   lastZ = last->V_Z0;
   dst->V_Z0 = zclip;
-  v6 = (long double)(zclip - lastZ) / (long double)(currentZ - lastZ);
+  factor = (long double)(zclip - lastZ) / (long double)(currentZ - lastZ);
   v7 = last->V_MapU;
   v8 = current->V_MapV - last->V_MapV;
   v9 = last->V_Light;
   v10 = current->V_Light - v9;
-  v11 = (long double)(current->V_MapU - v7) * v6;
-  v12 = (long double)last->V_Y0 + (long double)(current->V_Y0 - last->V_Y0) * v6;
+  v11 = (long double)(current->V_MapU - v7) * factor;
+  v12 = (long double)last->V_Y0 + (long double)(current->V_Y0 - last->V_Y0) * factor;
   v13 = (long double)(signed int)(last->V_MapV);
-  dst->V_X0 = (signed int)((long double)last->V_X0 + (long double)(current->V_X0 - last->V_X0) * v6);
+  dst->V_X0 = (signed int)((long double)last->V_X0 + (long double)(current->V_X0 - last->V_X0) * factor);
   dst->V_Y0 = (signed int)v12;
   dst->V_MapU = (unsigned __int16)(signed int)((long double)v7 + v11);
-  dst->V_MapV = (unsigned __int16)(signed int)(v13 + (long double)v8 * v6);
-  dst->V_Light = (signed __int16)(v6 * (long double)v10 + (long double)v9);
+  dst->V_MapV = (unsigned __int16)(signed int)(v13 + (long double)v8 * factor);
+  dst->V_Light = (signed __int16)(factor * (long double)v10 + (long double)v9);
   dst->V_Dummy = current->V_Dummy;
 }
 
@@ -110,7 +110,7 @@ LABEL_10:
       }
       else
       {
-        Clipping_ZFPU(v6);
+        Clipping_ZFPU(v7, v25, v5, zclip);
         v5++;
         v6 = v10 + 1;
         v8 = 1;
@@ -125,7 +125,7 @@ LABEL_10:
     // ************************************************
     if (v8)
     {
-      Clipping_ZFPU(v6);
+      Clipping_ZFPU(v7, v25, v5, zclip);
       v5++;
       v6 = v11 + 1;
     }
@@ -155,7 +155,7 @@ LABEL_10:
     while (1)
     {
       v18 = v15[1].V_Z0;
-      v15 ++;
+      v15++;
       if (v18 >= zclip)
       {
         break;
@@ -167,7 +167,7 @@ LABEL_10:
       {
         goto LABEL_20;
       }
-      Clipping_ZFPU(v6);
+      Clipping_ZFPU(v15, v26, v5, zclip);
       v5++; // A point was created: registers it!
       v6 = v19 + 1;
       v17 = 1; // Last point not visible
@@ -179,7 +179,7 @@ LABEL_10:
     // @@Visible:
     if (v17)
     {
-      Clipping_ZFPU(v6);
+      Clipping_ZFPU(v15, v26, v5, zclip);
       v5++;
       v6 = v20 + 1;
     }
