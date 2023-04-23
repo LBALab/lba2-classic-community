@@ -67,20 +67,20 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
   {
     S32 alpha = frame[5]; // Alpha
     S32 alphaDelta = (S32)(interpolator * (alpha << 20 >> 20)) >> 16;
-    obj->LastAnimStepAlpha = alphaDelta;
     newAlpha = (obj->Alpha + alphaDelta - obj->LastAnimStepAlpha) & 0xFFF;
+    obj->LastAnimStepAlpha = alphaDelta;
     obj->Alpha = newAlpha;
 
     S32 beta = frame[6]; // Beta
     S32 betaDelta = (S32)(interpolator * (beta << 20 >> 20)) >> 16;
-    obj->LastAnimStepBeta = betaDelta;
     newBeta = (obj->Beta + betaDelta - obj->LastAnimStepBeta) & 0xFFF;
+    obj->LastAnimStepBeta = betaDelta;
     obj->Beta = newBeta;
 
     S32 gamma = frame[7]; // Gamma
     S32 gammaDelta = (S32)(interpolator * (gamma << 20 >> 20)) >> 16;
-    obj->LastAnimStepGamma = gammaDelta;
     newGamma = (obj->Gamma + gammaDelta - obj->LastAnimStepGamma) & 0xFFF;
+    obj->LastAnimStepGamma = gammaDelta;
     obj->Gamma = newGamma;
   }
 
