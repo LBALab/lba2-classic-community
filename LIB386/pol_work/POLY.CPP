@@ -20,7 +20,16 @@ typedef S32 (*Jmp_XSlopeFunc)(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *P
 typedef S32 (*Jmp_LeftSlopeFunc)(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 
 extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
+extern Jmp_XSlopeFunc Jmp_XSlopeZBufFPU[];
+extern Jmp_XSlopeFunc *Current_Jmp_XSlope;
+
 extern Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[];
+extern Jmp_LeftSlopeFunc Jmp_LeftSlopeZBufFPU[];
+extern Jmp_LeftSlopeFunc *Current_Jmp_LeftSlope;
+
+typedef void (*Filler_SwitchFunc)(void);
+
+extern Filler_SwitchFunc Table_Switch[];
 
 U32 Fill_Type = 0; // Polygon type number
 
@@ -98,35 +107,81 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 	return filler(Nb_Points, Ptr_Points, Color_Poly);
 }
 
-void Switch_Fillers_C(U32 Bank) {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  /*
-#ifdef __MSC_VER
-  __asm {
-		pusha
-		mov eax, Bank
-		call Switch_Fillers_ASM
-		popa
-  }
-#elif __GNUC__
-  typedef void(FUNC_SWITCH_FILLERS)(U32);
-  FUNC_SWITCH_FILLERS *fn = &Switch_Fillers_ASM;
+void Switch_Normal(void) {
+  Fill_Saut_Normal = Fill_N_Table_Jumps;
+  Fill_Flag_Fog = FALSE;
+  Fill_Flag_ZBuffer = FALSE;
+  Fill_Flag_NZW = FALSE;
 
-  __asm__ __volatile__("pusha\n\t"
-                       "movl %0, %%eax\n\t"
-                       "call *%1\n\t"
-                       "popa\n\t"
-                       :
-                       : "m"(Bank), "m"(fn)
-                       : "%eax");
-#else
-#error "Unsupported compiler!"
-#endif
-*/
+  Current_Jmp_XSlope = Jmp_XSlopeFPU;
+  Current_Jmp_LeftSlope = Jmp_LeftSlopeFPU;
 }
 
-#include <stdio.h>
+void Switch_Fog(void) {
+  Fill_Saut_Normal = Fill_Fog_Table_Jumps;
+  Fill_Flag_ZBuffer = FALSE;
+  Fill_Flag_NZW = FALSE;
+  Fill_Flag_Fog = TRUE;
+
+  Current_Jmp_XSlope = Jmp_XSlopeFPU;
+  Current_Jmp_LeftSlope = Jmp_LeftSlopeFPU;
+}
+
+void Switch_ZBuffer(void) {
+  Fill_Saut_Normal = Fill_ZBuf_Table_Jumps;
+  Fill_Flag_Fog = FALSE;
+  Fill_Flag_NZW = FALSE;
+  Fill_Flag_ZBuffer = TRUE;
+
+  Current_Jmp_XSlope = Jmp_XSlopeZBufFPU;
+  Current_Jmp_LeftSlope = Jmp_LeftSlopeZBufFPU;
+}
+
+void Switch_FogZBuffer(void) {
+  Fill_Saut_Normal = Fill_FogZBuf_Table_Jumps;
+  Fill_Flag_Fog = TRUE;
+  Fill_Flag_NZW = FALSE;
+  Fill_Flag_ZBuffer = TRUE;
+
+  Current_Jmp_XSlope = Jmp_XSlopeZBufFPU;
+  Current_Jmp_LeftSlope = Jmp_LeftSlopeZBufFPU;
+}
+
+void Switch_NZW(void) {
+  Fill_Saut_Normal = Fill_NZW_Table_Jumps;
+  Fill_Flag_Fog = FALSE;
+  Fill_Flag_ZBuffer = TRUE;
+  Fill_Flag_NZW = TRUE;
+
+  Current_Jmp_XSlope = Jmp_XSlopeZBufFPU;
+  Current_Jmp_LeftSlope = Jmp_LeftSlopeZBufFPU;
+}
+
+void Switch_FogNZW(void) {
+  Fill_Saut_Normal = Fill_FogNZW_Table_Jumps;
+  Fill_Flag_Fog = TRUE;
+  Fill_Flag_ZBuffer = TRUE;
+  Fill_Flag_NZW = TRUE;
+
+  Current_Jmp_XSlope = Jmp_XSlopeZBufFPU;
+  Current_Jmp_LeftSlope = Jmp_LeftSlopeZBufFPU;
+}
+
+void Switch_Fillers(U32 Bank)
+{
+  Table_Switch[Bank]();
+}
+
+Filler_SwitchFunc Table_Switch[] = {
+  Switch_Normal,
+  Switch_Normal,
+  Switch_Fog,
+  Switch_Normal,
+  Switch_ZBuffer,
+  Switch_FogZBuffer,
+  Switch_NZW,
+  Switch_FogNZW
+};
 
 PTR_U8 PtrCLUTGouraud = NULL;
 PTR_U8 PtrCLUTFog = NULL;
@@ -574,7 +629,7 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 		return Fill_LeftSlope;
 	}
 
-	return Jmp_XSlopeFPU[Fill_Type](PtA, PtB, PtC);
+	return Current_Jmp_XSlope[Fill_Type](PtA, PtB, PtC);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -726,7 +781,7 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
 
       Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
       Fill_LeftPoint = newPoint;
-      return Jmp_LeftSlopeFPU[Fill_Type](
+      return Current_Jmp_LeftSlope[Fill_Type](
 				// For some reason diffX is << 16 but diffY is not
 				(newPoint->Pt_XE - oldPoint->Pt_XE) << 16,
 				(newPoint->Pt_YE - oldPoint->Pt_YE),
@@ -845,6 +900,13 @@ S32 Calc_TextureZXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 }
 
 S32 Calc_TextureZGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
+S32 Calc_XSlopeZBufferFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
@@ -1093,6 +1155,13 @@ S32 Calc_TextureZGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Str
 	return 0;
 }
 
+S32 Calc_LeftSlopeZBufferFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+{
+	// TODO: Implement ASM
+	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	return 0;
+}
+
 S32 Calc_TextureZLeftSlopeZBufFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
@@ -1136,6 +1205,35 @@ Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
 	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
 };
 
+Jmp_XSlopeFunc Jmp_XSlopeZBufFPU[] = {
+  Calc_XSlopeZBufferFPU, // Solid
+	Calc_XSlopeZBufferFPU, // Flat
+	Calc_XSlopeZBufferFPU, // Transp.
+	Calc_XSlopeZBufferFPU, // Trame
+	Calc_XSlopeZBufferFPU, // Gouraud
+	Calc_XSlopeZBufferFPU, // Dither
+	Calc_XSlopeZBufferFPU, // Gouraud table
+	Calc_XSlopeZBufferFPU, // Dither table
+	Calc_XSlopeZBufferFPU, // Texture Solid
+	Calc_XSlopeZBufferFPU, // Texture Flat
+	Calc_XSlopeZBufferFPU, // Texture Gouraud
+	Calc_XSlopeZBufferFPU, // Texture Gouraud Dither
+	Calc_XSlopeZBufferFPU, // Texture Solid Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Flat Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Gouraud Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Gouraud Dither Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Z Solid
+	Calc_XSlopeZBufferFPU, // Texture Z Flat
+	Calc_XSlopeZBufferFPU, // Texture Z Gouraud
+	Calc_XSlopeZBufferFPU, // Texture Z Dither
+	Calc_XSlopeZBufferFPU, // Texture Z Solid Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Z Flat Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Z Gouraud Chroma Key
+	Calc_XSlopeZBufferFPU, // Texture Z Dither Chroma Key
+	Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
+	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
+};
+
 Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[] = {
 	Read_Next_RightFPU, // Solid
 	Read_Next_RightFPU, // Flat
@@ -1164,6 +1262,38 @@ Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[] = {
 	Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
 	Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
 };
+
+Jmp_LeftSlopeFunc Jmp_LeftSlopeZBufFPU[] = {
+  Calc_LeftSlopeZBufferFPU, // Solid
+  Calc_LeftSlopeZBufferFPU, // Flat
+  Calc_LeftSlopeZBufferFPU, // Transp.
+  Calc_LeftSlopeZBufferFPU, // Trame
+  Calc_LeftSlopeZBufferFPU, // Gouraud
+  Calc_LeftSlopeZBufferFPU, // Dither
+  Calc_LeftSlopeZBufferFPU, // Gouraud table
+  Calc_LeftSlopeZBufferFPU, // Dither table
+  Calc_LeftSlopeZBufferFPU, // Texture Solid
+  Calc_LeftSlopeZBufferFPU, // Texture Flat
+  Calc_LeftSlopeZBufferFPU, // Texture Gouraud
+  Calc_LeftSlopeZBufferFPU, // Texture Gouraud Dither
+  Calc_LeftSlopeZBufferFPU, // Texture Solid Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Flat Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Gouraud Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Gouraud Dither Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Z Solid
+  Calc_LeftSlopeZBufferFPU, // Texture Z Flat
+  Calc_LeftSlopeZBufferFPU, // Texture Z Gouraud
+  Calc_LeftSlopeZBufferFPU, // Texture Z Dither
+  Calc_LeftSlopeZBufferFPU, // Texture Z Solid Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Z Flat Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Z Gouraud Chroma Key
+  Calc_LeftSlopeZBufferFPU, // Texture Z Dither Chroma Key
+  Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
+  Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
+};
+
+Jmp_XSlopeFunc *Current_Jmp_XSlope = Jmp_XSlopeFPU;
+Jmp_LeftSlopeFunc *Current_Jmp_LeftSlope = Jmp_LeftSlopeFPU;
 
 // =============================================================================
 #ifdef __cplusplus

@@ -134,9 +134,7 @@ extern U8 Fill_Flag_NZW;        ///< True if NZW is active
 extern U8 Fill_Logical_Palette[256];
 
 // -----------------------------------------------------------------------------
-extern void Switch_Fillers_ASM(U32 Bank); ///< Do Not call from C
-void Switch_Fillers_C(U32 Bank);
-#define Switch_Fillers Switch_Fillers_C
+void Switch_Fillers(U32 Bank);
 
 S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
               Struc_Point *Ptr_Points);
