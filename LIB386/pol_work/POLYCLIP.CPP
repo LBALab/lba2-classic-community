@@ -1,30 +1,12 @@
 #include <POLYGON/CLIPPERZ.H>
 
-U32 Precalc_Offset[16] = {
-  0 * sizeof(STRUC_CLIPVERTEX),
-  1 * sizeof(STRUC_CLIPVERTEX),
-  2 * sizeof(STRUC_CLIPVERTEX),
-  3 * sizeof(STRUC_CLIPVERTEX),
-  4 * sizeof(STRUC_CLIPVERTEX),
-  5 * sizeof(STRUC_CLIPVERTEX),
-  6 * sizeof(STRUC_CLIPVERTEX),
-  7 * sizeof(STRUC_CLIPVERTEX),
-  8 * sizeof(STRUC_CLIPVERTEX),
-  9 * sizeof(STRUC_CLIPVERTEX),
-  10 * sizeof(STRUC_CLIPVERTEX),
-  11 * sizeof(STRUC_CLIPVERTEX),
-  12 * sizeof(STRUC_CLIPVERTEX),
-  13 * sizeof(STRUC_CLIPVERTEX),
-  14 * sizeof(STRUC_CLIPVERTEX),
-  15 * sizeof(STRUC_CLIPVERTEX)
-};
-
-S16 Clipping_ZFPU(int a1) //, int a2, int a3, int a4)
+void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIPVERTEX *dst, int zclip) //, int zclip, int dst, int src)
 {
-  return 0;
-  /*
-  int v4; // ecx@1
-  int v5; // edx@1
+  // NOTE: in ASM this function starts with fldcw	[Status_Int]
+  //       which basically means conversions from float to int chop the
+  //       fractional part.
+  int currentZ; // ecx@1
+  int lastZ; // edx@1
   long double v6; // fst7@1
   int v7; // ST14_4@1
   int v8; // eax@1
@@ -33,27 +15,24 @@ S16 Clipping_ZFPU(int a1) //, int a2, int a3, int a4)
   long double v11; // fst3@1
   long double v12; // fst4@1
   long double v13; // fst6@1
-  __int16 result; // ax@1
 
-  v4 = *(_DWORD *)(a4 + 8);
-  v5 = *(_DWORD *)(a1 + 8);
-  *(_DWORD *)(a3 + 8) = a2;
-  v6 = (long double)(a2 - v5) / (long double)(v4 - v5);
-  v7 = *(_DWORD *)(a1 + 12) & 0xFFFF;
-  v8 = (*(_DWORD *)(a4 + 12) >> 16) - (*(_DWORD *)(a1 + 12) >> 16);
-  v9 = *(_DWORD *)(a1 + 16) & 0xFFFF;
-  v10 = (*(_DWORD *)(a4 + 16) & 0xFFFF) - v9;
-  v11 = (long double)((*(_DWORD *)(a4 + 12) & 0xFFFF) - v7) * v6;
-  v12 = (long double)*(signed int *)(a1 + 4) + (long double)(*(_DWORD *)(a4 + 4) - *(_DWORD *)(a1 + 4)) * v6;
-  v13 = (long double)(signed int)(*(_DWORD *)(a1 + 12) >> 16);
-  *(_DWORD *)a3 = (signed int)((long double)*(signed int *)a1 + (long double)(*(_DWORD *)a4 - *(_DWORD *)a1) * v6);
-  *(_DWORD *)(a3 + 4) = (signed int)v12;
-  *(_WORD *)(a3 + 16) = (signed __int16)(v6 * (long double)v10 + (long double)v9);
-  *(_DWORD *)(a3 + 12) = ((signed int)(v13 + (long double)v8 * v6) << 16) | (unsigned __int16)(signed int)((long double)v7 + v11);
-  result = *(_WORD *)(a4 + 18);
-  *(_WORD *)(a3 + 18) = result;
-  return result;
-  */
+  currentZ = current->V_Z0;
+  lastZ = last->V_Z0;
+  dst->V_Z0 = zclip;
+  v6 = (long double)(zclip - lastZ) / (long double)(currentZ - lastZ);
+  v7 = last->V_MapU;
+  v8 = current->V_MapV - last->V_MapV;
+  v9 = last->V_Light;
+  v10 = current->V_Light - v9;
+  v11 = (long double)(current->V_MapU - v7) * v6;
+  v12 = (long double)last->V_Y0 + (long double)(current->V_Y0 - last->V_Y0) * v6;
+  v13 = (long double)(signed int)(last->V_MapV);
+  dst->V_X0 = (signed int)((long double)last->V_X0 + (long double)(current->V_X0 - last->V_X0) * v6);
+  dst->V_Y0 = (signed int)v12;
+  dst->V_MapU = (unsigned __int16)(signed int)((long double)v7 + v11);
+  dst->V_MapV = (unsigned __int16)(signed int)(v13 + (long double)v8 * v6);
+  dst->V_Light = (signed __int16)(v6 * (long double)v10 + (long double)v9);
+  dst->V_Dummy = current->V_Dummy;
 }
 
 // Call:
