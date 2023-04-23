@@ -112,7 +112,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     {
       if ( v9 < ClipXMin || v9 > ClipXMax )
       {
-        goto LABEL_41;
+        ScreenXMin = 0x7FFFFFFF;
+        ScreenYMin = 0x7FFFFFFF;
+        ScreenXMax = 2147483648;
+        ScreenYMax = 2147483648;
+        return 0;
       }
       v42 = v4 - v2;
       if ( v4 == v2 )
@@ -123,7 +127,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       {
         if ( v4 < ClipYMin )
         {
-          goto LABEL_41;
+          ScreenXMin = 0x7FFFFFFF;
+          ScreenYMin = 0x7FFFFFFF;
+          ScreenXMax = 2147483648;
+          ScreenYMax = 2147483648;
+          return 0;
         }
         CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMin) / v42;
         v2 = ClipYMin;
@@ -137,7 +145,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       {
         if ( v4 > ClipYMax )
         {
-          goto LABEL_41;
+          ScreenXMin = 0x7FFFFFFF;
+          ScreenYMin = 0x7FFFFFFF;
+          ScreenXMax = 2147483648;
+          ScreenYMax = 2147483648;
+          return 0;
         }
         CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMax) / v42;
         v2 = ClipYMax;
@@ -175,7 +187,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     {
       if ( v3 < ClipXMin )
       {
-        goto LABEL_41;
+        ScreenXMin = 0x7FFFFFFF;
+        ScreenYMin = 0x7FFFFFFF;
+        ScreenXMax = 2147483648;
+        ScreenYMax = 2147483648;
+        return 0;
       }
       v36 = v9 - ClipXMin;
       CurrentZ1 -= DZ * (signed __int64)v36 / v10;
@@ -186,7 +202,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     {
       if ( v3 > ClipXMax )
       {
-        goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
       }
       v37 = v9 - ClipXMax;
       CurrentZ1 -= DZ * (signed __int64)v37 / v10;
@@ -215,7 +235,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     {
       if ( v4 < ClipYMin )
       {
-        goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
       }
       CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMin) / v11;
       v9 -= v10 * (signed __int64)(v2 - ClipYMin) / v11;
@@ -225,7 +249,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     {
       if ( v4 > ClipYMax )
       {
-        goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
       }
       CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMax) / v11;
       v9 -= v10 * (signed __int64)(v2 - ClipYMax) / v11;
@@ -250,7 +278,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
   }
   if ( v2 < ClipYMin || v2 > ClipYMax )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   if ( v9 >= ClipXMin )
   {
@@ -258,7 +290,11 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
   }
   if ( v3 < ClipXMin )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   CurrentZ1 -= DZ * (signed __int64)(v9 - ClipXMin) / v10;
   v9 = ClipXMin;
@@ -274,13 +310,11 @@ LABEL_73:
   }
   if ( v3 > ClipXMin )
   {
-LABEL_41:
-    result = 0;
     ScreenXMin = 0x7FFFFFFF;
     ScreenYMin = 0x7FFFFFFF;
     ScreenXMax = 2147483648;
     ScreenYMax = 2147483648;
-    return result;
+    return 0;
   }
   CurrentZ1 -= DZ * (signed __int64)(v9 - ClipXMax) / v10;
   v9 = ClipXMax;
@@ -422,19 +456,35 @@ LABEL_14:
 LABEL_80:
   if ( v2 < ClipYMin )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   if ( v2 > ClipYMax )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   if ( v9 < ClipXMin )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   if ( v9 > ClipXMax )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   ScreenXMin = v9;
   ScreenYMin = v2;
@@ -445,7 +495,11 @@ LABEL_80:
   v45 = PtrZBuffer[v43] - ((CurrentZ1 >> 16) - 100);
   if ( v45 < 0 )
   {
-    goto LABEL_41;
+    ScreenXMin = 0x7FFFFFFF;
+    ScreenYMin = 0x7FFFFFFF;
+    ScreenXMax = 2147483648;
+    ScreenYMax = 2147483648;
+    return 0;
   }
   if ( v45 < 200 )
   {
