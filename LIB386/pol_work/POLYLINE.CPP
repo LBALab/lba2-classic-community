@@ -1610,32 +1610,6 @@ void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 
 void Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 {
-	/*
-;----------------------------------------------------------------------------
-;		Line( x0, y0, x1, y1, coul )
-;
-Line			PROC	USES esi edi ebp ebx,\
-			x0:DWORD, y0:DWORD,\
-			x1:DWORD, y1:DWORD,\
-			coul:DWORD
-
-; 			X0:ax  Y0:bx
-;			X1:cx  Y1:DX
-;			couleur: bp
-
-			mov	eax, x0
-			mov	ebx, y0
-			mov	ecx, x1
-			mov	edx, y1
-
-			mov	ebp, coul
-
-			call	Line_Entry
-
-			ret
-Line			ENDP
-	*/
-
 	Line_Entry(x0, y0, x1, y1, col);
 }
 
