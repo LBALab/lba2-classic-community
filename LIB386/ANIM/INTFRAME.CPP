@@ -38,7 +38,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
 
   T_GROUP_INFO *group = obj->CurrentFrame;
 
-  for (U32 i = 0; i < obj->NbGroups; i++)
+  for (U32 i = 0; i < obj->NbGroups - 1; i++)
   {
     U16 type = nextPtr[0];
     group->Type = type;
