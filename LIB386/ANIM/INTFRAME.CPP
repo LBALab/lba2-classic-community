@@ -80,13 +80,7 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
         last = (last + diffGamma) & 0xFFF;
       }
 
-      next = nextPtr[4];
       group->Gamma = last;
-      last = lastPtr[4];
-
-      nextPtr += 4;
-      lastPtr += 4;
-      group++;
     }
     else // Translations
     {
@@ -121,13 +115,11 @@ void ObjectSetInterFrame(T_OBJ_3D *obj)
         last += diffZ;
       }
 
-      next = nextPtr[4];
       group->Gamma = last; // Z
-      last = lastPtr[4];
-
-      nextPtr += 4;
-      lastPtr += 4;
-      group++;
     }
+
+    nextPtr += 4;
+    lastPtr += 4;
+    group++;
   }
 }
