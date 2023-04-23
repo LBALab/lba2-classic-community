@@ -77,7 +77,7 @@ U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
 {
   STRUC_CLIPVERTEX *v5; // edi@1
   int v6; // ecx@2
-  int v7; // esi@2
+  STRUC_CLIPVERTEX *v7; // esi@2
   signed int v8; // edx@2
   signed int v9; // eax@3
   int v10; // ecx@5
@@ -94,7 +94,7 @@ U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
   int v21; // edx@19
   int v22; // edx@19
   int v23; // eax@19
-  char *v25; // [sp-1Ch] [bp-20h]@2
+  STRUC_CLIPVERTEX *v25; // [sp-1Ch] [bp-20h]@2
   STRUC_CLIPVERTEX *v26; // [sp-1Ch] [bp-20h]@12
   int savedregs; // [sp+4h] [bp+0h]@2
 
@@ -102,48 +102,63 @@ U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
   if (!flag) // Which half-space?
   {
     v6 = 0;
-    v7 = src - sizeof(STRUC_CLIPVERTEX);
-    v25 = (char *)*(&Clipping_ZFPU + nbvertex) + src;
-    v8 = *((_DWORD *)v25 + 2) < (signed int)&savedregs;
+    v7 = src - 1;
+    v25 = &src[nbvertex - 1]; // Last vertex
+    v8 = v25->V_Z0 > zclip;
+    // *****************
+    // *** Main loop ***
+    // *****************
     while (1)
     {
-      v9 = *(_DWORD *)(v7 + 28);
-      v7 += 20;
-      if (v9 >= (signed int)&savedregs)
+      // @@NegTest_Next_Pt:
+      // Check next point
+      v9 = v7[1].V_Z0;
+      v7++; // Current point
+      if (v9 <= zclip)
+      {
         break;
-      if (v8)
+      }
+      // *************************************************
+      // *** Current vertex is in the wrong half-space ***
+      // *************************************************
+      if (v8) // Was last point visible ?
       {
 LABEL_10:
-        if ((char *)v7 == v25)
+        if (v7 == v25)
+        {
           return v6;
+        }
       }
       else
       {
         Clipping_ZFPU(v6);
-        v5 += 20;
+        v5++;
         v6 = v10 + 1;
         v8 = 1;
-        if ((char *)v7 == v25)
+        if (v7 == v25)
+        {
           return v6;
+        }
       }
     }
+    // ************************************************
+    // *** Current vertex is in the good half-space ***
+    // ************************************************
     if (v8)
     {
       Clipping_ZFPU(v6);
-      v5 += 20;
+      v5++;
       v6 = v11 + 1;
     }
-    v12 = *(_DWORD *)(v7 + 4);
-    *(_DWORD *)v5 = *(_DWORD *)v7;
-    *(_DWORD *)(v5 + 4) = v12;
-    v13 = *(_DWORD *)(v7 + 12);
-    *(_DWORD *)(v5 + 8) = *(_DWORD *)(v7 + 8);
-    v14 = *(_DWORD *)(v7 + 16);
-    *(_DWORD *)(v5 + 12) = v13;
-    *(_DWORD *)(v5 + 16) = v14;
-    *(_WORD *)(v5 + 18) = *(_WORD *)(v7 + 18);
+    v7->V_X0 = v5->V_X0;
+    v7->V_Y0 = v5->V_Y0;
+    v7->V_Z0 = v5->V_Z0;
+    v7->V_MapU = v5->V_MapU;
+    v7->V_MapV = v5->V_MapV;
+    v7->V_Light = v5->V_Light;
+    v7->V_Dummy = v5->V_Dummy;
     ++v6;
-    v5 += 20;
+    v5++;
     v8 = 0;
     goto LABEL_10;
   }
@@ -193,19 +208,18 @@ LABEL_10:
     v21 = v15->V_Y0;
     v5->V_X0 = v15->V_X0;
     v5->V_Y0 = v15->V_Y0;
-    *(_DWORD *)(v5 + 4) = v21;
-    v22 = *(_DWORD *)(v15 + 12);
-    *(_DWORD *)(v5 + 8) = *(_DWORD *)(v15 + 8);
-    v23 = *(_DWORD *)(v15 + 16);
-    *(_DWORD *)(v5 + 12) = v22;
-    *(_DWORD *)(v5 + 16) = v23;
-    *(_WORD *)(v5 + 18) = *(_WORD *)(v15 + 18);
+    v5->V_Z0 = v15->V_Z0;
+    v5->V_MapU = v15->V_MapU;
+    v5->V_MapV = v15->V_MapV;
+    v5->V_Light = v15->V_Light;
+    v5->V_Dummy = v15->V_Dummy;
     ++v6;
-    v5 += 20;
+    v5++;
     v17 = 0;
+    // @@TestEnd:
 LABEL_20:
     ;
   }
-  while ((char *)v15 != v26);
+  while (v15 != v26);
   return v6;
 }
