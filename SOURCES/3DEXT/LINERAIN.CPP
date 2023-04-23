@@ -4,25 +4,6 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/SCREENXY.H>
 
-U16 *YPtrZBuf = NULL;
-U8 *YPtrLog = NULL;
-U8 *PtrLog = NULL;
-U16 *PtrZBuf = NULL;
-S32 DELTA_Y = 0x12345678;
-S32 DELTA_X = 0x12345678;
-S32 DELTA_X1 = 0x12345678;
-S32 Line = 0x12345678;
-S32 Col = 0x12345678;
-S32 DELTA_Z = 0x12345678;
-S32 IZ = 0x12345678;
-S32 YDELTA_X = 0x12345678;
-S32 YDELTA_Y = 0x12345678;
-S32 YDELTA_Y1 = 0x12345678;
-S32 Col2 = 0x12345678;
-S32 Line2 = 0x12345678;
-S32 YDELTA_Z = 0x12345678;
-S32 YIZ = 0x12345678;
-
 /*
 ; ╔════════════════════════════════════════════════════════════════════════╗
 ; ║   Trace de droite Zbuffer (methode toute con (Lucas)) No ZBuf write    ║
@@ -93,6 +74,24 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
   v5 = z1 << 16;
   v6 = z0 << 16;
   v7 = coul;
+  U16 *YPtrZBuf = NULL;
+  U8 *YPtrLog = NULL;
+  U8 *PtrLog = NULL;
+  U16 *PtrZBuf = NULL;
+  S32 DELTA_Y = 0x12345678;
+  S32 DELTA_X = 0x12345678;
+  S32 DELTA_X1 = 0x12345678;
+  S32 Line = 0x12345678;
+  S32 Col = 0x12345678;
+  S32 DELTA_Z = 0x12345678;
+  S32 IZ = 0x12345678;
+  S32 YDELTA_X = 0x12345678;
+  S32 YDELTA_Y = 0x12345678;
+  S32 YDELTA_Y1 = 0x12345678;
+  S32 Col2 = 0x12345678;
+  S32 Line2 = 0x12345678;
+  S32 YDELTA_Z = 0x12345678;
+  S32 YIZ = 0x12345678;
   S32 CurrentZ2 = v5;
   S32 CurrentZ1 = v6;
   S32 DZ = 0;
@@ -364,7 +363,7 @@ LABEL_14:
         }
         v29 = ((unsigned int)(v28 / v16) >> 31) + v28 / v16;
         S32 YDELTA_Z = v29 << 16;
-        S32 YIZ = v29 >> 16;
+        YIZ = v29 >> 16;
         S32 Col2 = v13;
         S32 Line2 = v15;
         U8 *YPtrLog = (U8 *)Log;
@@ -381,10 +380,10 @@ LABEL_14:
           {
             if ( v35 < 200 )
             {
-              BYTE1(v32) |= 2u;
+              v32 |= 0x02 << 8;
             }
-            BYTE1(v32) |= 1u;
-            *(_BYTE *)(v17 + YPtrLog) = v32;
+            v32 |= 0x01 << 8;
+            YPtrLog[v17] = v32;
           }
           v31 += YDELTA_X;
           if ( v31 >= YDELTA_Y )
@@ -393,11 +392,15 @@ LABEL_14:
             v17 += Col2;
           }
           v17 += Line2;
-          v34 = (__PAIR__(YIZ, YDELTA_Z) + __PAIR__(v34, v33)) >> 32;
+          U8 carry = (U64)YDELTA_Z + (U64)v33 > 0xFFFFFFFF;
           v33 += YDELTA_Z;
-          v26 = __OFSUB__(v30--, 1);
+          v34 += YIZ + carry;
+          v33 += YDELTA_Z;
+          //v26 = __OFSUB__(v30--, 1);
+          v30--;
         }
-        while ( !((v30 < 0) ^ v26) );
+        //while ( !((v30 < 0) ^ v26) );
+        while (v30 >= 0);
         result = v32 >> 8;
       }
       else
@@ -415,7 +418,7 @@ LABEL_14:
         IZ = v19 >> 16;
         Line = v15;
         Col = v13;
-        PtrLog = Log;
+        PtrLog = (U8 *)Log;
         PtrZBuf = PtrZBuffer;
         v20 = v14;
         v21 = (unsigned int)v14 >> 1;
@@ -429,9 +432,9 @@ LABEL_14:
           {
             if ( v25 < 200 )
             {
-              BYTE1(v23) |= 2u;
+              v23 |= 0x02u << 8;
             }
-            BYTE1(v23) |= 1u;
+            v23 |= 0x01u << 8;
             PtrLog[v17] = v23;
           }
           v21 += DELTA_Y;
@@ -441,11 +444,15 @@ LABEL_14:
             v17 += Line;
           }
           v17 += Col;
-          v24 = (__PAIR__(IZ, DELTA_Z) + __PAIR__(v24, v22)) >> 32;
+          U8 carry = (U64)DELTA_Z + (U64)v22 > 0xFFFFFFFF;
           v22 += DELTA_Z;
-          v26 = __OFSUB__(v20--, 1);
+          v24 += IZ + carry;
+          v22 += DELTA_Z;
+          // v26 = __OFSUB__(v20--, 1);
+          v20--;
         }
-        while ( !((v20 < 0) ^ v26) );
+        // while ( !((v20 < 0) ^ v26) );
+        while (v20 >= 0);
         result = v23 >> 8;
       }
       return result;
@@ -501,9 +508,9 @@ LABEL_80:
   }
   if ( v45 < 200 )
   {
-    BYTE1(v44) |= 2u;
+    v44 |= 0x0200u;
   }
-  Log[v43] = v44;
-  BYTE1(v44) |= 1u;
+  ((U8 *)Log)[v43] = v44;
+  v44 |= 0x0100u;
   return v44 >> 8;
 }
