@@ -68,8 +68,6 @@ U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
   S32 v16; // eax@12
   signed int v17; // edx@12
   signed int v18; // eax@13
-  int v19; // ecx@15
-  int v20; // ecx@18
   int v21; // edx@19
   int v22; // edx@19
   int v23; // eax@19
@@ -169,7 +167,7 @@ LABEL_10:
       }
       Clipping_ZFPU(v15, v26, v5, zclip);
       v5++; // A point was created: registers it!
-      v6 = v19 + 1;
+      v6++;
       v17 = 1; // Last point not visible
       if (v15 == v26)
       {
@@ -181,7 +179,7 @@ LABEL_10:
     {
       Clipping_ZFPU(v15, v26, v5, zclip);
       v5++;
-      v6 = v20 + 1;
+      v6++;
     }
     // @@Pas_Inters:
     v21 = v15->V_Y0;
@@ -192,7 +190,7 @@ LABEL_10:
     v5->V_MapV = v15->V_MapV;
     v5->V_Light = v15->V_Light;
     v5->V_Dummy = v15->V_Dummy;
-    ++v6;
+    v6++;
     v5++;
     v17 = 0;
     // @@TestEnd:
