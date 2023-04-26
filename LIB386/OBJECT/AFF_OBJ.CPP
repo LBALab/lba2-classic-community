@@ -1631,7 +1631,7 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
   }
 }
 
-S32 EntityCreation(T_OBJ_3D *obj, T_BODY_HEADER *body)
+S32 EntityCreation(T_BODY_HEADER *body)
 {
   // *****************
   // *** POLYGONES ***
@@ -1999,7 +1999,44 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 		return 0;
 	}
 
-	return EntityCreation(obj, lBody);
+	return EntityCreation(lBody);
+}
+
+S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 beta, S32 gamma, void *obj)
+{
+  RotateMatrix(dstMatrix, srcMatrix, alpha, beta, gamma);
+
+  // **************
+  // *** POINTS ***
+  // **************
+  T_BODY_HEADER *body = (T_BODY_HEADER *)obj;
+  TYPE_VT16 *bodyPoints = (TYPE_VT16 *)((U8 *)body + body->OffPoints);
+  RotTransList(TabMat, (TYPE_VT16 *)Obj_ListRotatedPoints, bodyPoints, body->NbPoints);
+
+  ProjectList(Obj_ListProjectedPoints, (TYPE_VT16 *)Obj_ListRotatedPoints,
+            lBody->NbPoints, -PosXWr, -PosYWr, -PosZWr);
+
+  // Is the object visible?
+  if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
+      ScreenXMax < ClipXMin || ScreenYMax < ClipYMin)
+  {
+    return 0;
+  }
+
+  // *****************
+	// *** LIGHTING  ***
+	// *****************
+
+	// *** Calculate the intensities ***
+
+  TYPE_VT16 *srcLights = (TYPE_VT16 *)((U8 *)body + body->OffNormales);
+	LightList(TabMat, ListLights, srcLights, body->NbNormales);
+
+  srcLights = (TYPE_VT16 *)((U8 *)body + body->OffNormFaces);
+  LightList(TabMat, ListLights + body->NbNormales,
+            srcLights, body->NbNormFaces);
+
+	return EntityCreation(lBody);
 }
 
 // ╔════════════════════════════════════════════════════════════════════════════╗
@@ -2025,9 +2062,9 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
   {
     LongRotatePoint(&MatriceWorld, x, y, z);
 
-    x = X0;
-    y = Y0;
-    z = Z0;
+		PosXWr = X0 - CameraXr;
+		PosYWr = Y0 - CameraYr;
+		PosZWr = Z0 - CameraZr;
   }
   else
   {
@@ -2047,115 +2084,21 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
   // *** MATRIX ***
   // **************
 
-	return Return_BodyDisplay();
+	return Return_BodyDisplay(&MatriceWorld, TabMat, alpha, beta, gamma, obj);
 }
 
-S32 Return_BodyDisplay()
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
-}
-
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║ BodyDisplay_AlphaBeta: Display a non-animated object (rotation Alp*Bet*Gam)║
+// ╟────────────────────────────────────────────────────────────────────────────╢
+// ║ Appel : (EAX, EBX, ECX) = (X, Y, Z)                                        ║
+// ║         (EDX, ESI, EDI) = (Alpha, Beta, Gamma)                             ║
+// ║         Stack           = Off_Body                                         ║
+// ║                                                                            ║
+// ║                                                                            ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
 S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
                                  S32 gamma, void *obj)
 {
-	/*
-; ╔════════════════════════════════════════════════════════════════════════════╗
-; ║ BodyDisplay_AlphaBeta: Display a non-animated object (rotation Alp*Bet*Gam)║
-; ╟────────────────────────────────────────────────────────────────────────────╢
-; ║ Appel : (EAX, EBX, ECX) = (X, Y, Z)                                        ║
-; ║         (EDX, ESI, EDI) = (Alpha, Beta, Gamma)                             ║
-; ║         Stack           = Off_Body                                         ║
-; ║                                                                            ║
-; ║                                                                            ║
-; ╚════════════════════════════════════════════════════════════════════════════╝
-
-BodyDisplay_AlphaBeta	PROC \
-			uses ebx ecx edx edi esi ebp\
-			x: DWORD, y: DWORD, z: DWORD, alpha: DWORD, beta: DWORD, gamma: DWORD, body: DWORD
-			mov eax, x
-			mov ebx, y
-			mov ecx, z
-			mov edx, alpha
-			mov esi, beta
-			mov edi, gamma
-
-			push	ebp
-			push	edx			; Push angles
-
-			push	esi
-			push	edi
-
-			mov	ebp,body		; EBP = PTR on object
-			mov	edx,7FFFFFFFh
-
-			mov	[lBody],ebp
-			mov	[ScreenXMin],edx	; Init 2D box
-
-			mov	[ScreenYMin],edx
-			inc	edx			; edx = 80000000h
-
-			mov	[ScreenXMax],edx
-			mov	edi,[TypeProj]
-
-			mov	[ScreenYMax],edx
-			cmp	edi,TYPE_3D
-
-			jne	@@Init_Iso		; Object position
-
-			mov	esi,Offset MatriceWorld
-			call	[LongRotatePoint]	; If perspective
-
-			mov	eax,[X0]
-			mov	ebx,[Y0]
-
-			mov	ecx,[Z0]
-@@Init_Iso:		mov	edi,[CameraXr]
-
-			sub	eax,edi
-			mov	edi,[CameraYr]
-
-			sub	ebx,edi
-			mov	edi,[CameraZr]
-
-			sub	ecx,edi
-			mov	[PosXWr],eax		; Object world position
-
-			mov	[PosYWr],ebx
-			mov	[PosZWr],ecx
-
-
-; ┌─────────────────────────────────────────────────────────────────┐
-; │                                                                 │
-; │                          GEOMETRY                               │
-; │                                                                 │
-; └─────────────────────────────────────────────────────────────────┘
-
-			; **************
-			; *** MATRIX ***
-			; **************
-
-			mov	esi,Offset MatriceWorld
-			pop	ecx			; Get angles
-
-			mov	edi,Offset TabMat+SIZE_MATRICE
-			pop	ebx
-
-			xor	eax,eax			; Alpha = 0
-			call	[RotateMatrix]		; Mat_World*Mat_Obj
-
-			pop	eax			; Restore Alpha
-			mov	esi,Offset TabMat+SIZE_MATRICE
-
-			xor	ebx,ebx			; Beta = 0
-			mov	edi,Offset TabMat
-
-			xor	ecx,ecx
-			jmp	Return_BodyDisplay
-
-BodyDisplay_AlphaBeta	ENDP
-	*/
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 
@@ -2193,16 +2136,7 @@ BodyDisplay_AlphaBeta	ENDP
 	TYPE_MAT *mat = &TabMat[1];
 	RotateMatrix(mat, &MatriceWorld, 0, beta, gamma);
 
-	// pop	eax			; Restore Alpha
-	// mov	esi,Offset TabMat+SIZE_MATRICE
-
-	// xor	ebx,ebx			; Beta = 0
-	// mov	edi,Offset TabMat
-
-	// xor	ecx,ecx
-	// jmp	Return_BodyDisplay
-
-	return Return_BodyDisplay();
+	return Return_BodyDisplay(&TabMat[1], TabMat, alpha, 0, 0, obj);
 }
 
 Poly_Jump_Fn Poly_Jump[] = {
