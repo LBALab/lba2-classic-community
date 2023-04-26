@@ -5,33 +5,23 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
   // NOTE: in ASM this function starts with fldcw	[Status_Int]
   //       which basically means conversions from float to int chop the
   //       fractional part.
-  int currentZ; // ecx@1
-  int lastZ; // edx@1
-  long double factor; // fst7@1
-  int v7; // ST14_4@1
-  int v8; // eax@1
-  int v9; // ST04_4@1
-  int v10; // ST00_4@1
-  long double v11; // fst3@1
-  long double v12; // fst4@1
-  long double v13; // fst6@1
+  S32 currentZ = current->V_Z0;
+  S32 lastZ = last->V_Z0;
+  long double factor = (long double)(zclip - lastZ) / (long double)(currentZ - lastZ);
+  S32 lastU = last->V_MapU;
+  S32 diffV = current->V_MapV - last->V_MapV;
+  S32 lastLight = last->V_Light;
+  S32 diffLight = current->V_Light - lastLight;
+  long double clippedU = (long double)(current->V_MapU - lastU) * factor;
+  long double clippedY = (long double)last->V_Y0 + (long double)(current->V_Y0 - last->V_Y0) * factor;
+  long double lastV = (long double)last->V_MapV;
 
-  currentZ = current->V_Z0;
-  lastZ = last->V_Z0;
+  dst->V_X0 = (S32)((long double)last->V_X0 + (long double)(current->V_X0 - last->V_X0) * factor);
+  dst->V_Y0 = (S32)clippedY;
   dst->V_Z0 = zclip;
-  factor = (long double)(zclip - lastZ) / (long double)(currentZ - lastZ);
-  v7 = last->V_MapU;
-  v8 = current->V_MapV - last->V_MapV;
-  v9 = last->V_Light;
-  v10 = current->V_Light - v9;
-  v11 = (long double)(current->V_MapU - v7) * factor;
-  v12 = (long double)last->V_Y0 + (long double)(current->V_Y0 - last->V_Y0) * factor;
-  v13 = (long double)(signed int)(last->V_MapV);
-  dst->V_X0 = (signed int)((long double)last->V_X0 + (long double)(current->V_X0 - last->V_X0) * factor);
-  dst->V_Y0 = (signed int)v12;
-  dst->V_MapU = (unsigned __int16)(signed int)((long double)v7 + v11);
-  dst->V_MapV = (unsigned __int16)(signed int)(v13 + (long double)v8 * factor);
-  dst->V_Light = (signed __int16)(factor * (long double)v10 + (long double)v9);
+  dst->V_MapU = (U16)((long double)lastU + clippedU);
+  dst->V_MapV = (U16)(lastV + (long double)diffV * factor);
+  dst->V_Light = (U16)(factor * (long double)diffLight + (long double)lastLight);
   dst->V_Dummy = current->V_Dummy;
 }
 
