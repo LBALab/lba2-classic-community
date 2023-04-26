@@ -2002,12 +2002,52 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 	return EntityCreation(obj, lBody);
 }
 
+// ╔════════════════════════════════════════════════════════════════════════════╗
+// ║ BodyDisplay: Affiche un objet non animé                                    ║
+// ╟────────────────────────────────────────────────────────────────────────────╢
+// ║ Appel : (EAX, EBX, ECX) = (X, Y, Z)                                        ║
+// ║         (EDX, ESI, EDI) = (Alpha, Beta, Gamma)                             ║
+// ║         Stack           = Off_Body                                         ║
+// ║                                                                            ║
+// ║                                                                            ║
+// ╚════════════════════════════════════════════════════════════════════════════╝
 S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
                        void *obj)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  lBody = (T_BODY_HEADER *)obj;
+  // Init 2D box
+  ScreenXMin = 0x7FFFFFFF;
+  ScreenYMin = 0x7FFFFFFF;
+  ScreenXMax = 0x80000000;
+  ScreenYMax = 0x80000000;
+
+  if (TypeProj == TYPE_3D)
+  {
+    LongRotatePoint(&MatriceWorld, x, y, z);
+
+    x = X0;
+    y = Y0;
+    z = Z0;
+  }
+  else
+  {
+    // Object world position
+    PosXWr = x - CameraXr;
+    PosYWr = y - CameraYr;
+    PosZWr = z - CameraZr;
+  }
+
+// ┌─────────────────────────────────────────────────────────────────┐
+// │                                                                 │
+// │                          GEOMETRY                               │
+// │                                                                 │
+// └─────────────────────────────────────────────────────────────────┘
+
+  // **************
+  // *** MATRIX ***
+  // **************
+
+	return Return_BodyDisplay();
 }
 
 S32 Return_BodyDisplay()
