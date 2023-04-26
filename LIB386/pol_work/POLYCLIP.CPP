@@ -47,11 +47,12 @@ U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
   U32 newNbVertex = 0;
 
   STRUC_CLIPVERTEX *outVertex = dst;
-  if (!flag) // Which half-space?
+  if (flag == 0) // Which half-space?
   {
     STRUC_CLIPVERTEX *currentVertex = src - 1;
-    STRUC_CLIPVERTEX *lastVertex = &src[nbvertex - 1]; // Last vertex
-    U8 lastVertexVisible = lastVertex->V_Z0 > zclip;
+    STRUC_CLIPVERTEX *lastVertex = &src[nbvertex - 1];
+    U8 lastVertexVisible = lastVertex->V_Z0 < zclip;
+
     // *****************
     // *** Main loop ***
     // *****************
@@ -59,7 +60,7 @@ U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
     {
       // @@NegTest_Next_Pt:
       currentVertex++; // Current point
-      if (currentVertex->V_Z0 <= zclip)
+      if (currentVertex->V_Z0 >= zclip)
       {
         break;
       }
@@ -110,7 +111,7 @@ LABEL_10:
 
   STRUC_CLIPVERTEX *currentVertex = src - 1;
   STRUC_CLIPVERTEX *lastVertex = &src[nbvertex - 1]; // last vertex
-  U8 lastVertexVisible = lastVertex->V_Z0 < zclip; // 1 if vertex in wrong half-space
+  U8 lastVertexVisible = lastVertex->V_Z0 > zclip; // 1 if vertex in wrong half-space
 
   // *****************
   // *** Main loop ***
@@ -120,7 +121,7 @@ LABEL_10:
     while (1)
     {
       currentVertex++;
-      if (currentVertex->V_Z0 >= zclip)
+      if (currentVertex->V_Z0 <= zclip)
       {
         break;
       }
@@ -163,5 +164,6 @@ LABEL_20:
     ;
   }
   while (currentVertex != lastVertex);
+
   return newNbVertex;
 }
