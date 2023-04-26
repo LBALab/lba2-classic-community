@@ -44,54 +44,43 @@ void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIP
 U32 ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
 									U32 nbvertex, S32 zclip, S32 flag)
 {
-  STRUC_CLIPVERTEX *v5; // edi@1
-  U32 newNbVertex; // ecx@2
-  STRUC_CLIPVERTEX *v7; // esi@2
-  signed int v8; // edx@2
-  signed int v9; // eax@3
-  STRUC_CLIPVERTEX *v15; // esi@12
-  S32 v16; // eax@12
-  signed int v17; // edx@12
-  signed int v18; // eax@13
+  U32 newNbVertex = 0;
 
-  v5 = dst;
+  STRUC_CLIPVERTEX *outVertex = dst;
   if (!flag) // Which half-space?
   {
-    newNbVertex = 0;
-    v7 = src - 1;
+    STRUC_CLIPVERTEX *currentVertex = src - 1;
     STRUC_CLIPVERTEX *lastVertex = &src[nbvertex - 1]; // Last vertex
-    v8 = lastVertex->V_Z0 > zclip;
+    U8 lastVertexVisible = lastVertex->V_Z0 > zclip;
     // *****************
     // *** Main loop ***
     // *****************
     while (1)
     {
       // @@NegTest_Next_Pt:
-      // Check next point
-      v9 = v7[1].V_Z0;
-      v7++; // Current point
-      if (v9 <= zclip)
+      currentVertex++; // Current point
+      if (currentVertex->V_Z0 <= zclip)
       {
         break;
       }
       // *************************************************
       // *** Current vertex is in the wrong half-space ***
       // *************************************************
-      if (v8) // Was last point visible ?
+      if (lastVertexVisible) // Was last point visible ?
       {
 LABEL_10:
-        if (v7 == lastVertex)
+        if (currentVertex == lastVertex)
         {
           return newNbVertex;
         }
       }
       else
       {
-        Clipping_ZFPU(v7, lastVertex, v5, zclip);
-        v5++;
+        Clipping_ZFPU(currentVertex, lastVertex, outVertex, zclip);
+        outVertex++;
         newNbVertex++;
-        v8 = 1;
-        if (v7 == lastVertex)
+        lastVertexVisible = 1;
+        if (currentVertex == lastVertex)
         {
           return newNbVertex;
         }
@@ -100,29 +89,28 @@ LABEL_10:
     // ************************************************
     // *** Current vertex is in the good half-space ***
     // ************************************************
-    if (v8)
+    if (lastVertexVisible)
     {
-      Clipping_ZFPU(v7, lastVertex, v5, zclip);
-      v5++;
+      Clipping_ZFPU(currentVertex, lastVertex, outVertex, zclip);
+      outVertex++;
       newNbVertex++;
     }
-    v7->V_X0 = v5->V_X0;
-    v7->V_Y0 = v5->V_Y0;
-    v7->V_Z0 = v5->V_Z0;
-    v7->V_MapU = v5->V_MapU;
-    v7->V_MapV = v5->V_MapV;
-    v7->V_Light = v5->V_Light;
-    v7->V_Dummy = v5->V_Dummy;
+    currentVertex->V_X0 = outVertex->V_X0;
+    currentVertex->V_Y0 = outVertex->V_Y0;
+    currentVertex->V_Z0 = outVertex->V_Z0;
+    currentVertex->V_MapU = outVertex->V_MapU;
+    currentVertex->V_MapV = outVertex->V_MapV;
+    currentVertex->V_Light = outVertex->V_Light;
+    currentVertex->V_Dummy = outVertex->V_Dummy;
     ++newNbVertex;
-    v5++;
-    v8 = 0;
+    outVertex++;
+    lastVertexVisible = 0;
     goto LABEL_10;
   }
-  newNbVertex = 0;
-  v15 = src - 1;
+
+  STRUC_CLIPVERTEX *currentVertex = src - 1;
   STRUC_CLIPVERTEX *lastVertex = &src[nbvertex - 1]; // last vertex
-  v16 = lastVertex->V_Z0;
-  v17 = v16 < zclip; // 1 if vertex in wrong half-space
+  U8 lastVertexVisible = lastVertex->V_Z0 < zclip; // 1 if vertex in wrong half-space
 
   // *****************
   // *** Main loop ***
@@ -131,50 +119,49 @@ LABEL_10:
   {
     while (1)
     {
-      v18 = v15[1].V_Z0;
-      v15++;
-      if (v18 >= zclip)
+      currentVertex++;
+      if (currentVertex->V_Z0 >= zclip)
       {
         break;
       }
       // *************************************************
       // *** Current vertex is in the wrong half-space ***
       // *************************************************
-      if (v17) // Was last point visible ?
+      if (lastVertexVisible) // Was last point visible ?
       {
         goto LABEL_20;
       }
-      Clipping_ZFPU(v15, lastVertex, v5, zclip);
-      v5++; // A point was created: registers it!
+      Clipping_ZFPU(currentVertex, lastVertex, outVertex, zclip);
+      outVertex++; // A point was created: registers it!
       newNbVertex++;
-      v17 = 1; // Last point not visible
-      if (v15 == lastVertex)
+      lastVertexVisible = 1; // Last point not visible
+      if (currentVertex == lastVertex)
       {
         return newNbVertex;
       }
     }
     // @@Visible:
-    if (v17)
+    if (lastVertexVisible)
     {
-      Clipping_ZFPU(v15, lastVertex, v5, zclip);
-      v5++;
+      Clipping_ZFPU(currentVertex, lastVertex, outVertex, zclip);
+      outVertex++;
       newNbVertex++;
     }
     // @@Pas_Inters:
-    v5->V_X0 = v15->V_X0;
-    v5->V_Y0 = v15->V_Y0;
-    v5->V_Z0 = v15->V_Z0;
-    v5->V_MapU = v15->V_MapU;
-    v5->V_MapV = v15->V_MapV;
-    v5->V_Light = v15->V_Light;
-    v5->V_Dummy = v15->V_Dummy;
+    outVertex->V_X0 = currentVertex->V_X0;
+    outVertex->V_Y0 = currentVertex->V_Y0;
+    outVertex->V_Z0 = currentVertex->V_Z0;
+    outVertex->V_MapU = currentVertex->V_MapU;
+    outVertex->V_MapV = currentVertex->V_MapV;
+    outVertex->V_Light = currentVertex->V_Light;
+    outVertex->V_Dummy = currentVertex->V_Dummy;
     newNbVertex++;
-    v5++;
-    v17 = 0;
+    outVertex++;
+    lastVertexVisible = 0;
     // @@TestEnd:
 LABEL_20:
     ;
   }
-  while (v15 != lastVertex);
+  while (currentVertex != lastVertex);
   return newNbVertex;
 }
