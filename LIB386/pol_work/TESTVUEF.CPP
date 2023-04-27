@@ -1,78 +1,23 @@
-/*
-		.386
-		INCLUDE	FILLER.INC
-
-		.model SMALL, C
-
-		.DATA
-
-PUBLIC	C		TestVuePoly
-TestVuePoly		dd	TestVuePolyF
-
-		.CODE
-
-		public	C	TestVuePolyF
-
-; ╔═════════════════════════════════════════════════════════════════╗
-; ║ TestVisible : Tests the visibility of a poly                    ║
-; ╟─────────────────────────────────────────────────────────────────╢
-; ║ Call: ESI = Pointer on an array of STRUC_POINT                  ║
-; ╟─────────────────────────────────────────────────────────────────╢
-; ║ Return: EAX = TRUE if polygon visible                           ║
-; ║                                                                 ║
-; ╚═════════════════════════════════════════════════════════════════╝
-
-TestVuePolyF	PROC \
-				uses eax ebx ecx edx edi esi ebp\
-				input: DWORD
-				mov esi, input
-;(x2-x1)*(y1-y3)-(y2-y1)*(x1-x3)
-;   P1  *  P2   -   P3  *  P4
-							; 0   1   2   3   4   5   6   7
-	fild	[esi].STRUC_POINT.Pt_XE				; x1
-	fild	[esi].STRUC_POINT.Pt_YE				; y1  x1
-	fild	[esi+Size STRUC_POINT].STRUC_POINT.Pt_XE		; x2  y1  x1
-	fild	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_YE	; y3  x2  y1  x1
-	fild	[esi+Size STRUC_POINT].STRUC_POINT.Pt_YE		; y2  y3  x2  y1  x1
-	fild	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE	; x3  y2  y3  x2  y1  x1
-	fld	st(5)					; x1  x3  y2  y3  x2  y1  x1
-	fsubp	st(4),st				; x3  y2  y3  P1  y1  x1
-	fld	st(4)					; y1  x3  y2  y3  P1  y1  x1
-	fsubrp	st(3),st				; x3  y2  P2  P1  y1  x1
-	fsubp	st(5),st				; y2  P2  P1  y1  P4
-	fsubrp	st(3),st				; P2  P1  P3  P4
-	fmulp	st(1),st				; PP1 P3  P4
-	fxch	st(1)					; P3  PP1 P4
-	push	eax
-	fmulp	st(2),st				; PP1 PP2
-	; 2
-	fsubrp	st(1),st
-	; 2+1
-	fstp	dword ptr [esp]
-
-	pop	ecx
-	xor	eax,eax
-
-	test	ecx,ecx
-
-	setns	al
-
-	ret
-
-TestVuePolyF	ENDP
-
-
-;		The
-       		End
-*/
-
 #include <POLYGON/TESTVUE.H>
-#include <stdio.h>
 
-// -----------------------------------------------------------------------------
+#include <math.h>
+
+// ╔═════════════════════════════════════════════════════════════════╗
+// ║ TestVisible : Tests the visibility of a poly                    ║
+// ╟─────────────────────────────────────────────────────────────────╢
+// ║ Call: ESI = Pointer on an array of STRUC_POINT                  ║
+// ╟─────────────────────────────────────────────────────────────────╢
+// ║ Return: EAX = TRUE if polygon visible                           ║
+// ║                                                                 ║
+// ╚═════════════════════════════════════════════════════════════════╝
 S32 TestVuePoly(Struc_Point *ptr)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  Struc_Point *ptr2 = ptr + 1;
+  Struc_Point *ptr3 = ptr + 2;
+
+  long double result = ((long double)ptr2->Pt_XE - (long double)ptr->Pt_XE)
+                     * ((long double)ptr->Pt_YE - (long double)ptr3->Pt_YE)
+                     - ((long double)ptr->Pt_XE - (long double)ptr3->Pt_XE)
+                     * ((long double)ptr2->Pt_YE - (long double)ptr->Pt_YE);
+  return roundf(result) >= 0.0;
 }
