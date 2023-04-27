@@ -787,6 +787,7 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
       Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
       Fill_LeftPoint = newPoint;
       return Current_Jmp_LeftSlope[Fill_Type](
+        Fill_Type,
 				// For some reason diffX is << 16 but diffY is not
 				(newPoint->Pt_XE - oldPoint->Pt_XE) << 16,
 				(newPoint->Pt_YE - oldPoint->Pt_YE),
