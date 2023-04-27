@@ -514,28 +514,12 @@ Jmp_TrameNZW		ENDP
 
 S32 Jmp_SolidFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_SolidFogNZW		PROC
-			mov	bl,[Fill_Logical_Palette+ebx]
-			mov	eax,Offset Filler_FlatNZW
+  color = Fill_Logical_Palette[color] & 0xFF;
+  color = (color << 8) | color;
+  Fill_Filler = Filler_FlatNZW;
+  Fill_ClipFlag = CLIP_FLAT+CLIP_ZBUFFER;
 
-			mov	edx,ebx
-			mov	[Fill_Filler],eax
-
-			shl	edx,8
-
-			or	ebx,edx
-			mov	edx,CLIP_FLAT+CLIP_ZBUFFER
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_SolidFogNZW		ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 S32 Jmp_TrameFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
@@ -941,23 +925,11 @@ Jmp_GouraudFogNZW	ENDP
 
 S32 Jmp_DitherFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_DitherFogNZW	PROC
-			shl	ebx,16
-			mov	eax,Offset Filler_DitherFogNZW
+  Fill_Filler = Filler_DitherFogNZW;
+  Fill_ClipFlag = CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER;
+  Fill_Color = color << 16;
 
-			mov	edx,CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER
-			mov	[Fill_Filler],eax
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_DitherFogNZW	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 // *****************
@@ -1451,29 +1423,13 @@ Jmp_GouraudTextureChromaKeyZBuf ENDP
 		return 0;
 }
 
-
-
-
-
 S32 Jmp_GouraudTextureNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_GouraudTextureNZW	PROC
-			mov	eax,Offset Filler_TextureGouraudNZW
-			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
+  Fill_Filler = Filler_TextureGouraudNZW;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT + CLIP_ZBUFFER;
 
-			mov	[Fill_Filler],eax
-			mov	[Fill_ClipFlag],edx
-
-			jmp	Fill_PolyClip
-Jmp_GouraudTextureNZW	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
-
-
 
 S32 Jmp_GouraudTextureChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
