@@ -238,160 +238,19 @@ Filler_Trame		PROC
 			mov	[Fill_Trame_Parity],esi
 			jmp	Triangle_ReadNextEdge
 Filler_Trame		ENDP
+*/
 
+// *** CALL: 	ECX = Nb lines to draw
+//		EBX = Fill_CurXMin
+//		EDX = Fill_CurXMax
+S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
-
-
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_FlatZBuf		PROC
-			lea	ebp,[ecx+1]
-			mov	eax,[Fill_CurY]
-
-			mov	edi,[Fill_CurOffLine]
-			add	eax,ebp
-
-			mov	[Fill_CurY],eax
-			mov	eax,[Fill_Patch]
-
-			mov	esi,[Fill_CurZBufMin]
-			dec	eax
-
-			jne	@@Each_Line
-
-			mov	[Fill_Patch],eax
-			mov	eax,[PtrZBuffer]
-
-			mov	[PtrZBufferPatch],eax
-			mov	[PtrZBuffer1],eax
-			mov	eax,[Log]
-
-			mov	[PtrLog],eax
-			jmp	@@EnterLoop
-			ALIGN	4
-@@Each_Line:
-			mov	eax,[Fill_LeftSlope]
-			add	edi,[ScreenPitch]
-
-			add	ebx,eax
-			mov	eax,[Fill_RightSlope]
-
-			add	edx,eax
-			mov	eax,[Fill_ZBuf_LeftSlope]
-
-			add	esi,eax
-@@EnterLoop:
-			mov	eax,ebx
-			mov	ecx,edx
-
-			shr	eax,16
-			push	edi
-
-			shr	ecx,16
-			add	edi,eax
-
-			sub	ecx,eax
-			jle	@@EndScanLine
-
-			push	edx
-
-			mov	al,[edi]	; Load 1st dst cache line
-			cmp	ecx,32		; Is the scanline big enough to load the dst lines in cache
-
-			jb	@@SmallScanLine
-
-				; *** Load dst in WB cache ***
-			push	edi
-
-			lea	edx,[edi+ecx]
-			and	edi,not 31
-
-			and	edx,not 31	; AGI on EDI on first loop
-@@Preload:
-			mov	ah,[edi]
-			add	edi,32
-
-			cmp	edi,edx
-			jbe	@@Preload
-
-			pop	edi
-@@SmallScanLine:
-				; *** Flat loop ***
-			push	esi
-			push	ebx
-
-			mov	ebx,[Fill_ZBuf_XSlope]
-
-			push	ebp
-			mov	edx,esi
-
-			shl	esi,32-8
-			mov	ebp,ebx
-
-			shl	ebp,32-8
-			mov	eax,[Log]
-
-			shr	ebx,8
-			sub	edi,eax
-
-			shr	edx,8
-			mov	eax,[Fill_Color]	; Color
-@@LoopX:
-		push eax
-		mov eax,[PtrZBufferPatch]
-		cmp	[edi*2+eax],dx
-		pop eax
-
-			jb	@@NoDisp
-
-		push eax
-		mov eax,[PtrZBuffer1]
-		mov	[edi*2+eax],dx
-		pop eax
-
-		push ebx
-		mov ebx,[PtrLog]
-		mov	[edi+ebx],al
-		pop ebx
-
-@@NoDisp:
-			inc	edi
-			add	esi,ebp
-
-			adc	edx,ebx
-			dec	ecx
-
-			jne	@@LoopX
-
-			pop	ebp
-			pop	ebx
-
-			pop	esi
-			pop	edx
-@@EndScanLine:
-			pop	edi
-
-			dec	ebp
-			jne	@@Each_Line
-
-			mov	[Fill_CurZBufMin],esi
-			mov	[Fill_CurXMin],ebx
-
-			mov	[Fill_CurXMax],edx
-			mov	[Fill_CurOffLine],edi
-
-			jmp	Triangle_ReadNextEdge
-Filler_FlatZBuf		ENDP
-
-
-
-
-
-
+/*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
