@@ -1,5 +1,7 @@
-#include <ANIM/ANIM.H>
 #include <ANIM.H>
+
+#include <stdlib.h>
+
 #include <SYSTEM/TIMER.H>
 
 void ObjectInitAnim(T_OBJ_3D *obj, void *anim)

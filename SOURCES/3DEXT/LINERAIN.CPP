@@ -45,7 +45,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
   unsigned int v23; // eax@21
   unsigned int v24; // edi@21
   int v25; // ecx@22
-  unsigned __int8 v26; // of@28
+  U8 v26; // of@28
   unsigned int result; // eax@29
   signed int v28; // eax@30
   signed int v29; // eax@32
@@ -132,7 +132,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
           ScreenYMax = 2147483648;
           return 0;
         }
-        CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMin) / v42;
+        CurrentZ1 -= DZ * (S64)(v2 - ClipYMin) / v42;
         v2 = ClipYMin;
         v42 = v4 - ClipYMin;
         if ( v4 == ClipYMin )
@@ -150,7 +150,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
           ScreenYMax = 2147483648;
           return 0;
         }
-        CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMax) / v42;
+        CurrentZ1 -= DZ * (S64)(v2 - ClipYMax) / v42;
         v2 = ClipYMax;
         v42 = v4 - ClipYMax;
         if ( v4 == ClipYMax )
@@ -160,7 +160,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       }
       if ( v4 < ClipYMin )
       {
-        CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMin) / v42;
+        CurrentZ2 -= DZ * (S64)(v4 - ClipYMin) / v42;
         v4 = ClipYMin;
         v42 = ClipYMin - v2;
         if ( ClipYMin == v2 )
@@ -170,7 +170,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       }
       if ( v4 > ClipYMax )
       {
-        CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMax) / v42;
+        CurrentZ2 -= DZ * (S64)(v4 - ClipYMax) / v42;
         v4 = ClipYMax;
         if ( ClipYMax == v2 )
         {
@@ -195,8 +195,8 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
         return 0;
       }
       v36 = v9 - ClipXMin;
-      CurrentZ1 -= DZ * (signed __int64)v36 / v10;
-      v2 -= v11 * (signed __int64)v36 / v10;
+      CurrentZ1 -= DZ * (S64)v36 / v10;
+      v2 -= v11 * (S64)v36 / v10;
       v9 = ClipXMin;
     }
     else if ( v9 > ClipXMax )
@@ -210,15 +210,15 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
         return 0;
       }
       v37 = v9 - ClipXMax;
-      CurrentZ1 -= DZ * (signed __int64)v37 / v10;
-      v2 -= v11 * (signed __int64)v37 / v10;
+      CurrentZ1 -= DZ * (S64)v37 / v10;
+      v2 -= v11 * (S64)v37 / v10;
       v9 = ClipXMax;
     }
     else if ( v3 < ClipXMin )
     {
       v38 = v9;
-      CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMin) / v10;
-      v39 = v11 * (signed __int64)(v3 - ClipXMin) / v10;
+      CurrentZ2 -= DZ * (S64)(v3 - ClipXMin) / v10;
+      v39 = v11 * (S64)(v3 - ClipXMin) / v10;
       v3 = ClipXMin;
       v4 -= v39;
       v9 = v38;
@@ -226,8 +226,8 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     else if ( v3 > ClipXMax )
     {
       v40 = v9;
-      CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMax) / v10;
-      v41 = v11 * (signed __int64)(v3 - ClipXMax) / v10;
+      CurrentZ2 -= DZ * (S64)(v3 - ClipXMax) / v10;
+      v41 = v11 * (S64)(v3 - ClipXMax) / v10;
       v3 = ClipXMax;
       v4 -= v41;
       v9 = v40;
@@ -242,8 +242,8 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
         ScreenYMax = 2147483648;
         return 0;
       }
-      CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMin) / v11;
-      v9 -= v10 * (signed __int64)(v2 - ClipYMin) / v11;
+      CurrentZ1 -= DZ * (S64)(v2 - ClipYMin) / v11;
+      v9 -= v10 * (S64)(v2 - ClipYMin) / v11;
       v2 = ClipYMin;
     }
     else if ( v2 > ClipYMax )
@@ -256,14 +256,14 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
         ScreenYMax = 2147483648;
         return 0;
       }
-      CurrentZ1 -= DZ * (signed __int64)(v2 - ClipYMax) / v11;
-      v9 -= v10 * (signed __int64)(v2 - ClipYMax) / v11;
+      CurrentZ1 -= DZ * (S64)(v2 - ClipYMax) / v11;
+      v9 -= v10 * (S64)(v2 - ClipYMax) / v11;
       v2 = ClipYMax;
     }
     else if ( v4 < ClipYMin )
     {
-      CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMin) / v11;
-      v3 -= v10 * (signed __int64)(v4 - ClipYMin) / v11;
+      CurrentZ2 -= DZ * (S64)(v4 - ClipYMin) / v11;
+      v3 -= v10 * (S64)(v4 - ClipYMin) / v11;
       v4 = ClipYMin;
     }
     else
@@ -272,8 +272,8 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       {
         goto LABEL_14;
       }
-      CurrentZ2 -= DZ * (signed __int64)(v4 - ClipYMax) / v11;
-      v3 -= v10 * (signed __int64)(v4 - ClipYMax) / v11;
+      CurrentZ2 -= DZ * (S64)(v4 - ClipYMax) / v11;
+      v3 -= v10 * (S64)(v4 - ClipYMax) / v11;
       v4 = ClipYMax;
     }
   }
@@ -295,7 +295,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       ScreenYMax = 2147483648;
       return 0;
     }
-    CurrentZ1 -= DZ * (signed __int64)(v9 - ClipXMin) / v10;
+    CurrentZ1 -= DZ * (S64)(v9 - ClipXMin) / v10;
     v9 = ClipXMin;
     v10 = v3 - ClipXMin;
     if ( v3 == ClipXMin )
@@ -313,7 +313,7 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
       ScreenYMax = 2147483648;
       return 0;
     }
-    CurrentZ1 -= DZ * (signed __int64)(v9 - ClipXMax) / v10;
+    CurrentZ1 -= DZ * (S64)(v9 - ClipXMax) / v10;
     v9 = ClipXMax;
     v10 = v3 - ClipXMax;
     if ( v3 == ClipXMax )
@@ -322,9 +322,9 @@ S32	LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul )
     }
   }
   if ( v3 >= ClipXMin
-    || (CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMin) / v10, v3 = ClipXMin, v10 = ClipXMin - v9, ClipXMin != v9) )
+    || (CurrentZ2 -= DZ * (S64)(v3 - ClipXMin) / v10, v3 = ClipXMin, v10 = ClipXMin - v9, ClipXMin != v9) )
   {
-    if ( v3 <= ClipXMax || (CurrentZ2 -= DZ * (signed __int64)(v3 - ClipXMax) / v10, v3 = ClipXMax, ClipXMax != v9) )
+    if ( v3 <= ClipXMax || (CurrentZ2 -= DZ * (S64)(v3 - ClipXMax) / v10, v3 = ClipXMax, ClipXMax != v9) )
     {
 LABEL_14:
       ScreenXMin = v9;
@@ -370,7 +370,7 @@ LABEL_14:
         U16 *YPtrZBuf = PtrZBuffer;
         v30 = v16;
         v31 = (unsigned int)v16 >> 1;
-        v32 = (unsigned __int8)Color;
+        v32 = (U8)Color;
         v33 = CurrentZ1 << 16;
         v34 = ((unsigned int)CurrentZ1 >> 16) - 100;
         do
@@ -423,7 +423,7 @@ LABEL_14:
         v20 = v14;
         v21 = (unsigned int)v14 >> 1;
         v22 = CurrentZ1 << 16;
-        v23 = (unsigned __int8)Color;
+        v23 = (U8)Color;
         v24 = ((unsigned int)CurrentZ1 >> 16) - 100;
         do
         {
@@ -496,7 +496,7 @@ LABEL_80:
   ScreenXMax = v9;
   ScreenYMax = v2;
   v43 = v9 + PTR_TabOffLine[v2];
-  v44 = (unsigned __int8)Color;
+  v44 = (U8)Color;
   v45 = PtrZBuffer[v43] - ((CurrentZ1 >> 16) - 100);
   if ( v45 < 0 )
   {
