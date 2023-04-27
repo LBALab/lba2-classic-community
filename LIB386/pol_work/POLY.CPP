@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-typedef S32 (*Jmp_XSlopeFunc)(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
+typedef S32 (*Jmp_XSlopeFunc)(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
 typedef S32 (*Jmp_LeftSlopeFunc)(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 
 extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
@@ -62,6 +62,11 @@ S32 Fill_MapU_XSlope = 0;	// X Slope for MapU
 S32 Fill_CurMapVMin = 0; // Left edge: MapV value
 S32 Fill_MapV_LeftSlope = 0; // Left slope for MapV
 S32 Fill_MapV_XSlope = 0;	// X Slope for MapV
+
+S32 Fill_CurZBufMin; // Left edge: ZBuf value
+S32 Fill_ZBuf_LeftSlope; // Left slope for ZBuf
+S32 Fill_ZBuf_XSlope; // X Slope for ZBuf
+S32 Fill_CurZBuf; // Current value of ZBuf in the scanline
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
@@ -629,7 +634,7 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 		return Fill_LeftSlope;
 	}
 
-	return Current_Jmp_XSlope[Fill_Type](PtA, PtB, PtC);
+	return Current_Jmp_XSlope[Fill_Type](Fill_Type, PtA, PtB, PtC);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -791,12 +796,12 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
   }
 }
 
-S32 Triangle_ReadNextEdgeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Triangle_ReadNextEdgeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
-S32 Gouraud_XSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
+S32 Gouraud_XSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
 {
   Fill_Gouraud_XSlope = roundf((YB_YA * LC_LA - YC_YA * LB_LA) / Denom);
   return Triangle_ReadNextEdge(PtA, PtB);
@@ -806,18 +811,18 @@ S32 Gouraud_XSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 
 // ║ Calculate the XSlope for Gouraud shading                                 ║
 // ║                                                                          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-S32 Calc_GouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_GouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
   S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
   S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
-  return Gouraud_XSlopeFPU(PtA, PtB, PtC, LB_LA, LC_LA);
+  return Gouraud_XSlopeFPU(fillType, PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║ Calculate the XSlope for Dithered Gouraud shading (the intensity is      ║
 // ║ saturated)                                                               ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_DitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
   if (PtA->Pt_Light >= 14 * 256)
   {
@@ -853,14 +858,14 @@ S32 Calc_DitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 
   S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
   S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
-  return Gouraud_XSlopeFPU(PtA, PtB, PtC, LB_LA, LC_LA);
+  return Gouraud_XSlopeFPU(fillType, PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║ Calculate the XSlope for Texture Mapping                                 ║
 // ║                                                                          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_TextureXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
   Fill_MapU_XSlope = roundf((YB_YA * (PtC->Pt_MapU - PtA->Pt_MapU)
       - YC_YA * (PtB->Pt_MapU - PtA->Pt_MapU))
@@ -871,7 +876,7 @@ S32 Calc_TextureXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
   return Triangle_ReadNextEdge(PtB, PtC);
 }
 
-S32 Calc_TextureGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_TextureGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
   double UB_UA = PtB->Pt_MapU - PtA->Pt_MapU;
   double UC_UA = PtC->Pt_MapU - PtA->Pt_MapU;
@@ -885,42 +890,59 @@ S32 Calc_TextureGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point
   return Triangle_ReadNextEdge(PtB, PtC);
 }
 
-S32 Calc_TextureDitherXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZGouraudXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_XSlopeZBufferFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the XSlope for ZBuffering                                      ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+// esi = PtA
+// edi = PtB
+// ebp = PtC
+void Calc_ZBufXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+  //int a1<ebp>, int a2@<edi>, int a3@<esi>, long double a4@<st2>, long double a5@<st1>, long double a6@<st0>)
+{
+  double ZB_ZA = PtB->Pt_ZO - PtA->Pt_ZO;
+  double ZC_ZA = PtC->Pt_ZO - PtA->Pt_ZO;
+
+  Fill_ZBuf_XSlope = roundf(
+    (ZC_ZA * YB_YA - ZB_ZA * YC_YA) / Denom
+  );
+}
+
+S32 Calc_XSlopeZBufferFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+{
+  Calc_ZBufXSlopeFPU(PtA, PtB, PtC);
+  return Jmp_XSlopeFPU[fillType](fillType, PtA, PtB, PtC);
+}
+
+S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZXSlopeZBufFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
-{
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
-}
-
-S32 Calc_XSlopeZBufferFlagFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
+S32 Calc_XSlopeZBufferFlagFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
