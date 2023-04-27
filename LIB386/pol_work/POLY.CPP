@@ -17,7 +17,7 @@ extern "C" {
 #endif
 
 typedef S32 (*Jmp_XSlopeFunc)(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
-typedef S32 (*Jmp_LeftSlopeFunc)(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
+typedef S32 (*Jmp_LeftSlopeFunc)(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 
 extern Jmp_XSlopeFunc Jmp_XSlopeFPU[];
 extern Jmp_XSlopeFunc Jmp_XSlopeZBufFPU[];
@@ -989,75 +989,6 @@ S32 Test_Scan()
 S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 {
 	// edi, esi
-/*
-Read_Next_Right::
-		mov	eax,[Fill_ReadFlag]
-
-		test	eax,READ_NEXT_R
-		je	@@Test_Scan
-
-		mov	esi,[Fill_RightPoint]
-		and	eax,not READ_NEXT_R
-
-		mov	[Fill_ReadFlag],eax
-		mov	eax,[Fill_FirstPoint]
-@@Read_Next_R:
-		mov	edi,esi
-		sub	esi,Size STRUC_POINT
-
-		cmp	esi,eax
-		jae	@@No_LoopRight
-
-		mov	esi,[Fill_LastPoint]
-@@No_LoopRight:
-						; EDI = Old point
-						; ESI = New point
-		mov	ebx,dword ptr [edi].STRUC_POINT.Pt_XE
-		mov	ecx,dword ptr [esi].STRUC_POINT.Pt_XE
-
-		mov	edx,ebx
-		and	ecx,0FFFF0000h		; ECX = NewY shl 16
-
-		shl	ebx,16			; EBX = OldXMin
-		and	edx,0FFFF0000h		; EDX = OldY shl 16
-
-		sub	ecx,edx			; If same Y then get next point
-		je	@@Read_Next_R
-
-		lea	ebx,[ebx+8000h]
-		js	@@End			; If (NewY-OldY)<0 then we must end the rasterization
-
-		shr	ecx,16
-
-		push	ecx
-		mov	eax,dword ptr [esi].STRUC_POINT.Pt_XE
-
-		fild	dword ptr [esp]	; dY
-
-		shl	eax,16
-		mov	[Fill_CurXMax],ebx
-
-		fdivr	[F_1]		; 1/dY
-
-		sub	ebx,8000h
-
-		sub	eax,ebx
-		mov	[Fill_RightPoint],esi
-
-		mov	[esp],eax
-
-		fild	dword ptr [esp]	; dX  1/dY
-
-		fmulp	st(1),st; dX/dY
-
-		pop	eax
-
-		fadd	[F_1]	; dX/dY+1
-
-		fistp	[Fill_RightSlope]
-
-		jmp	@@Test_Scan
-	*/
 	if ((Fill_ReadFlag & READ_NEXT_R) == 0)
 	{
 		return Test_Scan();
@@ -1101,7 +1032,7 @@ Read_Next_Right::
 	return Test_Scan();
 }
 
-S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Read_Next_RightFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	Fill_LeftSlope = diffX / diffY + 1;
 	return Read_Next_Right(PtA, PtB);
@@ -1111,7 +1042,7 @@ S32 Read_Next_RightFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 // ║ Calculate the LeftSlope for Gouraud shading                              ║
 // ║                                                                          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_GouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
   U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
   U32 lightB = (PtB->Pt_Light + 0x80) << 8;
@@ -1123,7 +1054,7 @@ S32 Calc_GouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
   return Read_Next_Right(PtA, PtB);
 }
 
-S32 Calc_GouraudTableLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_GouraudTableLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
@@ -1134,7 +1065,7 @@ S32 Calc_GouraudTableLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_
 // ║ Calculate the LeftSlope for Texture Mapping                              ║
 // ║                                                                          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_TextureLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 //int __usercall Calc_TextureLeftSlope@<eax>(signed int a1@<ecx>, int a2@<edi>, int a3@<esi>)
 {
   Fill_CurMapUMin = PtA->Pt_MapU << 8;
@@ -1145,7 +1076,7 @@ S32 Calc_TextureLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point
   return Read_Next_Right(PtA, PtB);
 }
 
-S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
   double diffU = (PtB->Pt_MapU - PtA->Pt_MapU) << 8;
   double diffLight = (PtB->Pt_Light - PtA->Pt_Light) << 8;
@@ -1163,39 +1094,49 @@ S32 Calc_TextureGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Stru
   return Read_Next_Right(PtA, PtB);
 }
 
-S32 Calc_TextureZLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZGouraudLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_LeftSlopeZBufferFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_LeftSlopeZBufferFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_TextureZLeftSlopeZBufFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
 	// TODO: Implement ASM
 	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
 	return 0;
 }
 
-S32 Calc_LeftSlopeZBufferFlagFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║ Calculate the LeftSlope for ZBuffer                                      ║
+// ║                                                                          ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+void Calc_ZBufLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  float diffZ = (PtB->Pt_ZO - PtA->Pt_ZO) << 8;
+  Fill_CurZBufMin = PtA->Pt_ZO << 8;
+  Fill_ZBuf_LeftSlope = roundf(diffZ / diffY);
+}
+
+S32 Calc_LeftSlopeZBufferFlagFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+{
+  Calc_ZBufLeftSlopeFPU(diffX, diffY, PtA, PtB);
+  return Jmp_LeftSlopeFPU[fillType](fillType, diffX, diffY, PtA, PtB);
 }
 
 Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
