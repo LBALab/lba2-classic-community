@@ -56,7 +56,7 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
         break;
       }
       v29 = v10->Z;
-      v10 += 8;
+      v10++;
       v11 = -(v29 - OrgZ);
       if (v11 >= v8)
       {
@@ -84,7 +84,7 @@ LABEL_3:
         v18 = v10;
         ++Dst;
         v19 = v10->Z - OrgZ;
-        v10 += 8;
+        v10++;
         v20 = -v19;
         if (v20 < NearClip)
         {
@@ -145,7 +145,7 @@ LABEL_5:
           break;
         }
         v31 = v10->Z;
-        v10 += 8;
+        v10++;
         v20 = -(v31 - OrgZ);
         if (v20 >= v30)
         {
