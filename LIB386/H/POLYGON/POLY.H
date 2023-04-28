@@ -125,6 +125,10 @@ extern S32 Fill_CurMapVMin; // Left edge: MapV value
 extern S32 Fill_MapV_LeftSlope; // Left slope for MapV
 extern S32 Fill_MapV_XSlope;	// X Slope for MapV
 
+extern S32 Fill_CurZBufMin; // Left edge: ZBuf value
+extern S32 Fill_ZBuf_LeftSlope; // Left slope for ZBuf
+extern S32 Fill_ZBuf_XSlope; // X Slope for ZBuf
+
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
 extern U8 Fill_Flag_Fog;        ///< True if FOG is active
