@@ -63,39 +63,29 @@ void Sph_Line_FlatZBuf(U32 screenY)
 
 void Sph_Line_FlatNZW(U32 screenY)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return;
-  /*
-  int v2; // ebx@1
-  char *v3; // edi@1
-  unsigned __int16 *v4; // ebx@1
-  int v5; // ecx@1
-  char lineFunct; // al@2
-  unsigned __int16 v7; // dx@2
-  __int64 v9; // [sp-20h] [bp-20h]@1
+  U32 lineOffset = TabOffLine[screenY];
+  U8 * screen = (U8 *)Log + lineOffset + Sph_XMin;
+  U16 * zBuffer = PtrZBuffer + Sph_XMin + lineOffset;
+  U32 diffX = Sph_XMax - Sph_XMin;
 
-  v9 = a1;
-  v2 = TabOffLine[a2];
-  v3 = (char *)(Sph_XMin + Log + v2);
-  v4 = (unsigned __int16 *)(Sph_XMin + Sph_XMin + PtrZBuffer + 2 * v2);
-  v5 = Sph_XMax - Sph_XMin;
-  if ( Sph_XMax > Sph_XMin )
+  if (Sph_XMax <= Sph_XMin)
   {
-    lineFunct = Sph_Coul;
-    v7 = Z_Value;
-    do
-    {
-      if ( *v4 >= v7 )
-        *v3 = lineFunct;
-      ++v4;
-      ++v3;
-      --v5;
-    }
-    while ( v5 );
+    return;
   }
-  return v9;
-  */
+
+  U8 color = Sph_Coul;
+  U16 z = Z_Value & 0xFF;
+  do
+  {
+    if (*zBuffer >= z)
+    {
+      *screen = color;
+    }
+    ++zBuffer;
+    ++screen;
+    --diffX;
+  }
+  while (diffX);
 }
 
 // ╔═════════════════════════════════════════════════════════════════════════════════╗
