@@ -1,296 +1,74 @@
-/*
-; **************************************************************************
-; **************************************************************************
-; **************************************************************************
-; ***                                                                    ***
-; ***                         BOX Z BUFFER                               ***
-; ***                                                                    ***
-; **************************************************************************
-; **************************************************************************
-; **************************************************************************
-
-			OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			OPTION	LANGUAGE:C
-
-
-
-;			**************
-;			*** PUBLIC ***
-;			**************
-
-;					******************
-;					*** PROCEDURES ***
-;					******************
-
-
-			PUBLIC	C	ZBufBoxOverWrite2
-
-
-;					*****************
-;					*** VARIABLES ***
-;					*****************
-
-;					*** PUBLIC DATA ***
-
-
-;					*** MODULE DATA ***
-
-
-
-
-;			***************
-;			*** INCLUDE ***
-;			***************
-
-
-
-;			**************
-;			*** MACROS ***
-;			**************
-
-
-;			***************
-;			*** EQUATES ***
-;			***************
-
-
-
-
-;			**************************
-;			*** SEGMENTATION MODEL ***
-;			**************************
-
-			.386
-;			.MODEL	FLAT, C
-
-
-
-;			************
-;			*** DATA ***
-;			************
-;			.DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
-
-;				******************
-;				*** Extrn data ***
-;				******************
-Extrn	C		ScreenPitch	:	DWORD
-Extrn	C		Fill_ZBuffer_Factor	:	DWORD
-Extrn	C		Screen			:	DWORD
-Extrn	C		Log			:	DWORD
-Extrn	C		PtrZBuffer		:	DWORD
-Extrn	C		TabOffLine		:	DWORD
-
-
-
-
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-
-
-
-
-
-
-;				******************
-;				*** Local data ***
-;				******************
-			ALIGN	4
-IncZ			dd	0
-
-
-
-
-_DATA			ENDS
-
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
-
-;				******************
-;				*** Extrn proc ***
-;				******************
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-
-; ECX, EBX = XMin, XMax
-; EDX, EAX = YMin, YMax
-; ESI = Z High
-; EDI = Z Bottom
-ZBufBoxOverWrite2	PROC \
-					uses ebx ecx edx edi esi ebp\
-					z0:DWORD, z1:DWORD, xmin:DWORD, ymin:DWORD, xmax:DWORD, ymax:DWORD \
-
-					mov edi, z0
-					mov esi, z1
-					mov ecx, xmin
-					mov edx, ymin
-					mov ebx, xmax
-					mov eax, ymax
-
-			push	ebp
-			sub	ebx,ecx		; EBX = DeltaX-1
-
-			sub	eax,edx
-			inc	eax		; EAX = DeltaY
-
-			imul	esi,[Fill_ZBuffer_Factor]; GET_ZO(Z0)
-			imul	edi,[Fill_ZBuffer_Factor]; GET_ZO(Z1)
-
-			mov	edx,[TabOffLine+edx*4]
-			inc	ebx		; EBX = DeltaX
-
-			push	eax		; Save DeltaY
-			push	edx
-
-			sub	edi,esi		; DeltaZBuf
-			mov	ebp,eax
-
-			mov	edx,edi
-			mov	eax,edi
-
-			sar	edx,31
-			add	ecx,ebx		; ECX = XMin+DeltaX
-
-			idiv	ebp
-
-			mov	[IncZ],eax	; IncZBuf
-			pop	edx
-
-			pop	eax		; EAX = DeltaY
-			mov	edi,[PtrZBuffer]
-
-			add	edx,ecx
-			mov	ebp,[Log]
-
-			add	ebp,edx
-			mov	ecx,[Screen]
-
-			lea	edi,[edi+edx*2]
-			xor	ebx,-1		; EBX = -DeltaX
-
-			add	edx,ecx
-			inc	ebx
-						; EDI = PtrZBuffer
-						; EDX = PtrScreen
-						; EBP = PtrLog
-
-			mov	ch,1		; CH our flag
-
-						; ESI = Z 16:16
-						; High word of EAX is obviously nul
-						; (provided that the screen has less than 65535 lines)
-@@LoopY:
-			push	eax
-			push	esi
-
-			shr	esi,16
-			push	ebx
-@@LoopX:
-			mov	ax,[edi+ebx*2]	; Read ZBuffer (no AGI)
-
-			cmp	eax,esi		; Is our pixel hidden?
-			jae	@@Hidden
-
-			mov	cl,[edx+ebx]	; No: Copy it
-
-			mov	[ebp+ebx],cl
-						; Else perform next point
-			inc	ebx
-			jle	@@LoopX
-			jmp	@@EndLoop
-
-@@LoopXFast:
-			mov	ax,[edi+ebx*2]	; Read ZBuffer (no AGI)
-
-			cmp	eax,esi		; Is our pixel hidden?
-			jae	@@Return
-
-			mov	cl,[edx+ebx]	; No: Copy it
-			mov	[ebp+ebx],cl
-@@Return:					; Else perform next point
-			inc	ebx
-			jle	@@LoopXFast
-
-@@EndLoop:
-			pop	ebx
-			mov	eax,[ScreenPitch]
-
-			add	edx,eax		; Next line in our buffers
-			add	ebp,eax
-
-			lea	edi,[edi+2*eax]
-			pop	esi
-
-			mov	eax,[IncZ]
-
-			add	esi,eax		; Next Z
-			pop	eax
-
-			dec	eax
-			jne	@@LoopY
-
-
-			xor	eax,eax
-			pop	ebp
-
-			mov	al,ch
-
-			ret
-
-@@Hidden:
-			mov	ch,0
-			jmp	@@Return
-ZBufBoxOverWrite2	ENDP
-
-
-
-
-
-
-;				*******************
-;				*** Local proc ***
-;				*******************
-
-
-
-_TEXT			ENDS
-
-;			The
-			End
-*/
-
 #include "BOXZBUF.H"
-#include <stdio.h>
 
 S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
 		S32 xmin, S32 ymin,
 		S32 xmax, S32 ymax
 ) {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+  int v1; // ecx@1
+  int v2; // edx@1
+  unsigned int v3; // eax@1
+  unsigned int v4; // esi@1
+  int v5; // edx@1
+  int v6; // ebx@1
+  int v7; // edx@1
+  int v8; // ebp@1
+  int v9; // edi@1
+  int v10; // edx@1
+  int v11; // ebx@1
+  char v12; // ch@1
+  unsigned int v13; // esi@2
+  unsigned __int8 v14; // of@4
+  int v16; // [sp-24h] [bp-28h]@2
+  unsigned int v17; // [sp-20h] [bp-24h]@2
+  unsigned int v18; // [sp-1Ch] [bp-20h]@2
+
+  v1 = xmin;
+  v2 = ymin;
+  v3 = ymax - v2 + 1;
+  v4 = Fill_ZBuffer_Factor * z0;
+  v5 = TabOffLine[v2];
+  v6 = xmax - v1 + 1;
+  IncZ = (signed int)(Fill_ZBuffer_Factor * z1 - v4) / (signed int)v3;
+  v7 = v6 + v1 + v5;
+  v8 = (U8 *)Log + v7;
+  v9 = PtrZBuffer + v7;
+  v10 = Screen + v7;
+  v11 = -v6;
+  v12 = 1;
+  do
+  {
+    v18 = v3;
+    v17 = v4;
+    v13 = v4 >> 16;
+    v16 = v11;
+    while ( 1 )
+    {
+      LOWORD(v3) = *(_WORD *)(v9 + 2 * v11);
+      if ( v3 >= v13 )
+        break;
+      *(_BYTE *)(v8 + v11) = *(_BYTE *)(v10 + v11);
+      v14 = __OFADD__(1, v11++);
+      if ( !((unsigned __int8)((v11 < 0) ^ v14) | (v11 == 0)) )
+        goto LABEL_9;
+    }
+    v12 = 0;
+    while ( 1 )
+    {
+      v14 = __OFADD__(1, v11++);
+      if ( !((unsigned __int8)((v11 < 0) ^ v14) | (v11 == 0)) )
+        break;
+      LOWORD(v3) = *(_WORD *)(v9 + 2 * v11);
+      if ( v3 < v13 )
+        *(_BYTE *)(v8 + v11) = *(_BYTE *)(v10 + v11);
+    }
+LABEL_9:
+    v11 = v16;
+    v10 += ScreenPitch;
+    v8 += ScreenPitch;
+    v9 += 2 * ScreenPitch;
+    v4 = IncZ + v17;
+    v3 = v18 - 1;
+  }
+  while ( v18 != 1 );
+  return (unsigned __int8)v12;
 }
