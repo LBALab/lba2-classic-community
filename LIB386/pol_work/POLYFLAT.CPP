@@ -69,15 +69,11 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_Transparent	PROC
 
 
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_Trame		PROC
 */
 
 // *** CALL: 	ECX = Nb lines to draw
@@ -158,17 +154,25 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_TransparentZBuf	PROC
+*/
+S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
-
-
+/*
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_TrameZBuf	PROC
 */
+S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
 
 // *** CALL: 	ECX = Nb lines to draw
 //		EBX = Fill_CurXMin
@@ -184,19 +188,34 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
 ;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_TransparentNZW	PROC
-
-
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_TrameNZW		PROC
-
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-			ALIGN	4
-Filler_FlagZBuffer	PROC
 */
+S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
+
+/*
+; *** CALL: 	ECX = Nb lines to draw
+;		EBX = Fill_CurXMin
+;		EDX = Fill_CurXMax
+*/
+S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
+
+/*
+; *** CALL: 	ECX = Nb lines to draw
+;		EBX = Fill_CurXMin
+;		EDX = Fill_CurXMax
+*/
+S32 Filler_FlagZBuffer(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return 0;
+}
