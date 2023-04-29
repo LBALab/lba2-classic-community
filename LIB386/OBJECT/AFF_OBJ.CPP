@@ -934,7 +934,35 @@ S32 Triangle_TextureZ_Flat(U32 typePoly, void *poly)
 {
   // TODO: Implement ASM
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+
+  STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[0].Pt_MapU = poly3->U1;
+  ListFillPoly[0].Pt_MapV = poly3->V1;
+  ListFillPoly[0].Pt_Light = ListLights[poly3->P1];
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[1].Pt_MapU = poly3->U2;
+  ListFillPoly[1].Pt_MapV = poly3->V2;
+  ListFillPoly[1].Pt_Light = ListLights[poly3->P2];
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  ListFillPoly[2].Pt_MapU = poly3->U3;
+  ListFillPoly[2].Pt_MapV = poly3->V3;
+  ListFillPoly[2].Pt_Light = ListLights[poly3->P3];
+
+  U32 textureInfo = PtrTextures[poly3->HandleText];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+
+  return Fill_Poly(typePoly >> 2, ListLights[poly3->P3], 3, ListFillPoly);
 }
 
 S32 Quad_TextureZ_Flat(U32 typePoly, void *poly)
