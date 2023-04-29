@@ -521,27 +521,13 @@ Jmp_DitherTableZBuf	ENDP
 		return 0;
 }
 
-
-
 S32 Jmp_GouraudFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_GouraudFogZBuf	PROC
-			shl	ebx,16
-			mov	eax,Offset Filler_GouraudFogZBuf
+  Fill_Filler = Filler_GouraudFogZBuf;
+  Fill_ClipFlag = CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER;
+  Fill_Color = color << 16;
 
-			mov	edx,CLIP_FLAT+CLIP_LIGHT+CLIP_ZBUFFER
-			mov	[Fill_Filler],eax
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_GouraudFogZBuf	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 S32 Jmp_DitherFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
