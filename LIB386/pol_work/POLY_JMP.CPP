@@ -19,6 +19,7 @@
 #include <POLYGON/POLY.H>
 #include <POLYGON/POLYFLAT.H>
 #include <POLYGON/POLYTEXT.H>
+#include <POLYGON/POLYTEXZ.H>
 #include <POLYGON/POLYGOUR.H>
 #include <POLYGON/POLYGTEX.H>
 #include <FILLER.H>
