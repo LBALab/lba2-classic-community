@@ -1,6 +1,7 @@
 #include <POLYGON/POLYGOUR.H>
 
 #include <POLYGON/POLY.H>
+#include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
 
 #include <stdio.h>
@@ -20,53 +21,46 @@
 ; **************************************************************************
 ; **************************************************************************
 ; **************************************************************************
-
-;				******************
-;				*** Local data ***
-;				******************
-			ALIGN	4
-
-; Runtime code patch refactor, uses memory instead of instruction substitution
-AddGour             DWORD 12345678h
-AddGour1            DWORD 12345678h
-AddGour2            DWORD 12345678h
-AddGour3            DWORD 12345678h
-IntZBuf             DWORD 12345678h
-IntZBuf1            DWORD 12345678h
-IntZBuf2            DWORD 12345678h
-IntZBuf3            DWORD 12345678h
-DecGour             DWORD 12345678h
-DecZBuf             DWORD 12345678h
-DecZBuf1            DWORD 12345678h
-DecZBuf2            DWORD 12345678h
-DecZBuf3            DWORD 12345678h
-DecZBuf_AddGour     DWORD 12345678h
-DecZBuf_AddGour1    DWORD 12345678h
-DecZBuf_AddGour2    DWORD 12345678h
-DecZBuf_AddGour3    DWORD 12345678h
-PtrLog              DWORD 12345678h
-PtrLog_1            DWORD 12345678h
-PtrLog2             DWORD 12345678h
-PtrLog2_1           DWORD 12345678h
-PtrLog4             DWORD 12345678h
-PtrZBuffer_1        DWORD 12345678h
-PtrZBuffer1         DWORD 12345678h
-PtrZBuffer1_1       DWORD 12345678h
-PtrZBuffer2         DWORD 12345678h
-PtrZBuffer2_1       DWORD 12345678h
-PtrZBuffer3         DWORD 12345678h
-PtrZBuffer3_1       DWORD 12345678h
-PtrZBuffer4         DWORD 12345678h
-PtrZBuffer5         DWORD 12345678h
-PtrZBufferPatch     DWORD 12345678h
-PtrColor            DWORD 12345678h
-PtrColor1           DWORD 12345678h
-PtrColor2           DWORD 12345678h
-PtrColor3           DWORD 12345678h
-PtrColor4           DWORD 12345678h
-IntGour             BYTE  12h
-
 */
+S32 POLYGOUR_AddGour = 0x12345678;
+S32 POLYGOUR_AddGour1 = 0x12345678;
+S32 POLYGOUR_AddGour2 = 0x12345678;
+S32 POLYGOUR_AddGour3 = 0x12345678;
+S32 POLYGOUR_IntZBuf = 0x12345678;
+S32 POLYGOUR_IntZBuf1 = 0x12345678;
+S32 POLYGOUR_IntZBuf2 = 0x12345678;
+S32 POLYGOUR_IntZBuf3 = 0x12345678;
+S32 POLYGOUR_DecGour = 0x12345678;
+S32 POLYGOUR_DecZBuf = 0x12345678;
+S32 POLYGOUR_DecZBuf1 = 0x12345678;
+S32 POLYGOUR_DecZBuf2 = 0x12345678;
+S32 POLYGOUR_DecZBuf3 = 0x12345678;
+S32 POLYGOUR_DecZBuf_AddGour = 0x12345678;
+S32 POLYGOUR_DecZBuf_AddGour1 = 0x12345678;
+S32 POLYGOUR_DecZBuf_AddGour2 = 0x12345678;
+S32 POLYGOUR_DecZBuf_AddGour3 = 0x12345678;
+U8 *POLYGOUR_PtrLog = NULL;
+U8 *POLYGOUR_PtrLog_1 = NULL;
+U8 *POLYGOUR_PtrLog2 = NULL;
+U8 *POLYGOUR_PtrLog2_1 = NULL;
+U8 *POLYGOUR_PtrLog4 = NULL;
+U16 *POLYGOUR_PtrZBuffer_1 = NULL;
+U16 *POLYGOUR_PtrZBuffer1 = NULL;
+U16 *POLYGOUR_PtrZBuffer1_1 = NULL;
+U16 *POLYGOUR_PtrZBuffer2 = NULL;
+U16 *POLYGOUR_PtrZBuffer2_1 = NULL;
+U16 *POLYGOUR_PtrZBuffer3 = NULL;
+U16 *POLYGOUR_PtrZBuffer3_1 = NULL;
+U16 *POLYGOUR_PtrZBuffer4 = NULL;
+U16 *POLYGOUR_PtrZBuffer5 = NULL;
+U16 *POLYGOUR_PtrZBufferPatch = NULL;
+U8 *POLYGOUR_PtrColor = NULL;
+U8 *POLYGOUR_PtrColor1 = NULL;
+U8 *POLYGOUR_PtrColor2 = NULL;
+U8 *POLYGOUR_PtrColor3 = NULL;
+U8 *POLYGOUR_PtrColor4 = NULL;
+U8 IntGour = 0x12;
+
 S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -98,16 +92,16 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // it's not needed in the C version AFAICT.
 
       // @@NoPreload:
-      U32 gouraudSlope = Fill_Gouraud_XSlope << 16;
-      U32 gouraudSlopeMinor = Fill_Gouraud_XSlope >> 16;
+      U32 gouraudSlopeFrac = Fill_Gouraud_XSlope << 16;
+      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16;
       U32 color = curGouraud >> 16;
       U32 gouraud = curGouraud << 16;
       do
       {
         *screen = color;
-        U8 carryFlag = ((U64)gouraudSlope + (U64)gouraud) > 0xFFFFFFFF;
-        gouraud += gouraudSlope;
-        color = (color & 0xFFFFFF00) | ((gouraudSlopeMinor + carryFlag + color) & 0xFF);
+        U8 carryFlag = ((U64)gouraudSlopeFrac + (U64)gouraud) > 0xFFFFFFFF;
+        gouraud += gouraudSlopeFrac;
+        color = (color & 0xFFFFFF00) | ((gouraudSlopeInt + carryFlag + color) & 0xFF);
         ++screen;
         --diffX;
       }
@@ -258,8 +252,89 @@ S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 count = nbLines + 1;
+  U8 *curOffLine = Fill_CurOffLine;
+  Fill_CurY += count;
+  U32 curGouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+    POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
+    POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrZBuffer1 = PtrZBuffer;
+    POLYGOUR_PtrLog = (U8 *)Log;
+  }
+  else
+  {
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  while ( 1 )
+  {
+    U8 *screen = (fillCurXMin >> 16) + curOffLine;
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      // There is a bunch of cache-related stuff here in the original ASM, but
+      // it's not needed in the C version AFAICT.
+
+      // @@NoPreload:
+      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16;
+      U32 curZBufMinFrac = Fill_CurZBufMin << 24;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+
+      U32 offset = screen - (U8 *)Log;
+      U32 color = curGouraud >> 16;
+      U32 gouraud = curGouraud << 16;
+
+      do
+      {
+        if (POLYGOUR_PtrZBufferPatch[offset] >= (curZBufMinInt & 0xFFFF))
+        {
+          POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
+          POLYGOUR_PtrLog[offset] = color & 0xFF;
+        }
+
+        U8 carryFlag = ((U64)gouraud + (U64)POLYGOUR_DecGour) > 0xFFFFFFFF;
+        gouraud += POLYGOUR_DecGour;
+        color = (color & 0xFFFFFF00) | ((gouraudSlopeInt + carryFlag + color) & 0xFF);
+
+        carryFlag = ((U64)curZBufMinFrac + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+        curZBufMinFrac += POLYGOUR_DecZBuf;
+        curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf + carryFlag + curZBufMinInt) & 0xFF);
+
+        ++screen;
+        --diffX;
+      }
+      while (diffX);
+    }
+
+    if (!--count)
+    {
+      break;
+    }
+
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
