@@ -4,7 +4,8 @@
 
 U32 Sqr(U32 x)
 {
-  // TODO: revisit this. Implement same as original game to ensure same results
+  // This one has been tested against the original implementation and the results
+  // match 100% for all values of U32.
   return sqrt(x);
 }
 
