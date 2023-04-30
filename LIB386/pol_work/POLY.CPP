@@ -1142,9 +1142,19 @@ S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Po
 
 S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  double diffU = (PtB->Pt_MapU - PtA->Pt_MapU) << 8;
+  double diffV = (PtB->Pt_MapV - PtA->Pt_MapV) << 8;
+  double diffW = (PtB->Pt_W - PtA->Pt_W) << 8;
+
+  Fill_CurMapUMin = (PtA->Pt_MapU /*+ 0x80*/) << 8;
+  Fill_CurMapVMin = (PtA->Pt_MapV /*+ 0x80*/) << 8;
+
+  Fill_MapV_LeftSlope = roundf(diffV / diffY);
+  Fill_MapU_LeftSlope = roundf(diffU / diffY);
+  Fill_W_LeftSlope = roundf(diffW / diffY);
+  Fill_LeftSlope = roundf(diffX / diffY + 1);
+
+  return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
