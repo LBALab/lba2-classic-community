@@ -893,9 +893,39 @@ S32 Calc_TextureGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *Pt
 
 S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  if (PtA->Pt_Light >= 14 * 256)
+  {
+    // @@SatEDIUp:
+    PtA->Pt_Light = 14 * 256 - 1;
+  } else if (PtA->Pt_Light <= 255)
+  {
+    // @@SatEDILow:
+    PtA->Pt_Light = 256;
+  }
+
+  if (PtB->Pt_Light >= 14 * 256)
+  {
+    // @@SatESIUp:
+    PtB->Pt_Light = 14 * 256 - 1;
+  }
+  else if (PtB->Pt_Light <= 255)
+  {
+    // @@SatESILow:
+    PtB->Pt_Light = 256;
+  }
+
+  if (PtC->Pt_Light >= 14 * 256)
+  {
+    // @@SatEBPUp:
+    PtC->Pt_Light = 14 * 256 - 1;
+  }
+  else if (PtC->Pt_Light <= 255)
+  {
+    // @@SatEBPLow:
+    PtC->Pt_Light = 256;
+  }
+
+  return Calc_TextureGouraudXSlopeFPU(fillType, PtA, PtB, PtC);
 }
 
 S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
