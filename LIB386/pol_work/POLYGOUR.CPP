@@ -385,6 +385,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
     curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
