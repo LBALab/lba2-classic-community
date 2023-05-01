@@ -496,7 +496,187 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  // TODO: Review this code carefully
+
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+  U32 gouraudSlope = Fill_Gouraud_XSlope >> 8;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+    POLYGOUR_AddGour = gouraudSlope;
+    POLYGOUR_AddGour1 = gouraudSlope;
+    POLYGOUR_AddGour2 = gouraudSlope;
+    POLYGOUR_AddGour3 = gouraudSlope;
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrZBuffer1 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer2 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer3 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer4 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer5 = PtrZBuffer;
+    POLYGOUR_PtrLog = (U8 *)Log;
+    POLYGOUR_PtrLog2 = (U8 *)Log;
+    POLYGOUR_PtrLog4 = (U8 *)Log;
+
+    POLYGOUR_PtrZBuffer_1 = PtrZBuffer + 1;
+    POLYGOUR_PtrZBuffer1_1 = PtrZBuffer + 1;
+    POLYGOUR_PtrZBuffer2_1 = PtrZBuffer + 1;
+    POLYGOUR_PtrZBuffer3_1 = PtrZBuffer + 1;
+
+    POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
+    POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
+
+    S32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = zBufSlopeInt;
+    POLYGOUR_IntZBuf1 = zBufSlopeInt;
+    POLYGOUR_IntZBuf2 = zBufSlopeInt;
+    POLYGOUR_IntZBuf3 = zBufSlopeInt;
+
+    S32 zBufSlopeDec = Fill_ZBuf_XSlope << 24;
+    POLYGOUR_DecZBuf = zBufSlopeDec;
+    POLYGOUR_DecZBuf1 = zBufSlopeDec;
+    POLYGOUR_DecZBuf2 = zBufSlopeDec;
+    POLYGOUR_DecZBuf3 = zBufSlopeDec;
+  }
+  else
+  {
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  while ( 1 )
+  {
+    // @@EnterLoop:
+    U8 *screen = curOffLine + (fillCurXMin >> 16);
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      // *** Gouraud dither loop ***
+
+      // There is a bunch of cache-related stuff here in the original ASM, but
+      // it's not needed in the C version AFAICT.
+
+      // @@NoPreload:
+      U32 curZBufMinFrac = Fill_CurZBufMin << 24;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+
+      U32 offset = screen - (U8 *)Log;
+      U32 gouraud = curGouraud >> 8;
+      U32 color = gouraud;
+      U8 isOdd = diffX & 1;
+      U32 pixelCount = diffX >> 1;
+      if (isOdd)
+      {
+        if (pixelCount != 0)
+        {
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          do
+          {
+            // @@Each_X:
+            color = (color & 0xFF) + gouraud;
+            gouraud += POLYGOUR_AddGour;
+
+            if (POLYGOUR_PtrZBufferPatch[offset] >= (curZBufMinInt & 0xFFFF))
+            {
+              POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
+              POLYGOUR_PtrLog[offset] = (color >> 8) & 0xFF;
+            }
+
+            color = (color & 0xFF) + gouraud;
+
+            U8 carryFlag = ((U64)curZBufMinFrac + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+            curZBufMinFrac += POLYGOUR_DecZBuf;
+            curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf + carryFlag + curZBufMinInt) & 0xFF);
+
+            if (POLYGOUR_PtrZBuffer1[offset] >= (curZBufMinInt & 0xFFFF))
+            {
+              POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
+              POLYGOUR_PtrLog_1[offset] = (color >> 8) & 0xFF;
+            }
+
+            gouraud += POLYGOUR_AddGour1;
+
+            carryFlag = ((U64)curZBufMinFrac + (U64)POLYGOUR_DecZBuf1) > 0xFFFFFFFF;
+            curZBufMinFrac += POLYGOUR_DecZBuf1;
+            curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf1 + carryFlag + curZBufMinInt) & 0xFF);
+
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+            pixelCount--;
+            offset += 2;
+          }
+          while ( pixelCount );
+        }
+        // @@Add_One:
+        if (POLYGOUR_PtrZBuffer4[offset] >= (curZBufMinInt & 0xFFFF))
+        {
+          POLYGOUR_PtrZBuffer5[offset] = curZBufMinInt & 0xFFFF;
+          color = (color & 0xFF) + gouraud;
+          POLYGOUR_PtrLog4[offset] = (color >> 8) & 0xFF;
+        }
+      }
+      else
+      {
+        // @@Pas_Add1:
+        for ( ; pixelCount != 0; --pixelCount )
+        {
+          // @@Each_X2:
+          color = (color & 0xFF) + gouraud;
+          gouraud += POLYGOUR_AddGour2;
+
+          if (POLYGOUR_PtrZBuffer2[offset] >= (curZBufMinInt & 0xFFFF))
+          {
+            POLYGOUR_PtrZBuffer3[offset] = curZBufMinInt & 0xFFFF;
+            POLYGOUR_PtrLog2[offset] = (color >> 8) & 0xFF;
+          }
+
+          U8 carryFlag = ((U64)curZBufMinFrac + (U64)POLYGOUR_DecZBuf2) > 0xFFFFFFFF;
+          curZBufMinFrac += POLYGOUR_DecZBuf2;
+          curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf2 + carryFlag + curZBufMinInt) & 0xFF);
+
+          if (POLYGOUR_PtrZBuffer2_1[offset] >= (curZBufMinInt & 0xFFFF))
+          {
+            POLYGOUR_PtrZBuffer3_1[offset] = curZBufMinInt & 0xFFFF;
+            POLYGOUR_PtrLog2_1[offset] = (color >> 8) & 0xFF;
+          }
+
+          carryFlag = ((U64)curZBufMinFrac + (U64)POLYGOUR_DecZBuf3) > 0xFFFFFFFF;
+          curZBufMinFrac += POLYGOUR_DecZBuf3;
+          curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf3 + carryFlag + curZBufMinInt) & 0xFF);
+
+          gouraud += POLYGOUR_AddGour3;
+
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          offset += 2;
+        }
+      }
+      // @@End_X:
+    }
+    // @@EndScanLine:
+    if ( !--count )
+      break;
+
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
