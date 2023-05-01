@@ -467,7 +467,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         curZBufMinFrac += POLYGOUR_DecZBuf;
         curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf + carryFlag + curZBufMinInt) & 0xFF);
 
-        ++screen;
+        ++offset;
         --diffX;
       }
       while (diffX);
@@ -753,7 +753,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         curZBufMinFrac += POLYGOUR_DecZBuf;
         curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf + carryFlag + curZBufMinInt) & 0xFF);
 
-        ++screen;
+        ++offset;
         --diffX;
       }
       while (diffX);
