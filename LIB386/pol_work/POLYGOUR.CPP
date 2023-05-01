@@ -305,7 +305,104 @@ S32 Filler_GouraudFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  // TODO: make sure this works as intended
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+  U32 gouraudSlope = Fill_Gouraud_XSlope >> 8;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+  }
+  else
+  {
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  while ( 1 )
+  {
+    // @@EnterLoop:
+    U8 *screen = curOffLine + (fillCurXMin >> 16);
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      // *** Gouraud dither loop ***
+
+      // There is a bunch of cache-related stuff here in the original ASM, but
+      // it's not needed in the C version AFAICT.
+
+      // @@NoPreload:
+      U32 gouraud = curGouraud >> 8;
+      U32 color = gouraud;
+      U8 isOdd = diffX & 1;
+      U32 pixelCount = diffX >> 1;
+      if (isOdd)
+      {
+        if (pixelCount != 0)
+        {
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          do
+          {
+            // @@Each_X:
+            color = (color & 0xFF) + gouraud;
+            gouraud += gouraudSlope;
+            *screen = Fill_Logical_Palette[(color >> 8) & 0xFF];
+            color = (color & 0xFF) + gouraud;
+            gouraud += gouraudSlope;
+            *(screen + 1) = Fill_Logical_Palette[(color >> 8) & 0xFF];
+            screen += 2;
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+            pixelCount--;
+          }
+          while ( pixelCount );
+        }
+        // @@Add_One:
+        color = (color & 0xFF) + gouraud;
+        *screen = Fill_Logical_Palette[(color >> 8) & 0xFF];
+      }
+      else
+      {
+        // @@Pas_Add1:
+        for ( ; pixelCount != 0; --pixelCount )
+        {
+          // @@Each_X2:
+          color = (color & 0xFF) + gouraud;
+          gouraud += gouraudSlope;
+          *screen = Fill_Logical_Palette[(color >> 8) & 0xFF];
+          color = (color & 0xFF) + gouraud;
+          gouraud += gouraudSlope;
+          *(screen + 1) = Fill_Logical_Palette[(color >> 8) & 0xFF];
+          screen += 2;
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+        }
+      }
+      // @@End_X:
+    }
+    // @@EndScanLine:
+    if ( !--count )
+      break;
+
+    // @@Each_Line:
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
