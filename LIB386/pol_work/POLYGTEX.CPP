@@ -126,8 +126,8 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
-  U32 curMapU = Fill_CurMapUMin;
-  U32 curMapV = Fill_CurMapVMin;
+  U32 curMapU = Fill_CurMapUMin; // esi
+  U32 curMapV = Fill_CurMapVMin; // ebp
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
@@ -169,23 +169,36 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 mask = RepMask & gouraudXSlope;
       do
       {
-        colorIndex = (colorIndex & 0xFFFFFF00) | (*(mask + GTEX_PtrMapPatch) & 0xFF);
+        colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrMapPatch[mask];
+
         U8 carry = ((U64)GTEX_DecMapU + (U64)u) > 0xFFFFFFFF;
         u += GTEX_DecMapU;
         mask = (mask & 0xFFFFFF00) | ((GTEX_IntMapU + carry + mask) & 0xFF);
         carry = ((U64)GTEX_DecMapV_Gour + (U64)v) > 0xFFFFFFFF;
         v += GTEX_DecMapV_Gour;
         mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
-        *screen++ = *(colorIndex + GTEX_PtrCLUT);
-        colorIndex = (colorIndex & 0xFFFF00FF) | (v & 0xFF00);
-        mask &= RepMask;
+
+        colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrCLUT[colorIndex];
+
+        *screen = colorIndex & 0xFF;
+
+        curGouraudMin &= 0xFFFF00FF;
+        curGouraudMin += v;
+
+        screen++;
+
+        colorIndex = (colorIndex & 0xFFFF00FF) | (curGouraudMin & 0xFF00);
+        mask &= GTEX_RepMaskPatch;
         --diffX;
       }
       while (diffX);
     }
+
     // @@EndScanLine:
     if (!--count)
+    {
       break;
+    }
 
     curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
