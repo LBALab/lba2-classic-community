@@ -49,7 +49,18 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
-  if (patch != 0)
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+
+    GTEX_PtrMapPatch = PtrMap;
+    GTEX_PtrCLUT = PtrCLUTGouraud;
+    GTEX_DecMapU = Fill_MapU_XSlope << 16;
+    GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
+    GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
+    GTEX_DecMapV_Gour = (Fill_MapV_XSlope << 16) | (Fill_Gouraud_XSlope >> 8) & 0xFFFF;
+  }
+  else
   {
     // @@Each_Line:
     curOffLine += ScreenPitch;
@@ -60,14 +71,6 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
   }
 
-  Fill_Patch = patch;
-
-  GTEX_PtrMapPatch = PtrMap;
-  GTEX_PtrCLUT = PtrCLUTGouraud;
-  GTEX_DecMapU = Fill_MapU_XSlope << 16;
-  GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
-  GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-  GTEX_DecMapV_Gour = (Fill_MapV_XSlope << 16) | (Fill_Gouraud_XSlope >> 8) & 0xFFFF;
   while (1)
   {
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
