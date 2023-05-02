@@ -964,20 +964,10 @@ S32 Jmp_GouraudTexture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 
 S32 Jmp_DitherTexture(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_DitherTexture	PROC
-			mov	eax,Offset Filler_TextureDither
-			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT
+  Fill_Filler = Filler_TextureDither;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT;
 
-			mov	[Fill_Filler],eax
-			mov	[Fill_ClipFlag],edx
-
-			jmp	Fill_PolyClip
-Jmp_DitherTexture	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 
