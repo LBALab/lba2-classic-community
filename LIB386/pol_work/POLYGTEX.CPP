@@ -87,14 +87,14 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 mask = RepMask & gouraudXSlope;
       do
       {
-        colorIndex = (colorIndex & 0xFFFFFF00) | (*(mask + GTEX_PtrMapPatch) & 0xFF);
+        colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrMapPatch[mask];
         U8 carry = ((U64)GTEX_DecMapU + (U64)u) > 0xFFFFFFFF;
         u += GTEX_DecMapU;
         mask = (mask & 0xFFFFFF00) | ((GTEX_IntMapU + carry + mask) & 0xFF);
         carry = ((U64)GTEX_DecMapV_Gour + (U64)v) > 0xFFFFFFFF;
         v += GTEX_DecMapV_Gour;
         mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
-        *screen++ = *(colorIndex + GTEX_PtrCLUT);
+        *screen++ = GTEX_PtrCLUT[colorIndex];
         colorIndex = (colorIndex & 0xFFFF00FF) | (v & 0xFF00);
         mask &= RepMask;
         --diffX;
