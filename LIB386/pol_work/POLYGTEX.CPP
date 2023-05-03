@@ -140,7 +140,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     GTEX_DecMapU = Fill_MapU_XSlope << 16;
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-    GTEX_DecMapV_Gour = (Fill_MapV_XSlope << 16) | (Fill_Gouraud_XSlope >> 8) & 0xFFFF;
+    GTEX_DecMapV_Gour = (Fill_MapV_XSlope << 16) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
   }
   else
   {
@@ -159,12 +159,13 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
+
       U32 gouraudXSlope = Fill_Gouraud_XSlope;
       S32 curGouraudMin = Fill_CurGouraudMin;
       gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((curMapV >> 16) & 0xFF) << 8);
       U32 u = curMapU << 16;
       gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((curMapU >> 16) & 0xFF);
-      U32 v = (curMapV << 16) | (curGouraudMin >> 8) & 0xFFFF;
+      U32 v = (curMapV << 16) | ((curGouraudMin >> 8) & 0xFFFF);
       U32 colorIndex = (curGouraudMin >> 8);
       U32 mask = RepMask & gouraudXSlope;
       do
