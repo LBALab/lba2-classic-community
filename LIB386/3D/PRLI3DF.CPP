@@ -6,12 +6,11 @@
 void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
 										S32 OrgY, S32 OrgZ)
 {
-  TYPE_VT16 *v6; // ebp@2
-  TYPE_VT16 *v7; // ecx@2
+  TYPE_VT16 *end; // ebp@2
+  TYPE_VT16 *current; // ecx@2
   int v8; // edx@2
-  int v9; // eax@2
-  TYPE_VT16 *v10; // esi@2
-  int v11; // eax@2
+  TYPE_VT16 *next; // esi@2
+  S32 v11; // eax@2
   TYPE_PT *v12; // ebx@3
   long double v13; // fst6@3
   long double v14; // fst5@3
@@ -29,7 +28,6 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
   int v26; // ecx@19
   int v27; // eax@19
   TYPE_PT v28; // ecx@31
-  int v29; // eax@35
   int v30; // edx@37
   int v31; // eax@39
 
@@ -38,12 +36,11 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
     return;
   }
 
-  v6 = Src + NbPt;
-  v7 = Src;
+  end = Src + NbPt;
+  current = Src;
   v8 = NearClip;
-  v9 = Src->Z;
-  v10 = Src + 1;
-  v11 = -(v9 - OrgZ);
+  next = Src + 1;
+  v11 = OrgZ - Src->Z;
   if (v11 < NearClip)
   {
     while (1)
@@ -51,16 +48,15 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
       Dst->X = 0x8000;
       Dst->Y = 0x8000;
       ++Dst;
-      if (v10 == v6)
+      if (next == end)
       {
         break;
       }
-      v29 = v10->Z;
-      v10++;
-      v11 = -(v29 - OrgZ);
+      next++;
+      v11 = OrgZ - next->Z;
       if (v11 >= v8)
       {
-        v7 = v10 - 1;
+        current = next - 1;
         goto LABEL_3;
       }
     }
@@ -69,22 +65,22 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
   {
 LABEL_3:
     Z0 = v11;
-    Y0 = v7->Y - OrgY;
-    X0 = v7->X - OrgX;
+    Y0 = current->Y - OrgY;
+    X0 = current->X - OrgX;
     v12 = Dst;
     v13 = FRatioX;
     v14 = FRatioY;
     v15 = (long double)X0;
     v16 = (long double)Y0;
     v17 = FRatioX / (long double)v11;
-    if (v10 != v6)
+    if (next != end)
     {
       while (1)
       {
-        v18 = v10;
+        v18 = next;
         ++Dst;
-        v19 = v10->Z - OrgZ;
-        v10++;
+        v19 = next->Z - OrgZ;
+        next++;
         v20 = -v19;
         if (v20 < NearClip)
         {
@@ -129,7 +125,7 @@ LABEL_5:
         }
         *v12 = v23;
         v12 = Dst;
-        if (v10 == v6)
+        if (next == end)
         {
           goto LABEL_19;
         }
@@ -140,16 +136,16 @@ LABEL_5:
         Dst->X = 0x8000;
         Dst->Y = 0x8000;
         ++Dst;
-        if (v10 == v6)
+        if (next == end)
         {
           break;
         }
-        v31 = v10->Z;
-        v10++;
+        v31 = next->Z;
+        next++;
         v20 = -(v31 - OrgZ);
         if (v20 >= v30)
         {
-          v18 = v10 - 1;
+          v18 = next - 1;
           goto LABEL_5;
         }
       }
