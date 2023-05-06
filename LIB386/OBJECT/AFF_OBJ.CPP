@@ -1572,7 +1572,7 @@ S16 TestZFar3(STRUC_POLY3_ENV *poly)
 {
   S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
 
-  if (zFar> Obj_ListRotatedPoints[poly->P2].Z)
+  if (zFar > Obj_ListRotatedPoints[poly->P2].Z)
   {
     zFar = Obj_ListRotatedPoints[poly->P2].Z;
   }
