@@ -1008,27 +1008,13 @@ Jmp_DitherTextureChromaKey ENDP
 		return 0;
 }
 
-
-
 S32 Jmp_GouraudTextureZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_GouraudTextureZBuf	PROC
-			mov	eax,Offset Filler_TextureGouraudZBuf
-			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
+  Fill_Filler = Filler_TextureGouraudZBuf;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT + CLIP_ZBUFFER;
 
-			mov	[Fill_Filler],eax
-			mov	[Fill_ClipFlag],edx
-
-			jmp	Fill_PolyClip
-Jmp_GouraudTextureZBuf	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
-
-
 
 S32 Jmp_GouraudTextureChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
