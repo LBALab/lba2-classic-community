@@ -29,12 +29,12 @@ PTR_U8 GTEX_PtrMap2 = (PTR_U8)0x12345678;
 PTR_U8 GTEX_PtrMapPatch = (PTR_U8)0x12345678;
 U32 GTEX_RepMask2 = 0x12345678;
 U32 GTEX_RepMaskPatch = 0x12345678;
-S32 GTEX_DecZBuf_Gour = 0x12345678;
-S32 GTEX_DecMapU = 0x12345678;
-S32 GTEX_DecMapU2 = 0x12345678;
-S32 GTEX_DecMapV_Gour = 0x12345678;
-S32 GTEX_DecMapV_Gour2 = 0x12345678;
-S32 GTEX_DecMapV_IntZBuf = 0x12345678;
+U32 GTEX_DecZBuf_Gour = 0x12345678;
+U32 GTEX_DecMapU = 0x12345678;
+U32 GTEX_DecMapU2 = 0x12345678;
+U32 GTEX_DecMapV_Gour = 0x12345678;
+U32 GTEX_DecMapV_Gour2 = 0x12345678;
+U32 GTEX_DecMapV_IntZBuf = 0x12345678;
 S8 GTEX_IntMapV = 0x12;
 S8 GTEX_IntMapV2 = 0x12;
 S8 GTEX_IntMapU = 0x12;
@@ -141,6 +141,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
     GTEX_DecMapV_Gour = (Fill_MapV_XSlope << 16) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
+    GTEX_RepMaskPatch = RepMask;
   }
   else
   {
