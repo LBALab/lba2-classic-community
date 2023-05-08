@@ -65,20 +65,6 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
-/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-
-
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-*/
-
-// *** CALL: 	ECX = Nb lines to draw
-//		EBX = Fill_CurXMin
-//		EDX = Fill_CurXMax
 S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -150,11 +136,6 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
-/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-*/
 S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
@@ -162,11 +143,6 @@ S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
-/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-*/
 S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
@@ -174,9 +150,6 @@ S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
-// *** CALL: 	ECX = Nb lines to draw
-//		EBX = Fill_CurXMin
-//		EDX = Fill_CurXMax
 S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
@@ -184,11 +157,6 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
-/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-*/
 S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
@@ -196,11 +164,6 @@ S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
-/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-*/
 S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
@@ -208,11 +171,6 @@ S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
-/*
-; *** CALL: 	ECX = Nb lines to draw
-;		EBX = Fill_CurXMin
-;		EDX = Fill_CurXMax
-*/
 S32 Filler_FlagZBuffer(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
