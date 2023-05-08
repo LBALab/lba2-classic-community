@@ -113,26 +113,11 @@ Jmp_TrameFog		ENDP
 
 S32 Jmp_SolidZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_SolidZBuf		PROC
-			mov	eax,Offset Filler_FlatZBuf
-			mov	edx,ebx
+  Fill_Filler = Filler_FlatZBuf;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_ZBUFFER;
+  Fill_Color = color | (color << 8);
 
-			shl	edx,8
-			mov	[Fill_Filler],eax
-
-			or	ebx,edx
-			mov	edx,CLIP_FLAT+CLIP_ZBUFFER
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],ebx
-
-			jmp	Fill_PolyClip
-Jmp_SolidZBuf		ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 S32 Jmp_TransparentZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
