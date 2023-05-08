@@ -639,7 +639,7 @@ S32 Quad_Solid(U32 typePoly, void *poly)
   ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
   ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
 
-  return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 3, ListFillPoly);
+  return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 4, ListFillPoly);
 }
 
 // ************
