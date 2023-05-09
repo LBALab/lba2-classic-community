@@ -28,7 +28,7 @@ PTR_U16 PtrZBuffer1 = NULL;
 PTR_U16 PtrZBufferPatch = NULL;
 PTR_U8 PtrMapPatch = NULL;
 U32 PtrCLUT = 0x12345678;
-PTR_U8 PtrLog = NULL;
+PTR_U8 POLYTEXT_PtrLog = NULL;
 U32 RepMaskPatch = 0x12345678;
 U32 DecMapUIntZBuf = 0x12345678;
 U32 DecMapV = 0x12345678;
@@ -203,7 +203,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     PtrZBuffer1 = PtrZBuffer;
     DecZBuf = Fill_ZBuf_XSlope << 24;
     IntZBuf = Fill_ZBuf_XSlope >> 8;
-    PtrLog = (PTR_U8)Log;
+    POLYTEXT_PtrLog = (PTR_U8)Log;
   }
 
   while (1)
@@ -254,7 +254,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         if (PtrZBufferPatch[offset] >= zInt & 0xFFFF)
         {
           PtrZBuffer1[offset] = zInt & 0xFFFF;
-          PtrLog[offset] = PtrMapPatch[mapIndex];
+          POLYTEXT_PtrLog[offset] = PtrMapPatch[mapIndex];
         }
 
         offset++;
