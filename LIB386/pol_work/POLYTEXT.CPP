@@ -242,11 +242,12 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       }
       // @@FastInit:
       U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000u) >> 16) | ((lineV >> 8) & 0xFF00));
       U32 lineUDec = lineU << 16;
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000u) >> 16) | ((lineV >> 8) & 0xFF00));
       U32 zInt = Fill_CurZBufMin >> 8;
       U32 zDec = Fill_CurZBufMin << 24;
       U32 offset = line - (U8 *)Log;
+      U32 incDecMapU = Precalc_Inc | lineUDec;
 
       do
       {
@@ -259,14 +260,18 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
         offset++;
 
-        lineUDec = (lineUDec & 0xFFFFFF00) | (PtrMap[mapIndex] & 0xFF);
-        U8 carryFlag = ((U64)DecMapV + (U64)lineVDec) > 0xFFFFFFFF;
+        U8 carryFlag = ((U64)incDecMapU + (U64)DecMapU) > 0xFFFFFFFF;
+        incDecMapU += DecMapU;
+        mapIndex = (mapIndex & 0xFFFFFF00) | (((IntMapU & 0xFF) + (mapIndex & 0xFF) + carryFlag) & 0xFF);
+
+        carryFlag = ((U64)lineVDec + (U64)DecMapV) > 0xFFFFFFFF;
         lineVDec += DecMapV;
-        mapIndex = (mapIndex & 0xFFFF00FF) | ((((Precalc_Inc >> 8) & 0xFF) + ((mapIndex >> 8) & 0xFF) + carryFlag) << 8);
-        carryFlag = ((U64)DecMapU + (U64)lineUDec) > 0xFFFFFFFF;
-        lineUDec += DecMapU;
-        mapIndex = (mapIndex & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (mapIndex & 0xFF) + carryFlag) & 0xFF);
-        *line++ = lineUDec & 0xFF;
+        mapIndex = (mapIndex & 0xFFFF00FF) | ((((incDecMapU >> 8) & 0xFF) + (((mapIndex >> 8) & 0xFF) + carryFlag) & 0xFF) << 8);
+
+        carryFlag = ((U64)zDec + (U64)DecZBuf) > 0xFFFFFFFF;
+        zDec += DecZBuf;
+        zInt += IntZBuf + carryFlag;
+
         mapIndex &= RepMaskPatch;
         --fillWidth;
       }
