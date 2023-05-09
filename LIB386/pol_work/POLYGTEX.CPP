@@ -44,8 +44,8 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
-  U32 curMapU = Fill_CurMapUMin;
-  U32 curMapV = Fill_CurMapVMin;
+  U32 u = Fill_CurMapUMin;
+  U32 v = Fill_CurMapVMin;
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
@@ -66,8 +66,8 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    curMapU += Fill_MapU_LeftSlope;
-    curMapV += Fill_MapV_LeftSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
     Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
   }
 
@@ -77,25 +77,66 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 gouraudXSlope = Fill_Gouraud_XSlope;
+
+      U32 lineV = v;
+      U32 lineU = u;
       S32 curGouraudMin = Fill_CurGouraudMin;
-      gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((curMapV >> 16) & 0xFF) << 8);
-      U32 u = curMapU << 16;
-      gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((curMapU >> 16) & 0xFF);
-      U32 v = (curMapV << 16) | (curGouraudMin >> 8) & 0xFFFF;
+      // Load 1st dst cache line
+      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (diffX > 16)
+      {
+        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U32 addGouraudDec = (U32)(addGouraud >> 32);
+        U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
+        addGouraudDec = addGouraudDec << 16;
+        addGouraudInt = addGouraudInt >> 16;
+        addGouraudDec |= addGouraudInt;
+        curGouraudMin += addGouraudDec;
+
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
+
+        // There was some @@Preload code here, but it did nothing other
+        // than reading some bytes but not doing anything with it. It
+        // also had the comment "Load dst in WB cache", which means nothing
+        // to me. I'm guessing it was some kind of prefetching, but I'm
+        // not sure. I'm leaving it out for now.
+      }
+
+      U32 gouraudXSlope = Fill_Gouraud_XSlope;
+      gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((lineV >> 16) & 0xFF) << 8);
+      U32 decU = lineU << 16;
+      gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((lineU >> 16) & 0xFF);
+      U32 decV = (lineV << 16) | (curGouraudMin >> 8) & 0xFFFF;
       U32 colorIndex = (curGouraudMin >> 8);
       U32 mask = RepMask & gouraudXSlope;
       do
       {
         colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrMapPatch[mask];
-        U8 carry = ((U64)GTEX_DecMapU + (U64)u) > 0xFFFFFFFF;
-        u += GTEX_DecMapU;
-        mask = (mask & 0xFFFFFF00) | ((GTEX_IntMapU + carry + mask) & 0xFF);
-        carry = ((U64)GTEX_DecMapV_Gour + (U64)v) > 0xFFFFFFFF;
-        v += GTEX_DecMapV_Gour;
-        mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
+
+        U8 carry = ((U64)GTEX_DecMapU + (U64)decU) > 0xFFFFFFFF;
+        decU += GTEX_DecMapU;
+        mask = (mask & 0xFFFFFF00) | (((GTEX_IntMapU & 0xFF) + carry + (mask & 0xFF)) & 0xFF);
+
+        carry = ((U64)GTEX_DecMapV_Gour + (U64)decV) > 0xFFFFFFFF;
+        decV += GTEX_DecMapV_Gour;
+        mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry) & 0xFF) << 8);
+
         *screen++ = GTEX_PtrCLUT[colorIndex];
-        colorIndex = (colorIndex & 0xFFFF00FF) | (v & 0xFF00);
+        colorIndex = (colorIndex & 0xFFFF00FF) | (decV & 0xFF00);
         mask &= RepMask;
         --diffX;
       }
@@ -108,16 +149,16 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    curMapU += Fill_MapU_LeftSlope;
-    curMapV += Fill_MapV_LeftSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
     Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
   Fill_CurOffLine = curOffLine;
-  Fill_CurMapUMin = curMapU;
-  Fill_CurMapVMin = curMapV;
+  Fill_CurMapUMin = u;
+  Fill_CurMapVMin = v;
 
   return Triangle_ReadNextEdge(NULL, NULL);
 }
