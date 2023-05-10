@@ -122,7 +122,7 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 decU = lineU << 16;
       gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((lineU >> 16) & 0xFF);
       U32 decV = (lineV << 16) | (curGouraudMin >> 8) & 0xFFFF;
-      U32 colorIndex = (curGouraudMin >> 8);
+      U32 colorIndex = (curGouraudMin >> 8) & 0xFFFF;
       U32 mask = RepMask & gouraudXSlope;
       do
       {
@@ -357,28 +357,43 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         // not sure. I'm leaving it out for now.
       }
 
-      U32 offset = screen - (U8 *)Log;
-      U32 gouraudXSlope = Fill_Gouraud_XSlope;
-      gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((lineV >> 16) & 0xFF) << 8);
-      U32 decU = lineU << 16;
-      gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((lineU >> 16) & 0xFF);
-      U32 decV = (lineV << 16) | (curGouraudMin >> 8) & 0xFFFF;
-      U32 colorIndex = (curGouraudMin >> 8);
-      U32 mask = RepMask & gouraudXSlope;
-      U32 zInt = Fill_CurZBufMin >> 8;
-      U32 zDec = Fill_ZBuf_XSlope;
+      U32 offset = screen - (U8 *)Log; // edi
+
+      U32 mask = (lineU >> 16); // eax
+      mask = (mask & 0xFFFF00FF) | (((lineV >> 16) & 0xFF) << 8);
+      mask &= RepMask;
+
+      lineU <<= 16; // esi
+      lineV <<= 16; // ebp
+      lineV |= Fill_CurZBufMin >> 8;
+
+      // ecx
+      curGouraudMin = (curGouraudMin >> 8) | (Fill_CurZBufMin << 24);// edx
+      U32 colorIndex = 0; // ebx
 
       do
       {
-        colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrMapPatch[mask];
-        U8 carry = ((U64)GTEX_DecMapU + (U64)decU) > 0xFFFFFFFF;
-        decU += GTEX_DecMapU;
-        mask = (mask & 0xFFFFFF00) | ((GTEX_IntMapU + carry + mask) & 0xFF);
-        carry = ((U64)GTEX_DecMapV_Gour + (U64)decV) > 0xFFFFFFFF;
-        decV += GTEX_DecMapV_Gour;
-        mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF);
-        *screen++ = GTEX_PtrCLUT[colorIndex];
-        colorIndex = (colorIndex & 0xFFFF00FF) | (decV & 0xFF00);
+        if (GTEX_PtrZBufferPatch[offset] >= (lineV & 0xFFFF))
+        {
+          colorIndex = (colorIndex & 0xFFFFFF00) | (GTEX_PtrMapPatch[mask] & 0xFF);
+          GTEX_PtrZBuffer1[offset] = (lineV & 0xFFFF);
+          GTEX_PtrLog[offset] = GTEX_PtrCLUT[colorIndex];
+        }
+
+        U8 carry = ((U64)lineU + (U64)GTEX_DecMapU) > 0xFFFFFFFF;
+        lineU += GTEX_DecMapU;
+        mask = (mask & 0xFFFFFF00) | (((GTEX_IntMapU & 0xFF) + carry + (mask & 0xFF)) & 0xFF);
+
+        carry = ((U64)curGouraudMin + (U64)GTEX_DecMapV_Gour) > 0xFFFFFFFF;
+        curGouraudMin += GTEX_DecMapV_Gour;
+        U8 carry2 = ((U64)lineV + (U64)GTEX_DecMapV_IntZBuf + carry) > 0xFFFFFFFF;
+        lineV = lineV + carry + GTEX_DecMapV_IntZBuf;
+
+        offset++;
+
+        mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry2) & 0xFF);
+
+        colorIndex = (colorIndex & 0xFFFF00FF) | (curGouraudMin & 0xFF00);
         mask &= RepMask;
         --diffX;
       }
