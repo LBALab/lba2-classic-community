@@ -276,6 +276,7 @@ S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
+// Verified
 S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Reviewed line by line against asm. It's used for Twinsen's clothes
