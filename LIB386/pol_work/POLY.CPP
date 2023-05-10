@@ -1088,23 +1088,32 @@ S32 Read_Next_RightFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Str
 // ║ Calculate the LeftSlope for Gouraud shading                              ║
 // ║                                                                          ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-S32 Calc_GouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+S32 CalcGouraudTableFPU(U32 fillType, S32 diffX, S32 diffY, S32 diffLight, Struc_Point *PtA, Struc_Point *PtB)
 {
-  U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
-  U32 lightB = (PtB->Pt_Light + 0x80) << 8;
-  S32 diffLight = lightB - lightA;
-  Fill_CurGouraudMin = lightA + Fill_Color;
   Fill_Gouraud_LeftSlope = diffLight / diffY;
   Fill_LeftSlope = diffX / diffY + 1;
 
   return Read_Next_Right(PtA, PtB);
 }
 
+S32 Calc_GouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
+{
+  U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
+  U32 lightB = (PtB->Pt_Light + 0x80) << 8;
+  S32 diffLight = lightB - lightA;
+  Fill_CurGouraudMin = lightA + Fill_Color;
+
+  return CalcGouraudTableFPU(fillType, diffX, diffY, diffLight, PtA, PtB);
+}
+
 S32 Calc_GouraudTableLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
+  U32 lightB = (PtB->Pt_Light + 0x80) << 8;
+  S32 diffLight = lightB - lightA;
+  Fill_CurGouraudMin = lightA;
+
+  return CalcGouraudTableFPU(fillType, diffX, diffY, diffLight, PtA, PtB);
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
