@@ -299,7 +299,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
     GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | (Fill_ZBuf_XSlope >> 8);
-    GTEX_DecZBuf_Gour = (Fill_ZBuf_XSlope << 24) | (Fill_ZBuf_XSlope >> 8);
+    GTEX_DecZBuf_Gour = (Fill_ZBuf_XSlope << 24) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
   }
   else
   {
@@ -370,6 +370,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // ecx
       curGouraudMin = (curGouraudMin >> 8) | (Fill_CurZBufMin << 24);// edx
       U32 colorIndex = 0; // ebx
+      colorIndex = (colorIndex & 0xFFFF00FF) | (curGouraudMin & 0xFF00);
 
       do
       {
