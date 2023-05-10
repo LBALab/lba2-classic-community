@@ -950,20 +950,10 @@ S32 Jmp_GouraudTextureZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 
 S32 Jmp_GouraudTextureChromaKeyZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_GouraudTextureChromaKeyZBuf PROC
-			mov	eax,Offset Filler_TextureGouraudChromaKeyZBuf
-			mov	edx,CLIP_FLAT+CLIP_TEXTURE+CLIP_LIGHT+CLIP_ZBUFFER
+  Fill_Filler = Filler_TextureGouraudChromaKeyZBuf;
+  Fill_ClipFlag = CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT + CLIP_ZBUFFER;
 
-			mov	[Fill_Filler],eax
-			mov	[Fill_ClipFlag],edx
-
-			jmp	Fill_PolyClip
-Jmp_GouraudTextureChromaKeyZBuf ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 S32 Jmp_GouraudTextureNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
