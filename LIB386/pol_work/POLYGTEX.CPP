@@ -278,6 +278,12 @@ S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+  // TODO: Reviewed line by line against asm. It's used for Twinsen's clothes
+  // in the holomap view, and also for mountains in outdoor levels. Not
+  // 100% sure if this works properly because for mountains I can see some
+  // kind of "wireframe" for the stones. Maybe it uses a different filler for
+  // that part of the mountains? :thinking:
+
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   U32 u = Fill_CurMapUMin;
