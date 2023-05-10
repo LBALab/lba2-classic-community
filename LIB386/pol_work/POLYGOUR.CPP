@@ -806,34 +806,26 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   U32 count = nbLines + 1;
   Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
+  U32 curGouraud = Fill_CurGouraudMin;
 
   U32 patch = Fill_Patch - 1;
-  U32 curGouraud = Fill_CurGouraudMin;
-  U32 decZBuf_addGour = Fill_Gouraud_XSlope >> 8;
-  decZBuf_addGour &= 0xFFFF;
-  decZBuf_addGour |= Fill_ZBuf_XSlope << 24;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
+
+    U32 decZBuf_addGour = Fill_Gouraud_XSlope >> 8;
+    decZBuf_addGour &= 0xFFFF;
+    decZBuf_addGour |= Fill_ZBuf_XSlope << 24;
+
     POLYGOUR_DecZBuf_AddGour = decZBuf_addGour;
     POLYGOUR_DecZBuf_AddGour1 = decZBuf_addGour;
     POLYGOUR_DecZBuf_AddGour2 = decZBuf_addGour;
     POLYGOUR_DecZBuf_AddGour3 = decZBuf_addGour;
-    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
-    POLYGOUR_PtrZBuffer1 = PtrZBuffer;
-    POLYGOUR_PtrZBuffer2 = PtrZBuffer;
-    POLYGOUR_PtrZBuffer3 = PtrZBuffer;
-    POLYGOUR_PtrZBuffer4 = PtrZBuffer;
-    POLYGOUR_PtrZBuffer5 = PtrZBuffer;
+
     POLYGOUR_PtrLog = (U8 *)Log;
     POLYGOUR_PtrLog2 = (U8 *)Log;
     POLYGOUR_PtrLog4 = (U8 *)Log;
-
-    POLYGOUR_PtrZBuffer_1 = PtrZBuffer + 1;
-    POLYGOUR_PtrZBuffer1_1 = PtrZBuffer + 1;
-    POLYGOUR_PtrZBuffer2_1 = PtrZBuffer + 1;
-    POLYGOUR_PtrZBuffer3_1 = PtrZBuffer + 1;
 
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
@@ -843,12 +835,6 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
     POLYGOUR_IntZBuf3 = zBufSlopeInt;
-
-    S32 zBufSlopeDec = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_DecZBuf = zBufSlopeDec;
-    POLYGOUR_DecZBuf1 = zBufSlopeDec;
-    POLYGOUR_DecZBuf2 = zBufSlopeDec;
-    POLYGOUR_DecZBuf3 = zBufSlopeDec;
   }
   else
   {
@@ -874,14 +860,14 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       // @@NoPreload:
       U32 curZBufMinDec = Fill_CurZBufMin << 24;
-      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8; // ebx
 
-      U32 offset = screen - (U8 *)Log;
-      U32 gouraud = (curGouraud >> 8) & 0xFFFF;
-      U32 color = gouraud & 0xFF;
+      U32 offset = screen - (U8 *)Log; // edi
+      U32 gouraud = (curGouraud >> 8) & 0xFFFF; // esi
+      U32 color = gouraud & 0xFF; // eax
       gouraud |= curZBufMinDec;
       color += gouraud;
-      U8 colorIndex = (color >> 8) & 0xFF;
+      U8 colorIndex = (color >> 8) & 0xFF; // edx
 
       U8 isOdd = diffX & 1;
       U32 pixelCount = diffX >> 1;
@@ -889,32 +875,34 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       {
         if (pixelCount != 0)
         {
-          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
           do
           {
             // @@Each_X:
-            if (POLYGOUR_PtrZBufferPatch[offset] >= (curZBufMinInt & 0xFFFF))
+            if (PtrZBuffer[offset] >= (curZBufMinInt & 0xFFFF))
             {
-              POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
+              PtrZBuffer[offset] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog[offset] = Fill_Logical_Palette[colorIndex];
             }
 
-            U8 carryFlag = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour) > 0xFFFFFFFF;
+            U8 carry = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour) > 0xFFFFFFFF;
             gouraud += POLYGOUR_DecZBuf_AddGour;
-            curZBufMinInt += POLYGOUR_IntZBuf + carryFlag;
+            curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
             color = (color & 0xFF) + gouraud;
             colorIndex = (color >> 8) & 0xFF;
 
-            if (POLYGOUR_PtrZBuffer1[offset] >= (curZBufMinInt & 0xFFFF))
+            if (PtrZBuffer[offset + 1] >= (curZBufMinInt & 0xFFFF))
             {
-              POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
+              PtrZBuffer[offset + 1] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog_1[offset] = Fill_Logical_Palette[colorIndex];
             }
 
-            carryFlag = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour1) > 0xFFFFFFFF;
+            // @@NoDisp1:
+
+            carry = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour1) > 0xFFFFFFFF;
             gouraud += POLYGOUR_DecZBuf_AddGour1;
-            curZBufMinInt += POLYGOUR_IntZBuf1 + carryFlag;
+            curZBufMinInt += POLYGOUR_IntZBuf1 + carry;
 
             color = (color & 0xFF) + gouraud;
             colorIndex = (color >> 8) & 0xFF;
@@ -926,9 +914,9 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           while ( pixelCount );
         }
         // @@Add_One:
-        if (POLYGOUR_PtrZBuffer4[offset] >= (curZBufMinInt & 0xFFFF))
+        if (PtrZBuffer[offset] >= (curZBufMinInt & 0xFFFF))
         {
-          POLYGOUR_PtrZBuffer5[offset] = curZBufMinInt & 0xFFFF;
+          PtrZBuffer[offset] = curZBufMinInt & 0xFFFF;
           color = (color & 0xFF) + gouraud;
           POLYGOUR_PtrLog4[offset] = Fill_Logical_Palette[colorIndex];
         }
@@ -939,28 +927,28 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         for ( ; pixelCount != 0; --pixelCount )
         {
           // @@Each_X2:
-          if (POLYGOUR_PtrZBuffer2[offset] >= (curZBufMinInt & 0xFFFF))
+          if (PtrZBuffer[offset] >= (curZBufMinInt & 0xFFFF))
           {
-            POLYGOUR_PtrZBuffer3[offset] = curZBufMinInt & 0xFFFF;
+            PtrZBuffer[offset] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2[offset] = Fill_Logical_Palette[colorIndex];
           }
 
-          U8 carryFlag = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour2) > 0xFFFFFFFF;
+          U8 carry = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour2) > 0xFFFFFFFF;
           gouraud += POLYGOUR_DecZBuf_AddGour2;
-          curZBufMinInt += POLYGOUR_IntZBuf2 + carryFlag;
+          curZBufMinInt += POLYGOUR_IntZBuf2 + carry;
 
           color = (color & 0xFF) + gouraud;
           colorIndex = (color >> 8) & 0xFF;
 
-          if (POLYGOUR_PtrZBuffer2_1[offset] >= (curZBufMinInt & 0xFFFF))
+          if (PtrZBuffer[offset] >= (curZBufMinInt & 0xFFFF))
           {
-            POLYGOUR_PtrZBuffer3_1[offset] = curZBufMinInt & 0xFFFF;
+            PtrZBuffer[offset] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2_1[offset] = Fill_Logical_Palette[colorIndex];
           }
 
-          carryFlag = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour3) > 0xFFFFFFFF;
+          carry = ((U64)gouraud + (U64)POLYGOUR_DecZBuf_AddGour3) > 0xFFFFFFFF;
           gouraud += POLYGOUR_DecZBuf_AddGour3;
-          curZBufMinInt += POLYGOUR_IntZBuf3 + carryFlag;
+          curZBufMinInt += POLYGOUR_IntZBuf3 + carry;
 
           color = (color & 0xFF) + gouraud;
           colorIndex = (color >> 8) & 0xFF;
