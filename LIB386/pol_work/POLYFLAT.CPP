@@ -65,6 +65,7 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -91,33 +92,32 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
   while ( 1 )
   {
-    curOffLine = curOffLine;
     U8 *screen = (fillCurXMin >> 16) + curOffLine;
-    S32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      S32 zHigh = curZ << 24;
-      S32 zSlopeHigh = Fill_ZBuf_XSlope << 24;
-      U32 zSlopeLow = (unsigned int)Fill_ZBuf_XSlope >> 8;
-      U32 screenDiff = screen - (U8 *)Log;
-      S32 zLow = curZ >> 8;
-      U8 color = Fill_Color;
+      S32 zDec = curZ << 24; // esi
+      S32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
+      S32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 offset = screen - (U8 *)Log; // edi
+      S32 zInt = curZ >> 8; // edx
       do
       {
-        if ( *(POLYFLAT_PtrZBufferPatch + screenDiff) >= (U16)zLow )
+        if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
         {
-          *(POLYFLAT_PtrZBuffer1 + screenDiff) = zLow;
-          *(POLYFLAT_PtrLog + screenDiff) = color;
+          POLYFLAT_PtrZBuffer1[offset] = zInt & 0xFFFF;
+          POLYFLAT_PtrLog[offset] = Fill_Color & 0xFF;
         }
-        ++screenDiff;
-        U8 carry = (U64)zSlopeHigh + (U64)zHigh > 0xFFFFFFFF;
-        zHigh += zSlopeHigh;
-        zLow += zSlopeLow + carry;
+
+        ++offset;
+        U8 carry = (U64)zDec + (U64)zDecSlope > 0xFFFFFFFF;
+        zDec += zDecSlope;
+        zInt += zIntSlope + carry;
         --diffX;
       }
       while (diffX);
     }
-    curOffLine = curOffLine;
+
     if (!--count)
     {
       break;
@@ -128,6 +128,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     fillCurXMax += Fill_RightSlope;
     curZ += Fill_ZBuf_LeftSlope;
   }
+
   Fill_CurZBufMin = curZ;
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
