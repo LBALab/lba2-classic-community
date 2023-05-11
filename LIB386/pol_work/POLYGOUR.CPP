@@ -125,6 +125,7 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -133,7 +134,6 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
   U32 patch = Fill_Patch - 1;
   U32 curGouraud = Fill_CurGouraudMin;
-  U32 gouraudSlope = Fill_Gouraud_XSlope >> 8;
 
   if (patch == 0)
   {
@@ -161,26 +161,32 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // it's not needed in the C version AFAICT.
 
       // @@NoPreload:
-      U32 gouraud = curGouraud >> 8;
-      U32 color = gouraud;
+      U32 gouraud = curGouraud >> 8; // edx
+      U32 gouraudSlope = Fill_Gouraud_XSlope >> 8; // ebp
+      U32 color = gouraud; // eax
       U8 isOdd = diffX & 1;
       U32 pixelCount = diffX >> 1;
       if (isOdd)
       {
         if (pixelCount != 0)
         {
-          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
           do
           {
             // @@Each_X:
             color = (color & 0xFF) + gouraud;
             gouraud += gouraudSlope;
+
             *screen = (color >> 8) & 0xFF;
+
             color = (color & 0xFF) + gouraud;
             gouraud += gouraudSlope;
+
             *(screen + 1) = (color >> 8) & 0xFF;
             screen += 2;
-            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
+
             pixelCount--;
           }
           while ( pixelCount );
@@ -197,12 +203,15 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           // @@Each_X2:
           color = (color & 0xFF) + gouraud;
           gouraud += gouraudSlope;
+
           *screen = (color >> 8) & 0xFF;
+
           color = (color & 0xFF) + gouraud;
           gouraud += gouraudSlope;
+
           *(screen + 1) = (color >> 8) & 0xFF;
           screen += 2;
-          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
         }
       }
       // @@End_X:
