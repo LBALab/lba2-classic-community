@@ -500,11 +500,9 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  // TODO: Review this code carefully
-
   U32 count = nbLines + 1;
   Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
@@ -573,19 +571,19 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // it's not needed in the C version AFAICT.
 
       // @@NoPreload:
-      U32 curZBufMinDec = Fill_CurZBufMin << 24;
-      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+      U32 curZBufMinDec = Fill_CurZBufMin << 24; // ebp
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8; // ebx
 
-      U32 offset = screen - (U8 *)Log;
-      U32 gouraud = curGouraud >> 8;
-      U32 color = gouraud;
+      U32 offset = screen - (U8 *)Log; // edi
+      U32 gouraud = curGouraud >> 8; // edx
+      U32 color = gouraud; // eax
       U8 isOdd = diffX & 1;
       U32 pixelCount = diffX >> 1;
       if (isOdd)
       {
         if (pixelCount != 0)
         {
-          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
           do
           {
             // @@Each_X:
@@ -600,11 +598,11 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
             color = (color & 0xFF) + gouraud;
 
-            U8 carryFlag = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+            U8 carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
             curZBufMinDec += POLYGOUR_DecZBuf;
-            curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf + carryFlag + curZBufMinInt) & 0xFF);
+            curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
-            if (POLYGOUR_PtrZBuffer1[offset] >= (curZBufMinInt & 0xFFFF))
+            if (POLYGOUR_PtrZBuffer_1[offset] >= (curZBufMinInt & 0xFFFF))
             {
               POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog_1[offset] = (color >> 8) & 0xFF;
@@ -612,11 +610,11 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
             gouraud += POLYGOUR_AddGour1;
 
-            carryFlag = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf1) > 0xFFFFFFFF;
+            carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf1) > 0xFFFFFFFF;
             curZBufMinDec += POLYGOUR_DecZBuf1;
-            curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf1 + carryFlag + curZBufMinInt) & 0xFF);
+            curZBufMinInt += POLYGOUR_IntZBuf1 + carry;
 
-            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
             pixelCount--;
             offset += 2;
           }
@@ -645,9 +643,11 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             POLYGOUR_PtrLog2[offset] = (color >> 8) & 0xFF;
           }
 
-          U8 carryFlag = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf2) > 0xFFFFFFFF;
+          U8 carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf2) > 0xFFFFFFFF;
           curZBufMinDec += POLYGOUR_DecZBuf2;
-          curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf2 + carryFlag + curZBufMinInt) & 0xFF);
+          curZBufMinInt += POLYGOUR_IntZBuf2 + carry;
+
+          color = (color & 0xFF) + gouraud;
 
           if (POLYGOUR_PtrZBuffer2_1[offset] >= (curZBufMinInt & 0xFFFF))
           {
@@ -655,13 +655,13 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             POLYGOUR_PtrLog2_1[offset] = (color >> 8) & 0xFF;
           }
 
-          carryFlag = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf3) > 0xFFFFFFFF;
-          curZBufMinDec += POLYGOUR_DecZBuf3;
-          curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf3 + carryFlag + curZBufMinInt) & 0xFF);
-
           gouraud += POLYGOUR_AddGour3;
 
-          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf3) > 0xFFFFFFFF;
+          curZBufMinDec += POLYGOUR_DecZBuf3;
+          curZBufMinInt += POLYGOUR_IntZBuf3 + carry;
+
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
           offset += 2;
         }
       }
@@ -676,6 +676,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
     curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
