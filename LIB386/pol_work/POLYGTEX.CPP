@@ -83,7 +83,7 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineU = u;
       S32 curGouraudMin = Fill_CurGouraudMin;
       // Load 1st dst cache line
-      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (diffX > 16)
       {
         U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
@@ -326,7 +326,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
       S32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;

@@ -71,7 +71,7 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineV = v;
       U32 lineU = u;
       // Load 1st dst cache line
-      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
@@ -215,7 +215,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineV = v;
       U32 lineU = u;
       // Load 1st dst cache line
-      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
