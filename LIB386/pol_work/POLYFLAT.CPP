@@ -13,10 +13,11 @@ U16 *POLYFLAT_PtrZBuffer2 = NULL;
 U16 *POLYFLAT_PtrZBuffer3 = NULL;
 U16 *POLYFLAT_PtrZBufferPatch = NULL;
 
+// Verified
 S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
-  U8 *curOffLine = (U8 *)Fill_CurOffLine;
+  U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
@@ -41,10 +42,9 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       // Is the scanline big enough to load the dst lines in cache
       // @@SmallScanLine:
-      U8 color = Fill_Color; // Color
       do
       {
-        *screen = color;
+        *screen = Fill_Color;
         screen++;
         --diffX;
       } while (diffX);
