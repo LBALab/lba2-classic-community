@@ -412,6 +412,7 @@ S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -446,17 +447,31 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
+      U16 factor = ((U16)fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 lineGouraud = curGouraud;
+
+      if (diffX < 16)
+      {
+        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U32 addGouraudDec = (U32)(addGouraud >> 32);
+        U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
+        addGouraudDec = addGouraudDec << 16;
+        addGouraudInt = addGouraudInt >> 16;
+        addGouraudDec |= addGouraudInt;
+        lineGouraud += addGouraudDec;
+      }
+
       // There is a bunch of cache-related stuff here in the original ASM, but
       // it's not needed in the C version AFAICT.
 
       // @@NoPreload:
-      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16;
-      U32 curZBufMinDec = Fill_CurZBufMin << 24;
-      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16; // ebx
+      U32 curZBufMinDec = Fill_CurZBufMin << 24; // ebp
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8; // edx
 
-      U32 offset = screen - (U8 *)Log;
-      U32 color = curGouraud >> 16;
-      U32 gouraud = curGouraud << 16;
+      U32 offset = screen - (U8 *)Log; // edi
+      U32 color = lineGouraud >> 16; // eax
+      U32 gouraud = lineGouraud << 16;
 
       do
       {
@@ -466,13 +481,13 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           POLYGOUR_PtrLog[offset] = color & 0xFF;
         }
 
-        U8 carryFlag = ((U64)gouraud + (U64)POLYGOUR_DecGour) > 0xFFFFFFFF;
+        U8 carry = ((U64)gouraud + (U64)POLYGOUR_DecGour) > 0xFFFFFFFF;
         gouraud += POLYGOUR_DecGour;
-        color = (color & 0xFFFFFF00) | ((gouraudSlopeInt + carryFlag + color) & 0xFF);
+        color = (color & 0xFFFFFF00) | (((gouraudSlopeInt & 0xFF) + carry + (color & 0xFF)) & 0xFF);
 
-        carryFlag = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+        carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
         curZBufMinDec += POLYGOUR_DecZBuf;
-        curZBufMinInt = (curZBufMinInt & 0xFFFFFF00) | ((POLYGOUR_IntZBuf + carryFlag + curZBufMinInt) & 0xFF);
+        curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
         ++offset;
         --diffX;
