@@ -61,6 +61,7 @@ U8 *POLYGOUR_PtrColor3 = NULL;
 U8 *POLYGOUR_PtrColor4 = NULL;
 U8 POLYGOUR_IntGour = 0x12;
 
+// Verified
 S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -88,20 +89,34 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      // There is a bunch of cache-related stuff here in the original ASM, but
-      // it's not needed in the C version AFAICT.
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 lineGouraud = curGouraud;
+
+      if (diffX > 16)
+      {
+        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U32 addGouraudDec = (U32)(addGouraud >> 32);
+        U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
+        addGouraudDec = addGouraudDec << 16;
+        addGouraudInt = addGouraudInt >> 16;
+        addGouraudDec |= addGouraudInt;
+        lineGouraud += addGouraudDec;
+
+        // There is a bunch of cache-related stuff here in the original ASM, but
+        // it's not needed in the C version AFAICT.
+      }
 
       // @@NoPreload:
-      U32 gouraudSlopeFrac = Fill_Gouraud_XSlope << 16;
-      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16;
-      U32 color = curGouraud >> 16;
-      U32 gouraud = curGouraud << 16;
+      U32 gouraudSlopeDec = Fill_Gouraud_XSlope << 16; // ebp
+      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16; // ebx
+      U32 color = lineGouraud >> 16; // eax
+      U32 gouraud = lineGouraud << 16; // esi
       do
       {
-        *screen = color;
-        U8 carryFlag = ((U64)gouraudSlopeFrac + (U64)gouraud) > 0xFFFFFFFF;
-        gouraud += gouraudSlopeFrac;
-        color = (color & 0xFFFFFF00) | ((gouraudSlopeInt + carryFlag + color) & 0xFF);
+        *screen = color & 0xFF;
+        U8 carry = ((U64)gouraud + (U64)gouraudSlopeDec) > 0xFFFFFFFF;
+        gouraud += gouraudSlopeDec;
+        color = (color & 0xFFFFFF00) | (((gouraudSlopeInt & 0xFF) + carry + (color & 0xFF)) & 0xFF);
         ++screen;
         --diffX;
       }
@@ -275,10 +290,10 @@ S32 Filler_GouraudFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      U16 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       U32 lineGouraud = curGouraud;
 
-      if (diffX < 16)
+      if (diffX > 16)
       {
         U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
@@ -473,10 +488,10 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      U16 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       U32 lineGouraud = curGouraud;
 
-      if (diffX < 16)
+      if (diffX > 16)
       {
         U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
@@ -777,10 +792,10 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      U16 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       U32 lineGouraud = curGouraud;
 
-      if (diffX < 16)
+      if (diffX > 16)
       {
         U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
