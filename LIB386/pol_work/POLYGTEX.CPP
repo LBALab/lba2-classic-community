@@ -170,12 +170,13 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
-  U32 curMapU = Fill_CurMapUMin; // esi
-  U32 curMapV = Fill_CurMapVMin; // ebp
+  U32 u = Fill_CurMapUMin; // esi
+  U32 v = Fill_CurMapVMin; // ebp
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
@@ -197,8 +198,8 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    curMapU += Fill_MapU_LeftSlope;
-    curMapV += Fill_MapV_LeftSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
     Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
   }
 
@@ -209,24 +210,53 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
 
+      U32 lineV = v;
+      U32 lineU = u;
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+
+      if (diffX > 16)
+      {
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
+
+        // There was some @@Preload code here, but it did nothing other
+        // than reading some bytes but not doing anything with it. It
+        // also had the comment "Load dst in WB cache", which means nothing
+        // to me. I'm guessing it was some kind of prefetching, but I'm
+        // not sure. I'm leaving it out for now.
+      }
+
       U32 gouraudXSlope = Fill_Gouraud_XSlope;
-      gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((curMapV >> 16) & 0xFF) << 8);
-      U32 u = curMapU << 16;
-      gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((curMapU >> 16) & 0xFF);
+      gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((lineV >> 16) & 0xFF) << 8);
+      U32 decU = lineU << 16; // esi
+      gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((lineU >> 16) & 0xFF);
       S32 curGouraudMin = (Fill_CurGouraudMin >> 8) & 0xFFFF;
-      U32 v = (curMapV << 16) | curGouraudMin;
-      U32 colorIndex = curGouraudMin;
-      U32 mask = (RepMask & gouraudXSlope) & 0xFFFF;
+      U32 decV_gour = (lineV << 16) | curGouraudMin; // ebp
+      U32 colorIndex = curGouraudMin; // ebx
+      U32 mask = RepMask & gouraudXSlope; // eax
       do
       {
         colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrMapPatch[mask];
 
-        U8 carry = ((U64)GTEX_DecMapU + (U64)u) > 0xFFFFFFFF;
-        u += GTEX_DecMapU;
-        mask = (mask & 0xFFFFFF00) | ((GTEX_IntMapU + carry + (mask & 0xFF)) & 0xFF);
+        U8 carry = ((U64)decU + (U64)GTEX_DecMapU) > 0xFFFFFFFF;
+        decU += GTEX_DecMapU;
+        mask = (mask & 0xFFFFFF00) | (((GTEX_IntMapU & 0xFF) + carry + (mask & 0xFF)) & 0xFF);
 
-        carry = ((U64)GTEX_DecMapV_Gour + (U64)v) > 0xFFFFFFFF;
-        v += GTEX_DecMapV_Gour;
+        carry = ((U64)decV_gour + (U64)GTEX_DecMapV_Gour) > 0xFFFFFFFF;
+        decV_gour += GTEX_DecMapV_Gour;
         mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF) << 8);
 
         colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrCLUT[colorIndex];
@@ -234,7 +264,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         *screen = colorIndex & 0xFF;
 
         curGouraudMin &= 0xFFFF00FF;
-        curGouraudMin += v;
+        curGouraudMin += decV_gour;
 
         screen++;
 
@@ -254,16 +284,16 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     curOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
     fillCurXMax += Fill_RightSlope;
-    curMapU += Fill_MapU_LeftSlope;
-    curMapV += Fill_MapV_LeftSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
     Fill_CurGouraudMin += Fill_Gouraud_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
   Fill_CurOffLine = curOffLine;
-  Fill_CurMapUMin = curMapU;
-  Fill_CurMapVMin = curMapV;
+  Fill_CurMapUMin = u;
+  Fill_CurMapVMin = v;
 
   return Triangle_ReadNextEdge(NULL, NULL);
 }
