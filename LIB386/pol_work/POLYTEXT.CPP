@@ -38,14 +38,25 @@ U32 IntZBuf = 0x12345678;
 U8 IntMapV = 0x12;
 U8 IntMapU = 0x12;
 
+// Verified
 S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   U32 u = Fill_CurMapUMin;
   U32 v = Fill_CurMapVMin;
+  U32 patch = Fill_Patch - 1;
 
-  if (Fill_Patch != 1)
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+
+    DecMapU = Fill_MapU_XSlope << 16;
+    DecMapV = Fill_MapV_XSlope << 16;
+    RepMaskPatch = RepMask;
+    Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000) >> 8) | (Fill_MapU_XSlope >> 16) & 0xFF;
+  }
+  else
   {
     Fill_CurOffLine += ScreenPitch;
     fillCurXMin += Fill_LeftSlope;
@@ -53,19 +64,11 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
   }
-  else
-  {
-    --Fill_Patch;
-    DecMapU = Fill_MapU_XSlope << 16;
-    DecMapV = Fill_MapV_XSlope << 16;
-    RepMaskPatch = RepMask;
-    Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000u) >> 8) | ((U32)Fill_MapU_XSlope >> 16) & 0xFF;
-  }
 
   while (1)
   {
     U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
-    if ((S32)(fillCurXMax >> 16) > (S32)(fillCurXMin >> 16))
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
@@ -97,21 +100,27 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         // not sure. I'm leaving it out for now.
       }
       // @@FastInit:
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000u) >> 16) | ((lineV >> 8) & 0xFF00));
-      U32 lineUDec = lineU << 16;
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00)); // eax
+      U32 lineUDec = lineU << 16; // edx
       do
       {
         // @@Each_X:
-        lineUDec = (lineUDec & 0xFFFFFF00) | (PtrMap[mapIndex] & 0xFF);
-        U8 carryFlag = ((U64)DecMapV + (U64)lineVDec) > 0xFFFFFFFF;
+        lineUDec = (lineUDec & 0xFFFFFF00) | PtrMap[mapIndex];
+
+        U8 carry = ((U64)lineVDec + (U64)DecMapV) > 0xFFFFFFFF;
         lineVDec += DecMapV;
-        mapIndex = (mapIndex & 0xFFFF00FF) | ((((Precalc_Inc >> 8) & 0xFF) + ((mapIndex >> 8) & 0xFF) + carryFlag) << 8);
-        carryFlag = ((U64)DecMapU + (U64)lineUDec) > 0xFFFFFFFF;
+        mapIndex = (mapIndex & 0xFFFF00FF) | (((((Precalc_Inc >> 8) & 0xFF) + ((mapIndex >> 8) & 0xFF) + carry) & 0xFF) << 8);
+
+        carry = ((U64)lineUDec + (U64)DecMapU) > 0xFFFFFFFF;
         lineUDec += DecMapU;
-        mapIndex = (mapIndex & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (mapIndex & 0xFF) + carryFlag) & 0xFF);
-        *line++ = lineUDec & 0xFF;
+        mapIndex = (mapIndex & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (mapIndex & 0xFF) + carry) & 0xFF);
+
+        *line = lineUDec & 0xFF;
+        line++;
+
         mapIndex &= RepMaskPatch;
+
         --fillWidth;
       }
       while (fillWidth);
