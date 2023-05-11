@@ -801,6 +801,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 count = nbLines + 1;
@@ -890,7 +891,7 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
             color = (color & 0xFF) + gouraud;
-            colorIndex = (color >> 8) & 0xFF;
+            colorIndex = (colorIndex & 0xFFFFFF00) | (color >> 8) & 0xFF;
 
             if (PtrZBuffer[offset + 1] >= (curZBufMinInt & 0xFFFF))
             {
@@ -905,9 +906,9 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             curZBufMinInt += POLYGOUR_IntZBuf1 + carry;
 
             color = (color & 0xFF) + gouraud;
-            colorIndex = (color >> 8) & 0xFF;
+            colorIndex = (colorIndex & 0xFFFFFF00) | (color >> 8) & 0xFF;
 
-            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
             pixelCount--;
             offset += 2;
           }
@@ -917,7 +918,6 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         if (PtrZBuffer[offset] >= (curZBufMinInt & 0xFFFF))
         {
           PtrZBuffer[offset] = curZBufMinInt & 0xFFFF;
-          color = (color & 0xFF) + gouraud;
           POLYGOUR_PtrLog4[offset] = Fill_Logical_Palette[colorIndex];
         }
       }
@@ -938,11 +938,11 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           curZBufMinInt += POLYGOUR_IntZBuf2 + carry;
 
           color = (color & 0xFF) + gouraud;
-          colorIndex = (color >> 8) & 0xFF;
+          colorIndex = (colorIndex & 0xFFFFFF00) | (color >> 8) & 0xFF;
 
-          if (PtrZBuffer[offset] >= (curZBufMinInt & 0xFFFF))
+          if (PtrZBuffer[offset + 1] >= (curZBufMinInt & 0xFFFF))
           {
-            PtrZBuffer[offset] = curZBufMinInt & 0xFFFF;
+            PtrZBuffer[offset + 1] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2_1[offset] = Fill_Logical_Palette[colorIndex];
           }
 
@@ -951,9 +951,9 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           curZBufMinInt += POLYGOUR_IntZBuf3 + carry;
 
           color = (color & 0xFF) + gouraud;
-          colorIndex = (color >> 8) & 0xFF;
+          colorIndex = (colorIndex & 0xFFFFFF00) | (color >> 8) & 0xFF;
 
-          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount);
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
           offset += 2;
         }
       }
