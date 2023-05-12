@@ -1,8 +1,7 @@
 #include <3D/LPROJ.H>
 
-#include <math.h>
-
 #include <3D/CAMERA.H>
+#include <SYSTEM/UTILS.H>
 
 S32 LongProjectPoint3D(S32 x, S32 y, S32 z)
 {
@@ -15,8 +14,8 @@ S32 LongProjectPoint3D(S32 x, S32 y, S32 z)
   }
 
   long double factor = FRatioX / (long double)(CameraZr - z);
-  Xp = XCentre + (S32)roundf((long double)(x - CameraXr) * factor);
-  Yp = YCentre + (S32)roundf((long double)(y - CameraYr) * factor * FRatioY);
+  Xp = XCentre + (S32)ROUND((long double)(x - CameraXr) * factor);
+  Yp = YCentre + (S32)ROUND((long double)(y - CameraYr) * factor * FRatioY);
 
   return 1;
 }

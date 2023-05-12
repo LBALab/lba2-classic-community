@@ -1,6 +1,6 @@
 #include <POLYGON/TESTVUE.H>
 
-#include <math.h>
+#include <SYSTEM/UTILS.H>
 
 // ╔═════════════════════════════════════════════════════════════════╗
 // ║ TestVisible : Tests the visibility of a poly                    ║
@@ -19,5 +19,5 @@ S32 TestVuePoly(Struc_Point *ptr)
                      * ((long double)ptr->Pt_YE - (long double)ptr3->Pt_YE)
                      - ((long double)ptr->Pt_XE - (long double)ptr3->Pt_XE)
                      * ((long double)ptr2->Pt_YE - (long double)ptr->Pt_YE);
-  return roundf(result) >= 0.0;
+  return ROUND(result) >= 0.0;
 }

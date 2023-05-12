@@ -1,9 +1,8 @@
 #include <3D/LPROJ.H>
 
-#include <math.h>
-
-#include <SVGA/SCREENXY.H>
 #include <3D/CAMERA.H>
+#include <SVGA/SCREENXY.H>
+#include <SYSTEM/UTILS.H>
 
 void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
 										S32 OrgY, S32 OrgZ)
@@ -83,8 +82,8 @@ LABEL_5:
       Z0 = v20;
       Y0 = v18->Y - OrgY;
       X0 = v18->X - OrgX;
-      Xp = (S32)roundf(v15 * v17);
-      Yp = (S32)roundf(v16 * v17 * v14);
+      Xp = (S32)ROUND(v15 * v17);
+      Yp = (S32)ROUND(v16 * v17 * v14);
       v15 = (long double)X0;
       v16 = (long double)Y0;
       v17 = v13 / (long double)v20;
