@@ -37,7 +37,7 @@ U32 Fill_Type = 0; // Polygon type number
 U32 **Fill_Restart = NULL;
 Fill_Filler_Func Fill_Filler = NULL;
 U32 Fill_Patch = 0;
-U32 Fill_Color = 0;
+T_FILL_COLOR Fill_Color = { Num: 0 };
 
 Struc_Point *Fill_FirstPoint = NULL;
 Struc_Point *Fill_LastPoint = NULL;
@@ -1108,7 +1108,7 @@ S32 Calc_GouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *Pt
   U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
   U32 lightB = (PtB->Pt_Light + 0x80) << 8;
   S32 diffLight = lightB - lightA;
-  Fill_CurGouraudMin = lightA + Fill_Color;
+  Fill_CurGouraudMin = lightA + Fill_Color.Num;
 
   return CalcGouraudTableFPU(fillType, diffX, diffY, diffLight, PtA, PtB);
 }

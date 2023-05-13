@@ -44,7 +44,7 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // @@SmallScanLine:
       do
       {
-        *screen = Fill_Color;
+        *screen = Fill_Color.Num;
         screen++;
         --diffX;
       } while (diffX);
@@ -106,7 +106,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
         {
           POLYFLAT_PtrZBuffer1[offset] = zInt & 0xFFFF;
-          POLYFLAT_PtrLog[offset] = Fill_Color & 0xFF;
+          POLYFLAT_PtrLog[offset] = Fill_Color.Num & 0xFF;
         }
 
         ++offset;
@@ -190,7 +190,7 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       {
         if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
         {
-          POLYFLAT_PtrLog[offset] = Fill_Color & 0xFF;
+          POLYFLAT_PtrLog[offset] = Fill_Color.Num & 0xFF;
         }
 
         ++offset;
