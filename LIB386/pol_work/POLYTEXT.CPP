@@ -24,19 +24,19 @@
 U32 Precalc_Inc = 0; // Precalc value
 
 // Runtime code patch refactor, uses memory instead of instruction substitution
-PTR_U16 PtrZBuffer1 = NULL;
-PTR_U16 PtrZBufferPatch = NULL;
-PTR_U8 PtrMapPatch = NULL;
-PTR_U8 PtrCLUT = NULL;
+PTR_U16 POLYTEXT_PtrZBuffer1 = NULL;
+PTR_U16 POLYTEXT_PtrZBufferPatch = NULL;
+PTR_U8 POLYTEXT_PtrMapPatch = NULL;
+PTR_U8 POLYTEXT_PtrCLUT = NULL;
 PTR_U8 POLYTEXT_PtrLog = NULL;
-U32 RepMaskPatch = 0x12345678;
-U32 DecMapUIntZBuf = 0x12345678;
-U32 DecMapV = 0x12345678;
-U32 DecMapU = 0x12345678;
-U32 DecZBuf = 0x12345678;
-U32 IntZBuf = 0x12345678;
-U8 IntMapV = 0x12;
-U8 IntMapU = 0x12;
+U32 POLYTEXT_RepMaskPatch = 0x12345678;
+U32 POLYTEXT_DecMapUIntZBuf = 0x12345678;
+U32 POLYTEXT_DecMapV = 0x12345678;
+U32 POLYTEXT_DecMapU = 0x12345678;
+U32 POLYTEXT_DecZBuf = 0x12345678;
+U32 POLYTEXT_IntZBuf = 0x12345678;
+U8 POLYTEXT_IntMapV = 0x12;
+U8 POLYTEXT_IntMapU = 0x12;
 
 // Verified
 S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
@@ -51,9 +51,9 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
 
-    DecMapU = Fill_MapU_XSlope << 16;
-    DecMapV = Fill_MapV_XSlope << 16;
-    RepMaskPatch = RepMask;
+    POLYTEXT_DecMapU = Fill_MapU_XSlope << 16;
+    POLYTEXT_DecMapV = Fill_MapV_XSlope << 16;
+    POLYTEXT_RepMaskPatch = RepMask;
     Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000) >> 8) | (Fill_MapU_XSlope >> 16) & 0xFF;
   }
   else
@@ -108,18 +108,18 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         // @@Each_X:
         lineUDec = (lineUDec & 0xFFFFFF00) | PtrMap[mapIndex];
 
-        U8 carry = ((U64)lineVDec + (U64)DecMapV) > 0xFFFFFFFF;
-        lineVDec += DecMapV;
+        U8 carry = ((U64)lineVDec + (U64)POLYTEXT_DecMapV) > 0xFFFFFFFF;
+        lineVDec += POLYTEXT_DecMapV;
         mapIndex = (mapIndex & 0xFFFF00FF) | (((((Precalc_Inc >> 8) & 0xFF) + ((mapIndex >> 8) & 0xFF) + carry) & 0xFF) << 8);
 
-        carry = ((U64)lineUDec + (U64)DecMapU) > 0xFFFFFFFF;
-        lineUDec += DecMapU;
+        carry = ((U64)lineUDec + (U64)POLYTEXT_DecMapU) > 0xFFFFFFFF;
+        lineUDec += POLYTEXT_DecMapU;
         mapIndex = (mapIndex & 0xFFFFFF00) | (((Precalc_Inc & 0xFF) + (mapIndex & 0xFF) + carry) & 0xFF);
 
         *line = lineUDec & 0xFF;
         line++;
 
-        mapIndex &= RepMaskPatch;
+        mapIndex &= POLYTEXT_RepMaskPatch;
 
         --fillWidth;
       }
@@ -196,16 +196,16 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
 
-    DecMapU = Fill_MapU_XSlope << 16;
-    DecMapV = Fill_MapV_XSlope << 16;
-    PtrMapPatch = PtrMap;
-    RepMaskPatch = RepMask;
+    POLYTEXT_DecMapU = Fill_MapU_XSlope << 16;
+    POLYTEXT_DecMapV = Fill_MapV_XSlope << 16;
+    POLYTEXT_PtrMapPatch = PtrMap;
+    POLYTEXT_RepMaskPatch = RepMask;
     Precalc_Inc = ((Fill_MapV_XSlope & 0xFF0000) >> 8) | (Fill_MapU_XSlope >> 16) & 0xFF;
-    IntMapU = Precalc_Inc & 0xFF;
-    PtrZBufferPatch = PtrZBuffer;
-    PtrZBuffer1 = PtrZBuffer;
-    DecZBuf = Fill_ZBuf_XSlope << 24;
-    IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_IntMapU = Precalc_Inc & 0xFF;
+    POLYTEXT_PtrZBufferPatch = PtrZBuffer;
+    POLYTEXT_PtrZBuffer1 = PtrZBuffer;
+    POLYTEXT_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYTEXT_IntZBuf = Fill_ZBuf_XSlope >> 8;
     POLYTEXT_PtrLog = (PTR_U8)Log;
   }
   else
@@ -263,27 +263,27 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       do
       {
         // @@Each_X:
-        if (PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
+        if (POLYTEXT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
         {
-          PtrZBuffer1[offset] = zInt & 0xFFFF;
-          POLYTEXT_PtrLog[offset] = PtrMapPatch[mapIndex];
+          POLYTEXT_PtrZBuffer1[offset] = zInt & 0xFFFF;
+          POLYTEXT_PtrLog[offset] = POLYTEXT_PtrMapPatch[mapIndex];
         }
 
         offset++;
 
-        U8 carry = ((U64)incDecMapU + (U64)DecMapU) > 0xFFFFFFFF;
-        incDecMapU += DecMapU;
-        mapIndex = (mapIndex & 0xFFFFFF00) | (((IntMapU & 0xFF) + (mapIndex & 0xFF) + carry) & 0xFF);
+        U8 carry = ((U64)incDecMapU + (U64)POLYTEXT_DecMapU) > 0xFFFFFFFF;
+        incDecMapU += POLYTEXT_DecMapU;
+        mapIndex = (mapIndex & 0xFFFFFF00) | (((POLYTEXT_IntMapU & 0xFF) + (mapIndex & 0xFF) + carry) & 0xFF);
 
-        carry = ((U64)lineVDec + (U64)DecMapV) > 0xFFFFFFFF;
-        lineVDec += DecMapV;
+        carry = ((U64)lineVDec + (U64)POLYTEXT_DecMapV) > 0xFFFFFFFF;
+        lineVDec += POLYTEXT_DecMapV;
         mapIndex = (mapIndex & 0xFFFF00FF) | ((((incDecMapU >> 8) & 0xFF) + (((mapIndex >> 8) & 0xFF) + carry) & 0xFF) << 8);
 
-        carry = ((U64)zDec + (U64)DecZBuf) > 0xFFFFFFFF;
-        zDec += DecZBuf;
-        zInt += IntZBuf + carry;
+        carry = ((U64)zDec + (U64)POLYTEXT_DecZBuf) > 0xFFFFFFFF;
+        zDec += POLYTEXT_DecZBuf;
+        zInt += POLYTEXT_IntZBuf + carry;
 
-        mapIndex &= RepMaskPatch;
+        mapIndex &= POLYTEXT_RepMaskPatch;
         --fillWidth;
       }
       while (fillWidth);
@@ -332,17 +332,17 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
 
-    DecMapUIntZBuf = (Fill_MapU_XSlope << 16) | ((Fill_ZBuf_XSlope >> 8) & 0xFFFF);
-    DecMapV = Fill_MapV_XSlope << 16;
-    PtrCLUT = Fill_Color.Ptr;
-    PtrMapPatch = PtrMap;
-    RepMaskPatch = RepMask;
-    IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
-    IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-    PtrZBufferPatch = PtrZBuffer;
-    PtrZBuffer1 = PtrZBuffer;
-    DecZBuf = Fill_ZBuf_XSlope << 24;
-    IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_DecMapUIntZBuf = (Fill_MapU_XSlope << 16) | ((Fill_ZBuf_XSlope >> 8) & 0xFFFF);
+    POLYTEXT_DecMapV = Fill_MapV_XSlope << 16;
+    POLYTEXT_PtrCLUT = Fill_Color.Ptr;
+    POLYTEXT_PtrMapPatch = PtrMap;
+    POLYTEXT_RepMaskPatch = RepMask;
+    POLYTEXT_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
+    POLYTEXT_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
+    POLYTEXT_PtrZBufferPatch = PtrZBuffer;
+    POLYTEXT_PtrZBuffer1 = PtrZBuffer;
+    POLYTEXT_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYTEXT_IntZBuf = Fill_ZBuf_XSlope >> 8;
     POLYTEXT_PtrLog = (PTR_U8)Log;
   }
   else
@@ -399,27 +399,27 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       do
       {
         // @@Each_X:
-        if (PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        if (POLYTEXT_PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
         {
-          U8 colorIndex = PtrMapPatch[mapIndex];
-          PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
-          POLYTEXT_PtrLog[offset] = PtrCLUT[colorIndex];
+          U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
+          POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
+          POLYTEXT_PtrLog[offset] = POLYTEXT_PtrCLUT[colorIndex];
         }
 
-        U8 carry = ((U64)zDec + (U64)DecZBuf) > 0xFFFFFFFF;
-        zDec += DecZBuf;
-        U8 carry2 = ((U64)decU_intZ + (U64)DecMapUIntZBuf + (U64)carry) > 0xFFFFFFFF;
-        decU_intZ += DecMapUIntZBuf + carry;
+        U8 carry = ((U64)zDec + (U64)POLYTEXT_DecZBuf) > 0xFFFFFFFF;
+        zDec += POLYTEXT_DecZBuf;
+        U8 carry2 = ((U64)decU_intZ + (U64)POLYTEXT_DecMapUIntZBuf + (U64)carry) > 0xFFFFFFFF;
+        decU_intZ += POLYTEXT_DecMapUIntZBuf + carry;
 
         offset++;
 
-        mapIndex = (mapIndex & 0xFFFFFF00) | (((IntMapU & 0xFF) + (mapIndex & 0xFF) + carry2) & 0xFF);
+        mapIndex = (mapIndex & 0xFFFFFF00) | (((POLYTEXT_IntMapU & 0xFF) + (mapIndex & 0xFF) + carry2) & 0xFF);
 
-        carry = ((U64)lineVDec + (U64)DecMapV) > 0xFFFFFFFF;
-        lineVDec += DecMapV;
-        mapIndex = (mapIndex & 0xFFFF00FF) | (((IntMapV & 0xFF) + (((mapIndex >> 8) & 0xFF) + carry) & 0xFF) << 8);
+        carry = ((U64)lineVDec + (U64)POLYTEXT_DecMapV) > 0xFFFFFFFF;
+        lineVDec += POLYTEXT_DecMapV;
+        mapIndex = (mapIndex & 0xFFFF00FF) | (((POLYTEXT_IntMapV & 0xFF) + (((mapIndex >> 8) & 0xFF) + carry) & 0xFF) << 8);
 
-        mapIndex &= RepMaskPatch;
+        mapIndex &= POLYTEXT_RepMaskPatch;
         --fillWidth;
       }
       while (fillWidth);
