@@ -474,7 +474,6 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
   return 0;
 }
 
-
 // Verified
 S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {

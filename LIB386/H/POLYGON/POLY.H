@@ -98,7 +98,14 @@ typedef S32 (*Fill_Filler_Func)(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
 extern U32 **Fill_Restart;      ///< Return entry point from clipping procedure
 extern Fill_Filler_Func Fill_Filler;       ///< Chooser filler
 extern U32 Fill_Patch;          ///< Flag 1 means we should patch the filler proc; 0 means nothing to do
-extern U32 Fill_Color;          ///< The polygon color
+
+#pragma pack(push, 1)
+typedef union {
+  U8 *Ptr;
+  U32 Num;
+} T_FILL_COLOR;
+#pragma pack(pop)
+extern T_FILL_COLOR Fill_Color;          ///< The polygon color
 
 extern Struc_Point *Fill_FirstPoint; // Pointer to the first point of the list
 extern Struc_Point *Fill_LastPoint; // Pointer to the last point of the list
