@@ -257,7 +257,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
         carry = ((U64)decV_gour + (U64)GTEX_DecMapV_Gour) > 0xFFFFFFFF;
         decV_gour += GTEX_DecMapV_Gour;
-        mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + GTEX_IntMapV + carry) & 0xFF) << 8);
+        mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry) & 0xFF) << 8);
 
         colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrCLUT[colorIndex];
 
