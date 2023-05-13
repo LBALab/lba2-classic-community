@@ -27,7 +27,7 @@ U32 Precalc_Inc = 0; // Precalc value
 PTR_U16 PtrZBuffer1 = NULL;
 PTR_U16 PtrZBufferPatch = NULL;
 PTR_U8 PtrMapPatch = NULL;
-U32 PtrCLUT = 0x12345678;
+PTR_U8 PtrCLUT = NULL;
 PTR_U8 POLYTEXT_PtrLog = NULL;
 U32 RepMaskPatch = 0x12345678;
 U32 DecMapUIntZBuf = 0x12345678;
@@ -319,11 +319,133 @@ S32 Filler_TextureChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
+// Verified
 S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 diffY = nbLines + 1;
+  Fill_CurY += diffY;
+  U32 u = Fill_CurMapUMin;
+  U32 v = Fill_CurMapVMin;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+
+    DecMapUIntZBuf = (Fill_MapU_XSlope << 16) | ((Fill_ZBuf_XSlope >> 8) & 0xFFFF);
+    DecMapV = Fill_MapV_XSlope << 16;
+    PtrCLUT = Fill_Color.Ptr;
+    PtrMapPatch = PtrMap;
+    RepMaskPatch = RepMask;
+    IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
+    IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
+    PtrZBufferPatch = PtrZBuffer;
+    PtrZBuffer1 = PtrZBuffer;
+    DecZBuf = Fill_ZBuf_XSlope << 24;
+    IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_PtrLog = (PTR_U8)Log;
+  }
+  else
+  {
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  while (1)
+  {
+    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+      U32 lineV = v;
+      U32 lineU = u;
+      // Load 1st dst cache line
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16)
+      {
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
+
+        // There was some @@Preload code here, but it did nothing other
+        // than reading some bytes but not doing anything with it. It
+        // also had the comment "Load dst in WB cache", which means nothing
+        // to me. I'm guessing it was some kind of prefetching, but I'm
+        // not sure. I'm leaving it out for now.
+      }
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 zDec = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16); // edx
+
+      do
+      {
+        // @@Each_X:
+        if (PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        {
+          U8 colorIndex = PtrMapPatch[mapIndex];
+          PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
+          POLYTEXT_PtrLog[offset] = PtrCLUT[colorIndex];
+        }
+
+        U8 carry = ((U64)zDec + (U64)DecZBuf) > 0xFFFFFFFF;
+        zDec += DecZBuf;
+        U8 carry2 = ((U64)decU_intZ + (U64)DecMapUIntZBuf + (U64)carry) > 0xFFFFFFFF;
+        decU_intZ += DecMapUIntZBuf + carry;
+
+        offset++;
+
+        mapIndex = (mapIndex & 0xFFFFFF00) | (((IntMapU & 0xFF) + (mapIndex & 0xFF) + carry2) & 0xFF);
+
+        carry = ((U64)lineVDec + (U64)DecMapV) > 0xFFFFFFFF;
+        lineVDec += DecMapV;
+        mapIndex = (mapIndex & 0xFFFF00FF) | (((IntMapV & 0xFF) + (((mapIndex >> 8) & 0xFF) + carry) & 0xFF) << 8);
+
+        mapIndex &= RepMaskPatch;
+        --fillWidth;
+      }
+      while (fillWidth);
+      // @@End_X:
+    }
+    // @@EndScanLine:
+    diffY--;
+    if (diffY == 0)
+    {
+      break;
+    }
+
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurMapUMin = u;
+  Fill_CurMapVMin = v;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
