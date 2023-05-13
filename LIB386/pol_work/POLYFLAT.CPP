@@ -71,7 +71,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
-  S32 curZ = Fill_CurZBufMin;
+  U32 curZ = Fill_CurZBufMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
@@ -96,11 +96,11 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      S32 zDec = curZ << 24; // esi
-      S32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      S32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zDec = curZ << 24; // esi
+      U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
+      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
-      S32 zInt = curZ >> 8; // edx
+      U32 zInt = curZ >> 8; // edx
       do
       {
         if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
