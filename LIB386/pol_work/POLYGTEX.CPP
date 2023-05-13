@@ -410,7 +410,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       decV_intZ <<= 16; // ebp
       decV_intZ |= Fill_CurZBufMin >> 8;
 
-      decZ_gour = (decZ_gour >> 8) | (Fill_CurZBufMin << 24);// edx
+      decZ_gour = (decZ_gour >> 8) | (Fill_CurZBufMin << 24); // edx
       U32 colorIndex = 0; // ebx
       colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
 
@@ -437,7 +437,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
         offset++;
 
-        mask = (mask & 0xFFFF00FF) | ((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry2) & 0xFF);
+        mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry2) & 0xFF) << 8);
 
         colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
         mask &= GTEX_RepMaskPatch;
