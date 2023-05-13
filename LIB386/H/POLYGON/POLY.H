@@ -125,7 +125,7 @@ extern S32 Fill_CurMapVMin; // Left edge: MapV value
 extern S32 Fill_MapV_LeftSlope; // Left slope for MapV
 extern S32 Fill_MapV_XSlope;	// X Slope for MapV
 
-extern S32 Fill_CurZBufMin; // Left edge: ZBuf value
+extern U32 Fill_CurZBufMin; // Left edge: ZBuf value
 extern S32 Fill_ZBuf_LeftSlope; // Left slope for ZBuf
 extern S32 Fill_ZBuf_XSlope; // X Slope for ZBuf
 

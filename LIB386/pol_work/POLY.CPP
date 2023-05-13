@@ -68,10 +68,10 @@ S32 Fill_CurWMin = 0; // Left edge: W value
 S32 Fill_W_LeftSlope = 0; // Left slope for W
 S32 Fill_W_XSlope = 0; // X Slope for W
 
-S32 Fill_CurZBufMin; // Left edge: ZBuf value
+U32 Fill_CurZBufMin; // Left edge: ZBuf value
 S32 Fill_ZBuf_LeftSlope; // Left slope for ZBuf
 S32 Fill_ZBuf_XSlope; // X Slope for ZBuf
-S32 Fill_CurZBuf; // Current value of ZBuf in the scanline
+U32 Fill_CurZBuf; // Current value of ZBuf in the scanline
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
