@@ -56,15 +56,15 @@ S32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
 S32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading
 S32 Fill_Gouraud_XSlope = 0; // X Slope for Gouraud shading
 
-S32 Fill_CurMapUMin = 0; // Left edge: MapU value
+U32 Fill_CurMapUMin = 0; // Left edge: MapU value
 S32 Fill_MapU_LeftSlope = 0; // Left slope for MapU
 S32 Fill_MapU_XSlope = 0;	// X Slope for MapU
 
-S32 Fill_CurMapVMin = 0; // Left edge: MapV value
+U32 Fill_CurMapVMin = 0; // Left edge: MapV value
 S32 Fill_MapV_LeftSlope = 0; // Left slope for MapV
 S32 Fill_MapV_XSlope = 0;	// X Slope for MapV
 
-S32 Fill_CurWMin = 0; // Left edge: W value
+U32 Fill_CurWMin = 0; // Left edge: W value
 S32 Fill_W_LeftSlope = 0; // Left slope for W
 S32 Fill_W_XSlope = 0; // X Slope for W
 
