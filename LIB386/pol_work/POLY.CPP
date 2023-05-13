@@ -996,9 +996,8 @@ S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB,
 
 S32 Calc_XSlopeZBufferFlagFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-	return 0;
+  Calc_ZBufXSlopeFPU(PtA, PtB, PtC);
+  return Jmp_XSlopeFPU[0](fillType, PtA, PtB, PtC);
 }
 
 S32 Test_Scan()
@@ -1207,7 +1206,7 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
 S32 Calc_LeftSlopeZBufferFlagFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
   Calc_ZBufLeftSlopeFPU(diffX, diffY, PtA, PtB);
-  return Jmp_LeftSlopeFPU[fillType](fillType, diffX, diffY, PtA, PtB);
+  return Jmp_LeftSlopeFPU[0](fillType, diffX, diffY, PtA, PtB);
 }
 
 Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
