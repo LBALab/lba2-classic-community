@@ -22,23 +22,23 @@
 ; **************************************************************************
 ; **************************************************************************
 */
-S32 POLYGOUR_AddGour = 0x12345678;
-S32 POLYGOUR_AddGour1 = 0x12345678;
-S32 POLYGOUR_AddGour2 = 0x12345678;
-S32 POLYGOUR_AddGour3 = 0x12345678;
-S32 POLYGOUR_IntZBuf = 0x12345678;
-S32 POLYGOUR_IntZBuf1 = 0x12345678;
-S32 POLYGOUR_IntZBuf2 = 0x12345678;
-S32 POLYGOUR_IntZBuf3 = 0x12345678;
-S32 POLYGOUR_DecGour = 0x12345678;
-S32 POLYGOUR_DecZBuf = 0x12345678;
-S32 POLYGOUR_DecZBuf1 = 0x12345678;
-S32 POLYGOUR_DecZBuf2 = 0x12345678;
-S32 POLYGOUR_DecZBuf3 = 0x12345678;
-S32 POLYGOUR_DecZBuf_AddGour = 0x12345678;
-S32 POLYGOUR_DecZBuf_AddGour1 = 0x12345678;
-S32 POLYGOUR_DecZBuf_AddGour2 = 0x12345678;
-S32 POLYGOUR_DecZBuf_AddGour3 = 0x12345678;
+U32 POLYGOUR_AddGour = 0x12345678;
+U32 POLYGOUR_AddGour1 = 0x12345678;
+U32 POLYGOUR_AddGour2 = 0x12345678;
+U32 POLYGOUR_AddGour3 = 0x12345678;
+U32 POLYGOUR_IntZBuf = 0x12345678;
+U32 POLYGOUR_IntZBuf1 = 0x12345678;
+U32 POLYGOUR_IntZBuf2 = 0x12345678;
+U32 POLYGOUR_IntZBuf3 = 0x12345678;
+U32 POLYGOUR_DecGour = 0x12345678;
+U32 POLYGOUR_DecZBuf = 0x12345678;
+U32 POLYGOUR_DecZBuf1 = 0x12345678;
+U32 POLYGOUR_DecZBuf2 = 0x12345678;
+U32 POLYGOUR_DecZBuf3 = 0x12345678;
+U32 POLYGOUR_DecZBuf_AddGour = 0x12345678;
+U32 POLYGOUR_DecZBuf_AddGour1 = 0x12345678;
+U32 POLYGOUR_DecZBuf_AddGour2 = 0x12345678;
+U32 POLYGOUR_DecZBuf_AddGour3 = 0x12345678;
 U8 *POLYGOUR_PtrLog = NULL;
 U8 *POLYGOUR_PtrLog_1 = NULL;
 U8 *POLYGOUR_PtrLog2 = NULL;
@@ -592,13 +592,13 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    S32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
     POLYGOUR_IntZBuf3 = zBufSlopeInt;
 
-    S32 zBufSlopeDec = Fill_ZBuf_XSlope << 24;
+    U32 zBufSlopeDec = Fill_ZBuf_XSlope << 24;
     POLYGOUR_DecZBuf = zBufSlopeDec;
     POLYGOUR_DecZBuf1 = zBufSlopeDec;
     POLYGOUR_DecZBuf2 = zBufSlopeDec;
@@ -888,7 +888,7 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    S32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;

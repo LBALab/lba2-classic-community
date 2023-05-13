@@ -36,10 +36,10 @@ U32 GTEX_DecMapU2 = 0x12345678;
 U32 GTEX_DecMapV_Gour = 0x12345678;
 U32 GTEX_DecMapV_Gour2 = 0x12345678;
 U32 GTEX_DecMapV_IntZBuf = 0x12345678;
-S8 GTEX_IntMapV = 0x12;
-S8 GTEX_IntMapV2 = 0x12;
-S8 GTEX_IntMapU = 0x12;
-S8 GTEX_IntMapU2 = 0x12;
+U8 GTEX_IntMapV = 0x12;
+U8 GTEX_IntMapV2 = 0x12;
+U8 GTEX_IntMapU = 0x12;
+U8 GTEX_IntMapU2 = 0x12;
 
 // Verified
 S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
@@ -82,7 +82,7 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       U32 lineV = v;
       U32 lineU = u;
-      S32 curGouraudMin = Fill_CurGouraudMin;
+      U32 curGouraudMin = Fill_CurGouraudMin;
       // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (diffX > 16)
@@ -243,7 +243,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       gouraudXSlope = (gouraudXSlope & 0xFFFF00FF) | (((lineV >> 16) & 0xFF) << 8);
       U32 decU = lineU << 16; // esi
       gouraudXSlope = (gouraudXSlope & 0xFFFFFF00) | ((lineU >> 16) & 0xFF);
-      S32 curGouraudMin = (Fill_CurGouraudMin >> 8) & 0xFFFF;
+      U32 curGouraudMin = (Fill_CurGouraudMin >> 8) & 0xFFFF;
       U32 decV_gour = (lineV << 16) | curGouraudMin; // ebp
       U32 colorIndex = curGouraudMin; // ebx
       U32 mask = RepMask & gouraudXSlope; // eax
@@ -363,7 +363,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
-      S32 decZ_gour = Fill_CurGouraudMin;
+      U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
 
