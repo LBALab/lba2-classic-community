@@ -877,6 +877,7 @@ S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly)
   return Fill_Poly(typePoly >> 2, ListLights[poly3->P3], 3, ListFillPoly);
 }
 
+// Verified
 S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
 {
   STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
@@ -907,7 +908,7 @@ S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
   RepMask = textureInfo >> 16;
   PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
 
-  return Fill_Poly(typePoly >> 2, ListLights[poly4->P3], 4, ListFillPoly);
+  return Fill_Poly(typePoly >> 2, RepMask, 4, ListFillPoly);
 }
 
 // ***********************
