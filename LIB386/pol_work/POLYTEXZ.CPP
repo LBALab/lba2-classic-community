@@ -39,11 +39,12 @@ U32 POLYTEXZ_IntZBuf = 0x12345678;
 U32 POLYTEXZ_IntZBuf2 = 0x12345678;
 
 std::stack<U32> PerspectiveWStack = std::stack<U32>();
+double PerspectiveInvW = 0.0;
 
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a scanline                      ║
 // ╚═════════════════════════════════════════════════════════════╝
-void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 lineWidth)
+void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 fillWidth)
 {
   U32 w = Fill_Cur_W;
 
@@ -58,12 +59,12 @@ void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 lineWidth)
   Fill_Cur_MapUOverW = lineU;
   Fill_Cur_MapVOverW = lineV;
   S32 wXSlope = Fill_W_XSlope << PERSP_SHIFT;
-  double inv_W = 256.0 / w;
+  PerspectiveInvW = 256.0 / (double)w;
 
   // Here, we precalc an array in the stack. This array
   // contains valid Cur_W values
   PerspectiveWStack = std::stack<U32>();
-  U32 stackLength = lineWidth + PERSP_VALUE - 1;
+  U32 stackLength = fillWidth + PERSP_VALUE - 1;
   stackLength >>= PERSP_SHIFT;
 
   do
@@ -83,18 +84,28 @@ void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 lineWidth)
   Fill_Cur_W = PerspectiveWStack.top();
   PerspectiveWStack.pop();
 
-  Fill_Cur_MapU = ROUND((double)Fill_Cur_MapUOverW * inv_W);
-  Fill_Cur_MapV = ROUND((double)Fill_Cur_MapVOverW * inv_W);
+  Fill_Cur_MapU = ROUND((double)Fill_Cur_MapUOverW * PerspectiveInvW);
+  Fill_Cur_MapV = ROUND((double)Fill_Cur_MapVOverW * PerspectiveInvW);
+  PerspectiveInvW = 256.0 / (double)Fill_Cur_W; // Will be used in Fill_Loop_Perspective
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
 // ╚═════════════════════════════════════════════════════════════╝
-void Fill_Loop_Perspective()
+void Fill_Loop_Perspective(U32 fillWidth)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return;
+  Fill_Next_MapUOverW = (Fill_MapU_XSlope << PERSP_SHIFT) + Fill_Cur_MapUOverW;
+  Fill_Next_MapVOverW = (Fill_MapV_XSlope << PERSP_SHIFT) + Fill_Cur_MapVOverW;
+
+  Fill_Next_MapU = ROUND((double)Fill_Next_MapUOverW * PerspectiveInvW);
+  Fill_Next_MapV = ROUND((double)Fill_Next_MapVOverW * PerspectiveInvW);
+
+  if (fillWidth > PERSP_VALUE)
+  {
+    Fill_Next_W = PerspectiveWStack.top();
+    PerspectiveWStack.pop();
+    PerspectiveInvW = 256.0 / (double)Fill_Next_W;
+  }
 }
 
 S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
@@ -233,11 +244,11 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       }
       // @@FastInit:
       U32 offset = line - (U8 *)Log; // edi
-      Fill_Init_Perspective(lineU, lineV);
+      Fill_Init_Perspective(lineU, lineV, fillWidth);
 
       while (1) {
         // @@FastFill:
-        Fill_Loop_Perspective();
+        Fill_Loop_Perspective(fillWidth);
 
         U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
         incMapU >>= PERSP_SHIFT;
