@@ -19,341 +19,43 @@
 
 #include <stdio.h>
 
-/*
-			OPTION	PROC:PRIVATE
-			OPTION	SCOPED
-			OPTION	LANGUAGE:C
+#include <FILLER.H>
+#include <POLYGON/POLY.H>
+#include <SVGA/SCREEN.H>
+
+PTR_U16 POLYTEXZ_PtrZBuffer1 = NULL;
+PTR_U16 POLYTEXZ_PtrZBuffer2 = NULL;
+PTR_U16 POLYTEXZ_PtrZBufferPatch = NULL;
+PTR_U8 POLYTEXZ_PtrMapPatch = NULL;
+PTR_U8 POLYTEXZ_PtrCLUT = NULL;
+PTR_U8 POLYTEXZ_PtrLog = NULL;
+U32 POLYTEXZ_RepMaskPatch = 0x12345678;
+U32 POLYTEXZ_RepMask2 = 0x12345678;
+U32 POLYTEXZ_DecZBuf = 0x12345678;
+U32 POLYTEXZ_DecZBuf2 = 0x12345678;
+U32 POLYTEXZ_IntZBuf = 0x12345678;
+U32 POLYTEXZ_IntZBuf2 = 0x12345678;
+
+// ╔═════════════════════════════════════════════════════════════╗
+// ║ Initialize the gradiants of a scanline                      ║
+// ╚═════════════════════════════════════════════════════════════╝
+void Fill_Init_Perspective()
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return;
+}
+
+// ╔═════════════════════════════════════════════════════════════╗
+// ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
+// ╚═════════════════════════════════════════════════════════════╝
+void Fill_Loop_Perspective()
+{
+  // TODO: Implement ASM
+  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  return;
+}
 
-
-
-;			**************
-;			*** PUBLIC ***
-;			**************
-
-;					******************
-;					*** PROCEDURES ***
-;					******************
-PUBLIC	C		Filler_TextureZ
-PUBLIC	C		Filler_TextureZFlat
-PUBLIC	C		Filler_TextureZChromaKey
-PUBLIC	C		Filler_TextureZFlatChromaKey
-PUBLIC	C		Filler_TextureZFog
-PUBLIC	C		Filler_TextureZChromaKeyFog
-PUBLIC	C		Filler_TextureZZBuf
-PUBLIC	C		Filler_TextureZChromaKeyZBuf
-PUBLIC	C		Filler_TextureZFlatZBuf
-PUBLIC	C		Filler_TextureZFlatChromaKeyZBuf
-PUBLIC	C		Filler_TextureZFogZBuf
-PUBLIC	C		Filler_TextureZChromaKeyFogZBuf
-PUBLIC	C		Filler_TextureZNZW
-PUBLIC	C		Filler_TextureZChromaKeyNZW
-PUBLIC	C		Filler_TextureZFlatNZW
-PUBLIC	C		Filler_TextureZFlatChromaKeyNZW
-PUBLIC	C		Filler_TextureZFogNZW
-PUBLIC	C		Filler_TextureZChromaKeyFogNZW
-
-;					*****************
-;					*** VARIABLES ***
-;					*****************
-
-PUBLIC	C		Fill_Init_Perspective
-PUBLIC	C		Fill_Loop_Perspective
-
-
-;					*** MODULE DATA ***
-
-
-
-
-;			***************
-;			*** INCLUDE ***
-;			***************
-
-INCLUDE			FILLER.INC
-
-
-;			**************
-;			*** MACROS ***
-;			**************
-
-
-;			***************
-;			*** EQUATES ***
-;			***************
-
-
-
-
-;			**************************
-;			*** SEGMENTATION MODEL ***
-;			**************************
-
-			.386
-;			.MODEL	FLAT, C
-
-
-
-;			************
-;			*** DATA ***
-;			************
-;			.DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
-
-;				******************
-;				*** Extrn data ***
-;				******************
-Extrn	C		Fill_Restart		:	DWORD
-Extrn	C		Fill_Patch		:	DWORD
-Extrn	C		Fill_Color		:	DWORD
-Extrn	C		Fill_Logical_Palette	:	BYTE
-
-Extrn	C		PtrMap			:	DWORD
-Extrn	C		RepMask			:	DWORD
-Extrn	C		PtrCLUTGouraud		:	DWORD
-Extrn	C		PtrZBuffer		:	DWORD
-
-Extrn	C		Fill_LeftSlope		:	DWORD
-Extrn	C		Fill_RightSlope		:	DWORD
-
-Extrn	C		Fill_CurY		:	DWORD
-Extrn	C		Fill_CurXMin		:	DWORD
-Extrn	C		Fill_CurXMax		:	DWORD
-
-Extrn	C		PTR_TabOffLine		:	DWORD
-Extrn	C		Fill_CurOffLine		:	DWORD
-Extrn	C		Log			:	DWORD
-Extrn	C		ScreenPitch		:	DWORD
-
-Extrn	C		Fill_CurMapUMin		:	DWORD
-Extrn	C		Fill_MapU_LeftSlope	:	DWORD
-Extrn	C		Fill_MapU_XSlope	:	DWORD
-
-Extrn	C		Fill_CurMapVMin		:	DWORD
-Extrn	C		Fill_MapV_LeftSlope	:	DWORD
-Extrn	C		Fill_MapV_XSlope	:	DWORD
-
-Extrn	C		Fill_CurWMin		:	DWORD
-Extrn	C		Fill_W_LeftSlope	:	DWORD
-Extrn	C		Fill_W_XSlope		:	DWORD
-
-Extrn	C		Fill_CurZBufMin		:	DWORD
-Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	C		Fill_ZBuf_XSlope	:	DWORD
-Extrn	C		Fill_CurZBuf		:	DWORD
-
-Extrn	C		Fill_Cur_W		:	DWORD
-Extrn	C		Fill_Next_W		:	DWORD
-Extrn	C		Fill_Cur_MapU		:	DWORD
-Extrn	C		Fill_Next_MapU		:	DWORD
-Extrn	C		Fill_Cur_MapV		:	DWORD
-Extrn	C		Fill_Next_MapV		:	DWORD
-Extrn	C		Fill_Cur_MapUOverW	:	DWORD
-Extrn	C		Fill_Next_MapUOverW	:	DWORD
-Extrn	C		Fill_Cur_MapVOverW	:	DWORD
-Extrn	C		Fill_Next_MapVOverW	:	DWORD
-
-Extrn	C		F_1			:	DWORD
-Extrn	C		F_256			:	DWORD
-
-;				*******************
-;				*** Global data ***
-;				*******************
-
-;					*******************
-;					*** PUBLIC data ***
-;					*******************
-
-
-
-;					*******************
-;					*** MODULE data ***
-;					*******************
-			ALIGN	4
-
-
-;				******************
-;				*** Local data ***
-;				******************
-			ALIGN	4
-Fill_Init_Perspective	dd	Offset Init_PerspFPU
-Fill_Loop_Perspective	dd	Offset Loop_PerspFPU
-
-; Runtime code patch refactor, uses memory instead of instruction substitution
-RepMask1        DWORD 12345678h
-RepMask2        DWORD 12345678h
-RepMaskPatch    DWORD 12345678h
-IntZBuf         DWORD 12345678h
-IntZBuf2        DWORD 12345678h
-DecZBuf         DWORD 12345678h
-DecZBuf2        DWORD 12345678h
-PtrLog          DWORD 12345678h
-PtrZBuffer1     DWORD 12345678h
-PtrZBuffer2     DWORD 12345678h
-PtrZBufferPatch DWORD 12345678h
-PtrMapPatch     DWORD 12345678h
-PtrCLUT         DWORD 12345678h
-
-_DATA			ENDS
-
-
-;			************
-;			*** CODE ***
-;			************
-;			.CODE
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
-
-
-;				******************
-;				*** Extrn proc ***
-;				******************
-Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-
-; ╔═════════════════════════════════════════════════════════════╗
-; ║ Initialize the gradiants of a scanline                      ║
-; ╚═════════════════════════════════════════════════════════════╝
-
-Init_PerspFPU		PROC
-			mov	ebx,[Fill_Cur_W]		; Current W
-
-			test	ebx,ebx
-			je	@@W_Nul1
-			cmp	ebx,-1
-			je	@@W_Nul1
-			cmp	ebx,1
-			je	@@W_Nul1
-@@Return_Error1:
-			fild	[Fill_Cur_W]	; W
-
-			mov	[Fill_Cur_MapUOverW],esi
-			mov	edx,[Fill_W_XSlope]
-
-			shl	edx,PERSP_SHIFT
-			mov	[Fill_Cur_MapVOverW],ebp
-
-			fdivr	[F_256]		; 1/W
-
-			; Here, we precalc an array in the stack. This array
-			; contains valid Cur_W values
-
-			pop	ebp		; EBP = Return address
-			lea	eax,[ecx+PERSP_VALUE-1]
-
-			shr	eax,PERSP_SHIFT-2
-			xor	esi,esi
-
-			and	eax,not 11b
-
-			sub	esp,eax
-@@CreateStack:
-			add	ebx,edx
-			je	@@W_Nul
-			cmp	ebx,-1
-			je	@@W_Nul
-			cmp	ebx,1
-			je	@@W_Nul
-@@Return_Error:
-			mov	[esp+esi],ebx
-			add	esi,4
-
-			cmp	esi,eax
-			jne	@@CreateStack
-
-			pop	ebx
-
-			mov	[Fill_Cur_W],ebx
-
-			fild	[Fill_Cur_MapUOverW]; MapU/Z  1/W
-
-			fild	[Fill_Cur_MapVOverW]; MapV/Z  MapU/Z  1/W
-
-			fxch	st(1)		; MapU/Z  MapV/Z  1/W
-
-			fmul	st,st(2)	; MapU  MapV/Z  1/W
-
-			fild	[Fill_Cur_W]	; W' MapU  MapV/Z  1/W
-
-			fxch	st(2)		; MapV/Z  MapU  W' 1/W
-
-			fmulp	st(3),st	; MapU  W' MapV
-
-			fistp	[Fill_Cur_MapU]	; W' MapV
-
-			fxch	st(1)		; MapV  W'
-
-			fistp	[Fill_Cur_MapV]	;
-
-			fdivr	[F_256]		; 1/W'
-
-			jmp	ebp		; RET
-@@W_Nul1:
-			mov	ebx,2
-			mov	[Fill_Cur_W],ebx
-			jmp	@@Return_Error1
-@@W_Nul:
-			mov	ebx,2
-			jmp	@@Return_Error
-Init_PerspFPU		ENDP
-
-
-; ╔═════════════════════════════════════════════════════════════╗
-; ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
-; ╚═════════════════════════════════════════════════════════════╝
-
-Loop_PerspFPU		PROC
-			mov	eax,[Fill_MapU_XSlope]
-			mov	esi,[Fill_MapV_XSlope]
-
-			shl	eax,PERSP_SHIFT
-			mov	edx,[Fill_Cur_MapUOverW]
-
-			add	eax,edx
-			mov	ebp,[Fill_Cur_MapVOverW]
-
-			shl	esi,PERSP_SHIFT
-			mov	[Fill_Next_MapUOverW],eax
-
-			add	esi,ebp
-			pop	ebp		; EBP = Return address
-
-			mov	[Fill_Next_MapVOverW],esi
-
-			fild	[Fill_Next_MapUOverW]; U/Z  1/W
-
-			fild	[Fill_Next_MapVOverW]; V/Z  U/Z  1/W
-
-			fxch	st(1)		; U/Z  V/Z  1/W
-
-			fmul	st,st(2)	; U  V/Z  1/W
-			fxch	st(1)		; V/Z  U  1/W
-
-			; **
-
-			fmulp	st(2),st	; U  V
-
-			fistp	[Fill_Next_MapU]
-
-			fistp	[Fill_Next_MapV]
-
-			cmp	ecx,PERSP_VALUE
-			jbe	@@LessPERSP_VALUE
-
-			fild	dword ptr [esp]	; W
-
-			pop	ebx
-
-			mov	[Fill_Next_W],ebx	; Next W
-
-			fdivr	[F_256]		; 1/W
-@@LessPERSP_VALUE:
-			jmp	ebp		; RET
-Loop_PerspFPU		ENDP
-*/
 S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   // TODO: Implement ASM
@@ -412,9 +114,221 @@ S32 Filler_TextureZChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 diffY = nbLines + 1;
+  Fill_CurY += diffY;
+  U32 u = Fill_CurMapUMin;
+  U32 v = Fill_CurMapVMin;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+
+    POLYTEXZ_PtrCLUT = Fill_Color.Ptr;//
+    POLYTEXZ_PtrMapPatch = PtrMap;//
+    POLYTEXZ_RepMaskPatch = RepMask;//
+    POLYTEXZ_RepMask2 = RepMask;//
+    POLYTEXZ_PtrZBufferPatch = PtrZBuffer;//
+    POLYTEXZ_PtrZBuffer1 = PtrZBuffer;//
+    POLYTEXZ_PtrZBuffer2 = PtrZBuffer;//
+    POLYTEXZ_IntZBuf = Fill_ZBuf_XSlope << 8;//
+    POLYTEXZ_IntZBuf2 = Fill_ZBuf_XSlope << 8;//
+    POLYTEXZ_DecZBuf = Fill_ZBuf_XSlope << 24;//
+    POLYTEXZ_DecZBuf2 = Fill_ZBuf_XSlope << 24;//
+    POLYTEXZ_PtrLog = (PTR_U8)Log;//
+    Fill_CurZBuf = Fill_CurZBufMin;//
+  }
+  else
+  {
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
+    Fill_CurWMin += Fill_W_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+    Fill_CurZBuf = Fill_CurZBufMin;
+  }
+
+  while (1)
+  {
+    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+      Fill_Cur_W = Fill_CurWMin;
+
+      // Load 1st dst cache line
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16)
+      {
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
+
+        // These lines below don't seem to be used. Both esi and ebp are pushed
+        // before this code and its value is never read. Then, at the end of
+        // each iteration, the previous value is restored.
+
+        // U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        // U32 addUDec = (U32)(addU >> 32);
+        // U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        // addUDec = addUDec << 16;
+        // addUInt = addUInt >> 16;
+        // addUDec |= addUInt;
+        // lineU += addUDec;
+
+        // U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        // U32 addVDec = (U32)(addV >> 32);
+        // U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        // addVDec = addVDec << 16;
+        // addVInt = addVInt >> 16;
+        // addVInt |= addVDec;
+        // lineV += addVInt;
+      }
+      // @@FastInit:
+      U32 offset = line - (U8 *)Log; // edi
+      Fill_Init_Perspective();
+
+      while (1) {
+        // @@FastFill:
+        Fill_Loop_Perspective();
+
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU >>= PERSP_SHIFT;
+
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV >>= PERSP_SHIFT;
+
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF); // ebp
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF); // ebx
+
+        U32 mapIndex = mapV_mapU >> 16; // eax
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
+
+        U32 decZ = Fill_CurZBuf << 24; // esi
+        U32 intZ = Fill_CurZBuf >> 8; // edx
+        U32 lineWidth = fillWidth;
+
+        if (fillWidth > PERSP_VALUE)
+        {
+          fillWidth = PERSP_VALUE;
+        }
+
+        do
+        {
+          // @@LoopX:
+          if (POLYTEXZ_PtrZBufferPatch[offset] < (intZ & 0xFFFF))
+          {
+            while (1)
+            {
+              // @@NoDisp:
+              mapIndex = mapV_mapU + incV_incU;
+              mapV_mapU += incV_incU;
+
+              mapIndex >>= 16;
+              offset++;
+
+              mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+              U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf2) > 0xFFFFFFFF;
+              decZ += POLYTEXZ_DecZBuf2;
+              intZ += POLYTEXZ_IntZBuf2 + carry;
+
+              mapIndex &= POLYTEXZ_RepMask2;
+
+              fillWidth--;
+
+              if (fillWidth == 0)
+              {
+                break;
+              }
+
+              if (POLYTEXZ_PtrZBuffer2[offset] >= (intZ & 0xFFFF))
+              {
+                break;
+              }
+            }
+
+            if (fillWidth == 0)
+            {
+              break;
+            }
+          }
+
+          // @@Disp:
+          mapIndex = (mapIndex & 0xFFFFFF00) | POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU + incV_incU;
+          mapIndex &= 0xFF;
+
+          POLYTEXZ_PtrZBuffer1[offset] = intZ & 0xFFFF;
+          mapIndex = (mapIndex & 0xFFFFFF00) | POLYTEXZ_PtrCLUT[mapIndex];
+          POLYTEXZ_PtrLog[offset] = mapIndex & 0xFF;
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        // @@EndPERSP_VALUE:
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        Fill_Cur_MapU = Fill_Next_MapU;
+        Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
+        Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
+        Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
+        Fill_Cur_W = Fill_Next_W;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        lineWidth -= PERSP_VALUE;
+      }
+      // @@End_X:
+    }
+    // @@EndScanLine:
+    diffY--;
+    if (diffY == 0)
+    {
+      break;
+    }
+
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    u += Fill_MapU_LeftSlope;
+    v += Fill_MapV_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurMapUMin = u;
+  Fill_CurMapVMin = v;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_TextureZFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)

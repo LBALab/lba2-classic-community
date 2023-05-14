@@ -65,13 +65,10 @@ SIZE_VIDEOLINE		EQU	640
 // Nb de cotes max apres clipping
 #define NB_MAX_COTES	16
 #define NB_MAX_EDGES	NB_MAX_COTES
-/*
 
+#define PERSP_SHIFT 4 // Shift value (log2(PERSP_VALUE))
+#define PERSP_VALUE (1 << PERSP_SHIFT) // Nb of pixels rendered between two corrections
 
-PERSP_SHIFT		EQU	4		; Shift value (log2(PERSP_VALUE))
-PERSP_VALUE		EQU	(1 SHL PERSP_SHIFT); Nb of pixels rendered between two corrections
-
-*/
 // Pour le Flag_Display
 // Champ de bits
 #define READ_NEXT_G 1		// Bit 0 : Lire le prochain sommet a gauche?

@@ -52,6 +52,17 @@ U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
+U32 Fill_Cur_W = 0; // Current W
+U32 Fill_Next_W = 0; // Next W
+U32 Fill_Cur_MapU = 0; // all those variables for Texture Z
+U32 Fill_Next_MapU = 0;
+U32 Fill_Cur_MapV = 0;
+U32 Fill_Next_MapV = 0;
+U32 Fill_Cur_MapUOverW = 0;
+U32 Fill_Next_MapUOverW = 0;
+U32 Fill_Cur_MapVOverW = 0;
+U32 Fill_Next_MapVOverW = 0;
+
 S32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
 S32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading
 S32 Fill_Gouraud_XSlope = 0; // X Slope for Gouraud shading
@@ -68,10 +79,10 @@ U32 Fill_CurWMin = 0; // Left edge: W value
 S32 Fill_W_LeftSlope = 0; // Left slope for W
 S32 Fill_W_XSlope = 0; // X Slope for W
 
-U32 Fill_CurZBufMin; // Left edge: ZBuf value
-S32 Fill_ZBuf_LeftSlope; // Left slope for ZBuf
-S32 Fill_ZBuf_XSlope; // X Slope for ZBuf
-U32 Fill_CurZBuf; // Current value of ZBuf in the scanline
+U32 Fill_CurZBufMin = 0; // Left edge: ZBuf value
+S32 Fill_ZBuf_LeftSlope = 0; // Left slope for ZBuf
+S32 Fill_ZBuf_XSlope = 0; // X Slope for ZBuf
+U32 Fill_CurZBuf = 0; // Current value of ZBuf in the scanline
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
