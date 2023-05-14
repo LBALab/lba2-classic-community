@@ -511,569 +511,355 @@ void Line_ZBuffer(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
   }
 }
 
+// TODO: Verify
 void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
 {
-	/*
-; ╔════════════════════════════════════════════════════════════════════════╗
-; ║   Trace de droite Zbuffer No ZBuf write                                ║
-; ╟────────────────────────────────────────────────────────────────────────╢
-; ║ Appel : (EAX,EBX), (ECX,EDX) : points extremes                         ║
-; ║         EBP = Color                                                    ║
-; ║         EDI = Z1                                                       ║
-; ║         ESI = Z2                                                       ║
-; ╚════════════════════════════════════════════════════════════════════════╝
-			ALIGN	4
-Line_ZBuffer_NZW	PROC
-
-;			mov	s_eax, eax
-;			mov	s_ebx, ebx
-;			mov	s_ecx, ecx
-;			mov	s_edx, edx
-;			mov	s_esi, esi
-;			mov	s_edi, edi
-;			mov	s_ebp, ebp
-
-			shl	esi,16
-			shl	edi,16
-			mov	[Z1],edi
-			mov	[Z2],esi
-
-
-			push	eax
-			mov	eax,ebp
-			and	ebp,0FFh
-			cmp	[Fill_Flag_Fog],TRUE
-			jne	@@Pas_Coul_Convert
-			mov	al,[Fill_Logical_Palette+ebp]
-@@Pas_Coul_Convert:
-			mov	[Color],al
-			pop	eax
-
-@@Trace_Still:
-			mov	edi,[Z1]
-			mov	esi,[Z2]
-
-			sub	esi,edi
-
-        		mov	[DZ],esi
-
-			mov	edi,ecx			; EDI = DX
-			mov	esi,edx			; ESI = DY
-
-			sub	edi,eax
-			je	@@DX_Nul
-
-			sub	esi,ebx
-			je	@@DY_Nul
-
-			cmp	eax,[ClipXMin]
-			jge	@@Clip_X0
-							; Case X1<XMin
-			cmp	ecx,[ClipXMin]
-			jl	@@End
-
-
-			push	edx
-			sub	eax,[ClipXMin]		; y=y1-(x1-XMin)*dy/dx
-			push	eax
-			imul	[DZ]
-			idiv	edi
-			sub	[Z1],eax
-			pop	eax
-			imul	esi
-			idiv	edi
-			sub	ebx,eax
-			mov	eax,[ClipXMin]
-			pop	edx
-			jmp	@@Trace_Still
-
-@@Clip_X0:
-			cmp	eax,[ClipXMax]
-			jle	@@Clip_X1
-							; Case X1>XMax
-			cmp	ecx,[ClipXMax]
-			jg	@@End
-
-
-			push	edx
-			sub	eax,[ClipXMax]		; y=y1-(x1-XMax)*dy/dx
-			push	eax
-			imul	[DZ]
-			idiv	edi
-			sub	[Z1],eax
-			pop	eax
-			imul	esi
-			idiv	edi
-			sub	ebx,eax
-			pop	edx
-			mov	eax,[ClipXMax]
-			jmp	@@Trace_Still
-
-@@Clip_X1:
-			cmp	ecx,[ClipXMin]
-			jge	@@Clip_X2
-							; Case X2<XMin
-
-			push	eax
-			push	edx
-			mov	eax,ecx
-			sub	eax,[ClipXMin]		; y=y1-(x1-XMin)*dy/dx
-			push	eax
-			imul	[DZ]
-			idiv	edi
-			sub	[Z2],eax
-			pop	eax
-			imul	esi
-			idiv	edi
-			pop	edx
-			sub	edx,eax
-			mov	ecx,[ClipXMin]
-			pop	eax
-			jmp	@@Trace_Still
-
-@@Clip_X2:
-			cmp	ecx,[ClipXMax]
-			jle	@@Clip_X3
-							; Case X2>XMax
-			push	eax
-			push	edx
-			mov	eax,ecx
-			sub	eax,[ClipXMax]
-			push	eax
-			imul	[DZ]
-			idiv	edi
-			sub	[Z2],eax
-			pop	eax
-			imul	esi
-			idiv	edi
-			pop	edx
-			sub	edx,eax
-			mov	ecx,[ClipXMax]
-			pop	eax
-			jmp	@@Trace_Still
-
-@@Clip_X3:
-			cmp	ebx,[ClipYMin]
-			jge	@@Clip_Y0
-							; Case Y1<YMin
-			cmp	edx,[ClipYMin]
-			jl	@@End
-
-			push	edx
-			push	eax
-			mov	eax,[ClipYMin]
-			sub	eax,ebx
-			push	eax
-			imul	[DZ]
-			idiv	esi
-			add	[Z1],eax
-			pop	eax
-			imul	edi
-			idiv	esi
-			pop	edx
-			add	eax,edx
-			mov	ebx,[ClipYMin]
-			pop	edx
-			jmp	@@Trace_Still
-
-
-@@Clip_Y0:
-			cmp	ebx,[ClipYMax]
-			jle	@@Clip_Y1
-							; Case Y1>YMax
-			cmp	edx,[ClipYMax]
-			jg	@@End
-
-
-			push	edx
-			push	eax
-			mov	eax,[ClipYMax]
-			sub	eax,ebx
-			push	eax
-			imul	[DZ]
-			idiv	esi
-			add	[Z1],eax
-			pop	eax
-			imul	edi
-			idiv	esi
-			pop	edx
-			add	eax,edx
-			mov	ebx,[ClipYMax]
-			pop	edx
-			jmp	@@Trace_Still
-
-@@Clip_Y1:
-			cmp	edx,[ClipYMin]
-			jge	@@Clip_Y2
-							; Case Y2<YMin
-
-			push	eax
-			mov	eax,[ClipYMin]
-			sub	eax,edx
-			push	eax
-			imul	[DZ]
-			idiv	esi
-			add	[Z2],eax
-			pop	eax
-			imul	edi
-			idiv	esi
-			add	ecx,eax
-			mov	edx,[ClipYMin]
-			pop	eax
-			jmp	@@Trace_Still
-
-
-@@Clip_Y2:
-			cmp	edx,[ClipYMax]
-			jle	@@Clip_Y3
-
-							; Case Y2>YMax
-			push	eax
-			mov	eax,[ClipYMax]
-			sub	eax,edx
-			push	eax
-			imul	[DZ]
-			idiv	esi
-			add	[Z2],eax
-			pop	eax
-			imul	edi
-			idiv	esi
-			add	ecx,eax
-			mov	edx,[ClipYMax]
-			pop	eax
-			jmp	@@Trace_Still
-
-@@Clip_Y3:
-@@Draw_Line:
-			mov	edi,ecx			; EDI = ABS(Delta_X)
-
-			mov	ebp,[ScreenPitch]; EBP = Incr_Y
-			mov	ecx,1			; ECX = Incr_X
-
-			sub	edi,eax
-			jns	@@DeltaX_Pos
-			neg	edi
-			neg	ecx
-@@DeltaX_Pos:
-			mov	esi,edx			; ESI = ABS(Delta_Y)
-			sub	esi,ebx
-			jns	@@DeltaY_Pos
-			neg	esi
-			neg	ebp
-@@DeltaY_Pos:
-			shl	ebx,2
-			add	ebx,[PTR_TabOffLine]
-
-			mov	ebx,[ebx]
-
-			add	ebx,eax
-
-			cmp	edi,esi
-			jl	@@Draw_Y
-
-							; Delta_X > Delta_Y
-			mov	[DY],esi
-			mov	[DXPatch],edi
-			mov	[DX1],edi
-
-			mov	eax,[DZ]
-			test	ecx,ecx
-			jns	@@Pos1
-			neg	eax
-@@Pos1:
-			mov	edx,eax
-			sar	edx,31
-			idiv	edi
-			mov	edx,eax
-			shl	eax,16
-			sar	edx,16
-			mov	[DZPatch],eax
-			mov	[IZ],edx
-
-			mov	[LinePatch],ebp
-
-			mov	eax,[Log]
-			mov	[PtrLog],eax
-			mov	eax,[PtrZBuffer]
-			mov	[PtrZBuf],eax
-
-			mov	edx,edi
-			mov	ebp,edi
-			shr	edx,1
-
-			mov	esi,[Z1]
-			mov	edi,esi
-			shl	esi,16
-			mov	al,[Color]
-			sar	edi,16
-
-			jmp	$+2
-
-@@Do_X:
-
-		push eax
-		mov eax,[PtrZBuf]
-		cmp	word ptr [ebx*2+eax],di
-		pop eax
-
-			jb	@@NoDisp
-
-		push ecx
-		mov ecx,[PtrLog]
-		mov	byte ptr [ebx+ecx],al
-		pop ecx
-
-@@NoDisp:
-			add	edx,[DY]
-
-			cmp	edx,[DXPatch]
-			jb	@@Plot_X
-
-			sub	edx,[DX1]
-			add	ebx,[LinePatch]
-@@Plot_X:
-			add	ebx,ecx
-
-			add	esi,[DZPatch]
-			adc	edi,[IZ]
-
-			dec	ebp
-			jge	@@Do_X
-
-			ret
-
-
-@@Draw_Y:
-			mov	[YDX],edi
-			mov	[YDY],esi
-			mov	[YDY1],esi
-
-			mov	eax,[DZ]
-			test	ebp,ebp
-			jns	@@Pos2
-			neg	eax
-@@Pos2:
-			mov	edx,eax
-			sar	edx,31
-			idiv	esi
-			mov	edx,eax
-			shl	eax,16
-			sar	edx,16
-			mov	[YDZ],eax
-			mov	[YIZ],edx
-
-			mov	[Row],ecx
-
-			mov	eax,[Log]
-			mov	[YPtrLog],eax
-			mov	eax,[PtrZBuffer]
-			mov	[YPtrZBuf],eax
-
-			mov	edx,esi
-			mov	ecx,esi
-			shr	edx,1
-
-			mov	esi,[Z1]
-			mov	al,[Color]
-			mov	edi,esi
-			shl	esi,16
-			sar	edi,16
-
-			jmp	$+2
-
-@@Do_Y:
-		push eax
-		mov eax,[YPtrZBuf]
-		cmp	word ptr [ebx*2+eax],di
-		pop eax
-
-			jb	@@YNoDisp
-
-		push eax
-		mov eax,[YPtrLog]
-		mov	byte ptr [ebx+eax],al
-		pop eax
-
-@@YNoDisp:
-			add	edx,[YDX]
-
-			cmp	edx,[YDY]
-			jb	@@Plot_Y
-
-			sub	edx,[YDY1]
-			add	ebx,[Row]
-@@Plot_Y:
-			add	esi,[YDZ]
-			adc	edi,[YIZ]
-
-			add	ebx,ebp
-
-			dec	ecx
-			jge	@@Do_Y
-@@End:
-			ret
-
-					; *** DeltaX nul ***
-@@DX_Nul:
-			cmp	eax,[ClipXMin]
-			jl	@@End
-			cmp	eax,[ClipXMax]
-			jg	@@End
-
-			sub	esi,ebx
-			je	@@Plot
-
-			cmp	ebx,[ClipYMin]
-			jge	@@DX_Y1
-			cmp	edx,[ClipYMin]
-			jl	@@End
-
-			push	edx
-			push	eax
-			mov	eax,[ClipYMin]
-			sub	eax,ebx
-			imul	[DZ]
-			idiv	esi
-			add	[Z1],eax
-			mov	ebx,[ClipYMin]
-			pop	eax
-			pop	edx
-			jmp	@@Trace_Still
-@@DX_Y1:
-			cmp	ebx,[ClipYMax]
-			jle	@@DX_Y1b
-			cmp	edx,[ClipYMax]
-			jg	@@End
-
-			push	edx
-			push	eax
-			mov	eax,[ClipYMax]
-			sub	eax,ebx
-			imul	[DZ]
-			idiv	esi
-			add	[Z1],eax
-			pop	eax
-			pop	edx
-			mov	ebx,[ClipYMax]
-			jmp	@@Trace_Still
-@@DX_Y1b:
-
-			cmp	edx,[ClipYMin]
-			jge	@@DX_Y2
-
-			push	eax
-			mov	eax,[ClipYMin]
-			sub	eax,edx
-			imul	[DZ]
-			idiv	esi
-			add	[Z2],eax
-			mov	edx,[ClipYMin]
-			pop	eax
-			jmp	@@Trace_Still
-
-@@DX_Y2:
-			cmp	edx,[ClipYMax]
-			jle	@@Draw_Line
-
-			push	eax
-			mov	eax,[ClipYMax]
-			sub	eax,edx
-			imul	[DZ]
-			idiv	esi
-			add	[Z2],eax
-			mov	edx,[ClipYMax]
-			pop	eax
-			jmp	@@Trace_Still
-
-
-
-					; *** DeltaY nul ***
-@@DY_Nul:
-			cmp	ebx,[ClipYMin]
-			jl	@@End
-			cmp	ebx,[ClipYMax]
-			jg	@@End
-
-			cmp	eax,[ClipXMin]
-			jge	@@DY_X1
-			cmp	ecx,[ClipXMin]
-			jl	@@End
-
-			push	edx
-			sub	eax,[ClipXMin]		; y=y1-(x1-XMin)*dy/dx
-			imul	[DZ]
-			idiv	edi
-			sub	[Z1],eax
-			mov	eax,[ClipXMin]
-			pop	edx
-			jmp	@@Trace_Still
-@@DY_X1:
-			cmp	eax,[ClipXMax]
-			jle	@@DY_X1b
-			cmp	ecx,[ClipXMin]
-			jg	@@End
-
-			push	edx
-			sub	eax,[ClipXMax]		; y=y1-(x1-XMax)*dy/dx
-			imul	[DZ]
-			idiv	edi
-			sub	[Z1],eax
-			pop	edx
-			mov	eax,[ClipXMax]
-			jmp	@@Trace_Still
-@@DY_X1b:
-
-			cmp	ecx,[ClipXMin]
-			jge	@@DY_X2
-
-			push	eax
-			push	edx
-			mov	eax,ecx
-			sub	eax,[ClipXMin]		; y=y1-(x1-XMin)*dy/dx
-			imul	[DZ]
-			idiv	edi
-			sub	[Z2],eax
-			pop	edx
-			pop	eax
-			mov	ecx,[ClipXMin]
-			jmp	@@Trace_Still
-@@DY_X2:
-			cmp	ecx,[ClipXMax]
-			jle	@@Draw_Line
-
-			push	eax
-			push	edx
-			mov	eax,ecx
-			sub	eax,[ClipXMax]
-			imul	[DZ]
-			idiv	edi
-			sub	[Z2],eax
-			pop	edx
-			pop	eax
-			mov	ecx,[ClipXMax]
-			jmp	@@Trace_Still
-
-					; *** Plot ***
-@@Plot:
-			cmp	ebx,[ClipYMin]
-			jl	@@End
-			cmp	ebx,[ClipYMax]
-			jg	@@End
-
-			shl	ebx,2
-			add	ebx,[PTR_TabOffLine]
-			mov	ebx,[ebx]
-			add	ebx,eax
-			mov	al,[Color]
-			add	ebx,[Log]
-			mov	[ebx],al
-
-			ret
-
-Line_ZBuffer_NZW	ENDP
-	*/
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  Z1 = z1 << 16;
+  Z2 = z2 << 16;
+
+  S32 color = col;
+  col &= 0xFF;
+  if (Fill_Flag_Fog)
+  {
+    color = Fill_Logical_Palette[col];
+  }
+  Color = color;
+
+  while (true)
+  {
+    // @@Trace_Still:
+    DZ = Z2 - Z1;
+
+    S32 diffX = x1 - x0;
+    S32 diffY = y1 - y0;
+
+    if (diffX == 0)
+    {
+      // *** DeltaX nul ***
+      // @@DX_Nul:
+      if (x0 < ClipXMin || x0 > ClipXMax)
+      {
+        return;
+      }
+
+      if (diffY == 0)
+      {
+        // *** Plot ***
+        // @@Plot:
+        if (y0 < ClipYMin || y0 > ClipYMax)
+        {
+          return;
+        }
+
+        U8 *dst = (U8 *)Log + PTR_TabOffLine[y0] + x0;
+        *dst = Color;
+        return;
+      }
+
+      if (y0 < ClipYMin)
+      {
+        if (y1 < ClipYMin)
+        {
+          return;
+        }
+
+        Z1 += (ClipYMin - y0) * DZ / diffY;
+        y0 = ClipYMin;
+        continue;
+      }
+
+      // @@DX_Y1:
+      if (y0 > ClipYMax)
+      {
+        if (y1 > ClipYMax)
+        {
+          return;
+        }
+
+        Z1 += (ClipYMax - y0) * DZ / diffY;
+        y0 = ClipYMax;
+        continue;
+      }
+
+      // @@DX_Y1b:
+      if (y1 < ClipYMin)
+      {
+        Z2 += (ClipYMin - y1) * DZ / diffY;
+        y1 = ClipYMin;
+        continue;
+      }
+
+      // @@DX_Y2:
+      if (y1 > ClipYMax)
+      {
+        Z2 += (ClipYMax - y1) * DZ / diffY;
+        y1 = ClipYMax;
+        continue;
+      }
+    }
+    else if (diffY == 0)
+    {
+      // *** DeltaY nul ***
+      // @@DY_Nul:
+      if (y0 < ClipYMin || y0 > ClipYMax)
+      {
+        return;
+      }
+
+      if (x0 < ClipXMin)
+      {
+        if (x1 < ClipXMin)
+        {
+          return;
+        }
+
+        Z1 -= (x0 - ClipXMin) * DZ / diffX;
+        x0 = ClipXMin;
+        continue;
+      }
+
+      // @@DY_X1:
+      if (x0 > ClipXMax)
+      {
+        if (x1 > ClipXMax)
+        {
+          return;
+        }
+
+        Z1 -= (x0 - ClipXMax) * DZ / diffX;
+        x0 = ClipXMax;
+        continue;
+      }
+
+      // @@DY_X1b:
+      if (x1 < ClipXMin)
+      {
+        Z2 -= (x1 - ClipXMin) * DZ / diffX;
+        x1 = ClipXMin;
+        continue;
+      }
+
+      // @@DY_X2:
+      if (x1 > ClipXMax)
+      {
+        Z2 -= (x1 - ClipXMax) * DZ / diffX;
+        x1 = ClipXMax;
+        continue;
+      }
+    }
+    else if (x0 < ClipXMin)
+    {
+      if (x1 < ClipXMin)
+      {
+        return;
+      }
+
+      Z1 -= (x0 - ClipXMin) * DZ / diffX;
+      y0 -= (x0 - ClipXMin) * diffY / diffX;
+      x0 = ClipXMin;
+      continue;
+    }
+    // @@Clip_X0:
+    else if (x0 > ClipXMax)
+    {
+      if (x1 > ClipXMax)
+      {
+        return;
+      }
+
+      Z1 -= (x0 - ClipXMax) * DZ / diffX;
+      y0 -= (x0 - ClipXMax) * diffY / diffX;
+      x0 = ClipXMax;
+      continue;
+    }
+    // @@Clip_X1:
+    else if (x1 < ClipXMin)
+    {
+      Z2 -= (x1 - ClipXMin) * DZ / diffX;
+      y1 -= (x1 - ClipXMin) * diffY / diffX;
+      x1 = ClipXMin;
+      continue;
+    }
+    // @@Clip_X2:
+    else if (x1 > ClipXMax)
+    {
+      Z2 -= (x1 - ClipXMax) * DZ / diffX;
+      y1 -= (x1 - ClipXMax) * diffY / diffX;
+      x1 = ClipXMax;
+      continue;
+    }
+    // @@Clip_X3:
+    else if (y0 < ClipYMin)
+    {
+      if (y1 < ClipYMin)
+      {
+        return;
+      }
+      Z1 += (ClipYMin - y0) * DZ / diffY;
+      x0 += (ClipYMin - y0) * diffX / diffY;
+      y0 = ClipYMin;
+      continue;
+    }
+    // @@Clip_Y0:
+    else if (y0 > ClipYMax)
+    {
+      if (y1 > ClipYMax)
+      {
+        return;
+      }
+
+      Z1 += (ClipYMax - y0) * DZ / diffY;
+      x0 += (ClipYMax - y0) * diffX / diffY;
+      y0 = ClipYMax;
+      continue;
+    }
+    // @@Clip_Y1:
+    else if (y1 < ClipYMin)
+    {
+      Z2 += (ClipYMin - y1) * DZ / diffY;
+      x1 += (ClipYMin - y1) * diffX / diffY;
+      y1 = ClipYMin;
+      continue;
+    }
+    // @@Clip_Y2:
+    else if (y1 > ClipYMax)
+    {
+      Z2 += (ClipYMax - y1) * DZ / diffY;
+      x1 += (ClipYMax - y1) * diffX / diffY;
+      y1 = ClipYMax;
+      continue;
+    }
+
+    // @@Clip_Y3:
+    // @@Draw_Line:
+    S32 incrY = ScreenPitch;
+    S32 incrX = 1;
+    S32 deltaX = x1 - x0;
+    if (deltaX < 0)
+    {
+      deltaX = -deltaX;
+      incrX = -incrX;
+    }
+
+    S32 deltaY = y1 - y0;
+    if (deltaY < 0)
+    {
+      deltaY = -deltaY;
+      incrY = -incrY;
+    }
+
+    U32 offset = PTR_TabOffLine[y0] + x0; // ebx
+
+    if (deltaX >= deltaY)
+    {
+      DY = deltaY;
+      DXPatch = deltaX;
+      DX1 = deltaX;
+
+      S32 dz = DZ;
+      if (incrX < 0)
+      {
+        dz = -dz;
+      }
+
+      S64 bigDZ = (((S64)(dz >> 31)) << 32) | dz;
+      S32 dz_by_deltaX = bigDZ / deltaX;
+      DZPatch = dz_by_deltaX << 16;
+      IZ = dz_by_deltaX >> 16;
+
+      LinePatch = incrY;
+
+      PtrLog = (U8 *)Log;
+      PtrZBuf = PtrZBuffer;
+
+      S32 halfX = deltaX / 2;
+      S32 x = deltaX;
+
+      U32 decZ1 = Z1 << 16; // esi
+      U32 intZ1 = Z1 >> 16; // edi
+
+      do
+      {
+        // @@Do_X:
+        if (PtrZBuf[offset] >= (intZ1 & 0xFFFF))
+        {
+          PtrLog[offset] = Color;
+        }
+
+        halfX += DY;
+        if (halfX >= DXPatch)
+        {
+          halfX -= DX1;
+          offset += LinePatch;
+        }
+
+        offset += incrX;
+
+        U8 carry = ((U64)(U32)decZ1 + (U64)(U32)DZPatch) > 0xFFFFFFFF;
+        decZ1 += DZPatch;
+        intZ1 += IZ + carry;
+
+        x--;
+      } while (x >= 0);
+
+      return;
+    }
+    else
+    {
+      // @@Draw_Y:
+      YDX = deltaX;
+      YDY = deltaY;
+      YDY1 = deltaY;
+
+      S32 dz = DZ;
+      if (incrY < 0)
+      {
+        dz = -dz;
+      }
+
+      S64 bigDZ = (((S64)(dz >> 31)) << 32) | dz;
+      S32 dz_by_deltaY = bigDZ / deltaY;
+      YDZ = dz_by_deltaY << 16;
+      YIZ = dz_by_deltaY >> 16;
+
+      Row = incrX;
+
+      YPtrLog = (U8 *)Log;
+      YPtrZBuf = PtrZBuffer;
+
+      S32 halfY = deltaY / 2;
+      S32 y = deltaY;
+
+      U32 decZ1 = Z1 << 16; // esi
+      U32 intZ1 = Z1 >> 16; // edi
+
+      do
+      {
+        // @@Do_Y:
+        if (YPtrZBuf[offset] >= (intZ1 & 0xFFFF))
+        {
+          YPtrLog[offset] = Color;
+        }
+
+        halfY += YDX;
+        if (halfY >= YDY)
+        {
+          halfY -= YDY1;
+          offset += Row;
+        }
+
+        offset += incrY;
+
+        U8 carry = ((U64)(U32)decZ1 + (U64)(U32)YDZ) > 0xFFFFFFFF;
+        decZ1 += YDZ;
+        intZ1 += YIZ + carry;
+
+        y--;
+      } while (y >= 0);
+
+      return;
+    }
+  }
 }
 
 void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
