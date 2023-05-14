@@ -112,6 +112,7 @@ S32 Filler_TextureZChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return 0;
 }
 
+// Verified against ASM (not properly tested)
 S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -304,7 +305,7 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           break;
         }
 
-        lineWidth -= PERSP_VALUE;
+        fillWidth = lineWidth - PERSP_VALUE;
       }
       // @@End_X:
     }
@@ -320,7 +321,9 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     fillCurXMax += Fill_RightSlope;
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
+    Fill_CurWMin += Fill_W_LeftSlope;
     Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+    Fill_CurZBuf = Fill_CurZBufMin;
   }
 
   Fill_CurXMin = fillCurXMin;
