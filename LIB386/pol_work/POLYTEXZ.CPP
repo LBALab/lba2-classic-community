@@ -18,10 +18,12 @@
 #include <POLYGON/POLYTEXZ.H>
 
 #include <stdio.h>
+#include <stack>
 
 #include <FILLER.H>
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/UTILS.H>
 
 PTR_U16 POLYTEXZ_PtrZBuffer1 = NULL;
 PTR_U16 POLYTEXZ_PtrZBuffer2 = NULL;
@@ -36,14 +38,53 @@ U32 POLYTEXZ_DecZBuf2 = 0x12345678;
 U32 POLYTEXZ_IntZBuf = 0x12345678;
 U32 POLYTEXZ_IntZBuf2 = 0x12345678;
 
+std::stack<U32> PerspectiveWStack = std::stack<U32>();
+
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a scanline                      ║
 // ╚═════════════════════════════════════════════════════════════╝
-void Fill_Init_Perspective()
+void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 lineWidth)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return;
+  U32 w = Fill_Cur_W;
+
+  if (w == 0 || w == -1 || w == 1)
+  {
+    // @@W_Nul1:
+    w = 2;
+    Fill_Cur_W = 2;
+  }
+
+  // @@Return_Error1:
+  Fill_Cur_MapUOverW = lineU;
+  Fill_Cur_MapVOverW = lineV;
+  S32 wXSlope = Fill_W_XSlope << PERSP_SHIFT;
+  double inv_W = 256.0 / w;
+
+  // Here, we precalc an array in the stack. This array
+  // contains valid Cur_W values
+  PerspectiveWStack = std::stack<U32>();
+  U32 stackLength = lineWidth + PERSP_VALUE - 1;
+  stackLength >>= PERSP_SHIFT;
+
+  do
+  {
+    // @@CreateStack:
+    w += wXSlope;
+    if (w == 0 || w == -1 || w == 1)
+    {
+      // @@W_Nul:
+      w = 2;
+    }
+
+    // @@Return_Error:
+    PerspectiveWStack.push(w);
+  } while (PerspectiveWStack.size() < stackLength);
+
+  Fill_Cur_W = PerspectiveWStack.top();
+  PerspectiveWStack.pop();
+
+  Fill_Cur_MapU = ROUND((double)Fill_Cur_MapUOverW * inv_W);
+  Fill_Cur_MapV = ROUND((double)Fill_Cur_MapVOverW * inv_W);
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -159,6 +200,9 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       Fill_Cur_W = Fill_CurWMin;
 
+      U32 lineU = u;
+      U32 lineV = v;
+
       // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
@@ -171,29 +215,25 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addWDec |= addWInt;
         Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // These lines below don't seem to be used. Both esi and ebp are pushed
-        // before this code and its value is never read. Then, at the end of
-        // each iteration, the previous value is restored.
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
 
-        // U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
-        // U32 addUDec = (U32)(addU >> 32);
-        // U32 addUInt = (U32)(addU & 0xFFFFFFFF);
-        // addUDec = addUDec << 16;
-        // addUInt = addUInt >> 16;
-        // addUDec |= addUInt;
-        // lineU += addUDec;
-
-        // U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
-        // U32 addVDec = (U32)(addV >> 32);
-        // U32 addVInt = (U32)(addV & 0xFFFFFFFF);
-        // addVDec = addVDec << 16;
-        // addVInt = addVInt >> 16;
-        // addVInt |= addVDec;
-        // lineV += addVInt;
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
       // @@FastInit:
       U32 offset = line - (U8 *)Log; // edi
-      Fill_Init_Perspective();
+      Fill_Init_Perspective(lineU, lineV);
 
       while (1) {
         // @@FastFill:
