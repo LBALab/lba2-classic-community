@@ -895,7 +895,7 @@ S32 Calc_TextureXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Stru
   double VC_VA = PtC->Pt_MapV - PtA->Pt_MapV;
   Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) / Denom);
   Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) / Denom);
-  return Triangle_ReadNextEdge(PtB, PtC);
+  return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_TextureGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
@@ -909,7 +909,7 @@ S32 Calc_TextureGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *Pt
   Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) / Denom);
   Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) / Denom);
   Fill_Gouraud_XSlope = ROUND((YB_YA * LC_LA - YC_YA * LB_LA) / Denom);
-  return Triangle_ReadNextEdge(PtB, PtC);
+  return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
@@ -964,7 +964,7 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
   Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) / Denom);
   Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) / Denom);
   Fill_W_XSlope = ROUND((YB_YA * WC_WA - YC_YA * WB_WA) / Denom);
-  return Triangle_ReadNextEdge(PtB, PtC);
+  return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
