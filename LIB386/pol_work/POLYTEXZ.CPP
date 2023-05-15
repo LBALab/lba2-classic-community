@@ -177,19 +177,19 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
 
-    POLYTEXZ_PtrCLUT = Fill_Color.Ptr;//
-    POLYTEXZ_PtrMapPatch = PtrMap;//
-    POLYTEXZ_RepMaskPatch = RepMask;//
-    POLYTEXZ_RepMask2 = RepMask;//
-    POLYTEXZ_PtrZBufferPatch = PtrZBuffer;//
-    POLYTEXZ_PtrZBuffer1 = PtrZBuffer;//
-    POLYTEXZ_PtrZBuffer2 = PtrZBuffer;//
-    POLYTEXZ_IntZBuf = Fill_ZBuf_XSlope << 8;//
-    POLYTEXZ_IntZBuf2 = Fill_ZBuf_XSlope << 8;//
-    POLYTEXZ_DecZBuf = Fill_ZBuf_XSlope << 24;//
-    POLYTEXZ_DecZBuf2 = Fill_ZBuf_XSlope << 24;//
-    POLYTEXZ_PtrLog = (PTR_U8)Log;//
-    Fill_CurZBuf = Fill_CurZBufMin;//
+    POLYTEXZ_PtrCLUT = Fill_Color.Ptr;
+    POLYTEXZ_PtrMapPatch = PtrMap;
+    POLYTEXZ_RepMaskPatch = RepMask;
+    POLYTEXZ_RepMask2 = RepMask;
+    POLYTEXZ_PtrZBufferPatch = PtrZBuffer;
+    POLYTEXZ_PtrZBuffer1 = PtrZBuffer;
+    POLYTEXZ_PtrZBuffer2 = PtrZBuffer;
+    POLYTEXZ_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_IntZBuf2 = Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYTEXZ_DecZBuf2 = Fill_ZBuf_XSlope << 24;
+    POLYTEXZ_PtrLog = (PTR_U8)Log;
+    Fill_CurZBuf = Fill_CurZBufMin;
   }
   else
   {
