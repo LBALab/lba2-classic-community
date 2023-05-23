@@ -1154,26 +1154,11 @@ Jmp_TextureZNZW	ENDP
 
 S32 Jmp_TextureZFlatNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
-	/*
-Jmp_TextureZFlatNZW	PROC
-			shl	ebx,8
-			mov	eax,Offset Filler_TextureZFlatNZW
+  Fill_Filler = Filler_TextureZFlatNZW;
+  Fill_ClipFlag = CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER;
+  Fill_Color.Ptr = PtrCLUTGouraud + (color << 8);
 
-			mov	[Fill_Filler],eax
-			mov	eax,[PtrCLUTGouraud]
-
-			mov	edx,CLIP_FLAT+CLIP_TEXTUREZ+CLIP_ZBUFFER
-			add	eax,ebx
-
-			mov	[Fill_ClipFlag],edx
-			mov	[Fill_Color],eax
-
-			jmp	Fill_PolyClip
-Jmp_TextureZFlatNZW	ENDP
-	*/
-    // TODO: Implement ASM
-    printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-		return 0;
+  return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
 S32 Jmp_TextureZChromaKeyNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
