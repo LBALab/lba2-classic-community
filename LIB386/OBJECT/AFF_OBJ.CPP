@@ -724,9 +724,36 @@ S32 Triangle_TextureZ_Solid(U32 typePoly, void *poly)
 
 S32 Quad_TextureZ_Solid(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
+
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[0].Pt_MapU = poly4->U1;
+  ListFillPoly[0].Pt_MapV = poly4->V1;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[1].Pt_MapU = poly4->U2;
+  ListFillPoly[1].Pt_MapV = poly4->V2;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[2].Pt_MapU = poly4->U3;
+  ListFillPoly[2].Pt_MapV = poly4->V3;
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+  ListFillPoly[3].Pt_MapU = poly4->U4;
+  ListFillPoly[3].Pt_MapV = poly4->V4;
+
+  U32 textureInfo = PtrTextures[poly4->HandleText];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
+  ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+
+  return Fill_Poly(typePoly >> 2, 0, 4, ListFillPoly);
 }
 
 // **********************
