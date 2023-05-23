@@ -251,10 +251,10 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         Fill_Loop_Perspective(fillWidth);
 
         U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
-        incMapU >>= PERSP_SHIFT;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
         U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
-        incMapV >>= PERSP_SHIFT;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
         U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF); // ebp
         U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF); // ebx
