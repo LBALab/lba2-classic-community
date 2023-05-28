@@ -32,6 +32,9 @@ typedef void (*Filler_SwitchFunc)(void);
 
 extern Filler_SwitchFunc Table_Switch[];
 
+#define FInv_65536 0.0000152588 // 1/65536 in float
+#define FInv_256 0.00390625	// 1/256 in float
+
 U32 Fill_Type = 0; // Polygon type number
 
 U32 **Fill_Restart = NULL;
@@ -968,9 +971,9 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
   double VC_VA = VC - VA;
   double WB_WA = (double)PtB->Pt_W - (double)PtA->Pt_W;
   double WC_WA = (double)PtC->Pt_W - (double)PtA->Pt_W;
-  Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) / 65536.0 / Denom);
-  Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) / 65536.0 / Denom);
-  Fill_W_XSlope = ROUND((YB_YA * WC_WA - YC_YA * WB_WA) * 256.0 / 65536.0 / Denom);
+  Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) * FInv_65536 / Denom);
+  Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) * FInv_65536 / Denom);
+  Fill_W_XSlope = ROUND((YB_YA * WC_WA - YC_YA * WB_WA) * 256.0 * FInv_65536 / Denom);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
@@ -1175,16 +1178,27 @@ S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Po
 
 S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-  double diffU = (PtB->Pt_MapU - PtA->Pt_MapU) << 8;
-  double diffV = (PtB->Pt_MapV - PtA->Pt_MapV) << 8;
-  double diffW = (PtB->Pt_W - PtA->Pt_W) << 8;
+  double UA = (double)(PtA->Pt_MapU /*+ 0x80*/) * PtA->Pt_W;
+  double UB = (double)(PtB->Pt_MapU /*+ 0x80*/) * PtB->Pt_W;
+  double VA = (double)(PtA->Pt_MapV /*+ 0x80*/) * PtA->Pt_W;
+  double VB = (double)(PtB->Pt_MapV /*+ 0x80*/) * PtB->Pt_W;
 
-  Fill_CurMapUMin = (PtA->Pt_MapU /*+ 0x80*/) << 8;
-  Fill_CurMapVMin = (PtA->Pt_MapV /*+ 0x80*/) << 8;
+  double UA2 = UA * FInv_256;
+  double UB2 = UB * FInv_256;
+  double VA2 = VA * FInv_256;
+  double VB2 = VB * FInv_256;
 
-  Fill_MapV_LeftSlope = ROUND(diffV / diffY);
-  Fill_MapU_LeftSlope = ROUND(diffU / diffY);
-  Fill_W_LeftSlope = ROUND(diffW / diffY);
+  double UB_UA = UB - UA;
+  double VB_VA = VB - VA;
+  double WB_WA = PtB->Pt_W - PtA->Pt_W;
+
+  Fill_CurWMin = PtA->Pt_W;
+  Fill_CurMapUMin = ROUND(UA2);
+  Fill_CurMapVMin = ROUND(VA2);
+
+  Fill_MapV_LeftSlope = ROUND(VB_VA * FInv_256 / diffY);
+  Fill_MapU_LeftSlope = ROUND(UB_UA * FInv_256 / diffY);
+  Fill_W_LeftSlope = ROUND(WB_WA / diffY);
   Fill_LeftSlope = ROUND(diffX / diffY + 1);
 
   return Read_Next_Right(PtA, PtB);
