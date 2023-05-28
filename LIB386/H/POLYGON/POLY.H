@@ -135,15 +135,15 @@ extern S32 Fill_CurGouraudMin; // Left edge: gouraud value
 extern S32 Fill_Gouraud_LeftSlope; // Left slope for Gouraud shading
 extern S32 Fill_Gouraud_XSlope; // X Slope for Gouraud shading
 
-extern U32 Fill_CurMapUMin; // Left edge: MapU value
+extern S32 Fill_CurMapUMin; // Left edge: MapU value
 extern S32 Fill_MapU_LeftSlope; // Left slope for MapU
 extern S32 Fill_MapU_XSlope;	// X Slope for MapU
 
-extern U32 Fill_CurMapVMin; // Left edge: MapV value
+extern S32 Fill_CurMapVMin; // Left edge: MapV value
 extern S32 Fill_MapV_LeftSlope; // Left slope for MapV
 extern S32 Fill_MapV_XSlope;	// X Slope for MapV
 
-extern U32 Fill_CurWMin; // Left edge: W value
+extern S32 Fill_CurWMin; // Left edge: W value
 extern S32 Fill_W_LeftSlope; // Left slope for W
 extern S32 Fill_W_XSlope; // X Slope for W
 
