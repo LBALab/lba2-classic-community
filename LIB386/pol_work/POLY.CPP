@@ -1100,7 +1100,7 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 	Fill_CurXMax = (oldXMin << 16) + 0x8000;
 	Fill_RightPoint = point;
 	S32 diffX = (point->Pt_XE - oldXMin) << 16;
-	Fill_RightSlope = diffX / diffY + 1;
+	Fill_RightSlope = ROUND((float)diffX / (float)diffY + 1.0);
 
 	return Test_Scan();
 }
