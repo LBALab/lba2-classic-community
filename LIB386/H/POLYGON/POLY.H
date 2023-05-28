@@ -75,7 +75,7 @@ typedef struct {
   U16 Pt_MapV;  ///< texture coordinate V
   U16 Pt_Light; ///< intensity (0.8.0)
   U16 Pt_ZO;    ///< normalized Z
-  U32 Pt_W;     ///< 2^31 / Z (non normalized)
+  S32 Pt_W;     ///< 2^31 / Z (non normalized)
 } Struc_Point;
 #pragma pack(pop)
 
