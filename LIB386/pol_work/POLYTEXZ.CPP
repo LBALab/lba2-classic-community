@@ -38,15 +38,15 @@ U32 POLYTEXZ_DecZBuf2 = 0x12345678;
 U32 POLYTEXZ_IntZBuf = 0x12345678;
 U32 POLYTEXZ_IntZBuf2 = 0x12345678;
 
-std::stack<U32> PerspectiveWStack = std::stack<U32>();
+std::stack<S32> PerspectiveWStack = std::stack<S32>();
 double PerspectiveInvW = 0.0;
 
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a scanline                      ║
 // ╚═════════════════════════════════════════════════════════════╝
-void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 fillWidth)
+void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
 {
-  U32 w = Fill_Cur_W;
+  S32 w = Fill_Cur_W;
 
   if (w == 0 || w == -1 || w == 1)
   {
@@ -63,7 +63,7 @@ void Fill_Init_Perspective(U32 lineU, U32 lineV, U32 fillWidth)
 
   // Here, we precalc an array in the stack. This array
   // contains valid Cur_W values
-  PerspectiveWStack = std::stack<U32>();
+  PerspectiveWStack = std::stack<S32>();
   U32 stackLength = fillWidth + PERSP_VALUE - 1;
   stackLength >>= PERSP_SHIFT;
 
@@ -169,8 +169,8 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
-  U32 u = Fill_CurMapUMin;
-  U32 v = Fill_CurMapVMin;
+  S32 u = Fill_CurMapUMin;
+  S32 v = Fill_CurMapVMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
@@ -184,10 +184,10 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYTEXZ_PtrZBufferPatch = PtrZBuffer;
     POLYTEXZ_PtrZBuffer1 = PtrZBuffer;
     POLYTEXZ_PtrZBuffer2 = PtrZBuffer;
-    POLYTEXZ_IntZBuf = Fill_ZBuf_XSlope >> 8;
-    POLYTEXZ_IntZBuf2 = Fill_ZBuf_XSlope >> 8;
-    POLYTEXZ_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYTEXZ_DecZBuf2 = Fill_ZBuf_XSlope << 24;
+    POLYTEXZ_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_IntZBuf2 = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_DecZBuf = (U32)Fill_ZBuf_XSlope << 24;
+    POLYTEXZ_DecZBuf2 = (U32)Fill_ZBuf_XSlope << 24;
     POLYTEXZ_PtrLog = (PTR_U8)Log;
     Fill_CurZBuf = Fill_CurZBufMin;
   }
@@ -211,8 +211,8 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       Fill_Cur_W = Fill_CurWMin;
 
-      U32 lineU = u;
-      U32 lineV = v;
+      S32 lineU = u;
+      S32 lineV = v;
 
       // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
@@ -315,7 +315,7 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
           // @@Disp:
           mapIndex = (mapIndex & 0xFFFFFF00) | POLYTEXZ_PtrMapPatch[mapIndex];
-          mapV_mapU + incV_incU;
+          mapV_mapU += incV_incU;
           mapIndex &= 0xFF;
 
           POLYTEXZ_PtrZBuffer1[offset] = intZ & 0xFFFF;
@@ -389,8 +389,8 @@ S32 Filler_TextureZFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXM
 {
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
-  U32 u = Fill_CurMapUMin;
-  U32 v = Fill_CurMapVMin;
+  S32 u = Fill_CurMapUMin;
+  S32 v = Fill_CurMapVMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
@@ -402,8 +402,8 @@ S32 Filler_TextureZFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXM
     POLYTEXZ_RepMaskPatch = RepMask;
     POLYTEXZ_PtrZBufferPatch = PtrZBuffer;
     POLYTEXZ_PtrZBuffer1 = PtrZBuffer;
-    POLYTEXZ_IntZBuf = Fill_ZBuf_XSlope >> 8;
-    POLYTEXZ_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYTEXZ_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_DecZBuf = (U32)Fill_ZBuf_XSlope << 24;
     POLYTEXZ_PtrLog = (PTR_U8)Log;
     Fill_CurZBuf = Fill_CurZBufMin;
   }
@@ -427,8 +427,8 @@ S32 Filler_TextureZFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXM
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       Fill_Cur_W = Fill_CurWMin;
 
-      U32 lineU = u;
-      U32 lineV = v;
+      S32 lineU = u;
+      S32 lineV = v;
 
       // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
