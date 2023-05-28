@@ -955,15 +955,22 @@ S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-  double UB_UA = PtB->Pt_MapU - PtA->Pt_MapU;
-  double UC_UA = PtC->Pt_MapU - PtA->Pt_MapU;
-  double VB_VA = PtB->Pt_MapV - PtA->Pt_MapV;
-  double VC_VA = PtC->Pt_MapV - PtA->Pt_MapV;
-  double WB_WA = PtB->Pt_W - PtA->Pt_W;
-  double WC_WA = PtC->Pt_W - PtA->Pt_W;
-  Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) / Denom);
-  Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) / Denom);
-  Fill_W_XSlope = ROUND((YB_YA * WC_WA - YC_YA * WB_WA) / Denom);
+  double UA = (double)PtA->Pt_MapU * (double)PtA->Pt_W;
+  double UB = (double)PtB->Pt_MapU * (double)PtB->Pt_W;
+  double UC = (double)PtC->Pt_MapU * (double)PtC->Pt_W;
+  double VA = (double)PtA->Pt_MapV * (double)PtA->Pt_W;
+  double VB = (double)PtB->Pt_MapV * (double)PtB->Pt_W;
+  double VC = (double)PtC->Pt_MapV * (double)PtC->Pt_W;
+
+  double UB_UA = UB - UA;
+  double UC_UA = UC - UA;
+  double VB_VA = VB - VA;
+  double VC_VA = VC - VA;
+  double WB_WA = (double)PtB->Pt_W - (double)PtA->Pt_W;
+  double WC_WA = (double)PtC->Pt_W - (double)PtA->Pt_W;
+  Fill_MapU_XSlope = ROUND((YB_YA * UC_UA - YC_YA * UB_UA) / 65536.0 / Denom);
+  Fill_MapV_XSlope = ROUND((YB_YA * VC_VA - YC_YA * VB_VA) / 65536.0 / Denom);
+  Fill_W_XSlope = ROUND((YB_YA * WC_WA - YC_YA * WB_WA) * 256.0 / 65536.0 / Denom);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
