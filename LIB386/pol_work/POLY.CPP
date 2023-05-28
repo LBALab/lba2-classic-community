@@ -55,16 +55,16 @@ U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
-U32 Fill_Cur_W = 0; // Current W
-U32 Fill_Next_W = 0; // Next W
-U32 Fill_Cur_MapU = 0; // all those variables for Texture Z
-U32 Fill_Next_MapU = 0;
-U32 Fill_Cur_MapV = 0;
-U32 Fill_Next_MapV = 0;
-U32 Fill_Cur_MapUOverW = 0;
-U32 Fill_Next_MapUOverW = 0;
-U32 Fill_Cur_MapVOverW = 0;
-U32 Fill_Next_MapVOverW = 0;
+S32 Fill_Cur_W = 0; // Current W
+S32 Fill_Next_W = 0; // Next W
+S32 Fill_Cur_MapU = 0; // all those variables for Texture Z
+S32 Fill_Next_MapU = 0;
+S32 Fill_Cur_MapV = 0;
+S32 Fill_Next_MapV = 0;
+S32 Fill_Cur_MapUOverW = 0;
+S32 Fill_Next_MapUOverW = 0;
+S32 Fill_Cur_MapVOverW = 0;
+S32 Fill_Next_MapVOverW = 0;
 
 S32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
 S32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading

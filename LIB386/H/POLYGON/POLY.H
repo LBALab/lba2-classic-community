@@ -120,16 +120,16 @@ extern U32 Fill_CurXMin;        ///< Current XMin
 extern U32 Fill_CurXMax;        ///< Current XMax
 extern PTR_U8 Fill_CurOffLine;     ///< Offset of the current video line
 
-extern U32 Fill_Cur_W; // Current W
-extern U32 Fill_Next_W; // Next W
-extern U32 Fill_Cur_MapU; // all those variables for Texture Z
-extern U32 Fill_Next_MapU;
-extern U32 Fill_Cur_MapV;
-extern U32 Fill_Next_MapV;
-extern U32 Fill_Cur_MapUOverW;
-extern U32 Fill_Next_MapUOverW;
-extern U32 Fill_Cur_MapVOverW;
-extern U32 Fill_Next_MapVOverW;
+extern S32 Fill_Cur_W; // Current W
+extern S32 Fill_Next_W; // Next W
+extern S32 Fill_Cur_MapU; // all those variables for Texture Z
+extern S32 Fill_Next_MapU;
+extern S32 Fill_Cur_MapV;
+extern S32 Fill_Next_MapV;
+extern S32 Fill_Cur_MapUOverW;
+extern S32 Fill_Next_MapUOverW;
+extern S32 Fill_Cur_MapVOverW;
+extern S32 Fill_Next_MapVOverW;
 
 extern S32 Fill_CurGouraudMin; // Left edge: gouraud value
 extern S32 Fill_Gouraud_LeftSlope; // Left slope for Gouraud shading
