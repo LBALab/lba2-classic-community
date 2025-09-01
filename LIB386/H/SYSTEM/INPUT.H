@@ -2,6 +2,8 @@
 #ifndef	LIB_SYSTEM_INPUT
 #define LIB_SYSTEM_INPUT
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
 extern	"C"	{

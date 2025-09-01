@@ -14,7 +14,7 @@ extern void SetDetailLevel( void ) ;
 /*--------------------------------------------------------------------------*/
 extern void MessageTransp( char *mess, S32 coul, S32 moving ) ;
 /*--------------------------------------------------------------------------*/
-extern void InitMenuIncrustText( char *text, S32 sprite, S32 time ) ;
+extern void InitMenuIncrustText( const char *text, S32 sprite, S32 time ) ;
 /*--------------------------------------------------------------------------*/
 extern void DrawFireBar( S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul ) ;
 /*--------------------------------------------------------------------------*/

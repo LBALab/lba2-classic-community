@@ -2,6 +2,8 @@
 #ifndef BOXZBUF
 #define BOXZBUF
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus
 extern	"C"	{
@@ -11,10 +13,10 @@ extern	S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
 				  S32 xmin, S32 ymin,
 				  S32 xmax, S32 ymax
 				 );
-
+/*
 #pragma aux	ZBufBoxOverWrite2	"*"				\
 		parm caller	[edi] [esi] [ecx] [edx] [ebx] [eax]
-
+*/
 //--------------------------------------------------------------------------
 #ifdef	__cplusplus
 }

@@ -3,10 +3,10 @@
 #define LIB_SYSTEM_LOGPRINT
 
 //----------------------------------------------------------------------------
+#include	<SYSTEM/ADELINE_TYPES.H>
+
 #include	<stdarg.h>
 #include	<stdio.h>
-
-#include	<system\logprint.h>
 
 //--------------------------------------------------------------------------//
 #ifdef	__cplusplus
@@ -15,16 +15,16 @@ extern	"C"	{
 
 //----------------------------------------------------------------------------
 extern	U32	Log2File;
-extern	U32	QuietLog;
+extern	U32	QuietLog; ///< If TRUE then will not write to console, only to file
 
 //----------------------------------------------------------------------------
-extern	void	CreateLog(char *name);
+extern	void	CreateLog(const char *filePath);
 
 //----------------------------------------------------------------------------
-extern	void	LogPrintf(char *format, ...);
+extern	void	LogPrintf(const char *format, ...);
 
 //----------------------------------------------------------------------------
-extern	void	LogPuts(char *string);
+extern	void	LogPuts(const char *string);
 
 //--------------------------------------------------------------------------//
 #ifdef	__cplusplus

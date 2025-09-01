@@ -1,14 +1,14 @@
 ;*══════════════════════════════════════════════════════════════════════════*/
 		.386p
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-		extrn	SYSCALL 	Log		:DWORD
-		extrn	SYSCALL 	ModeDesiredX	:DWORD
-		extrn	SYSCALL 	TabOffLine	:DWORD
+		extrn	C 	Log		:DWORD
+		extrn	C 	ModeDesiredX	:DWORD
+		extrn	C 	TabOffLine	:DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 PoidFort	dd	0000
@@ -23,7 +23,7 @@ Hauteur 	dd	0000
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-		public   SYSCALL     ScaleBox
+		public   C     ScaleBox
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 ;void	ScaleBox(	S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs,
@@ -32,8 +32,17 @@ Hauteur 	dd	0000
 ;#pragma aux	ScaleBox	"*"	\
 ;	parm	[edx] [ecx] [eax] [edi] [esi] [ebx]
 
-ScaleBox	proc,	\
+ScaleBox	proc	\
+		uses eax ebx ecx edx edi esi ebp,\
+		xs0:DWORD, ys0:DWORD, xs1:DWORD, ys1:DWORD, ptrs:DWORD, xd0:DWORD, \
 		yd0:DWORD, xd1:DWORD, yd1:DWORD, ptrd:DWORD
+
+		mov edx, xs0
+		mov ecx, ys0
+		mov eax, xs1
+		mov edi, ys1
+		mov esi, ptrs
+		mov ebx, xd0
 
 		push	edi			; ys1
 		push	ecx			; ys0

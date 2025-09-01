@@ -1,20 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <mem.h>
+//#include <mem.h>
 #include <string.h>
-#include <dos.h>
+//#include <dos.h>
 
-#include <system.h>
-#include <svga.h>
-#include <3d.h>
-#include <object.h>
-#include <polygon.h>
-#include <menu.h>
-
-#ifndef	_WIN32
-#define	DEBUG_TOOLS	1
-#endif
+#include <SYSTEM.H>
+#include <SVGA.H>
+#include <3D.H>
+#include <OBJECT.H>
+#include <POLYGON.H>
 
 // Just because Ink_Text et Ink_Paper are not LONG in Lib
 #undef	WHITE
@@ -26,8 +21,6 @@
 #define PROGRAM_OK              2
 #define NAME_NOT_FOUND          3
 /*---------------------------------------------------*/
-
-#define	ADELINE_MAX_PATH	144
 
 #ifdef	MOUNFRAC
 typedef struct {
@@ -49,5 +42,5 @@ typedef struct {
 
 /*---------------------------------------------------*/
 
-#include "extern.h"
+#include "EXTERN.H"
 

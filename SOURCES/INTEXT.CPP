@@ -12,7 +12,7 @@
 
  *══════════════════════════════════════════════════════════════════════════*/
 
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 extern	T_OBJET	*APtObj ;	// dans OBJECT.CPP
 

@@ -1,63 +1,34 @@
-//--------------------------------------------------------------------------
-#ifndef	LIB_SVGA_FONT
-#define	LIB_SVGA_FONT
+#pragma once
 
-//--------------------------------------------------------------------------
-#include	<svga\mask.h>
+#include <SVGA/MASK.H>
+#include <SYSTEM/ADELINE_TYPES.H>
 
-//--------------------------------------------------------------------------
-#ifdef	__cplusplus
-extern	"C"	{
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//--------------------------------------------------------------------------
-extern	void	*PtrFont	;
+// -----------------------------------------------------------------------------
+extern void *PtrFont;
+extern S32 InterLeave;
+extern S32 InterSpace;
 
-#pragma	aux	PtrFont	"*"
+// -----------------------------------------------------------------------------
+extern S32 SizeFont(char *str);
+extern S32 CarFont(S32 x, S32 y, U8 c);
+extern S32 Font(S32 x, S32 y, const char *str);
 
-//--------------------------------------------------------------------------
-extern	S32	InterLeave	;
-extern	S32	InterSpace	;
+// -----------------------------------------------------------------------------
+#define ColorFont(color) ColorMask(color)
 
-//--------------------------------------------------------------------------
-#define	ColorFont(color)	ColorMask(color)
+#define SetFont(ptrfont, interleave, interspace)                               \
+  {                                                                            \
+    PtrFont = (ptrfont);                                                       \
+    InterLeave = (interleave);                                                 \
+    InterSpace = (interspace);                                                 \
+  }
 
-//--------------------------------------------------------------------------
-#define	SetFont(ptrfont, interleave, interspace)	\
-{							\
-	PtrFont		= (ptrfont)	;		\
-	InterLeave	= (interleave)	;		\
-	InterSpace	= (interspace)	;		\
-}
-
-//--------------------------------------------------------------------------
-extern	S32	SizeFont(char *str)	;
-
-#pragma aux SizeFont	"*"			\
-	parm caller	[esi]			\
-	modify		[eax ecx edx edi]
-
-//--------------------------------------------------------------------------
-extern	S32	CarFont(S32 x, S32 y, char c)	;
-
-#pragma aux CarFont	"*"			\
-	parm caller	[ebx] [ecx] [eax]	\
-	modify		[edx esi edi]
-
-//--------------------------------------------------------------------------
-extern	S32	Font(S32 x, S32 y, char *str);
-
-#pragma aux Font	"*"			\
-	parm caller	[ebx] [ecx] [esi]	\
-	modify		[edx edi]
-
-//--------------------------------------------------------------------------
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//--------------------------------------------------------------------------
-#endif//LIB_SVGA_FONT
-
-//--------------------------------------------------------------------------
-

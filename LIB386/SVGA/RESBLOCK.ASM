@@ -1,18 +1,21 @@
 ;----------------------------------------------------------------------------
-			.386P
-			.MODEL SMALL, SYSCALL
+			.686P
+			.XMM
+			.MODEL SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	TabOffLine:DWORD
+			EXTRN	C	TabOffLine:DWORD
+
+			ASSUME DS:SEG TabOffLine
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	RestoreBlock
+			PUBLIC	C	RestoreBlock
 
 ;----------------------------------------------------------------------------
 ;void	RestoreBlock( void *screen, void *buffer, S32 x0, S32 y0, S32 x1, S32 y1)
@@ -20,7 +23,15 @@
 ;#pragma aux RestoreBlock	"*"			\
 ;	parm	[edi] [esi] [eax] [ebx] [ecx] [edx]
 
-RestoreBlock		proc
+RestoreBlock		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			screen: DWORD, buffer: DWORD, x0: DWORD, y0: DWORD, x1: DWORD, y1: DWORD
+			mov edi, screen
+			mov esi, buffer
+			mov eax, x0
+			mov ebx, y0
+			mov ecx, x1
+			mov edx, y1
 
 			sub	ecx, eax		; ECX = DeltaX-1
 			sub	edx, ebx		; EDX = DeltaY-1
@@ -47,6 +58,8 @@ RestoreBlock		proc
 			jnc	odd
 Again:
 			mov	ecx, ebx		; Delta X
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			mov	ecx, ebp
 			rep	movsb
@@ -54,6 +67,8 @@ Again:
 			add	edi, eax
 odd:
 			mov	ecx, ebx		; Delta X
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			mov	ecx, ebp
 			rep	movsb

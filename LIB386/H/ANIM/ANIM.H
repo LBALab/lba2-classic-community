@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_ANIM
 #define	LIB_ANI_ANIM
 
+#include <OBJECT/AFF_OBJ.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

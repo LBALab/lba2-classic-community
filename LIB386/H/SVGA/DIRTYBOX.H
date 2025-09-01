@@ -1,13 +1,13 @@
-//--------------------------------------------------------------------------
-#ifndef LIB_SVGA_DIRTYBOX
-#define LIB_SVGA_DIRTYBOX
+#pragma once
 
-//--------------------------------------------------------------------------
-#ifdef	__cplusplus
-extern	"C"	{
+#include <SYSTEM/ADELINE_TYPES.H>
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//-----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Init:
 //
 // BoxInit( ... );
@@ -16,156 +16,59 @@ extern	"C"	{
 //
 // for( ...
 // {
-//	BoxMovingAdd( ... ) ;
-//	AND/OR
-//	BoxStaticAdd( ... ) ;
+//    BoxMovingAdd( ... ) ;
+//    AND/OR
+//    BoxStaticAdd( ... ) ;
 // }
 //
 // BoxUpdate() ;
 //
 
-//-----------------------------------------------------------------------------
-#pragma pack(push, 1)
+// -----------------------------------------------------------------------------
+extern S32 BoxClipXMin, BoxClipXMax, BoxClipYMin, BoxClipYMax;
+extern S32 BoxCleanClip;
 
-//-----------------------------------------------------------------------------
-typedef struct	STR_T_BOX
-	{
-		S16			x0	;
-		S16			y0	;
-		S16			x1	;
-		S16			y1	;
-		struct STR_T_BOX	*pBoxNext;
-	}	T_BOX	;
-
-//-----------------------------------------------------------------------------
-#pragma pack(pop)
-
-//-----------------------------------------------------------------------------
-typedef void (BOX_FUNC)(T_BOX *pbox)	;
-
-#pragma aux	ARG_BOX_FUNC		\
-	parm caller	[ebx]		\
-	modify	[eax ecx edx esi edi]
-
-#pragma aux	(ARG_BOX_FUNC)	BOX_FUNC
-
-//-----------------------------------------------------------------------------
-extern S32	BoxClipXMin, BoxClipXMax,
-		BoxClipYMin, BoxClipYMax	;
-
-//-----------------------------------------------------------------------------
-extern		S32	BoxCleanClip		;
-
-//-----------------------------------------------------------------------------
-extern		void	*GphSprite			;
-extern		S32	DefSprite			;
-
-//-----------------------------------------------------------------------------
-extern BOX_FUNC  *BoxOneBlit, *BoxOneClean			;
+extern BOX_FUNC *BoxOneBlit, *BoxOneClean;
 extern VOID_FUNC *BoxScreenGet, *BoxScreenRelease, *BoxScreenFlip;
 
-//-----------------------------------------------------------------------------
-extern BOX_FUNC DefaultBoxOneBlit	;
-extern BOX_FUNC DefaultBoxOneClean	;
+// -----------------------------------------------------------------------------
+S32 BoxInit(S32 nbBox);
+void BoxMovingAdd(S32 x0, S32 y0, S32 x1, S32 y1);
+void BoxStaticAdd(S32 x0, S32 y0, S32 x1, S32 y1);
+void BoxUnstaticAdd(S32 x0, S32 y0, S32 x1, S32 y1);
+void BoxCls(S32 x0, S32 y0, S32 x1, S32 y1);
+void BoxStaticFullflip();
+void BoxBlitStaticListToScreen();
+void BoxBlit();
+void BoxClean();
+void BoxUpdate();
+void BoxReset();
+void BoxChangeClip(S32 x0, S32 y0, S32 x1, S32 y1, S32 clean);
 
-//-----------------------------------------------------------------------------
-extern BOX_FUNC DefaultBoxOneClear	;
+extern void DefaultBoxOneBlit(T_BOX *pbox);
+extern void DefaultBoxOneClean(T_BOX *pbox);
+extern void DefaultBoxOneClear(T_BOX *pbox);
 
-//-----------------------------------------------------------------------------
-#ifdef	_WIN32
-#define SetBoxScreenGet(boxscreenget)		\
-	BoxScreenGet = ( (boxscreenget) ? (boxscreenget) : LockPrimary )
+// -----------------------------------------------------------------------------
+#define Flip BoxStaticFullflip
 
-#else// _WIN32
-#define SetBoxScreenGet(boxscreenget)		\
-	BoxScreenGet = (boxscreenget)
+#define Cls() BoxCls(BoxClipXMin, BoxClipYMin, BoxClipXMax - 1, BoxClipYMax - 1)
 
-#endif//_WIN32
+#define SetBoxScreenGet(boxscreenget)                                          \
+  BoxScreenGet = ((boxscreenget) ? (boxscreenget) : LockPrimary)
 
-//-----------------------------------------------------------------------------
-#ifdef	_WIN32
-#define SetBoxScreenRelease(boxscreenrelease)	\
-	BoxScreenRelease = ( (boxscreenrelease) ? (boxscreenrelease) : UnlockPrimary )
+#define SetBoxScreenRelease(boxscreenrelease)                                  \
+  BoxScreenRelease = ((boxscreenrelease) ? (boxscreenrelease) : UnlockPrimary)
 
-#else// _WIN32
-#define SetBoxScreenRelease(boxscreenrelease)	\
-	BoxScreenRelease = (boxscreenrelease)
+#define SetBoxScreenFlip(boxscreenflip) BoxScreenFlip = (boxscreenflip)
 
-#endif//_WIN32
+#define SetBoxOneBlit(boxoneblit)                                              \
+  BoxOneBlit = ((boxoneblit) ? (boxoneblit) : DefaultBoxOneBlit)
 
-//-----------------------------------------------------------------------------
-#define SetBoxScreenFlip(boxscreenflip)	\
-	BoxScreenFlip = (boxscreenflip)
+#define SetBoxOneClean(boxoneclean)                                            \
+  BoxOneClean = ((boxoneclean) ? (boxoneclean) : DefaultBoxOneClean)
 
-//-----------------------------------------------------------------------------
-#define SetBoxOneBlit(boxoneblit)		\
-	BoxOneBlit = ( (boxoneblit) ? (boxoneblit) : DefaultBoxOneBlit )
-
-//-----------------------------------------------------------------------------
-#define SetBoxOneClean(boxoneclean)		\
-	BoxOneClean = ( (boxoneclean) ? (boxoneclean) : DefaultBoxOneClean )
-
-//-----------------------------------------------------------------------------
-extern S32 	BoxInit( S32 nbBox )	;
-
-//-----------------------------------------------------------------------------
-extern void	BoxMovingAdd( S32 x0, S32 y0, S32 x1, S32 y1 );
-
-#pragma aux BoxMovingAdd		\
-	parm caller	[eax] [ebx] [ecx] [edx]
-
-//-----------------------------------------------------------------------------
-extern void	BoxStaticAdd( S32 x0, S32 y0, S32 x1, S32 y1 );
-
-#pragma aux BoxStaticAdd		\
-	parm caller	[eax] [ebx] [ecx] [edx]
-
-//-----------------------------------------------------------------------------
-extern void	BoxUnstaticAdd( S32 x0, S32 y0, S32 x1, S32 y1 );
-
-#pragma aux BoxUnstaticAdd		\
-	parm caller	[eax] [ebx] [ecx] [edx]
-
-//-----------------------------------------------------------------------------
-extern void	BoxCls( S32 x0, S32 y0, S32 x1, S32 y1 );
-
-#pragma aux BoxCls			\
-	parm caller	[eax] [ebx] [ecx] [edx]
-
-//-----------------------------------------------------------------------------
-#define 	Cls()			\
-		BoxCls(BoxClipXMin, BoxClipYMin, BoxClipXMax-1, BoxClipYMax-1)
-
-//-----------------------------------------------------------------------------
-extern void	BoxStaticFullflip();
-
-#define Flip	BoxStaticFullflip
-
-//-----------------------------------------------------------------------------
-extern void	BoxBlitStaticListToScreen();
-
-//-----------------------------------------------------------------------------
-extern void	BoxBlit();
-
-//-----------------------------------------------------------------------------
-extern void	BoxClean();
-
-//-----------------------------------------------------------------------------
-extern void	BoxUpdate();
-
-//-----------------------------------------------------------------------------
-extern void	BoxReset();
-
-//-----------------------------------------------------------------------------
-extern void	BoxChangeClip(S32 x0, S32 y0, S32 x1, S32 y1, S32 clean);
-
-//-----------------------------------------------------------------------------
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//-----------------------------------------------------------------------------
-#endif//LIB_SVGA_DIRTYBOX
-
-//-----------------------------------------------------------------------------
-

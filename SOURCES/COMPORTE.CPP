@@ -6,7 +6,11 @@
 
  *══════════════════════════════════════════════════════════════════════════*/
 
-#include 	"c_extern.h"
+#include 	"C_EXTERN.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 #define	ULTRA	-1L
 #define	ALWAYS	ULTRA
@@ -462,7 +466,7 @@ void	MenuComportement( S32 affone )
 
 		// pour pouvoir restaurer anim marche protopack
 #ifdef	LBA_EDITOR
-		if( !stricmp(ptrobj->StringAnim,GEN_ANIM_MARCHE) )
+		if( !strcasecmp(ptrobj->StringAnim,GEN_ANIM_MARCHE) )
 #else
 		if( ptrobj->GenAnim==GEN_ANIM_MARCHE )
 #endif

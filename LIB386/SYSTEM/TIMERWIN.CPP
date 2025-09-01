@@ -1,7 +1,7 @@
 //-------------------------------------------------------------------------
-#include	<system\adeline.h>
-#include	<system\winsys.h>
-#include	<system\timerwin.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/WINSYS.H>
+#include	<SYSTEM/TIMERWIN.H>
 
 //-------------------------------------------------------------------------
 volatile U32	TimerSystemHR	;

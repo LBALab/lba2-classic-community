@@ -48,7 +48,7 @@ extern "C" {
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	S32		HTabY[25] ;	// Adresses Y de la carte hercule
 
-#pragma	aux	HTabY	"*"
+//#pragma	aux	HTabY	"*"
 
 extern	HBoxStyle       HBStyles[] ;
 
@@ -60,10 +60,10 @@ extern	S32	ModeHercule ;
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	S32	TestHercule( void ) ;
 
-#pragma	aux	TestHercule	"*"	\
+/*#pragma	aux	TestHercule	"*"	\
 		parm caller []		\
 		modify exact [eax ebx]
-
+		*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 #ifdef __cplusplus
@@ -94,51 +94,30 @@ extern "C" {
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void	HCls( void ) ;
 
-#pragma	aux	HCls		"*"	\
-		parm caller []		\
-		modify [eax ecx edx]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void	HPrintCar( S32 x, S32 y, char car ) ;
 
-#pragma	aux	HPrintCar	"*"		\
-		parm caller [eax] [ebx] [ecx]	\
-		modify exact [eax ebx]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void	HPrintCarC( S32 x, S32 y, U8 attr, char car ) ;
 
-#pragma	aux	HPrintCarC	"*"			\
-		parm caller [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx edx]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HString( S32 x, S32 y, char *string ) ;
 
-#pragma	aux	HString		"*"		\
-		parm caller [eax] [ebx] [ecx]	\
-		modify exact [eax ebx ecx]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HStringC( S32 x, S32 y, U8 attr, char *string ) ;
 
-#pragma	aux	HStringC	"*"			\
-		parm caller [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx edx]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HScrollUp( void ) ;
 
-#pragma	aux     HScrollUp	"*"	\
-		parm caller []		\
-		modify exact [eax ecx esi edi]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HScrollDown( void ) ;
 
-#pragma	aux     HScrollDown	"*"	\
-		parm caller []		\
-		modify exact [eax ecx esi edi]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 #ifdef __cplusplus
@@ -182,16 +161,9 @@ extern "C" {
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HLineH( S32 y, S32 x0, S32 x1, char car ) ;
 
-#pragma	aux	HLineH		"*"			\
-		parm caller [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx ecx]
-
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HLineV( S32 x, S32 y0, S32 y1, char car ) ;
 
-#pragma	aux	HLineV		"*"			\
-		parm caller [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx ecx]
 
 #ifdef __cplusplus
 }
@@ -207,23 +179,12 @@ extern "C" {
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HColor( S32 y, S32 x0, S32 x1, U8 attr ) ;
 
-#pragma	aux	HColor		"*"			\
-		parm caller [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx ecx]
-
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HColorBox( S32 x0, S32 y0, S32 x1, S32 y1, U8 attr ) ;
 
-#pragma	aux	HColorBox	"*"				\
-		parm caller [esi] [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx ecx esi edi]
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	void	HClsBox( S32 x0, S32 y0, S32 x1, S32 y1, U8 attr ) ;
-
-#pragma	aux	HClsBox		"*"				\
-		parm caller [esi] [eax] [ebx] [ecx] [edx]	\
-		modify exact [eax ebx ecx edx esi edi]
 
 #ifdef __cplusplus
 }

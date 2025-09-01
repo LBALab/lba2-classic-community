@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_CLEAR
 #define	LIB_ANI_CLEAR
 
+#include <OBJECT/AFF_OBJ.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

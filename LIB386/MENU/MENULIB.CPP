@@ -1,11 +1,12 @@
-#include	<system.h>
-#include	<svga.h>
-#include	<menu.h>
+#include	<SYSTEM.H>
+#include	<SVGA.H>
+#include	<MENU.H>
 
-#include	<stdlib.h>
-#include	<stdio.h>
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/MOUSE.H>
+
 #include	<string.h>
-#include	<dos.h>
 
 /*──────────────────────────────────────────────────────────────────────────*/
 static	U8	PalMenu[] =	{
@@ -351,7 +352,8 @@ void	DrawBox( T_MENU *ptrmenu, S32 numlcb, S32 pushed)
 	strcpy( string, ptrlcb->PtrString ) ;
 	if( ptrlcb->Type == TYPE_CHANGE_VALUE )
 	{
-		strcat( string, itoa( *(ptrlcb->PtrVar), valuestring, 10 ) ) ;
+                sprintf(valuestring, "%d", *(ptrlcb->PtrVar));
+		strcat( string, valuestring ) ;
 	}
 
 	nbaffcar = ((ptrlcb->X2-3)-(ptrlcb->X1+3))/SizeChar ;
@@ -489,7 +491,7 @@ void	AddButton(	T_MENU	*ptrmenu,
 			S32	x1, S32 y1,
 			S32	largeur, S32 hauteur,
 			S32	flags,
-			char	*ptrstring	)
+			const char	*ptrstring	)
 {
 	T_CLICK_BOX	*ptrlcb ;
 
@@ -554,7 +556,7 @@ void	AddSwitch(	T_MENU	*ptrmenu,
 			S32	x1, S32 y1,
 			S32	largeur, S32 hauteur,
 			S32	flags,
-			char	*ptrstring,
+			const char	*ptrstring,
 			S32	*ptrvar,
 			S32	mask	)
 {
@@ -575,7 +577,7 @@ void	AddText(	T_MENU	*ptrmenu,
 			S32	x1, S32 y1,
 			S32	largeur, S32 hauteur,
 			S32	flags,
-			char	*ptrstring	)
+			const char	*ptrstring)
 {
 	T_CLICK_BOX	*ptrlcb ;
 
@@ -795,7 +797,7 @@ S32	GereMenu( T_MENU *ptrmenu )
 	S32		value, ivalue ;
 	S32		vmin, vmax ;
 	S32		click ;
-	char		*memostring ;
+	const char	*memostring ;
 
 
 	select = ScanListClick( ptrmenu ) ;
@@ -840,10 +842,10 @@ S32	GereMenu( T_MENU *ptrmenu )
 					value = *(ptrlcb->PtrVar) ;
 					if( click & 2 ) /* slide value */
 					{
-						GetMouseDep() ;
+						ManageMouse() ;
 						while( Click )
 						{
-							GetMouseDep() ;
+							ManageMouse() ;
 							value += (MouseXDep/4) * ptrlcb->Mask ;
 							if( value < vmin ) value = vmin ;
 							if( value > vmax ) value = vmax ;
@@ -855,7 +857,7 @@ S32	GereMenu( T_MENU *ptrmenu )
 					else		/* input value */
 					{
 						memostring = ptrlcb->PtrString ;
-						itoa( value, inputvaluestring, 10 ) ;
+                                                sprintf(inputvaluestring, "%d", value);
 						ptrlcb->PtrString = inputvaluestring ;
 						ptrlcb->Type = TYPE_TEXT ;
 						DrawBox( ptrmenu, select, FLAG_PUSHED) ;

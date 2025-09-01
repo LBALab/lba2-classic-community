@@ -10,7 +10,7 @@
 			       LE 21/06/93
 */
 
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 /*
  * Various constants used to define the compression parameters.  The
@@ -27,8 +27,8 @@
  *
  */
 
-char *CompressionName = "LZSS Encoder";
-char *Usage           = "in-file out-file\n\n";
+const char *CompressionName = "LZSS Encoder";
+const char *Usage           = "in-file out-file\n\n";
 
 int Current_position;
 int Match_position;
@@ -63,15 +63,15 @@ unsigned long Compress(char *input,char *output, unsigned long length );
 */
 void InitTree( int r )
 {
-    int i;
+  int i;
 
-    for (i=0; i<=WINDOW_SIZE; i++) {
-	tree[ i ].parent = UNUSED;
-	tree[ i ].larger_child = UNUSED;
-	tree[ i ].smaller_child = UNUSED;
-    }
-    tree[ TREE_ROOT ].larger_child = r;
-    tree[ r ].parent = TREE_ROOT;
+  for (i=0; i<=WINDOW_SIZE; i++) {
+    tree[ i ].parent = UNUSED;
+    tree[ i ].larger_child = UNUSED;
+    tree[ i ].smaller_child = UNUSED;
+  }
+  tree[ TREE_ROOT ].larger_child = r;
+  tree[ r ].parent = TREE_ROOT;
 }
 
 /*
@@ -79,11 +79,7 @@ void InitTree( int r )
  * its descendant is broken by pulling the descendant in to overlay
  * the existing link.
  */
-
-/*
-void ContractNode( old_node, new_node )
-int old_node;
-int new_node;
+void ContractNode( int old_node, int new_node )
 {
     tree[ new_node ].parent = tree[ old_node ].parent;
     if ( tree[ tree[ old_node ].parent ].larger_child == old_node )
@@ -92,16 +88,13 @@ int new_node;
 	tree[ tree[ old_node ].parent ].smaller_child = new_node;
     tree[ old_node ].parent = UNUSED;
 }
-*/
+
 /*
  * This routine is also used when a node is being deleted.  However,
  * in this case, it is being replaced by a node that was not previously
  * in the tree.
  */
-/*
-void ReplaceNode( old_node, new_node )
-int old_node;
-int new_node;
+void ReplaceNode( int old_node, int new_node )
 {
     int parent;
 
@@ -117,16 +110,14 @@ int new_node;
 	tree[ tree[ new_node ].larger_child ].parent = new_node;
     tree[ old_node ].parent = UNUSED;
 }
-*/
+
 /*
  * This routine is used to find the next smallest node after the node
  * argument.  It assumes that the node has a smaller child.  We find
  * the next smallest child by going to the smaller_child node, then
  * going to the end of the larger_child descendant chain.
 */
-/*
-int FindNextNode( node )
-int node;
+int FindNextNode( int node )
 {
     int next;
 
@@ -135,7 +126,7 @@ int node;
 	next = tree[ next ].larger_child;
     return( next );
 }
-*/
+
 /*
  * This routine performs the classic binary tree deletion algorithm.
  * If the node to be deleted has a null link in either direction, we
@@ -144,9 +135,7 @@ int node;
  * is guaranteed to have a null link, then replace the node to be deleted
  * with the next link.
  */
-/*
-void DeleteStringOld( p )
-int p;
+void DeleteString( int p )
 {
     int  replacement;
 
@@ -162,7 +151,7 @@ int p;
 	ReplaceNode( p, replacement );
     }
 }
-*/
+
 /*
  * This where most of the work done by the encoder takes place.  This
  * routine is responsible for adding the new node to the binary tree.
@@ -171,8 +160,7 @@ int p;
  * even more complicated, if the new_node has a duplicate in the tree,
  * the old_node is deleted, for reasons of efficiency.
  */
-/*
-int AddStringOld()
+int AddString()
 {
 	int	i;
 	int	test_node;
@@ -225,9 +213,6 @@ int AddStringOld()
 }
 
 
-*/
-
-
 
 
 /*
@@ -243,99 +228,103 @@ int AddStringOld()
 
 unsigned long Compress_LZSS(char *input,char *output, unsigned long length )
 {
-int 		i;
-char 		*read;
-char 		*write;
-char 		*info;
-int 		look_ahead_bytes;
-int 		replace_count;
-int 		match_length;
-int 		count_bits	= 0;
-char 		mask		= 1;
-unsigned long 	len		= 0;
-unsigned long 	save_length;
+  int i;
+  char *read;
+  char *write;
+  char *info;
+  int look_ahead_bytes;
+  int replace_count;
+  int match_length;
+  int count_bits = 0;
+  char mask = 1;
+  unsigned long len = 0;
+  unsigned long save_length;
 
+  save_length = length;
+  write = output;
+  read = input;
+  Current_position = 0;
 
+  for (i = 0; i < LOOK_AHEAD_SIZE; i++)
+  {
+    if (length == 0)
+      break;
+    window[Current_position + i] = *read++;
+    length--;
+  }
 
-	save_length = length;
-	write = output;
-	read = input;
-	Current_position = 0;
+  look_ahead_bytes = i;
+  InitTree(Current_position);
+  match_length = 0;
+  Match_position = 0;
+  info = write++;
 
-	for ( i = 0 ; i < LOOK_AHEAD_SIZE ; i++ )
-	{
-		if (length == 0 ) break;
-		window[ Current_position + i ] = *read++;
-		length--;
-	}
+  if (++len >= save_length)
+    return (save_length);
 
-	look_ahead_bytes = i;
-	InitTree( Current_position );
-	match_length = 0;
-	Match_position = 0;
-	info = write++;
+  *info = 0;
 
-	if ( ++len >= save_length ) return( save_length );
+  while (look_ahead_bytes > 0)
+  {
+    if (match_length > look_ahead_bytes)
+      match_length = look_ahead_bytes;
 
-	*info = 0;
+    if (match_length <= BREAK_EVEN)
+    {
+      replace_count = 1;
+      *info |= mask;
+      *write++ = window[Current_position];
+      if (++len >= save_length)
+        return (save_length);
+    }
+    else
+    {
+      if ((len = len + 2) >= save_length)
+        return (save_length);
 
-	while ( look_ahead_bytes > 0 )
-	{
-		if ( match_length > look_ahead_bytes )
-    			match_length = look_ahead_bytes;
+      *(short *)write =
+          (short)((MOD_WINDOW(Current_position - Match_position - 1)
+                  << LENGTH_BIT_COUNT) |
+                  (match_length - BREAK_EVEN - 1));
 
-		if ( match_length <= BREAK_EVEN )
-		{
-    			replace_count = 1;
-    			*info |= mask;
-    			*write++ = window[ Current_position ];
-    			if ( ++len >= save_length )
-			return( save_length );
-		}
-		else
-		{
-    			if ( ( len = len + 2 ) >= save_length )
-			return( save_length );
+      write += 2;
+      replace_count = match_length;
+    }
 
+    if (++count_bits == 8)
+    {
+      if (++len >= save_length)
+        return (save_length);
+      info = write++;
+      *info = 0;
+      count_bits = 0;
+      mask = 1;
+    }
+    else
+      mask = (char)(mask << 1);
 
-			*(short *)write =
-		(short)(( MOD_WINDOW( Current_position - Match_position - 1 )
-		<< LENGTH_BIT_COUNT ) | ( match_length - BREAK_EVEN - 1 ));
+    for (i = 0; i < replace_count; i++)
+    {
+      DeleteString(MOD_WINDOW(Current_position + LOOK_AHEAD_SIZE));
+      if (length == 0)
+        look_ahead_bytes--;
+      else
+      {
+        window[MOD_WINDOW(Current_position + LOOK_AHEAD_SIZE)] = *read++;
+        length--;
+      }
 
-			write+=2;
-    			replace_count = match_length;
-		}
+      Current_position = MOD_WINDOW(Current_position + 1);
+      if (look_ahead_bytes)
+        match_length = AddString();
+    }
+  }
 
-		if (++count_bits == 8)
-		{
-    			if ( ++len >= save_length ) return( save_length );
-    			info = write++;
-    			*info = 0;
-    			count_bits = 0;
-    			mask = 1;
-		}
-		else mask = (char)(mask << 1);
-
-		for ( i = 0 ; i < replace_count ; i++ )
-		{
-    			DeleteString( MOD_WINDOW( Current_position + LOOK_AHEAD_SIZE ) );
-    			if ( length == 0 ) look_ahead_bytes--;
-    			else
-    			{
-				window[ MOD_WINDOW( Current_position + LOOK_AHEAD_SIZE ) ]
-				= *read++;
-				length--;
-    			}
-
-			Current_position = MOD_WINDOW( Current_position + 1 );
-    			if ( look_ahead_bytes )
-				match_length = AddString();
-		}
-	}
-
-	if ( count_bits == 0 ) len--;
-	return( len );
+  if (count_bits == 0)
+    len--;
+  return (len);
 }
 
 /************************** End of LZSS.C *************************/
+
 

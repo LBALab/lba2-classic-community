@@ -1,33 +1,19 @@
-//****************************************************************************
-#ifndef	LIB_3D_IMATSTD
-#define	LIB_3D_IMATSTD
+#pragma once
 
-//****************************************************************************
-#include	"imat.h"
+#include <3D/DATAMAT.H>
+#include <SYSTEM/ADELINE_TYPES.H>
 
-//****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//****************************************************************************
-extern	Func_InitMatrix	*InitMatrixStd	;
+// -----------------------------------------------------------------------------
+typedef void(Func_InitMatrix)(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma);
 
-#pragma aux	InitMatrixStd	"*"
+extern Func_InitMatrix *InitMatrixStd;
 
-//****************************************************************************
-// These should not be called directly but through the above pointer
-extern	Func_InitMatrix	InitMatrixStdI	;
-extern	Func_InitMatrix	InitMatrixStdF	;
-extern	Func_InitMatrix	InitMatrixStdM	;
-
-//****************************************************************************
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//****************************************************************************
-#endif//LIB_3D_IMATSTD
-
-//****************************************************************************
-

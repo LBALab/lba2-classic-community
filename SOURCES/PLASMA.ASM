@@ -1,6 +1,6 @@
 ;-----------------------------------------------------------------------------
 			.386
-			.MODEL	SMALL, SYSCALL
+			.MODEL	SMALL, C
 
 ;-----------------------------------------------------------------------------
 Struc_Plasma		STRUC
@@ -34,28 +34,31 @@ Nb_Pts_Control		dd	0
 			.CODE
 
 ;-----------------------------------------------------------------------------
-			PUBLIC	SYSCALL		Do_Plasma
+			PUBLIC	C		Do_Plasma
 
 ;-----------------------------------------------------------------------------
-Do_Plasma		PROC
+Do_Plasma		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			PtrEffectStruct: DWORD
+			mov esi, PtrEffectStruct
 
 			push	ebp
-			mov	edi, dword ptr [esi].Plasma_PTR_TexOff
+			mov	edi, dword ptr [esi].Struc_Plasma.Plasma_PTR_TexOff
 
 			; *** Calcul des coeff de Gouraud ***
 			push	esi
 			push	edi
 
-			mov	ecx,dword ptr [esi].Plasma_Interleave
+			mov	ecx,dword ptr [esi].Struc_Plasma.Plasma_Interleave
 			mov	edx,1
 			shl	edx,cl
-			mov	[Nb_Pts_Inter],edx
+			mov	[ds:Nb_Pts_Inter],edx
 			mov	ebp, edx
 			dec	ebp
-			mov	byte ptr [Nb_Pts_Control],ch
+			mov	byte ptr [ds:Nb_Pts_Control],ch
 
 			mov	dl,ch
-			mov	esi,dword ptr [esi].Plasma_PTR_TabVirgule
+			mov	esi,dword ptr [esi].Struc_Plasma.Plasma_PTR_TabVirgule
 @@Lines:
 			push	edx			; Chaque ligne
 			push	ecx
@@ -133,13 +136,13 @@ Do_Plasma		PROC
 
 
 			; *** Copy ***
-			mov	ebx,[esi].Plasma_PTR_TabCouls
-			mov	esi,dword ptr [esi].Plasma_PTR_TabVirgule
+			mov	ebx,[esi].Struc_Plasma.Plasma_PTR_TabCouls
+			mov	esi,dword ptr [esi].Struc_Plasma.Plasma_PTR_TabVirgule
 			xor	eax,eax
 			mov	dl,ch
 
 			movzx	ebp,ch
-			imul	ebp,[Nb_Pts_Inter]	; EBP = Offset de la ligne suivante
+			imul	ebp,[ds:Nb_Pts_Inter]	; EBP = Offset de la ligne suivante
 @@Copy_0:
 			push	edx
 			push	ecx
@@ -151,7 +154,7 @@ Do_Plasma		PROC
 			jne	@@Copy_1
 
 			mov	eax,ebp
-			imul	ebp,[Nb_Pts_Control]
+			imul	ebp,[ds:Nb_Pts_Control]
 			sub	ebp,eax
 			neg	ebp
 @@Copy_1:
@@ -161,7 +164,7 @@ Do_Plasma		PROC
 			push	edi
 
 			mov	ax,[esi]
-			mov	dh,byte ptr [Nb_Pts_Inter]
+			mov	dh,byte ptr [ds:Nb_Pts_Inter]
 
 			movzx	ebp,word ptr[esi+ebp*2]
 
@@ -201,7 +204,7 @@ Do_Plasma		PROC
 			pop	ecx
 			pop	edx
 
-			add	edi,[Nb_Pts_Inter]
+			add	edi,[ds:Nb_Pts_Inter]
 			dec	dl
 			jne	@@Copy_0
 

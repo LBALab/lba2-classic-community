@@ -1,23 +1,23 @@
 ;-----------------------------------------------------------------------------
 				.586
-				.MODEL FLAT, SYSCALL
+				.MODEL FLAT, C
 
 
 ;-----------------------------------------------------------------------------
 				.DATA
 
 ;-----------------------------------------------------------------------------
-				PUBLIC	SYSCALL	ProcessorSignature
-				PUBLIC	SYSCALL	ProcessorFeatureFlags
-				PUBLIC	SYSCALL	ProcessorManufacturerIDString
-				PUBLIC	SYSCALL	ProcessorManufacturerIDString
-				PUBLIC  SYSCALL Processor4KBDataTLB
-				PUBLIC  SYSCALL Processor4KBInstructionTLB
-				PUBLIC  SYSCALL Processor4MBDataTLB
-				PUBLIC  SYSCALL Processor4MBInstructionTLB
-				PUBLIC  SYSCALL ProcessorL1DataCache
-				PUBLIC  SYSCALL ProcessorL1InstructionCache
-				PUBLIC  SYSCALL ProcessorL2Cache
+				PUBLIC	C	ProcessorSignature
+				PUBLIC	C	ProcessorFeatureFlags
+				PUBLIC	C	ProcessorManufacturerIDString
+				PUBLIC	C	ProcessorManufacturerIDString
+				PUBLIC  C Processor4KBDataTLB
+				PUBLIC  C Processor4KBInstructionTLB
+				PUBLIC  C Processor4MBDataTLB
+				PUBLIC  C Processor4MBInstructionTLB
+				PUBLIC  C ProcessorL1DataCache
+				PUBLIC  C ProcessorL1InstructionCache
+				PUBLIC  C ProcessorL2Cache
 
 ;-----------------------------------------------------------------------------
 Processor4KBDataTLB		dd	0
@@ -35,7 +35,7 @@ ProcessorL1InstructionCache	dd	0
 ProcessorL2Cache		dd	0
 
 ;-----------------------------------------------------------------------------
-ProcessorSignature		dd	0
+ProcessorSignature		dd	400h
 
 ;		  3...2 2 2 2 1  1 1 1 11 1100 0000 0000
 ;		  1...3 2 1 0 9  6 5 4 32 1098 7654 3210  Bit position
@@ -134,7 +134,7 @@ ProcessorManufacturerIDString	db	12 dup (0),0	; Manufacturer Identification
 ProcessorRevision		db	0
 
 ;-----------------------------------------------------------------------------
-IFDEF	_WIN32
+IFDEF	NOP_WIN32
 
 _SYSTEM_INFO	STRUCT
 			wProcessorArchitecture		WORD	?
@@ -157,21 +157,21 @@ KeyString			db	"HARDWARE\DESCRIPTION\System\FloatingPointProcessor", 0
 ENDIF
 
 ;-----------------------------------------------------------------------------
-			EXTERN	SYSCALL	OSType:DWORD
+			EXTERN	C	OSType:DWORD
 
 
 ;-----------------------------------------------------------------------------
 			.CODE
 
 ;-----------------------------------------------------------------------------
-IFDEF	_WIN32
-			EXTERN	SYSCALL	_GetSystemInfo:PROC
-			EXTERN	SYSCALL	_RegOpenKeyExA:PROC
-			EXTERN	SYSCALL	_RegCloseKey:PROC
+IFDEF	NOP_WIN32
+			EXTERN	C	GetSystemInfo_C:PROC
+			EXTERN	C	RegOpenKeyExA_C:PROC
+			EXTERN	C	RegCloseKey_C:PROC
 ENDIF
 
 ;-----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	ProcessorIdentification
+			PUBLIC	C	ProcessorIdentification
 
 ;-----------------------------------------------------------------------------
 PentiumProFillCacheInfo	PROC PRIVATE
@@ -334,7 +334,7 @@ ProcessorIdentification	PROC
 			LOCAL	fp_status:DWORD
 
 
-IFDEF	_WIN32
+IFDEF	NOP_WIN32
 			LOCAL	Key	:DWORD
 			LOCAL	SysInfo	:SYSTEM_INFO
 
@@ -343,7 +343,7 @@ IFDEF	_WIN32
 
 			lea	eax, [SysInfo]
 			push	eax
-			call	_GetSystemInfo
+			call	GetSystemInfo_C
 			mov	eax, SysInfo.dwProcessorType
 			xor	edx, edx
 			mov	ecx, 100
@@ -358,12 +358,12 @@ IFDEF	_WIN32
 			push	0
 			push	ecx
 			push	80000002h			; KEY_LOCAL_MACHINE
-			call	_RegOpenKeyExA
+			call	RegOpenKeyExA_C
 			test	eax, eax
 			jnz	NoFPU
 
 			push	Key
-			call	_RegCloseKey
+			call	RegCloseKey_C
 
 			fninit
 			fld1					; 1

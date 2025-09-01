@@ -11,26 +11,15 @@
 
 ; This flag must be defined if you want to bypass the standard polygon engine
 
-ENABLE_INDIRECT_FILL_POLY EQU	0
+			.586P
+			.MMX
+			.MODEL	FLAT, C
 
-
-
-JMP_FILL_POLY		MACRO
-IFDEF	ENABLE_INDIRECT_FILL_POLY
-			jmp	[Fill_Poly]
-ELSE
-			jmp	Fill_PolyFast
-ENDIF
-			ENDM
-
-
-
-			.486P
-;			.MODEL	FLAT, SYSCALL
-
-			OPTION	PROC:PRIVATE
+			;OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			;OPTION	LANGUAGE:C
+
+			.DATA
 
 
 ; ╔════════════════════════════════════════════════════════════════════════════╗
@@ -39,21 +28,19 @@ ENDIF
 ; ║                                                                            ║
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
-INCLUDE			IAMMX.INC
 INCLUDE			AFF_OBJ.INC
 INCLUDE			FILLER.INC
 INCLUDE			3D.INC
 INCLUDE			MAT.INC
-INCLUDE			CPU.INC
 
 
 
-PUBLIC	SYSCALL		BodyDisplay
-PUBLIC	SYSCALL		BodyDisplay_AlphaBeta
-PUBLIC	SYSCALL		ObjectDisplay
-PUBLIC	SYSCALL		ObjPtrMap
-PUBLIC	SYSCALL		TransFctBody
-PUBLIC	SYSCALL		Obj_ListRotatedPoints
+PUBLIC	C		BodyDisplay
+PUBLIC	C		BodyDisplay_AlphaBeta
+PUBLIC	C		ObjectDisplay
+PUBLIC	C		ObjPtrMap
+PUBLIC	C		TransFctBody
+PUBLIC	C		Obj_ListRotatedPoints
 
 
 W_NORM			EQU	(1 SHL 30)
@@ -69,15 +56,15 @@ W_NORM			EQU	(1 SHL 30)
 TEST_ZFAR3		MACRO
 Local			@@Sup1, @@Sup2
 						; Find the furthest point
-			mov	ax,[Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
-			cmp	ax,[Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			cmp	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			jle	@@Sup1
-			mov	ax,[Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 @@Sup1:
-			cmp	ax,[Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			cmp	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			jle	@@Sup2
-			mov	ax,[Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 @@Sup2:
 			ENDM
 
@@ -89,21 +76,21 @@ Local			@@Sup1, @@Sup2
 TEST_ZFAR4		MACRO
 Local			@@Sup1, @@Sup2, @@Sup3
 						; Find the furthest point
-			mov	ax,[Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
-			mov	ebx,dword ptr [esi].Poly4_P3
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			mov	ebx,dword ptr [esi].STRUC_POLY4_LIGHT.Poly4_P3
 
-			cmp	ax,[Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			cmp	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			jle	@@Sup1
-			mov	ax,[Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 @@Sup1:
 			shr	ebx,16
-			cmp	ax,[Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			cmp	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			jle	@@Sup2
-			mov	ax,[Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 @@Sup2:
-			cmp	ax,[Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			cmp	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			jle	@@Sup3
-			mov	ax,[Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 @@Sup3:
 			ENDM
 
@@ -178,7 +165,7 @@ Local			@@Do_Quad, @@Next_Quad
 			TEST_ZFAR4			; AX = ZFar
 							; EBX = P4
 			shl	eax,16
-			mov	ebx,dword ptr [Obj_ListProjectedPoints+ebx*4].Pt_XE
+			mov	ebx,dword ptr [Obj_ListProjectedPoints+ebx*4]
 
 			cmp	ebx,80008000h
 			je	@@Next_Quad
@@ -237,26 +224,26 @@ Local			@@NoZBuf
 			cmp	[TypeProj],TYPE_3D
 			jne	@@NoZBuf
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P1*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P1*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst].Pt_ZO,ax
+			mov	[Dst].STRUC_POINT.Pt_ZO,ax
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P2*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P2*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst+Size STRUC_POINT].Pt_ZO,ax
+			mov	[Dst+Size STRUC_POINT].STRUC_POINT.Pt_ZO,ax
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P3*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P3*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst+2*(Size STRUC_POINT)].Pt_ZO,ax
+			mov	[Dst+2*(Size STRUC_POINT)].STRUC_POINT.Pt_ZO,ax
 @@NoZBuf:
 			ENDM
 
@@ -269,33 +256,33 @@ Local			@@NoZBuf
 			cmp	[TypeProj],TYPE_3D
 			jne	@@NoZBuf
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P1*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P1*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst].Pt_ZO,ax
+			mov	[Dst].STRUC_POINT.Pt_ZO,ax
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P2*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P2*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst+Size STRUC_POINT].Pt_ZO,ax
+			mov	[Dst+Size STRUC_POINT].STRUC_POINT.Pt_ZO,ax
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P3*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P3*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst+2*(Size STRUC_POINT)].Pt_ZO,ax
+			mov	[Dst+2*(Size STRUC_POINT)].STRUC_POINT.Pt_ZO,ax
 
-			movsx	eax,word ptr [Obj_ListRotatedPoints+P4*8].Obj_Pt_PZ
+			movsx	eax,word ptr [Obj_ListRotatedPoints+P4*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	eax
 			sub	eax,[PosZWr]
 			imul	eax,[Fill_ZBuffer_Factor]
 			sar	eax,16
-			mov	[Dst+3*(Size STRUC_POINT)].Pt_ZO,ax
+			mov	[Dst+3*(Size STRUC_POINT)].STRUC_POINT.Pt_ZO,ax
 @@NoZBuf:
 			ENDM
 
@@ -319,77 +306,64 @@ Local			@@NoZBuf
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
 ;			.DATA
-DGROUP			GROUP	_DATA
-_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
+;DGROUP			GROUP	_DATA
+;_DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 
-Extrn	SYSCALL		ProcessorFeatureFlags:	DWORD	; Contains MMX flag
-
-
-Extrn	SYSCALL		LongRotatePoint	:	DWORD	; Point rotation (32 bit)
-Extrn	SYSCALL		RotatePoint	:	DWORD	; Point rotation (16 bit)
-Extrn	SYSCALL		RotatePointNoMMX:	DWORD	; Point rotation (16 bit)
-Extrn	SYSCALL		RotateMatrix	:	DWORD	; Matrix rotation
-Extrn	SYSCALL		CopyMatrix	:	DWORD	; Matrix copy
-Extrn	SYSCALL		RotTransList	:	DWORD	; Rotation of list of point (16 bit)
-Extrn	SYSCALL		ProjectList	:	DWORD	; Projection of a list of points
+Extrn	C		LongRotatePoint	:	DWORD	; Point rotation (32 bit)
+Extrn	C		RotatePoint	:	DWORD	; Point rotation (16 bit)
+Extrn	C		RotatePointNoMMX:	DWORD	; Point rotation (16 bit)
+Extrn	C		RotateMatrix	:	DWORD	; Matrix rotation
+Extrn	C		CopyMatrix	:	DWORD	; Matrix copy
+Extrn	C		RotTransList	:	DWORD	; Rotation of list of point (16 bit)
+Extrn	C		ProjectList	:	DWORD	; Projection of a list of points
 							; The points are first translated:
 							; XE = Lx*(Xlist+TX-CameraXr)/(Zlist+TZ-CameraZr)
 							; YE = Ly*(Ylist+TY-CameraYr)/(Zlist+TZ-CameraZr)
 
-Extrn	SYSCALL		LightList	:	DWORD	; Calculates the light at each point of the list
+Extrn	C		LightList	:	DWORD	; Calculates the light at each point of the list
 
-Extrn	SYSCALL		InitMatrixTrans	:	DWORD	; Initialize the translation scalars for a given matrix
+Extrn	C		InitMatrixTrans	:	DWORD	; Initialize the translation scalars for a given matrix
 
 
 
-Extrn	SYSCALL		ScreenXMin	:	DWORD	; Screen size
-Extrn	SYSCALL		ScreenXMax	:	DWORD	; Screen size
-Extrn	SYSCALL		ScreenYMin	:	DWORD	; Screen size
-Extrn	SYSCALL		ScreenYMax	:	DWORD	; Screen size
+Extrn	C		ScreenXMin	:	DWORD	; Screen size
+Extrn	C		ScreenXMax	:	DWORD	; Screen size
+Extrn	C		ScreenYMin	:	DWORD	; Screen size
+Extrn	C		ScreenYMax	:	DWORD	; Screen size
 
-Extrn	SYSCALL		ClipXMin	:	DWORD	; Clip coord
-Extrn	SYSCALL		ClipXMax	:	DWORD	; Clip coord
-Extrn	SYSCALL		ClipYMin	:	DWORD	; Clip coord
-Extrn	SYSCALL		ClipYMax	:	DWORD	; Clip coord
+Extrn	C		ClipXMin	:	DWORD	; Clip coord
+Extrn	C		ClipXMax	:	DWORD	; Clip coord
+Extrn	C		ClipYMin	:	DWORD	; Clip coord
+Extrn	C		ClipYMax	:	DWORD	; Clip coord
 
-Extrn	SYSCALL		TypeProj	:	DWORD	; Projection type
-Extrn	SYSCALL		MatriceWorld	:	DWORD	; World matrix
+Extrn	C		TypeProj	:	DWORD	; Projection type
+Extrn	C		MatriceWorld	:	DWORD	; World matrix
 
-Extrn	SYSCALL		X0		:	DWORD	; Return value of RotatePoint
-Extrn	SYSCALL		Y0		:	DWORD	; Return value of RotatePoint
-Extrn	SYSCALL		Z0		:	DWORD	; Return value of RotatePoint
+Extrn	C		X0		:	DWORD	; Return value of RotatePoint
+Extrn	C		Y0		:	DWORD	; Return value of RotatePoint
+Extrn	C		Z0		:	DWORD	; Return value of RotatePoint
 
 				; poly.asm
-IFDEF	ENABLE_INDIRECT_FILL_POLY
-Extrn	SYSCALL		Fill_Poly	:	DWORD
-ENDIF
-Extrn	SYSCALL		RepMask		:	DWORD	; Repeat zone for texture mapping
-Extrn	SYSCALL		PtrMap		:	DWORD	; Ptr of texture
-Extrn	SYSCALL		Fill_Flag_ZBuffer:	BYTE	; TRUE if Zbuffer active
-Extrn	SYSCALL		Fill_ZBuffer_Factor:	DWORD	; ZBuffer factor to have a 16 bit zbuf
-Extrn	SYSCALL		Fill_Flag_NZW	:	BYTE	; TRUE if no Z Buffer updates
+Extrn	C		RepMask		:	DWORD	; Repeat zone for texture mapping
+Extrn	C		PtrMap		:	DWORD	; Ptr of texture
+Extrn	C		Fill_Flag_ZBuffer:	BYTE	; TRUE if Zbuffer active
+Extrn	C		Fill_ZBuffer_Factor:	DWORD	; ZBuffer factor to have a 16 bit zbuf
+Extrn	C		Fill_Flag_NZW	:	BYTE	; TRUE if no Z Buffer updates
 
 
 				; Camera.asm
-Extrn	SYSCALL		CameraXr	:	DWORD	; Camera coord in observer space
-Extrn	SYSCALL		CameraYr	:	DWORD
-Extrn	SYSCALL		CameraZr	:	DWORD
-Extrn	SYSCALL		NearClip	:	DWORD
-Extrn	SYSCALL		CameraZrClip	:	DWORD
+Extrn	C		CameraXr	:	DWORD	; Camera coord in observer space
+Extrn	C		CameraYr	:	DWORD
+Extrn	C		CameraZr	:	DWORD
+Extrn	C		NearClip	:	DWORD
+Extrn	C		CameraZrClip	:	DWORD
 
-Extrn	SYSCALL		LFactorX	:	DWORD
-
-
-				; Chooser.asm
-Extrn	SYSCALL		Chooser_RtnI	:	DWORD
-Extrn	SYSCALL		Chooser_RtnF	:	DWORD
-Extrn	SYSCALL		Chooser_RtnM	:	DWORD
-Extrn	SYSCALL		Chooser_Result	:	DWORD
-
+Extrn	C		LFactorX	:	DWORD
 
 
 			ALIGN	4
-TestVisible		dd	Init_TestVisible	; Fastest method
+TestVisible		dd	TestVisibleI
+;TestVisible		dd	TestVisibleF
 
 PtrTextures		dd	0		; Ptr of texture handles
 ObjPtrMap		dd	0		; Ptr of the texture page for the current object
@@ -467,7 +441,7 @@ ENDM
 
 
 
-_DATA			ENDS
+;_DATA			ENDS
 
 
 ; ╔════════════════════════════════════════════════════════════════════════════╗
@@ -476,17 +450,14 @@ _DATA			ENDS
 ; ║                                                                            ║
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
-_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
-			ASSUME	CS:_TEXT, DS:DGROUP, ES:DGROUP, SS:DGROUP
-;			.CODE
+;_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
+;			ASSUME	CS:_TEXT, DS:DGROUP, ES:DGROUP, SS:DGROUP
+			.CODE
 
 
-IFNDEF	ENABLE_INDIRECT_FILL_POLY
-Extrn	SYSCALL		Fill_PolyFast	:	PROC
-ENDIF
-Extrn	SYSCALL		Fill_Sphere	:	PROC
-Extrn	SYSCALL		Line_A		:	PROC
-Extrn	SYSCALL		Chooser		:	PROC
+Extrn	C		Fill_PolyFast	:	PROC
+Extrn	C		Fill_Sphere	:	PROC
+Extrn	C		Line_A		:	PROC
 
 
 
@@ -501,14 +472,24 @@ Extrn	SYSCALL		Chooser		:	PROC
 ; ║                                                                            ║
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
-BodyDisplay		PROC
+BodyDisplay		PROC \
+			uses ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, z: DWORD, alpha: DWORD, beta: DWORD, gamma: DWORD, body: DWORD
+			mov eax, x
+			mov ebx, y
+			mov ecx, z
+			mov edx, alpha
+			mov esi, beta
+			mov edi, gamma
+
+
 			push	ebp
 			push	edx			; Push angles
 
 			push	esi
 			push	edi
 
-			mov	ebp,[esp+4+4*4]		; EBP = PTR on object
+			mov	ebp,body		; EBP = PTR on object
 			mov	edx,7FFFFFFFh
 
 			mov	[lBody],ebp
@@ -575,8 +556,8 @@ Return_BodyDisplay::
 			; *** POINTS ***
 			; **************
 
-			mov	ecx,[ebp].Obj_Nb_Points
-			mov	eax,[ebp].Obj_Off_Points
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Points
+			mov	eax,[ebp].STRUC_OBJ_HEADER.Obj_Off_Points
 
 			mov	edi,Offset Obj_ListRotatedPoints
 			mov	esi,ebp
@@ -609,7 +590,7 @@ Return_BodyDisplay::
 			push	eax			; Push OrgX
 			mov	edi,Offset Obj_ListProjectedPoints
 
-			mov	ecx,[ebp].Obj_Nb_Points
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Points
 			call	[ProjectList]		; Projection
 
 			add	esp,3*4			; Pop parameters
@@ -649,10 +630,10 @@ Return_BodyDisplay::
 
 						; *** Calculate the intensities ***
 			mov	ebx,Offset TabMat
-			mov	esi,[ebp].Obj_Off_Normales	; First list of normals
+			mov	esi,[ebp].STRUC_OBJ_HEADER.Obj_Off_Normales	; First list of normals
 
 			mov	edi,Offset ListLights
-			mov	ecx,[ebp].Obj_Nb_Normales
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Normales
 
 			add	esi,ebp
 			push	ecx
@@ -660,13 +641,13 @@ Return_BodyDisplay::
 			call	[LightList]
 
 			pop	ecx
-			mov	esi,[ebp].Obj_Off_NormFaces
+			mov	esi,[ebp].STRUC_OBJ_HEADER.Obj_Off_NormFaces
 
 			mov	ebx,Offset TabMat
 			add	esi,ebp
 
 			lea	edi,[Offset ListLights+ecx*2]
-			mov	ecx,[ebp].Obj_Nb_NormFaces
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_NormFaces
 
 			call	[LightList]
 
@@ -676,8 +657,6 @@ Return_BodyDisplay::
 ; │                                                                 │
 ; └─────────────────────────────────────────────────────────────────┘
 EntityCreation::
-			CLEAN_MMX			; ObjectDisplay should
-							; do the EMMS
 			; *****************
 			; *** POLYGONES ***
 			; *****************
@@ -688,8 +667,8 @@ EntityCreation::
 			mov	[Off_Sort],eax
 			mov	[Nb_Sort],ebx
 
-			mov	edi,[ebp].Obj_Off_Polys ; EDI = Current offset in poly list
-			mov	eax,[ebp].Obj_Off_Lines
+			mov	edi,[ebp].STRUC_OBJ_HEADER.Obj_Off_Polys ; EDI = Current offset in poly list
+			mov	eax,[ebp].STRUC_OBJ_HEADER.Obj_Off_Lines
 
 			mov	esi,edi
 			add	eax,ebp			; End source offset
@@ -700,7 +679,7 @@ EntityCreation::
 			cmp	esi,[esp]		; Faster on a 486, too bad 4 the Pentium
 			je	@@Do_Lines		; Is there at least a poly ?
 
-			mov	ecx,dword ptr [esi].Obj_TypePoly
+			mov	ecx,dword ptr [esi].STRUC_POLY_HEADER.Obj_TypePoly
 			add	esi,Size STRUC_POLY_HEADER
 
 			mov	eax,ecx
@@ -759,28 +738,28 @@ EntityCreation::
 			mov	ebp,[lBody]
 			pop	eax			; POP End loop pointer
 
-			mov	ecx,[ebp].Obj_Nb_Lines
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Lines
 			test	ecx,ecx
 			je	@@Do_Spheres		; Is there anything to do?
 @@Loop_Lines:
-			mov	ebx,dword ptr [esi].Obj_Line_P1
+			mov	ebx,dword ptr [esi].STRUC_OBJ_LINE.Obj_Line_P1
 			mov	ebp,ebx
 
 			shr	ebp,16			; EBP = P2
 			and	ebx,0FFFFh		; EBX = P1
 
-			mov	ax,[Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			push	ecx
 
-			cmp	ax,[Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			cmp	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			jle	@@Line_Sup
-			mov	ax,[Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			mov	ax,[Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 @@Line_Sup:
 			shl	eax,16
 			mov	ebx,[Off_Sort]		; offset of sort list
 
 			mov	edx,[Nb_Sort]		; Number of entries in sort list
-			mov	ecx,dword ptr [esi].Obj_LineType ; Line type
+			mov	ecx,dword ptr [esi].STRUC_OBJ_LINE.Obj_LineType ; Line type
 
 			add	ecx,MAX_POLYS_TYPE*4	; Get correct pos for a line
 			or	eax,edx			; EAX = | ZFar | Poly Number |
@@ -811,22 +790,22 @@ EntityCreation::
 @@Do_Spheres:
 			mov	ebp,[lBody]
 				; AGI :(
-			mov	ecx,[ebp].Obj_Nb_Spheres
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Spheres
 			test	ecx,ecx
 			je	@@Do_Sort		; Is there anything to do?
 
 @@Loop_Spheres:
 			push	ecx
-			mov	ebx,dword ptr [esi].Obj_Sphere_P1
+			mov	ebx,dword ptr [esi].STRUC_OBJ_SPHERE.Obj_Sphere_P1
 
 			and	ebx,0FFFFh		; EBX = P1
 			mov	edx,[Nb_Sort]		; Number of entries in sort list
 
-			mov	eax,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	eax,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			mov	ebx,[Off_Sort]		; offset of sort list
 
 			shl	eax,16
-			mov	ecx,dword ptr [esi].Obj_SphereType ; Sphere type
+			mov	ecx,dword ptr [esi].STRUC_OBJ_SPHERE.Obj_SphereType ; Sphere type
 
 							; Get correct pos for a sphere
 			add	ecx,MAX_POLYS_TYPE*4+MAX_LINES_TYPE
@@ -865,7 +844,7 @@ EntityCreation::
 			mov	ecx,[Off_Sort]
 			cmp	ebx,ecx			; Anything to do ?
 
-			mov	eax,[esi].Obj_Info
+			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Info
 			je	ByeBye
 
 			sub	ecx,4			; EBX = PTR on the fist element
@@ -899,7 +878,7 @@ EntityCreation::
 			mov	esi,Offset ListSort
 
 			mov	ecx,[Nb_Sort]
-			mov	eax,[ebp].Obj_Off_Textures
+			mov	eax,[ebp].STRUC_OBJ_HEADER.Obj_Off_Textures
 
 			mov	ebx,esi
 			add	eax,ebp
@@ -1080,7 +1059,7 @@ ByeBye::
 			; *************
 @@Triangle_Solid:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1088,7 +1067,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1096,26 +1075,26 @@ ByeBye::
 			GET_ZO3	esi, ebx, ecx, edi		; ZBuffer
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-			mov	ebx,dword ptr [ebp].Poly3_Couleur
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	ecx,3
 
 			pop	eax
 			and	ebx,0FFh
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 @@Quad_Solid:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1123,7 +1102,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1134,25 +1113,25 @@ ByeBye::
 			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
-			mov	ebx,dword ptr [ebp].Poly4_Couleur
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	ecx,4
 
 			pop	eax
 			and	ebx,0FFh
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1161,13 +1140,13 @@ ByeBye::
 			; *** FLAT ***
 			; ************
 @@Triangle_Flat:
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 			mov	ecx,ebx
 
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1176,11 +1155,11 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
-			mov	ebx,dword ptr [ebp].Poly3_Couleur
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
 			mov	edx,[Obj_ListProjectedPoints+edi*4]
 			mov	eax,ebx
@@ -1189,7 +1168,7 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			mov	ax,[ListLights+eax*2]		; No AGI thanx to prefix ;)
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,edx
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,edx
 
 			shr	eax,8
 			mov	ecx,3
@@ -1198,17 +1177,17 @@ ByeBye::
 			mov	eax,1
 
 			and	ebx,0FFh
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Flat:
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 			mov	ecx,ebx
 
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1220,20 +1199,20 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
-			mov	ebx,dword ptr [ebp].Poly4_Couleur
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
 
 			mov	eax,ebx
 			mov	ecx,[Obj_ListProjectedPoints+edx*4]
 
 			shr	eax,16				; EAX = Face normal number
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,ecx
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,ecx
 
 			mov	ax,[ListLights+eax*2]
 			mov	ecx,4
@@ -1245,7 +1224,7 @@ ByeBye::
 			mov	eax,1
 
 			and	ebx,0FFh
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1255,7 +1234,7 @@ ByeBye::
 			; ***************
 @@Triangle_Gouraud:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1263,7 +1242,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1272,33 +1251,33 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			mov	dx,[ListLights+ebx*2]
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			mov	ax,[ListLights+ecx*2]
 			mov	ecx,3
 
-			mov	[esi].Pt_Light,dx
-			mov	ebx,dword ptr [ebp].Poly3_Couleur
+			mov	[esi].STRUC_POINT.Pt_Light,dx
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
-			mov	[esi+Size STRUC_POINT].Pt_Light,ax
+			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,ax
 			pop	eax
 
 			mov	dx,[ListLights+edi*2]
 			push	Offset @@Return_Display
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_Light,dx
-			JMP_FILL_POLY
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
+			jmp	Fill_PolyFast
 
 @@Quad_Gouraud:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1306,7 +1285,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1318,37 +1297,37 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
 			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
-			mov	[esi].Pt_Light,bx
+			mov	[esi].STRUC_POINT.Pt_Light,bx
 			pop	eax
 
 			mov	cx,[ListLights+ecx*2]
-			mov	ebx,dword ptr [ebp].Poly4_Couleur
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
 
-			mov	[esi+Size STRUC_POINT].Pt_Light,cx
+			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,cx
 			and	ebx,0FFh
 
 			mov	cx,[ListLights+edi*2]
 			push	Offset @@Return_Display
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_Light,cx
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,cx
 			mov	ecx,4
 
 			mov	dx,[ListLights+edx*2]
 
-			mov	[esi+3*(Size STRUC_POINT)].Pt_Light,dx
-			JMP_FILL_POLY
+			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
+			jmp	Fill_PolyFast
 
 
 
@@ -1357,7 +1336,7 @@ ByeBye::
 			; *********************
 @@Triangle_Texture_Solid:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1365,7 +1344,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1374,32 +1353,32 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly3_P3	; Get texture handle
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
 
 			shr	edx,16-2
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].Poly3_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly3_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
 
 			mov	edx,[edx]			; Get texture infos
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
 			mov	ecx,edx
-			mov	eax,dword ptr [ebp].Poly3_U3
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
 
 			shr	ecx,16				; ECX = RepMask
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -1413,12 +1392,12 @@ ByeBye::
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Texture_Solid:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1426,7 +1405,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1438,40 +1417,40 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
-			mov	ebx,dword ptr [ebp].Poly4_HandleText
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText
 
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 			and	ebx,0FFFFh
 
 			shl	ebx,2
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 
 			add	ebx,[PtrTextures]
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
 			mov	ebx,[ebx]
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			mov	ecx,ebx
-			mov	eax,dword ptr [ebp].Poly4_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
 
 			shr	ebx,16				; EBX = RepMask
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
 			and	ecx,0FFFFh			; ECX = OrgMap
-			mov	eax,dword ptr [ebp].Poly4_U2
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U3
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U4
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			mov	eax,[ObjPtrMap]
 
 			mov	[RepMask],ebx
@@ -1483,7 +1462,7 @@ ByeBye::
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 			; ********************
@@ -1491,7 +1470,7 @@ ByeBye::
 			; ********************
 @@Triangle_Texture_Flat:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1499,7 +1478,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1508,37 +1487,37 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly3_P3	; Get texture handle in high word
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle in high word
 
 			shr	edx,16-2
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
 			and	edx,not 11b
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 
 			add	edx,[PtrTextures]
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
-			mov	eax,dword ptr [ebp].Poly3_U1
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
 
 			mov	edx,[edx]			; get texture infos
-			mov	ebx,dword ptr [ebp].Poly3_Couleur
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
 			mov	ecx,edx
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
 			shr	ebx,16
-			mov	eax,dword ptr [ebp].Poly3_U2
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
 
 			shr	edx,16
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
 			and	ecx,0FFFFh
-			mov	eax,dword ptr [ebp].Poly3_U3
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			mov	eax,[ObjPtrMap]
 
 			mov	[RepMask],edx
@@ -1553,12 +1532,12 @@ ByeBye::
 			shr	ebx,8
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Texture_Flat:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1566,7 +1545,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1578,44 +1557,44 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly4_HandleText	; Get texture handle
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText	; Get texture handle
 
 			shl	edx,2
-			mov	eax,dword ptr [ebp].Poly4_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
 
 			add	edx,[PtrTextures]
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
-			mov	ebx,dword ptr [ebp].Poly4_Couleur; Get normal in high word
-			mov	eax,dword ptr [ebp].Poly4_U2
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur; Get normal in high word
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
 
 			shr	ebx,16
 			mov	edx,[edx]			; Get texture infos
 
 			mov	edi,edx
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
 			shr	edx,16
-			mov	eax,dword ptr [ebp].Poly4_U3
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
 
 			and	edi,0FFFFh
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			mov	[RepMask],edx
-			mov	eax,dword ptr [ebp].Poly4_U4
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
 
 			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			mov	ecx,4				; Nb pts
 			mov	eax,[ObjPtrMap]
@@ -1627,7 +1606,7 @@ ByeBye::
 			push	Offset @@Return_Display
 
 			shr	ebx,8
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -1637,7 +1616,7 @@ ByeBye::
 			; ***********************
 @@Triangle_Texture_Gouraud:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1645,7 +1624,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1654,40 +1633,40 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly3_P3	; Get texture handle
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
 
 			shr	edx,16-2
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].Poly3_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly3_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
 
 			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
-			mov	[esi].Pt_Light,bx
+			mov	[esi].STRUC_POINT.Pt_Light,bx
 			mov	edx,[edx]			; Get texture infos
 
 			mov	bx,[ListLights+ecx*2]
 			mov	ecx,edx
 
-			mov	[esi+Size STRUC_POINT].Pt_Light,bx
-			mov	eax,dword ptr [ebp].Poly3_U3
+			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,bx
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
 
 			mov	bx,[ListLights+edi*2]
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_Light,bx
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,bx
 			and	edx,0FFFFh			; EDX = OrgMap
 
 			shr	ecx,16				; ECX = RepMask
@@ -1702,12 +1681,12 @@ ByeBye::
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_Texture_Gouraud:
 			shr	eax,2
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1715,7 +1694,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1728,51 +1707,51 @@ ByeBye::
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
 			mov	bx,[ListLights+ebx*2]
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 
-			mov	[esi].Pt_Light,bx
-			mov	ebx,dword ptr [ebp].Poly4_HandleText
+			mov	[esi].STRUC_POINT.Pt_Light,bx
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText
 
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 			and	ebx,0FFFFh
 
 			shl	ebx,2
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 
 			mov	cx,[ListLights+ecx*2]
 			add	ebx,[PtrTextures]
 
-			mov	[esi+Size STRUC_POINT].Pt_Light,cx
+			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,cx
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			mov	di,[ListLights+edi*2]
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_Light,di
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,di
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
 			mov	dx,[ListLights+edx*2]
 			mov	ebx,[ebx]
 
-			mov	[esi+3*(Size STRUC_POINT)].Pt_Light,dx
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,dx
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			mov	ecx,ebx
-			mov	eax,dword ptr [ebp].Poly4_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
 
 			shr	ebx,16				; EBX = RepMask
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
 			and	ecx,0FFFFh			; ECX = OrgMap
-			mov	eax,dword ptr [ebp].Poly4_U2
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U3
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U4
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			mov	eax,[ObjPtrMap]
 
 			add	ecx,eax
@@ -1784,7 +1763,7 @@ ByeBye::
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 			; ***********************
@@ -1792,7 +1771,7 @@ ByeBye::
 			; ***********************
 @@Triangle_TextureZ_Solid:
 			shr	eax,2				; Get poly type
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1800,7 +1779,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -1809,32 +1788,32 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly3_P3	; Get texture handle
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
 
 			shr	edx,16-2
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].Poly3_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly3_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
 
 			mov	edx,[edx]			; Get texture infos
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
-			mov	eax,dword ptr [ebp].Poly3_U3
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
 			mov	ebp,edx
 
 			shr	ebp,16				; EBP = RepMask
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -1843,7 +1822,7 @@ ByeBye::
 			add	edx,eax
 
 			mov	[PtrMap],edx
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	ebp,[PosZWr]
@@ -1851,16 +1830,16 @@ ByeBye::
 			sar	ebx,16
 			xor	edx,edx
 
-			mov	ecx,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	ecx,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			add	ebx,ebp
 
 			mov	eax,W_NORM
-			mov	edi,dword ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			mov	edi,dword ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			idiv	ebx
 
 			shl	ecx,16
-			mov	[esi].Pt_W,eax
+			mov	[esi].STRUC_POINT.Pt_W,eax
 
 			sar	ecx,16
 			xor	edx,edx
@@ -1871,7 +1850,7 @@ ByeBye::
 			idiv	ecx
 
 			shl	edi,16
-			mov	[esi+(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 
 			sar	edi,16
 			xor	edx,edx
@@ -1881,18 +1860,18 @@ ByeBye::
 
 			idiv	edi
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 			pop	eax
 
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_TextureZ_Solid:
 			shr	eax,2				; Get poly type
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -1900,7 +1879,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -1912,41 +1891,41 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+1*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+1*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			push	edx
 
-			mov	edx,dword ptr [ebp].Poly4_HandleText; Get texture handle
+			mov	edx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText; Get texture handle
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			and	edx,0FFFFh
 
 			shl	edx,2
 			mov	eax,[PtrTextures]
 
 			add	edx,eax
-			mov	eax,dword ptr [ebp].Poly4_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U3
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			mov	edx,[edx]			; Get texture infos
 
-			mov	eax,dword ptr [ebp].Poly4_U4
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
 			mov	ebp,edx
 
 			shr	ebp,16				; EBP = RepMask
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -1955,7 +1934,7 @@ ByeBye::
 			add	edx,eax
 
 			mov	[PtrMap],edx
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -1970,8 +1949,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	[esi].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -1984,8 +1963,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+(Size STRUC_POINT)].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			mov	[esi+(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -1998,8 +1977,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2012,13 +1991,13 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+3*(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 			pop	eax
 
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2029,10 +2008,10 @@ ByeBye::
 
 @@Triangle_TextureZ_Flat:
 			shr	eax,2				; Get poly type
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
-			mov	eax,dword ptr [ebp].Poly3_Couleur
+			mov	eax,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
 			shr	eax,16				; EAX = Normal vector number
 			mov	ecx,ebx
@@ -2041,7 +2020,7 @@ ByeBye::
 			and	ebx,0FFFFh			; EBX = P1
 
 			mov	ax,[ListLights+eax*2]		; Get intensity
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 
 			shr	eax,8				; Shift intensity
 			lea	esi,ListFillPoly
@@ -2053,32 +2032,32 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly3_P3	; Get texture handle
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
 
 			shr	edx,16-2
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].Poly3_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly3_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
 
 			mov	edx,[edx]			; Get texture infos
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
-			mov	eax,dword ptr [ebp].Poly3_U3
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
 			mov	ebp,edx
 
 			shr	ebp,16				; EBP = RepMask
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -2087,7 +2066,7 @@ ByeBye::
 			add	edx,eax
 
 			mov	[PtrMap],edx
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	ebp,[PosZWr]
@@ -2095,16 +2074,16 @@ ByeBye::
 			sar	ebx,16
 			xor	edx,edx
 
-			mov	ecx,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	ecx,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			add	ebx,ebp
 
 			mov	eax,W_NORM
-			mov	edi,dword ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			mov	edi,dword ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			idiv	ebx
 
 			shl	ecx,16
-			mov	[esi].Pt_W,eax
+			mov	[esi].STRUC_POINT.Pt_W,eax
 
 			sar	ecx,16
 			xor	edx,edx
@@ -2115,7 +2094,7 @@ ByeBye::
 			idiv	ecx
 
 			shl	edi,16
-			mov	[esi+(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 
 			sar	edi,16
 			xor	edx,edx
@@ -2125,22 +2104,22 @@ ByeBye::
 
 			idiv	edi
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 			pop	ebx			; Get light
 
 			pop	eax			; Get poly number
 			mov	ecx,3
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_TextureZ_Flat:
 			shr	eax,2				; Get poly type
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
-			mov	eax,dword ptr [ebp].Poly4_Couleur
+			mov	eax,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
 
 			shr	eax,16				; EAX = Normal vector number
 			mov	ecx,ebx
@@ -2149,7 +2128,7 @@ ByeBye::
 			and	ebx,0FFFFh			; EBX = P1
 
 			mov	ax,[ListLights+eax*2]		; Get intensity
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 
 			shr	eax,8				; Shift intensity
 			lea	esi,ListFillPoly
@@ -2161,44 +2140,44 @@ ByeBye::
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
 			and	edi,0FFFFh			; EDI = P3
-			mov	dword ptr [esi+1*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+1*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			GET_ZO4	esi, ebx, ecx, edi, edx		; ZBuffer
 
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 			push	edx
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
-			mov	edx,dword ptr [ebp].Poly4_HandleText; Get texture handle
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+			mov	edx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText; Get texture handle
 
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 			and	edx,0FFFFh
 
 			shl	edx,2
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[PtrTextures]
 
 			add	edx,eax
-			mov	eax,dword ptr [ebp].Poly4_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U3
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			mov	edx,[edx]			; Get texture infos
 
-			mov	eax,dword ptr [ebp].Poly4_U4
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
 			mov	ebp,edx
 
 			shr	ebp,16				; EBP = RepMask
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -2207,7 +2186,7 @@ ByeBye::
 			add	edx,eax
 
 			mov	[PtrMap],edx
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2222,8 +2201,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	[esi].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2236,8 +2215,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+(Size STRUC_POINT)].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			mov	[esi+(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2250,8 +2229,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2264,14 +2243,14 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+3*(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 			pop	ebx			; Get light
 
 			pop	eax			; Get Poly number
 			mov	ecx,4
 
 			push	Offset @@Return_Display
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2281,7 +2260,7 @@ ByeBye::
 			; *************************
 @@Triangle_TextureZ_Gouraud:
 			shr	eax,2				; Get poly type
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -2289,7 +2268,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly3_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	esi,ListFillPoly
 
 			and	edi,0FFFFh			; EDI = P3
@@ -2299,40 +2278,40 @@ ByeBye::
 			mov	dx,[ListLights+ebx*2]
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	[esi].Pt_Light,dx
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	[esi].STRUC_POINT.Pt_Light,dx
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 
 			mov	dx,[ListLights+ecx*2]
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	[esi+Size STRUC_POINT].Pt_Light,dx
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_XE,eax
+			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,dx
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 
 			mov	ax,[ListLights+edi*2]
-			mov	edx,dword ptr [ebp].Poly3_P3	; Get texture handle
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get texture handle
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_Light,ax
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,ax
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
 			shr	edx,16-2
 
 			and	edx,not 11b
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			add	edx,[PtrTextures]
-			mov	eax,dword ptr [ebp].Poly3_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly3_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U2
 
 			mov	edx,[edx]			; Get texture infos
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
 
-			mov	eax,dword ptr [ebp].Poly3_U3
+			mov	eax,dword ptr [ebp].STRUC_POLY3_TEXTURE.Poly3_U3
 			mov	ebp,edx
 
 			shr	ebp,16				; EBP = RepMask
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -2341,7 +2320,7 @@ ByeBye::
 			add	edx,eax
 
 			mov	[PtrMap],edx
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	ebp,[PosZWr]
@@ -2349,16 +2328,16 @@ ByeBye::
 			sar	ebx,16
 			xor	edx,edx
 
-			mov	ecx,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	ecx,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			add	ebx,ebp
 
 			mov	eax,W_NORM
-			mov	edi,dword ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			mov	edi,dword ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			idiv	ebx
 
 			shl	ecx,16
-			mov	[esi].Pt_W,eax
+			mov	[esi].STRUC_POINT.Pt_W,eax
 
 			sar	ecx,16
 			xor	edx,edx
@@ -2369,7 +2348,7 @@ ByeBye::
 			idiv	ecx
 
 			shl	edi,16
-			mov	[esi+(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 
 			sar	edi,16
 			xor	edx,edx
@@ -2379,18 +2358,18 @@ ByeBye::
 
 			idiv	edi
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 			pop	eax
 
 			mov	ecx,3
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 @@Quad_TextureZ_Gouraud:
 			shr	eax,2				; Get poly type
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -2398,7 +2377,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edi,dword ptr [ebp].Poly4_P3
+			mov	edi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	esi,ListFillPoly
 
 			mov	edx,edi
@@ -2410,56 +2389,56 @@ ByeBye::
 
 			mov	ax,[ListLights+ebx*2]
 
-			mov	[esi].Pt_Light,ax
+			mov	[esi].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+ecx*2]
 
-			mov	[esi+Size STRUC_POINT].Pt_Light,ax
+			mov	[esi+Size STRUC_POINT].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+edi*2]
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_Light,ax
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+edx*2]
 
-			mov	[esi+3*(Size STRUC_POINT)].Pt_Light,ax
+			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,ax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [esi+1*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+1*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			push	edx
 
-			mov	edx,dword ptr [ebp].Poly4_HandleText; Get texture handle
+			mov	edx,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_HandleText; Get texture handle
 			mov	eax,[Obj_ListProjectedPoints+edi*4]
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [esi].Pt_XE,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_XE,eax
 			and	edx,0FFFFh
 
 			shl	edx,2
 			mov	eax,[PtrTextures]
 
 			add	edx,eax
-			mov	eax,dword ptr [ebp].Poly4_U1
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U1
 
-			mov	dword ptr [esi].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U2
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U2
 
-			mov	dword ptr [esi+Size STRUC_POINT].Pt_MapU,eax
-			mov	eax,dword ptr [ebp].Poly4_U3
+			mov	dword ptr [esi+Size STRUC_POINT].STRUC_POINT.Pt_MapU,eax
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U3
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			mov	edx,[edx]			; Get texture infos
 
-			mov	eax,dword ptr [ebp].Poly4_U4
+			mov	eax,dword ptr [ebp].STRUC_POLY4_TEXTURE.Poly4_U4
 			mov	ebp,edx
 
 			shr	ebp,16				; EBP = RepMask
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 
 			and	edx,0FFFFh			; EDX = OrgMap
 			mov	eax,[ObjPtrMap]
@@ -2468,7 +2447,7 @@ ByeBye::
 			add	edx,eax
 
 			mov	[PtrMap],edx
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2483,8 +2462,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	[esi].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2497,8 +2476,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+(Size STRUC_POINT)].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			mov	[esi+(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2511,8 +2490,8 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+2*(Size STRUC_POINT)].Pt_W,eax
-			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebp*8].Obj_Pt_PZ
+			mov	[esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
+			mov	ebx,dword ptr [Obj_ListRotatedPoints+ebp*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	ebx,16
 			mov	edx,[PosZWr]
@@ -2525,13 +2504,13 @@ ByeBye::
 
 			idiv	ebx
 
-			mov	[esi+3*(Size STRUC_POINT)].Pt_W,eax
+			mov	[esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_W,eax
 			pop	eax
 
 			mov	ecx,4
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2547,7 +2526,7 @@ ByeBye::
 
 @@Triangle_EnvTexture_Solid:
 			shr	eax,2				; Get Poly type
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -2555,7 +2534,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edx,dword ptr [ebp].Poly3_P3
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	edi,ListFillPoly
 
 			and	edx,0FFFFh			; EDX = P3
@@ -2564,14 +2543,14 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [edi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [edi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [edi+2*(Size STRUC_POINT)].Pt_XE,eax
-			mov	eax,dword ptr[ebp].Poly3_P3
+			mov	dword ptr [edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+			mov	eax,dword ptr[ebp].STRUC_POLY3_LIGHT.Poly3_P3
 
 			shr	eax,16-2
 			mov	edi,[lBody]
@@ -2580,7 +2559,7 @@ ByeBye::
 			mov	esi,[PtrTextures]
 
 			add	eax,esi
-			mov	esi,[edi].Obj_Off_Normales
+			mov	esi,[edi].STRUC_OBJ_HEADER.Obj_Off_Normales
 
 			add	edi,esi
 			push	ebp
@@ -2623,9 +2602,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi].VT_X
-			movsx	ebx,[esi].VT_Y
-			movsx	ecx,[esi].VT_Z
+			movsx	eax,[esi].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2643,9 +2622,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+8].VT_X
-			movsx	ebx,[esi+8].VT_Y
-			movsx	ecx,[esi+8].VT_Z
+			movsx	eax,[esi+8].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+8].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+8].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+8]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2663,9 +2642,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+16].VT_X
-			movsx	ebx,[esi+16].VT_Y
-			movsx	ecx,[esi+16].VT_Z
+			movsx	eax,[esi+16].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+16].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+16].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+16]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2682,7 +2661,7 @@ ByeBye::
 			mov	[edi+4+16],ecx
 
 
-			mov	ecx,dword ptr [ebp].Poly3_Scale
+			mov	ecx,dword ptr [ebp].STRUC_POLY3_ENV.Poly3_Scale
 			mov	edi,(Offset ListNormEnv)+8*4
 
 			and	ecx,0FFFFh
@@ -2715,7 +2694,7 @@ ByeBye::
 			mov	ebx,ebp
 
 			shr	ebx,16
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
 			and	ebp,0FFFFh
 			mov	eax,[edi+16]
@@ -2733,7 +2712,7 @@ ByeBye::
 			mov	ebx,eax
 
 			shr	ebx,16
-			mov	dword ptr [esi+(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 
 			and	eax,0FFFFh
 
@@ -2749,10 +2728,10 @@ ByeBye::
 			or	ebx,eax
 			pop	eax
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,ebx
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebx
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -2760,7 +2739,7 @@ ByeBye::
 
 @@Quad_EnvTexture_Solid:
 			shr	eax,2				; Get Poly type
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -2768,7 +2747,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	esi,dword ptr [ebp].Poly4_P3
+			mov	esi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	edi,ListFillPoly
 
 			mov	edx,esi
@@ -2780,20 +2759,20 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [edi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [edi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+esi*4]
 
-			mov	dword ptr [edi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [edi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	edi,[lBody]
 
-			mov	eax,dword ptr[ebp].Poly4_Scale
-			mov	ebp,[edi].Obj_Off_Normales	; AGI...
+			mov	eax,dword ptr[ebp].STRUC_POLY4_ENV.Poly4_Scale
+			mov	ebp,[edi].STRUC_OBJ_HEADER.Obj_Off_Normales	; AGI...
 
 			add	edi,ebp
 			mov	ebp,eax
@@ -2838,9 +2817,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi].VT_X
-			movsx	ebx,[esi].VT_Y
-			movsx	ecx,[esi].VT_Z
+			movsx	eax,[esi].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2858,9 +2837,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+8].VT_X
-			movsx	ebx,[esi+8].VT_Y
-			movsx	ecx,[esi+8].VT_Z
+			movsx	eax,[esi+8].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+8].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+8].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+8]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2878,9 +2857,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+16].VT_X
-			movsx	ebx,[esi+16].VT_Y
-			movsx	ecx,[esi+16].VT_Z
+			movsx	eax,[esi+16].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+16].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+16].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+16]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2898,9 +2877,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+24].VT_X
-			movsx	ebx,[esi+24].VT_Y
-			movsx	ecx,[esi+24].VT_Z
+			movsx	eax,[esi+24].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+24].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+24].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+24]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -2966,7 +2945,7 @@ ByeBye::
 			or	eax,ebx
 			mov	ebx,ebp
 
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 			and	ebp,0FFFFh
 
 			shr	ebx,16
@@ -2985,7 +2964,7 @@ ByeBye::
 			mov	ebx,eax
 
 			shr	ebx,16
-			mov	dword ptr [esi+(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 
 			mov	ebp,[edi+24]
 			and	eax,0FFFFh
@@ -3002,7 +2981,7 @@ ByeBye::
 			or	eax,ebx
 			mov	ebx,ebp
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			and	ebp,0FFFFh
 
 			shr	ebx,16
@@ -3019,10 +2998,10 @@ ByeBye::
 			or	ebp,ebx
 			mov	ecx,4
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3034,10 +3013,10 @@ ByeBye::
 
 @@Triangle_EnvTexture_Flat:
 			shr	eax,2				; Get Poly type
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
-			mov	eax,dword ptr [ebp].Poly3_Couleur
+			mov	eax,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_Couleur
 
 			shr	eax,16
 			mov	ecx,ebx
@@ -3048,7 +3027,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			push	eax				; Push Light
 
-			mov	edx,dword ptr [ebp].Poly3_P3
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	edi,ListFillPoly
 
 			and	edx,0FFFFh			; EDX = P3
@@ -3057,14 +3036,14 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [edi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [edi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [edi+2*(Size STRUC_POINT)].Pt_XE,eax
-			mov	eax,dword ptr[ebp].Poly3_P3
+			mov	dword ptr [edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
+			mov	eax,dword ptr[ebp].STRUC_POLY3_LIGHT.Poly3_P3
 
 			shr	eax,16-2
 			mov	edi,[lBody]
@@ -3073,7 +3052,7 @@ ByeBye::
 			mov	esi,[PtrTextures]
 
 			add	eax,esi
-			mov	esi,[edi].Obj_Off_Normales
+			mov	esi,[edi].STRUC_OBJ_HEADER.Obj_Off_Normales
 
 			add	edi,esi
 			push	ebp
@@ -3116,9 +3095,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi].VT_X
-			movsx	ebx,[esi].VT_Y
-			movsx	ecx,[esi].VT_Z
+			movsx	eax,[esi].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3136,9 +3115,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+8].VT_X
-			movsx	ebx,[esi+8].VT_Y
-			movsx	ecx,[esi+8].VT_Z
+			movsx	eax,[esi+8].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+8].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+8].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+8]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3156,9 +3135,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+16].VT_X
-			movsx	ebx,[esi+16].VT_Y
-			movsx	ecx,[esi+16].VT_Z
+			movsx	eax,[esi+16].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+16].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+16].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+16]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3176,7 +3155,7 @@ ByeBye::
 
 
 
-			mov	ecx,dword ptr [ebp].Poly3_Scale
+			mov	ecx,dword ptr [ebp].STRUC_POLY3_ENV.Poly3_Scale
 			mov	edi,(Offset ListNormEnv)+8*4
 
 			and	ecx,0FFFFh
@@ -3209,7 +3188,7 @@ ByeBye::
 			mov	ebx,ebp
 
 			shr	ebx,16
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
 			and	ebp,0FFFFh
 			mov	eax,[edi+16]
@@ -3227,7 +3206,7 @@ ByeBye::
 			mov	ebx,eax
 
 			shr	ebx,16
-			mov	dword ptr [esi+(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 
 			and	eax,0FFFFh
 
@@ -3243,22 +3222,22 @@ ByeBye::
 			or	eax,ebx
 			pop	ebx		; Get Light
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			pop	eax		; Get Polytype
 
 			shr	ebx,8
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
 @@Quad_EnvTexture_Flat:
 			shr	eax,2				; Get Poly type
-			mov	edx,dword ptr [ebp].Poly4_Couleur
+			mov	edx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_Couleur
 
 			shr	edx,16
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			mov	dx,[ListLights+edx*2]
 			mov	ecx,ebx
@@ -3269,7 +3248,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	esi,dword ptr [ebp].Poly4_P3
+			mov	esi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	edi,ListFillPoly
 
 			mov	edx,esi
@@ -3281,20 +3260,20 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [edi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [edi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+esi*4]
 
-			mov	dword ptr [edi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [edi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	edi,[lBody]
 
-			mov	eax,dword ptr[ebp].Poly4_Scale
-			mov	ebp,[edi].Obj_Off_Normales	; AGI...
+			mov	eax,dword ptr[ebp].STRUC_POLY4_ENV.Poly4_Scale
+			mov	ebp,[edi].STRUC_OBJ_HEADER.Obj_Off_Normales	; AGI...
 
 			add	edi,ebp
 			mov	ebp,eax
@@ -3339,9 +3318,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi].VT_X
-			movsx	ebx,[esi].VT_Y
-			movsx	ecx,[esi].VT_Z
+			movsx	eax,[esi].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3359,9 +3338,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+8].VT_X
-			movsx	ebx,[esi+8].VT_Y
-			movsx	ecx,[esi+8].VT_Z
+			movsx	eax,[esi+8].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+8].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+8].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+8]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3379,9 +3358,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+16].VT_X
-			movsx	ebx,[esi+16].VT_Y
-			movsx	ecx,[esi+16].VT_Z
+			movsx	eax,[esi+16].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+16].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+16].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+16]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3399,9 +3378,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+24].VT_X
-			movsx	ebx,[esi+24].VT_Y
-			movsx	ecx,[esi+24].VT_Z
+			movsx	eax,[esi+24].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+24].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+24].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+24]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3465,7 +3444,7 @@ ByeBye::
 			or	eax,ebx
 			mov	ebx,ebp
 
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 			and	ebp,0FFFFh
 
 			shr	ebx,16
@@ -3484,7 +3463,7 @@ ByeBye::
 			mov	ebx,eax
 
 			shr	ebx,16
-			mov	dword ptr [esi+(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 
 			mov	ebp,[edi+24]
 			and	eax,0FFFFh
@@ -3501,7 +3480,7 @@ ByeBye::
 			or	eax,ebx
 			mov	ebx,ebp
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			and	ebp,0FFFFh
 
 			shr	ebx,16
@@ -3518,13 +3497,13 @@ ByeBye::
 			or	ebp,ebx
 			mov	ecx,4
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 			pop	ebx			; Get Light
 
 			shr	ebx,8
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3534,7 +3513,7 @@ ByeBye::
 
 @@Triangle_EnvTexture_Gouraud:
 			shr	eax,2				; Get Poly type
-			mov	ebx,dword ptr [ebp].Poly3_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -3542,7 +3521,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	edx,dword ptr [ebp].Poly3_P3
+			mov	edx,dword ptr [ebp].STRUC_POLY3_LIGHT.Poly3_P3
 			lea	edi,ListFillPoly
 
 			and	edx,0FFFFh			; EDX = P3
@@ -3551,26 +3530,26 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [edi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [edi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [edi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			mov	ax,[ListLights+ebx*2]
 
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+ecx*2]
 
-			mov	[edi+Size STRUC_POINT].Pt_Light,ax
+			mov	[edi+Size STRUC_POINT].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+edx*2]
 
-			mov	[edi+2*(Size STRUC_POINT)].Pt_Light,ax
-			mov	eax,dword ptr[ebp].Poly3_P3	; Get handle text.
+			mov	[edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,ax
+			mov	eax,dword ptr[ebp].STRUC_POLY3_LIGHT.Poly3_P3	; Get handle text.
 
 			shr	eax,16-2
 			mov	edi,[lBody]
@@ -3579,7 +3558,7 @@ ByeBye::
 			mov	esi,[PtrTextures]
 
 			add	eax,esi
-			mov	esi,[edi].Obj_Off_Normales
+			mov	esi,[edi].STRUC_OBJ_HEADER.Obj_Off_Normales
 
 			add	edi,esi
 			push	ebp
@@ -3624,9 +3603,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi].VT_X
-			movsx	ebx,[esi].VT_Y
-			movsx	ecx,[esi].VT_Z
+			movsx	eax,[esi].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3644,9 +3623,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+8].VT_X
-			movsx	ebx,[esi+8].VT_Y
-			movsx	ecx,[esi+8].VT_Z
+			movsx	eax,[esi+8].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+8].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+8].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+8]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3664,9 +3643,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+16].VT_X
-			movsx	ebx,[esi+16].VT_Y
-			movsx	ecx,[esi+16].VT_Z
+			movsx	eax,[esi+16].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+16].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+16].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+16]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3683,7 +3662,7 @@ ByeBye::
 			mov	[edi+4+16],ecx
 
 
-			mov	ecx,dword ptr [ebp].Poly3_Scale
+			mov	ecx,dword ptr [ebp].STRUC_POLY3_ENV.Poly3_Scale
 			mov	edi,(Offset ListNormEnv)+8*4
 
 			and	ecx,0FFFFh
@@ -3716,7 +3695,7 @@ ByeBye::
 			mov	ebx,ebp
 
 			shr	ebx,16
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 
 			and	ebp,0FFFFh
 			mov	eax,[edi+16]
@@ -3734,7 +3713,7 @@ ByeBye::
 			mov	ebx,eax
 
 			shr	ebx,16
-			mov	dword ptr [esi+(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 
 			and	eax,0FFFFh
 
@@ -3750,10 +3729,10 @@ ByeBye::
 			or	ebx,eax
 			pop	eax
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,ebx
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebx
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -3761,7 +3740,7 @@ ByeBye::
 
 @@Quad_EnvTexture_Gouraud:
 			shr	eax,2				; Get Poly type
-			mov	ebx,dword ptr [ebp].Poly4_P1
+			mov	ebx,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P1
 
 			push	eax				; Save poly type
 			mov	ecx,ebx
@@ -3769,7 +3748,7 @@ ByeBye::
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	esi,dword ptr [ebp].Poly4_P3
+			mov	esi,dword ptr [ebp].STRUC_POLY4_LIGHT.Poly4_P3
 			lea	edi,ListFillPoly
 
 			mov	edx,esi
@@ -3781,36 +3760,36 @@ ByeBye::
 
 			mov	eax,[Obj_ListProjectedPoints+ebx*4]
 
-			mov	dword ptr [edi].Pt_XE,eax
+			mov	dword ptr [edi].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+ecx*4]
 
-			mov	dword ptr [edi+Size STRUC_POINT].Pt_XE,eax
+			mov	dword ptr [edi+Size STRUC_POINT].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+esi*4]
 
-			mov	dword ptr [edi+2*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 			mov	eax,[Obj_ListProjectedPoints+edx*4]
 
-			mov	dword ptr [edi+3*(Size STRUC_POINT)].Pt_XE,eax
+			mov	dword ptr [edi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_XE,eax
 
 			mov	ax,[ListLights+ebx*2]
 
-			mov	[edi].Pt_Light,ax
+			mov	[edi].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+ecx*2]
 
-			mov	[edi+Size STRUC_POINT].Pt_Light,ax
+			mov	[edi+Size STRUC_POINT].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+esi*2]
 
-			mov	[edi+2*(Size STRUC_POINT)].Pt_Light,ax
+			mov	[edi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,ax
 
 			mov	ax,[ListLights+edx*2]
 
-			mov	[edi+3*(Size STRUC_POINT)].Pt_Light,ax
+			mov	[edi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_Light,ax
 			mov	edi,[lBody]
 
-			mov	eax,dword ptr[ebp].Poly4_Scale
-			mov	ebp,[edi].Obj_Off_Normales	; AGI...
+			mov	eax,dword ptr[ebp].STRUC_POLY4_ENV.Poly4_Scale
+			mov	ebp,[edi].STRUC_OBJ_HEADER.Obj_Off_Normales	; AGI...
 
 			add	edi,ebp
 			mov	ebp,eax
@@ -3856,9 +3835,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi].VT_X
-			movsx	ebx,[esi].VT_Y
-			movsx	ecx,[esi].VT_Z
+			movsx	eax,[esi].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3876,9 +3855,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+8].VT_X
-			movsx	ebx,[esi+8].VT_Y
-			movsx	ecx,[esi+8].VT_Z
+			movsx	eax,[esi+8].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+8].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+8].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+8]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3896,9 +3875,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+16].VT_X
-			movsx	ebx,[esi+16].VT_Y
-			movsx	ecx,[esi+16].VT_Z
+			movsx	eax,[esi+16].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+16].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+16].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+16]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3916,9 +3895,9 @@ ByeBye::
 
 			push	esi
 			push	edi
-			movsx	eax,[esi+24].VT_X
-			movsx	ebx,[esi+24].VT_Y
-			movsx	ecx,[esi+24].VT_Z
+			movsx	eax,[esi+24].STRUC_VERTEX.VT_X
+			movsx	ebx,[esi+24].STRUC_VERTEX.VT_Y
+			movsx	ecx,[esi+24].STRUC_VERTEX.VT_Z
 			movzx	esi,word ptr [esi+6+24]
 			mov	esi,[Table_Matrix+esi*4]
 			call	[RotatePointNoMMX]
@@ -3982,7 +3961,7 @@ ByeBye::
 			or	eax,ebx
 			mov	ebx,ebp
 
-			mov	dword ptr [esi].Pt_MapU,eax
+			mov	dword ptr [esi].STRUC_POINT.Pt_MapU,eax
 			and	ebp,0FFFFh
 
 			shr	ebx,16
@@ -4001,7 +3980,7 @@ ByeBye::
 			mov	ebx,eax
 
 			shr	ebx,16
-			mov	dword ptr [esi+(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 
 			mov	ebp,[edi+24]
 			and	eax,0FFFFh
@@ -4018,7 +3997,7 @@ ByeBye::
 			or	eax,ebx
 			mov	ebx,ebp
 
-			mov	dword ptr [esi+2*(Size STRUC_POINT)].Pt_MapU,eax
+			mov	dword ptr [esi+2*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,eax
 			and	ebp,0FFFFh
 
 			shr	ebx,16
@@ -4035,10 +4014,10 @@ ByeBye::
 			or	ebp,ebx
 			mov	ecx,4
 
-			mov	dword ptr [esi+3*(Size STRUC_POINT)].Pt_MapU,ebp
+			mov	dword ptr [esi+3*(Size STRUC_POINT)].STRUC_POINT.Pt_MapU,ebp
 			push	Offset @@Return_Display
 
-			JMP_FILL_POLY
+			jmp	Fill_PolyFast
 
 
 
@@ -4046,8 +4025,8 @@ ByeBye::
 			; *** LINE ***
 			; ************
 @@Line:
-			mov	eax,dword ptr [ebp].Obj_Line_P1
-			mov	ebp,dword ptr [ebp].Obj_LineType
+			mov	eax,dword ptr [ebp].STRUC_OBJ_LINE.Obj_Line_P1
+			mov	ebp,dword ptr [ebp].STRUC_OBJ_LINE.Obj_LineType
 
 			mov	ecx,eax
 			and	eax,0FFFFh		; EAX = P1
@@ -4060,8 +4039,8 @@ ByeBye::
 			cmp	[TypeProj],TYPE_3D
 			jne	@@NoZBufLine
 
-			mov	esi,dword ptr [Obj_ListRotatedPoints+eax*8].Obj_Pt_PZ
-			mov	edi,dword ptr [Obj_ListRotatedPoints+ecx*8].Obj_Pt_PZ
+			mov	esi,dword ptr [Obj_ListRotatedPoints+eax*8].STRUC_OBJ_POINT.Obj_Pt_PZ
+			mov	edi,dword ptr [Obj_ListRotatedPoints+ecx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			shl	esi,16
 			mov	ebx,[PosZWr]
@@ -4124,8 +4103,8 @@ ByeBye::
 			push	Offset @@Return_Display
 			push	0
 @@DispSph:
-			mov	ebx,dword ptr [ebp].Obj_Sphere_P1
-			mov	edi,dword ptr [ebp].Obj_SphereType
+			mov	ebx,dword ptr [ebp].STRUC_OBJ_SPHERE.Obj_Sphere_P1
+			mov	edi,dword ptr [ebp].STRUC_OBJ_SPHERE.Obj_SphereType
 
 			mov	eax,ebx
 			and	ebx,0FFFFh
@@ -4151,7 +4130,7 @@ ByeBye::
 @@Radius_Proj:
 			mov	ecx,[PosZWr]
 
-			mov	ebp,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	ebp,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			push	ebx			; Save point index
 
 			shl	ebp,16
@@ -4210,7 +4189,7 @@ ByeBye::
 			cmp	[TypeProj],TYPE_3D
 			jne	@@NoZBufSphere
 
-			movsx	edi,word ptr [Obj_ListRotatedPoints+edi*8].Obj_Pt_PZ
+			movsx	edi,word ptr [Obj_ListRotatedPoints+edi*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 			neg	edi
 			sub	edi,[PosZWr]
 			imul	edi,[Fill_ZBuffer_Factor]
@@ -4265,11 +4244,17 @@ BodyDisplay		ENDP
 ; ║                                                                            ║
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
-ObjectDisplay		PROC
+ObjectDisplay		PROC \
+			uses ebx ecx edx edi esi ebp, \
+			object: DWORD
+
+			mov eax, object
+
+
 			push	ebp
 			mov	ebp,eax			; EBP = PTR on object
 
-			mov	ebx,[eax].Texture	; Must we change the texture pointer ?
+			mov	ebx,[eax].OBJ_3D.Texture	; Must we change the texture pointer ?
 			mov	edx,7FFFFFFFh
 
 			test	ebx,ebx
@@ -4287,10 +4272,10 @@ ObjectDisplay		PROC
 			mov	[ScreenYMax],edx
 
 			cmp	edi,TYPE_3D
-			mov	eax,[ebp].ObjX		; Get object's position
+			mov	eax,[ebp].OBJ_3D.ObjX		; Get object's position
 
-			mov	ebx,[ebp].ObjY		; in world space
-			mov	ecx,[ebp].ObjZ
+			mov	ebx,[ebp].OBJ_3D.ObjY		; in world space
+			mov	ecx,[ebp].OBJ_3D.ObjZ
 
 			jne	@@Init_Iso		; Calc object position
 							; in camera space
@@ -4316,13 +4301,16 @@ ObjectDisplay		PROC
 			mov	[PosYWr],ebx
 			mov	[PosZWr],ecx
 
-			mov	esi,[ebp].Body		; Get either body's number or body's ptr
+			mov	esi,[ebp].OBJ_3D.Body		; Get either body's number or body's ptr
 			mov	eax,[TransFctBody]
 
 			test	eax,eax			; Convert it to a ptr
 			je	@@NoConversion
 
-			call	eax			; ESI = Pointer
+			push	esi
+			call	TransFctBody
+			mov	esi, eax
+			add	esp, 4
 @@NoConversion:
 
 ; ┌─────────────────────────────────────────────────────────────────┐
@@ -4332,19 +4320,19 @@ ObjectDisplay		PROC
 ; └─────────────────────────────────────────────────────────────────┘
 							; ESI = Body's Ptr
 			mov	[lBody],esi
-			lea	ecx,[ebp-Size GROUP_INFO].CurrentFrame
+			lea	ecx,[ebp-Size GROUP_INFO].OBJ_3D.CurrentFrame
 
 			mov	[ListGroupAnim],ecx
-			mov	eax,[esi].Obj_Off_Points
+			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Off_Points
 
 			add	eax,esi
-			mov	ebx,[esi].Obj_Off_Normales
+			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Off_Normales
 
 			mov	[PtrPoints],eax
 			add	ebx,esi
 
 			mov	[PtrNormales],ebx
-			mov	eax,[esi].Obj_Off_NormFaces
+			mov	eax,[esi].STRUC_OBJ_HEADER.Obj_Off_NormFaces
 
 			add	eax,esi
 			mov	ebx,Offset Obj_ListRotatedPoints
@@ -4353,18 +4341,18 @@ ObjectDisplay		PROC
 			mov	[PtrRotPoints],ebx
 
 			mov	eax,Offset ListLights
-			mov	ecx,[esi].Obj_Nb_Points
+			mov	ecx,[esi].STRUC_OBJ_HEADER.Obj_Nb_Points
 
 			mov	[PtrListLights],eax
 			add	ecx,ecx				; Skip vertex light
 
 			add	eax,ecx				; to calculate the offset of face-lights
-			mov	ebx,[esi].Obj_Nb_Groupes
+			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Nb_Groupes
 
 			mov	[PtrListLightsFaces],eax
 			mov	[NbGroupes],ebx
 
-			mov	ebx,[esi].Obj_Off_Groupes
+			mov	ebx,[esi].STRUC_OBJ_HEADER.Obj_Off_Groupes
 			mov	edi,offset TabMat		; Target Matrix
 
 			add	ebx,esi
@@ -4379,10 +4367,10 @@ ObjectDisplay		PROC
 			mov	[TransY],eax
 			mov	[TransZ],eax
 
-			mov	eax,[ebp].ObjAlpha
-			mov	ebx,[ebp].ObjBeta
+			mov	eax,[ebp].OBJ_3D.ObjAlpha
+			mov	ebx,[ebp].OBJ_3D.ObjBeta
 
-			mov	ecx,[ebp].ObjGamma
+			mov	ecx,[ebp].OBJ_3D.ObjGamma
 			jmp	@@Apply_Rotation
 
 			ALIGN	4
@@ -4393,7 +4381,7 @@ ObjectDisplay		PROC
 			mov	[PtrGroupes],ebx
 			mov	ebp,[ListGroupAnim]
 
-			mov	esi,dword ptr [ebx].Obj_OrgGroupe; OrgGroup | OrgPt
+			mov	esi,dword ptr [ebx].STRUC_OBJ_GROUPE.Obj_OrgGroupe; OrgGroup | OrgPt
 			add	ebp,Size GROUP_INFO
 
 			mov	ebx,esi
@@ -4405,8 +4393,8 @@ ObjectDisplay		PROC
 			mov	esi,[Table_Matrix+esi*4]
 			mov	edi,[Current_Matrix]
 
-			mov	eax,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PX
-			mov	edx,dword ptr [Obj_ListRotatedPoints+ebx*8].Obj_Pt_PZ
+			mov	eax,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PX
+			mov	edx,dword ptr [Obj_ListRotatedPoints+ebx*8].STRUC_OBJ_POINT.Obj_Pt_PZ
 
 			mov	ebx,eax			; Get father's position
 			add	edi,SIZE_MATRICE
@@ -4415,13 +4403,13 @@ ObjectDisplay		PROC
 			mov	[Current_Matrix],edi
 
 			sar	eax,16
-			mov	ecx,dword ptr [ebp].GroupBeta
+			mov	ecx,dword ptr [ebp].GROUP_INFO.GroupBeta
 
 			sar	ebx,16
 			mov	[TransX],eax
 
 			shl	edx,16
-			mov	eax,dword ptr [ebp].GroupType
+			mov	eax,dword ptr [ebp].GROUP_INFO.GroupType
 
 			sar	edx,16
 			mov	[TransY],ebx
@@ -4488,7 +4476,7 @@ ObjectDisplay		PROC
 			; *** TRANSFORM ***
 			; *****************
 
-			mov	ecx,dword ptr [ebp].Obj_NbPts
+			mov	ecx,dword ptr [ebp].STRUC_OBJ_GROUPE.Obj_NbPts
 			mov	esi,[PtrPoints]
 
 			push	ecx			; Save NbNFaces || NbPts
@@ -4602,7 +4590,7 @@ ObjectDisplay		PROC
 			push	eax			; Push OrgX
 			mov	edi,Offset Obj_ListProjectedPoints
 
-			mov	ecx,[ebp].Obj_Nb_Points
+			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_Points
 			call	[ProjectList]		; Projection
 
 			add	esp,3*4			; Pop parameters
@@ -4654,14 +4642,23 @@ ObjectDisplay		ENDP
 ; ║                                                                            ║
 ; ╚════════════════════════════════════════════════════════════════════════════╝
 
-BodyDisplay_AlphaBeta	PROC
+BodyDisplay_AlphaBeta	PROC \
+			uses ebx ecx edx edi esi ebp\
+			x: DWORD, y: DWORD, z: DWORD, alpha: DWORD, beta: DWORD, gamma: DWORD, body: DWORD
+			mov eax, x
+			mov ebx, y
+			mov ecx, z
+			mov edx, alpha
+			mov esi, beta
+			mov edi, gamma
+
 			push	ebp
 			push	edx			; Push angles
 
 			push	esi
 			push	edi
 
-			mov	ebp,[esp+4+4*4]		; EBP = PTR on object
+			mov	ebp,body		; EBP = PTR on object
 			mov	edx,7FFFFFFFh
 
 			mov	[lBody],ebp
@@ -4731,22 +4728,6 @@ BodyDisplay_AlphaBeta	PROC
 BodyDisplay_AlphaBeta	ENDP
 
 
-
-
-
-
-Init_TestVisible	PROC
-			mov	[Chooser_RtnI], Offset TestVisibleI	; Integer
-			mov	[Chooser_RtnF], Offset TestVisibleF	; FPU
-			mov	[Chooser_Result], Offset TestVisible	; Pointer
-			jmp	Chooser
-Init_TestVisible	ENDP
-
-
-
-
-
-
 ; ╔═════════════════════════════════════════════════════════════════╗
 ; ║ TestVisible : Tests the visibility of a poly                    ║
 ; ╟─────────────────────────────────────────────────────────────────╢
@@ -4760,8 +4741,8 @@ Init_TestVisible	ENDP
 ; ╚═════════════════════════════════════════════════════════════════╝
 
 TestVisibleI		PROC
-			mov	ebx,dword ptr [esi].Poly3_P1
-			mov	ebp,dword ptr [esi].Poly3_P3
+			mov	ebx,dword ptr [esi].STRUC_POLY3_LIGHT.Poly3_P1
+			mov	ebp,dword ptr [esi].STRUC_POLY3_LIGHT.Poly3_P3
 
 			mov	ecx,ebx
 			and	ebp,0FFFFh			; EBP = P3
@@ -4769,13 +4750,13 @@ TestVisibleI		PROC
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	eax,dword ptr [Obj_ListProjectedPoints+ebp*4].Pt_XE
+			mov	eax,dword ptr [Obj_ListProjectedPoints+ebp*4]
 
 			cmp	eax,80008000h
 			je	@@Eject
 
-			mov	eax,dword ptr [Obj_ListProjectedPoints+ecx*4].Pt_XE
-			mov	edx,dword ptr [Obj_ListProjectedPoints+ebx*4].Pt_XE
+			mov	eax,dword ptr [Obj_ListProjectedPoints+ecx*4]
+			mov	edx,dword ptr [Obj_ListProjectedPoints+ebx*4]
 
 			cmp	eax,80008000h
 			je	@@Eject
@@ -4788,13 +4769,13 @@ TestVisibleI		PROC
 ;   P1  *  P2   -   P3  *  P4
 
 			push	ebx
-			mov	ebx,dword ptr [Obj_ListProjectedPoints+ebx*4].Pt_XE
+			mov	ebx,dword ptr [Obj_ListProjectedPoints+ebx*4]
 
 	       		push	ecx
 			mov	edx,ebx
 
 			shl	edx,16
-			mov	ecx,dword ptr [Obj_ListProjectedPoints+ecx*4].Pt_XE
+			mov	ecx,dword ptr [Obj_ListProjectedPoints+ecx*4]
 
 			sar	edx,16
 			mov	eax,ecx
@@ -4803,7 +4784,7 @@ TestVisibleI		PROC
 			push	esi
 
 			sar	eax,16
-			mov	esi,dword ptr [Obj_ListProjectedPoints+ebp*4].Pt_XE
+			mov	esi,dword ptr [Obj_ListProjectedPoints+ebp*4]
 
 			sub	eax,edx
 			mov	edx,ebx
@@ -4872,8 +4853,8 @@ TestVisibleI		ENDP
 ; ╚═════════════════════════════════════════════════════════════════╝
 
 TestVisibleF		PROC
-			mov	ebx,dword ptr [esi].Poly3_P1
-			mov	ebp,dword ptr [esi].Poly3_P3
+			mov	ebx,dword ptr [esi].STRUC_POLY3_ENV.Poly3_P1
+			mov	ebp,dword ptr [esi].STRUC_POLY3_ENV.Poly3_P3
 
 			mov	ecx,ebx
 			and	ebp,0FFFFh			; EBP = P3
@@ -4881,13 +4862,13 @@ TestVisibleF		PROC
 			shr	ecx,16				; ECX = P2
 			and	ebx,0FFFFh			; EBX = P1
 
-			mov	eax,dword ptr [Obj_ListProjectedPoints+ebp*4].Pt_XE
+			mov	eax,dword ptr [Obj_ListProjectedPoints+ebp*4]
 
 			cmp	eax,80008000h
 			je	@@Eject
 
-			mov	eax,dword ptr [Obj_ListProjectedPoints+ebx*4].Pt_XE
-			mov	edx,dword ptr [Obj_ListProjectedPoints+ecx*4].Pt_XE
+			mov	eax,dword ptr [Obj_ListProjectedPoints+ebx*4]
+			mov	edx,dword ptr [Obj_ListProjectedPoints+ecx*4]
 
 			cmp	eax,80008000h
 			je	@@Eject
@@ -4899,12 +4880,12 @@ TestVisibleF		PROC
 ;(x2-x1)*(y1-y3)-(y2-y1)*(x1-x3)
 ;   P1  *  P2   -   P3  *  P4
 							; 0   1   2   3   4   5   6   7
-	fild	[Obj_ListProjectedPoints+ebx*4].Pt_XE	; x1
-	fild	[Obj_ListProjectedPoints+ebx*4].Pt_YE	; y1  x1
-	fild	[Obj_ListProjectedPoints+ecx*4].Pt_XE	; x2  y1  x1
-	fild	[Obj_ListProjectedPoints+ebp*4].Pt_YE	; y3  x2  y1  x1
-	fild	[Obj_ListProjectedPoints+ecx*4].Pt_YE	; y2  y3  x2  y1  x1
-	fild	[Obj_ListProjectedPoints+ebp*4].Pt_XE	; x3  y2  y3  x2  y1  x1
+	fild	[Obj_ListProjectedPoints+ebx*4+0]	; x1
+	fild	[Obj_ListProjectedPoints+ebx*4+4]	; y1  x1
+	fild	[Obj_ListProjectedPoints+ecx*4+0]	; x2  y1  x1
+	fild	[Obj_ListProjectedPoints+ebp*4+4]	; y3  x2  y1  x1
+	fild	[Obj_ListProjectedPoints+ecx*4+4]	; y2  y3  x2  y1  x1
+	fild	[Obj_ListProjectedPoints+ebp*4+0]	; x3  y2  y3  x2  y1  x1
 	fld	st(5)					; x1  x3  y2  y3  x2  y1  x1
 	fsubp	st(4),st				; x3  y2  y3  P1  y1  x1
 	fld	st(4)					; y1  x3  y2  y3  P1  y1  x1

@@ -1,11 +1,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		.386p
+		.586p
+		.MMX
 
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
-		include	mat.inc
-		include	iammx.inc
+		include	MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -13,25 +13,31 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL NearClip:DWORD
+		extrn	C NearClip:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL Xp:DWORD
-		extrn	SYSCALL Yp:DWORD
+		extrn	C Xp:DWORD
+		extrn	C Yp:DWORD
 
-		extrn	SYSCALL X0:DWORD
-		extrn	SYSCALL Y0:DWORD
-		extrn	SYSCALL Z0:DWORD
+		extrn	C X0:DWORD
+		extrn	C Y0:DWORD
+		extrn	C Z0:DWORD
 
-		extrn	SYSCALL FRatioX:DWORD
-		extrn	SYSCALL FRatioY:DWORD
+		extrn	C FRatioX:DWORD
+		extrn	C FRatioY:DWORD
 
-		extrn	SYSCALL ScreenXMin:DWORD
-		extrn	SYSCALL ScreenXMax:DWORD
-		extrn	SYSCALL ScreenYMin:DWORD
-		extrn	SYSCALL ScreenYMax:DWORD
+		extrn	C ScreenXMin:DWORD
+		extrn	C ScreenXMax:DWORD
+		extrn	C ScreenYMin:DWORD
+		extrn	C ScreenYMax:DWORD
+
+		public	C	ProjectList3D
+		public	C	ProjectList
+
+		ProjectList3D	dd	offset ProjectList3DF
+		ProjectList		dd	offset ProjectList3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -39,8 +45,7 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	ProjectList3DMF
-		public	SYSCALL	ProjectList3DF
+		public	C	ProjectList3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	ProjectList3DF(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
@@ -51,24 +56,7 @@
 
 ;WARNING: OrgX, OrgY OrgZ pushed on the stack
 
-;*══════════════════════════════════════════════════════════════════════════*
-;void	ProjectList3DMF(S32 *Dst, S32 *Src, S32 NbPt, S32 OrgX, S32 OrgY, OrgZ);
-
-;#pragma aux ProjectList3DMF			\
-;	parm		[edi] [esi] [ecx]	\
-;	modify		[eax ebx edx]
-
-;WARNING: OrgX, OrgY OrgZ pushed on the stack
-
-ProjectList3DMF	PROC
-
-		test	ecx, ecx
-		jz	RetProj
-
-		emms
-
-		jmp	enterprojli
-ProjectList3DF::
+ProjectList3DF PROC
 		test	ecx, ecx
 		jz	RetProj
 enterprojli:
@@ -291,7 +279,8 @@ UpdateYMax1:
 		mov	[ScreenYMax], eax
 		jmp	OkYMax1
 Clip0:
-     		mov	[edi], 80008000h
+		mov eax, 80008000h
+     	mov	[edi], eax
 		add	edi, 4
 
 		cmp	esi, ebp
@@ -312,7 +301,8 @@ Clip0:
 Clip:
   		mov	edx, [NearClip]
 ClipLoop:
-		mov	[edi], 80008000h
+		mov eax, 80008000h
+     	mov	[edi], eax
 		add	edi, 4
 
 		cmp	esi, ebp
@@ -337,7 +327,7 @@ OverFlow1:
 		mov	ecx,80008000h
 		jmp	FixedOverFlow1
 
-ProjectList3DMF	ENDP
+ProjectList3DF	ENDP
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;		The

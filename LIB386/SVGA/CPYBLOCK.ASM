@@ -1,16 +1,17 @@
 ;----------------------------------------------------------------------------
-			.386P
-			.MODEL FLAT, SYSCALL
+			.686P
+			.XMM
+			.MODEL FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	TabOffLine:DWORD
-			EXTRN	SYSCALL	ClipXMin:DWORD
-			EXTRN	SYSCALL	ClipXMax:DWORD
-			EXTRN	SYSCALL	ClipYMin:DWORD
-			EXTRN	SYSCALL	ClipYMax:DWORD
+			EXTRN	C	TabOffLine:DWORD
+			EXTRN	C	ClipXMin:DWORD
+			EXTRN	C	ClipXMax:DWORD
+			EXTRN	C	ClipYMin:DWORD
+			EXTRN	C	ClipYMax:DWORD
 
 
 
@@ -19,7 +20,7 @@
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	CopyBlock
+			PUBLIC	C	CopyBlock
 
 ;----------------------------------------------------------------------------
 ;void	CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd, void *dst)
@@ -28,8 +29,16 @@
 ;	parm caller	[eax] [ebx] [ecx] [edx] [esi]	\
 ;	modify		[edi]
 
-CopyBlock		proc	,\
+CopyBlock		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x0:DWORD, y0:DWORD, x1:DWORD, y1:DWORD, src:DWORD,  \
 			xd:DWORD, yd:DWORD, dst:DWORD
+
+			mov eax, x0
+			mov ebx, y0
+			mov ecx, x1
+			mov edx, y1
+			mov esi, src
 
 			cmp	eax,[ClipXMax]
 			jg	endcopy
@@ -154,6 +163,8 @@ startend:
 			mov	cl, bl
 			rep	movsb
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			xor	ecx, ecx
 			mov	cl, bh
@@ -172,6 +183,8 @@ juststart:
 			mov	cl, bl
 			rep	movsb
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+			;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 
 			add	esi, eax
@@ -187,6 +200,8 @@ checkend:
 			jz	noend
 justend:
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 			xor	ecx, ecx
 			mov	cl, bh
@@ -202,6 +217,8 @@ justend:
 			ret
 noend:
 			mov	ecx, ebp
+			; FIXME UASM refuses to compile "rep movsd" without 686 architecture and XMM
+            ;   is it confusing it with some other instruction? Is it not supported by 486?
 			rep	movsd
 
 			add	esi, eax

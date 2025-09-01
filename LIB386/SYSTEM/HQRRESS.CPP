@@ -1,15 +1,11 @@
 /*──────────────────────────────────────────────────────────────────────────*/
-#include	<system\adeline.h>
-#include	<system\initimer.h>
-#include	<system\a_malloc.h>
-#include	<system\lz.h>
-#include	<system\files.h>
-#include	<system\hqfile.h>
-#include	<system\hqrress.h>
-
-#ifndef	_WIN32
-#include	<ail\mss.h>
-#endif
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/TIMER.H>
+#include	<SYSTEM/N_MALLOC.H>
+#include	<SYSTEM/LZ.H>
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/HQFILE.H>
+#include	<SYSTEM/HQRRESS.H>
 
 #include	<string.h>
 
@@ -33,7 +29,7 @@ S32	HQR_Flag ;	// flag "load done" par HQR_Get
 // maxsize: taille buffer memoire
 // MaxIndex: nombre de fiche max stocké
 // (devrait être > maxsize/average file size )
-T_HQR_HEADER	*HQR_Init_Ressource(	char	*hqrname,
+T_HQR_HEADER	*HQR_Init_Ressource(	const char	*hqrname,
  					S32	maxsize,
 					S32	maxrsrc	)
 {
@@ -69,21 +65,6 @@ error:		Free(header)	;
 }
 
 //──────────────────────────────────────────────────────────────────────────
-// lock le buffer
-#ifndef	_WIN32
-void	HQR_Lock_Ressource(T_HQR_HEADER *header)
-{
-	header = header	;
-
-	AIL_vmm_lock((void*)header, sizeof(T_HQR_HEADER) +
-				sizeof(T_HQR_BLOC) * header->MaxIndex   ) ;
-
-	AIL_vmm_lock(header->Buffer, header->MaxSize+RECOVER_AREA);
-}
-
-#endif//_WIN32
-
-//──────────────────────────────────────────────────────────────────────────
 // vide le buffer d'une ressource
 void	HQR_Reset_Ressource(T_HQR_HEADER *header)
 {
@@ -93,7 +74,7 @@ void	HQR_Reset_Ressource(T_HQR_HEADER *header)
 
 //──────────────────────────────────────────────────────────────────────────
 // change le nom du fichiers HQR qui contient les fiches (vide le buffer)
-S32	HQR_Change_Ressource(T_HQR_HEADER *header, char *newhqrname)
+S32	HQR_Change_Ressource(T_HQR_HEADER *header, const char *newhqrname)
 {
 	if(newhqrname && newhqrname[0])
 	{
@@ -124,40 +105,30 @@ void	HQR_Free_Ressource(T_HQR_HEADER *header)
 		return		;
 	}
 
-	AIL_vmm_unlock((void*)header, sizeof(T_HQR_HEADER) +
+	/*AIL_vmm_unlock((void*)header, sizeof(T_HQR_HEADER) +
 				  sizeof(T_HQR_BLOC) * header->MaxIndex ) ;
 
 	AIL_vmm_unlock(header->Buffer, header->MaxSize+RECOVER_AREA);
-
+	*/
 	Free(header->Buffer)	;
 	Free(header)		;
 }
 
 //──────────────────────────────────────────────────────────────────────────
 // retourne le pointeur mémoire de la fiche (index) demandée
-T_HQR_BLOC	*HQR_GiveBloc(S32 index, S32 nbindex, T_HQR_BLOC *bloc)	;
+T_HQR_BLOC *HQR_GiveBloc(S32 index, S32 nbindex, T_HQR_BLOC *bloc) {
+        if (nbindex > 0) {
+                T_HQR_BLOC *endOfBlocs = &bloc[nbindex];
+                for (S32 n = 0; &bloc[n] != endOfBlocs; ++n) {
+                        T_HQR_BLOC *currBloc = &bloc[n];
+                        if (currBloc->Index == index) {
+                          return currBloc;
+                        }
+                }
+        }
 
-#pragma aux HQR_GiveBloc       =               	\
-"               shl     ecx, 4          "       \
-"               jz      notfound        "       \
-"               lea     ebx, [eax+ecx]  "       \
-"               sub     eax, 16         "       \
-"               test    ecx, 16         "       \
-"               jnz     se1             "       \
-"               add     eax, 16         "       \
-"se0:           cmp     edx, [eax]      "       \
-"               je      quit            "       \
-"se1:           cmp     edx, [eax+16]   "       \
-"               je      quit2           "       \
-"               add     eax, 32         "       \
-"               cmp     eax, ebx        "       \
-"               jne     se0             "       \
-"notfound:      xor     eax, eax        "       \
-"               jmp     quit            "       \
-"quit2:         add     eax, 16         "       \
-"quit:                                  "       \
-        parm    [edx] [ecx] [eax]               \
-	modify	[ebx]
+        return NULL;
+}
 
 //──────────────────────────────────────────────────────────────────────────
 // supprime une fiche dans le buffer d'une ressource
@@ -177,7 +148,7 @@ static inline void HQR_Del_Bloc(T_HQR_HEADER *header, S32 index)
 		// shift buffer
 		ptrd = ptrbloc[index].Ptr 		;
 		ptrs = (void*)((U8*)ptrd + delsize)	;
-		memmove(ptrd, ptrs, (header->MaxSize-header->FreeSize)-((U32)ptrs-(U32)(header->Buffer)) ) ;
+		memmove(ptrd, ptrs, (header->MaxSize-header->FreeSize)-((U64)ptrs-(U64)(header->Buffer)) ) ;
 
 		// shift index table
 		ptrd = (void*)&ptrbloc[index]		;

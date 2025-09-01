@@ -4,9 +4,9 @@
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
-#include	<system\timerwin.h>
+#include	<SYSTEM/TIMERWIN.H>
 #else //_WIN32
-#include	<system\timerdos.h>
+//#include	<system/timerdos.h>
 #endif//_WIN32
 
 //──────────────────────────────────────────────────────────────────────────

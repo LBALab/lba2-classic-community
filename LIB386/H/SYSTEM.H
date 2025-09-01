@@ -3,87 +3,44 @@
 #define	LIB_SYSTEM
 
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	_BUILDING_LIB
-
-#ifdef	_WIN32
-
-#ifdef	__SW_3R
-#pragma library ("NT_SYSR.LIB")
-#else//	__SW_3R
-#pragma library ("NT_SYSS.LIB")
-#endif//__SW_3R
-
-#pragma library ("MSS32.LIB")
-
-#else//	_WIN32
-
-#ifdef	__SW_3R
-#pragma library ("DOS_SYSR.LIB")
-#else//	__SW_3R
-#pragma library ("DOS_SYSS.LIB")
-#endif//__SW_3R
-
-#pragma library ("MSS.LIB")
-
-#endif//_WIN32
-
-#endif//_BUILDING_LIB
-
-//──────────────────────────────────────────────────────────────────────────
 #include	<stdlib.h>
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<SYSTEM\ADELINE.H>
-#include	<SYSTEM\FASTCPY.H>
-#include	<SYSTEM\FASTSET.H>
-#include	<SYSTEM\AVAILMEM.H>
-#include	<SYSTEM\A_MALLOC.H>
-#include	<SYSTEM\N_MALLOC.H>
-#include	<SYSTEM\S_MALLOC.H>
-#include	<SYSTEM\DOSMALLO.H>
-#include	<SYSTEM\CPU.H>
-#include	<SYSTEM\DISPCPU.H>
-#include	<SYSTEM\DISPOS.H>
-//#include	<SYSTEM\DLLLOAD.H>
-#include	<SYSTEM\EXIT.H>
-#include	<SYSTEM\FILEBAK.H>
-#include	<SYSTEM\FILECOPY.H>
-#include	<SYSTEM\FILENAME.H>
-#include	<SYSTEM\FILES.H>
-#include	<SYSTEM\HQFILE.H>
-#include	<SYSTEM\DEFFILE.H>
-#include	<SYSTEM\HQMEM.H>
-#include	<SYSTEM\HQR.H>
-#include	<SYSTEM\HQRLOAD.H>
-#include	<SYSTEM\HQRMEM.H>
-#include	<SYSTEM\HQRMLOAD.H>
-#include	<SYSTEM\HQRRESS.H>
-#include	<SYSTEM\INITKEYB.H>
-#include	<SYSTEM\INPUT.H>
-#include	<SYSTEM\LOADMALL.H>
-#include	<SYSTEM\LOADSAVE.H>
-#include	<SYSTEM\LZ.H>
-#include	<SYSTEM\PATCH.H>
-#include	<SYSTEM\INITIMER.H>
-#include	<SYSTEM\LOGPRINT.H>
-#include	<SYSTEM\ITOA.H>
-#include	<SYSTEM\CMDLINE.H>
-#include	<SYSTEM\DISKDIR.H>
-
-#ifdef	_WIN32
-#include	<SYSTEM\WINSYS.H>
-#include	<AIL\MSSW.H>
-#else// _WIN32
-#include	<SYSTEM\DOSSYS.H>
-#include	<AIL\MSS.H>
-#endif//_WIN32
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/FASTCPY.H>
+#include	<SYSTEM/AVAILMEM.H>
+#include	<SYSTEM/N_MALLOC.H>
+#include	<SYSTEM/CPU.H>
+#include	<SYSTEM/DISPOS.H>
+#include	<SYSTEM/EXIT.H>
+#include	<SYSTEM/FILEBAK.H>
+#include	<SYSTEM/FILECOPY.H>
+#include	<SYSTEM/FILENAME.H>
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/HQFILE.H>
+#include	<SYSTEM/DEFFILE.H>
+#include	<SYSTEM/HQMEM.H>
+#include	<SYSTEM/HQR.H>
+#include	<SYSTEM/HQRLOAD.H>
+#include	<SYSTEM/HQRMEM.H>
+#include	<SYSTEM/HQRMLOAD.H>
+#include	<SYSTEM/HQRRESS.H>
+#include	<SYSTEM/KEYBOARD.H>
+#include	<SYSTEM/INPUT.H>
+#include	<SYSTEM/LOADMALL.H>
+#include	<SYSTEM/LOADSAVE.H>
+#include	<SYSTEM/LZ.H>
+#include	<SYSTEM/TIMER.H>
+#include	<SYSTEM/LOGPRINT.H>
+#include	<SYSTEM/ITOA.H>
+#include	<SYSTEM/CMDLINE.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#define INIT_SVGA               (1<<0)
+#define INIT_VIDEO              (1<<0)
 #define INIT_SAMPLE             (1<<1)
 #define INIT_MIDI               (1<<2)
 #define INIT_SMACKER            (1<<3)
-#define INIT_VESA               (1<<4)
+#define INIT_WINDOW             (1<<4)
 
 #define INIT_SYSTEM             (1<<6)
 #define INIT_KEYB               (1<<7)
@@ -104,12 +61,6 @@
 
 //──────────────────────────────────────────────────────────────────────────
 S32		MULDIV64( S32 x, S32 mul, S32 div ); // (x*mul)/div
-
-#pragma	aux	MULDIV64= 				\
-		"	imul	edx		"	\
-		"	idiv	ecx		"	\
-		parm	caller 	[eax] [edx] [ecx]	\
-		modify	exact	[eax edx]
 
 //──────────────────────────────────────────────────────────────────────────
 // Hard coded breakpoint

@@ -2,6 +2,8 @@
 #ifndef	LIB_ANI_STOFRAME
 #define	LIB_ANI_STOFRAME
 
+#include <OBJECT/AFF_OBJ.H>
+
 //****************************************************************************
 #ifdef	__cplusplus
 extern	"C"	{

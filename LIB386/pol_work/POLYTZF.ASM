@@ -15,7 +15,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 
@@ -26,23 +26,14 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	SYSCALL		First_POLYTEXTUREZFOGPatch
-PUBLIC	SYSCALL		Last_POLYTEXTUREZFOGPatch
-
-PUBLIC	SYSCALL		Filler_TextureZFogSmooth
-PUBLIC	SYSCALL		Filler_TextureZFogSmoothZBuf
-PUBLIC	SYSCALL		Filler_TextureZFogSmoothNZW
+PUBLIC	C		Filler_TextureZFogSmooth
+PUBLIC	C		Filler_TextureZFogSmoothZBuf
+PUBLIC	C		Filler_TextureZFogSmoothNZW
 
 
 ;					*****************
 ;					*** VARIABLES ***
 ;					*****************
-
-;					*** PUBLIC DATA ***
-PUBLIC	SYSCALL		Fill_VLTextureZFog1
-PUBLIC	SYSCALL		Fill_VLTextureZFog2
-PUBLIC	SYSCALL		Fill_VLTextureZFog3
-
 
 ;					*** MODULE DATA ***
 
@@ -53,7 +44,7 @@ PUBLIC	SYSCALL		Fill_VLTextureZFog3
 ;			*** INCLUDE ***
 ;			***************
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 ;			**************
@@ -73,7 +64,7 @@ INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -86,66 +77,64 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Restart		:	DWORD
-Extrn	SYSCALL		Fill_Patch		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
-Extrn	SYSCALL		Fill_Logical_Palette	:	BYTE
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
+Extrn	C		Fill_Logical_Palette	:	BYTE
 
-Extrn	SYSCALL		PtrMap			:	DWORD
-Extrn	SYSCALL		RepMask			:	DWORD
-Extrn	SYSCALL		PtrCLUTGouraud		:	DWORD
-Extrn	SYSCALL		PtrCLUTFog		:	DWORD
-Extrn	SYSCALl		PtrZBuffer		:	DWORD
+Extrn	C		PtrMap			:	DWORD
+Extrn	C		RepMask			:	DWORD
+Extrn	C		PtrCLUTGouraud		:	DWORD
+Extrn	C		PtrCLUTFog		:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
 
-Extrn	SYSCALL		Fill_LeftSlope		:	DWORD
-Extrn	SYSCALL		Fill_RightSlope		:	DWORD
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurY		:	DWORD
-Extrn	SYSCALL		Fill_CurXMin		:	DWORD
-Extrn	SYSCALL		Fill_CurXMax		:	DWORD
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
 
-Extrn	SYSCALL		PTR_TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_CurOffLine		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		ScreenPitch		:	DWORD
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
 
-Extrn	SYSCALL		Fill_CurMapUMin		:	DWORD
-Extrn	SYSCALL		Fill_MapU_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_MapU_XSlope	:	DWORD
+Extrn	C		Fill_CurMapUMin		:	DWORD
+Extrn	C		Fill_MapU_LeftSlope	:	DWORD
+Extrn	C		Fill_MapU_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurMapVMin		:	DWORD
-Extrn	SYSCALL		Fill_MapV_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_MapV_XSlope	:	DWORD
+Extrn	C		Fill_CurMapVMin		:	DWORD
+Extrn	C		Fill_MapV_LeftSlope	:	DWORD
+Extrn	C		Fill_MapV_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurWMin		:	DWORD
-Extrn	SYSCALL		Fill_W_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_W_XSlope		:	DWORD
+Extrn	C		Fill_CurWMin		:	DWORD
+Extrn	C		Fill_W_LeftSlope	:	DWORD
+Extrn	C		Fill_W_XSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurZBufMin		:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_XSlope	:	DWORD
-Extrn	SYSCALL		Fill_CurZBuf		:	DWORD
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		Fill_CurZBuf		:	DWORD
 
-Extrn	SYSCALL		Fill_Cur_W		:	DWORD
-Extrn	SYSCALL		Fill_Next_W		:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapU		:	DWORD
-Extrn	SYSCALL		Fill_Next_MapU		:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapV		:	DWORD
-Extrn	SYSCALL		Fill_Next_MapV		:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapUOverW	:	DWORD
-Extrn	SYSCALL		Fill_Next_MapUOverW	:	DWORD
-Extrn	SYSCALL		Fill_Cur_MapVOverW	:	DWORD
-Extrn	SYSCALL		Fill_Next_MapVOverW	:	DWORD
+Extrn	C		Fill_Cur_W		:	DWORD
+Extrn	C		Fill_Next_W		:	DWORD
+Extrn	C		Fill_Cur_MapU		:	DWORD
+Extrn	C		Fill_Next_MapU		:	DWORD
+Extrn	C		Fill_Cur_MapV		:	DWORD
+Extrn	C		Fill_Next_MapV		:	DWORD
+Extrn	C		Fill_Cur_MapUOverW	:	DWORD
+Extrn	C		Fill_Next_MapUOverW	:	DWORD
+Extrn	C		Fill_Cur_MapVOverW	:	DWORD
+Extrn	C		Fill_Next_MapVOverW	:	DWORD
 
 
-Extrn	SYSCALL		F_256			:	DWORD
+Extrn	C		F_256			:	DWORD
 
-Extrn	SYSCALL		Fill_UseFPU		:	BYTE
+Extrn	C		Fill_Z_Fog_Near		:	DWORD
+Extrn	C		Fill_Fog_Factor		:	DWORD
 
-Extrn	SYSCALL		Fill_Z_Fog_Near		:	DWORD
-Extrn	SYSCALL		Fill_Fog_Factor		:	DWORD
-
-Extrn	SYSCALL		Fill_ScaledFogNear	:	DWORD
+Extrn	C		Fill_ScaledFogNear	:	DWORD
 
 
 
@@ -180,9 +169,22 @@ Fill_Next_ZBufOverW	dd	0
 Fill_Next_ZBuf		dd	0
 
 			ALIGN	4
-Fill_Init_Perspective	dd	Offset Choose_Init
-Fill_Loop_Perspective	dd	Offset Choose_Loop
+Fill_Init_Perspective	dd	Offset Init_PerspFPU
+Fill_Loop_Perspective	dd	Offset Loop_PerspFPU
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+PtrMapPatch     DWORD 12345678h
+PtrCLUT         DWORD 12345678h
+PtrLog          DWORD 12345678h
+PtrZBufferPatch DWORD 12345678h
+PtrZBuffer1     DWORD 12345678h
+PtrZBuffer2     DWORD 12345678h
+DecZBuf         DWORD 12345678h
+DecZBuf2        DWORD 12345678h
+IntZBuf         DWORD 12345678h
+IntZBuf2        DWORD 12345678h
+RepMask2        DWORD 12345678h
+RepMaskPatch    DWORD 12345678h
 
 _DATA			ENDS
 
@@ -198,198 +200,7 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-Extrn	SYSCALL		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
-
-
-;				*******************
-;				*** Global proc ***
-;				*******************
-First_POLYTEXTUREZFOGPatch Label	DWORD
-
-
-
-
-
-Choose_Init		PROC
-			mov	[Fill_Init_Perspective],Offset Init_PerspINT
-
-			cmp	[Fill_UseFPU],TRUE
-			jne	@@End
-
-			mov	[Fill_Init_Perspective],Offset Init_PerspFPU
-@@End:
-			jmp	[Fill_Init_Perspective]
-Choose_Init		ENDP
-
-
-
-Choose_Loop		PROC
-			mov	[Fill_Loop_Perspective],Offset Loop_PerspINT
-
-			cmp	[Fill_UseFPU],TRUE
-			jne	@@End
-
-			mov	[Fill_Loop_Perspective],Offset Loop_PerspFPU
-@@End:
-			jmp	[Fill_Loop_Perspective]
-Choose_Loop		ENDP
-
-
-
-
-
-
-
-; ╔═════════════════════════════════════════════════════════════╗
-; ║ Initialize the gradiants of a scanline                      ║
-; ╚═════════════════════════════════════════════════════════════╝
-
-Init_PerspINT		PROC
-			mov	ebx,[Fill_Cur_W]		; Current W
-
-			test	ebx,ebx
-			je	@@W_Nul1
-			cmp	ebx,-1
-			je	@@W_Nul1
-			cmp	ebx,1
-			je	@@W_Nul1
-@@Return_Error1:
-			mov	eax,-1
-			xor	edx,edx
-
-			idiv	ebx
-
-			mov	ebx,eax				; EBX = 1/W
-			mov	eax,esi
-
-			imul	ebx
-
-			shr	eax,24
-			mov	[Fill_Cur_MapUOverW],esi
-
-			shl	edx,8
-			mov	[Fill_Cur_MapVOverW],ebp
-
-			or	eax,edx
-
-			mov	[Fill_Cur_MapU],eax		; Current U
-			mov	eax,ebp
-
-			imul	ebx
-
-			shr	eax,24
-
-			shl	edx,8
-
-			or	edx,eax
-			mov	eax,[Fill_CurZBufMin]
-
-			mov	[Fill_Cur_MapV],edx		; Current V
-			mov	[Fill_Cur_ZBufOverW],eax	; Cur ZBuf
-
-			imul	ebx
-			shr	eax,16
-			shl	edx,16
-			or	eax,edx
-			mov	[Fill_CurZBuf],eax		; Cur ZBuf
-
-			ret
-@@W_Nul1:
-			mov	ebx,2
-			jmp	@@Return_Error1
-Init_PerspINT		ENDP
-
-
-
-
-
-; ╔═════════════════════════════════════════════════════════════╗
-; ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
-; ╚═════════════════════════════════════════════════════════════╝
-
-Loop_PerspINT		PROC
-			mov	edx,[Fill_W_XSlope]
-			mov	ebx,[Fill_Cur_W]
-
-			shl	edx,5
-			mov	eax,-1
-
-			add	ebx,edx
-			je	@@W_Nul
-			cmp	ebx,-1
-			je	@@W_Nul
-			cmp	ebx,1
-			je	@@W_Nul
-@@Return_Error:
-			mov	[Fill_Next_W],ebx		; Next W
-			xor	edx,edx
-
-			idiv	ebx
-
-			mov	ebx,eax				; EBX = 1/W
-			mov	eax,[Fill_ZBuf_XSlope]
-
-			shl	eax,5
-			mov	edx,[Fill_Cur_ZBufOverW]
-
-			add	eax,edx
-
-			mov	[Fill_Next_ZBufOverW],eax
-
-			imul	ebx
-
-			shr	eax,16
-			shl	edx,16
-			or	edx,eax
-			mov	[Fill_Next_ZBuf],edx
-
-
-			mov	eax,[Fill_MapU_XSlope]
-			shl	eax,5
-			mov	edx,[Fill_Cur_MapUOverW]
-
-			add	eax,edx
-
-			mov	[Fill_Next_MapUOverW],eax
-
-			imul	ebx
-
-			shr	eax,24
-			mov	esi,[Fill_MapV_XSlope]
-
-			shl	edx,8
-			mov	ebp,[Fill_Cur_MapVOverW]
-
-			shl	esi,5
-			or	eax,edx
-
-			mov	[Fill_Next_MapU],eax	; EBP = Next MapU
-			add	esi,ebp
-
-			mov	[Fill_Next_MapVOverW],esi
-			mov	ebp,eax
-
-			mov	eax,esi
-
-			imul	ebx
-
-			shr	eax,24
-
-			shl	edx,8
-
-			or	eax,edx
-
-			mov	[Fill_Next_MapV],eax	; EAX = Next MapV
-
-			ret
-@@W_Nul:
-			mov	ebx,2
-			jmp	@@Return_Error
-Loop_PerspINT		ENDP
-
-
-
-
+Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
 
 
 ; ╔═════════════════════════════════════════════════════════════╗
@@ -612,14 +423,14 @@ Filler_TextureZFogSmooth PROC
 
 			add	eax,12*256
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
+			mov	[RepMaskPatch],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZFog1::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -800,11 +611,15 @@ Fill_VLTextureZFog1::	add	edi,SIZE_VIDEOLINE
 			shr	eax,16
 			add	ebx,ebp
 
-@@PtrCLUT:		mov	dl,[edx+12345678h]
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
 			mov	al,bh
 
 			mov	[edi+ecx],dl
-@@RepMask:		and	eax,12345678h
+		and	eax,[RepMaskPatch]
 
 			inc	ecx
 			jne	@@LoopX
@@ -893,30 +708,30 @@ Filler_TextureZFogSmoothZBuf PROC
 
 			add	eax,12*256
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
-			mov	dword ptr [@@RepMask2+1],eax
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
 
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
+			mov	[PtrZBuffer2],eax
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shl	eax,32-8
 
-			mov	dword ptr [@@DecZBuf+2],eax
-			mov	dword ptr [@@DecZBuf2+2],eax
+			mov	[DecZBuf],eax
+			mov	[DecZBuf2],eax
 
 			mov	eax,[Fill_ZBuf_XSlope]
 
@@ -924,12 +739,12 @@ Filler_TextureZFogSmoothZBuf PROC
 
 			and	eax,0FFFFh
 
-			mov	dword ptr [@@IntZBuf+2],eax
-			mov	dword ptr [@@IntZBuf2+2],eax
+			mov	[IntZBuf],eax
+			mov	[IntZBuf2],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZFog2::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1105,25 +920,46 @@ Fill_VLTextureZFog2::	add	edi,SIZE_VIDEOLINE
 @@Go:
 			ror	esi,8
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],si
+
+			push eax
+			mov eax,[PtrZBufferPatch]
+			cmp	[edi*2+eax],si
+			pop eax
+
 			jb	@@NoDisp
 @@Disp:
-@@PtrZBuffer1:		mov	[edi*2+12345678h],si
-@@PtrMap:		mov	dl,[eax+12345678h]
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],si
+		pop eax
+
+			push ebx
+			mov ebx,[PtrMapPatch]
+			mov	dl,[eax+ebx]
+			pop ebx
 
 			lea	eax,[ebx+ebp]
 			add	ebx,ebp
 
 			shr	eax,16
-@@PtrCLUT:		mov	dl,[edx+12345678h]
 
-@@PtrLog:		mov	[edi+12345678h],dl
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
+			push eax
+			mov eax,[PtrLog]
+			mov	[edi+eax],dl
+			pop eax
+
 			mov	al,bh
 
-@@RepMask:		and	eax,12345678h
-@@DecZBuf:		add	esi,12345678h
+			and	eax,[RepMaskPatch]
+			add	esi,[DecZBuf]
 
-@@IntZBuf:		adc	esi,12345678h
+			adc	esi,[IntZBuf]
 			inc	edi
 
 			dec	ecx
@@ -1132,7 +968,10 @@ Fill_VLTextureZFog2::	add	edi,SIZE_VIDEOLINE
 			jmp	@@End16
 
 @@NoDisp:
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],si
+			push eax
+			mov eax,[PtrZBuffer2]
+			cmp	[edi*2+eax],si
+			pop eax
 			jae	@@Disp
 
 			lea	eax,[ebx+ebp]
@@ -1142,10 +981,10 @@ Fill_VLTextureZFog2::	add	edi,SIZE_VIDEOLINE
 			inc	edi
 
 			mov	al,bh
-@@DecZBuf2:		add	esi,12345678h
+			add	esi,[DecZBuf2]
 
-@@IntZBuf2:		adc	esi,12345678h
-@@RepMask2:		and	eax,12345678h
+			adc	esi,[IntZBuf2]
+			and	eax,[RepMask2]
 
 			dec	ecx
 			jne	@@NoDisp
@@ -1236,29 +1075,29 @@ Filler_TextureZFogSmoothNZW PROC
 
 			add	eax,12*256
 
-			mov	dword ptr [@@PtrCLUT+2],eax
+			mov	[PtrCLUT],eax
 			mov	eax,[RepMask]
 
-			mov	dword ptr [@@RepMask+1],eax
-			mov	dword ptr [@@RepMask2+1],eax
+			mov	[RepMaskPatch],eax
+			mov	[RepMask2],eax
 
 			mov	eax,[PtrMap]
 
-			mov	dword ptr [@@PtrMap+2],eax
+			mov	[PtrMapPatch],eax
 			mov	eax,[Log]
 
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer2+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer2],eax
 
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shl	eax,32-8
 
-			mov	dword ptr [@@DecZBuf+2],eax
-			mov	dword ptr [@@DecZBuf2+2],eax
+			mov	[DecZBuf],eax
+			mov	[DecZBuf2],eax
 
 			mov	eax,[Fill_ZBuf_XSlope]
 
@@ -1266,12 +1105,12 @@ Filler_TextureZFogSmoothNZW PROC
 
 			and	eax,0FFFFh
 
-			mov	dword ptr [@@IntZBuf+2],eax
-			mov	dword ptr [@@IntZBuf2+2],eax
+			mov	[IntZBuf],eax
+			mov	[IntZBuf2],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLTextureZFog3::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1447,24 +1286,41 @@ Fill_VLTextureZFog3::	add	edi,SIZE_VIDEOLINE
 @@Go:
 			ror	esi,8
 @@LoopX:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],si
+
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],si
+		pop eax
+
 			jb	@@NoDispFast
 @@Disp:
-@@PtrMap:		mov	dl,[eax+12345678h]
+			push ebx
+			mov ebx,[PtrMapPatch]
+			mov	dl,[eax+ebx]
+			pop ebx
+
 			lea	eax,[ebx+ebp]
 
 			shr	eax,16
 			add	ebx,ebp
 
-@@PtrCLUT:		mov	dl,[edx+12345678h]
+			push eax
+			mov eax,[PtrCLUT]
+			mov	dl,[edx+eax]
+			pop eax
+
 			mov	al,bh
 
-@@PtrLog:		mov	[edi+12345678h],dl
-@@RepMask:		and	eax,12345678h
+			push eax
+			mov eax,[PtrLog]
+			mov	[edi+eax],dl
+			pop eax
 
-@@DecZBuf:		add	esi,12345678h
+			and	eax,[RepMaskPatch]
 
-@@IntZBuf:		adc	esi,12345678h
+			add	esi,[DecZBuf]
+
+			adc	esi,[IntZBuf]
 			inc	edi
 
 			dec	ecx
@@ -1473,7 +1329,10 @@ Fill_VLTextureZFog3::	add	edi,SIZE_VIDEOLINE
 			jmp	@@End16
 
 @@NoDisp:
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],si
+			push eax
+			mov eax,[PtrZBuffer2]
+			cmp	[edi*2+eax],si
+			pop eax
 			jae	@@Disp
 @@NoDispFast:
 			lea	eax,[ebx+ebp]
@@ -1483,10 +1342,10 @@ Fill_VLTextureZFog3::	add	edi,SIZE_VIDEOLINE
 			inc	edi
 
 			mov	al,bh
-@@DecZBuf2:		add	esi,12345678h
+			add	esi,[DecZBuf2]
 
-@@IntZBuf2:		adc	esi,12345678h
-@@RepMask2:		and	eax,12345678h
+			adc	esi,[IntZBuf2]
+			and	eax,[RepMask2]
 
 			dec	ecx
 			jne	@@NoDisp
@@ -1546,21 +1405,6 @@ Fill_VLTextureZFog3::	add	edi,SIZE_VIDEOLINE
 			mov	[Fill_CurMapVMin],ebp
 			jmp	Triangle_ReadNextEdge
 Filler_TextureZFogSmoothNZW ENDP
-
-
-
-
-
-
-;				*******************
-;				*** Local proc ***
-;				*******************
-
-
-
-
-
-Last_POLYTEXTUREZFOGPatch Label	DWORD
 
 _TEXT			ENDS
 

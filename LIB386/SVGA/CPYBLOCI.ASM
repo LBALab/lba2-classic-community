@@ -1,22 +1,22 @@
 ;----------------------------------------------------------------------------
 			.386P
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	TabOffLine:DWORD
-			EXTRN	SYSCALL	ClipXMin:DWORD
-			EXTRN	SYSCALL	ClipXMax:DWORD
-			EXTRN	SYSCALL	ClipYMin:DWORD
-			EXTRN	SYSCALL	ClipYMax:DWORD
+			EXTRN	C	TabOffLine:DWORD
+			EXTRN	C	ClipXMin:DWORD
+			EXTRN	C	ClipXMax:DWORD
+			EXTRN	C	ClipYMin:DWORD
+			EXTRN	C	ClipYMax:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	CopyBlockIncrust
+			PUBLIC	C	CopyBlockIncrust
 
 ;----------------------------------------------------------------------------
 ;void	CopyBlockIncrust(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd, void *dst)

@@ -16,7 +16,7 @@
 
 			OPTION	PROC:PRIVATE
 			OPTION	SCOPED
-			OPTION	LANGUAGE:SYSCALL
+			OPTION	LANGUAGE:C
 
 
 ;			**************
@@ -31,27 +31,24 @@
 ;					******************
 ;					*** PROCEDURES ***
 ;					******************
-PUBLIC	SYSCALL		First_POLYGOURAUDPatch
-PUBLIC	SYSCALL		Last_POLYGOURAUDPatch
-
-PUBLIC	SYSCALL		Filler_Gouraud
-PUBLIC	SYSCALL		Filler_Dither
-PUBLIC	SYSCALL		Filler_GouraudTable
-PUBLIC	SYSCALL		Filler_DitherTable
-PUBLIC	SYSCALL		Filler_GouraudFog
-PUBLIC	SYSCALL		Filler_DitherFog
-PUBLIC	SYSCALL		Filler_GouraudZBuf
-PUBLIC	SYSCALL		Filler_DitherZBuf
-PUBLIC	SYSCALL		Filler_GouraudTableZBuf
-PUBLIC	SYSCALL		Filler_DitherTableZBuf
-PUBLIC	SYSCALL		Filler_GouraudFogZBuf
-PUBLIC	SYSCALL		Filler_DitherFogZBuf
-PUBLIC	SYSCALL		Filler_GouraudNZW
-PUBLIC	SYSCALL		Filler_DitherNZW
-PUBLIC	SYSCALL		Filler_GouraudTableNZW
-PUBLIC	SYSCALL		Filler_DitherTableNZW
-PUBLIC	SYSCALL		Filler_GouraudFogNZW
-PUBLIC	SYSCALL		Filler_DitherFogNZW
+PUBLIC	C		Filler_Gouraud
+PUBLIC	C		Filler_Dither
+PUBLIC	C		Filler_GouraudTable
+PUBLIC	C		Filler_DitherTable
+PUBLIC	C		Filler_GouraudFog
+PUBLIC	C		Filler_DitherFog
+PUBLIC	C		Filler_GouraudZBuf
+PUBLIC	C		Filler_DitherZBuf
+PUBLIC	C		Filler_GouraudTableZBuf
+PUBLIC	C		Filler_DitherTableZBuf
+PUBLIC	C		Filler_GouraudFogZBuf
+PUBLIC	C		Filler_DitherFogZBuf
+PUBLIC	C		Filler_GouraudNZW
+PUBLIC	C		Filler_DitherNZW
+PUBLIC	C		Filler_GouraudTableNZW
+PUBLIC	C		Filler_DitherTableNZW
+PUBLIC	C		Filler_GouraudFogNZW
+PUBLIC	C		Filler_DitherFogNZW
 
 ;					*****************
 ;					*** VARIABLES ***
@@ -60,33 +57,11 @@ PUBLIC	SYSCALL		Filler_DitherFogNZW
 ;					*** PUBLIC DATA ***
 
 
-;					*** MODULE DATA ***
-PUBLIC	SYSCALL		Fill_VLGouraud1
-PUBLIC	SYSCALL		Fill_VLGouraud2
-PUBLIC	SYSCALL		Fill_VLGouraud3
-PUBLIC	SYSCALL		Fill_VLGouraud4
-PUBLIC	SYSCALL		Fill_VLGouraud5
-PUBLIC	SYSCALL		Fill_VLGouraud6
-PUBLIC	SYSCALL		Fill_VLGouraud7
-PUBLIC	SYSCALL		Fill_VLGouraud8
-PUBLIC	SYSCALL		Fill_VLGouraud9
-PUBLIC	SYSCALL		Fill_VLGouraud10
-PUBLIC	SYSCALL		Fill_VLGouraud11
-PUBLIC	SYSCALL		Fill_VLGouraud12
-PUBLIC	SYSCALL		Fill_VLGouraud13
-PUBLIC	SYSCALL		Fill_VLGouraud14
-PUBLIC	SYSCALL		Fill_VLGouraud15
-PUBLIC	SYSCALL		Fill_VLGouraud16
-PUBLIC	SYSCALL		Fill_VLGouraud17
-PUBLIC	SYSCALL		Fill_VLGouraud18
-
-
-
 ;			***************
 ;			*** INCLUDE ***
 ;			***************
 
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 ;			**************
@@ -106,7 +81,7 @@ INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
 ;			**************************
 
 			.386
-;			.MODEL	FLAT, SYSCALL
+;			.MODEL	FLAT, C
 
 
 
@@ -120,32 +95,32 @@ _DATA			SEGMENT	USE32 PUBLIC PARA 'DATA'
 ;				******************
 ;				*** Extrn data ***
 ;				******************
-Extrn	SYSCALL		Fill_Restart		:	DWORD
-Extrn	SYSCALL		Fill_Patch		:	DWORD
-Extrn	SYSCALL		Fill_Color		:	DWORD
+Extrn	C		Fill_Restart		:	DWORD
+Extrn	C		Fill_Patch		:	DWORD
+Extrn	C		Fill_Color		:	DWORD
 
-Extrn	SYSCALL		Fill_LeftSlope		:	DWORD
-Extrn	SYSCALL		Fill_RightSlope		:	DWORD
+Extrn	C		Fill_LeftSlope		:	DWORD
+Extrn	C		Fill_RightSlope		:	DWORD
 
-Extrn	SYSCALL		Fill_CurY		:	DWORD
-Extrn	SYSCALL		Fill_CurXMin		:	DWORD
-Extrn	SYSCALL		Fill_CurXMax		:	DWORD
+Extrn	C		Fill_CurY		:	DWORD
+Extrn	C		Fill_CurXMin		:	DWORD
+Extrn	C		Fill_CurXMax		:	DWORD
 
-Extrn	SYSCALL		PTR_TabOffLine		:	DWORD
-Extrn	SYSCALL		Fill_CurOffLine		:	DWORD
-Extrn	SYSCALL		Log			:	DWORD
-Extrn	SYSCALL		ScreenPitch		:	DWORD
-Extrn	SYSCALL		PtrZBuffer		:	DWORD
+Extrn	C		PTR_TabOffLine		:	DWORD
+Extrn	C		Fill_CurOffLine		:	DWORD
+Extrn	C		Log			:	DWORD
+Extrn	C		ScreenPitch		:	DWORD
+Extrn	C		PtrZBuffer		:	DWORD
 
-Extrn	SYSCALL		Fill_CurGouraudMin	:	DWORD
-Extrn	SYSCALL		Fill_Gouraud_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_Gouraud_XSlope	:	DWORD
+Extrn	C		Fill_CurGouraudMin	:	DWORD
+Extrn	C		Fill_Gouraud_LeftSlope	:	DWORD
+Extrn	C		Fill_Gouraud_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_CurZBufMin		:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_LeftSlope	:	DWORD
-Extrn	SYSCALL		Fill_ZBuf_XSlope	:	DWORD
+Extrn	C		Fill_CurZBufMin		:	DWORD
+Extrn	C		Fill_ZBuf_LeftSlope	:	DWORD
+Extrn	C		Fill_ZBuf_XSlope	:	DWORD
 
-Extrn	SYSCALL		Fill_Logical_Palette	:	BYTE
+Extrn	C		Fill_Logical_Palette	:	BYTE
 
 
 
@@ -175,7 +150,45 @@ Extrn	SYSCALL		Fill_Logical_Palette	:	BYTE
 ;				******************
 			ALIGN	4
 
-
+; Runtime code patch refactor, uses memory instead of instruction substitution
+AddGour             DWORD 12345678h
+AddGour1            DWORD 12345678h
+AddGour2            DWORD 12345678h
+AddGour3            DWORD 12345678h
+IntZBuf             DWORD 12345678h
+IntZBuf1            DWORD 12345678h
+IntZBuf2            DWORD 12345678h
+IntZBuf3            DWORD 12345678h
+DecGour             DWORD 12345678h
+DecZBuf             DWORD 12345678h
+DecZBuf1            DWORD 12345678h
+DecZBuf2            DWORD 12345678h
+DecZBuf3            DWORD 12345678h
+DecZBuf_AddGour     DWORD 12345678h
+DecZBuf_AddGour1    DWORD 12345678h
+DecZBuf_AddGour2    DWORD 12345678h
+DecZBuf_AddGour3    DWORD 12345678h
+PtrLog              DWORD 12345678h
+PtrLog_1            DWORD 12345678h
+PtrLog2             DWORD 12345678h
+PtrLog2_1           DWORD 12345678h
+PtrLog4             DWORD 12345678h
+PtrZBuffer_1        DWORD 12345678h
+PtrZBuffer1         DWORD 12345678h
+PtrZBuffer1_1       DWORD 12345678h
+PtrZBuffer2         DWORD 12345678h
+PtrZBuffer2_1       DWORD 12345678h
+PtrZBuffer3         DWORD 12345678h
+PtrZBuffer3_1       DWORD 12345678h
+PtrZBuffer4         DWORD 12345678h
+PtrZBuffer5         DWORD 12345678h
+PtrZBufferPatch     DWORD 12345678h
+PtrColor            DWORD 12345678h
+PtrColor1           DWORD 12345678h
+PtrColor2           DWORD 12345678h
+PtrColor3           DWORD 12345678h
+PtrColor4           DWORD 12345678h
+IntGour             BYTE  12h
 
 _DATA			ENDS
 
@@ -190,17 +203,13 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;				******************
 ;				*** Extrn proc ***
 ;				******************
-Extrn	SYSCALL		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
+Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in the triangle
 
 
 
 ;				*******************
 ;				*** Global proc ***
 ;				*******************
-
-First_POLYGOURAUDPatch	Label	DWORD
-
-
 
 ; *** CALL: 	ECX = Nb lines to draw
 ;		EBX = Fill_CurXMin
@@ -225,7 +234,7 @@ Filler_Gouraud		PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud1::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -358,7 +367,7 @@ Filler_Dither		PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud2::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -509,7 +518,7 @@ Filler_GouraudTable	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud3::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -646,7 +655,7 @@ Filler_DitherTable	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud4::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -826,7 +835,7 @@ Filler_GouraudFog	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud5::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -963,7 +972,7 @@ Filler_DitherFog	PROC
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud6::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1137,29 +1146,29 @@ Filler_GouraudZBuf	PROC
 			shl	eax,16
 			push	ebx
 
-			mov	dword ptr [@@DecGour+2],eax
+			mov	[DecGour],eax
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[DecZBuf],ebx
 
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			pop	ebx
 
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBuffer1],eax
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud7::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1248,17 +1257,30 @@ Fill_VLGouraud7::	add	edi,SIZE_VIDEOLINE
 
 				; *** Gouraud loop ***
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrZBuffer1:		mov	[edi*2+12345678h],dx
-@@PtrLog:		mov	[edi+12345678h],al
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],dx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp:
-@@DecGour:		add	esi,12345678h
+		add	esi,[DecGour]
 
 			adc	al,bl
-@@DecZBuf:		add	ebp,12345678h
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	edx,12345678h
+		adc	edx,[IntZBuf]
 			inc	edi
 
 			dec	ecx
@@ -1314,64 +1336,64 @@ Filler_DitherZBuf	PROC
 			sar	eax,8
 			push	ebx
 
-			mov	dword ptr [@@AddGour+2],eax
-			mov	dword ptr [@@AddGour1+2],eax
+			mov	[AddGour],eax
+			mov	[AddGour1],eax
 
-			mov	dword ptr [@@AddGour2+2],eax
-			mov	dword ptr [@@AddGour3+2],eax
+			mov	[AddGour2],eax
+			mov	[AddGour3],eax
 
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
-			mov	dword ptr [@@PtrZBuffer3+4],eax
+			mov	[PtrZBuffer2],eax
+			mov	[PtrZBuffer3],eax
 
-			mov	dword ptr [@@PtrZBuffer4+4],eax
-			mov	dword ptr [@@PtrZBuffer5+4],eax
+			mov	[PtrZBuffer4],eax
+			mov	[PtrZBuffer5],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
-			mov	dword ptr [@@PtrLog2+2],ebx
+			mov	[PtrLog],ebx
+			mov	[PtrLog2],ebx
 
-			mov	dword ptr [@@PtrLog4+2],ebx
+			mov	[PtrLog4],ebx
 			add	eax,2
 
 			inc	ebx
-			mov	dword ptr [@@PtrZBuffer_1+4],eax
+			mov	[PtrZBuffer_1],eax
 
-			mov	dword ptr [@@PtrZBuffer1_1+4],eax
-			mov	dword ptr [@@PtrZBuffer2_1+4],eax
+			mov	[PtrZBuffer1_1],eax
+			mov	[PtrZBuffer2_1],eax
 
-			mov	dword ptr [@@PtrZBuffer3_1+4],eax
-			mov	dword ptr [@@PtrLog_1+2],ebx
+			mov	[PtrZBuffer3_1],eax
+			mov	[PtrLog_1],ebx
 
-			mov	dword ptr [@@PtrLog2_1+2],ebx
+			mov	[PtrLog2_1],ebx
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 
-			mov	dword ptr [@@IntZBuf1+2],eax
-			mov	dword ptr [@@IntZBuf2+2],eax
+			mov	[IntZBuf1],eax
+			mov	[IntZBuf2],eax
 
-			mov	dword ptr [@@IntZBuf3+2],eax
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[IntZBuf3],eax
+			mov	[DecZBuf],ebx
 
-			mov	dword ptr [@@DecZBuf1+2],ebx
-			mov	dword ptr [@@DecZBuf2+2],ebx
+			mov	[DecZBuf1],ebx
+			mov	[DecZBuf2],ebx
 
-			mov	dword ptr [@@DecZBuf3+2],ebx
+			mov	[DecZBuf3],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud8::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1450,28 +1472,54 @@ Fill_VLGouraud8::	add	edi,SIZE_VIDEOLINE
 			and	eax,0FFh
 
 			add	eax,edx
-@@AddGour:		add	edx,12345678h
+		add	edx,[AddGour]
 
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp0
-@@PtrZBuffer1:		mov	[edi*2+12345678h],bx
-@@PtrLog:		mov	[edi+12345678h],ah
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],bx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp0:
 			and	eax,0FFh
-@@DecZBuf:		add	ebp,12345678h
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			add	eax,edx
 
-@@PtrZBuffer_1:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp1
-@@PtrZBuffer1_1:	mov	[edi*2+12345678h],bx
-@@PtrLog_1:		mov	[edi+12345678h],ah
-@@NoDisp1:
-@@AddGour1:		add	edx,12345678h
-@@DecZBuf1:		add	ebp,12345678h
+		push eax
+		mov eax,[PtrZBuffer_1]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@IntZBuf1:		adc	ebx,12345678h
+			jb	@@NoDisp1
+
+	push eax
+	mov eax,[PtrZBuffer1_1]
+	mov	[edi*2+eax],bx
+	pop eax
+
+		push ebx
+		mov ebx,[PtrLog_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
+@@NoDisp1:
+		add	edx,[AddGour1]
+		add	ebp,[DecZBuf1]
+
+		adc	ebx,[IntZBuf1]
 			add	edi,2
 
 			rol	al,cl
@@ -1480,12 +1528,26 @@ Fill_VLGouraud8::	add	edi,SIZE_VIDEOLINE
 			jne	@@Each_X
 
 @@Add_One:
-@@PtrZBuffer4:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBuffer4]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@End_X
-@@PtrZBuffer5:		mov	[edi*2+12345678h],bx
+
+		push eax
+		mov eax,[PtrZBuffer5]
+		mov	[edi*2+eax],bx
+		pop eax
+
 			and	eax,0FFh
 			add	eax,edx
-@@PtrLog4:		mov	[edi+12345678h],ah
+
+		push ebx
+		mov ebx,[PtrLog4]
+		mov	[edi+ebx],ah
+		pop ebx
+
 			jmp	@@End_X
 @@Pas_Add1:
 			je	@@End_X
@@ -1493,28 +1555,54 @@ Fill_VLGouraud8::	add	edi,SIZE_VIDEOLINE
 			and	eax,0FFh
 
 			add	eax,edx
-@@AddGour2:		add	edx,12345678h
+		add	edx,[AddGour2]
 
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBuffer2]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp2
-@@PtrZBuffer3:		mov	[edi*2+12345678h],bx
-@@PtrLog2:		mov	[edi+12345678h],ah
+
+		push eax
+		mov eax,[PtrZBuffer3]
+		mov	[edi*2+eax],bx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp2:
 			and	eax,0FFh
-@@DecZBuf2:		add	ebp,12345678h
+		add	ebp,[DecZBuf2]
 
-@@IntZBuf2:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf2]
 			add	eax,edx
 
-@@PtrZBuffer2_1:	cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp3
-@@PtrZBuffer3_1:	mov	[edi*2+12345678h],bx
-@@PtrLog2_1:		mov	[edi+12345678h],ah
-@@NoDisp3:
-@@AddGour3:		add	edx,12345678h
-@@DecZBuf3:		add	ebp,12345678h
+	push eax
+	mov eax,[PtrZBuffer2_1]
+	cmp	[edi*2+eax],bx
+	pop eax
 
-@@IntZBuf3:		adc	ebx,12345678h
+			jb	@@NoDisp3
+
+	push eax
+	mov eax,[PtrZBuffer3_1]
+	mov	[edi*2+eax],bx
+	pop eax
+
+		push ebx
+		mov ebx,[PtrLog2_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
+@@NoDisp3:
+		add	edx,[AddGour3]
+		add	ebp,[DecZBuf3]
+
+		adc	ebx,[IntZBuf3]
 			add	edi,2
 
 			rol	al,cl
@@ -1569,28 +1657,28 @@ Filler_GouraudTableZBuf	PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			mov	eax,[Fill_Gouraud_XSlope]
 
-			mov	dword ptr [@@AddGour+2],eax
+			mov	[AddGour],eax
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[DecZBuf],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud9::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1680,17 +1768,30 @@ Fill_VLGouraud9::	add	edi,SIZE_VIDEOLINE
 
 				; *** Gouraud loop ***
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrZBuffer1:		mov	[edi*2+12345678h],bx
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],bx
+		pop eax
+
 			mov	al,[eax+edx]
 
-@@PtrLog:		mov	[edi+12345678h],al
-@@NoDisp:
-@@AddGour:		add	esi,12345678h
-@@DecZBuf:		add	ebp,12345678h
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
 
-@@IntZBuf:		adc	ebx,12345678h
+@@NoDisp:
+		add	esi,[AddGour]
+		add	ebp,[DecZBuf]
+
+		adc	ebx,[IntZBuf]
 			mov	eax,esi
 
 			shr	eax,8
@@ -1753,73 +1854,73 @@ Filler_DitherTableZBuf	PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
-			mov	dword ptr [@@PtrZBuffer3+4],eax
+			mov	[PtrZBuffer2],eax
+			mov	[PtrZBuffer3],eax
 
-			mov	dword ptr [@@PtrZBuffer4+4],eax
-			mov	dword ptr [@@PtrZBuffer5+4],eax
+			mov	[PtrZBuffer4],eax
+			mov	[PtrZBuffer5],eax
 
 			add	eax,2
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 
-			mov	dword ptr [@@PtrZBuffer_1+4],eax
-			mov	dword ptr [@@PtrZBuffer1_1+4],eax
+			mov	[PtrZBuffer_1],eax
+			mov	[PtrZBuffer1_1],eax
 
-			mov	dword ptr [@@PtrZBuffer2_1+4],eax
-			mov	dword ptr [@@PtrLog2+2],ebx
+			mov	[PtrZBuffer2_1],eax
+			mov	[PtrLog2],ebx
 
-			mov	dword ptr [@@PtrLog4+2],ebx
+			mov	[PtrLog4],ebx
 			inc	ebx
 
-			mov	dword ptr [@@PtrLog_1+2],ebx
-			mov	dword ptr [@@PtrZBuffer3_1+4],eax
+			mov	[PtrLog_1],ebx
+			mov	[PtrZBuffer3_1],eax
 
-			mov	dword ptr [@@PtrLog2_1+2],ebx
+			mov	[PtrLog2_1],ebx
 			mov	eax,[Fill_Gouraud_XSlope]
 
 			sar	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
-			mov	dword ptr [@@AddGour+2],eax
-			mov	dword ptr [@@AddGour1+2],eax
+			mov	[AddGour],eax
+			mov	[AddGour1],eax
 
-			mov	dword ptr [@@AddGour2+2],eax
-			mov	dword ptr [@@AddGour3+2],eax
+			mov	[AddGour2],eax
+			mov	[AddGour3],eax
 
 			shr	ebx,8
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shl	eax,32-8
-			mov	dword ptr [@@IntZBuf+2],ebx
+			mov	[IntZBuf],ebx
 
-			mov	dword ptr [@@IntZBuf1+2],ebx
-			mov	dword ptr [@@IntZBuf2+2],ebx
+			mov	[IntZBuf1],ebx
+			mov	[IntZBuf2],ebx
 
-			mov	dword ptr [@@IntZBuf3+2],ebx
-			mov	dword ptr [@@DecZBuf+2],eax
+			mov	[IntZBuf3],ebx
+			mov	[DecZBuf],eax
 
-			mov	dword ptr [@@DecZBuf1+2],eax
-			mov	dword ptr [@@DecZBuf2+2],eax
+			mov	[DecZBuf1],eax
+			mov	[DecZBuf2],eax
 
-			mov	dword ptr [@@DecZBuf3+2],eax
+			mov	[DecZBuf3],eax
 			mov	eax,[Fill_Color]
 
-			mov	dword ptr [@@PtrColor+2],eax
-			mov	dword ptr [@@PtrColor1+2],eax
+			mov	[PtrColor],eax
+			mov	[PtrColor1],eax
 
-			mov	dword ptr [@@PtrColor2+2],eax
-			mov	dword ptr [@@PtrColor3+2],eax
+			mov	[PtrColor2],eax
+			mov	[PtrColor3],eax
 
-			mov	dword ptr [@@PtrColor4+2],eax
+			mov	[PtrColor4],eax
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud10::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -1903,38 +2004,70 @@ Fill_VLGouraud10::	add	edi,SIZE_VIDEOLINE
 			rol	al,cl
 
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp
-@@PtrZBuffer1:		mov	[edi*2+12345678h],bx
-@@PtrColor:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog:		mov	[edi+12345678h],ah
+			jb	@@NoDisp
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],bx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrColor]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp:
 			and	eax,0FFh
-@@AddGour:		add	edx,12345678h
+		add	edx,[AddGour]
 
 			add	eax,edx
-@@DecZBuf:		add	ebp,12345678h
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			mov	esi,eax
 
 			and	esi,0FF00h
 
-@@PtrZBuffer_1:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp1
-@@PtrZBuffer1_1:	mov	[edi*2+12345678h],bx
-@@PtrColor1:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer_1]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog_1:		mov	[edi+12345678h],ah
+			jb	@@NoDisp1
+
+	push eax
+	mov eax,[PtrZBuffer1_1]
+	mov	[edi*2+eax],bx
+	pop eax
+
+		push ebx
+		mov ebx,[PtrColor1]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp1:
-@@AddGour1:		add	edx,12345678h
+		add	edx,[AddGour1]
 			and	eax,0FFh
 
 			add	eax,edx
-@@DecZBuf1:		add	ebp,12345678h
+		add	ebp,[DecZBuf1]
 
-@@IntZBuf1:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf1]
 			mov	esi,eax
 
 			add	edi,2
@@ -1947,48 +2080,96 @@ Fill_VLGouraud10::	add	edi,SIZE_VIDEOLINE
 
 
 @@Add_One:
-@@PtrZBuffer4:		cmp	[edi*2+12345678h],bx
-			jb	@@End_X
-@@PtrZBuffer5:		mov	[edi*2+12345678h],bx
-@@PtrColor4:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer4]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog4:		mov	[edi+12345678h],ah
+			jb	@@End_X
+
+		push eax
+		mov eax,[PtrZBuffer5]
+		mov	[edi*2+eax],bx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrColor4]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog4]
+		mov	[edi+ebx],ah
+		pop ebx
+
 			jmp	@@End_X
 @@Pas_Add1:
 			je	@@End_X
 @@Each_X2:
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp2
-@@PtrZBuffer3:		mov	[edi*2+12345678h],bx
-@@PtrColor2:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer2]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog2:		mov	[edi+12345678h],ah
+			jb	@@NoDisp2
+
+		push eax
+		mov eax,[PtrZBuffer3]
+		mov	[edi*2+eax],bx
+		pop eax
+
+		push ebx
+		mov ebx,[PtrColor2]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp2:
 			and	eax,0FFh
-@@AddGour2:		add	edx,12345678h
+		add	edx,[AddGour2]
 
 			add	eax,edx
-@@DecZBuf2:		add	ebp,12345678h
+		add	ebp,[DecZBuf2]
 
-@@IntZBuf2:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf2]
 			mov	esi,eax
 
 			and	esi,0FF00h
 
-@@PtrZBuffer2_1:	cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp3
-@@PtrZBuffer3_1:	mov	[edi*2+12345678h],bx
-@@PtrColor3:		mov	ah,[esi+12345678h]
+	push eax
+	mov eax,[PtrZBuffer2_1]
+	cmp	[edi*2+eax],bx
+	pop eax
 
-@@PtrLog2_1:		mov	[edi+12345678h],ah
+			jb	@@NoDisp3
+
+	push eax
+	mov eax,[PtrZBuffer3_1]
+	mov	[edi*2+eax],bx
+	pop eax
+
+		push ebx
+		mov ebx,[PtrColor3]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog2_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp3:
-@@AddGour3:		add	edx,12345678h
+		add	edx,[AddGour3]
 			and	eax,0FFh
 
 			add	eax,edx
-@@DecZBuf3:		add	ebp,12345678h
+		add	ebp,[DecZBuf3]
 
-@@IntZBuf3:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf3]
 			mov	esi,eax
 
 			add	edi,2
@@ -2050,34 +2231,34 @@ Filler_GouraudFogZBuf	PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			mov	eax,[Fill_Gouraud_XSlope]
 
 			shr	eax,16
 			mov	ebx,[Fill_Gouraud_XSlope]
 
 			shl	ebx,16
-			mov	byte ptr [@@IntGour+1],al
+			mov	[IntGour],al
 
-			mov	dword ptr [@@DecGour+2],ebx
+			mov	[DecGour],ebx
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[DecZBuf],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud11::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2167,19 +2348,33 @@ Fill_VLGouraud11::	add	edi,SIZE_VIDEOLINE
 
 				; *** Gouraud loop ***
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrZBuffer1:		mov	[edi*2+12345678h],bx
+
+		push eax
+		mov eax,[PtrZBuffer1]
+		mov	[edi*2+eax],bx
+		pop eax
+
 			mov	dl,[eax+Fill_Logical_Palette]
-@@PtrLog:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp:
 			inc	edi
-@@DecGour:		add	esi,12345678h
+		add	esi,[DecGour]
 
-@@IntGour:		adc	al,12h
-@@DecZBuf:		add	ebp,12345678h
+		adc	al,[IntGour]
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			dec	ecx
 
 			jne	@@Each_X
@@ -2241,37 +2436,37 @@ Filler_DitherFogZBuf	PROC
 
 			or	eax,ebx
 
-			mov	dword ptr [@@DecZBuf_AddGour+2],eax
-			mov	dword ptr [@@DecZBuf_AddGour1+2],eax
+			mov	[DecZBuf_AddGour],eax
+			mov	[DecZBuf_AddGour1],eax
 
-			mov	dword ptr [@@DecZBuf_AddGour2+2],eax
-			mov	dword ptr [@@DecZBuf_AddGour3+2],eax
+			mov	[DecZBuf_AddGour2],eax
+			mov	[DecZBuf_AddGour3],eax
 
 			mov	ebx,[Log]
 			mov	eax,[Fill_ZBuf_XSlope]
 
-			mov	dword ptr [@@PtrLog+2],ebx
-			mov	dword ptr [@@PtrLog2+2],ebx
+			mov	[PtrLog],ebx
+			mov	[PtrLog2],ebx
 
-			mov	dword ptr [@@PtrLog4+2],ebx
+			mov	[PtrLog4],ebx
 			inc	ebx
 
-			mov	dword ptr [@@PtrLog_1+2],ebx
-			mov	dword ptr [@@PtrLog2_1+2],ebx
+			mov	[PtrLog_1],ebx
+			mov	[PtrLog2_1],ebx
 
 			shr	eax,8
 
-			mov	dword ptr [@@IntZBuf+2],eax
-			mov	dword ptr [@@IntZBuf1+2],eax
+			mov	[IntZBuf],eax
+			mov	[IntZBuf1],eax
 
-			mov	dword ptr [@@IntZBuf2+2],eax
-			mov	dword ptr [@@IntZBuf3+2],eax
+			mov	[IntZBuf2],eax
+			mov	[IntZBuf3],eax
 
 			pop	ebx
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud12::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2362,12 +2557,17 @@ Fill_VLGouraud12::	add	edi,SIZE_VIDEOLINE
 			jb	@@NoDisp0
 			mov	word ptr [edi*2+ebp],bx
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp0:
 			and	eax,0FFh
-@@DecZBuf_AddGour:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			add	eax,esi
 
 			mov	dl,ah
@@ -2376,12 +2576,17 @@ Fill_VLGouraud12::	add	edi,SIZE_VIDEOLINE
 			jb	@@NoDisp1
 			mov	word ptr [edi*2+ebp+2],bx
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog_1:		mov	[edi+12345678h],dl
+
+		push eax
+		mov eax,[PtrLog_1]
+		mov	[edi+eax],dl
+		pop eax
+
 @@NoDisp1:
 			and	eax,0FFh
-@@DecZBuf_AddGour1:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour1]
 
-@@IntZBuf1:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf1]
 			add	eax,esi
 
 			add	edi,2
@@ -2396,7 +2601,12 @@ Fill_VLGouraud12::	add	edi,SIZE_VIDEOLINE
 			jb	@@End_X
 			mov	word ptr [edi*2+ebp],bx
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog4:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog4]
+		mov	[edi+ebx],dl
+		pop ebx
+
 			jmp	@@End_X
 @@Pas_Add1:
 			je	@@End_X
@@ -2405,12 +2615,17 @@ Fill_VLGouraud12::	add	edi,SIZE_VIDEOLINE
 			jb	@@NoDisp2
 			mov	word ptr [edi*2+ebp],bx
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog2:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp2:
 			and	eax,0FFh
-@@DecZBuf_AddGour2:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour2]
 
-@@IntZBuf2:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf2]
 			add	eax,esi
 
 			mov	dl,ah
@@ -2419,12 +2634,17 @@ Fill_VLGouraud12::	add	edi,SIZE_VIDEOLINE
 			jb	@@NoDisp3
 			mov	word ptr [edi*2+ebp+2],bx
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog2_1:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog2_1]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp3:
 			and	eax,0FFh
-@@DecZBuf_AddGour3:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour3]
 
-@@IntZBuf3:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf3]
 			add	eax,esi
 
 			add	edi,2
@@ -2485,28 +2705,28 @@ Filler_GouraudNZW	PROC
 			shl	eax,16
 			push	ebx
 
-			mov	dword ptr [@@DecGour+2],eax
+			mov	[DecGour],eax
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[DecZBuf],ebx
 
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 			mov	eax,[PtrZBuffer]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud13::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2595,16 +2815,25 @@ Fill_VLGouraud13::	add	edi,SIZE_VIDEOLINE
 
 				; *** Gouraud loop ***
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],dx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],dx
+		pop eax
+
 			jb	@@NoDisp
-@@PtrLog:		mov	[edi+12345678h],al
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
+
 @@NoDisp:
-@@DecGour:		add	esi,12345678h
+		add	esi,[DecGour]
 
 			adc	al,bl
-@@DecZBuf:		add	ebp,12345678h
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	edx,12345678h
+		adc	edx,[IntZBuf]
 			inc	edi
 
 			dec	ecx
@@ -2660,57 +2889,57 @@ Filler_DitherNZW	PROC
 			sar	eax,8
 			push	ebx
 
-			mov	dword ptr [@@AddGour+2],eax
-			mov	dword ptr [@@AddGour1+2],eax
+			mov	[AddGour],eax
+			mov	[AddGour1],eax
 
-			mov	dword ptr [@@AddGour2+2],eax
-			mov	dword ptr [@@AddGour3+2],eax
+			mov	[AddGour2],eax
+			mov	[AddGour3],eax
 
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
-			mov	dword ptr [@@PtrZBuffer3+4],eax
+			mov	[PtrZBuffer2],eax
+			mov	[PtrZBuffer3],eax
 
-			mov	dword ptr [@@PtrZBuffer4+4],eax
+			mov	[PtrZBuffer4],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
-			mov	dword ptr [@@PtrLog2+2],ebx
+			mov	[PtrLog],ebx
+			mov	[PtrLog2],ebx
 
-			mov	dword ptr [@@PtrLog4+2],ebx
+			mov	[PtrLog4],ebx
 			add	eax,2
 
 			inc	ebx
-			mov	dword ptr [@@PtrLog_1+2],ebx
+			mov	[PtrLog_1],ebx
 
-			mov	dword ptr [@@PtrLog2_1+2],ebx
+			mov	[PtrLog2_1],ebx
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 
-			mov	dword ptr [@@IntZBuf1+2],eax
-			mov	dword ptr [@@IntZBuf2+2],eax
+			mov	[IntZBuf1],eax
+			mov	[IntZBuf2],eax
 
-			mov	dword ptr [@@IntZBuf3+2],eax
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[IntZBuf3],eax
+			mov	[DecZBuf],ebx
 
-			mov	dword ptr [@@DecZBuf1+2],ebx
-			mov	dword ptr [@@DecZBuf2+2],ebx
+			mov	[DecZBuf1],ebx
+			mov	[DecZBuf2],ebx
 
-			mov	dword ptr [@@DecZBuf3+2],ebx
+			mov	[DecZBuf3],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud14::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -2789,26 +3018,44 @@ Fill_VLGouraud14::	add	edi,SIZE_VIDEOLINE
 			and	eax,0FFh
 
 			add	eax,edx
-@@AddGour:		add	edx,12345678h
+		add	edx,[AddGour]
 
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp0
-@@PtrLog:		mov	[edi+12345678h],ah
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp0:
 			and	eax,0FFh
-@@DecZBuf:		add	ebp,12345678h
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			add	eax,edx
 
-@@PtrZBuffer1:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp1
-@@PtrLog_1:		mov	[edi+12345678h],ah
-@@NoDisp1:
-@@AddGour1:		add	edx,12345678h
-@@DecZBuf1:		add	ebp,12345678h
+		push eax
+		mov eax,[PtrZBuffer1]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@IntZBuf1:		adc	ebx,12345678h
+			jb	@@NoDisp1
+
+		push ebx
+		mov ebx,[PtrLog_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
+@@NoDisp1:
+		add	edx,[AddGour1]
+		add	ebp,[DecZBuf1]
+
+		adc	ebx,[IntZBuf1]
 			add	edi,2
 
 			rol	al,cl
@@ -2817,11 +3064,20 @@ Fill_VLGouraud14::	add	edi,SIZE_VIDEOLINE
 			jne	@@Each_X
 
 @@Add_One:
-@@PtrZBuffer4:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBuffer4]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@End_X
 			and	eax,0FFh
 			add	eax,edx
-@@PtrLog4:		mov	[edi+12345678h],ah
+
+		push ebx
+		mov ebx,[PtrLog4]
+		mov	[edi+ebx],ah
+		pop ebx
+
 			jmp	@@End_X
 @@Pas_Add1:
 			je	@@End_X
@@ -2829,26 +3085,44 @@ Fill_VLGouraud14::	add	edi,SIZE_VIDEOLINE
 			and	eax,0FFh
 
 			add	eax,edx
-@@AddGour2:		add	edx,12345678h
+		add	edx,[AddGour2]
 
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBuffer2]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp2
-@@PtrLog2:		mov	[edi+12345678h],ah
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp2:
 			and	eax,0FFh
-@@DecZBuf2:		add	ebp,12345678h
+		add	ebp,[DecZBuf2]
 
-@@IntZBuf2:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf2]
 			add	eax,edx
 
-@@PtrZBuffer3:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp3
-@@PtrLog2_1:		mov	[edi+12345678h],ah
-@@NoDisp3:
-@@AddGour3:		add	edx,12345678h
-@@DecZBuf3:		add	ebp,12345678h
+		push eax
+		mov eax,[PtrZBuffer3]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@IntZBuf3:		adc	ebx,12345678h
+			jb	@@NoDisp3
+
+		push ebx
+		mov ebx,[PtrLog2_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
+@@NoDisp3:
+		add	edx,[AddGour3]
+		add	ebp,[DecZBuf3]
+
+		adc	ebx,[IntZBuf3]
 			add	edi,2
 
 			rol	al,cl
@@ -2904,27 +3178,27 @@ Filler_GouraudTableNZW	PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrLog],ebx
 
 			mov	eax,[Fill_Gouraud_XSlope]
 
-			mov	dword ptr [@@AddGour+2],eax
+			mov	[AddGour],eax
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[DecZBuf],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud15::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3014,16 +3288,24 @@ Fill_VLGouraud15::	add	edi,SIZE_VIDEOLINE
 
 				; *** Gouraud loop ***
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp
 			mov	al,[eax+edx]
 
-@@PtrLog:		mov	[edi+12345678h],al
-@@NoDisp:
-@@AddGour:		add	esi,12345678h
-@@DecZBuf:		add	ebp,12345678h
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],al
+		pop ebx
 
-@@IntZBuf:		adc	ebx,12345678h
+@@NoDisp:
+		add	esi,[AddGour]
+		add	ebp,[DecZBuf]
+
+		adc	ebx,[IntZBuf]
 			mov	eax,esi
 
 			shr	eax,8
@@ -3086,66 +3368,66 @@ Filler_DitherTableNZW	PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
-			mov	dword ptr [@@PtrZBuffer1+4],eax
+			mov	[PtrZBufferPatch],eax
+			mov	[PtrZBuffer1],eax
 
-			mov	dword ptr [@@PtrZBuffer2+4],eax
-			mov	dword ptr [@@PtrZBuffer3+4],eax
+			mov	[PtrZBuffer2],eax
+			mov	[PtrZBuffer3],eax
 
-			mov	dword ptr [@@PtrZBuffer4+4],eax
+			mov	[PtrZBuffer4],eax
 
 			add	eax,2
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 
-			mov	dword ptr [@@PtrLog2+2],ebx
-			mov	dword ptr [@@PtrLog4+2],ebx
+			mov	[PtrLog2],ebx
+			mov	[PtrLog4],ebx
 
 			inc	ebx
 			mov	eax,[Fill_Gouraud_XSlope]
 
-			mov	dword ptr [@@PtrLog_1+2],ebx
-			mov	dword ptr [@@PtrLog2_1+2],ebx
+			mov	[PtrLog_1],ebx
+			mov	[PtrLog2_1],ebx
 
 			sar	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
-			mov	dword ptr [@@AddGour+2],eax
-			mov	dword ptr [@@AddGour1+2],eax
+			mov	[AddGour],eax
+			mov	[AddGour1],eax
 
-			mov	dword ptr [@@AddGour2+2],eax
-			mov	dword ptr [@@AddGour3+2],eax
+			mov	[AddGour2],eax
+			mov	[AddGour3],eax
 
 			shr	ebx,8
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shl	eax,32-8
-			mov	dword ptr [@@IntZBuf+2],ebx
+			mov	[IntZBuf],ebx
 
-			mov	dword ptr [@@IntZBuf1+2],ebx
-			mov	dword ptr [@@IntZBuf2+2],ebx
+			mov	[IntZBuf1],ebx
+			mov	[IntZBuf2],ebx
 
-			mov	dword ptr [@@IntZBuf3+2],ebx
-			mov	dword ptr [@@DecZBuf+2],eax
+			mov	[IntZBuf3],ebx
+			mov	[DecZBuf],eax
 
-			mov	dword ptr [@@DecZBuf1+2],eax
-			mov	dword ptr [@@DecZBuf2+2],eax
+			mov	[DecZBuf1],eax
+			mov	[DecZBuf2],eax
 
-			mov	dword ptr [@@DecZBuf3+2],eax
+			mov	[DecZBuf3],eax
 			mov	eax,[Fill_Color]
 
-			mov	dword ptr [@@PtrColor+2],eax
-			mov	dword ptr [@@PtrColor1+2],eax
+			mov	[PtrColor],eax
+			mov	[PtrColor1],eax
 
-			mov	dword ptr [@@PtrColor2+2],eax
-			mov	dword ptr [@@PtrColor3+2],eax
+			mov	[PtrColor2],eax
+			mov	[PtrColor3],eax
 
-			mov	dword ptr [@@PtrColor4+2],eax
+			mov	[PtrColor4],eax
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud16::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3229,36 +3511,60 @@ Fill_VLGouraud16::	add	edi,SIZE_VIDEOLINE
 			rol	al,cl
 
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp
-@@PtrColor:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog:		mov	[edi+12345678h],ah
+			jb	@@NoDisp
+
+		push ebx
+		mov ebx,[PtrColor]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp:
 			and	eax,0FFh
-@@AddGour:		add	edx,12345678h
+		add	edx,[AddGour]
 
 			add	eax,edx
-@@DecZBuf:		add	ebp,12345678h
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			mov	esi,eax
 
 			and	esi,0FF00h
 
-@@PtrZBuffer1:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp1
-@@PtrColor1:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer1]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog_1:		mov	[edi+12345678h],ah
+			jb	@@NoDisp1
+
+		push ebx
+		mov ebx,[PtrColor1]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp1:
-@@AddGour1:		add	edx,12345678h
+		add	edx,[AddGour1]
 			and	eax,0FFh
 
 			add	eax,edx
-@@DecZBuf1:		add	ebp,12345678h
+		add	ebp,[DecZBuf1]
 
-@@IntZBuf1:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf1]
 			mov	esi,eax
 
 			add	edi,2
@@ -3271,45 +3577,81 @@ Fill_VLGouraud16::	add	edi,SIZE_VIDEOLINE
 
 
 @@Add_One:
-@@PtrZBuffer4:		cmp	[edi*2+12345678h],bx
-			jb	@@End_X
-@@PtrColor4:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer4]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog4:		mov	[edi+12345678h],ah
+			jb	@@End_X
+
+		push ebx
+		mov ebx,[PtrColor4]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog4]
+		mov	[edi+ebx],ah
+		pop ebx
+
 			jmp	@@End_X
 @@Pas_Add1:
 			je	@@End_X
 @@Each_X2:
-@@PtrZBuffer2:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp2
-@@PtrColor2:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer2]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog2:		mov	[edi+12345678h],ah
+			jb	@@NoDisp2
+
+		push ebx
+		mov ebx,[PtrColor2]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp2:
 			and	eax,0FFh
-@@AddGour2:		add	edx,12345678h
+		add	edx,[AddGour2]
 
 			add	eax,edx
-@@DecZBuf2:		add	ebp,12345678h
+		add	ebp,[DecZBuf2]
 
-@@IntZBuf2:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf2]
 			mov	esi,eax
 
 			and	esi,0FF00h
 
-@@PtrZBuffer3:		cmp	[edi*2+12345678h],bx
-			jb	@@NoDisp3
-@@PtrColor3:		mov	ah,[esi+12345678h]
+		push eax
+		mov eax,[PtrZBuffer3]
+		cmp	[edi*2+eax],bx
+		pop eax
 
-@@PtrLog2_1:		mov	[edi+12345678h],ah
+			jb	@@NoDisp3
+
+		push ebx
+		mov ebx,[PtrColor3]
+		mov	ah,[esi+ebx]
+		pop ebx
+
+		push ebx
+		mov ebx,[PtrLog2_1]
+		mov	[edi+ebx],ah
+		pop ebx
+
 @@NoDisp3:
-@@AddGour3:		add	edx,12345678h
+		add	edx,[AddGour3]
 			and	eax,0FFh
 
 			add	eax,edx
-@@DecZBuf3:		add	ebp,12345678h
+		add	ebp,[DecZBuf3]
 
-@@IntZBuf3:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf3]
 			mov	esi,eax
 
 			add	edi,2
@@ -3371,33 +3713,33 @@ Filler_GouraudFogNZW	PROC
 			mov	eax,[PtrZBuffer]
 			mov	ebx,[Log]
 
-			mov	dword ptr [@@PtrZBuffer+4],eax
+			mov	[PtrZBufferPatch],eax
 
-			mov	dword ptr [@@PtrLog+2],ebx
+			mov	[PtrLog],ebx
 			mov	eax,[Fill_Gouraud_XSlope]
 
 			shr	eax,16
 			mov	ebx,[Fill_Gouraud_XSlope]
 
 			shl	ebx,16
-			mov	byte ptr [@@IntGour+1],al
+			mov	[IntGour],al
 
-			mov	dword ptr [@@DecGour+2],ebx
+			mov	[DecGour],ebx
 			mov	eax,[Fill_ZBuf_XSlope]
 
 			shr	eax,8
 			mov	ebx,[Fill_ZBuf_XSlope]
 
 			shl	ebx,32-8
-			mov	dword ptr [@@IntZBuf+2],eax
+			mov	[IntZBuf],eax
 
-			mov	dword ptr [@@DecZBuf+2],ebx
+			mov	[DecZBuf],ebx
 			pop	ebx
 
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud17::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3487,18 +3829,27 @@ Fill_VLGouraud17::	add	edi,SIZE_VIDEOLINE
 
 				; *** Gouraud loop ***
 @@Each_X:
-@@PtrZBuffer:		cmp	[edi*2+12345678h],bx
+		push eax
+		mov eax,[PtrZBufferPatch]
+		cmp	[edi*2+eax],bx
+		pop eax
+
 			jb	@@NoDisp
 			mov	dl,[eax+Fill_Logical_Palette]
-@@PtrLog:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp:
 			inc	edi
-@@DecGour:		add	esi,12345678h
+		add	esi,[DecGour]
 
-@@IntGour:		adc	al,12h
-@@DecZBuf:		add	ebp,12345678h
+		adc	al,[IntGour]
+		add	ebp,[DecZBuf]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			dec	ecx
 
 			jne	@@Each_X
@@ -3560,37 +3911,37 @@ Filler_DitherFogNZW	PROC
 
 			or	eax,ebx
 
-			mov	dword ptr [@@DecZBuf_AddGour+2],eax
-			mov	dword ptr [@@DecZBuf_AddGour1+2],eax
+			mov	[DecZBuf_AddGour],eax
+			mov	[DecZBuf_AddGour1],eax
 
-			mov	dword ptr [@@DecZBuf_AddGour2+2],eax
-			mov	dword ptr [@@DecZBuf_AddGour3+2],eax
+			mov	[DecZBuf_AddGour2],eax
+			mov	[DecZBuf_AddGour3],eax
 
 			mov	ebx,[Log]
 			mov	eax,[Fill_ZBuf_XSlope]
 
-			mov	dword ptr [@@PtrLog+2],ebx
-			mov	dword ptr [@@PtrLog2+2],ebx
+			mov	[PtrLog],ebx
+			mov	[PtrLog2],ebx
 
-			mov	dword ptr [@@PtrLog4+2],ebx
+			mov	[PtrLog4],ebx
 			inc	ebx
 
-			mov	dword ptr [@@PtrLog_1+2],ebx
-			mov	dword ptr [@@PtrLog2_1+2],ebx
+			mov	[PtrLog_1],ebx
+			mov	[PtrLog2_1],ebx
 
 			shr	eax,8
 
-			mov	dword ptr [@@IntZBuf+2],eax
-			mov	dword ptr [@@IntZBuf1+2],eax
+			mov	[IntZBuf],eax
+			mov	[IntZBuf1],eax
 
-			mov	dword ptr [@@IntZBuf2+2],eax
-			mov	dword ptr [@@IntZBuf3+2],eax
+			mov	[IntZBuf2],eax
+			mov	[IntZBuf3],eax
 
 			pop	ebx
 			jmp	@@EnterLoop
 @@Each_Line:
 			mov	eax,[Fill_LeftSlope]
-Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
+			add	edi,[ScreenPitch]
 
 			add	ebx,eax
 			mov	eax,[Fill_RightSlope]
@@ -3680,12 +4031,17 @@ Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
 			cmp	word ptr [edi*2+ebp],bx
 			jb	@@NoDisp0
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp0:
 			and	eax,0FFh
-@@DecZBuf_AddGour:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour]
 
-@@IntZBuf:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf]
 			add	eax,esi
 
 			mov	dl,ah
@@ -3693,12 +4049,17 @@ Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
 			cmp	word ptr [edi*2+ebp+2],bx
 			jb	@@NoDisp1
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog_1:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog_1]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp1:
 			and	eax,0FFh
-@@DecZBuf_AddGour1:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour1]
 
-@@IntZBuf1:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf1]
 			add	eax,esi
 
 			add	edi,2
@@ -3712,7 +4073,12 @@ Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
 			cmp	word ptr [edi*2+ebp],bx
 			jb	@@End_X
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog4:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog4]
+		mov	[edi+ebx],dl
+		pop ebx
+
 			jmp	@@End_X
 @@Pas_Add1:
 			je	@@End_X
@@ -3720,12 +4086,17 @@ Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
 			cmp	word ptr [edi*2+ebp],bx
 			jb	@@NoDisp2
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog2:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog2]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp2:
 			and	eax,0FFh
-@@DecZBuf_AddGour2:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour2]
 
-@@IntZBuf2:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf2]
 			add	eax,esi
 
 			mov	dl,ah
@@ -3733,12 +4104,17 @@ Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
 			cmp	word ptr [edi*2+ebp+2],bx
 			jb	@@NoDisp3
 			mov	dl,[edx+Fill_Logical_Palette]
-@@PtrLog2_1:		mov	[edi+12345678h],dl
+
+		push ebx
+		mov ebx,[PtrLog2_1]
+		mov	[edi+ebx],dl
+		pop ebx
+
 @@NoDisp3:
 			and	eax,0FFh
-@@DecZBuf_AddGour3:	add	esi,12345678h
+	add	esi,[DecZBuf_AddGour3]
 
-@@IntZBuf3:		adc	ebx,12345678h
+		adc	ebx,[IntZBuf3]
 			add	eax,esi
 
 			add	edi,2
@@ -3767,25 +4143,6 @@ Fill_VLGouraud18::	add	edi,SIZE_VIDEOLINE
 
 			jmp	Triangle_ReadNextEdge
 Filler_DitherFogNZW	ENDP
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Last_POLYGOURAUDPatch	Label	DWORD
-
-
-
 
 _TEXT			ENDS
 

@@ -2,22 +2,24 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
-		extrn	SYSCALL MatrixLib2:DWORD
-		extrn	SYSCALL InitMatrixStd:DWORD
-		extrn	SYSCALL LongRotatePoint:DWORD
+		extrn	C MatrixLib2:DWORD
+		extrn	C InitMatrixStd:DWORD
+		extrn	C LongRotatePoint:DWORD
+
+		ASSUME  DS:SEG LongRotatePoint
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	RotateVector
+		public	C	RotateVector
 
 ;*══════════════════════════════════════════════════════════════════════════*
 

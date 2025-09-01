@@ -1,17 +1,18 @@
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
-#include	<system\initkeyb.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/INITKEYB.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\winsys.h>
-#include	<system\keybwin.h>
+#include	<SYSTEM/WINSYS.H>
+#include	<SYSTEM/KEYBWIN.H>
 
 //──────────────────────────────────────────────────────────────────────────
+// FIXME: Implement correctly
 void	InitKeyboard()
-{
+{/*
 	AsciiMutex = CreateMutex(NULL, FALSE, NULL);
 
 	if(!AsciiMutex)
@@ -21,7 +22,7 @@ void	InitKeyboard()
 
 	OldKeybWindowProc = WindowProc	;
 	WindowProc = KeybWindowProc	;
-}
+*/}
 
 //──────────────────────────────────────────────────────────────────────────
 void	ClearKeyboard()
@@ -33,8 +34,8 @@ void	ClearKeyboard()
 #else //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<ail\mss.h>
-#include	<system\exit.h>
+#include	<ail/mss.h>
+#include	<system/exit.h>
 
 //──────────────────────────────────────────────────────────────────────────
 #include	<i86.h>

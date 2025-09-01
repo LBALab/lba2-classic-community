@@ -2,8 +2,10 @@
 ;				S_LINE.ASM 386
 ;			      (c) Adeline 1993-96
 ;----------------------------------------------------------------------------
+            OPTION SCOPED
+
 			.386
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 			INCLUDE FILLER.INC
 
@@ -11,18 +13,18 @@
 			.DATA
 
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL ClipXMin		:DWORD
-			extrn	SYSCALL ClipYMin		:DWORD
-			extrn	SYSCALL ClipXMax		:DWORD
-			extrn	SYSCALL ClipYMax		:DWORD
-			extrn	SYSCALL Log			:DWORD
-			extrn	SYSCALL PtrZBuffer		:DWORD
-			extrn	SYSCALL PTR_TabOffLine		:DWORD
-			extrn	SYSCALL ScreenPitch		:DWORD
-			Extrn	SYSCALL	Fill_Flag_Fog		:BYTE
-			Extrn	SYSCALL	Fill_Flag_ZBuffer	:BYTE
-			Extrn	SYSCALL	Fill_Flag_NZW		:BYTE
-			Extrn	SYSCALL	Fill_Logical_Palette	:BYTE
+			extrn	C ClipXMin		:DWORD
+			extrn	C ClipYMin		:DWORD
+			extrn	C ClipXMax		:DWORD
+			extrn	C ClipYMax		:DWORD
+			extrn	C Log			:DWORD
+			extrn	C PtrZBuffer		:DWORD
+			extrn	C PTR_TabOffLine		:DWORD
+			extrn	C ScreenPitch		:DWORD
+			Extrn	C	Fill_Flag_Fog		:BYTE
+			Extrn	C	Fill_Flag_ZBuffer	:BYTE
+			Extrn	C	Fill_Flag_NZW		:BYTE
+			Extrn	C	Fill_Logical_Palette	:BYTE
 
 Z1			dd	0			; For the ZBuffer
 Z2			dd	0
@@ -37,18 +39,36 @@ s_esi			dd	0
 s_edi			dd	0
 s_ebp			dd	0
 
+; Runtime code patch refactor, uses memory instead of instruction substitution
+LinePatch   DWORD 12345678h
+PtrLog      DWORD 12345678h
+PtrZBuf     DWORD 12345678h
+PtrZBuf1    DWORD 12345678h
+YPtrZBuf    DWORD 12345678h
+YPtrZBuf1   DWORD 12345678h
+YPtrLog     DWORD 12345678h
+Row         DWORD 12345678h
+YDX         DWORD 12345678h
+YDY         DWORD 12345678h
+YDY1        DWORD 12345678h
+YDZ         DWORD 12345678h
+DXPatch     DWORD 12345678h
+DY          DWORD 12345678h
+DZPatch     DWORD 12345678h
+DX1         DWORD 12345678h
+IZ          DWORD 12345678h
+YIZ         DWORD 12345678h
+ColorX      BYTE 12h
+ColorY      BYTE 12h
+
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	Line
-			public	SYSCALL	LineZBufNZW
-			public	SYSCALL	LineZBuf
-			public	SYSCALL	Line_A
-
-			PUBLIC	SYSCALL	First_POLYLINEPatch
-			PUBLIC	SYSCALL	Last_POLYLINEPatch
-
+			public	C	Line
+			public	C	LineZBufNZW
+			public	C	LineZBuf
+			public	C	Line_A
 
 ;----------------------------------------------------------------------------
 ;		Line( x0, y0, x1, y1, coul )
@@ -126,10 +146,6 @@ LineZBuf		PROC	USES esi edi ebp ebx,\
 LineZBuf		ENDP
 
 
-First_POLYLINEPatch	Label	DWORD
-
-
-
 ; ╔════════════════════════════════════════════════════════════════════════╗
 ; ║   Trace de droite                                                      ║
 ; ╟────────────────────────────────────────────────────────────────────────╢
@@ -152,8 +168,8 @@ Line_Entry::
 			jne	@@Pas_Coul_Convert
 			mov	al,[Fill_Logical_Palette+ebp]
 @@Pas_Coul_Convert:
-			mov	byte ptr [@@ColorX+2],al	; Patch
-			mov	byte ptr [@@ColorY+2],al
+			mov	[ColorX],al
+			mov	[ColorY],al
 			mov	[Color],al
 			pop	eax
 
@@ -334,7 +350,11 @@ Line_Entry::
 			mov	eax,edi
 			shr	edx,1
 @@Do_X:
-@@ColorX:		mov	byte ptr [ebx],12h
+			push eax
+			mov al,[ColorX]
+			mov	byte ptr [ebx],al
+			pop eax
+
 			add	edx,esi
 
 			cmp	edx,edi
@@ -357,7 +377,10 @@ Line_Entry::
 			mov	eax,esi
 
 @@Do_Y:
-@@ColorY:		mov	byte ptr [ebx],12h
+			push eax
+			mov al,[ColorY]
+			mov	byte ptr [ebx],al
+			pop eax
 			add	edx,edi
 
 			cmp	edx,esi
@@ -757,9 +780,9 @@ Line_ZBuffer		PROC
 			jl	@@Draw_Y
 
 							; Delta_X > Delta_Y
-			mov	dword ptr [@@DY+2],esi
-			mov	dword ptr [@@DX+2],edi
-			mov	dword ptr [@@DX1+2],edi
+			mov	[DY],esi
+			mov	[DXPatch],edi
+			mov	[DX1],edi
 
 			mov	eax,[DZ]
 			test	ecx,ecx
@@ -772,16 +795,16 @@ Line_ZBuffer		PROC
 			mov	edx,eax
 			shl	eax,16
 			sar	edx,16
-			mov	dword ptr [@@DZ+2],eax
-			mov	dword ptr [@@IZ+2],edx
+			mov	[DZPatch],eax
+			mov	[IZ],edx
 
-			mov	dword ptr [@@Line+2],ebp
+			mov	[LinePatch],ebp
 
 			mov	eax,[Log]
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			mov	eax,[PtrZBuffer]
-			mov	dword ptr [@@PtrZBuf+4],eax
-			mov	dword ptr [@@PtrZBuf1+4],eax
+			mov	[PtrZBuf],eax
+			mov	[PtrZBuf1],eax
 
 			mov	edx,edi
 			mov	ebp,edi
@@ -796,24 +819,37 @@ Line_ZBuffer		PROC
 			jmp	$+2
 
 @@Do_X:
-@@PtrZBuf:		cmp	word ptr [ebx*2+12345678h],di
+
+		push eax
+		mov eax,[PtrZBuf]
+		cmp	word ptr [ebx*2+eax],di
+		pop eax
+
 			jb	@@NoDisp
 
-@@PtrZBuf1:		mov	word ptr [ebx*2+12345678h],di
-@@PtrLog:		mov	byte ptr [ebx+12345678h],al
-@@NoDisp:
-@@DY:			add	edx,12345678h
+		push eax
+		mov eax,[PtrZBuf1]
+		mov	word ptr [ebx*2+eax],di
+		pop eax
 
-@@DX:			cmp	edx,12345678h
+		push ecx
+		mov ecx,[PtrLog]
+		mov	byte ptr [ebx+ecx],al
+		pop ecx
+
+@@NoDisp:
+			add	edx,[DY]
+
+			cmp	edx,[DXPatch]
 			jb	@@Plot_X
 
-@@DX1:			sub	edx,12345678h
-@@Line:			add	ebx,12345678h
+			sub	edx,[DX1]
+			add	ebx,[LinePatch]
 @@Plot_X:
 			add	ebx,ecx
 
-@@DZ:			add	esi,12345678h
-@@IZ:			adc	edi,12345678h
+			add	esi,[DZPatch]
+			adc	edi,[IZ]
 
 			dec	ebp
 			jge	@@Do_X
@@ -822,9 +858,9 @@ Line_ZBuffer		PROC
 
 
 @@Draw_Y:
-			mov	dword ptr [@@YDX+2],edi
-			mov	dword ptr [@@YDY+2],esi
-			mov	dword ptr [@@YDY1+2],esi
+			mov	[YDX],edi
+			mov	[YDY],esi
+			mov	[YDY1],esi
 
 			mov	eax,[DZ]
 			test	ebp,ebp
@@ -837,16 +873,16 @@ Line_ZBuffer		PROC
 			mov	edx,eax
 			shl	eax,16
 			sar	edx,16
-			mov	dword ptr [@@YDZ+2],eax
-			mov	dword ptr [@@YIZ+2],edx
+			mov	[YDZ],eax
+			mov	[YIZ],edx
 
-			mov	dword ptr [@@Row+2],ecx
+			mov	[Row],ecx
 
 			mov	eax,[Log]
-			mov	dword ptr [@@YPtrLog+2],eax
+			mov	[YPtrLog],eax
 			mov	eax,[PtrZBuffer]
-			mov	dword ptr [@@YPtrZBuf+4],eax
-			mov	dword ptr [@@YPtrZBuf1+4],eax
+			mov	[YPtrZBuf],eax
+			mov	[YPtrZBuf1],eax
 
 			mov	edx,esi
 			mov	ecx,esi
@@ -861,22 +897,34 @@ Line_ZBuffer		PROC
 			jmp	$+2
 
 @@Do_Y:
-@@YPtrZBuf:		cmp	word ptr [ebx*2+12345678h],di
+		push eax
+		mov eax,[YPtrZBuf]
+		cmp	word ptr [ebx*2+eax],di
+		pop eax
 			jb	@@YNoDisp
 
-@@YPtrZBuf1:		mov	word ptr [ebx*2+12345678h],di
-@@YPtrLog:		mov	byte ptr [ebx+12345678h],al
-@@YNoDisp:
-@@YDX:			add	edx,12345678h
+		push eax
+		mov eax,[YPtrZBuf1]
+		mov	word ptr [ebx*2+eax],di
+		pop eax
 
-@@YDY:			cmp	edx,12345678h
+
+		push ecx
+		mov ecx,[YPtrLog]
+		mov	byte ptr [ebx+ecx],al
+		pop ecx
+
+@@YNoDisp:
+			add	edx,[YDX]
+
+			cmp	edx,[YDY]
 			jb	@@Plot_Y
 
-@@YDY1:			sub	edx,12345678h
-@@Row:			add	ebx,12345678h
+			sub	edx,[YDY1]
+			add	ebx,[Row]
 @@Plot_Y:
-@@YDZ:			add	esi,12345678h
-@@YIZ:			adc	edi,12345678h
+			add	esi,[YDZ]
+			adc	edi,[YIZ]
 
 			add	ebx,ebp
 
@@ -1318,9 +1366,9 @@ Line_ZBuffer_NZW	PROC
 			jl	@@Draw_Y
 
 							; Delta_X > Delta_Y
-			mov	dword ptr [@@DY+2],esi
-			mov	dword ptr [@@DX+2],edi
-			mov	dword ptr [@@DX1+2],edi
+			mov	[DY],esi
+			mov	[DXPatch],edi
+			mov	[DX1],edi
 
 			mov	eax,[DZ]
 			test	ecx,ecx
@@ -1333,15 +1381,15 @@ Line_ZBuffer_NZW	PROC
 			mov	edx,eax
 			shl	eax,16
 			sar	edx,16
-			mov	dword ptr [@@DZ+2],eax
-			mov	dword ptr [@@IZ+2],edx
+			mov	[DZPatch],eax
+			mov	[IZ],edx
 
-			mov	dword ptr [@@Line+2],ebp
+			mov	[LinePatch],ebp
 
 			mov	eax,[Log]
-			mov	dword ptr [@@PtrLog+2],eax
+			mov	[PtrLog],eax
 			mov	eax,[PtrZBuffer]
-			mov	dword ptr [@@PtrZBuf+4],eax
+			mov	[PtrZBuf],eax
 
 			mov	edx,edi
 			mov	ebp,edi
@@ -1356,22 +1404,32 @@ Line_ZBuffer_NZW	PROC
 			jmp	$+2
 
 @@Do_X:
-@@PtrZBuf:		cmp	word ptr [ebx*2+12345678h],di
-			jb	@@NoDisp
-@@PtrLog:		mov	byte ptr [ebx+12345678h],al
-@@NoDisp:
-@@DY:			add	edx,12345678h
 
-@@DX:			cmp	edx,12345678h
+		push eax
+		mov eax,[PtrZBuf]
+		cmp	word ptr [ebx*2+eax],di
+		pop eax
+
+			jb	@@NoDisp
+
+		push ecx
+		mov ecx,[PtrLog]
+		mov	byte ptr [ebx+ecx],al
+		pop ecx
+
+@@NoDisp:
+			add	edx,[DY]
+
+			cmp	edx,[DXPatch]
 			jb	@@Plot_X
 
-@@DX1:			sub	edx,12345678h
-@@Line:			add	ebx,12345678h
+			sub	edx,[DX1]
+			add	ebx,[LinePatch]
 @@Plot_X:
 			add	ebx,ecx
 
-@@DZ:			add	esi,12345678h
-@@IZ:			adc	edi,12345678h
+			add	esi,[DZPatch]
+			adc	edi,[IZ]
 
 			dec	ebp
 			jge	@@Do_X
@@ -1380,9 +1438,9 @@ Line_ZBuffer_NZW	PROC
 
 
 @@Draw_Y:
-			mov	dword ptr [@@YDX+2],edi
-			mov	dword ptr [@@YDY+2],esi
-			mov	dword ptr [@@YDY1+2],esi
+			mov	[YDX],edi
+			mov	[YDY],esi
+			mov	[YDY1],esi
 
 			mov	eax,[DZ]
 			test	ebp,ebp
@@ -1395,15 +1453,15 @@ Line_ZBuffer_NZW	PROC
 			mov	edx,eax
 			shl	eax,16
 			sar	edx,16
-			mov	dword ptr [@@YDZ+2],eax
-			mov	dword ptr [@@YIZ+2],edx
+			mov	[YDZ],eax
+			mov	[YIZ],edx
 
-			mov	dword ptr [@@Row+2],ecx
+			mov	[Row],ecx
 
 			mov	eax,[Log]
-			mov	dword ptr [@@YPtrLog+2],eax
+			mov	[YPtrLog],eax
 			mov	eax,[PtrZBuffer]
-			mov	dword ptr [@@YPtrZBuf+4],eax
+			mov	[YPtrZBuf],eax
 
 			mov	edx,esi
 			mov	ecx,esi
@@ -1418,20 +1476,29 @@ Line_ZBuffer_NZW	PROC
 			jmp	$+2
 
 @@Do_Y:
-@@YPtrZBuf:		cmp	word ptr [ebx*2+12345678h],di
-			jb	@@YNoDisp
-@@YPtrLog:		mov	byte ptr [ebx+12345678h],al
-@@YNoDisp:
-@@YDX:			add	edx,12345678h
+		push eax
+		mov eax,[YPtrZBuf]
+		cmp	word ptr [ebx*2+eax],di
+		pop eax
 
-@@YDY:			cmp	edx,12345678h
+			jb	@@YNoDisp
+
+		push eax
+		mov eax,[YPtrLog]
+		mov	byte ptr [ebx+eax],al
+		pop eax
+
+@@YNoDisp:
+			add	edx,[YDX]
+
+			cmp	edx,[YDY]
 			jb	@@Plot_Y
 
-@@YDY1:			sub	edx,12345678h
-@@Row:			add	ebx,12345678h
+			sub	edx,[YDY1]
+			add	ebx,[Row]
 @@Plot_Y:
-@@YDZ:			add	esi,12345678h
-@@YIZ:			adc	edi,12345678h
+			add	esi,[YDZ]
+			adc	edi,[YIZ]
 
 			add	ebx,ebp
 
@@ -1598,15 +1665,6 @@ Line_ZBuffer_NZW	PROC
 			ret
 
 Line_ZBuffer_NZW	ENDP
-
-
-
-
-
-
-Last_POLYLINEPatch	Label	DWORD
-
-
 
 ;			The
 			End

@@ -1,10 +1,10 @@
 		.386p
-		.model	SMALL, SYSCALL
+		.model	SMALL, C
 
 		.data
 
-		public	SYSCALL	SinTabF
-		public	SYSCALL	CosTabF
+		public	C	SinTabF
+		public	C	CosTabF
 
 ALIGN	4
 

@@ -1,4 +1,7 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▀ █▀▀▀█  █    █     █     █▀▀▀▀
@@ -20,8 +23,8 @@ extern	S32	XS0,YS0,XS1,YS1,XS2,YS2,XS3,YS3 ;	// bezier.c
 S32	XpOrgw ;
 S32	YpOrgw ;
 
-#define	NB_COLON	28
-#define	MAX_BRICK	150
+#define	NB_COLON	256 // 28
+#define	MAX_BRICK	256 // 150
 
 S16	NbBrickColon[NB_COLON] ;
 
@@ -38,11 +41,19 @@ typedef	struct
 
 T_COLONB	ListBrickColon[NB_COLON][MAX_BRICK] ;
 
-U8	*BufferMaskBrick ;
+U8	*BufferMaskBrick = NULL;
 S32	NbBlock			;
 S32	DxBlock, DyBlock, DzBlock;
 
 S32	ForbidenBrick = 0 ;
+
+U8	CodeJeu = 0;
+S32	XMap = 0, YMap = 0, ZMap = 0;
+S32	XScreen = 0, YScreen = 0;
+PTR_U8	BufCube = 0;
+PTR_U8	BufMap = 0;
+PTR_U8	TabBlock = 0;
+PTR_U8	BufferBrick = 0;
 
 extern	S32	Nxw, Nyw, Nzw ;
 //void	ReajustPos( U8 col ) ;
@@ -103,6 +114,7 @@ S32	LoadUsedBrick()
 	U8 	*ptdecomp ;
 	COMPRESSED_HEADER header	;
 	S32	nbbrick	;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	tabflag = (U16*)((U8*)Screen+OFFSET_BUFFER_FLAG) ;
 
@@ -148,10 +160,11 @@ S32	LoadUsedBrick()
 
 //-------------------------------------- Deuxieme Passe, Load Brick
 
-	handle = OpenRead( BKG_HQR_NAME )			;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
+	handle = OpenRead( tmpFilePath )			;
 	if ( !handle )	return(0L)			;
 
-	Seek( handle, BkgHeader.Brk_Start<<2, SEEK_START);// Begin offsets Brk
+	Seek( handle, BkgHeader.Brk_Start<<2, SEEK_FROM_START);// Begin offsets Brk
 
 	Read( handle, Screen, BkgHeader.Max_Brk<<2 )	;// Read Offsets Brk
 
@@ -176,7 +189,7 @@ S32	LoadUsedBrick()
 			nbbrick++		;/*	One More*/
 			*ptflag = (S16)nbbrick	;/*	Brick+1, for BLL */
 			offseek = *(ptseek+i)	;
-			Seek( handle, offseek, SEEK_START ) 	;
+			Seek( handle, offseek, SEEK_FROM_START ) 	;
 			Read( handle, &header, sizeof(header))	;
 			switch( header.CompressMethod )
 			{
@@ -226,6 +239,7 @@ void	InitGrille( U32 numcube )
 {
 	U32	id_gri	;
 	U32	id_bll	;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	numcube = TabAllCube[numcube].Num	;//	Indirection
 
@@ -233,13 +247,14 @@ void	InitGrille( U32 numcube )
 
 	GriHeader = (T_GRI_HEADER *)BufMap			;
 
-	Load_HQR( BKG_HQR_NAME, BufMap, id_gri )			;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
+	Load_HQR( tmpFilePath, BufMap, id_gri )			;
 
 	ManageSystem() ;// for streaming
 
 	id_bll = BkgHeader.Bll_Start+GriHeader->My_Bll		;//+numcube
 
-	Load_HQR( BKG_HQR_NAME, TabBlock, id_bll )		;
+	Load_HQR( tmpFilePath, TabBlock, id_bll )		;
 
 //----------------------------------------------	NEW
 	if( !LoadUsedBrick() )	return 		;
@@ -534,19 +549,22 @@ void	CopyMapToCube()
 void	InitBufferCube()
 {
 	S32	intmem ;
+        char tmpFilePath[ADELINE_MAX_PATH];
+
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
 
 //	pas de RECOVER_AREA car BkgHeader en stored et pas en LZSS
-	Load_HQR( BKG_HQR_NAME, &BkgHeader, 0 )			;// HEADER
+        Load_HQR( tmpFilePath, &BkgHeader, 0 )			;// HEADER
 
 // 	pas de RECOVER_AREA car TabAllCube en stored et pas en LZSS
-	Load_HQR( BKG_HQR_NAME, (void *)TabAllCube, BkgHeader.Brk_Start+BkgHeader.Max_Brk ) ;
+	Load_HQR( tmpFilePath, (void *)TabAllCube, BkgHeader.Brk_Start+BkgHeader.Max_Brk ) ;
 
 // 	Calcul des tailles nécessaires
 	intmem = (BkgHeader.Max_Size_Brick_Cube+RECOVER_AREA)	// BufferBrick
 		+(SIZE_CUBE_X*SIZE_CUBE_Y*SIZE_CUBE_Z*2L) ;	// BufCube
 
 //	PtrZvBuffer sert aussi pour les décors intérieurs
-	ListMem[MEM_PTR_ZBUFFER].Size = __max(intmem,SIZE_Z_BUFFER) ;
+	ListMem[MEM_PTR_ZBUFFER].Size = ade_max(intmem,SIZE_Z_BUFFER) ;
 
 	ListMem[MEM_BUFFER_MASK_BRICK].Size 	= BkgHeader.Max_Size_Mask_Brick_Cube ;
 	ListMem[MEM_BUF_MAP].Size 		= BkgHeader.Max_Size_Gri + RECOVER_AREA ;
@@ -1061,10 +1079,12 @@ void	IncrustGrm( T_ZONE *ptrz )
 	U8	*pts, *ptd	;
 	S32	x, z	 	;
 	S32	dx, dy, dz	;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	numgrm = ptrz->Info0		;
 
-	Load_HQR( BKG_HQR_NAME, Screen,
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BKG_HQR_NAME);
+	Load_HQR( tmpFilePath, Screen,
 			BkgHeader.Grm_Start+GriHeader->My_Grm+numgrm ) ;
 
 	xo = ptrz->X0/SIZE_BRICK_XZ	;
@@ -1153,3 +1173,320 @@ void	RedrawGRMs( void )
 	}
 }
 /*--------------------------------------------------------------------------*/
+
+#include <stdio.h>
+
+U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
+{
+	XMap = xw / SIZE_BRICK_XZ;
+	YMap = yw / SIZE_BRICK_Y;
+	ZMap = zw / SIZE_BRICK_XZ;
+
+	if (XMap < 0 || XMap >= 64)
+	{
+		return 0;
+	}
+
+	int cubeIndex = (XMap * 50);
+
+	if (YMap <= -1)
+	{
+		YMap = 0;
+		return 1;
+	}
+	else if (YMap < 0 || YMap >= 25)
+	{
+		return 0;
+	}
+
+	cubeIndex += YMap * 2;
+
+	if (ZMap < 0 || ZMap >= 64)
+	{
+		return 0;
+	}
+
+	cubeIndex += ZMap * 3200;
+
+	U8 value = BufCube[cubeIndex];
+
+	if (value == 0)
+	{
+		return BufCube[cubeIndex + 1];
+	}
+
+	U32 numBlock = value - 1;
+	U8 *addr = GetAdrBlock(numBlock);
+	addr += HEADER_BLOCK;
+	addr += BufCube[cubeIndex + 1] * 4;
+
+	return *addr;
+}
+
+//-------------------------------------------------------------------
+U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
+{
+	XMap = xw / SIZE_BRICK_XZ;
+	YMap = yw / SIZE_BRICK_Y;
+	ZMap = zw / SIZE_BRICK_XZ;
+
+	if (XMap < 0 || XMap >= SIZE_CUBE_X)
+		return 0;
+
+	if (YMap < 0)
+	{
+		YMap = 0;
+		return 1;
+	}
+
+	if (YMap >= SIZE_CUBE_Y)
+		return 0;
+
+	if (ZMap < 0 || ZMap >= SIZE_CUBE_Z)
+		return 0;
+
+	U32 colIdx = XMap * 50 + YMap * 2 + ZMap * 3200;
+
+	U8 col = BufCube[colIdx];
+	if (col == 0)
+	{
+		// eventuelle col transparente
+		col = BufCube[colIdx + 1];
+
+		// check full height
+		U32 something = (ymax + 255) / SIZE_BRICK_Y;
+		do {
+			if (YMap >= SIZE_CUBE_Y - 1)
+			{
+				return col;
+			}
+
+			colIdx += 2;
+
+			if (BufCube[colIdx] != 0 || BufCube[colIdx + 1] != 0)
+			{
+				return 1;
+			}
+			something--;
+		} while (something != 0);
+
+		return col;
+	}
+
+	S32 block = BufCube[colIdx++] - 1;
+	U8 *adr = GetAdrBlock(block);
+	adr += HEADER_BLOCK;
+	adr += BufCube[colIdx] * 4; // 4 Bytes to Jump
+	col = *adr;
+
+	// check full height
+	U32 something = (ymax + 255) / SIZE_BRICK_Y;
+	do
+	{
+		if (YMap >= SIZE_CUBE_Y - 1)
+		{
+			return col;
+		}
+
+		colIdx += 2;
+
+		if (BufCube[colIdx] != 0 || BufCube[colIdx + 1] != 0)
+		{
+			return 1;
+		}
+		something--;
+	} while (something != 0);
+
+	return col;
+}
+
+//-------------------------------------------------------------------
+U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
+{
+	PTR_U8 ptc = BufCube + (xw / SIZE_BRICK_XZ);
+	XMap = xw / SIZE_BRICK_XZ;
+
+	if (yw <= -1)
+	{
+		return 0;
+	}
+
+	YMap = yw / SIZE_BRICK_Y;
+	ZMap = zw / SIZE_BRICK_XZ;
+	ptc += XMap * 50 + YMap * 2 + ZMap * 3200;
+	U8 col = *ptc;
+
+	if (col == 0)
+	{
+		return 0;
+	}
+
+	U8 *adr = GetAdrBlock(col - 1);
+	adr += HEADER_BLOCK + 1;
+	return *adr;
+}
+
+//-------------------------------------------------------------------
+U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
+{
+    XMap = xw / SIZE_BRICK_XZ;  // shr eax, 9 (/512)
+    YMap = yw / SIZE_BRICK_Y;   // shr eax, 8 (/256)  
+    ZMap = zw / SIZE_BRICK_XZ;  // shr eax, 9 (/512)
+
+    if (XMap < 0 || XMap >= 64) {
+        return 0;  // ovfw
+    }
+
+    if (YMap <= -1) {
+        YMap = 0;
+        return 1;  // col_1
+    }
+
+    if (YMap < 0 || YMap >= 25) {
+        return 0;  // ovfw  
+    }
+
+    if (ZMap < 0 || ZMap >= 64) {
+        return 0;  // ovfw
+    }
+
+    U32 offset = XMap * 50 + YMap * 2 + ZMap * 3200;
+    U8 *ptc = BufCube + offset;
+
+    return *ptc;
+}
+
+//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
+{
+  XMap = x / SIZE_BRICK_XZ;
+  YMap = y / SIZE_BRICK_Y;
+  ZMap = z / SIZE_BRICK_XZ;
+
+  if (XMap >= 0 && XMap < 64 )
+  {
+    if ( YMap <= -1 )
+    {
+      YMap = 0;
+      return 1;
+    }
+    if ( YMap >= 0 && YMap < 25 && ZMap >= 0 && ZMap < 64 )
+    {
+      U8 *ptc = 3200 * ZMap + 50 * XMap + BufCube + 2 * YMap;
+
+      if( *ptc != 0 )
+      {
+        U8 block = (*ptc++) - 1 ;
+        U8 *adr = GetAdrBlock( block )	;
+        adr += HEADER_BLOCK		;
+        adr += (*ptc)<<2 		;/* 4 Bytes to Jump	*/
+        return *adr ;
+      }
+    }
+  }
+
+  return 0;
+}
+
+//-------------------------------------------------------------------
+void DecompColonne( U8 *pts, U8 *ptd  )
+{
+  U8 *dstData = ptd;
+  U8 count = 0;
+  U8 *srcData = pts;
+
+	// Get Nb Entity
+  U8 nbEntity = *srcData;
+	srcData++;
+
+	// For Every Entity
+  do
+  {
+		// NewEntity:
+    while ( 1 )
+    {
+			U8 opCode = 0;
+      while ( 1 )
+      {
+        opCode = *srcData++;
+        count = (opCode & 0x3F) + 1;
+				// Incrust?
+        if (opCode & 0xC0)
+				{
+          break;
+				}
+				// Incrust ( Full off Nothing )
+        opCode = 0;
+        while (count)
+        {
+          dstData[0] = 0;
+          dstData[1] = 0;
+          dstData += 2;
+          --count;
+        }
+				--nbEntity;
+        if (!nbEntity)
+				{
+          return;
+				}
+      }
+			// Diff brick ?
+      if ( opCode & 0x40 )
+			{
+        break;
+			}
+      U8 numBlock = srcData[0];
+			U8 posBlock = srcData[1];
+      srcData += 2;
+      while ( count )
+      {
+        dstData[0] = numBlock;
+				dstData[1] = posBlock;
+				dstData += 2;
+        --count;
+      }
+      if ( !--nbEntity )
+			{
+        return;
+			}
+    }
+    while ( count )
+    {
+			dstData[0] = srcData[0];
+			dstData[1] = srcData[1];
+      srcData += 2;
+			dstData += 2;
+      --count;
+    }
+    --nbEntity;
+  }
+  while ( nbEntity );
+}
+
+//-------------------------------------------------------------------
+void	Map2Screen( S32 x, S32 y, S32 z )
+{
+  XScreen = 24 * (x - z) + 288;
+  YScreen = 12 * (z + x) - 15 * y + 226;
+}
+
+//-------------------------------------------------------------------
+U8	*GetAdrBlock( S32 numblock )
+{
+	/*
+GetAdrBlock	proc	,\
+		numblock:DWORD
+
+		mov	ecx, numblock
+
+		mov	eax, [ds:TabBlock]		; pto = (ULONG*)TabBlock
+		add	eax, [ eax + ecx*4 ]	; TabBlock + pto[numbloc]
+
+		ret
+
+GetAdrBlock	endp
+	*/
+ U32 *pto = (U32 *)TabBlock;
+ U8 *adr = (U8 *)pto + pto[numblock];
+ return adr;
+}

@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 //
 // Uniquement en version Outil: interprétation des impacts
@@ -74,7 +74,7 @@ S8	GetImpCommand( void )
 
 	for( i=0; i<NB_IMP_COMMAND; i++ )
 	{
-		if( !strnicmp(	ImpCommandList[i],
+		if( !strncasecmp(	ImpCommandList[i],
 				String,
 				strlen( String ) ) )
 		{
@@ -382,7 +382,7 @@ U8	*SearchImpact( char *name )
 
 	for( n=0; n<NbImpacts; n++, ptri++ )
 	{
-		if( !stricmp( name, ptri->name ) )
+		if( !strcasecmp( name, ptri->name ) )
 			return ptri->buf ;
 	}
 

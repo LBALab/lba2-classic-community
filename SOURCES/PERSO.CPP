@@ -1,4 +1,20 @@
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
+
+#include "INITADEL.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/STRING.H>
+
+#include <SDL2/SDL.h> // For SDL_main
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /*#ifndef DEMO
 #define THOMAS  1
@@ -14,7 +30,7 @@ extern S32      PersoFlashTimer ;       // pour quand le perso eh ben y meurt !!
 S32     EscTimer ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
-char    NamePcxSave[256] ;
+char    NamePcxSave[ADELINE_MAX_PATH] ;
 S32     NumPcxSave = 0 ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
@@ -69,21 +85,34 @@ void    AffDebugMenu()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 // Pour eviter d'ecraser les anciennes copies d'ecran !!!!
-void    GetNumPcxSave()
-{
-        struct find_t find      ;
-        S32 done                ;
-        S32 num                 ;
+void GetNumPcxSave() {
+  struct dirent *file;
+  DIR *dir;
+  S32 num;
+  char shootDirPath[ADELINE_MAX_PATH];
+  char pathname[ADELINE_MAX_PATH];
 
-        done = _dos_findfirst( PATH_PCX_SAVE"LBA*.PCX", _A_NORMAL, &find ) ;
+  GetShootPath(shootDirPath, ADELINE_MAX_PATH, NULL);
+  dir = opendir(shootDirPath);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      bool startsLBA = (ade_strcasestr(file->d_name, "LBA") == file->d_name);
+      bool hasPCX = (ade_strcasestr(file->d_name, ".PCX") != NULL);
+      if (startsLBA && hasPCX) {
+        GetShootPath(pathname, ADELINE_MAX_PATH, file->d_name);
 
-        while (!done)
-        {
-                num = atoi( &find.name[3] ) ;
-                if( num>=NumPcxSave )   NumPcxSave = num+1 ;
-
-                done = _dos_findnext( &find ) ;
+        struct stat st = {};
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          num = atoi(&file->d_name[3]);
+          if (num >= NumPcxSave) {
+            NumPcxSave = num + 1;
+          }
         }
+      }
+    }
+    closedir(dir);
+  }
 }
 
 void    CheckSavePcx()
@@ -101,12 +130,9 @@ void    CheckSavePcx()
 
                 GetNumPcxSave() ;
 
-/*		strcpy( NamePcxSave, PATH_PCX_SAVE ) ;
-		strcat( NamePcxSave, "LBA" ) ;
-		strcat( NamePcxSave, itoa( NumPcxSave,"          ",10 ) ) ;
-		AddExt( NamePcxSave, ".PCX" ) ;
-*/
-		sprintf( NamePcxSave, "%sLBA%05d.PCX", PATH_PCX_SAVE, NumPcxSave ) ;
+                char PCXFilename[ADELINE_MAX_PATH];
+		sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
@@ -148,12 +174,9 @@ void    CheckSaveLogPcx( U8 *pal )
 
                 GetNumPcxSave() ;
 
-/*                strcpy( NamePcxSave, PATH_PCX_SAVE ) ;
-		strcat( NamePcxSave, "LBA" ) ;
-		strcat( NamePcxSave, itoa( NumPcxSave,"          ",10 ) ) ;
-		AddExt( NamePcxSave, ".PCX" ) ;
-*/
-		sprintf( NamePcxSave, "%sLBA%05d.PCX", PATH_PCX_SAVE, NumPcxSave ) ;
+                char PCXFilename[ADELINE_MAX_PATH];
+                sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
 
                 SavePCX( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
 
@@ -178,6 +201,7 @@ void    LoadListAnim3DS( void )
 {
         U32     handle, buffer ;
         S32     n ;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
         // recupere nombre d'anim dans la banque
         handle = OpenRead( HQRPtrAnim3DS->Name ) ;
@@ -189,8 +213,9 @@ void    LoadListAnim3DS( void )
         }
 
         // Charge table de description des anims
-        ListAnim3DS     = (T_ANIM_3DS *)LoadMalloc_HQR( PATH_RESSOURCE"anim3ds.hqr", n ) ;
-        if( !ListAnim3DS )      TheEndCheckFile( PATH_RESSOURCE"anim3ds.hqr" ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, ANIM3DS_HQR_NAME);
+        ListAnim3DS     = (T_ANIM_3DS *)LoadMalloc_HQR( tmpFilePath, n ) ;
+        if( !ListAnim3DS )      TheEndCheckFile( tmpFilePath ) ;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -438,16 +463,6 @@ startloop:
 
         // DEBUG pour trouver bug Alpha
 
-#ifndef _WIN32
-/*              if( ModeHercule )
-                {
-                        HStringf( 0, 0, "Alpha: %4d", ptrobj->Obj.Alpha ) ;
-                        HStringf( 0, 1, "Beta : %4d", ptrobj->Obj.Beta ) ;
-                        HStringf( 0, 2, "Gamma: %4d", ptrobj->Obj.Gamma ) ;
-                }
-*/
-#endif
-
 
                 // debug patch Gamma
                 if( ptrobj->Obj.Alpha!=0
@@ -542,10 +557,6 @@ startloop:
                 }
 
 /*-------------------------------------------------------------------------*/
-
-#ifndef _WIN32
-                CriticalErrorCount = 0  ;// Init Critical Error Count
-#endif
 
                 LastInput = Input       ;
 
@@ -736,7 +747,7 @@ startloop:
                 }
 #endif  // debug tools
 
-                CheckSavePcx() ;// F9: Sauve Screen dans PATH_PCX_SAVE
+                CheckSavePcx() ;// F9: Sauve Screen
 
 /*-------------------------------------------------------------------------*/
 /* gestion clavier */   /* game */
@@ -871,9 +882,7 @@ startloop:
                         {
                                 NumVersion = NUM_VERSION|SAVE_COMPRESS ;
                                 CopyScreen( Screen, Log ) ;
-#ifdef  _WIN32
                                 if( FileSize(OldGamePathname) ) Delete( OldGamePathname ) ;
-#endif
                                 SaveGame( TRUE ) ;
                         }
                         ClearPlasmaMenu() ;
@@ -1785,7 +1794,7 @@ startloop:
 
 void    ReadConfigFile( void )
 {
-        char *ptr ;
+        const char *ptr ;
 
         ReadInputConfig() ;     // Lit Config Clavier dans LBA2.CFG
         ReadVolumeSettings() ;  // Lit Volumes dans LBA2.CFG
@@ -1818,7 +1827,7 @@ void    ReadConfigFile( void )
 
         ptr = DefFileBufferReadStringDefault( "FlagDisplayText", "ON" ) ;
 
-        if( ptr AND !strcmpi(ptr,"OFF") )       FlagDisplayText = 0     ;
+        if( ptr AND !strcasecmp(ptr,"OFF") )       FlagDisplayText = 0     ;
         else                                    FlagDisplayText = 1     ;// default
 
         // version distributeur
@@ -1853,7 +1862,7 @@ void    WriteConfigFile( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 
 static  S32     End_Num = -1    ;
-static  char    *End_Error      ;
+static  const char    *End_Error      ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
@@ -1890,13 +1899,10 @@ void    InitProgram()
 #endif
 
         ReadConfigFile() ;
-
-        // init path de sauvegardes
-        strcpy( PathSave, PATH_SAVE ) ;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void    TheEndCheckFile( char *filename )
+void    TheEndCheckFile( const char *filename )
 {
         if( FileSize( filename) )       End_Num = NOT_ENOUGH_MEM ;
         else                            End_Num = ERROR_NOT_FOUND_FILE ;
@@ -1914,7 +1920,7 @@ void    InitTheEnd( S32 num, char *error )
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void    TheEnd( S32 num, char *error )
+void    TheEnd( S32 num, const char *error )
 {
         End_Num = num           ;
         End_Error = error       ;
@@ -1946,21 +1952,9 @@ void    DebugHQR( char *titre, T_HQR_HEADER *hqr )
 
 void    V_ColorLine( U8 text, U8 back, U16 ncars )
 {
-#ifdef  _WIN32
         text = text ;
         back = back ;
         ncars = ncars ;
-#else
-        union REGS      regs ;
-
-        regs.h.ah = 0x09 ;
-        regs.h.bh = 0x00 ;
-        regs.w.cx = ncars ;
-        regs.h.al = ' ' ;
-        regs.h.bl = (U8)((back<<4)|text) ;
-
-        int386( 0x10, &regs, &regs ) ;
-#endif
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -2073,7 +2067,7 @@ void    Message( char *mess, S32 flag )
         RestoreClip() ;
 }
 #else
-void    Message(  char *mess, S32 flag )
+void    Message( const char *mess, S32 flag )
 {
         // pour virer warnings !!!! Baaahhhh ! Que j'aime pas ça, c'est pas
         // beau !!! mais ça marche et ça ne génère pas de code !!!
@@ -2084,92 +2078,31 @@ void    Message(  char *mess, S32 flag )
 #endif
 
 /*══════════════════════════════════════════════════════════════════════════*/
-
-#ifdef  _WIN32
-
-void    ChangeProgDir()
-{
-        unsigned        nb                      ;
-        char            name[_MAX_PATH]         ;
-
-        GetModuleFileName(NULL, name, _MAX_PATH);
-
-        for(nb=strlen(name); (name[nb]!='\\')&&(name[nb]!='/'); nb--)  ;
-
-        name[nb+1]=0  ;
-
-	if(!SetCurrentDirectory(name))
-	{
-		switch( DistribVersion )
-		{
-			case UNKNOWN_VERSION:
-			case EA_VERSION:
-				TheEnd( ERROR_NOT_FOUND_FILE, "lba2" ) ;
-				break ;
-
-			default:
-				TheEnd( ERROR_NOT_FOUND_FILE, "Twinsen" ) ;
-		}
-	}
-}
-#else
-void    ChangeProgDir( char *path )
-{
-        unsigned        nb                      ;
-        char            name[_MAX_PATH]         ;
-
-        char            drive[_MAX_DRIVE]       ;
-        char            dir[_MAX_DIR]           ;
-
-        _splitpath( path, drive, dir, NULL, NULL ) ;
-        _makepath( name, drive, dir, NULL, NULL ) ;
-
-        if( name[strlen(name)-1]=='\\' )
-        {
-                name[strlen(name)-1] = '\0' ;
-        }
-
-        _dos_setdrive( toupper(name[0])-'A'+1, &nb ) ;
-
-        if( chdir( name )!=0 )  TheEnd( ERROR_NOT_FOUND_FILE, path ) ;
-}
-#endif
-
-/*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
-#ifdef  _WIN32
-int PASCAL WinMain(     HINSTANCE hInstance, HINSTANCE hPrevInstance,
-                        LPSTR lpCmdLine, int nCmdShow                   )
-{
-        S32     load = FALSE ;
 
-        hInstance = hInstance ;
-        hPrevInstance = hPrevInstance ;
-        lpCmdLine = lpCmdLine ;
-        nCmdShow = nCmdShow ;
-
-#else //_WIN32
-int main(S32 argc, char *argv[])
+int main(int argc, char *argv[])
 {
         S32     load = FALSE ;
         U8      *ptrdos4gw ;
-
-        // protect DOS4GW car il a besoin d'un peu de mémoire pour ses transferts fichiers
-        ptrdos4gw = (U8*)DosMalloc( 256*256L ) ;
-#endif//_WIN32
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 #ifdef  DEBUG_TOOLS
         MemoMemory = AvailableMem() ;  // memory at start
         MemoDosMemory = DosAvailableMem() ;// Dos memory at start
 #endif
 
-#ifndef _WIN32
-	atexit(TheEndInfo)      ;
-	ChangeProgDir( argv[0] ) ;
-#else
-	ChangeProgDir() ;
-#endif
+        {
+            char resFolderPath[ADELINE_MAX_PATH] = "";
+            char userFolderPath[ADELINE_MAX_PATH] = "";
+
+            // TODO: Implement set folders by command line arguments
+            GetDefaultResDir(resFolderPath);
+            GetDefaultUserDir(userFolderPath);
+
+            InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
+                            DistribVersion);
+        }
 
 	HQRGetErrorFunc = ErrorHQRGet ;
 
@@ -2177,25 +2110,12 @@ int main(S32 argc, char *argv[])
 
 	End_Error = PathConfigFile ;
 
-#ifdef  DEMO
-	#define APPNAME "LBA2 Twinsen's Odyssey Demo"
-#else //DEMO
-	#define APPNAME "LBA2"
-#endif//DEMO
-	#define ibuffer ScreenAux
-	#define ibuffersize     (640*480+RECOVER_AREA)
-	#define lname   "lba2.cfg"
-	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_SVGA|INIT_KEYB|INIT_SAMPLE|INIT_SMACKER
-	#include <initadel.c>
 
-#ifdef	_WIN32
+	InitAdeline(argc, argv);
+
 	atexit(TheEndInfo)      ;
-#endif
 
 	End_Error = ""  ;
-
-	// Passe en clavier "Splitté" (différenciation de chaque touche)
-	AllowExtendedKeyb() ;
 
 	InitProgram()   ;
 	InitMemory()    ;       // Alloue petits buffers
@@ -2204,23 +2124,22 @@ int main(S32 argc, char *argv[])
 	CreateLbaDirectories() ;
 #endif
 
-#ifndef _WIN32
-	InstallCriticalErrorHandler() ;
-#endif
-
 //-------------------   buffer samples
 
 	if( Sample_Driver_Enabled )
 	{
 		// déclare ressource samples buffer
+		GetResPath(tmpFilePath, ADELINE_MAX_PATH, SAMPLES_HQR_NAME);
 		HQR_Samples = HQR_Init_Ressource(
-				PATH_RESSOURCE"samples.hqr",
+				tmpFilePath,
 				SampleMem,
 				SampleMem/5000 ) ;
 
 		SamplesEnable = TRUE ;
 
-		if( !HQR_Samples )      TheEndCheckFile( PATH_RESSOURCE"samples.hqr" ) ;
+		if( !HQR_Samples ) {
+			TheEndCheckFile(tmpFilePath);
+		}
 
 		// pour Windows
                 HQR_Lock_Ressource( HQR_Samples ) ;
@@ -2272,14 +2191,13 @@ int main(S32 argc, char *argv[])
 
 	do
 	{
-#ifdef  _WIN32
 		// pour Windows car ca prend du temps a scaner le CD
-		Load_HQR( SCREEN_HQR_NAME, Log, PCR_CDROM ) ;
+		GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+		Load_HQR( tmpFilePath, Log, PCR_CDROM ) ;
 		BoxStaticFullflip() ;
 
 		// premiere fois
 		if( cd )        FadeToPal( PtrPalNormal ) ;
-#endif
 
 		if( !InitCD( volname ) )
                 {
@@ -2297,9 +2215,7 @@ int main(S32 argc, char *argv[])
         }
         while( !cd ) ;
         }
-#ifdef  _WIN32
         FadeToBlack( PtrPalNormal ) ;
-#endif
 
 #endif
 
@@ -2314,22 +2230,9 @@ int main(S32 argc, char *argv[])
         if( !BufferAnim ) TheEnd( NOT_ENOUGH_MEM, "Buffer Anim" ) ;
 //-------------------
 
-#ifndef _WIN32
-#ifdef  DEBUG_TOOLS
-        TestHercule() ;
-
-        if( ModeHercule )
-        {
-                HCls() ;
-                HBox( 10, 10, 70, 14, HINV, HBOX_DOUBLE ) ;
-                HCentre( 10, "╣ LBA2 GAME INTEGRATED HERCULE DEBUGGER ╠" ) ;
-                HCentreC( 12, HINV|HBLIND, "Please Wait while Initialising LBA2 ..." ) ;
-        }
-#endif
-#endif
-
-        LbaFont = (U8 *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_FONT_GPM ) ;
-        if( !LbaFont )  TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        LbaFont = (U8 *)LoadMalloc_HQR( tmpFilePath, RESS_FONT_GPM ) ;
+        if( !LbaFont )  TheEndCheckFile( tmpFilePath ) ;
 
         SetFont( LbaFont, 2, 8 )        ;
         ColorFont( 14 )                 ;
@@ -2367,8 +2270,9 @@ int main(S32 argc, char *argv[])
         Init3DExt() ;
 
         // a Faire Imperativement avant LoadFicPerso() !!!!!!!!
-        if( !Load_HQR( RESS_HQR_NAME, BufferFile3D, RESS_FILE3D ) )
-                TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        if( !Load_HQR( tmpFilePath, BufferFile3D, RESS_FILE3D ) )
+                TheEndCheckFile( tmpFilePath ) ;
 
         LoadFicPerso()          ;
         InitObjects( BufferAnim, SIZE_BUFFER_ANIM, GivePtrBody, GivePtrAnim )   ;
@@ -2376,80 +2280,92 @@ int main(S32 argc, char *argv[])
 //-------------------   load ressources diverses
 
         // Textures inventaire, médaillon, etc... (256x256)
-        BufferTexture = (U8 *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_TEXTURES ) ;
-        if( !BufferTexture )    TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        BufferTexture = (U8 *)LoadMalloc_HQR( tmpFilePath, RESS_TEXTURES ) ;
+        if( !BufferTexture )    TheEndCheckFile( tmpFilePath ) ;
 
         ScanTextureAnimation( BufferTexture, 256 ) ;
         InitTextureAnimation() ;        // pour initialiser l'affaire
 
-        PtrZvExtra = (S16 *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_GOODIES_GPC ) ;
-        if( !PtrZvExtra )       TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        PtrZvExtra = (S16 *)LoadMalloc_HQR( tmpFilePath, RESS_GOODIES_GPC ) ;
+        if( !PtrZvExtra )       TheEndCheckFile( tmpFilePath ) ;
 
-        PtrZvExtraRaw   = (S16 *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_GOODRAW_GPC ) ;
-        if( !PtrZvExtraRaw )    TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        PtrZvExtraRaw   = (S16 *)LoadMalloc_HQR( tmpFilePath, RESS_GOODRAW_GPC ) ;
+        if( !PtrZvExtraRaw )    TheEndCheckFile( tmpFilePath ) ;
 
 #ifndef DEMO
-        PtrZvAnim3DS    = (S16 *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_ANIM3DS_GPC ) ;
-        if( !PtrZvAnim3DS )     TheEndCheckFile( RESS_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        PtrZvAnim3DS    = (S16 *)LoadMalloc_HQR( tmpFilePath, RESS_ANIM3DS_GPC ) ;
+        if( !PtrZvAnim3DS )     TheEndCheckFile( tmpFilePath ) ;
 #endif
 
 //-------------------   buffer sprites
 
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SPRITES_HQR_NAME);
         HQRPtrSprite =  HQR_Init_Ressource(
-                                PATH_RESSOURCE"sprites.hqr",
+                                tmpFilePath,
                                 SpriteMem,
                                 SpriteMem/1000 ) ;
 
-        if( !HQRPtrSprite ) TheEndCheckFile( PATH_RESSOURCE"sprites.hqr" ) ;
+        if( !HQRPtrSprite ) TheEndCheckFile( tmpFilePath ) ;
 
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SPRIRAW_HQR_NAME);
         HQRPtrSpriteRaw =       HQR_Init_Ressource(
-                                PATH_RESSOURCE"spriraw.hqr",
+                                tmpFilePath,
                                 SpriteRawMem,
                                 SpriteRawMem/100 ) ;
 
-        if( !HQRPtrSpriteRaw ) TheEndCheckFile( PATH_RESSOURCE"spriraw.hqr" ) ;
+        if( !HQRPtrSpriteRaw ) TheEndCheckFile( tmpFilePath ) ;
 
 //-------------------   Anims 3DS
 #ifndef DEMO
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, ANIM3DS_HQR_NAME);
         HQRPtrAnim3DS = HQR_Init_Ressource(
-                                PATH_RESSOURCE"anim3ds.hqr",
+                                tmpFilePath,
                                 Anim3DSMem,
                                 100 ) ;
 
-        if( !HQRPtrAnim3DS )    TheEndCheckFile( PATH_RESSOURCE"anim3ds.hqr" ) ;
+        if( !HQRPtrAnim3DS )    TheEndCheckFile( tmpFilePath ) ;
 
         LoadListAnim3DS() ;
 #endif
 //-------------------   Pof
-        Load_HQR( RESS_HQR_NAME, BufferPof, RESS_POF ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        Load_HQR( tmpFilePath, BufferPof, RESS_POF ) ;
 
 //-------------------   buffer Impacts
-        Load_HQR( RESS_HQR_NAME, BufferImpact, RESS_IMPACT ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        Load_HQR( tmpFilePath, BufferImpact, RESS_IMPACT ) ;
 
 //-------------------   buffer animations
 
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, ANIM_HQR_NAME);
         HQR_Anims =     HQR_Init_Ressource(
-                        PATH_RESSOURCE"Anim.hqr",
+                        tmpFilePath,
                         AnimMem,
                         AnimMem/800 ) ;
 
-        if( !HQR_Anims )        TheEndCheckFile( PATH_RESSOURCE"Anim.hqr" ) ;
+        if( !HQR_Anims )        TheEndCheckFile( tmpFilePath ) ;
 
 //-------------------   buffer bodys
 
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, BODY_HQR_NAME);
         HQR_Bodys =     HQR_Init_Ressource(
-                        PATH_RESSOURCE"Body.hqr",
+                        tmpFilePath,
                         BodyMem,
                         BodyMem/1000 ) ;
 
-        if( !HQR_Bodys )        TheEndCheckFile( PATH_RESSOURCE"Body.hqr" ) ;
+        if( !HQR_Bodys )        TheEndCheckFile( tmpFilePath ) ;
 
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, OBJFIX_HQR_NAME);
         HQR_ObjFix =    HQR_Init_Ressource(
-                        PATH_RESSOURCE"ObjFix.hqr",
+                        tmpFilePath,
                         ObjFixMem,
                         ObjFixMem/1000 ) ;
 
-        if( !HQR_ObjFix )       TheEndCheckFile( PATH_RESSOURCE"ObjFix.hqr" ) ;
+        if( !HQR_ObjFix )       TheEndCheckFile( tmpFilePath ) ;
 
 //-------------------   buffer flows de particules
 
@@ -2461,11 +2377,6 @@ int main(S32 argc, char *argv[])
         // doit etre la derniere allocation faite
         PtrPolySea = (S_ANI_POLY*)Malloc( SIZE_BUFFER_POLY_SEA ) ;
         if( !PtrPolySea )       MaxPolySea = 0 ;// Animation de l'eau non dispo
-
-#ifndef _WIN32
-        // on redonne un peu de mémoire à DOS4GW avant de lancer l'usine
-        if( ptrdos4gw ) Free( ptrdos4gw ) ;
-#endif
 
 #ifdef  DEBUG_TOOLS
         MemoMinDosMemory = DosAvailableMem() ;// Dos memory after inits
@@ -2488,7 +2399,7 @@ int main(S32 argc, char *argv[])
 
         // Pour un SlideShow sur un salon, il ne faut pas que les p'tits gars
         // puissent jouer avec le clavier !!!!!
-/*      if( ArgC==2 AND !stricmp(ArgV[1],"/NOKEY") )
+/*      if( ArgC==2 AND !strcasecmp(ArgV[1],"/NOKEY") )
         {
                 KeyOff = TRUE ;
                 Key = Joy = Fire = Input = 0 ;
@@ -2497,6 +2408,7 @@ int main(S32 argc, char *argv[])
 //      SlideDemo(ArgC,ArgV) ;
 
 */
+        // TODO: Review this code when implementing command line parameters
         if( ArgC>1 )
         {
 #ifdef  DEMO
@@ -2513,8 +2425,7 @@ int main(S32 argc, char *argv[])
 		}
 		else
 		{
-			strcpy( GamePathname, PathSave ) ;
-			strcat( GamePathname, ArgV[1] ) ;
+			GetSavePath(GamePathname, ADELINE_MAX_PATH, ArgV[1]);
 
 			if( FileSize(GamePathname) )
 			{
@@ -2522,7 +2433,9 @@ int main(S32 argc, char *argv[])
 			}
 			else
 			{
-				strcat( GamePathname, ".LBA" ) ;
+				char tmpFileName[ADELINE_MAX_PATH];
+				snprintf(tmpFileName, ADELINE_MAX_PATH, "%s.lba", ArgV[1]);
+				GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpFileName);
 
 				if( FileSize(GamePathname) )
 				{

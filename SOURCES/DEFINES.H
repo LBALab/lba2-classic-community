@@ -51,37 +51,8 @@
 //#define	ONE_GAME_DIRECTORY	1
 //=======================================================================
 
-//path des ressources
-#ifdef	ONE_GAME_DIRECTORY
-#define	PATH_RESSOURCE		""
-#define	PATH_SAVE		PATH_RESSOURCE"SAVE\\"
-#else
-#ifdef	DEMO
-#define	PATH_RESSOURCE		"f:\\projet\\lba2\\demo\\"
-#else
-#define	PATH_RESSOURCE		"f:\\projet\\lba2\\game\\"
-#endif
-#define	PATH_SAVE		"c:\\adeline\\"
-#endif
-
-#ifdef	ONE_GAME_DIRECTORY
-#define	PATH_PCX_SAVE		PATH_SAVE"shoot\\"
-#else
-#define	PATH_PCX_SAVE		"f:\\projet\\lba2\\graph\\shoot\\"
-#endif
-
 // repertoire ou sauver les bugs
-#define	PATH_SAVE_BUGS		"f:\\panier\\lba2\\save\\bugs\\"
-
-//#define	PATH_ACF	PATH_RESSOURCE"ACF\\"
-#define	PATH_ACF	PATH_RESSOURCE"VIDEO\\VIDEO.HQR"
-
-
-#ifdef	ONE_GAME_DIRECTORY
-#define	PATH_JINGLE	"MUSIC\\"
-#else
-#define	PATH_JINGLE	"F:\\PROJET\\LBA2\\MUSIC\\WAV_LBA2\\"
-#endif
+#define PATH_SAVE_BUGS "f:\\panier\\lba2\\save\\bugs\\" // TODO: Review all uses when DEBUG_TOOLS enabled
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /*----------------------------- camera -----------------------------*/
@@ -180,38 +151,32 @@
 
 #include	<stdlib.h>
 #include	<string.h>
-#include	<dos.h>
-#include	<conio.h>
 #include	<stdio.h>
 #include	<ctype.h>
-#include	<i86.h>
-#include	<process.h>
-#include	<limits.h>
-#include	<direct.h>
 #include	<stdarg.h>
 #include	<time.h>
 
-#include	<system.h>
-#include	<svga.h>
-#include	<3d.h>
-#include	<object.h>
-#include	<anim.h>
-#include	<ail.h>
-#include	<smacker.h>
+#include	<SYSTEM.H>
+#include	<SVGA.H>
+#include	<3D.H>
+#include	<OBJECT.H>
+#include	<ANIM.H>
+#include	<AIL.H>
+#include	<SMACKER.H>
 
-#include	<fileio.h>
+#include	<FILEIO.H>
 
 #ifdef	DEMO
-#include 	"\projet\lib386\lib_cd\lib_cd.h"
+#include 	"/projet/lib386/lib_cd/lib_cd.h"
 #endif
 /*
 #ifdef	CDROM
-#include 	"\projet\lib386\lib_cd\lib_cd.h"
+#include 	"/projet/lib386/lib_cd/lib_cd.h"
 #endif
 */
 #endif	// EDITLBA2
 
-#include 	"common.h"
+#include 	"COMMON.H"
 
 // Puisqu'on n'inclue pas LIB_MEN3\LIB_MENU.H :
 #ifdef		WHITE
@@ -244,12 +209,6 @@
 // on stocke les sauvegardes dans BufSpeak
 #define	MAX_PLAYER	((640*480)/(MAX_SIZE_PLAYER_NAME+1+sizeof(char*)))
 #define	MAX_SIZE_PLAYER_NAME	100	// Calculé avec des ',' par Isabelle
-
-#define	AUTOSAVE_NAME		"AUTOSAVE"
-#define	AUTOSAVE_FILENAME	PATH_SAVE"autosave.lba"
-
-#define	CURRENTSAVE_NAME	"CURRENT"
-#define	CURRENTSAVE_FILENAME	PATH_SAVE"current.lba"
 
 /*---------------- CONSTANTE ------------------*/
 
@@ -510,7 +469,7 @@ typedef	struct
 
 #ifndef	EDITLBA2
 
-#include	"F:\PROJET\LBA2\TOOLS\PERSO\3DEXT\EXTERN.H"
+#include	"3DEXT/EXTERN.H"
 #include	"PTRFUNC.H"
 //#include	"OLDSORT.H"
 #include	"SORT.H"
@@ -559,12 +518,8 @@ typedef	struct
 #include	"ZV.H"
 #include	"SCAN.H"
 #include	"KEYB.H"
-#ifdef	_WIN32
+
 #include	"JOYSTICK.H"
-#else
-#include	"CRITICAL.H"
-#include	"HERCULE.H"
-#endif
 
 #endif	// EDITLBA2
 

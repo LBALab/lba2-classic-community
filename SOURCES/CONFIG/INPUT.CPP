@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 // Input
 U32		WaitNoKey	= 0	;
@@ -129,11 +129,7 @@ void	ReadInputConfig( void )
 
 	winmode = DefFileBufferReadValueDefault( "WinMode", FALSE ) ;
 
-#ifdef	_WIN32
 	if( !winmode )
-#else	// _WIN32
-	if( winmode )
-#endif	// _WIN32
 	{
 		// reinit des input par défaut
 		for( n=0; n<MAX_INPUT; n++ )
@@ -172,11 +168,7 @@ void	WriteInputConfig( void )
 
 	if( !FileSize(PathConfigFile ) )	return ;
 
-#ifdef	_WIN32
 	DefFileBufferWriteValue( "WinMode", TRUE ) ;
-#else
-	DefFileBufferWriteValue( "WinMode", FALSE ) ;
-#endif
 
 	// On peut identifier chaque input avec un tableau de chaine,
 	// mais bon, bof !!!

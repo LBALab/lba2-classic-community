@@ -6,7 +6,10 @@
 */
 
 
-#include	"c_extern.h"	// include LBA2
+#include	"C_EXTERN.H"	// include LBA2
+
+#include <SVGA/SCREEN.H>
+#include "DIRECTORIES.H"
 
 extern	U8  	*BufferSmack ;// tempo ?
 
@@ -45,17 +48,21 @@ U8	*MainBuffer		;
 // Spécifique à LBA2: redistribue la mémoire disponible aux différents buffers
 void	AdjustLba2Mem( void )
 {
+	char tmpFilePath[ADELINE_MAX_PATH];
+
 	InitBufferCube() ;	// Calcule taille nécessaire à l'interieur
 
 	// Load size plus grosse Scene
-	Load_HQR( PATH_RESSOURCE"scene.hqr", &PtrSceneMem, 0 ) ;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+	Load_HQR( tmpFilePath, &PtrSceneMem, 0 ) ;
 
 	PtrSceneMem += RECOVER_AREA ;
 
-	BufferFile3DMem = HQF_ResSize( RESS_HQR_NAME, RESS_FILE3D ) + RECOVER_AREA ;
-	TabPartFlowMem  = HQF_ResSize( RESS_HQR_NAME, RESS_FLOW )   + RECOVER_AREA ;
-	BufferPofMem    = HQF_ResSize( RESS_HQR_NAME, RESS_POF )    + RECOVER_AREA ;
-	BufferImpactMem = HQF_ResSize( RESS_HQR_NAME, RESS_IMPACT ) + RECOVER_AREA ;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+	BufferFile3DMem = HQF_ResSize( tmpFilePath, RESS_FILE3D ) + RECOVER_AREA ;
+	TabPartFlowMem  = HQF_ResSize( tmpFilePath, RESS_FLOW )   + RECOVER_AREA ;
+	BufferPofMem    = HQF_ResSize( tmpFilePath, RESS_POF )    + RECOVER_AREA ;
+	BufferImpactMem = HQF_ResSize( tmpFilePath, RESS_IMPACT ) + RECOVER_AREA ;
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -64,6 +71,7 @@ void	AdjustHQRMem( void )
 	U32	memory  ;
 	U32	islemem ;
 	struct SizeInfo	sizeinfo ;
+	char tmpFilePath[ADELINE_MAX_PATH];
 
 	memory = AvailableMem() ;
 
@@ -78,7 +86,8 @@ void	AdjustHQRMem( void )
 	// a repartir dans les hqr exterieurs
 	islemem    = (memory/16)*2/*+(memory/32)*/	;
 
-	Load_HQR( RESS_HQR_NAME, &sizeinfo, RESS_EXT_SIZE_INFO ) ;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+	Load_HQR( tmpFilePath, &sizeinfo, RESS_EXT_SIZE_INFO ) ;
 
 	CubeInfosMem    = (islemem/5)/10 ;
 	ListDecorsMem   = islemem/10 ;

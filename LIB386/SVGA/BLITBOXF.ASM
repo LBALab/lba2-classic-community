@@ -1,19 +1,22 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	FLAT, SYSCALL
+			.MODEL	FLAT, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
+			public	C	BlitBox
+			BlitBox	dd	offset BlitBoxF
+
 ;----------------------------------------------------------------------------
-			extrn	SYSCALL TabOffPhysLine:DWORD
+			extrn	C TabOffPhysLine:DWORD
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			public	SYSCALL	BlitBoxF
+			public	C	BlitBoxF
 
 ;----------------------------------------------------------------------------
 ;void	BlitBoxF(void *dst, void *src) ;
@@ -22,7 +25,12 @@
 ;	parm	[edi] [esi]	\
 ;	modify	[eax ebx ecx edx]
 
-BlitBoxF		PROC
+BlitBoxF		PROC \
+			uses eax ebx ecx edx edi esi \
+			dst: DWORD, src: DWORD
+
+			mov edi, dst
+			mov esi, src
 
 			mov	edx, offset TabOffPhysLine
 			mov	ecx, 200

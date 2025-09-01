@@ -2,15 +2,22 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
-		include mat.inc
+		include MAT.INC
+
+;*══════════════════════════════════════════════════════════════════════════*
+		.DATA
+
+		public	C	InitMatrixTrans
+
+		InitMatrixTrans	dd	offset InitMatrixTransF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	InitMatrixTransF
+		public	C	InitMatrixTransF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	InitMatrixTransF(S32 *MatDst, S32 tx, S32 ty, S32 tz) ;
@@ -34,11 +41,11 @@ InitMatrixTransF	PROC
 
 		add	esp, 4*3
 
-		fstp	[edi].MAT_MTX
+		fstp	[edi].Struc_MatriceMAT.MAT_MTX
 
-		fstp	[edi].MAT_MTY
+		fstp	[edi].Struc_MatriceMAT.MAT_MTY
 
-		fstp	[edi].MAT_MTZ
+		fstp	[edi].Struc_MatriceMAT.MAT_MTZ
 
 		ret
 

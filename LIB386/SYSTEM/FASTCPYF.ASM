@@ -1,13 +1,18 @@
 ;----------------------------------------------------------------------------
 			.386
 
-			.MODEL	SMALL, SYSCALL
+			.MODEL	SMALL, C
+
+;----------------------------------------------------------------------------
+			.DATA
+
+			public	C	FastCopy
+			FastCopy	dd	offset FastCopyF
 
 ;----------------------------------------------------------------------------
 			.CODE
 
-;----------------------------------------------------------------------------
-			public	SYSCALL	FastCopyF
+			public	C	FastCopyF
 
 ;----------------------------------------------------------------------------
 ;void	FastCopyF(void *dst, void *src, U32 len) ;
@@ -16,7 +21,14 @@
 ;	parm	[edi] [esi] [ecx]	\
 ;	modify	[eax ebx edx]
 
-FastCopyF		PROC
+FastCopyF		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			dst: DWORD, \
+			src: DWORD, \
+			len: DWORD
+			mov edi, dst
+			mov esi, src
+			mov ecx, len
 
 			cmp	ecx, 8
 			jb	cpybyte

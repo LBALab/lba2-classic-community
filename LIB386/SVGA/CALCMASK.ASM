@@ -1,6 +1,6 @@
 ;----------------------------------------------------------------------------
 			.386p
-			.model SMALL, SYSCALL
+			.model SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
@@ -24,7 +24,7 @@ comment @
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL	CalcGraphMsk
+			PUBLIC	C	CalcGraphMsk
 
 ;----------------------------------------------------------------------------
 ;S32	CalcGraphMsk(S32 numbrick, void *bankbrick, void *ptmask)
@@ -33,7 +33,14 @@ comment @
 ;	parm	[eax] [esi] [edi]	\
 ;	modify	[ebx ecx edx]
 
-CalcGraphMsk		proc	uses ebp
+CalcGraphMsk			PROC \
+			uses ebx ecx edx edi esi ebp\
+			numbrick: DWORD, \
+			bankbrick: DWORD, \
+			ptmask: DWORD
+			mov eax, numbrick
+			mov esi, bankbrick
+			mov edi, ptmask
 
 			push	edi
 			add	esi, [esi+eax*4]; ESI = Begin Data
