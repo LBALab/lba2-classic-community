@@ -23,8 +23,8 @@ extern	S32	XS0,YS0,XS1,YS1,XS2,YS2,XS3,YS3 ;	// bezier.c
 S32	XpOrgw ;
 S32	YpOrgw ;
 
-#define	NB_COLON	28
-#define	MAX_BRICK	150
+#define	NB_COLON	256 // 28
+#define	MAX_BRICK	256 // 150
 
 S16	NbBrickColon[NB_COLON] ;
 
@@ -1329,9 +1329,31 @@ U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 //-------------------------------------------------------------------
 U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
- return 0;
+    XMap = xw / SIZE_BRICK_XZ;  // shr eax, 9 (/512)
+    YMap = yw / SIZE_BRICK_Y;   // shr eax, 8 (/256)  
+    ZMap = zw / SIZE_BRICK_XZ;  // shr eax, 9 (/512)
+
+    if (XMap < 0 || XMap >= 64) {
+        return 0;  // ovfw
+    }
+
+    if (YMap <= -1) {
+        YMap = 0;
+        return 1;  // col_1
+    }
+
+    if (YMap < 0 || YMap >= 25) {
+        return 0;  // ovfw  
+    }
+
+    if (ZMap < 0 || ZMap >= 64) {
+        return 0;  // ovfw
+    }
+
+    U32 offset = XMap * 50 + YMap * 2 + ZMap * 3200;
+    U8 *ptc = BufCube + offset;
+
+    return *ptc;
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
