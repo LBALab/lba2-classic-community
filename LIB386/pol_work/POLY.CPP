@@ -55,6 +55,7 @@ U32 Fill_CurXMin = 0;        ///< Current XMin
 U32 Fill_CurXMax = 0;        ///< Current XMax
 PTR_U8 Fill_CurOffLine = NULL;     ///< Offset of the current video line
 
+S32 Fill_Cur_Z = 0;
 S32 Fill_Cur_W = 0; // Current W
 S32 Fill_Next_W = 0; // Next W
 S32 Fill_Cur_MapU = 0; // all those variables for Texture Z
@@ -66,6 +67,7 @@ S32 Fill_Next_MapUOverW = 0;
 S32 Fill_Cur_MapVOverW = 0;
 S32 Fill_Next_MapVOverW = 0;
 
+S32 Fill_CurGouraud = 0;
 S32 Fill_CurGouraudMin = 0; // Left edge: gouraud value
 S32 Fill_Gouraud_LeftSlope = 0; // Left slope for Gouraud shading
 S32 Fill_Gouraud_XSlope = 0; // X Slope for Gouraud shading
@@ -82,10 +84,15 @@ S32 Fill_CurWMin = 0; // Left edge: W value
 S32 Fill_W_LeftSlope = 0; // Left slope for W
 S32 Fill_W_XSlope = 0; // X Slope for W
 
+S32 Fill_Z_LeftSlope = 0;
+S32 Fill_Z_XSlope = 0;
+
 U32 Fill_CurZBufMin = 0; // Left edge: ZBuf value
 S32 Fill_ZBuf_LeftSlope = 0; // Left slope for ZBuf
 S32 Fill_ZBuf_XSlope = 0; // X Slope for ZBuf
 U32 Fill_CurZBuf = 0; // Current value of ZBuf in the scanline
+
+U32 Fill_CurZMin = 0;
 
 U8 Fill_ReadFlag = FALSE;        ///< Flag telling which point to read
 U8 Fill_ClipFlag = FALSE;        ///< Flag telling us what to clip
@@ -93,10 +100,12 @@ U8 Fill_Flag_Fog = FALSE;     // True if FOG active
 U8 Fill_Flag_ZBuffer = FALSE;	// True if ZBUFFER is active
 U8 Fill_Flag_NZW = FALSE;     // True if NZW active
 
+S32 Fill_Trame_Parity = 0;  ///< Parity for trame polygons
+
 Fill_Jump_Fn *Fill_Saut_Normal = Fill_N_Table_Jumps; // Filler table
 
 // -----------------------------------------------------------------------------
-S32 INV64(S32 a) { return LONG_MIN / a; }
+S32 INV64(S32 a) { return (S32)((1LL << 32) / a); }
 
 S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB);
 
@@ -274,7 +283,7 @@ void SetFog(S32 z_near, S32 z_far)
     Fill_Z_Fog_Near = z_near;
     Fill_Z_Fog_Far = z_far;
 
-    Fill_ZBuffer_Factor = 0x100000000 / z_far;
+    Fill_ZBuffer_Factor = (U32)((1ULL << 32) / z_far);
     Fill_ScaledFogNear = (Fill_Z_Fog_Near * Fill_ZBuffer_Factor) >> 16;
 
     U32 temp = 65535 - Fill_ScaledFogNear;
@@ -979,8 +988,66 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
 
 S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	// Calculate slopes for texture mapping with perspective correction and Gouraud shading
+	
+	// Extract texture coordinates U and V from the packed MapU value
+	int uA = PtA->Pt_MapU & 0xFFFF;
+	int uB = PtB->Pt_MapU & 0xFFFF;
+	int uC = PtC->Pt_MapU & 0xFFFF;
+	
+	int vA = (PtA->Pt_MapU >> 16) & 0xFFFF;
+	int vB = (PtB->Pt_MapU >> 16) & 0xFFFF;
+	int vC = (PtC->Pt_MapU >> 16) & 0xFFFF;
+	
+	// Extract light values
+	int lightA = PtA->Pt_Light & 0xFFFF;
+	int lightB = PtB->Pt_Light & 0xFFFF;
+	int lightC = PtC->Pt_Light & 0xFFFF;
+	
+	// Calculate light differences relative to point A
+	int lightB_A = lightB - lightA;
+	int lightC_A = lightC - lightA;
+	
+	// Calculate perspective-corrected U coordinates: U * W
+	double uA_w = (double)uA * PtA->Pt_W;
+	double uB_w = (double)uB * PtB->Pt_W;
+	double uC_w = (double)uC * PtC->Pt_W;
+	
+	// Calculate U differences
+	double uB_A_corr = uB_w - uA_w;
+	double uC_A_corr = uC_w - uA_w;
+	
+	// Calculate U slope numerator
+	double u_numerator = (uC_A_corr * YB_YA) - (uB_A_corr * YC_YA);
+	Fill_MapU_XSlope = ROUND((u_numerator / Denom) * (1.0 / 65536.0));
+	
+	// Calculate perspective-corrected V coordinates: V * W
+	double vA_w = (double)vA * PtA->Pt_W;
+	double vB_w = (double)vB * PtB->Pt_W;
+	double vC_w = (double)vC * PtC->Pt_W;
+	
+	// Calculate V differences
+	double vB_A_corr = vB_w - vA_w;
+	double vC_A_corr = vC_w - vA_w;
+	
+	// Calculate V slope numerator
+	double v_numerator = (vC_A_corr * YB_YA) - (vB_A_corr * YC_YA);
+	Fill_MapV_XSlope = ROUND((v_numerator / Denom) * (1.0 / 65536.0));
+	
+	// Calculate W slope for perspective correction
+	double wB_A = PtB->Pt_W - PtA->Pt_W;
+	double wC_A = PtC->Pt_W - PtA->Pt_W;
+	
+	double w_numerator = (wC_A * YB_YA) - (wB_A * YC_YA);
+	Fill_W_XSlope = ROUND((w_numerator / Denom) * (65536.0 / 256.0));
+	
+	// Calculate Gouraud shading slope
+	double lightB_w = (double)lightB_A * PtB->Pt_W;
+	double lightC_w = (double)lightC_A * PtC->Pt_W;
+	
+	double light_numerator = (lightC_w * YB_YA) - (lightB_w * YC_YA);
+	Fill_Gouraud_XSlope = ROUND(light_numerator / Denom);
+	
 	return 0;
 }
 
@@ -1010,8 +1077,68 @@ S32 Calc_XSlopeZBufferFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Stru
 
 S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	// Calculate slopes for texture mapping with perspective correction and Z-buffering
+	
+	// Extract Z values from high 16 bits of Pt_Light
+	int zA = (PtA->Pt_Light >> 16) & 0xFFFF;
+	int zB = (PtB->Pt_Light >> 16) & 0xFFFF;
+	int zC = (PtC->Pt_Light >> 16) & 0xFFFF;
+	
+	// Extract texture coordinates U and V from MapU
+	int uA = PtA->Pt_MapU & 0xFFFF;
+	int uB = PtB->Pt_MapU & 0xFFFF;
+	int uC = PtC->Pt_MapU & 0xFFFF;
+	
+	int vA = (PtA->Pt_MapU >> 16) & 0xFFFF;
+	int vB = (PtB->Pt_MapU >> 16) & 0xFFFF;
+	int vC = (PtC->Pt_MapU >> 16) & 0xFFFF;
+	
+	// Calculate perspective-corrected Z coordinates: Z * W
+	double zA_w = (double)zA * PtA->Pt_W;
+	double zB_w = (double)zB * PtB->Pt_W;
+	double zC_w = (double)zC * PtC->Pt_W;
+	
+	// Calculate Z differences
+	double zB_A_corr = zB_w - zA_w;
+	double zC_A_corr = zC_w - zA_w;
+	
+	// Calculate Z-buffer slope numerator
+	double z_numerator = (zC_A_corr * YB_YA) - (zB_A_corr * YC_YA);
+	Fill_ZBuf_XSlope = ROUND((z_numerator / Denom) * (1.0 / 65536.0));
+	
+	// Calculate perspective-corrected U coordinates: U * W
+	double uA_w = (double)uA * PtA->Pt_W;
+	double uB_w = (double)uB * PtB->Pt_W;
+	double uC_w = (double)uC * PtC->Pt_W;
+	
+	// Calculate U differences
+	double uB_A_corr = uB_w - uA_w;
+	double uC_A_corr = uC_w - uA_w;
+	
+	// Calculate U slope numerator
+	double u_numerator = (uC_A_corr * YB_YA) - (uB_A_corr * YC_YA);
+	Fill_MapU_XSlope = ROUND((u_numerator / Denom) * (1.0 / 65536.0));
+	
+	// Calculate perspective-corrected V coordinates: V * W
+	double vA_w = (double)vA * PtA->Pt_W;
+	double vB_w = (double)vB * PtB->Pt_W;
+	double vC_w = (double)vC * PtC->Pt_W;
+	
+	// Calculate V differences
+	double vB_A_corr = vB_w - vA_w;
+	double vC_A_corr = vC_w - vA_w;
+	
+	// Calculate V slope numerator
+	double v_numerator = (vC_A_corr * YB_YA) - (vB_A_corr * YC_YA);
+	Fill_MapV_XSlope = ROUND((v_numerator / Denom) * (1.0 / 65536.0));
+	
+	// Calculate W slope for perspective correction
+	double wB_A = PtB->Pt_W - PtA->Pt_W;
+	double wC_A = PtC->Pt_W - PtA->Pt_W;
+	
+	double w_numerator = (wC_A * YB_YA) - (wB_A * YC_YA);
+	Fill_W_XSlope = ROUND((w_numerator / Denom) * 256.0);
+	
 	return 0;
 }
 
@@ -1206,8 +1333,66 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
 
 S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	// Calculate left slopes for texture mapping with perspective correction and Gouraud shading
+	
+	// Extract texture coordinates
+	int uA = PtA->Pt_MapU & 0xFFFF;
+	int uB = PtB->Pt_MapU & 0xFFFF;
+	int vA = (PtA->Pt_MapU >> 16) & 0xFFFF;
+	int vB = (PtB->Pt_MapU >> 16) & 0xFFFF;
+	
+#ifdef CORRECT_TEXTURE
+	uA += 0x80;
+	uB += 0x80;
+	vA += 0x80;
+	vB += 0x80;
+#endif
+	
+	// Set current W minimum
+	Fill_CurWMin = PtB->Pt_W;
+	
+	// Extract light values and calculate Gouraud parameters
+	int lightA = PtA->Pt_Light & 0xFFFF;
+	int lightB = PtB->Pt_Light & 0xFFFF;
+	
+	int gouraudB = (lightB << 8) + 0x8000;
+	int gouraudA = (lightA + 0x80) << 8;
+	int diffLight = gouraudA - gouraudB;
+	
+	Fill_CurGouraudMin = gouraudB;
+	
+	// Calculate slopes using floating point
+	float invDY = 1.0f / diffY;
+	
+	// Gouraud slope
+	Fill_Gouraud_LeftSlope = ROUND((float)diffLight * invDY);
+	
+	// X slope calculation
+	float xSlope = (float)diffX * invDY;
+	Fill_LeftSlope = ROUND(xSlope + 1.0f);
+	
+	// Calculate perspective-corrected texture coordinates
+	float uA_w = (float)uA * PtA->Pt_W;
+	float uB_w = (float)uB * PtB->Pt_W;
+	float vA_w = (float)vA * PtA->Pt_W;
+	float vB_w = (float)vB * PtB->Pt_W;
+	
+	// Calculate texture coordinate differences
+	float diffU_w = uB_w - uA_w;
+	float diffV_w = vB_w - vA_w;
+	
+	// Calculate texture slopes
+	Fill_MapU_LeftSlope = ROUND(diffU_w * invDY);
+	Fill_MapV_LeftSlope = ROUND(diffV_w * invDY);
+	
+	// Set current texture minimums (perspective corrected)
+	Fill_CurMapUMin = ROUND(uA_w / 256.0f);
+	Fill_CurMapVMin = ROUND(vA_w / 256.0f);
+	
+	// Calculate W slope for perspective correction
+	float diffW = PtB->Pt_W - PtA->Pt_W;
+	Fill_W_LeftSlope = ROUND(diffW * invDY * 256.0f);
+	
 	return 0;
 }
 
@@ -1230,8 +1415,66 @@ S32 Calc_LeftSlopeZBufferFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *Pt
 
 S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+	// Calculate left slopes for texture mapping with perspective correction and Z-buffering
+	
+	// Extract texture coordinates
+	int uA = PtA->Pt_MapU & 0xFFFF;
+	int uB = PtB->Pt_MapU & 0xFFFF;
+	int vA = (PtA->Pt_MapU >> 16) & 0xFFFF;
+	int vB = (PtB->Pt_MapU >> 16) & 0xFFFF;
+	
+#ifdef CORRECT_TEXTURE
+	uA += 0x80;
+	uB += 0x80;
+	vA += 0x80;
+	vB += 0x80;
+#endif
+	
+	// Set current W minimum
+	Fill_CurWMin = PtB->Pt_W;
+	
+	// Extract Z values from high 16 bits of Pt_Light
+	int zA = (PtA->Pt_Light >> 16) & 0xFFFF;
+	int zB = (PtB->Pt_Light >> 16) & 0xFFFF;
+	
+	// Calculate perspective-corrected Z coordinates
+	float zA_w = (float)zA * PtA->Pt_W / 256.0f;
+	float zB_w = (float)zB * PtB->Pt_W / 256.0f;
+	
+	// Set current Z-buffer minimum and calculate Z slope
+	Fill_CurZBufMin = ROUND(zA_w);
+	float diffZ_w = zB_w - zA_w;
+	Fill_ZBuf_LeftSlope = ROUND(diffZ_w / diffY);
+	
+	// Calculate slopes using floating point
+	float invDY = 1.0f / diffY;
+	
+	// X slope calculation
+	float xSlope = (float)diffX * invDY;
+	Fill_LeftSlope = ROUND(xSlope + 1.0f);
+	
+	// Calculate perspective-corrected texture coordinates
+	float uA_w = (float)uA * PtA->Pt_W;
+	float uB_w = (float)uB * PtB->Pt_W;
+	float vA_w = (float)vA * PtA->Pt_W;
+	float vB_w = (float)vB * PtB->Pt_W;
+	
+	// Calculate texture coordinate differences
+	float diffU_w = uB_w - uA_w;
+	float diffV_w = vB_w - vA_w;
+	
+	// Calculate texture slopes
+	Fill_MapU_LeftSlope = ROUND(diffU_w * invDY / 256.0f);
+	Fill_MapV_LeftSlope = ROUND(diffV_w * invDY / 256.0f);
+	
+	// Set current texture minimums (perspective corrected)
+	Fill_CurMapUMin = ROUND(uA_w / 256.0f);
+	Fill_CurMapVMin = ROUND(vA_w / 256.0f);
+	
+	// Calculate W slope for perspective correction
+	float diffW = PtB->Pt_W - PtA->Pt_W;
+	Fill_W_LeftSlope = ROUND(diffW * invDY * 256.0f);
+	
 	return 0;
 }
 

@@ -120,6 +120,7 @@ extern U32 Fill_CurXMin;        ///< Current XMin
 extern U32 Fill_CurXMax;        ///< Current XMax
 extern PTR_U8 Fill_CurOffLine;     ///< Offset of the current video line
 
+extern S32 Fill_Cur_Z;
 extern S32 Fill_Cur_W; // Current W
 extern S32 Fill_Next_W; // Next W
 extern S32 Fill_Cur_MapU; // all those variables for Texture Z
@@ -131,6 +132,7 @@ extern S32 Fill_Next_MapUOverW;
 extern S32 Fill_Cur_MapVOverW;
 extern S32 Fill_Next_MapVOverW;
 
+extern S32 Fill_CurGouraud;
 extern S32 Fill_CurGouraudMin; // Left edge: gouraud value
 extern S32 Fill_Gouraud_LeftSlope; // Left slope for Gouraud shading
 extern S32 Fill_Gouraud_XSlope; // X Slope for Gouraud shading
@@ -147,16 +149,23 @@ extern S32 Fill_CurWMin; // Left edge: W value
 extern S32 Fill_W_LeftSlope; // Left slope for W
 extern S32 Fill_W_XSlope; // X Slope for W
 
+extern S32 Fill_Z_LeftSlope;
+extern S32 Fill_Z_XSlope;
+
 extern U32 Fill_CurZBufMin; // Left edge: ZBuf value
 extern S32 Fill_ZBuf_LeftSlope; // Left slope for ZBuf
 extern S32 Fill_ZBuf_XSlope; // X Slope for ZBuf
 extern U32 Fill_CurZBuf; // Current value of ZBuf in the scanline
+
+extern U32 Fill_CurZMin;
 
 extern U8 Fill_ReadFlag;        ///< Flag telling which point to read
 extern U8 Fill_ClipFlag;        ///< Flag telling us what to clip
 extern U8 Fill_Flag_Fog;        ///< True if FOG is active
 extern U8 Fill_Flag_ZBuffer;    ///< True if ZBUFFER is active
 extern U8 Fill_Flag_NZW;        ///< True if NZW is active
+
+extern S32 Fill_Trame_Parity;  ///< Parity for trame polygons
 
 extern U8 Fill_Logical_Palette[256];
 

@@ -252,14 +252,195 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 diffY = nbLines + 1;
+  Fill_CurY += diffY;
+  S32 gouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+  }
+  else
+  {
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    gouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  while (1)
+  {
+    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+
+      // Adjust for sub-pixel start position
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16)
+      {
+        S32 gouraudAdjust = Fill_Gouraud_XSlope * factor;
+        gouraud += (gouraudAdjust >> 16);
+
+        // Cache line preloading for performance
+        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
+        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
+        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
+        {
+          volatile U8 dummy = *cache;
+          (void)dummy;
+        }
+      }
+
+      // Fill_Color contains the base address of the Gouraud color lookup table
+      PTR_U8 gouraudTable = Fill_Color.Ptr;
+      U32 gouraudValue = gouraud;
+      U32 gouraudSlope = Fill_Gouraud_XSlope;
+
+      // Process each pixel with Gouraud shading using color lookup table
+      for (U32 i = 0; i < fillWidth; i++)
+      {
+        // Extract the lighting value (upper 8 bits) and use as index into color table
+        U32 lightIndex = (gouraudValue >> 8) & 0xFF00;
+        U8 shadedColor = gouraudTable[lightIndex];
+        
+        line[i] = shadedColor;
+        gouraudValue += gouraudSlope;
+      }
+    }
+
+    diffY--;
+    if (diffY == 0)
+    {
+      break;
+    }
+
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    gouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurGouraudMin = gouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 diffY = nbLines + 1;
+  Fill_CurY += diffY;
+  S32 gouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+  }
+  else
+  {
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    gouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  while (1)
+  {
+    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+
+      // Cache line preloading for performance (if scanline is large enough)
+      if (fillWidth >= 32)
+      {
+        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
+        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
+        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
+        {
+          volatile U8 dummy = *cache;
+          (void)dummy;
+        }
+      }
+
+      // Dithered Gouraud shading with color lookup table
+      PTR_U8 colorTable = Fill_Color.Ptr;
+      S32 gouraudValue = gouraud >> 8;  // Extract lighting value
+      S32 gouraudSlope = Fill_Gouraud_XSlope >> 8;  // Extract slope
+      U32 ditherValue = gouraudValue & 0xFF;
+      U32 ditherCount = fillWidth;
+
+      // Process pixels in pairs for dithering effect
+      U32 i = 0;
+      if (ditherCount > 1)
+      {
+        // Rotate dither pattern based on pixel position
+        ditherValue = ((ditherValue << (ditherCount & 31)) | (ditherValue >> (32 - (ditherCount & 31)))) & 0xFF;
+        
+        // Process pairs of pixels
+        U32 pairCount = ditherCount >> 1;
+        for (U32 pair = 0; pair < pairCount; pair++)
+        {
+          // First pixel of pair
+          U32 index1 = (ditherValue & 0xFF) + gouraudValue;
+          U32 tableIndex1 = index1 & 0xFF00;
+          U8 color1 = colorTable[tableIndex1];
+          line[i++] = color1;
+          
+          ditherValue &= 0xFF;
+          ditherValue += gouraudValue;
+          gouraudValue += gouraudSlope;
+          
+          // Second pixel of pair
+          U32 index2 = (ditherValue & 0xFF) + gouraudValue;
+          U32 tableIndex2 = index2 & 0xFF00;
+          U8 color2 = colorTable[tableIndex2];
+          line[i++] = color2;
+          
+          ditherValue &= 0xFF;
+          ditherValue = ((ditherValue << (ditherCount & 31)) | (ditherValue >> (32 - (ditherCount & 31)))) & 0xFF;
+          ditherValue += gouraudValue;
+          gouraudValue += gouraudSlope;
+        }
+        
+        // Handle odd pixel if fillWidth is odd
+        if (ditherCount & 1)
+        {
+          U32 tableIndex = ditherValue & 0xFF00;
+          U8 color = colorTable[tableIndex];
+          line[i] = color;
+        }
+      }
+      else if (ditherCount == 1)
+      {
+        // Single pixel
+        U32 tableIndex = ditherValue & 0xFF00;
+        U8 color = colorTable[tableIndex];
+        line[0] = color;
+      }
+    }
+
+    diffY--;
+    if (diffY == 0)
+    {
+      break;
+    }
+
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    gouraud += Fill_Gouraud_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurGouraudMin = gouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 // Verified
@@ -745,8 +926,94 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+
+  if (patch == 0) {
+    Fill_Patch = 0;
+    // Variables are kept for consistency with assembly but not used in this simplified version
+  }
+
+  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
+    if (patch != 0) {
+      curOffLine += ScreenPitch;
+      fillCurXMin += Fill_LeftSlope;
+      fillCurXMax += Fill_RightSlope;
+      curGouraud += Fill_Gouraud_LeftSlope;
+      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+    }
+
+    U32 startX = fillCurXMin >> 16;
+    U32 endX = fillCurXMax >> 16;
+    U8 *scanLine = curOffLine + startX;
+    U32 pixelCount = endX - startX;
+
+    if (pixelCount > 0) {
+      // Subpixel correction for Gouraud
+      U32 subPixel = fillCurXMin & 0xFFFF;
+      subPixel ^= 0xFFFF;
+      
+      // Preload cache for large scanlines
+      if (pixelCount > 16) {
+        U32 gouraudCorrection = (subPixel * Fill_Gouraud_XSlope) >> 16;
+        curGouraud += gouraudCorrection;
+        
+        // Preload destination cache lines
+        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
+        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
+        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
+          volatile U8 temp = *addr; // Cache preload
+        }
+      }
+
+      // Setup for pixel loop
+      U8 *colorTable = Fill_Color.Ptr; // Color lookup table
+      U32 zBuf = Fill_CurZBufMin;
+      U32 zBufInt = zBuf >> 8;
+      U32 zBufFrac = zBuf << (32 - 8);
+      U8 *logPtr = (U8*)Log;
+      U16 *zBufferPtr = (U16*)PtrZBuffer;
+      
+      U32 gouraudValue = curGouraud;
+      U32 gouraudIndex = (gouraudValue >> 8) & 0xFF00;
+
+      for (U32 x = 0; x < pixelCount; x++) {
+        // Z-buffer test
+        U32 pixelOffset = (scanLine - logPtr) + x;
+        if (zBufferPtr[pixelOffset] > zBufInt) {
+          // Update Z-buffer
+          zBufferPtr[pixelOffset] = zBufInt;
+          
+          // Write color using lookup table
+          U8 colorIndex = colorTable[gouraudIndex];
+          scanLine[x] = colorIndex;
+        }
+
+        // Advance interpolants
+        gouraudValue += Fill_Gouraud_XSlope;
+        gouraudIndex = (gouraudValue >> 8) & 0xFF00;
+        
+        zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+        zBufInt += (Fill_ZBuf_XSlope >> 8);
+        if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+          zBufInt++;
+        }
+      }
+    }
+
+    patch = 1; // Subsequent lines don't need initialization
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 // Verified
@@ -1237,26 +1504,561 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+
+  if (patch == 0) {
+    Fill_Patch = 0;
+    // Variables are kept for consistency with assembly but not used in this simplified version
+  }
+
+  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
+    if (patch != 0) {
+      curOffLine += ScreenPitch;
+      fillCurXMin += Fill_LeftSlope;
+      fillCurXMax += Fill_RightSlope;
+      curGouraud += Fill_Gouraud_LeftSlope;
+      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+    }
+
+    U32 startX = fillCurXMin >> 16;
+    U32 endX = fillCurXMax >> 16;
+    U8 *scanLine = curOffLine + startX;
+    U32 pixelCount = endX - startX;
+
+    if (pixelCount > 0) {
+      // Subpixel correction for Gouraud
+      U32 subPixel = fillCurXMin & 0xFFFF;
+      subPixel ^= 0xFFFF;
+      
+      // Preload cache for large scanlines
+      if (pixelCount > 16) {
+        U32 gouraudCorrection = (subPixel * Fill_Gouraud_XSlope) >> 16;
+        curGouraud += gouraudCorrection;
+        
+        // Preload destination cache lines
+        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
+        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
+        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
+          volatile U8 temp = *addr; // Cache preload
+        }
+      }
+
+      // Setup for pixel loop
+      U32 zBuf = Fill_CurZBufMin;
+      U32 zBufInt = zBuf >> 8;
+      U32 zBufFrac = zBuf << (32 - 8);
+      U8 *logPtr = (U8*)Log;
+      U16 *zBufferPtr = (U16*)PtrZBuffer;
+      
+      U32 gouraudValue = curGouraud;
+      U32 gouraudIntPart = Fill_Gouraud_XSlope >> 16;
+      U32 gouraudFracPart = Fill_Gouraud_XSlope << 16;
+      U8 gouraudPixel = gouraudValue >> 16;
+
+      for (U32 x = 0; x < pixelCount; x++) {
+        // Z-buffer test (NZW - test only, no write)
+        U32 pixelOffset = (scanLine - logPtr) + x;
+        if (zBufferPtr[pixelOffset] > zBufInt) {
+          // Write Gouraud shaded pixel (no Z-buffer write for NZW)
+          scanLine[x] = gouraudPixel;
+        }
+
+        // Advance interpolants
+        gouraudValue += gouraudFracPart;
+        gouraudPixel += gouraudIntPart;
+        if (gouraudValue < gouraudFracPart) {
+          gouraudPixel++; // Handle carry from fractional part
+        }
+        
+        zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+        zBufInt += (Fill_ZBuf_XSlope >> 8);
+        if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+          zBufInt++;
+        }
+      }
+    }
+
+    patch = 1; // Subsequent lines don't need initialization
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+
+  if (patch == 0) {
+    Fill_Patch = 0;
+    // Variables are kept for consistency with assembly but not used in this simplified version
+  }
+
+  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
+    if (patch != 0) {
+      curOffLine += ScreenPitch;
+      fillCurXMin += Fill_LeftSlope;
+      fillCurXMax += Fill_RightSlope;
+      curGouraud += Fill_Gouraud_LeftSlope;
+      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+    }
+
+    U32 startX = fillCurXMin >> 16;
+    U32 endX = fillCurXMax >> 16;
+    U8 *scanLine = curOffLine + startX;
+    U32 pixelCount = endX - startX;
+
+    if (pixelCount > 0) {
+      // Preload cache for large scanlines
+      if (pixelCount >= 32) {
+        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
+        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
+        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
+          volatile U8 temp = *addr; // Cache preload
+        }
+      }
+
+      // Setup for pixel loop
+      U32 zBuf = Fill_CurZBufMin;
+      U32 zBufInt = zBuf >> 8;
+      U32 zBufFrac = zBuf << (32 - 8);
+      U8 *logPtr = (U8*)Log;
+      U16 *zBufferPtr = (U16*)PtrZBuffer;
+      
+      U32 gouraudValue = curGouraud >> 8;
+      U32 gouraudAddValue = (Fill_Gouraud_XSlope >> 8) & 0xFFFF;
+      U8 ditherValue = gouraudValue & 0xFF;
+
+      // Handle odd pixel count
+      U32 remainingPixels = pixelCount;
+      U32 pixelOffset = scanLine - logPtr;
+      
+      if (remainingPixels & 1) {
+        remainingPixels--;
+        if (remainingPixels == 0) {
+          // Single pixel case
+          if (zBufferPtr[pixelOffset] > zBufInt) {
+            U8 finalColor = (ditherValue + gouraudValue) & 0xFF;
+            scanLine[0] = finalColor; // NZW: no Z-buffer write
+          }
+          goto line_complete;
+        }
+        
+        // Process single pixel first
+        U8 rotatedValue = ditherValue;
+        for (U32 i = 0; i < (remainingPixels & 7); i++) {
+          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
+        }
+        
+        U32 x = 0;
+        while (remainingPixels > 0) {
+          U8 finalColor1 = (rotatedValue + gouraudValue) & 0xFF;
+          gouraudValue += gouraudAddValue;
+          
+          if (zBufferPtr[pixelOffset + x] > zBufInt) {
+            scanLine[x] = finalColor1; // NZW: no Z-buffer write
+          }
+          
+          zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+          zBufInt += (Fill_ZBuf_XSlope >> 8);
+          if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+            zBufInt++;
+          }
+          
+          if (remainingPixels > 1) {
+            U8 finalColor2 = (rotatedValue + gouraudValue) & 0xFF;
+            gouraudValue += gouraudAddValue;
+            
+            if (zBufferPtr[pixelOffset + x + 1] > zBufInt) {
+              scanLine[x + 1] = finalColor2; // NZW: no Z-buffer write
+            }
+            
+            zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+            zBufInt += (Fill_ZBuf_XSlope >> 8);
+            if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+              zBufInt++;
+            }
+            
+            x += 2;
+            remainingPixels -= 2;
+          } else {
+            x++;
+            remainingPixels--;
+          }
+          
+          // Rotate dither value
+          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
+        }
+      } else {
+        // Even pixel count - process pairs
+        U8 rotatedValue = ditherValue;
+        for (U32 i = 0; i < (pixelCount & 7); i++) {
+          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
+        }
+        
+        for (U32 x = 0; x < pixelCount; x += 2) {
+          U8 finalColor1 = (rotatedValue + gouraudValue) & 0xFF;
+          gouraudValue += gouraudAddValue;
+          
+          if (zBufferPtr[pixelOffset + x] > zBufInt) {
+            scanLine[x] = finalColor1; // NZW: no Z-buffer write
+          }
+          
+          zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+          zBufInt += (Fill_ZBuf_XSlope >> 8);
+          if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+            zBufInt++;
+          }
+          
+          U8 finalColor2 = (rotatedValue + gouraudValue) & 0xFF;
+          gouraudValue += gouraudAddValue;
+          
+          if (zBufferPtr[pixelOffset + x + 1] > zBufInt) {
+            scanLine[x + 1] = finalColor2; // NZW: no Z-buffer write
+          }
+          
+          zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+          zBufInt += (Fill_ZBuf_XSlope >> 8);
+          if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+            zBufInt++;
+          }
+          
+          // Rotate dither value
+          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
+        }
+      }
+    }
+
+line_complete:
+    patch = 1; // Subsequent lines don't need initialization
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 count = nbLines + 1;
+  Fill_CurY += count;
+  U8 *curOffLine = Fill_CurOffLine;
+
+  U32 patch = Fill_Patch - 1;
+  U32 curGouraud = Fill_CurGouraudMin;
+
+  if (patch == 0) {
+    Fill_Patch = 0;
+    // Variables are kept for consistency with assembly but not used in this simplified version
+  }
+
+  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
+    if (patch != 0) {
+      curOffLine += ScreenPitch;
+      fillCurXMin += Fill_LeftSlope;
+      fillCurXMax += Fill_RightSlope;
+      curGouraud += Fill_Gouraud_LeftSlope;
+      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+    }
+
+    U32 startX = fillCurXMin >> 16;
+    U32 endX = fillCurXMax >> 16;
+    U8 *scanLine = curOffLine + startX;
+    U32 pixelCount = endX - startX;
+
+    if (pixelCount > 0) {
+      // Subpixel correction for Gouraud
+      U32 subPixel = fillCurXMin & 0xFFFF;
+      subPixel ^= 0xFFFF;
+      
+      // Preload cache for large scanlines
+      if (pixelCount > 16) {
+        U32 gouraudCorrection = (subPixel * Fill_Gouraud_XSlope) >> 16;
+        curGouraud += gouraudCorrection;
+        
+        // Preload destination cache lines
+        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
+        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
+        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
+          volatile U8 temp = *addr; // Cache preload
+        }
+      }
+
+      // Setup for pixel loop
+      U8 *colorTable = Fill_Color.Ptr; // Color lookup table
+      U32 zBuf = Fill_CurZBufMin;
+      U32 zBufInt = zBuf >> 8;
+      U32 zBufFrac = zBuf << (32 - 8);
+      U8 *logPtr = (U8*)Log;
+      U16 *zBufferPtr = (U16*)PtrZBuffer;
+      
+      U32 gouraudValue = curGouraud;
+      U32 gouraudIndex = (gouraudValue >> 8) & 0xFF00;
+
+      for (U32 x = 0; x < pixelCount; x++) {
+        // Z-buffer test (NZW - test only, no write)
+        U32 pixelOffset = (scanLine - logPtr) + x;
+        if (zBufferPtr[pixelOffset] > zBufInt) {
+          // Write color using lookup table (no Z-buffer write for NZW)
+          U8 colorIndex = colorTable[gouraudIndex];
+          scanLine[x] = colorIndex;
+        }
+
+        // Advance interpolants
+        gouraudValue += Fill_Gouraud_XSlope;
+        gouraudIndex = (gouraudValue >> 8) & 0xFF00;
+        
+        zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
+        zBufInt += (Fill_ZBuf_XSlope >> 8);
+        if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
+          zBufInt++;
+        }
+      }
+    }
+
+    patch = 1; // Subsequent lines don't need initialization
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = curOffLine;
+  Fill_CurGouraudMin = curGouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_DitherTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  U32 diffY = nbLines + 1;
+  Fill_CurY += diffY;
+  S32 gouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
+
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+
+    // Setup Z-buffer pointers for pixel pairs and individual pixels
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrZBuffer1 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer2 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer3 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer4 = PtrZBuffer;
+
+    // Setup screen buffer pointers with offset adjustments for pixel pairs
+    POLYGOUR_PtrLog = (PTR_U8)Log;
+    POLYGOUR_PtrLog2 = (PTR_U8)Log;
+    POLYGOUR_PtrLog4 = (PTR_U8)Log;
+    POLYGOUR_PtrLog_1 = (PTR_U8)Log + 1;
+    POLYGOUR_PtrLog2_1 = (PTR_U8)Log + 1;
+
+    // Setup Gouraud increments (integer part for dithering)
+    S32 gouraudXSlope = Fill_Gouraud_XSlope >> 8;
+    POLYGOUR_AddGour = gouraudXSlope;
+    POLYGOUR_AddGour1 = gouraudXSlope;
+    POLYGOUR_AddGour2 = gouraudXSlope;
+    POLYGOUR_AddGour3 = gouraudXSlope;
+
+    // Setup Z-buffer increments
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf1 = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf2 = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf3 = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_DecZBuf = (U32)Fill_ZBuf_XSlope << 24;
+    POLYGOUR_DecZBuf1 = (U32)Fill_ZBuf_XSlope << 24;
+    POLYGOUR_DecZBuf2 = (U32)Fill_ZBuf_XSlope << 24;
+    POLYGOUR_DecZBuf3 = (U32)Fill_ZBuf_XSlope << 24;
+
+    // Setup color lookup table pointers for all pixel positions
+    POLYGOUR_PtrColor = Fill_Color.Ptr;
+    POLYGOUR_PtrColor1 = Fill_Color.Ptr;
+    POLYGOUR_PtrColor2 = Fill_Color.Ptr;
+    POLYGOUR_PtrColor3 = Fill_Color.Ptr;
+    POLYGOUR_PtrColor4 = Fill_Color.Ptr;
+  }
+  else
+  {
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    gouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  while (1)
+  {
+    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      PTR_U8 screenPtr = (PTR_U8)Fill_CurOffLine + (fillCurXMin >> 16);
+      
+      // Cache preloading for larger scanlines
+      if (fillWidth >= 32)
+      {
+        PTR_U8 cachePtr = (PTR_U8)(((uintptr_t)screenPtr) & ~31);
+        PTR_U8 cacheEnd = (PTR_U8)(((uintptr_t)(screenPtr + fillWidth)) & ~31);
+        while (cachePtr <= cacheEnd)
+        {
+          volatile U8 dummy = *cachePtr;
+          cachePtr += 32;
+        }
+      }
+
+      // Extract Gouraud intensity and setup for dithering
+      S32 gouraudShifted = gouraud >> 8;
+      U8 ditherBase = gouraudShifted & 0xFF;
+      U32 colorIndex = (gouraudShifted & 0xFF) + gouraudShifted;
+      colorIndex &= 0xFF00;
+
+      // Setup Z-buffer values
+      U32 zBufInt = Fill_CurZBufMin >> 8;
+      U32 zBufFrac = Fill_CurZBufMin << 24;
+
+      // Calculate screen offset relative to Log base
+      S32 screenOffset = screenPtr - (PTR_U8)Log;
+
+      // Handle pixel pairs (dithering processes 2 pixels at a time)
+      U32 pixelPairs = fillWidth >> 1;
+      
+      if (fillWidth & 1) // Odd number of pixels
+      {
+        if (pixelPairs > 0)
+        {
+          // Setup bit rotation for dithering pattern
+          U8 rotatedDither = ditherBase;
+          for (U32 i = 0; i < pixelPairs; i++)
+          {
+            rotatedDither = (rotatedDither << 1) | (rotatedDither >> 7);
+          }
+          
+          // Process pixel pairs
+          while (pixelPairs > 0)
+          {
+            // First pixel of pair
+            if (POLYGOUR_PtrZBufferPatch[screenOffset] >= zBufInt)
+            {
+              U8 colorValue = POLYGOUR_PtrColor[colorIndex];
+              POLYGOUR_PtrLog[screenOffset] = colorValue;
+            }
+
+            // Update for next pixel
+            ditherBase &= 0xFF;
+            gouraudShifted += POLYGOUR_AddGour;
+            ditherBase += gouraudShifted;
+            zBufFrac += POLYGOUR_DecZBuf;
+            zBufInt += POLYGOUR_IntZBuf + (zBufFrac < POLYGOUR_DecZBuf ? 1 : 0);
+            colorIndex = (ditherBase + gouraudShifted) & 0xFF00;
+
+            // Second pixel of pair
+            if (POLYGOUR_PtrZBuffer1[screenOffset] >= zBufInt)
+            {
+              U8 colorValue = POLYGOUR_PtrColor1[colorIndex];
+              POLYGOUR_PtrLog_1[screenOffset] = colorValue;
+            }
+
+            // Update for next pair
+            gouraudShifted += POLYGOUR_AddGour1;
+            ditherBase &= 0xFF;
+            ditherBase += gouraudShifted;
+            zBufFrac += POLYGOUR_DecZBuf1;
+            zBufInt += POLYGOUR_IntZBuf1 + (zBufFrac < POLYGOUR_DecZBuf1 ? 1 : 0);
+            colorIndex = (ditherBase + gouraudShifted) & 0xFF00;
+
+            screenOffset += 2;
+            rotatedDither = (rotatedDither << 1) | (rotatedDither >> 7);
+            pixelPairs--;
+          }
+        }
+
+        // Handle single remaining pixel
+        if (POLYGOUR_PtrZBuffer4[screenOffset] >= zBufInt)
+        {
+          U8 colorValue = POLYGOUR_PtrColor4[colorIndex];
+          POLYGOUR_PtrLog4[screenOffset] = colorValue;
+        }
+      }
+      else if (pixelPairs > 0) // Even number of pixels
+      {
+        // Setup bit rotation for dithering pattern
+        U8 rotatedDither = ditherBase;
+        for (U32 i = 0; i < pixelPairs; i++)
+        {
+          rotatedDither = (rotatedDither << 1) | (rotatedDither >> 7);
+        }
+        
+        // Process pixel pairs
+        while (pixelPairs > 0)
+        {
+          // First pixel of pair
+          if (POLYGOUR_PtrZBuffer2[screenOffset] >= zBufInt)
+          {
+            U8 colorValue = POLYGOUR_PtrColor2[colorIndex];
+            POLYGOUR_PtrLog2[screenOffset] = colorValue;
+          }
+
+          // Update for next pixel
+          ditherBase &= 0xFF;
+          gouraudShifted += POLYGOUR_AddGour2;
+          ditherBase += gouraudShifted;
+          zBufFrac += POLYGOUR_DecZBuf2;
+          zBufInt += POLYGOUR_IntZBuf2 + (zBufFrac < POLYGOUR_DecZBuf2 ? 1 : 0);
+          colorIndex = (ditherBase + gouraudShifted) & 0xFF00;
+
+          // Second pixel of pair
+          if (POLYGOUR_PtrZBuffer3[screenOffset] >= zBufInt)
+          {
+            U8 colorValue = POLYGOUR_PtrColor3[colorIndex];
+            POLYGOUR_PtrLog2_1[screenOffset] = colorValue;
+          }
+
+          // Update for next pair
+          gouraudShifted += POLYGOUR_AddGour3;
+          ditherBase &= 0xFF;
+          ditherBase += gouraudShifted;
+          zBufFrac += POLYGOUR_DecZBuf3;
+          zBufInt += POLYGOUR_IntZBuf3 + (zBufFrac < POLYGOUR_DecZBuf3 ? 1 : 0);
+          colorIndex = (ditherBase + gouraudShifted) & 0xFF00;
+
+          screenOffset += 2;
+          rotatedDither = (rotatedDither << 1) | (rotatedDither >> 7);
+          pixelPairs--;
+        }
+      }
+    }
+
+    diffY--;
+    if (diffY == 0)
+      break;
+
+    Fill_CurOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    gouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
+  }
+
+  Fill_CurXMin = fillCurXMin;
+  Fill_CurXMax = fillCurXMax;
+  Fill_CurGouraudMin = gouraud;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 // Verified
