@@ -39,8 +39,14 @@ ObjectInitTexture endp
 #include <ANIM/TEXTURE.H>
 #include <stdio.h>
 
-void	ObjectInitTexture(T_OBJ_3D *obj, void *texture)
+void ObjectInitTexture(T_OBJ_3D *obj, void *texture)
 {
- // TODO: Implement ASM
- printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  // Always set NextTexture to the provided texture
+  obj->NextTexture = texture;
+  
+  // If Texture is uninitialized (-1), set it to the provided texture
+  if (obj->Texture == (void*)-1)
+  {
+    obj->Texture = texture;
+  }
 }
