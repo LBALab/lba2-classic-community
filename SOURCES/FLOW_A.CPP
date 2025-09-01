@@ -69,6 +69,45 @@ void ShadeBoxBlk(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul)
 void	CopyBlockShade( S32 x0, S32 y0, S32 x1, S32 y1, U8 *src,
 				S32 xd, S32 yd, U8 *dst, S32 shade )
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  U8 *srcPtr = src + TabOffLine[y0] + x0;
+  U8 *dstPtr = dst + TabOffLine[yd] + xd;
+  
+  S32 deltaX = x1 - x0;
+  if (deltaX < 0) return;
+  deltaX++;
+  if (deltaX > 768) return;
+  
+  S32 deltaY = y1 - y0;
+  if (deltaY < 0) return;
+  deltaY++;
+  if (deltaY > 480) return;
+  
+  S32 scanLine = TabOffLine[1];
+  S32 deltaScreen = scanLine - deltaX;
+  U8 shadeAmount = (U8)(shade & 0xFF);
+  
+  for (S32 y = 0; y < deltaY; y++)
+  {
+    for (S32 x = 0; x < deltaX; x++)
+    {
+      U8 srcPixel = *srcPtr;
+      U8 lowNibble = srcPixel & 0x0F;
+      S32 shadedValue = lowNibble - shadeAmount;
+      
+      if (shadedValue >= 0)
+      {
+        *dstPtr = (srcPixel & 0xF0) | (shadedValue & 0x0F);
+      }
+      else
+      {
+        *dstPtr = srcPixel;
+      }
+      
+      srcPtr++;
+      dstPtr++;
+    }
+    
+    srcPtr += deltaScreen;
+    dstPtr += deltaScreen;
+  }
 }
