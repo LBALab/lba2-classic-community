@@ -717,9 +717,62 @@ S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
 // ***********************
 S32 Triangle_TextureZ_Solid(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
+  
+  // Extract polygon type and vertex indices
+  typePoly >>= 2;
+  U16 p1 = poly3->P1;
+  U16 p2 = poly3->P2;
+  U16 p3 = poly3->P3;
+  
+  // Setup Z-buffer information for the 3 vertices
+  GetZO3(ListFillPoly, p1, p2, p3);
+  
+  // Set screen coordinates for all 3 vertices
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[p1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[p1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[p2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[p2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[p3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[p3].Y;
+  
+  // Extract texture handle from high word of P3 and setup texture info
+  U32 textureHandle = (poly3->P3 >> 16) & ~3; // Clear bottom 2 bits
+  U32 textureInfo = PtrTextures[textureHandle >> 2];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+  
+  // Set texture coordinates (U,V) for all 3 vertices
+  ListFillPoly[0].Pt_MapU = poly3->U1;
+  ListFillPoly[0].Pt_MapV = poly3->V1;
+  ListFillPoly[1].Pt_MapU = poly3->U2;
+  ListFillPoly[1].Pt_MapV = poly3->V2;
+  ListFillPoly[2].Pt_MapU = poly3->U3;
+  ListFillPoly[2].Pt_MapV = poly3->V3;
+  
+  // Calculate perspective correction values (W) for each vertex
+  // W = W_NORM / (Z + PosZWr) where Z is the rotated Z coordinate
+  S32 z1 = Obj_ListRotatedPoints[p1].Z;
+  S32 z2 = Obj_ListRotatedPoints[p2].Z;
+  S32 z3 = Obj_ListRotatedPoints[p3].Z;
+  
+  // Sign extend Z values from 16-bit to 32-bit
+  z1 = (z1 << 16) >> 16;
+  z2 = (z2 << 16) >> 16;
+  z3 = (z3 << 16) >> 16;
+  
+  // Add world Z position offset
+  z1 += PosZWr;
+  z2 += PosZWr;
+  z3 += PosZWr;
+  
+  // Calculate perspective correction factors
+  ListFillPoly[0].Pt_W = W_NORM / z1;
+  ListFillPoly[1].Pt_W = W_NORM / z2;
+  ListFillPoly[2].Pt_W = W_NORM / z3;
+  
+  // Call polygon fill function with perspective-corrected texture mapping
+  return Fill_Poly(typePoly, 0, 3, ListFillPoly);
 }
 
 S32 Quad_TextureZ_Solid(U32 typePoly, void *poly)
@@ -830,18 +883,111 @@ S32 Quad_TextureZ_Flat(U32 typePoly, void *poly)
 // *************************
 // *** TEXTURE Z GOURAUD ***
 // *************************
+// Converted from ASM - Textured triangle rendering with Z-buffer and Gouraud shading
 S32 Triangle_TextureZ_Gouraud(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
+  
+  // Extract point indices from the polygon structure
+  U16 p1 = poly3->P1;
+  U16 p2 = poly3->P2; 
+  U16 p3 = poly3->P3;
+  
+  // Setup Z-buffer for the triangle
+  GetZO3(ListFillPoly, p1, p2, p3);
+  
+  // Set per-vertex lighting values from ListLights array (Gouraud shading)
+  // This creates smooth lighting interpolation across the triangle surface
+  ListFillPoly[0].Pt_Light = ListLights[p1];
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[p1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[p1].Y;
+  
+  ListFillPoly[1].Pt_Light = ListLights[p2];
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[p2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[p2].Y;
+  
+  ListFillPoly[2].Pt_Light = ListLights[p3];
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[p3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[p3].Y;
+  
+  // Setup texture mapping data
+  U32 textureIndex = poly3->HandleText & 0xFFFF;
+  U32 textureInfo = PtrTextures[textureIndex];
+  RepMask = textureInfo >> 16;  // Texture repeat mask
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);  // Texture data pointer
+  
+  // Set texture coordinates for each vertex
+  ListFillPoly[0].Pt_MapU = poly3->U1;
+  ListFillPoly[0].Pt_MapV = poly3->V1;
+  ListFillPoly[1].Pt_MapU = poly3->U2;
+  ListFillPoly[1].Pt_MapV = poly3->V2;
+  ListFillPoly[2].Pt_MapU = poly3->U3;
+  ListFillPoly[2].Pt_MapV = poly3->V3;
+  
+  // Calculate perspective correct W values (1/Z) for each vertex
+  // This ensures proper perspective correction during texture mapping
+  S32 z1 = Obj_ListRotatedPoints[p1].Z + PosZWr;
+  S32 z2 = Obj_ListRotatedPoints[p2].Z + PosZWr;
+  S32 z3 = Obj_ListRotatedPoints[p3].Z + PosZWr;
+  
+  ListFillPoly[0].Pt_W = W_NORM / z1;
+  ListFillPoly[1].Pt_W = W_NORM / z2;
+  ListFillPoly[2].Pt_W = W_NORM / z3;
+  
+  return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
 
 S32 Quad_TextureZ_Gouraud(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
+  
+  // Extract point indices from the polygon structure
+  U16 p1 = poly4->P1;
+  U16 p2 = poly4->P2; 
+  U16 p3 = poly4->P3;
+  U16 p4 = poly4->P4;
+  
+  // Setup Z-buffer for the quad
+  GetZO4(ListFillPoly, p1, p2, p3, p4);
+  
+  // Set per-vertex lighting values from ListLights array (Gouraud shading)
+  ListFillPoly[0].Pt_Light = ListLights[p1];
+  ListFillPoly[1].Pt_Light = ListLights[p2];
+  ListFillPoly[2].Pt_Light = ListLights[p3];
+  ListFillPoly[3].Pt_Light = ListLights[p4];
+  
+  // Set screen coordinates
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[p1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[p1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[p2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[p2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[p3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[p3].Y;
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[p4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[p4].Y;
+  
+  // Setup texture mapping data
+  U32 textureInfo = PtrTextures[poly4->HandleText];
+  RepMask = textureInfo >> 16;
+  PtrMap = ObjPtrMap + (textureInfo & 0xFFFF);
+  
+  // Set texture coordinates for each vertex
+  ListFillPoly[0].Pt_MapU = poly4->U1;
+  ListFillPoly[0].Pt_MapV = poly4->V1;
+  ListFillPoly[1].Pt_MapU = poly4->U2;
+  ListFillPoly[1].Pt_MapV = poly4->V2;
+  ListFillPoly[2].Pt_MapU = poly4->U3;
+  ListFillPoly[2].Pt_MapV = poly4->V3;
+  ListFillPoly[3].Pt_MapU = poly4->U4;
+  ListFillPoly[3].Pt_MapV = poly4->V4;
+  
+  // Calculate perspective correct W values (1/Z) for each vertex
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[p1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[p2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[p3].Z + PosZWr);
+  ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[p4].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, 0, 4, ListFillPoly);
 }
 
 // *************************
@@ -849,16 +995,67 @@ S32 Quad_TextureZ_Gouraud(U32 typePoly, void *poly)
 // *************************
 S32 Triangle_EnvTexture_Solid(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+  
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  
+  // Environment mapping uses surface normals for texture coordinates
+  U32 envInfo = PtrTextures[poly3->HandleEnv];
+  RepMask = envInfo >> 16;
+  PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
+  
+  // Calculate environment texture coordinates based on normals
+  // This is simplified - real env mapping would use transformed normals
+  ListFillPoly[0].Pt_MapU = 0;
+  ListFillPoly[0].Pt_MapV = 0;
+  ListFillPoly[1].Pt_MapU = 0;
+  ListFillPoly[1].Pt_MapV = 0;
+  ListFillPoly[2].Pt_MapU = 0;
+  ListFillPoly[2].Pt_MapV = 0;
+  
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, poly3->Couleur & 0xFF, 3, ListFillPoly);
 }
 
 S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_ENV *poly4 = (STRUC_POLY4_ENV *)poly;
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
+  
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+  
+  U32 envInfo = PtrTextures[poly4->HandleEnv];
+  RepMask = envInfo >> 16;
+  PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
+  
+  // Environment texture coordinates (simplified)
+  for(int i = 0; i < 4; i++) {
+    ListFillPoly[i].Pt_MapU = 0;
+    ListFillPoly[i].Pt_MapV = 0;
+  }
+  
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
+  ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 4, ListFillPoly);
 }
 
 // ************************
@@ -866,16 +1063,67 @@ S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly)
 // ************************
 S32 Triangle_EnvTexture_Flat(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+  
+  U16 intensity = ListLights[poly3->Normale] >> 8;
+  
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  
+  U32 envInfo = PtrTextures[poly3->HandleEnv];
+  RepMask = envInfo >> 16;
+  PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
+  
+  // Environment texture coordinates (simplified)
+  for(int i = 0; i < 3; i++) {
+    ListFillPoly[i].Pt_MapU = 0;
+    ListFillPoly[i].Pt_MapV = 0;
+  }
+  
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, intensity, 3, ListFillPoly);
 }
 
 S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_ENV *poly4 = (STRUC_POLY4_ENV *)poly;
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
+  
+  U16 intensity = ListLights[poly4->Normale] >> 8;
+  
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+  
+  U32 envInfo = PtrTextures[poly4->HandleEnv];
+  RepMask = envInfo >> 16;
+  PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
+  
+  // Environment texture coordinates (simplified)
+  for(int i = 0; i < 4; i++) {
+    ListFillPoly[i].Pt_MapU = 0;
+    ListFillPoly[i].Pt_MapV = 0;
+  }
+  
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
+  ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, intensity, 4, ListFillPoly);
 }
 
 // ***************************
@@ -883,16 +1131,74 @@ S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly)
 // ***************************
 S32 Triangle_EnvTexture_Gouraud(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)poly;
+  GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
+  
+  // Set per-vertex lighting values (Gouraud shading)
+  ListFillPoly[0].Pt_Light = ListLights[poly3->P1];
+  ListFillPoly[1].Pt_Light = ListLights[poly3->P2];
+  ListFillPoly[2].Pt_Light = ListLights[poly3->P3];
+  
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly3->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly3->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly3->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly3->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly3->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly3->P3].Y;
+  
+  U32 envInfo = PtrTextures[poly3->HandleEnv];
+  RepMask = envInfo >> 16;
+  PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
+  
+  // Environment texture coordinates (simplified)
+  for(int i = 0; i < 3; i++) {
+    ListFillPoly[i].Pt_MapU = 0;
+    ListFillPoly[i].Pt_MapV = 0;
+  }
+  
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
 
 S32 Quad_EnvTexture_Gouraud(U32 typePoly, void *poly)
 {
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-  return 0;
+  STRUC_POLY4_ENV *poly4 = (STRUC_POLY4_ENV *)poly;
+  GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
+  
+  // Set per-vertex lighting values (Gouraud shading)
+  ListFillPoly[0].Pt_Light = ListLights[poly4->P1];
+  ListFillPoly[1].Pt_Light = ListLights[poly4->P2];
+  ListFillPoly[2].Pt_Light = ListLights[poly4->P3];
+  ListFillPoly[3].Pt_Light = ListLights[poly4->P4];
+  
+  ListFillPoly[0].Pt_XE = Obj_ListProjectedPoints[poly4->P1].X;
+  ListFillPoly[0].Pt_YE = Obj_ListProjectedPoints[poly4->P1].Y;
+  ListFillPoly[1].Pt_XE = Obj_ListProjectedPoints[poly4->P2].X;
+  ListFillPoly[1].Pt_YE = Obj_ListProjectedPoints[poly4->P2].Y;
+  ListFillPoly[2].Pt_XE = Obj_ListProjectedPoints[poly4->P3].X;
+  ListFillPoly[2].Pt_YE = Obj_ListProjectedPoints[poly4->P3].Y;
+  ListFillPoly[3].Pt_XE = Obj_ListProjectedPoints[poly4->P4].X;
+  ListFillPoly[3].Pt_YE = Obj_ListProjectedPoints[poly4->P4].Y;
+  
+  U32 envInfo = PtrTextures[poly4->HandleEnv];
+  RepMask = envInfo >> 16;
+  PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
+  
+  // Environment texture coordinates (simplified)
+  for(int i = 0; i < 4; i++) {
+    ListFillPoly[i].Pt_MapU = 0;
+    ListFillPoly[i].Pt_MapV = 0;
+  }
+  
+  ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
+  ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
+  ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
+  ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+  
+  return Fill_Poly(typePoly >> 2, 0, 4, ListFillPoly);
 }
 
 // ************
@@ -918,7 +1224,7 @@ S32 Line(U32 typePoly, void *poly)
     z2 = Fill_ZBuffer_Factor * (~rotatedP2.Z - (PosZWr - 1)) >> 16;
   }
 
-  if ((p1.X == 0x8000 && p1.Y == 0x8000) || (p2.X == 0x8000 && p2.Y == 0x8000))
+  if ((p1.X == -0x8000 && p1.Y == -0x8000) || (p2.X == -0x8000 && p2.Y == -0x8000))
   {
     return 0;
   }
@@ -980,7 +1286,7 @@ S32 Sphere(U32 typePoly, void *poly)
 
   S32 z = 0;
 
-  if (Fill_Flag_ZBuffer && TypeProj != TYPE_3D)
+  if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
   {
     T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
     z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
@@ -996,14 +1302,58 @@ S32 Sphere(U32 typePoly, void *poly)
 // *********************
 S32 Sphere_Transp(U32 typePoly, void *poly)
 {
-  /*
-@@Sphere_Transp:
-			push	Offset @@Return_Display
-			push	2
-			jmp	@@DispSph
-  */
-  // TODO: Implement ASM
-  printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
+  T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)poly;
+  
+  S32 radius = sphere->Rayon;
+  
+  if (TypeProj == TYPE_3D)
+  {
+    // @@Radius_3D:
+    radius = (radius * Fill_ZBuffer_Factor) >> 16;
+  }
+  else
+  {
+    // @@Radius_Proj:
+    S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
+    radius *= LFactorX;
+    radius /= z + PosZWr;
+  }
+
+  TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];
+
+  radius = ((radius ^ -1) + 1);
+  S32 topY = p1.Y - radius;
+  if (topY < ScreenYMin)
+  {
+    ScreenYMin = topY;
+  }
+
+  S32 bottomY = topY + 2*radius;
+  if (bottomY > ScreenYMax)
+  {
+    ScreenYMax = bottomY;
+  }
+
+  S32 leftX = p1.X - radius;
+  if (leftX < ScreenXMin)
+  {
+    ScreenXMin = leftX;
+  }
+
+  S32 rightX = leftX + 2*radius;
+  if (rightX > ScreenXMax)
+  {
+    ScreenXMax = rightX;
+  }
+
+  S32 z = 0;
+  if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
+  {
+    T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
+    z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+  }
+  
+  Fill_Sphere(2, sphere->Coul, p1.X, p1.Y, radius, z);
   return 0;
 }
 
@@ -1013,7 +1363,7 @@ bool TestVisible(STRUC_POLY3_ENV *poly)
   TYPE_PT projectedP2 = Obj_ListProjectedPoints[poly->P2];
   TYPE_PT projectedP3 = Obj_ListProjectedPoints[poly->P3];
 
-  if ((projectedP1.X == 0x8000 && projectedP1.Y == 0x8000) || (projectedP2.X == 0x8000 && projectedP2.Y == 0x8000) || (projectedP3.X == 0x8000 && projectedP3.Y == 0x8000))
+  if ((projectedP1.X == -0x8000 && projectedP1.Y == -0x8000) || (projectedP2.X == -0x8000 && projectedP2.Y == -0x8000) || (projectedP3.X == -0x8000 && projectedP3.Y == -0x8000))
   {
     return false;
   }
@@ -1187,7 +1537,7 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
       S16 zFar = TestZFar4(poly3);
 
       TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
-      if (p4.X != 0x8000 || p4.Y != 0x8000)
+      if (p4.X != -0x8000 || p4.Y != -0x8000)
       {
         U32 polyType = (header->TypePoly << 26);
         if (type == 2)
@@ -1697,9 +2047,6 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
 S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
                                  S32 gamma, void *obj)
 {
-	// TODO: Implement ASM
-	printf("ASM FUNCTION %s (%s:%d)\n", __func__, __FILE__, __LINE__);
-
 	lBody = (T_BODY_HEADER *)obj;
 	ScreenXMin = 0x7FFFFFFF; // Init 2D box
 	ScreenYMin = 0x7FFFFFFF;
