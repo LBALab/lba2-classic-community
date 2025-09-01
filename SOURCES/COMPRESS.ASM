@@ -20,8 +20,9 @@
 
 
 
-
-			.386
+		OPTION SCOPED
+		.386P
+		.model FLAT, C
 
 
 Set_Raster		MACRO	R,V,B
@@ -57,8 +58,8 @@ Set_Raster		MACRO	R,V,B
 ;╔═════════════════════════════════════════════════════════════════════════╗
 ;║ Pour le LZ77                                                            ║
 ;╚═════════════════════════════════════════════════════════════════════════╝
-PUBLIC			AddString
-PUBLIC			DeleteString
+PUBLIC	C		AddString
+PUBLIC	C		DeleteString
 
 
 Struc_Tree		STRUC
@@ -87,9 +88,6 @@ UNUSED               	=	-1
 
 
 
-			.MODEL	SMALL,SYSCALL
-
-
 ;╔════════════════════════════════════════════════════════════════════════╗
 ;║                                                                        ║
 ;║  Les datas                                                             ║
@@ -99,10 +97,10 @@ UNUSED               	=	-1
 			.DATA
 
 				; *** Pour le LZ77 ***
-Extrn			tree		:	DWORD
-Extrn			Current_position:	DWORD
-Extrn			Match_position	:	DWORD
-Extrn			window		:	BYTE
+Extrn	C		tree		:	DWORD
+Extrn	C		Current_position:	DWORD
+Extrn	C		Match_position	:	DWORD
+Extrn	C		window		:	BYTE
 
 
 Match_Length		dd	0
@@ -151,14 +149,14 @@ AddString		PROC
 			push	ebp
 
 
-			mov	ebp,Current_Position	; EBP = Current_Position
-			mov	edi,[Tree+TREE_ROOT].Larger_Child
-			mov	Match_Length,0
+			mov	ebp,ds:Current_position	; EBP = Current_position
+			mov	edi,[ds:tree+TREE_ROOT].Struc_Tree.Larger_Child
+			mov	ds:Match_Length,0
 
 			ALIGN	4
 @@Main_Loop:
 			xor	ecx,ecx			; le compteur: i
-			mov	esi,ebp			; ESI:Current_Position+i
+			mov	esi,ebp			; ESI:Current_position+i
 			mov	ebx,edi			; EBX:Test_Node+i
 			xor	edx,edx
 @@Same_Char:
@@ -167,8 +165,8 @@ AddString		PROC
 			and	esi,(WINDOW_SIZE-1)	; Le AND pour le modulo
 			and	ebx,(WINDOW_SIZE-1)	; dans la fenetre dico
 
-			mov	al,[Window+esi]		; EAX=Delta
-			mov	dl,[Window+ebx]
+			mov	al,[ds:window+esi]		; EAX=Delta
+			mov	dl,[ds:window+ebx]
 			inc	esi
 			sub	eax,edx
 			jne	@@Found
@@ -180,12 +178,12 @@ AddString		PROC
 			jb	@@Same_Char
 
 @@Found:
-			cmp	ecx,Match_Length
+			cmp	ecx,ds:Match_Length
 			jb	@@Not_Better
 
-			mov	Match_Length,ecx
+			mov	ds:Match_Length,ecx
 			cmp	ecx,LOOK_AHEAD_SIZE
-			mov	Match_Position,edi
+			mov	ds:Match_position,edi
 			jae	@@Better
 
 			ALIGN	2
@@ -196,9 +194,9 @@ AddString		PROC
 			lea	esi,[esi+esi*2]		; 12 :) (thanx must fly to Serge!)
 
 			jge	@@PTR_Ok		; Arg!! comment pairer?
-			add	esi,(Smaller_Child-Larger_Child)
+			add	esi,(Struc_Tree.Smaller_Child-Struc_Tree.Larger_Child)
 @@PTR_Ok:
-			lea	esi,[Tree+esi].Larger_Child
+			lea	esi,[ds:tree+esi].Struc_Tree.Larger_Child
 
 			cmp	dword ptr [esi],UNUSED
 			je	@@Add_Leaf
@@ -220,9 +218,9 @@ AddString		PROC
 			mov	eax,UNUSED		; Instr. gratuite sur 486 et paire sur P5
 			lea	ebp,[ebp+ebp*2]
 
-			mov	[Tree+ebp].Parent,edi
-			mov	[Tree+ebp].Larger_Child,eax	; et la, on gagne sur le remplissage
-			mov	[Tree+ebp].Smaller_Child,eax	; du prefetch
+			mov	[ds:tree+ebp].Struc_Tree.Parent,edi
+			mov	[ds:tree+ebp].Struc_Tree.Larger_Child,eax	; et la, on gagne sur le remplissage
+			mov	[ds:tree+ebp].Struc_Tree.Smaller_Child,eax	; du prefetch
 
 @@Exit:
 			pop	ebp
@@ -230,7 +228,7 @@ AddString		PROC
 			pop	esi
 			pop	ebx
 
-			mov	eax,Match_Length
+			mov	eax,ds:Match_Length
 
 			ret
 AddString		ENDP
@@ -270,7 +268,7 @@ Replace_Node		PROC
 			lea	edx,[edx+edx*2]	; EDX = Old_Node : Depl.
 
 
-			mov	esi,[Tree+edx].Parent
+			mov	esi,[ds:tree+edx].Struc_Tree.Parent
 						; ESI = Parent
 
 			mov	ecx,esi
@@ -278,42 +276,42 @@ Replace_Node		PROC
 			lea	ecx,[ecx+ecx*2]	; ECX = Parent : depl.
 
 
-			cmp	[Tree+ecx].Smaller_Child,edi
+			cmp	[ds:tree+ecx].Struc_Tree.Smaller_Child,edi
 			jne	@@Not_That_One
 
-			mov	[Tree+ecx].Smaller_Child,ebp
+			mov	[ds:tree+ecx].Struc_Tree.Smaller_Child,ebp
 			jmp	@@Chain_Next
 @@Not_That_One:
-			mov	[Tree+ecx].Larger_Child,ebp
+			mov	[ds:tree+ecx].Struc_Tree.Larger_Child,ebp
 @@Chain_Next:
 
-			mov	eax,[Tree+edx].Parent
-			mov	[Tree+ebx].Parent,eax
+			mov	eax,[ds:tree+edx].Struc_Tree.Parent
+			mov	[ds:tree+ebx].Struc_Tree.Parent,eax
 
-			mov	eax,[Tree+edx].Larger_Child
-			mov	[Tree+ebx].Larger_Child,eax
+			mov	eax,[ds:tree+edx].Struc_Tree.Larger_Child
+			mov	[ds:tree+ebx].Struc_Tree.Larger_Child,eax
 
-			mov	eax,[Tree+edx].Smaller_Child
-			mov	[Tree+ebx].Smaller_Child,eax
+			mov	eax,[ds:tree+edx].Struc_Tree.Smaller_Child
+			mov	[ds:tree+ebx].Struc_Tree.Smaller_Child,eax
 
-			mov	[Tree+edx].Parent,UNUSED
+			mov	[ds:tree+edx].Struc_Tree.Parent,UNUSED
 
 
 
-			cmp	[Tree+ebx].Smaller_Child,UNUSED
+			cmp	[ds:tree+ebx].Struc_Tree.Smaller_Child,UNUSED
 			je	@@Et_Non0
-			mov	eax,[Tree+ebx].Smaller_Child
+			mov	eax,[ds:tree+ebx].Struc_Tree.Smaller_Child
 			shl	eax,2
 			lea	eax,[eax+eax*2]
-			mov	[Tree+eax].Parent,ebp
+			mov	[ds:tree+eax].Struc_Tree.Parent,ebp
 @@Et_Non0:
 
-			cmp	[Tree+ebx].Larger_Child,UNUSED
+			cmp	[ds:tree+ebx].Struc_Tree.Larger_Child,UNUSED
 			je	@@Exit
-			mov	eax,[Tree+ebx].Larger_Child
+			mov	eax,[ds:tree+ebx].Struc_Tree.Larger_Child
 			shl	eax,2
 			lea	eax,[eax+eax*2]
-			mov	[Tree+eax].Parent,ebp
+			mov	[ds:tree+eax].Struc_Tree.Parent,ebp
 
 @@Exit:
 			ret
@@ -344,22 +342,22 @@ DeleteString		PROC	P:DWORD
 			shl	edi,2
 			lea	edi,[edi+edi*2]
 
-			cmp	[Tree+edi].Parent,UNUSED
+			cmp	[ds:tree+edi].Struc_Tree.Parent,UNUSED
 			je	@@End
 
-			cmp	[Tree+edi].Larger_Child,UNUSED
+			cmp	[ds:tree+edi].Struc_Tree.Larger_Child,UNUSED
 			jne	@@Not_This_One
 
-			mov	eax,[Tree+edi].Smaller_Child
+			mov	eax,[ds:tree+edi].Struc_Tree.Smaller_Child
 			push	Offset @@End
 			jmp	Contract_Node
 
 			ALIGN	4
 @@Not_This_One:
-			cmp	[Tree+edi].Smaller_Child,UNUSED
+			cmp	[ds:tree+edi].Struc_Tree.Smaller_Child,UNUSED
 			jne	@@Not_This_One_Too
 
-			mov	eax,[Tree+edi].Larger_Child
+			mov	eax,[ds:tree+edi].Struc_Tree.Larger_Child
 			push	Offset @@End
 			jmp	Contract_Node
 
@@ -409,16 +407,16 @@ Find_Next_Node		PROC
 			lea	ecx,[esi*4]
 			lea	ecx,[ecx+ecx*2]
 
-			mov	eax,[tree+ecx].Smaller_Child
+			mov	eax,[ds:tree+ecx].Struc_Tree.Smaller_Child
 			ALIGN	4
 @@Loop:
 			lea	ecx,[eax*4]
 			lea	ecx,[ecx+ecx*2]
 
-			cmp	[Tree+ecx].Larger_Child,UNUSED
+			cmp	[ds:tree+ecx].Struc_Tree.Larger_Child,UNUSED
 			je	@@End
 
-			mov	eax,[Tree+ecx].Larger_Child
+			mov	eax,[ds:tree+ecx].Struc_Tree.Larger_Child
 			jmp	@@Loop
 
 @@End:
@@ -449,24 +447,24 @@ Contract_Node		PROC
 			lea	ecx,[eax*4]
 			lea	ecx,[ecx+ecx*2]
 
-			mov	edx,[Tree+ebx].Parent
-			mov	[Tree+ebx].Parent,UNUSED
-			mov	[Tree+ecx].Parent,edx
+			mov	edx,[ds:tree+ebx].Struc_Tree.Parent
+			mov	[ds:tree+ebx].Struc_Tree.Parent,UNUSED
+			mov	[ds:tree+ecx].Struc_Tree.Parent,edx
 			jmp	@@skip2
 @@skip1:
-			mov	edx,[Tree+ebx].Parent
-			mov	[Tree+ebx].Parent,UNUSED
+			mov	edx,[ds:tree+ebx].Struc_Tree.Parent
+			mov	[ds:tree+ebx].Struc_Tree.Parent,UNUSED
 @@skip2:
 			shl	edx,2
 			lea	edx,[edx+edx*2]
 
 
-			cmp	[Tree+edx].Larger_Child,esi
+			cmp	[ds:tree+edx].Struc_Tree.Larger_Child,esi
 			jne	@@Et_Non
-			mov	[Tree+edx].Larger_Child,eax
+			mov	[ds:tree+edx].Struc_Tree.Larger_Child,eax
 			jmp	@@Fin
 @@Et_Non:
-			mov	[Tree+edx].Smaller_Child,eax
+			mov	[ds:tree+edx].Struc_Tree.Smaller_Child,eax
 
 @@Fin:
 			pop	ebx

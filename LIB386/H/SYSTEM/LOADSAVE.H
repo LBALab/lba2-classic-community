@@ -2,6 +2,8 @@
 #ifndef	LIB_SYSTEM_LOADSAVE
 #define LIB_SYSTEM_LOADSAVE
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
 extern	"C"	{

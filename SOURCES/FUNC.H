@@ -2,6 +2,9 @@
 extern "C" {
 #endif
 
+#include <SYSTEM/ADELINE_TYPES.H>
+#include "SORT.H"
+
 #ifndef	FUNC_H
 #define	FUNC_H
 
@@ -31,30 +34,16 @@ extern void	SmallSort(T_SORT *, U32, U32);
 
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#ifdef	_WIN32
 #define		VsyncTimer()
-#else
-extern void	VsyncTimer( void ) ;
-
-#pragma	aux     VsyncTimer	"*"	\
-		parm caller []		\
-		modify [eax ecx edx]
-#endif
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 // Pour l'instant, en attendant d'avoir un PaletteSync propre !!!!!!!!!
 
-#define	PaletteSync(pal)	{ PaletteVblVESA(TRUE); Palette(pal); PaletteVblVESA(FALSE); }
+#define	PaletteSync(pal)	{ SetVideoPaletteSync(pal); }
 //#define	PaletteSync(pal)	{ VsyncTimer(); Palette(pal); }
 
-/*extern void	PaletteSync( U8 *palette ) ;
+//extern void	PaletteSync( U8 *palette ) ;
 
-#pragma	aux	VsyncTimer
-
-#pragma	aux	PaletteSync \
-		parm caller [esi] \
-		modify [esi]
-*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern U8	SearchBoundColRGB( U8 Rouge, U8 Vert, U8 Bleu, U8 *Palette, U8 coulmin, U8 coulmax ) ;

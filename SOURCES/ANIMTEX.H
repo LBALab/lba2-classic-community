@@ -7,21 +7,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*--------------------------------------------------------------------------*/
-extern	void	Do_Plasma( U8 *PtrEffectStruct ) ;
 
-#pragma	aux	Do_Plasma	"*" 		\
-		parm caller [esi]		\
-		modify [eax ebx ecx edx edi]
-
-/*--------------------------------------------------------------------------*/
-extern	void	Do_Fire( U8 *buff1, U8 *buff2, U8 *colortable, U8 *TileMap ) ;
-
-#pragma	aux	Do_Fire		"*" 	\
-		parm caller []		\
-		modify [eax ecx edx]
-
-/*--------------------------------------------------------------------------*/
 #ifdef __cplusplus
 }
 #endif

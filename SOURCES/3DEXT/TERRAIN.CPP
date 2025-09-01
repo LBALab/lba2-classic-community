@@ -1,4 +1,6 @@
-#include "defines.h"
+#include "DEFINES.H"
+
+#include <SVGA/SCREEN.H>
 
 #define	 	LIMITE_LOIN 	(60*1024)
 #define		COLOR_LIMITE	255
@@ -11,7 +13,7 @@
 #define	ANI_POLY_STEP_Y		2
 #define	ANI_POLY_STEP_X		5
 
-#include	"drawsky.cpp"
+#include	"DRAWSKY.CPP"
 
 S32	Sky_Y ;
 //S32	NbDrawnPolys ;
@@ -821,37 +823,34 @@ void DrawHorizon2ZBuf()
 		}
 
 	}
-
-/*#ifndef	_WIN32
-if( ModeHercule )	HPrintf( "CubeBitField= %d\n", CubeBitField ) ;
-#endif
-*/
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-U32	MaskVisible(U8 *ptr)	;
+U32 MaskVisible(U8 *in_ptr) {
+        // This code conversion could be improved...
 
-#pragma	aux MaskVisible	=		\
-"       mov     al, [esi]       "       \
-"       mov     dl, [esi+65]    "       \
-"				"	\
-"	mov	ah, al		"	\
-"	and	al, dl		"	\
-"				"	\
-"	or	ah, dl		"	\
-"       mov     dl, [esi+1]     "       \
-"				"	\
-"       and     al, dl          "       \
-"	or	ah, dl		"	\
-"				"	\
-"       mov     dl, [esi+66]    "       \
-"				"	\
-"	or	ah, dl		"	\
-"       and     al, dl          "       \
-"				"	\
-"       and     eax, 20FFh      "       \
-	parm		[esi]		\
-	modify exact	[eax edx]
+        U8 *firstRow = in_ptr;
+        U8 *secondRow = in_ptr + 65;
+
+        U8 maskH = *firstRow;
+        U8 maskL = *firstRow;
+
+        maskH |= *secondRow;
+        maskL &= *secondRow;
+
+        maskH |= *(firstRow + 1);
+        maskL &= *(firstRow + 1);
+
+        maskH |= *(secondRow + 1);
+        maskL &= *(secondRow + 1);
+
+        U32 finalMask = 0;
+        finalMask |= (maskH << 8);
+        finalMask |= maskL;
+        finalMask &= 0x20FF;
+
+        return finalMask;
+}
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void	AffichageTerrainZBuf( void )
@@ -921,7 +920,7 @@ void	AffichageTerrainZBuf( void )
 	ptra  = &SommetAffichable[0][0] ;
 	ptrs  = &SommetRot[0][0] ;
 
-	for(z=0; z<NB_COTE; z++)
+	for(S32 z=0; z<NB_COTE; z++)
 	{
 		for(S32 x=0; x<NB_COTE; x++)
 		{

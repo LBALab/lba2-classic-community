@@ -1,4 +1,4 @@
-#include        "defines.h"
+#include        "DEFINES.H"
 
 /*--------- divers ---------------------------------------------*/
 extern	S32	BodyComportement;
@@ -31,13 +31,8 @@ extern	U8	FlagSlideShow ;
 
 extern "C" U8   *BufSpeak       ;
 
-#pragma	aux	BufSpeak	"*"	;
-
-extern  char   	PathSave[] ;
 extern  char   	GamePathname[] ;
-#ifdef	_WIN32
 extern  char   	OldGamePathname[] ;
-#endif
 extern	char	PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
 extern	U8	*PtrScene	;

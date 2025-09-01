@@ -1,4 +1,6 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
+
+#include "DIRECTORIES.H"
 
 char		PathAcf[ADELINE_MAX_PATH] ;
 
@@ -21,66 +23,34 @@ U8  	*BufferSmack ;// initialisé dans MEM.CPP
 \***************************************************************************/
 
 //---------------------------------------------------------------------------
-void	InitAcf( void )
-{
-#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-	char    *path ;
+void InitAcf(void) {
+  char tmpFilePath[ADELINE_MAX_PATH];
 
-	path = DefFileBufferReadString( "PathAcf" ) ;
+  GetMoviePath(PathAcf, ADELINE_MAX_PATH, VIDEO_HQR_NAME);
+  if (!ExistsFileOrDir(PathAcf)) {
+    TheEndCheckFile(PathAcf);
+  }
 
-	if( path AND strcmp(path,"") )
-	{
-		strcpy( PathAcf, path ) ;
-		if( PathAcf[strlen(PathAcf)-1]!='\\'
-		AND PathAcf[strlen(PathAcf)-1]!=':' )
-			strcat( PathAcf, "\\" ) ;
-	}
-	else
-#endif
-	{
-#if defined(ONE_GAME_DIRECTORY)&&defined(CDROM)
+  GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+  ListAcf = (char *)LoadMalloc_HQR(tmpFilePath, RESS_ACFLIST);
+  if (!ListAcf) {
+    TheEndCheckFile(tmpFilePath);
+  }
 
-#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-		if( !CDDrive )
-		{
-			strcpy( PathAcf, PATH_ACF ) ;
-		}
-		else	sprintf( PathAcf, "%c:\\LBA2\\VIDEO\\VIDEO.HQR", CDDrive ) ;
+  EndListAcf = ListAcf + LoadMallocFileSize;
+
+#ifdef LBA_EDITOR
+  // dispo Screen,ScreenAux,BufSpeak
+  SmackRegisterMemory(Screen, (ModeDesiredX * ModeDesiredY + RECOVER_AREA) * 3);
+
+  BufferSmack = (U8 *)Malloc(SIZE_BUFFER_SMACK);
+  if (!BufferSmack)
+    TheEnd(NOT_ENOUGH_MEM, "BufferSmack (InitAcf())");
+
+  SmackRegisterMemory((void *)BufferSmack, SIZE_BUFFER_SMACK);
 #else
-		switch( DistribVersion )
-		{
-			case UNKNOWN_VERSION:
-			case EA_VERSION:
-				sprintf( PathAcf, "%c:\\LBA2\\VIDEO\\VIDEO.HQR", CDDrive ) ;
-				break ;
-
-			default:
-				sprintf( PathAcf, "%c:\\TWINSEN\\VIDEO\\VIDEO.HQR", CDDrive ) ;
-		}
-
-		if( !FileSize( PathAcf ) )	TheEnd( PROGRAM_OK, MessageNoCD ) ;
-#endif
-#else
-		// default path Acf
-		strcpy( PathAcf, PATH_ACF ) ;
-#endif
-	}
-
-	ListAcf = (char *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_ACFLIST ) ;
-	if( !ListAcf )	TheEndCheckFile( RESS_HQR_NAME ) ;
-
-	EndListAcf = ListAcf + LoadMallocFileSize ;
-
-#ifdef	LBA_EDITOR
-	// dispo Screen,ScreenAux,BufSpeak
-	SmackRegisterMemory( Screen, (ModeDesiredX*ModeDesiredY+RECOVER_AREA)*3 ) ;
-
-	BufferSmack = (U8*)Malloc( SIZE_BUFFER_SMACK ) ;
-	if( !BufferSmack )	TheEnd( NOT_ENOUGH_MEM, "BufferSmack (InitAcf())" ) ;
-
-	SmackRegisterMemory( (void*)BufferSmack, SIZE_BUFFER_SMACK ) ;
-#else
-	SmackRegisterMemory( MainBuffer, SizeOfMemAllocated ) ;
+  // TODO: Check if still useful when movie playback implemented
+  // SmackRegisterMemory( MainBuffer, SizeOfMemAllocated ) ;
 #endif
 }
 
@@ -125,28 +95,32 @@ char	*GetAcfName( char *name )
 }
 
 //---------------------------------------------------------------------------
+// TODO: New implementation was not tested yet
+S32 GetNumAcf(const char *name) {
+  S32 n = 0;
 
-S32	GetNumAcf( char *name )
-{
-	S32	n = 0 ;
-	char	getname[15] ;
-	char	*ptr ;
+  const char *nameDotAt = strchr(name, '.');
+  const size_t nameNoDotLen = (nameDotAt)
+                                  ? (nameDotAt - name)
+                                  : strlen(name);
 
-	PtrAcf = ListAcf ;
+  char getname[15];
+  PtrAcf = ListAcf;
+  while (GetAcfName(getname)) {
+    const char *getNameDotAt = strchr(getname, '.');
+    const size_t getNameNoDotLen = (getNameDotAt)
+                                       ? (getNameDotAt - getname)
+                                       : strlen(getname);
 
-	ptr = strchr(name,'.') ;
-	if( ptr )	*ptr = 0 ;
+    const bool sameLen = (nameNoDotLen == getNameNoDotLen);
+    if (sameLen && !strncasecmp(name, getname, nameNoDotLen)) {
+      return n;
+    }
 
-	while( GetAcfName( getname ) )
-	{
-		ptr = strchr(getname,'.') ;
-		if( ptr )	*ptr = 0 ;
+    n++;
+  }
 
-		if( !stricmp(name,getname) )	return n ;
-		n++ ;
-	}
-
-	return -1 ;
+  return -1;
 }
 
 //---------------------------------------------------------------------------
@@ -171,7 +145,7 @@ void	PlayAllAcf( void )
 #else
 		if( (ListVarGame[var] & (1<<n))
 #endif
-		AND (strnicmp(getname,"INTRO",5)) )// on ne rejoue pas l'intro
+		AND (strncasecmp(getname,"INTRO",5)) )// on ne rejoue pas l'intro
 		{
 			if( !FlagFade )
 			{
@@ -215,276 +189,271 @@ void	PlayAllAcf( void )
 |*									   *|
 \***************************************************************************/
 
-S32	PlayAcf( char *name )
+// TODO: Implement SMACK video playback
+S32	PlayAcf( const char *name )
 {
-	Smack		*smk	      	;
-	U32		frame	      	;
-	S32		n 		;
-	S32		ret 		;
-	U8		*decompbuf	;
-	U32		smackflags	;
-#ifdef	LBA_EDITOR
-	char		name_acf[256] 	;
-
-	ShowMouse( 0 ) ;
-
-	smackflags = SMACKTRACK1|SMACKNEEDVOLUME ;
-#else
-	smackflags = SMACKFILEHANDLE|SMACKTRACK1|SMACKNEEDVOLUME ;
-#endif
-
-	// si c'est l'intro, on joue la track de la langue choisie
-	if( !strnicmp(name,"INTRO",5) )
-	{
-#ifdef	CDROM
-		if( FlagSpeak )
-		{
-			switch( LanguageCD )
-			{
-				case 0:  // English
-					smackflags |= SMACKTRACK4 ;
-					break ;
-
-				case 1:	// Français
-					smackflags |= SMACKTRACK2 ;
-					break ;
-
-				case 2:	// Deutsch
-					smackflags |= SMACKTRACK3 ;
-					break ;
-
-//				default:// other ...
-					// no spoken track
-			}
-		}
-#else
-		smackflags |= SMACKTRACK4 ;// English and other ...
-#endif
-	}
-
-	// Ah ? pas de son ? tiens donc ... gicle-moi les tracks !
-/*	if( !Sample_Driver_Enabled )
-	{
-		smackflags &= ~(SMACKTRACKS|SMACKNEEDVOLUME) ;
-	}
-*/
-	n = GetNumAcf( name ) ;
-
-	if( n==-1 )	return 0 ;
-
-	{
-		S32	var	;
-		S32	bit	;
-
-		var = n/16	;
-		if( n>=32 )
-		{
-			var = FLAG_ACF2 ;
-			bit = 1<<(n-32) ;
-		}
-		else
-		{
-			var = FLAG_ACF 	;
-			bit = 1<<n 	;
-		}
-
-#ifdef	LBA_EDITOR
-		ListVarGame[FLAG_ACF+(n/16)].Value |= (S16)(1<<(n&15)) ;
-#else
-		ListVarGame[FLAG_ACF+(n/16)] |= (S16)(1<<(n&15)) ;
-#endif
-	}
-
-	StopMusic() ;
-
-	SmackResetMemory() ;
-
-#ifdef	LBA_EDITOR
-	strcpy( name_acf, PathAcf ) ;
-	strcat( name_acf, name ) ;
-	AddExt( name_acf, ".SMK" ) ;
-
-	smk = SmackOpen( name_acf, smackflags, SMACKAUTOEXTRA ) ;
-#else
-//	Fd = OpenRead(name_acf)	;// Ouvrir ressource + Seek
-
-	// ouvre la ressource et positionne le handle à l'offet ou se trouve
-	// la sequence
-	if( !HQF_Init( PathAcf, n ) )
-#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||!defined(CDROM)
-		return 0 ;
-#else
-		TheEnd( PROGRAM_OK, MessageNoCD ) ;
-#endif
-
-	smk = SmackOpen( (char*)HQF_File, smackflags, SMACKAUTOEXTRA ) ;
-#endif
-
-	if( !smk )
-#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||!defined(CDROM)
-		return 0 ;
-#else
-		TheEnd( PROGRAM_OK, MessageNoCD ) ;
-#endif
-
-	decompbuf = (U8*)radmalloc( 320*200 )	;
-
-	if( !decompbuf )
-	{
-		SmackClose( smk ) ;
-#ifndef	LBA_EDITOR
-		HQF_Close() ;
-#endif
-		return 0 ;
-	}
-
-	memset( decompbuf, 0, 320*200 ) ;
-
-	SmackToBuffer( smk, 0, 0, 320, 200, decompbuf, FALSE ) ;
-
-//	if( Sample_Driver_Enabled )
-	{
-		S32	vol ;
-
-#ifdef	_WIN32
-		if( UseWaveMixer )
-		{
-			vol = SampleVolume ;
-		}
-		else
-#endif
-		{
-#ifdef	LBA_EDITOR
-			vol = SampleVolume ;
-#else
-			vol = BoundRegleTrois( 0, MasterVolume, 127, SampleVolume ) ;
-#endif
-		}
-
-		vol = (vol==0?vol:(vol+1))*512 ;// 0..65536
-
-		SmackVolumePan( smk, SMACKTRACKS, vol, 32768 ) ;
-	}
-
-	SetBlackPal();
-
-	BoxReset()  ;// pour etre sûr de ne pas utiliser Screen !
-	Cls() ;
-	BoxUpdate() ;
-
-	InitWaitNoKey()			;
-	InitWaitNoInput( I_JOY|I_FIRE|I_MENUS ) ;
-
-	for( frame=0; frame<smk->Frames; frame++ )
-	{
-		SmackDoFrame( smk ) ;
-
-#ifndef	LBA_EDITOR
-		if( !VideoFullScreen )
-		{
-			if( smk->NewPalette )
-			{
-#ifndef	LBA_EDITOR
-				FlagBlackPal = FALSE ;
-#endif
-				Palette(smk->Palette) ;
-			}
-#ifdef	_WIN32
-			BlitBox( (void*)Phys, (void*)decompbuf ) ;
-#else
-			BlitBoxVESA( (void*)Phys, (void*)decompbuf ) ;
-#endif
-
-		}
-		else
-#endif
-		{
-			CopyFrameDoubleXY( (void*)decompbuf ) ;
-			BoxStaticAdd( 0, 40, 639, 439 ) ;
-		}
-
-#ifdef	LBA_EDITOR
-		if( FlagInfos & INFO_FRAME_SPEED )
-		{
-			GraphPrintf(FALSE, 0,0, "Frame: %d", frame++);
-		}
-#endif
-
-#ifndef	LBA_EDITOR
-		if( VideoFullScreen )
-#endif
-		{
-			if( smk->NewPalette )
-			{
-#ifndef	LBA_EDITOR
-				FlagBlackPal = FALSE ;
-#endif
-				// Pour eviter flash sur frame precedente
-//				Cls()  ;
-//				BoxUpdate() ;
-
-				Palette(smk->Palette) ;
-			}
-
-			BoxUpdate() ;
-		}
-
-		if( frame!=smk->Frames )
-		{
-			SmackNextFrame( smk ) ;
-		}
-
-		do
-		{
-			MyGetInput() ;
-			ManageTime() ;
-
-#ifndef	LBA_EDITOR
-			CheckSaveLogPcx( smk->Palette ) ;// F9: Sauve Screen dans PATH_PCX_SAVE
-#endif
-
-			if( (MyKey==K_ESC OR (Input&I_MENUS))
-#ifndef	LBA_EDITOR
-			AND (!FlagPlayAcf OR frame>290)
-#endif
-			)
-			{
-				goto fin_play ;
-			}
-		}
-		while( SmackWait( smk ) ) ;
-	}
-
-fin_play:
-
-	SmackClose( smk ) ;
-
-#ifndef	LBA_EDITOR
-	HQF_Close() ;
-	LastIdxPalette = 0 ;// pour reforcer le chargement du .XPL (cf ChoicePalette())
-#endif
-
-	radfree( decompbuf ) ;
-
-	FadeToBlack( smk->Palette ) ;
-	Cls() ;
-	BoxStaticFullflip() ;
-	SetBlackPal() ;
-
-	ret = MyKey ;
-
-#ifdef	LBA_EDITOR
-	SetMouseBox( 0,0, 639,479 ) ;
-#endif
-
-	InitWaitNoKey()			;
-	InitWaitNoInput( I_MENUS ) ;
-
-#ifdef	LBA_EDITOR
-	ShowMouse( 1 ) ;
-#endif
-
-	return ret ;
+  return 0;
+//	Smack		*smk	      	;
+//	U32		frame	      	;
+//	S32		n 		;
+//	S32		ret 		;
+//	U8		*decompbuf	;
+//	U32		smackflags	;
+//#ifdef	LBA_EDITOR
+//	char		name_acf[256] 	;
+//
+//	ShowMouse( false ) ;
+//
+//	smackflags = SMACKTRACK1|SMACKNEEDVOLUME ;
+//#else
+//	smackflags = SMACKFILEHANDLE|SMACKTRACK1|SMACKNEEDVOLUME ;
+//#endif
+//
+//	// si c'est l'intro, on joue la track de la langue choisie
+//	if( !strncasecmp(name,"INTRO",5) )
+//	{
+//#ifdef	CDROM
+//		if( FlagSpeak )
+//		{
+//			switch( LanguageCD )
+//			{
+//				case 0:  // English
+//					smackflags |= SMACKTRACK4 ;
+//					break ;
+//
+//				case 1:	// Français
+//					smackflags |= SMACKTRACK2 ;
+//					break ;
+//
+//				case 2:	// Deutsch
+//					smackflags |= SMACKTRACK3 ;
+//					break ;
+//
+////				default:// other ...
+//					// no spoken track
+//			}
+//		}
+//#else
+//		smackflags |= SMACKTRACK4 ;// English and other ...
+//#endif
+//	}
+//
+//	// Ah ? pas de son ? tiens donc ... gicle-moi les tracks !
+///*	if( !Sample_Driver_Enabled )
+//	{
+//		smackflags &= ~(SMACKTRACKS|SMACKNEEDVOLUME) ;
+//	}
+//*/
+//	n = GetNumAcf( name ) ;
+//
+//	if( n==-1 )	return 0 ;
+//
+//	{
+//		S32	var	;
+//		S32	bit	;
+//
+//		var = n/16	;
+//		if( n>=32 )
+//		{
+//			var = FLAG_ACF2 ;
+//			bit = 1<<(n-32) ;
+//		}
+//		else
+//		{
+//			var = FLAG_ACF 	;
+//			bit = 1<<n 	;
+//		}
+//
+//#ifdef	LBA_EDITOR
+//		ListVarGame[FLAG_ACF+(n/16)].Value |= (S16)(1<<(n&15)) ;
+//#else
+//		ListVarGame[FLAG_ACF+(n/16)] |= (S16)(1<<(n&15)) ;
+//#endif
+//	}
+//
+//	StopMusic() ;
+//
+//	SmackResetMemory() ;
+//
+//#ifdef	LBA_EDITOR
+//	strcpy( name_acf, PathAcf ) ;
+//	strcat( name_acf, name ) ;
+//	AddExt( name_acf, ".SMK" ) ;
+//
+//	smk = SmackOpen( name_acf, smackflags, SMACKAUTOEXTRA ) ;
+//#else
+////	Fd = OpenRead(name_acf)	;// Ouvrir ressource + Seek
+//
+//	// ouvre la ressource et positionne le handle à l'offet ou se trouve
+//	// la sequence
+//	if( !HQF_Init( PathAcf, n ) )
+//#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||!defined(CDROM)
+//		return 0 ;
+//#else
+//		TheEnd( PROGRAM_OK, MessageNoCD ) ;
+//#endif
+//
+//	smk = SmackOpen( (char*)HQF_File, smackflags, SMACKAUTOEXTRA ) ;
+//#endif
+//
+//	if( !smk )
+//#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||!defined(CDROM)
+//		return 0 ;
+//#else
+//		TheEnd( PROGRAM_OK, MessageNoCD ) ;
+//#endif
+//
+//	decompbuf = (U8*)radmalloc( 320*200 )	;
+//
+//	if( !decompbuf )
+//	{
+//		SmackClose( smk ) ;
+//#ifndef	LBA_EDITOR
+//		HQF_Close() ;
+//#endif
+//		return 0 ;
+//	}
+//
+//	memset( decompbuf, 0, 320*200 ) ;
+//
+//	SmackToBuffer( smk, 0, 0, 320, 200, decompbuf, FALSE ) ;
+//
+////	if( Sample_Driver_Enabled )
+//	{
+//		S32	vol ;
+//
+//		if( UseWaveMixer )
+//		{
+//			vol = SampleVolume ;
+//		}
+//		else
+//		{
+//#ifdef	LBA_EDITOR
+//			vol = SampleVolume ;
+//#else
+//			vol = BoundRegleTrois( 0, MasterVolume, 127, SampleVolume ) ;
+//#endif
+//		}
+//
+//		vol = (vol==0?vol:(vol+1))*512 ;// 0..65536
+//
+//		SmackVolumePan( smk, SMACKTRACKS, vol, 32768 ) ;
+//	}
+//
+//	SetBlackPal();
+//
+//	BoxReset()  ;// pour etre sûr de ne pas utiliser Screen !
+//	Cls() ;
+//	BoxUpdate() ;
+//
+//	InitWaitNoKey()			;
+//	InitWaitNoInput( I_JOY|I_FIRE|I_MENUS ) ;
+//
+//	for( frame=0; frame<smk->Frames; frame++ )
+//	{
+//		SmackDoFrame( smk ) ;
+//
+//#ifndef	LBA_EDITOR
+//		if( !VideoFullScreen )
+//		{
+//			if( smk->NewPalette )
+//			{
+//#ifndef	LBA_EDITOR
+//				FlagBlackPal = FALSE ;
+//#endif
+//				Palette(smk->Palette) ;
+//			}
+//			BlitBox( (void*)Phys, (void*)decompbuf ) ;
+//		}
+//		else
+//#endif
+//		{
+//			CopyFrameDoubleXY( (void*)decompbuf ) ;
+//			BoxStaticAdd( 0, 40, 639, 439 ) ;
+//		}
+//
+//#ifdef	LBA_EDITOR
+//		if( FlagInfos & INFO_FRAME_SPEED )
+//		{
+//			GraphPrintf(FALSE, 0,0, "Frame: %d", frame++);
+//		}
+//#endif
+//
+//#ifndef	LBA_EDITOR
+//		if( VideoFullScreen )
+//#endif
+//		{
+//			if( smk->NewPalette )
+//			{
+//#ifndef	LBA_EDITOR
+//				FlagBlackPal = FALSE ;
+//#endif
+//				// Pour eviter flash sur frame precedente
+////				Cls()  ;
+////				BoxUpdate() ;
+//
+//				Palette(smk->Palette) ;
+//			}
+//
+//			BoxUpdate() ;
+//		}
+//
+//		if( frame!=smk->Frames )
+//		{
+//			SmackNextFrame( smk ) ;
+//		}
+//
+//		do
+//		{
+//			MyGetInput() ;
+//			ManageTime() ;
+//
+//#ifndef	LBA_EDITOR
+//			CheckSaveLogPcx( smk->Palette ) ;// F9: Sauve Screen
+//#endif
+//
+//			if( (MyKey==K_ESC OR (Input&I_MENUS))
+//#ifndef	LBA_EDITOR
+//			AND (!FlagPlayAcf OR frame>290)
+//#endif
+//			)
+//			{
+//				goto fin_play ;
+//			}
+//		}
+//		while( SmackWait( smk ) ) ;
+//	}
+//
+//fin_play:
+//
+//	SmackClose( smk ) ;
+//
+//#ifndef	LBA_EDITOR
+//	HQF_Close() ;
+//	LastIdxPalette = 0 ;// pour reforcer le chargement du .XPL (cf ChoicePalette())
+//#endif
+//
+//	radfree( decompbuf ) ;
+//
+//	FadeToBlack( smk->Palette ) ;
+//	Cls() ;
+//	BoxStaticFullflip() ;
+//	SetBlackPal() ;
+//
+//	ret = MyKey ;
+//
+//#ifdef	LBA_EDITOR
+//	SetMouseBox( 0,0, 639,479 ) ;
+//#endif
+//
+//	InitWaitNoKey()			;
+//	InitWaitNoInput( I_MENUS ) ;
+//
+//#ifdef	LBA_EDITOR
+//	ShowMouse( true ) ;
+//#endif
+//
+//	return ret ;
 }
 
 //---------------------------------------------------------------------------

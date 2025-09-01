@@ -1,4 +1,9 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SYSTEM/ADELINE.H>
+
+#include <errno.h>
 
 U8	*PtrSce ;
 U8	*PtrScene ;
@@ -45,14 +50,14 @@ S32	LoadScene( S32 numscene )
 	S32	sizetoload ;
 	S32	indexfile3d ;
 	U8	n ;
+	char tmpFilePath[ADELINE_MAX_PATH];
 //        U8	t ;
 
-	PIRACY_PROTECT() ;
-
 	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
-	if( !Load_HQR( PATH_RESSOURCE"scene.hqr", PtrScene, numscene+1 ) )
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, PtrScene, numscene+1 ) )
 	{
-		TheEndCheckFile( PATH_RESSOURCE"scene.hqr" ) ;
+		TheEndCheckFile( tmpFilePath ) ;
 	}
 
 	ManageSystem() ;// for streaming
@@ -306,14 +311,16 @@ S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
 {
 	S32	x, y 	;
 	U8	island, shadowlvl, modelaby, cubemode ;
+	char tmpFilePath[ADELINE_MAX_PATH];
 
 	// ATTENTION: chargée dans ScreenAux car normalement appelée dans le
 	//	      comportement d'init du buggy
 
 	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
-	if( !Load_HQR( PATH_RESSOURCE"scene.hqr", ScreenAux, numcube+1 ) )
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, ScreenAux, numcube+1 ) )
 	{
-		TheEndCheckFile( PATH_RESSOURCE"scene.hqr" ) ;
+		TheEndCheckFile( tmpFilePath ) ;
 	}
 
 	*cubex = *cubey = 0 ;
@@ -348,52 +355,61 @@ S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-U8	AddDirIfNot( char *path )
-{
-	char		name[_MAX_PATH] ;
-	char		drive[_MAX_DRIVE];
-	char		dir[_MAX_DIR] 	 ;
-	struct find_t 	ffblk ;
-	S32 		done ;
+U8 AddDirIfNot( const char *path ) {
+  if (ExistsFileOrDir(path)) {
+    return IsDirectory(path);
+  }
 
-	if( !path OR !strcmp(path,"") )	return FALSE ;
+  char *copypath = strdup(path);
 
-	_splitpath( path, drive, dir, NULL, NULL ) ;
-	_makepath( name, drive, dir, NULL, NULL ) ;
+  { // If path ends in separator, remove it
+    size_t copyLen = strlen(copypath);
+    if ((copyLen > 0) && (copypath[copyLen - 1] == ADELINE_PATH_SEP_CHAR)) {
+      copypath[copyLen - 1] = '\0';
+    }
+  }
 
-	if( name[strlen(name)-1]=='\\' )	name[strlen(name)-1] = '\0' ;
+  int status = 0;
+  char *pp = copypath;
+  char *sp;
+  while ((status == 0 || errno == EEXIST) &&
+         ((sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != NULL)) {
+    if (sp != pp) {
+      *sp = '\0';
+      status = ADELINE_MKDIR(copypath);
+      *sp = ADELINE_PATH_SEP_CHAR;
+    }
+    pp = sp + 1;
+  }
 
-	if( name[strlen(name)-1]==':' )		return FALSE ;
+  if (status == 0) {
+    status = ADELINE_MKDIR(path);
+  }
 
-	// teste si le répertoire existe
-	done = _dos_findfirst( name, _A_SUBDIR, &ffblk ) ;
+  free(copypath);
 
-	if( done )	// il n'existe pas
-	{
-		if( mkdir( name )!=0 )
-		{
-			// impossible de creer le repertoire
-			// essaie de creer le repertoire parent
-			if( AddDirIfNot( name ) )
-			{
-				if( mkdir(name)!=0 )	return FALSE ;
-			}
-			else	return FALSE ;
-		}
-	}
-
-	return TRUE ;
+  return (status == 0);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void	CreateLbaDirectories( void )
 {
-	AddDirIfNot( PATH_RESSOURCE"SAVE\\SHOOT\\" ) ;
+	char tmpDirPath[ADELINE_MAX_PATH];
 
 #ifndef	DEMO
-	AddDirIfNot( PATH_RESSOURCE"VOX\\" ) ;
+	GetVoicePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
 #endif
+
+	GetSavePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
+
+	GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
+
+	GetLogPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	AddDirIfNot( tmpDirPath ) ;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/

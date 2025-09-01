@@ -1,11 +1,11 @@
-#include	<system.h>
-#include	<svga.h>
-#include	<menu.h>
+#include	<SYSTEM.H>
+#include	<SVGA.H>
+#include	<MENU.H>
 
-#include	<stdlib.h>
-#include	<stdio.h>
-#include	<string.h>
-#include	<dos.h>
+#include <SYSTEM/EVENTS.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/MOUSE.H>
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
@@ -126,7 +126,7 @@ void	ChangeButtonString( T_MENU *ptrmenu, S32 handle, char *string, S32 flagaff 
 
 /*──────────────────────────────────────────────────────────────────────────*/
 //	Remise en fonction le 09/10/95
-char	*GetButtonString( T_MENU *ptrmenu, S32 handle )
+const char	*GetButtonString( T_MENU *ptrmenu, S32 handle )
 {
 	S32	n, nblcb ;
 	T_CLICK_BOX	*ptrlcb ;
@@ -160,7 +160,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 	S32		myclick, mykey ;
 	S32		memoasciimode ;
 
-	char		car ;
+	S32		car ;
 	char		string[256] ;
 	S32	memoclipxmin ;
 	S32	memoclipxmax ;
@@ -293,7 +293,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 			break ;
 		}
 
-		car = (char)mykey ;
+		car = mykey ;
 
 		if( (car >= 32) AND (car < 255) )
 		{
@@ -390,7 +390,10 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 
 	if( (mykey==A_RETURN) OR (myclick) )
 	{
-		strcpy( ptrlcb->PtrString, string ) ;
+                // FIXME: This compilation fix is dangerous, but reflects the
+                //    same behavior as before (possible writing over static mem)
+                //    The intention right now is just to compile, not fix bugs
+		strcpy( (char*)ptrlcb->PtrString, string ) ;
 	}
 
 	DrawBox( ptrmenu, numlcb, NO_FLAG) ;
@@ -400,6 +403,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 	while( Key OR Click )
 	{
 		BoxUpdate()	;
+                ManageEvents();
 	}
 
 	SetClip(memoclipxmin, memoclipymin, memoclipxmax, memoclipymax)	;
@@ -410,7 +414,7 @@ void	InputString( T_MENU *ptrmenu, S32 handle, S32 maxcar )
 /*══════════════════════════════════════════════════════════════════════════*/
 /* fontions evoluées */
 
-void	Message( char *message, S32 flag )
+void	Message( const char *message, S32 flag )
 {
 	T_MENU	menu ;
 	S32	len ;
@@ -436,7 +440,7 @@ void	Message( char *message, S32 flag )
 
 		CloseMenu(&menu)	;
 
-		while( Click OR Key)	;
+		while( Click OR Key)
 		{
 			BoxUpdate()	;
 		}
@@ -450,7 +454,7 @@ void	Message( char *message, S32 flag )
 /*══════════════════════════════════════════════════════════════════════════*/
 /* Confirm( "Voulez-vous vraiment ?", "OUI" (RETURN), "NON"(ESC) ) ; */
 
-S32	Confirm( char *message, char *oui, char *non )
+S32	Confirm( const char *message, const char *oui, const char *non )
 {
 	T_MENU	menu ;
 	S32	len, select ;
@@ -463,11 +467,12 @@ S32	Confirm( char *message, char *oui, char *non )
 	AddButton( &menu, 2, len/2,2, len/2,1, FLAG_CENTRE, non ) ;
 	DrawMenu( &menu, -1, -1 ) ;
 
-	ShowMouse( 1 ) 		;
+	ShowMouse( true ) 		;
 
 	do
 	{
 		BoxUpdate()	;
+                ManageEvents();
 	}
 	while( Click OR Key )	;
 
@@ -492,6 +497,7 @@ S32	Confirm( char *message, char *oui, char *non )
 
 	do
 	{
+                ManageEvents();
 		BoxUpdate()	;
 	}
 	while( Click OR Key )	;

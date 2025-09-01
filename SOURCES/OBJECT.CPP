@@ -1,4 +1,7 @@
-#include 	"c_extern.h"
+#include 	"C_EXTERN.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
 
 extern	S32	FlagAnimWhoSpeak	;	// MESSAGE.CPP
 
@@ -1952,8 +1955,8 @@ test_obj_zv:
 				oldx = Nxw ;
 				oldz = Nzw ;
 
-				dx = __min(abs(xt1-x0),abs(x1-xt0)) ;
-				dz = __min(abs(zt1-z0),abs(z1-zt0)) ;
+				dx = ade_min(abs(xt1-x0),abs(x1-xt0)) ;
+				dz = ade_min(abs(zt1-z0),abs(z1-zt0)) ;
 
 				if( dx<dz )
 				{
@@ -2372,13 +2375,13 @@ void	PosObjetAroundAnother( U8 numsrc, U8 numtopos )
 
 	objtopos->Obj.Y = objsrc->Obj.Y ;
 
-	dist = __max(objsrc->XMin,objsrc->XMax) ;
-	dist = __max(dist,objsrc->ZMin) ;
-	dist = __max(dist,objsrc->ZMax) ;
+	dist = ade_max(objsrc->XMin,objsrc->XMax) ;
+	dist = ade_max(dist,objsrc->ZMin) ;
+	dist = ade_max(dist,objsrc->ZMax) ;
 
-	dist2 = __max(objtopos->XMin,objtopos->XMax) ;
-	dist2 = __max(dist2,objtopos->ZMin) ;
-	dist2 = __max(dist2,objtopos->ZMax) ;
+	dist2 = ade_max(objtopos->XMin,objtopos->XMax) ;
+	dist2 = ade_max(dist2,objtopos->ZMin) ;
+	dist2 = ade_max(dist2,objtopos->ZMax) ;
 
 	dist += dist/2 + dist2 + dist2/2 ;
 
@@ -3178,7 +3181,7 @@ S32	CheckCarryBy( U8 numobj )
 				dangle = (ptrobjc->Obj.Beta+APtObj->OldBeta) ;
 
 				// Est-ce plus rapide qu'un Rotate() ?
-				LongRotate( 0, (S32)APtObj->PtrZoneRail, dangle ) ;
+				LongRotate( 0, (U64)APtObj->PtrZoneRail, dangle ) ;
 
 				Nxw = X0 ;
 				Nzw = Z0 ;
@@ -3726,7 +3729,7 @@ static void	DoAnimSprite3D()
 					APtObj->Coord.A3DS.Deb,	// start
 					APtObj->Coord.A3DS.Fin+1,// end
 					((APtObj->Coord.A3DS.Fin-APtObj->Coord.A3DS.Deb+1)*1000)/APtObj->SizeSHit,	// TotalTime
-					TimerRefHR-(U32)APtObj->PtrFile3D );
+					TimerRefHR-(U64)APtObj->PtrFile3D );
 
 			if( newsprite>APtObj->Coord.A3DS.Fin )
 			{
@@ -3741,7 +3744,7 @@ static void	DoAnimSprite3D()
 					APtObj->Coord.A3DS.Deb,	// start
 					APtObj->Coord.A3DS.Fin-1,// end
 					((APtObj->Coord.A3DS.Deb-APtObj->Coord.A3DS.Fin+1)*1000)/APtObj->SizeSHit,	// TotalTime
-					TimerRefHR-(U32)APtObj->PtrFile3D );
+					TimerRefHR-(U64)APtObj->PtrFile3D );
 
 			if( newsprite<APtObj->Coord.A3DS.Fin )
 			{
@@ -5318,7 +5321,7 @@ void	AfficheShadow( T_SORT *pt, S32 beta )
 
 			DrawRecover( 	pt->Xw, yw, pt->Zw,
 					pt->YMax-yw,
-					__max( (xmax-xmin)/2, (zmax-zmin)/2 ) ) ;
+					ade_max( (xmax-xmin)/2, (zmax-zmin)/2 ) ) ;
 		}
 	}
 }
@@ -5436,7 +5439,7 @@ S32	AffOneObject(T_SORT *pt)
 				else
 				{
 					if( DrawRecover( ptrobj->Obj.X, yw, ptrobj->Obj.Z, ptrobj->YMax,
-							 __max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 )) )
+							 ade_max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 )) )
 					{
 						// Objet complètement masqué
 						if( numobj==NumObjFollow
@@ -5576,7 +5579,7 @@ S32	AffOneObject(T_SORT *pt)
 						ptrobj->Obj.LastAnimStepY,
 						ptrobj->Obj.LastAnimStepZ,
 						ptrobj->YMax,
-						__max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
+						ade_max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
 			}
 			else
 			{
@@ -5595,7 +5598,7 @@ S32	AffOneObject(T_SORT *pt)
 							ptrobj->Obj.Y,
 							ptrobj->Obj.Z+ptrobj->ZMax,
 							ptrobj->YMax,
-							__max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
+							ade_max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
 				}
 			}
 
@@ -5690,7 +5693,7 @@ S32	AffOneObject(T_SORT *pt)
 						ptrobj->Obj.LastAnimStepY,
 						ptrobj->Obj.LastAnimStepZ,
 						ptrobj->YMax,
-						__max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
+						ade_max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
 			}
 			else
 			{
@@ -5698,7 +5701,7 @@ S32	AffOneObject(T_SORT *pt)
 						ptrobj->Obj.Y,
 						ptrobj->Obj.Z+ptrobj->ZMax,
 						ptrobj->YMax,
-						__max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
+						ade_max( (ptrobj->XMax-ptrobj->XMin)/2, (ptrobj->ZMax-ptrobj->ZMin)/2 ) ) ;
 			}
 
 			if( (ptrobj->Flags & OBJ_BACKGROUND)
@@ -5786,7 +5789,7 @@ S32	AffOneObject(T_SORT *pt)
 					yw,
 					ptrextra->PosZ,
 					ymax,
-					__max( (xmax-xmin)/2, (zmax-zmin)/2 ) ) ;
+					ade_max( (xmax-xmin)/2, (zmax-zmin)/2 ) ) ;
 		}
 		break ;
 
@@ -5819,7 +5822,7 @@ S32	AffOneObject(T_SORT *pt)
 				}
 
 				DrawRecover( xw, yw, zw, ptrf->YMax,
-					     __max( (ptrf->XMax-ptrf->XMin)/2, (ptrf->ZMax-ptrf->ZMin)/2 ) ) ;
+					     ade_max( (ptrf->XMax-ptrf->XMin)/2, (ptrf->ZMax-ptrf->ZMin)/2 ) ) ;
 			}
 		}
 		}
@@ -5851,7 +5854,7 @@ S32	AffOneObject(T_SORT *pt)
 				}
 
 				DrawRecover( ptrd->PosX+ptrd->XMax, yw, ptrd->PosZ+ptrd->ZMax, ptrd->YMax,
-					     __max( (ptrd->XMax-ptrd->XMin)/2, (ptrd->ZMax-ptrd->ZMin)/2 ) ) ;
+					     ade_max( (ptrd->XMax-ptrd->XMin)/2, (ptrd->ZMax-ptrd->ZMin)/2 ) ) ;
 			}
 		}
 		break ;

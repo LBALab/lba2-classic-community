@@ -1,17 +1,12 @@
 #ifndef	COMMON_H
 #define	COMMON_H
 
+#include <SYSTEM/LIMITS.H>
+
 // j'en ai marre de planter sur des Rnd(0) !!!!!!!!!!!!!!!!!!!!!
 // Méfie quand même à ne pas passer d'affectation ou d'incrémentation de
 // pointeur !!!!!!!!!!!!
 #define	MyRnd(n)	(n!=0?Rnd(n):0)
-
-// protec piratage
-#if defined(ONE_GAME_DIRECTORY)&&defined(CDROM)&&!defined(DEBUG_TOOLS)&&!defined(TEST_TOOLS)
-#define	PIRACY_PROTECT()	if( !CDDrive )	TheEnd( PROGRAM_OK, MESSAGE_NO_CD ) ;
-#else
-#define	PIRACY_PROTECT()
-#endif
 
 #define	PLAY_THE_END	(ListVarGame[157]>0)
 
@@ -30,21 +25,11 @@
 #endif
 
 // Macro pour lancer une fonction de la lib Hercule
-#ifdef	_WIN32
 #define	HERCULE( func )
-#else
-#define	HERCULE( func )	if( ModeHercule )	func
-#endif
-
-//#define Max3(x, y, z) __max(x, __max(y, z))
-//#define Min3(x, y, z) __min(x, __min(y, z))
 
 // Macro definissant si un caracteres est valide pour un nom de fichier (Windows)
 
 #define	IsValidChar(c)	!strchr( "<>:\"|\\/", c )
-
-/*---------------- MAX LENGTH OF A PATH ----------------------*/
-#define	ADELINE_MAX_PATH	144	// compatible with 10.5 and WindowsNT
 
 /*---------------- BUFFER_ANIM ----------------------*/
 #define	SIZE_BUFFER_ANIM	5000L
@@ -78,15 +63,29 @@
 #define	MAX_ARDOISE		5
 //#define	MAX_PCX			7
 
-#define	PATH_PCX	"f:\\projet\\lba2\\graph\\capture\\"
+#define SCRSHOT_HQR_NAME  "scrshot.hqr"
+#define CREDITS_HQR_NAME  "lba2.hqr"
+#define HOLO_HQR_NAME     "holomap.hqr"
+#define RESS_HQR_NAME     "ress.hqr"
+#define SCREEN_HQR_NAME   "screen.hqr"
+#define BKG_HQR_NAME      "lba_bkg.hqr"
+#define VIDEO_HQR_NAME    "video.hqr"
+#define SAMPLES_HQR_NAME  "samples.hqr"
+#define SPRITES_HQR_NAME  "sprites.hqr"
+#define SPRIRAW_HQR_NAME  "spriraw.hqr"
+#define ANIM3DS_HQR_NAME  "anim3ds.hqr"
+#define ANIM_HQR_NAME     "anim.hqr"
+#define BODY_HQR_NAME     "body.hqr"
+#define OBJFIX_HQR_NAME   "objfix.hqr"
+#define SCENE_HQR_NAME    "scene.hqr"
+#define TEXT_HQR_NAME     "text.hqr"
+#define LOG_NAME          "adeline.log"
+#define CFG_NAME          "lba2.cfg"
 
-#define	RESS_HQR_NAME		PATH_RESSOURCE"ress.hqr"
-//#define	RESS_HQR_NAME		"f:\\projet\\lba2\\sourcesn\\ress\\ress.hqr"
-
-#define	SCREEN_HQR_NAME		PATH_RESSOURCE"screen.hqr"
-//#define	SCREEN_HQR_NAME		"f:\\projet\\lba2\\sourcesn\\ress\\screen.hqr"
-
-#define	BKG_HQR_NAME		PATH_RESSOURCE"lba_bkg.hqr"
+#define AUTOSAVE_NAME         "AUTOSAVE"
+#define AUTOSAVE_FILENAME     "autosave.lba"
+#define CURRENTSAVE_NAME      "CURRENT"
+#define CURRENTSAVE_FILENAME  "current.lba"
 
 typedef	struct	{
 	S32	Version ;

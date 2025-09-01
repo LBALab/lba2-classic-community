@@ -10,7 +10,10 @@
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
+
+#include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD.H>
 
 #define	GridSizeX  40000
 #define	GridSizeZ  40000
@@ -79,7 +82,7 @@ void	AddTri( S32 type, S32 num )
 
 #define	PtrCredits	((U8*)ScreenAux)
 
-S32     GamePlayCredits( char *file_name, S32 mode )
+S32     GamePlayCredits( const char *file_name, S32 mode )
 {
 	S32     flagexit = FALSE ;
 	S32     flag = 1 ;
@@ -150,8 +153,10 @@ S32     GamePlayCredits( char *file_name, S32 mode )
 	InitObjects( BufferAnim, SIZE_BUFFER_ANIM, NULL, NULL ) ;
 
 
-/*	if( !Load_HQR( RESS_HQR_NAME, PtrXplPalette, RESS_XPL0 ) )
-		TheEnd( ERROR_NOT_FOUND_FILE, RESS_HQR_NAME ) ;
+/*	char tmpFilePath[ADELINE_MAX_PATH];
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, PtrXplPalette, RESS_XPL0 ) )
+		TheEnd( ERROR_NOT_FOUND_FILE, tmpFilePath ) ;
 	LastIdxPalette = RESS_XPL0 ;
 */
 	LastIdxPalette = -1 ;

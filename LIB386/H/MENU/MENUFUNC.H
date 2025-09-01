@@ -8,8 +8,8 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern void 		Message(char *message, S32 flag			);
-extern S32 		Confirm(char *message, char *yes, char *no	);
+extern void 		Message(const char *message, S32 flag		);
+extern S32 		Confirm(const char *message, const char *yes, const char *no	);
 
 //──────────────────────────────────────────────────────────────────────────
 extern void 		InputString(		T_MENU *ptrmenu, S32 handle,
@@ -30,7 +30,7 @@ extern void 		ChangeButtonValueLimit( T_MENU *ptrmenu, S32 handle,
 //──────────────────────────────────────────────────────────────────────────
 extern	S32		GetButtonFlags(		T_MENU *ptrmenu, S32 handle );
 
-extern	char*		GetButtonString(	T_MENU *ptrmenu, S32 handle );
+extern	const char*		GetButtonString(	T_MENU *ptrmenu, S32 handle );
 
 //──────────────────────────────────────────────────────────────────────────
 extern T_CLICK_BOX 	*GetPtrLcb(		T_MENU *ptrmenu,S32 handle  );

@@ -3,7 +3,7 @@
 #define LIB_SYSTEM_HQFILE
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<system\files.h>
+#include	<SYSTEM/FILES.H>
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
@@ -14,7 +14,7 @@ extern	"C"	{
 extern	S32	HQF_File			;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	HQF_Init(char *name, S32 index)	;
+extern	U32	HQF_Init(const char *name, S32 index)	;
 
 //──────────────────────────────────────────────────────────────────────────
 extern	void	HQF_Close()			;
@@ -23,7 +23,7 @@ extern	void	HQF_Close()			;
 extern	U32	HQF_LoadClose(void *ptr)	;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	HQF_ResSize(char *name, S32 index);
+extern	S32	HQF_ResSize(const char *name, S32 index);
 
 //──────────────────────────────────────────────────────────────────────────
 extern	S32	HQF_NbRes(char *name)		;

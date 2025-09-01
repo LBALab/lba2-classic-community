@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 S32	MyKey	;
 
@@ -100,7 +100,6 @@ void    main( int argc, char *argv[] )
 
 	#define ibuffer Screen
 	#define ibuffersize     (640*480+RECOVER_AREA)
-	#define lname   "lba2.cfg"
 	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_SVGA|INIT_KEYB
 	#include <initadel.c>
 

@@ -9,12 +9,6 @@
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 typedef	S32	(Func_ProjectShadow)( T_SORT *,S32 ) ;
 
-#pragma	aux	Arg_ProjectShadow	"*"	\
-		parm caller []			\
-		modify [eax ecx edx]
-
-#pragma	aux	(Arg_ProjectShadow)	Func_ProjectShadow
-
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 

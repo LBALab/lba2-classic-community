@@ -1,10 +1,11 @@
 //══════════════════════════════════════════════════════════════════════════
-#include	<system\adeline.h>
-#include 	<system\logprint.h>
-#include	<system\files.h>
-#include	<system\loadsave.h>
-#include	<system\itoa.h>
-#include	<system\deffile.h>
+#include	<SYSTEM/ADELINE.H>
+#include 	<SYSTEM/LOGPRINT.H>
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/LOADSAVE.H>
+#include	<SYSTEM/ITOA.H>
+#include	<SYSTEM/DEFFILE.H>
+#include <SYSTEM/LIMITS.H>
 
 #include	<stdlib.h>
 #include	<string.h>
@@ -16,16 +17,16 @@ static	char	*PtrEndIdent			;
 	char	*OrgPtrDef			;
 	char	*EndPtrDef			;
 
-	S32	DefFileReadSkipComments	= FALSE	;
+	S32	DefFileReadSkipComments	= TRUE	;
 
 static	S32	BufferSize			;
-static	char	FileName[_MAX_PATH]		;
+static	char	FileName[ADELINE_MAX_PATH]		;
 
 //══════════════════════════════════════════════════════════════════════════
-static inline S32 ReadBufferString(char *identificateur)
+static inline S32 ReadBufferString(const char *identificateur)
 {
 	char	*ptrdef	;
-	char	*ptr	;
+	U8	*ptr	;
 	S32	len	;
 
 	DefString[0]	= 0	;
@@ -44,7 +45,7 @@ static inline S32 ReadBufferString(char *identificateur)
 	{
 		while (*ptrdef==32)	ptrdef++	;	// skip blanks
 
-		if(!strnicmp(ptrdef,identificateur, len))	// look for ident
+		if(!strncasecmp(ptrdef,identificateur, len))	// look for ident
 		{
 			ptrdef+=len;
 
@@ -58,7 +59,7 @@ static inline S32 ReadBufferString(char *identificateur)
 
 				while(*ptrdef==32) 	ptrdef++;//skip leading spaces
 
-				ptr = ptrdef;
+				ptr = (U8*)ptrdef;
 
 				while(*ptr>=32)
 				{
@@ -72,7 +73,7 @@ static inline S32 ReadBufferString(char *identificateur)
 
 				while(*ptr<=32)    	ptr--;	// skip ending spaces
 
-				LenDefString = ptr-ptrdef+1;
+				LenDefString = (char*)ptr-ptrdef+1;
 
 				if(LenDefString<0)	LenDefString = 0;	// security
 				if(LenDefString>255)	LenDefString = 255;
@@ -138,7 +139,7 @@ S32	DefFileBufferInit(char *file, void *buffer, S32 maxsize)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-char	*DefFileBufferReadString(char *ident)
+char	*DefFileBufferReadString(const char *ident)
 {
 	char	*result ;
 
@@ -155,7 +156,7 @@ char	*DefFileBufferReadString(char *ident)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-char	*DefFileBufferReadStringDefault(char *ident, char *def)
+const char *DefFileBufferReadStringDefault(const char *ident, const char *def)
 {
 	char	*temp	;
 
@@ -165,7 +166,7 @@ char	*DefFileBufferReadStringDefault(char *ident, char *def)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferReadValue2(char *ident, S32 *result)
+S32	DefFileBufferReadValue2(const char *ident, S32 *result)
 {
 	char	*ptrdef	;
 	S32	i 	;
@@ -207,7 +208,7 @@ S32	DefFileBufferReadValue2(char *ident, S32 *result)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferReadValueDefault(char *ident, S32 def)
+S32	DefFileBufferReadValueDefault(const char *ident, S32 def)
 {
 	DefFileBufferReadValue2( ident, &def)	;
 
@@ -215,13 +216,13 @@ S32	DefFileBufferReadValueDefault(char *ident, S32 def)
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferReadValue(char *ident)
+S32	DefFileBufferReadValue(const char *ident)
 {
 	return DefFileBufferReadValueDefault( ident, -1)	;
 }
 
 //══════════════════════════════════════════════════════════════════════════
-S32	DefFileBufferWriteString(char *ident, char *string)
+S32	DefFileBufferWriteString(const char *ident, const char *string)
 {
 	char	crlf[2]={13, 10}	;
 	S32	handle			;

@@ -3,7 +3,7 @@
 #define	LIB_SYSTEM_DEFFILE
 
 //****************************************************************************
-#include	<SYSTEM\ITOA.H>
+#include	<SYSTEM/ITOA.H>
 
 //****************************************************************************
 #ifdef	__cplusplus
@@ -22,22 +22,22 @@ extern	S32	DefFileReadSkipComments	;
 S32	DefFileBufferInit(char *file, void *buffer, S32 maxsize)	;
 
 //****************************************************************************
-char	*DefFileBufferReadString(char *ident)				;
+char	*DefFileBufferReadString(const char *ident)				;
 
 //****************************************************************************
-char	*DefFileBufferReadStringDefault(char *ident, char *def)		;
+const char *DefFileBufferReadStringDefault(const char *ident, const char *def)  ;
 
 //****************************************************************************
-S32	DefFileBufferReadValue(char *ident)				;
+S32	DefFileBufferReadValue(const char *ident)				;
 
 //****************************************************************************
-S32	DefFileBufferReadValueDefault(char *ident, S32 def)		;
+S32	DefFileBufferReadValueDefault(const char *ident, S32 def)		;
 
 //****************************************************************************
-S32	DefFileBufferReadValue2(char *ident, S32 *result)		;
+S32	DefFileBufferReadValue2(const char *ident, S32 *result)		;
 
 //****************************************************************************
-S32	DefFileBufferWriteString(char *ident, char *string)		;
+S32	DefFileBufferWriteString(const char *ident, const char *string)		;
 
 //****************************************************************************
 #define	DefFileBufferWriteValue(ident, value)			\

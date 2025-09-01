@@ -1,5 +1,9 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 //#include	"messtwin.cpp"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 U8	*PtrPrg ;
 U8	TypeAnswer ;
@@ -670,7 +674,7 @@ S32    DoTest()
 //---------------------------------------------------------------------------
 	case RET_STRING:
 
-		valueword = stricmp( String, (char *)PtrPrg ) ;
+		valueword = strcasecmp( String, (char *)PtrPrg ) ;
 		PtrPrg += strlen( (char *)PtrPrg ) + 1 ;
 
 		switch( test )
@@ -2232,7 +2236,7 @@ void	DoLife( U8 numobj )
 			case LM_POPCORN:
 /*				SaveTimer( ) ;
 
-				if( AdelineSystem( PATH_RESSOURCE"pop\\popcorn.exe" )==-1 )
+				if( AdelineSystem( "pop\\popcorn.exe" )==-1 )
 				{
 HERCULE( HPrintf( "errno= %d: %s\n", errno, strerror(errno) ) ) ;
 				}

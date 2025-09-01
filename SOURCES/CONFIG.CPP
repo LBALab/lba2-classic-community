@@ -14,7 +14,13 @@
   ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 */
 
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 #define CONFIG_SHADE_LVL        MENU_SHADE_LVL
 
@@ -216,111 +222,68 @@ void    DrawConfigFire( S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul )
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-void    GetKeyText(char *string, U32 scan)
-{
-        S32             i               ;
+void GetKeyText(char *string, U32 scan) {
+  if (scan == 0) {
+    strcpy(string, KEY_STRING_EMPTY);
+    return;
+  }
 
-        if( scan )
-        {
-#ifdef  _WIN32
-                if((scan>=VK_F1)&&(scan<=VK_F24))
-                {
-                        sprintf(string, "F%d", scan-VK_F1+1) ;
-                        goto end        ;
-                }
-                else if(scan>=256)
-                {
-                        S32     joy     ;
-                        S32     button  ;
-                        char    rest[30];
+  if (scan < 256) {
+    GetKeyScancodeName(string, 14, scan);
+  } else {
+    S32 joy;
+    S32 button;
+    char rest[30];
 
-                        scan -= 256     ;
+    scan -= 256;
 
-                        joy = 1+(scan>>6);
-                        button = scan&63;
-                        sprintf(string, "Joy %d ", joy) ;
+    joy = 1 + (scan >> 6);
+    button = scan & 63;
+    sprintf(string, "Joy %d ", joy);
 
-                        if(button<32)
-                        {
-                                sprintf(rest, "Btn %d", button+1)       ;
-                        }
-                        else
-                        {
-                                switch(button)
-                                {
-                                case 32:
-                                case 33:
-                                case 34:
-                                case 35:
-                                        button -= 32    ;
-                                        break   ;
-                                case 36:
-                                case 37:
-                                        button -= 34    ;
-                                        strcat(string, "Z ")    ;
-                                        break   ;
-                                case 38:
-                                case 39:
-                                        button -= 36    ;
-                                        strcat(string, "R ")    ;
-                                        break   ;
-                                case 40:
-                                case 41:
-                                        button -= 38    ;
-                                        strcat(string, "U ")    ;
-                                        break   ;
-                                case 42:
-                                case 43:
-                                        button -= 40    ;
-                                        strcat(string, "V ")    ;
-                                        break   ;
-                                default:
-                                        button -= 44    ;
-                                        strcat(string, "H ")    ;
-                                        break   ;
-                                }
+    if (button < 32) {
+      sprintf(rest, "Btn %d", button + 1);
+    } else {
+      switch (button) {
+      case 32:
+      case 33:
+      case 34:
+      case 35:
+        button -= 32;
+        break;
+      case 36:
+      case 37:
+        button -= 34;
+        strcat(string, "Z ");
+        break;
+      case 38:
+      case 39:
+        button -= 36;
+        strcat(string, "R ");
+        break;
+      case 40:
+      case 41:
+        button -= 38;
+        strcat(string, "U ");
+        break;
+      case 42:
+      case 43:
+        button -= 40;
+        strcat(string, "V ");
+        break;
+      default:
+        button -= 44;
+        strcat(string, "H ");
+        break;
+      }
 
-                                button = 3-button       ;
-                                GetMultiText( START_KEYS_TXT+16+button, rest ) ;
-                        }
+      button = 3 - button;
+      GetMultiText(START_KEYS_TXT + 16 + button, rest);
+    }
 
-                        strcat(string, rest)    ;
-                        goto end                ;
-                }
-#endif
-                for(i=0; ScanKnown[i]; i++)
-                {
-                        if(ScanKnown[i]==scan)  break ;
-                }
-
-                if(ScanKnown[i])
-                {
-                        GetMultiText( START_KEYS_TXT+i, string ) ;
-                }
-                else
-                {
-                        char    ascii   ;
-
-                        ascii = (char)ScanToAscii(scan);
-
-                        if(ascii)
-                        {
-                                string[0] = ascii ;
-                                string[1] = 0     ;
-                        }
-                        else
-                        {
-                                sprintf(string, "Key %02X", (U32)scan)  ;
-                        }
-                }
-        }
-        else
-        {
-                strcpy( string, KEY_STRING_EMPTY ) ;
-        }
-end:
-        // Pour l'instant, en blindage
-        string[14] = 0 ;
+    strcat(string, rest);
+    string[14] = 0;
+  }
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -654,12 +617,9 @@ void    MenuConfig( void )
                 BoxUpdate()     ;
 
                 oldkey = MyKey  ;
-#ifdef  _WIN32
                 DetectJoys()    ;
-#endif
                 MyGetInput()    ;
 
-#ifdef  _WIN32
                 switch(MyKey)
                 {
                 case K_NUMPAD_8:
@@ -711,59 +671,6 @@ void    MenuConfig( void )
                         MyKey = 0       ;
                         break   ;
                 }
-#else// _WIN32
-                switch(MyKey)
-                {
-                case K_GRAY_UP:
-                        MyKey = K_UP;
-                        break   ;
-                case K_GRAY_DOWN:
-                        MyKey = K_DOWN;
-                        break   ;
-                case K_GRAY_LEFT:
-                        MyKey = K_LEFT;
-                        break   ;
-                case K_GRAY_RIGHT:
-                case K_TAB:
-                        MyKey = K_RIGHT;
-                        break   ;
-                case K_GRAY_PAGE_UP:
-                        MyKey = K_PAGE_UP;
-                        break   ;
-                case K_GRAY_PAGE_DOWN:
-                        MyKey = K_PAGE_DOWN;
-                        break   ;
-                case K_GRAY_HOME:
-                        MyKey = K_HOME;
-                        break   ;
-                case K_GRAY_END:
-                        MyKey = K_END;
-                        break   ;
-                case K_GRAY_SUPPR:
-                case K_BACKSPACE:
-                        MyKey = K_SUPPR;
-                        break   ;
-                case K_NUMPAD_ENTER:
-                case K_SPACE:
-                        MyKey = K_ENTER;
-                        break   ;
-                case K_UP:
-                case K_DOWN:
-                case K_LEFT:
-                case K_RIGHT:
-                case K_PAGE_UP:
-                case K_PAGE_DOWN:
-                case K_HOME:
-                case K_END:
-                case K_SUPPR:
-                case K_ENTER:
-                case K_ESC:
-                        break   ;
-                default:
-                        MyKey = 0       ;
-                        break   ;
-                }
-#endif//_WIN32
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
 		CheckSaveLogPcx( PtrPalNormal ) ;
@@ -793,7 +700,6 @@ void    MenuConfig( void )
                         }
                 }
 
-#ifdef  _WIN32
                 if(!MyKey)
                 {
                         S32     i       ;
@@ -830,7 +736,6 @@ void    MenuConfig( void )
                                 }
                         }
                 }
-#endif//_WIN32
                 ManageTime()    ;
                 time = TimerRefHR;
 
@@ -897,17 +802,11 @@ void    MenuConfig( void )
 
                                 *ptr = 0 ;
 
-#ifdef  _WIN32
                                 KeyDown()       ;
                                 MyKey = 0       ;
-#endif
                                 while( !MyKey )
                                 {
-#ifdef  _WIN32
                                         MyKey = KeyDown()       ;
-#else
-                                        MyGetInput()            ;
-#endif
 
                                         if( (TimerRefHR&0xFF) < 127 )   // aff 2/3 eff 1/3
                                         {
@@ -1128,9 +1027,6 @@ S32     ConfirmMenu( char *ask, char *ok, char *cancel )
         S32     select = 0      ;
         S32     oldselect = 1   ;
         S32     flag = -1       ;
-#ifndef _WIN32
-        S32     firstaff  = TRUE;
-#endif
 
         x0 = 320-larg/2 ;
         x1 = 320+larg/2 ;
@@ -1142,9 +1038,7 @@ S32     ConfirmMenu( char *ask, char *ok, char *cancel )
 
 	DrawCadreConfig( x0, y0, x1, by1, FALSE ) ;
 
-#ifdef	_WIN32
 	BoxStaticAdd( x0, y0, x1, by1 ) ;
-#endif
 
         DetourGraphPrintf( FALSE, COUL_STATUS, x0+3*SizeChar, y0+2*SizeChar, ask ) ;
 
@@ -1182,21 +1076,12 @@ S32     ConfirmMenu( char *ask, char *ok, char *cancel )
                         case K_END:
 
                         // touches de controle
-#ifdef  _WIN32                        
                         case K_NUMPAD_8:
                         case K_NUMPAD_2:
                         case K_NUMPAD_9:
                         case K_NUMPAD_3:
                         case K_NUMPAD_7:
                         case K_NUMPAD_1:
-#else                        
-                        case K_GRAY_UP:
-                        case K_GRAY_DOWN:
-                        case K_GRAY_PAGE_UP:
-                        case K_GRAY_PAGE_DOWN:
-                        case K_GRAY_HOME:
-                        case K_GRAY_END:
-#endif
                         case K_TAB:
                                 select ^= 1 ;
                                 break ;
@@ -1204,14 +1089,6 @@ S32     ConfirmMenu( char *ask, char *ok, char *cancel )
 
                 if( select!=oldselect )
 		{
-#ifndef _WIN32
-                        if( firstaff )
-                        {
-                                FadeToPal( PtrPalNormal) ;
-                                firstaff = FALSE ;
-			}
-#endif
-
                         DrawConfirmChoice( blen, by0+(SizeChar+4)*oldselect, ptr, FALSE ) ;
 
                         if( select )    ptr = cancel    ;
@@ -1236,13 +1113,9 @@ S32     AskForCD( void )
         char    ask_txt[255]    ;
         char    ok_txt[20]      ;
         char    cancel_txt[20]  ;
+        char    tmpFilePath[ADELINE_MAX_PATH];
 
         // ATTENTION: pour entrer là, le InitDial(0) doit etre fait avant !
-
-#ifndef _WIN32
-        Load_HQR( SCREEN_HQR_NAME, Log, PCR_CDROM ) ;
-        BoxStaticAdd( 0, 0, ModeDesiredX-1, ModeDesiredY-1 ) ;
-#endif
 
         InitPlasmaMenu() ;
 
@@ -1262,12 +1135,9 @@ S32     AskForCD( void )
 
         ret = ConfirmMenu( ask_txt, ok_txt, cancel_txt ) ;
 
-#ifdef  _WIN32
-        Load_HQR( SCREEN_HQR_NAME, Log, PCR_CDROM ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+        Load_HQR( tmpFilePath, Log, PCR_CDROM ) ;
         BoxStaticFullflip() ;
-#else
-        FadeToBlack( PtrPalNormal ) ;
-#endif
 
         return ret ;
 }

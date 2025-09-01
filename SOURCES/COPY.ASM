@@ -11,21 +11,14 @@ YMIN_640x480		EQU	40
 DY_IMAGE		EQU	200
 
 ;//***************************************************************************
-			include	iammx.inc
-
-;//***************************************************************************
-			.486
-			.MODEL SMALL, SYSCALL
+			OPTION SCOPED
+			.586
+			.MMX
+			.MODEL FLAT, SYSCALL
 
 
 ;//***************************************************************************
 			.data
-
-;//***************************************************************************
-		extrn	SYSCALL	Chooser_RtnI:DWORD
-		extrn	SYSCALL	Chooser_RtnF:DWORD
-		extrn	SYSCALL	Chooser_RtnM:DWORD
-		extrn	SYSCALL	Chooser_Result:DWORD
 
 ;//***************************************************************************
 		extrn	SYSCALL	Log	:DWORD
@@ -42,24 +35,10 @@ DY_IMAGE		EQU	200
 
 ;//***************************************************************************
 
-CopyFrameDoubleXY	dd	offset CopyFrameDoubleXYInit
+CopyFrameDoubleXY	dd	offset CopyFrameDoubleXYI
 
 ;//***************************************************************************
 			.code
-
-;//***************************************************************************
-		extrn	SYSCALL	Chooser	:PROC
-
-;//***************************************************************************
-CopyFrameDoubleXYInit	proc
-
-		mov	[Chooser_RtnI], offset CopyFrameDoubleXYI	; Integer
-		mov	[Chooser_RtnM], offset CopyFrameDoubleXYM	; MMX
-		mov	[Chooser_Result], offset CopyFrameDoubleXY	; Pointer
-
-		jmp	Chooser
-
-CopyFrameDoubleXYInit	endp
 
 ;//***************************************************************************
 ;void	CopyFrameDoubleXYI(void *src)
@@ -117,51 +96,6 @@ NextQuad:
 		ret
 
 CopyFrameDoubleXYI	ENDP
-
-;//***************************************************************************
-;void	CopyFrameDoubleXYM(void *src)
-
-;#pragma aux CopyFrameDoubleXYM	"*"	\
-;	parm caller	[esi]		\
-;	modify		[ecx edx edi]
-
-CopyFrameDoubleXYM	PROC
-
-		mov		edi, Log
-		mov		edx, DY_IMAGE
-
-		add		edi, YMIN_640x480*640
-		jmp		FirstLine
-NextLine:
-		add		edi,640
-FirstLine:	mov		ecx,320/8
-NextQuad:
-		movq		mm0,[esi]	; mm0 = 76543210
-
-		add		esi, 8
-		dec		ecx
-
-		movq		mm1, mm0	; mm1 = 76543210
-		punpcklbw	mm0, mm0	; mm0 =	33221100
-
-		movq		[edi], mm0
-		punpckhbw	mm1, mm1	; mm1 =	77665544
-
-		movq		[edi+8], mm1
-
-		movq		[edi+640], mm0
-
-		movq		[edi+648], mm1
-
-		lea		edi,[edi+16]
-		jnz		NextQuad
-
-		dec		edx
-		jne		NextLine
-
-		ret
-
-CopyFrameDoubleXYM	ENDP
 
 ;//***************************************************************************
 ;			The

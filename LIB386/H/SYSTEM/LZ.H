@@ -2,6 +2,8 @@
 #ifndef	LIB_SYSTEM_LZ
 #define LIB_SYSTEM_LZ
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #define	RECOVER_AREA	512	// for overlapping ExpandLZ
 

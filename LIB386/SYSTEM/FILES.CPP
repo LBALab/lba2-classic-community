@@ -1,141 +1,116 @@
-//--------------------------------------------------------------------------//
-#include <system\adeline.h>
-#include <system\files.h>
+#include <SYSTEM/FILES.H>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <io.h>
-#include <string.h>
+#include <assert.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <utime.h>
+#include <unistd.h>
 
-//--------------------------------------------------------------------------//
-#ifdef	_WIN32
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-//--------------------------------------------------------------------------//
-S32	OpenMode( char *name, int mode)
-{
-	HANDLE	handle	;
+// --- Private definitions -----------------------------------------------------
+#ifndef _WIN32 // Portability - O_BINARY exists only on Windows platform
+#define O_BINARY 0
+#endif // _WIN32
 
-	if(mode==MODE_READ)
-	{
-		handle = CreateFile(	name,GENERIC_READ,
-					FILE_SHARE_READ,
-					NULL,OPEN_EXISTING,
-					FILE_ATTRIBUTE_NORMAL,NULL)	;
-	}
-	else if(mode==MODE_WRITE)
-	{
-		handle = CreateFile(	name,GENERIC_WRITE,
-					FILE_SHARE_READ,
-					NULL,CREATE_ALWAYS,
-					FILE_ATTRIBUTE_NORMAL,NULL)	;
-	}
-	else if(mode==MODE_READWRITE)
-	{
-		handle = CreateFile(	name,GENERIC_READ|GENERIC_WRITE,
-					FILE_SHARE_READ,
-					NULL,OPEN_ALWAYS,
-					FILE_ATTRIBUTE_NORMAL,NULL)	;
-	}
-	else
-	{
-		handle = INVALID_HANDLE_VALUE	;
-	}
+#define MODE_READ  (O_RDONLY | O_BINARY)
+#define MODE_WRITE (O_WRONLY | O_BINARY | O_CREAT | O_TRUNC)
+#define MODE_RW    (O_RDWR   | O_BINARY | O_CREAT)
 
-	return	handle == INVALID_HANDLE_VALUE ? 0 : (S32)handle	;
+// --- Private functions -------------------------------------------------------
+S32 OpenMode(const char *filename, int mode) {
+  assert(filename != NULL);
+  S32 handle = open(filename, mode, (S_IRUSR | S_IWUSR));
+  return (handle == -1) ? 0 : handle;
 }
 
-//--------------------------------------------------------------------------//
-U32	Read(S32 handle, void *buffer, U32 size)
-{
-	U32	len	;
+// --- Public functions --------------------------------------------------------
+S32 OpenRead(const char *filename) { return OpenMode(filename, MODE_READ); }
+S32 OpenWrite(const char *filename) { return OpenMode(filename, MODE_WRITE); }
+S32 OpenReadWrite(const char *filename) { return OpenMode(filename, MODE_RW); }
 
-	ReadFile((HANDLE)handle, buffer, size, &len, NULL)	;
-
-	return	len	;
+S32 Close(S32 handle) {
+  assert(handle > 0);
+  return close(handle);
 }
 
-//--------------------------------------------------------------------------//
-U32	Write(S32 handle, void *buffer, U32 size)
-{
-	U32	len	;
-
-	WriteFile((HANDLE)handle, buffer, size, &len, NULL)	;
-
-	return	len	;
+S32 Read(S32 handle, void *buffer, U32 maxReadBytes) {
+  assert(handle > 0);
+  assert(buffer != NULL);
+  return read(handle, buffer, maxReadBytes);
 }
 
-//--------------------------------------------------------------------------//
-U32	FileSize(char *name)
-{
-	HANDLE	handle	;
-	U32	size	;
-
-	handle = CreateFile(	name,GENERIC_READ,
-				FILE_SHARE_READ,
-				NULL,OPEN_EXISTING,
-				FILE_ATTRIBUTE_NORMAL,NULL)	;
-
-	if(handle == INVALID_HANDLE_VALUE)	return 0	;
-
-	size = GetFileSize(handle, NULL)	;
-
-	CloseHandle(handle)	;
-
-	return	size	;
+S32 Write(S32 handle, const void *buffer, U32 maxWriteBytes) {
+  assert(handle > 0);
+  assert(buffer != NULL);
+  return write(handle, buffer, maxWriteBytes);
 }
 
-//--------------------------------------------------------------------------//
-void	Touch(char *name)
-{
-	HANDLE		handle	;
-	FILETIME	ftime	;
-	SYSTEMTIME	stime	;
+S32 Seek(S32 handle, S32 offset, ESeekOrigin origin) {
+  assert(handle > 0);
 
-	handle = CreateFile(	name,GENERIC_WRITE,
-				FILE_SHARE_READ,
-				NULL,OPEN_EXISTING,
-				FILE_ATTRIBUTE_NORMAL,NULL)	;
+  int stdOrigin;
+  switch (origin) {
+  case SEEK_FROM_START:
+    stdOrigin = SEEK_SET;
+    break;
+  case SEEK_FROM_CURRENT:
+    stdOrigin = SEEK_CUR;
+    break;
+  case SEEK_FROM_END:
+    stdOrigin = SEEK_END;
+    break;
+  default:
+    assert(false);
+    break;
+  }
 
-	if(handle == INVALID_HANDLE_VALUE)		return	;
-
-	GetSystemTime(&stime)	;
-
-	SystemTimeToFileTime(&stime, &ftime)	;
-
-	SetFileTime(handle, &ftime, &ftime, &ftime)	;
-
-	CloseHandle(handle)	;
+  return lseek(handle, offset, stdOrigin);
 }
 
-//--------------------------------------------------------------------------//
-#else// _WIN32
-
-//--------------------------------------------------------------------------//
-S32    OpenMode( char *name, int mode)
-{
-	S32	handle	;
-
-	handle = open( name, mode, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH)	;
-
-	return handle == -1 ? 0 : handle	;
+U32 Delete(const char *filename) {
+  assert(filename != NULL);
+  S32 result = unlink(filename);
+  return (result != -1);
 }
 
-//--------------------------------------------------------------------------//
-U32   FileSize( char *name )
-{
-	int     handle  ;
-	S32	fsize	;
-
-	handle = OpenRead( name )		;
-	if (!handle)	return(0)   		;
-
-	fsize = lseek( handle, 0, SEEK_END )	;
-	Close( handle )				;
-
-	return (U32)(fsize == -1 ? 0 : fsize)	;
+S32 Touch(const char *filename) {
+  assert(filename != NULL);
+  return utime(filename, NULL);
 }
 
-//--------------------------------------------------------------------------//
-#endif//_WIN32
+U32 FileSize(const char *filename) {
+  assert(filename != NULL);
 
-//--------------------------------------------------------------------------//
+  S32 handle = OpenRead(filename);
+  if (!handle) {
+    return 0;
+  }
+
+  S32 fsize = lseek(handle, 0, SEEK_END);
+  Close(handle);
+
+  return (U32)((fsize == -1) ? 0 : fsize);
+}
+
+bool ExistsFileOrDir(const char* path) {
+  assert(path != NULL);
+
+  struct stat status = {};
+  return (stat(path, &status) == 0);
+}
+
+bool IsDirectory(const char* path) {
+  assert(path != NULL);
+
+  struct stat status = {};
+  return ((stat(path, &status) == 0) && ((status.st_mode & S_IFMT) == S_IFDIR));
+}
+
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif

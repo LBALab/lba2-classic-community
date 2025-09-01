@@ -1,34 +1,20 @@
-//****************************************************************************
-#ifndef	LIB_3D_COPYMAT
-#define	LIB_3D_COPYMAT
+#pragma once
 
-//****************************************************************************
-#include	"mat.h"
+#include <3D/DATAMAT.H>
+#include <SYSTEM/ADELINE_TYPES.H>
 
-//****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//****************************************************************************
-extern	Func_CopyFlipMatrix	*CopyMatrix ;
+// -----------------------------------------------------------------------------
+typedef void(Func_CopyFlipMatrix)(TYPE_MAT *MatDst, TYPE_MAT *MatSrc);
 
-#pragma	aux	CopyMatrix	"*"
+// -----------------------------------------------------------------------------
+extern Func_CopyFlipMatrix *CopyMatrix; ///< Do Not call from C
 
-//****************************************************************************
-// These functions should not be called directly but through the above pointer
-// which auto-initalize to point to the right routine at runtime.
-extern	Func_CopyFlipMatrix	CopyMatrixI ;
-extern	Func_CopyFlipMatrix	CopyMatrixF ;
-extern	Func_CopyFlipMatrix	CopyMatrixM ;
-
-//****************************************************************************
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//****************************************************************************
-#endif//LIB_3D_COPYMAT
-
-//****************************************************************************
-

@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 #define	CONE_GANT	2048
 #define	RND_BETA_BONUS	300	// Angle aléatoire rajouter
@@ -797,7 +797,7 @@ void	AffSpecial( S32 numextra )
 			{
 				if( !FlagAnimWhoSpeak )	// pas de gestion pendant les messages
 				{
-					scale = BoundRegleTrois( scale, ptrextra->Beta, (S32)(ptrextra->PtrBody), TimerRefHR-ptrextra->Timer ) ;
+					scale = BoundRegleTrois( scale, ptrextra->Beta, (U64)(ptrextra->PtrBody), TimerRefHR-ptrextra->Timer ) ;
 
 					if( scale==ptrextra->Beta )
 					{

@@ -1,26 +1,24 @@
 //----------------------------------------------------------------------------
-#include	<system\adeline.h>
-#include	<system\logprint.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/LOGPRINT.H>
+#include <SYSTEM/LIMITS.H>
 
-#include	<stdlib.h>
 #include	<stdarg.h>
 #include	<stdio.h>
 #include	<string.h>
 
 //----------------------------------------------------------------------------
 	U32	QuietLog = FALSE	;
-static	char	LogName[_MAX_PATH]=""	;
+static	char	LogName[ADELINE_MAX_PATH]=""	;
 static	char	LogStr[256]		;
 
 //----------------------------------------------------------------------------
-void	CreateLog(char *fname)
+void	CreateLog(const char *filePath)
 {
-	char 	drive[ _MAX_DRIVE ]	;
-	char 	dir[ _MAX_DIR ]		;
 	FILE	*logfile 		;
 
-	_splitpath( fname, drive, dir, NULL, NULL )	;
-	_makepath(LogName, drive, dir, "ADELINE", "LOG");
+	strncpy(LogName, filePath, ADELINE_MAX_PATH);
+	LogName[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
 	logfile	= fopen(LogName, "wb")	;
 	if(!logfile)
@@ -31,10 +29,18 @@ void	CreateLog(char *fname)
 	{
 		fclose(logfile)		;
 	}
+
+	if (logfile) {
+		LogPrintf("Creating log file at '%s'...\n", LogName);
+	}
+	else {
+		LogPrintf("Warning: Unable to create log file at '%s', "
+			  "outputting only to console...\n", LogName);
+	}
 }
 
 //----------------------------------------------------------------------------
-void	LogPrintf(char *format, ...)
+void	LogPrintf(const char *format, ...)
 {
 	char	*ptr	;
 	va_list	arglist	;
@@ -74,7 +80,7 @@ void	LogPrintf(char *format, ...)
 }
 
 //----------------------------------------------------------------------------
-void	LogPuts(char *string)
+void	LogPuts(const char *string)
 {
 	LogPrintf("%s\n", string);
 }

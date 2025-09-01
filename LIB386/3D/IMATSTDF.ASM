@@ -2,21 +2,29 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
-		include mat.inc
+		include MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.DATA
 
-		extrn	SYSCALL	SinTabF:DWORD
+		extrn	C	SinTabF:DWORD
+
+		public	C	InitMatrixStd
+		public	C	InitMatrix
+
+		InitMatrixStd	dd	offset InitMatrixStdF
+		InitMatrix		dd	offset InitMatrixStdF
+
+		ASSUME ds:SEG SinTabF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
 
-		public	SYSCALL	InitMatrixStdF
+		public	C	InitMatrixStdF
 
 COMMENT \
 Explication sur la composition de la matrice de rotation:
@@ -83,9 +91,9 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	SINB	; CgSb  -Sg   CgCb
 		fxch	st(2)	; CgCb  -Sg   CgSb
 
-		fstp	[edi].MAT_M11		; M11 = Cos(Gamma)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M11		; M11 = Cos(Gamma)*Cos(Beta)
 				; -Sg   CgSb
-		fstp	[edi].MAT_M12		; M12 = -Sin(Gamma)
+		fstp	[edi].Struc_MatriceMAT.MAT_M12		; M12 = -Sin(Gamma)
 				; CgSb
 
 		fld     SINB	; Sb    CgSb
@@ -101,7 +109,7 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	COSA	; CgCa  SgCa  SbSa  CgSb
 		fxch	st(3)	; CgSb  SgCa  SbSa  CgCa
 
-		fstp	[edi].MAT_M13		; M13 = Cos(Gamma)*Sin(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M13		; M13 = Cos(Gamma)*Sin(Beta)
 				; SgCa  SbSa  CgCa
 		fmul	COSB	;SgCaCb SbSa  CgCa
 
@@ -111,7 +119,7 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fxch	st(3)	; CgCa SgCaCb SbSa  SbSg
 
 
-		fstp	[edi].MAT_M22		; M22 = Cos(Alpha)*Cos(Gamma)
+		fstp	[edi].Struc_MatriceMAT.MAT_M22		; M22 = Cos(Alpha)*Cos(Gamma)
 				;SgCaCb SbSa  SbSg
 
 		faddp	st(1),st; M21   SbSg
@@ -124,7 +132,7 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	SINA	; CbSa SbSgCa M21
 		fxch	st(2)	; M21  SbSgCa CbSa
 
-		fstp	[edi].MAT_M21		; M21 = Sin(Gamma)*Cos(Alpha)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M21		; M21 = Sin(Gamma)*Cos(Alpha)*Cos(Beta)
 				;SbSgCa CbSa	;      +Sin(Beta)*Sin(Alpha)
 
 		fsubrp	st(1),st; M23
@@ -148,7 +156,7 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		fmul	COSB	;SaSgCb SaSg  CaSb  CaCb  M23
 		fxch	st(4)	; M23   SaSg  CaSb  CaCb  SaSgCb
 
-		fstp	[edi].MAT_M23   ; M23 = Sin(Beta)*Sin(Gamma)*Cos(Alpha)
+		fstp	[edi].Struc_MatriceMAT.MAT_M23   ; M23 = Sin(Beta)*Sin(Gamma)*Cos(Alpha)
 					;      -Cos(Beta)*Sin(Alpha)
 				; SaSg  CaSb  CaCb SaSgCb
 		fmul	SINB	;SaSgSb CaSb  CaCb SaSgCb
@@ -163,20 +171,20 @@ COSG		EQU	[SinTabF+ecx+1024*4]
 		faddp	st(2),st; M31   M33   M32
 		fxch	st(2)	; M32   M33   M31
 
-		fstp	[edi].MAT_M32	; M32 = Sin(Alpha)*Cos(Gamma)
+		fstp	[edi].Struc_MatriceMAT.MAT_M32	; M32 = Sin(Alpha)*Cos(Gamma)
 
-		fstp	[edi].MAT_M33	; M33 = Sin(Alpha)*Sin(Gamma)*Sin(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M33	; M33 = Sin(Alpha)*Sin(Gamma)*Sin(Beta)
 					;      +Cos(Alpha)*Cos(Beta)
 
 		xor	eax, eax
 
-		fstp	[edi].MAT_M31	; M31 = Sin(Alpha)*Sin(Gamma)*Cos(Beta)
+		fstp	[edi].Struc_MatriceMAT.MAT_M31	; M31 = Sin(Alpha)*Sin(Gamma)*Cos(Beta)
 					;      -Cos(Alpha)*Sin(Beta)
 
-		mov	[edi].MAT_MTX, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTX, eax
 
-		mov	[edi].MAT_MTY, eax
-		mov	[edi].MAT_MTZ, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTY, eax
+		mov	[edi].Struc_MatriceMAT.MAT_MTZ, eax
 
 		ret
 

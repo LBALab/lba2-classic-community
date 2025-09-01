@@ -5,7 +5,7 @@ char	*Version	= "\nLBA2 \"Twinsen's Odyssey\" Demo Version ("
 			  __TIME__
 			  ")\n\n"		;
 #else
-char    *Version        = "\nLBA2 \"Twinsen's Odyssey\" ("
+const char    *Version        = "\nLBA2 \"Twinsen's Odyssey\" ("
 			  __DATE__
 			  " / "
 			  __TIME__

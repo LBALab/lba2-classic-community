@@ -32,9 +32,7 @@ extern	VOID_FUNC	PauseSamples		;
 extern	VOID_FUNC	ResumeSamples		;
 
 //--------------------------------------------------------------------------
-#ifdef	_WIN32
 extern	S32		UseWaveMixer		;
-#endif//_WIN32
 
 //--------------------------------------------------------------------------
 S32	InitSampleDriver(	char *driver_name	)	;
@@ -160,7 +158,7 @@ void	ChangeVolumePanSample(	U32 sample,
 //
 //	Returns	:			HSAMPLE (see MSS doc)
 //--------------------------------------------------------------------------
-HSAMPLE	GetSampleMSSHandle( 	U32 sample 	)	;
+void*	GetSampleMSSHandle( 	U32 sample 	)	;
 
 //--------------------------------------------------------------------------
 //	StopOneSample :			stop a sample

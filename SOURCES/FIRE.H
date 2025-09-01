@@ -5,15 +5,9 @@ extern "C" {
 #ifndef	FIRE_H
 #define	FIRE_H
 
-/*
-extern	U8	Imagen ;
+#include <SYSTEM/ADELINE_TYPES.H>
 
-extern	void	DoFire( S32 y, S16 coul ) ;
-
-#pragma	aux	DoFire	"*"		\
-		parm caller []		\
-		modify [eax ecx edx]
-*/
+void Do_Fire(U8 *ptrwork1, U8 *ptrwork2, U8 *colortable, U8 *ptrtex);
 
 #endif
 

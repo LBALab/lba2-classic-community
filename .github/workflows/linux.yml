@@ -1,0 +1,46 @@
+name: Linux
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure package manager
+      run: sudo dpkg --add-architecture i386
+
+    - name: Install dependencies
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: gcc-multilib g++-multilib libsdl2-dev:i386 libasound2-dev:i386 libpulse-dev:i386 libaudio-dev:i386
+          libjack-dev:i386 libsndio-dev:i386 libsamplerate0-dev:i386 libx11-dev:i386 libxext-dev:i386 libxrandr-dev:i386
+          libxcursor-dev:i386 libxfixes-dev:i386 libxi-dev:i386 libxss-dev:i386 libxkbcommon-dev:i386 libdrm-dev:i386
+          libgbm-dev:i386 libgl1-mesa-dev:i386 libgles2-mesa-dev:i386 libegl1-mesa-dev:i386 libdbus-1-dev:i386
+          libibus-1.0-dev:i386 libudev-dev:i386 fcitx-libs-dev:i386 libpipewire-0.3-dev:i386 libwayland-dev:i386
+          libdecor-0-dev:i386
+        version: '1.0'
+
+    - name: Install tool UASM
+      uses: supplypike/setup-bin@v3
+      with:
+        uri: 'https://github.com/Terraspace/UASM/files/9881874/uasm256_linux64.zip'
+        name: 'uasm'
+        version: '2.56'
+
+    - name: Get latest CMake and ninja
+      uses: lukka/get-cmake@latest
+
+    - name: Run CMake
+      run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --preset linux
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --target lba2

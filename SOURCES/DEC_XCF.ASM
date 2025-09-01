@@ -3,7 +3,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*/
 
 		.386P
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
@@ -21,9 +21,9 @@ SHIFT		equ	6
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-		Public	syscall	XCF_BaseOldScr
-		Public	syscall	XCF_BaseNewScr
-		Public	syscall	XCF_BaseData
+		Public	C	XCF_BaseOldScr
+		Public	C	XCF_BaseNewScr
+		Public	C	XCF_BaseData
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
@@ -169,9 +169,9 @@ TabCorrect	dd	offset Return
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-		Public	syscall	XCF_Decompressor
-		Public	syscall	XCF_InitDecompressor
-		Public	syscall	XCF_DecompressorHeight
+		Public	C	XCF_Decompressor
+		Public	C	XCF_InitDecompressor
+		Public	C	XCF_DecompressorHeight
 
 
 

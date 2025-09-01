@@ -1,37 +1,17 @@
 ;*──────────────────────────────────────────────────────────────────────────*
 			.386P
-			.MODEL	FLAT
+			.MODEL	FLAT, C
 
+			.DATA
+
+;*──────────────────────────────────────────────────────────────────────────*
+; Runtime code patch refactor, uses memory instead of instruction substitution
+BlockSize DWORD 2
 ;*──────────────────────────────────────────────────────────────────────────*
 			.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
-			public	SYSCALL	ExpandLZ
-
-;*──────────────────────────────────────────────────────────────────────────*
-IFDEF	_WIN32
-			extrn	SYSCALL	AllowPatchAndPatch:PROC
-ENDIF
-
-;*──────────────────────────────────────────────────────────────────────────*
-BlockSize		equ	byte ptr[PatchBlockSize+2]
-
-;*──────────────────────────────────────────────────────────────────────────*
-IFDEF	_WIN32
-
-ExpandLZInit		PROC
-
-			push	offset ExpandLZ
-			push	offset ExpandLZEnd
-			push	offset Patch_Jump
-
-			jmp	AllowPatchAndPatch
-Patch_Jump:
-			mov	BlockSize, al		; This code is 5 bytes long
-
-ExpandLZInit		ENDP
-
-ENDIF
+			public	C	ExpandLZ
 
 ;*──────────────────────────────────────────────────────────────────────────*
 ;void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
@@ -40,13 +20,17 @@ ENDIF
 ;	parm	[edi] [ebx] [ecx] [eax]	\
 ;	modify	[edx esi]
 
-ExpandLZ		PROC
+ExpandLZ		PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			Dst: DWORD, Src: DWORD, DecompSize: DWORD, MinBloc: DWORD
 
-IFDEF	_WIN32
-			jmp	NEAR PTR ExpandLZInit	; This code is 5 bytes long
-ELSE
-			mov	BlockSize, al		; This code is 5 bytes long TOO!
-ENDIF
+			mov edi, Dst
+			mov ebx, Src
+			mov ecx, DecompSize
+			mov eax, MinBloc
+
+			mov	[BlockSize], eax
+
 			push	ebp
 
 			mov	ebp, ecx		; EBP = decomp size
@@ -88,7 +72,7 @@ copie:							; ici on a 16 bits formant un offset
 			and	ecx, 0Fh		; longueur; on masque nos registres
 
 			add	ebx, 2
-PatchBlockSize::	add	ecx, 2			; on ajuste car pas de copie de moins de 2 (ou 3)
+			add	ecx, [BlockSize]			; on ajuste car pas de copie de moins de 2 (ou 3)
 
 							; XOR EAX,-1  <=> NOT EAX, sauf que ca
 							; permet le "pairing"
@@ -161,7 +145,7 @@ Fast_Done:
 termine:
 			pop	ebp
 			ret
-ExpandLZEnd::
+
 ExpandLZ		ENDP
 
 ;*──────────────────────────────────────────────────────────────────────────*

@@ -1,10 +1,7 @@
-#include <system\adeline.h>
-#include <system\initkeyb.h>
-#include <system\input.h>
+#include <SYSTEM/INPUT.H>
 
-#ifndef	_WIN32
-#include <system\dossys.h>
-#endif
+#include <SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/KEYBOARD.H>
 
 //***************************************************************************
 	U32	Input		;

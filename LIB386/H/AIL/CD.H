@@ -15,7 +15,7 @@ extern "C" {
 //
 //	Returns	:			drive letter of CD
 //--------------------------------------------------------------------------
-char	OpenCD(char *volume_name)	;
+const char*	OpenCD(char *volume_name)	;
 
 //--------------------------------------------------------------------------
 //	CloseCD :			close CD-ROM drive

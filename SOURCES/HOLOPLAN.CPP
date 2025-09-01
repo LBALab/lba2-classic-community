@@ -1,4 +1,8 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 #define	ZOOM_A	2048	//	Big Islands
 #define	ZOOM_B	1024	//	Islands with 4 cubes
@@ -65,7 +69,7 @@ void	DrawObjFix(T_SORT *ptt)
 	SetClip( 0, 0, ModeDesiredX-1, Dial_Y0-1 )	;
 
 //	buf = (S16*)HQR_Get( HQR_ObjFix, ptt->NumObj );
-	buf = (S16*)GivePtrObjFix( ptt->NumObj );	//
+	buf = (S16*)GivePtrObjFix( ptt->NumObj );
 	if ( !buf )	return			;
 
 	ymin = *(buf+3)	;
@@ -297,7 +301,12 @@ void	DrawListHoloPlan()
 			{
 				angle = (angle+timer)&4095	;
 
-				if ( abs (angle-3072) < 64 )
+				// angle-3072 results in long unsigned int
+				// but interpreting that an implicit cast to
+				// int is happening since this is the signature
+				// of the abs function in Watcom lib.
+				int tmpFix = angle-3072;
+				if ( abs (tmpFix) < 64 )
 					DecalTimerRef[arrow] = 3072	;
 			}
 		}
@@ -400,6 +409,7 @@ void	InitHoloPlan()
 	S32	lalpha, lbeta	;
 	S32	distance	;
 	S32	id		;
+	char	tmpFilePath[ADELINE_MAX_PATH];
 
 	InitHoloMalloc()	;
 
@@ -420,9 +430,11 @@ void	InitHoloPlan()
 	}
 	else	id = HQR_BEGIN_MAP+(2*ZoomedIsland)	;
 
-	Load_HQR( HOLO_HQR_NAME, Log, id )	;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
 
-	Load_HQR( HOLO_HQR_NAME, buffer, id+1 )	;
+	Load_HQR( tmpFilePath, Log, id )	;
+
+	Load_HQR( tmpFilePath, buffer, id+1 )	;
 
 	AffUpperLeft( 0, 0, 0 )		;
 	AffLowerLeft( 0, 479, 0 )	;
@@ -449,10 +461,10 @@ void	InitHoloPlan()
 	orgmx = (orgmx*SCE)+offx;
 	orgmz = (orgmz*SCE)+offz;
 
-	BufFleche = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_FLECHE )	;
-	BufLoFleche = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_LOFLECHE );
-	BufBuggy = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_BUGGY )	;
-	BufDyno = (U8*)LoadHoloMalloc_HQR( HOLO_HQR_NAME, HQR_DYNO )	;
+	BufFleche = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_FLECHE )	;
+	BufLoFleche = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_LOFLECHE );
+	BufBuggy = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_BUGGY )	;
+	BufDyno = (U8*)LoadHoloMalloc_HQR( tmpFilePath, HQR_DYNO )	;
 
 	ScaleRotBody3D( BufFleche, ArrowFactorScale[ZoomedIsland], FALSE )  ;
 	ScaleRotBody3D( BufLoFleche, ArrowFactorScale[ZoomedIsland], FALSE );
@@ -859,7 +871,7 @@ void	HoloPlan(S32 numplan)
 		AffHoloMess()	;
 
 #ifndef	LBA_EDITOR
-		CheckSaveLogPcx( PtrPal ) ;// F9: Sauve Screen dans PATH_PCX_SAVE
+		CheckSaveLogPcx( PtrPal ) ;// F9: Sauve Screen
 #endif
 
 		BoxUpdate()	;

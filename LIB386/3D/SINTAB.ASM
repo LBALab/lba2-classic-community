@@ -1,10 +1,10 @@
 		.386p
-		.model	SMALL, SYSCALL
+		.model	SMALL, C
 
 		.data
 
-		public	SYSCALL SinTab
-		public	SYSCALL CosTab
+		public	C SinTab
+		public	C CosTab
 
 ; Sinus Table: 5120 16bits values
 

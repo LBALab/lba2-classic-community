@@ -1,4 +1,4 @@
-#include	"c_extern.h"
+#include	"C_EXTERN.H"
 
 //***************************************************************************
 S32	PofDisplay3DExt( S32 x, S32 y, S32 z, S32 num_pof, S32 scale, S32 rotation )

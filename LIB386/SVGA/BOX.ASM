@@ -1,23 +1,25 @@
 ;----------------------------------------------------------------------------
 			.386P
-			.MODEL SMALL, SYSCALL
+			.MODEL SMALL, C
 
 ;----------------------------------------------------------------------------
 			.DATA
 
 ;----------------------------------------------------------------------------
-			EXTRN	SYSCALL	ClipXMin	:DWORD
-			EXTRN	SYSCALL	ClipYMin	:DWORD
-			EXTRN	SYSCALL	ClipXMax	:DWORD
-			EXTRN	SYSCALL	ClipYMax	:DWORD
-			EXTRN	SYSCALL	Log		:DWORD
-			EXTRN	SYSCALL	TabOffLine	:DWORD
+			EXTRN	C	ClipXMin	:DWORD
+			EXTRN	C	ClipYMin	:DWORD
+			EXTRN	C	ClipXMax	:DWORD
+			EXTRN	C	ClipYMax	:DWORD
+			EXTRN	C	Log		:DWORD
+			EXTRN	C	TabOffLine	:DWORD
+
+			ASSUME DS:SEG Log
 
 ;----------------------------------------------------------------------------
 			.CODE
 
 ;----------------------------------------------------------------------------
-			PUBLIC	SYSCALL Box
+			PUBLIC	C Box
 
 ;----------------------------------------------------------------------------
 ;void	Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
@@ -26,7 +28,19 @@
 ;	parm	[eax] [ebx] [ecx] [edx] [esi]	\
 ;	modify	[edi]
 
-Box			proc	uses ebp
+Box			PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			x0: DWORD, \
+			y0: DWORD, \
+			x1: DWORD, \
+			y1: DWORD, \
+			col: DWORD
+			mov eax, x0
+			mov ebx, y0
+			mov ecx, x1
+			mov edx, y1
+			mov esi, col
+
 ;----------------------
 			cmp	eax, ClipXMax
 			jg	Box_End

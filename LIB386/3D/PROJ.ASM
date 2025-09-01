@@ -1,60 +1,48 @@
 ;*══════════════════════════════════════════════════════════════════════════*
-		.386p
+		.586p
+		.MMX
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
-		include	3d.inc
-		include	iammx.inc
+		include	3D.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	ProcessorSignature:DWORD
-		extrn	SYSCALL	ProcessorFeatureFlags:DWORD
+		extrn	C	XCentre:	DWORD
+		extrn	C	YCentre:	DWORD
+
+		extrn	C	NearClip:	DWORD
+
+		extrn	C	LFactorX:	DWORD
+		extrn	C	LFactorY:	DWORD
+
+		extrn	C	TypeProj:	DWORD
+
+		extrn	C	FRatioX:	DWORD
+		extrn	C	FRatioY:	DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		extrn	SYSCALL	XCentre:	DWORD
-		extrn	SYSCALL	YCentre:	DWORD
-
-		extrn	SYSCALL	NearClip:	DWORD
-
-		extrn	SYSCALL	LFactorX:	DWORD
-		extrn	SYSCALL	LFactorY:	DWORD
-
-		extrn	SYSCALL	TypeProj:	DWORD
-
-		extrn	SYSCALL	FRatioX:	DWORD
-		extrn	SYSCALL	FRatioY:	DWORD
+		extrn   C LongProjectPoint:		DWORD
+		extrn   C ProjectList:			DWORD
 
 ;*══════════════════════════════════════════════════════════════════════════*
-	        extrn   SYSCALL LongProjectPoint:		DWORD
-	        extrn   SYSCALL LongRotateProjectPoint:		DWORD
-	        extrn   SYSCALL LongWorldRotateProjectPoint:	DWORD
 
-                extrn   SYSCALL ProjectList:			DWORD
-                extrn   SYSCALL LongProjectList:		DWORD
+		 ASSUME DS:SEG XCentre
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*
-                extrn   SYSCALL LongProjectPointInit:           PROC
-                extrn   SYSCALL LongRotateProjectPointInit:     PROC
-                extrn   SYSCALL LongWorldRotateProjectPointInit:PROC
-
-                extrn   SYSCALL LongProjectPointIso:		PROC
-                extrn   SYSCALL LongWorldRotateProjectPointIso:	PROC
-
-                extrn   SYSCALL ProjectListInit:		PROC
-                extrn   SYSCALL LongProjectListInit:		PROC
-
-                extrn   SYSCALL ProjectListIso:			PROC
-                extrn   SYSCALL LongProjectListIso:		PROC
+		extrn   C LongProjectPoint3DF:	PROC
+		extrn   C LongProjectPointIso:	PROC
+		extrn   C ProjectList3DF:		PROC
+		extrn   C ProjectListIso:		PROC
 
 ;*══════════════════════════════════════════════════════════════════════════*
-		public	SYSCALL	SetProjection
-		public	SYSCALL	SetIsoProjection
+		public	C	SetProjection
+		public	C	SetIsoProjection
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	SetProjection(xc, yc, clip, factorx, factory)
@@ -63,50 +51,38 @@
 ;	parm caller [eax] [ebx] [ecx] [edx] [esi]	\
 ;	modify exact [eax ebx ecx edx]
 
-SetProjection	PROC
+SetProjection	PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			xc: DWORD, yc: DWORD, clip:DWORD, factorx: DWORD, factory: DWORD
+			mov eax, xc
+			mov ebx, yc
+			mov ecx, clip
+			mov edx, factorx
+			mov esi, factory
 
 		mov	[LFactorX], edx
 		mov	[LFactorY], esi
 
-		mov	edx, [ProcessorSignature]
-
-		and	edx, 400h
-		jz	noFPU
-
-		test	[ProcessorFeatureFlags], 1 SHL 23
-		jz	noMMX
-
-		emms
-noMMX:
 		fild	[LFactorX]	; fx
 		fild	[LFactorY]	; fy fx
 		fxch	st(1)		; fx fy
 		fst	[FRatioX]	; fx fy
 		fchs			;-fx fy
 		fdivp	st(1), st(0)	; -fy/fx
-noFPU:
+
 		mov	[XCentre], eax
 		mov	[YCentre], ebx
 
 		mov	[NearClip], ecx
 		mov	[TypeProj], TYPE_3D
 
-		mov	eax, offset LongProjectPointInit
-		mov	ebx, offset LongRotateProjectPointInit
-		mov	ecx, offset LongWorldRotateProjectPointInit
+		mov	eax, offset LongProjectPoint3DF
+		mov	ebx, offset ProjectList3DF
 		mov	LongProjectPoint, eax
-		mov	LongRotateProjectPoint, ebx
-		mov	LongWorldRotateProjectPoint, ecx
-		mov	eax, offset ProjectListInit
-		mov	ebx, offset LongProjectListInit
-		mov	ProjectList, eax
-		mov	LongProjectList, ebx
-
-		test	edx, edx
-		jz	noFPU2
+		mov	ProjectList, ebx
 
 		fstp	[FRatioY]
-noFPU2:
+
 		ret
 
 SetProjection	ENDP
@@ -118,7 +94,11 @@ SetProjection	ENDP
 ;	parm caller [eax] [ebx]		\
 ;	modify	[ecx]
 
-SetIsoProjection PROC
+SetIsoProjection PROC \
+			uses eax ebx ecx edx edi esi ebp\
+			xc: DWORD, yc: DWORD
+			mov eax, xc
+			mov ebx, yc
 
 		mov	[XCentre], eax
 		mov	[YCentre], ebx
@@ -126,15 +106,9 @@ SetIsoProjection PROC
 		mov	[TypeProj], TYPE_ISO
 
 		mov	eax, offset LongProjectPointIso
-		mov	ebx, offset LongRotateProjectPointInit
-		mov	ecx, offset LongWorldRotateProjectPointIso
+		mov	ebx, offset ProjectListIso
 		mov	LongProjectPoint, eax
-		mov	LongRotateProjectPoint, ebx
-		mov	LongWorldRotateProjectPoint, ecx
-		mov	eax, offset ProjectListIso
-		mov	ebx, offset LongProjectListIso
-		mov	ProjectList, eax
-		mov	LongProjectList, ebx
+		mov	ProjectList, ebx
 
 		ret
 

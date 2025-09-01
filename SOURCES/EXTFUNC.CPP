@@ -7,7 +7,10 @@
 		 └───┘  └────┘  └─────┘ └─────┘ └─┘ └─┘   └─┘
  *══════════════════════════════════════════════════════════════════════════*/
 
-#include "c_extern.h"
+#include "C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
 
 extern	S32	Nxw, Nyw, Nzw ;
 extern	S32	SaveNxw, SaveNzw ;
@@ -67,7 +70,7 @@ void	Init3DExt( )
 #ifdef	LBA_EDITOR
 	strcpy( IslandName, GetRessName("citadele") ) ;
 #else
-	strcpy( IslandName, PATH_RESSOURCE"citadele" ) ;
+	strcpy( IslandName, "citadele" ) ;
 #endif
 }
 
@@ -128,6 +131,7 @@ void	Init3DExtGame()
 void	InitGrilleExt( char *defpathname )
 {
 	S32	numskysea ;
+        char tmpFilePath[ADELINE_MAX_PATH];
 
 	InitDefFile( defpathname ) ;
 	CubeMode = DefFileBufferReadValue( "Mode" )	;
@@ -173,7 +177,8 @@ void	InitGrilleExt( char *defpathname )
 
 		if( LastIsland!=Island )
 		{
-			Load_HQR( RESS_HQR_NAME, SkySeaTexture, numskysea ) ;
+                        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+			Load_HQR( tmpFilePath, SkySeaTexture, numskysea ) ;
 			LoadIsland() ;
 
 			LastIsland = Island ;
@@ -192,7 +197,7 @@ void	InitGrilleExt( char *defpathname )
 }
 #else
 
-char	*IleLst[] = {
+const char	*IleLst[] = {
 	"citadel",
 	"sendell",
 	"desert",
@@ -210,6 +215,7 @@ char	*IleLst[] = {
 void	InitGrilleExt( U32 numcube )
 {
 	S32	numskysea ;
+	char	tmpFilePath[ADELINE_MAX_PATH];
 
 	// Pour virer Warning
 	numcube = numcube ;
@@ -229,8 +235,7 @@ void	InitGrilleExt( U32 numcube )
 				if( !strstr(IslandName,"citabeau") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "citabau" ) ;
+				strcpy( IslandName, "citabau" ) ;
 				numskysea = RESS_SKYSEA00 ;
 			}
 			else
@@ -238,8 +243,7 @@ void	InitGrilleExt( U32 numcube )
 				if( !strstr(IslandName,"citadel") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "citadel" ) ;
+				strcpy( IslandName, "citadel" ) ;
 
 				numskysea = RESS_SKYSEA0 ;
 			}
@@ -251,24 +255,22 @@ void	InitGrilleExt( U32 numcube )
 				if( !strstr(IslandName,"celebra2") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "celebra2" ) ;
+				strcpy( IslandName, "celebra2" ) ;
 			}
 			else
 			{
 				if( !strstr(IslandName,"celebrat") )
 					LastIsland = 1 ;	// pour que le chargement s'effectue
 
-				strcpy( IslandName, PATH_RESSOURCE ) ;
-				strcat( IslandName, "celebrat" ) ;
+				strcpy( IslandName, "celebrat" ) ;
 			}
 			numskysea = RESS_SKYSEA5 ;
 			break ;
 
 		default:
-//			DefFileBufferInit( PATH_RESSOURCE"ile.lst", Screen, 640*480 ) ;
+//			DefFileBufferInit( "ile.lst", Screen, 640*480 ) ;
 
-			strcpy( IslandName, PATH_RESSOURCE ) ;
+			strcpy( IslandName, "" ) ;
 //			strcat( IslandName, DefFileBufferReadStringDefault( Itoa( Island ), "citadel" ) ) ;
 			strcat( IslandName, IleLst[Island] ) ;
 
@@ -282,7 +284,8 @@ void	InitGrilleExt( U32 numcube )
 	{
 		if( LastIsland!=Island )
 		{
-			Load_HQR( RESS_HQR_NAME, SkySeaTexture, numskysea ) ;
+			GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+			Load_HQR( tmpFilePath, SkySeaTexture, numskysea ) ;
 
 			LoadIsland() ;
 			LastIsland = Island ;
@@ -781,7 +784,7 @@ void	ReajustPosExt( U8 col )
 							Nxw+APtObj->XMax, Nzw+APtObj->ZMax,
 							coly, Nyw ) ;
 
-				Nyw = __max(Nyw,ny) ;
+				Nyw = ade_max(Nyw,ny) ;
 
 				if( ShadowTestObject!=AnimNumObj )
 				{
@@ -1615,7 +1618,7 @@ void	DoAnimExt( U8 numobj  )
 								OR !FlagClimbing )
 								{
 /*#ifdef	LBA_EDITOR
-									if( stricmp(APtObj->StringAnim,GEN_ANIM_ARRIMAGE) )
+									if( strcasecmp(APtObj->StringAnim,GEN_ANIM_ARRIMAGE) )
 #else
 									if( APtObj->GenAnim!=GEN_ANIM_ARRIMAGE )
 #endif
@@ -1686,9 +1689,9 @@ void	DoAnimExt( U8 numobj  )
 		if( numobj==NUM_PERSO )
 		{
 #ifdef	LBA_EDITOR
-			if( !stricmp(APtObj->StringAnim,GEN_ANIM_CHOC)
-			OR  !stricmp(APtObj->StringAnim,GEN_ANIM_CHOC2)
-			OR  !stricmp(APtObj->StringAnim,GEN_ANIM_ENCAISSE) )
+			if( !strcasecmp(APtObj->StringAnim,GEN_ANIM_CHOC)
+			OR  !strcasecmp(APtObj->StringAnim,GEN_ANIM_CHOC2)
+			OR  !strcasecmp(APtObj->StringAnim,GEN_ANIM_ENCAISSE) )
 #else
 			if( APtObj->GenAnim==GEN_ANIM_CHOC
 			OR  APtObj->GenAnim==GEN_ANIM_CHOC2
@@ -1738,7 +1741,7 @@ void	DoAnimExt( U8 numobj  )
 	AND ((Comportement != C_PROTOPACK)	// on ne meurre pas en marche jetpack
 	AND (Comportement != C_JETPACK)
 #ifdef	LBA_EDITOR
-	OR  stricmp(APtObj->StringAnim,GEN_ANIM_MARCHE)) )
+	OR  strcasecmp(APtObj->StringAnim,GEN_ANIM_MARCHE)) )
 #else
 	OR  APtObj->GenAnim!=GEN_ANIM_MARCHE) )
 #endif
@@ -1831,7 +1834,7 @@ findoanimext:
 		// pour le protopack
 		if( Comportement==C_PROTOPACK
 #ifdef	LBA_EDITOR
-		AND stricmp(APtObj->StringAnim,GEN_ANIM_MARCHE) )
+		AND strcasecmp(APtObj->StringAnim,GEN_ANIM_MARCHE) )
 #else
 		AND APtObj->GenAnim==GEN_ANIM_MARCHE )
 #endif
@@ -1934,10 +1937,10 @@ void	DrawGrilleFeuille3D( S32 xi, S32 zi )
 
 	UnsetClip() ;
 
-	cx0 = __min( __min(x0,x1), __min(x2,x3) ) ;
-	cy0 = __min( __min(z0,z1), __min(z2,z3) ) ;
-	cx1 = __max( __max(x0,x1), __max(x2,x3) ) ;
-	cy1 = __max( __max(z0,z1), __max(z2,z3) ) ;
+	cx0 = ade_min( ade_min(x0,x1), ade_min(x2,x3) ) ;
+	cy0 = ade_min( ade_min(z0,z1), ade_min(z2,z3) ) ;
+	cx1 = ade_max( ade_max(x0,x1), ade_max(x2,x3) ) ;
+	cy1 = ade_max( ade_max(z0,z1), ade_max(z2,z3) ) ;
 
 	sens = MapPolyGround[zi*64*2+xi*2].Sens ;
 
@@ -2108,11 +2111,11 @@ S32	GereMouseMovements( S32 boutons )
 	{
 		SaveTimer() ;
 
-		GetMouseDep() ;
+		ManageMouse() ;
 		while( MyClick )
 		{
 			MyGetInput() ;
-			GetMouseDep() ;
+			ManageMouse() ;
 
 			AlphaCam += MouseYDep ;
 			BetaCam += MouseXDep ;
@@ -2563,7 +2566,7 @@ S16	SearchNumCube( S32 x, S32 y )
 		if( pt AND strchr(pt,';') )
 			*(char *)strchr(pt,';') = '\0' ;
 
-		if( pt!=0 AND !strnicmp(scename,pt,len) )	return n ;
+		if( pt!=0 AND !strncasecmp(scename,pt,len) )	return n ;
 
 		n++ ;
 	}

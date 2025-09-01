@@ -4,7 +4,7 @@
                          ▀▀▀▀▀ ▀▀▀▀▀ ▀▀▀▀▀ ▀▀▀▀▀ ▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 
-#include 	"c_extern.h"
+#include 	"C_EXTERN.H"
 
 #define	MAX_SAMPLE_PITCH	11000
 #define	MIN_SAMPLE_PITCH2	5000

@@ -1,6 +1,10 @@
 #ifndef	SORT_H
 #define	SORT_H
 
+#include <3D/MOVE.H>
+#include "PTRFUNC.H"
+#include "COMMON.H"
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 typedef struct
 {

@@ -1,75 +1,46 @@
-//──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
-#include	<system\dosmallo.h>
-#include	<system\n_malloc.h>
+#include <SYSTEM/N_MALLOC.H>
 
-#include	<malloc.h>
+#include <stdlib.h>
 
-//──────────────────────────────────────────────────────────────────────────
-#define	MALLOC_MASK	(~(MALLOC_ALIGN-1))
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-//──────────────────────────────────────────────────────────────────────────
-void	*NormMalloc(U32 size)
-{
-	S32	addr, temp	;
+// -----------------------------------------------------------------------------
+#define MALLOC_MASK (~(MALLOC_ALIGN - 1))
 
-	temp = (S32)malloc(size+MALLOC_ALIGN)	;
+// -----------------------------------------------------------------------------
+void *NormMalloc(U32 size) {
+  U64 addr, temp;
 
-	if(!temp)
-	{
-		return	NULL	;
-	}
+  temp = (U64)malloc(size + MALLOC_ALIGN);
 
-	addr = (temp+MALLOC_ALIGN)&MALLOC_MASK	;
+  if (!temp) {
+    return NULL;
+  }
 
-	*((S8*)addr-2)	= 0			;
-	*((S8*)addr-1)	= (S8)(addr - temp)	;
+  addr = (temp + MALLOC_ALIGN) & MALLOC_MASK;
 
-	return (void*)addr	;
+  *((S8 *)addr - 2) = 0;
+  *((S8 *)addr - 1) = (S8)(addr - temp);
+
+  return (void *)addr;
 }
 
-//──────────────────────────────────────────────────────────────────────────
-void	NormFree(void *addr)
-{
-#ifndef	_WIN32
-	if(*((S8*)addr-2))
-	{
-		NormDosFree(addr);
-	}
-	else
-	{
-#endif//_WIN32
-		addr = (void*)( (S32)addr - *((S8*)addr-1) )	;
-		free(addr)	;
-#ifndef	_WIN32
-	}
-#endif//_WIN32
+void NormFree(void *addr) {
+  addr = (void *)((U64)addr - *((S8 *)addr - 1));
+  free(addr);
 }
 
-//──────────────────────────────────────────────────────────────────────────
-void	*NormMshrink(void *addr, U32 size)
-{
-	void	*temp	;
-
-#ifndef	_WIN32
-	if(*((S8*)addr-2))
-	{
-		addr = NormDosMshrink(addr, size)	;
-	}
-	else
-	{
-#endif//_WIN32
-		temp = (void*)( (S32)addr - *((S8*)addr-1) )	;
-
-		if(!_expand(temp, (size_t)(size+MALLOC_ALIGN)))
-		{
-			addr = NULL	;
-		}
-#ifndef	_WIN32
-	}
-#endif//_WIN32
-
-	return addr	;
+void *NormMshrink(void *addr, U32 size) {
+  // There is no portable equivalent to '_expand' without changing
+  //   code that uses this function, making it fail is valid according to
+  //   the "contract" of the function
+  return NULL;
 }
 
-//──────────────────────────────────────────────────────────────────────────
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif

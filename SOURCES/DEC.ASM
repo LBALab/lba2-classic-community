@@ -3,7 +3,7 @@
 ;*══════════════════════════════════════════════════════════════════════════*/
 
 		.386P
-		.model FLAT, SYSCALL
+		.model FLAT, C
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
@@ -21,27 +21,27 @@ SHIFT		equ	6
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-		Public	syscall	BaseOldScr
-		Public	syscall	BaseNewScr
-		Public	syscall	BaseData
+		Public	C	BaseOldScr
+		Public	C	BaseNewScr
+		Public	C	BaseData
 
-		Public	syscall	Patch_CodeLen
-		Public	syscall	Patch_MaxLine
+		Public	C	Patch_CodeLen
+		Public	C	Patch_MaxLine
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-		Public	syscall	CurLine
-		Public	syscall	CurCol
-		Public	syscall	DeltaBase
-		Public	syscall	NewScr
-		Public	syscall	Codes
-		Public	syscall	CurCodes
-		Public	syscall	Bits
-		Public	syscall	Colors
-		Public	syscall	Dummy
-		Public	syscall	TabLines
-		Public	syscall	TabFunc
-		Public	syscall	TabCorrect
+		Public	C	CurLine
+		Public	C	CurCol
+		Public	C	DeltaBase
+		Public	C	NewScr
+		Public	C	Codes
+		Public	C	CurCodes
+		Public	C	Bits
+		Public	C	Colors
+		Public	C	Dummy
+		Public	C	TabLines
+		Public	C	TabFunc
+		Public	C	TabCorrect
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
@@ -225,8 +225,8 @@ TabCorrect	dd	offset Return
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-		Public	syscall	Decompressor
-		Public	syscall	InitDecompressor
+		Public	C	Decompressor
+		Public	C	InitDecompressor
 
 ;*══════════════════════════════════════════════════════════════════════════*/
 

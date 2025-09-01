@@ -20,25 +20,15 @@
 
 
 
+OPTION SCOPED
+
 PUBLIC			Fill_Sphere
 
-PUBLIC			Fill_VLDisc1
-PUBLIC			Fill_VLDisc2
-PUBLIC			Fill_VLDisc3
-PUBLIC			Fill_VLDisc4
-
-
-PUBLIC			First_POLYDISCPatch
-PUBLIC			Last_POLYDISCPatch
-
-
-
-
-INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
+INCLUDE			FILLER.INC
 
 
 			.386
-			.MODEL FLAT, SYSCALL
+			.MODEL FLAT, C
 
 
 
@@ -49,10 +39,10 @@ INCLUDE			F:\PROJET\LIB386\H\FILLER.INC
 ; ╚═══════════════════════════════════════════════════════════════════════════╝
 
 			.DATA
-Extrn	SYSCALL	ClipXMin		:	DWORD	; Fenetre de clipping
-Extrn	SYSCALL	ClipXMax		:	DWORD
-Extrn	SYSCALL	ClipYMin		:	DWORD
-Extrn	SYSCALL	ClipYMax		:	DWORD
+Extrn	C	ClipXMin		:	DWORD	; Fenetre de clipping
+Extrn	C	ClipXMax		:	DWORD
+Extrn	C	ClipYMin		:	DWORD
+Extrn	C	ClipYMax		:	DWORD
 
 Extrn			TabOffLine		:	DWORD	; Table des offsets des debuts de ligne
 Extrn			Log			:	DWORD	; PTR sur l'ecran logique
@@ -424,16 +414,6 @@ nosphere:
 			ret
 Fill_Sphere		ENDP
 
-
-
-
-
-
-First_POLYDISCPatch	Label	DWORD
-
-
-
-
 ; ╔═════════════════════════════════════════════════════════════════════════════════╗
 ; ║ Sph_Line_Flat : Trace un segment horizontal en Flat                             ║
 ; ╟─────────────────────────────────────────────────────────────────────────────────╢
@@ -448,7 +428,7 @@ First_POLYDISCPatch	Label	DWORD
 Sph_Line_Flat		PROC
 			pushad
 
-Fill_VLDisc1::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			add	edi,[Log]		; Ecran logique
 
 			mov	ebx,[Sph_XMin]
@@ -481,7 +461,7 @@ Sph_Line_Flat		ENDP
 Sph_Line_FlatZBuf	PROC
 			pushad
 
-Fill_VLDisc3::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			mov	ebx,edi
 			add	edi,[Log]		; Ecran logique
 			add	ebx,ebx
@@ -520,7 +500,7 @@ Sph_Line_FlatZBuf	ENDP
 Sph_Line_FlatNZW	PROC
 			pushad
 
-Fill_VLDisc4::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			mov	ebx,edi
 			add	edi,[Log]		; Ecran logique
 			add	ebx,ebx
@@ -573,7 +553,7 @@ Sph_Line_FlatNZW	ENDP
 Sph_Line_Transp		PROC
 			pushad
 
-Fill_VLDisc2::		mov	edi,[TabOffLine+ebx*4]
+			mov	edi,[TabOffLine+ebx*4]
 			add	edi,[Log]		; Ecran logique
 
 			mov	ebx,[Sph_XMin]
@@ -627,12 +607,6 @@ Fill_VLDisc2::		mov	edi,[TabOffLine+ebx*4]
 			popad
 			ret
 Sph_Line_Transp		ENDP
-
-
-
-Last_POLYDISCPatch	Label	DWORD
-
-
 
 ;Seg_Code		ENDS
 

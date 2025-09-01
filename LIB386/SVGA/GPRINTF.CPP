@@ -1,74 +1,76 @@
-//──────────────────────────────────────────────────────────────────────────
-#include	<system\adeline.h>
-#include	<svga\affstr.h>
-#include	<svga\clip.h>
-#include	<svga\dirtybox.h>
-#include	<svga\gprintf.h>
+#include <SVGA/GPRINTF.H>
 
-#include	<stdio.h>
-#include	<stdarg.h>
-#include	<string.h>
+#include <SVGA/AFFSTR.H>
+#include <SVGA/CLIP.H>
+#include <SVGA/DIRTYBOX.H>
 
-//──────────────────────────────────────────────────────────────────────────
-S32	TextXMin	= 0	;
-S32	TextXMax	= 0	;
-S32	TextYMin	= 0	;
-S32	TextYMax	= 0	;
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 
-//──────────────────────────────────────────────────────────────────────────
-void	GraphPrintf( U32 flagflip, U32 x, U32 y, char *format, ... )
-{
-	S32	len ;
-	char	*ptr ;
-	char	msgbuf[256];
-	va_list arglist;
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-	if( (y<ClipYMin) OR (y>ClipYMax-7) OR (x>ClipXMax))	return ;
+// -----------------------------------------------------------------------------
+S32 TextXMin = 0;
+S32 TextXMax = 0;
+S32 TextYMin = 0;
+S32 TextYMax = 0;
 
-        va_start( arglist, format );
-        len = _vbprintf( msgbuf, 256, format, arglist );
-        va_end( arglist );
+// -----------------------------------------------------------------------------
+void GraphPrintf(U32 flagflip, U32 x, U32 y, const char *format, ...) {
+  S32 len;
+  char *ptr;
+  char msgbuf[256];
+  va_list arglist;
 
-	if(len==-1)						return ;
+  if ((y < ClipYMin) OR(y > ClipYMax - 7) OR(x > ClipXMax))
+    return;
 
-	ptr = msgbuf ;
+  va_start(arglist, format);
+  len = vsnprintf(msgbuf, 256, format, arglist);
+  va_end(arglist);
 
-	if( x + len*8 - 1 > ClipXMax )
-	{
-		len = (ClipXMax-x)/8 ;
-		ptr[ len ] = 0 ;
-	}
+  if (len == -1)
+    return;
 
-	if( x < ClipXMin )
-	{
-		ptr += (ClipXMin-x)/8 ;
-		x += ClipXMin-x ;
-		len = strlen(ptr) ;
-	}
+  ptr = msgbuf;
 
-	if( ptr < msgbuf + len )
-	{
-		AffString( x, y, ptr )	;
+  if (x + len * 8 - 1 > ClipXMax) {
+    len = (ClipXMax - x) / 8;
+    ptr[len] = 0;
+  }
 
-		TextXMin = x ;
-		TextXMax = x+len*8-1 ;
-		TextYMin = y ;
-		TextYMax = y+7 ;
+  if (x < ClipXMin) {
+    ptr += (ClipXMin - x) / 8;
+    x += ClipXMin - x;
+    len = strlen(ptr);
+  }
 
-		BoxStaticAdd(TextXMin, TextYMin, TextXMax, TextYMax) ;
+  if (ptr < msgbuf + len) {
+    AffString(x, y, ptr);
 
-		if( flagflip )
-		{
-			BoxUpdate()	;
-		}
-	}
-	else
-	{
-	       	TextXMin = -1 ;
-	       	TextXMax = -1 ;
-	       	TextYMin = -1 ;
-	       	TextYMax = -1 ;
-	}
+    TextXMin = x;
+    TextXMax = x + len * 8 - 1;
+    TextYMin = y;
+    TextYMax = y + 7;
+
+    BoxStaticAdd(TextXMin, TextYMin, TextXMax, TextYMax);
+
+    if (flagflip) {
+      BoxUpdate();
+    }
+  } else {
+    TextXMin = -1;
+    TextXMax = -1;
+    TextYMin = -1;
+    TextYMax = -1;
+  }
 }
 
-//──────────────────────────────────────────────────────────────────────────
+// =============================================================================
+#ifdef __cplusplus
+}
+#endif

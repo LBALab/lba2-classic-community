@@ -1,4 +1,4 @@
-#include "defines.h"
+#include "DEFINES.H"
 
 extern	void	HPrintf( S32 x, S32 y, char *format, ... ) ;
 extern	U8	AnimNumObj ;

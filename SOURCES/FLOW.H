@@ -8,6 +8,8 @@
 #ifndef	FLOW_H
 #define	FLOW_H
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 typedef	struct
 	{
 		S16	Alpha;

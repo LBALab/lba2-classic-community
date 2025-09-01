@@ -2,6 +2,8 @@
 #ifndef	LIB_SYSTEM_HQ_MEM
 #define LIB_SYSTEM_HQ_MEM
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
 extern	"C"	{

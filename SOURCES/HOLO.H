@@ -2,10 +2,6 @@
 //────────────────────────────────────────────────────────────────────────────
 
 
-#define	HOLO_HQR_NAME		PATH_RESSOURCE"holomap.hqr"
-//#define	HOLO_HQR_NAME		"f:\\projet\\lba2\\sourcesn\\ress\\holomap.hqr"
-
-
 //#define	MAX_TRI	25
 //#define	ONE_DIR		1	//	all datas in current directory...
 #define	P_TWINSUN	0
@@ -216,7 +212,7 @@ extern	S32	SizeHoloMalloc					;
 #endif
 extern	void	InitHoloMalloc(void)				;
 extern	U8	*HoloMalloc( U32 size )				;
-extern	U8	*LoadHoloMalloc_HQR( char *name, S32 index )	;
+extern	U8	*LoadHoloMalloc_HQR( const char *name, S32 index )	;
 
 extern	void	ScaleRotBody3D( U8 *ptbody, S32 scale, S32 flagrot )	;
 extern	U32	GetSizeBody3D( U8 *ptbody )	;

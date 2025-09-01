@@ -1,4 +1,17 @@
-#include        "c_extern.h"
+#include        "C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/STRING.H>
+
+#include <dirent.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 
 /*══════════════════════════════════════════════════════════════════════════*
  *══════════════════════════════════════════════════════════════════════════*/
@@ -143,14 +156,11 @@ extern  S32     EscTimer ;
 #define NB_CAR_H        14
 #define NB_CAR_V        5
 
-char    PathSave[_MAX_PATH] ;
-char    GamePathname[_MAX_PATH] ;
-#ifdef	_WIN32
-char    OldGamePathname[_MAX_PATH] ;
-#endif
+char    GamePathname[ADELINE_MAX_PATH] ;
+char    OldGamePathname[ADELINE_MAX_PATH] ;
 char    PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 
-char    *MenuIncrustText = NULL ;
+const char    *MenuIncrustText = NULL ;
 S32     MenuIncrustTimer = 0 ;
 S32     MenuIncrustSprite= -1 ;
 
@@ -237,7 +247,7 @@ void    SetDetailLevel( void )
 }
 
 //──────────────────────────────────────────────────────────────────────────
-void    InitMenuIncrustText( char *text, S32 sprite, S32 time )
+void    InitMenuIncrustText( const char *text, S32 sprite, S32 time )
 {
         ManageTime() ;
         MenuIncrustText = text ;
@@ -301,139 +311,142 @@ void    DrawFireBar( S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul )
 
 int my_sort_function( const void *a, const void *b)
 {
-        return( stricmp( *(char**)a, *(char**)b) ) ;
-}
-
-/*──────────────────────────────────────────────────────────────────────────*/
-S32     PlayerGameList( char **ptrlistname, char *listname, S32 flagnew )
-{
-        struct  find_t  fileinfo ;
-        U32     rc ;
-        S32     wlong ;
-        char    pathname[_MAX_PATH] ;
-        S32     nb = 0 ;
-        U32     handle ;
-        char    **startptrlist = ptrlistname ;
-        U8      wbyte ;
-
-        strcpy( pathname, PathSave ) ;
-        strcat( pathname, "*.LBA"  ) ;
-
-        rc = _dos_findfirst( pathname, _A_NORMAL, &fileinfo ) ;
-        while( !rc )
-        {
-                strcpy( pathname, PathSave  ) ;
-                strcat( pathname,  fileinfo.name ) ;
-
-                // On ne liste pas l'autosave ni la currentsave
-                // D'ailleurs ces sauvegardes pourraient avoir une autre
-                // extension que .LBA ce qui éviterait ce test !
-                if( stricmp(pathname,AUTOSAVE_FILENAME)
-                AND stricmp(pathname,CURRENTSAVE_FILENAME) )
-                {
-                        handle = OpenRead( pathname ) ;
-                        if( handle )
-                        {
-                                Read( handle, &wbyte, 1 ) ;     // num version
-                                Read( handle, &wlong, sizeof(wlong) ) ; // num cube
-
-                                *ptrlistname++ = listname ;
-                                do
-                                {
-                                        Read( handle, &wbyte, 1 ) ;
-                                        *listname++ = wbyte ;
-                                } while( wbyte != 0 ) ;
-
-                                Close( handle ) ;
-
-                                nb++ ;
-                                if( nb == MAX_PLAYER )  return nb ;
-                        }
-                }
-                rc = _dos_findnext( &fileinfo ) ;
-        }
-
-        qsort(  (void *)startptrlist,
-                nb,
-                sizeof( char * ),
-                my_sort_function ) ;
-
-        if( !flagnew AND nb<MAX_PLAYER AND FileSize( AUTOSAVE_FILENAME ) )
-        {
-                strcpy( GamePathname, AUTOSAVE_FILENAME ) ;
-                LoadGamePlayerName() ;
-                *ptrlistname = listname  ;
-                strcpy( listname, PlayerName ) ;
-                nb++ ;
-        }
-
-        return nb ;
+        return( strcasecmp( *(char**)a, *(char**)b) ) ;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-S32     FindPlayerFile()
-{
-        struct  find_t  fileinfo ;
-        U32     rc ;
-        char    pathname[_MAX_PATH] ;
-        char    playername[MAX_SIZE_PLAYER_NAME+1] ;
-        U8      *ptr ;
-        U32     handle ;
-        S32     wlong ;
-        U8      wbyte ;
+S32 PlayerGameList(char **ptrlistname, char *listname, S32 flagnew) {
+  struct dirent *file;
+  DIR *dir;
+  S32 wlong;
+  char pathname[ADELINE_MAX_PATH];
+  S32 nb = 0;
+  S32 handle;
+  char **startptrlist = ptrlistname;
+  U8 wbyte;
 
-        strcpy( pathname, PathSave ) ;
-        strcat( pathname, "*.LBA"  ) ;
+  GetSavePath(pathname, ADELINE_MAX_PATH, NULL);
+  dir = opendir(pathname);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".LBA") != NULL) {
+        GetSavePath(pathname, ADELINE_MAX_PATH, file->d_name);
 
-        rc = _dos_findfirst( pathname, _A_NORMAL, &fileinfo ) ;
-        while( !rc )
-        {
-                strcpy( pathname, PathSave  ) ;
-                strcat( pathname,  fileinfo.name ) ;
+        struct stat st;
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          // On ne liste pas l'autosave ni la currentsave
+          // D'ailleurs ces sauvegardes pourraient avoir une autre
+          // extension que .LBA ce qui éviterait ce test !
+          if ((ade_strcasestr(pathname, AUTOSAVE_FILENAME) == NULL)
+              AND ade_strcasestr(pathname, CURRENTSAVE_FILENAME) == NULL) {
 
-                handle = OpenRead( pathname ) ;
+            // BUG WORKAROUND!
+            // Take the path again because, for some reason, on Wine the call to
+            //   stat() changes the disk letter on the path
+            //   passed (even parameter being a constant). Possibly a Bug on
+            //   WINE or/and MinGW libraries used.
+            GetSavePath(pathname, ADELINE_MAX_PATH, file->d_name);
+            handle = OpenRead(pathname);
+            if (handle) {
+              Read(handle, &wbyte, 1);             // num version
+              Read(handle, &wlong, sizeof(wlong)); // num cube
 
-                Read( handle, &wbyte, 1 ) ;     // num version
-                Read( handle, &wlong, sizeof(wlong) ) ; // num cube
+              *ptrlistname++ = listname;
+              do {
+                Read(handle, &wbyte, 1);
+                *listname++ = wbyte;
+              } while (wbyte != 0);
 
-                ptr = (U8*)playername ;
-                do
-                {
-                        Read( handle, &wbyte, 1 ) ;
-                        *ptr++ = wbyte ;
+              Close(handle);
 
-                } while( wbyte != 0 ) ;
-
-                Close( handle ) ;
-
-                if( !stricmp( PlayerName, playername ) )
-                {
-                        strcpy( GamePathname, PathSave  ) ;
-                        strcat( GamePathname, fileinfo.name ) ;
-                        return TRUE ;
-                }
-
-                rc = _dos_findnext( &fileinfo ) ;
+              nb++;
+              if (nb == MAX_PLAYER)
+                return nb;
+            }
+          }
         }
+      }
+    }
+    closedir(dir);
+  }
 
-        if( FileSize( AUTOSAVE_FILENAME ) )
-        {
-                strcpy( playername, PlayerName ) ;
+  qsort((void *)startptrlist, nb, sizeof(char *), my_sort_function);
 
-                strcpy( GamePathname, AUTOSAVE_FILENAME ) ;
-                LoadGamePlayerName() ;
+  GetSavePath(pathname, ADELINE_MAX_PATH, AUTOSAVE_FILENAME);
+  if (!flagnew AND nb < MAX_PLAYER AND ExistsFileOrDir(pathname)) {
+    strcpy(GamePathname, pathname);
+    LoadGamePlayerName();
+    *ptrlistname = listname;
+    strcpy(listname, PlayerName);
+    nb++;
+  }
 
-                if( !stricmp( PlayerName, playername ) )
-                {
-                        strcpy( PlayerName, playername ) ;
-                        return TRUE ;
-                }
+  return nb;
+}
 
-                strcpy( PlayerName, playername ) ;
+/*──────────────────────────────────────────────────────────────────────────*/
+
+S32 FindPlayerFile() {
+  struct dirent *file;
+  DIR *dir;
+  char pathname[ADELINE_MAX_PATH];
+  char playername[MAX_SIZE_PLAYER_NAME + 1];
+  U8 *ptr;
+  S32 handle;
+  S32 wlong;
+  U8 wbyte;
+
+  GetSavePath(pathname, ADELINE_MAX_PATH, NULL);
+  dir = opendir(pathname);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".LBA") != NULL) {
+        GetSavePath(pathname, ADELINE_MAX_PATH, file->d_name);
+
+        struct stat st;
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          handle = OpenRead(pathname);
+          Read(handle, &wbyte, 1);             // num version
+          Read(handle, &wlong, sizeof(wlong)); // num cube
+
+          ptr = (U8 *)playername;
+          do {
+            Read(handle, &wbyte, 1);
+            *ptr++ = wbyte;
+
+          } while (wbyte != 0);
+
+          Close(handle);
+
+          if (!strcasecmp(PlayerName, playername)) {
+            strcpy(GamePathname, pathname);
+            return TRUE;
+          }
         }
+      }
+    }
+    closedir(dir);
+  }
 
-        return FALSE ;
+  GetSavePath(pathname, ADELINE_MAX_PATH, AUTOSAVE_FILENAME);
+  if (ExistsFileOrDir(pathname)) {
+    strcpy(playername, PlayerName);
+
+    strcpy(GamePathname, pathname);
+    LoadGamePlayerName();
+
+    if (!strcasecmp(PlayerName, playername)) {
+      strcpy(PlayerName, playername);
+      return TRUE;
+    }
+
+    strcpy(PlayerName, playername);
+  }
+
+  return FALSE;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -578,7 +591,7 @@ S32     InputPlayerName( S32 choice, char *name )
         S32     retval = FALSE ;
         S32     akey ;
         S32     memoasciimode = AsciiMode ;
-        S32     x, y ;
+        S32     x=0, y=0;
         S32     len ;
         S32     timeraff, timernoaff ;
 
@@ -588,20 +601,18 @@ S32     InputPlayerName( S32 choice, char *name )
 	strcpy( memoplayername, name ) ;
         strcpy( PlayerName, name ) ;
 
-#ifdef	_WIN32
 	FindPlayerFile() ;
 
 	// pour pouvoir effacer une sauvegarde sous Windows si le joueur
 	// change le nom de la sauvegarde
-	if( stricmp(PlayerName,AUTOSAVE_NAME)		// on n'efface pas l'autosave !
-	AND stricmp(PlayerName,CURRENTSAVE_NAME)	// ni le currentsave !
-	AND stricmp(PlayerName,"")
-	AND stricmp(GamePathname,AUTOSAVE_FILENAME)		// on n'efface pas l'autosave !
-	AND stricmp(GamePathname,CURRENTSAVE_FILENAME) )	// ni le currentsave !
+	if( strcasecmp(PlayerName,AUTOSAVE_NAME)	// on n'efface pas l'autosave !
+	AND strcasecmp(PlayerName,CURRENTSAVE_NAME)	// ni le currentsave !
+	AND strcasecmp(PlayerName,"")
+	AND (ade_strcasestr(GamePathname,AUTOSAVE_FILENAME) == NULL)	// on n'efface pas l'autosave !
+	AND (ade_strcasestr(GamePathname,CURRENTSAVE_FILENAME) == NULL) )// ni le currentsave !
 	{
 		strcpy( OldGamePathname, GamePathname ) ;
 	}
-#endif
 
 	len = strlen( PlayerName ) ;
 
@@ -735,9 +746,7 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         U32     newcube = NewCube ;
         char    memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
 
-#ifdef	_WIN32
 	strcpy( OldGamePathname, "" ) ;
-#endif
 
 	strcpy( memoplayername, PlayerName ) ;
 
@@ -793,7 +802,7 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         {
                 for( select=0; select<nb-1; select++ )
                 {
-                        if( !stricmp(PlayerName,ptrlist[select]) )
+                        if( !strcasecmp(PlayerName,ptrlist[select]) )
                                 break ;
                 }
 
@@ -1097,7 +1106,7 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
 
                         if( flagnew )   // Nouvelle partie
                         {
-                                char    memoname[255] ;
+                                char    memoname[ADELINE_MAX_PATH] ;
 
                                 if( select==nb-1 )      strcpy( PlayerName, "" ) ;
                                 else
@@ -1110,31 +1119,20 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
 
                                 if( InputPlayerName( select-start, PlayerName ) )
                                 {
+                                        char tmpPlayerFilename[ADELINE_MAX_PATH];
                                         if( select==nb-1 )
                                         {
                                                 do
                                                 {
-                                                        strcpy( GamePathname, PathSave ) ;
-
-#ifdef  _WIN32  // Gestion des noms longs
-                                                        strncat( GamePathname, PlayerName, _MAX_PATH-(strlen(GamePathname)+1) ) ;
-#else
-                                                        strcat( GamePathname, "S" ) ;
-                                                        strcat( GamePathname, Itoa( MyRnd(10000) ) ) ;
-#endif
-							AddExt( GamePathname, ".LBA" ) ;
+							snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
+							GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
                                                 }
-                                                while( FileSize( GamePathname ) != 0 ) ;
+                                                while( FileSize( GamePathname ) != 0 ) ; // TODO: Review this sorcery
                                         }
                                         else    // renommer une sauvegarde
 					{
-#ifdef  _WIN32  // Gestion des noms longs (renomme la sauvegarde)
-						strcpy( GamePathname, PathSave ) ;
-						strncat( GamePathname, PlayerName, _MAX_PATH-(strlen(GamePathname)+1) ) ;
-						AddExt( GamePathname, ".LBA" ) ;
-#else
-						strcpy( GamePathname, memoname ) ;
-#endif
+						snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
+						GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
                                         }
 
                                         retval = 2 ;
@@ -1209,7 +1207,7 @@ S32     HQR_GiveOffset( T_HQR_HEADER *header, S32 index )
                 return 0                        ;
         }
 
-        Seek(handle, index, SEEK_START)         ;
+        Seek(handle, index, SEEK_FROM_START)         ;
         Read(handle, &index, 4)                 ;
 
         Close( handle ) ;
@@ -1539,9 +1537,7 @@ S32     DoGameMenu( U16 *ptrmenu )
 
 	InitShakeChoice()       ;//     NEW
 
-#ifdef  _WIN32
         AsciiMode = TRUE        ;
-#endif
 
         while( TRUE )
         {
@@ -1563,7 +1559,9 @@ S32     DoGameMenu( U16 *ptrmenu )
 //					DemoBumper() ;
 				SlideShow() ;
 
-				Load_HQR( SCREEN_HQR_NAME, Log, PCR_MENU ) ;
+                                char tmpFilePathScreen[ADELINE_MAX_PATH];
+                                GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+                                Load_HQR( tmpFilePathScreen, Log, PCR_MENU ) ;
                                 CopyScreen( Log, Screen ) ;
                                 BoxStaticAdd( 0, 0, ModeDesiredX-1, ModeDesiredY-1 ) ;
 
@@ -1588,9 +1586,7 @@ S32     DoGameMenu( U16 *ptrmenu )
                                 if( !FlagBlackPal )     FadeToBlack( PtrPal ) ;
 
                                 FadeMenu = TRUE ;
-#ifdef  _WIN32
                                 AsciiMode = FALSE ;
-#endif
                                 return 9999 ;
                         }
                 }
@@ -1776,7 +1772,7 @@ S32     DoGameMenu( U16 *ptrmenu )
                                 strcpy( memoplayername, PlayerName ) ;
                                 strcpy( memogamepathname, GamePathname ) ;
 
-                                strcpy( GamePathname, CURRENTSAVE_FILENAME ) ;
+                                GetSavePath(GamePathname, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
 
                                 ptr = LoadGameScreen( ) ;
                                 if( ptr )       DrawScreenSave( ptr, 240, 10 ) ;
@@ -1863,18 +1859,14 @@ S32     DoGameMenu( U16 *ptrmenu )
                 OR  MyKey==K_NUMPAD_ENTER )
                 {
                         WaitNoInput() ;
-#ifdef  _WIN32
                         AsciiMode = FALSE ;
-#endif
                         return ptrmenu[4 + 1 + selected*2] ; // num mess
                 }
 
                 if( MyKey == K_ESC
                 OR  Input & I_MENUS )
                 {
-#ifdef  _WIN32
                         AsciiMode = FALSE ;
-#endif
                         return 1000 ;
                 }
 
@@ -1884,18 +1876,14 @@ S32     DoGameMenu( U16 *ptrmenu )
                         // chargement d'un bug
                         if( MyKey == K_L )
                         {
-#ifdef  _WIN32
                                 AsciiMode = FALSE ;
-#endif
                                 return 2000 ;
                         }
 
                         // sauvegarde d'un bug
                         if( MyKey == K_G )
                         {
-#ifdef  _WIN32
                                 AsciiMode = FALSE ;
-#endif
                                 return 2001 ;
                         }
                 }
@@ -2194,10 +2182,12 @@ S32	FirstGame = FALSE ;
 
 S32	IsFirstGameLaunched( void )
 {
+        char tmpSaveFilePath[ADELINE_MAX_PATH];
 	if( !FirstGame )
 	{
+		GetSavePath(tmpSaveFilePath, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
 		if( !IsExistSavedGame()
-		AND !FileSize( CURRENTSAVE_FILENAME ) )
+		AND !ExistsFileOrDir(tmpSaveFilePath) )
 		{
 			FirstGame = TRUE ;
 		}
@@ -2220,7 +2210,8 @@ S32	IsFirstGameLaunched( void )
 void    BuildGameMainMenu( S32 firstloop )
 {
         char    memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
-        char    memogamepathname[_MAX_PATH] ;
+        char    memogamepathname[ADELINE_MAX_PATH] ;
+        char    tmpSavePath[ADELINE_MAX_PATH];
         U16     *ptrreal = RealGameMainMenu ;
         U16     *ptrmain = GameMainMenu ;
         U16     nb = 0 ;
@@ -2236,7 +2227,8 @@ void    BuildGameMainMenu( S32 firstloop )
 
         // reprendre partie
 
-        if( FileSize( CURRENTSAVE_FILENAME ) )
+        GetSavePath(tmpSavePath, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
+        if (ExistsFileOrDir(tmpSavePath))
         {
                 *ptrmain++ = *ptrreal ;
                 *ptrmain++ = *(ptrreal+1) ;
@@ -2303,6 +2295,8 @@ S32     MainGameMenu( S32 load )
         S32     savenewcube ;
         S32     gogame = FALSE ;
         S32     ret ;
+        char    tmpFilePathSave[ADELINE_MAX_PATH];
+        char    tmpFilePathScreen[ADELINE_MAX_PATH];
 
         HQ_StopSample() ;
         StopMusic() ;   // Pour Stopper la music du Logo
@@ -2311,7 +2305,8 @@ S32     MainGameMenu( S32 load )
         FlagShadeMenu = FALSE ;
 
 #ifdef  DEMO
-        if( !FileSize( CURRENTSAVE_FILENAME )
+        GetSavePath(tmpFilePathSave, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
+        if( !ExistsFileOrDir( tmpFilePathSave )
 #ifdef  DEBUG_TOOLS
         OR load
 #endif
@@ -2336,7 +2331,8 @@ S32     MainGameMenu( S32 load )
         if( load )                      goto load_game ;
 #endif
 
-        Load_HQR( SCREEN_HQR_NAME, Screen, PCR_MENU ) ;
+        GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+        Load_HQR( tmpFilePathScreen, Screen, PCR_MENU ) ;
         CopyScreen( Screen, Log ) ;
         BoxStaticFullflip() ;
         FadeToPal( PtrPalNormal ) ;
@@ -2371,10 +2367,11 @@ S32     MainGameMenu( S32 load )
 #ifdef  DEMO
                                         SlideShow() ;
 //                                        DemoBumper() ;
-					unlink( CURRENTSAVE_FILENAME ) ;
+					GetSavePath(tmpFilePathSave, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
+					unlink( tmpFilePathSave ) ;
 					FlagShowEndDemo = TRUE ;
 
-					Load_HQR( SCREEN_HQR_NAME, Log, PCR_MENU ) ;
+					Load_HQR( tmpFilePathScreen, Log, PCR_MENU ) ;
 					CopyScreen( Log, Screen ) ;
 					BoxStaticAdd( 0, 0, ModeDesiredX-1, ModeDesiredY-1 ) ;
 
@@ -2385,7 +2382,7 @@ S32     MainGameMenu( S32 load )
 #else
 					Credits( TRUE ) ;
 					PlayAcf( "BABY" ) ;
-					Load_HQR( SCREEN_HQR_NAME, Screen, PCR_MENU ) ;
+					Load_HQR( tmpFilePathScreen, Screen, PCR_MENU ) ;
 					CopyScreen( Screen, Log ) ;
 					BoxStaticFullflip() ;
 					EscTimer = 0 ;
@@ -2456,8 +2453,10 @@ S32     MainGameMenu( S32 load )
                                         gogame = TRUE ;
                                         RestoreTimer() ;
                                 }
-                                else if( FileSize( CURRENTSAVE_FILENAME ) > 0 )
-                                {
+                                else {
+                                  GetSavePath(tmpFilePathSave, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
+                                  if(ExistsFileOrDir(tmpFilePathSave))
+                                  {
                                         char    memoplayername[256] ;
                                         char    memogamepathname[256] ;
 
@@ -2470,7 +2469,7 @@ S32     MainGameMenu( S32 load )
 
                                         firstloop = FALSE ;
                                         strcpy( PlayerName, CURRENTSAVE_NAME ) ;
-                                        strcpy( GamePathname, CURRENTSAVE_FILENAME ) ;
+                                        strcpy( GamePathname, tmpFilePathSave) ;
                                         InitGame( -1 ) ;
                                         ChangeCube( ) ;
 
@@ -2521,6 +2520,7 @@ S32     MainGameMenu( S32 load )
 
                                         gogame = TRUE ;
                                         EscTimer = 0 ;
+                                  }
                                 }
                                 break ;
 
@@ -2599,9 +2599,7 @@ load_game:                                      firstloop = FALSE ;
                                         {
                                                 NumVersion = NUM_VERSION|SAVE_COMPRESS ;
 						CopyScreen( Screen, Log ) ;
-#ifdef	_WIN32
 						if( FileSize(OldGamePathname) )	Delete( OldGamePathname ) ;
-#endif
                                                 SaveGame( TRUE ) ;
                                                 HQ_ResumeSamples() ;
                                                 UnsetClipWindow() ;
@@ -2778,6 +2776,7 @@ void    GameOver()
         S16     *ptr3do ;
         S32     zoom ;
         U32     chrono ;
+        char    tmpFilePath[ADELINE_MAX_PATH];
 
 	HQ_StopSample() ;
 
@@ -2812,7 +2811,8 @@ void    GameOver()
 
 	PaletteSync( PtrPal ) ;
 
-        ptr3do = (S16 *)LoadMalloc_HQR( RESS_HQR_NAME, RESS_GAME_OVER ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+        ptr3do = (S16 *)LoadMalloc_HQR( tmpFilePath, RESS_GAME_OVER ) ;
         if( !ptr3do )   return ;
 
 	// lance un sample ou music de game over ??
@@ -2938,6 +2938,8 @@ void    Help( U8 flaggame )
 
 void    Credits( S32 mode )
 {
+        char tmpFilePath[ADELINE_MAX_PATH];
+
         SaveTimer() ;
 
 //      FadeToBlack( PtrPalNormal ) ;
@@ -2946,7 +2948,8 @@ void    Credits( S32 mode )
 
         SaveCamera() ;
 
-        GamePlayCredits( CREDITS_HQR_NAME, mode ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, CREDITS_HQR_NAME);
+        GamePlayCredits( tmpFilePath, mode ) ;
 
         RestoreCamera() ;
 
@@ -2954,7 +2957,8 @@ void    Credits( S32 mode )
 
 	if( !mode )
 	{
-		Load_HQR( SCREEN_HQR_NAME, Screen, PCR_MENU ) ;
+                GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+		Load_HQR( tmpFilePath, Screen, PCR_MENU ) ;
 		CopyScreen( Screen, Log ) ;
 		BoxStaticFullflip() ;
 	}
@@ -2969,8 +2973,6 @@ void    Credits( S32 mode )
 /*──────────────────────────────────────────────────────────────────────────*/
 
 // SlideShow de screenshots
-#define SCRSHOT_HQR_NAME        PATH_RESSOURCE"scrshot.hqr"
-
 S32     SlideShow( void )
 {
 	U8	pal[768+RECOVER_AREA] ;
@@ -2983,9 +2985,11 @@ S32     SlideShow( void )
 	U8	fadepal = FALSE ;
 	U8	memobulle = Bulle ;
 	U8	memocoul ;
+        char tmpScrshotFilePath[ADELINE_MAX_PATH];
 
         // recupere nombre de screen shot dans le .HQR directement
-        handle = OpenRead( SCRSHOT_HQR_NAME ) ;
+        GetResPath(tmpScrshotFilePath, ADELINE_MAX_PATH, SCRSHOT_HQR_NAME);
+        handle = OpenRead(tmpScrshotFilePath) ;
         if( handle )
         {
                 Read( handle, &nbshots, 4 ) ;
@@ -3018,7 +3022,7 @@ S32     SlideShow( void )
 		FadeToBlack( PtrPal ) ;
 
 		// charge image
-		Load_HQR( SCRSHOT_HQR_NAME, Log, (n*2) ) ;
+		Load_HQR( tmpScrshotFilePath, Log, (n*2) ) ;
 
 		// on peut pas afficher le logo LBA2 car il est dans la palette
 		// du jeu
@@ -3027,7 +3031,7 @@ S32     SlideShow( void )
 		Dial( START_SLIDESHOW_TEXT+n, FALSE ) ;
 
 		// charge palette
-		Load_HQR( SCRSHOT_HQR_NAME, pal, (n*2)+1 ) ;
+		Load_HQR( tmpScrshotFilePath, pal, (n*2)+1 ) ;
 
 		// reforce en blanc la couleur 12
 		pal[12*3]   = 255 ;
@@ -3135,15 +3139,17 @@ void    SlideDemo( int argc, char *argv[] )
 
 S32     AdelineLogo( void )
 {
+        char    tmpFilePath[ADELINE_MAX_PATH];
         U32     endtimer ;
         S32     ret = TRUE ;
 //      S32     volume ;
 
-        if( !Load_HQR( SCREEN_HQR_NAME, Log, PCR_LOGO ) )
-                TheEndCheckFile( SCREEN_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+        if( !Load_HQR( tmpFilePath, Log, PCR_LOGO ) )
+                TheEndCheckFile( tmpFilePath ) ;
 
-        if( !Load_HQR( SCREEN_HQR_NAME, PalettePcx, PCR_LOGO+1 ) )
-                TheEndCheckFile( SCREEN_HQR_NAME ) ;
+        if( !Load_HQR( tmpFilePath, PalettePcx, PCR_LOGO+1 ) )
+                TheEndCheckFile( tmpFilePath ) ;
 
         PtrPal = PalettePcx ;
 
@@ -3152,7 +3158,8 @@ S32     AdelineLogo( void )
 
 //      volume = RegleTrois( 0, SampleVolume, 127, 127 ) ;
         // ATTENTION: déborde sur ScreenAux (voir MEM.CPP) !!!!!!!
-//      if( Load_HQR( PATH_RESSOURCE"samples.hqr", PtrZBuffer, SAMPLE_LOGO ) )
+//      GetResPath(tmpFilePath, ADELINE_MAX_PATH, SAMPLES_HQR_NAME);
+//      if( Load_HQR( tmpFilePath, PtrZBuffer, SAMPLE_LOGO ) )
         {
                 S32     timer ;
 
@@ -3217,9 +3224,11 @@ S32     ShowLogo( S32 numscr, S32 nsec )
 {
 	U32     endtimer ;
 	S32     ret = TRUE ;
+        char    tmpFilePath[ADELINE_MAX_PATH];
 
-	if( Load_HQR( SCREEN_HQR_NAME, Log, numscr )
-	AND Load_HQR( SCREEN_HQR_NAME, PalettePcx, numscr+1) )
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+	if( Load_HQR( tmpFilePath, Log, numscr )
+	AND Load_HQR( tmpFilePath, PalettePcx, numscr+1) )
 	{
 		WaitNoInput() ;
 
@@ -3279,12 +3288,14 @@ S32     BumperLogo( void )
 {
 /*	U32     endtimer ;
 	S32     ret = TRUE ;
+	chat    tmpFilePath[ADELINE_MAX_PATH];
 
-	if( !Load_HQR( SCREEN_HQR_NAME, Log, PCR_BUMPER ) )
-		TheEndCheckFile( SCREEN_HQR_NAME ) ;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, Log, PCR_BUMPER ) )
+		TheEndCheckFile( tmpFilePath ) ;
 
-	if( !Load_HQR( SCREEN_HQR_NAME, PalettePcx, PCR_BUMPER+1) )
-		TheEndCheckFile( SCREEN_HQR_NAME ) ;
+	if( !Load_HQR( tmpFilePath, PalettePcx, PCR_BUMPER+1) )
+		TheEndCheckFile( tmpFilePath ) ;
 
 	WaitNoInput() ;
 
@@ -3368,9 +3379,11 @@ void    DemoBumper( void )
 {
 /*
 	U8      pal[768+RECOVER_AREA] ;
+	char    tmpFilePath[ADELINE_MAX_PATH];
 
-	if( Load_HQR( SCREEN_HQR_NAME, Log, PCR_BUMPER )
-	AND Load_HQR( SCREEN_HQR_NAME, pal, PCR_BUMPER+1 ) )
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+	if( Load_HQR( tmpFilePath, Log, PCR_BUMPER )
+	AND Load_HQR( tmpFilePath, pal, PCR_BUMPER+1 ) )
 	{
 		S32     endtimer ;
 
@@ -3393,11 +3406,11 @@ void    DemoBumper( void )
 
 		FadeToBlack( pal ) ;
 
-		Load_HQR( SCREEN_HQR_NAME, Log, PCR_MENU ) ;
+		Load_HQR( tmpFilePath, Log, PCR_MENU ) ;
 	}
 */
 	ShowLogo( PCR_BUMPER, 5 ) ;
-	Load_HQR( SCREEN_HQR_NAME, Log, PCR_MENU ) ;
+	Load_HQR( tmpFilePath, Log, PCR_MENU ) ;
 }
 #endif  // DEMO
 
@@ -3409,6 +3422,8 @@ void    DemoBumper( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 void    EffectPcx( U8 numpcx, U8 *screen, U8 effect, U8 flagbcl )
 {
+        char tmpFilePath[ADELINE_MAX_PATH];
+
         SaveTimer() ;
 
         numpcx *= 2 ;   // car il y a les palettes intercalées
@@ -3418,14 +3433,15 @@ void    EffectPcx( U8 numpcx, U8 *screen, U8 effect, U8 flagbcl )
         BoxReset() ;    // pour virer les boites de la scene
 
         // charge palette qui se trouve derriere dans le .HQR
-        if( !Load_HQR( SCREEN_HQR_NAME, PalettePcx, numpcx+1 ) )
-                TheEndCheckFile( SCREEN_HQR_NAME ) ;
+        GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+        if( !Load_HQR( tmpFilePath, PalettePcx, numpcx+1 ) )
+                TheEndCheckFile( tmpFilePath ) ;
 
         switch( effect )
         {
                 case PCX_FADE:
-                        if( !Load_HQR( SCREEN_HQR_NAME, Log, numpcx ) )
-                                TheEndCheckFile( SCREEN_HQR_NAME ) ;
+                        if( !Load_HQR( tmpFilePath, Log, numpcx ) )
+                                TheEndCheckFile( tmpFilePath ) ;
 
                         BoxStaticFullflip() ;
                         FadeToPal( PalettePcx ) ;
@@ -3436,8 +3452,8 @@ void    EffectPcx( U8 numpcx, U8 *screen, U8 effect, U8 flagbcl )
                         S32     x, y ;
                         U8      *ptr = screen ;
 
-                        if( !Load_HQR( SCREEN_HQR_NAME, screen, numpcx ) )
-                                TheEndCheckFile( SCREEN_HQR_NAME ) ;
+                        if( !Load_HQR( tmpFilePath, screen, numpcx ) )
+                                TheEndCheckFile( tmpFilePath ) ;
 
                         PaletteSync( PalettePcx ) ;
 
@@ -3453,7 +3469,7 @@ void    EffectPcx( U8 numpcx, U8 *screen, U8 effect, U8 flagbcl )
                                 }
 
                                 BoxStaticAdd( 0, y-5, ModeDesiredX-1, ModeDesiredY-1 ) ;
-                                VblVESA() ;
+                                WaitVideoSync();
                                 BoxUpdate() ;
                         }
                 }; break ;

@@ -2,27 +2,28 @@
 ;				 Grille_A.ASM 386
 ;			      (c) Adeline 1993
 ;----------------------------------------------------------------------------
+				OPTION SCOPED
 				.386P
-				.model SMALL, SYSCALL
+				.model SMALL, C
 ;----------------------------------------------------------------------------
 				.data
 ;----------------------------------------------------------------------------
-			public	SYSCALL	CodeJeu
 
-			public	SYSCALL	XMap
-			public	SYSCALL	YMap
-			public	SYSCALL	ZMap
+			public	C	CodeJeu
 
-			public	SYSCALL	XScreen
-			public	SYSCALL	YScreen
+			public	C	XMap
+			public	C	YMap
+			public	C	ZMap
 
-			public	SYSCALL	BufCube
-			public	SYSCALL	BufMap
-			public	SYSCALL	TabBlock
-			public	SYSCALL	BufferBrick
+			public	C	XScreen
+			public	C	YScreen
+
+			public	C	BufCube
+			public	C	BufMap
+			public	C	TabBlock
+			public	C	BufferBrick
 
 CodeJeu		db	0
-
 
 XMap		dd	0
 YMap		dd	0
@@ -57,29 +58,26 @@ DEMI_BRICK_Y	equ	128
 ;----------------------------------------------------------------------------
 				.code
 
-			public	SYSCALL	DecompColonne
-			public	SYSCALL	Map2Screen
-;'			public	SYSCALL	MixteColonne
-			public	SYSCALL	GetAdrBlock
-;'			public	SYSCALL	GetColBrick
-			public	SYSCALL	WorldColBrick
-			public	SYSCALL	WorldColBrickFull
-			public	SYSCALL	WorldCodeBrick
-			public	SYSCALL	GetBlockBrick
-			public	SYSCALL	GetWorldColBrickVisible
+			public	C	DecompColonne
+			public	C	Map2Screen
+;'			public	C	MixteColonne
+			public	C	GetAdrBlock
+			public	C	GetColBrick
+			public	C	WorldColBrick
+			public	C	WorldColBrickFull
+			public	C	WorldCodeBrick
+			public	C	GetBlockBrick
+			public	C	GetWorldColBrickVisible
 
 ;----------------------------------------------------------------------------
 ;*--------------------------------------------------------------------------*
 
-;// ATTENTION: passage de parametres par registres le 04/04/96
-;
-;	U8 *GetAdrBlock( S32 numblock)  ;
-;			     ecx
-;
+GetAdrBlock	proc	,\
+		numblock:DWORD
 
-GetAdrBlock	proc
+		mov	ecx, numblock
 
-		mov	eax, [TabBlock]		; pto = (ULONG*)TabBlock
+		mov	eax, [ds:TabBlock]		; pto = (ULONG*)TabBlock
 		add	eax, [ eax + ecx*4 ]	; TabBlock + pto[numbloc]
 
 		ret
@@ -88,11 +86,92 @@ GetAdrBlock	endp
 
 ;*--------------------------------------------------------------------------*
 
+GetColBrick 	proc	xm:DWORD, ym:DWORD, zm:DWORD
+
+	;' ptc = BufCube
+
+		mov	ecx, [ds:BufCube]
+
+	;' + (xm*SIZE_CUBE_Y*2)
+
+		mov	eax, xm
+		mov	[ds:XMap], eax
+
+		lea	eax, [eax*2]		; *2
+		mov	edx, eax		; =
+		lea	eax, [eax*8]		; *16
+		add	edx, eax		; 2  + 16 = 18
+		lea	edx, [edx+eax*2]	; 18 + 32 = 50
+
+		add	ecx, edx
+
+	;' + ym*2
+
+		mov	eax, ym
+		cmp	eax, -1
+		jle	col_1
+
+		mov	[ds:YMap], eax
+
+		lea	ecx, [ecx+eax*2]
+
+	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
+
+		mov	eax, zm
+		mov	[ds:ZMap], eax
+
+		shl	eax, 7			; *128
+		mov	edx, eax		; = 128
+		lea	eax, [eax*8]		; *1024
+		add	edx, eax		; 128  + 1024 = 1152
+		lea	edx, [edx+eax*2]	; 1152 + 2048 = 3200
+
+		add	ecx, edx
+
+		xor	eax, eax
+		mov	al, [ecx]
+
+		or	al, al
+		jz	nocol
+
+	;'	if( *ptc != 0 )
+	;'	{
+	;'		block = (*ptc++) - 1 ;
+	;'		adr = GetAdrBlock( block )	;
+	;'		adr += HEADER_BLOCK		;
+	;'		adr += (*ptc)<<2 		;/* 4 Bytes to Jump	*/
+	;'		return *adr ;
+	;'	}
+
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
+		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
+
+		add	edx, HEADER_BLOCK
+
+		mov	al, [ecx+1]
+		mov	al, [ edx + eax*4 ]
+
+		ret
+
+nocol:	;' return *(ptc+1)
+
+		mov	al, byte ptr[ecx+1]	; eventuelle col transparente
+		ret
+
+col_1:		mov	[ds:YMap], 0
+		mov	eax, 1
+		ret
+
+GetColBrick	endp
+
+
+;*--------------------------------------------------------------------------*
+
 WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 
 	;' ptc = BufCube
 
-		mov	ecx, [BufCube]
+		mov	ecx, [ds:BufCube]
 
 	;' + (xm*SIZE_CUBE_Y*2)
 
@@ -103,7 +182,7 @@ WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
 
-		mov	[XMap], eax
+		mov	[ds:XMap], eax
 
 	;' + ym*2
 
@@ -111,8 +190,8 @@ WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 
 	;' ym = yw/SIZE_BRICK_Y
 
-		sar	eax, 8			; /256
-		mov	[YMap], eax
+		sar	eax, 8			; /256 
+		mov	[ds:YMap], eax
 
 	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
 
@@ -123,9 +202,9 @@ WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
 
-		mov	[ZMap], eax
+		mov	[ds:ZMap], eax
 
-		mov	eax, [XMap]
+		mov	eax, [ds:XMap]
 		or	eax, eax		; bound
 		jl	ovfw
 		cmp	eax, 64
@@ -139,8 +218,7 @@ WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 
 		add	ecx, edx
 
-		mov	eax, [YMap]
-
+		mov	eax, [ds:YMap]
 		cmp	eax, -1
 		jle	col_1
 		cmp	eax, 25
@@ -148,12 +226,168 @@ WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 
 		lea	ecx, [ecx+eax*2]
 
-		mov	eax, [ZMap]
+		mov	eax, [ds:ZMap]
 
 		or	eax, eax		; check bound
 		jl	ovfw
 		cmp	eax, 64
 		jge	ovfw
+
+		shl	eax, 7			; *128
+		mov	edx, eax		; = 128
+		lea	eax, [eax*8]		; *1024
+		add	edx, eax		; 128  + 1024 = 1152
+		lea	edx, [edx+eax*2]	; 1152 + 2048 = 3200
+
+		add	ecx, edx
+
+		xor	eax, eax
+		mov	al, [ecx]
+
+		or	al, al
+		jz	nocol
+
+	;'	if( *ptc != 0 )
+	;'	{
+	;'		block = (*ptc++) - 1 ;
+	;'		adr = GetAdrBlock( block )	;
+	;'		adr += HEADER_BLOCK		;
+	;'		adr += (*ptc)<<2 		;/* 4 Bytes to Jump	*/
+	;'		return *adr ;
+	;'	}
+
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
+		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
+
+		add	edx, HEADER_BLOCK
+
+		mov	al, byte ptr[ecx+1]
+		lea	edx, [edx + eax*4 ]
+
+		mov	al, [edx]
+
+		; check full height
+		mov	edx, ymax
+		add	edx, 255
+		shr	edx, 8				; / 256 hauteur brick
+
+		push	ebx			; 
+		mov	ebx, [ds:YMap]             ; 
+
+th0:		cmp	ebx, 24			; 
+		jae	notesth                 ; 
+
+		add	ecx, 2
+		inc	ebx			; 
+
+		cmp	word ptr[ecx], 0
+		jnz	hcol
+		dec	edx
+		jnz	th0
+
+notesth:	pop	ebx			; 
+
+		ret
+
+nocol:	;' return *(ptc+1)
+
+		mov	al, byte ptr[ecx+1]			; eventuelle col transparente
+
+		; check full height
+		mov	edx, ymax
+		add	edx, 255
+		shr	edx, 8				; / 256 hauteur brick
+
+		push	ebx				;
+		mov	ebx, [ds:YMap]                     ; 
+
+th1:		cmp	ebx, 24				; 
+		jae	notsth                          ;
+
+		add	ecx, 2
+		inc	ebx				; 
+		cmp	word ptr[ecx], 0
+		jnz	hcol
+		dec	edx
+		jnz	th1
+
+notsth:		pop	ebx			; 
+
+		ret
+
+col_1:		; mov	[YMap], 0		;
+hcol:           pop	ebx			;
+		mov	eax, 1
+		ret
+
+ovfw:		mov	eax, 0
+		ret
+
+WorldColBrickFull	endp
+
+;*--------------------------------------------------------------------------*
+
+comment	#
+
+WorldColBrickFull2 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
+
+	;' ptc = BufCube
+
+		mov	ecx, [BufCube]
+
+	;' + (xm*SIZE_CUBE_Y*2)
+
+		mov	eax, xw
+
+;'		or	eax, eax		; bound
+;'		jl	ovfw
+;'		cmp	eax, 64*512
+;'		jg	ovfw
+
+	;' xm = (xw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+
+		mov	[XMap], eax
+
+		lea	eax, [eax*2]		; *2
+		mov	edx, eax		; =
+		lea	eax, [eax*8]		; *16
+		add	edx, eax		; 2  + 16 = 18
+		lea	edx, [edx+eax*2]	; 18 + 32 = 50
+
+		add	ecx, edx
+
+	;' + ym*2
+
+		mov	eax, yw
+
+		cmp	eax, -1
+		jle	col_1
+
+	;' ym = yw/SIZE_BRICK_Y
+
+		shr	eax, 8			; /256
+
+		mov	[YMap], eax
+		lea	ecx, [ecx+eax*2]
+
+	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
+
+		mov	eax, zw
+
+;'		or	eax, eax		; check bound
+;'		jl	ovfw
+;'		cmp	eax, 64*512
+;'		jg	ovfw
+
+	;' zm = (zw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+
+		mov	[ZMap], eax
 
 		shl	eax, 7			; *128
 		mov	edx, eax		; = 128
@@ -192,67 +426,47 @@ WorldColBrickFull 	proc	xw:DWORD, yw:DWORD, zw:DWORD, ymax:DWORD
 		mov	edx, ymax
 		add	edx, 255
 		shr	edx, 8				; / 256 hauteur brick
-
-		push	ebx
-		mov	ebx, [YMap]
-
-th0:		cmp	ebx, 24
-		jae	notesth
-
-		add	ecx, 2
-		inc	ebx
-
+th0:		add	ecx, 2
 		cmp	word ptr[ecx], 0
 		jnz	hcol
 		dec	edx
 		jnz	th0
 
-notesth:	pop	ebx
-
 		ret
 
 nocol:	;' return *(ptc+1)
 
-		mov	al, byte ptr[ecx+1]	; eventuelle col transparente
+		mov	al, byte ptr[ecx+1]			; eventuelle col transparente
 
 		; check full height
 		mov	edx, ymax
 		add	edx, 255
-		shr	edx, 8			; / 256 hauteur brick
-
-		push	ebx
-		mov	ebx, [YMap]
-
-th1:		cmp	ebx, 24
-		jae	notsth
-
-		add	ecx, 2
-		inc	ebx
+		shr	edx, 8				; / 256 hauteur brick
+th1:		add	ecx, 2
 		cmp	word ptr[ecx], 0
 		jnz	hcol
 		dec	edx
 		jnz	th1
 
-notsth:		pop	ebx
-
 		ret
 
-col_1:		; mov	[YMap], 0		; test y-1
-hcol:           pop	ebx
-		mov	al, 1
+col_1:		mov	[YMap], 0
+hcol:		mov	al, 1
 		ret
 
 ovfw:		mov	al, 0
 		ret
 
-WorldColBrickFull	endp
+WorldColBrickFull2	endp
+
+	#
 
 ;*--------------------------------------------------------------------------*
 
 WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 	;' ptc = BufCube
-		mov	ecx, [BufCube]
+		mov	ecx, [ds:BufCube]
 
 	;' + (xm*SIZE_CUBE_Y*2)
 		mov	eax, xw
@@ -261,14 +475,14 @@ WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
-		mov	[XMap], eax
+		mov	[ds:XMap], eax
 
 	;' + ym*2
 		mov	eax, yw
 	;' ym = yw/SIZE_BRICK_Y
 
-		sar	eax, 8			; /256
-		mov	[YMap], eax
+		shr	eax, 8			; /256
+		mov	[ds:YMap], eax
 
 	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
 
@@ -278,11 +492,11 @@ WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
-		mov	[ZMap], eax
+		mov	[ds:ZMap], eax
 
 
 
-		mov	eax, [XMap]
+		mov	eax, [ds:XMap]
 
 		or	eax, eax		; bound
 		jl	ovfw
@@ -297,11 +511,9 @@ WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		add	ecx, edx
 
-		mov	eax, [YMap]
-
+		mov	eax, [ds:YMap]
 		cmp	eax, -1
 		jle	col_1
-
 		or	eax, eax		; check bound
 		jl	ovfw
 		cmp	eax, 25
@@ -309,7 +521,7 @@ WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		lea	ecx, [ecx+eax*2]
 
-		mov	eax, [ZMap]
+		mov	eax, [ds:ZMap]
 
 		or	eax, eax		; check bound
 		jl	ovfw
@@ -339,14 +551,14 @@ WorldColBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 	;'		return *adr ;
 	;'	}
 
-		mov	edx, [TabBlock]			; pto = (ULONG*)TabBlock
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
 		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
 
 		add	edx, HEADER_BLOCK
 
 
-;	essai	mov	al, byte ptr[edx+1]		; code jeu
-;		mov	[CodeJeu], al
+;'	essai	mov	al, byte ptr[edx+1]		; code jeu
+;'		mov	[CodeJeu], al
 
 
 		mov	al, byte ptr[ecx+1]
@@ -361,72 +573,204 @@ nocol:	;' return *(ptc+1)
 		mov	al, byte ptr[ecx+1]			; eventuelle col transparente
 		ret
 
-col_1:		; mov	[YMap], 0		; test col-1
-		mov	al, 1
+col_1:		mov	[ds:YMap], 0
+		mov	eax, 1
 		ret
 
-ovfw:		mov	al, 0
+ovfw:		mov	eax, 0
 		ret
 
 WorldColBrick	endp
 
 ;*--------------------------------------------------------------------------*
 
-;----------------------------------------------------------------------------
+comment	#
 
-; SEBER
+WorldColBrick2 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
-;// ATTENTION: passage de parametres par registres le 09/04/96
-;
-;	U8 WorldCodeBrick( S32 xm, S32 ym, S32 zm )  ;
-;                           eax     ebx     ecx
-;
-;----------------------------------------------------------------------------
-WorldCodeBrick	proc
+	;' ptc = BufCube
 
-		shr	eax, 9			; xm/512
+		mov	ecx, [BufCube]
+
+	;' + (xm*SIZE_CUBE_Y*2)
+
+		mov	eax, xw
+
+		or	eax, eax		; bound
+		jl	ovfw
+;'		cmp	eax, 64*512
+;'		jge	ovfw
+
+	;' xm = (xw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
 
 		mov	[XMap], eax
 
 		lea	eax, [eax*2]		; *2
-
 		mov	edx, eax		; =
 		lea	eax, [eax*8]		; *16
 		add	edx, eax		; 2  + 16 = 18
 		lea	edx, [edx+eax*2]	; 18 + 32 = 50
 
-		add	edx, [BufCube]		; edx --> BufCube
+		add	ecx, edx
 
 	;' + ym*2
 
-		cmp	ebx, -1			; yw
+		mov	eax, yw
+
+;'		or	eax, eax		; check bound
+;'		jl	ovfw
+
+		cmp	eax, -1
+		jle	col_1
+
+	;' ym = yw/SIZE_BRICK_Y
+
+		shr	eax, 8			; /256
+
+		cmp	eax, 24
+		jg	ovfw
+
+
+		mov	[YMap], eax
+		lea	ecx, [ecx+eax*2]
+
+	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
+
+		mov	eax, zw
+
+		or	eax, eax		; check bound
+		jl	ovfw
+;'		cmp	eax, 64*512
+;'		jg	ovfw
+
+	;' zm = (zw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+
+		mov	[ZMap], eax
+
+		shl	eax, 7			; *128
+		mov	edx, eax		; = 128
+		lea	eax, [eax*8]		; *1024
+		add	edx, eax		; 128  + 1024 = 1152
+		lea	edx, [edx+eax*2]	; 1152 + 2048 = 3200
+
+		add	ecx, edx
+
+		xor	eax, eax
+		mov	al, [ecx]
+
+		or	al, al
+		jz	nocol
+
+	;'	if( *ptc != 0 )
+	;'	{
+	;'		block = (*ptc++) - 1 ;
+	;'		adr = GetAdrBlock( block )	;
+	;'		adr += HEADER_BLOCK		;
+	;'		adr += (*ptc)<<2 		;/* 4 Bytes to Jump	*/
+	;'		return *adr ;
+	;'	}
+
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
+		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
+
+		add	edx, HEADER_BLOCK
+
+
+;'	essai	mov	al, byte ptr[edx+1]		; code jeu
+;'		mov	[ds:CodeJeu], al
+
+
+		mov	al, byte ptr[ecx+1]
+		lea	edx, [edx + eax*4 ]
+
+		mov	al, [edx]
+
+		ret
+
+nocol:	;' return *(ptc+1)
+
+		mov	al, byte ptr[ecx+1]			; eventuelle col transparente
+		ret
+
+col_1:		mov	[ds:YMap], 0
+		mov	al, 1
+		ret
+
+ovfw:		mov	al, 1
+		ret
+
+WorldColBrick2	endp
+
+	#
+
+;*--------------------------------------------------------------------------*
+
+WorldCodeBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
+
+	;' ptc = BufCube
+
+		mov	ecx, [ds:BufCube]
+
+	;' + (xm*SIZE_CUBE_Y*2)
+
+		mov	eax, xw
+
+	;' xm = (xw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
+
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
+
+		mov	[ds:XMap], eax
+
+		lea	eax, [eax*2]		; *2
+		mov	edx, eax		; =
+		lea	eax, [eax*8]		; *16
+		add	edx, eax		; 2  + 16 = 18
+		lea	edx, [edx+eax*2]	; 18 + 32 = 50
+
+		add	ecx, edx
+
+	;' + ym*2
+
+		mov	eax, yw
+
+		cmp	eax, -1
 		jle	nocode
 
 	;' ym = yw/SIZE_BRICK_Y
 
-		shr	ebx, 8			; /256
+		shr	eax, 8			; /256
 
-		mov	[YMap], ebx
-
-		lea	edx, [edx+ebx*2]
+		mov	[ds:YMap], eax
+		lea	ecx, [ecx+eax*2]
 
 	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
+
+		mov	eax, zw
+
 	;' zm = (zw+DEMI_BRICK_XZ)/SIZE_BRICK_XZ
 
-		shr	ecx, 9			; /512
+;'		add	eax, DEMI_BRICK_XZ	; +256
+		shr	eax, 9			; /512
 
-		mov	[ZMap], ecx
+		mov	[ds:ZMap], eax
 
-		shl	ecx, 7			; *128
-		mov	eax, ecx		; = 128
-		lea	ecx, [ecx*8]		; *1024
-		add	eax, ecx		; 128  + 1024 = 1152
-		lea	eax, [eax+ecx*2]	; 1152 + 2048 = 3200
+		shl	eax, 7			; *128
+		mov	edx, eax		; = 128
+		lea	eax, [eax*8]		; *1024
+		add	edx, eax		; 128  + 1024 = 1152
+		lea	edx, [edx+eax*2]	; 1152 + 2048 = 3200
 
-		add	edx, eax
+		add	ecx, edx
 
 		xor	eax, eax
-		mov	al, [edx]
+		mov	al, [ecx]
 
 		or	al, al
 		jz	nocode
@@ -440,10 +784,12 @@ WorldCodeBrick	proc
 	;'		return *adr ;
 	;'	}
 
-		mov	edx, [TabBlock]			; pto = (ULONG*)TabBlock
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
 		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
 
-		mov	al, byte ptr[edx+1+HEADER_BLOCK]
+		add	edx, HEADER_BLOCK
+
+		mov	al, byte ptr[edx+1]
 		ret
 
 nocode:	;' return *(ptc+1)
@@ -454,60 +800,42 @@ nocode:	;' return *(ptc+1)
 WorldCodeBrick	endp
 
 ;----------------------------------------------------------------------------
-
 ;----------------------------------------------------------------------------
 
-;// ATTENTION: passage de parametres par registres le 04/04/96
-;
-;	void Map2Screen( S32 xm, S32 ym, S32 zm )  ;
-;                          eax     ecx     edx
-;
-; optimisé le 09/04/96 (esi + 1 instruction économisés)
-;
-;----------------------------------------------------------------------------
+Map2Screen		proc	,\
+			xm:DWORD, ym:DWORD, zm:DWORD
 
-Map2Screen		proc
+			mov	eax, xm
+			sub	eax, zm
+			mov	edx, eax
+			sal	eax, 4		;	*16
+			lea	eax, [eax + edx*8 + 320-8  -23-1]; *24 + XCentre proj
+			mov	ds:XScreen, eax
 
-			mov	ebx, eax	; save xm
-			sub	ebx, edx	; xm -= zm
-
-			add	edx, eax	; xm += zm
-
-			lea	eax, [edx*8]	; *8
+			mov	eax, xm
+			add	eax, zm
+			mov	edx, eax
+			lea	eax, [eax*8]	; *8
 			lea	eax, [eax+edx*4]; *12
-
-			mov	edx, ecx	; ym
+			mov	edx, ym
 			shl	edx, 4		; *16
-			sub	edx, ecx	; *15
+			sub	edx, ym		; *15
 			sub	eax, edx
-			add	eax, 240-14	; YCentre proj
-			mov	YScreen, eax
-
-			mov	eax, ebx	; restore xm-zm
-			sal	ebx, 4		;	*16
-			lea	ebx, [ebx + eax*8 + 320-8  -23-1]; *24 + XCentre proj
-			mov	XScreen, ebx
-
+			add	eax, 240  -14	; YCentre proj
+;'			add	eax, 240  -25	; YCentre proj
+			mov	ds:YScreen, eax
 			ret
 Map2Screen		endp
-
-
 ;----------------------------------------------------------------------------
 
-; SERGER
+DecompColonne		proc	uses esi edi ebx,\
+			pts:DWORD, ptd:DWORD
 
-
-;// ATTENTION: passage de parametres par registres le 04/04/96
-;
-;	void DecompColonne( U8 *pts, U8 *ptd )  ;
-;			     	esi      edi
-;
-; optimisé (ebx économisé) le 09/04/96
-;
-DecompColonne	proc
+			mov	esi, pts
+			mov	edi, ptd
 			xor	ecx, ecx
 ;----------------------------------------------- Get Nb Entity
-			mov	dl, [esi]	; BL = NbEntity
+			mov	bl, [esi]	; BL = NbEntity
 			inc	esi
 ;----------------------------------------------- For Every Entity
 NewEntity:		lodsb			; OpCode
@@ -521,18 +849,19 @@ NewEntity:		lodsb			; OpCode
 ;----------------------------------------------- Write Same Brick
 			lodsw			; Get NumBlock & PosBlock
 			rep	stosw		; Fill Brick
-			dec	dl		; Entity--
+			dec	bl		; Entity--
 			jne	NewEntity	; Again
 			ret			; End
 ;----------------------------------------------- Incrust ( Full off Nothing )
-JumpZero:		xor	eax, eax        ; NumBlock & PosBlock = 0
+JumpZero:		xor	ax, ax          ; NumBlock & PosBlock = 0
 			rep	stosw		; Fill
-			dec	dl		; Entity--
+			dec	bl		; Entity--
 			jne	NewEntity	; Again
 			ret			; End
 ;----------------------------------------------- Write Diff Brick
-WriteDiffBrick:		rep	movsw		; Copy NumBlock & PosBlock
-			dec	dl		; Entity--
+WriteDiffBrick:
+			rep	movsw		; Copy NumBlock & PosBlock
+			dec	bl		; Entity--
 			jne	NewEntity	; Again
 			ret			; end
 DecompColonne		endp
@@ -576,11 +905,12 @@ MixteColonne		endp
 */@
 ;----------------------------------------------------------------------------
 
-;----------------------------------------------------------------------------
+
+
 GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 	;' ptc = BufCube
-		mov	ecx, [BufCube]
+		mov	ecx, [ds:BufCube]
 
 	;' + (xm*SIZE_CUBE_Y*2)
 		mov	eax, xw
@@ -589,7 +919,7 @@ GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
-		mov	[XMap], eax
+		mov	[ds:XMap], eax
 
 	;' + ym*2
 		mov	eax, yw
@@ -600,7 +930,7 @@ GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 	;' ym = yw/SIZE_BRICK_Y
 
 		shr	eax, 8			; /256
-		mov	[YMap], eax
+		mov	[ds:YMap], eax
 
 	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
 
@@ -610,11 +940,11 @@ GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
-		mov	[ZMap], eax
+		mov	[ds:ZMap], eax
 
 
 
-		mov	eax, [XMap]
+		mov	eax, [ds:XMap]
 
 		or	eax, eax		; bound
 		jl	ovfw
@@ -629,7 +959,7 @@ GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		add	ecx, edx
 
-		mov	eax, [YMap]
+		mov	eax, [ds:YMap]
 		cmp	eax, -1
 		jle	col_1
 		or	eax, eax		; check bound
@@ -639,7 +969,7 @@ GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		lea	ecx, [ecx+eax*2]
 
-		mov	eax, [ZMap]
+		mov	eax, [ds:ZMap]
 
 		or	eax, eax		; check bound
 		jl	ovfw
@@ -659,7 +989,7 @@ GetBlockBrick 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		ret
 
-col_1:		mov	[YMap], 0
+col_1:		mov	[ds:YMap], 0
 		mov	al, 1
 		ret
 
@@ -674,7 +1004,7 @@ GetBlockBrick	endp
 GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 	;' ptc = BufCube
-		mov	ecx, [BufCube]
+		mov	ecx, [ds:BufCube]
 
 	;' + (xm*SIZE_CUBE_Y*2)
 		mov	eax, xw
@@ -683,14 +1013,14 @@ GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
-		mov	[XMap], eax
+		mov	[ds:XMap], eax
 
 	;' + ym*2
 		mov	eax, yw
 	;' ym = yw/SIZE_BRICK_Y
 
 		shr	eax, 8			; /256
-		mov	[YMap], eax
+		mov	[ds:YMap], eax
 
 	;' + zm*3200 (SIZE_CUBE_X*SIZE_CUBE_Y*2)
 
@@ -700,11 +1030,11 @@ GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 ;'		add	eax, DEMI_BRICK_XZ	; +256
 		shr	eax, 9			; /512
-		mov	[ZMap], eax
+		mov	[ds:ZMap], eax
 
 
 
-		mov	eax, [XMap]
+		mov	eax, [ds:XMap]
 
 		or	eax, eax		; bound
 		jl	ovfw
@@ -719,7 +1049,7 @@ GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		add	ecx, edx
 
-		mov	eax, [YMap]
+		mov	eax, [ds:YMap]
 		cmp	eax, -1
 		jle	col_1
 		or	eax, eax		; check bound
@@ -729,7 +1059,7 @@ GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		lea	ecx, [ecx+eax*2]
 
-		mov	eax, [ZMap]
+		mov	eax, [ds:ZMap]
 
 		or	eax, eax		; check bound
 		jl	ovfw
@@ -759,14 +1089,14 @@ GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 	;'		return *adr ;
 	;'	}
 
-		mov	edx, [TabBlock]			; pto = (ULONG*)TabBlock
+		mov	edx, [ds:TabBlock]			; pto = (ULONG*)TabBlock
 		add	edx, [ edx + eax*4 - 4]		; TabBlock + pto[numblock]
 
 		add	edx, HEADER_BLOCK
 
 
-;	essai	mov	al, byte ptr[edx+1]		; code jeu
-;		mov	[CodeJeu], al
+;'	essai	mov	al, byte ptr[edx+1]		; code jeu
+;'		mov	[CodeJeu], al
 
 
 		mov	al, byte ptr[ecx+1]
@@ -776,7 +1106,7 @@ GetWorldColBrickVisible 	proc	xw:DWORD, yw:DWORD, zw:DWORD
 
 		ret
 
-col_1:		mov	[YMap], 0
+col_1:		mov	[ds:YMap], 0
 		mov	eax, 1
 		ret
 
@@ -786,26 +1116,7 @@ ovfw:		mov	eax, 0
 
 GetWorldColBrickVisible	endp
 
-;----------------------------------------------------------------------------
+;
+;*--------------------------------------------------------------------------*
 ;				The
 				End
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

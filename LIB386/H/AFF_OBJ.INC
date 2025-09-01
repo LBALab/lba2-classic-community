@@ -308,7 +308,7 @@ OBJ_3D			STRUCT
 
   NbGroups		dd	MAX_GROUPS
 
-  CurrentFrame		db	MAX_GROUPS*(size GROUP_INFO) DUP (<>)
+  CurrentFrame		db	MAX_GROUPS*(size GROUP_INFO) DUP (0)
 OBJ_3D			ENDS
 
 

@@ -2,9 +2,9 @@
 
 		.386p
 
-		.model SMALL, SYSCALL
+		.model SMALL, C
 
-		include	mat.inc
+		include	MAT.INC
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -12,24 +12,32 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		extrn	SYSCALL CameraX:DWORD
-		extrn	SYSCALL CameraY:DWORD
-		extrn	SYSCALL CameraZ:DWORD
+		extrn	C CameraX:DWORD
+		extrn	C CameraY:DWORD
+		extrn	C CameraZ:DWORD
 
-		extrn	SYSCALL CameraXr:DWORD
-		extrn	SYSCALL CameraYr:DWORD
-		extrn	SYSCALL CameraZr:DWORD
+		extrn	C CameraXr:DWORD
+		extrn	C CameraYr:DWORD
+		extrn	C CameraZr:DWORD
 
-		extrn	SYSCALL CameraZrClip:DWORD
+		extrn	C CameraZrClip:DWORD
 
-		extrn	SYSCALL FRatioX:DWORD
-		extrn	SYSCALL FRatioY:DWORD
+		extrn	C FRatioX:DWORD
+		extrn	C FRatioY:DWORD
 
-		extrn	SYSCALL XCentre:DWORD
-		extrn	SYSCALL YCentre:DWORD
+		extrn	C XCentre:DWORD
+		extrn	C YCentre:DWORD
 
-		extrn	SYSCALL Xp:DWORD
-		extrn	SYSCALL Yp:DWORD
+		extrn	C Xp:DWORD
+		extrn	C Yp:DWORD
+
+		public	C	LongProjectPoint3D
+		public	C	LongProjectPoint
+
+		LongProjectPoint3D	dd	offset LongProjectPoint3DF
+		LongProjectPoint	dd	offset LongProjectPoint3DF
+
+		ASSUME  DS:SEG CameraX
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
@@ -37,7 +45,7 @@
 
 ;*══════════════════════════════════════════════════════════════════════════*
 
-		public	SYSCALL	LongProjectPoint3DF
+		public	C	LongProjectPoint3DF
 
 ;*══════════════════════════════════════════════════════════════════════════*
 ;void	LongProjectPoint3DF(S32 x, S32 y, S32 z)		;

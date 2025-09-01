@@ -1,4 +1,10 @@
-#include 	"c_extern.h"
+#include 	"C_EXTERN.H"
+#include "DIRECTORIES.H"
+
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 #define	SHADE_INVENT_LVL	8
 
@@ -1068,7 +1074,7 @@ void	MenuInventory( U32 tempo )
 
 		// pour pouvoir restaurer anim marche protopack
 #ifdef	LBA_EDITOR
-		if( !stricmp(ListObjet[NUM_PERSO].StringAnim,GEN_ANIM_MARCHE) )
+		if( !strcasecmp(ListObjet[NUM_PERSO].StringAnim,GEN_ANIM_MARCHE) )
 #else
 		if( ListObjet[NUM_PERSO].GenAnim==GEN_ANIM_MARCHE )
 #endif
@@ -2083,10 +2089,12 @@ void    RouleauLeft()
 void	ChangeArdoise( S32 left )	// 0:right, 1:left
 {
 	S32 savetimer ;
+	char tmpFilePath[ADELINE_MAX_PATH];
 
 	// Chargement pcx
-	if( !Load_HQR( SCREEN_HQR_NAME, Screen, ListArdoise[CurrentArdoise]*2 ) )// *2 pour compter les palettes
-		TheEndCheckFile( SCREEN_HQR_NAME ) ;
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, Screen, ListArdoise[CurrentArdoise]*2 ) )// *2 pour compter les palettes
+		TheEndCheckFile( tmpFilePath ) ;
 
 	CopyBlock( PLAN_X0, PLAN_Y0, PLAN_X1, PLAN_Y1, BufSpeak,
 		   PLAN_X0, PLAN_Y0, Log ) ;//	Restore Ardoise
@@ -2113,8 +2121,11 @@ void	ChangeArdoise( S32 left )	// 0:right, 1:left
 
 void	DrawArdoise( )
 {
-	if( !Load_HQR( SCREEN_HQR_NAME, Log, PCR_ARDOISE ) )
-		TheEndCheckFile( SCREEN_HQR_NAME ) ;
+	char tmpFilePath[ADELINE_MAX_PATH];
+
+	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+	if( !Load_HQR( tmpFilePath, Log, PCR_ARDOISE ) )
+		TheEndCheckFile( tmpFilePath ) ;
 
 	CopyScreen( Log, BufSpeak )	;//	Ardoise Vierge
 /*
@@ -2125,8 +2136,8 @@ void	DrawArdoise( )
 	if( CurrentArdoise>=0 AND CurrentArdoise<NbArdoise )
 	{
 		// Chargement pcx
-		if( !Load_HQR( SCREEN_HQR_NAME, Screen, ListArdoise[CurrentArdoise]*2 ) )// *2 pour compter les palettes
-			TheEndCheckFile( SCREEN_HQR_NAME ) ;
+		if( !Load_HQR( tmpFilePath, Screen, ListArdoise[CurrentArdoise]*2 ) )// *2 pour compter les palettes
+			TheEndCheckFile( tmpFilePath ) ;
 
 		CopyBlockIncrust( PLAN_X0, PLAN_Y0, PLAN_X1, PLAN_Y1, Screen,
 				  PLAN_X0, PLAN_Y0, Log ) ;

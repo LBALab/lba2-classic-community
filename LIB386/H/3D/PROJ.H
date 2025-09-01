@@ -1,38 +1,21 @@
-//****************************************************************************
-#ifndef	LIB_3D_PROJ
-#define	LIB_3D_PROJ
+#pragma once
 
-//****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#include <SYSTEM/ADELINE_TYPES.H>
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-//****************************************************************************
-#define	TYPE_3D		0
-#define	TYPE_ISO	1
+// -----------------------------------------------------------------------------
+enum ProjectionType { TYPE_3D = 0, TYPE_ISO = 1 };
 
-//****************************************************************************
-void	SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx, S32 factory);
+// -----------------------------------------------------------------------------
+extern void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
+                          S32 factory);
+extern void SetIsoProjection(S32 xcentre, S32 ycentre);
 
-#pragma aux SetProjection	"*"			\
-	parm caller [eax] [ebx] [ecx] [edx] [esi]	\
-	modify exact [eax ebx ecx edx]
-
-
-//****************************************************************************
-void	SetIsoProjection(S32 xcentre, S32 ycentre);
-
-#pragma aux SetIsoProjection	"*"	\
-	parm caller [eax] [ebx]		\
-	modify	[ecx]
-
-//****************************************************************************
-#ifdef	__cplusplus
+// =============================================================================
+#ifdef __cplusplus
 }
 #endif
-
-//****************************************************************************
-#endif//LIB_3D_PROJ
-
-//****************************************************************************
-

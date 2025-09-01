@@ -1,4 +1,7 @@
-#include "c_extern.h"
+#include "C_EXTERN.H"
+
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 #define	TAILLE_MAX_CHEAT_CODE	10
 
@@ -54,7 +57,7 @@ static inline void	InitCheatCode()
 	NbKeyInBuffer = 0;
 }
 
-char *CheatText[] = {
+const char *CheatText[] = {
 	"Life Found",
 	"Magic Found",
 	"Found Everything !",
@@ -74,7 +77,6 @@ void	GereCheatCode( void )
 	S32	cheat, start ;
 	S32	text = -1 ;
 	S32	sprite = -1 ;
-#ifdef	_WIN32
 	S32	key	;
 
 	while((key = GetAscii()) != 0)
@@ -86,14 +88,7 @@ void	GereCheatCode( void )
 		{
 			continue;
 		}
-#else
-	{
-		if(	( MyKey < K_A )
-		OR	( MyKey > K_N )	)
-		{
-			return	;
-		}
-#endif
+
 		memmove( BufferCheatCode, BufferCheatCode+1, TAILLE_MAX_CHEAT_CODE-1 );
 		BufferCheatCode[TAILLE_MAX_CHEAT_CODE-1] = (U8)MyKey ;
 
@@ -116,11 +111,7 @@ void	GereCheatCode( void )
 				start++;
 			}
 		}
-#ifdef	_WIN32
 		continue	;	// Cheat not found
-#else
-		return		;	// Cheat not found
-#endif
 
 exit_loop:
 		// clear cheat du buffer

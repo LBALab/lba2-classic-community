@@ -96,53 +96,53 @@ extern	S32	PtrGereKeys( U32 key, U32 flagmenu ) ;
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_ReajustPos	*PtrReajustPos ;
 
-#pragma	aux	PtrReajustPos	"*"
+//#pragma	aux	PtrReajustPos	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_GetShadow	*PtrGetShadow ;
 
-#pragma	aux	PtrGetShadow	"*"
+//#pragma	aux	PtrGetShadow	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_DoAnim	*PtrDoAnim ;
 
-#pragma	aux	PtrDoAnim	"*"
+//#pragma	aux	PtrDoAnim	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_WorldColBrick	*PtrWorldColBrick ;
 
-#pragma	aux	PtrWorldColBrick	"*"
+//#pragma	aux	PtrWorldColBrick	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_WorldColBrickVisible	*PtrWorldColBrickVisible ;
 
-#pragma	aux	PtrWorldColBrickVisible	"*"
+//#pragma	aux	PtrWorldColBrickVisible	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_ProjectShadow	*PtrProjectShadow ;
 
-#pragma	aux	PtrFunc_ProjectShadow	"*"
+//#pragma	aux	PtrFunc_ProjectShadow	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_ReajustPosExtra	*PtrReajustPosExtra ;
 
-#pragma	aux	PtrReajustPosExtra	"*"
+//#pragma	aux	PtrReajustPosExtra	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_Init3DView	*PtrInit3DView ;
 
-#pragma	aux	PtrInit3DView	"*"
+//#pragma	aux	PtrInit3DView	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern	Func_InitGrille	*PtrInitGrille ;
 
-#pragma	aux	PtrInitGrille	"*"
+//#pragma	aux	PtrInitGrille	"*"
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 #ifndef	LBA_EDITOR
 extern	Func_FullWorldColBrick	*PtrFullWorldColBrick ;
 
-#pragma	aux	PtrFullWorldColBrick	"*"
+//#pragma	aux	PtrFullWorldColBrick	"*"
 #endif	// LBA_EDITOR
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀

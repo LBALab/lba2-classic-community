@@ -1,21 +1,27 @@
 /*──────────────────────────────────────────────────────────────────────────*/
-#include	<system\adeline.h>
-#include	<system\files.h>
-#include	<system\lz.h>
-#include	<system\hqr.h>
-#include	<system\hqfile.h>
+#include	<SYSTEM/ADELINE.H>
+#include	<SYSTEM/FILES.H>
+#include	<SYSTEM/LZ.H>
+#include	<SYSTEM/HQR.H>
+#include	<SYSTEM/HQFILE.H>
+
+#include <stdio.h>
 
 /*──────────────────────────────────────────────────────────────────────────*/
 	S32			HQF_File	;
 static	COMPRESSED_HEADER 	HQF_header	;
 
 /*──────────────────────────────────────────────────────────────────────────*/
-U32	HQF_Init(char *name, S32 index)
+U32	HQF_Init(const char *name, S32 index)
 {
 	S32	nbbloc	;
 
 	HQF_File = OpenRead( name ) 		;
-	if( !HQF_File )	return 0		;
+	if( !HQF_File )
+	{
+		printf("Error loading file %s\n", name);
+		return 0		;
+	}
 
 	index *= 4				;
 	Read(HQF_File, &nbbloc, 4) 		;
@@ -26,7 +32,7 @@ error:		HQF_Close()			;
 		return 0			;
 	}
 
-	Seek(HQF_File, index, SEEK_START) 	;
+	Seek(HQF_File, index, SEEK_FROM_START) 	;
 	Read(HQF_File, &index, 4) 		;
 
 	if(!index)
@@ -34,7 +40,7 @@ error:		HQF_Close()			;
 		goto	error			;
 	}
 
-	Seek(HQF_File, index, SEEK_START) 	;
+	Seek(HQF_File, index, SEEK_FROM_START) 	;
 	Read(HQF_File, (void*)&HQF_header, sizeof(HQF_header));
 
 	return HQF_header.SizeFile		;
@@ -84,7 +90,7 @@ U32	HQF_LoadClose(void *ptr)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-S32	HQF_ResSize(char *name, S32 index)
+S32	HQF_ResSize(const char *name, S32 index)
 {
 	U32	size			;
 
