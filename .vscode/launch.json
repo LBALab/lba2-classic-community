@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug LBA2 Game",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/SOURCES/lba2",
+            "args": [],
+            "cwd": "${workspaceFolder}/build/SOURCES",
+            "preLaunchTask": "build-lba2"
+        }
+    ]
+}

@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-lba2",
+      "type": "shell",
+      "command": "make",
+      "args": [
+        "-C",
+        "${workspaceFolder}/build/SOURCES",
+        "lba2"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
