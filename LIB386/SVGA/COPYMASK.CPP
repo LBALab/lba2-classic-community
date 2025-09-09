@@ -28,10 +28,10 @@ typedef struct {
 
 void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 {
-  // TODO: revisit and clean this up when characters are rendered
-  // This function is supposed (I think) to make items in indoor levels to
-  // be drawn on top of the character.
   U32 screenWidth = TabOffLine[1];
+
+  if (y < 0)
+    y = 0;
 
   Struc_Mask_Header *maskHeader = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
   U32 xMin = maskHeader->HotX + x;
