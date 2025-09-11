@@ -59,7 +59,7 @@ S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
       S32 lineGouraud = gouraud;
 
       // Handle sub-pixel precision offset
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16) {
         // Apply sub-pixel offset for texture coordinates
         U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
@@ -200,7 +200,7 @@ S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       S32 lineGouraud = gouraud;
 
       // Handle sub-pixel precision offset
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16) {
         // Apply sub-pixel offset for texture coordinates
         U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
@@ -348,7 +348,7 @@ S32 Filler_TextureZGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
       U32 lineZ = z;
 
       // Handle sub-pixel precision offset
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16) {
         // Apply sub-pixel offset for texture coordinates
         U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
@@ -515,7 +515,7 @@ S32 Filler_TextureZGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCu
       U32 lineZ = z;
 
       // Handle sub-pixel precision offset
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16) {
         // Apply sub-pixel offset for texture coordinates
         U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);

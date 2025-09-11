@@ -741,7 +741,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       do
       {
         // @@Each_X:
-        if (POLYTEXT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
+        if ((zInt & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = zInt & 0xFFFF;
           POLYTEXT_PtrLog[offset] = POLYTEXT_PtrMapPatch[mapIndex];
@@ -1010,7 +1010,7 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       do
       {
         // @@Each_X:
-        if (POLYTEXT_PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
@@ -1138,7 +1138,7 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       do
       {
         // @@Each_X:
-        if (POLYTEXT_PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           if (colorIndex != 0)
@@ -1268,7 +1268,7 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       do
       {
         // @@Each_X:
-        if (POLYTEXT_PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
           U8 color = POLYTEXT_PtrMapPatch[mapIndex];
@@ -1389,7 +1389,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       do
       {
         // @@Each_X:
-        if (POLYTEXT_PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 textureColor = POLYTEXT_PtrMapPatch[mapIndex];
           
@@ -1821,7 +1821,7 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       do
       {
         // @@Each_X:
-        if (POLYTEXT_PtrZBufferPatch[offset] >= (decU_intZ & 0xFFFF))
+        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           POLYTEXT_PtrLog[offset] = POLYTEXT_PtrCLUT[colorIndex];
@@ -1964,7 +1964,7 @@ S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       {
         // Z-buffer test (no Z-write for NZW variant)
         PTR_U16 zBufferPtr = POLYTEXT_PtrZBufferPatch + (uintptr_t)destPtr;
-        if (*zBufferPtr >= (U16)(zInt & 0xFFFF))
+        if ((U16)(zInt & 0xFFFF) < *zBufferPtr)
         {
           // Sample texture and apply chroma key test
           U8 texel = POLYTEXT_PtrMapPatch[texCoord & POLYTEXT_RepMaskPatch];
@@ -2116,7 +2116,7 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       {
         // Z-buffer test (no Z-write for NZW variant)
         PTR_U16 zBufferPtr = POLYTEXT_PtrZBufferPatch + (uintptr_t)destPtr;
-        if (*zBufferPtr >= (U16)(zInt & 0xFFFF))
+        if ((U16)(zInt & 0xFFFF) < *zBufferPtr)
         {
           // Sample texture
           U8 texel = POLYTEXT_PtrMapPatch[texCoord & POLYTEXT_RepMaskPatch];
@@ -2265,7 +2265,7 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       {
         // Z-buffer test (no Z-write for NZW variant)
         PTR_U16 zBufferPtr = POLYTEXT_PtrZBufferPatch + (uintptr_t)destPtr;
-        if (*zBufferPtr >= (U16)(zInt & 0xFFFF))
+        if ((U16)(zInt & 0xFFFF) < *zBufferPtr)
         {
           // Sample texture
           U8 texel = POLYTEXT_PtrMapPatch[texCoord & POLYTEXT_RepMaskPatch];
