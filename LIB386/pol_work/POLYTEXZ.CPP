@@ -182,7 +182,7 @@ S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -334,7 +334,7 @@ S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -477,7 +477,7 @@ S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -613,7 +613,7 @@ S32 Filler_TextureZFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -768,7 +768,7 @@ S32 Filler_TextureZFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -901,7 +901,7 @@ S32 Filler_TextureZChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -1045,7 +1045,7 @@ S32 Filler_TextureZZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -1212,7 +1212,7 @@ S32 Filler_TextureZChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -1390,7 +1390,7 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -1606,7 +1606,7 @@ S32 Filler_TextureZFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXM
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -1791,7 +1791,7 @@ S32 Filler_TextureZFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -2006,7 +2006,7 @@ S32 Filler_TextureZChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -2432,7 +2432,7 @@ S32 Filler_TextureZFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -2647,7 +2647,7 @@ S32 Filler_TextureZFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
@@ -2831,7 +2831,7 @@ S32 Filler_TextureZFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position
@@ -2998,7 +2998,7 @@ S32 Filler_TextureZChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
         // Adjust for sub-pixel start position

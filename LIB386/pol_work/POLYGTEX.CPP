@@ -85,7 +85,7 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineU = u;
       U32 curGouraudMin = Fill_CurGouraudMin;
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (diffX > 16)
       {
         // Simple multiply for sub-pixel adjustment, matching assembly imul instruction
@@ -199,7 +199,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       U32 lineV = v;
       U32 lineU = u;
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
 
       if (diffX > 16)
       {
@@ -333,7 +333,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U32 curGouraudMin = Fill_CurGouraudMin;
       
       // Load 1st dst cache line
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (diffX > 16)
       {
         U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
@@ -486,7 +486,7 @@ S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       
       // Calculate sub-pixel offset for texture coordinates
       U32 subPixelOffset = fillCurXMin & 0xFFFF;
-      subPixelOffset ^= 0xFFFF; // Invert for proper calculation
+      subPixelOffset = 0x10000 - subPixelOffset; // Invert for proper calculation
       
       // Get current Gouraud intensity
       U32 currentGouraud = Fill_CurGouraudMin;
@@ -615,7 +615,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
@@ -764,7 +764,7 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
@@ -914,7 +914,7 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
@@ -1079,7 +1079,7 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
       
       // Calculate sub-pixel offset for texture coordinates
       U32 subPixelOffset = fillCurXMin & 0xFFFF;
-      subPixelOffset ^= 0xFFFF; // Invert for proper calculation
+      subPixelOffset = 0x10000 - subPixelOffset; // Invert for proper calculation
       
       // Get current Gouraud and Z-buffer values
       U32 currentGouraud = Fill_CurGouraudMin;

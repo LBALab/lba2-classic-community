@@ -817,7 +817,8 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
 				return Fill_LeftSlope;
 			}
 
-      Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
+      // Left edge should start at pixel left boundary (0.0)
+      Fill_CurXMin = (oldPoint->Pt_XE << 16);
       Fill_LeftPoint = newPoint;
       return Current_Jmp_LeftSlope[Fill_Type](
         Fill_Type,
@@ -1224,17 +1225,20 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 		return Fill_LeftSlope;
 	}
 
-	Fill_CurXMax = (oldXMin << 16) + 0x8000;
+	// Right edge should start at pixel right boundary (1.0)
+	Fill_CurXMax = (oldXMin << 16) + 0x10000;
 	Fill_RightPoint = point;
 	S32 diffX = (point->Pt_XE - oldXMin) << 16;
-	Fill_RightSlope = ROUND((float)diffX / (float)diffY + 1.0);
+	// Remove asymmetric +1.0 bias to improve edge consistency
+	Fill_RightSlope = ROUND((float)diffX / (float)diffY);
 
 	return Test_Scan();
 }
 
 S32 Read_Next_RightFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	Fill_LeftSlope = diffX / diffY + 1;
+	// Remove asymmetric bias for consistent edge handling
+	Fill_LeftSlope = diffX / diffY;
 	return Read_Next_Right(PtA, PtB);
 }
 
@@ -1245,7 +1249,8 @@ S32 Read_Next_RightFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Str
 S32 CalcGouraudTableFPU(U32 fillType, S32 diffX, S32 diffY, S32 diffLight, Struc_Point *PtA, Struc_Point *PtB)
 {
   Fill_Gouraud_LeftSlope = diffLight / diffY;
-  Fill_LeftSlope = diffX / diffY + 1;
+  // Remove asymmetric bias for consistent edge handling
+  Fill_LeftSlope = diffX / diffY;
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1281,7 +1286,8 @@ S32 Calc_TextureLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *Pt
   Fill_MapU_LeftSlope = ((PtB->Pt_MapU - PtA->Pt_MapU) << 8) / diffY;
   Fill_CurMapVMin = PtA->Pt_MapV << 8;
   Fill_MapV_LeftSlope = ((PtB->Pt_MapV - PtA->Pt_MapV) << 8) / diffY;
-	Fill_LeftSlope = diffX / diffY + 1;
+	// Remove asymmetric bias for consistent edge handling
+	Fill_LeftSlope = diffX / diffY;
   return Read_Next_Right(PtA, PtB);
 }
 
@@ -1298,7 +1304,8 @@ S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Po
   Fill_Gouraud_LeftSlope = ROUND(diffLight / diffY);
   Fill_MapV_LeftSlope = ROUND(diffV / diffY);
   Fill_MapU_LeftSlope = ROUND(diffU / diffY);
-  Fill_LeftSlope = ROUND(diffX / diffY + 1);
+  // Remove asymmetric bias for consistent edge handling
+  Fill_LeftSlope = ROUND(diffX / diffY);
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1326,7 +1333,8 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
   Fill_MapV_LeftSlope = ROUND(VB_VA * FInv_256 / diffY);
   Fill_MapU_LeftSlope = ROUND(UB_UA * FInv_256 / diffY);
   Fill_W_LeftSlope = ROUND(WB_WA / diffY);
-  Fill_LeftSlope = ROUND(diffX / diffY + 1);
+  // Remove asymmetric bias for consistent edge handling
+  Fill_LeftSlope = ROUND(diffX / diffY);
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1369,7 +1377,8 @@ S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_P
 	
 	// X slope calculation
 	float xSlope = (float)diffX * invDY;
-	Fill_LeftSlope = ROUND(xSlope + 1.0f);
+	// Remove asymmetric bias for consistent edge handling
+	Fill_LeftSlope = ROUND(xSlope);
 	
 	// Calculate perspective-corrected texture coordinates
 	float uA_w = (float)uA * PtA->Pt_W;
@@ -1451,7 +1460,8 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
 	
 	// X slope calculation
 	float xSlope = (float)diffX * invDY;
-	Fill_LeftSlope = ROUND(xSlope + 1.0f);
+	// Remove asymmetric bias for consistent edge handling
+	Fill_LeftSlope = ROUND(xSlope);
 	
 	// Calculate perspective-corrected texture coordinates
 	float uA_w = (float)uA * PtA->Pt_W;
