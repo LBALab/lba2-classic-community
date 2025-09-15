@@ -207,7 +207,7 @@
 // SaveGame
 #define	SAVE_VERSION	4
 // on stocke les sauvegardes dans BufSpeak
-#define	MAX_PLAYER	((640*480)/(MAX_SIZE_PLAYER_NAME+1+sizeof(char*)))
+#define	MAX_PLAYER	((768*480)/(MAX_SIZE_PLAYER_NAME+1+sizeof(char*)))
 #define	MAX_SIZE_PLAYER_NAME	100	// Calculé avec des ',' par Isabelle
 
 /*---------------- CONSTANTE ------------------*/

@@ -219,7 +219,7 @@ S32	TreeInsert( S16 numtype, S32 posx, S32 posy, S32 posz,
 	}
 
 	// PreClipping
-	if( (x1<0) OR (x0>=640)
+	if( (x1<0) OR (x0>=768)
 	OR  (y1<0) OR (y0>=480) )
 	{
 		if( !(numtype&SORT_NO_PRECLIP) )

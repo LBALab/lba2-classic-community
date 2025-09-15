@@ -49,23 +49,23 @@
 S32     SelectConfig = 0 ;
 S32     SelectKey    = 0 ;
 
-#define CFG_X0  10
+#define CFG_X0  10+64
 #define CFG_Y0  10
-#define CFG_X1  630
+#define CFG_X1  630+64
 #define CFG_Y1  (CFG_Y0+MAX_INPUT*10+35)
 
 #define ACTION_X        (CFG_X0+20)
 #define KEY1_X          (CFG_X0+371)
 #define KEY2_X          (CFG_X0+501)
 
-#define CFG_MENU_X0     10
+#define CFG_MENU_X0     10+64
 #define CFG_MENU_Y0     (CFG_Y1+5)
-#define CFG_MENU_X1     630
+#define CFG_MENU_X1     630+64
 #define CFG_MENU_Y1     (CFG_MENU_Y0+10+3*10)
 
-#define CFG_TXT_X0      10
+#define CFG_TXT_X0      10+64
 #define CFG_TXT_Y0      (CFG_MENU_Y1+5)
-#define CFG_TXT_X1      630
+#define CFG_TXT_X1      630+64
 #define CFG_TXT_Y1      (CFG_TXT_Y0+10+10)
 
 /* old colors (Programmer's colors !)
@@ -426,9 +426,9 @@ void    DrawOneConfigMenu( S32 n )
 
         GetMultiText( START_MENUS_TXT+CFG_TXT_DEFAUT+n, txt ) ;
 
-        x0 = 320-(strlen(txt)*SizeChar)/2-10 ;
+        x0 = 384-(strlen(txt)*SizeChar)/2-10 ;
         y0 = y-2 ;
-        x1 = 320+(strlen(txt)*SizeChar)/2+10 ;
+        x1 = 384+(strlen(txt)*SizeChar)/2+10 ;
         y1 = y+8 ;
 
         CopyBlock( x0, y0, x1, y1, Screen, x0, y0, Log ) ;
@@ -451,7 +451,7 @@ void    DrawOneConfigMenu( S32 n )
                 CoulText( COUL_MENU, -1 ) ;
         }
 
-        GraphPrintf( FALSE, 320-(strlen(txt)*SizeChar)/2, y, txt ) ;
+        GraphPrintf( FALSE, 384-(strlen(txt)*SizeChar)/2, y, txt ) ;
 
         BoxStaticAdd( x0, y0, x1, y1 ) ;
 }
@@ -499,7 +499,7 @@ void    DrawStatusConfig( S32 num )
                 CoulText( COUL_STATUS, -1 ) ;
         }
 
-        GraphPrintf( FALSE, 320-(strlen(txt)*SizeChar)/2, CFG_TXT_Y0+7, txt ) ;
+        GraphPrintf( FALSE, 384-(strlen(txt)*SizeChar)/2, CFG_TXT_Y0+7, txt ) ;
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -995,8 +995,8 @@ void    DrawConfirmChoice( S32 xlen, S32 y0, char *txt, S32 select )
 {
         S32     x0, x1, y1, coul = COUL_MENU ;
 
-        x0 = 320-xlen ;
-        x1 = 320+xlen ;
+        x0 = 384-xlen ;
+        x1 = 384+xlen ;
         y1 = y0+SizeChar+3;
         y0-- ;
 
@@ -1011,7 +1011,7 @@ void    DrawConfirmChoice( S32 xlen, S32 y0, char *txt, S32 select )
                 RestoreAngles( x0, y0, x1, y1 ) ;
         }
 
-        DetourGraphPrintf( FALSE, coul, 320-(strlen(txt)*SizeChar)/2, y0+3, txt ) ;
+        DetourGraphPrintf( FALSE, coul, 384-(strlen(txt)*SizeChar)/2, y0+3, txt ) ;
         BoxStaticAdd( x0, y0, x1, y1 ) ;
 }
 
@@ -1028,8 +1028,8 @@ S32     ConfirmMenu( char *ask, char *ok, char *cancel )
         S32     oldselect = 1   ;
         S32     flag = -1       ;
 
-        x0 = 320-larg/2 ;
-        x1 = 320+larg/2 ;
+        x0 = 384-larg/2 ;
+        x1 = 384+larg/2 ;
         y0 = 240-haut/2 ;
         y1 = 240+haut/2 ;
 

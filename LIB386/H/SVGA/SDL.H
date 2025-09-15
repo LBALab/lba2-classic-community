@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 // Nothing so far...
+extern void Delay();
 
 #ifdef __cplusplus
 }

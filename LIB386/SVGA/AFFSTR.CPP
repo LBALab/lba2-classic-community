@@ -297,7 +297,7 @@ void AffString(S32 x, S32 y, char *str)
         mask >>= 1;
       }
 
-      ptr += 640 - SizeChar;
+      ptr += 768 - SizeChar; // 640
     }
 
     ScreenPtr += SizeChar;

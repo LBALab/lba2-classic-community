@@ -18,9 +18,9 @@ extern void InitMenuIncrustText( const char *text, S32 sprite, S32 time ) ;
 /*--------------------------------------------------------------------------*/
 extern void DrawFireBar( S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul ) ;
 /*--------------------------------------------------------------------------*/
-#define	DrawFire( y, coul )	DrawFireBar(	320-LargeurMenu/2,	\
+#define	DrawFire( y, coul )	DrawFireBar(	384-LargeurMenu/2,	\
 							y,			\
-							320+LargeurMenu/2,	\
+							384+LargeurMenu/2,	\
 							y+HAUTEUR_STANDARD,	\
 							coul)
 /*--------------------------------------------------------------------------*/

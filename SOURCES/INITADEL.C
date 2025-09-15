@@ -33,11 +33,11 @@
 #endif // DEMO
 
 #define ibuffer ScreenAux
-#define ibuffersize (640 * 480 + RECOVER_AREA)
+#define ibuffersize (768 * 480 + RECOVER_AREA)
 
 // -----------------------------------------------------------------------------
 #ifndef RESOLUTION_X
-#define RESOLUTION_X 640
+#define RESOLUTION_X 768
 #endif
 
 #ifndef RESOLUTION_Y

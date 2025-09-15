@@ -17,6 +17,7 @@ extern	"C"	{
 
 //****************************************************************************
 extern	void FastCopy(void *dst, void *src, U32 len)	;
+extern void CopyScreenColour(U8 * source, U8 * destination, U8 colour) ;
 
 #pragma aux FastCopy	"*"
 

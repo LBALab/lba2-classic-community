@@ -108,9 +108,9 @@ U8   *PalOrg ;
 #define MAX_SHADE       14              // ex 32!!!
 #define SPEAK_SAMPLE    0x1234
 /*-------------------------------------------------------------------------*/
-S32    Dial_X0=16      ;
+S32    Dial_X0=16+64    ;
 S32    Dial_Y0=334     ;
-S32    Dial_X1=639-16  ;
+S32    Dial_X1=639-16+64  ;
 S32    Dial_Y1=479-16  ;
 static  S32    DialMaxSize=((623-8)-(16+8));
 
@@ -265,9 +265,9 @@ U32     GetHDFreeSize()
 /*-------------------------------------------------------------------------*/
 #ifdef  CDROM
 
-#define BAR_X0  16
+#define BAR_X0  16+64
 #define BAR_Y0  400
-#define BAR_X1  623
+#define BAR_X1  623+64
 #define BAR_Y1  440
 
 void    TimeBar( U32 max, U32 val )
@@ -1228,9 +1228,9 @@ void    TestCoulDial( S32 coul )
 /*-------------------------------------------------------------------------*/
 void    NormalWinDial()
 {
-        Dial_X0 = 8                     ;
+        Dial_X0 = 8+64                     ;
         Dial_Y0 = ClipWindowYMax-137    ;       // 334 lorsque ClipWindowYMax==479
-        Dial_X1 = 639-8                 ;
+        Dial_X1 = 639-8+64                 ;
         Dial_Y1 = ClipWindowYMax-8      ;
 
         MaxLineDial = 3                         ;
@@ -1250,9 +1250,9 @@ void    DemoWinDial()
 /*-------------------------------------------------------------------------*/
 void    BigWinDial()
 {
-        Dial_X0 = 8                     ;
+        Dial_X0 = 8+64                     ;
         Dial_Y0 = ClipWindowYMin+8      ;
-        Dial_X1 = 639-8                 ;
+        Dial_X1 = 639-8+64                 ;
         Dial_Y1 = ClipWindowYMax-8      ;
 
         MaxLineDial = (Dial_Y1-Dial_Y0)/42      ;
@@ -1262,9 +1262,9 @@ void    BigWinDial()
 /*-------------------------------------------------------------------------*/
 void    HoloWinDial()
 {
-        Dial_X0 = 8     ;
+        Dial_X0 = 8+64     ;
         Dial_Y0 = 425   ;
-        Dial_X1 = 631   ;
+        Dial_X1 = 631+64   ;
         Dial_Y1 = 477   ;
 
 

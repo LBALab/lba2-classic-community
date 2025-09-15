@@ -92,9 +92,9 @@ S32	DebComportement = 110 ;	// Espacement entre deux comportement
 S32	ComportementMenu = 0 ;		// menu comportement en cours
 S32	IndexComportement = 0 ;
 
-#define	CTRL_X0	100
+#define	CTRL_X0	100+64
 #define	CTRL_Y0	100
-#define	CTRL_X1	550
+#define	CTRL_X1	550+64
 #define	CTRL_Y1	290
 
 /*══════════════════════════════════════════════════════════════════════════*/

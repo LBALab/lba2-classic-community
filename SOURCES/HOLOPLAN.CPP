@@ -432,16 +432,17 @@ void	InitHoloPlan()
 
 	GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
 
-	Load_HQR( tmpFilePath, Log, id )	;
+	Load_HQR( tmpFilePath, Screen, id )	;
+	CopyScreenResized((U8 *)Screen, (U8 *)Log, 0);
 
 	Load_HQR( tmpFilePath, buffer, id+1 )	;
 
 	AffUpperLeft( 0, 0, 0 )		;
 	AffLowerLeft( 0, 479, 0 )	;
-	AffUpperRight( 639, 0, 0 )	;
-	AffLowerRight( 639, 479, 0 )	;
+	AffUpperRight( 767, 0, 0 )	;
+	AffLowerRight( 767, 479, 0 )	;
 
-	CopyScreen( Log, Screen )	;
+	CopyScreen(Log,Screen);
 
 	//	To avoid Zoom with Window
 	if ( !FlagMap )	HoloInitDialWindow()	;
@@ -766,7 +767,7 @@ void	HoloPlan(S32 numplan)
 
 	InitAngleArrow()	;
 
-	if ( !FlagMap ) BoxStaticAdd( 0, 0, 639, 479 )	;//	Full Screen
+	if ( !FlagMap ) BoxStaticAdd( 0, 0, 767, 479 )	;//	Full Screen
 
 	while( !FlagHoloEnd )
 	{
@@ -836,7 +837,7 @@ void	HoloPlan(S32 numplan)
 				timer = TimerRefHR-MemoTimerRot	;
 				x0 = BoundRegleTrois( CENTERX-8, 0, 1000, timer )	;
 				y0 = BoundRegleTrois( CENTERY-8, 0, 1000, timer )	;
-				x1 = BoundRegleTrois( CENTERX+8, 639, 1000, timer )	;
+				x1 = BoundRegleTrois( CENTERX+8, 767, 1000, timer )	;
 				y1 = BoundRegleTrois( CENTERY+8, 479, 1000, timer )	;
 
 				if ( x0 == 0 )
@@ -844,7 +845,7 @@ void	HoloPlan(S32 numplan)
 					break		;// Before Crash!
 				}
 
-				ScaleBox( 0, 0, 639, 479, BufSpeak, x0, y0, x1, y1, Log )	;
+				ScaleBox( 0, 0, 767, 479, BufSpeak, x0, y0, x1, y1, Log )	;
 
 				AffUpperLeft( x0, y0, 0 )	;
 				AffLowerLeft( x0, y1, 0 )	;

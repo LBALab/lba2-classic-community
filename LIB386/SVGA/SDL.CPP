@@ -180,7 +180,7 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
 void SetVideoPaletteSync(const U8 src[]) {
   SetVideoPalette(src, 0, PAL_MAX_COLORS);
 
-  T_BOX copyArea = {0, 0, 640, 480};
+  T_BOX copyArea = {0, 0, 768, 480}; //640
   CopyVideoArea(Phys, Log, TabOffPhysLine, &copyArea);
 }
 

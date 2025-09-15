@@ -53,3 +53,16 @@ FastCopyF		ENDP
 
 	memcpy(dst, src, len);
 }
+
+void CopyScreenColour(U8 * source, U8 * destination, U8 colour) {
+    // convert 640x480 to 768 without changing aspect ratio
+    S32 skip = (768 - 640) / 2;
+	for (S32 h = 0; h < 480; h++) {
+		for (S32 w = 0; w < 768; w++) {
+			if (w < skip || w >= (768 - skip))
+				*destination++ = colour;
+			else
+				*destination++ = *source++;
+		}
+	}
+}

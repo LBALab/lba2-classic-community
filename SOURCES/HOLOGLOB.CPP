@@ -770,7 +770,7 @@ void	DrawHolomap()
 
 //────────────────────────────────────────────────────────────────────────────
 #ifdef	DEBUG_TOOLS
-S32	SizeHoloMalloc = 640L*480L+RECOVER_AREA	;
+S32	SizeHoloMalloc = 768L*480L+RECOVER_AREA	;
 #endif
 U8	*PtHoloMalloc				;
 //────────────────────────────────────────────────────────────────────────────
@@ -778,7 +778,7 @@ void	InitHoloMalloc(void)
 {
 	PtHoloMalloc = ScreenAux			;
 #ifdef	DEBUG_TOOLS
-	SizeHoloMalloc = 640L*480L+RECOVER_AREA		;
+	SizeHoloMalloc = 768L*480L+RECOVER_AREA		;
 #endif
 }
 //────────────────────────────────────────────────────────────────────────────
@@ -1020,7 +1020,7 @@ void	HoloGlobe(S32 planet)
 		// Clear une bande du ZBuffer
 		memset( (PtrZBuffer+TabOffLine[ZBufYMin]),// PtrZBuffer est un (U16 *)
 			255,
-			(ZBufYMax-ZBufYMin+1)*640*2 );	// Clear ZBuffer
+			(ZBufYMax-ZBufYMin+1)*768*2 );	// Clear ZBuffer
 
 		ClearZBufMinMax() ;
 

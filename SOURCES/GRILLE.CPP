@@ -768,7 +768,7 @@ void	AffBrickBlock( S32 block, S32 brick, S16 x, S16 y, S16 z )
 		Map2Screen( x-StartXCube, y-StartYCube, z-StartZCube )	;
 
 		if( XScreen >= -24
-		AND XScreen < 640
+		AND XScreen < 768 //640
 		AND YScreen >= -38
 		AND YScreen < 480 )
 		{
@@ -861,7 +861,7 @@ void	AffBrickBlockColon( S32 block, S32 brick, S16 x, S16 y, S16 z )
 		Map2Screen( x-StartXCube, y-StartYCube, z-StartZCube )	;
 
 		if( XScreen >= -24
-		AND XScreen < 640
+		AND XScreen < 768 //640
 		AND YScreen >= -38
 		AND YScreen < 480 )
 		{
@@ -954,7 +954,7 @@ void	AffBrickBlockOnly( S32 block, S32 brick, S16 x, S16 y, S16 z )
 		Map2Screen( x-StartXCube, y-StartYCube, z-StartZCube )	;
 
 		if( XScreen >= -24
-		AND XScreen < 640
+		AND XScreen < 768 //640
 		AND YScreen >= -38
 		AND YScreen < 480 )
 		{

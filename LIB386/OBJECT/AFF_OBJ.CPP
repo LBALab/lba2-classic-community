@@ -1224,7 +1224,7 @@ S32 Line(U32 typePoly, void *poly)
     z2 = Fill_ZBuffer_Factor * (~rotatedP2.Z - (PosZWr - 1)) >> 16;
   }
 
-  if ((p1.X == -0x8000 && p1.Y == -0x8000) || (p2.X == -0x8000 && p2.Y == -0x8000))
+  if ((p1.X == 0x8000 && p1.Y == 0x8000) || (p2.X == 0x8000 && p2.Y == 0x8000))
   {
     return 0;
   }
@@ -1363,7 +1363,7 @@ bool TestVisible(STRUC_POLY3_ENV *poly)
   TYPE_PT projectedP2 = Obj_ListProjectedPoints[poly->P2];
   TYPE_PT projectedP3 = Obj_ListProjectedPoints[poly->P3];
 
-  if ((projectedP1.X == -0x8000 && projectedP1.Y == -0x8000) || (projectedP2.X == -0x8000 && projectedP2.Y == -0x8000) || (projectedP3.X == -0x8000 && projectedP3.Y == -0x8000))
+  if ((projectedP1.X == 0x8000 && projectedP1.Y == 0x8000) || (projectedP2.X == 0x8000 && projectedP2.Y == 0x8000) || (projectedP3.X == 0x8000 && projectedP3.Y == 0x8000))
   {
     return false;
   }
@@ -1537,7 +1537,7 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
       S16 zFar = TestZFar4(poly3);
 
       TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
-      if (p4.X != -0x8000 || p4.Y != -0x8000)
+      if (p4.X != 0x8000 || p4.Y != 0x8000)
       {
         U32 polyType = (header->TypePoly << 26);
         if (type == 2)

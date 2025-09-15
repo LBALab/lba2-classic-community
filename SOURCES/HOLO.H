@@ -78,7 +78,7 @@
 
 #define	START_ZOOM      9500
 
-#define	CENTERX		320
+#define	CENTERX		320+64
 #define	CENTERY		220
 #define	SX		6
 #define	SY		6

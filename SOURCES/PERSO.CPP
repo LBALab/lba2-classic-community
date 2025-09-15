@@ -435,7 +435,7 @@ restartloop:
         /* vitesse de chute propor pour tous les objets */
         InitMove( &RealFalling, -2560 ) ;
         /* vitesse de decalage propor tapis roulant */
-        InitMove( &RealShifting, 640  ) ;
+        InitMove( &RealShifting, 768  ) ;
 
         /* frequence de paning des samples always */
         InitMove( &SampleAlwaysMove, 2  ) ;
@@ -508,7 +508,7 @@ startloop:
 
                                         BoxReset() ;    // pas de flip
 
-                                        ZoomSavedGame( 240, 10 ) ;
+                                        ZoomSavedGame( 288, 10 ) ;
 
                                         FlagFade = FALSE ;
                                         RestartRainSample = TRUE ;
@@ -939,7 +939,7 @@ startloop:
 
                                 BoxReset() ;    // pas de flip
 
-                                ZoomSavedGame( 240, 10 ) ;
+                                ZoomSavedGame( 288, 10 ) ;
 
                                 FlagFade = FALSE ;
                                 RestartRainSample = TRUE ;
@@ -1837,7 +1837,7 @@ void    ReadConfigFile( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 void    WriteConfigFile( void )
 {
-        DefFileBufferInit( PathConfigFile, ScreenAux, (640*480+RECOVER_AREA) ) ;
+        DefFileBufferInit( PathConfigFile, ScreenAux, (768*480+RECOVER_AREA) ) ;
 
         WriteInputConfig() ;    // Sauve Config Clavier dans LBA2.CFG
         WriteVolumeSettings() ; // Sauve volumes dans LBA2.CFG
@@ -2193,7 +2193,8 @@ int main(int argc, char *argv[])
 	{
 		// pour Windows car ca prend du temps a scaner le CD
 		GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-		Load_HQR( tmpFilePath, Log, PCR_CDROM ) ;
+		Load_HQR( tmpFilePath, Screen, PCR_CDROM ) ;
+    CopyScreenResized((U8 *)Screen, (U8 *)Log, 0);
 		BoxStaticFullflip() ;
 
 		// premiere fois

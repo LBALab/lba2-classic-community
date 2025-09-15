@@ -186,10 +186,10 @@ S32     GiveBalance( S32 xp, S32 yp, S32 distance, U32 *pan, S32 *vol )
         OR  (yp < -480) )       return FALSE ;
 
         if( (xp < -320)
-        OR  (xp >= 640+320) )   return FALSE ;
+        OR  (xp >= 768+320) )   return FALSE ;
 
         if( xp<160 )            *pan = RegleTrois( 0,  32, 160+319, xp+320 ) ;
-        else if( xp>480 )       *pan = RegleTrois( 96,127, 640+319-480, xp-480 ) ;
+        else if( xp>480 )       *pan = RegleTrois( 96,127, 768+319-480, xp-480 ) ;
         else                    *pan = RegleTrois( 32, 96, 480-160, xp-160 ) ;
 
         if( CubeMode==CUBE_INTERIEUR )

@@ -30,9 +30,9 @@ struct	SizeInfo {
 
 T_MEM	ListMem[] = {
 	{(void**)&PtrZBuffer, SIZE_Z_BUFFER},	// Calculé dynamiquement (GRILLE.CPP) -> InitBufferCube())
-	{(void**)&ScreenAux, 640*480+RECOVER_AREA},
-	{(void**)&BufSpeak, 640*480+RECOVER_AREA},
-	{(void**)&Screen, 640*480+RECOVER_AREA},
+	{(void**)&ScreenAux, 768*480+RECOVER_AREA}, //640
+	{(void**)&BufSpeak, 768*480+RECOVER_AREA},//640
+	{(void**)&Screen, 768*480+RECOVER_AREA},//640
 	{(void**)&BufferMaskBrick,0},	// Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
 	{(void**)&BufMap,0},	// Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
 	{(void**)&TabBlock,0},	// Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())

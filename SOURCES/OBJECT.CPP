@@ -5198,13 +5198,13 @@ void	FixeCinemaMode( S32 flagflip )
 				MemoClipWindow() ;
 				UnsetClipWindow() ;
 
-				Box( 0, 0, 639, MemoClipWindowYMin-1, COUL_CINEMA ) ;
-				Box( 0, MemoClipWindowYMax+1, 639, 479, COUL_CINEMA ) ;
+				Box( 0, 0, 767, MemoClipWindowYMin-1, COUL_CINEMA ) ;
+				Box( 0, MemoClipWindowYMax+1, 767, 479, COUL_CINEMA ) ;
 
 				if( flagflip  )
 				{
-					BoxStaticAdd( 0, 0, 639, MemoClipWindowYMin-1 ) ;
-					BoxStaticAdd( 0, MemoClipWindowYMax+1, 639, 479 ) ;
+					BoxStaticAdd( 0, 0, 767, MemoClipWindowYMin-1 ) ;
+					BoxStaticAdd( 0, MemoClipWindowYMax+1, 767, 479 ) ;
 				}
 
 				RestoreClipWindow() ;
@@ -5215,8 +5215,8 @@ void	FixeCinemaMode( S32 flagflip )
 			MemoClipWindow() ;
 			UnsetClipWindow() ;
 
-			Box( 0, 0, 639, MemoClipWindowYMin-1, COUL_CINEMA ) ;
-			Box( 0, MemoClipWindowYMax+1, 639, 479, COUL_CINEMA ) ;
+			Box( 0, 0, 767, MemoClipWindowYMin-1, COUL_CINEMA ) ;
+			Box( 0, MemoClipWindowYMax+1, 767, 479, COUL_CINEMA ) ;
 
 			RestoreClipWindow() ;
 		}
@@ -5243,14 +5243,14 @@ void	FixeCinemaMode( S32 flagflip )
 
 			if( MemoClipWindowYMin>0 )
 			{
-				Box( 0, 0, 639, MemoClipWindowYMin-1, COUL_CINEMA ) ;
-				Box( 0, MemoClipWindowYMax+1, 639, 479, COUL_CINEMA ) ;
+				Box( 0, 0, 767, MemoClipWindowYMin-1, COUL_CINEMA ) ;
+				Box( 0, MemoClipWindowYMax+1, 767, 479, COUL_CINEMA ) ;
 			}
 
 			if( flagflip )
 			{
-				BoxStaticAdd( 0, 0, 639, 39 ) ;
-				BoxStaticAdd( 0, 439, 639, 479 ) ;
+				BoxStaticAdd( 0, 0, 767, 39 ) ;
+				BoxStaticAdd( 0, 439, 767, 479 ) ;
 			}
 
 			RestoreClipWindow() ;
@@ -5263,8 +5263,8 @@ void	FixeCinemaMode( S32 flagflip )
 				MemoClipWindow() ;
 				UnsetClipWindow() ;
 
-				BoxStaticAdd( 0, 0, 639, 39 ) ;
-				BoxStaticAdd( 0, 439, 639, 479 ) ;
+				BoxStaticAdd( 0, 0, 767, 39 ) ;
+				BoxStaticAdd( 0, 439, 767, 479 ) ;
 
 				RestoreClipWindow() ;
 			}
@@ -5281,8 +5281,8 @@ void	RestoreCinemaMode( void )
 	AND (ClipWindowYMin>0 OR ClipWindowYMin!=LastYCinema) )
 	{
 		// restore Log
-		CopyBlock( 0, ClipWindowYMin, 639, 39, Screen, 0, ClipWindowYMin, Log ) ;
-		CopyBlock( 0, 439, 639, ClipWindowYMax, Screen, 0, 439, Log ) ;
+		CopyBlock( 0, ClipWindowYMin, 767, 39, Screen, 0, ClipWindowYMin, Log ) ;
+		CopyBlock( 0, 439, 767, ClipWindowYMax, Screen, 0, 439, Log ) ;
 	}
 }
 
@@ -6686,7 +6686,7 @@ startaffscene:
 #endif
 	{
 		S32	num = 11 ;
-		S32	x = 639-103 ;
+		S32	x = 767-103 ;
 
 #ifndef	DEMO
 		switch( DistribVersion )
@@ -6696,7 +6696,7 @@ startaffscene:
 			case VIRGIN_VERSION:
 			case VIRGIN_ASIA_VERSION:
 				num = 16 ;// Logo Americain
-				x   = 639-110 ;
+				x   = 767-110 ;
 				break ;
 		}
 #endif
@@ -6712,7 +6712,7 @@ startaffscene:
 		num = 16 ;
 		if( CubeMode==CUBE_EXTERIEUR AND TEMPETE_ACTIVE )	num++ ;
 
-		AffGraph( 0, 639-110, 75, HQR_Get(HQRPtrSprite,num) ) ;
+		AffGraph( 0, 767-110, 75, HQR_Get(HQRPtrSprite,num) ) ;
 #else
 		// a cause du CinemaMode
 		BoxStaticAdd( ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax ) ;

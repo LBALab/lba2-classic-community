@@ -1382,11 +1382,11 @@ void	MenuInventory( U32 tempo )
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 /*──────────────────────────────────────────────────────────────────────────*/
-#define	FOUND_X0	256
+#define	FOUND_X0	(256 + 64)
 #define	FOUND_Y0	48
-#define	FOUND_X1	384
+#define	FOUND_X1	(384 + 64)
 #define	FOUND_Y1	178
-#define	FOUND_XO	((256+384)/2)
+#define	FOUND_XO	((256+384+64)/2)
 #define	FOUND_YO	((48+178)/2)
 
 extern	S32	Dial_Y0	;
@@ -2239,7 +2239,7 @@ void	GereArdoise()
 /*──────────────────────────────────────────────────────────────────────────*/
 
 // On se place sur la RECOVER_AREA de ScreenAux car on a besoin de 48 octets (4*12)
-#define	PtrBackupAngles	(ScreenAux+640*480)
+#define	PtrBackupAngles	(ScreenAux+768*480)
 
 //──────────────────────────────────────────────────────────────────────────
 
@@ -2254,13 +2254,13 @@ void	BackupAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	*(U32*)dest = *(U32*)src;		// 1ere ligne
 	dest[4] = src[4] 	;
 
-	dest[5] = src[640]		;	// 2nd ligne
-	*(S16*)(dest+6) = *(S16*)(src+640+1);
+	dest[5] = src[768]		;	// 2nd ligne
+	*(S16*)(dest+6) = *(S16*)(src+768+1);
 
-	*(S16*)(dest+8) = *(S16*)(src+640*2);	// 3eme ligne
+	*(S16*)(dest+8) = *(S16*)(src+768*2);	// 3eme ligne
 
-	dest[10] = src[640*3] ;			// 4eme ligne
-	dest[11] = src[640*4] ;			// 5eme ligne
+	dest[10] = src[768*3] ;			// 4eme ligne
+	dest[11] = src[768*4] ;			// 5eme ligne
 
 	dest += 12 ;
 
@@ -2268,15 +2268,15 @@ void	BackupAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	src = (U8*)Log + TabOffLine[y1-4] + x0 ;
 
 	dest[0] = src[0]   ;			// 1ere ligne
-	dest[1] = src[640] ;			// 2eme ligne
+	dest[1] = src[768] ;			// 2eme ligne
 
-	*(S16*)(dest+2) = *(S16*)(src+640*2);	// 3eme ligne
+	*(S16*)(dest+2) = *(S16*)(src+768*2);	// 3eme ligne
 
-	*(S16*)(dest+4) = *(S16*)(src+640*3);	// 4eme ligne
-	dest[6] = src[640*3+2]		;
+	*(S16*)(dest+4) = *(S16*)(src+768*3);	// 4eme ligne
+	dest[6] = src[768*3+2]		;
 
-	dest[7] = src[640*4] ;			// 5eme ligne
-	*(U32*)(dest+8) = *(U32*)(src+640*4+1);
+	dest[7] = src[768*4] ;			// 5eme ligne
+	*(U32*)(dest+8) = *(U32*)(src+768*4+1);
 
 	dest += 12 ;
 
@@ -2286,13 +2286,13 @@ void	BackupAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	*(U32*)dest = *(U32*)(src-4);		// 1ere ligne
 	dest[4] = src[0] 	;
 
-	dest[5] = src[640-2]		;	// 2nd ligne
-	*(S16*)(dest+6) = *(S16*)(src+640-1);
+	dest[5] = src[768-2]		;	// 2nd ligne
+	*(S16*)(dest+6) = *(S16*)(src+768-1);
 
-	*(S16*)(dest+8) = *(S16*)(src+640*2-1);	// 3eme ligne
+	*(S16*)(dest+8) = *(S16*)(src+768*2-1);	// 3eme ligne
 
-	dest[10] = src[640*3] ;			// 4eme ligne
-	dest[11] = src[640*4] ;			// 5eme ligne
+	dest[10] = src[768*3] ;			// 4eme ligne
+	dest[11] = src[768*4] ;			// 5eme ligne
 
 	dest += 12 ;
 
@@ -2300,15 +2300,15 @@ void	BackupAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	src = (U8*)Log + TabOffLine[y1-4] + x1 ;
 
 	dest[0] = src[0]   ;			// 1ere ligne
-	dest[1] = src[640] ;			// 2eme ligne
+	dest[1] = src[768] ;			// 2eme ligne
 
-	*(S16*)(dest+2) = *(S16*)(src+640*2-1);	// 3eme ligne
+	*(S16*)(dest+2) = *(S16*)(src+768*2-1);	// 3eme ligne
 
-	*(S16*)(dest+4) = *(S16*)(src+640*3-1);	// 4eme ligne
-	dest[6] = src[640*3-2]		;
+	*(S16*)(dest+4) = *(S16*)(src+768*3-1);	// 4eme ligne
+	dest[6] = src[768*3-2]		;
 
-	dest[7] = src[640*4-4] ;		// 5eme ligne
-	*(U32*)(dest+8) = *(U32*)(src+640*4-3);
+	dest[7] = src[768*4-4] ;		// 5eme ligne
+	*(U32*)(dest+8) = *(U32*)(src+768*4-3);
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -2324,13 +2324,13 @@ void	RestoreAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	*(U32*)dest = *(U32*)src;		// 1ere ligne
 	dest[4] = src[4] 	;
 
-	dest[640] = src[5]		;	// 2nd ligne
-	*(S16*)(dest+640+1) = *(S16*)(src+6);
+	dest[768] = src[5]		;	// 2nd ligne
+	*(S16*)(dest+768+1) = *(S16*)(src+6);
 
-	*(S16*)(dest+640*2) = *(S16*)(src+8);	// 3eme ligne
+	*(S16*)(dest+768*2) = *(S16*)(src+8);	// 3eme ligne
 
-	dest[640*3] = src[10] ;			// 4eme ligne
-	dest[640*4] = src[11] ;			// 5eme ligne
+	dest[768*3] = src[10] ;			// 4eme ligne
+	dest[768*4] = src[11] ;			// 5eme ligne
 
 	src += 12 ;
 
@@ -2338,15 +2338,15 @@ void	RestoreAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	dest = (U8*)Log + TabOffLine[y1-4] + x0 ;
 
 	dest[0] = src[0]   ;			// 1ere ligne
-	dest[640] = src[1] ;			// 2eme ligne
+	dest[768] = src[1] ;			// 2eme ligne
 
-	*(S16*)(dest+640*2) = *(S16*)(src+2);	// 3eme ligne
+	*(S16*)(dest+768*2) = *(S16*)(src+2);	// 3eme ligne
 
-	*(S16*)(dest+640*3) = *(S16*)(src+4);	// 4eme ligne
-	dest[640*3+2] = src[6]		;
+	*(S16*)(dest+768*3) = *(S16*)(src+4);	// 4eme ligne
+	dest[768*3+2] = src[6]		;
 
-	dest[640*4] = src[7] ;			// 5eme ligne
-	*(U32*)(dest+640*4+1) = *(U32*)(src+8);
+	dest[768*4] = src[7] ;			// 5eme ligne
+	*(U32*)(dest+768*4+1) = *(U32*)(src+8);
 
 	src += 12 ;
 
@@ -2356,13 +2356,13 @@ void	RestoreAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	*(U32*)(dest-4) = *(U32*)src;		// 1ere ligne
 	dest[0] = src[4] 	;
 
-	dest[640-2] = src[5]		;	// 2nd ligne
-	*(S16*)(dest+640-1) = *(S16*)(src+6);
+	dest[768-2] = src[5]		;	// 2nd ligne
+	*(S16*)(dest+768-1) = *(S16*)(src+6);
 
-	*(S16*)(dest+640*2-1) = *(S16*)(src+8);	// 3eme ligne
+	*(S16*)(dest+768*2-1) = *(S16*)(src+8);	// 3eme ligne
 
-	dest[640*3] = src[10] ;			// 4eme ligne
-	dest[640*4] = src[11] ;			// 5eme ligne
+	dest[768*3] = src[10] ;			// 4eme ligne
+	dest[768*4] = src[11] ;			// 5eme ligne
 
 	src += 12 ;
 
@@ -2370,15 +2370,15 @@ void	RestoreAngles( S32 x0, S32 y0, S32 x1, S32 y1 )
 	dest = (U8*)Log + TabOffLine[y1-4] + x1 ;
 
 	dest[0] = src[0]   ;			// 1ere ligne
-	dest[640] = src[1] ;			// 2eme ligne
+	dest[768] = src[1] ;			// 2eme ligne
 
-	*(S16*)(dest+640*2-1) = *(S16*)(src+2);	// 3eme ligne
+	*(S16*)(dest+768*2-1) = *(S16*)(src+2);	// 3eme ligne
 
-	*(S16*)(dest+640*3-1) = *(S16*)(src+4);	// 4eme ligne
-	dest[640*3-2] = src[6]		;
+	*(S16*)(dest+768*3-1) = *(S16*)(src+4);	// 4eme ligne
+	dest[768*3-2] = src[6]		;
 
-	dest[640*4-4] = src[7] ;		// 5eme ligne
-	*(U32*)(dest+640*4-3) = *(U32*)(src+8);
+	dest[768*4-4] = src[7] ;		// 5eme ligne
+	*(U32*)(dest+768*4-3) = *(U32*)(src+8);
 }
 
 //──────────────────────────────────────────────────────────────────────────

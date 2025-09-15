@@ -9,7 +9,7 @@
 */
 //--------------------------	Can change
 
-#define	INV_START_X	8	//	Margin inventory screen X
+#define	INV_START_X	8+64	//	Margin inventory screen X
 #define	INV_START_Y	8	//	Margin inventory screen Y
 
 #define	INV_NBOBJ_X	7	//	Nb Object X ex 8
@@ -20,7 +20,7 @@
 
 //--------------------------	Auto change
 
-#define	INV_DELTA_X		(639-(INV_START_X*2))	//	Size Inventory in X
+#define	INV_DELTA_X		(767-(INV_START_X*2))	//	Size Inventory in X
 #define	INV_DELTA_Y		(INV_NAME_Y0-(INV_START_Y*2))//            in Y
 
 #define	INV_END_X	(INV_START_X+INV_DELTA_X)
@@ -38,7 +38,7 @@
 
 #define	INV_NAME_X0	INV_START_X		//	Name Object X0
 #define	INV_NAME_Y0	429			//	Name Object Y0
-#define	INV_NAME_X1	(639-INV_START_X)	//	Name Object X1
+#define	INV_NAME_X1	(639-INV_START_X+8)	//	Name Object X1
 #define	INV_NAME_Y1	471			//	Name Object Y1
 
 extern	S32	ProtectActif 	;
