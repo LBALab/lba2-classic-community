@@ -1323,7 +1323,7 @@ U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 
 	U8 *adr = GetAdrBlock(col - 1);
 	adr += HEADER_BLOCK + 1;
-	return *adr;
+	return *adr & 0xF0;
 }
 
 //-------------------------------------------------------------------
@@ -1473,20 +1473,5 @@ void	Map2Screen( S32 x, S32 y, S32 z )
 //-------------------------------------------------------------------
 U8	*GetAdrBlock( S32 numblock )
 {
-	/*
-GetAdrBlock	proc	,\
-		numblock:DWORD
-
-		mov	ecx, numblock
-
-		mov	eax, [ds:TabBlock]		; pto = (ULONG*)TabBlock
-		add	eax, [ eax + ecx*4 ]	; TabBlock + pto[numbloc]
-
-		ret
-
-GetAdrBlock	endp
-	*/
- U32 *pto = (U32 *)TabBlock;
- U8 *adr = (U8 *)pto + pto[numblock];
- return adr;
+  return TabBlock + ((U32*)TabBlock)[numblock];
 }
