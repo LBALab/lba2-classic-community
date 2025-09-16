@@ -11,16 +11,6 @@
       "generator": "Ninja",
       "warnings": {
         "deprecated": true
-      },
-      "cacheVariables": {
-        "CMAKE_C_FLAGS": {
-          "type": "STRING",
-          "value": "-m32"
-        },
-        "CMAKE_CXX_FLAGS": {
-          "type": "STRING",
-          "value": "-m32"
-        }
       }
     },
     {
@@ -58,7 +48,15 @@
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "C:/msys64/mingw32/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/msys64/mingw32/bin/g++.exe",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": {
+          "type": "STRING",
+          "value": "-m32"
+        },
+        "CMAKE_CXX_FLAGS": {
+          "type": "STRING",
+          "value": "-m32"
+        }
       }
     },
     {
