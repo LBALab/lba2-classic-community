@@ -189,7 +189,7 @@ void GetCurrentRunningDir(char *outDir) {
   if (!initialized) {
     initialized = true;
 
-    char *sdlBasePath = SDL_GetBasePath();
+    char *sdlBasePath = SDL_GetCurrentDirectory();
     strncpy(runDir, sdlBasePath, ADELINE_MAX_PATH);
     runDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
