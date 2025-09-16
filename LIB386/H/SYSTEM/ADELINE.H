@@ -29,9 +29,11 @@ extern "C" {
 
 // -----------------------------------------------------------------------------
 // FIXME: Find places that depend on this pack(1) and do the correct push/pop
-#pragma pack(1)
+#pragma pack(push, 1)
 
 #include "ADELINE_TYPES.H"
+
+#pragma pack(pop)
 
 #ifdef _WIN32
 #define ADELINE_PATH_SEP "\\"

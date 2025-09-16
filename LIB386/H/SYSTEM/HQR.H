@@ -8,11 +8,13 @@ extern	"C"	{
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
+#pragma pack(push, 1)
 typedef struct
 	{	U32	SizeFile		;
 		U32	CompressedSizeFile	;
 		S16	CompressMethod 		;// 0 stored, 1 LZSS, 2 LZMIT
 	}	COMPRESSED_HEADER ;
+#pragma pack(pop)
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus
