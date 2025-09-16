@@ -6,6 +6,8 @@
 
 #include 	"C_EXTERN.H"
 
+#include "INPUT.H"
+
 #define	MAX_SAMPLE_PITCH	11000
 #define	MIN_SAMPLE_PITCH2	5000
 #define	MAX_SAMPLE_PITCH2	8500

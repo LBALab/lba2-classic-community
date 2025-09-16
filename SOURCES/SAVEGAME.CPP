@@ -9,6 +9,7 @@
 
 #include <SVGA/SCREEN.H>
 #include "DIRECTORIES.H"
+#include "INPUT.H"
 
 extern	char	PlayerName[MAX_SIZE_PLAYER_NAME+1] ;
 

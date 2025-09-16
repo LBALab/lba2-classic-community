@@ -3,6 +3,8 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
+#include "INPUT.H"
+
 // Input
 U32		WaitNoKey	= 0	;
 

@@ -4,6 +4,7 @@
 
 #include	"C_EXTERN.H"	// include LBA2
 #include "DIRECTORIES.H"
+#include "INPUT.H"
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>

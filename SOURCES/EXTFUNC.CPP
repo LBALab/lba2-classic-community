@@ -9,6 +9,7 @@
 
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "INPUT.H"
 
 #include <SVGA/SCREEN.H>
 
