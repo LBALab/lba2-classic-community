@@ -13,12 +13,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install SDL3
-        uses: libsdl-org/setup-sdl@main
-        id: sdl
+      - name: Install SDL3 and its dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          install-linux-dependencies: true
-          version: 3-latest
+          packages: build-essential libsdl3-dev
+          version: '1.0'
 
       - name: Install UASM
         uses: supplypike/setup-bin@v3
@@ -27,8 +26,11 @@ jobs:
           name: 'uasm'
           version: '2.57'
 
-      - name: Get latest CMake and ninja
+      - name: Install latest CMake and ninja
         uses: lukka/get-cmake@latest
+
+      - name: Code Checkout
+        uses: actions/checkout@v5
 
       - name: Run CMake
         run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --preset linux
