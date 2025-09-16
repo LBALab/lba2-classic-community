@@ -216,6 +216,13 @@ void GetDefaultUserDir(char *outDir) {
 
 void GetDefaultResDir(char *outDir) { GetCurrentRunningDir(outDir); }
 
+void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename) {
+  assert(directoriesInitialized);
+  assert((outPath != NULL) && (pathMaxSize > 0));
+
+  DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesResDir, cfgFilename);
+}
+
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename) {
   assert(directoriesInitialized);
   assert((outPath != NULL) && (pathMaxSize > 0));

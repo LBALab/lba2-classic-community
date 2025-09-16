@@ -17,6 +17,8 @@ void GetCurrentRunningDir(char *outDir); ///< Path where application was run
 void GetDefaultUserDir(char *outDir);    ///< Path for user writable data
 void GetDefaultResDir(char *outDir);     ///< Path for game resources
 
+void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
+
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename);
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename);
