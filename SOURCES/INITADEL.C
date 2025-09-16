@@ -82,7 +82,12 @@ void InitAdeline(S32 argc, char *argv[]) {
   }
 
   // ··········································································
-  InitEvents();
+  {
+    LogPuts("\nInitialising Event system. Please wait...\n");
+    if (!InitEvents()) {
+      exit(1); // TODO: Implement graceful exit
+    }
+  }
 
   // --- WINDOW ----------------------------------------------------------------
   {

@@ -2,7 +2,7 @@
 
 #include <SYSTEM/LOGPRINT.H>
 
-#include <SDL2/SDL_platform.h>
+#include <SDL3/SDL_platform.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus

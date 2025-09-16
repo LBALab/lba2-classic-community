@@ -10,7 +10,8 @@ set(SOURCES_FILES_ASM AFFSTR.CPP BLITBOXF.CPP BOX.CPP CALCMASK.CPP CLIP.CPP CLRB
         SCALESPT.CPP)
 
 add_library(svg ${SOURCES_FILES} ${SOURCES_FILES_ASM})
-target_link_libraries(svg PUBLIC sys SDL2::SDL2)
+target_link_libraries(svg PUBLIC sys SDL3::SDL3)
+target_compile_definitions(svg PRIVATE SDL_DISABLE_OLD_NAMES)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)

@@ -5,8 +5,9 @@
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H> // For AppActive
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <assert.h>
+#include <cstdlib>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -43,7 +44,7 @@ bool InitVideo() {
 
 void EndVideo() {
   if (sdlPalette) {
-    SDL_FreePalette(sdlPalette);
+    SDL_DestroyPalette(sdlPalette);
     sdlPalette = NULL;
   }
 
@@ -65,7 +66,7 @@ bool CreateVideoSurface(U32 resX, U32 resY) {
   }
 
   // Create palette
-  sdlPalette = SDL_AllocPalette(PAL_MAX_COLORS);
+  sdlPalette = SDL_CreatePalette(PAL_MAX_COLORS);
   if (sdlPalette == NULL) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Error: Unable to create SDL palette.\n"
@@ -149,8 +150,7 @@ void SetVideoPalette(const U8 src[], S32 startIdx, S32 count) {
   }
 
   // Update palette
-  int ret = SDL_SetPaletteColors(sdlPalette, tmpColors, startIdx, count);
-  if (ret != 0) {
+  if (!SDL_SetPaletteColors(sdlPalette, tmpColors, startIdx, count)) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Warning: Unable to set SDL palette color.\n"
               "\tSDL message: %s\n",
@@ -168,8 +168,7 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
 
   SDL_Color tmpColor = {r, g, b, 0xFF};
 
-  int ret = SDL_SetPaletteColors(sdlPalette, &tmpColor, colorIdx, 1);
-  if (ret != 0) {
+  if (!SDL_SetPaletteColors(sdlPalette, &tmpColor, colorIdx, 1)) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Warning: Unable to set SDL palette color.\n"
               "\tSDL message: %s\n",
@@ -195,8 +194,8 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
   U8 *srcMem = (src == Phys) ? (U8 *)sdlSurface->pixels : (U8 *)src;
   U32 dstPitch = (dst == Phys) ? (U32)sdlSurface->pitch : tabOffDst[1];
   U32 srcPitch = (src == Phys) ? (U32)sdlSurface->pitch : tabOffDst[1];
-  U8 dstBpp = (dst == Phys) ? sdlSurface->format->BytesPerPixel : 1;
-  U8 srcBpp = (src == Phys) ? sdlSurface->format->BytesPerPixel : 1;
+  U8 dstBpp = (dst == Phys) ? SDL_GetPixelFormatDetails(sdlSurface->format)->bytes_per_pixel : 1;
+  U8 srcBpp = (src == Phys) ? SDL_GetPixelFormatDetails(sdlSurface->format)->bytes_per_pixel : 1;
 
   if (dst == Phys) {
     LockVideoSurface();
@@ -217,7 +216,7 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
         SDL_Color srcPaletteColor = sdlPalette->colors[*srcPixel];
 
         U32 *dstPixel = (U32 *)(dstMem + (y * dstPitch) + (x * dstBpp));
-        *dstPixel = SDL_MapRGBA(sdlSurface->format, srcPaletteColor.r,
+        *dstPixel = SDL_MapRGBA(SDL_GetPixelFormatDetails(sdlSurface->format), NULL, srcPaletteColor.r,
                                 srcPaletteColor.g, srcPaletteColor.b,
                                 srcPaletteColor.a);
       } else {
@@ -239,16 +238,15 @@ void HandleEventsVideo(const void *event) {
   assert(event != NULL);
 
   const SDL_Event *sdlEvent = (SDL_Event *)(event);
-
-  if (sdlEvent->type == SDL_WINDOWEVENT) {
-    switch (sdlEvent->window.event) {
-    case SDL_WINDOWEVENT_FOCUS_GAINED:
+  switch (sdlEvent->type) {
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
       if (!AppActive) {
         BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
         BoxCleanClip = TRUE;
       }
       break;
-    }
+    default:
+      break;
   }
 }
 

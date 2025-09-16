@@ -20,7 +20,7 @@ set(SOURCES_FILES_DOS CRITICAL.CPP HERCULE.CPP)
 set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
 
 add_executable(lba2 ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN})
-target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL2::SDL2 SDL2::SDL2main ${SDL2_LIBRARIES})
+target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL3::SDL3)
 if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
 endif ()
@@ -28,7 +28,8 @@ endif ()
 target_include_directories(lba2 PRIVATE ../LIB386/H)
 target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
         $<$<STREQUAL:MVIDEO_BACKEND,smacker>:USE_MVIDEO_SMACKER>
-        $<$<STREQUAL:MVIDEO_BACKEND,none>:USE_MVIDEO_NONE>)
+        $<$<STREQUAL:MVIDEO_BACKEND,none>:USE_MVIDEO_NONE>
+        SDL_DISABLE_OLD_NAMES)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM SOURCES_FILES_ASM_DOS)

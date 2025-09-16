@@ -2,8 +2,9 @@
 
 #include <SYSTEM/LOGPRINT.H>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <assert.h>
+#include <cstdlib>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -25,7 +26,7 @@ bool InitWindow(const char *title) {
   assert(title != NULL);
   assert(windowSystemInitialized == false);
 
-  if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0) {
+  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Error: Unable to initialize SDL Window/Video subsystem.\n"
               "\tSDL Message: %s\n",
@@ -58,8 +59,14 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
   assert(windowSystemInitialized == true);
   assert(sdlWindow == NULL);
 
-  sdlWindow = SDL_CreateWindow(windowTitle, SDL_WINDOWPOS_CENTERED,
-                               SDL_WINDOWPOS_CENTERED, resX, resY, 0);
+  SDL_PropertiesID props = SDL_CreateProperties();
+  SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, windowTitle);
+  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
+  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
+  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
+  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
+  sdlWindow = SDL_CreateWindowWithProperties(props);
+  SDL_DestroyProperties(props);
   if (sdlWindow == NULL) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Error: Unable to create SDL window.\n"
@@ -114,8 +121,7 @@ void UpdateWindowSurfaceArea(const T_BOX area[], U32 areaCount) {
                          (area->x1 - area->x0),  // Width
                          (area->y1 - area->y0)}; // Height
 
-  int ret = SDL_UpdateWindowSurfaceRects(sdlWindow, &updateRect, areaCount);
-  if (ret != 0) {
+  if (!SDL_UpdateWindowSurfaceRects(sdlWindow, &updateRect, areaCount)) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Warning: Unable to update SDL window surface area.\n"
               "\tRect: Origin: [%i, %i] - Size: [%i, %i]\n"
@@ -137,18 +143,18 @@ void HandleEventsWindow(const void *event) {
   }
 
   const SDL_Event *sdlEvent = (SDL_Event *)(event);
-
-  if (sdlEvent->type == SDL_WINDOWEVENT) {
-    switch (sdlEvent->window.event) {
-    case SDL_WINDOWEVENT_FOCUS_GAINED:
+  switch (sdlEvent->type) {
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
       AppActive = true;
       break;
-    case SDL_WINDOWEVENT_FOCUS_LOST:
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
       AppActive = false;
       break;
-    }
-  } else if (sdlEvent->type == SDL_QUIT) {
-    exit(0); // TODO: Implement graceful exit
+    case SDL_EVENT_QUIT:
+      exit(0); // TODO: Implement graceful exit
+      break;
+    default:
+      break;
   }
 }
 

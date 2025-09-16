@@ -33,7 +33,7 @@ if (NOT MVIDEO_BACKEND IN_LIST MVIDEO_BACKEND_OPTIONS)
 endif ()
 
 # Dependencies
-find_package(SDL2 REQUIRED)
+find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
 # Process the targets
 add_subdirectory(LIB386)

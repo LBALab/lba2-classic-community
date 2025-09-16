@@ -2,8 +2,8 @@
 
 #include <SYSTEM/WINDOW.H> // For AppActive
 
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_timer.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_timer.h>
 #include <assert.h>
 
 // -----------------------------------------------------------------------------
@@ -91,20 +91,19 @@ void HandleEventsTimer(const void *event) {
   assert(event != NULL);
 
   const SDL_Event *sdlEvent = (SDL_Event *)(event);
-
-  if (sdlEvent->type == SDL_WINDOWEVENT) {
-    switch (sdlEvent->window.event) {
-    case SDL_WINDOWEVENT_FOCUS_GAINED:
+  switch (sdlEvent->type) {
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
       if (!AppActive) {
         UnlockTimer();
       }
       break;
-    case SDL_WINDOWEVENT_FOCUS_LOST:
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
       if (AppActive) {
         LockTimer();
       }
       break;
-    }
+    default:
+      break;
   }
 }
 
