@@ -96,9 +96,20 @@ void InitAdeline(S32 argc, char *argv[]) {
   //  Config File
   GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
   if (!ExistsFileOrDir(PathConfigFile)) {
-    // TODO: Create default config file if does not already exists
-    LogPrintf("Error: Can't find config file %s\n\n", PathConfigFile);
-    exit(1);
+    LogPuts("Config file not found! Copying default from assets folder...");
+
+    char PathDefaultConfigFile[ADELINE_MAX_PATH];
+    GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+    if (!ExistsFileOrDir(PathDefaultConfigFile)) {
+      LogPrintf("Error: Can't find default config file %s\n\n", PathDefaultConfigFile);
+      exit(1);
+    }
+
+    const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
+    if (!copyResult) {
+      LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n", PathDefaultConfigFile, PathConfigFile);
+      exit(1);
+    }
   }
 
   // ··········································································
