@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include "INPUT.H"
+
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 

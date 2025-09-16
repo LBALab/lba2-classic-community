@@ -1,5 +1,7 @@
 #include 	"C_EXTERN.H"
 
+#include "INPUT.H"
+
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 

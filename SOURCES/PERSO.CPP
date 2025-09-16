@@ -2,6 +2,7 @@
 
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
+#include "INPUT.H"
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>

@@ -488,7 +488,7 @@ typedef	struct
 #include	"BUGGY.H"
 #include	"WAGON.H"
 #include	"PATCH.H"
-#include	"INPUT.H"
+//#include	"INPUT.H"
 #include	"BEZIER.H"
 #include	"INTEXT.H"
 #include	"EXTFUNC.H"
