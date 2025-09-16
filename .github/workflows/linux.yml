@@ -13,11 +13,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install SDL3 and its dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
+      - name: Install SDL3
+        uses: libsdl-org/setup-sdl@main
+        id: sdl
         with:
-          packages: build-essential libsdl3-dev
-          version: '1.0'
+          install-linux-dependencies: true
+          version: 3-latest
+          build-type: ${{env.BUILD_TYPE}}
 
       - name: Install UASM
         uses: supplypike/setup-bin@v3
