@@ -6,8 +6,8 @@
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOGPRINT.H>
 
-#include <SDL2/SDL_filesystem.h>
-#include <SDL2/SDL_stdinc.h>
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_stdinc.h>
 
 #include <assert.h>
 #include <string.h>

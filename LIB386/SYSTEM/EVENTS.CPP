@@ -7,7 +7,7 @@
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/WINDOW.H>
 
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #include <assert.h>
 
 // -----------------------------------------------------------------------------
@@ -22,7 +22,7 @@ bool eventSystemInitialized = false;
 bool InitEvents() {
   assert(eventSystemInitialized == false);
 
-  if (SDL_InitSubSystem(SDL_INIT_EVENTS) != 0) {
+  if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
     const char* errorMsg = SDL_GetError();
     LogPrintf("Error: Unable to initialize SDL Events subsystem.\n"
               "\tSDL Message: %s\n", errorMsg);

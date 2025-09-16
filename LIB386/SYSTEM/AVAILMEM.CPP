@@ -1,6 +1,6 @@
 #include <SYSTEM/AVAILMEM.H>
 
-#include <SDL2/SDL_cpuinfo.h>
+#include <SDL3/SDL_cpuinfo.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus

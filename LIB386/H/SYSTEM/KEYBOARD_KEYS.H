@@ -1,7 +1,7 @@
 #pragma once
 
 // TODO: Create mapping behind functions, so SDL is not exposed to global scope
-#include <SDL2/SDL_keycode.h>
+#include <SDL3/SDL_keycode.h>
 
 // -----------------------------------------------------------------------------
 #define K_UP            SDL_SCANCODE_UP

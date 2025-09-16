@@ -9,7 +9,8 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
 
-#include <SDL2/SDL.h> // For SDL_main
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>

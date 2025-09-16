@@ -2,7 +2,7 @@
 
 #include <SVGA/SCREEN.H> // For ModeDesiredX, ModeDesiredY
 
-#include <SDL2/SDL_events.h>
+#include <SDL3/SDL_events.h>
 #include <assert.h>
 
 // -----------------------------------------------------------------------------
@@ -98,18 +98,18 @@ void HandleEventsMouse(const void *event) {
   const SDL_Event *sdlEvent = (SDL_Event *)(event);
 
   switch (sdlEvent->type) {
-  case SDL_MOUSEMOTION:
+  case SDL_EVENT_MOUSE_MOTION:
     LibMouseXDep += sdlEvent->motion.xrel;
     LibMouseYDep += sdlEvent->motion.yrel;
     SetMousePos(sdlEvent->motion.x, sdlEvent->motion.y);
     break;
 
-  case SDL_MOUSEBUTTONDOWN:
+  case SDL_EVENT_MOUSE_BUTTON_DOWN:
     Click |= (sdlEvent->button.button == 1) ? 1 : 0;
     Click |= (sdlEvent->button.button == 3) ? 2 : 0;
     break;
 
-  case SDL_MOUSEBUTTONUP:
+  case SDL_EVENT_MOUSE_BUTTON_UP:
     Click &= (sdlEvent->button.button == 1) ? ~1 : Click;
     Click &= (sdlEvent->button.button == 3) ? ~2 : Click;
     break;

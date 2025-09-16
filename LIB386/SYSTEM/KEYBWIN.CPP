@@ -2,7 +2,7 @@
 #include	<SYSTEM/ADELINE.H>
 #include	<SYSTEM/WINSYS.H>
 #include	<SYSTEM/KEYBWIN.H>
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 
 //----------------------------------------------------------------------------
 S32	AsciiMode = FALSE	;

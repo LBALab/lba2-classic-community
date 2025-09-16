@@ -2,8 +2,8 @@
 
 #include <SYSTEM/EVENTS.H>
 
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_keyboard.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_keyboard.h>
 #include <stdio.h>
 
 // -----------------------------------------------------------------------------
@@ -28,8 +28,8 @@ void UpdateKeyboardState() {
   memset(TabKeys, 0, 256);
 
   SDL_PumpEvents();
-  const U8 *keystate = SDL_GetKeyboardState(NULL);
-  for (int keyIndex = 0; keyIndex < SDL_NUM_SCANCODES; keyIndex++) {
+  const bool *keystate = SDL_GetKeyboardState(NULL);
+  for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
     if (keystate[keyIndex]) {
       TabKeys[KeyIndex(keyIndex)] |= KeyBit(keyIndex);
 
@@ -51,14 +51,14 @@ void EndKeyboard() {
 
 // --- Interface ---------------------------------------------------------------
 S32 GetAscii() {
-  static S32 lastReturnedAscii = 0;
+  static SDL_Keycode lastReturnedAscii = 0;
 
   ManageEvents();
 
-  const U8 *keystate = SDL_GetKeyboardState(NULL);
-  for (int keyIndex = 0; keyIndex < SDL_NUM_SCANCODES; keyIndex++) {
+  const bool *keystate = SDL_GetKeyboardState(NULL);
+  for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
     if (keystate[keyIndex]) {
-      S32 asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)keyIndex);
+      SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)keyIndex, SDL_KMOD_NONE, true);
 
       if (lastReturnedAscii == asciiValue) {
         return 0;

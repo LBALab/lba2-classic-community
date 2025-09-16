@@ -1,6 +1,6 @@
 #pragma once
 
-#include <SDL2/SDL_keycode.h>
+#include <SDL3/SDL_keycode.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
