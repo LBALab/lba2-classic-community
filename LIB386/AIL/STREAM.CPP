@@ -1,203 +1,210 @@
-#include	<system/adeline.h>
+#include <system/adeline.h>
 
-#ifdef	_WIN32
-#include	<system/winsys.h>
-#include	<ail/mssw.h>
+#ifdef _WIN32
+#include <system/winsys.h>
+#include <ail/mssw.h>
 #else
-#include	<system/dossys.h>
-#include	<ail/mss.h>
+#include <system/dossys.h>
+#include <ail/mss.h>
 #endif
 
-#include	<ail/common.h>
-#include	<ail/sample.h>
-#include	<ail/stream.h>
+#include <ail/common.h>
+#include <ail/sample.h>
+#include <ail/stream.h>
 
-#include 	<stdlib.h>
-#include 	<string.h>
+#include <stdlib.h>
+#include <string.h>
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-#define	Scale(value, scale, range)	( ( (value)*(scale) + (1<<(range-1)) ) >> range )
+#define Scale(value, scale, range) (((value) * (scale) + (1 << (range - 1))) >> range)
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-extern	HDIGDRIVER	DigDriver	;// Handle to digital audio driver
-extern	S32		LibWaveMasterVolume	;
+extern HDIGDRIVER DigDriver; // Handle to digital audio driver
+extern S32 LibWaveMasterVolume;
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-static	HSTREAM		Stream			;
-static	S32		StreamVolume = 127	;
-static	S32		PausedPos		;
-static	char		StreamPathName[_MAX_PATH];
-static	char		PausedPathName[_MAX_PATH];
+static HSTREAM Stream;
+static S32 StreamVolume = 127;
+static S32 PausedPos;
+static char StreamPathName[_MAX_PATH];
+static char PausedPathName[_MAX_PATH];
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-static	VOID_FUNC	*StreamManageProc	;
+static VOID_FUNC *StreamManageProc;
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-static	VOID_FUNC	ManageStream		;
+static VOID_FUNC ManageStream;
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-static void	ManageStream()
+static void ManageStream()
 {
-	if( Sample_Driver_Enabled && Stream )
-	{
-		AIL_service_stream(Stream, 0)	;
-	}
+    if (Sample_Driver_Enabled && Stream)
+    {
+        AIL_service_stream(Stream, 0);
+    }
 
-	if(StreamManageProc)
-	{
-		StreamManageProc()	;
-	}
+    if (StreamManageProc)
+    {
+        StreamManageProc();
+    }
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
 static void PlayThisStream(char *name, S32 pos)
 {
-	if( !Sample_Driver_Enabled )	return	;
+    if (!Sample_Driver_Enabled)
+        return;
 
-	StopStream()	;
+    StopStream();
 
-	Stream = AIL_open_stream(DigDriver, name, 0)	;
+    Stream = AIL_open_stream(DigDriver, name, 0);
 
-	if(!Stream)			return	;
+    if (!Stream)
+        return;
 
-	strcpy(StreamPathName, name)		;
+    strcpy(StreamPathName, name);
 
-	AIL_set_stream_position(Stream, pos)	;
+    AIL_set_stream_position(Stream, pos);
 
-	ChangeVolumeStream(
-#ifdef	_WIN32
-			UseWaveMixer?StreamVolume:
-#endif//_WIN32
-			Scale(StreamVolume, LibWaveMasterVolume, 7));
+    ChangeVolumeStream(
+#ifdef _WIN32
+        UseWaveMixer ? StreamVolume :
+#endif //_WIN32
+                     Scale(StreamVolume, LibWaveMasterVolume, 7));
 
-	AIL_start_stream(Stream)		;
+    AIL_start_stream(Stream);
 
-	ManageStream()				;
+    ManageStream();
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-void	OpenStream()
+void OpenStream()
 {
-	static	char init = TRUE	;
+    static char init = TRUE;
 
-	if(init)
-	{
-		StreamManageProc = ManageProc	;
-		ManageProc	 = ManageStream	;
-		init 		 = FALSE	;
-	}
+    if (init)
+    {
+        StreamManageProc = ManageProc;
+        ManageProc = ManageStream;
+        init = FALSE;
+    }
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-void	PlayStream(char *name)
+void PlayStream(char *name)
 {
-	PlayThisStream(name, 0)	;
+    PlayThisStream(name, 0);
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-void	ChangeVolumeStream(S32 volume)
+void ChangeVolumeStream(S32 volume)
 {
-	if(volume>127)
-	{
-		volume = 127	;
-	}
-	else if (volume<0)
-	{
-		volume = 0	;
-	}
+    if (volume > 127)
+    {
+        volume = 127;
+    }
+    else if (volume < 0)
+    {
+        volume = 0;
+    }
 
-	StreamVolume = volume	;
+    StreamVolume = volume;
 
-	if( !Sample_Driver_Enabled || !Stream )	return ;
+    if (!Sample_Driver_Enabled || !Stream)
+        return;
 
-	AIL_set_stream_volume(Stream,
-#ifdef	_WIN32
-			UseWaveMixer?StreamVolume:
-#endif//_WIN32
-			Scale(StreamVolume, LibWaveMasterVolume, 7));
-
+    AIL_set_stream_volume(Stream,
+#ifdef _WIN32
+                          UseWaveMixer ? StreamVolume :
+#endif //_WIN32
+                                       Scale(StreamVolume, LibWaveMasterVolume, 7));
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-S32	GetVolumeStream()
+S32 GetVolumeStream()
 {
-	return	StreamVolume	;
+    return StreamVolume;
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-void	StopStream()
+void StopStream()
 {
-	if( !Sample_Driver_Enabled || !Stream )	return ;
+    if (!Sample_Driver_Enabled || !Stream)
+        return;
 
-	AIL_close_stream(Stream)	;
+    AIL_close_stream(Stream);
 
-	Stream = NULL		;
-	StreamPathName[0] = 0	;
+    Stream = NULL;
+    StreamPathName[0] = 0;
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-void	PauseStream()
+void PauseStream()
 {
-	if(!IsStreamPlaying())		return	;
+    if (!IsStreamPlaying())
+        return;
 
-	AIL_pause_stream(Stream, TRUE)		;
+    AIL_pause_stream(Stream, TRUE);
 
-	ManageStream()				;
+    ManageStream();
 
-	PausedPos = AIL_stream_position(Stream)	;
-	strcpy(PausedPathName, StreamPathName)	;
+    PausedPos = AIL_stream_position(Stream);
+    strcpy(PausedPathName, StreamPathName);
 
-	StopStream()				;
+    StopStream();
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-void	ResumeStream()
+void ResumeStream()
 {
-	if( !PausedPathName[0] )	return ;
+    if (!PausedPathName[0])
+        return;
 
-	PlayThisStream(PausedPathName, PausedPos) ;
+    PlayThisStream(PausedPathName, PausedPos);
 
-	PausedPathName[0] = 0	;
+    PausedPathName[0] = 0;
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-S32	IsStreamPlaying()
+S32 IsStreamPlaying()
 {
-	S32	playing	;
+    S32 playing;
 
-	if( !Sample_Driver_Enabled || !Stream )	return FALSE ;
+    if (!Sample_Driver_Enabled || !Stream)
+        return FALSE;
 
-	ManageStream()			;
+    ManageStream();
 
-	playing = (AIL_stream_status(Stream) != SMP_DONE) ;
+    playing = (AIL_stream_status(Stream) != SMP_DONE);
 
-	if(!playing)	StopStream()	;
+    if (!playing)
+        StopStream();
 
-	return	playing	;
+    return playing;
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
 
-char	*StreamName()
+char *StreamName()
 {
-	IsStreamPlaying()	;
+    IsStreamPlaying();
 
-	return	StreamPathName	;
+    return StreamPathName;
 }
 
-//████████████████████████████████████████████████████████████████████████████
+// ████████████████████████████████████████████████████████████████████████████
