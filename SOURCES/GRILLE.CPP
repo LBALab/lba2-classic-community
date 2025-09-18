@@ -1303,27 +1303,25 @@ U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 //-------------------------------------------------------------------
 U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 {
-	PTR_U8 ptc = BufCube + (xw / SIZE_BRICK_XZ);
-	XMap = xw / SIZE_BRICK_XZ;
+  U8 code = 0;
 
-	if (yw <= -1)
-	{
-		return 0;
-	}
+  if (yw > -1) {
+    U8 *ptc = BufCube;
 
-	YMap = yw / SIZE_BRICK_Y;
-	ZMap = zw / SIZE_BRICK_XZ;
-	ptc += XMap * 50 + YMap * 2 + ZMap * 3200;
-	U8 col = *ptc;
+    XMap = (xw + DEMI_BRICK_XZ) >> 9;
+    YMap = yw >> 8;
+    ZMap = (zw + DEMI_BRICK_XZ) >> 9;
 
-	if (col == 0)
-	{
-		return 0;
-	}
+    ptc += XMap * 50 + YMap * 2 + ZMap * 3200;
 
-	U8 *adr = GetAdrBlock(col - 1);
-	adr += HEADER_BLOCK + 1;
-	return *adr & 0xF0;
+    U8 col = *ptc;
+    if (col) {
+      U8 *adr = GetAdrBlock(col - 1);
+      adr += HEADER_BLOCK + 1;
+      code = *adr;
+    }
+  }
+  return code;
 }
 
 //-------------------------------------------------------------------
