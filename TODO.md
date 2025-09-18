@@ -1,6 +1,8 @@
 # TODO
 
 ## Bugs
+- [ ] Sky not being drawn
+- [ ] Water not being drawn
 - [ ] Can't read old saved games
 
 ## General
