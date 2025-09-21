@@ -54,10 +54,11 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-       
+        // Simple multiply for sub-pixel adjustment, matching assembly imul instruction
         S32 addU = ((S32)factor * (S32)Fill_MapU_XSlope) >> 16;
         lineU += addU;
 
@@ -87,7 +88,9 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -145,21 +148,24 @@ S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-       
+        // Simple multiply for sub-pixel adjustment, matching assembly imul instruction
         S32 addU = ((S32)factor * (S32)Fill_MapU_XSlope) >> 16;
         lineU += addU;
 
         S32 addV = ((S32)factor * (S32)Fill_MapV_XSlope) >> 16;
         lineV += addV;
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00));
-      U32 lineUDec = lineU << 16;
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00)); // eax
+      U32 lineUDec = lineU << 16; // edx
       do
       {
+        // @@Each_X:
         U8 texel = POLYTEXT_PtrMapPatch[mapIndex];
 
         U8 carry = (lineVDec > (0xFFFFFFFF - POLYTEXT_DecMapV));
@@ -181,7 +187,9 @@ S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -240,6 +248,7 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -249,15 +258,18 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         U32 addV = factor * Fill_MapV_XSlope >> 16;
         lineV += addV;
 
+        // @@Preload - cache preloading (omitted)
       }
 
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00));
-      U32 lineUDec = lineU << 16;
-      U8 colorBase = Fill_Color.Num & 0xFF;
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00)); // eax
+      U32 lineUDec = lineU << 16; // esi
+      U8 colorBase = Fill_Color.Num & 0xFF; // edx
 
       do
       {
+        // @@Each_X:
         U8 texel = POLYTEXT_PtrMapPatch[mapIndex];
 
         U8 carry = (lineVDec > (0xFFFFFFFF - POLYTEXT_DecMapV));
@@ -277,7 +289,9 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -336,6 +350,7 @@ S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -356,13 +371,15 @@ S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         lineV += addVLow;
       }
 
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00));
-      U32 lineUDec = lineU << 16;
-      U8 colorBase = Fill_Color.Num & 0xFF;
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00)); // eax
+      U32 lineUDec = lineU << 16; // esi
+      U8 colorBase = Fill_Color.Num & 0xFF; // edx
 
       do
       {
+        // @@Each_X:
         U8 texel = POLYTEXT_PtrMapPatch[mapIndex];
 
         U8 carry = (lineVDec > (0xFFFFFFFF - POLYTEXT_DecMapV));
@@ -385,7 +402,9 @@ S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -442,6 +461,7 @@ S32 Filler_TextureFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -461,11 +481,13 @@ S32 Filler_TextureFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addVInt |= addVDec;
         lineV += addVInt;
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00));
-      U32 lineUDec = lineU << 16;
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00)); // eax
+      U32 lineUDec = lineU << 16; // edx
       do
       {
+        // @@Each_X:
         U8 textureColor = POLYTEXT_PtrMapPatch[mapIndex];
         U8 foggedColor = Fill_Logical_Palette[textureColor];
         *line = foggedColor;
@@ -483,7 +505,9 @@ S32 Filler_TextureFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -540,6 +564,7 @@ S32 Filler_TextureChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -559,11 +584,13 @@ S32 Filler_TextureChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addVInt |= addVDec;
         lineV += addVInt;
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00));
-      U32 lineUDec = lineU << 16;
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU & 0xFF0000) >> 16) | ((lineV >> 8) & 0xFF00)); // eax
+      U32 lineUDec = lineU << 16; // edx
       do
       {
+        // @@Each_X:
         U8 textureColor = POLYTEXT_PtrMapPatch[mapIndex];
         if (textureColor != 0) {
           U8 foggedColor = Fill_Logical_Palette[textureColor];
@@ -583,7 +610,9 @@ S32 Filler_TextureChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -605,6 +634,7 @@ S32 Filler_TextureChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -647,6 +677,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -666,16 +697,23 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addVInt |= addVDec;
         lineV += addVInt;
 
+        // There was some @@Preload code here, but it did nothing other
+        // than reading some bytes but not doing anything with it. It
+        // also had the comment "Load dst in WB cache", which means nothing
+        // to me. I'm guessing it was some kind of prefetching, but I'm
+        // not sure. I'm leaving it out for now.
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8));
-      U32 zInt = Fill_CurZBufMin >> 8;
-      U32 zDec = Fill_CurZBufMin << 24;
-      U32 offset = line - (U8 *)Log;
-      U32 incDecMapU = Precalc_Inc | (lineU << 16);
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 zInt = Fill_CurZBufMin >> 8; // edx
+      U32 zDec = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 incDecMapU = Precalc_Inc | (lineU << 16); // ebx
 
       do
       {
+        // @@Each_X:
         if ((zInt & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = zInt & 0xFFFF;
@@ -700,7 +738,9 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -864,6 +904,7 @@ S32 Filler_TextureChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -906,6 +947,7 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -931,14 +973,16 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         // to me. I'm guessing it was some kind of prefetching, but I'm
         // not sure. I'm leaving it out for now.
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8));
-      U32 zDec = Fill_CurZBufMin << 24;
-      U32 offset = line - (U8 *)Log;
-      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16);
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 zDec = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16); // edx
 
       do
       {
+        // @@Each_X:
         if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
@@ -963,7 +1007,9 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -986,6 +1032,7 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -1028,6 +1075,7 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -1053,14 +1101,16 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
         // to me. I'm guessing it was some kind of prefetching, but I'm
         // not sure. I'm leaving it out for now.
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8));
-      U32 zDec = Fill_CurZBufMin << 24;
-      U32 offset = line - (U8 *)Log;
-      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16);
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 zDec = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16); // edx
 
       do
       {
+        // @@Each_X:
         if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
@@ -1088,7 +1138,9 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -1111,6 +1163,7 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -1152,6 +1205,7 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -1177,14 +1231,16 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         // to me. I'm guessing it was some kind of prefetching, but I'm
         // not sure. I'm leaving it out for now.
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8));
-      U32 decZ = Fill_CurZBufMin << 24;
-      U32 offset = line - (U8 *)Log;
-      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16);
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 decZ = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16); // edx
 
       do
       {
+        // @@Each_X:
         if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
@@ -1208,7 +1264,9 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -1274,6 +1332,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -1293,14 +1352,16 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         addVInt |= addVDec;
         lineV += addVInt;
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8));
-      U32 decZ = Fill_CurZBufMin << 24;
-      U32 offset = line - (U8 *)Log;
-      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16);
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 decZ = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16); // edx
 
       do
       {
+        // @@Each_X:
         if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 textureColor = POLYTEXT_PtrMapPatch[mapIndex];
@@ -1314,6 +1375,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
           }
         }
 
+        // @@NoDisp:
         U8 carry = (decZ > (0xFFFFFFFF - POLYTEXT_DecZBuf));
         decZ += POLYTEXT_DecZBuf;
         U8 carry2 = (decU_intZ > (0xFFFFFFFF - POLYTEXT_DecMapUIntZBuf - carry));
@@ -1331,7 +1393,9 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -1354,6 +1418,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Converted from ASM - Basic texture rendering with Z-buffer testing (no Z-write)
 S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -1424,10 +1489,11 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         v += vAdjust;
       }
       
+      // Prepare texture coordinate extraction (matching assembly layout)
       U32 texU = (u >> 16) & 0xFF;
       U32 texV = (v & 0xFF0000) >> 8;
       U32 texCoord = texU | texV;
-      texCoord &= RepMask;
+      texCoord &= RepMask; // Apply mask early like in assembly
       
       // Adjust destination pointer for Log offset
       PTR_U8 logPtr = (PTR_U8)Log;
@@ -1439,16 +1505,18 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 combinedIncrement = Precalc_Inc | subU;
       
       // Prepare Z-buffer values (matching assembly register layout)
-      U32 zBufHigh = Fill_CurZBufMin << (32-8);
-      U32 zBufLow = Fill_CurZBufMin >> 8;      
+      U32 zBufHigh = Fill_CurZBufMin << (32-8); // esi in assembly
+      U32 zBufLow = Fill_CurZBufMin >> 8;       // edx in assembly
       
       // Render scanline pixels
       for (U32 x = 0; x < fillWidth; x++)
       {
+        // Z-buffer test: assembly compares "cmp word ptr [edi*2+eax],dx" then "jb @@NoDisp"
         // This means: if (zBuffer[logOffset] < currentDepth) skip pixel
-        U16 currentDepth = zBufLow & 0xFFFF;
+        U16 currentDepth = zBufLow & 0xFFFF; // dx in assembly
         if (POLYTEXT_PtrZBufferPatch[logOffset] < currentDepth)
         {
+          // NoDisp: Skip this pixel, go to coordinate updates
         }
         else
         {
@@ -1457,7 +1525,7 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           POLYTEXT_PtrLog[logOffset] = texel;
         }
         
-       
+        // Advance to next pixel
         logOffset++;
         
         // Update texture coordinates: "add ebx,[DecMapU]" then "adc al,[IntMapU]"
@@ -1506,6 +1574,7 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Converted from ASM - Texture rendering with chroma key and Z-buffer testing (no Z-write)
 S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -1576,10 +1645,11 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         v += vAdjust;
       }
       
+      // Prepare texture coordinate extraction (matching assembly layout)
       U32 texU = (u >> 16) & 0xFF;
       U32 texV = (v & 0xFF0000) >> 8;
       U32 texCoord = texU | texV;
-      texCoord &= RepMask;
+      texCoord &= RepMask; // Apply mask early like in assembly
       
       // Adjust destination pointer for Log offset
       PTR_U8 logPtr = (PTR_U8)Log;
@@ -1591,16 +1661,18 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 combinedIncrement = Precalc_Inc | subU;
       
       // Prepare Z-buffer values (matching assembly register layout)
-      U32 zBufHigh = Fill_CurZBufMin << (32-8);
-      U32 zBufLow = Fill_CurZBufMin >> 8;      
+      U32 zBufHigh = Fill_CurZBufMin << (32-8); // esi in assembly
+      U32 zBufLow = Fill_CurZBufMin >> 8;       // edx in assembly
       
       // Render scanline pixels
       for (U32 x = 0; x < fillWidth; x++)
       {
+        // Z-buffer test: assembly compares "cmp word ptr [edi*2+eax],dx" then "jb @@NoDisp"
         // This means: if (zBuffer[logOffset] < currentDepth) skip pixel
-        U16 currentDepth = zBufLow & 0xFFFF;
+        U16 currentDepth = zBufLow & 0xFFFF; // dx in assembly
         if (POLYTEXT_PtrZBufferPatch[logOffset] < currentDepth)
         {
+          // NoDisp: Skip this pixel, go to coordinate updates
         }
         else
         {
@@ -1615,7 +1687,7 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           }
         }
         
-       
+        // Advance to next pixel
         logOffset++;
         
         // Update texture coordinates: "add ebx,[DecMapU]" then "adc al,[IntMapU]"
@@ -1664,6 +1736,7 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Verified
 S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -1705,6 +1778,7 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
       U32 lineV = v;
       U32 lineU = u;
+      // Load 1st dst cache line
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
@@ -1730,14 +1804,16 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         // to me. I'm guessing it was some kind of prefetching, but I'm
         // not sure. I'm leaving it out for now.
       }
-      U32 lineVDec = lineV << 16;
-      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8));
-      U32 zDec = Fill_CurZBufMin << 24;
-      U32 offset = line - (U8 *)Log;
-      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16);
+      // @@FastInit:
+      U32 lineVDec = lineV << 16; // ebp
+      U32 mapIndex = RepMask & (((lineU >> 16) & 0xFF) | ((lineV & 0xFF0000) >> 8)); // eax
+      U32 zDec = Fill_CurZBufMin << 24; // esi
+      U32 offset = line - (U8 *)Log; // edi
+      U32 decU_intZ = (Fill_CurZBufMin >> 8) | (lineU << 16); // edx
 
       do
       {
+        // @@Each_X:
         if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
@@ -1761,7 +1837,9 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         --fillWidth;
       }
       while (fillWidth);
+      // @@End_X:
     }
+    // @@EndScanLine:
     diffY--;
     if (diffY == 0)
     {
@@ -1784,6 +1862,7 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Converted from ASM - Flat texture rendering with chroma key transparency, Z-buffer testing (no Z-write)
 S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -1891,7 +1970,7 @@ S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         }
         
       skipPixel:
-       
+        // Advance to next pixel
         destPtr++;
         
         // Update Z-buffer coordinate
@@ -1936,6 +2015,7 @@ S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Converted from ASM - Texture rendering with fog effects, Z-buffer testing (no Z-write)
 S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -2008,17 +2088,18 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         }
       }
       
+      // Setup texture coordinate interpolation (matching assembly layout)
       U32 texU = ((U32)startU >> 16) & 0xFF;
       U32 texV = ((U32)startV & 0xFF0000) >> 8;
       U32 texCoord = texU | texV;
-      texCoord &= RepMask;
+      texCoord &= RepMask; // Apply mask early like in assembly
       
       U32 fracU = (U32)startU << 16;
       U32 fracV = (U32)startV << 16;
       
       // Z-buffer setup - critical fix: match assembly register usage
-      U32 zFrac = (U32)Fill_CurZBufMin << (32 - 8); 
-      U32 zInt = (U32)Fill_CurZBufMin >> 8;          
+      U32 zFrac = (U32)Fill_CurZBufMin << (32 - 8);  // esi in assembly
+      U32 zInt = (U32)Fill_CurZBufMin >> 8;           // edx in assembly
       // Combine zInt with fracU like assembly: "or edx,esi"
       U32 combinedZU = zInt | fracU;
       
@@ -2028,10 +2109,12 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // Main rendering loop
       for (U32 x = 0; x < fillWidth; x++)
       {
+        // Z-buffer test: assembly compares "cmp word ptr [edi*2+eax],dx" then "jb @@NoDisp"
         // This means: if (zBuffer[logOffset] < currentDepth) skip pixel
-        U16 currentDepth = (U16)(combinedZU & 0xFFFF);
+        U16 currentDepth = (U16)(combinedZU & 0xFFFF); // dx in assembly
         if (POLYTEXT_PtrZBufferPatch[logOffset] < currentDepth)
         {
+          // NoDisp: Skip this pixel, go to coordinate updates
         }
         else
         {
@@ -2043,7 +2126,7 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           POLYTEXT_PtrLog[logOffset] = foggedColor;
         }
         
-       
+        // Advance to next pixel
         logOffset++;
         
         // Update Z-buffer coordinate with carry: "add esi,[DecZBuf]" then "adc edx,[DecMapUIntZBuf]"
@@ -2093,6 +2176,7 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
+// Converted from ASM - Texture rendering with chroma key transparency, fog effects, Z-buffer testing (no Z-write)
 S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
   U32 diffY = nbLines + 1;
@@ -2165,17 +2249,18 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         }
       }
       
+      // Setup texture coordinate interpolation (matching assembly layout)
       U32 texU = ((U32)startU >> 16) & 0xFF;
       U32 texV = ((U32)startV & 0xFF0000) >> 8;
       U32 texCoord = texU | texV;
-      texCoord &= RepMask;
+      texCoord &= RepMask; // Apply mask early like in assembly
       
       U32 fracU = (U32)startU << 16;
       U32 fracV = (U32)startV << 16;
       
       // Z-buffer setup - critical fix: match assembly register usage
-      U32 zFrac = (U32)Fill_CurZBufMin << (32 - 8); 
-      U32 zInt = (U32)Fill_CurZBufMin >> 8;          
+      U32 zFrac = (U32)Fill_CurZBufMin << (32 - 8);  // esi in assembly
+      U32 zInt = (U32)Fill_CurZBufMin >> 8;           // edx in assembly
       // Combine zInt with fracU like assembly: "or edx,esi"
       U32 combinedZU = zInt | fracU;
       
@@ -2185,10 +2270,12 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       // Main rendering loop
       for (U32 x = 0; x < fillWidth; x++)
       {
+        // Z-buffer test: assembly compares "cmp word ptr [edi*2+eax],dx" then "jb @@NoDisp"
         // This means: if (zBuffer[logOffset] < currentDepth) skip pixel
-        U16 currentDepth = (U16)(combinedZU & 0xFFFF);
+        U16 currentDepth = (U16)(combinedZU & 0xFFFF); // dx in assembly
         if (POLYTEXT_PtrZBufferPatch[logOffset] < currentDepth)
         {
+          // NoDisp: Skip this pixel, go to coordinate updates
         }
         else
         {
@@ -2204,7 +2291,7 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           }
         }
         
-       
+        // Advance to next pixel
         logOffset++;
         
         // Update Z-buffer coordinate with carry: "add esi,[DecZBuf]" then "adc edx,[DecMapUIntZBuf]"
