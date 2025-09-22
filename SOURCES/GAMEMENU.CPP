@@ -1251,6 +1251,8 @@ void    DrawOneChoice( S32 x, S32 y, S32 type, S32 num, S32 select )
         char    string[256] ;
         S32     value ;
         S32     drawslider = FALSE ;
+        U8      *samplePtr;
+        S32     sampleSizeBytes;
 
         x0 = x - LargeurMenu/2 ;
         x1 = x + LargeurMenu/2 ;
@@ -1354,7 +1356,8 @@ void    DrawOneChoice( S32 x, S32 y, S32 type, S32 num, S32 select )
 
 							PanMenu    = 20+MyRnd(88) ;
 
-							PlaySample( (U8*)GivePtrSample(VoiceMenu), VoiceMenu, 0x1000, 1, VoiceVolume, PanMenu ) ;
+							samplePtr = (U8*)GivePtrSample(VoiceMenu, &sampleSizeBytes);
+							PlaySample( samplePtr, sampleSizeBytes, VoiceMenu, 0x1000, 1, VoiceVolume, PanMenu ) ;
 						}
 						else    if( VoiceVolume!=LastVoiceVolume )
 						{
@@ -2831,7 +2834,7 @@ void    GameOver()
         if( SamplesEnable )
         {
                 HQRGetDelFunc = DelBlocHQRSample ;
-                GivePtrSample( SAMPLE_GAME_OVER ) ;
+                GivePtrSample( SAMPLE_GAME_OVER, NULL ) ;
                 HQRGetDelFunc = NULL ;
         }
 

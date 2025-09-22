@@ -66,6 +66,7 @@ U32     HQ_MixSample( S32 numsample, S32 frequence, S32 decalage, S32 repeat, S3
         U32     timesample ;
         U32     retvalue = -1 ;
         U8      *ptr ;
+        S32     sampleSizeBytes = 0;
 
         if( SamplesEnable AND numsample != -1 )
 	{
@@ -109,10 +110,10 @@ U32     HQ_MixSample( S32 numsample, S32 frequence, S32 decalage, S32 repeat, S3
 		if( numsample&0xFF000000 )      numsample = (numsample>>8)&0xFFFF ;
 
 		// Blindage inutile
-                ptr = (U8*)GivePtrSample( numsample ) ;
+                ptr = (U8*)GivePtrSample( numsample, &sampleSizeBytes ) ;
 		if( ptr )
 		{
-			retvalue = PlaySample( ptr, numsample, frequence, repeat, volume, pan ) ;
+			retvalue = PlaySample( ptr, sampleSizeBytes, numsample, frequence, repeat, volume, pan ) ;
 		}
 		else
 		{
@@ -135,6 +136,7 @@ U32     HQ_RestartSample( S32 numsample, S32 frequence, S32 repeat, S32 pan, S32
 {
         U32     retvalue = -1 ;
         U8      *ptr ;
+        S32     sampleSizeBytes = 0;
 
         if( SamplesEnable AND numsample != -1 )
         {
@@ -143,10 +145,10 @@ U32     HQ_RestartSample( S32 numsample, S32 frequence, S32 repeat, S32 pan, S32
                 HQRGetDelFunc = DelBlocHQRSample ;
 
                 // Blindage inutile
-                ptr = (U8*)GivePtrSample( numsample ) ;
+                ptr = (U8*)GivePtrSample( numsample, &sampleSizeBytes ) ;
                 if( ptr )
                 {
-                        retvalue = PlaySample( ptr, numsample, frequence, repeat, volume, pan ) ;
+                        retvalue = PlaySample( ptr, sampleSizeBytes, numsample, frequence, repeat, volume, pan ) ;
                 }
 
                 HQRGetDelFunc = NULL ;

@@ -141,7 +141,7 @@ void InitAdeline(S32 argc, char *argv[]) {
   // ··········································································
   //  AIL API init (for vmm_lock/timer)
 
-  InitAIL();
+  InitAIL(); // TODO: Reorganize/reposition closer to sound subsystem
 
   // --- VIDEO
   // -------------------------------------------------------------------
@@ -164,34 +164,26 @@ void InitAdeline(S32 argc, char *argv[]) {
   //  Midi device
 
 #if ((inits)&INIT_MIDI)
-
 #ifndef LIB_AIL
-
 #error ADELINE: you need to include AIL.H
-
 #endif
-
   LogPuts("\nInitialising Midi device. Please wait...\n");
-
   if (!InitMidiDriver(NULL))
     exit(1);
-
 #endif
 
   // ··········································································
   //  Sample device
-  /*
-  #ifndef LIB_AIL
-
-  #error ADELINE: you need to include AIL.H
-
-  #endif
-
+  {
+#ifndef LIB_AIL
+#error ADELINE: you need to include AIL.H
+#endif
     LogPuts("\nInitialising Sample device. Please wait...\n");
+    if (!InitSampleDriver(NULL)) {
+      exit(1); // TODO: Implement graceful exit
+    }
+  }
 
-    if (!InitSampleDriver(NULL))
-      exit(1);
-  */
   // ··········································································
   //  Smacker
   /*

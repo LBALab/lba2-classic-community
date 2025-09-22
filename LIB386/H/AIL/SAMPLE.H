@@ -84,6 +84,7 @@ void	InverseStereoSample(	S32 inverse 		)	;
 //	PlaySample : 			Play a Sample
 //
 //			  buffer    :	Pointer to the sample in mem
+//			  sizeBytes :	Sample size pointed by buffer, in bytes
 //			  userhandle: 	user handle (0 - 0xFFFF)
 //			  pitchbend : 	4096 is no bend
 //			  repeat    : 	number of times to play the sample
@@ -93,6 +94,7 @@ void	InverseStereoSample(	S32 inverse 		)	;
 //	Returns	: 			lib sample handle
 //--------------------------------------------------------------------------
 U32	PlaySample( 		void *buffer,
+				S32 sizeBytes,
 				U32 userhandle,
 				S32 pitchbend,
 				S32 repeat,

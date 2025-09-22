@@ -598,7 +598,7 @@ void InverseStereoSample(S32 inverse)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-U32 PlaySample(void *ptrsample, U32 usernum, S32 pitchbend, S32 nbrepeat, S32 volume, S32 pan)
+U32 PlaySample(void *ptrsample, S32 sizeBytes, U32 usernum, S32 pitchbend, S32 nbrepeat, S32 volume, S32 pan)
 {
     HSAMPLE handle;
     U32 hnum;

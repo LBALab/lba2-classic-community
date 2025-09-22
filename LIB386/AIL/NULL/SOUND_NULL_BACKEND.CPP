@@ -68,8 +68,8 @@ S32 GetMasterVolumeSample() { return sampleVolume; }
 S32 FadeOutSamples(S32 delay) { return 0; }
 S32 FadeInSamples(S32 delay) { return delay; }
 void InverseStereoSample(S32 inverse) {}
-U32 PlaySample(void *buffer, U32 userhandle, S32 pitchbend, S32 repeat,
-               S32 volume, S32 pan) {
+U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
+               S32 repeat, S32 volume, S32 pan) {
   return 0xFFFFFFFF;
 }
 U32 TimerPlaySample(void *ptrsample, U32 usernum, S32 pitchbend, S32 nbrepeat,

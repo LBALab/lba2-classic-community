@@ -2,7 +2,7 @@
 #define	OBJECT_H
 
 #define	GivePtrObjFix(index)	HQR_Get( HQR_ObjFix, index )
-#define	GivePtrSample(index)	HQR_Get( HQR_Samples, index )
+#define	GivePtrSample(index, sizeOut)	HQR_Get( HQR_Samples, index, sizeOut )
 
 extern Func_TransNumPtr GivePtrAnim ;
 extern Func_TransNumPtr GivePtrBody ;
