@@ -20,7 +20,7 @@ set(MVIDEO_BACKEND "null" CACHE STRING "Motion Video backend to be used")
 
 # Compilation options sanitization
 ## Sound backend
-set(SOUND_BACKEND_OPTIONS null miles)
+set(SOUND_BACKEND_OPTIONS null miles sdl)
 set_property(CACHE SOUND_BACKEND PROPERTY STRINGS ${SOUND_BACKEND_OPTIONS})
 if (NOT SOUND_BACKEND IN_LIST SOUND_BACKEND_OPTIONS)
     message(SEND_ERROR "SOUND_BACKEND set with invalid option '${SOUND_BACKEND}'. Valid options are: ${SOUND_BACKEND_OPTIONS}")
