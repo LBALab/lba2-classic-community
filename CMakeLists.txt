@@ -26,7 +26,7 @@ if (NOT SOUND_BACKEND IN_LIST SOUND_BACKEND_OPTIONS)
     message(SEND_ERROR "SOUND_BACKEND set with invalid option '${SOUND_BACKEND}'. Valid options are: ${SOUND_BACKEND_OPTIONS}")
 endif ()
 ## Motion Video backend
-set(MVIDEO_BACKEND_OPTIONS smacker none)
+set(MVIDEO_BACKEND_OPTIONS null smacker)
 set_property(CACHE MVIDEO_BACKEND PROPERTY STRINGS ${MVIDEO_BACKEND_OPTIONS})
 if (NOT MVIDEO_BACKEND IN_LIST MVIDEO_BACKEND_OPTIONS)
     message(SEND_ERROR "MVIDEO_BACKEND set with invalid option '${MVIDEO_BACKEND}'. Valid options are: ${MVIDEO_BACKEND_OPTIONS}")
