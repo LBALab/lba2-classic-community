@@ -169,7 +169,7 @@ static inline void HQR_Del_Bloc(T_HQR_HEADER *header, S32 index)
 
 //──────────────────────────────────────────────────────────────────────────
 // retourne le pointeur mémoire de la fiche (index) demandée
-void	*HQR_Get(T_HQR_HEADER *header, S32 index)
+void	*HQR_Get(T_HQR_HEADER *header, S32 index, S32* outSize)
 {
 	S32		n, oldest	;
 	U32		testtime	;
@@ -187,6 +187,10 @@ void	*HQR_Get(T_HQR_HEADER *header, S32 index)
 		ptrbloc->Time	= TimerSystemHR	;// update LRU data
 
 		HQR_Flag	= FALSE		;// NOT NEWLY LOADED
+
+                if (outSize != NULL) {
+                  *outSize = ptrbloc->Size;
+                }
 
 		return	ptrbloc->Ptr 		;
 	}
@@ -249,6 +253,10 @@ error:				if(HQRGetErrorFunc)	HQRGetErrorFunc(header->Name, index)	;
 		header->FreeSize-= size	;
 
 		HQR_Flag	= TRUE	;// NEWLY LOADED
+
+                if (outSize != NULL) {
+                  *outSize = size;
+                }
 
 		return ptr 		;
 	}

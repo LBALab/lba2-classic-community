@@ -64,7 +64,8 @@ extern	void		HQR_Free_Ressource(	T_HQR_HEADER *header	);
 
 //──────────────────────────────────────────────────────────────────────────
 extern	void		*HQR_Get(		T_HQR_HEADER *header,
-						S32 index		);
+						S32 index,
+						S32* outSize = NULL);
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef	__cplusplus

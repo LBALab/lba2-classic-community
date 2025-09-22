@@ -856,7 +856,7 @@ void    PlaySpeakVoc(S32 fd)
                 volume = RegleTrois( 0, VoiceVolume, 127, volume ) ;
         }
 
-        PlaySample( BufSpeak, SPEAK_SAMPLE, 4096, 1, volume, pan ) ;
+        PlaySample( BufSpeak, size, SPEAK_SAMPLE, 4096, 1, volume, pan ) ;
 
         NumObjSpeak = -1 ;
 
