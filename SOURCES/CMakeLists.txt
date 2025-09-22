@@ -27,8 +27,8 @@ endif ()
 
 target_include_directories(lba2 PRIVATE ../LIB386/H)
 target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
+        $<$<STREQUAL:MVIDEO_BACKEND,null>:USE_MVIDEO_NULL>
         $<$<STREQUAL:MVIDEO_BACKEND,smacker>:USE_MVIDEO_SMACKER>
-        $<$<STREQUAL:MVIDEO_BACKEND,none>:USE_MVIDEO_NONE>
         SDL_DISABLE_OLD_NAMES)
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
