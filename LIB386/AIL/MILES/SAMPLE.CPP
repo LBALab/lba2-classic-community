@@ -16,9 +16,9 @@
 #include <ail/mss.h>
 #endif
 
-#include <ail/common.h>
-#include <ail/sample.h>
-#include <ail/stream.h>
+#include "COMMON_MILES.H"
+#include "SAMPLE_MILES.H"
+#include "STREAM_MILES.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 
@@ -43,6 +43,7 @@ typedef struct
 } SAMP_DESC;
 
 // ████████████████████████████████████████████████████████████████████████████
+S32 Sample_Driver_Enabled = FALSE;
 S32 SampleOverflow = FALSE;
 
 // ████████████████████████████████████████████████████████████████████████████

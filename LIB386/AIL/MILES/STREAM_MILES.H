@@ -1,21 +1,18 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_TIMER
-#define	LIB_AIL_TIMER
+#ifndef	LIB_AIL_STREAM_MILES
+#define	LIB_AIL_STREAM_MILES
+
+// This header contains declarations private to MILES
 
 //--------------------------------------------------------------------------
-#include <SYSTEM/ADELINE.H>
+#include <AIL/STREAM.H>
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-//--------------------------------------------------------------------------
-//	InitAIL:			Init AIL (MSS) API
-//
-//	Returns	: 			nothing
-//--------------------------------------------------------------------------
-extern	VOID_FUNC	InitAIL		;
+// Empty
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -23,6 +20,6 @@ extern	VOID_FUNC	InitAIL		;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_TIMER
+#endif//LIB_AIL_STREAM_MILES
 
 //--------------------------------------------------------------------------

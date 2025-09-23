@@ -4,8 +4,6 @@
 #include <string.h>
 #include <dos.h>
 
-#include <ail/cd.h>
-
 #include <stdlib.h>
 
 #ifdef _WIN32
@@ -13,6 +11,8 @@
 #else
 #include <ail/mss.h>
 #endif
+
+#include "CD_MILES.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 

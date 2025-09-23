@@ -3,7 +3,7 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 
-#include "AIL/TIMER.H"
+#include "AIL/COMMON.H"
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
 #include "SVGA/VIDEO.H"
