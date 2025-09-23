@@ -3,31 +3,19 @@
 #define	LIB_AIL_AIL
 
 //--------------------------------------------------------------------------
+#include <SYSTEM/ADELINE_TYPES.H>
+
+//--------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-extern	S32		Sample_Driver_Enabled	;
-extern	S32		Midi_Driver_Enabled	;
-extern	S32		SamplingRate		;
-
+//	InitAIL:			Init AIL (MSS) API
+//
+//	Returns	: 			nothing
 //--------------------------------------------------------------------------
-extern	char		MidiDriverName[]	;
-extern	char		SampleDriverName[]	;
-
-//--------------------------------------------------------------------------
-extern	VOID_FUNC	*PauseMidiPtr		;
-extern	VOID_FUNC	*ResumeMidiPtr		;
-
-extern	VOID_FUNC	*PauseSamplesPtr	;
-extern	VOID_FUNC	*ResumeSamplesPtr	;
-
-//--------------------------------------------------------------------------
-extern	VOID_FUNC	PauseBothMiles		;
-
-//--------------------------------------------------------------------------
-extern	VOID_FUNC	ResumeBothMiles		;
+extern	VOID_FUNC	InitAIL		;
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus

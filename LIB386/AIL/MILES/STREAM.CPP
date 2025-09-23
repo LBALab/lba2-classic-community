@@ -8,12 +8,12 @@
 #include <ail/mss.h>
 #endif
 
-#include <ail/common.h>
-#include <ail/sample.h>
-#include <ail/stream.h>
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "COMMON_MILES.H"
+#include "SAMPLE_MILES.H"
+#include "STREAM_MILES.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 

@@ -2,9 +2,6 @@
 #include <system/logprint.h>
 #include <system/exit.h>
 
-#include <ail/common.h>
-#include <ail/midi.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +12,9 @@
 #else
 #include <ail/mss.h>
 #endif
+
+#include "COMMON_MILES.H"
+#include "MIDI_MILES.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 

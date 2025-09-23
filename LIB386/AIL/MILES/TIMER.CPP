@@ -3,30 +3,13 @@
 #include <system/initimer.h>
 #include <system/timerdos.h>
 
-#include <ail/timer.h>
-
 #ifdef _WIN32
 #include <ail/mssw.h>
 #else //	_WIN32
 #include <ail/mss.h>
 #endif //_WIN32
 
-// ████████████████████████████████████████████████████████████████████████████
-VOID_FUNC ClearAIL;
-
-// ████████████████████████████████████████████████████████████████████████████
-void InitAIL()
-{
-    AIL_startup();
-
-    RegisterInitClear(InitAIL, ClearAIL);
-}
-
-// ████████████████████████████████████████████████████████████████████████████
-void ClearAIL()
-{
-    AIL_shutdown();
-}
+#include "TIMER.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 #ifndef _WIN32

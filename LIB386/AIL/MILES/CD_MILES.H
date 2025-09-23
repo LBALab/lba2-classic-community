@@ -1,9 +1,11 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_MIDI
-#define	LIB_AIL_MIDI
+#ifndef	LIB_AIL_CD_MILES
+#define	LIB_AIL_CD_MILES
+
+// This header contains declarations private to MILES
 
 //--------------------------------------------------------------------------
-#include <SYSTEM/ADELINE_TYPES.H>
+#include <AIL/CD.H>
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -11,7 +13,11 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-S32	InitMidiDriver(	char *driver_name		)	;
+//	CloseCD :			close CD-ROM drive
+//
+//	Returns	:			nothing
+//--------------------------------------------------------------------------
+void	CloseCD()			;
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -19,7 +25,6 @@ S32	InitMidiDriver(	char *driver_name		)	;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_MIDI
+#endif//LIB_AIL_CD_MILES
 
 //--------------------------------------------------------------------------
-

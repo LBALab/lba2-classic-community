@@ -6,12 +6,12 @@
 #include <ail/mss.h>
 #endif
 
-#include <ail/common.h>
-#include <ail/sample.h>
-#include <ail/midi.h>
-#include <ail/middig.h>
-
 #include <stdlib.h>
+
+#include "COMMON_MILES.H"
+#include "MIDDIG.H"
+#include "MIDI_MILES.H"
+#include "SAMPLE_MILES.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 

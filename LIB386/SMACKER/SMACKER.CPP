@@ -7,12 +7,12 @@
 #include <ail/mss.h>
 #endif
 
-#include <ail/common.h>
-
 #include <system.h>
 
 #include <smacker/smack.h>
 #include <smacker/smacker.h>
+
+#include "COMMON_MILES.H"
 
 // ████████████████████████████████████████████████████████████████████████████
 
