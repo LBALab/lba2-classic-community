@@ -9,8 +9,8 @@
 #define	MAX_SAMPLE_PITCH	11000
 #define	MIN_SAMPLE_PITCH2	5000
 #define	MAX_SAMPLE_PITCH2	8500
-#define	MAX_SPEED		3800
-#define	TEMPO_GEAR		1200	// tempo changement de vitesse
+#define	MAX_SPEED		4700    // was 3800;
+#define	TEMPO_GEAR		1200    // was 1200; tempo changement de vitesse
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
@@ -337,7 +337,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		if( (Input & I_UP)	// j'accelere
 		AND !flagattack )
 		{
-			ptb->Speed += deltatimer * 4 ;
+			ptb->Speed += deltatimer * 20;  // Was 4  TODO - make a constant
 
 			if( !TimerGear )	TimerGear = TimerRefHR+TEMPO_GEAR ;
 			else
@@ -355,7 +355,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		else if( (Input & I_DOWN)	// je freine / recule
 		AND !flagattack )
 		{
-			ptb->Speed -= deltatimer * 12 ;
+			ptb->Speed -= deltatimer * 12 ; // TODO - make a constant
 			Gear = -1 ;
 			TimerGear = 0 ;
 		}
@@ -363,7 +363,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		{
 			if( ptb->Speed > 0 )
 			{
-				ptb->Speed -= deltatimer * 7 ;
+				ptb->Speed -= deltatimer * 7;  // TODO - make a constant
 				if( ptb->Speed < 0 )
 				{
 					ptb->Speed = 0 ;
@@ -371,7 +371,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 			}
 			if( ptb->Speed < 0 )
 			{
-				ptb->Speed += deltatimer * 7 ;
+				ptb->Speed += deltatimer * 7;  // TODO - make a constant
 				if( ptb->Speed > 0 )
 				{
 					ptb->Speed = 0 ;
@@ -384,7 +384,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		if( ptb->Speed < -2000 )	ptb->Speed = -2000 ;
 		if( ptb->Speed > MAX_SPEED )	ptb->Speed = MAX_SPEED ;
 
-		speedinc = ptb->Speed * deltatimer / 1000 ;
+		speedinc = (S32)lroundf(ptb->Speed * deltatimer / 1000.0f);
 	}
 	else
 	{
@@ -400,7 +400,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 			ptb->BetaWheel = -300 ;
 			if( ptb->Speed )
 			{
-				rotlevel = -ptb->SpeedRot * speedinc / ptb->Speed ;
+				rotlevel = -(S32)lroundf(ptb->SpeedRot * speedinc / (float)ptb->Speed);
 //				ptb->BetaWheel = rotlevel*1000 ;
 			}
 			else
@@ -413,7 +413,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 			ptb->BetaWheel = 300 ;
 			if( ptb->Speed )
 			{
-				rotlevel = ptb->SpeedRot * speedinc / ptb->Speed ;
+				rotlevel = (S32)lroundf(ptb->SpeedRot * speedinc / (float)ptb->Speed);
 //				ptb->BetaWheel = rotlevel*1000 ;
 			}
 			else
@@ -429,8 +429,8 @@ void	MoveBuggy( T_OBJET *ptrobj )
 
 		if( ptrobj->Flags & SKATING )
 		{
-			ptb->Speed = 3000 ;
-			speedinc = ptb->Speed * deltatimer / 1000 ;
+			ptb->Speed = 3000 ;   // TODO - make a constant
+			speedinc = (S32)lroundf(ptb->Speed * deltatimer / 1000.0f);
 		}
 		else
 		{
