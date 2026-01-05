@@ -20,12 +20,13 @@ typedef	void (Func_LongInverseRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
 #pragma	aux (Arg_LongInverseRotatePoint)	Func_LongInverseRotatePoint
 
 //****************************************************************************
+// Ida - do not call this from C code anymore!
 extern	Func_LongInverseRotatePoint	*LongInverseRotatePoint	;
 
 #pragma aux	LongInverseRotatePoint		"*"
 
 //****************************************************************************
-#define	LongWorldInverseRotatePoint(x, y, z)	LongInverseRotatePoint(&MatriceWorld, x, y, z)
+#define	LongWorldInverseRotatePoint(x, y, z)	LongInverseRotatePointIda(&MatriceWorld, x, y, z)
 
 //****************************************************************************
 // These functions should not be called directly but through the above pointer
@@ -33,6 +34,9 @@ extern	Func_LongInverseRotatePoint	*LongInverseRotatePoint	;
 extern	Func_LongInverseRotatePoint	LongInverseRotatePointI	;
 extern	Func_LongInverseRotatePoint	LongInverseRotatePointF	;
 extern	Func_LongInverseRotatePoint	LongInverseRotatePointM	;
+
+// Ida - only call this from C code - passes arguments correctly
+extern Func_LongInverseRotatePoint LongInverseRotatePointIda;
 
 //****************************************************************************
 #ifdef	__cplusplus
