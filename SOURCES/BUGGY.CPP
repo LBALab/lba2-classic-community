@@ -458,8 +458,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 	ptb->LastTimer = timerhr ;
 	ptb->SpeedInc = speedinc ;
 
-	if( ptrobj->SampleAlways
-	AND IsSamplePlaying( ptrobj->SampleAlways ) )
+	if (ptrobj->SampleAlways AND IsSamplePlaying(ptrobj->SampleAlways))
 	{
 		S32	pitch ;
 
@@ -482,7 +481,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 				pitch = MAX_SAMPLE_PITCH2 ;
 		}
 
-		ChangePitchbendSample( ptrobj->SampleAlways, pitch ) ;
+		ChangePitchbendSample(ptrobj->SampleAlways, pitch);
 	}
 }
 

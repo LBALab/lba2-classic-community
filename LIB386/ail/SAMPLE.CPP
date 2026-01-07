@@ -225,9 +225,9 @@ void	ClearSampleDriver()
 
 static S32 GetHandleIndice(U32 sample)
 {
-	S32		hnum	;
+	S32	hnum;
 
-	if(sample<0x1000000)
+	if (sample<0x1000000)
 	{
 		for(hnum=0; hnum<Nb_Voices; hnum++)
 		{
@@ -244,12 +244,13 @@ static S32 GetHandleIndice(U32 sample)
 		hnum = sample & 0xFF	;
 
 		// right sample playing?
-		if(Sample_Handle[hnum].sample == sample)
-			return hnum	;
+		if (Sample_Handle[hnum].sample == sample) 
+		{
+			return hnum;
+		}
 
 		// No already stopped
 		return	-1	;
-
 	}
 }
 
@@ -676,32 +677,32 @@ void	TimerStopSample()
 //████████████████████████████████████████████████████████████████████████████
 void	ChangePitchbendSample( U32 sample, S32 pitchbend)
 {
-	//HSAMPLE	handle	;
-	S32	hnum	;
+	if (!Sample_Driver_Enabled)	return;
 
-	if( !Sample_Driver_Enabled )	return	;
+	printf("ChangePitchbendSample called: %d, %d\n", sample, pitchbend);
+
+	// HSAMPLE	handle;
+	S32	hnum;
+
 
 	// check if user or lib handle and do conversion
-	hnum = GetHandleIndice(sample)		;
-
-	// found the sample ?
-	if(hnum==-1)			return 	;
+	hnum = GetHandleIndice(sample);
+	if (hnum == -1)	return;
 
 	// Get sample handle
-//yaz	handle = Sample_Handle[hnum].handle	;
+	auto handle = Sample_Handle[hnum].handle	;
 
 	// check sample status
-	//yaz if(AIL_sample_status( handle )==SMP_DONE)
-	//yaz 	return	;
+	if (AIL_sample_status(handle) == SMP_DONE)
+	{
+		return;
+	}
 
 	// pitchend
-	//yaz if( pitchbend != AIL_sample_user_data( handle, USER_DATA_PITCHBEND) )
+	if (pitchbend != AIL_sample_user_data( handle, USER_DATA_PITCHBEND))
 	{
-		//yaz AIL_set_sample_playback_rate(
-		//yaz 	handle,
-		//yaz 	Scale(AIL_sample_user_data( handle, USER_DATA_RATE), pitchbend, 12)) ;
-
-		//yaz AIL_set_sample_user_data( handle, USER_DATA_PITCHBEND, pitchbend);
+		AIL_set_sample_playback_rate(handle, Scale(AIL_sample_user_data( handle, USER_DATA_RATE), pitchbend, 12));
+		AIL_set_sample_user_data( handle, USER_DATA_PITCHBEND, pitchbend);
 	}
 }
 
@@ -895,22 +896,21 @@ void	ResumeSamples()
 }
 
 //████████████████████████████████████████████████████████████████████████████
-
 U32	IsSamplePlaying( U32 sample )
 {
-	S32	hnum	;
+	S32	hnum;
 
-	if( !Sample_Driver_Enabled )
-		return	FALSE	;
+	if (!Sample_Driver_Enabled)
+		return FALSE;
 
 	// check if user or lib handle and do conversion
 	hnum = GetHandleIndice(sample)			;
 
 	// found the sample ?
-	if(hnum==-1)			return 	FALSE 	;
+	if (hnum==-1) return FALSE;
 
 	// get sample status
-	if(!gSoloud->isValidVoiceHandle(gSoundHandleMapping[Sample_Handle[hnum].handle].soloudHandle))
+	if (!gSoloud->isValidVoiceHandle(gSoundHandleMapping[Sample_Handle[hnum].handle].soloudHandle))
 	{
 		return 0;
 	}
