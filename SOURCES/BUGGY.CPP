@@ -9,8 +9,15 @@
 #define	MAX_SAMPLE_PITCH	11000
 #define	MIN_SAMPLE_PITCH2	5000
 #define	MAX_SAMPLE_PITCH2	8500
+
+// Ida - make some of those values to be controlled from the modding API
 #define	MAX_SPEED		4700    // was 3800;
-#define	TEMPO_GEAR		1200    // was 1200; tempo changement de vitesse
+#define	MIN_SPEED		-2200   // was -2000;
+#define	TEMPO_GEAR		1200    // Interval between gear shifts
+#define SKATING_SPEED   3000    // Speed when skating (losing control)
+#define ACCELLERATION      6    // was 4. When we press the acceleration key, how fast the speed increases per each delta time
+#define DECELLERATION     12    // when we press the brake key, how fast the speed decreases per each delta time
+#define FREE_DECELLERATION 7    // when we release any key, how fast the speed decreases per each delta time
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
@@ -337,7 +344,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		if( (Input & I_UP)	// j'accelere
 		AND !flagattack )
 		{
-			ptb->Speed += deltatimer * 6;  // Was 4  TODO - make a constant
+			ptb->Speed += deltatimer * ACCELLERATION;
 
 			if( !TimerGear )	TimerGear = TimerRefHR+TEMPO_GEAR ;
 			else
@@ -355,7 +362,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		else if( (Input & I_DOWN)	// je freine / recule
 		AND !flagattack )
 		{
-			ptb->Speed -= deltatimer * 12 ; // TODO - make a constant
+			ptb->Speed -= deltatimer * DECELLERATION;
 			Gear = -1 ;
 			TimerGear = 0 ;
 		}
@@ -363,7 +370,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		{
 			if( ptb->Speed > 0 )
 			{
-				ptb->Speed -= deltatimer * 7;  // TODO - make a constant
+				ptb->Speed -= deltatimer * FREE_DECELLERATION;
 				if( ptb->Speed < 0 )
 				{
 					ptb->Speed = 0 ;
@@ -371,7 +378,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 			}
 			if( ptb->Speed < 0 )
 			{
-				ptb->Speed += deltatimer * 7;  // TODO - make a constant
+				ptb->Speed += deltatimer * FREE_DECELLERATION;
 				if( ptb->Speed > 0 )
 				{
 					ptb->Speed = 0 ;
@@ -381,8 +388,8 @@ void	MoveBuggy( T_OBJET *ptrobj )
 			TimerGear = 0 ;
 		}
 
-		if( ptb->Speed < -2000 )	ptb->Speed = -2000 ;
-		if( ptb->Speed > MAX_SPEED )	ptb->Speed = MAX_SPEED ;
+		if (ptb->Speed < MIN_SPEED)	ptb->Speed = MIN_SPEED;
+		if (ptb->Speed > MAX_SPEED)	ptb->Speed = MAX_SPEED;
 
 		speedinc = (S32)lroundf(ptb->Speed * deltatimer / 1000.0f);
 	}
@@ -427,9 +434,9 @@ void	MoveBuggy( T_OBJET *ptrobj )
 			rotlevel = 0 ;
 		}
 
-		if( ptrobj->Flags & SKATING )
+		if( ptrobj->Flags & SKATING)
 		{
-			ptb->Speed = 3000 ;   // TODO - make a constant
+			ptb->Speed = SKATING_SPEED;
 			speedinc = (S32)lroundf(ptb->Speed * deltatimer / 1000.0f);
 		}
 		else
