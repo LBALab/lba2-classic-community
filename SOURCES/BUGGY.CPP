@@ -337,7 +337,7 @@ void	MoveBuggy( T_OBJET *ptrobj )
 		if( (Input & I_UP)	// j'accelere
 		AND !flagattack )
 		{
-			ptb->Speed += deltatimer * 20;  // Was 4  TODO - make a constant
+			ptb->Speed += deltatimer * 6;  // Was 4  TODO - make a constant
 
 			if( !TimerGear )	TimerGear = TimerRefHR+TEMPO_GEAR ;
 			else

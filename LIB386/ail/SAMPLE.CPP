@@ -675,35 +675,55 @@ void	TimerStopSample()
 }
 
 //████████████████████████████████████████████████████████████████████████████
-void	ChangePitchbendSample( U32 sample, S32 pitchbend)
+void ChangePitchbendSample( U32 sample, S32 pitchbend)
 {
 	if (!Sample_Driver_Enabled)	return;
 
-	printf("ChangePitchbendSample called: %d, %d\n", sample, pitchbend);
-
-	// HSAMPLE	handle;
-	S32	hnum;
-
-
 	// check if user or lib handle and do conversion
-	hnum = GetHandleIndice(sample);
+	S32 hnum = GetHandleIndice(sample);
 	if (hnum == -1)	return;
 
 	// Get sample handle
-	auto handle = Sample_Handle[hnum].handle	;
+	auto handle = Sample_Handle[hnum].handle;
+	
+	// Ida - refactored code starts here, using SoLoud instead of AIL
+	// Pitchbend uses fixed-point math with this bit range (12 bits = 4096 scale factor for 1.0x)
+	constexpr S32 pitchbendBitRange = 12;
+	constexpr S32 pitchbendNeutral = 1 << pitchbendBitRange;  // 4096 = no pitch change
 
-	// check sample status
-	if (AIL_sample_status(handle) == SMP_DONE)
+	auto soloudHandle = gSoundHandleMapping[handle].soloudHandle;
+
+	if (!gSoloud->isValidVoiceHandle(soloudHandle))
 	{
 		return;
 	}
 
-	// pitchend
-	if (pitchbend != AIL_sample_user_data( handle, USER_DATA_PITCHBEND))
+	SoLoud::Wav *wav = gSoundHandleMapping[handle].soloudWave;
+	if (wav == nullptr) return;
+	float baseSampleRate = wav->mBaseSamplerate;
+
+	if (pitchbend != pitchbendNeutral)
 	{
-		AIL_set_sample_playback_rate(handle, Scale(AIL_sample_user_data( handle, USER_DATA_RATE), pitchbend, 12));
-		AIL_set_sample_user_data( handle, USER_DATA_PITCHBEND, pitchbend);
+		gSoloud->setSamplerate(soloudHandle, Scale((int)baseSampleRate, pitchbend, pitchbendBitRange));
 	}
+	else
+	{
+		gSoloud->setSamplerate(soloudHandle, baseSampleRate);
+	}
+
+	// Old AIL code:
+	// // check sample status
+	// if (AIL_sample_status(handle) == SMP_DONE)
+	// {
+	// 	return;
+	// }
+	//
+	// // pitchend
+	// if (pitchbend != AIL_sample_user_data( handle, USER_DATA_PITCHBEND))
+	// {
+	// 	AIL_set_sample_playback_rate(handle, Scale(AIL_sample_user_data( handle, USER_DATA_RATE), pitchbend, 12));
+	// 	AIL_set_sample_user_data( handle, USER_DATA_PITCHBEND, pitchbend);
+	// }
 }
 
 //████████████████████████████████████████████████████████████████████████████
