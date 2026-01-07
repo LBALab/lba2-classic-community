@@ -12,7 +12,7 @@
 
 // Ida - make some of those values to be controlled from the modding API
 #define	MAX_SPEED		4700    // was 3800;
-#define	MIN_SPEED		-2200   // was -2000;
+#define	MIN_SPEED		-2500   // was -2000;
 #define	TEMPO_GEAR		1200    // Interval between gear shifts
 #define SKATING_SPEED   3000    // Speed when skating (losing control)
 #define ACCELLERATION      6    // was 4. When we press the acceleration key, how fast the speed increases per each delta time
