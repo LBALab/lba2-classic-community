@@ -2399,7 +2399,7 @@ void	GereExtras()
 		{
 			if( !(ptrextra->Flags & EXTRA_FLY) )	/* no take while flying */
 			{
-				S32	numobj ;
+				S32	numobj = 0;
 				T_OBJET *ptrobj ;
 
 				taken = FALSE ;
