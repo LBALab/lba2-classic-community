@@ -20,6 +20,8 @@ bool AppActive = false;
 bool windowSystemInitialized = false;
 const char *windowTitle = NULL;
 SDL_Window *sdlWindow = NULL;
+SDL_Renderer *sdlRenderer = NULL;
+SDL_Texture *sdlTexture = NULL;
 
 // --- Initialization ----------------------------------------------------------
 bool InitWindow(const char *title) {
@@ -65,6 +67,7 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
   SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
   SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
   SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
+  SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
   sdlWindow = SDL_CreateWindowWithProperties(props);
   SDL_DestroyProperties(props);
   if (sdlWindow == NULL) {
@@ -73,61 +76,68 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
               "\tResolution: %ux%u.\n"
               "\tSDL message: %s\n",
               resX, resY, errorMsg);
-
     return false;
   }
+
+  sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
+  if (sdlRenderer == NULL) {
+    const char *errorMsg = SDL_GetError();
+    LogPrintf("Error: Unable to create SDL renderer.\n"
+              "\tSDL message: %s\n",
+              errorMsg);
+    SDL_DestroyWindow(sdlWindow);
+    sdlWindow = NULL;
+    return false;
+  }
+
+  SDL_SetRenderVSync(sdlRenderer, 1);
+
+  sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888,
+                                 SDL_TEXTUREACCESS_STREAMING, resX, resY);
+  if (sdlTexture == NULL) {
+    const char *errorMsg = SDL_GetError();
+    LogPrintf("Error: Unable to create SDL streaming texture.\n"
+              "\tSize: %ux%u.\n"
+              "\tSDL message: %s\n",
+              resX, resY, errorMsg);
+    SDL_DestroyRenderer(sdlRenderer);
+    sdlRenderer = NULL;
+    SDL_DestroyWindow(sdlWindow);
+    sdlWindow = NULL;
+    return false;
+  }
+
+  SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
 
   return true;
 }
 
-void *WindowSurface() {
-  assert(windowSystemInitialized == true);
-  assert(sdlWindow != NULL);
-
-  SDL_Surface *sdlSurface = SDL_GetWindowSurface(sdlWindow);
-  if (sdlSurface == NULL) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Error: Unable to create SDL video surface.\n"
-              "\tSDL message: %s\n",
-              errorMsg);
-  }
-
-  return sdlSurface;
-}
-
 void DestroyWindowSurface() {
+  if (sdlTexture) {
+    SDL_DestroyTexture(sdlTexture);
+    sdlTexture = NULL;
+  }
+  if (sdlRenderer) {
+    SDL_DestroyRenderer(sdlRenderer);
+    sdlRenderer = NULL;
+  }
   if (sdlWindow) {
     SDL_DestroyWindow(sdlWindow);
     sdlWindow = NULL;
   }
 }
 
-void UpdateWindowSurface() {
-  int ret = SDL_UpdateWindowSurface(sdlWindow);
-  if (ret != 0) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Warning: Unable to update SDL window surface entire area.\n"
-              "\tSDL message: %s\n",
-              errorMsg);
-  }
-}
+void PresentRendererFrame(const void *pixels, U32 pitch) {
+  assert(sdlRenderer != NULL);
+  assert(sdlTexture != NULL);
+  assert(pixels != NULL);
 
-void UpdateWindowSurfaceArea(const T_BOX area[], U32 areaCount) {
-  assert(area != NULL);
-  assert(areaCount > 0);
-  assert(areaCount == 1 && "Support for many areas per update not implemented");
+  SDL_UpdateTexture(sdlTexture, NULL, pixels, (int)pitch);
 
-  SDL_Rect updateRect = {area->x0, area->y0,
-                         (area->x1 - area->x0),  // Width
-                         (area->y1 - area->y0)}; // Height
-
-  if (!SDL_UpdateWindowSurfaceRects(sdlWindow, &updateRect, areaCount)) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Warning: Unable to update SDL window surface area.\n"
-              "\tRect: Origin: [%i, %i] - Size: [%i, %i]\n"
-              "\tSDL message: %s\n",
-              updateRect.x, updateRect.y, updateRect.w, updateRect.h, errorMsg);
-  }
+  SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
+  SDL_RenderClear(sdlRenderer);
+  SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, NULL);
+  SDL_RenderPresent(sdlRenderer);
 }
 
 void ManageWindow() {
