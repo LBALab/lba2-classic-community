@@ -2450,7 +2450,9 @@ S32     MainGameMenu( S32 load )
                                         InitDial( START_FILE_ISLAND+Island ) ;
                                         HQ_ResumeSamples() ;
 
+#ifdef  CDROM
                                         StopMusic() ;
+#endif
 
                                         RestoreClipWindow() ;
                                         FlagFade = FALSE ;
