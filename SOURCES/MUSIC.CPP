@@ -362,9 +362,8 @@ void	ResumeMusic( S32 fade )
 		SetVolumeJingle( 0 ) ;
 	}
 
-	StopMusic() ;
-
 #ifdef	CDROM
+	StopMusic() ;
 	ResumeCD() ;
 #endif
 	ResumeStream()  ;
