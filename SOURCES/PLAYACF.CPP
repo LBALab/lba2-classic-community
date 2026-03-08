@@ -2,6 +2,19 @@
 
 #include "DIRECTORIES.H"
 
+#ifdef USE_MVIDEO_SMACKER
+#include "INPUT.H"
+#include "MESSAGE.H"
+#include <AIL/VIDEO_AUDIO.H>
+#include <SVGA/SCREEN.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOGPRINT.H>
+#include <SDL3/SDL.h>
+#include <stdio.h>
+#include <string.h>
+#endif
+
 char		PathAcf[ADELINE_MAX_PATH] ;
 
 char		*ListAcf ;
@@ -189,271 +202,334 @@ void	PlayAllAcf( void )
 |*									   *|
 \***************************************************************************/
 
-// TODO: Implement SMACK video playback
+#ifdef USE_MVIDEO_SMACKER
+static void ReadNextVideoFrame(smk smkObject, U8 *buffer, U8 **pal) {
+  const U32 width = 320;
+  const U32 height = 200;
+  const U32 screenWidth = 640;
+  const U32 videoStartY = 40;
+  U8 *frame = (U8 *)smk_get_video(smkObject);
+  *pal = (U8 *)smk_get_palette(smkObject);
+  memset(buffer, 0, screenWidth * 480);
+  U8 *targetRow = buffer + videoStartY * screenWidth;
+  for (U32 y = 0; y < height; y++) {
+    const U8 *sourceRow = frame + y * width;
+    for (U32 x = 0; x < width; x++) {
+      targetRow[2 * x] = sourceRow[x];
+      targetRow[2 * x + 1] = sourceRow[x];
+    }
+    memcpy(targetRow + screenWidth, targetRow, screenWidth);
+    targetRow += screenWidth * 2;
+  }
+}
+
+/* Resample chunk to exactly mixSamples (one frame at stream rate) and add into mix. Uses fractional indexing so pitch/duration stay correct. */
+static void ResampleAndAddToMix(unsigned long srcRate, unsigned long targetRate, const void *srcPtr, unsigned long srcBytes,
+    void *mixPtr, unsigned long mixSamples, int is16) {
+  if (srcRate == 0 || targetRate == 0 || mixSamples == 0) return;
+  unsigned long srcSamples = srcBytes / (is16 ? 2u : 1u);
+  if (srcSamples == 0) return;
+
+  if (srcRate == targetRate) {
+    unsigned long n = (srcSamples < mixSamples) ? srcSamples : mixSamples;
+    if (is16) {
+      const short *src = (const short *)srcPtr;
+      short *mix = (short *)mixPtr;
+      for (unsigned long j = 0; j < n; j++) {
+        int s = (int)mix[j] + (int)src[j];
+        if (s > 32767) s = 32767;
+        if (s < -32768) s = -32768;
+        mix[j] = (short)s;
+      }
+    } else {
+      const U8 *src = (const U8 *)srcPtr;
+      U8 *mix = (U8 *)mixPtr;
+      for (unsigned long j = 0; j < n; j++) {
+        int s = (int)(mix[j]) - 128 + (int)(src[j]) - 128;
+        if (s > 127) s = 127;
+        if (s < -128) s = -128;
+        mix[j] = (U8)(s + 128);
+      }
+    }
+    return;
+  }
+
+  /* Resample to exactly mixSamples with linear interpolation to reduce grain. */
+  if (is16) {
+    const short *src = (const short *)srcPtr;
+    short *mix = (short *)mixPtr;
+    for (unsigned long k = 0; k < mixSamples; k++) {
+      double idx = (double)k * (double)srcSamples / (double)mixSamples;
+      unsigned long idx0 = (unsigned long)idx;
+      if (idx0 >= srcSamples) idx0 = srcSamples - 1;
+      unsigned long idx1 = idx0 + 1;
+      if (idx1 >= srcSamples) idx1 = srcSamples - 1;
+      double frac = idx - (double)idx0;
+      int sample = (int)((1.0 - frac) * (double)src[idx0] + frac * (double)src[idx1]);
+      int s = (int)mix[k] + sample;
+      if (s > 32767) s = 32767;
+      if (s < -32768) s = -32768;
+      mix[k] = (short)s;
+    }
+  } else {
+    const U8 *src = (const U8 *)srcPtr;
+    U8 *mix = (U8 *)mixPtr;
+    for (unsigned long k = 0; k < mixSamples; k++) {
+      double idx = (double)k * (double)srcSamples / (double)mixSamples;
+      unsigned long idx0 = (unsigned long)idx;
+      if (idx0 >= srcSamples) idx0 = srcSamples - 1;
+      unsigned long idx1 = idx0 + 1;
+      if (idx1 >= srcSamples) idx1 = srcSamples - 1;
+      double frac = idx - (double)idx0;
+      int sample = (int)((1.0 - frac) * ((int)(src[idx0]) - 128) + frac * ((int)(src[idx1]) - 128));
+      int s = (int)(mix[k]) - 128 + sample;
+      if (s > 127) s = 127;
+      if (s < -128) s = -128;
+      mix[k] = (U8)(s + 128);
+    }
+  }
+}
+
+/* LBA2 intro: voice tracks 1/2/3 often have header rate=22050 but are actually 11025 Hz. Return effective rate for resampling. */
+static unsigned long GetEffectiveTrackRate(int t, const unsigned long *a_r, const U8 *a_c, unsigned long targetRate) {
+  unsigned long r = a_r[t];
+  if (t >= 1 && t <= 3 && r == 22050 && (a_c[t] == 1) && targetRate == 22050)
+    return 11025u;
+  return r;
+}
+
+/* Push current frame's audio for requested tracks; mix if numTracks > 1. Resample to stream rate with duration-correct resampling. */
+static void PushCurrentFrameVideoAudio(smk smkObject, const int *tracksToPlay, int numTracks, const U8 *a_d, const unsigned long *a_r, const U8 *a_c, double usf) {
+  if (numTracks <= 0) return;
+  const unsigned long kMaxFrameBytes = 128 * 1024;
+  static U8 mixBuf[128 * 1024];
+  unsigned long sizeBytes[7];
+  const unsigned char *chunk[7];
+  int first = tracksToPlay[0];
+  unsigned long targetRate = a_r[first];
+  if (targetRate == 0) return;
+  int chans = (a_c[first] >= 2) ? 2 : 1;
+  int is16 = (a_d[first] == 16) ? 1 : 0;
+  /* Bytes per frame at stream rate (fallback when a frame has no audio) */
+  double frameSec = (usf > 0.0) ? (usf / 1e6) : (1.0 / 30.0);
+  unsigned long expectedBytes = (unsigned long)((double)targetRate * frameSec * (double)chans * (is16 ? 2.0 : 1.0));
+  if (expectedBytes > kMaxFrameBytes) expectedBytes = kMaxFrameBytes;
+
+  unsigned long maxSize = 0;
+  for (int i = 0; i < numTracks; i++) {
+    int t = tracksToPlay[i];
+    sizeBytes[i] = smk_get_audio_size(smkObject, (unsigned char)t);
+    chunk[i] = smk_get_audio(smkObject, (unsigned char)t);
+    if (chunk[i] && sizeBytes[i] > 0) {
+      unsigned long srcRate = GetEffectiveTrackRate(t, a_r, a_c, targetRate);
+      unsigned long effectiveBytes = (srcRate == targetRate) ? sizeBytes[i] : (unsigned long)((double)sizeBytes[i] * (double)targetRate / (double)srcRate);
+      if (effectiveBytes > maxSize) maxSize = effectiveBytes;
+    }
+  }
+  /* Use chunk-based size so we push actual data; fall back to expected size if frame is silent */
+  if (maxSize == 0) maxSize = expectedBytes;
+  if (maxSize == 0) return;
+  if (maxSize > kMaxFrameBytes) maxSize = kMaxFrameBytes;
+
+  unsigned long mixSamples = maxSize / (is16 ? 2u : 1u);
+
+  memset(mixBuf, is16 ? 0 : 128, (size_t)maxSize);
+  int numAdded = 0;
+  for (int i = 0; i < numTracks; i++) {
+    if (!chunk[i] || sizeBytes[i] == 0) continue;
+    ResampleAndAddToMix(GetEffectiveTrackRate(tracksToPlay[i], a_r, a_c, targetRate), targetRate, chunk[i], sizeBytes[i], mixBuf, mixSamples, is16);
+    numAdded++;
+  }
+  /* Scale mix when multiple tracks were added to avoid clipping distortion (grain). Use rounding to reduce ticking from truncation. */
+  if (numAdded > 1) {
+    int half = numAdded / 2;
+    if (is16) {
+      short *mix = (short *)mixBuf;
+      for (unsigned long j = 0; j < mixSamples; j++) {
+        int s = (int)mix[j];
+        s = (s + (s >= 0 ? half : -half)) / numAdded;
+        if (s > 32767) s = 32767;
+        if (s < -32768) s = -32768;
+        mix[j] = (short)s;
+      }
+    } else {
+      U8 *mix = mixBuf;
+      for (unsigned long j = 0; j < mixSamples; j++) {
+        int s = (int)(mix[j]) - 128;
+        s = (s + (s >= 0 ? half : -half)) / numAdded + 128;
+        if (s < 0) s = 0;
+        if (s > 255) s = 255;
+        mix[j] = (U8)s;
+      }
+    }
+  }
+  PushVideoAudio(mixBuf, (U32)maxSize);
+}
+#endif
+
+//---------------------------------------------------------------------------
+
 S32	PlayAcf( const char *name )
 {
+#ifdef USE_MVIDEO_SMACKER
+  {
+    S32 n = GetNumAcf(name);
+    if (n == -1) {
+      LogPrintf("PlayAcf: video name '%s' not found in ACF list (GetNumAcf returned -1)\n", name);
+      return 0;
+    }
+
+    LogPrintf("PlayAcf: playing '%s' index %d from %s\n", name, (int)n, PathAcf);
+
+    ListVarGame[FLAG_ACF + (n / 16)] |= (S16)(1 << (n & 15));
+
+    StopMusic();
+
+    U8 *decompbuf = (U8 *)LoadMalloc_HQR(PathAcf, n);
+    U32 size = LoadMallocFileSize;
+    if (!size) {
+      LogPrintf("PlayAcf: LoadMalloc_HQR failed for index %d\n", (int)n);
+      TheEnd(PROGRAM_OK, MessageNoCD);
+    }
+
+    smk smkObject = smk_open_memory(decompbuf, (unsigned long)size);
+    if (!smkObject) {
+      LogPrintf("PlayAcf: smk_open_memory failed for index %d (size %u)\n", (int)n, (unsigned)size);
+      Free(decompbuf);
+      TheEnd(PROGRAM_OK, MessageNoCD);
+    }
+
+    SetBlackPal();
+    BoxReset();
+    Cls();
+    BoxUpdate();
+    InitWaitNoKey();
+    InitWaitNoInput(I_JOY | I_FIRE | I_MENUS);
+
+    unsigned long w = 0, h = 0;
+    unsigned long f = 0;
+    double usf = 0.0;
+    smk_info_all(smkObject, NULL, &f, &usf);
+    smk_info_video(smkObject, &w, &h, NULL);
+    if (w != 320 || h != 200) {
+      smk_close(smkObject);
+      Free(decompbuf);
+      TheEnd(PROGRAM_FAIL, "Unsupported video format (320x200 only)");
+    }
+
+    U8 a_t = 0, a_c[7] = {0}, a_d[7] = {0};
+    unsigned long a_r[7] = {0};
+    smk_info_audio(smkObject, &a_t, a_c, a_d, a_r);
+
+    S32 smackflags = SMK_AUDIO_TRACK_0;
+    if (!strncasecmp(name, "INTRO", 5) && FlagSpeak) {
+      switch (LanguageCD) {
+        case 0: smackflags |= SMK_AUDIO_TRACK_3; break;
+        case 1: smackflags |= SMK_AUDIO_TRACK_1; break;
+        case 2: smackflags |= SMK_AUDIO_TRACK_2; break;
+        default: smackflags |= SMK_AUDIO_TRACK_3; break;
+      }
+    }
+
+    /* .smk uses track 0 = music, tracks 1/2/3 = FR/DE/EN voice; we mix all requested tracks into one stream so intro has both music and voice. */
+    int tracksToPlay[7];
+    int numTracks = 0;
+    for (int i = 0; i < 7; i++) {
+      if ((a_t & (1 << i)) && (smackflags & (1 << i)))
+        tracksToPlay[numTracks++] = i;
+    }
+    if (numTracks > 0) {
+      int first = tracksToPlay[0];
+      S32 chans = (a_c[first] >= 2) ? 2 : 1;
+      S32 is16 = (a_d[first] == 16) ? 1 : 0;
+      if (!StartVideoAudio((S32)(U32)a_r[first], chans, is16)) {
+        /* non-fatal: continue without video audio */
+        numTracks = 0;
+      }
+    }
+
+    smk_enable_all(smkObject, SMK_VIDEO_TRACK | a_t);
+    smk_first(smkObject);
+
+    U8 *dest = (U8 *)malloc(640 * 480);
+    if (!dest) {
+      StopVideoAudio();
+      smk_close(smkObject);
+      Free(decompbuf);
+      return 0;
+    }
+
+    /* Frame interval in ms from file (usf = microseconds per frame) for accurate pacing */
+    U32 frameMs = (U32)(usf / 1000.0);
+    if (frameMs == 0)
+      frameMs = 67;  /* ~15 fps */
+
+    /* Pre-fill audio buffer before starting playback (like lba2-classic-ida's SoLoud deque).
+     * Stream is created paused; we fill it then resume so the device never underruns. */
+    unsigned long prebufFrames = 0;
+    if (numTracks > 0 && f > 8u) {
+      /* ~2 seconds of audio so playback stays smooth */
+      prebufFrames = (f > 60u) ? 30u : (f > 30u) ? 25u : (f > 15u) ? 15u : (unsigned long)(f / 2);
+      if (prebufFrames > f)
+        prebufFrames = f;
+      for (unsigned long p = 0; p < prebufFrames; p++) {
+        PushCurrentFrameVideoAudio(smkObject, tracksToPlay, numTracks, a_d, a_r, a_c, usf);
+        smk_next(smkObject);
+      }
+      smk_first(smkObject);
+      ResumeVideoAudio();
+    } else if (numTracks > 0) {
+      ResumeVideoAudio();
+    }
+
+    U8 *pal = NULL;
+    U32 videoStartTicks = 0;
+    for (unsigned long c = 0; c < f; c++) {
+      /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
+      if (numTracks > 0 && c >= prebufFrames) {
+        PushCurrentFrameVideoAudio(smkObject, tracksToPlay, numTracks, a_d, a_r, a_c, usf);
+      }
+
+      ReadNextVideoFrame(smkObject, dest, &pal);
+      CopyBlock(0, 0, 640, 480, dest, 0, 0, Log);
+      if (pal)
+        PaletteSync(pal);
+
+      /* Pace to real time with SDL so speed is correct and sleep reduces stutter */
+      if (c == 0)
+        videoStartTicks = SDL_GetTicks();
+      U32 now = SDL_GetTicks();
+      U32 nextAt = videoStartTicks + (c + 1) * frameMs;
+      for (;;) {
+        MyGetInput();
+        ManageTime();
+        if (MyKey == K_ESC || (Input & I_MENUS))
+          goto fin_play;
+        now = SDL_GetTicks();
+        if (now >= nextAt)
+          break;
+        SDL_Delay(1);  /* sleep 1ms to avoid busy-spin, re-check input each time */
+      }
+
+      smk_next(smkObject);
+    }
+
+fin_play:
+    Cls();
+    BoxStaticFullflip();
+    SetBlackPal();
+    StopVideoAudio();
+    smk_close(smkObject);
+    free(dest);
+    Free(decompbuf);
+    InitWaitNoKey();
+    InitWaitNoInput(I_MENUS);
+    return MyKey;
+  }
+#else
+  fprintf(stderr, "PlayAcf: '%s' skipped (video backend is null; build with -DMVIDEO_BACKEND=smacker for video)\n", name);
   return 0;
-//	Smack		*smk	      	;
-//	U32		frame	      	;
-//	S32		n 		;
-//	S32		ret 		;
-//	U8		*decompbuf	;
-//	U32		smackflags	;
-//#ifdef	LBA_EDITOR
-//	char		name_acf[256] 	;
-//
-//	ShowMouse( false ) ;
-//
-//	smackflags = SMACKTRACK1|SMACKNEEDVOLUME ;
-//#else
-//	smackflags = SMACKFILEHANDLE|SMACKTRACK1|SMACKNEEDVOLUME ;
-//#endif
-//
-//	// si c'est l'intro, on joue la track de la langue choisie
-//	if( !strncasecmp(name,"INTRO",5) )
-//	{
-//#ifdef	CDROM
-//		if( FlagSpeak )
-//		{
-//			switch( LanguageCD )
-//			{
-//				case 0:  // English
-//					smackflags |= SMACKTRACK4 ;
-//					break ;
-//
-//				case 1:	// Français
-//					smackflags |= SMACKTRACK2 ;
-//					break ;
-//
-//				case 2:	// Deutsch
-//					smackflags |= SMACKTRACK3 ;
-//					break ;
-//
-////				default:// other ...
-//					// no spoken track
-//			}
-//		}
-//#else
-//		smackflags |= SMACKTRACK4 ;// English and other ...
-//#endif
-//	}
-//
-//	// Ah ? pas de son ? tiens donc ... gicle-moi les tracks !
-///*	if( !Sample_Driver_Enabled )
-//	{
-//		smackflags &= ~(SMACKTRACKS|SMACKNEEDVOLUME) ;
-//	}
-//*/
-//	n = GetNumAcf( name ) ;
-//
-//	if( n==-1 )	return 0 ;
-//
-//	{
-//		S32	var	;
-//		S32	bit	;
-//
-//		var = n/16	;
-//		if( n>=32 )
-//		{
-//			var = FLAG_ACF2 ;
-//			bit = 1<<(n-32) ;
-//		}
-//		else
-//		{
-//			var = FLAG_ACF 	;
-//			bit = 1<<n 	;
-//		}
-//
-//#ifdef	LBA_EDITOR
-//		ListVarGame[FLAG_ACF+(n/16)].Value |= (S16)(1<<(n&15)) ;
-//#else
-//		ListVarGame[FLAG_ACF+(n/16)] |= (S16)(1<<(n&15)) ;
-//#endif
-//	}
-//
-//	StopMusic() ;
-//
-//	SmackResetMemory() ;
-//
-//#ifdef	LBA_EDITOR
-//	strcpy( name_acf, PathAcf ) ;
-//	strcat( name_acf, name ) ;
-//	AddExt( name_acf, ".SMK" ) ;
-//
-//	smk = SmackOpen( name_acf, smackflags, SMACKAUTOEXTRA ) ;
-//#else
-////	Fd = OpenRead(name_acf)	;// Ouvrir ressource + Seek
-//
-//	// ouvre la ressource et positionne le handle à l'offet ou se trouve
-//	// la sequence
-//	if( !HQF_Init( PathAcf, n ) )
-//#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||!defined(CDROM)
-//		return 0 ;
-//#else
-//		TheEnd( PROGRAM_OK, MessageNoCD ) ;
-//#endif
-//
-//	smk = SmackOpen( (char*)HQF_File, smackflags, SMACKAUTOEXTRA ) ;
-//#endif
-//
-//	if( !smk )
-//#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||!defined(CDROM)
-//		return 0 ;
-//#else
-//		TheEnd( PROGRAM_OK, MessageNoCD ) ;
-//#endif
-//
-//	decompbuf = (U8*)radmalloc( 320*200 )	;
-//
-//	if( !decompbuf )
-//	{
-//		SmackClose( smk ) ;
-//#ifndef	LBA_EDITOR
-//		HQF_Close() ;
-//#endif
-//		return 0 ;
-//	}
-//
-//	memset( decompbuf, 0, 320*200 ) ;
-//
-//	SmackToBuffer( smk, 0, 0, 320, 200, decompbuf, FALSE ) ;
-//
-////	if( Sample_Driver_Enabled )
-//	{
-//		S32	vol ;
-//
-//		if( UseWaveMixer )
-//		{
-//			vol = SampleVolume ;
-//		}
-//		else
-//		{
-//#ifdef	LBA_EDITOR
-//			vol = SampleVolume ;
-//#else
-//			vol = BoundRegleTrois( 0, MasterVolume, 127, SampleVolume ) ;
-//#endif
-//		}
-//
-//		vol = (vol==0?vol:(vol+1))*512 ;// 0..65536
-//
-//		SmackVolumePan( smk, SMACKTRACKS, vol, 32768 ) ;
-//	}
-//
-//	SetBlackPal();
-//
-//	BoxReset()  ;// pour etre sûr de ne pas utiliser Screen !
-//	Cls() ;
-//	BoxUpdate() ;
-//
-//	InitWaitNoKey()			;
-//	InitWaitNoInput( I_JOY|I_FIRE|I_MENUS ) ;
-//
-//	for( frame=0; frame<smk->Frames; frame++ )
-//	{
-//		SmackDoFrame( smk ) ;
-//
-//#ifndef	LBA_EDITOR
-//		if( !VideoFullScreen )
-//		{
-//			if( smk->NewPalette )
-//			{
-//#ifndef	LBA_EDITOR
-//				FlagBlackPal = FALSE ;
-//#endif
-//				Palette(smk->Palette) ;
-//			}
-//			BlitBox( (void*)Phys, (void*)decompbuf ) ;
-//		}
-//		else
-//#endif
-//		{
-//			CopyFrameDoubleXY( (void*)decompbuf ) ;
-//			BoxStaticAdd( 0, 40, 639, 439 ) ;
-//		}
-//
-//#ifdef	LBA_EDITOR
-//		if( FlagInfos & INFO_FRAME_SPEED )
-//		{
-//			GraphPrintf(FALSE, 0,0, "Frame: %d", frame++);
-//		}
-//#endif
-//
-//#ifndef	LBA_EDITOR
-//		if( VideoFullScreen )
-//#endif
-//		{
-//			if( smk->NewPalette )
-//			{
-//#ifndef	LBA_EDITOR
-//				FlagBlackPal = FALSE ;
-//#endif
-//				// Pour eviter flash sur frame precedente
-////				Cls()  ;
-////				BoxUpdate() ;
-//
-//				Palette(smk->Palette) ;
-//			}
-//
-//			BoxUpdate() ;
-//		}
-//
-//		if( frame!=smk->Frames )
-//		{
-//			SmackNextFrame( smk ) ;
-//		}
-//
-//		do
-//		{
-//			MyGetInput() ;
-//			ManageTime() ;
-//
-//#ifndef	LBA_EDITOR
-//			CheckSaveLogPcx( smk->Palette ) ;// F9: Sauve Screen
-//#endif
-//
-//			if( (MyKey==K_ESC OR (Input&I_MENUS))
-//#ifndef	LBA_EDITOR
-//			AND (!FlagPlayAcf OR frame>290)
-//#endif
-//			)
-//			{
-//				goto fin_play ;
-//			}
-//		}
-//		while( SmackWait( smk ) ) ;
-//	}
-//
-//fin_play:
-//
-//	SmackClose( smk ) ;
-//
-//#ifndef	LBA_EDITOR
-//	HQF_Close() ;
-//	LastIdxPalette = 0 ;// pour reforcer le chargement du .XPL (cf ChoicePalette())
-//#endif
-//
-//	radfree( decompbuf ) ;
-//
-//	FadeToBlack( smk->Palette ) ;
-//	Cls() ;
-//	BoxStaticFullflip() ;
-//	SetBlackPal() ;
-//
-//	ret = MyKey ;
-//
-//#ifdef	LBA_EDITOR
-//	SetMouseBox( 0,0, 639,479 ) ;
-//#endif
-//
-//	InitWaitNoKey()			;
-//	InitWaitNoInput( I_MENUS ) ;
-//
-//#ifdef	LBA_EDITOR
-//	ShowMouse( true ) ;
-//#endif
-//
-//	return ret ;
+#endif
 }
 
 //---------------------------------------------------------------------------

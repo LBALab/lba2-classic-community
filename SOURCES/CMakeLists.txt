@@ -25,11 +25,17 @@ if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
 endif ()
 
-target_include_directories(lba2 PRIVATE ../LIB386/H)
+# Put libsmacker before LIB386/H so <smacker.h> resolves to libsmacker on case-insensitive FS (e.g. macOS)
+target_include_directories(lba2 PRIVATE
+        $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:${CMAKE_SOURCE_DIR}/LIB386/libsmacker>
+        ../LIB386/H)
 target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
-        $<$<STREQUAL:MVIDEO_BACKEND,null>:USE_MVIDEO_NULL>
-        $<$<STREQUAL:MVIDEO_BACKEND,smacker>:USE_MVIDEO_SMACKER>
+        $<$<STREQUAL:${MVIDEO_BACKEND},null>:USE_MVIDEO_NULL>
+        $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>
         SDL_DISABLE_OLD_NAMES)
+if(MVIDEO_BACKEND STREQUAL "smacker")
+  target_link_libraries(lba2 PRIVATE libsmacker)
+endif()
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM SOURCES_FILES_ASM_DOS)
