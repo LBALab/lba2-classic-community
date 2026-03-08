@@ -162,7 +162,7 @@
 #include	<OBJECT.H>
 #include	<ANIM.H>
 #include	<AIL.H>
-#include	<SMACKER.H>
+#include	<SMACKER_ADELINE.H>
 
 #include	<FILEIO.H>
 
