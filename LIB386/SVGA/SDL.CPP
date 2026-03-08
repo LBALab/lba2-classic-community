@@ -3,11 +3,12 @@
 #include <SVGA/DIRTYBOX.H> // For BoxStaticAdd and BoxCleanClip
 #include <SVGA/SCREEN.H>   // For ModeDesiredX, ModeDesiredY and Log buffer
 #include <SYSTEM/LOGPRINT.H>
-#include <SYSTEM/WINDOW.H> // For AppActive
+#include <SYSTEM/WINDOW.H>
 
 #include <SDL3/SDL.h>
 #include <assert.h>
 #include <cstdlib>
+#include <string.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -24,14 +25,16 @@ U32 ModeResY;
 U32 TabOffPhysLine[ADELINE_MAX_Y_RES];
 
 // --- Private state -----------------------------------------------------------
-SDL_Surface *sdlSurface = NULL;
 SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
+bool frameDirty = false;
+U32 *frameBuffer = NULL;
+
+// --- Private functions -------------------------------------------------------
+static void PresentFrame();
 
 // --- Initialization ----------------------------------------------------------
 bool InitVideo() {
-  assert(sdlSurface == NULL);
-
   if (!IsWindowInitialized()) {
     LogPrintf("Error: Unable to initialize Video subsystem.\n"
               "\tWindow subsystem was not initialized beforehand.\n");
@@ -48,24 +51,16 @@ void EndVideo() {
     sdlPalette = NULL;
   }
 
-  sdlSurface = NULL;
+  if (frameBuffer) {
+    free(frameBuffer);
+    frameBuffer = NULL;
+  }
 }
 
 // --- Interface ---------------------------------------------------------------
 bool CreateVideoSurface(U32 resX, U32 resY) {
-  assert(sdlSurface == NULL);
   assert(sdlPalette == NULL);
 
-  sdlSurface = (SDL_Surface *)(WindowSurface());
-  if (sdlSurface == NULL) {
-    LogPrintf("Error: Unable to get SDL video surface.\n"
-              "\tResolution: %ux%u.\n",
-              resX, resY);
-
-    return false;
-  }
-
-  // Create palette
   sdlPalette = SDL_CreatePalette(PAL_MAX_COLORS);
   if (sdlPalette == NULL) {
     const char *errorMsg = SDL_GetError();
@@ -73,17 +68,21 @@ bool CreateVideoSurface(U32 resX, U32 resY) {
               "\tSDL message: %s\n",
               errorMsg);
 
-    sdlSurface = NULL;
-
     return false;
   }
 
-  // Update public state
   ModeResX = resX;
   ModeResY = resY;
+
   Phys = malloc(resX * resY);
 
-  // Fill the phys table
+  frameBuffer = (U32 *)malloc(resX * resY * sizeof(U32));
+  if (!frameBuffer) {
+    LogPrintf("Error: Unable to allocate frame buffer.\n");
+    return false;
+  }
+  memset(frameBuffer, 0, resX * resY * sizeof(U32));
+
   S32 off = 0;
   for (S32 i = 0; i < ADELINE_MAX_Y_RES; i++) {
     TabOffPhysLine[i] = off;
@@ -94,35 +93,25 @@ bool CreateVideoSurface(U32 resX, U32 resY) {
 }
 
 U32 VideoSurfacePitch() {
-  // TODO: Improve - SDL creates a surface with 32bpp, but code expects it to
-  //  be 8bpp, for now just supply what is expected but this may change when
-  //  port draw code to SDL blit
   return ModeResX;
 }
 
 void LockVideoSurface() {
-  assert(sdlSurface != NULL);
-
-  if (screenLockCount == 0) {
-    SDL_LockSurface(sdlSurface);
-    ++screenLockCount;
-  }
+  ++screenLockCount;
 }
 
 void UnlockVideoSurface() {
-  assert(sdlSurface != NULL);
-
   if (screenLockCount > 0) {
     --screenLockCount;
   }
 
-  if (screenLockCount == 0) {
-    SDL_UnlockSurface(sdlSurface);
+  if (screenLockCount == 0 && frameDirty) {
+    PresentFrame();
+    frameDirty = false;
   }
 }
 
 void WaitVideoSync() {
-  // TODO: Implement?
 }
 
 /**
@@ -135,12 +124,10 @@ void SetVideoPalette(const U8 src[], S32 startIdx, S32 count) {
 
   static SDL_Color tmpColors[PAL_MAX_COLORS];
 
-  // Sanitize input
   if (startIdx < 0) {
     startIdx = 0;
   }
 
-  // Update temporary color table
   for (U32 i = startIdx; i < count; ++i) {
     tmpColors[i].r = src[0];
     tmpColors[i].g = src[1];
@@ -149,7 +136,6 @@ void SetVideoPalette(const U8 src[], S32 startIdx, S32 count) {
     src += 3;
   }
 
-  // Update palette
   if (!SDL_SetPaletteColors(sdlPalette, tmpColors, startIdx, count)) {
     const char *errorMsg = SDL_GetError();
     LogPrintf("Warning: Unable to set SDL palette color.\n"
@@ -161,7 +147,6 @@ void SetVideoPalette(const U8 src[], S32 startIdx, S32 count) {
 void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
   assert(sdlPalette != NULL);
 
-  // Check input
   if ((colorIdx < 0) || (colorIdx >= PAL_MAX_COLORS)) {
     return;
   }
@@ -178,60 +163,47 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
 
 void SetVideoPaletteSync(const U8 src[]) {
   SetVideoPalette(src, 0, PAL_MAX_COLORS);
-
-  T_BOX copyArea = {0, 0, 640, 480};
-  CopyVideoArea(Phys, Log, TabOffPhysLine, &copyArea);
+  PresentFrame();
 }
 
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
                    const T_BOX *area) {
-  assert(sdlSurface != NULL);
-  assert(sdlPalette != NULL);
   assert((src != Phys) && "SDL Surface as 'src' is not supported");
   assert((src != dst) && "Copy to same video memory is not supported");
 
-  U8 *dstMem = (dst == Phys) ? (U8 *)sdlSurface->pixels : (U8 *)dst;
-  U8 *srcMem = (src == Phys) ? (U8 *)sdlSurface->pixels : (U8 *)src;
-  U32 dstPitch = (dst == Phys) ? (U32)sdlSurface->pitch : tabOffDst[1];
-  U32 srcPitch = (src == Phys) ? (U32)sdlSurface->pitch : tabOffDst[1];
-  U8 dstBpp = (dst == Phys) ? SDL_GetPixelFormatDetails(sdlSurface->format)->bytes_per_pixel : 1;
-  U8 srcBpp = (src == Phys) ? SDL_GetPixelFormatDetails(sdlSurface->format)->bytes_per_pixel : 1;
-
   if (dst == Phys) {
-    LockVideoSurface();
+    frameDirty = true;
+    return;
   }
 
-  sdlPalette->colors[1].r = 0xFF;
-  sdlPalette->colors[1].g = 0x00;
-  sdlPalette->colors[1].b = 0x00;
-  sdlPalette->colors[1].a = 0xFF;
+  U8 *dstMem = (U8 *)dst;
+  U8 *srcMem = (U8 *)src;
+  U32 pitch = tabOffDst[1];
 
-  for (int x = area->x0; x < area->x1; ++x) {
-    for (int y = area->y0; y < area->y1; ++y) {
+  for (int y = area->y0; y < area->y1; ++y) {
+    U8 *srcRow = srcMem + (y * pitch) + area->x0;
+    U8 *dstRow = dstMem + (y * pitch) + area->x0;
+    memcpy(dstRow, srcRow, area->x1 - area->x0);
+  }
+}
 
-      // TODO Unify when using palette for SDL
-      // TODO Make use of SDL Blit, must convert all buffers to SDL
-      if (dst == Phys) { // Yes, I know... :D
-        U8 *srcPixel = (srcMem + (y * srcPitch) + (x * srcBpp));
-        SDL_Color srcPaletteColor = sdlPalette->colors[*srcPixel];
+static void PresentFrame() {
+  assert(sdlPalette != NULL);
+  assert(frameBuffer != NULL);
+  assert(Log != NULL);
 
-        U32 *dstPixel = (U32 *)(dstMem + (y * dstPitch) + (x * dstBpp));
-        *dstPixel = SDL_MapRGBA(SDL_GetPixelFormatDetails(sdlSurface->format), NULL, srcPaletteColor.r,
-                                srcPaletteColor.g, srcPaletteColor.b,
-                                srcPaletteColor.a);
-      } else {
-        U8 *srcPixel = (srcMem + (y * srcPitch) + (x * srcBpp));
-        U8 *dstPixel = (dstMem + (y * dstPitch) + (x * dstBpp));
+  U8 *logMem = (U8 *)Log;
 
-        *dstPixel = *srcPixel;
-      }
+  for (U32 y = 0; y < ModeDesiredY; ++y) {
+    U8 *srcRow = logMem + y * ModeDesiredX;
+    U32 *dstRow = frameBuffer + y * ModeResX;
+    for (U32 x = 0; x < ModeDesiredX; ++x) {
+      SDL_Color c = sdlPalette->colors[srcRow[x]];
+      dstRow[x] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
     }
   }
 
-  if (dst == Phys) {
-    UnlockVideoSurface();
-    UpdateWindowSurfaceArea(area, 1);
-  }
+  PresentRendererFrame(frameBuffer, ModeResX * sizeof(U32));
 }
 
 void HandleEventsVideo(const void *event) {
