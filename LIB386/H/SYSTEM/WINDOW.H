@@ -17,10 +17,8 @@ bool IsWindowInitialized();
 
 // --- Interface ---------------------------------------------------------------
 bool CreateWindowSurface(U32 resX, U32 resY);
-void *WindowSurface();
 void DestroyWindowSurface();
-void UpdateWindowSurface();
-void UpdateWindowSurfaceArea(const T_BOX area[], U32 areaCount);
+void PresentRendererFrame(const void *pixels, U32 pitch);
 
 void ManageWindow();
 void HandleEventsWindow(const void *event);
