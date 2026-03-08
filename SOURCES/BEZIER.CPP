@@ -13,10 +13,12 @@
 
 #include	"C_EXTERN.H"
 
+#define MAX_SCAN_LINES 480
+
 /*──────────────────────────────────────────────────────────────────────────*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-S32		TabCoorPoint[480][4];
-S32		TabNbPoint[480];
+S32		TabCoorPoint[MAX_SCAN_LINES][4];
+S32		TabNbPoint[MAX_SCAN_LINES];
 S32		MinYTabPoint,MaxYTabPoint;
 
 S32		XS0,YS0,XS1,YS1,XS2,YS2,XS3,YS3 ;
@@ -55,22 +57,21 @@ void CalculeLigneOmbre( S32 x1, S32 y1, S32 x2, S32 y2 )
 		}
 
 		if (y2>ClipYMax) y2=ClipYMax;
-
-		if (y1<MinYTabPoint) MinYTabPoint=y1;
-
-		if (y2>MaxYTabPoint) MaxYTabPoint=y2;
-
-
 		x+=ix;
 		y1++;
 
-		for( y=y1; y<=y2; y++ )
+		if (y1<MinYTabPoint) MinYTabPoint=y1;
+		if (y2>MaxYTabPoint) MaxYTabPoint=y2;
+
+		for (y=y1; y<=y2; y++)
 		{
-			TabCoorPoint[y][TabNbPoint[y]++]=FTOW(x);
+			if ((U32)y < MAX_SCAN_LINES AND (U32)TabNbPoint[y] < 4)
+			{
+				TabCoorPoint[y][TabNbPoint[y]++]=FTOW(x);
+			}
 			//Plot(FTOW(x),y,15);
 			x+=ix;
 		}
-
 	}
 }
 
@@ -208,13 +209,19 @@ void	DrawLineShade(	S32 x0, S32 z0, S32 x1, S32 z1, S32 x2, S32 z2, S32 x3, S32 
 {
 	S32	y,j,k;
 	S32	temp;
+	S32	yStart, yEnd;
 
-	MinYTabPoint=ClipYMax;
-	MaxYTabPoint=ClipYMin;
-
+	MinYTabPoint = ClipYMax;
+	MaxYTabPoint = ClipYMin;
 	DrawOmbre(x0,z0,x1,z1,x2,z2,x3,z3);
 
-	for ( y = MinYTabPoint; y <= MaxYTabPoint; y++ )
+	yStart = MinYTabPoint;
+	yEnd   = MaxYTabPoint;
+	
+	if (yStart < 0) yStart = 0;
+	if (yEnd > MAX_SCAN_LINES - 1) yEnd = MAX_SCAN_LINES - 1;
+
+	for (y = yStart; y <= yEnd; y++)
 	{
 		switch( TabNbPoint[y] )
 		{
