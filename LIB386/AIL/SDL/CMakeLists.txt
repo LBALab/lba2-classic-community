@@ -1,3 +1,3 @@
-target_sources(ail PRIVATE CD.CPP COMMON.CPP MIDI.CPP SAMPLE.CPP STREAM.CPP)
+target_sources(ail PRIVATE CD.CPP COMMON.CPP MIDI.CPP SAMPLE.CPP STREAM.CPP stb_vorbis.c)
 target_compile_definitions(ail PUBLIC USE_SOUND_SDL)
 target_link_libraries(ail PRIVATE SDL3::SDL3)
