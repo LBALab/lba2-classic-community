@@ -1,14 +1,5 @@
-//──────────────────────────────────────────────────────────────────────────
+// Redirect to wrapper so <smacker.h> resolves to libsmacker on case-insensitive FS.
 #ifndef	LIB_SMACKER
 #define	LIB_SMACKER
-
-//──────────────────────────────────────────────────────────────────────────
-#ifdef MVIDEO_USE_SMACKER
-#include	<SMACKER/SMACK.H>
-#include	<SMACKER/SMACKER.H>
-#endif
-
-//──────────────────────────────────────────────────────────────────────────
+#include	<SMACKER_ADELINE.H>
 #endif//LIB_SMACKER
-
-//──────────────────────────────────────────────────────────────────────────

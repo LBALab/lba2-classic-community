@@ -1328,6 +1328,7 @@ extern	T_MENU_COMP	ListMenuComp[MAX_MENUS_COMP] ;
 #define PROGRAM_OK              2
 #define NAME_NOT_FOUND          3
 #define ERROR_FILE_NOT_CREATED  4
+#define PROGRAM_FAIL            5
 
 /*---------------- Headers ------------------*/
 
