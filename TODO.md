@@ -4,12 +4,14 @@
 - [ ] Sky not being drawn
 - [ ] Water not being drawn
 - [ ] Can't read old saved games
+- [x] Music not playing on Linux (case-sensitive filesystem)
 
 ## General
-- [ ] Music
-- [ ] Sound Effects
-- [ ] Voices
-- [ ] Volume Control
+- [x] Music (OGG/WAV streaming, CD tracks)
+- [ ] Music (MIDI playback)
+- [x] Sound Effects
+- [x] Voices
+- [x] Volume Control
 
 ## Platforms
 - [ ] Keep Building for DOS

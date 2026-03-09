@@ -80,7 +80,14 @@ bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
       found = ExistsFileOrDir(fullPath);
     }
 
-    // TODO: Implement try with first letter uppercase (eg: "Music")
+    if (!found) {
+      // Try title case (first letter uppercase, rest lowercase)
+      SDL_strlwr(variation);
+      if (variation[0] >= 'a' && variation[0] <= 'z')
+        variation[0] -= 32;
+      snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+      found = ExistsFileOrDir(fullPath);
+    }
   }
 
   // Copy to out if requested and variation was found
