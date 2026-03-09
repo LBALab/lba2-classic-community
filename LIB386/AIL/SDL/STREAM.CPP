@@ -36,17 +36,33 @@ static void StopStreamInternal(void) {
   streamPaused = false;
 }
 
-/* Build path with extension replaced by .ogg (caller provides buffer of size pathMax). */
-static void PathToOgg(const char *wavPath, char *oggPath, int pathMax) {
+/* Build path with extension replaced and optional filename case change.
+   When lowerName is true the filename portion (after last separator) is
+   lowercased.  ext should be ".ogg" or ".OGG". */
+static void BuildOggPath(const char *wavPath, char *oggPath, int pathMax,
+                         const char *ext, bool lowerName) {
   strncpy(oggPath, wavPath, pathMax - 1);
   oggPath[pathMax - 1] = '\0';
+
+  if (lowerName) {
+    char *sep = strrchr(oggPath, '/');
+#ifdef _WIN32
+    char *bsep = strrchr(oggPath, '\\');
+    if (bsep && (!sep || bsep > sep)) sep = bsep;
+#endif
+    char *start = sep ? sep + 1 : oggPath;
+    for (char *p = start; *p; p++) {
+      if (*p >= 'A' && *p <= 'Z') *p += 32;
+    }
+  }
+
   char *dot = strrchr(oggPath, '.');
   if (dot) {
-    strcpy(dot, ".ogg");
+    strcpy(dot, ext);
   } else {
     int len = (int)strlen(oggPath);
     if (len + 5 <= pathMax)
-      strcpy(oggPath + len, ".ogg");
+      strcpy(oggPath + len, ext);
   }
 }
 
@@ -94,11 +110,18 @@ void PlayStream(char *name) {
     SDL_PutAudioStreamData(stream, wav_data, wav_data_len);
     SDL_free(wav_data);
   } else {
-    /* Try .ogg (e.g. Steam ships OGG instead of WAV). */
+    /* Try OGG with several case variations for case-sensitive filesystems. */
     char oggPath[ADELINE_MAX_PATH];
-    PathToOgg(name, oggPath, (int)sizeof(oggPath));
-    if (!TryPlayOgg(oggPath)) {
-      SDL_Log("SDL AIL: Could not load WAV '%s' or OGG '%s'", name, oggPath);
+    bool found = false;
+    static const char *exts[] = { ".ogg", ".OGG" };
+    for (int lower = 0; lower <= 1 && !found; lower++) {
+      for (int e = 0; e < 2 && !found; e++) {
+        BuildOggPath(name, oggPath, (int)sizeof(oggPath), exts[e], lower != 0);
+        found = TryPlayOgg(oggPath);
+      }
+    }
+    if (!found) {
+      SDL_Log("SDL AIL: Could not load WAV '%s' or OGG", name);
       return;
     }
   }
