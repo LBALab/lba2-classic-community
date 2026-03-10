@@ -4,16 +4,9 @@
 - [ ] Sky not being drawn
 - [ ] Water not being drawn
 - [ ] Can't read old saved games
-- [x] Music not playing on Linux (case-sensitive filesystem)
 
 ## General
-- [x] Music (OGG/WAV streaming, CD tracks)
-- [ ] Music (MIDI playback)
-- [x] Sound Effects
-- [x] Voices
-- [x] Volume Control
-
-## Platforms
+- [ ] Music (MIDI playback) 
 - [ ] Keep Building for DOS
 
 ## Debug
@@ -22,3 +15,10 @@
 ## Other
 - [ ] Reformat Code to use 4 spaces instead of tabs
 - [ ] Clean-Up Unused Code
+
+## Done
+- [x] Music not playing on Linux (case-sensitive filesystem)
+- [x] Music (OGG/WAV streaming, CD tracks)
+- [x] Sound Effects
+- [x] Voices
+- [x] Volume Control
