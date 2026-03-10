@@ -24,12 +24,39 @@ cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
 cmake --build build
 ```
 
+### Using CMake presets
+
+This repository provides CMake presets for common configurations in `CMakePresets.json`. You can use them instead of specifying the build directory and toolchain flags manually:
+
+- **Linux (native build)**:
+
+  ```bash
+  cmake --preset linux -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+  cmake --build --preset linux
+  ```
+
+- **macOS (native build)**:
+
+  ```bash
+  cmake --preset macos_arm64   # or macOS_x86_64
+  cmake --build --preset macos_arm64
+  ```
+
+- **Cross-compiling Windows from Linux**:
+
+  ```bash
+  cmake --preset cross_linux2win
+  cmake --build --preset cross_linux2win
+  ```
+
 ### Build Options
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
 | `SOUND_BACKEND` | `null`, `miles`, `sdl` | `null` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. |
 | `MVIDEO_BACKEND` | `null`, `smacker` | `null` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
+
+When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the SDL-based video/audio glue used by the FMV player. See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 
 ### Cross-compiling for Windows (from Linux)
 
@@ -39,14 +66,6 @@ A MinGW toolchain file is provided for cross-compiling a 32-bit Windows build fr
 cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake
 cmake --build build
 ```
-
-### Platform Support
-
-| Platform | Status |
-|----------|--------|
-| Linux | Supported |
-| macOS | Supported |
-| Windows | TBD |
 
 ## Project Structure
 
