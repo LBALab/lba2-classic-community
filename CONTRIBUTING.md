@@ -28,6 +28,8 @@ cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
 cmake --build build
 ```
 
+This example configuration enables SDL3-based audio and Smacker FMV playback via `libsmacker`. Other combinations of `SOUND_BACKEND` and `MVIDEO_BACKEND` are available; see the build options table in the README.
+
 ### Code Style
 
 The original codebase uses tabs for indentation. There is an ongoing effort to migrate to 4 spaces -- new contributions should use 4 spaces for indentation.
