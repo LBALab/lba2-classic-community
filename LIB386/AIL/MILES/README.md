@@ -222,3 +222,9 @@ Following files from MSS SDK are expected to be in LIB386 folder:
 The `mss` directory correspond to the MSS SDK directory, and other files
 found in H, LIB and SYSTEM directories are copied from that `mss` SDK
 folder to match the build system.
+
+## Open-Source Alternative
+
+The community build uses SDL3 as an open-source replacement for the Miles
+Sound System. To use it, build with `-DSOUND_BACKEND=sdl`. The SDL audio
+backend is implemented in `LIB386/AIL/SDL/`.

@@ -87,3 +87,9 @@ Following files from Smacker SDK are expected to be in LIB386 folder:
 The `smacker` directory correspond to the Smacker SDK directory, and
 other files found in H and LIB directories are copied from that `smacker`
 SDK folder to match the build system.
+
+## Open-Source Alternative
+
+The community build uses [libsmacker](../libsmacker/) (LGPL 2.1) as a drop-in
+replacement for the proprietary Smacker SDK. To use it, build with
+`-DMVIDEO_BACKEND=smacker`.
