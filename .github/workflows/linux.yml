@@ -39,3 +39,37 @@ jobs:
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --target lba2
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install SDL3
+        uses: libsdl-org/setup-sdl@main
+        id: sdl
+        with:
+          install-linux-dependencies: true
+          version: 3-latest
+          build-type: Debug
+
+      - name: Install UASM
+        uses: supplypike/setup-bin@v3
+        with:
+          uri: 'https://github.com/Terraspace/UASM/releases/download/v2.57r/uasm257_linux64.zip'
+          name: 'uasm'
+          version: '2.57'
+
+      - name: Install latest CMake and ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Run CMake (CPP tests)
+        run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Debug -DLBA2_BUILD_TESTS=ON --preset linux
+
+      - name: Build tests
+        run: cmake --build ${{github.workspace}}/build
+
+      - name: Run tests
+        run: ctest --test-dir ${{github.workspace}}/build --output-on-failure

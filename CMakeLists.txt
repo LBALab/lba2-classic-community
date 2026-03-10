@@ -32,9 +32,18 @@ if (NOT MVIDEO_BACKEND IN_LIST MVIDEO_BACKEND_OPTIONS)
     message(SEND_ERROR "MVIDEO_BACKEND set with invalid option '${MVIDEO_BACKEND}'. Valid options are: ${MVIDEO_BACKEND_OPTIONS}")
 endif ()
 
+# Testing options
+option(LBA2_BUILD_TESTS "Build test suites" OFF)
+option(LBA2_BUILD_ASM_TESTS "Build ASM equivalence tests (requires 32-bit toolchain + uasm + objcopy)" OFF)
+
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
 # Process the targets
 add_subdirectory(LIB386)
 add_subdirectory(SOURCES)
+
+if(LBA2_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
