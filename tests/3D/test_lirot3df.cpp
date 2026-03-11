@@ -41,9 +41,13 @@ static void test_random_equivalence(void)
         S32 x=(S32)rand()-RAND_MAX/2, y=(S32)rand()-RAND_MAX/2, z=(S32)rand()-RAND_MAX/2;
         LongInverseRotatePointF(&m,x,y,z); S32 cx=X0,cy=Y0,cz=Z0;
         call_asm_LongInverseRotatePointF(&m,x,y,z);
-        ASSERT_ASM_CPP_EQ_INT(X0,cx,"LIRotF rand X0");
-        ASSERT_ASM_CPP_EQ_INT(Y0,cy,"LIRotF rand Y0");
-        ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LIRotF rand Z0");
+        char lbl[96];
+        snprintf(lbl,sizeof(lbl),"LIRotF X0 x=%d y=%d z=%d",x,y,z);
+        ASSERT_ASM_CPP_EQ_INT(X0,cx,lbl);
+        snprintf(lbl,sizeof(lbl),"LIRotF Y0 x=%d y=%d z=%d",x,y,z);
+        ASSERT_ASM_CPP_EQ_INT(Y0,cy,lbl);
+        snprintf(lbl,sizeof(lbl),"LIRotF Z0 x=%d y=%d z=%d",x,y,z);
+        ASSERT_ASM_CPP_EQ_INT(Z0,cz,lbl);
     }
 }
 
