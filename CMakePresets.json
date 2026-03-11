@@ -41,8 +41,8 @@
     {
       "name": "windows",
       "inherits": "default",
-      "displayName": "GCC 12.2.0 x86_64-w64-mingw32",
-      "description": "Using compilers: C = C:/msys64/mingw32/bin/gcc.exe, CXX = C:/msys64/mingw32/bin/g++.exe",
+      "displayName": "Windows MinGW32 (32-bit legacy)",
+      "description": "32-bit build using MSYS2 MinGW32. For modern 64-bit builds, use windows_ucrt64 instead.",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
@@ -57,6 +57,32 @@
           "type": "STRING",
           "value": "-m32"
         }
+      }
+    },
+    {
+      "name": "windows_ucrt64",
+      "inherits": "default",
+      "displayName": "Windows UCRT64 (64-bit)",
+      "description": "Native 64-bit build using MSYS2 UCRT64 (recommended for Windows 10+)",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
+      }
+    },
+    {
+      "name": "windows_mingw64",
+      "inherits": "default",
+      "displayName": "Windows MinGW64 (64-bit)",
+      "description": "Native 64-bit build using MSYS2 MinGW64 (for Windows 7/8 compatibility)",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
       }
     },
     {
@@ -83,6 +109,16 @@
         "CMAKE_CXX_FLAGS": "-m32",
         "SDL3_DIR": "/usr/local/sdl3-32/lib/cmake/SDL3"
       }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows_ucrt64",
+      "configurePreset": "windows_ucrt64"
+    },
+    {
+      "name": "windows_mingw64",
+      "configurePreset": "windows_mingw64"
     }
   ]
 }
