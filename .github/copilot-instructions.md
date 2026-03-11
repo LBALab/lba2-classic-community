@@ -43,3 +43,36 @@ cmake -S . -B build --preset linux_test_asm
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+### Running tests in Docker (macOS ARM64 / any platform)
+
+Use `run_tests_docker.sh` to run the full test suite inside a Linux x86_64
+Docker container.  This works on macOS ARM64 via QEMU emulation.
+
+```bash
+./run_tests_docker.sh          # CPP-only tests (64-bit)
+./run_tests_docker.sh --asm    # CPP + ASM equivalence tests (32-bit)
+./run_tests_docker.sh --build-only  # Build the Docker image without running
+```
+
+Logs are saved to `build_logs/` automatically (gitignored).
+
+### Docker image maintenance
+
+When modifying `Dockerfile.test`, **always save the build log to a file** so
+failures can be diagnosed without rebuilding:
+
+```bash
+docker build --platform linux/amd64 -t lba2-test -f Dockerfile.test . \
+    2>&1 | tee build_logs/docker_build_$(date +%Y%m%d_%H%M%S).log
+```
+
+Key constraints for the Docker image:
+- **UASM must be installed at container runtime**, not during `docker build`.
+  On macOS ARM64, buildkit uses Rosetta which cannot run UASM (x86_64 ELF).
+  QEMU at `docker run` time handles it correctly.
+- **32-bit SDL3** is built with minimal backends (X11 only, no audio/GL) to
+  satisfy the linker for ASM tests compiled with `-m32`.
+- Only `.model FLAT` ASM files produce valid 32-bit ELF objects.
+  `.model SMALL` ASM files use segmented addressing and segfault on Linux.
+  These are tested as CPP-only.

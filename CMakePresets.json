@@ -89,7 +89,10 @@
       "cacheVariables": {
         "LBA2_BUILD_TESTS": "ON",
         "LBA2_BUILD_ASM_TESTS": "ON",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": "-m32",
+        "CMAKE_CXX_FLAGS": "-m32",
+        "SDL3_DIR": "/usr/local/sdl3-32/lib/cmake/SDL3"
       }
     }
   ]

@@ -65,10 +65,13 @@ function(add_asm_cpp_test)
         # Always include LIB386/H
         list(APPEND _uasm_includes "-I${CMAKE_SOURCE_DIR}/LIB386/H")
 
+        # Split CMAKE_ASM_MASM_FLAGS (a space-separated string) into a proper list
+        separate_arguments(_uasm_flags NATIVE_COMMAND "${CMAKE_ASM_MASM_FLAGS}")
+
         add_custom_command(
             OUTPUT ${_asm_obj}
             COMMAND ${CMAKE_ASM_MASM_COMPILER}
-                    ${CMAKE_ASM_MASM_FLAGS}
+                    ${_uasm_flags}
                     ${_uasm_includes}
                     -Fo${_asm_obj}
                     ${ARG_ASM_SOURCE}
