@@ -2,6 +2,9 @@
  * Minimal test harness for LBA2 ASM ↔ C equivalence testing.
  * No external dependencies — plain C89 compatible.
  *
+ * Output follows TAP (Test Anything Protocol) version 14.
+ * See https://testanything.org/tap-version-14-specification.html
+ *
  * Usage:
  *   #include "test_harness.h"
  *
@@ -30,6 +33,21 @@ static int assert_count  = 0;
 
 static const char *current_test_name = "";
 
+/* ── path stripping ───────────────────────────────────────────────────
+ * TEST_SOURCE_ROOT is set by CMake to the project root (e.g. "/tmp/lba2/").
+ * We strip it from __FILE__ so output shows "tests/3D/foo.cpp" instead.   */
+#ifndef TEST_SOURCE_ROOT
+#  define TEST_SOURCE_ROOT ""
+#endif
+
+static inline const char *_strip_root(const char *path) {
+    const char *root = TEST_SOURCE_ROOT;
+    size_t len = strlen(root);
+    if (len > 0 && strncmp(path, root, len) == 0)
+        return path + len;
+    return path;
+}
+
 /* ── colour helpers (disabled when NO_COLOR is set) ───────────────────── */
 #ifdef NO_COLOR
 #  define CLR_RED   ""
@@ -45,7 +63,8 @@ static const char *current_test_name = "";
 #define FAIL_MSG(fmt, ...)                                                     \
     do {                                                                        \
         fprintf(stderr, CLR_RED "  FAIL" CLR_RESET " %s:%d (%s): " fmt "\n",  \
-                __FILE__, __LINE__, current_test_name, __VA_ARGS__);           \
+                _strip_root(__FILE__), __LINE__, current_test_name,            \
+                __VA_ARGS__);                                                  \
         test_failures++;                                                       \
     } while (0)
 

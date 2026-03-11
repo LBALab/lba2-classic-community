@@ -47,6 +47,10 @@ function(add_asm_cpp_test)
     )
     target_link_libraries(${ARG_NAME} PRIVATE ${ARG_LIBS})
     target_link_libraries(${ARG_NAME} PRIVATE m)  # math lib
+    # Pass source root so test_harness.h can strip it from __FILE__ paths.
+    target_compile_definitions(${ARG_NAME} PRIVATE
+        "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
+    )
     add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
 
     # ── ASM equivalence ──────────────────────────────────────────────────
