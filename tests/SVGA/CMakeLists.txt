@@ -17,7 +17,7 @@ add_asm_cpp_test(NAME test_blitboxf   TEST_SOURCE test_blitboxf.cpp   ASM_SOURCE
 add_asm_cpp_test(NAME test_calcmask   TEST_SOURCE test_calcmask.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/CALCMASK.ASM   RENAME_SYMS CalcGraphMsk                LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_copymask   TEST_SOURCE test_copymask.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/COPYMASK.ASM   RENAME_SYMS CopyMask                    LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_graph      TEST_SOURCE test_graph.cpp      ASM_SOURCE ${_SVGA_ASM_DIR}/GRAPH.ASM      RENAME_SYMS AffGraph GetBoxGraph         LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
-add_asm_cpp_test(NAME test_mask       TEST_SOURCE test_mask.cpp       ASM_SOURCE ${_SVGA_ASM_DIR}/MASK.ASM       RENAME_SYMS AffMask                     LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
+add_asm_cpp_test(NAME test_mask       TEST_SOURCE test_mask.cpp       ASM_SOURCE ${_SVGA_ASM_DIR}/MASK.ASM       RENAME_SYMS AffMask ColMask              LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_savblock   TEST_SOURCE test_savblock.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/SAVBLOCK.ASM   RENAME_SYMS SaveBlock                   LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_resblock   TEST_SOURCE test_resblock.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/RESBLOCK.ASM   RENAME_SYMS RestoreBlock                LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_cpyblock   TEST_SOURCE test_cpyblock.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/CPYBLOCK.ASM   RENAME_SYMS CopyBlock                   LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
