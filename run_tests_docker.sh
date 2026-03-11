@@ -7,6 +7,7 @@
 #   ./run_tests_docker.sh          # CPP correctness tests only
 #   ./run_tests_docker.sh --asm    # ASM + CPP equivalence tests
 #   ./run_tests_docker.sh --build-only  # Build the Docker image without running
+#   ./run_tests_docker.sh --rebuild     # Force rebuild the Docker image
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -19,6 +20,7 @@ mkdir -p "${LOG_DIR}"
 ASM_FLAG=""
 PRESET="linux_test"
 BUILD_ONLY=false
+FORCE_REBUILD=false
 
 for arg in "$@"; do
     case "$arg" in
@@ -29,22 +31,30 @@ for arg in "$@"; do
         --build-only)
             BUILD_ONLY=true
             ;;
+        --rebuild)
+            FORCE_REBUILD=true
+            ;;
     esac
 done
 
-# ── Build Docker image (log to file) ─────────────────────────────────────────
-DOCKER_BUILD_LOG="${LOG_DIR}/docker_build_$(date +%Y%m%d_%H%M%S).log"
-echo "==> Building Docker image '${IMAGE_NAME}' (linux/amd64) …"
-echo "    Build log: ${DOCKER_BUILD_LOG}"
-if ! docker build --platform linux/amd64 \
-        -t "${IMAGE_NAME}" \
-        -f "${SCRIPT_DIR}/Dockerfile.test" \
-        "${SCRIPT_DIR}" \
-        2>&1 | tee "${DOCKER_BUILD_LOG}"; then
-    echo "==> Docker build FAILED. See log: ${DOCKER_BUILD_LOG}"
-    exit 1
+# ── Build Docker image (skip if already cached) ──────────────────────────────
+IMAGE_EXISTS=$(docker images -q "${IMAGE_NAME}" 2>/dev/null)
+if [ "$FORCE_REBUILD" = true ] || [ -z "$IMAGE_EXISTS" ]; then
+    DOCKER_BUILD_LOG="${LOG_DIR}/docker_build_$(date +%Y%m%d_%H%M%S).log"
+    echo "==> Building Docker image '${IMAGE_NAME}' (linux/amd64) …"
+    echo "    Build log: ${DOCKER_BUILD_LOG}"
+    if ! docker build --platform linux/amd64 \
+            -t "${IMAGE_NAME}" \
+            -f "${SCRIPT_DIR}/Dockerfile.test" \
+            "${SCRIPT_DIR}" \
+            2>&1 | tee "${DOCKER_BUILD_LOG}"; then
+        echo "==> Docker build FAILED. See log: ${DOCKER_BUILD_LOG}"
+        exit 1
+    fi
+    echo "==> Docker image built successfully."
+else
+    echo "==> Docker image '${IMAGE_NAME}' already exists (use --rebuild to force)."
 fi
-echo "==> Docker image built successfully."
 
 if [ "$BUILD_ONLY" = true ]; then
     echo "==> Exiting (--build-only)."
