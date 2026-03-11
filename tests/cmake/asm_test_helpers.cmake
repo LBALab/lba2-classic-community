@@ -54,16 +54,34 @@ function(add_asm_cpp_test)
 
         # Assemble the ASM file ------------------------------------------
         get_filename_component(_asm_name ${ARG_ASM_SOURCE} NAME_WE)
+        get_filename_component(_asm_dir  ${ARG_ASM_SOURCE} DIRECTORY)
         set(_asm_obj "${CMAKE_CURRENT_BINARY_DIR}/${_asm_name}.asm.o")
         set(_asm_obj_renamed "${CMAKE_CURRENT_BINARY_DIR}/${_asm_name}.asm.renamed.o")
+
+        # Patch .model SMALL → .model FLAT so the ASM produces a valid
+        # 32-bit ELF object (identical instruction encoding, different
+        # relocation metadata).  Files already using FLAT are unchanged.
+        set(_asm_src_patched "${CMAKE_CURRENT_BINARY_DIR}/${_asm_name}_flat.ASM")
+        add_custom_command(
+            OUTPUT ${_asm_src_patched}
+            COMMAND ${CMAKE_COMMAND}
+                    -DSRC=${ARG_ASM_SOURCE}
+                    -DDST=${_asm_src_patched}
+                    -P ${CMAKE_SOURCE_DIR}/tests/cmake/patch_asm_flat.cmake
+            DEPENDS ${ARG_ASM_SOURCE}
+                    ${CMAKE_SOURCE_DIR}/tests/cmake/patch_asm_flat.cmake
+            COMMENT "Patching ${_asm_name}: .model SMALL → FLAT"
+            VERBATIM
+        )
 
         # Build UASM include flags
         set(_uasm_includes "")
         foreach(_dir ${ARG_ASM_INCLUDE_DIRS})
             list(APPEND _uasm_includes "-I${_dir}")
         endforeach()
-        # Always include LIB386/H
+        # Always include LIB386/H and the original ASM source directory
         list(APPEND _uasm_includes "-I${CMAKE_SOURCE_DIR}/LIB386/H")
+        list(APPEND _uasm_includes "-I${_asm_dir}")
 
         # Split CMAKE_ASM_MASM_FLAGS (a space-separated string) into a proper list
         separate_arguments(_uasm_flags NATIVE_COMMAND "${CMAKE_ASM_MASM_FLAGS}")
@@ -74,9 +92,9 @@ function(add_asm_cpp_test)
                     ${_uasm_flags}
                     ${_uasm_includes}
                     -Fo${_asm_obj}
-                    ${ARG_ASM_SOURCE}
-            DEPENDS ${ARG_ASM_SOURCE}
-            COMMENT "Assembling ${ARG_ASM_SOURCE}"
+                    ${_asm_src_patched}
+            DEPENDS ${_asm_src_patched}
+            COMMENT "Assembling ${_asm_name} (patched)"
             VERBATIM
         )
 

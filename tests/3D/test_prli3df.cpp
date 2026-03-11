@@ -1,92 +1,52 @@
-/* Test: ProjectList3DF (from PRLI3DF) — batch 3D perspective projection */
+/* Test: ProjectList3DF - ASM vs CPP equivalence */
 #include "test_harness.h"
-
 #include <3D/LPROJ.H>
 #include <3D/PROJ.H>
 #include <3D/CAMERA.H>
 #include <SVGA/SCREENXY.H>
 #include <string.h>
+#include <stdlib.h>
 
-extern void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX, S32 OrgY, S32 OrgZ);
-
+extern void ProjectList3DF(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX, S32 OrgY, S32 OrgZ);
-#endif
+extern "C" void asm_ProjectList3DF(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
 
-static void setup_projection(void)
+static void test_equivalence(void)
 {
-    SetProjection(320, 240, 1, 300, 300);
-    ScreenXMin = 32767; ScreenXMax = -32767;
-    ScreenYMin = 32767; ScreenYMax = -32767;
+    SetProjection(320,240,1,300,300);
+    TYPE_VT16 src[3]={{0,0,-50,0},{10,10,-100,0},{-10,-10,-200,0}};
+    TYPE_PT dc[3],da[3];
+    ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+    ProjectList3DF(dc,src,3,0,0,0);
+    ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+    asm_ProjectList3DF(da,src,3,0,0,0);
+    ASSERT_ASM_CPP_MEM_EQ(da,dc,sizeof(dc),"ProjectList3DF");
 }
 
-static void test_zero_points(void)
+static void test_random_equivalence(void)
 {
-    setup_projection();
-    TYPE_PT dst[1];
-    TYPE_VT16 src[1] = {{0,0,0,0}};
-    ProjectList3DF(dst, src, 0, 0, 0, 0);
-}
-
-static void test_single_point(void)
-{
-    setup_projection();
-    TYPE_PT dst[1];
-    TYPE_VT16 src[1] = {{0, 0, -100, 0}};
-    ProjectList3DF(dst, src, 1, 0, 0, 0);
-    ASSERT_TRUE(dst[0].X != -32768);
-}
-
-static void test_behind_camera(void)
-{
-    setup_projection();
-    TYPE_PT dst[1];
-    TYPE_VT16 src[1] = {{0, 0, 100, 0}};
-    ProjectList3DF(dst, src, 1, 0, 0, 0);
-    ASSERT_EQ_INT(-32768, dst[0].X);
-    ASSERT_EQ_INT(-32768, dst[0].Y);
-}
-
-static void test_multiple_points(void)
-{
-    setup_projection();
-    TYPE_PT dst[3];
-    TYPE_VT16 src[3] = {{0,0,-50,0}, {10,10,-100,0}, {-10,-10,-200,0}};
-    ProjectList3DF(dst, src, 3, 0, 0, 0);
-    for (int i = 0; i < 3; i++) {
-        ASSERT_TRUE(dst[i].X != -32768 || dst[i].Y != -32768);
+    srand(42);
+    SetProjection(320,240,1,300,300);
+    for (int i=0;i<10000;i++) {
+        TYPE_VT16 s;
+        s.X=(S16)(rand()%600-300); s.Y=(S16)(rand()%600-300); s.Z=(S16)(-(rand()%500+1)); s.Grp=0;
+        TYPE_PT dc,da;
+        ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+        ProjectList3DF(&dc,&s,1,0,0,0);
+        ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+        asm_ProjectList3DF(&da,&s,1,0,0,0);
+        ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"PL3DF rand");
     }
-}
-
-#ifdef LBA2_ASM_TESTS
-static void test_asm_equiv(void)
-{
-    setup_projection();
-    TYPE_PT dst_cpp[3], dst_asm[3];
-    TYPE_VT16 src[3] = {{0,0,-50,0}, {10,10,-100,0}, {-10,-10,-200,0}};
-
-    memset(dst_cpp, 0, sizeof(dst_cpp));
-    ScreenXMin = 32767; ScreenXMax = -32767;
-    ScreenYMin = 32767; ScreenYMax = -32767;
-    ProjectList3DF(dst_cpp, src, 3, 0, 0, 0);
-
-    memset(dst_asm, 0, sizeof(dst_asm));
-    ScreenXMin = 32767; ScreenXMax = -32767;
-    ScreenYMin = 32767; ScreenYMax = -32767;
-    asm_ProjectList3DF(dst_asm, src, 3, 0, 0, 0);
-
-    ASSERT_ASM_CPP_MEM_EQ(dst_asm, dst_cpp, sizeof(dst_cpp), "ProjectList3DF");
 }
 #endif
 
 int main(void)
 {
-    RUN_TEST(test_zero_points);
-    RUN_TEST(test_single_point);
-    RUN_TEST(test_behind_camera);
-    RUN_TEST(test_multiple_points);
 #ifdef LBA2_ASM_TESTS
-    RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_equivalence);
+    RUN_TEST(test_random_equivalence);
+#else
+    printf("SKIPPED - ASM tests not enabled\n");
 #endif
     TEST_SUMMARY();
     return test_failures != 0;

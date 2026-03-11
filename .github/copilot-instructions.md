@@ -73,6 +73,12 @@ Key constraints for the Docker image:
   QEMU at `docker run` time handles it correctly.
 - **32-bit SDL3** is built with minimal backends (X11 only, no audio/GL) to
   satisfy the linker for ASM tests compiled with `-m32`.
-- Only `.model FLAT` ASM files produce valid 32-bit ELF objects.
-  `.model SMALL` ASM files use segmented addressing and segfault on Linux.
-  These are tested as CPP-only.
+- `.model SMALL` ASM files are automatically patched to `.model FLAT` at
+  build time (see `tests/cmake/patch_asm_flat.cmake`).  This produces
+  identical machine code with standard ELF relocations, enabling
+  ASM-vs-CPP equivalence testing for all functions.
+- Some ASM procs use **Watcom register calling convention**
+  (`#pragma aux ... parm [edi] [esi] [ebx]`) instead of C stack parameters.
+  These cannot be called directly from C test code and SEGFAULT in `--asm`
+  mode.  They remain registered as `add_asm_cpp_test()` but only run the
+  CPP-only portion until ABI wrappers are added.

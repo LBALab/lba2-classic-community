@@ -5,7 +5,7 @@
 #include <string.h>
 
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_FastCopy(void *dst, void *src, U32 len);
+extern "C" void asm_FastCopyF(void *dst, void *src, U32 len);
 #endif
 
 static void test_zero_length(void)
@@ -65,7 +65,7 @@ static void test_asm_equiv(void)
         memset(dst_cpp, 0xFF, 256);
         memset(dst_asm, 0xFF, 256);
         FastCopy(dst_cpp, src, sizes[i]);
-        asm_FastCopy(dst_asm, src, sizes[i]);
+        asm_FastCopyF(dst_asm, src, sizes[i]);
         ASSERT_ASM_CPP_MEM_EQ(dst_asm, dst_cpp, 256, "FastCopy");
     }
 }

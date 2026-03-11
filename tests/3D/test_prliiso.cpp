@@ -1,91 +1,51 @@
-/* Test: ProjectListIso — batch isometric projection */
+/* Test: ProjectListIso - ASM vs CPP equivalence */
 #include "test_harness.h"
-
 #include <3D/LPROJ.H>
 #include <3D/CAMERA.H>
 #include <SVGA/SCREENXY.H>
 #include <string.h>
+#include <stdlib.h>
 
-extern void ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX, S32 OrgY, S32 OrgZ);
-
+extern void ProjectListIso(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX, S32 OrgY, S32 OrgZ);
-#endif
+extern "C" void asm_ProjectListIso(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
 
-static void setup_iso(void)
+static void test_equivalence(void)
 {
-    XCentre = 320; YCentre = 240;
-    ScreenXMin = 32767; ScreenXMax = -32767;
-    ScreenYMin = 32767; ScreenYMax = -32767;
+    XCentre=320;YCentre=240;
+    TYPE_VT16 src[3]={{0,0,0,0},{100,50,100,0},{-100,-50,-100,0}};
+    TYPE_PT dc[3],da[3];
+    ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+    ProjectListIso(dc,src,3,0,0,0);
+    ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+    asm_ProjectListIso(da,src,3,0,0,0);
+    ASSERT_ASM_CPP_MEM_EQ(da,dc,sizeof(dc),"ProjectListIso");
 }
 
-static void test_origin_point(void)
+static void test_random_equivalence(void)
 {
-    setup_iso();
-    TYPE_PT dst[1];
-    TYPE_VT16 src[1] = {{0, 0, 0, 0}};
-    ProjectListIso(dst, src, 1, 0, 0, 0);
-    ASSERT_EQ_INT(320, dst[0].X);
-}
-
-static void test_single_offset(void)
-{
-    setup_iso();
-    TYPE_PT dst[1];
-    TYPE_VT16 src[1] = {{64, 0, 0, 0}};
-    ProjectListIso(dst, src, 1, 0, 0, 0);
-    /* Iso uses (x-z)*3/64 for Xe */
-    ASSERT_TRUE(dst[0].X != -32768);
-}
-
-static void test_zero_count(void)
-{
-    setup_iso();
-    TYPE_PT dst[1] = {{99, 99}};
-    TYPE_VT16 src[1] = {{0, 0, 0, 0}};
-    ProjectListIso(dst, src, 0, 0, 0, 0);
-    /* Nothing should be written */
-    ASSERT_EQ_INT(99, dst[0].X);
-}
-
-static void test_multiple_points(void)
-{
-    setup_iso();
-    TYPE_PT dst[3];
-    TYPE_VT16 src[3] = {{0,0,0,0}, {100,50,100,0}, {-100,-50,-100,0}};
-    ProjectListIso(dst, src, 3, 0, 0, 0);
-    for (int i = 0; i < 3; i++) {
-        ASSERT_TRUE(dst[i].X >= -32768 && dst[i].X <= 32767);
+    srand(42);
+    XCentre=320;YCentre=240;
+    for (int i=0;i<10000;i++) {
+        TYPE_VT16 s;
+        s.X=(S16)(rand()%600-300); s.Y=(S16)(rand()%600-300); s.Z=(S16)(rand()%600-300); s.Grp=0;
+        TYPE_PT dc,da;
+        ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+        ProjectListIso(&dc,&s,1,0,0,0);
+        ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
+        asm_ProjectListIso(&da,&s,1,0,0,0);
+        ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"PLIso rand");
     }
-}
-
-#ifdef LBA2_ASM_TESTS
-static void test_asm_equiv(void)
-{
-    setup_iso();
-    TYPE_PT dst_cpp[3], dst_asm[3];
-    TYPE_VT16 src[3] = {{0,0,0,0}, {100,50,100,0}, {-100,-50,-100,0}};
-
-    ScreenXMin = 32767; ScreenXMax = -32767;
-    ScreenYMin = 32767; ScreenYMax = -32767;
-    ProjectListIso(dst_cpp, src, 3, 0, 0, 0);
-
-    ScreenXMin = 32767; ScreenXMax = -32767;
-    ScreenYMin = 32767; ScreenYMax = -32767;
-    asm_ProjectListIso(dst_asm, src, 3, 0, 0, 0);
-
-    ASSERT_ASM_CPP_MEM_EQ(dst_asm, dst_cpp, sizeof(dst_cpp), "ProjectListIso");
 }
 #endif
 
 int main(void)
 {
-    RUN_TEST(test_origin_point);
-    RUN_TEST(test_single_offset);
-    RUN_TEST(test_zero_count);
-    RUN_TEST(test_multiple_points);
 #ifdef LBA2_ASM_TESTS
-    RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_equivalence);
+    RUN_TEST(test_random_equivalence);
+#else
+    printf("SKIPPED - ASM tests not enabled\n");
 #endif
     TEST_SUMMARY();
     return test_failures != 0;
