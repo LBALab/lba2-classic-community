@@ -2,16 +2,23 @@ cmake_minimum_required(VERSION 3.23)
 
 project(LBA2)
 
-# Bruteforce setup of UASM assembly compiler (must happen before enable_language)
-set(CMAKE_ASM_MASM_COMPILER uasm)
-set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd")
-if (WIN32)
-    set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -coff")
-else ()
-    set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -elf -zcw")
-endif ()
+# Option to enable x86 assembly (requires UASM). Default OFF since all ASM is ported to C++.
+option(ENABLE_ASM "Enable x86 assembly (requires UASM assembler)" OFF)
 
-enable_language(C CXX ASM_MASM)
+if(ENABLE_ASM)
+    # UASM assembly compiler setup (must happen before enable_language)
+    set(CMAKE_ASM_MASM_COMPILER uasm)
+    set(CMAKE_ASM_MASM_FLAGS_INIT "-D_WIN32 -Zm -c -Cx -Cp -W4 -nologo -Sg -Sa -Zd")
+    if(WIN32)
+        set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -coff")
+    else()
+        set(CMAKE_ASM_MASM_FLAGS_INIT ${CMAKE_ASM_MASM_FLAGS_INIT}" -elf -zcw")
+    endif()
+    enable_language(C CXX ASM_MASM)
+else()
+    enable_language(C CXX)
+endif()
+
 set(CMAKE_CXX_STANDARD 98)
 
 # Compilation options
