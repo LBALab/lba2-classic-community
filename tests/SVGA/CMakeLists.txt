@@ -8,7 +8,7 @@ add_asm_cpp_test(NAME test_box        TEST_SOURCE test_box.cpp        ASM_SOURCE
 # ClearBoxF is C-adapted with PROC params — callable directly.
 add_asm_cpp_test(NAME test_clrboxf    TEST_SOURCE test_clrboxf.cpp    ASM_SOURCE ${_SVGA_ASM_DIR}/CLRBOXF.ASM    RENAME_SYMS ClearBox SetClearColor ClearColor ClearBoxF
     LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
-add_asm_cpp_test(NAME test_font       TEST_SOURCE test_font.cpp       ASM_SOURCE ${_SVGA_ASM_DIR}/FONT.ASM       RENAME_SYMS SizeFont CarFont Font       LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
+add_asm_cpp_test(NAME test_font       TEST_SOURCE test_font.cpp       ASM_SOURCE ${_SVGA_ASM_DIR}/FONT.ASM       RENAME_SYMS SizeFont CarFont Font PtrFont InterLeave InterSpace  LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_affstr     TEST_SOURCE test_affstr.cpp     ASM_SOURCE ${_SVGA_ASM_DIR}/AFFSTR.ASM     RENAME_SYMS AffString SizeChar TextInk TextPaper  LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 
 # BLITBOXF.CPP contains only commented ASM — no C implementation, placeholder.
