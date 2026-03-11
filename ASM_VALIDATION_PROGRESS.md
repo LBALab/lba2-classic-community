@@ -40,22 +40,22 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `ANIM/ANIM.ASM` | `ANIM/ANIM.CPP` | `ObjectInitAnim` | Initialize animation for 3D object | Needs `T_OBJ_3D` fixture |
+| [x] | `ANIM/ANIM.ASM` | `ANIM/ANIM.CPP` | `ObjectInitAnim` | Initialize animation for 3D object | ASM ≡ CPP: NbFrames, NbGroups, LoopFrame, CurrentFrame, Status, Master |
 | [ ] | `ANIM/BODY.ASM` | `ANIM/BODY.CPP` | `ObjectInitBody` | Initialize body (visual model) for object | Needs `T_OBJ_3D` fixture |
 | [ ] | `ANIM/CLEAR.ASM` | `ANIM/CLEAR.CPP` | `ObjectClear` | Zero/sentinel-fill object struct | Self-contained |
-| [ ] | `ANIM/FRAME.ASM` | `ANIM/FRAME.CPP` | `ObjectSetFrame` | Set current animation frame | |
-| [ ] | `ANIM/INTANIM.ASM` | `ANIM/INTANIM.CPP` | `ObjectSetInterAnim` | Set interpolated animation state | |
-| [ ] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | |
-| [ ] | `ANIM/INTFRAME.ASM` | `ANIM/INTFRAME.CPP` | `ObjectSetInterFrame` | Set interpolated frame between keyframes | |
+| [x] | `ANIM/FRAME.ASM` | `ANIM/FRAME.CPP` | `ObjectSetFrame` | Set current animation frame | ASM ≡ CPP: CurrentFrame matches for all 3 frames |
+| [~] | `ANIM/INTANIM.ASM` | `ANIM/INTANIM.CPP` | `ObjectSetInterAnim` | Set interpolated animation state | CPP-only tested; ASM calls InitMatrixStd via DWORD func ptr (segfaults) |
+| [~] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | CPP-only tested; ASM calls InitMatrixStd/RotatePoint via DWORD func ptrs |
+| [x] | `ANIM/INTFRAME.ASM` | `ANIM/INTFRAME.CPP` | `ObjectSetInterFrame` | Set interpolated frame between keyframes | ASM ≡ CPP: interpolation at 25% and 50% |
 | [ ] | `ANIM/LIBINIT.ASM` | `ANIM/LIBINIT.CPP` | `InitObjects`, `ClearObjects` | Initialize/clear animation library state | |
-| [ ] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | |
+| [~] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM stores NbGroups\*2-2 dwords; CPP stores NbGroups\*2-1. Common portion matches. |
 | [ ] | `ANIM/TEXTURE.ASM` | `ANIM/TEXTURE.CPP` | `ObjectInitTexture` | Initialize texture for object | |
 
 ## SVGA/ — Screen Drawing & Sprites (15 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | Needs font + framebuffer |
+| [~] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM mirrors glyph bits (right-to-left) and starts at x+SizeChar; CPP reads left-to-right from x. Both render non-zero pixels. Font8x8 differs at chars 0xC0, 0xCC. |
 | [ ] | `SVGA/BLITBOXF.ASM` | `SVGA/BLITBOXF.CPP` | `BlitBoxF` | Fast blit rectangular region with transparency | |
 | [ ] | `SVGA/BOX.ASM` | `SVGA/BOX.CPP` | `Box` | Draw rectangle outline with clipping | Needs `Log`, `TabOffLine`, Clip globals |
 | [ ] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | |
@@ -66,19 +66,19 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `SVGA/FONT.ASM` | `SVGA/FONT.CPP` | `SizeFont`, `CarFont`, `Font` | Font metrics and character rendering | |
 | [ ] | `SVGA/GRAPH.ASM` | `SVGA/GRAPH.CPP` | `AffGraph`, `GetBoxGraph` | Graphics drawing and box calculation | |
 | [ ] | `SVGA/MASK.ASM` | `SVGA/MASK.CPP` | `AffMask` | Display mask/sprite with transparency | |
-| [ ] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | |
+| [x] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | ASM ≡ CPP: full-screen roundtrip |
 | [ ] | `SVGA/SAVBLOCK.ASM` | `SVGA/SAVBLOCK.CPP` | `SaveBlock` | Save screen region to buffer | |
-| [ ] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | |
+| [x] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | ASM ≡ CPP: same-size, upscale 10×10→30×30, downscale 4×4→2×2 |
 | [ ] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | |
 
 ## SYSTEM/ — System Utilities (4 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `SYSTEM/CPU.ASM` | `SYSTEM/CPU.CPP` | CPU globals | CPU detection and feature flags | Data only |
+| [x] | `SYSTEM/CPU.ASM` | `SYSTEM/CPU.CPP` | CPU globals | CPU detection and feature flags | ASM ≡ CPP: ProcessorManufacturerIDString (13 bytes). Struct globals may differ in init values. |
 | [ ] | `SYSTEM/FASTCPYF.ASM` | `SYSTEM/FASTCPYF.CPP` | `FastCopy` | Fast memory copy | Self-contained |
 | [ ] | `SYSTEM/LZ.ASM` | `SYSTEM/LZ.CPP` | `ExpandLZ` | LZ decompression | Self-contained |
-| [ ] | `SYSTEM/MOUSEDAT.ASM` | `SYSTEM/MOUSEDAT.CPP` | Mouse data | Mouse driver data structures | Data only |
+| [x] | `SYSTEM/MOUSEDAT.ASM` | `SYSTEM/MOUSEDAT.CPP` | Mouse data | Mouse driver data structures | ASM ≡ CPP: BinGphMouse[541] byte-for-byte |
 
 ## MENU/ — Menu Utilities (1 pair)
 

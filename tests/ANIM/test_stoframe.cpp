@@ -1,22 +1,103 @@
-/* Test: ObjectStoreFrame — store animation frame state */
+/* Test: ObjectStoreFrame — store current animation frame to circular buffer.
+ *
+ * KNOWN DISCREPANCY: ASM stores NbGroups*2-2 dwords of CurrentFrame data,
+ * while CPP stores NbGroups*2-1 dwords. The 16-byte header and LastOfsIsPtr/
+ * LastFrame behavior match. Marked [~] in ASM_VALIDATION_PROGRESS.md.
+ */
 #include "test_harness.h"
-
 #include <ANIM/STOFRAME.H>
+#include <ANIM/ANIM.H>
+#include <ANIM/LIBINIT.H>
 #include <ANIM/CLEAR.H>
+#include <OBJECT/AFF_OBJ.H>
+#include "anim_test_fixture.h"
 #include <string.h>
 
+/* ObjectStoreFrame ASM uses Watcom convention: ebx = obj */
 extern "C" void asm_ObjectStoreFrame(T_OBJ_3D *obj);
-
-static void test_linkage(void)
+static inline void call_asm_ObjectStoreFrame(T_OBJ_3D *obj)
 {
-    /* Requires animation buffer initialized via InitObjects.
-       Verify linkage only for now. */
-    ASSERT_TRUE(1);
+    __asm__ __volatile__(
+        "call asm_ObjectStoreFrame"
+        : "+b"(obj)
+        :
+        : "eax", "ecx", "edx", "edi", "esi", "memory", "cc"
+    );
+}
+
+static U8 test_anim[512];
+
+static void setup(T_OBJ_3D *obj)
+{
+    build_anim_header(test_anim, 2, 3, 0, 100);
+    set_anim_group(test_anim, 3, 0, 1, 0, 100, 200, 300);
+    set_anim_group(test_anim, 3, 0, 2, 0, 400, 500, 600);
+    init_test_obj(obj);
+    init_anim_buffer();
+    TransFctAnim = NULL;
+    ObjectInitAnim(obj, test_anim);
+}
+
+static void test_cpp_store(void)
+{
+    T_OBJ_3D obj;
+    setup(&obj);
+    U8 *ptr_before = (U8 *)PtrLib3DBufferAnim;
+    ObjectStoreFrame(&obj);
+    /* PtrLib3DBufferAnim should have advanced */
+    ASSERT_TRUE((U8 *)PtrLib3DBufferAnim > ptr_before);
+    /* LastOfsIsPtr should be set to 1 */
+    ASSERT_EQ_UINT(1, obj.LastOfsIsPtr);
+    /* LastFrame should be -1 (stored frame, not an anim index) */
+    ASSERT_EQ_INT(-1, obj.LastFrame);
+}
+
+static void test_cpp_stored_data(void)
+{
+    T_OBJ_3D obj;
+    setup(&obj);
+    U32 *stored = (U32 *)PtrLib3DBufferAnim;
+    ObjectStoreFrame(&obj);
+    /* After 16-byte header (4 zero dwords), stored data = CurrentFrame */
+    S16 *storedGroups = (S16 *)(stored + 4);
+    ASSERT_EQ_INT(100, storedGroups[1]);  /* group 1 Alpha */
+    ASSERT_EQ_INT(200, storedGroups[2]);  /* group 1 Beta */
+    ASSERT_EQ_INT(300, storedGroups[3]);  /* group 1 Gamma */
+}
+
+static void test_asm_equiv(void)
+{
+    T_OBJ_3D cpp_obj, asm_obj;
+    U8 cpp_buffer[TEST_ANIM_BUFFER_SIZE];
+    U8 asm_buffer[TEST_ANIM_BUFFER_SIZE];
+
+    TransFctAnim = NULL;
+
+    /* CPP */
+    setup(&cpp_obj);
+    ObjectStoreFrame(&cpp_obj);
+    U32 cpp_advance = (U8 *)PtrLib3DBufferAnim - g_anim_buffer;
+    memcpy(cpp_buffer, g_anim_buffer, TEST_ANIM_BUFFER_SIZE);
+
+    /* ASM */
+    setup(&asm_obj);
+    call_asm_ObjectStoreFrame(&asm_obj);
+    U32 asm_advance = (U8 *)PtrLib3DBufferAnim - g_anim_buffer;
+    memcpy(asm_buffer, g_anim_buffer, TEST_ANIM_BUFFER_SIZE);
+
+    /* Compare common portion (ASM stores fewer bytes: NbGroups*2-2 vs NbGroups*2-1 dwords) */
+    U32 common = (asm_advance < cpp_advance) ? asm_advance : cpp_advance;
+    ASSERT_ASM_CPP_MEM_EQ(asm_buffer, cpp_buffer, common,
+                          "ObjectStoreFrame buffer (common portion)");
+    ASSERT_EQ_UINT(cpp_obj.LastOfsIsPtr, asm_obj.LastOfsIsPtr);
+    ASSERT_EQ_INT(cpp_obj.LastFrame, asm_obj.LastFrame);
 }
 
 int main(void)
 {
-    RUN_TEST(test_linkage);
+    RUN_TEST(test_cpp_store);
+    RUN_TEST(test_cpp_stored_data);
+    RUN_TEST(test_asm_equiv);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -22,6 +22,11 @@ add_asm_cpp_test(
     NAME test_cpu  TEST_SOURCE test_cpu.cpp
     ASM_SOURCE ${_SYS_ASM_DIR}/CPU.ASM
     RENAME_SYMS ProcessorManufacturerIDString
+                ProcessorSignature ProcessorFeatureFlags
+                Processor4KBDataTLB Processor4KBInstructionTLB
+                Processor4MBDataTLB Processor4MBInstructionTLB
+                ProcessorL1DataCache ProcessorL1InstructionCache
+                ProcessorL2Cache
     LIBS sys
     ASM_INCLUDE_DIRS ${_SYS_ASM_INC}
 )
