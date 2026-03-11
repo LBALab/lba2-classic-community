@@ -4,9 +4,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ObjectClear(T_OBJ_3D *obj);
-#endif
 
 static void test_clears_to_zero(void)
 {
@@ -41,7 +39,6 @@ static void test_idempotent(void)
     ASSERT_EQ_INT(0, obj.X);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     T_OBJ_3D cpp_obj, asm_obj;
@@ -51,16 +48,13 @@ static void test_asm_equiv(void)
     asm_ObjectClear(&asm_obj);
     ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), "ObjectClear");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_clears_to_zero);
     RUN_TEST(test_sentinels);
     RUN_TEST(test_idempotent);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

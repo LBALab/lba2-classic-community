@@ -3,7 +3,6 @@
 #include <3D/REGLE3.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" S32 asm_RegleTrois(S32 v1, S32 v2, S32 steps, S32 step);
 extern "C" S32 asm_BoundRegleTrois(S32 v1, S32 v2, S32 steps, S32 step);
 
@@ -33,16 +32,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(asm_BoundRegleTrois(v1,v2,steps,step), BoundRegleTrois(v1,v2,steps,step), "BoundRegleTrois rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

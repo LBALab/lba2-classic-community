@@ -100,7 +100,6 @@ static const char *current_test_name = "";
     } while (0)
 
 /* ── ASM vs CPP comparison helpers ────────────────────────────────────── */
-#ifdef LBA2_ASM_TESTS
 
 #define ASSERT_ASM_CPP_EQ_INT(asm_val, cpp_val, label)                        \
     do {                                                                        \
@@ -129,8 +128,6 @@ static const char *current_test_name = "";
             FAIL_MSG("[%s] ASM vs CPP memory differs (%d bytes)",              \
                      (label), (int)(size));                                     \
     } while (0)
-
-#endif /* LBA2_ASM_TESTS */
 
 /* ── test runner ──────────────────────────────────────────────────────── */
 #define RUN_TEST(fn)                                                           \

@@ -4,7 +4,6 @@
 #include <3D/CAMERA.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_RotateVector(S32 n, S32 a, S32 b, S32 g);
 
 static void test_equivalence(void)
@@ -35,16 +34,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"RotateVector rand Z0");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

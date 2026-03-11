@@ -4,9 +4,7 @@
 #include <SYSTEM/FASTCPY.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_FastCopyF(void *dst, void *src, U32 len);
-#endif
 
 static void test_zero_length(void)
 {
@@ -53,7 +51,6 @@ static void test_single_byte(void)
     ASSERT_EQ_UINT(0x42, dst);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     U8 src[256];
@@ -69,7 +66,6 @@ static void test_asm_equiv(void)
         ASSERT_ASM_CPP_MEM_EQ(dst_asm, dst_cpp, 256, "FastCopy");
     }
 }
-#endif
 
 int main(void)
 {
@@ -78,9 +74,7 @@ int main(void)
     RUN_TEST(test_large_copy);
     RUN_TEST(test_odd_size);
     RUN_TEST(test_single_byte);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

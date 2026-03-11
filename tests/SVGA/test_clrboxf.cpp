@@ -6,10 +6,8 @@
 #include <SVGA/CLIP.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ClearBox(void *dst, U32 *TabOffDst, T_BOX *box);
 extern "C" void asm_SetClearColor(U32 color);
-#endif
 
 static U8 framebuf[640 * 480];
 
@@ -43,7 +41,6 @@ static void test_clear_box_region(void)
     ASSERT_EQ_UINT(0xAA, framebuf[0]);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     U8 cpp_buf[640 * 480], asm_buf[640 * 480];
@@ -62,15 +59,12 @@ static void test_asm_equiv(void)
 
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "ClearBox");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_set_clear_color);
     RUN_TEST(test_clear_box_region);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

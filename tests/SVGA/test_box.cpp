@@ -7,9 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col);
-#endif
 
 static U8 framebuf[640 * 480];
 
@@ -50,7 +48,6 @@ static void test_zero_size_box(void)
     ASSERT_EQ_UINT(0x42, framebuf[100 * 640 + 100]);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     U8 cpp_buf[640 * 480], asm_buf[640 * 480];
@@ -66,16 +63,13 @@ static void test_asm_equiv(void)
 
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "Box");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_simple_box);
     RUN_TEST(test_clipped_box);
     RUN_TEST(test_zero_size_box);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

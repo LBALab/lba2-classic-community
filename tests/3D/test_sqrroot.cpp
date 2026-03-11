@@ -3,7 +3,6 @@
 #include <3D/SQRROOT.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" U32 asm_Sqr(U32 x);
 extern "C" U32 asm_QSqr(U32 xLow, U32 xHigh);
 
@@ -33,16 +32,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(asm_Sqr(x), Sqr(x), "Sqr rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

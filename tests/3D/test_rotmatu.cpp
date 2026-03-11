@@ -7,7 +7,6 @@
 
 extern void RotateMatrixU(TYPE_MAT *d, TYPE_MAT *s, S32 x, S32 y, S32 z);
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_RotateMatrixU(TYPE_MAT *d, TYPE_MAT *s, S32 x, S32 y, S32 z);
 
 static void test_equivalence(void)
@@ -40,16 +39,11 @@ static void test_random_equivalence(void)
             ASSERT_ASM_CPP_NEAR_F((&am.F.M11)[j],(&cm.F.M11)[j],0.01f,"RotateMatrixU rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

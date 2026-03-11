@@ -5,9 +5,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ObjectStoreFrame(T_OBJ_3D *obj);
-#endif
 
 static void test_linkage(void)
 {

@@ -5,9 +5,8 @@ set(_ANIM_LIBS ani obj 3D poly svg sys SDL3::SDL3)
 # .model SMALL ASM files are automatically patched to FLAT at build time.
 add_asm_cpp_test(NAME test_clear      TEST_SOURCE test_clear.cpp      ASM_SOURCE ${_ANIM_ASM_DIR}/CLEAR.ASM      RENAME_SYMS ObjectClear              LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})
 add_asm_cpp_test(NAME test_body       TEST_SOURCE test_body.cpp       ASM_SOURCE ${_ANIM_ASM_DIR}/BODY.ASM       RENAME_SYMS ObjectInitBody           LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})
-# TEXTURE.ASM: proc uses Watcom register calling convention (parm [ebx] [eax]);
-# can't call from C without an ABI wrapper — CPP-only.
-add_cpp_test(NAME test_texture    TEST_SOURCE test_texture.cpp    LIBS ${_ANIM_LIBS})
+# TEXTURE.ASM: proc uses Watcom register calling convention (parm [ebx] [eax]).
+add_asm_cpp_test(NAME test_texture    TEST_SOURCE test_texture.cpp    ASM_SOURCE ${_ANIM_ASM_DIR}/TEXTURE.ASM    RENAME_SYMS ObjectInitTexture           LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})
 add_asm_cpp_test(NAME test_anim       TEST_SOURCE test_anim.cpp       ASM_SOURCE ${_ANIM_ASM_DIR}/ANIM.ASM       RENAME_SYMS ObjectInitAnim           LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})
 add_asm_cpp_test(NAME test_frame      TEST_SOURCE test_frame.cpp      ASM_SOURCE ${_ANIM_ASM_DIR}/FRAME.ASM      RENAME_SYMS ObjectSetFrame           LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})
 add_asm_cpp_test(NAME test_intanim    TEST_SOURCE test_intanim.cpp    ASM_SOURCE ${_ANIM_ASM_DIR}/INTANIM.ASM    RENAME_SYMS ObjectSetInterAnim       LIBS ${_ANIM_LIBS}  ASM_INCLUDE_DIRS ${_ANIM_ASM_INC})

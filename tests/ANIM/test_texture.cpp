@@ -5,9 +5,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ObjectInitTexture(T_OBJ_3D *obj, void *texture);
-#endif
 
 static U8 fake_texture[64];
 
@@ -32,7 +30,6 @@ static void test_second_texture_only_next(void)
     ASSERT_TRUE(obj.NextTexture == tex2);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     T_OBJ_3D cpp_obj, asm_obj;
@@ -42,15 +39,12 @@ static void test_asm_equiv(void)
     asm_ObjectInitTexture(&asm_obj, fake_texture);
     ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), "ObjectInitTexture");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_first_texture_sets_both);
     RUN_TEST(test_second_texture_only_next);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

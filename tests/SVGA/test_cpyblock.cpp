@@ -5,9 +5,7 @@
 #include <SVGA/CLIP.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd, void *dst);
-#endif
 
 static U8 srcbuf[640 * 480];
 static U8 dstbuf[640 * 480];
@@ -40,7 +38,6 @@ static void test_zero_size(void)
     ASSERT_TRUE(1); /* Should not crash */
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     setup();
@@ -55,15 +52,12 @@ static void test_asm_equiv(void)
     asm_CopyBlock(5, 5, 15, 15, srcbuf, 30, 30, asm_dst);
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "CopyBlock");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_simple_copy);
     RUN_TEST(test_zero_size);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

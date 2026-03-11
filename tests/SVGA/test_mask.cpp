@@ -3,9 +3,7 @@
 #include <SVGA/MASK.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" S32 asm_AffMask(S32 nummask, S32 x, S32 y, void *bankmask);
-#endif
 
 static void test_linkage(void)
 {

@@ -5,10 +5,8 @@
 #include <OBJECT/AFF_OBJ.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_QuickSort(S32 *array, S32 left, S32 right);
 extern "C" void asm_QuickSortInv(S32 *array, S32 left, S32 right);
-#endif
 
 static void test_linkage(void)
 {

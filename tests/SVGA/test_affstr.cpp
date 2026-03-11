@@ -3,9 +3,7 @@
 #include <SVGA/AFFSTR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_AffString(S32 x, S32 y, char *str);
-#endif
 
 static void test_linkage(void)
 {

@@ -74,21 +74,10 @@
     {
       "name": "linux_test",
       "inherits": "linux",
-      "displayName": "Linux Tests (CPP only)",
-      "description": "Build with CPP correctness tests enabled",
-      "cacheVariables": {
-        "LBA2_BUILD_TESTS": "ON",
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
-    },
-    {
-      "name": "linux_test_asm",
-      "inherits": "linux",
       "displayName": "Linux Tests (ASM + CPP equivalence)",
       "description": "Build with ASM equivalence tests (requires 32-bit toolchain, uasm, objcopy)",
       "cacheVariables": {
         "LBA2_BUILD_TESTS": "ON",
-        "LBA2_BUILD_ASM_TESTS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_FLAGS": "-m32",
         "CMAKE_CXX_FLAGS": "-m32",

@@ -7,7 +7,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_LightList(TYPE_MAT *m, U16 *d, TYPE_VT16 *s, S32 n);
 
 static void test_equivalence(void)
@@ -40,16 +39,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(da,dc,"LightList rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

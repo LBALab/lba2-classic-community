@@ -4,14 +4,15 @@
 # Provides add_asm_cpp_test() — builds a test that links both the ASM and CPP
 # implementations of a LIB386 function, using objcopy to rename the ASM symbols
 # so both can coexist in the same binary.
+#
+# ALL tests are ASM-vs-CPP equivalence tests.  There is no CPP-only mode.
+# Tests must be run inside Docker via run_tests_docker.sh.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # find objcopy once
-if(LBA2_BUILD_ASM_TESTS)
-    find_program(OBJCOPY_EXECUTABLE objcopy)
-    if(NOT OBJCOPY_EXECUTABLE)
-        message(FATAL_ERROR "objcopy not found — needed for ASM equivalence tests")
-    endif()
+find_program(OBJCOPY_EXECUTABLE objcopy)
+if(NOT OBJCOPY_EXECUTABLE)
+    message(FATAL_ERROR "objcopy not found — needed for ASM equivalence tests")
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -24,9 +25,6 @@ endif()
 #     [INCLUDE_DIRS   <dir1> ...]             # extra include dirs
 #     [ASM_INCLUDE_DIRS <dir1> ...]           # include dirs for UASM
 # )
-#
-# When LBA2_BUILD_ASM_TESTS is OFF the ASM parts are skipped and only the CPP
-# correctness test is built.
 # ─────────────────────────────────────────────────────────────────────────────
 function(add_asm_cpp_test)
     cmake_parse_arguments(
@@ -48,9 +46,8 @@ function(add_asm_cpp_test)
     target_link_libraries(${ARG_NAME} PRIVATE m)  # math lib
     add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
 
-    # ── ASM equivalence (when enabled) ────────────────────────────────────
-    if(LBA2_BUILD_ASM_TESTS AND ARG_ASM_SOURCE)
-        target_compile_definitions(${ARG_NAME} PRIVATE LBA2_ASM_TESTS)
+    # ── ASM equivalence ──────────────────────────────────────────────────
+    if(ARG_ASM_SOURCE)
 
         # ASM objects may contain text relocations (R_386_32 in .text) that
         # are incompatible with PIE.  Disable PIE for ASM test binaries.
@@ -172,21 +169,4 @@ function(add_asm_cpp_test)
         endif()
 
     endif()
-endfunction()
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Convenience: add a CPP-only test (no ASM counterpart)
-# ─────────────────────────────────────────────────────────────────────────────
-function(add_cpp_test)
-    cmake_parse_arguments(ARG "" "NAME;TEST_SOURCE" "LIBS;INCLUDE_DIRS" ${ARGN})
-
-    add_executable(${ARG_NAME} ${ARG_TEST_SOURCE})
-    target_include_directories(${ARG_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/LIB386/H
-        ${CMAKE_SOURCE_DIR}/tests
-        ${ARG_INCLUDE_DIRS}
-    )
-    target_link_libraries(${ARG_NAME} PRIVATE ${ARG_LIBS})
-    target_link_libraries(${ARG_NAME} PRIVATE m)
-    add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
 endfunction()

@@ -5,9 +5,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" S32 asm_ObjectSetInterAnim(T_OBJ_3D *obj);
-#endif
 
 static void test_linkage(void)
 {

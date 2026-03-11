@@ -3,9 +3,7 @@
 #include <SVGA/CALCMASK.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" S32 asm_CalcGraphMsk(S32 numbrick, U8 *bankbrick, U8 *ptmask);
-#endif
 
 static void test_linkage(void)
 {

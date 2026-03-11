@@ -6,7 +6,6 @@
 
 extern void InitMatrixTransF(TYPE_MAT *m, S32 tx, S32 ty, S32 tz);
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_InitMatrixTransF(void);
 static void call_asm_InitMatrixTransF(TYPE_MAT *m, S32 tx, S32 ty, S32 tz) {
     __asm__ __volatile__("call asm_InitMatrixTransF" : : "D"(m), "a"(tx), "b"(ty), "c"(tz) : "memory");
@@ -38,16 +37,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_MEM_EQ(&am, &cm, sizeof(TYPE_MAT), "InitMatrixTransF rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

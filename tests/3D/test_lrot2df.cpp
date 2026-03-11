@@ -4,7 +4,6 @@
 #include <3D/CAMERA.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_LongRotateF(S32 x, S32 z, S32 angle);
 
 static void test_equivalence(void)
@@ -33,16 +32,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LongRotate rand Z0");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

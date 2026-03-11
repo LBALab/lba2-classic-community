@@ -7,7 +7,6 @@
 #include <stdlib.h>
 
 extern void ProjectListIso(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ProjectListIso(void);
 static void call_asm_ProjectListIso(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz) {
     S32 _a, _b, _d;
@@ -48,16 +47,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"PLIso rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

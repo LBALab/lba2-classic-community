@@ -9,9 +9,7 @@
 
 extern "C" U8 BinGphMouse[];
 
-#ifdef LBA2_ASM_TESTS
 extern "C" U8 asm_BinGphMouse[];
-#endif
 
 static void test_data_exists(void)
 {
@@ -29,21 +27,17 @@ static void test_data_nonzero(void)
     ASSERT_TRUE(nonzero > 0);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     /* Compare first 541 bytes (known size of BinGphMouse) */
     ASSERT_ASM_CPP_MEM_EQ(asm_BinGphMouse, BinGphMouse, 541, "BinGphMouse");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_data_exists);
     RUN_TEST(test_data_nonzero);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

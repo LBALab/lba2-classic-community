@@ -5,7 +5,6 @@
 #include <3D/LPROJ.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_SetProjection(S32 xc, S32 yc, S32 clip, S32 fx, S32 fy);
 extern "C" void asm_SetIsoProjection(S32 xc, S32 yc);
 
@@ -42,16 +41,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(afy,LFactorY,"SetProjection rand LFactorY");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

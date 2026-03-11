@@ -4,7 +4,8 @@
 
 This project maintains both the original x86 ASM implementations and their C/C++
 ports in `LIB386/`.  A test suite in `tests/` validates equivalence between the
-two.
+two.  **All tests are ASM-vs-CPP equivalence tests** — there is no CPP-only mode.
+Tests must be run inside Docker via `run_tests_docker.sh`.
 
 ### When adding or modifying ASM equivalence tests
 
@@ -13,13 +14,12 @@ two.
    - Add a note if there is a known discrepancy between ASM and CPP outputs.
 2. **Follow the established test pattern** (see `tests/test_harness.h`):
    - Each test file includes `test_harness.h` and the relevant LIB386 header.
-   - Use `#ifdef LBA2_ASM_TESTS` for ASM-vs-CPP comparison sections.
-   - Declare ASM-side functions as `extern S32 asm_FuncName(...)`.
+   - Declare ASM-side functions as `extern "C" S32 asm_FuncName(...)`.
    - Cover at least 3 normal inputs and 2 edge cases per function.
    - For functions that write globals (`X0`, `Y0`, `Z0`, `Xp`, `Yp`), read
      those globals after each call and compare ASM vs CPP.
 3. **Register the test** in the appropriate `tests/<dir>/CMakeLists.txt` using
-   `add_asm_cpp_test()` or `add_cpp_test()`.
+   `add_asm_cpp_test()`.
 
 ### Code conventions
 
@@ -30,29 +30,16 @@ two.
 - `TYPE_MAT` is a packed union with `.F` (float), `.I` (int32), `.M` (int16)
   views (see `LIB386/H/3D/DATAMAT.H`).
 
-### Building tests
+### Running tests (Docker only)
+
+Tests require a 32-bit x86 toolchain with UASM and objcopy.  Use
+`run_tests_docker.sh` to run the full test suite inside a Linux x86_64 Docker
+container.  This works on macOS ARM64 via QEMU emulation.
 
 ```bash
-# CPP-only correctness tests (works everywhere)
-cmake -S . -B build -DLBA2_BUILD_TESTS=ON --preset linux
-cmake --build build
-ctest --test-dir build --output-on-failure
-
-# ASM equivalence tests (requires 32-bit toolchain + uasm + objcopy)
-cmake -S . -B build --preset linux_test_asm
-cmake --build build
-ctest --test-dir build --output-on-failure
-```
-
-### Running tests in Docker (macOS ARM64 / any platform)
-
-Use `run_tests_docker.sh` to run the full test suite inside a Linux x86_64
-Docker container.  This works on macOS ARM64 via QEMU emulation.
-
-```bash
-./run_tests_docker.sh          # CPP-only tests (64-bit)
-./run_tests_docker.sh --asm    # CPP + ASM equivalence tests (32-bit)
-./run_tests_docker.sh --build-only  # Build the Docker image without running
+./run_tests_docker.sh              # Build & run all tests
+./run_tests_docker.sh --build-only # Build the Docker image without running
+./run_tests_docker.sh --rebuild    # Force rebuild the Docker image
 ```
 
 Logs are saved to `build_logs/` automatically (gitignored).
@@ -79,6 +66,7 @@ Key constraints for the Docker image:
   ASM-vs-CPP equivalence testing for all functions.
 - Some ASM procs use **Watcom register calling convention**
   (`#pragma aux ... parm [edi] [esi] [ebx]`) instead of C stack parameters.
-  These cannot be called directly from C test code and SEGFAULT in `--asm`
-  mode.  They remain registered as `add_asm_cpp_test()` but only run the
-  CPP-only portion until ABI wrappers are added.
+  These require inline ASM ABI wrappers or will SEGFAULT when called from C.
+  Leaf functions use GCC inline asm wrappers; non-leaf functions that call
+  other Watcom-convention functions through function pointers will SEGFAULT
+  until full ABI shims are added.

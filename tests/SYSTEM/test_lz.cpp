@@ -4,9 +4,7 @@
 #include <SYSTEM/LZ.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc);
-#endif
 
 static void test_all_literals(void)
 {
@@ -54,7 +52,6 @@ static void test_decomp_size_respected(void)
     ASSERT_EQ_INT(0xFF, dst[4]);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     U8 src[] = {0xFF, 'H','e','l','l','o','!','!','!'};
@@ -65,7 +62,6 @@ static void test_asm_equiv(void)
     asm_ExpandLZ(dst_asm, src, 8, 2);
     ASSERT_ASM_CPP_MEM_EQ(dst_asm, dst_cpp, 8, "ExpandLZ");
 }
-#endif
 
 int main(void)
 {
@@ -73,9 +69,7 @@ int main(void)
     RUN_TEST(test_single_literal);
     RUN_TEST(test_back_reference);
     RUN_TEST(test_decomp_size_respected);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

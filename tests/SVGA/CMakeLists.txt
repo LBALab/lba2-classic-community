@@ -4,14 +4,13 @@ set(_SVGA_LIBS svg sys poly SDL3::SDL3)
 
 # .model SMALL ASM files are automatically patched to FLAT at build time.
 add_asm_cpp_test(NAME test_box        TEST_SOURCE test_box.cpp        ASM_SOURCE ${_SVGA_ASM_DIR}/BOX.ASM        RENAME_SYMS Box                         LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
-# CLRBOXF: SetClearColor uses Watcom register calling convention (parm [eax]);
-# can't call from C without an ABI wrapper — CPP-only.
-add_cpp_test(NAME test_clrboxf    TEST_SOURCE test_clrboxf.cpp    LIBS ${_SVGA_LIBS})
+# CLRBOXF: SetClearColor uses Watcom register calling convention (parm [eax]).
+add_asm_cpp_test(NAME test_clrboxf    TEST_SOURCE test_clrboxf.cpp    ASM_SOURCE ${_SVGA_ASM_DIR}/CLRBOXF.ASM    RENAME_SYMS ClearBox SetClearColor ClearColor ClearBoxF  LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_font       TEST_SOURCE test_font.cpp       ASM_SOURCE ${_SVGA_ASM_DIR}/FONT.ASM       RENAME_SYMS SizeFont CarFont Font       LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_affstr     TEST_SOURCE test_affstr.cpp     ASM_SOURCE ${_SVGA_ASM_DIR}/AFFSTR.ASM     RENAME_SYMS AffString                   LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 
-# BLITBOXF.CPP contains only commented ASM — no C implementation, placeholder
-add_cpp_test(NAME test_blitboxf   TEST_SOURCE test_blitboxf.cpp   LIBS ${_SVGA_LIBS})
+# BLITBOXF.CPP contains only commented ASM — no C implementation, placeholder.
+add_asm_cpp_test(NAME test_blitboxf   TEST_SOURCE test_blitboxf.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/BLITBOXF.ASM   RENAME_SYMS BlitBox BlitBoxF                LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 
 add_asm_cpp_test(NAME test_calcmask   TEST_SOURCE test_calcmask.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/CALCMASK.ASM   RENAME_SYMS CalcGraphMsk                LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_copymask   TEST_SOURCE test_copymask.cpp   ASM_SOURCE ${_SVGA_ASM_DIR}/COPYMASK.ASM   RENAME_SYMS CopyMask                    LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})

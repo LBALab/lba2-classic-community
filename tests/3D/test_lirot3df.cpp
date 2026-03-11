@@ -6,7 +6,6 @@
 #include <stdlib.h>
 
 extern void LongInverseRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z);
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_LongInverseRotatePointF(void);
 static void call_asm_LongInverseRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z) {
     __asm__ __volatile__("call asm_LongInverseRotatePointF" : : "S"(m), "a"(x), "b"(y), "c"(z) : "memory");
@@ -47,16 +46,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LIRotF rand Z0");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

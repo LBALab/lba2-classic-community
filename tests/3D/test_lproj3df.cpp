@@ -6,7 +6,6 @@
 #include <stdlib.h>
 
 extern S32 LongProjectPoint3D(S32 x, S32 y, S32 z);
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_LongProjectPoint3DF(void);
 static S32 call_asm_LongProjectPoint3DF(S32 x, S32 y, S32 z) {
     S32 result;
@@ -44,16 +43,11 @@ static void test_random_equivalence(void)
         if(cr==1){ASSERT_ASM_CPP_EQ_INT(Xp,cxp,"LPP3D rand Xp");ASSERT_ASM_CPP_EQ_INT(Yp,cyp,"LPP3D rand Yp");}
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

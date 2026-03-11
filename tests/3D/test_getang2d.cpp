@@ -3,7 +3,6 @@
 #include <3D/GETANG2D.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" S32 asm_GetAngleVector2D(S32 x, S32 z);
 
 static void test_equivalence(void)
@@ -32,16 +31,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(asr, cpp, "GetAngleVector2D rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

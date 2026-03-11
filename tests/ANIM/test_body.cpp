@@ -5,9 +5,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ObjectInitBody(T_OBJ_3D *obj, void *body);
-#endif
 
 static U8 fake_body[64];
 
@@ -42,7 +40,6 @@ static void test_sets_flag(void)
     ASSERT_TRUE((obj.Status & 0x01) != 0 || obj.Status != 0);
 }
 
-#ifdef LBA2_ASM_TESTS
 static void test_asm_equiv(void)
 {
     T_OBJ_3D cpp_obj, asm_obj;
@@ -52,16 +49,13 @@ static void test_asm_equiv(void)
     asm_ObjectInitBody(&asm_obj, fake_body);
     ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), "ObjectInitBody");
 }
-#endif
 
 int main(void)
 {
     RUN_TEST(test_first_body_sets_both);
     RUN_TEST(test_second_body_only_next);
     RUN_TEST(test_sets_flag);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_asm_equiv);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

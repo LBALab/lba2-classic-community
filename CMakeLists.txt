@@ -34,7 +34,6 @@ endif ()
 
 # Testing options
 option(LBA2_BUILD_TESTS "Build test suites" OFF)
-option(LBA2_BUILD_ASM_TESTS "Build ASM equivalence tests (requires 32-bit toolchain + uasm + objcopy)" OFF)
 
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)

@@ -5,7 +5,6 @@
 #include <stdlib.h>
 
 extern void RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n);
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_RotTransListF(void);
 static void call_asm_RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n) {
     __asm__ __volatile__("call asm_RotTransListF"
@@ -45,16 +44,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"RotTransListF rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

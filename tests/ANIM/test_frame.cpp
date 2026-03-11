@@ -6,9 +6,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ObjectSetFrame(T_OBJ_3D *obj, U32 frame);
-#endif
 
 static void test_linkage(void)
 {

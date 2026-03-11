@@ -6,7 +6,6 @@
 
 extern void MulMatrixF(TYPE_MAT *d, TYPE_MAT *s1, TYPE_MAT *s2);
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_MulMatrixF(void);
 static void call_asm_MulMatrixF(TYPE_MAT *d, TYPE_MAT *s1, TYPE_MAT *s2) {
     __asm__ __volatile__("call asm_MulMatrixF" : : "D"(d), "S"(s1), "b"(s2) : "memory", "eax");
@@ -46,16 +45,11 @@ static void test_random_equivalence(void)
             ASSERT_ASM_CPP_NEAR_F((&am.F.M11)[j], (&cm.F.M11)[j], 0.01f, "MulMatrixF rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

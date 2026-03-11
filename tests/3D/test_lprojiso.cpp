@@ -4,7 +4,6 @@
 #include <3D/CAMERA.H>
 #include <stdlib.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_LongProjectPointIso(void);
 static void call_asm_LongProjectPointIso(S32 x, S32 y, S32 z) {
     __asm__ __volatile__("call asm_LongProjectPointIso" : : "a"(x), "b"(y), "c"(z) : "memory", "edx");
@@ -37,16 +36,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_EQ_INT(Yp,cyp,"LPPIso rand Yp");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

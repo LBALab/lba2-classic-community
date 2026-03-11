@@ -7,9 +7,7 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ObjectInitAnim(T_OBJ_3D *obj, void *anim);
-#endif
 
 static void test_null_anim_no_crash(void)
 {

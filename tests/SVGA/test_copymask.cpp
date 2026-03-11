@@ -3,9 +3,7 @@
 #include <SVGA/COPYMASK.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src);
-#endif
 
 static void test_linkage(void)
 {

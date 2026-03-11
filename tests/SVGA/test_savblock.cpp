@@ -6,9 +6,7 @@
 #include <SVGA/CLIP.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_SaveBlock(void *screen, void *buffer, S32 x0, S32 y0, S32 x1, S32 y1);
-#endif
 
 static U8 screen[640 * 480];
 static U8 buffer[640 * 480];

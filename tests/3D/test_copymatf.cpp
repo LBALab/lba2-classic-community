@@ -6,7 +6,6 @@
 
 extern void CopyMatrixF(TYPE_MAT *d, TYPE_MAT *s);
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_CopyMatrixF(void);
 static void call_asm_CopyMatrixF(TYPE_MAT *d, TYPE_MAT *s) {
     __asm__ __volatile__("call asm_CopyMatrixF" : : "D"(d), "S"(s) : "memory");
@@ -35,16 +34,11 @@ static void test_random_equivalence(void)
         ASSERT_ASM_CPP_MEM_EQ(&da, &dc, sizeof(TYPE_MAT), "CopyMatrixF rand");
     }
 }
-#endif
 
 int main(void)
 {
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
-#else
-    printf("SKIPPED - ASM tests not enabled\n");
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

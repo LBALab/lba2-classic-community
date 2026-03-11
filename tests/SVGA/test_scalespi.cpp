@@ -3,9 +3,7 @@
 #include <SVGA/SCALESPI.H>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" void asm_ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank);
-#endif
 
 static void test_linkage(void)
 {

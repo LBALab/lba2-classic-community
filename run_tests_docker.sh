@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────────────────────
-# run_tests_docker.sh — Build & run all LBA2 tests (CPP + optionally ASM)
+# run_tests_docker.sh — Build & run all LBA2 ASM-vs-CPP equivalence tests
 #                       inside a Linux x86_64 Docker container.
 #
 # Usage:
-#   ./run_tests_docker.sh          # CPP correctness tests only
-#   ./run_tests_docker.sh --asm    # ASM + CPP equivalence tests
-#   ./run_tests_docker.sh --build-only  # Build the Docker image without running
-#   ./run_tests_docker.sh --rebuild     # Force rebuild the Docker image
+#   ./run_tests_docker.sh              # Build & run tests
+#   ./run_tests_docker.sh --build-only # Build the Docker image without running
+#   ./run_tests_docker.sh --rebuild    # Force rebuild the Docker image
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -17,17 +16,12 @@ CONTAINER_SRC="/src"
 LOG_DIR="${SCRIPT_DIR}/build_logs"
 mkdir -p "${LOG_DIR}"
 
-ASM_FLAG=""
 PRESET="linux_test"
 BUILD_ONLY=false
 FORCE_REBUILD=false
 
 for arg in "$@"; do
     case "$arg" in
-        --asm)
-            ASM_FLAG="-DLBA2_BUILD_ASM_TESTS=ON"
-            PRESET="linux_test_asm"
-            ;;
         --build-only)
             BUILD_ONLY=true
             ;;
@@ -87,7 +81,7 @@ docker run --rm \
 
         echo '--- cmake configure (${PRESET}) ---'
         cmake -S . -B build \
-            -DLBA2_BUILD_TESTS=ON ${ASM_FLAG} \
+            -DLBA2_BUILD_TESTS=ON \
             --preset ${PRESET}
 
         echo '--- cmake build ---'

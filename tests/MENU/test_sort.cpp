@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef LBA2_ASM_TESTS
 extern "C" int asm_MySortCompFunc(const void *ptra, const void *ptrb);
 
 static void test_equal_strings(void)
@@ -31,7 +30,6 @@ static void test_a_greater_than_b(void)
     const char *b = "alpha";
     ASSERT_TRUE(asm_MySortCompFunc(&a, &b) > 0);
 }
-#endif
 
 static void test_placeholder(void)
 {
@@ -42,11 +40,9 @@ static void test_placeholder(void)
 int main(void)
 {
     RUN_TEST(test_placeholder);
-#ifdef LBA2_ASM_TESTS
     RUN_TEST(test_equal_strings);
     RUN_TEST(test_a_less_than_b);
     RUN_TEST(test_a_greater_than_b);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

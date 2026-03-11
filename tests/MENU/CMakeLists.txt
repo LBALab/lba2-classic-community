@@ -2,11 +2,12 @@ set(_MENU_ASM_DIR ${CMAKE_SOURCE_DIR}/LIB386/MENU)
 set(_MENU_ASM_INC ${CMAKE_SOURCE_DIR}/LIB386/H)
 
 # NOTE: SORT.CPP contains only commented ASM — no C implementation exists.
-# This test can only run in ASM mode. For now, a placeholder verifies linkage.
-add_executable(test_sort test_sort.cpp)
-target_include_directories(test_sort PRIVATE
-    ${CMAKE_SOURCE_DIR}/LIB386/H
-    ${CMAKE_SOURCE_DIR}/tests
+add_asm_cpp_test(
+    NAME test_sort  TEST_SOURCE test_sort.cpp
+    ASM_SOURCE ${_MENU_ASM_DIR}/SORT.ASM
+    RENAME_SYMS MySortCompFunc
+    LIBS sys
+    ASM_INCLUDE_DIRS ${_MENU_ASM_INC}
 )
-target_link_libraries(test_sort PRIVATE m)
-add_test(NAME test_sort COMMAND test_sort)
+# SORT.ASM references strcmp_ (Watcom-mangled name for strcmp)
+target_link_options(test_sort PRIVATE -Wl,--unresolved-symbols=ignore-in-object-files)
