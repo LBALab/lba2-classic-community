@@ -1,24 +1,24 @@
 
 #include <3D/ROTRALIS.H>
 
-#include <SYSTEM/UTILS.H>
+#include <math.h>
 
 /*
-;void	RotTransListF(MTYPE_MAT *Mat, S32 *dst, S32 *src, S32 n)	;
-
-;#pragma aux RotTransListF			\
-;	parm 		[ebx] [edi] [esi] [ecx]	\
-;	modify exact	[ecx esi edi]
-*/
-
+ * Batch rotate+translate matching ASM RotTransListF.
+ * Uses long double + lrintl to match x87 fistp round-to-nearest-even.
+ */
 void RotTransListF(TYPE_MAT *Mat, TYPE_VT16 *Dst, TYPE_VT16 *Src,
 									 S32 NbPoints)
 {
 	for (S32 i = 0; i < NbPoints; i++)
 	{
-		Dst[i].X = ROUND(Src[i].X * Mat->F.M11 + Src[i].Y * Mat->F.M12 + Src[i].Z * Mat->F.M13 + Mat->F.TX);
-		Dst[i].Y = ROUND(Src[i].X * Mat->F.M21 + Src[i].Y * Mat->F.M22 + Src[i].Z * Mat->F.M23 + Mat->F.TY);
-		Dst[i].Z = ROUND(Src[i].X * Mat->F.M31 + Src[i].Y * Mat->F.M32 + Src[i].Z * Mat->F.M33 + Mat->F.TZ);
+		long double x = (long double)Src[i].X;
+		long double y = (long double)Src[i].Y;
+		long double z = (long double)Src[i].Z;
+
+		Dst[i].X = (S16)lrintl(x * Mat->F.M11 + y * Mat->F.M12 + z * Mat->F.M13 + (long double)Mat->F.TX);
+		Dst[i].Y = (S16)lrintl(x * Mat->F.M21 + y * Mat->F.M22 + z * Mat->F.M23 + (long double)Mat->F.TY);
+		Dst[i].Z = (S16)lrintl(x * Mat->F.M31 + y * Mat->F.M32 + z * Mat->F.M33 + (long double)Mat->F.TZ);
 	}
 }
 
