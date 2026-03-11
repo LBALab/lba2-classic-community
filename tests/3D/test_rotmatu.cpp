@@ -7,7 +7,16 @@
 
 extern void RotateMatrixU(TYPE_MAT *d, TYPE_MAT *s, S32 x, S32 y, S32 z);
 
-extern "C" void asm_RotateMatrixU(TYPE_MAT *d, TYPE_MAT *s, S32 x, S32 y, S32 z);
+/* ASM RotateMatrixU uses Watcom register convention:
+   parm [edi] [esi] [eax] [ebx] [ecx], modify exact [eax ebx ecx edx esi] */
+extern "C" void asm_RotateMatrixU(void);
+static void call_asm_RotateMatrixU(TYPE_MAT *d, TYPE_MAT *s, S32 x, S32 y, S32 z) {
+    __asm__ __volatile__(
+        "call asm_RotateMatrixU"
+        : "+a"(x), "+b"(y), "+c"(z), "+S"(s)
+        : "D"(d)
+        : "memory", "edx");
+}
 
 static void test_equivalence(void)
 {
@@ -19,7 +28,7 @@ static void test_equivalence(void)
     for (int i = 0; i < (int)(sizeof(cases)/sizeof(cases[0])); i++) {
         TYPE_MAT cm,am;
         RotateMatrixU(&cm,&src,cases[i].a,cases[i].b,cases[i].g);
-        asm_RotateMatrixU(&am,&src,cases[i].a,cases[i].b,cases[i].g);
+        call_asm_RotateMatrixU(&am,&src,cases[i].a,cases[i].b,cases[i].g);
         for (int j=0;j<9;j++)
             ASSERT_ASM_CPP_NEAR_F((&am.F.M11)[j],(&cm.F.M11)[j],0.01f,"RotateMatrixU");
     }
@@ -34,7 +43,7 @@ static void test_random_equivalence(void)
         S32 a=rand()%4096, b=rand()%4096, g=rand()%4096;
         TYPE_MAT cm,am;
         RotateMatrixU(&cm,&src,a,b,g);
-        asm_RotateMatrixU(&am,&src,a,b,g);
+        call_asm_RotateMatrixU(&am,&src,a,b,g);
         for (int j=0;j<9;j++)
             ASSERT_ASM_CPP_NEAR_F((&am.F.M11)[j],(&cm.F.M11)[j],0.01f,"RotateMatrixU rand");
     }

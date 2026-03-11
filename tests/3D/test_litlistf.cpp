@@ -7,7 +7,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-extern "C" void asm_LightList(TYPE_MAT *m, U16 *d, TYPE_VT16 *s, S32 n);
+/* ASM LightListF uses Watcom register convention:
+   parm [ebx] [edi] [esi] [ecx], modify [eax ebx edx] */
+extern "C" void asm_LightListF(void);
+static void call_asm_LightListF(TYPE_MAT *m, U16 *d, TYPE_VT16 *s, S32 n) {
+    __asm__ __volatile__(
+        "call asm_LightListF"
+        : "+b"(m), "+D"(d), "+S"(s), "+c"(n)
+        :
+        : "memory", "eax", "edx");
+}
 
 static void test_equivalence(void)
 {
@@ -17,7 +26,7 @@ static void test_equivalence(void)
     TYPE_VT16 src[3]={{100,0,0,0},{0,100,0,0},{0,0,100,0}};
     U16 dc[3],da[3];
     memset(dc,0,sizeof(dc)); LightList(&m,dc,src,3);
-    memset(da,0,sizeof(da)); asm_LightList(&m,da,src,3);
+    memset(da,0,sizeof(da)); call_asm_LightListF(&m,da,src,3);
     ASSERT_ASM_CPP_MEM_EQ(da,dc,sizeof(dc),"LightList");
 }
 
@@ -35,7 +44,7 @@ static void test_random_equivalence(void)
         s.X=(S16)(rand()%200-100); s.Y=(S16)(rand()%200-100); s.Z=(S16)(rand()%200-100); s.Grp=0;
         U16 dc,da;
         dc=0;LightList(&m,&dc,&s,1);
-        da=0;asm_LightList(&m,&da,&s,1);
+        da=0;call_asm_LightListF(&m,&da,&s,1);
         ASSERT_ASM_CPP_EQ_INT(da,dc,"LightList rand");
     }
 }

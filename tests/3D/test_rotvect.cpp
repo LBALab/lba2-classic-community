@@ -4,7 +4,16 @@
 #include <3D/CAMERA.H>
 #include <stdlib.h>
 
-extern "C" void asm_RotateVector(S32 n, S32 a, S32 b, S32 g);
+/* ASM RotateVector uses Watcom register convention:
+   parm [edx] [eax] [ebx] [ecx], modify [esi edi] */
+extern "C" void asm_RotateVector(void);
+static void call_asm_RotateVector(S32 n, S32 a, S32 b, S32 g) {
+    __asm__ __volatile__(
+        "call asm_RotateVector"
+        : "+a"(a), "+b"(b), "+c"(g), "+d"(n)
+        :
+        : "memory", "esi", "edi");
+}
 
 static void test_equivalence(void)
 {
@@ -15,7 +24,7 @@ static void test_equivalence(void)
     for (int i=0;i<(int)(sizeof(cases)/sizeof(cases[0]));i++) {
         RotateVector(cases[i].n,cases[i].a,cases[i].b,cases[i].g);
         S32 cx=X0,cy=Y0,cz=Z0;
-        asm_RotateVector(cases[i].n,cases[i].a,cases[i].b,cases[i].g);
+        call_asm_RotateVector(cases[i].n,cases[i].a,cases[i].b,cases[i].g);
         ASSERT_ASM_CPP_EQ_INT(X0,cx,"RotateVector X0");
         ASSERT_ASM_CPP_EQ_INT(Y0,cy,"RotateVector Y0");
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"RotateVector Z0");
@@ -28,7 +37,7 @@ static void test_random_equivalence(void)
     for (int i=0;i<10000;i++) {
         S32 n=(S32)rand()-RAND_MAX/2, a=rand()%4096, b=rand()%4096, g=rand()%4096;
         RotateVector(n,a,b,g); S32 cx=X0,cy=Y0,cz=Z0;
-        asm_RotateVector(n,a,b,g);
+        call_asm_RotateVector(n,a,b,g);
         ASSERT_ASM_CPP_EQ_INT(X0,cx,"RotateVector rand X0");
         ASSERT_ASM_CPP_EQ_INT(Y0,cy,"RotateVector rand Y0");
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"RotateVector rand Z0");

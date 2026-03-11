@@ -5,7 +5,9 @@ set(_SVGA_LIBS svg sys poly SDL3::SDL3)
 # .model SMALL ASM files are automatically patched to FLAT at build time.
 add_asm_cpp_test(NAME test_box        TEST_SOURCE test_box.cpp        ASM_SOURCE ${_SVGA_ASM_DIR}/BOX.ASM        RENAME_SYMS Box                         LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 # CLRBOXF: SetClearColor uses Watcom register calling convention (parm [eax]).
-add_asm_cpp_test(NAME test_clrboxf    TEST_SOURCE test_clrboxf.cpp    ASM_SOURCE ${_SVGA_ASM_DIR}/CLRBOXF.ASM    RENAME_SYMS ClearBox SetClearColor ClearColor ClearBoxF  LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
+# ClearBoxF is C-adapted with PROC params — callable directly.
+add_asm_cpp_test(NAME test_clrboxf    TEST_SOURCE test_clrboxf.cpp    ASM_SOURCE ${_SVGA_ASM_DIR}/CLRBOXF.ASM    RENAME_SYMS ClearBox SetClearColor ClearColor ClearBoxF
+    LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_font       TEST_SOURCE test_font.cpp       ASM_SOURCE ${_SVGA_ASM_DIR}/FONT.ASM       RENAME_SYMS SizeFont CarFont Font       LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 add_asm_cpp_test(NAME test_affstr     TEST_SOURCE test_affstr.cpp     ASM_SOURCE ${_SVGA_ASM_DIR}/AFFSTR.ASM     RENAME_SYMS AffString                   LIBS ${_SVGA_LIBS}  ASM_INCLUDE_DIRS ${_SVGA_ASM_INC})
 
