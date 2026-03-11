@@ -55,7 +55,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [~] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM mirrors glyph bits (right-to-left) and starts at x+SizeChar; CPP reads left-to-right from x. Both render non-zero pixels. Font8x8 differs at chars 0xC0, 0xCC. |
+| [x] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM ≡ CPP: fixed pixel offset, line stride, TextPaper support, Font8x8 patches (chars 0xC0, 0xCC) |
 | [ ] | `SVGA/BLITBOXF.ASM` | `SVGA/BLITBOXF.CPP` | `BlitBoxF` | Fast blit rectangular region with transparency | |
 | [ ] | `SVGA/BOX.ASM` | `SVGA/BOX.CPP` | `Box` | Draw rectangle outline with clipping | Needs `Log`, `TabOffLine`, Clip globals |
 | [ ] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | |
@@ -114,64 +114,19 @@ exists in both `.ASM` and `.CPP` form.
 
 ## Known Discrepancies
 
-### 1. AffString — Glyph rendering direction and pixel offset
+### 1. ~~AffString — Glyph rendering direction and pixel offset~~ (FIXED)
 
-**Files:** `SVGA/AFFSTR.ASM` vs `SVGA/AFFSTR.CPP`
+**Status:** Fixed. CPP now matches ASM byte-for-byte. Test upgraded to `[x]`.
 
-The ASM and CPP versions of `AffString` render characters using the embedded
-`Font8x8[256×8]` bitmap font, but they iterate the glyph bits in opposite
-directions, producing **horizontally mirrored** output.
-
-**ASM** (AFFSTR.ASM, AffString proc):
-```asm
-add  ebp, [SizeChar]         ; start pointer = Log + TabOffLine[y] + x + SizeChar
-mov  ecx, [SizeChar]
-neg  ecx                     ; loop counter from -SizeChar to 0
-@@boucle_mask:
-  shr  al, 1                 ; shift RIGHT: reads bits LSB → MSB
-  jnc  @@bit_vide
-  mov  [ebp+ecx], dl         ; write pixel at (x + SizeChar + ecx)
-@@bit_vide:
-  inc  ecx
-  jnz  @@boucle_mask
-```
-
-**CPP** (AFFSTR.CPP, AffString function):
-```c
-U8 *ptr = Log + TabOffLine[y] + x;     // start pointer = x (no SizeChar offset)
-U8 mask = 0x80;                         // shift LEFT: reads bits MSB → LSB
-for (S32 i = 0; i < 8; i++) {
-    if (fontByte & mask)
-        *ptr = TextInk;
-    ptr++;
-    mask >>= 1;
-}
-ptr += 640 - SizeChar;                  // hardcoded 640 stride
-```
-
-**Differences:**
-
-| Aspect | ASM | CPP |
-|--------|-----|-----|
-| Pixel start offset | `x + SizeChar` (writes backwards) | `x` (writes forwards) |
-| Bit scan direction | LSB → MSB (`shr al, 1`) | MSB → LSB (`mask = 0x80 >> i`) |
-| Line stride | `TabOffLine[y+1] - TabOffLine[y]` | Hardcoded `640` |
-| Net effect | Standard glyph orientation | **Horizontally mirrored** glyph |
-
-Additionally, the Font8x8 data has **2 patched characters** in ASM only:
-
-| Char | ASM (patched) | CPP (original CP437) | Purpose |
-|------|--------------|---------------------|---------|
-| 0xC0 (192) | `120, 0, 120, 12, 124, 204, 118, 0` | `24, 24, 31, 24, 31, 24, 24, 24` | ASM replaced box-drawing `├` with accented `à` |
-| 0xCC (204) | `120, 0, 120, 204, 204, 204, 120, 0` | `252, 204, 96, 48, 96, 204, 252, 0` | ASM replaced box-drawing `╠` with accented `ò` |
-
-These patches suggest French localization was applied directly to the ASM font
-table.  The CPP port retains the original CP437 box-drawing characters.
-
-**Suggested fix for CPP:** Reverse the bit scan to `shr`-equivalent (iterate
-from bit 0 to bit 7), add `SizeChar` to the starting pointer, and use
-`TabOffLine` for line stride instead of hardcoded 640.  Also patch Font8x8
-entries 0xC0 and 0xCC to match the ASM values.
+**Fixes applied to `SVGA/AFFSTR.CPP`:**
+1. Pixel pointer offset: `ptr` now starts at `ScreenPtr - SizeChar` (writes
+   backwards from the offset pointer), matching the ASM's `[ebp+ecx]` where
+   ecx goes from `-SizeChar` to `-1`.
+2. Line stride: replaced hardcoded `640` with `ModeDesiredX`.
+3. TextPaper support: non-ink pixels now write `TextPaper` color when
+   `TextPaper != 0xFF` (0xFF = transparent), matching the ASM's `cmp ah, 0FFh`.
+4. Font8x8 patches: chars 0xC0 and 0xCC updated to match ASM's French
+   accented character replacements (`à` and `ò`).
 
 ---
 

@@ -1,17 +1,10 @@
-/* Test: AffString — display string at screen position using embedded Font8x8
- *
- * KNOWN DISCREPANCY: ASM and CPP AffString render glyphs differently.
- * ASM starts at (x + SizeChar), iterates bits right-to-left (mirrored).
- * CPP starts at x, iterates bits left-to-right (mask=0x80 >> shift).
- * Also: ASM Font8x8 has 2 modified entries (chars 0xC0, 0xCC) for accented chars.
- * These tests verify both versions render non-zero pixels, but do NOT compare
- * ASM vs CPP framebuffers due to the known rendering offset difference.
- * Marked [~] partial in ASM_VALIDATION_PROGRESS.md.
- */
+/* Test: AffString — display string at screen position using embedded Font8x8 */
 #include "test_harness.h"
 #include <SVGA/AFFSTR.H>
 #include <SVGA/SCREEN.H>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 extern "C" void asm_AffString(S32 x, S32 y, char *str);
 extern "C" S32 asm_SizeChar;
@@ -29,27 +22,16 @@ static void setup_screen(void)
     for (U32 i = 0; i < 480; i++) TabOffLine[i] = i * 640;
     SizeChar = 8;
     TextInk = 0xFF;
-    TextPaper = 0;
+    TextPaper = 0xFF;  /* 0xFF = transparent paper (no background fill) */
     asm_SizeChar = 8;
     asm_TextInk = 0xFF;
-    asm_TextPaper = 0;
+    asm_TextPaper = 0xFF;
 }
 
 static void test_cpp_renders_char(void)
 {
     setup_screen();
     AffString(0, 0, (char *)"A");
-    int nonzero = 0;
-    for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 16; x++)
-            if (framebuf[y * 640 + x] == 0xFF) nonzero++;
-    ASSERT_TRUE(nonzero > 0);
-}
-
-static void test_asm_renders_char(void)
-{
-    setup_screen();
-    asm_AffString(0, 0, (char *)"A");
     int nonzero = 0;
     for (int y = 0; y < 8; y++)
         for (int x = 0; x < 16; x++)
@@ -68,35 +50,61 @@ static void test_empty_string(void)
     ASSERT_EQ_INT(0, nonzero);
 }
 
-static void test_cpp_renders_multi(void)
+static void test_asm_equiv_hello(void)
 {
+    U8 cpp_buf[640 * 480];
+    U8 asm_buf[640 * 480];
+
     setup_screen();
     AffString(10, 10, (char *)"Hello");
-    int nonzero = 0;
-    for (int y = 10; y < 18; y++)
-        for (int x = 10; x < 60; x++)
-            if (framebuf[y * 640 + x] == 0xFF) nonzero++;
-    ASSERT_TRUE(nonzero > 5);
-}
+    memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
 
-static void test_asm_renders_multi(void)
-{
     setup_screen();
     asm_AffString(10, 10, (char *)"Hello");
-    int nonzero = 0;
-    for (int y = 10; y < 18; y++)
-        for (int x = 10; x < 60; x++)
-            if (framebuf[y * 640 + x] == 0xFF) nonzero++;
-    ASSERT_TRUE(nonzero > 5);
+    memcpy(asm_buf, framebuf, sizeof(asm_buf));
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "AffString Hello");
+}
+
+static void test_asm_equiv_special(void)
+{
+    U8 cpp_buf[640 * 480];
+    U8 asm_buf[640 * 480];
+
+    setup_screen();
+    AffString(50, 50, (char *)"09!@#");
+    memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
+
+    setup_screen();
+    asm_AffString(50, 50, (char *)"09!@#");
+    memcpy(asm_buf, framebuf, sizeof(asm_buf));
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "AffString special chars");
+}
+
+static void test_asm_equiv_at_origin(void)
+{
+    U8 cpp_buf[640 * 480];
+    U8 asm_buf[640 * 480];
+
+    setup_screen();
+    AffString(0, 0, (char *)"AB");
+    memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
+
+    setup_screen();
+    asm_AffString(0, 0, (char *)"AB");
+    memcpy(asm_buf, framebuf, sizeof(asm_buf));
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "AffString at origin");
 }
 
 int main(void)
 {
     RUN_TEST(test_cpp_renders_char);
-    RUN_TEST(test_asm_renders_char);
     RUN_TEST(test_empty_string);
-    RUN_TEST(test_cpp_renders_multi);
-    RUN_TEST(test_asm_renders_multi);
+    RUN_TEST(test_asm_equiv_hello);
+    RUN_TEST(test_asm_equiv_special);
+    RUN_TEST(test_asm_equiv_at_origin);
     TEST_SUMMARY();
     return test_failures != 0;
 }
