@@ -44,8 +44,8 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `ANIM/BODY.ASM` | `ANIM/BODY.CPP` | `ObjectInitBody` | Initialize body (visual model) for object | Needs `T_OBJ_3D` fixture |
 | [ ] | `ANIM/CLEAR.ASM` | `ANIM/CLEAR.CPP` | `ObjectClear` | Zero/sentinel-fill object struct | Self-contained |
 | [x] | `ANIM/FRAME.ASM` | `ANIM/FRAME.CPP` | `ObjectSetFrame` | Set current animation frame | ASM ≡ CPP: CurrentFrame matches for all 3 frames |
-| [~] | `ANIM/INTANIM.ASM` | `ANIM/INTANIM.CPP` | `ObjectSetInterAnim` | Set interpolated animation state | CPP-only tested; ASM calls InitMatrixStd via DWORD func ptr (segfaults) |
-| [~] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | CPP-only tested; ASM calls InitMatrixStd/RotatePoint via DWORD func ptrs |
+| [x] | `ANIM/INTANIM.ASM` | `ANIM/INTANIM.CPP` | `ObjectSetInterAnim` | Set interpolated animation state | ASM ≡ CPP: midpoint interpolation via Watcom-to-C shims |
+| [x] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | ASM ≡ CPP: midpoint + rotation path via Watcom-to-C shims |
 | [x] | `ANIM/INTFRAME.ASM` | `ANIM/INTFRAME.CPP` | `ObjectSetInterFrame` | Set interpolated frame between keyframes | ASM ≡ CPP: interpolation at 25% and 50% |
 | [ ] | `ANIM/LIBINIT.ASM` | `ANIM/LIBINIT.CPP` | `InitObjects`, `ClearObjects` | Initialize/clear animation library state | |
 | [x] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM ≡ CPP: fixed CPP to copy NbGroups\*2-2 dwords (was NbGroups\*2-1) |
@@ -145,64 +145,21 @@ store, which could cause wrap-around differences over time.
 
 ---
 
-### 3. ObjectSetInterDep / ObjectSetInterAnim — Function pointer ABI mismatch
+### 3. ~~ObjectSetInterDep / ObjectSetInterAnim — Function pointer ABI mismatch~~ (FIXED)
 
-**Files:** `ANIM/INTERDEP.ASM` vs `ANIM/INTERDEP.CPP`  
-(also affects `ANIM/INTANIM.ASM` which calls `ObjectSetInterDep`)
+**Status:** Fixed via Watcom-to-C ABI shim functions. Tests upgraded to `[x]`.
 
-The ASM version calls `InitMatrixStd` and `RotatePoint` through **indirect
-DWORD function pointers**, while the CPP version calls `InitMatrixStdF` /
-`LongRotatePointF` directly.
+`InitMatrixStd` and `RotatePoint` are global function-pointer variables (defined
+in `3D/IMATSTDF.CPP` and `3D/LROT3DF.CPP`).  The ASM `call [InitMatrixStd]`
+correctly reads the pointer and jumps to the target.  The problem was that the
+GCC-compiled target functions use C stack calling convention, while the ASM
+caller passes params in Watcom registers (`edi`/`eax`/`ebx`/`ecx`).
 
-**ASM** (INTERDEP.ASM):
-```asm
-EXTRN C InitMatrixStd:  DWORD        ; declared as a DWORD *variable*
-EXTRN C RotatePoint:    DWORD
-; ...
-call  [InitMatrixStd]                ; indirect call: read DWORD at &InitMatrixStd,
-                                     ;   then CALL that address
-call  [RotatePoint]
-```
+**Fix:** `__attribute__((naked))` shim functions in the test that:
+1. Accept Watcom register params (no GCC prologue to clobber them)
+2. Push them onto the stack in C convention order
+3. Call the CPP implementation (`c_InitMatrixStdF` / `c_LongRotatePointF`)
+4. Clean up the stack and `ret`
 
-**CPP** (INTERDEP.CPP):
-```c
-extern void InitMatrixStdF(S32 alpha, S32 beta, S32 gamma);
-extern void LongRotatePointF(S32 x, S32 y, S32 z);
-// ...
-InitMatrixStdF(alpha, beta, gamma);  // direct call
-LongRotatePointF(x, y, z);
-```
-
-**Why it segfaults in test binaries:**
-
-In the original Watcom-compiled game, `InitMatrixStd` and `RotatePoint` were
-**global function-pointer variables** — 4-byte memory locations containing the
-address of the actual function.  The ASM instruction `call [InitMatrixStd]`
-performs an indirect call: it reads the 4-byte value stored at `InitMatrixStd`
-and jumps to that address.
-
-In our GCC/Linux test binary, `InitMatrixStd` resolves to a regular function
-symbol.  Its address points to the function's **machine code**.  When the ASM
-executes `call [InitMatrixStd]`, it reads the first 4 bytes of the function's
-prologue (e.g., `push ebp; mov ebp, esp` = `0x8B EC 55 89`) as a memory
-address and jumps there — instant segfault.
-
-**Diagram:**
-
-```
-Original game (Watcom):
-  InitMatrixStd:  dd  offset _InitMatrixStdF    ; pointer variable
-  call [InitMatrixStd]  →  reads pointer  →  jumps to _InitMatrixStdF  ✓
-
-Test binary (GCC):
-  InitMatrixStd:  push ebp / mov ebp,esp / ...  ; function body
-  call [InitMatrixStd]  →  reads 0x8BEC5589     →  jumps to garbage  ✗
-```
-
-**Suggested fix:** Create DWORD function-pointer shims in the test binary:
-```c
-void (*InitMatrixStd)(S32, S32, S32)   = InitMatrixStdF;
-void (*RotatePoint)(S32, S32, S32)     = LongRotatePointF;
-```
-This would make the ASM's `call [InitMatrixStd]` work correctly, enabling full
-ASM-vs-CPP equivalence testing for `ObjectSetInterDep` and `ObjectSetInterAnim`.
+The shims are installed via `install_shims()` only before ASM calls.  CPP tests
+use the default function pointers (which point to CPP functions with C convention).
