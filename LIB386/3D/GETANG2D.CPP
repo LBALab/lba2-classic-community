@@ -2,120 +2,84 @@
 
 #include <3D/TANTAB.H>
 
+/*
+ * Binary search for tangent in TanTab[0..511].
+ *
+ * The ASM tracks positions as byte offsets (4 bytes per entry) and halves
+ * them with SHR, terminating when bit 1 of the byte offset is set.  We
+ * replicate this with an integer "step" that starts at 1024 and is halved
+ * each iteration; the search ends when step < 4.
+ */
+static S32 TanTabSearch(U32 tangent)
+{
+	S32 lo = 0;          /* lower bound  (byte offset) */
+	S32 hi = 1024;       /* upper bound  (byte offset) */
+	S32 mid = 1024;      /* probe point  (byte offset) */
+	S32 step;
+
+	for (;;)
+	{
+		if (tangent >= (U32)TanTab[mid / 4])
+		{
+			/* tangent is above — move lower bound up */
+			step = mid >> 1;
+			lo = step;
+			mid = step + hi;
+		}
+		else
+		{
+			/* tangent is below — move upper bound down */
+			step = mid >> 1;
+			hi = step;
+			mid = step + lo;
+		}
+
+		if (mid & 2)
+			break;
+	}
+
+	/* lo holds the byte-offset of the winning bracket; convert to index */
+	S32 idx = lo >> 1;
+	U32 cur  = TanTab[idx];
+	U32 next = TanTab[idx + 1];
+	if (tangent - cur > next - tangent)
+		idx++;
+
+	return idx;
+}
+
 S32 GetAngleVector2D(S32 x, S32 z)
 {
-	U8 isXNegative = FALSE;
-	U8 isZNegative = FALSE;
-	U8 isXZSwapped = FALSE;
+	U32 flags = 0;   /* bit 0 = negated x, bit 1 = negated z, bit 2 = swapped */
 
 	if (x == 0)
-	{
 		return z < 0 ? 2048 : 0;
-	}
 
-	if (x < 0)
-	{
-		x = -x;
-		isXNegative = TRUE;
-	}
+	if (x < 0) { x = -x; flags |= 1; }
 
 	if (z == 0)
+		return (flags & 1) ? 3072 : 1024;
+
+	if (z < 0) { z = -z; flags |= 2; }
+
+	if ((U32)x > (U32)z)
 	{
-		return isXNegative ? 4096 - 1024 : 1024;
+		S32 tmp = x; x = z; z = tmp;
+		flags |= 4;
 	}
 
-	if (z < 0)
-	{
-		z = -z;
-		isZNegative = TRUE;
-	}
+	/* 64-bit tangent: edx:eax = (x>>2):(x<<30 + z>>1), then DIV z */
+	U32 lo = ((U32)x << 30) + ((U32)z >> 1);
+	U32 hi = (U32)x >> 2;
+	if (lo < (U32)z >> 1)   /* carry from the addition */
+		hi++;
+	U32 tangent = (U32)(((U64)hi << 32 | lo) / (U32)z);
 
-	// This is wrong in the ASM comment, which says |z|>|x|, but the code
-	// actually swaps if |x|>|z|
-	if (x > z)
-	{
-		S32 tmp = x;
-		x = z;
-		z = tmp;
-		isXZSwapped = TRUE;
-	}
+	S32 angle = TanTabSearch(tangent);
 
-	S32 major = z;
-	S32 minor = x;
+	if (flags & 4) angle = 1024 - angle;
+	if (flags & 2) angle = 2048 - angle;
+	if (flags & 1) angle = -angle;
 
-	x <<= 30;
-	major >>= 1;
-	minor >>= 2;
-	x += major;
-
-	U64 tangent = (((U64)x + major) + ((U64)minor << 32)) / z;
-
-
-	// Binary search tangent in TanTab. The algorithm is a bit weird but
-	// it's what the original implementation in ASM did.
-	int i = 256;
-	int lastIDecreasing = i;
-	int lastIIncreasing = 0;
-	U8 found = FALSE;
-	while (!found)
-	{
-		while(tangent < TanTab[i])
-		{
-			i >>= 1;
-			lastIDecreasing = i;
-			i += lastIIncreasing;
-
-			if ( i % 2 != 0)
-			{
-				found = TRUE;
-				break;
-			}
-		}
-
-		if (found)
-		{
-			break;
-		}
-
-		while(tangent >= TanTab[i])
-		{
-			i >>= 1;
-			lastIIncreasing = i;
-			i += lastIDecreasing;
-
-			if ( i % 2 != 0)
-			{
-				found = TRUE;
-				break;
-			}
-		}
-	}
-
-	S32 currentTangent = TanTab[i];
-	S32 nextTangent = TanTab[i + 1];
-
-	S32 currentDiff = tangent - currentTangent;
-	S32 nextDiff = nextTangent - tangent;
-
-	if (currentDiff > nextDiff)
-	{
-		++i;
-	}
-
-	if (isXZSwapped)
-	{
-		i = 1024 - i;
-	}
-
-	if (isZNegative)
-	{
-		i = 2048 - i;
-	}
-
-	if (isXNegative)
-	{
-		i = -i;
-	}
-
-	return i & 4095;
+	return angle & 4095;
 }
