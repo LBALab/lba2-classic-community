@@ -25,7 +25,11 @@ add_asm_cpp_test(NAME test_getang3d  TEST_SOURCE test_getang3d.cpp  ASM_SOURCE $
     STRIP_C_ADAPT
     ASM_DEPS ${_3D_ASM_DIR}/GETANG2D.ASM ${_3D_ASM_DIR}/SQRROOT.ASM
     ASM_DEP_RENAME_SYMS GetAngleVector2D Sqr QSqr)
-add_asm_cpp_test(NAME test_sqrroot   TEST_SOURCE test_sqrroot.cpp   ASM_SOURCE ${_3D_ASM_DIR}/SQRROOT.ASM   RENAME_SYMS Sqr QSqr                                        LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
+# Sqr/QSqr: C-adapted PROC has "uses eax" which destroys the return value.
+# STRIP_C_ADAPT reverts to bare Watcom procs.
+add_asm_cpp_test(NAME test_sqrroot   TEST_SOURCE test_sqrroot.cpp   ASM_SOURCE ${_3D_ASM_DIR}/SQRROOT.ASM   RENAME_SYMS Sqr QSqr
+    LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC}
+    STRIP_C_ADAPT)
 add_asm_cpp_test(NAME test_regle3    TEST_SOURCE test_regle3.cpp    ASM_SOURCE ${_3D_ASM_DIR}/REGLE3.ASM    RENAME_SYMS RegleTrois BoundRegleTrois                       LIBS 3D sys  ASM_INCLUDE_DIRS ${_3D_ASM_INC})
 
 # ── Matrix ops ────────────────────────────────────────────────────────────

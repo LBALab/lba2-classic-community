@@ -5,7 +5,16 @@
 #include <ANIM/CLEAR.H>
 #include <string.h>
 
-extern "C" void asm_ObjectInitTexture(T_OBJ_3D *obj, void *texture);
+/* ASM ObjectInitTexture uses Watcom register convention:
+   parm [ebx] [eax], modify exact [] */
+extern "C" void asm_ObjectInitTexture(void);
+static void call_asm_ObjectInitTexture(T_OBJ_3D *obj, void *texture) {
+    __asm__ __volatile__(
+        "call asm_ObjectInitTexture"
+        : "+b"(obj), "+a"(texture)
+        :
+        : "memory");
+}
 
 static U8 fake_texture[64];
 
@@ -36,7 +45,7 @@ static void test_asm_equiv(void)
     ObjectClear(&cpp_obj);
     ObjectClear(&asm_obj);
     ObjectInitTexture(&cpp_obj, fake_texture);
-    asm_ObjectInitTexture(&asm_obj, fake_texture);
+    call_asm_ObjectInitTexture(&asm_obj, fake_texture);
     ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), "ObjectInitTexture");
 }
 
