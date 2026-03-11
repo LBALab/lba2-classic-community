@@ -28,7 +28,8 @@ static void test_random_equivalence(void)
         S32 z = (S32)rand() - RAND_MAX / 2;
         S32 cpp = GetAngleVector2D(x, z);
         S32 asr = asm_GetAngleVector2D(x, z);
-        ASSERT_ASM_CPP_EQ_INT(asr, cpp, "GetAngleVector2D rand");
+        char lbl[64]; snprintf(lbl, sizeof(lbl), "GetAngleVector2D rand x=%d z=%d", x, z);
+        ASSERT_ASM_CPP_EQ_INT(asr, cpp, lbl);
     }
 }
 
