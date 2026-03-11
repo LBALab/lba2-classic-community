@@ -1,9 +1,4 @@
-/* Test: ObjectStoreFrame — store current animation frame to circular buffer.
- *
- * KNOWN DISCREPANCY: ASM stores NbGroups*2-2 dwords of CurrentFrame data,
- * while CPP stores NbGroups*2-1 dwords. The 16-byte header and LastOfsIsPtr/
- * LastFrame behavior match. Marked [~] in ASM_VALIDATION_PROGRESS.md.
- */
+/* Test: ObjectStoreFrame — store current animation frame to circular buffer */
 #include "test_harness.h"
 #include <ANIM/STOFRAME.H>
 #include <ANIM/ANIM.H>
@@ -85,10 +80,9 @@ static void test_asm_equiv(void)
     U32 asm_advance = (U8 *)PtrLib3DBufferAnim - g_anim_buffer;
     memcpy(asm_buffer, g_anim_buffer, TEST_ANIM_BUFFER_SIZE);
 
-    /* Compare common portion (ASM stores fewer bytes: NbGroups*2-2 vs NbGroups*2-1 dwords) */
-    U32 common = (asm_advance < cpp_advance) ? asm_advance : cpp_advance;
-    ASSERT_ASM_CPP_MEM_EQ(asm_buffer, cpp_buffer, common,
-                          "ObjectStoreFrame buffer (common portion)");
+    ASSERT_EQ_UINT(cpp_advance, asm_advance);
+    ASSERT_ASM_CPP_MEM_EQ(asm_buffer, cpp_buffer, cpp_advance,
+                          "ObjectStoreFrame buffer");
     ASSERT_EQ_UINT(cpp_obj.LastOfsIsPtr, asm_obj.LastOfsIsPtr);
     ASSERT_EQ_INT(cpp_obj.LastFrame, asm_obj.LastFrame);
 }

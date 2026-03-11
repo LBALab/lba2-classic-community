@@ -48,7 +48,7 @@ exists in both `.ASM` and `.CPP` form.
 | [~] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | CPP-only tested; ASM calls InitMatrixStd/RotatePoint via DWORD func ptrs |
 | [x] | `ANIM/INTFRAME.ASM` | `ANIM/INTFRAME.CPP` | `ObjectSetInterFrame` | Set interpolated frame between keyframes | ASM ≡ CPP: interpolation at 25% and 50% |
 | [ ] | `ANIM/LIBINIT.ASM` | `ANIM/LIBINIT.CPP` | `InitObjects`, `ClearObjects` | Initialize/clear animation library state | |
-| [~] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM stores NbGroups\*2-2 dwords; CPP stores NbGroups\*2-1. Common portion matches. |
+| [x] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM ≡ CPP: fixed CPP to copy NbGroups\*2-2 dwords (was NbGroups\*2-1) |
 | [ ] | `ANIM/TEXTURE.ASM` | `ANIM/TEXTURE.CPP` | `ObjectInitTexture` | Initialize texture for object | |
 
 ## SVGA/ — Screen Drawing & Sprites (15 pairs)
@@ -130,47 +130,18 @@ exists in both `.ASM` and `.CPP` form.
 
 ---
 
-### 2. ObjectStoreFrame — Off-by-one in stored dword count
+### 2. ~~ObjectStoreFrame — Off-by-one in stored dword count~~ (FIXED)
 
-**Files:** `ANIM/STOFRAME.ASM` vs `ANIM/STOFRAME.CPP`
+**Status:** Fixed. CPP changed from `NbGroups * 2 - 1` to `NbGroups * 2 - 2` to
+match ASM. Test upgraded to `[x]` with strict byte-exact comparison.
 
-When storing the current animation frame to the circular buffer, the ASM and CPP
-versions copy a different number of 32-bit words from `CurrentFrame[]`.
-
-**ASM** (STOFRAME.ASM):
-```asm
-mov  ecx, [ebx].NbGroups
-lea  ecx, [ecx*2-2]          ; count = NbGroups × 2 - 2
-rep  movsd                    ; copy `count` dwords
-```
-
-**CPP** (STOFRAME.CPP):
-```c
-U32 nbGroups = obj->NbGroups;
-for (U32 i = 0; i < nbGroups * 2 - 1; i++)    // count = NbGroups × 2 - 1
-    *dst++ = *src++;
-```
-
-**Concrete example with `NbGroups = 3`:**
-
-Each `T_GROUP_INFO` is 8 bytes (2 dwords: `{Type+Alpha}` and `{Beta+Gamma}`).
-
-| Version | Formula | Dwords | Bytes | Groups stored |
-|---------|---------|--------|-------|---------------|
-| ASM | `3×2-2 = 4` | 4 | 16 | 2 complete groups (groups 1–2) |
-| CPP | `3×2-1 = 5` | 5 | 20 | 2 complete groups + 4 extra bytes (partial group 3) |
-
-Both versions write a 16-byte header (4 zero dwords) before the frame data.
-The first 32 bytes (header + 2 groups) are **identical** between ASM and CPP.
-The CPP version writes one additional dword that the ASM version does not.
-
-**Impact:** The circular buffer pointer (`PtrLib3DBufferAnim`) advances by 4
-extra bytes per store in CPP.  Over many animation frames this could cause the
-CPP buffer to wrap at a different point than ASM.  The extra dword is harmless
-if never read, but could theoretically shift subsequent stored frames in memory.
-
-**Suggested fix for CPP:** Change `nbGroups * 2 - 1` to `nbGroups * 2 - 2` to
-match the ASM. Update the buffer pointer advance accordingly.
+The ASM comment `; 2 DWORDs per group, no group 0` clarifies the intent:
+copy `NbGroups - 1` complete groups (each group = 2 dwords). The formula
+`NbGroups * 2 - 2` = `(NbGroups - 1) * 2` is correct. The CPP had
+`NbGroups * 2 - 1` which overcounted by 1 dword. The consumer
+(`ObjectSetInterFrame`) reads exactly `NbGroups - 1` groups, so the extra
+dword was never read — but the buffer pointer advanced 4 bytes further per
+store, which could cause wrap-around differences over time.
 
 ---
 
