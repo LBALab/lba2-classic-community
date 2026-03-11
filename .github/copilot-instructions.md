@@ -40,6 +40,7 @@ container.  This works on macOS ARM64 via QEMU emulation.
 ./run_tests_docker.sh              # Build & run all tests
 ./run_tests_docker.sh --build-only # Build the Docker image without running
 ./run_tests_docker.sh --rebuild    # Force rebuild the Docker image
+./run_tests_docker.sh test_getang2d test_lirot3df   # Run only named tests
 ```
 
 Logs are saved to `build_logs/` automatically (gitignored).

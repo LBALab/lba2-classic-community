@@ -4,9 +4,10 @@
 #                       inside a Linux x86_64 Docker container.
 #
 # Usage:
-#   ./run_tests_docker.sh              # Build & run tests
+#   ./run_tests_docker.sh              # Build & run all tests
 #   ./run_tests_docker.sh --build-only # Build the Docker image without running
 #   ./run_tests_docker.sh --rebuild    # Force rebuild the Docker image
+#   ./run_tests_docker.sh test_getang2d test_lirot3df   # Run only named tests
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -19,6 +20,7 @@ mkdir -p "${LOG_DIR}"
 PRESET="linux_test"
 BUILD_ONLY=false
 FORCE_REBUILD=false
+TEST_NAMES=()
 
 for arg in "$@"; do
     case "$arg" in
@@ -27,6 +29,9 @@ for arg in "$@"; do
             ;;
         --rebuild)
             FORCE_REBUILD=true
+            ;;
+        *)
+            TEST_NAMES+=("$arg")
             ;;
     esac
 done
@@ -55,6 +60,14 @@ if [ "$BUILD_ONLY" = true ]; then
     exit 0
 fi
 
+# ── Build ctest filter from test names ────────────────────────────────────────
+CTEST_REGEX=""
+if [ ${#TEST_NAMES[@]} -gt 0 ]; then
+    # Join test names with | for ctest -R regex
+    CTEST_REGEX=$(IFS='|'; echo "${TEST_NAMES[*]}")
+    echo "==> Running only: ${TEST_NAMES[*]}"
+fi
+
 # ── Run tests ─────────────────────────────────────────────────────────────────
 TEST_LOG="${LOG_DIR}/test_run_$(date +%Y%m%d_%H%M%S).log"
 echo "==> Running tests (preset: ${PRESET}) …"
@@ -63,32 +76,37 @@ docker run --rm \
     --platform linux/amd64 \
     -v "${SCRIPT_DIR}:${CONTAINER_SRC}:ro" \
     -w "${CONTAINER_SRC}" \
+    -e "CTEST_REGEX=${CTEST_REGEX}" \
+    -e "CONTAINER_SRC=${CONTAINER_SRC}" \
+    -e "PRESET=${PRESET}" \
     "${IMAGE_NAME}" \
-    bash -c "
+    bash -c '
         set -e
 
-        # ── Install UASM at runtime (can't run x86_64 binary during build on ARM) ──
-        echo '--- Installing UASM ---'
+        echo "--- Installing UASM ---"
         curl -fsSL https://github.com/Terraspace/UASM/releases/download/v2.57r/uasm257_linux64.zip \
             -o /tmp/uasm.zip
         unzip -oq /tmp/uasm.zip -d /usr/local/bin
         chmod +x /usr/local/bin/uasm
         uasm -? </dev/null 2>&1 | head -1 || true
 
-        # ── Copy source to writable tmpdir (mount is read-only) ──
         cp -a ${CONTAINER_SRC} /tmp/lba2
         cd /tmp/lba2
 
-        echo '--- cmake configure (${PRESET}) ---'
+        echo "--- cmake configure (${PRESET}) ---"
         cmake -S . -B build \
             -DLBA2_BUILD_TESTS=ON \
             --preset ${PRESET}
 
-        echo '--- cmake build ---'
-        cmake --build build -j\$(nproc)
+        echo "--- cmake build ---"
+        cmake --build build -j$(nproc)
 
-        echo '--- ctest ---'
-        ctest --test-dir build --output-on-failure
-    " 2>&1 | tee "${TEST_LOG}"
+        echo "--- ctest ---"
+        if [ -n "${CTEST_REGEX}" ]; then
+            ctest --test-dir build --output-on-failure -R "${CTEST_REGEX}"
+        else
+            ctest --test-dir build --output-on-failure
+        fi
+    ' 2>&1 | tee "${TEST_LOG}"
 
 echo "==> Test log saved: ${TEST_LOG}"
