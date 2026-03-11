@@ -37,14 +37,16 @@ static void test_random_equivalence(void)
     srand(42);
     XCentre=320;YCentre=240;
     for (int i=0;i<10000;i++) {
-        TYPE_VT16 s;
+        TYPE_VT16 s, sa;
         s.X=(S16)(rand()%600-300); s.Y=(S16)(rand()%600-300); s.Z=(S16)(rand()%600-300); s.Grp=0;
+        sa = s;
         TYPE_PT dc,da;
         ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
         ProjectListIso(&dc,&s,1,0,0,0);
         ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
-        call_asm_ProjectListIso(&da,&s,1,0,0,0);
-        ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"PLIso rand");
+        call_asm_ProjectListIso(&da,&sa,1,0,0,0);
+        char lbl[80]; snprintf(lbl,sizeof(lbl),"PLIso X=%d Y=%d Z=%d",sa.X,sa.Y,sa.Z);
+        ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),lbl);
     }
 }
 
