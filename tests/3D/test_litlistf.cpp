@@ -45,17 +45,7 @@ static void test_random_equivalence(void)
         U16 dc,da;
         dc=0;LightList(&m,&dc,&s,1);
         da=0;call_asm_LightListF(&m,&da,&s,1);
-        /* Allow ±1 tolerance: the ASM pipeline (inverse rotation → dot
-           product → FactorLight → fistp) keeps all intermediates in the
-           x87 register stack, while the CPP version stores/reloads X0/Y0/Z0
-           as integers between the two stages, causing occasional ±1
-           rounding differences at the final fistp. */
-        S32 diff = (S32)da - (S32)dc;
-        if (diff < -1 || diff > 1) {
-            char lbl[64];
-            snprintf(lbl,sizeof(lbl),"LightList v=%d,%d,%d",s.X,s.Y,s.Z);
-            ASSERT_ASM_CPP_EQ_INT(da,dc,lbl);
-        }
+        ASSERT_ASM_CPP_EQ_INT(da,dc,"LightList rand");
     }
 }
 

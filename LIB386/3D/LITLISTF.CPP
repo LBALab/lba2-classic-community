@@ -6,10 +6,15 @@
 #include <3D/CAMERA.H>
 
 /*
- * Per-vertex lighting.  Matches ASM LightListF which uses x87 fistp
- * for rounding and clamps negative values to 0.
+ * Per-vertex lighting.  Matches ASM LightListF.
  *
- * Uses long double + lrintl to match fistp round-to-nearest-even.
+ * The ASM pipeline:
+ * 1. Inverse-rotates the camera light vector → X0,Y0,Z0 (integers)
+ * 2. Pre-multiplies by FactorLight → stored as floats in X0,Y0,Z0
+ * 3. Inner loop: dot(light_scaled, vertex) → fistp → clamp to [0,∞)
+ *
+ * Step 2 reinterprets X0/Y0/Z0 as float storage.  We replicate this
+ * with local float variables and lrintl for the final rounding.
  */
 void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 {
@@ -18,12 +23,18 @@ void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 
 	LongInverseRotatePoint(Mat, CameraXLight, CameraYLight, CameraZLight);
 
+	/* Pre-scale the rotated light vector by FactorLight (stored as float,
+	   matching the ASM's fstp [X0] / fmul [X0] pipeline). */
+	float lx = (float)X0 * FactorLight;
+	float ly = (float)Y0 * FactorLight;
+	float lz = (float)Z0 * FactorLight;
+
 	for (S32 i = 0; i < n; i++)
 	{
-		long double dot = (long double)X0 * src[i].X
-		                + (long double)Y0 * src[i].Y
-		                + (long double)Z0 * src[i].Z;
-		S32 value = (S32)lrintl(dot * (long double)FactorLight);
+		long double dot = (long double)lx * src[i].X
+		                + (long double)ly * src[i].Y
+		                + (long double)lz * src[i].Z;
+		S32 value = (S32)lrintl(dot);
 		dst[i] = (value < 0) ? 0 : (U16)value;
 	}
 }
