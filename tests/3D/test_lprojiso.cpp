@@ -5,7 +5,10 @@
 #include <stdlib.h>
 
 #ifdef LBA2_ASM_TESTS
-extern "C" S32 asm_LongProjectPointIso(S32 x, S32 y, S32 z);
+extern "C" void asm_LongProjectPointIso(void);
+static void call_asm_LongProjectPointIso(S32 x, S32 y, S32 z) {
+    __asm__ __volatile__("call asm_LongProjectPointIso" : : "a"(x), "b"(y), "c"(z) : "memory", "edx");
+}
 
 static void test_equivalence(void)
 {
@@ -16,7 +19,7 @@ static void test_equivalence(void)
     for (int i=0;i<(int)(sizeof(cases)/sizeof(cases[0]));i++) {
         LongProjectPointIso(cases[i].x,cases[i].y,cases[i].z);
         S32 cxp=Xp,cyp=Yp;
-        asm_LongProjectPointIso(cases[i].x,cases[i].y,cases[i].z);
+        call_asm_LongProjectPointIso(cases[i].x,cases[i].y,cases[i].z);
         ASSERT_ASM_CPP_EQ_INT(Xp,cxp,"LPPIso Xp");
         ASSERT_ASM_CPP_EQ_INT(Yp,cyp,"LPPIso Yp");
     }
@@ -29,7 +32,7 @@ static void test_random_equivalence(void)
     for (int i=0;i<10000;i++) {
         S32 x=(S32)(rand()%2000)-1000, y=(S32)(rand()%2000)-1000, z=(S32)(rand()%2000)-1000;
         LongProjectPointIso(x,y,z); S32 cxp=Xp,cyp=Yp;
-        asm_LongProjectPointIso(x,y,z);
+        call_asm_LongProjectPointIso(x,y,z);
         ASSERT_ASM_CPP_EQ_INT(Xp,cxp,"LPPIso rand Xp");
         ASSERT_ASM_CPP_EQ_INT(Yp,cyp,"LPPIso rand Yp");
     }

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_LongRotate(S32 x, S32 z, S32 angle);
+extern "C" void asm_LongRotateF(S32 x, S32 z, S32 angle);
 
 static void test_equivalence(void)
 {
@@ -16,7 +16,7 @@ static void test_equivalence(void)
     for (int i=0;i<(int)(sizeof(cases)/sizeof(cases[0]));i++) {
         LongRotate(cases[i].x,cases[i].z,cases[i].angle);
         S32 cx=X0, cz=Z0;
-        asm_LongRotate(cases[i].x,cases[i].z,cases[i].angle);
+        asm_LongRotateF(cases[i].x,cases[i].z,cases[i].angle);
         ASSERT_ASM_CPP_EQ_INT(X0,cx,"LongRotate X0");
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LongRotate Z0");
     }
@@ -28,7 +28,7 @@ static void test_random_equivalence(void)
     for (int i=0;i<10000;i++) {
         S32 x=(S32)rand()-RAND_MAX/2, z=(S32)rand()-RAND_MAX/2, a=rand()%4096;
         LongRotate(x,z,a); S32 cx=X0,cz=Z0;
-        asm_LongRotate(x,z,a);
+        asm_LongRotateF(x,z,a);
         ASSERT_ASM_CPP_EQ_INT(X0,cx,"LongRotate rand X0");
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LongRotate rand Z0");
     }

@@ -7,7 +7,10 @@
 
 extern void LongRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z);
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_LongRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z);
+extern "C" void asm_LongRotatePointF(void);
+static void call_asm_LongRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z) {
+    __asm__ __volatile__("call asm_LongRotatePointF" : : "S"(m), "a"(x), "b"(y), "c"(z) : "memory");
+}
 
 static TYPE_MAT make_test_mat(void) {
     TYPE_MAT m; memset(&m,0,sizeof(m));
@@ -26,7 +29,7 @@ static void test_equivalence(void)
     for (int i=0;i<(int)(sizeof(cases)/sizeof(cases[0]));i++) {
         LongRotatePointF(&m,cases[i].x,cases[i].y,cases[i].z);
         S32 cx=X0,cy=Y0,cz=Z0;
-        asm_LongRotatePointF(&m,cases[i].x,cases[i].y,cases[i].z);
+        call_asm_LongRotatePointF(&m,cases[i].x,cases[i].y,cases[i].z);
         ASSERT_ASM_CPP_EQ_INT(X0,cx,"LongRotatePointF X0");
         ASSERT_ASM_CPP_EQ_INT(Y0,cy,"LongRotatePointF Y0");
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LongRotatePointF Z0");
@@ -40,7 +43,7 @@ static void test_random_equivalence(void)
     for (int i=0;i<10000;i++) {
         S32 x=(S32)rand()-RAND_MAX/2, y=(S32)rand()-RAND_MAX/2, z=(S32)rand()-RAND_MAX/2;
         LongRotatePointF(&m,x,y,z); S32 cx=X0,cy=Y0,cz=Z0;
-        asm_LongRotatePointF(&m,x,y,z);
+        call_asm_LongRotatePointF(&m,x,y,z);
         ASSERT_ASM_CPP_EQ_INT(X0,cx,"LongRotatePointF rand X0");
         ASSERT_ASM_CPP_EQ_INT(Y0,cy,"LongRotatePointF rand Y0");
         ASSERT_ASM_CPP_EQ_INT(Z0,cz,"LongRotatePointF rand Z0");

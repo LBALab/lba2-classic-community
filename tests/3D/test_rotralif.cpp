@@ -6,7 +6,11 @@
 
 extern void RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n);
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n);
+extern "C" void asm_RotTransListF(void);
+static void call_asm_RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n) {
+    __asm__ __volatile__("call asm_RotTransListF"
+        : "+c"(n), "+S"(s), "+D"(d) : "b"(m) : "memory");
+}
 
 static void test_equivalence(void)
 {
@@ -18,7 +22,7 @@ static void test_equivalence(void)
     TYPE_VT16 src[3]={{100,200,300,0},{-50,0,50,0},{0,0,0,0}};
     TYPE_VT16 dc[3],da[3];
     memset(dc,0,sizeof(dc)); RotTransListF(&m,dc,src,3);
-    memset(da,0,sizeof(da)); asm_RotTransListF(&m,da,src,3);
+    memset(da,0,sizeof(da)); call_asm_RotTransListF(&m,da,src,3);
     ASSERT_ASM_CPP_MEM_EQ(da,dc,sizeof(dc),"RotTransListF");
 }
 
@@ -37,7 +41,7 @@ static void test_random_equivalence(void)
         src.X=(S16)(rand()%1000-500); src.Y=(S16)(rand()%1000-500); src.Z=(S16)(rand()%1000-500); src.Grp=0;
         TYPE_VT16 dc,da;
         memset(&dc,0,sizeof(dc)); RotTransListF(&m,&dc,&src,1);
-        memset(&da,0,sizeof(da)); asm_RotTransListF(&m,&da,&src,1);
+        memset(&da,0,sizeof(da)); call_asm_RotTransListF(&m,&da,&src,1);
         ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"RotTransListF rand");
     }
 }

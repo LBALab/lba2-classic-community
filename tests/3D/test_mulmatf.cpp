@@ -7,7 +7,10 @@
 extern void MulMatrixF(TYPE_MAT *d, TYPE_MAT *s1, TYPE_MAT *s2);
 
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_MulMatrixF(TYPE_MAT *d, TYPE_MAT *s1, TYPE_MAT *s2);
+extern "C" void asm_MulMatrixF(void);
+static void call_asm_MulMatrixF(TYPE_MAT *d, TYPE_MAT *s1, TYPE_MAT *s2) {
+    __asm__ __volatile__("call asm_MulMatrixF" : : "D"(d), "S"(s1), "b"(s2) : "memory", "eax");
+}
 
 static void make_rand_mat(TYPE_MAT *m) {
     float *f = &m->F.M11;
@@ -26,7 +29,7 @@ static void test_equivalence(void)
     b.F.M21=2.1f;b.F.M22=0.4f;b.F.M23=1.5f;
     b.F.M31=0.6f;b.F.M32=3.0f;b.F.M33=0.8f;
     MulMatrixF(&cm,&a,&b);
-    asm_MulMatrixF(&am,&a,&b);
+    call_asm_MulMatrixF(&am,&a,&b);
     for (int j=0;j<9;j++)
         ASSERT_ASM_CPP_NEAR_F((&am.F.M11)[j], (&cm.F.M11)[j], 0.01f, "MulMatrixF");
 }
@@ -38,7 +41,7 @@ static void test_random_equivalence(void)
         TYPE_MAT a,b,cm,am;
         make_rand_mat(&a); make_rand_mat(&b);
         MulMatrixF(&cm,&a,&b);
-        asm_MulMatrixF(&am,&a,&b);
+        call_asm_MulMatrixF(&am,&a,&b);
         for (int j=0;j<9;j++)
             ASSERT_ASM_CPP_NEAR_F((&am.F.M11)[j], (&cm.F.M11)[j], 0.01f, "MulMatrixF rand");
     }

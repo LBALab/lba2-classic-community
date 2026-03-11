@@ -9,7 +9,18 @@
 
 extern void ProjectList3DF(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_ProjectList3DF(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz);
+extern "C" void asm_ProjectList3DF(void);
+static void call_asm_ProjectList3DF(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32 oy, S32 oz) {
+    S32 _a, _b, _d;
+    __asm__ __volatile__(
+        "pushl %%edx\n\t"
+        "pushl %%ebx\n\t"
+        "pushl %%eax\n\t"
+        "call asm_ProjectList3DF\n\t"
+        "addl $12, %%esp"
+        : "=a"(_a), "=b"(_b), "=d"(_d)
+        : "0"(ox), "1"(oy), "2"(oz), "D"(d), "S"(s), "c"(n) : "memory");
+}
 
 static void test_equivalence(void)
 {
@@ -19,7 +30,7 @@ static void test_equivalence(void)
     ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
     ProjectList3DF(dc,src,3,0,0,0);
     ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
-    asm_ProjectList3DF(da,src,3,0,0,0);
+    call_asm_ProjectList3DF(da,src,3,0,0,0);
     ASSERT_ASM_CPP_MEM_EQ(da,dc,sizeof(dc),"ProjectList3DF");
 }
 
@@ -34,7 +45,7 @@ static void test_random_equivalence(void)
         ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
         ProjectList3DF(&dc,&s,1,0,0,0);
         ScreenXMin=32767;ScreenXMax=-32767;ScreenYMin=32767;ScreenYMax=-32767;
-        asm_ProjectList3DF(&da,&s,1,0,0,0);
+        call_asm_ProjectList3DF(&da,&s,1,0,0,0);
         ASSERT_ASM_CPP_MEM_EQ(&da,&dc,sizeof(dc),"PL3DF rand");
     }
 }

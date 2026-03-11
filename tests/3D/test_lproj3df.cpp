@@ -7,7 +7,13 @@
 
 extern S32 LongProjectPoint3D(S32 x, S32 y, S32 z);
 #ifdef LBA2_ASM_TESTS
-extern "C" S32 asm_LongProjectPoint3D(S32 x, S32 y, S32 z);
+extern "C" void asm_LongProjectPoint3DF(void);
+static S32 call_asm_LongProjectPoint3DF(S32 x, S32 y, S32 z) {
+    S32 result;
+    __asm__ __volatile__("call asm_LongProjectPoint3DF"
+        : "=a"(result) : "0"(x), "b"(y), "c"(z) : "memory", "edx");
+    return result;
+}
 
 static void test_equivalence(void)
 {
@@ -19,7 +25,7 @@ static void test_equivalence(void)
     for (int i=0;i<(int)(sizeof(cases)/sizeof(cases[0]));i++) {
         S32 cr=LongProjectPoint3D(cases[i].x,cases[i].y,cases[i].z);
         S32 cxp=Xp,cyp=Yp;
-        S32 ar=asm_LongProjectPoint3D(cases[i].x,cases[i].y,cases[i].z);
+        S32 ar=call_asm_LongProjectPoint3DF(cases[i].x,cases[i].y,cases[i].z);
         ASSERT_ASM_CPP_EQ_INT(ar,cr,"LongProjectPoint3D ret");
         if(cr==1){ASSERT_ASM_CPP_EQ_INT(Xp,cxp,"LPP3D Xp");ASSERT_ASM_CPP_EQ_INT(Yp,cyp,"LPP3D Yp");}
     }
@@ -33,7 +39,7 @@ static void test_random_equivalence(void)
     for (int i=0;i<10000;i++) {
         S32 x=(S32)(rand()%2000)-1000, y=(S32)(rand()%2000)-1000, z=(S32)(rand()%2000)-1000;
         S32 cr=LongProjectPoint3D(x,y,z); S32 cxp=Xp,cyp=Yp;
-        S32 ar=asm_LongProjectPoint3D(x,y,z);
+        S32 ar=call_asm_LongProjectPoint3DF(x,y,z);
         ASSERT_ASM_CPP_EQ_INT(ar,cr,"LPP3D rand ret");
         if(cr==1){ASSERT_ASM_CPP_EQ_INT(Xp,cxp,"LPP3D rand Xp");ASSERT_ASM_CPP_EQ_INT(Yp,cyp,"LPP3D rand Yp");}
     }

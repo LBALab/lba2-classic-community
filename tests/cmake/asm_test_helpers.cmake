@@ -33,7 +33,7 @@ function(add_asm_cpp_test)
         ARG                          # prefix
         ""                           # options (booleans)
         "NAME;TEST_SOURCE;ASM_SOURCE" # one-value keywords
-        "RENAME_SYMS;LIBS;INCLUDE_DIRS;ASM_INCLUDE_DIRS" # multi-value keywords
+        "RENAME_SYMS;LIBS;INCLUDE_DIRS;ASM_INCLUDE_DIRS;ASM_DEPS" # multi-value keywords
         ${ARGN}
     )
 
@@ -51,6 +51,11 @@ function(add_asm_cpp_test)
     # ── ASM equivalence (when enabled) ────────────────────────────────────
     if(LBA2_BUILD_ASM_TESTS AND ARG_ASM_SOURCE)
         target_compile_definitions(${ARG_NAME} PRIVATE LBA2_ASM_TESTS)
+
+        # ASM objects may contain text relocations (R_386_32 in .text) that
+        # are incompatible with PIE.  Disable PIE for ASM test binaries.
+        set_target_properties(${ARG_NAME} PROPERTIES POSITION_INDEPENDENT_CODE OFF)
+        target_link_options(${ARG_NAME} PRIVATE -no-pie)
 
         # Assemble the ASM file ------------------------------------------
         get_filename_component(_asm_name ${ARG_ASM_SOURCE} NAME_WE)
@@ -119,6 +124,53 @@ function(add_asm_cpp_test)
             EXTERNAL_OBJECT TRUE
             GENERATED TRUE
         )
+
+        # ── Extra ASM data dependencies (e.g. SinTabF data tables) ────
+        # These are assembled and linked WITHOUT renaming.  They override
+        # CPP library symbols (e.g. pointer-typed SinTabF) with the ASM
+        # data labels that dependent ASM code expects.
+        foreach(_dep ${ARG_ASM_DEPS})
+            get_filename_component(_dep_name ${_dep} NAME_WE)
+            get_filename_component(_dep_dir  ${_dep} DIRECTORY)
+            set(_dep_patched "${CMAKE_CURRENT_BINARY_DIR}/${_dep_name}_flat_dep.ASM")
+            set(_dep_obj     "${CMAKE_CURRENT_BINARY_DIR}/${_dep_name}.dep.o")
+
+            add_custom_command(
+                OUTPUT ${_dep_patched}
+                COMMAND ${CMAKE_COMMAND}
+                        -DSRC=${_dep}
+                        -DDST=${_dep_patched}
+                        -P ${CMAKE_SOURCE_DIR}/tests/cmake/patch_asm_flat.cmake
+                DEPENDS ${_dep}
+                        ${CMAKE_SOURCE_DIR}/tests/cmake/patch_asm_flat.cmake
+                COMMENT "Patching dep ${_dep_name}: .model SMALL → FLAT"
+                VERBATIM
+            )
+
+            set(_dep_uasm_includes "-I${CMAKE_SOURCE_DIR}/LIB386/H" "-I${_dep_dir}")
+            add_custom_command(
+                OUTPUT ${_dep_obj}
+                COMMAND ${CMAKE_ASM_MASM_COMPILER}
+                        ${_uasm_flags}
+                        ${_dep_uasm_includes}
+                        -Fo${_dep_obj}
+                        ${_dep_patched}
+                DEPENDS ${_dep_patched}
+                COMMENT "Assembling dep ${_dep_name} (patched)"
+                VERBATIM
+            )
+
+            target_sources(${ARG_NAME} PRIVATE ${_dep_obj})
+            set_source_files_properties(${_dep_obj} PROPERTIES
+                EXTERNAL_OBJECT TRUE
+                GENERATED TRUE
+            )
+        endforeach()
+
+        if(ARG_ASM_DEPS)
+            target_link_options(${ARG_NAME} PRIVATE -Wl,--allow-multiple-definition)
+        endif()
+
     endif()
 endfunction()
 

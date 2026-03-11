@@ -3,8 +3,8 @@
 #include <3D/SINTABF.H>
 
 #ifdef LBA2_ASM_TESTS
-extern "C" float *asm_SinTabF;
-extern "C" float *asm_CosTabF;
+extern "C" float asm_SinTabF[];
+extern "C" float asm_CosTabF[];
 
 static void test_equivalence(void)
 {

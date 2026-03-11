@@ -8,7 +8,11 @@
 extern void InitMatrixStdF(TYPE_MAT *m, S32 a, S32 b, S32 g);
 
 #ifdef LBA2_ASM_TESTS
-extern "C" void asm_InitMatrixStdF(TYPE_MAT *m, S32 a, S32 b, S32 g);
+extern "C" void asm_InitMatrixStdF(void);
+static void call_asm_InitMatrixStdF(TYPE_MAT *m, S32 a, S32 b, S32 g) {
+    __asm__ __volatile__("call asm_InitMatrixStdF"
+        : "+a"(a), "+b"(b), "+c"(g) : "D"(m) : "memory", "edx", "esi");
+}
 
 static void test_equivalence(void)
 {
@@ -19,7 +23,7 @@ static void test_equivalence(void)
     for (int i = 0; i < (int)(sizeof(cases)/sizeof(cases[0])); i++) {
         TYPE_MAT cm, am;
         InitMatrixStdF(&cm, cases[i].a, cases[i].b, cases[i].g);
-        asm_InitMatrixStdF(&am, cases[i].a, cases[i].b, cases[i].g);
+        call_asm_InitMatrixStdF(&am, cases[i].a, cases[i].b, cases[i].g);
         ASSERT_ASM_CPP_MEM_EQ(&am, &cm, sizeof(TYPE_MAT), "InitMatrixStdF");
     }
 }
@@ -31,7 +35,7 @@ static void test_random_equivalence(void)
         S32 a = rand()%4096, b = rand()%4096, g = rand()%4096;
         TYPE_MAT cm, am;
         InitMatrixStdF(&cm, a, b, g);
-        asm_InitMatrixStdF(&am, a, b, g);
+        call_asm_InitMatrixStdF(&am, a, b, g);
         ASSERT_ASM_CPP_MEM_EQ(&am, &cm, sizeof(TYPE_MAT), "InitMatrixStdF rand");
     }
 }
