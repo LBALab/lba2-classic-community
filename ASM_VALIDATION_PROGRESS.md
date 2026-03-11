@@ -109,3 +109,174 @@ exists in both `.ASM` and `.CPP` form.
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [ ] | `OBJECT/AFF_OBJ.ASM` | `OBJECT/AFF_OBJ.CPP` | `ObjectDisplay`, `BodyDisplay`, `TestVisibleI`, `TestVisibleF`, `QuickSort`, `QuickSortInv` | Full 3D object rendering pipeline | Very complex — heavy dependencies |
+
+---
+
+## Known Discrepancies
+
+### 1. AffString — Glyph rendering direction and pixel offset
+
+**Files:** `SVGA/AFFSTR.ASM` vs `SVGA/AFFSTR.CPP`
+
+The ASM and CPP versions of `AffString` render characters using the embedded
+`Font8x8[256×8]` bitmap font, but they iterate the glyph bits in opposite
+directions, producing **horizontally mirrored** output.
+
+**ASM** (AFFSTR.ASM, AffString proc):
+```asm
+add  ebp, [SizeChar]         ; start pointer = Log + TabOffLine[y] + x + SizeChar
+mov  ecx, [SizeChar]
+neg  ecx                     ; loop counter from -SizeChar to 0
+@@boucle_mask:
+  shr  al, 1                 ; shift RIGHT: reads bits LSB → MSB
+  jnc  @@bit_vide
+  mov  [ebp+ecx], dl         ; write pixel at (x + SizeChar + ecx)
+@@bit_vide:
+  inc  ecx
+  jnz  @@boucle_mask
+```
+
+**CPP** (AFFSTR.CPP, AffString function):
+```c
+U8 *ptr = Log + TabOffLine[y] + x;     // start pointer = x (no SizeChar offset)
+U8 mask = 0x80;                         // shift LEFT: reads bits MSB → LSB
+for (S32 i = 0; i < 8; i++) {
+    if (fontByte & mask)
+        *ptr = TextInk;
+    ptr++;
+    mask >>= 1;
+}
+ptr += 640 - SizeChar;                  // hardcoded 640 stride
+```
+
+**Differences:**
+
+| Aspect | ASM | CPP |
+|--------|-----|-----|
+| Pixel start offset | `x + SizeChar` (writes backwards) | `x` (writes forwards) |
+| Bit scan direction | LSB → MSB (`shr al, 1`) | MSB → LSB (`mask = 0x80 >> i`) |
+| Line stride | `TabOffLine[y+1] - TabOffLine[y]` | Hardcoded `640` |
+| Net effect | Standard glyph orientation | **Horizontally mirrored** glyph |
+
+Additionally, the Font8x8 data has **2 patched characters** in ASM only:
+
+| Char | ASM (patched) | CPP (original CP437) | Purpose |
+|------|--------------|---------------------|---------|
+| 0xC0 (192) | `120, 0, 120, 12, 124, 204, 118, 0` | `24, 24, 31, 24, 31, 24, 24, 24` | ASM replaced box-drawing `├` with accented `à` |
+| 0xCC (204) | `120, 0, 120, 204, 204, 204, 120, 0` | `252, 204, 96, 48, 96, 204, 252, 0` | ASM replaced box-drawing `╠` with accented `ò` |
+
+These patches suggest French localization was applied directly to the ASM font
+table.  The CPP port retains the original CP437 box-drawing characters.
+
+**Suggested fix for CPP:** Reverse the bit scan to `shr`-equivalent (iterate
+from bit 0 to bit 7), add `SizeChar` to the starting pointer, and use
+`TabOffLine` for line stride instead of hardcoded 640.  Also patch Font8x8
+entries 0xC0 and 0xCC to match the ASM values.
+
+---
+
+### 2. ObjectStoreFrame — Off-by-one in stored dword count
+
+**Files:** `ANIM/STOFRAME.ASM` vs `ANIM/STOFRAME.CPP`
+
+When storing the current animation frame to the circular buffer, the ASM and CPP
+versions copy a different number of 32-bit words from `CurrentFrame[]`.
+
+**ASM** (STOFRAME.ASM):
+```asm
+mov  ecx, [ebx].NbGroups
+lea  ecx, [ecx*2-2]          ; count = NbGroups × 2 - 2
+rep  movsd                    ; copy `count` dwords
+```
+
+**CPP** (STOFRAME.CPP):
+```c
+U32 nbGroups = obj->NbGroups;
+for (U32 i = 0; i < nbGroups * 2 - 1; i++)    // count = NbGroups × 2 - 1
+    *dst++ = *src++;
+```
+
+**Concrete example with `NbGroups = 3`:**
+
+Each `T_GROUP_INFO` is 8 bytes (2 dwords: `{Type+Alpha}` and `{Beta+Gamma}`).
+
+| Version | Formula | Dwords | Bytes | Groups stored |
+|---------|---------|--------|-------|---------------|
+| ASM | `3×2-2 = 4` | 4 | 16 | 2 complete groups (groups 1–2) |
+| CPP | `3×2-1 = 5` | 5 | 20 | 2 complete groups + 4 extra bytes (partial group 3) |
+
+Both versions write a 16-byte header (4 zero dwords) before the frame data.
+The first 32 bytes (header + 2 groups) are **identical** between ASM and CPP.
+The CPP version writes one additional dword that the ASM version does not.
+
+**Impact:** The circular buffer pointer (`PtrLib3DBufferAnim`) advances by 4
+extra bytes per store in CPP.  Over many animation frames this could cause the
+CPP buffer to wrap at a different point than ASM.  The extra dword is harmless
+if never read, but could theoretically shift subsequent stored frames in memory.
+
+**Suggested fix for CPP:** Change `nbGroups * 2 - 1` to `nbGroups * 2 - 2` to
+match the ASM. Update the buffer pointer advance accordingly.
+
+---
+
+### 3. ObjectSetInterDep / ObjectSetInterAnim — Function pointer ABI mismatch
+
+**Files:** `ANIM/INTERDEP.ASM` vs `ANIM/INTERDEP.CPP`  
+(also affects `ANIM/INTANIM.ASM` which calls `ObjectSetInterDep`)
+
+The ASM version calls `InitMatrixStd` and `RotatePoint` through **indirect
+DWORD function pointers**, while the CPP version calls `InitMatrixStdF` /
+`LongRotatePointF` directly.
+
+**ASM** (INTERDEP.ASM):
+```asm
+EXTRN C InitMatrixStd:  DWORD        ; declared as a DWORD *variable*
+EXTRN C RotatePoint:    DWORD
+; ...
+call  [InitMatrixStd]                ; indirect call: read DWORD at &InitMatrixStd,
+                                     ;   then CALL that address
+call  [RotatePoint]
+```
+
+**CPP** (INTERDEP.CPP):
+```c
+extern void InitMatrixStdF(S32 alpha, S32 beta, S32 gamma);
+extern void LongRotatePointF(S32 x, S32 y, S32 z);
+// ...
+InitMatrixStdF(alpha, beta, gamma);  // direct call
+LongRotatePointF(x, y, z);
+```
+
+**Why it segfaults in test binaries:**
+
+In the original Watcom-compiled game, `InitMatrixStd` and `RotatePoint` were
+**global function-pointer variables** — 4-byte memory locations containing the
+address of the actual function.  The ASM instruction `call [InitMatrixStd]`
+performs an indirect call: it reads the 4-byte value stored at `InitMatrixStd`
+and jumps to that address.
+
+In our GCC/Linux test binary, `InitMatrixStd` resolves to a regular function
+symbol.  Its address points to the function's **machine code**.  When the ASM
+executes `call [InitMatrixStd]`, it reads the first 4 bytes of the function's
+prologue (e.g., `push ebp; mov ebp, esp` = `0x8B EC 55 89`) as a memory
+address and jumps there — instant segfault.
+
+**Diagram:**
+
+```
+Original game (Watcom):
+  InitMatrixStd:  dd  offset _InitMatrixStdF    ; pointer variable
+  call [InitMatrixStd]  →  reads pointer  →  jumps to _InitMatrixStdF  ✓
+
+Test binary (GCC):
+  InitMatrixStd:  push ebp / mov ebp,esp / ...  ; function body
+  call [InitMatrixStd]  →  reads 0x8BEC5589     →  jumps to garbage  ✗
+```
+
+**Suggested fix:** Create DWORD function-pointer shims in the test binary:
+```c
+void (*InitMatrixStd)(S32, S32, S32)   = InitMatrixStdF;
+void (*RotatePoint)(S32, S32, S32)     = LongRotatePointF;
+```
+This would make the ASM's `call [InitMatrixStd]` work correctly, enabling full
+ASM-vs-CPP equivalence testing for `ObjectSetInterDep` and `ObjectSetInterAnim`.
