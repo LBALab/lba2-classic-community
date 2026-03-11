@@ -104,6 +104,7 @@
       "description": "Build with ASM equivalence tests (requires 32-bit toolchain, uasm, objcopy)",
       "cacheVariables": {
         "LBA2_BUILD_TESTS": "ON",
+        "ENABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_FLAGS": "-m32",
         "CMAKE_CXX_FLAGS": "-m32",
