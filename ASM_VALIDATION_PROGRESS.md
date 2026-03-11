@@ -55,7 +55,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [x] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM ≡ CPP: fixed pixel offset, line stride, TextPaper support, Font8x8 patches (chars 0xC0, 0xCC) |
+| [x] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM ≡ CPP: fixed pixel offset, line stride, TextPaper support, Font8x8 patches (chars 0xC6, 0xE4) |
 | [ ] | `SVGA/BLITBOXF.ASM` | `SVGA/BLITBOXF.CPP` | `BlitBoxF` | Fast blit rectangular region with transparency | |
 | [ ] | `SVGA/BOX.ASM` | `SVGA/BOX.CPP` | `Box` | Draw rectangle outline with clipping | Needs `Log`, `TabOffLine`, Clip globals |
 | [ ] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | |
@@ -125,7 +125,7 @@ exists in both `.ASM` and `.CPP` form.
 2. Line stride: replaced hardcoded `640` with `ModeDesiredX`.
 3. TextPaper support: non-ink pixels now write `TextPaper` color when
    `TextPaper != 0xFF` (0xFF = transparent), matching the ASM's `cmp ah, 0FFh`.
-4. Font8x8 patches: chars 0xC0 and 0xCC updated to match ASM's French
+4. Font8x8 patches: chars 0xC6 and 0xE4 updated to match ASM's French
    accented character replacements (`à` and `ò`).
 
 ---
