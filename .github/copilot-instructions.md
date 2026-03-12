@@ -22,6 +22,47 @@ exceptions:
 If the CPP output differs from the ASM output by even a single byte,
 **fix the CPP implementation** until it matches.  Do not weaken the test.
 
+### No x86 inline assembly in library code
+
+The CPP ports in `LIB386/` must remain **portable C/C++**.  Do not use GCC
+inline `__asm__` or MSVC `__asm` blocks in `.CPP` files to "cheat" the
+equivalence tests.  The purpose of the CPP port is to have readable,
+maintainable C that produces the same results as the ASM — not C that
+embeds the same x86 instructions.
+
+Common pitfalls and their correct fixes:
+- **x87 FPU precision**: The ASM uses 80-bit extended precision (`fild`,
+  `fdivr`, `fmul`, `fistp`).  Use `long double` and compiler flags
+  (`-mfpmath=387 -ffloat-store`) to match, or use `volatile long double`
+  intermediates to prevent reordering.  If that is not enough, split the
+  computation into explicit steps with `volatile` stores.
+- **Signed 32×32→64 multiply with bit extraction**: The ASM pattern
+  `imul reg / shl edx,16 / shr eax,16 / or edx,eax` extracts bits
+  [16..47].  In C: `(S32)(((U32)hi << 16) | ((U32)lo >> 16))` where
+  `lo/hi` come from splitting the 64-bit product.
+- **Sub-pixel correction must use local variables**: The sub-pixel
+  adjustment to `u`, `v`, `w` must be done on **local copies** (`lineU`,
+  `lineV`), not on the outer per-scanline accumulators.
+
+### Chunking strategy for large functions
+
+When working on a large functions, a strategy is to break it into smaller,
+manageable chunks that can be tested independently.
+
+That applies to both ASM and CPP implementations.  For example, a large function
+like `Filler_TextureZFogSmooth` can be refactored to call smaller helper functions
+for each major step (setup, perspective correction, scanline loop, etc).  Each
+helper can be tested independently for ASM-vs-CPP equivalence, which makes it
+easier to identify and fix discrepancies.
+
+However, once the implementation of CPP matches the behavior of the ASM
+implementation, the original ASM implementation must be restored and kept intact,
+while the CPP implementation can be kept broken down in smaller chunks, that
+is indifferent. In that case, after the right behavior is achieved, the tests
+comparing the smaller chunks can be removed and just leave the main function
+compared in its ASM vs CPP implementations.
+
+
 ### When adding or modifying ASM equivalence tests
 
 1. **Update `ASM_VALIDATION_PROGRESS.md`** in the project root:
