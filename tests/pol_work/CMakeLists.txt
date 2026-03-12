@@ -38,8 +38,11 @@ add_asm_cpp_test(NAME test_polytexz   TEST_SOURCE test_polytexz.cpp   LIBS poly 
     ASM_SOURCE ${_POLY_ASM_DIR}/POLYTEXZ.ASM
     RENAME_SYMS Filler_TextureZ Filler_TextureZFlat Filler_TextureZChromaKey Filler_TextureZFlatChromaKey Filler_TextureZFog Filler_TextureZChromaKeyFog Filler_TextureZZBuf Filler_TextureZChromaKeyZBuf Filler_TextureZFlatZBuf Filler_TextureZFlatChromaKeyZBuf Filler_TextureZFogZBuf Filler_TextureZChromaKeyFogZBuf Filler_TextureZNZW Filler_TextureZChromaKeyNZW Filler_TextureZFlatNZW Filler_TextureZFlatChromaKeyNZW Filler_TextureZFogNZW Filler_TextureZChromaKeyFogNZW Fill_Init_Perspective Fill_Loop_Perspective
     ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
-add_asm_cpp_test(NAME test_polytzf    TEST_SOURCE test_polytzf.cpp    LIBS poly svg sys SDL3::SDL3)
-add_asm_cpp_test(NAME test_polytzg    TEST_SOURCE test_polytzg.cpp    LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_polytzf   TEST_SOURCE test_polytzf.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYTZF.ASM
+    RENAME_SYMS Filler_TextureZFogSmooth Filler_TextureZFogSmoothZBuf Filler_TextureZFogSmoothNZW Fill_Init_Perspective Fill_Loop_Perspective
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
+add_asm_cpp_test(NAME test_polytzg   TEST_SOURCE test_polytzg.cpp   LIBS poly svg sys SDL3::SDL3)
 # TestVuePolyF: C-adapted PROC has "uses eax" which clobbers the return value.
 # We need to patch the ASM to remove 'eax' from the 'uses' clause.
 # For now, use STRIP_C_ADAPT + inline asm wrapper (Watcom: input in ESI).
