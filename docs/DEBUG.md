@@ -20,27 +20,55 @@ cmake --build build
 | `T` | Advance timer | Advances game timer by 200 ticks |
 | `Z` | Toggle ZV | Toggles collision volume (Zone de Vie) rendering |
 | `E` | Toggle horizon | Toggles horizon drawing on/off |
-| `G` | Save bug state | Saves current game state to `./bugs/` for reproducing issues |
-| `L` | Load bug state | Loads a previously saved bug state from main menu |
-| `F9` | Screenshot | Captures screenshot as PNG to current directory |
+| `G` | Save bug state | Saves current game state for reproducing issues |
+| `L` | Load bug state | Loads a previously saved bug state (from main menu) |
+| `F9` | Screenshot | Captures screenshot as PNG |
 | `F10` | Terrain benchmark | Runs 20-loop terrain rendering benchmark (exterior only) |
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |
-| `F12` | Toggle ASCII mode | Toggles ASCII input mode |
+| `F12` | Toggle ASCII mode | Toggles between text input and gameplay input modes |
 
-### Debug Cheat Codes
+### What is ASCII Mode?
 
-When DEBUG_TOOLS is enabled, some cheat codes use shorter versions:
+ASCII mode controls how the game interprets keyboard input:
+- **ON**: Captures typed characters (for text entry like player names, cheat codes)
+- **OFF**: Captures raw key scancodes (for gameplay controls)
 
-| Code | Normal | Debug | Effect |
-|------|--------|-------|--------|
-| LIFE | `LIFE` | `IFE` | Restores full health |
-| MAGIC | `MAGIC` | `MAGIC` | Restores magic points |
-| FULL | `FULL` | `FULL` | Restores everything |
-| GOLD | `GOLD` | `GOLD` | Adds 50 kashes/zlitos |
-| SPEED | `SPEED` | `SPEED` | Toggles FPS display |
-| CLOVER | `CLOVER` | `CLOVER` | Fills clover leaves |
-| BOX | `BOX` | `BOX` | Adds clover box |
-| PINGOUIN | `PINGOUIN` | `PINGOUIN` | Adds 5 meca-penguins |
+Pressing `F12` toggles between these modes. This was useful during development for testing text input vs gameplay.
+
+## File Locations
+
+### Screenshots (`F9`)
+
+Screenshots are saved to your user data directory under `save/shoot/`:
+
+| Platform | Location |
+|----------|----------|
+| Linux | `~/.local/share/Twinsen/LBA2/save/shoot/LBA00000.png` |
+| Windows | `%APPDATA%\Twinsen\LBA2\save\shoot\LBA00000.png` |
+| macOS | `~/Library/Application Support/Twinsen/LBA2/save/shoot/LBA00000.png` |
+
+### Bug Saves (`G` key)
+
+Bug saves are currently saved to `./bugs/` relative to where you run the game. This is a legacy path from the original Adeline debug system.
+
+The name "bugs" comes from the original French development team - these were used to save game states when reproducing bug reports.
+
+## Cheat Codes
+
+Cheat codes are entered by **typing the letters during normal gameplay** - no special key combination needed. Just type the word while playing:
+
+| Code | Debug Version | Effect |
+|------|---------------|--------|
+| `LIFE` | `IFE` | Restores full health |
+| `MAGIC` | `MAGIC` | Restores magic points |
+| `FULL` | `FULL` | Restores health + magic + clovers |
+| `GOLD` | `GOLD` | Adds 50 kashes (or zlitos on Zeelich) |
+| `SPEED` | `SPEED` | Toggles FPS display |
+| `CLOVER` | `CLOVER` | Fills clover leaves |
+| `BOX` | `BOX` | Adds a clover box |
+| `PINGOUIN` | `PINGOUIN` | Adds 5 meca-penguins |
+
+When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
 
 ## Bug Save/Load System
 
@@ -62,17 +90,21 @@ When DEBUG_TOOLS is enabled, the game may display:
 - Polygon limit warnings ("MaxPolySea Atteint!")
 - Memory and performance statistics
 
-## Command-Line Options
+## Known Limitations
 
-With DEBUG_TOOLS enabled, you can start at a specific cube:
+### Command-Line Cube Selection (Not Implemented)
 
+The original debug tools included a command-line option to start at a specific cube/scene:
 ```bash
 ./lba2 <cube_number>
 ```
 
+This feature is **not currently functional**. The `SlideDemo` function that handled this is commented out in `PERSO.CPP`. The command-line argument is currently interpreted as a save game filename instead.
+
 ## Related Files
 
-- `SOURCES/DEFINES.H` - Contains the `DEBUG_TOOLS` define
-- `SOURCES/PERSO.CPP` - Main debug key handlers
+- `SOURCES/DEFINES.H` - Contains the `DEBUG_TOOLS` define and `PATH_SAVE_BUGS`
+- `SOURCES/PERSO.CPP` - Main debug key handlers, screenshot functions
 - `SOURCES/GAMEMENU.CPP` - Bug save/load menu integration
 - `SOURCES/CHEATCOD.CPP` - Cheat code handling
+- `SOURCES/DIRECTORIES.CPP` - File path resolution (screenshots, saves)
