@@ -5,3 +5,4 @@ out/
 build/
 /build_test
 /build_logs/
+.tmp/
