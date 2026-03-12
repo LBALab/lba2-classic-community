@@ -411,8 +411,10 @@ void	CreateLbaDirectories( void )
 
 #ifdef DEBUG_TOOLS
 	GetBugPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	if( AddDirIfNot( tmpDirPath ) ) {
-		LogPrintf("Created bugs directory: %s\n", tmpDirPath);
+	if( !ExistsFileOrDir( tmpDirPath ) ) {
+		if( AddDirIfNot( tmpDirPath ) ) {
+			LogPrintf("Created bugs directory: %s\n", tmpDirPath);
+		}
 	}
 #endif
 

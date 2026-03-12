@@ -39,7 +39,7 @@ S32     EscTimer ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
 char    NamePcxSave[ADELINE_MAX_PATH] ;
-S32     NumPcxSave = 0 ;
+S32     NumShootSave = 0 ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -93,7 +93,7 @@ void    AffDebugMenu()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 // Pour eviter d'ecraser les anciennes copies d'ecran !!!!
-void GetNumPcxSave() {
+void GetNumShootSave() {
   struct dirent *file;
   DIR *dir;
   S32 num;
@@ -106,15 +106,16 @@ void GetNumPcxSave() {
     while ((file = readdir(dir)) != NULL) {
       bool startsLBA = (ade_strcasestr(file->d_name, "LBA") == file->d_name);
       bool hasPCX = (ade_strcasestr(file->d_name, ".PCX") != NULL);
-      if (startsLBA && hasPCX) {
+      bool hasPNG = (ade_strcasestr(file->d_name, ".PNG") != NULL);
+      if (startsLBA && (hasPCX || hasPNG)) {
         GetShootPath(pathname, ADELINE_MAX_PATH, file->d_name);
 
         struct stat st = {};
         stat(pathname, &st);
         if (S_ISREG(st.st_mode)) {
           num = atoi(&file->d_name[3]);
-          if (num >= NumPcxSave) {
-            NumPcxSave = num + 1;
+          if (num >= NumShootSave) {
+            NumShootSave = num + 1;
           }
         }
       }
@@ -136,10 +137,10 @@ void    CheckSavePcx()
 		BackupScreen( FALSE ) 	;
 		CopyScreen( Log, Screen ) ;
 
-                GetNumPcxSave() ;
+                GetNumShootSave() ;
 
                 char PNGFilename[ADELINE_MAX_PATH];
-		sprintf(PNGFilename, "LBA%05d.png", NumPcxSave);
+		sprintf(PNGFilename, "LBA%05d.png", NumShootSave);
                 GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
 
                 CoulText( LBAWHITE, 0 ) ;
@@ -180,10 +181,10 @@ void    CheckSaveLogPcx( U8 *pal )
         {
                 SaveTimer() ;
 
-                GetNumPcxSave() ;
+                GetNumShootSave() ;
 
                 char PNGFilename[ADELINE_MAX_PATH];
-                sprintf(PNGFilename, "LBA%05d.png", NumPcxSave);
+                sprintf(PNGFilename, "LBA%05d.png", NumShootSave);
                 GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
 
                 SavePNG( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
