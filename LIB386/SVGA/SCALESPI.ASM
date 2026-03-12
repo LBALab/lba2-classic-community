@@ -49,7 +49,7 @@ Y_Int   DWORD 12345678h
 		public   C     ScaleSprite
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-ScaleSprite	proc uses ebp,		\
+ScaleSprite	proc uses ebp esi edi ebx,		\
 		numbrick:	DWORD, 	\
 		xbrick:		DWORD,	ybrick:		DWORD, \
 		factorx:	DWORD,	factory:	DWORD, \

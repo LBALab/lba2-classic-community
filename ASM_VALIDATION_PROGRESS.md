@@ -69,7 +69,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | ASM ≡ CPP: roundtrip + full-screen + 20 random regions |
 | [ ] | `SVGA/SAVBLOCK.ASM` | `SVGA/SAVBLOCK.CPP` | `SaveBlock` | Save screen region to buffer | |
 | [x] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | ASM ≡ CPP: same-size, upscale, downscale + 20 random sizes/positions |
-| [~] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | CPP fixed: ScreenXMax/YMax now inclusive (was off-by-one). 10 CPP tests (basic, transparency, clipping×4, hotspot, multi-sprite, random×30). ASM segfaults — `PROC uses ebp` stack frame issue under .model FLAT. |
+| [x] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | ASM fix: added `uses esi edi ebx` (callee-saved regs were clobbered, causing crash). CPP fix: ScreenXMax/YMax now inclusive. 14 tests: basic, transparency, clipping×4, hotspot, multi-sprite, random×30, ASM-vs-CPP (1:1, clipped, random×20). |
 
 ## SYSTEM/ — System Utilities (4 pairs)
 
@@ -163,3 +163,27 @@ caller passes params in Watcom registers (`edi`/`eax`/`ebx`/`ecx`).
 
 The shims are installed via `install_shims()` only before ASM calls.  CPP tests
 use the default function pointers (which point to CPP functions with C convention).
+
+---
+
+### 4. ScaleSprite — Callee-saved register clobbering (FIXED)
+
+**Status:** Fixed in ASM. All 14 tests pass (including ASM-vs-CPP equivalence).
+
+**Root cause:** `ScaleSprite proc uses ebp` only saved/restored `ebp`, but the
+function body clobbers `esi`, `edi`, and `ebx` — all callee-saved registers in
+the x86 cdecl calling convention. When called from GCC-compiled C code, the
+caller's register state was corrupted on return, causing a segfault.
+
+**Fix:** Changed `proc uses ebp` to `proc uses ebp esi edi ebx` in
+`SVGA/SCALESPI.ASM`. This generates proper push/pop sequences in the
+prologue/epilogue to preserve all clobbered callee-saved registers.
+
+**CPP fix (prior):** `ScreenXMax`/`ScreenYMax` changed from exclusive to
+inclusive values (`end_x - 1` instead of `end_x`), matching the ASM output.
+
+**Note:** ASM treats Hot_X/Hot_Y as signed bytes (via `shl`/`sar` sign
+extension), while CPP reads them as unsigned `U8`. For values 0–127 the
+results are identical; for 128–255 they differ. All current test data uses
+small positive values so this is not tested.
+
