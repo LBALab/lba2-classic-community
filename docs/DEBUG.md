@@ -83,29 +83,35 @@ Saved to `save/*.lba`
 
 Cheat codes are entered by **typing the letters during normal gameplay** - no special key combination needed. Just type the word while playing:
 
-| Code | Debug Version | Effect |
+| Code | Short Version | Effect |
 |------|---------------|--------|
 | `LIFE` | `IFE` | Restores full health |
-| `MAGIC` | `MAGIC` | Restores magic points |
-| `FULL` | `FULL` | Restores health + magic + clovers |
-| `GOLD` | `GOLD` | Adds 50 kashes (or zlitos on Zeelich) |
-| `SPEED` | `SPEED` | Toggles FPS display |
-| `CLOVER` | `CLOVER` | Fills clover leaves |
-| `BOX` | `BOX` | Adds a clover box |
-| `PINGOUIN` | `PINGOUIN` | Adds 5 meca-penguins |
+| `MAGIC` | — | Restores magic points |
+| `FULL` | — | Restores health + magic + clovers |
+| `GOLD` | — | Adds 50 kashes (or zlitos on Zeelich) |
+| `SPEED` | — | Toggles FPS display |
+| `CLOVER` | — | Fills clover leaves |
+| `BOX` | — | Adds a clover box |
+| `PINGOUIN` | — | Adds 5 meca-penguins |
 
-When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
+The "Short Version" column shows alternate codes that work the same way. When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
 
 ### Cheat Codes in DEBUG_TOOLS Builds
 
-In DEBUG_TOOLS builds, many letter keys are bound to debug functions (`D`, `F`, `T`, `Z`, `E`, `V`, `M`, `K`, `A`, `B`). This means most cheat codes will not work correctly because pressing these keys triggers the debug function instead.
+In DEBUG_TOOLS builds, many letter keys are bound to debug functions (`D`, `F`, `T`, `Z`, `E`, `V`, `M`, `K`, `A`, `B`). This causes conflicts with most cheat codes:
 
-**To use cheat codes in a debug build:**
-1. Press `F12` to toggle ASCII mode ON
-2. Type the cheat code
-3. Press `F12` again to toggle ASCII mode OFF
+| Cheat | Conflicting Keys | Works in Debug? |
+|-------|------------------|-----------------|
+| `LIFE` / `IFE` | `F`, `E` | No |
+| `MAGIC` | `A`, `M` | No |
+| `FULL` | `F` | No |
+| `GOLD` | `D` | No |
+| `SPEED` | `D` | No |
+| `CLOVER` | `E` | No |
+| `BOX` | `B` | No |
+| `PINGOUIN` | — | Yes |
 
-In non-debug builds, cheat codes work without any special steps.
+**For reliable cheat code use, build without `-DDEBUG_TOOLS=ON`.** The shorter debug versions (`IFE` instead of `LIFE`) were designed to minimize conflicts, but most still have at least one conflicting key.
 
 ## Bug Save/Load System
 
