@@ -90,19 +90,19 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `pol_work/POLY.ASM` | `pol_work/POLY.CPP` | Polygon data/tables | Core polygon rendering data + structures | Data + state |
-| [ ] | `pol_work/POLY_JMP.ASM` | `pol_work/POLY_JMP.CPP` | Jump/dispatch tables | Polygon type dispatcher | |
-| [ ] | `pol_work/POLYCLIP.ASM` | `pol_work/POLYCLIP.CPP` | Polygon clipping | Clip polygon to viewport bounds | |
-| [ ] | `pol_work/POLYDISC.ASM` | `pol_work/POLYDISC.CPP` | Disc polygon rendering | Circle/disc polygon fill | |
-| [ ] | `pol_work/POLYFLAT.ASM` | `pol_work/POLYFLAT.CPP` | Flat polygon fillers | Solid-color polygon fill (multiple variants) | |
-| [ ] | `pol_work/POLYGOUR.ASM` | `pol_work/POLYGOUR.CPP` | Gouraud/dither fillers | Gouraud + dither shading (16+ variants) | Complex |
-| [ ] | `pol_work/POLYGTEX.ASM` | `pol_work/POLYGTEX.CPP` | Gouraud + texture fillers | Texture mapping with Gouraud shading | |
-| [ ] | `pol_work/POLYLINE.ASM` | `pol_work/POLYLINE.CPP` | Polygon line rendering | Polygon edge drawing | |
-| [ ] | `pol_work/POLYTEXT.ASM` | `pol_work/POLYTEXT.CPP` | Textured polygon fillers | Texture-mapped polygon fill | |
-| [ ] | `pol_work/POLYTEXZ.ASM` | `pol_work/POLYTEXZ.CPP` | Z-buffered texture fillers | Texture + Z-buffer polygon fill | |
-| [ ] | `pol_work/POLYTZF.ASM` | `pol_work/POLYTZF.CPP` | Texture + Z-buffer variants | Additional Z-buf texture fill variants | |
-| [ ] | `pol_work/POLYTZG.ASM` | `pol_work/POLYTZG.CPP` | Texture + Z-buf + Gouraud | Combined shading variants | |
-| [ ] | `pol_work/TESTVUEF.ASM` | `pol_work/TESTVUEF.CPP` | Visibility testing | Backface culling / polygon visibility | |
+| [~] | `pol_work/POLY.ASM` | `pol_work/POLY.CPP` | Fill_Poly, SetFog, INV64, Switch_Fillers, SetScreenPitch | Core polygon rendering pipeline | CPP tested via Fill_Poly integration (13 tests). No ASM equiv yet. |
+| [~] | `pol_work/POLY_JMP.ASM` | `pol_work/POLY_JMP.CPP` | Jmp_Solid, Jmp_Trame, Jmp_Transparent, Jmp_Gouraud, ... (80+ dispatch functions) | Polygon type dispatcher | CPP tested via Fill_Poly dispatch (7 tests). No ASM equiv yet. |
+| [~] | `pol_work/POLYCLIP.ASM` | `pol_work/POLYCLIP.CPP` | ClipperZ | Z-plane polygon clipping | CPP-only tests (3). ASM tests disabled — no ASM_SOURCE configured. |
+| [~] | `pol_work/POLYDISC.ASM` | `pol_work/POLYDISC.CPP` | Fill_Sphere, Sph_Line_* | Circle/disc polygon fill | CPP tested (9 tests): center, radius, clipping, transparency, fog, random. |
+| [~] | `pol_work/POLYFLAT.ASM` | `pol_work/POLYFLAT.CPP` | Filler_Flat, Filler_Trame, Filler_Transparent, ... (10 fillers) | Solid-color polygon fill | CPP tested via Fill_Poly (10 tests). No ASM equiv yet. |
+| [~] | `pol_work/POLYGOUR.ASM` | `pol_work/POLYGOUR.CPP` | Filler_Gouraud, Filler_Dither, ... (18 fillers) | Gouraud + dither shading | CPP tested via Fill_Poly (6 tests). Requires PtrCLUTGouraud. |
+| [~] | `pol_work/POLYGTEX.ASM` | `pol_work/POLYGTEX.CPP` | Filler_TextureGouraud, Filler_TextureDither, ... (8 fillers) | Texture mapping with Gouraud shading | CPP tested via Fill_Poly (5 tests). |
+| [~] | `pol_work/POLYLINE.ASM` | `pol_work/POLYLINE.CPP` | Line, Line_A, Line_ZBuffer, Line_ZBuffer_NZW | Polygon edge drawing | CPP-only tests (5). ASM tests disabled — no ASM_SOURCE configured. |
+| [~] | `pol_work/POLYTEXT.ASM` | `pol_work/POLYTEXT.CPP` | Filler_Texture, Filler_TextureFlat, ... (18 fillers) | Texture-mapped polygon fill | Linkage + offscreen test only — on-screen rendering SEGFAULTs (texture pipeline init issue). |
+| [~] | `pol_work/POLYTEXZ.ASM` | `pol_work/POLYTEXZ.CPP` | Filler_TextureZ, Fill_Init_Perspective, ... (20+ funcs) | Perspective-correct texture fill | Linkage + offscreen test only — same pipeline issue as POLYTEXT. |
+| [~] | `pol_work/POLYTZF.ASM` | `pol_work/POLYTZF.CPP` | Filler_TextureZFogSmooth, ... (3 fillers) | TextureZ + smooth fog variants | CPP tested via Fill_Poly (3 tests). |
+| [~] | `pol_work/POLYTZG.ASM` | `pol_work/POLYTZG.CPP` | Filler_TextureZGouraud, ... (6 fillers) | TextureZ + Gouraud variants | CPP tested via Fill_Poly (3 tests). |
+| [~] | `pol_work/TESTVUEF.ASM` | `pol_work/TESTVUEF.CPP` | TestVuePoly | Backface culling / polygon visibility | CPP tested (5 tests). CW/CCW test expectations fixed. ASM tests disabled. |
 
 ## OBJECT/ — 3D Object Display (1 pair, multiple functions)
 

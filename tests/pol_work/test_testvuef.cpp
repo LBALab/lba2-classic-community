@@ -31,16 +31,17 @@ static void set_tri(S16 x0, S16 y0, S16 x1, S16 y1, S16 x2, S16 y2)
 
 static void test_cw_visible(void)
 {
-    /* CW triangle: (0,0)->(100,0)->(50,80) — positive cross product */
-    set_tri(0, 0, 100, 0, 50, 80);
+    /* In screen coords (Y down), CW winding = visible.
+     * (0,0)->(50,80)->(100,0) is CW in screen coords. */
+    set_tri(0, 0, 50, 80, 100, 0);
     S32 result = TestVuePoly(pts);
     ASSERT_EQ_INT(1, result);
 }
 
 static void test_ccw_invisible(void)
 {
-    /* CCW triangle: (0,0)->(50,80)->(100,0) — negative cross product */
-    set_tri(0, 0, 50, 80, 100, 0);
+    /* (0,0)->(100,0)->(50,80) is CCW in screen coords → invisible */
+    set_tri(0, 0, 100, 0, 50, 80);
     S32 result = TestVuePoly(pts);
     ASSERT_EQ_INT(0, result);
 }
@@ -63,8 +64,8 @@ static void test_single_point(void)
 
 static void test_large_coords(void)
 {
-    /* Near S16 limits — verify no overflow in cross product calc */
-    set_tri(-30000, -30000, 30000, -30000, 0, 30000);
+    /* Near S16 limits — CW in screen coords */
+    set_tri(-30000, -30000, 0, 30000, 30000, -30000);
     S32 result = TestVuePoly(pts);
     ASSERT_EQ_INT(1, result);
 }
