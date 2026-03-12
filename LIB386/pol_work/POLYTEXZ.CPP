@@ -18,6 +18,7 @@
 #include <POLYGON/POLYTEXZ.H>
 
 #include <stdio.h>
+#include <math.h>
 
 #include <FILLER.H>
 #include <POLYGON/POLY.H>
@@ -45,12 +46,22 @@ typedef struct {
 } PerspectiveWStack_t;
 
 static PerspectiveWStack_t PerspectiveWStack = {{0}, 0};
-/* Match ASM x87 FPU exactly: fild W → fdivr F_256 → result in 80-bit extended.
- * Then fild MapOverW × result → fistp to S32 using FPU rounding mode.
+/* Perspective correction: replicate ASM x87 FPU behavior.
  *
- * Using inline asm ensures the EXACT same instruction sequence as the ASM filler:
- *   fild [W]  →  fdivr [F_256]  →  result stays on FPU stack in 80-bit. */
-static float F_256_val = 256.0f;
+ * The ASM keeps 256.0f/W on the FPU stack in 80-bit extended precision,
+ * then multiplies each MapOverW value by it and stores via fistp (which
+ * uses FPU rounding = round-to-nearest-even).
+ *
+ * In C we use volatile long double to force 80-bit stores, and lrintl()
+ * to match fistp rounding.  Compile this file with -mfpmath=387
+ * -ffloat-store to prevent GCC from using SSE2 or keeping extra
+ * precision in registers.
+ *
+ * The ASM loads F_256 as a 32-bit float (DWORD), so we must use float
+ * for the constant to ensure the same representation.
+ */
+
+static volatile long double PerspectiveInvW;
 
 /* Stack operations */
 static void PerspectiveWStack_clear(void) {
@@ -81,50 +92,10 @@ static U32 PerspectiveWStack_size(void) {
     return PerspectiveWStack.top_index;
 }
 
-static inline void persp_init_invW(S32 w)
+static S32 persp_eval(S32 val)
 {
-    __asm__ __volatile__(
-        "fildl  %1\n\t"
-        "fdivrs %0\n\t"
-        /* leave 256.0/W on FPU st(0) — will be consumed by persp_eval */
-        :
-        : "m"(F_256_val), "m"(w)
-        :
-    );
-}
-
-/* Multiply st(0) = 256/W by val, store result as S32, leave 256/W on stack */
-static inline S32 persp_eval(S32 val)
-{
-    S32 result;
-    __asm__ __volatile__(
-        "fildl  %1\n\t"       /* st(0)=val  st(1)=256/W */
-        "fmul  %%st(1), %%st(0)\n\t"  /* st(0)=val*(256/W)  st(1)=256/W */
-        "fistpl %0\n\t"       /* store as S32 (FPU rounding), pop → st(0)=256/W */
-        : "=m"(result)
-        : "m"(val)
-        :
-    );
-    return result;
-}
-
-/* Store new W, compute new 256/W, replacing old value on FPU stack */
-static inline void persp_next_invW(S32 w)
-{
-    __asm__ __volatile__(
-        "fstp  %%st(0)\n\t"  /* pop old 256/W */
-        "fildl  %0\n\t"       /* load new W */
-        "fdivrs %1\n\t"       /* 256.0f / W */
-        :
-        : "m"(w), "m"(F_256_val)
-        :
-    );
-}
-
-/* Pop 256/W from FPU stack when done */
-static inline void persp_cleanup(void)
-{
-    __asm__ __volatile__("fstp %%st(0)" ::: );
+    volatile long double product = (long double)val * PerspectiveInvW;
+    return (S32)lrintl(product);
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -143,7 +114,7 @@ void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
   Fill_Cur_MapUOverW = lineU;
   Fill_Cur_MapVOverW = lineV;
   S32 wXSlope = Fill_W_XSlope << PERSP_SHIFT;
-  persp_init_invW(w);   /* push 256.0f/W onto FPU stack */
+  PerspectiveInvW = (long double)256.0f / (long double)w;
 
   PerspectiveWStack_clear();
   U32 stackLength = fillWidth + PERSP_VALUE - 1;
@@ -165,7 +136,7 @@ void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
 
   Fill_Cur_MapU = persp_eval(Fill_Cur_MapUOverW);
   Fill_Cur_MapV = persp_eval(Fill_Cur_MapVOverW);
-  persp_next_invW(Fill_Cur_W);   /* replace with 256.0f/Fill_Cur_W */
+  PerspectiveInvW = (long double)256.0f / (long double)Fill_Cur_W;
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -183,7 +154,7 @@ void Fill_Loop_Perspective(U32 fillWidth)
   {
     Fill_Next_W = PerspectiveWStack_top();
     PerspectiveWStack_pop();
-    persp_next_invW(Fill_Next_W);
+    PerspectiveInvW = (long double)256.0f / (long double)Fill_Next_W;
   }
 }
 

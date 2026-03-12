@@ -1,6 +1,7 @@
 #include <POLYGON/POLYTZF.H>
 
 #include <stdio.h>
+#include <math.h>
 #include <FILLER.H>
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
@@ -17,11 +18,12 @@ static S32 POLYTZF_Cur_ZBufOverW;
 static S32 POLYTZF_Next_ZBufOverW;
 static S32 Fill_Next_ZBuf;
 
-/* POLYTZF's F_256 constant (float, same as POLYTEXZ) */
-static float POLYTZF_F_256 = 256.0f;
-
 #define POLYTZF_PERSP_VALUE 32
 #define POLYTZF_PERSP_SHIFT 5
+
+/* Perspective inverse W — stored as volatile long double to match
+ * x87 80-bit extended precision used by the ASM filler. */
+static volatile long double POLYTZF_PerspInvW;
 
 /* W stack for POLYTZF */
 #define POLYTZF_MAX_STACK 64
@@ -36,66 +38,16 @@ static S32  POLYTZF_WStack_top(void) { return POLYTZF_WStack.top_index > 0 ? POL
 static void POLYTZF_WStack_pop(void) { if (POLYTZF_WStack.top_index > 0) POLYTZF_WStack.top_index--; }
 static U32  POLYTZF_WStack_size(void) { return POLYTZF_WStack.top_index; }
 
-/* Inline x87 helpers matching the ASM Init_PerspFPU / Loop_PerspFPU */
-
-static inline void tzf_persp_push_invW(S32 w)
+static S32 tzf_persp_eval(S32 val)
 {
-    __asm__ __volatile__(
-        "fildl  %1\n\t"
-        "fdivrs %0\n\t"
-        :
-        : "m"(POLYTZF_F_256), "m"(w)
-        :
-    );
+    volatile long double product = (long double)val * POLYTZF_PerspInvW;
+    return (S32)lrintl(product);
 }
 
-/* Multiply st(0) = 256/W by val, store result as S32, keep 256/W */
-static inline S32 tzf_persp_eval(S32 val)
+static S32 tzf_persp_eval_zbuf(S32 val)
 {
-    S32 result;
-    __asm__ __volatile__(
-        "fildl  %1\n\t"
-        "fmul  %%st(1), %%st(0)\n\t"
-        "fistpl %0\n\t"
-        : "=m"(result)
-        : "m"(val)
-        :
-    );
-    return result;
-}
-
-/* Multiply st(0) = 256/W by val, then by 256, store result as S32,
- * keep 256/W.  Used for ZBuf which needs extra ×256 scaling. */
-static inline S32 tzf_persp_eval_zbuf(S32 val)
-{
-    S32 result;
-    __asm__ __volatile__(
-        "fildl  %1\n\t"
-        "fmul  %%st(1), %%st(0)\n\t"
-        "fmuls %2\n\t"
-        "fistpl %0\n\t"
-        : "=m"(result)
-        : "m"(val), "m"(POLYTZF_F_256)
-        :
-    );
-    return result;
-}
-
-static inline void tzf_persp_replace_invW(S32 w)
-{
-    __asm__ __volatile__(
-        "fstp  %%st(0)\n\t"
-        "fildl  %0\n\t"
-        "fdivrs %1\n\t"
-        :
-        : "m"(w), "m"(POLYTZF_F_256)
-        :
-    );
-}
-
-static inline void tzf_persp_cleanup(void)
-{
-    __asm__ __volatile__("fstp %%st(0)" ::: );
+    volatile long double product = (long double)val * POLYTZF_PerspInvW * 256.0f;
+    return (S32)lrintl(product);
 }
 
 static void POLYTZF_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
@@ -107,7 +59,7 @@ static void POLYTZF_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
     Fill_Cur_MapVOverW = lineV;
     S32 wXSlope = Fill_W_XSlope << POLYTZF_PERSP_SHIFT;
 
-    tzf_persp_push_invW(w);  /* push 256/W onto FPU */
+    POLYTZF_PerspInvW = (long double)256.0f / (long double)w;
 
     POLYTZF_WStack_clear();
     U32 stackLength = fillWidth + POLYTZF_PERSP_VALUE - 1;
@@ -126,7 +78,7 @@ static void POLYTZF_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
     Fill_Cur_MapV = tzf_persp_eval(Fill_Cur_MapVOverW);
     Fill_CurZBuf = tzf_persp_eval_zbuf(POLYTZF_Cur_ZBufOverW);
 
-    tzf_persp_replace_invW(Fill_Cur_W);  /* replace with 256/W' */
+    POLYTZF_PerspInvW = (long double)256.0f / (long double)Fill_Cur_W;
 }
 
 static void POLYTZF_Loop_Perspective(U32 fillWidth)
@@ -137,17 +89,14 @@ static void POLYTZF_Loop_Perspective(U32 fillWidth)
 
     Fill_Next_MapU = tzf_persp_eval(Fill_Next_MapUOverW);
     Fill_Next_MapV = tzf_persp_eval(Fill_Next_MapVOverW);
-    S32 nextZBuf = tzf_persp_eval_zbuf(POLYTZF_Next_ZBufOverW);
+    Fill_Next_ZBuf = tzf_persp_eval_zbuf(POLYTZF_Next_ZBufOverW);
 
     if (fillWidth > POLYTZF_PERSP_VALUE)
     {
         Fill_Next_W = POLYTZF_WStack_top();
         POLYTZF_WStack_pop();
-        tzf_persp_replace_invW(Fill_Next_W);
+        POLYTZF_PerspInvW = (long double)256.0f / (long double)Fill_Next_W;
     }
-
-    /* Store after potential FPU update */
-    Fill_Next_ZBuf = nextZBuf;
 }
 
 S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
@@ -284,7 +233,6 @@ S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         POLYTZF_Cur_ZBufOverW = POLYTZF_Next_ZBufOverW;
         remaining -= 32;
       }
-      tzf_persp_cleanup();  /* pop 256/W from FPU stack */
     }
 
     if (--diffY == 0) break;
