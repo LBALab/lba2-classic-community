@@ -18,6 +18,7 @@
 #include <POLYGON/POLYTEXZ.H>
 
 #include <stdio.h>
+#include <math.h>
 
 #include <FILLER.H>
 #include <POLYGON/POLY.H>
@@ -45,7 +46,7 @@ typedef struct {
 } PerspectiveWStack_t;
 
 static PerspectiveWStack_t PerspectiveWStack = {{0}, 0};
-double PerspectiveInvW = 0.0;
+long double PerspectiveInvW = 0.0L;
 
 // Stack operations
 static void PerspectiveWStack_clear(void) {
@@ -94,7 +95,7 @@ void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
   Fill_Cur_MapUOverW = lineU;
   Fill_Cur_MapVOverW = lineV;
   S32 wXSlope = Fill_W_XSlope << PERSP_SHIFT;
-  PerspectiveInvW = 256.0 / (double)w;
+  PerspectiveInvW = 256.0L / (long double)w;
 
   // Here, we precalc an array in the stack. This array
   // contains valid Cur_W values
@@ -119,9 +120,9 @@ void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
   Fill_Cur_W = PerspectiveWStack_top();
   PerspectiveWStack_pop();
 
-  Fill_Cur_MapU = ROUND((double)Fill_Cur_MapUOverW * PerspectiveInvW);
-  Fill_Cur_MapV = ROUND((double)Fill_Cur_MapVOverW * PerspectiveInvW);
-  PerspectiveInvW = 256.0 / (double)Fill_Cur_W; // Will be used in Fill_Loop_Perspective
+  Fill_Cur_MapU = lrintl((long double)Fill_Cur_MapUOverW * PerspectiveInvW);
+  Fill_Cur_MapV = lrintl((long double)Fill_Cur_MapVOverW * PerspectiveInvW);
+  PerspectiveInvW = 256.0L / (long double)Fill_Cur_W; // Will be used in Fill_Loop_Perspective
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -132,14 +133,14 @@ void Fill_Loop_Perspective(U32 fillWidth)
   Fill_Next_MapUOverW = (Fill_MapU_XSlope << PERSP_SHIFT) + Fill_Cur_MapUOverW;
   Fill_Next_MapVOverW = (Fill_MapV_XSlope << PERSP_SHIFT) + Fill_Cur_MapVOverW;
 
-  Fill_Next_MapU = ROUND((double)Fill_Next_MapUOverW * PerspectiveInvW);
-  Fill_Next_MapV = ROUND((double)Fill_Next_MapVOverW * PerspectiveInvW);
+  Fill_Next_MapU = lrintl((long double)Fill_Next_MapUOverW * PerspectiveInvW);
+  Fill_Next_MapV = lrintl((long double)Fill_Next_MapVOverW * PerspectiveInvW);
 
   if (fillWidth > PERSP_VALUE)
   {
     Fill_Next_W = PerspectiveWStack_top();
     PerspectiveWStack_pop();
-    PerspectiveInvW = 256.0 / (double)Fill_Next_W;
+    PerspectiveInvW = 256.0L / (long double)Fill_Next_W;
   }
 }
 

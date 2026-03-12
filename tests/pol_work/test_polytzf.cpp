@@ -155,20 +155,31 @@ static void setup_tzf_filler(U32 startY, U32 nbLines,
 
 static void test_asm_equiv_tzf(void)
 {
-    /* Note: x87 vs double precision causes slight rounding differences.
-     * Verify both CPP and ASM render without crashing.  The strict
-     * comparison is optional — see POLYTEXZ for the same limitation. */
+    /* x87 extended-precision vs C long double rounding in 256/W causes
+     * slight pixel differences.  Verify both paths produce correlated output. */
     setup_tzf_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZFogSmooth(4, 20 << 16, 50 << 16);
+    memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
     setup_tzf_filler(30, 4, 20 << 16, 50 << 16);
     call_asm_Filler_TextureZFogSmooth(4, 20 << 16, 50 << 16);
-    ASSERT_TRUE(1);
+    memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    /* Count differing bytes — FP precision allows some difference */
+    int diffs = 0;
+    for (int i = 0; i < TEST_POLY_SIZE; i++)
+        if (tzf_asm_buf[i] != tzf_cpp_buf[i]) diffs++;
+    int filled = 0;
+    for (int i = 0; i < TEST_POLY_SIZE; i++)
+        if (tzf_cpp_buf[i] != 0) filled++;
+    /* Verify that most pixels match (allow up to 10% from FP precision) */
+    ASSERT_TRUE(filled == 0 || diffs * 10 < filled);
 }
 
 static void test_asm_random_tzf(void)
 {
-    /* x87 vs double precision: no-crash stress only */
+    /* x87 extended-precision vs C long double rounding differences:
+     * run both paths to verify no crash. */
     poly_rng_seed(0xFEEDFACE);
     for (int i = 0; i < 30; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);

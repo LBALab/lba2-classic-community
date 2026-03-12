@@ -110,10 +110,9 @@ static void test_asm_equiv_texz(void)
 
 static void test_asm_random_texz(void)
 {
-    /* Note: ASM uses x87 FPU (80-bit extended precision) while CPP uses
-     * double (64-bit).  The perspective 256.0/W divisions produce
-     * different rounding, so strict byte-level comparison fails for most
-     * random inputs.  We verify no-crash only for the random test. */
+    /* The static ASM equiv passes but random inputs hit x87 extended-
+     * precision vs C `long double` rounding differences in 256/W.
+     * Run both ASM and CPP paths to verify no crash. */
     poly_rng_seed(0xBEEFCAFE);
     for (int i = 0; i < 30; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
@@ -123,16 +122,15 @@ static void test_asm_random_texz(void)
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
         if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
 
-        /* CPP path */
         setup_texz_filler(y, h, x0 << 16, x1 << 16);
         Fill_MapU_XSlope = poly_rng_next() % 0x20000;
+        Fill_Cur_W = 0x8000 + (S32)(poly_rng_next() % 0x18000);
         Filler_TextureZ(h, x0 << 16, x1 << 16);
 
-        /* ASM path — just verify no crash */
         setup_texz_filler(y, h, x0 << 16, x1 << 16);
         Fill_MapU_XSlope = poly_rng_next() % 0x20000;
+        Fill_Cur_W = 0x8000 + (S32)(poly_rng_next() % 0x18000);
         call_asm_Filler_TextureZ(h, x0 << 16, x1 << 16);
-
         ASSERT_TRUE(1);
     }
 }
