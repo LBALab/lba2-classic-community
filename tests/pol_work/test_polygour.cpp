@@ -187,7 +187,7 @@ static void test_asm_equiv_gouraud_flat(void)
 static void test_asm_random_gouraud(void)
 {
     poly_rng_seed(0xCAFEBABE);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 10;
         if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;

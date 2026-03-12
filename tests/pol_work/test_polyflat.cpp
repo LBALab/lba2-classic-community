@@ -281,7 +281,7 @@ static void test_asm_equiv_flat_direct(void)
 static void test_asm_random_flat(void)
 {
     poly_rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 10;
         if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;

@@ -113,7 +113,7 @@ static U32 rng_next(void) {
 static void test_asm_equiv_random(void)
 {
     rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         S32 x0 = (S32)(rng_next() % (TEST_POLY_W + 40)) - 20;
         S32 y0 = (S32)(rng_next() % (TEST_POLY_H + 40)) - 20;
         S32 x1 = (S32)(rng_next() % (TEST_POLY_W + 40)) - 20;

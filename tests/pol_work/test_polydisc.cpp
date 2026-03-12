@@ -169,7 +169,7 @@ static void test_asm_equiv_sphere_clipped(void)
 static void test_asm_random_spheres(void)
 {
     poly_rng_seed(0xCAFEBABE);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         S32 cx = (S32)(poly_rng_next() % (TEST_POLY_W + 60)) - 30;
         S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
         S32 r  = (S32)(poly_rng_next() % 40);

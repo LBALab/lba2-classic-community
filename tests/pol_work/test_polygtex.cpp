@@ -104,7 +104,7 @@ static void test_texture_gouraud_clipped(void)
 static void test_texture_gouraud_random(void)
 {
     poly_rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         setup_gtex_screen();
         Struc_Point pts[3];
         for (int v = 0; v < 3; v++) {
@@ -196,7 +196,7 @@ static void test_asm_random_gtex(void)
     poly_rng_seed(0xBAADF00D);
     init_test_texture();
     init_test_clut();
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
         if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
