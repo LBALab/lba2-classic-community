@@ -34,7 +34,10 @@ add_asm_cpp_test(NAME test_polytext   TEST_SOURCE test_polytext.cpp   LIBS poly 
     ASM_SOURCE ${_POLY_ASM_DIR}/POLYTEXT.ASM
     RENAME_SYMS Filler_Texture Filler_TextureFlat Filler_TextureChromaKey Filler_TextureFlatChromaKey Filler_TextureFog Filler_TextureChromaKeyFog Filler_TextureZBuf Filler_TextureChromaKeyZBuf Filler_TextureFlatZBuf Filler_TextureFlatChromaKeyZBuf Filler_TextureFogZBuf Filler_TextureChromaKeyFogZBuf Filler_TextureNZW Filler_TextureChromaKeyNZW Filler_TextureFlatNZW Filler_TextureFlatChromaKeyNZW Filler_TextureFogNZW Filler_TextureChromaKeyFogNZW
     ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
-add_asm_cpp_test(NAME test_polytexz   TEST_SOURCE test_polytexz.cpp   LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_polytexz   TEST_SOURCE test_polytexz.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYTEXZ.ASM
+    RENAME_SYMS Filler_TextureZ Filler_TextureZFlat Filler_TextureZChromaKey Filler_TextureZFlatChromaKey Filler_TextureZFog Filler_TextureZChromaKeyFog Filler_TextureZZBuf Filler_TextureZChromaKeyZBuf Filler_TextureZFlatZBuf Filler_TextureZFlatChromaKeyZBuf Filler_TextureZFogZBuf Filler_TextureZChromaKeyFogZBuf Filler_TextureZNZW Filler_TextureZChromaKeyNZW Filler_TextureZFlatNZW Filler_TextureZFlatChromaKeyNZW Filler_TextureZFogNZW Filler_TextureZChromaKeyFogNZW Fill_Init_Perspective Fill_Loop_Perspective
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
 add_asm_cpp_test(NAME test_polytzf    TEST_SOURCE test_polytzf.cpp    LIBS poly svg sys SDL3::SDL3)
 add_asm_cpp_test(NAME test_polytzg    TEST_SOURCE test_polytzg.cpp    LIBS poly svg sys SDL3::SDL3)
 # TestVuePolyF: C-adapted PROC has "uses eax" which clobbers the return value.
