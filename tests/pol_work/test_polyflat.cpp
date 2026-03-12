@@ -275,18 +275,37 @@ static void test_asm_equiv_flat_direct(void)
     call_asm_Filler_Flat(4, xmin, xmax);
     memcpy(asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
-    /* Diagnostic: find first mismatch */
-    for (int i = 0; i < TEST_POLY_SIZE; i++) {
-        if (asm_buf[i] != cpp_buf[i]) {
-            int row = i / TEST_POLY_W;
-            int col = i % TEST_POLY_W;
-            printf("# first diff at byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
-                   i, row, col, asm_buf[i], cpp_buf[i]);
-            break;
-        }
-    }
-
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, "Filler_Flat direct");
+}
+
+static void test_asm_random_flat(void)
+{
+    poly_rng_seed(0xDEADBEEF);
+    for (int i = 0; i < 30; i++) {
+        U32 y = poly_rng_next() % (TEST_POLY_H - 20);
+        U32 h = 1 + poly_rng_next() % 10;
+        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
+        U32 x1 = x0 + 5 + poly_rng_next() % 40;
+        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        U8 color = (U8)((poly_rng_next() & 0xFE) | 1);
+
+        setup_filler_common(y, h, x0 << 16, x1 << 16, color);
+        Fill_Patch = 1;
+        Filler_Flat(h, x0 << 16, x1 << 16);
+        memcpy(cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_filler_common(y, h, x0 << 16, x1 << 16, color);
+        Fill_Patch = 1;
+        call_asm_Filler_Flat(h, x0 << 16, x1 << 16);
+        memcpy(asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        char msg[128];
+        snprintf(msg, sizeof(msg),
+                 "random flat #%d y=%u h=%u x=%u-%u col=%u",
+                 i, y, h, x0, x1, color);
+        ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, msg);
+    }
 }
 
 int main(void)
@@ -303,6 +322,7 @@ int main(void)
     RUN_TEST(test_fill_poly_random_solid);
     RUN_TEST(test_asm_equiv_flat_via_fill_poly);
     RUN_TEST(test_asm_equiv_flat_direct);
+    RUN_TEST(test_asm_random_flat);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -51,8 +51,6 @@ static void test_texture_basic_triangle(void)
     setup_texture_env();
     Fill_Poly(POLY_TEXTURE, 0, 3, pts);
     int px = count_nonzero_pixels(0, 0, TEST_POLY_W - 1, TEST_POLY_H - 1);
-    /* Diagnostic: report both counts */
-    printf("# solid=%d textured=%d\n", px_solid, px);
     ASSERT_TRUE(px > 0 || px_solid > 0);
 }
 
@@ -125,20 +123,6 @@ static void test_asm_equiv_texture(void)
     setup_texture_filler(30, 4, 20 << 16, 80 << 16);
     call_asm_Filler_Texture(4, 20 << 16, 80 << 16);
     memcpy(tex_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
-
-    /* Diagnostic: find first mismatch */
-    for (int i = 0; i < TEST_POLY_SIZE; i++) {
-        if (tex_asm_buf[i] != tex_cpp_buf[i]) {
-            int row = i / TEST_POLY_W;
-            int col = i % TEST_POLY_W;
-            printf("# tex first diff at byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
-                   i, row, col, tex_asm_buf[i], tex_cpp_buf[i]);
-            /* Print a few more */
-            for (int j = i; j < i + 10 && j < TEST_POLY_SIZE; j++)
-                printf("# byte %d: asm=0x%02x cpp=0x%02x\n", j, tex_asm_buf[j], tex_cpp_buf[j]);
-            break;
-        }
-    }
 
     ASSERT_ASM_CPP_MEM_EQ(tex_asm_buf, tex_cpp_buf, TEST_POLY_SIZE,
                            "Filler_Texture strip");
