@@ -1,9 +1,7 @@
-/* Test: ScaleSprite — scale sprite with transparency.
+/* Test: ScaleSprite — ASM-vs-CPP equivalence.
  *
- * The ASM PROC has `uses ebp` which causes UASM to generate an extra
- * push ebp after the standard C prologue, shifting all param offsets
- * by 4 bytes. We work around this with an inline asm wrapper that
- * pushes a dummy dword to compensate.
+ * The original ASM PROC only declared `uses ebp` but clobbers esi/edi/ebx
+ * (callee-saved in cdecl). Fixed by adding `uses esi edi ebx` to the proc.
  *
  * CPP implementation ignores factorx/factory (always 1:1 blit).
  * ASM does real fixed-point scaling. ASM-vs-CPP equiv only at 1:1 scale.
@@ -18,9 +16,6 @@
 
 /* The raw ASM symbol */
 extern "C" void asm_ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank);
-
-/* Direct C call — the ASM has named params with C calling convention.
-   If this segfaults, the issue is inside the ASM logic, not the ABI. */
 #define call_asm_ScaleSprite asm_ScaleSprite
 
 static U32 rng_state;
@@ -64,6 +59,16 @@ static void test_basic(void)
     ScaleSprite(0, 100, 100, 0x10000, 0x10000, g_bank);
     ASSERT_EQ_UINT(1, framebuf[100*640+100]);
     ASSERT_EQ_UINT(0, framebuf[100*640+101]);
+}
+
+static void test_asm_minimal(void)
+{
+    build_multi_bank(1);
+    setup();
+    printf("# test_asm_minimal: calling asm_ScaleSprite...\n"); fflush(stdout);
+    call_asm_ScaleSprite(0, 100, 100, 0x10000, 0x10000, g_bank);
+    printf("# test_asm_minimal: returned OK\n"); fflush(stdout);
+    ASSERT_TRUE(1);
 }
 
 static void test_transparency(void)
@@ -149,8 +154,8 @@ static void test_random_batch(void)
 
 static void test_asm_equiv_1to1(void)
 {
-    U8 cpp_buf[640 * 480];
-    U8 asm_buf[640 * 480];
+    static U8 cpp_buf[640 * 480];
+    static U8 asm_buf[640 * 480];
     build_multi_bank(1);
 
     setup();
@@ -166,8 +171,8 @@ static void test_asm_equiv_1to1(void)
 
 static void test_asm_equiv_clipped(void)
 {
-    U8 cpp_buf[640 * 480];
-    U8 asm_buf[640 * 480];
+    static U8 cpp_buf[640 * 480];
+    static U8 asm_buf[640 * 480];
     build_multi_bank(4);
 
     setup();
@@ -183,12 +188,12 @@ static void test_asm_equiv_clipped(void)
 
 static void test_asm_equiv_random(void)
 {
+    static U8 cpp_buf[640 * 480];
+    static U8 asm_buf[640 * 480];
     build_multi_bank(8);
     rng_seed(0xA5E01234);
     int prev = test_failures;
     for (int i = 0; i < 20 && test_failures == prev; i++) {
-        U8 cpp_buf[640 * 480];
-        U8 asm_buf[640 * 480];
         S32 num = (S32)(rng_next() % 8);
         S32 sx = (S32)(rng_next() % 600) + 10;
         S32 sy = (S32)(rng_next() % 440) + 10;
@@ -210,6 +215,7 @@ static void test_asm_equiv_random(void)
 int main(void)
 {
     RUN_TEST(test_basic);
+    RUN_TEST(test_asm_minimal);
     RUN_TEST(test_transparency);
     RUN_TEST(test_fully_clipped);
     RUN_TEST(test_clip_left);
@@ -219,13 +225,9 @@ int main(void)
     RUN_TEST(test_hotspot);
     RUN_TEST(test_multi_sprites);
     RUN_TEST(test_random_batch);
-    /* ASM ScaleSprite segfaults — `PROC uses ebp` with named params causes
-       stack frame corruption after .model FLAT patching. The CPP tests above
-       verify the CPP implementation exhaustively. ASM equiv deferred until
-       the `uses ebp` issue is resolved in the test infrastructure. */
-    /* RUN_TEST(test_asm_equiv_1to1); */
-    /* RUN_TEST(test_asm_equiv_clipped); */
-    /* RUN_TEST(test_asm_equiv_random); */
+    RUN_TEST(test_asm_equiv_1to1);
+    RUN_TEST(test_asm_equiv_clipped);
+    RUN_TEST(test_asm_equiv_random);
     TEST_SUMMARY();
     return test_failures != 0;
 }
