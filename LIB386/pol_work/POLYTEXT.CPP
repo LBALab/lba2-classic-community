@@ -58,10 +58,10 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       if (fillWidth > 16)
       {
        
-        S32 addU = ((S32)factor * (S32)Fill_MapU_XSlope) >> 16;
+        S32 addU = (S32)(((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope) >> 16);
         lineU += addU;
 
-        S32 addV = ((S32)factor * (S32)Fill_MapV_XSlope) >> 16;
+        S32 addV = (S32)(((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope) >> 16);
         lineV += addV;
       }
       U32 lineVDec = lineV << 16;
@@ -149,10 +149,10 @@ S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       if (fillWidth > 16)
       {
        
-        S32 addU = ((S32)factor * (S32)Fill_MapU_XSlope) >> 16;
+        S32 addU = (S32)(((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope) >> 16);
         lineU += addU;
 
-        S32 addV = ((S32)factor * (S32)Fill_MapV_XSlope) >> 16;
+        S32 addV = (S32)(((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope) >> 16);
         lineV += addV;
       }
       U32 lineVDec = lineV << 16;
@@ -243,10 +243,10 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U32 addU = factor * Fill_MapU_XSlope >> 16;
+        U32 addU = (U32)(((U64)factor * (U64)Fill_MapU_XSlope) >> 16);
         lineU += addU;
 
-        U32 addV = factor * Fill_MapV_XSlope >> 16;
+        U32 addV = (U32)(((U64)factor * (U64)Fill_MapV_XSlope) >> 16);
         lineV += addV;
 
       }

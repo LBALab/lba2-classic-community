@@ -115,7 +115,7 @@ static void setup_filler_common(U32 startY, U32 nbLines,
     Fill_LeftSlope  = 0;
     Fill_RightSlope = 0;
     Fill_Patch  = 0;
-    Fill_Color.Num = color;
+    Fill_Color.Num = color | (color << 8);  /* ASM uses stosw → both bytes needed */
     Fill_ClipFlag = 0;
     setup_filler_exit((S16)(startY + nbLines + 1));
 }

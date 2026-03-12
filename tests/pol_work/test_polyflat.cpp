@@ -246,7 +246,7 @@ static void test_asm_equiv_flat_direct(void)
     Fill_LeftSlope = 0;
     Fill_RightSlope = 0;
     Fill_Patch = 0;
-    Fill_Color.Num = 0x77;
+    Fill_Color.Num = 0x77 | (0x77 << 8);
     Fill_ReadFlag = READ_NEXT_L | READ_NEXT_R;
     Fill_Filler = (Fill_Filler_Func)call_asm_Filler_Flat;
 
@@ -264,7 +264,7 @@ static void test_asm_equiv_flat_direct(void)
     Fill_LeftSlope = 0;
     Fill_RightSlope = 0;
     Fill_Patch = 0;
-    Fill_Color.Num = 0x77;
+    Fill_Color.Num = 0x77 | (0x77 << 8);
     Fill_ReadFlag = READ_NEXT_L | READ_NEXT_R;
     Fill_FirstPoint = &pts[0];
     Fill_LastPoint = &pts[2];
@@ -274,6 +274,17 @@ static void test_asm_equiv_flat_direct(void)
 
     call_asm_Filler_Flat(4, xmin, xmax);
     memcpy(asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    /* Diagnostic: find first mismatch */
+    for (int i = 0; i < TEST_POLY_SIZE; i++) {
+        if (asm_buf[i] != cpp_buf[i]) {
+            int row = i / TEST_POLY_W;
+            int col = i % TEST_POLY_W;
+            printf("# first diff at byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                   i, row, col, asm_buf[i], cpp_buf[i]);
+            break;
+        }
+    }
 
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, "Filler_Flat direct");
 }

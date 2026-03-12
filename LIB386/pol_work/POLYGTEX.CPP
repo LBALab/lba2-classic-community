@@ -85,17 +85,17 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineU = u;
       U32 curGouraudMin = Fill_CurGouraudMin;
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (diffX > 16)
       {
         // Simple multiply for sub-pixel adjustment, matching assembly imul instruction
-        S32 addGouraud = ((S32)factor * (S32)Fill_Gouraud_XSlope) >> 16;
+        S32 addGouraud = (S32)(((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope) >> 16);
         curGouraudMin += addGouraud;
 
-        S32 addU = ((S32)factor * (S32)Fill_MapU_XSlope) >> 16;
+        S32 addU = (S32)(((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope) >> 16);
         lineU += addU;
 
-        S32 addV = ((S32)factor * (S32)Fill_MapV_XSlope) >> 16;
+        S32 addV = (S32)(((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope) >> 16);
         lineV += addV;
 
         // There was some @@Preload code here, but it did nothing other
@@ -199,7 +199,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       U32 lineV = v;
       U32 lineU = u;
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
 
       if (diffX > 16)
       {
@@ -333,7 +333,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U32 curGouraudMin = Fill_CurGouraudMin;
       
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (diffX > 16)
       {
         U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
@@ -615,7 +615,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
@@ -764,7 +764,7 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
@@ -914,7 +914,7 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       U32 decZ_gour = Fill_CurGouraudMin;
       U32 decV_intZ = v;
       U32 decU = u;
