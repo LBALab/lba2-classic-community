@@ -69,7 +69,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | ASM ≡ CPP: roundtrip + full-screen + 20 random regions |
 | [ ] | `SVGA/SAVBLOCK.ASM` | `SVGA/SAVBLOCK.CPP` | `SaveBlock` | Save screen region to buffer | |
 | [x] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | ASM ≡ CPP: same-size, upscale, downscale + 20 random sizes/positions |
-| [~] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | CPP tested with synthetic sprite bank (basic, transparency, clipping). CPP ignores scale factors (always 1:1). ASM segfaults — needs internal scaling table setup. |
+| [~] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | CPP fixed: ScreenXMax/YMax now inclusive (was off-by-one). 10 CPP tests (basic, transparency, clipping×4, hotspot, multi-sprite, random×30). ASM segfaults — `PROC uses ebp` stack frame issue under .model FLAT. |
 
 ## SYSTEM/ — System Utilities (4 pairs)
 
