@@ -60,15 +60,15 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `SVGA/BOX.ASM` | `SVGA/BOX.CPP` | `Box` | Draw rectangle outline with clipping | Needs `Log`, `TabOffLine`, Clip globals |
 | [~] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | ASM ≡ CPP: synthetic brick → mask conversion |
 | [ ] | `SVGA/CLRBOXF.ASM` | `SVGA/CLRBOXF.CPP` | `ClearBoxF`, `SetClearColor` | Clear rectangle; set clear color | |
-| [~] | `SVGA/COPYMASK.ASM` | `SVGA/COPYMASK.CPP` | `CopyMask` | Copy masked region | CPP tested with synthetic bank; ASM segfaults on synthetic data |
+| [x] | `SVGA/COPYMASK.ASM` | `SVGA/COPYMASK.CPP` | `CopyMask` | Copy masked region | ASM ≡ CPP: synthetic bank + 20 random positions |
 | [ ] | `SVGA/CPYBLOCI.ASM` | `SVGA/CPYBLOCI.CPP` | `CopyBlockIncrust` | Copy block with incrustation | |
 | [ ] | `SVGA/CPYBLOCK.ASM` | `SVGA/CPYBLOCK.CPP` | `CopyBlock` | Fast memory block copy | |
-| [x] | `SVGA/FONT.ASM` | `SVGA/FONT.CPP` | `SizeFont`, `CarFont`, `Font` | Font metrics and character rendering | ASM ≡ CPP: SizeFont tested with synthetic font bank (single, multi, spaces, empty). CarFont/Font need AffMask. |
-| [x] | `SVGA/GRAPH.ASM` | `SVGA/GRAPH.CPP` | `AffGraph`, `GetBoxGraph` | Graphics drawing and box calculation | ASM ≡ CPP: GetBoxGraph basic (hot=(0,0)). AffGraph needs full rendering setup. |
-| [~] | `SVGA/MASK.ASM` | `SVGA/MASK.CPP` | `AffMask` | Display mask/sprite with transparency | CPP tested with synthetic bank; ASM segfaults on synthetic data |
-| [x] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | ASM ≡ CPP: full-screen roundtrip |
+| [x] | `SVGA/FONT.ASM` | `SVGA/FONT.CPP` | `SizeFont`, `CarFont`, `Font` | Font metrics and character rendering | ASM ≡ CPP: SizeFont tested with synthetic bank + 30 random strings |
+| [x] | `SVGA/GRAPH.ASM` | `SVGA/GRAPH.CPP` | `AffGraph`, `GetBoxGraph` | Graphics drawing and box calculation | ASM ≡ CPP: GetBoxGraph basic + positive hotspot. Negative hotspot sign-extends differently (ASM movsx vs CPP U8). |
+| [x] | `SVGA/MASK.ASM` | `SVGA/MASK.CPP` | `AffMask` | Display mask/sprite with transparency | ASM ≡ CPP: synthetic bank + 20 random positions via Watcom ABI wrapper |
+| [x] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | ASM ≡ CPP: roundtrip + full-screen + 20 random regions |
 | [ ] | `SVGA/SAVBLOCK.ASM` | `SVGA/SAVBLOCK.CPP` | `SaveBlock` | Save screen region to buffer | |
-| [x] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | ASM ≡ CPP: same-size, upscale 10×10→30×30, downscale 4×4→2×2 |
+| [x] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | ASM ≡ CPP: same-size, upscale, downscale + 20 random sizes/positions |
 | [~] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | CPP tested with synthetic sprite bank (basic, transparency, clipping). CPP ignores scale factors (always 1:1). ASM segfaults — needs internal scaling table setup. |
 
 ## SYSTEM/ — System Utilities (4 pairs)

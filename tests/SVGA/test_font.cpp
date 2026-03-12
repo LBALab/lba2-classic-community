@@ -128,6 +128,35 @@ static void test_asm_equiv_sizefont_empty(void)
     ASSERT_EQ_INT(cpp_size, asm_size);
 }
 
+static U32 rng_state;
+static void rng_seed(U32 s) { rng_state = s; }
+static U32 rng_next(void) { rng_state = rng_state * 1103515245u + 12345u; return (rng_state >> 16) & 0x7FFF; }
+
+static void test_random_sizefont(void)
+{
+    setup_font();
+    rng_seed(0xF00D1234);
+    int prev = test_failures;
+    for (int i = 0; i < 30 && test_failures == prev; i++) {
+        char str[16];
+        int len = (int)(rng_next() % 8) + 1;
+        for (int j = 0; j < len; j++) {
+            U8 choices[] = {65, 66, 67, 33, 32};
+            str[j] = (char)choices[rng_next() % 5];
+        }
+        str[len] = '\0';
+
+        S32 cpp_s = SizeFont(str);
+        S32 asm_s = asm_SizeFont(str);
+        char label[64];
+        snprintf(label, sizeof(label), "SizeFont random #%d \"%s\"", i, str);
+        if (cpp_s != asm_s) {
+            printf("# FAIL: %s: cpp=%d asm=%d\n", label, cpp_s, asm_s);
+            test_failures++;
+        }
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_sizefont_single_char);
