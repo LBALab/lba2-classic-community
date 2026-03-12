@@ -14,9 +14,11 @@ U32 POLYTZG_DecGour = 0;
 U8 POLYTZG_IntGour = 0;
 S32 Cur_Gouraud = 0;
 
-// External perspective functions
-extern void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth);
-extern void Fill_Loop_Perspective(U32 fillWidth);
+// External perspective functions (C linkage — function pointers in POLYTEXZ.CPP)
+extern "C" {
+extern void (*Fill_Init_Perspective)(S32 lineU, S32 lineV, U32 fillWidth);
+extern void (*Fill_Loop_Perspective)(U32 fillWidth);
+}
 
 S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   U32 diffY = nbLines + 1;

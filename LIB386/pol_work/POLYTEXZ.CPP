@@ -101,7 +101,7 @@ static S32 persp_eval(S32 val)
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a scanline                      ║
 // ╚═════════════════════════════════════════════════════════════╝
-void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
+static void Fill_Init_Perspective_Impl(S32 lineU, S32 lineV, U32 fillWidth)
 {
   S32 w = Fill_Cur_W;
 
@@ -142,7 +142,7 @@ void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a section of PERSP_VALUE pixels ║
 // ╚═════════════════════════════════════════════════════════════╝
-void Fill_Loop_Perspective(U32 fillWidth)
+static void Fill_Loop_Perspective_Impl(U32 fillWidth)
 {
   Fill_Next_MapUOverW = (Fill_MapU_XSlope << PERSP_SHIFT) + Fill_Cur_MapUOverW;
   Fill_Next_MapVOverW = (Fill_MapV_XSlope << PERSP_SHIFT) + Fill_Cur_MapVOverW;
@@ -157,6 +157,14 @@ void Fill_Loop_Perspective(U32 fillWidth)
     PerspectiveInvW = (long double)256.0f / (long double)Fill_Next_W;
   }
 }
+
+/* Global function pointers matching the ASM convention:
+ * The ASM files (POLYTZG.ASM etc.) reference these as Extrn DWORD and
+ * call them via `call [Fill_Init_Perspective]`.  By defining them as
+ * global function pointers (instead of plain functions), both CPP
+ * callers and ASM callers work correctly. */
+void (*Fill_Init_Perspective)(S32, S32, U32) = Fill_Init_Perspective_Impl;
+void (*Fill_Loop_Perspective)(U32) = Fill_Loop_Perspective_Impl;
 
 S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
