@@ -82,3 +82,11 @@ Key constraints for the Docker image:
   Leaf functions use GCC inline asm wrappers; non-leaf functions that call
   other Watcom-convention functions through function pointers will SEGFAULT
   until full ABI shims are added.
+
+## Communication Rules
+
+- **ALWAYS use the `ask_questions` tool** to communicate with the user. The user speaks English.
+- **NEVER write plain text responses** for questions, confirmations, or status updates. Route everything through `ask_questions`.
+- After completing a task, ask what to do next via `ask_questions`.
+- If the user's intent is ambiguous, clarify via `ask_questions` before proceeding.
+- Never try to write outside of the repo, if you need to create extra files no matter if they are tools/tmp/ or documentation, do it within the repo and commit them if necessary. If not, feel free to add that folder to the .gitignore.
