@@ -31,15 +31,22 @@ This repository provides CMake presets for common configurations in `CMakePreset
 - **Linux (native build)**:
 
   ```bash
-  cmake --preset linux -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+  cmake --preset linux
   cmake --build --preset linux
   ```
 
 - **macOS (native build)**:
 
   ```bash
-  cmake --preset macos_arm64   # or macOS_x86_64
+  cmake --preset macos_arm64   # or macos_x86_64
   cmake --build --preset macos_arm64
+  ```
+
+- **Windows (native build with MSYS2)** - See [docs/WINDOWS.md](docs/WINDOWS.md) for detailed instructions:
+
+  ```bash
+  cmake --preset windows_ucrt64    # recommended for Windows 10+
+  cmake --build --preset windows_ucrt64
   ```
 
 - **Cross-compiling Windows from Linux**:
