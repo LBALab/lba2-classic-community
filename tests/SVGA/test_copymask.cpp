@@ -5,6 +5,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 #include <string.h>
+#include <stdio.h>
 
 extern "C" void asm_CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src);
 
@@ -64,11 +65,40 @@ static void test_asm_equiv(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "CopyMask");
 }
 
+static void test_random_positions(void)
+{
+    U8 cpp_buf[640 * 480];
+    U8 asm_buf[640 * 480];
+    U32 rng = 0xABCD5678;
+    int prev = test_failures;
+    build_mask_bank();
+    for (int i = 0; i < 20 && test_failures == prev; i++) {
+        rng = rng * 1103515245u + 12345u;
+        S32 mx = (S32)((rng >> 16) % 600);
+        rng = rng * 1103515245u + 12345u;
+        S32 my = (S32)((rng >> 16) % 460);
+
+        for (int j = 0; j < 640 * 480; j++) srcbuf[j] = (U8)((j * 13 + i) & 0xFF);
+
+        setup_screen();
+        CopyMask(0, mx, my, g_bank, srcbuf);
+        memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
+
+        setup_screen();
+        asm_CopyMask(0, mx, my, g_bank, srcbuf);
+        memcpy(asm_buf, framebuf, sizeof(asm_buf));
+
+        char label[64];
+        snprintf(label, sizeof(label), "CopyMask random #%d (%d,%d)", i, mx, my);
+        ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), label);
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_cpp_basic);
-    /* ASM CopyMask segfaults on synthetic bank data */
-    /* RUN_TEST(test_asm_equiv); */
+    RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_random_positions);
     TEST_SUMMARY();
     return test_failures != 0;
 }

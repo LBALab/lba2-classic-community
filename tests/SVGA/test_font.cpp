@@ -10,6 +10,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 #include <string.h>
+#include <stdio.h>
 
 extern "C" S32 asm_SizeFont(char *str);
 extern "C" S32 asm_CarFont(S32 x, S32 y, U8 c);
@@ -137,6 +138,7 @@ int main(void)
     RUN_TEST(test_asm_equiv_sizefont);
     RUN_TEST(test_asm_equiv_sizefont_with_spaces);
     RUN_TEST(test_asm_equiv_sizefont_empty);
+    RUN_TEST(test_random_sizefont);
     TEST_SUMMARY();
     return test_failures != 0;
 }

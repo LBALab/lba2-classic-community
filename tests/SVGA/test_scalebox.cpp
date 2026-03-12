@@ -4,8 +4,13 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 #include <string.h>
+#include <stdio.h>
 
 extern "C" void asm_ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32 xd0, S32 yd0, S32 xd1, S32 yd1, void *ptrd);
+
+static U32 rng_state;
+static void rng_seed(U32 s) { rng_state = s; }
+static U32 rng_next(void) { rng_state = rng_state * 1103515245u + 12345u; return (rng_state >> 16) & 0x7FFF; }
 
 /* ScaleBox reads TabOffLine[] for both source and destination Y indexing.
    We use a 640-wide virtual screen so TabOffLine[y] = y * 640. */
@@ -92,13 +97,44 @@ static void test_asm_equiv_upscale(void)
 
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "ScaleBox upscale 10x10→30x30");
 }
+static void test_random_batch(void)
+{
+    U8 cpp_dst[640 * 480];
+    U8 asm_dst[640 * 480];
 
+    rng_seed(0xCAFEBABE);
+    int prev = test_failures;
+    for (int i = 0; i < 20 && test_failures == prev; i++) {
+        setup();
+        S32 sw = (S32)(rng_next() % 60) + 2;
+        S32 sh = (S32)(rng_next() % 60) + 2;
+        S32 dw = (S32)(rng_next() % 80) + 2;
+        S32 dh = (S32)(rng_next() % 80) + 2;
+        S32 dx = (S32)(rng_next() % 400);
+        S32 dy = (S32)(rng_next() % 300) + 100;
+
+        for (int y = 0; y < sh; y++)
+            for (int x = 0; x < sw; x++)
+                srcbuf[y * 640 + x] = (U8)(rng_next() & 0xFF);
+
+        memset(cpp_dst, 0, sizeof(cpp_dst));
+        ScaleBox(0, 0, sw - 1, sh - 1, srcbuf, dx, dy, dx + dw - 1, dy + dh - 1, cpp_dst);
+
+        memset(asm_dst, 0, sizeof(asm_dst));
+        asm_ScaleBox(0, 0, sw - 1, sh - 1, srcbuf, dx, dy, dx + dw - 1, dy + dh - 1, asm_dst);
+
+        char label[80];
+        snprintf(label, sizeof(label), "ScaleBox random #%d %dx%d->%dx%d @(%d,%d)", i, sw, sh, dw, dh, dx, dy);
+        ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), label);
+    }
+}
 int main(void)
 {
     RUN_TEST(test_same_size_copy);
     RUN_TEST(test_asm_equiv_downscale);
     RUN_TEST(test_asm_equiv_same_size);
     RUN_TEST(test_asm_equiv_upscale);
+    RUN_TEST(test_random_batch);
     TEST_SUMMARY();
     return test_failures != 0;
 }
