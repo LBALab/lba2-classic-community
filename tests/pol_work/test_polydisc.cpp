@@ -115,6 +115,82 @@ static void test_sphere_random(void)
     }
 }
 
+/* ── ASM-vs-CPP equivalence ─────────────────────────────────────── */
+
+extern "C" void asm_Fill_Sphere(void);
+
+/* Watcom register calling convention:
+ * ESI = Type_Sphere, EDX = Color_Sphere, EAX = Centre_X,
+ * EBX = Centre_Y, ECX = Rayon, EDI = zBufferValue */
+static void call_asm_Fill_Sphere(S32 type, S32 color,
+                                  S32 cx, S32 cy, S32 r, S32 zbuf)
+{
+    __asm__ __volatile__(
+        "push %%ebp\n\t"
+        "call asm_Fill_Sphere\n\t"
+        "pop %%ebp"
+        :
+        : "S"(type), "d"(color), "a"(cx), "b"(cy), "c"(r), "D"(zbuf)
+        : "memory", "cc"
+    );
+}
+
+static U8 disc_cpp_buf[TEST_POLY_SIZE];
+static U8 disc_asm_buf[TEST_POLY_SIZE];
+
+static void test_asm_equiv_sphere_centre(void)
+{
+    setup_polygon_screen();
+    Fill_Sphere(0, 42, 80, 60, 20, 0);
+    memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_polygon_screen();
+    call_asm_Fill_Sphere(0, 42, 80, 60, 20, 0);
+    memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE,
+                           "Fill_Sphere solid centre");
+}
+
+static void test_asm_equiv_sphere_clipped(void)
+{
+    setup_polygon_screen();
+    Fill_Sphere(0, 33, 5, 5, 25, 0);
+    memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_polygon_screen();
+    call_asm_Fill_Sphere(0, 33, 5, 5, 25, 0);
+    memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE,
+                           "Fill_Sphere clipped top-left");
+}
+
+static void test_asm_random_spheres(void)
+{
+    poly_rng_seed(0xCAFEBABE);
+    for (int i = 0; i < 30; i++) {
+        S32 cx = (S32)(poly_rng_next() % (TEST_POLY_W + 60)) - 30;
+        S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
+        S32 r  = (S32)(poly_rng_next() % 40);
+        S32 color = (S32)(poly_rng_next() & 0xFE) | 1;
+
+        setup_polygon_screen();
+        Fill_Sphere(0, color, cx, cy, r, 0);
+        memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_polygon_screen();
+        call_asm_Fill_Sphere(0, color, cx, cy, r, 0);
+        memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        char msg[128];
+        snprintf(msg, sizeof(msg),
+                 "random sphere #%d cx=%d cy=%d r=%d col=%d",
+                 i, cx, cy, r, color);
+        ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE, msg);
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_sphere_centre);
@@ -126,6 +202,9 @@ int main(void)
     RUN_TEST(test_sphere_transparent);
     RUN_TEST(test_sphere_fog);
     RUN_TEST(test_sphere_random);
+    RUN_TEST(test_asm_equiv_sphere_centre);
+    RUN_TEST(test_asm_equiv_sphere_clipped);
+    RUN_TEST(test_asm_random_spheres);
     TEST_SUMMARY();
     return test_failures != 0;
 }

@@ -121,6 +121,104 @@ static void test_texture_gouraud_random(void)
     }
 }
 
+/* ── ASM-vs-CPP equivalence (filler level) ─────────────────────── */
+
+extern "C" void asm_Filler_TextureGouraud(void);
+
+static inline S32 call_asm_Filler_TextureGouraud(U32 nbLines, U32 xmin, U32 xmax)
+{
+    S32 result;
+    __asm__ __volatile__(
+        "push %%ebp\n\t"
+        "call asm_Filler_TextureGouraud\n\t"
+        "pop %%ebp"
+        : "=a"(result)
+        : "c"(nbLines), "b"(xmin), "d"(xmax)
+        : "edi", "esi", "memory", "cc"
+    );
+    return result;
+}
+
+static U8 gtex_cpp_buf[TEST_POLY_SIZE];
+static U8 gtex_asm_buf[TEST_POLY_SIZE];
+
+static void setup_gtex_filler(U32 startY, U32 nbLines,
+                               U32 xmin_fp, U32 xmax_fp)
+{
+    setup_filler_common(startY, nbLines, xmin_fp, xmax_fp, 0);
+    init_test_texture();
+    init_test_clut();
+    PtrMap = g_test_texture;
+    RepMask = 0x3F3F;
+    PtrCLUTGouraud = g_test_clut;
+    Fill_Patch = 1;  /* First scanline → initializes GTEX patch globals */
+    Fill_CurMapUMin = 0;
+    Fill_CurMapVMin = 0;
+    Fill_MapU_LeftSlope = 0;
+    Fill_MapV_LeftSlope = 0;
+    Fill_MapU_XSlope = 0x10000;
+    Fill_MapV_XSlope = 0;
+    Fill_CurGouraudMin = 0x020000;
+    Fill_Gouraud_LeftSlope = 0;
+    Fill_Gouraud_XSlope = 0x800;
+}
+
+static void test_asm_equiv_gtex(void)
+{
+    setup_gtex_filler(30, 4, 20 << 16, 80 << 16);
+    Filler_TextureGouraud(4, 20 << 16, 80 << 16);
+    memcpy(gtex_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_gtex_filler(30, 4, 20 << 16, 80 << 16);
+    call_asm_Filler_TextureGouraud(4, 20 << 16, 80 << 16);
+    memcpy(gtex_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    ASSERT_ASM_CPP_MEM_EQ(gtex_asm_buf, gtex_cpp_buf, TEST_POLY_SIZE,
+                           "Filler_TextureGouraud basic");
+}
+
+static void test_asm_equiv_gtex_narrow(void)
+{
+    setup_gtex_filler(50, 2, 60 << 16, 72 << 16);
+    Filler_TextureGouraud(2, 60 << 16, 72 << 16);
+    memcpy(gtex_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_gtex_filler(50, 2, 60 << 16, 72 << 16);
+    call_asm_Filler_TextureGouraud(2, 60 << 16, 72 << 16);
+    memcpy(gtex_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    ASSERT_ASM_CPP_MEM_EQ(gtex_asm_buf, gtex_cpp_buf, TEST_POLY_SIZE,
+                           "Filler_TextureGouraud narrow");
+}
+
+static void test_asm_random_gtex(void)
+{
+    poly_rng_seed(0xBAADF00D);
+    init_test_texture();
+    init_test_clut();
+    for (int i = 0; i < 30; i++) {
+        U32 y = poly_rng_next() % (TEST_POLY_H - 20);
+        U32 h = 1 + poly_rng_next() % 8;
+        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
+        U32 x1 = x0 + 5 + poly_rng_next() % 40;
+        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+
+        setup_gtex_filler(y, h, x0 << 16, x1 << 16);
+        Filler_TextureGouraud(h, x0 << 16, x1 << 16);
+        memcpy(gtex_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_gtex_filler(y, h, x0 << 16, x1 << 16);
+        call_asm_Filler_TextureGouraud(h, x0 << 16, x1 << 16);
+        memcpy(gtex_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "random gtex #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ(gtex_asm_buf, gtex_cpp_buf, TEST_POLY_SIZE, msg);
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_texture_gouraud_basic);
@@ -128,6 +226,9 @@ int main(void)
     RUN_TEST(test_texture_gouraud_offscreen);
     RUN_TEST(test_texture_gouraud_clipped);
     RUN_TEST(test_texture_gouraud_random);
+    RUN_TEST(test_asm_equiv_gtex);
+    RUN_TEST(test_asm_equiv_gtex_narrow);
+    RUN_TEST(test_asm_random_gtex);
     TEST_SUMMARY();
     return test_failures != 0;
 }

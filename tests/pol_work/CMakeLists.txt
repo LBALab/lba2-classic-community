@@ -10,19 +10,30 @@ add_asm_cpp_test(NAME test_poly_jmp   TEST_SOURCE test_poly_jmp.cpp   LIBS poly 
 # NOTE: POLYCLIP.ASM references Status_Int/Status_Float from POLY.ASM.
 # ASM equivalence requires adding POLY.ASM as ASM_DEP. For now, CPP-only.
 add_asm_cpp_test(NAME test_polyclip   TEST_SOURCE test_polyclip.cpp   LIBS poly svg sys SDL3::SDL3)
-add_asm_cpp_test(NAME test_polydisc   TEST_SOURCE test_polydisc.cpp   LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_polydisc   TEST_SOURCE test_polydisc.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYDISC.ASM
+    RENAME_SYMS Fill_Sphere
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
 add_asm_cpp_test(NAME test_polyflat   TEST_SOURCE test_polyflat.cpp   LIBS poly svg sys SDL3::SDL3
     ASM_SOURCE ${_POLY_ASM_DIR}/POLYFLAT.ASM
-    RENAME_SYMS Filler_Flat Filler_Trame Filler_Transparent Filler_FlatZBuf Filler_TransparentZBuf Filler_TrameZBuf Filler_FlatNZW Filler_TransparentNZW Filler_TrameNZW Filler_FlagZBuffer
-    ASM_INCLUDE_DIRS ${_POLY_ASM_INC}
-    STRIP_C_ADAPT)
-add_asm_cpp_test(NAME test_polygour   TEST_SOURCE test_polygour.cpp   LIBS poly svg sys SDL3::SDL3)
-add_asm_cpp_test(NAME test_polygtex   TEST_SOURCE test_polygtex.cpp   LIBS poly svg sys SDL3::SDL3)
+    RENAME_SYMS Filler_Flat Filler_Transparent Filler_Trame Filler_FlatZBuf Filler_TransparentZBuf Filler_TrameZBuf Filler_FlatNZW Filler_TransparentNZW Filler_TrameNZW Filler_FlagZBuffer
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
+add_asm_cpp_test(NAME test_polygour   TEST_SOURCE test_polygour.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYGOUR.ASM
+    RENAME_SYMS Filler_Gouraud Filler_Dither Filler_GouraudTable Filler_DitherTable Filler_GouraudFog Filler_DitherFog Filler_GouraudZBuf Filler_DitherZBuf Filler_GouraudTableZBuf Filler_DitherTableZBuf Filler_GouraudFogZBuf Filler_DitherFogZBuf Filler_GouraudNZW Filler_DitherNZW Filler_GouraudTableNZW Filler_DitherTableNZW Filler_GouraudFogNZW Filler_DitherFogNZW
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
+add_asm_cpp_test(NAME test_polygtex   TEST_SOURCE test_polygtex.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYGTEX.ASM
+    RENAME_SYMS Filler_TextureGouraud Filler_TextureDither Filler_TextureGouraudChromaKey Filler_TextureDitherChromaKey Filler_TextureGouraudZBuf Filler_TextureGouraudChromaKeyZBuf Filler_TextureGouraudNZW Filler_TextureGouraudChromaKeyNZW
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
 add_asm_cpp_test(NAME test_polyline   TEST_SOURCE test_polyline.cpp   LIBS poly svg sys SDL3::SDL3
     ASM_SOURCE ${_POLY_ASM_DIR}/POLYLINE.ASM
     RENAME_SYMS Line LineZBuf LineZBufNZW Line_A
     ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
-add_asm_cpp_test(NAME test_polytext   TEST_SOURCE test_polytext.cpp   LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_polytext   TEST_SOURCE test_polytext.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYTEXT.ASM
+    RENAME_SYMS Filler_Texture Filler_TextureFlat Filler_TextureChromaKey Filler_TextureFlatChromaKey Filler_TextureFog Filler_TextureChromaKeyFog Filler_TextureZBuf Filler_TextureChromaKeyZBuf Filler_TextureFlatZBuf Filler_TextureFlatChromaKeyZBuf Filler_TextureFogZBuf Filler_TextureChromaKeyFogZBuf Filler_TextureNZW Filler_TextureChromaKeyNZW Filler_TextureFlatNZW Filler_TextureFlatChromaKeyNZW Filler_TextureFogNZW Filler_TextureChromaKeyFogNZW
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
 add_asm_cpp_test(NAME test_polytexz   TEST_SOURCE test_polytexz.cpp   LIBS poly svg sys SDL3::SDL3)
 add_asm_cpp_test(NAME test_polytzf    TEST_SOURCE test_polytzf.cpp    LIBS poly svg sys SDL3::SDL3)
 add_asm_cpp_test(NAME test_polytzg    TEST_SOURCE test_polytzg.cpp    LIBS poly svg sys SDL3::SDL3)

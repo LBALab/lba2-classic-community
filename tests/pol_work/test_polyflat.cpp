@@ -185,7 +185,9 @@ static S32 call_asm_Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
     S32 result;
     __asm__ __volatile__(
-        "call asm_Filler_Flat"
+        "push %%ebp\n\t"
+        "call asm_Filler_Flat\n\t"
+        "pop %%ebp"
         : "=a"(result)
         : "c"(nbLines), "b"(fillCurXMin), "d"(fillCurXMax)
         : "edi", "esi", "memory", "cc"
