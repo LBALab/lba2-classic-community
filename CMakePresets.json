@@ -86,7 +86,7 @@
       "displayName": "Windows UCRT64 (64-bit)",
       "description": "Native 64-bit build using MSYS2 UCRT64 (recommended for Windows 10+)",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
       }
@@ -97,7 +97,7 @@
       "displayName": "Windows MinGW64 (64-bit)",
       "description": "Native 64-bit build using MSYS2 MinGW64 (for Windows 7/8 compatibility)",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
       }
