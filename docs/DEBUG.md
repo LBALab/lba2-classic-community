@@ -153,6 +153,53 @@ On some Windows configurations, F9 and F12 may not be detected by the game. This
 - Try running the native Windows build instead of WSL2
 - Check your terminal emulator's key binding settings
 
+## Historical Context
+
+These debug tools give us a window into how Adeline Software worked in the mid-1990s.
+
+### Trade Show Demo Mode
+
+The codebase contains a commented-out `/NOKEY` flag for trade show demonstrations:
+
+```cpp
+// Pour un SlideShow sur un salon, il ne faut pas que les p'tits gars
+// puissent jouer avec le clavier !!!!!
+```
+
+> "For a SlideShow at a trade show, the little guys shouldn't be able to play with the keyboard!!!!!"
+
+When LBA2 was shown at gaming conventions, Adeline would run the game in a demo mode where keyboard input was disabled to prevent visitors from interfering with the presentation.
+
+### Bug Tracking with Codenames
+
+The code contains traps for specific bugs tracked by codename:
+
+```cpp
+// DEBUG pour trouver bug Alpha
+
+        // debug patch Gamma
+        if( ptrobj->Obj.Alpha!=0
+        OR  ptrobj->Obj.Gamma!=0 )
+        {
+                Message( "STOP: 'j'ai trouvé le Patch_Alpha' !", TRUE ) ;
+        }
+```
+
+When triggered, a message pops up: "I found the Patch_Alpha!" This shows they had an internal system for tracking and hunting specific bugs.
+
+### TEST_TOOLS vs DEBUG_TOOLS
+
+The codebase has two separate debug defines:
+
+- **DEBUG_TOOLS** - Full developer tools (all debug keys, cheat codes, screenshots, bug saves)
+- **TEST_TOOLS** - Limited QA tester tools (only debug overlay and FPS counter)
+
+This separation ensured QA testers could see debug information without having access to features that might let them "cheat" past bugs they should be finding. Code guarded by `#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)` was available to both teams.
+
+### Shorter Debug Cheat Codes
+
+The debug versions of cheat codes (`IFE` instead of `LIFE`) weren't just convenient shortcuts - they were designed to avoid conflicts with debug key bindings. Since keys like `D`, `F`, `A`, `M` trigger debug functions, cheat codes containing those letters wouldn't work properly in debug builds.
+
 ## Related Files
 
 - `SOURCES/DEFINES.H` - Contains the `DEBUG_TOOLS` define
