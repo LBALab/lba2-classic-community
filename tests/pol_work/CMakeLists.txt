@@ -11,7 +11,11 @@ add_asm_cpp_test(NAME test_poly_jmp   TEST_SOURCE test_poly_jmp.cpp   LIBS poly 
 # ASM equivalence requires adding POLY.ASM as ASM_DEP. For now, CPP-only.
 add_asm_cpp_test(NAME test_polyclip   TEST_SOURCE test_polyclip.cpp   LIBS poly svg sys SDL3::SDL3)
 add_asm_cpp_test(NAME test_polydisc   TEST_SOURCE test_polydisc.cpp   LIBS poly svg sys SDL3::SDL3)
-add_asm_cpp_test(NAME test_polyflat   TEST_SOURCE test_polyflat.cpp   LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_polyflat   TEST_SOURCE test_polyflat.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYFLAT.ASM
+    RENAME_SYMS Filler_Flat Filler_Trame Filler_Transparent Filler_FlatZBuf Filler_TransparentZBuf Filler_TrameZBuf Filler_FlatNZW Filler_TransparentNZW Filler_TrameNZW Filler_FlagZBuffer
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC}
+    STRIP_C_ADAPT)
 add_asm_cpp_test(NAME test_polygour   TEST_SOURCE test_polygour.cpp   LIBS poly svg sys SDL3::SDL3)
 add_asm_cpp_test(NAME test_polygtex   TEST_SOURCE test_polygtex.cpp   LIBS poly svg sys SDL3::SDL3)
 add_asm_cpp_test(NAME test_polyline   TEST_SOURCE test_polyline.cpp   LIBS poly svg sys SDL3::SDL3
