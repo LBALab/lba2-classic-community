@@ -31,10 +31,6 @@ extern	S32	InvSelect 	    ;	// GAMEMENU.C
 
 U8	*PtrSave ;
 
-#ifdef DEBUG_TOOLS
-char PathSave[256] = PATH_SAVE;
-#endif
-
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)||defined(EDITLBA2)
 typedef struct { S32 v[4]; } T_REAL_VALUE_HR;
 T_REAL_VALUE_HR	TempoRealAngle ;

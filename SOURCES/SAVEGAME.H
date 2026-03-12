@@ -3,11 +3,6 @@
 
 extern	U8	*PtrSave ;
 
-#ifdef DEBUG_TOOLS
-#define PATH_SAVE "./save/"
-extern char PathSave[256];
-#endif
-
 #ifdef	DEMO
 #define	NB_DEMOSAVE	3
 extern	S32	CurrentDemoSave ;

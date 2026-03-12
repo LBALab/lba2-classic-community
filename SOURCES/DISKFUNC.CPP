@@ -382,7 +382,8 @@ U8 AddDirIfNot( const char *path ) {
     pp = sp + 1;
   }
 
-  if (status == 0) {
+  if (status == 0 || errno == EEXIST) {
+    errno = 0;
     status = ADELINE_MKDIR(path);
   }
 
@@ -407,6 +408,13 @@ void	CreateLbaDirectories( void )
 
 	GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
 	AddDirIfNot( tmpDirPath ) ;
+
+#ifdef DEBUG_TOOLS
+	GetBugPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+	if( AddDirIfNot( tmpDirPath ) ) {
+		LogPrintf("Created bugs directory: %s\n", tmpDirPath);
+	}
+#endif
 
 	GetLogPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
 	AddDirIfNot( tmpDirPath ) ;

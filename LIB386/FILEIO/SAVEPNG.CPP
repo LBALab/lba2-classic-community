@@ -2,6 +2,7 @@
 // PNG Screenshot Support (using stb_image_write)
 // ──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM.H>
+#include <SYSTEM/LOGPRINT.H>
 #include <SVGA/SCREEN.H>
 #include <FILEIO/SAVEPNG.H>
 
@@ -16,10 +17,12 @@ void SavePNG(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette)
     U8 *rgb;
     S32 x, y;
     S32 idx;
+    int result;
     
     rgb = (U8 *)Malloc(xres * yres * 3);
     if (!rgb)
     {
+        LogPrintf("Error: Failed to allocate memory for screenshot\n");
         return;
     }
     
@@ -34,7 +37,15 @@ void SavePNG(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette)
         }
     }
     
-    stbi_write_png(filename, xres, yres, 3, rgb, xres * 3);
+    result = stbi_write_png(filename, xres, yres, 3, rgb, xres * 3);
+    if (result)
+    {
+        LogPrintf("Screenshot saved: %s\n", filename);
+    }
+    else
+    {
+        LogPrintf("Error: Failed to save screenshot to %s\n", filename);
+    }
     
     Free(rgb);
 }

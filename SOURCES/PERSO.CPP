@@ -16,6 +16,7 @@ static inline U32 DosAvailableMem() { return 0; }
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -124,7 +125,7 @@ void GetNumPcxSave() {
 
 void    CheckSavePcx()
 {
-        if( Key == K_F9 )
+        if( Key == K_F9 || Key == K_PRINTSCR )
         {
                 S32     saveflagfade    ;
 
@@ -175,7 +176,7 @@ void    CheckSavePcx()
 
 void    CheckSaveLogPcx( U8 *pal )
 {
-        if( Key == K_F9 )
+        if( Key == K_F9 || Key == K_PRINTSCR )
         {
                 SaveTimer() ;
 
@@ -672,6 +673,11 @@ startloop:
 
                                 RestoreTimer() ;
                         }
+                        else
+                        {
+                                LogPrintf("F10 benchmark only works in exterior scenes\n");
+                        }
+                        while( MyKey )  MyGetInput() ;
                 }
 
                 if( MyKey == K_F11 )
@@ -701,6 +707,11 @@ startloop:
 
                                 RestoreTimer() ;
                         }
+                        else
+                        {
+                                LogPrintf("F11 benchmark only works in exterior scenes\n");
+                        }
+                        while( MyKey )  MyGetInput() ;
                 }
 
                 if( MyKey == K_V )
@@ -988,7 +999,6 @@ startloop:
                         InitDial( 0 ) ;
 
                         SaveTimer() ;
-                        strcpy( PathSave, PATH_SAVE_BUGS ) ;
                         MemoClipWindow() ;
                         UnsetClipWindow() ;
                         StopSpeak() ;
@@ -1008,7 +1018,6 @@ startloop:
                         RestoreClipWindow() ;
                         HQ_ResumeSamples() ;
                         PaletteSync( PtrPal ) ;
-                        strcpy( PathSave, PATH_SAVE ) ;
                         RestoreTimer() ;
 
                         while( MyKey OR Input ) MyGetInput() ;
@@ -1937,7 +1946,7 @@ void    TheEnd( S32 num, const char *error )
 
 /*══════════════════════════════════════════════════════════════════════════*/
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-void    DebugHQR( char *titre, T_HQR_HEADER *hqr )
+void    DebugHQR( const char *titre, T_HQR_HEADER *hqr )
 {
         LogPrintf( titre ) ;
 
@@ -2404,18 +2413,30 @@ int main(int argc, char *argv[])
 
         FadeToBlack( PalettePcx ) ;
 
-        // Pour un SlideShow sur un salon, il ne faut pas que les p'tits gars
-        // puissent jouer avec le clavier !!!!!
-/*      if( ArgC==2 AND !strcasecmp(ArgV[1],"/NOKEY") )
+#ifdef DEBUG_TOOLS
+        // Command-line cube selection: ./lba2 <cube_number>
+        if( ArgC>1 )
         {
-                KeyOff = TRUE ;
-                Key = Joy = Fire = Input = 0 ;
+                char *p = ArgV[1];
+                S32 isNumber = TRUE;
+                while(*p) { if(!isdigit((unsigned char)*p++)) { isNumber = FALSE; break; } }
+
+                if(isNumber)
+                {
+                        S32 cubeNum = atoi(ArgV[1]);
+                        LogPrintf("\nStarting at cube %d\n", cubeNum);
+
+                        InitGame(1);
+                        NewCube = cubeNum;  // Set AFTER InitGame since it resets NewCube to 0
+                        FlagFade = TRUE;
+                        MainLoop();
+                        TheEnd(PROGRAM_OK, "");
+                        return 0;
+                }
         }
+#endif
 
-//      SlideDemo(ArgC,ArgV) ;
-
-*/
-        // TODO: Review this code when implementing command line parameters
+        // Load save game from command line argument
         if( ArgC>1 )
         {
 #ifdef  DEMO
