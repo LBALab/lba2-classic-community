@@ -7,6 +7,21 @@ ports in `LIB386/`.  A test suite in `tests/` validates equivalence between the
 two.  **All tests are ASM-vs-CPP equivalence tests** — there is no CPP-only mode.
 Tests must be run inside Docker via `run_tests_docker.sh`.
 
+### The Golden Rule: STRICT BYTE-FOR-BYTE EQUIVALENCE
+
+**The ASM implementation is the source of truth.**  Every equivalence test
+MUST compare the ASM and CPP outputs byte-for-byte using
+`ASSERT_ASM_CPP_MEM_EQ` or `ASSERT_ASM_CPP_EQ_INT`.  There are NO
+exceptions:
+
+- **NO** "no-crash" tests that just call both paths and check `ASSERT_TRUE(1)`.
+- **NO** approximate comparisons ("allow up to N% difference").
+- **NO** "verify both filled some pixels" checks.
+- **EVERY** random stress round MUST compare the full output buffer.
+
+If the CPP output differs from the ASM output by even a single byte,
+**fix the CPP implementation** until it matches.  Do not weaken the test.
+
 ### When adding or modifying ASM equivalence tests
 
 1. **Update `ASM_VALIDATION_PROGRESS.md`** in the project root:
