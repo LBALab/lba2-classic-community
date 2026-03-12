@@ -28,7 +28,12 @@
       "name": "linux",
       "inherits": "default",
       "displayName": "Linux",
-      "description": "Normal compilation on Linux"
+      "description": "Normal compilation on Linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
+      }
     },
     {
       "name": "macos_arm64",
@@ -38,7 +43,9 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "/usr/bin/clang",
         "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
       }
     },
     {
@@ -49,7 +56,9 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "/usr/bin/clang",
         "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
       }
     },
     {
