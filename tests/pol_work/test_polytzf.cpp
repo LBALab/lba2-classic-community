@@ -101,6 +101,8 @@ static void test_tzf_random(void)
 extern "C" { float F_256 = 256.0f; }
 
 extern "C" void asm_Filler_TextureZFogSmooth(void);
+extern "C" void asm_Filler_TextureZFogSmoothZBuf(void);
+extern "C" void asm_Filler_TextureZFogSmoothNZW(void);
 
 static inline S32 call_asm_Filler_TextureZFogSmooth(U32 nbLines, U32 xmin, U32 xmax)
 {
@@ -116,8 +118,38 @@ static inline S32 call_asm_Filler_TextureZFogSmooth(U32 nbLines, U32 xmin, U32 x
     return result;
 }
 
+static inline S32 call_asm_Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 xmin, U32 xmax)
+{
+    S32 result;
+    __asm__ __volatile__(
+        "push %%ebp\n\t"
+        "call asm_Filler_TextureZFogSmoothZBuf\n\t"
+        "pop %%ebp"
+        : "=a"(result)
+        : "c"(nbLines), "b"(xmin), "d"(xmax)
+        : "edi", "esi", "memory", "cc"
+    );
+    return result;
+}
+
+static inline S32 call_asm_Filler_TextureZFogSmoothNZW(U32 nbLines, U32 xmin, U32 xmax)
+{
+    S32 result;
+    __asm__ __volatile__(
+        "push %%ebp\n\t"
+        "call asm_Filler_TextureZFogSmoothNZW\n\t"
+        "pop %%ebp"
+        : "=a"(result)
+        : "c"(nbLines), "b"(xmin), "d"(xmax)
+        : "edi", "esi", "memory", "cc"
+    );
+    return result;
+}
+
 static U8 tzf_cpp_buf[TEST_POLY_SIZE];
 static U8 tzf_asm_buf[TEST_POLY_SIZE];
+static U16 tzf_cpp_zbuf[TEST_POLY_SIZE];
+static U16 tzf_asm_zbuf[TEST_POLY_SIZE];
 
 static void setup_tzf_filler(U32 startY, U32 nbLines,
                               U32 xmin_fp, U32 xmax_fp)
@@ -158,6 +190,14 @@ static void setup_tzf_filler(U32 startY, U32 nbLines,
     Fill_CurZBuf = 0;
 }
 
+static void setup_tzf_zbuf_filler(U32 startY, U32 nbLines,
+                                   U32 xmin_fp, U32 xmax_fp)
+{
+    setup_tzf_filler(startY, nbLines, xmin_fp, xmax_fp);
+    init_test_zbuffer(0xFFFF);
+    PtrZBuffer = (PTR_U16)g_test_zbuffer;
+}
+
 static void test_asm_equiv_tzf(void)
 {
     setup_tzf_filler(30, 4, 20 << 16, 50 << 16);
@@ -167,18 +207,6 @@ static void test_asm_equiv_tzf(void)
     setup_tzf_filler(30, 4, 20 << 16, 50 << 16);
     call_asm_Filler_TextureZFogSmooth(4, 20 << 16, 50 << 16);
     memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
-
-    for (int i = 0; i < TEST_POLY_SIZE; i++) {
-        if (tzf_asm_buf[i] != tzf_cpp_buf[i]) {
-            int row = i / TEST_POLY_W;
-            int col = i % TEST_POLY_W;
-            printf("# first diff at byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
-                   i, row, col, tzf_asm_buf[i], tzf_cpp_buf[i]);
-            for (int j = i; j < i + 10 && j < TEST_POLY_SIZE; j++)
-                printf("# [%d] asm=0x%02x cpp=0x%02x\n", j, tzf_asm_buf[j], tzf_cpp_buf[j]);
-            break;
-        }
-    }
 
     ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE,
                            "Filler_TextureZFogSmooth strip");
@@ -221,6 +249,148 @@ static void test_asm_random_tzf(void)
     }
 }
 
+/* ── ASM-vs-CPP equivalence: ZBuf variant ──────────────────────── */
+
+static void test_asm_equiv_tzf_zbuf(void)
+{
+    setup_tzf_zbuf_filler(30, 4, 20 << 16, 50 << 16);
+    Filler_TextureZFogSmoothZBuf(4, 20 << 16, 50 << 16);
+    memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(tzf_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+    setup_tzf_zbuf_filler(30, 4, 20 << 16, 50 << 16);
+    call_asm_Filler_TextureZFogSmoothZBuf(4, 20 << 16, 50 << 16);
+    memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(tzf_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+    ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE,
+                           "Filler_TextureZFogSmoothZBuf framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8*)tzf_asm_zbuf, (U8*)tzf_cpp_zbuf,
+                           TEST_POLY_SIZE * (int)sizeof(U16),
+                           "Filler_TextureZFogSmoothZBuf zbuf");
+}
+
+static void test_asm_random_tzf_zbuf(void)
+{
+    poly_rng_seed(0xCAFEBABE);
+    for (int i = 0; i < 300; i++) {
+        U32 y = poly_rng_next() % (TEST_POLY_H - 20);
+        U32 h = 1 + poly_rng_next() % 8;
+        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
+        U32 x1 = x0 + 5 + poly_rng_next() % 30;
+        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+
+        U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
+        S32 zBufXSlope = (S32)(poly_rng_next() - 0x4000) << 4;
+
+        setup_tzf_zbuf_filler(y, h, x0 << 16, x1 << 16);
+        Fill_CurZBufMin = zBufMin;
+        Fill_ZBuf_XSlope = zBufXSlope;
+        Filler_TextureZFogSmoothZBuf(h, x0 << 16, x1 << 16);
+        memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(tzf_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        setup_tzf_zbuf_filler(y, h, x0 << 16, x1 << 16);
+        Fill_CurZBufMin = zBufMin;
+        Fill_ZBuf_XSlope = zBufXSlope;
+        call_asm_Filler_TextureZFogSmoothZBuf(h, x0 << 16, x1 << 16);
+        memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(tzf_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        for (int j = 0; j < TEST_POLY_SIZE; j++) {
+            if (tzf_asm_buf[j] != tzf_cpp_buf[j]) {
+                int row = j / TEST_POLY_W;
+                int col = j % TEST_POLY_W;
+                printf("# tzf_zbuf #%d w=%u: first diff byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                       i, x1 - x0, j, row, col, tzf_asm_buf[j], tzf_cpp_buf[j]);
+                break;
+            }
+        }
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "random tzf_zbuf #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE, msg);
+
+        snprintf(msg, sizeof(msg), "random tzf_zbuf zbuf #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ((U8*)tzf_asm_zbuf, (U8*)tzf_cpp_zbuf,
+                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+    }
+}
+
+/* ── ASM-vs-CPP equivalence: NZW variant ───────────────────────── */
+
+static void test_asm_equiv_tzf_nzw(void)
+{
+    setup_tzf_zbuf_filler(30, 4, 20 << 16, 50 << 16);
+    Filler_TextureZFogSmoothNZW(4, 20 << 16, 50 << 16);
+    memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(tzf_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+    setup_tzf_zbuf_filler(30, 4, 20 << 16, 50 << 16);
+    call_asm_Filler_TextureZFogSmoothNZW(4, 20 << 16, 50 << 16);
+    memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(tzf_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+    ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE,
+                           "Filler_TextureZFogSmoothNZW framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8*)tzf_asm_zbuf, (U8*)tzf_cpp_zbuf,
+                           TEST_POLY_SIZE * (int)sizeof(U16),
+                           "Filler_TextureZFogSmoothNZW zbuf");
+}
+
+static void test_asm_random_tzf_nzw(void)
+{
+    poly_rng_seed(0xBAADF00D);
+    for (int i = 0; i < 300; i++) {
+        U32 y = poly_rng_next() % (TEST_POLY_H - 20);
+        U32 h = 1 + poly_rng_next() % 8;
+        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
+        U32 x1 = x0 + 5 + poly_rng_next() % 30;
+        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+
+        U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
+        S32 zBufXSlope = (S32)(poly_rng_next() - 0x4000) << 4;
+
+        setup_tzf_zbuf_filler(y, h, x0 << 16, x1 << 16);
+        Fill_CurZBufMin = zBufMin;
+        Fill_ZBuf_XSlope = zBufXSlope;
+        Filler_TextureZFogSmoothNZW(h, x0 << 16, x1 << 16);
+        memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(tzf_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        setup_tzf_zbuf_filler(y, h, x0 << 16, x1 << 16);
+        Fill_CurZBufMin = zBufMin;
+        Fill_ZBuf_XSlope = zBufXSlope;
+        call_asm_Filler_TextureZFogSmoothNZW(h, x0 << 16, x1 << 16);
+        memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(tzf_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        for (int j = 0; j < TEST_POLY_SIZE; j++) {
+            if (tzf_asm_buf[j] != tzf_cpp_buf[j]) {
+                int row = j / TEST_POLY_W;
+                int col = j % TEST_POLY_W;
+                printf("# tzf_nzw #%d w=%u: first diff byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                       i, x1 - x0, j, row, col, tzf_asm_buf[j], tzf_cpp_buf[j]);
+                break;
+            }
+        }
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "random tzf_nzw #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE, msg);
+
+        snprintf(msg, sizeof(msg), "random tzf_nzw zbuf #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ((U8*)tzf_asm_zbuf, (U8*)tzf_cpp_zbuf,
+                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_tzf_basic);
@@ -228,6 +398,10 @@ int main(void)
     RUN_TEST(test_tzf_random);
     RUN_TEST(test_asm_equiv_tzf);
     RUN_TEST(test_asm_random_tzf);
+    RUN_TEST(test_asm_equiv_tzf_zbuf);
+    RUN_TEST(test_asm_random_tzf_zbuf);
+    RUN_TEST(test_asm_equiv_tzf_nzw);
+    RUN_TEST(test_asm_random_tzf_nzw);
     TEST_SUMMARY();
     return test_failures != 0;
 }

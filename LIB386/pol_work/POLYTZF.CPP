@@ -263,12 +263,26 @@ S32 Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   S32 u = Fill_CurMapUMin;
   S32 v = Fill_CurMapVMin;
   S32 w = Fill_CurWMin;
-  U32 z = Fill_CurZMin;
   U32 patch = Fill_Patch - 1;
+
+  static U32 ZBuf_RepMaskPatch;
+  static PTR_U8 ZBuf_PtrMapPatch;
+  static PTR_U8 ZBuf_PtrCLUT;
+  static PTR_U8 ZBuf_PtrLog;
+  static PTR_U16 ZBuf_PtrZBuf;
+  static U32 ZBuf_DecZ;
+  static U32 ZBuf_IntZ;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
+    ZBuf_PtrCLUT = PtrCLUTFog + 12 * 256;
+    ZBuf_RepMaskPatch = RepMask;
+    ZBuf_PtrMapPatch = PtrMap;
+    ZBuf_PtrLog = (PTR_U8)Log;
+    ZBuf_PtrZBuf = PtrZBuffer;
+    ZBuf_DecZ = (U32)Fill_ZBuf_XSlope << 24;
+    ZBuf_IntZ = ((U32)Fill_ZBuf_XSlope >> 8) & 0xFFFF;
   }
   else
   {
@@ -278,60 +292,131 @@ S32 Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
     w += Fill_W_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    Fill_CurWMin = w;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   while (1)
   {
-    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
-    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    PTR_U8 line = Fill_CurOffLine;
+    U32 xStart = fillCurXMin >> 16;
+    U32 xEnd = fillCurXMax >> 16;
+    if (xEnd > xStart)
     {
-      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      U16 *zbuffer = (fillCurXMin >> 16) + PtrZBuffer;
-      
+      U32 fillWidth = xEnd - xStart;
+      line += xStart;
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineW = w;
-      U32 lineZ = z;
 
-      // Texture mapping with fog and Z-buffer
-      for (U32 x = 0; x < fillWidth; x++)
+      Fill_CurWMin = w;
+      Fill_Cur_W = w;
+
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 32)
       {
-        U16 currentZ = lineZ >> 16;
-        
-        // Z-buffer test
-        if (currentZ < *zbuffer)
         {
-          // Get texture coordinates
-          U32 texU = (lineU >> 16) & (RepMask & 0xFF);
-          U32 texV = (lineV >> 16) & ((RepMask >> 8) & 0xFF);
-          
-          // Get texture pixel
-          U8 texel = PtrMap[texV * 256 + texU]; // Assuming 256x256 texture
-          
-          // Calculate fog factor based on W (depth)
-          U32 fogFactor;
-          if (lineW < (S32)Fill_ScaledFogNear) {
-            fogFactor = 0; // No fog
-          } else {
-            U32 fogDist = lineW - Fill_ScaledFogNear;
-            fogFactor = (fogDist * Fill_Fog_Factor) >> 16;
-            if (fogFactor > 255) fogFactor = 255;
-          }
-          
-          // Apply fog using fog color lookup table
-          U8 finalColor = PtrCLUTFog[(fogFactor << 8) + texel];
-          
-          *line = finalColor;
-          *zbuffer = currentZ; // Write Z-buffer
+          S64 prod = (S64)(S32)factor * (S64)(S32)Fill_W_XSlope;
+          U32 lo = (U32)(prod & 0xFFFFFFFFu);
+          S32 hi = (S32)(prod >> 32);
+          S32 addW = (S32)(((U32)hi << 16) | (lo >> 16));
+          Fill_Cur_W = w + addW;
         }
-        
-        line++;
-        zbuffer++;
-        lineU += Fill_MapU_XSlope;
-        lineV += Fill_MapV_XSlope;
-        lineW += Fill_W_XSlope;
-        lineZ += Fill_Z_XSlope;
+        {
+          S64 prod = (S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope;
+          U32 lo = (U32)(prod & 0xFFFFFFFFu);
+          S32 hi = (S32)(prod >> 32);
+          S32 addU = (S32)(((U32)hi << 16) | (lo >> 16));
+          lineU += addU;
+        }
+        {
+          S64 prod = (S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope;
+          U32 lo = (U32)(prod & 0xFFFFFFFFu);
+          S32 hi = (S32)(prod >> 32);
+          S32 addV = (S32)(((U32)hi << 16) | (lo >> 16));
+          lineV += addV;
+        }
+      }
+
+      POLYTZF_Init_Perspective(lineU, lineV, fillWidth);
+
+      U32 remaining = fillWidth;
+      while (1)
+      {
+        POLYTZF_Loop_Perspective(remaining);
+
+        S32 curMapU = Fill_Cur_MapU;
+        S32 nextMapU = Fill_Next_MapU;
+        S32 curMapV = Fill_Cur_MapV;
+        S32 nextMapV = Fill_Next_MapV;
+
+        S32 incU = (nextMapU - curMapU) >> 5;
+        S32 incV = (nextMapV - curMapV) >> 5;
+        incU &= 0xFFFF;
+        curMapU &= 0xFFFF;
+        incV = (incV << 16) & (S32)0xFFFF0000u;
+        curMapV = (curMapV << 16) & (S32)0xFFFF0000u;
+        U32 uvInc = (U32)incV | (U32)incU;
+        U32 uvCur = (U32)curMapV | (U32)curMapU;
+
+        S32 zBufVal = Fill_CurZBuf >> 8;
+        S32 fogDist = zBufVal - (S32)Fill_ScaledFogNear;
+        U32 fogRow;
+        if (fogDist < 0)
+        {
+          fogRow = 0;
+        }
+        else
+        {
+          fogRow = ((U32)fogDist * Fill_Fog_Factor) >> 8;
+          fogRow &= 0xF000;
+        }
+
+        /* Z-buffer: rotated representation matching ASM's ror esi,8 */
+        U32 zRot = ((U32)Fill_CurZBuf >> 8) | ((U32)Fill_CurZBuf << 24);
+
+        U32 spanLen = (remaining > 32) ? 32 : remaining;
+        U32 pixOfs = (U32)(line - ZBuf_PtrLog);
+
+        for (U32 px = 0; px < spanLen; px++)
+        {
+          U16 zComp = (U16)zRot;
+
+          if (ZBuf_PtrZBuf[pixOfs] >= zComp)
+          {
+            ZBuf_PtrZBuf[pixOfs] = zComp;
+
+            U32 U_int = (uvCur >> 8) & 0xFF;
+            U32 V_int = (uvCur >> 16) & 0xFF;
+            U32 mapIndex = (V_int << 8) | U_int;
+            mapIndex &= ZBuf_RepMaskPatch;
+            U8 texel = ZBuf_PtrMapPatch[mapIndex];
+            ZBuf_PtrLog[pixOfs] = ZBuf_PtrCLUT[fogRow + texel];
+          }
+
+          uvCur += uvInc;
+
+          /* Z interpolation: add/adc matching ASM */
+          U32 oldZ = zRot;
+          zRot += ZBuf_DecZ;
+          U32 carry = (zRot < oldZ) ? 1 : 0;
+          zRot += ZBuf_IntZ + carry;
+
+          pixOfs++;
+        }
+
+        line += spanLen;
+
+        if (remaining <= 32) break;
+
+        Fill_Cur_MapU = Fill_Next_MapU;
+        Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
+        Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
+        Fill_Cur_W = Fill_Next_W;
+        Fill_CurZBuf = Fill_Next_ZBuf;
+        POLYTZF_Cur_ZBufOverW = POLYTZF_Next_ZBufOverW;
+        remaining -= 32;
       }
     }
 
@@ -343,17 +428,17 @@ S32 Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
     w += Fill_W_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = (PTR_U8)Fill_CurOffLine;
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurWMin = w;
-  Fill_CurZMin = z;
-  
-  return 0;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_TextureZFogSmoothNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
@@ -363,12 +448,26 @@ S32 Filler_TextureZFogSmoothNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   S32 u = Fill_CurMapUMin;
   S32 v = Fill_CurMapVMin;
   S32 w = Fill_CurWMin;
-  U32 z = Fill_CurZMin;
   U32 patch = Fill_Patch - 1;
+
+  static U32 NZW_RepMaskPatch;
+  static PTR_U8 NZW_PtrMapPatch;
+  static PTR_U8 NZW_PtrCLUT;
+  static PTR_U8 NZW_PtrLog;
+  static PTR_U16 NZW_PtrZBuf;
+  static U32 NZW_DecZ;
+  static U32 NZW_IntZ;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
+    NZW_PtrCLUT = PtrCLUTFog + 12 * 256;
+    NZW_RepMaskPatch = RepMask;
+    NZW_PtrMapPatch = PtrMap;
+    NZW_PtrLog = (PTR_U8)Log;
+    NZW_PtrZBuf = PtrZBuffer;
+    NZW_DecZ = (U32)Fill_ZBuf_XSlope << 24;
+    NZW_IntZ = ((U32)Fill_ZBuf_XSlope >> 8) & 0xFFFF;
   }
   else
   {
@@ -378,60 +477,130 @@ S32 Filler_TextureZFogSmoothNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
     w += Fill_W_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    Fill_CurWMin = w;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   while (1)
   {
-    U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
-    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    PTR_U8 line = Fill_CurOffLine;
+    U32 xStart = fillCurXMin >> 16;
+    U32 xEnd = fillCurXMax >> 16;
+    if (xEnd > xStart)
     {
-      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      U16 *zbuffer = (fillCurXMin >> 16) + PtrZBuffer;
-      
+      U32 fillWidth = xEnd - xStart;
+      line += xStart;
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineW = w;
-      U32 lineZ = z;
 
-      // Texture mapping with fog and Z-buffer (No Z Write)
-      for (U32 x = 0; x < fillWidth; x++)
+      Fill_CurWMin = w;
+      Fill_Cur_W = w;
+
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 32)
       {
-        U16 currentZ = lineZ >> 16;
-        
-        // Z-buffer test (no write - NZW = No Z Write)
-        if (currentZ < *zbuffer)
         {
-          // Get texture coordinates
-          U32 texU = (lineU >> 16) & (RepMask & 0xFF);
-          U32 texV = (lineV >> 16) & ((RepMask >> 8) & 0xFF);
-          
-          // Get texture pixel
-          U8 texel = PtrMap[texV * 256 + texU]; // Assuming 256x256 texture
-          
-          // Calculate fog factor based on W (depth)
-          U32 fogFactor;
-          if (lineW < (S32)Fill_ScaledFogNear) {
-            fogFactor = 0; // No fog
-          } else {
-            U32 fogDist = lineW - Fill_ScaledFogNear;
-            fogFactor = (fogDist * Fill_Fog_Factor) >> 16;
-            if (fogFactor > 255) fogFactor = 255;
-          }
-          
-          // Apply fog using fog color lookup table
-          U8 finalColor = PtrCLUTFog[(fogFactor << 8) + texel];
-          
-          *line = finalColor;
-          // Note: No Z-buffer write for NZW variant
+          S64 prod = (S64)(S32)factor * (S64)(S32)Fill_W_XSlope;
+          U32 lo = (U32)(prod & 0xFFFFFFFFu);
+          S32 hi = (S32)(prod >> 32);
+          S32 addW = (S32)(((U32)hi << 16) | (lo >> 16));
+          Fill_Cur_W = w + addW;
         }
-        
-        line++;
-        zbuffer++;
-        lineU += Fill_MapU_XSlope;
-        lineV += Fill_MapV_XSlope;
-        lineW += Fill_W_XSlope;
-        lineZ += Fill_Z_XSlope;
+        {
+          S64 prod = (S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope;
+          U32 lo = (U32)(prod & 0xFFFFFFFFu);
+          S32 hi = (S32)(prod >> 32);
+          S32 addU = (S32)(((U32)hi << 16) | (lo >> 16));
+          lineU += addU;
+        }
+        {
+          S64 prod = (S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope;
+          U32 lo = (U32)(prod & 0xFFFFFFFFu);
+          S32 hi = (S32)(prod >> 32);
+          S32 addV = (S32)(((U32)hi << 16) | (lo >> 16));
+          lineV += addV;
+        }
+      }
+
+      POLYTZF_Init_Perspective(lineU, lineV, fillWidth);
+
+      U32 remaining = fillWidth;
+      while (1)
+      {
+        POLYTZF_Loop_Perspective(remaining);
+
+        S32 curMapU = Fill_Cur_MapU;
+        S32 nextMapU = Fill_Next_MapU;
+        S32 curMapV = Fill_Cur_MapV;
+        S32 nextMapV = Fill_Next_MapV;
+
+        S32 incU = (nextMapU - curMapU) >> 5;
+        S32 incV = (nextMapV - curMapV) >> 5;
+        incU &= 0xFFFF;
+        curMapU &= 0xFFFF;
+        incV = (incV << 16) & (S32)0xFFFF0000u;
+        curMapV = (curMapV << 16) & (S32)0xFFFF0000u;
+        U32 uvInc = (U32)incV | (U32)incU;
+        U32 uvCur = (U32)curMapV | (U32)curMapU;
+
+        S32 zBufVal = Fill_CurZBuf >> 8;
+        S32 fogDist = zBufVal - (S32)Fill_ScaledFogNear;
+        U32 fogRow;
+        if (fogDist < 0)
+        {
+          fogRow = 0;
+        }
+        else
+        {
+          fogRow = ((U32)fogDist * Fill_Fog_Factor) >> 8;
+          fogRow &= 0xF000;
+        }
+
+        /* Z-buffer: rotated representation matching ASM's ror esi,8 */
+        U32 zRot = ((U32)Fill_CurZBuf >> 8) | ((U32)Fill_CurZBuf << 24);
+
+        U32 spanLen = (remaining > 32) ? 32 : remaining;
+        U32 pixOfs = (U32)(line - NZW_PtrLog);
+
+        for (U32 px = 0; px < spanLen; px++)
+        {
+          U16 zComp = (U16)zRot;
+
+          if (NZW_PtrZBuf[pixOfs] >= zComp)
+          {
+            /* NZW: NO Z-buffer write */
+            U32 U_int = (uvCur >> 8) & 0xFF;
+            U32 V_int = (uvCur >> 16) & 0xFF;
+            U32 mapIndex = (V_int << 8) | U_int;
+            mapIndex &= NZW_RepMaskPatch;
+            U8 texel = NZW_PtrMapPatch[mapIndex];
+            NZW_PtrLog[pixOfs] = NZW_PtrCLUT[fogRow + texel];
+          }
+
+          uvCur += uvInc;
+
+          /* Z interpolation: add/adc matching ASM */
+          U32 oldZ = zRot;
+          zRot += NZW_DecZ;
+          U32 carry = (zRot < oldZ) ? 1 : 0;
+          zRot += NZW_IntZ + carry;
+
+          pixOfs++;
+        }
+
+        line += spanLen;
+
+        if (remaining <= 32) break;
+
+        Fill_Cur_MapU = Fill_Next_MapU;
+        Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
+        Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
+        Fill_Cur_W = Fill_Next_W;
+        Fill_CurZBuf = Fill_Next_ZBuf;
+        POLYTZF_Cur_ZBufOverW = POLYTZF_Next_ZBufOverW;
+        remaining -= 32;
       }
     }
 
@@ -443,15 +612,15 @@ S32 Filler_TextureZFogSmoothNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
     w += Fill_W_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
   Fill_CurXMax = fillCurXMax;
+  Fill_CurOffLine = (PTR_U8)Fill_CurOffLine;
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurWMin = w;
-  Fill_CurZMin = z;
-  
-  return 0;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
