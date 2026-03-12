@@ -16,6 +16,17 @@ Tests must be run inside Docker via `run_tests_docker.sh`.
    - Each test file includes `test_harness.h` and the relevant LIB386 header.
    - Declare ASM-side functions as `extern "C" S32 asm_FuncName(...)`.
    - Cover at least 3 normal inputs and 2 edge cases per function.
+   - **Add a randomized stress test** with a deterministic LCG (seed
+     `0xDEADBEEF` or similar fixed value) that runs 20-50 rounds comparing
+     ASM vs CPP outputs with random inputs.  Use this pattern:
+     ```c
+     static U32 rng_state;
+     static void rng_seed(U32 s) { rng_state = s; }
+     static U32 rng_next(void) {
+         rng_state = rng_state * 1103515245u + 12345u;
+         return (rng_state >> 16) & 0x7FFF;
+     }
+     ```
    - For functions that write globals (`X0`, `Y0`, `Z0`, `Xp`, `Yp`), read
      those globals after each call and compare ASM vs CPP.
 3. **Register the test** in the appropriate `tests/<dir>/CMakeLists.txt` using
