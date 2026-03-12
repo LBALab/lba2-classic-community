@@ -15,7 +15,7 @@
 #define TEX_SIZE 256
 
 static U8 g_texture[TEX_SIZE * TEX_SIZE];
-static U8 g_fog_clut[4096];
+static U8 g_fog_clut[65536];  /* Fog CLUT: base + 12*256 + fogRow(up to 0xF000) + texel(0-255) */
 
 static Struc_Point make_point_uvw(S16 x, S16 y, U16 u, U16 v, S32 w)
 {
@@ -37,7 +37,7 @@ static void setup_tzf_screen(void)
             g_texture[y * TEX_SIZE + x] = (U8)(((x + y) & 0x3F) | 0x40);
     PtrMap = g_texture;
     RepMask = 0xFFFF;
-    for (int i = 0; i < 4096; i++)
+    for (int i = 0; i < 65536; i++)
         g_fog_clut[i] = (U8)(i & 0xFF);
     PtrCLUTFog = g_fog_clut;
     PtrTruePal = g_fog_clut;
@@ -130,7 +130,8 @@ static void setup_tzf_filler(U32 startY, U32 nbLines,
     RepMask = 0xFFFF;
     Fill_Patch = 1;
     Fill_Color.Ptr = g_fog_clut;  /* Used as CLUT by perspective fillers */
-    for (int i = 0; i < 4096; i++)
+    PtrCLUTFog = g_fog_clut;     /* Used by CPP fog filler */
+    for (int i = 0; i < 65536; i++)
         g_fog_clut[i] = (U8)(i & 0xFF);
     memcpy(Fill_Logical_Palette, g_fog_clut, 256);
 
@@ -151,12 +152,14 @@ static void setup_tzf_filler(U32 startY, U32 nbLines,
     Fill_Next_MapVOverW = 0;
     Fill_Next_MapU = 0;
     Fill_Next_MapV = 0;
+    Fill_CurZBufMin = 0x10000;
+    Fill_ZBuf_LeftSlope = 0;
+    Fill_ZBuf_XSlope = 0;
+    Fill_CurZBuf = 0;
 }
 
 static void test_asm_equiv_tzf(void)
 {
-    /* x87 extended-precision vs C long double rounding in 256/W causes
-     * slight pixel differences.  Verify both paths produce correlated output. */
     setup_tzf_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZFogSmooth(4, 20 << 16, 50 << 16);
     memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -165,23 +168,26 @@ static void test_asm_equiv_tzf(void)
     call_asm_Filler_TextureZFogSmooth(4, 20 << 16, 50 << 16);
     memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
-    /* Count differing bytes — FP precision allows some difference */
-    int diffs = 0;
-    for (int i = 0; i < TEST_POLY_SIZE; i++)
-        if (tzf_asm_buf[i] != tzf_cpp_buf[i]) diffs++;
-    int filled = 0;
-    for (int i = 0; i < TEST_POLY_SIZE; i++)
-        if (tzf_cpp_buf[i] != 0) filled++;
-    /* Verify that most pixels match (allow up to 10% from FP precision) */
-    ASSERT_TRUE(filled == 0 || diffs * 10 < filled);
+    for (int i = 0; i < TEST_POLY_SIZE; i++) {
+        if (tzf_asm_buf[i] != tzf_cpp_buf[i]) {
+            int row = i / TEST_POLY_W;
+            int col = i % TEST_POLY_W;
+            printf("# first diff at byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                   i, row, col, tzf_asm_buf[i], tzf_cpp_buf[i]);
+            for (int j = i; j < i + 10 && j < TEST_POLY_SIZE; j++)
+                printf("# [%d] asm=0x%02x cpp=0x%02x\n", j, tzf_asm_buf[j], tzf_cpp_buf[j]);
+            break;
+        }
+    }
+
+    ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE,
+                           "Filler_TextureZFogSmooth strip");
 }
 
 static void test_asm_random_tzf(void)
 {
-    /* x87 extended-precision vs C long double rounding differences:
-     * run both paths to verify no crash. */
     poly_rng_seed(0xFEEDFACE);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
         if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
@@ -191,10 +197,27 @@ static void test_asm_random_tzf(void)
 
         setup_tzf_filler(y, h, x0 << 16, x1 << 16);
         Filler_TextureZFogSmooth(h, x0 << 16, x1 << 16);
+        memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
         setup_tzf_filler(y, h, x0 << 16, x1 << 16);
         call_asm_Filler_TextureZFogSmooth(h, x0 << 16, x1 << 16);
-        ASSERT_TRUE(1);
+        memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        /* Check for first mismatch */
+        for (int j = 0; j < TEST_POLY_SIZE; j++) {
+            if (tzf_asm_buf[j] != tzf_cpp_buf[j]) {
+                int row = j / TEST_POLY_W;
+                int col = j % TEST_POLY_W;
+                printf("# tzf #%d w=%u: first diff byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                       i, x1 - x0, j, row, col, tzf_asm_buf[j], tzf_cpp_buf[j]);
+                break;
+            }
+        }
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "random tzf #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE, msg);
     }
 }
 

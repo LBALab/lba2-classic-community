@@ -18,7 +18,6 @@
 #include <POLYGON/POLYTEXZ.H>
 
 #include <stdio.h>
-#include <math.h>
 
 #include <FILLER.H>
 #include <POLYGON/POLY.H>
@@ -46,9 +45,14 @@ typedef struct {
 } PerspectiveWStack_t;
 
 static PerspectiveWStack_t PerspectiveWStack = {{0}, 0};
-long double PerspectiveInvW = 0.0L;
+/* Match ASM x87 FPU exactly: fild W → fdivr F_256 → result in 80-bit extended.
+ * Then fild MapOverW × result → fistp to S32 using FPU rounding mode.
+ *
+ * Using inline asm ensures the EXACT same instruction sequence as the ASM filler:
+ *   fild [W]  →  fdivr [F_256]  →  result stays on FPU stack in 80-bit. */
+static float F_256_val = 256.0f;
 
-// Stack operations
+/* Stack operations */
 static void PerspectiveWStack_clear(void) {
     PerspectiveWStack.top_index = 0;
 }
@@ -64,7 +68,7 @@ static S32 PerspectiveWStack_top(void) {
     if (PerspectiveWStack.top_index > 0) {
         return PerspectiveWStack.data[PerspectiveWStack.top_index - 1];
     }
-    return 0; // Default value if stack is empty
+    return 0;
 }
 
 static void PerspectiveWStack_pop(void) {
@@ -77,6 +81,52 @@ static U32 PerspectiveWStack_size(void) {
     return PerspectiveWStack.top_index;
 }
 
+static inline void persp_init_invW(S32 w)
+{
+    __asm__ __volatile__(
+        "fildl  %1\n\t"
+        "fdivrs %0\n\t"
+        /* leave 256.0/W on FPU st(0) — will be consumed by persp_eval */
+        :
+        : "m"(F_256_val), "m"(w)
+        :
+    );
+}
+
+/* Multiply st(0) = 256/W by val, store result as S32, leave 256/W on stack */
+static inline S32 persp_eval(S32 val)
+{
+    S32 result;
+    __asm__ __volatile__(
+        "fildl  %1\n\t"       /* st(0)=val  st(1)=256/W */
+        "fmul  %%st(1), %%st(0)\n\t"  /* st(0)=val*(256/W)  st(1)=256/W */
+        "fistpl %0\n\t"       /* store as S32 (FPU rounding), pop → st(0)=256/W */
+        : "=m"(result)
+        : "m"(val)
+        :
+    );
+    return result;
+}
+
+/* Store new W, compute new 256/W, replacing old value on FPU stack */
+static inline void persp_next_invW(S32 w)
+{
+    __asm__ __volatile__(
+        "fstp  %%st(0)\n\t"  /* pop old 256/W */
+        "fildl  %0\n\t"       /* load new W */
+        "fdivrs %1\n\t"       /* 256.0f / W */
+        :
+        : "m"(w), "m"(F_256_val)
+        :
+    );
+}
+
+/* Pop 256/W from FPU stack when done */
+static inline void persp_cleanup(void)
+{
+    __asm__ __volatile__("fstp %%st(0)" ::: );
+}
+
 // ╔═════════════════════════════════════════════════════════════╗
 // ║ Initialize the gradiants of a scanline                      ║
 // ╚═════════════════════════════════════════════════════════════╝
@@ -86,43 +136,36 @@ void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth)
 
   if (w == 0 || w == -1 || w == 1)
   {
-    // @@W_Nul1:
     w = 2;
     Fill_Cur_W = 2;
   }
 
-  // @@Return_Error1:
   Fill_Cur_MapUOverW = lineU;
   Fill_Cur_MapVOverW = lineV;
   S32 wXSlope = Fill_W_XSlope << PERSP_SHIFT;
-  PerspectiveInvW = 256.0L / (long double)w;
+  persp_init_invW(w);   /* push 256.0f/W onto FPU stack */
 
-  // Here, we precalc an array in the stack. This array
-  // contains valid Cur_W values
   PerspectiveWStack_clear();
   U32 stackLength = fillWidth + PERSP_VALUE - 1;
   stackLength >>= PERSP_SHIFT;
 
   do
   {
-    // @@CreateStack:
     w += wXSlope;
     if (w == 0 || w == -1 || w == 1)
     {
-      // @@W_Nul:
       w = 2;
     }
 
-    // @@Return_Error:
     PerspectiveWStack_push(w);
   } while (PerspectiveWStack_size() < stackLength);
 
   Fill_Cur_W = PerspectiveWStack_top();
   PerspectiveWStack_pop();
 
-  Fill_Cur_MapU = lrintl((long double)Fill_Cur_MapUOverW * PerspectiveInvW);
-  Fill_Cur_MapV = lrintl((long double)Fill_Cur_MapVOverW * PerspectiveInvW);
-  PerspectiveInvW = 256.0L / (long double)Fill_Cur_W; // Will be used in Fill_Loop_Perspective
+  Fill_Cur_MapU = persp_eval(Fill_Cur_MapUOverW);
+  Fill_Cur_MapV = persp_eval(Fill_Cur_MapVOverW);
+  persp_next_invW(Fill_Cur_W);   /* replace with 256.0f/Fill_Cur_W */
 }
 
 // ╔═════════════════════════════════════════════════════════════╗
@@ -133,14 +176,14 @@ void Fill_Loop_Perspective(U32 fillWidth)
   Fill_Next_MapUOverW = (Fill_MapU_XSlope << PERSP_SHIFT) + Fill_Cur_MapUOverW;
   Fill_Next_MapVOverW = (Fill_MapV_XSlope << PERSP_SHIFT) + Fill_Cur_MapVOverW;
 
-  Fill_Next_MapU = lrintl((long double)Fill_Next_MapUOverW * PerspectiveInvW);
-  Fill_Next_MapV = lrintl((long double)Fill_Next_MapVOverW * PerspectiveInvW);
+  Fill_Next_MapU = persp_eval(Fill_Next_MapUOverW);
+  Fill_Next_MapV = persp_eval(Fill_Next_MapVOverW);
 
   if (fillWidth > PERSP_VALUE)
   {
     Fill_Next_W = PerspectiveWStack_top();
     PerspectiveWStack_pop();
-    PerspectiveInvW = 256.0L / (long double)Fill_Next_W;
+    persp_next_invW(Fill_Next_W);
   }
 }
 

@@ -110,28 +110,44 @@ static void test_asm_equiv_texz(void)
 
 static void test_asm_random_texz(void)
 {
-    /* The static ASM equiv passes but random inputs hit x87 extended-
-     * precision vs C `long double` rounding differences in 256/W.
-     * Run both ASM and CPP paths to verify no crash. */
     poly_rng_seed(0xBEEFCAFE);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
         if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
         if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        U32 uslope = poly_rng_next() % 0x20000;
+        S32 w = 0x8000 + (S32)(poly_rng_next() % 0x18000);
 
         setup_texz_filler(y, h, x0 << 16, x1 << 16);
-        Fill_MapU_XSlope = poly_rng_next() % 0x20000;
-        Fill_Cur_W = 0x8000 + (S32)(poly_rng_next() % 0x18000);
+        Fill_MapU_XSlope = uslope;
+        Fill_Cur_W = w;
         Filler_TextureZ(h, x0 << 16, x1 << 16);
+        memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
         setup_texz_filler(y, h, x0 << 16, x1 << 16);
-        Fill_MapU_XSlope = poly_rng_next() % 0x20000;
-        Fill_Cur_W = 0x8000 + (S32)(poly_rng_next() % 0x18000);
+        Fill_MapU_XSlope = uslope;
+        Fill_Cur_W = w;
         call_asm_Filler_TextureZ(h, x0 << 16, x1 << 16);
-        ASSERT_TRUE(1);
+        memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        /* Check for first mismatch */
+        for (int j = 0; j < TEST_POLY_SIZE; j++) {
+            if (texz_asm_buf[j] != texz_cpp_buf[j]) {
+                int row = j / TEST_POLY_W;
+                int col = j % TEST_POLY_W;
+                printf("# texz #%d w=%u: first diff byte %d (row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                       i, x1 - x0, j, row, col, texz_asm_buf[j], texz_cpp_buf[j]);
+                break;
+            }
+        }
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "random texz #%d y=%u h=%u x=%u-%u",
+                 i, y, h, x0, x1);
+        ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, msg);
     }
 }
 
