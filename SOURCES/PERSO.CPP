@@ -2413,6 +2413,14 @@ int main(int argc, char *argv[])
 
         FadeToBlack( PalettePcx ) ;
 
+        // Pour un SlideShow sur un salon, il ne faut pas que les p'tits gars
+        // puissent jouer avec le clavier !!!!!
+/*      if( ArgC==2 AND !strcasecmp(ArgV[1],"/NOKEY") )
+        {
+                KeyOff = TRUE ;
+        }
+*/
+
 #ifdef DEBUG_TOOLS
         // Command-line cube selection: ./lba2 <cube_number>
         if( ArgC>1 )
