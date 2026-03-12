@@ -1,4 +1,5 @@
 #include "DEFINES.H"
+#include "../PERSO.H"
 
 #include <SVGA/SCREEN.H>
 

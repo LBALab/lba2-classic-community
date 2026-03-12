@@ -51,8 +51,8 @@
 //#define	ONE_GAME_DIRECTORY	1
 //=======================================================================
 
-// repertoire ou sauver les bugs
-#define PATH_SAVE_BUGS "f:\\panier\\lba2\\save\\bugs\\" // TODO: Review all uses when DEBUG_TOOLS enabled
+// repertoire ou sauver les bugs (cross-platform path)
+#define PATH_SAVE_BUGS "./bugs/"
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /*----------------------------- camera -----------------------------*/

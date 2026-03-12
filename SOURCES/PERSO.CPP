@@ -8,6 +8,11 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
+#include <SYSTEM/TIMER.H>
+
+#ifdef DEBUG_TOOLS
+static inline U32 DosAvailableMem() { return 0; }
+#endif
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -132,14 +137,14 @@ void    CheckSavePcx()
 
                 GetNumPcxSave() ;
 
-                char PCXFilename[ADELINE_MAX_PATH];
-		sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
-                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
+                char PNGFilename[ADELINE_MAX_PATH];
+		sprintf(PNGFilename, "LBA%05d.png", NumPcxSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
 
-                SavePCX( NamePcxSave, Screen, ModeDesiredX, ModeDesiredY, PtrPal ) ;
+                SavePNG( NamePcxSave, Screen, ModeDesiredX, ModeDesiredY, PtrPal ) ;
 
                 WaitNoInput() ;
 
@@ -176,11 +181,11 @@ void    CheckSaveLogPcx( U8 *pal )
 
                 GetNumPcxSave() ;
 
-                char PCXFilename[ADELINE_MAX_PATH];
-                sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
-                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
+                char PNGFilename[ADELINE_MAX_PATH];
+                sprintf(PNGFilename, "LBA%05d.png", NumPcxSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
 
-                SavePCX( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
+                SavePNG( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
@@ -2046,7 +2051,7 @@ void    TheEndInfo()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
-void    Message( char *mess, S32 flag )
+void    Message( const char *mess, S32 flag )
 {
         S32     x ;
 
