@@ -13,8 +13,21 @@
 #include <string.h>
 
 /* ASM-side: TestVuePolyF is the actual function.
+ * With STRIP_C_ADAPT, it uses Watcom register convention: input in ESI.
  * TestVuePoly is a dd (function pointer) in ASM data. */
-/* extern "C" S32 asm_TestVuePolyF(Struc_Point *ptr); — disabled, no ASM_SOURCE */
+extern "C" S32 asm_TestVuePolyF(void);
+
+static inline S32 call_asm_TestVuePolyF(Struc_Point *ptr)
+{
+    S32 result;
+    __asm__ __volatile__(
+        "call asm_TestVuePolyF"
+        : "=a"(result)
+        : "S"(ptr)
+        : "ebx", "ecx", "edx", "edi", "memory", "cc"
+    );
+    return result;
+}
 
 static Struc_Point pts[4];
 
@@ -71,15 +84,12 @@ static void test_large_coords(void)
 }
 
 /* ── ASM-vs-CPP equivalence ────────────────────────────────────── */
-/* Disabled — no ASM_SOURCE configured for pol_work tests */
-#if 0
-extern "C" S32 asm_TestVuePolyF(Struc_Point *ptr);
 
 static void test_asm_equiv_cw(void)
 {
     set_tri(0, 0, 100, 0, 50, 80);
     S32 cpp = TestVuePoly(pts);
-    S32 asmr = asm_TestVuePolyF(pts);
+    S32 asmr = call_asm_TestVuePolyF(pts);
     ASSERT_ASM_CPP_EQ_INT(asmr, cpp, "TestVuePoly CW");
 }
 
@@ -87,7 +97,7 @@ static void test_asm_equiv_ccw(void)
 {
     set_tri(0, 0, 50, 80, 100, 0);
     S32 cpp = TestVuePoly(pts);
-    S32 asmr = asm_TestVuePolyF(pts);
+    S32 asmr = call_asm_TestVuePolyF(pts);
     ASSERT_ASM_CPP_EQ_INT(asmr, cpp, "TestVuePoly CCW");
 }
 
@@ -95,7 +105,7 @@ static void test_asm_equiv_collinear(void)
 {
     set_tri(0, 0, 50, 50, 100, 100);
     S32 cpp = TestVuePoly(pts);
-    S32 asmr = asm_TestVuePolyF(pts);
+    S32 asmr = call_asm_TestVuePolyF(pts);
     ASSERT_ASM_CPP_EQ_INT(asmr, cpp, "TestVuePoly collinear");
 }
 
@@ -103,7 +113,7 @@ static void test_asm_equiv_large(void)
 {
     set_tri(-30000, -30000, 30000, -30000, 0, 30000);
     S32 cpp = TestVuePoly(pts);
-    S32 asmr = asm_TestVuePolyF(pts);
+    S32 asmr = call_asm_TestVuePolyF(pts);
     ASSERT_ASM_CPP_EQ_INT(asmr, cpp, "TestVuePoly large coords");
 }
 
@@ -128,11 +138,10 @@ static void test_asm_equiv_random(void)
         S16 y2 = (S16)(rng_next() % 480) - 240;
         set_tri(x0, y0, x1, y1, x2, y2);
         S32 cpp = TestVuePoly(pts);
-        S32 asmr = asm_TestVuePolyF(pts);
+        S32 asmr = call_asm_TestVuePolyF(pts);
         ASSERT_ASM_CPP_EQ_INT(asmr, cpp, "TestVuePoly random");
     }
 }
-#endif  /* disabled ASM tests */
 
 int main(void)
 {
@@ -141,14 +150,11 @@ int main(void)
     RUN_TEST(test_collinear);
     RUN_TEST(test_single_point);
     RUN_TEST(test_large_coords);
-    /* ASM equivalence tests disabled — no ASM_SOURCE configured */
-#if 0
     RUN_TEST(test_asm_equiv_cw);
     RUN_TEST(test_asm_equiv_ccw);
     RUN_TEST(test_asm_equiv_collinear);
     RUN_TEST(test_asm_equiv_large);
     RUN_TEST(test_asm_equiv_random);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }

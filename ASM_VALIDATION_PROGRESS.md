@@ -97,12 +97,12 @@ exists in both `.ASM` and `.CPP` form.
 | [~] | `pol_work/POLYFLAT.ASM` | `pol_work/POLYFLAT.CPP` | Filler_Flat, Filler_Trame, Filler_Transparent, ... (10 fillers) | Solid-color polygon fill | CPP tested via Fill_Poly (10 tests). No ASM equiv yet. |
 | [~] | `pol_work/POLYGOUR.ASM` | `pol_work/POLYGOUR.CPP` | Filler_Gouraud, Filler_Dither, ... (18 fillers) | Gouraud + dither shading | CPP tested via Fill_Poly (6 tests). Requires PtrCLUTGouraud. |
 | [~] | `pol_work/POLYGTEX.ASM` | `pol_work/POLYGTEX.CPP` | Filler_TextureGouraud, Filler_TextureDither, ... (8 fillers) | Texture mapping with Gouraud shading | CPP tested via Fill_Poly (5 tests). |
-| [~] | `pol_work/POLYLINE.ASM` | `pol_work/POLYLINE.CPP` | Line, Line_A, Line_ZBuffer, Line_ZBuffer_NZW | Polygon edge drawing | CPP-only tests (5). ASM tests disabled — no ASM_SOURCE configured. |
+| [x] | `pol_work/POLYLINE.ASM` | `pol_work/POLYLINE.CPP` | Line, Line_A, Line_ZBuffer, Line_ZBuffer_NZW | Polygon edge drawing | ASM equiv for Line() — 5 CPP + 4 ASM tests. |
 | [~] | `pol_work/POLYTEXT.ASM` | `pol_work/POLYTEXT.CPP` | Filler_Texture, Filler_TextureFlat, ... (18 fillers) | Texture-mapped polygon fill | Linkage + offscreen test only — on-screen rendering SEGFAULTs (texture pipeline init issue). |
 | [~] | `pol_work/POLYTEXZ.ASM` | `pol_work/POLYTEXZ.CPP` | Filler_TextureZ, Fill_Init_Perspective, ... (20+ funcs) | Perspective-correct texture fill | Linkage + offscreen test only — same pipeline issue as POLYTEXT. |
 | [~] | `pol_work/POLYTZF.ASM` | `pol_work/POLYTZF.CPP` | Filler_TextureZFogSmooth, ... (3 fillers) | TextureZ + smooth fog variants | CPP tested via Fill_Poly (3 tests). |
 | [~] | `pol_work/POLYTZG.ASM` | `pol_work/POLYTZG.CPP` | Filler_TextureZGouraud, ... (6 fillers) | TextureZ + Gouraud variants | CPP tested via Fill_Poly (3 tests). |
-| [~] | `pol_work/TESTVUEF.ASM` | `pol_work/TESTVUEF.CPP` | TestVuePoly | Backface culling / polygon visibility | CPP tested (5 tests). CW/CCW test expectations fixed. ASM tests disabled. |
+| [x] | `pol_work/TESTVUEF.ASM` | `pol_work/TESTVUEF.CPP` | TestVuePoly | Backface culling / polygon visibility | ASM equiv — 5 CPP + 5 ASM tests. Uses STRIP_C_ADAPT + inline asm wrapper. |
 
 ## OBJECT/ — 3D Object Display (1 pair, multiple functions)
 

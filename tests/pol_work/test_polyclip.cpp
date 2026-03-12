@@ -7,8 +7,7 @@
 #include <POLYGON/CLIPPERZ.H>
 #include <string.h>
 
-/* ── ASM-vs-CPP equivalence (disabled — no ASM_SOURCE configured) ── */
-/* TODO: Re-enable when POLYCLIP.ASM is added to add_asm_cpp_test() */
+/* ASM equiv disabled — POLYCLIP.ASM needs Status_Int/Status_Float from POLY.ASM */
 #if 0
 extern "C" U32 asm_ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
                              U32 nbvertex, S32 zclip, S32 flag);
@@ -64,7 +63,7 @@ static void test_one_behind(void)
 }
 
 /* ── ASM-vs-CPP equivalence ────────────────────────────────────── */
-/* Disabled — no ASM_SOURCE configured for pol_work tests */
+/* Disabled — POLYCLIP.ASM needs POLY.ASM deps (Status_Int/Status_Float) */
 #if 0
 static void test_asm_equiv_all_in_front(void)
 {
@@ -182,7 +181,6 @@ int main(void)
     RUN_TEST(test_all_in_front);
     RUN_TEST(test_all_behind);
     RUN_TEST(test_one_behind);
-    /* ASM equivalence tests disabled — no ASM_SOURCE configured */
 #if 0
     RUN_TEST(test_asm_equiv_all_in_front);
     RUN_TEST(test_asm_equiv_one_behind);
