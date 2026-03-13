@@ -4,6 +4,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 extern	S32	FlagAnimWhoSpeak	;	// MESSAGE.CPP
 
