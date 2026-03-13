@@ -171,14 +171,16 @@ void	GereCheatCode( void )
 	{
 		key = toupper(key)	;
 
-		if(	( key < K_A )
-		OR	( key > K_Z )	)
+		// Filter to only A-Z keys (use ASCII values, not scancodes)
+		if(	( key < 'A' )
+		OR	( key > 'Z' )	)
 		{
 			continue;
 		}
 
 		memmove( BufferCheatCode, BufferCheatCode+1, TAILLE_MAX_CHEAT_CODE-1 );
-		BufferCheatCode[TAILLE_MAX_CHEAT_CODE-1] = (U8)MyKey ;
+		// Store the scancode (Key), not the ASCII value - cheat codes are defined as scancodes
+		BufferCheatCode[TAILLE_MAX_CHEAT_CODE-1] = (U8)Key ;
 
 		if( NbKeyInBuffer<TAILLE_MAX_CHEAT_CODE ) NbKeyInBuffer++;
 

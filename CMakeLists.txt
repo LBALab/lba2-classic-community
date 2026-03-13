@@ -40,6 +40,12 @@ if (NOT MVIDEO_BACKEND IN_LIST MVIDEO_BACKEND_OPTIONS)
     message(SEND_ERROR "MVIDEO_BACKEND set with invalid option '${MVIDEO_BACKEND}'. Valid options are: ${MVIDEO_BACKEND_OPTIONS}")
 endif ()
 
+# Debug tools (original Adeline developer debug features)
+option(DEBUG_TOOLS "Enable developer debug tools (collision viz, benchmarks, bug saves)" OFF)
+if(DEBUG_TOOLS)
+    add_compile_definitions(DEBUG_TOOLS=1)
+endif()
+
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
