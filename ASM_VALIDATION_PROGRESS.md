@@ -58,7 +58,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM ≡ CPP: fixed pixel offset, line stride, TextPaper support, Font8x8 patches (chars 0xC6, 0xE4) |
 | [ ] | `SVGA/BLITBOXF.ASM` | `SVGA/BLITBOXF.CPP` | `BlitBoxF` | Fast blit rectangular region with transparency | |
 | [ ] | `SVGA/BOX.ASM` | `SVGA/BOX.CPP` | `Box` | Draw rectangle outline with clipping | Needs `Log`, `TabOffLine`, Clip globals |
-| [~] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | ASM ≡ CPP: synthetic brick → mask conversion |
+| [x] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | ASM ≡ CPP: synthetic brick + 300-round random stress test |
 | [ ] | `SVGA/CLRBOXF.ASM` | `SVGA/CLRBOXF.CPP` | `ClearBoxF`, `SetClearColor` | Clear rectangle; set clear color | |
 | [x] | `SVGA/COPYMASK.ASM` | `SVGA/COPYMASK.CPP` | `CopyMask` | Copy masked region | ASM ≡ CPP: synthetic bank + 20 random positions |
 | [ ] | `SVGA/CPYBLOCI.ASM` | `SVGA/CPYBLOCI.CPP` | `CopyBlockIncrust` | Copy block with incrustation | |
