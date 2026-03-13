@@ -112,24 +112,22 @@ S32 Filler_Trame(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       }
 
       // @@Pair:
-      diffX >>= 1; // shr ecx,1
-      if ((diffX & 1) == 0) // jnc @@Odd
       {
+        U32 carry = diffX & 1;
+        diffX >>= 1; // shr ecx,1
+        if (carry == 0) // jnc @@Odd
+        {
+          // @@Odd: write first pixel
+          *screen = color;
+          screen += 2;
+          diffX--;
+        }
         // @@Each_X:
         while (diffX > 0)
         {
           *screen = color; // mov [edi],al
           screen += 2; // add edi,2
           // @@Odd:
-          *screen = color; // mov [edi],al
-          screen += 2; // add edi,2
-          diffX--; // dec ecx
-        }
-      }
-      else
-      {
-        while (diffX > 0)
-        {
           *screen = color; // mov [edi],al
           screen += 2; // add edi,2
           diffX--; // dec ecx
@@ -181,13 +179,13 @@ S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      U8 fillColorHigh = Fill_Color.Num & 0xF0; // Get upper 4 bits of fill color
+      U8 fillColorByte = Fill_Color.Num & 0xFF;
       
       // @@LoopX:
       do
       {
         U8 existingPixel = *screen;
-        U8 blendedPixel = (existingPixel & 0x0F) | fillColorHigh; // Keep lower 4 bits, blend upper 4 bits
+        U8 blendedPixel = (existingPixel & 0x0F) | fillColorByte;
         *screen = blendedPixel;
         screen++;
         --diffX;
@@ -424,48 +422,41 @@ S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 offset = screen - (U8 *)Log; // sub edi,eax
       U8 color = Fill_Color.Num & 0xFF;
 
-      diffX >>= 1; // shr ecx,1
-      if ((diffX & 1) == 0) // jnc @@Odd
       {
+        U32 carry = diffX & 1;
+        diffX >>= 1; // shr ecx,1
+        if (carry == 0) // jnc @@Odd
+        {
+          // @@Odd: Test and write first pixel
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrZBuffer3[offset] = zInt & 0xFFFF;
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
+          diffX--;
+        }
         // @@Each_X:
         while (diffX > 0)
         {
-          // Test and write first pixel of pair
-          if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            POLYFLAT_PtrZBuffer1[offset] = zInt & 0xFFFF; // mov [edi*2+eax],dx
-            POLYFLAT_PtrLog[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          zDec += zDecSlopeStep; // add esi,ebp
-          zInt += zIntSlope + (zDec >> 31); // adc edx,ebx
-
-          // @@Odd: Test and write second pixel of pair  
-          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            POLYFLAT_PtrZBuffer3[offset] = zInt & 0xFFFF; // mov [edi*2+eax],dx
-            POLYFLAT_PtrLog2[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          diffX--; // dec ecx
-        }
-      }
-      else
-      {
-        while (diffX > 0)
-        {
-          // Test and write first pixel of pair
+          // Test and write pixel (Each_X)
           if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
           {
             POLYFLAT_PtrZBuffer1[offset] = zInt & 0xFFFF;
             POLYFLAT_PtrLog[offset] = color;
           }
-          
           offset += 2;
+          U8 zCarry = (U64)zDec + (U64)zDecSlopeStep > 0xFFFFFFFF;
           zDec += zDecSlopeStep;
-          zInt += zIntSlope + (zDec >> 31);
+          zInt += zIntSlope + zCarry;
+
+          // @@Odd: Test and write pixel
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrZBuffer3[offset] = zInt & 0xFFFF;
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
           diffX--;
         }
       }
@@ -645,7 +636,9 @@ S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
     POLYFLAT_PtrZBufferPatch = PtrZBuffer;
+    POLYFLAT_PtrZBuffer2 = PtrZBuffer;
     POLYFLAT_PtrLog = (U8 *)Log;
+    POLYFLAT_PtrLog2 = (U8 *)Log;
   }
   else
   {
@@ -692,48 +685,38 @@ S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 offset = screen - (U8 *)Log; // sub edi,eax
       U8 color = Fill_Color.Num & 0xFF;
 
-      diffX >>= 1; // shr ecx,1
-      if ((diffX & 1) == 0) // jnc @@Odd
       {
+        U32 carry = diffX & 1;
+        diffX >>= 1; // shr ecx,1
+        if (carry == 0) // jnc @@Odd
+        {
+          // @@Odd: Test and write first pixel (NZW: no Z write)
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
+          diffX--;
+        }
         // @@Each_X:
         while (diffX > 0)
         {
-          // Test and write first pixel of pair
-          if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            // No Z-buffer write for NZW variant
-            POLYFLAT_PtrLog[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          zDec += zDecSlopeStep; // add esi,ebp
-          zInt += zIntSlope + (zDec >> 31); // adc edx,ebx
-
-          // @@Odd: Test and write second pixel of pair  
-          if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            // No Z-buffer write for NZW variant
-            POLYFLAT_PtrLog[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          diffX--; // dec ecx
-        }
-      }
-      else
-      {
-        while (diffX > 0)
-        {
-          // Test and write first pixel of pair
+          // Test and write pixel (Each_X, NZW: no Z write)
           if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
           {
-            // No Z-buffer write for NZW variant
             POLYFLAT_PtrLog[offset] = color;
           }
-          
           offset += 2;
+          U8 zCarry = (U64)zDec + (U64)zDecSlopeStep > 0xFFFFFFFF;
           zDec += zDecSlopeStep;
-          zInt += zIntSlope + (zDec >> 31);
+          zInt += zIntSlope + zCarry;
+
+          // @@Odd: Test and write pixel (NZW: no Z write)
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
           diffX--;
         }
       }
