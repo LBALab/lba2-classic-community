@@ -24,11 +24,13 @@ U16 ROL16(U16 value, U32 shift)
 
 U8 ROR8(U8 value, U32 shift)
 {
+    shift &= 7;
     return (value >> shift) | (value << (8 - shift));
 }
 
 U8 ROL8(U8 value, U32 shift)
 {
+    shift &= 7;
     return (value << shift) | (value >> (8 - shift));
 }
 
