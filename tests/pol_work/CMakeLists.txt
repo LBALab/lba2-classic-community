@@ -42,7 +42,13 @@ add_asm_cpp_test(NAME test_polytzf   TEST_SOURCE test_polytzf.cpp   LIBS poly sv
     ASM_SOURCE ${_POLY_ASM_DIR}/POLYTZF.ASM
     RENAME_SYMS Filler_TextureZFogSmooth Filler_TextureZFogSmoothZBuf Filler_TextureZFogSmoothNZW Fill_Init_Perspective Fill_Loop_Perspective
     ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
-add_asm_cpp_test(NAME test_polytzg   TEST_SOURCE test_polytzg.cpp   LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_polytzg   TEST_SOURCE test_polytzg.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLYTZG.ASM
+    RENAME_SYMS Filler_TextureZGouraud Filler_TextureZGouraudChromaKey Filler_TextureZGouraudZBuf Filler_TextureZGouraudChromaKeyZBuf Filler_TextureZGouraudNZW Filler_TextureZGouraudChromaKeyNZW
+    ASM_DEPS ${_POLY_ASM_DIR}/POLYTEXZ.ASM
+    ASM_DEP_RENAME_SYMS Fill_Init_Perspective Fill_Loop_Perspective
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
+target_link_options(test_polytzg PRIVATE -Wl,--allow-multiple-definition)
 # TestVuePolyF: C-adapted PROC has "uses eax" which clobbers the return value.
 # We need to patch the ASM to remove 'eax' from the 'uses' clause.
 # For now, use STRIP_C_ADAPT + inline asm wrapper (Watcom: input in ESI).
