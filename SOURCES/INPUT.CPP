@@ -191,7 +191,7 @@ void    MyGetInput()
 		Key = 0;
 		Input = 0;
 		MyKey = 0;
-		/* Clear camera keys in TabKeys so code that reads them directly doesn't fire (e.g. I_CAMERA = index 22). */
+		/* Clear I_CAMERA keys (index 22 per INPUT.H) so they don't fire on the suppress frame. */
 		TabKeys[DefKeys[22].Key1] = 0;
 		TabKeys[DefKeys[22].Key2] = 0;
 		return;

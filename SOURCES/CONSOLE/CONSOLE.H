@@ -29,6 +29,13 @@ int Console_ShouldSuppressInputThisFrame(void);
 /** Set to 1 when entering demo slide show, 0 when leaving. Prevents opening console during slide (avoids segfault). */
 void Console_SetSlideShowActive(int active);
 
+/** Request a screenshot without the console. Closes the console. If \a use_png, game will save PNG (via SavePNG); else next frame is saved as PPM in PrePresent. */
+void Console_RequestScreenshot(const char *path, int use_png);
+/** If a screenshot is pending, copy path into \a path_out (max \a path_max) and set \a out_is_png. Return 1 if pending, 0 otherwise. */
+int Console_HasPendingScreenshot(char *path_out, unsigned int path_max, int *out_is_png);
+/** Clear pending screenshot request. */
+void Console_ClearPendingScreenshot(void);
+
 /* Extensibility - used only inside the console module */
 typedef void (*Console_CmdFn)(int argc, const char *argv[]);
 

@@ -15,8 +15,13 @@
 #include <SVGA/DIRTYBOX.H>
 #include <dirent.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
+#ifdef CONSOLE_MODULE
+#include <SYSTEM/TIMER.H>
+#endif
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Command handlers */
@@ -143,6 +148,84 @@ static void cmd_loadbug(int argc, const char *argv[])
 #endif
 }
 
+#ifdef DEBUG_TOOLS
+static void cmd_savebug(int argc, const char *argv[])
+{
+	if (NumCube == NUM_CUBE_PHANTOM || PtrScene == NULL || FlagPlayAcf) {
+		Console_Print("savebug only available in-game when a cube is loaded.");
+		return;
+	}
+	const char *name = (argc >= 2 && argv[1][0]) ? argv[1] : "bug";
+	/* Sanitize name for filename: keep alphanumeric, dash, underscore. */
+	char safeName[MAX_SIZE_PLAYER_NAME + 1];
+	size_t i, j;
+	for (i = 0, j = 0; name[i] && j < MAX_SIZE_PLAYER_NAME; i++) {
+		char c = name[i];
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_')
+			safeName[j++] = c;
+	}
+	safeName[j] = '\0';
+	if (j == 0) {
+		safeName[0] = 'b'; safeName[1] = 'u'; safeName[2] = 'g'; safeName[3] = '\0';
+	}
+	char bugsDir[ADELINE_MAX_PATH];
+	GetSavePath(bugsDir, ADELINE_MAX_PATH, "bugs");
+	AddDirIfNot(bugsDir);
+	char relPath[ADELINE_MAX_PATH];
+	snprintf(relPath, sizeof(relPath), "bugs%c%s.lba", '/', safeName);
+	GetSavePath(GamePathname, ADELINE_MAX_PATH, relPath);
+	strncpy(PlayerName, safeName, MAX_SIZE_PLAYER_NAME);
+	PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
+	Console_Close();
+	NumVersion = NUM_VERSION | SAVE_COMPRESS;
+	SaveGame(TRUE);
+	Console_Print("Bug save: %s", GamePathname);
+}
+#endif
+
+static void cmd_timer(int argc, const char *argv[])
+{
+#ifdef CONSOLE_MODULE
+	S32 delta = (argc >= 2 && argv[1][0]) ? (S32)strtol(argv[1], NULL, 0) : 200;
+	SetTimerHR(TimerRefHR + (U32)delta);
+	Console_Print("Timer +%d (now %u)", delta, (unsigned int)TimerRefHR);
+#else
+	(void)argc;
+	(void)argv;
+	Console_Print("timer requires CONSOLE_MODULE (timer API).");
+#endif
+}
+
+static void cmd_status(int argc, const char *argv[])
+{
+	(void)argc;
+	(void)argv;
+	Console_Print("Island: %d  Cube: %d  Chapter: %d", Island, NumCube, (int)ListVarGame[FLAG_CHAPTER]);
+	Console_Print("Obj: %d  Zones: %d  Tracks: %d", NbObjets, NbZones, NbBrickTrack);
+#ifdef CONSOLE_MODULE
+	{
+		extern volatile S32 NbFramePerSecond;
+		extern volatile U32 TimerRefHR;
+		Console_Print("FPS: %d  TimerRefHR: %u", NbFramePerSecond, (unsigned int)TimerRefHR);
+	}
+#else
+	Console_Print("(FPS/timer with CONSOLE_MODULE)");
+#endif
+	Console_Print("Pos: (%d,%d,%d)", Nxw, Nyw, Nzw);
+}
+
+static void cmd_screenshot(int argc, const char *argv[])
+{
+	(void)argc;
+	(void)argv;
+	char filename[64];
+	char path[ADELINE_MAX_PATH];
+	snprintf(filename, sizeof(filename), "shot_%lu.png", (unsigned long)time(NULL));
+	GetShootPath(path, ADELINE_MAX_PATH, filename);
+	Console_RequestScreenshot(path, 1); /* 1 = PNG via SavePNG in game */
+	Console_Print("Screenshot (no console): %s", path);
+}
+
 static void cmd_give(int argc, const char *argv[])
 {
 	if (argc < 2) {
@@ -182,7 +265,8 @@ static void cmd_playvideo(int argc, const char *argv[])
 
 static void cmd_listvideos(int argc, const char *argv[])
 {
-	char buf[32];
+	/* GetAcfName has no size limit; use a safe buffer for long names. */
+	char buf[128];
 	ResetAcfList();
 	while (GetAcfName(buf))
 		Console_Print("  %s", buf);
@@ -303,7 +387,6 @@ static void cmd_listsaves(int argc, const char *argv[])
 	Console_Print("Saves: %d", nb);
 }
 
-#ifdef DEBUG_TOOLS
 static void cmd_listbugs(int argc, const char *argv[])
 {
 	(void)argc;
@@ -311,10 +394,12 @@ static void cmd_listbugs(int argc, const char *argv[])
 	struct dirent *file;
 	DIR *dir;
 	S32 nb = 0;
+	char pathBugs[ADELINE_MAX_PATH];
 
-	dir = opendir(PATH_SAVE_BUGS);
+	GetSavePath(pathBugs, ADELINE_MAX_PATH, "bugs");
+	dir = opendir(pathBugs);
 	if (!dir) {
-		Console_Print("Bug save directory not found: " PATH_SAVE_BUGS);
+		Console_Print("Bug save directory not found: %s", pathBugs);
 		return;
 	}
 	while ((file = readdir(dir)) != NULL) {
@@ -326,7 +411,6 @@ static void cmd_listbugs(int argc, const char *argv[])
 	closedir(dir);
 	Console_Print("Bug saves: %d", nb);
 }
-#endif
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
@@ -336,7 +420,7 @@ void Console_RegisterAll(void)
 {
 	Console_RegisterCommand("cube",   cmd_cube,   "Go to cube N (e.g. cube 5)");
 	Console_RegisterCommand("load",  cmd_load,   "Load save by player name or file name");
-	Console_RegisterCommand("loadbug", cmd_loadbug, "Load bug save (DEBUG_TOOLS)");
+	Console_RegisterCommand("loadbug", cmd_loadbug, "Load bug save (see listbugs)");
 	Console_RegisterCommand("give",  cmd_give,   "Give inventory item by flag number");
 	Console_RegisterCommand("playvideo", cmd_playvideo, "Play ACF video by name");
 	Console_RegisterCommand("listvideos", cmd_listvideos, "List available ACF video names");
@@ -346,13 +430,15 @@ void Console_RegisterAll(void)
 	Console_RegisterCommand("buildinfo", cmd_buildinfo, "Build timestamp and CMake flags");
 	Console_RegisterCommand("exit", cmd_exit, "Exit the game immediately");
 	Console_RegisterCommand("listsaves", cmd_listsaves, "List save games (names)");
+	Console_RegisterCommand("listbugs", cmd_listbugs, "List bug saves in bugs directory");
+	Console_RegisterCommand("timer", cmd_timer, "Advance timer by N ms (default 200)");
+	Console_RegisterCommand("status", cmd_status, "Print island, cube, chapter, objs, FPS, pos");
+	Console_RegisterCommand("screenshot", cmd_screenshot, "Save next frame as PPM (no console)");
 #ifdef DEBUG_TOOLS
-	Console_RegisterCommand("listbugs", cmd_listbugs, "List bug saves (DEBUG_TOOLS)");
+	Console_RegisterCommand("savebug", cmd_savebug, "Save current game to bugs dir (optional name)");
 #endif
 
-	Console_RegisterCvar("debug_fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
-	Console_RegisterCvar("draw_horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
-#ifdef DEBUG_TOOLS
-	Console_RegisterCvar("draw_zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
-#endif
+	Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
+	Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
+	Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
 }

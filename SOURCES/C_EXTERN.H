@@ -108,7 +108,7 @@ extern  S32    	FlagBlackPal ;
 
 extern	S32	FlagShadeMenu ;
 
-#ifdef	DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 extern	S32	DrawZVObjets ;
 #endif
 

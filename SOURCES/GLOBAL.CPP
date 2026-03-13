@@ -87,7 +87,7 @@ S32	FlagBlackPal = FALSE ;
 
 S32	FlagShadeMenu = FALSE ;
 
-#ifdef	DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 S32	DrawZVObjets = FALSE ;
 #endif
 

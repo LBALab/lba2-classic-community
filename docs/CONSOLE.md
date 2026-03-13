@@ -1,6 +1,6 @@
 # Debug Console
 
-Quake-style drop-down debug console for LBA2. It is an **alternative** to DEBUG_TOOLS (does not replace it) and works everywhere: in-game, menu, inventory, credits, and during video playback.
+Quake-style drop-down debug console for LBA2. It is an alternative to DEBUG_TOOLS and works everywhere: in-game, menu, inventory, credits, and during video playback. When both are available, the console can cover the same workflows (status, timer, savebug, screenshot) so you can use either.
 
 ## Build
 
@@ -48,9 +48,13 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 |---------------|-------------|
 | **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). |
 | **load**      | Load save by player name as printed by `listsaves`, or by file name (with optional `.lba`). |
-| **loadbug**   | Hint for loading bug saves (DEBUG_TOOLS only). |
+| **loadbug**   | Hint for loading bug saves (see listbugs). |
 | **listsaves** | List save games (player names from .lba files). |
-| **listbugs**  | List bug saves in the bugs directory (DEBUG_TOOLS only). |
+| **listbugs**  | List bug saves in the bugs directory (same path as savebug). |
+| **savebug** [name] | *(DEBUG_TOOLS)* Save current game to bugs directory; optional name (default `bug`). |
+| **timer** [ms] | Advance in-game timer by N ms (default 200). |
+| **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
+| **screenshot** | Save the **next** frame as PNG in the shoot directory **without** the console visible (uses SavePNG). |
 | **give** &lt;n&gt; | Play “found object” sequence for inventory entry &lt;n&gt;; some items (e.g. weapons, protopack) also update gameplay state. Mostly for visual/debug use. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
@@ -65,9 +69,9 @@ Get/set with `varname` (print value) or `varname value` (set).
 
 | Cvar | Type | Description |
 |------|------|-------------|
-| **debug_fps** | bool | Frame rate display. |
-| **draw_horizon** | bool | Draw horizon / cubes around. |
-| **draw_zv** | bool | Draw ZV boxes (DEBUG_TOOLS build only). |
+| **fps** | bool | Frame rate display. |
+| **horizon** | bool | Draw horizon / cubes around. |
+| **zv** | bool | Draw ZV boxes. |
 
 ## Layout
 

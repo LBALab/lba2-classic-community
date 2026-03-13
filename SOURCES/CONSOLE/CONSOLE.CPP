@@ -11,6 +11,7 @@
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_keyboard.h>
 
 #define CONSOLE_TEXT_COLOUR 15
 
@@ -64,11 +65,50 @@ static int s_slide_show_active = 0;
 /* Scrollback view offset: 0 = newest, >0 = scrolled up into history. */
 static int s_scroll_offset = 0;
 
+/* Screenshot without console: path and format. PNG = game performs SavePNG; else PrePresent writes PPM. */
+#define CONSOLE_SCREENSHOT_PATH_MAX 256
+static char s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX] = "";
+static int s_screenshot_png = 0;
+
 static void Console_SubmitLine(void);
 
 void Console_SetSlideShowActive(int active)
 {
 	s_slide_show_active = (active != 0);
+}
+
+void Console_RequestScreenshot(const char *path, int use_png)
+{
+	if (!path) return;
+	s_screenshot_path[0] = '\0';
+	s_screenshot_png = use_png ? 1 : 0;
+	strncpy(s_screenshot_path, path, CONSOLE_SCREENSHOT_PATH_MAX - 1);
+	s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX - 1] = '\0';
+	s_console_open = 0;
+	free(s_console_buf);
+	s_console_buf = NULL;
+	s_console_w = 0;
+	s_input_len = 0;
+	s_input_line[0] = '\0';
+	s_cursor_pos = 0;
+	s_just_closed = 1;
+}
+
+int Console_HasPendingScreenshot(char *path_out, unsigned int path_max, int *out_is_png)
+{
+	if (!s_screenshot_path[0]) return 0;
+	if (path_out && path_max) {
+		strncpy(path_out, s_screenshot_path, path_max - 1);
+		path_out[path_max - 1] = '\0';
+	}
+	if (out_is_png) *out_is_png = s_screenshot_png;
+	return 1;
+}
+
+void Console_ClearPendingScreenshot(void)
+{
+	s_screenshot_path[0] = '\0';
+	s_screenshot_png = 0;
 }
 
 int Console_IsOpen(void)
@@ -87,6 +127,9 @@ void Console_Toggle(void)
 		s_history_index = -1;
 	} else {
 		/* Clear input line when closing so it doesn't persist on next open */
+		free(s_console_buf);
+		s_console_buf = NULL;
+		s_console_w = 0;
 		s_input_len = 0;
 		s_input_line[0] = '\0';
 		s_cursor_pos = 0;
@@ -98,6 +141,9 @@ void Console_Close(void)
 {
 	if (!s_console_open) return;
 	s_console_open = 0;
+	free(s_console_buf);
+	s_console_buf = NULL;
+	s_console_w = 0;
 	s_input_len = 0;
 	s_input_line[0] = '\0';
 	s_cursor_pos = 0;
@@ -295,6 +341,28 @@ static void Console_Draw(void)
 void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb)
 {
 	U32 y, x;
+	/* Screenshot without console: PNG is done by game (SavePNG); only PPM here. */
+	if (s_screenshot_path[0] && !s_screenshot_png && frameBuffer && width > 0 && height > 0) {
+		FILE *f = fopen(s_screenshot_path, "wb");
+		if (f) {
+			fprintf(f, "P6\n%u %u\n255\n", width, height);
+			for (U32 row = 0; row < height; row++) {
+				U32 *src = (U32 *)((U8 *)frameBuffer + row * pitch);
+				for (U32 col = 0; col < width; col++) {
+					U32 p = src[col];
+					unsigned char r = (unsigned char)((p >> 16) & 0xFF);
+					unsigned char g = (unsigned char)((p >> 8) & 0xFF);
+					unsigned char b = (unsigned char)(p & 0xFF);
+					fputc(r, f);
+					fputc(g, f);
+					fputc(b, f);
+				}
+			}
+			fclose(f);
+		}
+		Console_ClearPendingScreenshot();
+		return;
+	}
 	if (!s_console_open || !frameBuffer || !palette_rgb) return;
 
 	if (s_console_buf == NULL || s_console_w != width) {
@@ -312,8 +380,9 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
 
 	const U8 *borderCol = palette_rgb + (CONSOLE_TEXT_COLOUR * 3);
 
+	/* Use byte-based row offset so pitch need not be a multiple of sizeof(U32). */
 	for (y = 0; y < s_console_h; y++) {
-		U32 *dstRow = frameBuffer + y * (pitch / sizeof(U32));
+		U32 *dstRow = (U32 *)((U8 *)frameBuffer + y * pitch);
 		U8 *srcRow = s_console_buf + y * s_console_w;
 		for (x = 0; x < s_console_w; x++) {
 			U8 idx = srcRow[x];
@@ -351,7 +420,10 @@ int Console_FeedEvent(const void *sdlEvent)
 	if (ev->type != SDL_EVENT_KEY_DOWN) return 0;
 
 	SDL_Scancode scan = ev->key.scancode;
-	SDL_Keycode key = ev->key.key;
+	SDL_Keycode key = SDL_GetKeyFromScancode(scan, ev->key.mod, true);
+	/* Fallback: some layouts don't report Shift; ensure minus+Shift gives underscore. */
+	if ((key == 45 || key == (SDL_Keycode)'-') && (ev->key.mod & SDL_KMOD_SHIFT))
+		key = (SDL_Keycode)'_';
 
 	/* Toggle only on first key down, not key repeat. */
 	if ((scan == (SDL_Scancode)K_CARRE || scan == (SDL_Scancode)K_F12) && !ev->key.repeat) {
@@ -495,10 +567,10 @@ void Console_Execute(const char *line)
 		}
 	}
 
-	/* Cvar get/set: "name" or "name value" */
+	/* Cvar get/set: "name" or "name value"; empty value => show current. */
 	for (i = 0; i < s_cvar_count; i++) {
 		if (strcmp(s_cvars[i].name, argv[0]) != 0) continue;
-		if (argc >= 2) {
+		if (argc >= 2 && argv[1][0] != '\0') {
 			if (s_cvars[i].type == CONSOLE_CVAR_INT) {
 				*(int *)s_cvars[i].ptr = (int)strtol(argv[1], NULL, 0);
 				Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
@@ -512,12 +584,18 @@ void Console_Execute(const char *line)
 				Console_Print("%s = %s", s_cvars[i].name, v ? "1" : "0");
 			}
 		} else {
+			/* No value: for bools toggle, otherwise show current value. */
 			if (s_cvars[i].type == CONSOLE_CVAR_INT)
 				Console_Print("%s = %d", s_cvars[i].name, *(int *)s_cvars[i].ptr);
-			else if (s_cvars[i].type == CONSOLE_CVAR_BOOL)
-				Console_Print("%s = %s", s_cvars[i].name, *(int *)s_cvars[i].ptr ? "1" : "0");
-			else if (s_cvars[i].type == CONSOLE_CVAR_BOOL_U8)
-				Console_Print("%s = %s", s_cvars[i].name, *(unsigned char *)s_cvars[i].ptr ? "1" : "0");
+			else if (s_cvars[i].type == CONSOLE_CVAR_BOOL) {
+				int v = *(int *)s_cvars[i].ptr ? 0 : 1;
+				*(int *)s_cvars[i].ptr = v;
+				Console_Print("%s = %s", s_cvars[i].name, v ? "1" : "0");
+			} else if (s_cvars[i].type == CONSOLE_CVAR_BOOL_U8) {
+				unsigned char v = *(unsigned char *)s_cvars[i].ptr ? (unsigned char)0 : (unsigned char)1;
+				*(unsigned char *)s_cvars[i].ptr = v;
+				Console_Print("%s = %s", s_cvars[i].name, v ? "1" : "0");
+			}
 		}
 		return;
 	}
