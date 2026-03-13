@@ -56,6 +56,10 @@ extern "C" void asm_Fill_Sphere(void);
  * Watcom convention: EAX=x0, EBX=y0, ECX=x1, EDX=y1, EBP=color. */
 extern "C" void asm_Line_A(void);
 
+/* ASM Filler_TextureZFogSmoothZBuf (from POLYTZF.ASM dep) — register-
+ * convention filler for perspective-correct textured fog + zbuffer. */
+extern "C" void asm_Filler_TextureZFogSmoothZBuf(void);
+
 /* ASM jump table (from POLY_JMP.ASM dep) — renamed by objcopy.
  * Entries are addresses of private ASM Jmp_* procs (Watcom convention).
  * Used for structural verification only; not called directly due to
@@ -67,6 +71,9 @@ extern "C" U32 asm_Fill_N_Table_Jumps[];
 extern "C" U32 Fill_ScaledFogNear;
 extern "C" U32 Fill_Fog_Factor;
 extern "C" U32 Fill_Type;
+
+/* F_256: ASM REAL4 constant needed by TextureZ perspective code in POLYTZF.ASM */
+extern "C" { float F_256 = 256.0f; }
 
 /* INV64 is not in POLY.ASM (it was likely a compiler intrinsic or
  * inline in the original Watcom build).  Replicate the exact x86
@@ -1226,6 +1233,173 @@ static void test_asm_fill_poly_random(void)
     }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * Fill_PolyClip: POLY_TEXTURE_Z_FOG (type 24) ASM-vs-CPP
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Exercises the full pipeline for perspective-correct textured fog
+ * with z-buffer: Fill_PolyClip → Draw_Triangle →
+ * Calc_TextureZXSlopeZBufFPU / Calc_TextureZLeftSlopeZBufFPU →
+ * Triangle_ReadNextEdge → Read_Next_Right →
+ * Filler_TextureZFogSmoothZBuf.
+ *
+ * CPP path: Switch_Fillers(FOG_ZBUFFER) → Fill_Poly(24,…).
+ * ASM path: asm_Switch_Fillers → set asm filler → asm_Fill_PolyClip.
+ */
+
+static U8 g_texz_texture[256 * 256];
+static U8 g_texz_fog_clut[65536];
+static U16 poly_cpp_zbuf[TEST_POLY_SIZE];
+static U16 poly_asm_zbuf[TEST_POLY_SIZE];
+
+static void setup_texz_fogzbuf(void)
+{
+    setup_polygon_screen();
+    /* Texture: synthetic 256×256 pattern, always non-zero */
+    for (int y = 0; y < 256; y++)
+        for (int x = 0; x < 256; x++)
+            g_texz_texture[y * 256 + x] = (U8)(((x + y) & 0x3F) | 0x40);
+    PtrMap = g_texz_texture;
+    RepMask = 0xFFFF;
+    /* Fog CLUT: identity mapping per 256-byte row */
+    for (int i = 0; i < 65536; i++)
+        g_texz_fog_clut[i] = (U8)(i & 0xFF);
+    PtrCLUTFog = g_texz_fog_clut;
+    PtrTruePal = g_texz_fog_clut;
+    memcpy(Fill_Logical_Palette, g_texz_fog_clut, 256);
+    /* Fog parameters */
+    SetFog(100, 10000);
+    /* Z-buffer: max so all writes succeed */
+    init_test_zbuffer(0xFFFF);
+    PtrZBuffer = (PTR_U16)g_test_zbuffer;
+    /* Enable perspective sub-patching */
+    Fill_Patch = 1;
+}
+
+/* Game trace: real terrain quad scaled to fit 160×120 framebuffer.
+ * Original: v0(8984,1052) v1(7114,799) v2(3090,355) v3(6989,1052) */
+static void test_asm_fill_polyclip_texz_trace(void)
+{
+    Struc_Point pts[4];
+    pts[0] = make_texz_point(155, 110, 4823,  0,     1431178, 39839, 5509);
+    pts[1] = make_texz_point(122, 83,  0,      0,     1104672, 46716, 7137);
+    pts[2] = make_texz_point(53,  37,  0,      32767, 531686,  7,     14829);
+    pts[3] = make_texz_point(120, 110, 27602,  32767, 1431178, 25656, 5509);
+
+    /* CPP path: full pipeline */
+    setup_texz_fogzbuf();
+    Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    Fill_Poly(POLY_TEXTURE_Z_FOG, 0, 4, pts);
+    memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(poly_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+    int cpp_nz = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
+
+    /* ASM path: replicate Fill_PolyFast + Jmp_TextureZFogSmoothZBuf */
+    setup_texz_fogzbuf();
+    Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    call_asm_Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    Fill_LeftSlope = 0;
+    SetScreenPitch(TabOffLine);
+    Fill_Type = POLY_TEXTURE_Z_FOG;
+    Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_TextureZFogSmoothZBuf;
+    Fill_ClipFlag = 1 + 8 + 16; /* CLIP_FLAT + CLIP_TEXTUREZ + CLIP_ZBUFFER */
+    call_asm_Fill_PolyClip(4, pts);
+    memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(poly_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+    int asm_nz = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
+
+    /* Diagnostics */
+    printf("# trace: cpp_nz=%d asm_nz=%d\n", cpp_nz, asm_nz);
+    int first_diff = -1;
+    for (int j = 0; j < TEST_POLY_SIZE; j++) {
+        if (poly_asm_buf[j] != poly_cpp_buf[j]) {
+            first_diff = j;
+            printf("# trace: first diff byte %d (row=%d col=%d) "
+                   "asm=0x%02x cpp=0x%02x\n",
+                   j, j / TEST_POLY_W, j % TEST_POLY_W,
+                   poly_asm_buf[j], poly_cpp_buf[j]);
+            break;
+        }
+    }
+    /* Count total differing bytes */
+    int diff_count = 0;
+    for (int j = 0; j < TEST_POLY_SIZE; j++)
+        if (poly_asm_buf[j] != poly_cpp_buf[j]) diff_count++;
+    printf("# trace: total diff bytes=%d\n", diff_count);
+
+    ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
+                           TEST_POLY_SIZE, "Fill_PolyClip texZ trace fb");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)poly_asm_zbuf, (U8 *)poly_cpp_zbuf,
+                           TEST_POLY_SIZE * (int)sizeof(U16),
+                           "Fill_PolyClip texZ trace zbuf");
+}
+
+/* 300-round random stress: random tri/quad with type 24 (TextureZFogZBuf) */
+static void test_asm_random_fill_polyclip_texz(void)
+{
+    poly_rng_seed(0xDE4D7E42);
+    for (int i = 0; i < 300; i++) {
+        int nv = (poly_rng_next() % 2) + 3; /* 3 or 4 vertices */
+        Struc_Point pts[4];
+        for (int v = 0; v < nv; v++) {
+            S16 x  = (S16)(poly_rng_next() % TEST_POLY_W);
+            S16 y  = (S16)(poly_rng_next() % TEST_POLY_H);
+            U16 u  = (U16)(poly_rng_next() & 0x7FFF);
+            U16 mv = (U16)(poly_rng_next() & 0x7FFF);
+            U16 light = (U16)((poly_rng_next() & 0x7FFF) |
+                              ((poly_rng_next() & 1) << 15));
+            U16 zo = (U16)((poly_rng_next() & 0x7FFF) |
+                           ((poly_rng_next() & 1) << 15));
+            S32 w  = (S32)((poly_rng_next() << 7) + 0x1000);
+            pts[v] = make_texz_point(x, y, u, mv, w, light, zo);
+        }
+
+        /* CPP path */
+        setup_texz_fogzbuf();
+        Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+        Fill_Poly(POLY_TEXTURE_Z_FOG, 0, nv, pts);
+        memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(poly_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        /* ASM path */
+        setup_texz_fogzbuf();
+        Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+        call_asm_Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+        Fill_LeftSlope = 0;
+        SetScreenPitch(TabOffLine);
+        Fill_Type = POLY_TEXTURE_Z_FOG;
+        Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_TextureZFogSmoothZBuf;
+        Fill_ClipFlag = 1 + 8 + 16; /* CLIP_FLAT + CLIP_TEXTUREZ + CLIP_ZBUFFER */
+        call_asm_Fill_PolyClip(nv, pts);
+        memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(poly_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        /* Diagnostic: print first framebuffer difference */
+        for (int j = 0; j < TEST_POLY_SIZE; j++) {
+            if (poly_asm_buf[j] != poly_cpp_buf[j]) {
+                int row = j / TEST_POLY_W;
+                int col = j % TEST_POLY_W;
+                printf("# texZ #%d nv=%d: first diff byte %d "
+                       "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                       i, nv, j, row, col,
+                       poly_asm_buf[j], poly_cpp_buf[j]);
+                break;
+            }
+        }
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Fill_PolyClip texZ #%d nv=%d", i, nv);
+        ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
+                               TEST_POLY_SIZE, msg);
+
+        snprintf(msg, sizeof(msg), "Fill_PolyClip texZ zbuf #%d", i);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)poly_asm_zbuf, (U8 *)poly_cpp_zbuf,
+                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_inv64_positive);
@@ -1255,6 +1429,8 @@ int main(void)
     RUN_TEST(test_texturez_leftslope);
     RUN_TEST(test_texturez_gouraud_leftslope);
     RUN_TEST(test_texturez_leftslope_zbuf);
+    RUN_TEST(test_asm_fill_polyclip_texz_trace);
+    RUN_TEST(test_asm_random_fill_polyclip_texz);
     TEST_SUMMARY();
     return test_failures != 0;
 }

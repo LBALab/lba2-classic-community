@@ -9,8 +9,30 @@ add_asm_cpp_test(NAME test_poly       TEST_SOURCE test_poly.cpp       LIBS poly 
     ASM_SOURCE ${_POLY_ASM_DIR}/POLY.ASM
     RENAME_SYMS Fill_PolyFast SetScreenPitch SetFog SetCLUT Switch_Fillers_ASM
         Fill_PolyClip Fill_ClipXMin Fill_ClipXMax Fill_ClipYMin Fill_ClipYMax
+        Draw_Triangle Read_Next_Right Read_Next_RightFPU
+        Triangle_ReadNextEdgeFPU Gouraud_XSlopeFPU
+        Jmp_XSlope Jmp_XSlopeZBuf Jmp_XSlopeFPU Jmp_XSlopeZBufFPU
+        Jmp_LeftSlope Jmp_LeftSlopeZBuf Jmp_LeftSlopeFPU Jmp_LeftSlopeZBufFPU
+        Calc_GouraudXSlope Calc_GouraudXSlopeFPU
+        Calc_DitherXSlope Calc_DitherXSlopeFPU
+        Calc_TextureXSlope Calc_TextureXSlopeFPU
+        Calc_TextureDitherXSlope Calc_TextureDitherXSlopeFPU
+        Calc_TextureGouraudXSlope Calc_TextureGouraudXSlopeFPU
+        Calc_TextureZXSlopeZBufFPU
+        Calc_TextureZGouraudXSlope Calc_TextureZGouraudXSlopeFPU
+        Calc_XSlopeZBuffer Calc_XSlopeZBufferFPU
+        Calc_XSlopeZBufferFlag Calc_XSlopeZBufferFlagFPU
+        Calc_GouraudLeftSlopeFPU
+        Calc_GouraudTableLeftSlope Calc_GouraudTableLeftSlopeFPU
+        Calc_TextureLeftSlopeFPU
+        Calc_TextureGouraudLeftSlope Calc_TextureGouraudLeftSlopeFPU
+        Calc_TextureZLeftSlopeFPU
+        Calc_TextureZLeftSlopeZBuf Calc_TextureZLeftSlopeZBufFPU
+        Calc_TextureZGouraudLeftSlope Calc_TextureZGouraudLeftSlopeFPU
+        Calc_LeftSlopeZBufferFPU
+        Calc_LeftSlopeZBufferFlag Calc_LeftSlopeZBufferFlagFPU
     ASM_DEPS ${_POLY_ASM_DIR}/POLYFLAT.ASM ${_POLY_ASM_DIR}/POLYDISC.ASM ${_POLY_ASM_DIR}/POLYLINE.ASM
-        ${_POLY_ASM_DIR}/POLY_JMP.ASM
+        ${_POLY_ASM_DIR}/POLY_JMP.ASM ${_POLY_ASM_DIR}/POLYTZF.ASM
     ASM_DEP_RENAME_SYMS
         Triangle_ReadNextEdge
         Filler_Flat Filler_Transparent Filler_Trame
@@ -21,6 +43,8 @@ add_asm_cpp_test(NAME test_poly       TEST_SOURCE test_poly.cpp       LIBS poly 
         Line_A Line LineZBuf LineZBufNZW
         Fill_N_Table_Jumps Fill_Fog_Table_Jumps Fill_ZBuf_Table_Jumps
         Fill_FogZBuf_Table_Jumps Fill_NZW_Table_Jumps Fill_FogNZW_Table_Jumps
+        Filler_TextureZFogSmooth Filler_TextureZFogSmoothZBuf Filler_TextureZFogSmoothNZW
+        Fill_Init_Perspective Fill_Loop_Perspective
     ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
 target_link_options(test_poly PRIVATE -Wl,--allow-multiple-definition)
 add_asm_cpp_test(NAME test_poly_jmp   TEST_SOURCE test_poly_jmp.cpp   LIBS poly svg sys SDL3::SDL3
