@@ -19,6 +19,16 @@ string(REGEX REPLACE
     ".model\\1FLAT"
     _content "${_content}")
 
+# PROC <bare-register>  →  PROC
+# Some private procs use Watcom register calling convention
+# (e.g. Draw_Triangle PROC esi).  In FLAT model UASM rejects a bare
+# register as a parameter; strip it since the caller already loads
+# the register before the CALL and the function body uses it directly.
+string(REGEX REPLACE
+    "PROC([ \t]+)(eax|ebx|ecx|edx|esi|edi|ebp)([ \t]*\n)"
+    "PROC\\3"
+    _content "${_content}")
+
 # ASSUME DS:SEG <symbol>  →  ASSUME DS:FLAT
 string(REGEX REPLACE
     "ASSUME([ \t]+)[Dd][Ss]:SEG[ \t]+[A-Za-z0-9_]+"

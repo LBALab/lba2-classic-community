@@ -90,7 +90,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [~] | `pol_work/POLY.ASM` | `pol_work/POLY.CPP` | Fill_Poly, SetFog, INV64, Switch_Fillers, SetScreenPitch | Core polygon rendering pipeline | CPP tested via Fill_Poly integration (13 tests inc. random). No ASM equiv — POLY.ASM too complex. |
+| [x] | `pol_work/POLY.ASM` | `pol_work/POLY.CPP` | INV64, SetFog, SetCLUT, Switch_Fillers, Fill_Poly, SetScreenPitch | Core polygon rendering pipeline | **ASM equiv** — 17 tests (13 CPP + 4 ASM-vs-CPP: INV64 via inline ASM 300 rounds, SetFog 300 rounds, SetCLUT 300 rounds, Switch_Fillers 300 rounds). INV64 not in POLY.ASM — tested via inline x86 `idiv` replication. Switch_Fillers_ASM uses Watcom register convention (bank in EAX) — tested via inline ASM wrapper. |
 | [x] | `pol_work/POLY_JMP.ASM` | `pol_work/POLY_JMP.CPP` | All 6 jump tables × 26 entries (Fill_N/Fog/ZBuf/FogZBuf/NZW/FogNZW_Table_Jumps) | Polygon type dispatcher | ASM-vs-CPP equivalence: globals comparison (Fill_Filler, Fill_ClipFlag, Fill_Color, Fill_Trame_Parity, IsPolygonHidden) for all entries. 50 random rounds per entry. Fixed 3 CPP bugs: Jmp_SolidFogNZW missing Fill_Color, Jmp_TrameFogZBuf/NZW wrong palette index. |
 | [x] | `pol_work/POLYCLIP.ASM` | `pol_work/POLYCLIP.CPP` | ClipperZ | Z-plane polygon clipping | ASM-vs-CPP equivalence (8 tests, 300 random rounds). Fixed CPP FPU rounding (fesetround FE_TOWARDZERO) to match ASM chop mode. |
 | [x] | `pol_work/POLYDISC.ASM` | `pol_work/POLYDISC.CPP` | Fill_Sphere, Sph_Line_* | Circle/disc polygon fill | **ASM equiv** — 9 CPP + 3 ASM tests (centre, clipped, 30 random). Watcom register wrapper. |
