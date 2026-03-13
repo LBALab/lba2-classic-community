@@ -6,7 +6,11 @@ set(_POLY_ASM_INC ${CMAKE_SOURCE_DIR}/LIB386/H)
 # Full tests require substantial fixture setup.
 
 add_asm_cpp_test(NAME test_poly       TEST_SOURCE test_poly.cpp       LIBS poly svg sys SDL3::SDL3)
-add_asm_cpp_test(NAME test_poly_jmp   TEST_SOURCE test_poly_jmp.cpp   LIBS poly svg sys SDL3::SDL3)
+add_asm_cpp_test(NAME test_poly_jmp   TEST_SOURCE test_poly_jmp.cpp   LIBS poly svg sys SDL3::SDL3
+    ASM_SOURCE ${_POLY_ASM_DIR}/POLY_JMP.ASM
+    RENAME_SYMS Fill_N_Table_Jumps Fill_Fog_Table_Jumps Fill_ZBuf_Table_Jumps Fill_FogZBuf_Table_Jumps Fill_NZW_Table_Jumps Fill_FogNZW_Table_Jumps
+    ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
+target_link_options(test_poly_jmp PRIVATE -Wl,--allow-multiple-definition)
 add_asm_cpp_test(NAME test_polyclip   TEST_SOURCE test_polyclip.cpp   LIBS poly svg sys SDL3::SDL3
     ASM_SOURCE ${_POLY_ASM_DIR}/POLYCLIP.ASM
     RENAME_SYMS ClipperZ
