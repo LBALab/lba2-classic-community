@@ -7,12 +7,16 @@
 #include <POLYGON/CLIPPERZ.H>
 #include <string.h>
 
-/* ASM equiv disabled — POLYCLIP.ASM needs Status_Int/Status_Float from POLY.ASM */
-#if 0
+/* Status_Int / Status_Float: FPU control words referenced by POLYCLIP.ASM.
+ * Defined in POLY.ASM but not in the CPP poly library, so provide them here. */
+extern "C" {
+    U16 Status_Int   = 0x0F7F; /* chop (truncate) rounding, 80-bit precision */
+    U16 Status_Float = 0x037F; /* round-to-nearest, 80-bit precision */
+}
+
 extern "C" U32 asm_ClipperZ(STRUC_CLIPVERTEX dst[], STRUC_CLIPVERTEX src[],
                              U32 nbvertex, S32 zclip, S32 flag);
 static STRUC_CLIPVERTEX dst_asm[16];
-#endif
 
 static STRUC_CLIPVERTEX src[8], dst_cpp[16];
 
@@ -63,8 +67,6 @@ static void test_one_behind(void)
 }
 
 /* ── ASM-vs-CPP equivalence ────────────────────────────────────── */
-/* Disabled — POLYCLIP.ASM needs POLY.ASM deps (Status_Int/Status_Float) */
-#if 0
 static void test_asm_equiv_all_in_front(void)
 {
     src[0] = make_cv(0, 0, 200);
@@ -174,20 +176,16 @@ static void test_asm_equiv_random(void)
         }
     }
 }
-#endif  /* disabled ASM tests */
-
 int main(void)
 {
     RUN_TEST(test_all_in_front);
     RUN_TEST(test_all_behind);
     RUN_TEST(test_one_behind);
-#if 0
     RUN_TEST(test_asm_equiv_all_in_front);
     RUN_TEST(test_asm_equiv_one_behind);
     RUN_TEST(test_asm_equiv_all_behind);
     RUN_TEST(test_asm_equiv_negative_flag);
     RUN_TEST(test_asm_equiv_random);
-#endif
     TEST_SUMMARY();
     return test_failures != 0;
 }
