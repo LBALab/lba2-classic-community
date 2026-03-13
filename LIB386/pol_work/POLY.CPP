@@ -33,8 +33,14 @@ typedef void (*Filler_SwitchFunc)(void);
 
 extern Filler_SwitchFunc Table_Switch[];
 
-#define FInv_65536 (1.0f / 65536.0f) // 1/65536 exact
-#define FInv_256 0.00390625	// 1/256 in float
+// ASM float constants — MUST match POLY.ASM REAL4 values exactly.
+// FInv_65536 is defined as REAL4 0.0000152588 in ASM (NOT exact 1/65536).
+// The x87 FPU loads this 32-bit float and promotes to 80-bit extended.
+static const float ASM_FInv_65536 = 0.0000152588f; // REAL4 0.0000152588
+static const float ASM_FInv_256   = 0.00390625f;   // REAL4 0.00390625 (exact)
+static const float ASM_F_256      = 256.0f;         // REAL4 256.0
+static const float ASM_F_1        = 1.0f;           // REAL4 1.0
+static const float ASM_F_65536    = 65536.0f;       // REAL4 65536.0
 
 U32 Fill_Type = 0; // Polygon type number
 
@@ -672,7 +678,8 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 	}
 
   // ASM: D = F_256 / raw_Denom (fdivp st(3),st where st(3)=256.0, st(0)=raw_Denom)
-  InvDenom = 256.0L / raw_Denom;
+  // F_256 is loaded as REAL4 (32-bit float) then promoted to 80-bit
+  InvDenom = (long double)ASM_F_256 / raw_Denom;
 
 	// ASM hardcodes Jmp_XSlopeZBufFPU regardless of rendering mode
 	S32 result = Jmp_XSlopeZBufFPU[Fill_Type](Fill_Type, PtA, PtB, PtC);
@@ -1015,7 +1022,7 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
   volatile long double UCp_UAp = UCp - UAp;
   volatile long double MUC = UCp_UAp * (long double)YB_YA;
   volatile long double MUB = UBp_UAp * (long double)YC_YA;
-  volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+  volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
   volatile long double MUC_MUB = MUC - MUB;
 
   volatile long double VAp = (long double)(S32)PtA->Pt_MapV * (long double)PtA->Pt_W;
@@ -1041,7 +1048,7 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
   Fill_MapV_XSlope = (S32)VSlope;
   volatile long double MWC_MWB = MWC - MWB;
   volatile long double WSlope = MWC_MWB * Dp;
-  volatile long double WSlope_scaled = WSlope * 256.0L;
+  volatile long double WSlope_scaled = WSlope * (long double)ASM_F_256;
   Fill_W_XSlope = (S32)WSlope_scaled;
   return Triangle_ReadNextEdge(PtA, PtB);
 }
@@ -1062,7 +1069,7 @@ S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *P
   volatile long double UCp_UAp = UCp - UAp;
   volatile long double MUC = UCp_UAp * (long double)YB_YA;
   volatile long double MUB = UBp_UAp * (long double)YC_YA;
-  volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+  volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
   volatile long double MUC_MUB = MUC - MUB;
 
   volatile long double VAp = (long double)(S32)PtA->Pt_MapV * (long double)PtA->Pt_W;
@@ -1092,15 +1099,15 @@ S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *P
   volatile long double MWB = WB_WA * (long double)YC_YA;
   volatile long double MWC = WC_WA * (long double)YB_YA;
 
-  // Restore D from D': D = D' * F_65536 = InvDenom
-  volatile long double D = Dp * 65536.0L;
+  // Restore D from D': ASM does fmul [F_65536] (REAL4 65536.0)
+  volatile long double D = Dp * (long double)ASM_F_65536;
 
   volatile long double MWC_MWB = MWC - MWB;
   volatile long double ML = MLC - MLB;
   volatile long double LSlope = ML * D;
   volatile long double WSlope = MWC_MWB * D;
   Fill_Gouraud_XSlope = (S32)LSlope;
-  volatile long double WSlope_scaled = WSlope * (1.0L / 256.0L);
+  volatile long double WSlope_scaled = WSlope * (long double)ASM_FInv_256;
   Fill_W_XSlope = (S32)WSlope_scaled;
   return Triangle_ReadNextEdge(PtA, PtB);
 }
@@ -1138,7 +1145,7 @@ S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB,
   volatile long double ZCp_ZAp = ZCp - ZAp;
   volatile long double MZB = ZBp_ZAp * (long double)YC_YA;
   volatile long double MZC = ZCp_ZAp * (long double)YB_YA;
-  volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+  volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
   volatile long double MZC_MZB = MZC - MZB;
   volatile long double ZSlope = MZC_MZB * Dp;
   Fill_ZBuf_XSlope = (S32)ZSlope;
@@ -1176,7 +1183,7 @@ S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB,
   Fill_MapV_XSlope = (S32)VSlope;
   volatile long double MWC_MWB = MWC - MWB;
   volatile long double WSlope = MWC_MWB * Dp;
-  volatile long double WSlope_scaled = WSlope * 256.0L;
+  volatile long double WSlope_scaled = WSlope * (long double)ASM_F_256;
   Fill_W_XSlope = (S32)WSlope_scaled;
   return Triangle_ReadNextEdge(PtA, PtB);
 }
@@ -1368,7 +1375,7 @@ S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Po
 S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
   volatile long double inv_dY = 1.0L / (long double)diffY;
-  volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+  volatile long double inv256_dY = inv_dY * (long double)ASM_FInv_256;
 
   volatile long double UAp = (long double)(S32)PtA->Pt_MapU * (long double)PtA->Pt_W;
   volatile long double UBp = (long double)(S32)PtB->Pt_MapU * (long double)PtB->Pt_W;
@@ -1380,8 +1387,8 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
   volatile long double dW = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
 
   Fill_CurWMin = PtA->Pt_W;
-  volatile long double curU = UAp * (1.0L / 256.0L);
-  volatile long double curV = VAp * (1.0L / 256.0L);
+  volatile long double curU = UAp * (long double)ASM_FInv_256;
+  volatile long double curV = VAp * (long double)ASM_FInv_256;
   Fill_CurMapUMin = (S32)curU;
   Fill_CurMapVMin = (S32)curV;
 
@@ -1398,7 +1405,7 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
   Fill_MapU_LeftSlope = (S32)USlope;
   Fill_CurMapUMin = (S32)curU;
   // ASM: fmul [F_256] before fistp [Fill_W_LeftSlope]
-  volatile long double WSlope = WSlope_raw * 256.0L;
+  volatile long double WSlope = WSlope_raw * (long double)ASM_F_256;
   Fill_MapV_LeftSlope = (S32)VSlope;
   Fill_W_LeftSlope = (S32)WSlope;
 
@@ -1442,19 +1449,19 @@ S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_P
   volatile long double dVp = VBp - VAp;
 
   // Calculate texture slopes (scaled by 1/256)
-  volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+  volatile long double inv256_dY = inv_dY * (long double)ASM_FInv_256;
   volatile long double WB_WA = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
   volatile long double USlope = dUp * inv256_dY;
   volatile long double VSlope = dVp * inv256_dY;
 
-  volatile long double curU = UAp * (1.0L / 256.0L);
-  volatile long double curV = VAp * (1.0L / 256.0L);
+  volatile long double curU = UAp * (long double)ASM_FInv_256;
+  volatile long double curV = VAp * (long double)ASM_FInv_256;
   Fill_CurMapVMin = (S32)curV;
   Fill_MapU_LeftSlope = (S32)USlope;
   // ASM: WSlope = (WB-WA) * inv256_dY, then fmul [F_256]
   volatile long double WSlope_raw = WB_WA * inv256_dY;
   Fill_CurMapUMin = (S32)curU;
-  volatile long double WSlope = WSlope_raw * 256.0L;
+  volatile long double WSlope = WSlope_raw * (long double)ASM_F_256;
   Fill_MapV_LeftSlope = (S32)VSlope;
   Fill_W_LeftSlope = (S32)WSlope;
 
@@ -1490,8 +1497,8 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
 
   volatile long double ZAp = (long double)(S32)(U32)PtA->Pt_ZO * (long double)PtA->Pt_W;
   volatile long double ZBp = (long double)(S32)(U32)PtB->Pt_ZO * (long double)PtB->Pt_W;
-  volatile long double ZA_scaled = ZAp * (1.0L / 256.0L);
-  volatile long double ZB_scaled = ZBp * (1.0L / 256.0L);
+  volatile long double ZA_scaled = ZAp * (long double)ASM_FInv_256;
+  volatile long double ZB_scaled = ZBp * (long double)ASM_FInv_256;
 
   // fist stores to Fill_CurZBufMin (store without pop)
   Fill_CurZBufMin = (U32)(S32)ZA_scaled;
@@ -1516,19 +1523,19 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
   volatile long double dVp = VBp - VAp;
 
   // Calculate texture slopes (scaled by 1/256)
-  volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+  volatile long double inv256_dY = inv_dY * (long double)ASM_FInv_256;
   volatile long double WB_WA = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
   volatile long double USlope = dUp * inv256_dY;
   volatile long double VSlope = dVp * inv256_dY;
 
-  volatile long double curU = UAp * (1.0L / 256.0L);
-  volatile long double curV = VAp * (1.0L / 256.0L);
+  volatile long double curU = UAp * (long double)ASM_FInv_256;
+  volatile long double curV = VAp * (long double)ASM_FInv_256;
   Fill_CurMapVMin = (S32)curV;
   Fill_MapU_LeftSlope = (S32)USlope;
   // ASM: WSlope = (WB-WA) * inv256_dY, then fmul [F_256]
   volatile long double WSlope_raw = WB_WA * inv256_dY;
   Fill_CurMapUMin = (S32)curU;
-  volatile long double WSlope = WSlope_raw * 256.0L;
+  volatile long double WSlope = WSlope_raw * (long double)ASM_F_256;
   Fill_MapV_LeftSlope = (S32)VSlope;
   Fill_W_LeftSlope = (S32)WSlope;
 
