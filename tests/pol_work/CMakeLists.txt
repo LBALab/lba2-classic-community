@@ -10,6 +10,7 @@ add_asm_cpp_test(NAME test_poly       TEST_SOURCE test_poly.cpp       LIBS poly 
     RENAME_SYMS Fill_PolyFast SetScreenPitch SetFog SetCLUT Switch_Fillers_ASM
         Fill_PolyClip Fill_ClipXMin Fill_ClipXMax Fill_ClipYMin Fill_ClipYMax
     ASM_DEPS ${_POLY_ASM_DIR}/POLYFLAT.ASM ${_POLY_ASM_DIR}/POLYDISC.ASM ${_POLY_ASM_DIR}/POLYLINE.ASM
+        ${_POLY_ASM_DIR}/POLY_JMP.ASM
     ASM_DEP_RENAME_SYMS
         Triangle_ReadNextEdge
         Filler_Flat Filler_Transparent Filler_Trame
@@ -18,6 +19,8 @@ add_asm_cpp_test(NAME test_poly       TEST_SOURCE test_poly.cpp       LIBS poly 
         Filler_FlagZBuffer
         Fill_Sphere
         Line_A Line LineZBuf LineZBufNZW
+        Fill_N_Table_Jumps Fill_Fog_Table_Jumps Fill_ZBuf_Table_Jumps
+        Fill_FogZBuf_Table_Jumps Fill_NZW_Table_Jumps Fill_FogNZW_Table_Jumps
     ASM_INCLUDE_DIRS ${_POLY_ASM_INC})
 target_link_options(test_poly PRIVATE -Wl,--allow-multiple-definition)
 add_asm_cpp_test(NAME test_poly_jmp   TEST_SOURCE test_poly_jmp.cpp   LIBS poly svg sys SDL3::SDL3
