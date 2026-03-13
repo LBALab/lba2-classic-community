@@ -12,6 +12,7 @@
 #include "INPUT.H"
 
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 extern	S32	Nxw, Nyw, Nzw ;
 extern	S32	SaveNxw, SaveNzw ;

@@ -8,9 +8,15 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
+#include <SYSTEM/TIMER.H>
+
+#ifdef DEBUG_TOOLS
+static inline U32 DosAvailableMem() { return 0; }
+#endif
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +39,7 @@ S32     EscTimer ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
 char    NamePcxSave[ADELINE_MAX_PATH] ;
-S32     NumPcxSave = 0 ;
+S32     NumShootSave = 0 ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -87,7 +93,7 @@ void    AffDebugMenu()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 // Pour eviter d'ecraser les anciennes copies d'ecran !!!!
-void GetNumPcxSave() {
+void GetNumShootSave() {
   struct dirent *file;
   DIR *dir;
   S32 num;
@@ -100,15 +106,16 @@ void GetNumPcxSave() {
     while ((file = readdir(dir)) != NULL) {
       bool startsLBA = (ade_strcasestr(file->d_name, "LBA") == file->d_name);
       bool hasPCX = (ade_strcasestr(file->d_name, ".PCX") != NULL);
-      if (startsLBA && hasPCX) {
+      bool hasPNG = (ade_strcasestr(file->d_name, ".PNG") != NULL);
+      if (startsLBA && (hasPCX || hasPNG)) {
         GetShootPath(pathname, ADELINE_MAX_PATH, file->d_name);
 
         struct stat st = {};
         stat(pathname, &st);
         if (S_ISREG(st.st_mode)) {
           num = atoi(&file->d_name[3]);
-          if (num >= NumPcxSave) {
-            NumPcxSave = num + 1;
+          if (num >= NumShootSave) {
+            NumShootSave = num + 1;
           }
         }
       }
@@ -119,7 +126,7 @@ void GetNumPcxSave() {
 
 void    CheckSavePcx()
 {
-        if( Key == K_F9 )
+        if( Key == K_F9 || Key == K_PRINTSCR )
         {
                 S32     saveflagfade    ;
 
@@ -130,16 +137,16 @@ void    CheckSavePcx()
 		BackupScreen( FALSE ) 	;
 		CopyScreen( Log, Screen ) ;
 
-                GetNumPcxSave() ;
+                GetNumShootSave() ;
 
-                char PCXFilename[ADELINE_MAX_PATH];
-		sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
-                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
+                char PNGFilename[ADELINE_MAX_PATH];
+		sprintf(PNGFilename, "LBA%05d.png", NumShootSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
 
-                SavePCX( NamePcxSave, Screen, ModeDesiredX, ModeDesiredY, PtrPal ) ;
+                SavePNG( NamePcxSave, Screen, ModeDesiredX, ModeDesiredY, PtrPal ) ;
 
                 WaitNoInput() ;
 
@@ -170,17 +177,17 @@ void    CheckSavePcx()
 
 void    CheckSaveLogPcx( U8 *pal )
 {
-        if( Key == K_F9 )
+        if( Key == K_F9 || Key == K_PRINTSCR )
         {
                 SaveTimer() ;
 
-                GetNumPcxSave() ;
+                GetNumShootSave() ;
 
-                char PCXFilename[ADELINE_MAX_PATH];
-                sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
-                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
+                char PNGFilename[ADELINE_MAX_PATH];
+                sprintf(PNGFilename, "LBA%05d.png", NumShootSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
 
-                SavePCX( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
+                SavePNG( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
@@ -667,6 +674,11 @@ startloop:
 
                                 RestoreTimer() ;
                         }
+                        else
+                        {
+                                LogPrintf("F10 benchmark only works in exterior scenes\n");
+                        }
+                        while( MyKey )  MyGetInput() ;
                 }
 
                 if( MyKey == K_F11 )
@@ -696,6 +708,11 @@ startloop:
 
                                 RestoreTimer() ;
                         }
+                        else
+                        {
+                                LogPrintf("F11 benchmark only works in exterior scenes\n");
+                        }
+                        while( MyKey )  MyGetInput() ;
                 }
 
                 if( MyKey == K_V )
@@ -983,7 +1000,6 @@ startloop:
                         InitDial( 0 ) ;
 
                         SaveTimer() ;
-                        strcpy( PathSave, PATH_SAVE_BUGS ) ;
                         MemoClipWindow() ;
                         UnsetClipWindow() ;
                         StopSpeak() ;
@@ -1003,7 +1019,6 @@ startloop:
                         RestoreClipWindow() ;
                         HQ_ResumeSamples() ;
                         PaletteSync( PtrPal ) ;
-                        strcpy( PathSave, PATH_SAVE ) ;
                         RestoreTimer() ;
 
                         while( MyKey OR Input ) MyGetInput() ;
@@ -1932,7 +1947,7 @@ void    TheEnd( S32 num, const char *error )
 
 /*══════════════════════════════════════════════════════════════════════════*/
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-void    DebugHQR( char *titre, T_HQR_HEADER *hqr )
+void    DebugHQR( const char *titre, T_HQR_HEADER *hqr )
 {
         LogPrintf( titre ) ;
 
@@ -2046,7 +2061,7 @@ void    TheEndInfo()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
-void    Message( char *mess, S32 flag )
+void    Message( const char *mess, S32 flag )
 {
         S32     x ;
 
@@ -2404,13 +2419,33 @@ int main(int argc, char *argv[])
 /*      if( ArgC==2 AND !strcasecmp(ArgV[1],"/NOKEY") )
         {
                 KeyOff = TRUE ;
-                Key = Joy = Fire = Input = 0 ;
         }
-
-//      SlideDemo(ArgC,ArgV) ;
-
 */
-        // TODO: Review this code when implementing command line parameters
+
+#ifdef DEBUG_TOOLS
+        // Command-line cube selection: ./lba2 <cube_number>
+        if( ArgC>1 )
+        {
+                char *p = ArgV[1];
+                S32 isNumber = TRUE;
+                while(*p) { if(!isdigit((unsigned char)*p++)) { isNumber = FALSE; break; } }
+
+                if(isNumber)
+                {
+                        S32 cubeNum = atoi(ArgV[1]);
+                        LogPrintf("\nStarting at cube %d\n", cubeNum);
+
+                        InitGame(1);
+                        NewCube = cubeNum;  // Set AFTER InitGame since it resets NewCube to 0
+                        FlagFade = TRUE;
+                        MainLoop();
+                        TheEnd(PROGRAM_OK, "");
+                        return 0;
+                }
+        }
+#endif
+
+        // Load save game from command line argument
         if( ArgC>1 )
         {
 #ifdef  DEMO

@@ -388,6 +388,103 @@ S32 PlayerGameList(char **ptrlistname, char *listname, S32 flagnew) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
+#ifdef DEBUG_TOOLS
+S32 BugGameList(char **ptrlistname, char *listname) {
+  struct dirent *file;
+  DIR *dir;
+  S32 wlong;
+  char pathname[ADELINE_MAX_PATH];
+  S32 nb = 0;
+  S32 handle;
+  char **startptrlist = ptrlistname;
+  U8 wbyte;
+
+  GetBugPath(pathname, ADELINE_MAX_PATH, NULL);
+  dir = opendir(pathname);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".LBA") != NULL) {
+        GetBugPath(pathname, ADELINE_MAX_PATH, file->d_name);
+
+        struct stat st;
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          GetBugPath(pathname, ADELINE_MAX_PATH, file->d_name);
+          handle = OpenRead(pathname);
+          if (handle) {
+            Read(handle, &wbyte, 1);             // num version
+            Read(handle, &wlong, sizeof(wlong)); // num cube
+
+            *ptrlistname++ = listname;
+            do {
+              Read(handle, &wbyte, 1);
+              *listname++ = wbyte;
+            } while (wbyte != 0);
+
+            Close(handle);
+
+            nb++;
+            if (nb == MAX_PLAYER)
+              return nb;
+          }
+        }
+      }
+    }
+    closedir(dir);
+  }
+
+  qsort((void *)startptrlist, nb, sizeof(char *), my_sort_function);
+
+  return nb;
+}
+
+S32 FindBugFile(const char *bugname) {
+  struct dirent *file;
+  DIR *dir;
+  char pathname[ADELINE_MAX_PATH];
+  char playername[MAX_SIZE_PLAYER_NAME + 1];
+  U8 *ptr;
+  S32 handle;
+  S32 wlong;
+  U8 wbyte;
+
+  GetBugPath(pathname, ADELINE_MAX_PATH, NULL);
+  dir = opendir(pathname);
+  if (dir != NULL) {
+    while ((file = readdir(dir)) != NULL) {
+      if (ade_strcasestr(file->d_name, ".LBA") != NULL) {
+        GetBugPath(pathname, ADELINE_MAX_PATH, file->d_name);
+
+        struct stat st;
+        stat(pathname, &st);
+        if (S_ISREG(st.st_mode)) {
+          handle = OpenRead(pathname);
+          Read(handle, &wbyte, 1);             // num version
+          Read(handle, &wlong, sizeof(wlong)); // num cube
+
+          ptr = (U8 *)playername;
+          do {
+            Read(handle, &wbyte, 1);
+            *ptr++ = wbyte;
+          } while (wbyte != 0);
+
+          Close(handle);
+
+          if (!strcasecmp(playername, bugname)) {
+            strcpy(GamePathname, pathname);
+            return TRUE;
+          }
+        }
+      }
+    }
+    closedir(dir);
+  }
+
+  return FALSE;
+}
+#endif
+
+/*──────────────────────────────────────────────────────────────────────────*/
 
 S32 FindPlayerFile() {
   struct dirent *file;
@@ -746,6 +843,9 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         U32     draw = 1 ;
         U32     newcube = NewCube ;
         char    memoplayername[MAX_SIZE_PLAYER_NAME+1] ;
+#ifdef  DEBUG_TOOLS
+        S32     isBugMode = FALSE ;
+#endif
 
 	strcpy( OldGamePathname, "" ) ;
 
@@ -760,12 +860,14 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         {
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( FALSE, 0, 460, "Chargement d'un bug..." ) ;
+                isBugMode = TRUE ;
         }
 
         if( mess&0x40000000 )   // sauvegarde d'un bug
         {
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( FALSE, 0, 460, "Sauvegarde d'un bug..." ) ;
+                isBugMode = TRUE ;
         }
 
         mess &= 0x3FFFFFFF ;
@@ -786,6 +888,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
 	}
 */
 
+#ifdef  DEBUG_TOOLS
+        if( isBugMode )
+                nb = BugGameList( ptrlist, listplayername ) ;
+        else
+#endif
         nb = PlayerGameList( ptrlist, listplayername, flagnew ) ;
 
         strcpy( PlayerName, memoplayername ) ;
@@ -875,6 +982,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
 
 			if( !flagnew OR select<nb-1 )
                         {
+#ifdef  DEBUG_TOOLS
+                                if( isBugMode )
+                                        FindBugFile( PlayerName ) ;
+                                else
+#endif
                                 FindPlayerFile() ;
                                 ptr = LoadGameScreen( ) ;
                                 if( ptr )       DrawScreenSave( ptr, 240, 50 ) ;
@@ -1091,6 +1203,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
 
                                 if( !flagnew OR select<nb-1 )
                                 {
+#ifdef  DEBUG_TOOLS
+                                        if( isBugMode )
+                                                FindBugFile( PlayerName ) ;
+                                        else
+#endif
                                         FindPlayerFile() ;
                                         ptr = LoadGameScreen( ) ;
                                         if( ptr )       DrawScreenSave( ptr, 240, 50 ) ;
@@ -1112,6 +1229,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
                                 if( select==nb-1 )      strcpy( PlayerName, "" ) ;
                                 else
                                 {
+#ifdef  DEBUG_TOOLS
+                                        if( isBugMode )
+                                                FindBugFile( PlayerName ) ;
+                                        else
+#endif
                                         FindPlayerFile() ;
                                         strcpy( memoname, GamePathname ) ;
                                 }
@@ -1126,6 +1248,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
                                                 do
                                                 {
 							snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
+#ifdef  DEBUG_TOOLS
+							if( isBugMode )
+								GetBugPath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
+							else
+#endif
 							GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
                                                 }
                                                 while( FileSize( GamePathname ) != 0 ) ; // TODO: Review this sorcery
@@ -1133,6 +1260,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
                                         else    // renommer une sauvegarde
 					{
 						snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
+#ifdef  DEBUG_TOOLS
+						if( isBugMode )
+							GetBugPath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
+						else
+#endif
 						GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
                                         }
 
@@ -1163,6 +1295,11 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
         else if( retval==1 )
         {
                 strcpy( PlayerName, ptrlist[select] ) ;
+#ifdef  DEBUG_TOOLS
+                if( isBugMode )
+                        FindBugFile( PlayerName ) ;
+                else
+#endif
                 FindPlayerFile() ;
 
                 for( n=0; n<NB_GAME_CHOICE; n++ )
@@ -2636,8 +2773,6 @@ load_game:                                      firstloop = FALSE ;
 #ifdef  DEBUG_TOOLS
                         // Gestion des sauvegardes de bugs
                         case 2000:      // chargement d'un bug
-                                strcpy( PathSave, PATH_SAVE_BUGS ) ;
-
                                 switch( ChoosePlayerName( 41|0x80000000, FALSE, FALSE ) )
                                 {
                                         case 0:
@@ -2677,13 +2812,9 @@ load_game:                                      firstloop = FALSE ;
                                                 EscTimer = 0 ;
                                                 break ;
                                 }
-
-                                strcpy( PathSave, PATH_SAVE ) ;
                                 break ;
 
                         case 2001:      // sauvegarde d'un bug
-                                strcpy( PathSave, PATH_SAVE_BUGS ) ;
-
                                 if( !firstloop )
                                 {
                                         savenewcube = NewCube ;
@@ -2704,8 +2835,6 @@ load_game:                                      firstloop = FALSE ;
                                         BoxStaticFullflip() ;
                                         RestoreTimer() ;
                                 }
-
-                                strcpy( PathSave, PATH_SAVE ) ;
                                 break ;
 #endif
                 }
