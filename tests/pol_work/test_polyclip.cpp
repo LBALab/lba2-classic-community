@@ -149,7 +149,7 @@ static U32 rng_next(void) {
 static void test_asm_equiv_random(void)
 {
     rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 300; i++) {
         int nverts = 3 + (int)(rng_next() % 3);  /* 3-5 vertices */
         S32 zclip = (S32)(rng_next() % 500) + 50;
         S32 flag = (S32)(rng_next() & 1);
