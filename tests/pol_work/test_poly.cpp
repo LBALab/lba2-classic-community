@@ -21,6 +21,11 @@
 #include <fenv.h>
 #include <SYSTEM/UTILS.H>
 
+/* ASM REAL4 constant: FInv_65536 = 0.0000152588 (NOT exact 1/65536).
+ * Reference computations must use this approximate value to match
+ * the ASM's fmul [FInv_65536] behavior. */
+static const float ASM_FInv_65536 = 0.0000152588f;
+
 /* ── ASM-side declarations ─────────────────────────────────────── */
 
 /* SetFog and SetCLUT are C-convention PROCs in POLY.ASM, renamed
@@ -617,7 +622,7 @@ static void test_texturez_xslope(void)
         fesetround(FE_TOWARDZERO);
         RoundType = ROUND_TYPE_INT;
 
-        volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+        volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
 
         volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
         volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
@@ -712,7 +717,7 @@ static void test_texturez_gouraud_xslope(void)
         fesetround(FE_TOWARDZERO);
         RoundType = ROUND_TYPE_INT;
 
-        volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+        volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
 
         /* U/V slopes use Dp (same as base TextureZ) */
         volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
@@ -727,8 +732,8 @@ static void test_texturez_gouraud_xslope(void)
         volatile long double VSlope = ((VCp - VAp) * (long double)YB_YA - (VBp - VAp) * (long double)YC_YA) * Dp;
         S32 expected_V = (S32)VSlope;
 
-        /* Gouraud and W slopes use D = Dp * 65536 = InvDenom */
-        volatile long double D = Dp * 65536.0L;
+        /* Gouraud and W slopes use D = Dp * F_65536 (ASM REAL4 65536.0) */
+        volatile long double D = Dp * (long double)65536.0f;
 
         S32 lightB_A = (S32)(ptB.Pt_Light & 0xFFFF) - (S32)(ptA.Pt_Light & 0xFFFF);
         S32 lightC_A = (S32)(ptC.Pt_Light & 0xFFFF) - (S32)(ptA.Pt_Light & 0xFFFF);
@@ -814,7 +819,7 @@ static void test_texturez_xslope_zbuf(void)
         fesetround(FE_TOWARDZERO);
         RoundType = ROUND_TYPE_INT;
 
-        volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+        volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
 
         /* ZBuf slope */
         volatile long double ZAp = (long double)(S32)(U32)ptA.Pt_ZO * (long double)ptA.Pt_W;
