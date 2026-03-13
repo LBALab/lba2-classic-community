@@ -360,84 +360,92 @@ S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
+
+        U32 lineWidth = fillWidth;
 
         if (fillWidth > PERSP_VALUE)
         {
-          // Process PERSP_VALUE pixels
-          for (U32 i = 0; i < PERSP_VALUE; i++)
-          {
-            U32 texelAddr = ((mapCoord >> 16) & RepMask);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            U8 color = POLYTEXZ_PtrCLUT[texel];
-            line[i] = color;
-            mapCoord += mapInc;
-          }
-          line += PERSP_VALUE;
-        }
-        else
-        {
-          // Process remaining pixels
-          for (U32 i = 0; i < fillWidth; i++)
-          {
-            U32 texelAddr = ((mapCoord >> 16) & POLYTEXZ_RepMaskPatch);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            U8 color = POLYTEXZ_PtrCLUT[texel];
-            line[i] = color;
-            mapCoord += mapInc;
-          }
+          fillWidth = PERSP_VALUE;
         }
 
-        if (fillWidth <= PERSP_VALUE)
+        do
+        {
+          mapIndex = (mapIndex & 0xFFFFFF00) | POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
+          mapIndex &= 0xFF;
+
+          mapIndex = (mapIndex & 0xFFFFFF00) | POLYTEXZ_PtrCLUT[mapIndex];
+          POLYTEXZ_PtrLog[offset] = mapIndex & 0xFF;
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -503,75 +511,93 @@ S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        // Process pixels with chroma key transparency
-        for (U32 i = 0; i < currentWidth; i++)
+        U32 lineWidth = fillWidth;
+
+        if (fillWidth > PERSP_VALUE)
         {
-          U32 texelAddr = ((mapCoord >> 16) & RepMask);
-          U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-          
-          // Chroma key test: only draw if texel is not 0 (transparent)
-          if (texel != 0)
-          {
-            line[i] = texel;
-          }
-          
-          mapCoord += mapInc;
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
+        do
+        {
+          U8 texel = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
 
-        if (fillWidth <= PERSP_VALUE)
+          if (texel != 0)
+          {
+            POLYTEXZ_PtrLog[offset] = texel;
+          }
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -639,96 +665,94 @@ S32 Filler_TextureZFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
+
+        U32 lineWidth = fillWidth;
 
         if (fillWidth > PERSP_VALUE)
         {
-          // Process PERSP_VALUE pixels with flat shading and chroma key
-          for (U32 i = 0; i < PERSP_VALUE; i++)
-          {
-            U32 texelAddr = ((mapCoord >> 16) & RepMask);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            
-            // Chroma key test: only draw if texel is not 0 (transparent)
-            if (texel != 0)
-            {
-              U8 color = POLYTEXZ_PtrCLUT[texel];
-              line[i] = color;
-            }
-            
-            mapCoord += mapInc;
-          }
-          line += PERSP_VALUE;
-        }
-        else
-        {
-          // Process remaining pixels with flat shading and chroma key
-          for (U32 i = 0; i < fillWidth; i++)
-          {
-            U32 texelAddr = ((mapCoord >> 16) & POLYTEXZ_RepMaskPatch);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            
-            // Chroma key test: only draw if texel is not 0 (transparent)
-            if (texel != 0)
-            {
-              U8 color = POLYTEXZ_PtrCLUT[texel];
-              line[i] = color;
-            }
-            
-            mapCoord += mapInc;
-          }
+          fillWidth = PERSP_VALUE;
         }
 
-        if (fillWidth <= PERSP_VALUE)
+        do
+        {
+          U8 texel = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
+
+          if (texel != 0)
+          {
+            U8 color = POLYTEXZ_PtrCLUT[texel];
+            POLYTEXZ_PtrLog[offset] = color;
+          }
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -794,74 +818,92 @@ S32 Filler_TextureZFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        // Process pixels with fog effect
-        for (U32 i = 0; i < currentWidth; i++)
+        U32 lineWidth = fillWidth;
+
+        if (fillWidth > PERSP_VALUE)
         {
-          U32 texelAddr = ((mapCoord >> 16) & RepMask);
-          U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-          
-          // Apply fog effect using Fill_Logical_Palette
-          extern U8 Fill_Logical_Palette[256];
-          U8 foggedColor = Fill_Logical_Palette[texel];
-          line[i] = foggedColor;
-          
-          mapCoord += mapInc;
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
+        do
+        {
+          mapIndex = (mapIndex & 0xFFFFFF00) | POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
+          mapIndex &= 0xFF;
 
-        if (fillWidth <= PERSP_VALUE)
+          mapIndex = (mapIndex & 0xFFFFFF00) | Fill_Logical_Palette[mapIndex];
+          POLYTEXZ_PtrLog[offset] = mapIndex & 0xFF;
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -927,78 +969,94 @@ S32 Filler_TextureZChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        // Process pixels with chroma key transparency and fog effect
-        for (U32 i = 0; i < currentWidth; i++)
+        U32 lineWidth = fillWidth;
+
+        if (fillWidth > PERSP_VALUE)
         {
-          U32 texelAddr = ((mapCoord >> 16) & RepMask);
-          U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-          
-          // Chroma key test: only draw if texel is not 0 (transparent)
-          if (texel != 0)
-          {
-            // Apply fog effect using Fill_Logical_Palette
-            extern U8 Fill_Logical_Palette[256];
-            U8 foggedColor = Fill_Logical_Palette[texel];
-            line[i] = foggedColor;
-          }
-          
-          mapCoord += mapInc;
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
+        do
+        {
+          U8 texel = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
 
-        if (fillWidth <= PERSP_VALUE)
+          if (texel != 0)
+          {
+            U8 fogColor = Fill_Logical_Palette[texel];
+            POLYTEXZ_PtrLog[offset] = fogColor;
+          }
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -1071,99 +1129,102 @@ S32 Filler_TextureZZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
-      // Convert line pointer to offset for Z-buffer operations
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        // Z-buffer values: split Fill_CurZBuf into integer and fractional parts
-        U32 zBufFrac = Fill_CurZBuf << 24;  // Fractional part
-        U32 zBufInt = Fill_CurZBuf >> 8;    // Integer part
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 decZ = Fill_CurZBuf << 24;
+        U32 intZ = Fill_CurZBuf >> 8;
+        U32 lineWidth = fillWidth;
 
-        // Process pixels with Z-buffer testing and writing
-        for (U32 i = 0; i < currentWidth; i++)
+        if (fillWidth > PERSP_VALUE)
         {
-          // Z-buffer test
-          if (POLYTEXZ_PtrZBufferPatch[offset + i] < (U16)zBufInt)
-          {
-            // Update Z-buffer
-            POLYTEXZ_PtrZBuffer1[offset + i] = (U16)zBufInt;
-            
-            // Sample texture
-            U32 texelAddr = ((mapCoord >> 16) & RepMask);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            
-            // Write pixel to screen
-            POLYTEXZ_PtrLog[offset + i] = texel;
-          }
-          
-          mapCoord += mapInc;
-          
-          // Update Z-buffer values
-          zBufFrac += POLYTEXZ_DecZBuf;
-          zBufInt += POLYTEXZ_IntZBuf;
-          if (zBufFrac < POLYTEXZ_DecZBuf)  // Carry detection
-          {
-            zBufInt++;
-          }
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
-        offset += currentWidth;
+        do
+        {
+          // @@LoopX:
+          if (POLYTEXZ_PtrZBufferPatch[offset] >= (intZ & 0xFFFF))
+          {
+            POLYTEXZ_PtrZBuffer1[offset] = intZ & 0xFFFF;
+            U8 texel = POLYTEXZ_PtrMapPatch[mapIndex];
+            POLYTEXZ_PtrLog[offset] = texel;
+          }
 
-        if (fillWidth <= PERSP_VALUE)
+          // @@NoDisp:
+          mapV_mapU += incV_incU;
+          mapIndex = mapV_mapU >> 16;
+          offset++;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        
-        // Update Z-buffer for next chunk
-        U32 combinedZ = (zBufInt << 8) | (zBufFrac >> 24);
-        Fill_CurZBuf = combinedZ;
-        
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -1238,103 +1299,103 @@ S32 Filler_TextureZChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
-      // Convert line pointer to offset for Z-buffer operations
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        // Z-buffer values: split Fill_CurZBuf into integer and fractional parts
-        U32 zBufFrac = Fill_CurZBuf << 24;  // Fractional part
-        U32 zBufInt = Fill_CurZBuf >> 8;    // Integer part
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 decZ = Fill_CurZBuf << 24;
+        U32 intZ = Fill_CurZBuf >> 8;
+        U32 lineWidth = fillWidth;
 
-        // Process pixels with chroma key transparency and Z-buffer testing
-        for (U32 i = 0; i < currentWidth; i++)
+        if (fillWidth > PERSP_VALUE)
         {
-          // Sample texture first
-          U32 texelAddr = ((mapCoord >> 16) & RepMask);
-          U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-          
-          // Chroma key test: only process if texel is not 0 (transparent)
-          if (texel != 0)
-          {
-            // Z-buffer test
-            if (POLYTEXZ_PtrZBufferPatch[offset + i] < (U16)zBufInt)
-            {
-              // Update Z-buffer
-              POLYTEXZ_PtrZBuffer1[offset + i] = (U16)zBufInt;
-              
-              // Write pixel to screen
-              POLYTEXZ_PtrLog[offset + i] = texel;
-            }
-          }
-          
-          mapCoord += mapInc;
-          
-          // Update Z-buffer values
-          zBufFrac += POLYTEXZ_DecZBuf;
-          zBufInt += POLYTEXZ_IntZBuf;
-          if (zBufFrac < POLYTEXZ_DecZBuf)  // Carry detection
-          {
-            zBufInt++;
-          }
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
-        offset += currentWidth;
+        do
+        {
+          // @@LoopX:
+          U8 textureColor = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
 
-        if (fillWidth <= PERSP_VALUE)
+          if (textureColor != 0 && POLYTEXZ_PtrZBufferPatch[offset] >= (intZ & 0xFFFF))
+          {
+            POLYTEXZ_PtrZBuffer1[offset] = intZ & 0xFFFF;
+            POLYTEXZ_PtrLog[offset] = textureColor;
+          }
+
+          // @@NoDisp:
+          mapIndex = mapV_mapU >> 16;
+          offset++;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        
-        // Update Z-buffer for next chunk
-        U32 combinedZ = (zBufInt << 8) | (zBufFrac >> 24);
-        Fill_CurZBuf = combinedZ;
-        
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -2203,59 +2264,110 @@ S32 Filler_TextureZNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      PTR_U8 line = (PTR_U8)Fill_CurOffLine + (fillCurXMin >> 16);
-      PTR_U16 zBufLine = POLYTEXZ_PtrZBufferPatch + (fillCurXMin >> 16);
-      
-      // Initialize perspective correction for this scanline
-      Fill_Init_Perspective(u, v, fillWidth);
-      
-      U32 currentZBuf = Fill_CurZBuf;
-      
-      while (fillWidth > 0)
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+      Fill_Cur_W = Fill_CurWMin;
+
+      S32 lineU = u;
+      S32 lineV = v;
+
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      if (fillWidth > 16)
       {
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
+
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
+      }
+
+      U32 offset = line - (U8 *)Log;
+      Fill_Init_Perspective(lineU, lineV, fillWidth);
+
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
-        
-        // Calculate texture increments for this perspective chunk
-        S32 mapUInc = (Fill_Next_MapU - Fill_Cur_MapU) >> PERSP_SHIFT;
-        S32 mapVInc = (Fill_Next_MapV - Fill_Cur_MapV) >> PERSP_SHIFT;
-        U32 mapCoord = ((Fill_Cur_MapU & 0xFFFF) | ((Fill_Cur_MapV & 0xFFFF) << 16));
-        U32 mapInc = (mapUInc & 0xFFFF) | ((mapVInc & 0xFFFF) << 16);
-        
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
-        
-        // Z-buffer increment per pixel
-        U32 zBufValue = currentZBuf >> 8;
-        
-        for (U32 i = 0; i < currentWidth; i++)
+
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
+
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
+
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
+
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
+
+        U32 decZ = Fill_CurZBuf << 24;
+        U32 intZ = Fill_CurZBuf >> 8;
+        U32 lineWidth = fillWidth;
+
+        if (fillWidth > PERSP_VALUE)
         {
-          // Z-buffer test (NZW = No Z Write, only test)
-          if (zBufLine[i] >= zBufValue)
-          {
-            U32 texelAddr = ((mapCoord >> 16) & POLYTEXZ_RepMaskPatch);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            line[i] = texel;
-          }
-          
-          mapCoord += mapInc;
-          currentZBuf += POLYTEXZ_DecZBuf;
-          zBufValue += POLYTEXZ_IntZBuf;
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
-        zBufLine += currentWidth;
+        do
+        {
+          // @@LoopX:
+          if (POLYTEXZ_PtrZBufferPatch[offset] >= (intZ & 0xFFFF))
+          {
+            U8 texel = POLYTEXZ_PtrMapPatch[mapIndex];
+            POLYTEXZ_PtrLog[offset] = texel;
+          }
 
-        if (fillWidth <= PERSP_VALUE)
+          // @@NoDisp:
+          mapV_mapU += incV_incU;
+          mapIndex = mapV_mapU >> 16;
+          offset++;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -2320,64 +2432,111 @@ S32 Filler_TextureZChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 fillWidth = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      PTR_U8 line = (PTR_U8)Fill_CurOffLine + (fillCurXMin >> 16);
-      PTR_U16 zBufLine = POLYTEXZ_PtrZBufferPatch + (fillCurXMin >> 16);
-      
-      // Initialize perspective correction for this scanline
-      Fill_Init_Perspective(u, v, fillWidth);
-      
-      U32 currentZBuf = Fill_CurZBuf;
-      
-      while (fillWidth > 0)
+      U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
+      Fill_Cur_W = Fill_CurWMin;
+
+      S32 lineU = u;
+      S32 lineV = v;
+
+      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      if (fillWidth > 16)
       {
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
+
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
+      }
+
+      U32 offset = line - (U8 *)Log;
+      Fill_Init_Perspective(lineU, lineV, fillWidth);
+
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
-        
-        // Calculate texture increments for this perspective chunk
-        S32 mapUInc = (Fill_Next_MapU - Fill_Cur_MapU) >> PERSP_SHIFT;
-        S32 mapVInc = (Fill_Next_MapV - Fill_Cur_MapV) >> PERSP_SHIFT;
-        U32 mapCoord = ((Fill_Cur_MapU & 0xFFFF) | ((Fill_Cur_MapV & 0xFFFF) << 16));
-        U32 mapInc = (mapUInc & 0xFFFF) | ((mapVInc & 0xFFFF) << 16);
-        
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
-        
-        // Z-buffer increment per pixel
-        U32 zBufValue = currentZBuf >> 8;
-        
-        for (U32 i = 0; i < currentWidth; i++)
+
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
+
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
+
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
+
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
+
+        U32 decZ = Fill_CurZBuf << 24;
+        U32 intZ = Fill_CurZBuf >> 8;
+        U32 lineWidth = fillWidth;
+
+        if (fillWidth > PERSP_VALUE)
         {
-          U32 texelAddr = ((mapCoord >> 16) & POLYTEXZ_RepMaskPatch);
-          U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-          
-          // Chroma key test: only draw if texel is not 0 (transparent)
-          if (texel != 0)
-          {
-            // Z-buffer test (NZW = No Z Write, only test)
-            if (zBufLine[i] >= zBufValue)
-            {
-              line[i] = texel;
-            }
-          }
-          
-          mapCoord += mapInc;
-          currentZBuf += POLYTEXZ_DecZBuf;
-          zBufValue += POLYTEXZ_IntZBuf;
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
-        zBufLine += currentWidth;
+        do
+        {
+          // @@LoopX:
+          U8 textureColor = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
 
-        if (fillWidth <= PERSP_VALUE)
+          if (textureColor != 0 && POLYTEXZ_PtrZBufferPatch[offset] >= (intZ & 0xFFFF))
+          {
+            POLYTEXZ_PtrLog[offset] = textureColor;
+          }
+
+          // @@NoDisp:
+          mapIndex = mapV_mapU >> 16;
+          offset++;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -2857,100 +3016,143 @@ S32 Filler_TextureZFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
-      // Convert line pointer to offset for Z-buffer operations
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        // Z-buffer values: split Fill_CurZBuf into integer and fractional parts
-        U32 zBufFrac = Fill_CurZBuf << 24;  // Fractional part
-        U32 zBufInt = Fill_CurZBuf >> 8;    // Integer part
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 decZ = Fill_CurZBuf << 24;
+        U32 intZ = Fill_CurZBuf >> 8;
+        U32 lineWidth = fillWidth;
 
-        // Process pixels with fog effects and Z-buffer testing (no Z-write)
-        for (U32 i = 0; i < currentWidth; i++)
+        if (fillWidth > PERSP_VALUE)
         {
-          // Z-buffer test (no Z-write for NZW variant)
-          if (POLYTEXZ_PtrZBufferPatch[offset + i] >= (U16)zBufInt)
-          {
-            // Sample texture
-            U32 texelAddr = ((mapCoord >> 16) & RepMask);
-            U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-            
-            // Apply fog effect using Fill_Logical_Palette
-            extern U8 Fill_Logical_Palette[256];
-            U8 foggedColor = Fill_Logical_Palette[texel];
-            
-            // Write pixel to screen (no Z-buffer update)
-            POLYTEXZ_PtrLog[offset + i] = foggedColor;
-          }
-          
-          mapCoord += mapInc;
-          
-          // Update Z-buffer values for interpolation
-          zBufFrac += POLYTEXZ_DecZBuf;
-          zBufInt += POLYTEXZ_IntZBuf;
-          if (zBufFrac < POLYTEXZ_DecZBuf)  // Carry detection
-          {
-            zBufInt++;
-          }
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
-        offset += currentWidth;
+        do
+        {
+          // @@LoopX:
+          if (POLYTEXZ_PtrZBufferPatch[offset] < (intZ & 0xFFFF))
+          {
+            while (1)
+            {
+              // @@NoDisp:
+              mapIndex = mapV_mapU + incV_incU;
+              mapV_mapU += incV_incU;
 
-        if (fillWidth <= PERSP_VALUE)
+              mapIndex >>= 16;
+              offset++;
+
+              mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+              U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf2) > 0xFFFFFFFF;
+              decZ += POLYTEXZ_DecZBuf2;
+              intZ += POLYTEXZ_IntZBuf2 + carry;
+
+              mapIndex &= POLYTEXZ_RepMask2;
+
+              fillWidth--;
+
+              if (fillWidth == 0)
+              {
+                break;
+              }
+
+              if (POLYTEXZ_PtrZBuffer2[offset] >= (intZ & 0xFFFF))
+              {
+                break;
+              }
+            }
+
+            if (fillWidth == 0)
+            {
+              break;
+            }
+          }
+
+          // @@Disp:
+          U8 textureColor = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
+          textureColor &= 0xFF;
+
+          U8 foggedColor = Fill_Logical_Palette[textureColor];
+          POLYTEXZ_PtrLog[offset] = foggedColor;
+
+          mapIndex = mapV_mapU >> 16;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          offset++;
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        // @@EndPERSP_VALUE:
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        
-        // Update Z-buffer for next chunk
-        U32 combinedZ = (zBufInt << 8) | (zBufFrac >> 24);
-        Fill_CurZBuf = combinedZ;
-        
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
@@ -3024,104 +3226,104 @@ S32 Filler_TextureZChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
       if (fillWidth > 16)
       {
-        // Adjust for sub-pixel start position
-        S32 wAdjust = Fill_W_XSlope * factor;
-        Fill_Cur_W += (wAdjust >> 16);
-        
-        S32 uAdjust = Fill_MapU_XSlope * factor;
-        lineU += (uAdjust >> 16);
-        
-        S32 vAdjust = Fill_MapV_XSlope * factor;
-        lineV += (vAdjust >> 16);
+        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
+        U32 addWDec = (U32)(addW >> 32);
+        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
+        addWDec = addWDec << 16;
+        addWInt = addWInt >> 16;
+        addWDec |= addWInt;
+        Fill_Cur_W = Fill_CurWMin + addWDec;
 
-        // Cache line preloading for performance
-        U8 *cacheStart = (U8 *)((uintptr_t)line & ~31);
-        U8 *cacheEnd = (U8 *)(((uintptr_t)line + fillWidth + 31) & ~31);
-        for (U8 *cache = cacheStart; cache <= cacheEnd; cache += 32)
-        {
-          volatile U8 dummy = *cache;
-          (void)dummy;
-        }
+        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U32 addUDec = (U32)(addU >> 32);
+        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
+        addUDec = addUDec << 16;
+        addUInt = addUInt >> 16;
+        addUDec |= addUInt;
+        lineU += addUDec;
+
+        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U32 addVDec = (U32)(addV >> 32);
+        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
+        addVDec = addVDec << 16;
+        addVInt = addVInt >> 16;
+        addVInt |= addVDec;
+        lineV += addVInt;
       }
 
-      // Convert line pointer to offset for Z-buffer operations
       U32 offset = line - (U8 *)Log;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
 
-      while (1)
-      {
+      while (1) {
         Fill_Loop_Perspective(fillWidth);
 
-        U32 curMapU = Fill_Cur_MapU & 0xFFFF;
-        U32 nextMapU = Fill_Next_MapU & 0xFFFF;
-        U32 curMapV = (Fill_Cur_MapV >> 16) & 0xFFFF;
-        U32 nextMapV = (Fill_Next_MapV >> 16) & 0xFFFF;
+        U32 incMapU = Fill_Next_MapU - Fill_Cur_MapU;
+        incMapU = ((S32)incMapU) >> PERSP_SHIFT;
 
-        S32 incMapU = (S32)(nextMapU - curMapU) >> PERSP_SHIFT;
-        S32 incMapV = (S32)(nextMapV - curMapV) >> PERSP_SHIFT;
+        U32 incMapV = Fill_Next_MapV - Fill_Cur_MapV;
+        incMapV = ((S32)incMapV) >> PERSP_SHIFT;
 
-        U32 mapCoord = (curMapV << 16) | curMapU;
-        U32 mapInc = ((incMapV & 0xFFFF) << 16) | (incMapU & 0xFFFF);
+        U32 incV_incU = (incMapV << 16) | (incMapU & 0xFFFF);
+        U32 mapV_mapU = (Fill_Cur_MapV << 16) | (Fill_Cur_MapU & 0xFFFF);
 
-        // Z-buffer values: split Fill_CurZBuf into integer and fractional parts
-        U32 zBufFrac = Fill_CurZBuf << 24;  // Fractional part
-        U32 zBufInt = Fill_CurZBuf >> 8;    // Integer part
+        U32 mapIndex = mapV_mapU >> 16;
+        mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+        mapIndex &= RepMask;
 
-        U32 currentWidth = (fillWidth > PERSP_VALUE) ? PERSP_VALUE : fillWidth;
+        U32 decZ = Fill_CurZBuf << 24;
+        U32 intZ = Fill_CurZBuf >> 8;
+        U32 lineWidth = fillWidth;
 
-        // Process pixels with chroma key, fog effects and Z-buffer testing (no Z-write)
-        for (U32 i = 0; i < currentWidth; i++)
+        if (fillWidth > PERSP_VALUE)
         {
-          // Sample texture first
-          U32 texelAddr = ((mapCoord >> 16) & RepMask);
-          U8 texel = POLYTEXZ_PtrMapPatch[texelAddr];
-          
-          // Chroma key test: only process if texel is not 0 (transparent)
-          if (texel != 0)
-          {
-            // Z-buffer test (no Z-write for NZW variant)
-            if (POLYTEXZ_PtrZBufferPatch[offset + i] >= (U16)zBufInt)
-            {
-              // Apply fog effect using Fill_Logical_Palette
-              extern U8 Fill_Logical_Palette[256];
-              U8 foggedColor = Fill_Logical_Palette[texel];
-              
-              // Write pixel to screen (no Z-buffer update)
-              POLYTEXZ_PtrLog[offset + i] = foggedColor;
-            }
-          }
-          
-          mapCoord += mapInc;
-          
-          // Update Z-buffer values for interpolation
-          zBufFrac += POLYTEXZ_DecZBuf;
-          zBufInt += POLYTEXZ_IntZBuf;
-          if (zBufFrac < POLYTEXZ_DecZBuf)  // Carry detection
-          {
-            zBufInt++;
-          }
+          fillWidth = PERSP_VALUE;
         }
 
-        line += currentWidth;
-        offset += currentWidth;
+        do
+        {
+          // @@LoopX:
+          U8 textureColor = POLYTEXZ_PtrMapPatch[mapIndex];
+          mapV_mapU += incV_incU;
+          textureColor &= 0xFF;
 
-        if (fillWidth <= PERSP_VALUE)
+          if (textureColor != 0 && POLYTEXZ_PtrZBufferPatch[offset] >= (intZ & 0xFFFF))
+          {
+            U8 foggedColor = Fill_Logical_Palette[textureColor];
+            POLYTEXZ_PtrLog[offset] = foggedColor;
+          }
+
+          // @@NoDisp:
+          mapIndex = mapV_mapU >> 16;
+          offset++;
+          mapIndex = (mapIndex & 0xFFFFFF00) | ((mapV_mapU >> 8) & 0xFF);
+
+          U8 carry = ((U64)decZ + (U64)POLYTEXZ_DecZBuf) > 0xFFFFFFFF;
+          decZ += POLYTEXZ_DecZBuf;
+          intZ += POLYTEXZ_IntZBuf + carry;
+
+          mapIndex &= POLYTEXZ_RepMaskPatch;
+          fillWidth--;
+        }
+        while (fillWidth);
+
+        if (lineWidth <= PERSP_VALUE)
         {
           break;
         }
 
-        // Update perspective values for next chunk
         Fill_Cur_MapU = Fill_Next_MapU;
         Fill_Cur_MapV = Fill_Next_MapV;
+        Fill_CurZBuf = (intZ << 8) | (decZ >> 24);
         Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
         Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
         Fill_Cur_W = Fill_Next_W;
-        
-        // Update Z-buffer for next chunk
-        U32 combinedZ = (zBufInt << 8) | (zBufFrac >> 24);
-        Fill_CurZBuf = combinedZ;
-        
-        fillWidth -= PERSP_VALUE;
+
+        if (lineWidth <= PERSP_VALUE)
+        {
+          break;
+        }
+
+        fillWidth = lineWidth - PERSP_VALUE;
       }
     }
 
