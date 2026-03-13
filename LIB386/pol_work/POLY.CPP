@@ -11,6 +11,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include <fenv.h>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -644,7 +645,9 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 	// esi = Fill_LeftPoint = PtA
 	// edi = leftPoint = PtB
 	// ebp = rightPoint = PtC
+  // ASM sets fldcw [Status_Int] here — truncation rounding mode
   RoundType = ROUND_TYPE_INT;
+  fesetround(FE_TOWARDZERO);
 
 	Struc_Point *PtA = Fill_LeftPoint;
 	Struc_Point *PtB = leftPoint;
@@ -663,10 +666,16 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 	if (Denom == 0)
 	{
     RoundType = ROUND_TYPE_FLOAT;
+    fesetround(FE_TONEAREST);
 		return Fill_LeftSlope;
 	}
 
-	return Current_Jmp_XSlope[Fill_Type](Fill_Type, PtA, PtB, PtC);
+	// ASM hardcodes Jmp_XSlopeZBufFPU regardless of rendering mode
+	S32 result = Jmp_XSlopeZBufFPU[Fill_Type](Fill_Type, PtA, PtB, PtC);
+	// ASM restores fldcw [Status_Float] — round-to-nearest mode
+	RoundType = ROUND_TYPE_FLOAT;
+	fesetround(FE_TONEAREST);
+	return result;
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -817,10 +826,11 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
 				return Fill_LeftSlope;
 			}
 
-      // Left edge should start at pixel left boundary (0.0)
-      Fill_CurXMin = (oldPoint->Pt_XE << 16);
+      // ASM adds 0x8000 (0.5) bias to Fill_CurXMin
+      Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
       Fill_LeftPoint = newPoint;
-      return Current_Jmp_LeftSlope[Fill_Type](
+      // ASM hardcodes Jmp_LeftSlopeZBufFPU regardless of rendering mode
+      return Jmp_LeftSlopeZBufFPU[Fill_Type](
         Fill_Type,
 				// For some reason diffX is << 16 but diffY is not
 				(newPoint->Pt_XE - oldPoint->Pt_XE) << 16,
@@ -1225,20 +1235,24 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 		return Fill_LeftSlope;
 	}
 
-	// Right edge should start at pixel right boundary (1.0)
-	Fill_CurXMax = (oldXMin << 16) + 0x10000;
+	// ASM adds 0x8000 (0.5) bias to Fill_CurXMax
+	Fill_CurXMax = (oldXMin << 16) + 0x8000;
 	Fill_RightPoint = point;
 	S32 diffX = (point->Pt_XE - oldXMin) << 16;
-	// Remove asymmetric +1.0 bias to improve edge consistency
-	Fill_RightSlope = ROUND((float)diffX / (float)diffY);
+	// ASM: fdivr F_1 (1/dY) → fild dX → fmulp (dX * 1/dY) → fadd F_1 → fistp
+	volatile long double inv_dY = 1.0L / (long double)diffY;
+	volatile long double slope = (long double)diffX * inv_dY + 1.0L;
+	Fill_RightSlope = (S32)slope;
 
 	return Test_Scan();
 }
 
 S32 Read_Next_RightFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
-	// Remove asymmetric bias for consistent edge handling
-	Fill_LeftSlope = diffX / diffY;
+	// ASM: fdivr F_1 (1/dY) → fild dX → fmulp (dX * 1/dY) → fadd F_1 → fistp
+	volatile long double inv_dY = 1.0L / (long double)diffY;
+	volatile long double slope = (long double)diffX * inv_dY + 1.0L;
+	Fill_LeftSlope = (S32)slope;
 	return Read_Next_Right(PtA, PtB);
 }
 
@@ -1249,8 +1263,8 @@ S32 Read_Next_RightFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Str
 S32 CalcGouraudTableFPU(U32 fillType, S32 diffX, S32 diffY, S32 diffLight, Struc_Point *PtA, Struc_Point *PtB)
 {
   Fill_Gouraud_LeftSlope = diffLight / diffY;
-  // Remove asymmetric bias for consistent edge handling
-  Fill_LeftSlope = diffX / diffY;
+  // ASM: fadd [F_1] before fistp — adds +1 bias to left slope
+  Fill_LeftSlope = (S32)((long double)diffX / (long double)diffY + 1.0L);
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1286,8 +1300,8 @@ S32 Calc_TextureLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *Pt
   Fill_MapU_LeftSlope = ((PtB->Pt_MapU - PtA->Pt_MapU) << 8) / diffY;
   Fill_CurMapVMin = PtA->Pt_MapV << 8;
   Fill_MapV_LeftSlope = ((PtB->Pt_MapV - PtA->Pt_MapV) << 8) / diffY;
-	// Remove asymmetric bias for consistent edge handling
-	Fill_LeftSlope = diffX / diffY;
+	// ASM: fadd [F_1] before fistp — adds +1 bias to left slope
+	Fill_LeftSlope = (S32)((long double)diffX / (long double)diffY + 1.0L);
   return Read_Next_Right(PtA, PtB);
 }
 
@@ -1304,8 +1318,8 @@ S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Po
   Fill_Gouraud_LeftSlope = ROUND(diffLight / diffY);
   Fill_MapV_LeftSlope = ROUND(diffV / diffY);
   Fill_MapU_LeftSlope = ROUND(diffU / diffY);
-  // Remove asymmetric bias for consistent edge handling
-  Fill_LeftSlope = ROUND(diffX / diffY);
+  // ASM: fadd [F_1] before fistp — adds +1 bias to left slope
+  Fill_LeftSlope = ROUND((double)diffX / (double)diffY + 1.0);
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1333,8 +1347,8 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
   Fill_MapV_LeftSlope = ROUND(VB_VA * FInv_256 / diffY);
   Fill_MapU_LeftSlope = ROUND(UB_UA * FInv_256 / diffY);
   Fill_W_LeftSlope = ROUND(WB_WA / diffY);
-  // Remove asymmetric bias for consistent edge handling
-  Fill_LeftSlope = ROUND(diffX / diffY);
+  // ASM: fadd [F_1] before fistp — adds +1 bias to left slope
+  Fill_LeftSlope = ROUND((double)diffX / (double)diffY + 1.0);
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1377,8 +1391,8 @@ S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_P
 	
 	// X slope calculation
 	float xSlope = (float)diffX * invDY;
-	// Remove asymmetric bias for consistent edge handling
-	Fill_LeftSlope = ROUND(xSlope);
+	// ASM: fadd [F_1] before fistp — adds +1 bias to left slope
+	Fill_LeftSlope = ROUND(xSlope + 1.0f);
 	
 	// Calculate perspective-corrected texture coordinates
 	float uA_w = (float)uA * PtA->Pt_W;
@@ -1460,8 +1474,8 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
 	
 	// X slope calculation
 	float xSlope = (float)diffX * invDY;
-	// Remove asymmetric bias for consistent edge handling
-	Fill_LeftSlope = ROUND(xSlope);
+	// ASM: fadd [F_1] before fistp — adds +1 bias to left slope
+	Fill_LeftSlope = ROUND(xSlope + 1.0f);
 	
 	// Calculate perspective-corrected texture coordinates
 	float uA_w = (float)uA * PtA->Pt_W;

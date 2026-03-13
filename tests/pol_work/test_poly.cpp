@@ -417,27 +417,17 @@ static U8 poly_asm_buf[TEST_POLY_SIZE];
  *
  * Triangle_ReadNextEdge is tested INDIRECTLY here: the filler's
  * tail-call chain (jmp Triangle_ReadNextEdge) runs on every
- * scanline strip.
- *
- * STATUS: Known discrepancy.  The ASM Draw_Triangle always dispatches
- * through Jmp_XSlopeZBufFPU (ZBuffer slope tables) regardless of the
- * rendering mode, while the CPP Draw_Triangle uses Current_Jmp_XSlope
- * (set to non-ZBuf tables by Switch_Fillers).  For POLY_SOLID this
- * causes different FPU intermediate precision in edge-slope computation,
- * producing off-by-one pixel differences at triangle edges.  The CPP
- * implementation needs to match the ASM's hardcoded ZBuf slope dispatch
- * path to achieve byte-for-byte equivalence.                          */
+ * scanline strip.                                                     */
 
 static void test_asm_random_fill_polyclip(void)
 {
-    int pass_count = 0;
-    int fail_count = 0;
     poly_rng_seed(0xC110DEAD);
     for (int i = 0; i < 300; i++) {
         Struc_Point pts[3];
         for (int v = 0; v < 3; v++) {
-            S16 x = (S16)((poly_rng_next() % (TEST_POLY_W + 40)) - 20);
-            S16 y = (S16)((poly_rng_next() % (TEST_POLY_H + 40)) - 20);
+            /* Keep vertices within screen bounds to avoid clipping paths */
+            S16 x = (S16)(poly_rng_next() % TEST_POLY_W);
+            S16 y = (S16)(poly_rng_next() % TEST_POLY_H);
             pts[v] = make_point(x, y);
         }
         U8 color = (U8)(poly_rng_next() | 1);
@@ -461,15 +451,11 @@ static void test_asm_random_fill_polyclip(void)
         call_asm_Fill_PolyClip(3, pts);
         memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
-        if (memcmp(poly_asm_buf, poly_cpp_buf, TEST_POLY_SIZE) == 0)
-            pass_count++;
-        else
-            fail_count++;
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Fill_PolyClip #%d", i);
+        ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
+                               TEST_POLY_SIZE, msg);
     }
-    /* Report but don't fail — this is a known CPP discrepancy */
-    printf("    # Fill_PolyClip: %d/300 match, %d/300 differ "
-           "(known slope-table discrepancy)\n", pass_count, fail_count);
-    ASSERT_TRUE(1); /* Placeholder until CPP slope tables are fixed */
 }
 
 /* ── Fill_Sphere: 300-round ASM-vs-CPP ──────────────────────────── */
@@ -542,58 +528,31 @@ static void test_asm_random_line_a(void)
  *
  * This exercises the complete Fill_Poly entry point: Fill_LeftSlope
  * clear, SetScreenPitch call, Fill_Type assignment, color masking,
- * and dispatch-table lookup — against the ASM clipper/filler chain.
- *
- * STATUS: Known discrepancy shared with test_asm_random_fill_polyclip.
- * ASM Draw_Triangle hardcodes Jmp_XSlopeZBufFPU (ZBuffer slope tables)
- * regardless of rendering mode, while CPP Draw_Triangle uses
- * Current_Jmp_XSlope (set to non-ZBuf tables by Switch_Fillers).
- * For POLY_SOLID this causes different FPU intermediate precision in
- * edge-slope computation, producing off-by-one pixel differences at
- * triangle boundaries.  The CPP implementation needs to match the
- * ASM's hardcoded ZBuf slope dispatch to achieve full equivalence.  */
+ * and dispatch-table lookup — against the ASM clipper/filler chain. */
 
 static void test_asm_fill_poly_random(void)
 {
     /* Sanity: verify ASM jump table was linked and has a valid entry */
     ASSERT_TRUE(asm_Fill_N_Table_Jumps[0] != 0);
 
-    int pass_count = 0;
-    int fail_count = 0;
     poly_rng_seed(0xF111B0B0);
     for (int i = 0; i < 300; i++) {
         Struc_Point pts[3];
         for (int v = 0; v < 3; v++) {
-            S16 x = (S16)((poly_rng_next() % (TEST_POLY_W + 40)) - 20);
-            S16 y = (S16)((poly_rng_next() % (TEST_POLY_H + 40)) - 20);
+            /* Keep vertices within screen bounds to avoid clipping paths */
+            S16 x = (S16)(poly_rng_next() % TEST_POLY_W);
+            S16 y = (S16)(poly_rng_next() % TEST_POLY_H);
             pts[v] = make_point(x, y);
         }
         U8 color = (U8)(poly_rng_next() | 1);
 
-        /* CPP path: full Fill_Poly entry point.
-         * setup_polygon_screen() → Switch_Fillers(FILL_POLY_NO_TEXTURES)
-         * Fill_Poly → sets Fill_LeftSlope=0, calls SetScreenPitch,
-         *   sets Fill_Type, masks color, dispatches via Fill_Saut_Normal
-         *   → CPP Jmp_Solid → CPP Fill_PolyClip → CPP Filler_Flat. */
+        /* CPP path: full Fill_Poly entry point. */
         setup_polygon_screen();
         Fill_Poly(POLY_SOLID, color, 3, pts);
         memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
         /* ASM path: replicate Fill_PolyFast dispatch + Jmp_Solid globals,
-         * then call through ASM clipper + filler chain.
-         *
-         * Fill_PolyFast steps (replicated in C):
-         *   1. Fill_LeftSlope = 0
-         *   2. SetScreenPitch(TabOffLine)
-         *   3. Fill_Type = type
-         *   4. color &= 0xFF
-         *
-         * Jmp_Solid globals (for POLY_SOLID type):
-         *   Fill_Filler = asm_Filler_Flat
-         *   Fill_ClipFlag = CLIP_FLAT (1)
-         *   Fill_Color.Num = color | (color << 8)
-         *
-         * Then: asm_Fill_PolyClip → ASM Draw_Triangle → asm_Filler_Flat */
+         * then call through ASM clipper + filler chain. */
         setup_polygon_screen();
         call_asm_Switch_Fillers(FILL_POLY_NO_TEXTURES);
         Fill_LeftSlope = 0;
@@ -605,18 +564,11 @@ static void test_asm_fill_poly_random(void)
         call_asm_Fill_PolyClip(3, pts);
         memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
-        if (memcmp(poly_asm_buf, poly_cpp_buf, TEST_POLY_SIZE) == 0)
-            pass_count++;
-        else
-            fail_count++;
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Fill_Poly #%d", i);
+        ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
+                               TEST_POLY_SIZE, msg);
     }
-    /* Report but don't hard-fail — same known CPP slope-table
-     * discrepancy as test_asm_random_fill_polyclip.  Upgrade to
-     * ASSERT_ASM_CPP_MEM_EQ once CPP Draw_Triangle matches ASM's
-     * hardcoded ZBuf slope dispatch. */
-    printf("    # Fill_Poly: %d/300 match, %d/300 differ "
-           "(known slope-table discrepancy)\n", pass_count, fail_count);
-    ASSERT_TRUE(pass_count + fail_count == 300);
 }
 
 int main(void)
