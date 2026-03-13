@@ -18,6 +18,8 @@
 #include "poly_test_fixture.h"
 #include <string.h>
 #include <stdint.h>
+#include <fenv.h>
+#include <SYSTEM/UTILS.H>
 
 /* ── ASM-side declarations ─────────────────────────────────────── */
 
@@ -516,6 +518,654 @@ static void test_asm_random_line_a(void)
     }
 }
 
+/* ── TextureZ slope calculator unit tests ────────────────────────── *
+ *
+ * The CPP slope calculators (Calc_TextureZ*SlopeFPU) are standalone
+ * functions that read globals (YB_YA, YC_YA, InvDenom) and write
+ * slope globals (Fill_MapU_XSlope, etc.).  They tail-call
+ * Triangle_ReadNextEdge, which we handle via setup_filler_exit.
+ *
+ * Since the ASM slope calculators are internal to Draw_Triangle's
+ * jump tables and cannot be called separately, this test validates
+ * the CPP implementations against a reference formula to catch
+ * regressions.                                                       */
+
+extern "C" double YB_YA;
+extern "C" double YC_YA;
+extern "C" volatile long double InvDenom;
+
+extern "C" S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
+extern "C" S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
+extern "C" S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
+
+extern "C" S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
+extern "C" S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
+extern "C" S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
+
+static Struc_Point make_texz_point(S16 x, S16 y, U16 u, U16 v, S32 w, U16 light, U16 zo)
+{
+    Struc_Point p;
+    memset(&p, 0, sizeof(p));
+    p.Pt_XE = x;
+    p.Pt_YE = y;
+    p.Pt_MapU = u;
+    p.Pt_MapV = v;
+    p.Pt_W = w;
+    p.Pt_Light = light;
+    p.Pt_ZO = zo;
+    return p;
+}
+
+/* Set up state so the tail-call chain (Triangle_ReadNextEdge →
+ * Read_Next_Right → Test_Scan) exits cleanly without calling
+ * any filler.  Fill_CurY must equal the exit-point Y so that
+ * Test_Scan gets diffY==0 and recurses into Triangle_ReadNextEdge,
+ * which finds a point with lower Y and returns immediately. */
+static void setup_slope_test_state(S16 exitY)
+{
+    setup_polygon_screen();
+    setup_filler_exit(exitY);
+    Fill_CurY = exitY;
+    Fill_CurOffLine = (PTR_U8)((U8 *)Log + TabOffLine[exitY > 0 ? exitY : 0]);
+    Fill_CurXMin = 0x00100000;
+    Fill_CurXMax = 0x00500000;
+    Fill_Filler = NULL;
+}
+
+static void test_texturez_xslope(void)
+{
+    poly_rng_seed(0xDEADBEEF);
+
+    for (int i = 0; i < 300; i++) {
+        S16 xA = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yA = (S16)(poly_rng_next() % TEST_POLY_H);
+        S16 xB = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yB = (S16)(poly_rng_next() % TEST_POLY_H);
+        S16 xC = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yC = (S16)(poly_rng_next() % TEST_POLY_H);
+
+        if (yA == yB && yB == yC) yC = (S16)((yC + 5) % TEST_POLY_H);
+        if (yA == yB) yB = (S16)((yB + 3) % TEST_POLY_H);
+
+        U16 uA = (U16)(poly_rng_next() & 0xFF);
+        U16 vA = (U16)(poly_rng_next() & 0xFF);
+        U16 uB = (U16)(poly_rng_next() & 0xFF);
+        U16 vB = (U16)(poly_rng_next() & 0xFF);
+        U16 uC = (U16)(poly_rng_next() & 0xFF);
+        U16 vC = (U16)(poly_rng_next() & 0xFF);
+
+        S32 wA = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wB = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wC = (S32)(poly_rng_next() % 65280 + 256);
+
+        Struc_Point ptA = make_texz_point(xA, yA, uA, vA, wA, 0, 0);
+        Struc_Point ptB = make_texz_point(xB, yB, uB, vB, wB, 0, 0);
+        Struc_Point ptC = make_texz_point(xC, yC, uC, vC, wC, 0, 0);
+
+        /* Compute denominator as Draw_Triangle does */
+        double yb_ya = ptB.Pt_YE - ptA.Pt_YE;
+        double yc_ya = ptC.Pt_YE - ptA.Pt_YE;
+        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE)
+                                       - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
+        if (raw_Denom == 0) continue;
+
+        YB_YA = yb_ya;
+        YC_YA = yc_ya;
+        InvDenom = 256.0L / raw_Denom;
+
+        /* Compute expected values with the same formula */
+        fesetround(FE_TOWARDZERO);
+        RoundType = ROUND_TYPE_INT;
+
+        volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+
+        volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
+        volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
+        volatile long double UCp = (long double)(S32)ptC.Pt_MapU * (long double)ptC.Pt_W;
+        volatile long double MUC = (UCp - UAp) * (long double)YB_YA;
+        volatile long double MUB = (UBp - UAp) * (long double)YC_YA;
+        volatile long double USlope = (MUC - MUB) * Dp;
+        S32 expected_U = (S32)USlope;
+
+        volatile long double VAp = (long double)(S32)ptA.Pt_MapV * (long double)ptA.Pt_W;
+        volatile long double VBp = (long double)(S32)ptB.Pt_MapV * (long double)ptB.Pt_W;
+        volatile long double VCp = (long double)(S32)ptC.Pt_MapV * (long double)ptC.Pt_W;
+        volatile long double MVC = (VCp - VAp) * (long double)YB_YA;
+        volatile long double MVB = (VBp - VAp) * (long double)YC_YA;
+        volatile long double VSlope = (MVC - MVB) * Dp;
+        S32 expected_V = (S32)VSlope;
+
+        volatile long double WB_WA = (long double)ptB.Pt_W - (long double)ptA.Pt_W;
+        volatile long double WC_WA = (long double)ptC.Pt_W - (long double)ptA.Pt_W;
+        volatile long double MWC = WC_WA * (long double)YB_YA;
+        volatile long double MWB = WB_WA * (long double)YC_YA;
+        volatile long double WSlope = (MWC - MWB) * Dp;
+        volatile long double WSlope_scaled = WSlope * 256.0L;
+        S32 expected_W = (S32)WSlope_scaled;
+
+        /* Call the slope calculator */
+        setup_slope_test_state(10);
+        Fill_Type = POLY_TEXTURE_Z;
+        Fill_MapU_XSlope = 0;
+        Fill_MapV_XSlope = 0;
+        Fill_W_XSlope = 0;
+
+        Calc_TextureZXSlopeFPU(POLY_TEXTURE_Z, &ptA, &ptB, &ptC);
+
+        fesetround(FE_TONEAREST);
+        RoundType = ROUND_TYPE_FLOAT;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "TextureZXSlope U #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_U, Fill_MapU_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZXSlope V #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_V, Fill_MapV_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZXSlope W #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_W, Fill_W_XSlope, msg);
+    }
+}
+
+static void test_texturez_gouraud_xslope(void)
+{
+    poly_rng_seed(0xCAFE1234);
+
+    for (int i = 0; i < 300; i++) {
+        S16 xA = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yA = (S16)(poly_rng_next() % TEST_POLY_H);
+        S16 xB = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yB = (S16)(poly_rng_next() % TEST_POLY_H);
+        S16 xC = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yC = (S16)(poly_rng_next() % TEST_POLY_H);
+
+        if (yA == yB && yB == yC) yC = (S16)((yC + 5) % TEST_POLY_H);
+        if (yA == yB) yB = (S16)((yB + 3) % TEST_POLY_H);
+
+        U16 uA = (U16)(poly_rng_next() & 0xFF);
+        U16 vA = (U16)(poly_rng_next() & 0xFF);
+        U16 uB = (U16)(poly_rng_next() & 0xFF);
+        U16 vB = (U16)(poly_rng_next() & 0xFF);
+        U16 uC = (U16)(poly_rng_next() & 0xFF);
+        U16 vC = (U16)(poly_rng_next() & 0xFF);
+
+        S32 wA = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wB = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wC = (S32)(poly_rng_next() % 65280 + 256);
+
+        U16 lightA = (U16)(poly_rng_next() % 3584);
+        U16 lightB = (U16)(poly_rng_next() % 3584);
+        U16 lightC = (U16)(poly_rng_next() % 3584);
+
+        Struc_Point ptA = make_texz_point(xA, yA, uA, vA, wA, lightA, 0);
+        Struc_Point ptB = make_texz_point(xB, yB, uB, vB, wB, lightB, 0);
+        Struc_Point ptC = make_texz_point(xC, yC, uC, vC, wC, lightC, 0);
+
+        double yb_ya = ptB.Pt_YE - ptA.Pt_YE;
+        double yc_ya = ptC.Pt_YE - ptA.Pt_YE;
+        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE)
+                                       - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
+        if (raw_Denom == 0) continue;
+
+        YB_YA = yb_ya;
+        YC_YA = yc_ya;
+        InvDenom = 256.0L / raw_Denom;
+
+        fesetround(FE_TOWARDZERO);
+        RoundType = ROUND_TYPE_INT;
+
+        volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+
+        /* U/V slopes use Dp (same as base TextureZ) */
+        volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
+        volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
+        volatile long double UCp = (long double)(S32)ptC.Pt_MapU * (long double)ptC.Pt_W;
+        volatile long double USlope = ((UCp - UAp) * (long double)YB_YA - (UBp - UAp) * (long double)YC_YA) * Dp;
+        S32 expected_U = (S32)USlope;
+
+        volatile long double VAp = (long double)(S32)ptA.Pt_MapV * (long double)ptA.Pt_W;
+        volatile long double VBp = (long double)(S32)ptB.Pt_MapV * (long double)ptB.Pt_W;
+        volatile long double VCp = (long double)(S32)ptC.Pt_MapV * (long double)ptC.Pt_W;
+        volatile long double VSlope = ((VCp - VAp) * (long double)YB_YA - (VBp - VAp) * (long double)YC_YA) * Dp;
+        S32 expected_V = (S32)VSlope;
+
+        /* Gouraud and W slopes use D = Dp * 65536 = InvDenom */
+        volatile long double D = Dp * 65536.0L;
+
+        S32 lightB_A = (S32)(ptB.Pt_Light & 0xFFFF) - (S32)(ptA.Pt_Light & 0xFFFF);
+        S32 lightC_A = (S32)(ptC.Pt_Light & 0xFFFF) - (S32)(ptA.Pt_Light & 0xFFFF);
+        volatile long double MLB = (long double)lightB_A * (long double)YC_YA;
+        volatile long double MLC = (long double)lightC_A * (long double)YB_YA;
+        volatile long double LSlope = (MLC - MLB) * D;
+        S32 expected_G = (S32)LSlope;
+
+        volatile long double WB_WA = (long double)ptB.Pt_W - (long double)ptA.Pt_W;
+        volatile long double WC_WA = (long double)ptC.Pt_W - (long double)ptA.Pt_W;
+        volatile long double WSlope = (WC_WA * (long double)YB_YA - WB_WA * (long double)YC_YA) * D;
+        volatile long double WSlope_scaled = WSlope * (1.0L / 256.0L);
+        S32 expected_W = (S32)WSlope_scaled;
+
+        setup_slope_test_state(10);
+        Fill_Type = POLY_TEXTURE_Z_GOURAUD;
+        Fill_MapU_XSlope = 0;
+        Fill_MapV_XSlope = 0;
+        Fill_Gouraud_XSlope = 0;
+        Fill_W_XSlope = 0;
+
+        Calc_TextureZGouraudXSlopeFPU(POLY_TEXTURE_Z_GOURAUD, &ptA, &ptB, &ptC);
+
+        fesetround(FE_TONEAREST);
+        RoundType = ROUND_TYPE_FLOAT;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "TextureZGouraudXSlope U #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_U, Fill_MapU_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudXSlope V #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_V, Fill_MapV_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudXSlope G #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_G, Fill_Gouraud_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudXSlope W #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_W, Fill_W_XSlope, msg);
+    }
+}
+
+static void test_texturez_xslope_zbuf(void)
+{
+    poly_rng_seed(0xBEEF4567);
+
+    for (int i = 0; i < 300; i++) {
+        S16 xA = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yA = (S16)(poly_rng_next() % TEST_POLY_H);
+        S16 xB = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yB = (S16)(poly_rng_next() % TEST_POLY_H);
+        S16 xC = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yC = (S16)(poly_rng_next() % TEST_POLY_H);
+
+        if (yA == yB && yB == yC) yC = (S16)((yC + 5) % TEST_POLY_H);
+        if (yA == yB) yB = (S16)((yB + 3) % TEST_POLY_H);
+
+        U16 uA = (U16)(poly_rng_next() & 0xFF);
+        U16 vA = (U16)(poly_rng_next() & 0xFF);
+        U16 uB = (U16)(poly_rng_next() & 0xFF);
+        U16 vB = (U16)(poly_rng_next() & 0xFF);
+        U16 uC = (U16)(poly_rng_next() & 0xFF);
+        U16 vC = (U16)(poly_rng_next() & 0xFF);
+
+        S32 wA = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wB = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wC = (S32)(poly_rng_next() % 65280 + 256);
+
+        U16 zoA = (U16)(poly_rng_next() & 0xFFFF);
+        U16 zoB = (U16)(poly_rng_next() & 0xFFFF);
+        U16 zoC = (U16)(poly_rng_next() & 0xFFFF);
+
+        Struc_Point ptA = make_texz_point(xA, yA, uA, vA, wA, 0, zoA);
+        Struc_Point ptB = make_texz_point(xB, yB, uB, vB, wB, 0, zoB);
+        Struc_Point ptC = make_texz_point(xC, yC, uC, vC, wC, 0, zoC);
+
+        double yb_ya = ptB.Pt_YE - ptA.Pt_YE;
+        double yc_ya = ptC.Pt_YE - ptA.Pt_YE;
+        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE)
+                                       - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
+        if (raw_Denom == 0) continue;
+
+        YB_YA = yb_ya;
+        YC_YA = yc_ya;
+        InvDenom = 256.0L / raw_Denom;
+
+        fesetround(FE_TOWARDZERO);
+        RoundType = ROUND_TYPE_INT;
+
+        volatile long double Dp = InvDenom * (1.0L / 65536.0L);
+
+        /* ZBuf slope */
+        volatile long double ZAp = (long double)(S32)(U32)ptA.Pt_ZO * (long double)ptA.Pt_W;
+        volatile long double ZBp = (long double)(S32)(U32)ptB.Pt_ZO * (long double)ptB.Pt_W;
+        volatile long double ZCp = (long double)(S32)(U32)ptC.Pt_ZO * (long double)ptC.Pt_W;
+        volatile long double ZSlope = ((ZCp - ZAp) * (long double)YB_YA - (ZBp - ZAp) * (long double)YC_YA) * Dp;
+        S32 expected_Z = (S32)ZSlope;
+
+        /* U/V/W slopes (same as base TextureZ) */
+        volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
+        volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
+        volatile long double UCp = (long double)(S32)ptC.Pt_MapU * (long double)ptC.Pt_W;
+        volatile long double USlope = ((UCp - UAp) * (long double)YB_YA - (UBp - UAp) * (long double)YC_YA) * Dp;
+        S32 expected_U = (S32)USlope;
+
+        volatile long double VAp = (long double)(S32)ptA.Pt_MapV * (long double)ptA.Pt_W;
+        volatile long double VBp = (long double)(S32)ptB.Pt_MapV * (long double)ptB.Pt_W;
+        volatile long double VCp = (long double)(S32)ptC.Pt_MapV * (long double)ptC.Pt_W;
+        volatile long double VSlope = ((VCp - VAp) * (long double)YB_YA - (VBp - VAp) * (long double)YC_YA) * Dp;
+        S32 expected_V = (S32)VSlope;
+
+        volatile long double WB_WA = (long double)ptB.Pt_W - (long double)ptA.Pt_W;
+        volatile long double WC_WA = (long double)ptC.Pt_W - (long double)ptA.Pt_W;
+        volatile long double WSlope = ((WC_WA * (long double)YB_YA) - (WB_WA * (long double)YC_YA)) * Dp;
+        volatile long double WSlope_scaled = WSlope * 256.0L;
+        S32 expected_W = (S32)WSlope_scaled;
+
+        setup_slope_test_state(10);
+        Fill_Type = POLY_TEXTURE_Z;
+        Fill_MapU_XSlope = 0;
+        Fill_MapV_XSlope = 0;
+        Fill_W_XSlope = 0;
+        Fill_ZBuf_XSlope = 0;
+
+        Calc_TextureZXSlopeZBufFPU(POLY_TEXTURE_Z, &ptA, &ptB, &ptC);
+
+        fesetround(FE_TONEAREST);
+        RoundType = ROUND_TYPE_FLOAT;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "TextureZXSlopeZBuf Z #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_Z, Fill_ZBuf_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZXSlopeZBuf U #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_U, Fill_MapU_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZXSlopeZBuf V #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_V, Fill_MapV_XSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZXSlopeZBuf W #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_W, Fill_W_XSlope, msg);
+    }
+}
+
+static void test_texturez_leftslope(void)
+{
+    poly_rng_seed(0xABCD5678);
+
+    for (int i = 0; i < 300; i++) {
+        S16 xA = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yA = (S16)(poly_rng_next() % (TEST_POLY_H / 2));
+        S16 xB = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yB = (S16)(yA + 1 + (poly_rng_next() % (TEST_POLY_H / 2)));
+
+        U16 uA = (U16)(poly_rng_next() & 0xFF);
+        U16 vA = (U16)(poly_rng_next() & 0xFF);
+        U16 uB = (U16)(poly_rng_next() & 0xFF);
+        U16 vB = (U16)(poly_rng_next() & 0xFF);
+
+        S32 wA = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wB = (S32)(poly_rng_next() % 65280 + 256);
+
+        Struc_Point ptA = make_texz_point(xA, yA, uA, vA, wA, 0, 0);
+        Struc_Point ptB = make_texz_point(xB, yB, uB, vB, wB, 0, 0);
+
+        S32 diffX = (ptB.Pt_XE - ptA.Pt_XE) << 16;
+        S32 diffY = ptB.Pt_YE - ptA.Pt_YE;
+        if (diffY <= 0) continue;
+
+        fesetround(FE_TOWARDZERO);
+        RoundType = ROUND_TYPE_INT;
+
+        volatile long double inv_dY = 1.0L / (long double)diffY;
+        volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+
+        volatile long double XSlope = (long double)diffX * inv_dY;
+        volatile long double LeftSlope = XSlope + 1.0L;
+        S32 expected_LeftSlope = (S32)LeftSlope;
+
+        volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
+        volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
+        volatile long double VAp = (long double)(S32)ptA.Pt_MapV * (long double)ptA.Pt_W;
+        volatile long double VBp = (long double)(S32)ptB.Pt_MapV * (long double)ptB.Pt_W;
+
+        volatile long double USlope = (UBp - UAp) * inv256_dY;
+        volatile long double VSlope = (VBp - VAp) * inv256_dY;
+        S32 expected_ULeft = (S32)USlope;
+        S32 expected_VLeft = (S32)VSlope;
+
+        volatile long double curU = UAp * (1.0L / 256.0L);
+        volatile long double curV = VAp * (1.0L / 256.0L);
+        S32 expected_CurU = (S32)curU;
+        S32 expected_CurV = (S32)curV;
+
+        volatile long double WSlope_raw = ((long double)ptB.Pt_W - (long double)ptA.Pt_W) * inv256_dY;
+        volatile long double WSlope = WSlope_raw * 256.0L;
+        S32 expected_WLeft = (S32)WSlope;
+
+        setup_slope_test_state(10);
+        Fill_Type = POLY_TEXTURE_Z;
+        Fill_LeftSlope = 0;
+        Fill_MapU_LeftSlope = 0;
+        Fill_MapV_LeftSlope = 0;
+        Fill_W_LeftSlope = 0;
+        Fill_CurMapUMin = 0;
+        Fill_CurMapVMin = 0;
+        Fill_CurWMin = 0;
+
+        Calc_TextureZLeftSlopeFPU(POLY_TEXTURE_Z, diffX, diffY, &ptA, &ptB);
+
+        fesetround(FE_TONEAREST);
+        RoundType = ROUND_TYPE_FLOAT;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope LeftSlope #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_LeftSlope, Fill_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope ULeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_ULeft, Fill_MapU_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope VLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_VLeft, Fill_MapV_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope WLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_WLeft, Fill_W_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope CurU #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurU, Fill_CurMapUMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope CurV #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurV, Fill_CurMapVMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlope CurW #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(ptA.Pt_W, Fill_CurWMin, msg);
+    }
+}
+
+static void test_texturez_gouraud_leftslope(void)
+{
+    poly_rng_seed(0x12349ABC);
+
+    for (int i = 0; i < 300; i++) {
+        S16 xA = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yA = (S16)(poly_rng_next() % (TEST_POLY_H / 2));
+        S16 xB = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yB = (S16)(yA + 1 + (poly_rng_next() % (TEST_POLY_H / 2)));
+
+        U16 uA = (U16)(poly_rng_next() & 0xFF);
+        U16 vA = (U16)(poly_rng_next() & 0xFF);
+        U16 uB = (U16)(poly_rng_next() & 0xFF);
+        U16 vB = (U16)(poly_rng_next() & 0xFF);
+
+        S32 wA = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wB = (S32)(poly_rng_next() % 65280 + 256);
+
+        U16 lightA = (U16)(poly_rng_next() % 3584);
+        U16 lightB = (U16)(poly_rng_next() % 3584);
+
+        Struc_Point ptA = make_texz_point(xA, yA, uA, vA, wA, lightA, 0);
+        Struc_Point ptB = make_texz_point(xB, yB, uB, vB, wB, lightB, 0);
+
+        S32 diffX = (ptB.Pt_XE - ptA.Pt_XE) << 16;
+        S32 diffY = ptB.Pt_YE - ptA.Pt_YE;
+        if (diffY <= 0) continue;
+
+        fesetround(FE_TOWARDZERO);
+        RoundType = ROUND_TYPE_INT;
+
+        volatile long double inv_dY = 1.0L / (long double)diffY;
+        volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+
+        /* Gouraud slope */
+        S32 gouraudB = ((S32)(ptB.Pt_Light & 0xFFFF) << 8) + 0x8000;
+        S32 gouraudA = ((S32)(ptA.Pt_Light & 0xFFFF) + 0x80) << 8;
+        S32 diffLight = gouraudA - gouraudB;
+        volatile long double GSlope = (long double)diffLight * inv_dY;
+        S32 expected_GLeft = (S32)GSlope;
+
+        /* X slope */
+        volatile long double XSlope = (long double)diffX * inv_dY;
+        volatile long double LeftSlope = XSlope + 1.0L;
+        S32 expected_LeftSlope = (S32)LeftSlope;
+
+        /* Texture slopes */
+        volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
+        volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
+        volatile long double VAp = (long double)(S32)ptA.Pt_MapV * (long double)ptA.Pt_W;
+        volatile long double VBp = (long double)(S32)ptB.Pt_MapV * (long double)ptB.Pt_W;
+
+        volatile long double USlope = (UBp - UAp) * inv256_dY;
+        volatile long double VSlope = (VBp - VAp) * inv256_dY;
+        S32 expected_ULeft = (S32)USlope;
+        S32 expected_VLeft = (S32)VSlope;
+
+        volatile long double curU = UAp * (1.0L / 256.0L);
+        volatile long double curV = VAp * (1.0L / 256.0L);
+        S32 expected_CurU = (S32)curU;
+        S32 expected_CurV = (S32)curV;
+
+        volatile long double WSlope_raw = ((long double)ptB.Pt_W - (long double)ptA.Pt_W) * inv256_dY;
+        volatile long double WSlope = WSlope_raw * 256.0L;
+        S32 expected_WLeft = (S32)WSlope;
+
+        setup_slope_test_state(10);
+        Fill_Type = POLY_TEXTURE_Z_GOURAUD;
+        Fill_LeftSlope = 0;
+        Fill_MapU_LeftSlope = 0;
+        Fill_MapV_LeftSlope = 0;
+        Fill_W_LeftSlope = 0;
+        Fill_Gouraud_LeftSlope = 0;
+        Fill_CurMapUMin = 0;
+        Fill_CurMapVMin = 0;
+        Fill_CurWMin = 0;
+        Fill_CurGouraudMin = 0;
+
+        Calc_TextureZGouraudLeftSlopeFPU(POLY_TEXTURE_Z_GOURAUD, diffX, diffY, &ptA, &ptB);
+
+        fesetround(FE_TONEAREST);
+        RoundType = ROUND_TYPE_FLOAT;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope LeftSlope #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_LeftSlope, Fill_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope GLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_GLeft, Fill_Gouraud_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope ULeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_ULeft, Fill_MapU_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope VLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_VLeft, Fill_MapV_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope WLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_WLeft, Fill_W_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope CurG #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(gouraudB, Fill_CurGouraudMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope CurU #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurU, Fill_CurMapUMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope CurV #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurV, Fill_CurMapVMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZGouraudLeftSlope CurW #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(ptA.Pt_W, Fill_CurWMin, msg);
+    }
+}
+
+static void test_texturez_leftslope_zbuf(void)
+{
+    poly_rng_seed(0xFEDC9876);
+
+    for (int i = 0; i < 300; i++) {
+        S16 xA = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yA = (S16)(poly_rng_next() % (TEST_POLY_H / 2));
+        S16 xB = (S16)(poly_rng_next() % TEST_POLY_W);
+        S16 yB = (S16)(yA + 1 + (poly_rng_next() % (TEST_POLY_H / 2)));
+
+        U16 uA = (U16)(poly_rng_next() & 0xFF);
+        U16 vA = (U16)(poly_rng_next() & 0xFF);
+        U16 uB = (U16)(poly_rng_next() & 0xFF);
+        U16 vB = (U16)(poly_rng_next() & 0xFF);
+
+        S32 wA = (S32)(poly_rng_next() % 65280 + 256);
+        S32 wB = (S32)(poly_rng_next() % 65280 + 256);
+
+        U16 zoA = (U16)(poly_rng_next() & 0xFFFF);
+        U16 zoB = (U16)(poly_rng_next() & 0xFFFF);
+
+        Struc_Point ptA = make_texz_point(xA, yA, uA, vA, wA, 0, zoA);
+        Struc_Point ptB = make_texz_point(xB, yB, uB, vB, wB, 0, zoB);
+
+        S32 diffX = (ptB.Pt_XE - ptA.Pt_XE) << 16;
+        S32 diffY = ptB.Pt_YE - ptA.Pt_YE;
+        if (diffY <= 0) continue;
+
+        fesetround(FE_TOWARDZERO);
+        RoundType = ROUND_TYPE_INT;
+
+        volatile long double inv_dY = 1.0L / (long double)diffY;
+        volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+
+        /* X slope */
+        volatile long double XSlope = (long double)diffX * inv_dY;
+        volatile long double LeftSlope = XSlope + 1.0L;
+        S32 expected_LeftSlope = (S32)LeftSlope;
+
+        /* ZBuf slope — implementation scales ZAp/ZBp individually by 1/256 */
+        volatile long double ZAp = (long double)(S32)(U32)ptA.Pt_ZO * (long double)ptA.Pt_W;
+        volatile long double ZBp = (long double)(S32)(U32)ptB.Pt_ZO * (long double)ptB.Pt_W;
+        volatile long double ZA_scaled = ZAp * (1.0L / 256.0L);
+        volatile long double ZB_scaled = ZBp * (1.0L / 256.0L);
+        S32 expected_CurZ = (S32)ZA_scaled;
+        volatile long double dZ_scaled = ZB_scaled - ZA_scaled;
+        volatile long double ZSlope = dZ_scaled * inv_dY;
+        S32 expected_ZLeft = (S32)ZSlope;
+
+        /* Texture slopes */
+        volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
+        volatile long double UBp = (long double)(S32)ptB.Pt_MapU * (long double)ptB.Pt_W;
+        volatile long double VAp = (long double)(S32)ptA.Pt_MapV * (long double)ptA.Pt_W;
+        volatile long double VBp = (long double)(S32)ptB.Pt_MapV * (long double)ptB.Pt_W;
+
+        volatile long double USlope = (UBp - UAp) * inv256_dY;
+        volatile long double VSlope = (VBp - VAp) * inv256_dY;
+        S32 expected_ULeft = (S32)USlope;
+        S32 expected_VLeft = (S32)VSlope;
+
+        volatile long double curU = UAp * (1.0L / 256.0L);
+        volatile long double curV = VAp * (1.0L / 256.0L);
+        S32 expected_CurU = (S32)curU;
+        S32 expected_CurV = (S32)curV;
+
+        volatile long double WSlope_raw = ((long double)ptB.Pt_W - (long double)ptA.Pt_W) * inv256_dY;
+        volatile long double WSlope = WSlope_raw * 256.0L;
+        S32 expected_WLeft = (S32)WSlope;
+
+        setup_slope_test_state(10);
+        Fill_Type = POLY_TEXTURE_Z;
+        Fill_LeftSlope = 0;
+        Fill_MapU_LeftSlope = 0;
+        Fill_MapV_LeftSlope = 0;
+        Fill_W_LeftSlope = 0;
+        Fill_ZBuf_LeftSlope = 0;
+        Fill_CurMapUMin = 0;
+        Fill_CurMapVMin = 0;
+        Fill_CurWMin = 0;
+        Fill_CurZBufMin = 0;
+
+        Calc_TextureZLeftSlopeZBufFPU(POLY_TEXTURE_Z, diffX, diffY, &ptA, &ptB);
+
+        fesetround(FE_TONEAREST);
+        RoundType = ROUND_TYPE_FLOAT;
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf LeftSlope #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_LeftSlope, Fill_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf ZLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_ZLeft, Fill_ZBuf_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf CurZ #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurZ, (S32)Fill_CurZBufMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf ULeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_ULeft, Fill_MapU_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf VLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_VLeft, Fill_MapV_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf WLeft #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_WLeft, Fill_W_LeftSlope, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf CurU #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurU, Fill_CurMapUMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf CurV #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(expected_CurV, Fill_CurMapVMin, msg);
+        snprintf(msg, sizeof(msg), "TextureZLeftSlopeZBuf CurW #%d", i);
+        ASSERT_ASM_CPP_EQ_INT(ptA.Pt_W, Fill_CurWMin, msg);
+    }
+}
+
 /* ── Fill_Poly: 300-round ASM-vs-CPP full entry-point equivalence ── *
  *
  * CPP path: Switch_Fillers → Fill_Poly(POLY_SOLID, ...) dispatches
@@ -594,6 +1244,12 @@ int main(void)
     RUN_TEST(test_asm_fill_poly_random);
     RUN_TEST(test_asm_random_fill_sphere);
     RUN_TEST(test_asm_random_line_a);
+    RUN_TEST(test_texturez_xslope);
+    RUN_TEST(test_texturez_gouraud_xslope);
+    RUN_TEST(test_texturez_xslope_zbuf);
+    RUN_TEST(test_texturez_leftslope);
+    RUN_TEST(test_texturez_gouraud_leftslope);
+    RUN_TEST(test_texturez_leftslope_zbuf);
     TEST_SUMMARY();
     return test_failures != 0;
 }

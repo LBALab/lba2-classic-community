@@ -1385,16 +1385,22 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
   Fill_CurMapUMin = (S32)curU;
   Fill_CurMapVMin = (S32)curV;
 
-  volatile long double VSlope = dVp * inv256_dY;
-  volatile long double USlope = dUp * inv256_dY;
-  volatile long double WSlope = dW * inv_dY;
   volatile long double XSlope = (long double)diffX * inv_dY;
   volatile long double LeftSlope = XSlope + 1.0L;
-
-  Fill_MapV_LeftSlope = (S32)VSlope;
-  Fill_MapU_LeftSlope = (S32)USlope;
-  Fill_W_LeftSlope = (S32)WSlope;
   Fill_LeftSlope = (S32)LeftSlope;
+
+  volatile long double USlope = dUp * inv256_dY;
+  volatile long double VSlope = dVp * inv256_dY;
+  // ASM: WSlope = (WB-WA) * inv256_dY, then * F_256 before fistp
+  volatile long double WSlope_raw = dW * inv256_dY;
+
+  Fill_CurMapVMin = (S32)curV;
+  Fill_MapU_LeftSlope = (S32)USlope;
+  Fill_CurMapUMin = (S32)curU;
+  // ASM: fmul [F_256] before fistp [Fill_W_LeftSlope]
+  volatile long double WSlope = WSlope_raw * 256.0L;
+  Fill_MapV_LeftSlope = (S32)VSlope;
+  Fill_W_LeftSlope = (S32)WSlope;
 
   return Read_Next_Right(PtA, PtB);
 }
@@ -1437,20 +1443,19 @@ S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_P
 
   // Calculate texture slopes (scaled by 1/256)
   volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+  volatile long double WB_WA = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
   volatile long double USlope = dUp * inv256_dY;
   volatile long double VSlope = dVp * inv256_dY;
-  Fill_MapU_LeftSlope = (S32)USlope;
-  Fill_MapV_LeftSlope = (S32)VSlope;
 
-  // Set current texture minimums (perspective corrected, scaled by 1/256)
   volatile long double curU = UAp * (1.0L / 256.0L);
   volatile long double curV = VAp * (1.0L / 256.0L);
-  Fill_CurMapUMin = (S32)curU;
   Fill_CurMapVMin = (S32)curV;
-
-  // Calculate W slope for perspective correction
-  volatile long double dW = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
-  volatile long double WSlope = dW * inv_dY;
+  Fill_MapU_LeftSlope = (S32)USlope;
+  // ASM: WSlope = (WB-WA) * inv256_dY, then fmul [F_256]
+  volatile long double WSlope_raw = WB_WA * inv256_dY;
+  Fill_CurMapUMin = (S32)curU;
+  volatile long double WSlope = WSlope_raw * 256.0L;
+  Fill_MapV_LeftSlope = (S32)VSlope;
   Fill_W_LeftSlope = (S32)WSlope;
 
   return Read_Next_Right(PtA, PtB);
@@ -1512,20 +1517,19 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
 
   // Calculate texture slopes (scaled by 1/256)
   volatile long double inv256_dY = inv_dY * (1.0L / 256.0L);
+  volatile long double WB_WA = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
   volatile long double USlope = dUp * inv256_dY;
   volatile long double VSlope = dVp * inv256_dY;
-  Fill_MapU_LeftSlope = (S32)USlope;
-  Fill_MapV_LeftSlope = (S32)VSlope;
 
-  // Set current texture minimums (perspective corrected, scaled by 1/256)
   volatile long double curU = UAp * (1.0L / 256.0L);
   volatile long double curV = VAp * (1.0L / 256.0L);
-  Fill_CurMapUMin = (S32)curU;
   Fill_CurMapVMin = (S32)curV;
-
-  // Calculate W slope for perspective correction
-  volatile long double dW = (long double)PtB->Pt_W - (long double)PtA->Pt_W;
-  volatile long double WSlope = dW * inv_dY;
+  Fill_MapU_LeftSlope = (S32)USlope;
+  // ASM: WSlope = (WB-WA) * inv256_dY, then fmul [F_256]
+  volatile long double WSlope_raw = WB_WA * inv256_dY;
+  Fill_CurMapUMin = (S32)curU;
+  volatile long double WSlope = WSlope_raw * 256.0L;
+  Fill_MapV_LeftSlope = (S32)VSlope;
   Fill_W_LeftSlope = (S32)WSlope;
 
   return Read_Next_Right(PtA, PtB);
