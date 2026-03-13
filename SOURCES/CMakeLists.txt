@@ -3,7 +3,7 @@ add_subdirectory(3DEXT)
 # TODO: For Windows target, Compile resource file "lba2.rc" or reuse "lba2.res"
 
 # General sources
-set(SOURCES_FILES AMBIANCE.CPP ANIMTEX.CPP BEZIER.CPP BUGGY.CPP CHEATCOD.CPP COMPORTE.CPP CONFIG.CPP CREDITS.CPP
+set(SOURCES_FILES AMBIANCE.CPP ANIMTEX.CPP BEZIER.CPP BUILD_INFO.CPP BUGGY.CPP CHEATCOD.CPP COMPORTE.CPP CONFIG.CPP CREDITS.CPP
         DART.CPP DIRECTORIES.CPP DISKFUNC.CPP EXTFUNC.CPP EXTRA.CPP FICHE.CPP FLOW.CPP GAMEMENU.CPP GERELIFE.CPP
         GERETRAK.CPP GLOBAL.CPP GRILLE.CPP HOLOBODY.CPP HOLOGLOB.CPP HOLOPLAN.CPP IMPACT.CPP INCRUST.CPP INITADEL.C
         INPUT.CPP INTEXT.CPP INVENT.CPP LZSS.CPP MEM.CPP MESSAGE.CPP MUSIC.CPP OBJECT.CPP PATCH.CPP PERSO.CPP
@@ -19,7 +19,16 @@ set(SOURCES_FILES_WIN JOYSTICK.CPP)
 set(SOURCES_FILES_DOS CRITICAL.CPP HERCULE.CPP)
 set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
 
+if(CONSOLE_MODULE)
+  list(APPEND SOURCES_FILES CONSOLE/CONSOLE_CMD.CPP)
+endif()
 add_executable(lba2 ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN})
+if(CONSOLE_MODULE)
+  add_subdirectory(CONSOLE)
+  target_link_libraries(lba2 PRIVATE console)
+  target_compile_definitions(lba2 PRIVATE CONSOLE_MODULE)
+  target_include_directories(lba2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/CONSOLE)
+endif()
 target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL3::SDL3)
 if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
@@ -27,6 +36,7 @@ endif ()
 
 # Put libsmacker before LIB386/H so <smacker.h> resolves to libsmacker on case-insensitive FS (e.g. macOS)
 target_include_directories(lba2 PRIVATE
+        ${CMAKE_BINARY_DIR}
         $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:${CMAKE_SOURCE_DIR}/LIB386/libsmacker>
         ../LIB386/H)
 target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM

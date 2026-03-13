@@ -6751,11 +6751,8 @@ startaffscene:
 
 	if( FlagChgCube )
 	{
-		if( NumCube!=NUM_CUBE_PHANTOM )
-		{
-			AutoSaveGame() ;
-		}
-
+		/* No autosave on cube changes: keep debug teleports and cube transitions tidy. */
+		SkipNextAutoSave = 0 ;
 		FlagChgCube = 0 ;
 	}
 

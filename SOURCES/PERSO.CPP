@@ -3,6 +3,11 @@
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#ifdef CONSOLE_MODULE
+#include "CONSOLE/CONSOLE.H"
+#include <SYSTEM/EVENTS.H>
+#include <SVGA/VIDEO.H>
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -1970,6 +1975,7 @@ void    TheEndInfo()
         StopMusic() ;
 
         LogPrintf( Version ) ;  // dans version.cpp
+        LogPrintf( "%s\n", BuildInfo ) ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
         LogPrintf( "* Start Extended Memory was %ld\n", MemoMemory ) ;
@@ -2114,6 +2120,11 @@ int main(int argc, char *argv[])
 
 
 	InitAdeline(argc, argv);
+
+#ifdef CONSOLE_MODULE
+	SetEventFilter(Console_FeedEvent);
+	SetPrePresentCallback(Console_PrePresent);
+#endif
 
 	atexit(TheEndInfo)      ;
 

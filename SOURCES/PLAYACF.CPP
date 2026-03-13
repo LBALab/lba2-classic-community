@@ -3,6 +3,7 @@
 #include "DIRECTORIES.H"
 
 #ifdef USE_MVIDEO_SMACKER
+#include "AMBIANCE.H"
 #include "INPUT.H"
 #include "MESSAGE.H"
 #include <AIL/VIDEO_AUDIO.H>
@@ -13,6 +14,10 @@
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef CONSOLE_MODULE
+#include "CONSOLE/CONSOLE.H"
+#include <SVGA/DIRTYBOX.H>
+#endif
 #endif
 
 char		PathAcf[ADELINE_MAX_PATH] ;
@@ -105,6 +110,11 @@ char	*GetAcfName( char *name )
 
 	*ptr++ = 0 ;
 	return name ;
+}
+
+//---------------------------------------------------------------------------
+void ResetAcfList(void) {
+  PtrAcf = ListAcf;
 }
 
 //---------------------------------------------------------------------------
@@ -373,9 +383,17 @@ S32	PlayAcf( const char *name )
 {
 #ifdef USE_MVIDEO_SMACKER
   {
+    static int s_playacf_playing = 0;
+    if (s_playacf_playing) {
+      /* Re-entry guard: avoid same video starting repeatedly (e.g. track/life script every frame). */
+      return 0;
+    }
+    s_playacf_playing = 1;
+
     S32 n = GetNumAcf(name);
     if (n == -1) {
       LogPrintf("PlayAcf: video name '%s' not found in ACF list (GetNumAcf returned -1)\n", name);
+      s_playacf_playing = 0;
       return 0;
     }
 
@@ -384,6 +402,17 @@ S32	PlayAcf( const char *name )
     ListVarGame[FLAG_ACF + (n / 16)] |= (S16)(1 << (n & 15));
 
     StopMusic();
+    HQ_PauseSamples();
+
+    /* Save current screen and palette so we can restore after playback (fix black screen). */
+    const U32 logSize = (U32)(ModeDesiredX * ModeDesiredY);
+    const U32 palSize = 768;
+    U8 *savedLog = (U8 *)malloc(logSize + palSize);
+    U8 *savedPal = savedLog ? savedLog + logSize : NULL;
+    if (savedLog && Log && PtrPal) {
+      memcpy(savedLog, Log, logSize);
+      memcpy(savedPal, PtrPal, palSize);
+    }
 
     U8 *decompbuf = (U8 *)LoadMalloc_HQR(PathAcf, n);
     U32 size = LoadMallocFileSize;
@@ -456,6 +485,9 @@ S32	PlayAcf( const char *name )
       StopVideoAudio();
       smk_close(smkObject);
       Free(decompbuf);
+      if (savedLog) free(savedLog);
+      HQ_ResumeSamples();
+      s_playacf_playing = 0;
       return 0;
     }
 
@@ -505,6 +537,14 @@ S32	PlayAcf( const char *name )
         ManageTime();
         if (MyKey == K_ESC || (Input & I_MENUS))
           goto fin_play;
+#ifdef CONSOLE_MODULE
+        /* Pause video while console is open: keep presenting current frame until they close it. */
+        if (Console_IsOpen()) {
+          BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
+          BoxUpdate();
+          continue;
+        }
+#endif
         now = SDL_GetTicks();
         if (now >= nextAt)
           break;
@@ -515,15 +555,24 @@ S32	PlayAcf( const char *name )
     }
 
 fin_play:
-    Cls();
-    BoxStaticFullflip();
-    SetBlackPal();
     StopVideoAudio();
     smk_close(smkObject);
     free(dest);
     Free(decompbuf);
+
+    /* Restore screen and palette so we don't leave a black screen. */
+    if (savedLog && savedPal && Log && PtrPal) {
+      memcpy(Log, savedLog, logSize);
+      memcpy(PtrPal, savedPal, palSize);
+      PaletteSync(PtrPal);
+    }
+    if (savedLog) free(savedLog);
+
+    BoxStaticFullflip();
+    HQ_ResumeSamples();
     InitWaitNoKey();
     InitWaitNoInput(I_MENUS);
+    s_playacf_playing = 0;
     return MyKey;
   }
 #else

@@ -17,6 +17,7 @@ extern "C" {
 
 // --- Private state -----------------------------------------------------------
 bool eventSystemInitialized = false;
+static EventFilterFn s_eventFilter = NULL;
 
 // --- Initialization ----------------------------------------------------------
 bool InitEvents() {
@@ -43,6 +44,10 @@ void EndEvents() {
 }
 
 // --- Interface ---------------------------------------------------------------
+void SetEventFilter(EventFilterFn fn) {
+  s_eventFilter = fn;
+}
+
 void ManageEvents() {
   assert(eventSystemInitialized == true);
 
@@ -51,6 +56,9 @@ void ManageEvents() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
       const void *transparentEvent = (void *)(&event);
+
+      if (s_eventFilter && s_eventFilter(transparentEvent))
+        continue;
 
       HandleEventsTimer(transparentEvent);
       HandleEventsMouse(transparentEvent);
