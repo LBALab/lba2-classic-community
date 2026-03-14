@@ -217,7 +217,7 @@ S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         for (U32 px = 0; px < spanLen; px++)
         {
           U32 U_int = (uvCur >> 8) & 0xFF;
-          U32 V_int = (uvCur >> 16) & 0xFF;
+          U32 V_int = (uvCur >> 24) & 0xFF;
           U32 mapIndex = (V_int << 8) | U_int;
           mapIndex &= POLYTZF_RepMaskPatch;
           U8 texel = POLYTZF_PtrMapPatch[mapIndex];
@@ -390,7 +390,7 @@ S32 Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             ZBuf_PtrZBuf[pixOfs] = zComp;
 
             U32 U_int = (uvCur >> 8) & 0xFF;
-            U32 V_int = (uvCur >> 16) & 0xFF;
+            U32 V_int = (uvCur >> 24) & 0xFF;
             U32 mapIndex = (V_int << 8) | U_int;
             mapIndex &= ZBuf_RepMaskPatch;
             U8 texel = ZBuf_PtrMapPatch[mapIndex];
@@ -574,7 +574,7 @@ S32 Filler_TextureZFogSmoothNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           {
             /* NZW: NO Z-buffer write */
             U32 U_int = (uvCur >> 8) & 0xFF;
-            U32 V_int = (uvCur >> 16) & 0xFF;
+            U32 V_int = (uvCur >> 24) & 0xFF;
             U32 mapIndex = (V_int << 8) | U_int;
             mapIndex &= NZW_RepMaskPatch;
             U8 texel = NZW_PtrMapPatch[mapIndex];
