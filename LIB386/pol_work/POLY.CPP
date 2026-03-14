@@ -1146,8 +1146,9 @@ S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB,
   volatile long double MZB = ZBp_ZAp * (long double)YC_YA;
   volatile long double MZC = ZCp_ZAp * (long double)YB_YA;
   volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
-  volatile long double MZC_MZB = MZC - MZB;
-  volatile long double ZSlope = MZC_MZB * Dp;
+  // ASM computes (MZB - MZC) * D' (fsubp st(1),st with st(0)=MZC, st(1)=MZB)
+  volatile long double MZB_MZC = MZB - MZC;
+  volatile long double ZSlope = MZB_MZC * Dp;
   Fill_ZBuf_XSlope = (S32)ZSlope;
 
   // U section (same as TextureZ)
@@ -1602,7 +1603,7 @@ Jmp_XSlopeFunc Jmp_XSlopeZBufFPU[] = {
 	Calc_XSlopeZBufferFPU, // Texture Z Flat Chroma Key
 	Calc_XSlopeZBufferFPU, // Texture Z Gouraud Chroma Key
 	Calc_XSlopeZBufferFPU, // Texture Z Dither Chroma Key
-	Calc_XSlopeZBufferFPU, // Texture Z Fog Smooth (wrapper: simple Z + texture slopes)
+	Calc_TextureZXSlopeZBufFPU, // Texture Z Fog Smooth
 	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
 };
 
@@ -1660,7 +1661,7 @@ Jmp_LeftSlopeFunc Jmp_LeftSlopeZBufFPU[] = {
   Calc_LeftSlopeZBufferFPU, // Texture Z Flat Chroma Key
   Calc_LeftSlopeZBufferFPU, // Texture Z Gouraud Chroma Key
   Calc_LeftSlopeZBufferFPU, // Texture Z Dither Chroma Key
-  Calc_LeftSlopeZBufferFPU, // Texture Z Fog Smooth (wrapper: simple Z + texture slopes)
+  Calc_TextureZLeftSlopeZBufFPU, // Texture Z Fog Smooth
   Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
 };
 

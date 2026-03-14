@@ -78,6 +78,8 @@ PUBLIC	C		Fill_Patch		; Flag 1 means we should patch the filler proc; 0 means no
 PUBLIC	C		Fill_Color		; The polygon color
 PUBLIC	C		Fill_Trame_Parity	; Trame parity for Filler_Trame
 
+PUBLIC	C		Fill_Type		; Polygon type number (needed for test globals sharing)
+
 PUBLIC	C		Fill_FirstPoint		; Pointer of the first point of the list
 PUBLIC	C		Fill_LastPoint		; Pointer of the last point of the list
 PUBLIC	C		Fill_LeftPoint		; Pointer of the current point of the left edge
