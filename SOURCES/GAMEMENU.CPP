@@ -1,6 +1,9 @@
 #include        "C_EXTERN.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#ifdef CONSOLE_MODULE
+#include "CONSOLE/CONSOLE.H"
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -3135,6 +3138,9 @@ S32     SlideShow( void )
 
 	InitDial( 2 ) ;	// pour les textes sur les screen shots
 
+#ifdef CONSOLE_MODULE
+	Console_SetSlideShowActive(1);
+#endif
 	Bulle = FALSE ;
 
 #ifdef	DEMO
@@ -3215,6 +3221,9 @@ S32     SlideShow( void )
 
 	GameInProgress = TRUE ;// pour recharger la partie en cours
 
+#ifdef CONSOLE_MODULE
+	Console_SetSlideShowActive(0);
+#endif
 	return ret ;
 }
 

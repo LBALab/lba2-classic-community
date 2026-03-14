@@ -29,6 +29,7 @@ SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
 bool frameDirty = false;
 U32 *frameBuffer = NULL;
+static PrePresentFn s_prePresent = NULL;
 
 // --- Private functions -------------------------------------------------------
 static void PresentFrame();
@@ -187,6 +188,10 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
   }
 }
 
+void SetPrePresentCallback(PrePresentFn fn) {
+  s_prePresent = fn;
+}
+
 static void PresentFrame() {
   assert(sdlPalette != NULL);
   assert(frameBuffer != NULL);
@@ -201,6 +206,16 @@ static void PresentFrame() {
       SDL_Color c = sdlPalette->colors[srcRow[x]];
       dstRow[x] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
     }
+  }
+
+  if (s_prePresent) {
+    static U8 paletteRgb[256 * 3];
+    for (int i = 0; i < 256; i++) {
+      paletteRgb[i * 3 + 0] = (U8)sdlPalette->colors[i].r;
+      paletteRgb[i * 3 + 1] = (U8)sdlPalette->colors[i].g;
+      paletteRgb[i * 3 + 2] = (U8)sdlPalette->colors[i].b;
+    }
+    s_prePresent(frameBuffer, ModeResX * (U32)sizeof(U32), ModeResX, ModeResY, paletteRgb);
   }
 
   PresentRendererFrame(frameBuffer, ModeResX * sizeof(U32));
