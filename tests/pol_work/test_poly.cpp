@@ -1335,18 +1335,14 @@ extern "C" void asm_record_filler_call(U32 nbLines, U32 xmin, U32 xmax) {
     }
 }
 
-/* ASM wrapper: intercepts jmp [Fill_Filler] (register-convention call).
- * Saves all registers, records the call, restores, then jumps to real filler. */
+/* Minimal ASM filler counter: just count calls without recording details.
+ * Using pushf/popf to preserve EFLAGS, no other register changes. */
 __asm__(
     ".globl asm_recording_filler_entry\n"
     "asm_recording_filler_entry:\n"
-    "  pushal\n"
-    "  push %edx\n"
-    "  push %ebx\n"
-    "  push %ecx\n"
-    "  call asm_record_filler_call\n"
-    "  add $12, %esp\n"
-    "  popal\n"
+    "  pushf\n"
+    "  incl g_asm_rec_count\n"
+    "  popf\n"
     "  jmp *g_asm_real_filler_ptr\n"
 );
 extern "C" void asm_recording_filler_entry(void);
@@ -1414,7 +1410,12 @@ static void test_asm_fill_polyclip_texz_trace(void)
     pts[2] = make_texz_point(53,  37,  0,      32767, 531686,  7,     14829);
     pts[3] = make_texz_point(120, 110, 27602,  32767, 1431178, 25656, 5509);
 
-    /* CPP path: record all filler calls */
+    /* CPP path: record all filler calls.
+     * Fill_PolyClip modifies pts[] in-place for quad decomposition,
+     * so save a copy for the ASM path. */
+    Struc_Point saved_pts[4];
+    memcpy(saved_pts, pts, sizeof(saved_pts));
+
     setup_texz_fogzbuf();
     Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
     g_rec_real_filler = Filler_TextureZFogSmoothZBuf;
@@ -1428,6 +1429,9 @@ static void test_asm_fill_polyclip_texz_trace(void)
     memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
     memcpy(poly_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
     print_rec_calls("CPP");
+
+    /* Restore pts for the ASM path */
+    memcpy(pts, saved_pts, sizeof(saved_pts));
 
     /* ASM path with recording */
     setup_texz_fogzbuf();
@@ -1443,42 +1447,8 @@ static void test_asm_fill_polyclip_texz_trace(void)
     call_asm_Fill_PolyClip(4, pts);
     memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
     memcpy(poly_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
-    print_rec_calls("ASM");
-    /* Swap ASM recording into g_rec_calls for comparison */
-    RecFillerCall asm_saved[REC_MAX_CALLS];
-    U32 asm_count = g_asm_rec_count;
-    memcpy(asm_saved, g_asm_rec_calls, sizeof(asm_saved));
-
-    /* Compare filler call params */
-    U32 min_calls = g_rec_count < asm_count ? g_rec_count : asm_count;
-    for (U32 i = 0; i < min_calls; i++) {
-        RecFillerCall *a = &asm_saved[i];
-        RecFillerCall *c = &g_rec_calls[i]; /* CPP calls stored earlier */
-        if (a->nbLines != c->nbLines || a->xmin != c->xmin || a->xmax != c->xmax ||
-            a->leftSlope != c->leftSlope || a->rightSlope != c->rightSlope) {
-            printf("# EDGE DIFF [%u]: nL=%u/%u xmin=0x%08x/0x%08x xmax=0x%08x/0x%08x ls=%d/%d rs=%d/%d\n",
-                   i, a->nbLines, c->nbLines, a->xmin, c->xmin, a->xmax, c->xmax,
-                   a->leftSlope, c->leftSlope, a->rightSlope, c->rightSlope);
-        }
-        if (a->mapU_xslope != c->mapU_xslope || a->mapV_xslope != c->mapV_xslope ||
-            a->w_xslope != c->w_xslope || a->zbuf_xslope != c->zbuf_xslope) {
-            printf("# XSLOPE DIFF [%u]: UXs=%d/%d VXs=%d/%d WXs=%d/%d ZXs=%d/%d\n",
-                   i, a->mapU_xslope, c->mapU_xslope, a->mapV_xslope, c->mapV_xslope,
-                   a->w_xslope, c->w_xslope, a->zbuf_xslope, c->zbuf_xslope);
-        }
-        if (a->mapU_leftslope != c->mapU_leftslope || a->mapV_leftslope != c->mapV_leftslope ||
-            a->w_leftslope != c->w_leftslope || a->zbuf_leftslope != c->zbuf_leftslope) {
-            printf("# LSLOPE DIFF [%u]: ULs=%d/%d VLs=%d/%d WLs=%d/%d ZLs=%d/%d\n",
-                   i, a->mapU_leftslope, c->mapU_leftslope, a->mapV_leftslope, c->mapV_leftslope,
-                   a->w_leftslope, c->w_leftslope, a->zbuf_leftslope, c->zbuf_leftslope);
-        }
-        if (a->curMapUMin != c->curMapUMin || a->curMapVMin != c->curMapVMin ||
-            a->curWMin != c->curWMin || a->curZBufMin != c->curZBufMin) {
-            printf("# CUR DIFF [%u]: curU=%d/%d curV=%d/%d curW=%d/%d curZ=%u/%u\n",
-                   i, a->curMapUMin, c->curMapUMin, a->curMapVMin, c->curMapVMin,
-                   a->curWMin, c->curWMin, a->curZBufMin, c->curZBufMin);
-        }
-    }
+    printf("# ASM: %u filler calls\n", g_asm_rec_count);
+    printf("# CPP: %u filler calls\n", g_rec_count);
 
     ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
                            TEST_POLY_SIZE, "Fill_PolyClip texZ trace fb");
@@ -1507,12 +1477,20 @@ static void test_asm_random_fill_polyclip_texz(void)
             pts[v] = make_texz_point(x, y, u, mv, w, light, zo);
         }
 
-        /* CPP path */
+        /* CPP path — with CPP filler.
+         * Fill_PolyClip modifies pts[] in-place for quad decomposition
+         * (copies pts[0] over pts[1]), so save a copy for the ASM path. */
+        Struc_Point saved_pts[4];
+        memcpy(saved_pts, pts, nv * sizeof(Struc_Point));
+
         setup_texz_fogzbuf();
         Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
         Fill_Poly(POLY_TEXTURE_Z_FOG, 0, nv, pts);
         memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
         memcpy(poly_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        /* Restore pts for the ASM path */
+        memcpy(pts, saved_pts, nv * sizeof(Struc_Point));
 
         /* ASM path */
         setup_texz_fogzbuf();
@@ -1526,19 +1504,6 @@ static void test_asm_random_fill_polyclip_texz(void)
         call_asm_Fill_PolyClip(nv, pts);
         memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
         memcpy(poly_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
-
-        /* Diagnostic: print first framebuffer difference */
-        for (int j = 0; j < TEST_POLY_SIZE; j++) {
-            if (poly_asm_buf[j] != poly_cpp_buf[j]) {
-                int row = j / TEST_POLY_W;
-                int col = j % TEST_POLY_W;
-                printf("# texZ #%d nv=%d: first diff byte %d "
-                       "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
-                       i, nv, j, row, col,
-                       poly_asm_buf[j], poly_cpp_buf[j]);
-                break;
-            }
-        }
 
         char msg[128];
         snprintf(msg, sizeof(msg), "Fill_PolyClip texZ #%d nv=%d", i, nv);
