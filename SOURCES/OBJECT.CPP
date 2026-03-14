@@ -1,7 +1,9 @@
 #include 	"C_EXTERN.H"
 
 #include "INPUT.H"
+#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
 #include "SNAPSHOT_CAPTURE.H"
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -6322,7 +6324,8 @@ startaffscene:
 //				 boucle aff all objs
 //----------------------------------------------------------------------------
 
-	// Scene snapshot capture (PrintScreen key)
+#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
+	// Scene snapshot capture (Ctrl+F9)
 	if( SnapshotRequested )
 	{
 		static int snap_counter = 0 ;
@@ -6331,6 +6334,7 @@ startaffscene:
 		Snapshot_CaptureScene( snap_name ) ;
 		SnapshotRequested = 0 ;
 	}
+#endif
 
 	// Init Textures
 	PtrMap = ObjPtrMap = BufferTexture ;

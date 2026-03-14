@@ -8,7 +8,10 @@ add_subdirectory(OBJECT)
 add_subdirectory(pol_work)
 add_subdirectory(SVGA)
 add_subdirectory(SYSTEM)
-add_subdirectory(SNAPSHOT)
+
+if(ENABLE_SNAPSHOT_TEST_CAPTURE OR LBA2_BUILD_TESTS)
+  add_subdirectory(SNAPSHOT)
+endif()
 
 if(MVIDEO_BACKEND STREQUAL "smacker")
   add_subdirectory(libsmacker)
