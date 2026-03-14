@@ -38,14 +38,16 @@ U32 POLYTEXZ_DecZBuf2 = 0x12345678;
 U32 POLYTEXZ_IntZBuf = 0x12345678;
 U32 POLYTEXZ_IntZBuf2 = 0x12345678;
 
-// Simple C-style stack implementation for perspective W values
+// FIFO queue for perspective W values — the ASM fills the hardware stack
+// ascending then pops via `pop` (FIFO: first stored = first consumed).
 #define MAX_PERSPECTIVE_STACK_SIZE 128
 typedef struct {
     S32 data[MAX_PERSPECTIVE_STACK_SIZE];
-    U32 top_index;
+    U32 write_index;
+    U32 read_index;
 } PerspectiveWStack_t;
 
-static PerspectiveWStack_t PerspectiveWStack = {{0}, 0};
+static PerspectiveWStack_t PerspectiveWStack = {{0}, 0, 0};
 /* Perspective correction: replicate ASM x87 FPU behavior.
  *
  * The ASM keeps 256.0f/W on the FPU stack in 80-bit extended precision,
@@ -63,33 +65,34 @@ static PerspectiveWStack_t PerspectiveWStack = {{0}, 0};
 
 static volatile long double PerspectiveInvW;
 
-/* Stack operations */
+/* Queue operations — FIFO to match ASM hardware stack behavior */
 static void PerspectiveWStack_clear(void) {
-    PerspectiveWStack.top_index = 0;
+    PerspectiveWStack.write_index = 0;
+    PerspectiveWStack.read_index = 0;
 }
 
 static void PerspectiveWStack_push(S32 value) {
-    if (PerspectiveWStack.top_index < MAX_PERSPECTIVE_STACK_SIZE) {
-        PerspectiveWStack.data[PerspectiveWStack.top_index] = value;
-        PerspectiveWStack.top_index++;
+    if (PerspectiveWStack.write_index < MAX_PERSPECTIVE_STACK_SIZE) {
+        PerspectiveWStack.data[PerspectiveWStack.write_index] = value;
+        PerspectiveWStack.write_index++;
     }
 }
 
 static S32 PerspectiveWStack_top(void) {
-    if (PerspectiveWStack.top_index > 0) {
-        return PerspectiveWStack.data[PerspectiveWStack.top_index - 1];
+    if (PerspectiveWStack.read_index < PerspectiveWStack.write_index) {
+        return PerspectiveWStack.data[PerspectiveWStack.read_index];
     }
     return 0;
 }
 
 static void PerspectiveWStack_pop(void) {
-    if (PerspectiveWStack.top_index > 0) {
-        PerspectiveWStack.top_index--;
+    if (PerspectiveWStack.read_index < PerspectiveWStack.write_index) {
+        PerspectiveWStack.read_index++;
     }
 }
 
 static U32 PerspectiveWStack_size(void) {
-    return PerspectiveWStack.top_index;
+    return PerspectiveWStack.write_index - PerspectiveWStack.read_index;
 }
 
 static S32 persp_eval(S32 val)

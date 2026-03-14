@@ -5,6 +5,7 @@
  * Requires: PtrMap, RepMask, PtrCLUTFog, fog parameters.
  */
 #include "test_harness.h"
+#include <fenv.h>
 #include <POLYGON/POLY.H>
 #include <POLYGON/POLYTZF.H>
 #include <SVGA/SCREEN.H>
@@ -253,6 +254,7 @@ static void test_asm_random_tzf(void)
 
 static void test_asm_equiv_tzf_zbuf(void)
 {
+    fesetround(FE_TOWARDZERO); /* Match full-pipeline FPU mode */
     setup_tzf_zbuf_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZFogSmoothZBuf(4, 20 << 16, 50 << 16);
     memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -262,6 +264,7 @@ static void test_asm_equiv_tzf_zbuf(void)
     call_asm_Filler_TextureZFogSmoothZBuf(4, 20 << 16, 50 << 16);
     memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
     memcpy(tzf_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+    fesetround(FE_TONEAREST);
 
     ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE,
                            "Filler_TextureZFogSmoothZBuf framebuf");
@@ -273,6 +276,7 @@ static void test_asm_equiv_tzf_zbuf(void)
 static void test_asm_random_tzf_zbuf(void)
 {
     poly_rng_seed(0xCAFEBABE);
+    fesetround(FE_TOWARDZERO); /* Match full-pipeline FPU mode */
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
@@ -320,7 +324,83 @@ static void test_asm_random_tzf_zbuf(void)
     }
 }
 
-/* ── ASM-vs-CPP equivalence: NZW variant ───────────────────────── */
+/* ── ASM-vs-CPP equivalence: ZBuf variant with non-zero W slope ──── */
+/* This tests the filler with perspective correction VARIATION across the
+ * scanline — the code path exercised by the full pipeline but missed by
+ * the constant-W tests above. */
+static void test_asm_random_tzf_zbuf_wslope(void)
+{
+    poly_rng_seed(0xF00DCAFE);
+    fesetround(FE_TOWARDZERO); /* Match full-pipeline FPU mode */
+    for (int i = 0; i < 300; i++) {
+        U32 y = poly_rng_next() % (TEST_POLY_H - 20);
+        U32 h = 1 + poly_rng_next() % 8;
+        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        U32 x0 = poly_rng_next() % (TEST_POLY_W - 60);
+        U32 x1 = x0 + 32 + poly_rng_next() % 30;
+        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+
+        U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
+        S32 zBufXSlope = (S32)(poly_rng_next() - 0x4000) << 4;
+        S32 curWMin = (S32)(0x10000 + (poly_rng_next() % 0x40000));
+        S32 wXSlope = (S32)(poly_rng_next() % 4096) - 2048;
+        S32 wLeftSlope = (S32)(poly_rng_next() % 4096) - 2048;
+        S32 mapUXSlope = (S32)(poly_rng_next() % 0x20000) - 0x10000;
+        S32 mapVXSlope = (S32)(poly_rng_next() % 0x20000) - 0x10000;
+        S32 curMapU = (S32)(poly_rng_next() % 0x400000);
+        S32 curMapV = (S32)(poly_rng_next() % 0x400000);
+
+        /* CPP path */
+        setup_tzf_zbuf_filler(y, h, x0 << 16, x1 << 16);
+        Fill_CurZBufMin = zBufMin;
+        Fill_ZBuf_XSlope = zBufXSlope;
+        Fill_CurWMin = curWMin;
+        Fill_Cur_W = curWMin;  /* CPP filler resets Fill_Cur_W = Fill_CurWMin */
+        Fill_W_XSlope = wXSlope;
+        Fill_W_LeftSlope = wLeftSlope;
+        Fill_MapU_XSlope = mapUXSlope;
+        Fill_MapV_XSlope = mapVXSlope;
+        Fill_CurMapUMin = curMapU;
+        Fill_CurMapVMin = curMapV;
+        Filler_TextureZFogSmoothZBuf(h, x0 << 16, x1 << 16);
+        memcpy(tzf_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(tzf_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        /* ASM path — same params */
+        setup_tzf_zbuf_filler(y, h, x0 << 16, x1 << 16);
+        Fill_CurZBufMin = zBufMin;
+        Fill_ZBuf_XSlope = zBufXSlope;
+        Fill_CurWMin = curWMin;
+        Fill_Cur_W = curWMin;  /* Match CPP: the ASM would read Fill_Cur_W
+                                  which in the real pipeline equals CurWMin
+                                  at the first filler call after slope setup */
+        Fill_W_XSlope = wXSlope;
+        Fill_W_LeftSlope = wLeftSlope;
+        Fill_MapU_XSlope = mapUXSlope;
+        Fill_MapV_XSlope = mapVXSlope;
+        Fill_CurMapUMin = curMapU;
+        Fill_CurMapVMin = curMapV;
+        call_asm_Filler_TextureZFogSmoothZBuf(h, x0 << 16, x1 << 16);
+        memcpy(tzf_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        memcpy(tzf_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
+
+        for (int j = 0; j < TEST_POLY_SIZE; j++) {
+            if (tzf_asm_buf[j] != tzf_cpp_buf[j]) {
+                int row = j / TEST_POLY_W;
+                int col = j % TEST_POLY_W;
+                printf("# tzf_zbuf_wslope #%d w=%u: first diff byte %d "
+                       "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n",
+                       i, x1 - x0, j, row, col, tzf_asm_buf[j], tzf_cpp_buf[j]);
+                break;
+            }
+        }
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "random tzf_zbuf_wslope #%d", i);
+        ASSERT_ASM_CPP_MEM_EQ(tzf_asm_buf, tzf_cpp_buf, TEST_POLY_SIZE, msg);
+    }
+    fesetround(FE_TONEAREST);
+}
 
 static void test_asm_equiv_tzf_nzw(void)
 {
@@ -400,6 +480,7 @@ int main(void)
     RUN_TEST(test_asm_random_tzf);
     RUN_TEST(test_asm_equiv_tzf_zbuf);
     RUN_TEST(test_asm_random_tzf_zbuf);
+    RUN_TEST(test_asm_random_tzf_zbuf_wslope);
     RUN_TEST(test_asm_equiv_tzf_nzw);
     RUN_TEST(test_asm_random_tzf_nzw);
     TEST_SUMMARY();

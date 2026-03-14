@@ -25,18 +25,21 @@ static S32 Fill_Next_ZBuf;
  * x87 80-bit extended precision used by the ASM filler. */
 static volatile long double POLYTZF_PerspInvW;
 
-/* W stack for POLYTZF */
+/* W queue for POLYTZF — ASM fills ascending on the hardware stack then
+ * reads via pop (FIFO: first stored = first consumed).  We replicate this
+ * with a simple queue: push appends, pop/top consume from the front. */
 #define POLYTZF_MAX_STACK 64
 static struct {
     S32 data[POLYTZF_MAX_STACK];
-    U32 top_index;
+    U32 write_index;
+    U32 read_index;
 } POLYTZF_WStack;
 
-static void POLYTZF_WStack_clear(void) { POLYTZF_WStack.top_index = 0; }
-static void POLYTZF_WStack_push(S32 v) { if (POLYTZF_WStack.top_index < POLYTZF_MAX_STACK) POLYTZF_WStack.data[POLYTZF_WStack.top_index++] = v; }
-static S32  POLYTZF_WStack_top(void) { return POLYTZF_WStack.top_index > 0 ? POLYTZF_WStack.data[POLYTZF_WStack.top_index - 1] : 0; }
-static void POLYTZF_WStack_pop(void) { if (POLYTZF_WStack.top_index > 0) POLYTZF_WStack.top_index--; }
-static U32  POLYTZF_WStack_size(void) { return POLYTZF_WStack.top_index; }
+static void POLYTZF_WStack_clear(void) { POLYTZF_WStack.write_index = 0; POLYTZF_WStack.read_index = 0; }
+static void POLYTZF_WStack_push(S32 v) { if (POLYTZF_WStack.write_index < POLYTZF_MAX_STACK) POLYTZF_WStack.data[POLYTZF_WStack.write_index++] = v; }
+static S32  POLYTZF_WStack_top(void) { return POLYTZF_WStack.read_index < POLYTZF_WStack.write_index ? POLYTZF_WStack.data[POLYTZF_WStack.read_index] : 0; }
+static void POLYTZF_WStack_pop(void) { if (POLYTZF_WStack.read_index < POLYTZF_WStack.write_index) POLYTZF_WStack.read_index++; }
+static U32  POLYTZF_WStack_size(void) { return POLYTZF_WStack.write_index - POLYTZF_WStack.read_index; }
 
 static S32 tzf_persp_eval(S32 val)
 {

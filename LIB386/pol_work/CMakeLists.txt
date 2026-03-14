@@ -9,6 +9,11 @@ set(SOURCES_FILES_ASM POLY.CPP POLY_JMP.CPP POLYCLIP.CPP POLYDISC.CPP POLYFLAT.C
 
 add_library(poly ${SOURCES_FILES} ${SOURCES_FILES_ASM})
 
+# Force x87 FPU math for files that must match ASM fistp rounding behaviour (x86 only).
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86|x86_64|AMD64")
+  set_source_files_properties(POLY.CPP POLYTEXZ.CPP POLYTZF.CPP PROPERTIES COMPILE_FLAGS "-mfpmath=387 -ffloat-store")
+endif()
+
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)
 #     set_source_files_properties(${FILE_ASM} PROPERTIES LANGUAGE ASM_MASM)
