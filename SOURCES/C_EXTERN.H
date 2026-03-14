@@ -181,7 +181,6 @@ extern  U8     ShadowCol ;
 extern	U32    ShadowLevel ;
 
 extern  S32    FlagChgCube, NumCube ;
-extern  S32    SkipNextAutoSave ;
 extern	S32    FlagReajustPosTwinsen ;	// Reajustement de twinsen lors d'un
 					// changement de cube
 extern	S32    PhantomX ;	// offset du cube ext pour aller mourir

@@ -184,7 +184,6 @@ S32	NumCube = 0 ;			// num cube en cours
 S32	FlagChgCube = 0 ;
 S32	FlagReajustPosTwinsen = TRUE ;	// Reajustement de twinsen lors d'un
 					// changement de cube
-S32	SkipNextAutoSave = 0 ;		// when set, next AutoSaveGame() call is skipped
 
 S32	PhantomX = 0 ;	// offset du cube ext pour aller mourir
 S32	PhantomY = 0 ;	// offset du cube ext pour aller mourir

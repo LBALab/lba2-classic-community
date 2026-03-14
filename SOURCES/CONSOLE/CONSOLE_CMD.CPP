@@ -35,8 +35,7 @@ static void cmd_cube(int argc, const char *argv[])
 	}
 	Console_Close();
 	NewCube = (S32)strtol(argv[1], NULL, 0);
-	SkipNextAutoSave = 1;
-	Console_Print("Cube %d (change on next frame, autosave skipped once)", NewCube);
+	Console_Print("Cube %d (change on next frame)", NewCube);
 }
 
 static void cmd_load(int argc, const char *argv[])

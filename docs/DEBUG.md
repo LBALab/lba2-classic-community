@@ -95,24 +95,7 @@ Cheat codes are entered by **typing the letters during normal gameplay** - no sp
 | `BOX` | — | Adds a clover box |
 | `PINGOUIN` | — | Adds 5 meca-penguins |
 
-The "Short Version" column shows alternate codes that work the same way. When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
-
-### Cheat Codes in DEBUG_TOOLS Builds
-
-In DEBUG_TOOLS builds, many letter keys are bound to debug functions (`D`, `F`, `T`, `Z`, `E`, `V`, `M`, `K`, `A`, `B`). This causes conflicts with most cheat codes:
-
-| Cheat | Conflicting Keys | Works in Debug? |
-|-------|------------------|-----------------|
-| `LIFE` / `IFE` | `F`, `E` | No |
-| `MAGIC` | `A`, `M` | No |
-| `FULL` | `F` | No |
-| `GOLD` | `D` | No |
-| `SPEED` | `D` | No |
-| `CLOVER` | `E` | No |
-| `BOX` | `B` | No |
-| `PINGOUIN` | — | Yes |
-
-**For reliable cheat code use, build without `-DDEBUG_TOOLS=ON`.** The shorter debug versions (`IFE` instead of `LIFE`) were designed to minimize conflicts, but most still have at least one conflicting key.
+The "Short Version" column shows the shorter codes used in DEBUG_TOOLS builds (e.g. `IFE` instead of `LIFE`). When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
 
 ## Bug Save/Load System
 
@@ -198,10 +181,6 @@ The codebase has two separate debug defines:
 - **TEST_TOOLS** - Limited QA tester tools (only debug overlay and FPS counter)
 
 This separation ensured QA testers could see debug information without having access to features that might let them "cheat" past bugs they should be finding. Code guarded by `#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)` was available to both teams.
-
-### Shorter Debug Cheat Codes
-
-The debug versions of cheat codes (`IFE` instead of `LIFE`) weren't just convenient shortcuts - they were designed to avoid conflicts with debug key bindings. Since keys like `D`, `F`, `A`, `M` trigger debug functions, cheat codes containing those letters wouldn't work properly in debug builds.
 
 ## Related Files
 

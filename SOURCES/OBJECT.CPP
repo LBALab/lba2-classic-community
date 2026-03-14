@@ -6752,8 +6752,6 @@ startaffscene:
 
 	if( FlagChgCube )
 	{
-		/* No autosave on cube changes: keep debug teleports and cube transitions tidy. */
-		SkipNextAutoSave = 0 ;
 		FlagChgCube = 0 ;
 	}
 
