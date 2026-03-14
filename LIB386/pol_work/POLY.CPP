@@ -1573,7 +1573,7 @@ Jmp_XSlopeFunc Jmp_XSlopeFPU[] = {
 	Calc_TextureZXSlopeFPU, // Texture Z Flat Chroma Key
 	Calc_TextureZGouraudXSlopeFPU, // Texture Z Gouraud Chroma Key
 	Calc_TextureZGouraudXSlopeFPU, // Texture Z Dither Chroma Key
-	Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
+	Calc_TextureZXSlopeFPU, // Texture Z Fog Smooth (non-ZBuf: Z handled by wrapper when in ZBuf mode)
 	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
 };
 
@@ -1602,7 +1602,7 @@ Jmp_XSlopeFunc Jmp_XSlopeZBufFPU[] = {
 	Calc_XSlopeZBufferFPU, // Texture Z Flat Chroma Key
 	Calc_XSlopeZBufferFPU, // Texture Z Gouraud Chroma Key
 	Calc_XSlopeZBufferFPU, // Texture Z Dither Chroma Key
-	Calc_TextureZXSlopeZBufFPU, // Texture Z Solid
+	Calc_XSlopeZBufferFPU, // Texture Z Fog Smooth (wrapper: simple Z + texture slopes)
 	Calc_XSlopeZBufferFlagFPU, // ZBuffer only
 };
 
@@ -1631,7 +1631,7 @@ Jmp_LeftSlopeFunc Jmp_LeftSlopeFPU[] = {
 	Calc_TextureZLeftSlopeFPU, // Texture Z Flat Chroma Key
 	Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Gouraud Chroma Key
 	Calc_TextureZGouraudLeftSlopeFPU, // Texture Z Dither Chroma Key
-	Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
+	Calc_TextureZLeftSlopeFPU, // Texture Z Fog Smooth (non-ZBuf: Z handled by wrapper)
 	Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
 };
 
@@ -1660,7 +1660,7 @@ Jmp_LeftSlopeFunc Jmp_LeftSlopeZBufFPU[] = {
   Calc_LeftSlopeZBufferFPU, // Texture Z Flat Chroma Key
   Calc_LeftSlopeZBufferFPU, // Texture Z Gouraud Chroma Key
   Calc_LeftSlopeZBufferFPU, // Texture Z Dither Chroma Key
-  Calc_TextureZLeftSlopeZBufFPU, // Texture Z Solid
+  Calc_LeftSlopeZBufferFPU, // Texture Z Fog Smooth (wrapper: simple Z + texture slopes)
   Calc_LeftSlopeZBufferFlagFPU, // ZBuffer only
 };
 

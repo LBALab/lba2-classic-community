@@ -549,10 +549,12 @@ extern "C" volatile long double InvDenom;
 extern "C" S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
 extern "C" S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
 extern "C" S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
+extern "C" S32 Calc_XSlopeZBufferFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC);
 
 extern "C" S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 extern "C" S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 extern "C" S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
+extern "C" S32 Calc_LeftSlopeZBufferFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 
 static Struc_Point make_texz_point(S16 x, S16 y, U16 u, U16 v, S32 w, U16 light, U16 zo)
 {
@@ -828,11 +830,11 @@ static void test_texturez_xslope_zbuf(void)
 
         volatile long double Dp = InvDenom * (long double)ASM_FInv_65536;
 
-        /* ZBuf slope */
-        volatile long double ZAp = (long double)(S32)(U32)ptA.Pt_ZO * (long double)ptA.Pt_W;
-        volatile long double ZBp = (long double)(S32)(U32)ptB.Pt_ZO * (long double)ptB.Pt_W;
-        volatile long double ZCp = (long double)(S32)(U32)ptC.Pt_ZO * (long double)ptC.Pt_W;
-        volatile long double ZSlope = ((ZCp - ZAp) * (long double)YB_YA - (ZBp - ZAp) * (long double)YC_YA) * Dp;
+        /* ZBuf slope — uses simple (non-perspective) Z formula via wrapper:
+         * Calc_ZBufXSlopeFPU computes (ZC_ZA*YB_YA - ZB_ZA*YC_YA) * InvDenom */
+        volatile long double ZB_ZA = (long double)(S32)(U32)(ptB.Pt_ZO - ptA.Pt_ZO);
+        volatile long double ZC_ZA = (long double)(S32)(U32)(ptC.Pt_ZO - ptA.Pt_ZO);
+        volatile long double ZSlope = (ZC_ZA * (long double)YB_YA - ZB_ZA * (long double)YC_YA) * InvDenom;
         S32 expected_Z = (S32)ZSlope;
 
         /* U/V/W slopes (same as base TextureZ) */
@@ -861,7 +863,7 @@ static void test_texturez_xslope_zbuf(void)
         Fill_W_XSlope = 0;
         Fill_ZBuf_XSlope = 0;
 
-        Calc_TextureZXSlopeZBufFPU(POLY_TEXTURE_Z, &ptA, &ptB, &ptC);
+        Calc_XSlopeZBufferFPU(POLY_TEXTURE_Z, &ptA, &ptB, &ptC);
 
         fesetround(FE_TONEAREST);
         RoundType = ROUND_TYPE_FLOAT;
@@ -1109,15 +1111,14 @@ static void test_texturez_leftslope_zbuf(void)
         volatile long double LeftSlope = XSlope + 1.0L;
         S32 expected_LeftSlope = (S32)LeftSlope;
 
-        /* ZBuf slope — implementation scales ZAp/ZBp individually by 1/256 */
-        volatile long double ZAp = (long double)(S32)(U32)ptA.Pt_ZO * (long double)ptA.Pt_W;
-        volatile long double ZBp = (long double)(S32)(U32)ptB.Pt_ZO * (long double)ptB.Pt_W;
-        volatile long double ZA_scaled = ZAp * (1.0L / 256.0L);
-        volatile long double ZB_scaled = ZBp * (1.0L / 256.0L);
-        S32 expected_CurZ = (S32)ZA_scaled;
-        volatile long double dZ_scaled = ZB_scaled - ZA_scaled;
-        volatile long double ZSlope = dZ_scaled * inv_dY;
-        S32 expected_ZLeft = (S32)ZSlope;
+        /* ZBuf slope — uses simple (non-perspective) Z formula via wrapper:
+         * Calc_ZBufLeftSlopeFPU computes ZA_val = ZA * 256, ZSlope = (ZB*256 - ZA*256) / dY */
+        volatile long double ZA_val = (long double)(S32)(U32)ptA.Pt_ZO * 256.0L;
+        volatile long double ZB_val = (long double)(S32)(U32)ptB.Pt_ZO * 256.0L;
+        S32 expected_CurZ = (S32)ZA_val;
+        volatile long double dZ = ZB_val - ZA_val;
+        volatile long double ZLeftSlope = dZ * inv_dY;
+        S32 expected_ZLeft = (S32)ZLeftSlope;
 
         /* Texture slopes */
         volatile long double UAp = (long double)(S32)ptA.Pt_MapU * (long double)ptA.Pt_W;
@@ -1151,7 +1152,7 @@ static void test_texturez_leftslope_zbuf(void)
         Fill_CurWMin = 0;
         Fill_CurZBufMin = 0;
 
-        Calc_TextureZLeftSlopeZBufFPU(POLY_TEXTURE_Z, diffX, diffY, &ptA, &ptB);
+        Calc_LeftSlopeZBufferFPU(POLY_TEXTURE_Z, diffX, diffY, &ptA, &ptB);
 
         fesetround(FE_TONEAREST);
         RoundType = ROUND_TYPE_FLOAT;
