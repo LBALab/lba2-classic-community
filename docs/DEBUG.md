@@ -36,7 +36,7 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `V` | Teleport to magic ball | Moves Twinsen to the magic ball's current position |
 | `M` | Show palette | Displays the current color palette |
 | `K` | Spawn bonus | Spawns a bonus item above the player |
-| `A` | Play test video | Plays "bu.acf" video and reinitializes the scene |
+| `A` | Play test video | Plays **bu** (test ACF video) and reinitializes the scene |
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
