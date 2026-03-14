@@ -111,6 +111,12 @@ lba2-classic-community/
 └── docs/                     # Additional documentation
 ```
 
+## Documentation
+
+**Engine reference** (terms, lifecycles, scene index): [GLOSSARY](docs/GLOSSARY.md), [LIFECYCLES](docs/LIFECYCLES.md), [SCENES](docs/SCENES.md).
+
+Build, debug, preservation, and porting docs are in [docs/](docs/README.md).
+
 ## Preservation Notes
 
 This codebase is a window into 1990s game development at Adeline Software International in Lyon, France. Beyond the technical content, the source files contain original developer artifacts worth exploring. The ASCII art and French comments documented below are from the **original** Adeline / lba2-classic codebase (same files or content preserved when porting ASM to C++ in this fork).
