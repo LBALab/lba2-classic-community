@@ -3,15 +3,20 @@
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#ifdef CONSOLE_MODULE
+#include "CONSOLE/CONSOLE.H"
+#include <SYSTEM/EVENTS.H>
+#include <SVGA/VIDEO.H>
+#include <FILEIO/SAVEPNG.H>
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
-#include <SYSTEM/TIMER.H>
 
 #ifdef DEBUG_TOOLS
-static inline U32 DosAvailableMem() { return 0; }
+static inline U32 DosAvailableMem(void) { return 0; }
 #endif
 
 #include <SDL3/SDL.h>
@@ -39,7 +44,7 @@ S32     EscTimer ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
 char    NamePcxSave[ADELINE_MAX_PATH] ;
-S32     NumShootSave = 0 ;
+S32     NumPcxSave = 0 ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -93,7 +98,7 @@ void    AffDebugMenu()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 // Pour eviter d'ecraser les anciennes copies d'ecran !!!!
-void GetNumShootSave() {
+void GetNumPcxSave() {
   struct dirent *file;
   DIR *dir;
   S32 num;
@@ -106,16 +111,15 @@ void GetNumShootSave() {
     while ((file = readdir(dir)) != NULL) {
       bool startsLBA = (ade_strcasestr(file->d_name, "LBA") == file->d_name);
       bool hasPCX = (ade_strcasestr(file->d_name, ".PCX") != NULL);
-      bool hasPNG = (ade_strcasestr(file->d_name, ".PNG") != NULL);
-      if (startsLBA && (hasPCX || hasPNG)) {
+      if (startsLBA && hasPCX) {
         GetShootPath(pathname, ADELINE_MAX_PATH, file->d_name);
 
         struct stat st = {};
         stat(pathname, &st);
         if (S_ISREG(st.st_mode)) {
           num = atoi(&file->d_name[3]);
-          if (num >= NumShootSave) {
-            NumShootSave = num + 1;
+          if (num >= NumPcxSave) {
+            NumPcxSave = num + 1;
           }
         }
       }
@@ -126,7 +130,7 @@ void GetNumShootSave() {
 
 void    CheckSavePcx()
 {
-        if( Key == K_F9 || Key == K_PRINTSCR )
+        if( Key == K_F9 )
         {
                 S32     saveflagfade    ;
 
@@ -137,16 +141,16 @@ void    CheckSavePcx()
 		BackupScreen( FALSE ) 	;
 		CopyScreen( Log, Screen ) ;
 
-                GetNumShootSave() ;
+                GetNumPcxSave() ;
 
-                char PNGFilename[ADELINE_MAX_PATH];
-		sprintf(PNGFilename, "LBA%05d.png", NumShootSave);
-                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
+                char PCXFilename[ADELINE_MAX_PATH];
+		sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
 
-                SavePNG( NamePcxSave, Screen, ModeDesiredX, ModeDesiredY, PtrPal ) ;
+                SavePCX( NamePcxSave, Screen, ModeDesiredX, ModeDesiredY, PtrPal ) ;
 
                 WaitNoInput() ;
 
@@ -177,17 +181,17 @@ void    CheckSavePcx()
 
 void    CheckSaveLogPcx( U8 *pal )
 {
-        if( Key == K_F9 || Key == K_PRINTSCR )
+        if( Key == K_F9 )
         {
                 SaveTimer() ;
 
-                GetNumShootSave() ;
+                GetNumPcxSave() ;
 
-                char PNGFilename[ADELINE_MAX_PATH];
-                sprintf(PNGFilename, "LBA%05d.png", NumShootSave);
-                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PNGFilename);
+                char PCXFilename[ADELINE_MAX_PATH];
+                sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
+                GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
 
-                SavePNG( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
+                SavePCX( NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal ) ;
 
                 CoulText( LBAWHITE, 0 ) ;
                 GraphPrintf( TRUE, 50, 0, "Saving Screen into %s", NamePcxSave ) ;
@@ -767,6 +771,18 @@ startloop:
 #endif  // debug tools
 
                 CheckSavePcx() ;// F9: Sauve Screen
+
+#ifdef CONSOLE_MODULE
+                /* Console screenshot (PNG): requested without overlay; perform here where we have Screen + PtrPal. */
+                {
+                        char shotPath[ADELINE_MAX_PATH];
+                        int is_png = 0;
+                        if (Console_HasPendingScreenshot(shotPath, sizeof(shotPath), &is_png) && is_png) {
+                                SavePNG(shotPath, Screen, ModeDesiredX, ModeDesiredY, PtrPal);
+                                Console_ClearPendingScreenshot();
+                        }
+                }
+#endif
 
 /*-------------------------------------------------------------------------*/
 /* gestion clavier */   /* game */
@@ -1985,6 +2001,7 @@ void    TheEndInfo()
         StopMusic() ;
 
         LogPrintf( Version ) ;  // dans version.cpp
+        LogPrintf( "%s\n", BuildInfo ? BuildInfo : "(no build info)" ) ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
         LogPrintf( "* Start Extended Memory was %ld\n", MemoMemory ) ;
@@ -2129,6 +2146,11 @@ int main(int argc, char *argv[])
 
 
 	InitAdeline(argc, argv);
+
+#ifdef CONSOLE_MODULE
+	SetEventFilter(Console_FeedEvent);
+	SetPrePresentCallback(Console_PrePresent);
+#endif
 
 	atexit(TheEndInfo)      ;
 

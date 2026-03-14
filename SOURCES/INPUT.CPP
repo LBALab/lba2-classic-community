@@ -5,6 +5,13 @@
 
 #include "INPUT.H"
 
+#ifdef CONSOLE_MODULE
+#include "CONSOLE/CONSOLE.H"
+#include <SYSTEM/INPUT.H>
+#include <SVGA/SCREEN.H>
+#include <SVGA/DIRTYBOX.H>
+#endif
+
 // Input
 U32		WaitNoKey	= 0	;
 
@@ -39,7 +46,12 @@ T_DEF_KEY      	DefKeysDefault95[MAX_INPUT+1] =
 			{K_F2,K_S},			// I_SAVE
 			{K_F3,K_L},			// I_LOAD
 			{K_F4,K_O},			// I_OPTIONS
-			{K_BACKSPACE,K_CARRE},		// I_CAMERA
+			{K_BACKSPACE,
+#ifdef CONSOLE_MODULE
+			 0},				// I_CAMERA (backtick used for console)
+#else
+			 K_CARRE},			// I_CAMERA
+#endif
 			{K_NUMPAD_PLUS,K_GRAY_PAGE_UP},	// I_CAMERA_LEVEL_PLUS
 			{K_NUMPAD_MOINS,K_GRAY_PAGE_DOWN},// I_CAMERA_LEVEL_MOINS
 			{K_1,0},			// I_WEAPON_1
@@ -167,6 +179,33 @@ void    MyGetInput()
 	GetInput( 0 ) ;	// no norepeat keys
 
 	MyKey = Key ;
+
+#ifdef CONSOLE_MODULE
+	/* Reserve backtick/F12 from game (toggle is only in Console_FeedEvent so we don't double-toggle). */
+	TabKeys[(U32)K_CARRE] = 0;
+	TabKeys[(U32)K_F12] = 0;
+	if (Key == (S32)K_CARRE || Key == (S32)K_F12)
+		Key = 0;
+	/* When we just closed the console, suppress all game input for one frame so the toggle key doesn't trigger camera etc. */
+	if (Console_ShouldSuppressInputThisFrame()) {
+		Key = 0;
+		Input = 0;
+		MyKey = 0;
+		/* Clear I_CAMERA keys (index 22 per INPUT.H) so they don't fire on the suppress frame. */
+		TabKeys[DefKeys[22].Key1] = 0;
+		TabKeys[DefKeys[22].Key2] = 0;
+		return;
+	}
+	if (Console_IsOpen()) {
+		Console_Update();
+		MyKey = 0;
+		Input = 0;
+		/* Force present so console updates (keypress, Enter/new line) are visible every frame. */
+		BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
+		BoxUpdate();
+		return;
+	}
+#endif
 
 	// Attente d'événement de touche dans la boucle
 
