@@ -149,6 +149,19 @@ static void render_object(const T_SCENE_SNAPSHOT *snap, U32 obj_idx) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  MAIN REPLAY ENTRY POINT                                                   */
 /* ═══════════════════════════════════════════════════════════════════════════ */
+/*  DEBUG: pixel trace callback for filler instrumentation                    */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Function pointer defined in POLY.CPP (when SNAPSHOT_DEBUG_PIXEL is set) */
+extern void (*snapshot_debug_pixel_fn)(U32, U8, U32, U32, S32, S32, S32, S32, S32, S32);
+
+static void debug_pixel_callback(U32 polyType, U8 polyColor, U32 nbPoints,
+    U32 unused, S32 pixelBefore, S32 pixelAfter, S32 r1, S32 r2, S32 r3, S32 r4) {
+    fprintf(stderr, "DEBUG PIXEL: poly_type=%u color=%u npts=%u before=%d after=%d\n",
+            polyType, polyColor, nbPoints, pixelBefore, pixelAfter);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
 /*  PPM OUTPUT                                                                */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -188,6 +201,9 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file,
         fprintf(stderr, "ERROR: Failed to load snapshot '%s'\n", snapshot_file);
         return 1;
     }
+
+    /* Enable pixel debug tracing */
+    snapshot_debug_pixel_fn = debug_pixel_callback;
 
     fprintf(stderr, "INFO: Loaded snapshot: %ux%u, %u objects, %u bodies, %u textures\n",
             snap.shared.ModeDesiredX, snap.shared.ModeDesiredY,

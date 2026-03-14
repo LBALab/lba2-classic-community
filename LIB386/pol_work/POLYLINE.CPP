@@ -4,6 +4,10 @@
 #include <SVGA/SCREEN.H>
 #include <stdio.h>
 
+#ifdef ENABLE_POLY_RECORDING
+#include <SNAPSHOT/POLY_RECORDING.H>
+#endif
+
 S32 Z1 = 0;			// For the ZBuffer
 S32 Z2 = 0;
 S32 DZ = 0;
@@ -1038,6 +1042,10 @@ void Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 
 void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
 {
+#ifdef ENABLE_POLY_RECORDING
+	if (polyrec_is_recording())
+		polyrec_record_line_a(x0, y0, x1, y1, col, z1, z2);
+#endif
 	if (Fill_Flag_NZW)
 	{
 		Line_ZBuffer_NZW(x0, y0, x1, y1, col, z1, z2);

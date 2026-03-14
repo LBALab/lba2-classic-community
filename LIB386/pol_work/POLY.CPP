@@ -7,11 +7,21 @@
 #include <SVGA/CLIP.H>
 #include <FILLER.H>
 
+#ifdef ENABLE_POLY_RECORDING
+#include <SNAPSHOT/POLY_RECORDING.H>
+#endif
+
 #include <limits.h>
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
 #include <fenv.h>
+
+#ifdef SNAPSHOT_DEBUG_PIXEL
+/* Weak default definition — test binaries can override with their own definition */
+__attribute__((weak))
+void (*snapshot_debug_pixel_fn)(U32, U8, U32, U32, S32, S32, S32, S32, S32, S32) = NULL;
+#endif
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -137,6 +147,13 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB);
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 							Struc_Point *Ptr_Points) {
+#ifdef ENABLE_POLY_RECORDING
+	if (polyrec_is_recording())
+		polyrec_record_fill_poly(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
+#endif
+#ifdef SNAPSHOT_DEBUG_PIXEL
+	U8 pixel_before = ((U8*)Log)[SNAPSHOT_DEBUG_PIXEL];
+#endif
 	Fill_LeftSlope = 0;
 	SetScreenPitch(TabOffLine);
 
@@ -144,7 +161,19 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 	Color_Poly = Color_Poly & 0xFF;
 
 	Fill_Jump_Fn filler = Fill_Saut_Normal[Type_Poly];
-	return filler(Nb_Points, Ptr_Points, Color_Poly);
+	S32 result = filler(Nb_Points, Ptr_Points, Color_Poly);
+#ifdef SNAPSHOT_DEBUG_PIXEL
+	{
+		U8 pixel_after = ((U8*)Log)[SNAPSHOT_DEBUG_PIXEL];
+		if (pixel_after != pixel_before) {
+			static int debug_seq = 0;
+			fprintf(stderr, "DEBUG PIXEL[%d]: poly_type=%d color=%d npts=%d before=%d after=%d\n",
+					debug_seq++, Type_Poly, Color_Poly & 0xFF, Nb_Points,
+					pixel_before, pixel_after);
+		}
+	}
+#endif
+	return result;
 }
 
 void Switch_Normal(void) {
@@ -209,6 +238,10 @@ void Switch_FogNZW(void) {
 
 void Switch_Fillers(U32 Bank)
 {
+#ifdef ENABLE_POLY_RECORDING
+  if (polyrec_is_recording())
+    polyrec_record_switch_fillers(Bank);
+#endif
   Table_Switch[Bank]();
 }
 
@@ -261,6 +294,10 @@ void SetScreenPitch(U32 *New_TabOffLine)
 
 void SetCLUT(U32 defaultline)
 {
+#ifdef ENABLE_POLY_RECORDING
+  if (polyrec_is_recording())
+    polyrec_record_set_clut(defaultline);
+#endif
   U8 *nextPtrTruePal = PtrCLUTFog + (defaultline << 8);
 
   // compare and jump to end if equal
@@ -285,6 +322,10 @@ void SetCLUT(U32 defaultline)
 
 void SetFog(S32 z_near, S32 z_far)
 {
+#ifdef ENABLE_POLY_RECORDING
+    if (polyrec_is_recording())
+        polyrec_record_set_fog(z_near, z_far);
+#endif
     if (z_far == 0)
         z_far = 1;
 

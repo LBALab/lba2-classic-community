@@ -224,3 +224,62 @@ foreach(_fixture ${SNAPSHOT_FIXTURES})
                 $<TARGET_FILE:replay_snapshot_cpp>
     )
 endforeach()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POLYGON RECORDING REPLAY
+#
+# Two replay programs for .lba2polyrec files:
+#   - replay_polyrec_asm  (links ASM library for ASM polygon rendering)
+#   - replay_polyrec_cpp  (links CPP polygon rendering libraries)
+# ─────────────────────────────────────────────────────────────────────────────
+
+set(POLYREC_REPLAY_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/polyrec_replay.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/replay_polyrec_main.cpp
+    ${CMAKE_SOURCE_DIR}/LIB386/SNAPSHOT/POLY_RECORDING.CPP
+)
+
+# replay_polyrec_cpp — links CPP implementations
+add_executable(replay_polyrec_cpp ${POLYREC_REPLAY_SOURCES})
+target_include_directories(replay_polyrec_cpp PRIVATE ${REPLAY_INCLUDES})
+target_link_libraries(replay_polyrec_cpp PRIVATE
+    poly svg sys snapshot m
+)
+target_compile_definitions(replay_polyrec_cpp PRIVATE
+    "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
+)
+set_target_properties(replay_polyrec_cpp PROPERTIES
+    POSITION_INDEPENDENT_CODE OFF
+)
+target_link_options(replay_polyrec_cpp PRIVATE -no-pie)
+
+# replay_polyrec_asm — links ASM implementations
+add_executable(replay_polyrec_asm ${POLYREC_REPLAY_SOURCES})
+target_include_directories(replay_polyrec_asm PRIVATE ${REPLAY_INCLUDES})
+target_link_libraries(replay_polyrec_asm PRIVATE
+    ${ASM_LIB386} poly svg sys snapshot m
+)
+add_dependencies(replay_polyrec_asm asm_lib386)
+target_compile_definitions(replay_polyrec_asm PRIVATE
+    "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
+)
+set_target_properties(replay_polyrec_asm PROPERTIES
+    POSITION_INDEPENDENT_CODE OFF
+)
+target_link_options(replay_polyrec_asm PRIVATE -no-pie -Wl,--allow-multiple-definition)
+
+# Register polyrec comparison tests for each fixture
+set(COMPARE_POLYREC_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/compare_polyrec.sh")
+
+file(GLOB POLYREC_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/*.lba2polyrec")
+message(STATUS "POLYREC: Found ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/*.lba2polyrec -> ${POLYREC_FIXTURES}")
+foreach(_fixture ${POLYREC_FIXTURES})
+    get_filename_component(_fixture_name ${_fixture} NAME_WE)
+    add_test(
+        NAME test_polyrec_${_fixture_name}
+        COMMAND bash ${COMPARE_POLYREC_SCRIPT}
+                ${_fixture}
+                $<TARGET_FILE:replay_polyrec_asm>
+                $<TARGET_FILE:replay_polyrec_cpp>
+    )
+endforeach()

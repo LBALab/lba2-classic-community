@@ -4,6 +4,9 @@
 #ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
 #include "SNAPSHOT_CAPTURE.H"
 #endif
+#ifdef ENABLE_POLY_RECORDING
+#include <SNAPSHOT/POLY_RECORDING.H>
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -6340,6 +6343,28 @@ startaffscene:
 	}
 #endif
 
+#ifdef ENABLE_POLY_RECORDING
+	// Polygon call recording (Alt+F9) — start recording before rendering
+	static char polyrec_pending_name[256] = {0} ;
+	if( SnapshotRequested )
+	{
+		static int polyrec_counter = 0 ;
+		sprintf( polyrec_pending_name, "polyrec_%04d.lba2polyrec", polyrec_counter++ ) ;
+		polyrec_start( polyrec_pending_name ) ;
+		// Provide RGB palette for PPM output
+		{
+			U8 *active_pal = PtrPalCurrent ? PtrPalCurrent : PalettePcx ;
+			if( active_pal )
+				polyrec_set_rgb_palette( active_pal ) ;
+		}
+		SnapshotRequested = 0 ;
+	}
+	else
+	{
+		polyrec_pending_name[0] = 0 ;
+	}
+#endif
+
 	// Init Textures
 	PtrMap = ObjPtrMap = BufferTexture ;
 	RepMask = 0xFFFF ;
@@ -6821,6 +6846,14 @@ startaffscene:
 	if( snap_pending_name[0] )
 	{
 		Snapshot_CaptureGameFramebuffer( snap_pending_name ) ;
+	}
+#endif
+
+#ifdef ENABLE_POLY_RECORDING
+	// Polygon call recording — stop recording and write file
+	if( polyrec_pending_name[0] )
+	{
+		polyrec_stop() ;
 	}
 #endif
 }
