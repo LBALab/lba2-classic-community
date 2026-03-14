@@ -177,7 +177,8 @@ static int write_ppm(const char *path, const U8 *fb, U32 w, U32 h,
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 int snapshot_replay_run(const char *snapshot_file, const char *output_file,
-                        const char *ppm_file, const char *ref_ppm_file) {
+                        const char *ppm_file, const char *ref_ppm_file,
+                        int only_object) {
     T_SCENE_SNAPSHOT snap;
     FILE *f;
     U32 i;
@@ -249,12 +250,24 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file,
         for (i = 0; i < snap.sort_order_count; i++) {
             U32 idx = snap.sort_order[i];
             if (idx < snap.num_objects) {
+                U8 before = framebuffer[111674];
+                if (only_object >= 0 && idx != (U32)only_object) continue;
                 render_object(&snap, idx);
+                if (framebuffer[111674] != before) {
+                    fprintf(stderr, "INFO: obj[%u] changed pixel 111674: %u -> %u\n",
+                            idx, before, framebuffer[111674]);
+                }
             }
         }
     } else {
         for (i = 0; i < snap.num_objects; i++) {
+            U8 before = framebuffer[111674];
+            if (only_object >= 0 && i != (U32)only_object) continue;
             render_object(&snap, i);
+            if (framebuffer[111674] != before) {
+                fprintf(stderr, "INFO: obj[%u] changed pixel 111674: %u -> %u\n",
+                        i, before, framebuffer[111674]);
+            }
         }
     }
 

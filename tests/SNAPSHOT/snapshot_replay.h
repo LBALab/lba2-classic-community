@@ -22,10 +22,12 @@ extern "C" {
  * @param output_file    Path to write raw framebuffer output
  * @param ppm_file       Path to write PPM image (NULL to skip)
  * @param ref_ppm_file   Path to write game reference PPM (NULL to skip)
+ * @param only_object    If >= 0, render only this object index (-1 = all)
  * @return 0 on success, non-zero on failure
  */
 int snapshot_replay_run(const char *snapshot_file, const char *output_file,
-                        const char *ppm_file, const char *ref_ppm_file);
+                        const char *ppm_file, const char *ref_ppm_file,
+                        int only_object);
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,7 @@ PRESET="linux_test"
 BUILD_ONLY=false
 FORCE_REBUILD=false
 RENDER_MODE=false
+BISECT_MODE=false
 TEST_NAMES=()
 
 for arg in "$@"; do
@@ -33,6 +34,9 @@ for arg in "$@"; do
             ;;
         --render)
             RENDER_MODE=true
+            ;;
+        --bisect)
+            BISECT_MODE=true
             ;;
         *)
             TEST_NAMES+=("$arg")
@@ -91,6 +95,7 @@ docker run --rm \
     -e "CONTAINER_SRC=${CONTAINER_SRC}" \
     -e "PRESET=${PRESET}" \
     -e "RENDER_MODE=${RENDER_MODE}" \
+    -e "BISECT_MODE=${BISECT_MODE}" \
     "${IMAGE_NAME}" \
     bash -c '
         set -e
@@ -127,6 +132,17 @@ docker run --rm \
             echo "--- copying rendered files to host ---"
             cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.raw ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
             cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.ppm ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
+        elif [ "${BISECT_MODE}" = "true" ]; then
+            echo "--- building replay programs ---"
+            cmake --build build -j$(nproc) --target replay_snapshot_asm --target replay_snapshot_cpp
+            echo "--- bisecting objects ---"
+            cd build/tests/SNAPSHOT
+            for snap in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2snap; do
+                [ -f "$snap" ] || continue
+                echo "Bisecting: $(basename "$snap")"
+                bash /tmp/lba2/tests/SNAPSHOT/bisect_objects.sh "$snap" \
+                    ./replay_snapshot_asm ./replay_snapshot_cpp 20
+            done
         else
             echo "--- ctest ---"
             if [ -n "${CTEST_REGEX}" ]; then
