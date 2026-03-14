@@ -167,20 +167,6 @@ extern U8 Fill_Flag_NZW;        ///< True if NZW is active
 
 extern S32 Fill_Trame_Parity;  ///< Parity for trame polygons
 
-// Debug: record filler calls for comparison
-typedef struct {
-  U32 diffY;
-  U32 xmin;
-  U32 xmax;
-  S32 leftSlope;
-  S32 rightSlope;
-  U32 curY;
-} PolyDebugFillerCall;
-#define POLY_DEBUG_MAX_CALLS 64
-extern PolyDebugFillerCall g_poly_debug_calls[];
-extern U32 g_poly_debug_call_count;
-extern U32 g_poly_debug_enabled;
-
 extern U8 Fill_Logical_Palette[256];
 
 // -----------------------------------------------------------------------------
