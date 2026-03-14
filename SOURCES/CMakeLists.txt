@@ -25,12 +25,11 @@ if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
 endif ()
 
-# Optional: snapshot test capture support
-option(ENABLE_SNAPSHOT_TEST_CAPTURE "Enable in-game snapshot capture for ASM-vs-CPP testing" OFF)
-if(ENABLE_SNAPSHOT_TEST_CAPTURE)
-  target_sources(lba2 PRIVATE SNAPSHOT_CAPTURE.CPP)
+# Optional: polygon recording support for ASM-vs-CPP testing
+option(ENABLE_POLY_RECORDING "Enable in-game polygon call recording for ASM-vs-CPP testing" OFF)
+if(ENABLE_POLY_RECORDING)
   target_link_libraries(lba2 PRIVATE snapshot)
-  target_compile_definitions(lba2 PRIVATE ENABLE_SNAPSHOT_TEST_CAPTURE)
+  target_compile_definitions(lba2 PRIVATE ENABLE_POLY_RECORDING)
 endif()
 
 # Put libsmacker before LIB386/H so <smacker.h> resolves to libsmacker on case-insensitive FS (e.g. macOS)

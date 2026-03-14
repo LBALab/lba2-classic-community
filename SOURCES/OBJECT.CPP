@@ -1,9 +1,6 @@
 #include 	"C_EXTERN.H"
 
 #include "INPUT.H"
-#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-#include "SNAPSHOT_CAPTURE.H"
-#endif
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
 #endif
@@ -6327,22 +6324,6 @@ startaffscene:
 //				 boucle aff all objs
 //----------------------------------------------------------------------------
 
-#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-	// Scene snapshot capture (Alt+F9) — Phase 1: capture scene state
-	static char snap_pending_name[256] = {0} ;
-	if( SnapshotRequested )
-	{
-		static int snap_counter = 0 ;
-		sprintf( snap_pending_name, "snapshot_%04d.lba2snap", snap_counter++ ) ;
-		Snapshot_CaptureScene( snap_pending_name ) ;
-		SnapshotRequested = 0 ;
-	}
-	else
-	{
-		snap_pending_name[0] = 0 ;
-	}
-#endif
-
 #ifdef ENABLE_POLY_RECORDING
 	// Polygon call recording (Alt+F9) — start recording before rendering
 	static char polyrec_pending_name[256] = {0} ;
@@ -6838,16 +6819,6 @@ startaffscene:
 				break ;
 		}
 	}
-
-#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-	// Scene snapshot capture — Phase 2: capture the full game framebuffer
-	// (background + 3D objects + effects) as a visual reference.
-	// NOTE: This is CPP-rendered, so it's a reference, not ground truth.
-	if( snap_pending_name[0] )
-	{
-		Snapshot_CaptureGameFramebuffer( snap_pending_name ) ;
-	}
-#endif
 
 #ifdef ENABLE_POLY_RECORDING
 	// Polygon call recording — stop recording and write file

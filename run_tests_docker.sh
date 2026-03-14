@@ -119,29 +119,30 @@ docker run --rm \
         cmake --build build -j$(nproc)
 
         if [ "${RENDER_MODE}" = "true" ]; then
-            echo "--- building replay programs ---"
-            cmake --build build -j$(nproc) --target replay_snapshot_asm --target replay_snapshot_cpp
-            echo "--- rendering snapshots ---"
+            echo "--- building polyrec replay programs ---"
+            cmake --build build -j$(nproc) --target replay_polyrec_asm --target replay_polyrec_cpp
+            echo "--- rendering polygon recordings ---"
             cd build/tests/SNAPSHOT
-            for snap in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2snap; do
-                [ -f "$snap" ] || continue
-                echo "Rendering: $(basename "$snap")"
-                bash /tmp/lba2/tests/SNAPSHOT/render_snapshots.sh "$snap" \
-                    ./replay_snapshot_asm ./replay_snapshot_cpp || true
+            for rec in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2polyrec; do
+                [ -f "$rec" ] || continue
+                echo "Rendering: $(basename "$rec")"
+                bash /tmp/lba2/tests/SNAPSHOT/render_polyrec.sh "$rec" \
+                    /tmp/lba2/tests/SNAPSHOT/fixtures \
+                    ./replay_polyrec_asm ./replay_polyrec_cpp || true
             done
             echo "--- copying rendered files to host ---"
             cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.raw ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
             cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.ppm ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
         elif [ "${BISECT_MODE}" = "true" ]; then
-            echo "--- building replay programs ---"
-            cmake --build build -j$(nproc) --target replay_snapshot_asm --target replay_snapshot_cpp
-            echo "--- bisecting objects ---"
+            echo "--- building polyrec replay programs ---"
+            cmake --build build -j$(nproc) --target replay_polyrec_asm --target replay_polyrec_cpp
+            echo "--- bisecting polygon calls ---"
             cd build/tests/SNAPSHOT
-            for snap in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2snap; do
-                [ -f "$snap" ] || continue
-                echo "Bisecting: $(basename "$snap")"
-                bash /tmp/lba2/tests/SNAPSHOT/bisect_objects.sh "$snap" \
-                    ./replay_snapshot_asm ./replay_snapshot_cpp 20
+            for rec in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2polyrec; do
+                [ -f "$rec" ] || continue
+                echo "Bisecting: $(basename "$rec")"
+                bash /tmp/lba2/tests/SNAPSHOT/bisect_polyrec.sh "$rec" \
+                    ./replay_polyrec_asm ./replay_polyrec_cpp
             done
         else
             echo "--- ctest ---"

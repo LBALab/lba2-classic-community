@@ -221,15 +221,6 @@ S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           U32 mapIndex = (V_int << 8) | U_int;
           mapIndex &= POLYTZF_RepMaskPatch;
           U8 texel = POLYTZF_PtrMapPatch[mapIndex];
-#ifdef SNAPSHOT_DEBUG_PIXEL
-          if (line == (U8*)Log + SNAPSHOT_DEBUG_PIXEL) {
-              extern void (*snapshot_debug_pixel_fn)(U32, U8, U32, U32, S32, S32, S32, S32, S32, S32);
-              if (snapshot_debug_pixel_fn)
-                  snapshot_debug_pixel_fn(fogRow, texel, mapIndex, uvCur,
-                      Fill_CurZBuf, Fill_Cur_W, Fill_Cur_MapU, Fill_Cur_MapV,
-                      Fill_Next_MapU, Fill_Next_MapV);
-          }
-#endif
           *line++ = POLYTZF_PtrCLUT[fogRow + texel];
           uvCur += uvInc;
         }

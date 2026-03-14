@@ -160,70 +160,12 @@ add_custom_command(
 )
 add_custom_target(asm_lib386 ALL DEPENDS ${ASM_LIB386})
 
-# ── Shared replay source files ──────────────────────────────────────────────
-set(REPLAY_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/snapshot_replay.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/replay_snapshot_main.cpp
-)
-
+# ── Shared replay includes ──────────────────────────────────────────────────
 set(REPLAY_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/LIB386/H
     ${CMAKE_SOURCE_DIR}/tests
 )
-
-# ── replay_snapshot_cpp — links CPP implementations ─────────────────────────
-add_executable(replay_snapshot_cpp ${REPLAY_SOURCES}
-    ${CMAKE_SOURCE_DIR}/LIB386/SNAPSHOT/SNAPSHOT.CPP
-)
-target_include_directories(replay_snapshot_cpp PRIVATE ${REPLAY_INCLUDES})
-target_link_libraries(replay_snapshot_cpp PRIVATE
-    3D obj poly svg ani sys m
-)
-target_compile_definitions(replay_snapshot_cpp PRIVATE
-    "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
-)
-set_target_properties(replay_snapshot_cpp PROPERTIES
-    POSITION_INDEPENDENT_CODE OFF
-)
-target_link_options(replay_snapshot_cpp PRIVATE -no-pie)
-
-# ── replay_snapshot_asm — links ASM implementations ─────────────────────────
-# The ASM library provides function implementations (rendering, math, etc.).
-# We link the CPP libraries too for globals and initialization functions
-# (Switch_Fillers, SetScreenPitch, etc.). --allow-multiple-definition lets
-# the ASM implementations override the CPP ones for functions defined in both.
-add_executable(replay_snapshot_asm ${REPLAY_SOURCES}
-    ${CMAKE_SOURCE_DIR}/LIB386/SNAPSHOT/SNAPSHOT.CPP
-)
-target_include_directories(replay_snapshot_asm PRIVATE ${REPLAY_INCLUDES})
-target_link_libraries(replay_snapshot_asm PRIVATE
-    ${ASM_LIB386} 3D obj poly svg ani sys m
-)
-add_dependencies(replay_snapshot_asm asm_lib386)
-target_compile_definitions(replay_snapshot_asm PRIVATE
-    "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
-)
-set_target_properties(replay_snapshot_asm PROPERTIES
-    POSITION_INDEPENDENT_CODE OFF
-)
-target_link_options(replay_snapshot_asm PRIVATE -no-pie -Wl,--allow-multiple-definition)
-
-# ── Register comparison tests for each fixture ──────────────────────────────
-set(COMPARE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/compare_snapshots.sh")
-
-file(GLOB SNAPSHOT_FIXTURES "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/*.lba2snap")
-message(STATUS "SNAPSHOT: Found ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/*.lba2snap -> ${SNAPSHOT_FIXTURES}")
-foreach(_fixture ${SNAPSHOT_FIXTURES})
-    get_filename_component(_fixture_name ${_fixture} NAME_WE)
-    add_test(
-        NAME test_snapshot_${_fixture_name}
-        COMMAND bash ${COMPARE_SCRIPT}
-                ${_fixture}
-                $<TARGET_FILE:replay_snapshot_asm>
-                $<TARGET_FILE:replay_snapshot_cpp>
-    )
-endforeach()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # POLYGON RECORDING REPLAY
