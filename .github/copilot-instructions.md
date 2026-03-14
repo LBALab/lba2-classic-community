@@ -32,10 +32,10 @@ embeds the same x86 instructions.
 
 Common pitfalls and their correct fixes:
 - **x87 FPU precision**: The ASM uses 80-bit extended precision (`fild`,
-  `fdivr`, `fmul`, `fistp`).  Use `long double` and compiler flags
-  (`-mfpmath=387 -ffloat-store`) to match, or use `volatile long double`
+  `fdivr`, `fmul`, `fistp`).  Use `long double` to match, or use `volatile long double`
   intermediates to prevent reordering.  If that is not enough, split the
-  computation into explicit steps with `volatile` stores.
+  computation into explicit steps with `volatile` stores. DO NOT use compiler flags
+  (`-mfpmath=387 -ffloat-store`) since we want code that is portable across different platforms and compilers.
 - **Signed 32×32→64 multiply with bit extraction**: The ASM pattern
   `imul reg / shl edx,16 / shr eax,16 / or edx,eax` extracts bits
   [16..47].  In C: `(S32)(((U32)hi << 16) | ((U32)lo >> 16))` where
