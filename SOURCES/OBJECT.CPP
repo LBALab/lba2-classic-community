@@ -6325,7 +6325,7 @@ startaffscene:
 //----------------------------------------------------------------------------
 
 #ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-	// Scene snapshot capture (Ctrl+F9) — Phase 1: capture scene state
+	// Scene snapshot capture (Alt+F9) — Phase 1: capture scene state
 	static char snap_pending_name[256] = {0} ;
 	if( SnapshotRequested )
 	{

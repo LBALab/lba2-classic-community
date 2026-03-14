@@ -78,21 +78,21 @@ Structured binary with section headers:
 |------|--------|
 | `SOURCES/GLOBAL.CPP` | Added `S32 SnapshotRequested = 0;` global |
 | `SOURCES/C_EXTERN.H` | Added `extern S32 SnapshotRequested;` |
-| `SOURCES/PERSO.CPP` | Added **Ctrl+F9** key check (after `#endif // debug tools`) |
+| `SOURCES/PERSO.CPP` | Added **Alt+F9** key check (after `#endif // debug tools`) |
 | `SOURCES/OBJECT.CPP` | Added `#include "SNAPSHOT_CAPTURE.H"` and capture call in `AffScene()` |
 | `SOURCES/CMakeLists.txt` | Added `SNAPSHOT_CAPTURE.CPP` to sources; linked `snapshot` library |
 | `LIB386/CMakeLists.txt` | Added `add_subdirectory(SNAPSHOT)` |
 
 ### How It Works
 
-1. During gameplay, press **Ctrl+F9**
+1. During gameplay, press **Alt+F9**
 2. `SnapshotRequested` flag is set to 1
 3. At the start of `AffScene()` (before rendering), the flag is checked
 4. `Snapshot_CaptureScene("snapshot_NNNN.lba2snap")` writes the file
 5. Counter auto-increments: `snapshot_0000.lba2snap`, `snapshot_0001.lba2snap`, ...
 
 **Note:** The trigger uses `Key` (raw SDL scancode) + `SDL_GetModState()` for modifier
-detection, matching the pattern used by `CheckSavePcx()` (F9 screenshot). Ctrl+F9
+detection, matching the pattern used by `CheckSavePcx()` (F9 screenshot). Alt+F9
 avoids conflict with the existing F9 PCX screenshot feature.
 
 ---

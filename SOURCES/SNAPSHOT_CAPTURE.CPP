@@ -152,8 +152,10 @@ int Snapshot_CaptureScene(const char *filename) {
 
     /* ── RGB_PALETTE ── */
     {
+        /* Use PtrPalCurrent (active scene palette) if available, else PalettePcx */
+        U8 *active_pal = PtrPalCurrent ? PtrPalCurrent : PalettePcx;
         if (write_section_header(f, SNAP_SECTION_RGB_PALETTE, SNAPSHOT_RGB_PALETTE_SIZE) != 0) goto fail;
-        if (write_bytes(f, PalettePcx, SNAPSHOT_RGB_PALETTE_SIZE) != 0) goto fail;
+        if (write_bytes(f, active_pal, SNAPSHOT_RGB_PALETTE_SIZE) != 0) goto fail;
     }
 
     /* ── CLUT_GOURAUD ── */

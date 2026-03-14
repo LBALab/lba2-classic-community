@@ -753,8 +753,8 @@ startloop:
 #endif  // debug tools
 
 #ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-                // Scene snapshot capture (Ctrl+F9)
-                if( Key == K_F9 && (SDL_GetModState() & SDL_KMOD_CTRL) )
+                // Scene snapshot capture (Alt+F9)
+                if( Key == K_F9 && (SDL_GetModState() & SDL_KMOD_ALT) )
                 {
                         SnapshotRequested = 1 ;
                         while( Key )  MyGetInput() ;
