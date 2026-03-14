@@ -322,6 +322,7 @@ extern  S32    		StartZCube ;
 extern	T_INV_OBJ	TabInv[]     ;
 extern	T_DART		ListDart[] ;
 extern  S32    		NbObjets ;
+extern  S32    		SnapshotRequested ;
 extern  T_OBJET 	ListObjet[] ;
 extern  T_EXTRA 	ListExtra[] ;
 extern  S32    		NbZones ;

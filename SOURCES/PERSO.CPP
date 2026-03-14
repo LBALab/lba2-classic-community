@@ -7,6 +7,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SDL3/SDL_keyboard.h>
 #include <SYSTEM/STRING.H>
 
 #include <SDL3/SDL.h>
@@ -748,6 +749,13 @@ startloop:
                         RestoreTimer() ;
                 }
 #endif  // debug tools
+
+                // Scene snapshot capture (Ctrl+F9)
+                if( Key == K_F9 && (SDL_GetModState() & SDL_KMOD_CTRL) )
+                {
+                        SnapshotRequested = 1 ;
+                        while( Key )  MyGetInput() ;
+                }
 
                 CheckSavePcx() ;// F9: Sauve Screen
 

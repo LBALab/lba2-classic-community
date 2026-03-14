@@ -11,4 +11,4 @@ add_subdirectory(ANIM)
 add_subdirectory(SVGA)
 add_subdirectory(pol_work)
 add_subdirectory(OBJECT)
-# add_subdirectory(SNAPSHOT)  # not yet ready for CI
+add_subdirectory(SNAPSHOT)

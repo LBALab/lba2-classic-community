@@ -1,6 +1,7 @@
 #include 	"C_EXTERN.H"
 
 #include "INPUT.H"
+#include "SNAPSHOT_CAPTURE.H"
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -6320,6 +6321,16 @@ startaffscene:
 /*------------------------------------------------------------------------*/
 //				 boucle aff all objs
 //----------------------------------------------------------------------------
+
+	// Scene snapshot capture (PrintScreen key)
+	if( SnapshotRequested )
+	{
+		static int snap_counter = 0 ;
+		char snap_name[256] ;
+		sprintf( snap_name, "snapshot_%04d.lba2snap", snap_counter++ ) ;
+		Snapshot_CaptureScene( snap_name ) ;
+		SnapshotRequested = 0 ;
+	}
 
 	// Init Textures
 	PtrMap = ObjPtrMap = BufferTexture ;

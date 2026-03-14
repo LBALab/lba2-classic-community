@@ -8,6 +8,7 @@ add_subdirectory(OBJECT)
 add_subdirectory(pol_work)
 add_subdirectory(SVGA)
 add_subdirectory(SYSTEM)
+add_subdirectory(SNAPSHOT)
 
 if(MVIDEO_BACKEND STREQUAL "smacker")
   add_subdirectory(libsmacker)

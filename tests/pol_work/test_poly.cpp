@@ -1287,14 +1287,25 @@ static void test_asm_fill_polyclip_texz_trace(void)
     pts[2] = make_texz_point(53,  37,  0,      32767, 531686,  7,     14829);
     pts[3] = make_texz_point(120, 110, 27602,  32767, 1431178, 25656, 5509);
 
-    /* CPP path: full pipeline */
+    /* CPP path: full pipeline with debug recording */
     setup_texz_fogzbuf();
     Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    g_poly_debug_enabled = 1;
+    g_poly_debug_call_count = 0;
     Fill_Poly(POLY_TEXTURE_Z_FOG, 0, 4, pts);
+    g_poly_debug_enabled = 0;
     memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
     memcpy(poly_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
 
     int cpp_nz = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
+
+    /* Print CPP filler calls */
+    printf("# CPP filler calls: %u\n", g_poly_debug_call_count);
+    for (U32 i = 0; i < g_poly_debug_call_count; i++) {
+        PolyDebugFillerCall *c = &g_poly_debug_calls[i];
+        printf("#   [%u] dY=%u curY=%u xmin=0x%08x xmax=0x%08x lslope=%d rslope=%d\n",
+               i, c->diffY, c->curY, c->xmin, c->xmax, c->leftSlope, c->rightSlope);
+    }
 
     /* ASM path: replicate Fill_PolyFast + Jmp_TextureZFogSmoothZBuf */
     setup_texz_fogzbuf();

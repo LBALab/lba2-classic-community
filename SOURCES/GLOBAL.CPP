@@ -287,6 +287,7 @@ S32		StartYCube = 0	;
 S32		StartZCube = 0	;
 T_DART		ListDart[MAX_DARTS] ;
 S32		NbObjets = 0 ;
+S32		SnapshotRequested = 0 ;
 T_OBJET		ListObjet[MAX_OBJETS] ;
 T_EXTRA		ListExtra[MAX_EXTRAS] ;
 S32		NbZones = 0 ;
