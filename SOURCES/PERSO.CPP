@@ -752,8 +752,8 @@ startloop:
                 }
 #endif  // debug tools
 
-#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-                // Scene snapshot capture (Alt+F9)
+#if defined(ENABLE_SNAPSHOT_TEST_CAPTURE) || defined(ENABLE_POLY_RECORDING)
+                // Scene snapshot / polygon recording capture (Alt+F9)
                 if( Key == K_F9 && (SDL_GetModState() & SDL_KMOD_ALT) )
                 {
                         SnapshotRequested = 1 ;
