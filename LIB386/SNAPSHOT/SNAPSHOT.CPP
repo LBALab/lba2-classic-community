@@ -158,6 +158,13 @@ int Snapshot_Load(const char *filename, T_SCENE_SNAPSHOT *out) {
             if (read_bytes(f, out->logical_palette, SNAPSHOT_PALETTE_SIZE) != 0) goto fail;
             break;
 
+        case SNAP_SECTION_RGB_PALETTE:
+            if (sec_hdr.size >= SNAPSHOT_RGB_PALETTE_SIZE) {
+                if (read_bytes(f, out->rgb_palette, SNAPSHOT_RGB_PALETTE_SIZE) != 0) goto fail;
+                out->has_rgb_palette = 1;
+            }
+            break;
+
         case SNAP_SECTION_CLUT_GOURAUD:
             if (sec_hdr.size > 0) {
                 out->clut_gouraud = (U8 *)malloc(sec_hdr.size);

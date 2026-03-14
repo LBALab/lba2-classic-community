@@ -15,12 +15,15 @@ extern "C" {
 /**
  * Load a snapshot, apply all rendering globals, allocate framebuffer + Z-buffer,
  * render all objects, and write the raw framebuffer to output_file.
+ * If ppm_file is non-NULL and the snapshot has an RGB palette, also write a PPM image.
  *
  * @param snapshot_file  Path to .lba2snap file
  * @param output_file    Path to write raw framebuffer output
+ * @param ppm_file       Path to write PPM image (NULL to skip)
  * @return 0 on success, non-zero on failure
  */
-int snapshot_replay_run(const char *snapshot_file, const char *output_file);
+int snapshot_replay_run(const char *snapshot_file, const char *output_file,
+                        const char *ppm_file);
 
 #ifdef __cplusplus
 }

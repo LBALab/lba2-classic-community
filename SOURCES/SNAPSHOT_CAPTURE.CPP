@@ -128,7 +128,7 @@ int Snapshot_CaptureScene(const char *filename) {
     /* ── File header ── */
     memcpy(file_hdr.magic, SNAPSHOT_MAGIC, SNAPSHOT_MAGIC_SIZE);
     file_hdr.version = SNAPSHOT_VERSION;
-    file_hdr.num_sections = 9;
+    file_hdr.num_sections = 10;
     if (write_bytes(f, &file_hdr, sizeof(file_hdr)) != 0) goto fail;
 
     /* ── SHARED_STATE ── */
@@ -148,6 +148,12 @@ int Snapshot_CaptureScene(const char *filename) {
             if (write_bytes(f, zeros, sizeof(zeros)) != 0) goto fail;
         }
         if (write_bytes(f, Fill_Logical_Palette, SNAPSHOT_PALETTE_SIZE) != 0) goto fail;
+    }
+
+    /* ── RGB_PALETTE ── */
+    {
+        if (write_section_header(f, SNAP_SECTION_RGB_PALETTE, SNAPSHOT_RGB_PALETTE_SIZE) != 0) goto fail;
+        if (write_bytes(f, PalettePcx, SNAPSHOT_RGB_PALETTE_SIZE) != 0) goto fail;
     }
 
     /* ── CLUT_GOURAUD ── */

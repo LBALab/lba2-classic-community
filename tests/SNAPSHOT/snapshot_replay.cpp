@@ -138,8 +138,35 @@ static void render_object(const T_SCENE_SNAPSHOT *snap, U32 obj_idx) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  MAIN REPLAY ENTRY POINT                                                   */
 /* ═══════════════════════════════════════════════════════════════════════════ */
+/*  PPM OUTPUT                                                                */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-int snapshot_replay_run(const char *snapshot_file, const char *output_file) {
+static int write_ppm(const char *path, const U8 *fb, U32 w, U32 h,
+                     const U8 *rgb_palette) {
+    FILE *f = fopen(path, "wb");
+    U32 i, npix;
+    if (!f) {
+        fprintf(stderr, "ERROR: Failed to open PPM output '%s'\n", path);
+        return -1;
+    }
+    fprintf(f, "P6\n%u %u\n255\n", w, h);
+    npix = w * h;
+    for (i = 0; i < npix; i++) {
+        U8 idx = fb[i];
+        fputc(rgb_palette[idx * 3 + 0], f);  /* R */
+        fputc(rgb_palette[idx * 3 + 1], f);  /* G */
+        fputc(rgb_palette[idx * 3 + 2], f);  /* B */
+    }
+    fclose(f);
+    return 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  MAIN REPLAY ENTRY POINT                                                   */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+int snapshot_replay_run(const char *snapshot_file, const char *output_file,
+                        const char *ppm_file) {
     T_SCENE_SNAPSHOT snap;
     FILE *f;
     U32 i;
@@ -185,7 +212,7 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file) {
         }
     }
 
-    /* Write framebuffer to output file */
+    /* Write raw framebuffer to output file */
     f = fopen(output_file, "wb");
     if (!f) {
         fprintf(stderr, "ERROR: Failed to open output file '%s'\n", output_file);
@@ -195,6 +222,17 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file) {
     }
     fwrite(framebuffer, 1, fb_size, f);
     fclose(f);
+
+    /* Write PPM image if requested and palette is available */
+    if (ppm_file) {
+        if (snap.has_rgb_palette) {
+            write_ppm(ppm_file, framebuffer,
+                      snap.shared.ModeDesiredX, snap.shared.ModeDesiredY,
+                      snap.rgb_palette);
+        } else {
+            fprintf(stderr, "WARNING: Snapshot has no RGB palette, skipping PPM output\n");
+        }
+    }
 
     /* Cleanup */
     free_buffers();

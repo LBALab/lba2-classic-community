@@ -20,6 +20,7 @@ mkdir -p "${LOG_DIR}"
 PRESET="linux_test"
 BUILD_ONLY=false
 FORCE_REBUILD=false
+RENDER_MODE=false
 TEST_NAMES=()
 
 for arg in "$@"; do
@@ -29,6 +30,9 @@ for arg in "$@"; do
             ;;
         --rebuild)
             FORCE_REBUILD=true
+            ;;
+        --render)
+            RENDER_MODE=true
             ;;
         *)
             TEST_NAMES+=("$arg")
@@ -71,14 +75,22 @@ fi
 # ── Run tests ─────────────────────────────────────────────────────────────────
 TEST_LOG="${LOG_DIR}/test_run_$(date +%Y%m%d_%H%M%S).log"
 echo "==> Running tests (preset: ${PRESET}) …"
+# For render mode, we need read-write access to copy output files back
+if [ "${RENDER_MODE}" = "true" ]; then
+    MOUNT_OPTS="${SCRIPT_DIR}:${CONTAINER_SRC}"
+else
+    MOUNT_OPTS="${SCRIPT_DIR}:${CONTAINER_SRC}:ro"
+fi
+
 echo "    Test log: ${TEST_LOG}"
 docker run --rm \
     --platform linux/amd64 \
-    -v "${SCRIPT_DIR}:${CONTAINER_SRC}:ro" \
+    -v "${MOUNT_OPTS}" \
     -w "${CONTAINER_SRC}" \
     -e "CTEST_REGEX=${CTEST_REGEX}" \
     -e "CONTAINER_SRC=${CONTAINER_SRC}" \
     -e "PRESET=${PRESET}" \
+    -e "RENDER_MODE=${RENDER_MODE}" \
     "${IMAGE_NAME}" \
     bash -c '
         set -e
@@ -101,11 +113,25 @@ docker run --rm \
         echo "--- cmake build ---"
         cmake --build build -j$(nproc)
 
-        echo "--- ctest ---"
-        if [ -n "${CTEST_REGEX}" ]; then
-            ctest --test-dir build --output-on-failure -R "${CTEST_REGEX}"
+        if [ "${RENDER_MODE}" = "true" ]; then
+            echo "--- rendering snapshots ---"
+            cd build/tests/SNAPSHOT
+            for snap in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2snap; do
+                [ -f "$snap" ] || continue
+                echo "Rendering: $(basename "$snap")"
+                bash /tmp/lba2/tests/SNAPSHOT/render_snapshots.sh "$snap" \
+                    ./replay_snapshot_asm ./replay_snapshot_cpp || true
+            done
+            echo "--- copying rendered files to host ---"
+            cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.raw ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
+            cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.ppm ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
         else
-            ctest --test-dir build --output-on-failure
+            echo "--- ctest ---"
+            if [ -n "${CTEST_REGEX}" ]; then
+                ctest --test-dir build --output-on-failure -R "${CTEST_REGEX}"
+            else
+                ctest --test-dir build --output-on-failure
+            fi
         fi
     ' 2>&1 | tee "${TEST_LOG}"
 

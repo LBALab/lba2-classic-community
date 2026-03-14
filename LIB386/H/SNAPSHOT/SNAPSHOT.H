@@ -35,7 +35,10 @@ extern "C" {
 #define SNAP_SECTION_TEXTURE_DATA   0x54455854  /* "TEXT" */
 #define SNAP_SECTION_TABOFFLINE     0x544F4C4E  /* "TOLN" */
 #define SNAP_SECTION_SORT_ORDER     0x534F5254  /* "SORT" */
+#define SNAP_SECTION_RGB_PALETTE    0x52474250  /* "RGBP" */
 #define SNAP_SECTION_END            0x454E4421  /* "END!" */
+
+#define SNAPSHOT_RGB_PALETTE_SIZE 768  /* 256 entries × 3 bytes (R,G,B) */
 
 #define SNAPSHOT_MAX_OBJECTS    200
 #define SNAPSHOT_MAX_BODIES     100
@@ -229,6 +232,8 @@ typedef struct {
     /* Palette */
     U8  palette[SNAPSHOT_PALETTE_SIZE];
     U8  logical_palette[SNAPSHOT_PALETTE_SIZE];
+    U8  rgb_palette[SNAPSHOT_RGB_PALETTE_SIZE];  /* 256 RGB triplets */
+    U8  has_rgb_palette;                          /* 1 if rgb_palette is valid */
 
     /* CLUTs (allocated dynamically) */
     U8  *clut_gouraud;    /* SNAPSHOT_CLUT_SIZE bytes if non-NULL */

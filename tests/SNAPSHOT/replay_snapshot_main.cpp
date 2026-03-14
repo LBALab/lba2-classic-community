@@ -5,19 +5,31 @@
  *   - replay_snapshot_asm  (linked against ASM library)
  *   - replay_snapshot_cpp  (linked against CPP library)
  *
- * Usage: replay_snapshot_asm <snapshot.lba2snap> <output.raw>
- *        replay_snapshot_cpp <snapshot.lba2snap> <output.raw>
+ * Usage: replay_snapshot_asm <snapshot.lba2snap> <output.raw> [--ppm output.ppm]
+ *        replay_snapshot_cpp <snapshot.lba2snap> <output.raw> [--ppm output.ppm]
  */
 
 #include "snapshot_replay.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <snapshot.lba2snap> <output.raw>\n", argv[0]);
+    const char *ppm_file = NULL;
+    int i;
+
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <snapshot.lba2snap> <output.raw> [--ppm output.ppm]\n", argv[0]);
         return 1;
     }
 
-    return snapshot_replay_run(argv[1], argv[2]);
+    /* Parse optional --ppm argument */
+    for (i = 3; i < argc - 1; i++) {
+        if (strcmp(argv[i], "--ppm") == 0) {
+            ppm_file = argv[i + 1];
+            break;
+        }
+    }
+
+    return snapshot_replay_run(argv[1], argv[2], ppm_file);
 }
