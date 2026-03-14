@@ -137,10 +137,7 @@ static void render_object(const T_SCENE_SNAPSHOT *snap, U32 obj_idx) {
         /* Disable TransFctBody — body pointer is already resolved */
         TransFctBody = NULL;
 
-        /* Try BodyDisplay for more reliable rendering without animation deps */
-        BodyDisplay(obj->X, obj->Y, obj->Z,
-                    obj->Alpha, obj->Beta, obj->Gamma,
-                    body_ptr);
+        ObjectDisplay(&obj3d);
     } else {
         /* BodyDisplay: static body at given position/rotation */
         BodyDisplay(obj->X, obj->Y, obj->Z,
