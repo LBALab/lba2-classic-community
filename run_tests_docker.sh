@@ -114,6 +114,8 @@ docker run --rm \
         cmake --build build -j$(nproc)
 
         if [ "${RENDER_MODE}" = "true" ]; then
+            echo "--- building replay programs ---"
+            cmake --build build -j$(nproc) --target replay_snapshot_asm --target replay_snapshot_cpp
             echo "--- rendering snapshots ---"
             cd build/tests/SNAPSHOT
             for snap in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2snap; do

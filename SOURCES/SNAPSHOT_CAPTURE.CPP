@@ -349,3 +349,61 @@ fail:
     fclose(f);
     return -1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  Snapshot_CaptureGameFramebuffer — append game framebuffer to snapshot      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+int Snapshot_CaptureGameFramebuffer(const char *filename) {
+    FILE *f;
+    U32 fb_size;
+    long end_marker_pos;
+
+    if (!Log || ModeDesiredX == 0 || ModeDesiredY == 0) return -1;
+
+    fb_size = ModeDesiredX * ModeDesiredY;
+
+    /* Open file for read+write, seek to overwrite the END section */
+    f = fopen(filename, "r+b");
+    if (!f) return -1;
+
+    /* The END marker is 8 bytes (section header with size=0) at the end of file.
+     * Seek to -8 from end to overwrite it. */
+    if (fseek(f, -8L, SEEK_END) != 0) { fclose(f); return -1; }
+    end_marker_pos = ftell(f);
+
+    /* Verify we're at the END marker */
+    {
+        T_SNAPSHOT_SECTION_HEADER check;
+        if (fread(&check, sizeof(check), 1, f) != 1 ||
+            check.type != SNAP_SECTION_END) {
+            fclose(f);
+            return -1;
+        }
+        fseek(f, end_marker_pos, SEEK_SET);
+    }
+
+    /* Write GAME_FRAMEBUF section */
+    if (write_section_header(f, SNAP_SECTION_GAME_FRAMEBUF, fb_size) != 0) goto fail;
+    if (write_bytes(f, Log, fb_size) != 0) goto fail;
+
+    /* Write new END marker */
+    if (write_section_header(f, SNAP_SECTION_END, 0) != 0) goto fail;
+
+    /* Update section count in file header */
+    {
+        U32 old_count;
+        fseek(f, 12, SEEK_SET); /* offset of num_sections in file header */
+        if (fread(&old_count, sizeof(old_count), 1, f) != 1) goto fail;
+        old_count++;
+        fseek(f, 12, SEEK_SET);
+        if (fwrite(&old_count, sizeof(old_count), 1, f) != 1) goto fail;
+    }
+
+    fclose(f);
+    return 0;
+
+fail:
+    fclose(f);
+    return -1;
+}

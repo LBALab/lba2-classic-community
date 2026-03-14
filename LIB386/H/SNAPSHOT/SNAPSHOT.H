@@ -36,6 +36,7 @@ extern "C" {
 #define SNAP_SECTION_TABOFFLINE     0x544F4C4E  /* "TOLN" */
 #define SNAP_SECTION_SORT_ORDER     0x534F5254  /* "SORT" */
 #define SNAP_SECTION_RGB_PALETTE    0x52474250  /* "RGBP" */
+#define SNAP_SECTION_GAME_FRAMEBUF  0x47414D46  /* "GAMF" */
 #define SNAP_SECTION_END            0x454E4421  /* "END!" */
 
 #define SNAPSHOT_RGB_PALETTE_SIZE 768  /* 256 entries × 3 bytes (R,G,B) */
@@ -266,6 +267,10 @@ typedef struct {
     U32 num_anim_blobs;
     U32 anim_blob_sizes[SNAPSHOT_MAX_OBJECTS * 2]; /* last + next per object */
     U8  *anim_blob_data[SNAPSHOT_MAX_OBJECTS * 2];
+
+    /* Game framebuffer reference image (captured AFTER rendering completes) */
+    U32 game_fb_size;       /* 0 if not captured */
+    U8  *game_framebuffer;  /* Allocated: game_fb_size bytes */
 } T_SCENE_SNAPSHOT;
 
 /* ═══════════════════════════════════════════════════════════════════════════ */

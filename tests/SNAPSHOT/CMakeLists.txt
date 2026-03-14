@@ -189,16 +189,17 @@ set_target_properties(replay_snapshot_cpp PROPERTIES
 target_link_options(replay_snapshot_cpp PRIVATE -no-pie)
 
 # ── replay_snapshot_asm — links ASM implementations ─────────────────────────
-# The ASM library provides function implementations. Global variables that ASM
-# functions reference (CameraX, Log, PtrZBuffer, etc.) are defined in a minimal
-# stub file to avoid pulling in full CPP source files with their SDL dependencies.
+# The ASM library provides function implementations (rendering, math, etc.).
+# We link the CPP libraries too for globals and initialization functions
+# (Switch_Fillers, SetScreenPitch, etc.). --allow-multiple-definition lets
+# the ASM implementations override the CPP ones for functions defined in both.
 add_executable(replay_snapshot_asm ${REPLAY_SOURCES}
     ${CMAKE_SOURCE_DIR}/LIB386/SNAPSHOT/SNAPSHOT.CPP
-    ${CMAKE_CURRENT_SOURCE_DIR}/snapshot_globals_stub.cpp
 )
 target_include_directories(replay_snapshot_asm PRIVATE ${REPLAY_INCLUDES})
-# Link the full ASM library instead of CPP libraries
-target_link_libraries(replay_snapshot_asm PRIVATE ${ASM_LIB386} m)
+target_link_libraries(replay_snapshot_asm PRIVATE
+    ${ASM_LIB386} 3D obj poly svg ani sys m
+)
 add_dependencies(replay_snapshot_asm asm_lib386)
 target_compile_definitions(replay_snapshot_asm PRIVATE
     "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""

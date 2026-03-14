@@ -247,6 +247,15 @@ int Snapshot_Load(const char *filename, T_SCENE_SNAPSHOT *out) {
             break;
         }
 
+        case SNAP_SECTION_GAME_FRAMEBUF:
+            if (sec_hdr.size > 0) {
+                out->game_fb_size = sec_hdr.size;
+                out->game_framebuffer = (U8 *)malloc(sec_hdr.size);
+                if (!out->game_framebuffer) goto fail;
+                if (read_bytes(f, out->game_framebuffer, sec_hdr.size) != 0) goto fail;
+            }
+            break;
+
         case SNAP_SECTION_END:
             done = 1;
             break;
@@ -389,6 +398,7 @@ void Snapshot_Free(T_SCENE_SNAPSHOT *snap) {
 
     if (snap->taboffline) { free(snap->taboffline); snap->taboffline = NULL; }
     if (snap->sort_order) { free(snap->sort_order); snap->sort_order = NULL; }
+    if (snap->game_framebuffer) { free(snap->game_framebuffer); snap->game_framebuffer = NULL; }
 
     for (i = 0; i < snap->num_anim_blobs; i++) {
         if (snap->anim_blob_data[i]) { free(snap->anim_blob_data[i]); snap->anim_blob_data[i] = NULL; }

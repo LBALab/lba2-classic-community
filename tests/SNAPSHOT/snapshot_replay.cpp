@@ -38,13 +38,16 @@ static int allocate_buffers(U32 width, U32 height) {
     zb_size = width * height * sizeof(U16);
 
     framebuffer = (U8 *)calloc(1, fb_size);
-    zbuffer = (U16 *)calloc(1, zb_size);
+    zbuffer = (U16 *)malloc(zb_size);
 
     if (!framebuffer || !zbuffer) {
         fprintf(stderr, "ERROR: Failed to allocate framebuffer/zbuffer (%u x %u)\n",
                 width, height);
         return -1;
     }
+
+    /* Initialize Z-buffer to maximum (far plane) so new pixels pass Z-test */
+    memset(zbuffer, 0xFF, zb_size);
 
     /* Point the rendering engine at our buffers */
     Log = framebuffer;
@@ -70,7 +73,15 @@ static void render_object(const T_SCENE_SNAPSHOT *snap, U32 obj_idx) {
     if (obj->body_index < snap->num_bodies) {
         body_ptr = snap->body_data[obj->body_index];
     }
-    if (!body_ptr) return;
+    if (!body_ptr) {
+        fprintf(stderr, "  obj[%u]: SKIP (no body)\n", obj_idx);
+        return;
+    }
+
+    fprintf(stderr, "  obj[%u]: pos=(%d,%d,%d) rot=(%d,%d,%d) body_idx=%u body_size=%u type=%d\n",
+            obj_idx, obj->X, obj->Y, obj->Z,
+            obj->Alpha, obj->Beta, obj->Gamma,
+            obj->body_index, obj->body_data_size, obj->render_type);
 
     /* Set texture page */
     if (obj->texture_index < snap->num_textures) {
@@ -126,7 +137,10 @@ static void render_object(const T_SCENE_SNAPSHOT *snap, U32 obj_idx) {
         /* Disable TransFctBody — body pointer is already resolved */
         TransFctBody = NULL;
 
-        ObjectDisplay(&obj3d);
+        /* Try BodyDisplay for more reliable rendering without animation deps */
+        BodyDisplay(obj->X, obj->Y, obj->Z,
+                    obj->Alpha, obj->Beta, obj->Gamma,
+                    body_ptr);
     } else {
         /* BodyDisplay: static body at given position/rotation */
         BodyDisplay(obj->X, obj->Y, obj->Z,
@@ -166,7 +180,7 @@ static int write_ppm(const char *path, const U8 *fb, U32 w, U32 h,
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 int snapshot_replay_run(const char *snapshot_file, const char *output_file,
-                        const char *ppm_file) {
+                        const char *ppm_file, const char *ref_ppm_file) {
     T_SCENE_SNAPSHOT snap;
     FILE *f;
     U32 i;
@@ -177,16 +191,36 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file,
         return 1;
     }
 
-    /* Apply all rendering globals */
-    Snapshot_ApplyState(&snap);
+    fprintf(stderr, "INFO: Loaded snapshot: %ux%u, %u objects, %u bodies, %u textures\n",
+            snap.shared.ModeDesiredX, snap.shared.ModeDesiredY,
+            snap.num_objects, snap.num_bodies, snap.num_textures);
 
-    /* Allocate framebuffer and Z-buffer */
+    /* Allocate framebuffer and Z-buffer BEFORE applying state */
     if (allocate_buffers(snap.shared.ModeDesiredX, snap.shared.ModeDesiredY) != 0) {
         Snapshot_Free(&snap);
         return 1;
     }
 
-    /* Also allocate and set up CLUTs if they came from the snapshot */
+    /* Rebuild TabOffLine for our framebuffer instead of using the captured one.
+     * The captured values are offsets into the original game's framebuffer but
+     * should match (both are width*y) unless the game used a non-standard pitch. */
+    {
+        U32 y;
+        for (y = 0; y < snap.shared.ModeDesiredY && y < 1024; y++) {
+            TabOffLine[y] = y * snap.shared.ModeDesiredX;
+        }
+        PTR_TabOffLine = TabOffLine;
+        ScreenPitch = snap.shared.ModeDesiredX;
+    }
+
+    /* Apply all rendering globals from the snapshot */
+    Snapshot_ApplyState(&snap);
+
+    /* Re-set Log to OUR framebuffer (ApplyState doesn't touch Log) */
+    Log = framebuffer;
+    PtrZBuffer = zbuffer;
+
+    /* Set up CLUTs — point directly at snapshot data */
     if (snap.clut_gouraud) {
         PtrCLUTGouraud = snap.clut_gouraud;
     }
@@ -194,9 +228,24 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file,
         PtrCLUTFog = snap.clut_fog;
     }
 
-    /* Set up palette */
+    /* Set up palette mapping */
     PtrTruePal = snap.palette;
     memcpy(Fill_Logical_Palette, snap.logical_palette, SNAPSHOT_PALETTE_SIZE);
+
+    /* CRITICAL: Initialize the polygon fill dispatch table.
+     * Without this, the rendering engine doesn't know which fillers to use. */
+    Switch_Fillers(FILL_POLY_TEXTURES);
+
+    /* Set fog if fog flag is enabled */
+    if (snap.shared.Fill_Flag_Fog) {
+        SetFog(snap.shared.Fill_Z_Fog_Near, snap.shared.Fill_Z_Fog_Far);
+    }
+
+    fprintf(stderr, "INFO: Rendering %u objects (ZBuf=%u, Fog=%u, Pitch=%u)\n",
+            snap.num_objects,
+            snap.shared.Fill_Flag_ZBuffer,
+            snap.shared.Fill_Flag_Fog,
+            ScreenPitch);
 
     /* Render all objects in sort order (or sequential if no sort order captured) */
     if (snap.sort_order && snap.sort_order_count > 0) {
@@ -210,6 +259,16 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file,
         for (i = 0; i < snap.num_objects; i++) {
             render_object(&snap, i);
         }
+    }
+
+    /* Count non-zero pixels in framebuffer */
+    {
+        U32 nonzero = 0, total = fb_size;
+        for (i = 0; i < total; i++) {
+            if (framebuffer[i] != 0) nonzero++;
+        }
+        fprintf(stderr, "INFO: Framebuffer: %u/%u non-zero pixels (%.1f%%)\n",
+                nonzero, total, 100.0 * nonzero / total);
     }
 
     /* Write raw framebuffer to output file */
@@ -231,6 +290,18 @@ int snapshot_replay_run(const char *snapshot_file, const char *output_file,
                       snap.rgb_palette);
         } else {
             fprintf(stderr, "WARNING: Snapshot has no RGB palette, skipping PPM output\n");
+        }
+    }
+
+    /* Write game reference framebuffer if requested and available */
+    if (ref_ppm_file) {
+        if (snap.game_framebuffer && snap.game_fb_size > 0 && snap.has_rgb_palette) {
+            write_ppm(ref_ppm_file, snap.game_framebuffer,
+                      snap.shared.ModeDesiredX, snap.shared.ModeDesiredY,
+                      snap.rgb_palette);
+            fprintf(stderr, "INFO: Wrote game reference image (CPP-rendered): %s\n", ref_ppm_file);
+        } else {
+            fprintf(stderr, "WARNING: No game framebuffer in snapshot, skipping reference image\n");
         }
     }
 

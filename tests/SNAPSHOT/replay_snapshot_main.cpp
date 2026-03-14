@@ -5,8 +5,8 @@
  *   - replay_snapshot_asm  (linked against ASM library)
  *   - replay_snapshot_cpp  (linked against CPP library)
  *
- * Usage: replay_snapshot_asm <snapshot.lba2snap> <output.raw> [--ppm output.ppm]
- *        replay_snapshot_cpp <snapshot.lba2snap> <output.raw> [--ppm output.ppm]
+ * Usage: replay_snapshot_asm <snapshot.lba2snap> <output.raw> [--ppm output.ppm] [--ref-ppm ref.ppm]
+ *        replay_snapshot_cpp <snapshot.lba2snap> <output.raw> [--ppm output.ppm] [--ref-ppm ref.ppm]
  */
 
 #include "snapshot_replay.h"
@@ -16,20 +16,22 @@
 
 int main(int argc, char *argv[]) {
     const char *ppm_file = NULL;
+    const char *ref_ppm_file = NULL;
     int i;
 
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <snapshot.lba2snap> <output.raw> [--ppm output.ppm]\n", argv[0]);
+        fprintf(stderr, "Usage: %s <snapshot.lba2snap> <output.raw> [--ppm output.ppm] [--ref-ppm ref.ppm]\n", argv[0]);
         return 1;
     }
 
-    /* Parse optional --ppm argument */
+    /* Parse optional arguments */
     for (i = 3; i < argc - 1; i++) {
         if (strcmp(argv[i], "--ppm") == 0) {
             ppm_file = argv[i + 1];
-            break;
+        } else if (strcmp(argv[i], "--ref-ppm") == 0) {
+            ref_ppm_file = argv[i + 1];
         }
     }
 
-    return snapshot_replay_run(argv[1], argv[2], ppm_file);
+    return snapshot_replay_run(argv[1], argv[2], ppm_file, ref_ppm_file);
 }

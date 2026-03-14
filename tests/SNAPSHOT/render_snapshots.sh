@@ -31,8 +31,10 @@ ASM_RAW="${SNAP_DIR}/${SNAP_BASE}_asm.raw"
 CPP_RAW="${SNAP_DIR}/${SNAP_BASE}_cpp.raw"
 ASM_PPM="${SNAP_DIR}/${SNAP_BASE}_asm.ppm"
 CPP_PPM="${SNAP_DIR}/${SNAP_BASE}_cpp.ppm"
+REF_PPM="${SNAP_DIR}/${SNAP_BASE}_reference_cpp.ppm"
 ASM_PNG="${SNAP_DIR}/${SNAP_BASE}_asm.png"
 CPP_PNG="${SNAP_DIR}/${SNAP_BASE}_cpp.png"
+REF_PNG="${SNAP_DIR}/${SNAP_BASE}_reference_cpp.png"
 DIFF_PNG="${SNAP_DIR}/${SNAP_BASE}_diff.png"
 
 echo "=== Snapshot render ==="
@@ -40,11 +42,12 @@ echo "Snapshot: $SNAP"
 echo "Output:   ${SNAP_DIR}/${SNAP_BASE}_*.{raw,ppm,png}"
 echo ""
 
-# Run ASM replay
+# Run ASM replay (also extracts the game reference framebuffer if present)
 echo "Rendering ASM..."
-"$ASM_BIN" "$SNAP" "$ASM_RAW" --ppm "$ASM_PPM"
+"$ASM_BIN" "$SNAP" "$ASM_RAW" --ppm "$ASM_PPM" --ref-ppm "$REF_PPM"
 echo "  -> $ASM_RAW"
 echo "  -> $ASM_PPM"
+[ -f "$REF_PPM" ] && echo "  -> $REF_PPM (game reference, CPP-rendered)"
 
 # Run CPP replay
 echo "Rendering CPP..."
@@ -68,6 +71,9 @@ if [ -n "$CONVERT" ]; then
     fi
     if [ -f "$CPP_PPM" ]; then
         "$CONVERT" "$CPP_PPM" "$CPP_PNG" && echo "  -> $CPP_PNG"
+    fi
+    if [ -f "$REF_PPM" ]; then
+        "$CONVERT" "$REF_PPM" "$REF_PNG" && echo "  -> $REF_PNG (game reference)"
     fi
 
     # Generate visual diff if both PNGs exist
