@@ -21,6 +21,7 @@
 #include <SVGA/SCREEN.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 PTR_U8 GTEX_PtrLog = (PTR_U8)0x12345678;
 PTR_U8 GTEX_PtrCLUT = (PTR_U8)0x12345678;
@@ -44,6 +45,7 @@ U8 GTEX_IntMapU2 = 0x12;
 // Verified
 S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureGouraud", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   U32 u = Fill_CurMapUMin;
@@ -160,6 +162,7 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureDither", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   U32 u = Fill_CurMapUMin; // esi
@@ -287,6 +290,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureGouraudChromaKey", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   U32 u = Fill_CurMapUMin;
@@ -429,6 +433,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
 // transparent texels (texel == 0).  Dither update happens unconditionally.
 S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureDitherChromaKey", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   U32 u = Fill_CurMapUMin;

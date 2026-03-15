@@ -62,6 +62,11 @@ ColorX      BYTE 12h
 ColorY      BYTE 12h
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_line_1	DB	"[ASM][Line][1] entry", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -82,7 +87,16 @@ Line			PROC	USES esi edi ebp ebx,\
 ;			X1:cx  Y1:DX
 ;			couleur: bp
 
-			mov	eax, x0
+
+		; --- debug trace [ASM][Line][1] params ---
+		pushad
+		push	offset fmt_line_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					mov	eax, x0
 			mov	ebx, y0
 			mov	ecx, x1
 			mov	edx, y1

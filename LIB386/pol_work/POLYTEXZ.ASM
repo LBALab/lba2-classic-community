@@ -186,12 +186,20 @@ PtrZBufferPatch DWORD 12345678h
 PtrMapPatch     DWORD 12345678h
 PtrCLUT         DWORD 12345678h
 
+
+		EXTRN	C	printf	:NEAR
+fmt_f_texturez_1	DB	"[ASM][Filler_TextureZ][1] entry", 10, 0
+fmt_f_texturezflat_1	DB	"[ASM][Filler_TextureZFlat][1] entry", 10, 0
+fmt_f_texturezchroma_1	DB	"[ASM][Filler_TextureZChromaKey][1] entry", 10, 0
+fmt_f_texturezflatch_1	DB	"[ASM][Filler_TextureZFlatChromaKey][1] entry", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -353,7 +361,16 @@ Loop_PerspFPU		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZ		PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZ][1] entry ---
+		pushad
+		push	offset fmt_f_texturez_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -653,7 +670,16 @@ Filler_TextureZ		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZFlat	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZFlat][1] entry ---
+		pushad
+		push	offset fmt_f_texturezflat_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -911,7 +937,16 @@ Filler_TextureZFlat	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZChromaKey PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texturezchroma_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -1152,7 +1187,16 @@ Filler_TextureZChromaKey ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZFlatChromaKey PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZFlatChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texturezflatch_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx

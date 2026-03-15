@@ -1,9 +1,11 @@
 #include <ANIM/STOFRAME.H>
 
 #include <SYSTEM/TIMER.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ObjectStoreFrame(T_OBJ_3D *Obj)
 {
+    LIB386_TRACE_CPP("ObjectStoreFrame", "1", "obj=%p", (void*)Obj);
     Obj->LastTimer = TimerRefHR;
     Obj->Time = TimerRefHR;
 

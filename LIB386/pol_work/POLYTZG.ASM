@@ -187,12 +187,18 @@ IntGour         BYTE 12h
 IntGour2        BYTE 12h
 
 
+
+		EXTRN	C	printf	:NEAR
+fmt_f_texturezgourau_1	DB	"[ASM][Filler_TextureZGouraud][1] entry", 10, 0
+fmt_f_texzgouraudck_1	DB	"[ASM][Filler_TextureZGouraudChromaKey][1] entry", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -213,7 +219,16 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZGouraud	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZGouraud][1] entry ---
+		pushad
+		push	offset fmt_f_texturezgourau_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -517,7 +532,16 @@ Filler_TextureZGouraud	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZGouraudChromaKey	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZGouraudChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texzgouraudck_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx

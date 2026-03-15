@@ -1,6 +1,7 @@
 #include <SVGA/FONT.H>
 
 #include <unistd.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void *PtrFont = NULL;
 S32 InterLeave = 1;
@@ -8,6 +9,7 @@ S32 InterSpace = 10;
 
 S32 SizeFont(char *str)
 {
+    LIB386_TRACE_CPP("SizeFont", "1", "string=%p", (void*)string);
 	U32 size = 0;
 	while (*str != '\0')
 	{

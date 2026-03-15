@@ -1,12 +1,14 @@
 #include <SVGA/CLRBOX.H>
 #include <stdio.h>
 #include <string.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // ClearColor	dq	0
 U64 ClearColor = 0;
 
 void ClearBox(void *dst, U32 *TabOffDst, T_BOX *box)
 {
+	LIB386_TRACE_CPP("ClearBoxF", "1", "dst=%p tab=%p box=%p", dst, (void*)TabOffDst, (void*)box);
 	// The original code used the FPU to clear the screen, by copying the clear
 	// color (which is a double -8 bytes- value, with the actual clear color -1 byte-
 	// repeated 8 times) to the screen, overriding 8 bytes at a time.

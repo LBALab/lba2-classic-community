@@ -163,12 +163,20 @@ IntMapV2            BYTE  12h
 IntMapU             BYTE  12h
 IntMapU2            BYTE  12h
 
+
+		EXTRN	C	printf	:NEAR
+fmt_f_texturegouraud_1	DB	"[ASM][Filler_TextureGouraud][1] entry", 10, 0
+fmt_f_texturedither_1	DB	"[ASM][Filler_TextureDither][1] entry", 10, 0
+fmt_f_texgouraudck_1	DB	"[ASM][Filler_TextureGouraudChromaKey][1] entry", 10, 0
+fmt_f_texditherck_1	DB	"[ASM][Filler_TextureDitherChromaKey][1] entry", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -190,7 +198,16 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureGouraud	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureGouraud][1] entry ---
+		pushad
+		push	offset fmt_f_texturegouraud_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -433,7 +450,16 @@ Filler_TextureGouraud	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureDither	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureDither][1] entry ---
+		pushad
+		push	offset fmt_f_texturedither_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -667,7 +693,16 @@ Filler_TextureDither	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureGouraudChromaKey	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureGouraudChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texgouraudck_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -944,7 +979,16 @@ Filler_TextureGouraudChromaKey	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureDitherChromaKey	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureDitherChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texditherck_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx

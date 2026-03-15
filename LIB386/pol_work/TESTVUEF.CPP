@@ -1,6 +1,7 @@
 #include <POLYGON/TESTVUE.H>
 
 #include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // ╔═════════════════════════════════════════════════════════════════╗
 // ║ TestVisible : Tests the visibility of a poly                    ║
@@ -12,6 +13,7 @@
 // ╚═════════════════════════════════════════════════════════════════╝
 S32 TestVuePoly(Struc_Point *ptr)
 {
+  LIB386_TRACE_CPP("TestVuePolyF", "1", "input=%p", (void*)ptr);
   Struc_Point *ptr2 = ptr + 1;
   Struc_Point *ptr3 = ptr + 2;
 

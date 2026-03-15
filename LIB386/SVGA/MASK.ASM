@@ -41,6 +41,11 @@ OffsetBegin     dd      0
 ColMask         db      0       ; Noir par Defaut
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_affmask_1	DB	"[ASM][AffMask][1] num=%d x=%d y=%d bank=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -57,6 +62,18 @@ ColMask         db      0       ; Noir par Defaut
 ;	modify	[edx edi]
 
 AffMask                 proc    uses ebp
+
+		; --- debug trace [ASM][AffMask][1] params ---
+		pushad
+		push	esi
+		push	ecx
+		push	ebx
+		push	eax
+		push	offset fmt_affmask_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
 
 			add     esi, [esi+eax*4]; ESI = Begin Data
 

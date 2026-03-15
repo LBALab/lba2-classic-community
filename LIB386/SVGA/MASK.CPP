@@ -3,11 +3,13 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/SCREENXY.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 U8 ColMask = 0;
 
 S32 ClippingMask(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics)
 {
+    LIB386_TRACE_CPP("ClippingMask", "1", "num=%d x=%d y=%d bank=%p", nummask, x, y, (void*)bankmask);
 	if (x0 > ClipXMax || y0 > ClipYMax ||
 		x1 < ClipXMin || y1 < ClipYMin)
 	{

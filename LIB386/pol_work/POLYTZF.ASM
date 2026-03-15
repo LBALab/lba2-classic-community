@@ -186,12 +186,17 @@ IntZBuf2        DWORD 12345678h
 RepMask2        DWORD 12345678h
 RepMaskPatch    DWORD 12345678h
 
+
+		EXTRN	C	printf	:NEAR
+fmt_f_texturezfogsmo_1	DB	"[ASM][Filler_TextureZFogSmooth][1] entry", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -403,7 +408,16 @@ Loop_PerspFPU		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureZFogSmooth PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureZFogSmooth][1] entry ---
+		pushad
+		push	offset fmt_f_texturezfogsmo_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx

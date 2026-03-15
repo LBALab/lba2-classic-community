@@ -13,6 +13,11 @@
 			extrn	C TabOffPhysLine:DWORD
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_blitboxf_1	DB	"[ASM][BlitBoxF][1] dst=%p src=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -29,7 +34,18 @@ BlitBoxF		PROC \
 			uses eax ebx ecx edx edi esi \
 			dst: DWORD, src: DWORD
 
-			mov edi, dst
+
+		; --- debug trace [ASM][BlitBoxF][1] params ---
+		pushad
+		push	esi
+		push	edi
+		push	offset fmt_blitboxf_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+
+					mov edi, dst
 			mov esi, src
 
 			mov	edx, offset TabOffPhysLine

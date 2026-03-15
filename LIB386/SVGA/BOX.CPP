@@ -2,9 +2,11 @@
 
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void Box(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 {
+    LIB386_TRACE_CPP("Box", "1", "x0=%d y0=%d x1=%d y1=%d col=%d", x0, y0, x1, y1, col);
 	if (x0 > ClipXMax || x1 < ClipXMin || y0 > ClipYMax || y1 < ClipYMin)
 	{
 		return;

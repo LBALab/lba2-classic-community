@@ -6,6 +6,7 @@
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // External variables from POLY.CPP
 extern U32 Fill_Fog_Factor;
@@ -104,6 +105,7 @@ static void POLYTZF_Loop_Perspective(U32 fillWidth)
 
 S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;

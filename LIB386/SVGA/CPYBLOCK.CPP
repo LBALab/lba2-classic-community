@@ -4,10 +4,12 @@
 
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd,
                void *dst)
 {
+    LIB386_TRACE_CPP("CopyBlock", "1", "x0=%d y0=%d x1=%d y1=%d src=%p xd=%d yd=%d dst=%p", x0, y0, x1, y1, src, xd, yd, dst);
   if (x0 > ClipXMax || y0 > ClipYMax)
   {
     return;

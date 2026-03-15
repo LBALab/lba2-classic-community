@@ -18,6 +18,7 @@
 #include <SYSTEM/ADELINE.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 typedef struct {
 	U8 DeltaX;
@@ -28,6 +29,7 @@ typedef struct {
 
 void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src)
 {
+    LIB386_TRACE_CPP("CopyMask", "1", "num=%d x=%d y=%d bank=%p src=%p", nummask, x, y, (void*)bankmask, (void*)src);
   U32 screenWidth = TabOffLine[1];
 
   if (y < 0)

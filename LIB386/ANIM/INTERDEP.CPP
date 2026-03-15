@@ -8,9 +8,11 @@
 #include <3D/IMATSTD.H>
 #include <3D/ROT3D.H>
 #include <3D/CAMERA.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 S32 ObjectSetInterDep(T_OBJ_3D *obj)
 {
+    LIB386_TRACE_CPP("ObjectSetInterDep", "1", "obj=%p", (void*)obj);
     obj->Texture = obj->NextTexture;
     obj->Body = obj->NextBody;
 

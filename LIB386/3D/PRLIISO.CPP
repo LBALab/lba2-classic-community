@@ -4,10 +4,12 @@
 #include <SVGA/SCREENXY.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
-										S32 OrgY, S32 OrgZ)
+								S32 OrgY, S32 OrgZ)
 {
+	LIB386_TRACE_CPP("ProjectListIso", "1", "Dst=%p Src=%p n=%d", (void*)Dst, (void*)Src, NbPt);
 	for (int i = 0; i < NbPt; i++)
 	{
 		TYPE_VT16 *v = &Src[i];

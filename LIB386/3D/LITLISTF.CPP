@@ -4,6 +4,7 @@
 #include <3D/LIGHT.H>
 #include <3D/LIROT3D.H>
 #include <3D/CAMERA.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 /*
  * Per-vertex lighting.  Matches ASM LightListF.
@@ -18,6 +19,7 @@
  */
 void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 {
+	LIB386_TRACE_CPP("LightListF", "1", "Mat=%p dst=%p src=%p n=%d", (void*)Mat, (void*)dst, (void*)src, n);
 	if (n == 0)
 		return;
 

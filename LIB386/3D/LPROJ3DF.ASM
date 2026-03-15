@@ -31,6 +31,11 @@
 		extrn	C Xp:DWORD
 		extrn	C Yp:DWORD
 
+		extrn	C printf:NEAR
+
+fmt_lproj3d_1	DB	"[ASM][LongProjectPoint3DF][1] x=%d y=%d z=%d", 10, 0
+fmt_lproj3d_2	DB	"[ASM][LongProjectPoint3DF][2] ret=%d Xp=%d Yp=%d", 10, 0
+
 		public	C	LongProjectPoint3D
 		public	C	LongProjectPoint
 
@@ -55,6 +60,17 @@
 ;	modify		[edx]
 
 LongProjectPoint3DF proc
+
+		; --- debug trace [ASM][LongProjectPoint3DF][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	offset fmt_lproj3d_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		cmp	ecx, [CameraZrClip]	; -Z
 		jg	error
@@ -112,6 +128,17 @@ LongProjectPoint3DF proc
 
 		mov	eax, 1
 
+		; --- debug trace [ASM][LongProjectPoint3DF][2] return ---
+		pushad
+		push	dword ptr [Yp]
+		push	dword ptr [Xp]
+		push	eax
+		push	offset fmt_lproj3d_2
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
 		ret
 
 error:          mov	ebx, 80000000h
@@ -119,6 +146,17 @@ error:          mov	ebx, 80000000h
 
 		mov	[Xp], ebx
 		mov	[Yp], ebx
+
+		; --- debug trace [ASM][LongProjectPoint3DF][2] return ---
+		pushad
+		push	dword ptr [Yp]
+		push	dword ptr [Xp]
+		push	eax
+		push	offset fmt_lproj3d_2
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		ret
 

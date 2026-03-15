@@ -13,6 +13,10 @@
 
 		InitMatrixTrans	dd	offset InitMatrixTransF
 
+		extrn	C	printf:NEAR
+
+fmt_imattra_1	DB	"[ASM][InitMatrixTransF][1] Dst=%p tx=%d ty=%d tz=%d", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -27,6 +31,18 @@
 ;	modify exact	[]
 
 InitMatrixTransF	PROC
+
+		; --- debug trace [ASM][InitMatrixTransF][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	edi
+		push	offset fmt_imattra_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
 
 		push	eax
 		push	ebx

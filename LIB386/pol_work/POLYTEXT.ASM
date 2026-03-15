@@ -165,12 +165,20 @@ IntZBuf             DWORD 12345678h
 IntMapV             BYTE  12h
 IntMapU             BYTE  12h
 
+
+		EXTRN	C	printf	:NEAR
+fmt_f_texture_1	DB	"[ASM][Filler_Texture][1] entry", 10, 0
+fmt_f_textureflat_1	DB	"[ASM][Filler_TextureFlat][1] entry", 10, 0
+fmt_f_texturechromak_1	DB	"[ASM][Filler_TextureChromaKey][1] entry", 10, 0
+fmt_f_textureflatchr_1	DB	"[ASM][Filler_TextureFlatChromaKey][1] entry", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -192,7 +200,16 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Texture		PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_Texture][1] entry ---
+		pushad
+		push	offset fmt_f_texture_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -382,7 +399,16 @@ Filler_Texture		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureChromaKey	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texturechromak_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -583,7 +609,16 @@ Filler_TextureChromaKey	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureFlat	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureFlat][1] entry ---
+		pushad
+		push	offset fmt_f_textureflat_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -794,7 +829,16 @@ Filler_TextureFlat	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureFlatChromaKey PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureFlatChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_textureflatchr_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx

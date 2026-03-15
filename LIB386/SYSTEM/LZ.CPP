@@ -1,9 +1,11 @@
 #include <SYSTEM/LZ.H>
 #include <stdio.h>
 #include <stdlib.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc)
 {
+    LIB386_TRACE_CPP("ExpandLZ", "1", "Dst=%p Src=%p Size=%u MinBloc=%u", Dst, Src, DecompSize, MinBloc);
 	U8 *dst = (U8 *)Dst;
 	U8 *src = (U8 *)Src;
 	U32 srcOffset = 0;

@@ -19,6 +19,11 @@ InterSpace		dd	10
 			ASSUME DS:SEG PtrFont
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_sizefont_1	DB	"[ASM][SizeFont][1] string=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -51,6 +56,16 @@ SizeFont		PROC \
 			uses ebx ecx edx edi esi ebp\
 			string: DWORD
 			mov esi, string
+
+		; --- debug trace [ASM][SizeFont][1] params ---
+		pushad
+		push	string
+		push	offset fmt_sizefont_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 
 			mov	edi, [PtrFont]
 			xor	eax, eax

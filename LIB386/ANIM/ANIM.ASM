@@ -19,6 +19,10 @@
 
 		EXTRN	C	TransFctAnim		:DWORD
 
+		EXTRN	C	printf			:NEAR
+
+fmt_anim_1	DB	"[ASM][ObjectInitAnim][1] obj=%p anim=%p", 10, 0
+
 		ASSUME  DS:SEG TimerRefHR
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -40,6 +44,16 @@ ObjectInitAnim	PROC \
 			anim: DWORD
 			mov ebx, obj
 			mov esi, anim
+
+		; --- debug trace [ASM][ObjectInitAnim][1] params ---
+		pushad
+		push	esi
+		push	ebx
+		push	offset fmt_anim_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 
 		mov	ecx, [ebx].OBJ_3D.NextBody
 		mov	eax, [ebx].OBJ_3D.NextTexture

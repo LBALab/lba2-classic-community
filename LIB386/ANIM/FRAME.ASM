@@ -19,6 +19,11 @@
 		EXTRN	C	TransFctAnim		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
+		EXTRN	C	printf	:NEAR
+
+
+fmt_frame_1	DB	"[ASM][ObjectSetFrame][1] obj=%p frame=%u", 10, 0
+
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -38,6 +43,17 @@ ObjectSetFrame	PROC \
 			frame: DWORD
 			mov ebx, obj
 			mov edx, frame
+
+		; --- debug trace [ASM][ObjectSetFrame][1] params ---
+		pushad
+		push	edx
+		push	ebx
+		push	offset fmt_frame_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+
 
 		mov	ecx, [ebx].OBJ_3D.NextBody
 		mov	eax, [ebx].OBJ_3D.NextTexture

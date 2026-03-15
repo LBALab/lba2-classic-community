@@ -1,6 +1,7 @@
 #include <3D/GETANG2D.H>
 
 #include <3D/TANTAB.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 /*
  * Binary search for tangent in TanTab[0..511].
@@ -50,15 +51,22 @@ static S32 TanTabSearch(U32 tangent)
 
 S32 GetAngleVector2D(S32 x, S32 z)
 {
+	LIB386_TRACE_CPP("GetAngleVector2D", "1", "x=%d z=%d", x, z);
 	U32 flags = 0;   /* bit 0 = negated x, bit 1 = negated z, bit 2 = swapped */
 
-	if (x == 0)
-		return z < 0 ? 2048 : 0;
+	if (x == 0) {
+		S32 result = z < 0 ? 2048 : 0;
+		LIB386_TRACE_CPP("GetAngleVector2D", "2", "return=%d", result);
+		return result;
+	}
 
 	if (x < 0) { x = -x; flags |= 1; }
 
-	if (z == 0)
-		return (flags & 1) ? 3072 : 1024;
+	if (z == 0) {
+		S32 result = (flags & 1) ? 3072 : 1024;
+		LIB386_TRACE_CPP("GetAngleVector2D", "2", "return=%d", result);
+		return result;
+	}
 
 	if (z < 0) { z = -z; flags |= 2; }
 
@@ -81,5 +89,7 @@ S32 GetAngleVector2D(S32 x, S32 z)
 	if (flags & 2) angle = 2048 - angle;
 	if (flags & 1) angle = -angle;
 
-	return angle & 4095;
+	S32 result = angle & 4095;
+	LIB386_TRACE_CPP("GetAngleVector2D", "2", "return=%d", result);
+	return result;
 }

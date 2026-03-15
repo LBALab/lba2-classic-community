@@ -20,6 +20,10 @@
 
 		ASSUME  DS:SEG XCentre
 
+		extrn	C	printf:NEAR
+
+fmt_prliiso_1	DB	"[ASM][ProjectListIso][1] Dst=%p Src=%p n=%d", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -38,6 +42,17 @@
 ;WARING: OrgX, OrgY OrgZ pushed on the stack
 
 ProjectListIso	proc
+
+		; --- debug trace [ASM][ProjectListIso][1] params ---
+		pushad
+		push	ecx
+		push	esi
+		push	edi
+		push	offset fmt_prliiso_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		push	ebp
 		lea	ebp, [ecx*4]

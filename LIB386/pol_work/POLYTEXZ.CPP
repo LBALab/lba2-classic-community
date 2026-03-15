@@ -24,6 +24,7 @@
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 PTR_U16 POLYTEXZ_PtrZBuffer1 = NULL;
 PTR_U16 POLYTEXZ_PtrZBuffer2 = NULL;
@@ -169,6 +170,7 @@ void (*Fill_Loop_Perspective)(U32) = Fill_Loop_Perspective_Impl;
 
 S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureZ", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -322,6 +324,7 @@ S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureZFlat", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -474,6 +477,7 @@ S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureZChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -626,6 +630,7 @@ S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureZFlatChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;

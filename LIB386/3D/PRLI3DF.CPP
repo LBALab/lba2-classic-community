@@ -3,20 +3,15 @@
 #include <math.h>
 #include <3D/CAMERA.H>
 #include <SVGA/SCREENXY.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 /*
  * Batch perspective projection matching the ASM ProjectList3DF.
- *
- * For each source vertex (TYPE_VT16), projects onto screen and stores
- * the packed result in Dst.  Clipped points store 0x80008000.
- * Updates ScreenX/YMin/Max bounding box.
- *
- * Uses x87-compatible arithmetic: long double intermediates and lrintl()
- * to match the ASM's fistp round-to-nearest-even.
  */
 void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt,
                     S32 OrgX, S32 OrgY, S32 OrgZ)
 {
+	LIB386_TRACE_CPP("ProjectList3DF", "1", "Dst=%p Src=%p n=%d", (void*)Dst, (void*)Src, NbPt);
 	for (S32 i = 0; i < NbPt; i++)
 	{
 		S32 z = OrgZ - (S32)Src[i].Z;

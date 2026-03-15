@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <fenv.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -633,6 +634,7 @@ S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points)
 // ╚════════════════════════════════════════════════════════════════════════════════╝
 S32 Draw_Triangle(Struc_Point *Ptr_Points)
 {
+    LIB386_TRACE_CPP("Draw_Triangle", "1", "entry");
 	// *** Search the highest point in the list ***
   Fill_FirstPoint = Ptr_Points;
   Fill_Patch = 1;

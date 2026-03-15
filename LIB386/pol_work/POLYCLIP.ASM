@@ -127,12 +127,17 @@ ENDM
 
 
 
+
+		EXTRN	C	printf	:NEAR
+fmt_clipperz_1	DB	"[ASM][ClipperZ][1] dst=%p src=%p n=%d zclip=%d", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -161,7 +166,21 @@ _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ClipperZ		PROC \
 			uses ebx ecx edx edi esi ebp\
 			dst: DWORD, src: DWORD, nbvertex: DWORD, zclip: DWORD, flag
-			mov esi, src
+
+		; --- debug trace [ASM][ClipperZ][1] params ---
+		pushad
+		push	flag
+		push	zclip
+		push	nbvertex
+		push	src
+		push	dst
+		push	offset fmt_clipperz_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
+					mov esi, src
 			mov edi, dst
 			mov eax, zclip
 			mov ebx, flag

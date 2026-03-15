@@ -162,12 +162,24 @@ PtrZBuffer2         DWORD 12345678h
 PtrZBuffer3         DWORD 12345678h
 PtrZBufferPatch     DWORD 12345678h
 
+		EXTRN	C	printf	:NEAR
+
+fmt_f_flat_1	DB	"[ASM][Filler_Flat][1] entry", 10, 0
+fmt_f_transparent_1	DB	"[ASM][Filler_Transparent][1] entry", 10, 0
+fmt_f_trame_1	DB	"[ASM][Filler_Trame][1] entry", 10, 0
+fmt_f_flatzbuf_1	DB	"[ASM][Filler_FlatZBuf][1] entry", 10, 0
+fmt_f_transparentzbu_1	DB	"[ASM][Filler_TransparentZBuf][1] entry", 10, 0
+fmt_f_tramezbuf_1	DB	"[ASM][Filler_TrameZBuf][1] entry", 10, 0
+fmt_f_flatnzw_1	DB	"[ASM][Filler_FlatNZW][1] entry", 10, 0
+fmt_f_transparentnzw_1	DB	"[ASM][Filler_TransparentNZW][1] entry", 10, 0
+fmt_f_tramenzw_1	DB	"[ASM][Filler_TrameNZW][1] entry", 10, 0
 
 _DATA			ENDS
 
 ;			************
 ;			*** CODE ***
 ;			************
+
 ;			.CODE
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
@@ -199,7 +211,16 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Flat		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_Flat][1] entry ---
+		pushad
+		push	offset fmt_f_flat_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -305,7 +326,16 @@ Filler_Flat		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Transparent	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_Transparent][1] entry ---
+		pushad
+		push	offset fmt_f_transparent_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -376,7 +406,16 @@ Filler_Transparent	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Trame		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_Trame][1] entry ---
+		pushad
+		push	offset fmt_f_trame_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -493,7 +532,16 @@ Filler_Trame		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_FlatZBuf		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_FlatZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_flatzbuf_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -641,7 +689,16 @@ Filler_FlatZBuf		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TransparentZBuf	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_TransparentZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_transparentzbu_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -776,7 +833,16 @@ Filler_TransparentZBuf	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TrameZBuf	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_TrameZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_tramezbuf_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -979,7 +1045,16 @@ Filler_TrameZBuf	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_FlatNZW		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_FlatNZW][1] entry ---
+		pushad
+		push	offset fmt_f_flatnzw_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -1121,7 +1196,16 @@ Filler_FlatNZW		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TransparentNZW	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_TransparentNZW][1] entry ---
+		pushad
+		push	offset fmt_f_transparentnzw_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]
@@ -1250,7 +1334,16 @@ Filler_TransparentNZW	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TrameNZW		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_TrameNZW][1] entry ---
+		pushad
+		push	offset fmt_f_tramenzw_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			mov	edi,[Fill_CurOffLine]

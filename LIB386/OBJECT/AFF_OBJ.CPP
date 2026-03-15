@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 #define MAX_NB_POINTS 550
 #define MAX_NB_POLYS 550
@@ -1604,6 +1605,7 @@ S32 EntityCreation(T_BODY_HEADER *body)
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {
+    LIB386_TRACE_CPP("ObjectDisplay", "1", "obj=%p", (void*)This);
     // Must we change the texture pointer ?
     if (obj->Texture != NULL && obj->Texture != (void *)-1)
     {
@@ -1802,6 +1804,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
 S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 beta, S32 gamma, void *obj)
 {
+    LIB386_TRACE_CPP("BodyDisplay", "1", "entry");
     RotateMatrix(dstMatrix, srcMatrix, alpha, beta, gamma);
 
     // **************

@@ -19,6 +19,13 @@
             OPTION	SCOPED
 
 ;----------------------------------------------------------------------------
+
+		.DATA
+
+		EXTRN	C	printf	:NEAR
+
+fmt_draw_tri_1	DB	"[ASM][Draw_Triangle][1] entry", 10, 0
+
 			.CODE
 
 
@@ -1723,7 +1730,16 @@ Fill_PolyClip		ENDP
 Draw_Triangle		PROC esi
 			; *** Search the highest point in the list ***
 
-			mov	eax,1
+
+		; --- debug trace [ASM][Draw_Triangle][1] params ---
+		pushad
+		push	offset fmt_draw_tri_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					mov	eax,1
 			mov	[Fill_FirstPoint],esi
 
 			mov	[Fill_Patch],eax	;

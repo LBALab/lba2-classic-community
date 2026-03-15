@@ -20,6 +20,11 @@ Largeur 	dd	0000
 Hauteur 	dd	0000
 
 ;*══════════════════════════════════════════════════════════════════════════*/
+
+		EXTRN	C	printf	:NEAR
+
+fmt_scalebox_1	DB	"[ASM][ScaleBox][1] xs0=%d ys0=%d xs1=%d ys1=%d", 10, 0
+
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
@@ -38,6 +43,19 @@ ScaleBox	proc	\
 		yd0:DWORD, xd1:DWORD, yd1:DWORD, ptrd:DWORD
 
 		mov edx, xs0
+
+		; --- debug trace [ASM][ScaleBox][1] params ---
+		pushad
+		push	ys1
+		push	xs1
+		push	ys0
+		push	xs0
+		push	offset fmt_scalebox_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+
 		mov ecx, ys0
 		mov eax, xs1
 		mov edi, ys1

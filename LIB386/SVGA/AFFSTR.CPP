@@ -2,6 +2,7 @@
 #include <SVGA/SCREEN.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 
 U32 SizeChar = 8;
@@ -269,6 +270,7 @@ U8 Font8x8[256*8] = {
 
 void AffString(S32 x, S32 y, char *str)
 {
+    LIB386_TRACE_CPP("AffString", "1", "x=%d y=%d str=%p", x, y, (void*)string);
   U8 character;
   U8 line;
   S32 mask;

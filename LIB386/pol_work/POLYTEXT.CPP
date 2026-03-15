@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 U32 Precalc_Inc = 0;
 
@@ -22,6 +23,7 @@ U8 POLYTEXT_IntMapU = 0x12;
 
 S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Texture", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   U32 u = Fill_CurMapUMin;
@@ -111,6 +113,7 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -205,6 +208,7 @@ S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureFlat", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -301,6 +305,7 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;

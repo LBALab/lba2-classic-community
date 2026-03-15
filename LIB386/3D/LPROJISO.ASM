@@ -20,6 +20,11 @@
 		extrn	C	Xp:DWORD
 		extrn	C	Yp:DWORD
 
+		extrn	C	printf:NEAR
+
+fmt_lprojiso_1	DB	"[ASM][LongProjectPointIso][1] x=%d y=%d z=%d", 10, 0
+fmt_lprojiso_2	DB	"[ASM][LongProjectPointIso][2] ret=%d Xp=%d Yp=%d", 10, 0
+
 		ASSUME  DS:SEG CameraX
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -38,6 +43,17 @@
 ;	modify		[edx]
 
 LongProjectPointIso PROC 
+
+		; --- debug trace [ASM][LongProjectPointIso][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	offset fmt_lprojiso_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		sub	eax, CameraX
 		sub	ebx, CameraY
@@ -71,6 +87,17 @@ LongProjectPointIso PROC
 
 		mov	eax, -1
 		mov	[Yp], ecx
+
+		; --- debug trace [ASM][LongProjectPointIso][2] return ---
+		pushad
+		push	dword ptr [Yp]
+		push	dword ptr [Xp]
+		push	eax
+		push	offset fmt_lprojiso_2
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		ret
 

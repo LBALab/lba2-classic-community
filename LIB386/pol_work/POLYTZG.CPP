@@ -5,6 +5,7 @@
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // Runtime patch variables for optimized rendering
 PTR_U8 POLYTZG_PtrCLUT = NULL;
@@ -29,6 +30,7 @@ static inline S32 imul_extract_16_47(S32 a, S32 b) {
 }
 
 S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -143,6 +145,7 @@ S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
 }
 
 S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;

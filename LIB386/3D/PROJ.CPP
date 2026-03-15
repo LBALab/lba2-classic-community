@@ -2,10 +2,12 @@
 #include <3D/CAMERA.H>
 #include <3D/LPROJ.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
                    S32 factory)
 {
+	LIB386_TRACE_CPP("SetProjection", "1", "xc=%d yc=%d clip=%d fx=%d fy=%d", xcentre, ycentre, clip, factorx, factory);
 	XCentre = xcentre;
 	YCentre = ycentre;
 
@@ -52,6 +54,7 @@ SetIsoProjection PROC \
 
 SetIsoProjection ENDP
 	*/
+	LIB386_TRACE_CPP("SetIsoProjection", "1", "xc=%d yc=%d", xcentre, ycentre);
 	XCentre = xcentre;
 	YCentre = ycentre;
 

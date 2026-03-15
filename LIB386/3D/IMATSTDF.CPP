@@ -20,9 +20,11 @@ M(Finale) = {M(Alpha)*M(Gamma)}*M(Beta)
 
 #include <3D/IMATSTD.H>
 #include <3D/SINTABF.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void InitMatrixStdF(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma)
 {
+	LIB386_TRACE_CPP("InitMatrixStdF", "1", "Dst=%p a=%d b=%d g=%d", (void*)MatDst, alpha, beta, gamma);
 	const float SINA = SinTabF[alpha & 4095];
 	const float COSA = CosTabF[alpha & 4095];
 	const float SINB = SinTabF[beta & 4095];

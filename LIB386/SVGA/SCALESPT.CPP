@@ -2,6 +2,7 @@
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // Sprite structure - matches the ASM definition
 struct SpriteStruct {
@@ -23,6 +24,7 @@ extern "C" {
 void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
                        void *ptrbank, void *ptr_transp)
 {
+    LIB386_TRACE_CPP("ScaleSpriteTransp", "1", "num=%d x=%d y=%d fx=%d fy=%d", num, x, y, factorx, factory);
     if (factorx <= 0) {
         if (factorx == 0) return;
         factorx = 0x7FFFFFFF;

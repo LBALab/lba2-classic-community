@@ -4,6 +4,7 @@
 #include <SVGA/SCREEN.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 U8 *POLYFLAT_PtrLog = NULL;
 U8 *POLYFLAT_PtrLog1 = NULL;
@@ -16,6 +17,7 @@ U16 *POLYFLAT_PtrZBufferPatch = NULL;
 // Verified
 S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Flat", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -67,6 +69,7 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_Trame(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Trame", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -155,6 +158,7 @@ EndScanLine:
 
 S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Transparent", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -214,6 +218,7 @@ S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -286,6 +291,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // TODO: Verify
 S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -361,6 +367,7 @@ S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -484,6 +491,7 @@ EndScanLine:
 // Verified
 S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -553,6 +561,7 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -626,6 +635,7 @@ S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;

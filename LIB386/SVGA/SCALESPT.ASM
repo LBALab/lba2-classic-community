@@ -45,6 +45,11 @@ Ptr_Transp  DWORD 12345678h
 Ptr_Transp1 DWORD 12345678h
 
 ;*══════════════════════════════════════════════════════════════════════════*/
+
+		EXTRN	C	printf	:NEAR
+
+fmt_scalespr_1	DB	"[ASM][ScaleSpriteTransp][1] num=%d x=%d y=%d fx=%d fy=%d", 10, 0
+
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
@@ -57,7 +62,21 @@ ScaleSpriteTransp	proc uses ebp,				\
 		factorx:	DWORD,	factory:	DWORD,	\
 		bankbrick:	DWORD,  PtrTransp:	DWORD
 
-		mov	edx,[PtrTransp]
+
+		; --- debug trace [ASM][ScaleSpriteTransp][1] params ---
+		pushad
+		push	factory
+		push	factorx
+		push	ybrick
+		push	xbrick
+		push	numbrick
+		push	offset fmt_scalespr_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
+				mov	edx,[PtrTransp]
 
 ScaleSpriteTranspPatch::
 		mov	[Ptr_Transp],edx

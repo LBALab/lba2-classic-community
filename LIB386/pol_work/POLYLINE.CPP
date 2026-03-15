@@ -3,6 +3,7 @@
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
@@ -1037,6 +1038,7 @@ void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 
 void Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 {
+    LIB386_TRACE_CPP("Line", "1", "entry");
 	Line_Entry(x0, y0, x1, y1, col);
 }
 

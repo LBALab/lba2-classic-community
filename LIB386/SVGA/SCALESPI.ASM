@@ -43,6 +43,11 @@ Y_Dec   DWORD 12345678h
 Y_Int   DWORD 12345678h
 
 ;*══════════════════════════════════════════════════════════════════════════*/
+
+		EXTRN	C	printf	:NEAR
+
+fmt_scalespr_1	DB	"[ASM][ScaleSprite][1] num=%d x=%d y=%d fx=%d fy=%d", 10, 0
+
 		.CODE
 
 ;*══════════════════════════════════════════════════════════════════════════*/
@@ -55,7 +60,21 @@ ScaleSprite	proc uses ebp esi edi ebx,		\
 		factorx:	DWORD,	factory:	DWORD, \
 		bankbrick:	DWORD
 
-		mov	eax,[factorx]
+
+		; --- debug trace [ASM][ScaleSprite][1] params ---
+		pushad
+		push	factory
+		push	factorx
+		push	ybrick
+		push	xbrick
+		push	numbrick
+		push	offset fmt_scalespr_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
+				mov	eax,[factorx]
 		mov	ebx,[factory]
 
 		mov	ecx,[numbrick]
