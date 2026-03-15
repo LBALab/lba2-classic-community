@@ -22,6 +22,32 @@ exceptions:
 If the CPP output differs from the ASM output by even a single byte,
 **fix the CPP implementation** until it matches.  Do not weaken the test.
 
+### Debugging mismatches must be test-driven
+
+When investigating why the CPP implementation does not match the ASM result,
+do **not** make random guesses and then hope the output improves.  Every
+hypothesis must be checked with a **unit test** that runs the same specific
+input through both the ASM and CPP implementations and proves the current
+behavior is wrong before the fix.
+
+Prefer a **bottom-up** testing approach whenever possible:
+- Start by identifying the smallest helper, sub-step, or intermediate
+  calculation that may be wrong.
+- Write a focused ASM-vs-CPP unit test for that smaller function first,
+  using concrete inputs and exact expected equivalence.
+- Only move outward to larger functions once the smaller units are proven
+  equivalent.
+
+Tests must drive the investigation and the fix:
+- A test should capture the exact broken case, not a vague approximation.
+- The fix should make that test pass.
+- The test must remain in place to prevent regressions.
+
+**Polyrec snapshot replay is strongly recommended** when available.  Use it to
+capture the exact inputs a function receives during a failing render or game
+scenario, then turn that captured input into a dedicated ASM-vs-CPP unit test.
+This is often the fastest way to isolate a mismatch without guessing.
+
 ### No x86 inline assembly in library code
 
 The CPP ports in `LIB386/` must remain **portable C/C++**.  Do not use GCC
