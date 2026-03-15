@@ -112,7 +112,7 @@ docker run --rm \
     -e "RENDER_MODE=${RENDER_MODE}" \
     -e "BISECT_MODE=${BISECT_MODE}" \
     -e "POLYREC_NAME=${POLYREC_NAME}" \
-    -e "REPLAY_ARGS_STR=${REPLAY_ARGS[*]}" \
+    -e "REPLAY_ARGS_STR=${REPLAY_ARGS[*]+"${REPLAY_ARGS[*]}"}" \
     "${IMAGE_NAME}" \
     bash -c '
         set -e
@@ -173,7 +173,7 @@ docker run --rm \
         else
             echo "--- ctest ---"
             if [ -n "${CTEST_REGEX}" ]; then
-                ctest --test-dir build --output-on-failure -R "${CTEST_REGEX}"
+                ctest --test-dir build -V -R "${CTEST_REGEX}"
             else
                 ctest --test-dir build --output-on-failure
             fi
