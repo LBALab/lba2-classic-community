@@ -205,13 +205,21 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 
 ---
 
-## Engine-side fixes (`SOURCES/AMBIANCE.CPP`)
+## Engine-side fixes
 
-These changes were made in engine code because they fix latent bugs exposed by the SDL backend's architecture (which copies sample data rather than sharing HQR cache pointers). Each is documented here with rationale.
+These changes were made in engine code because they fix latent bugs exposed by the SDL backend's stricter semantics. Each is documented here with rationale.
+
+### `SOURCES/AMBIANCE.CPP`
 
 | Change | Original behaviour | Problem with SDL backend | Fix |
 |--------|--------------------|--------------------------|-----|
 | **`DelBlocHQRSample`: removed `HQ_StopSample()`** | Called `HQ_StopSample()` ("methode violente") on every HQR cache eviction, killing all playing voices. | SDL copies sample data (`malloc`+`memcpy`), so voices are independent of HQR cache entries. The blanket stop caused voice thrashing that silenced thunder and other concurrent SFX. | Removed `HQ_StopSample()`. Only `RestartRainSample = TRUE` remains to re-trigger rain after eviction. |
 | **`ClearAmbiance`: added rain stop** | Only stopped the 4 `SampleAmbiance[]` slots. | With `DelBlocHQRSample` no longer killing all voices, rain could persist across cube transitions. | Added `HQ_StopOneSample(SAMPLE_RAIN)` before the ambiance slot loop. |
 | **`StartRainSample`: added `Island==0` guard** | Checked `CubeMode==CUBE_EXTERIEUR AND !TEMPETE_FINIE`. | `RestartRainSample` fires on every HQR eviction regardless of island, causing rain on desert islands. The storm system only runs on Citadel Island (Island 0), matching `ChoicePalette`'s existing `Island==0` logic. | Added `Island==0` to the condition. |
+
+### `SOURCES/GAMEMENU.CPP`
+
+| Change | Original behaviour | Problem with SDL backend | Fix |
+|--------|--------------------|--------------------------|-----|
+| **`new_game:` added `HQ_ResumeSamples()`** | The `new_game:` path ran `Introduction()` then entered `MainLoop()` without unpausing samples. | The SDL backend reference-counts `samplesPaused`. The menu calls `HQ_PauseSamples()` before showing. `PlayAcf` (inside `Introduction`) pairs its own pause/resume, but the menu's pause is never reversed, leaving `samplesPaused == 1` when `MainLoop()` starts — the mix callback returns early and all SFX are silent. The `load_game:` path already had the matching `HQ_ResumeSamples()`. | Added `HQ_ResumeSamples()` after `HQ_StopSample()`, matching `load_game:`. |
 

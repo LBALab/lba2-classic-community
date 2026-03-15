@@ -2684,6 +2684,7 @@ new_game:
                                 InitGame( 1 ) ;
                                 Introduction() ;
                                 HQ_StopSample() ;
+                                HQ_ResumeSamples() ;
                                 FlagFade = TRUE ;
                                 gogame = TRUE ;
                                 EscTimer = 0 ;
