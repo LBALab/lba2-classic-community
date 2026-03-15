@@ -65,6 +65,15 @@ U8 POLYGOUR_IntGour = 0x12;
 // Verified
 S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Gouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_Gouraud", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
@@ -145,6 +154,15 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Dither", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_Dither", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Dither", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Dither", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Dither", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_Dither", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
@@ -255,6 +273,15 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_GouraudTable", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
@@ -335,6 +362,15 @@ S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherTable", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_DitherTable", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
@@ -642,6 +678,15 @@ S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_GouraudZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
@@ -746,6 +791,15 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_DitherZBuf", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
@@ -933,6 +987,15 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
@@ -1027,6 +1090,15 @@ S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
@@ -1513,6 +1585,15 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_GouraudNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
@@ -1607,6 +1688,15 @@ S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_DitherNZW", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
@@ -1774,6 +1864,15 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
@@ -1865,6 +1964,15 @@ S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_DitherTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_DitherTableNZW", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;

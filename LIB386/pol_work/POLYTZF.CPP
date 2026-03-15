@@ -105,7 +105,15 @@ static void POLYTZF_Loop_Perspective(U32 fillWidth)
 
 S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1", "entry");
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1b", "LeftSlope=%d RightSlope=%d curY=%d",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "1e", "curU=%d curV=%d curW=%d curZBuf=%u patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_Patch);
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -139,6 +147,8 @@ S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     PTR_U8 line = Fill_CurOffLine;
     U32 xStart = fillCurXMin >> 16;
     U32 xEnd = fillCurXMax >> 16;
+    LIB386_TRACE_CPP("Filler_TextureZFogSmooth", "2", "scanline xS=%u xE=%u u=%d v=%d w=%d xmin=0x%08x xmax=0x%08x",
+        xStart, xEnd, u, v, w, fillCurXMin, fillCurXMax);
     if (xEnd > xStart)
     {
       U32 fillWidth = xEnd - xStart;
@@ -263,6 +273,15 @@ S32 Filler_TextureZFogSmooth(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureZFogSmoothZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmoothZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmoothZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmoothZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureZFogSmoothZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_Patch);
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -491,6 +510,8 @@ S32 Filler_TextureZFogSmoothNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     PTR_U8 line = Fill_CurOffLine;
     U32 xStart = fillCurXMin >> 16;
     U32 xEnd = fillCurXMax >> 16;
+        LIB386_TRACE_CPP("Filler_TextureZFogSmoothZBuf", "2", "scanline xS=%u xE=%u u=%d v=%d w=%d zb=%u",
+        xStart, xEnd, u, v, w, Fill_CurZBufMin);
     if (xEnd > xStart)
     {
       U32 fillWidth = xEnd - xStart;

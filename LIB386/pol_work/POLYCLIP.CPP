@@ -9,6 +9,8 @@
  * the ASM bit-for-bit. */
 void Clipping_ZFPU(STRUC_CLIPVERTEX *current, STRUC_CLIPVERTEX *last, STRUC_CLIPVERTEX *dst, int zclip)
 {
+  LIB386_TRACE_CPP("Clipping_ZFPU", "1", "cur=(%d,%d,%d) last=(%d,%d,%d) zclip=%d",
+    current->V_X0, current->V_Y0, current->V_Z0, last->V_X0, last->V_Y0, last->V_Z0, zclip);
   int saved_round = fegetround();
   fesetround(FE_TOWARDZERO);
 

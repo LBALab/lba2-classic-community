@@ -113,6 +113,7 @@ docker run --rm \
     -e "BISECT_MODE=${BISECT_MODE}" \
     -e "POLYREC_NAME=${POLYREC_NAME}" \
     -e "REPLAY_ARGS_STR=${REPLAY_ARGS[*]+"${REPLAY_ARGS[*]}"}" \
+    -e "POLYREC_DEBUG_SLOPES=${POLYREC_DEBUG_SLOPES:-}" \
     "${IMAGE_NAME}" \
     bash -c '
         set -e

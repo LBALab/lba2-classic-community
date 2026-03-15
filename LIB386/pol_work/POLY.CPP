@@ -3,6 +3,7 @@
 #include <POLYGON/POLY_JMP.H>
 
 #include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
 #include <FILLER.H>
@@ -16,7 +17,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <fenv.h>
-#include <SYSTEM/DEBUG_TRACES.H>
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -634,7 +634,19 @@ S32 Fill_ClipYMax(S32 Nb_Points, Struc_Point *Ptr_Points)
 // ╚════════════════════════════════════════════════════════════════════════════════╝
 S32 Draw_Triangle(Struc_Point *Ptr_Points)
 {
-    LIB386_TRACE_CPP("Draw_Triangle", "1", "entry");
+	LIB386_TRACE_CPP("Draw_Triangle", "1", "pts=%p p0=(%d,%d) p1=(%d,%d) p2=(%d,%d) type=%u",
+		(void*)Ptr_Points, Ptr_Points[0].Pt_XE, Ptr_Points[0].Pt_YE,
+		Ptr_Points[1].Pt_XE, Ptr_Points[1].Pt_YE,
+		Ptr_Points[2].Pt_XE, Ptr_Points[2].Pt_YE, Fill_Type);
+	LIB386_TRACE_CPP("Draw_Triangle", "1b", "p0: u=%u v=%u w=%d light=%u zo=%u",
+		Ptr_Points[0].Pt_MapU, Ptr_Points[0].Pt_MapV, Ptr_Points[0].Pt_W,
+		Ptr_Points[0].Pt_Light, Ptr_Points[0].Pt_ZO);
+	LIB386_TRACE_CPP("Draw_Triangle", "1c", "p1: u=%u v=%u w=%d light=%u zo=%u",
+		Ptr_Points[1].Pt_MapU, Ptr_Points[1].Pt_MapV, Ptr_Points[1].Pt_W,
+		Ptr_Points[1].Pt_Light, Ptr_Points[1].Pt_ZO);
+	LIB386_TRACE_CPP("Draw_Triangle", "1d", "p2: u=%u v=%u w=%d light=%u zo=%u",
+		Ptr_Points[2].Pt_MapU, Ptr_Points[2].Pt_MapV, Ptr_Points[2].Pt_W,
+		Ptr_Points[2].Pt_Light, Ptr_Points[2].Pt_ZO);
 	// *** Search the highest point in the list ***
   Fill_FirstPoint = Ptr_Points;
   Fill_Patch = 1;
@@ -662,9 +674,13 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
   Fill_LeftPoint = highestPoint;
   Fill_RightPoint = highestPoint;
 
+	LIB386_TRACE_CPP("Draw_Triangle", "2", "highestY=%d highestPt=%p (idx=%d)",
+		highestY, (void*)highestPoint, (int)(highestPoint - Ptr_Points));
+
 	// Test if the poly is flat
   if (currentY == nextY && nextY == nextNextY)
 	{
+		LIB386_TRACE_CPP("Draw_Triangle", "9", "flat poly, early return");
     RoundType = ROUND_TYPE_FLOAT;
 		return Fill_LeftSlope;
 	}
@@ -711,8 +727,13 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 	// multiply by 256 the rest of values that will be divided by Denom.
 	Denom = (double)raw_Denom / 256.0;
 
+	LIB386_TRACE_CPP("Draw_Triangle", "3", "PtA=(%d,%d) PtB=(%d,%d) PtC=(%d,%d) YB_YA=%g YC_YA=%g raw_Denom=%Lg",
+		PtA->Pt_XE, PtA->Pt_YE, PtB->Pt_XE, PtB->Pt_YE, PtC->Pt_XE, PtC->Pt_YE,
+		YB_YA, YC_YA, raw_Denom);
+
 	if (raw_Denom == 0)
 	{
+		LIB386_TRACE_CPP("Draw_Triangle", "9", "denom==0, early return");
     RoundType = ROUND_TYPE_FLOAT;
 		return Fill_LeftSlope;
 	}
@@ -721,10 +742,14 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
   // F_256 is loaded as REAL4 (32-bit float) then promoted to 80-bit
   InvDenom = (long double)ASM_F_256 / raw_Denom;
 
+	LIB386_TRACE_CPP("Draw_Triangle", "4", "InvDenom=%Lg Denom=%g Fill_Type=%u",
+		InvDenom, Denom, Fill_Type);
+
 	// ASM hardcodes Jmp_XSlopeZBufFPU regardless of rendering mode
 	S32 result = Jmp_XSlopeZBufFPU[Fill_Type](Fill_Type, PtA, PtB, PtC);
 	// ASM restores fldcw [Status_Float] — round-to-nearest mode
 	RoundType = ROUND_TYPE_FLOAT;
+	LIB386_TRACE_CPP("Draw_Triangle", "9", "return=%d LeftSlope=%d", result, Fill_LeftSlope);
 	return result;
 }
 
@@ -743,6 +768,8 @@ S32 Draw_Triangle(Struc_Point *Ptr_Points)
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
 {
+    LIB386_TRACE_CPP("Fill_PolyClip", "1", "nb_pts=%d pts=%p type=%u clipFlag=%u color=%u",
+        Nb_Points, (void*)Ptr_Points, Fill_Type, Fill_ClipFlag, Fill_Color.Num);
 	// *** Get the poly-box so as to test the clipping ***
 	Fill_FirstPoint = Ptr_Points;
 	U32 counter = Nb_Points - 1;
@@ -849,6 +876,8 @@ S32 Fill_PolyClip(S32 Nb_Points, Struc_Point *Ptr_Points)
 S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
 // edi, esi
 {
+	LIB386_TRACE_CPP("Triangle_ReadNextEdge", "1", "PtA=%p PtB=%p readFlag=%u curY=%d",
+		(void*)PtA, (void*)PtB, Fill_ReadFlag, Fill_CurY);
 	if ((Fill_ReadFlag & READ_NEXT_L) == 0)
 	{
 		return Read_Next_Right(PtA, PtB);
@@ -872,6 +901,8 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
 			// If (NewY-OldY)<0 then we must end the rasterization
 			if (newPoint->Pt_YE < oldPoint->Pt_YE)
 			{
+				LIB386_TRACE_CPP("Triangle_ReadNextEdge", "9", "left edge done (newY=%d < oldY=%d)",
+					newPoint->Pt_YE, oldPoint->Pt_YE);
         RoundType = ROUND_TYPE_FLOAT;
 				return Fill_LeftSlope;
 			}
@@ -879,6 +910,10 @@ S32 Triangle_ReadNextEdge(Struc_Point *PtA, Struc_Point *PtB)
       // ASM adds 0x8000 (0.5) bias to Fill_CurXMin
       Fill_CurXMin = (oldPoint->Pt_XE << 16) + 0x8000;
       Fill_LeftPoint = newPoint;
+      LIB386_TRACE_CPP("Triangle_ReadNextEdge", "2", "left: old=(%d,%d) new=(%d,%d) CurXMin=0x%08x diffX=%d diffY=%d",
+        oldPoint->Pt_XE, oldPoint->Pt_YE, newPoint->Pt_XE, newPoint->Pt_YE,
+        Fill_CurXMin, (newPoint->Pt_XE - oldPoint->Pt_XE) << 16,
+        newPoint->Pt_YE - oldPoint->Pt_YE);
       // ASM hardcodes Jmp_LeftSlopeZBufFPU regardless of rendering mode
       return Jmp_LeftSlopeZBufFPU[Fill_Type](
         Fill_Type,
@@ -908,8 +943,10 @@ S32 Gouraud_XSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Po
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_GouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_GouraudXSlopeFPU", "1", "type=%u", fillType);
   S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
   S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
+    LIB386_TRACE_CPP("Calc_GouraudXSlopeFPU", "9", "Gouraud_XSlope=%d", Fill_Gouraud_XSlope);
   return Gouraud_XSlopeFPU(fillType, PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
@@ -919,6 +956,7 @@ S32 Calc_GouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Stru
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_DitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_DitherXSlopeFPU", "1", "type=%u", fillType);
   if (PtA->Pt_Light >= 14 * 256)
   {
     // @@SatEDIUp:
@@ -953,6 +991,7 @@ S32 Calc_DitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc
 
   S32 LB_LA = PtB->Pt_Light - PtA->Pt_Light;
   S32 LC_LA = PtC->Pt_Light - PtA->Pt_Light;
+    LIB386_TRACE_CPP("Calc_DitherXSlopeFPU", "9", "Dither_XSlope=%d", Fill_Gouraud_XSlope);
   return Gouraud_XSlopeFPU(fillType, PtA, PtB, PtC, LB_LA, LC_LA);
 }
 
@@ -962,6 +1001,7 @@ S32 Calc_DitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_TextureXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_TextureXSlopeFPU", "1", "type=%u", fillType);
   volatile long double UB_UA = (long double)(S32)(PtB->Pt_MapU - PtA->Pt_MapU);
   volatile long double UC_UA = (long double)(S32)(PtC->Pt_MapU - PtA->Pt_MapU);
   volatile long double VB_VA = (long double)(S32)(PtB->Pt_MapV - PtA->Pt_MapV);
@@ -978,11 +1018,13 @@ S32 Calc_TextureXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Stru
 
   Fill_MapU_XSlope = (S32)lrintl(SlopeU);
   Fill_MapV_XSlope = (S32)lrintl(SlopeV);
+    LIB386_TRACE_CPP("Calc_TextureXSlopeFPU", "9", "U_XSlope=%d V_XSlope=%d", Fill_MapU_XSlope, Fill_MapV_XSlope);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_TextureGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_TextureGouraudXSlopeFPU", "1", "type=%u", fillType);
   volatile long double UB_UA = (long double)(S32)(PtB->Pt_MapU - PtA->Pt_MapU);
   volatile long double UC_UA = (long double)(S32)(PtC->Pt_MapU - PtA->Pt_MapU);
   volatile long double VB_VA = (long double)(S32)(PtB->Pt_MapV - PtA->Pt_MapV);
@@ -1007,11 +1049,13 @@ S32 Calc_TextureGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *Pt
   Fill_MapU_XSlope = (S32)lrintl(SlopeU);
   Fill_MapV_XSlope = (S32)lrintl(SlopeV);
   Fill_Gouraud_XSlope = (S32)lrintl(SlopeL);
+    LIB386_TRACE_CPP("Calc_TextureGouraudXSlopeFPU", "9", "U_XSlope=%d V_XSlope=%d G_XSlope=%d", Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_Gouraud_XSlope);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_TextureDitherXSlopeFPU", "1", "type=%u", fillType);
   if (PtA->Pt_Light >= 14 * 256)
   {
     // @@SatEDIUp:
@@ -1044,6 +1088,7 @@ S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB
     PtC->Pt_Light = 256;
   }
 
+    LIB386_TRACE_CPP("Calc_TextureDitherXSlopeFPU", "9", "U_XSlope=%d V_XSlope=%d G_XSlope=%d", Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_Gouraud_XSlope);
   return Calc_TextureGouraudXSlopeFPU(fillType, PtA, PtB, PtC);
 }
 
@@ -1053,6 +1098,8 @@ S32 Calc_TextureDitherXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB
 // ╚══════════════════════════════════════════════════════════════════════════╝
 S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "1", "type=%u PtA=(%d,%d) PtB=(%d,%d) PtC=(%d,%d)",
+    fillType, PtA->Pt_XE, PtA->Pt_YE, PtB->Pt_XE, PtB->Pt_YE, PtC->Pt_XE, PtC->Pt_YE);
   volatile long double UAp = (long double)(S32)PtA->Pt_MapU * (long double)PtA->Pt_W;
   volatile long double UBp = (long double)(S32)PtB->Pt_MapU * (long double)PtB->Pt_W;
   volatile long double UCp = (long double)(S32)PtC->Pt_MapU * (long double)PtC->Pt_W;
@@ -1089,11 +1136,17 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
   volatile long double WSlope = MWC_MWB * Dp;
   volatile long double WSlope_scaled = WSlope * (long double)ASM_F_256;
   Fill_W_XSlope = (S32)lrintl(WSlope_scaled);
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "2", "Dp=%Lg USlope=%Lg VSlope=%Lg WSlope=%Lg",
+    Dp, USlope, VSlope, WSlope_scaled);
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "9", "U_XSlope=%d V_XSlope=%d W_XSlope=%d",
+    Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_TextureZGouraudXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_TextureZGouraudXSlopeFPU", "1", "type=%u lightA=%u lightB=%u lightC=%u",
+    fillType, PtA->Pt_Light & 0xFFFF, PtB->Pt_Light & 0xFFFF, PtC->Pt_Light & 0xFFFF);
   S32 lightA = PtA->Pt_Light & 0xFFFF;
   S32 lightB = PtB->Pt_Light & 0xFFFF;
   S32 lightC = PtC->Pt_Light & 0xFFFF;
@@ -1165,16 +1218,19 @@ void Calc_ZBufXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
   volatile long double ZC_ZA = (long double)(S32)(PtC->Pt_ZO - PtA->Pt_ZO);
   volatile long double slope = (ZC_ZA * (long double)YB_YA - ZB_ZA * (long double)YC_YA) * InvDenom;
   Fill_ZBuf_XSlope = (S32)lrintl(slope);
+  LIB386_TRACE_CPP("Calc_ZBufXSlopeFPU", "9", "ZBuf_XSlope=%d", Fill_ZBuf_XSlope);
 }
 
 S32 Calc_XSlopeZBufferFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_XSlopeZBufferFPU", "1", "type=%u", fillType);
   Calc_ZBufXSlopeFPU(PtA, PtB, PtC);
   return Jmp_XSlopeFPU[fillType](fillType, PtA, PtB, PtC);
 }
 
 S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeZBufFPU", "1", "type=%u", fillType);
   // Z extracted from Pt_ZO (ASM reads 32-bit at Pt_Light offset, shr 16 gives Pt_ZO)
   volatile long double ZAp = (long double)(S32)(U32)PtA->Pt_ZO * (long double)PtA->Pt_W;
   volatile long double ZBp = (long double)(S32)(U32)PtB->Pt_ZO * (long double)PtB->Pt_W;
@@ -1225,11 +1281,13 @@ S32 Calc_TextureZXSlopeZBufFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB,
   volatile long double WSlope = MWC_MWB * Dp;
   volatile long double WSlope_scaled = WSlope * (long double)ASM_F_256;
   Fill_W_XSlope = (S32)lrintl(WSlope_scaled);
+    LIB386_TRACE_CPP("Calc_TextureZXSlopeZBufFPU", "9", "U_XSlope=%d V_XSlope=%d W_XSlope=%d ZBuf_XSlope=%d", Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
 S32 Calc_XSlopeZBufferFlagFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
 {
+  LIB386_TRACE_CPP("Calc_XSlopeZBufferFlagFPU", "1", "type=%u", fillType);
   Calc_ZBufXSlopeFPU(PtA, PtB, PtC);
   return Jmp_XSlopeFPU[0](fillType, PtA, PtB, PtC);
 }
@@ -1263,16 +1321,25 @@ S32 Test_Scan()
 		diffY = left->Pt_YE - Fill_CurY;
 	}
 
+	LIB386_TRACE_CPP("Test_Scan", "1", "diffY=%d readFlag=%u curY=%d leftY=%d rightY=%d xmin=0x%08x xmax=0x%08x",
+		diffY, Fill_ReadFlag, Fill_CurY, left->Pt_YE, right->Pt_YE, Fill_CurXMin, Fill_CurXMax);
+	LIB386_TRACE_CPP("Test_Scan", "2", "LeftSlope=%d RightSlope=%d Filler=%p",
+		Fill_LeftSlope, Fill_RightSlope, (void*)(intptr_t)Fill_Filler);
+
 	if (diffY == 0)
 	{
+		LIB386_TRACE_CPP("Test_Scan", "3", "diffY==0, recurse to ReadNextEdge");
 		return Triangle_ReadNextEdge(right, left);
 	}
 
+	LIB386_TRACE_CPP("Test_Scan", "4", "calling filler with nbLines=%d xmin=0x%08x xmax=0x%08x",
+		diffY, Fill_CurXMin, Fill_CurXMax);
 	return Fill_Filler(diffY, Fill_CurXMin, Fill_CurXMax);
 }
 
 S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 {
+	LIB386_TRACE_CPP("Read_Next_Right", "1", "readFlag=%u curY=%d", Fill_ReadFlag, Fill_CurY);
 	// edi, esi
 	if ((Fill_ReadFlag & READ_NEXT_R) == 0)
 	{
@@ -1306,6 +1373,7 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 
 	if (diffY < 0)
 	{
+		LIB386_TRACE_CPP("Read_Next_Right", "9", "right edge done (diffY=%d)", diffY);
     RoundType = ROUND_TYPE_FLOAT;
 		return Fill_LeftSlope;
 	}
@@ -1318,6 +1386,9 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB)
 	volatile long double inv_dY = 1.0L / (long double)diffY;
 	volatile long double slope = (long double)diffX * inv_dY + 1.0L;
 	Fill_RightSlope = (S32)lrintl(slope);
+
+	LIB386_TRACE_CPP("Read_Next_Right", "2", "old=(%d) new=(%d,%d) CurXMax=0x%08x RightSlope=%d diffX=%d diffY=%d",
+		oldXMin, point->Pt_XE, point->Pt_YE, Fill_CurXMax, Fill_RightSlope, diffX, diffY);
 
 	return Test_Scan();
 }
@@ -1344,26 +1415,31 @@ S32 CalcGouraudTableFPU(U32 fillType, S32 diffX, S32 diffY, S32 diffLight, Struc
   // ASM: fild dX → fmul st,st(2) → fadd [F_1] → fistp
   Fill_LeftSlope = (S32)lrintl((long double)diffX * inv_dY + 1.0L);
 
+    LIB386_TRACE_CPP("Calc_XSlopeZBufferFlagFPU", "9", "U_XSlope=%d V_XSlope=%d W_XSlope=%d ZBuf_XSlope=%d G_XSlope=%d", Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
   return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_GouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_GouraudLeftSlopeFPU", "1", "type=%u", fillType);
   U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
   U32 lightB = (PtB->Pt_Light + 0x80) << 8;
   S32 diffLight = lightB - lightA;
   Fill_CurGouraudMin = lightA + Fill_Color.Num;
 
+    LIB386_TRACE_CPP("Calc_GouraudLeftSlopeFPU", "9", "LeftSlope=%d G_LS=%d curG=%d", Fill_LeftSlope, Fill_Gouraud_LeftSlope, Fill_CurGouraudMin);
   return CalcGouraudTableFPU(fillType, diffX, diffY, diffLight, PtA, PtB);
 }
 
 S32 Calc_GouraudTableLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_GouraudTableLeftSlopeFPU", "1", "type=%u", fillType);
   U32 lightA = (PtA->Pt_Light << 8) + 0x8000;
   U32 lightB = (PtB->Pt_Light + 0x80) << 8;
   S32 diffLight = lightB - lightA;
   Fill_CurGouraudMin = lightA;
 
+    LIB386_TRACE_CPP("Calc_GouraudTableLeftSlopeFPU", "9", "LeftSlope=%d G_LS=%d curG=%d", Fill_LeftSlope, Fill_Gouraud_LeftSlope, Fill_CurGouraudMin);
   return CalcGouraudTableFPU(fillType, diffX, diffY, diffLight, PtA, PtB);
 }
 
@@ -1393,6 +1469,7 @@ S32 Calc_TextureLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *Pt
 
 S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_TextureGouraudLeftSlopeFPU", "1", "type=%u", fillType);
   S32 dU = (S32)(PtB->Pt_MapU - PtA->Pt_MapU) << 8;
   S32 dV = (S32)(PtB->Pt_MapV - PtA->Pt_MapV) << 8;
   S32 dL = (S32)(PtB->Pt_Light - PtA->Pt_Light) << 8;
@@ -1412,11 +1489,16 @@ S32 Calc_TextureGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Po
   Fill_MapU_LeftSlope = (S32)lrintl(USlope);
   Fill_MapV_LeftSlope = (S32)lrintl(VSlope);
   Fill_Gouraud_LeftSlope = (S32)lrintl(GSlope);
+    LIB386_TRACE_CPP("Calc_TextureGouraudLeftSlopeFPU", "9", "LeftSlope=%d U_LS=%d V_LS=%d G_LS=%d", Fill_LeftSlope, Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_Gouraud_LeftSlope);
   return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_TextureZLeftSlopeFPU", "1", "type=%u dX=%d dY=%d PtA=(%d,%d) PtB=(%d,%d)",
+    fillType, diffX, diffY, PtA->Pt_XE, PtA->Pt_YE, PtB->Pt_XE, PtB->Pt_YE);
+  LIB386_TRACE_CPP("Calc_TextureZLeftSlopeFPU", "1b", "A: u=%u v=%u w=%d  B: u=%u v=%u w=%d",
+    PtA->Pt_MapU, PtA->Pt_MapV, PtA->Pt_W, PtB->Pt_MapU, PtB->Pt_MapV, PtB->Pt_W);
   volatile long double inv_dY = 1.0L / (long double)diffY;
   volatile long double inv256_dY = inv_dY * (long double)ASM_FInv_256;
 
@@ -1452,11 +1534,17 @@ S32 Calc_TextureZLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *P
   Fill_MapV_LeftSlope = (S32)lrintl(VSlope);
   Fill_W_LeftSlope = (S32)lrintl(WSlope);
 
+  LIB386_TRACE_CPP("Calc_TextureZLeftSlopeFPU", "9", "LeftSlope=%d U_LS=%d V_LS=%d W_LS=%d curU=%d curV=%d curW=%d",
+    Fill_LeftSlope, Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope,
+    Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin);
+
   return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_TextureZGouraudLeftSlopeFPU", "1", "type=%u dX=%d dY=%d lightA=%u lightB=%u",
+    fillType, diffX, diffY, PtA->Pt_Light & 0xFFFF, PtB->Pt_Light & 0xFFFF);
   // Set current W minimum (ASM uses edi=PtA)
   Fill_CurWMin = PtA->Pt_W;
 
@@ -1508,6 +1596,10 @@ S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 diffY, Struc_P
   Fill_MapV_LeftSlope = (S32)lrintl(VSlope);
   Fill_W_LeftSlope = (S32)lrintl(WSlope);
 
+  LIB386_TRACE_CPP("Calc_TextureZGouraudLeftSlopeFPU", "9", "LeftSlope=%d G_LS=%d U_LS=%d V_LS=%d W_LS=%d curG=%d curU=%d curV=%d curW=%d",
+    Fill_LeftSlope, Fill_Gouraud_LeftSlope, Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope,
+    Fill_CurGouraudMin, Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin);
+
   return Read_Next_Right(PtA, PtB);
 }
 
@@ -1522,16 +1614,19 @@ void Calc_ZBufLeftSlopeFPU(S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *
   volatile long double inv_dY = 1.0L / (long double)diffY;
   volatile long double ZSlope = (long double)diffZ * inv_dY;
   Fill_ZBuf_LeftSlope = (S32)lrintl(ZSlope);
+  LIB386_TRACE_CPP("Calc_ZBufLeftSlopeFPU", "9", "ZBuf_LS=%d CurZBuf=%u", Fill_ZBuf_LeftSlope, Fill_CurZBufMin);
 }
 
 S32 Calc_LeftSlopeZBufferFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_LeftSlopeZBufferFPU", "1", "type=%u", fillType);
   Calc_ZBufLeftSlopeFPU(diffX, diffY, PtA, PtB);
   return Jmp_LeftSlopeFPU[fillType](fillType, diffX, diffY, PtA, PtB);
 }
 
 S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_TextureZLeftSlopeZBufFPU", "1", "type=%u", fillType);
   // Set current W minimum (ASM uses edi=PtA)
   Fill_CurWMin = PtA->Pt_W;
 
@@ -1582,12 +1677,15 @@ S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Poin
   Fill_MapV_LeftSlope = (S32)lrintl(VSlope);
   Fill_W_LeftSlope = (S32)lrintl(WSlope);
 
+    LIB386_TRACE_CPP("Calc_TextureZLeftSlopeZBufFPU", "9", "LeftSlope=%d U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d", Fill_LeftSlope, Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope);
   return Read_Next_Right(PtA, PtB);
 }
 
 S32 Calc_LeftSlopeZBufferFlagFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB)
 {
+  LIB386_TRACE_CPP("Calc_LeftSlopeZBufferFlagFPU", "1", "type=%u", fillType);
   Calc_ZBufLeftSlopeFPU(diffX, diffY, PtA, PtB);
+    LIB386_TRACE_CPP("Calc_LeftSlopeZBufferFlagFPU", "9", "LeftSlope=%d U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", Fill_LeftSlope, Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
   return Jmp_LeftSlopeFPU[0](fillType, diffX, diffY, PtA, PtB);
 }
 

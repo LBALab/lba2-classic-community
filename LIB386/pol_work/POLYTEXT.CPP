@@ -23,6 +23,15 @@ U8 POLYTEXT_IntMapU = 0x12;
 
 S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Texture", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_Texture", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Texture", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Texture", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Texture", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_Texture", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
@@ -113,6 +122,15 @@ S32 Filler_Texture(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TextureChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureChromaKey", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureChromaKey", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_TextureChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
@@ -208,6 +226,15 @@ S32 Filler_TextureChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureFlat", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureFlat", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TextureFlat", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureFlat", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureFlat", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_TextureFlat", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
@@ -305,6 +332,15 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
     LIB386_TRACE_CPP("Filler_TextureFlatChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
