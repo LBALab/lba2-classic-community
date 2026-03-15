@@ -30,7 +30,7 @@ AIL functions (LIB386/AIL/)
 
 **Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`) selects which implementation is linked. This design is also reusable for LBA1 (same AIL interface). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes-sourcessourcesambiance.cpp) below).
 
-The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`.
+The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`. Use `audio global status` to inspect `samplesPaused` ref-count and driver state without needing log mode.
 
 ---
 
@@ -55,6 +55,9 @@ These are the C headers every backend must implement. They live in `LIB386/H/AIL
 | `FadeOutSamples` | `S32 FadeOutSamples(S32 delay)` | Fade out all samples over `delay` ms. Returns scaling factor. |
 | `FadeInSamples` | `S32 FadeInSamples(S32 delay)` | Fade in all samples over `delay` ms. Returns scaling factor. |
 | `InverseStereoSample` | `void InverseStereoSample(S32 inverse)` | Swap left/right channels when `inverse` is TRUE. |
+| `SfxLogEnable` | `void SfxLogEnable(int enable)` | Toggle backend diagnostic logging (1=on, 0=off). |
+| `SfxLogIsEnabled` | `int SfxLogIsEnabled(void)` | Query whether backend logging is on. |
+| `GetSamplesPausedCount` | `S32 GetSamplesPausedCount(void)` | Query the `samplesPaused` ref-count (0 = running). |
 
 **Struct:** `SAMPLE_PLAYING` -- per-voice state: `Usernum`, `Pitch`, `Repeat`, `Volume`, `Pan`, `Dummy`.
 
@@ -205,6 +208,41 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 
 ---
 
+## Diagnostic logging
+
+All audio diagnostic logging lives at the **AIL boundary** (`LIB386/AIL/SDL/`). Engine files are not instrumented -- logging is toggled via the console and stays in the backend layer.
+
+### Output
+
+Logging uses `SDL_Log()`, which outputs to stderr/NSLog (the timestamped console output). This is **separate** from the engine's `adeline.log` (`~/Library/Application Support/Twinsen/LBA2/adeline.log`), which uses `LogPrintf()`.
+
+### Toggle
+
+- **Console:** `audio global log <0|1>` toggles all backend logging at runtime.
+- **Contract surface:** Only `SfxLogEnable`/`SfxLogIsEnabled` (SAMPLE.H) are in the AIL contract. Internally, SDL's `SfxLogEnable` also toggles `musicLogEnabled` (STREAM.CPP) and CD logging via `MusicLogIsEnabled()` -- this wiring stays inside `LIB386/AIL/SDL/` and does not add functions to the contract or require stubs in other backends.
+
+### Coverage
+
+Every public AIL function in the SDL backend is logged when enabled:
+
+| File | Logged functions |
+|------|-----------------|
+| **SAMPLE.CPP** | `PlaySample` (ALLOC/STEAL/REJECTED), `SetMasterVolumeSample`, `ChangeVolumePanSample`, `ChangePitchbendSample`, `StopOneSample`, `StopSamples`, `PauseSamples`, `ResumeSamples`, `FadeOutSamples`, `FadeInSamples` |
+| **STREAM.CPP** | `OpenStream`, `PlayStream`, `ChangeVolumeStream`, `StopStream`, `PauseStream`, `ResumeStream` |
+| **CD.CPP** | `PlayCD`, `ChangeVolumeCD`, `StopCD`, `PauseCD`, `ResumeCD` |
+
+Trivial getters (`IsSamplePlaying`, `GetVolumeCD`, `GetVolumeStream`, `IsCDPlaying`, `IsStreamPlaying`) are not logged to avoid noise.
+
+### Tags
+
+All log lines are prefixed with a channel tag for grep filtering:
+
+- `[SFX]` -- sample operations (SAMPLE.CPP)
+- `[MUSIC]` -- stream operations (STREAM.CPP)
+- `[CD]` -- CD operations (CD.CPP)
+
+---
+
 ## Engine-side fixes
 
 These changes were made in engine code because they fix latent bugs exposed by the SDL backend's stricter semantics. Each is documented here with rationale.
@@ -223,6 +261,15 @@ These changes were made in engine code because they fix latent bugs exposed by t
 |--------|--------------------|--------------------------|-----|
 | **`new_game:` added `HQ_ResumeSamples()`** | The `new_game:` path ran `Introduction()` then entered `MainLoop()` without unpausing samples. | The SDL backend reference-counts `samplesPaused`. The menu calls `HQ_PauseSamples()` before showing. `PlayAcf` (inside `Introduction`) pairs its own pause/resume, but the menu's pause is never reversed, leaving `samplesPaused == 1` when `MainLoop()` starts — the mix callback returns early and all SFX are silent. The `load_game:` path already had the matching `HQ_ResumeSamples()`. | Added `HQ_ResumeSamples()` after `HQ_StopSample()`, matching `load_game:`. |
 | **Case 70 else (resume from autosave) added `HQ_ResumeSamples()`** | After GameOver (`firstloop = TRUE`), selecting "reprendre partie" loaded CURRENTSAVE and entered `MainLoop()` without unpausing. | Same ref-counted `samplesPaused` issue: the menu's `HQ_PauseSamples()` is never reversed on this path, silencing all SFX. | Added `HQ_ResumeSamples()` before `RestoreTimer()`, matching `load_game:`. |
+| **Master volume handler: added `SetVolumeJingle`** | Master volume slider only called `SetMasterVolumeSample` and `SetVolumeCD`. | All music routes through the jingle/stream path (not CD). Changing master volume had no effect on music because `SetVolumeJingle` was never called, and `SetVolumeCD` is a no-op when `cdPlaying` is false. | Added `SetVolumeJingle(JingleVolume)` to both left/right master volume cases so master volume scales music. |
+|| **`GereVolumeMenu`: resume samples for SFX/Voice tests** | Volume menu entered while `samplesPaused > 0` (from `HQ_PauseSamples` when ESC opens menu from game). | The SDL backend pauses the sample audio device when `samplesPaused > 0`. SFX and Voice test sounds in the volume menu are allocated but inaudible because the device callback never runs. | Added `ResumeSamples()` on entry (when `GetSamplesPausedCount() > 0`) and matching `PauseSamples()` on exit. Restores `SetVolumeJingle(JingleVolume)` on exit to undo any CD slider override. |
+|| **CD volume slider: added `SetVolumeJingle`** | CD slider called `SetVolumeCD(CDVolume)` only. | All music routes through jingles, so `cdPlaying` is always 0 and `ChangeVolumeCD` is a no-op. The CD test music plays as a jingle but adjusting CDVolume has no audible effect. | Added `SetVolumeJingle(CDVolume)` after `SetVolumeCD(CDVolume)` so the stream responds to the CD slider. |
+
+### `SOURCES/MUSIC.H`
+
+| Change | Original behaviour | Problem with SDL backend | Fix |
+|--------|--------------------|--------------------------|-----|
+| **`SetVolumeJingle` macro: added MasterVolume scaling** | `SetVolumeJingle(vol)` expanded to `ChangeVolumeStream(vol)` — no master scaling. In the original, jingles were short ADPCM clips; CD audio (the real background music) was scaled by master via `SetVolumeCD`. | All music now routes through jingle/stream (Steam/GOG has no CD). Without master scaling, jingle volume was independent of master — adjusting master volume didn't change music loudness. | Changed to `ChangeVolumeStream(RegleTrois(0, MasterVolume, 127, vol))`, matching `SetVolumeCD`'s pattern. |
 
 ### `SOURCES/MUSIC.CPP`
 
@@ -230,6 +277,13 @@ These changes were made in engine code because they fix latent bugs exposed by t
 |--------|--------------------|--------------------------|-----|
 | **`TrackCD[6]`: added `JINGLE` flag** | Entry 6 (menu theme, music number 8) had no `JINGLE` flag, routing it through `PlayCD()`. | `PlayCD` constructs `Track08.wav` using physical CD track numbers. The Steam/GOG distribution names its music files `track1.ogg`–`track6.ogg` (sequential, no zero-padding). No filename permutation bridges this numbering gap. | Added `JINGLE` flag so the menu theme routes through `PlayJingle` → `PlayStream`, which has OGG fallback. |
 | **`ListJingle[7]`: set to `"TADPCM6"`** | Empty string (`""`), because the menu theme was a physical CD audio track with no ADPCM stream. | With the `JINGLE` flag added above, `PlayJingle(8)` looks up `ListJingle[7]`, which was empty. | Set to `"TADPCM6"` following the existing TADPCM naming pattern. The stream layer's `track<N>.ogg` fallback resolves this to `track6.ogg`. |
+| **`FadeOutVolumeMusic`: use `ChangeVolumeStream` directly** | Fade-out loop called `SetVolumeJingle(jvolume)` where `jvolume` was derived from `GetVolumeStream()` (already a raw stream value). | With `SetVolumeJingle` now applying MasterVolume scaling, the intermediate fade values would be double-scaled. | Changed to `ChangeVolumeStream(jvolume)` for the fade loop and final zero-set, avoiding double scaling. |
+
+### `SOURCES/AMBIANCE.CPP`
+
+| Change | Original behaviour | Problem with SDL backend | Fix |
+|--------|--------------------|--------------------------|-----|
+| **`ReadVolumeSettings`: reordered volume application** | `SetVolumeJingle(JingleVolume)` was called before `MasterVolume` was read from config. | With `SetVolumeJingle` now scaling by MasterVolume, calling it before MasterVolume is loaded from config would use the wrong master value. | Moved `SetVolumeJingle` and `SetVolumeCD` calls to after `MasterVolume` is read and `SetMasterVolumeSample` is called. |
 
 ### `LIB386/AIL/SDL/STREAM.CPP`
 

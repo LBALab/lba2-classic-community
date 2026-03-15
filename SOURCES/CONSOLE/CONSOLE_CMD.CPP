@@ -362,6 +362,7 @@ static void cmd_audio_help_global(void)
 	Console_Print("  audio global reset");
 	Console_Print("  audio global reverse_stereo <0|1>");
 	Console_Print("  audio global log <0|1>");
+	Console_Print("  audio global status");
 }
 
 static void cmd_audio_help_root(void)
@@ -489,15 +490,24 @@ static void cmd_audio(int argc, const char *argv[])
 			Console_Print("Reverse stereo: %s", flag ? "ON" : "OFF");
 			return;
 		}
+		if (strcmp(action, "status") == 0) {
+			Console_Print("samplesPaused=%d  Sample_Driver_Enabled=%d",
+				GetSamplesPausedCount(), Sample_Driver_Enabled);
+			Console_Print("Audio backend logging: %s",
+				SfxLogIsEnabled() ? "ON" : "OFF");
+			return;
+		}
 		if (strcmp(action, "log") == 0) {
 			if (argc < 4) {
-				Console_Print("SFX backend logging: %s", SfxLogIsEnabled() ? "ON" : "OFF");
+				Console_Print("Audio backend logging: %s",
+					SfxLogIsEnabled() ? "ON" : "OFF");
 				Console_Print("Usage: audio global log <0|1>");
 				return;
 			}
 			int flag = (int)strtol(argv[3], NULL, 0);
 			SfxLogEnable(flag);
-			Console_Print("SFX backend logging: %s", SfxLogIsEnabled() ? "ON" : "OFF");
+			Console_Print("Audio backend logging: %s",
+				SfxLogIsEnabled() ? "ON" : "OFF");
 			return;
 		}
 		cmd_audio_help_global();

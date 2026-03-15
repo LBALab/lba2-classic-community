@@ -18,6 +18,7 @@ static char streamPathName[ADELINE_MAX_PATH] = "";
 static bool streamPaused = false;
 
 S32 streamVolume = 0;
+static int musicLogEnabled = 0;
 
 /* ── Path resolution cache ─────────────────────────────────────────────── */
 
@@ -136,6 +137,8 @@ void OpenStream() {
   streamPaused = false;
   pathCacheN = 0;
   ClearOggCache();
+  if (musicLogEnabled)
+    SDL_Log("[MUSIC] OpenStream init");
 }
 
 /* ── OGG path helpers ──────────────────────────────────────────────────── */
@@ -299,6 +302,8 @@ void PlayStream(char *name) {
   Uint32 wav_data_len = 0;
 
   if (SDL_LoadWAV(name, &spec, &wav_data, &wav_data_len)) {
+    if (musicLogEnabled)
+      SDL_Log("[MUSIC] PlayStream start WAV: %s", name);
     stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
     if (!stream) {
       SDL_Log("SDL AIL: Could not open audio stream: %s", SDL_GetError());
@@ -323,6 +328,8 @@ void PlayStream(char *name) {
       SDL_Log("SDL AIL: Failed to decode '%s'", resolved);
       return;
     }
+    if (musicLogEnabled)
+      SDL_Log("[MUSIC] PlayStream start OGG: %s (from %s)", resolved, name);
   }
 
   {
@@ -343,6 +350,8 @@ void ChangeVolumeStream(S32 volume) {
     float gain = (volume <= 0) ? 0.0f : (float)volume / 127.0f;
     if (gain > 1.0f) gain = 1.0f;
     SDL_SetAudioStreamGain(stream, gain);
+    if (musicLogEnabled)
+      SDL_Log("[MUSIC] ChangeVolumeStream vol=%d gain=%.3f", volume, gain);
   }
 }
 
@@ -351,11 +360,15 @@ S32 GetVolumeStream() {
 }
 
 void StopStream() {
+  if (musicLogEnabled)
+    SDL_Log("[MUSIC] StopStream");
   StopStreamInternal();
 }
 
 void PauseStream() {
   if (stream && !streamPaused) {
+    if (musicLogEnabled)
+      SDL_Log("[MUSIC] PauseStream");
     SDL_PauseAudioStreamDevice(stream);
     streamPaused = true;
   }
@@ -363,6 +376,8 @@ void PauseStream() {
 
 void ResumeStream() {
   if (stream && streamPaused) {
+    if (musicLogEnabled)
+      SDL_Log("[MUSIC] ResumeStream");
     SDL_ResumeAudioStreamDevice(stream);
     streamPaused = false;
   }
@@ -382,4 +397,13 @@ S32 IsStreamPlaying() {
 
 char *StreamName() {
   return streamPathName;
+}
+
+void MusicLogEnable(int enable) {
+  musicLogEnabled = (enable != 0) ? 1 : 0;
+  SDL_Log("[MUSIC] logging %s", musicLogEnabled ? "ON" : "OFF");
+}
+
+int MusicLogIsEnabled(void) {
+  return musicLogEnabled;
 }

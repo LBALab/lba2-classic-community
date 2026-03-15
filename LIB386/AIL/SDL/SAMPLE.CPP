@@ -1,4 +1,5 @@
 #include "SAMPLE_SDL.H"
+#include "STREAM_SDL.H"
 
 #include <SDL3/SDL.h>
 
@@ -351,6 +352,8 @@ S32 InitSampleDriver(char *driver_name) {
 }
 
 void SetMasterVolumeSample(S32 volume) {
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] SetMasterVolumeSample vol=%d -> %d", volume, volume ? volume + 1 : 0);
   if (volume) volume++;
   LockVoices();
   sampleVolume = volume;
@@ -370,6 +373,8 @@ S32 FadeOutSamples(S32 delay) {
   if (delay <= 0) return 0;
   U64 now = SDL_GetTicks();
   if (!samplesFade) {
+    if (sfxLogEnabled)
+      SDL_Log("[SFX] FadeOutSamples START delay=%d", delay);
     fadeStartTime = now;
     samplesFade = true;
   }
@@ -386,6 +391,8 @@ S32 FadeInSamples(S32 delay) {
   if (delay <= 0) return delay;
   U64 now = SDL_GetTicks();
   if (samplesFade) {
+    if (sfxLogEnabled)
+      SDL_Log("[SFX] FadeInSamples START delay=%d", delay);
     fadeStartTime = now;
     samplesFade = false;
   }
@@ -407,7 +414,12 @@ void InverseStereoSample(S32 inverse) {
 
 U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
                S32 repeat, S32 volume, S32 pan) {
-  if (!Sample_Driver_Enabled || !buffer || sizeBytes <= 0) return 0xFFFFFFFF;
+  if (!Sample_Driver_Enabled || !buffer || sizeBytes <= 0) {
+    if (sfxLogEnabled)
+      SDL_Log("[SFX] PlaySample REJECTED user=0x%04X (enabled=%d buf=%p size=%d)",
+              userhandle & 0xFFFF, Sample_Driver_Enabled, buffer, sizeBytes);
+    return 0xFFFFFFFF;
+  }
   const U8 *data = NULL;
   S32 payloadSize = 0;
   int hadVoc = 0;
@@ -514,6 +526,8 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
 }
 
 void ChangePitchbendSample(U32 sample, S32 pitchbend) {
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] ChangePitchbendSample handle=0x%08X pitch=%d", sample, pitchbend);
   LockVoices();
   int i = VoiceIndexFromHandle(sample);
   if (i >= 0 && pitchbend > 0) {
@@ -526,6 +540,8 @@ void ChangePitchbendSample(U32 sample, S32 pitchbend) {
 }
 
 void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan) {
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] ChangeVolumePanSample handle=0x%08X vol=%d pan=%d", sample, volume, pan);
   LockVoices();
   int i = VoiceIndexFromHandle(sample);
   if (i >= 0) {
@@ -537,6 +553,8 @@ void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan) {
 }
 
 void StopOneSample(U32 sample) {
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] StopOneSample handle=0x%08X", sample);
   LockVoices();
   int i = VoiceIndexFromHandle(sample);
   if (i >= 0) {
@@ -547,6 +565,8 @@ void StopOneSample(U32 sample) {
 }
 
 void StopSamples() {
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] StopSamples (all voices)");
   LockVoices();
   for (int i = 0; i < NUM_VOICES; i++) {
     FreeVoiceBuf(&voices[i]);
@@ -557,15 +577,27 @@ void StopSamples() {
 
 void PauseSamples() {
   samplesPaused++;
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] PauseSamples -> samplesPaused=%d", samplesPaused);
   if (samplesPaused == 1 && sampleStream)
     SDL_PauseAudioStreamDevice(sampleStream);
 }
 
 void ResumeSamples() {
-  if (samplesPaused <= 0) return;
+  if (samplesPaused <= 0) {
+    if (sfxLogEnabled)
+      SDL_Log("[SFX] ResumeSamples IGNORED (samplesPaused=%d already 0)", samplesPaused);
+    return;
+  }
   samplesPaused--;
+  if (sfxLogEnabled)
+    SDL_Log("[SFX] ResumeSamples -> samplesPaused=%d", samplesPaused);
   if (samplesPaused == 0 && sampleStream)
     SDL_ResumeAudioStreamDevice(sampleStream);
+}
+
+S32 GetSamplesPausedCount() {
+  return samplesPaused;
 }
 
 U32 IsSamplePlaying(U32 sample) {
@@ -578,7 +610,8 @@ U32 IsSamplePlaying(U32 sample) {
 
 void SfxLogEnable(int enable) {
   sfxLogEnabled = (enable != 0) ? 1 : 0;
-  SDL_Log("[SFX] logging %s", sfxLogEnabled ? "ON" : "OFF");
+  MusicLogEnable(sfxLogEnabled);
+  SDL_Log("[Audio] backend logging %s", sfxLogEnabled ? "ON" : "OFF");
 }
 
 int SfxLogIsEnabled(void) {

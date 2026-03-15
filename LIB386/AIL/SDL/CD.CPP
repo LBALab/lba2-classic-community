@@ -1,6 +1,5 @@
 #include "CD_SDL.H"
-
-#include <AIL/STREAM.H>
+#include "STREAM_SDL.H"
 
 #include <SDL3/SDL.h>
 
@@ -60,12 +59,16 @@ void PlayCD(S32 track) {
   /* track is 0-based from the game (PtrTrackCD[num]&MUSIC - FirstCDTrack). */
   /* European: track 0 -> Track06.wav (6), track 1 -> 7, etc. US: track 0 -> Track02.wav (2). */
   if (BuildCDTrackPath(path, sizeof(path), FIRST_CD_TRACK_EU + track)) {
+    if (MusicLogIsEnabled())
+      SDL_Log("[CD] PlayCD track=%d path=%s", track, path);
     PlayStream(path);
     ChangeVolumeStream(cdVolume);
     cdPlaying = true;
     return;
   }
   if (BuildCDTrackPath(path, sizeof(path), FIRST_CD_TRACK_US + track)) {
+    if (MusicLogIsEnabled())
+      SDL_Log("[CD] PlayCD track=%d path=%s", track, path);
     PlayStream(path);
     ChangeVolumeStream(cdVolume);
     cdPlaying = true;
@@ -74,6 +77,8 @@ void PlayCD(S32 track) {
 
 void ChangeVolumeCD(S32 volume) {
   cdVolume = volume;
+  if (MusicLogIsEnabled())
+    SDL_Log("[CD] ChangeVolumeCD vol=%d cdPlaying=%d", volume, cdPlaying ? 1 : 0);
   if (cdPlaying)
     ChangeVolumeStream(cdVolume);
 }
@@ -83,15 +88,21 @@ S32 GetVolumeCD() {
 }
 
 void StopCD() {
+  if (MusicLogIsEnabled())
+    SDL_Log("[CD] StopCD");
   StopStream();
   cdPlaying = false;
 }
 
 void PauseCD() {
+  if (MusicLogIsEnabled())
+    SDL_Log("[CD] PauseCD");
   PauseStream();
 }
 
 void ResumeCD() {
+  if (MusicLogIsEnabled())
+    SDL_Log("[CD] ResumeCD");
   ResumeStream();
 }
 
