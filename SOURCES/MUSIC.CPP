@@ -59,7 +59,7 @@ char	ListJingle[NB_JINGLE][9] = {
 	"TADPCM4",
 	"TADPCM5",
 	"JADPCM01",
-	"",	// Track6.wav
+	"TADPCM6",	// Track6.wav
 	"JADPCM02",
 	"JADPCM03",
 	"JADPCM04",
@@ -160,7 +160,7 @@ JINGLE| 4,	// Track03.wav
 JINGLE| 5,	// Track04.wav
 JINGLE| 6,	// Track05.wav
 JINGLE| 7,	// Jingle01.wav
-	8,	// Track06.wav
+JINGLE|	8,	// Track06.wav
 JINGLE| 9,	// Jingle02.wav
 JINGLE|10,	// Jingle03.wav
 JINGLE|11,	// Jingle04.wav

@@ -224,3 +224,16 @@ These changes were made in engine code because they fix latent bugs exposed by t
 | **`new_game:` added `HQ_ResumeSamples()`** | The `new_game:` path ran `Introduction()` then entered `MainLoop()` without unpausing samples. | The SDL backend reference-counts `samplesPaused`. The menu calls `HQ_PauseSamples()` before showing. `PlayAcf` (inside `Introduction`) pairs its own pause/resume, but the menu's pause is never reversed, leaving `samplesPaused == 1` when `MainLoop()` starts — the mix callback returns early and all SFX are silent. The `load_game:` path already had the matching `HQ_ResumeSamples()`. | Added `HQ_ResumeSamples()` after `HQ_StopSample()`, matching `load_game:`. |
 | **Case 70 else (resume from autosave) added `HQ_ResumeSamples()`** | After GameOver (`firstloop = TRUE`), selecting "reprendre partie" loaded CURRENTSAVE and entered `MainLoop()` without unpausing. | Same ref-counted `samplesPaused` issue: the menu's `HQ_PauseSamples()` is never reversed on this path, silencing all SFX. | Added `HQ_ResumeSamples()` before `RestoreTimer()`, matching `load_game:`. |
 
+### `SOURCES/MUSIC.CPP`
+
+| Change | Original behaviour | Problem with SDL backend | Fix |
+|--------|--------------------|--------------------------|-----|
+| **`TrackCD[6]`: added `JINGLE` flag** | Entry 6 (menu theme, music number 8) had no `JINGLE` flag, routing it through `PlayCD()`. | `PlayCD` constructs `Track08.wav` using physical CD track numbers. The Steam/GOG distribution names its music files `track1.ogg`–`track6.ogg` (sequential, no zero-padding). No filename permutation bridges this numbering gap. | Added `JINGLE` flag so the menu theme routes through `PlayJingle` → `PlayStream`, which has OGG fallback. |
+| **`ListJingle[7]`: set to `"TADPCM6"`** | Empty string (`""`), because the menu theme was a physical CD audio track with no ADPCM stream. | With the `JINGLE` flag added above, `PlayJingle(8)` looks up `ListJingle[7]`, which was empty. | Set to `"TADPCM6"` following the existing TADPCM naming pattern. The stream layer's `track<N>.ogg` fallback resolves this to `track6.ogg`. |
+
+### `LIB386/AIL/SDL/STREAM.CPP`
+
+| Change | Rationale |
+|--------|-----------|
+| **Added `track<N>.ogg` fallback** | The original TADPCM music files (`TADPCM1.WAV`–`TADPCM5.WAV`) were renamed to `track1.ogg`–`track6.ogg` in the Steam/GOG distribution. When `PlayStream` can't find the WAV or its direct OGG equivalent (e.g. `tadpcm1.ogg`), the fallback extracts the trailing number from the filename and probes `track<N>.ogg`. Backward compatible with original WAV files. |
+

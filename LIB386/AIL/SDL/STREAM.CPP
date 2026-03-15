@@ -120,8 +120,36 @@ void PlayStream(char *name) {
         found = TryPlayOgg(oggPath);
       }
     }
+    /* Steam/GOG fallback: original TADPCM files were renamed to track<N>.ogg
+       in the digital distribution.  Extract the trailing number from the
+       basename and probe for the corresponding track file. */
     if (!found) {
-      SDL_Log("SDL AIL: Could not load WAV '%s' or OGG", name);
+      const char *sep = strrchr(name, '/');
+#ifdef _WIN32
+      const char *bsep = strrchr(name, '\\');
+      if (bsep && (!sep || bsep > sep)) sep = bsep;
+#endif
+      const char *base = sep ? sep + 1 : name;
+      const char *dot  = strrchr(base, '.');
+      if (!dot) dot = base + strlen(base);
+      const char *p = dot;
+      while (p > base && p[-1] >= '0' && p[-1] <= '9') p--;
+      if (p < dot) {
+        int n = atoi(p);
+        if (n > 0 && n < 100) {
+          int dirLen = (int)(base - name);
+          char alt[ADELINE_MAX_PATH];
+          snprintf(alt, sizeof(alt), "%.*strack%d.ogg", dirLen, name, n);
+          found = TryPlayOgg(alt);
+          if (!found) {
+            snprintf(alt, sizeof(alt), "%.*sTrack%d.ogg", dirLen, name, n);
+            found = TryPlayOgg(alt);
+          }
+        }
+      }
+    }
+    if (!found) {
+      SDL_Log("SDL AIL: Could not load WAV '%s' or OGG fallbacks", name);
       return;
     }
   }
