@@ -420,7 +420,7 @@ void	FadeOutVolumeMusic( void )
 
 		if( jvolume!=oldjvol )
 		{
-			SetVolumeJingle( jvolume ) ;
+			ChangeVolumeStream( jvolume ) ;
 			oldjvol = jvolume ;
 		}
 	}
@@ -428,7 +428,7 @@ void	FadeOutVolumeMusic( void )
 #ifdef	CDROM
 	SetVolumeCD( 0 ) ;
 #endif
-	SetVolumeJingle( 0 ) ;
+	ChangeVolumeStream( 0 ) ;
 
 	RestoreTimer() ;
 }

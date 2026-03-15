@@ -1844,6 +1844,7 @@ S32     DoGameMenu( U16 *ptrmenu )
                                         timerkey = TimerRefHR + VOLUME_TIMER_KEY ;
                                         CDVolume -= 1 ;
                                         SetVolumeCD( CDVolume ) ;
+                                        SetVolumeJingle( CDVolume ) ;
                                 }
                                 if( (Input & I_RIGHT OR MyKey==K_GRAY_RIGHT)
                                 AND TimerRefHR>timerkey AND CDVolume<127 )
@@ -1851,6 +1852,7 @@ S32     DoGameMenu( U16 *ptrmenu )
                                         timerkey = TimerRefHR + VOLUME_TIMER_KEY ;
                                         CDVolume += 1 ;
                                         SetVolumeCD( CDVolume ) ;
+                                        SetVolumeJingle( CDVolume ) ;
                                 }
 #endif
                                 break ;
@@ -1863,6 +1865,7 @@ S32     DoGameMenu( U16 *ptrmenu )
                                         timerkey = TimerRefHR + VOLUME_TIMER_KEY ;
                                         MasterVolume -= 1 ;
                                         SetMasterVolumeSample( MasterVolume ) ;
+                                        SetVolumeJingle( JingleVolume ) ;
 #ifdef  CDROM
                                         SetVolumeCD( CDVolume ) ;
 #endif
@@ -1873,6 +1876,7 @@ S32     DoGameMenu( U16 *ptrmenu )
 					timerkey = TimerRefHR + VOLUME_TIMER_KEY ;
 					MasterVolume += 1 ;
 					SetMasterVolumeSample( MasterVolume ) ;
+					SetVolumeJingle( JingleVolume ) ;
 #ifdef  CDROM
 					SetVolumeCD( CDVolume ) ;
 #endif
@@ -2046,6 +2050,9 @@ S32     GereVolumeMenu( void )
         S32 select ;
         S32 flag = 0 ;
 
+        S32 wasPaused = (GetSamplesPausedCount() > 0) ;
+        if( wasPaused ) ResumeSamples() ;
+
         CopyScreen( Screen, Log ) ;
         BoxStaticAdd( 0, 0, ModeDesiredX-1, ModeDesiredY-1 ) ;
 
@@ -2081,6 +2088,10 @@ S32     GereVolumeMenu( void )
 				break ;
 		}
 	}
+
+        SetVolumeJingle( JingleVolume ) ;
+
+        if( wasPaused ) PauseSamples() ;
 
         CopyScreen( Screen, Log ) ;
         BoxStaticAdd( 0, 0, ModeDesiredX-1, ModeDesiredY-1 ) ;

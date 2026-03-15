@@ -800,15 +800,11 @@ void    ReadVolumeSettings()
 
         if( JingleVolume>127 )  JingleVolume = 127 ;
 
-        SetVolumeJingle( JingleVolume ) ;
-
         //---------------------------------------------------------------
 #ifdef  CDROM
         CDVolume = DefFileBufferReadValueDefault( "CDVolume", DEF_CD_VOLUME ) ;
 
         if( CDVolume>127 )      CDVolume = 127 ;
-
-        SetVolumeCD( CDVolume ) ;
 #endif
 
         //---------------------------------------------------------------
@@ -818,6 +814,10 @@ void    ReadVolumeSettings()
         if( MasterVolume>127 )  MasterVolume = 127 ;
 
         SetMasterVolumeSample( MasterVolume ) ;
+        SetVolumeJingle( JingleVolume ) ;
+#ifdef  CDROM
+        SetVolumeCD( CDVolume ) ;
+#endif
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
