@@ -34,12 +34,15 @@ HQR_GET_CALLBACK      DelBlocHQRSample ;
 
 void    DelBlocHQRSample( char *name, S32 index )
 {
-        name  = name ;
-        index = index ;
+        (void)name ;
+        (void)index ;
 
-        // methode violente : on vire tous les samples
-        HQ_StopSample() ;
-        // pour remettre la pluie en route
+        /* Original called HQ_StopSample() here ("methode violente") which
+           killed ALL playing voices on every HQR cache eviction.  The SDL
+           backend copies sample data into each voice (malloc+memcpy), so
+           voices are independent of HQR cache entries.  Removing the
+           blanket stop fixes voice thrashing that silenced thunder and
+           other concurrent SFX.  Rain is restarted via RestartRainSample. */
         RestartRainSample = TRUE        ;
 
         // mise à 0 du pointeur de fonction appelé par HQR_Get()
@@ -80,7 +83,6 @@ U32     HQ_MixSample( S32 numsample, S32 frequence, S32 decalage, S32 repeat, S3
 			InitParmSample() ;
 			return 0 ;
 		}
-
 		SaveTimer() ;
 
 		// tient compte du ParmSampleVolume
@@ -408,9 +410,14 @@ void    GereAmbiance( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 
 // Appelée au changement de cube pour couper les ambiance du cube en cours
+// Rain stop added: since DelBlocHQRSample no longer kills all voices,
+// rain must be explicitly stopped on cube change to prevent carry-over.
 void    ClearAmbiance( void )
 {
         S32     n ;
+
+        if( IsSamplePlaying(SAMPLE_RAIN) )
+                HQ_StopOneSample( SAMPLE_RAIN ) ;
 
         for( n=0; n<4; n++ )
         {
@@ -488,9 +495,13 @@ void    ChoicePalette( void )
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+// Island guard: rain is only intended for Citadel Island (Island 0).
+// Original relied on FlagRain being set by the storm system, but
+// RestartRainSample fires on every HQR eviction regardless of island.
 void    StartRainSample( void )
 {
         if( SamplesEnable
+	AND Island==0
 	AND CubeMode==CUBE_EXTERIEUR
 	AND !TEMPETE_FINIE
         AND !IsSamplePlaying(SAMPLE_RAIN) )

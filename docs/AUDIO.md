@@ -1,0 +1,217 @@
+# Audio System
+
+## Overview
+
+The original LBA2 used the proprietary **Miles Sound System (MSS)** for audio. This project replaces Miles with an open-source **SDL-based backend** that implements the same **AIL (Audio Interface Library)** contract the engine was built against.
+
+The SDL backend matches the AIL function signatures and handle semantics, but targets modern hardware and sound quality (44100 Hz, float mixing, clean clipping). This document describes the audio architecture, the AIL contract, how the engine uses audio, and current status.
+
+---
+
+## Architecture
+
+The game's audio call chain is layered and already has a clean abstraction boundary:
+
+```
+Engine code (SOURCES/*.CPP)
+    |  calls HQ functions and music/jingle functions
+    v
+HQ layer (AMBIANCE.CPP, MUSIC.CPP)
+    |  game-level logic: 3D pan, volume scaling, "always" samples,
+    |  music/jingle lifecycle, fade timing
+    v
+AIL functions (LIB386/AIL/)
+    |  backend boundary -- swapped at compile time via SOUND_BACKEND
+    |
+    +-- SDL   (LIB386/AIL/SDL/)     -- current default, what we are hardening
+    +-- MILES (LIB386/AIL/MILES/)   -- original proprietary implementation (reference)
+    +-- NULL  (LIB386/AIL/NULL/)    -- silent stubs for testing
+```
+
+**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`) selects which implementation is linked. This design is also reusable for LBA1 (same AIL interface). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes-sourcessourcesambiance.cpp) below).
+
+The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`.
+
+---
+
+## The AIL contract
+
+These are the C headers every backend must implement. They live in `LIB386/H/AIL/`.
+
+### SAMPLE.H -- sample playback (SFX, ambience, voices)
+
+| Function | Signature | Semantics |
+|----------|-----------|-----------|
+| `InitSampleDriver` | `S32 InitSampleDriver(char *driver_name)` | Initialise the sample subsystem. |
+| `SetMasterVolumeSample` | `void SetMasterVolumeSample(S32 volume)` | Set master volume (0-127) for all samples. |
+| `PlaySample` | `U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend, S32 repeat, S32 volume, S32 pan)` | Play a sample from a memory buffer. Returns a handle. |
+| `ChangePitchbendSample` | `void ChangePitchbendSample(U32 sample, S32 pitchbend)` | Change pitchbend on a playing sample. `4096` = no bend. |
+| `ChangeVolumePanSample` | `void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan)` | Change volume (0-127) and pan (0-127, 64=centre) on a playing sample. |
+| `StopOneSample` | `void StopOneSample(U32 sample)` | Stop a single sample by handle. |
+| `StopSamples` | `void StopSamples(void)` | Stop all playing samples. |
+| `PauseSamples` | `void PauseSamples(void)` | Pause all playing samples. |
+| `ResumeSamples` | `void ResumeSamples(void)` | Resume all paused samples. |
+| `IsSamplePlaying` | `U32 IsSamplePlaying(U32 sample)` | Check if a sample is playing. Returns `FALSE` or starting `TimerRefHR`. |
+| `FadeOutSamples` | `S32 FadeOutSamples(S32 delay)` | Fade out all samples over `delay` ms. Returns scaling factor. |
+| `FadeInSamples` | `S32 FadeInSamples(S32 delay)` | Fade in all samples over `delay` ms. Returns scaling factor. |
+| `InverseStereoSample` | `void InverseStereoSample(S32 inverse)` | Swap left/right channels when `inverse` is TRUE. |
+
+**Struct:** `SAMPLE_PLAYING` -- per-voice state: `Usernum`, `Pitch`, `Repeat`, `Volume`, `Pan`, `Dummy`.
+
+**Constants:** `MAX_SAMPLE_VOICES = 12`, `PITCHBEND_NORMAL = 4096`, `SAMPLE_RATE = 44100` (upsampled from original 22050 Hz for quality).
+
+### STREAM.H -- streaming audio (jingles, OGG)
+
+| Function | Signature | Semantics |
+|----------|-----------|-----------|
+| `OpenStream` | `void OpenStream()` | Initialise the stream subsystem. |
+| `PlayStream` | `void PlayStream(char *name)` | Stream a WAV/OGG file from disk. |
+| `ChangeVolumeStream` | `void ChangeVolumeStream(S32 volume)` | Set stream volume (0-127). |
+| `GetVolumeStream` | `S32 GetVolumeStream()` | Get current stream volume. |
+| `StopStream` | `void StopStream()` | Stop playing stream. |
+| `PauseStream` | `void PauseStream()` | Pause playing stream. |
+| `ResumeStream` | `void ResumeStream()` | Resume paused stream. |
+| `IsStreamPlaying` | `S32 IsStreamPlaying()` | TRUE if a stream is playing or paused. |
+| `StreamName` | `char *StreamName()` | Name of the current stream (empty if none). |
+
+### CD.H -- CD audio
+
+| Function | Signature | Semantics |
+|----------|-----------|-----------|
+| `OpenCD` | `const char* OpenCD(char *volume_name)` | Initialise CD. Returns drive letter. |
+| `PlayCD` | `void PlayCD(S32 track)` | Play CD track (1-based). |
+| `ChangeVolumeCD` | `void ChangeVolumeCD(S32 volume)` | Set CD volume (0-127). |
+| `GetVolumeCD` | `S32 GetVolumeCD()` | Get current CD volume. |
+| `StopCD` | `void StopCD()` | Stop CD playback. |
+| `PauseCD` | `void PauseCD()` | Pause CD playback. |
+| `ResumeCD` | `void ResumeCD()` | Resume CD playback. |
+| `IsCDPlaying` | `S32 IsCDPlaying()` | TRUE if CD is playing or paused. |
+
+### VIDEO_AUDIO.H -- video soundtrack (smacker)
+
+| Function | Signature |
+|----------|-----------|
+| `StartVideoAudio` | `S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit)` |
+| `ResumeVideoAudio` | `void ResumeVideoAudio(void)` |
+| `PushVideoAudio` | `void PushVideoAudio(const void *data, U32 sizeBytes)` |
+| `StopVideoAudio` | `void StopVideoAudio(void)` |
+
+---
+
+## Sound scripting patterns
+
+This section maps how the engine uses the AIL API in gameplay. It guides targeted testing and helps identify mix-sensitive scenes.
+
+### 1. 3D mix calls (`HQ_3D_MixSample`, `HQ_3D_ChangePanSample`)
+
+**Where:** INVENT, FICHE, BUGGY, IMPACT, EXTRA, OBJECT, PERSO, GERELIFE, GERETRAK, DART.
+
+**Flow:**
+1. `HQ_3D_MixSample(numsample, frequence, decalage, repeat, x, y, z)` projects 3D position to screen via `PtrProjectPoint`.
+2. `GiveBalance(Xp, Yp, distance, &pan, &volume)` computes pan (0–127) and volume (0–127):
+   - **Interior:** `distance = Distance2D(320, 240, Xp, Yp)`; volume falls off within `DISTANCE_SAMPLE_MAX` (700).
+   - **Exterior:** `distance = Distance3D(x,y,z, CameraX,Y,Z)`; volume full within `DISTANCE_SAMPLE_MIN_EXT` (5000), fades to 0 by `DISTANCE_SAMPLE_MAX_EXT` (30000).
+3. Calls `HQ_MixSample` with computed pan/volume.
+4. If `GiveBalance` returns FALSE (off-screen) and `repeat==0`, returns synthetic handle `numsample<<8` for "always" samples.
+
+**Typical parameters:** `frequence=0x1000` (normal pitch), `decalage=0` or 300–2000 (random pitch), `repeat=0` (loop) or `1` (one-shot).
+
+### 2. Always-playing samples (`SampleAlways`)
+
+**Where:** FICHE (object scripts), BUGGY, PERSO, GERELIFE (`LM_SAMPLE_ALWAYS`), GERETRAK (`TM_SAMPLE_ALWAYS`).
+
+**Pattern:**
+- Stored in `ptrobj->SampleAlways` (handle or `numsample<<8`).
+- **Repanning:** `SampleAlwaysMove` timer (every ~2 s) triggers `HQ_3D_ChangePanSample` when the object moves.
+- **Restart:** If `!IsSamplePlaying(SampleAlways)`, call `HQ_3D_MixSample` with `repeat=0`.
+- **Sample change:** If new sample ID differs, `HQ_StopOneSample` old handle first.
+- **Stop:** `HQ_StopOneSample(SampleAlways)` when object deactivates (e.g. get off buggy, stop protopack).
+
+**Examples:**
+- **Buggy engine** (`SAMPLE_BUGGY`): looping, `ChangePitchbendSample` for speed.
+- **Protopack** (`SAMPLE_PROTOPACK`): looping while flying.
+- **Object scripts:** ambient loops (machinery, water, etc.) tied to objects.
+
+### 3. Ambience loops (`LaunchAmbiance`, `GereAmbiance`)
+
+**Data source:** Scene file per cube. `SampleAmbiance[0..3]`, `SampleRepeat[0..3]`, `SampleRnd`, `SampleFreq`, `SampleVol`, `SecondMin`, `SecondEcart` loaded in `DISKFUNC.CPP`.
+
+**LaunchAmbiance (on cube enter):**
+- For each slot `n` with `SampleAmbiance[n] != -1` and `repeat==0`: start infinite loop immediately via `HQ_MixSample(numsample, freq, decal, 0, 64, volume)`.
+
+**GereAmbiance (per-frame):**
+- When `TimerNextAmbiance` fires: pick random slot, if `repeat!=0` and `!IsSamplePlaying(numsample)`, play one-shot with random pan.
+- `SecondMin` + `SecondEcart` control interval between one-shots.
+
+**ClearAmbiance (on cube change):** `HQ_StopOneSample` for each defined slot.
+
+**Mix-sensitive:** Desert exterior cubes (White Leaf Desert, Island 2) typically use cicada-like samples in `SampleAmbiance` slots. Interior cubes may use machinery, water drips, etc.
+
+### 4. Rain sample (`SAMPLE_RAIN`)
+
+**Where:** `AMBIANCE.CPP` — `StartRainSample`, `ChoicePalette`, `GereRain`-related paths.
+
+**Conditions:**
+- `CubeMode==CUBE_EXTERIEUR` AND `!TEMPETE_FINIE` (storm active).
+- Stopped when `CubeMode==CUBE_INTERIEUR` OR `TEMPETE_FINIE`.
+
+**Pattern:** `HQ_MixSample(SAMPLE_RAIN, 0x1000, 300, 0, 64, volume)` — infinite loop, center pan, decalage 300 for variation.
+
+### 5. Escalator (`SAMPLE_ESCALATOR`)
+
+**Where:** `OBJECT.CPP` — `CJ_ESCALATOR_OUEST/EST/NORD/SUD`.
+
+**Pattern:** `if (!IsSamplePlaying(SAMPLE_ESCALATOR)) HQ_MixSample(SAMPLE_ESCALATOR, 0x1000, 0, 1, 64, VOLUME_ESCALATOR)`.
+- One-shot (`repeat=1`) but re-triggered each frame while on conveyor. Anti-spam via `IsSamplePlaying` + `SAMPLE_TIME_REPEAT` in `HQ_MixSample`.
+- Non-3D, center pan.
+
+### 6. Non-3D one-shots
+
+**Examples:**
+- `PlayErrorSample` macro: `SAMPLE_ERROR`, center pan, volume 127.
+- `SAMPLE_BONUS`, `SAMPLE_FOUND_OBJ`, `SAMPLE_GAME_OVER`: UI/feedback.
+- `SAMPLE_DEAD`, `SAMPLE_EXPLO_*`, `SAMPLE_BONUS_TROUVE`: 3D-positioned in EXTRA/OBJECT.
+
+### 7. Protection alarm (INVENT)
+
+**Pattern:** 3D-positioned `SAMPLE_PROTECTION` / `SAMPLE_PROTECTION_ALARME`, always-playing when zone active. `HQ_3D_ChangePanSample` on position update.
+
+---
+
+## Mix-sensitive scenes
+
+| Scene type | Cubes | Notes |
+|------------|-------|------|
+| **Desert exterior** | 55–73, 198–220 (White Leaf Desert) | `SampleAmbiance[0..3]` from scene file — cicadas, wind, ambient. Often multiple infinite loops. |
+| **Rain / storm** | Exterior cubes when `TEMPETE_ACTIVE` | `SAMPLE_RAIN` overlay on ambience. |
+| **Escalator buildings** | e.g. baggage claim (5, 6, 16) | Conveyor belt + ambience. |
+| **Protection zones** | Various | Continuous alarm + other SFX. |
+| **Buggy / Protopack** | Desert, exterior | `SampleAlways` engine/jetpack + ambience + possible music. |
+| **Crowded interiors** | Bazaar (36), Bar (39), etc. | Multiple objects with `SampleAlways`, ambience slots. |
+
+**Testing focus:** Desert exterior (e.g. cube 56 "Near the Camel", 60 "Near J. Baldino's House") for cicada loops; storm scenes for rain overlay; escalator scenes for conveyor anti-spam; protection zones for 3D panning of continuous alarm.
+
+---
+
+## Principles
+
+- **API parity, modern implementation.** Match the AIL function signatures and handle semantics. Leverage modern hardware (44100 Hz, float mixing, clean clipping) rather than replicating 1990s limitations.
+
+- **Correctness first.** Handle semantics, voice lifecycle, threading safety, and buffer management must be right before anything else.
+
+- **Voice priority** (when 12 voices are exhausted): dialogue and UI first, then character/environmental SFX, then ambience loops, then flavour. Ambience creates mood but must never drown critical sounds.
+
+- **Minimal engine changes.** Backend work stays in `LIB386/AIL/SDL/`. Engine files in `SOURCES/` are only modified for latent bugs exposed by the new backend, documented below.
+
+---
+
+## Engine-side fixes (`SOURCES/AMBIANCE.CPP`)
+
+These changes were made in engine code because they fix latent bugs exposed by the SDL backend's architecture (which copies sample data rather than sharing HQR cache pointers). Each is documented here with rationale.
+
+| Change | Original behaviour | Problem with SDL backend | Fix |
+|--------|--------------------|--------------------------|-----|
+| **`DelBlocHQRSample`: removed `HQ_StopSample()`** | Called `HQ_StopSample()` ("methode violente") on every HQR cache eviction, killing all playing voices. | SDL copies sample data (`malloc`+`memcpy`), so voices are independent of HQR cache entries. The blanket stop caused voice thrashing that silenced thunder and other concurrent SFX. | Removed `HQ_StopSample()`. Only `RestartRainSample = TRUE` remains to re-trigger rain after eviction. |
+| **`ClearAmbiance`: added rain stop** | Only stopped the 4 `SampleAmbiance[]` slots. | With `DelBlocHQRSample` no longer killing all voices, rain could persist across cube transitions. | Added `HQ_StopOneSample(SAMPLE_RAIN)` before the ambiance slot loop. |
+| **`StartRainSample`: added `Island==0` guard** | Checked `CubeMode==CUBE_EXTERIEUR AND !TEMPETE_FINIE`. | `RestartRainSample` fires on every HQR eviction regardless of island, causing rain on desert islands. The storm system only runs on Citadel Island (Island 0), matching `ChoicePalette`'s existing `Island==0` logic. | Added `Island==0` to the condition. |
+

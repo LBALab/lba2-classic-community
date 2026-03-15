@@ -29,6 +29,7 @@ Index of documentation in this repository.
 
 | Doc | Description |
 |-----|-------------|
+| [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |
 | [GFX_OPTIONS.md](GFX_OPTIONS.md) | Variables and locations for graphical quality options. |
