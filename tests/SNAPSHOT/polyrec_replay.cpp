@@ -126,7 +126,7 @@ static const U8 *read_bytes(T_EVENT_READER *r, U32 size) {
 
 int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                        const char *ppm_file, const char *ref_ppm_file,
-                       int stop_after) {
+                       int start_after, int stop_after) {
     T_POLYREC_LOADED rec;
     T_EVENT_READER reader;
     FILE *f;
@@ -213,12 +213,13 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
         RepMask = rec.textures[rec.init_state.active_texture].rep_mask;
     }
 
-    fprintf(stderr, "INFO: Replaying events (bank=%u, fog_near=%d, fog_far=%d, "
-            "clip=(%d,%d)-(%d,%d), stop_after=%d)\n",
+        fprintf(stderr, "INFO: Replaying events (bank=%u, fog_near=%d, fog_far=%d, "
+            "clip=(%d,%d)-(%d,%d), start_after=%d, stop_after=%d)\n",
             rec.init_state.filler_bank,
             rec.init_state.fog_near, rec.init_state.fog_far,
             rec.init_state.clip_xmin, rec.init_state.clip_ymin,
             rec.init_state.clip_xmax, rec.init_state.clip_ymax,
+            start_after,
             stop_after);
 
     /* Process event stream */
@@ -284,7 +285,7 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
             U32 points_size = (U32)nb_points * 16;
             const U8 *points_data = read_bytes(&reader, points_size);
 
-            if (points_data && nb_points > 0) {
+            if (points_data && nb_points > 0 && (start_after < 0 || (int)draw_count >= start_after)) {
                 /* Copy to local buffer (Fill_Poly may modify points in-place during clipping) */
                 Struc_Point local_points[64]; /* max 64 vertices should be enough */
                 U32 copy_count = (U32)nb_points;
@@ -324,8 +325,10 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
             S32 rayon = read_s32(&reader);
             S32 zbuf_value = read_s32(&reader);
 
-            Fill_Sphere(type_sphere, color_sphere, centre_x, centre_y,
-                        rayon, zbuf_value);
+            if (start_after < 0 || (int)draw_count >= start_after) {
+                Fill_Sphere(type_sphere, color_sphere, centre_x, centre_y,
+                            rayon, zbuf_value);
+            }
 
             draw_count++;
             if (stop_after >= 0 && (int)draw_count >= stop_after) {
@@ -343,7 +346,9 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
             S32 z1 = read_s32(&reader);
             S32 z2 = read_s32(&reader);
 
-            Line_A(x0, y0, x1, y1, col, z1, z2);
+            if (start_after < 0 || (int)draw_count >= start_after) {
+                Line_A(x0, y0, x1, y1, col, z1, z2);
+            }
 
             draw_count++;
             if (stop_after >= 0 && (int)draw_count >= stop_after) {

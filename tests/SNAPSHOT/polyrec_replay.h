@@ -20,12 +20,15 @@ extern "C" {
  * @param output_file   Path to write raw framebuffer
  * @param ppm_file      If non-NULL, write PPM color image (requires RGB palette)
  * @param ref_ppm_file  If non-NULL, write reference game framebuffer as PPM
- * @param stop_after    If >= 0, stop after this many draw calls (for bisection)
+ * @param start_after   If >= 0, skip executing draw calls up to and including this
+ *                      number while still applying non-draw state changes
+ * @param stop_after    If >= 0, stop after this many draw calls (for bisection or
+ *                      targeted replay windows)
  * @return 0 on success, nonzero on failure
  */
 int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                        const char *ppm_file, const char *ref_ppm_file,
-                       int stop_after);
+                       int start_after, int stop_after);
 
 #ifdef __cplusplus
 }

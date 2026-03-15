@@ -6,7 +6,8 @@
  *   - replay_polyrec_cpp  (linked against CPP library)
  *
  * Usage: replay_polyrec_{asm,cpp} <recording.lba2polyrec> <output.raw>
- *            [--ppm output.ppm] [--ref-ppm ref.ppm] [--stop-after N]
+ *            [--ppm output.ppm] [--ref-ppm ref.ppm]
+ *            [--start-after N] [--stop-after N]
  */
 
 #include "polyrec_replay.h"
@@ -178,13 +179,15 @@ done:
 int main(int argc, char *argv[]) {
     const char *ppm_file = NULL;
     const char *ref_ppm_file = NULL;
+    int start_after = -1; /* -1 = replay from first draw call */
     int stop_after = -1;  /* -1 = replay all */
     int dump_mode = 0;
     int i;
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <recording.lba2polyrec> <output.raw> "
-                "[--ppm output.ppm] [--ref-ppm ref.ppm] [--stop-after N] [--dump]\n",
+            "[--ppm output.ppm] [--ref-ppm ref.ppm] "
+            "[--start-after N] [--stop-after N] [--dump]\n",
                 argv[0]);
         return 1;
     }
@@ -202,7 +205,8 @@ int main(int argc, char *argv[]) {
 
     if (argc < 3) {
         fprintf(stderr, "Usage: %s <recording.lba2polyrec> <output.raw> "
-                "[--ppm output.ppm] [--ref-ppm ref.ppm] [--stop-after N] [--zbuf output.zbuf] [--dump]\n",
+            "[--ppm output.ppm] [--ref-ppm ref.ppm] "
+            "[--start-after N] [--stop-after N] [--zbuf output.zbuf] [--dump]\n",
                 argv[0]);
         return 1;
     }
@@ -214,6 +218,8 @@ int main(int argc, char *argv[]) {
             ppm_file = argv[++i];
         } else if (strcmp(argv[i], "--ref-ppm") == 0 && i + 1 < argc) {
             ref_ppm_file = argv[++i];
+        } else if (strcmp(argv[i], "--start-after") == 0 && i + 1 < argc) {
+            start_after = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--stop-after") == 0 && i + 1 < argc) {
             stop_after = atoi(argv[++i]);
         } else if (strcmp(argv[i], "--zbuf") == 0 && i + 1 < argc) {
@@ -221,7 +227,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int result = polyrec_replay_run(argv[1], argv[2], ppm_file, ref_ppm_file, stop_after);
+    int result = polyrec_replay_run(argv[1], argv[2], ppm_file, ref_ppm_file,
+                                    start_after, stop_after);
 
     /* Write z-buffer if requested */
     if (zbuf_file && PtrZBuffer) {

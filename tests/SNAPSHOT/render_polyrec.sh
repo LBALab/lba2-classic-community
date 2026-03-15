@@ -1,7 +1,7 @@
 #!/bin/bash
 # render_polyrec.sh — Render a polygon recording through both ASM and CPP paths
 #
-# Usage: render_polyrec.sh <recording.lba2polyrec> [output_dir] [asm_binary] [cpp_binary]
+# Usage: render_polyrec.sh <recording.lba2polyrec> [output_dir] [asm_binary] [cpp_binary] [replay args...]
 #
 # Produces .raw, .ppm, and .png (if ImageMagick available) for visual comparison.
 
@@ -12,6 +12,12 @@ BASENAME=$(basename "${REC}" .lba2polyrec)
 OUTPUT_DIR="${2:-.}"
 ASM_BIN="${3:-./replay_polyrec_asm}"
 CPP_BIN="${4:-./replay_polyrec_cpp}"
+if [ $# -gt 4 ]; then
+    shift 4
+else
+    set --
+fi
+EXTRA_ARGS=("$@")
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -29,14 +35,14 @@ ASM_OK=0
 CPP_OK=0
 
 echo "Rendering ASM path..."
-if "$ASM_BIN" "$REC" "$ASM_RAW" --ppm "$ASM_PPM" --ref-ppm "$REF_PPM"; then
+if "$ASM_BIN" "$REC" "$ASM_RAW" --ppm "$ASM_PPM" --ref-ppm "$REF_PPM" "${EXTRA_ARGS[@]}"; then
     ASM_OK=1
 else
     echo "WARNING: ASM replay failed (exit code $?)"
 fi
 
 echo "Rendering CPP path..."
-if "$CPP_BIN" "$REC" "$CPP_RAW" --ppm "$CPP_PPM"; then
+if "$CPP_BIN" "$REC" "$CPP_RAW" --ppm "$CPP_PPM" "${EXTRA_ARGS[@]}"; then
     CPP_OK=1
 else
     echo "WARNING: CPP replay failed (exit code $?)"

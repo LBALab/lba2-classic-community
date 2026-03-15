@@ -22,24 +22,39 @@ BUILD_ONLY=false
 FORCE_REBUILD=false
 RENDER_MODE=false
 BISECT_MODE=false
+POLYREC_NAME=""
+REPLAY_ARGS=()
 TEST_NAMES=()
 
-for arg in "$@"; do
-    case "$arg" in
+while [ $# -gt 0 ]; do
+    case "$1" in
         --build-only)
             BUILD_ONLY=true
+            shift
             ;;
         --rebuild)
             FORCE_REBUILD=true
+            shift
             ;;
         --render)
             RENDER_MODE=true
+            shift
             ;;
         --bisect)
             BISECT_MODE=true
+            shift
+            ;;
+        --polyrec)
+            POLYREC_NAME="${2:?--polyrec requires a recording name or path}"
+            shift 2
+            ;;
+        --start-after|--stop-after)
+            REPLAY_ARGS+=("$1" "${2:?$1 requires a numeric argument}")
+            shift 2
             ;;
         *)
-            TEST_NAMES+=("$arg")
+            TEST_NAMES+=("$1")
+            shift
             ;;
     esac
 done
@@ -96,6 +111,8 @@ docker run --rm \
     -e "PRESET=${PRESET}" \
     -e "RENDER_MODE=${RENDER_MODE}" \
     -e "BISECT_MODE=${BISECT_MODE}" \
+    -e "POLYREC_NAME=${POLYREC_NAME}" \
+    -e "REPLAY_ARGS_STR=${REPLAY_ARGS[*]}" \
     "${IMAGE_NAME}" \
     bash -c '
         set -e
@@ -123,12 +140,21 @@ docker run --rm \
             cmake --build build -j$(nproc) --target replay_polyrec_asm --target replay_polyrec_cpp
             echo "--- rendering polygon recordings ---"
             cd build/tests/SNAPSHOT
-            for rec in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2polyrec; do
+            if [ -n "${POLYREC_NAME}" ]; then
+                case "${POLYREC_NAME}" in
+                    /*) REC_LIST="${POLYREC_NAME}" ;;
+                    *.lba2polyrec) REC_LIST="/tmp/lba2/tests/SNAPSHOT/fixtures/${POLYREC_NAME}" ;;
+                    *) REC_LIST="/tmp/lba2/tests/SNAPSHOT/fixtures/${POLYREC_NAME}.lba2polyrec" ;;
+                esac
+            else
+                REC_LIST="/tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2polyrec"
+            fi
+            for rec in ${REC_LIST}; do
                 [ -f "$rec" ] || continue
                 echo "Rendering: $(basename "$rec")"
                 bash /tmp/lba2/tests/SNAPSHOT/render_polyrec.sh "$rec" \
                     /tmp/lba2/tests/SNAPSHOT/fixtures \
-                    ./replay_polyrec_asm ./replay_polyrec_cpp || true
+                    ./replay_polyrec_asm ./replay_polyrec_cpp ${REPLAY_ARGS_STR} || true
             done
             echo "--- copying rendered files to host ---"
             cp -f /tmp/lba2/tests/SNAPSHOT/fixtures/*.raw ${CONTAINER_SRC}/tests/SNAPSHOT/fixtures/ 2>/dev/null || true
