@@ -160,6 +160,44 @@ add_custom_command(
 )
 add_custom_target(asm_lib386 ALL DEPENDS ${ASM_LIB386})
 
+# ── Build selectively-renamed ASM library for polyrec ASM replay ────────────
+# Rename specific function symbols that conflict with wrapper overrides.
+# Globals (Log, PtrZBuffer, TabOffLine, etc.) keep their original names
+# so both ASM and CPP code reference the same global data.
+set(POLYREC_ASM_RENAME_SYMS
+    Fill_Sphere
+    Line_A
+)
+set(POLYREC_ASM_RENAME_FLAGS "")
+foreach(_sym ${POLYREC_ASM_RENAME_SYMS})
+    list(APPEND POLYREC_ASM_RENAME_FLAGS "--redefine-sym" "${_sym}=asm_${_sym}")
+endforeach()
+
+set(POLYREC_ASM_OBJECTS "")
+foreach(_obj ${ASM_LIB_OBJECTS})
+    get_filename_component(_obj_name ${_obj} NAME_WE)
+    set(_obj_renamed "${CMAKE_CURRENT_BINARY_DIR}/${_obj_name}.polyrec_asm.o")
+    add_custom_command(
+        OUTPUT ${_obj_renamed}
+        COMMAND ${OBJCOPY_EXECUTABLE} ${POLYREC_ASM_RENAME_FLAGS}
+                ${_obj} ${_obj_renamed}
+        DEPENDS ${_obj}
+        COMMENT "Renaming polyrec ASM symbols in ${_obj_name}"
+        VERBATIM
+    )
+    list(APPEND POLYREC_ASM_OBJECTS ${_obj_renamed})
+endforeach()
+
+set(POLYREC_ASM_LIB386 "${CMAKE_CURRENT_BINARY_DIR}/libpolyrec_asm_lib386.a")
+add_custom_command(
+    OUTPUT ${POLYREC_ASM_LIB386}
+    COMMAND ${CMAKE_AR} rcs ${POLYREC_ASM_LIB386} ${POLYREC_ASM_OBJECTS}
+    DEPENDS ${POLYREC_ASM_OBJECTS}
+    COMMENT "Creating libpolyrec_asm_lib386.a"
+    VERBATIM
+)
+add_custom_target(polyrec_asm_lib386 ALL DEPENDS ${POLYREC_ASM_LIB386})
+
 # ── Shared replay includes ──────────────────────────────────────────────────
 set(REPLAY_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -195,13 +233,18 @@ set_target_properties(replay_polyrec_cpp PROPERTIES
 )
 target_link_options(replay_polyrec_cpp PRIVATE -no-pie)
 
-# replay_polyrec_asm — links ASM implementations
-add_executable(replay_polyrec_asm ${POLYREC_REPLAY_SOURCES})
+# replay_polyrec_asm — links selectively-renamed ASM library + ABI wrappers
+# The ASM library has Fill_Sphere/Line_A etc. renamed to asm_Fill_Sphere/asm_Line_A
+# to avoid conflicts with the wrapper overrides. All other symbols (globals,
+# Fill_PolyFast, Switch_Fillers_ASM) keep their original names.
+add_executable(replay_polyrec_asm ${POLYREC_REPLAY_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/polyrec_asm_wrappers.cpp
+)
 target_include_directories(replay_polyrec_asm PRIVATE ${REPLAY_INCLUDES})
 target_link_libraries(replay_polyrec_asm PRIVATE
-    ${ASM_LIB386} poly svg sys snapshot m
+    ${POLYREC_ASM_LIB386} poly svg sys snapshot m
 )
-add_dependencies(replay_polyrec_asm asm_lib386)
+add_dependencies(replay_polyrec_asm polyrec_asm_lib386)
 target_compile_definitions(replay_polyrec_asm PRIVATE
     "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
 )

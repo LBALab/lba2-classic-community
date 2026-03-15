@@ -18,9 +18,12 @@
 /*  RECORDING STATE                                                           */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-static int g_recording = 0;
 static char g_filename[256];
 static T_POLYREC_STATE g_rec;
+int g_polyrec_recording = 0;   /* Exposed for fast checking from hooks */
+
+/* Use g_polyrec_recording as THE recording flag (no separate g_recording) */
+#define g_recording g_polyrec_recording
 
 #define INITIAL_BUF_SIZE  (1024 * 1024)  /* 1 MB */
 
@@ -126,6 +129,9 @@ static S32 find_or_add_texture(U8 *ptr_map, S32 rep_mask) {
 int polyrec_start(const char *filename) {
     if (g_recording) return -1;
 
+    fprintf(stderr, "POLYREC: Starting recording to '%s'\n", filename);
+    fflush(stderr);
+
     memset(&g_rec, 0, sizeof(g_rec));
 
     /* Allocate event buffer */
@@ -188,6 +194,7 @@ int polyrec_start(const char *filename) {
     g_filename[sizeof(g_filename) - 1] = '\0';
 
     g_recording = 1;
+    g_polyrec_recording = 1;
     return 0;
 }
 
@@ -362,8 +369,15 @@ int polyrec_stop(void) {
     U32 i;
     U32 section_size;
 
+    fprintf(stderr, "POLYREC: polyrec_stop() called, g_recording=%d\n", g_recording);
+    fflush(stderr);
+
     if (!g_recording) return -1;
     g_recording = 0;
+    g_polyrec_recording = 0;
+
+    fprintf(stderr, "POLYREC: Stopping recording. %u events, %u bytes, %u textures\n",
+            g_rec.num_events, g_rec.event_buf_used, g_rec.num_textures);
 
     /* Capture reference framebuffer (game's actual output) */
     if (Log) {
@@ -471,6 +485,7 @@ int polyrec_stop(void) {
     if (write_section_header(f, POLYREC_SECTION_END, 0) != 0) goto fail;
 
     fclose(f);
+    fprintf(stderr, "POLYREC: Written '%s'\n", g_filename);
     goto cleanup;
 
 fail:

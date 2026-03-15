@@ -142,7 +142,7 @@ S32 Read_Next_Right(Struc_Point *PtA, Struc_Point *PtB);
 S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 							Struc_Point *Ptr_Points) {
 #ifdef ENABLE_POLY_RECORDING
-	if (polyrec_is_recording())
+	if (g_polyrec_recording)
 		polyrec_record_fill_poly(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
 #endif
 	Fill_LeftSlope = 0;
@@ -218,7 +218,7 @@ void Switch_FogNZW(void) {
 void Switch_Fillers(U32 Bank)
 {
 #ifdef ENABLE_POLY_RECORDING
-  if (polyrec_is_recording())
+  if (g_polyrec_recording)
     polyrec_record_switch_fillers(Bank);
 #endif
   Table_Switch[Bank]();
@@ -274,7 +274,7 @@ void SetScreenPitch(U32 *New_TabOffLine)
 void SetCLUT(U32 defaultline)
 {
 #ifdef ENABLE_POLY_RECORDING
-  if (polyrec_is_recording())
+  if (g_polyrec_recording)
     polyrec_record_set_clut(defaultline);
 #endif
   U8 *nextPtrTruePal = PtrCLUTFog + (defaultline << 8);
@@ -302,7 +302,7 @@ void SetCLUT(U32 defaultline)
 void SetFog(S32 z_near, S32 z_far)
 {
 #ifdef ENABLE_POLY_RECORDING
-    if (polyrec_is_recording())
+    if (g_polyrec_recording)
         polyrec_record_set_fog(z_near, z_far);
 #endif
     if (z_far == 0)

@@ -26,7 +26,7 @@ if (WIN32)
 endif ()
 
 # Optional: polygon recording support for ASM-vs-CPP testing
-option(ENABLE_POLY_RECORDING "Enable in-game polygon call recording for ASM-vs-CPP testing" OFF)
+# (option declared in top-level CMakeLists.txt)
 if(ENABLE_POLY_RECORDING)
   target_link_libraries(lba2 PRIVATE snapshot)
   target_compile_definitions(lba2 PRIVATE ENABLE_POLY_RECORDING)

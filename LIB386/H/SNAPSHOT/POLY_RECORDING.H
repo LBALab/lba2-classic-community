@@ -21,6 +21,10 @@
 extern "C" {
 #endif
 
+/* Fast recording check — read the global directly instead of calling a function.
+ * This avoids function call overhead on every Fill_Poly/Fill_Sphere/Line_A call. */
+extern int g_polyrec_recording;
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  FILE FORMAT CONSTANTS                                                     */
 /* ═══════════════════════════════════════════════════════════════════════════ */

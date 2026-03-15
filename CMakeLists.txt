@@ -41,6 +41,7 @@ endif ()
 
 # Testing options
 option(LBA2_BUILD_TESTS "Build test suites" OFF)
+option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" OFF)
 
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)

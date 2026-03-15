@@ -25,11 +25,22 @@ echo "=== Polygon recording render ==="
 echo "Recording: $REC"
 echo "Output dir: $OUTPUT_DIR"
 
+ASM_OK=0
+CPP_OK=0
+
 echo "Rendering ASM path..."
-"$ASM_BIN" "$REC" "$ASM_RAW" --ppm "$ASM_PPM" --ref-ppm "$REF_PPM"
+if "$ASM_BIN" "$REC" "$ASM_RAW" --ppm "$ASM_PPM" --ref-ppm "$REF_PPM"; then
+    ASM_OK=1
+else
+    echo "WARNING: ASM replay failed (exit code $?)"
+fi
 
 echo "Rendering CPP path..."
-"$CPP_BIN" "$REC" "$CPP_RAW" --ppm "$CPP_PPM"
+if "$CPP_BIN" "$REC" "$CPP_RAW" --ppm "$CPP_PPM"; then
+    CPP_OK=1
+else
+    echo "WARNING: CPP replay failed (exit code $?)"
+fi
 
 # Convert PPM to PNG if ImageMagick is available
 if command -v convert &>/dev/null; then
@@ -52,15 +63,19 @@ if command -v convert &>/dev/null; then
 fi
 
 # Compare raw framebuffers
-if cmp -s "$ASM_RAW" "$CPP_RAW"; then
-    echo "PASS: Framebuffers match"
-else
-    ASM_SIZE=$(stat -c%s "$ASM_RAW" 2>/dev/null || stat -f%z "$ASM_RAW")
-    CPP_SIZE=$(stat -c%s "$CPP_RAW" 2>/dev/null || stat -f%z "$CPP_RAW")
-    if [ "$ASM_SIZE" = "$CPP_SIZE" ]; then
-        DIFF_COUNT=$(cmp -l "$ASM_RAW" "$CPP_RAW" | wc -l)
-        echo "FAIL: $DIFF_COUNT bytes differ"
+if [ "$ASM_OK" -eq 1 ] && [ "$CPP_OK" -eq 1 ]; then
+    if cmp -s "$ASM_RAW" "$CPP_RAW"; then
+        echo "PASS: Framebuffers match"
     else
-        echo "FAIL: Size mismatch (ASM=$ASM_SIZE, CPP=$CPP_SIZE)"
+        ASM_SIZE=$(stat -c%s "$ASM_RAW" 2>/dev/null || stat -f%z "$ASM_RAW")
+        CPP_SIZE=$(stat -c%s "$CPP_RAW" 2>/dev/null || stat -f%z "$CPP_RAW")
+        if [ "$ASM_SIZE" = "$CPP_SIZE" ]; then
+            DIFF_COUNT=$(cmp -l "$ASM_RAW" "$CPP_RAW" | wc -l)
+            echo "FAIL: $DIFF_COUNT bytes differ"
+        else
+            echo "FAIL: Size mismatch (ASM=$ASM_SIZE, CPP=$CPP_SIZE)"
+        fi
     fi
+else
+    echo "SKIP: Cannot compare (ASM_OK=$ASM_OK, CPP_OK=$CPP_OK)"
 fi

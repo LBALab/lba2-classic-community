@@ -9,6 +9,11 @@ set(SOURCES_FILES_ASM POLY.CPP POLY_JMP.CPP POLYCLIP.CPP POLYDISC.CPP POLYFLAT.C
 
 add_library(poly ${SOURCES_FILES} ${SOURCES_FILES_ASM})
 
+# Propagate ENABLE_POLY_RECORDING to the poly library so recording hooks compile
+if(ENABLE_POLY_RECORDING)
+  target_compile_definitions(poly PRIVATE ENABLE_POLY_RECORDING)
+endif()
+
 # Force x87 FPU math for files that must match ASM fistp rounding behaviour (x86 only).
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86|x86_64|AMD64")
   set_source_files_properties(POLY.CPP POLYTEXZ.CPP POLYTZF.CPP PROPERTIES COMPILE_FLAGS "-mfpmath=387 -ffloat-store")
