@@ -563,6 +563,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
+  // Set up GTEX globals on first call (match ASM @@PtrPatch / @@SetCachedValues):
   if (patch == 0)
   {
     Fill_Patch = patch;

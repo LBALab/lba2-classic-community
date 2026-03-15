@@ -133,6 +133,19 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
     U32 draw_count = 0;
     int done = 0;
 
+    /* Debug slope output: set POLYREC_DEBUG_SLOPES=from,to to enable */
+    int debug_slopes = 0;
+    int debug_slopes_from = 0;
+    int debug_slopes_to = 0;
+    {
+        const char *env = getenv("POLYREC_DEBUG_SLOPES");
+        if (env) {
+            debug_slopes = 1;
+            sscanf(env, "%d,%d", &debug_slopes_from, &debug_slopes_to);
+            if (debug_slopes_to == 0) debug_slopes_to = debug_slopes_from;
+        }
+    }
+
     /* Load recording */
     if (polyrec_load(polyrec_file, &rec) != 0) {
         fprintf(stderr, "ERROR: Failed to load polygon recording '%s'\n", polyrec_file);
@@ -279,6 +292,21 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                 memcpy(local_points, points_data, copy_count * 16);
 
                 Fill_Poly(type_poly, color_poly, nb_points, local_points);
+
+                /* Debug: dump slope globals after Fill_Poly for draw call comparison */
+                if (debug_slopes && (int)draw_count + 1 >= debug_slopes_from && (int)draw_count + 1 <= debug_slopes_to) {
+                    fprintf(stderr, "DC%u slopes: LS=%d RS=%d UXS=%d VXS=%d ULS=%d VLS=%d GXS=%d GLS=%d ZXS=%d ZLS=%d\n",
+                        draw_count + 1,
+                        Fill_LeftSlope, Fill_RightSlope,
+                        Fill_MapU_XSlope, Fill_MapV_XSlope,
+                        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope,
+                        Fill_Gouraud_XSlope, Fill_Gouraud_LeftSlope,
+                        Fill_ZBuf_XSlope, Fill_ZBuf_LeftSlope);
+                    fprintf(stderr, "DC%u init: UMin=%d VMin=%d GMin=%d ZMin=%u\n",
+                        draw_count + 1,
+                        Fill_CurMapUMin, Fill_CurMapVMin,
+                        Fill_CurGouraudMin, Fill_CurZBufMin);
+                }
             }
 
             draw_count++;

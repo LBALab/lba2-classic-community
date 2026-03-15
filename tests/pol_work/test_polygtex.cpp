@@ -544,6 +544,72 @@ static void test_asm_random_gouraud_zbuf(void)
     }
 }
 
+/* Test case from bisect DC#61 — exact values from first triangle y=62 scanline */
+static void test_dc61_exact_gouraud_zbuf(void)
+{
+    /* First triangle, call 2: nb=2, starting at y=62 */
+    /* From debug: SN(y=62): x=634..637 dX=3 u=0x00c25d33 v=0x00fb1700 G=388557 Z=11368090 */
+    /* This is the 2nd scanline of a filler call with nb=2, Fill_Patch=0 */
+    U32 x0_fp = 0x027c4cce;  /* XMin as 16.16: 636.3 at start, becomes 634 after 1 LeftSlope step */
+    U32 x1_fp = 0x02808000;  /* XMax as 16.16: 640.5 at start, becomes 640+RS step */
+
+    /* These are the values BEFORE the first Each_Line stepping: */
+    setup_gtex_zbuf_filler(63, 2, x0_fp, x1_fp);
+
+    /* Set slope values from debug output */
+    Fill_MapU_XSlope = -72191;
+    Fill_MapV_XSlope = -138788;
+    Fill_Gouraud_XSlope = -4912;
+    Fill_ZBuf_XSlope = -1231;
+    Fill_LeftSlope = 91751;
+    Fill_RightSlope = 1;
+    Fill_MapU_LeftSlope = 151603;
+    Fill_MapV_LeftSlope = -252672;
+    Fill_Gouraud_LeftSlope = 27853;
+    Fill_ZBuf_LeftSlope = -23398;
+
+    /* Set initial values from FILLER debug (before Each_Line stepping): */
+    Fill_CurMapUMin = 12889446;
+    Fill_CurMapVMin = 16202752;
+    Fill_CurGouraudMin = 416410;
+    Fill_CurZBufMin = 11344692;
+    Fill_Patch = 0;  /* 0 = use cached values, don't re-setup */
+
+    Filler_TextureGouraudZBuf(2, x0_fp, x1_fp);
+    memcpy(gtex_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(gtex_cpp_zbuf, g_test_zbuffer, TEST_POLY_SIZE * (int)sizeof(U16));
+
+    /* Repeat with ASM */
+    setup_gtex_zbuf_filler(63, 2, x0_fp, x1_fp);
+
+    Fill_MapU_XSlope = -72191;
+    Fill_MapV_XSlope = -138788;
+    Fill_Gouraud_XSlope = -4912;
+    Fill_ZBuf_XSlope = -1231;
+    Fill_LeftSlope = 91751;
+    Fill_RightSlope = 1;
+    Fill_MapU_LeftSlope = 151603;
+    Fill_MapV_LeftSlope = -252672;
+    Fill_Gouraud_LeftSlope = 27853;
+    Fill_ZBuf_LeftSlope = -23398;
+
+    Fill_CurMapUMin = 12889446;
+    Fill_CurMapVMin = 16202752;
+    Fill_CurGouraudMin = 416410;
+    Fill_CurZBufMin = 11344692;
+    Fill_Patch = 0;
+
+    call_asm_Filler_TextureGouraudZBuf(2, x0_fp, x1_fp);
+    memcpy(gtex_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(gtex_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * (int)sizeof(U16));
+
+    ASSERT_ASM_CPP_MEM_EQ(gtex_asm_buf, gtex_cpp_buf, TEST_POLY_SIZE,
+                           "DC61 exact gouraud_zbuf framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)gtex_asm_zbuf, (U8 *)gtex_cpp_zbuf,
+                           TEST_POLY_SIZE * (int)sizeof(U16),
+                           "DC61 exact gouraud_zbuf zbuf");
+}
+
 /* ══════════════════════════════════════════════════════════════════
  *  Filler_TextureGouraudChromaKeyZBuf ASM-vs-CPP equivalence
  * ══════════════════════════════════════════════════════════════════ */
@@ -786,6 +852,7 @@ int main(void)
     /* TextureGouraudZBuf */
     RUN_TEST(test_asm_equiv_gouraud_zbuf);
     RUN_TEST(test_asm_random_gouraud_zbuf);
+    RUN_TEST(test_dc61_exact_gouraud_zbuf);
 
     /* TextureGouraudChromaKeyZBuf */
     RUN_TEST(test_asm_equiv_gouraud_ck_zbuf);
