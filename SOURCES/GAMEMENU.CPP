@@ -2656,6 +2656,7 @@ S32     MainGameMenu( S32 load )
 
                                         ZoomSavedGame( 240, 10 ) ;
 
+                                        HQ_ResumeSamples() ;
                                         RestoreTimer() ;
 
                                         FlagFade = FALSE ;
