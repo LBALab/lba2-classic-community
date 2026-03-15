@@ -183,23 +183,30 @@ struct Voice {
   float posSamples;
   float stepSamples;
   S32 volume;
+  S32 baseVolume;
   S32 pan;
   S32 repeat;
   S32 repeatCount;
   U32 handle;
+  U32 timer;
   bool active;
   void *ownedBuf;
 };
 
 static SDL_AudioStream *sampleStream = NULL;
+static SDL_Mutex *voiceMutex = NULL;
 static Voice voices[NUM_VOICES];
 static U32 nextHandle = 0x1000000;
 static S32 samplesPaused = 0;
 static S32 inverseStereo = 0;
+static bool samplesFade = false;
+static U32 fadeStartTime = 0;
 
 S32 Sample_Driver_Enabled = FALSE;
 S32 UseWaveMixer = FALSE;
 S32 sampleVolume = 0;
+
+extern volatile U32 TimerSystemHR;
 
 static void FreeVoiceBuf(Voice *V) {
   if (V->ownedBuf) { free(V->ownedBuf); V->ownedBuf = NULL; }
@@ -219,8 +226,17 @@ static int VoiceIndexFromHandle(U32 sample) {
   return -1;
 }
 
+static inline S16 ClampS16(float v) {
+  if (v > 32767.0f) return 32767;
+  if (v < -32768.0f) return -32768;
+  return (S16)v;
+}
+
 static void MixVoices(S16 *out, int numFrames) {
-  memset(out, 0, (size_t)numFrames * 2 * sizeof(S16));
+  float mixL[MIX_CHUNK_FRAMES];
+  float mixR[MIX_CHUNK_FRAMES];
+  memset(mixL, 0, (size_t)numFrames * sizeof(float));
+  memset(mixR, 0, (size_t)numFrames * sizeof(float));
   for (int v = 0; v < NUM_VOICES; v++) {
     Voice *V = &voices[v];
     if (!V->active || !V->data) continue;
@@ -267,11 +283,15 @@ static void MixVoices(S16 *out, int numFrames) {
         float fade = (float)samplesLeft / (float)fadeLen;
         s *= fade;
       }
-      out[i * 2]     += (S16)(s * leftGain);
-      out[i * 2 + 1] += (S16)(s * rightGain);
+      mixL[i] += s * leftGain;
+      mixR[i] += s * rightGain;
       pos += step;
     }
     V->posSamples = pos;
+  }
+  for (int i = 0; i < numFrames; i++) {
+    out[i * 2]     = ClampS16(mixL[i]);
+    out[i * 2 + 1] = ClampS16(mixR[i]);
   }
 }
 
@@ -284,6 +304,7 @@ static void SDLCALL SampleStreamCallback(void *userdata, SDL_AudioStream *stream
   (void)userdata;
   (void)total_amount;
   if (samplesPaused || additional_amount <= 0) return;
+  SDL_LockMutex(voiceMutex);
   int bytesLeft = additional_amount;
   while (bytesLeft > 0) {
     int frames = bytesLeft / (2 * (int)sizeof(S16));
@@ -293,6 +314,7 @@ static void SDLCALL SampleStreamCallback(void *userdata, SDL_AudioStream *stream
     SDL_PutAudioStreamData(stream, mixChunkBuf, frames * 2 * (int)sizeof(S16));
     bytesLeft -= frames * 2 * (int)sizeof(S16);
   }
+  SDL_UnlockMutex(voiceMutex);
 }
 
 /* ── Driver init / control ───────────────────────────────────────────────── */
@@ -301,6 +323,7 @@ S32 InitSampleDriver(char *driver_name) {
   (void)driver_name;
   if (Sample_Driver_Enabled) return TRUE;
   memset(voices, 0, sizeof(voices));
+  voiceMutex = SDL_CreateMutex();
   SDL_AudioSpec spec;
   SDL_zero(spec);
   spec.freq = SAMPLE_RATE;
@@ -317,17 +340,50 @@ S32 InitSampleDriver(char *driver_name) {
 }
 
 void SetMasterVolumeSample(S32 volume) {
+  if (volume) volume++;
+  SDL_LockMutex(voiceMutex);
   sampleVolume = volume;
+  SDL_UnlockMutex(voiceMutex);
+}
+
+static void ScaleVolumeSamples(S32 ratio) {
+  for (int i = 0; i < NUM_VOICES; i++) {
+    if (!voices[i].active) continue;
+    S32 base = voices[i].baseVolume;
+    S32 scaled = (base * ratio + 64) >> 7;
+    voices[i].volume = (scaled > 127) ? 127 : scaled;
+  }
 }
 
 S32 FadeOutSamples(S32 delay) {
-  (void)delay;
-  return 0;
+  if (delay <= 0) return 0;
+  if (!samplesFade) {
+    fadeStartTime = TimerSystemHR;
+    samplesFade = true;
+  }
+  S32 delta = (S32)(fadeStartTime + (U32)delay - TimerSystemHR);
+  if (delta < 0) delta = 0;
+  SDL_LockMutex(voiceMutex);
+  S32 ratio = delta * 128 / delay;
+  ScaleVolumeSamples(ratio);
+  SDL_UnlockMutex(voiceMutex);
+  return delta;
 }
 
 S32 FadeInSamples(S32 delay) {
-  (void)delay;
-  return delay;
+  if (delay <= 0) return delay;
+  if (samplesFade) {
+    fadeStartTime = TimerSystemHR;
+    samplesFade = false;
+  }
+  S32 delta = (S32)(TimerSystemHR - fadeStartTime);
+  if (delta > delay) delta = delay;
+  if (delta < 0) delta = 0;
+  SDL_LockMutex(voiceMutex);
+  S32 ratio = delta * 128 / delay;
+  ScaleVolumeSamples(ratio);
+  SDL_UnlockMutex(voiceMutex);
+  return delta;
 }
 
 void InverseStereoSample(S32 inverse) {
@@ -352,21 +408,46 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
                            &hadWav, &wavHz, &wavChannels, &wavBits, &fmtTag, &blkAlign);
   if (!data || payloadSize <= 0) return 0xFFFFFFFF;
   if (pitchbend <= 0) pitchbend = PITCHBEND_NORMAL;
+
+  SDL_LockMutex(voiceMutex);
+
   int slot = -1;
   for (int i = 0; i < NUM_VOICES; i++) {
     if (!voices[i].active) { slot = i; break; }
   }
   if (slot < 0) {
-    slot = 0;
-    voices[0].active = false;
+    U32 bestHandle = 0xFFFFFFFF;
+    int bestSlot = -1;
+    for (int i = 0; i < NUM_VOICES; i++) {
+      if (voices[i].repeat == 1 && voices[i].handle < bestHandle) {
+        bestHandle = voices[i].handle; bestSlot = i;
+      }
+    }
+    if (bestSlot < 0) {
+      for (int i = 0; i < NUM_VOICES; i++) {
+        if (voices[i].repeat != 0 && voices[i].handle < bestHandle) {
+          bestHandle = voices[i].handle; bestSlot = i;
+        }
+      }
+    }
+    if (bestSlot < 0) {
+      bestHandle = 0xFFFFFFFF;
+      for (int i = 0; i < NUM_VOICES; i++) {
+        if (voices[i].handle < bestHandle) {
+          bestHandle = voices[i].handle; bestSlot = i;
+        }
+      }
+    }
+    slot = (bestSlot >= 0) ? bestSlot : 0;
   }
   Voice *V = &voices[slot];
   FreeVoiceBuf(V);
+  V->active = false;
 
   if (hadWav && fmtTag == 17 && blkAlign > 0) {
     S32 decodedSamples = 0;
     S16 *pcm = DecodeImaAdpcm(data, payloadSize, blkAlign, &decodedSamples);
-    if (!pcm || decodedSamples <= 0) return 0xFFFFFFFF;
+    if (!pcm || decodedSamples <= 0) { SDL_UnlockMutex(voiceMutex); return 0xFFFFFFFF; }
     V->ownedBuf = pcm;
     V->data = (const U8 *)pcm;
     V->sizeBytes = decodedSamples * 2;
@@ -375,7 +456,7 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
     V->sourceChannels = wavChannels;
   } else {
     void *copy = malloc((size_t)payloadSize);
-    if (!copy) return 0xFFFFFFFF;
+    if (!copy) { SDL_UnlockMutex(voiceMutex); return 0xFFFFFFFF; }
     memcpy(copy, data, (size_t)payloadSize);
     V->ownedBuf = copy;
     V->data = (const U8 *)copy;
@@ -391,18 +472,23 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
     int ch = (V->sourceChannels >= 2) ? 2 : 1;
     V->stepSamples = rateRatio * (float)ch * (float)pitchbend / (float)PITCHBEND_NORMAL;
   }
-  V->volume = (volume > 127) ? 127 : volume;
-  V->pan = (pan > 127) ? 127 : pan;
+  V->baseVolume = (volume > 127) ? 127 : volume;
+  V->volume = samplesFade ? 0 : V->baseVolume;
+  V->pan = (pan > 127) ? 127 : ((pan < 0) ? 0 : pan);
   V->repeat = repeat;
   V->repeatCount = 0;
   V->handle = nextHandle | ((userhandle & 0xFFFF) << 8) | (slot & 0xFF);
+  V->timer = TimerSystemHR;
   nextHandle += 0x1000000;
   if (nextHandle == 0) nextHandle = 0x1000000;
   V->active = true;
+
+  SDL_UnlockMutex(voiceMutex);
   return V->handle;
 }
 
 void ChangePitchbendSample(U32 sample, S32 pitchbend) {
+  SDL_LockMutex(voiceMutex);
   int i = VoiceIndexFromHandle(sample);
   if (i >= 0 && pitchbend > 0) {
     Voice *V = &voices[i];
@@ -410,29 +496,37 @@ void ChangePitchbendSample(U32 sample, S32 pitchbend) {
     int ch = (V->sourceChannels >= 2) ? 2 : 1;
     V->stepSamples = rateRatio * (float)ch * (float)pitchbend / (float)PITCHBEND_NORMAL;
   }
+  SDL_UnlockMutex(voiceMutex);
 }
 
 void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan) {
+  SDL_LockMutex(voiceMutex);
   int i = VoiceIndexFromHandle(sample);
   if (i >= 0) {
-    voices[i].volume = (volume > 127) ? 127 : volume;
-    voices[i].pan = (pan > 127) ? 127 : pan;
+    voices[i].baseVolume = (volume > 127) ? 127 : volume;
+    voices[i].volume = voices[i].baseVolume;
+    voices[i].pan = (pan > 127) ? 127 : ((pan < 0) ? 0 : pan);
   }
+  SDL_UnlockMutex(voiceMutex);
 }
 
 void StopOneSample(U32 sample) {
+  SDL_LockMutex(voiceMutex);
   int i = VoiceIndexFromHandle(sample);
   if (i >= 0) {
     FreeVoiceBuf(&voices[i]);
     voices[i].active = false;
   }
+  SDL_UnlockMutex(voiceMutex);
 }
 
 void StopSamples() {
+  SDL_LockMutex(voiceMutex);
   for (int i = 0; i < NUM_VOICES; i++) {
     FreeVoiceBuf(&voices[i]);
     voices[i].active = false;
   }
+  SDL_UnlockMutex(voiceMutex);
 }
 
 void PauseSamples() {
@@ -449,6 +543,9 @@ void ResumeSamples() {
 }
 
 U32 IsSamplePlaying(U32 sample) {
+  SDL_LockMutex(voiceMutex);
   int i = VoiceIndexFromHandle(sample);
-  return (i >= 0) ? sample : (U32)FALSE;
+  U32 result = (i >= 0) ? voices[i].timer : (U32)FALSE;
+  SDL_UnlockMutex(voiceMutex);
+  return result;
 }

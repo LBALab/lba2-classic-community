@@ -152,10 +152,6 @@ S32 GetVolumeStream() {
 }
 
 void StopStream() {
-  /* Preserve a paused stream so ResumeStream can unpause it later.
-     PlayStream calls StopStreamInternal directly, so new music still works. */
-  if (streamPaused)
-    return;
   StopStreamInternal();
 }
 
@@ -174,7 +170,14 @@ void ResumeStream() {
 }
 
 S32 IsStreamPlaying() {
-  return (stream != NULL) ? TRUE : FALSE;
+  if (!stream) return FALSE;
+  if (streamPaused) return FALSE;
+  int queued = SDL_GetAudioStreamQueued(stream);
+  if (queued <= 0) {
+    StopStreamInternal();
+    return FALSE;
+  }
+  return TRUE;
 }
 
 char *StreamName() {
