@@ -198,8 +198,15 @@ void    MyGetInput()
 	}
 	if (Console_IsOpen()) {
 		Console_Update();
+		/* While the console is open, completely isolate game input:
+		   no keys or joystick bits should be visible to gameplay or debug tools. */
+		Key = 0;
 		MyKey = 0;
 		Input = 0;
+		memset(TabKeys, 0, sizeof(TabKeys));
+#ifdef	LBA_EDITOR
+		MyClick = 0;
+#endif
 		/* Force present so console updates (keypress, Enter/new line) are visible every frame. */
 		BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
 		BoxUpdate();

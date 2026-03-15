@@ -59,8 +59,9 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
 | **playjingle** &lt;1-26&gt; | Play jingle by number. |
-| **playmusic** &lt;num&gt; | Play music track by number. |
-| **playsample** &lt;num&gt; | Play sample by index. |
+| **playmusic** &lt;num&gt; [loop 0\|1] | Play music track by number (optional loop flag, default 1). |
+| **playsample** &lt;num&gt; [freq] [decal] [repeat] [volume] [pan] | Play sample by index with optional params: pitchbend (`freq`, default `0x1000`), random pitch range (`decal`), repeat count (`repeat`, 0=loop, default 1), volume (0–127, default 127), pan (0–127, default 64). |
+| **audio** ... | Audio commands: `audio sample play/stop_all`, `audio music play/stop`, `audio global pause/resume/stop_all/reset/reverse_stereo`. Calls HQ/AIL functions directly (see `AUDIO_MILES_PARITY.md`). |
 | **exit**      | Exit the game immediately (clean shutdown). |
 
 ## CVars
