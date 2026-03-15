@@ -2055,7 +2055,6 @@ S32     GereVolumeMenu( void )
         }
 
 #ifdef  CDROM
-        if( IsStreamPlaying() ) StopMusic() ;
         PlayMusic( CD_TRACK_MENU, TRUE ) ;
 #endif
 
@@ -2117,7 +2116,6 @@ S32     OptionsMenu( S32 flagflip )
         RestartRainSample = TRUE ;
 
 #ifdef  CDROM
-        if( IsStreamPlaying() ) StopMusic() ;
         PlayMusic( CD_TRACK_MENU, TRUE ) ;
 #endif
 
@@ -2563,9 +2561,7 @@ S32     MainGameMenu( S32 load )
                 InitDial( 0 )           ;//     SYS
 
 #ifdef  CDROM
-                if( IsStreamPlaying() ) StopMusic() ;
                 PlayMusic( CD_TRACK_MENU, TRUE ) ;
-
 #endif
 
                 HQ_StopSample() ;
