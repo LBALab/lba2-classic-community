@@ -1605,7 +1605,7 @@ S32 EntityCreation(T_BODY_HEADER *body)
 
 S32 ObjectDisplay(T_OBJ_3D *obj)
 {
-    LIB386_TRACE_CPP("ObjectDisplay", "1", "obj=%p", (void*)This);
+    LIB386_TRACE_CPP("ObjectDisplay", "1", "obj=%p", (void*)obj);
     // Must we change the texture pointer ?
     if (obj->Texture != NULL && obj->Texture != (void *)-1)
     {

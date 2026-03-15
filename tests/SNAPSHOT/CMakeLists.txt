@@ -227,6 +227,7 @@ target_link_libraries(replay_polyrec_cpp PRIVATE
 )
 target_compile_definitions(replay_polyrec_cpp PRIVATE
     "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
+    ENABLE_LIB386_DEBUG_TRACES
 )
 set_target_properties(replay_polyrec_cpp PROPERTIES
     POSITION_INDEPENDENT_CODE OFF
@@ -247,6 +248,7 @@ target_link_libraries(replay_polyrec_asm PRIVATE
 add_dependencies(replay_polyrec_asm polyrec_asm_lib386)
 target_compile_definitions(replay_polyrec_asm PRIVATE
     "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
+    ENABLE_LIB386_DEBUG_TRACES
 )
 set_target_properties(replay_polyrec_asm PROPERTIES
     POSITION_INDEPENDENT_CODE OFF

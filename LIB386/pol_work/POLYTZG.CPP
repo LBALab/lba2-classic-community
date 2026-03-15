@@ -30,7 +30,7 @@ static inline S32 imul_extract_16_47(S32 a, S32 b) {
 }
 
 S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
-    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureZGouraud", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureZGouraud", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -154,7 +154,7 @@ S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
 }
 
 S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
-    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",

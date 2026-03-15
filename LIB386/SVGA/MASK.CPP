@@ -9,7 +9,7 @@ U8 ColMask = 0;
 
 S32 ClippingMask(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics)
 {
-    LIB386_TRACE_CPP("ClippingMask", "1", "num=%d x=%d y=%d bank=%p", nummask, x, y, (void*)bankmask);
+    LIB386_TRACE_CPP("ClippingMask", "1", "num=%d x0=%d y0=%d x1=%d y1=%d gfx=%p", x0, y0, x1, y1, (void*)graphics);
 	if (x0 > ClipXMax || y0 > ClipYMax ||
 		x1 < ClipXMin || y1 < ClipYMin)
 	{

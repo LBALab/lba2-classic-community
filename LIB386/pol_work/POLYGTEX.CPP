@@ -45,7 +45,7 @@ U8 GTEX_IntMapU2 = 0x12;
 // Verified
 S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureGouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureGouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureGouraud", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureGouraud", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -171,7 +171,7 @@ S32 Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureDither", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureDither", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureDither", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureDither", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -308,7 +308,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureGouraudChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureGouraudChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureGouraudChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureGouraudChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -460,7 +460,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
 // transparent texels (texel == 0).  Dither update happens unconditionally.
 S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureDitherChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureDitherChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureDitherChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureDitherChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",

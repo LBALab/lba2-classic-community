@@ -1,5 +1,10 @@
 include_directories(H)
 
+# Enable debug traces for ASM-vs-CPP comparison when building tests
+if(LBA2_BUILD_TESTS)
+  add_definitions(-DENABLE_LIB386_DEBUG_TRACES)
+endif()
+
 add_subdirectory(3D)
 add_subdirectory(AIL)
 add_subdirectory(ANIM)

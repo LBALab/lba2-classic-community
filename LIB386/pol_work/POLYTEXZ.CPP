@@ -170,7 +170,7 @@ void (*Fill_Loop_Perspective)(U32) = Fill_Loop_Perspective_Impl;
 
 S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureZ", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureZ", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureZ", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureZ", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -333,7 +333,7 @@ S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureZFlat", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureZFlat", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureZFlat", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureZFlat", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -495,7 +495,7 @@ S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureZChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureZChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureZChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureZChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -657,7 +657,7 @@ S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TextureZFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TextureZFlatChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TextureZFlatChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TextureZFlatChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TextureZFlatChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",

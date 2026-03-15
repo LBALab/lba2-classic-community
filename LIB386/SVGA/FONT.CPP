@@ -9,7 +9,7 @@ S32 InterSpace = 10;
 
 S32 SizeFont(char *str)
 {
-    LIB386_TRACE_CPP("SizeFont", "1", "string=%p", (void*)string);
+    LIB386_TRACE_CPP("SizeFont", "1", "string=%p", (void*)str);
 	U32 size = 0;
 	while (*str != '\0')
 	{

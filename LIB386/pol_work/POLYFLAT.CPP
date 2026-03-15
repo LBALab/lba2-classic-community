@@ -17,7 +17,7 @@ U16 *POLYFLAT_PtrZBufferPatch = NULL;
 // Verified
 S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_Flat", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_Flat", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_Flat", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_Flat", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -78,7 +78,7 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_Trame(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_Trame", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_Trame", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_Trame", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_Trame", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -176,7 +176,7 @@ EndScanLine:
 
 S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_Transparent", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_Transparent", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_Transparent", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_Transparent", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -245,7 +245,7 @@ S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_FlatZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_FlatZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_FlatZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -327,7 +327,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // TODO: Verify
 S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TransparentZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TransparentZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -412,7 +412,7 @@ S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TrameZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TrameZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TrameZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -545,7 +545,7 @@ EndScanLine:
 // Verified
 S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_FlatNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_FlatNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_FlatNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -624,7 +624,7 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TransparentNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TransparentNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TransparentNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
@@ -707,7 +707,7 @@ S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
-    LIB386_TRACE_CPP("Filler_TrameNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, xmin, xmax);
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
     LIB386_TRACE_CPP("Filler_TrameNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
         Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
     LIB386_TRACE_CPP("Filler_TrameNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
