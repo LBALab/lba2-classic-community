@@ -208,6 +208,18 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 
 ---
 
+## Known design notes
+
+### `FadeOutVolumeMusic` / `FadeInVolumeMusic` asymmetry
+
+`FadeOutVolumeMusic` uses `ChangeVolumeStream(jvolume)` (raw, no master scaling) because `GetVolumeStream()` returns a value that is already master-scaled from the last `SetVolumeJingle` call. `FadeInVolumeMusic` uses `SetVolumeJingle(jvolume)` (applies master scaling) because it interpolates toward the raw `JingleVolume` target. Both are correct; the asymmetry is intentional and avoids double-scaling.
+
+### Master volume and stream coupling
+
+In Miles, `SetMasterVolumeSample` internally called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ReadVolumeSettings`, master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
+
+---
+
 ## Diagnostic logging
 
 All audio diagnostic logging lives at the **AIL boundary** (`LIB386/AIL/SDL/`). Engine files are not instrumented -- logging is toggled via the console and stays in the backend layer.

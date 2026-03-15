@@ -572,7 +572,11 @@ void StopSamples() {
     FreeVoiceBuf(&voices[i]);
     voices[i].active = false;
   }
+  nextHandle = 0x1000000;
+  samplesPaused = 0;
   UnlockVoices();
+  if (sampleStream)
+    SDL_ResumeAudioStreamDevice(sampleStream);
 }
 
 void PauseSamples() {
