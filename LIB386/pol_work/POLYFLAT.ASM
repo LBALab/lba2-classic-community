@@ -174,6 +174,28 @@ fmt_f_flatnzw_1	DB	"[ASM][Filler_FlatNZW][1] entry", 10, 0
 fmt_f_transparentnzw_1	DB	"[ASM][Filler_TransparentNZW][1] entry", 10, 0
 fmt_f_tramenzw_1	DB	"[ASM][Filler_TrameNZW][1] entry", 10, 0
 
+
+fmt_filler_flat_1b	DB	"[ASM][Filler_Flat][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_flat_1c	DB	"[ASM][Filler_Flat][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_flat_1d	DB	"[ASM][Filler_Flat][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_flat_1e	DB	"[ASM][Filler_Flat][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+fmt_filler_trans_1b	DB	"[ASM][Filler_Transparent][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_trans_1c	DB	"[ASM][Filler_Transparent][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_trans_1d	DB	"[ASM][Filler_Transparent][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_trans_1e	DB	"[ASM][Filler_Transparent][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+fmt_filler_trame_1b	DB	"[ASM][Filler_Trame][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_trame_1c	DB	"[ASM][Filler_Trame][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_trame_1d	DB	"[ASM][Filler_Trame][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_trame_1e	DB	"[ASM][Filler_Trame][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+fmt_filler_flatz_1b	DB	"[ASM][Filler_FlatZBuf][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_flatz_1c	DB	"[ASM][Filler_FlatZBuf][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_flatz_1d	DB	"[ASM][Filler_FlatZBuf][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_flatz_1e	DB	"[ASM][Filler_FlatZBuf][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+fmt_filler_flatn_1b	DB	"[ASM][Filler_FlatNZW][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_flatn_1c	DB	"[ASM][Filler_FlatNZW][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_flatn_1d	DB	"[ASM][Filler_FlatNZW][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_flatn_1e	DB	"[ASM][Filler_FlatNZW][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+
 _DATA			ENDS
 
 ;			************
@@ -181,6 +203,26 @@ _DATA			ENDS
 ;			************
 
 ;			.CODE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
@@ -217,6 +259,348 @@ Filler_Flat		PROC
 		push	offset fmt_f_flat_1
 		call	printf
 		add	esp, 4
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trame_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trame_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trans_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trans_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_flatn_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_flatn_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trame_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trame_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trans_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trans_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_flatz_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_flatz_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Trame][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trame_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Trame][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trame_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Transparent][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trans_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Transparent][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trans_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Flat][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_flat_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Flat][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_flat_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trame_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trame_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trans_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trans_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_flatn_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_flatn_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trame_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TrameZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trame_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trans_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TransparentZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trans_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_flatz_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_FlatZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_flatz_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Trame][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trame_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Trame][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trame_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Transparent][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_trans_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Transparent][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_trans_1e
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Flat][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_flat_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Flat][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_flat_1e
+		call	printf
+		add	esp, 12
 		popad
 		; --- end debug trace ---
 

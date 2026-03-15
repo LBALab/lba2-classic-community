@@ -192,6 +192,12 @@ IntGour2        BYTE 12h
 fmt_f_texturezgourau_1	DB	"[ASM][Filler_TextureZGouraud][1] entry", 10, 0
 fmt_f_texzgouraudck_1	DB	"[ASM][Filler_TextureZGouraudChromaKey][1] entry", 10, 0
 
+
+fmt_filler_textu_1b	DB	"[ASM][Filler_TextureZGouraud][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_textu_1c	DB	"[ASM][Filler_TextureZGouraud][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_textu_1d	DB	"[ASM][Filler_TextureZGouraud][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_textu_1e	DB	"[ASM][Filler_TextureZGouraud][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+
 _DATA			ENDS
 ;			************
 ;			*** CODE ***
@@ -200,6 +206,10 @@ _DATA			ENDS
 
 
 ;			.CODE
+
+
+
+
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
@@ -225,6 +235,98 @@ Filler_TextureZGouraud	PROC
 		push	offset fmt_f_texturezgourau_1
 		call	printf
 		add	esp, 4
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraudChromaKey][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraudChromaKey][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurWMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 28
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraud][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraud][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurWMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 28
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraudChromaKey][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraudChromaKey][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurWMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 28
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraud][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureZGouraud][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurWMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 28
 		popad
 		; --- end debug trace ---
 
