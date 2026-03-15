@@ -11,6 +11,7 @@
 
 #include "polyrec_replay.h"
 #include <SNAPSHOT/POLY_RECORDING.H>
+#include <POLYGON/POLY.H>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -115,8 +116,22 @@ static int dump_recording(const char *filename) {
             memcpy(&tp, rec.event_data + pos, 4); pos += 4;
             memcpy(&cp, rec.event_data + pos, 4); pos += 4;
             memcpy(&nb, rec.event_data + pos, 4); pos += 4;
+            printf("(type=%d, color=%d, pts=%d)", tp, cp, nb);
+            /* Print vertex data: Struc_Point is 16 bytes packed */
+            for (S32 v = 0; v < nb && v < 8; v++) {
+                S16 xe, ye; U16 mu, mv, light, zo; S32 w;
+                memcpy(&xe,    rec.event_data + pos + v*16 + 0, 2);
+                memcpy(&ye,    rec.event_data + pos + v*16 + 2, 2);
+                memcpy(&mu,    rec.event_data + pos + v*16 + 4, 2);
+                memcpy(&mv,    rec.event_data + pos + v*16 + 6, 2);
+                memcpy(&light, rec.event_data + pos + v*16 + 8, 2);
+                memcpy(&zo,    rec.event_data + pos + v*16 + 10, 2);
+                memcpy(&w,     rec.event_data + pos + v*16 + 12, 4);
+                printf("\n        v[%d]: xy=(%d,%d) uv=(%u,%u) light=%u zo=%u w=%d",
+                       v, xe, ye, mu, mv, light, zo, w);
+            }
+            printf("\n");
             pos += (U32)nb * 16;
-            printf("(type=%d, color=%d, pts=%d)\n", tp, cp, nb);
             if (tp >= 0 && tp < 32) poly_type_counts[tp]++;
             draw_count++;
             break;
@@ -187,11 +202,12 @@ int main(int argc, char *argv[]) {
 
     if (argc < 3) {
         fprintf(stderr, "Usage: %s <recording.lba2polyrec> <output.raw> "
-                "[--ppm output.ppm] [--ref-ppm ref.ppm] [--stop-after N] [--dump]\n",
+                "[--ppm output.ppm] [--ref-ppm ref.ppm] [--stop-after N] [--zbuf output.zbuf] [--dump]\n",
                 argv[0]);
         return 1;
     }
 
+    const char *zbuf_file = NULL;
     /* Parse optional arguments */
     for (i = 3; i < argc; i++) {
         if (strcmp(argv[i], "--ppm") == 0 && i + 1 < argc) {
@@ -200,8 +216,21 @@ int main(int argc, char *argv[]) {
             ref_ppm_file = argv[++i];
         } else if (strcmp(argv[i], "--stop-after") == 0 && i + 1 < argc) {
             stop_after = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "--zbuf") == 0 && i + 1 < argc) {
+            zbuf_file = argv[++i];
         }
     }
 
-    return polyrec_replay_run(argv[1], argv[2], ppm_file, ref_ppm_file, stop_after);
+    int result = polyrec_replay_run(argv[1], argv[2], ppm_file, ref_ppm_file, stop_after);
+
+    /* Write z-buffer if requested */
+    if (zbuf_file && PtrZBuffer) {
+        FILE *zf = fopen(zbuf_file, "wb");
+        if (zf) {
+            fwrite(PtrZBuffer, sizeof(U16), 640 * 480, zf);
+            fclose(zf);
+        }
+    }
+
+    return result;
 }
