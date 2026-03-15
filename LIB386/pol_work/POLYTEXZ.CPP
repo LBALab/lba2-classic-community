@@ -55,9 +55,7 @@ static PerspectiveWStack_t PerspectiveWStack = {{0}, 0, 0};
  * uses FPU rounding = round-to-nearest-even).
  *
  * In C we use volatile long double to force 80-bit stores, and lrintl()
- * to match fistp rounding.  Compile this file with -mfpmath=387
- * -ffloat-store to prevent GCC from using SSE2 or keeping extra
- * precision in registers.
+ * to match fistp rounding.
  *
  * The ASM loads F_256 as a 32-bit float (DWORD), so we must use float
  * for the constant to ensure the same representation.
