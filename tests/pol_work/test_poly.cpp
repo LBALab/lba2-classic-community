@@ -13,6 +13,7 @@
 #include "test_harness.h"
 #include <POLYGON/POLY.H>
 #include <POLYGON/POLYFLAT.H>
+#include <POLYGON/POLYGTEX.H>
 #include <POLYGON/POLYTZF.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
@@ -411,6 +412,9 @@ static void test_asm_random_switch_fillers(void)
 
 static U8 poly_cpp_buf[TEST_POLY_SIZE];
 static U8 poly_asm_buf[TEST_POLY_SIZE];
+static U16 poly_zbuf[TEST_POLY_SIZE];
+static U16 poly_asm_zbuf[TEST_POLY_SIZE];
+static U16 poly_cpp_zbuf[TEST_POLY_SIZE];
 
 /* ── Fill_Poly — end-to-end via asm_Fill_PolyClip ───────────────── *
  *
@@ -1516,6 +1520,112 @@ static void test_asm_random_fill_polyclip_texz(void)
     }
 }
 
+/* ── End-to-end ASM-vs-CPP Fill_PolyClip for Texture Gouraud (DC#1251) ── */
+
+extern "C" S32 asm_Filler_TextureGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
+extern "C" S32 asm_Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
+
+static void test_asm_fill_polyclip_texture_gouraud_dc1251(void)
+{
+    /* DC#1251 vertex data from polyrec_0002 */
+    Struc_Point pts[3];
+    pts[0].Pt_XE = 481; pts[0].Pt_YE = 88;
+    pts[0].Pt_MapU = 61177; pts[0].Pt_MapV = 16115;
+    pts[0].Pt_Light = 2049; pts[0].Pt_ZO = 38387; pts[0].Pt_W = 1431178;
+    pts[1].Pt_XE = 496; pts[1].Pt_YE = 90;
+    pts[1].Pt_MapU = 61177; pts[1].Pt_MapV = 12294;
+    pts[1].Pt_Light = 1537; pts[1].Pt_ZO = 37906; pts[1].Pt_W = 790678;
+    pts[2].Pt_XE = 502; pts[2].Pt_YE = 76;
+    pts[2].Pt_MapU = 57356; pts[2].Pt_MapV = 12294;
+    pts[2].Pt_Light = 1281; pts[2].Pt_ZO = 38291; pts[2].Pt_W = 1431178;
+
+    init_test_texture();
+    init_test_clut();
+
+    /* Use bank 5 = Switch_FogZBuffer: Fill_FogZBuf_Table_Jumps, with Z-buffer */
+    /* --- CPP path --- */
+    setup_polygon_screen();
+    PtrMap = g_test_texture;
+    RepMask = 0xFFFF;
+    PtrCLUTGouraud = g_test_clut;
+    Fill_Type = POLY_TEXTURE_GOURAUD;
+    Fill_Filler = Filler_TextureGouraudZBuf;
+    Fill_ClipFlag = 7 + 16; /* CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT + CLIP_ZBUFFER */
+    Fill_Flag_ZBuffer = 1;
+    /* Set Z-buffer to all 0xFFFF (max Z = far) so all pixels pass */
+    memset(poly_zbuf, 0xFF, TEST_POLY_SIZE * sizeof(U16));
+    PtrZBuffer = (U16 *)poly_zbuf;
+    Fill_PolyClip(3, pts);
+    memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(poly_asm_zbuf, poly_zbuf, TEST_POLY_SIZE * sizeof(U16));
+
+    /* --- ASM path --- */
+    setup_polygon_screen();
+    PtrMap = g_test_texture;
+    RepMask = 0xFFFF;
+    PtrCLUTGouraud = g_test_clut;
+    Fill_Type = POLY_TEXTURE_GOURAUD;
+    Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_TextureGouraudZBuf;
+    Fill_ClipFlag = 7 + 16; /* CLIP_FLAT + CLIP_TEXTURE + CLIP_LIGHT + CLIP_ZBUFFER */
+    Fill_Flag_ZBuffer = 1;
+    memset(poly_zbuf, 0xFF, TEST_POLY_SIZE * sizeof(U16));
+    PtrZBuffer = (U16 *)poly_zbuf;
+    call_asm_Fill_PolyClip(3, pts);
+    memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    memcpy(poly_cpp_zbuf, poly_zbuf, TEST_POLY_SIZE * sizeof(U16));
+
+    ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf, TEST_POLY_SIZE,
+                           "Fill_PolyClip TextureGouraudZBuf DC#1251 framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)poly_asm_zbuf, (U8 *)poly_cpp_zbuf,
+                           TEST_POLY_SIZE * sizeof(U16),
+                           "Fill_PolyClip TextureGouraudZBuf DC#1251 zbuf");
+}
+
+/* ── End-to-end ASM-vs-CPP Fill_PolyClip for Texture Gouraud (DC#58) ── */
+
+static void test_asm_fill_polyclip_texture_gouraud_dc58(void)
+{
+    /* DC#58 vertex data from polyrec_0002 - first diverging draw call */
+    Struc_Point pts[3];
+    pts[0].Pt_XE = 651; pts[0].Pt_YE = 62;
+    pts[0].Pt_MapU = 13; pts[0].Pt_MapV = 57370;
+    pts[0].Pt_Light = 1537; pts[0].Pt_ZO = 45502; pts[0].Pt_W = 433222;
+    pts[1].Pt_XE = 637; pts[1].Pt_YE = 61;
+    pts[1].Pt_MapU = 13; pts[1].Pt_MapV = 65266;
+    pts[1].Pt_Light = 769; pts[1].Pt_ZO = 45983; pts[1].Pt_W = 304521;
+    pts[2].Pt_XE = 635; pts[2].Pt_YE = 63;
+    pts[2].Pt_MapU = 8164; pts[2].Pt_MapV = 65266;
+    pts[2].Pt_Light = 1281; pts[2].Pt_ZO = 45291; pts[2].Pt_W = 531752;
+
+    init_test_texture();
+    init_test_clut();
+
+    /* --- CPP path --- */
+    setup_polygon_screen();
+    PtrMap = g_test_texture;
+    RepMask = 0xFFFF;
+    PtrCLUTGouraud = g_test_clut;
+    Fill_Type = POLY_TEXTURE_GOURAUD;
+    Fill_Filler = Filler_TextureGouraud;
+    Fill_ClipFlag = 7;
+    Fill_PolyClip(3, pts);
+    memcpy(poly_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    /* --- ASM path --- */
+    setup_polygon_screen();
+    PtrMap = g_test_texture;
+    RepMask = 0xFFFF;
+    PtrCLUTGouraud = g_test_clut;
+    Fill_Type = POLY_TEXTURE_GOURAUD;
+    Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_TextureGouraud;
+    Fill_ClipFlag = 7;
+    call_asm_Fill_PolyClip(3, pts);
+    memcpy(poly_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf, TEST_POLY_SIZE,
+                           "Fill_PolyClip TextureGouraud DC#58");
+}
+
 int main(void)
 {
     RUN_TEST(test_inv64_positive);
@@ -1547,6 +1657,8 @@ int main(void)
     RUN_TEST(test_texturez_leftslope_zbuf);
     RUN_TEST(test_asm_fill_polyclip_texz_trace);
     RUN_TEST(test_asm_random_fill_polyclip_texz);
+    RUN_TEST(test_asm_fill_polyclip_texture_gouraud_dc1251);
+    RUN_TEST(test_asm_fill_polyclip_texture_gouraud_dc58);
     TEST_SUMMARY();
     return test_failures != 0;
 }
