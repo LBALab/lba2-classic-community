@@ -718,6 +718,11 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
       do
       {
         // @@Do_Y:
+        // TODO: The ASM version of this pixel write in Line_ZBuffer_NZW has a possible bug
+        // where al is clobbered by "mov eax,[YPtrLog]" before the pixel write, causing it to
+        // write the low byte of the Log address instead of Color. The CPP version below is the
+        // correct behavior. Check the original ASM code to confirm:
+        // https://github.com/LBALab/lba2-classic-community/blob/cdce6b801608a3ec035c00b687e1d3a25f8a922f/LIB386/pol_work/POLYLINE.ASM
         if (YPtrZBuf[offset] >= (intZ1 & 0xFFFF))
         {
           YPtrLog[offset] = Color;
