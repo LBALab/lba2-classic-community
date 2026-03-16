@@ -604,6 +604,9 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   Fill_CurY += count;
   U32 patch = Fill_Patch - 1;
 
+  LIB386_TRACE_CPP("FillTGZB", "entry", "nbLines=%u xMin=0x%08X xMax=0x%08X u=0x%08X v=0x%08X gour=0x%08X zbuf=0x%08X patch=%u",
+    nbLines, fillCurXMin, fillCurXMax, u, v, Fill_CurGouraudMin, Fill_CurZBufMin, patch + 1);
+
   // Set up GTEX globals on first call (match ASM @@PtrPatch / @@SetCachedValues):
   if (patch == 0)
   {
@@ -618,7 +621,7 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     GTEX_DecMapU = Fill_MapU_XSlope << 16;
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | (Fill_ZBuf_XSlope >> 8);
+    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | ((U32)Fill_ZBuf_XSlope >> 8);
     GTEX_DecZBuf_Gour = (Fill_ZBuf_XSlope << 24) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
   }
   else
@@ -633,9 +636,13 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
+  U32 scanline_idx_TGZB = 0;
   while (1)
   {
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    LIB386_TRACE_CPP("FillTGZB", "SL", "scan=%u diffX=%u xMin=0x%08X xMax=0x%08X u=0x%08X v=0x%08X gour=0x%08X zbuf=0x%08X",
+      scanline_idx_TGZB, diffX, fillCurXMin, fillCurXMax, u, v, Fill_CurGouraudMin, Fill_CurZBufMin);
+    scanline_idx_TGZB++;
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *screen = (fillCurXMin >> 16) + curOffLine;
@@ -767,7 +774,7 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
     GTEX_DecMapU = Fill_MapU_XSlope << 16;
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | (Fill_ZBuf_XSlope >> 8);
+    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | ((U32)Fill_ZBuf_XSlope >> 8);
     GTEX_DecZBuf_Gour = (Fill_ZBuf_XSlope << 24) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
   }
   else
@@ -917,7 +924,7 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     GTEX_DecMapU = Fill_MapU_XSlope << 16;
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | (Fill_ZBuf_XSlope >> 8);
+    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | ((U32)Fill_ZBuf_XSlope >> 8);
     GTEX_DecZBuf_Gour = (Fill_ZBuf_XSlope << 24) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
   }
   else
@@ -1065,7 +1072,7 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
     GTEX_DecMapU = Fill_MapU_XSlope << 16;
     GTEX_IntMapU = (Fill_MapU_XSlope >> 16) & 0xFF;
     GTEX_IntMapV = (Fill_MapV_XSlope >> 16) & 0xFF;
-    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | (Fill_ZBuf_XSlope >> 8);
+    GTEX_DecMapV_IntZBuf = (Fill_MapV_XSlope << 16) | ((U32)Fill_ZBuf_XSlope >> 8);
     GTEX_DecZBuf_Gour = (Fill_ZBuf_XSlope << 24) | ((Fill_Gouraud_XSlope >> 8) & 0xFFFF);
   }
   else

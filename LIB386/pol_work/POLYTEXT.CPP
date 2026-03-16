@@ -667,7 +667,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYTEXT_PtrZBufferPatch = PtrZBuffer;
     POLYTEXT_PtrZBuffer1 = PtrZBuffer;
     POLYTEXT_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYTEXT_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYTEXT_PtrLog = (PTR_U8)Log;
   }
   else
@@ -785,7 +785,7 @@ S32 Filler_TextureChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYTEXT_PtrZBufferPatch = PtrZBuffer;
     POLYTEXT_PtrZBuffer1 = PtrZBuffer;
     POLYTEXT_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYTEXT_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYTEXT_PtrLog = (PTR_U8)Log;
   }
   else
@@ -1395,7 +1395,7 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYTEXT_IntMapU = Precalc_Inc & 0xFF;
     POLYTEXT_PtrZBufferPatch = PtrZBuffer;
     POLYTEXT_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYTEXT_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYTEXT_PtrLog = (PTR_U8)Log;
   }
   else
@@ -1510,7 +1510,7 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYTEXT_IntMapU = Precalc_Inc & 0xFF;
     POLYTEXT_PtrZBufferPatch = PtrZBuffer;
     POLYTEXT_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYTEXT_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYTEXT_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYTEXT_PtrLog = (PTR_U8)Log;
   }
   else
