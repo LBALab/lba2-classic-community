@@ -344,4 +344,55 @@ fpu_reciprocal_mul_256 PROC
     ret
 fpu_reciprocal_mul_256 ENDP
 
+;; ====================================================================
+;; 16. S32 fpu_xslope_cross(S32 XB_XA, S32 YB_YA, S32 XC_XA, S32 YC_YA,
+;;                          S32 DB_DA, S32 DC_DA)
+;;     Compute an XSlope using the polygon cross-product pattern:
+;;       Denom = XB_XA * YC_YA - XC_XA * YB_YA
+;;       InvDenom = 256.0 / Denom
+;;       result = trunc( (YB_YA * DC_DA - YC_YA * DB_DA) * InvDenom )
+;;     This matches the ASM in Compute_FPU_Denom + Texture_XSlopeFPU.
+;;     All ops in 80-bit precision, fistp with truncation towards zero.
+;; ====================================================================
+PUBLIC fpu_xslope_cross
+fpu_xslope_cross PROC
+    push  ebp
+    mov   ebp, esp
+    ;; Args: [ebp+8]=XB_XA, [ebp+12]=YB_YA, [ebp+16]=XC_XA,
+    ;;       [ebp+20]=YC_YA, [ebp+24]=DB_DA, [ebp+28]=DC_DA
+
+    ;; --- Compute InvDenom = 256.0 / Denom ---
+    ;; Denom = XB_XA * YC_YA - XC_XA * YB_YA
+    fild  dword ptr [ebp+8]     ; XB_XA
+    fild  dword ptr [ebp+20]    ; YC_YA          st: YC_YA, XB_XA
+    fild  dword ptr [ebp+16]    ; XC_XA          st: XC_XA, YC_YA, XB_XA
+    fild  dword ptr [ebp+12]    ; YB_YA          st: YB_YA, XC_XA, YC_YA, XB_XA
+    fxch  st(3)                 ; XB_XA, XC_XA, YC_YA, YB_YA
+    fmulp st(2), st             ; st: XC_XA, XB_XA*YC_YA, YB_YA
+    fmulp st(2), st             ; st: XB_XA*YC_YA, XC_XA*YB_YA
+    fsubrp st(1), st            ; st: Denom = XB_XA*YC_YA - XC_XA*YB_YA
+    fld   F_256
+    fdivrp st(1), st            ; st: InvDenom = 256.0 / Denom
+
+    ;; --- Compute slope = trunc( (YB_YA * DC_DA - YC_YA * DB_DA) * InvDenom ) ---
+    fild  dword ptr [ebp+24]    ; DB_DA          st: DB_DA, InvDenom
+    fild  dword ptr [ebp+28]    ; DC_DA          st: DC_DA, DB_DA, InvDenom
+    fild  dword ptr [ebp+20]    ; YC_YA          st: YC_YA, DC_DA, DB_DA, InvDenom
+    fild  dword ptr [ebp+12]    ; YB_YA          st: YB_YA, YC_YA, DC_DA, DB_DA, InvDenom
+    fmulp st(2), st             ; st: YC_YA, YB_YA*DC_DA, DB_DA, InvDenom
+    fmulp st(2), st             ; st: YB_YA*DC_DA, YC_YA*DB_DA, InvDenom
+    fsubrp st(1), st            ; st: (YB_YA*DC_DA - YC_YA*DB_DA), InvDenom
+    fmulp st(1), st             ; st: result_float
+
+    ;; Truncate to S32 (game uses fldcw Status_Int = truncation mode for fistp)
+    fldcw Status_Trunc
+    push  eax
+    fistp dword ptr [esp]
+    pop   eax
+    fldcw Status_Float
+
+    pop   ebp
+    ret
+fpu_xslope_cross ENDP
+
 END

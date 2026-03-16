@@ -23,5 +23,6 @@ add_asm_cpp_test(
                     fpu_perspective_uv
                     fpu_dot3
                     fpu_reciprocal_mul_256
+                    fpu_xslope_cross
     LIBS            m
 )
