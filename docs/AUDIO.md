@@ -6,6 +6,8 @@ The original LBA2 used the proprietary **Miles Sound System (MSS)** for audio. T
 
 The SDL backend matches the AIL function signatures and handle semantics, but targets modern hardware and sound quality (44100 Hz, float mixing, clean clipping). This document describes the audio architecture, the AIL contract, how the engine uses audio, and current status.
 
+**Legal note:** The SDL backend is a clean-room reimplementation of the AIL interface. The function signatures come from the game's own engine headers (`LIB386/H/AIL/`), not from decompilation or disassembly of Miles Sound System binaries. No proprietary RAD Game Tools / Miles code was reverse engineered.
+
 ---
 
 ## Architecture
