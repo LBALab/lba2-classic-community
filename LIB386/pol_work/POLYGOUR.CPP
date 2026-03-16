@@ -900,7 +900,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             curZBufMinDec += POLYGOUR_DecZBuf;
             curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer_1[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer_1[offset])
             {
               POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog_1[offset] = (color >> 8) & 0xFF;
@@ -919,7 +919,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           while ( pixelCount );
         }
         // @@Add_One:
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer4[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer4[offset])
         {
           POLYGOUR_PtrZBuffer5[offset] = curZBufMinInt & 0xFFFF;
           color = (color & 0xFF) + gouraud;
@@ -935,7 +935,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           color = (color & 0xFF) + gouraud;
           gouraud += POLYGOUR_AddGour2;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2[offset])
           {
             POLYGOUR_PtrZBuffer3[offset] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2[offset] = (color >> 8) & 0xFF;
@@ -947,7 +947,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
           color = (color & 0xFF) + gouraud;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2_1[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2_1[offset])
           {
             POLYGOUR_PtrZBuffer3_1[offset] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2_1[offset] = (color >> 8) & 0xFF;
@@ -1180,7 +1180,6 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 offset = screen - (U8 *)Log; // edi
       U32 gouraud = curGouraud >> 8; // edx
       U32 color = (gouraud & 0xFF) + gouraud; // eax
-      color += Fill_CurZBufMin >> 8;
       U32 colorIndex = color & 0xFF00; // esi
       U8 isOdd = diffX & 1;
       U32 pixelCount = diffX >> 1;
@@ -1208,7 +1207,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
             colorIndex = color & 0xFF00;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer_1[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer_1[offset])
             {
               POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
               color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor1[colorIndex] << 8);
@@ -1231,7 +1230,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           while ( pixelCount );
         }
         // @@Add_One:
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer4[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer4[offset])
         {
           POLYGOUR_PtrZBuffer5[offset] = curZBufMinInt & 0xFFFF;
           color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor4[colorIndex] << 8);
@@ -1244,7 +1243,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         for ( ; pixelCount != 0; --pixelCount )
         {
           // @@Each_X2:
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2[offset])
           {
             POLYGOUR_PtrZBuffer3[offset] = curZBufMinInt & 0xFFFF;
             color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor2[colorIndex] << 8);
@@ -1260,7 +1259,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
           colorIndex = color & 0xFF00;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2_1[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2_1[offset])
           {
             POLYGOUR_PtrZBuffer3_1[offset] = curZBufMinInt & 0xFFFF;
             color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor3[colorIndex] << 8);
@@ -1787,7 +1786,7 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             curZBufMinDec += POLYGOUR_DecZBuf;
             curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer_1[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer_1[offset])
             {
               POLYGOUR_PtrLog_1[offset] = (color >> 8) & 0xFF;
             }
@@ -1804,7 +1803,7 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           }
           while ( pixelCount );
         }
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer4[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer4[offset])
         {
           color = (color & 0xFF) + gouraud;
           POLYGOUR_PtrLog4[offset] = (color >> 8) & 0xFF;
@@ -1817,7 +1816,7 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           color = (color & 0xFF) + gouraud;
           gouraud += POLYGOUR_AddGour2;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2[offset])
           {
             POLYGOUR_PtrLog2[offset] = (color >> 8) & 0xFF;
           }
@@ -1828,7 +1827,7 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
           color = (color & 0xFF) + gouraud;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2_1[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2_1[offset])
           {
             POLYGOUR_PtrLog2_1[offset] = (color >> 8) & 0xFF;
           }
