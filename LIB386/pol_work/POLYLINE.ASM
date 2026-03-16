@@ -28,6 +28,8 @@
 
 Z1			dd	0			; For the ZBuffer
 Z2			dd	0
+
+fmt_lznzw_fog	db	"[ASM][LineZNZW] col_raw=%d fog=%d palette[%d]=0x%02x Color=0x%02x", 10, 0
 DZ			dd	0
 Color			db	0
 
@@ -1155,6 +1157,23 @@ Line_ZBuffer_NZW	PROC
 			mov	al,[Fill_Logical_Palette+ebp]
 @@Pas_Coul_Convert:
 			mov	[Color],al
+
+		; --- debug trace [ASM][LineZNZW] fog ---
+		pushad
+		movzx	ecx, byte ptr [Color]
+		push	ecx
+		movzx	ecx, byte ptr [Fill_Logical_Palette+ebp]
+		push	ecx
+		push	ebp
+		movzx	ecx, byte ptr [Fill_Flag_Fog]
+		push	ecx
+		push	eax
+		push	offset fmt_lznzw_fog
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
 			pop	eax
 
 @@Trace_Still:

@@ -413,6 +413,24 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
     fwrite(framebuffer, 1, fb_size, f);
     fclose(f);
 
+    /* Write Z-buffer to a separate file (replace .raw with _zbuf.raw) */
+    if (zbuffer) {
+        char zbuf_file[512];
+        snprintf(zbuf_file, sizeof(zbuf_file), "%s", output_file);
+        char *ext = strstr(zbuf_file, ".raw");
+        if (ext) {
+            snprintf(ext, zbuf_file + sizeof(zbuf_file) - ext, "_zbuf.raw");
+        } else {
+            snprintf(zbuf_file + strlen(zbuf_file),
+                     sizeof(zbuf_file) - strlen(zbuf_file), "_zbuf.raw");
+        }
+        FILE *zf = fopen(zbuf_file, "wb");
+        if (zf) {
+            fwrite(zbuffer, 2, fb_size, zf);
+            fclose(zf);
+        }
+    }
+
     /* Write PPM image if requested and palette is available */
     if (ppm_file) {
         if (rec.has_rgb_palette) {
