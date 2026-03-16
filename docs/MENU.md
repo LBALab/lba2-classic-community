@@ -76,6 +76,29 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 210) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
 - **Options entry count**: `GameOptionMenu[1]` is 7 or 8 depending on `FlagSpeak` (Display Text hidden when no voice support).
 
+## Limitations
+
+| Limit | Value | Notes |
+|-------|-------|-------|
+| Main menu entries | 6 | `MAX_MAIN_MENUS`, `GameMainMenu[4+6*2]` |
+| Save slots visible | 5 | `NB_GAME_CHOICE`, `Y_START_CHOICE`; list scrolls |
+| Player name length | 100 chars | `MAX_SIZE_PLAYER_NAME` |
+| Resolution | 640×480 | Menu centered at x=320, `LargeurMenu=550` |
+| Long text | No wrap | Text wider than 550px scrolls horizontally |
+| Input | Keyboard/joystick | No mouse; Up/Down/Fire/Action |
+
+**Note:** `IsExistSavedGame()` uses a hardcoded 100000L buffer; the save list elsewhere uses `MAX_PLAYER` derived from `BufSpeak` size.
+
+## Future enhancements
+
+Ideas that stay in the spirit of the original design:
+
+- **More visible save slots** – 5 is arbitrary; 7–8 with tighter spacing (`NB_GAME_CHOICE`, `Y_START_CHOICE`) keeps the same UX.
+- **Config saved when leaving Options** – Currently written only at exit; saving on Options back would avoid loss on crash.
+- **Mouse support** – Click-to-select alongside keyboard/joystick; common in modern ports.
+- **Additional Options entries** – Structure supports it; extend `GameOptionMenu` and add handlers.
+- **Resolution scaling** – Scale layout for higher res while preserving the plasma/font look.
+
 ## Code reference
 
 | Concept           | File         | Function/Symbol                 |
