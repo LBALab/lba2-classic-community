@@ -617,6 +617,7 @@ S32     InputPlayerName( S32 choice, char *name )
 
 	len = strlen( PlayerName ) ;
 
+        x = 320 ;
         y = Y_START_CHOICE+choice*60 ;
 
         ManageTime() ;
