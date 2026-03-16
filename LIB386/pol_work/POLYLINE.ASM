@@ -1516,15 +1516,10 @@ Line_ZBuffer_NZW	PROC
 
 			jb	@@YNoDisp
 
-		; TODO: Possible ASM bug — al is clobbered by mov eax,[YPtrLog] before the pixel write.
-		; The pixel write "mov byte ptr [ebx+eax],al" uses al which now holds the low byte of the
-		; YPtrLog address instead of Color. Compare with the original code at:
-		; https://github.com/LBALab/lba2-classic-community/blob/cdce6b801608a3ec035c00b687e1d3a25f8a922f/LIB386/pol_work/POLYLINE.ASM
-		; The non-NZW variant (Line_ZBuffer @@Do_Y) reloads Color after the pointer load.
-		push eax
-		mov eax,[YPtrLog]
-		mov	byte ptr [ebx+eax],al
-		pop eax
+		push ecx
+		mov ecx,[YPtrLog]
+		mov	byte ptr [ebx+ecx],al
+		pop ecx
 
 @@YNoDisp:
 			add	edx,[YDX]

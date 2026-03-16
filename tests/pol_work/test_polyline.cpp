@@ -11,10 +11,63 @@
 #include "poly_test_fixture.h"
 #include <string.h>
 
+void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2);
 extern "C" void asm_Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col);
+extern "C" void asm_LineZBufNZW(S32 x0, S32 y0, S32 z0,
+                                  S32 x1, S32 y1, S32 z1,
+                                  S32 col);
 static U8 asm_buf[TEST_POLY_SIZE];
 
 static U8 cpp_buf[TEST_POLY_SIZE];
+
+#define LINEZBUFNZW_W 640
+#define LINEZBUFNZW_H 480
+#define LINEZBUFNZW_SIZE (LINEZBUFNZW_W * LINEZBUFNZW_H)
+
+static U8 asm_linezbufnzw_buf[LINEZBUFNZW_SIZE];
+static U8 cpp_linezbufnzw_buf[LINEZBUFNZW_SIZE];
+static U8 linezbufnzw_framebuf[LINEZBUFNZW_SIZE + 256];
+static U16 linezbufnzw_zbuffer[LINEZBUFNZW_SIZE];
+
+static U8 *setup_linezbufnzw_screen(U8 color)
+{
+    U8 *base = NULL;
+
+    memset(linezbufnzw_framebuf, 0, sizeof(linezbufnzw_framebuf));
+    for (U32 i = 0; i < LINEZBUFNZW_SIZE; i++)
+        linezbufnzw_zbuffer[i] = 0xFFFF;
+
+    for (int shift = 0; shift < 256; shift++) {
+        U8 *candidate = linezbufnzw_framebuf + shift;
+        if ((U8)(unsigned long)candidate != color) {
+            base = candidate;
+            break;
+        }
+    }
+
+    ASSERT_TRUE(base != NULL);
+
+    Log = base;
+    PtrZBuffer = linezbufnzw_zbuffer;
+    ModeDesiredX = LINEZBUFNZW_W;
+    ModeDesiredY = LINEZBUFNZW_H;
+    for (U32 i = 0; i < LINEZBUFNZW_H; i++)
+        TabOffLine[i] = i * LINEZBUFNZW_W;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = LINEZBUFNZW_W - 1;
+    ClipYMax = LINEZBUFNZW_H - 1;
+    ScreenPitch = LINEZBUFNZW_W;
+    PTR_TabOffLine = TabOffLine;
+
+    memset(Fill_Logical_Palette, 0, sizeof(Fill_Logical_Palette));
+    Fill_Logical_Palette[302 & 0xFF] = color;
+    Fill_Flag_Fog = TRUE;
+    Fill_Flag_ZBuffer = TRUE;
+    Fill_Flag_NZW = TRUE;
+
+    return base;
+}
 
 /* ── CPP-only sanity checks ────────────────────────────────────── */
 
@@ -101,6 +154,28 @@ static void test_asm_equiv_clipped(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, "Line clipped");
 }
 
+static void test_asm_equiv_linezbufnzw_vertical_polyrec_0013_dc4333(void)
+{
+    const U8 fogged_color = 0xA7;
+    U8 *cpp_base = setup_linezbufnzw_screen(fogged_color);
+    const U32 first_pixel = 87 * LINEZBUFNZW_W + 326;
+    const U32 last_pixel = 91 * LINEZBUFNZW_W + 326;
+
+    Line_ZBuffer_NZW(326, 87, 326, 91, 302, 0, 0);
+    memcpy(cpp_linezbufnzw_buf, cpp_base, LINEZBUFNZW_SIZE);
+    ASSERT_EQ_UINT(fogged_color, cpp_linezbufnzw_buf[first_pixel]);
+    ASSERT_EQ_UINT(fogged_color, cpp_linezbufnzw_buf[last_pixel]);
+
+    U8 *asm_base = setup_linezbufnzw_screen(fogged_color);
+    asm_LineZBufNZW(326, 87, 0, 326, 91, 0, 302);
+    memcpy(asm_linezbufnzw_buf, asm_base, LINEZBUFNZW_SIZE);
+    ASSERT_EQ_UINT(fogged_color, asm_linezbufnzw_buf[first_pixel]);
+    ASSERT_EQ_UINT(fogged_color, asm_linezbufnzw_buf[last_pixel]);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_linezbufnzw_buf, cpp_linezbufnzw_buf, LINEZBUFNZW_SIZE,
+        "Line_ZBuffer_NZW polyrec_0013 dc4333");
+}
+
 /* ── Randomized stress test ────────────────────────────────────── */
 
 static U32 rng_state;
@@ -143,6 +218,7 @@ int main(void)
     RUN_TEST(test_asm_equiv_horizontal);
     RUN_TEST(test_asm_equiv_diagonal);
     RUN_TEST(test_asm_equiv_clipped);
+    RUN_TEST(test_asm_equiv_linezbufnzw_vertical_polyrec_0013_dc4333);
     RUN_TEST(test_asm_equiv_random);
     TEST_SUMMARY();
     return test_failures != 0;
