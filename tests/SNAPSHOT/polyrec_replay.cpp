@@ -300,6 +300,19 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                 if (copy_count > 64) copy_count = 64;
                 memcpy(local_points, points_data, copy_count * 16);
 
+                /* Debug: dump input data before Fill_Poly */
+                if (debug_slopes && (int)draw_count + 1 >= debug_slopes_from && (int)draw_count + 1 <= debug_slopes_to) {
+                    fprintf(stderr, "DC%u type=%d color=%d nb_points=%d RepMask=%d\n",
+                        draw_count + 1, type_poly, color_poly, nb_points, RepMask);
+                    for (int pi = 0; pi < nb_points && pi < 8; pi++) {
+                        fprintf(stderr, "  pt[%d]: XE=%d YE=%d MapU=%u MapV=%u Light=%u ZO=%u W=%d\n",
+                            pi, local_points[pi].Pt_XE, local_points[pi].Pt_YE,
+                            (U32)local_points[pi].Pt_MapU, (U32)local_points[pi].Pt_MapV,
+                            (U32)local_points[pi].Pt_Light, (U32)local_points[pi].Pt_ZO,
+                            local_points[pi].Pt_W);
+                    }
+                }
+
                 Fill_Poly(type_poly, color_poly, nb_points, local_points);
 
                 /* Debug: dump slope globals after Fill_Poly for draw call comparison */
