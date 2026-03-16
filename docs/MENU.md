@@ -99,6 +99,16 @@ Ideas that stay in the spirit of the original design:
 - **Additional Options entries** – Structure supports it; extend `GameOptionMenu` and add handlers.
 - **Resolution scaling** – Scale layout for higher res while preserving the plasma/font look.
 
+## Historical notes
+
+The menu code preserves 1997-era developer artifacts worth noting for preservation:
+
+- **Detail Level hardware comments** – `SetDetailLevel()` (GAMEMENU.CPP lines 217–237) labels each quality tier with informal French: *machine bof* (crap machine), *486 ?*, *Pentium de base ?*, *machine de folie* (crazy machine). These reflect the target hardware of the day. See [FRENCH_COMMENTS.md](FRENCH_COMMENTS.md).
+- **Distributor logos** – `DistribLogo()` and `AdelineLogo()` show different publisher logos (Activision, EA, Virgin) based on `DistribVersion`, reflecting regional publishers in 1997.
+- **Isabelle** – `MAX_SIZE_PLAYER_NAME` in DEFINES.H is attributed: *Calculé avec des ',' par Isabelle* (calculated with commas by Isabelle).
+
+For broader preservation (ASCII art, French comments, developer culture), see [FRENCH_COMMENTS.md](FRENCH_COMMENTS.md) and [ASCII_ART.md](ASCII_ART.md).
+
 ## Code reference
 
 | Concept           | File         | Function/Symbol                 |
