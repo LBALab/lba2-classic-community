@@ -26,7 +26,7 @@ AIL functions (LIB386/AIL/)
     |  backend boundary -- swapped at compile time via SOUND_BACKEND
     |
     +-- SDL   (LIB386/AIL/SDL/)     -- current default, what we are hardening
-    +-- MILES (LIB386/AIL/MILES/)   -- original proprietary implementation (reference)
+    +-- MILES (LIB386/AIL/MILES/)   -- original Adeline wrapper (requires proprietary Miles SDK)
     +-- NULL  (LIB386/AIL/NULL/)    -- silent stubs for testing
 ```
 
@@ -218,7 +218,7 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 
 ### Master volume and stream coupling
 
-In Miles, `SetMasterVolumeSample` internally called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ReadVolumeSettings`, master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
+In the original Miles wrapper (`LIB386/AIL/MILES/SAMPLE.CPP`), `SetMasterVolumeSample` called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ReadVolumeSettings`, master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
 
 ---
 
@@ -284,7 +284,7 @@ These changes were made in engine code because they fix latent bugs exposed by t
 |--------|--------------------|--------------------------|-----|
 | **`SetVolumeJingle` macro: added MasterVolume scaling** | `SetVolumeJingle(vol)` expanded to `ChangeVolumeStream(vol)` — no master scaling. In the original, jingles were short ADPCM clips; CD audio (the real background music) was scaled by master via `SetVolumeCD`. | All music now routes through jingle/stream (Steam/GOG has no CD). Without master scaling, jingle volume was independent of master — adjusting master volume didn't change music loudness. | Changed to `ChangeVolumeStream(RegleTrois(0, MasterVolume, 127, vol))`, matching `SetVolumeCD`'s pattern. |
 
-**Miles backend note:** This macro change introduces double master-volume scaling if built with `SOUND_BACKEND=miles`, because Miles' `ChangeVolumeStream` already applies `LibWaveMasterVolume` internally. The SDL backend does not scale internally, so the macro-level scaling is correct for SDL. Since the Miles backend requires the proprietary RAD Game Tools SDK (unavailable for open-source builds), this is documented rather than fixed.
+**Miles backend note:** This macro change introduces double master-volume scaling if built with `SOUND_BACKEND=miles`, because the Miles wrapper's `ChangeVolumeStream` (`LIB386/AIL/MILES/STREAM.CPP`) already applies `LibWaveMasterVolume` scaling before passing the value to `AIL_set_stream_volume`. The SDL backend does not scale internally, so the macro-level scaling is correct for SDL. Since building with the Miles backend requires the proprietary RAD Game Tools SDK (unavailable for open-source builds), this is documented rather than fixed.
 
 ### `SOURCES/MUSIC.CPP`
 
