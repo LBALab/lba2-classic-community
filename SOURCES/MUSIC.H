@@ -52,7 +52,7 @@ extern	S32	GetNumJingle( char *name ) ;
 extern	void	PlayJingle( S32 num ) ;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#define	SetVolumeJingle(vol)	ChangeVolumeStream(vol)
+#define	SetVolumeJingle(vol)	ChangeVolumeStream(RegleTrois(0, MasterVolume, 127, vol))
 
 /*▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 			 █▄ ▄█ █   █ ██▀▀▀  █    █▀▀▀▀

@@ -60,7 +60,7 @@ This repository provides CMake presets for common configurations in `CMakePreset
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `null` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. |
+| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `null` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
 | `MVIDEO_BACKEND` | `null`, `smacker` | `null` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
