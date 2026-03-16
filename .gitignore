@@ -8,12 +8,6 @@ build/
 .tmp/
 
 # Snapshot rendered outputs (keep .lba2snap fixtures, ignore generated images)
-tests/SNAPSHOT/fixtures/*_asm.raw
-tests/SNAPSHOT/fixtures/*_cpp.raw
-tests/SNAPSHOT/fixtures/*_asm.ppm
-tests/SNAPSHOT/fixtures/*_cpp.ppm
-tests/SNAPSHOT/fixtures/*_reference_cpp.ppm
-tests/SNAPSHOT/fixtures/*_asm.png
-tests/SNAPSHOT/fixtures/*_cpp.png
-tests/SNAPSHOT/fixtures/*_reference_cpp.png
-tests/SNAPSHOT/fixtures/*_diff.png
+tests/SNAPSHOT/fixtures/*.png
+tests/SNAPSHOT/fixtures/*.ppm
+tests/SNAPSHOT/fixtures/*.raw
