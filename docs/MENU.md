@@ -1,6 +1,6 @@
 # Game Menu
 
-Primary UI for start/load/save and options. Entry points: startup (via [SOURCES/FLOW.CPP](SOURCES/FLOW.CPP) → `MainGameMenu`) and in-game MENUS key ([SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) line 2518). Option changes are persisted in lba2.cfg at exit (see [CONFIG.md](CONFIG.md)).
+Primary UI for start/load/save and options. Entry point: main() in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) calls `MainGameMenu(load)` at line 2518. In-game, Options/Save/Load keys open submenus; ESC/MENUS opens pause. Option changes are persisted in lba2.cfg at exit (see [CONFIG.md](CONFIG.md)).
 
 ## Menu tree
 
@@ -34,6 +34,15 @@ Main Menu
 ```
 
 `DoGameMenu` returns the selected text ID, or `1000` for ESC.
+
+## Terms
+
+| Term | Definition |
+|------|------------|
+| CURRENTSAVE | Quick-save file (current.lba); Resume is shown when it exists |
+| SavingEnable | Flag allowing Save; false during intro |
+| FlagSpeak | Voice support; controls Volume submenu (Voice slider) and Display Text visibility |
+| MainGameMenu | Entry point for the main menu |
 
 ## Entry and flow
 
@@ -69,8 +78,8 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Implementation notes
 
-- **Plasma background**: `InitPlasmaMenu()` (ANIMTEX.CPP) sets up animated plasma texture; `SelectPlasmaBank()` switches palette (12 = selection highlight, 4 = slider bar). `DrawFireBar` / `DrawFire` render the fire/plasma effect.
-- **Main menu live preview**: While on main menu, `DrawGameMenu` triggers a save screenshot load and draws it at (240, 10) so the player sees their current game state.
+- **Plasma background**: A hallmark of LBA1 and LBA2 menus. `InitPlasmaMenu()` (ANIMTEX.CPP) sets up an animated plasma texture; `DrawFireBar` / `DrawFire` render textured bars (selection highlight, sliders, input fields). The effect is plasma (not the separate fire algorithm); `SelectPlasmaBank(12)` for selection, `SelectPlasmaBank(4)` for sliders.
+- **Save screenshot**: Generated at save time in `SaveGame()` (SAVEGAME.CPP); shown via `LoadGameScreen()` and `DrawScreenSave()`. See [SAVEGAME.md](SAVEGAME.md) for the full flow.
 - **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down). After ~50 min idle (or Shift+D), `SlideShow()` runs; returns `9999` to trigger credits.
 - **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and Master sliders play random SFX preview when focused.
 - **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 210) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
@@ -112,14 +121,16 @@ For broader preservation (ASCII art, French comments, developer culture), see [F
 
 ## Code reference
 
-| Concept           | File         | Function/Symbol                 |
-| ----------------- | ------------ | ------------------------------- |
-| Main menu entry   | GAMEMENU.CPP | MainGameMenu, BuildGameMainMenu |
-| Menu render/input | GAMEMENU.CPP | DoGameMenu, DrawGameMenu        |
-| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereVolumeMenu     |
+| Concept           | File         | Function/Symbol                                                       |
+| ----------------- | ------------ | --------------------------------------------------------------------- |
+| Main menu entry   | GAMEMENU.CPP | MainGameMenu, BuildGameMainMenu                                       |
+| Menu render/input | GAMEMENU.CPP | DoGameMenu, DrawGameMenu                                               |
+| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereVolumeMenu                                            |
+| Save/Load list    | GAMEMENU.CPP, SAVEGAME.CPP | PlayerGameList, ChoosePlayerName, DeleteSavedGame, LoadGameScreen, DrawScreenSave |
 
 ## Cross-references
 
 - [CONFIG.md](CONFIG.md) for options persistence
+- [SAVEGAME.md](SAVEGAME.md) for save/load format and lifecycle
 - [DEBUG.md](DEBUG.md) for bug save/load menu integration
 - [CONSOLE.md](CONSOLE.md) for console availability in menu

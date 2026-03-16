@@ -188,6 +188,7 @@ This separation ensured QA testers could see debug information without having ac
 - `SOURCES/PERSO.CPP` - Main debug key handlers, screenshot functions, debug overlay, cube selection
 - `SOURCES/PERSO.H` - Debug function declarations
 - `SOURCES/GAMEMENU.CPP` - Bug save/load menu integration. See [MENU.md](MENU.md) for the full menu flow.
+- `SOURCES/SAVEGAME.CPP` - Save/load implementation. See [SAVEGAME.md](SAVEGAME.md) for format and lifecycle.
 - `SOURCES/CHEATCOD.CPP` - Cheat code handling
 - `SOURCES/DIRECTORIES.CPP` - File path resolution (screenshots, saves, bugs)
 - `SOURCES/DISKFUNC.CPP` - Directory creation (save, shoot, bugs)

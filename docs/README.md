@@ -11,6 +11,7 @@ Index of documentation in this repository.
 | [SCENES.md](SCENES.md) | All 223 cubes by island with location names; interior/exterior; object and zone counts. |
 | [MENU.md](MENU.md) | Game menu flow, submenus, and entry points. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
+| [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 
 ## Build & debug
 
@@ -35,3 +36,10 @@ Index of documentation in this repository.
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |
 | [GFX_OPTIONS.md](GFX_OPTIONS.md) | Variables and locations for graphical quality options. |
+
+## External resources
+
+| Resource | Description |
+|----------|-------------|
+| [LBA Classic Doc](https://lba-classic-doc.readthedocs.io/) | Read the Docs: engine documentation. |
+| [README Links](../README.md#links) | Official site, Discord, GOG/Steam. |

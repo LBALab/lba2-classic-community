@@ -17,7 +17,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 ## Lifecycle
 
-- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) (line 1828), called from `InitGame()` (line 1934)
+- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) (line 1828), called from `InitProgram()` (line 1934)
 - **Write**: `WriteConfigFile()` in PERSO.CPP (line 1871), called from `TheEndInfo()` at exit (line 2073)
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 
@@ -85,6 +85,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 ## Cross-references
 
 - [MENU.md](MENU.md) for options menu flow
+- [SAVEGAME.md](SAVEGAME.md) for LastSave and CompressSave usage
 - [AUDIO.md](AUDIO.md) for volume/master volume behavior
 - [GFX_OPTIONS.md](GFX_OPTIONS.md) for DetailLevel / Shadow effects
 
