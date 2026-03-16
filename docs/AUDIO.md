@@ -25,7 +25,7 @@ HQ layer (AMBIANCE.CPP, MUSIC.CPP)
 AIL functions (LIB386/AIL/)
     |  backend boundary -- swapped at compile time via SOUND_BACKEND
     |
-    +-- SDL   (LIB386/AIL/SDL/)     -- current default, what we are hardening
+    +-- SDL   (LIB386/AIL/SDL/)     -- recommended open-source backend
     +-- MILES (LIB386/AIL/MILES/)   -- original Adeline wrapper (requires proprietary Miles SDK)
     +-- NULL  (LIB386/AIL/NULL/)    -- silent stubs for testing
 ```
