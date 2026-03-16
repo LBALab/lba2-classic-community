@@ -48,6 +48,27 @@ capture the exact inputs a function receives during a failing render or game
 scenario, then turn that captured input into a dedicated ASM-vs-CPP unit test.
 This is often the fastest way to isolate a mismatch without guessing.
 
+### Workflow for finding and fixing mismatches
+
+Follow these steps in order — do NOT skip ahead or theorize without data:
+
+1. **Use polyrec `--bisect`** to find the first divergent draw call.
+2. **Add `fprintf` debug traces** to BOTH the ASM (via `pushad/printf/popad`)
+   and the CPP implementation at every key intermediate step.  Print the
+   same values in the same format so output can be `diff`-ed line by line.
+   Do not be shy — add traces at every `fistp`, every cross-product, every
+   slope assignment.  More traces = faster convergence.
+3. **Run the polyrec replay** with those traces and compare ASM vs CPP
+   output to find the **exact line** where values first diverge.
+4. **Extract the concrete input values** from the trace (vertex data,
+   slope parameters, etc.) and write a **focused unit test** in the
+   appropriate `tests/` file that calls both the ASM and CPP functions
+   with those exact inputs and asserts equivalence with
+   `ASSERT_ASM_CPP_EQ_INT`.
+5. **Verify the test fails** — proving the bug is reproduced.
+6. **Fix the CPP** to match the ASM, then confirm the test passes.
+7. Re-run `--bisect` to confirm the fix and find the next divergence.
+
 ### No x86 inline assembly in library code
 
 The CPP ports in `LIB386/` must remain **portable C/C++**.  Do not use GCC
