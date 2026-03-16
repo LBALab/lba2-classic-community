@@ -388,7 +388,17 @@ S32 FadeOutSamples(S32 delay) {
 }
 
 S32 FadeInSamples(S32 delay) {
-  if (delay <= 0) return delay;
+  if (delay <= 0) {
+    if (samplesFade) {
+      if (sfxLogEnabled)
+        SDL_Log("[SFX] FadeInSamples RESET (delay=0, clearing fade flag)");
+      samplesFade = false;
+      LockVoices();
+      ScaleVolumeSamples(128);
+      UnlockVoices();
+    }
+    return 0;
+  }
   U64 now = SDL_GetTicks();
   if (samplesFade) {
     if (sfxLogEnabled)

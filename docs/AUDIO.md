@@ -297,9 +297,4 @@ These changes were made in engine code because they fix latent bugs exposed by t
 |--------|--------------------|--------------------------|-----|
 | **`ReadVolumeSettings`: reordered volume application** | `SetVolumeJingle(JingleVolume)` was called before `MasterVolume` was read from config. | With `SetVolumeJingle` now scaling by MasterVolume, calling it before MasterVolume is loaded from config would use the wrong master value. | Moved `SetVolumeJingle` and `SetVolumeCD` calls to after `MasterVolume` is read and `SetMasterVolumeSample` is called. |
 
-### `LIB386/AIL/SDL/STREAM.CPP`
-
-| Change | Rationale |
-|--------|-----------|
-| **Added `track<N>.ogg` fallback** | The original TADPCM music files (`TADPCM1.WAV`–`TADPCM5.WAV`) were renamed to `track1.ogg`–`track6.ogg` in the Steam/GOG distribution. When `PlayStream` can't find the WAV or its direct OGG equivalent (e.g. `tadpcm1.ogg`), the fallback extracts the trailing number from the filename and probes `track<N>.ogg`. Backward compatible with original WAV files. |
 
