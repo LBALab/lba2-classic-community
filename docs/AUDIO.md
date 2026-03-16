@@ -284,6 +284,8 @@ These changes were made in engine code because they fix latent bugs exposed by t
 |--------|--------------------|--------------------------|-----|
 | **`SetVolumeJingle` macro: added MasterVolume scaling** | `SetVolumeJingle(vol)` expanded to `ChangeVolumeStream(vol)` — no master scaling. In the original, jingles were short ADPCM clips; CD audio (the real background music) was scaled by master via `SetVolumeCD`. | All music now routes through jingle/stream (Steam/GOG has no CD). Without master scaling, jingle volume was independent of master — adjusting master volume didn't change music loudness. | Changed to `ChangeVolumeStream(RegleTrois(0, MasterVolume, 127, vol))`, matching `SetVolumeCD`'s pattern. |
 
+**Miles backend note:** This macro change introduces double master-volume scaling if built with `SOUND_BACKEND=miles`, because Miles' `ChangeVolumeStream` already applies `LibWaveMasterVolume` internally. The SDL backend does not scale internally, so the macro-level scaling is correct for SDL. Since the Miles backend requires the proprietary RAD Game Tools SDK (unavailable for open-source builds), this is documented rather than fixed.
+
 ### `SOURCES/MUSIC.CPP`
 
 | Change | Original behaviour | Problem with SDL backend | Fix |
