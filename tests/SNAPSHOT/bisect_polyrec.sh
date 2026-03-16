@@ -84,3 +84,6 @@ echo ""
 echo "To render just before (should match):"
 echo "  $ASM_BIN $REC asm_before.raw --stop-after $lo --ppm asm_before.ppm"
 echo "  $CPP_BIN $REC cpp_before.raw --stop-after $lo --ppm cpp_before.ppm"
+
+# Return a distinct non-zero status so callers can stop on the first mismatch.
+exit 1

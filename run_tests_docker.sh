@@ -168,8 +168,18 @@ docker run --rm \
             for rec in /tmp/lba2/tests/SNAPSHOT/fixtures/*.lba2polyrec; do
                 [ -f "$rec" ] || continue
                 echo "Bisecting: $(basename "$rec")"
-                bash /tmp/lba2/tests/SNAPSHOT/bisect_polyrec.sh "$rec" \
-                    ./replay_polyrec_asm ./replay_polyrec_cpp
+                if bash /tmp/lba2/tests/SNAPSHOT/bisect_polyrec.sh "$rec" \
+                    ./replay_polyrec_asm ./replay_polyrec_cpp; then
+                    continue
+                else
+                    status=$?
+                fi
+                if [ "$status" -eq 1 ]; then
+                    echo "--- stopping bisect on first mismatch: $(basename "$rec") ---"
+                    exit 0
+                fi
+
+                exit "$status"
             done
         else
             echo "--- ctest ---"
