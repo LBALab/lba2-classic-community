@@ -886,7 +886,6 @@ S32     ChoosePlayerName( S32 mess, S32 flagflip, S32 flagnew )
 //				DrawSingleString( 320, 105, "New" ) ;
 
 				DrawCadreNewGame() ;
-                                CopyBlock( 240+80-40, 50+60-15, 240+80+40, 50+60+15, Log, 0, 0, Log ) ;
                         }
 
                         timerdraw = 0 ;
