@@ -84,11 +84,12 @@ static int write_section_header(FILE *f, U32 type, U32 size) {
 
 /* Compute texture data size from RepMask.
  * RepMask encodes (width-1) in low byte, (height-1) in high byte.
- * e.g. 0xFFFF → 256×256 = 65536, 0x7F7F → 128×128 = 16384 */
+ * The texture is stored in a strided layout where the V coordinate
+ * occupies the high byte of the index: index = (V << 8) | U.
+ * The maximum index is RepMask itself, so we need RepMask + 1 bytes.
+ * e.g. 0xFFFF → 65536, 0x1F1F → 7968, 0x7F7F → 32640 */
 static U32 texture_size_from_repmask(S32 rep_mask) {
-    U32 w = (rep_mask & 0xFF) + 1;
-    U32 h = ((rep_mask >> 8) & 0xFF) + 1;
-    return w * h;
+    return (U32)(rep_mask & 0xFFFF) + 1;
 }
 
 /* Find or add a texture to the recording's texture table.
