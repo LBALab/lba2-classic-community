@@ -278,6 +278,14 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
             break;
         }
 
+        case POLYREC_EVT_SET_CLUT_OFFSET: {
+            U32 clut_offset = read_u32(&reader);
+            if (rec.clut_fog && clut_offset < POLYREC_CLUT_SIZE) {
+                PtrCLUTGouraud = rec.clut_fog + clut_offset;
+            }
+            break;
+        }
+
         case POLYREC_EVT_FILL_POLY: {
             S32 type_poly = read_s32(&reader);
             S32 color_poly = read_s32(&reader);

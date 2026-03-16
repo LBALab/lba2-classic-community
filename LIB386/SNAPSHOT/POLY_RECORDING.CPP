@@ -98,9 +98,15 @@ static S32 find_or_add_texture(U8 *ptr_map, S32 rep_mask) {
     U32 i;
     if (!ptr_map) return -1;
 
-    /* Check if already recorded (by original pointer) */
+    /* Check if already recorded (must match pointer, size, AND content).
+     * The same pointer can be reused by the game for different texture data
+     * (e.g. when loading different models), and the same pointer can be used
+     * with different RepMask values (different tiling). */
+    U32 data_size = texture_size_from_repmask(rep_mask);
     for (i = 0; i < g_rec.num_textures; i++) {
-        if (g_rec.textures[i].original_ptr == ptr_map)
+        if (g_rec.textures[i].original_ptr == ptr_map &&
+            g_rec.textures[i].data_size == data_size &&
+            memcmp(g_rec.textures[i].data, ptr_map, data_size) == 0)
             return (S32)i;
     }
 
@@ -109,7 +115,6 @@ static S32 find_or_add_texture(U8 *ptr_map, S32 rep_mask) {
         return -1;
 
     U32 idx = g_rec.num_textures;
-    U32 data_size = texture_size_from_repmask(rep_mask);
 
     g_rec.textures[idx].texture_id = idx;
     g_rec.textures[idx].rep_mask = (U32)rep_mask;
@@ -255,21 +260,28 @@ void polyrec_record_set_clut(U32 line) {
 
 /* Check for texture/RepMask/clip/Fill_Patch changes before a draw call */
 static void check_state_changes(void) {
-    /* Texture change */
-    if (PtrMap != g_rec.last_ptr_map) {
-        S32 idx = find_or_add_texture(PtrMap, RepMask);
-        if (idx >= 0) {
-            if (ensure_space(5) == 0) {
-                emit_u8(POLYREC_EVT_SET_TEXTURE);
-                emit_u32((U32)idx);
-                g_rec.num_events++;
+    /* Texture change — also re-record when RepMask changes, because the
+     * texture size depends on RepMask and the data lookup in
+     * find_or_add_texture matches by (ptr, size, content). */
+    U8 texture_changed = (PtrMap != g_rec.last_ptr_map);
+    U8 repmask_changed = (RepMask != g_rec.last_rep_mask);
+
+    if (texture_changed || repmask_changed) {
+        if (PtrMap) {
+            S32 idx = find_or_add_texture(PtrMap, RepMask);
+            if (idx >= 0) {
+                if (ensure_space(5) == 0) {
+                    emit_u8(POLYREC_EVT_SET_TEXTURE);
+                    emit_u32((U32)idx);
+                    g_rec.num_events++;
+                }
             }
         }
         g_rec.last_ptr_map = PtrMap;
     }
 
     /* RepMask change */
-    if (RepMask != g_rec.last_rep_mask) {
+    if (repmask_changed) {
         if (ensure_space(5) == 0) {
             emit_u8(POLYREC_EVT_SET_REPMASK);
             emit_u32((U32)RepMask);
@@ -303,6 +315,22 @@ static void check_state_changes(void) {
             g_rec.num_events++;
         }
         g_rec.last_fill_patch = Fill_Patch;
+    }
+
+    /* PtrCLUTGouraud change — record offset within the global CLUTFog table.
+     * PtrCLUTGouraud = PtrCLUTFog + ((defaultline << 8) & 0xF000);
+     * During replay, the offset is applied to the loaded CLUTFog data. */
+    if (PtrCLUTGouraud != g_rec.last_ptr_clut_gouraud) {
+        U32 clut_offset = 0;
+        if (PtrCLUTFog && PtrCLUTGouraud >= PtrCLUTFog) {
+            clut_offset = (U32)(PtrCLUTGouraud - PtrCLUTFog);
+        }
+        if (ensure_space(5) == 0) {
+            emit_u8(POLYREC_EVT_SET_CLUT_OFFSET);
+            emit_u32(clut_offset);
+            g_rec.num_events++;
+        }
+        g_rec.last_ptr_clut_gouraud = PtrCLUTGouraud;
     }
 }
 

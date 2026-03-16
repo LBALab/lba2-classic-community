@@ -58,6 +58,7 @@ extern int g_polyrec_recording;
 #define POLYREC_EVT_SET_CLIP        0x06
 #define POLYREC_EVT_SET_REPMASK     0x07
 #define POLYREC_EVT_SET_FILL_PATCH  0x08
+#define POLYREC_EVT_SET_CLUT_OFFSET 0x09
 
 /* Draw call events */
 #define POLYREC_EVT_FILL_POLY       0x10
@@ -197,6 +198,7 @@ typedef struct {
     U8  *last_ptr_map;       /* Last PtrMap pointer (for texture change detection) */
     S32  last_rep_mask;
     U32  last_fill_patch;
+    U8  *last_ptr_clut_gouraud; /* Last PtrCLUTGouraud for CLUT offset tracking */
     S32  last_clip_xmin;
     S32  last_clip_ymin;
     S32  last_clip_xmax;
