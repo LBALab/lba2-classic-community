@@ -98,6 +98,7 @@ Ideas that stay in the spirit of the original design:
 - **Mouse support** – Click-to-select alongside keyboard/joystick; common in modern ports.
 - **Additional Options entries** – Structure supports it; extend `GameOptionMenu` and add handlers.
 - **Resolution scaling** – Scale layout for higher res while preserving the plasma/font look.
+- **Open-source / community distributor logo** – A logo for community builds (engine branding, not game rebranding). Add a `DistribVersion` value for community builds; show the logo only when that value is set. The logo asset must be created and licensed as open-source (e.g. CC0, MIT) and live in the repo. Does not replace or obscure the original game identity; analogous to ScummVM/OpenMW splash screens. Game assets (GOG/Steam, etc.) remain under their original licenses.
 
 ## Historical notes
 
