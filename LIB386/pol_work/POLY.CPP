@@ -933,7 +933,13 @@ S32 Triangle_ReadNextEdgeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, S
 
 S32 Gouraud_XSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC, S32 LB_LA, S32 LC_LA)
 {
-  Fill_Gouraud_XSlope = ROUND((YB_YA * LC_LA - YC_YA * LB_LA) / Denom);
+  // ASM computes: M2 = LC_LA * YB_YA, M1 = LB_LA * YC_YA, F = M2 - M1, result = F * InvDenom
+  // all in 80-bit x87 precision, then fistp rounds to nearest-even
+  volatile long double M1 = (long double)LB_LA * (long double)YC_YA;
+  volatile long double M2 = (long double)LC_LA * (long double)YB_YA;
+  volatile long double F = M2 - M1;
+  volatile long double result = F * InvDenom;
+  Fill_Gouraud_XSlope = (S32)lrintl(result);
   return Triangle_ReadNextEdge(PtA, PtB);
 }
 
