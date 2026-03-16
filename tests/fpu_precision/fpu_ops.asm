@@ -17,6 +17,7 @@ Status_Trunc   dw 0F7Fh     ; truncate (round towards zero), 80-bit precision
 
 F_1            dd 1.0
 F_256          dd 256.0
+FInv_65536     dd 0.0000152588   ; REAL4 - matches ASM_FInv_65536 in POLY.ASM
 
 .code
 
@@ -347,44 +348,108 @@ fpu_reciprocal_mul_256 ENDP
 ;; ====================================================================
 ;; 16. S32 fpu_xslope_cross(S32 XB_XA, S32 YB_YA, S32 XC_XA, S32 YC_YA,
 ;;                          S32 DB_DA, S32 DC_DA)
-;;     Compute an XSlope using the polygon cross-product pattern:
-;;       Denom = XB_XA * YC_YA - XC_XA * YB_YA
-;;       InvDenom = 256.0 / Denom
-;;       result = trunc( (YB_YA * DC_DA - YC_YA * DB_DA) * InvDenom )
-;;     This matches the ASM in Compute_FPU_Denom + Texture_XSlopeFPU.
-;;     All ops in 80-bit precision, fistp with truncation towards zero.
+;;     Simple non-perspective slope. See test_fpu_precision.cpp for docs.
 ;; ====================================================================
 PUBLIC fpu_xslope_cross
 fpu_xslope_cross PROC
     push  ebp
     mov   ebp, esp
-    ;; Args: [ebp+8]=XB_XA, [ebp+12]=YB_YA, [ebp+16]=XC_XA,
-    ;;       [ebp+20]=YC_YA, [ebp+24]=DB_DA, [ebp+28]=DC_DA
-
-    ;; --- Compute InvDenom = 256.0 / Denom ---
-    ;; Denom = XB_XA * YC_YA - XC_XA * YB_YA
     fild  dword ptr [ebp+8]     ; XB_XA
-    fild  dword ptr [ebp+20]    ; YC_YA          st: YC_YA, XB_XA
-    fild  dword ptr [ebp+16]    ; XC_XA          st: XC_XA, YC_YA, XB_XA
-    fild  dword ptr [ebp+12]    ; YB_YA          st: YB_YA, XC_XA, YC_YA, XB_XA
-    fxch  st(3)                 ; XB_XA, XC_XA, YC_YA, YB_YA
-    fmulp st(2), st             ; st: XC_XA, XB_XA*YC_YA, YB_YA
-    fmulp st(2), st             ; st: XB_XA*YC_YA, XC_XA*YB_YA
-    fsubrp st(1), st            ; st: Denom = XB_XA*YC_YA - XC_XA*YB_YA
+    fild  dword ptr [ebp+20]    ; YC_YA
+    fild  dword ptr [ebp+16]    ; XC_XA
+    fild  dword ptr [ebp+12]    ; YB_YA
+    fxch  st(3)
+    fmulp st(2), st
+    fmulp st(2), st
+    fsubrp st(1), st            ; Denom = XB_XA*YC_YA - XC_XA*YB_YA
     fld   F_256
-    fdivrp st(1), st            ; st: InvDenom = 256.0 / Denom
+    fdivrp st(1), st            ; InvDenom = 256.0 / Denom
+    fild  dword ptr [ebp+24]    ; DB_DA
+    fild  dword ptr [ebp+28]    ; DC_DA
+    fild  dword ptr [ebp+20]    ; YC_YA
+    fild  dword ptr [ebp+12]    ; YB_YA
+    fmulp st(2), st
+    fmulp st(2), st
+    fsubrp st(1), st
+    fmulp st(1), st
+    fldcw Status_Trunc
+    push  eax
+    fistp dword ptr [esp]
+    pop   eax
+    fldcw Status_Float
+    pop   ebp
+    ret
+fpu_xslope_cross ENDP
 
-    ;; --- Compute slope = trunc( (YB_YA * DC_DA - YC_YA * DB_DA) * InvDenom ) ---
-    fild  dword ptr [ebp+24]    ; DB_DA          st: DB_DA, InvDenom
-    fild  dword ptr [ebp+28]    ; DC_DA          st: DC_DA, DB_DA, InvDenom
-    fild  dword ptr [ebp+20]    ; YC_YA          st: YC_YA, DC_DA, DB_DA, InvDenom
-    fild  dword ptr [ebp+12]    ; YB_YA          st: YB_YA, YC_YA, DC_DA, DB_DA, InvDenom
-    fmulp st(2), st             ; st: YC_YA, YB_YA*DC_DA, DB_DA, InvDenom
-    fmulp st(2), st             ; st: YB_YA*DC_DA, YC_YA*DB_DA, InvDenom
-    fsubrp st(1), st            ; st: (YB_YA*DC_DA - YC_YA*DB_DA), InvDenom
-    fmulp st(1), st             ; st: result_float
+;; ====================================================================
+;; 17. S32 fpu_texz_uslope_stacked(S32 rawDenom,
+;;         S32 MapU_A, S32 W_A, S32 MapU_B, S32 W_B,
+;;         S32 MapU_C, S32 W_C, S32 YB_YA, S32 YC_YA)
+;;     Perspective-corrected TextureZ U-slope with InvDenom KEPT ON
+;;     THE FPU STACK (never stored to memory). This matches the game ASM.
+;;
+;;     Formula:
+;;       InvDenom = 256.0 / rawDenom          (stays on FPU stack)
+;;       Dp = InvDenom * FInv_65536           (stays on FPU stack)
+;;       UAp = MapU_A * W_A
+;;       UBp = MapU_B * W_B
+;;       UCp = MapU_C * W_C
+;;       USlope = ((UCp-UAp)*YB_YA - (UBp-UAp)*YC_YA) * Dp
+;;       return trunc(USlope)
+;; ====================================================================
+PUBLIC fpu_texz_uslope_stacked
+fpu_texz_uslope_stacked PROC
+    push  ebp
+    mov   ebp, esp
 
-    ;; Truncate to S32 (game uses fldcw Status_Int = truncation mode for fistp)
+    ;; Compute InvDenom = 256.0 / rawDenom (kept on stack!)
+    fild  dword ptr [ebp+8]     ; rawDenom
+    fld   F_256                 ; 256.0, rawDenom
+    fdivrp st(1), st            ; InvDenom = 256.0/rawDenom
+
+    ;; Compute Dp = InvDenom * FInv_65536 (kept on stack!)
+    fmul  FInv_65536            ; Dp = InvDenom * FInv_65536
+    ;; Stack: Dp
+
+    ;; Compute UAp = MapU_A * W_A
+    fild  dword ptr [ebp+12]    ; MapU_A, Dp
+    fild  dword ptr [ebp+16]    ; W_A, MapU_A, Dp
+    fmulp st(1), st             ; UAp, Dp
+
+    ;; Compute UBp = MapU_B * W_B
+    fild  dword ptr [ebp+20]    ; MapU_B, UAp, Dp
+    fild  dword ptr [ebp+24]    ; W_B, MapU_B, UAp, Dp
+    fmulp st(1), st             ; UBp, UAp, Dp
+
+    ;; Compute UCp = MapU_C * W_C
+    fild  dword ptr [ebp+28]    ; MapU_C, UBp, UAp, Dp
+    fild  dword ptr [ebp+32]    ; W_C, MapU_C, UBp, UAp, Dp
+    fmulp st(1), st             ; UCp, UBp, UAp, Dp
+
+    ;; Stack: UCp, UBp, UAp, Dp
+    ;; Compute (UCp-UAp) and (UBp-UAp)
+    fxch  st(1)                 ; UBp, UCp, UAp, Dp
+    fsub  st, st(2)             ; (UBp-UAp), UCp, UAp, Dp
+    fxch  st(2)                 ; UAp, UCp, (UBp-UAp), Dp
+    fsubp st(1), st             ; (UCp-UAp), (UBp-UAp), Dp
+
+    ;; Compute MUC = (UCp-UAp) * YB_YA, MUB = (UBp-UAp) * YC_YA
+    fild  dword ptr [ebp+36]    ; YB_YA, (UCp-UAp), (UBp-UAp), Dp
+    fmulp st(1), st             ; MUC, (UBp-UAp), Dp
+
+    fxch  st(1)                 ; (UBp-UAp), MUC, Dp
+    fild  dword ptr [ebp+40]    ; YC_YA, (UBp-UAp), MUC, Dp
+    fmulp st(1), st             ; MUB, MUC, Dp
+
+    ;; MUC - MUB
+    fsubp st(1), st             ; (MUC-MUB), Dp
+    ;; WAIT: fsubp st(1),st = st(1) - st(0). st(0)=MUB, st(1)=MUC
+    ;; so result = MUC - MUB. Correct.
+
+    ;; USlope = (MUC-MUB) * Dp
+    fmulp st(1), st             ; USlope
+
+    ;; Truncate to S32
     fldcw Status_Trunc
     push  eax
     fistp dword ptr [esp]
@@ -393,6 +458,79 @@ fpu_xslope_cross PROC
 
     pop   ebp
     ret
-fpu_xslope_cross ENDP
+fpu_texz_uslope_stacked ENDP
+
+;; ====================================================================
+;; 18. S32 fpu_texz_uslope_stored(S32 rawDenom,
+;;         S32 MapU_A, S32 W_A, S32 MapU_B, S32 W_B,
+;;         S32 MapU_C, S32 W_C, S32 YB_YA, S32 YC_YA)
+;;     Same computation as _stacked, but InvDenom and Dp are STORED TO
+;;     80-bit MEMORY (long double) and RELOADED, simulating the CPP port's
+;;     volatile long double behavior.
+;; ====================================================================
+PUBLIC fpu_texz_uslope_stored
+fpu_texz_uslope_stored PROC
+    push  ebp
+    mov   ebp, esp
+    sub   esp, 12               ; 10 bytes for tbyte Dp + 2 padding
+
+    ;; Compute InvDenom = 256.0 / rawDenom
+    fild  dword ptr [ebp+8]     ; rawDenom
+    fld   F_256                 ; 256.0, rawDenom
+    fdivrp st(1), st            ; InvDenom
+
+    ;; Store InvDenom to 80-bit memory (same as volatile long double)
+    fstp  tbyte ptr [ebp-12]    ; Store to memory, FPU stack now empty
+
+    ;; Reload InvDenom, compute Dp = InvDenom * FInv_65536
+    fld   tbyte ptr [ebp-12]    ; Reload InvDenom
+    fmul  FInv_65536            ; Dp
+
+    ;; Store Dp to 80-bit memory (same as volatile long double)
+    fstp  tbyte ptr [ebp-12]    ; Store Dp, FPU stack empty
+
+    ;; Now compute UAp, UBp, UCp with Dp loaded from memory
+    fild  dword ptr [ebp+12]    ; MapU_A
+    fild  dword ptr [ebp+16]    ; W_A, MapU_A
+    fmulp st(1), st             ; UAp
+
+    fild  dword ptr [ebp+20]    ; MapU_B, UAp
+    fild  dword ptr [ebp+24]    ; W_B, MapU_B, UAp
+    fmulp st(1), st             ; UBp, UAp
+
+    fild  dword ptr [ebp+28]    ; MapU_C, UBp, UAp
+    fild  dword ptr [ebp+32]    ; W_C, MapU_C, UBp, UAp
+    fmulp st(1), st             ; UCp, UBp, UAp
+
+    ;; Compute (UCp-UAp) and (UBp-UAp)
+    fxch  st(1)                 ; UBp, UCp, UAp
+    fsub  st, st(2)             ; (UBp-UAp), UCp, UAp
+    fxch  st(2)                 ; UAp, UCp, (UBp-UAp)
+    fsubp st(1), st             ; (UCp-UAp), (UBp-UAp)
+
+    fild  dword ptr [ebp+36]    ; YB_YA, (UCp-UAp), (UBp-UAp)
+    fmulp st(1), st             ; MUC, (UBp-UAp)
+
+    fxch  st(1)                 ; (UBp-UAp), MUC
+    fild  dword ptr [ebp+40]    ; YC_YA, (UBp-UAp), MUC
+    fmulp st(1), st             ; MUB, MUC
+
+    fsubp st(1), st             ; (MUC-MUB)
+
+    ;; Reload Dp from memory and multiply
+    fld   tbyte ptr [ebp-12]    ; Dp, (MUC-MUB)
+    fmulp st(1), st             ; USlope = (MUC-MUB) * Dp
+
+    ;; Truncate to S32
+    fldcw Status_Trunc
+    push  eax
+    fistp dword ptr [esp]
+    pop   eax
+    fldcw Status_Float
+
+    add   esp, 12
+    pop   ebp
+    ret
+fpu_texz_uslope_stored ENDP
 
 END

@@ -40,6 +40,16 @@ extern "C" {
     int32_t asm_fpu_xslope_cross(int32_t XB_XA, int32_t YB_YA,
                                  int32_t XC_XA, int32_t YC_YA,
                                  int32_t DB_DA, int32_t DC_DA);
+    int32_t asm_fpu_texz_uslope_stacked(int32_t rawDenom,
+                                         int32_t MapU_A, int32_t W_A,
+                                         int32_t MapU_B, int32_t W_B,
+                                         int32_t MapU_C, int32_t W_C,
+                                         int32_t YB_YA, int32_t YC_YA);
+    int32_t asm_fpu_texz_uslope_stored(int32_t rawDenom,
+                                        int32_t MapU_A, int32_t W_A,
+                                        int32_t MapU_B, int32_t W_B,
+                                        int32_t MapU_C, int32_t W_C,
+                                        int32_t YB_YA, int32_t YC_YA);
 }
 
 /* ── Deterministic LCG RNG ─────────────────────────────────────────── */
@@ -110,6 +120,31 @@ static int32_t c_xslope_cross_longdouble(int32_t XB_XA, int32_t YB_YA,
     volatile long double F = M2 - M1;
     volatile long double result = F * inv_denom;
     return (int32_t)truncl(result);
+}
+
+/* --- TextureZ U-slope (perspective-corrected) using volatile long double ---
+ * Matches CPP Calc_TextureZXSlopeZBufFPU in POLY.CPP.
+ * InvDenom and Dp are stored to volatile long double (memory round-trips). */
+static const float C_F_256 = 256.0f;
+static const float C_FInv_65536 = 0.0000152588f;
+
+static int32_t c_texz_uslope(int32_t rawDenom,
+                               int32_t MapU_A, int32_t W_A,
+                               int32_t MapU_B, int32_t W_B,
+                               int32_t MapU_C, int32_t W_C,
+                               int32_t YB_YA, int32_t YC_YA) {
+    volatile long double inv_denom = (long double)C_F_256 / (long double)rawDenom;
+    volatile long double Dp = inv_denom * (long double)C_FInv_65536;
+    volatile long double UAp = (long double)MapU_A * (long double)W_A;
+    volatile long double UBp = (long double)MapU_B * (long double)W_B;
+    volatile long double UCp = (long double)MapU_C * (long double)W_C;
+    volatile long double UBp_UAp = UBp - UAp;
+    volatile long double UCp_UAp = UCp - UAp;
+    volatile long double MUC = UCp_UAp * (long double)YB_YA;
+    volatile long double MUB = UBp_UAp * (long double)YC_YA;
+    volatile long double MUC_MUB = MUC - MUB;
+    volatile long double USlope = MUC_MUB * Dp;
+    return (int32_t)truncl(USlope);
 }
 
 /* --- int div int (round to nearest) --- */
@@ -857,6 +892,118 @@ static void test_xslope_cross(void) {
 }
 
 /* ====================================================================
+ * test_texz_uslope_stacked_vs_stored —
+ * Prove whether storing InvDenom/Dp to 80-bit memory (volatile long double)
+ * and reloading produces a different result than keeping them on the x87
+ * FPU stack for the full TextureZ perspective-corrected U-slope computation.
+ *
+ * Two ASM functions compute the EXACT same formula:
+ *   InvDenom = 256.0 / rawDenom
+ *   Dp = InvDenom * FInv_65536
+ *   USlope = ((UCp-UAp)*YB_YA - (UBp-UAp)*YC_YA) * Dp
+ *
+ * - _stacked: InvDenom & Dp stay on the FPU stack (like the game ASM)
+ * - _stored:  InvDenom is stored to tbyte (80-bit long double), reloaded,
+ *             Dp is stored to tbyte, reloaded before final multiply
+ *
+ * If these produce DIFFERENT results, the store/reload is lossy.
+ * If they produce the SAME results, the polyrec pixel diff comes from
+ * something other than the volatile long double store/reload pattern.
+ *
+ * Uses polyrec_0002 DC#3226 (type=17 TextureZFog) concrete values.
+ * ==================================================================== */
+static void test_texz_uslope_stacked_vs_stored(void) {
+    printf("  TextureZ U-slope: stacked vs stored vs C (volatile long double)\n");
+
+    /* polyrec_0002 DC#3226 vertices (sorted by Y):
+     *   A: XE=31, YE=23, MapU=29331, W=-47937
+     *   B: XE=-14, YE=27, MapU=43117, W=-50325
+     *   C: XE=0, YE=84, MapU=43117, W=-48312
+     */
+    int32_t YB_YA = 4;   /* 27 - 23 */
+    int32_t YC_YA = 61;  /* 84 - 23 */
+    int32_t XB_XA = -45; /* -14 - 31 */
+    int32_t XC_XA = -31; /* 0 - 31 */
+
+    /* rawDenom = YB_YA * XC_XA - YC_YA * XB_XA = 4*(-31) - 61*(-45) = -124+2745 = 2621 */
+    int32_t rawDenom = YB_YA * XC_XA - YC_YA * XB_XA;
+    printf("    rawDenom = %d\n", rawDenom);
+
+    int32_t MapU_A = 29331, W_A = -47937;
+    int32_t MapU_B = 43117, W_B = -50325;
+    int32_t MapU_C = 43117, W_C = -48312;
+
+    int32_t stacked = asm_fpu_texz_uslope_stacked(rawDenom,
+        MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
+    int32_t stored = asm_fpu_texz_uslope_stored(rawDenom,
+        MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
+    int32_t c_vld = c_texz_uslope(rawDenom,
+        MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
+
+    printf("    U_XSlope: stacked=%d stored=%d c_volatile_ld=%d\n",
+        stacked, stored, c_vld);
+    printf("    game_ASM_expected=65655, game_CPP_expected=65656\n");
+
+    if (stacked == stored)
+        printf("    stacked == stored → store/reload is LOSSLESS for this case\n");
+    else
+        printf("    stacked != stored (diff=%d) → store/reload IS LOSSY!\n", stacked - stored);
+
+    if (stacked == c_vld)
+        printf("    stacked == c_volatile_ld → C matches pure FPU stack\n");
+    else
+        printf("    stacked != c_volatile_ld (diff=%d) → C differs from pure FPU stack!\n", stacked - c_vld);
+
+    if (stored == c_vld)
+        printf("    stored == c_volatile_ld → both memory-roundtrip variants match\n");
+    else
+        printf("    stored != c_volatile_ld (diff=%d) → even ASM store/reload differs from C!\n", stored - c_vld);
+
+    total_comparisons += 2;
+    if (stacked != stored) total_mismatches++;
+    if (stacked != c_vld) total_mismatches++;
+
+    /* Stress test: check many different inputs */
+    printf("  Stress test (%d rounds): stacked vs stored vs C\n", N_STRESS);
+    int stacked_eq_stored = 0, stacked_eq_c = 0, stored_eq_c = 0;
+    rng_seed(0xBEEFCAFE);
+    for (int i = 0; i < N_STRESS; i++) {
+        int32_t xba = (int32_t)(rng_next() % 201) - 100;
+        int32_t yba = (int32_t)(rng_next() % 121) - 10;
+        int32_t xca = (int32_t)(rng_next() % 201) - 100;
+        int32_t yca = (int32_t)(rng_next() % 121) - 10;
+        int32_t d = xba * yca - xca * yba;
+        if (d == 0) { yca += 1; d = xba * yca - xca * yba; }
+        if (d == 0) { d = 1; }
+
+        int32_t mA = (int32_t)(rng_next() % 65536);
+        int32_t wA = -(int32_t)(rng_next() % 65536) - 1;
+        int32_t mB = (int32_t)(rng_next() % 65536);
+        int32_t wB = -(int32_t)(rng_next() % 65536) - 1;
+        int32_t mC = (int32_t)(rng_next() % 65536);
+        int32_t wC = -(int32_t)(rng_next() % 65536) - 1;
+
+        int32_t s1 = asm_fpu_texz_uslope_stacked(d, mA, wA, mB, wB, mC, wC, yba, yca);
+        int32_t s2 = asm_fpu_texz_uslope_stored(d, mA, wA, mB, wB, mC, wC, yba, yca);
+        int32_t s3 = c_texz_uslope(d, mA, wA, mB, wB, mC, wC, yba, yca);
+
+        if (s1 == s2) stacked_eq_stored++;
+        if (s1 == s3) stacked_eq_c++;
+        if (s2 == s3) stored_eq_c++;
+
+        if (s1 != s2 || s1 != s3) {
+            char desc[256];
+            snprintf(desc, sizeof(desc), "d=%d mA=%d wA=%d mB=%d wB=%d mC=%d wC=%d yba=%d yca=%d",
+                d, mA, wA, mB, wB, mC, wC, yba, yca);
+            printf("    MISMATCH: stacked=%d stored=%d c=%d | %s\n", s1, s2, s3, desc);
+        }
+    }
+    printf("  Results (%d rounds): stacked==stored: %d  stacked==c: %d  stored==c: %d\n",
+        N_STRESS, stacked_eq_stored, stacked_eq_c, stored_eq_c);
+    ASSERT_TRUE(1);
+}
+
+/* ====================================================================
  * Main
  * ==================================================================== */
 int main(void) {
@@ -880,6 +1027,7 @@ int main(void) {
     RUN_TEST(test_perspective_uv);
     RUN_TEST(test_reciprocal_mul_256);
     RUN_TEST(test_xslope_cross);
+    RUN_TEST(test_texz_uslope_stacked_vs_stored);
 
     printf("\n=============================================================\n");
     printf("OVERALL PRECISION SUMMARY\n");

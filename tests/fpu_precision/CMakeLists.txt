@@ -24,5 +24,7 @@ add_asm_cpp_test(
                     fpu_dot3
                     fpu_reciprocal_mul_256
                     fpu_xslope_cross
+                    fpu_texz_uslope_stacked
+                    fpu_texz_uslope_stored
     LIBS            m
 )
