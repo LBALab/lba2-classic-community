@@ -217,7 +217,7 @@ S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -379,7 +379,7 @@ S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -540,7 +540,7 @@ S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -704,7 +704,7 @@ S32 Filler_TextureZFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -857,7 +857,7 @@ S32 Filler_TextureZFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -1008,7 +1008,7 @@ S32 Filler_TextureZChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -1168,7 +1168,7 @@ S32 Filler_TextureZZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -1338,7 +1338,7 @@ S32 Filler_TextureZChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -1516,7 +1516,7 @@ S32 Filler_TextureZFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -1732,7 +1732,7 @@ S32 Filler_TextureZFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXM
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -1917,7 +1917,7 @@ S32 Filler_TextureZFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -2132,7 +2132,7 @@ S32 Filler_TextureZChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -2312,7 +2312,7 @@ S32 Filler_TextureZNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -2480,7 +2480,7 @@ S32 Filler_TextureZChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -2625,8 +2625,8 @@ S32 Filler_TextureZFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYTEXZ_PtrZBufferPatch = PtrZBuffer;
     POLYTEXZ_PtrZBuffer1 = PtrZBuffer;
     POLYTEXZ_PtrZBuffer2 = PtrZBuffer;
-    POLYTEXZ_IntZBuf = Fill_ZBuf_XSlope >> 8;
-    POLYTEXZ_IntZBuf2 = Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYTEXZ_IntZBuf2 = (U32)Fill_ZBuf_XSlope >> 8;
     POLYTEXZ_DecZBuf = Fill_ZBuf_XSlope << 24;
     POLYTEXZ_DecZBuf2 = Fill_ZBuf_XSlope << 24;
     POLYTEXZ_PtrLog = (PTR_U8)Log;
@@ -2656,7 +2656,7 @@ S32 Filler_TextureZFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -2871,7 +2871,7 @@ S32 Filler_TextureZFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       S32 lineV = v;
 
       // Load 1st dst cache line
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -3055,7 +3055,7 @@ S32 Filler_TextureZFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);
@@ -3265,7 +3265,7 @@ S32 Filler_TextureZChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       S32 lineU = u;
       S32 lineV = v;
 
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
         U64 addW = ((S64)(S32)factor * (S64)(S32)Fill_W_XSlope);

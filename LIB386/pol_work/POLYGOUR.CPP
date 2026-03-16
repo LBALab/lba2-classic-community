@@ -699,7 +699,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     Fill_Patch = patch;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrZBuffer1 = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
@@ -748,7 +748,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
           POLYGOUR_PtrLog[offset] = color & 0xFF;
@@ -834,7 +834,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -888,7 +888,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             color = (color & 0xFF) + gouraud;
             gouraud += POLYGOUR_AddGour;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
             {
               POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog[offset] = (color >> 8) & 0xFF;
@@ -1007,7 +1007,7 @@ S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrZBuffer1 = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
@@ -1050,7 +1050,7 @@ S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
           U32 lightIndex = (gouraudValue >> 8) & 0xFF00;
@@ -1133,7 +1133,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -1192,7 +1192,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           do
           {
             // @@Each_X:
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
             {
               POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
               color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor[colorIndex] << 8);
@@ -1317,7 +1317,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_IntGour = (Fill_Gouraud_XSlope >> 16) & 0xFF;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrZBuffer1 = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
@@ -1366,7 +1366,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
           POLYGOUR_PtrLog[offset] = Fill_Logical_Palette[color];
@@ -1435,7 +1435,7 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -1606,7 +1606,7 @@ S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     Fill_Patch = patch;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
   }
@@ -1649,7 +1649,7 @@ S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrLog[offset] = color & 0xFF;
         }
@@ -1731,7 +1731,7 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -1776,7 +1776,7 @@ S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             color = (color & 0xFF) + gouraud;
             gouraud += POLYGOUR_AddGour;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
             {
               POLYGOUR_PtrLog[offset] = (color >> 8) & 0xFF;
             }
@@ -1884,7 +1884,7 @@ S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
     POLYGOUR_PtrColor = Fill_Color.Ptr;
@@ -1926,7 +1926,7 @@ S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           U32 lightIndex = (gouraudValue >> 8) & 0xFF00;
           POLYGOUR_PtrLog[offset] = POLYGOUR_PtrColor[lightIndex];
@@ -2204,7 +2204,7 @@ S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_IntGour = (Fill_Gouraud_XSlope >> 16) & 0xFF;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
   }
@@ -2252,7 +2252,7 @@ S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrLog[offset] = Fill_Logical_Palette[color];
         }
@@ -2320,7 +2320,7 @@ S32 Filler_DitherFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;

@@ -285,7 +285,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       do
@@ -368,7 +368,7 @@ S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       U8 color = Fill_Color.Num & 0xFF;
@@ -584,7 +584,7 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       do
@@ -663,7 +663,7 @@ S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       U8 color = Fill_Color.Num & 0xFF;
@@ -863,7 +863,7 @@ S32 Filler_FlagZBuffer(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       do
