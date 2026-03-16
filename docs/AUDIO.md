@@ -265,7 +265,6 @@ These changes were made in engine code because they fix latent bugs exposed by t
 |--------|--------------------|--------------------------|-----|
 | **`DelBlocHQRSample`: removed `HQ_StopSample()`** | Called `HQ_StopSample()` ("methode violente") on every HQR cache eviction, killing all playing voices. | SDL copies sample data (`malloc`+`memcpy`), so voices are independent of HQR cache entries. The blanket stop caused voice thrashing that silenced thunder and other concurrent SFX. | Removed `HQ_StopSample()`. Only `RestartRainSample = TRUE` remains to re-trigger rain after eviction. |
 | **`ClearAmbiance`: added rain stop** | Only stopped the 4 `SampleAmbiance[]` slots. | With `DelBlocHQRSample` no longer killing all voices, rain could persist across cube transitions. | Added `HQ_StopOneSample(SAMPLE_RAIN)` before the ambiance slot loop. |
-| **`StartRainSample`: added `Island==0` guard** | Checked `CubeMode==CUBE_EXTERIEUR AND !TEMPETE_FINIE`. | `RestartRainSample` fires on every HQR eviction regardless of island, causing rain on desert islands. The storm system only runs on Citadel Island (Island 0), matching `ChoicePalette`'s existing `Island==0` logic. | Added `Island==0` to the condition. |
 
 ### `SOURCES/GAMEMENU.CPP`
 

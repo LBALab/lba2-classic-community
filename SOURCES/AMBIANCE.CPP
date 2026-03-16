@@ -496,12 +496,9 @@ void    ChoicePalette( void )
 /*──────────────────────────────────────────────────────────────────────────*/
 
 // Island guard: rain is only intended for Citadel Island (Island 0).
-// Original relied on FlagRain being set by the storm system, but
-// RestartRainSample fires on every HQR eviction regardless of island.
 void    StartRainSample( void )
 {
         if( SamplesEnable
-	AND Island==0
 	AND CubeMode==CUBE_EXTERIEUR
 	AND !TEMPETE_FINIE
         AND !IsSamplePlaying(SAMPLE_RAIN) )
