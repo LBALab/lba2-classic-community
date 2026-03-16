@@ -1542,6 +1542,9 @@ static void test_asm_polyrec_dc3226(void)
     S32 cpp_ULS = Fill_MapU_LeftSlope;
     S32 cpp_VLS = Fill_MapV_LeftSlope;
     S32 cpp_ZLS = Fill_ZBuf_LeftSlope;
+    double cpp_YB_YA = YB_YA;
+    double cpp_YC_YA = YC_YA;
+    volatile long double cpp_InvDenom = InvDenom;
 
     memcpy(pts, saved_pts, sizeof(saved_pts));
 
@@ -1563,8 +1566,13 @@ static void test_asm_polyrec_dc3226(void)
     S32 asm_ULS = Fill_MapU_LeftSlope;
     S32 asm_VLS = Fill_MapV_LeftSlope;
     S32 asm_ZLS = Fill_ZBuf_LeftSlope;
+    double asm_YB_YA = YB_YA;
+    double asm_YC_YA = YC_YA;
+    volatile long double asm_InvDenom = InvDenom;
 
     printf("  polyrec_0002 DC#3226 (type=17 TexZFlat, FogZBuf):\n");
+    printf("    CPP: YB_YA=%g YC_YA=%g InvDenom=%.20Lg\n", cpp_YB_YA, cpp_YC_YA, cpp_InvDenom);
+    printf("    ASM: YB_YA=%g YC_YA=%g InvDenom=%.20Lg\n", asm_YB_YA, asm_YC_YA, asm_InvDenom);
     printf("    UXS: asm=%d cpp=%d %s\n", asm_UXS, cpp_UXS, asm_UXS == cpp_UXS ? "MATCH" : "MISMATCH");
     printf("    VXS: asm=%d cpp=%d %s\n", asm_VXS, cpp_VXS, asm_VXS == cpp_VXS ? "MATCH" : "MISMATCH");
     printf("    WXS: asm=%d cpp=%d %s\n", asm_WXS, cpp_WXS, asm_WXS == cpp_WXS ? "MATCH" : "MISMATCH");

@@ -340,22 +340,25 @@ void EnterClip(Struc_Point *pointB, Struc_Point *dst, Struc_Point *pointA, S32 d
 		// W
 		dst->Pt_W = pointA->Pt_W + (S32)((S64)(pointB->Pt_W - pointA->Pt_W) * Clip_Num / diff);
 
-		// MapU
-		S32 uwA = (S32)((S64)pointA->Pt_MapU * pointA->Pt_W / 256);
-		S32 uwB = (S32)((S64)pointB->Pt_MapU * pointB->Pt_W / 256);
+		// MapU — ASM uses shr/shl/or bit extraction for the /256, which
+		// is arithmetic right shift (floor division).  C's / 256 truncates
+		// towards zero.  For negative products the results differ by 1.
+		// Use >> 8 to match the ASM behaviour.
+		S32 uwA = (S32)((S64)pointA->Pt_MapU * pointA->Pt_W >> 8);
+		S32 uwB = (S32)((S64)pointB->Pt_MapU * pointB->Pt_W >> 8);
 		S32 U_tmp = (S32)((S64)(uwB - uwA) * Clip_Num / diff) + uwA;
 		dst->Pt_MapU = (S32)((S64)U_tmp * 256 / dst->Pt_W);
 
 		// MapV
-		S32 vwA = (S32)((S64)pointA->Pt_MapV * pointA->Pt_W / 256);
-		S32 vwB = (S32)((S64)pointB->Pt_MapV * pointB->Pt_W / 256);
+		S32 vwA = (S32)((S64)pointA->Pt_MapV * pointA->Pt_W >> 8);
+		S32 vwB = (S32)((S64)pointB->Pt_MapV * pointB->Pt_W >> 8);
 		S32 V_tmp = (S32)((S64)(vwB - vwA) * Clip_Num / diff) + vwA;
 		dst->Pt_MapV = (S32)((S64)V_tmp * 256 / dst->Pt_W);
 
     if (Fill_ClipFlag & CLIP_ZBUFFER)
     {
-			S32 zA = (S32)((S64)pointA->Pt_ZO * pointA->Pt_W / 256);
-			S32 zB = (S32)((S64)pointB->Pt_ZO * pointB->Pt_W / 256);
+			S32 zA = (S32)((S64)pointA->Pt_ZO * pointA->Pt_W >> 8);
+			S32 zB = (S32)((S64)pointB->Pt_ZO * pointB->Pt_W >> 8);
 			S32 ZO_tmp = (S32)((S64)(zB - zA) * Clip_Num / diff) + zA;
 			dst->Pt_ZO = (S32)((S64)ZO_tmp * 256 / dst->Pt_W);
     }
@@ -1106,6 +1109,11 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
 {
   LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "1", "type=%u PtA=(%d,%d) PtB=(%d,%d) PtC=(%d,%d)",
     fillType, PtA->Pt_XE, PtA->Pt_YE, PtB->Pt_XE, PtB->Pt_YE, PtC->Pt_XE, PtC->Pt_YE);
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "1b", "UA=%u UB=%u UC=%u VA=%u VB=%u VC=%u WA=%d WB=%d WC=%d",
+    PtA->Pt_MapU, PtB->Pt_MapU, PtC->Pt_MapU, PtA->Pt_MapV, PtB->Pt_MapV, PtC->Pt_MapV,
+    PtA->Pt_W, PtB->Pt_W, PtC->Pt_W);
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "1c", "YB_YA=%g YC_YA=%g InvDenom=%.20Lg",
+    YB_YA, YC_YA, InvDenom);
   volatile long double UAp = (long double)(S32)PtA->Pt_MapU * (long double)PtA->Pt_W;
   volatile long double UBp = (long double)(S32)PtB->Pt_MapU * (long double)PtB->Pt_W;
   volatile long double UCp = (long double)(S32)PtC->Pt_MapU * (long double)PtC->Pt_W;
@@ -1142,7 +1150,7 @@ S32 Calc_TextureZXSlopeFPU(U32 fillType, Struc_Point *PtA, Struc_Point *PtB, Str
   volatile long double WSlope = MWC_MWB * Dp;
   volatile long double WSlope_scaled = WSlope * (long double)ASM_F_256;
   Fill_W_XSlope = (S32)lrintl(WSlope_scaled);
-  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "2", "Dp=%Lg USlope=%Lg VSlope=%Lg WSlope=%Lg",
+  LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "2", "Dp=%Lg USlope=%.20Lg VSlope=%.20Lg WSlope=%.20Lg",
     Dp, USlope, VSlope, WSlope_scaled);
   LIB386_TRACE_CPP("Calc_TextureZXSlopeFPU", "9", "U_XSlope=%d V_XSlope=%d W_XSlope=%d",
     Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope);
@@ -1223,6 +1231,8 @@ void Calc_ZBufXSlopeFPU(Struc_Point *PtA, Struc_Point *PtB, Struc_Point *PtC)
   volatile long double ZB_ZA = (long double)(S32)(PtB->Pt_ZO - PtA->Pt_ZO);
   volatile long double ZC_ZA = (long double)(S32)(PtC->Pt_ZO - PtA->Pt_ZO);
   volatile long double slope = (ZC_ZA * (long double)YB_YA - ZB_ZA * (long double)YC_YA) * InvDenom;
+  LIB386_TRACE_CPP("Calc_ZBufXSlopeFPU", "1", "ZB_ZA=%.20Lg ZC_ZA=%.20Lg slope=%.20Lg InvDenom=%.20Lg",
+    ZB_ZA, ZC_ZA, slope, InvDenom);
   Fill_ZBuf_XSlope = (S32)lrintl(slope);
   LIB386_TRACE_CPP("Calc_ZBufXSlopeFPU", "9", "ZBuf_XSlope=%d", Fill_ZBuf_XSlope);
 }
