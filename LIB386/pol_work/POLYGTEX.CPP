@@ -224,7 +224,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -232,7 +232,7 @@ S32 Filler_TextureDither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -367,7 +367,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -375,7 +375,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         addGouraudDec |= addGouraudInt;
         curGouraudMin += addGouraudDec;
 
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -383,7 +383,7 @@ S32 Filler_TextureGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -518,7 +518,7 @@ S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -526,7 +526,7 @@ S32 Filler_TextureDitherChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -802,7 +802,7 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -810,7 +810,7 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
         addGouraudDec |= addGouraudInt;
         decZ_gour += addGouraudDec;
 
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -818,7 +818,7 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
         addUDec |= addUInt;
         decU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -952,7 +952,7 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -960,7 +960,7 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addGouraudDec |= addGouraudInt;
         decZ_gour += addGouraudDec;
 
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -968,7 +968,7 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         decU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1100,7 +1100,7 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -1108,7 +1108,7 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
         addGouraudDec |= addGouraudInt;
         decZ_gour += addGouraudDec;
 
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1116,7 +1116,7 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
         addUDec |= addUInt;
         decU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;

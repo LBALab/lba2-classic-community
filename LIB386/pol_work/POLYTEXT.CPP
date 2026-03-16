@@ -274,10 +274,10 @@ S32 Filler_TextureFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U32 addU = (U32)(((U64)factor * (U64)Fill_MapU_XSlope) >> 16);
+        U32 addU = (U32)(((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope) >> 16);
         lineU += addU;
 
-        U32 addV = (U32)(((U64)factor * (U64)Fill_MapV_XSlope) >> 16);
+        U32 addV = (U32)(((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope) >> 16);
         lineV += addV;
 
       }
@@ -380,7 +380,7 @@ S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUHigh = (U32)(addU >> 32);
         U32 addULow = (U32)(addU & 0xFFFFFFFF);
         addUHigh = addUHigh << 16;
@@ -388,7 +388,7 @@ S32 Filler_TextureFlatChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUHigh |= addULow;
         lineU += addUHigh;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVHigh = (U32)(addV >> 32);
         U32 addVLow = (U32)(addV & 0xFFFFFFFF);
         addVHigh = addVHigh << 16;
@@ -486,7 +486,7 @@ S32 Filler_TextureFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -494,7 +494,7 @@ S32 Filler_TextureFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -584,7 +584,7 @@ S32 Filler_TextureChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -592,7 +592,7 @@ S32 Filler_TextureChromaKeyFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -691,7 +691,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -699,7 +699,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -717,7 +717,7 @@ S32 Filler_TextureZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((zInt & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((zInt & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = zInt & 0xFFFF;
           POLYTEXT_PtrLog[offset] = POLYTEXT_PtrMapPatch[mapIndex];
@@ -809,7 +809,7 @@ S32 Filler_TextureChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -817,7 +817,7 @@ S32 Filler_TextureChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -834,7 +834,7 @@ S32 Filler_TextureChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((zInt & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((zInt & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = zInt & 0xFFFF;
           U8 texel = POLYTEXT_PtrMapPatch[mapIndex];
@@ -930,7 +930,7 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -938,7 +938,7 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -960,7 +960,7 @@ S32 Filler_TextureFlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
@@ -1052,7 +1052,7 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1060,7 +1060,7 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1082,7 +1082,7 @@ S32 Filler_TextureFlatChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           if (colorIndex != 0)
@@ -1176,7 +1176,7 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1184,7 +1184,7 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1206,7 +1206,7 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
           U8 color = POLYTEXT_PtrMapPatch[mapIndex];
@@ -1298,7 +1298,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1306,7 +1306,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1322,7 +1322,7 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 textureColor = POLYTEXT_PtrMapPatch[mapIndex];
           
@@ -1419,7 +1419,7 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1427,7 +1427,7 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1444,7 +1444,7 @@ S32 Filler_TextureNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((zInt & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((zInt & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           POLYTEXT_PtrLog[offset] = POLYTEXT_PtrMapPatch[mapIndex];
         }
@@ -1534,7 +1534,7 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1542,7 +1542,7 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1562,7 +1562,7 @@ S32 Filler_TextureChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         U8 texel = POLYTEXT_PtrMapPatch[mapIndex];
         if (texel != 0)
         {
-          if ((zInt & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+          if ((zInt & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
           {
             POLYTEXT_PtrLog[offset] = texel;
           }
@@ -1653,7 +1653,7 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1661,7 +1661,7 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1683,7 +1683,7 @@ S32 Filler_TextureFlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           POLYTEXT_PtrLog[offset] = POLYTEXT_PtrCLUT[colorIndex];
@@ -1773,7 +1773,7 @@ S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1781,7 +1781,7 @@ S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1797,7 +1797,7 @@ S32 Filler_TextureFlatChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 colorIndex = POLYTEXT_PtrMapPatch[mapIndex];
           if (colorIndex != 0)
@@ -1889,7 +1889,7 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -1897,7 +1897,7 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -1913,7 +1913,7 @@ S32 Filler_TextureFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 color = POLYTEXT_PtrMapPatch[mapIndex];
           POLYTEXT_PtrLog[offset] = Fill_Logical_Palette[color];
@@ -2003,7 +2003,7 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
       if (fillWidth > 16)
       {
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
+        U64 addU = ((S64)(S32)factor * (S64)(S32)Fill_MapU_XSlope);
         U32 addUDec = (U32)(addU >> 32);
         U32 addUInt = (U32)(addU & 0xFFFFFFFF);
         addUDec = addUDec << 16;
@@ -2011,7 +2011,7 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         addUDec |= addUInt;
         lineU += addUDec;
 
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
+        U64 addV = ((S64)(S32)factor * (S64)(S32)Fill_MapV_XSlope);
         U32 addVDec = (U32)(addV >> 32);
         U32 addVInt = (U32)(addV & 0xFFFFFFFF);
         addVDec = addVDec << 16;
@@ -2027,7 +2027,7 @@ S32 Filler_TextureChromaKeyFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((decU_intZ & 0xFFFF) < POLYTEXT_PtrZBufferPatch[offset])
+        if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset])
         {
           U8 textureColor = POLYTEXT_PtrMapPatch[mapIndex];
           if (textureColor != 0)

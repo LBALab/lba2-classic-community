@@ -105,7 +105,7 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -517,7 +517,7 @@ S32 Filler_GouraudFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -725,7 +725,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -1033,7 +1033,7 @@ S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -1344,7 +1344,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -1630,7 +1630,7 @@ S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -1909,7 +1909,7 @@ S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -2230,7 +2230,7 @@ S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
