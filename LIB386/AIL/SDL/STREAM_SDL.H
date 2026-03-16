@@ -10,6 +10,9 @@ extern "C" {
 
 extern S32 streamVolume;
 
+void MusicLogEnable(int enable);
+int  MusicLogIsEnabled(void);
+
 #ifdef __cplusplus
 }
 #endif
