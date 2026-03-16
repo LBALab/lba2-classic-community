@@ -1516,6 +1516,74 @@ static void test_asm_random_fill_polyclip_texz(void)
     }
 }
 
+/* Test case: polyrec_0002 DC#3226 — exact ASM vs CPP slope comparison.
+ * This DC (type=17, FogZBuf) showed UXS mismatch in polyrec bisect. */
+static void test_asm_polyrec_dc3226(void)
+{
+    Struc_Point pts[4];
+    pts[0] = make_texz_point(0,   84, 43117, 22537, -48312, 0, 40799);
+    pts[1] = make_texz_point(42,  77, 29331, 22537, -46109, 0, 42748);
+    pts[2] = make_texz_point(31,  23, 29331, 45047, -47937, 0, 41118);
+    pts[3] = make_texz_point(-14, 27, 43117, 45047, -50325, 0, 39167);
+
+    Struc_Point saved_pts[4];
+    memcpy(saved_pts, pts, sizeof(saved_pts));
+
+    /* CPP path */
+    setup_texz_fogzbuf();
+    Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_TextureZFogSmoothZBuf;
+    Fill_Poly(17, 0, 4, pts);
+    S32 cpp_UXS = Fill_MapU_XSlope;
+    S32 cpp_VXS = Fill_MapV_XSlope;
+    S32 cpp_WXS = Fill_W_XSlope;
+    S32 cpp_ZXS = Fill_ZBuf_XSlope;
+    S32 cpp_LS  = Fill_LeftSlope;
+    S32 cpp_ULS = Fill_MapU_LeftSlope;
+    S32 cpp_VLS = Fill_MapV_LeftSlope;
+    S32 cpp_ZLS = Fill_ZBuf_LeftSlope;
+
+    memcpy(pts, saved_pts, sizeof(saved_pts));
+
+    /* ASM path */
+    setup_texz_fogzbuf();
+    Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    call_asm_Switch_Fillers(FILL_POLY_FOG_ZBUFFER);
+    Fill_LeftSlope = 0;
+    SetScreenPitch(TabOffLine);
+    Fill_Type = 17;
+    Fill_ClipFlag = 1 + 8 + 16;
+    Fill_Filler = (Fill_Filler_Func)(void *)&asm_Filler_TextureZFogSmoothZBuf;
+    call_asm_Fill_PolyClip(4, pts);
+    S32 asm_UXS = Fill_MapU_XSlope;
+    S32 asm_VXS = Fill_MapV_XSlope;
+    S32 asm_WXS = Fill_W_XSlope;
+    S32 asm_ZXS = Fill_ZBuf_XSlope;
+    S32 asm_LS  = Fill_LeftSlope;
+    S32 asm_ULS = Fill_MapU_LeftSlope;
+    S32 asm_VLS = Fill_MapV_LeftSlope;
+    S32 asm_ZLS = Fill_ZBuf_LeftSlope;
+
+    printf("  polyrec_0002 DC#3226 (type=17 TexZFlat, FogZBuf):\n");
+    printf("    UXS: asm=%d cpp=%d %s\n", asm_UXS, cpp_UXS, asm_UXS == cpp_UXS ? "MATCH" : "MISMATCH");
+    printf("    VXS: asm=%d cpp=%d %s\n", asm_VXS, cpp_VXS, asm_VXS == cpp_VXS ? "MATCH" : "MISMATCH");
+    printf("    WXS: asm=%d cpp=%d %s\n", asm_WXS, cpp_WXS, asm_WXS == cpp_WXS ? "MATCH" : "MISMATCH");
+    printf("    ZXS: asm=%d cpp=%d %s\n", asm_ZXS, cpp_ZXS, asm_ZXS == cpp_ZXS ? "MATCH" : "MISMATCH");
+    printf("    LS:  asm=%d cpp=%d %s\n", asm_LS, cpp_LS, asm_LS == cpp_LS ? "MATCH" : "MISMATCH");
+    printf("    ULS: asm=%d cpp=%d %s\n", asm_ULS, cpp_ULS, asm_ULS == cpp_ULS ? "MATCH" : "MISMATCH");
+    printf("    VLS: asm=%d cpp=%d %s\n", asm_VLS, cpp_VLS, asm_VLS == cpp_VLS ? "MATCH" : "MISMATCH");
+    printf("    ZLS: asm=%d cpp=%d %s\n", asm_ZLS, cpp_ZLS, asm_ZLS == cpp_ZLS ? "MATCH" : "MISMATCH");
+
+    ASSERT_ASM_CPP_EQ_INT(asm_UXS, cpp_UXS, "DC3226 U_XSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_VXS, cpp_VXS, "DC3226 V_XSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_WXS, cpp_WXS, "DC3226 W_XSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_ZXS, cpp_ZXS, "DC3226 Z_XSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_LS, cpp_LS, "DC3226 LeftSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_ULS, cpp_ULS, "DC3226 U_LeftSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_VLS, cpp_VLS, "DC3226 V_LeftSlope");
+    ASSERT_ASM_CPP_EQ_INT(asm_ZLS, cpp_ZLS, "DC3226 Z_LeftSlope");
+}
+
 int main(void)
 {
     RUN_TEST(test_inv64_positive);
@@ -1547,6 +1615,7 @@ int main(void)
     RUN_TEST(test_texturez_leftslope_zbuf);
     RUN_TEST(test_asm_fill_polyclip_texz_trace);
     RUN_TEST(test_asm_random_fill_polyclip_texz);
+    RUN_TEST(test_asm_polyrec_dc3226);
     TEST_SUMMARY();
     return test_failures != 0;
 }
