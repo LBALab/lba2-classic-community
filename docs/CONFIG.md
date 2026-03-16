@@ -23,12 +23,36 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 ## Keys: what each does
 
+### Accepted values
+
+| Key | Type | Accepted values | Default | Clamping / notes |
+|-----|------|-----------------|---------|------------------|
+| LastSave | string | Player name, max 100 chars | (empty) | Used for quick load |
+| Shadow | int | 1–3 | 3 | Overwritten by DetailLevel when leaving Options. 1=none on extras, 2=no impact shadows, 3=full |
+| AllCameras | int | 0, 1 | 1 | 0=OFF, 1=ON |
+| ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
+| DetailLevel | int | 0–3 | 3 | 0=min (no rain, no sea, no horizon), 1=486, 2=base Pentium, 3=max. Drives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon |
+| FullScreen | int | 0, 1 | 1 | 0=windowed, 1=fullscreen. Invalid values → 1 |
+| FlagDisplayText | string | ON, OFF | ON | Case-insensitive. Any other value → ON |
+| WaveVolume | int | 0–127 | 97 | Sample/SFX volume |
+| VoiceVolume | int | 0–127 | 112 | Voice volume |
+| MusicVolume | int | 0–127 | 127 | Music/jingle volume (stored as JingleVolume in code) |
+| CDVolume | int | 0–127 | 66 | CD audio volume (no-op when no CD) |
+| MasterVolume | int | 0–127 | 127 | Master volume, scales samples and music |
+| Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT` in INPUT.H). Only read when WinMode=1 |
+| WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
+| CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
+| Version, Version_US | int | Distributor ID | UNKNOWN_VERSION | Activision, EA, Virgin, etc. |
+| Language | string | English, Français, Deutsch, Español, Italiano, Portugues | Français | Must match `TabLanguage[]` exactly (case-insensitive) |
+| LanguageCD | string | Same as Language | Français | Voice CD language; only used with CDROM build |
+| FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
+
 ### Original keys (Adeline)
 
 | Key | Purpose | Source | Menu |
 |-----|---------|--------|------|
 | LastSave | Player name for quick load | ReadConfigFile / WriteConfigFile | (implicit) |
-| Shadow | Shadow quality (0–3) | ReadConfigFile / WriteConfigFile | Options → Detail |
+| Shadow | Shadow quality (1–3) | ReadConfigFile / WriteConfigFile | Options → Detail |
 | AllCameras | Scenario cameras ON/OFF | ReadConfigFile / WriteConfigFile | Options |
 | ReverseStereo | Stereo invert | ReadConfigFile / WriteConfigFile | Options |
 | DetailLevel | Graphics detail (0–3) | ReadConfigFile / WriteConfigFile | Options |
@@ -40,22 +64,27 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Version, Version_US | Distributor version | ReadConfigFile | (installer) |
 | Language, LanguageCD, FlagKeepVoice | Language / voice CD | MESSAGE.CPP | (installer / CONFIG tool) |
 
+**Note:** Language, LanguageCD, FlagKeepVoice are read by the game but not written by `WriteConfigFile`. They are typically set by the installer or standalone CONFIG tool.
+
 ### Community / modernized additions
 
 - Document any keys added in this fork (e.g. SDL backend, new paths). Leave a section for future additions so new config can be clearly marked.
 
 ## Code reference
 
-| Concept           | File                      | Function/Symbol                          |
-| ----------------- | ------------------------- | ---------------------------------------- |
-| Config read/write | PERSO.CPP                 | ReadConfigFile, WriteConfigFile          |
-| Volume persistence| AMBIANCE.CPP              | ReadVolumeSettings, WriteVolumeSettings  |
-| Input persistence | INPUT.CPP                 | ReadInputConfig, WriteInputConfig        |
-| Config path       | DIRECTORIES.CPP           | GetCfgPath, GetDefaultCfgPath            |
-| DefFile API       | LIB386/SYSTEM/DEFFILE.CPP | DefFileBufferInit, DefFileBufferRead*, DefFileBufferWrite* |
+
+| Concept            | File                      | Function/Symbol                                            |
+| ------------------ | ------------------------- | ---------------------------------------------------------- |
+| Config read/write  | PERSO.CPP                 | ReadConfigFile, WriteConfigFile                            |
+| Volume persistence | AMBIANCE.CPP              | ReadVolumeSettings, WriteVolumeSettings                    |
+| Input persistence  | INPUT.CPP                 | ReadInputConfig, WriteInputConfig                          |
+| Config path        | DIRECTORIES.CPP           | GetCfgPath, GetDefaultCfgPath                              |
+| DefFile API        | LIB386/SYSTEM/DEFFILE.CPP | DefFileBufferInit, DefFileBufferRead*, DefFileBufferWrite* |
+
 
 ## Cross-references
 
 - [MENU.md](MENU.md) for options menu flow
 - [AUDIO.md](AUDIO.md) for volume/master volume behavior
 - [GFX_OPTIONS.md](GFX_OPTIONS.md) for DetailLevel / Shadow effects
+
