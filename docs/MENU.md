@@ -43,9 +43,15 @@ Main Menu
 
 ## Main menu structure
 
-- `RealGameMainMenu[]` defines 6 entries (text IDs 70–75): Resume, New Game, Load, Save, Options, Quit
-- `BuildGameMainMenu()` filters entries based on: `CURRENTSAVE_FILENAME` exists (Resume), `IsExistSavedGame()` (Load), `SavingEnable` (Save)
-- `DoGameMenu(GameMainMenu)` returns selected text ID; switch handles 70–75 and 1000 (ESC)
+The main menu uses a **template → build → drive** flow:
+
+| Component | Role |
+|-----------|------|
+| **RealGameMainMenu** | Static template array with all 6 entries (70–75). Never passed to `DoGameMenu` directly. |
+| **BuildGameMainMenu** | Copies from template into `GameMainMenu`, filtering by runtime state. Resume only if `CURRENTSAVE` exists; Load only if `IsExistSavedGame()`; Save only if `!firstloop` and `SavingEnable`. Always includes New Game, Options, Quit. Updates `nb`, `ycenter`, and default selection. |
+| **DoGameMenu** | Generic driver for any menu array. Runs input loop (Up/Down, Fire/Action), handles sliders (type 2–7), draws via `DrawGameMenu`, returns selected text ID or `1000` (ESC). Used for main menu, Options, Volume, etc. |
+
+Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `GameMainMenu` (filtered) → `DoGameMenu(GameMainMenu)` → returns 70–75 or 1000.
 
 ## Submenus
 
