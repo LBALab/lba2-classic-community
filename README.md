@@ -13,9 +13,16 @@ The **original** LBA2 engine source is the **lba2-classic** codebase: it is most
 ## Prerequisites
 
 - **CMake** 3.23 or later
+- **Ninja** build system for CMake preset-based builds
 - **UASM** assembler (used for x86 assembly sources)
 - **SDL3** (shared library)
 - A C/C++ compiler with C++98 support (GCC, Clang)
+
+On macOS, install Ninja with:
+
+```bash
+brew install ninja
+```
 
 ## Building
 
@@ -27,6 +34,9 @@ cmake --build build
 ### Using CMake presets
 
 This repository provides CMake presets for common configurations in `CMakePresets.json`. You can use them instead of specifying the build directory and toolchain flags manually:
+
+All presets use the `Ninja` generator, so `ninja` must be installed and
+available on `PATH`.
 
 - **Linux (native build)**:
 
