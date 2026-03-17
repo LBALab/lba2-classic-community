@@ -36,7 +36,10 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
-## SOURCES/ - Core Source Helpers (5 pairs)
+## SOURCES/ - Core Source Helpers (6 pairs)
+
+- [x] `PLASMA.ASM` -> `PLASMA.CPP`
+   - Added `tests/test_plasma.cpp` covering `Do_Plasma` with fixed interleave/active-point cases, safe edge cases (`Interleave=1/3`, `NbActivePoints=2`), and deterministic random stress, comparing `TabVirgule`, the touched texture region, and exported globals (`Nb_Pts_Inter`, `Nb_Pts_Control`) strictly. Fixed CPP interpolation to match the ASM's zero-extended 16-bit control loads and `add/adc/sar` rounding. Note: `NbActivePoints=1` is excluded because the ASM reads past the lone control point, and `Interleave=0` is excluded because the ASM fill loop decrements from zero and walks off the buffer.
 
 - [x] `GRILLE_A.ASM` -> `GRILLE.CPP`
    - Added `tests/test_grille.cpp` covering `GetAdrBlock`, `Map2Screen`, `DecompColonne`, `WorldCodeBrick`, `GetBlockBrick`, `GetWorldColBrickVisible`, and `WorldColBrickFull` with fixed in-memory cube/block fixtures plus deterministic random stress, comparing return values and touched globals (`XMap`, `YMap`, `ZMap`, `XScreen`, `YScreen`) byte-for-byte/strictly. Fixed CPP world-coordinate conversion to use the ASM's raw shift semantics and matched `WorldColBrickFull`'s upward scan. Note: the `WorldColBrickFull` negative-`y` ASM path is excluded because that proc jumps to a shared `pop ebx` return path without a matching push and crashes before returning.
