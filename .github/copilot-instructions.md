@@ -43,7 +43,7 @@ Tests must drive the investigation and the fix:
 - The fix should make that test pass.
 - The test must remain in place to prevent regressions.
 
-**Polyrec snapshot replay is strongly recommended** when available.  Use it to
+**Polyrec replay is strongly recommended** when available.  Use it to
 capture the exact inputs a function receives during a failing render or game
 scenario, then turn that captured input into a dedicated ASM-vs-CPP unit test.
 This is often the fastest way to isolate a mismatch without guessing.

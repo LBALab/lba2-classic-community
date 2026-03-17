@@ -7,7 +7,7 @@ build/
 /build_logs/
 .tmp/
 
-# Snapshot rendered outputs (keep .lba2snap fixtures, ignore generated images)
+# Polyrec rendered outputs (keep .lba2polyrec fixtures, ignore generated images)
 tests/SNAPSHOT/fixtures/*.png
 tests/SNAPSHOT/fixtures/*.ppm
 tests/SNAPSHOT/fixtures/*.raw
