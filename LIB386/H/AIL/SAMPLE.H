@@ -152,6 +152,21 @@ void	ResumeSamples(		void			)	;
 U32	IsSamplePlaying( 	U32 sample 		)	;
 
 //--------------------------------------------------------------------------
+//	SfxLogEnable :			toggle diagnostic logging in the backend
+//
+//			  enable :	1 = on, 0 = off
+//--------------------------------------------------------------------------
+void	SfxLogEnable(		int enable		)	;
+int	SfxLogIsEnabled(	void			)	;
+
+//--------------------------------------------------------------------------
+//	GetSamplesPausedCount :		query the samplesPaused ref-count
+//
+//	Returns	:			current samplesPaused value
+//--------------------------------------------------------------------------
+S32	GetSamplesPausedCount(	void			)	;
+
+//--------------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif

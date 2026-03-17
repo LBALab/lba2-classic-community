@@ -2,6 +2,8 @@
 
 #include "INPUT.H"
 
+#include <ctype.h>
+#include <string.h>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
@@ -72,6 +74,90 @@ const char *CheatText[] = {
 	"MecaPingouin Found"
 	} ;
 
+/* Cheat names for console (lowercase). Order must match enum. */
+static const char *CheatNames[] = {
+	"life", "magic", "full", "gold", "speed", "clover", "box", "pingouin"
+	} ;
+
+static void tolower_str(char *dst, const char *src, size_t cap)
+{
+	size_t i = 0;
+	for ( ; i < cap - 1 && src[i]; i++ )
+		dst[i] = (char)tolower((unsigned char)src[i]);
+	dst[i] = '\0';
+}
+
+/* Apply cheat by index; set *text and *sprite for feedback. */
+static void ApplyCheat(S32 cheat, S32 *text, S32 *sprite)
+{
+	T_OBJET *ptrobj = &ListObjet[NUM_PERSO];
+	*text = -1;
+	*sprite = -1;
+	switch( cheat )
+	{
+		case CHEAT_LIFE:
+			if( ptrobj->LifePoint > 0 ) {
+				ptrobj->LifePoint = MAX_LIFE_POINTS ;
+				*text = 0 ;
+				*sprite = SPRITE_COEUR ;
+			}
+			break;
+		case CHEAT_MAGIC:
+			MagicPoint = (U8)(MagicLevel * 20) ;
+			*sprite = SPRITE_MAGIE ;
+			*text = 1 ;
+			break;
+		case CHEAT_FULL:
+			if( ptrobj->LifePoint > 0 )
+				ptrobj->LifePoint = MAX_LIFE_POINTS ;
+			if( ListVarGame[FLAG_CONQUE] )
+				TabInv[FLAG_CONQUE].PtMagie = INV_MAX_VALUE ;
+			ListVarGame[FLAG_CLOVER] = NbCloverBox ;
+			MagicPoint = (U8)(MagicLevel * 20) ;
+			*text = 2 ;
+			break;
+		case CHEAT_GOLD:
+			if( Planet>=2 ) {
+				if( NbZlitosPieces<999 ) {
+					NbZlitosPieces += 50 ;
+					if( NbZlitosPieces>999 ) NbZlitosPieces = 999 ;
+					*text = 4 ;
+				}
+			} else {
+				if( NbGoldPieces<999 ) {
+					NbGoldPieces += 50 ;
+					if( NbGoldPieces>999 ) NbGoldPieces = 999 ;
+					*text = 3 ;
+				}
+			}
+			*sprite = SPRITE_PIECE ;
+			break;
+		case CHEAT_SPEED:
+			DebugFps ^= 1 ;
+			*text = DebugFps ? 5 : 6 ;
+			break;
+		case CHEAT_CLOVER:
+			ListVarGame[FLAG_CLOVER] = NbCloverBox ;
+			*sprite = SPRITE_CLOVER ;
+			*text = 7 ;
+			break;
+		case CHEAT_CLOVERBOX:
+			if( NbCloverBox<10 ) {
+				NbCloverBox++ ;
+				ListVarGame[FLAG_CLOVER] = NbCloverBox ;
+				*text = 8 ;
+				*sprite = SPRITE_FULL_CLOVER_BOX ;
+			}
+			break;
+		case CHEAT_PINGOUIN:
+			if( ListVarGame[FLAG_MECA_PINGOUIN]<10 ) {
+				ListVarGame[FLAG_MECA_PINGOUIN]+=5 ;
+				*text = 9 ;
+			}
+			break;
+	}
+}
+
 //***************************************************************************
 void	GereCheatCode( void )
 {
@@ -85,14 +171,16 @@ void	GereCheatCode( void )
 	{
 		key = toupper(key)	;
 
-		if(	( key < K_A )
-		OR	( key > K_Z )	)
+		// Filter to only A-Z keys (use ASCII values, not scancodes)
+		if(	( key < 'A' )
+		OR	( key > 'Z' )	)
 		{
 			continue;
 		}
 
 		memmove( BufferCheatCode, BufferCheatCode+1, TAILLE_MAX_CHEAT_CODE-1 );
-		BufferCheatCode[TAILLE_MAX_CHEAT_CODE-1] = (U8)MyKey ;
+		// Store the scancode (Key), not the ASCII value - cheat codes are defined as scancodes
+		BufferCheatCode[TAILLE_MAX_CHEAT_CODE-1] = (U8)Key ;
 
 		if( NbKeyInBuffer<TAILLE_MAX_CHEAT_CODE ) NbKeyInBuffer++;
 
@@ -119,93 +207,7 @@ exit_loop:
 		// clear cheat du buffer
 		InitCheatCode();
 
-		ptrobj = &ListObjet[NUM_PERSO] ;
-
-		switch( cheat )
-		{
-			case CHEAT_LIFE: // barre de vie au maximum
-				if( ptrobj->LifePoint > 0 )
-				{
-					ptrobj->LifePoint = MAX_LIFE_POINTS ;
-					text = 0 ;
-					sprite = SPRITE_COEUR ;
-				}
-				break;
-
-			case CHEAT_MAGIC: // points de magie au maximum
-				MagicPoint = (U8)(MagicLevel * 20) ;
-				sprite = SPRITE_MAGIE ;
-				text = 1 ;
-				break;
-
-			case CHEAT_FULL: // equivalent instruction FULL_POINT
-				if( ptrobj->LifePoint > 0 )
-				{
-					ptrobj->LifePoint = MAX_LIFE_POINTS ;
-				}
-
-				if( ListVarGame[FLAG_CONQUE] )
-				{
-					TabInv[FLAG_CONQUE].PtMagie = INV_MAX_VALUE ;
-				}
-
-				ListVarGame[FLAG_CLOVER] = NbCloverBox ;
-				MagicPoint = (U8)(MagicLevel * 20) ;
-				text = 2 ;
-				break;
-
-			case CHEAT_GOLD: // pieces d'or
-				if( Planet>=2 )
-				{
-					if( NbZlitosPieces<999 )
-					{
-						NbZlitosPieces += 50 ;
-						if( NbZlitosPieces>999 )	NbZlitosPieces = 999 ;
-						text = 4 ;
-					}
-				}
-				else
-				{
-					if( NbGoldPieces<999 )
-					{
-						NbGoldPieces += 50 ;
-						if( NbGoldPieces>999 )		NbGoldPieces = 999 ;
-						text = 3 ;
-					}
-				}
-				sprite = SPRITE_PIECE ;
-				break ;
-
-			case CHEAT_SPEED: // Frame Rate
-				DebugFps ^= 1 ;
-				if( DebugFps )	text = 5 ;
-				else		text = 6 ;
-				break ;
-
-			case CHEAT_CLOVER:// Trefle
-				ListVarGame[FLAG_CLOVER] = NbCloverBox ;
-				sprite = SPRITE_CLOVER ;
-				text = 7 ;
-				break ;
-
-			case CHEAT_CLOVERBOX:// boite à Trefle
-				if( NbCloverBox<10 )
-				{
-					NbCloverBox++ ;
-					ListVarGame[FLAG_CLOVER] = NbCloverBox ;
-					text = 8 ;
-					sprite = SPRITE_FULL_CLOVER_BOX ;
-				}
-				break ;
-
-			case CHEAT_PINGOUIN:// MécaPingouin
-				if( ListVarGame[FLAG_MECA_PINGOUIN]<10 )
-				{
-					ListVarGame[FLAG_MECA_PINGOUIN]+=5 ;
-					text = 9 ;
-				}
-				break ;
-		}
+		ApplyCheat( cheat, &text, &sprite );
 
 		if( text!=-1 )
 		{
@@ -217,3 +219,25 @@ exit_loop:
 		MyKey = 0 ;
 	}
 }
+
+#ifdef CONSOLE_MODULE
+int TryExecuteCheatByName( const char *name )
+{
+	char buf[32];
+	S32 text = -1, sprite = -1;
+	S32 i;
+
+	if ( !name || !name[0] ) return 0;
+	tolower_str( buf, name, sizeof(buf) );
+	for ( i = 0; i < (S32)NB_DEF_CHEAT_CODE; i++ ) {
+		if ( strcmp( buf, CheatNames[i] ) == 0 ) {
+			ApplyCheat( i, &text, &sprite );
+			if ( text != -1 )
+				InitMenuIncrustText( CheatText[text], sprite, 2 );
+			HQ_MixSample( SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127 );
+			return 1;
+		}
+	}
+	return 0;
+}
+#endif

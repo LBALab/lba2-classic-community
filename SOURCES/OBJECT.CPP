@@ -7,6 +7,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
 
 extern	S32	FlagAnimWhoSpeak	;	// MESSAGE.CPP
 
@@ -102,7 +103,7 @@ extern	S16	M_XMin, M_XMax, M_YMin, M_YMax, M_ZMin, M_ZMax ;
 extern	U8	*SearchPtrAnimAction ;
 
 /*══════════════════════════════════════════════════════════════════════════*/
-#ifdef	DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 
 #define	HashLine( x0, y0, x1, y1, coul, ep )	Line( x0, y0, x1, y1, coul )
 
@@ -5141,7 +5142,7 @@ void	DoDir( U8 numobj  )
  *══════════════════════════════════════════════════════════════════════════*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#ifdef	DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 void	DrawZV( T_OBJET *ptrobj )
 {
 	if( DrawCube(	ptrobj->XMin + ptrobj->Obj.X,
@@ -5468,7 +5469,7 @@ S32	AffOneObject(T_SORT *pt)
 						   ClipXMin, ClipYMin, Screen ) ;
 				}
 
-#ifdef DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 				if( DrawZVObjets )
 				{
 					DrawZV( ptrobj ) ;
@@ -5614,7 +5615,7 @@ S32	AffOneObject(T_SORT *pt)
 				CopyBlock( ClipXMin, ClipYMin, ClipXMax, ClipYMax, Log,
 					   ClipXMin, ClipYMin, Screen ) ;
 			}
-#ifdef DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 			if( DrawZVObjets )
 			{
 				DrawZV( ptrobj ) ;
@@ -5716,7 +5717,7 @@ S32	AffOneObject(T_SORT *pt)
 				CopyBlock( ClipXMin, ClipYMin, ClipXMax, ClipYMax, Log,
 					   ClipXMin, ClipYMin, Screen ) ;
 			}
-#ifdef DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 			if( DrawZVObjets )
 			{
 				DrawZV( ptrobj ) ;
@@ -6787,11 +6788,6 @@ startaffscene:
 
 	if( FlagChgCube )
 	{
-		if( NumCube!=NUM_CUBE_PHANTOM )
-		{
-			AutoSaveGame() ;
-		}
-
 		FlagChgCube = 0 ;
 	}
 

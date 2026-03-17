@@ -308,3 +308,37 @@ void AffString(S32 x, S32 y, char *str)
     ScreenPtr += SizeChar;
   }
 }
+
+void AffStringToBuffer(U8 *dst, U32 pitch, S32 x, S32 y, const char *str, U8 ink)
+{
+  if (!dst || !str)
+    return;
+
+  U8 character;
+  U8 line;
+  S32 mask;
+  PTR_U8 ptr;
+  PTR_U8 font;
+  PTR_U8 rowStart = (PTR_U8)dst + (y * (S32)pitch) + x;
+
+  while ((character = (U8)*str++) != 0)
+  {
+    ptr = rowStart;
+    font = &Font8x8[character * SizeChar];
+
+    for (U32 pos = SizeChar; pos > 0; --pos)
+    {
+      line = *font++;
+      mask = 0x80;
+      while (mask > 0)
+      {
+        if (line & mask)
+          *ptr = ink;
+        ptr++;
+        mask >>= 1;
+      }
+      ptr += (S32)pitch - SizeChar;
+    }
+    rowStart += SizeChar;
+  }
+}

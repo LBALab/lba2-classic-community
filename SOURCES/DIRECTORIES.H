@@ -22,6 +22,7 @@ void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename);
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename);
+void GetBugPath(char *outPath, U16 pathMaxSize, const char *bugFilename);
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename);
 void GetVoicePath(char *outPath, U16 pathMaxSize, const char *voiceFilename,
                   bool fromCD = false);

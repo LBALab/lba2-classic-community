@@ -7,6 +7,8 @@ extern	S32	DebugFps	;
 
 extern	S32	DistribVersion	;
 
+extern	const char	*BuildInfo	;	/* Build timestamp and flags (BUILD_INFO.CPP) */
+
 extern	char	MessageNoCD[50] ;
 
 extern	U16	GameOptionMenu[] ;
@@ -106,7 +108,7 @@ extern  S32    	FlagBlackPal ;
 
 extern	S32	FlagShadeMenu ;
 
-#ifdef	DEBUG_TOOLS
+#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 extern	S32	DrawZVObjets ;
 #endif
 
@@ -165,6 +167,7 @@ extern  S32    	NbBrickTrack ;
 extern  U16    GameChoice ;
 extern  U16    GameNbChoices ;
 extern  S16    GameListChoice[] ;
+extern  S32    GameInProgress ;
 
 /*--------- perso ----------------------------*/
 extern  S32    FlagTheEnd ;

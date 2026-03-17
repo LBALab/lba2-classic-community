@@ -24,6 +24,7 @@ set(CMAKE_CXX_STANDARD 98)
 # Compilation options
 set(SOUND_BACKEND "null" CACHE STRING "Sound backend to be used")
 set(MVIDEO_BACKEND "null" CACHE STRING "Motion Video backend to be used")
+option(CONSOLE_MODULE "Enable Quake-style debug console (backtick/F12)" OFF)
 
 # Compilation options sanitization
 ## Sound backend
@@ -43,8 +44,18 @@ endif ()
 option(LBA2_BUILD_TESTS "Build test suites" OFF)
 option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" OFF)
 
+# Debug tools (original Adeline developer debug features)
+option(DEBUG_TOOLS "Enable developer debug tools (collision viz, benchmarks, bug saves)" OFF)
+if(DEBUG_TOOLS)
+    add_compile_definitions(DEBUG_TOOLS=1)
+endif()
+
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
+
+# Build info header (timestamp from compile, flags from configure)
+set(BUILD_FLAGS_STR "CONSOLE_MODULE=${CONSOLE_MODULE} SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
+configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Process the targets
 add_subdirectory(LIB386)
