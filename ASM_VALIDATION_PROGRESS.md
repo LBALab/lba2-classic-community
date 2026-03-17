@@ -36,6 +36,13 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
+## 3DEXT/ — Scene Extension Helpers (2 pairs)
+
+| Status | ASM File | CPP File | Function(s) | Description | Notes |
+|--------|----------|----------|-------------|-------------|-------|
+| [x] | `3DEXT/BOXZBUF.ASM` | `3DEXT/BOXZBUF.CPP` | `ZBufBoxOverWrite2` | Re-apply terrain occlusion over object bounding box | ASM ≡ CPP: return value plus post-call `Log`, `Screen`, and `PtrZBuffer` contents verified for visible, hidden, mixed, single-pixel, negative-depth, and 30 random rounds. |
+| [ ] | `3DEXT/LINERAIN.ASM` | `3DEXT/LINERAIN.CPP` | `LineRain` | Rain line rendering helper | |
+
 ## ANIM/ — Object Animation (10 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |

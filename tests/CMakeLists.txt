@@ -5,6 +5,7 @@ enable_testing()
 include(cmake/asm_test_helpers.cmake)
 
 add_subdirectory(3D)
+add_subdirectory(3DEXT)
 add_subdirectory(SYSTEM)
 add_subdirectory(MENU)
 add_subdirectory(ANIM)
