@@ -172,6 +172,7 @@ Accepted parameters:
 | `--build-only` | none | Build the Docker image and exit without running tests | Useful after `docker/Dockerfile.test` changes or for warming the cache |
 | `--rebuild` | none | Force a Docker image rebuild even if `lba2-test` already exists | Still proceeds to the selected run mode unless combined with `--build-only` |
 | `--render` | none | Build the replay executables and render `.lba2polyrec` recordings instead of running CTest | Copies generated `.raw` and `.ppm` files back into `tests/SNAPSHOT/fixtures/` |
+| `--render-individually` | none | With `--render`, fan out a replay range into one render per draw call | Requires `--stop-after`; `--start-after 123 --stop-after 126` renders calls 124, 125, and 126 independently |
 | `--bisect` | none | Build the replay executables and binary-search for the first divergent polygon draw call | Stops on the first recording that shows a mismatch |
 | `--polyrec` | recording name or path | Restrict `--render` to one polygon recording | Accepts a bare fixture stem like `polyrec_0002`, a fixture filename like `polyrec_0002.lba2polyrec`, or an absolute path |
 | `--start-after` | integer | Start replay after draw call `N` | Forwarded to `replay_polyrec_{asm,cpp}`; mainly useful with `--render` |
@@ -196,7 +197,11 @@ Examples:
 ```bash
 ./run_tests_docker.sh --render
 ./run_tests_docker.sh --render --polyrec polyrec_0002 --stop-after 3226
+./run_tests_docker.sh --render --render-individually --polyrec polyrec_0002 --start-after 123 --stop-after 126
 ```
+
+In individual render mode, outputs are suffixed per draw call, for example
+`polyrec_0002_draw_0124_asm.ppm` and `polyrec_0002_draw_0124_cpp.ppm`.
 
 ```bash
 ./run_tests_docker.sh --bisect
@@ -295,7 +300,8 @@ The snapshot test directory contains several useful utilities:
 
 - `compare_polyrec.sh` compares ASM and CPP replay results.
 - `render_polyrec.sh` renders ASM, CPP, and reference outputs to raw and PPM
-  files for visual inspection.
+  files for visual inspection, and can optionally render one draw call per
+  output set.
 - `bisect_polyrec.sh` binary-searches for the first divergent draw call.
 - `replay_polyrec_main.cpp` supports replay slicing with `--start-after` and
   `--stop-after`, optional framebuffer dumps with `--ppm`, reference dumps with

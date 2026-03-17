@@ -4,6 +4,8 @@
 # Usage: render_polyrec.sh <recording.lba2polyrec> [output_dir] [asm_binary] [cpp_binary] [replay args...]
 #
 # Produces .raw, .ppm, and .png (if ImageMagick available) for visual comparison.
+# When passed --render-individually together with --stop-after N, it renders one
+# output set per draw call in the requested range.
 
 set -euo pipefail
 
@@ -17,71 +19,137 @@ if [ $# -gt 4 ]; then
 else
     set --
 fi
-EXTRA_ARGS=("$@")
+
+RENDER_INDIVIDUALLY=false
+START_AFTER=""
+STOP_AFTER=""
+COMMON_ARGS=()
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --render-individually)
+            RENDER_INDIVIDUALLY=true
+            shift
+            ;;
+        --start-after)
+            START_AFTER="${2:?--start-after requires an argument}"
+            shift 2
+            ;;
+        --stop-after)
+            STOP_AFTER="${2:?--stop-after requires an argument}"
+            shift 2
+            ;;
+        *)
+            COMMON_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
 
 mkdir -p "$OUTPUT_DIR"
-
-ASM_RAW="$OUTPUT_DIR/${BASENAME}_asm.raw"
-CPP_RAW="$OUTPUT_DIR/${BASENAME}_cpp.raw"
-ASM_PPM="$OUTPUT_DIR/${BASENAME}_asm.ppm"
-CPP_PPM="$OUTPUT_DIR/${BASENAME}_cpp.ppm"
-REF_PPM="$OUTPUT_DIR/${BASENAME}_game_ref.ppm"
 
 echo "=== Polygon recording render ==="
 echo "Recording: $REC"
 echo "Output dir: $OUTPUT_DIR"
 
-ASM_OK=0
-CPP_OK=0
+render_pair() {
+    local suffix="$1"
+    shift
 
-echo "Rendering ASM path..."
-if "$ASM_BIN" "$REC" "$ASM_RAW" --ppm "$ASM_PPM" --ref-ppm "$REF_PPM" "${EXTRA_ARGS[@]}"; then
-    ASM_OK=1
-else
-    echo "WARNING: ASM replay failed (exit code $?)"
-fi
+    local asm_raw="$OUTPUT_DIR/${BASENAME}${suffix}_asm.raw"
+    local cpp_raw="$OUTPUT_DIR/${BASENAME}${suffix}_cpp.raw"
+    local asm_ppm="$OUTPUT_DIR/${BASENAME}${suffix}_asm.ppm"
+    local cpp_ppm="$OUTPUT_DIR/${BASENAME}${suffix}_cpp.ppm"
+    local ref_ppm="$OUTPUT_DIR/${BASENAME}${suffix}_game_ref.ppm"
+    local asm_ok=0
+    local cpp_ok=0
 
-echo "Rendering CPP path..."
-if "$CPP_BIN" "$REC" "$CPP_RAW" --ppm "$CPP_PPM" "${EXTRA_ARGS[@]}"; then
-    CPP_OK=1
-else
-    echo "WARNING: CPP replay failed (exit code $?)"
-fi
-
-# Convert PPM to PNG if ImageMagick is available
-if command -v convert &>/dev/null; then
-    for ppm in "$ASM_PPM" "$CPP_PPM" "$REF_PPM"; do
-        if [ -f "$ppm" ]; then
-            png="${ppm%.ppm}.png"
-            convert "$ppm" "$png"
-            echo "  Converted: $png"
-        fi
-    done
-
-    # Generate diff image if both PNG exist
-    ASM_PNG="$OUTPUT_DIR/${BASENAME}_asm.png"
-    CPP_PNG="$OUTPUT_DIR/${BASENAME}_cpp.png"
-    DIFF_PNG="$OUTPUT_DIR/${BASENAME}_diff.png"
-    if [ -f "$ASM_PNG" ] && [ -f "$CPP_PNG" ]; then
-        convert "$ASM_PNG" "$CPP_PNG" -compose difference -composite "$DIFF_PNG"
-        echo "  Diff image: $DIFF_PNG"
-    fi
-fi
-
-# Compare raw framebuffers
-if [ "$ASM_OK" -eq 1 ] && [ "$CPP_OK" -eq 1 ]; then
-    if cmp -s "$ASM_RAW" "$CPP_RAW"; then
-        echo "PASS: Framebuffers match"
+    echo "Rendering ASM path${suffix:+ ($suffix)}..."
+    if "$ASM_BIN" "$REC" "$asm_raw" --ppm "$asm_ppm" --ref-ppm "$ref_ppm" "$@"; then
+        asm_ok=1
     else
-        ASM_SIZE=$(stat -c%s "$ASM_RAW" 2>/dev/null || stat -f%z "$ASM_RAW")
-        CPP_SIZE=$(stat -c%s "$CPP_RAW" 2>/dev/null || stat -f%z "$CPP_RAW")
-        if [ "$ASM_SIZE" = "$CPP_SIZE" ]; then
-            DIFF_COUNT=$(cmp -l "$ASM_RAW" "$CPP_RAW" | wc -l)
-            echo "FAIL: $DIFF_COUNT bytes differ"
-        else
-            echo "FAIL: Size mismatch (ASM=$ASM_SIZE, CPP=$CPP_SIZE)"
+        echo "WARNING: ASM replay failed (exit code $?)"
+    fi
+
+    echo "Rendering CPP path${suffix:+ ($suffix)}..."
+    if "$CPP_BIN" "$REC" "$cpp_raw" --ppm "$cpp_ppm" "$@"; then
+        cpp_ok=1
+    else
+        echo "WARNING: CPP replay failed (exit code $?)"
+    fi
+
+    if command -v convert &>/dev/null; then
+        local ppm
+        for ppm in "$asm_ppm" "$cpp_ppm" "$ref_ppm"; do
+            if [ -f "$ppm" ]; then
+                local png="${ppm%.ppm}.png"
+                convert "$ppm" "$png"
+                echo "  Converted: $png"
+            fi
+        done
+
+        local asm_png="$OUTPUT_DIR/${BASENAME}${suffix}_asm.png"
+        local cpp_png="$OUTPUT_DIR/${BASENAME}${suffix}_cpp.png"
+        local diff_png="$OUTPUT_DIR/${BASENAME}${suffix}_diff.png"
+        if [ -f "$asm_png" ] && [ -f "$cpp_png" ]; then
+            convert "$asm_png" "$cpp_png" -compose difference -composite "$diff_png"
+            echo "  Diff image: $diff_png"
         fi
     fi
+
+    if [ "$asm_ok" -eq 1 ] && [ "$cpp_ok" -eq 1 ]; then
+        if cmp -s "$asm_raw" "$cpp_raw"; then
+            echo "PASS: Framebuffers match${suffix:+ ($suffix)}"
+        else
+            local asm_size
+            local cpp_size
+            asm_size=$(stat -c%s "$asm_raw" 2>/dev/null || stat -f%z "$asm_raw")
+            cpp_size=$(stat -c%s "$cpp_raw" 2>/dev/null || stat -f%z "$cpp_raw")
+            if [ "$asm_size" = "$cpp_size" ]; then
+                local diff_count
+                diff_count=$(cmp -l "$asm_raw" "$cpp_raw" | wc -l)
+                echo "FAIL: $diff_count bytes differ${suffix:+ ($suffix)}"
+            else
+                echo "FAIL: Size mismatch (ASM=$asm_size, CPP=$cpp_size)${suffix:+ ($suffix)}"
+            fi
+        fi
+    else
+        echo "SKIP: Cannot compare (ASM_OK=$asm_ok, CPP_OK=$cpp_ok)${suffix:+ ($suffix)}"
+    fi
+}
+
+if [ "$RENDER_INDIVIDUALLY" = "true" ]; then
+    if [ -z "$STOP_AFTER" ]; then
+        echo "ERROR: --render-individually requires --stop-after"
+        exit 1
+    fi
+
+    range_start=1
+    if [ -n "$START_AFTER" ] && [ "$START_AFTER" -ge 0 ]; then
+        range_start=$((START_AFTER + 1))
+    fi
+    range_stop=$STOP_AFTER
+
+    if [ "$range_start" -gt "$range_stop" ]; then
+        echo "ERROR: empty render range ($range_start > $range_stop)"
+        exit 1
+    fi
+
+    draw_call=$range_start
+    while [ "$draw_call" -le "$range_stop" ]; do
+        suffix=$(printf '_draw_%04d' "$draw_call")
+        prev_draw=$((draw_call - 1))
+        echo "--- rendering draw call $draw_call independently ---"
+        render_pair "$suffix" "${COMMON_ARGS[@]}" --start-after "$prev_draw" --stop-after "$draw_call"
+        draw_call=$((draw_call + 1))
+    done
 else
-    echo "SKIP: Cannot compare (ASM_OK=$ASM_OK, CPP_OK=$CPP_OK)"
+    replay_args=("${COMMON_ARGS[@]}")
+    if [ -n "$START_AFTER" ]; then
+        replay_args+=(--start-after "$START_AFTER")
+    fi
+    if [ -n "$STOP_AFTER" ]; then
+        replay_args+=(--stop-after "$STOP_AFTER")
+    fi
+    render_pair "" "${replay_args[@]}"
 fi

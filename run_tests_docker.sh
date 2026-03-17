@@ -7,6 +7,8 @@
 #   ./run_tests_docker.sh              # Build & run all tests
 #   ./run_tests_docker.sh --build-only # Build the Docker image without running
 #   ./run_tests_docker.sh --rebuild    # Force rebuild the Docker image
+#   ./run_tests_docker.sh --render --render-individually --polyrec polyrec_0002 \
+#       --start-after 123 --stop-after 126
 #   ./run_tests_docker.sh test_getang2d test_lirot3df   # Run only named tests
 # ──────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -22,6 +24,7 @@ BUILD_ONLY=false
 FORCE_REBUILD=false
 RENDER_MODE=false
 BISECT_MODE=false
+RENDER_INDIVIDUALLY=false
 POLYREC_NAME=""
 REPLAY_ARGS=()
 TEST_NAMES=()
@@ -38,6 +41,11 @@ while [ $# -gt 0 ]; do
             ;;
         --render)
             RENDER_MODE=true
+            shift
+            ;;
+        --render-individually)
+            RENDER_INDIVIDUALLY=true
+            REPLAY_ARGS+=("$1")
             shift
             ;;
         --bisect)
@@ -58,6 +66,11 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+if [ "${RENDER_INDIVIDUALLY}" = "true" ] && [ "${RENDER_MODE}" != "true" ]; then
+    echo "ERROR: --render-individually requires --render"
+    exit 1
+fi
 
 # ── Build Docker image (skip if already cached) ──────────────────────────────
 IMAGE_EXISTS=$(docker images -q "${IMAGE_NAME}" 2>/dev/null)
