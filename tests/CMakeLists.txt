@@ -5,6 +5,15 @@ enable_testing()
 include(cmake/asm_test_helpers.cmake)
 
 add_asm_cpp_test(
+	NAME test_func
+	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_func.cpp
+	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/FUNC.ASM
+	RENAME_SYMS SearchBoundColRGB
+	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES
+)
+target_sources(test_func PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/FUNC.CPP)
+
+add_asm_cpp_test(
 	NAME test_flow_a
 	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_flow_a.cpp
 	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/FLOW_A.ASM
