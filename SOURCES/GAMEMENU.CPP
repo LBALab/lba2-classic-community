@@ -2505,8 +2505,18 @@ S32     MainGameMenu( S32 load )
 
                                         RestoreTimer() ;
                                         SaveTimer() ;
-                                        AffScene( AFF_ALL_NO_FLIP ) ;
-                                        FixeCinemaMode( FALSE ) ;
+                                        {
+                                                S32     savedflagpal = FlagPal ;
+                                                S32     savedflagloadgame = FlagLoadGame ;
+
+                                                FlagPal = FALSE ;
+                                                FlagLoadGame = FALSE ;
+                                                AffScene( AFF_ALL_NO_FLIP ) ;
+                                                FixeCinemaMode( FALSE ) ;
+                                                if( savedflagpal OR savedflagloadgame )	Palette( PtrPal ) ;
+                                                FlagPal = savedflagpal ;
+                                                FlagLoadGame = savedflagloadgame ;
+                                        }
                                         CopyScreen( Log, Screen ) ;
 
                                         // au cas ou le mec meurre avant de faire <ESC>
@@ -2574,8 +2584,18 @@ load_game:                                      firstloop = FALSE ;
 
                                                 RestoreTimer() ;
                                                 SaveTimer() ;
-                                                AffScene( AFF_ALL_NO_FLIP ) ;
-                                                FixeCinemaMode( FALSE ) ;
+                                                {
+                                                        S32     savedflagpal = FlagPal ;
+                                                        S32     savedflagloadgame = FlagLoadGame ;
+
+                                                        FlagPal = FALSE ;
+                                                        FlagLoadGame = FALSE ;
+                                                        AffScene( AFF_ALL_NO_FLIP ) ;
+                                                        FixeCinemaMode( FALSE ) ;
+                                                        if( savedflagpal OR savedflagloadgame )	Palette( PtrPal ) ;
+                                                        FlagPal = savedflagpal ;
+                                                        FlagLoadGame = savedflagloadgame ;
+                                                }
                                                 CopyScreen( Log, Screen ) ;
 
                                                 // au cas ou le mec meurre avant de faire <ESC>
@@ -2657,8 +2677,18 @@ load_game:                                      firstloop = FALSE ;
 
                                                 RestoreTimer() ;
                                                 SaveTimer() ;
-                                                AffScene( AFF_ALL_NO_FLIP ) ;
-                                                FixeCinemaMode( FALSE ) ;
+                                                {
+                                                        S32     savedflagpal = FlagPal ;
+                                                        S32     savedflagloadgame = FlagLoadGame ;
+
+                                                        FlagPal = FALSE ;
+                                                        FlagLoadGame = FALSE ;
+                                                        AffScene( AFF_ALL_NO_FLIP ) ;
+                                                        FixeCinemaMode( FALSE ) ;
+                                                        if( savedflagpal OR savedflagloadgame )	Palette( PtrPal ) ;
+                                                        FlagPal = savedflagpal ;
+                                                        FlagLoadGame = savedflagloadgame ;
+                                                }
                                                 CopyScreen( Log, Screen ) ;
 
                                                 // au cas ou le mec meurre avant de faire <ESC>
