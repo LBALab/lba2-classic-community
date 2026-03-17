@@ -164,7 +164,6 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
 
 void SetVideoPaletteSync(const U8 src[]) {
   SetVideoPalette(src, 0, PAL_MAX_COLORS);
-  PresentFrame();
 }
 
 void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
