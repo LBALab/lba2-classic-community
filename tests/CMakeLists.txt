@@ -5,6 +5,16 @@ enable_testing()
 include(cmake/asm_test_helpers.cmake)
 
 add_asm_cpp_test(
+	NAME test_fire
+	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_fire.cpp
+	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/FIRE.ASM
+	RENAME_SYMS Do_Fire
+	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES
+)
+target_sources(test_fire PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/FIRE.CPP)
+target_sources(test_fire PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/UTILS.CPP)
+
+add_asm_cpp_test(
 	NAME test_compress
 	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_compress.cpp
 	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/COMPRESS.ASM

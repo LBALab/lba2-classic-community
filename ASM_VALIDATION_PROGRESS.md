@@ -36,7 +36,10 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
-## SOURCES/ - Compression Helpers (1 pair)
+## SOURCES/ - Core Source Helpers (2 pairs)
+
+- [x] `FIRE.ASM` -> `FIRE.CPP`
+   - Added `tests/test_fire.cpp` covering `Do_Fire` with zero, all-`0xFF`, checkerboard, sequential, and 40-round deterministic random inputs, comparing both 32x36 work buffers, the 32x256 texture output, and the unchanged color table byte-for-byte after two consecutive calls from the same initial seed/state.
 
 - [x] `COMPRESS.ASM` -> active CPP port lives in `LZSS.CPP` (`COMPRESS.CPP` is a commented legacy stub)
    - Added `tests/test_compress.cpp` covering `AddString` and `DeleteString` with fixed tree-shape cases plus deterministic random stress, comparing return values and full tree/window/global state.
