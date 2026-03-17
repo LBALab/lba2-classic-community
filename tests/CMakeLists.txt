@@ -15,6 +15,15 @@ add_asm_cpp_test(
 target_sources(test_grille PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/GRILLE.CPP)
 
 add_asm_cpp_test(
+	NAME test_plasma
+	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_plasma.cpp
+	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/PLASMA.ASM
+	RENAME_SYMS Do_Plasma Nb_Pts_Inter Nb_Pts_Control
+	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES
+)
+target_sources(test_plasma PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/PLASMA.CPP)
+
+add_asm_cpp_test(
 	NAME test_func
 	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_func.cpp
 	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/FUNC.ASM

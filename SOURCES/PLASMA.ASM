@@ -27,6 +27,8 @@ Struc_RealPlasma	ENDS
 			.DATA
 
 ;-----------------------------------------------------------------------------
+			PUBLIC	C		Nb_Pts_Inter
+			PUBLIC	C		Nb_Pts_Control
 Nb_Pts_Inter		dd	0
 Nb_Pts_Control		dd	0
 
