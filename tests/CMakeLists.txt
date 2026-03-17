@@ -5,6 +5,15 @@ enable_testing()
 include(cmake/asm_test_helpers.cmake)
 
 add_asm_cpp_test(
+	NAME test_flow_a
+	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_flow_a.cpp
+	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/FLOW_A.ASM
+	RENAME_SYMS BoxFlow ShadeBoxBlk CopyBlockShade
+	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES
+)
+target_sources(test_flow_a PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/FLOW_A.CPP)
+
+add_asm_cpp_test(
 	NAME test_fire
 	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_fire.cpp
 	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/FIRE.ASM
