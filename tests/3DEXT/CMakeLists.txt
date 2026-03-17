@@ -10,3 +10,13 @@ add_asm_cpp_test(NAME test_boxzbuf
 
 target_sources(test_boxzbuf PRIVATE
     ${CMAKE_SOURCE_DIR}/SOURCES/3DEXT/BOXZBUF.CPP)
+
+add_asm_cpp_test(NAME test_linerain
+    TEST_SOURCE test_linerain.cpp
+    ASM_SOURCE ${_3DEXT_ASM_DIR}/LINERAIN.ASM
+    RENAME_SYMS LineRain
+    INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES/3DEXT
+    ASM_INCLUDE_DIRS ${_3DEXT_ASM_INC})
+
+target_sources(test_linerain PRIVATE
+    ${CMAKE_SOURCE_DIR}/SOURCES/3DEXT/LINERAIN.CPP)
