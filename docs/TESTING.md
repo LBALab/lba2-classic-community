@@ -313,17 +313,6 @@ Once the first divergent draw call is known, convert that concrete failure into
 the smallest possible unit regression in `tests/pol_work/` or another relevant
 test directory.
 
-## Notes on Scene Snapshot Replay
-
-The repository still contains scene replay sources such as
-`tests/SNAPSHOT/snapshot_replay.cpp` and `tests/SNAPSHOT/replay_snapshot_main.cpp`.
-Those are useful as supporting infrastructure, but the currently registered and
-actively used automated replay fixtures in this repository are the polygon
-recordings in `tests/SNAPSHOT/fixtures/*.lba2polyrec`.
-
-This document therefore focuses on the workflows that are wired into the test
-suite today.
-
 ## Related Files
 
 - `ASM_VALIDATION_PROGRESS.md` tracks which ASM/CPP pairs are already covered.

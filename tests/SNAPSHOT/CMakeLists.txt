@@ -1,17 +1,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # tests/SNAPSHOT/CMakeLists.txt
 #
-# Builds two standalone replay programs:
-#   - replay_snapshot_asm  (links ALL LIB386 ASM files → libasm_lib386.a)
-#   - replay_snapshot_cpp  (links existing CPP lib386 libraries)
+# Builds the standalone polyrec replay programs:
+#   - replay_polyrec_asm  (ASM polygon rendering path)
+#   - replay_polyrec_cpp  (CPP polygon rendering path)
 #
-# Then registers CTest tests that run compare_snapshots.sh for each
-# .lba2snap fixture file in tests/SNAPSHOT/fixtures/.
+# Then registers one CTest per .lba2polyrec fixture in tests/SNAPSHOT/fixtures/.
 # ─────────────────────────────────────────────────────────────────────────────
 
-message(STATUS "SNAPSHOT: Configuring snapshot replay tests")
-message(STATUS "SNAPSHOT: CMAKE_ASM_MASM_COMPILER = ${CMAKE_ASM_MASM_COMPILER}")
-message(STATUS "SNAPSHOT: CMAKE_ASM_MASM_FLAGS = ${CMAKE_ASM_MASM_FLAGS}")
+message(STATUS "POLYREC: Configuring replay tests")
+message(STATUS "POLYREC: CMAKE_ASM_MASM_COMPILER = ${CMAKE_ASM_MASM_COMPILER}")
+message(STATUS "POLYREC: CMAKE_ASM_MASM_FLAGS = ${CMAKE_ASM_MASM_FLAGS}")
 
 # ── Collect ALL ASM files from LIB386/ ──────────────────────────────────────
 set(LIB386_DIR "${CMAKE_SOURCE_DIR}/LIB386")
