@@ -36,7 +36,10 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
-## SOURCES/ - Core Source Helpers (4 pairs)
+## SOURCES/ - Core Source Helpers (5 pairs)
+
+- [x] `GRILLE_A.ASM` -> `GRILLE.CPP`
+   - Added `tests/test_grille.cpp` covering `GetAdrBlock`, `Map2Screen`, `DecompColonne`, `WorldCodeBrick`, `GetBlockBrick`, `GetWorldColBrickVisible`, and `WorldColBrickFull` with fixed in-memory cube/block fixtures plus deterministic random stress, comparing return values and touched globals (`XMap`, `YMap`, `ZMap`, `XScreen`, `YScreen`) byte-for-byte/strictly. Fixed CPP world-coordinate conversion to use the ASM's raw shift semantics and matched `WorldColBrickFull`'s upward scan. Note: the `WorldColBrickFull` negative-`y` ASM path is excluded because that proc jumps to a shared `pop ebx` return path without a matching push and crashes before returning.
 
 - [x] `FUNC.ASM` -> `FUNC.CPP`
    - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, plus 40 deterministic random rounds comparing return values and verifying the palette remains unchanged byte-for-byte.
