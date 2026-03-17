@@ -13,9 +13,6 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
-#ifdef ENABLE_SNAPSHOT_TEST_CAPTURE
-#include <SDL3/SDL_keyboard.h>
-#endif
 #include <SYSTEM/STRING.H>
 
 #ifdef DEBUG_TOOLS
@@ -783,7 +780,7 @@ startloop:
                 }
 #endif  // debug tools
 
-#if defined(ENABLE_SNAPSHOT_TEST_CAPTURE) || defined(ENABLE_POLY_RECORDING)
+#ifdef ENABLE_POLY_RECORDING
                 // Scene snapshot / polygon recording capture (Alt+F9)
                 if( Key == K_F9 && (SDL_GetModState() & SDL_KMOD_ALT) )
                 {
