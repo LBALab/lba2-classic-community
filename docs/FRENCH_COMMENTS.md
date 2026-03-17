@@ -214,6 +214,27 @@ Time Commando (1996) was another game by Adeline Software. This credit, nestled 
 
 ---
 
+## Detail Level: Machine de Bof to Machine de Folie
+
+The Options menu's Detail Level slider (graphics quality) is annotated with informal French that maps each tier to 1997-era hardware. The progression reads like a developer ranking their players' PCs:
+
+**`SOURCES/GAMEMENU.CPP:217-237`**
+```
+case 0: // machine bof !!!!!!
+	case 1: // 486 ?
+	case 2: // Pentium de base ?
+	default:// machine de folie !!!!!
+```
+
+> "case 0: crap machine!!!!!!"  
+> "case 1: 486?"  
+> "case 2: base Pentium?"  
+> "default: crazy machine!!!!!"
+
+*Machine bof* is slang for a crummy machine (*bof* = "meh"). *Machine de folie* (crazy machine) is the opposite — a beast of a PC. The question marks on 486 and Pentium suggest the devs weren't 100% sure which CPUs would hit those tiers; the exclamation marks on "bof" and "folie" leave no doubt about the emotional extremes. See [MENU.md](MENU.md) for the menu structure.
+
+---
+
 ## Notable French Variable and Function Names
 
 | Name | File | Translation |
