@@ -128,10 +128,29 @@ docker run --rm \
         cp -a ${CONTAINER_SRC} /tmp/lba2
         cd /tmp/lba2
 
-        echo "--- cmake configure (${PRESET}) ---"
-        cmake -S . -B build \
-            -DLBA2_BUILD_TESTS=ON \
-            --preset ${PRESET}
+        AVAILABLE_PRESETS="$(cmake --list-presets 2>/dev/null || true)"
+        CONFIGURE_PRESET="${PRESET}"
+
+        if ! printf "%s\n" "${AVAILABLE_PRESETS}" | grep -Eq "^[[:space:]]*\"${PRESET}\"([[:space:]]|$)"; then
+            echo "--- preset ${PRESET} not found; falling back to linux with explicit test flags ---"
+            CONFIGURE_PRESET="linux"
+        fi
+
+        echo "--- cmake configure (${CONFIGURE_PRESET}) ---"
+        if [ "${CONFIGURE_PRESET}" = "${PRESET}" ]; then
+            cmake -S . -B build \
+                -DLBA2_BUILD_TESTS=ON \
+                --preset ${CONFIGURE_PRESET}
+        else
+            cmake -S . -B build \
+                --preset ${CONFIGURE_PRESET} \
+                -DLBA2_BUILD_TESTS=ON \
+                -DENABLE_ASM=ON \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_C_FLAGS=-m32 \
+                -DCMAKE_CXX_FLAGS=-m32 \
+                -DSDL3_DIR=/usr/local/sdl3-32/lib/cmake/SDL3
+        fi
 
         echo "--- cmake build ---"
         cmake --build build -j$(nproc)
