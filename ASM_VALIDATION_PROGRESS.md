@@ -36,7 +36,12 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
-## 3DEXT/ — Scene Extension Helpers (2 pairs)
+## SOURCES/ - Compression Helpers (1 pair)
+
+- [x] `COMPRESS.ASM` -> active CPP port lives in `LZSS.CPP` (`COMPRESS.CPP` is a commented legacy stub)
+   - Added `tests/test_compress.cpp` covering `AddString` and `DeleteString` with fixed tree-shape cases plus deterministic random stress, comparing return values and full tree/window/global state.
+
+## 3DEXT/ - Scene Extension Helpers (2 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|

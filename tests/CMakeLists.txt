@@ -4,6 +4,15 @@ enable_testing()
 
 include(cmake/asm_test_helpers.cmake)
 
+add_asm_cpp_test(
+	NAME test_compress
+	TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/test_compress.cpp
+	ASM_SOURCE ${CMAKE_SOURCE_DIR}/SOURCES/COMPRESS.ASM
+	RENAME_SYMS AddString DeleteString
+	INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/SOURCES
+)
+target_sources(test_compress PRIVATE ${CMAKE_SOURCE_DIR}/SOURCES/LZSS.CPP)
+
 add_subdirectory(3D)
 add_subdirectory(3DEXT)
 add_subdirectory(SYSTEM)
