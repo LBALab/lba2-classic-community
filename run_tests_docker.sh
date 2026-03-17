@@ -67,7 +67,7 @@ if [ "$FORCE_REBUILD" = true ] || [ -z "$IMAGE_EXISTS" ]; then
     echo "    Build log: ${DOCKER_BUILD_LOG}"
     if ! docker build --platform linux/amd64 \
             -t "${IMAGE_NAME}" \
-            -f "${SCRIPT_DIR}/Dockerfile.test" \
+            -f "${SCRIPT_DIR}/docker/Dockerfile.test" \
             "${SCRIPT_DIR}" \
             2>&1 | tee "${DOCKER_BUILD_LOG}"; then
         echo "==> Docker build FAILED. See log: ${DOCKER_BUILD_LOG}"

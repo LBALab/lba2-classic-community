@@ -169,7 +169,7 @@ Accepted parameters:
 
 | Parameter | Argument | Meaning | Notes |
 |---|---|---|---|
-| `--build-only` | none | Build the Docker image and exit without running tests | Useful after Dockerfile changes or for warming the cache |
+| `--build-only` | none | Build the Docker image and exit without running tests | Useful after `docker/Dockerfile.test` changes or for warming the cache |
 | `--rebuild` | none | Force a Docker image rebuild even if `lba2-test` already exists | Still proceeds to the selected run mode unless combined with `--build-only` |
 | `--render` | none | Build the replay executables and render `.lba2polyrec` recordings instead of running CTest | Copies generated `.raw` and `.ppm` files back into `tests/SNAPSHOT/fixtures/` |
 | `--bisect` | none | Build the replay executables and binary-search for the first divergent polygon draw call | Stops on the first recording that shows a mismatch |
@@ -206,6 +206,9 @@ Examples:
 During `--render`, generated `.raw` and `.ppm` files are copied back into
 `tests/SNAPSHOT/fixtures/`. If ImageMagick is available in the environment used
 by `render_polyrec.sh`, PNGs and a visual diff image are produced as well.
+
+The Docker image definition used by the script lives at
+`docker/Dockerfile.test`.
 
 ## Writing or Updating Unit Tests
 

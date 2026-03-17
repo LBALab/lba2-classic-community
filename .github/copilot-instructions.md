@@ -161,11 +161,11 @@ Logs are saved to `build_logs/` automatically (gitignored).
 
 ### Docker image maintenance
 
-When modifying `Dockerfile.test`, **always save the build log to a file** so
+When modifying `docker/Dockerfile.test`, **always save the build log to a file** so
 failures can be diagnosed without rebuilding:
 
 ```bash
-docker build --platform linux/amd64 -t lba2-test -f Dockerfile.test . \
+docker build --platform linux/amd64 -t lba2-test -f docker/Dockerfile.test . \
     2>&1 | tee build_logs/docker_build_$(date +%Y%m%d_%H%M%S).log
 ```
 
