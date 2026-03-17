@@ -36,7 +36,10 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
-## SOURCES/ - Core Source Helpers (3 pairs)
+## SOURCES/ - Core Source Helpers (4 pairs)
+
+- [x] `FUNC.ASM` -> `FUNC.CPP`
+   - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, plus 40 deterministic random rounds comparing return values and verifying the palette remains unchanged byte-for-byte.
 
 - [x] `FLOW_A.ASM` -> `FLOW_A.CPP`
    - Added `tests/test_flow_a.cpp` covering `BoxFlow`, `ShadeBoxBlk`, and `CopyBlockShade` with fixed clipped/unclipped cases plus deterministic random stress, comparing the full destination buffers byte-for-byte.
