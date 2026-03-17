@@ -1,3 +1,3 @@
-# Snapshot fixture files (.lba2snap) go here.
-# Capture them during gameplay by pressing PrintScreen (in DEBUG_TOOLS builds).
+# Polyrec fixture files (.lba2polyrec) go here.
+# Capture them during gameplay by pressing Alt+F9 (with POLYREC enabled).
 # Each file captures the complete rendering state of one frame.
