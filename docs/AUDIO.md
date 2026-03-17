@@ -270,6 +270,8 @@ These changes were made in engine code because they fix latent bugs exposed by t
 
 ### `SOURCES/GAMEMENU.CPP`
 
+Volume options are persisted in lba2.cfg; see [CONFIG.md](CONFIG.md).
+
 | Change | Original behaviour | Problem with SDL backend | Fix |
 |--------|--------------------|--------------------------|-----|
 | **`new_game:` added `HQ_ResumeSamples()`** | The `new_game:` path ran `Introduction()` then entered `MainLoop()` without unpausing samples. | The SDL backend reference-counts `samplesPaused`. The menu calls `HQ_PauseSamples()` before showing. `PlayAcf` (inside `Introduction`) pairs its own pause/resume, but the menu's pause is never reversed, leaving `samplesPaused == 1` when `MainLoop()` starts — the mix callback returns early and all SFX are silent. The `load_game:` path already had the matching `HQ_ResumeSamples()`. | Added `HQ_ResumeSamples()` after `HQ_StopSample()`, matching `load_game:`. |
