@@ -7,18 +7,36 @@
 
 S32 IncZ = 0;
 
-// Verified?
+// ZBufBoxOverWrite2: Copies terrain pixels from Screen onto Log wherever the
+// terrain Z-buffer is closer than the object's interpolated Z depth.
+// Called by DrawRecover() after an object is rendered to Log, to re-apply
+// terrain occlusion (fences, buildings, etc.) over the object.
+//
+// Parameters:
+//   z0 = camera-space depth at the object's feet (world Y = yw)
+//   z1 = camera-space depth at the object's head (world Y = yw + ymax)
+//   xmin..ymax = screen bounding box of the object
+//
+// On screen, ymin is the TOP (head) and ymax is the BOTTOM (feet).
+// The ASM starts the Z interpolation from z1 (head, at screen top) and
+// increments toward z0 (feet, at screen bottom), so:
+//   deltaZBuf = scaledZ0 - scaledZ1  (feet - head)
+//   IncZ      = deltaZBuf / deltaY
+//   starting scaledZ = scaledZ1 (head)
 S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
 		S32 xmin, S32 ymin,
 		S32 xmax, S32 ymax
 ) {
   S32 deltaY = ymax - ymin + 1; // eax
   S32 deltaX = xmax - xmin + 1; // ebx
-  S32 scaledZ0 = Fill_ZBuffer_Factor * z0; // esi
-  S32 scaledZ1 = Fill_ZBuffer_Factor * z1; // edi
-  S32 deltaZBuf = scaledZ1 - scaledZ0;
-  S64 zBufDividend = (((S64)deltaZBuf >> 31) << 32) | (S64)deltaZBuf;
-  IncZ = zBufDividend / deltaY;
+  // ASM: ESI = z1 * Factor (head), EDI = z0 * Factor (feet)
+  S32 scaledZ0 = Fill_ZBuffer_Factor * z0; // feet_scaled (EDI in ASM)
+  S32 scaledZ1 = Fill_ZBuffer_Factor * z1; // head_scaled (ESI in ASM)
+  // ASM: sub edi, esi → deltaZBuf = feet - head
+  S32 deltaZBuf = scaledZ0 - scaledZ1;
+  IncZ = (S32)((S64)deltaZBuf / deltaY);
+  // ASM loop starts with ESI (head_scaled), interpolating toward feet
+  S32 scaledZ = scaledZ1;
   U32 startOffset = TabOffLine[ymin] + xmin + deltaX; // edx
   U8 *dstLog = (U8 *)Log + startOffset; // ebp
   U16 *dstZBuf = PtrZBuffer + startOffset; // edi
@@ -28,7 +46,8 @@ S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
 
   do
   {
-    U32 z0Int = scaledZ0 >> 16; // esi
+    // ASM uses shr (logical/unsigned shift), not sar (arithmetic/signed shift)
+    U32 z0Int = (U32)scaledZ >> 16; // esi
 
     while (1)
     {
@@ -73,7 +92,7 @@ S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
     dstScreen += ScreenPitch;
     dstLog += ScreenPitch;
     dstZBuf += ScreenPitch;
-    scaledZ0 += IncZ;
+    scaledZ += IncZ;
     deltaY--;
   }
   while (deltaY != 0);
