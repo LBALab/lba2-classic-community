@@ -22,6 +22,57 @@ const char *windowTitle = NULL;
 SDL_Window *sdlWindow = NULL;
 SDL_Renderer *sdlRenderer = NULL;
 SDL_Texture *sdlTexture = NULL;
+U32 windowSurfaceResX = 0;
+U32 windowSurfaceResY = 0;
+
+static void ComputePresentationRect(SDL_FRect *dstRect) {
+  assert(dstRect != NULL);
+
+  dstRect->x = 0.0f;
+  dstRect->y = 0.0f;
+  dstRect->w = (float)windowSurfaceResX;
+  dstRect->h = (float)windowSurfaceResY;
+
+  if ((sdlWindow == NULL) || (windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
+    return;
+  }
+
+  int outputW = (int)windowSurfaceResX;
+  int outputH = (int)windowSurfaceResY;
+  SDL_GetWindowSize(sdlWindow, &outputW, &outputH);
+  if ((outputW <= 0) || (outputH <= 0)) {
+    return;
+  }
+
+  const double surfaceAspect = (double)windowSurfaceResX / (double)windowSurfaceResY;
+  const double outputAspect = (double)outputW / (double)outputH;
+
+  if (outputAspect > surfaceAspect) {
+    dstRect->h = (float)outputH;
+    dstRect->w = (float)(dstRect->h * surfaceAspect);
+    dstRect->x = ((float)outputW - dstRect->w) * 0.5f;
+    dstRect->y = 0.0f;
+  } else {
+    dstRect->w = (float)outputW;
+    dstRect->h = (float)(dstRect->w / surfaceAspect);
+    dstRect->x = 0.0f;
+    dstRect->y = ((float)outputH - dstRect->h) * 0.5f;
+  }
+}
+
+static void PresentCurrentTexture() {
+  assert(sdlRenderer != NULL);
+  assert(sdlTexture != NULL);
+
+  SDL_FRect dstRect;
+
+  ComputePresentationRect(&dstRect);
+
+  SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
+  SDL_RenderClear(sdlRenderer);
+  SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, &dstRect);
+  SDL_RenderPresent(sdlRenderer);
+}
 
 // --- Initialization ----------------------------------------------------------
 bool InitWindow(const char *title) {
@@ -108,6 +159,8 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
   }
 
   SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
+  windowSurfaceResX = resX;
+  windowSurfaceResY = resY;
 
   return true;
 }
@@ -125,6 +178,9 @@ void DestroyWindowSurface() {
     SDL_DestroyWindow(sdlWindow);
     sdlWindow = NULL;
   }
+
+  windowSurfaceResX = 0;
+  windowSurfaceResY = 0;
 }
 
 void PresentRendererFrame(const void *pixels, U32 pitch) {
@@ -133,11 +189,55 @@ void PresentRendererFrame(const void *pixels, U32 pitch) {
   assert(pixels != NULL);
 
   SDL_UpdateTexture(sdlTexture, NULL, pixels, (int)pitch);
+  PresentCurrentTexture();
+}
 
-  SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
-  SDL_RenderClear(sdlRenderer);
-  SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, NULL);
-  SDL_RenderPresent(sdlRenderer);
+void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
+  assert(surfaceX != NULL);
+  assert(surfaceY != NULL);
+
+  if ((windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
+    *surfaceX = windowX;
+    *surfaceY = windowY;
+    return;
+  }
+
+  SDL_FRect dstRect;
+  float relX;
+  float relY;
+
+  ComputePresentationRect(&dstRect);
+
+  if ((dstRect.w <= 0.0f) || (dstRect.h <= 0.0f)) {
+    *surfaceX = windowX;
+    *surfaceY = windowY;
+    return;
+  }
+
+  relX = (float)windowX - dstRect.x;
+  relY = (float)windowY - dstRect.y;
+
+  if (relX < 0.0f) {
+    relX = 0.0f;
+  } else if (relX > (dstRect.w - 1.0f)) {
+    relX = dstRect.w - 1.0f;
+  }
+
+  if (relY < 0.0f) {
+    relY = 0.0f;
+  } else if (relY > (dstRect.h - 1.0f)) {
+    relY = dstRect.h - 1.0f;
+  }
+
+  *surfaceX = (S32)(relX * ((float)windowSurfaceResX / dstRect.w));
+  *surfaceY = (S32)(relY * ((float)windowSurfaceResY / dstRect.h));
+
+  if (*surfaceX >= (S32)windowSurfaceResX) {
+    *surfaceX = (S32)windowSurfaceResX - 1;
+  }
+  if (*surfaceY >= (S32)windowSurfaceResY) {
+    *surfaceY = (S32)windowSurfaceResY - 1;
+  }
 }
 
 void ManageWindow() {
@@ -159,6 +259,11 @@ void HandleEventsWindow(const void *event) {
       break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
       AppActive = false;
+      break;
+    case SDL_EVENT_WINDOW_RESIZED:
+      if ((sdlRenderer != NULL) && (sdlTexture != NULL)) {
+        PresentCurrentTexture();
+      }
       break;
     case SDL_EVENT_QUIT:
       exit(0); // TODO: Implement graceful exit

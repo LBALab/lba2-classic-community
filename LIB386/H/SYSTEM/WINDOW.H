@@ -19,6 +19,7 @@ bool IsWindowInitialized();
 bool CreateWindowSurface(U32 resX, U32 resY);
 void DestroyWindowSurface();
 void PresentRendererFrame(const void *pixels, U32 pitch);
+void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY);
 
 void ManageWindow();
 void HandleEventsWindow(const void *event);
