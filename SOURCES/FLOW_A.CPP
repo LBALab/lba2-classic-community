@@ -75,7 +75,7 @@ void	CopyBlockShade( S32 x0, S32 y0, S32 x1, S32 y1, U8 *src,
   S32 deltaX = x1 - x0;
   if (deltaX < 0) return;
   deltaX++;
-  if (deltaX > 768) return;
+  if (deltaX > 640) return;
   
   S32 deltaY = y1 - y0;
   if (deltaY < 0) return;
@@ -85,22 +85,23 @@ void	CopyBlockShade( S32 x0, S32 y0, S32 x1, S32 y1, U8 *src,
   S32 scanLine = TabOffLine[1];
   S32 deltaScreen = scanLine - deltaX;
   U8 shadeAmount = (U8)(shade & 0xFF);
+  S32 nbLines = deltaY + 1;
   
-  for (S32 y = 0; y < deltaY; y++)
+  for (S32 y = 0; y < nbLines; y++)
   {
     for (S32 x = 0; x < deltaX; x++)
     {
       U8 srcPixel = *srcPtr;
-      U8 lowNibble = srcPixel & 0x0F;
-      S32 shadedValue = lowNibble - shadeAmount;
+      U8 highNibble = srcPixel & 0xF0;
+      S32 shadedValue = (srcPixel & 0x0F) - shadeAmount;
       
       if (shadedValue >= 0)
       {
-        *dstPtr = (srcPixel & 0xF0) | (shadedValue & 0x0F);
+        *dstPtr = (U8)(highNibble | (shadedValue & 0x0F));
       }
       else
       {
-        *dstPtr = srcPixel;
+        *dstPtr = highNibble;
       }
       
       srcPtr++;
