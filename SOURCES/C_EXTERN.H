@@ -325,7 +325,7 @@ extern  S32    		StartZCube ;
 extern	T_INV_OBJ	TabInv[]     ;
 extern	T_DART		ListDart[] ;
 extern  S32    		NbObjets ;
-#if defined(ENABLE_SNAPSHOT_TEST_CAPTURE) || defined(ENABLE_POLY_RECORDING)
+#ifdef ENABLE_POLY_RECORDING
 extern  S32    		SnapshotRequested ;
 #endif
 extern  T_OBJET 	ListObjet[] ;
