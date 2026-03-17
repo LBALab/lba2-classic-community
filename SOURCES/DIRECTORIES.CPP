@@ -20,6 +20,7 @@ extern "C" {
 // -----------------------------------------------------------------------------
 #define DIR_NAME_SAVE "save"ADELINE_PATH_SEP
 #define DIR_NAME_SHOOT "shoot"ADELINE_PATH_SEP
+#define DIR_NAME_BUGS "bugs"ADELINE_PATH_SEP
 #define DIR_NAME_JINGLE "music"ADELINE_PATH_SEP
 #define DIR_NAME_MOVIE "video"ADELINE_PATH_SEP
 #define DIR_NAME_VOICE_HD "vox"ADELINE_PATH_SEP
@@ -268,6 +269,24 @@ void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename) {
   }
 
   DiscoverEndingAndAppend(outPath, pathMaxSize, shootPath, shootFilename);
+}
+
+void GetBugPath(char *outPath, U16 pathMaxSize, const char *bugFilename) {
+  assert(directoriesInitialized);
+  assert((outPath != NULL) && (pathMaxSize > 0));
+
+  static bool initialized = false;
+  static char bugPath[ADELINE_MAX_PATH] = "";
+  if (!initialized) {
+    char saveDir[ADELINE_MAX_PATH] = "";
+    GetSavePath(saveDir, ADELINE_MAX_PATH, "");
+
+    DiscoverEndingAndAppend(bugPath, ADELINE_MAX_PATH, saveDir,
+                            DIR_NAME_BUGS);
+    initialized = true;
+  }
+
+  DiscoverEndingAndAppend(outPath, pathMaxSize, bugPath, bugFilename);
 }
 
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename) {

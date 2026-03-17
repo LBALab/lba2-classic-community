@@ -3,6 +3,12 @@
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#ifdef CONSOLE_MODULE
+#include "CONSOLE/CONSOLE.H"
+#include <SYSTEM/EVENTS.H>
+#include <SVGA/VIDEO.H>
+#include <FILEIO/SAVEPNG.H>
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -12,8 +18,13 @@
 #endif
 #include <SYSTEM/STRING.H>
 
+#ifdef DEBUG_TOOLS
+static inline U32 DosAvailableMem(void) { return 0; }
+#endif
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -680,6 +691,11 @@ startloop:
 
                                 RestoreTimer() ;
                         }
+                        else
+                        {
+                                LogPrintf("F10 benchmark only works in exterior scenes\n");
+                        }
+                        while( MyKey )  MyGetInput() ;
                 }
 
                 if( MyKey == K_F11 )
@@ -709,6 +725,11 @@ startloop:
 
                                 RestoreTimer() ;
                         }
+                        else
+                        {
+                                LogPrintf("F11 benchmark only works in exterior scenes\n");
+                        }
+                        while( MyKey )  MyGetInput() ;
                 }
 
                 if( MyKey == K_V )
@@ -772,6 +793,18 @@ startloop:
 #endif
 
                 CheckSavePcx() ;// F9: Sauve Screen
+
+#ifdef CONSOLE_MODULE
+                /* Console screenshot (PNG): requested without overlay; perform here where we have Screen + PtrPal. */
+                {
+                        char shotPath[ADELINE_MAX_PATH];
+                        int is_png = 0;
+                        if (Console_HasPendingScreenshot(shotPath, sizeof(shotPath), &is_png) && is_png) {
+                                SavePNG(shotPath, Screen, ModeDesiredX, ModeDesiredY, PtrPal);
+                                Console_ClearPendingScreenshot();
+                        }
+                }
+#endif
 
 /*-------------------------------------------------------------------------*/
 /* gestion clavier */   /* game */
@@ -1015,7 +1048,6 @@ startloop:
                         InitDial( 0 ) ;
 
                         SaveTimer() ;
-                        strcpy( PathSave, PATH_SAVE_BUGS ) ;
                         MemoClipWindow() ;
                         UnsetClipWindow() ;
                         StopSpeak() ;
@@ -1035,7 +1067,6 @@ startloop:
                         RestoreClipWindow() ;
                         HQ_ResumeSamples() ;
                         PaletteSync( PtrPal ) ;
-                        strcpy( PathSave, PATH_SAVE ) ;
                         RestoreTimer() ;
 
                         while( MyKey OR Input ) MyGetInput() ;
@@ -1964,7 +1995,7 @@ void    TheEnd( S32 num, const char *error )
 
 /*══════════════════════════════════════════════════════════════════════════*/
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
-void    DebugHQR( char *titre, T_HQR_HEADER *hqr )
+void    DebugHQR( const char *titre, T_HQR_HEADER *hqr )
 {
         LogPrintf( titre ) ;
 
@@ -2002,6 +2033,7 @@ void    TheEndInfo()
         StopMusic() ;
 
         LogPrintf( Version ) ;  // dans version.cpp
+        LogPrintf( "%s\n", BuildInfo ? BuildInfo : "(no build info)" ) ;
 
 #if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)
         LogPrintf( "* Start Extended Memory was %ld\n", MemoMemory ) ;
@@ -2078,7 +2110,7 @@ void    TheEndInfo()
 /*══════════════════════════════════════════════════════════════════════════*/
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
-void    Message( char *mess, S32 flag )
+void    Message( const char *mess, S32 flag )
 {
         S32     x ;
 
@@ -2146,6 +2178,11 @@ int main(int argc, char *argv[])
 
 
 	InitAdeline(argc, argv);
+
+#ifdef CONSOLE_MODULE
+	SetEventFilter(Console_FeedEvent);
+	SetPrePresentCallback(Console_PrePresent);
+#endif
 
 	atexit(TheEndInfo)      ;
 
@@ -2436,13 +2473,33 @@ int main(int argc, char *argv[])
 /*      if( ArgC==2 AND !strcasecmp(ArgV[1],"/NOKEY") )
         {
                 KeyOff = TRUE ;
-                Key = Joy = Fire = Input = 0 ;
         }
-
-//      SlideDemo(ArgC,ArgV) ;
-
 */
-        // TODO: Review this code when implementing command line parameters
+
+#ifdef DEBUG_TOOLS
+        // Command-line cube selection: ./lba2 <cube_number>
+        if( ArgC>1 )
+        {
+                char *p = ArgV[1];
+                S32 isNumber = TRUE;
+                while(*p) { if(!isdigit((unsigned char)*p++)) { isNumber = FALSE; break; } }
+
+                if(isNumber)
+                {
+                        S32 cubeNum = atoi(ArgV[1]);
+                        LogPrintf("\nStarting at cube %d\n", cubeNum);
+
+                        InitGame(1);
+                        NewCube = cubeNum;  // Set AFTER InitGame since it resets NewCube to 0
+                        FlagFade = TRUE;
+                        MainLoop();
+                        TheEnd(PROGRAM_OK, "");
+                        return 0;
+                }
+        }
+#endif
+
+        // Load save game from command line argument
         if( ArgC>1 )
         {
 #ifdef  DEMO

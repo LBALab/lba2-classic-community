@@ -31,15 +31,22 @@ This repository provides CMake presets for common configurations in `CMakePreset
 - **Linux (native build)**:
 
   ```bash
-  cmake --preset linux -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+  cmake --preset linux
   cmake --build --preset linux
   ```
 
 - **macOS (native build)**:
 
   ```bash
-  cmake --preset macos_arm64   # or macOS_x86_64
+  cmake --preset macos_arm64   # or macos_x86_64
   cmake --build --preset macos_arm64
+  ```
+
+- **Windows (native build with MSYS2)** - See [docs/WINDOWS.md](docs/WINDOWS.md) for detailed instructions:
+
+  ```bash
+  cmake --preset windows_ucrt64    # recommended for Windows 10+
+  cmake --build --preset windows_ucrt64
   ```
 
 - **Cross-compiling Windows from Linux**:
@@ -53,10 +60,23 @@ This repository provides CMake presets for common configurations in `CMakePreset
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `null` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. |
+| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `null` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
 | `MVIDEO_BACKEND` | `null`, `smacker` | `null` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
+| `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
+| `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
 
 When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the SDL-based video/audio glue used by the FMV player. See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
+
+### Debug Tools
+
+To build with the original Adeline developer debug tools enabled:
+
+```bash
+cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker -DDEBUG_TOOLS=ON
+cmake --build build
+```
+
+This enables keyboard shortcuts for debugging (debug overlay, FPS counter, screenshots, collision visualization, benchmarks), cheat codes, bug save/load system, and command-line scene selection. See [docs/DEBUG.md](docs/DEBUG.md) for full documentation.
 
 ### Cross-compiling for Windows (from Linux)
 
@@ -90,6 +110,12 @@ lba2-classic-community/
 │   └── H/                    # Shared headers
 └── docs/                     # Additional documentation
 ```
+
+## Documentation
+
+**Engine reference** (terms, lifecycles, scene index): [GLOSSARY](docs/GLOSSARY.md), [LIFECYCLES](docs/LIFECYCLES.md), [SCENES](docs/SCENES.md).
+
+Build, debug, preservation, and porting docs are in [docs/](docs/README.md).
 
 ## Preservation Notes
 

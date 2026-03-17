@@ -14,5 +14,7 @@ extern S32  LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey ) ;
 /*--------------------------------------------------------------------------*/
 extern void CreateLbaDirectories( void ) ;
 /*--------------------------------------------------------------------------*/
+extern U8 AddDirIfNot(const char *path);
+/*--------------------------------------------------------------------------*/
 
 #endif	// DISKFUNC_H

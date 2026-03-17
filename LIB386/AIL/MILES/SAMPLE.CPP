@@ -1096,4 +1096,8 @@ S32 GetDataSample(U32 sample, S32 index)
     return (AIL_sample_user_data(Sample_Handle[hnum].handle, USER_DATA_USER + index));
 }
 
+void SfxLogEnable(int enable) { (void)enable; }
+int SfxLogIsEnabled(void) { return 0; }
+S32 GetSamplesPausedCount(void) { return 0; }
+
 // ████████████████████████████████████████████████████████████████████████████

@@ -9,6 +9,10 @@
       "hidden": true,
       "name": "default",
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+      },
       "warnings": {
         "deprecated": true
       }
@@ -24,18 +28,37 @@
       "name": "linux",
       "inherits": "default",
       "displayName": "Linux",
-      "description": "Normal compilation on Linux"
+      "description": "Normal compilation on Linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
+      }
     },
     {
       "name": "macos_arm64",
+      "inherits": "default",
       "displayName": "macOS arm64",
-      "description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "description": "Native build on macOS ARM64 (Apple Silicon)",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "/usr/bin/clang",
         "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
+      }
+    },
+    {
+      "name": "macos_x86_64",
+      "inherits": "default",
+      "displayName": "macOS x86_64",
+      "description": "Native build on macOS x86_64 (Intel)",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/usr/bin/clang",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
       }
     },
     {
@@ -43,9 +66,7 @@
       "inherits": "default",
       "displayName": "Windows MinGW32 (32-bit legacy)",
       "description": "32-bit build using MSYS2 MinGW32. For modern 64-bit builds, use windows_ucrt64 instead.",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "C:/msys64/mingw32/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/msys64/mingw32/bin/g++.exe",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -64,10 +85,8 @@
       "inherits": "default",
       "displayName": "Windows UCRT64 (64-bit)",
       "description": "Native 64-bit build using MSYS2 UCRT64 (recommended for Windows 10+)",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
       }
@@ -77,42 +96,34 @@
       "inherits": "default",
       "displayName": "Windows MinGW64 (64-bit)",
       "description": "Native 64-bit build using MSYS2 MinGW64 (for Windows 7/8 compatibility)",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
-      }
-    },
-    {
-      "name": "macOS_x86_64",
-      "displayName": "macOS x86_64",
-      "description": "Using compilers: C = /usr/bin/clang, CXX = /usr/bin/clang++",
-      "binaryDir": "${sourceDir}/out/build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-        "CMAKE_C_COMPILER": "/usr/bin/clang",
-        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
-    },
-    {
-      "name": "linux_test",
-      "inherits": "linux",
-      "displayName": "Linux Tests (ASM + CPP equivalence)",
-      "description": "Build with ASM equivalence tests (requires 32-bit toolchain, uasm, objcopy)",
-      "cacheVariables": {
-        "LBA2_BUILD_TESTS": "ON",
-        "ENABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_FLAGS": "-m32",
-        "CMAKE_CXX_FLAGS": "-m32",
-        "SDL3_DIR": "/usr/local/sdl3-32/lib/cmake/SDL3"
       }
     }
   ],
   "buildPresets": [
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    },
+    {
+      "name": "cross_linux2win",
+      "configurePreset": "cross_linux2win"
+    },
+    {
+      "name": "macos_arm64",
+      "configurePreset": "macos_arm64"
+    },
+    {
+      "name": "macos_x86_64",
+      "configurePreset": "macos_x86_64"
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows"
+    },
     {
       "name": "windows_ucrt64",
       "configurePreset": "windows_ucrt64"
