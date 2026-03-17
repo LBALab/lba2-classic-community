@@ -1176,11 +1176,26 @@ void	RedrawGRMs( void )
 
 #include <stdio.h>
 
+static S32 logical_shift_right_s32(S32 value, U32 bits)
+{
+	return (S32)(((U32)value) >> bits);
+}
+
+static S32 arithmetic_shift_right_8(S32 value)
+{
+	if (value >= 0)
+	{
+		return value >> 8;
+	}
+
+	return (S32)(-(((-(long long)value) + 255LL) >> 8));
+}
+
 U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
 {
-	XMap = xw / SIZE_BRICK_XZ;
-	YMap = yw / SIZE_BRICK_Y;
-	ZMap = zw / SIZE_BRICK_XZ;
+	XMap = logical_shift_right_s32(xw, 9);
+	YMap = logical_shift_right_s32(yw, 8);
+	ZMap = logical_shift_right_s32(zw, 9);
 
 	if (XMap < 0 || XMap >= 64)
 	{
@@ -1226,16 +1241,15 @@ U8	WorldColBrick( S32 xw, S32 yw, S32 zw )
 //-------------------------------------------------------------------
 U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 {
-	XMap = xw / SIZE_BRICK_XZ;
-	YMap = yw / SIZE_BRICK_Y;
-	ZMap = zw / SIZE_BRICK_XZ;
+	XMap = logical_shift_right_s32(xw, 9);
+	YMap = arithmetic_shift_right_8(yw);
+	ZMap = logical_shift_right_s32(zw, 9);
 
 	if (XMap < 0 || XMap >= SIZE_CUBE_X)
 		return 0;
 
-	if (YMap < 0)
+	if (YMap <= -1)
 	{
-		YMap = 0;
 		return 1;
 	}
 
@@ -1254,14 +1268,16 @@ U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 		col = BufCube[colIdx + 1];
 
 		// check full height
-		U32 something = (ymax + 255) / SIZE_BRICK_Y;
+		U32 something = ((U32)(ymax + 255)) >> 8;
+		S32 scanY = YMap;
 		do {
-			if (YMap >= SIZE_CUBE_Y - 1)
+			if (scanY >= SIZE_CUBE_Y - 1)
 			{
 				return col;
 			}
 
 			colIdx += 2;
+			++scanY;
 
 			if (BufCube[colIdx] != 0 || BufCube[colIdx + 1] != 0)
 			{
@@ -1273,22 +1289,24 @@ U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 		return col;
 	}
 
-	S32 block = BufCube[colIdx++] - 1;
+	S32 block = BufCube[colIdx] - 1;
 	U8 *adr = GetAdrBlock(block);
 	adr += HEADER_BLOCK;
-	adr += BufCube[colIdx] * 4; // 4 Bytes to Jump
+	adr += BufCube[colIdx + 1] * 4; // 4 Bytes to Jump
 	col = *adr;
 
 	// check full height
-	U32 something = (ymax + 255) / SIZE_BRICK_Y;
+	U32 something = ((U32)(ymax + 255)) >> 8;
+	S32 scanY = YMap;
 	do
 	{
-		if (YMap >= SIZE_CUBE_Y - 1)
+		if (scanY >= SIZE_CUBE_Y - 1)
 		{
 			return col;
 		}
 
 		colIdx += 2;
+		++scanY;
 
 		if (BufCube[colIdx] != 0 || BufCube[colIdx + 1] != 0)
 		{
@@ -1303,22 +1321,23 @@ U8	WorldColBrickFull( S32 xw, S32 yw, S32 zw, S32 ymax )
 //-------------------------------------------------------------------
 U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 {
+	XMap = logical_shift_right_s32(xw, 9);
+
   U8 code = 0;
 
   if (yw > -1) {
     U8 *ptc = BufCube;
 
-    XMap = (xw + DEMI_BRICK_XZ) >> 9;
-    YMap = yw >> 8;
-    ZMap = (zw + DEMI_BRICK_XZ) >> 9;
+	YMap = logical_shift_right_s32(yw, 8);
+	ZMap = logical_shift_right_s32(zw, 9);
 
     ptc += XMap * 50 + YMap * 2 + ZMap * 3200;
 
     U8 col = *ptc;
     if (col) {
       U8 *adr = GetAdrBlock(col - 1);
-      adr += HEADER_BLOCK + 1;
-      code = *adr;
+	  adr += HEADER_BLOCK;
+	  code = *(adr + 1);
     }
   }
   return code;
@@ -1327,9 +1346,9 @@ U8	WorldCodeBrick(    S32 xw, S32 yw, S32 zw )
 //-------------------------------------------------------------------
 U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
 {
-    XMap = xw / SIZE_BRICK_XZ;  // shr eax, 9 (/512)
-    YMap = yw / SIZE_BRICK_Y;   // shr eax, 8 (/256)  
-    ZMap = zw / SIZE_BRICK_XZ;  // shr eax, 9 (/512)
+	XMap = logical_shift_right_s32(xw, 9);
+	YMap = logical_shift_right_s32(yw, 8);
+	ZMap = logical_shift_right_s32(zw, 9);
 
     if (XMap < 0 || XMap >= 64) {
         return 0;  // ovfw
@@ -1357,9 +1376,9 @@ U8	GetBlockBrick(     S32 xw, S32 yw, S32 zw )
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 U8	GetWorldColBrickVisible( S32 x, S32 y, S32 z )
 {
-  XMap = x / SIZE_BRICK_XZ;
-  YMap = y / SIZE_BRICK_Y;
-  ZMap = z / SIZE_BRICK_XZ;
+	XMap = logical_shift_right_s32(x, 9);
+	YMap = logical_shift_right_s32(y, 8);
+	ZMap = logical_shift_right_s32(z, 9);
 
   if (XMap >= 0 && XMap < 64 )
   {
