@@ -136,7 +136,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `OBJECT/AFF_OBJ.ASM` | `OBJECT/AFF_OBJ.CPP` | `ObjectDisplay`, `BodyDisplay`, `TestVisibleI`, `TestVisibleF`, `QuickSort`, `QuickSortInv` | Full 3D object rendering pipeline | Very complex — heavy dependencies |
+| [~] | `OBJECT/AFF_OBJ.ASM` | `OBJECT/AFF_OBJ.CPP` | `ObjectDisplay`, `BodyDisplay`, `TestVisibleI`, `TestVisibleF`, `QuickSort`, `QuickSortInv` | Full 3D object rendering pipeline | Partial ASM ≡ CPP coverage: `tests/OBJECT/test_aff_obj.cpp` now validates `QuickSort` and `QuickSortInv` with deep full-array comparisons including guard words. Fixed CPP recursion to exclude the pivot (`left - 1`, `left + 1`), and exported ASM `QuickSort`/`QuickSortInv` for direct testing. Current coverage is limited to the ASM-valid monotonic input domain (ascending for `QuickSort`, descending for `QuickSortInv`); full object-display coverage still needs a complete 3D fixture. |
 
 ---
 
