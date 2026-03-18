@@ -35,23 +35,26 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt,
 		S32 Xe = (S32)lrintl((long double)x * factor);
 		S32 Ye = (S32)lrintl((long double)y * factor * (long double)FRatioY);
 
-		Xp = XCentre + Xe;
-		Yp = YCentre + Ye;
+		Xp = Xe;
+		Yp = Ye;
 
-		if (Xp > 32767 || Xp < -32767 || Yp > 32767 || Yp < -32767)
+		S32 screenX = XCentre + Xe;
+		S32 screenY = YCentre + Ye;
+
+		if (screenX > 32767 || screenX < -32767 || screenY > 32767 || screenY < -32767)
 		{
 			Dst[i].X = -32768;
 			Dst[i].Y = -32768;
 			continue;
 		}
 
-		if (Xp < ScreenXMin) ScreenXMin = Xp;
-		if (Xp > ScreenXMax) ScreenXMax = Xp;
-		if (Yp < ScreenYMin) ScreenYMin = Yp;
-		if (Yp > ScreenYMax) ScreenYMax = Yp;
+		if (screenX < ScreenXMin) ScreenXMin = screenX;
+		if (screenX > ScreenXMax) ScreenXMax = screenX;
+		if (screenY < ScreenYMin) ScreenYMin = screenY;
+		if (screenY > ScreenYMax) ScreenYMax = screenY;
 
-		Dst[i].X = (S16)Xp;
-		Dst[i].Y = (S16)Yp;
+		Dst[i].X = (S16)screenX;
+		Dst[i].Y = (S16)screenY;
 	}
 }
 
