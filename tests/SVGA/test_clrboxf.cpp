@@ -8,21 +8,33 @@
 
 /* ASM ClearBoxF is C-adapted (PROC with stack params) — callable directly. */
 extern "C" void asm_ClearBoxF(void *dst, U32 *TabOffDst, T_BOX *box);
+extern "C" U64 asm_ClearColor;
 
 /* ASM SetClearColor uses Watcom register convention: parm [eax] */
 extern "C" void asm_SetClearColor(void);
 static void call_asm_SetClearColor(U32 color) {
     __asm__ __volatile__(
-        "pusha\n\t"
-        "movl %0, %%eax\n\t"
         "call asm_SetClearColor\n\t"
-        "popa"
         :
-        : "m"(color)
-        : "memory");
+    : "a"(color)
+    : "memory", "ecx", "edx");
 }
 
+extern U64 ClearColor;
+
 static U8 framebuf[640 * 480];
+static U32 rng_state;
+
+static void rng_seed(U32 seed)
+{
+    rng_state = seed;
+}
+
+static U32 rng_next(void)
+{
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFFu;
+}
 
 static void setup_screen(void)
 {
@@ -34,53 +46,68 @@ static void setup_screen(void)
     ClipXMin = 0; ClipYMin = 0; ClipXMax = 639; ClipYMax = 479;
 }
 
-static void test_set_clear_color(void)
+static void assert_clearbox_case(const char *label, U32 color, const T_BOX *box)
 {
-    SetClearColor(0x42);
-    /* Just verify it doesn't crash; the color is used by ClearBox internally */
-    ASSERT_TRUE(1);
-}
+    static U8 cpp_buf[640 * 480];
+    static U8 asm_buf[640 * 480];
 
-static void test_clear_box_region(void)
-{
     setup_screen();
     memset(framebuf, 0xAA, sizeof(framebuf));
-    SetClearColor(0x00);
-    /* Width (x1-x0) must be multiple of 8 or 16 for ASM loop termination. */
-    T_BOX box = {0, 10, 16, 20, NULL};
-    ClearBox(framebuf, TabOffLine, &box);
-    /* Interior should be cleared to 0 */
-    ASSERT_EQ_UINT(0x00, framebuf[15 * 640 + 8]);
-    /* Outside should remain 0xAA */
-    ASSERT_EQ_UINT(0xAA, framebuf[0]);
-}
-
-static void test_asm_equiv(void)
-{
-    static U8 cpp_buf[640 * 480], asm_buf[640 * 480];
-    setup_screen();
-
-    memset(framebuf, 0xFF, sizeof(framebuf));
-    SetClearColor(0x00);
-    /* Width (x1-x0) must be multiple of 8 or 16 for ASM loop termination. */
-    T_BOX box = {0, 5, 32, 30, NULL};
-    fprintf(stderr, "DBG: cpp ClearBox\n"); fflush(stderr);
-    ClearBox(framebuf, TabOffLine, &box);
+    SetClearColor(color);
+    ClearBox(framebuf, TabOffLine, (T_BOX *)box);
     memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
 
-    memset(framebuf, 0xFF, sizeof(framebuf));
-    call_asm_SetClearColor(0x00);
-    asm_ClearBoxF(framebuf, TabOffLine, &box);
+    setup_screen();
+    memset(framebuf, 0xAA, sizeof(framebuf));
+    call_asm_SetClearColor(color);
+    asm_ClearBoxF(framebuf, TabOffLine, (T_BOX *)box);
     memcpy(asm_buf, framebuf, sizeof(asm_buf));
 
-    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "ClearBox");
+    ASSERT_ASM_CPP_EQ_INT(asm_ClearColor, ClearColor, label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), label);
+}
+
+static void test_equivalence(void)
+{
+    T_BOX box;
+
+    box.x0 = 0; box.y0 = 10; box.x1 = 16; box.y1 = 20; box.pBoxNext = NULL;
+    assert_clearbox_case("ClearBox fixed width16", 0x00, &box);
+
+    box.x0 = 8; box.y0 = 5; box.x1 = 32; box.y1 = 30; box.pBoxNext = NULL;
+    assert_clearbox_case("ClearBox fixed width24", 0x42, &box);
+
+    box.x0 = 24; box.y0 = 40; box.x1 = 32; box.y1 = 60; box.pBoxNext = NULL;
+    assert_clearbox_case("ClearBox fixed width8", 0x7F, &box);
+}
+
+static void test_random_equivalence(void)
+{
+    rng_seed(0xDEADBEEFu);
+    for (int i = 0; i < 100; ++i) {
+        T_BOX box;
+        S32 width_units = (S32)(rng_next() % 8u) + 1;
+        S32 width = width_units * 8;
+        S32 x0 = (S32)(rng_next() % (640u - (U32)width));
+        S32 y0 = (S32)(rng_next() % 470u);
+        S32 height = (S32)(rng_next() % (480u - (U32)y0)) + 1;
+        char label[64];
+
+        box.x0 = (S16)x0;
+        box.y0 = (S16)y0;
+        box.x1 = (S16)(x0 + width);
+        box.y1 = (S16)(y0 + height);
+        box.pBoxNext = NULL;
+
+        snprintf(label, sizeof(label), "ClearBox rand %d", i);
+        assert_clearbox_case(label, rng_next() & 0xFFu, &box);
+    }
 }
 
 int main(void)
 {
-    RUN_TEST(test_set_clear_color);
-    RUN_TEST(test_clear_box_region);
-    RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_equivalence);
+    RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;
 }
