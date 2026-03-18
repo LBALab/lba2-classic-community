@@ -1,2 +1,6 @@
-target_sources(ail PRIVATE SOUND_NULL_BACKEND.CPP)
+set(AIL_NULL_SOURCES SOUND_NULL_BACKEND.CPP)
+if(MVIDEO_BACKEND STREQUAL "smacker")
+  list(APPEND AIL_NULL_SOURCES VIDEO_AUDIO_NULL.CPP)
+endif()
+target_sources(ail PRIVATE ${AIL_NULL_SOURCES})
 target_compile_definitions(ail PUBLIC USE_SOUND_NULL)
