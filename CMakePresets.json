@@ -22,7 +22,12 @@
       "inherits": "default",
       "displayName": "Cross Linux 2 Windows",
       "description": "Cross compilation from Linux targeting Windows using MinGW-w64",
-      "toolchainFile": "cmake/mingw-w64-i686.cmake"
+      "toolchainFile": "cmake/mingw-w64-i686.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker"
+      }
     },
     {
       "name": "linux",
@@ -70,6 +75,8 @@
         "CMAKE_C_COMPILER": "C:/msys64/mingw32/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/msys64/mingw32/bin/g++.exe",
         "CMAKE_BUILD_TYPE": "Debug",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker",
         "CMAKE_C_FLAGS": {
           "type": "STRING",
           "value": "-m32"
