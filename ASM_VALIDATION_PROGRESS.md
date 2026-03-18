@@ -112,7 +112,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `MENU/SORT.ASM` | `MENU/SORT.CPP` | `MySortCompFunc` | Comparison function for qsort (strcmp-based) | |
+| [x] | `MENU/SORT.ASM` | `MENU/SORT.CPP` | `MySortCompFunc` | Comparison function for qsort (strcmp-based) | Added the missing C++ implementation in `LIB386/MENU/SORT.CPP` and strict ASM-vs-CPP comparison coverage in `tests/MENU/test_sort.cpp` over fixed and deterministic random string pairs. `tests/MENU/CMakeLists.txt` now compiles `SORT.CPP` directly into the test target so the real CPP implementation is exercised. |
 
 ## pol_work/ — Polygon Rendering (14 pairs)
 
