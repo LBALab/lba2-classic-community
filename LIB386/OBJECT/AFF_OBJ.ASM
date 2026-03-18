@@ -39,8 +39,13 @@ PUBLIC	C		BodyDisplay
 PUBLIC	C		BodyDisplay_AlphaBeta
 PUBLIC	C		ObjectDisplay
 PUBLIC	C		ObjPtrMap
+PUBLIC	C		Obj_ListProjectedPoints
 PUBLIC	C		TransFctBody
 PUBLIC	C		Obj_ListRotatedPoints
+PUBLIC	C		CallTestVisibleI
+PUBLIC	C		CallQuickSort
+PUBLIC	C		CallQuickSortInv
+PUBLIC	C		TestVisibleI
 PUBLIC	C		QuickSort
 PUBLIC	C		QuickSortInv
 
@@ -4932,6 +4937,64 @@ TestVisibleF		PROC
 			ret
 TestVisibleF		ENDP
 
+
+
+CallTestVisibleI	PROC	poly_ptr:DWORD
+			push	ebx
+			push	ebp
+			push	esi
+			push	edi
+
+			mov	esi,poly_ptr
+			call	TestVisibleI
+
+			setnc	al
+			movzx	eax,al
+
+			pop	edi
+			pop	esi
+			pop	ebp
+			pop	ebx
+			ret
+CallTestVisibleI	ENDP
+
+
+
+CallQuickSort	PROC	begin_ptr:DWORD, end_ptr:DWORD
+			push	ebx
+			push	ecx
+			push	esi
+			push	edi
+
+			mov	ebx,begin_ptr
+			mov	ecx,end_ptr
+			call	QuickSort
+
+			pop	edi
+			pop	esi
+			pop	ecx
+			pop	ebx
+			ret
+CallQuickSort	ENDP
+
+
+
+CallQuickSortInv	PROC	begin_ptr:DWORD, end_ptr:DWORD
+			push	ebx
+			push	ecx
+			push	esi
+			push	edi
+
+			mov	ebx,begin_ptr
+			mov	ecx,end_ptr
+			call	QuickSortInv
+
+			pop	edi
+			pop	esi
+			pop	ecx
+			pop	ebx
+			ret
+CallQuickSortInv	ENDP
 
 
 
