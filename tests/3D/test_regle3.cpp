@@ -1,35 +1,67 @@
 /* Test: RegleTrois / BoundRegleTrois - ASM vs CPP equivalence */
 #include "test_harness.h"
 #include <3D/REGLE3.H>
-#include <stdlib.h>
 
 extern "C" S32 asm_RegleTrois(S32 v1, S32 v2, S32 steps, S32 step);
 extern "C" S32 asm_BoundRegleTrois(S32 v1, S32 v2, S32 steps, S32 step);
 
+static U32 rng_state;
+
+static void rng_seed(U32 seed)
+{
+    rng_state = seed;
+}
+
+static U32 rng_next(void)
+{
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFFu;
+}
+
+static void assert_regle_case(const char *label, S32 v1, S32 v2, S32 steps, S32 step)
+{
+    ASSERT_ASM_CPP_EQ_INT(asm_RegleTrois(v1, v2, steps, step), RegleTrois(v1, v2, steps, step), label);
+    ASSERT_ASM_CPP_EQ_INT(asm_BoundRegleTrois(v1, v2, steps, step), BoundRegleTrois(v1, v2, steps, step), label);
+}
+
 static void test_equivalence(void)
 {
     struct { S32 v1, v2, steps, step; } cases[] = {
-        {0, 100, 10, 0}, {0, 100, 10, 5}, {0, 100, 10, 10},
-        {-100, 100, 4, 2}, {0, 100, 0, 5}, {0, 100, 1, 1},
-        {-500, 500, 100, 73}, {10, 90, 8, 0}, {10, 90, 8, -5}, {10, 90, 8, 100},
+        {0, 100, 10, 0},
+        {0, 100, 10, 5},
+        {0, 100, 10, 10},
+        {-100, 100, 4, 2},
+        {0, 100, 0, 5},
+        {0, 100, 0, 0},
+        {0, 100, -3, 5},
+        {0, 100, -3, -1},
+        {0, 100, 1, 1},
+        {-500, 500, 100, 73},
+        {10, 90, 8, 0},
+        {10, 90, 8, -5},
+        {10, 90, 8, 100},
+        {2147483000, 2147483600, 7, 3},
+        {-2147483000, -2147482000, 9, 4},
     };
     for (int i = 0; i < (int)(sizeof(cases)/sizeof(cases[0])); i++) {
-        S32 v1=cases[i].v1, v2=cases[i].v2, s=cases[i].steps, st=cases[i].step;
-        ASSERT_ASM_CPP_EQ_INT(asm_RegleTrois(v1,v2,s,st), RegleTrois(v1,v2,s,st), "RegleTrois");
-        ASSERT_ASM_CPP_EQ_INT(asm_BoundRegleTrois(v1,v2,s,st), BoundRegleTrois(v1,v2,s,st), "BoundRegleTrois");
+        char lbl[96];
+        snprintf(lbl, sizeof(lbl), "Regle3 fixed v1=%d v2=%d steps=%d step=%d",
+                 cases[i].v1, cases[i].v2, cases[i].steps, cases[i].step);
+        assert_regle_case(lbl, cases[i].v1, cases[i].v2, cases[i].steps, cases[i].step);
     }
 }
 
 static void test_random_equivalence(void)
 {
-    srand(42);
-    for (int i = 0; i < 10000; i++) {
-        S32 v1 = (S32)rand() - RAND_MAX/2;
-        S32 v2 = (S32)rand() - RAND_MAX/2;
-        S32 steps = (rand() % 100) + 1;
-        S32 step = rand() % (steps + 1);
-        ASSERT_ASM_CPP_EQ_INT(asm_RegleTrois(v1,v2,steps,step), RegleTrois(v1,v2,steps,step), "RegleTrois rand");
-        ASSERT_ASM_CPP_EQ_INT(asm_BoundRegleTrois(v1,v2,steps,step), BoundRegleTrois(v1,v2,steps,step), "BoundRegleTrois rand");
+    rng_seed(0xDEADBEEFu);
+    for (int i = 0; i < 200; i++) {
+        S32 v1 = ((S32)rng_next() << 1) - 0x4000;
+        S32 v2 = ((S32)rng_next() << 1) - 0x4000;
+        S32 steps = (S32)(rng_next() % 257u) - 32;
+        S32 step = (S32)(rng_next() % 513u) - 128;
+        char lbl[96];
+        snprintf(lbl, sizeof(lbl), "Regle3 rand v1=%d v2=%d steps=%d step=%d", v1, v2, steps, step);
+        assert_regle_case(lbl, v1, v2, steps, step);
     }
 }
 
