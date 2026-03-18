@@ -21,3 +21,7 @@ endif()
 if(MVIDEO_BACKEND STREQUAL "smacker")
   add_subdirectory(libsmacker)
 endif()
+
+if(MVIDEO_BACKEND STREQUAL "smacker" OR LBA2_BUILD_TESTS)
+  add_subdirectory(VIDEO_AUDIO_RESAMPLE)
+endif()

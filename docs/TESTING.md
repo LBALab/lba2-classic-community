@@ -35,6 +35,7 @@ Most tests live under `tests/` and are grouped by subsystem:
 - `tests/pol_work`
 - `tests/OBJECT`
 - `tests/fpu_precision`
+- `tests/VIDEO_AUDIO` (CPP-only; ResampleAndAddToMix, GetEffectiveTrackRate)
 - `tests/SNAPSHOT`
 
 These tests are registered through CTest and use the custom harness in
