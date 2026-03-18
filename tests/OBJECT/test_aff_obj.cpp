@@ -43,13 +43,28 @@ enum
 {
     kPolySolid = 0,
     kPolyFlat = 1,
+    kPolyTransparent = 2,
+    kPolyTrame = 3,
     kPolyGouraud = 4,
+    kPolyDither = 5,
+    kPolyGouraudTable = 6,
+    kPolyDitherTable = 7,
     kPolyTextureSolid = 8,
     kPolyTextureFlat = 9,
     kPolyTextureGouraud = 10,
+    kPolyTextureDither = 11,
+    kPolyTextureSolidInc = 12,
+    kPolyTextureFlatInc = 13,
+    kPolyTextureGouraudInc = 14,
+    kPolyTextureDitherInc = 15,
     kPolyTextureZSolid = 16,
     kPolyTextureZFlat = 17,
     kPolyTextureZGouraud = 18,
+    kPolyTextureZDither = 19,
+    kPolyTextureZSolidInc = 20,
+    kPolyTextureZFlatInc = 21,
+    kPolyTextureZGouraudInc = 22,
+    kPolyTextureZDitherInc = 23,
     kPolyEnvTextureSolid = 0x4008,
     kPolyEnvTextureFlat = 0x4009,
     kPolyEnvTextureGouraud = 0x400A,
@@ -1296,6 +1311,13 @@ static void setup_textured_aff_obj_environment(void)
     Switch_Fillers(FILL_POLY_TEXTURES);
 }
 
+static void setup_shaded_aff_obj_environment(void)
+{
+    setup_common_aff_obj_environment();
+    init_test_clut();
+    PtrCLUTGouraud = g_test_clut;
+}
+
 static void seed_cpp_aff_obj_state(void)
 {
     memset(Obj_ListRotatedPoints, 0xA5, sizeof(T_OBJ_POINT) * kObjRotatedPointCount);
@@ -1585,6 +1607,27 @@ static void run_objectdisplay_render_case(const char *label, S32 x, S32 y, S32 z
                                      expect_pixels);
 }
 
+static void run_objectdisplay_plain_poly_case(const char *label, U16 poly_type)
+{
+    TEST_BODY_FIXTURE fixture;
+
+    build_test_body_fixture(&fixture);
+    fixture.PolyHeader.TypePoly = poly_type;
+    run_objectdisplay_render_case_ex(label, &fixture, 1, NULL, NULL,
+                                     setup_common_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void run_objectdisplay_textured_poly_case(const char *label, U16 poly_type)
+{
+    TEST_TEXTURED_BODY_FIXTURE fixture;
+
+    build_textured_test_body_fixture(&fixture, poly_type);
+    run_objectdisplay_render_case_ex(label, &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_bodydisplay_visible_render(void)
 {
     ASSERT_EQ_INT(96, (int)sizeof(T_BODY_HEADER));
@@ -1609,6 +1652,49 @@ static void test_objectdisplay_visible_render(void)
 {
     run_objectdisplay_render_case("ObjectDisplay visible render", 0, 0, 0,
                                   64, 96, 32, 1, 1);
+}
+
+static void test_objectdisplay_transparent_render(void)
+{
+    run_objectdisplay_plain_poly_case("ObjectDisplay transparent render", kPolyTransparent);
+}
+
+static void test_objectdisplay_trame_render(void)
+{
+    run_objectdisplay_plain_poly_case("ObjectDisplay trame render", kPolyTrame);
+}
+
+static void test_objectdisplay_dither_render(void)
+{
+    TEST_BODY_FIXTURE fixture;
+
+    build_test_body_fixture(&fixture);
+    fixture.PolyHeader.TypePoly = kPolyDither;
+    run_objectdisplay_render_case_ex("ObjectDisplay dither render", &fixture, 1, NULL, NULL,
+                                     setup_shaded_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_gouraud_table_render(void)
+{
+    TEST_BODY_FIXTURE fixture;
+
+    build_test_body_fixture(&fixture);
+    fixture.PolyHeader.TypePoly = kPolyGouraudTable;
+    run_objectdisplay_render_case_ex("ObjectDisplay gouraud table render", &fixture, 1, NULL, NULL,
+                                     setup_shaded_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_dither_table_render(void)
+{
+    TEST_BODY_FIXTURE fixture;
+
+    build_test_body_fixture(&fixture);
+    fixture.PolyHeader.TypePoly = kPolyDitherTable;
+    run_objectdisplay_render_case_ex("ObjectDisplay dither table render", &fixture, 1, NULL, NULL,
+                                     setup_shaded_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
 static void test_objectdisplay_hidden_render(void)
@@ -1723,6 +1809,56 @@ static void test_objectdisplay_textured_gouraud_render(void)
                                      &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_dither_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured dither render", kPolyTextureDither);
+}
+
+static void test_objectdisplay_textured_solid_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured solid inc render", kPolyTextureSolidInc);
+}
+
+static void test_objectdisplay_textured_flat_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured flat inc render", kPolyTextureFlatInc);
+}
+
+static void test_objectdisplay_textured_gouraud_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured gouraud inc render", kPolyTextureGouraudInc);
+}
+
+static void test_objectdisplay_textured_dither_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured dither inc render", kPolyTextureDitherInc);
+}
+
+static void test_objectdisplay_textured_z_dither_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured Z dither render", kPolyTextureZDither);
+}
+
+static void test_objectdisplay_textured_z_solid_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured Z solid inc render", kPolyTextureZSolidInc);
+}
+
+static void test_objectdisplay_textured_z_flat_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured Z flat inc render", kPolyTextureZFlatInc);
+}
+
+static void test_objectdisplay_textured_z_gouraud_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured Z gouraud inc render", kPolyTextureZGouraudInc);
+}
+
+static void test_objectdisplay_textured_z_dither_inc_render(void)
+{
+    run_objectdisplay_textured_poly_case("ObjectDisplay textured Z dither inc render", kPolyTextureZDitherInc);
 }
 
 static void test_objectdisplay_textured_quad_flat_render(void)
@@ -2098,15 +2234,30 @@ int main(void)
     RUN_TEST(test_bodydisplay_hidden_render);
     RUN_TEST(test_bodydisplay_alphabeta_visible_render);
     RUN_TEST(test_objectdisplay_visible_render);
+    RUN_TEST(test_objectdisplay_transparent_render);
+    RUN_TEST(test_objectdisplay_trame_render);
+    RUN_TEST(test_objectdisplay_dither_render);
+    RUN_TEST(test_objectdisplay_gouraud_table_render);
+    RUN_TEST(test_objectdisplay_dither_table_render);
     RUN_TEST(test_objectdisplay_hidden_render);
     RUN_TEST(test_objectdisplay_multigroup_visible_render);
     RUN_TEST(test_objectdisplay_multigroup_translate_render);
     RUN_TEST(test_objectdisplay_textured_solid_render);
     RUN_TEST(test_objectdisplay_textured_flat_render);
     RUN_TEST(test_objectdisplay_textured_gouraud_render);
+    RUN_TEST(test_objectdisplay_textured_dither_render);
+    RUN_TEST(test_objectdisplay_textured_solid_inc_render);
+    RUN_TEST(test_objectdisplay_textured_flat_inc_render);
+    RUN_TEST(test_objectdisplay_textured_gouraud_inc_render);
+    RUN_TEST(test_objectdisplay_textured_dither_inc_render);
     RUN_TEST(test_objectdisplay_textured_z_flat_render);
     RUN_TEST(test_objectdisplay_textured_z_solid_render);
     RUN_TEST(test_objectdisplay_textured_z_gouraud_render);
+    RUN_TEST(test_objectdisplay_textured_z_dither_render);
+    RUN_TEST(test_objectdisplay_textured_z_solid_inc_render);
+    RUN_TEST(test_objectdisplay_textured_z_flat_inc_render);
+    RUN_TEST(test_objectdisplay_textured_z_gouraud_inc_render);
+    RUN_TEST(test_objectdisplay_textured_z_dither_inc_render);
     RUN_TEST(test_objectdisplay_textured_quad_solid_render);
     RUN_TEST(test_objectdisplay_textured_quad_flat_render);
     RUN_TEST(test_objectdisplay_textured_quad_gouraud_render);
