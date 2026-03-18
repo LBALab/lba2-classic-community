@@ -1,6 +1,8 @@
 #include        "C_EXTERN.H"
 #include "DIRECTORIES.H"
 
+#include <SVGA/DIRTYBOX.H>
+#include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 
 #define BCL_FADE        50
@@ -525,6 +527,8 @@ void    FadePal( U8 r, U8 v, U8 b, U8 *ptrpal, S32 scale )
         }
 
         PaletteSync( workpal ) ;
+        BoxStaticAdd( 0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1) ) ;
+        BoxUpdate() ;
 }
 
 //──────────────────────────────────────────────────────────────────────────
