@@ -9,6 +9,7 @@
 #include <3D/LPROJ.H>
 #include <3D/LROT3D.H>
 #include <3D/PROJ.H>
+#include <3D/ROT3D.H>
 #include <3D/ROTMAT.H>
 #include <3D/ROTRALIS.H>
 #include <POLYGON/POLY.H>
@@ -42,6 +43,8 @@ enum
     kPolyFlat = 1,
     kPolyGouraud = 4,
     kPolyTextureFlat = 9,
+    kPolyTextureZFlat = 17,
+    kPolyEnvTextureFlat = 0x4009,
     kPolyQuadMask = 0x8000,
 };
 
@@ -148,6 +151,18 @@ typedef struct
     STRUC_POLY3_TEXTURE Triangle;
     U32 Textures[1];
 } TEST_TEXTURED_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[kFixturePointCount];
+    TYPE_VT16 Normals[kFixtureFaceLightIndex];
+    TYPE_VT16 FaceNormals[1];
+    TEST_POLY_HEADER PolyHeader;
+    STRUC_POLY3_ENV Triangle;
+    U32 Textures[1];
+} TEST_ENV_BODY_FIXTURE;
 #pragma pack(pop)
 
 typedef void (*AffObjEnvironmentSetupFn)(void);
@@ -243,6 +258,11 @@ extern "C" void CallCppLongRotatePoint(TYPE_MAT *mat, S32 x, S32 y, S32 z)
     LongRotatePointF(mat, x, y, z);
 }
 
+extern "C" void CallCppRotatePoint(TYPE_MAT *mat, S32 x, S32 y, S32 z)
+{
+    LongRotatePointF(mat, x, y, z);
+}
+
 extern "C" void CallCppRotateMatrix(TYPE_MAT *dst, TYPE_MAT *src, S32 x, S32 y, S32 z)
 {
     RotateMatrixU(dst, src, x, y, z);
@@ -281,6 +301,7 @@ asm(
     "ret\n");
 
 extern "C" void AsmAbi_LongRotatePoint_Thunk(void);
+extern "C" void AsmAbi_RotatePoint_Thunk(void);
 extern "C" void AsmAbi_RotateMatrix_Thunk(void);
 extern "C" void AsmAbi_RotTransList_Thunk(void);
 extern "C" void AsmAbi_ProjectList_Thunk(void);
@@ -295,6 +316,15 @@ asm(
     "push %eax\n"
     "push %esi\n"
     "call CallCppLongRotatePoint\n"
+    "add $16, %esp\n"
+    "ret\n"
+    ".globl AsmAbi_RotatePoint_Thunk\n"
+    "AsmAbi_RotatePoint_Thunk:\n"
+    "push %ecx\n"
+    "push %ebx\n"
+    "push %eax\n"
+    "push %esi\n"
+    "call CallCppRotatePoint\n"
     "add $16, %esp\n"
     "ret\n"
     ".globl AsmAbi_RotateMatrix_Thunk\n"
@@ -352,6 +382,8 @@ asm(
 static void restore_cpp_3d_callbacks(void)
 {
     LongRotatePoint = LongRotatePointF;
+    RotatePoint = LongRotatePointF;
+    RotatePointNoMMX = LongRotatePointF;
     RotateMatrix = RotateMatrixU;
     RotTransList = RotTransListF;
     ProjectList = ProjectList3DF;
@@ -362,6 +394,8 @@ static void restore_cpp_3d_callbacks(void)
 static void install_asm_compatible_3d_callbacks(void)
 {
     LongRotatePoint = (Func_LongRotatePoint *)AsmAbi_LongRotatePoint_Thunk;
+    RotatePoint = (Func_RotatePoint *)AsmAbi_RotatePoint_Thunk;
+    RotatePointNoMMX = (Func_RotatePoint *)AsmAbi_RotatePoint_Thunk;
     RotateMatrix = (Func_RotateMatrix *)AsmAbi_RotateMatrix_Thunk;
     RotTransList = (Func_RotTransList *)AsmAbi_RotTransList_Thunk;
     ProjectList = (Func_ProjectList *)AsmAbi_ProjectList_Thunk;
@@ -879,7 +913,8 @@ static void build_complex_test_body_fixture(TEST_COMPLEX_BODY_FIXTURE *fixture)
     fixture->FlatQuad.Normale = kComplexFaceLightBase + 1;
 }
 
-static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture)
+static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture,
+                                             U16 poly_type)
 {
     memset(fixture, 0, sizeof(*fixture));
 
@@ -924,7 +959,7 @@ static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture
     }
     set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
 
-    fixture->PolyHeader.TypePoly = kPolyTextureFlat;
+    fixture->PolyHeader.TypePoly = poly_type;
     fixture->PolyHeader.NbPoly = 1;
     fixture->PolyHeader.OffNextType = (U32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Textures);
 
@@ -940,6 +975,67 @@ static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture
     fixture->Triangle.V2 = 0;
     fixture->Triangle.U3 = 0;
     fixture->Triangle.V3 = (U16)(128 << 8);
+
+    fixture->Textures[0] = 0xFFFF0000u;
+}
+
+static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = 0;
+    fixture->Header.XMax = 96;
+    fixture->Header.YMin = 0;
+    fixture->Header.YMax = 96;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_ENV_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = kFixturePointCount;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_ENV_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = kFixturePointCount;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_ENV_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_ENV_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 1;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_ENV_BODY_FIXTURE, PolyHeader);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)offsetof(TEST_ENV_BODY_FIXTURE, Textures);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)offsetof(TEST_ENV_BODY_FIXTURE, Textures);
+    fixture->Header.NbTextures = 1;
+    fixture->Header.OffTextures = (S32)offsetof(TEST_ENV_BODY_FIXTURE, Textures);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = kFixturePointCount;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 0, 256, 0);
+    set_body_point(&fixture->Points[2], 0, 96, 256, 0);
+
+    for (U32 index = 0; index < kFixtureFaceLightIndex; ++index)
+    {
+        set_body_normal(&fixture->Normals[index], 15360, 0, 0, 0);
+    }
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->PolyHeader.TypePoly = kPolyEnvTextureFlat;
+    fixture->PolyHeader.NbPoly = 1;
+    fixture->PolyHeader.OffNextType = (U32)offsetof(TEST_ENV_BODY_FIXTURE, Textures);
+
+    fixture->Triangle.P1 = 0;
+    fixture->Triangle.P2 = 1;
+    fixture->Triangle.P3 = 2;
+    fixture->Triangle.HandleEnv = 0;
+    fixture->Triangle.Couleur = 0;
+    fixture->Triangle.Normale = kFixtureFaceLightIndex;
+    fixture->Triangle.Scale = 0;
+    fixture->Triangle.Padding = 0;
 
     fixture->Textures[0] = 0xFFFF0000u;
 }
@@ -1366,8 +1462,34 @@ static void test_objectdisplay_textured_flat_render(void)
 
     ASSERT_TRUE((int)sizeof(TEST_TEXTURED_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
 
-    build_textured_test_body_fixture(&fixture);
+    build_textured_test_body_fixture(&fixture, kPolyTextureFlat);
     run_objectdisplay_render_case_ex("ObjectDisplay textured flat render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_z_flat_render(void)
+{
+    TEST_TEXTURED_BODY_FIXTURE fixture;
+
+    ASSERT_TRUE((int)sizeof(TEST_TEXTURED_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
+
+    build_textured_test_body_fixture(&fixture, kPolyTextureZFlat);
+    run_objectdisplay_render_case_ex("ObjectDisplay textured Z flat render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_env_flat_render(void)
+{
+    TEST_ENV_BODY_FIXTURE fixture;
+
+    ASSERT_TRUE((int)sizeof(TEST_ENV_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
+
+    build_env_test_body_fixture(&fixture);
+    run_objectdisplay_render_case_ex("ObjectDisplay env flat render",
                                      &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
@@ -1550,6 +1672,8 @@ int main(void)
     RUN_TEST(test_objectdisplay_multigroup_visible_render);
     RUN_TEST(test_objectdisplay_multigroup_translate_render);
     RUN_TEST(test_objectdisplay_textured_flat_render);
+    RUN_TEST(test_objectdisplay_textured_z_flat_render);
+    RUN_TEST(test_objectdisplay_env_flat_render);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
     RUN_TEST(test_testvisible_random_stress);
