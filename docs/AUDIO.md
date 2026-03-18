@@ -6,7 +6,7 @@ The original LBA2 used the proprietary **Miles Sound System (MSS)** for audio. T
 
 The SDL backend matches the AIL function signatures and handle semantics, but targets modern hardware and sound quality (44100 Hz, float mixing, clean clipping). This document describes the audio architecture, the AIL contract, how the engine uses audio, and current status.
 
-**Legal note:** The SDL backend is a clean-room reimplementation of the AIL interface. The function signatures come from the game's own engine headers (`LIB386/H/AIL/`), not from decompilation or disassembly of Miles Sound System binaries. No proprietary RAD Game Tools / Miles code was reverse engineered.
+**Legal note:** The SDL backend is a clean-room reimplementation of the AIL interface. The function signatures come from the game's own engine headers (`LIB386/H/AIL/`), not from decompilation or disassembly of Miles Sound System SDK. No proprietary RAD Game Tools / Miles code was reverse engineered.
 
 ---
 
@@ -63,7 +63,7 @@ These are the C headers every backend must implement. They live in `LIB386/H/AIL
 
 **Struct:** `SAMPLE_PLAYING` -- per-voice state: `Usernum`, `Pitch`, `Repeat`, `Volume`, `Pan`, `Dummy`.
 
-**Constants:** `MAX_SAMPLE_VOICES = 12`, `PITCHBEND_NORMAL = 4096`, `SAMPLE_RATE = 44100` (upsampled from original 22050 Hz for quality).
+**Constants:** `MAX_SAMPLE_VOICES = 12`, `PITCHBEND_NORMAL = 4096`, `SAMPLE_RATE = 44100`, `MIX_CHUNK_FRAMES = 1024`. See [Sample rate and buffer design](#sample-rate-and-buffer-design) below.
 
 ### STREAM.H -- streaming audio (jingles, OGG)
 
@@ -219,6 +219,20 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 ### Master volume and stream coupling
 
 In the original Miles wrapper (`LIB386/AIL/MILES/SAMPLE.CPP`), `SetMasterVolumeSample` called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ReadVolumeSettings`, master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
+
+### Sample rate and buffer design
+
+**Sample rate (22 vs 44.1 kHz):** The original Miles backend used 22,050 Hz (`LIB386/AIL/MILES/COMMON.CPP`: `SamplingRate = 22050`), a 1990s-era choice for CPU and memory constraints. The SDL backend uses 44,100 Hz (CD standard) to target modern hardware and sound quality: better frequency response (Nyquist ~22 kHz vs ~11 kHz), float mixing, and clean clipping. Game assets (often 22 kHz or 11 kHz) are resampled up.
+
+**Buffer duration:** Miles ran at 22 kHz with an effective buffer of ~512 samples per callback (~23 ms). When we upgraded to 44.1 kHz, keeping 512 frames would have halved the buffer duration to ~11.6 ms, increasing sensitivity to timing jitter. The SDL backend uses `MIX_CHUNK_FRAMES = 1024` so that 1024 samples at 44.1 kHz ≈ 23.2 ms, matching the original Miles buffer duration.
+
+### WSL and audio jitter
+
+Under WSL2 with WSLg, audio can stutter due to timing jitter. Known factors:
+
+- **systemd-timesyncd:** Clock adjustments can cause PulseAudio timing jitter and stutter. Workaround: `sudo systemctl stop systemd-timesyncd` (or `disable` for persistence).
+- **Recovery:** Once audio enters a jitter state, it may not recover; restarting the game is required.
+- **Buffer:** The 1024-frame buffer helps mitigate timing jitter by providing more headroom than a smaller buffer would at 44.1 kHz.
 
 ---
 

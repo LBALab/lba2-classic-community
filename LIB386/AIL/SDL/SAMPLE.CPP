@@ -13,7 +13,7 @@
  */
 #define SAMPLE_RATE      44100
 #define NUM_VOICES       12
-#define MIX_CHUNK_FRAMES 512
+#define MIX_CHUNK_FRAMES 1024
 #define PITCHBEND_NORMAL 4096
 
 /* ── IMA ADPCM tables and decoder ────────────────────────────────────────── */
