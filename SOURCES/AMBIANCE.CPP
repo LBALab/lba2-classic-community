@@ -497,10 +497,14 @@ void    ChoicePalette( void )
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-// Island guard: rain is only intended for Citadel Island (Island 0).
+// Island guard: rain is only intended for Citadel Island (Island 0). Without this,
+// loading or warping to Desert/other exterior cubes would incorrectly play rain
+// because TEMPETE_ACTIVE is global (chapter-based) and StartRainSample did not
+// check Island.
 void    StartRainSample( void )
 {
         if( SamplesEnable
+	AND Island==0
 	AND CubeMode==CUBE_EXTERIEUR
 	AND !TEMPETE_FINIE
         AND !IsSamplePlaying(SAMPLE_RAIN) )

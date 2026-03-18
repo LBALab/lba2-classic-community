@@ -1564,7 +1564,7 @@ startloop:
 
                 if( CubeMode==CUBE_EXTERIEUR )
                 {
-                        if( TEMPETE_ACTIVE AND RainEnable )    GereRain() ;
+                        if( Island==0 AND TEMPETE_ACTIVE AND RainEnable )    GereRain() ;
 
                         DoAnimatedPolys() ;
                 }
