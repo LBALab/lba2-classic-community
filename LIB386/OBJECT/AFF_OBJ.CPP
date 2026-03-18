@@ -225,30 +225,24 @@ typedef struct
 
 static TYPE_VT32 RotateEnvNormal(const TYPE_VT16 *normal)
 {
-    const TYPE_MAT *matrix = &TabMat[normal->Grp];
     TYPE_VT32 rotated;
 
-    rotated.X = (S32)lrintl((long double)matrix->F.M11 * normal->X
-        + (long double)matrix->F.M12 * normal->Y
-        + (long double)matrix->F.M13 * normal->Z);
-    rotated.Y = (S32)lrintl((long double)matrix->F.M21 * normal->X
-        + (long double)matrix->F.M22 * normal->Y
-        + (long double)matrix->F.M23 * normal->Z);
-    rotated.Z = (S32)lrintl((long double)matrix->F.M31 * normal->X
-        + (long double)matrix->F.M32 * normal->Y
-        + (long double)matrix->F.M33 * normal->Z);
+    RotatePointNoMMX(&TabMat[normal->Grp], normal->X, normal->Y, normal->Z);
+    rotated.X = X0;
+    rotated.Y = Y0;
+    rotated.Z = Z0;
 
     return rotated;
 }
 
 static U32 BuildEnvMappedUv(const TYPE_VT32 *rotated, U16 scale)
 {
-    const U32 scaleX = scale & 0xFFu;
-    const U32 scaleY = (U32)scale >> 8;
-    const U32 mapU = (((U32)(U16)(rotated->X + 0x4000)) * scaleX) >> 4;
-    const U32 mapV = (((U32)(U16)(rotated->Y + 0x4000)) * scaleY) >> 4;
+    const S32 scaleX = (S32)(scale & 0xFFu);
+    const S32 scaleY = (S32)((U32)scale >> 8);
+    const S32 mapU = ((S32)(U16)(rotated->X + 0x4000) * scaleX) >> 4;
+    const U32 packedMapV = (((U32)((S32)(U16)(rotated->Y + 0x4000) * scaleY)) << 12) & 0xFFFF0000u;
 
-    return (mapV << 16) | (mapU & 0xFFFFu);
+    return (U32)mapU | packedMapV;
 }
 
 static void SetEnvMappedTriangleUvs(Struc_Point *points, const STRUC_POLY3_ENV *poly)
