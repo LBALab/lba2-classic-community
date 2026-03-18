@@ -7,7 +7,7 @@ Quake-style drop-down debug console for LBA2. It is an alternative to DEBUG_TOOL
 Enable the console with the CMake option:
 
 ```bash
-cmake -B build -DCONSOLE_MODULE=ON -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+cmake -B build -DCONSOLE_MODULE=ON
 cmake --build build
 ```
 

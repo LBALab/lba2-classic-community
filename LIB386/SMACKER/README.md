@@ -91,5 +91,5 @@ SDK folder to match the build system.
 ## Open-Source Alternative
 
 The community build uses [libsmacker](../libsmacker/) (LGPL 2.1) as a drop-in
-replacement for the proprietary Smacker SDK. To use it, build with
-`-DMVIDEO_BACKEND=smacker`.
+replacement for the proprietary Smacker SDK. It is the default; use
+`-DMVIDEO_BACKEND=null` to build without video.
