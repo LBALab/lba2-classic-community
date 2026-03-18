@@ -105,7 +105,7 @@ exists in both `.ASM` and `.CPP` form.
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `SYSTEM/CPU.ASM` | `SYSTEM/CPU.CPP` | CPU globals | CPU detection and feature flags | ASM ≡ CPP: ProcessorManufacturerIDString (13 bytes). Struct globals may differ in init values. |
 | [x] | `SYSTEM/FASTCPYF.ASM` | `SYSTEM/FASTCPYF.CPP` | `FastCopy` | Fast memory copy | `tests/SYSTEM/test_fastcpyf.cpp` now performs strict whole-buffer ASM-vs-CPP comparison with source preservation checks across fixed and deterministic random sizes and alignments. Fixed `LIB386/SYSTEM/FASTCPYF.CPP` to emulate the ASM’s x87 qword transfer sequence instead of raw `memcpy`. |
-| [ ] | `SYSTEM/LZ.ASM` | `SYSTEM/LZ.CPP` | `ExpandLZ` | LZ decompression | Self-contained |
+| [x] | `SYSTEM/LZ.ASM` | `SYSTEM/LZ.CPP` | `ExpandLZ` | LZ decompression | Existing `tests/SYSTEM/test_lz.cpp` already provides ASM-vs-CPP coverage over literals, bounded output, and 400 deterministic randomized roundtrip cases for `MinBloc` 2 and 3. |
 | [x] | `SYSTEM/MOUSEDAT.ASM` | `SYSTEM/MOUSEDAT.CPP` | Mouse data | Mouse driver data structures | ASM ≡ CPP: BinGphMouse[541] byte-for-byte |
 
 ## MENU/ — Menu Utilities (1 pair)
