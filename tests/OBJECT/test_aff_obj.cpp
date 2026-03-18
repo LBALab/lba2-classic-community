@@ -227,6 +227,17 @@ typedef struct
     TYPE_VT16 Normals[kQuadFixtureFaceLightIndex];
     TYPE_VT16 FaceNormals[1];
     TEST_POLY_HEADER PolyHeader;
+    STRUC_POLY4_LIGHT Quad;
+} TEST_PLAIN_QUAD_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[kQuadFixturePointCount];
+    TYPE_VT16 Normals[kQuadFixtureFaceLightIndex];
+    TYPE_VT16 FaceNormals[1];
+    TEST_POLY_HEADER PolyHeader;
     STRUC_POLY4_TEXTURE Quad;
     U32 Textures[1];
 } TEST_TEXTURED_QUAD_BODY_FIXTURE;
@@ -1128,6 +1139,65 @@ static void build_textured_quad_test_body_fixture(TEST_TEXTURED_QUAD_BODY_FIXTUR
     fixture->Textures[0] = 0xFFFF0000u;
 }
 
+static void build_plain_quad_test_body_fixture(TEST_PLAIN_QUAD_BODY_FIXTURE *fixture,
+                                               U16 poly_type)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = 0;
+    fixture->Header.XMax = 96;
+    fixture->Header.YMin = 0;
+    fixture->Header.YMax = 96;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_PLAIN_QUAD_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = kQuadFixturePointCount;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_PLAIN_QUAD_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = kQuadFixtureFaceLightIndex;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_PLAIN_QUAD_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_PLAIN_QUAD_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 1;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_PLAIN_QUAD_BODY_FIXTURE, PolyHeader);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)sizeof(*fixture);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)sizeof(*fixture);
+    fixture->Header.NbTextures = 0;
+    fixture->Header.OffTextures = (S32)sizeof(*fixture);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = kQuadFixturePointCount;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 0, 256, 0);
+    set_body_point(&fixture->Points[2], 96, 96, 256, 0);
+    set_body_point(&fixture->Points[3], 0, 96, 256, 0);
+
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[1], 12288, 4096, 0, 0);
+    set_body_normal(&fixture->Normals[2], 8192, 8192, 0, 0);
+    set_body_normal(&fixture->Normals[3], 12288, 0, 4096, 0);
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->PolyHeader.TypePoly = poly_type;
+    fixture->PolyHeader.NbPoly = 1;
+    fixture->PolyHeader.OffNextType = (U32)sizeof(*fixture);
+
+    fixture->Quad.P1 = 0;
+    fixture->Quad.P2 = 1;
+    fixture->Quad.P3 = 2;
+    fixture->Quad.P4 = 3;
+    fixture->Quad.Couleur = 0x20;
+    fixture->Quad.Normale = kQuadFixtureFaceLightIndex;
+}
+
 static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture,
                                         U16 poly_type,
                                         U16 scale)
@@ -1628,6 +1698,27 @@ static void run_objectdisplay_textured_poly_case(const char *label, U16 poly_typ
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
+static void run_objectdisplay_plain_quad_poly_case(const char *label, U16 poly_type,
+                                                   void (*setup_environment)(void))
+{
+    TEST_PLAIN_QUAD_BODY_FIXTURE fixture;
+
+    build_plain_quad_test_body_fixture(&fixture, poly_type);
+    run_objectdisplay_render_case_ex(label, &fixture, 1, NULL, NULL,
+                                     setup_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void run_objectdisplay_textured_quad_poly_case(const char *label, U16 poly_type)
+{
+    TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
+
+    build_textured_quad_test_body_fixture(&fixture, poly_type);
+    run_objectdisplay_render_case_ex(label, &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_bodydisplay_visible_render(void)
 {
     ASSERT_EQ_INT(96, (int)sizeof(T_BODY_HEADER));
@@ -1695,6 +1786,41 @@ static void test_objectdisplay_dither_table_render(void)
     run_objectdisplay_render_case_ex("ObjectDisplay dither table render", &fixture, 1, NULL, NULL,
                                      setup_shaded_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_quad_transparent_render(void)
+{
+    run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad transparent render",
+                                           (U16)(kPolyQuadMask | kPolyTransparent),
+                                           setup_common_aff_obj_environment);
+}
+
+static void test_objectdisplay_quad_trame_render(void)
+{
+    run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad trame render",
+                                           (U16)(kPolyQuadMask | kPolyTrame),
+                                           setup_common_aff_obj_environment);
+}
+
+static void test_objectdisplay_quad_dither_render(void)
+{
+    run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad dither render",
+                                           (U16)(kPolyQuadMask | kPolyDither),
+                                           setup_shaded_aff_obj_environment);
+}
+
+static void test_objectdisplay_quad_gouraud_table_render(void)
+{
+    run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad gouraud table render",
+                                           (U16)(kPolyQuadMask | kPolyGouraudTable),
+                                           setup_shaded_aff_obj_environment);
+}
+
+static void test_objectdisplay_quad_dither_table_render(void)
+{
+    run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad dither table render",
+                                           (U16)(kPolyQuadMask | kPolyDitherTable),
+                                           setup_shaded_aff_obj_environment);
 }
 
 static void test_objectdisplay_hidden_render(void)
@@ -1859,6 +1985,66 @@ static void test_objectdisplay_textured_z_gouraud_inc_render(void)
 static void test_objectdisplay_textured_z_dither_inc_render(void)
 {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured Z dither inc render", kPolyTextureZDitherInc);
+}
+
+static void test_objectdisplay_textured_quad_dither_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad dither render",
+                                              (U16)(kPolyQuadMask | kPolyTextureDither));
+}
+
+static void test_objectdisplay_textured_quad_solid_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad solid inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureSolidInc));
+}
+
+static void test_objectdisplay_textured_quad_flat_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad flat inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureFlatInc));
+}
+
+static void test_objectdisplay_textured_quad_gouraud_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad gouraud inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureGouraudInc));
+}
+
+static void test_objectdisplay_textured_quad_dither_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad dither inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureDitherInc));
+}
+
+static void test_objectdisplay_textured_quad_z_dither_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z dither render",
+                                              (U16)(kPolyQuadMask | kPolyTextureZDither));
+}
+
+static void test_objectdisplay_textured_quad_z_solid_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z solid inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureZSolidInc));
+}
+
+static void test_objectdisplay_textured_quad_z_flat_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z flat inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureZFlatInc));
+}
+
+static void test_objectdisplay_textured_quad_z_gouraud_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z gouraud inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureZGouraudInc));
+}
+
+static void test_objectdisplay_textured_quad_z_dither_inc_render(void)
+{
+    run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z dither inc render",
+                                              (U16)(kPolyQuadMask | kPolyTextureZDitherInc));
 }
 
 static void test_objectdisplay_textured_quad_flat_render(void)
@@ -2239,6 +2425,11 @@ int main(void)
     RUN_TEST(test_objectdisplay_dither_render);
     RUN_TEST(test_objectdisplay_gouraud_table_render);
     RUN_TEST(test_objectdisplay_dither_table_render);
+    RUN_TEST(test_objectdisplay_quad_transparent_render);
+    RUN_TEST(test_objectdisplay_quad_trame_render);
+    RUN_TEST(test_objectdisplay_quad_dither_render);
+    RUN_TEST(test_objectdisplay_quad_gouraud_table_render);
+    RUN_TEST(test_objectdisplay_quad_dither_table_render);
     RUN_TEST(test_objectdisplay_hidden_render);
     RUN_TEST(test_objectdisplay_multigroup_visible_render);
     RUN_TEST(test_objectdisplay_multigroup_translate_render);
@@ -2261,9 +2452,19 @@ int main(void)
     RUN_TEST(test_objectdisplay_textured_quad_solid_render);
     RUN_TEST(test_objectdisplay_textured_quad_flat_render);
     RUN_TEST(test_objectdisplay_textured_quad_gouraud_render);
+    RUN_TEST(test_objectdisplay_textured_quad_dither_render);
+    RUN_TEST(test_objectdisplay_textured_quad_solid_inc_render);
+    RUN_TEST(test_objectdisplay_textured_quad_flat_inc_render);
+    RUN_TEST(test_objectdisplay_textured_quad_gouraud_inc_render);
+    RUN_TEST(test_objectdisplay_textured_quad_dither_inc_render);
     RUN_TEST(test_objectdisplay_textured_quad_z_flat_render);
     RUN_TEST(test_objectdisplay_textured_quad_z_solid_render);
     RUN_TEST(test_objectdisplay_textured_quad_z_gouraud_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_dither_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_solid_inc_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_flat_inc_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_gouraud_inc_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_dither_inc_render);
     RUN_TEST(test_objectdisplay_env_solid_render);
     RUN_TEST(test_objectdisplay_env_gouraud_render);
     RUN_TEST(test_objectdisplay_env_flat_scaled_render);
