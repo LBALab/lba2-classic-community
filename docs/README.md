@@ -21,6 +21,13 @@ Index of documentation in this repository.
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (CONSOLE_MODULE=ON): backtick/F12, commands and cvars. |
 
+
+## Testing
+
+| Doc | Description |
+|-----|-------------|
+| [TESTING.md](TESTING.md) | Test suite architecture, conventions, and how to run tests in Docker. |
+
 ## Preservation & culture
 
 | Doc | Description |
