@@ -31,10 +31,18 @@ static const U32 kAffObjSortCount = 1100;
 static const U32 kAffObjGroupCount = 30;
 static const U32 kFixturePointCount = 3;
 static const U32 kFixtureFaceLightIndex = 3;
+static const U32 kComplexGroupCount = 2;
+static const U32 kComplexPointCount = 7;
+static const U32 kComplexFaceLightBase = kComplexPointCount;
+static const U32 kComplexFaceLightCount = 2;
 
 enum
 {
+    kPolySolid = 0,
     kPolyFlat = 1,
+    kPolyGouraud = 4,
+    kPolyTextureFlat = 9,
+    kPolyQuadMask = 0x8000,
 };
 
 typedef struct
@@ -58,6 +66,32 @@ typedef struct
     U16 Scale;
     U16 Padding;
 } STRUC_POLY3_ENV;
+
+typedef struct
+{
+    U16 P1;
+    U16 P2;
+    U16 P3;
+    U16 HandleText;
+    U16 Couleur;
+    U16 Normale;
+    U16 U1;
+    U16 V1;
+    U16 U2;
+    U16 V2;
+    U16 U3;
+    U16 V3;
+} STRUC_POLY3_TEXTURE;
+
+typedef struct
+{
+    U16 P1;
+    U16 P2;
+    U16 P3;
+    U16 P4;
+    U16 Couleur;
+    U16 Normale;
+} STRUC_POLY4_LIGHT;
 
 #pragma pack(push, 1)
 typedef struct
@@ -85,7 +119,38 @@ typedef struct
     TEST_POLY_HEADER PolyHeader;
     STRUC_POLY3_LIGHT Triangle;
 } TEST_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Groups[kComplexGroupCount];
+    T_OBJ_POINT Points[kComplexPointCount];
+    TYPE_VT16 Normals[kComplexPointCount];
+    TYPE_VT16 FaceNormals[kComplexFaceLightCount];
+    TEST_POLY_HEADER FlatTriangleHeader;
+    STRUC_POLY3_LIGHT FlatTriangle;
+    TEST_POLY_HEADER SolidTriangleHeader;
+    STRUC_POLY3_LIGHT SolidTriangle;
+    TEST_POLY_HEADER GouraudTriangleHeader;
+    STRUC_POLY3_LIGHT GouraudTriangle;
+    TEST_POLY_HEADER FlatQuadHeader;
+    STRUC_POLY4_LIGHT FlatQuad;
+} TEST_COMPLEX_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[kFixturePointCount];
+    TYPE_VT16 Normals[kFixtureFaceLightIndex];
+    TYPE_VT16 FaceNormals[1];
+    TEST_POLY_HEADER PolyHeader;
+    STRUC_POLY3_TEXTURE Triangle;
+    U32 Textures[1];
+} TEST_TEXTURED_BODY_FIXTURE;
 #pragma pack(pop)
+
+typedef void (*AffObjEnvironmentSetupFn)(void);
 
 typedef struct
 {
@@ -698,8 +763,190 @@ static void build_test_body_fixture(TEST_BODY_FIXTURE *fixture)
     fixture->Triangle.Normale = kFixtureFaceLightIndex;
 }
 
+static void set_body_point(T_OBJ_POINT *point, S16 x, S16 y, S16 z, S16 group)
+{
+    point->X = x;
+    point->Y = y;
+    point->Z = z;
+    point->Group = group;
+}
+
+static void set_body_normal(TYPE_VT16 *normal, S16 x, S16 y, S16 z, S16 group)
+{
+    normal->X = x;
+    normal->Y = y;
+    normal->Z = z;
+    normal->Grp = group;
+}
+
+static void build_complex_test_body_fixture(TEST_COMPLEX_BODY_FIXTURE *fixture)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = -64;
+    fixture->Header.XMax = 128;
+    fixture->Header.YMin = -64;
+    fixture->Header.YMax = 128;
+    fixture->Header.ZMin = 96;
+    fixture->Header.ZMax = 320;
+    fixture->Header.NbGroupes = kComplexGroupCount;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_COMPLEX_BODY_FIXTURE, Groups);
+    fixture->Header.NbPoints = kComplexPointCount;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_COMPLEX_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = kComplexPointCount;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_COMPLEX_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = kComplexFaceLightCount;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_COMPLEX_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 4;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_COMPLEX_BODY_FIXTURE, FlatTriangleHeader);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)sizeof(*fixture);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)sizeof(*fixture);
+    fixture->Header.NbTextures = 0;
+    fixture->Header.OffTextures = (S32)sizeof(*fixture);
+
+    fixture->Groups[0].OrgGroupe = 0;
+    fixture->Groups[0].OrgPoint = 0;
+    fixture->Groups[0].NbPts = 3;
+    fixture->Groups[0].NbNorm = 1;
+
+    fixture->Groups[1].OrgGroupe = 0;
+    fixture->Groups[1].OrgPoint = 0;
+    fixture->Groups[1].NbPts = 4;
+    fixture->Groups[1].NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 0, 256, 0);
+    set_body_point(&fixture->Points[2], 0, 96, 256, 0);
+    set_body_point(&fixture->Points[3], -48, -48, 128, 1);
+    set_body_point(&fixture->Points[4], 48, -48, 128, 1);
+    set_body_point(&fixture->Points[5], -48, 48, 128, 1);
+    set_body_point(&fixture->Points[6], 48, 48, 128, 1);
+
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[1], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[2], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[3], 15360, 0, 0, 1);
+    set_body_normal(&fixture->Normals[4], 12288, 4096, 0, 1);
+    set_body_normal(&fixture->Normals[5], 12288, 0, 4096, 1);
+    set_body_normal(&fixture->Normals[6], 8192, 8192, 0, 1);
+
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->FaceNormals[1], 12288, 4096, 0, 1);
+
+    fixture->FlatTriangleHeader.TypePoly = kPolyFlat;
+    fixture->FlatTriangleHeader.NbPoly = 1;
+    fixture->FlatTriangleHeader.OffNextType = (U32)offsetof(TEST_COMPLEX_BODY_FIXTURE, SolidTriangleHeader);
+    fixture->FlatTriangle.P1 = 0;
+    fixture->FlatTriangle.P2 = 1;
+    fixture->FlatTriangle.P3 = 2;
+    fixture->FlatTriangle.Padding = 0;
+    fixture->FlatTriangle.Couleur = 0x20;
+    fixture->FlatTriangle.Normale = kComplexFaceLightBase;
+
+    fixture->SolidTriangleHeader.TypePoly = kPolySolid;
+    fixture->SolidTriangleHeader.NbPoly = 1;
+    fixture->SolidTriangleHeader.OffNextType = (U32)offsetof(TEST_COMPLEX_BODY_FIXTURE, GouraudTriangleHeader);
+    fixture->SolidTriangle.P1 = 0;
+    fixture->SolidTriangle.P2 = 2;
+    fixture->SolidTriangle.P3 = 1;
+    fixture->SolidTriangle.Padding = 0;
+    fixture->SolidTriangle.Couleur = 0x34;
+    fixture->SolidTriangle.Normale = 0;
+
+    fixture->GouraudTriangleHeader.TypePoly = kPolyGouraud;
+    fixture->GouraudTriangleHeader.NbPoly = 1;
+    fixture->GouraudTriangleHeader.OffNextType = (U32)offsetof(TEST_COMPLEX_BODY_FIXTURE, FlatQuadHeader);
+    fixture->GouraudTriangle.P1 = 3;
+    fixture->GouraudTriangle.P2 = 4;
+    fixture->GouraudTriangle.P3 = 5;
+    fixture->GouraudTriangle.Padding = 0;
+    fixture->GouraudTriangle.Couleur = 0x40;
+    fixture->GouraudTriangle.Normale = 0;
+
+    fixture->FlatQuadHeader.TypePoly = (U16)(kPolyQuadMask | kPolyFlat);
+    fixture->FlatQuadHeader.NbPoly = 1;
+    fixture->FlatQuadHeader.OffNextType = (U32)sizeof(*fixture);
+    fixture->FlatQuad.P1 = 3;
+    fixture->FlatQuad.P2 = 5;
+    fixture->FlatQuad.P3 = 6;
+    fixture->FlatQuad.P4 = 4;
+    fixture->FlatQuad.Couleur = 0x28;
+    fixture->FlatQuad.Normale = kComplexFaceLightBase + 1;
+}
+
+static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = 0;
+    fixture->Header.XMax = 96;
+    fixture->Header.YMin = 0;
+    fixture->Header.YMax = 96;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = kFixturePointCount;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = kFixturePointCount;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 1;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, PolyHeader);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Textures);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Textures);
+    fixture->Header.NbTextures = 1;
+    fixture->Header.OffTextures = (S32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Textures);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = kFixturePointCount;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 0, 256, 0);
+    set_body_point(&fixture->Points[2], 0, 96, 256, 0);
+
+    for (U32 index = 0; index < kFixtureFaceLightIndex; ++index)
+    {
+        set_body_normal(&fixture->Normals[index], 15360, 0, 0, 0);
+    }
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->PolyHeader.TypePoly = kPolyTextureFlat;
+    fixture->PolyHeader.NbPoly = 1;
+    fixture->PolyHeader.OffNextType = (U32)offsetof(TEST_TEXTURED_BODY_FIXTURE, Textures);
+
+    fixture->Triangle.P1 = 0;
+    fixture->Triangle.P2 = 1;
+    fixture->Triangle.P3 = 2;
+    fixture->Triangle.HandleText = 0;
+    fixture->Triangle.Couleur = 0;
+    fixture->Triangle.Normale = kFixtureFaceLightIndex;
+    fixture->Triangle.U1 = 0;
+    fixture->Triangle.V1 = 0;
+    fixture->Triangle.U2 = (U16)(128 << 8);
+    fixture->Triangle.V2 = 0;
+    fixture->Triangle.U3 = 0;
+    fixture->Triangle.V3 = (U16)(128 << 8);
+
+    fixture->Textures[0] = 0xFFFF0000u;
+}
+
 static void build_test_object_fixture(T_OBJ_3D *obj, void *body, S32 x, S32 y,
-                                      S32 z, S32 alpha, S32 beta, S32 gamma)
+                                      S32 z, S32 alpha, S32 beta, S32 gamma,
+                                      U32 nb_groups, const T_GROUP_INFO *group_info)
 {
     memset(obj, 0, sizeof(*obj));
     obj->X = x;
@@ -710,7 +957,22 @@ static void build_test_object_fixture(T_OBJ_3D *obj, void *body, S32 x, S32 y,
     obj->Gamma = gamma;
     obj->Body.Ptr = body;
     obj->Texture = NULL;
-    obj->NbGroups = 1;
+    obj->NbGroups = nb_groups;
+
+    for (U32 index = 0; index < nb_groups && index < kAffObjGroupCount; ++index)
+    {
+        if (group_info != NULL)
+        {
+            obj->CurrentFrame[index] = group_info[index];
+        }
+        else
+        {
+            obj->CurrentFrame[index].Type = 0;
+            obj->CurrentFrame[index].Alpha = 0;
+            obj->CurrentFrame[index].Beta = 0;
+            obj->CurrentFrame[index].Gamma = 0;
+        }
+    }
 }
 
 static void setup_common_aff_obj_environment(void)
@@ -728,6 +990,15 @@ static void setup_common_aff_obj_environment(void)
     Z0 = 0;
     Xp = 0;
     Yp = 0;
+}
+
+static void setup_textured_aff_obj_environment(void)
+{
+    setup_common_aff_obj_environment();
+    init_test_texture();
+    init_test_clut();
+    PtrCLUTGouraud = g_test_clut;
+    Switch_Fillers(FILL_POLY_TEXTURES);
 }
 
 static void seed_cpp_aff_obj_state(void)
@@ -950,27 +1221,36 @@ static void run_bodydisplay_alphabeta_render_case(const char *label, S32 x, S32 
     }
 }
 
-static void run_objectdisplay_render_case(const char *label, S32 x, S32 y, S32 z,
-                                          S32 alpha, S32 beta, S32 gamma,
-                                          S32 expected_result, int expect_pixels)
+static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
+                                             U32 nb_groups,
+                                             const T_GROUP_INFO *group_info,
+                                             void *texture,
+                                             AffObjEnvironmentSetupFn setup_environment,
+                                             S32 x, S32 y, S32 z,
+                                             S32 alpha, S32 beta, S32 gamma,
+                                             S32 expected_result,
+                                             S32 expected_sort_count,
+                                             int expect_pixels)
 {
-    TEST_BODY_FIXTURE fixture;
     T_OBJ_3D cpp_object;
     T_OBJ_3D asm_object;
     RENDER_SNAPSHOT cpp_snapshot;
     RENDER_SNAPSHOT asm_snapshot;
 
-    build_test_body_fixture(&fixture);
-    build_test_object_fixture(&cpp_object, &fixture, x, y, z, alpha, beta, gamma);
-    build_test_object_fixture(&asm_object, &fixture, x, y, z, alpha, beta, gamma);
+    build_test_object_fixture(&cpp_object, fixture, x, y, z, alpha, beta, gamma,
+                              nb_groups, group_info);
+    build_test_object_fixture(&asm_object, fixture, x, y, z, alpha, beta, gamma,
+                              nb_groups, group_info);
+    cpp_object.Texture = texture;
+    asm_object.Texture = texture;
 
     restore_cpp_3d_callbacks();
-    setup_common_aff_obj_environment();
+    setup_environment();
     seed_cpp_aff_obj_state();
     cpp_snapshot.Result = ObjectDisplay(&cpp_object);
     capture_cpp_snapshot(&cpp_snapshot);
 
-    setup_common_aff_obj_environment();
+    setup_environment();
     install_asm_compatible_3d_callbacks();
     seed_asm_aff_obj_state();
     asm_snapshot.Result = asm_ObjectDisplay(&asm_object);
@@ -979,18 +1259,35 @@ static void run_objectdisplay_render_case(const char *label, S32 x, S32 y, S32 z
     compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
     ASSERT_EQ_INT(expected_result, cpp_snapshot.Result);
     ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
+    if (expected_sort_count >= 0)
+    {
+        ASSERT_EQ_INT(expected_sort_count, cpp_snapshot.NbSortValue);
+        ASSERT_EQ_INT(expected_sort_count, asm_snapshot.NbSortValue);
+    }
     if (expect_pixels)
     {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
         ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
-        ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
-        ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
     }
     else
     {
         ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
         ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);
     }
+}
+
+static void run_objectdisplay_render_case(const char *label, S32 x, S32 y, S32 z,
+                                          S32 alpha, S32 beta, S32 gamma,
+                                          S32 expected_result, int expect_pixels)
+{
+    TEST_BODY_FIXTURE fixture;
+
+    build_test_body_fixture(&fixture);
+    run_objectdisplay_render_case_ex(label, &fixture, 1, NULL, NULL,
+                                     setup_common_aff_obj_environment, x, y, z,
+                                     alpha, beta, gamma, expected_result,
+                                     expected_result != 0 ? 1 : -1,
+                                     expect_pixels);
 }
 
 static void test_bodydisplay_visible_render(void)
@@ -1023,6 +1320,57 @@ static void test_objectdisplay_hidden_render(void)
 {
     run_objectdisplay_render_case("ObjectDisplay clipped render", 3000, 0, 0,
                                   64, 96, 32, 0, 0);
+}
+
+static void test_objectdisplay_multigroup_visible_render(void)
+{
+    TEST_COMPLEX_BODY_FIXTURE fixture;
+    T_GROUP_INFO group_info[kComplexGroupCount];
+
+    ASSERT_TRUE((int)sizeof(TEST_COMPLEX_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
+
+    build_complex_test_body_fixture(&fixture);
+    memset(group_info, 0, sizeof(group_info));
+    group_info[1].Type = TYPE_ROTATE;
+    group_info[1].Alpha = 96;
+    group_info[1].Beta = 64;
+    group_info[1].Gamma = 0;
+
+    run_objectdisplay_render_case_ex("ObjectDisplay multigroup visible render",
+                                     &fixture, kComplexGroupCount, group_info, NULL,
+                                     setup_common_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 2, 1);
+}
+
+static void test_objectdisplay_multigroup_translate_render(void)
+{
+    TEST_COMPLEX_BODY_FIXTURE fixture;
+    T_GROUP_INFO group_info[kComplexGroupCount];
+
+    build_complex_test_body_fixture(&fixture);
+    memset(group_info, 0, sizeof(group_info));
+    group_info[1].Type = TYPE_TRANSLATE;
+    group_info[1].Alpha = 80;
+    group_info[1].Beta = -32;
+    group_info[1].Gamma = 48;
+
+    run_objectdisplay_render_case_ex("ObjectDisplay multigroup translate render",
+                                     &fixture, kComplexGroupCount, group_info, NULL,
+                                     setup_common_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 2, 1);
+}
+
+static void test_objectdisplay_textured_flat_render(void)
+{
+    TEST_TEXTURED_BODY_FIXTURE fixture;
+
+    ASSERT_TRUE((int)sizeof(TEST_TEXTURED_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
+
+    build_textured_test_body_fixture(&fixture);
+    run_objectdisplay_render_case_ex("ObjectDisplay textured flat render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
 static void test_quicksort_fixed_cases(void)
@@ -1199,6 +1547,9 @@ int main(void)
     RUN_TEST(test_bodydisplay_alphabeta_visible_render);
     RUN_TEST(test_objectdisplay_visible_render);
     RUN_TEST(test_objectdisplay_hidden_render);
+    RUN_TEST(test_objectdisplay_multigroup_visible_render);
+    RUN_TEST(test_objectdisplay_multigroup_translate_render);
+    RUN_TEST(test_objectdisplay_textured_flat_render);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
     RUN_TEST(test_testvisible_random_stress);
