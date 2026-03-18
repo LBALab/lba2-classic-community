@@ -1682,6 +1682,8 @@ static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
     compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
     ASSERT_EQ_INT(expected_result, cpp_snapshot.Result);
     ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
+    ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
+
     if (expect_pixels)
     {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
@@ -1722,6 +1724,8 @@ static void run_bodydisplay_alphabeta_render_case(const char *label, S32 x, S32 
     compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
     ASSERT_EQ_INT(expected_result, cpp_snapshot.Result);
     ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
+    ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
+
     if (expect_pixels)
     {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
@@ -1779,6 +1783,8 @@ static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
         ASSERT_EQ_INT(expected_sort_count, cpp_snapshot.NbSortValue);
         ASSERT_EQ_INT(expected_sort_count, asm_snapshot.NbSortValue);
     }
+    ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
+
     if (expect_pixels)
     {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
@@ -1885,7 +1891,7 @@ static void test_bodydisplay_visible_render(void)
     ASSERT_EQ_INT(96, (int)sizeof(T_BODY_HEADER));
     ASSERT_EQ_INT(180, (int)sizeof(TEST_BODY_FIXTURE));
     run_bodydisplay_render_case("BodyDisplay visible render", 0, 0, 0,
-                                64, 96, 32, 1, 0);
+                                64, 96, 32, 1, 1);
 }
 
 static void test_bodydisplay_hidden_render(void)
@@ -1897,7 +1903,7 @@ static void test_bodydisplay_hidden_render(void)
 static void test_bodydisplay_alphabeta_visible_render(void)
 {
     run_bodydisplay_alphabeta_render_case("BodyDisplay_AlphaBeta visible render",
-                                          0, 0, 0, 96, 128, 64, 1, 0);
+                                          0, 0, 0, 96, 128, 64, 1, 1);
 }
 
 static void test_objectdisplay_visible_render(void)
