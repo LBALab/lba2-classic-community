@@ -31,8 +31,8 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `3D/ROTMATU.ASM` | `3D/ROTMATU.CPP` | `RotateMatrixU` | Rotate matrix by Euler angles | `tests/3D/test_rotmatu.cpp` now uses strict full-`TYPE_MAT` byte-for-byte equivalence, covers multiple source matrices and wraparound/negative Euler angles, and verifies that the source matrix remains unchanged in ASM and CPP. |
 | [x] | `3D/ROTRALIF.ASM` | `3D/ROTRALIF.CPP` | `RotTransListF` | Batch rotate + translate vertex list | `tests/3D/test_rotralif.cpp` now uses deterministic fixed and random cases, covers multiple list lengths, and verifies exact destination bytes while ensuring the source matrix and source vertex list remain unchanged in ASM and CPP. |
 | [x] | `3D/ROTVECT.ASM` | `3D/ROTVECT.CPP` | `RotateVector` | Rotate vector by Euler angles; writes `X0`, `Y0`, `Z0` | `tests/3D/test_rotvect.cpp` now uses deterministic fixed and random cases, covers negative and wraparound Euler angles plus large signed norms, and compares `X0`/`Y0`/`Z0` exactly after each call. |
-| [ ] | `3D/SINTAB.ASM` | `3D/SINTAB.CPP` | `SinTab[]`, `CosTab[]` | Pre-computed 16-bit sine/cosine (4096 entries) | Data table |
-| [ ] | `3D/SINTABF.ASM` | `3D/SINTABF.CPP` | `SinTabF[]`, `CosTabF[]` | Pre-computed float sine/cosine (4096 entries) | Data table |
+| [x] | `3D/SINTAB.ASM` | `3D/SINTAB.CPP` | `SinTab[]`, `CosTab[]` | Pre-computed 16-bit sine/cosine (4096 entries) | `tests/3D/test_sintab.cpp` compares all 4096 `SinTab` and `CosTab` entries exactly against the ASM tables. |
+| [x] | `3D/SINTABF.ASM` | `3D/SINTABF.CPP` | `SinTabF[]`, `CosTabF[]` | Pre-computed float sine/cosine (4096 entries) | `tests/3D/test_sintabf.cpp` now compares the full `SinTabF` and `CosTabF` tables byte-for-byte against the ASM data. |
 | [ ] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | CPP uses `sqrt()`/`sqrtl()` — known ±1 discrepancy in `QSqr` |
 | [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
 
