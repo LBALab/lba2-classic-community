@@ -157,8 +157,11 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 **Where:** `AMBIANCE.CPP` — `StartRainSample`, `ChoicePalette`, `GereRain`-related paths.
 
 **Conditions:**
+- `Island==0` (Citadel only; storm is story-specific to Citadel Island).
 - `CubeMode==CUBE_EXTERIEUR` AND `!TEMPETE_FINIE` (storm active).
 - Stopped when `CubeMode==CUBE_INTERIEUR` OR `TEMPETE_FINIE`.
+
+Without the Island check, loading or warping to Desert (or other exterior cubes) would incorrectly play rain, since `TEMPETE_ACTIVE` is a global chapter-based flag.
 
 **Pattern:** `HQ_MixSample(SAMPLE_RAIN, 0x1000, 300, 0, 64, volume)` — infinite loop, center pan, decalage 300 for variation.
 
@@ -188,7 +191,7 @@ This section maps how the engine uses the AIL API in gameplay. It guides targete
 | Scene type | Cubes | Notes |
 |------------|-------|------|
 | **Desert exterior** | 55–73, 198–220 (White Leaf Desert) | `SampleAmbiance[0..3]` from scene file — cicadas, wind, ambient. Often multiple infinite loops. |
-| **Rain / storm** | Exterior cubes when `TEMPETE_ACTIVE` | `SAMPLE_RAIN` overlay on ambience. |
+| **Rain / storm** | Citadel Island (0) exterior when `TEMPETE_ACTIVE` | `SAMPLE_RAIN` overlay on ambience. |
 | **Escalator buildings** | e.g. baggage claim (5, 6, 16) | Conveyor belt + ambience. |
 | **Protection zones** | Various | Continuous alarm + other SFX. |
 | **Buggy / Protopack** | Desert, exterior | `SampleAlways` engine/jetpack + ambience + possible music. |
