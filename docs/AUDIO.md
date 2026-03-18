@@ -94,6 +94,8 @@ These are the C headers every backend must implement. They live in `LIB386/H/AIL
 
 ### VIDEO_AUDIO.H -- video soundtrack (smacker)
 
+Each sound backend implements this contract. SDL provides real audio; NULL and MILES provide silent stubs.
+
 | Function | Signature |
 |----------|-----------|
 | `StartVideoAudio` | `S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit)` |

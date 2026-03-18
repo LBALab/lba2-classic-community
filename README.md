@@ -75,7 +75,7 @@ available on `PATH`.
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
 
-When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the SDL-based video/audio glue used by the FMV player. See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
+When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the FMV player. Video audio routes through the active sound backend (SDL: real audio; NULL/MILES: silent). See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 
 ### Debug Tools
 
