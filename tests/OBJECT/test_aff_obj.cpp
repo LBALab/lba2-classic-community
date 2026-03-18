@@ -14,52 +14,44 @@
 #include "test_harness.h"
 
 #include <OBJECT/AFF_OBJ.H>
+#include <3D/DATAMAT.H>
 
 #include <string.h>
 
+static const U32 kObjProjectedPointCount = 550;
+
+typedef struct
+{
+    U16 P1;
+    U16 P2;
+    U16 P3;
+    U16 Padding;
+    U16 Couleur;
+    U16 Normale;
+} STRUC_POLY3_LIGHT;
+
+typedef struct
+{
+    U16 P1;
+    U16 P2;
+    U16 P3;
+    U16 HandleEnv;
+    U16 Couleur;
+    U16 Normale;
+    U16 Scale;
+    U16 Padding;
+} STRUC_POLY3_ENV;
+
 void QuickSort(S32 *beginning, S32 *end);
 void QuickSortInv(S32 *beginning, S32 *end);
+bool TestVisible(STRUC_POLY3_ENV *poly);
 
-extern "C" void asm_QuickSort(void);
-extern "C" void asm_QuickSortInv(void);
-extern "C" void call_asm_QuickSort(S32 *beginning, S32 *end);
-extern "C" void call_asm_QuickSortInv(S32 *beginning, S32 *end);
+extern TYPE_PT Obj_ListProjectedPoints[];
+extern "C" TYPE_PT asm_Obj_ListProjectedPoints[];
 
-__asm__(
-    ".globl call_asm_QuickSort\n"
-    "call_asm_QuickSort:\n"
-    "    pushl %ebp\n"
-    "    movl %esp, %ebp\n"
-    "    pushl %ebx\n"
-    "    pushl %esi\n"
-    "    pushl %edi\n"
-    "    movl 8(%ebp), %ebx\n"
-    "    movl 12(%ebp), %ecx\n"
-    "    call asm_QuickSort\n"
-    "    popl %edi\n"
-    "    popl %esi\n"
-    "    popl %ebx\n"
-    "    popl %ebp\n"
-    "    ret\n"
-);
-
-__asm__(
-    ".globl call_asm_QuickSortInv\n"
-    "call_asm_QuickSortInv:\n"
-    "    pushl %ebp\n"
-    "    movl %esp, %ebp\n"
-    "    pushl %ebx\n"
-    "    pushl %esi\n"
-    "    pushl %edi\n"
-    "    movl 8(%ebp), %ebx\n"
-    "    movl 12(%ebp), %ecx\n"
-    "    call asm_QuickSortInv\n"
-    "    popl %edi\n"
-    "    popl %esi\n"
-    "    popl %ebx\n"
-    "    popl %ebp\n"
-    "    ret\n"
-);
+extern "C" int CallTestVisibleI(STRUC_POLY3_LIGHT *poly);
+extern "C" void CallQuickSort(S32 *beginning, S32 *end);
+extern "C" void CallQuickSortInv(S32 *beginning, S32 *end);
 
 static U32 rng_state;
 
@@ -72,6 +64,30 @@ static U32 rng_next(void)
 {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
+}
+
+static void set_point(TYPE_PT *point, S16 x, S16 y)
+{
+    point->X = x;
+    point->Y = y;
+}
+
+static void set_hidden_point(TYPE_PT *point)
+{
+    point->X = (S16)-0x8000;
+    point->Y = (S16)-0x8000;
+}
+
+static void build_projected_points_snapshot(TYPE_PT *snapshot, const TYPE_PT *points, U32 count)
+{
+    ASSERT_TRUE(count <= kObjProjectedPointCount);
+
+    for (U32 index = 0; index < kObjProjectedPointCount; ++index)
+    {
+        set_hidden_point(&snapshot[index]);
+    }
+
+    memcpy(snapshot, points, count * sizeof(TYPE_PT));
 }
 
 static void fill_strictly_increasing(S32 *values, U32 count)
@@ -262,9 +278,26 @@ static void run_sort_case(const char *label, const S32 *values, U32 count)
     memcpy(asm_array, values, count * sizeof(S32));
 
     QuickSort(cpp_array, cpp_array + count - 1);
-    call_asm_QuickSort(asm_array, asm_array + count - 1);
+    CallQuickSort(asm_array, asm_array + count - 1);
 
     ASSERT_ASM_CPP_MEM_EQ(asm_storage, cpp_storage, (count + 2) * sizeof(S32), label);
+}
+
+static void run_testvisiblei_case(const char *label, const TYPE_PT *points, U32 count, const STRUC_POLY3_LIGHT *poly)
+{
+    TYPE_PT baseline[kObjProjectedPointCount];
+
+    build_projected_points_snapshot(baseline, points, count);
+
+    memcpy(Obj_ListProjectedPoints, baseline, sizeof(baseline));
+    const int cpp_visible = TestVisible((STRUC_POLY3_ENV *)poly) ? 1 : 0;
+    ASSERT_MEM_EQ(baseline, Obj_ListProjectedPoints, sizeof(baseline));
+
+    memcpy(asm_Obj_ListProjectedPoints, baseline, sizeof(baseline));
+    const int asm_visible = CallTestVisibleI((STRUC_POLY3_LIGHT *)poly);
+    ASSERT_MEM_EQ(baseline, asm_Obj_ListProjectedPoints, sizeof(baseline));
+
+    ASSERT_ASM_CPP_EQ_INT(asm_visible, cpp_visible, label);
 }
 
 static void run_sortinv_case(const char *label, const S32 *values, U32 count)
@@ -285,7 +318,7 @@ static void run_sortinv_case(const char *label, const S32 *values, U32 count)
     memcpy(asm_array, values, count * sizeof(S32));
 
     QuickSortInv(cpp_array, cpp_array + count - 1);
-    call_asm_QuickSortInv(asm_array, asm_array + count - 1);
+    CallQuickSortInv(asm_array, asm_array + count - 1);
 
     ASSERT_ASM_CPP_MEM_EQ(asm_storage, cpp_storage, (count + 2) * sizeof(S32), label);
 }
@@ -299,6 +332,40 @@ static void test_quicksort_fixed_cases(void)
     run_sort_case("QuickSort ascending small", ascending_small, sizeof(ascending_small) / sizeof(ascending_small[0]));
     run_sort_case("QuickSort ascending mixed", ascending_mixed, sizeof(ascending_mixed) / sizeof(ascending_mixed[0]));
     run_sort_case("QuickSort ascending long", ascending_long, sizeof(ascending_long) / sizeof(ascending_long[0]));
+}
+
+static void test_testvisible_fixed_cases(void)
+{
+    TYPE_PT points[4];
+    STRUC_POLY3_LIGHT light_visible = {0, 1, 2, 0, 0x12, 0x34};
+    STRUC_POLY3_LIGHT light_hidden = {0, 2, 1, 0, 0x56, 0x78};
+
+    set_point(&points[0], 0, 0);
+    set_point(&points[1], 0, 10);
+    set_point(&points[2], 10, 0);
+    set_point(&points[3], 5, 5);
+
+    run_testvisiblei_case("TestVisibleI visible winding", points, 4, &light_visible);
+    run_testvisiblei_case("TestVisibleI hidden winding", points, 4, &light_hidden);
+}
+
+static void test_testvisible_edge_cases(void)
+{
+    TYPE_PT points[4];
+    STRUC_POLY3_LIGHT light_invalid = {0, 1, 2, 0, 1, 2};
+    STRUC_POLY3_LIGHT light_collinear = {0, 1, 2, 0, 3, 4};
+
+    set_hidden_point(&points[0]);
+    set_point(&points[1], 6, -2);
+    set_point(&points[2], -4, 9);
+    set_point(&points[3], 3, 3);
+    run_testvisiblei_case("TestVisibleI invalid hidden point", points, 4, &light_invalid);
+
+    set_point(&points[0], -8, -8);
+    set_point(&points[1], 0, 0);
+    set_point(&points[2], 8, 8);
+    set_point(&points[3], 12, -4);
+    run_testvisiblei_case("TestVisibleI collinear", points, 4, &light_collinear);
 }
 
 static void test_quicksortinv_fixed_cases(void)
@@ -341,6 +408,40 @@ static void test_quicksort_random_stress(void)
     }
 }
 
+static void test_testvisible_random_stress(void)
+{
+    TYPE_PT points[8];
+
+    rng_seed(0x13572468u);
+    for (int round = 0; round < 300; ++round)
+    {
+        STRUC_POLY3_LIGHT light_poly;
+
+        for (int index = 0; index < 8; ++index)
+        {
+            if ((rng_next() % 7u) == 0)
+            {
+                set_hidden_point(&points[index]);
+            }
+            else
+            {
+                set_point(&points[index],
+                          (S16)((S32)(rng_next() % 401u) - 200),
+                          (S16)((S32)(rng_next() % 401u) - 200));
+            }
+        }
+
+        light_poly.P1 = (U16)(rng_next() % 8u);
+        light_poly.P2 = (U16)(rng_next() % 8u);
+        light_poly.P3 = (U16)(rng_next() % 8u);
+        light_poly.Padding = 0;
+        light_poly.Couleur = (U16)rng_next();
+        light_poly.Normale = (U16)rng_next();
+
+        run_testvisiblei_case("TestVisibleI random", points, 8, &light_poly);
+    }
+}
+
 static void test_quicksort_random_unordered(void)
 {
     S32 values[32];
@@ -360,6 +461,9 @@ static void test_quicksort_random_unordered(void)
 
 int main(void)
 {
+    RUN_TEST(test_testvisible_fixed_cases);
+    RUN_TEST(test_testvisible_edge_cases);
+    RUN_TEST(test_testvisible_random_stress);
     RUN_TEST(test_quicksort_fixed_cases);
     RUN_TEST(test_quicksortinv_fixed_cases);
     RUN_TEST(test_quicksort_edge_cases);
