@@ -1736,12 +1736,56 @@ static void test_objectdisplay_textured_quad_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
+static void test_objectdisplay_textured_quad_solid_render(void)
+{
+    TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
+
+    build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureSolid));
+    run_objectdisplay_render_case_ex("ObjectDisplay textured quad solid render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_quad_gouraud_render(void)
+{
+    TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
+
+    build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureGouraud));
+    run_objectdisplay_render_case_ex("ObjectDisplay textured quad gouraud render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_objectdisplay_textured_quad_z_flat_render(void)
 {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureZFlat));
     run_objectdisplay_render_case_ex("ObjectDisplay textured quad Z flat render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_quad_z_solid_render(void)
+{
+    TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
+
+    build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureZSolid));
+    run_objectdisplay_render_case_ex("ObjectDisplay textured quad Z solid render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_quad_z_gouraud_render(void)
+{
+    TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
+
+    build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureZGouraud));
+    run_objectdisplay_render_case_ex("ObjectDisplay textured quad Z gouraud render",
                                      &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
@@ -1764,6 +1808,17 @@ static void test_objectdisplay_env_gouraud_render(void)
 
     build_env_test_body_fixture(&fixture, kPolyEnvTextureGouraud, 0);
     run_objectdisplay_render_case_ex("ObjectDisplay env gouraud render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_env_flat_scaled_render(void)
+{
+    TEST_ENV_BODY_FIXTURE fixture;
+
+    build_env_test_body_fixture(&fixture, kPolyEnvTextureFlat, 0x4040u);
+    run_objectdisplay_render_case_ex("ObjectDisplay env flat scaled render",
                                      &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
@@ -1802,6 +1857,17 @@ static void test_objectdisplay_env_quad_flat_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
+static void test_objectdisplay_env_quad_flat_render(void)
+{
+    TEST_ENV_QUAD_BODY_FIXTURE fixture;
+
+    build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureFlat), 0);
+    run_objectdisplay_render_case_ex("ObjectDisplay env quad flat render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_objectdisplay_env_quad_solid_scaled_render(void)
 {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
@@ -1813,12 +1879,34 @@ static void test_objectdisplay_env_quad_solid_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
+static void test_objectdisplay_env_quad_solid_render(void)
+{
+    TEST_ENV_QUAD_BODY_FIXTURE fixture;
+
+    build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureSolid), 0);
+    run_objectdisplay_render_case_ex("ObjectDisplay env quad solid render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_objectdisplay_env_quad_gouraud_scaled_render(void)
 {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureGouraud), 0x4040u);
     run_objectdisplay_render_case_ex("ObjectDisplay env quad gouraud scaled render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_env_quad_gouraud_render(void)
+{
+    TEST_ENV_QUAD_BODY_FIXTURE fixture;
+
+    build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureGouraud), 0);
+    run_objectdisplay_render_case_ex("ObjectDisplay env quad gouraud render",
                                      &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
@@ -2019,14 +2107,22 @@ int main(void)
     RUN_TEST(test_objectdisplay_textured_z_flat_render);
     RUN_TEST(test_objectdisplay_textured_z_solid_render);
     RUN_TEST(test_objectdisplay_textured_z_gouraud_render);
+    RUN_TEST(test_objectdisplay_textured_quad_solid_render);
     RUN_TEST(test_objectdisplay_textured_quad_flat_render);
+    RUN_TEST(test_objectdisplay_textured_quad_gouraud_render);
     RUN_TEST(test_objectdisplay_textured_quad_z_flat_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_solid_render);
+    RUN_TEST(test_objectdisplay_textured_quad_z_gouraud_render);
     RUN_TEST(test_objectdisplay_env_solid_render);
     RUN_TEST(test_objectdisplay_env_gouraud_render);
+    RUN_TEST(test_objectdisplay_env_flat_scaled_render);
     RUN_TEST(test_objectdisplay_env_solid_scaled_render);
     RUN_TEST(test_objectdisplay_env_gouraud_scaled_render);
+    RUN_TEST(test_objectdisplay_env_quad_flat_render);
     RUN_TEST(test_objectdisplay_env_quad_flat_scaled_render);
+    RUN_TEST(test_objectdisplay_env_quad_solid_render);
     RUN_TEST(test_objectdisplay_env_quad_solid_scaled_render);
+    RUN_TEST(test_objectdisplay_env_quad_gouraud_render);
     RUN_TEST(test_objectdisplay_env_quad_gouraud_scaled_render);
     RUN_TEST(test_objectdisplay_env_flat_render);
     RUN_TEST(test_testvisible_fixed_cases);
