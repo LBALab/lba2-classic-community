@@ -94,7 +94,6 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SVGA/GRAPH.ASM` | `SVGA/GRAPH.CPP` | `AffGraph`, `GetBoxGraph` | Graphics drawing and box calculation | ASM ≡ CPP: GetBoxGraph basic + positive hotspot. Negative hotspot sign-extends differently (ASM movsx vs CPP U8). |
 | [x] | `SVGA/MASK.ASM` | `SVGA/MASK.CPP` | `AffMask` | Display mask/sprite with transparency | ASM ≡ CPP: synthetic bank + 20 random positions via Watcom ABI wrapper |
 | [x] | `SVGA/RESBLOCK.ASM` | `SVGA/RESBLOCK.CPP` | `RestoreBlock` | Restore saved screen region | ASM ≡ CPP: roundtrip + full-screen + 20 random regions |
-| [ ] | `SVGA/SAVBLOCK.ASM` | `SVGA/SAVBLOCK.CPP` | `SaveBlock` | Save screen region to buffer | |
 | [x] | `SVGA/SAVBLOCK.ASM` | `SVGA/SAVBLOCK.CPP` | `SaveBlock` | Save screen region to buffer | `tests/SVGA/test_savblock.cpp` now performs strict saved-buffer ASM-vs-CPP comparison with screen preservation checks across fixed and deterministic random rectangles. |
 | [x] | `SVGA/SCALEBOX.ASM` | `SVGA/SCALEBOX.CPP` | `ScaleBox` | Scale rectangular region | ASM ≡ CPP: same-size, upscale, downscale + 20 random sizes/positions |
 | [x] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | ASM fix: added `uses esi edi ebx` (callee-saved regs were clobbered, causing crash). CPP fix: ScreenXMax/YMax now inclusive. 14 tests: basic, transparency, clipping×4, hotspot, multi-sprite, random×30, ASM-vs-CPP (1:1, clipped, random×20). |
@@ -105,7 +104,7 @@ exists in both `.ASM` and `.CPP` form.
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `SYSTEM/CPU.ASM` | `SYSTEM/CPU.CPP` | CPU globals | CPU detection and feature flags | ASM ≡ CPP: ProcessorManufacturerIDString (13 bytes). Struct globals may differ in init values. |
-| [ ] | `SYSTEM/FASTCPYF.ASM` | `SYSTEM/FASTCPYF.CPP` | `FastCopy` | Fast memory copy | Self-contained |
+| [x] | `SYSTEM/FASTCPYF.ASM` | `SYSTEM/FASTCPYF.CPP` | `FastCopy` | Fast memory copy | `tests/SYSTEM/test_fastcpyf.cpp` now performs strict whole-buffer ASM-vs-CPP comparison with source preservation checks across fixed and deterministic random sizes and alignments. Fixed `LIB386/SYSTEM/FASTCPYF.CPP` to emulate the ASM’s x87 qword transfer sequence instead of raw `memcpy`. |
 | [ ] | `SYSTEM/LZ.ASM` | `SYSTEM/LZ.CPP` | `ExpandLZ` | LZ decompression | Self-contained |
 | [x] | `SYSTEM/MOUSEDAT.ASM` | `SYSTEM/MOUSEDAT.CPP` | Mouse data | Mouse driver data structures | ASM ≡ CPP: BinGphMouse[541] byte-for-byte |
 
