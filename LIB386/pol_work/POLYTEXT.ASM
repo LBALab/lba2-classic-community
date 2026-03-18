@@ -165,13 +165,31 @@ IntZBuf             DWORD 12345678h
 IntMapV             BYTE  12h
 IntMapU             BYTE  12h
 
+
+		EXTRN	C	printf	:NEAR
+fmt_f_texture_1	DB	"[ASM][Filler_Texture][1] entry", 10, 0
+fmt_f_textureflat_1	DB	"[ASM][Filler_TextureFlat][1] entry", 10, 0
+fmt_f_texturechromak_1	DB	"[ASM][Filler_TextureChromaKey][1] entry", 10, 0
+fmt_f_textureflatchr_1	DB	"[ASM][Filler_TextureFlatChromaKey][1] entry", 10, 0
+
+
+fmt_filler_textu_1b	DB	"[ASM][Filler_Texture][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_textu_1c	DB	"[ASM][Filler_Texture][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_textu_1d	DB	"[ASM][Filler_Texture][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_textu_1e	DB	"[ASM][Filler_Texture][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+
 _DATA			ENDS
-
-
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
+
+
+
+
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
@@ -192,7 +210,184 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Texture		PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_Texture][1] entry ---
+		pushad
+		push	offset fmt_f_texture_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlatChromaKey][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlatChromaKey][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlat][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlat][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureChromaKey][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureChromaKey][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Texture][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Texture][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlatChromaKey][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlatChromaKey][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureChromaKey][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureChromaKey][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlat][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_TextureFlat][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Texture][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_textu_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Texture][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	offset fmt_filler_textu_1e
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -382,7 +577,16 @@ Filler_Texture		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureChromaKey	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_texturechromak_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -583,7 +787,16 @@ Filler_TextureChromaKey	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureFlat	PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureFlat][1] entry ---
+		pushad
+		push	offset fmt_f_textureflat_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx
@@ -794,7 +1007,16 @@ Filler_TextureFlat	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_TextureFlatChromaKey PROC
-			inc	ecx
+
+		; --- debug trace [ASM][Filler_TextureFlatChromaKey][1] entry ---
+		pushad
+		push	offset fmt_f_textureflatchr_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					inc	ecx
 			mov	eax,[Fill_CurY]
 
 			add	eax,ecx

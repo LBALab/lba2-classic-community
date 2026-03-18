@@ -76,6 +76,11 @@ Sph_Coul		db	0
 ; ║  Le code                                                                  ║
 ; ║                                                                           ║
 ; ╚═══════════════════════════════════════════════════════════════════════════╝
+
+		EXTRN	C	printf	:NEAR
+
+fmt_fill_sph_1	DB	"[ASM][Fill_Sphere][1] entry", 10, 0
+
 			.CODE
 ;Seg_Code		SEGMENT	PUBLIC PARA USE32
 
@@ -103,7 +108,16 @@ Fill_Sphere		PROC
 							; py	equ	edx
 							; sum	equ	ebp
 
-			cmp	[Fill_Flag_ZBuffer],TRUE
+
+		; --- debug trace [ASM][Fill_Sphere][1] params ---
+		pushad
+		push	offset fmt_fill_sph_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					cmp	[Fill_Flag_ZBuffer],TRUE
 			jne	@@No_ZBuff
 			mov	[Z_Value],edi
 

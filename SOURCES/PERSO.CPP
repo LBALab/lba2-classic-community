@@ -770,6 +770,15 @@ startloop:
                 }
 #endif  // debug tools
 
+#ifdef ENABLE_POLY_RECORDING
+                // Scene snapshot / polygon recording capture (Alt+F9)
+                if( Key == K_F9 && (SDL_GetModState() & SDL_KMOD_ALT) )
+                {
+                        SnapshotRequested = 1 ;
+                        while( Key )  MyGetInput() ;
+                }
+#endif
+
                 CheckSavePcx() ;// F9: Sauve Screen
 
 #ifdef CONSOLE_MODULE

@@ -11,6 +11,11 @@
 		.DATA
 
 		extrn	C	SinTabF:DWORD
+		extrn	C	CosTabF:DWORD
+
+		extrn	C	printf:NEAR
+
+fmt_imatstd_1	DB	"[ASM][InitMatrixStdF][1] Dst=%p a=%d b=%d g=%d", 10, 0
 
 		public	C	InitMatrixStd
 		public	C	InitMatrix
@@ -57,6 +62,18 @@ M(Finale) = {M(Alpha)*M(Gamma)}*M(Beta)
 ;	modify exact	[eax ebx ecx edx esi]
 
 InitMatrixStdF	PROC
+
+		; --- debug trace [ASM][InitMatrixStdF][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	edi
+		push	offset fmt_imatstd_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
 
 		lea	ecx,[ecx*4]
 		lea	ebx,[ebx*4]

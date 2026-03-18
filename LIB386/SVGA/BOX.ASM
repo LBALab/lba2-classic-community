@@ -16,6 +16,11 @@
 			ASSUME DS:SEG Log
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_box_1	DB	"[ASM][Box][1] x0=%d y0=%d x1=%d y1=%d col=%d", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -35,7 +40,21 @@ Box			PROC \
 			x1: DWORD, \
 			y1: DWORD, \
 			col: DWORD
-			mov eax, x0
+
+		; --- debug trace [ASM][Box][1] params ---
+		pushad
+		push	col
+		push	y1
+		push	x1
+		push	y0
+		push	x0
+		push	offset fmt_box_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
+					mov eax, x0
 			mov ebx, y0
 			mov ecx, x1
 			mov edx, y1

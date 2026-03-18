@@ -46,6 +46,11 @@ comment @
 			NbPix		dd	0
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_copymask_1	DB	"[ASM][CopyMask][1] num=%d x=%d y=%d bank=%p src=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -61,7 +66,21 @@ comment @
 CopyMask		PROC \
 			uses ebx ecx edx edi esi ebp\
 			nummask: DWORD, x: DWORD, y: DWORD, bankmask: DWORD, src: DWORD
-			mov eax, nummask
+
+		; --- debug trace [ASM][CopyMask][1] params ---
+		pushad
+		push	src
+		push	bankmask
+		push	y
+		push	x
+		push	nummask
+		push	offset fmt_copymask_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
+					mov eax, nummask
 			mov ebx, x
 			mov ecx, y
 			mov esi, bankmask

@@ -1,133 +1,13 @@
-/*
-;----------------------------------------------------------------------------
-;				S_LINE.ASM 386
-;			      (c) Adeline 1993-96
-;----------------------------------------------------------------------------
-            OPTION SCOPED
-
-			.386
-			.MODEL FLAT, C
-
-			INCLUDE FILLER.INC
-
-;----------------------------------------------------------------------------
-			.DATA
-
-;----------------------------------------------------------------------------
-			extrn	C ClipXMin		:DWORD
-			extrn	C ClipYMin		:DWORD
-			extrn	C ClipXMax		:DWORD
-			extrn	C ClipYMax		:DWORD
-			extrn	C Log			:DWORD
-			extrn	C PtrZBuffer		:DWORD
-			extrn	C PTR_TabOffLine		:DWORD
-			extrn	C ScreenPitch		:DWORD
-			Extrn	C	Fill_Flag_Fog		:BYTE
-			Extrn	C	Fill_Flag_ZBuffer	:BYTE
-			Extrn	C	Fill_Flag_NZW		:BYTE
-			Extrn	C	Fill_Logical_Palette	:BYTE
-
-Z1			dd	0			; For the ZBuffer
-Z2			dd	0
-DZ			dd	0
-Color			db	0
-
-s_eax			dd	0
-s_ebx			dd	0
-s_ecx			dd	0
-s_edx			dd	0
-s_esi			dd	0
-s_edi			dd	0
-s_ebp			dd	0
-
-; Runtime code patch refactor, uses memory instead of instruction substitution
-LinePatch   DWORD 12345678h
-PtrLog      DWORD 12345678h
-PtrZBuf     DWORD 12345678h
-PtrZBuf1    DWORD 12345678h
-YPtrZBuf    DWORD 12345678h
-YPtrZBuf1   DWORD 12345678h
-YPtrLog     DWORD 12345678h
-Row         DWORD 12345678h
-YDX         DWORD 12345678h
-YDY         DWORD 12345678h
-YDY1        DWORD 12345678h
-YDZ         DWORD 12345678h
-DXPatch     DWORD 12345678h
-DY          DWORD 12345678h
-DZPatch     DWORD 12345678h
-DX1         DWORD 12345678h
-IZ          DWORD 12345678h
-YIZ         DWORD 12345678h
-ColorX      BYTE 12h
-ColorY      BYTE 12h
-
-;----------------------------------------------------------------------------
-			.CODE
-
-;----------------------------------------------------------------------------
-			public	C	Line
-			public	C	LineZBufNZW
-			public	C	LineZBuf
-			public	C	Line_A
-
-;----------------------------------------------------------------------------
-;		LineZBufNZW( x0, y0, z0, x1, y1, z1, coul )
-;
-LineZBufNZW		PROC	USES esi edi ebp ebx,\
-			x0:DWORD, y0:DWORD, zb0:DWORD,\
-			x1:DWORD, y1:DWORD, zb1:DWORD,\
-			coul:DWORD
-
-; 			X0:ax  Y0:bx
-;			X1:cx  Y1:DX
-;			couleur: bp
-
-			mov	eax, x0
-			mov	ebx, y0
-			mov	edi, zb0
-			mov	ecx, x1
-			mov	edx, y1
-			mov	esi, zb1
-			mov	ebp, coul
-
-			call	Line_ZBuffer_NZW
-
-			ret
-LineZBufNZW		ENDP
-
-
-;----------------------------------------------------------------------------
-;		LineZBufNZW( x0, y0, z0, x1, y1, z1, coul )
-;
-LineZBuf		PROC	USES esi edi ebp ebx,\
-			x0:DWORD, y0:DWORD, zb0:DWORD,\
-			x1:DWORD, y1:DWORD, zb1:DWORD,\
-			coul:DWORD
-
-; 			X0:ax  Y0:bx
-;			X1:cx  Y1:DX
-;			couleur: bp
-
-			mov	eax, x0
-			mov	ebx, y0
-			mov	edi, zb0
-			mov	ecx, x1
-			mov	edx, y1
-			mov	esi, zb1
-			mov	ebp, coul
-
-			call	Line_ZBuffer
-
-			ret
-LineZBuf		ENDP
-*/
-
 #include <SVGA/FIL_LINE.H>
 #include <POLYGON/POLY.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
+
+#ifdef ENABLE_POLY_RECORDING
+#include <SNAPSHOT/POLY_RECORDING.H>
+#endif
 
 S32 Z1 = 0;			// For the ZBuffer
 S32 Z2 = 0;
@@ -524,7 +404,6 @@ void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
     color = Fill_Logical_Palette[col];
   }
   Color = color;
-
   while (true)
   {
     // @@Trace_Still:
@@ -1158,11 +1037,18 @@ void Line_Entry(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 
 void Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
 {
+    LIB386_TRACE_CPP("Line", "1", "x0=%d y0=%d x1=%d y1=%d col=%d", x0, y0, x1, y1, col);
 	Line_Entry(x0, y0, x1, y1, col);
 }
 
 void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2)
 {
+    LIB386_TRACE_CPP("Line_A", "1", "x0=%d y0=%d x1=%d y1=%d col=%d z1=%d z2=%d flags: ZBuf=%d NZW=%d Fog=%d",
+        x0, y0, x1, y1, col, z1, z2, Fill_Flag_ZBuffer, Fill_Flag_NZW, Fill_Flag_Fog);
+#ifdef ENABLE_POLY_RECORDING
+	if (g_polyrec_recording)
+		polyrec_record_line_a(x0, y0, x1, y1, col, z1, z2);
+#endif
 	if (Fill_Flag_NZW)
 	{
 		Line_ZBuffer_NZW(x0, y0, x1, y1, col, z1, z2);

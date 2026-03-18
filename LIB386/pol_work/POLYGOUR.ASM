@@ -190,12 +190,47 @@ PtrColor3           DWORD 12345678h
 PtrColor4           DWORD 12345678h
 IntGour             BYTE  12h
 
-_DATA			ENDS
 
+		EXTRN	C	printf	:NEAR
+fmt_f_gouraud_1	DB	"[ASM][Filler_Gouraud][1] entry", 10, 0
+fmt_f_dither_1	DB	"[ASM][Filler_Dither][1] entry", 10, 0
+fmt_f_gouraudtable_1	DB	"[ASM][Filler_GouraudTable][1] entry", 10, 0
+fmt_f_dithertable_1	DB	"[ASM][Filler_DitherTable][1] entry", 10, 0
+fmt_f_gouraudzbuf_1	DB	"[ASM][Filler_GouraudZBuf][1] entry", 10, 0
+fmt_f_ditherzbuf_1	DB	"[ASM][Filler_DitherZBuf][1] entry", 10, 0
+fmt_f_gouraudtablezb_1	DB	"[ASM][Filler_GouraudTableZBuf][1] entry", 10, 0
+fmt_f_dithertablezbu_1	DB	"[ASM][Filler_DitherTableZBuf][1] entry", 10, 0
+fmt_f_gouraudnzw_1	DB	"[ASM][Filler_GouraudNZW][1] entry", 10, 0
+fmt_f_dithernzw_1	DB	"[ASM][Filler_DitherNZW][1] entry", 10, 0
+fmt_f_gouraudtablenz_1	DB	"[ASM][Filler_GouraudTableNZW][1] entry", 10, 0
+fmt_f_dithertablenzw_1	DB	"[ASM][Filler_DitherTableNZW][1] entry", 10, 0
+
+
+fmt_filler_goura_1b	DB	"[ASM][Filler_Gouraud][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_goura_1c	DB	"[ASM][Filler_Gouraud][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_goura_1d	DB	"[ASM][Filler_Gouraud][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_goura_1e	DB	"[ASM][Filler_Gouraud][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+fmt_filler_dithe_1b	DB	"[ASM][Filler_Dither][1b] LeftSlope=%d RightSlope=%d curY=%d", 10, 0
+fmt_filler_dithe_1c	DB	"[ASM][Filler_Dither][1c] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d", 10, 0
+fmt_filler_dithe_1d	DB	"[ASM][Filler_Dither][1d] U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d", 10, 0
+fmt_filler_dithe_1e	DB	"[ASM][Filler_Dither][1e] curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u", 10, 0
+
+_DATA			ENDS
 ;			************
 ;			*** CODE ***
 ;			************
+
+
+
 ;			.CODE
+
+
+
+
+
+
+
+
 _TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 			ASSUME	CS:FLAT, DS:FLAT, ES:FLAT, SS:FLAT
 
@@ -216,7 +251,496 @@ Extrn	C		Triangle_ReadNextEdge	:	PROC	; Entry point that reads the next point in
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Gouraud		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_Gouraud][1] entry ---
+		pushad
+		push	offset fmt_f_gouraud_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTable][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTable][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTable][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTable][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Dither][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Dither][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Gouraud][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Gouraud][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudNZW][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudNZW][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTableZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTableZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudZBuf][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudZBuf][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTable][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_DitherTable][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTable][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_GouraudTable][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Dither][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_dithe_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Dither][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_dithe_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Gouraud][1b] slopes ---
+		pushad
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_filler_goura_1b
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Filler_Gouraud][1e] curvals ---
+		pushad
+		push	dword ptr [Fill_Patch]
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_CurZBufMin]
+		push	offset fmt_filler_goura_1e
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -349,7 +873,16 @@ Filler_Gouraud		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_Dither		PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_Dither][1] entry ---
+		pushad
+		push	offset fmt_f_dither_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -500,7 +1033,16 @@ Filler_Dither		ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_GouraudTable	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_GouraudTable][1] entry ---
+		pushad
+		push	offset fmt_f_gouraudtable_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -637,7 +1179,16 @@ Filler_GouraudTable	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_DitherTable	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_DitherTable][1] entry ---
+		pushad
+		push	offset fmt_f_dithertable_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -1126,7 +1677,16 @@ Filler_DitherFog	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_GouraudZBuf	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_GouraudZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_gouraudzbuf_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -1316,7 +1876,16 @@ Filler_GouraudZBuf	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_DitherZBuf	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_DitherZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_ditherzbuf_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -1638,7 +2207,16 @@ Filler_DitherZBuf	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_GouraudTableZBuf	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_GouraudTableZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_gouraudtablezb_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -1834,7 +2412,16 @@ Filler_GouraudTableZBuf	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_DitherTableZBuf	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_DitherTableZBuf][1] entry ---
+		pushad
+		push	offset fmt_f_dithertablezbu_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -2685,7 +3272,16 @@ Filler_DitherFogZBuf	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_GouraudNZW	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_GouraudNZW][1] entry ---
+		pushad
+		push	offset fmt_f_gouraudnzw_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -2869,7 +3465,16 @@ Filler_GouraudNZW	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_DitherNZW	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_DitherNZW][1] entry ---
+		pushad
+		push	offset fmt_f_dithernzw_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -3158,7 +3763,16 @@ Filler_DitherNZW	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_GouraudTableNZW	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_GouraudTableNZW][1] entry ---
+		pushad
+		push	offset fmt_f_gouraudtablenz_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp
@@ -3348,7 +3962,16 @@ Filler_GouraudTableNZW	ENDP
 ;		EDX = Fill_CurXMax
 			ALIGN	4
 Filler_DitherTableNZW	PROC
-			lea	ebp,[ecx+1]
+
+		; --- debug trace [ASM][Filler_DitherTableNZW][1] entry ---
+		pushad
+		push	offset fmt_f_dithertablenzw_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					lea	ebp,[ecx+1]
 			mov	eax,[Fill_CurY]
 
 			add	eax,ebp

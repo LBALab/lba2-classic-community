@@ -19,6 +19,10 @@
 
 		ASSUME  DS:SEG Lib3DBufferAnim
 
+		EXTRN	C	printf	:NEAR
+
+fmt_stoframe_1	DB	"[ASM][ObjectStoreFrame][1] obj=%p", 10, 0
+
 ;*──────────────────────────────────────────────────────────────────────────*
 		.CODE
 
@@ -33,6 +37,15 @@
 ;	modify exact	[eax ecx esi edi]
 
 ObjectStoreFrame proc
+
+		; --- debug trace [ASM][ObjectStoreFrame][1] params ---
+		pushad
+		push	ebx
+		push	offset fmt_stoframe_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
 
 		mov	edi, PtrLib3DBufferAnim	; edi -> looping anim buffer
 

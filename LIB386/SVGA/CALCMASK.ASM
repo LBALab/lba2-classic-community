@@ -21,6 +21,11 @@ comment @
 @
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_calcgrap_1	DB	"[ASM][CalcGraphMsk][1] num=%d bank=%p mask=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -38,7 +43,19 @@ CalcGraphMsk			PROC \
 			numbrick: DWORD, \
 			bankbrick: DWORD, \
 			ptmask: DWORD
-			mov eax, numbrick
+
+		; --- debug trace [ASM][CalcGraphMsk][1] params ---
+		pushad
+		push	ptmask
+		push	bankbrick
+		push	numbrick
+		push	offset fmt_calcgrap_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
+					mov eax, numbrick
 			mov esi, bankbrick
 			mov edi, ptmask
 

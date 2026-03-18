@@ -34,6 +34,13 @@ if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
 endif ()
 
+# Optional: polygon recording support for ASM-vs-CPP testing
+# (option declared in top-level CMakeLists.txt)
+if(ENABLE_POLY_RECORDING)
+  target_link_libraries(lba2 PRIVATE snapshot)
+  target_compile_definitions(lba2 PRIVATE ENABLE_POLY_RECORDING)
+endif()
+
 # Put libsmacker before LIB386/H so <smacker.h> resolves to libsmacker on case-insensitive FS (e.g. macOS)
 target_include_directories(lba2 PRIVATE
         ${CMAKE_BINARY_DIR}

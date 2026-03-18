@@ -1,8 +1,10 @@
 
 #include <3D/MULMAT.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void MulMatrixF(TYPE_MAT *MatDst, TYPE_MAT *MatSrc1, TYPE_MAT *MatSrc2)
 {
+  LIB386_TRACE_CPP("MulMatrixF", "1", "Dst=%p Src1=%p Src2=%p", (void*)MatDst, (void*)MatSrc1, (void*)MatSrc2);
   TYPE_MAT *m1 = MatSrc1;
   TYPE_MAT *m2 = MatSrc2;
   TYPE_MAT *m3 = MatDst;

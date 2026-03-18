@@ -4,6 +4,7 @@
 #include <SVGA/SCREEN.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 U8 *POLYFLAT_PtrLog = NULL;
 U8 *POLYFLAT_PtrLog1 = NULL;
@@ -16,6 +17,16 @@ U16 *POLYFLAT_PtrZBufferPatch = NULL;
 // Verified
 S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Flat", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_Flat", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Flat", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Flat", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Flat", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_Flat", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -67,6 +78,16 @@ S32 Filler_Flat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_Trame(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Trame", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_Trame", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Trame", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Trame", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Trame", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_Trame", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -112,24 +133,22 @@ S32 Filler_Trame(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       }
 
       // @@Pair:
-      diffX >>= 1; // shr ecx,1
-      if ((diffX & 1) == 0) // jnc @@Odd
       {
+        U32 carry = diffX & 1;
+        diffX >>= 1; // shr ecx,1
+        if (carry == 0) // jnc @@Odd
+        {
+          // @@Odd: write first pixel
+          *screen = color;
+          screen += 2;
+          diffX--;
+        }
         // @@Each_X:
         while (diffX > 0)
         {
           *screen = color; // mov [edi],al
           screen += 2; // add edi,2
           // @@Odd:
-          *screen = color; // mov [edi],al
-          screen += 2; // add edi,2
-          diffX--; // dec ecx
-        }
-      }
-      else
-      {
-        while (diffX > 0)
-        {
           *screen = color; // mov [edi],al
           screen += 2; // add edi,2
           diffX--; // dec ecx
@@ -157,6 +176,16 @@ EndScanLine:
 
 S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Transparent", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_Transparent", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Transparent", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Transparent", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Transparent", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_Transparent", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -181,13 +210,13 @@ S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
-      U8 fillColorHigh = Fill_Color.Num & 0xF0; // Get upper 4 bits of fill color
+      U8 fillColorByte = Fill_Color.Num & 0xFF;
       
       // @@LoopX:
       do
       {
         U8 existingPixel = *screen;
-        U8 blendedPixel = (existingPixel & 0x0F) | fillColorHigh; // Keep lower 4 bits, blend upper 4 bits
+        U8 blendedPixel = (existingPixel & 0x0F) | fillColorByte;
         *screen = blendedPixel;
         screen++;
         --diffX;
@@ -216,6 +245,16 @@ S32 Filler_Transparent(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_FlatZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -246,7 +285,7 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       do
@@ -288,6 +327,16 @@ S32 Filler_FlatZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // TODO: Verify
 S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_TransparentZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -319,7 +368,7 @@ S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       U8 color = Fill_Color.Num & 0xFF;
@@ -363,6 +412,16 @@ S32 Filler_TransparentZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_TrameZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -424,48 +483,41 @@ S32 Filler_TrameZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 offset = screen - (U8 *)Log; // sub edi,eax
       U8 color = Fill_Color.Num & 0xFF;
 
-      diffX >>= 1; // shr ecx,1
-      if ((diffX & 1) == 0) // jnc @@Odd
       {
+        U32 carry = diffX & 1;
+        diffX >>= 1; // shr ecx,1
+        if (carry == 0) // jnc @@Odd
+        {
+          // @@Odd: Test and write first pixel
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrZBuffer3[offset] = zInt & 0xFFFF;
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
+          diffX--;
+        }
         // @@Each_X:
         while (diffX > 0)
         {
-          // Test and write first pixel of pair
-          if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            POLYFLAT_PtrZBuffer1[offset] = zInt & 0xFFFF; // mov [edi*2+eax],dx
-            POLYFLAT_PtrLog[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          zDec += zDecSlopeStep; // add esi,ebp
-          zInt += zIntSlope + (zDec >> 31); // adc edx,ebx
-
-          // @@Odd: Test and write second pixel of pair  
-          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            POLYFLAT_PtrZBuffer3[offset] = zInt & 0xFFFF; // mov [edi*2+eax],dx
-            POLYFLAT_PtrLog2[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          diffX--; // dec ecx
-        }
-      }
-      else
-      {
-        while (diffX > 0)
-        {
-          // Test and write first pixel of pair
+          // Test and write pixel (Each_X)
           if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
           {
             POLYFLAT_PtrZBuffer1[offset] = zInt & 0xFFFF;
             POLYFLAT_PtrLog[offset] = color;
           }
-          
           offset += 2;
+          U8 zCarry = (U64)zDec + (U64)zDecSlopeStep > 0xFFFFFFFF;
           zDec += zDecSlopeStep;
-          zInt += zIntSlope + (zDec >> 31);
+          zInt += zIntSlope + zCarry;
+
+          // @@Odd: Test and write pixel
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrZBuffer3[offset] = zInt & 0xFFFF;
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
           diffX--;
         }
       }
@@ -493,6 +545,16 @@ EndScanLine:
 // Verified
 S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_FlatNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -522,7 +584,7 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       do
@@ -562,6 +624,16 @@ S32 Filler_FlatNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_TransparentNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -591,7 +663,7 @@ S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       U8 color = Fill_Color.Num & 0xFF;
@@ -635,6 +707,16 @@ S32 Filler_TransparentNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_TrameNZW", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -645,7 +727,9 @@ S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
   {
     Fill_Patch = patch;
     POLYFLAT_PtrZBufferPatch = PtrZBuffer;
+    POLYFLAT_PtrZBuffer2 = PtrZBuffer;
     POLYFLAT_PtrLog = (U8 *)Log;
+    POLYFLAT_PtrLog2 = (U8 *)Log;
   }
   else
   {
@@ -692,48 +776,38 @@ S32 Filler_TrameNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 offset = screen - (U8 *)Log; // sub edi,eax
       U8 color = Fill_Color.Num & 0xFF;
 
-      diffX >>= 1; // shr ecx,1
-      if ((diffX & 1) == 0) // jnc @@Odd
       {
+        U32 carry = diffX & 1;
+        diffX >>= 1; // shr ecx,1
+        if (carry == 0) // jnc @@Odd
+        {
+          // @@Odd: Test and write first pixel (NZW: no Z write)
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
+          diffX--;
+        }
         // @@Each_X:
         while (diffX > 0)
         {
-          // Test and write first pixel of pair
-          if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            // No Z-buffer write for NZW variant
-            POLYFLAT_PtrLog[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          zDec += zDecSlopeStep; // add esi,ebp
-          zInt += zIntSlope + (zDec >> 31); // adc edx,ebx
-
-          // @@Odd: Test and write second pixel of pair  
-          if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF)) // cmp [edi*2+eax],dx
-          {
-            // No Z-buffer write for NZW variant
-            POLYFLAT_PtrLog[offset] = color; // mov [edi+ebx],al
-          }
-          
-          offset += 2; // add edi,2
-          diffX--; // dec ecx
-        }
-      }
-      else
-      {
-        while (diffX > 0)
-        {
-          // Test and write first pixel of pair
+          // Test and write pixel (Each_X, NZW: no Z write)
           if (POLYFLAT_PtrZBufferPatch[offset] >= (zInt & 0xFFFF))
           {
-            // No Z-buffer write for NZW variant
             POLYFLAT_PtrLog[offset] = color;
           }
-          
           offset += 2;
+          U8 zCarry = (U64)zDec + (U64)zDecSlopeStep > 0xFFFFFFFF;
           zDec += zDecSlopeStep;
-          zInt += zIntSlope + (zDec >> 31);
+          zInt += zIntSlope + zCarry;
+
+          // @@Odd: Test and write pixel (NZW: no Z write)
+          if (POLYFLAT_PtrZBuffer2[offset] >= (zInt & 0xFFFF))
+          {
+            POLYFLAT_PtrLog2[offset] = color;
+          }
+          offset += 2;
           diffX--;
         }
       }
@@ -789,7 +863,7 @@ S32 Filler_FlagZBuffer(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     {
       U32 zDec = curZ << 24; // esi
       U32 zDecSlope = Fill_ZBuf_XSlope << 24; // ebp
-      U32 zIntSlope = Fill_ZBuf_XSlope >> 8; // ebx
+      U32 zIntSlope = (U32)Fill_ZBuf_XSlope >> 8; // ebx
       U32 offset = screen - (U8 *)Log; // edi
       U32 zInt = curZ >> 8; // edx
       do

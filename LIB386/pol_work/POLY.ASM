@@ -19,6 +19,61 @@
             OPTION	SCOPED
 
 ;----------------------------------------------------------------------------
+
+		.DATA
+
+		EXTRN	C	printf	:NEAR
+
+fmt_draw_tri_1	DB	"[ASM][Draw_Triangle][1] entry", 10, 0
+
+fmt_dt_1b	DB	"[ASM][Draw_Triangle][1b] p0=(%d,%d) u=%u v=%u w=%d light=%u zo=%u", 10, 0
+
+fmt_dt_1c	DB	"[ASM][Draw_Triangle][1c] p1=(%d,%d) u=%u v=%u w=%d light=%u zo=%u", 10, 0
+
+fmt_dt_1d	DB	"[ASM][Draw_Triangle][1d] p2=(%d,%d) u=%u v=%u w=%d light=%u zo=%u", 10, 0
+
+fmt_dt_3	DB	"[ASM][Draw_Triangle][3] PtA=(%d,%d) PtB=(%d,%d) PtC=(%d,%d) type=%u", 10, 0
+
+fmt_dt_9	DB	"[ASM][Draw_Triangle][9] return=%d LeftSlope=%d", 10, 0
+
+fmt_ts_1	DB	"[ASM][Test_Scan][1] diffY=%d readFlag=%u curY=%d xmin=0x%08x xmax=0x%08x", 10, 0
+
+fmt_ts_2	DB	"[ASM][Test_Scan][2] LeftSlope=%d RightSlope=%d", 10, 0
+
+fmt_ts_4	DB	"[ASM][Test_Scan][4] calling filler nbLines=%d xmin=0x%08x xmax=0x%08x", 10, 0
+
+fmt_trne_1	DB	"[ASM][Triangle_ReadNextEdge][1] readFlag=%u curY=%d", 10, 0
+
+fmt_trne_2	DB	"[ASM][Triangle_ReadNextEdge][2] left new=(%d,%d) CurXMin=0x%08x", 10, 0
+
+fmt_rnr_1	DB	"[ASM][Read_Next_Right][1] readFlag=%u curY=%d", 10, 0
+
+fmt_rnr_2	DB	"[ASM][Read_Next_Right][2] right new=(%d,%d) CurXMax=0x%08x RSlope=%d", 10, 0
+
+fmt_fpc_1	DB	"[ASM][Fill_PolyClip][1] nb=%d pts=%p type=%u clipFlag=%u color=%u", 10, 0
+
+fmt_txzxs_9	DB	"[ASM][Calc_TextureZXSlopeFPU][9] U_XS=%d V_XS=%d W_XS=%d", 10, 0
+
+fmt_txzgxs_9	DB	"[ASM][Calc_TextureZGouraudXSlopeFPU][9] U_XS=%d V_XS=%d G_XS=%d W_XS=%d", 10, 0
+
+fmt_zbxs_9	DB	"[ASM][Calc_ZBufXSlopeFPU][9] ZBuf_XS=%d", 10, 0
+
+fmt_txzxsz_9	DB	"[ASM][Calc_TextureZXSlopeZBufFPU][9] U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d", 10, 0
+
+fmt_txzls_9	DB	"[ASM][Calc_TextureZLeftSlopeFPU][9] LS=%d U_LS=%d V_LS=%d W_LS=%d curU=%d curV=%d curW=%d", 10, 0
+
+fmt_txzgls_9	DB	"[ASM][Calc_TextureZGouraudLeftSlopeFPU][9] LS=%d G_LS=%d U_LS=%d V_LS=%d W_LS=%d", 10, 0
+
+fmt_zbls_9	DB	"[ASM][Calc_ZBufLeftSlopeFPU][9] ZBuf_LS=%d CurZBuf=%u", 10, 0
+
+fmt_gxs_9	DB	"[ASM][Calc_GouraudXSlopeFPU][9] G_XS=%d", 10, 0
+
+fmt_txs_9	DB	"[ASM][Calc_TextureXSlopeFPU][9] U_XS=%d V_XS=%d", 10, 0
+
+fmt_gls_9	DB	"[ASM][Calc_GouraudLeftSlopeFPU][9] LS=%d G_LS=%d curG=%d", 10, 0
+
+fmt_tls_9	DB	"[ASM][Calc_TextureLeftSlopeFPU][9] LS=%d U_LS=%d V_LS=%d curU=%d curV=%d", 10, 0
+
 			.CODE
 
 
@@ -77,6 +132,8 @@ PUBLIC	C		Fill_Filler		; Chooser filler
 PUBLIC	C		Fill_Patch		; Flag 1 means we should patch the filler proc; 0 means nothing to do
 PUBLIC	C		Fill_Color		; The polygon color
 PUBLIC	C		Fill_Trame_Parity	; Trame parity for Filler_Trame
+
+PUBLIC	C		Fill_Type		; Polygon type number (needed for test globals sharing)
 
 PUBLIC	C		Fill_FirstPoint		; Pointer of the first point of the list
 PUBLIC	C		Fill_LastPoint		; Pointer of the last point of the list
@@ -1526,6 +1583,19 @@ Generic_ClipYMax	ENDP
 ; ╚══════════════════════════════════════════════════════════════════════════╝
 			ALIGN	4
 Fill_PolyClip		PROC
+		; --- debug trace [ASM][Fill_PolyClip][1] params ---
+		pushad
+		push	dword ptr [Fill_Color]
+		push	dword ptr [Fill_ClipFlag]
+		push	dword ptr [Fill_Type]
+		push	esi
+		push	ecx
+		push	offset fmt_fpc_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
 			mov	ebx,Offset @@Fill_Restart
 			mov	[Fill_Restart],ebx
 
@@ -1721,7 +1791,79 @@ Fill_PolyClip		ENDP
 Draw_Triangle		PROC esi
 			; *** Search the highest point in the list ***
 
-			mov	eax,1
+
+		; --- debug trace [ASM][Draw_Triangle][1] params ---
+		pushad
+		push	offset fmt_draw_tri_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Draw_Triangle][1b] vertex 0 ---
+		pushad
+		movsx	eax, word ptr [esi+0+22]  ; ZO
+		push	eax
+		movsx	eax, word ptr [esi+0+20]  ; Light
+		push	eax
+		push	dword ptr [esi+0+16]       ; W
+		movzx	eax, word ptr [esi+0+14]  ; MapV
+		push	eax
+		movzx	eax, word ptr [esi+0+12]  ; MapU
+		push	eax
+		movsx	eax, word ptr [esi+0+2]   ; YE
+		push	eax
+		movsx	eax, word ptr [esi+0]     ; XE
+		push	eax
+		push	offset fmt_dt_1b
+		call	printf
+		add	esp, 32
+		popad
+		; --- end debug trace ---
+
+		; --- debug trace [ASM][Draw_Triangle][1c] vertex 1 ---
+		pushad
+		movsx	eax, word ptr [esi+32+22]  ; ZO
+		push	eax
+		movsx	eax, word ptr [esi+32+20]  ; Light
+		push	eax
+		push	dword ptr [esi+32+16]       ; W
+		movzx	eax, word ptr [esi+32+14]  ; MapV
+		push	eax
+		movzx	eax, word ptr [esi+32+12]  ; MapU
+		push	eax
+		movsx	eax, word ptr [esi+32+2]   ; YE
+		push	eax
+		movsx	eax, word ptr [esi+32]     ; XE
+		push	eax
+		push	offset fmt_dt_1c
+		call	printf
+		add	esp, 32
+		popad
+		; --- end debug trace ---
+
+		; --- debug trace [ASM][Draw_Triangle][1d] vertex 2 ---
+		pushad
+		movsx	eax, word ptr [esi+64+22]  ; ZO
+		push	eax
+		movsx	eax, word ptr [esi+64+20]  ; Light
+		push	eax
+		push	dword ptr [esi+64+16]       ; W
+		movzx	eax, word ptr [esi+64+14]  ; MapV
+		push	eax
+		movzx	eax, word ptr [esi+64+12]  ; MapU
+		push	eax
+		movsx	eax, word ptr [esi+64+2]   ; YE
+		push	eax
+		movsx	eax, word ptr [esi+64]     ; XE
+		push	eax
+		push	offset fmt_dt_1d
+		call	printf
+		add	esp, 32
+		popad
+		; --- end debug trace ---
+
+
+					mov	eax,1
 			mov	[Fill_FirstPoint],esi
 
 			mov	[Fill_Patch],eax	;
@@ -2143,6 +2285,28 @@ Read_Next_Right::
 ;			*** DISPLAY ***
 ;			***************
 @@Test_Scan:
+
+		; --- debug trace [ASM][Test_Scan][1] entry ---
+		pushad
+		push	dword ptr [Fill_CurXMax]
+		push	dword ptr [Fill_CurXMin]
+		push	dword ptr [Fill_CurY]
+		push	dword ptr [Fill_ReadFlag]
+		push	ecx
+		push	offset fmt_ts_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+		; --- debug trace [ASM][Test_Scan][2] slopes ---
+		pushad
+		push	dword ptr [Fill_RightSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_ts_2
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 			mov	esi,[Fill_LeftPoint]
 			mov	edi,[Fill_RightPoint]
 
@@ -2218,7 +2382,16 @@ Read_Next_Right::
 			fldcw	[Status_Float]
 @@EndRet:
 			pop	ebp
-			ret
+			; --- debug trace [ASM][Draw_Triangle][9] return ---
+		pushad
+		push	dword ptr [Fill_LeftSlope]
+		push	eax
+		push	offset fmt_dt_9
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+		ret
 Draw_Triangle		ENDP
 
 
@@ -2331,6 +2504,14 @@ Gouraud_XSlopeFPU::
 			; ***
 
 			fistp	[Fill_Gouraud_XSlope]
+		; --- debug trace [ASM][Calc_GouraudXSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_Gouraud_XSlope]
+		push	offset fmt_gxs_9
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
 
 			jmp	Triangle_ReadNextEdge
 Calc_GouraudXSlopeFPU	ENDP
@@ -2696,6 +2877,15 @@ Calc_TextureXSlopeFPU	PROC
 			fistp	[Fill_MapU_XSlope]
 ;		fadd	[FInv_2]
 			fistp	[Fill_MapV_XSlope]
+		; --- debug trace [ASM][Calc_TextureXSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_MapV_XSlope]
+		push	dword ptr [Fill_MapU_XSlope]
+		push	offset fmt_txs_9
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 
 			jmp	Triangle_ReadNextEdge
 Calc_TextureXSlopeFPU	ENDP
@@ -2976,6 +3166,14 @@ CalcGouraudTextureXFPU::
 			fistp	[Fill_MapU_XSlope]
 			fistp	[Fill_MapV_XSlope]
 			fistp	[Fill_Gouraud_XSlope]
+		; --- debug trace [ASM][Calc_GouraudXSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_Gouraud_XSlope]
+		push	offset fmt_gxs_9
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
 
 			jmp	Triangle_ReadNextEdge
 Calc_TextureGouraudXSlopeFPU ENDP
@@ -4247,6 +4445,14 @@ Calc_ZBufXSlopeFPU	PROC
 			; ***
 
 			fistp	[Fill_ZBuf_XSlope]; (Yb-Ya)  (Yc-Ya)  D
+		; --- debug trace [ASM][Calc_ZBufXSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_ZBuf_XSlope]
+		push	offset fmt_zbxs_9
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
 
 			ret
 Calc_ZBufXSlopeFPU	ENDP
@@ -4669,6 +4875,14 @@ Calc_TextureZXSlopeZBufFPU PROC
 			fmul	st,st(3)	; ZBufXSlope  (Yb-Ya)  (Yc-Ya)  D'
 
 			fistp	[Fill_ZBuf_XSlope]; (Yb-Ya)  (Yc-Ya)  D'
+		; --- debug trace [ASM][Calc_ZBufXSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_ZBuf_XSlope]
+		push	offset fmt_zbxs_9
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
 
 ;		mov	[Fill_ZBuf_XSlope],0
 
@@ -4909,7 +5123,17 @@ CalcGouraudTableFPU::
 
 			fistp	[Fill_LeftSlope]
 
-			jmp	Read_Next_Right
+					; --- debug trace [ASM][Calc_GouraudLeftSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_CurGouraudMin]
+		push	dword ptr [Fill_Gouraud_LeftSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_gls_9
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+jmp	Read_Next_Right
 Calc_GouraudLeftSlopeFPU ENDP
 
 
@@ -5126,7 +5350,19 @@ ENDIF
 ;		fadd	[FInv_2]
 			fistp	[Fill_MapV_LeftSlope]
 
-			jmp	Read_Next_Right
+					; --- debug trace [ASM][Calc_TextureLeftSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_CurMapVMin]
+		push	dword ptr [Fill_CurMapUMin]
+		push	dword ptr [Fill_MapV_LeftSlope]
+		push	dword ptr [Fill_MapU_LeftSlope]
+		push	dword ptr [Fill_LeftSlope]
+		push	offset fmt_tls_9
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+jmp	Read_Next_Right
 Calc_TextureLeftSlopeFPU ENDP
 
 
@@ -5934,6 +6170,15 @@ Calc_ZBufLeftSlopeFPU	PROC
 			fmul	st,st(1)
 
 			fistp	[Fill_ZBuf_LeftSlope]
+		; --- debug trace [ASM][Calc_ZBufLeftSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_ZBuf_LeftSlope]
+		push	offset fmt_zbls_9
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 
 			ret
 Calc_ZBufLeftSlopeFPU	ENDP
@@ -6193,6 +6438,15 @@ ENDIF
 			fxch	st(1)		; ZA'  ZB'  1/dY
 			; ***
 			; ***
+		; --- debug trace [ASM][Calc_ZBufLeftSlopeFPU][9] return ---
+		pushad
+		push	dword ptr [Fill_CurZBufMin]
+		push	dword ptr [Fill_ZBuf_LeftSlope]
+		push	offset fmt_zbls_9
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 			fmul	[FInv_256]	; ZSlope'  1/dY
 
 			; ***

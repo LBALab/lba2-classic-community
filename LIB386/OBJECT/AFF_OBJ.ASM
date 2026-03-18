@@ -452,6 +452,11 @@ ENDM
 
 ;_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;			ASSUME	CS:_TEXT, DS:DGROUP, ES:DGROUP, SS:DGROUP
+
+		EXTRN	C	printf	:NEAR
+
+fmt_objectdi_1	DB	"[ASM][ObjectDisplay][1] obj=%p", 10, 0
+
 			.CODE
 
 
@@ -4248,7 +4253,17 @@ ObjectDisplay		PROC \
 			uses ebx ecx edx edi esi ebp, \
 			object: DWORD
 
-			mov eax, object
+
+		; --- debug trace [ASM][ObjectDisplay][1] params ---
+		pushad
+		push	esi
+		push	offset fmt_objectdi_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
+					mov eax, object
 
 
 			push	ebp

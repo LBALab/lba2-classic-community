@@ -1,9 +1,14 @@
 #include <POLYGON/POLY.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
+
+#ifdef ENABLE_POLY_RECORDING
+#include <SNAPSHOT/POLY_RECORDING.H>
+#endif
 
 S32 Z_Value = 0;
 S32 Sph_YMin = 0;
@@ -149,6 +154,12 @@ void Sph_Line_Transp(U32 screenY)
 
 void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere, S32 Centre_X, S32 Centre_Y, S32 Rayon, S32 zBufferValue)
 {
+    LIB386_TRACE_CPP("Fill_Sphere", "1", "type=%d col=%d cx=%d cy=%d r=%d zbuf=%d",
+        Type_Sphere, Color_Sphere, Centre_X, Centre_Y, Rayon, zBufferValue);
+#ifdef ENABLE_POLY_RECORDING
+  if (g_polyrec_recording)
+    polyrec_record_fill_sphere(Type_Sphere, Color_Sphere, Centre_X, Centre_Y, Rayon, zBufferValue);
+#endif
   Sphere_Filler_Func Fill_Filler;
   
   // Select appropriate line drawing function based on flags and type

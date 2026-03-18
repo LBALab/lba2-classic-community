@@ -1,9 +1,11 @@
 #include <ANIM/STOFRAME.H>
 
 #include <SYSTEM/TIMER.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ObjectStoreFrame(T_OBJ_3D *Obj)
 {
+    LIB386_TRACE_CPP("ObjectStoreFrame", "1", "obj=%p", (void*)Obj);
     Obj->LastTimer = TimerRefHR;
     Obj->Time = TimerRefHR;
 
@@ -17,7 +19,7 @@ void ObjectStoreFrame(T_OBJ_3D *Obj)
     dst[0] = dst[1] = dst[2] = dst[3] = 0; // initialize memory at edi to 0
     dst += 4;
 
-    U32 count = Obj->NbGroups * 2 - 1;
+    U32 count = Obj->NbGroups * 2 - 2;
 
     for (U32 i = 0; i < count; i++)
     {

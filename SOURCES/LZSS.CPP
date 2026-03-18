@@ -81,6 +81,7 @@ void InitTree( int r )
  */
 void ContractNode( int old_node, int new_node )
 {
+  if ( new_node != UNUSED )
     tree[ new_node ].parent = tree[ old_node ].parent;
     if ( tree[ tree[ old_node ].parent ].larger_child == old_node )
 	tree[ tree[ old_node ].parent ].larger_child = new_node;
