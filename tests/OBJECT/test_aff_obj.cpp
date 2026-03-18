@@ -94,6 +94,152 @@ static void fill_strictly_decreasing(S32 *values, U32 count)
     }
 }
 
+static void fill_random_values(S32 *values, U32 count)
+{
+    for (U32 index = 0; index < count; ++index)
+    {
+        values[index] = (S32)(((S32)rng_next() << 1) - (S32)rng_next());
+    }
+}
+
+static bool is_strictly_increasing(const S32 *values, U32 count)
+{
+    for (U32 index = 1; index < count; ++index)
+    {
+        if (values[index - 1] >= values[index])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool is_strictly_decreasing(const S32 *values, U32 count)
+{
+    for (U32 index = 1; index < count; ++index)
+    {
+        if (values[index - 1] <= values[index])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool is_quicksort_asm_valid(const S32 *values, U32 count)
+{
+    S32 scratch[32];
+    S32 pivot;
+    U32 left;
+    U32 next;
+
+    if (count <= 1)
+    {
+        return true;
+    }
+
+    memcpy(scratch, values, count * sizeof(S32));
+
+    pivot = scratch[0];
+    left = 0;
+    next = 1;
+    while (next < count)
+    {
+        S32 nextValue = scratch[next];
+        next += 1;
+
+        if (pivot >= nextValue)
+        {
+            scratch[left] = nextValue;
+            scratch[next - 1] = scratch[left + 1];
+            scratch[left + 1] = pivot;
+            left += 1;
+        }
+    }
+
+    if (left == count - 1)
+    {
+        return false;
+    }
+
+    return is_quicksort_asm_valid(scratch, left + 1)
+        && is_quicksort_asm_valid(scratch + left + 1, count - left - 1);
+}
+
+static bool is_quicksortinv_asm_valid(const S32 *values, U32 count)
+{
+    S32 scratch[32];
+    S32 pivot;
+    U32 left;
+    U32 next;
+
+    if (count <= 1)
+    {
+        return true;
+    }
+
+    memcpy(scratch, values, count * sizeof(S32));
+
+    pivot = scratch[0];
+    left = 0;
+    next = 1;
+    while (next < count)
+    {
+        S32 nextValue = scratch[next];
+        next += 1;
+
+        if (pivot <= nextValue)
+        {
+            scratch[left] = nextValue;
+            scratch[next - 1] = scratch[left + 1];
+            scratch[left + 1] = pivot;
+            left += 1;
+        }
+    }
+
+    if (left == count - 1)
+    {
+        return false;
+    }
+
+    return is_quicksortinv_asm_valid(scratch, left + 1)
+        && is_quicksortinv_asm_valid(scratch + left + 1, count - left - 1);
+}
+
+static void fill_random_unordered_quicksort_values(S32 *values, U32 count)
+{
+    for (int attempt = 0; attempt < 4096; ++attempt)
+    {
+        fill_random_values(values, count);
+        if (!is_strictly_increasing(values, count)
+            && !is_strictly_decreasing(values, count)
+            && is_quicksort_asm_valid(values, count))
+        {
+            return;
+        }
+    }
+
+    ASSERT_TRUE(false);
+}
+
+static void fill_random_unordered_quicksortinv_values(S32 *values, U32 count)
+{
+    for (int attempt = 0; attempt < 4096; ++attempt)
+    {
+        fill_random_values(values, count);
+        if (!is_strictly_increasing(values, count)
+            && !is_strictly_decreasing(values, count)
+            && is_quicksortinv_asm_valid(values, count))
+        {
+            return;
+        }
+    }
+
+    ASSERT_TRUE(false);
+}
+
 static void run_sort_case(const char *label, const S32 *values, U32 count)
 {
     S32 cpp_storage[34];
@@ -191,12 +337,30 @@ static void test_quicksort_random_stress(void)
     }
 }
 
+static void test_quicksort_random_unordered(void)
+{
+    S32 values[32];
+
+    rng_seed(0xA5A55A5Au);
+    for (int round = 0; round < 300; ++round)
+    {
+        U32 count = (rng_next() % 30) + 3;
+
+        fill_random_unordered_quicksort_values(values, count);
+        run_sort_case("QuickSort random unordered", values, count);
+
+        fill_random_unordered_quicksortinv_values(values, count);
+        run_sortinv_case("QuickSortInv random unordered", values, count);
+    }
+}
+
 int main(void)
 {
     RUN_TEST(test_quicksort_fixed_cases);
     RUN_TEST(test_quicksortinv_fixed_cases);
     RUN_TEST(test_quicksort_edge_cases);
     RUN_TEST(test_quicksort_random_stress);
+    RUN_TEST(test_quicksort_random_unordered);
     TEST_SUMMARY();
     return test_failures != 0;
 }
