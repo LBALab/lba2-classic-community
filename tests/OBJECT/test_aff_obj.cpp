@@ -151,6 +151,22 @@ typedef struct
     U16 Normale;
 } STRUC_POLY4_LIGHT;
 
+typedef struct
+{
+    U16 Type;
+    U16 Coul;
+    U16 P1;
+    U16 P2;
+} T_OBJ_LINE;
+
+typedef struct
+{
+    U16 Type;
+    U16 Coul;
+    U16 P1;
+    U16 Rayon;
+} T_OBJ_SPHERE;
+
 #pragma pack(push, 1)
 typedef struct
 {
@@ -229,6 +245,26 @@ typedef struct
     TEST_POLY_HEADER PolyHeader;
     STRUC_POLY4_LIGHT Quad;
 } TEST_PLAIN_QUAD_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[2];
+    TYPE_VT16 Normals[1];
+    TYPE_VT16 FaceNormals[1];
+    T_OBJ_LINE Line;
+} TEST_LINE_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[1];
+    TYPE_VT16 Normals[1];
+    TYPE_VT16 FaceNormals[1];
+    T_OBJ_SPHERE Sphere;
+} TEST_SPHERE_BODY_FIXTURE;
 
 typedef struct
 {
@@ -1198,6 +1234,98 @@ static void build_plain_quad_test_body_fixture(TEST_PLAIN_QUAD_BODY_FIXTURE *fix
     fixture->Quad.Normale = kQuadFixtureFaceLightIndex;
 }
 
+static void build_line_test_body_fixture(TEST_LINE_BODY_FIXTURE *fixture)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = 0;
+    fixture->Header.XMax = 96;
+    fixture->Header.YMin = 0;
+    fixture->Header.YMax = 32;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_LINE_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = 2;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_LINE_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = 1;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_LINE_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_LINE_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 0;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_LINE_BODY_FIXTURE, Line);
+    fixture->Header.NbLines = 1;
+    fixture->Header.OffLines = (S32)offsetof(TEST_LINE_BODY_FIXTURE, Line);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)sizeof(*fixture);
+    fixture->Header.NbTextures = 0;
+    fixture->Header.OffTextures = (S32)sizeof(*fixture);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = 2;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 32, 256, 0);
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->Line.Type = 0;
+    fixture->Line.Coul = 0x2A;
+    fixture->Line.P1 = 0;
+    fixture->Line.P2 = 1;
+}
+
+static void build_sphere_test_body_fixture(TEST_SPHERE_BODY_FIXTURE *fixture,
+                                           U16 sphere_type)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = -32;
+    fixture->Header.XMax = 32;
+    fixture->Header.YMin = -32;
+    fixture->Header.YMax = 32;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = 1;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = 1;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 0;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, Sphere);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, Sphere);
+    fixture->Header.NbSpheres = 1;
+    fixture->Header.OffSpheres = (S32)offsetof(TEST_SPHERE_BODY_FIXTURE, Sphere);
+    fixture->Header.NbTextures = 0;
+    fixture->Header.OffTextures = (S32)sizeof(*fixture);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = 1;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->Sphere.Type = sphere_type;
+    fixture->Sphere.Coul = 0x31;
+    fixture->Sphere.P1 = 0;
+    fixture->Sphere.Rayon = 18;
+}
+
 static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture,
                                         U16 poly_type,
                                         U16 scale)
@@ -1716,6 +1844,39 @@ static void run_objectdisplay_textured_quad_poly_case(const char *label, U16 pol
     build_textured_quad_test_body_fixture(&fixture, poly_type);
     run_objectdisplay_render_case_ex(label, &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_line_render(void)
+{
+    TEST_LINE_BODY_FIXTURE fixture;
+
+    build_line_test_body_fixture(&fixture);
+    run_objectdisplay_render_case_ex("ObjectDisplay line render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_common_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_sphere_render(void)
+{
+    TEST_SPHERE_BODY_FIXTURE fixture;
+
+    build_sphere_test_body_fixture(&fixture, 0);
+    run_objectdisplay_render_case_ex("ObjectDisplay sphere render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_common_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_sphere_transp_render(void)
+{
+    TEST_SPHERE_BODY_FIXTURE fixture;
+
+    build_sphere_test_body_fixture(&fixture, 1);
+    run_objectdisplay_render_case_ex("ObjectDisplay sphere transparent render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_common_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
@@ -2477,6 +2638,9 @@ int main(void)
     RUN_TEST(test_objectdisplay_env_quad_gouraud_render);
     RUN_TEST(test_objectdisplay_env_quad_gouraud_scaled_render);
     RUN_TEST(test_objectdisplay_env_flat_render);
+    RUN_TEST(test_objectdisplay_line_render);
+    RUN_TEST(test_objectdisplay_sphere_render);
+    RUN_TEST(test_objectdisplay_sphere_transp_render);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
     RUN_TEST(test_testvisible_random_stress);
