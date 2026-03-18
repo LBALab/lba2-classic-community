@@ -1736,6 +1736,17 @@ static void test_objectdisplay_env_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
+static void test_objectdisplay_env_solid_scaled_render(void)
+{
+    TEST_ENV_BODY_FIXTURE fixture;
+
+    build_env_test_body_fixture(&fixture, kPolyEnvTextureSolid, 0x4040u);
+    run_objectdisplay_render_case_ex("ObjectDisplay env solid scaled render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_objectdisplay_env_flat_render(void)
 {
     TEST_ENV_BODY_FIXTURE fixture;
@@ -1932,6 +1943,7 @@ int main(void)
     RUN_TEST(test_objectdisplay_textured_quad_flat_render);
     RUN_TEST(test_objectdisplay_env_solid_render);
     RUN_TEST(test_objectdisplay_env_gouraud_render);
+    RUN_TEST(test_objectdisplay_env_solid_scaled_render);
     RUN_TEST(test_objectdisplay_env_flat_render);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
