@@ -1065,7 +1065,7 @@ S32 Line(U32 typePoly, void *poly)
     S32 z1 = 0;
     S32 z2 = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj != TYPE_3D)
+    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
     {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
         T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
@@ -1140,7 +1140,7 @@ S32 Sphere(U32 typePoly, void *poly)
     if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
     {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
-        z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+        z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
     // @@NoZBufSphere:
     Fill_Sphere(sphere->Type, sphere->Coul, p1.X, p1.Y, radius, z);
@@ -1157,14 +1157,14 @@ S32 Sphere_Transp(U32 typePoly, void *poly)
 
     S32 radius = sphere->Rayon;
 
-    if (TypeProj == TYPE_3D)
+    if (TypeProj != TYPE_3D)
     {
-        // @@Radius_3D:
-        radius = (radius * Fill_ZBuffer_Factor) >> 16;
+        radius += radius + (radius << 5);
+        radius >>= 9;
+        radius = ~radius;
     }
     else
     {
-        // @@Radius_Proj:
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         radius *= LFactorX;
         radius /= z + PosZWr;
@@ -1201,7 +1201,7 @@ S32 Sphere_Transp(U32 typePoly, void *poly)
     if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
     {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
-        z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+        z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
 
     Fill_Sphere(2, sphere->Coul, p1.X, p1.Y, radius, z);
