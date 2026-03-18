@@ -50,6 +50,7 @@ extern TYPE_PT Obj_ListProjectedPoints[];
 extern "C" TYPE_PT asm_Obj_ListProjectedPoints[];
 
 extern "C" int CallTestVisibleI(STRUC_POLY3_LIGHT *poly);
+extern "C" int CallTestVisibleF(STRUC_POLY3_ENV *poly);
 extern "C" void CallQuickSort(S32 *beginning, S32 *end);
 extern "C" void CallQuickSortInv(S32 *beginning, S32 *end);
 
@@ -300,6 +301,58 @@ static void run_testvisiblei_case(const char *label, const TYPE_PT *points, U32 
     ASSERT_ASM_CPP_EQ_INT(asm_visible, cpp_visible, label);
 }
 
+static S32 packed_projected_point_value(const TYPE_PT *points, U16 index)
+{
+    S32 packedValue;
+    memcpy(&packedValue, &points[index], sizeof(packedValue));
+    return packedValue;
+}
+
+static int testvisiblef_cpp_mirror(const STRUC_POLY3_ENV *poly)
+{
+    const S32 packedP1 = packed_projected_point_value(Obj_ListProjectedPoints, poly->P1);
+    const S32 packedP2 = packed_projected_point_value(Obj_ListProjectedPoints, poly->P2);
+    const S32 packedP3 = packed_projected_point_value(Obj_ListProjectedPoints, poly->P3);
+
+    if (packedP1 == (S32)0x80008000u
+        || packedP2 == (S32)0x80008000u
+        || packedP3 == (S32)0x80008000u)
+    {
+        return 0;
+    }
+
+    const S32 packedP1Next = packed_projected_point_value(Obj_ListProjectedPoints, (U16)(poly->P1 + 1));
+    const S32 packedP2Next = packed_projected_point_value(Obj_ListProjectedPoints, (U16)(poly->P2 + 1));
+    const S32 packedP3Next = packed_projected_point_value(Obj_ListProjectedPoints, (U16)(poly->P3 + 1));
+    const long double result = ((long double)packedP2 - (long double)packedP1)
+        * ((long double)packedP1Next - (long double)packedP3Next)
+        - ((long double)packedP2Next - (long double)packedP1Next)
+        * ((long double)packedP1 - (long double)packedP3);
+    const float storedResult = (float)result;
+    U32 storedBits;
+
+    memcpy(&storedBits, &storedResult, sizeof(storedBits));
+
+    return (storedBits & 0x80000000u) == 0 ? 1 : 0;
+}
+
+static void run_testvisiblef_case(const char *label, const TYPE_PT *points, U32 count, const STRUC_POLY3_ENV *poly)
+{
+    TYPE_PT baseline[kObjProjectedPointCount];
+
+    build_projected_points_snapshot(baseline, points, count);
+
+    memcpy(Obj_ListProjectedPoints, baseline, sizeof(baseline));
+    const int cpp_visible = testvisiblef_cpp_mirror(poly);
+    ASSERT_MEM_EQ(baseline, Obj_ListProjectedPoints, sizeof(baseline));
+
+    memcpy(asm_Obj_ListProjectedPoints, baseline, sizeof(baseline));
+    const int asm_visible = CallTestVisibleF((STRUC_POLY3_ENV *)poly);
+    ASSERT_MEM_EQ(baseline, asm_Obj_ListProjectedPoints, sizeof(baseline));
+
+    ASSERT_ASM_CPP_EQ_INT(asm_visible, cpp_visible, label);
+}
+
 static void run_sortinv_case(const char *label, const S32 *values, U32 count)
 {
     S32 cpp_storage[34];
@@ -339,6 +392,8 @@ static void test_testvisible_fixed_cases(void)
     TYPE_PT points[4];
     STRUC_POLY3_LIGHT light_visible = {0, 1, 2, 0, 0x12, 0x34};
     STRUC_POLY3_LIGHT light_hidden = {0, 2, 1, 0, 0x56, 0x78};
+    STRUC_POLY3_ENV env_visible = {0, 1, 2, 3, 0x9A, 0xBC, 0x11, 0};
+    STRUC_POLY3_ENV env_hidden = {0, 2, 1, 4, 0xCD, 0xEF, 0x22, 0};
 
     set_point(&points[0], 0, 0);
     set_point(&points[1], 0, 10);
@@ -347,6 +402,8 @@ static void test_testvisible_fixed_cases(void)
 
     run_testvisiblei_case("TestVisibleI visible winding", points, 4, &light_visible);
     run_testvisiblei_case("TestVisibleI hidden winding", points, 4, &light_hidden);
+    run_testvisiblef_case("TestVisibleF visible winding", points, 4, &env_visible);
+    run_testvisiblef_case("TestVisibleF hidden winding", points, 4, &env_hidden);
 }
 
 static void test_testvisible_edge_cases(void)
@@ -354,6 +411,8 @@ static void test_testvisible_edge_cases(void)
     TYPE_PT points[4];
     STRUC_POLY3_LIGHT light_invalid = {0, 1, 2, 0, 1, 2};
     STRUC_POLY3_LIGHT light_collinear = {0, 1, 2, 0, 3, 4};
+    STRUC_POLY3_ENV env_invalid = {0, 1, 2, 5, 6, 7, 8, 0};
+    STRUC_POLY3_ENV env_duplicate = {0, 1, 1, 9, 10, 11, 12, 0};
 
     set_hidden_point(&points[0]);
     set_point(&points[1], 6, -2);
@@ -366,6 +425,18 @@ static void test_testvisible_edge_cases(void)
     set_point(&points[2], 8, 8);
     set_point(&points[3], 12, -4);
     run_testvisiblei_case("TestVisibleI collinear", points, 4, &light_collinear);
+
+    set_point(&points[0], -7, 11);
+    set_hidden_point(&points[1]);
+    set_point(&points[2], 4, -5);
+    set_point(&points[3], 1, 1);
+    run_testvisiblef_case("TestVisibleF invalid hidden point", points, 4, &env_invalid);
+
+    set_point(&points[0], 2, 2);
+    set_point(&points[1], -6, 5);
+    set_point(&points[2], 9, -3);
+    set_point(&points[3], -1, -1);
+    run_testvisiblef_case("TestVisibleF duplicate point", points, 4, &env_duplicate);
 }
 
 static void test_quicksortinv_fixed_cases(void)
@@ -416,6 +487,7 @@ static void test_testvisible_random_stress(void)
     for (int round = 0; round < 300; ++round)
     {
         STRUC_POLY3_LIGHT light_poly;
+        STRUC_POLY3_ENV env_poly;
 
         for (int index = 0; index < 8; ++index)
         {
@@ -438,7 +510,17 @@ static void test_testvisible_random_stress(void)
         light_poly.Couleur = (U16)rng_next();
         light_poly.Normale = (U16)rng_next();
 
+        env_poly.P1 = (U16)(rng_next() % 8u);
+        env_poly.P2 = (U16)(rng_next() % 8u);
+        env_poly.P3 = (U16)(rng_next() % 8u);
+        env_poly.HandleEnv = (U16)rng_next();
+        env_poly.Couleur = (U16)rng_next();
+        env_poly.Normale = (U16)rng_next();
+        env_poly.Scale = (U16)rng_next();
+        env_poly.Padding = 0;
+
         run_testvisiblei_case("TestVisibleI random", points, 8, &light_poly);
+        run_testvisiblef_case("TestVisibleF random", points, 8, &env_poly);
     }
 }
 

@@ -43,9 +43,11 @@ PUBLIC	C		Obj_ListProjectedPoints
 PUBLIC	C		TransFctBody
 PUBLIC	C		Obj_ListRotatedPoints
 PUBLIC	C		CallTestVisibleI
+PUBLIC	C		CallTestVisibleF
 PUBLIC	C		CallQuickSort
 PUBLIC	C		CallQuickSortInv
 PUBLIC	C		TestVisibleI
+PUBLIC	C		TestVisibleF
 PUBLIC	C		QuickSort
 PUBLIC	C		QuickSortInv
 
@@ -4957,6 +4959,27 @@ CallTestVisibleI	PROC	poly_ptr:DWORD
 			pop	ebx
 			ret
 CallTestVisibleI	ENDP
+
+
+
+CallTestVisibleF	PROC	poly_ptr:DWORD
+			push	ebx
+			push	ebp
+			push	esi
+			push	edi
+
+			mov	esi,poly_ptr
+			call	TestVisibleF
+
+			setnc	al
+			movzx	eax,al
+
+			pop	edi
+			pop	esi
+			pop	ebp
+			pop	ebx
+			ret
+CallTestVisibleF	ENDP
 
 
 
