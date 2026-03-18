@@ -9,6 +9,8 @@ S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit) {
 
 void ResumeVideoAudio(void) {}
 
+void PauseVideoAudio(void) {}
+
 void PushVideoAudio(const void *data, U32 sizeBytes) {
   (void)data;
   (void)sizeBytes;

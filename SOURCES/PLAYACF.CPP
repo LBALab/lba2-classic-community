@@ -165,6 +165,9 @@ void	PlayAllAcf( void )
 	S32	var = FLAG_ACF ;
 	char	getname[13] ;
 
+	if ( !ListAcf || !EndListAcf || ListAcf >= EndListAcf )
+		return ;
+
 	PtrAcf = ListAcf ;
 
 #if defined(LBA_EDITOR)||defined(CDROM)
@@ -417,8 +420,15 @@ S32	PlayAcf( const char *name )
     const U32 logSize = (U32)(ModeDesiredX * ModeDesiredY);
     const U32 palSize = 768;
     U8 *savedLog = (U8 *)malloc(logSize + palSize);
-    U8 *savedPal = savedLog ? savedLog + logSize : NULL;
-    if (savedLog && Log && PtrPal) {
+    if (!savedLog) {
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: malloc failed for screen save");
+      HQ_ResumeSamples();
+      s_playacf_playing = 0;
+      return 0;
+    }
+    U8 *savedPal = savedLog + logSize;
+    if (Log && PtrPal) {
       memcpy(savedLog, Log, logSize);
       memcpy(savedPal, PtrPal, palSize);
     }
@@ -524,10 +534,11 @@ S32	PlayAcf( const char *name )
       frameMs = 67;  /* ~15 fps */
 
     /* Pre-fill audio buffer before starting playback (like lba2-classic-ida's SoLoud deque).
-     * Stream is created paused; we fill it then resume so the device never underruns. */
+     * Stream is created paused; we fill it then resume so the device never underruns.
+     * Formula: ~2s for long videos (60+ fps), ~1s for medium (30+), ~0.5s for short; avoids
+     * underrun at start while not delaying playback too much on brief clips. */
     unsigned long prebufFrames = 0;
     if (numTracks > 0 && f > 8u) {
-      /* ~2 seconds of audio so playback stays smooth */
       prebufFrames = (f > 60u) ? 30u : (f > 30u) ? 25u : (f > 15u) ? 15u : (unsigned long)(f / 2);
       if (prebufFrames > f)
         prebufFrames = f;
@@ -543,6 +554,9 @@ S32	PlayAcf( const char *name )
 
     U8 *pal = NULL;
     U32 videoStartTicks = 0;
+#ifdef CONSOLE_MODULE
+    static int s_wasConsoleOpen = 0;
+#endif
     for (unsigned long c = 0; c < f; c++) {
       /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
       if (numTracks > 0 && c >= prebufFrames) {
@@ -567,11 +581,24 @@ S32	PlayAcf( const char *name )
         if (MyKey == K_ESC || (Input & I_MENUS))
           goto fin_play;
 #ifdef CONSOLE_MODULE
-        /* Pause video while console is open: keep presenting current frame until they close it. */
+        /* Pause video while console is open: keep presenting current frame until they close it.
+         * Pause video audio so the buffer doesn't drain and cause a gap when console closes. */
         if (Console_IsOpen()) {
+          if (!s_wasConsoleOpen && numTracks > 0) {
+            PauseVideoAudio();
+            if (VideoLogIsEnabled())
+              SDL_Log("[VIDEO] Audio paused (console open)");
+            s_wasConsoleOpen = 1;
+          }
           BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
           BoxUpdate();
           continue;
+        }
+        if (s_wasConsoleOpen && numTracks > 0) {
+          ResumeVideoAudio();
+          if (VideoLogIsEnabled())
+            SDL_Log("[VIDEO] Audio resumed (console closed)");
+          s_wasConsoleOpen = 0;
         }
 #endif
         now = SDL_GetTicks();
@@ -584,15 +611,18 @@ S32	PlayAcf( const char *name )
     }
 
 fin_play:
+#ifdef CONSOLE_MODULE
+    s_wasConsoleOpen = 0;
+#endif
     StopVideoAudio();
     smk_close(smkObject);
     free(dest);
     Free(decompbuf);
 
     /* Restore screen and palette so we don't leave a black screen. */
-    if (savedLog && savedPal && Log && PtrPal) {
+    if (savedLog && Log && PtrPal) {
       memcpy(Log, savedLog, logSize);
-      memcpy(PtrPal, savedPal, palSize);
+      memcpy(PtrPal, savedLog + logSize, palSize);
       PaletteSync(PtrPal);
     }
     if (savedLog) free(savedLog);

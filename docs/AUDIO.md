@@ -100,6 +100,7 @@ Each sound backend implements this contract. SDL provides real audio; NULL and M
 |----------|-----------|
 | `StartVideoAudio` | `S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit)` |
 | `ResumeVideoAudio` | `void ResumeVideoAudio(void)` |
+| `PauseVideoAudio` | `void PauseVideoAudio(void)` |
 | `PushVideoAudio` | `void PushVideoAudio(const void *data, U32 sizeBytes)` |
 | `StopVideoAudio` | `void StopVideoAudio(void)` |
 
