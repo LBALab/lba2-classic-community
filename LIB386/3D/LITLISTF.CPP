@@ -40,3 +40,5 @@ void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 		dst[i] = (value < 0) ? 0 : (U16)value;
 	}
 }
+
+Func_LightList *LightListPtr = LightList;

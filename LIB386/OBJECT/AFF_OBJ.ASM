@@ -42,6 +42,17 @@ PUBLIC	C		ObjPtrMap
 PUBLIC	C		Obj_ListProjectedPoints
 PUBLIC	C		TransFctBody
 PUBLIC	C		Obj_ListRotatedPoints
+PUBLIC	C		lBody
+PUBLIC	C		Off_Sort
+PUBLIC	C		Nb_Sort
+PUBLIC	C		PosXWr
+PUBLIC	C		PosYWr
+PUBLIC	C		PosZWr
+PUBLIC	C		TabMat
+PUBLIC	C		ListLights
+PUBLIC	C		ListSort
+PUBLIC	C		ListFillPoly
+PUBLIC	C		PtrTextures
 PUBLIC	C		CallTestVisibleI
 PUBLIC	C		CallTestVisibleF
 PUBLIC	C		CallQuickSort
@@ -462,16 +473,13 @@ ENDM
 ;_TEXT			SEGMENT	USE32 PARA PUBLIC 'CODE'
 ;			ASSUME	CS:_TEXT, DS:DGROUP, ES:DGROUP, SS:DGROUP
 
-		EXTRN	C	printf	:NEAR
-
-fmt_objectdi_1	DB	"[ASM][ObjectDisplay][1] obj=%p", 10, 0
-
 			.CODE
 
 
 Extrn	C		Fill_PolyFast	:	PROC
 Extrn	C		Fill_Sphere	:	PROC
 Extrn	C		Line_A		:	PROC
+Extrn	C		LightListPtr	:	DWORD
 
 
 
@@ -652,7 +660,7 @@ Return_BodyDisplay::
 			add	esi,ebp
 			push	ecx
 
-			call	[LightList]
+			call	[LightListPtr]
 
 			pop	ecx
 			mov	esi,[ebp].STRUC_OBJ_HEADER.Obj_Off_NormFaces
@@ -663,7 +671,7 @@ Return_BodyDisplay::
 			lea	edi,[Offset ListLights+ecx*2]
 			mov	ecx,[ebp].STRUC_OBJ_HEADER.Obj_Nb_NormFaces
 
-			call	[LightList]
+			call	[LightListPtr]
 
 ; ┌─────────────────────────────────────────────────────────────────┐
 ; │                                                                 │
@@ -4263,15 +4271,6 @@ ObjectDisplay		PROC \
 			object: DWORD
 
 
-		; --- debug trace [ASM][ObjectDisplay][1] params ---
-		pushad
-		push	esi
-		push	offset fmt_objectdi_1
-		call	printf
-		add	esp, 8
-		popad
-		; --- end debug trace ---
-
 					mov eax, object
 
 
@@ -4540,7 +4539,7 @@ ObjectDisplay		PROC \
 			and	ecx,0FFFFh
 			mov	edi,[PtrListLights]
 
-			call	[LightList]
+			call	[LightListPtr]
 
 			mov	edx,[esp]		; Pointer adjustment...
 			mov	esi,[PtrNormales]
@@ -4565,7 +4564,7 @@ ObjectDisplay		PROC \
 			mov	edi,[PtrListLightsFaces]
 			push	ecx
 
-			call	[LightList]
+			call	[LightListPtr]
 
 			pop	ecx
 			mov	edi,[PtrListLightsFaces]

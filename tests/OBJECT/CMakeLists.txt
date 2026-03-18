@@ -4,7 +4,7 @@ set(_OBJ_ASM_INC ${CMAKE_SOURCE_DIR}/LIB386/H)
 add_asm_cpp_test(
     NAME test_aff_obj  TEST_SOURCE test_aff_obj.cpp
     ASM_SOURCE ${_OBJ_ASM_DIR}/AFF_OBJ.ASM
-    RENAME_SYMS BodyDisplay BodyDisplay_AlphaBeta ObjectDisplay ObjPtrMap Obj_ListProjectedPoints TransFctBody Obj_ListRotatedPoints QuickSort QuickSortInv
+    RENAME_SYMS BodyDisplay BodyDisplay_AlphaBeta ObjectDisplay ObjPtrMap Obj_ListProjectedPoints TransFctBody Obj_ListRotatedPoints QuickSort QuickSortInv lBody Off_Sort Nb_Sort PosXWr PosYWr PosZWr TabMat ListLights ListSort ListFillPoly PtrTextures
     LIBS obj 3D poly svg sys SDL3::SDL3
     ASM_INCLUDE_DIRS ${_OBJ_ASM_INC}
 )
