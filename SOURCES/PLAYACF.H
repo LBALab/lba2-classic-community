@@ -41,6 +41,10 @@ extern S32  	GetNumAcf( const char *name ) ;
 extern void 	PlayAllAcf( void ) ;
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern S32	PlayAcf( const char * name);
-//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+#ifdef USE_MVIDEO_SMACKER
+void VideoLogEnable(int enable);
+int  VideoLogIsEnabled(void);
+#endif
 
 #endif	// PLAYACF_H

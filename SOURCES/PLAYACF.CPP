@@ -7,6 +7,16 @@
 #include "INPUT.H"
 #include "MESSAGE.H"
 #include <AIL/VIDEO_AUDIO.H>
+
+static int videoLogEnabled = 0;
+
+void VideoLogEnable(int enable) {
+  videoLogEnabled = (enable != 0) ? 1 : 0;
+}
+
+int VideoLogIsEnabled(void) {
+  return videoLogEnabled;
+}
 #include <SVGA/DIRTYBOX.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -392,12 +402,11 @@ S32	PlayAcf( const char *name )
 
     S32 n = GetNumAcf(name);
     if (n == -1) {
-      LogPrintf("PlayAcf: video name '%s' not found in ACF list (GetNumAcf returned -1)\n", name);
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: video name '%s' not found in ACF list", name);
       s_playacf_playing = 0;
       return 0;
     }
-
-    LogPrintf("PlayAcf: playing '%s' index %d from %s\n", name, (int)n, PathAcf);
 
     ListVarGame[FLAG_ACF + (n / 16)] |= (S16)(1 << (n & 15));
 
@@ -417,13 +426,15 @@ S32	PlayAcf( const char *name )
     U8 *decompbuf = (U8 *)LoadMalloc_HQR(PathAcf, n);
     U32 size = LoadMallocFileSize;
     if (!size) {
-      LogPrintf("PlayAcf: LoadMalloc_HQR failed for index %d\n", (int)n);
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: LoadMalloc_HQR failed for index %d", (int)n);
       TheEnd(PROGRAM_OK, MessageNoCD);
     }
 
     smk smkObject = smk_open_memory(decompbuf, (unsigned long)size);
     if (!smkObject) {
-      LogPrintf("PlayAcf: smk_open_memory failed for index %d (size %u)\n", (int)n, (unsigned)size);
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: smk_open_memory failed for index %d (size %u)", (int)n, (unsigned)size);
       Free(decompbuf);
       TheEnd(PROGRAM_OK, MessageNoCD);
     }
@@ -474,6 +485,22 @@ S32	PlayAcf( const char *name )
       if (!StartVideoAudio((S32)(U32)a_r[first], chans, is16)) {
         /* non-fatal: continue without video audio */
         numTracks = 0;
+      }
+    }
+
+    if (VideoLogIsEnabled()) {
+      if (!strncasecmp(name, "INTRO", 5) && numTracks > 0) {
+        static const char *voiceLang[] = { "FR", "DE", "EN" };
+        const char *lang = (LanguageCD >= 0 && LanguageCD <= 2) ? voiceLang[LanguageCD] : "FR";
+        if (numTracks > 1) {
+          SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=%s track %d)",
+                  name, (int)n, PathAcf, LanguageCD, lang, tracksToPlay[1]);
+        } else {
+          SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=off)",
+                  name, (int)n, PathAcf, LanguageCD);
+        }
+      } else {
+        SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s", name, (int)n, PathAcf);
       }
     }
 
