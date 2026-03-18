@@ -76,7 +76,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `ANIM/INTFRAME.ASM` | `ANIM/INTFRAME.CPP` | `ObjectSetInterFrame` | Set interpolated frame between keyframes | ASM ≡ CPP: interpolation at 25% and 50% |
 | [x] | `ANIM/LIBINIT.ASM` | `ANIM/LIBINIT.CPP` | `InitObjects`, `ClearObjects` | Initialize/clear animation library state | `tests/ANIM/test_libinit.cpp` now compares the exported animation-library globals exactly between ASM and CPP for provided-buffer initialization, overwrite/reinit behavior, already-initialized null-buffer no-op behavior, and `ClearObjects` when no malloc buffer is active. |
 | [x] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM ≡ CPP: fixed CPP to copy NbGroups\*2-2 dwords (was NbGroups\*2-1) |
-| [ ] | `ANIM/TEXTURE.ASM` | `ANIM/TEXTURE.CPP` | `ObjectInitTexture` | Initialize texture for object | |
+| [x] | `ANIM/TEXTURE.ASM` | `ANIM/TEXTURE.CPP` | `ObjectInitTexture` | Initialize texture for object | `tests/ANIM/test_texture.cpp` now uses strict full-`T_OBJ_3D` ASM-vs-CPP memory comparisons over fixed and deterministic random initial states, covering first-texture assignment, existing-texture preservation, and next-texture overwrite behavior. |
 
 ## SVGA/ — Screen Drawing & Sprites (15 pairs)
 
