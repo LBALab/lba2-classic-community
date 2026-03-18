@@ -7,7 +7,7 @@ These tools were originally used by the Adeline Software team during LBA2 develo
 ## Building with Debug Tools
 
 ```bash
-cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker -DDEBUG_TOOLS=ON
+cmake -B build -DDEBUG_TOOLS=ON
 cmake --build build
 ```
 

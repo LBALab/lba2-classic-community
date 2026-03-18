@@ -74,7 +74,7 @@ cmake --build --preset windows_mingw64
 ### Manual Build
 
 ```bash
-cmake -B build -G Ninja -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+cmake -B build -G Ninja
 cmake --build build
 ```
 

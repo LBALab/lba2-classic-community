@@ -27,9 +27,11 @@ brew install ninja
 ## Building
 
 ```bash
-cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+cmake -B build
 cmake --build build
 ```
+
+By default, the build uses SDL for audio and libsmacker for FMV playback. Override with `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for a minimal (silent, no video) build.
 
 ### Using CMake presets
 
@@ -70,8 +72,8 @@ available on `PATH`.
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `null` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
-| `MVIDEO_BACKEND` | `null`, `smacker` | `null` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
+| `SOUND_BACKEND` | `null`, `miles`, `sdl` | `sdl` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
+| `MVIDEO_BACKEND` | `null`, `smacker` | `smacker` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
 
@@ -82,7 +84,7 @@ When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and t
 To build with the original Adeline developer debug tools enabled:
 
 ```bash
-cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker -DDEBUG_TOOLS=ON
+cmake -B build -DDEBUG_TOOLS=ON
 cmake --build build
 ```
 
