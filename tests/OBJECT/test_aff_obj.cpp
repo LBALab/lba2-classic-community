@@ -35,6 +35,8 @@ static const U32 kFixtureFaceLightIndex = 3;
 static const U32 kComplexGroupCount = 2;
 static const U32 kComplexPointCount = 7;
 static const U32 kComplexFaceLightBase = kComplexPointCount;
+static const U32 kQuadFixturePointCount = 4;
+static const U32 kQuadFixtureFaceLightIndex = 4;
 static const U32 kComplexFaceLightCount = 2;
 
 enum
@@ -42,9 +44,15 @@ enum
     kPolySolid = 0,
     kPolyFlat = 1,
     kPolyGouraud = 4,
+    kPolyTextureSolid = 8,
     kPolyTextureFlat = 9,
+    kPolyTextureGouraud = 10,
+    kPolyTextureZSolid = 16,
     kPolyTextureZFlat = 17,
+    kPolyTextureZGouraud = 18,
+    kPolyEnvTextureSolid = 0x4008,
     kPolyEnvTextureFlat = 0x4009,
+    kPolyEnvTextureGouraud = 0x400A,
     kPolyQuadMask = 0x8000,
 };
 
@@ -63,6 +71,42 @@ typedef struct
     U16 P1;
     U16 P2;
     U16 P3;
+    U16 HandleText;
+    U16 Couleur;
+    U16 Normale;
+    U16 U1;
+    U16 V1;
+    U16 U2;
+    U16 V2;
+    U16 U3;
+    U16 V3;
+} STRUC_POLY3_TEXTURE;
+
+typedef struct
+{
+    U16 P1;
+    U16 P2;
+    U16 P3;
+    U16 P4;
+    U16 Couleur;
+    U16 Normale;
+    U16 U1;
+    U16 V1;
+    U16 U2;
+    U16 V2;
+    U16 U3;
+    U16 V3;
+    U16 U4;
+    U16 V4;
+    U16 HandleText;
+    U16 Padding;
+} STRUC_POLY4_TEXTURE;
+
+typedef struct
+{
+    U16 P1;
+    U16 P2;
+    U16 P3;
     U16 HandleEnv;
     U16 Couleur;
     U16 Normale;
@@ -75,16 +119,12 @@ typedef struct
     U16 P1;
     U16 P2;
     U16 P3;
-    U16 HandleText;
+    U16 P4;
     U16 Couleur;
     U16 Normale;
-    U16 U1;
-    U16 V1;
-    U16 U2;
-    U16 V2;
-    U16 U3;
-    U16 V3;
-} STRUC_POLY3_TEXTURE;
+    U16 Scale;
+    U16 HandleEnv;
+} STRUC_POLY4_ENV;
 
 typedef struct
 {
@@ -163,6 +203,30 @@ typedef struct
     STRUC_POLY3_ENV Triangle;
     U32 Textures[1];
 } TEST_ENV_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[kQuadFixturePointCount];
+    TYPE_VT16 Normals[kQuadFixtureFaceLightIndex];
+    TYPE_VT16 FaceNormals[1];
+    TEST_POLY_HEADER PolyHeader;
+    STRUC_POLY4_TEXTURE Quad;
+    U32 Textures[1];
+} TEST_TEXTURED_QUAD_BODY_FIXTURE;
+
+typedef struct
+{
+    T_BODY_HEADER Header;
+    TEST_OBJ_GROUP Group;
+    T_OBJ_POINT Points[kQuadFixturePointCount];
+    TYPE_VT16 Normals[kQuadFixtureFaceLightIndex];
+    TYPE_VT16 FaceNormals[1];
+    TEST_POLY_HEADER PolyHeader;
+    STRUC_POLY4_ENV Quad;
+    U32 Textures[1];
+} TEST_ENV_QUAD_BODY_FIXTURE;
 #pragma pack(pop)
 
 typedef void (*AffObjEnvironmentSetupFn)(void);
@@ -953,10 +1017,9 @@ static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture
     set_body_point(&fixture->Points[1], 96, 0, 256, 0);
     set_body_point(&fixture->Points[2], 0, 96, 256, 0);
 
-    for (U32 index = 0; index < kFixtureFaceLightIndex; ++index)
-    {
-        set_body_normal(&fixture->Normals[index], 15360, 0, 0, 0);
-    }
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[1], 12288, 4096, 0, 0);
+    set_body_normal(&fixture->Normals[2], 12288, 0, 4096, 0);
     set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
 
     fixture->PolyHeader.TypePoly = poly_type;
@@ -979,7 +1042,80 @@ static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture
     fixture->Textures[0] = 0xFFFF0000u;
 }
 
-static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture)
+static void build_textured_quad_test_body_fixture(TEST_TEXTURED_QUAD_BODY_FIXTURE *fixture,
+                                                  U16 poly_type)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = 0;
+    fixture->Header.XMax = 96;
+    fixture->Header.YMin = 0;
+    fixture->Header.YMax = 96;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = kQuadFixturePointCount;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = kQuadFixturePointCount;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 1;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, PolyHeader);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Textures);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Textures);
+    fixture->Header.NbTextures = 1;
+    fixture->Header.OffTextures = (S32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Textures);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = kQuadFixturePointCount;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 0, 256, 0);
+    set_body_point(&fixture->Points[2], 96, 96, 256, 0);
+    set_body_point(&fixture->Points[3], 0, 96, 256, 0);
+
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[1], 12288, 4096, 0, 0);
+    set_body_normal(&fixture->Normals[2], 8192, 8192, 0, 0);
+    set_body_normal(&fixture->Normals[3], 12288, 0, 4096, 0);
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->PolyHeader.TypePoly = poly_type;
+    fixture->PolyHeader.NbPoly = 1;
+    fixture->PolyHeader.OffNextType = (U32)offsetof(TEST_TEXTURED_QUAD_BODY_FIXTURE, Textures);
+
+    fixture->Quad.P1 = 0;
+    fixture->Quad.P2 = 1;
+    fixture->Quad.P3 = 2;
+    fixture->Quad.P4 = 3;
+    fixture->Quad.Couleur = 0;
+    fixture->Quad.Normale = kQuadFixtureFaceLightIndex;
+    fixture->Quad.U1 = 0;
+    fixture->Quad.V1 = 0;
+    fixture->Quad.U2 = (U16)(128 << 8);
+    fixture->Quad.V2 = 0;
+    fixture->Quad.U3 = (U16)(128 << 8);
+    fixture->Quad.V3 = (U16)(128 << 8);
+    fixture->Quad.U4 = 0;
+    fixture->Quad.V4 = (U16)(128 << 8);
+    fixture->Quad.HandleText = 0;
+    fixture->Quad.Padding = 0;
+
+    fixture->Textures[0] = 0xFFFF0000u;
+}
+
+static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture,
+                                        U16 poly_type,
+                                        U16 scale)
 {
     memset(fixture, 0, sizeof(*fixture));
 
@@ -1018,13 +1154,12 @@ static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture)
     set_body_point(&fixture->Points[1], 96, 0, 256, 0);
     set_body_point(&fixture->Points[2], 0, 96, 256, 0);
 
-    for (U32 index = 0; index < kFixtureFaceLightIndex; ++index)
-    {
-        set_body_normal(&fixture->Normals[index], 15360, 0, 0, 0);
-    }
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[1], 12288, 4096, 0, 0);
+    set_body_normal(&fixture->Normals[2], 12288, 0, 4096, 0);
     set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
 
-    fixture->PolyHeader.TypePoly = kPolyEnvTextureFlat;
+    fixture->PolyHeader.TypePoly = poly_type;
     fixture->PolyHeader.NbPoly = 1;
     fixture->PolyHeader.OffNextType = (U32)offsetof(TEST_ENV_BODY_FIXTURE, Textures);
 
@@ -1034,8 +1169,72 @@ static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture)
     fixture->Triangle.HandleEnv = 0;
     fixture->Triangle.Couleur = 0;
     fixture->Triangle.Normale = kFixtureFaceLightIndex;
-    fixture->Triangle.Scale = 0;
+    fixture->Triangle.Scale = scale;
     fixture->Triangle.Padding = 0;
+
+    fixture->Textures[0] = 0xFFFF0000u;
+}
+
+static void build_env_quad_test_body_fixture(TEST_ENV_QUAD_BODY_FIXTURE *fixture,
+                                             U16 poly_type,
+                                             U16 scale)
+{
+    memset(fixture, 0, sizeof(*fixture));
+
+    fixture->Header.Info = 0;
+    fixture->Header.SizeHeader = (S16)sizeof(T_BODY_HEADER);
+    fixture->Header.Dummy = 0;
+    fixture->Header.XMin = 0;
+    fixture->Header.XMax = 96;
+    fixture->Header.YMin = 0;
+    fixture->Header.YMax = 96;
+    fixture->Header.ZMin = 256;
+    fixture->Header.ZMax = 256;
+    fixture->Header.NbGroupes = 1;
+    fixture->Header.OffGroupes = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Group);
+    fixture->Header.NbPoints = kQuadFixturePointCount;
+    fixture->Header.OffPoints = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Points);
+    fixture->Header.NbNormales = kQuadFixturePointCount;
+    fixture->Header.OffNormales = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Normals);
+    fixture->Header.NbNormFaces = 1;
+    fixture->Header.OffNormFaces = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, FaceNormals);
+    fixture->Header.NbPolys = 1;
+    fixture->Header.OffPolys = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, PolyHeader);
+    fixture->Header.NbLines = 0;
+    fixture->Header.OffLines = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Textures);
+    fixture->Header.NbSpheres = 0;
+    fixture->Header.OffSpheres = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Textures);
+    fixture->Header.NbTextures = 1;
+    fixture->Header.OffTextures = (S32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Textures);
+
+    fixture->Group.OrgGroupe = 0;
+    fixture->Group.OrgPoint = 0;
+    fixture->Group.NbPts = kQuadFixturePointCount;
+    fixture->Group.NbNorm = 1;
+
+    set_body_point(&fixture->Points[0], 0, 0, 256, 0);
+    set_body_point(&fixture->Points[1], 96, 0, 256, 0);
+    set_body_point(&fixture->Points[2], 96, 96, 256, 0);
+    set_body_point(&fixture->Points[3], 0, 96, 256, 0);
+
+    set_body_normal(&fixture->Normals[0], 15360, 0, 0, 0);
+    set_body_normal(&fixture->Normals[1], 12288, 4096, 0, 0);
+    set_body_normal(&fixture->Normals[2], 8192, 8192, 0, 0);
+    set_body_normal(&fixture->Normals[3], 12288, 0, 4096, 0);
+    set_body_normal(&fixture->FaceNormals[0], 15360, 0, 0, 0);
+
+    fixture->PolyHeader.TypePoly = poly_type;
+    fixture->PolyHeader.NbPoly = 1;
+    fixture->PolyHeader.OffNextType = (U32)offsetof(TEST_ENV_QUAD_BODY_FIXTURE, Textures);
+
+    fixture->Quad.P1 = 0;
+    fixture->Quad.P2 = 1;
+    fixture->Quad.P3 = 2;
+    fixture->Quad.P4 = 3;
+    fixture->Quad.Couleur = 0;
+    fixture->Quad.Normale = kQuadFixtureFaceLightIndex;
+    fixture->Quad.Scale = scale;
+    fixture->Quad.HandleEnv = 0;
 
     fixture->Textures[0] = 0xFFFF0000u;
 }
@@ -1482,13 +1681,46 @@ static void test_objectdisplay_textured_z_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
+static void test_objectdisplay_textured_solid_render(void)
+{
+    TEST_TEXTURED_BODY_FIXTURE fixture;
+
+    build_textured_test_body_fixture(&fixture, kPolyTextureSolid);
+    run_objectdisplay_render_case_ex("ObjectDisplay textured solid render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_gouraud_render(void)
+{
+    TEST_TEXTURED_BODY_FIXTURE fixture;
+
+    build_textured_test_body_fixture(&fixture, kPolyTextureGouraud);
+    run_objectdisplay_render_case_ex("ObjectDisplay textured gouraud render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+static void test_objectdisplay_textured_quad_flat_render(void)
+{
+    TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
+
+    build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureFlat));
+    run_objectdisplay_render_case_ex("ObjectDisplay textured quad flat render",
+                                     &fixture, 1, NULL, g_test_texture,
+                                     setup_textured_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
 static void test_objectdisplay_env_flat_render(void)
 {
     TEST_ENV_BODY_FIXTURE fixture;
 
     ASSERT_TRUE((int)sizeof(TEST_ENV_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
 
-    build_env_test_body_fixture(&fixture);
+    build_env_test_body_fixture(&fixture, kPolyEnvTextureFlat, 0);
     run_objectdisplay_render_case_ex("ObjectDisplay env flat render",
                                      &fixture, 1, NULL, g_test_texture,
                                      setup_textured_aff_obj_environment,
@@ -1671,8 +1903,11 @@ int main(void)
     RUN_TEST(test_objectdisplay_hidden_render);
     RUN_TEST(test_objectdisplay_multigroup_visible_render);
     RUN_TEST(test_objectdisplay_multigroup_translate_render);
+    RUN_TEST(test_objectdisplay_textured_solid_render);
     RUN_TEST(test_objectdisplay_textured_flat_render);
+    RUN_TEST(test_objectdisplay_textured_gouraud_render);
     RUN_TEST(test_objectdisplay_textured_z_flat_render);
+    RUN_TEST(test_objectdisplay_textured_quad_flat_render);
     RUN_TEST(test_objectdisplay_env_flat_render);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
