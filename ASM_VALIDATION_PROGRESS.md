@@ -24,7 +24,7 @@ exists in both `.ASM` and `.CPP` form.
 | [ ] | `3D/LROT2DF.ASM` | `3D/LROT2DF.CPP` | `LongRotate`, `Rotate` | 2D rotation by angle; writes `X0`, `Z0` | Uses `SinTabF`/`CosTabF` |
 | [ ] | `3D/LROT3DF.ASM` | `3D/LROT3DF.CPP` | `LongRotatePointF` | 3D matrix × point; writes `X0`, `Y0`, `Z0` | |
 | [ ] | `3D/MULMATF.ASM` | `3D/MULMATF.CPP` | `MulMatrixF` | 3×3 matrix multiplication (float) | |
-| [ ] | `3D/PRLI3DF.ASM` | `3D/PRLI3DF.CPP` | `ProjectList3DF` | Batch 3D projection with screen bounds | Same function as LPROJ3DF |
+| [x] | `3D/PRLI3DF.ASM` | `3D/PRLI3DF.CPP` | `ProjectList3DF` | Batch 3D projection with screen bounds | `tests/3D/test_prli3df.cpp` now covers multi-point batches, clipping and overflow sentinels, variable origins/projection states, zero-count early return, screen-bounds globals, and scratch globals `Xp`/`Yp`/`X0`/`Y0`/`Z0`. Fixed CPP parity bug: `Xp`/`Yp` must retain the raw projected offsets `Xe`/`Ye`, while centered coordinates are used only for bounds checks and stored output points. |
 | [ ] | `3D/PRLIISO.ASM` | `3D/PRLIISO.CPP` | `ProjectListIso` | Batch isometric projection | |
 | [ ] | `3D/PROJ.ASM` | `3D/PROJ.CPP` | `SetProjection`, `SetIsoProjection` | Configure projection globals & func pointers | |
 | [ ] | `3D/REGLE3.ASM` | `3D/REGLE3.CPP` | `RegleTrois`, `BoundRegleTrois` | Linear interpolation (rule of three) ± bounds | |
