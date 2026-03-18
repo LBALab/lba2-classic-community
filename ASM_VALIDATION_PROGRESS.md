@@ -68,8 +68,8 @@ exists in both `.ASM` and `.CPP` form.
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `ANIM/ANIM.ASM` | `ANIM/ANIM.CPP` | `ObjectInitAnim` | Initialize animation for 3D object | ASM ≡ CPP: NbFrames, NbGroups, LoopFrame, CurrentFrame, Status, Master |
-| [ ] | `ANIM/BODY.ASM` | `ANIM/BODY.CPP` | `ObjectInitBody` | Initialize body (visual model) for object | Needs `T_OBJ_3D` fixture |
-| [ ] | `ANIM/CLEAR.ASM` | `ANIM/CLEAR.CPP` | `ObjectClear` | Zero/sentinel-fill object struct | Self-contained |
+| [x] | `ANIM/BODY.ASM` | `ANIM/BODY.CPP` | `ObjectInitBody` | Initialize body (visual model) for object | `tests/ANIM/test_body.cpp` now uses strict full-`T_OBJ_3D` ASM-vs-CPP memory comparisons over fixed and deterministic random initial states, covering first-body assignment, existing-body preservation, and status-bit updates. |
+| [x] | `ANIM/CLEAR.ASM` | `ANIM/CLEAR.CPP` | `ObjectClear` | Zero/sentinel-fill object struct | `tests/ANIM/test_clear.cpp` now uses strict full-`T_OBJ_3D` ASM-vs-CPP memory comparisons over multiple fill patterns and deterministic random initial states. |
 | [x] | `ANIM/FRAME.ASM` | `ANIM/FRAME.CPP` | `ObjectSetFrame` | Set current animation frame | ASM ≡ CPP: CurrentFrame matches for all 3 frames |
 | [x] | `ANIM/INTANIM.ASM` | `ANIM/INTANIM.CPP` | `ObjectSetInterAnim` | Set interpolated animation state | ASM ≡ CPP: midpoint interpolation via Watcom-to-C shims |
 | [x] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | ASM ≡ CPP: midpoint + rotation path via Watcom-to-C shims |
