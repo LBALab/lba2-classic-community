@@ -45,6 +45,11 @@ NbPix		dd	0
 BufferClip	db	512 dup (?)
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_affgraph_1	DB	"[ASM][AffGraph][1] num=%d x=%d y=%d bank=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -62,6 +67,19 @@ AffGraph		PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			numgraph: DWORD, x: DWORD, y: DWORD, bankgraph: DWORD
 			mov eax, numgraph
+
+		; --- debug trace [ASM][AffGraph][1] params ---
+		pushad
+		push	bankgraph
+		push	y
+		push	x
+		push	numgraph
+		push	offset fmt_affgraph_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+
 			mov ebx, x
 			mov ecx, y
 			mov esi, bankgraph

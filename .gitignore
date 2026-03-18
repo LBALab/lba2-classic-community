@@ -3,3 +3,11 @@
 CMakeUserPresets.json
 out/
 build/
+/build_test
+/build_logs/
+.tmp/
+
+# Polyrec rendered outputs (keep .lba2polyrec fixtures, ignore generated images)
+tests/SNAPSHOT/fixtures/*.png
+tests/SNAPSHOT/fixtures/*.ppm
+tests/SNAPSHOT/fixtures/*.raw

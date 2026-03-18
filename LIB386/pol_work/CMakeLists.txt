@@ -9,6 +9,12 @@ set(SOURCES_FILES_ASM POLY.CPP POLY_JMP.CPP POLYCLIP.CPP POLYDISC.CPP POLYFLAT.C
 
 add_library(poly ${SOURCES_FILES} ${SOURCES_FILES_ASM})
 
+# Propagate ENABLE_POLY_RECORDING to the poly library so recording hooks compile
+if(ENABLE_POLY_RECORDING)
+  target_compile_definitions(poly PRIVATE ENABLE_POLY_RECORDING)
+endif()
+
+
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)
 #     set_source_files_properties(${FILE_ASM} PROPERTIES LANGUAGE ASM_MASM)

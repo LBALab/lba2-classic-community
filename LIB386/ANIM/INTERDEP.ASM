@@ -30,6 +30,11 @@
 		EXTRN	C	TransFctAnim		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
+		EXTRN	C	printf	:NEAR
+
+
+fmt_interdep_1	DB	"[ASM][ObjectSetInterDep][1] obj=%p", 10, 0
+
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -46,6 +51,16 @@ ObjectSetInterDep PROC \
 			uses ebx ecx edx edi esi ebp\
 			obj: DWORD
 			mov ebx, obj
+
+		; --- debug trace [ASM][ObjectSetInterDep][1] params ---
+		pushad
+		push	ebx
+		push	offset fmt_interdep_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 
 		mov	eax, [ebx].OBJ_3D.NextTexture
 		mov	ecx, [ebx].OBJ_3D.NextBody

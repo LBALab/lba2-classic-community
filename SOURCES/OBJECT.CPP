@@ -1,6 +1,9 @@
 #include 	"C_EXTERN.H"
 
 #include "INPUT.H"
+#ifdef ENABLE_POLY_RECORDING
+#include <SNAPSHOT/POLY_RECORDING.H>
+#endif
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -5917,7 +5920,40 @@ void	AffScene( S32 flagflip )
 /*------------------------------------------------------------------------*/
 startaffscene:
 
+#ifdef ENABLE_POLY_RECORDING
+	// Polygon call recording (Alt+F9) — start recording before ANY rendering
+	// (terrain + objects). Must be before RefreshGrille/DrawAnimatedPolys.
+	static char polyrec_pending_name[256] = {0} ;
+	if( SnapshotRequested )
+	{
+		static int polyrec_counter = 0 ;
+		sprintf( polyrec_pending_name, "polyrec_%04d.lba2polyrec", polyrec_counter++ ) ;
+		polyrec_start( polyrec_pending_name ) ;
+		// Provide RGB palette for PPM output
+		{
+			U8 *active_pal = PtrPalCurrent ? PtrPalCurrent : PalettePcx ;
+			if( active_pal )
+				polyrec_set_rgb_palette( active_pal ) ;
+		}
+		SnapshotRequested = 0 ;
+	}
+	else
+	{
+		polyrec_pending_name[0] = 0 ;
+	}
+#endif
+
 	FlagFlip = flagflip	;//	Beurk, cf AffOneObject()
+
+#ifdef ENABLE_POLY_RECORDING
+	// When recording, force a full redraw (terrain + objects) so the recording
+	// captures all polygon calls. Without this, AFF_OBJETS_* modes skip terrain
+	// rendering (it was drawn in a previous frame) and the recording misses it.
+	if( polyrec_pending_name[0] && flagflip != AFF_ALL_NO_FLIP && flagflip != AFF_ALL_FLIP )
+	{
+		flagflip = AFF_ALL_NO_FLIP ;
+	}
+#endif
 
 	oldxporg = XpOrgw ;
 	oldyporg = YpOrgw ;
@@ -6790,6 +6826,14 @@ startaffscene:
 				break ;
 		}
 	}
+
+#ifdef ENABLE_POLY_RECORDING
+	// Polygon call recording — stop recording and write file
+	if( polyrec_pending_name[0] )
+	{
+		polyrec_stop() ;
+	}
+#endif
 }
 /*══════════════════════════════════════════════════════════════════════════*
 		▀▀▀█▀ █▀▀▀█ ██▄ █ █▀▀▀▀       █▀▀▀▄ █▀▀▀▀ █▀▀▀▀

@@ -2,6 +2,7 @@
 #include <OBJECT/AFF_OBJ.H>
 #include <stdlib.h>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 Func_TransNumPtr *TransFctAnim = NULL;
 U8 *Lib3DBufferAnim = NULL;
@@ -11,6 +12,7 @@ U8 *MallocBuffer = NULL;
 
 void ClearObjects()
 {
+    LIB386_TRACE_CPP("ClearObjects", "1", "entry");
     if (MallocBuffer != NULL)
     {
         free(MallocBuffer);
@@ -21,6 +23,7 @@ void ClearObjects()
 
 void InitObjects(void *buffer, U32 size, Func_TransNumPtr *fctbody, Func_TransNumPtr *fctanim)
 {
+    LIB386_TRACE_CPP("InitObjects", "1", "buf=%p size=%u fctbody=%p fctanim=%p", buffer, size, (void*)fctbody, (void*)fctanim);
     TransFctBody = fctbody;
     TransFctAnim = fctanim;
 

@@ -40,6 +40,10 @@ if (NOT MVIDEO_BACKEND IN_LIST MVIDEO_BACKEND_OPTIONS)
     message(SEND_ERROR "MVIDEO_BACKEND set with invalid option '${MVIDEO_BACKEND}'. Valid options are: ${MVIDEO_BACKEND_OPTIONS}")
 endif ()
 
+# Testing options
+option(LBA2_BUILD_TESTS "Build test suites" OFF)
+option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" OFF)
+
 # Debug tools (original Adeline developer debug features)
 option(DEBUG_TOOLS "Enable developer debug tools (collision viz, benchmarks, bug saves)" OFF)
 if(DEBUG_TOOLS)
@@ -56,3 +60,8 @@ configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/B
 # Process the targets
 add_subdirectory(LIB386)
 add_subdirectory(SOURCES)
+
+if(LBA2_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

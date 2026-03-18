@@ -1,65 +1,13 @@
-/*
-;*══════════════════════════════════════════════════════════════════════════*
-		.586p
-		.MMX
-
-		.model SMALL, C
-
-		include	3D.INC
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.DATA
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	ProcessorSignature:DWORD
-		extrn	C	ProcessorFeatureFlags:DWORD
-
-		 ASSUME DS:SEG ProcessorFeatureFlags
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn	C	XCentre:	DWORD
-		extrn	C	YCentre:	DWORD
-
-		extrn	C	NearClip:	DWORD
-
-		extrn	C	LFactorX:	DWORD
-		extrn	C	LFactorY:	DWORD
-
-		extrn	C	TypeProj:	DWORD
-
-		extrn	C	FRatioX:	DWORD
-		extrn	C	FRatioY:	DWORD
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn   C LongProjectPoint:		DWORD
-		extrn   C ProjectList:			DWORD
-
-;*══════════════════════════════════════════════════════════════════════════*
-		.CODE
-
-;*══════════════════════════════════════════════════════════════════════════*
-		extrn   C LongProjectPoint3DF:	PROC
-		extrn   C LongProjectPointIso:	PROC
-		extrn   C ProjectList3DF:		PROC
-		extrn   C ProjectListIso:		PROC
-
-;*══════════════════════════════════════════════════════════════════════════*
-		public	C	SetProjection
-		public	C	SetIsoProjection
-
-;*══════════════════════════════════════════════════════════════════════════*
-;		The
-		END
-*/
-
 #include <3D/PROJ.H>
 #include <3D/CAMERA.H>
 #include <3D/LPROJ.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
                    S32 factory)
 {
+	LIB386_TRACE_CPP("SetProjection", "1", "xc=%d yc=%d clip=%d fx=%d fy=%d", xcentre, ycentre, clip, factorx, factory);
 	XCentre = xcentre;
 	YCentre = ycentre;
 
@@ -106,6 +54,7 @@ SetIsoProjection PROC \
 
 SetIsoProjection ENDP
 	*/
+	LIB386_TRACE_CPP("SetIsoProjection", "1", "xc=%d yc=%d", xcentre, ycentre);
 	XCentre = xcentre;
 	YCentre = ycentre;
 

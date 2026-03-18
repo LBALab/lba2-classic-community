@@ -1,73 +1,34 @@
 #include <3D/REGLE3.H>
-#include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
+/*
+ * Linear interpolation: Val1 + (Val2-Val1) * Step / NbSteps
+ *
+ * The ASM uses imul (32×32→64 signed) then idiv (64/32→32).
+ * We match this with S64 intermediate to avoid 32-bit overflow.
+ */
 S32 RegleTrois(S32 Val1, S32 Val2, S32 NbSteps, S32 CurrentStep)
 {
-	/*
-RegleTrois	proc	\
-		Valeur1:DWORD, Valeur2:DWORD, \
-		NbStep:DWORD, Step:DWORD
-
-		mov	ecx, NbStep
-		mov	eax, Valeur2
-		test	ecx, ecx
-		jle	short erreur
-
-		sub	eax, Valeur1
-		imul	Step
-		idiv	ecx
-		add	eax, Valeur1
-
-erreur: 	ret
-
-RegleTrois	endp
-	*/
-	if (NbSteps <= 0) {
-			return 0;
-	}
-
-	return ((Val2 - Val1) * CurrentStep) / NbSteps + Val1;
+	LIB386_TRACE_CPP("RegleTrois", "1", "V1=%d V2=%d NbStep=%d Step=%d", Val1, Val2, NbSteps, CurrentStep);
+	S32 result;
+	if (NbSteps <= 0)
+		result = Val2;
+	else
+		result = (S32)((S64)(Val2 - Val1) * CurrentStep / NbSteps) + Val1;
+	LIB386_TRACE_CPP("RegleTrois", "2", "return=%d", result);
+	return result;
 }
 
 S32 BoundRegleTrois(S32 Val1, S32 Val2, S32 NbSteps, S32 CurrentStep)
 {
-	/*
-BoundRegleTrois proc	\
-		Valeur1:DWORD, Valeur2:DWORD, \
-		NbStep:DWORD, Step:DWORD
-
-		mov	edx, Step
-		mov	eax, Valeur2
-		mov	ecx, Valeur1
-
-		test	edx, edx
-		jle	troppetit
-
-		cmp	edx, NbStep
-		jge	tropgrand
-
-		sub	eax, ecx
-		imul	edx
-		idiv	NbStep
-		add	eax, ecx
-
-tropgrand:	ret
-
-troppetit:	mov	eax, ecx
-		ret
-
-BoundRegleTrois endp
-	*/
+	LIB386_TRACE_CPP("BoundRegleTrois", "1", "V1=%d V2=%d NbStep=%d Step=%d", Val1, Val2, NbSteps, CurrentStep);
+	S32 result;
 	if (CurrentStep <= 0)
-	{
-		return Val1;
-	}
+		result = Val1;
 	else if (CurrentStep >= NbSteps)
-	{
-		return Val2;
-	}
+		result = Val2;
 	else
-	{
-		return ((Val2 - Val1) * CurrentStep / NbSteps) + Val1;
-	}
+		result = (S32)((S64)(Val2 - Val1) * CurrentStep / NbSteps) + Val1;
+	LIB386_TRACE_CPP("BoundRegleTrois", "2", "return=%d", result);
+	return result;
 }

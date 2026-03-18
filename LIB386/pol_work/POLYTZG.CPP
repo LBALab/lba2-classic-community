@@ -5,6 +5,7 @@
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 // Runtime patch variables for optimized rendering
 PTR_U8 POLYTZG_PtrCLUT = NULL;
@@ -14,11 +15,31 @@ U32 POLYTZG_DecGour = 0;
 U8 POLYTZG_IntGour = 0;
 S32 Cur_Gouraud = 0;
 
-// External perspective functions
-extern void Fill_Init_Perspective(S32 lineU, S32 lineV, U32 fillWidth);
-extern void Fill_Loop_Perspective(U32 fillWidth);
+// External perspective functions (C linkage — function pointers in POLYTEXZ.CPP)
+extern "C" {
+extern void (*Fill_Init_Perspective)(S32 lineU, S32 lineV, U32 fillWidth);
+extern void (*Fill_Loop_Perspective)(U32 fillWidth);
+}
+
+// Helper: signed 32×32→64 multiply, extract bits [16..47] (matches ASM imul + shl/shr/or)
+static inline S32 imul_extract_16_47(S32 a, S32 b) {
+  S64 prod = (S64)a * (S64)b;
+  U32 lo = (U32)(prod & 0xFFFFFFFFu);
+  S32 hi = (S32)(prod >> 32);
+  return (S32)(((U32)hi << 16) | (lo >> 16));
+}
 
 S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_TextureZGouraud", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -29,7 +50,6 @@ S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   if (patch == 0)
   {
     Fill_Patch = patch;
-    // Setup runtime patches for optimized rendering
     POLYTZG_PtrCLUT = PtrCLUTGouraud;
     POLYTZG_RepMaskPatch = RepMask;
     POLYTZG_PtrMapPatch = PtrMap;
@@ -53,82 +73,56 @@ S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineGouraud = gouraud;
 
-      // Handle sub-pixel precision offset
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
-      if (fillWidth > 16) {
-        // Apply sub-pixel offset for texture coordinates
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
-        U32 addUDec = (U32)(addU >> 32);
-        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
-        addUDec = (addUDec << 16) | (addUInt >> 16);
-        lineU += addUDec;
-
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
-        U32 addVDec = (U32)(addV >> 32);
-        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
-        addVDec = (addVDec << 16) | (addVInt >> 16);
-        lineV += addVDec;
-
-        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
-        U32 addWDec = (U32)(addW >> 32);
-        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
-        addWDec = (addWDec << 16) | (addWInt >> 16);
-        Fill_CurWMin += addWDec;
-      }
-
-      Cur_Gouraud = lineGouraud;
       Fill_Cur_W = Fill_CurWMin;
 
-      // Use perspective-correct texture mapping
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16) {
+        Fill_Cur_W = Fill_CurWMin + imul_extract_16_47(Fill_W_XSlope, factor);
+        lineU += imul_extract_16_47(Fill_MapU_XSlope, factor);
+        lineV += imul_extract_16_47(Fill_MapV_XSlope, factor);
+      }
+
+      Cur_Gouraud = gouraud;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
-      
+
       U32 remaining = fillWidth;
       U8 *dst = line;
-      
+
       while (remaining > 0) {
         U32 blockSize = (remaining > PERSP_VALUE) ? PERSP_VALUE : remaining;
-        
+
         Fill_Loop_Perspective(remaining);
-        
+
         S32 curMapU = Fill_Cur_MapU;
         S32 nextMapU = Fill_Next_MapU;
         S32 curMapV = Fill_Cur_MapV;
         S32 nextMapV = Fill_Next_MapV;
-        
+
         S32 incMapU = (nextMapU - curMapU) >> PERSP_SHIFT;
         S32 incMapV = (nextMapV - curMapV) >> PERSP_SHIFT;
-        
+
         S32 gouraudValue = Cur_Gouraud;
         S32 gouraudInc = Fill_Gouraud_XSlope;
-        
+
         for (U32 x = 0; x < blockSize; x++) {
-          // Get texture coordinates with perspective correction
-          U32 texU = (curMapU >> 16) & (RepMask & 0xFF);
-          U32 texV = (curMapV >> 16) & ((RepMask >> 8) & 0xFF);
-          
-          // Get texture pixel
+          U32 texU = (curMapU >> 8) & (RepMask & 0xFF);
+          U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
           U8 texel = PtrMap[texV * 256 + texU];
-          
-          // Apply Gouraud shading
           U32 gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel;
-          U8 shadedColor = PtrCLUTGouraud[gouraudIndex];
-          
-          *dst++ = shadedColor;
-          
+          *dst++ = PtrCLUTGouraud[gouraudIndex];
+
           curMapU += incMapU;
           curMapV += incMapV;
           gouraudValue += gouraudInc;
         }
-        
+
         remaining -= blockSize;
-        
+
         if (remaining > 0) {
-          // Update perspective values for next block
           Fill_Cur_MapU = Fill_Next_MapU;
           Fill_Cur_MapV = Fill_Next_MapV;
           Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
@@ -155,11 +149,21 @@ S32 Filler_TextureZGouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurGouraudMin = gouraud;
-  
+
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_TextureZGouraudChromaKey", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 u = Fill_CurMapUMin;
@@ -170,7 +174,6 @@ S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
   if (patch == 0)
   {
     Fill_Patch = patch;
-    // Setup runtime patches for optimized rendering
     POLYTZG_PtrCLUT = PtrCLUTGouraud;
     POLYTZG_RepMaskPatch = RepMask;
     POLYTZG_PtrMapPatch = PtrMap;
@@ -194,85 +197,60 @@ S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineGouraud = gouraud;
 
-      // Handle sub-pixel precision offset
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
-      if (fillWidth > 16) {
-        // Apply sub-pixel offset for texture coordinates
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
-        U32 addUDec = (U32)(addU >> 32);
-        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
-        addUDec = (addUDec << 16) | (addUInt >> 16);
-        lineU += addUDec;
-
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
-        U32 addVDec = (U32)(addV >> 32);
-        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
-        addVDec = (addVDec << 16) | (addVInt >> 16);
-        lineV += addVDec;
-
-        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
-        U32 addWDec = (U32)(addW >> 32);
-        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
-        addWDec = (addWDec << 16) | (addWInt >> 16);
-        Fill_CurWMin += addWDec;
-      }
-
-      Cur_Gouraud = lineGouraud;
       Fill_Cur_W = Fill_CurWMin;
 
-      // Use perspective-correct texture mapping
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16) {
+        Fill_Cur_W = Fill_CurWMin + imul_extract_16_47(Fill_W_XSlope, factor);
+        lineU += imul_extract_16_47(Fill_MapU_XSlope, factor);
+        lineV += imul_extract_16_47(Fill_MapV_XSlope, factor);
+      }
+
+      Cur_Gouraud = gouraud;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
-      
+
       U32 remaining = fillWidth;
       U8 *dst = line;
-      
+
       while (remaining > 0) {
         U32 blockSize = (remaining > PERSP_VALUE) ? PERSP_VALUE : remaining;
-        
+
         Fill_Loop_Perspective(remaining);
-        
+
         S32 curMapU = Fill_Cur_MapU;
         S32 nextMapU = Fill_Next_MapU;
         S32 curMapV = Fill_Cur_MapV;
         S32 nextMapV = Fill_Next_MapV;
-        
+
         S32 incMapU = (nextMapU - curMapU) >> PERSP_SHIFT;
         S32 incMapV = (nextMapV - curMapV) >> PERSP_SHIFT;
-        
+
         S32 gouraudValue = Cur_Gouraud;
         S32 gouraudInc = Fill_Gouraud_XSlope;
-        
+
         for (U32 x = 0; x < blockSize; x++) {
-          // Get texture coordinates with perspective correction
-          U32 texU = (curMapU >> 16) & (RepMask & 0xFF);
-          U32 texV = (curMapV >> 16) & ((RepMask >> 8) & 0xFF);
-          
-          // Get texture pixel
+          U32 texU = (curMapU >> 8) & (RepMask & 0xFF);
+          U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
           U8 texel = PtrMap[texV * 256 + texU];
-          
-          // Apply chroma key test (skip transparent pixels)
+
           if (texel != 0) {
-            // Apply Gouraud shading
             U32 gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel;
-            U8 shadedColor = PtrCLUTGouraud[gouraudIndex];
-            *dst = shadedColor;
+            *dst = PtrCLUTGouraud[gouraudIndex];
           }
-          
+
           dst++;
           curMapU += incMapU;
           curMapV += incMapV;
           gouraudValue += gouraudInc;
         }
-        
+
         remaining -= blockSize;
-        
+
         if (remaining > 0) {
-          // Update perspective values for next block
           Fill_Cur_MapU = Fill_Next_MapU;
           Fill_Cur_MapV = Fill_Next_MapV;
           Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
@@ -299,7 +277,7 @@ S32 Filler_TextureZGouraudChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMa
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurGouraudMin = gouraud;
-  
+
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
@@ -309,13 +287,12 @@ S32 Filler_TextureZGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   S32 u = Fill_CurMapUMin;
   S32 v = Fill_CurMapVMin;
   S32 gouraud = Fill_CurGouraudMin;
-  U32 z = Fill_CurZMin;
+  U32 z = Fill_CurZBufMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
-    // Setup runtime patches for optimized rendering
     POLYTZG_PtrCLUT = PtrCLUTGouraud;
     POLYTZG_RepMaskPatch = RepMask;
     POLYTZG_PtrMapPatch = PtrMap;
@@ -331,7 +308,7 @@ S32 Filler_TextureZGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     v += Fill_MapV_LeftSlope;
     Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   while (1)
@@ -340,110 +317,76 @@ S32 Filler_TextureZGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      U16 *zbuffer = (fillCurXMin >> 16) + PtrZBuffer;
-      
+      U32 pixOfs = (U32)(Fill_CurOffLine - (PTR_U8)Log) + (fillCurXMin >> 16);
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineGouraud = gouraud;
       U32 lineZ = z;
 
-      // Handle sub-pixel precision offset
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
-      if (fillWidth > 16) {
-        // Apply sub-pixel offset for texture coordinates
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
-        U32 addUDec = (U32)(addU >> 32);
-        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
-        addUDec = (addUDec << 16) | (addUInt >> 16);
-        lineU += addUDec;
-
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
-        U32 addVDec = (U32)(addV >> 32);
-        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
-        addVDec = (addVDec << 16) | (addVInt >> 16);
-        lineV += addVDec;
-
-        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
-        U32 addWDec = (U32)(addW >> 32);
-        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
-        addWDec = (addWDec << 16) | (addWInt >> 16);
-        Fill_CurWMin += addWDec;
-
-        U64 addZ = ((U64)factor * (U64)Fill_Z_XSlope);
-        U32 addZDec = (U32)(addZ >> 32);
-        U32 addZInt = (U32)(addZ & 0xFFFFFFFF);
-        addZDec = (addZDec << 16) | (addZInt >> 16);
-        lineZ += addZDec;
-      }
-
-      Cur_Gouraud = lineGouraud;
       Fill_Cur_W = Fill_CurWMin;
 
-      // Use perspective-correct texture mapping
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16) {
+        Fill_Cur_W = Fill_CurWMin + imul_extract_16_47(Fill_W_XSlope, factor);
+        lineU += imul_extract_16_47(Fill_MapU_XSlope, factor);
+        lineV += imul_extract_16_47(Fill_MapV_XSlope, factor);
+      }
+
+      Fill_CurZBuf = lineZ;
+      Cur_Gouraud = gouraud;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
-      
+
       U32 remaining = fillWidth;
       U8 *dst = line;
-      U16 *zBuf = zbuffer;
-      U32 currentZ = lineZ;
-      
+
       while (remaining > 0) {
         U32 blockSize = (remaining > PERSP_VALUE) ? PERSP_VALUE : remaining;
-        
+
         Fill_Loop_Perspective(remaining);
-        
+
         S32 curMapU = Fill_Cur_MapU;
         S32 nextMapU = Fill_Next_MapU;
         S32 curMapV = Fill_Cur_MapV;
         S32 nextMapV = Fill_Next_MapV;
-        
+
         S32 incMapU = (nextMapU - curMapU) >> PERSP_SHIFT;
         S32 incMapV = (nextMapV - curMapV) >> PERSP_SHIFT;
-        
+
         S32 gouraudValue = Cur_Gouraud;
         S32 gouraudInc = Fill_Gouraud_XSlope;
-        U32 zValue = currentZ;
-        U32 zInc = Fill_Z_XSlope;
-        
+        U32 zValue = Fill_CurZBuf;
+        U32 zInc = Fill_ZBuf_XSlope;
+
         for (U32 x = 0; x < blockSize; x++) {
-          U16 depthValue = zValue >> 16;
-          
-          // Z-buffer test
-          if (depthValue < *zBuf) {
-            // Get texture coordinates with perspective correction
-            U32 texU = (curMapU >> 16) & (RepMask & 0xFF);
-            U32 texV = (curMapV >> 16) & ((RepMask >> 8) & 0xFF);
-            
-            // Get texture pixel
+          U16 zComp = (U16)(zValue >> 8);
+
+          if (PtrZBuffer[pixOfs] >= zComp) {
+            U32 texU = (curMapU >> 8) & (RepMask & 0xFF);
+            U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
             U8 texel = PtrMap[texV * 256 + texU];
-            
-            // Apply Gouraud shading
             U32 gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel;
-            U8 shadedColor = PtrCLUTGouraud[gouraudIndex];
-            
-            *dst = shadedColor;
-            *zBuf = depthValue; // Write Z-buffer
+            *dst = PtrCLUTGouraud[gouraudIndex];
+            PtrZBuffer[pixOfs] = zComp;
           }
-          
+
           dst++;
-          zBuf++;
+          pixOfs++;
           curMapU += incMapU;
           curMapV += incMapV;
           gouraudValue += gouraudInc;
           zValue += zInc;
         }
-        
+
         remaining -= blockSize;
-        
+
         if (remaining > 0) {
-          // Update perspective values for next block
           Fill_Cur_MapU = Fill_Next_MapU;
           Fill_Cur_MapV = Fill_Next_MapV;
           Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
           Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
           Fill_Cur_W = Fill_Next_W;
           Cur_Gouraud = gouraudValue;
-          currentZ = zValue;
+          Fill_CurZBuf = zValue;
         }
       }
     }
@@ -457,7 +400,7 @@ S32 Filler_TextureZGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     v += Fill_MapV_LeftSlope;
     Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -465,8 +408,8 @@ S32 Filler_TextureZGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurGouraudMin = gouraud;
-  Fill_CurZMin = z;
-  
+  Fill_CurZBufMin = z;
+
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
@@ -476,13 +419,12 @@ S32 Filler_TextureZGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCu
   S32 u = Fill_CurMapUMin;
   S32 v = Fill_CurMapVMin;
   S32 gouraud = Fill_CurGouraudMin;
-  U32 z = Fill_CurZMin;
+  U32 z = Fill_CurZBufMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
-    // Setup runtime patches for optimized rendering
     POLYTZG_PtrCLUT = PtrCLUTGouraud;
     POLYTZG_RepMaskPatch = RepMask;
     POLYTZG_PtrMapPatch = PtrMap;
@@ -498,7 +440,7 @@ S32 Filler_TextureZGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCu
     v += Fill_MapV_LeftSlope;
     Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   while (1)
@@ -507,113 +449,79 @@ S32 Filler_TextureZGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCu
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      U16 *zbuffer = (fillCurXMin >> 16) + PtrZBuffer;
-      
+      U32 pixOfs = (U32)(Fill_CurOffLine - (PTR_U8)Log) + (fillCurXMin >> 16);
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineGouraud = gouraud;
       U32 lineZ = z;
 
-      // Handle sub-pixel precision offset
-      U32 factor = 0x10000 - (fillCurXMin & 0xFFFF);
-      if (fillWidth > 16) {
-        // Apply sub-pixel offset for texture coordinates
-        U64 addU = ((U64)factor * (U64)Fill_MapU_XSlope);
-        U32 addUDec = (U32)(addU >> 32);
-        U32 addUInt = (U32)(addU & 0xFFFFFFFF);
-        addUDec = (addUDec << 16) | (addUInt >> 16);
-        lineU += addUDec;
-
-        U64 addV = ((U64)factor * (U64)Fill_MapV_XSlope);
-        U32 addVDec = (U32)(addV >> 32);
-        U32 addVInt = (U32)(addV & 0xFFFFFFFF);
-        addVDec = (addVDec << 16) | (addVInt >> 16);
-        lineV += addVDec;
-
-        U64 addW = ((U64)factor * (U64)Fill_W_XSlope);
-        U32 addWDec = (U32)(addW >> 32);
-        U32 addWInt = (U32)(addW & 0xFFFFFFFF);
-        addWDec = (addWDec << 16) | (addWInt >> 16);
-        Fill_CurWMin += addWDec;
-
-        U64 addZ = ((U64)factor * (U64)Fill_Z_XSlope);
-        U32 addZDec = (U32)(addZ >> 32);
-        U32 addZInt = (U32)(addZ & 0xFFFFFFFF);
-        addZDec = (addZDec << 16) | (addZInt >> 16);
-        lineZ += addZDec;
-      }
-
-      Cur_Gouraud = lineGouraud;
       Fill_Cur_W = Fill_CurWMin;
 
-      // Use perspective-correct texture mapping
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16) {
+        Fill_Cur_W = Fill_CurWMin + imul_extract_16_47(Fill_W_XSlope, factor);
+        lineU += imul_extract_16_47(Fill_MapU_XSlope, factor);
+        lineV += imul_extract_16_47(Fill_MapV_XSlope, factor);
+      }
+
+      Fill_CurZBuf = lineZ;
+      Cur_Gouraud = gouraud;
       Fill_Init_Perspective(lineU, lineV, fillWidth);
-      
+
       U32 remaining = fillWidth;
       U8 *dst = line;
-      U16 *zBuf = zbuffer;
-      U32 currentZ = lineZ;
-      
+
       while (remaining > 0) {
         U32 blockSize = (remaining > PERSP_VALUE) ? PERSP_VALUE : remaining;
-        
+
         Fill_Loop_Perspective(remaining);
-        
+
         S32 curMapU = Fill_Cur_MapU;
         S32 nextMapU = Fill_Next_MapU;
         S32 curMapV = Fill_Cur_MapV;
         S32 nextMapV = Fill_Next_MapV;
-        
+
         S32 incMapU = (nextMapU - curMapU) >> PERSP_SHIFT;
         S32 incMapV = (nextMapV - curMapV) >> PERSP_SHIFT;
-        
+
         S32 gouraudValue = Cur_Gouraud;
         S32 gouraudInc = Fill_Gouraud_XSlope;
-        U32 zValue = currentZ;
-        U32 zInc = Fill_Z_XSlope;
-        
+        U32 zValue = Fill_CurZBuf;
+        U32 zInc = Fill_ZBuf_XSlope;
+
         for (U32 x = 0; x < blockSize; x++) {
-          U16 depthValue = zValue >> 16;
-          
-          // Z-buffer test
-          if (depthValue < *zBuf) {
-            // Get texture coordinates with perspective correction
-            U32 texU = (curMapU >> 16) & (RepMask & 0xFF);
-            U32 texV = (curMapV >> 16) & ((RepMask >> 8) & 0xFF);
-            
-            // Get texture pixel
+          U16 zComp = (U16)(zValue >> 8);
+
+          if (PtrZBuffer[pixOfs] >= zComp) {
+            U32 texU = (curMapU >> 8) & (RepMask & 0xFF);
+            U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
             U8 texel = PtrMap[texV * 256 + texU];
-            
-            // Apply chroma key test (skip transparent pixels)
+
             if (texel != 0) {
-              // Apply Gouraud shading
               U32 gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel;
-              U8 shadedColor = PtrCLUTGouraud[gouraudIndex];
-              
-              *dst = shadedColor;
-              *zBuf = depthValue; // Write Z-buffer
+              *dst = PtrCLUTGouraud[gouraudIndex];
+              PtrZBuffer[pixOfs] = zComp;
             }
           }
-          
+
           dst++;
-          zBuf++;
+          pixOfs++;
           curMapU += incMapU;
           curMapV += incMapV;
           gouraudValue += gouraudInc;
           zValue += zInc;
         }
-        
+
         remaining -= blockSize;
-        
+
         if (remaining > 0) {
-          // Update perspective values for next block
           Fill_Cur_MapU = Fill_Next_MapU;
           Fill_Cur_MapV = Fill_Next_MapV;
           Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
           Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
           Fill_Cur_W = Fill_Next_W;
           Cur_Gouraud = gouraudValue;
-          currentZ = zValue;
+          Fill_CurZBuf = zValue;
         }
       }
     }
@@ -627,7 +535,7 @@ S32 Filler_TextureZGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCu
     v += Fill_MapV_LeftSlope;
     Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -635,8 +543,8 @@ S32 Filler_TextureZGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCu
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurGouraudMin = gouraud;
-  Fill_CurZMin = z;
-  
+  Fill_CurZBufMin = z;
+
   return Triangle_ReadNextEdge(NULL, NULL);
 }
 
@@ -646,12 +554,17 @@ S32 Filler_TextureZGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   S32 u = Fill_CurMapUMin;
   S32 v = Fill_CurMapVMin;
   S32 gouraud = Fill_CurGouraudMin;
-  U32 z = Fill_CurZMin;
+  U32 z = Fill_CurZBufMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
+    POLYTZG_PtrCLUT = PtrCLUTGouraud;
+    POLYTZG_RepMaskPatch = RepMask;
+    POLYTZG_PtrMapPatch = PtrMap;
+    POLYTZG_DecGour = Fill_Gouraud_XSlope << 16;
+    POLYTZG_IntGour = (Fill_Gouraud_XSlope >> 16) & 0xFF;
   }
   else
   {
@@ -660,8 +573,9 @@ S32 Filler_TextureZGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     fillCurXMax += Fill_RightSlope;
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
+    Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   while (1)
@@ -670,42 +584,77 @@ S32 Filler_TextureZGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      U16 *zbuffer = (fillCurXMin >> 16) + PtrZBuffer;
-      
+      U32 pixOfs = (U32)(Fill_CurOffLine - (PTR_U8)Log) + (fillCurXMin >> 16);
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineGouraud = gouraud;
       U32 lineZ = z;
 
-      // Texture mapping with Gouraud shading and Z-buffer (No Z Write)
-      for (U32 x = 0; x < fillWidth; x++)
-      {
-        U16 currentZ = lineZ >> 16;
-        
-        // Z-buffer test (no write - NZW = No Z Write)
-        if (currentZ < *zbuffer)
-        {
-          // Get texture coordinates
-          U32 texU = (lineU >> 16) & (RepMask & 0xFF);
-          U32 texV = (lineV >> 16) & ((RepMask >> 8) & 0xFF);
-          
-          // Get texture pixel
-          U8 texel = PtrMap[texV * 256 + texU];
-          
-          // Apply Gouraud shading
-          U32 gouraudIntensity = (lineGouraud >> 16) & 0xFF;
-          U8 shadedColor = PtrCLUTGouraud[(gouraudIntensity << 8) + texel];
-          
-          *line = shadedColor;
-          // Note: No Z-buffer write for NZW variant
+      Fill_Cur_W = Fill_CurWMin;
+
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16) {
+        Fill_Cur_W = Fill_CurWMin + imul_extract_16_47(Fill_W_XSlope, factor);
+        lineU += imul_extract_16_47(Fill_MapU_XSlope, factor);
+        lineV += imul_extract_16_47(Fill_MapV_XSlope, factor);
+      }
+
+      Fill_CurZBuf = lineZ;
+      Cur_Gouraud = gouraud;
+      Fill_Init_Perspective(lineU, lineV, fillWidth);
+
+      U32 remaining = fillWidth;
+      U8 *dst = line;
+
+      while (remaining > 0) {
+        U32 blockSize = (remaining > PERSP_VALUE) ? PERSP_VALUE : remaining;
+
+        Fill_Loop_Perspective(remaining);
+
+        S32 curMapU = Fill_Cur_MapU;
+        S32 nextMapU = Fill_Next_MapU;
+        S32 curMapV = Fill_Cur_MapV;
+        S32 nextMapV = Fill_Next_MapV;
+
+        S32 incMapU = (nextMapU - curMapU) >> PERSP_SHIFT;
+        S32 incMapV = (nextMapV - curMapV) >> PERSP_SHIFT;
+
+        S32 gouraudValue = Cur_Gouraud;
+        S32 gouraudInc = Fill_Gouraud_XSlope;
+        U32 zValue = Fill_CurZBuf;
+        U32 zInc = Fill_ZBuf_XSlope;
+
+        for (U32 x = 0; x < blockSize; x++) {
+          U16 zComp = (U16)(zValue >> 8);
+
+          if (PtrZBuffer[pixOfs] >= zComp) {
+            U32 texU = (curMapU >> 8) & (RepMask & 0xFF);
+            U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
+            U8 texel = PtrMap[texV * 256 + texU];
+            U32 gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel;
+            *dst = PtrCLUTGouraud[gouraudIndex];
+            // NZW: no Z-buffer write
+          }
+
+          dst++;
+          pixOfs++;
+          curMapU += incMapU;
+          curMapV += incMapV;
+          gouraudValue += gouraudInc;
+          zValue += zInc;
         }
-        
-        line++;
-        zbuffer++;
-        lineU += Fill_MapU_XSlope;
-        lineV += Fill_MapV_XSlope;
-        lineGouraud += Fill_Gouraud_XSlope;
-        lineZ += Fill_Z_XSlope;
+
+        remaining -= blockSize;
+
+        if (remaining > 0) {
+          Fill_Cur_MapU = Fill_Next_MapU;
+          Fill_Cur_MapV = Fill_Next_MapV;
+          Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
+          Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
+          Fill_Cur_W = Fill_Next_W;
+          Cur_Gouraud = gouraudValue;
+          Fill_CurZBuf = zValue;
+        }
       }
     }
 
@@ -716,8 +665,9 @@ S32 Filler_TextureZGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
     fillCurXMax += Fill_RightSlope;
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
+    Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -725,9 +675,9 @@ S32 Filler_TextureZGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurGouraudMin = gouraud;
-  Fill_CurZMin = z;
-  
-  return 0;
+  Fill_CurZBufMin = z;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }
 
 S32 Filler_TextureZGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
@@ -736,12 +686,17 @@ S32 Filler_TextureZGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCur
   S32 u = Fill_CurMapUMin;
   S32 v = Fill_CurMapVMin;
   S32 gouraud = Fill_CurGouraudMin;
-  U32 z = Fill_CurZMin;
+  U32 z = Fill_CurZBufMin;
   U32 patch = Fill_Patch - 1;
 
   if (patch == 0)
   {
     Fill_Patch = patch;
+    POLYTZG_PtrCLUT = PtrCLUTGouraud;
+    POLYTZG_RepMaskPatch = RepMask;
+    POLYTZG_PtrMapPatch = PtrMap;
+    POLYTZG_DecGour = Fill_Gouraud_XSlope << 16;
+    POLYTZG_IntGour = (Fill_Gouraud_XSlope >> 16) & 0xFF;
   }
   else
   {
@@ -750,8 +705,9 @@ S32 Filler_TextureZGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCur
     fillCurXMax += Fill_RightSlope;
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
+    Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   while (1)
@@ -760,46 +716,80 @@ S32 Filler_TextureZGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCur
     if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
     {
       U8 *line = (fillCurXMin >> 16) + Fill_CurOffLine;
-      U16 *zbuffer = (fillCurXMin >> 16) + PtrZBuffer;
-      
+      U32 pixOfs = (U32)(Fill_CurOffLine - (PTR_U8)Log) + (fillCurXMin >> 16);
+
       S32 lineU = u;
       S32 lineV = v;
-      S32 lineGouraud = gouraud;
       U32 lineZ = z;
 
-      // Texture mapping with Gouraud shading, chroma key, and Z-buffer (No Z Write)
-      for (U32 x = 0; x < fillWidth; x++)
-      {
-        U16 currentZ = lineZ >> 16;
-        
-        // Z-buffer test (no write - NZW = No Z Write)
-        if (currentZ < *zbuffer)
-        {
-          // Get texture coordinates
-          U32 texU = (lineU >> 16) & (RepMask & 0xFF);
-          U32 texV = (lineV >> 16) & ((RepMask >> 8) & 0xFF);
-          
-          // Get texture pixel
-          U8 texel = PtrMap[texV * 256 + texU];
-          
-          // Chroma key test (skip transparent pixels)
-          if (texel != 0)
-          {
-            // Apply Gouraud shading
-            U32 gouraudIntensity = (lineGouraud >> 16) & 0xFF;
-            U8 shadedColor = PtrCLUTGouraud[(gouraudIntensity << 8) + texel];
-            
-            *line = shadedColor;
-            // Note: No Z-buffer write for NZW variant
+      Fill_Cur_W = Fill_CurWMin;
+
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      if (fillWidth > 16) {
+        Fill_Cur_W = Fill_CurWMin + imul_extract_16_47(Fill_W_XSlope, factor);
+        lineU += imul_extract_16_47(Fill_MapU_XSlope, factor);
+        lineV += imul_extract_16_47(Fill_MapV_XSlope, factor);
+      }
+
+      Fill_CurZBuf = lineZ;
+      Cur_Gouraud = gouraud;
+      Fill_Init_Perspective(lineU, lineV, fillWidth);
+
+      U32 remaining = fillWidth;
+      U8 *dst = line;
+
+      while (remaining > 0) {
+        U32 blockSize = (remaining > PERSP_VALUE) ? PERSP_VALUE : remaining;
+
+        Fill_Loop_Perspective(remaining);
+
+        S32 curMapU = Fill_Cur_MapU;
+        S32 nextMapU = Fill_Next_MapU;
+        S32 curMapV = Fill_Cur_MapV;
+        S32 nextMapV = Fill_Next_MapV;
+
+        S32 incMapU = (nextMapU - curMapU) >> PERSP_SHIFT;
+        S32 incMapV = (nextMapV - curMapV) >> PERSP_SHIFT;
+
+        S32 gouraudValue = Cur_Gouraud;
+        S32 gouraudInc = Fill_Gouraud_XSlope;
+        U32 zValue = Fill_CurZBuf;
+        U32 zInc = Fill_ZBuf_XSlope;
+
+        for (U32 x = 0; x < blockSize; x++) {
+          U16 zComp = (U16)(zValue >> 8);
+
+          if (PtrZBuffer[pixOfs] >= zComp) {
+            U32 texU = (curMapU >> 8) & (RepMask & 0xFF);
+            U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
+            U8 texel = PtrMap[texV * 256 + texU];
+
+            if (texel != 0) {
+              U32 gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel;
+              *dst = PtrCLUTGouraud[gouraudIndex];
+              // NZW: no Z-buffer write
+            }
           }
+
+          dst++;
+          pixOfs++;
+          curMapU += incMapU;
+          curMapV += incMapV;
+          gouraudValue += gouraudInc;
+          zValue += zInc;
         }
-        
-        line++;
-        zbuffer++;
-        lineU += Fill_MapU_XSlope;
-        lineV += Fill_MapV_XSlope;
-        lineGouraud += Fill_Gouraud_XSlope;
-        lineZ += Fill_Z_XSlope;
+
+        remaining -= blockSize;
+
+        if (remaining > 0) {
+          Fill_Cur_MapU = Fill_Next_MapU;
+          Fill_Cur_MapV = Fill_Next_MapV;
+          Fill_Cur_MapUOverW = Fill_Next_MapUOverW;
+          Fill_Cur_MapVOverW = Fill_Next_MapVOverW;
+          Fill_Cur_W = Fill_Next_W;
+          Cur_Gouraud = gouraudValue;
+          Fill_CurZBuf = zValue;
+        }
       }
     }
 
@@ -810,8 +800,9 @@ S32 Filler_TextureZGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCur
     fillCurXMax += Fill_RightSlope;
     u += Fill_MapU_LeftSlope;
     v += Fill_MapV_LeftSlope;
+    Fill_CurWMin += Fill_W_LeftSlope;
     gouraud += Fill_Gouraud_LeftSlope;
-    z += Fill_Z_LeftSlope;
+    z += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -819,7 +810,7 @@ S32 Filler_TextureZGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCur
   Fill_CurMapUMin = u;
   Fill_CurMapVMin = v;
   Fill_CurGouraudMin = gouraud;
-  Fill_CurZMin = z;
-  
-  return 0;
+  Fill_CurZBufMin = z;
+
+  return Triangle_ReadNextEdge(NULL, NULL);
 }

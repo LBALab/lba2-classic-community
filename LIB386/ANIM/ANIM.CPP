@@ -3,9 +3,11 @@
 #include <stdlib.h>
 
 #include <SYSTEM/TIMER.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
 {
+    LIB386_TRACE_CPP("ObjectInitAnim", "1", "obj=%p anim=%p", (void*)obj, anim);
     if (obj->Anim.Ptr == anim)
     {
         return;

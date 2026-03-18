@@ -12,6 +12,11 @@
 			ASSUME DS:SEG TabOffLine
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_savebloc_1	DB	"[ASM][SaveBlock][1] scr=%p buf=%p x0=%d y0=%d x1=%d y1=%d", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -31,6 +36,21 @@ SaveBlock		proc \
 			x1:DWORD, y1:DWORD,
 
 			mov esi, screen
+
+		; --- debug trace [ASM][SaveBlock][1] params ---
+		pushad
+		push	y1
+		push	x1
+		push	y0
+		push	x0
+		push	buffer
+		push	screen
+		push	offset fmt_savebloc_1
+		call	printf
+		add	esp, 28
+		popad
+		; --- end debug trace ---
+
 			mov edi, buffer
 			mov eax, x0
 			mov ebx, y0

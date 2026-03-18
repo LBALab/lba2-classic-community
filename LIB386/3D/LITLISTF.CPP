@@ -1,41 +1,42 @@
 #include <3D/LITLISTF.H>
 
+#include <math.h>
 #include <3D/LIGHT.H>
 #include <3D/LIROT3D.H>
 #include <3D/CAMERA.H>
-#include <SYSTEM/UTILS.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
-// ╔════════════════════════════════════════════════════════════════════╗
-// ║ ListLight: Calculate the light at each point of the list of vect.  ║
-// ╟────────────────────────────────────────────────────────────────────╢
-// ║ Call: EBX = Rotation matrix                                        ║
-// ║       ECX = Number of lights to calculated                         ║
-// ║       ESI = List of vectors (which light has to be calculated)     ║
-// ║       EDI = List of light (WORDs) to be filled                     ║
-// ║                                                                    ║
-// ╟────────────────────────────────────────────────────────────────────╢
-// ║ Return: Each calculated light is in the form 8.8                   ║
-// ║       EDI = Pointer of the next entry in the light list            ║
-// ║                                                                    ║
-// ╚════════════════════════════════════════════════════════════════════╝
+/*
+ * Per-vertex lighting.  Matches ASM LightListF.
+ *
+ * The ASM pipeline:
+ * 1. Inverse-rotates the camera light vector → X0,Y0,Z0 (integers)
+ * 2. Pre-multiplies by FactorLight → stored as floats in X0,Y0,Z0
+ * 3. Inner loop: dot(light_scaled, vertex) → fistp → clamp to [0,∞)
+ *
+ * Step 2 reinterprets X0/Y0/Z0 as float storage.  We replicate this
+ * with local float variables and lrintl for the final rounding.
+ */
 void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 {
-  if (n == 0)
-  {
-    return;
-  }
+	LIB386_TRACE_CPP("LightListF", "1", "Mat=%p dst=%p src=%p n=%d", (void*)Mat, (void*)dst, (void*)src, n);
+	if (n == 0)
+		return;
 
-  // Calculate the rotated light vector
-  LongInverseRotatePoint(Mat, CameraXLight, CameraYLight, CameraZLight);
+	LongInverseRotatePoint(Mat, CameraXLight, CameraYLight, CameraZLight);
 
-  for (int i = 0; i < n; i++)
-  {
-    TYPE_VT16 *v = &src[i];
-    float value = ROUND((X0 * v->X + Y0 * v->Y + Z0 * v->Z) * FactorLight);
-    if (value < 0.0f)
-    {
-      value = 0.0f;
-    }
-    dst[i] = (U16)value;
-  }
+	/* Pre-scale the rotated light vector by FactorLight (stored as float,
+	   matching the ASM's fstp [X0] / fmul [X0] pipeline). */
+	float lx = (float)X0 * FactorLight;
+	float ly = (float)Y0 * FactorLight;
+	float lz = (float)Z0 * FactorLight;
+
+	for (S32 i = 0; i < n; i++)
+	{
+		long double dot = (long double)lx * src[i].X
+		                + (long double)ly * src[i].Y
+		                + (long double)lz * src[i].Z;
+		S32 value = (S32)lrintl(dot);
+		dst[i] = (value < 0) ? 0 : (U16)value;
+	}
 }

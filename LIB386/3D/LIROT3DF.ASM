@@ -13,6 +13,10 @@
 		extrn C	X0:DWORD
 		extrn C	Y0:DWORD
 		extrn C	Z0:DWORD
+		extrn C	printf:NEAR
+
+fmt_lirot3d_1	DB	"[ASM][LongInverseRotatePointF][1] Mat=%p x=%d y=%d z=%d", 10, 0
+fmt_lirot3d_2	DB	"[ASM][LongInverseRotatePointF][2] X0=%d Y0=%d Z0=%d", 10, 0
 
 		ASSUME ds:SEG X0
 
@@ -42,6 +46,19 @@ LongInverseRotatePointF proc
 		mov	[X0], eax
 		mov	[Y0], ebx
 		mov	[Z0], ecx
+
+		; --- debug trace [ASM][LongInverseRotatePointF][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	esi
+		push	offset fmt_lirot3d_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+
 					; 0  1  2  3  4  5  6  7
 
 		fild	[X0]		; X
@@ -129,6 +146,17 @@ LongInverseRotatePointF proc
 		fistp	[Y0]
 
 		fistp	[Z0]
+
+		; --- debug trace [ASM][LongInverseRotatePointF][2] return ---
+		pushad
+		push	dword ptr [Z0]
+		push	dword ptr [Y0]
+		push	dword ptr [X0]
+		push	offset fmt_lirot3d_2
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		ret
 

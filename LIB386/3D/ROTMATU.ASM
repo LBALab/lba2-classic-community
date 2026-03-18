@@ -13,6 +13,9 @@
 		extrn	C	MulMatrix:DWORD
 
 		extrn	C	MatrixLib2:DWORD
+		extrn	C	printf:NEAR
+
+fmt_rotmatu_1	DB	"[ASM][RotateMatrixU][1] Dst=%p Src=%p a=%d b=%d g=%d", 10, 0
 
 		public	C	RotateMatrix
 
@@ -34,6 +37,19 @@
 ;	modify exact	[eax ebx ecx edx esi]
 
 RotateMatrixU	proc
+
+		; --- debug trace [ASM][RotateMatrixU][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	esi
+		push	edi
+		push	offset fmt_rotmatu_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
 
 		push	edi
 		push	esi

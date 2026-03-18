@@ -2,6 +2,7 @@
 #include <SVGA/SCREEN.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 
 U32 SizeChar = 8;
@@ -207,7 +208,7 @@ U8 Font8x8[256*8] = {
   24, 24, 24, 24, 31, 24, 24, 24,
   0, 0, 0, 0, 255, 0, 0, 0,
   24, 24, 24, 24, 255, 24, 24, 24,
-  24, 24, 31, 24, 31, 24, 24, 24,
+  120, 0, 120, 12, 124, 204, 118, 0,
   54, 54, 54, 54, 55, 54, 54, 54,
   54, 54, 55, 48, 63, 0, 0, 0,
   0, 0, 63, 48, 55, 54, 54, 54,
@@ -237,7 +238,7 @@ U8 Font8x8[256*8] = {
   0, 120, 204, 248, 204, 248, 192, 192,
   0, 252, 204, 192, 192, 192, 192, 0,
   0, 0, 254, 108, 108, 108, 108, 0,
-  252, 204, 96, 48, 96, 204, 252, 0,
+  120, 0, 120, 204, 204, 204, 120, 0,
   0, 0, 126, 216, 216, 216, 112, 0,
   0, 102, 102, 102, 102, 124, 96, 192,
   0, 118, 220, 24, 24, 24, 24, 0,
@@ -269,6 +270,7 @@ U8 Font8x8[256*8] = {
 
 void AffString(S32 x, S32 y, char *str)
 {
+    LIB386_TRACE_CPP("AffString", "1", "x=%d y=%d str=%p", x, y, (void*)str);
   U8 character;
   U8 line;
   S32 mask;
@@ -283,6 +285,7 @@ void AffString(S32 x, S32 y, char *str)
   {
     ptr = ScreenPtr;
     font = &Font8x8[character * SizeChar];
+    ptr = ScreenPtr - SizeChar;
 
     for(U32 pos = SizeChar; pos > 0; --pos)
     {
@@ -292,12 +295,14 @@ void AffString(S32 x, S32 y, char *str)
       {
         if (line & mask) {
           *ptr = TextInk;
+        } else if (TextPaper != 0xFF) {
+          *ptr = TextPaper;
         }
         ptr++;
         mask >>= 1;
       }
 
-      ptr += 640 - SizeChar;
+      ptr += ModeDesiredX - SizeChar;
     }
 
     ScreenPtr += SizeChar;

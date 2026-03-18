@@ -7,6 +7,12 @@
 extern "C" {
 #endif
 
+/* Perspective correction function pointers — defined as globals in
+ * POLYTEXZ.CPP to support both CPP callers and ASM callers that
+ * reference them as Extrn DWORD (indirect call via `call [symbol]`). */
+extern void (*Fill_Init_Perspective)(S32 lineU, S32 lineV, U32 fillWidth);
+extern void (*Fill_Loop_Perspective)(U32 fillWidth);
+
 S32 Filler_TextureZ(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
 S32 Filler_TextureZFlat(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);
 S32 Filler_TextureZChromaKey(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax);

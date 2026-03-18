@@ -1,10 +1,12 @@
 #include <SVGA/SCALEBOX.H>
 
 #include <SVGA/SCREEN.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32 xd0, S32 yd0,
               S32 xd1, S32 yd1, void *ptrd)
 {
+    LIB386_TRACE_CPP("ScaleBox", "1", "xs0=%d ys0=%d xs1=%d ys1=%d ptrs=%p", xs0, ys0, xs1, ys1, ptrs);
   U32 deltaX = xd1 - xd0 + 1;
   U32 deltaY = yd1 - yd0 + 1;
   U32 offsetLine = ModeDesiredX - deltaX;

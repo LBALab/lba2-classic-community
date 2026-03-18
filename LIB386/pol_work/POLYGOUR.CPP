@@ -5,6 +5,7 @@
 #include <SYSTEM/UTILS.H>
 
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 /*
 ; **************************************************************************
@@ -64,6 +65,16 @@ U8 POLYGOUR_IntGour = 0x12;
 // Verified
 S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Gouraud", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_Gouraud", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -94,7 +105,7 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -143,6 +154,16 @@ S32 Filler_Gouraud(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_Dither", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_Dither", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_Dither", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_Dither", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_Dither", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_Dither", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
@@ -252,6 +273,16 @@ S32 Filler_Dither(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_GouraudTable", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 gouraud = Fill_CurGouraudMin;
@@ -331,6 +362,16 @@ S32 Filler_GouraudTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherTable", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_DitherTable", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 gouraud = Fill_CurGouraudMin;
@@ -476,7 +517,7 @@ S32 Filler_GouraudFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -637,6 +678,16 @@ S32 Filler_DitherFog(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_GouraudZBuf", "1", "entry");
   U32 count = nbLines + 1;
   U8 *curOffLine = Fill_CurOffLine;
   Fill_CurY += count;
@@ -648,7 +699,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     Fill_Patch = patch;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrZBuffer1 = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
@@ -674,7 +725,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -697,7 +748,7 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
           POLYGOUR_PtrLog[offset] = color & 0xFF;
@@ -740,6 +791,16 @@ S32 Filler_GouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_DitherZBuf", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
@@ -773,7 +834,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -827,7 +888,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             color = (color & 0xFF) + gouraud;
             gouraud += POLYGOUR_AddGour;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
             {
               POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog[offset] = (color >> 8) & 0xFF;
@@ -839,7 +900,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
             curZBufMinDec += POLYGOUR_DecZBuf;
             curZBufMinInt += POLYGOUR_IntZBuf + carry;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer_1[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer_1[offset])
             {
               POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
               POLYGOUR_PtrLog_1[offset] = (color >> 8) & 0xFF;
@@ -858,7 +919,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           while ( pixelCount );
         }
         // @@Add_One:
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer4[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer4[offset])
         {
           POLYGOUR_PtrZBuffer5[offset] = curZBufMinInt & 0xFFFF;
           color = (color & 0xFF) + gouraud;
@@ -874,7 +935,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           color = (color & 0xFF) + gouraud;
           gouraud += POLYGOUR_AddGour2;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2[offset])
           {
             POLYGOUR_PtrZBuffer3[offset] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2[offset] = (color >> 8) & 0xFF;
@@ -886,7 +947,7 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
           color = (color & 0xFF) + gouraud;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2_1[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2_1[offset])
           {
             POLYGOUR_PtrZBuffer3_1[offset] = curZBufMinInt & 0xFFFF;
             POLYGOUR_PtrLog2_1[offset] = (color >> 8) & 0xFF;
@@ -926,86 +987,96 @@ S32 Filler_DitherZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_GouraudTableZBuf", "1", "entry");
   U32 count = nbLines + 1;
-  Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
-
-  U32 patch = Fill_Patch - 1;
+  Fill_CurY += count;
   U32 curGouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
 
-  if (patch == 0) {
-    Fill_Patch = 0;
-    // Variables are kept for consistency with assembly but not used in this simplified version
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+    POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrZBuffer1 = PtrZBuffer;
+    POLYGOUR_PtrLog = (U8 *)Log;
+    POLYGOUR_PtrColor = Fill_Color.Ptr;
+  }
+  else
+  {
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
-  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
-    if (patch != 0) {
-      curOffLine += ScreenPitch;
-      fillCurXMin += Fill_LeftSlope;
-      fillCurXMax += Fill_RightSlope;
-      curGouraud += Fill_Gouraud_LeftSlope;
-      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
-    }
+  while ( 1 )
+  {
+    U8 *screen = (fillCurXMin >> 16) + curOffLine;
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 lineGouraud = curGouraud;
 
-    U32 startX = fillCurXMin >> 16;
-    U32 endX = fillCurXMax >> 16;
-    U8 *scanLine = curOffLine + startX;
-    U32 pixelCount = endX - startX;
-
-    if (pixelCount > 0) {
-      // Subpixel correction for Gouraud
-      U32 subPixel = fillCurXMin & 0xFFFF;
-      subPixel ^= 0xFFFF;
-      
-      // Preload cache for large scanlines
-      if (pixelCount > 16) {
-        U32 gouraudCorrection = (subPixel * Fill_Gouraud_XSlope) >> 16;
-        curGouraud += gouraudCorrection;
-        
-        // Preload destination cache lines
-        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
-        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
-        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
-          volatile U8 temp = *addr; // Cache preload
-        }
+      if (diffX > 16)
+      {
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
+        U32 addGouraudDec = (U32)(addGouraud >> 32);
+        U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
+        addGouraudDec = addGouraudDec << 16;
+        addGouraudInt = addGouraudInt >> 16;
+        addGouraudDec |= addGouraudInt;
+        lineGouraud += addGouraudDec;
       }
 
-      // Setup for pixel loop
-      U8 *colorTable = Fill_Color.Ptr; // Color lookup table
-      U32 zBuf = Fill_CurZBufMin;
-      U32 zBufInt = zBuf >> 8;
-      U32 zBufFrac = zBuf << (32 - 8);
-      U8 *logPtr = (U8*)Log;
-      U16 *zBufferPtr = (U16*)PtrZBuffer;
-      
-      U32 gouraudValue = curGouraud;
-      U32 gouraudIndex = (gouraudValue >> 8) & 0xFF00;
+      U32 curZBufMinDec = Fill_CurZBufMin << 24;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+      U32 offset = screen - (U8 *)Log;
 
-      for (U32 x = 0; x < pixelCount; x++) {
-        // Z-buffer test
-        U32 pixelOffset = (scanLine - logPtr) + x;
-        if (zBufferPtr[pixelOffset] > zBufInt) {
-          // Update Z-buffer
-          zBufferPtr[pixelOffset] = zBufInt;
-          
-          // Write color using lookup table
-          U8 colorIndex = colorTable[gouraudIndex];
-          scanLine[x] = colorIndex;
+      U32 gouraudValue = lineGouraud;
+
+      do
+      {
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
+        {
+          POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
+          U32 lightIndex = (gouraudValue >> 8) & 0xFF00;
+          POLYGOUR_PtrLog[offset] = POLYGOUR_PtrColor[lightIndex];
         }
 
-        // Advance interpolants
         gouraudValue += Fill_Gouraud_XSlope;
-        gouraudIndex = (gouraudValue >> 8) & 0xFF00;
-        
-        zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-        zBufInt += (Fill_ZBuf_XSlope >> 8);
-        if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-          zBufInt++;
-        }
+
+        U8 carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+        curZBufMinDec += POLYGOUR_DecZBuf;
+        curZBufMinInt += POLYGOUR_IntZBuf + carry;
+
+        ++offset;
+        --diffX;
       }
+      while (diffX);
     }
 
-    patch = 1; // Subsequent lines don't need initialization
+    if (!--count)
+      break;
+
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -1019,6 +1090,16 @@ S32 Filler_GouraudTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 // Verified
 S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_DitherTableZBuf", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
@@ -1052,7 +1133,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -1099,7 +1180,6 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
       U32 offset = screen - (U8 *)Log; // edi
       U32 gouraud = curGouraud >> 8; // edx
       U32 color = (gouraud & 0xFF) + gouraud; // eax
-      color += Fill_CurZBufMin >> 8;
       U32 colorIndex = color & 0xFF00; // esi
       U8 isOdd = diffX & 1;
       U32 pixelCount = diffX >> 1;
@@ -1111,7 +1191,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           do
           {
             // @@Each_X:
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
             {
               POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
               color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor[colorIndex] << 8);
@@ -1127,7 +1207,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
             colorIndex = color & 0xFF00;
 
-            if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer_1[offset])
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer_1[offset])
             {
               POLYGOUR_PtrZBuffer1_1[offset] = curZBufMinInt & 0xFFFF;
               color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor1[colorIndex] << 8);
@@ -1150,7 +1230,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
           while ( pixelCount );
         }
         // @@Add_One:
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer4[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer4[offset])
         {
           POLYGOUR_PtrZBuffer5[offset] = curZBufMinInt & 0xFFFF;
           color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor4[colorIndex] << 8);
@@ -1163,7 +1243,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
         for ( ; pixelCount != 0; --pixelCount )
         {
           // @@Each_X2:
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2[offset])
           {
             POLYGOUR_PtrZBuffer3[offset] = curZBufMinInt & 0xFFFF;
             color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor2[colorIndex] << 8);
@@ -1179,7 +1259,7 @@ S32 Filler_DitherTableZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
           colorIndex = color & 0xFF00;
 
-          if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBuffer2_1[offset])
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2_1[offset])
           {
             POLYGOUR_PtrZBuffer3_1[offset] = curZBufMinInt & 0xFFFF;
             color = (color & 0xFFFF00FF) | (POLYGOUR_PtrColor3[colorIndex] << 8);
@@ -1236,7 +1316,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_IntGour = (Fill_Gouraud_XSlope >> 16) & 0xFF;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrZBuffer1 = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
@@ -1263,7 +1343,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -1285,7 +1365,7 @@ S32 Filler_GouraudFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrZBuffer1[offset] = curZBufMinInt & 0xFFFF;
           POLYGOUR_PtrLog[offset] = Fill_Logical_Palette[color];
@@ -1354,7 +1434,7 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;
@@ -1504,86 +1584,97 @@ S32 Filler_DitherFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_GouraudNZW", "1", "entry");
   U32 count = nbLines + 1;
-  Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
-
-  U32 patch = Fill_Patch - 1;
+  Fill_CurY += count;
   U32 curGouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
 
-  if (patch == 0) {
-    Fill_Patch = 0;
-    // Variables are kept for consistency with assembly but not used in this simplified version
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+    POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
+    POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrLog = (U8 *)Log;
+  }
+  else
+  {
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
-  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
-    if (patch != 0) {
-      curOffLine += ScreenPitch;
-      fillCurXMin += Fill_LeftSlope;
-      fillCurXMax += Fill_RightSlope;
-      curGouraud += Fill_Gouraud_LeftSlope;
-      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
-    }
+  while ( 1 )
+  {
+    U8 *screen = (fillCurXMin >> 16) + curOffLine;
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 lineGouraud = curGouraud;
 
-    U32 startX = fillCurXMin >> 16;
-    U32 endX = fillCurXMax >> 16;
-    U8 *scanLine = curOffLine + startX;
-    U32 pixelCount = endX - startX;
-
-    if (pixelCount > 0) {
-      // Subpixel correction for Gouraud
-      U32 subPixel = fillCurXMin & 0xFFFF;
-      subPixel ^= 0xFFFF;
-      
-      // Preload cache for large scanlines
-      if (pixelCount > 16) {
-        U32 gouraudCorrection = (subPixel * Fill_Gouraud_XSlope) >> 16;
-        curGouraud += gouraudCorrection;
-        
-        // Preload destination cache lines
-        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
-        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
-        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
-          volatile U8 temp = *addr; // Cache preload
-        }
+      if (diffX > 16)
+      {
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
+        U32 addGouraudDec = (U32)(addGouraud >> 32);
+        U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
+        addGouraudDec = addGouraudDec << 16;
+        addGouraudInt = addGouraudInt >> 16;
+        addGouraudDec |= addGouraudInt;
+        lineGouraud += addGouraudDec;
       }
 
-      // Setup for pixel loop
-      U32 zBuf = Fill_CurZBufMin;
-      U32 zBufInt = zBuf >> 8;
-      U32 zBufFrac = zBuf << (32 - 8);
-      U8 *logPtr = (U8*)Log;
-      U16 *zBufferPtr = (U16*)PtrZBuffer;
-      
-      U32 gouraudValue = curGouraud;
-      U32 gouraudIntPart = Fill_Gouraud_XSlope >> 16;
-      U32 gouraudFracPart = Fill_Gouraud_XSlope << 16;
-      U8 gouraudPixel = gouraudValue >> 16;
+      U32 gouraudSlopeInt = Fill_Gouraud_XSlope >> 16;
+      U32 curZBufMinDec = Fill_CurZBufMin << 24;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
 
-      for (U32 x = 0; x < pixelCount; x++) {
-        // Z-buffer test (NZW - test only, no write)
-        U32 pixelOffset = (scanLine - logPtr) + x;
-        if (zBufferPtr[pixelOffset] > zBufInt) {
-          // Write Gouraud shaded pixel (no Z-buffer write for NZW)
-          scanLine[x] = gouraudPixel;
+      U32 offset = screen - (U8 *)Log;
+      U32 color = lineGouraud >> 16;
+      U32 gouraud = lineGouraud << 16;
+
+      do
+      {
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
+        {
+          POLYGOUR_PtrLog[offset] = color & 0xFF;
         }
 
-        // Advance interpolants
-        gouraudValue += gouraudFracPart;
-        gouraudPixel += gouraudIntPart;
-        if (gouraudValue < gouraudFracPart) {
-          gouraudPixel++; // Handle carry from fractional part
-        }
-        
-        zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-        zBufInt += (Fill_ZBuf_XSlope >> 8);
-        if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-          zBufInt++;
-        }
+        U8 carry = ((U64)gouraud + (U64)POLYGOUR_DecGour) > 0xFFFFFFFF;
+        gouraud += POLYGOUR_DecGour;
+        color = (color & 0xFFFFFF00) | (((gouraudSlopeInt & 0xFF) + carry + (color & 0xFF)) & 0xFF);
+
+        carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+        curZBufMinDec += POLYGOUR_DecZBuf;
+        curZBufMinInt += POLYGOUR_IntZBuf + carry;
+
+        ++offset;
+        --diffX;
       }
+      while (diffX);
     }
 
-    patch = 1; // Subsequent lines don't need initialization
+    if ( !--count )
+      break;
+
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -1596,155 +1687,170 @@ S32 Filler_GouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_DitherNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_DitherNZW", "1", "entry");
   U32 count = nbLines + 1;
   Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
 
   U32 patch = Fill_Patch - 1;
   U32 curGouraud = Fill_CurGouraudMin;
+  U32 gouraudSlope = Fill_Gouraud_XSlope >> 8;
 
-  if (patch == 0) {
-    Fill_Patch = 0;
-    // Variables are kept for consistency with assembly but not used in this simplified version
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+    POLYGOUR_AddGour = gouraudSlope;
+    POLYGOUR_AddGour1 = gouraudSlope;
+    POLYGOUR_AddGour2 = gouraudSlope;
+    POLYGOUR_AddGour3 = gouraudSlope;
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrZBuffer1 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer2 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer3 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer4 = PtrZBuffer;
+    POLYGOUR_PtrZBuffer5 = PtrZBuffer;
+    POLYGOUR_PtrLog = (U8 *)Log;
+    POLYGOUR_PtrLog2 = (U8 *)Log;
+    POLYGOUR_PtrLog4 = (U8 *)Log;
+
+    POLYGOUR_PtrZBuffer_1 = PtrZBuffer + 1;
+    POLYGOUR_PtrZBuffer1_1 = PtrZBuffer + 1;
+    POLYGOUR_PtrZBuffer2_1 = PtrZBuffer + 1;
+    POLYGOUR_PtrZBuffer3_1 = PtrZBuffer + 1;
+
+    POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
+    POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
+
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = zBufSlopeInt;
+    POLYGOUR_IntZBuf1 = zBufSlopeInt;
+    POLYGOUR_IntZBuf2 = zBufSlopeInt;
+    POLYGOUR_IntZBuf3 = zBufSlopeInt;
+
+    U32 zBufSlopeDec = Fill_ZBuf_XSlope << 24;
+    POLYGOUR_DecZBuf = zBufSlopeDec;
+    POLYGOUR_DecZBuf1 = zBufSlopeDec;
+    POLYGOUR_DecZBuf2 = zBufSlopeDec;
+    POLYGOUR_DecZBuf3 = zBufSlopeDec;
+  }
+  else
+  {
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
-  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
-    if (patch != 0) {
-      curOffLine += ScreenPitch;
-      fillCurXMin += Fill_LeftSlope;
-      fillCurXMax += Fill_RightSlope;
-      curGouraud += Fill_Gouraud_LeftSlope;
-      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
-    }
+  while ( 1 )
+  {
+    U8 *screen = curOffLine + (fillCurXMin >> 16);
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U32 curZBufMinDec = Fill_CurZBufMin << 24;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
 
-    U32 startX = fillCurXMin >> 16;
-    U32 endX = fillCurXMax >> 16;
-    U8 *scanLine = curOffLine + startX;
-    U32 pixelCount = endX - startX;
+      U32 offset = screen - (U8 *)Log;
+      U32 gouraud = curGouraud >> 8;
+      U32 color = gouraud;
+      U8 isOdd = diffX & 1;
+      U32 pixelCount = diffX >> 1;
+      if (isOdd)
+      {
+        if (pixelCount != 0)
+        {
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
+          do
+          {
+            color = (color & 0xFF) + gouraud;
+            gouraud += POLYGOUR_AddGour;
 
-    if (pixelCount > 0) {
-      // Preload cache for large scanlines
-      if (pixelCount >= 32) {
-        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
-        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
-        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
-          volatile U8 temp = *addr; // Cache preload
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
+            {
+              POLYGOUR_PtrLog[offset] = (color >> 8) & 0xFF;
+            }
+
+            color = (color & 0xFF) + gouraud;
+
+            U8 carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+            curZBufMinDec += POLYGOUR_DecZBuf;
+            curZBufMinInt += POLYGOUR_IntZBuf + carry;
+
+            if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer_1[offset])
+            {
+              POLYGOUR_PtrLog_1[offset] = (color >> 8) & 0xFF;
+            }
+
+            gouraud += POLYGOUR_AddGour1;
+
+            carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf1) > 0xFFFFFFFF;
+            curZBufMinDec += POLYGOUR_DecZBuf1;
+            curZBufMinInt += POLYGOUR_IntZBuf1 + carry;
+
+            color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
+            pixelCount--;
+            offset += 2;
+          }
+          while ( pixelCount );
+        }
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer4[offset])
+        {
+          color = (color & 0xFF) + gouraud;
+          POLYGOUR_PtrLog4[offset] = (color >> 8) & 0xFF;
         }
       }
+      else
+      {
+        for ( ; pixelCount != 0; --pixelCount )
+        {
+          color = (color & 0xFF) + gouraud;
+          gouraud += POLYGOUR_AddGour2;
 
-      // Setup for pixel loop
-      U32 zBuf = Fill_CurZBufMin;
-      U32 zBufInt = zBuf >> 8;
-      U32 zBufFrac = zBuf << (32 - 8);
-      U8 *logPtr = (U8*)Log;
-      U16 *zBufferPtr = (U16*)PtrZBuffer;
-      
-      U32 gouraudValue = curGouraud >> 8;
-      U32 gouraudAddValue = (Fill_Gouraud_XSlope >> 8) & 0xFFFF;
-      U8 ditherValue = gouraudValue & 0xFF;
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2[offset])
+          {
+            POLYGOUR_PtrLog2[offset] = (color >> 8) & 0xFF;
+          }
 
-      // Handle odd pixel count
-      U32 remainingPixels = pixelCount;
-      U32 pixelOffset = scanLine - logPtr;
-      
-      if (remainingPixels & 1) {
-        remainingPixels--;
-        if (remainingPixels == 0) {
-          // Single pixel case
-          if (zBufferPtr[pixelOffset] > zBufInt) {
-            U8 finalColor = (ditherValue + gouraudValue) & 0xFF;
-            scanLine[0] = finalColor; // NZW: no Z-buffer write
+          U8 carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf2) > 0xFFFFFFFF;
+          curZBufMinDec += POLYGOUR_DecZBuf2;
+          curZBufMinInt += POLYGOUR_IntZBuf2 + carry;
+
+          color = (color & 0xFF) + gouraud;
+
+          if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBuffer2_1[offset])
+          {
+            POLYGOUR_PtrLog2_1[offset] = (color >> 8) & 0xFF;
           }
-          goto line_complete;
-        }
-        
-        // Process single pixel first
-        U8 rotatedValue = ditherValue;
-        for (U32 i = 0; i < (remainingPixels & 7); i++) {
-          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
-        }
-        
-        U32 x = 0;
-        while (remainingPixels > 0) {
-          U8 finalColor1 = (rotatedValue + gouraudValue) & 0xFF;
-          gouraudValue += gouraudAddValue;
-          
-          if (zBufferPtr[pixelOffset + x] > zBufInt) {
-            scanLine[x] = finalColor1; // NZW: no Z-buffer write
-          }
-          
-          zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-          zBufInt += (Fill_ZBuf_XSlope >> 8);
-          if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-            zBufInt++;
-          }
-          
-          if (remainingPixels > 1) {
-            U8 finalColor2 = (rotatedValue + gouraudValue) & 0xFF;
-            gouraudValue += gouraudAddValue;
-            
-            if (zBufferPtr[pixelOffset + x + 1] > zBufInt) {
-              scanLine[x + 1] = finalColor2; // NZW: no Z-buffer write
-            }
-            
-            zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-            zBufInt += (Fill_ZBuf_XSlope >> 8);
-            if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-              zBufInt++;
-            }
-            
-            x += 2;
-            remainingPixels -= 2;
-          } else {
-            x++;
-            remainingPixels--;
-          }
-          
-          // Rotate dither value
-          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
-        }
-      } else {
-        // Even pixel count - process pairs
-        U8 rotatedValue = ditherValue;
-        for (U32 i = 0; i < (pixelCount & 7); i++) {
-          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
-        }
-        
-        for (U32 x = 0; x < pixelCount; x += 2) {
-          U8 finalColor1 = (rotatedValue + gouraudValue) & 0xFF;
-          gouraudValue += gouraudAddValue;
-          
-          if (zBufferPtr[pixelOffset + x] > zBufInt) {
-            scanLine[x] = finalColor1; // NZW: no Z-buffer write
-          }
-          
-          zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-          zBufInt += (Fill_ZBuf_XSlope >> 8);
-          if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-            zBufInt++;
-          }
-          
-          U8 finalColor2 = (rotatedValue + gouraudValue) & 0xFF;
-          gouraudValue += gouraudAddValue;
-          
-          if (zBufferPtr[pixelOffset + x + 1] > zBufInt) {
-            scanLine[x + 1] = finalColor2; // NZW: no Z-buffer write
-          }
-          
-          zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-          zBufInt += (Fill_ZBuf_XSlope >> 8);
-          if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-            zBufInt++;
-          }
-          
-          // Rotate dither value
-          rotatedValue = (rotatedValue << 1) | (rotatedValue >> 7);
+
+          gouraud += POLYGOUR_AddGour3;
+
+          carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf3) > 0xFFFFFFFF;
+          curZBufMinDec += POLYGOUR_DecZBuf3;
+          curZBufMinInt += POLYGOUR_IntZBuf3 + carry;
+
+          color = (color & 0xFFFFFF00) | ROL8(color & 0xFF, pixelCount & 0xFF);
+          offset += 2;
         }
       }
     }
+    if ( !--count )
+      break;
 
-line_complete:
-    patch = 1; // Subsequent lines don't need initialization
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -1757,83 +1863,94 @@ line_complete:
 
 S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_GouraudTableNZW", "1", "entry");
   U32 count = nbLines + 1;
-  Fill_CurY += count;
   U8 *curOffLine = Fill_CurOffLine;
-
-  U32 patch = Fill_Patch - 1;
+  Fill_CurY += count;
   U32 curGouraud = Fill_CurGouraudMin;
+  U32 patch = Fill_Patch - 1;
 
-  if (patch == 0) {
-    Fill_Patch = 0;
-    // Variables are kept for consistency with assembly but not used in this simplified version
+  if (patch == 0)
+  {
+    Fill_Patch = patch;
+    POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_PtrZBufferPatch = PtrZBuffer;
+    POLYGOUR_PtrLog = (U8 *)Log;
+    POLYGOUR_PtrColor = Fill_Color.Ptr;
+  }
+  else
+  {
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
-  for (U32 lineNum = 0; lineNum < nbLines; lineNum++) {
-    if (patch != 0) {
-      curOffLine += ScreenPitch;
-      fillCurXMin += Fill_LeftSlope;
-      fillCurXMax += Fill_RightSlope;
-      curGouraud += Fill_Gouraud_LeftSlope;
-      Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
-    }
+  while ( 1 )
+  {
+    U8 *screen = (fillCurXMin >> 16) + curOffLine;
+    U32 diffX = (fillCurXMax >> 16) - (fillCurXMin >> 16);
+    if ((fillCurXMax >> 16) > (fillCurXMin >> 16))
+    {
+      U32 factor = (fillCurXMin & 0xFFFF) ^ 0xFFFF;
+      U32 lineGouraud = curGouraud;
 
-    U32 startX = fillCurXMin >> 16;
-    U32 endX = fillCurXMax >> 16;
-    U8 *scanLine = curOffLine + startX;
-    U32 pixelCount = endX - startX;
-
-    if (pixelCount > 0) {
-      // Subpixel correction for Gouraud
-      U32 subPixel = fillCurXMin & 0xFFFF;
-      subPixel ^= 0xFFFF;
-      
-      // Preload cache for large scanlines
-      if (pixelCount > 16) {
-        U32 gouraudCorrection = (subPixel * Fill_Gouraud_XSlope) >> 16;
-        curGouraud += gouraudCorrection;
-        
-        // Preload destination cache lines
-        U8 *preloadStart = (U8*)((uintptr_t)scanLine & ~31);
-        U8 *preloadEnd = (U8*)((uintptr_t)(scanLine + pixelCount) & ~31);
-        for (U8 *addr = preloadStart; addr <= preloadEnd; addr += 32) {
-          volatile U8 temp = *addr; // Cache preload
-        }
+      if (diffX > 16)
+      {
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
+        U32 addGouraudDec = (U32)(addGouraud >> 32);
+        U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
+        addGouraudDec = addGouraudDec << 16;
+        addGouraudInt = addGouraudInt >> 16;
+        addGouraudDec |= addGouraudInt;
+        lineGouraud += addGouraudDec;
       }
 
-      // Setup for pixel loop
-      U8 *colorTable = Fill_Color.Ptr; // Color lookup table
-      U32 zBuf = Fill_CurZBufMin;
-      U32 zBufInt = zBuf >> 8;
-      U32 zBufFrac = zBuf << (32 - 8);
-      U8 *logPtr = (U8*)Log;
-      U16 *zBufferPtr = (U16*)PtrZBuffer;
-      
-      U32 gouraudValue = curGouraud;
-      U32 gouraudIndex = (gouraudValue >> 8) & 0xFF00;
+      U32 curZBufMinDec = Fill_CurZBufMin << 24;
+      U32 curZBufMinInt = Fill_CurZBufMin >> 8;
+      U32 offset = screen - (U8 *)Log;
 
-      for (U32 x = 0; x < pixelCount; x++) {
-        // Z-buffer test (NZW - test only, no write)
-        U32 pixelOffset = (scanLine - logPtr) + x;
-        if (zBufferPtr[pixelOffset] > zBufInt) {
-          // Write color using lookup table (no Z-buffer write for NZW)
-          U8 colorIndex = colorTable[gouraudIndex];
-          scanLine[x] = colorIndex;
+      U32 gouraudValue = lineGouraud;
+
+      do
+      {
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
+        {
+          U32 lightIndex = (gouraudValue >> 8) & 0xFF00;
+          POLYGOUR_PtrLog[offset] = POLYGOUR_PtrColor[lightIndex];
         }
 
-        // Advance interpolants
         gouraudValue += Fill_Gouraud_XSlope;
-        gouraudIndex = (gouraudValue >> 8) & 0xFF00;
-        
-        zBufFrac += Fill_ZBuf_XSlope << (32 - 8);
-        zBufInt += (Fill_ZBuf_XSlope >> 8);
-        if (zBufFrac < (Fill_ZBuf_XSlope << (32 - 8))) {
-          zBufInt++;
-        }
+
+        U8 carry = ((U64)curZBufMinDec + (U64)POLYGOUR_DecZBuf) > 0xFFFFFFFF;
+        curZBufMinDec += POLYGOUR_DecZBuf;
+        curZBufMinInt += POLYGOUR_IntZBuf + carry;
+
+        ++offset;
+        --diffX;
       }
+      while (diffX);
     }
 
-    patch = 1; // Subsequent lines don't need initialization
+    if ( !--count )
+      break;
+
+    curOffLine += ScreenPitch;
+    fillCurXMin += Fill_LeftSlope;
+    fillCurXMax += Fill_RightSlope;
+    curGouraud += Fill_Gouraud_LeftSlope;
+    Fill_CurZBufMin += Fill_ZBuf_LeftSlope;
   }
 
   Fill_CurXMin = fillCurXMin;
@@ -1846,6 +1963,16 @@ S32 Filler_GouraudTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
 S32 Filler_DitherTableNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 {
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1", "nbLines=%u xmin=0x%08x xmax=0x%08x", nbLines, fillCurXMin, fillCurXMax);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1b", "LeftSlope=%d RightSlope=%d curY=%d offLine=%p",
+        Fill_LeftSlope, Fill_RightSlope, Fill_CurY, (void*)Fill_CurOffLine);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1c", "U_XS=%d V_XS=%d W_XS=%d ZBuf_XS=%d G_XS=%d",
+        Fill_MapU_XSlope, Fill_MapV_XSlope, Fill_W_XSlope, Fill_ZBuf_XSlope, Fill_Gouraud_XSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1d", "U_LS=%d V_LS=%d W_LS=%d ZBuf_LS=%d G_LS=%d",
+        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope, Fill_W_LeftSlope, Fill_ZBuf_LeftSlope, Fill_Gouraud_LeftSlope);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1e", "curU=%d curV=%d curW=%d curZBuf=%u curG=%d patch=%u",
+        Fill_CurMapUMin, Fill_CurMapVMin, Fill_CurWMin, Fill_CurZBufMin, Fill_CurGouraudMin, Fill_Patch);
+    LIB386_TRACE_CPP("Filler_DitherTableNZW", "1", "entry");
   U32 diffY = nbLines + 1;
   Fill_CurY += diffY;
   S32 gouraud = Fill_CurGouraudMin;
@@ -2076,7 +2203,7 @@ S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_IntGour = (Fill_Gouraud_XSlope >> 16) & 0xFF;
     POLYGOUR_DecGour = Fill_Gouraud_XSlope << 16;
     POLYGOUR_DecZBuf = Fill_ZBuf_XSlope << 24;
-    POLYGOUR_IntZBuf = Fill_ZBuf_XSlope >> 8;
+    POLYGOUR_IntZBuf = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_PtrZBufferPatch = PtrZBuffer;
     POLYGOUR_PtrLog = (U8 *)Log;
   }
@@ -2102,7 +2229,7 @@ S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       if (diffX > 16)
       {
-        U64 addGouraud = ((U64)factor * (U64)Fill_Gouraud_XSlope);
+        U64 addGouraud = ((S64)(S32)factor * (S64)(S32)Fill_Gouraud_XSlope);
         U32 addGouraudDec = (U32)(addGouraud >> 32);
         U32 addGouraudInt = (U32)(addGouraud & 0xFFFFFFFF);
         addGouraudDec = addGouraudDec << 16;
@@ -2124,7 +2251,7 @@ S32 Filler_GouraudFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
 
       do
       {
-        if ((curZBufMinInt & 0xFFFF) < POLYGOUR_PtrZBufferPatch[offset])
+        if ((curZBufMinInt & 0xFFFF) <= POLYGOUR_PtrZBufferPatch[offset])
         {
           POLYGOUR_PtrLog[offset] = Fill_Logical_Palette[color];
         }
@@ -2192,7 +2319,7 @@ S32 Filler_DitherFogNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax)
     POLYGOUR_PtrLog_1 = (U8 *)Log + 1;
     POLYGOUR_PtrLog2_1 = (U8 *)Log + 1;
 
-    U32 zBufSlopeInt = Fill_ZBuf_XSlope >> 8;
+    U32 zBufSlopeInt = (U32)Fill_ZBuf_XSlope >> 8;
     POLYGOUR_IntZBuf = zBufSlopeInt;
     POLYGOUR_IntZBuf1 = zBufSlopeInt;
     POLYGOUR_IntZBuf2 = zBufSlopeInt;

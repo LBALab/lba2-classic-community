@@ -11,6 +11,9 @@
 		extrn	C MatrixLib2:DWORD
 		extrn	C InitMatrixStd:DWORD
 		extrn	C LongRotatePoint:DWORD
+		extrn	C printf:NEAR
+
+fmt_rotvect_1	DB	"[ASM][RotateVector][1] norme=%d a=%d b=%d g=%d", 10, 0
 
 		ASSUME  DS:SEG LongRotatePoint
 
@@ -31,6 +34,18 @@
 ;	modify		[esi edi]
 
 RotateVector	proc
+
+		; --- debug trace [ASM][RotateVector][1] params ---
+		pushad
+		push	ecx
+		push	ebx
+		push	eax
+		push	edx
+		push	offset fmt_rotvect_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
 
 		mov	edi, offset MatrixLib2
 		push	edx

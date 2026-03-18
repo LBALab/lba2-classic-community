@@ -8,6 +8,11 @@
 ; Runtime code patch refactor, uses memory instead of instruction substitution
 BlockSize DWORD 2
 ;*──────────────────────────────────────────────────────────────────────────*
+
+		EXTRN	C	printf	:NEAR
+
+fmt_expandlz_1	DB	"[ASM][ExpandLZ][1] Dst=%p Src=%p Size=%u MinBloc=%u", 10, 0
+
 			.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -24,7 +29,20 @@ ExpandLZ		PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			Dst: DWORD, Src: DWORD, DecompSize: DWORD, MinBloc: DWORD
 
-			mov edi, Dst
+
+		; --- debug trace [ASM][ExpandLZ][1] params ---
+		pushad
+		push	MinBloc
+		push	DecompSize
+		push	Src
+		push	Dst
+		push	offset fmt_expandlz_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+
+					mov edi, Dst
 			mov ebx, Src
 			mov ecx, DecompSize
 			mov eax, MinBloc

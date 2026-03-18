@@ -14,6 +14,10 @@
 
 		MulMatrix	dd	offset MulMatrixF
 
+		extrn	C	printf:NEAR
+
+fmt_mulmat_1	DB	"[ASM][MulMatrixF][1] Dst=%p Src1=%p Src2=%p", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -28,6 +32,17 @@
 ;	modify exact	[]
 
 MulMatrixF	PROC
+
+		; --- debug trace [ASM][MulMatrixF][1] params ---
+		pushad
+		push	ebx
+		push	esi
+		push	edi
+		push	offset fmt_mulmat_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		xor	eax, eax
 					;  0   1   2   3   4   5   6   7

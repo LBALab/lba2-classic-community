@@ -4,6 +4,7 @@
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/SCREENXY.H>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,6 +19,7 @@ typedef struct {
 
 void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
 {
+    LIB386_TRACE_CPP("ScaleSprite", "1", "num=%d x=%d y=%d fx=%d fy=%d bank=%p", num, x, y, factorx, factory, (void*)ptrbank);
   U32 *tab = (U32 *)ptrbank;
   Struc_Sprite *sprite = (Struc_Sprite *)((U8 *)tab + tab[num]);
   S32 sx = sprite->Hot_X + x;
@@ -51,9 +53,9 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
     return;
   }
   ScreenXMin = sx;
-  ScreenXMax = end_x;
+  ScreenXMax = end_x - 1;
   ScreenYMin = sy;
-  ScreenYMax = end_y;
+  ScreenYMax = end_y - 1;
 
   U8 *src = (U8 *)sprite + sizeof(Struc_Sprite) + start_y * sw + start_x;
   U8 *dst = (U8 *)Log + TabOffLine[sy] + sx;

@@ -16,6 +16,13 @@ else
 endif
 
 ;----------------------------------------------------------------------------
+
+		.DATA
+
+		EXTRN	C	printf	:NEAR
+
+fmt_mysortco_1	DB	"[ASM][MySortCompFunc][1] a=%p b=%p", 10, 0
+
 			.code
 
 ;//-------------------------------------------------------------------------
@@ -24,7 +31,18 @@ ifdef	REG_CALL
 ;//-------------------------------------------------------------------------
 MySortCompFunc 		proc
 
-			mov	eax, [eax]
+
+		; --- debug trace [ASM][MySortCompFunc][1] params ---
+		pushad
+		push	ptrb
+		push	ptra
+		push	offset fmt_mysortco_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+
+					mov	eax, [eax]
 			mov	edx, [edx]
 
 			jmp	strcmp_

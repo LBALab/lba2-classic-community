@@ -13,6 +13,11 @@
 			EXTRN	C	ClipYMax:DWORD
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_copybloc_1	DB	"[ASM][CopyBlockIncrust][1] x0=%d y0=%d x1=%d y1=%d src=%p xd=%d yd=%d dst=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -28,7 +33,24 @@
 CopyBlockIncrust	proc uses ebp,\
 			xd:DWORD, yd:DWORD, dst:DWORD
 
-			cmp	eax,[ClipXMax]
+
+		; --- debug trace [ASM][CopyBlockIncrust][1] params ---
+		pushad
+		push	dst
+		push	yd
+		push	xd
+		push	esi
+		push	edx
+		push	ecx
+		push	ebx
+		push	eax
+		push	offset fmt_copybloc_1
+		call	printf
+		add	esp, 36
+		popad
+		; --- end debug trace ---
+
+					cmp	eax,[ClipXMax]
 			jg	endcopy
 			cmp	ebx,[ClipYMax]
 			jg	endcopy

@@ -10,6 +10,11 @@
 			FastCopy	dd	offset FastCopyF
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_fastcopy_1	DB	"[ASM][FastCopyF][1] dst=%p src=%p len=%u", 10, 0
+
 			.CODE
 
 			public	C	FastCopyF
@@ -26,7 +31,19 @@ FastCopyF		PROC \
 			dst: DWORD, \
 			src: DWORD, \
 			len: DWORD
-			mov edi, dst
+
+		; --- debug trace [ASM][FastCopyF][1] params ---
+		pushad
+		push	len
+		push	src
+		push	dst
+		push	offset fmt_fastcopy_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
+					mov edi, dst
 			mov esi, src
 			mov ecx, len
 

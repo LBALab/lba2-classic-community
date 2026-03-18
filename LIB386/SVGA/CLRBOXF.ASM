@@ -19,6 +19,11 @@
 			ClearColor	dq	0
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_clearbox_1	DB	"[ASM][ClearBoxF][1] dst=%p tab=%p box=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -35,7 +40,19 @@ ClearBoxF		PROC \
 			uses edi edx ebx eax ecx esi \
 			dst: DWORD, TabOffDst: DWORD, box: DWORD
 
-			mov edi, dst
+
+		; --- debug trace [ASM][ClearBoxF][1] params ---
+		pushad
+		push	box
+		push	TabOffDst
+		push	dst
+		push	offset fmt_clearbox_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
+					mov edi, dst
 			mov edx, TabOffDst
 			mov ebx, box
 

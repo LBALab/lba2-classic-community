@@ -1,9 +1,11 @@
 #include <ANIM/INTFRAME.H>
 #include <ANIM.H>
 #include <stddef.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ObjectSetInterFrame(T_OBJ_3D *obj)
 {
+    LIB386_TRACE_CPP("ObjectSetInterFrame", "1", "obj=%p", (void*)obj);
     if (obj->Status & FLAG_FRAME)
     {
         return;

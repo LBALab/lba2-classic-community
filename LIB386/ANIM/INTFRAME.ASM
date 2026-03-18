@@ -17,6 +17,11 @@
 		EXTRN	C	TransFctAnim		:DWORD
 
 ;*──────────────────────────────────────────────────────────────────────────*
+		EXTRN	C	printf	:NEAR
+
+
+fmt_intframe_1	DB	"[ASM][ObjectSetInterFrame][1] obj=%p", 10, 0
+
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -33,6 +38,16 @@ ObjectSetInterFrame PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			obj: DWORD
 			mov ebx, obj
+
+		; --- debug trace [ASM][ObjectSetInterFrame][1] params ---
+		pushad
+		push	ebx
+		push	offset fmt_intframe_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 
 		mov	eax, [ebx].OBJ_3D.Status
 

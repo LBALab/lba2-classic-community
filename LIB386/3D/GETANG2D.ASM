@@ -6,8 +6,12 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
+fmt_getang2d_1	DB	"[ASM][GetAngleVector2D][1] x=%d z=%d", 10, 0
+fmt_getang2d_2	DB	"[ASM][GetAngleVector2D][2] return=%d", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C		TanTab	: DWORD
+		extrn	C		printf	: NEAR
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
@@ -27,6 +31,16 @@ GetAngleVector2D 	PROC \
 			x: DWORD, z: DWORD
 			mov eax, x
 			mov ebx, z
+
+		; --- debug trace [ASM][GetAngleVector2D][1] params ---
+		pushad
+		push	ebx
+		push	eax
+		push	offset fmt_getang2d_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 
 		xor	esi, esi		; ESI = Bit field
 
@@ -129,6 +143,16 @@ no1:
 		neg	eax
 no0:
 		and	eax, 4095
+
+		; --- debug trace [ASM][GetAngleVector2D][2] return ---
+		pushad
+		push	eax
+		push	offset fmt_getang2d_2
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		ret
 exit0:
 		xor	eax, eax
@@ -138,6 +162,15 @@ exit0:
 
 		mov	eax, 2048
 no4:
+		; --- debug trace [ASM][GetAngleVector2D][2] return ---
+		pushad
+		push	eax
+		push	offset fmt_getang2d_2
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		ret
 exit1:
 		mov	eax, 1024
@@ -147,6 +180,15 @@ exit1:
 
 		mov	eax, 4096-1024
 no3:
+		; --- debug trace [ASM][GetAngleVector2D][2] return ---
+		pushad
+		push	eax
+		push	offset fmt_getang2d_2
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		ret
 
 GetAngleVector2D endp

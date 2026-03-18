@@ -6,6 +6,13 @@
 		include	AFF_OBJ.INC
 
 ;*──────────────────────────────────────────────────────────────────────────*
+		.DATA
+
+		EXTRN	C	printf		:NEAR
+
+fmt_body_1	DB	"[ASM][ObjectInitBody][1] obj=%p body=%p", 10, 0
+
+;*──────────────────────────────────────────────────────────────────────────*
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -24,6 +31,16 @@ ObjectInitBody		PROC \
 			body: DWORD
 			mov ebx, obj
 			mov eax, body
+
+		; --- debug trace [ASM][ObjectInitBody][1] params ---
+		pushad
+		push	eax
+		push	ebx
+		push	offset fmt_body_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 
 		mov	ecx, [ebx].OBJ_3D.Status
 		mov	[ebx].OBJ_3D.NextBody, eax

@@ -8,11 +8,16 @@
 
 		.DATA
 
+fmt_lrot2d_1	DB	"[ASM][LongRotateF][1] x=%d z=%d angle=%d", 10, 0
+fmt_lrot2d_2	DB	"[ASM][LongRotateF][2] X0=%d Z0=%d", 10, 0
+
 		extrn	C	SinTabF:DWORD
 		extrn	C	CosTabF:DWORD
 
 		extrn	C	X0:DWORD
 		extrn	C	Z0:DWORD
+
+		extrn	C	printf:NEAR
 
 		public	C	LongRotate
 		public	C	Rotate
@@ -41,6 +46,17 @@ LongRotateF	PROC \
 			mov eax, x
 			mov ecx, z
 			mov edx, angle
+
+		; --- debug trace [ASM][LongRotateF][1] params ---
+		pushad
+		push	edx
+		push	ecx
+		push	eax
+		push	offset fmt_lrot2d_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
 
 		mov	[X0], eax
 		mov	[Z0], ecx
@@ -85,6 +101,16 @@ LongRotateF	PROC \
 
 		fistp	[Z0]
 norot:
+		; --- debug trace [ASM][LongRotateF][2] return ---
+		pushad
+		push	dword ptr [Z0]
+		push	dword ptr [X0]
+		push	offset fmt_lrot2d_2
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+
 		ret
 
 LongRotateF	endp

@@ -325,6 +325,9 @@ extern  S32    		StartZCube ;
 extern	T_INV_OBJ	TabInv[]     ;
 extern	T_DART		ListDart[] ;
 extern  S32    		NbObjets ;
+#ifdef ENABLE_POLY_RECORDING
+extern  S32    		SnapshotRequested ;
+#endif
 extern  T_OBJET 	ListObjet[] ;
 extern  T_EXTRA 	ListExtra[] ;
 extern  S32    		NbZones ;

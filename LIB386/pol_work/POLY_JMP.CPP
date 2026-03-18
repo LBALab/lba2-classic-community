@@ -119,7 +119,7 @@ S32 Jmp_TrameFogZBuf(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 	Fill_Filler = Filler_TrameZBuf;
 	Fill_Trame_Parity = 0;
 	Fill_ClipFlag = CLIP_FLAT + CLIP_ZBUFFER;
-	Fill_Color.Num = Fill_Logical_Palette[color];
+	Fill_Color.Num = Fill_Logical_Palette[0];
 	return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
 
@@ -154,6 +154,7 @@ S32 Jmp_SolidFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
   color = (color << 8) | color;
   Fill_Filler = Filler_FlatNZW;
   Fill_ClipFlag = CLIP_FLAT+CLIP_ZBUFFER;
+  Fill_Color.Num = color;
 
   return Fill_PolyClip(Nb_Points, Ptr_Points);
 }
@@ -162,7 +163,7 @@ S32 Jmp_TrameFogNZW(S32 Nb_Points, Struc_Point *Ptr_Points, U16 color)
 {
 	Fill_Filler = Filler_TrameNZW;
 	Fill_ClipFlag = CLIP_FLAT + CLIP_ZBUFFER;
-	Fill_Color.Num = Fill_Logical_Palette[color];
+	Fill_Color.Num = Fill_Logical_Palette[0];
 	Fill_Trame_Parity = 0;
 	return Fill_PolyClip(Nb_Points, Ptr_Points);
 }

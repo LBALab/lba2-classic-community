@@ -12,6 +12,11 @@
 ;*──────────────────────────────────────────────────────────────────────────*
 		EXTRN	C	TransFctBody	:DWORD
 
+		EXTRN	C	printf		:NEAR
+
+fmt_initobj_1	DB	"[ASM][InitObjects][1] buf=%p size=%u fctbody=%p fctanim=%p", 10, 0
+fmt_clearobj_1	DB	"[ASM][ClearObjects][1] entry", 10, 0
+
 ;*──────────────────────────────────────────────────────────────────────────*
 		PUBLIC	C	Lib3DBufferAnim
 		PUBLIC	C	EndLib3DBufferAnim
@@ -66,6 +71,18 @@ InitObjects	PROC \
 			mov ecx, size_
 			mov edx, fctbody
 			mov ebx, fctanim
+
+		; --- debug trace [ASM][InitObjects][1] params ---
+		pushad
+		push	ebx
+		push	edx
+		push	ecx
+		push	eax
+		push	offset fmt_initobj_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
 
 		mov	TransFctBody, edx
 		mov	TransFctAnim, ebx
@@ -125,6 +142,14 @@ InitObjects	endp
 ;	modify	[eax ecx edx]
 
 ClearObjects	proc
+
+		; --- debug trace [ASM][ClearObjects][1] entry ---
+		pushad
+		push	offset fmt_clearobj_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
 
 		mov	eax, MallocBuffer
 		test	eax, eax

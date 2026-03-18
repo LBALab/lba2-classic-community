@@ -9,6 +9,11 @@
 ;*══════════════════════════════════════════════════════════════════════════*
 		.DATA
 
+		extrn	C	printf:NEAR
+
+fmt_setproj_1	DB	"[ASM][SetProjection][1] xc=%d yc=%d clip=%d fx=%d fy=%d", 10, 0
+fmt_setisop_1	DB	"[ASM][SetIsoProjection][1] xc=%d yc=%d", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 		extrn	C	XCentre:	DWORD
 		extrn	C	YCentre:	DWORD
@@ -60,6 +65,19 @@ SetProjection	PROC \
 			mov edx, factorx
 			mov esi, factory
 
+		; --- debug trace [ASM][SetProjection][1] params ---
+		pushad
+		push	esi
+		push	edx
+		push	ecx
+		push	ebx
+		push	eax
+		push	offset fmt_setproj_1
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
 		mov	[LFactorX], edx
 		mov	[LFactorY], esi
 
@@ -99,6 +117,16 @@ SetIsoProjection PROC \
 			xc: DWORD, yc: DWORD
 			mov eax, xc
 			mov ebx, yc
+
+		; --- debug trace [ASM][SetIsoProjection][1] params ---
+		pushad
+		push	ebx
+		push	eax
+		push	offset fmt_setisop_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
 
 		mov	[XCentre], eax
 		mov	[YCentre], ebx

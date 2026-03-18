@@ -5,6 +5,15 @@
 
 		.model SMALL, C
 
+;*══════════════════════════════════════════════════════════════════════════*
+		.DATA
+
+fmt_qsqr_1	DB	"[ASM][QSqr][1] xLow=%u xHigh=%u", 10, 0
+fmt_qsqr_2	DB	"[ASM][QSqr][2] return=%u", 10, 0
+fmt_sqr_1	DB	"[ASM][Sqr][1] x=%u", 10, 0
+fmt_sqr_2	DB	"[ASM][Sqr][2] return=%u", 10, 0
+
+		extrn	C	printf:NEAR
 
 ;*══════════════════════════════════════════════════════════════════════════*
 		.CODE
@@ -25,6 +34,16 @@ QSqr			PROC \
 			mov eax, xLow
 			mov edx, xHigh
 
+		; --- debug trace [ASM][QSqr][1] params ---
+		pushad
+		push	edx
+		push	eax
+		push	offset fmt_qsqr_1
+		call	printf
+		add	esp, 12
+		popad
+		; --- end debug trace ---
+
 		test	edx, edx
 		jnz	Sqr_ok
 
@@ -33,6 +52,16 @@ QSqr			PROC \
 		call Sqr
 
 		add esp, 4
+
+		; --- debug trace [ASM][QSqr][2] return ---
+		pushad
+		push	eax
+		push	offset fmt_qsqr_2
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		ret
 
 Sqr_ok:		cmp	edx, 3
@@ -98,6 +127,15 @@ Sqr		PROC \
 			xLow: DWORD
 			mov eax, xLow
 
+		; --- debug trace [ASM][Sqr][1] params ---
+		pushad
+		push	eax
+		push	offset fmt_sqr_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		cmp	eax, 3
 		jbe	short Sqr_0_1
 
@@ -135,12 +173,30 @@ Sqr_loop:
 		dec	ecx
 		jnz	Sqr_loop
 exit:
+		; --- debug trace [ASM][Sqr][2] return ---
+		pushad
+		push	eax
+		push	offset fmt_sqr_2
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		ret
 Sqr_0_1:
 		test	eax, eax
 		jz	exit0
 		mov	eax, 1
 exit0:
+		; --- debug trace [ASM][Sqr][2] return ---
+		pushad
+		push	eax
+		push	offset fmt_sqr_2
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 		ret
 
 Sqr		endp

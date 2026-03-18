@@ -28,6 +28,8 @@
 
 Z1			dd	0			; For the ZBuffer
 Z2			dd	0
+
+fmt_lznzw_fog	db	"[ASM][LineZNZW] col_raw=%d fog=%d palette[%d]=0x%02x Color=0x%02x", 10, 0
 DZ			dd	0
 Color			db	0
 
@@ -62,6 +64,11 @@ ColorX      BYTE 12h
 ColorY      BYTE 12h
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_line_1	DB	"[ASM][Line][1] entry", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -82,7 +89,16 @@ Line			PROC	USES esi edi ebp ebx,\
 ;			X1:cx  Y1:DX
 ;			couleur: bp
 
-			mov	eax, x0
+
+		; --- debug trace [ASM][Line][1] params ---
+		pushad
+		push	offset fmt_line_1
+		call	printf
+		add	esp, 4
+		popad
+		; --- end debug trace ---
+
+					mov	eax, x0
 			mov	ebx, y0
 			mov	ecx, x1
 			mov	edx, y1
@@ -1141,6 +1157,23 @@ Line_ZBuffer_NZW	PROC
 			mov	al,[Fill_Logical_Palette+ebp]
 @@Pas_Coul_Convert:
 			mov	[Color],al
+
+		; --- debug trace [ASM][LineZNZW] fog ---
+		pushad
+		movzx	ecx, byte ptr [Color]
+		push	ecx
+		movzx	ecx, byte ptr [Fill_Logical_Palette+ebp]
+		push	ecx
+		push	ebp
+		movzx	ecx, byte ptr [Fill_Flag_Fog]
+		push	ecx
+		push	eax
+		push	offset fmt_lznzw_fog
+		call	printf
+		add	esp, 24
+		popad
+		; --- end debug trace ---
+
 			pop	eax
 
 @@Trace_Still:
@@ -1483,10 +1516,10 @@ Line_ZBuffer_NZW	PROC
 
 			jb	@@YNoDisp
 
-		push eax
-		mov eax,[YPtrLog]
-		mov	byte ptr [ebx+eax],al
-		pop eax
+		push ecx
+		mov ecx,[YPtrLog]
+		mov	byte ptr [ebx+ecx],al
+		pop ecx
 
 @@YNoDisp:
 			add	edx,[YDX]

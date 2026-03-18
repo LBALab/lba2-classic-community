@@ -6,6 +6,13 @@
 		include	AFF_OBJ.INC
 
 ;*──────────────────────────────────────────────────────────────────────────*
+		.DATA
+
+		EXTRN	C	printf	:NEAR
+
+fmt_intanim_1	DB	"[ASM][ObjectSetInterAnim][1] obj=%p", 10, 0
+
+;*──────────────────────────────────────────────────────────────────────────*
 		.CODE
 
 ;*──────────────────────────────────────────────────────────────────────────*
@@ -27,6 +34,16 @@ ObjectSetInterAnim PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			obj: DWORD
 			mov ebx, obj
+
+		; --- debug trace [ASM][ObjectSetInterAnim][1] params ---
+		pushad
+		push	ebx
+		push	offset fmt_intanim_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
 
 		push	ebx
 		push	ebx

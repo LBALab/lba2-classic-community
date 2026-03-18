@@ -282,6 +282,11 @@ Font8X8			db	0, 0, 0, 0, 0, 0, 0, 0
 			db	0, 0, 0, 0, 0, 0, 0, 0
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_affstrin_1	DB	"[ASM][AffString][1] x=%d y=%d str=%p", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -298,6 +303,18 @@ AffString		PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			x: DWORD, y: DWORD, string: DWORD
 			mov eax, x
+
+		; --- debug trace [ASM][AffString][1] params ---
+		pushad
+		push	string
+		push	y
+		push	x
+		push	offset fmt_affstrin_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
 			mov ebx, y
 			mov esi, string
 

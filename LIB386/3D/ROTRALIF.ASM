@@ -18,6 +18,10 @@
 
 		RotTransList	dd	offset RotTransListF
 
+		extrn	C	printf:NEAR
+
+fmt_rotrali_1	DB	"[ASM][RotTransListF][1] Mat=%p dst=%p src=%p n=%d", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -32,6 +36,19 @@
 ;	modify exact	[ecx esi edi]
 
 RotTransListF	proc
+
+		; --- debug trace [ASM][RotTransListF][1] params ---
+		pushad
+		push	ecx
+		push	esi
+		push	edi
+		push	ebx
+		push	offset fmt_rotrali_1
+		call	printf
+		add	esp, 20
+		popad
+		; --- end debug trace ---
+
 		lea	esi, [esi+ecx*8]
 		lea	ecx, [ecx*8]
 

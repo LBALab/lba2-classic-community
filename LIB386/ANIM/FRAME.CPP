@@ -3,9 +3,11 @@
 #include <SYSTEM/TIMER.H>
 
 #include <stddef.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 void ObjectSetFrame(T_OBJ_3D *obj, U32 frame)
 {
+    LIB386_TRACE_CPP("ObjectSetFrame", "1", "obj=%p frame=%u", (void*)obj, frame);
     T_PTR_NUM nextBody = obj->NextBody;
     void *nextTexture = obj->NextTexture;
     if (frame >= obj->NbFrames)

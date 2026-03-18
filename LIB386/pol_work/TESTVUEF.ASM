@@ -8,6 +8,11 @@
 PUBLIC	C		TestVuePoly
 TestVuePoly		dd	TestVuePolyF
 
+
+		EXTRN	C	printf	:NEAR
+
+fmt_testvuep_1	DB	"[ASM][TestVuePolyF][1] input=%p", 10, 0
+
 		.CODE
 
 		public	C	TestVuePolyF
@@ -24,7 +29,17 @@ TestVuePoly		dd	TestVuePolyF
 TestVuePolyF	PROC \
 				uses eax ebx ecx edx edi esi ebp\
 				input: DWORD
-				mov esi, input
+
+		; --- debug trace [ASM][TestVuePolyF][1] params ---
+		pushad
+		push	esi
+		push	offset fmt_testvuep_1
+		call	printf
+		add	esp, 8
+		popad
+		; --- end debug trace ---
+
+						mov esi, input
 ;(x2-x1)*(y1-y3)-(y2-y1)*(x1-x3)
 ;   P1  *  P2   -   P3  *  P4
 							; 0   1   2   3   4   5   6   7

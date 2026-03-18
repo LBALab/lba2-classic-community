@@ -39,6 +39,10 @@
 		ProjectList3D	dd	offset ProjectList3DF
 		ProjectList		dd	offset ProjectList3DF
 
+		extrn	C	printf:NEAR
+
+fmt_prli3d_1	DB	"[ASM][ProjectList3DF][1] Dst=%p Src=%p n=%d", 10, 0
+
 ;*══════════════════════════════════════════════════════════════════════════*
 
 		.CODE
@@ -57,6 +61,18 @@
 ;WARNING: OrgX, OrgY OrgZ pushed on the stack
 
 ProjectList3DF PROC
+
+		; --- debug trace [ASM][ProjectList3DF][1] params ---
+		pushad
+		push	ecx
+		push	esi
+		push	edi
+		push	offset fmt_prli3d_1
+		call	printf
+		add	esp, 16
+		popad
+		; --- end debug trace ---
+
 		test	ecx, ecx
 		jz	RetProj
 enterprojli:

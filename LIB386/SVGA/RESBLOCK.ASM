@@ -12,6 +12,11 @@
 			ASSUME DS:SEG TabOffLine
 
 ;----------------------------------------------------------------------------
+
+		EXTRN	C	printf	:NEAR
+
+fmt_restoreb_1	DB	"[ASM][RestoreBlock][1] scr=%p buf=%p x0=%d y0=%d x1=%d y1=%d", 10, 0
+
 			.CODE
 
 ;----------------------------------------------------------------------------
@@ -27,6 +32,21 @@ RestoreBlock		PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			screen: DWORD, buffer: DWORD, x0: DWORD, y0: DWORD, x1: DWORD, y1: DWORD
 			mov edi, screen
+
+		; --- debug trace [ASM][RestoreBlock][1] params ---
+		pushad
+		push	y1
+		push	x1
+		push	y0
+		push	x0
+		push	buffer
+		push	screen
+		push	offset fmt_restoreb_1
+		call	printf
+		add	esp, 28
+		popad
+		; --- end debug trace ---
+
 			mov esi, buffer
 			mov eax, x0
 			mov ebx, y0

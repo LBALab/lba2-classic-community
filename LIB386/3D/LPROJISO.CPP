@@ -3,9 +3,11 @@
 #include <3D/SINTAB.H>
 #include <3D/CAMERA.H>
 #include <stdio.h>
+#include <SYSTEM/DEBUG_TRACES.H>
 
 S32 LongProjectPointIso(S32 x, S32 y, S32 z)
 {
+	LIB386_TRACE_CPP("LongProjectPointIso", "1", "x=%d y=%d z=%d", x, y, z);
 	x -= CameraX;
 	y -= CameraY;
 	z -= CameraZ;
@@ -31,5 +33,6 @@ S32 LongProjectPointIso(S32 x, S32 y, S32 z)
 	Xp = x;
 	Yp = z;
 
+	LIB386_TRACE_CPP("LongProjectPointIso", "2", "ret=%d Xp=%d Yp=%d", -1, Xp, Yp);
 	return -1;
 }

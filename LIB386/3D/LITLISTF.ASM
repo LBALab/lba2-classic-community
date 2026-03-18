@@ -22,6 +22,10 @@
 
 			LightList	dd	offset LightListF
 
+			Extrn	C printf:NEAR
+
+fmt_litlist_1		DB	"[ASM][LightListF][1] Mat=%p dst=%p src=%p n=%d", 10, 0
+
 			ASSUME ds:SEG X0
 
 ;*══════════════════════════════════════════════════════════════════════════*
@@ -56,6 +60,19 @@
 
 
 LightListF		PROC
+
+			; --- debug trace [ASM][LightListF][1] params ---
+			pushad
+			push	ecx
+			push	esi
+			push	edi
+			push	ebx
+			push	offset fmt_litlist_1
+			call	printf
+			add	esp, 20
+			popad
+			; --- end debug trace ---
+
 			test	ecx,ecx			; Nothing to do ?
 			jz	@@Ret
 
