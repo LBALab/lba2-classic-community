@@ -41,6 +41,8 @@ PUBLIC	C		ObjectDisplay
 PUBLIC	C		ObjPtrMap
 PUBLIC	C		TransFctBody
 PUBLIC	C		Obj_ListRotatedPoints
+PUBLIC	C		QuickSort
+PUBLIC	C		QuickSortInv
 
 
 W_NORM			EQU	(1 SHL 30)

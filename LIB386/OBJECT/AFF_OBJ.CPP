@@ -1253,7 +1253,7 @@ void QuickSort(S32 *beginning, S32 *end)
         // @Ordre:
     } while (next <= end);
 
-    QuickSort(beginning, left);
+    QuickSort(beginning, left - 1);
     QuickSort(left + 1, end);
 }
 
@@ -1285,8 +1285,8 @@ void QuickSortInv(S32 *beginning, S32 *end)
         // @Ordre:
     } while (next <= end);
 
-    QuickSortInv(beginning, left);
-    QuickSortInv(next + 1, end);
+    QuickSortInv(beginning, left - 1);
+    QuickSortInv(left + 1, end);
 }
 
 S16 TestZFar4(STRUC_POLY3_ENV *poly)
