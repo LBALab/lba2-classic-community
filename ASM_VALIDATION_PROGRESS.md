@@ -12,7 +12,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [ ] | `3D/COPYMATF.ASM` | `3D/COPYMATF.CPP` | `CopyMatrixF` | Copy 3×3 rotation matrix (float) | |
+| [x] | `3D/COPYMATF.ASM` | `3D/COPYMATF.CPP` | `CopyMatrixF` | Copy 3×3 rotation matrix (float) | `tests/3D/test_copymatf.cpp` now covers identity-like, mixed-sign, finite edge-value, zero-matrix, and 200-round deterministic random matrix cases, comparing the full `TYPE_MAT` byte-for-byte and verifying the source matrix remains unchanged in both ASM and CPP. Important test-domain note: `CopyMatrixF` is validated on real float-matrix inputs, not arbitrary raw 48-byte patterns, because the ASM implementation copies via `fld/fstp qword` pairs rather than raw integer moves. |
 | [ ] | `3D/GETANG2D.ASM` | `3D/GETANG2D.CPP` | `GetAngleVector2D` | 2D angle from (x, z) via tangent table binary search | Depends on `TanTab` |
 | [ ] | `3D/GETANG3D.ASM` | `3D/GETANG3D.CPP` | `GetAngleVector3D` | 3D angle from (x, y, z); writes `X0`, `Y0` | Depends on `GetAngleVector2D`, `QSqr` |
 | [ ] | `3D/IMATSTDF.ASM` | `3D/IMATSTDF.CPP` | `InitMatrixStdF` | Init rotation matrix from Euler angles (α, β, γ) | Uses `SinTabF`/`CosTabF` |
