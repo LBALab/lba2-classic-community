@@ -1666,7 +1666,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
     // Skip vertex light
     // to calculate the offset of face-lights
-    PtrListLightsFaces = ListLights + lBody->NbPoints * 2;
+    PtrListLightsFaces = ListLights + lBody->NbPoints;
     NbGroupes = lBody->NbGroupes;
 
     PtrGroupes = (T_OBJ_GROUPE *)((U8 *)lBody + lBody->OffGroupes);
