@@ -74,7 +74,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `ANIM/INTANIM.ASM` | `ANIM/INTANIM.CPP` | `ObjectSetInterAnim` | Set interpolated animation state | ASM ≡ CPP: midpoint interpolation via Watcom-to-C shims |
 | [x] | `ANIM/INTERDEP.ASM` | `ANIM/INTERDEP.CPP` | `ObjectSetInterDep` | Set inter-frame dependencies | ASM ≡ CPP: midpoint + rotation path via Watcom-to-C shims |
 | [x] | `ANIM/INTFRAME.ASM` | `ANIM/INTFRAME.CPP` | `ObjectSetInterFrame` | Set interpolated frame between keyframes | ASM ≡ CPP: interpolation at 25% and 50% |
-| [ ] | `ANIM/LIBINIT.ASM` | `ANIM/LIBINIT.CPP` | `InitObjects`, `ClearObjects` | Initialize/clear animation library state | |
+| [x] | `ANIM/LIBINIT.ASM` | `ANIM/LIBINIT.CPP` | `InitObjects`, `ClearObjects` | Initialize/clear animation library state | `tests/ANIM/test_libinit.cpp` now compares the exported animation-library globals exactly between ASM and CPP for provided-buffer initialization, overwrite/reinit behavior, already-initialized null-buffer no-op behavior, and `ClearObjects` when no malloc buffer is active. |
 | [x] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM ≡ CPP: fixed CPP to copy NbGroups\*2-2 dwords (was NbGroups\*2-1) |
 | [ ] | `ANIM/TEXTURE.ASM` | `ANIM/TEXTURE.CPP` | `ObjectInitTexture` | Initialize texture for object | |
 
