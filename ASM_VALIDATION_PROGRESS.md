@@ -34,7 +34,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `3D/SINTAB.ASM` | `3D/SINTAB.CPP` | `SinTab[]`, `CosTab[]` | Pre-computed 16-bit sine/cosine (4096 entries) | `tests/3D/test_sintab.cpp` compares all 4096 `SinTab` and `CosTab` entries exactly against the ASM tables. |
 | [x] | `3D/SINTABF.ASM` | `3D/SINTABF.CPP` | `SinTabF[]`, `CosTabF[]` | Pre-computed float sine/cosine (4096 entries) | `tests/3D/test_sintabf.cpp` now compares the full `SinTabF` and `CosTabF` tables byte-for-byte against the ASM data. |
 | [x] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | `tests/3D/test_sqrroot.cpp` now includes a concrete failing `QSqr` reproducer plus deterministic 32-bit and 64-bit stress coverage. Fixed CPP parity bug: replaced `sqrtl()`-based `QSqr` with a direct portable port of the ASM bitwise algorithm, and `Sqr` now uses the same exact integer method. |
-| [ ] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | Data table |
+| [x] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | `tests/3D/test_tantab.cpp` compares all 513 tangent-table entries exactly against the ASM data. |
 
 ## SOURCES/ - Core Source Helpers (6 pairs)
 
