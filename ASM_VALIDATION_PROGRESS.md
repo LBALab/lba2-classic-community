@@ -88,8 +88,8 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | ASM ≡ CPP: synthetic brick + 300-round random stress test |
 | [x] | `SVGA/CLRBOXF.ASM` | `SVGA/CLRBOXF.CPP` | `ClearBoxF`, `SetClearColor` | Clear rectangle; set clear color | `tests/SVGA/test_clrboxf.cpp` now checks exact `ClearColor` state and strict whole-framebuffer parity over fixed and deterministic random valid boxes. |
 | [x] | `SVGA/COPYMASK.ASM` | `SVGA/COPYMASK.CPP` | `CopyMask` | Copy masked region | ASM ≡ CPP: synthetic bank + 20 random positions |
-| [ ] | `SVGA/CPYBLOCI.ASM` | `SVGA/CPYBLOCI.CPP` | `CopyBlockIncrust` | Copy block with incrustation | |
-| [ ] | `SVGA/CPYBLOCK.ASM` | `SVGA/CPYBLOCK.CPP` | `CopyBlock` | Fast memory block copy | |
+| [x] | `SVGA/CPYBLOCI.ASM` | `SVGA/CPYBLOCI.CPP` | `CopyBlockIncrust` | Copy block with incrustation | `tests/SVGA/test_cpybloci.cpp` now performs strict whole-framebuffer ASM-vs-CPP comparison with source preservation checks across fixed and deterministic random clipping and transparency cases. |
+| [x] | `SVGA/CPYBLOCK.ASM` | `SVGA/CPYBLOCK.CPP` | `CopyBlock` | Fast memory block copy | `tests/SVGA/test_cpyblock.cpp` now performs strict whole-framebuffer ASM-vs-CPP comparison with source preservation checks across fixed and deterministic random clipping cases. Fixed the C++ left/top source clipping path in `LIB386/SVGA/CPYBLOCK.CPP` to preserve the destination offset delta like the ASM. |
 | [x] | `SVGA/FONT.ASM` | `SVGA/FONT.CPP` | `SizeFont`, `CarFont`, `Font` | Font metrics and character rendering | ASM ≡ CPP: SizeFont tested with synthetic bank + 30 random strings |
 | [x] | `SVGA/GRAPH.ASM` | `SVGA/GRAPH.CPP` | `AffGraph`, `GetBoxGraph` | Graphics drawing and box calculation | ASM ≡ CPP: GetBoxGraph basic + positive hotspot. Negative hotspot sign-extends differently (ASM movsx vs CPP U8). |
 | [x] | `SVGA/MASK.ASM` | `SVGA/MASK.CPP` | `AffMask` | Display mask/sprite with transparency | ASM ≡ CPP: synthetic bank + 20 random positions via Watcom ABI wrapper |
