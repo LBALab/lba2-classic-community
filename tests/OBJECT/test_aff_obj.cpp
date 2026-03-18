@@ -210,6 +210,8 @@ static bool is_quicksortinv_asm_valid(const S32 *values, U32 count)
 
 static void fill_random_unordered_quicksort_values(S32 *values, U32 count)
 {
+    /* The original ASM quicksort re-enters the same range for some pivot
+       orders, so unordered coverage must stay within the ASM-valid domain. */
     for (int attempt = 0; attempt < 4096; ++attempt)
     {
         fill_random_values(values, count);
@@ -226,6 +228,8 @@ static void fill_random_unordered_quicksort_values(S32 *values, U32 count)
 
 static void fill_random_unordered_quicksortinv_values(S32 *values, U32 count)
 {
+    /* Same restriction as QuickSort: keep inputs unordered, but reject
+       pivot layouts that make the original ASM recurse forever. */
     for (int attempt = 0; attempt < 4096; ++attempt)
     {
         fill_random_values(values, count);
