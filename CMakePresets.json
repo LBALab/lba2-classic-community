@@ -36,6 +36,20 @@
       }
     },
     {
+      "name": "linux_test",
+      "inherits": "linux",
+      "displayName": "Linux Tests (ASM + CPP equivalence)",
+      "description": "Linux test build for ASM-vs-CPP equivalence with 32-bit toolchain support",
+      "cacheVariables": {
+        "LBA2_BUILD_TESTS": "ON",
+        "ENABLE_ASM": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": "-m32",
+        "CMAKE_CXX_FLAGS": "-m32",
+        "SDL3_DIR": "/usr/local/sdl3-32/lib/cmake/SDL3"
+      }
+    },
+    {
       "name": "macos_arm64",
       "inherits": "default",
       "displayName": "macOS arm64",
@@ -107,6 +121,10 @@
     {
       "name": "linux",
       "configurePreset": "linux"
+    },
+    {
+      "name": "linux_test",
+      "configurePreset": "linux_test"
     },
     {
       "name": "cross_linux2win",
