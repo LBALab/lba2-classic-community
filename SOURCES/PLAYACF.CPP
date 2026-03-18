@@ -7,6 +7,7 @@
 #include "INPUT.H"
 #include "MESSAGE.H"
 #include <AIL/VIDEO_AUDIO.H>
+#include <SVGA/DIRTYBOX.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
@@ -16,7 +17,6 @@
 #include <string.h>
 #ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
-#include <SVGA/DIRTYBOX.H>
 #endif
 #endif
 
@@ -526,6 +526,8 @@ S32	PlayAcf( const char *name )
       CopyBlock(0, 0, 640, 480, dest, 0, 0, Log);
       if (pal)
         PaletteSync(pal);
+      BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
+      BoxUpdate();
 
       /* Pace to real time with SDL so speed is correct and sleep reduces stutter */
       if (c == 0)
