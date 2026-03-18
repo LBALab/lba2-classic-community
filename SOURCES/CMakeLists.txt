@@ -51,7 +51,7 @@ target_compile_definitions(lba2 PRIVATE ONE_GAME_DIRECTORY LBA_GAME CDROM
         $<$<STREQUAL:${MVIDEO_BACKEND},smacker>:USE_MVIDEO_SMACKER>
         SDL_DISABLE_OLD_NAMES)
 if(MVIDEO_BACKEND STREQUAL "smacker")
-  target_link_libraries(lba2 PRIVATE libsmacker)
+  target_link_libraries(lba2 PRIVATE libsmacker video_audio_resample)
 endif()
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
