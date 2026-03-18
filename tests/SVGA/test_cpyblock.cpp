@@ -1,63 +1,156 @@
 /* Test: CopyBlock — fast memory block copy between screen regions */
 #include "test_harness.h"
+
 #include <SVGA/CPYBLOCK.H>
-#include <SVGA/SCREEN.H>
 #include <SVGA/CLIP.H>
+#include <SVGA/SCREEN.H>
+#include <stdio.h>
 #include <string.h>
 
-extern "C" void asm_CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd, void *dst);
+extern "C" void asm_CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src,
+                               S32 xd, S32 yd, void *dst);
 
-static U8 srcbuf[640 * 480];
-static U8 dstbuf[640 * 480];
+static const U32 kScreenWidth = 640;
+static const U32 kScreenHeight = 480;
+static const U32 kBufferSize = kScreenWidth * kScreenHeight;
 
-static void setup(void)
+static U8 src_init[kBufferSize];
+static U8 cpp_src[kBufferSize];
+static U8 asm_src[kBufferSize];
+static U8 dst_init[kBufferSize];
+static U8 cpp_dst[kBufferSize];
+static U8 asm_dst[kBufferSize];
+static U32 rng_state;
+
+static void rng_seed(U32 seed)
 {
-    ModeDesiredX = 640; ModeDesiredY = 480;
-    for (U32 i = 0; i < 480; i++) TabOffLine[i] = i * 640;
-    ClipXMin = 0; ClipYMin = 0; ClipXMax = 639; ClipYMax = 479;
-    memset(srcbuf, 0, sizeof(srcbuf));
-    memset(dstbuf, 0, sizeof(dstbuf));
+    rng_state = seed;
 }
 
-static void test_simple_copy(void)
+static U32 rng_next(void)
 {
-    setup();
-    /* Fill a region in srcbuf */
-    for (int y = 10; y <= 20; y++)
-        for (int x = 10; x <= 20; x++)
-            srcbuf[y * 640 + x] = 0xAB;
-    CopyBlock(10, 10, 20, 20, srcbuf, 50, 50, dstbuf);
-    /* Check that dst has the data at (50,50)-(60,60) */
-    ASSERT_EQ_UINT(0xAB, dstbuf[50 * 640 + 50]);
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void test_zero_size(void)
+static void setup_screen(void)
 {
-    setup();
-    CopyBlock(10, 10, 10, 10, srcbuf, 50, 50, dstbuf);
-    ASSERT_TRUE(1); /* Should not crash */
+    ModeDesiredX = (S32)kScreenWidth;
+    ModeDesiredY = (S32)kScreenHeight;
+    for (U32 i = 0; i < kScreenHeight; ++i) {
+        TabOffLine[i] = i * kScreenWidth;
+    }
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = (S32)kScreenWidth - 1;
+    ClipYMax = (S32)kScreenHeight - 1;
 }
 
-static void test_asm_equiv(void)
+static void fill_source_pattern(U32 salt)
 {
-    setup();
-    for (int y = 5; y <= 15; y++)
-        for (int x = 5; x <= 15; x++)
-            srcbuf[y * 640 + x] = 0xCD;
+    for (U32 i = 0; i < kBufferSize; ++i) {
+        src_init[i] = (U8)(((i * 29u) + (salt * 17u) + (i >> 2)) & 0xFFu);
+    }
+}
 
-    U8 cpp_dst[640 * 480], asm_dst[640 * 480];
-    memset(cpp_dst, 0, sizeof(cpp_dst));
-    memset(asm_dst, 0, sizeof(asm_dst));
-    CopyBlock(5, 5, 15, 15, srcbuf, 30, 30, cpp_dst);
-    asm_CopyBlock(5, 5, 15, 15, srcbuf, 30, 30, asm_dst);
-    ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "CopyBlock");
+static void fill_dest_pattern(U32 salt)
+{
+    for (U32 i = 0; i < kBufferSize; ++i) {
+        dst_init[i] = (U8)(((i * 13u) + (salt * 31u) + 0x66u) & 0xFFu);
+    }
+}
+
+static void assert_copyblock_case(const char *label,
+                                  S32 x0, S32 y0, S32 x1, S32 y1,
+                                  S32 xd, S32 yd,
+                                  S32 clip_x_min, S32 clip_y_min,
+                                  S32 clip_x_max, S32 clip_y_max,
+                                  U32 salt)
+{
+    setup_screen();
+    fill_source_pattern(salt);
+    fill_dest_pattern(salt + 1u);
+
+    memcpy(cpp_src, src_init, sizeof(cpp_src));
+    memcpy(asm_src, src_init, sizeof(asm_src));
+    memcpy(cpp_dst, dst_init, sizeof(cpp_dst));
+    memcpy(asm_dst, dst_init, sizeof(asm_dst));
+
+    ClipXMin = clip_x_min;
+    ClipYMin = clip_y_min;
+    ClipXMax = clip_x_max;
+    ClipYMax = clip_y_max;
+    CopyBlock(x0, y0, x1, y1, cpp_src, xd, yd, cpp_dst);
+
+    setup_screen();
+    ClipXMin = clip_x_min;
+    ClipYMin = clip_y_min;
+    ClipXMax = clip_x_max;
+    ClipYMax = clip_y_max;
+    asm_CopyBlock(x0, y0, x1, y1, asm_src, xd, yd, asm_dst);
+
+    ASSERT_ASM_CPP_MEM_EQ(src_init, cpp_src, sizeof(cpp_src), label);
+    ASSERT_ASM_CPP_MEM_EQ(src_init, asm_src, sizeof(asm_src), label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), label);
+}
+
+static void test_equivalence(void)
+{
+    assert_copyblock_case("CopyBlock fixed simple",
+                          10, 10, 20, 20, 50, 50,
+                          0, 0, 639, 479, 1u);
+    assert_copyblock_case("CopyBlock fixed clipped source",
+                          -8, -3, 12, 6, 40, 20,
+                          0, 0, 639, 479, 2u);
+    assert_copyblock_case("CopyBlock fixed clipped destination",
+                          20, 20, 80, 45, 610, 460,
+                          0, 0, 639, 479, 3u);
+    assert_copyblock_case("CopyBlock fixed custom clip",
+                          50, 30, 120, 70, 180, 100,
+                          64, 32, 255, 191, 4u);
+    assert_copyblock_case("CopyBlock fixed outside clip",
+                          100, 100, 140, 120, 20, 20,
+                          200, 200, 300, 260, 5u);
+}
+
+static void test_random_equivalence(void)
+{
+    rng_seed(0xDEADBEEFu);
+    for (int i = 0; i < 120; ++i) {
+        S32 x0 = (S32)(rng_next() % 760u) - 60;
+        S32 y0 = (S32)(rng_next() % 560u) - 40;
+        S32 x1 = (S32)(rng_next() % 760u) - 60;
+        S32 y1 = (S32)(rng_next() % 560u) - 40;
+        S32 xd = (S32)(rng_next() % 760u) - 60;
+        S32 yd = (S32)(rng_next() % 560u) - 40;
+        S32 clip_x_min = (S32)(rng_next() % 320u);
+        S32 clip_y_min = (S32)(rng_next() % 240u);
+        S32 clip_x_max = clip_x_min + (S32)(rng_next() % (640u - (U32)clip_x_min));
+        S32 clip_y_max = clip_y_min + (S32)(rng_next() % (480u - (U32)clip_y_min));
+        char label[64];
+
+        if (x0 > x1) {
+            S32 tmp = x0;
+            x0 = x1;
+            x1 = tmp;
+        }
+        if (y0 > y1) {
+            S32 tmp = y0;
+            y0 = y1;
+            y1 = tmp;
+        }
+
+        snprintf(label, sizeof(label), "CopyBlock rand %d", i);
+        assert_copyblock_case(label, x0, y0, x1, y1, xd, yd,
+                              clip_x_min, clip_y_min, clip_x_max, clip_y_max,
+                              (U32)i + 100u);
+    }
 }
 
 int main(void)
 {
-    RUN_TEST(test_simple_copy);
-    RUN_TEST(test_zero_size);
-    RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_equivalence);
+    RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;
 }
