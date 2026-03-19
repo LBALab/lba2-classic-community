@@ -21,53 +21,53 @@ S32 TextYMax = 0;
 
 // -----------------------------------------------------------------------------
 void GraphPrintf(U32 flagflip, U32 x, U32 y, const char *format, ...) {
-  S32 len;
-  char *ptr;
-  char msgbuf[256];
-  va_list arglist;
+    S32 len;
+    char *ptr;
+    char msgbuf[256];
+    va_list arglist;
 
-  if ((y < ClipYMin) OR(y > ClipYMax - 7) OR(x > ClipXMax))
-    return;
+    if ((y < ClipYMin) OR(y > ClipYMax - 7) OR(x > ClipXMax))
+        return;
 
-  va_start(arglist, format);
-  len = vsnprintf(msgbuf, 256, format, arglist);
-  va_end(arglist);
+    va_start(arglist, format);
+    len = vsnprintf(msgbuf, 256, format, arglist);
+    va_end(arglist);
 
-  if (len == -1)
-    return;
+    if (len == -1)
+        return;
 
-  ptr = msgbuf;
+    ptr = msgbuf;
 
-  if (x + len * 8 - 1 > ClipXMax) {
-    len = (ClipXMax - x) / 8;
-    ptr[len] = 0;
-  }
-
-  if (x < ClipXMin) {
-    ptr += (ClipXMin - x) / 8;
-    x += ClipXMin - x;
-    len = strlen(ptr);
-  }
-
-  if (ptr < msgbuf + len) {
-    AffString(x, y, ptr);
-
-    TextXMin = x;
-    TextXMax = x + len * 8 - 1;
-    TextYMin = y;
-    TextYMax = y + 7;
-
-    BoxStaticAdd(TextXMin, TextYMin, TextXMax, TextYMax);
-
-    if (flagflip) {
-      BoxUpdate();
+    if (x + len * 8 - 1 > ClipXMax) {
+        len = (ClipXMax - x) / 8;
+        ptr[len] = 0;
     }
-  } else {
-    TextXMin = -1;
-    TextXMax = -1;
-    TextYMin = -1;
-    TextYMax = -1;
-  }
+
+    if (x < ClipXMin) {
+        ptr += (ClipXMin - x) / 8;
+        x += ClipXMin - x;
+        len = strlen(ptr);
+    }
+
+    if (ptr < msgbuf + len) {
+        AffString(x, y, ptr);
+
+        TextXMin = x;
+        TextXMax = x + len * 8 - 1;
+        TextYMin = y;
+        TextYMax = y + 7;
+
+        BoxStaticAdd(TextXMin, TextYMin, TextXMax, TextYMax);
+
+        if (flagflip) {
+            BoxUpdate();
+        }
+    } else {
+        TextXMin = -1;
+        TextXMax = -1;
+        TextYMin = -1;
+        TextYMax = -1;
+    }
 }
 
 // =============================================================================

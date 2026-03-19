@@ -1,28 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_BODY
-#define	LIB_ANI_BODY
+#ifndef LIB_ANI_BODY
+#define LIB_ANI_BODY
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-void	ObjectInitBody(T_OBJ_3D *obj, void *body)	;
+void ObjectInitBody(T_OBJ_3D *obj, void *body);
 
-#pragma aux ObjectInitBody	"*"	\
-	parm caller		[ebx] [eax]	\
-	modify exact 	[ecx]
+#pragma aux ObjectInitBody "*" parm caller[ebx][eax] modify exact[ecx]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_BODY
+#endif //LIB_ANI_BODY
 
 //****************************************************************************
-

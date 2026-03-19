@@ -7,26 +7,24 @@ extern "C" S32 asm_BoundRegleTrois(S32 v1, S32 v2, S32 steps, S32 step);
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void assert_regle_case(const char *label, S32 v1, S32 v2, S32 steps, S32 step)
-{
+static void assert_regle_case(const char *label, S32 v1, S32 v2, S32 steps, S32 step) {
     ASSERT_ASM_CPP_EQ_INT(asm_RegleTrois(v1, v2, steps, step), RegleTrois(v1, v2, steps, step), label);
     ASSERT_ASM_CPP_EQ_INT(asm_BoundRegleTrois(v1, v2, steps, step), BoundRegleTrois(v1, v2, steps, step), label);
 }
 
-static void test_equivalence(void)
-{
-    struct { S32 v1, v2, steps, step; } cases[] = {
+static void test_equivalence(void) {
+    struct {
+        S32 v1, v2, steps, step;
+    } cases[] = {
         {0, 100, 10, 0},
         {0, 100, 10, 5},
         {0, 100, 10, 10},
@@ -43,7 +41,7 @@ static void test_equivalence(void)
         {2147483000, 2147483600, 7, 3},
         {-2147483000, -2147482000, 9, 4},
     };
-    for (int i = 0; i < (int)(sizeof(cases)/sizeof(cases[0])); i++) {
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); i++) {
         char lbl[96];
         snprintf(lbl, sizeof(lbl), "Regle3 fixed v1=%d v2=%d steps=%d step=%d",
                  cases[i].v1, cases[i].v2, cases[i].steps, cases[i].step);
@@ -51,8 +49,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
         S32 v1 = ((S32)rng_next() << 1) - 0x4000;
@@ -65,8 +62,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

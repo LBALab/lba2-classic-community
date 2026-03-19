@@ -9,7 +9,7 @@ extern "C" {
 
 /* Public API */
 
-int  Console_IsOpen(void);
+int Console_IsOpen(void);
 void Console_Toggle(void);
 /** Close the console if open (e.g. before playvideo/cube so the game takes over). Sets suppress-input-for-one-frame. */
 void Console_Close(void);
@@ -40,9 +40,9 @@ void Console_ClearPendingScreenshot(void);
 typedef void (*Console_CmdFn)(int argc, const char *argv[]);
 
 typedef enum {
-	CONSOLE_CVAR_INT,
-	CONSOLE_CVAR_BOOL,
-	CONSOLE_CVAR_BOOL_U8
+    CONSOLE_CVAR_INT,
+    CONSOLE_CVAR_BOOL,
+    CONSOLE_CVAR_BOOL_U8
 } Console_CvarType;
 
 void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help);

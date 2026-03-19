@@ -22,9 +22,8 @@ S32 MemoClipWindowYMin = 0; // MemoClipWindowYMin	dd	0
 S32 MemoClipWindowXMax = 0; // MemoClipWindowXMax	dd	0
 S32 MemoClipWindowYMax = 0; // MemoClipWindowYMax	dd	0
 
-void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)
-{
-		if (x0 >= 0)
+void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1) {
+    if (x0 >= 0)
         ClipWindowXMin = x0;
     else
         ClipWindowXMin = 0;
@@ -47,72 +46,64 @@ void SetClipWindow(S32 x0, S32 y0, S32 x1, S32 y1)
     SetClip(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
 }
 
-void UnsetClipWindow()
-{
-	ClipWindowXMax = ModeResX - 1;
-	ClipWindowYMax = ModeResY - 1;
-	ClipWindowXMin = 0;
-	ClipWindowYMin = 0;
-	ClipXMax = ModeResX - 1;
-	ClipYMax = ModeResY - 1;
-	ClipXMin = 0;
-	ClipYMin = 0;
+void UnsetClipWindow() {
+    ClipWindowXMax = ModeResX - 1;
+    ClipWindowYMax = ModeResY - 1;
+    ClipWindowXMin = 0;
+    ClipWindowYMin = 0;
+    ClipXMax = ModeResX - 1;
+    ClipYMax = ModeResY - 1;
+    ClipXMin = 0;
+    ClipYMin = 0;
 }
 
-void MemoClipWindow()
-{
-	MemoClipWindowXMin = ClipWindowXMin;
-	MemoClipWindowYMin = ClipWindowYMin;
-	MemoClipWindowXMax = ClipWindowXMax;
-	MemoClipWindowYMax = ClipWindowYMax;
+void MemoClipWindow() {
+    MemoClipWindowXMin = ClipWindowXMin;
+    MemoClipWindowYMin = ClipWindowYMin;
+    MemoClipWindowXMax = ClipWindowXMax;
+    MemoClipWindowYMax = ClipWindowYMax;
 }
 
-void RestoreClipWindow()
-{
-	SetClipWindow(MemoClipWindowXMin, MemoClipWindowYMin, MemoClipWindowXMax, MemoClipWindowYMax);
+void RestoreClipWindow() {
+    SetClipWindow(MemoClipWindowXMin, MemoClipWindowYMin, MemoClipWindowXMax, MemoClipWindowYMax);
 }
 
-void SetClip(S32 x0, S32 y0, S32 x1, S32 y1)
-{
-	if (x0 >= ClipWindowXMin)
-			ClipXMin = x0;
-	else
-			ClipXMin = ClipWindowXMin;
+void SetClip(S32 x0, S32 y0, S32 x1, S32 y1) {
+    if (x0 >= ClipWindowXMin)
+        ClipXMin = x0;
+    else
+        ClipXMin = ClipWindowXMin;
 
-	if (y0 >= ClipWindowYMin)
-			ClipYMin = y0;
-	else
-			ClipYMin = ClipWindowYMin;
+    if (y0 >= ClipWindowYMin)
+        ClipYMin = y0;
+    else
+        ClipYMin = ClipWindowYMin;
 
-	if (x1 <= ClipWindowXMax)
-			ClipXMax = x1;
-	else
-			ClipXMax = ClipWindowXMax;
+    if (x1 <= ClipWindowXMax)
+        ClipXMax = x1;
+    else
+        ClipXMax = ClipWindowXMax;
 
-	if (y1 <= ClipWindowYMax)
-			ClipYMax = y1;
-	else
-			ClipYMax = ClipWindowYMax;
+    if (y1 <= ClipWindowYMax)
+        ClipYMax = y1;
+    else
+        ClipYMax = ClipWindowYMax;
 }
 
-void UnsetClip()
-{
-	ClipXMin = ClipWindowXMin;
-	ClipYMin = ClipWindowYMin;
-	ClipXMax = ClipWindowXMax;
-	ClipYMax = ClipWindowYMax;
+void UnsetClip() {
+    ClipXMin = ClipWindowXMin;
+    ClipYMin = ClipWindowYMin;
+    ClipXMax = ClipWindowXMax;
+    ClipYMax = ClipWindowYMax;
 }
 
-void MemoClip()
-{
-	MemoClipXMin = ClipXMin;
-	MemoClipYMin = ClipYMin;
-	MemoClipXMax = ClipXMax;
-	MemoClipYMax = ClipYMax;
+void MemoClip() {
+    MemoClipXMin = ClipXMin;
+    MemoClipYMin = ClipYMin;
+    MemoClipXMax = ClipXMax;
+    MemoClipYMax = ClipYMax;
 }
 
-void RestoreClip()
-{
-	SetClip(MemoClipXMin, MemoClipYMin, MemoClipXMax, MemoClipYMax);
+void RestoreClip() {
+    SetClip(MemoClipXMin, MemoClipYMin, MemoClipXMax, MemoClipYMax);
 }
-

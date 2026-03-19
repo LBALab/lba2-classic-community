@@ -85,21 +85,18 @@ T_ZONE *ListZone = 0;
 T_TABALLCUBE TabAllCube[256];
 T_MEM ListMem[8];
 
-extern "C" void GetResPath(char *outPath, U16 pathMaxSize, const char *resFilename)
-{
+extern "C" void GetResPath(char *outPath, U16 pathMaxSize, const char *resFilename) {
     (void)resFilename;
     if (pathMaxSize > 0) {
         outPath[0] = '\0';
     }
 }
 
-void ReajustPos(U8 col)
-{
+void ReajustPos(U8 col) {
     (void)col;
 }
 
-S32 AdjustShadowObjects(S32 xw, S32 zw, S32 y0, S32 y1)
-{
+S32 AdjustShadowObjects(S32 xw, S32 zw, S32 y0, S32 y1) {
     (void)xw;
     (void)zw;
     (void)y1;
@@ -108,11 +105,22 @@ S32 AdjustShadowObjects(S32 xw, S32 zw, S32 y0, S32 y1)
 
 void ClearScreenMinMax(void) {}
 void AdjustScreenMinMax(void) {}
-void Message(const char *mess, S32 flag) { (void)mess; (void)flag; }
-S32 PtrProjectPoint(S32 xw, S32 yw, S32 zw) { (void)xw; (void)yw; (void)zw; return 1; }
-void DrawRecover(S32 x0, S32 y0, S32 x1, S32 y1, S32 color)
-{
-    (void)x0; (void)y0; (void)x1; (void)y1; (void)color;
+void Message(const char *mess, S32 flag) {
+    (void)mess;
+    (void)flag;
+}
+S32 PtrProjectPoint(S32 xw, S32 yw, S32 zw) {
+    (void)xw;
+    (void)yw;
+    (void)zw;
+    return 1;
+}
+void DrawRecover(S32 x0, S32 y0, S32 x1, S32 y1, S32 color) {
+    (void)x0;
+    (void)y0;
+    (void)x1;
+    (void)y1;
+    (void)color;
 }
 extern "C" void SetScreenPitch(U32 *newTabOffLine) { (void)newTabOffLine; }
 
@@ -121,38 +129,32 @@ static U8 g_buf_map[4096];
 static U8 g_tab_block[4096];
 static U8 g_buffer_brick[4096];
 
-static void rng_seed(U32 seed_value)
-{
+static void rng_seed(U32 seed_value) {
     rng_state = seed_value;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static U32 cube_offset(S32 x, S32 y, S32 z)
-{
+static U32 cube_offset(S32 x, S32 y, S32 z) {
     return (U32)(x * 50 + y * 2 + z * 3200);
 }
 
-static void set_cube_brick(S32 x, S32 y, S32 z, U8 block_index, U8 pos_block)
-{
+static void set_cube_brick(S32 x, S32 y, S32 z, U8 block_index, U8 pos_block) {
     U32 offset = cube_offset(x, y, z);
     g_buf_cube[offset] = (U8)(block_index + 1);
     g_buf_cube[offset + 1] = pos_block;
 }
 
-static void set_cube_empty(S32 x, S32 y, S32 z, U8 transparent_color)
-{
+static void set_cube_empty(S32 x, S32 y, S32 z, U8 transparent_color) {
     U32 offset = cube_offset(x, y, z);
     g_buf_cube[offset] = 0;
     g_buf_cube[offset + 1] = transparent_color;
 }
 
-static void init_block(U32 index, U32 offset, U8 color0, U8 color1, U8 code)
-{
+static void init_block(U32 index, U32 offset, U8 color0, U8 color1, U8 code) {
     ((U32 *)g_tab_block)[index] = offset;
     g_tab_block[offset + 0] = 1;
     g_tab_block[offset + 1] = 1;
@@ -162,8 +164,7 @@ static void init_block(U32 index, U32 offset, U8 color0, U8 color1, U8 code)
     g_tab_block[offset + 7] = color1;
 }
 
-static void init_grille_fixture(void)
-{
+static void init_grille_fixture(void) {
     memset(g_buf_cube, 0, sizeof(g_buf_cube));
     memset(g_buf_map, 0, sizeof(g_buf_map));
     memset(g_tab_block, 0, sizeof(g_tab_block));
@@ -207,19 +208,16 @@ static void init_grille_fixture(void)
 static void assert_xyz_state(const char *label,
                              S32 asm_xmap, S32 cpp_xmap,
                              S32 asm_ymap, S32 cpp_ymap,
-                             S32 asm_zmap, S32 cpp_zmap)
-{
+                             S32 asm_zmap, S32 cpp_zmap) {
     ASSERT_ASM_CPP_EQ_INT(asm_xmap, cpp_xmap, label);
     ASSERT_ASM_CPP_EQ_INT(asm_ymap, cpp_ymap, label);
     ASSERT_ASM_CPP_EQ_INT(asm_zmap, cpp_zmap, label);
 }
 
-static void test_getadrblock_equivalence(void)
-{
+static void test_getadrblock_equivalence(void) {
     init_grille_fixture();
 
-    for (S32 index = 0; index < 3; ++index)
-    {
+    for (S32 index = 0; index < 3; ++index) {
         U8 *cpp_ptr = GetAdrBlock(index);
         U8 *asm_ptr = asm_GetAdrBlock(index);
 
@@ -227,24 +225,27 @@ static void test_getadrblock_equivalence(void)
     }
 }
 
-static void test_map2screen_equivalence(void)
-{
-    struct Case { S32 x; S32 y; S32 z; } cases[] = {
+static void test_map2screen_equivalence(void) {
+    struct Case {
+        S32 x;
+        S32 y;
+        S32 z;
+    } cases[] = {
         {0, 0, 0},
         {1, 2, 3},
         {20, -3, 5},
         {-7, 4, -2},
-        {127, 31, 63}
-    };
+        {127, 31, 63}};
 
-    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i)
-    {
-        XScreen = 0; YScreen = 0;
+    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+        XScreen = 0;
+        YScreen = 0;
         Map2Screen(cases[i].x, cases[i].y, cases[i].z);
         S32 cpp_xscreen = XScreen;
         S32 cpp_yscreen = YScreen;
 
-        XScreen = 0; YScreen = 0;
+        XScreen = 0;
+        YScreen = 0;
         asm_Map2Screen(cases[i].x, cases[i].y, cases[i].z);
         S32 asm_xscreen = asm_XScreen;
         S32 asm_yscreen = asm_YScreen;
@@ -254,11 +255,9 @@ static void test_map2screen_equivalence(void)
     }
 }
 
-static void test_map2screen_random_stress(void)
-{
+static void test_map2screen_random_stress(void) {
     rng_seed(0xDEADBEEFu);
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         S32 x = (S32)(rng_next() % 512) - 256;
         S32 y = (S32)(rng_next() % 128) - 64;
         S32 z = (S32)(rng_next() % 512) - 256;
@@ -267,7 +266,8 @@ static void test_map2screen_random_stress(void)
         S32 cpp_xscreen = XScreen;
         S32 cpp_yscreen = YScreen;
 
-        XScreen = 0; YScreen = 0;
+        XScreen = 0;
+        YScreen = 0;
         asm_Map2Screen(x, y, z);
 
         ASSERT_ASM_CPP_EQ_INT(asm_XScreen, cpp_xscreen, "Map2Screen random");
@@ -275,8 +275,7 @@ static void test_map2screen_random_stress(void)
     }
 }
 
-static void test_decompcolonne_equivalence(void)
-{
+static void test_decompcolonne_equivalence(void) {
     U8 src_same[] = {1, 0x81, 0x05, 0x06};
     U8 src_diff[] = {1, 0xC1, 0x07, 0x08, 0x09, 0x0A};
     U8 src_zero[] = {1, 0x01};
@@ -284,8 +283,7 @@ static void test_decompcolonne_equivalence(void)
     U8 *cases[] = {src_same, src_diff, src_zero, src_mixed};
     U32 sizes[] = {sizeof(src_same), sizeof(src_diff), sizeof(src_zero), sizeof(src_mixed)};
 
-    for (U32 i = 0; i < 4; ++i)
-    {
+    for (U32 i = 0; i < 4; ++i) {
         U8 cpp_src[32];
         U8 asm_src[32];
         U8 cpp_dst[64];
@@ -306,18 +304,19 @@ static void test_decompcolonne_equivalence(void)
     }
 }
 
-static void test_worldcodebrick_equivalence(void)
-{
-    struct Case { S32 xw; S32 yw; S32 zw; } cases[] = {
+static void test_worldcodebrick_equivalence(void) {
+    struct Case {
+        S32 xw;
+        S32 yw;
+        S32 zw;
+    } cases[] = {
         {1 * 512, 2 * 256, 3 * 512},
         {2 * 512, 4 * 256, 5 * 512},
         {3 * 512, 6 * 256, 7 * 512},
         {511, 2 * 256, 3 * 512},
-        {1 * 512, -1, 3 * 512}
-    };
+        {1 * 512, -1, 3 * 512}};
 
-    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i)
-    {
+    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
         init_grille_fixture();
         U8 cpp_result = WorldCodeBrick(cases[i].xw, cases[i].yw, cases[i].zw);
         S32 cpp_xmap = XMap, cpp_ymap = YMap, cpp_zmap = ZMap;
@@ -331,18 +330,19 @@ static void test_worldcodebrick_equivalence(void)
     }
 }
 
-static void test_getblockbrick_equivalence(void)
-{
-    struct Case { S32 xw; S32 yw; S32 zw; } cases[] = {
+static void test_getblockbrick_equivalence(void) {
+    struct Case {
+        S32 xw;
+        S32 yw;
+        S32 zw;
+    } cases[] = {
         {1 * 512, 2 * 256, 3 * 512},
         {10 * 512, 10 * 256, 10 * 512},
         {-1, 2 * 256, 3 * 512},
         {1 * 512, -1, 3 * 512},
-        {64 * 512, 0, 0}
-    };
+        {64 * 512, 0, 0}};
 
-    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i)
-    {
+    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
         init_grille_fixture();
         U8 cpp_result = GetBlockBrick(cases[i].xw, cases[i].yw, cases[i].zw);
         S32 cpp_xmap = XMap, cpp_ymap = YMap, cpp_zmap = ZMap;
@@ -356,18 +356,19 @@ static void test_getblockbrick_equivalence(void)
     }
 }
 
-static void test_getworldcolbrickvisible_equivalence(void)
-{
-    struct Case { S32 xw; S32 yw; S32 zw; } cases[] = {
+static void test_getworldcolbrickvisible_equivalence(void) {
+    struct Case {
+        S32 xw;
+        S32 yw;
+        S32 zw;
+    } cases[] = {
         {1 * 512, 2 * 256, 3 * 512},
         {3 * 512, 6 * 256, 7 * 512},
         {-1, 2 * 256, 3 * 512},
         {1 * 512, -1, 3 * 512},
-        {64 * 512, 0, 0}
-    };
+        {64 * 512, 0, 0}};
 
-    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i)
-    {
+    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
         init_grille_fixture();
         U8 cpp_result = GetWorldColBrickVisible(cases[i].xw, cases[i].yw, cases[i].zw);
         S32 cpp_xmap = XMap, cpp_ymap = YMap, cpp_zmap = ZMap;
@@ -381,18 +382,20 @@ static void test_getworldcolbrickvisible_equivalence(void)
     }
 }
 
-static void test_worldcolbrickfull_equivalence(void)
-{
-    struct Case { S32 xw; S32 yw; S32 zw; S32 ymax; } cases[] = {
+static void test_worldcolbrickfull_equivalence(void) {
+    struct Case {
+        S32 xw;
+        S32 yw;
+        S32 zw;
+        S32 ymax;
+    } cases[] = {
         {4 * 512, 8 * 256, 9 * 512, 0},
         {4 * 512, 8 * 256, 9 * 512, 512},
         {3 * 512, 6 * 256, 7 * 512, 256},
         {-1, 0, 0, 256},
-        {1 * 512, 24 * 256, 3 * 512, 256}
-    };
+        {1 * 512, 24 * 256, 3 * 512, 256}};
 
-    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i)
-    {
+    for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
         init_grille_fixture();
         U8 cpp_result = WorldColBrickFull(cases[i].xw, cases[i].yw, cases[i].zw, cases[i].ymax);
         S32 cpp_xmap = XMap, cpp_ymap = YMap, cpp_zmap = ZMap;
@@ -406,11 +409,9 @@ static void test_worldcolbrickfull_equivalence(void)
     }
 }
 
-static void test_grille_random_stress(void)
-{
+static void test_grille_random_stress(void) {
     rng_seed(0xA55A5AA5u);
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         S32 xw = (S32)(rng_next() % (64 * 512));
         S32 yw = (S32)(rng_next() % (25 * 256));
         S32 zw = (S32)(rng_next() % (64 * 512));
@@ -427,7 +428,9 @@ static void test_grille_random_stress(void)
 
         init_grille_fixture();
         U8 cpp_block = GetBlockBrick(xw, yw, zw);
-        cpp_xmap = XMap; cpp_ymap = YMap; cpp_zmap = ZMap;
+        cpp_xmap = XMap;
+        cpp_ymap = YMap;
+        cpp_zmap = ZMap;
 
         init_grille_fixture();
         U8 asm_block = asm_GetBlockBrick(xw, yw, zw);
@@ -436,7 +439,9 @@ static void test_grille_random_stress(void)
 
         init_grille_fixture();
         U8 cpp_visible = GetWorldColBrickVisible(xw, yw, zw);
-        cpp_xmap = XMap; cpp_ymap = YMap; cpp_zmap = ZMap;
+        cpp_xmap = XMap;
+        cpp_ymap = YMap;
+        cpp_zmap = ZMap;
 
         init_grille_fixture();
         U8 asm_visible = asm_GetWorldColBrickVisible(xw, yw, zw);
@@ -445,7 +450,9 @@ static void test_grille_random_stress(void)
 
         init_grille_fixture();
         U8 cpp_full = WorldColBrickFull(xw, yw, zw, ymax);
-        cpp_xmap = XMap; cpp_ymap = YMap; cpp_zmap = ZMap;
+        cpp_xmap = XMap;
+        cpp_ymap = YMap;
+        cpp_zmap = ZMap;
 
         init_grille_fixture();
         U8 asm_full = asm_WorldColBrickFull(xw, yw, zw, ymax);
@@ -454,8 +461,7 @@ static void test_grille_random_stress(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_getadrblock_equivalence);
     RUN_TEST(test_map2screen_equivalence);
     RUN_TEST(test_map2screen_random_stress);

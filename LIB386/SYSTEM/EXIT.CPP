@@ -15,13 +15,13 @@ static U32 NbFuncs = 0;
 
 // -----------------------------------------------------------------------------
 U32 RegisterInitClear(PTR_VOID_FUNC init, PTR_VOID_FUNC clear) {
-  if (NbFuncs == 32) {
-    return 1;
-  }
+    if (NbFuncs == 32) {
+        return 1;
+    }
 
-  NbFuncs++;
+    NbFuncs++;
 
-  return clear ? atexit(clear) : 0;
+    return clear ? atexit(clear) : 0;
 }
 
 // =============================================================================

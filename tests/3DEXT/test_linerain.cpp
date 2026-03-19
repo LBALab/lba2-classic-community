@@ -12,8 +12,8 @@
 #include <string.h>
 
 extern "C" S32 asm_LineRain(S32 x0, S32 y0, S32 z0,
-                             S32 x1, S32 y1, S32 z1,
-                             S32 coul);
+                            S32 x1, S32 y1, S32 z1,
+                            S32 coul);
 
 void *Log = NULL;
 PTR_U16 PtrZBuffer = NULL;
@@ -68,15 +68,13 @@ struct RunResult {
     S32 screen_ymax;
 };
 
-static void init_palette_identity(void)
-{
+static void init_palette_identity(void) {
     for (U32 i = 0; i < 256; ++i) {
         initial_palette[i] = (U8)i;
     }
 }
 
-static void init_default_buffers(void)
-{
+static void init_default_buffers(void) {
     for (U32 i = 0; i < kPixelCount; ++i) {
         initial_log[i] = (U8)((i * 23u + 17u) & 0xFFu);
         initial_zbuf[i] = (U16)((i * 61u + 19u) & 0xFFFFu);
@@ -84,8 +82,7 @@ static void init_default_buffers(void)
     init_palette_identity();
 }
 
-static void randomize_state(void)
-{
+static void randomize_state(void) {
     for (U32 i = 0; i < kPixelCount; ++i) {
         initial_log[i] = (U8)rng_next();
         initial_zbuf[i] = (U16)(((rng_next() << 1) ^ rng_next()) & 0xFFFFu);
@@ -95,16 +92,14 @@ static void randomize_state(void)
     }
 }
 
-static void clone_initial_state(void)
-{
+static void clone_initial_state(void) {
     memcpy(cpp_log, initial_log, sizeof(initial_log));
     memcpy(cpp_zbuf, initial_zbuf, sizeof(initial_zbuf));
     memcpy(asm_log, initial_log, sizeof(initial_log));
     memcpy(asm_zbuf, initial_zbuf, sizeof(initial_zbuf));
 }
 
-static void fill_rect_z(U16 value, U32 xmin, U32 ymin, U32 xmax, U32 ymax)
-{
+static void fill_rect_z(U16 value, U32 xmin, U32 ymin, U32 xmax, U32 ymax) {
     for (U32 y = ymin; y <= ymax; ++y) {
         for (U32 x = xmin; x <= xmax; ++x) {
             initial_zbuf[y * kWidth + x] = value;
@@ -115,8 +110,7 @@ static void fill_rect_z(U16 value, U32 xmin, U32 ymin, U32 xmax, U32 ymax)
 static void setup_globals(U8 *log_buf, U16 *zbuf_buf,
                           S32 clip_xmin, S32 clip_ymin,
                           S32 clip_xmax, S32 clip_ymax,
-                          U8 fog_enabled)
-{
+                          U8 fog_enabled) {
     Log = log_buf;
     PtrZBuffer = zbuf_buf;
     PTR_TabOffLine = TabOffLine;
@@ -148,8 +142,7 @@ static RunResult run_cpp(S32 x0, S32 y0, S32 z0,
                          S32 color,
                          S32 clip_xmin, S32 clip_ymin,
                          S32 clip_xmax, S32 clip_ymax,
-                         U8 fog_enabled)
-{
+                         U8 fog_enabled) {
     setup_globals(cpp_log, cpp_zbuf,
                   clip_xmin, clip_ymin, clip_xmax, clip_ymax,
                   fog_enabled);
@@ -168,8 +161,7 @@ static RunResult run_asm(S32 x0, S32 y0, S32 z0,
                          S32 color,
                          S32 clip_xmin, S32 clip_ymin,
                          S32 clip_xmax, S32 clip_ymax,
-                         U8 fog_enabled)
-{
+                         U8 fog_enabled) {
     setup_globals(asm_log, asm_zbuf,
                   clip_xmin, clip_ymin, clip_xmax, clip_ymax,
                   fog_enabled);
@@ -189,8 +181,7 @@ static void assert_case_equivalence(const char *label,
                                     S32 color,
                                     S32 clip_xmin, S32 clip_ymin,
                                     S32 clip_xmax, S32 clip_ymax,
-                                    U8 fog_enabled)
-{
+                                    U8 fog_enabled) {
     clone_initial_state();
 
     RunResult cpp_result = run_cpp(x0, y0, z0, x1, y1, z1, color,
@@ -209,8 +200,7 @@ static void assert_case_equivalence(const char *label,
     ASSERT_ASM_CPP_MEM_EQ((U8 *)asm_zbuf, (U8 *)cpp_zbuf, sizeof(cpp_zbuf), label);
 }
 
-static void test_linerain_horizontal_visible(void)
-{
+static void test_linerain_horizontal_visible(void) {
     init_default_buffers();
     fill_rect_z(1200, 12, 15, 40, 15);
 
@@ -222,8 +212,7 @@ static void test_linerain_horizontal_visible(void)
                             0);
 }
 
-static void test_linerain_diagonal_fog_intersection(void)
-{
+static void test_linerain_diagonal_fog_intersection(void) {
     init_default_buffers();
     fill_rect_z(150, 20, 10, 40, 30);
     initial_palette[0x5A] = 0xC7;
@@ -236,8 +225,7 @@ static void test_linerain_diagonal_fog_intersection(void)
                             1);
 }
 
-static void test_linerain_vertical_occluded(void)
-{
+static void test_linerain_vertical_occluded(void) {
     init_default_buffers();
     fill_rect_z(10, 30, 12, 30, 26);
 
@@ -249,8 +237,7 @@ static void test_linerain_vertical_occluded(void)
                             0);
 }
 
-static void test_linerain_single_pixel(void)
-{
+static void test_linerain_single_pixel(void) {
     init_default_buffers();
     initial_zbuf[18 * kWidth + 14] = 220;
 
@@ -262,8 +249,7 @@ static void test_linerain_single_pixel(void)
                             0);
 }
 
-static void test_linerain_fully_clipped(void)
-{
+static void test_linerain_fully_clipped(void) {
     init_default_buffers();
 
     assert_case_equivalence("LineRain fully clipped",
@@ -274,8 +260,7 @@ static void test_linerain_fully_clipped(void)
                             0);
 }
 
-static void test_linerain_random_stress(void)
-{
+static void test_linerain_random_stress(void) {
     rng_seed(0xDEADBEEFu);
 
     for (int round = 0; round < 300; ++round) {
@@ -306,8 +291,7 @@ static void test_linerain_random_stress(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_linerain_horizontal_visible);
     RUN_TEST(test_linerain_diagonal_fog_intersection);
     RUN_TEST(test_linerain_vertical_occluded);

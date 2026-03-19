@@ -53,78 +53,78 @@ U64 MMX_DEMI2 = (4096LL << 32) | 4096LL;
 
 // -----------------------------------------------------------------------------
 void SetCamera(S32 x, S32 y, S32 z) {
-  if (TypeProj != TYPE_3D) {
-    // iso:
-    CameraXr = x;
-    CameraYr = y;
-    CameraZr = z;
-    CameraZrClip = z;
-    NearClip = 0;
-  } else {
-    LongRotatePoint(&MatriceWorld, x, y, z);
-    CameraXr = X0;
-    CameraYr = Y0;
-    CameraZr = Z0;
-    CameraZrClip = Z0 - NearClip;
-  }
+    if (TypeProj != TYPE_3D) {
+        // iso:
+        CameraXr = x;
+        CameraYr = y;
+        CameraZr = z;
+        CameraZrClip = z;
+        NearClip = 0;
+    } else {
+        LongRotatePoint(&MatriceWorld, x, y, z);
+        CameraXr = X0;
+        CameraYr = Y0;
+        CameraZr = Z0;
+        CameraZrClip = Z0 - NearClip;
+    }
 }
 
 void SetTargetCamera(S32 x, S32 y, S32 z, S32 gamma) {
-  y -= CameraZ;
-  z -= CameraY;
-  x -= CameraX;
+    y -= CameraZ;
+    z -= CameraY;
+    x -= CameraX;
 
-  GetAngleVector3D(x, y, z);
-  SetAngleCamera(X0, Y0, gamma);
+    GetAngleVector3D(x, y, z);
+    SetAngleCamera(X0, Y0, gamma);
 }
 
 void SetAngleCamera(S32 alpha, S32 beta, S32 gamma) {
-  if (TypeProj != TYPE_3D) {
-    // tiso:
-    alpha = 0;
-    beta = 0;
-    gamma = 0;
-  } else {
-    // Guarantee values on interval [0, 4095]
-    alpha %= 4096;
-    beta %= 4096;
-    gamma %= 4096;
-  }
+    if (TypeProj != TYPE_3D) {
+        // tiso:
+        alpha = 0;
+        beta = 0;
+        gamma = 0;
+    } else {
+        // Guarantee values on interval [0, 4095]
+        alpha %= 4096;
+        beta %= 4096;
+        gamma %= 4096;
+    }
 
-  // tback:
-  CameraAlpha = alpha;
-  CameraBeta = beta;
-  CameraGamma = gamma;
-  InitMatrixStd(&MatriceWorld, alpha, beta, gamma);
-  RecomputeLight();
+    // tback:
+    CameraAlpha = alpha;
+    CameraBeta = beta;
+    CameraGamma = gamma;
+    InitMatrixStd(&MatriceWorld, alpha, beta, gamma);
+    RecomputeLight();
 
-  SetCamera(CameraX, CameraY, CameraZ);
+    SetCamera(CameraX, CameraY, CameraZ);
 }
 
 void SetPosCamera(S32 x, S32 y, S32 z) {
-  CameraX = x;
-  CameraY = y;
-  CameraZ = z;
-  SetCamera(x, y, z);
+    CameraX = x;
+    CameraY = y;
+    CameraZ = z;
+    SetCamera(x, y, z);
 }
 
 void SetFollowCamera(S32 targetx, S32 targety, S32 targetz, S32 alpha, S32 beta,
                      S32 gamma, S32 camzoom) {
-  CameraX = targetx;
-  CameraY = targety;
-  CameraZ = targetz;
+    CameraX = targetx;
+    CameraY = targety;
+    CameraZ = targetz;
 
-  SetAngleCamera(alpha, beta, gamma);
+    SetAngleCamera(alpha, beta, gamma);
 
-  if (TypeProj == TYPE_3D) {
-    CameraZr = CameraZr + camzoom;
-    CameraZrClip = CameraZrClip + camzoom;
+    if (TypeProj == TYPE_3D) {
+        CameraZr = CameraZr + camzoom;
+        CameraZrClip = CameraZrClip + camzoom;
 
-    LongInverseRotatePoint(&MatriceWorld, CameraXr, CameraYr, CameraZr);
-    CameraX = X0;
-    CameraY = Y0;
-    CameraZ = Z0;
-  }
+        LongInverseRotatePoint(&MatriceWorld, CameraXr, CameraYr, CameraZr);
+        CameraX = X0;
+        CameraY = Y0;
+        CameraZ = Z0;
+    }
 }
 
 // =============================================================================

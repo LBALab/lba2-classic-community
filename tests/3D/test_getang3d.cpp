@@ -18,19 +18,16 @@ static S32 call_asm_GetAngleVector3D(S32 x, S32 y, S32 z) {
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void assert_angle3d_case(const char *label, S32 x, S32 y, S32 z)
-{
+static void assert_angle3d_case(const char *label, S32 x, S32 y, S32 z) {
     S32 cpp_ret = GetAngleVector3D(x, y, z);
     S32 cpp_x0 = X0;
     S32 cpp_y0 = Y0;
@@ -41,9 +38,10 @@ static void assert_angle3d_case(const char *label, S32 x, S32 y, S32 z)
     ASSERT_ASM_CPP_EQ_INT(Y0, cpp_y0, label);
 }
 
-static void test_equivalence(void)
-{
-    struct { S32 x, y, z; } cases[] = {
+static void test_equivalence(void) {
+    struct {
+        S32 x, y, z;
+    } cases[] = {
         {0, 0, 0},
         {0, 0, 100},
         {100, 0, 0},
@@ -61,15 +59,14 @@ static void test_equivalence(void)
         {1, 16384, 32767},
         {-32767, -16384, 32767},
     };
-    for (int i = 0; i < (int)(sizeof(cases)/sizeof(cases[0])); i++) {
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); i++) {
         char lbl[96];
         snprintf(lbl, sizeof(lbl), "GetAngleVector3D fixed x=%d y=%d z=%d", cases[i].x, cases[i].y, cases[i].z);
         assert_angle3d_case(lbl, cases[i].x, cases[i].y, cases[i].z);
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
         S32 x = (S32)rng_next() - 0x4000;
@@ -81,8 +78,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

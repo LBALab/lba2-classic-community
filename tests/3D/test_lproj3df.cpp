@@ -9,25 +9,22 @@ extern "C" void asm_LongProjectPoint3DF(void);
 static S32 call_asm_LongProjectPoint3DF(S32 x, S32 y, S32 z) {
     S32 result;
     __asm__ __volatile__("call asm_LongProjectPoint3DF"
-        : "=a"(result) : "0"(x), "b"(y), "c"(z) : "memory", "edx");
+                         : "=a"(result) : "0"(x), "b"(y), "c"(z) : "memory", "edx");
     return result;
 }
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void assert_projection_case(const char *label, S32 x, S32 y, S32 z)
-{
+static void assert_projection_case(const char *label, S32 x, S32 y, S32 z) {
     S32 cpp_ret = LongProjectPoint3D(x, y, z);
     S32 cpp_xp = Xp;
     S32 cpp_yp = Yp;
@@ -39,8 +36,7 @@ static void assert_projection_case(const char *label, S32 x, S32 y, S32 z)
 }
 
 static void configure_projection_state(S32 xcentre, S32 ycentre, S32 near_clip, S32 ratio_x, S32 ratio_y,
-                                       S32 camera_xr, S32 camera_yr, S32 camera_zr)
-{
+                                       S32 camera_xr, S32 camera_yr, S32 camera_zr) {
     SetProjection(xcentre, ycentre, near_clip, ratio_x, ratio_y);
     CameraXr = camera_xr;
     CameraYr = camera_yr;
@@ -48,8 +44,7 @@ static void configure_projection_state(S32 xcentre, S32 ycentre, S32 near_clip, 
     CameraZrClip = CameraZr - NearClip;
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     struct {
         S32 xcentre, ycentre, near_clip, ratio_x, ratio_y;
         S32 camera_xr, camera_yr, camera_zr;
@@ -58,7 +53,9 @@ static void test_equivalence(void)
         {160, 100, 8, 256, 192, -50, 25, 750},
         {400, 300, 32, 512, 384, 100, -200, 2000},
     };
-    struct { S32 x, y, z; } cases[] = {
+    struct {
+        S32 x, y, z;
+    } cases[] = {
         {0, 0, 0},
         {100, 0, 0},
         {0, 100, 0},
@@ -88,8 +85,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
     for (int i = 0; i < 200; i++) {
@@ -116,8 +112,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

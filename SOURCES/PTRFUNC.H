@@ -1,5 +1,5 @@
-#ifndef	PTRFUNC_H
-#define	PTRFUNC_H
+#ifndef PTRFUNC_H
+#define PTRFUNC_H
 
 #include "COMMON.H"
 
@@ -10,7 +10,7 @@
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	void	(Func_ReajustPos)( U8 col ) ;
+typedef void(Func_ReajustPos)(U8 col);
 /*
 #pragma	aux	Arg_ReajustPos	"*"	\
 		parm caller []		\
@@ -19,7 +19,7 @@ typedef	void	(Func_ReajustPos)( U8 col ) ;
 #pragma	aux	(Arg_ReajustPos)	Func_ReajustPos
 		*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	void	(Func_GetShadow)( S32, S32, S32 ) ;
+typedef void(Func_GetShadow)(S32, S32, S32);
 /*
 #pragma	aux	Arg_GetShadow	"*"	\
 		parm caller []		\
@@ -29,7 +29,7 @@ typedef	void	(Func_GetShadow)( S32, S32, S32 ) ;
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	void	(Func_DoAnim)( U8 ) ;
+typedef void(Func_DoAnim)(U8);
 /*
 #pragma	aux	Arg_DoAnim	"*"	\
 		parm caller []		\
@@ -39,7 +39,7 @@ typedef	void	(Func_DoAnim)( U8 ) ;
 */
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	U8	(Func_WorldColBrick)( S32, S32, S32 ) ;
+typedef U8(Func_WorldColBrick)(S32, S32, S32);
 /*
 #pragma	aux	Arg_WorldColBrick	"*"	\
 		parm caller []			\
@@ -49,7 +49,7 @@ typedef	U8	(Func_WorldColBrick)( S32, S32, S32 ) ;
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	U8	(Func_WorldColBrickVisible)( S32, S32, S32, S32, S32, S32 ) ;
+typedef U8(Func_WorldColBrickVisible)(S32, S32, S32, S32, S32, S32);
 /*
 #pragma	aux	Arg_WorldColBrickVisible	"*"	\
 		parm caller []				\
@@ -59,7 +59,7 @@ typedef	U8	(Func_WorldColBrickVisible)( S32, S32, S32, S32, S32, S32 ) ;
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	void	(Func_ReajustPosExtra)( T_EXTRA *, U8, S16 * ) ;
+typedef void(Func_ReajustPosExtra)(T_EXTRA *, U8, S16 *);
 /*
 #pragma	aux	Arg_ReajustPosExtra	"*"	\
 		parm caller []			\
@@ -69,9 +69,9 @@ typedef	void	(Func_ReajustPosExtra)( T_EXTRA *, U8, S16 * ) ;
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	S32	(Func_TreeInsert)( S16 numtype, S32 posx, S32 posy, S32 posz,
-				   S32 txmin, S32 tymin, S32 tzmin,
-				   S32 txmax, S32 tymax, S32 tzmax ) ;
+typedef S32(Func_TreeInsert)(S16 numtype, S32 posx, S32 posy, S32 posz,
+                             S32 txmin, S32 tymin, S32 tzmin,
+                             S32 txmax, S32 tymax, S32 tzmax);
 /*
 #pragma	aux	Arg_TreeInsert		"*"	\
 		parm caller []			\
@@ -81,7 +81,7 @@ typedef	S32	(Func_TreeInsert)( S16 numtype, S32 posx, S32 posy, S32 posz,
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-typedef	void	(Func_Init3DView)( void ) ;
+typedef void(Func_Init3DView)(void);
 /*
 #pragma	aux	Arg_Init3DView		"*"	\
 		parm caller []			\
@@ -91,11 +91,11 @@ typedef	void	(Func_Init3DView)( void ) ;
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#ifdef	LBA_EDITOR
-typedef	void	(Func_InitGrille)( char * ) ;
-#else	// LBA_EDITOR
-typedef	void	(Func_InitGrille)( U32 ) ;
-#endif	// LBA_EDITOR
+#ifdef LBA_EDITOR
+typedef void(Func_InitGrille)(char *);
+#else  // LBA_EDITOR
+typedef void(Func_InitGrille)(U32);
+#endif // LBA_EDITOR
 /*
 #pragma	aux	Arg_InitGrille		"*"	\
 		parm caller []			\
@@ -105,8 +105,8 @@ typedef	void	(Func_InitGrille)( U32 ) ;
 		*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#ifndef	LBA_EDITOR
-typedef	U8	(Func_FullWorldColBrick)(S32,S32,S32,S32,S32,S32) ;
+#ifndef LBA_EDITOR
+typedef U8(Func_FullWorldColBrick)(S32, S32, S32, S32, S32, S32);
 /*
 #pragma	aux	Arg_FullWorldColBrick	"*"	\
 		parm caller []			\
@@ -114,8 +114,8 @@ typedef	U8	(Func_FullWorldColBrick)(S32,S32,S32,S32,S32,S32) ;
 
 #pragma	aux	(Arg_FullWorldColBrick)	Func_FullWorldColBrick
 		*/
-#endif	// LBA_EDITOR
+#endif // LBA_EDITOR
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
-#endif	// PTRFUNC_H
+#endif // PTRFUNC_H

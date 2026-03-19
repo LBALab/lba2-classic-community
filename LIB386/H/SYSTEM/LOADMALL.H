@@ -1,26 +1,26 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_LOADMALL
+#ifndef LIB_SYSTEM_LOADMALL
 #define LIB_SYSTEM_LOADMALL
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	LoadMallocFileSize		;
+extern U32 LoadMallocFileSize;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	*LoadMalloc(char *filename)	;
+extern void *LoadMalloc(char *filename);
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_N_MALLOC
+#endif //LIB_SYSTEM_N_MALLOC
 
 //──────────────────────────────────────────────────────────────────────────

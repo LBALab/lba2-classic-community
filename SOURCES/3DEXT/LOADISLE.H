@@ -1,16 +1,16 @@
-#ifndef	LOADISLE_H
-#define	LOADISLE_H
+#ifndef LOADISLE_H
+#define LOADISLE_H
 
 /*--------------------------------------------------------------------------*/
-extern S32 	InitExternalView(void);
+extern S32 InitExternalView(void);
 /*--------------------------------------------------------------------------*/
-extern void 	ClearExternalView(void);
+extern void ClearExternalView(void);
 /*--------------------------------------------------------------------------*/
-extern void 	LoadIsland(void);
+extern void LoadIsland(void);
 /*--------------------------------------------------------------------------*/
-extern S32 	LoadCube(S32 x,S32 y);
+extern S32 LoadCube(S32 x, S32 y);
 /*--------------------------------------------------------------------------*/
-extern void	InitSeaCube( void ) ;
+extern void InitSeaCube(void);
 /*--------------------------------------------------------------------------*/
 
-#endif	// LOADISLE_H
+#endif // LOADISLE_H

@@ -1,37 +1,37 @@
 //--------------------------------------------------------------------------//
-#ifndef	LIB_SYSTEM_LOGPRINT
+#ifndef LIB_SYSTEM_LOGPRINT
 #define LIB_SYSTEM_LOGPRINT
 
 //----------------------------------------------------------------------------
-#include	<SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/ADELINE_TYPES.H>
 
-#include	<stdarg.h>
-#include	<stdio.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 //--------------------------------------------------------------------------//
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //----------------------------------------------------------------------------
-extern	U32	Log2File;
-extern	U32	QuietLog; ///< If TRUE then will not write to console, only to file
+extern U32 Log2File;
+extern U32 QuietLog; ///< If TRUE then will not write to console, only to file
 
 //----------------------------------------------------------------------------
-extern	void	CreateLog(const char *filePath);
+extern void CreateLog(const char *filePath);
 
 //----------------------------------------------------------------------------
-extern	void	LogPrintf(const char *format, ...);
+extern void LogPrintf(const char *format, ...);
 
 //----------------------------------------------------------------------------
-extern	void	LogPuts(const char *string);
+extern void LogPuts(const char *string);
 
 //--------------------------------------------------------------------------//
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //--------------------------------------------------------------------------//
-#endif//LIB_SYSTEM_LOGPRINT
+#endif //LIB_SYSTEM_LOGPRINT
 
 //----------------------------------------------------------------------------

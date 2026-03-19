@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_SAMPLE
-#define	LIB_AIL_SAMPLE
+#ifndef LIB_AIL_SAMPLE
+#define LIB_AIL_SAMPLE
 
 //--------------------------------------------------------------------------
 #include <SYSTEM/ADELINE_TYPES.H>
@@ -11,25 +11,25 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-typedef	struct {
-		S32	Usernum	;
-		S32	Pitch  	;
-		U8	Repeat	;
-		U8	Volume	;
-		U8	Pan	;
-		U8	Dummy	;
-	}	SAMPLE_PLAYING	;
+typedef struct {
+    S32 Usernum;
+    S32 Pitch;
+    U8 Repeat;
+    U8 Volume;
+    U8 Pan;
+    U8 Dummy;
+} SAMPLE_PLAYING;
 
 //--------------------------------------------------------------------------
-extern	VOID_FUNC	PauseSamples		;
-extern	VOID_FUNC	ResumeSamples		;
+extern VOID_FUNC PauseSamples;
+extern VOID_FUNC ResumeSamples;
 
 //--------------------------------------------------------------------------
-extern	S32		Sample_Driver_Enabled	;
-extern	S32		UseWaveMixer		;
+extern S32 Sample_Driver_Enabled;
+extern S32 UseWaveMixer;
 
 //--------------------------------------------------------------------------
-S32	InitSampleDriver(	char *driver_name	)	;
+S32 InitSampleDriver(char *driver_name);
 
 //--------------------------------------------------------------------------
 //	SetMasterVolumeSample :		Set master volume for all samples
@@ -38,7 +38,7 @@ S32	InitSampleDriver(	char *driver_name	)	;
 //
 //	Returns	: 			Nothing
 //--------------------------------------------------------------------------
-void	SetMasterVolumeSample(	S32 volume 		)	;
+void SetMasterVolumeSample(S32 volume);
 
 //--------------------------------------------------------------------------
 //	FadeOutSamples :		Fade out all samples (except stream)
@@ -47,7 +47,7 @@ void	SetMasterVolumeSample(	S32 volume 		)	;
 //
 //	Returns	: 			scaling factor (from delay to 0)
 //--------------------------------------------------------------------------
-S32	FadeOutSamples(		S32 delay 		)	;
+S32 FadeOutSamples(S32 delay);
 
 //--------------------------------------------------------------------------
 //	FadeInSamples :			Fade in all samples (except stream)
@@ -56,7 +56,7 @@ S32	FadeOutSamples(		S32 delay 		)	;
 //
 //	Returns	: 			scaling factor (from 0 to delay)
 //--------------------------------------------------------------------------
-S32	FadeInSamples(		S32 delay 		)	;
+S32 FadeInSamples(S32 delay);
 
 //--------------------------------------------------------------------------
 //	InverseStereoSample :		Reverse left and right channels
@@ -65,7 +65,7 @@ S32	FadeInSamples(		S32 delay 		)	;
 //
 //	Returns	: 			Nothing
 //--------------------------------------------------------------------------
-void	InverseStereoSample(	S32 inverse 		)	;
+void InverseStereoSample(S32 inverse);
 
 //--------------------------------------------------------------------------
 //	PlaySample : 			Play a Sample
@@ -80,13 +80,13 @@ void	InverseStereoSample(	S32 inverse 		)	;
 //
 //	Returns	: 			lib sample handle
 //--------------------------------------------------------------------------
-U32	PlaySample( 		void *buffer,
-				S32 sizeBytes,
-				U32 userhandle,
-				S32 pitchbend,
-				S32 repeat,
-				S32 volume,
-				S32 pan		)	;
+U32 PlaySample(void *buffer,
+               S32 sizeBytes,
+               U32 userhandle,
+               S32 pitchbend,
+               S32 repeat,
+               S32 volume,
+               S32 pan);
 
 //--------------------------------------------------------------------------
 //	ChangePitchbendSample :		Change a sample pitchbend
@@ -96,8 +96,8 @@ U32	PlaySample( 		void *buffer,
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ChangePitchbendSample(	U32 sample,
-				S32 pitchbend	)	;
+void ChangePitchbendSample(U32 sample,
+                           S32 pitchbend);
 
 //--------------------------------------------------------------------------
 //	ChangeVolumePanSample :		Change a sample	volume and paning
@@ -108,9 +108,9 @@ void	ChangePitchbendSample(	U32 sample,
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ChangeVolumePanSample(	U32 sample,
-				S32 volume,
-				S32 pan		)	;
+void ChangeVolumePanSample(U32 sample,
+                           S32 volume,
+                           S32 pan);
 
 //--------------------------------------------------------------------------
 //	StopOneSample :			stop a sample
@@ -119,28 +119,28 @@ void	ChangeVolumePanSample(	U32 sample,
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	StopOneSample( 		U32 sample 		)	;
+void StopOneSample(U32 sample);
 
 //--------------------------------------------------------------------------
 //	StopSample :			stop all samples
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	StopSamples(		void			)	;
+void StopSamples(void);
 
 //--------------------------------------------------------------------------
 //	PauseSample :			pause all samples
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	PauseSamples(		void			)	;
+void PauseSamples(void);
 
 //--------------------------------------------------------------------------
 //	ResumeSample :			resume all samples
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ResumeSamples(		void			)	;
+void ResumeSamples(void);
 
 //--------------------------------------------------------------------------
 //	IsSamplePlaying :		check if a sample is playing
@@ -149,22 +149,22 @@ void	ResumeSamples(		void			)	;
 //
 //	Returns	:			FALSE or starting TimerRefHR
 //--------------------------------------------------------------------------
-U32	IsSamplePlaying( 	U32 sample 		)	;
+U32 IsSamplePlaying(U32 sample);
 
 //--------------------------------------------------------------------------
 //	SfxLogEnable :			toggle diagnostic logging in the backend
 //
 //			  enable :	1 = on, 0 = off
 //--------------------------------------------------------------------------
-void	SfxLogEnable(		int enable		)	;
-int	SfxLogIsEnabled(	void			)	;
+void SfxLogEnable(int enable);
+int SfxLogIsEnabled(void);
 
 //--------------------------------------------------------------------------
 //	GetSamplesPausedCount :		query the samplesPaused ref-count
 //
 //	Returns	:			current samplesPaused value
 //--------------------------------------------------------------------------
-S32	GetSamplesPausedCount(	void			)	;
+S32 GetSamplesPausedCount(void);
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -172,6 +172,6 @@ S32	GetSamplesPausedCount(	void			)	;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_SAMPLE
+#endif //LIB_AIL_SAMPLE
 
 //--------------------------------------------------------------------------

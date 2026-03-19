@@ -24,13 +24,13 @@
 /*  FRAMEBUFFER ALLOCATION                                                    */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-static U8  *framebuffer = NULL;
+static U8 *framebuffer = NULL;
 static U16 *zbuffer = NULL;
-static U32  fb_size = 0;
-static U32  zb_size = 0;
+static U32 fb_size = 0;
+static U32 zb_size = 0;
 
 static int allocate_buffers(U32 width, U32 height) {
-    fb_size = width * height;  /* 8-bit indexed color */
+    fb_size = width * height; /* 8-bit indexed color */
     zb_size = width * height * sizeof(U16);
 
     framebuffer = (U8 *)calloc(1, fb_size);
@@ -53,8 +53,14 @@ static int allocate_buffers(U32 width, U32 height) {
 }
 
 static void free_buffers(void) {
-    if (framebuffer) { free(framebuffer); framebuffer = NULL; }
-    if (zbuffer)     { free(zbuffer);     zbuffer = NULL; }
+    if (framebuffer) {
+        free(framebuffer);
+        framebuffer = NULL;
+    }
+    if (zbuffer) {
+        free(zbuffer);
+        zbuffer = NULL;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -73,9 +79,9 @@ static int write_ppm(const char *path, const U8 *fb, U32 w, U32 h,
     npix = w * h;
     for (i = 0; i < npix; i++) {
         U8 idx = fb[i];
-        fputc(rgb_palette[idx * 3 + 0], f);  /* R */
-        fputc(rgb_palette[idx * 3 + 1], f);  /* G */
-        fputc(rgb_palette[idx * 3 + 2], f);  /* B */
+        fputc(rgb_palette[idx * 3 + 0], f); /* R */
+        fputc(rgb_palette[idx * 3 + 1], f); /* G */
+        fputc(rgb_palette[idx * 3 + 2], f); /* B */
     }
     fclose(f);
     return 0;
@@ -92,13 +98,15 @@ typedef struct {
 } T_EVENT_READER;
 
 static U8 read_u8(T_EVENT_READER *r) {
-    if (r->pos >= r->size) return POLYREC_EVT_EOF;
+    if (r->pos >= r->size)
+        return POLYREC_EVT_EOF;
     return r->data[r->pos++];
 }
 
 static U32 read_u32(T_EVENT_READER *r) {
     U32 v;
-    if (r->pos + 4 > r->size) return 0;
+    if (r->pos + 4 > r->size)
+        return 0;
     memcpy(&v, r->data + r->pos, 4);
     r->pos += 4;
     return v;
@@ -106,7 +114,8 @@ static U32 read_u32(T_EVENT_READER *r) {
 
 static S32 read_s32(T_EVENT_READER *r) {
     S32 v;
-    if (r->pos + 4 > r->size) return 0;
+    if (r->pos + 4 > r->size)
+        return 0;
     memcpy(&v, r->data + r->pos, 4);
     r->pos += 4;
     return v;
@@ -114,7 +123,8 @@ static S32 read_s32(T_EVENT_READER *r) {
 
 static const U8 *read_bytes(T_EVENT_READER *r, U32 size) {
     const U8 *p;
-    if (r->pos + size > r->size) return NULL;
+    if (r->pos + size > r->size)
+        return NULL;
     p = r->data + r->pos;
     r->pos += size;
     return p;
@@ -142,7 +152,8 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
         if (env) {
             debug_slopes = 1;
             sscanf(env, "%d,%d", &debug_slopes_from, &debug_slopes_to);
-            if (debug_slopes_to == 0) debug_slopes_to = debug_slopes_from;
+            if (debug_slopes_to == 0)
+                debug_slopes_to = debug_slopes_from;
         }
     }
 
@@ -213,8 +224,8 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
         RepMask = rec.textures[rec.init_state.active_texture].rep_mask;
     }
 
-        fprintf(stderr, "INFO: Replaying events (bank=%u, fog_near=%d, fog_far=%d, "
-            "clip=(%d,%d)-(%d,%d), start_after=%d, stop_after=%d)\n",
+    fprintf(stderr, "INFO: Replaying events (bank=%u, fog_near=%d, fog_far=%d, "
+                    "clip=(%d,%d)-(%d,%d), start_after=%d, stop_after=%d)\n",
             rec.init_state.filler_bank,
             rec.init_state.fog_near, rec.init_state.fog_far,
             rec.init_state.clip_xmin, rec.init_state.clip_ymin,
@@ -231,7 +242,6 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
         U8 evt_type = read_u8(&reader);
 
         switch (evt_type) {
-
         case POLYREC_EVT_SWITCH_FILLERS: {
             U32 bank = read_u32(&reader);
             Switch_Fillers(bank);
@@ -297,19 +307,20 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                 /* Copy to local buffer (Fill_Poly may modify points in-place during clipping) */
                 Struc_Point local_points[64]; /* max 64 vertices should be enough */
                 U32 copy_count = (U32)nb_points;
-                if (copy_count > 64) copy_count = 64;
+                if (copy_count > 64)
+                    copy_count = 64;
                 memcpy(local_points, points_data, copy_count * 16);
 
                 /* Debug: dump input data before Fill_Poly */
                 if (debug_slopes && (int)draw_count + 1 >= debug_slopes_from && (int)draw_count + 1 <= debug_slopes_to) {
                     fprintf(stderr, "DC%u type=%d color=%d nb_points=%d RepMask=%d\n",
-                        draw_count + 1, type_poly, color_poly, nb_points, RepMask);
+                            draw_count + 1, type_poly, color_poly, nb_points, RepMask);
                     for (int pi = 0; pi < nb_points && pi < 8; pi++) {
                         fprintf(stderr, "  pt[%d]: XE=%d YE=%d MapU=%u MapV=%u Light=%u ZO=%u W=%d\n",
-                            pi, local_points[pi].Pt_XE, local_points[pi].Pt_YE,
-                            (U32)local_points[pi].Pt_MapU, (U32)local_points[pi].Pt_MapV,
-                            (U32)local_points[pi].Pt_Light, (U32)local_points[pi].Pt_ZO,
-                            local_points[pi].Pt_W);
+                                pi, local_points[pi].Pt_XE, local_points[pi].Pt_YE,
+                                (U32)local_points[pi].Pt_MapU, (U32)local_points[pi].Pt_MapV,
+                                (U32)local_points[pi].Pt_Light, (U32)local_points[pi].Pt_ZO,
+                                local_points[pi].Pt_W);
                     }
                 }
 
@@ -318,16 +329,16 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
                 /* Debug: dump slope globals after Fill_Poly for draw call comparison */
                 if (debug_slopes && (int)draw_count + 1 >= debug_slopes_from && (int)draw_count + 1 <= debug_slopes_to) {
                     fprintf(stderr, "DC%u slopes: LS=%d RS=%d UXS=%d VXS=%d ULS=%d VLS=%d GXS=%d GLS=%d ZXS=%d ZLS=%d\n",
-                        draw_count + 1,
-                        Fill_LeftSlope, Fill_RightSlope,
-                        Fill_MapU_XSlope, Fill_MapV_XSlope,
-                        Fill_MapU_LeftSlope, Fill_MapV_LeftSlope,
-                        Fill_Gouraud_XSlope, Fill_Gouraud_LeftSlope,
-                        Fill_ZBuf_XSlope, Fill_ZBuf_LeftSlope);
+                            draw_count + 1,
+                            Fill_LeftSlope, Fill_RightSlope,
+                            Fill_MapU_XSlope, Fill_MapV_XSlope,
+                            Fill_MapU_LeftSlope, Fill_MapV_LeftSlope,
+                            Fill_Gouraud_XSlope, Fill_Gouraud_LeftSlope,
+                            Fill_ZBuf_XSlope, Fill_ZBuf_LeftSlope);
                     fprintf(stderr, "DC%u init: UMin=%d VMin=%d GMin=%d ZMin=%u\n",
-                        draw_count + 1,
-                        Fill_CurMapUMin, Fill_CurMapVMin,
-                        Fill_CurGouraudMin, Fill_CurZBufMin);
+                            draw_count + 1,
+                            Fill_CurMapUMin, Fill_CurMapVMin,
+                            Fill_CurGouraudMin, Fill_CurZBufMin);
                 }
             }
 
@@ -396,7 +407,8 @@ int polyrec_replay_run(const char *polyrec_file, const char *output_file,
     {
         U32 nonzero = 0, total = fb_size, i;
         for (i = 0; i < total; i++) {
-            if (framebuffer[i] != 0) nonzero++;
+            if (framebuffer[i] != 0)
+                nonzero++;
         }
         fprintf(stderr, "INFO: Framebuffer: %u/%u non-zero pixels (%.1f%%)\n",
                 nonzero, total, 100.0 * nonzero / total);

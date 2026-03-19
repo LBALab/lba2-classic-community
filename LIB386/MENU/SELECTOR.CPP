@@ -50,8 +50,7 @@ static T_WINLIST DirsWindow;
 static S32 FlagScanDir = 0;
 
 // ──────────────────────────────────────────────────────────────────────────
-void CutFileName(char *filename)
-{
+void CutFileName(char *filename) {
     char drive[_MAX_DRIVE];
     char dir[_MAX_DIR];
     char name[_MAX_FNAME];
@@ -66,14 +65,12 @@ void CutFileName(char *filename)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-static void DrawListFiles(S32 flag)
-{
+static void DrawListFiles(S32 flag) {
     S32 nb;
 
     GetWindowButton(&Selector, 10, &FilesWindow);
 
-    if (NbFiles)
-    {
+    if (NbFiles) {
         if (StartFile >= NbFiles)
             StartFile = NbFiles - 1;
         nb = NbFiles - StartFile;
@@ -82,17 +79,14 @@ static void DrawListFiles(S32 flag)
             WinList(&FilesWindow, IndexFiles + StartFile, nb, 14);
         else
             WinList(&FilesWindow, IndexFiles + StartFile, nb, 9);
-    }
-    else
-    {
+    } else {
         WinList(&FilesWindow, IndexFiles, 0, 14);
     }
     FlipWindow(&FilesWindow);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-static void ScanFiles(char *selection, S32 flag)
-{
+static void ScanFiles(char *selection, S32 flag) {
     _finddata_t fileinfo;
     intptr_t rc;
     char *ptr;
@@ -104,14 +98,10 @@ static void ScanFiles(char *selection, S32 flag)
     rc = _findfirst(path, &fileinfo);
     NbFiles = 0;
     ptr = ListFiles;
-    if (rc != -1)
-    {
-        do
-        {
-            if (fileinfo.attrib & _A_NORMAL)
-            {
-                if (NbFiles == MAX_FILES)
-                {
+    if (rc != -1) {
+        do {
+            if (fileinfo.attrib & _A_NORMAL) {
+                if (NbFiles == MAX_FILES) {
                     Message("Warning: Truncated List", TRUE);
                     break;
                 }
@@ -133,8 +123,7 @@ static void ScanFiles(char *selection, S32 flag)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-static inline S32 ThereIsFiles(char *path)
-{
+static inline S32 ThereIsFiles(char *path) {
     _finddata_t fileinfo;
     intptr_t rc;
 
@@ -143,8 +132,7 @@ static inline S32 ThereIsFiles(char *path)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-static void ScanDirs(char *selection)
-{
+static void ScanDirs(char *selection) {
     _finddata_t fileinfo;
     intptr_t rc;
     char *ptr;
@@ -161,19 +149,14 @@ static void ScanDirs(char *selection)
     ptr += _MAX_NAME;
     NbDirs++;
 
-    if (rc != -1)
-    {
-        do
-        {
-            if (fileinfo.attrib & _A_SUBDIR)
-            {
-                if (NbDirs == MAX_FILES)
-                {
+    if (rc != -1) {
+        do {
+            if (fileinfo.attrib & _A_SUBDIR) {
+                if (NbDirs == MAX_FILES) {
                     Message("Warning: Truncated List", TRUE);
                     break;
                 }
-                if (strcmp(fileinfo.name, "..") AND strcmp(fileinfo.name, "."))
-                {
+                if (strcmp(fileinfo.name, "..") AND strcmp(fileinfo.name, ".")) {
                     IndexDirs[NbDirs] = ptr;
                     strcpy(ptr, fileinfo.name);
                     ptr += _MAX_NAME;
@@ -190,15 +173,12 @@ static void ScanDirs(char *selection)
 
     // if option scan files
 
-    if (FlagScanDir)
-    {
-        for (n = 0; n < NbDirs; n++)
-        {
+    if (FlagScanDir) {
+        for (n = 0; n < NbDirs; n++) {
             strcpy(path, IndexDirs[n]);
             strcat(path, "\\");
             strcat(path, selection);
-            if (ThereIsFiles(path))
-            {
+            if (ThereIsFiles(path)) {
                 WinSelect(&DirsWindow, n, B_RED + 1);
             }
         }
@@ -206,8 +186,7 @@ static void ScanDirs(char *selection)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-static void ScanDrives()
-{
+static void ScanDrives() {
     int drive;
     int orgdrive;
     S32 n;
@@ -216,12 +195,10 @@ static void ScanDrives()
     orgdrive = _getdrive();
     NbDirs = 0;
     ptr = ListDirs;
-    for (n = 1; n <= 26; n++)
-    {
+    for (n = 1; n <= 26; n++) {
         _chdrive(n);
         drive = _getdrive();
-        if (drive == n)
-        {
+        if (drive == n) {
             IndexDirs[NbDirs] = ptr;
             strcpy(ptr, "A:");
             ptr[0] = (char)(drive + 'A' - 1);
@@ -240,8 +217,7 @@ static void ScanDrives()
 S32 FileSelector(char *titre,
                  char *selection,
                  char *defaultname,
-                 S32 flags)
-{
+                 S32 flags) {
     S32 n, num;
     S32 flag, handle;
     S32 mode = 0;
@@ -264,28 +240,22 @@ S32 FileSelector(char *titre,
     strncpy(SelectorPathname, defaultname, _MAX_PATH - 1);
     _splitpath(SelectorPathname, SDrive, SDir, SName, SExt);
 
-    if (strlen(SDir) > 2)
-    {
+    if (strlen(SDir) > 2) {
         if (SDir[strlen(SDir) - 1] == '\\')
             SDir[strlen(SDir) - 1] = 0;
     }
 
-    if (SDrive[0] != 0)
-    {
+    if (SDrive[0] != 0) {
         SDrive[0] &= ~0x20;
 
         _chdrive(SDrive[0] - 'A' + 1);
         testdrive = _getdrive();
-        if (testdrive == SDrive[0] - 'A' + 1)
-        {
+        if (testdrive == SDrive[0] - 'A' + 1) {
             chdir(SDir);
-        }
-        else
-        {
+        } else {
             Message("Drive Error", TRUE);
         }
-    }
-    else
+    } else
         chdir(SDir);
 
     strcpy(SelectorPathname, SName);
@@ -327,8 +297,7 @@ S32 FileSelector(char *titre,
     ListFiles = (char *)Malloc(MAX_FILES * _MAX_NAME);
     ListDirs = (char *)Malloc(MAX_DIRS * _MAX_NAME);
     // test erreur malloc
-    if (!IndexFiles OR !IndexDirs OR !ListFiles OR !ListDirs)
-    {
+    if (!IndexFiles OR !IndexDirs OR !ListFiles OR !ListDirs) {
         if (IndexFiles)
             Free(IndexFiles);
         if (IndexDirs)
@@ -347,16 +316,14 @@ S32 FileSelector(char *titre,
     ScanFiles(selection, flags);
     ScanDirs(selection);
 
-    while (Click)
-    {
+    while (Click) {
         ManageEvents();
         BoxUpdate();
     }
 
     rcode = -1;
     flag = 1;
-    while (flag != -1)
-    {
+    while (flag != -1) {
         if (Key == K_ESC)
             rcode = 0;
         if (Key == K_ENTER)
@@ -366,14 +333,11 @@ S32 FileSelector(char *titre,
 
         BoxUpdate();
 
-        switch (handle)
-        {
+        switch (handle) {
         case 10: // files list
-            if (Click & 2)
-            {
+            if (Click & 2) {
                 ManageMouse();
-                while (Click & 2)
-                {
+                while (Click & 2) {
                     ManageMouse();
                     StartFile -= MouseYDep;
                     if (StartFile < 0)
@@ -383,12 +347,9 @@ S32 FileSelector(char *titre,
                     ManageEvents();
                 }
                 oldnum = -1;
-            }
-            else
-            {
+            } else {
                 num = GetIndexWinList(&FilesWindow) + StartFile;
-                if (oldnum != -1)
-                {
+                if (oldnum != -1) {
                     if (num == oldnum) // double click
                     {
                         rcode = 1;
@@ -397,23 +358,18 @@ S32 FileSelector(char *titre,
                     WinSelect(&FilesWindow, oldnum - StartFile, BLACK); // efface
                     BoxUpdate();
                 }
-                if (num != -1)
-                {
+                if (num != -1) {
                     WinSelect(&FilesWindow, num - StartFile, WHITE);
                     oldnum = num;
-                    if (flags & SELECT_SHOW_EXT)
-                    {
+                    if (flags & SELECT_SHOW_EXT) {
                         strcpy(SelectorPathname, IndexFiles[num]);
-                    }
-                    else
-                    {
+                    } else {
                         strcpy(SelectorPathname, IndexFiles[num]);
                         _splitpath(selection, SDrive, SDir, SName, SExt);
                         strcat(SelectorPathname, SExt);
                     }
                     ChangeButtonString(&Selector, 4, SelectorPathname, TRUE);
-                    while (Click)
-                    {
+                    while (Click) {
                         BoxUpdate();
                     }
                 }
@@ -422,8 +378,7 @@ S32 FileSelector(char *titre,
 
         case 11: // dirs/drive list
             num = GetIndexWinList(&DirsWindow);
-            if (num != -1)
-            {
+            if (num != -1) {
                 WinSelect(&DirsWindow, num, WHITE);
 
                 BoxUpdate();
@@ -434,8 +389,7 @@ S32 FileSelector(char *titre,
                     getcwd(SearchPathname, _MAX_PATH);
                     ChangeButtonString(&Selector, 0, SearchPathname, TRUE);
                     ScanDirs(selection);
-                }
-                else // drive
+                } else // drive
                 {
                     n = IndexDirs[num][0] - 'A' + 1;
                     memoasciimode = AsciiMode;
@@ -449,8 +403,7 @@ S32 FileSelector(char *titre,
                 ChangeButtonString(&Selector, 0, SearchPathname, TRUE);
                 ScanFiles(selection, flags);
                 oldnum = -1;
-                while (Click)
-                {
+                while (Click) {
                     BoxUpdate();
                 }
             }
@@ -495,8 +448,7 @@ S32 FileSelector(char *titre,
             break;
 
         case 7: // auto scan dir on/off
-            if (FlagScanDir)
-            {
+            if (FlagScanDir) {
                 if (!mode) // dir
                     ScanDirs(selection);
                 else // drive
@@ -513,8 +465,7 @@ S32 FileSelector(char *titre,
             break;
         }
 
-        if (rcode == 1)
-        {
+        if (rcode == 1) {
             _splitpath(SelectorPathname, SDrive, SDir, SName, SExt);
             strcpy(SelectorPathname, SearchPathname);
             if (strlen(SelectorPathname) > 3)
@@ -522,53 +473,39 @@ S32 FileSelector(char *titre,
             strcat(SelectorPathname, SName);
             strcat(SelectorPathname, SExt);
 
-            if (flags & SELECT_TEST_EXIST)
-            {
-                if (FileSize(SelectorPathname) != 0L)
-                {
+            if (flags & SELECT_TEST_EXIST) {
+                if (FileSize(SelectorPathname) != 0L) {
                     strcpy(defaultname, SelectorPathname);
                     flag = -1; // OK
-                }
-                else
-                {
+                } else {
                     strcpy(workstring, SelectorPathname);
                     strcat(workstring, " n'existe pas !");
                     Message(workstring, TRUE);
                 }
-            }
-            else if (flags & SELECT_TEST_OVERWRITE)
-            {
-                if (FileSize(SelectorPathname) != 0L)
-                {
+            } else if (flags & SELECT_TEST_OVERWRITE) {
+                if (FileSize(SelectorPathname) != 0L) {
                     strcpy(workstring, SelectorPathname);
                     strcat(workstring, " existe déjà !");
-                    if (Confirm(workstring, "Ecrase", "Oups") == 1)
-                    { // ok
+                    if (Confirm(workstring, "Ecrase", "Oups") == 1) { // ok
                         strcpy(defaultname, SelectorPathname);
                         flag = -1;
                     }
-                }
-                else
-                {
+                } else {
                     strcpy(defaultname, SelectorPathname);
                     flag = -1; // OK
                 }
-            }
-            else
-            {
+            } else {
                 strcpy(defaultname, SelectorPathname);
                 flag = -1; // OK
             }
 
-            if (flag != -1)
-            {
+            if (flag != -1) {
                 DrawMenu(&Selector, -1, -1);
                 ScanFiles(selection, flags);
                 if (!mode) // dir
                 {
                     ScanDirs(selection);
-                }
-                else // drive
+                } else // drive
                 {
                     ScanDrives();
                 }
@@ -576,8 +513,7 @@ S32 FileSelector(char *titre,
             }
         }
 
-        if (rcode == 0)
-        {
+        if (rcode == 0) {
             strcpy(SelectorPathname, "");
             flag = -1;
         }
@@ -588,8 +524,7 @@ S32 FileSelector(char *titre,
     Free(IndexDirs);
     Free(ListDirs);
 
-    do
-    {
+    do {
         BoxUpdate();
     } while (Click OR Key);
 

@@ -1,28 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_CLEAR
-#define	LIB_ANI_CLEAR
+#ifndef LIB_ANI_CLEAR
+#define LIB_ANI_CLEAR
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-void	ObjectClear(T_OBJ_3D *obj)	;
+void ObjectClear(T_OBJ_3D *obj);
 
-#pragma aux ObjectClear	"*"		\
-	parm caller		[ebx]		\
-	modify exact 	[eax ecx edi]
+#pragma aux ObjectClear "*" parm caller[ebx] modify exact[eax ecx edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_CLEAR
+#endif //LIB_ANI_CLEAR
 
 //****************************************************************************
-

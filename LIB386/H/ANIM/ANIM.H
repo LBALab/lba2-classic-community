@@ -1,27 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_ANIM
-#define	LIB_ANI_ANIM
+#ifndef LIB_ANI_ANIM
+#define LIB_ANI_ANIM
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-extern void ObjectInitAnim(T_OBJ_3D *obj, void *anim)	;
+extern void ObjectInitAnim(T_OBJ_3D *obj, void *anim);
 
-#pragma aux ObjectInitAnim	"*"		\
-	parm caller		[ebx] [esi]		\
-	modify exact 	[eax ecx edx esi edi]
+#pragma aux ObjectInitAnim "*" parm caller[ebx][esi] modify exact[eax ecx edx esi edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_ANIM
+#endif //LIB_ANI_ANIM
 
 //****************************************************************************

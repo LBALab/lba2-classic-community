@@ -1,0 +1,10 @@
+root = true
+
+[*.{c,C,cpp,CPP,h,H,hpp,HPP}]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+[*.{asm,ASM,inc,INC}]
+indent_style = tab
+tab_width = 4

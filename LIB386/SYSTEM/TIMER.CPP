@@ -26,85 +26,85 @@ U32 LastEvaluate;
 
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
-  LastTime = LastEvaluate = SDL_GetTicks();
-  ManageTime();
+    LastTime = LastEvaluate = SDL_GetTicks();
+    ManageTime();
 }
 
 void EndTimer() {
-  // Empty
+    // Empty
 }
 
 // -----------------------------------------------------------------------------
 void LockTimer() {
-  ManageTime();
-  ++TimerLock;
+    ManageTime();
+    ++TimerLock;
 }
 
 void UnlockTimer() {
-  if (TimerLock > 0) {
-    ManageTime();
-    --TimerLock;
-  }
+    if (TimerLock > 0) {
+        ManageTime();
+        --TimerLock;
+    }
 }
 
 void SaveTimer() {
-  if (!CmptMemoTimerRef++) {
-    ManageTime();
-    MemoTimerRefHR = TimerRefHR;
-  }
+    if (!CmptMemoTimerRef++) {
+        ManageTime();
+        MemoTimerRefHR = TimerRefHR;
+    }
 }
 
 void RestoreTimer() {
-  if (CmptMemoTimerRef) {
-    if (!--CmptMemoTimerRef) {
-      ManageTime();
-      TimerRefHR = MemoTimerRefHR;
+    if (CmptMemoTimerRef) {
+        if (!--CmptMemoTimerRef) {
+            ManageTime();
+            TimerRefHR = MemoTimerRefHR;
+        }
     }
-  }
 }
 
 void SetTimerHR(U32 time) {
-  LockTimer();
-  TimerRefHR = time;
-  UnlockTimer();
+    LockTimer();
+    TimerRefHR = time;
+    UnlockTimer();
 }
 
 void ManageTime() {
-  TimerSystemHR = SDL_GetTicks();
+    TimerSystemHR = SDL_GetTicks();
 
-  if (!TimerLock) {
-    TimerRefHR += TimerSystemHR - LastTime;
-  }
+    if (!TimerLock) {
+        TimerRefHR += TimerSystemHR - LastTime;
+    }
 
-  LastTime = TimerSystemHR;
+    LastTime = TimerSystemHR;
 
-  // FPS Calculation
-  S32 time = TimerSystemHR - LastEvaluate;
-  if (time >= 1000) {
-    NbFramePerSecond = (CmptFrame * 1000 + time / 2) / time;
-    CmptFrame = 0;
-    LastEvaluate += (time / 1000) * 1000;
-  }
+    // FPS Calculation
+    S32 time = TimerSystemHR - LastEvaluate;
+    if (time >= 1000) {
+        NbFramePerSecond = (CmptFrame * 1000 + time / 2) / time;
+        CmptFrame = 0;
+        LastEvaluate += (time / 1000) * 1000;
+    }
 }
 
 void HandleEventsTimer(const void *event) {
-  assert(event != NULL);
+    assert(event != NULL);
 
-  const SDL_Event *sdlEvent = (SDL_Event *)(event);
-  switch (sdlEvent->type) {
+    const SDL_Event *sdlEvent = (SDL_Event *)(event);
+    switch (sdlEvent->type) {
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
-      if (!AppActive) {
-        UnlockTimer();
-      }
-      break;
+        if (!AppActive) {
+            UnlockTimer();
+        }
+        break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-      if (AppActive) {
-        LockTimer();
-      }
-      break;
+        if (AppActive) {
+            LockTimer();
+        }
+        break;
     default:
-      break;
-  }
+        break;
+    }
 }
 
 // =============================================================================

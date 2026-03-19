@@ -54,19 +54,19 @@ extern void DefaultBoxOneClear(T_BOX *pbox);
 
 #define Cls() BoxCls(BoxClipXMin, BoxClipYMin, BoxClipXMax - 1, BoxClipYMax - 1)
 
-#define SetBoxScreenGet(boxscreenget)                                          \
-  BoxScreenGet = ((boxscreenget) ? (boxscreenget) : LockPrimary)
+#define SetBoxScreenGet(boxscreenget) \
+    BoxScreenGet = ((boxscreenget) ? (boxscreenget) : LockPrimary)
 
-#define SetBoxScreenRelease(boxscreenrelease)                                  \
-  BoxScreenRelease = ((boxscreenrelease) ? (boxscreenrelease) : UnlockPrimary)
+#define SetBoxScreenRelease(boxscreenrelease) \
+    BoxScreenRelease = ((boxscreenrelease) ? (boxscreenrelease) : UnlockPrimary)
 
 #define SetBoxScreenFlip(boxscreenflip) BoxScreenFlip = (boxscreenflip)
 
-#define SetBoxOneBlit(boxoneblit)                                              \
-  BoxOneBlit = ((boxoneblit) ? (boxoneblit) : DefaultBoxOneBlit)
+#define SetBoxOneBlit(boxoneblit) \
+    BoxOneBlit = ((boxoneblit) ? (boxoneblit) : DefaultBoxOneBlit)
 
-#define SetBoxOneClean(boxoneclean)                                            \
-  BoxOneClean = ((boxoneclean) ? (boxoneclean) : DefaultBoxOneClean)
+#define SetBoxOneClean(boxoneclean) \
+    BoxOneClean = ((boxoneclean) ? (boxoneclean) : DefaultBoxOneClean)
 
 // =============================================================================
 #ifdef __cplusplus

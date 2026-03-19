@@ -13,26 +13,22 @@ struct SpriteStruct {
     S8 hotY;
 };
 
-static void set_exit_bounds(void)
-{
+static void set_exit_bounds(void) {
     ScreenXMin = 32000;
     ScreenXMax = -32000;
     ScreenYMin = 32000;
     ScreenYMax = -32000;
 }
 
-static S32 mul_shift16(S32 left, S32 right)
-{
+static S32 mul_shift16(S32 left, S32 right) {
     return (S32)(((long long)left * (long long)right) >> 16);
 }
 
-static S32 divide_16_16(S32 value)
-{
+static S32 divide_16_16(S32 value) {
     return (S32)(((long long)1 << 32) / (long long)value);
 }
 
-static S32 sprite_center_16_16(U8 delta)
-{
+static S32 sprite_center_16_16(U8 delta) {
     return (S32)(((U32)(delta >> 1) << 16) + ((delta & 1u) ? 0x8000u : 0u));
 }
 
@@ -41,8 +37,7 @@ extern "C" {
 #endif
 
 void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
-                       void *ptrbank, void *ptr_transp)
-{
+                       void *ptrbank, void *ptr_transp) {
     LIB386_TRACE_CPP("ScaleSpriteTransp", "1", "num=%d x=%d y=%d fx=%d fy=%d", num, x, y, factorx, factory);
     if (factorx <= 0) {
         if (factorx == 0) {
@@ -66,7 +61,7 @@ void ScaleSpriteTransp(S32 num, S32 x, S32 y, S32 factorx, S32 factory,
     U8 *srcBase = spritePtr + sizeof(SpriteStruct);
     const S32 clipXMaxPlusOne = ClipXMax + 1;
     const S32 clipYMaxPlusOne = ClipYMax + 1;
-    
+
     // Fast mode: 1:1 scaling
     if (factorx == 65536 && factory == 65536) {
         S32 leftX = x + (S8)sprite->hotX;

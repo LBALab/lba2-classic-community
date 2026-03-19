@@ -1,41 +1,41 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_INITIMER
+#ifndef LIB_SYSTEM_INITIMER
 #define LIB_SYSTEM_INITIMER
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
-#include	<SYSTEM/TIMERWIN.H>
-#else //_WIN32
+#ifdef _WIN32
+#include <SYSTEM/TIMERWIN.H>
+#else  //_WIN32
 //#include	<system/timerdos.h>
-#endif//_WIN32
+#endif //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	_WIN32
+#ifndef _WIN32
 //──────────────────────────────────────────────────────────────────────────
-extern	void	LockVMMTimer()	;
+extern void LockVMMTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-#else//_WIN32
+#else  //_WIN32
 //──────────────────────────────────────────────────────────────────────────
-extern	void	InitTimer()	;
+extern void InitTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	ClearTimer()	;
+extern void ClearTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//_WIN32
+#endif //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_INITIMER
+#endif //LIB_SYSTEM_INITIMER
 
 //──────────────────────────────────────────────────────────────────────────

@@ -26,251 +26,251 @@ U32 windowSurfaceResX = 0;
 U32 windowSurfaceResY = 0;
 
 static void ComputePresentationRect(SDL_FRect *dstRect) {
-  assert(dstRect != NULL);
+    assert(dstRect != NULL);
 
-  dstRect->x = 0.0f;
-  dstRect->y = 0.0f;
-  dstRect->w = (float)windowSurfaceResX;
-  dstRect->h = (float)windowSurfaceResY;
-
-  if ((sdlWindow == NULL) || (windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
-    return;
-  }
-
-  int outputW = (int)windowSurfaceResX;
-  int outputH = (int)windowSurfaceResY;
-  SDL_GetWindowSize(sdlWindow, &outputW, &outputH);
-  if ((outputW <= 0) || (outputH <= 0)) {
-    return;
-  }
-
-  const double surfaceAspect = (double)windowSurfaceResX / (double)windowSurfaceResY;
-  const double outputAspect = (double)outputW / (double)outputH;
-
-  if (outputAspect > surfaceAspect) {
-    dstRect->h = (float)outputH;
-    dstRect->w = (float)(dstRect->h * surfaceAspect);
-    dstRect->x = ((float)outputW - dstRect->w) * 0.5f;
-    dstRect->y = 0.0f;
-  } else {
-    dstRect->w = (float)outputW;
-    dstRect->h = (float)(dstRect->w / surfaceAspect);
     dstRect->x = 0.0f;
-    dstRect->y = ((float)outputH - dstRect->h) * 0.5f;
-  }
+    dstRect->y = 0.0f;
+    dstRect->w = (float)windowSurfaceResX;
+    dstRect->h = (float)windowSurfaceResY;
+
+    if ((sdlWindow == NULL) || (windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
+        return;
+    }
+
+    int outputW = (int)windowSurfaceResX;
+    int outputH = (int)windowSurfaceResY;
+    SDL_GetWindowSize(sdlWindow, &outputW, &outputH);
+    if ((outputW <= 0) || (outputH <= 0)) {
+        return;
+    }
+
+    const double surfaceAspect = (double)windowSurfaceResX / (double)windowSurfaceResY;
+    const double outputAspect = (double)outputW / (double)outputH;
+
+    if (outputAspect > surfaceAspect) {
+        dstRect->h = (float)outputH;
+        dstRect->w = (float)(dstRect->h * surfaceAspect);
+        dstRect->x = ((float)outputW - dstRect->w) * 0.5f;
+        dstRect->y = 0.0f;
+    } else {
+        dstRect->w = (float)outputW;
+        dstRect->h = (float)(dstRect->w / surfaceAspect);
+        dstRect->x = 0.0f;
+        dstRect->y = ((float)outputH - dstRect->h) * 0.5f;
+    }
 }
 
 static void PresentCurrentTexture() {
-  assert(sdlRenderer != NULL);
-  assert(sdlTexture != NULL);
+    assert(sdlRenderer != NULL);
+    assert(sdlTexture != NULL);
 
-  SDL_FRect dstRect;
+    SDL_FRect dstRect;
 
-  ComputePresentationRect(&dstRect);
+    ComputePresentationRect(&dstRect);
 
-  SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
-  SDL_RenderClear(sdlRenderer);
-  SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, &dstRect);
-  SDL_RenderPresent(sdlRenderer);
+    SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(sdlRenderer);
+    SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, &dstRect);
+    SDL_RenderPresent(sdlRenderer);
 }
 
 // --- Initialization ----------------------------------------------------------
 bool InitWindow(const char *title) {
-  assert(title != NULL);
-  assert(windowSystemInitialized == false);
+    assert(title != NULL);
+    assert(windowSystemInitialized == false);
 
-  if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Error: Unable to initialize SDL Window/Video subsystem.\n"
-              "\tSDL Message: %s\n",
-              errorMsg);
+    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Error: Unable to initialize SDL Window/Video subsystem.\n"
+                  "\tSDL Message: %s\n",
+                  errorMsg);
 
-    windowSystemInitialized = false;
-    return false;
-  }
+        windowSystemInitialized = false;
+        return false;
+    }
 
-  windowTitle = title;
-  windowSystemInitialized = true;
-  return true;
+    windowTitle = title;
+    windowSystemInitialized = true;
+    return true;
 }
 
 void EndWindow() {
-  if (windowSystemInitialized) {
-    DestroyWindowSurface();
+    if (windowSystemInitialized) {
+        DestroyWindowSurface();
 
-    SDL_QuitSubSystem(SDL_INIT_VIDEO);
-    windowSystemInitialized = false;
-  }
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        windowSystemInitialized = false;
+    }
 }
 
 bool IsWindowInitialized() {
-  return windowSystemInitialized;
+    return windowSystemInitialized;
 }
 
 // --- Interface ---------------------------------------------------------------
 bool CreateWindowSurface(U32 resX, U32 resY) {
-  assert(windowSystemInitialized == true);
-  assert(sdlWindow == NULL);
+    assert(windowSystemInitialized == true);
+    assert(sdlWindow == NULL);
 
-  SDL_PropertiesID props = SDL_CreateProperties();
-  SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, windowTitle);
-  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
-  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
-  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
-  SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
-  SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
-  sdlWindow = SDL_CreateWindowWithProperties(props);
-  SDL_DestroyProperties(props);
-  if (sdlWindow == NULL) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Error: Unable to create SDL window.\n"
-              "\tResolution: %ux%u.\n"
-              "\tSDL message: %s\n",
-              resX, resY, errorMsg);
-    return false;
-  }
+    SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, windowTitle);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+    sdlWindow = SDL_CreateWindowWithProperties(props);
+    SDL_DestroyProperties(props);
+    if (sdlWindow == NULL) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Error: Unable to create SDL window.\n"
+                  "\tResolution: %ux%u.\n"
+                  "\tSDL message: %s\n",
+                  resX, resY, errorMsg);
+        return false;
+    }
 
-  sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
-  if (sdlRenderer == NULL) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Error: Unable to create SDL renderer.\n"
-              "\tSDL message: %s\n",
-              errorMsg);
-    SDL_DestroyWindow(sdlWindow);
-    sdlWindow = NULL;
-    return false;
-  }
+    sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
+    if (sdlRenderer == NULL) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Error: Unable to create SDL renderer.\n"
+                  "\tSDL message: %s\n",
+                  errorMsg);
+        SDL_DestroyWindow(sdlWindow);
+        sdlWindow = NULL;
+        return false;
+    }
 
-  SDL_SetRenderVSync(sdlRenderer, 1);
+    SDL_SetRenderVSync(sdlRenderer, 1);
 
-  sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888,
-                                 SDL_TEXTUREACCESS_STREAMING, resX, resY);
-  if (sdlTexture == NULL) {
-    const char *errorMsg = SDL_GetError();
-    LogPrintf("Error: Unable to create SDL streaming texture.\n"
-              "\tSize: %ux%u.\n"
-              "\tSDL message: %s\n",
-              resX, resY, errorMsg);
-    SDL_DestroyRenderer(sdlRenderer);
-    sdlRenderer = NULL;
-    SDL_DestroyWindow(sdlWindow);
-    sdlWindow = NULL;
-    return false;
-  }
+    sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888,
+                                   SDL_TEXTUREACCESS_STREAMING, resX, resY);
+    if (sdlTexture == NULL) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Error: Unable to create SDL streaming texture.\n"
+                  "\tSize: %ux%u.\n"
+                  "\tSDL message: %s\n",
+                  resX, resY, errorMsg);
+        SDL_DestroyRenderer(sdlRenderer);
+        sdlRenderer = NULL;
+        SDL_DestroyWindow(sdlWindow);
+        sdlWindow = NULL;
+        return false;
+    }
 
-  SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
-  windowSurfaceResX = resX;
-  windowSurfaceResY = resY;
+    SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
+    windowSurfaceResX = resX;
+    windowSurfaceResY = resY;
 
-  return true;
+    return true;
 }
 
 void DestroyWindowSurface() {
-  if (sdlTexture) {
-    SDL_DestroyTexture(sdlTexture);
-    sdlTexture = NULL;
-  }
-  if (sdlRenderer) {
-    SDL_DestroyRenderer(sdlRenderer);
-    sdlRenderer = NULL;
-  }
-  if (sdlWindow) {
-    SDL_DestroyWindow(sdlWindow);
-    sdlWindow = NULL;
-  }
+    if (sdlTexture) {
+        SDL_DestroyTexture(sdlTexture);
+        sdlTexture = NULL;
+    }
+    if (sdlRenderer) {
+        SDL_DestroyRenderer(sdlRenderer);
+        sdlRenderer = NULL;
+    }
+    if (sdlWindow) {
+        SDL_DestroyWindow(sdlWindow);
+        sdlWindow = NULL;
+    }
 
-  windowSurfaceResX = 0;
-  windowSurfaceResY = 0;
+    windowSurfaceResX = 0;
+    windowSurfaceResY = 0;
 }
 
 void PresentRendererFrame(const void *pixels, U32 pitch) {
-  assert(sdlRenderer != NULL);
-  assert(sdlTexture != NULL);
-  assert(pixels != NULL);
+    assert(sdlRenderer != NULL);
+    assert(sdlTexture != NULL);
+    assert(pixels != NULL);
 
-  SDL_UpdateTexture(sdlTexture, NULL, pixels, (int)pitch);
-  PresentCurrentTexture();
+    SDL_UpdateTexture(sdlTexture, NULL, pixels, (int)pitch);
+    PresentCurrentTexture();
 }
 
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
-  assert(surfaceX != NULL);
-  assert(surfaceY != NULL);
+    assert(surfaceX != NULL);
+    assert(surfaceY != NULL);
 
-  if ((windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
-    *surfaceX = windowX;
-    *surfaceY = windowY;
-    return;
-  }
+    if ((windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
+        *surfaceX = windowX;
+        *surfaceY = windowY;
+        return;
+    }
 
-  SDL_FRect dstRect;
-  float relX;
-  float relY;
+    SDL_FRect dstRect;
+    float relX;
+    float relY;
 
-  ComputePresentationRect(&dstRect);
+    ComputePresentationRect(&dstRect);
 
-  if ((dstRect.w <= 0.0f) || (dstRect.h <= 0.0f)) {
-    *surfaceX = windowX;
-    *surfaceY = windowY;
-    return;
-  }
+    if ((dstRect.w <= 0.0f) || (dstRect.h <= 0.0f)) {
+        *surfaceX = windowX;
+        *surfaceY = windowY;
+        return;
+    }
 
-  relX = (float)windowX - dstRect.x;
-  relY = (float)windowY - dstRect.y;
+    relX = (float)windowX - dstRect.x;
+    relY = (float)windowY - dstRect.y;
 
-  if (relX < 0.0f) {
-    relX = 0.0f;
-  } else if (relX > (dstRect.w - 1.0f)) {
-    relX = dstRect.w - 1.0f;
-  }
+    if (relX < 0.0f) {
+        relX = 0.0f;
+    } else if (relX > (dstRect.w - 1.0f)) {
+        relX = dstRect.w - 1.0f;
+    }
 
-  if (relY < 0.0f) {
-    relY = 0.0f;
-  } else if (relY > (dstRect.h - 1.0f)) {
-    relY = dstRect.h - 1.0f;
-  }
+    if (relY < 0.0f) {
+        relY = 0.0f;
+    } else if (relY > (dstRect.h - 1.0f)) {
+        relY = dstRect.h - 1.0f;
+    }
 
-  *surfaceX = (S32)(relX * ((float)windowSurfaceResX / dstRect.w));
-  *surfaceY = (S32)(relY * ((float)windowSurfaceResY / dstRect.h));
+    *surfaceX = (S32)(relX * ((float)windowSurfaceResX / dstRect.w));
+    *surfaceY = (S32)(relY * ((float)windowSurfaceResY / dstRect.h));
 
-  if (*surfaceX >= (S32)windowSurfaceResX) {
-    *surfaceX = (S32)windowSurfaceResX - 1;
-  }
-  if (*surfaceY >= (S32)windowSurfaceResY) {
-    *surfaceY = (S32)windowSurfaceResY - 1;
-  }
+    if (*surfaceX >= (S32)windowSurfaceResX) {
+        *surfaceX = (S32)windowSurfaceResX - 1;
+    }
+    if (*surfaceY >= (S32)windowSurfaceResY) {
+        *surfaceY = (S32)windowSurfaceResY - 1;
+    }
 }
 
 void ManageWindow() {
-  // Empty
+    // Empty
 }
 
 void HandleEventsWindow(const void *event) {
-  assert(event != NULL);
+    assert(event != NULL);
 
-  // Handle nothing if system was not initialized yet
-  if (!windowSystemInitialized) {
-    return;
-  }
+    // Handle nothing if system was not initialized yet
+    if (!windowSystemInitialized) {
+        return;
+    }
 
-  const SDL_Event *sdlEvent = (SDL_Event *)(event);
-  switch (sdlEvent->type) {
+    const SDL_Event *sdlEvent = (SDL_Event *)(event);
+    switch (sdlEvent->type) {
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
-      AppActive = true;
-      break;
+        AppActive = true;
+        break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-      AppActive = false;
-      break;
+        AppActive = false;
+        break;
     case SDL_EVENT_WINDOW_RESIZED:
-      if ((sdlRenderer != NULL) && (sdlTexture != NULL)) {
-        PresentCurrentTexture();
-      }
-      break;
+        if ((sdlRenderer != NULL) && (sdlTexture != NULL)) {
+            PresentCurrentTexture();
+        }
+        break;
     case SDL_EVENT_QUIT:
-      exit(0); // TODO: Implement graceful exit
-      break;
+        exit(0); // TODO: Implement graceful exit
+        break;
     default:
-      break;
-  }
+        break;
+    }
 }
 
 // =============================================================================

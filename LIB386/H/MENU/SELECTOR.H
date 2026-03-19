@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_MENU_SELECTOR
-#define	LIB_MENU_SELECTOR
+#ifndef LIB_MENU_SELECTOR
+#define LIB_MENU_SELECTOR
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -8,21 +8,21 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	char	SelectorPathname[] 	;
+extern char SelectorPathname[];
 
 //──────────────────────────────────────────────────────────────────────────
-typedef	int 	(COMP_FUNC)( void const *, void const * ) ;
+typedef int(COMP_FUNC)(void const *, void const *);
 
-extern	COMP_FUNC 	MySortCompFunc	;
+extern COMP_FUNC MySortCompFunc;
 
-#pragma	aux MySortCompFunc	"*"
-
-//──────────────────────────────────────────────────────────────────────────
-extern void CutFileName( char *filename )	;
+#pragma aux MySortCompFunc "*"
 
 //──────────────────────────────────────────────────────────────────────────
-extern S32 FileSelector(	char *titre,		char *selection,
-				char *defaultname,	S32 flags	);
+extern void CutFileName(char *filename);
+
+//──────────────────────────────────────────────────────────────────────────
+extern S32 FileSelector(char *titre, char *selection,
+                        char *defaultname, S32 flags);
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -30,7 +30,6 @@ extern S32 FileSelector(	char *titre,		char *selection,
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_MENU_SELECTOR
+#endif //LIB_MENU_SELECTOR
 
 //──────────────────────────────────────────────────────────────────────────
-

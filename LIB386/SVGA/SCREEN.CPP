@@ -20,65 +20,65 @@ U32 TabOffLine[ADELINE_MAX_Y_RES];
 
 // --- Initialization ----------------------------------------------------------
 bool InitScreen() {
-  // Log and Screen are not asserted to be NULL since they may be already
-  //  allocated at InitMainBuffer()
+    // Log and Screen are not asserted to be NULL since they may be already
+    //  allocated at InitMainBuffer()
 
-  return true;
+    return true;
 }
 
 void EndScreen() {
-  if (Log) {
-    Free(Log);
-    Log = NULL;
-  }
+    if (Log) {
+        Free(Log);
+        Log = NULL;
+    }
 
-  if (Screen) {
-    Free(Screen);
-    Screen = NULL;
-  }
+    if (Screen) {
+        Free(Screen);
+        Screen = NULL;
+    }
 }
 
 // --- Interface ---------------------------------------------------------------
 bool CreateScreenMemory(U32 resX, U32 resY) {
-  // Log and Screen are not asserted to be NULL since they may be already
-  //  allocated at InitMainBuffer()
+    // Log and Screen are not asserted to be NULL since they may be already
+    //  allocated at InitMainBuffer()
 
-  // Allocate Log
-  if (Log == NULL) {
-    Log = Malloc(resX * resY + 512);
-    if (!Log) {
-      LogPuts("Error: Not Enough Memory to allocate Log");
-      return false;
+    // Allocate Log
+    if (Log == NULL) {
+        Log = Malloc(resX * resY + 512);
+        if (!Log) {
+            LogPuts("Error: Not Enough Memory to allocate Log");
+            return false;
+        }
     }
-  }
-  memset(Log, 0, resX * resY + 512);
+    memset(Log, 0, resX * resY + 512);
 
-  // Allocate Screen
-  if (Screen == NULL) {
-    Screen = Malloc(resX * resY + 512);
-    if (!Screen) {
-      LogPuts("Error: Not Enough Memory to allocate Screen");
-      Free(Log);
-      Log = NULL;
-      return false;
+    // Allocate Screen
+    if (Screen == NULL) {
+        Screen = Malloc(resX * resY + 512);
+        if (!Screen) {
+            LogPuts("Error: Not Enough Memory to allocate Screen");
+            Free(Log);
+            Log = NULL;
+            return false;
+        }
     }
-  }
-  memset(Screen, 0, resX * resY + 512);
+    memset(Screen, 0, resX * resY + 512);
 
-  // Update public state
-  ModeDesiredX = resX;
-  ModeDesiredY = resY;
+    // Update public state
+    ModeDesiredX = resX;
+    ModeDesiredY = resY;
 
-  // Fill the log and screen table
-  S32 off = 0;
-  for (S32 i = 0; i < ADELINE_MAX_Y_RES; i++) {
-    TabOffLine[i] = off;
-    off += ModeDesiredX;
-  }
+    // Fill the log and screen table
+    S32 off = 0;
+    for (S32 i = 0; i < ADELINE_MAX_Y_RES; i++) {
+        TabOffLine[i] = off;
+        off += ModeDesiredX;
+    }
 
-  // Adjust memory according to pitch
-  {
-    /*
+    // Adjust memory according to pitch
+    {
+        /*
 #ifdef __MSC_VER
     __asm {
       mov ebx, offset TabOffLine
@@ -89,10 +89,10 @@ bool CreateScreenMemory(U32 resX, U32 resY) {
 #error "Unsupported compiler!"
 #endif
 */
-    SetScreenPitch(TabOffLine);
-  }
+        SetScreenPitch(TabOffLine);
+    }
 
-  return true;
+    return true;
 }
 
 // =============================================================================

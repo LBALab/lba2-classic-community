@@ -19,19 +19,16 @@ static U8 cpp_buffer[kBufferSize];
 static U8 asm_buffer[kBufferSize];
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void setup_screen(void)
-{
+static void setup_screen(void) {
     ModeDesiredX = (S32)kScreenWidth;
     ModeDesiredY = (S32)kScreenHeight;
     for (U32 i = 0; i < kScreenHeight; ++i) {
@@ -39,15 +36,13 @@ static void setup_screen(void)
     }
 }
 
-static void fill_screen_pattern(U32 salt)
-{
+static void fill_screen_pattern(U32 salt) {
     for (U32 i = 0; i < kBufferSize; ++i) {
         screen_init[i] = (U8)(((i * 23u) + (salt * 41u) + (i >> 1)) & 0xFFu);
     }
 }
 
-static void fill_buffer_pattern(U8 *buffer, U32 salt)
-{
+static void fill_buffer_pattern(U8 *buffer, U32 salt) {
     for (U32 i = 0; i < kBufferSize; ++i) {
         buffer[i] = (U8)(((i * 7u) + (salt * 19u) + 0x3Cu) & 0xFFu);
     }
@@ -55,8 +50,7 @@ static void fill_buffer_pattern(U8 *buffer, U32 salt)
 
 static void assert_saveblock_case(const char *label,
                                   S32 x0, S32 y0, S32 x1, S32 y1,
-                                  U32 salt)
-{
+                                  U32 salt) {
     setup_screen();
     fill_screen_pattern(salt);
     memcpy(cpp_screen, screen_init, sizeof(cpp_screen));
@@ -72,8 +66,7 @@ static void assert_saveblock_case(const char *label,
     ASSERT_ASM_CPP_MEM_EQ(asm_buffer, cpp_buffer, sizeof(cpp_buffer), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     assert_saveblock_case("SaveBlock fixed square", 10, 10, 20, 20, 1u);
     assert_saveblock_case("SaveBlock fixed single pixel", 50, 50, 50, 50, 2u);
     assert_saveblock_case("SaveBlock fixed full row", 0, 100, 639, 100, 3u);
@@ -81,8 +74,7 @@ static void test_equivalence(void)
     assert_saveblock_case("SaveBlock fixed full screen", 0, 0, 639, 479, 5u);
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 80; ++i) {
         S32 x0 = (S32)(rng_next() % 640u);
@@ -96,8 +88,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

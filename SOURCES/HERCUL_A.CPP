@@ -47,29 +47,32 @@ SCRBASE		EQU	0B0000h
 ;                       └─────┘ └─┘ └─┘ └─────┘   └─┘
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	S32	TestHercule( void )
+;
+*══════════════════════════════════════════════════════════════════════════*; //	S32	TestHercule( void )
 
-TestHercule	proc
-		mov	eax, 01a00h
-		int	10h
+TestHercule proc
+    mov eax,
+    01a00h int 10h
 
-		cmp	al, 01ah
-		jne	NoHerc		;// Fonction BIOS non supportée
+    cmp al,
+    01ah jne NoHerc; // Fonction BIOS non supportée
 
-		and	ebx, 0101h	;// regarde les 2 cartes videos possibles
-		mov     [ds:ModeHercule], ebx
+and ebx, 0101h; // regarde les 2 cartes videos possibles
+mov [ds:ModeHercule], ebx
 
-		mov	eax, ebx	;// valeur de retour
-		ret
+                          mov eax,
+    ebx; // valeur de retour
+ret
 
-NoHerc:         xor	eax, eax
-		mov	[ds:ModeHercule], eax
-		ret
+    NoHerc : xor eax,
+             eax
+             mov [ds:ModeHercule],
+             eax
+                 ret
 
-TestHercule	endp
+                     TestHercule endp
 
-;/*══════════════════════════════════════════════════════════════════════════*
+    ; /*══════════════════════════════════════════════════════════════════════════*
 ;	    ██████┐ ██┐ ██┐ ██████┐ ██████┐ ██┐ ██┐ ██████┐ ██████┐
 ;	    ██┌───┘ ██│ ██│ ██┌─██│ └─██┌─┘ ███┐██│ ██┌───┘ ██┌───┘
 ;	    ██│     ██████│ ██████│   ██│   ██████│ █████┐  ██████┐
@@ -78,147 +81,133 @@ TestHercule	endp
 ;	    └─────┘ └─┘ └─┘ └─┘ └─┘ └─────┘ └─┘ └─┘ └─────┘ └─────┘
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HCls( void )
+;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HCls( void )
 
-HCls		proc	uses edi
+HCls proc uses edi
 
-		xor	eax, eax
-		mov	ds:HCurX, eax
-		mov	ds:HCurY, eax
+    xor eax,
+    eax
+        mov ds : HCurX,
+                 eax
+                     mov ds : HCurY,
+                              eax
 
-		mov	edi, SCRBASE
-		mov	eax, 07000700h
-		mov	ecx, 1000	;// 4000 octets
-		rep	stosd
+                                  mov edi,
+                              SCRBASE
+                                  mov eax,
+                              07000700h mov ecx,
+                              1000; // 4000 octets
+rep stosd
 
-		ret
+    ret
 
-HCls		endp
+        HCls endp
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HPrintCar( S32 x, S32 y, char car )
-;//			      eax    ebx      ecx
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HPrintCar( S32 x, S32 y, char car )
+;                                                                             //			      eax    ebx      ecx
 
-HPrintCar	proc
+HPrintCar proc
 
-		mov	ebx, ds:HTabY[ebx*4]
-		shl	eax, 1
-		add	ebx, eax
-		mov	byte ptr [ebx], cl
+    mov ebx,
+    ds : HTabY[ebx * 4] shl eax, 1 add ebx, eax mov byte ptr[ebx], cl
 
-		ret
+                                                                       ret
 
-HPrintCar	endp
+                                                                           HPrintCar endp
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HPrintCarC( S32 x, S32 y, U8 attr, char car )
-;//			       eax    ebx    ecx        edx
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HPrintCarC( S32 x, S32 y, U8 attr, char car )
+;                                                                             //			       eax    ebx    ecx        edx
 
-HPrintCarC	proc
+HPrintCarC proc
 
-		mov	ebx, ds:HTabY[ebx*4]
-		shl	eax, 1
-		add	ebx, eax
-		mov	dh, cl
-		mov	word ptr [ebx], dx
+    mov ebx,
+    ds : HTabY[ebx * 4] shl eax, 1 add ebx, eax mov dh, cl mov word ptr[ebx], dx
 
-		ret
+                                                                                  ret
 
-HPrintCarC	endp
+                                                                                      HPrintCarC endp
 
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HString( S32 x, S32 y, char *string )
+;                                                                             //		            eax    ebx      ecx
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HString( S32 x, S32 y, char *string )
-;//		            eax    ebx      ecx
+HString proc
 
-HString		proc
+    mov ebx,
+    ds : HTabY[ebx * 4] shl eax, 1 add ebx, eax
 
-		mov	ebx, ds:HTabY[ebx*4]
-		shl	eax, 1
-		add	ebx, eax
+                                                another : mov al,
+                                                          byte ptr[ecx] or al,
+                                                          al jz fin mov byte ptr[ebx],
+                                                          al inc ecx add ebx,
+                                                          2 jmp another
 
-another:	mov	al, byte ptr [ecx]
-		or	al, al
-		jz	fin
-		mov	byte ptr [ebx], al
-		inc	ecx
-		add	ebx, 2
-		jmp	another
+                                                              fin : ret
 
-fin:		ret
+                                                                        HString endp
 
-HString		endp
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HStringC( S32 x, S32 y, U8 attr, char *string )
+;                                                                             //		            eax    ebx     ecx         edx
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HStringC( S32 x, S32 y, U8 attr, char *string )
-;//		            eax    ebx     ecx         edx
+HStringC proc
 
-HStringC	proc
+    mov ebx,
+    ds : HTabY[ebx * 4] shl eax, 1 add ebx, eax
 
-		mov	ebx, ds:HTabY[ebx*4]
-		shl	eax, 1
-		add	ebx, eax
+                                                mov ah,
+         cl
 
-		mov	ah, cl
+             another : mov al,
+                       byte ptr[edx] or al,
+                       al jz fin mov word ptr[ebx],
+                       ax inc edx add ebx,
+                       2 jmp another
 
-another:	mov	al, byte ptr [edx]
-		or	al, al
-		jz	fin
-		mov	word ptr [ebx], ax
-		inc	edx
-		add	ebx, 2
-		jmp	another
+                           fin : ret
 
-fin:		ret
+                                     HStringC endp
 
-HStringC	endp
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HScrollUp( void )
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HScrollUp( void )
+HScrollUp proc
 
-HScrollUp	proc
+    ;                                                       // Copy les 24 dernieres lignes à la premiere ligne
+mov esi, SCRBASE + 160 mov edi, SCRBASE mov ecx, 1000 - 40; // 4000 octets - 160 octets
+rep movsd
 
-		;// Copy les 24 dernieres lignes à la premiere ligne
-		mov	esi, SCRBASE+160
-		mov	edi, SCRBASE
-		mov	ecx, 1000-40	;// 4000 octets - 160 octets
-		rep	movsd
+    ;                                                       // Efface la derniere ligne
+mov edi, SCRBASE + 24 * 160 mov eax, 07000700h mov ecx, 40; // 160 octets
+rep stosd
 
-		;// Efface la derniere ligne
-		mov	edi, SCRBASE+24*160
-		mov	eax, 07000700h
-		mov	ecx, 40	;// 160 octets
-		rep	stosd
+    ret
 
-		ret
+        HScrollUp endp
 
-HScrollUp	endp
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HScrollDown( void )
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HScrollDown( void )
+HScrollDown proc
 
-HScrollDown	proc
+    ;                                                                               // Copie les 24 premieres lignes à la deuxieme ligne
+mov esi, SCRBASE + 24 * 160 - 4 mov edi, SCRBASE + 25 * 160 - 4 mov ecx, 1000 - 40; // 4000 octets - 160 octets
+std
+    rep movsd
+        cld
 
-		;// Copie les 24 premieres lignes à la deuxieme ligne
-		mov	esi, SCRBASE+24*160-4
-		mov	edi, SCRBASE+25*160-4
-		mov	ecx, 1000-40	;// 4000 octets - 160 octets
-		std
-		rep	movsd
-		cld
+    ;                                            // Efface la premiere ligne
+mov edi, SCRBASE mov eax, 07000700h mov ecx, 40; // 160 octets
+rep stosd
 
-		;// Efface la premiere ligne
-		mov	edi, SCRBASE
-		mov	eax, 07000700h
-		mov	ecx, 40	;// 160 octets
-		rep	stosd
+    ret
 
-		ret
+        HScrollDown endp
 
-HScrollDown	endp
-
-;/*══════════════════════════════════════════════════════════════════════════*
+    ; /*══════════════════════════════════════════════════════════════════════════*
 ;	██████┐ ██████┐ ██████┐ ██████┐ ██┐ ██┐ ██████┐ ██████┐ ██████┐
 ;	██┌───┘ ██┌─██│ ██┌─██│ ██┌─██│ ██│ ██│ └─██┌─┘ ██┌───┘ ██┌───┘
 ;	██│███┐ ██████│ ██████│ ██████│ ██████│   ██│   ██│     ██████┐
@@ -227,140 +216,133 @@ HScrollDown	endp
 ;	└─────┘ └─┘ └─┘ └─┘ └─┘ └─┘     └─┘ └─┘ └─────┘ └─────┘ └─────┘
 ;*══════════════════════════════════════════════════════════════════════════*/
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HLineH( S32 y, S32 x0, S32 x1, char car )
-;//			   eax    ebx     ecx       edx
+;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HLineH( S32 y, S32 x0, S32 x1, char car )
+;                                                                             //			   eax    ebx     ecx       edx
 
-HLineH		proc
+HLineH proc
 
-		mov	eax, ds:HTabY[eax*4]
-		sub	ecx, ebx		;// x1-x0
-		inc	ecx
-		shl	ebx, 1
-		add	eax, ebx
+    mov eax,
+    ds : HTabY[eax * 4] sub ecx, ebx; // x1-x0
+inc ecx
+    shl ebx,
+    1 add eax, ebx
 
-bclh:		mov	byte ptr [eax], dl
-		add	eax, 2
-		dec	ecx
-		jnz	bclh
+                   bclh : mov byte ptr[eax],
+                          dl
+                              add eax,
+                          2 dec ecx
+                              jnz bclh
 
-		ret
+                                  ret
 
-HLineH		endp
+                                      HLineH endp
 
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HLineV( S32 x, S32 y0, S32 y1, char car )
+;                                                                             //			   eax    ebx     ecx       edx
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HLineV( S32 x, S32 y0, S32 y1, char car )
-;//			   eax    ebx     ecx       edx
+HLineV proc
 
-HLineV		proc
+    sub ecx,
+    ebx; // y1-y0
+inc ecx
+    mov ebx,
+    ds : HTabY[ebx * 4] shl eax, 1 add ebx, eax
 
-		sub	ecx, ebx		;// y1-y0
-		inc	ecx
-		mov	ebx, ds:HTabY[ebx*4]
-		shl	eax, 1
-		add	ebx, eax
+                                                bclv : mov byte ptr[ebx],
+                                                       dl add ebx,
+                                                       160 dec ecx jnz bclv
 
-bclv:		mov	byte ptr [ebx], dl
-		add	ebx, 160
-		dec	ecx
-		jnz	bclv
+                                                           ret
 
-		ret
+                                                               HLineV endp
 
-HLineV		endp
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HColor( S32 y, S32 x0, S32 x1, U8 attr )
+;                                                                             //			   eax    ebx     ecx     edx
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HColor( S32 y, S32 x0, S32 x1, U8 attr )
-;//			   eax    ebx     ecx     edx
+HColor proc
 
-HColor		proc
+    mov eax,
+    ds : HTabY[eax * 4] sub ecx, ebx; // x1-x0
+inc ecx
+    shl ebx,
+    1 add eax, ebx inc eax; // passe sur l'attribut
 
-		mov	eax, ds:HTabY[eax*4]
-		sub	ecx, ebx		;// x1-x0
-		inc	ecx
-		shl	ebx, 1
-		add	eax, ebx
-		inc	eax			;// passe sur l'attribut
+bclc : mov byte ptr[eax], dl add eax, 2 dec ecx jnz bclc
 
-bclc:		mov	byte ptr [eax], dl
-		add	eax, 2
-		dec	ecx
-		jnz	bclc
+                                          ret
 
-		ret
+                                              HColor endp
 
-HColor		endp
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HColorBox( S32 x0, S32 y0, S32 x1, S32 y1, U8 attr )
+;                                                                             //			      esi     eax     ebx     ecx     edx
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HColorBox( S32 x0, S32 y0, S32 x1, S32 y1, U8 attr )
-;//			      esi     eax     ebx     ecx     edx
+HColorBox proc
 
-HColorBox	proc
+    sub ebx,
+    esi; // x1-x0
+inc ebx
+    sub ecx,
+    eax; // y1-y0
+inc ecx
 
-		sub	ebx, esi		;// x1-x0
-		inc	ebx
-		sub	ecx, eax		;// y1-y0
-		inc	ecx
+    mov eax,
+    ds : HTabY[eax * 4];         // calcul adresse de debut
+shl esi, 1 add eax, esi inc eax; // passe sur l'attribut
 
-		mov	eax, ds:HTabY[eax*4]	;// calcul adresse de debut
-		shl	esi, 1
-		add	eax, esi
-		inc	eax			;// passe sur l'attribut
+mov esi, 80;  // offset pour passer à la
+sub esi, ebx; // ligne suivante
+shl esi, 1
 
-		mov	esi, 80			;// offset pour passer à la
-		sub	esi, ebx		;// ligne suivante
-		shl	esi, 1
+    bclcy : mov edi,
+            ebx;                                                         // restore dx
+bclcx : mov byte ptr[eax], dl add eax, 2 dec edi jnz bclcx add eax, esi; // passe à la ligne suivante
+dec ecx
+    jnz bclcy
 
-bclcy: 		mov	edi, ebx		;// restore dx
-bclcx:		mov	byte ptr [eax], dl
-		add	eax, 2
-		dec	edi
-		jnz	bclcx
-		add	eax, esi		;// passe à la ligne suivante
-		dec	ecx
-		jnz	bclcy
+        ret
 
-		ret
+            HColorBox endp
 
-HColorBox	endp
+    ;
+*══════════════════════════════════════════════════════════════════════════*; //	void	HClsBox( S32 x0, S32 y0, S32 x1, S32 y1, U8 attr )
+;                                                                             //		            esi     eax     ebx     ecx     edx
 
-;*══════════════════════════════════════════════════════════════════════════*
-;//	void	HClsBox( S32 x0, S32 y0, S32 x1, S32 y1, U8 attr )
-;//		            esi     eax     ebx     ecx     edx
+HClsBox proc
 
-HClsBox		proc
+    sub ebx,
+    esi; // x1-x0
+inc ebx
+    sub ecx,
+    eax; // y1-y0
+inc ecx
 
-		sub	ebx, esi		;// x1-x0
-		inc	ebx
-		sub	ecx, eax		;// y1-y0
-		inc	ecx
+    mov eax,
+    ds : HTabY[eax * 4]; // calcul adresse de debut
+shl esi, 1 add eax, esi
 
-		mov	eax, ds:HTabY[eax*4]	;// calcul adresse de debut
-		shl	esi, 1
-		add	eax, esi
+                        shl edx,
+    8;      // passe attribut sur poids fort
+mov dl, 32; // espace
 
-		shl	edx, 8			;// passe attribut sur poids fort
-		mov	dl, 32			;// espace
+mov esi, 80;  // offset pour passer à la
+sub esi, ebx; // ligne suivante
+shl esi, 1
 
-		mov	esi, 80			;// offset pour passer à la
-		sub	esi, ebx		;// ligne suivante
-		shl	esi, 1
+    bclcy : mov edi,
+            ebx;                                                         // restore dx
+bclcx : mov word ptr[eax], dx add eax, 2 dec edi jnz bclcx add eax, esi; // passe à la ligne suivante
+dec ecx
+    jnz bclcy
 
-bclcy: 		mov	edi, ebx		;// restore dx
-bclcx:		mov	word ptr [eax], dx
-		add	eax, 2
-		dec	edi
-		jnz	bclcx
-		add	eax, esi		;// passe à la ligne suivante
-		dec	ecx
-		jnz	bclcy
+        ret
 
-		ret
+            HClsBox endp
 
-HClsBox		endp
-
-;*══════════════════════════════════════════════════════════════════════════*
-;				The
-				End
-*/
+    ;
+*══════════════════════════════════════════════════════════════════════════*;
+The End
+        * /

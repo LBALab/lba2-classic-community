@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_SMACKER_SMACKER
-#define	LIB_SMACKER_SMACKER
+#ifndef LIB_SMACKER_SMACKER
+#define LIB_SMACKER_SMACKER
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -8,13 +8,13 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-extern	void	InitSmacker()	;
+extern void InitSmacker();
 
 //--------------------------------------------------------------------------
-extern	void	SmackRegisterMemory(void *ptr, U32 size)	;
+extern void SmackRegisterMemory(void *ptr, U32 size);
 
 //--------------------------------------------------------------------------
-extern	void	SmackResetMemory()	;
+extern void SmackResetMemory();
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -22,6 +22,6 @@ extern	void	SmackResetMemory()	;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_SMACKER_SMACKER
+#endif //LIB_SMACKER_SMACKER
 
 //--------------------------------------------------------------------------

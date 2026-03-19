@@ -12,51 +12,41 @@ extern "C" U32 asm_Nb_Pts_Control;
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed_value)
-{
+static void rng_seed(U32 seed_value) {
     rng_state = seed_value;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void fill_random_u8(U8 *buffer, U32 size)
-{
-    for (U32 i = 0; i < size; ++i)
-    {
+static void fill_random_u8(U8 *buffer, U32 size) {
+    for (U32 i = 0; i < size; ++i) {
         buffer[i] = (U8)rng_next();
     }
 }
 
-static void fill_random_s16(S16 *buffer, U32 count)
-{
-    for (U32 i = 0; i < count; ++i)
-    {
+static void fill_random_s16(S16 *buffer, U32 count) {
+    for (U32 i = 0; i < count; ++i) {
         buffer[i] = (S16)((S16)rng_next() - 0x4000);
     }
 }
 
-static void seed_control_grid(S16 *buffer, U32 nb_active_points, U32 nb_pts_inter)
-{
+static void seed_control_grid(S16 *buffer, U32 nb_active_points, U32 nb_pts_inter) {
     const U32 width = nb_active_points * nb_pts_inter;
     const U32 total_count = width * nb_active_points;
 
     fill_random_s16(buffer, total_count);
 
-    for (U32 row = 0; row < nb_active_points; ++row)
-    {
-        for (U32 col = 0; col < nb_active_points; ++col)
-        {
+    for (U32 row = 0; row < nb_active_points; ++row) {
+        for (U32 col = 0; col < nb_active_points; ++col) {
             buffer[row * width + col * nb_pts_inter] = (S16)((S16)rng_next() - 0x4000);
         }
     }
 }
 
-static void run_plasma_case(const char *label, U8 interleave, U8 nb_active_points)
-{
+static void run_plasma_case(const char *label, U8 interleave, U8 nb_active_points) {
     const U32 nb_pts_inter = 1u << interleave;
     const U32 width = nb_active_points * nb_pts_inter;
     const U32 tab_virgule_count = width * nb_active_points;
@@ -84,8 +74,7 @@ static void run_plasma_case(const char *label, U8 interleave, U8 nb_active_point
     fill_random_s16(cpp_tab_speed, sizeof(cpp_tab_speed) / sizeof(cpp_tab_speed[0]));
     memcpy(asm_tab_speed, cpp_tab_speed, sizeof(cpp_tab_speed));
 
-    for (U32 i = 0; i < (sizeof(cpp_tab_acc) / sizeof(cpp_tab_acc[0])); ++i)
-    {
+    for (U32 i = 0; i < (sizeof(cpp_tab_acc) / sizeof(cpp_tab_acc[0])); ++i) {
         cpp_tab_acc[i] = (S32)(((U32)rng_next() << 16) | rng_next());
     }
     memcpy(asm_tab_acc, cpp_tab_acc, sizeof(cpp_tab_acc));
@@ -137,26 +126,22 @@ static void run_plasma_case(const char *label, U8 interleave, U8 nb_active_point
     ASSERT_ASM_CPP_MEM_EQ(asm_tab_acc, cpp_tab_acc, sizeof(cpp_tab_acc), "Do_Plasma acc table");
 }
 
-static void test_plasma_fixed_cases(void)
-{
+static void test_plasma_fixed_cases(void) {
     rng_seed(0x11112222u);
     run_plasma_case("Do_Plasma interleave1 active3", 1, 3);
     run_plasma_case("Do_Plasma interleave2 active4", 2, 4);
     run_plasma_case("Do_Plasma interleave3 active3", 3, 3);
 }
 
-static void test_plasma_edge_cases(void)
-{
+static void test_plasma_edge_cases(void) {
     rng_seed(0x33334444u);
     run_plasma_case("Do_Plasma interleave1 active2", 1, 2);
     run_plasma_case("Do_Plasma interleave3 active2", 3, 2);
 }
 
-static void test_plasma_random_stress(void)
-{
+static void test_plasma_random_stress(void) {
     rng_seed(0xDEADBEEFu);
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         U8 interleave = (U8)((rng_next() % 3) + 1);
         U8 nb_active_points = (U8)((rng_next() % 4) + 2);
 
@@ -164,8 +149,7 @@ static void test_plasma_random_stress(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_plasma_fixed_cases);
     RUN_TEST(test_plasma_edge_cases);
     RUN_TEST(test_plasma_random_stress);

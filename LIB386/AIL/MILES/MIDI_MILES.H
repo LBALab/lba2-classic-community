@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_MIDI_MILES
-#define	LIB_AIL_MIDI_MILES
+#ifndef LIB_AIL_MIDI_MILES
+#define LIB_AIL_MIDI_MILES
 
 // This header contains declarations private to MILES
 
@@ -13,27 +13,27 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-#define	OPL2			1
-#define	OPL3			2
-#define	MIDI			3
+#define OPL2 1
+#define OPL3 2
+#define MIDI 3
 
 //--------------------------------------------------------------------------
-extern	char		MidiDriverName[]	;
+extern char MidiDriverName[];
 
-extern	S32		Midi_Driver_Enabled	;
-extern	S32		Midi_Driver_Type	;
+extern S32 Midi_Driver_Enabled;
+extern S32 Midi_Driver_Type;
 
 //--------------------------------------------------------------------------
-extern	VOID_FUNC	ClearMidiDriver		;
-extern	VOID_FUNC	PauseMidi		;
-extern	VOID_FUNC	ResumeMidi		;
+extern VOID_FUNC ClearMidiDriver;
+extern VOID_FUNC PauseMidi;
+extern VOID_FUNC ResumeMidi;
 
 //--------------------------------------------------------------------------
 //	ReserMidi : 			Reset all controlers in Midi Synth
 //
 //	Returns	: 			nothing
 //--------------------------------------------------------------------------
-void	ResetMidi(		void			)	;
+void ResetMidi(void);
 
 //--------------------------------------------------------------------------
 //	PrepareMidi : 			Prepare a Midi for playback
@@ -44,16 +44,16 @@ void	ResetMidi(		void			)	;
 //
 //	Returns	: 			boolean
 //--------------------------------------------------------------------------
-U32	PrepareMidi( 		void *ptrxmi,
-				S32  seqnum,
-				S32  volume 		)	;
+U32 PrepareMidi(void *ptrxmi,
+                S32 seqnum,
+                S32 volume);
 
 //--------------------------------------------------------------------------
 //	ClearMidi :			stop midi until next PrepareMidi
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ClearMidi(		void			)	;
+void ClearMidi(void);
 
 //--------------------------------------------------------------------------
 //	PlayBlockMidi :			Play a Midi block
@@ -62,7 +62,7 @@ void	ClearMidi(		void			)	;
 //
 //	Returns	: 			nothing
 //--------------------------------------------------------------------------
-void	PlayBlockMidi( 		S32 blocknum		)	;
+void PlayBlockMidi(S32 blocknum);
 
 //--------------------------------------------------------------------------
 //	ChainBlockMidi :		Chain a Midi block in the sequence
@@ -71,7 +71,7 @@ void	PlayBlockMidi( 		S32 blocknum		)	;
 //
 //	Returns	: 			nothing
 //--------------------------------------------------------------------------
-void	ChainBlockMidi(		S32 blocknum		)	;
+void ChainBlockMidi(S32 blocknum);
 
 //--------------------------------------------------------------------------
 //	ChangeVolumeMidi :		Change the midi volume
@@ -81,29 +81,29 @@ void	ChainBlockMidi(		S32 blocknum		)	;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ChangeVolumeMidi(	S32 volume,
-				S32 delay		)	;
+void ChangeVolumeMidi(S32 volume,
+                      S32 delay);
 
 //--------------------------------------------------------------------------
 //	StopMidi :			stop midi
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	StopMidi(		void			)	;
+void StopMidi(void);
 
 //--------------------------------------------------------------------------
 //	PauseMidi :			pause midi
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ResumeMidi(		void			)	;
+void ResumeMidi(void);
 
 //--------------------------------------------------------------------------
 //	ResumeMidi :			resume midi
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ResumeMidi(		void			)	;
+void ResumeMidi(void);
 
 //--------------------------------------------------------------------------
 //	StopChainMidi :			Stop chaining the midi sequence.
@@ -111,14 +111,14 @@ void	ResumeMidi(		void			)	;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	StopChainMidi(		void			)	;
+void StopChainMidi(void);
 
 //--------------------------------------------------------------------------
 //	GetBlockPlaying :		check which Midi block is playing
 //
 //	Returns	:			Midi block number (-1 if none)
 //--------------------------------------------------------------------------
-S32	GetBlockPlayingMidi(	void			)	;
+S32 GetBlockPlayingMidi(void);
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -126,7 +126,6 @@ S32	GetBlockPlayingMidi(	void			)	;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_MIDI_MILES
+#endif //LIB_AIL_MIDI_MILES
 
 //--------------------------------------------------------------------------
-

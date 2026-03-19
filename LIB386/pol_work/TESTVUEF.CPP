@@ -11,15 +11,11 @@
 // ║ Return: EAX = TRUE if polygon visible                           ║
 // ║                                                                 ║
 // ╚═════════════════════════════════════════════════════════════════╝
-S32 TestVuePoly(Struc_Point *ptr)
-{
-  LIB386_TRACE_CPP("TestVuePolyF", "1", "input=%p", (void*)ptr);
-  Struc_Point *ptr2 = ptr + 1;
-  Struc_Point *ptr3 = ptr + 2;
+S32 TestVuePoly(Struc_Point *ptr) {
+    LIB386_TRACE_CPP("TestVuePolyF", "1", "input=%p", (void *)ptr);
+    Struc_Point *ptr2 = ptr + 1;
+    Struc_Point *ptr3 = ptr + 2;
 
-  long double result = ((long double)ptr2->Pt_XE - (long double)ptr->Pt_XE)
-                     * ((long double)ptr->Pt_YE - (long double)ptr3->Pt_YE)
-                     - ((long double)ptr->Pt_XE - (long double)ptr3->Pt_XE)
-                     * ((long double)ptr2->Pt_YE - (long double)ptr->Pt_YE);
-  return ROUND(result) >= 0.0;
+    long double result = ((long double)ptr2->Pt_XE - (long double)ptr->Pt_XE) * ((long double)ptr->Pt_YE - (long double)ptr3->Pt_YE) - ((long double)ptr->Pt_XE - (long double)ptr3->Pt_XE) * ((long double)ptr2->Pt_YE - (long double)ptr->Pt_YE);
+    return ROUND(result) >= 0.0;
 }

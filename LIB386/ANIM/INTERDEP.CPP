@@ -10,23 +10,18 @@
 #include <3D/CAMERA.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
-S32 ObjectSetInterDep(T_OBJ_3D *obj)
-{
-    LIB386_TRACE_CPP("ObjectSetInterDep", "1", "obj=%p", (void*)obj);
+S32 ObjectSetInterDep(T_OBJ_3D *obj) {
+    LIB386_TRACE_CPP("ObjectSetInterDep", "1", "obj=%p", (void *)obj);
     obj->Texture = obj->NextTexture;
     obj->Body = obj->NextBody;
 
     // Same time as before?
-    if (TimerRefHR == obj->Time)
-    {
-        if (!(obj->Status & FLAG_BODY))
-        {
+    if (TimerRefHR == obj->Time) {
+        if (!(obj->Status & FLAG_BODY)) {
             obj->Status = 0; // didn't do anything
             return obj->Status;
         }
-    }
-    else if (TimerRefHR < obj->Time)
-    {
+    } else if (TimerRefHR < obj->Time) {
         U32 delta = obj->Time - TimerRefHR;
         obj->NextTimer -= delta;
         obj->LastTimer -= delta;
@@ -38,8 +33,7 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
     obj->Time = TimerRefHR; // Upgrade time
     T_PTR_NUM objAnim = obj->Anim;
 
-    if (TransFctAnim != NULL)
-    {
+    if (TransFctAnim != NULL) {
         objAnim.Ptr = TransFctAnim(objAnim.Num);
     }
 
@@ -48,13 +42,10 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
 
     U32 interpolator = 0; // ebp@6
 
-    if (obj->Time >= obj->NextTimer)
-    {
+    if (obj->Time >= obj->NextTimer) {
         interpolator = 0x10000;
         obj->Status = FLAG_FRAME + FLAG_CHANGE;
-    }
-    else
-    {
+    } else {
         obj->Status = FLAG_CHANGE;
         U32 nbSteps = obj->NextTimer - obj->LastTimer;
         U32 deltaSteps = obj->Time - obj->LastTimer;
@@ -65,8 +56,7 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
     S32 newBeta = obj->Beta;
     S32 newGamma = obj->Gamma;
 
-    if (obj->Master & 1)
-    {
+    if (obj->Master & 1) {
         S32 alpha = frame[5]; // Alpha
         S32 alphaDelta = (S32)(interpolator * (alpha << 20 >> 20)) >> 16;
         newAlpha = (obj->Alpha + alphaDelta - obj->LastAnimStepAlpha) & 0xFFF;
@@ -111,8 +101,7 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
     obj->Y += Y0;
     obj->Z += Z0;
 
-    if (obj->Status == FLAG_CHANGE)
-    {
+    if (obj->Status == FLAG_CHANGE) {
         return obj->Status;
     }
 
@@ -141,14 +130,11 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj)
 
     PTR_U32 nextOfsFrame = NULL; // eax@14
 
-    if (nextFrame >= obj->NbFrames)
-    {
+    if (nextFrame >= obj->NbFrames) {
         nextFrame = obj->LoopFrame;
         nextOfsFrame = (PTR_U32)obj->LoopOfsFrame;
         obj->Status = FLAG_FRAME + FLAG_LAST_FRAME + FLAG_CHANGE;
-    }
-    else
-    {
+    } else {
         nextOfsFrame = (U32 *)((U8 *)prevNextOfsFrame + 4 * size + 16);
     }
 

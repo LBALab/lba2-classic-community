@@ -29,44 +29,44 @@ extern int g_polyrec_recording;
 /*  FILE FORMAT CONSTANTS                                                     */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-#define POLYREC_MAGIC       "LBA2PREC"   /* 8 bytes */
-#define POLYREC_MAGIC_SIZE  8
-#define POLYREC_VERSION     1
+#define POLYREC_MAGIC "LBA2PREC" /* 8 bytes */
+#define POLYREC_MAGIC_SIZE 8
+#define POLYREC_VERSION 1
 
 /* Section type identifiers (4-byte tags) */
-#define POLYREC_SECTION_CLUT        0x434C5554  /* "CLUT" */
-#define POLYREC_SECTION_TEXTURES    0x54455854  /* "TEXT" */
-#define POLYREC_SECTION_INIT_STATE  0x494E4954  /* "INIT" */
-#define POLYREC_SECTION_EVENTS      0x45564E54  /* "EVNT" */
-#define POLYREC_SECTION_REF_FB      0x52454646  /* "REFF" — game's own framebuffer for validation */
-#define POLYREC_SECTION_END         0x454E4421  /* "END!" */
+#define POLYREC_SECTION_CLUT 0x434C5554       /* "CLUT" */
+#define POLYREC_SECTION_TEXTURES 0x54455854   /* "TEXT" */
+#define POLYREC_SECTION_INIT_STATE 0x494E4954 /* "INIT" */
+#define POLYREC_SECTION_EVENTS 0x45564E54     /* "EVNT" */
+#define POLYREC_SECTION_REF_FB 0x52454646     /* "REFF" — game's own framebuffer for validation */
+#define POLYREC_SECTION_END 0x454E4421        /* "END!" */
 
-#define POLYREC_MAX_TEXTURES    64
-#define POLYREC_CLUT_SIZE       65536   /* 256 * 256 bytes */
-#define POLYREC_PALETTE_SIZE    256
-#define POLYREC_RGB_PALETTE_SIZE 768    /* 256 entries × 3 bytes (R,G,B) */
+#define POLYREC_MAX_TEXTURES 64
+#define POLYREC_CLUT_SIZE 65536 /* 256 * 256 bytes */
+#define POLYREC_PALETTE_SIZE 256
+#define POLYREC_RGB_PALETTE_SIZE 768 /* 256 entries × 3 bytes (R,G,B) */
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  EVENT TYPES                                                               */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 /* State change events */
-#define POLYREC_EVT_SWITCH_FILLERS  0x02
-#define POLYREC_EVT_SET_FOG         0x03
-#define POLYREC_EVT_SET_CLUT        0x04
-#define POLYREC_EVT_SET_TEXTURE     0x05
-#define POLYREC_EVT_SET_CLIP        0x06
-#define POLYREC_EVT_SET_REPMASK     0x07
-#define POLYREC_EVT_SET_FILL_PATCH  0x08
+#define POLYREC_EVT_SWITCH_FILLERS 0x02
+#define POLYREC_EVT_SET_FOG 0x03
+#define POLYREC_EVT_SET_CLUT 0x04
+#define POLYREC_EVT_SET_TEXTURE 0x05
+#define POLYREC_EVT_SET_CLIP 0x06
+#define POLYREC_EVT_SET_REPMASK 0x07
+#define POLYREC_EVT_SET_FILL_PATCH 0x08
 #define POLYREC_EVT_SET_CLUT_OFFSET 0x09
 
 /* Draw call events */
-#define POLYREC_EVT_FILL_POLY       0x10
-#define POLYREC_EVT_FILL_SPHERE     0x11
-#define POLYREC_EVT_LINE_A          0x12
+#define POLYREC_EVT_FILL_POLY 0x10
+#define POLYREC_EVT_FILL_SPHERE 0x11
+#define POLYREC_EVT_LINE_A 0x12
 
 /* Sentinel */
-#define POLYREC_EVT_EOF             0xFF
+#define POLYREC_EVT_EOF 0xFF
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  FILE HEADER                                                               */
@@ -75,12 +75,12 @@ extern int g_polyrec_recording;
 #pragma pack(push, 1)
 
 typedef struct {
-    U8  magic[POLYREC_MAGIC_SIZE];  /* "LBA2PREC" */
-    U32 version;                     /* POLYREC_VERSION */
+    U8 magic[POLYREC_MAGIC_SIZE]; /* "LBA2PREC" */
+    U32 version;                  /* POLYREC_VERSION */
     U16 screen_width;
     U16 screen_height;
     U32 screen_pitch;
-    U32 num_events;                  /* total event count */
+    U32 num_events; /* total event count */
     S32 clip_xmin;
     S32 clip_ymin;
     S32 clip_xmax;
@@ -92,8 +92,8 @@ typedef struct {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 typedef struct {
-    U32 type;       /* POLYREC_SECTION_* constant */
-    U32 size;       /* Size in bytes of section data (after this header) */
+    U32 type; /* POLYREC_SECTION_* constant */
+    U32 size; /* Size in bytes of section data (after this header) */
 } T_POLYREC_SECTION_HEADER;
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -101,11 +101,11 @@ typedef struct {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 typedef struct {
-    U8  palette[POLYREC_PALETTE_SIZE];       /* Fill_Logical_Palette initial state */
-    U8  rgb_palette[POLYREC_RGB_PALETTE_SIZE]; /* RGB palette for PPM output */
-    U8  has_rgb_palette;                     /* 1 if rgb_palette is valid */
-    U8  _pad[3];
-    U32 initial_clut_line;                   /* initial SetCLUT line offset */
+    U8 palette[POLYREC_PALETTE_SIZE];         /* Fill_Logical_Palette initial state */
+    U8 rgb_palette[POLYREC_RGB_PALETTE_SIZE]; /* RGB palette for PPM output */
+    U8 has_rgb_palette;                       /* 1 if rgb_palette is valid */
+    U8 _pad[3];
+    U32 initial_clut_line; /* initial SetCLUT line offset */
     /* Followed by:
      *   U8 clut_fog[POLYREC_CLUT_SIZE]      — PtrCLUTFog base table
      *   U8 clut_gouraud[POLYREC_CLUT_SIZE]  — PtrCLUTGouraud base table
@@ -117,9 +117,9 @@ typedef struct {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 typedef struct {
-    U32 texture_id;     /* sequential ID (0, 1, 2, ...) */
-    U32 rep_mask;       /* RepMask value when this texture is active */
-    U32 data_size;      /* raw texture bytes */
+    U32 texture_id; /* sequential ID (0, 1, 2, ...) */
+    U32 rep_mask;   /* RepMask value when this texture is active */
+    U32 data_size;  /* raw texture bytes */
     /* Followed by: U8 data[data_size] */
 } T_POLYREC_TEXTURE_ENTRY;
 
@@ -133,12 +133,12 @@ typedef struct {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 typedef struct {
-    U32 filler_bank;       /* current Switch_Fillers bank */
+    U32 filler_bank; /* current Switch_Fillers bank */
     S32 fog_near;
     S32 fog_far;
-    U32 fill_patch;        /* Fill_Patch value */
-    U32 active_texture;    /* index into texture table (0xFFFFFFFF = none) */
-    U32 rep_mask;          /* current RepMask */
+    U32 fill_patch;     /* Fill_Patch value */
+    U32 active_texture; /* index into texture table (0xFFFFFFFF = none) */
+    U32 rep_mask;       /* current RepMask */
     S32 clip_xmin;
     S32 clip_ymin;
     S32 clip_xmax;
@@ -155,8 +155,8 @@ typedef struct {
     U32 texture_id;
     U32 rep_mask;
     U32 data_size;
-    U8  *data;             /* Pointer to texture pixel data */
-    U8  *original_ptr;     /* Original PtrMap value (for deduplication) */
+    U8 *data;         /* Pointer to texture pixel data */
+    U8 *original_ptr; /* Original PtrMap value (for deduplication) */
 } T_POLYREC_MEM_TEXTURE;
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -170,12 +170,12 @@ typedef struct {
     U32 screen_pitch;
 
     /* CLUT data */
-    U8  palette[POLYREC_PALETTE_SIZE];
-    U8  rgb_palette[POLYREC_RGB_PALETTE_SIZE];
-    U8  has_rgb_palette;
+    U8 palette[POLYREC_PALETTE_SIZE];
+    U8 rgb_palette[POLYREC_RGB_PALETTE_SIZE];
+    U8 has_rgb_palette;
     U32 initial_clut_line;
-    U8  *clut_fog;           /* POLYREC_CLUT_SIZE bytes if non-NULL */
-    U8  *clut_gouraud;       /* POLYREC_CLUT_SIZE bytes if non-NULL */
+    U8 *clut_fog;     /* POLYREC_CLUT_SIZE bytes if non-NULL */
+    U8 *clut_gouraud; /* POLYREC_CLUT_SIZE bytes if non-NULL */
 
     /* Texture table */
     U32 num_textures;
@@ -185,28 +185,28 @@ typedef struct {
     T_POLYREC_INIT_STATE init_state;
 
     /* Event buffer (variable-length events serialized sequentially) */
-    U8  *event_buf;
-    U32  event_buf_size;     /* Total allocated capacity */
-    U32  event_buf_used;     /* Bytes written so far */
-    U32  num_events;         /* Event count */
+    U8 *event_buf;
+    U32 event_buf_size; /* Total allocated capacity */
+    U32 event_buf_used; /* Bytes written so far */
+    U32 num_events;     /* Event count */
 
     /* State tracking for delta compression */
-    U32  last_filler_bank;
-    S32  last_fog_near;
-    S32  last_fog_far;
-    U32  last_clut_line;
-    U8  *last_ptr_map;       /* Last PtrMap pointer (for texture change detection) */
-    S32  last_rep_mask;
-    U32  last_fill_patch;
-    U8  *last_ptr_clut_gouraud; /* Last PtrCLUTGouraud for CLUT offset tracking */
-    S32  last_clip_xmin;
-    S32  last_clip_ymin;
-    S32  last_clip_xmax;
-    S32  last_clip_ymax;
+    U32 last_filler_bank;
+    S32 last_fog_near;
+    S32 last_fog_far;
+    U32 last_clut_line;
+    U8 *last_ptr_map; /* Last PtrMap pointer (for texture change detection) */
+    S32 last_rep_mask;
+    U32 last_fill_patch;
+    U8 *last_ptr_clut_gouraud; /* Last PtrCLUTGouraud for CLUT offset tracking */
+    S32 last_clip_xmin;
+    S32 last_clip_ymin;
+    S32 last_clip_xmax;
+    S32 last_clip_ymax;
 
     /* Reference framebuffer (game's actual output after rendering) */
     U32 ref_fb_size;
-    U8  *ref_framebuffer;
+    U8 *ref_framebuffer;
 } T_POLYREC_STATE;
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -217,12 +217,12 @@ typedef struct {
     T_POLYREC_FILE_HEADER header;
 
     /* CLUT data */
-    U8  palette[POLYREC_PALETTE_SIZE];
-    U8  rgb_palette[POLYREC_RGB_PALETTE_SIZE];
-    U8  has_rgb_palette;
+    U8 palette[POLYREC_PALETTE_SIZE];
+    U8 rgb_palette[POLYREC_RGB_PALETTE_SIZE];
+    U8 has_rgb_palette;
     U32 initial_clut_line;
-    U8  *clut_fog;           /* allocated: POLYREC_CLUT_SIZE */
-    U8  *clut_gouraud;       /* allocated: POLYREC_CLUT_SIZE */
+    U8 *clut_fog;     /* allocated: POLYREC_CLUT_SIZE */
+    U8 *clut_gouraud; /* allocated: POLYREC_CLUT_SIZE */
 
     /* Texture table */
     U32 num_textures;
@@ -232,13 +232,13 @@ typedef struct {
     T_POLYREC_INIT_STATE init_state;
 
     /* Event stream (raw bytes, played back sequentially) */
-    U8  *event_data;
-    U32  event_data_size;
-    U32  num_events;
+    U8 *event_data;
+    U32 event_data_size;
+    U32 num_events;
 
     /* Reference framebuffer */
     U32 ref_fb_size;
-    U8  *ref_framebuffer;
+    U8 *ref_framebuffer;
 } T_POLYREC_LOADED;
 
 /* ═══════════════════════════════════════════════════════════════════════════ */

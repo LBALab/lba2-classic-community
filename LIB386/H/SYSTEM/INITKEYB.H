@@ -1,31 +1,31 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_INITKEYB
+#ifndef LIB_SYSTEM_INITKEYB
 #define LIB_SYSTEM_INITKEYB
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
-#include	<SYSTEM/KEYBWIN.H>
+#ifdef _WIN32
+#include <SYSTEM/KEYBWIN.H>
 #else //_WIN32
-#include	<system/keybdos.h>
-#endif//_WIN32
+#include <system/keybdos.h>
+#endif //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	InitKeyboard()		;
+extern void InitKeyboard();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	ClearKeyboard()		;
+extern void ClearKeyboard();
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_INITKEYB
+#endif //LIB_SYSTEM_INITKEYB
 
 //──────────────────────────────────────────────────────────────────────────
