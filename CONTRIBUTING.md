@@ -19,7 +19,8 @@ If you have an idea, you can [create a feature request](https://github.com/2poin
 1. Fork the repository
 2. Create a feature branch from `main`
 3. Make your changes
-4. Submit a pull request
+4. Run `./run_tests_docker.sh` before submitting (or N/A if docs-only). CI will catch failures, but local run saves round-trips.
+5. Submit a pull request
 
 ### Setting Up a Development Environment
 

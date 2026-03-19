@@ -42,7 +42,7 @@ Truth hierarchy: **code > this document > external sources**.
    - What does `AffScene` depend on? (Log, Screen, ModeDesiredX/Y)
    - Can we run `DoLife`/`DoTrack` without rendering? Likely yes; they update object state.
 
-4. **Docs to create/update:**
+4. **Docs to create/update** (in the same commit as the code change):
    - New `docs/HEADLESS.md` — how to build with `-DHEADLESS=ON`, what runs (main loop steps), what is skipped (render, input), use cases (automation, tests).
    - Update README build options table.
    - Update LIFECYCLES if we add a "headless branch" to the main loop.
@@ -111,6 +111,7 @@ Truth hierarchy: **code > this document > external sources**.
 1. **Read AGENTS.md** — principles, Never, When Modifying X Do Y.
 2. **Read relevant docs** — GLOSSARY, LIFECYCLES, and the doc for the subsystem (CONSOLE, MENU, AUDIO, etc.).
 3. **Map the code** — find entry points, data flow, where your change plugs in.
-4. **Document as you go** — if no doc exists, create one (e.g. HEADLESS.md, CAMERA.md). If behavior changes, update the doc.
+4. **Document as you go** — if no doc exists, create one (e.g. HEADLESS.md, CAMERA.md). If behavior changes, update the doc **in the same commit** (environment trumps willpower).
 5. **Preserve** — French comments, ASCII art; add new comments alongside.
 6. **Verify** — run tests, format check. For LIB386 changes, run equivalence tests.
+7. **When ambiguous** — ask the user before proceeding; do not guess.

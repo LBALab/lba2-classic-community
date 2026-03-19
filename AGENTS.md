@@ -1,6 +1,6 @@
 # Agent Guidance — LBA2 Classic Community
 
-This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work effectively on this codebase. Read it before making changes.
+This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work effectively on this codebase. Read it before making changes or answering questions about the code.
 
 ## Principles
 
@@ -24,6 +24,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - Never change gameplay, timing, or feel without explicit approval
 - Never assume platform; never add unapproved dependencies
 - Never "modernize" C++98 to C++11+ in game code (tests may use newer)
+- When the user's intent is ambiguous, ask before proceeding—do not guess.
 
 ## Golden Rules
 
@@ -45,7 +46,8 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Tests:** Run via Docker: `./run_tests_docker.sh`. Works on Linux, macOS (Docker + QEMU), and Windows (Docker Desktop). Tests require 32-bit x86 + UASM inside the container.
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
-- **Before considering done:** Run `./run_tests_docker.sh`. If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.
+- **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.
+- **Minimal build** (no audio/video): `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for quick iteration.
 
 ## When Modifying X, Do Y
 
@@ -57,7 +59,9 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update ASM_VALIDATION_PROGRESS | docs/TESTING.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Debug tools | DEBUG_TOOLS, CONSOLE_MODULE | docs/DEBUG.md, docs/CONSOLE.md |
+| Config / lba2.cfg | Keys, persistence, installer vs game | docs/CONFIG.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
+| New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 2 |
 
 ## Code Conventions
