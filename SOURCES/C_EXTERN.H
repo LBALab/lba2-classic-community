@@ -96,6 +96,7 @@ extern U32 ParmSampleFrequence;
 
 extern S32 DetailLevel;
 extern S32 VideoFullScreen;
+extern S32 DisplayFullScreen;
 
 extern S32 FlecheForcee;
 

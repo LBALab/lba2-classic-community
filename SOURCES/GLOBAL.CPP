@@ -78,6 +78,7 @@ S32 SamplesEnable = FALSE;
 S32 DetailLevel = MAX_DETAIL_LEVEL;
 
 S32 VideoFullScreen = TRUE;
+S32 DisplayFullScreen = FALSE;
 
 //S32	FlagPalettePcx = FALSE ;
 S32 FlagFade = FALSE;

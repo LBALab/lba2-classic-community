@@ -44,6 +44,12 @@ extern void CloseFdNar();
 
 extern S32 IsVoiceFileOnHD(S32 island);
 extern void InitLanguage(void);
+extern S32 GetLanguageCount(void);
+extern const char *GetLanguageName(S32 language);
+#ifdef CDROM
+extern S32 GetVoiceLanguageCount(void);
+#endif
+extern void ReloadMultiTextFile(S32 file);
 extern S32 FindText(S32 text);
 extern void InitDial(S32 file);
 extern void ClearDial(void);
