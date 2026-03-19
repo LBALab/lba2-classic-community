@@ -6,7 +6,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 1. **Truth hierarchy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins—then update the docs.
 
-2. **Document accuracy:** When you change behavior, update the relevant docs. Keep `ASM_VALIDATION_PROGRESS.md` and `ASM_TO_CPP_REFERENCE.md` current.
+2. **Document accuracy:** Docs drift from code over time. When you change behavior, update the relevant docs in the same commit or PR—environment trumps willpower; maintainers may forget. Keep `ASM_VALIDATION_PROGRESS.md` and `ASM_TO_CPP_REFERENCE.md` current. If you notice code and docs conflict, fix the docs (code wins).
 
 3. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
 
@@ -58,6 +58,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Debug tools | DEBUG_TOOLS, CONSOLE_MODULE | docs/DEBUG.md, docs/CONSOLE.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
+| Any code that affects documented behavior | Update the doc in the same commit | Principle 2 |
 
 ## Code Conventions
 
