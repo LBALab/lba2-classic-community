@@ -661,8 +661,10 @@ S32 TryCopyFileCD_HD(char *filecd, char *filehd) {
         DeleteOlderFileHD();
         verif = freesize;
         freesize = GetHDFreeSize() - (1024L * 1024L);
-        if (freesize == verif)
-            goto endtry; //     Can't delete!
+        if (freesize == verif) {
+            // Can't delete!
+            goto endtry;
+        }
     } while (freesize < size); // Keep hope... :-)
 
     //----------------------------- Ok, maintenant on a forcément la place...

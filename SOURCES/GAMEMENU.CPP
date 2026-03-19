@@ -786,7 +786,8 @@ S32 InputPlayerName(S32 choice, char *name) {
                     x = 320 + SizeFont(PlayerName) / 2;
                 }
                 break;
-            } // end_switch
+            }
+            // end_switch
         } while (akey); // Tant que Buffer Clavier non vide
     }
 
@@ -1208,8 +1209,8 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 #endif
                                 GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
                         } while (FileSize(GamePathname) != 0); // TODO: Review this sorcery
-                    } else // renommer une sauvegarde
-                    {
+                    } else {
+                        // renommer une sauvegarde
                         snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", PlayerName);
 #ifdef DEBUG_TOOLS
                         if (isBugMode)

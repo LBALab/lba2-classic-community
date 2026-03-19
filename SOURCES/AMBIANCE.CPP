@@ -755,8 +755,9 @@ void ReadVolumeSettings() {
     //---------------------------------------------------------------
     JingleVolume = DefFileBufferReadValueDefault("MusicVolume", DEF_JINGLE_VOLUME);
 
-    if (JingleVolume > 127)
+    if (JingleVolume > 127) {
         JingleVolume = 127;
+    }
 
     //---------------------------------------------------------------
 #ifdef CDROM
