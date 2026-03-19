@@ -7,7 +7,7 @@ Quake-style drop-down debug console for LBA2. It is an alternative to DEBUG_TOOL
 Enable the console with the CMake option:
 
 ```bash
-cmake -B build -DCONSOLE_MODULE=ON -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+cmake -B build -DCONSOLE_MODULE=ON
 cmake --build build
 ```
 
@@ -62,6 +62,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **playmusic** &lt;num&gt; [loop 0\|1] | Play music track by number (optional loop flag, default 1). |
 | **playsample** &lt;num&gt; [freq] [decal] [repeat] [volume] [pan] | Play sample by index with optional params: pitchbend (`freq`, default `0x1000`), random pitch range (`decal`), repeat count (`repeat`, 0=loop, default 1), volume (0–127, default 127), pan (0–127, default 64). |
 | **audio** ... | Audio commands: `audio sample play/stop_all`, `audio music play/stop`, `audio global pause/resume/stop_all/reset/reverse_stereo/log`. Calls HQ/AIL functions directly (see [AUDIO.md](AUDIO.md)). |
+| **video** ... | Video commands: `video log <0|1>`. Toggle PlayAcf diagnostic logging (video name, path, language for INTRO). |
 | **exit**      | Exit the game immediately (clean shutdown). |
 
 ## CVars

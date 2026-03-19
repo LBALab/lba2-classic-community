@@ -30,7 +30,7 @@ AIL functions (LIB386/AIL/)
     +-- NULL  (LIB386/AIL/NULL/)    -- silent stubs for testing
 ```
 
-**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`) selects which implementation is linked. This backend-abstraction pattern could be applied to LBA1, though its audio interface differs (separate L/R volumes, runtime DLL loading, MIDI for music). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes-sourcessourcesambiance.cpp) below).
+**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`; default: `sdl`) selects which implementation is linked. This backend-abstraction pattern could be applied to LBA1, though its audio interface differs (separate L/R volumes, runtime DLL loading, MIDI for music). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes-sourcessourcesambiance.cpp) below).
 
 The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`. Use `audio global status` to inspect `samplesPaused` ref-count and driver state without needing log mode.
 
@@ -94,10 +94,13 @@ These are the C headers every backend must implement. They live in `LIB386/H/AIL
 
 ### VIDEO_AUDIO.H -- video soundtrack (smacker)
 
+Each sound backend implements this contract. SDL provides real audio; NULL and MILES provide silent stubs.
+
 | Function | Signature |
 |----------|-----------|
 | `StartVideoAudio` | `S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit)` |
 | `ResumeVideoAudio` | `void ResumeVideoAudio(void)` |
+| `PauseVideoAudio` | `void PauseVideoAudio(void)` |
 | `PushVideoAudio` | `void PushVideoAudio(const void *data, U32 sizeBytes)` |
 | `StopVideoAudio` | `void StopVideoAudio(void)` |
 

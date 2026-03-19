@@ -524,6 +524,29 @@ static void cmd_buildinfo(int argc, const char *argv[])
 	Console_Print("%s", BuildInfo ? BuildInfo : "(no build info)");
 }
 
+#ifdef USE_MVIDEO_SMACKER
+static void cmd_video(int argc, const char *argv[])
+{
+	if (argc < 2 || strcmp(argv[1], "help") == 0) {
+		Console_Print("video commands:");
+		Console_Print("  video log <0|1>");
+		return;
+	}
+	if (strcmp(argv[1], "log") == 0) {
+		if (argc < 3) {
+			Console_Print("Video logging: %s", VideoLogIsEnabled() ? "ON" : "OFF");
+			Console_Print("Usage: video log <0|1>");
+			return;
+		}
+		int flag = (int)strtol(argv[2], NULL, 0);
+		VideoLogEnable(flag);
+		Console_Print("Video logging: %s", VideoLogIsEnabled() ? "ON" : "OFF");
+		return;
+	}
+	Console_Print("Unknown video subcommand. Use: video help");
+}
+#endif
+
 static void cmd_exit(int argc, const char *argv[])
 {
 	(void)argc;
@@ -622,6 +645,9 @@ void Console_RegisterAll(void)
 	Console_RegisterCommand("playmusic", cmd_playmusic, "Play music track by number [loop]");
 	Console_RegisterCommand("playsample", cmd_playsample, "Play sample by index (optional params)");
 	Console_RegisterCommand("audio", cmd_audio, "Audio commands (sample/music/global)");
+#ifdef USE_MVIDEO_SMACKER
+	Console_RegisterCommand("video", cmd_video, "Video commands (log)");
+#endif
 	Console_RegisterCommand("buildinfo", cmd_buildinfo, "Build timestamp and CMake flags");
 	Console_RegisterCommand("exit", cmd_exit, "Exit the game immediately");
 	Console_RegisterCommand("listsaves", cmd_listsaves, "List save games (names)");
