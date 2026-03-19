@@ -2,6 +2,8 @@
 
 If you'd like to contribute to the project, there are several ways you can help.
 
+If you use an AI assistant (Cursor, Copilot, Claude), point it at [AGENTS.md](AGENTS.md) for project context.
+
 If you need help getting started, join us on [Discord](https://discord.gg/gfzna5SfZ5).
 
 ## Reporting Crashes and Bugs
