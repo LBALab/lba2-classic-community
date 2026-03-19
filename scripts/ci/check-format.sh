@@ -2,12 +2,10 @@
 
 set -euo pipefail
 
-if command -v clang-format >/dev/null 2>&1; then
-    clang_format=clang-format
-elif command -v clang-format-18 >/dev/null 2>&1; then
-    clang_format=clang-format-18
-elif command -v clang-format-17 >/dev/null 2>&1; then
+if command -v clang-format-17 >/dev/null 2>&1; then
     clang_format=clang-format-17
+elif command -v clang-format >/dev/null 2>&1; then
+    clang_format=clang-format
 elif command -v xcrun >/dev/null 2>&1; then
     clang_format="$(xcrun --find clang-format)"
 else
