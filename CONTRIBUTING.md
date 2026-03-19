@@ -40,6 +40,8 @@ For C and C++ files, the repository now uses `clang-format` with a checked-in st
 
 If you use VS Code, install the workspace recommendations from `.vscode/extensions.json`. The current recommended set is `ms-vscode.cpptools`, `ms-vscode.cmake-tools`, and `EditorConfig.EditorConfig`.
 
+`EditorConfig.EditorConfig` is recommended because this repository also has files that are not auto-formatted by `clang-format`. It makes VS Code honor the checked-in `.editorconfig` for baseline indentation rules, which keeps C/C++ files on 4 spaces and preserves tab-based indentation in ASM and related files.
+
 ASM files are intentionally excluded from automatic formatting, and `LIB386/libsmacker/` is kept out of formatting because it is third-party code.
 
 A small set of preservation-sensitive or macro-heavy files is also excluded from automatic formatting where `clang-format` does not produce stable results yet. Keep those files manual until they are split up or annotated for safer tooling.
