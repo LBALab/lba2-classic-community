@@ -55,7 +55,7 @@ ASM files are intentionally excluded from automatic formatting, and `LIB386/libs
 
 A small set of preservation-sensitive or macro-heavy files is also excluded from automatic formatting where `clang-format` does not produce stable results yet. Keep those files manual until they are split up or annotated for safer tooling.
 
-Note that `.clang-format-ignore` is only a partial editor/tooling hint right now. The CI/local scripts under `scripts/ci/` are the current source of truth for enforced exclusions.
+The enforced exclusion list lives in `.clang-format-ignore`, and the CI/local scripts under `scripts/ci/` read that file directly.
 
 If you are doing the one-time whitespace migration or reviewing it locally, keep it as a dedicated formatting-only commit and then configure git blame to ignore that commit:
 
