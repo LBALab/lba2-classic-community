@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+"""Filter a NUL-delimited git file list using .clang-format-ignore patterns.
+
+The shell scripts feed tracked C/C++ paths into this helper so there is a
+single exclusion list for local formatting and CI enforcement.
+"""
+
 from __future__ import annotations
 
 import fnmatch
@@ -19,6 +25,7 @@ def load_patterns(path: str) -> list[str]:
 
 
 def matches(path: str, pattern: str) -> bool:
+    # Directory-style entries such as "build/" should exclude the whole tree.
     if pattern.endswith("/"):
         prefix = pattern.rstrip("/")
         return path == prefix or path.startswith(prefix + "/")
