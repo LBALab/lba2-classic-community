@@ -47,7 +47,7 @@ Truth hierarchy: **code > this document > external sources**.
    - Update README build options table.
    - Update LIFECYCLES if we add a "headless branch" to the main loop.
 
-5. **Cross-platform:** Headless should work on Linux, macOS, Windows. Avoid platform-specific headless tricks (e.g. Xvfb) in core code; document as optional for CI.
+5. **Cross-platform:** Headless should work on Linux, macOS, and Windows. Avoid platform-specific headless tricks (e.g. Xvfb on Linux) in core code; document as optional for CI. Contributors and agents work on all three platforms—do not assume Linux.
 
 ---
 

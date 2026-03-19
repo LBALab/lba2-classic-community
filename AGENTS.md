@@ -14,7 +14,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 5. **Quality over speed:** Equivalence tests must pass. Do not relax tests to unblock. Prefer smaller, well-tested changes. Fix bugs before merging.
 
-6. **Cross-platform priority:** Support Linux, macOS, and Windows. Avoid platform-specific assumptions. Prefer portable C/C++. No inline x86 in library code.
+6. **Cross-platform priority:** Support Linux, macOS, and Windows. Contributors and agents may be on any of these—do not assume Linux. Avoid platform-specific assumptions (paths, case sensitivity, toolchains). Prefer portable C/C++. No inline x86 in library code.
 
 ## Never
 
@@ -41,11 +41,11 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Build & Test
 
-- **Build:** `cmake -B build && cmake --build build`. Presets: `cmake --preset linux && cmake --build --preset linux`
-- **Tests:** Run via Docker only: `./run_tests_docker.sh`. Tests require 32-bit x86 + UASM.
+- **Build:** `cmake -B build && cmake --build build`. Or use presets for your platform: `cmake --preset <preset> && cmake --build --preset <preset>` — `linux`, `macos_arm64`, `macos_x86_64`, `windows_ucrt64` (see `CMakePresets.json`).
+- **Tests:** Run via Docker: `./run_tests_docker.sh`. Works on Linux, macOS (Docker + QEMU), and Windows (Docker Desktop). Tests require 32-bit x86 + UASM inside the container.
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
-- **Before considering done:** Run `./run_tests_docker.sh`. If modifying formatted files: `clang-format -i` on staged C/C++ files, or CI runs format check.
+- **Before considering done:** Run `./run_tests_docker.sh`. If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.
 
 ## When Modifying X, Do Y
 
