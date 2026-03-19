@@ -56,7 +56,7 @@ fmt_scalespr_1	DB	"[ASM][ScaleSpriteTransp][1] num=%d x=%d y=%d fx=%d fy=%d", 10
 		public   C     ScaleSpriteTransp
 
 ;*══════════════════════════════════════════════════════════════════════════*/
-ScaleSpriteTransp	proc uses ebp,				\
+ScaleSpriteTransp	proc uses ebp esi edi ebx,		\
 		numbrick:	DWORD, 				\
 		xbrick:		DWORD,	ybrick:		DWORD,	\
 		factorx:	DWORD,	factory:	DWORD,	\

@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include <SYSTEM/DEBUG_TRACES.H>
 
 #define MAX_NB_POINTS 550
@@ -221,6 +222,62 @@ typedef struct
     U16 Scale;
     U16 HandleEnv;
 } STRUC_POLY4_ENV;
+
+static TYPE_VT32 RotateEnvNormal(const TYPE_VT16 *normal)
+{
+    TYPE_VT32 rotated;
+
+    RotatePointNoMMX(&TabMat[normal->Grp], normal->X, normal->Y, normal->Z);
+    rotated.X = X0;
+    rotated.Y = Y0;
+    rotated.Z = Z0;
+
+    return rotated;
+}
+
+static U32 BuildEnvMappedUv(const TYPE_VT32 *rotated, U16 scale)
+{
+    const S32 scaleX = (S32)(scale & 0xFFu);
+    const S32 scaleY = (S32)((U32)scale >> 8);
+    const S32 mapU = ((S32)(U16)(rotated->X + 0x4000) * scaleX) >> 4;
+    const U32 packedMapV = (((U32)((S32)(U16)(rotated->Y + 0x4000) * scaleY)) << 12) & 0xFFFF0000u;
+
+    return (U32)mapU | packedMapV;
+}
+
+static void SetEnvMappedTriangleUvs(Struc_Point *points, const STRUC_POLY3_ENV *poly)
+{
+    const TYPE_VT16 *normals = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
+    TYPE_VT32 rotated;
+
+    rotated = RotateEnvNormal(&normals[poly->P1]);
+    *(U32 *)&points[0].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    rotated = RotateEnvNormal(&normals[poly->P2]);
+    *(U32 *)&points[1].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    rotated = RotateEnvNormal(&normals[poly->P3]);
+    *(U32 *)&points[2].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    X0 = rotated.X;
+    Y0 = rotated.Y;
+    Z0 = rotated.Z;
+}
+
+static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly)
+{
+    const TYPE_VT16 *normals = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
+    TYPE_VT32 rotated;
+
+    rotated = RotateEnvNormal(&normals[poly->P1]);
+    *(U32 *)&points[0].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    rotated = RotateEnvNormal(&normals[poly->P2]);
+    *(U32 *)&points[1].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    rotated = RotateEnvNormal(&normals[poly->P3]);
+    *(U32 *)&points[2].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    rotated = RotateEnvNormal(&normals[poly->P4]);
+    *(U32 *)&points[3].Pt_MapU = BuildEnvMappedUv(&rotated, poly->Scale);
+    X0 = rotated.X;
+    Y0 = rotated.Y;
+    Z0 = rotated.Z;
+}
 
 void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3)
 {
@@ -858,18 +915,7 @@ S32 Triangle_EnvTexture_Solid(U32 typePoly, void *poly)
     RepMask = envInfo >> 16;
     PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
 
-    // Calculate environment texture coordinates based on normals
-    // This is simplified - real env mapping would use transformed normals
-    ListFillPoly[0].Pt_MapU = 0;
-    ListFillPoly[0].Pt_MapV = 0;
-    ListFillPoly[1].Pt_MapU = 0;
-    ListFillPoly[1].Pt_MapV = 0;
-    ListFillPoly[2].Pt_MapU = 0;
-    ListFillPoly[2].Pt_MapV = 0;
-
-    ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
-    ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
-    ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+    SetEnvMappedTriangleUvs(ListFillPoly, poly3);
 
     return Fill_Poly(typePoly >> 2, poly3->Couleur & 0xFF, 3, ListFillPoly);
 }
@@ -892,17 +938,7 @@ S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly)
     RepMask = envInfo >> 16;
     PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
 
-    // Environment texture coordinates (simplified)
-    for (int i = 0; i < 4; i++)
-    {
-        ListFillPoly[i].Pt_MapU = 0;
-        ListFillPoly[i].Pt_MapV = 0;
-    }
-
-    ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
-    ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
-    ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
-    ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+    SetEnvMappedQuadUvs(ListFillPoly, poly4);
 
     return Fill_Poly(typePoly >> 2, poly4->Couleur & 0xFF, 4, ListFillPoly);
 }
@@ -928,16 +964,7 @@ S32 Triangle_EnvTexture_Flat(U32 typePoly, void *poly)
     RepMask = envInfo >> 16;
     PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
 
-    // Environment texture coordinates (simplified)
-    for (int i = 0; i < 3; i++)
-    {
-        ListFillPoly[i].Pt_MapU = 0;
-        ListFillPoly[i].Pt_MapV = 0;
-    }
-
-    ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
-    ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
-    ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+    SetEnvMappedTriangleUvs(ListFillPoly, poly3);
 
     return Fill_Poly(typePoly >> 2, intensity, 3, ListFillPoly);
 }
@@ -962,17 +989,7 @@ S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly)
     RepMask = envInfo >> 16;
     PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
 
-    // Environment texture coordinates (simplified)
-    for (int i = 0; i < 4; i++)
-    {
-        ListFillPoly[i].Pt_MapU = 0;
-        ListFillPoly[i].Pt_MapV = 0;
-    }
-
-    ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
-    ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
-    ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
-    ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+    SetEnvMappedQuadUvs(ListFillPoly, poly4);
 
     return Fill_Poly(typePoly >> 2, intensity, 4, ListFillPoly);
 }
@@ -1001,16 +1018,7 @@ S32 Triangle_EnvTexture_Gouraud(U32 typePoly, void *poly)
     RepMask = envInfo >> 16;
     PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
 
-    // Environment texture coordinates (simplified)
-    for (int i = 0; i < 3; i++)
-    {
-        ListFillPoly[i].Pt_MapU = 0;
-        ListFillPoly[i].Pt_MapV = 0;
-    }
-
-    ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P1].Z + PosZWr);
-    ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P2].Z + PosZWr);
-    ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly3->P3].Z + PosZWr);
+    SetEnvMappedTriangleUvs(ListFillPoly, poly3);
 
     return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
@@ -1039,17 +1047,7 @@ S32 Quad_EnvTexture_Gouraud(U32 typePoly, void *poly)
     RepMask = envInfo >> 16;
     PtrMap = ObjPtrMap + (envInfo & 0xFFFF);
 
-    // Environment texture coordinates (simplified)
-    for (int i = 0; i < 4; i++)
-    {
-        ListFillPoly[i].Pt_MapU = 0;
-        ListFillPoly[i].Pt_MapV = 0;
-    }
-
-    ListFillPoly[0].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P1].Z + PosZWr);
-    ListFillPoly[1].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P2].Z + PosZWr);
-    ListFillPoly[2].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P3].Z + PosZWr);
-    ListFillPoly[3].Pt_W = W_NORM / (Obj_ListRotatedPoints[poly4->P4].Z + PosZWr);
+    SetEnvMappedQuadUvs(ListFillPoly, poly4);
 
     return Fill_Poly(typePoly >> 2, 0, 4, ListFillPoly);
 }
@@ -1067,7 +1065,7 @@ S32 Line(U32 typePoly, void *poly)
     S32 z1 = 0;
     S32 z2 = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj != TYPE_3D)
+    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
     {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
         T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
@@ -1142,7 +1140,7 @@ S32 Sphere(U32 typePoly, void *poly)
     if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
     {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
-        z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+        z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
     // @@NoZBufSphere:
     Fill_Sphere(sphere->Type, sphere->Coul, p1.X, p1.Y, radius, z);
@@ -1159,14 +1157,14 @@ S32 Sphere_Transp(U32 typePoly, void *poly)
 
     S32 radius = sphere->Rayon;
 
-    if (TypeProj == TYPE_3D)
+    if (TypeProj != TYPE_3D)
     {
-        // @@Radius_3D:
-        radius = (radius * Fill_ZBuffer_Factor) >> 16;
+        radius += radius + (radius << 5);
+        radius >>= 9;
+        radius = ~radius;
     }
     else
     {
-        // @@Radius_Proj:
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         radius *= LFactorX;
         radius /= z + PosZWr;
@@ -1203,7 +1201,7 @@ S32 Sphere_Transp(U32 typePoly, void *poly)
     if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
     {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
-        z = (Fill_ZBuffer_Factor * (~rotatedP1.Z - PosZWr)) >> 16;
+        z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
 
     Fill_Sphere(2, sphere->Coul, p1.X, p1.Y, radius, z);
@@ -1253,7 +1251,7 @@ void QuickSort(S32 *beginning, S32 *end)
         // @Ordre:
     } while (next <= end);
 
-    QuickSort(beginning, left);
+    QuickSort(beginning, left - 1);
     QuickSort(left + 1, end);
 }
 
@@ -1285,8 +1283,8 @@ void QuickSortInv(S32 *beginning, S32 *end)
         // @Ordre:
     } while (next <= end);
 
-    QuickSortInv(beginning, left);
-    QuickSortInv(next + 1, end);
+    QuickSortInv(beginning, left - 1);
+    QuickSortInv(left + 1, end);
 }
 
 S16 TestZFar4(STRUC_POLY3_ENV *poly)
@@ -1666,7 +1664,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
     // Skip vertex light
     // to calculate the offset of face-lights
-    PtrListLightsFaces = ListLights + lBody->NbPoints * 2;
+    PtrListLightsFaces = ListLights + lBody->NbPoints;
     NbGroupes = lBody->NbGroupes;
 
     PtrGroupes = (T_OBJ_GROUPE *)((U8 *)lBody + lBody->OffGroupes);

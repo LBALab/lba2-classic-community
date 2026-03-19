@@ -9,5 +9,6 @@ add_asm_cpp_test(
     LIBS sys
     ASM_INCLUDE_DIRS ${_MENU_ASM_INC}
 )
+target_sources(test_sort PRIVATE ${_MENU_ASM_DIR}/SORT.CPP)
 # SORT.ASM references strcmp_ (Watcom-mangled name for strcmp)
 target_link_options(test_sort PRIVATE -Wl,--unresolved-symbols=ignore-in-object-files)
