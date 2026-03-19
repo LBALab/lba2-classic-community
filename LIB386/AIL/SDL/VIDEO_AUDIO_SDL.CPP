@@ -27,8 +27,8 @@ void ResumeVideoAudio(void) {
 }
 
 void PauseVideoAudio(void) {
-  if (videoStream)
-    SDL_PauseAudioStreamDevice(videoStream);
+    if (videoStream)
+        SDL_PauseAudioStreamDevice(videoStream);
 }
 
 void PushVideoAudio(const void *data, U32 sizeBytes) {
