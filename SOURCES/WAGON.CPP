@@ -62,8 +62,10 @@ void DoAnimWagon(void) {
                 APtObj->Info1 = -1;
             }
             break;
-        } // fin switch
-    } // Srot != 0
+        }
+        // fin switch
+    }
+    // Srot != 0
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀

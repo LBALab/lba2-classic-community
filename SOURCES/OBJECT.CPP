@@ -3268,7 +3268,8 @@ void GereObjAnim(U8 numobj) {
             }
             /*-----------------------------------------------------------------*/
         } /* new frame */
-    } /* if anim != -1 */
+    }
+    /* if anim != -1 */
     else {
         // Au cas ou ce soit un objet avec body mais sans anim,
         // comme par exemple (mais vraiment un exemple au hasard,
@@ -3328,8 +3329,10 @@ static void DoAnimSprite3D() {
                         APtObj->WorkFlags &= ~AUTO_STOP_DOOR;
                         APtObj->SRot = 0;
                     }
-                } //	DoorWidth
-                else { // 	je me ferme
+                }
+                // DoorWidth
+                else {
+                    // je me ferme
                     flag = FALSE;
 
                     switch (APtObj->Obj.Beta) {
@@ -3363,8 +3366,10 @@ static void DoAnimSprite3D() {
                         APtObj->SRot = 0;
                     }
                 }
-            } // 	auto stop door
-        } // 	SRot != 0
+            }
+            // auto stop door
+        }
+        // SRot != 0
 
         if (APtObj->Flags & PUSHABLE) {
             Nxw += APtObj->Coord.Push.PushX;
@@ -4302,7 +4307,8 @@ void DoDir(U8 numobj) {
                     //				AnimGant = FALSE ;
                 }
             } // fin test protopack
-        } /* endif numperso */
+        }
+        /* endif numperso */
         else {
             if ((Input & I_ACTION_M)
                     AND !(ptrobj->WorkFlags & ANIM_MASTER_GRAVITY)) {
