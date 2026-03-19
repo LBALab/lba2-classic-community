@@ -42,23 +42,19 @@ static VOID_FUNC ManageStream;
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static void ManageStream()
-{
-    if (Sample_Driver_Enabled && Stream)
-    {
+static void ManageStream() {
+    if (Sample_Driver_Enabled && Stream) {
         AIL_service_stream(Stream, 0);
     }
 
-    if (StreamManageProc)
-    {
+    if (StreamManageProc) {
         StreamManageProc();
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static void PlayThisStream(char *name, S32 pos)
-{
+static void PlayThisStream(char *name, S32 pos) {
     if (!Sample_Driver_Enabled)
         return;
 
@@ -86,12 +82,10 @@ static void PlayThisStream(char *name, S32 pos)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void OpenStream()
-{
+void OpenStream() {
     static char init = TRUE;
 
-    if (init)
-    {
+    if (init) {
         StreamManageProc = ManageProc;
         ManageProc = ManageStream;
         init = FALSE;
@@ -100,21 +94,16 @@ void OpenStream()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PlayStream(char *name)
-{
+void PlayStream(char *name) {
     PlayThisStream(name, 0);
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ChangeVolumeStream(S32 volume)
-{
-    if (volume > 127)
-    {
+void ChangeVolumeStream(S32 volume) {
+    if (volume > 127) {
         volume = 127;
-    }
-    else if (volume < 0)
-    {
+    } else if (volume < 0) {
         volume = 0;
     }
 
@@ -132,15 +121,13 @@ void ChangeVolumeStream(S32 volume)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetVolumeStream()
-{
+S32 GetVolumeStream() {
     return StreamVolume;
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void StopStream()
-{
+void StopStream() {
     if (!Sample_Driver_Enabled || !Stream)
         return;
 
@@ -152,8 +139,7 @@ void StopStream()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PauseStream()
-{
+void PauseStream() {
     if (!IsStreamPlaying())
         return;
 
@@ -169,8 +155,7 @@ void PauseStream()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ResumeStream()
-{
+void ResumeStream() {
     if (!PausedPathName[0])
         return;
 
@@ -181,8 +166,7 @@ void ResumeStream()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 IsStreamPlaying()
-{
+S32 IsStreamPlaying() {
     S32 playing;
 
     if (!Sample_Driver_Enabled || !Stream)
@@ -200,8 +184,7 @@ S32 IsStreamPlaying()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-char *StreamName()
-{
+char *StreamName() {
     IsStreamPlaying();
 
     return StreamPathName;

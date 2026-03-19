@@ -36,8 +36,7 @@ S32 Pointed = -1;
 S32 FlagAutoPal = FALSE;
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void InitPalMenu()
-{
+void InitPalMenu() {
     S32 n;
 
     for (n = 0; n < 8; n++)
@@ -50,19 +49,16 @@ void InitPalMenu()
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void CopyPalMenu(U8 *ptrpal)
-{
+void CopyPalMenu(U8 *ptrpal) {
     S32 n;
 
-    for (n = 0; n < 8; n++)
-    {
+    for (n = 0; n < 8; n++) {
         ptrpal[n * 3 + 0] = PalMenu[n * 3 + 0];
         ptrpal[n * 3 + 1] = PalMenu[n * 3 + 1];
         ptrpal[n * 3 + 2] = PalMenu[n * 3 + 2];
     }
 
-    for (n = 246; n < 251; n++)
-    {
+    for (n = 246; n < 251; n++) {
         ptrpal[n * 3 + 0] = PalMenu2[(n - 246) * 3 + 0];
         ptrpal[n * 3 + 1] = PalMenu2[(n - 246) * 3 + 1];
         ptrpal[n * 3 + 2] = PalMenu2[(n - 246) * 3 + 2];
@@ -70,8 +66,7 @@ void CopyPalMenu(U8 *ptrpal)
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void DrawWindow(S32 x1, S32 y1, S32 x2, S32 y2, S32 flags)
-{
+void DrawWindow(S32 x1, S32 y1, S32 x2, S32 y2, S32 flags) {
     S32 coul, up, down;
     S32 memoclipxmin;
     S32 memoclipxmax;
@@ -89,13 +84,10 @@ void DrawWindow(S32 x1, S32 y1, S32 x2, S32 y2, S32 flags)
 
     coul = flags & FLAG_RED ? B_RED : B_GREY;
 
-    if (flags & FLAG_PUSHED)
-    {
+    if (flags & FLAG_PUSHED) {
         up = coul;
         down = coul + 2;
-    }
-    else
-    {
+    } else {
         up = coul + 2;
         down = coul;
     }
@@ -121,8 +113,7 @@ void DrawWindow(S32 x1, S32 y1, S32 x2, S32 y2, S32 flags)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void OpenWindow(T_WINLIST *wlist, S32 x1, S32 y1, S32 largeur, S32 hauteur)
-{
+void OpenWindow(T_WINLIST *wlist, S32 x1, S32 y1, S32 largeur, S32 hauteur) {
     S32 recal, x2, y2;
 
     x1++;
@@ -134,21 +125,18 @@ void OpenWindow(T_WINLIST *wlist, S32 x1, S32 y1, S32 largeur, S32 hauteur)
         y1 = (ModeDesiredY / 2) - ((hauteur * (SizeChar + 1) - 3)) / 2;
         x2 = x1 + largeur * SizeChar + 14; /* 3 bord 4 espace *2 */
         y2 = y1 + hauteur * (SizeChar + 1) + 14;
-    }
-    else /* normal window */
+    } else /* normal window */
     {
         x2 = x1 + largeur * SizeChar + 14;
         y2 = y1 + hauteur * (SizeChar + 1) + 14;
     }
 
-    if (y2 >= ModeDesiredY - 1)
-    {
+    if (y2 >= ModeDesiredY - 1) {
         recal = y2 - (ModeDesiredY - 2);
         y2 -= recal;
         y1 -= recal;
     }
-    if (x2 >= ModeDesiredX - 1)
-    {
+    if (x2 >= ModeDesiredX - 1) {
         recal = x2 - (ModeDesiredX - 2);
         x2 -= recal;
         x1 -= recal;
@@ -168,8 +156,7 @@ void OpenWindow(T_WINLIST *wlist, S32 x1, S32 y1, S32 largeur, S32 hauteur)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void GetWindowButton(T_MENU *ptrmenu, S32 handle, T_WINLIST *wlist)
-{
+void GetWindowButton(T_MENU *ptrmenu, S32 handle, T_WINLIST *wlist) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
@@ -183,10 +170,8 @@ void GetWindowButton(T_MENU *ptrmenu, S32 handle, T_WINLIST *wlist)
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             wlist->WindowX1 = ptrlcb->X1;
             wlist->WindowY1 = ptrlcb->Y1;
             wlist->WindowX2 = ptrlcb->X2;
@@ -204,33 +189,28 @@ void GetWindowButton(T_MENU *ptrmenu, S32 handle, T_WINLIST *wlist)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void WinText(T_WINLIST *wlist, char *string, S32 value)
-{
+void WinText(T_WINLIST *wlist, char *string, S32 value) {
     GraphPrintf(FALSE, wlist->WindowCol, wlist->WindowLig, "%s%d", string, value);
     wlist->WindowLig += SizeChar + 1;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void WinList(T_WINLIST *wlist, char **index, S32 nb, S32 size)
-{
+void WinList(T_WINLIST *wlist, char **index, S32 nb, S32 size) {
     S32 n;
 
     wlist->WindowArray = index;
     wlist->WindowNbIndex = nb;
     wlist->WindowTab = size;
 
-    for (n = 0; n < nb; n++)
-    {
+    for (n = 0; n < nb; n++) {
         GraphPrintf(FALSE, wlist->WindowCol, wlist->WindowLig, "%s", *index);
         index++;
         wlist->WindowLig += SizeChar + 1;
-        if (wlist->WindowLig > wlist->WindowY2 - 4 - SizeChar)
-        {
+        if (wlist->WindowLig > wlist->WindowY2 - 4 - SizeChar) {
             wlist->WindowCol += size * SizeChar;
             wlist->WindowLig = wlist->WindowY1 + 7;
 
-            if (wlist->WindowCol > wlist->WindowX2 - 4 - size * SizeChar)
-            {
+            if (wlist->WindowCol > wlist->WindowX2 - 4 - size * SizeChar) {
                 wlist->WindowNbIndex = n + 1;
                 break;
             }
@@ -239,8 +219,7 @@ void WinList(T_WINLIST *wlist, char **index, S32 nb, S32 size)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void WinSelect(T_WINLIST *wlist, S32 selected, S32 coul)
-{
+void WinSelect(T_WINLIST *wlist, S32 selected, S32 coul) {
     S32 n;
     char **index;
 
@@ -248,10 +227,8 @@ void WinSelect(T_WINLIST *wlist, S32 selected, S32 coul)
     wlist->WindowCol = wlist->WindowX1 + 7;
     wlist->WindowLig = wlist->WindowY1 + 7;
 
-    for (n = 0; n < wlist->WindowNbIndex; n++)
-    {
-        if (n == selected)
-        {
+    for (n = 0; n < wlist->WindowNbIndex; n++) {
+        if (n == selected) {
             CoulText(coul, -1);
             GraphPrintf(FALSE, wlist->WindowCol, wlist->WindowLig, "%s", *index);
             BoxStaticAdd(wlist->WindowCol,
@@ -261,8 +238,7 @@ void WinSelect(T_WINLIST *wlist, S32 selected, S32 coul)
         }
         index++;
         wlist->WindowLig += SizeChar + 1;
-        if (wlist->WindowLig > wlist->WindowY2 - 4 - SizeChar)
-        {
+        if (wlist->WindowLig > wlist->WindowY2 - 4 - SizeChar) {
             wlist->WindowCol += wlist->WindowTab * SizeChar;
             wlist->WindowLig = wlist->WindowY1 + 7;
         }
@@ -270,22 +246,19 @@ void WinSelect(T_WINLIST *wlist, S32 selected, S32 coul)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void WinSepar(T_WINLIST *wlist)
-{
+void WinSepar(T_WINLIST *wlist) {
     Line(wlist->WindowX1 + 2, wlist->WindowLig, wlist->WindowX2 - 2, wlist->WindowLig, B_GREY);
     Line(wlist->WindowX1 + 2, wlist->WindowLig + 1, wlist->WindowX2 - 2, wlist->WindowLig + 1, B_GREY + 2);
     wlist->WindowLig += 3;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void FlipWindow(T_WINLIST *wlist)
-{
+void FlipWindow(T_WINLIST *wlist) {
     BoxStaticAdd(wlist->WindowX1 - 1, wlist->WindowY1 - 1, wlist->WindowX2 + 1, wlist->WindowY2 + 1);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-S32 GetIndexWinList(T_WINLIST *wlist)
-{
+S32 GetIndexWinList(T_WINLIST *wlist) {
     S32 num;
     S32 x, y, sizecol;
 
@@ -293,8 +266,7 @@ S32 GetIndexWinList(T_WINLIST *wlist)
     y = MouseY;
 
     if ((x >= wlist->WindowX1 + 7) AND(x <= wlist->WindowX2 - 7)
-            AND(y >= wlist->WindowY1 + 7) AND(y <= wlist->WindowY2 - 4))
-    {
+            AND(y >= wlist->WindowY1 + 7) AND(y <= wlist->WindowY2 - 4)) {
         sizecol = ((wlist->WindowY2 - 2) - (wlist->WindowY1 + 7)) / (SizeChar + 1);
 
         x -= wlist->WindowX1 + 7;
@@ -305,8 +277,7 @@ S32 GetIndexWinList(T_WINLIST *wlist)
 
         num = x * sizecol + y;
 
-        if (num < wlist->WindowNbIndex)
-        {
+        if (num < wlist->WindowNbIndex) {
             return num;
         }
     }
@@ -314,8 +285,7 @@ S32 GetIndexWinList(T_WINLIST *wlist)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
-{
+void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed) {
     S32 flags;
     S32 nbaffcar;
     S32 len, x, y;
@@ -328,8 +298,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
 
     ptrlcb = ptrmenu->PtrMallocList + numlcb;
 
-    if (ptrlcb->Type == TYPE_SWITCH)
-    {
+    if (ptrlcb->Type == TYPE_SWITCH) {
         ptrlcb->Flags &= ~FLAG_PUSHED;
         if (*(ptrlcb->PtrVar) & ptrlcb->Mask)
             ptrlcb->Flags |= FLAG_PUSHED;
@@ -339,8 +308,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
 
     /* dessin de la boite */
 
-    if (ptrlcb->Handle != -1)
-    {
+    if (ptrlcb->Handle != -1) {
         flags |= pushed;
         DrawWindow(ptrlcb->X1, ptrlcb->Y1,
                    ptrlcb->X2, ptrlcb->Y2,
@@ -350,8 +318,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
     /* aff du text */
 
     strcpy(string, ptrlcb->PtrString);
-    if (ptrlcb->Type == TYPE_CHANGE_VALUE)
-    {
+    if (ptrlcb->Type == TYPE_CHANGE_VALUE) {
         sprintf(valuestring, "%d", *(ptrlcb->PtrVar));
         strcat(string, valuestring);
     }
@@ -359,28 +326,23 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
     nbaffcar = ((ptrlcb->X2 - 3) - (ptrlcb->X1 + 3)) / SizeChar;
 
     len = strlen(string);
-    if ((len > nbaffcar) AND(len != 1))
-    {
+    if ((len > nbaffcar) AND(len != 1)) {
         if (ptrlcb->Flags & FLAG_FILENAME) /* perd le debut */
         {
             memmove(string,
                     string + (len - nbaffcar),
                     nbaffcar + 1); /* perd le debut */
-        }
-        else /* perd la fin */
+        } else                     /* perd la fin */
         {
             string[nbaffcar] = 0;
         }
     }
 
-    if (ptrlcb->Flags & FLAG_CENTRE)
-    {
+    if (ptrlcb->Flags & FLAG_CENTRE) {
         len = (len * SizeChar) / 2;
         x = (ptrlcb->X1 + ptrlcb->X2) / 2 - len;
         y = (ptrlcb->Y1 + ptrlcb->Y2) / 2 - (SizeChar / 2) + 1;
-    }
-    else
-    {
+    } else {
         x = ptrlcb->X1 + 3;
         y = ptrlcb->Y1 + 3;
     }
@@ -388,8 +350,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
     if (flags & FLAG_PUSHED)
         x++;
 
-    if (ptrlcb->Flags & FLAG_CONTOUR)
-    {
+    if (ptrlcb->Flags & FLAG_CONTOUR) {
         CoulText(0, -1);
         GraphPrintf(FALSE, x - 1, y - 1, string);
         GraphPrintf(FALSE, x, y - 1, string);
@@ -402,9 +363,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
 
         CoulText(YELLOW, -1);
         GraphPrintf(FALSE, x, y, string);
-    }
-    else
-    {
+    } else {
         CoulText(YELLOW, -1);
         GraphPrintf(FALSE, x, y, string);
     }
@@ -417,8 +376,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed)
 /*══════════════════════════════════════════════════════════════════════════*/
 T_CLICK_BOX *AddHeaderButton(T_MENU *ptrmenu,
                              S32 x1, S32 y1,
-                             S32 largeur, S32 hauteur)
-{
+                             S32 largeur, S32 hauteur) {
     S32 x2, y2;
     T_CLICK_BOX *ptrlcb;
     void *ptr;
@@ -432,8 +390,7 @@ T_CLICK_BOX *AddHeaderButton(T_MENU *ptrmenu,
     ptrmenu->NbBox++;
     newsize = ptrmenu->NbBox * sizeof(T_CLICK_BOX);
 
-    if (Mshrink((void *)(ptrmenu->PtrMallocList), newsize) == 0L)
-    {
+    if (Mshrink((void *)(ptrmenu->PtrMallocList), newsize) == 0L) {
         ptr = (void *)ptrmenu->PtrMallocList;
         ptrmenu->PtrMallocList = (T_CLICK_BOX *)Malloc(newsize);
         memmove((void *)ptrmenu->PtrMallocList, ptr, newsize - sizeof(T_CLICK_BOX));
@@ -451,8 +408,7 @@ T_CLICK_BOX *AddHeaderButton(T_MENU *ptrmenu,
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void GetCoorButton(T_MENU *ptrmenu, S32 handle, S32 *x0, S32 *y0, S32 *x1, S32 *y1)
-{
+void GetCoorButton(T_MENU *ptrmenu, S32 handle, S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
@@ -463,10 +419,8 @@ void GetCoorButton(T_MENU *ptrmenu, S32 handle, S32 *x0, S32 *y0, S32 *x1, S32 *
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             *x0 = ptrlcb->X1 + 3;
             *y0 = ptrlcb->Y1 + 3;
             *x1 = ptrlcb->X2 - 3;
@@ -478,8 +432,7 @@ void GetCoorButton(T_MENU *ptrmenu, S32 handle, S32 *x0, S32 *y0, S32 *x1, S32 *
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-void GetCoorMenu(T_MENU *ptrmenu, S32 *x0, S32 *y0, S32 *x1, S32 *y1)
-{
+void GetCoorMenu(T_MENU *ptrmenu, S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
     *x0 = ptrmenu->X1;
     *y0 = ptrmenu->Y1;
     *x1 = ptrmenu->X2;
@@ -492,8 +445,7 @@ void AddButton(T_MENU *ptrmenu,
                S32 x1, S32 y1,
                S32 largeur, S32 hauteur,
                S32 flags,
-               const char *ptrstring)
-{
+               const char *ptrstring) {
     T_CLICK_BOX *ptrlcb;
 
     ptrlcb = AddHeaderButton(ptrmenu, x1, y1, largeur, hauteur);
@@ -514,8 +466,7 @@ void AddChangeValue(T_MENU *ptrmenu,
                     S32 *ptrvar,
                     S32 step,
                     S32 minvar,
-                    S32 maxvar)
-{
+                    S32 maxvar) {
     T_CLICK_BOX *ptrlcborg;
     T_CLICK_BOX *ptrlcb;
 
@@ -559,8 +510,7 @@ void AddSwitch(T_MENU *ptrmenu,
                S32 flags,
                const char *ptrstring,
                S32 *ptrvar,
-               S32 mask)
-{
+               S32 mask) {
     T_CLICK_BOX *ptrlcb;
 
     ptrlcb = AddHeaderButton(ptrmenu, x1, y1, largeur, hauteur);
@@ -578,8 +528,7 @@ void AddText(T_MENU *ptrmenu,
              S32 x1, S32 y1,
              S32 largeur, S32 hauteur,
              S32 flags,
-             const char *ptrstring)
-{
+             const char *ptrstring) {
     T_CLICK_BOX *ptrlcb;
 
     ptrlcb = AddHeaderButton(ptrmenu, x1, y1, largeur, hauteur);
@@ -595,8 +544,7 @@ void AddWindow(T_MENU *ptrmenu,
                S32 handle,
                S32 x1, S32 y1,
                S32 largeur, S32 hauteur,
-               S32 flags)
-{
+               S32 flags) {
     T_CLICK_BOX *ptrlcb;
 
     ptrlcb = AddHeaderButton(ptrmenu, x1, y1, largeur, hauteur);
@@ -608,32 +556,27 @@ void AddWindow(T_MENU *ptrmenu,
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-S32 GetOptimalSize(S32 deltax)
-{
+S32 GetOptimalSize(S32 deltax) {
     return (deltax - 8) / (SizeChar + 7);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void GetSizeMenu(T_MENU *ptrmenu, U32 *pdx, U32 *pdy)
-{
+void GetSizeMenu(T_MENU *ptrmenu, U32 *pdx, U32 *pdy) {
     *pdx = ptrmenu->X2 - ptrmenu->X1 + 1;
     *pdy = ptrmenu->Y2 - ptrmenu->Y1 + 1;
 }
 
-S32 MenuBestFitX(S32 deltax)
-{
+S32 MenuBestFitX(S32 deltax) {
     return (deltax - 14) / SizeChar;
 }
 
-S32 MenuBestFitY(S32 deltax)
-{
+S32 MenuBestFitY(S32 deltax) {
     return (deltax - 14) / (SizeChar + 1);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
 S32 OpenMenu(T_MENU *ptrmenu,
-             S32 largeur, S32 hauteur)
-{
+             S32 largeur, S32 hauteur) {
     S32 dx, dy;
 
     ptrmenu->LastClicked = -1;
@@ -666,8 +609,7 @@ S32 OpenMenu(T_MENU *ptrmenu,
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void CloseMenu(T_MENU *ptrmenu)
-{
+void CloseMenu(T_MENU *ptrmenu) {
     S32 x0, y0, x1, y1;
 
     GetCoorMenu(ptrmenu, &x0, &y0, &x1, &y1);
@@ -678,8 +620,7 @@ void CloseMenu(T_MENU *ptrmenu)
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-S32 DrawMenu(T_MENU *ptrmenu, S32 x1, S32 y1)
-{
+S32 DrawMenu(T_MENU *ptrmenu, S32 x1, S32 y1) {
     S32 n, nb;
     S32 x2, y2;
     S32 oldx1, oldy1;
@@ -690,23 +631,18 @@ S32 DrawMenu(T_MENU *ptrmenu, S32 x1, S32 y1)
     oldx1 = ptrmenu->X1;
     oldy1 = ptrmenu->Y1;
 
-    if (x1 == -1)
-    {
+    if (x1 == -1) {
         x1 = (ModeDesiredX / 2) - (ptrmenu->Dx /*(ptrmenu->Largeur*(SizeChar+7)-3)*/) / 2;
         x2 = x1 + ptrmenu->Largeur * (SizeChar + 7) + 6;
-    }
-    else
-    {
+    } else {
         x1++;
         x2 = x1 + ptrmenu->Largeur * (SizeChar + 7) + 6;
     }
 
-    if (y1 == -1)
-    {
+    if (y1 == -1) {
         y1 = (ModeDesiredY / 2) - (ptrmenu->Dy /*(ptrmenu->Hauteur*(SizeChar+7)-3)*/) / 2;
         y2 = y1 + ptrmenu->Hauteur * (SizeChar + 7) + 6;
-    }
-    else /* normal window */
+    } else /* normal window */
     {
         y1++;
         y2 = y1 + ptrmenu->Hauteur * (SizeChar + 7) + 6;
@@ -723,8 +659,7 @@ S32 DrawMenu(T_MENU *ptrmenu, S32 x1, S32 y1)
 
     nb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
-    for (n = 0; n < nb; n++)
-    {
+    for (n = 0; n < nb; n++) {
         ptrlcb->X1 += x1 - oldx1;
         ptrlcb->Y1 += y1 - oldy1;
         ptrlcb->X2 += x1 - oldx1;
@@ -741,8 +676,7 @@ S32 DrawMenu(T_MENU *ptrmenu, S32 x1, S32 y1)
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void ClearMenu(T_MENU *ptrmenu)
-{
+void ClearMenu(T_MENU *ptrmenu) {
     ptrmenu->LastClicked = -1;
 
     Box(ptrmenu->X1, ptrmenu->Y1,
@@ -754,8 +688,7 @@ void ClearMenu(T_MENU *ptrmenu)
 
 /*══════════════════════════════════════════════════════════════════════════*/
 /* on scan TOUJOURS une list de click box en DECREMENTANT */
-S32 ScanListClick(T_MENU *ptrmenu)
-{
+S32 ScanListClick(T_MENU *ptrmenu) {
     S32 n;
     T_CLICK_BOX *ptrlcb;
     S32 x, y;
@@ -770,14 +703,11 @@ S32 ScanListClick(T_MENU *ptrmenu)
     y = MouseY;
 
     if ((x >= ptrmenu->X1) AND(x <= ptrmenu->X2)
-            AND(y >= ptrmenu->Y1) AND(y <= ptrmenu->Y2))
-    {
+            AND(y >= ptrmenu->Y1) AND(y <= ptrmenu->Y2)) {
         ptrlcb = ptrmenu->PtrMallocList + (nb - 1);
-        for (n = nb - 1; n >= 0; n--)
-        {
+        for (n = nb - 1; n >= 0; n--) {
             if ((x >= ptrlcb->X1) AND(y >= ptrlcb->Y1)
-                    AND(x <= ptrlcb->X2) AND(y <= ptrlcb->Y2))
-            {
+                    AND(x <= ptrlcb->X2) AND(y <= ptrlcb->Y2)) {
                 if (ptrlcb->Handle != -1)
                     return n;
                 else
@@ -791,8 +721,7 @@ S32 ScanListClick(T_MENU *ptrmenu)
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
-S32 GereMenu(T_MENU *ptrmenu)
-{
+S32 GereMenu(T_MENU *ptrmenu) {
     char inputvaluestring[64];
     S32 exitflag = -1;
     S32 select;
@@ -809,34 +738,25 @@ S32 GereMenu(T_MENU *ptrmenu)
     if (select == -2)
         exitflag = -2;
 
-    if ((click = Click) != 0)
-    {
-        if (select > -1)
-        {
+    if ((click = Click) != 0) {
+        if (select > -1) {
             ptrlcb = ptrmenu->PtrMallocList + select;
             exitflag = ptrlcb->Handle;
 
-            if (ptrmenu->LastClicked == select)
-            {
-                if ((!ptrmenu->Repeat))
-                {
-                    if (!((click == 2) AND(ptrlcb->Flags & FLAG_REPEAT)))
-                    {
+            if (ptrmenu->LastClicked == select) {
+                if ((!ptrmenu->Repeat)) {
+                    if (!((click == 2) AND(ptrlcb->Flags & FLAG_REPEAT))) {
                         /* methode du click/run/wait */
-                        while (Click)
-                        {
+                        while (Click) {
                             BoxUpdate();
                         }
                         return -1;
                     }
-                }
-                else
-                {
+                } else {
                     ptrmenu->Repeat = FALSE;
                 }
             }
-            switch (ptrlcb->Type)
-            {
+            switch (ptrlcb->Type) {
             case TYPE_SWITCH:
                 *(ptrlcb->PtrVar) ^= ptrlcb->Mask;
                 break;
@@ -848,8 +768,7 @@ S32 GereMenu(T_MENU *ptrmenu)
                 if (click & 2) /* slide value */
                 {
                     ManageMouse();
-                    while (Click)
-                    {
+                    while (Click) {
                         ManageMouse();
                         value += (MouseXDep / 4) * ptrlcb->Mask;
                         if (value < vmin)
@@ -860,8 +779,7 @@ S32 GereMenu(T_MENU *ptrmenu)
                         DrawBox(ptrmenu, select, FLAG_PUSHED);
                         BoxUpdate();
                     }
-                }
-                else /* input value */
+                } else /* input value */
                 {
                     memostring = ptrlcb->PtrString;
                     sprintf(inputvaluestring, "%d", value);
@@ -904,31 +822,25 @@ S32 GereMenu(T_MENU *ptrmenu)
                 break;
             }
 
-            if (ptrlcb->Type != TYPE_WINDOW)
-            {
+            if (ptrlcb->Type != TYPE_WINDOW) {
                 DrawBox(ptrmenu, select, FLAG_PUSHED);
                 ptrmenu->LastClicked = select;
             }
         }
-    }
-    else /* pas de click */
+    } else /* pas de click */
     {
-        if (ptrmenu->LastClicked != -1)
-        {
+        if (ptrmenu->LastClicked != -1) {
             DrawBox(ptrmenu, ptrmenu->LastClicked, NO_FLAG);
             ptrmenu->LastClicked = -1;
         }
-        if (ptrmenu->LastClicked != -1)
-        {
+        if (ptrmenu->LastClicked != -1) {
             DrawBox(ptrmenu, ptrmenu->LastClicked, NO_FLAG);
             ptrmenu->LastClicked = -1;
         }
-        if (select >= 0)
-        {
+        if (select >= 0) {
             ptrlcb = ptrmenu->PtrMallocList + select;
             Pointed = ptrlcb->Handle;
-        }
-        else
+        } else
             Pointed = -1;
     }
 

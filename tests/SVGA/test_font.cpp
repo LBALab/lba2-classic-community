@@ -27,11 +27,10 @@ extern "C" S32 asm_InterSpace;
  * Each glyph: first byte = width, rest = mask data (unused by SizeFont). */
 static U8 g_fontbank[2048];
 
-static void build_font_bank(void)
-{
+static void build_font_bank(void) {
     memset(g_fontbank, 0, sizeof(g_fontbank));
     U32 *offsets = (U32 *)g_fontbank;
-    U32 data_start = 256 * 4;  /* 1024 bytes for offset table */
+    U32 data_start = 256 * 4; /* 1024 bytes for offset table */
 
     /* Set up a few characters with known widths */
     /* 'A' (65): width 8 */
@@ -53,8 +52,7 @@ static void build_font_bank(void)
     /* Space (32) is handled by InterSpace, not the offset table */
 }
 
-static void setup_font(void)
-{
+static void setup_font(void) {
     build_font_bank();
     PtrFont = g_fontbank;
     InterLeave = 1;
@@ -66,62 +64,54 @@ static void setup_font(void)
 
 /* ---------- SizeFont tests ---------- */
 
-static void test_sizefont_single_char(void)
-{
+static void test_sizefont_single_char(void) {
     setup_font();
     S32 size = SizeFont((char *)"A");
     /* size = InterLeave(1) + width(8) = 9 */
     ASSERT_EQ_INT(9, size);
 }
 
-static void test_sizefont_multi(void)
-{
+static void test_sizefont_multi(void) {
     setup_font();
     S32 size = SizeFont((char *)"ABC");
     /* A: 1+8=9, B: 1+7=8, C: 1+6=7 → total = 24 */
     ASSERT_EQ_INT(24, size);
 }
 
-static void test_sizefont_with_space(void)
-{
+static void test_sizefont_with_space(void) {
     setup_font();
     S32 size = SizeFont((char *)"A B");
     /* A: 1+8=9, space: 10, B: 1+7=8 → total = 27 */
     ASSERT_EQ_INT(27, size);
 }
 
-static void test_sizefont_empty(void)
-{
+static void test_sizefont_empty(void) {
     setup_font();
     S32 size = SizeFont((char *)"");
     ASSERT_EQ_INT(0, size);
 }
 
-static void test_sizefont_space_only(void)
-{
+static void test_sizefont_space_only(void) {
     setup_font();
     S32 size = SizeFont((char *)" ");
     ASSERT_EQ_INT(10, size);
 }
 
-static void test_asm_equiv_sizefont(void)
-{
+static void test_asm_equiv_sizefont(void) {
     setup_font();
     S32 cpp_size = SizeFont((char *)"ABC!");
     S32 asm_size = asm_SizeFont((char *)"ABC!");
     ASSERT_EQ_INT(cpp_size, asm_size);
 }
 
-static void test_asm_equiv_sizefont_with_spaces(void)
-{
+static void test_asm_equiv_sizefont_with_spaces(void) {
     setup_font();
     S32 cpp_size = SizeFont((char *)"A B C");
     S32 asm_size = asm_SizeFont((char *)"A B C");
     ASSERT_EQ_INT(cpp_size, asm_size);
 }
 
-static void test_asm_equiv_sizefont_empty(void)
-{
+static void test_asm_equiv_sizefont_empty(void) {
     setup_font();
     S32 cpp_size = SizeFont((char *)"");
     S32 asm_size = asm_SizeFont((char *)"");
@@ -130,10 +120,12 @@ static void test_asm_equiv_sizefont_empty(void)
 
 static U32 rng_state;
 static void rng_seed(U32 s) { rng_state = s; }
-static U32 rng_next(void) { rng_state = rng_state * 1103515245u + 12345u; return (rng_state >> 16) & 0x7FFF; }
+static U32 rng_next(void) {
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFF;
+}
 
-static void test_random_sizefont(void)
-{
+static void test_random_sizefont(void) {
     setup_font();
     rng_seed(0xF00D1234);
     int prev = test_failures;
@@ -157,8 +149,7 @@ static void test_random_sizefont(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_sizefont_single_char);
     RUN_TEST(test_sizefont_multi);
     RUN_TEST(test_sizefont_with_space);

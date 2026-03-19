@@ -78,8 +78,7 @@ static S32 FadeStartTime;
 
 // ████████████████████████████████████████████████████████████████████████████
 
-enum
-{
+enum {
     USER_DATA_VOLUME,
     USER_DATA_PITCHBEND,
     USER_DATA_RATE,
@@ -98,8 +97,7 @@ VOID_FUNC SpecialInitSampleDriver;
 
 #ifdef _WIN32
 
-S32 InitDriver(S32 rate, S32 bits, S32 chans)
-{
+S32 InitDriver(S32 rate, S32 bits, S32 chans) {
     static PCMWAVEFORMAT sPCMWF;
     S32 res;
 
@@ -112,8 +110,7 @@ S32 InitDriver(S32 rate, S32 bits, S32 chans)
 
     res = AIL_waveOutOpen(&DigDriver, NULL, 0, (LPWAVEFORMAT)&sPCMWF);
 
-    if (res)
-    {
+    if (res) {
         DigDriver = NULL;
     }
 
@@ -124,10 +121,8 @@ S32 InitDriver(S32 rate, S32 bits, S32 chans)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 InitSampleDriver(char *driver_name)
-{
-    if (Sample_Driver_Enabled)
-    {
+S32 InitSampleDriver(char *driver_name) {
+    if (Sample_Driver_Enabled) {
         return TRUE;
     }
 
@@ -137,15 +132,10 @@ S32 InitSampleDriver(char *driver_name)
 
     AIL_set_preference(DIG_USE_WAVEOUT, FALSE);
 retry:
-    if (InitDriver(SamplingRate, 16, 2))
-    {
-        if (InitDriver(SamplingRate, 8, 2))
-        {
-            if (InitDriver(SamplingRate / 2, 8, 1))
-            {
-
-                if (!AIL_get_preference(DIG_USE_WAVEOUT))
-                {
+    if (InitDriver(SamplingRate, 16, 2)) {
+        if (InitDriver(SamplingRate, 8, 2)) {
+            if (InitDriver(SamplingRate / 2, 8, 1)) {
+                if (!AIL_get_preference(DIG_USE_WAVEOUT)) {
                     AIL_set_preference(DIG_USE_WAVEOUT, TRUE);
                     goto retry;
                 }
@@ -165,20 +155,16 @@ retry:
     AIL_set_preference(AIL_SCAN_FOR_HARDWARE, YES);
 
     // Initialize digital sound system
-    if (driver_name && strcmp(driver_name, ""))
-    {
+    if (driver_name && strcmp(driver_name, "")) {
         strcpy(SampleDriverName, driver_name);
         DigDriver = AIL_install_DIG_driver_file(driver_name, NULL);
-    }
-    else
-    {
+    } else {
         LONG res;
 
         SampleDriverName[0] = (char)0;
 
         res = AIL_install_DIG_INI(&DigDriver);
-        switch (res)
-        {
+        switch (res) {
         case AIL_INIT_SUCCESS:
             break;
         case AIL_NO_INI_FILE:
@@ -190,8 +176,7 @@ retry:
             break;
         }
     }
-    if (DigDriver == NULL)
-    {
+    if (DigDriver == NULL) {
         LogPuts((char *)AIL_error);
         return FALSE;
     }
@@ -203,8 +188,7 @@ retry:
 
         AIL_digital_configuration(DigDriver, &rate, &format, desc);
 
-        if (!desc[0])
-        {
+        if (!desc[0]) {
             strcpy(desc, SampleDriverName);
         }
 
@@ -216,8 +200,7 @@ retry:
                   rate);
     }
 
-    for (Nb_Voices = 0; Nb_Voices < MAX_SAMPLE_VOICES; Nb_Voices++)
-    {
+    for (Nb_Voices = 0; Nb_Voices < MAX_SAMPLE_VOICES; Nb_Voices++) {
         HSAMPLE handle;
 
         handle = AIL_allocate_sample_handle(DigDriver);
@@ -237,32 +220,23 @@ retry:
 
 #ifdef _WIN32
     UseWaveMixer = GetMixerVolDevice(&WaveVolume, MIXERLINE_COMPONENTTYPE_SRC_WAVEOUT);
-    if (UseWaveMixer)
-    {
+    if (UseWaveMixer) {
         LogPuts("Mixer Device found. Used for WAVE volume control.");
         OldWaveVolume = GetMixerVolume(&WaveVolume);
-    }
-    else
-    {
+    } else {
         LogPuts("Mixer Device not found. Wave volume control handled in software.");
     }
 
     PauseSamplesPtr = PauseSamples;
-    if (PauseMiles)
-    {
+    if (PauseMiles) {
         PauseMiles = PauseBothMiles;
-    }
-    else
-    {
+    } else {
         PauseMiles = PauseSamples;
     }
     ResumeSamplesPtr = ResumeSamples;
-    if (ResumeMiles)
-    {
+    if (ResumeMiles) {
         ResumeMiles = ResumeBothMiles;
-    }
-    else
-    {
+    } else {
         ResumeSamplesPtr = ResumeSamples;
     }
 #endif
@@ -272,22 +246,19 @@ retry:
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static void SpecialInitSampleDriver()
-{
+static void SpecialInitSampleDriver() {
     InitSampleDriver(SampleDriverName);
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ClearSampleDriver()
-{
+void ClearSampleDriver() {
     if (!Sample_Driver_Enabled)
         return;
 
 #ifdef _WIN32
     // Restore mixer volume
-    if (UseWaveMixer)
-    {
+    if (UseWaveMixer) {
         SetMixerVolume(&WaveVolume, OldWaveVolume);
     }
 #endif //_WIN32
@@ -296,23 +267,17 @@ void ClearSampleDriver()
 }
 // ████████████████████████████████████████████████████████████████████████████
 
-static S32 GetHandleIndice(U32 sample)
-{
+static S32 GetHandleIndice(U32 sample) {
     S32 hnum;
 
-    if (sample < 0x1000000)
-    {
-        for (hnum = 0; hnum < Nb_Voices; hnum++)
-        {
-            if (((Sample_Handle[hnum].sample >> 8) & 0xFFFF) == sample)
-            {
+    if (sample < 0x1000000) {
+        for (hnum = 0; hnum < Nb_Voices; hnum++) {
+            if (((Sample_Handle[hnum].sample >> 8) & 0xFFFF) == sample) {
                 return hnum;
             }
         }
         return -1;
-    }
-    else
-    {
+    } else {
         // get array indice
         hnum = sample & 0xFF;
 
@@ -327,8 +292,7 @@ static S32 GetHandleIndice(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static HSAMPLE FindFreeHandle(U32 *pnum)
-{
+static HSAMPLE FindFreeHandle(U32 *pnum) {
     HSAMPLE handle;
     U32 hnum;
 
@@ -336,8 +300,7 @@ static HSAMPLE FindFreeHandle(U32 *pnum)
         return 0;
 
     // Search a sample with SMP_DONE status
-    for (hnum = 0; hnum < Nb_Voices; hnum++)
-    {
+    for (hnum = 0; hnum < Nb_Voices; hnum++) {
         if (Sample_Handle[hnum].sample == 0)
             break;
         if (AIL_sample_status(Sample_Handle[hnum].handle) == SMP_DONE)
@@ -345,8 +308,7 @@ static HSAMPLE FindFreeHandle(U32 *pnum)
     }
 
     // Found one?
-    if (hnum == Nb_Voices)
-    {
+    if (hnum == Nb_Voices) {
         // If none find the oldest
 
         U32 bestsample;
@@ -356,30 +318,25 @@ static HSAMPLE FindFreeHandle(U32 *pnum)
         bestsample = 0xFFFFFFFF;
 
         // search a one shot
-        for (hnum = 0; hnum < Nb_Voices; hnum++)
-        {
+        for (hnum = 0; hnum < Nb_Voices; hnum++) {
             if ((bestsample > Sample_Handle[hnum].sample) && (AIL_sample_loop_count(Sample_Handle[hnum].handle) == 1))
                 bestsample = Sample_Handle[hnum].sample;
         }
-        if (bestsample != 0xFFFFFFFF)
-        {
+        if (bestsample != 0xFFFFFFFF) {
             goto ok;
         }
 
         // search a sample that is not in infinite loop
-        for (hnum = 0; hnum < Nb_Voices; hnum++)
-        {
+        for (hnum = 0; hnum < Nb_Voices; hnum++) {
             if ((bestsample > Sample_Handle[hnum].sample) && AIL_sample_loop_count(Sample_Handle[hnum].handle))
                 bestsample = Sample_Handle[hnum].sample;
         }
-        if (bestsample != 0xFFFFFFFF)
-        {
+        if (bestsample != 0xFFFFFFFF) {
             goto ok;
         }
 
         // search any sample
-        for (hnum = 0; hnum < Nb_Voices; hnum++)
-        {
+        for (hnum = 0; hnum < Nb_Voices; hnum++) {
             if (bestsample > Sample_Handle[hnum].sample)
                 bestsample = Sample_Handle[hnum].sample;
         }
@@ -409,8 +366,7 @@ static HSAMPLE FindFreeHandle(U32 *pnum)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static U32 GenerateSampleHandle(U32 usernum, U32 hnum)
-{
+static U32 GenerateSampleHandle(U32 usernum, U32 hnum) {
     U32 sample;
 
     // Compute handle
@@ -419,8 +375,7 @@ static U32 GenerateSampleHandle(U32 usernum, U32 hnum)
     Sample_Handle[hnum].sample = sample;
 
     SampleSeed += 0x1000000;
-    if (SampleSeed == 0)
-    {
+    if (SampleSeed == 0) {
         SampleSeed = 0x1000000;
     }
 
@@ -429,13 +384,11 @@ static U32 GenerateSampleHandle(U32 usernum, U32 hnum)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static void ScaleVolumeSamples(S32 fadevol)
-{
+static void ScaleVolumeSamples(S32 fadevol) {
     U32 hnum;
 
     // update all the volumes
-    for (hnum = 0; hnum < Nb_Voices; hnum++)
-    {
+    for (hnum = 0; hnum < Nb_Voices; hnum++) {
         HSAMPLE handle;
         S32 volume;
 
@@ -447,32 +400,24 @@ static void ScaleVolumeSamples(S32 fadevol)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void SetMasterVolumeSample(S32 volume)
-{
+void SetMasterVolumeSample(S32 volume) {
 #ifdef _WIN32
-    if (UseWaveMixer)
-    {
+    if (UseWaveMixer) {
         SetMixerVolume(&WaveVolume, volume);
-    }
-    else
+    } else
 #endif
     {
-        if (volume <= 0)
-        {
+        if (volume <= 0) {
             volume = 0;
-        }
-        else
-        {
+        } else {
             volume++;
 
-            if (volume > 128)
-            {
+            if (volume > 128) {
                 volume = 128;
             }
         }
 
-        if (volume == LibWaveMasterVolume)
-        {
+        if (volume == LibWaveMasterVolume) {
             return;
         }
 
@@ -487,22 +432,16 @@ void SetMasterVolumeSample(S32 volume)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetMasterVolumeSample()
-{
+S32 GetMasterVolumeSample() {
 #ifdef _WIN32
-    if (UseWaveMixer)
-    {
+    if (UseWaveMixer) {
         return GetMixerVolume(&WaveVolume);
-    }
-    else
+    } else
 #endif
     {
-        if (LibWaveMasterVolume)
-        {
+        if (LibWaveMasterVolume) {
             return (LibWaveMasterVolume - 1);
-        }
-        else
-        {
+        } else {
             return (0);
         }
     }
@@ -510,12 +449,10 @@ S32 GetMasterVolumeSample()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 FadeOutSamples(S32 delay)
-{
+S32 FadeOutSamples(S32 delay) {
     S32 delta;
 
-    if (!SamplesFade)
-    {
+    if (!SamplesFade) {
         ManageTime();
 
         FadeStartTime = TimerSystemHR;
@@ -530,16 +467,12 @@ S32 FadeOutSamples(S32 delay)
     if (delta < 0)
         delta = 0;
 
-    if (Sample_Driver_Enabled)
-    {
+    if (Sample_Driver_Enabled) {
         S32 ratio;
 
-        if (delay)
-        {
+        if (delay) {
             ratio = delta * 128 / delay;
-        }
-        else
-        {
+        } else {
             ratio = 128;
         }
 
@@ -551,12 +484,10 @@ S32 FadeOutSamples(S32 delay)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 FadeInSamples(S32 delay)
-{
+S32 FadeInSamples(S32 delay) {
     S32 delta;
 
-    if (SamplesFade)
-    {
+    if (SamplesFade) {
         ManageTime();
 
         FadeStartTime = TimerSystemHR;
@@ -571,16 +502,12 @@ S32 FadeInSamples(S32 delay)
     if (delta > delay)
         delta = delay;
 
-    if (Sample_Driver_Enabled)
-    {
+    if (Sample_Driver_Enabled) {
         S32 ratio;
 
-        if (delay)
-        {
+        if (delay) {
             ratio = delta * 128 / delay;
-        }
-        else
-        {
+        } else {
             ratio = 128;
         }
 
@@ -592,15 +519,13 @@ S32 FadeInSamples(S32 delay)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void InverseStereoSample(S32 inverse)
-{
+void InverseStereoSample(S32 inverse) {
     InversePanMask = inverse ? 127 : 0;
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-U32 PlaySample(void *ptrsample, S32 sizeBytes, U32 usernum, S32 pitchbend, S32 nbrepeat, S32 volume, S32 pan)
-{
+U32 PlaySample(void *ptrsample, S32 sizeBytes, U32 usernum, S32 pitchbend, S32 nbrepeat, S32 volume, S32 pan) {
     HSAMPLE handle;
     U32 hnum;
 
@@ -612,15 +537,13 @@ U32 PlaySample(void *ptrsample, S32 sizeBytes, U32 usernum, S32 pitchbend, S32 n
         return NULL;
 
     // link sample data with sample handle
-    if (!AIL_set_sample_file(handle, ptrsample, -1))
-    {
+    if (!AIL_set_sample_file(handle, ptrsample, -1)) {
         return 0xFFFFFFFF;
     }
 
     // Pichpend
     AIL_set_sample_user_data(handle, USER_DATA_RATE, AIL_sample_playback_rate(handle));
-    if (pitchbend != 4096)
-    {
+    if (pitchbend != 4096) {
         AIL_set_sample_playback_rate(
             handle,
             Scale(AIL_sample_playback_rate(handle), pitchbend, 12));
@@ -661,35 +584,29 @@ static void WINAPI
 #else
 static void pascal
 #endif
-SampleCallBack(U32 user)
-{
+SampleCallBack(U32 user) {
     user = user;
 
-    if (!SamplesPaused)
-    {
+    if (!SamplesPaused) {
         PlaySample(Timer_ptrsample, Timer_usernum, Timer_pitchbend, Timer_nbrepeat, Timer_volume, Timer_pan ^ InversePanMask);
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-U32 TimerPlaySample(void *ptrsample, U32 usernum, S32 pitchbend, S32 nbrepeat, S32 volume, S32 pan, S32 period)
-{
+U32 TimerPlaySample(void *ptrsample, U32 usernum, S32 pitchbend, S32 nbrepeat, S32 volume, S32 pan, S32 period) {
     if (!Sample_Driver_Enabled)
         return FALSE;
 
-    if (!HandleTimer)
-    {
+    if (!HandleTimer) {
 #ifndef _WIN32
-        if (!AIL_vmm_lock_range(&SampleCallBack, &TimerPlaySample) OR !AIL_vmm_lock_range(&HandleTimer, &Sample_Handle[0]))
-        {
+        if (!AIL_vmm_lock_range(&SampleCallBack, &TimerPlaySample) OR !AIL_vmm_lock_range(&HandleTimer, &Sample_Handle[0])) {
             HandleTimer = (HTIMER)-1;
             return FALSE;
         }
 #endif
         HandleTimer = AIL_register_timer(SampleCallBack);
-        if (HandleTimer == -1)
-        {
+        if (HandleTimer == -1) {
             return FALSE;
         }
     }
@@ -708,20 +625,17 @@ U32 TimerPlaySample(void *ptrsample, U32 usernum, S32 pitchbend, S32 nbrepeat, S
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void TimerStopSample()
-{
+void TimerStopSample() {
     if (!Sample_Driver_Enabled)
         return;
 
-    if (HandleTimer)
-    {
+    if (HandleTimer) {
         AIL_stop_timer(HandleTimer);
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
-void ChangePitchbendSample(U32 sample, S32 pitchbend)
-{
+void ChangePitchbendSample(U32 sample, S32 pitchbend) {
     HSAMPLE handle;
     S32 hnum;
 
@@ -743,8 +657,7 @@ void ChangePitchbendSample(U32 sample, S32 pitchbend)
         return;
 
     // pitchend
-    if (pitchbend != AIL_sample_user_data(handle, USER_DATA_PITCHBEND))
-    {
+    if (pitchbend != AIL_sample_user_data(handle, USER_DATA_PITCHBEND)) {
         AIL_set_sample_playback_rate(
             handle,
             Scale(AIL_sample_user_data(handle, USER_DATA_RATE), pitchbend, 12));
@@ -755,8 +668,7 @@ void ChangePitchbendSample(U32 sample, S32 pitchbend)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan)
-{
+void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan) {
     HSAMPLE handle;
     S32 hnum;
 
@@ -797,8 +709,7 @@ void ChangeVolumePanSample(U32 sample, S32 volume, S32 pan)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-HSAMPLE GetSampleMSSHandle(U32 sample)
-{
+HSAMPLE GetSampleMSSHandle(U32 sample) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -817,8 +728,7 @@ HSAMPLE GetSampleMSSHandle(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void StopOneSample(U32 sample)
-{
+void StopOneSample(U32 sample) {
     HSAMPLE handle;
     S32 hnum;
 
@@ -840,8 +750,7 @@ void StopOneSample(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void StopSamples()
-{
+void StopSamples() {
     U32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -851,8 +760,7 @@ void StopSamples()
     TimerStopSample();
 
     // Stop everything!
-    for (hnum = 0; hnum < Nb_Voices; hnum++)
-    {
+    for (hnum = 0; hnum < Nb_Voices; hnum++) {
         HSAMPLE handle;
 
         handle = Sample_Handle[hnum].handle;
@@ -867,8 +775,7 @@ void StopSamples()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PauseOneSample(U32 sample)
-{
+void PauseOneSample(U32 sample) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -887,8 +794,7 @@ void PauseOneSample(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ResumeOneSample(U32 sample)
-{
+void ResumeOneSample(U32 sample) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -907,8 +813,7 @@ void ResumeOneSample(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PauseSamples()
-{
+void PauseSamples() {
     U32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -922,16 +827,14 @@ void PauseSamples()
     }
 
     // Pause everything
-    for (hnum = 0; hnum < Nb_Voices; hnum++)
-    {
+    for (hnum = 0; hnum < Nb_Voices; hnum++) {
         AIL_stop_sample(Sample_Handle[hnum].handle);
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ResumeSamples()
-{
+void ResumeSamples() {
     U32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -950,16 +853,14 @@ void ResumeSamples()
     }
 
     // Resume everything
-    for (hnum = 0; hnum < Nb_Voices; hnum++)
-    {
+    for (hnum = 0; hnum < Nb_Voices; hnum++) {
         AIL_resume_sample(Sample_Handle[hnum].handle);
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-U32 IsSamplePlaying(U32 sample)
-{
+U32 IsSamplePlaying(U32 sample) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -978,8 +879,7 @@ U32 IsSamplePlaying(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetSamplePosition(U32 sample)
-{
+S32 GetSamplePosition(U32 sample) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled)
@@ -998,21 +898,17 @@ S32 GetSamplePosition(U32 sample)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetPlayingSamples(SAMPLE_PLAYING tab[], S32 max)
-{
+S32 GetPlayingSamples(SAMPLE_PLAYING tab[], S32 max) {
     S32 i, hnum;
 
     hnum = 0;
 
-    for (i = 0; i < Nb_Voices; i++)
-    {
-        if (hnum == max)
-        {
+    for (i = 0; i < Nb_Voices; i++) {
+        if (hnum == max) {
             break; // list full
         }
 
-        if (!Sample_Handle[i].sample)
-        {
+        if (!Sample_Handle[i].sample) {
             continue; // not playing
         }
         tab[hnum].Usernum = (Sample_Handle[i].sample >> 8) & 0xFFFF;
@@ -1021,8 +917,7 @@ S32 GetPlayingSamples(SAMPLE_PLAYING tab[], S32 max)
         tab[hnum].Volume = (U8)AIL_sample_user_data(Sample_Handle[i].handle, USER_DATA_VOLUME);
         tab[hnum].Pan = (U8)(AIL_sample_pan(Sample_Handle[i].handle) ^ InversePanMask);
 
-        if (AIL_sample_status(Sample_Handle[i].handle) == SMP_DONE)
-        {
+        if (AIL_sample_status(Sample_Handle[i].handle) == SMP_DONE) {
             Sample_Handle[i].sample = 0;
             continue; // not playing
         }
@@ -1034,8 +929,7 @@ S32 GetPlayingSamples(SAMPLE_PLAYING tab[], S32 max)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetSamplePoly()
-{
+S32 GetSamplePoly() {
     S32 hnum, count;
 
     if (!Sample_Driver_Enabled)
@@ -1043,8 +937,7 @@ S32 GetSamplePoly()
 
     count = 0;
 
-    for (hnum = 0; hnum < Nb_Voices; hnum++)
-    {
+    for (hnum = 0; hnum < Nb_Voices; hnum++) {
         if (Sample_Handle[hnum].sample == 0)
             continue;
         if (AIL_sample_status(Sample_Handle[hnum].handle) == SMP_DONE)
@@ -1058,8 +951,7 @@ S32 GetSamplePoly()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void SetDataSample(U32 sample, S32 index, S32 value)
-{
+void SetDataSample(U32 sample, S32 index, S32 value) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled || (index > 8 - USER_DATA_USER))
@@ -1078,8 +970,7 @@ void SetDataSample(U32 sample, S32 index, S32 value)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetDataSample(U32 sample, S32 index)
-{
+S32 GetDataSample(U32 sample, S32 index) {
     S32 hnum;
 
     if (!Sample_Driver_Enabled || (index > 8 - USER_DATA_USER))

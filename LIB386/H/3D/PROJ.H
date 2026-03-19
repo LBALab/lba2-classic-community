@@ -8,7 +8,8 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-enum ProjectionType { TYPE_3D = 0, TYPE_ISO = 1 };
+enum ProjectionType { TYPE_3D = 0,
+                      TYPE_ISO = 1 };
 
 // -----------------------------------------------------------------------------
 extern void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,

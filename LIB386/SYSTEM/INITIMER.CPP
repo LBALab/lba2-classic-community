@@ -1,85 +1,80 @@
 //-------------------------------------------------------------------------
-#include	<SYSTEM/ADELINE.H>
-#include	<SYSTEM/INITIMER.H>
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/INITIMER.H>
 
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#ifdef	_WIN32
+#ifdef _WIN32
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#include	<SYSTEM/WINSYS.H>
-#include	<SYSTEM/TIMERWIN.H>
+#include <SYSTEM/WINSYS.H>
+#include <SYSTEM/TIMERWIN.H>
 
 //-------------------------------------------------------------------------
-void	InitTimer()
-{
-	OldTimerWindowProc = WindowProc	;
-	WindowProc = TimerWindowProc	;
+void InitTimer() {
+    OldTimerWindowProc = WindowProc;
+    WindowProc = TimerWindowProc;
 }
 
 //-------------------------------------------------------------------------
-void	ClearTimer()
-{
-	WindowProc = OldTimerWindowProc	;
+void ClearTimer() {
+    WindowProc = OldTimerWindowProc;
 }
 
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#else// _WIN32
+#else // _WIN32
 
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#include	<system/exit.h>
-#include	<ail/mss.h>
+#include <system/exit.h>
+#include <ail/mss.h>
 
 //-------------------------------------------------------------------------
-#include	<i86.h>
-#include	<stdlib.h>
+#include <i86.h>
+#include <stdlib.h>
 
 //-------------------------------------------------------------------------
-#define	OLD_DIVISOR	0xFFFF
+#define OLD_DIVISOR 0xFFFF
 
-#define	DIVISOR		5966		//    1193180 / 200
-#define	FREQUENCE	200		//    1193180 / 5966
+#define DIVISOR 5966  //    1193180 / 200
+#define FREQUENCE 200 //    1193180 / 5966
 
 //-------------------------------------------------------------------------
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //-------------------------------------------------------------------------
-extern	void __interrupt NewIntPM08(void)		;
+extern void __interrupt NewIntPM08(void);
 
-#pragma	aux NewIntPM08	"*"
+#pragma aux NewIntPM08 "*"
 
 //-------------------------------------------------------------------------
 //extern	U32	Old_PM08_Off	;
 //extern	U16	Old_PM08_Sel	;
 
-extern  U32	TimerDataStart	;
-extern  U32	TimerDataEnd	;
+extern U32 TimerDataStart;
+extern U32 TimerDataEnd;
 
-extern  U32	TimerStart	;
-extern  U32	TimerEnd	;
+extern U32 TimerStart;
+extern U32 TimerEnd;
 
 //-------------------------------------------------------------------------
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //-------------------------------------------------------------------------
-void LockVMMTimer()
-{
-	if(	!AIL_vmm_lock_range(&TimerStart, &TimerEnd)		OR
-		!AIL_vmm_lock_range(&TimerDataStart, &TimerDataEnd)		)
-		exit(1);
+void LockVMMTimer() {
+    if (!AIL_vmm_lock_range(&TimerStart, &TimerEnd) OR !AIL_vmm_lock_range(&TimerDataStart, &TimerDataEnd))
+        exit(1);
 }
 
 //-------------------------------------------------------------------------
-static inline void UnlockVMMTimer()
-{
-	AIL_vmm_unlock_range(&TimerStart, &TimerEnd);
-	AIL_vmm_unlock_range(&TimerDataStart, &TimerDataEnd);
+static inline void UnlockVMMTimer() {
+    AIL_vmm_unlock_range(&TimerStart, &TimerEnd);
+    AIL_vmm_unlock_range(&TimerDataStart, &TimerDataEnd);
 }
 /*
 //-------------------------------------------------------------------------
@@ -145,6 +140,6 @@ void	ClearTimer()
 */
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------
-#endif//_WIN32
+#endif //_WIN32
 //-------------------------------------------------------------------------
 //-------------------------------------------------------------------------

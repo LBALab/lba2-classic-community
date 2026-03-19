@@ -5,17 +5,15 @@
 #include <string.h>
 
 extern "C" U8 asm_SearchBoundColRGB(U8 Rouge, U8 Vert, U8 Bleu, U8 *Palette,
-                                      U8 coulmin, U8 coulmax);
+                                    U8 coulmin, U8 coulmax);
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed_value)
-{
+static void rng_seed(U32 seed_value) {
     rng_state = seed_value;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
@@ -24,8 +22,7 @@ static void run_searchboundcolrgb_case(const char *label,
                                        U8 red, U8 green, U8 blue,
                                        const U8 *palette_src,
                                        U8 coulmin, U8 coulmax,
-                                       U32 palette_size)
-{
+                                       U32 palette_size) {
     U8 cpp_palette[256 * 3];
     U8 asm_palette[256 * 3];
 
@@ -41,8 +38,7 @@ static void run_searchboundcolrgb_case(const char *label,
     ASSERT_ASM_CPP_MEM_EQ(asm_palette, cpp_palette, palette_size, label);
 }
 
-static void test_searchboundcolrgb_fixed_cases(void)
-{
+static void test_searchboundcolrgb_fixed_cases(void) {
     static const U8 palette[] = {
         0, 0, 0,
         10, 20, 30,
@@ -51,8 +47,7 @@ static void test_searchboundcolrgb_fixed_cases(void)
         120, 130, 140,
         200, 210, 220,
         240, 245, 250,
-        255, 255, 255
-    };
+        255, 255, 255};
 
     run_searchboundcolrgb_case("SearchBoundColRGB exact middle",
                                40, 50, 60, palette, 0, 7, sizeof(palette));
@@ -62,16 +57,14 @@ static void test_searchboundcolrgb_fixed_cases(void)
                                254, 254, 254, palette, 0, 7, sizeof(palette));
 }
 
-static void test_searchboundcolrgb_edge_cases(void)
-{
+static void test_searchboundcolrgb_edge_cases(void) {
     static const U8 palette[] = {
         5, 10, 15,
         25, 35, 45,
         100, 110, 120,
         180, 190, 200,
         220, 221, 222,
-        250, 251, 252
-    };
+        250, 251, 252};
 
     run_searchboundcolrgb_case("SearchBoundColRGB single entry",
                                17, 33, 49, palette, 3, 3, sizeof(palette));
@@ -79,15 +72,12 @@ static void test_searchboundcolrgb_edge_cases(void)
                                90, 100, 110, palette, 4, 2, sizeof(palette));
 }
 
-static void test_searchboundcolrgb_random_stress(void)
-{
+static void test_searchboundcolrgb_random_stress(void) {
     U8 palette[64 * 3];
 
     rng_seed(0xDEADBEEFu);
-    for (int round = 0; round < 300; ++round)
-    {
-        for (U32 i = 0; i < sizeof(palette); ++i)
-        {
+    for (int round = 0; round < 300; ++round) {
+        for (U32 i = 0; i < sizeof(palette); ++i) {
             palette[i] = (U8)rng_next();
         }
 
@@ -103,8 +93,7 @@ static void test_searchboundcolrgb_random_stress(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_searchboundcolrgb_fixed_cases);
     RUN_TEST(test_searchboundcolrgb_edge_cases);
     RUN_TEST(test_searchboundcolrgb_random_stress);

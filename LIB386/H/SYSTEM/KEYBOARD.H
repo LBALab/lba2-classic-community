@@ -13,7 +13,7 @@ extern "C" {
 // --- Public state ------------------------------------------------------------
 extern S32 AsciiMode;
 extern S32 Key;
-extern U8  TabKeys[TABKEYS_NUM_KEYS]; ///< Keyboard and Joysticks state
+extern U8 TabKeys[TABKEYS_NUM_KEYS]; ///< Keyboard and Joysticks state
 
 // --- Initialization ----------------------------------------------------------
 void InitKeyboard();

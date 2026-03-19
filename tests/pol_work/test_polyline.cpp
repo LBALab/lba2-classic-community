@@ -14,8 +14,8 @@
 void Line_ZBuffer_NZW(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2);
 extern "C" void asm_Line(S32 x0, S32 y0, S32 x1, S32 y1, S32 col);
 extern "C" void asm_LineZBufNZW(S32 x0, S32 y0, S32 z0,
-                                  S32 x1, S32 y1, S32 z1,
-                                  S32 col);
+                                S32 x1, S32 y1, S32 z1,
+                                S32 col);
 static U8 asm_buf[TEST_POLY_SIZE];
 
 static U8 cpp_buf[TEST_POLY_SIZE];
@@ -29,8 +29,7 @@ static U8 cpp_linezbufnzw_buf[LINEZBUFNZW_SIZE];
 static U8 linezbufnzw_framebuf[LINEZBUFNZW_SIZE + 256];
 static U16 linezbufnzw_zbuffer[LINEZBUFNZW_SIZE];
 
-static U8 *setup_linezbufnzw_screen(U8 color)
-{
+static U8 *setup_linezbufnzw_screen(U8 color) {
     U8 *base = NULL;
 
     memset(linezbufnzw_framebuf, 0, sizeof(linezbufnzw_framebuf));
@@ -71,8 +70,7 @@ static U8 *setup_linezbufnzw_screen(U8 color)
 
 /* ── CPP-only sanity checks ────────────────────────────────────── */
 
-static void test_horizontal(void)
-{
+static void test_horizontal(void) {
     setup_polygon_screen();
     Line(10, 50, 60, 50, 0xAA);
     /* Pixels along y=50 from x=10..60 should be set */
@@ -80,23 +78,20 @@ static void test_horizontal(void)
     ASSERT_EQ_UINT(0xAA, g_poly_framebuf[50 * TEST_POLY_W + 35]);
 }
 
-static void test_vertical(void)
-{
+static void test_vertical(void) {
     setup_polygon_screen();
     Line(80, 10, 80, 60, 0xBB);
     ASSERT_EQ_UINT(0xBB, g_poly_framebuf[10 * TEST_POLY_W + 80]);
     ASSERT_EQ_UINT(0xBB, g_poly_framebuf[35 * TEST_POLY_W + 80]);
 }
 
-static void test_single_pixel(void)
-{
+static void test_single_pixel(void) {
     setup_polygon_screen();
     Line(42, 42, 42, 42, 0xCC);
     ASSERT_EQ_UINT(0xCC, g_poly_framebuf[42 * TEST_POLY_W + 42]);
 }
 
-static void test_clipped(void)
-{
+static void test_clipped(void) {
     setup_polygon_screen();
     /* Line extending outside clip region */
     Line(-10, 50, 20, 50, 0xDD);
@@ -105,8 +100,7 @@ static void test_clipped(void)
     /* Nothing written at negative coords (no crash) */
 }
 
-static void test_fully_outside(void)
-{
+static void test_fully_outside(void) {
     setup_polygon_screen();
     Line(-50, -50, -10, -10, 0xEE);
     /* No pixels in visible area */
@@ -115,8 +109,7 @@ static void test_fully_outside(void)
 
 /* ── ASM-vs-CPP equivalence ────────────────────────────────────── */
 
-static void test_asm_equiv_horizontal(void)
-{
+static void test_asm_equiv_horizontal(void) {
     setup_polygon_screen();
     Line(10, 50, 60, 50, 0xAA);
     memcpy(cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -128,8 +121,7 @@ static void test_asm_equiv_horizontal(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, "Line horizontal");
 }
 
-static void test_asm_equiv_diagonal(void)
-{
+static void test_asm_equiv_diagonal(void) {
     setup_polygon_screen();
     Line(10, 10, 80, 90, 0x55);
     memcpy(cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -141,8 +133,7 @@ static void test_asm_equiv_diagonal(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, "Line diagonal");
 }
 
-static void test_asm_equiv_clipped(void)
-{
+static void test_asm_equiv_clipped(void) {
     setup_polygon_screen();
     Line(-10, 50, 170, 50, 0x77);
     memcpy(cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -154,8 +145,7 @@ static void test_asm_equiv_clipped(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, TEST_POLY_SIZE, "Line clipped");
 }
 
-static void test_asm_equiv_linezbufnzw_vertical_polyrec_0013_dc4333(void)
-{
+static void test_asm_equiv_linezbufnzw_vertical_polyrec_0013_dc4333(void) {
     const U8 fogged_color = 0xA7;
     U8 *cpp_base = setup_linezbufnzw_screen(fogged_color);
     const U32 first_pixel = 87 * LINEZBUFNZW_W + 326;
@@ -173,7 +163,7 @@ static void test_asm_equiv_linezbufnzw_vertical_polyrec_0013_dc4333(void)
     ASSERT_EQ_UINT(fogged_color, asm_linezbufnzw_buf[last_pixel]);
 
     ASSERT_ASM_CPP_MEM_EQ(asm_linezbufnzw_buf, cpp_linezbufnzw_buf, LINEZBUFNZW_SIZE,
-        "Line_ZBuffer_NZW polyrec_0013 dc4333");
+                          "Line_ZBuffer_NZW polyrec_0013 dc4333");
 }
 
 /* ── Randomized stress test ────────────────────────────────────── */
@@ -185,8 +175,7 @@ static U32 rng_next(void) {
     return (rng_state >> 16) & 0x7FFF;
 }
 
-static void test_asm_equiv_random(void)
-{
+static void test_asm_equiv_random(void) {
     rng_seed(0xDEADBEEF);
     for (int i = 0; i < 300; i++) {
         S32 x0 = (S32)(rng_next() % (TEST_POLY_W + 40)) - 20;
@@ -194,7 +183,8 @@ static void test_asm_equiv_random(void)
         S32 x1 = (S32)(rng_next() % (TEST_POLY_W + 40)) - 20;
         S32 y1 = (S32)(rng_next() % (TEST_POLY_H + 40)) - 20;
         S32 col = (S32)(rng_next() & 0xFF);
-        if (col == 0) col = 1;  /* avoid 0 which matches background */
+        if (col == 0)
+            col = 1; /* avoid 0 which matches background */
 
         setup_polygon_screen();
         Line(x0, y0, x1, y1, col);
@@ -208,8 +198,7 @@ static void test_asm_equiv_random(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_horizontal);
     RUN_TEST(test_vertical);
     RUN_TEST(test_single_pixel);

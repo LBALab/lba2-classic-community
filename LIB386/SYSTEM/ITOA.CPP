@@ -9,9 +9,9 @@ extern "C" {
 
 // -----------------------------------------------------------------------------
 char *Itoa(int value) {
-  static char ItoaTempoString[33];
-  snprintf(ItoaTempoString, 33, "%d", value);
-  return ItoaTempoString;
+    static char ItoaTempoString[33];
+    snprintf(ItoaTempoString, 33, "%d", value);
+    return ItoaTempoString;
 }
 
 // =============================================================================

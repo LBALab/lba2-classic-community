@@ -11,8 +11,8 @@ extern "C" {
 // --- Public state ------------------------------------------------------------
 extern void *Log;
 extern void *Screen;
-extern U32 ModeDesiredX; ///< X resolution for Log and Screen
-extern U32 ModeDesiredY; ///< Y resolution for Log and Screen
+extern U32 ModeDesiredX;                  ///< X resolution for Log and Screen
+extern U32 ModeDesiredY;                  ///< Y resolution for Log and Screen
 extern U32 TabOffLine[ADELINE_MAX_Y_RES]; ///< Line offsets for Log and Screen
 
 // --- Initialization ----------------------------------------------------------

@@ -5,18 +5,15 @@
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
-void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
-{
-    LIB386_TRACE_CPP("ObjectInitAnim", "1", "obj=%p anim=%p", (void*)obj, anim);
-    if (obj->Anim.Ptr == anim)
-    {
+void ObjectInitAnim(T_OBJ_3D *obj, void *anim) {
+    LIB386_TRACE_CPP("ObjectInitAnim", "1", "obj=%p anim=%p", (void *)obj, anim);
+    if (obj->Anim.Ptr == anim) {
         return;
     }
 
     obj->Anim.Ptr = anim;
 
-    if (TransFctAnim != NULL)
-    {
+    if (TransFctAnim != NULL) {
         anim = TransFctAnim(obj->Anim.Num);
     }
 
@@ -45,8 +42,7 @@ void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
     obj->LastTimer = TimerRefHR;
     obj->Time = TimerRefHR;
 
-    if (obj->LastOfsFrame == 0)
-    {
+    if (obj->LastOfsFrame == 0) {
         obj->Status = FLAG_FRAME;
         obj->LastOfsFrame = (PTR_U32)8;
         obj->LastOfsIsPtr = 0;
@@ -59,21 +55,17 @@ void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
         U32 *srcAnim = (U32 *)animPtr + 4 + 2; // group 1?
         U32 count = animNbGroups * 2 - 2;
 
-        for (int i = 0; i < count; i++)
-        {
+        for (int i = 0; i < count; i++) {
             currentFrame[i] = srcAnim[i];
         }
         currentFrame += count;
         srcAnim += count;
 
-        if (obj->NbFrames != 1)
-        {
+        if (obj->NbFrames != 1) {
             obj->NextOfsFrame = (PTR_U32)((U64)srcAnim - (U64)animPtr);
             obj->NextFrame = 1;
             obj->NextTimer = TimerRefHR + ((U16 *)srcAnim)[0];
-        }
-        else
-        {
+        } else {
             obj->NextOfsFrame = (PTR_U32)8;
             obj->NextFrame = 0;
             obj->NextTimer = TimerRefHR + ((U16 *)animPtr)[4];
@@ -90,17 +82,13 @@ void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
     U32 targetNbGroups = obj->NbGroups;
     U32 increasedToNbGroups = 0;
 
-    if (animNbGroups != targetNbGroups)
-    {
+    if (animNbGroups != targetNbGroups) {
         obj->NbGroups = animNbGroups;
 
-        if (animNbGroups > targetNbGroups)
-        {
+        if (animNbGroups > targetNbGroups) {
             increasedToNbGroups = targetNbGroups;
             animNbGroups = targetNbGroups;
-        }
-        else
-        {
+        } else {
             targetNbGroups = animNbGroups;
         }
     }
@@ -121,32 +109,27 @@ void ObjectInitAnim(T_OBJ_3D *obj, void *anim)
     bufferAnim += 4;
     U32 *currentFrame = (U32 *)obj->CurrentFrame;
     U32 count = animNbGroups * 2 - 2;
-    for (int i = 0; i < count; i++)
-    {
+    for (int i = 0; i < count; i++) {
         bufferAnim[i] = currentFrame[i];
     }
     bufferAnim += count;
 
-    if (increasedToNbGroups != 0)
-    {
-        if (TransFctAnim != NULL)
-        {
+    if (increasedToNbGroups != 0) {
+        if (TransFctAnim != NULL) {
             anim = TransFctAnim(obj->Anim.Num);
         }
 
         U32 diff = obj->NbGroups - increasedToNbGroups;
         U32 *nextOfsFrame = (U32 *)((U8 *)anim + (U64)obj->NextOfsFrame) + (increasedToNbGroups + 1) * 8;
         U32 count = diff << 1;
-        for (int i = 0; i < count; i++)
-        {
+        for (int i = 0; i < count; i++) {
             bufferAnim[i] = nextOfsFrame[i];
         }
 
         bufferAnim += count;
     }
 
-    if ((U8 *)bufferAnim > EndLib3DBufferAnim)
-    {
+    if ((U8 *)bufferAnim > EndLib3DBufferAnim) {
         PtrLib3DBufferAnim = Lib3DBufferAnim;
         return;
     }

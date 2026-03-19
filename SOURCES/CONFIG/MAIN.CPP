@@ -1,119 +1,108 @@
-#include	"C_EXTERN.H"
+#include "C_EXTERN.H"
 
-S32	MyKey	;
+S32 MyKey;
 
-U8	PtrPalNormal[768+RECOVER_AREA] ;
-U8	*PtrPal	;
+U8 PtrPalNormal[768 + RECOVER_AREA];
+U8 *PtrPal;
 
-#define	BCL_FADE	50
+#define BCL_FADE 50
 
 //──────────────────────────────────────────────────────────────────────────
-void	FadePal( U8 r, U8 v, U8 b, U8 *ptrpal, S32 percent )
-{
-	U8	workpal[768] ;
-	S32	n ;
+void FadePal(U8 r, U8 v, U8 b, U8 *ptrpal, S32 percent) {
+    U8 workpal[768];
+    S32 n;
 
-	for( n=0; n<256; n++ )
-	{
-		workpal[n*3+0] = (U8)RegleTrois( r, ptrpal[n*3+0], BCL_FADE, percent ) ;
-		workpal[n*3+1] = (U8)RegleTrois( v, ptrpal[n*3+1], BCL_FADE, percent ) ;
-		workpal[n*3+2] = (U8)RegleTrois( b, ptrpal[n*3+2], BCL_FADE, percent ) ;
-	}
+    for (n = 0; n < 256; n++) {
+        workpal[n * 3 + 0] = (U8)RegleTrois(r, ptrpal[n * 3 + 0], BCL_FADE, percent);
+        workpal[n * 3 + 1] = (U8)RegleTrois(v, ptrpal[n * 3 + 1], BCL_FADE, percent);
+        workpal[n * 3 + 2] = (U8)RegleTrois(b, ptrpal[n * 3 + 2], BCL_FADE, percent);
+    }
 
-	Palette( workpal ) ;
+    Palette(workpal);
 }
 
 //──────────────────────────────────────────────────────────────────────────
-void	FadeToBlack( U8 *ptrpal )
-{
-	S32	n ;
+void FadeToBlack(U8 *ptrpal) {
+    S32 n;
 
-	SaveTimer() ;
+    SaveTimer();
 
-	for( n=BCL_FADE; n>=0; n-=2 )
-	{
-		FadePal( 0,0,0, ptrpal, n ) ;
-	}
+    for (n = BCL_FADE; n >= 0; n -= 2) {
+        FadePal(0, 0, 0, ptrpal, n);
+    }
 
-	RestoreTimer() ;
+    RestoreTimer();
 }
 
 //──────────────────────────────────────────────────────────────────────────
-void	FadeToPal( U8 *ptrpal )
-{
-	S32	n ;
+void FadeToPal(U8 *ptrpal) {
+    S32 n;
 
-	SaveTimer() ;
+    SaveTimer();
 
-	for( n=0; n<=BCL_FADE; n+=2 )
-	{
-		FadePal( 0,0,0, ptrpal, n ) ;
-	}
+    for (n = 0; n <= BCL_FADE; n += 2) {
+        FadePal(0, 0, 0, ptrpal, n);
+    }
 
-	RestoreTimer() ;
+    RestoreTimer();
 }
 
 //──────────────────────────────────────────────────────────────────────────
-void	SetBlackPal()
-{
-	S32	n ;
+void SetBlackPal() {
+    S32 n;
 
-	SaveTimer() ;
+    SaveTimer();
 
-	for( n=0; n<256; n++ )
-	{
-		PalOne( n, 0,0,0 ) ;
-	}
+    for (n = 0; n < 256; n++) {
+        PalOne(n, 0, 0, 0);
+    }
 
-	RestoreTimer() ;
+    RestoreTimer();
 }
 
 //──────────────────────────────────────────────────────────────────────────
-void	Beep()
-{
-	sound(500)	;
-	delay(100)	;
-	nosound()	;
+void Beep() {
+    sound(500);
+    delay(100);
+    nosound();
 }
 
 //──────────────────────────────────────────────────────────────────────────
 
-char	*End_Error = "Ok" ;
+char *End_Error = "Ok";
 
 //-------------------------------------------------------------------------
-void	TheEnd( char *err )
-{
-	End_Error = err ;
-	exit( 0 ) ;
+void TheEnd(char *err) {
+    End_Error = err;
+    exit(0);
 }
 
 //-------------------------------------------------------------------------
-void	TheEndInfo( void )
-{
-	LogPrintf( End_Error ) ;
+void TheEndInfo(void) {
+    LogPrintf(End_Error);
 }
 
 //-------------------------------------------------------------------------
-void    main( int argc, char *argv[] )
-{
-	atexit(TheEndInfo)      ;
+void main(int argc, char *argv[]) {
+    atexit(TheEndInfo);
 
-	#define ibuffer Screen
-	#define ibuffersize     (640*480+RECOVER_AREA)
-	#define inits   INIT_DEFFILE|INIT_LOG|INIT_TIMER|INIT_SVGA|INIT_KEYB
-	#include <initadel.c>
+#define ibuffer Screen
+#define ibuffersize (640 * 480 + RECOVER_AREA)
+#define inits INIT_DEFFILE | INIT_LOG | INIT_TIMER | INIT_SVGA | INIT_KEYB
+#include <initadel.c>
 
-	BoxInit( MAX_BOXES ) 	;
+    BoxInit(MAX_BOXES);
 
-	Cls() ;
+    Cls();
 
-	if( !Load( "palette.pal", PtrPalNormal ) )	TheEnd( "palette.pal not found !" ) ;
+    if (!Load("palette.pal", PtrPalNormal))
+        TheEnd("palette.pal not found !");
 
-	PtrPal = PtrPalNormal ;
+    PtrPal = PtrPalNormal;
 
-	SetBlackPal() ;
+    SetBlackPal();
 
-	ReadInputConfig() 	;
-	MenuConfig() 		;
-	WriteInputConfig() 	;
+    ReadInputConfig();
+    MenuConfig();
+    WriteInputConfig();
 }

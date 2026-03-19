@@ -89,14 +89,12 @@ VOID_FUNC SpecialInitMidiDriver;
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 InitMidiDriver(char *driver_name)
-{
+S32 InitMidiDriver(char *driver_name) {
 #ifndef _WIN32
     S32 type;
 #endif
 
-    if (Midi_Driver_Enabled)
-    {
+    if (Midi_Driver_Enabled) {
         return TRUE;
     }
 
@@ -104,10 +102,8 @@ S32 InitMidiDriver(char *driver_name)
 
     driver_name = driver_name;
 
-    if (AIL_midiOutOpen(&MdiDriver, NULL, (WORD)MIDI_MAPPER))
-    {
-        if (AIL_midiOutOpen(&MdiDriver, NULL, 0))
-        {
+    if (AIL_midiOutOpen(&MdiDriver, NULL, (WORD)MIDI_MAPPER)) {
+        if (AIL_midiOutOpen(&MdiDriver, NULL, 0)) {
             MdiDriver = NULL;
             return FALSE;
         }
@@ -120,20 +116,16 @@ S32 InitMidiDriver(char *driver_name)
     AIL_set_preference(AIL_SCAN_FOR_HARDWARE, YES);
 
     // Initialize xmi system
-    if (driver_name && strcmp(driver_name, ""))
-    {
+    if (driver_name && strcmp(driver_name, "")) {
         strcpy(MidiDriverName, driver_name);
         MdiDriver = AIL_install_MDI_driver_file(driver_name, NULL);
-    }
-    else
-    {
+    } else {
         LONG res;
 
         MidiDriverName[0] = (char)0;
 
         res = AIL_install_MDI_INI(&MdiDriver);
-        switch (res)
-        {
+        switch (res) {
         case AIL_INIT_SUCCESS:
             break;
         case AIL_NO_INI_FILE:
@@ -146,8 +138,7 @@ S32 InitMidiDriver(char *driver_name)
         }
     }
 
-    if (MdiDriver == NULL)
-    {
+    if (MdiDriver == NULL) {
         LogPuts((char *)AIL_error);
         return FALSE;
     }
@@ -156,15 +147,13 @@ S32 InitMidiDriver(char *driver_name)
               MdiDriver->drvr->VHDR->driver_version < 0x112 ? MidiDriverName : (char *)(MdiDriver->drvr->VHDR->dev_name));
 
     type = AIL_MDI_driver_type(MdiDriver);
-    if (type == MDIDRVRTYPE_SPKR)
-    {
+    if (type == MDIDRVRTYPE_SPKR) {
         AIL_uninstall_MDI_driver(MdiDriver);
         LogPuts("PC Speaker\nCan't handle PC speaker type device.");
         return FALSE;
     }
 
-    switch (type)
-    {
+    switch (type) {
     case MDIDRVRTYPE_FM_2:
         Midi_Driver_Type = OPL2;
         LogPuts("FM OPL2");
@@ -182,8 +171,7 @@ S32 InitMidiDriver(char *driver_name)
 
     Midi_Handle = AIL_allocate_sequence_handle(MdiDriver);
 
-    if (!Midi_Handle)
-    {
+    if (!Midi_Handle) {
         LogPuts("Can't allocate midi handle.");
         return FALSE;
     }
@@ -197,21 +185,15 @@ S32 InitMidiDriver(char *driver_name)
 
 #ifdef _WIN32
     PauseMidiPtr = PauseMidi;
-    if (PauseMiles)
-    {
+    if (PauseMiles) {
         PauseMiles = PauseBothMiles;
-    }
-    else
-    {
+    } else {
         PauseMiles = PauseMidi;
     }
     ResumeMidiPtr = ResumeMidi;
-    if (ResumeMiles)
-    {
+    if (ResumeMiles) {
         ResumeMiles = ResumeBothMiles;
-    }
-    else
-    {
+    } else {
         ResumeMiles = ResumeMidi;
     }
 #endif
@@ -221,15 +203,13 @@ S32 InitMidiDriver(char *driver_name)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static void SpecialInitMidiDriver()
-{
+static void SpecialInitMidiDriver() {
     InitMidiDriver(MidiDriverName);
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ClearMidiDriver()
-{
+void ClearMidiDriver() {
     if (!Midi_Driver_Enabled)
         return;
 
@@ -245,8 +225,7 @@ static void WINAPI
 #else
 static void pascal
 #endif
-TriggerCallBack(HSEQUENCE handle, S32 channel, S32 value)
-{
+TriggerCallBack(HSEQUENCE handle, S32 channel, S32 value) {
     // Dummy code to avoid warnings (doesn't actually generate code)
     handle = handle;
     channel = channel;
@@ -256,14 +235,12 @@ TriggerCallBack(HSEQUENCE handle, S32 channel, S32 value)
     // if not prog change and not the right block info then
     // it must be because start of block 1 is just before end of block 2
     // for example
-    if ((value != 0) && (value != BlockPlaying))
-    {
+    if ((value != 0) && (value != BlockPlaying)) {
         return;
     }
 
     // if seq list is empty then stop playback
-    if ((Read_Seq == Write_Seq) || (Write_Seq == -1))
-    {
+    if ((Read_Seq == Write_Seq) || (Write_Seq == -1)) {
         Write_Seq = -1;
         Read_Seq = 0;
         BlockPlaying = -1;
@@ -276,8 +253,7 @@ TriggerCallBack(HSEQUENCE handle, S32 channel, S32 value)
 
     // increment counter and loop if nescessary
     Read_Seq++;
-    if (Read_Seq >= MAX_SEQUENCE)
-    {
+    if (Read_Seq >= MAX_SEQUENCE) {
         Read_Seq = 0;
     }
 
@@ -292,8 +268,7 @@ static void WINAPI
 #else
 static void pascal
 #endif
-SequenceCallBack(HSEQUENCE handle)
-{
+SequenceCallBack(HSEQUENCE handle) {
     // Dummy code to avoid warnings (doesn't actually generate code)
     handle = handle;
 
@@ -301,8 +276,7 @@ SequenceCallBack(HSEQUENCE handle)
     WaitReset = FALSE;
 
     // Check if not end from end_sequence in trigger_callback
-    if (BlockPlaying == -1)
-    {
+    if (BlockPlaying == -1) {
         return;
     }
 
@@ -315,8 +289,7 @@ SequenceCallBack(HSEQUENCE handle)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ResetMidi()
-{
+void ResetMidi() {
     if (!Midi_Driver_Enabled)
         return;
 
@@ -328,8 +301,7 @@ void ResetMidi()
     StopMidi();
 
     // link xmi data with xmi handle
-    if (!AIL_init_sequence(Midi_Handle, (void *)ResetMidiXMI, 0))
-    {
+    if (!AIL_init_sequence(Midi_Handle, (void *)ResetMidiXMI, 0)) {
         return;
     }
 
@@ -346,8 +318,7 @@ void ResetMidi()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-U32 PrepareMidi(void *ptrxmi, S32 seq_num, S32 volume)
-{
+U32 PrepareMidi(void *ptrxmi, S32 seq_num, S32 volume) {
     if (!Midi_Driver_Enabled)
         return FALSE;
 
@@ -359,8 +330,7 @@ U32 PrepareMidi(void *ptrxmi, S32 seq_num, S32 volume)
         ;
 
     // link xmi data with xmi handle
-    if (!AIL_init_sequence(Midi_Handle, ptrxmi, seq_num))
-    {
+    if (!AIL_init_sequence(Midi_Handle, ptrxmi, seq_num)) {
         return FALSE;
     }
 
@@ -385,8 +355,7 @@ U32 PrepareMidi(void *ptrxmi, S32 seq_num, S32 volume)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ClearMidi()
-{
+void ClearMidi() {
     // Nothing playing
     Write_Seq = -1;
     Read_Seq = 0;
@@ -398,8 +367,7 @@ void ClearMidi()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PlayBlockMidi(S32 block_num)
-{
+void PlayBlockMidi(S32 block_num) {
     if (!Midi_Driver_Enabled)
         return;
 
@@ -419,8 +387,7 @@ void PlayBlockMidi(S32 block_num)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ChainBlockMidi(S32 block_num)
-{
+void ChainBlockMidi(S32 block_num) {
     S32 n, m;
 
     if (!Midi_Driver_Enabled)
@@ -428,16 +395,12 @@ void ChainBlockMidi(S32 block_num)
 
     // Insert sequence in chain
     m = Read_Seq;
-    if (Write_Seq < 0)
-    {
+    if (Write_Seq < 0) {
         n = 1;
         Write_Seq = 0;
-    }
-    else
-    {
+    } else {
         n = Write_Seq + 1;
-        if (n >= MAX_SEQUENCE)
-        {
+        if (n >= MAX_SEQUENCE) {
             n = 0;
         }
     }
@@ -448,16 +411,14 @@ void ChainBlockMidi(S32 block_num)
     Write_Seq = n;
 
     // If music not actually playing
-    if (BlockPlaying == -1)
-    {
+    if (BlockPlaying == -1) {
         PlayBlockMidi(block_num);
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ChangeVolumeMidi(LONG volume, S32 delay)
-{
+void ChangeVolumeMidi(LONG volume, S32 delay) {
     if (!Midi_Driver_Enabled)
         return;
 
@@ -467,8 +428,7 @@ void ChangeVolumeMidi(LONG volume, S32 delay)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void StopChainMidi()
-{
+void StopChainMidi() {
     if (!Midi_Driver_Enabled)
         return;
 
@@ -479,8 +439,7 @@ void StopChainMidi()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void StopMidi()
-{
+void StopMidi() {
     if (!Midi_Driver_Enabled)
         return;
 
@@ -500,19 +459,16 @@ void StopMidi()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PauseMidi()
-{
+void PauseMidi() {
     if (!Midi_Driver_Enabled)
         return;
 
-    if (!MidiPaused)
-    {
+    if (!MidiPaused) {
         // Wait for Reset to complete
         while (WaitReset)
             ;
 
-        if (BlockPlaying == -1)
-        {
+        if (BlockPlaying == -1) {
             return; // Already paused
         }
 
@@ -524,17 +480,14 @@ void PauseMidi()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ResumeMidi()
-{
+void ResumeMidi() {
     if (!Midi_Driver_Enabled)
         return;
 
-    if (MidiPaused)
-    {
+    if (MidiPaused) {
         MidiPaused--;
 
-        if (!MidiPaused)
-        {
+        if (!MidiPaused) {
             // Resume PlayBack
             AIL_resume_sequence(Midi_Handle);
         }
@@ -543,8 +496,7 @@ void ResumeMidi()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetBlockPlayingMidi()
-{
+S32 GetBlockPlayingMidi() {
     if (!Midi_Driver_Enabled)
         return -1;
 

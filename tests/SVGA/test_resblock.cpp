@@ -10,21 +10,24 @@ extern "C" void asm_RestoreBlock(void *screen, void *buffer, S32 x0, S32 y0, S32
 
 static U32 rng_state;
 static void rng_seed(U32 s) { rng_state = s; }
-static U32 rng_next(void) { rng_state = rng_state * 1103515245u + 12345u; return (rng_state >> 16) & 0x7FFF; }
+static U32 rng_next(void) {
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFF;
+}
 
 static U8 screen_buf[640 * 480];
 static U8 save_buf[640 * 480];
 
-static void setup(void)
-{
-    ModeDesiredX = 640; ModeDesiredY = 480;
-    for (U32 i = 0; i < 480; i++) TabOffLine[i] = i * 640;
+static void setup(void) {
+    ModeDesiredX = 640;
+    ModeDesiredY = 480;
+    for (U32 i = 0; i < 480; i++)
+        TabOffLine[i] = i * 640;
     memset(screen_buf, 0, sizeof(screen_buf));
     memset(save_buf, 0, sizeof(save_buf));
 }
 
-static void test_restore_simple(void)
-{
+static void test_restore_simple(void) {
     setup();
     /* Paint a pattern on screen, save it, clear screen, restore */
     for (int y = 10; y <= 30; y++)
@@ -39,8 +42,7 @@ static void test_restore_simple(void)
     ASSERT_EQ_UINT((30 + 30) & 0xFF, screen_buf[30 * 640 + 30]);
 }
 
-static void test_restore_single_pixel(void)
-{
+static void test_restore_single_pixel(void) {
     setup();
     screen_buf[50 * 640 + 50] = 0xAB;
     SaveBlock(screen_buf, save_buf, 50, 50, 50, 50);
@@ -49,8 +51,7 @@ static void test_restore_single_pixel(void)
     ASSERT_EQ_UINT(0xAB, screen_buf[50 * 640 + 50]);
 }
 
-static void test_restore_full_width(void)
-{
+static void test_restore_full_width(void) {
     setup();
     for (int x = 0; x < 640; x++)
         screen_buf[0 * 640 + x] = (U8)(x & 0xFF);
@@ -62,8 +63,7 @@ static void test_restore_full_width(void)
     ASSERT_EQ_UINT(639 & 0xFF, screen_buf[639]);
 }
 
-static void test_asm_equiv(void)
-{
+static void test_asm_equiv(void) {
     U8 cpp_screen[640 * 480];
     U8 asm_screen[640 * 480];
     U8 buf[640 * 480];
@@ -86,8 +86,7 @@ static void test_asm_equiv(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_screen, cpp_screen, sizeof(cpp_screen), "RestoreBlock");
 }
 
-static void test_asm_equiv_large(void)
-{
+static void test_asm_equiv_large(void) {
     U8 cpp_screen[640 * 480];
     U8 asm_screen[640 * 480];
     U8 buf[640 * 480];
@@ -107,8 +106,7 @@ static void test_asm_equiv_large(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_screen, cpp_screen, sizeof(cpp_screen), "RestoreBlock full-screen");
 }
 
-static void test_random_batch(void)
-{
+static void test_random_batch(void) {
     U8 cpp_screen[640 * 480];
     U8 asm_screen[640 * 480];
     U8 buf[640 * 480];
@@ -120,8 +118,10 @@ static void test_random_batch(void)
         S32 y0 = (S32)(rng_next() % 440);
         S32 x1 = x0 + (S32)(rng_next() % (639 - x0));
         S32 y1 = y0 + (S32)(rng_next() % (479 - y0));
-        if (x1 > 639) x1 = 639;
-        if (y1 > 479) y1 = 479;
+        if (x1 > 639)
+            x1 = 639;
+        if (y1 > 479)
+            y1 = 479;
 
         setup();
         for (int y = y0; y <= y1; y++)
@@ -141,8 +141,7 @@ static void test_random_batch(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_restore_simple);
     RUN_TEST(test_restore_single_pixel);
     RUN_TEST(test_restore_full_width);

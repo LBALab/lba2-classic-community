@@ -11,7 +11,7 @@ extern "C" {
 extern S32 sampleVolume;
 
 void SfxLogEnable(int enable);
-int  SfxLogIsEnabled(void);
+int SfxLogIsEnabled(void);
 
 #ifdef __cplusplus
 }

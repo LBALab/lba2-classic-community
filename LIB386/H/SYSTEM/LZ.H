@@ -1,36 +1,34 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_LZ
+#ifndef LIB_SYSTEM_LZ
 #define LIB_SYSTEM_LZ
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#define	RECOVER_AREA	512	// for overlapping ExpandLZ
+#define RECOVER_AREA 512 // for overlapping ExpandLZ
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc);
+extern void ExpandLZ(void *Dst, void *Src, U32 DecompSize, U32 MinBloc);
 
-#pragma aux ExpandLZ	"*"		\
-	parm caller	[edi] [ebx] [ecx] [eax]	\
-	modify	[edx esi]
+#pragma aux ExpandLZ "*" parm caller[edi][ebx][ecx][eax] modify[edx esi]
 
 //──────────────────────────────────────────────────────────────────────────
-#define	ExpandLZSS(Src, Dst, DecompSize)	ExpandLZ(Dst, Src, DecompSize, 2)
+#define ExpandLZSS(Src, Dst, DecompSize) ExpandLZ(Dst, Src, DecompSize, 2)
 
 //──────────────────────────────────────────────────────────────────────────
-#define	ExpandLZMIT(Src, Dst, DecompSize)	ExpandLZ(Dst, Src, DecompSize, 3)
+#define ExpandLZMIT(Src, Dst, DecompSize) ExpandLZ(Dst, Src, DecompSize, 3)
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_LZ
+#endif //LIB_SYSTEM_LZ
 
 //──────────────────────────────────────────────────────────────────────────

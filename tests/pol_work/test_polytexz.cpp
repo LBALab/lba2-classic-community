@@ -14,10 +14,11 @@
 #include <string.h>
 
 /* Provide F_256 constant needed by ASM perspective code */
-extern "C" { float F_256 = 256.0f; }
+extern "C" {
+float F_256 = 256.0f;
+}
 
-static void test_texz_declares_exist(void)
-{
+static void test_texz_declares_exist(void) {
     Fill_Filler_Func fn = Filler_TextureZ;
     ASSERT_TRUE(fn != NULL);
     fn = Filler_TextureZFlat;
@@ -28,8 +29,7 @@ static void test_texz_declares_exist(void)
 
 extern "C" void asm_Filler_TextureZ(void);
 
-static inline S32 call_asm_Filler_TextureZ(U32 nbLines, U32 xmin, U32 xmax)
-{
+static inline S32 call_asm_Filler_TextureZ(U32 nbLines, U32 xmin, U32 xmax) {
     S32 result;
     __asm__ __volatile__(
         "push %%ebp\n\t"
@@ -37,25 +37,22 @@ static inline S32 call_asm_Filler_TextureZ(U32 nbLines, U32 xmin, U32 xmax)
         "pop %%ebp"
         : "=a"(result)
         : "c"(nbLines), "b"(xmin), "d"(xmax)
-        : "edi", "esi", "memory", "cc"
-    );
+        : "edi", "esi", "memory", "cc");
     return result;
 }
 
-#define DECLARE_ASM_FILLER(name) \
-    extern "C" void asm_##name(void); \
-    static inline S32 call_asm_##name(U32 nbLines, U32 xmin, U32 xmax) \
-    { \
-        S32 result; \
-        __asm__ __volatile__( \
-            "push %%ebp\n\t" \
-            "call asm_" #name "\n\t" \
-            "pop %%ebp" \
-            : "=a"(result) \
-            : "c"(nbLines), "b"(xmin), "d"(xmax) \
-            : "edi", "esi", "memory", "cc" \
-        ); \
-        return result; \
+#define DECLARE_ASM_FILLER(name)                                         \
+    extern "C" void asm_##name(void);                                    \
+    static inline S32 call_asm_##name(U32 nbLines, U32 xmin, U32 xmax) { \
+        S32 result;                                                      \
+        __asm__ __volatile__(                                            \
+            "push %%ebp\n\t"                                             \
+            "call asm_" #name "\n\t"                                     \
+            "pop %%ebp"                                                  \
+            : "=a"(result)                                               \
+            : "c"(nbLines), "b"(xmin), "d"(xmax)                         \
+            : "edi", "esi", "memory", "cc");                             \
+        return result;                                                   \
     }
 
 DECLARE_ASM_FILLER(Filler_TextureZFlat)
@@ -78,16 +75,15 @@ DECLARE_ASM_FILLER(Filler_TextureZChromaKeyFogNZW)
 
 /* ── Test buffers ──────────────────────────────────────────────── */
 
-static U8  texz_cpp_buf[TEST_POLY_SIZE];
-static U8  texz_asm_buf[TEST_POLY_SIZE];
+static U8 texz_cpp_buf[TEST_POLY_SIZE];
+static U8 texz_asm_buf[TEST_POLY_SIZE];
 static U16 texz_cpp_zbuf[TEST_POLY_SIZE];
 static U16 texz_asm_zbuf[TEST_POLY_SIZE];
 
 /* ── Base setup (unchanged from original) ──────────────────────── */
 
 static void setup_texz_filler(U32 startY, U32 nbLines,
-                               U32 xmin_fp, U32 xmax_fp)
-{
+                              U32 xmin_fp, U32 xmax_fp) {
     setup_filler_common(startY, nbLines, xmin_fp, xmax_fp, 0);
     init_test_texture();
     init_test_clut();
@@ -131,26 +127,26 @@ static void init_fog_palette(void) {
 }
 
 static void setup_texz_ck_filler(U32 startY, U32 nbLines,
-                                  U32 xmin_fp, U32 xmax_fp) {
+                                 U32 xmin_fp, U32 xmax_fp) {
     setup_texz_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_chromakey_texture();
 }
 
 static void setup_texz_fog_filler(U32 startY, U32 nbLines,
-                                   U32 xmin_fp, U32 xmax_fp) {
+                                  U32 xmin_fp, U32 xmax_fp) {
     setup_texz_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_fog_palette();
 }
 
 static void setup_texz_ck_fog_filler(U32 startY, U32 nbLines,
-                                      U32 xmin_fp, U32 xmax_fp) {
+                                     U32 xmin_fp, U32 xmax_fp) {
     setup_texz_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_chromakey_texture();
     init_fog_palette();
 }
 
 static void setup_texz_zbuf_filler(U32 startY, U32 nbLines,
-                                    U32 xmin_fp, U32 xmax_fp) {
+                                   U32 xmin_fp, U32 xmax_fp) {
     setup_texz_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_test_zbuffer(0xFFFF);
     PtrZBuffer = (PTR_U16)g_test_zbuffer;
@@ -161,19 +157,19 @@ static void setup_texz_zbuf_filler(U32 startY, U32 nbLines,
 }
 
 static void setup_texz_ck_zbuf_filler(U32 startY, U32 nbLines,
-                                       U32 xmin_fp, U32 xmax_fp) {
+                                      U32 xmin_fp, U32 xmax_fp) {
     setup_texz_zbuf_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_chromakey_texture();
 }
 
 static void setup_texz_fog_zbuf_filler(U32 startY, U32 nbLines,
-                                        U32 xmin_fp, U32 xmax_fp) {
+                                       U32 xmin_fp, U32 xmax_fp) {
     setup_texz_zbuf_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_fog_palette();
 }
 
 static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
-                                           U32 xmin_fp, U32 xmax_fp) {
+                                          U32 xmin_fp, U32 xmax_fp) {
     setup_texz_zbuf_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_chromakey_texture();
     init_fog_palette();
@@ -187,171 +183,166 @@ static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
  * ══════════════════════════════════════════════════════════════════ */
 
 /* Framebuffer-only static equivalence test */
-#define DEFINE_TEXZ_EQUIV_FB(shortname, funcname, setup_func) \
-static void test_asm_equiv_##shortname(void) \
-{ \
-    setup_func(30, 4, 20 << 16, 50 << 16); \
-    funcname(4, 20 << 16, 50 << 16); \
-    memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-    \
-    setup_func(30, 4, 20 << 16, 50 << 16); \
-    call_asm_##funcname(4, 20 << 16, 50 << 16); \
-    memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-    \
-    ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, \
-                           #funcname " framebuf"); \
-}
+#define DEFINE_TEXZ_EQUIV_FB(shortname, funcname, setup_func)             \
+    static void test_asm_equiv_##shortname(void) {                        \
+        setup_func(30, 4, 20 << 16, 50 << 16);                            \
+        funcname(4, 20 << 16, 50 << 16);                                  \
+        memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);            \
+                                                                          \
+        setup_func(30, 4, 20 << 16, 50 << 16);                            \
+        call_asm_##funcname(4, 20 << 16, 50 << 16);                       \
+        memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);            \
+                                                                          \
+        ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, \
+                              #funcname " framebuf");                     \
+    }
 
 /* Framebuffer-only random stress test (300 rounds) */
-#define DEFINE_TEXZ_RANDOM_FB(shortname, funcname, setup_func, seed) \
-static void test_asm_random_##shortname(void) \
-{ \
-    poly_rng_seed(seed); \
-    for (int i = 0; i < 300; i++) { \
-        U32 y = poly_rng_next() % (TEST_POLY_H - 20); \
-        U32 h = 1 + poly_rng_next() % 8; \
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2; \
-        U32 x0 = poly_rng_next() % (TEST_POLY_W - 30); \
-        U32 x1 = x0 + 5 + poly_rng_next() % 30; \
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1; \
-        U32 uslope = poly_rng_next() % 0x20000; \
-        S32 w = 0x8000 + (S32)(poly_rng_next() % 0x18000); \
-        \
-        setup_func(y, h, x0 << 16, x1 << 16); \
-        Fill_MapU_XSlope = uslope; \
-        Fill_Cur_W = w; \
-        funcname(h, x0 << 16, x1 << 16); \
-        memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-        \
-        setup_func(y, h, x0 << 16, x1 << 16); \
-        Fill_MapU_XSlope = uslope; \
-        Fill_Cur_W = w; \
-        call_asm_##funcname(h, x0 << 16, x1 << 16); \
-        memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-        \
-        for (int j = 0; j < TEST_POLY_SIZE; j++) { \
-            if (texz_asm_buf[j] != texz_cpp_buf[j]) { \
-                int row = j / TEST_POLY_W; \
-                int col = j % TEST_POLY_W; \
-                printf("# " #shortname " #%d: first diff byte %d " \
-                       "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n", \
-                       i, j, row, col, texz_asm_buf[j], texz_cpp_buf[j]); \
-                break; \
-            } \
-        } \
-        \
-        char msg[128]; \
-        snprintf(msg, sizeof(msg), "random " #shortname \
-                 " #%d y=%u h=%u x=%u-%u", i, y, h, x0, x1); \
-        ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, \
-                               TEST_POLY_SIZE, msg); \
-    } \
-}
+#define DEFINE_TEXZ_RANDOM_FB(shortname, funcname, setup_func, seed)                                    \
+    static void test_asm_random_##shortname(void) {                                                     \
+        poly_rng_seed(seed);                                                                            \
+        for (int i = 0; i < 300; i++) {                                                                 \
+            U32 y = poly_rng_next() % (TEST_POLY_H - 20);                                               \
+            U32 h = 1 + poly_rng_next() % 8;                                                            \
+            if (y + h + 1 >= (U32)TEST_POLY_H)                                                          \
+                h = TEST_POLY_H - y - 2;                                                                \
+            U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);                                              \
+            U32 x1 = x0 + 5 + poly_rng_next() % 30;                                                     \
+            if (x1 >= (U32)TEST_POLY_W)                                                                 \
+                x1 = TEST_POLY_W - 1;                                                                   \
+            U32 uslope = poly_rng_next() % 0x20000;                                                     \
+            S32 w = 0x8000 + (S32)(poly_rng_next() % 0x18000);                                          \
+                                                                                                        \
+            setup_func(y, h, x0 << 16, x1 << 16);                                                       \
+            Fill_MapU_XSlope = uslope;                                                                  \
+            Fill_Cur_W = w;                                                                             \
+            funcname(h, x0 << 16, x1 << 16);                                                            \
+            memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);                                      \
+                                                                                                        \
+            setup_func(y, h, x0 << 16, x1 << 16);                                                       \
+            Fill_MapU_XSlope = uslope;                                                                  \
+            Fill_Cur_W = w;                                                                             \
+            call_asm_##funcname(h, x0 << 16, x1 << 16);                                                 \
+            memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);                                      \
+                                                                                                        \
+            for (int j = 0; j < TEST_POLY_SIZE; j++) {                                                  \
+                if (texz_asm_buf[j] != texz_cpp_buf[j]) {                                               \
+                    int row = j / TEST_POLY_W;                                                          \
+                    int col = j % TEST_POLY_W;                                                          \
+                    printf("# " #shortname " #%d: first diff byte %d "                                  \
+                           "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n",                                   \
+                           i, j, row, col, texz_asm_buf[j], texz_cpp_buf[j]);                           \
+                    break;                                                                              \
+                }                                                                                       \
+            }                                                                                           \
+                                                                                                        \
+            char msg[128];                                                                              \
+            snprintf(msg, sizeof(msg), "random " #shortname " #%d y=%u h=%u x=%u-%u", i, y, h, x0, x1); \
+            ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf,                                           \
+                                  TEST_POLY_SIZE, msg);                                                 \
+        }                                                                                               \
+    }
 
 /* Framebuffer + Z-buffer static equivalence test */
-#define DEFINE_TEXZ_EQUIV_ZB(shortname, funcname, setup_func) \
-static void test_asm_equiv_##shortname(void) \
-{ \
-    setup_func(30, 4, 20 << 16, 50 << 16); \
-    funcname(4, 20 << 16, 50 << 16); \
-    memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-    memcpy(texz_cpp_zbuf, g_test_zbuffer, \
-           TEST_POLY_SIZE * (int)sizeof(U16)); \
-    \
-    setup_func(30, 4, 20 << 16, 50 << 16); \
-    call_asm_##funcname(4, 20 << 16, 50 << 16); \
-    memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-    memcpy(texz_asm_zbuf, g_test_zbuffer, \
-           TEST_POLY_SIZE * (int)sizeof(U16)); \
-    \
-    ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, \
-                           #funcname " framebuf"); \
-    ASSERT_ASM_CPP_MEM_EQ((U8 *)texz_asm_zbuf, (U8 *)texz_cpp_zbuf, \
-                           TEST_POLY_SIZE * (int)sizeof(U16), \
-                           #funcname " zbuf"); \
-}
+#define DEFINE_TEXZ_EQUIV_ZB(shortname, funcname, setup_func)             \
+    static void test_asm_equiv_##shortname(void) {                        \
+        setup_func(30, 4, 20 << 16, 50 << 16);                            \
+        funcname(4, 20 << 16, 50 << 16);                                  \
+        memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);            \
+        memcpy(texz_cpp_zbuf, g_test_zbuffer,                             \
+               TEST_POLY_SIZE *(int)sizeof(U16));                         \
+                                                                          \
+        setup_func(30, 4, 20 << 16, 50 << 16);                            \
+        call_asm_##funcname(4, 20 << 16, 50 << 16);                       \
+        memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);            \
+        memcpy(texz_asm_zbuf, g_test_zbuffer,                             \
+               TEST_POLY_SIZE *(int)sizeof(U16));                         \
+                                                                          \
+        ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, \
+                              #funcname " framebuf");                     \
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)texz_asm_zbuf, (U8 *)texz_cpp_zbuf,   \
+                              TEST_POLY_SIZE *(int)sizeof(U16),           \
+                              #funcname " zbuf");                         \
+    }
 
 /* Framebuffer + Z-buffer random stress test (300 rounds) */
-#define DEFINE_TEXZ_RANDOM_ZB(shortname, funcname, setup_func, seed) \
-static void test_asm_random_##shortname(void) \
-{ \
-    poly_rng_seed(seed); \
-    for (int i = 0; i < 300; i++) { \
-        U32 y = poly_rng_next() % (TEST_POLY_H - 20); \
-        U32 h = 1 + poly_rng_next() % 8; \
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2; \
-        U32 x0 = poly_rng_next() % (TEST_POLY_W - 30); \
-        U32 x1 = x0 + 5 + poly_rng_next() % 30; \
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1; \
-        U32 uslope = poly_rng_next() % 0x20000; \
-        S32 w = 0x8000 + (S32)(poly_rng_next() % 0x18000); \
-        U32 zbmin = 0x4000 + poly_rng_next() % 0x8000; \
-        S32 zbxsl = (S32)(poly_rng_next() % 0x400); \
-        \
-        setup_func(y, h, x0 << 16, x1 << 16); \
-        Fill_MapU_XSlope = uslope; \
-        Fill_Cur_W = w; \
-        Fill_CurZBufMin = zbmin; \
-        Fill_CurZBuf = zbmin; \
-        Fill_ZBuf_XSlope = zbxsl; \
-        funcname(h, x0 << 16, x1 << 16); \
-        memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-        memcpy(texz_cpp_zbuf, g_test_zbuffer, \
-               TEST_POLY_SIZE * (int)sizeof(U16)); \
-        \
-        setup_func(y, h, x0 << 16, x1 << 16); \
-        Fill_MapU_XSlope = uslope; \
-        Fill_Cur_W = w; \
-        Fill_CurZBufMin = zbmin; \
-        Fill_CurZBuf = zbmin; \
-        Fill_ZBuf_XSlope = zbxsl; \
-        call_asm_##funcname(h, x0 << 16, x1 << 16); \
-        memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE); \
-        memcpy(texz_asm_zbuf, g_test_zbuffer, \
-               TEST_POLY_SIZE * (int)sizeof(U16)); \
-        \
-        for (int j = 0; j < TEST_POLY_SIZE; j++) { \
-            if (texz_asm_buf[j] != texz_cpp_buf[j]) { \
-                int row = j / TEST_POLY_W; \
-                int col = j % TEST_POLY_W; \
-                printf("# " #shortname " #%d: first diff byte %d " \
-                       "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n", \
-                       i, j, row, col, texz_asm_buf[j], texz_cpp_buf[j]); \
-                break; \
-            } \
-        } \
-        \
-        char msg[128]; \
-        snprintf(msg, sizeof(msg), "random " #shortname \
-                 " #%d y=%u h=%u x=%u-%u", i, y, h, x0, x1); \
-        ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, \
-                               TEST_POLY_SIZE, msg); \
-        snprintf(msg, sizeof(msg), "random " #shortname " zbuf #%d", i); \
-        ASSERT_ASM_CPP_MEM_EQ((U8 *)texz_asm_zbuf, (U8 *)texz_cpp_zbuf, \
-                               TEST_POLY_SIZE * (int)sizeof(U16), msg); \
-    } \
-}
+#define DEFINE_TEXZ_RANDOM_ZB(shortname, funcname, setup_func, seed)                                    \
+    static void test_asm_random_##shortname(void) {                                                     \
+        poly_rng_seed(seed);                                                                            \
+        for (int i = 0; i < 300; i++) {                                                                 \
+            U32 y = poly_rng_next() % (TEST_POLY_H - 20);                                               \
+            U32 h = 1 + poly_rng_next() % 8;                                                            \
+            if (y + h + 1 >= (U32)TEST_POLY_H)                                                          \
+                h = TEST_POLY_H - y - 2;                                                                \
+            U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);                                              \
+            U32 x1 = x0 + 5 + poly_rng_next() % 30;                                                     \
+            if (x1 >= (U32)TEST_POLY_W)                                                                 \
+                x1 = TEST_POLY_W - 1;                                                                   \
+            U32 uslope = poly_rng_next() % 0x20000;                                                     \
+            S32 w = 0x8000 + (S32)(poly_rng_next() % 0x18000);                                          \
+            U32 zbmin = 0x4000 + poly_rng_next() % 0x8000;                                              \
+            S32 zbxsl = (S32)(poly_rng_next() % 0x400);                                                 \
+                                                                                                        \
+            setup_func(y, h, x0 << 16, x1 << 16);                                                       \
+            Fill_MapU_XSlope = uslope;                                                                  \
+            Fill_Cur_W = w;                                                                             \
+            Fill_CurZBufMin = zbmin;                                                                    \
+            Fill_CurZBuf = zbmin;                                                                       \
+            Fill_ZBuf_XSlope = zbxsl;                                                                   \
+            funcname(h, x0 << 16, x1 << 16);                                                            \
+            memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);                                      \
+            memcpy(texz_cpp_zbuf, g_test_zbuffer,                                                       \
+                   TEST_POLY_SIZE *(int)sizeof(U16));                                                   \
+                                                                                                        \
+            setup_func(y, h, x0 << 16, x1 << 16);                                                       \
+            Fill_MapU_XSlope = uslope;                                                                  \
+            Fill_Cur_W = w;                                                                             \
+            Fill_CurZBufMin = zbmin;                                                                    \
+            Fill_CurZBuf = zbmin;                                                                       \
+            Fill_ZBuf_XSlope = zbxsl;                                                                   \
+            call_asm_##funcname(h, x0 << 16, x1 << 16);                                                 \
+            memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);                                      \
+            memcpy(texz_asm_zbuf, g_test_zbuffer,                                                       \
+                   TEST_POLY_SIZE *(int)sizeof(U16));                                                   \
+                                                                                                        \
+            for (int j = 0; j < TEST_POLY_SIZE; j++) {                                                  \
+                if (texz_asm_buf[j] != texz_cpp_buf[j]) {                                               \
+                    int row = j / TEST_POLY_W;                                                          \
+                    int col = j % TEST_POLY_W;                                                          \
+                    printf("# " #shortname " #%d: first diff byte %d "                                  \
+                           "(row=%d col=%d) asm=0x%02x cpp=0x%02x\n",                                   \
+                           i, j, row, col, texz_asm_buf[j], texz_cpp_buf[j]);                           \
+                    break;                                                                              \
+                }                                                                                       \
+            }                                                                                           \
+                                                                                                        \
+            char msg[128];                                                                              \
+            snprintf(msg, sizeof(msg), "random " #shortname " #%d y=%u h=%u x=%u-%u", i, y, h, x0, x1); \
+            ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf,                                           \
+                                  TEST_POLY_SIZE, msg);                                                 \
+            snprintf(msg, sizeof(msg), "random " #shortname " zbuf #%d", i);                            \
+            ASSERT_ASM_CPP_MEM_EQ((U8 *)texz_asm_zbuf, (U8 *)texz_cpp_zbuf,                             \
+                                  TEST_POLY_SIZE *(int)sizeof(U16), msg);                               \
+        }                                                                                               \
+    }
 
 /* ══════════════════════════════════════════════════════════════════
  *  Original Filler_TextureZ tests (unchanged)
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_texz_cpp_narrow(void)
-{
+static void test_texz_cpp_narrow(void) {
     setup_texz_filler(50, 2, 60 << 16, 68 << 16);
     Filler_TextureZ(2, 60 << 16, 68 << 16);
     ASSERT_TRUE(1);
 }
 
-static void test_texz_cpp_wide(void)
-{
+static void test_texz_cpp_wide(void) {
     setup_texz_filler(30, 4, 20 << 16, 80 << 16);
     Filler_TextureZ(4, 20 << 16, 80 << 16);
     ASSERT_TRUE(1);
 }
 
-static void test_asm_equiv_texz(void)
-{
+static void test_asm_equiv_texz(void) {
     setup_texz_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZ(4, 20 << 16, 50 << 16);
     memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -361,19 +352,20 @@ static void test_asm_equiv_texz(void)
     memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
     ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZ strip");
+                          "Filler_TextureZ strip");
 }
 
-static void test_asm_random_texz(void)
-{
+static void test_asm_random_texz(void) {
     poly_rng_seed(0xBEEFCAFE);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 uslope = poly_rng_next() % 0x20000;
         S32 w = 0x8000 + (S32)(poly_rng_next() % 0x18000);
 
@@ -518,8 +510,7 @@ DEFINE_TEXZ_RANDOM_ZB(texz_ck_fog_nzw, Filler_TextureZChromaKeyFogNZW,
 
 /* ══════════════════════════════════════════════════════════════════ */
 
-int main(void)
-{
+int main(void) {
     /* Original Filler_TextureZ tests */
     RUN_TEST(test_texz_declares_exist);
     RUN_TEST(test_texz_cpp_narrow);

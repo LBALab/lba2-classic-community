@@ -39,8 +39,7 @@ static const U32 kQuadFixturePointCount = 4;
 static const U32 kQuadFixtureFaceLightIndex = 4;
 static const U32 kComplexFaceLightCount = 2;
 
-enum
-{
+enum {
     kPolySolid = 0,
     kPolyFlat = 1,
     kPolyTransparent = 2,
@@ -357,9 +356,9 @@ extern "C" U8 *asm_ObjPtrMap;
 extern "C" Func_TransNumPtr *asm_TransFctBody;
 
 extern "C" S32 asm_BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
-                                S32 gamma, void *obj);
+                               S32 gamma, void *obj);
 extern "C" S32 asm_BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha,
-                                          S32 beta, S32 gamma, void *obj);
+                                         S32 beta, S32 gamma, void *obj);
 extern "C" S32 asm_ObjectDisplay(T_OBJ_3D *obj);
 extern "C" int CallTestVisibleI(STRUC_POLY3_LIGHT *poly);
 extern "C" int CallTestVisibleF(STRUC_POLY3_ENV *poly);
@@ -374,44 +373,36 @@ void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
 void InitMatrixTransF(TYPE_MAT *MatDst, S32 tx, S32 ty, S32 tz);
 
 extern "C" S32 CallCppFillPolyFast(S32 type_poly, S32 color_poly,
-                                    S32 nb_points, Struc_Point *ptr_points)
-{
+                                   S32 nb_points, Struc_Point *ptr_points) {
     return Fill_Poly(type_poly, color_poly, nb_points, ptr_points);
 }
 
-extern "C" void CallCppLongRotatePoint(TYPE_MAT *mat, S32 x, S32 y, S32 z)
-{
+extern "C" void CallCppLongRotatePoint(TYPE_MAT *mat, S32 x, S32 y, S32 z) {
     LongRotatePointF(mat, x, y, z);
 }
 
-extern "C" void CallCppRotatePoint(TYPE_MAT *mat, S32 x, S32 y, S32 z)
-{
+extern "C" void CallCppRotatePoint(TYPE_MAT *mat, S32 x, S32 y, S32 z) {
     LongRotatePointF(mat, x, y, z);
 }
 
-extern "C" void CallCppRotateMatrix(TYPE_MAT *dst, TYPE_MAT *src, S32 x, S32 y, S32 z)
-{
+extern "C" void CallCppRotateMatrix(TYPE_MAT *dst, TYPE_MAT *src, S32 x, S32 y, S32 z) {
     RotateMatrixU(dst, src, x, y, z);
 }
 
-extern "C" void CallCppRotTransList(TYPE_MAT *mat, TYPE_VT16 *dst, TYPE_VT16 *src, S32 count)
-{
+extern "C" void CallCppRotTransList(TYPE_MAT *mat, TYPE_VT16 *dst, TYPE_VT16 *src, S32 count) {
     RotTransListF(mat, dst, src, count);
 }
 
 extern "C" void CallCppProjectList(TYPE_PT *dst, TYPE_VT16 *src, S32 count,
-                                     S32 org_x, S32 org_y, S32 org_z)
-{
+                                   S32 org_x, S32 org_y, S32 org_z) {
     ProjectList3DF(dst, src, count, org_x, org_y, org_z);
 }
 
-extern "C" void CallCppInitMatrixTrans(TYPE_MAT *dst, S32 tx, S32 ty, S32 tz)
-{
+extern "C" void CallCppInitMatrixTrans(TYPE_MAT *dst, S32 tx, S32 ty, S32 tz) {
     InitMatrixTransF(dst, tx, ty, tz);
 }
 
-extern "C" void CallCppLightList(TYPE_MAT *mat, U16 *dst, TYPE_VT16 *src, S32 count)
-{
+extern "C" void CallCppLightList(TYPE_MAT *mat, U16 *dst, TYPE_VT16 *src, S32 count) {
     LightList(mat, dst, src, count);
 }
 
@@ -505,8 +496,7 @@ asm(
     "add $16, %esp\n"
     "ret\n");
 
-static void restore_cpp_3d_callbacks(void)
-{
+static void restore_cpp_3d_callbacks(void) {
     LongRotatePoint = LongRotatePointF;
     RotatePoint = LongRotatePointF;
     RotatePointNoMMX = LongRotatePointF;
@@ -517,8 +507,7 @@ static void restore_cpp_3d_callbacks(void)
     LightListPtr = LightList;
 }
 
-static void install_asm_compatible_3d_callbacks(void)
-{
+static void install_asm_compatible_3d_callbacks(void) {
     LongRotatePoint = (Func_LongRotatePoint *)AsmAbi_LongRotatePoint_Thunk;
     RotatePoint = (Func_RotatePoint *)AsmAbi_RotatePoint_Thunk;
     RotatePointNoMMX = (Func_RotatePoint *)AsmAbi_RotatePoint_Thunk;
@@ -532,75 +521,60 @@ static void install_asm_compatible_3d_callbacks(void)
 static U32 rng_state;
 static fenv_t g_initial_fenv;
 
-static void rng_seed(U32 seed_value)
-{
+static void rng_seed(U32 seed_value) {
     rng_state = seed_value;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void set_point(TYPE_PT *point, S16 x, S16 y)
-{
+static void set_point(TYPE_PT *point, S16 x, S16 y) {
     point->X = x;
     point->Y = y;
 }
 
-static void set_hidden_point(TYPE_PT *point)
-{
+static void set_hidden_point(TYPE_PT *point) {
     point->X = (S16)-0x8000;
     point->Y = (S16)-0x8000;
 }
 
-static void build_projected_points_snapshot(TYPE_PT *snapshot, const TYPE_PT *points, U32 count)
-{
+static void build_projected_points_snapshot(TYPE_PT *snapshot, const TYPE_PT *points, U32 count) {
     ASSERT_TRUE(count <= kObjProjectedPointCount);
 
-    for (U32 index = 0; index < kObjProjectedPointCount; ++index)
-    {
+    for (U32 index = 0; index < kObjProjectedPointCount; ++index) {
         set_hidden_point(&snapshot[index]);
     }
 
     memcpy(snapshot, points, count * sizeof(TYPE_PT));
 }
 
-static void fill_strictly_increasing(S32 *values, U32 count)
-{
+static void fill_strictly_increasing(S32 *values, U32 count) {
     S32 current = (S32)(rng_next() & 0xFF);
-    for (U32 index = 0; index < count; ++index)
-    {
+    for (U32 index = 0; index < count; ++index) {
         current += (S32)((rng_next() % 17) + 1);
         values[index] = current;
     }
 }
 
-static void fill_strictly_decreasing(S32 *values, U32 count)
-{
+static void fill_strictly_decreasing(S32 *values, U32 count) {
     S32 current = (S32)(rng_next() & 0xFF) + 1024;
-    for (U32 index = 0; index < count; ++index)
-    {
+    for (U32 index = 0; index < count; ++index) {
         current -= (S32)((rng_next() % 17) + 1);
         values[index] = current;
     }
 }
 
-static void fill_random_values(S32 *values, U32 count)
-{
-    for (U32 index = 0; index < count; ++index)
-    {
+static void fill_random_values(S32 *values, U32 count) {
+    for (U32 index = 0; index < count; ++index) {
         values[index] = (S32)(((S32)rng_next() << 1) - (S32)rng_next());
     }
 }
 
-static bool is_strictly_increasing(const S32 *values, U32 count)
-{
-    for (U32 index = 1; index < count; ++index)
-    {
-        if (values[index - 1] >= values[index])
-        {
+static bool is_strictly_increasing(const S32 *values, U32 count) {
+    for (U32 index = 1; index < count; ++index) {
+        if (values[index - 1] >= values[index]) {
             return false;
         }
     }
@@ -608,12 +582,9 @@ static bool is_strictly_increasing(const S32 *values, U32 count)
     return true;
 }
 
-static bool is_strictly_decreasing(const S32 *values, U32 count)
-{
-    for (U32 index = 1; index < count; ++index)
-    {
-        if (values[index - 1] <= values[index])
-        {
+static bool is_strictly_decreasing(const S32 *values, U32 count) {
+    for (U32 index = 1; index < count; ++index) {
+        if (values[index - 1] <= values[index]) {
             return false;
         }
     }
@@ -621,15 +592,13 @@ static bool is_strictly_decreasing(const S32 *values, U32 count)
     return true;
 }
 
-static bool is_quicksort_asm_valid(const S32 *values, U32 count)
-{
+static bool is_quicksort_asm_valid(const S32 *values, U32 count) {
     S32 scratch[32];
     S32 pivot;
     U32 left;
     U32 next;
 
-    if (count <= 1)
-    {
+    if (count <= 1) {
         return true;
     }
 
@@ -638,13 +607,11 @@ static bool is_quicksort_asm_valid(const S32 *values, U32 count)
     pivot = scratch[0];
     left = 0;
     next = 1;
-    while (next < count)
-    {
+    while (next < count) {
         S32 nextValue = scratch[next];
         next += 1;
 
-        if (pivot >= nextValue)
-        {
+        if (pivot >= nextValue) {
             scratch[left] = nextValue;
             scratch[next - 1] = scratch[left + 1];
             scratch[left + 1] = pivot;
@@ -652,24 +619,20 @@ static bool is_quicksort_asm_valid(const S32 *values, U32 count)
         }
     }
 
-    if (left == count - 1)
-    {
+    if (left == count - 1) {
         return false;
     }
 
-    return is_quicksort_asm_valid(scratch, left + 1)
-        && is_quicksort_asm_valid(scratch + left + 1, count - left - 1);
+    return is_quicksort_asm_valid(scratch, left + 1) && is_quicksort_asm_valid(scratch + left + 1, count - left - 1);
 }
 
-static bool is_quicksortinv_asm_valid(const S32 *values, U32 count)
-{
+static bool is_quicksortinv_asm_valid(const S32 *values, U32 count) {
     S32 scratch[32];
     S32 pivot;
     U32 left;
     U32 next;
 
-    if (count <= 1)
-    {
+    if (count <= 1) {
         return true;
     }
 
@@ -678,13 +641,11 @@ static bool is_quicksortinv_asm_valid(const S32 *values, U32 count)
     pivot = scratch[0];
     left = 0;
     next = 1;
-    while (next < count)
-    {
+    while (next < count) {
         S32 nextValue = scratch[next];
         next += 1;
 
-        if (pivot <= nextValue)
-        {
+        if (pivot <= nextValue) {
             scratch[left] = nextValue;
             scratch[next - 1] = scratch[left + 1];
             scratch[left + 1] = pivot;
@@ -692,24 +653,17 @@ static bool is_quicksortinv_asm_valid(const S32 *values, U32 count)
         }
     }
 
-    if (left == count - 1)
-    {
+    if (left == count - 1) {
         return false;
     }
 
-    return is_quicksortinv_asm_valid(scratch, left + 1)
-        && is_quicksortinv_asm_valid(scratch + left + 1, count - left - 1);
+    return is_quicksortinv_asm_valid(scratch, left + 1) && is_quicksortinv_asm_valid(scratch + left + 1, count - left - 1);
 }
 
-static void fill_random_unordered_quicksort_values(S32 *values, U32 count)
-{
-    for (int attempt = 0; attempt < 4096; ++attempt)
-    {
+static void fill_random_unordered_quicksort_values(S32 *values, U32 count) {
+    for (int attempt = 0; attempt < 4096; ++attempt) {
         fill_random_values(values, count);
-        if (!is_strictly_increasing(values, count)
-            && !is_strictly_decreasing(values, count)
-            && is_quicksort_asm_valid(values, count))
-        {
+        if (!is_strictly_increasing(values, count) && !is_strictly_decreasing(values, count) && is_quicksort_asm_valid(values, count)) {
             return;
         }
     }
@@ -717,15 +671,10 @@ static void fill_random_unordered_quicksort_values(S32 *values, U32 count)
     ASSERT_TRUE(false);
 }
 
-static void fill_random_unordered_quicksortinv_values(S32 *values, U32 count)
-{
-    for (int attempt = 0; attempt < 4096; ++attempt)
-    {
+static void fill_random_unordered_quicksortinv_values(S32 *values, U32 count) {
+    for (int attempt = 0; attempt < 4096; ++attempt) {
         fill_random_values(values, count);
-        if (!is_strictly_increasing(values, count)
-            && !is_strictly_decreasing(values, count)
-            && is_quicksortinv_asm_valid(values, count))
-        {
+        if (!is_strictly_increasing(values, count) && !is_strictly_decreasing(values, count) && is_quicksortinv_asm_valid(values, count)) {
             return;
         }
     }
@@ -733,8 +682,7 @@ static void fill_random_unordered_quicksortinv_values(S32 *values, U32 count)
     ASSERT_TRUE(false);
 }
 
-static void run_sort_case(const char *label, const S32 *values, U32 count)
-{
+static void run_sort_case(const char *label, const S32 *values, U32 count) {
     S32 cpp_storage[34];
     S32 asm_storage[34];
     S32 *cpp_array = cpp_storage + 1;
@@ -756,8 +704,7 @@ static void run_sort_case(const char *label, const S32 *values, U32 count)
     ASSERT_ASM_CPP_MEM_EQ(asm_storage, cpp_storage, (count + 2) * sizeof(S32), label);
 }
 
-static void run_sortinv_case(const char *label, const S32 *values, U32 count)
-{
+static void run_sortinv_case(const char *label, const S32 *values, U32 count) {
     S32 cpp_storage[34];
     S32 asm_storage[34];
     S32 *cpp_array = cpp_storage + 1;
@@ -779,8 +726,7 @@ static void run_sortinv_case(const char *label, const S32 *values, U32 count)
     ASSERT_ASM_CPP_MEM_EQ(asm_storage, cpp_storage, (count + 2) * sizeof(S32), label);
 }
 
-static void run_testvisiblei_case(const char *label, const TYPE_PT *points, U32 count, const STRUC_POLY3_LIGHT *poly)
-{
+static void run_testvisiblei_case(const char *label, const TYPE_PT *points, U32 count, const STRUC_POLY3_LIGHT *poly) {
     TYPE_PT baseline[kObjProjectedPointCount];
 
     build_projected_points_snapshot(baseline, points, count);
@@ -796,33 +742,25 @@ static void run_testvisiblei_case(const char *label, const TYPE_PT *points, U32 
     ASSERT_ASM_CPP_EQ_INT(asm_visible, cpp_visible, label);
 }
 
-static S32 packed_projected_point_value(const TYPE_PT *points, U16 index)
-{
+static S32 packed_projected_point_value(const TYPE_PT *points, U16 index) {
     S32 packedValue;
     memcpy(&packedValue, &points[index], sizeof(packedValue));
     return packedValue;
 }
 
-static int testvisiblef_cpp_mirror(const STRUC_POLY3_ENV *poly)
-{
+static int testvisiblef_cpp_mirror(const STRUC_POLY3_ENV *poly) {
     const S32 packedP1 = packed_projected_point_value(Obj_ListProjectedPoints, poly->P1);
     const S32 packedP2 = packed_projected_point_value(Obj_ListProjectedPoints, poly->P2);
     const S32 packedP3 = packed_projected_point_value(Obj_ListProjectedPoints, poly->P3);
 
-    if (packedP1 == (S32)0x80008000u
-        || packedP2 == (S32)0x80008000u
-        || packedP3 == (S32)0x80008000u)
-    {
+    if (packedP1 == (S32)0x80008000u || packedP2 == (S32)0x80008000u || packedP3 == (S32)0x80008000u) {
         return 0;
     }
 
     const S32 packedP1Next = packed_projected_point_value(Obj_ListProjectedPoints, (U16)(poly->P1 + 1));
     const S32 packedP2Next = packed_projected_point_value(Obj_ListProjectedPoints, (U16)(poly->P2 + 1));
     const S32 packedP3Next = packed_projected_point_value(Obj_ListProjectedPoints, (U16)(poly->P3 + 1));
-    const long double result = ((long double)packedP2 - (long double)packedP1)
-        * ((long double)packedP1Next - (long double)packedP3Next)
-        - ((long double)packedP2Next - (long double)packedP1Next)
-        * ((long double)packedP1 - (long double)packedP3);
+    const long double result = ((long double)packedP2 - (long double)packedP1) * ((long double)packedP1Next - (long double)packedP3Next) - ((long double)packedP2Next - (long double)packedP1Next) * ((long double)packedP1 - (long double)packedP3);
     const float storedResult = (float)result;
     U32 storedBits;
 
@@ -831,8 +769,7 @@ static int testvisiblef_cpp_mirror(const STRUC_POLY3_ENV *poly)
     return (storedBits & 0x80000000u) == 0 ? 1 : 0;
 }
 
-static void run_testvisiblef_case(const char *label, const TYPE_PT *points, U32 count, const STRUC_POLY3_ENV *poly)
-{
+static void run_testvisiblef_case(const char *label, const TYPE_PT *points, U32 count, const STRUC_POLY3_ENV *poly) {
     TYPE_PT baseline[kObjProjectedPointCount];
 
     build_projected_points_snapshot(baseline, points, count);
@@ -848,8 +785,7 @@ static void run_testvisiblef_case(const char *label, const TYPE_PT *points, U32 
     ASSERT_ASM_CPP_EQ_INT(asm_visible, cpp_visible, label);
 }
 
-static void build_test_body_fixture(TEST_BODY_FIXTURE *fixture)
-{
+static void build_test_body_fixture(TEST_BODY_FIXTURE *fixture) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -898,8 +834,7 @@ static void build_test_body_fixture(TEST_BODY_FIXTURE *fixture)
     fixture->Points[2].Z = 256;
     fixture->Points[2].Group = 0;
 
-    for (U32 index = 0; index < kFixtureFaceLightIndex; ++index)
-    {
+    for (U32 index = 0; index < kFixtureFaceLightIndex; ++index) {
         fixture->Normals[index].X = 15360;
         fixture->Normals[index].Y = 0;
         fixture->Normals[index].Z = 0;
@@ -923,24 +858,21 @@ static void build_test_body_fixture(TEST_BODY_FIXTURE *fixture)
     fixture->Triangle.Normale = kFixtureFaceLightIndex;
 }
 
-static void set_body_point(T_OBJ_POINT *point, S16 x, S16 y, S16 z, S16 group)
-{
+static void set_body_point(T_OBJ_POINT *point, S16 x, S16 y, S16 z, S16 group) {
     point->X = x;
     point->Y = y;
     point->Z = z;
     point->Group = group;
 }
 
-static void set_body_normal(TYPE_VT16 *normal, S16 x, S16 y, S16 z, S16 group)
-{
+static void set_body_normal(TYPE_VT16 *normal, S16 x, S16 y, S16 z, S16 group) {
     normal->X = x;
     normal->Y = y;
     normal->Z = z;
     normal->Grp = group;
 }
 
-static void build_complex_test_body_fixture(TEST_COMPLEX_BODY_FIXTURE *fixture)
-{
+static void build_complex_test_body_fixture(TEST_COMPLEX_BODY_FIXTURE *fixture) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1040,8 +972,7 @@ static void build_complex_test_body_fixture(TEST_COMPLEX_BODY_FIXTURE *fixture)
 }
 
 static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture,
-                                             U16 poly_type)
-{
+                                             U16 poly_type) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1105,8 +1036,7 @@ static void build_textured_test_body_fixture(TEST_TEXTURED_BODY_FIXTURE *fixture
 }
 
 static void build_textured_quad_test_body_fixture(TEST_TEXTURED_QUAD_BODY_FIXTURE *fixture,
-                                                  U16 poly_type)
-{
+                                                  U16 poly_type) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1176,8 +1106,7 @@ static void build_textured_quad_test_body_fixture(TEST_TEXTURED_QUAD_BODY_FIXTUR
 }
 
 static void build_plain_quad_test_body_fixture(TEST_PLAIN_QUAD_BODY_FIXTURE *fixture,
-                                               U16 poly_type)
-{
+                                               U16 poly_type) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1234,8 +1163,7 @@ static void build_plain_quad_test_body_fixture(TEST_PLAIN_QUAD_BODY_FIXTURE *fix
     fixture->Quad.Normale = kQuadFixtureFaceLightIndex;
 }
 
-static void build_line_test_body_fixture(TEST_LINE_BODY_FIXTURE *fixture)
-{
+static void build_line_test_body_fixture(TEST_LINE_BODY_FIXTURE *fixture) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1281,8 +1209,7 @@ static void build_line_test_body_fixture(TEST_LINE_BODY_FIXTURE *fixture)
 }
 
 static void build_sphere_test_body_fixture(TEST_SPHERE_BODY_FIXTURE *fixture,
-                                           U16 sphere_type)
-{
+                                           U16 sphere_type) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1328,8 +1255,7 @@ static void build_sphere_test_body_fixture(TEST_SPHERE_BODY_FIXTURE *fixture,
 
 static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture,
                                         U16 poly_type,
-                                        U16 scale)
-{
+                                        U16 scale) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1390,8 +1316,7 @@ static void build_env_test_body_fixture(TEST_ENV_BODY_FIXTURE *fixture,
 
 static void build_env_quad_test_body_fixture(TEST_ENV_QUAD_BODY_FIXTURE *fixture,
                                              U16 poly_type,
-                                             U16 scale)
-{
+                                             U16 scale) {
     memset(fixture, 0, sizeof(*fixture));
 
     fixture->Header.Info = 0;
@@ -1454,8 +1379,7 @@ static void build_env_quad_test_body_fixture(TEST_ENV_QUAD_BODY_FIXTURE *fixture
 
 static void build_test_object_fixture(T_OBJ_3D *obj, void *body, S32 x, S32 y,
                                       S32 z, S32 alpha, S32 beta, S32 gamma,
-                                      U32 nb_groups, const T_GROUP_INFO *group_info)
-{
+                                      U32 nb_groups, const T_GROUP_INFO *group_info) {
     memset(obj, 0, sizeof(*obj));
     obj->X = x;
     obj->Y = y;
@@ -1467,14 +1391,10 @@ static void build_test_object_fixture(T_OBJ_3D *obj, void *body, S32 x, S32 y,
     obj->Texture = NULL;
     obj->NbGroups = nb_groups;
 
-    for (U32 index = 0; index < nb_groups && index < kAffObjGroupCount; ++index)
-    {
-        if (group_info != NULL)
-        {
+    for (U32 index = 0; index < nb_groups && index < kAffObjGroupCount; ++index) {
+        if (group_info != NULL) {
             obj->CurrentFrame[index] = group_info[index];
-        }
-        else
-        {
+        } else {
             obj->CurrentFrame[index].Type = 0;
             obj->CurrentFrame[index].Alpha = 0;
             obj->CurrentFrame[index].Beta = 0;
@@ -1483,8 +1403,7 @@ static void build_test_object_fixture(T_OBJ_3D *obj, void *body, S32 x, S32 y,
     }
 }
 
-static void setup_common_aff_obj_environment(void)
-{
+static void setup_common_aff_obj_environment(void) {
     fesetenv(&g_initial_fenv);
     setup_polygon_screen();
     SetProjection(TEST_POLY_W / 2, TEST_POLY_H / 2, 1, 256, 256);
@@ -1500,8 +1419,7 @@ static void setup_common_aff_obj_environment(void)
     Yp = 0;
 }
 
-static void setup_textured_aff_obj_environment(void)
-{
+static void setup_textured_aff_obj_environment(void) {
     setup_common_aff_obj_environment();
     init_test_texture();
     init_test_clut();
@@ -1509,15 +1427,13 @@ static void setup_textured_aff_obj_environment(void)
     Switch_Fillers(FILL_POLY_TEXTURES);
 }
 
-static void setup_shaded_aff_obj_environment(void)
-{
+static void setup_shaded_aff_obj_environment(void) {
     setup_common_aff_obj_environment();
     init_test_clut();
     PtrCLUTGouraud = g_test_clut;
 }
 
-static void seed_cpp_aff_obj_state(void)
-{
+static void seed_cpp_aff_obj_state(void) {
     memset(Obj_ListRotatedPoints, 0xA5, sizeof(T_OBJ_POINT) * kObjRotatedPointCount);
     memset(Obj_ListProjectedPoints, 0x5A, sizeof(TYPE_PT) * kObjProjectedPointCount);
     memset(ListLights, 0x33, sizeof(U16) * kAffObjLightCount);
@@ -1535,8 +1451,7 @@ static void seed_cpp_aff_obj_state(void)
     TransFctBody = NULL;
 }
 
-static void seed_asm_aff_obj_state(void)
-{
+static void seed_asm_aff_obj_state(void) {
     memset(asm_Obj_ListRotatedPoints, 0xA5, sizeof(T_OBJ_POINT) * kObjRotatedPointCount);
     memset(asm_Obj_ListProjectedPoints, 0x5A, sizeof(TYPE_PT) * kObjProjectedPointCount);
     memset(asm_ListLights, 0x33, sizeof(U16) * kAffObjLightCount);
@@ -1554,8 +1469,7 @@ static void seed_asm_aff_obj_state(void)
     asm_TransFctBody = NULL;
 }
 
-static void capture_cpp_snapshot(RENDER_SNAPSHOT *snapshot)
-{
+static void capture_cpp_snapshot(RENDER_SNAPSHOT *snapshot) {
     snapshot->ScreenXMinValue = ScreenXMin;
     snapshot->ScreenYMinValue = ScreenYMin;
     snapshot->ScreenXMaxValue = ScreenXMax;
@@ -1587,8 +1501,7 @@ static void capture_cpp_snapshot(RENDER_SNAPSHOT *snapshot)
     memcpy(snapshot->Framebuffer, g_poly_framebuf, sizeof(g_poly_framebuf));
 }
 
-static void capture_asm_snapshot(RENDER_SNAPSHOT *snapshot)
-{
+static void capture_asm_snapshot(RENDER_SNAPSHOT *snapshot) {
     snapshot->ScreenXMinValue = ScreenXMin;
     snapshot->ScreenYMinValue = ScreenYMin;
     snapshot->ScreenXMaxValue = ScreenXMax;
@@ -1621,8 +1534,7 @@ static void capture_asm_snapshot(RENDER_SNAPSHOT *snapshot)
 }
 
 static void compare_render_snapshots(const char *label, const RENDER_SNAPSHOT *asm_snapshot,
-                                     const RENDER_SNAPSHOT *cpp_snapshot)
-{
+                                     const RENDER_SNAPSHOT *cpp_snapshot) {
     ASSERT_ASM_CPP_EQ_INT(asm_snapshot->Result, cpp_snapshot->Result, label);
     ASSERT_ASM_CPP_EQ_INT(asm_snapshot->ScreenXMinValue, cpp_snapshot->ScreenXMinValue, label);
     ASSERT_ASM_CPP_EQ_INT(asm_snapshot->ScreenYMinValue, cpp_snapshot->ScreenYMinValue, label);
@@ -1659,8 +1571,7 @@ static void compare_render_snapshots(const char *label, const RENDER_SNAPSHOT *a
 
 static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
                                         S32 alpha, S32 beta, S32 gamma,
-                                        S32 expected_result, int expect_pixels)
-{
+                                        S32 expected_result, int expect_pixels) {
     TEST_BODY_FIXTURE fixture;
     RENDER_SNAPSHOT cpp_snapshot;
     RENDER_SNAPSHOT asm_snapshot;
@@ -1684,15 +1595,12 @@ static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
     ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
     ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
 
-    if (expect_pixels)
-    {
+    if (expect_pixels) {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
         ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
         ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
         ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
-    }
-    else
-    {
+    } else {
         ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
         ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);
     }
@@ -1701,8 +1609,7 @@ static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
 static void run_bodydisplay_alphabeta_render_case(const char *label, S32 x, S32 y,
                                                   S32 z, S32 alpha, S32 beta,
                                                   S32 gamma, S32 expected_result,
-                                                  int expect_pixels)
-{
+                                                  int expect_pixels) {
     TEST_BODY_FIXTURE fixture;
     RENDER_SNAPSHOT cpp_snapshot;
     RENDER_SNAPSHOT asm_snapshot;
@@ -1726,15 +1633,12 @@ static void run_bodydisplay_alphabeta_render_case(const char *label, S32 x, S32 
     ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
     ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
 
-    if (expect_pixels)
-    {
+    if (expect_pixels) {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
         ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
         ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
         ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
-    }
-    else
-    {
+    } else {
         ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
         ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);
     }
@@ -1749,8 +1653,7 @@ static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
                                              S32 alpha, S32 beta, S32 gamma,
                                              S32 expected_result,
                                              S32 expected_sort_count,
-                                             int expect_pixels)
-{
+                                             int expect_pixels) {
     T_OBJ_3D cpp_object;
     T_OBJ_3D asm_object;
     RENDER_SNAPSHOT cpp_snapshot;
@@ -1778,20 +1681,16 @@ static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
     compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
     ASSERT_EQ_INT(expected_result, cpp_snapshot.Result);
     ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
-    if (expected_sort_count >= 0)
-    {
+    if (expected_sort_count >= 0) {
         ASSERT_EQ_INT(expected_sort_count, cpp_snapshot.NbSortValue);
         ASSERT_EQ_INT(expected_sort_count, asm_snapshot.NbSortValue);
     }
     ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
 
-    if (expect_pixels)
-    {
+    if (expect_pixels) {
         ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
         ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
-    }
-    else
-    {
+    } else {
         ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
         ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);
     }
@@ -1799,8 +1698,7 @@ static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
 
 static void run_objectdisplay_render_case(const char *label, S32 x, S32 y, S32 z,
                                           S32 alpha, S32 beta, S32 gamma,
-                                          S32 expected_result, int expect_pixels)
-{
+                                          S32 expected_result, int expect_pixels) {
     TEST_BODY_FIXTURE fixture;
 
     build_test_body_fixture(&fixture);
@@ -1811,8 +1709,7 @@ static void run_objectdisplay_render_case(const char *label, S32 x, S32 y, S32 z
                                      expect_pixels);
 }
 
-static void run_objectdisplay_plain_poly_case(const char *label, U16 poly_type)
-{
+static void run_objectdisplay_plain_poly_case(const char *label, U16 poly_type) {
     TEST_BODY_FIXTURE fixture;
 
     build_test_body_fixture(&fixture);
@@ -1822,8 +1719,7 @@ static void run_objectdisplay_plain_poly_case(const char *label, U16 poly_type)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void run_objectdisplay_textured_poly_case(const char *label, U16 poly_type)
-{
+static void run_objectdisplay_textured_poly_case(const char *label, U16 poly_type) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     build_textured_test_body_fixture(&fixture, poly_type);
@@ -1833,8 +1729,7 @@ static void run_objectdisplay_textured_poly_case(const char *label, U16 poly_typ
 }
 
 static void run_objectdisplay_plain_quad_poly_case(const char *label, U16 poly_type,
-                                                   void (*setup_environment)(void))
-{
+                                                   void (*setup_environment)(void)) {
     TEST_PLAIN_QUAD_BODY_FIXTURE fixture;
 
     build_plain_quad_test_body_fixture(&fixture, poly_type);
@@ -1843,8 +1738,7 @@ static void run_objectdisplay_plain_quad_poly_case(const char *label, U16 poly_t
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void run_objectdisplay_textured_quad_poly_case(const char *label, U16 poly_type)
-{
+static void run_objectdisplay_textured_quad_poly_case(const char *label, U16 poly_type) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, poly_type);
@@ -1853,8 +1747,7 @@ static void run_objectdisplay_textured_quad_poly_case(const char *label, U16 pol
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_line_render(void)
-{
+static void test_objectdisplay_line_render(void) {
     TEST_LINE_BODY_FIXTURE fixture;
 
     build_line_test_body_fixture(&fixture);
@@ -1864,8 +1757,7 @@ static void test_objectdisplay_line_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_sphere_render(void)
-{
+static void test_objectdisplay_sphere_render(void) {
     TEST_SPHERE_BODY_FIXTURE fixture;
 
     build_sphere_test_body_fixture(&fixture, 0);
@@ -1875,8 +1767,7 @@ static void test_objectdisplay_sphere_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_sphere_transp_render(void)
-{
+static void test_objectdisplay_sphere_transp_render(void) {
     TEST_SPHERE_BODY_FIXTURE fixture;
 
     build_sphere_test_body_fixture(&fixture, 1);
@@ -1886,44 +1777,37 @@ static void test_objectdisplay_sphere_transp_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_bodydisplay_visible_render(void)
-{
+static void test_bodydisplay_visible_render(void) {
     ASSERT_EQ_INT(96, (int)sizeof(T_BODY_HEADER));
     ASSERT_EQ_INT(180, (int)sizeof(TEST_BODY_FIXTURE));
     run_bodydisplay_render_case("BodyDisplay visible render", 0, 0, 0,
                                 64, 96, 32, 1, 1);
 }
 
-static void test_bodydisplay_hidden_render(void)
-{
+static void test_bodydisplay_hidden_render(void) {
     run_bodydisplay_render_case("BodyDisplay clipped render", 3000, 0, 0,
                                 64, 96, 32, 0, 0);
 }
 
-static void test_bodydisplay_alphabeta_visible_render(void)
-{
+static void test_bodydisplay_alphabeta_visible_render(void) {
     run_bodydisplay_alphabeta_render_case("BodyDisplay_AlphaBeta visible render",
                                           0, 0, 0, 96, 128, 64, 1, 1);
 }
 
-static void test_objectdisplay_visible_render(void)
-{
+static void test_objectdisplay_visible_render(void) {
     run_objectdisplay_render_case("ObjectDisplay visible render", 0, 0, 0,
                                   64, 96, 32, 1, 1);
 }
 
-static void test_objectdisplay_transparent_render(void)
-{
+static void test_objectdisplay_transparent_render(void) {
     run_objectdisplay_plain_poly_case("ObjectDisplay transparent render", kPolyTransparent);
 }
 
-static void test_objectdisplay_trame_render(void)
-{
+static void test_objectdisplay_trame_render(void) {
     run_objectdisplay_plain_poly_case("ObjectDisplay trame render", kPolyTrame);
 }
 
-static void test_objectdisplay_dither_render(void)
-{
+static void test_objectdisplay_dither_render(void) {
     TEST_BODY_FIXTURE fixture;
 
     build_test_body_fixture(&fixture);
@@ -1933,8 +1817,7 @@ static void test_objectdisplay_dither_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_gouraud_table_render(void)
-{
+static void test_objectdisplay_gouraud_table_render(void) {
     TEST_BODY_FIXTURE fixture;
 
     build_test_body_fixture(&fixture);
@@ -1944,8 +1827,7 @@ static void test_objectdisplay_gouraud_table_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_dither_table_render(void)
-{
+static void test_objectdisplay_dither_table_render(void) {
     TEST_BODY_FIXTURE fixture;
 
     build_test_body_fixture(&fixture);
@@ -1955,49 +1837,42 @@ static void test_objectdisplay_dither_table_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_quad_transparent_render(void)
-{
+static void test_objectdisplay_quad_transparent_render(void) {
     run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad transparent render",
                                            (U16)(kPolyQuadMask | kPolyTransparent),
                                            setup_common_aff_obj_environment);
 }
 
-static void test_objectdisplay_quad_trame_render(void)
-{
+static void test_objectdisplay_quad_trame_render(void) {
     run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad trame render",
                                            (U16)(kPolyQuadMask | kPolyTrame),
                                            setup_common_aff_obj_environment);
 }
 
-static void test_objectdisplay_quad_dither_render(void)
-{
+static void test_objectdisplay_quad_dither_render(void) {
     run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad dither render",
                                            (U16)(kPolyQuadMask | kPolyDither),
                                            setup_shaded_aff_obj_environment);
 }
 
-static void test_objectdisplay_quad_gouraud_table_render(void)
-{
+static void test_objectdisplay_quad_gouraud_table_render(void) {
     run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad gouraud table render",
                                            (U16)(kPolyQuadMask | kPolyGouraudTable),
                                            setup_shaded_aff_obj_environment);
 }
 
-static void test_objectdisplay_quad_dither_table_render(void)
-{
+static void test_objectdisplay_quad_dither_table_render(void) {
     run_objectdisplay_plain_quad_poly_case("ObjectDisplay quad dither table render",
                                            (U16)(kPolyQuadMask | kPolyDitherTable),
                                            setup_shaded_aff_obj_environment);
 }
 
-static void test_objectdisplay_hidden_render(void)
-{
+static void test_objectdisplay_hidden_render(void) {
     run_objectdisplay_render_case("ObjectDisplay clipped render", 3000, 0, 0,
                                   64, 96, 32, 0, 0);
 }
 
-static void test_objectdisplay_multigroup_visible_render(void)
-{
+static void test_objectdisplay_multigroup_visible_render(void) {
     TEST_COMPLEX_BODY_FIXTURE fixture;
     T_GROUP_INFO group_info[kComplexGroupCount];
 
@@ -2016,8 +1891,7 @@ static void test_objectdisplay_multigroup_visible_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 2, 1);
 }
 
-static void test_objectdisplay_multigroup_translate_render(void)
-{
+static void test_objectdisplay_multigroup_translate_render(void) {
     TEST_COMPLEX_BODY_FIXTURE fixture;
     T_GROUP_INFO group_info[kComplexGroupCount];
 
@@ -2034,8 +1908,7 @@ static void test_objectdisplay_multigroup_translate_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 2, 1);
 }
 
-static void test_objectdisplay_textured_flat_render(void)
-{
+static void test_objectdisplay_textured_flat_render(void) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     ASSERT_TRUE((int)sizeof(TEST_TEXTURED_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
@@ -2047,8 +1920,7 @@ static void test_objectdisplay_textured_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_z_flat_render(void)
-{
+static void test_objectdisplay_textured_z_flat_render(void) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     ASSERT_TRUE((int)sizeof(TEST_TEXTURED_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
@@ -2060,8 +1932,7 @@ static void test_objectdisplay_textured_z_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_z_solid_render(void)
-{
+static void test_objectdisplay_textured_z_solid_render(void) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     build_textured_test_body_fixture(&fixture, kPolyTextureZSolid);
@@ -2071,8 +1942,7 @@ static void test_objectdisplay_textured_z_solid_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_z_gouraud_render(void)
-{
+static void test_objectdisplay_textured_z_gouraud_render(void) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     build_textured_test_body_fixture(&fixture, kPolyTextureZGouraud);
@@ -2082,8 +1952,7 @@ static void test_objectdisplay_textured_z_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_solid_render(void)
-{
+static void test_objectdisplay_textured_solid_render(void) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     build_textured_test_body_fixture(&fixture, kPolyTextureSolid);
@@ -2093,8 +1962,7 @@ static void test_objectdisplay_textured_solid_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_gouraud_render(void)
-{
+static void test_objectdisplay_textured_gouraud_render(void) {
     TEST_TEXTURED_BODY_FIXTURE fixture;
 
     build_textured_test_body_fixture(&fixture, kPolyTextureGouraud);
@@ -2104,118 +1972,97 @@ static void test_objectdisplay_textured_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_dither_render(void)
-{
+static void test_objectdisplay_textured_dither_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured dither render", kPolyTextureDither);
 }
 
-static void test_objectdisplay_textured_solid_inc_render(void)
-{
+static void test_objectdisplay_textured_solid_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured solid inc render", kPolyTextureSolidInc);
 }
 
-static void test_objectdisplay_textured_flat_inc_render(void)
-{
+static void test_objectdisplay_textured_flat_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured flat inc render", kPolyTextureFlatInc);
 }
 
-static void test_objectdisplay_textured_gouraud_inc_render(void)
-{
+static void test_objectdisplay_textured_gouraud_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured gouraud inc render", kPolyTextureGouraudInc);
 }
 
-static void test_objectdisplay_textured_dither_inc_render(void)
-{
+static void test_objectdisplay_textured_dither_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured dither inc render", kPolyTextureDitherInc);
 }
 
-static void test_objectdisplay_textured_z_dither_render(void)
-{
+static void test_objectdisplay_textured_z_dither_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured Z dither render", kPolyTextureZDither);
 }
 
-static void test_objectdisplay_textured_z_solid_inc_render(void)
-{
+static void test_objectdisplay_textured_z_solid_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured Z solid inc render", kPolyTextureZSolidInc);
 }
 
-static void test_objectdisplay_textured_z_flat_inc_render(void)
-{
+static void test_objectdisplay_textured_z_flat_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured Z flat inc render", kPolyTextureZFlatInc);
 }
 
-static void test_objectdisplay_textured_z_gouraud_inc_render(void)
-{
+static void test_objectdisplay_textured_z_gouraud_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured Z gouraud inc render", kPolyTextureZGouraudInc);
 }
 
-static void test_objectdisplay_textured_z_dither_inc_render(void)
-{
+static void test_objectdisplay_textured_z_dither_inc_render(void) {
     run_objectdisplay_textured_poly_case("ObjectDisplay textured Z dither inc render", kPolyTextureZDitherInc);
 }
 
-static void test_objectdisplay_textured_quad_dither_render(void)
-{
+static void test_objectdisplay_textured_quad_dither_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad dither render",
                                               (U16)(kPolyQuadMask | kPolyTextureDither));
 }
 
-static void test_objectdisplay_textured_quad_solid_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_solid_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad solid inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureSolidInc));
 }
 
-static void test_objectdisplay_textured_quad_flat_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_flat_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad flat inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureFlatInc));
 }
 
-static void test_objectdisplay_textured_quad_gouraud_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_gouraud_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad gouraud inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureGouraudInc));
 }
 
-static void test_objectdisplay_textured_quad_dither_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_dither_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad dither inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureDitherInc));
 }
 
-static void test_objectdisplay_textured_quad_z_dither_render(void)
-{
+static void test_objectdisplay_textured_quad_z_dither_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z dither render",
                                               (U16)(kPolyQuadMask | kPolyTextureZDither));
 }
 
-static void test_objectdisplay_textured_quad_z_solid_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_z_solid_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z solid inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureZSolidInc));
 }
 
-static void test_objectdisplay_textured_quad_z_flat_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_z_flat_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z flat inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureZFlatInc));
 }
 
-static void test_objectdisplay_textured_quad_z_gouraud_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_z_gouraud_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z gouraud inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureZGouraudInc));
 }
 
-static void test_objectdisplay_textured_quad_z_dither_inc_render(void)
-{
+static void test_objectdisplay_textured_quad_z_dither_inc_render(void) {
     run_objectdisplay_textured_quad_poly_case("ObjectDisplay textured quad Z dither inc render",
                                               (U16)(kPolyQuadMask | kPolyTextureZDitherInc));
 }
 
-static void test_objectdisplay_textured_quad_flat_render(void)
-{
+static void test_objectdisplay_textured_quad_flat_render(void) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureFlat));
@@ -2225,8 +2072,7 @@ static void test_objectdisplay_textured_quad_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_quad_solid_render(void)
-{
+static void test_objectdisplay_textured_quad_solid_render(void) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureSolid));
@@ -2236,8 +2082,7 @@ static void test_objectdisplay_textured_quad_solid_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_quad_gouraud_render(void)
-{
+static void test_objectdisplay_textured_quad_gouraud_render(void) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureGouraud));
@@ -2247,8 +2092,7 @@ static void test_objectdisplay_textured_quad_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_quad_z_flat_render(void)
-{
+static void test_objectdisplay_textured_quad_z_flat_render(void) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureZFlat));
@@ -2258,8 +2102,7 @@ static void test_objectdisplay_textured_quad_z_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_quad_z_solid_render(void)
-{
+static void test_objectdisplay_textured_quad_z_solid_render(void) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureZSolid));
@@ -2269,8 +2112,7 @@ static void test_objectdisplay_textured_quad_z_solid_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_textured_quad_z_gouraud_render(void)
-{
+static void test_objectdisplay_textured_quad_z_gouraud_render(void) {
     TEST_TEXTURED_QUAD_BODY_FIXTURE fixture;
 
     build_textured_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyTextureZGouraud));
@@ -2280,8 +2122,7 @@ static void test_objectdisplay_textured_quad_z_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_solid_render(void)
-{
+static void test_objectdisplay_env_solid_render(void) {
     TEST_ENV_BODY_FIXTURE fixture;
 
     build_env_test_body_fixture(&fixture, kPolyEnvTextureSolid, 0);
@@ -2291,8 +2132,7 @@ static void test_objectdisplay_env_solid_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_gouraud_render(void)
-{
+static void test_objectdisplay_env_gouraud_render(void) {
     TEST_ENV_BODY_FIXTURE fixture;
 
     build_env_test_body_fixture(&fixture, kPolyEnvTextureGouraud, 0);
@@ -2302,8 +2142,7 @@ static void test_objectdisplay_env_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_flat_scaled_render(void)
-{
+static void test_objectdisplay_env_flat_scaled_render(void) {
     TEST_ENV_BODY_FIXTURE fixture;
 
     build_env_test_body_fixture(&fixture, kPolyEnvTextureFlat, 0x4040u);
@@ -2313,8 +2152,7 @@ static void test_objectdisplay_env_flat_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_solid_scaled_render(void)
-{
+static void test_objectdisplay_env_solid_scaled_render(void) {
     TEST_ENV_BODY_FIXTURE fixture;
 
     build_env_test_body_fixture(&fixture, kPolyEnvTextureSolid, 0x4040u);
@@ -2324,8 +2162,7 @@ static void test_objectdisplay_env_solid_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_gouraud_scaled_render(void)
-{
+static void test_objectdisplay_env_gouraud_scaled_render(void) {
     TEST_ENV_BODY_FIXTURE fixture;
 
     build_env_test_body_fixture(&fixture, kPolyEnvTextureGouraud, 0x4040u);
@@ -2335,8 +2172,7 @@ static void test_objectdisplay_env_gouraud_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_quad_flat_scaled_render(void)
-{
+static void test_objectdisplay_env_quad_flat_scaled_render(void) {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureFlat), 0x4040u);
@@ -2346,8 +2182,7 @@ static void test_objectdisplay_env_quad_flat_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_quad_flat_render(void)
-{
+static void test_objectdisplay_env_quad_flat_render(void) {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureFlat), 0);
@@ -2357,8 +2192,7 @@ static void test_objectdisplay_env_quad_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_quad_solid_scaled_render(void)
-{
+static void test_objectdisplay_env_quad_solid_scaled_render(void) {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureSolid), 0x4040u);
@@ -2368,8 +2202,7 @@ static void test_objectdisplay_env_quad_solid_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_quad_solid_render(void)
-{
+static void test_objectdisplay_env_quad_solid_render(void) {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureSolid), 0);
@@ -2379,8 +2212,7 @@ static void test_objectdisplay_env_quad_solid_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_quad_gouraud_scaled_render(void)
-{
+static void test_objectdisplay_env_quad_gouraud_scaled_render(void) {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureGouraud), 0x4040u);
@@ -2390,8 +2222,7 @@ static void test_objectdisplay_env_quad_gouraud_scaled_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_quad_gouraud_render(void)
-{
+static void test_objectdisplay_env_quad_gouraud_render(void) {
     TEST_ENV_QUAD_BODY_FIXTURE fixture;
 
     build_env_quad_test_body_fixture(&fixture, (U16)(kPolyQuadMask | kPolyEnvTextureGouraud), 0);
@@ -2401,8 +2232,7 @@ static void test_objectdisplay_env_quad_gouraud_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_objectdisplay_env_flat_render(void)
-{
+static void test_objectdisplay_env_flat_render(void) {
     TEST_ENV_BODY_FIXTURE fixture;
 
     ASSERT_TRUE((int)sizeof(TEST_ENV_BODY_FIXTURE) > (int)sizeof(TEST_BODY_FIXTURE));
@@ -2414,8 +2244,7 @@ static void test_objectdisplay_env_flat_render(void)
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
 }
 
-static void test_quicksort_fixed_cases(void)
-{
+static void test_quicksort_fixed_cases(void) {
     static const S32 ascending_small[] = {1, 3, 5, 7, 9, 11};
     static const S32 ascending_mixed[] = {-12, -4, 0, 6, 18, 27};
     static const S32 ascending_long[] = {2, 4, 8, 16, 32, 64, 128, 256};
@@ -2425,8 +2254,7 @@ static void test_quicksort_fixed_cases(void)
     run_sort_case("QuickSort ascending long", ascending_long, sizeof(ascending_long) / sizeof(ascending_long[0]));
 }
 
-static void test_testvisible_fixed_cases(void)
-{
+static void test_testvisible_fixed_cases(void) {
     TYPE_PT points[4];
     STRUC_POLY3_LIGHT light_visible = {0, 1, 2, 0, 0x12, 0x34};
     STRUC_POLY3_LIGHT light_hidden = {0, 2, 1, 0, 0x56, 0x78};
@@ -2444,8 +2272,7 @@ static void test_testvisible_fixed_cases(void)
     run_testvisiblef_case("TestVisibleF hidden winding", points, 4, &env_hidden);
 }
 
-static void test_testvisible_edge_cases(void)
-{
+static void test_testvisible_edge_cases(void) {
     TYPE_PT points[4];
     STRUC_POLY3_LIGHT light_invalid = {0, 1, 2, 0, 1, 2};
     STRUC_POLY3_LIGHT light_collinear = {0, 1, 2, 0, 3, 4};
@@ -2477,8 +2304,7 @@ static void test_testvisible_edge_cases(void)
     run_testvisiblef_case("TestVisibleF duplicate point", points, 4, &env_duplicate);
 }
 
-static void test_quicksortinv_fixed_cases(void)
-{
+static void test_quicksortinv_fixed_cases(void) {
     static const S32 descending_small[] = {11, 9, 7, 5, 3, 1};
     static const S32 descending_mixed[] = {27, 18, 6, 0, -4, -12};
     static const S32 descending_long[] = {256, 128, 64, 32, 16, 8, 4, 2};
@@ -2488,8 +2314,7 @@ static void test_quicksortinv_fixed_cases(void)
     run_sortinv_case("QuickSortInv descending long", descending_long, sizeof(descending_long) / sizeof(descending_long[0]));
 }
 
-static void test_quicksort_edge_cases(void)
-{
+static void test_quicksort_edge_cases(void) {
     static const S32 pair_ascending[] = {1, 2};
     static const S32 pair_descending[] = {2, 1};
     static const S32 single[] = {42};
@@ -2500,13 +2325,11 @@ static void test_quicksort_edge_cases(void)
     run_sortinv_case("QuickSortInv single", single, sizeof(single) / sizeof(single[0]));
 }
 
-static void test_quicksort_random_stress(void)
-{
+static void test_quicksort_random_stress(void) {
     S32 values[32];
 
     rng_seed(0xDEADBEEFu);
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         U32 count = (rng_next() % 31) + 2;
 
         fill_strictly_increasing(values, count);
@@ -2517,24 +2340,18 @@ static void test_quicksort_random_stress(void)
     }
 }
 
-static void test_testvisible_random_stress(void)
-{
+static void test_testvisible_random_stress(void) {
     TYPE_PT points[8];
 
     rng_seed(0x13572468u);
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         STRUC_POLY3_LIGHT light_poly;
         STRUC_POLY3_ENV env_poly;
 
-        for (int index = 0; index < 8; ++index)
-        {
-            if ((rng_next() % 7u) == 0)
-            {
+        for (int index = 0; index < 8; ++index) {
+            if ((rng_next() % 7u) == 0) {
                 set_hidden_point(&points[index]);
-            }
-            else
-            {
+            } else {
                 set_point(&points[index],
                           (S16)((S32)(rng_next() % 401u) - 200),
                           (S16)((S32)(rng_next() % 401u) - 200));
@@ -2562,13 +2379,11 @@ static void test_testvisible_random_stress(void)
     }
 }
 
-static void test_quicksort_random_unordered(void)
-{
+static void test_quicksort_random_unordered(void) {
     S32 values[32];
 
     rng_seed(0xA5A55A5Au);
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         U32 count = (rng_next() % 30) + 3;
 
         fill_random_unordered_quicksort_values(values, count);
@@ -2579,8 +2394,7 @@ static void test_quicksort_random_unordered(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     fegetenv(&g_initial_fenv);
 
     RUN_TEST(test_bodydisplay_visible_render);

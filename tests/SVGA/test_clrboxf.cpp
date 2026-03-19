@@ -16,8 +16,8 @@ static void call_asm_SetClearColor(U32 color) {
     __asm__ __volatile__(
         "call asm_SetClearColor\n\t"
         :
-    : "a"(color)
-    : "memory", "ecx", "edx");
+        : "a"(color)
+        : "memory", "ecx", "edx");
 }
 
 extern U64 ClearColor;
@@ -25,29 +25,29 @@ extern U64 ClearColor;
 static U8 framebuf[640 * 480];
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void setup_screen(void)
-{
+static void setup_screen(void) {
     memset(framebuf, 0, sizeof(framebuf));
     Log = framebuf;
     ModeDesiredX = 640;
     ModeDesiredY = 480;
-    for (U32 i = 0; i < 480; i++) TabOffLine[i] = i * 640;
-    ClipXMin = 0; ClipYMin = 0; ClipXMax = 639; ClipYMax = 479;
+    for (U32 i = 0; i < 480; i++)
+        TabOffLine[i] = i * 640;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = 639;
+    ClipYMax = 479;
 }
 
-static void assert_clearbox_case(const char *label, U32 color, const T_BOX *box)
-{
+static void assert_clearbox_case(const char *label, U32 color, const T_BOX *box) {
     static U8 cpp_buf[640 * 480];
     static U8 asm_buf[640 * 480];
 
@@ -67,22 +67,32 @@ static void assert_clearbox_case(const char *label, U32 color, const T_BOX *box)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     T_BOX box;
 
-    box.x0 = 0; box.y0 = 10; box.x1 = 16; box.y1 = 20; box.pBoxNext = NULL;
+    box.x0 = 0;
+    box.y0 = 10;
+    box.x1 = 16;
+    box.y1 = 20;
+    box.pBoxNext = NULL;
     assert_clearbox_case("ClearBox fixed width16", 0x00, &box);
 
-    box.x0 = 8; box.y0 = 5; box.x1 = 32; box.y1 = 30; box.pBoxNext = NULL;
+    box.x0 = 8;
+    box.y0 = 5;
+    box.x1 = 32;
+    box.y1 = 30;
+    box.pBoxNext = NULL;
     assert_clearbox_case("ClearBox fixed width24", 0x42, &box);
 
-    box.x0 = 24; box.y0 = 40; box.x1 = 32; box.y1 = 60; box.pBoxNext = NULL;
+    box.x0 = 24;
+    box.y0 = 40;
+    box.x1 = 32;
+    box.y1 = 60;
+    box.pBoxNext = NULL;
     assert_clearbox_case("ClearBox fixed width8", 0x7F, &box);
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 100; ++i) {
         T_BOX box;
@@ -104,8 +114,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

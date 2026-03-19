@@ -5,13 +5,11 @@
 #include <stddef.h>
 #include <SYSTEM/DEBUG_TRACES.H>
 
-void ObjectSetFrame(T_OBJ_3D *obj, U32 frame)
-{
-    LIB386_TRACE_CPP("ObjectSetFrame", "1", "obj=%p frame=%u", (void*)obj, frame);
+void ObjectSetFrame(T_OBJ_3D *obj, U32 frame) {
+    LIB386_TRACE_CPP("ObjectSetFrame", "1", "obj=%p frame=%u", (void *)obj, frame);
     T_PTR_NUM nextBody = obj->NextBody;
     void *nextTexture = obj->NextTexture;
-    if (frame >= obj->NbFrames)
-    {
+    if (frame >= obj->NbFrames) {
         return;
     }
 
@@ -19,8 +17,7 @@ void ObjectSetFrame(T_OBJ_3D *obj, U32 frame)
     obj->Texture = nextTexture;
 
     void *anim = obj->Anim.Ptr;
-    if (TransFctAnim != NULL)
-    {
+    if (TransFctAnim != NULL) {
         anim = TransFctAnim(obj->Anim.Num);
     }
 
@@ -51,22 +48,18 @@ void ObjectSetFrame(T_OBJ_3D *obj, U32 frame)
 
     U32 *animFrame = (U32 *)((U8 *)anim + ofsFrame + 16);
     U32 *currentFrame = (U32 *)obj->CurrentFrame;
-    for (U32 i = 0; i < nbGroups * 2 - 2; i++)
-    {
+    for (U32 i = 0; i < nbGroups * 2 - 2; i++) {
         *(currentFrame++) = *(animFrame++);
     }
     frame++;
 
-    if (frame == obj->NbFrames)
-    {
+    if (frame == obj->NbFrames) {
         U16 animTime = animPtr[0];
         obj->NextFrame = 0;
         obj->NextOfsFrame = (PTR_U32)8;
         obj->NextTimer = obj->LastTimer + animTime;
         obj->Master = ((U16 *)animFrame)[8];
-    }
-    else
-    {
+    } else {
         U16 animTime = ((U16 *)animFrame)[0];
         obj->NextFrame = frame;
         obj->NextOfsFrame = (U32 *)((U64)animFrame - (U64)anim);

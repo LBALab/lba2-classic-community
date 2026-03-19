@@ -1,5 +1,5 @@
-#ifndef	SORT_H
-#define	SORT_H
+#ifndef SORT_H
+#define SORT_H
 
 #include <3D/MOVE.H>
 #include "PTRFUNC.H"
@@ -8,35 +8,35 @@
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 typedef struct
 {
-	S32    Z ;
-	S32    NumObj ;
+    S32 Z;
+    S32 NumObj;
 
-	S32    Xw ;
-	S32    Yw ;
-	S32    Zw ;
+    S32 Xw;
+    S32 Yw;
+    S32 Zw;
 
-	S32    XMin ;
-	S32    YMin ;
-	S32    ZMin ;
-	S32    XMax ;
-	S32    YMax ;
-	S32    ZMax ;
-	S32    Num ;
+    S32 XMin;
+    S32 YMin;
+    S32 ZMin;
+    S32 XMax;
+    S32 YMax;
+    S32 ZMax;
+    S32 Num;
 
-	}       T_SORT ;
-
-//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	S32	NbTriObj ;
+} T_SORT;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern Func_TreeInsert	TreeInsert ;
+extern S32 NbTriObj;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern S32 BaseSort( void ) ;
+extern Func_TreeInsert TreeInsert;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern void BaseReset( void ) ;
+extern S32 BaseSort(void);
+
+//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+extern void BaseReset(void);
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 
-#endif	// SORT_H
+#endif // SORT_H

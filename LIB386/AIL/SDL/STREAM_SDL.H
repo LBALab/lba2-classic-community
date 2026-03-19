@@ -11,7 +11,7 @@ extern "C" {
 extern S32 streamVolume;
 
 void MusicLogEnable(int enable);
-int  MusicLogIsEnabled(void);
+int MusicLogIsEnabled(void);
 
 #ifdef __cplusplus
 }

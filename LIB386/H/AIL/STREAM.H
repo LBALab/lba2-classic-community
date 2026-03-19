@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_STREAM
-#define	LIB_AIL_STREAM
+#ifndef LIB_AIL_STREAM
+#define LIB_AIL_STREAM
 
 //--------------------------------------------------------------------------
 #include <SYSTEM/ADELINE_TYPES.H>
@@ -15,7 +15,7 @@ extern "C" {
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	OpenStream()			;
+void OpenStream();
 
 //--------------------------------------------------------------------------
 //	PlayStream :			start a stream
@@ -24,7 +24,7 @@ void	OpenStream()			;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	PlayStream(char *name)		;
+void PlayStream(char *name);
 
 //--------------------------------------------------------------------------
 //	ChangeVolumeStream :		change the volume of the playing
@@ -34,7 +34,7 @@ void	PlayStream(char *name)		;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ChangeVolumeStream(S32 volume)	;
+void ChangeVolumeStream(S32 volume);
 
 //--------------------------------------------------------------------------
 //	GetVolumeStream :		get the volume of the playing
@@ -42,28 +42,28 @@ void	ChangeVolumeStream(S32 volume)	;
 //
 //	Returns	:			stream volume (0-127)
 //--------------------------------------------------------------------------
-S32	GetVolumeStream()		;
+S32 GetVolumeStream();
 
 //--------------------------------------------------------------------------
 //	StopStream :			stop playing stream
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	StopStream()			;
+void StopStream();
 
 //--------------------------------------------------------------------------
 //	PauseStream :			pause playing stream
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	PauseStream()			;
+void PauseStream();
 
 //--------------------------------------------------------------------------
 //	ResumeStream :			resume playing stream
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ResumeStream()			;
+void ResumeStream();
 
 //--------------------------------------------------------------------------
 //	IsStreamPlaying :		return TRUE if a stream is playing
@@ -72,7 +72,7 @@ void	ResumeStream()			;
 //
 //	Returns	:			TRUE/FALSE
 //--------------------------------------------------------------------------
-S32	IsStreamPlaying()		;
+S32 IsStreamPlaying();
 
 //--------------------------------------------------------------------------
 //	StreamName :			return the name of the playing stream
@@ -80,7 +80,7 @@ S32	IsStreamPlaying()		;
 //
 //	Returns	:			pathname
 //--------------------------------------------------------------------------
-char	*StreamName()			;
+char *StreamName();
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -88,6 +88,6 @@ char	*StreamName()			;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_STREAM
+#endif //LIB_AIL_STREAM
 
 //--------------------------------------------------------------------------

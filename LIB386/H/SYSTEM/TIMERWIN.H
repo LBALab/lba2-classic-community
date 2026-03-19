@@ -1,69 +1,73 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
+#ifdef _WIN32
 
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_TIMERWIN
+#ifndef LIB_SYSTEM_TIMERWIN
 #define LIB_SYSTEM_TIMERWIN
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	volatile U32	TimerSystemHR	;
-extern	volatile U32	TimerRefHR	;
+extern volatile U32 TimerSystemHR;
+extern volatile U32 TimerRefHR;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	volatile S32	TimerLock	;
+extern volatile S32 TimerLock;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	volatile S32	CmptFrame	;
-extern	volatile S32	NbFramePerSecond;
+extern volatile S32 CmptFrame;
+extern volatile S32 NbFramePerSecond;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	volatile S32	CmptMemoTimerRef;
+extern volatile S32 CmptMemoTimerRef;
 
 //──────────────────────────────────────────────────────────────────────────
-extern		U32	LastTime	;
-extern		U32	LastEvaluate	;
+extern U32 LastTime;
+extern U32 LastEvaluate;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	WINDOW_PROC	TimerWindowProc	;
+extern WINDOW_PROC TimerWindowProc;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	WINDOW_PROC_PTR	OldTimerWindowProc;
+extern WINDOW_PROC_PTR OldTimerWindowProc;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	ManageTime()	;
+extern void ManageTime();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	SaveTimer()	;
+extern void SaveTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	RestoreTimer()	;
+extern void RestoreTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	LockTimer()	;
+extern void LockTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	UnlockTimer()	;
+extern void UnlockTimer();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	SetTimerHR(U32 timer)	;
+extern void SetTimerHR(U32 timer);
 
 //──────────────────────────────────────────────────────────────────────────
-#define	ManageSystem()	{ ManageEvents(); ManageTime(); }
+#define ManageSystem()  \
+    {                   \
+        ManageEvents(); \
+        ManageTime();   \
+    }
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_TIMERWIN
+#endif //LIB_SYSTEM_TIMERWIN
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//_WIN32
+#endif //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────

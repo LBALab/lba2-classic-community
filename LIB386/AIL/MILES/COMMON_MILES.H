@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_AIL_MILES
-#define	LIB_AIL_AIL_MILES
+#ifndef LIB_AIL_AIL_MILES
+#define LIB_AIL_AIL_MILES
 
 // This header contains declarations private to MILES
 
@@ -13,25 +13,25 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-extern	S32		Midi_Driver_Enabled	;
-extern	S32		SamplingRate		;
+extern S32 Midi_Driver_Enabled;
+extern S32 SamplingRate;
 
 //--------------------------------------------------------------------------
-extern	char		MidiDriverName[]	;
-extern	char		SampleDriverName[]	;
+extern char MidiDriverName[];
+extern char SampleDriverName[];
 
 //--------------------------------------------------------------------------
-extern	VOID_FUNC	*PauseMidiPtr		;
-extern	VOID_FUNC	*ResumeMidiPtr		;
+extern VOID_FUNC *PauseMidiPtr;
+extern VOID_FUNC *ResumeMidiPtr;
 
-extern	VOID_FUNC	*PauseSamplesPtr	;
-extern	VOID_FUNC	*ResumeSamplesPtr	;
-
-//--------------------------------------------------------------------------
-extern	VOID_FUNC	PauseBothMiles		;
+extern VOID_FUNC *PauseSamplesPtr;
+extern VOID_FUNC *ResumeSamplesPtr;
 
 //--------------------------------------------------------------------------
-extern	VOID_FUNC	ResumeBothMiles		;
+extern VOID_FUNC PauseBothMiles;
+
+//--------------------------------------------------------------------------
+extern VOID_FUNC ResumeBothMiles;
 
 //--------------------------------------------------------------------------
 void ClearAIL();
@@ -42,6 +42,6 @@ void ClearAIL();
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_AIL_MILES
+#endif //LIB_AIL_AIL_MILES
 
 //--------------------------------------------------------------------------

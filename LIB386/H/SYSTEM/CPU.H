@@ -10,20 +10,19 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-struct s_ProcessorSignature
-	{
-		U32	Stepping		:4	;
-		U32	Model			:4	;
-		U32	Family			:4	;
-		U32	Type			:2	;
-		U32	FPU			:1	;
-		U32	CPUID			:1	;
-		U32	Manufacturer		:4	;
-		U32	CacheWriteBack		:1	;
-		U32	CacheAllocOnWrite	:1	;
-		U32	CacheDisabled		:1	;
-		U32	Undefined		:9	;
-	};
+struct s_ProcessorSignature {
+    U32 Stepping : 4;
+    U32 Model : 4;
+    U32 Family : 4;
+    U32 Type : 2;
+    U32 FPU : 1;
+    U32 CPUID : 1;
+    U32 Manufacturer : 4;
+    U32 CacheWriteBack : 1;
+    U32 CacheAllocOnWrite : 1;
+    U32 CacheDisabled : 1;
+    U32 Undefined : 9;
+};
 
 extern s_ProcessorSignature ProcessorSignature;
 
@@ -87,27 +86,26 @@ extern s_ProcessorSignature ProcessorSignature;
 */
 
 //──────────────────────────────────────────────────────────────────────────
-struct s_ProcessorFeatureFlags
-	{
-		U32	FPUOnChip			:1	;
-		U32	VitualModeExtensions		:1	;
-		U32	DebugExtensions			:1	;
-		U32	PageSizeExtensions		:1	;
-		U32	TimeStampCounter		:1	;
-		U32	ModelSpecificRegisters		:1	;
-		U32	PhysicalAddressExtensions	:1	;
-		U32	MachineCheckException		:1	;
-		U32	CMPXCHG8BInstruction		:1	;
-		U32	APIC				:1	;
-		U32	Reserved1			:2	;
-		U32	MemoryTypeRangeRegisters	:1	;
-		U32	GlobalPagingExtensions		:1	;
-		U32	MachineCheckArchitecture	:1	;
-		U32	ConditionalMoveInstruction	:1	;
-		U32	Reserved2			:7	;
-		U32	MMX				:1	;
-		U32	Reserved3			:8	;
-	};
+struct s_ProcessorFeatureFlags {
+    U32 FPUOnChip : 1;
+    U32 VitualModeExtensions : 1;
+    U32 DebugExtensions : 1;
+    U32 PageSizeExtensions : 1;
+    U32 TimeStampCounter : 1;
+    U32 ModelSpecificRegisters : 1;
+    U32 PhysicalAddressExtensions : 1;
+    U32 MachineCheckException : 1;
+    U32 CMPXCHG8BInstruction : 1;
+    U32 APIC : 1;
+    U32 Reserved1 : 2;
+    U32 MemoryTypeRangeRegisters : 1;
+    U32 GlobalPagingExtensions : 1;
+    U32 MachineCheckArchitecture : 1;
+    U32 ConditionalMoveInstruction : 1;
+    U32 Reserved2 : 7;
+    U32 MMX : 1;
+    U32 Reserved3 : 8;
+};
 
 extern s_ProcessorFeatureFlags ProcessorFeatureFlags;
 
@@ -140,57 +138,54 @@ extern s_ProcessorFeatureFlags ProcessorFeatureFlags;
 */
 
 //──────────────────────────────────────────────────────────────────────────
-extern	char	ProcessorManufacturerIDString[]	;
+extern char ProcessorManufacturerIDString[];
 
-#pragma	aux	ProcessorManufacturerIDString	"*"
-
-//──────────────────────────────────────────────────────────────────────────
-typedef	struct
-	{
-		U32	Entries		:16	;
-		U32	Ways		:8	;
-		U32	Reserved	:8	;
-	}
-	TLB	;
-
-typedef	struct
-	{
-		U32	LineSize	:8	;
-		U32	Tags		:4	;
-		U32	Ways		:4	;
-		U32	Size		:16	;
-	}
-	CACHE	;
+#pragma aux ProcessorManufacturerIDString "*"
 
 //──────────────────────────────────────────────────────────────────────────
-extern	TLB	Processor4KBDataTLB		;
-extern	TLB	Processor4KBInstructionTLB	;
+typedef struct
+{
+    U32 Entries : 16;
+    U32 Ways : 8;
+    U32 Reserved : 8;
+} TLB;
 
-extern	TLB	Processor4MBDataTLB		;
-extern	TLB	Processor4MBInstructionTLB	;
-
-extern	CACHE	ProcessorL1DataCache		;
-extern	CACHE	ProcessorL1InstructionCache	;
-
-extern	CACHE	ProcessorL2Cache		;
-
-//──────────────────────────────────────────────────────────────────────────
-#pragma	aux	Processor4KBDataTLB		"*"
-#pragma	aux	Processor4KBInstructionTLB	"*"
-
-#pragma	aux	Processor4MBDataTLB		"*"
-#pragma	aux	Processor4MBInstructionTLB	"*"
-
-#pragma	aux	ProcessorL1DataCache		"*"
-#pragma	aux	ProcessorL1InstructionCache	"*"
-
-#pragma	aux	ProcessorL2Cache		"*"
+typedef struct
+{
+    U32 LineSize : 8;
+    U32 Tags : 4;
+    U32 Ways : 4;
+    U32 Size : 16;
+} CACHE;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	ProcessorIdentification()	;
+extern TLB Processor4KBDataTLB;
+extern TLB Processor4KBInstructionTLB;
 
-#pragma	aux	ProcessorIdentification	"*"	\
-	modify	[eax ebx ecx edx esi edi]
+extern TLB Processor4MBDataTLB;
+extern TLB Processor4MBInstructionTLB;
+
+extern CACHE ProcessorL1DataCache;
+extern CACHE ProcessorL1InstructionCache;
+
+extern CACHE ProcessorL2Cache;
+
+//──────────────────────────────────────────────────────────────────────────
+#pragma aux Processor4KBDataTLB "*"
+#pragma aux Processor4KBInstructionTLB "*"
+
+#pragma aux Processor4MBDataTLB "*"
+#pragma aux Processor4MBInstructionTLB "*"
+
+#pragma aux ProcessorL1DataCache "*"
+#pragma aux ProcessorL1InstructionCache "*"
+
+#pragma aux ProcessorL2Cache "*"
+
+//──────────────────────────────────────────────────────────────────────────
+extern U32 ProcessorIdentification();
+
+#pragma aux ProcessorIdentification "*" modify[eax ebx ecx edx esi edi]
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -198,6 +193,6 @@ extern	U32	ProcessorIdentification()	;
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif// LIB_SYSTEM_CPU
+#endif // LIB_SYSTEM_CPU
 
 //──────────────────────────────────────────────────────────────────────────

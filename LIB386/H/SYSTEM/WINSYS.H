@@ -1,45 +1,45 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_WINSYS
+#ifndef LIB_SYSTEM_WINSYS
 #define LIB_SYSTEM_WINSYS
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	_WIN32
+#ifdef _WIN32
 
 #include <SYSTEM/ADELINE.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32		AppActive	;
+extern S32 AppActive;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	VOID_FUNC       *PauseMiles	;
-extern	VOID_FUNC       *ResumeMiles    ;
+extern VOID_FUNC *PauseMiles;
+extern VOID_FUNC *ResumeMiles;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	VOID_FUNC	*ManageProc	;
+extern VOID_FUNC *ManageProc;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	WINDOW_PROC	*WindowProc	;
+extern WINDOW_PROC *WindowProc;
 
 //──────────────────────────────────────────────────────────────────────────
-void	InitWindow( HINSTANCE hinstance, int nCmdShow, const char *title )	;
+void InitWindow(HINSTANCE hinstance, int nCmdShow, const char *title);
 
 //──────────────────────────────────────────────────────────────────────────
-void	ManageEvents()	;
+void ManageEvents();
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_WINSYS
+#endif //LIB_SYSTEM_WINSYS
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//_WIN32
+#endif //_WIN32
 
 //──────────────────────────────────────────────────────────────────────────
