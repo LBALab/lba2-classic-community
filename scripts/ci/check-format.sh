@@ -16,12 +16,6 @@ fi
 status=0
 
 while IFS= read -r -d '' file; do
-    case "$file" in
-        LIB386/libsmacker/*|LIB386/AIL/SDL/stb_vorbis.c|LIB386/AIL/SDL/stb_vorbis.h|LIB386/FILEIO/stb_image_write.h|SOURCES/3DEXT/LBA_EXT.H|SOURCES/3DEXT/MAPTOOLS.CPP|SOURCES/COMMON.H|SOURCES/DEC.CPP|SOURCES/DEC_XCF.CPP|SOURCES/EXTRA.CPP|build/*|build_test/*|build_logs/*|out/*)
-            continue
-            ;;
-    esac
-
     if ! git diff --quiet -- "$file" || ! git diff --cached --quiet -- "$file"; then
         continue
     fi
@@ -31,6 +25,6 @@ while IFS= read -r -d '' file; do
         printf '%s\n' "$output" >&2
         status=1
     fi
-done < <(git ls-files -z -- '*.c' '*.C' '*.cpp' '*.CPP' '*.h' '*.H' '*.hpp' '*.HPP')
+done < <(git ls-files -z -- '*.c' '*.C' '*.cpp' '*.CPP' '*.h' '*.H' '*.hpp' '*.HPP' | python3 scripts/ci/filter-format-files.py)
 
 exit "$status"
