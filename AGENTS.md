@@ -24,6 +24,11 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - Never change gameplay, timing, or feel without explicit approval
 - Never assume platform; never add unapproved dependencies
 - Never "modernize" C++98 to C++11+ in game code (tests may use newer)
+- Never add game assets (art, audio, models, textures) to the repo—they are not redistributable
+- Never hardcode API keys, credentials, or secrets
+- Never add GPL-incompatible code or dependencies; respect the project license (GPL v2). When copying code from elsewhere, ensure compatibility and proper attribution.
+- Never run clang-format on ASM, `LIB386/libsmacker/`, or other excluded files
+- Do only what was asked; avoid scope creep (refactoring, "improving" unrelated code)
 - When the user's intent is ambiguous, ask before proceeding—do not guess.
 
 ## Golden Rules
@@ -32,6 +37,9 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Preservation:** French comments, ASCII art, attribution—these are historical artifacts. Add clarifying comments alongside originals; do not replace them.
 - **Documentation first:** Use `docs/GLOSSARY.md` for domain terms, `docs/LIFECYCLES.md` for lifecycles, `ASM_TO_CPP_REFERENCE.md` for port status, `ASM_VALIDATION_PROGRESS.md` for test coverage.
 - **Think like an archaeologist:** This codebase is a window into 1990s game dev at Adeline Software. Surface historical context when relevant. See `docs/FRENCH_COMMENTS.md` and `docs/ASCII_ART.md`.
+- **Verify before claiming:** Run build or tests to confirm changes work; do not claim something works without verification.
+- **Search before adding:** Check for existing implementations before adding new code; avoid duplication.
+- **Say when unsure:** If uncertain whether a change is correct, say so. Prefer "I'm not certain" over confident but wrong.
 
 ## Project Overview
 
@@ -47,6 +55,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
 - **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.
+- **When tests fail:** Do not relax tests. For ASM↔CPP: use `--bisect` to find first divergence, add debug traces to both ASM and CPP, extract failing inputs into a focused unit test, fix CPP to match ASM. For other bugs: read the relevant subsystem doc (AUDIO, MENU, DEBUG, etc.), map the code path, fix the bug, verify with build/tests.
 - **Minimal build** (no audio/video): `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for quick iteration.
 
 ## When Modifying X, Do Y
@@ -73,6 +82,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Further Reading
 
+- [LICENSE](LICENSE) — GPL v2; project license
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Code style, preservation, PR workflow
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) — Detailed ASM↔CPP workflow, polyrec debugging, test patterns, common pitfalls
 - [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md) — Reasoning and docs for big features (console, headless, menu, camera)
