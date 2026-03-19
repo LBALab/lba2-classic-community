@@ -26,7 +26,11 @@ while IFS= read -r -d '' file; do
         continue
     fi
 
-    "$clang_format" --dry-run --Werror -style=file "$file" || status=1
+    if ! output=$("$clang_format" --dry-run --Werror -style=file "$file" 2>&1); then
+        echo "Format check failed: $file" >&2
+        printf '%s\n' "$output" >&2
+        status=1
+    fi
 done < <(git ls-files -z -- '*.c' '*.C' '*.cpp' '*.CPP' '*.h' '*.H' '*.hpp' '*.HPP')
 
 exit "$status"

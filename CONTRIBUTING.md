@@ -38,6 +38,15 @@ The codebase mixes C and C++ (C++98) along with x86 assembly (UASM). Please keep
 
 For C and C++ files, the repository now uses `clang-format` with a checked-in style file. In VS Code, workspace settings enable format-on-save for C and C++ when the recommended `ms-vscode.cpptools` extension is installed.
 
+For local formatting work, use the repo scripts:
+
+```bash
+bash ./scripts/ci/check-format.sh
+bash ./scripts/ci/apply-format.sh
+```
+
+`check-format.sh` verifies the tracked C/C++ files that are enforced in CI. `apply-format.sh` applies that same formatter policy to tracked clean files in your worktree.
+
 If you use VS Code, install the workspace recommendations from `.vscode/extensions.json`. The current recommended set is `ms-vscode.cpptools`, `ms-vscode.cmake-tools`, and `EditorConfig.EditorConfig`.
 
 `EditorConfig.EditorConfig` is recommended because this repository also has files that are not auto-formatted by `clang-format`. It makes VS Code honor the checked-in `.editorconfig` for baseline indentation rules, which keeps C/C++ files on 4 spaces and preserves tab-based indentation in ASM and related files.
@@ -45,6 +54,8 @@ If you use VS Code, install the workspace recommendations from `.vscode/extensio
 ASM files are intentionally excluded from automatic formatting, and `LIB386/libsmacker/` is kept out of formatting because it is third-party code.
 
 A small set of preservation-sensitive or macro-heavy files is also excluded from automatic formatting where `clang-format` does not produce stable results yet. Keep those files manual until they are split up or annotated for safer tooling.
+
+Note that `.clang-format-ignore` is only a partial editor/tooling hint right now. The CI/local scripts under `scripts/ci/` are the current source of truth for enforced exclusions.
 
 If you are doing the one-time whitespace migration or reviewing it locally, keep it as a dedicated formatting-only commit and then configure git blame to ignore that commit:
 
