@@ -1,3 +1,5 @@
+# Informational only: CI/local formatting enforcement currently uses the
+# explicit exclusion list in scripts/ci/check-format.sh and scripts/ci/apply-format.sh.
 build/
 build_test/
 build_logs/
