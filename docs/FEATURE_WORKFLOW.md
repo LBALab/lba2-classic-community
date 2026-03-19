@@ -1,0 +1,116 @@
+# Feature Workflow — Reasoning and Docs
+
+When tackling a big new feature or tool, follow this workflow: read existing docs first, map the code, then document as you go. This doc shows the reasoning process for several example features.
+
+Truth hierarchy: **code > this document > external sources**.
+
+---
+
+## Example 1: Add Console Commands
+
+**Goal:** Add a new command to the Quake-style debug console.
+
+**Reasoning:**
+
+1. **AGENTS.md:** Optional features behind flags → console is already behind `CONSOLE_MODULE`. New commands are additive; no gameplay change by default.
+
+2. **Read first:** [docs/CONSOLE.md](CONSOLE.md) — lists existing commands, cvars, layout. Commands are registered somewhere; cvars have get/set pattern.
+
+3. **Map the code:** Search for where commands are registered (e.g. `CONSOLE_CMD`, `cmdlist`, command table). Add new entry following the same pattern.
+
+4. **Docs to update:** CONSOLE.md — add the new command to the Commands table with description and usage.
+
+5. **Preservation:** Console lives in SOURCES/CONSOLE/; no French comments to remove. Add new comments alongside any existing ones.
+
+---
+
+## Example 2: Headless Mode
+
+**Goal:** Run the engine without a window (e.g. for CI, automation, or server-side).
+
+**Reasoning:**
+
+1. **AGENTS.md:** Optional features behind flags → must be opt-in (build option or runtime flag). Preserve the nature of the game → headless changes *how* the game runs, not gameplay logic.
+
+2. **Read first:**
+   - [docs/LIFECYCLES.md](LIFECYCLES.md) — MainLoop frame order: `MyGetInput`, `ManageTime`, `DoDir`, `DoTrack`, `CheckZoneSce`, `DoLife`, `AffScene`. Headless would skip or stub `AffScene` and input.
+   - [docs/GLOSSARY.md](GLOSSARY.md) — Entry point: `MainGameMenu` → `MainLoop`. Need to find where SDL/window is initialized.
+   - [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) — MainLoop, main entry.
+
+3. **Map the code:**
+   - Where does SDL create the window? (SYSTEM/, or early in main)
+   - What does `AffScene` depend on? (Log, Screen, ModeDesiredX/Y)
+   - Can we run `DoLife`/`DoTrack` without rendering? Likely yes; they update object state.
+
+4. **Docs to create/update:**
+   - New `docs/HEADLESS.md` — how to build with `-DHEADLESS=ON`, what runs (main loop steps), what is skipped (render, input), use cases (automation, tests).
+   - Update README build options table.
+   - Update LIFECYCLES if we add a "headless branch" to the main loop.
+
+5. **Cross-platform:** Headless should work on Linux, macOS, Windows. Avoid platform-specific headless tricks (e.g. Xvfb) in core code; document as optional for CI.
+
+---
+
+## Example 3: Change the Game Menu
+
+**Goal:** Add a new menu option, reorder entries, or change Options structure.
+
+**Reasoning:**
+
+1. **AGENTS.md:** Preserve the nature of the game → menu changes affect UX. If adding (e.g. new Options toggle), make it opt-in or behind a config key. If reordering, ensure we don't break existing behavior.
+
+2. **Read first:** [docs/MENU.md](MENU.md) — Menu tree, terms (CURRENTSAVE, SavingEnable, FlagSpeak), entry points (`MainGameMenu`, `BuildGameMainMenu`, `DoGameMenu`), template → build → drive flow.
+
+3. **Map the code:**
+   - `RealGameMainMenu` — static template (text IDs 70–75)
+   - `BuildGameMainMenu` — filters by runtime state
+   - `GameOptionMenu` — Options submenu (text IDs 11–47)
+   - `DoGameMenu` — generic driver; handles sliders (type 2–7)
+   - Text IDs from `text.hqr`; need to add new string if new label
+
+4. **Docs to update:**
+   - MENU.md — update menu tree, add new entry to Options if applicable
+   - CONFIG.md — if new option is persisted (e.g. new slider)
+
+5. **Preservation:** GAMEMENU.CPP may have French comments; preserve them. Menu structure is part of the game feel; document the change and rationale.
+
+---
+
+## Example 4: How Does the Camera Work?
+
+**Goal:** Understand camera behavior for a feature (e.g. camera control, replay, or debug view).
+
+**Reasoning:**
+
+1. **AGENTS.md:** Documentation first → use GLOSSARY, LIFECYCLES before inferring from code.
+
+2. **Read first:**
+   - [docs/GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera. `AllCameras` in CONFIG.
+   - [docs/LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: "Initialize camera position". Main loop step 7: `AffScene` (render).
+   - [docs/MENU.md](MENU.md) — Options → Cameras (46/47), toggles `AllCameras`.
+   - [docs/CONFIG.md](CONFIG.md) — `AllCameras` 0=OFF, 1=ON.
+
+3. **Gap in docs:** No dedicated CAMERA.md. Camera logic is spread across:
+   - Zone type 1 (camera zones in scenes)
+   - `AffScene` (rendering uses camera)
+   - OBJECT.CPP (ChangeCube initializes camera)
+   - Projection globals (LIB386/3D/PROJ — `XCentre`, `YCentre`, `NearClip`, etc.)
+
+4. **Docs to create:** If doing camera work, add `docs/CAMERA.md`:
+   - Camera position source (hero-follow? zone-triggered?)
+   - Projection setup (PROJ.CPP, SetProjection, SetIsoProjection)
+   - Zone type 1 behavior (CheckZoneSce)
+   - `AllCameras` effect (scenario cameras vs fixed)
+
+5. **Code locations:** Search for `Camera`, `Alpha`, `Beta`, `Gamma` (view angles), `XCentre`, `YCentre`, projection globals.
+
+---
+
+## General Workflow for Big Features
+
+1. **Read AGENTS.md** — principles, Never, When Modifying X Do Y.
+2. **Read relevant docs** — GLOSSARY, LIFECYCLES, and the doc for the subsystem (CONSOLE, MENU, AUDIO, etc.).
+3. **Map the code** — find entry points, data flow, where your change plugs in.
+4. **Document as you go** — if no doc exists, create one (e.g. HEADLESS.md, CAMERA.md). If behavior changes, update the doc.
+5. **Preserve** — French comments, ASCII art; add new comments alongside.
+6. **Verify** — run tests, format check. For LIB386 changes, run equivalence tests.

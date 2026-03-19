@@ -41,18 +41,19 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Build & Test
 
-- **Build:** `cmake -B build && cmake --build build` (or presets: `linux`, `macos_arm64`, `windows_ucrt64`)
+- **Build:** `cmake -B build && cmake --build build`. Presets: `cmake --preset linux && cmake --build --preset linux`
 - **Tests:** Run via Docker only: `./run_tests_docker.sh`. Tests require 32-bit x86 + UASM.
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
-- **Before considering done:** Run `./run_tests_docker.sh`. If modifying formatted files, run clang-format check.
+- **Before considering done:** Run `./run_tests_docker.sh`. If modifying formatted files: `clang-format -i` on staged C/C++ files, or CI runs format check.
 
 ## When Modifying X, Do Y
 
 | Modifying | Do | See |
 |-----------|-----|-----|
 | LIB386 C++ port | Check ASM_VALIDATION_PROGRESS Notes; add/update equivalence test | ASM_VALIDATION_PROGRESS.md |
-| SOURCES/3DEXT/ | Same; check ASM_TO_CPP_REFERENCE | docs/ASM_TO_CPP_REFERENCE.md |
+| SOURCES (game logic) | No ASM tests; use docs/GLOSSARY, LIFECYCLES for domain terms | docs/GLOSSARY.md, docs/LIFECYCLES.md |
+| SOURCES/3DEXT/ | Same as LIB386; check ASM_TO_CPP_REFERENCE | docs/ASM_TO_CPP_REFERENCE.md |
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update ASM_VALIDATION_PROGRESS | docs/TESTING.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Debug tools | DEBUG_TOOLS, CONSOLE_MODULE | docs/DEBUG.md, docs/CONSOLE.md |
@@ -69,4 +70,5 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Code style, preservation, PR workflow
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) — Detailed ASM↔CPP workflow, polyrec debugging, test patterns, common pitfalls
+- [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md) — Reasoning and docs for big features (console, headless, menu, camera)
 - [docs/README.md](docs/README.md) — Full documentation index
