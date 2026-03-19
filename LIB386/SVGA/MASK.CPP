@@ -8,7 +8,7 @@
 U8 ColMask = 0;
 
 S32 ClippingMask(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics) {
-    LIB386_TRACE_CPP("ClippingMask", "1", "num=%d x0=%d y0=%d x1=%d y1=%d gfx=%p", x0, y0, x1, y1, (void *)graphics);
+    LIB386_TRACE_CPP("ClippingMask", "1", "x0=%d y0=%d x1=%d y1=%d gfx=%p", x0, y0, x1, y1, (void *)graphics);
     if (x0 > ClipXMax || y0 > ClipYMax ||
         x1 < ClipXMin || y1 < ClipYMin) {
         return 0;
@@ -60,83 +60,65 @@ S32 ClippingMask(S32 x0, S32 y0, S32 x1, S32 y1, U8 *graphics) {
     ScreenYMax = y1;
 
     U8 *screen = (U8 *)Log + TabOffLine[y0] + x0 + OffsetBegin;
+    U8 color = ColMask;
 
     S32 deltaY = y1 - y0;
     for (int i = 0; i <= deltaY; i++) {
-        U8 color = ColMask;
+        U8 *lineScreen = screen;
         U8 nbBlock = graphics[0];
         graphics++;
-        U32 bytesToSkip = OffsetBegin;
-        S32 offset = offsetEnd;
+        S32 bytesToSkip = OffsetBegin;
+        S32 remainingWidth = offsetEnd;
 
-        while (nbBlock > 0) {
-            // Clipper:
-            U8 nbTransp = graphics[0];
+        for (U8 blockIndex = 0; blockIndex < nbBlock; blockIndex++) {
+            U8 count = graphics[0];
             graphics++;
-            nbBlock--;
-            if (nbBlock == 0) {
-                break;
-            }
 
-            bytesToSkip -= nbTransp;
-            if (bytesToSkip < 0) {
-                // Start_Transp:
-                offset += bytesToSkip;
-                if (offset <= 0) {
+            if ((blockIndex & 1) == 0) {
+                if (bytesToSkip >= count) {
+                    bytesToSkip -= count;
+                    continue;
+                }
+
+                S32 visibleJump = count - bytesToSkip;
+                bytesToSkip = 0;
+
+                if (visibleJump >= remainingWidth) {
+                    graphics += (nbBlock - blockIndex - 1);
+                    remainingWidth = 0;
                     break;
                 }
-                screen -= bytesToSkip;
-                // Do_Fill:
-                U8 counter = graphics[0];
-                graphics++;
-                if (offset < nbTransp) {
-                    nbTransp = offset;
-                }
-                offset -= nbTransp;
 
-                // Do_Fill_1:
-                for (int j = 0; j < nbTransp; j++) {
-                    *screen = color;
-                    screen++;
-                }
-
-                nbBlock--;
-                if (nbBlock == 0) {
-                    break;
-                }
+                lineScreen += visibleJump;
+                remainingWidth -= visibleJump;
+                continue;
             }
 
-            U8 nbFill = graphics[0];
-            graphics++;
-            bytesToSkip -= nbFill;
-            if (bytesToSkip < 0) {
-                // Start_Fill:
-                bytesToSkip = -bytesToSkip;
-                if (offset < bytesToSkip) {
-                    bytesToSkip = offset;
-                }
-                offset -= bytesToSkip;
-                nbFill = bytesToSkip;
-                // Do_Fill_1:
-                for (int j = 0; j < nbFill; j++) {
-                    *screen = color;
-                    screen++;
-                }
-
-                nbBlock--;
-                if (nbBlock == 0) {
-                    break;
-                }
+            if (bytesToSkip >= count) {
+                bytesToSkip -= count;
+                continue;
             }
 
-            nbBlock--;
-            if (nbBlock == 0) {
+            S32 visibleFill = count - bytesToSkip;
+            bytesToSkip = 0;
+
+            if (visibleFill > remainingWidth) {
+                visibleFill = remainingWidth;
+            }
+
+            for (int j = 0; j < visibleFill; j++) {
+                *lineScreen = color;
+                lineScreen++;
+            }
+
+            remainingWidth -= visibleFill;
+            if (remainingWidth <= 0) {
+                graphics += (nbBlock - blockIndex - 1);
                 break;
             }
         }
 
         screen += TabOffLine[1];
-        graphics += nbBlock;
     }
 
     return 0; // TODO: Remove, make void
