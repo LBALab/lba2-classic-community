@@ -1,0 +1,7 @@
+build/
+build_test/
+build_logs/
+out/
+LIB386/libsmacker/
+**/*.ASM
+**/*.asm
