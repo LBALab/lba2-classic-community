@@ -26,7 +26,7 @@ void EndMouse();
 void ShowMouse(bool show);
 void SetMousePos(U32 x, U32 y);
 void SetMouseBox(U32 x0, U32 y0, U32 x1, U32 y1); ///< Set mouse position limits
-void ClearMouseBox(); ///< Reset mouse position limits to screen size
+void ClearMouseBox();                             ///< Reset mouse position limits to screen size
 
 void ManageMouse();
 void HandleEventsMouse(const void *event);

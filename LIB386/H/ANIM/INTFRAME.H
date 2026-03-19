@@ -1,28 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_INTFRAME
-#define	LIB_ANI_INTFRAME
+#ifndef LIB_ANI_INTFRAME
+#define LIB_ANI_INTFRAME
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-void	ObjectSetInterFrame(T_OBJ_3D *obj)	;
+void ObjectSetInterFrame(T_OBJ_3D *obj);
 
-#pragma aux ObjectSetInterFrame	"*"		\
-	parm caller	[ebx]			\
-	modify	 	[eax ecx edx esi edi]
+#pragma aux ObjectSetInterFrame "*" parm caller[ebx] modify[eax ecx edx esi edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_INTFRAME
+#endif //LIB_ANI_INTFRAME
 
 //****************************************************************************
-

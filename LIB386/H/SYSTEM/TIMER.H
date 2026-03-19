@@ -30,7 +30,11 @@ void ManageTime();
 void HandleEventsTimer(const void *event);
 
 // -----------------------------------------------------------------------------
-#define ManageSystem() { ManageEvents(); ManageTime(); }
+#define ManageSystem()  \
+    {                   \
+        ManageEvents(); \
+        ManageTime();   \
+    }
 
 // =============================================================================
 #ifdef __cplusplus

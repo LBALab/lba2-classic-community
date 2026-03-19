@@ -7,21 +7,21 @@
 extern "C" {
 #endif
 
-char	ProcessorManufacturerIDString[]	= "";
+char ProcessorManufacturerIDString[] = "";
 
 s_ProcessorSignature ProcessorSignature;
 s_ProcessorFeatureFlags ProcessorFeatureFlags;
 
-TLB	Processor4KBDataTLB		;
-TLB	Processor4KBInstructionTLB	;
+TLB Processor4KBDataTLB;
+TLB Processor4KBInstructionTLB;
 
-TLB	Processor4MBDataTLB		;
-TLB	Processor4MBInstructionTLB	;
+TLB Processor4MBDataTLB;
+TLB Processor4MBInstructionTLB;
 
-CACHE	ProcessorL1DataCache		;
-CACHE	ProcessorL1InstructionCache	;
+CACHE ProcessorL1DataCache;
+CACHE ProcessorL1InstructionCache;
 
-CACHE	ProcessorL2Cache		;
+CACHE ProcessorL2Cache;
 
 // void GetSystemInfo_C(LPSYSTEM_INFO lpSystemInfo) {
 //   GetSystemInfo(lpSystemInfo);

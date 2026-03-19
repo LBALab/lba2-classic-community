@@ -1,25 +1,24 @@
 //----------------------------------------------------------------------------
-#ifndef	LIB_SYSTEM_DOSSYS
+#ifndef LIB_SYSTEM_DOSSYS
 #define LIB_SYSTEM_DOSSYS
 
 //----------------------------------------------------------------------------
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //----------------------------------------------------------------------------
-extern	PTR_VOID_FUNC	ManageProc;
+extern PTR_VOID_FUNC ManageProc;
 
 //----------------------------------------------------------------------------
-extern	void	ManageEvents()	;
+extern void ManageEvents();
 
 //----------------------------------------------------------------------------
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //----------------------------------------------------------------------------
-#endif//LIB_SYSTEM_DOSSYS
+#endif //LIB_SYSTEM_DOSSYS
 
 //----------------------------------------------------------------------------
-

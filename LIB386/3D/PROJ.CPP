@@ -5,29 +5,27 @@
 #include <SYSTEM/DEBUG_TRACES.H>
 
 void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
-                   S32 factory)
-{
-	LIB386_TRACE_CPP("SetProjection", "1", "xc=%d yc=%d clip=%d fx=%d fy=%d", xcentre, ycentre, clip, factorx, factory);
-	XCentre = xcentre;
-	YCentre = ycentre;
+                   S32 factory) {
+    LIB386_TRACE_CPP("SetProjection", "1", "xc=%d yc=%d clip=%d fx=%d fy=%d", xcentre, ycentre, clip, factorx, factory);
+    XCentre = xcentre;
+    YCentre = ycentre;
 
-	NearClip = clip;
+    NearClip = clip;
 
-	LFactorX = factorx;
-	LFactorY = factory;
+    LFactorX = factorx;
+    LFactorY = factory;
 
-	TypeProj = TYPE_3D;
+    TypeProj = TYPE_3D;
 
-	LongProjectPoint = LongProjectPoint3D;
-	ProjectList = ProjectList3D;
+    LongProjectPoint = LongProjectPoint3D;
+    ProjectList = ProjectList3D;
 
-	FRatioX = (float)LFactorX;
-	FRatioY = -(float)LFactorY / FRatioX;
+    FRatioX = (float)LFactorX;
+    FRatioY = -(float)LFactorY / FRatioX;
 }
 
-void SetIsoProjection(S32 xcentre, S32 ycentre)
-{
-	/*
+void SetIsoProjection(S32 xcentre, S32 ycentre) {
+    /*
 ;void	SetIsoProjection(xc, yc)
 
 ;#pragma aux SetIsoProjection	"*"	\
@@ -54,13 +52,12 @@ SetIsoProjection PROC \
 
 SetIsoProjection ENDP
 	*/
-	LIB386_TRACE_CPP("SetIsoProjection", "1", "xc=%d yc=%d", xcentre, ycentre);
-	XCentre = xcentre;
-	YCentre = ycentre;
+    LIB386_TRACE_CPP("SetIsoProjection", "1", "xc=%d yc=%d", xcentre, ycentre);
+    XCentre = xcentre;
+    YCentre = ycentre;
 
-	TypeProj = TYPE_ISO;
+    TypeProj = TYPE_ISO;
 
-	LongProjectPoint = LongProjectPointIso;
-	ProjectList = ProjectListIso;
+    LongProjectPoint = LongProjectPointIso;
+    ProjectList = ProjectListIso;
 }
-

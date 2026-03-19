@@ -21,12 +21,12 @@ extern S32 Font(S32 x, S32 y, const char *str);
 // -----------------------------------------------------------------------------
 #define ColorFont(color) ColorMask(color)
 
-#define SetFont(ptrfont, interleave, interspace)                               \
-  {                                                                            \
-    PtrFont = (ptrfont);                                                       \
-    InterLeave = (interleave);                                                 \
-    InterSpace = (interspace);                                                 \
-  }
+#define SetFont(ptrfont, interleave, interspace) \
+    {                                            \
+        PtrFont = (ptrfont);                     \
+        InterLeave = (interleave);               \
+        InterSpace = (interspace);               \
+    }
 
 // =============================================================================
 #ifdef __cplusplus

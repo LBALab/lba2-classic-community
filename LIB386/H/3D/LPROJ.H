@@ -12,12 +12,12 @@ extern "C" {
 typedef S32(Func_LongProjectPoint)(S32 x, S32 y, S32 z);
 
 // -----------------------------------------------------------------------------
-extern	Func_LongProjectPoint	*LongProjectPoint	;
+extern Func_LongProjectPoint *LongProjectPoint;
 
-#pragma	aux LongProjectPoint		"*"
+#pragma aux LongProjectPoint "*"
 
 extern Func_LongProjectPoint LongProjectPointIso; ///< Do Not call from C
-extern Func_LongProjectPoint LongProjectPoint3D; ///< Do Not call from C
+extern Func_LongProjectPoint LongProjectPoint3D;  ///< Do Not call from C
 
 // -----------------------------------------------------------------------------
 typedef void(Func_ProjectList)(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,

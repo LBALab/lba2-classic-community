@@ -2,8 +2,8 @@
 extern "C" {
 #endif
 
-#ifndef	FIRE_H
-#define	FIRE_H
+#ifndef FIRE_H
+#define FIRE_H
 
 #include <SYSTEM/ADELINE_TYPES.H>
 

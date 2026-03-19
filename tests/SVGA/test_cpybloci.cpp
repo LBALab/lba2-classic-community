@@ -10,24 +10,22 @@
 extern "C" void asm_CopyBlockIncrust(void);
 
 static void call_asm_CopyBlockIncrust(S32 x0, S32 y0, S32 x1, S32 y1, void *src,
-                                                                            S32 xd, S32 yd, void *dst)
-{
-        __asm__ __volatile__(
-                "push %[dst]\n\t"
-                "push %[yd]\n\t"
-                "push %[xd]\n\t"
-                "mov %[src], %%esi\n\t"
-                "mov %[y1], %%edx\n\t"
-                "mov %[x1], %%ecx\n\t"
-                "mov %[y0], %%ebx\n\t"
-                "mov %[x0], %%eax\n\t"
-                "call asm_CopyBlockIncrust\n\t"
-                "add $12, %%esp"
-                :
-                : [x0]"g"(x0), [y0]"g"(y0), [x1]"g"(x1), [y1]"g"(y1), [src]"g"(src),
-                    [xd]"g"(xd), [yd]"g"(yd), [dst]"g"(dst)
-                : "eax", "ebx", "ecx", "edx", "esi", "edi", "memory", "cc"
-        );
+                                      S32 xd, S32 yd, void *dst) {
+    __asm__ __volatile__(
+        "push %[dst]\n\t"
+        "push %[yd]\n\t"
+        "push %[xd]\n\t"
+        "mov %[src], %%esi\n\t"
+        "mov %[y1], %%edx\n\t"
+        "mov %[x1], %%ecx\n\t"
+        "mov %[y0], %%ebx\n\t"
+        "mov %[x0], %%eax\n\t"
+        "call asm_CopyBlockIncrust\n\t"
+        "add $12, %%esp"
+        :
+        : [x0] "g"(x0), [y0] "g"(y0), [x1] "g"(x1), [y1] "g"(y1), [src] "g"(src),
+          [xd] "g"(xd), [yd] "g"(yd), [dst] "g"(dst)
+        : "eax", "ebx", "ecx", "edx", "esi", "edi", "memory", "cc");
 }
 
 static const U32 kScreenWidth = 640;
@@ -42,19 +40,16 @@ static U8 cpp_dst[kBufferSize];
 static U8 asm_dst[kBufferSize];
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void setup_screen(void)
-{
+static void setup_screen(void) {
     ModeDesiredX = (S32)kScreenWidth;
     ModeDesiredY = (S32)kScreenHeight;
     for (U32 i = 0; i < kScreenHeight; ++i) {
@@ -66,8 +61,7 @@ static void setup_screen(void)
     ClipYMax = (S32)kScreenHeight - 1;
 }
 
-static void fill_source_pattern(U32 salt)
-{
+static void fill_source_pattern(U32 salt) {
     for (U32 i = 0; i < kBufferSize; ++i) {
         U8 value = (U8)(((i * 37u) + (salt * 53u) + (i >> 3)) & 0xFFu);
         if (((i + salt) % 7u) == 0u || ((i ^ salt) & 0x1Fu) == 0u) {
@@ -77,8 +71,7 @@ static void fill_source_pattern(U32 salt)
     }
 }
 
-static void fill_dest_pattern(U32 salt)
-{
+static void fill_dest_pattern(U32 salt) {
     for (U32 i = 0; i < kBufferSize; ++i) {
         dst_init[i] = (U8)(((i * 19u) + (salt * 11u) + 0x5Au) & 0xFFu);
     }
@@ -89,8 +82,7 @@ static void assert_copyblockincrust_case(const char *label,
                                          S32 xd, S32 yd,
                                          S32 clip_x_min, S32 clip_y_min,
                                          S32 clip_x_max, S32 clip_y_max,
-                                         U32 salt)
-{
+                                         U32 salt) {
     setup_screen();
     fill_source_pattern(salt);
     fill_dest_pattern(salt + 1u);
@@ -118,8 +110,7 @@ static void assert_copyblockincrust_case(const char *label,
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     assert_copyblockincrust_case("CopyBlockIncrust fixed transparency",
                                  10, 10, 11, 10, 50, 50,
                                  0, 0, 639, 479, 1u);
@@ -137,8 +128,7 @@ static void test_equivalence(void)
                                  200, 200, 300, 260, 5u);
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 120; ++i) {
         S32 x0 = (S32)(rng_next() % 760u) - 60;
@@ -171,8 +161,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

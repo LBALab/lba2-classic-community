@@ -21,54 +21,55 @@ static EventFilterFn s_eventFilter = NULL;
 
 // --- Initialization ----------------------------------------------------------
 bool InitEvents() {
-  assert(eventSystemInitialized == false);
+    assert(eventSystemInitialized == false);
 
-  if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
-    const char* errorMsg = SDL_GetError();
-    LogPrintf("Error: Unable to initialize SDL Events subsystem.\n"
-              "\tSDL Message: %s\n", errorMsg);
+    if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Error: Unable to initialize SDL Events subsystem.\n"
+                  "\tSDL Message: %s\n",
+                  errorMsg);
 
-    eventSystemInitialized = false;
-    return false;
-  }
+        eventSystemInitialized = false;
+        return false;
+    }
 
-  eventSystemInitialized = true;
-  return true;
+    eventSystemInitialized = true;
+    return true;
 }
 
 void EndEvents() {
-  if (eventSystemInitialized) {
-    SDL_QuitSubSystem(SDL_INIT_EVENTS);
-    eventSystemInitialized = false;
-  }
+    if (eventSystemInitialized) {
+        SDL_QuitSubSystem(SDL_INIT_EVENTS);
+        eventSystemInitialized = false;
+    }
 }
 
 // --- Interface ---------------------------------------------------------------
 void SetEventFilter(EventFilterFn fn) {
-  s_eventFilter = fn;
+    s_eventFilter = fn;
 }
 
 void ManageEvents() {
-  assert(eventSystemInitialized == true);
+    assert(eventSystemInitialized == true);
 
-  SDL_PumpEvents();
-  {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-      const void *transparentEvent = (void *)(&event);
+    SDL_PumpEvents();
+    {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            const void *transparentEvent = (void *)(&event);
 
-      if (s_eventFilter && s_eventFilter(transparentEvent))
-        continue;
+            if (s_eventFilter && s_eventFilter(transparentEvent))
+                continue;
 
-      HandleEventsTimer(transparentEvent);
-      HandleEventsMouse(transparentEvent);
-      HandleEventsKeyboard(transparentEvent);
-      HandleEventsVideo(transparentEvent);
-      HandleEventsWindow(transparentEvent);
+            HandleEventsTimer(transparentEvent);
+            HandleEventsMouse(transparentEvent);
+            HandleEventsKeyboard(transparentEvent);
+            HandleEventsVideo(transparentEvent);
+            HandleEventsWindow(transparentEvent);
+        }
     }
-  }
 
-  // TODO: Pump audio events (refer to WINSYS.CPP)
+    // TODO: Pump audio events (refer to WINSYS.CPP)
 }
 
 // =============================================================================

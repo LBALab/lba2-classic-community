@@ -18,14 +18,14 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-#define DIR_NAME_SAVE "save"ADELINE_PATH_SEP
-#define DIR_NAME_SHOOT "shoot"ADELINE_PATH_SEP
-#define DIR_NAME_BUGS "bugs"ADELINE_PATH_SEP
-#define DIR_NAME_JINGLE "music"ADELINE_PATH_SEP
-#define DIR_NAME_MOVIE "video"ADELINE_PATH_SEP
-#define DIR_NAME_VOICE_HD "vox"ADELINE_PATH_SEP
-#define DIR_NAME_VOICE_CD "lba2"ADELINE_PATH_SEP"vox"ADELINE_PATH_SEP
-#define DIR_NAME_VOICE_CD_US "twinsen"ADELINE_PATH_SEP"vox"ADELINE_PATH_SEP
+#define DIR_NAME_SAVE "save" ADELINE_PATH_SEP
+#define DIR_NAME_SHOOT "shoot" ADELINE_PATH_SEP
+#define DIR_NAME_BUGS "bugs" ADELINE_PATH_SEP
+#define DIR_NAME_JINGLE "music" ADELINE_PATH_SEP
+#define DIR_NAME_MOVIE "video" ADELINE_PATH_SEP
+#define DIR_NAME_VOICE_HD "vox" ADELINE_PATH_SEP
+#define DIR_NAME_VOICE_CD "lba2" ADELINE_PATH_SEP "vox" ADELINE_PATH_SEP
+#define DIR_NAME_VOICE_CD_US "twinsen" ADELINE_PATH_SEP "vox" ADELINE_PATH_SEP
 #define FILE_VALID_RES_DIR "lba2.hqr"
 
 // --- Private state -----------------------------------------------------------
@@ -53,52 +53,52 @@ S32 directoriesDistVersion;
  */
 bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
               const char *checkPath) {
-  assert(((foundMaxSize > 0) && (outFound != NULL)) || (foundMaxSize == 0));
-  assert(baseDir != NULL);
-  assert(checkPath != NULL);
+    assert(((foundMaxSize > 0) && (outFound != NULL)) || (foundMaxSize == 0));
+    assert(baseDir != NULL);
+    assert(checkPath != NULL);
 
-  bool found;
-  char fullPath[ADELINE_MAX_PATH];
-  char variation[ADELINE_MAX_PATH];
+    bool found;
+    char fullPath[ADELINE_MAX_PATH];
+    char variation[ADELINE_MAX_PATH];
 
-  strncpy(variation, checkPath, ADELINE_MAX_PATH);
-  variation[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    strncpy(variation, checkPath, ADELINE_MAX_PATH);
+    variation[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
-  // Try as is
-  snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-  found = ExistsFileOrDir(fullPath);
-
-  if (!found) {
-    // Try uppercase
-    SDL_strupr(variation);
+    // Try as is
     snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
     found = ExistsFileOrDir(fullPath);
 
     if (!found) {
-      // Try lowercase
-      SDL_strlwr(variation);
-      snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-      found = ExistsFileOrDir(fullPath);
+        // Try uppercase
+        SDL_strupr(variation);
+        snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+        found = ExistsFileOrDir(fullPath);
+
+        if (!found) {
+            // Try lowercase
+            SDL_strlwr(variation);
+            snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+            found = ExistsFileOrDir(fullPath);
+        }
+
+        if (!found) {
+            // Try title case (first letter uppercase, rest lowercase)
+            SDL_strlwr(variation);
+            if (variation[0] >= 'a' && variation[0] <= 'z')
+                variation[0] -= 32;
+            snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+            found = ExistsFileOrDir(fullPath);
+        }
     }
 
-    if (!found) {
-      // Try title case (first letter uppercase, rest lowercase)
-      SDL_strlwr(variation);
-      if (variation[0] >= 'a' && variation[0] <= 'z')
-        variation[0] -= 32;
-      snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-      found = ExistsFileOrDir(fullPath);
+    // Copy to out if requested and variation was found
+    const bool outRequested = (foundMaxSize > 0);
+    if (outRequested && found && (outFound != NULL)) {
+        strncpy(outFound, variation, foundMaxSize);
+        outFound[foundMaxSize - 1] = '\0'; // Guarantee
     }
-  }
 
-  // Copy to out if requested and variation was found
-  const bool outRequested = (foundMaxSize > 0);
-  if (outRequested && found && (outFound != NULL)) {
-    strncpy(outFound, variation, foundMaxSize);
-    outFound[foundMaxSize - 1] = '\0'; // Guarantee
-  }
-
-  return found;
+    return found;
 }
 
 /**
@@ -117,266 +117,266 @@ bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
  */
 void DiscoverEndingAndAppend(char *outPath, U16 pathMaxSize,
                              const char *baseDir, const char *endingPath) {
-  assert((outPath != NULL) && (pathMaxSize > 0));
-  assert(baseDir != NULL);
+    assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(baseDir != NULL);
 
-  if ((endingPath != NULL) && (strlen(endingPath) > 0)) {
-    char discFile[ADELINE_MAX_PATH];
-    bool found = Discover(discFile, ADELINE_MAX_PATH, baseDir, endingPath);
+    if ((endingPath != NULL) && (strlen(endingPath) > 0)) {
+        char discFile[ADELINE_MAX_PATH];
+        bool found = Discover(discFile, ADELINE_MAX_PATH, baseDir, endingPath);
 
-    snprintf(outPath, pathMaxSize, "%s%s", baseDir,
-             (found ? discFile : endingPath));
-  } else {
-    snprintf(outPath, pathMaxSize, "%s", baseDir);
-  }
+        snprintf(outPath, pathMaxSize, "%s%s", baseDir,
+                 (found ? discFile : endingPath));
+    } else {
+        snprintf(outPath, pathMaxSize, "%s", baseDir);
+    }
 }
 
 bool IsValidResourceDir(const char *path) {
-  if (!ExistsFileOrDir(path)) {
-    return false;
-  }
+    if (!ExistsFileOrDir(path)) {
+        return false;
+    }
 
-  // Check if path contain required file
-  return Discover(NULL, 0, path, FILE_VALID_RES_DIR);
+    // Check if path contain required file
+    return Discover(NULL, 0, path, FILE_VALID_RES_DIR);
 }
 
 // --- Initialization ----------------------------------------------------------
 void InitDirectories(const char *userDir, const char *resDir,
                      const char *cfgDir, const char *CDPrefix,
                      S32 distVersion) {
-  assert(directoriesInitialized == false);
-  assert(userDir != NULL);
-  assert(resDir != NULL);
-  assert(cfgDir != NULL);
-  assert(CDPrefix != NULL);
-  assert(distVersion >= 0);
+    assert(directoriesInitialized == false);
+    assert(userDir != NULL);
+    assert(resDir != NULL);
+    assert(cfgDir != NULL);
+    assert(CDPrefix != NULL);
+    assert(distVersion >= 0);
 
-  strncpy(directoriesUserDir, userDir, ADELINE_MAX_PATH);
-  directoriesUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-  if (!ExistsFileOrDir(directoriesUserDir)) {
-    LogPrintf("Error: Invalid user directory '%s'\n", directoriesUserDir);
-    exit(EXIT_FAILURE);
-  }
-
-  strncpy(directoriesResDir, resDir, ADELINE_MAX_PATH);
-  directoriesResDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-  if (!IsValidResourceDir(directoriesResDir)) {
-    LogPrintf("Error: Invalid resource directory '%s'\n", directoriesResDir);
-    exit(EXIT_FAILURE);
-  }
-
-  strncpy(directoriesCfgDir, cfgDir, ADELINE_MAX_PATH);
-  directoriesCfgDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-  if (!ExistsFileOrDir(directoriesCfgDir)) {
-    LogPrintf("Error: Invalid config directory '%s'\n", directoriesCfgDir);
-    exit(EXIT_FAILURE);
-  }
-
-  strncpy(directoriesCDPrefix, CDPrefix, ADELINE_MAX_PATH);
-  directoriesCDPrefix[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-  if (strlen(directoriesCDPrefix) > 0) {
-    if (!ExistsFileOrDir(directoriesCDPrefix)) {
-      LogPrintf("Error: Invalid CD drive or directory '%s'\n",
-                directoriesCDPrefix);
-      exit(EXIT_FAILURE);
+    strncpy(directoriesUserDir, userDir, ADELINE_MAX_PATH);
+    directoriesUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    if (!ExistsFileOrDir(directoriesUserDir)) {
+        LogPrintf("Error: Invalid user directory '%s'\n", directoriesUserDir);
+        exit(EXIT_FAILURE);
     }
-  }
 
-  directoriesDistVersion = distVersion;
+    strncpy(directoriesResDir, resDir, ADELINE_MAX_PATH);
+    directoriesResDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    if (!IsValidResourceDir(directoriesResDir)) {
+        LogPrintf("Error: Invalid resource directory '%s'\n", directoriesResDir);
+        exit(EXIT_FAILURE);
+    }
 
-  directoriesInitialized = true;
+    strncpy(directoriesCfgDir, cfgDir, ADELINE_MAX_PATH);
+    directoriesCfgDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    if (!ExistsFileOrDir(directoriesCfgDir)) {
+        LogPrintf("Error: Invalid config directory '%s'\n", directoriesCfgDir);
+        exit(EXIT_FAILURE);
+    }
+
+    strncpy(directoriesCDPrefix, CDPrefix, ADELINE_MAX_PATH);
+    directoriesCDPrefix[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    if (strlen(directoriesCDPrefix) > 0) {
+        if (!ExistsFileOrDir(directoriesCDPrefix)) {
+            LogPrintf("Error: Invalid CD drive or directory '%s'\n",
+                      directoriesCDPrefix);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    directoriesDistVersion = distVersion;
+
+    directoriesInitialized = true;
 }
 
 void EndDirectories() { directoriesInitialized = false; }
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir) {
-  static bool initialized = false;
-  static char runDir[ADELINE_MAX_PATH] = "";
+    static bool initialized = false;
+    static char runDir[ADELINE_MAX_PATH] = "";
 
-  if (!initialized) {
-    initialized = true;
+    if (!initialized) {
+        initialized = true;
 
-    char *sdlBasePath = SDL_GetCurrentDirectory();
-    strncpy(runDir, sdlBasePath, ADELINE_MAX_PATH);
-    runDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+        char *sdlBasePath = SDL_GetCurrentDirectory();
+        strncpy(runDir, sdlBasePath, ADELINE_MAX_PATH);
+        runDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
 
-    SDL_free(sdlBasePath);
-  }
+        SDL_free(sdlBasePath);
+    }
 
-  strncpy(outDir, runDir, ADELINE_MAX_PATH);
+    strncpy(outDir, runDir, ADELINE_MAX_PATH);
 }
 
 void GetDefaultUserDir(char *outDir) {
-  static bool initialized = false;
-  static char userDir[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    char *sdlUserPath = SDL_GetPrefPath("Twinsen", "LBA2");
-    strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-    userDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-    SDL_free(sdlUserPath);
+    static bool initialized = false;
+    static char userDir[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        char *sdlUserPath = SDL_GetPrefPath("Twinsen", "LBA2");
+        strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
+        userDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+        SDL_free(sdlUserPath);
 
-    initialized = true;
-  }
+        initialized = true;
+    }
 
-  strncpy(outDir, userDir, ADELINE_MAX_PATH);
+    strncpy(outDir, userDir, ADELINE_MAX_PATH);
 }
 
 void GetDefaultResDir(char *outDir) { GetCurrentRunningDir(outDir); }
 
 void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesResDir, cfgFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesResDir, cfgFilename);
 }
 
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesCfgDir, cfgFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesCfgDir, cfgFilename);
 }
 
 void GetSavePath(char *outPath, U16 pathMaxSize, const char *saveFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  static bool initialized = false;
-  static char savePath[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    DiscoverEndingAndAppend(savePath, ADELINE_MAX_PATH, directoriesUserDir,
-                            DIR_NAME_SAVE);
-    initialized = true;
-  }
+    static bool initialized = false;
+    static char savePath[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        DiscoverEndingAndAppend(savePath, ADELINE_MAX_PATH, directoriesUserDir,
+                                DIR_NAME_SAVE);
+        initialized = true;
+    }
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, savePath, saveFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, savePath, saveFilename);
 }
 
 void GetShootPath(char *outPath, U16 pathMaxSize, const char *shootFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  static bool initialized = false;
-  static char shootPath[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    char saveDir[ADELINE_MAX_PATH] = "";
-    GetSavePath(saveDir, ADELINE_MAX_PATH, "");
+    static bool initialized = false;
+    static char shootPath[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        char saveDir[ADELINE_MAX_PATH] = "";
+        GetSavePath(saveDir, ADELINE_MAX_PATH, "");
 
-    DiscoverEndingAndAppend(shootPath, ADELINE_MAX_PATH, saveDir,
-                            DIR_NAME_SHOOT);
-    initialized = true;
-  }
+        DiscoverEndingAndAppend(shootPath, ADELINE_MAX_PATH, saveDir,
+                                DIR_NAME_SHOOT);
+        initialized = true;
+    }
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, shootPath, shootFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, shootPath, shootFilename);
 }
 
 void GetBugPath(char *outPath, U16 pathMaxSize, const char *bugFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  static bool initialized = false;
-  static char bugPath[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    char saveDir[ADELINE_MAX_PATH] = "";
-    GetSavePath(saveDir, ADELINE_MAX_PATH, "");
+    static bool initialized = false;
+    static char bugPath[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        char saveDir[ADELINE_MAX_PATH] = "";
+        GetSavePath(saveDir, ADELINE_MAX_PATH, "");
 
-    DiscoverEndingAndAppend(bugPath, ADELINE_MAX_PATH, saveDir,
-                            DIR_NAME_BUGS);
-    initialized = true;
-  }
+        DiscoverEndingAndAppend(bugPath, ADELINE_MAX_PATH, saveDir,
+                                DIR_NAME_BUGS);
+        initialized = true;
+    }
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, bugPath, bugFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, bugPath, bugFilename);
 }
 
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  static bool initialized = false;
-  static char jinglePath[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    DiscoverEndingAndAppend(jinglePath, ADELINE_MAX_PATH, directoriesResDir,
-                            DIR_NAME_JINGLE);
-    initialized = true;
-  }
+    static bool initialized = false;
+    static char jinglePath[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        DiscoverEndingAndAppend(jinglePath, ADELINE_MAX_PATH, directoriesResDir,
+                                DIR_NAME_JINGLE);
+        initialized = true;
+    }
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, jinglePath, jingleFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, jinglePath, jingleFilename);
 }
 
 // TODO: When direct from CD as resource completely implemented, VOX may
 //  need to be stored in user folder since it is streamed and cached to disk...
 void GetVoicePath(char *outPath, U16 pathMaxSize, const char *voiceFilename,
                   bool fromCD) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  static bool initialized = false;
-  static char voicePathHD[ADELINE_MAX_PATH] = "";
-  static char voicePathCD[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    DiscoverEndingAndAppend(voicePathHD, ADELINE_MAX_PATH, directoriesResDir,
-                            DIR_NAME_VOICE_HD);
+    static bool initialized = false;
+    static char voicePathHD[ADELINE_MAX_PATH] = "";
+    static char voicePathCD[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        DiscoverEndingAndAppend(voicePathHD, ADELINE_MAX_PATH, directoriesResDir,
+                                DIR_NAME_VOICE_HD);
 
-    if (strlen(directoriesCDPrefix) > 0) {
-      DiscoverEndingAndAppend(voicePathCD, ADELINE_MAX_PATH,
-                              directoriesCDPrefix,
-                              ((directoriesDistVersion == UNKNOWN_VERSION) ||
-                               (directoriesDistVersion == EA_VERSION))
-                                  ? DIR_NAME_VOICE_CD
-                                  : DIR_NAME_VOICE_CD_US);
-    } else {
-      // If no CD prefix defined, use folder from resources dir
-      DiscoverEndingAndAppend(voicePathHD, ADELINE_MAX_PATH, directoriesResDir,
-                              DIR_NAME_VOICE_HD);
+        if (strlen(directoriesCDPrefix) > 0) {
+            DiscoverEndingAndAppend(voicePathCD, ADELINE_MAX_PATH,
+                                    directoriesCDPrefix,
+                                    ((directoriesDistVersion == UNKNOWN_VERSION) ||
+                                     (directoriesDistVersion == EA_VERSION))
+                                        ? DIR_NAME_VOICE_CD
+                                        : DIR_NAME_VOICE_CD_US);
+        } else {
+            // If no CD prefix defined, use folder from resources dir
+            DiscoverEndingAndAppend(voicePathHD, ADELINE_MAX_PATH, directoriesResDir,
+                                    DIR_NAME_VOICE_HD);
+        }
+
+        initialized = true;
     }
 
-    initialized = true;
-  }
-
-  if (fromCD) {
-    DiscoverEndingAndAppend(outPath, pathMaxSize, voicePathCD, voiceFilename);
-  } else {
-    DiscoverEndingAndAppend(outPath, pathMaxSize, voicePathHD, voiceFilename);
-  }
+    if (fromCD) {
+        DiscoverEndingAndAppend(outPath, pathMaxSize, voicePathCD, voiceFilename);
+    } else {
+        DiscoverEndingAndAppend(outPath, pathMaxSize, voicePathHD, voiceFilename);
+    }
 }
 
 void GetMoviePath(char *outPath, U16 pathMaxSize, const char *movieFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  static bool initialized = false;
-  static char moviePath[ADELINE_MAX_PATH] = "";
-  if (!initialized) {
-    DiscoverEndingAndAppend(moviePath, ADELINE_MAX_PATH, directoriesResDir,
-                            DIR_NAME_MOVIE);
-    initialized = true;
-  }
+    static bool initialized = false;
+    static char moviePath[ADELINE_MAX_PATH] = "";
+    if (!initialized) {
+        DiscoverEndingAndAppend(moviePath, ADELINE_MAX_PATH, directoriesResDir,
+                                DIR_NAME_MOVIE);
+        initialized = true;
+    }
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, moviePath, movieFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, moviePath, movieFilename);
 }
 
 void GetResPath(char *outPath, U16 pathMaxSize, const char *resFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  // TODO: Review cases when LBA_EDITOR is defined. Some places on
-  //       the codebase contain:
-  /*
+    // TODO: Review cases when LBA_EDITOR is defined. Some places on
+    //       the codebase contain:
+    /*
    * #ifdef LBA_EDITOR
    * strcpy(FileText, PathRessource);
    * #endif
    */
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesResDir, resFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesResDir, resFilename);
 }
 
 void GetLogPath(char *outPath, U16 pathMaxSize, const char *logFilename) {
-  assert(directoriesInitialized);
-  assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(directoriesInitialized);
+    assert((outPath != NULL) && (pathMaxSize > 0));
 
-  DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesUserDir,
-                          logFilename);
+    DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesUserDir,
+                            logFilename);
 }
 
 // =============================================================================

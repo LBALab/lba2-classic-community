@@ -33,8 +33,7 @@ extern "C" void Switch_Fillers(U32 Bank) {
         "call Switch_Fillers_ASM"
         :
         : "a"(Bank)
-        : "memory", "cc"
-    );
+        : "memory", "cc");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -54,7 +53,7 @@ extern "C" void Switch_Fillers(U32 Bank) {
  * The filler returns to our caller (since PolyFast was pushed by call).
  */
 extern "C" S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
-                          Struc_Point *Ptr_Points) {
+                         Struc_Point *Ptr_Points) {
     S32 result;
 
     __asm__ __volatile__(
@@ -64,8 +63,7 @@ extern "C" S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
         : "=a"(result)
         : "a"(Type_Poly), "b"(Color_Poly),
           "c"(Nb_Points), "S"(Ptr_Points)
-        : "edx", "edi", "memory", "cc"
-    );
+        : "edx", "edi", "memory", "cc");
 
     return result;
 }
@@ -89,8 +87,7 @@ extern "C" void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere,
         : "S"(Type_Sphere), "d"(Color_Sphere),
           "a"(Centre_X), "b"(Centre_Y),
           "c"(Rayon), "D"(zBufferValue)
-        : "memory", "cc"
-    );
+        : "memory", "cc");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -104,7 +101,7 @@ extern "C" void Fill_Sphere(S32 Type_Sphere, S32 Color_Sphere,
  * based on Fill_Flag_NZW and Fill_Flag_ZBuffer globals.
  */
 extern "C" void Line_A(S32 x0, S32 y0, S32 x1, S32 y1,
-                        S32 col, S32 z1, S32 z2) {
+                       S32 col, S32 z1, S32 z2) {
     __asm__ __volatile__(
         "push %%ebp\n\t"
         "movl %4, %%ebp\n\t"
@@ -113,6 +110,5 @@ extern "C" void Line_A(S32 x0, S32 y0, S32 x1, S32 y1,
         :
         : "a"(x0), "b"(y0), "c"(x1), "d"(y1), "m"(col),
           "S"(z1), "D"(z2)
-        : "memory", "cc"
-    );
+        : "memory", "cc");
 }

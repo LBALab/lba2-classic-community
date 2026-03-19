@@ -9,113 +9,112 @@
 
  *══════════════════════════════════════════════════════════════════════════*/
 
-extern	S32	FlagHeroOutX ;	// Twinsen sort du cube en X
-extern	S32	FlagHeroOutZ ;	// Twinsen sort du cube en Z
+extern S32 FlagHeroOutX; // Twinsen sort du cube en X
+extern S32 FlagHeroOutZ; // Twinsen sort du cube en Z
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Game
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	void	Init3DExt( void ) ;
+extern void Init3DExt(void);
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	void	Clear3dExt( void ) ;
+extern void Clear3dExt(void);
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	Func_Init3DView	Init3DExtView ;
+extern Func_Init3DView Init3DExtView;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	void	Init3DExtGame( void ) ;
+extern void Init3DExtGame(void);
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 // Map
-extern	Func_InitGrille	InitGrilleExt ;
+extern Func_InitGrille InitGrilleExt;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern	void	AffGrilleExt( void ) ;
+extern void AffGrilleExt(void);
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Graph
 /*--------------------------------------------------------------------------*/
-extern	void	CalculeScaleFactorSprite( S32 x, S32 y, S32 z, S32 scaleorg ) ;
+extern void CalculeScaleFactorSprite(S32 x, S32 y, S32 z, S32 scaleorg);
 
 /*--------------------------------------------------------------------------*/
-extern	void	AffGraphExt( S32 xp, S32 yp, S32 sprite ) ;
+extern void AffGraphExt(S32 xp, S32 yp, S32 sprite);
 
 /*--------------------------------------------------------------------------*/
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Objects
 /*--------------------------------------------------------------------------*/
-extern	Func_GetShadow	GetShadowExt ;
+extern Func_GetShadow GetShadowExt;
 
 /*--------------------------------------------------------------------------*/
-extern	Func_WorldColBrick	WorldColBrickExt ;
+extern Func_WorldColBrick WorldColBrickExt;
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-extern Func_WorldColBrickVisible	WorldColBrickVisibleExt ;
+extern Func_WorldColBrickVisible WorldColBrickVisibleExt;
 
 /*--------------------------------------------------------------------------*/
-extern	Func_ReajustPosExtra	ReajustPosExtraExt ;
+extern Func_ReajustPosExtra ReajustPosExtraExt;
 
 /*--------------------------------------------------------------------------*/
-#ifndef	LBA_EDITOR
-extern	Func_FullWorldColBrick	FullWorldColBrickExt ;
+#ifndef LBA_EDITOR
+extern Func_FullWorldColBrick FullWorldColBrickExt;
 #endif
 
 /*--------------------------------------------------------------------------*/
-extern	S32	TestZVDecorsZV( T_DECORS *objet,
-				S32 xpmin, S32 ypmin, S32 zpmin,
-				S32 xpmax, S32 ypmax, S32 zpmax
-				 ) ;
+extern S32 TestZVDecorsZV(T_DECORS *objet,
+                          S32 xpmin, S32 ypmin, S32 zpmin,
+                          S32 xpmax, S32 ypmax, S32 zpmax);
 
 /*--------------------------------------------------------------------------*/
-extern	U8	WorldColBrickDecors( 	S32 xpmin, S32 ypmin, S32 zpmin,
-					S32 xpmax, S32 ypmax, S32 zpmax ) ;
+extern U8 WorldColBrickDecors(S32 xpmin, S32 ypmin, S32 zpmin,
+                              S32 xpmax, S32 ypmax, S32 zpmax);
 
 /*--------------------------------------------------------------------------*/
-extern	S32	ReajustPosDecors( S32 xmin, S32 zmin,
-				  S32 xmax, S32 zmax,
-				  S32 y0, S32 y1 ) ;
+extern S32 ReajustPosDecors(S32 xmin, S32 zmin,
+                            S32 xmax, S32 zmax,
+                            S32 y0, S32 y1);
 
 /*--------------------------------------------------------------------------*/
-extern	U8	WorldColBrickFullExt( S32 xw, S32 yw, S32 zw ) ;
+extern U8 WorldColBrickFullExt(S32 xw, S32 yw, S32 zw);
 
 /*--------------------------------------------------------------------------*/
-extern	void	InitSkating( void ) ;
+extern void InitSkating(void);
 
 /*--------------------------------------------------------------------------*/
-extern	Func_ReajustPos	ReajustPosExt ;
+extern Func_ReajustPos ReajustPosExt;
 
 /*--------------------------------------------------------------------------*/
-extern	S32    GetSkateBeta( S32 nx, S32 nz ) ;
+extern S32 GetSkateBeta(S32 nx, S32 nz);
 
 /*--------------------------------------------------------------------------*/
-extern	Func_DoAnim	DoAnimExt ;
+extern Func_DoAnim DoAnimExt;
 
 /*--------------------------------------------------------------------------*/
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Tools (PERSO)
-#ifdef	LBA_EDITOR
-extern	void	DrawGrilleFeuille3D( S32 xi, S32 zi ) ;
-extern	S32	GereMouseMovements( S32 boutons ) ;
+#ifdef LBA_EDITOR
+extern void DrawGrilleFeuille3D(S32 xi, S32 zi);
+extern S32 GereMouseMovements(S32 boutons);
 #endif
 
-extern	void 	AffPalette( void ) ;
+extern void AffPalette(void);
 
 /*--------------------------------------------------------------------------*/
-#ifdef	LBA_EDITOR
-extern	S32	GereExtKeys( U32 key, U32 flagmenu ) ;
+#ifdef LBA_EDITOR
+extern S32 GereExtKeys(U32 key, U32 flagmenu);
 #else
-extern	S32	GereExtKeys( U32 key ) ;
+extern S32 GereExtKeys(U32 key);
 #endif
 
 /*--------------------------------------------------------------------------*/
 
-#ifdef	LBA_EDITOR
-extern	void	DrawRepereXYZ( S32 x0, S32 y0, S32 x1, S32 y1 ) ;
-extern	void	DrawCameraInfos( void ) ;
-extern	void	MenuCreateExtZones( void ) ;
+#ifdef LBA_EDITOR
+extern void DrawRepereXYZ(S32 x0, S32 y0, S32 x1, S32 y1);
+extern void DrawCameraInfos(void);
+extern void MenuCreateExtZones(void);
 #endif
 
 /*══════════════════════════════════════════════════════════════════════════*/

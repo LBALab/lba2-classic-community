@@ -1,28 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_FRAME
-#define	LIB_ANI_FRAME
+#ifndef LIB_ANI_FRAME
+#define LIB_ANI_FRAME
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-void	ObjectSetFrame(T_OBJ_3D *obj, U32 frame)	;
+void ObjectSetFrame(T_OBJ_3D *obj, U32 frame);
 
-#pragma aux ObjectSetFrame	"*"		\
-	parm caller	[ebx] [edx]		\
-	modify exact 	[eax ecx edx esi edi]
+#pragma aux ObjectSetFrame "*" parm caller[ebx][edx] modify exact[eax ecx edx esi edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_FRAME
+#endif //LIB_ANI_FRAME
 
 //****************************************************************************
-

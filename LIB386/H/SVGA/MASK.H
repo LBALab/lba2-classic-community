@@ -17,8 +17,8 @@ S32 AffMask(S32 nummask, S32 x, S32 y, void *bankmask);
 // -----------------------------------------------------------------------------
 #define ColorMask(color) ColMask = (U8)(color)
 
-#define GetDxDyMask(nummask, px, py, bankmask)                                 \
-  GetDxDyGraph(nummask, px, py, bankmask)
+#define GetDxDyMask(nummask, px, py, bankmask) \
+    GetDxDyGraph(nummask, px, py, bankmask)
 
 // =============================================================================
 #ifdef __cplusplus

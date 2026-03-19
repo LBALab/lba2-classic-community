@@ -1,32 +1,29 @@
 //****************************************************************************
-#ifndef	LIB_SYSTEM_FASTCPY
-#define	LIB_SYSTEM_FASTCPY
+#ifndef LIB_SYSTEM_FASTCPY
+#define LIB_SYSTEM_FASTCPY
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#pragma aux	Arg_FastCopy	"*"	\
-	parm caller	[edi] [esi] [ecx]	\
-	modify	[eax ebx edx]
+#pragma aux Arg_FastCopy "*" parm caller[edi][esi][ecx] modify[eax ebx edx]
 
-#pragma	aux (Arg_FastCopy)	Func_FastCopy
+#pragma aux(Arg_FastCopy) Func_FastCopy
 
 //****************************************************************************
-extern	void FastCopy(void *dst, void *src, U32 len)	;
+extern void FastCopy(void *dst, void *src, U32 len);
 
-#pragma aux FastCopy	"*"
+#pragma aux FastCopy "*"
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_SYSTEM_FASTCPY
+#endif //LIB_SYSTEM_FASTCPY
 
 //****************************************************************************
-

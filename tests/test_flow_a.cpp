@@ -14,7 +14,7 @@ extern "C" void asm_CopyBlockShade(void);
 extern "C" void call_asm_BoxFlow(S32 x, S32 y, S32 coul);
 extern "C" void call_asm_ShadeBoxBlk(S32 x0, S32 y0, S32 x1, S32 y1, S32 deccoul);
 extern "C" void call_asm_CopyBlockShade(S32 x0, S32 y0, S32 x1, S32 y1,
-                                         U8 *src, S32 xd, S32 yd, U8 *dst, S32 shade);
+                                        U8 *src, S32 xd, S32 yd, U8 *dst, S32 shade);
 
 __asm__(
     ".globl call_asm_BoxFlow\n"
@@ -28,8 +28,7 @@ __asm__(
     "    call asm_BoxFlow\n"
     "    popl %ebx\n"
     "    popl %ebp\n"
-    "    ret\n"
-);
+    "    ret\n");
 
 __asm__(
     ".globl call_asm_ShadeBoxBlk\n"
@@ -44,8 +43,7 @@ __asm__(
     "    call asm_ShadeBoxBlk\n"
     "    addl $20, %esp\n"
     "    popl %ebp\n"
-    "    ret\n"
-);
+    "    ret\n");
 
 __asm__(
     ".globl call_asm_CopyBlockShade\n"
@@ -70,8 +68,7 @@ __asm__(
     "    popl %edi\n"
     "    popl %ebx\n"
     "    popl %ebp\n"
-    "    ret\n"
-);
+    "    ret\n");
 
 void *Log = 0;
 U32 TabOffLine[ADELINE_MAX_Y_RES];
@@ -124,13 +121,16 @@ static void fill_random(U8 *buffer, U32 size) {
 static void test_boxflow_equivalence(void) {
     U8 cpp_log[640 * 480];
     U8 asm_log[640 * 480];
-    struct Case { S32 x; S32 y; S32 color; } cases[] = {
+    struct Case {
+        S32 x;
+        S32 y;
+        S32 color;
+    } cases[] = {
         {10, 10, 0x44},
         {0, 0, 0x7F},
         {638, 478, 0x33},
         {-1, 10, 0x55},
-        {10, 479, 0x66}
-    };
+        {10, 479, 0x66}};
 
     init_globals();
     for (U32 i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
@@ -174,12 +174,17 @@ static void test_boxflow_random_stress(void) {
 static void test_shadeboxblk_equivalence(void) {
     U8 cpp_log[640 * 480 + 640];
     U8 asm_log[640 * 480 + 640];
-    struct Case { S32 x0; S32 y0; S32 x1; S32 y1; S32 dec; } cases[] = {
+    struct Case {
+        S32 x0;
+        S32 y0;
+        S32 x1;
+        S32 y1;
+        S32 dec;
+    } cases[] = {
         {10, 10, 20, 20, 1},
         {-5, 5, 8, 12, 3},
         {630, 470, 638, 478, 7},
-        {0, 0, 638, 478, 5}
-    };
+        {0, 0, 638, 478, 5}};
 
     init_globals();
     rng_seed(0x12345678u);
@@ -227,14 +232,21 @@ static void test_copyblockshade_equivalence(void) {
     U8 cpp_dst[640 * 480];
     U8 asm_dst[640 * 480];
     U8 src[640 * 480];
-    struct Case { S32 x0; S32 y0; S32 x1; S32 y1; S32 xd; S32 yd; S32 shade; } cases[] = {
+    struct Case {
+        S32 x0;
+        S32 y0;
+        S32 x1;
+        S32 y1;
+        S32 xd;
+        S32 yd;
+        S32 shade;
+    } cases[] = {
         {10, 10, 20, 20, 30, 30, 2},
         {0, 0, 0, 0, 100, 100, 1},
         {100, 50, 120, 75, 200, 150, 7},
         {10, 10, 700, 10, 0, 0, 3},
         {20, 20, 25, 19, 40, 40, 4},
-        {10, 10, 20, 500, 50, 50, 5}
-    };
+        {10, 10, 20, 500, 50, 50, 5}};
 
     init_globals();
     rng_seed(0xCAFEBABEu);

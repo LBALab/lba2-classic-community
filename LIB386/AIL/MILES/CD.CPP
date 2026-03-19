@@ -27,8 +27,7 @@ static S32 OldVolumeCD;
 
 // ████████████████████████████████████████████████████████████████████████████
 
-static S32 CheckCD()
-{
+static S32 CheckCD() {
     if (!Cd)
         return FALSE;
 
@@ -37,19 +36,15 @@ static S32 CheckCD()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-char OpenCD(char *volume_name)
-{
+char OpenCD(char *volume_name) {
     char drive;
 
-    for (drive = 'A'; drive <= 'Z'; drive++)
-    {
+    for (drive = 'A'; drive <= 'Z'; drive++) {
         Cd = AIL_redbook_open_drive(drive);
-        if (CheckCD())
-        {
+        if (CheckCD()) {
             Tracks = AIL_redbook_tracks(Cd);
 
-            if (Tracks > 1)
-            {
+            if (Tracks > 1) {
                 AIL_redbook_stop(Cd);
 
                 if (!volume_name || !volume_name[0])
@@ -62,8 +57,7 @@ char OpenCD(char *volume_name)
 
                     sprintf(rootpath, "%c:\\", drive);
 
-                    if (GetDriveType(rootpath) != DRIVE_CDROM)
-                    {
+                    if (GetDriveType(rootpath) != DRIVE_CDROM) {
                         goto error;
                     }
 
@@ -74,13 +68,11 @@ char OpenCD(char *volume_name)
                                               &maxlength,
                                               &fsflags,
                                               NULL,
-                                              0))
-                    {
+                                              0)) {
                         goto error;
                     }
 
-                    if (!strcmp(volume, volume_name))
-                    {
+                    if (!strcmp(volume, volume_name)) {
                         break;
                     }
                 }
@@ -91,10 +83,8 @@ char OpenCD(char *volume_name)
 
                     sprintf(filter, "%c:\\*.*", drive);
 
-                    if (!_dos_findfirst(filter, _A_VOLID, &fileinfo))
-                    {
-                        if (!strcmp(volume_name, fileinfo.name))
-                        {
+                    if (!_dos_findfirst(filter, _A_VOLID, &fileinfo)) {
+                        if (!strcmp(volume_name, fileinfo.name)) {
                             break;
                         }
                     }
@@ -103,31 +93,26 @@ char OpenCD(char *volume_name)
             }
         }
     error:
-        if (Cd)
-        {
+        if (Cd) {
             AIL_redbook_close(Cd);
             Cd = NULL;
         }
     }
 
-    if (Cd)
-    {
+    if (Cd) {
         atexit(CloseCD);
 
         OldVolumeCD = GetVolumeCD();
 
         return drive;
-    }
-    else
-    {
+    } else {
         return 0;
     }
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void CloseCD()
-{
+void CloseCD() {
     if (!Cd)
         return;
 
@@ -144,8 +129,7 @@ void CloseCD()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PlayCD(S32 track)
-{
+void PlayCD(S32 track) {
     U32 start, end;
 
     if (!CheckCD() || !track || (track > Tracks))
@@ -161,17 +145,13 @@ void PlayCD(S32 track)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ChangeVolumeCD(S32 volume)
-{
+void ChangeVolumeCD(S32 volume) {
     if (!CheckCD())
         return;
 
-    if (volume > 127)
-    {
+    if (volume > 127) {
         volume = 127;
-    }
-    else if (volume < 0)
-    {
+    } else if (volume < 0) {
         volume = 0;
     }
 
@@ -180,15 +160,13 @@ void ChangeVolumeCD(S32 volume)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetVolumeCD()
-{
+S32 GetVolumeCD() {
     return AIL_redbook_volume(Cd);
 }
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void StopCD()
-{
+void StopCD() {
     if (!CheckCD() || !Track)
         return;
 
@@ -198,8 +176,7 @@ void StopCD()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void PauseCD()
-{
+void PauseCD() {
     if (!CheckCD() || !Track || !IsCDPlaying())
         return;
 
@@ -212,8 +189,7 @@ void PauseCD()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ResumeCD()
-{
+void ResumeCD() {
     if (!CheckCD() || !PausedTrack)
         return;
 
@@ -224,8 +200,7 @@ void ResumeCD()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 IsCDPlaying()
-{
+S32 IsCDPlaying() {
     S32 playing;
 
     if (!CheckCD() || !Track)
@@ -233,15 +208,12 @@ S32 IsCDPlaying()
 
     playing = (AIL_redbook_status(Cd) != REDBOOK_STOPPED) || PausedTrack;
 
-    if (playing)
-    {
+    if (playing) {
         if (Track)
             playing = Track;
         else
             playing = PausedTrack;
-    }
-    else
-    {
+    } else {
         Track = 0;
     }
 

@@ -7,46 +7,57 @@ extern void RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n);
 extern "C" void asm_RotTransListF(void);
 static void call_asm_RotTransListF(TYPE_MAT *m, TYPE_VT16 *d, TYPE_VT16 *s, S32 n) {
     __asm__ __volatile__("call asm_RotTransListF"
-        : "+c"(n), "+S"(s), "+D"(d) : "b"(m) : "memory");
+                         : "+c"(n), "+S"(s), "+D"(d) : "b"(m) : "memory");
 }
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static TYPE_MAT make_test_mat(void)
-{
+static TYPE_MAT make_test_mat(void) {
     TYPE_MAT m;
     memset(&m, 0, sizeof(m));
-    m.F.M11 = 0.5f; m.F.M12 = 0.3f; m.F.M13 = 0.1f;
-    m.F.M21 = 0.2f; m.F.M22 = 0.8f; m.F.M23 = 0.4f;
-    m.F.M31 = 0.7f; m.F.M32 = 0.6f; m.F.M33 = 0.9f;
-    m.F.TX = 5.0f; m.F.TY = 10.0f; m.F.TZ = 15.0f;
+    m.F.M11 = 0.5f;
+    m.F.M12 = 0.3f;
+    m.F.M13 = 0.1f;
+    m.F.M21 = 0.2f;
+    m.F.M22 = 0.8f;
+    m.F.M23 = 0.4f;
+    m.F.M31 = 0.7f;
+    m.F.M32 = 0.6f;
+    m.F.M33 = 0.9f;
+    m.F.TX = 5.0f;
+    m.F.TY = 10.0f;
+    m.F.TZ = 15.0f;
     return m;
 }
 
-static TYPE_MAT make_alt_test_mat(void)
-{
+static TYPE_MAT make_alt_test_mat(void) {
     TYPE_MAT m;
     memset(&m, 0, sizeof(m));
-    m.F.M11 = -0.75f; m.F.M12 = 0.25f; m.F.M13 = 0.5f;
-    m.F.M21 = 0.125f; m.F.M22 = -0.5f; m.F.M23 = 0.75f;
-    m.F.M31 = 0.625f; m.F.M32 = -0.25f; m.F.M33 = 0.375f;
-    m.F.TX = -24.0f; m.F.TY = 63.0f; m.F.TZ = -11.0f;
+    m.F.M11 = -0.75f;
+    m.F.M12 = 0.25f;
+    m.F.M13 = 0.5f;
+    m.F.M21 = 0.125f;
+    m.F.M22 = -0.5f;
+    m.F.M23 = 0.75f;
+    m.F.M31 = 0.625f;
+    m.F.M32 = -0.25f;
+    m.F.M33 = 0.375f;
+    m.F.TX = -24.0f;
+    m.F.TY = 63.0f;
+    m.F.TZ = -11.0f;
     return m;
 }
 
-static void fill_rand_mat(TYPE_MAT *m)
-{
+static void fill_rand_mat(TYPE_MAT *m) {
     float *values = &m->F.M11;
     memset(m, 0, sizeof(*m));
     for (int index = 0; index < 9; ++index) {
@@ -58,8 +69,7 @@ static void fill_rand_mat(TYPE_MAT *m)
     m->F.TZ = (float)((S32)(rng_next() & 0x1FFu) - 256);
 }
 
-static TYPE_VT16 make_point(S16 x, S16 y, S16 z, S16 grp)
-{
+static TYPE_VT16 make_point(S16 x, S16 y, S16 z, S16 grp) {
     TYPE_VT16 point;
     point.X = x;
     point.Y = y;
@@ -68,8 +78,7 @@ static TYPE_VT16 make_point(S16 x, S16 y, S16 z, S16 grp)
     return point;
 }
 
-static void fill_rand_points(TYPE_VT16 *points, S32 count)
-{
+static void fill_rand_points(TYPE_VT16 *points, S32 count) {
     for (S32 index = 0; index < count; ++index) {
         points[index].X = (S16)((S32)(rng_next() & 0x7FFu) - 1024);
         points[index].Y = (S16)((S32)(rng_next() & 0x7FFu) - 1024);
@@ -78,8 +87,7 @@ static void fill_rand_points(TYPE_VT16 *points, S32 count)
     }
 }
 
-static void assert_rotralif_case(const char *label, const TYPE_MAT *matrix, const TYPE_VT16 *source, S32 count)
-{
+static void assert_rotralif_case(const char *label, const TYPE_MAT *matrix, const TYPE_VT16 *source, S32 count) {
     TYPE_MAT cpp_mat;
     TYPE_MAT asm_mat;
     TYPE_VT16 cpp_src[8];
@@ -104,8 +112,7 @@ static void assert_rotralif_case(const char *label, const TYPE_MAT *matrix, cons
     ASSERT_ASM_CPP_MEM_EQ(source, asm_src, (size_t)count * sizeof(TYPE_VT16), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     TYPE_MAT matrices[] = {
         make_test_mat(),
         make_alt_test_mat(),
@@ -124,8 +131,7 @@ static void test_equivalence(void)
     assert_rotralif_case("RotTransListF alt n=4", &matrices[1], points, 4);
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; ++i) {
         TYPE_MAT matrix;
@@ -140,8 +146,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
