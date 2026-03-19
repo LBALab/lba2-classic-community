@@ -1,65 +1,11 @@
-/*
-			.386P
-			.model FLAT, C
+#include <SYSTEM/ADELINE_TYPES.H>
+#include <MENU/SELECTOR.H>
 
-;----------------------------------------------------------------------------
-			.data
+#include <string.h>
 
-;----------------------------------------------------------------------------
-
-			public	C		MySortCompFunc
-
-;----------------------------------------------------------------------------
-ifdef	REG_CALL
-			extrn	C		strcmp_	:PROC
-else
-			extrn	C		strcmp	:PROC
-endif
-
-;----------------------------------------------------------------------------
-			.code
-
-;//-------------------------------------------------------------------------
-ifdef	REG_CALL
-
-;//-------------------------------------------------------------------------
-MySortCompFunc 		proc
-
-			mov	eax, [eax]
-			mov	edx, [edx]
-
-			jmp	strcmp_
-
-MySortCompFunc		endp
-
-;//-------------------------------------------------------------------------
-else
-
-;//-------------------------------------------------------------------------
-MySortCompFunc 		proc	,\
-			ptra:DWORD, ptrb:DWORD
-
-			mov	eax, [ptrb]
-			mov	edx, [ptra]
-
-			mov	eax, [eax]
-			mov	edx, [edx]
-
-			push	eax
-			push	edx
-
-			call	strcmp
-
-			add	esp, 8
-
-			ret
-
-MySortCompFunc		endp
-
-;//-------------------------------------------------------------------------
-endif
-
-;----------------------------------------------------------------------------
-;				The
-				End
-*/
+int MySortCompFunc(void const *ptra, void const *ptrb)
+{
+	const char *const *left = (const char *const *)ptra;
+	const char *const *right = (const char *const *)ptrb;
+	return strcmp(*left, *right);
+}

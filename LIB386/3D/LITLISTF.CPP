@@ -1,6 +1,7 @@
 #include <3D/LITLISTF.H>
 
 #include <math.h>
+#include <string.h>
 #include <3D/LIGHT.H>
 #include <3D/LIROT3D.H>
 #include <3D/CAMERA.H>
@@ -30,6 +31,9 @@ void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 	float lx = (float)X0 * FactorLight;
 	float ly = (float)Y0 * FactorLight;
 	float lz = (float)Z0 * FactorLight;
+	memcpy(&X0, &lx, sizeof(lx));
+	memcpy(&Y0, &ly, sizeof(ly));
+	memcpy(&Z0, &lz, sizeof(lz));
 
 	for (S32 i = 0; i < n; i++)
 	{
@@ -40,3 +44,5 @@ void LightList(TYPE_MAT *Mat, U16 *dst, TYPE_VT16 *src, S32 n)
 		dst[i] = (value < 0) ? 0 : (U16)value;
 	}
 }
+
+Func_LightList *LightListPtr = LightList;

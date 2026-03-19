@@ -1,16 +1,15 @@
 /* Test: SinTabF/CosTabF - ASM vs CPP equivalence */
 #include "test_harness.h"
 #include <3D/SINTABF.H>
+#include <string.h>
 
 extern "C" float asm_SinTabF[];
 extern "C" float asm_CosTabF[];
 
 static void test_equivalence(void)
 {
-    for (int i = 0; i < 4096; i++)
-        ASSERT_ASM_CPP_NEAR_F(asm_SinTabF[i], SinTabF[i], 0.0001f, "SinTabF");
-    for (int i = 0; i < 4096; i++)
-        ASSERT_ASM_CPP_NEAR_F(asm_CosTabF[i], CosTabF[i], 0.0001f, "CosTabF");
+    ASSERT_ASM_CPP_MEM_EQ(asm_SinTabF, SinTabF, 4096 * sizeof(float), "SinTabF");
+    ASSERT_ASM_CPP_MEM_EQ(asm_CosTabF, CosTabF, 4096 * sizeof(float), "CosTabF");
 }
 
 int main(void)

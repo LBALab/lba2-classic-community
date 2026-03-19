@@ -17,14 +17,16 @@ void CopyBlock(S32 x0, S32 y0, S32 x1, S32 y1, void *src, S32 xd, S32 yd,
 
   if (ClipXMin > x0)
   {
+    S32 clipDeltaX = ClipXMin - x0;
     x0 = ClipXMin;
-    xd += ClipXMin - x0;
+    xd += clipDeltaX;
   }
 
   if (ClipYMin > y0)
   {
+    S32 clipDeltaY = ClipYMin - y0;
     y0 = ClipYMin;
-    yd += ClipYMin - y0;
+    yd += clipDeltaY;
   }
 
   if (x1 > ClipXMax)

@@ -6,55 +6,75 @@
 
 extern "C" void asm_ObjectClear(T_OBJ_3D *obj);
 
-static void test_clears_to_zero(void)
+static U32 rng_state;
+
+static void rng_seed(U32 seed)
 {
-    T_OBJ_3D obj;
-    memset(&obj, 0xFF, sizeof(obj));
-    ObjectClear(&obj);
-    ASSERT_EQ_INT(0, obj.X);
-    ASSERT_EQ_INT(0, obj.Y);
-    ASSERT_EQ_INT(0, obj.Z);
-    ASSERT_EQ_INT(0, obj.Alpha);
-    ASSERT_EQ_INT(0, obj.Status);
+    rng_state = seed;
 }
 
-static void test_sentinels(void)
+static U32 rng_next(void)
 {
-    T_OBJ_3D obj;
-    memset(&obj, 0, sizeof(obj));
-    ObjectClear(&obj);
-    ASSERT_EQ_INT(-1, obj.Body.Num);
-    ASSERT_EQ_INT(-1, obj.NextBody.Num);
-    ASSERT_EQ_INT(-1, obj.Anim.Num);
-    ASSERT_TRUE(obj.Texture == (void *)-1);
-    ASSERT_TRUE(obj.NextTexture == (void *)-1);
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void test_idempotent(void)
+static void fill_random_bytes(void *buffer, size_t size)
 {
-    T_OBJ_3D obj;
-    ObjectClear(&obj);
-    ObjectClear(&obj);
-    ASSERT_EQ_INT(-1, obj.Body.Num);
-    ASSERT_EQ_INT(0, obj.X);
+    U8 *bytes = (U8 *)buffer;
+    for (size_t index = 0; index < size; ++index) {
+        bytes[index] = (U8)(rng_next() & 0xFFu);
+    }
 }
 
-static void test_asm_equiv(void)
+static void assert_clear_case(const char *label, const T_OBJ_3D *initial_obj)
 {
-    T_OBJ_3D cpp_obj, asm_obj;
-    memset(&cpp_obj, 0xAA, sizeof(cpp_obj));
-    memset(&asm_obj, 0xAA, sizeof(asm_obj));
+    T_OBJ_3D cpp_obj;
+    T_OBJ_3D asm_obj;
+
+    memcpy(&cpp_obj, initial_obj, sizeof(cpp_obj));
+    memcpy(&asm_obj, initial_obj, sizeof(asm_obj));
+
     ObjectClear(&cpp_obj);
     asm_ObjectClear(&asm_obj);
-    ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), "ObjectClear");
+
+    ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), label);
+}
+
+static void test_equivalence(void)
+{
+    T_OBJ_3D initial;
+
+    memset(&initial, 0x00, sizeof(initial));
+    assert_clear_case("ObjectClear zero-filled", &initial);
+
+    memset(&initial, 0xFF, sizeof(initial));
+    assert_clear_case("ObjectClear ff-filled", &initial);
+
+    memset(&initial, 0xAA, sizeof(initial));
+    assert_clear_case("ObjectClear aa-filled", &initial);
+
+    memset(&initial, 0x55, sizeof(initial));
+    assert_clear_case("ObjectClear 55-filled", &initial);
+}
+
+static void test_random_equivalence(void)
+{
+    rng_seed(0xDEADBEEFu);
+    for (int i = 0; i < 200; ++i) {
+        T_OBJ_3D initial;
+        char label[64];
+
+        fill_random_bytes(&initial, sizeof(initial));
+        snprintf(label, sizeof(label), "ObjectClear rand %d", i);
+        assert_clear_case(label, &initial);
+    }
 }
 
 int main(void)
 {
-    RUN_TEST(test_clears_to_zero);
-    RUN_TEST(test_sentinels);
-    RUN_TEST(test_idempotent);
-    RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_equivalence);
+    RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;
 }
