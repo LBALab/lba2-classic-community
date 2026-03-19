@@ -10,9 +10,11 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
+#include <SYSTEM/WINDOW.H>
 
 #include <dirent.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -42,43 +44,103 @@ S32 FlagShowEndDemo = FALSE;
 
 #define MAX_MAIN_MENUS 6
 
+#define MENU_ID_SOUND_VOLUME 2000
+#define MENU_ID_CHOOSE_LANGUAGE 2001
+#define MENU_ID_ADVANCED_OPTIONS 2002
+#define MENU_ID_TEXT_LANGUAGE 2003
+#define MENU_ID_VOICE_LANGUAGE 2004
+#define MENU_ID_STEREO_CHANNELS 2005
+#define MENU_ID_MOVIE_CAMERA 2006
+#define MENU_ID_VIDEO_SIZE 2007
+#define MENU_ID_DISPLAY_FULLSCREEN 2008
+#define MENU_ID_DISPLAY_TEXT 2009
+#define MENU_ID_GENERAL_VOLUME 2010
+
+#define MENU_TYPE_TEXT_LANGUAGE 8
+#define MENU_TYPE_VOICE_LANGUAGE 9
+
 char NewGameTxt[20]; // ATTENTION: max 19 chars
 
 U16 GameMainMenu[4 + MAX_MAIN_MENUS * 2];
 
 // Menu Principal Complet permettant de construire GameMainMenu
 U16 RealGameMainMenu[] = {
-    0,     // selected
-    6,     // nb entries
-    335,   // y center
-    0,     // .dia num
-    0, 70, // reprendre partie
-    0, 71, // nouvelle partie
-    0, 72, // charger partie
-    0, 73, // sauver partie
-    0, 74, // Options
-    0, 75, // Quitter
+    0,   // selected
+    6,   // nb entries
+    335, // y center
+    0,   // .dia num
+    0,
+    70, // reprendre partie
+    0,
+    71, // nouvelle partie
+    0,
+    72, // charger partie
+    0,
+    73, // sauver partie
+    0,
+    74, // Options
+    0,
+    75, // Quitter
 };
-
-#define MENU_CAMERA 4
-#define MENU_STEREO 2
-#define MENU_FULL_SCREEN 6
-#define MENU_DISPLAY_TEXT 7
 
 U16 GameOptionMenu[] = {
     0,   // selected
-    8,   // nb entries
+    5,   // nb entries
     260, // y center
     0,   // .dia num
 
-    0, 26, // menu precedent
-    0, 11, // reglage volumes
-    0, 12, // Reverse Stereo ON/OFF
-    7, 45, // Niveau des détails
-    0, 47, // Cameras Scénariques ON/OFF
-    0, 14, // Configuration Clavier
-    0, 27, // Video FullScreen ON/OFF
-    0, 16, // Afficher les Textes ON/OFF
+    0,
+    26, // menu precedent
+    0,
+    MENU_ID_SOUND_VOLUME,
+    0,
+    MENU_ID_CHOOSE_LANGUAGE,
+    0,
+    MENU_ID_ADVANCED_OPTIONS,
+    0,
+    14, // Configuration Clavier
+};
+
+U16 LanguageMenu[] = {
+    0, // selected
+#ifdef CDROM
+    3, // nb entries
+#else
+    2, // nb entries
+#endif
+    260, // y center
+    0,   // .dia num
+
+    0,
+    26, // menu precedent
+    MENU_TYPE_TEXT_LANGUAGE,
+    MENU_ID_TEXT_LANGUAGE,
+#ifdef CDROM
+    MENU_TYPE_VOICE_LANGUAGE,
+    MENU_ID_VOICE_LANGUAGE,
+#endif
+};
+
+U16 AdvancedOptionMenu[] = {
+    0,   // selected
+    7,   // nb entries
+    260, // y center
+    0,   // .dia num
+
+    0,
+    26, // menu precedent
+    0,
+    MENU_ID_STEREO_CHANNELS,
+    7,
+    45, // Niveau des détails
+    0,
+    MENU_ID_MOVIE_CAMERA,
+    0,
+    MENU_ID_VIDEO_SIZE,
+    0,
+    MENU_ID_DISPLAY_FULLSCREEN,
+    0,
+    MENU_ID_DISPLAY_TEXT,
 };
 
 U16 SavedConfirmMenu[] = {
@@ -113,10 +175,14 @@ U16 VolumeMenu[] = {
     240, // y center
     0,   // .dia num
 
-    0, 26, // menu precedent
-    2, 19, // reglage volume samples
-    4, 21, // reglage volume musiques (Jingles)
-    6, 23, // reglage volume Master
+    0,
+    26, // menu precedent
+    2,
+    19, // reglage volume samples
+    4,
+    21, // reglage volume musiques (Jingles)
+    6,
+    MENU_ID_GENERAL_VOLUME,
 };
 #else
 U16 *VolumeMenu;
@@ -124,30 +190,37 @@ U16 *VolumeMenu;
 U16 VolumeMenuVoice[] = {
     // integere volume des voix
     0,   // selected
-    6,   // nb entries
+    5,   // nb entries
     240, // y center
     0,   // .dia num
 
-    0, 26, // menu precedent
-    2, 19, // reglage volume samples
-    3, 20, // reglage volume voix
-    4, 21, // reglage volume musiques (Jingles)
-    5, 22, // reglage volume CD
-    6, 23, // reglage volume Master
+    0,
+    26, // menu precedent
+    2,
+    19, // reglage volume samples
+    3,
+    20, // reglage volume voix
+    4,
+    21, // reglage volume musiques (Jingles)
+    6,
+    MENU_ID_GENERAL_VOLUME,
 };
 
 U16 VolumeMenuNoVoice[] = {
     // integere volume des voix
     0,   // selected
-    5,   // nb entries
+    4,   // nb entries
     240, // y center
     0,   // .dia num
 
-    0, 26, // menu precedent
-    2, 19, // reglage volume samples
-    4, 21, // reglage volume musiques (Jingles)
-    5, 22, // reglage volume CD
-    6, 23, // reglage volume Master
+    0,
+    26, // menu precedent
+    2,
+    19, // reglage volume samples
+    4,
+    21, // reglage volume musiques (Jingles)
+    6,
+    MENU_ID_GENERAL_VOLUME,
 };
 #endif
 
@@ -174,9 +247,457 @@ S32 MenuIncrustSprite = -1;
 
 S32 SelectPlayer = 0;
 
+enum MenuLocalizedLabel {
+    MENU_LABEL_CHOOSE_LANGUAGE,
+    MENU_LABEL_ADVANCED_OPTIONS,
+    MENU_LABEL_TEXT_LANGUAGE,
+    MENU_LABEL_VOICE_LANGUAGE,
+    MENU_LABEL_DISPLAY_FULLSCREEN_OFF,
+    MENU_LABEL_DISPLAY_FULLSCREEN_ON,
+    MENU_LABEL_COUNT,
+};
+
+static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
+    {
+        "Choose language",
+        "Advanced options",
+        "Texts: %s",
+        "Voices: %s",
+        "Fullscreen display: OFF",
+        "Fullscreen display: ON",
+    },
+    {
+        "Choix de la langue",
+        "Options avancées",
+        "Textes : %s",
+        "Voix : %s",
+        "Affichage plein écran : OFF",
+        "Affichage plein écran : ON",
+    },
+    {
+        "Sprachauswahl",
+        "Vorgeschlagene Optionen",
+        "Texte: %s",
+        "Stimmen: %s",
+        "Vollbildanzeige: OFF",
+        "Vollbildanzeige: ON",
+    },
+    {
+        "Elegir idioma",
+        "Opciones avanzadas",
+        "Textos: %s",
+        "Voces: %s",
+        "Pantalla completa: OFF",
+        "Pantalla completa: ON",
+    },
+    {
+        "Scegli lingua",
+        "Opzioni avanzate",
+        "Testi: %s",
+        "Voci: %s",
+        "A schermo intero: OFF",
+        "A schermo intero: ON",
+    },
+    {
+        "Escolha do idioma",
+        "Opções avançadas",
+        "Texto: %s",
+        "Voz: %s",
+        "Exibição em tela cheia: OFF",
+        "Exibição em tela cheia: ON",
+    },
+};
+
 /*──────────────────────────────────────────────────────────────────────────*/
 
 #define SIZE_FOUND_OBJ 130
+
+static U8 UnicodeToCp850(U32 codePoint) {
+    if (codePoint < 0x80) {
+        return (U8)codePoint;
+    }
+
+    switch (codePoint) {
+    case 0x00A0:
+        return 0xFF;
+    case 0x00A1:
+        return 0xAD;
+    case 0x00A2:
+        return 0xBD;
+    case 0x00A3:
+        return 0x9C;
+    case 0x00A4:
+        return 0xCF;
+    case 0x00A5:
+        return 0xBE;
+    case 0x00A6:
+        return 0xDD;
+    case 0x00A7:
+        return 0xF5;
+    case 0x00A8:
+        return 0xF9;
+    case 0x00A9:
+        return 0xB8;
+    case 0x00AA:
+        return 0xA6;
+    case 0x00AB:
+        return 0xAE;
+    case 0x00AC:
+        return 0xAA;
+    case 0x00AD:
+        return 0xF0;
+    case 0x00AE:
+        return 0xA9;
+    case 0x00AF:
+        return 0xEE;
+    case 0x00B0:
+        return 0xF8;
+    case 0x00B1:
+        return 0xF1;
+    case 0x00B2:
+        return 0xFD;
+    case 0x00B3:
+        return 0xFC;
+    case 0x00B4:
+        return 0xEF;
+    case 0x00B5:
+        return 0xE6;
+    case 0x00B6:
+        return 0xF4;
+    case 0x00B7:
+        return 0xFA;
+    case 0x00B8:
+        return 0xF7;
+    case 0x00B9:
+        return 0xFB;
+    case 0x00BA:
+        return 0xA7;
+    case 0x00BB:
+        return 0xAF;
+    case 0x00BC:
+        return 0xAC;
+    case 0x00BD:
+        return 0xAB;
+    case 0x00BE:
+        return 0xF3;
+    case 0x00BF:
+        return 0xA8;
+    case 0x00C0:
+        return 0xB7;
+    case 0x00C1:
+        return 0xB5;
+    case 0x00C2:
+        return 0xB6;
+    case 0x00C3:
+        return 0xC7;
+    case 0x00C4:
+        return 0x8E;
+    case 0x00C5:
+        return 0x8F;
+    case 0x00C6:
+        return 0x92;
+    case 0x00C7:
+        return 0x80;
+    case 0x00C8:
+        return 0xD4;
+    case 0x00C9:
+        return 0x90;
+    case 0x00CA:
+        return 0xD2;
+    case 0x00CB:
+        return 0xD3;
+    case 0x00CC:
+        return 0xDE;
+    case 0x00CD:
+        return 0xD6;
+    case 0x00CE:
+        return 0xD7;
+    case 0x00CF:
+        return 0xD8;
+    case 0x00D0:
+        return 0xD1;
+    case 0x00D1:
+        return 0xA5;
+    case 0x00D2:
+        return 0xE3;
+    case 0x00D3:
+        return 0xE0;
+    case 0x00D4:
+        return 0xE2;
+    case 0x00D5:
+        return 0xE5;
+    case 0x00D6:
+        return 0x99;
+    case 0x00D7:
+        return 0x9E;
+    case 0x00D8:
+        return 0x9D;
+    case 0x00D9:
+        return 0xEB;
+    case 0x00DA:
+        return 0xE9;
+    case 0x00DB:
+        return 0xEA;
+    case 0x00DC:
+        return 0x9A;
+    case 0x00DD:
+        return 0xED;
+    case 0x00DE:
+        return 0xE8;
+    case 0x00DF:
+        return 0xE1;
+    case 0x00E0:
+        return 0x85;
+    case 0x00E1:
+        return 0xA0;
+    case 0x00E2:
+        return 0x83;
+    case 0x00E3:
+        return 0xC6;
+    case 0x00E4:
+        return 0x84;
+    case 0x00E5:
+        return 0x86;
+    case 0x00E6:
+        return 0x91;
+    case 0x00E7:
+        return 0x87;
+    case 0x00E8:
+        return 0x8A;
+    case 0x00E9:
+        return 0x82;
+    case 0x00EA:
+        return 0x88;
+    case 0x00EB:
+        return 0x89;
+    case 0x00EC:
+        return 0x8D;
+    case 0x00ED:
+        return 0xA1;
+    case 0x00EE:
+        return 0x8C;
+    case 0x00EF:
+        return 0x8B;
+    case 0x00F0:
+        return 0xD0;
+    case 0x00F1:
+        return 0xA4;
+    case 0x00F2:
+        return 0x95;
+    case 0x00F3:
+        return 0xA2;
+    case 0x00F4:
+        return 0x93;
+    case 0x00F5:
+        return 0xE4;
+    case 0x00F6:
+        return 0x94;
+    case 0x00F7:
+        return 0xF6;
+    case 0x00F8:
+        return 0x9B;
+    case 0x00F9:
+        return 0x97;
+    case 0x00FA:
+        return 0xA3;
+    case 0x00FB:
+        return 0x96;
+    case 0x00FC:
+        return 0x81;
+    case 0x00FD:
+        return 0xEC;
+    case 0x00FE:
+        return 0xE7;
+    case 0x00FF:
+        return 0x98;
+    case 0x0131:
+        return 0xD5;
+    case 0x0192:
+        return 0x9F;
+    case 0x2018:
+    case 0x2019:
+        return '\'';
+    case 0x201C:
+    case 0x201D:
+        return '"';
+    case 0x2013:
+    case 0x2014:
+        return '-';
+    case 0x2026:
+        return '.';
+    default:
+        return '?';
+    }
+}
+
+static void CopyUtf8ToCp850(char *dst, size_t dstSize, const char *src) {
+    const U8 *ptr = (const U8 *)src;
+    size_t outIndex = 0;
+
+    if (dstSize == 0) {
+        return;
+    }
+
+    while (*ptr != '\0' && outIndex + 1 < dstSize) {
+        U8 first = *ptr;
+
+        if (first < 0x80) {
+            dst[outIndex++] = (char)first;
+            ptr++;
+            continue;
+        }
+
+        if ((first & 0xE0) == 0xC0 && (ptr[1] & 0xC0) == 0x80) {
+            U32 codePoint = ((U32)(first & 0x1F) << 6) | (U32)(ptr[1] & 0x3F);
+            dst[outIndex++] = (char)UnicodeToCp850(codePoint);
+            ptr += 2;
+            continue;
+        }
+
+        if ((first & 0xF0) == 0xE0 && (ptr[1] & 0xC0) == 0x80 && (ptr[2] & 0xC0) == 0x80) {
+            U32 codePoint = ((U32)(first & 0x0F) << 12) |
+                            ((U32)(ptr[1] & 0x3F) << 6) |
+                            (U32)(ptr[2] & 0x3F);
+            dst[outIndex++] = (char)UnicodeToCp850(codePoint);
+            ptr += 3;
+            continue;
+        }
+
+        dst[outIndex++] = (char)first;
+        ptr++;
+    }
+
+    dst[outIndex] = '\0';
+}
+
+static void CopyWrappedMenuString(char *dst, size_t dstSize, const char *src) {
+    CopyUtf8ToCp850(dst, dstSize, src);
+}
+
+static void FormatWrappedMenuString(char *dst, size_t dstSize, const char *fmt, ...) {
+    char utf8Buffer[256];
+    va_list args;
+
+    va_start(args, fmt);
+    vsnprintf(utf8Buffer, sizeof(utf8Buffer), fmt, args);
+    va_end(args);
+
+    CopyUtf8ToCp850(dst, dstSize, utf8Buffer);
+}
+
+static S32 GetMenuLanguageIndex(void) {
+    S32 language = Language;
+
+    if (language < 0 OR language >= GetLanguageCount()) {
+        language = 1;
+    }
+
+    return language;
+}
+
+static const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
+    return LocalizedMenuLabels[GetMenuLanguageIndex()][label];
+}
+
+static void BuildCustomMenuText(S32 num, char *string) {
+    switch (num) {
+    case MENU_ID_SOUND_VOLUME:
+        GetMultiText(11, string);
+        break;
+
+    case MENU_ID_CHOOSE_LANGUAGE:
+        CopyWrappedMenuString(string, 256, GetLocalizedMenuLabel(MENU_LABEL_CHOOSE_LANGUAGE));
+        break;
+
+    case MENU_ID_ADVANCED_OPTIONS:
+        CopyWrappedMenuString(string, 256, GetLocalizedMenuLabel(MENU_LABEL_ADVANCED_OPTIONS));
+        break;
+
+    case MENU_ID_TEXT_LANGUAGE:
+        FormatWrappedMenuString(string, 256, GetLocalizedMenuLabel(MENU_LABEL_TEXT_LANGUAGE), GetLanguageName(Language));
+        break;
+
+    case MENU_ID_VOICE_LANGUAGE:
+#ifdef CDROM
+        FormatWrappedMenuString(string, 256, GetLocalizedMenuLabel(MENU_LABEL_VOICE_LANGUAGE), GetLanguageName(LanguageCD));
+#else
+        string[0] = 0;
+#endif
+        break;
+
+    case MENU_ID_STEREO_CHANNELS:
+        GetMultiText(12 + ReverseStereo, string);
+        break;
+
+    case MENU_ID_MOVIE_CAMERA:
+        GetMultiText(46 + AllCameras, string);
+        break;
+
+    case MENU_ID_VIDEO_SIZE:
+        GetMultiText(27 + VideoFullScreen, string);
+        break;
+
+    case MENU_ID_DISPLAY_FULLSCREEN:
+        CopyWrappedMenuString(string, 256, GetLocalizedMenuLabel(DisplayFullScreen ? MENU_LABEL_DISPLAY_FULLSCREEN_ON : MENU_LABEL_DISPLAY_FULLSCREEN_OFF));
+        break;
+
+    case MENU_ID_DISPLAY_TEXT:
+        GetMultiText(16 + FlagDisplayText, string);
+        break;
+
+    case MENU_ID_GENERAL_VOLUME:
+        GetMultiText(23, string);
+        break;
+
+    default:
+        GetMultiText(num, string);
+        break;
+    }
+}
+
+static void CycleTextLanguage(S32 step) {
+    const S32 count = GetLanguageCount();
+
+    if (count <= 0) {
+        return;
+    }
+
+    Language += step;
+    if (Language < 0)
+        Language = count - 1;
+    if (Language >= count)
+        Language = 0;
+
+    ReloadMultiTextFile(0);
+}
+
+#ifdef CDROM
+static void ClampVoiceLanguage(void) {
+    const S32 count = GetVoiceLanguageCount();
+
+    if (LanguageCD < 0 OR LanguageCD >= count) {
+        LanguageCD = 1;
+    }
+}
+
+static void CycleVoiceLanguage(S32 step) {
+    const S32 count = GetVoiceLanguageCount();
+
+    if (count <= 0) {
+        return;
+    }
+
+    ClampVoiceLanguage();
+
+    LanguageCD += step;
+    if (LanguageCD < 0)
+        LanguageCD = count - 1;
+    if (LanguageCD >= count)
+        LanguageCD = 0;
+
+    FlagSpeak = SamplesEnable;
+}
+#endif
 
 /*══════════════════════════════════════════════════════════════════════════*
  *══════════════════════════════════════════════════════════════════════════*/
@@ -1468,7 +1989,7 @@ void DrawOneChoice(S32 x, S32 y, S32 type, S32 num, S32 select) {
     // text
 
     ColorFont(CoulTextMenu);
-    GetMultiText(num, string);
+    BuildCustomMenuText(num, string);
 
     //----------------------------------------------------------------------------
     MemoClip();
@@ -1789,6 +2310,40 @@ S32 DoGameMenu(U16 *ptrmenu) {
                 InitWaitNoKey();
             }
             break;
+
+        case MENU_TYPE_TEXT_LANGUAGE:
+            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
+                CycleTextLanguage(-1);
+                flag = 1;
+                InitWaitNoInput(I_LEFT);
+                InitWaitNoKey();
+            }
+
+            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)) {
+                CycleTextLanguage(1);
+                flag = 1;
+                InitWaitNoInput(I_RIGHT);
+                InitWaitNoKey();
+            }
+            break;
+
+#ifdef CDROM
+        case MENU_TYPE_VOICE_LANGUAGE:
+            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
+                CycleVoiceLanguage(-1);
+                flag = 1;
+                InitWaitNoInput(I_LEFT);
+                InitWaitNoKey();
+            }
+
+            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)) {
+                CycleVoiceLanguage(1);
+                flag = 1;
+                InitWaitNoInput(I_RIGHT);
+                InitWaitNoKey();
+            }
+            break;
+#endif
         }
 
         if (flag == 1) {
@@ -1969,6 +2524,114 @@ S32 GereVolumeMenu(void) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+S32 GereLanguageMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+#ifdef CDROM
+    ClampVoiceLanguage();
+#endif
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(LanguageMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case MENU_ID_TEXT_LANGUAGE:
+            CycleTextLanguage(1);
+            break;
+
+#ifdef CDROM
+        case MENU_ID_VOICE_LANGUAGE:
+            CycleVoiceLanguage(1);
+            break;
+#endif
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+/*══════════════════════════════════════════════════════════════════════════*/
+/*──────────────────────────────────────────────────────────────────────────*/
+
+S32 GereAdvancedOptionsMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(AdvancedOptionMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case MENU_ID_STEREO_CHANNELS:
+            ReverseStereo ^= 1;
+            InverseStereoSample(ReverseStereo);
+            break;
+
+        case MENU_ID_MOVIE_CAMERA:
+            AllCameras ^= 1;
+            break;
+
+        case MENU_ID_VIDEO_SIZE:
+            VideoFullScreen ^= 1;
+            break;
+
+        case MENU_ID_DISPLAY_FULLSCREEN:
+            DisplayFullScreen ^= 1;
+            SetWindowFullscreen(DisplayFullScreen != FALSE);
+            break;
+
+        case MENU_ID_DISPLAY_TEXT:
+            if (FlagSpeak) {
+                FlagDisplayText ^= 1;
+            } else {
+                FlagDisplayText = TRUE;
+            }
+            break;
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+/*══════════════════════════════════════════════════════════════════════════*/
+/*──────────────────────────────────────────────────────────────────────────*/
+
 S32 OptionsMenu(S32 flagflip) {
     S32 select;
     S32 flag = 0;
@@ -1992,23 +2655,9 @@ S32 OptionsMenu(S32 flagflip) {
     PlayMusic(CD_TRACK_MENU, TRUE);
 #endif
 
-#ifdef DEMO
-    GameOptionMenu[1] = 6;
-#else
-    // interdire option FlagDisplayText si pas de voix
-
-    if (FlagSpeak)
-        GameOptionMenu[1] = 8;
-    else
-        GameOptionMenu[1] = 7;
-#endif
+    GameOptionMenu[1] = 5;
 
     while (!flag) {
-        GameOptionMenu[4 + 0 + MENU_CAMERA * 2 + 1] = (S16)(46 + AllCameras);
-        GameOptionMenu[4 + 0 + MENU_STEREO * 2 + 1] = (S16)(12 + ReverseStereo);
-        GameOptionMenu[4 + 0 + MENU_DISPLAY_TEXT * 2 + 1] = (S16)(16 + FlagDisplayText);
-        GameOptionMenu[4 + 0 + MENU_FULL_SCREEN * 2 + 1] = (S16)(27 + VideoFullScreen);
-
         select = DoGameMenu(GameOptionMenu);
 
         switch (select) // num mess
@@ -2019,33 +2668,20 @@ S32 OptionsMenu(S32 flagflip) {
             flag = 1;
             break;
 
-        case 47: // Caméra Scénarique ON
-        case 46: // Caméra Scénarique OFF
-            AllCameras ^= 1;
-            break;
-
-        case 11: // Reglage des volumes
+        case MENU_ID_SOUND_VOLUME:
             GereVolumeMenu();
             break;
 
-        case 12: // Stéréo Inverse OFF
-        case 13: // Stéréo Inverse ON
-            ReverseStereo ^= 1;
-            InverseStereoSample(ReverseStereo);
+        case MENU_ID_CHOOSE_LANGUAGE:
+            GereLanguageMenu();
             break;
 
         case 14: // Configuration Clavier
             MenuConfig();
             break;
 
-        case 16: // Display Text Off
-        case 17: // Display Text On
-            FlagDisplayText ^= 1;
-            break;
-
-        case 27: // Vidéos réduites
-        case 28: // Vidéos Plein Ecran
-            VideoFullScreen ^= 1;
+        case MENU_ID_ADVANCED_OPTIONS:
+            GereAdvancedOptionsMenu();
             break;
         }
     }

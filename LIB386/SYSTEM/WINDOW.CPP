@@ -24,6 +24,7 @@ SDL_Renderer *sdlRenderer = NULL;
 SDL_Texture *sdlTexture = NULL;
 U32 windowSurfaceResX = 0;
 U32 windowSurfaceResY = 0;
+bool windowFullscreenEnabled = false;
 
 static void ComputePresentationRect(SDL_FRect *dstRect) {
     assert(dstRect != NULL);
@@ -128,6 +129,14 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
                   "\tSDL message: %s\n",
                   resX, resY, errorMsg);
         return false;
+    }
+
+    if (windowFullscreenEnabled && !SDL_SetWindowFullscreen(sdlWindow, true)) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Warning: Unable to switch SDL window to fullscreen.\n"
+                  "\tSDL message: %s\n",
+                  errorMsg);
+        windowFullscreenEnabled = false;
     }
 
     sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
@@ -238,6 +247,31 @@ void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surface
     if (*surfaceY >= (S32)windowSurfaceResY) {
         *surfaceY = (S32)windowSurfaceResY - 1;
     }
+}
+
+void SetWindowFullscreen(bool fullscreen) {
+    windowFullscreenEnabled = fullscreen;
+
+    if (sdlWindow == NULL) {
+        return;
+    }
+
+    if (!SDL_SetWindowFullscreen(sdlWindow, fullscreen)) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Warning: Unable to change SDL fullscreen state to %d.\n"
+                  "\tSDL message: %s\n",
+                  fullscreen ? 1 : 0, errorMsg);
+        windowFullscreenEnabled = !fullscreen;
+        return;
+    }
+
+    if ((sdlRenderer != NULL) && (sdlTexture != NULL)) {
+        PresentCurrentTexture();
+    }
+}
+
+bool GetWindowFullscreen() {
+    return windowFullscreenEnabled;
 }
 
 void ManageWindow() {
