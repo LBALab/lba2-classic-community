@@ -10,26 +10,22 @@ extern "C" void asm_SetIsoProjection(S32 xc, S32 yc);
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static U32 float_bits(float value)
-{
+static U32 float_bits(float value) {
     U32 bits;
     memcpy(&bits, &value, sizeof(bits));
     return bits;
 }
 
-static void seed_projection_globals(void)
-{
+static void seed_projection_globals(void) {
     XCentre = -111;
     YCentre = -222;
     NearClip = -333;
@@ -40,8 +36,7 @@ static void seed_projection_globals(void)
     FRatioY = -456.5f;
 }
 
-static void assert_set_projection_case(const char *label, S32 xc, S32 yc, S32 clip, S32 fx, S32 fy)
-{
+static void assert_set_projection_case(const char *label, S32 xc, S32 yc, S32 clip, S32 fx, S32 fy) {
     seed_projection_globals();
     asm_SetProjection(xc, yc, clip, fx, fy);
     S32 asm_xc = XCentre;
@@ -66,8 +61,7 @@ static void assert_set_projection_case(const char *label, S32 xc, S32 yc, S32 cl
     ASSERT_EQ_UINT(asm_fry, float_bits(FRatioY));
 }
 
-static void assert_set_iso_projection_case(const char *label, S32 xc, S32 yc)
-{
+static void assert_set_iso_projection_case(const char *label, S32 xc, S32 yc) {
     seed_projection_globals();
     asm_SetIsoProjection(xc, yc);
     S32 asm_xc = XCentre;
@@ -92,16 +86,17 @@ static void assert_set_iso_projection_case(const char *label, S32 xc, S32 yc)
     ASSERT_EQ_UINT(asm_fry, float_bits(FRatioY));
 }
 
-static void test_setprojection_equivalence(void)
-{
-    struct { S32 xc,yc,cl,fx,fy; } cases[] = {
-        {320,240,10,500,400},
-        {0,0,1,100,100},
-        {640,480,50,1000,800},
-        {123,456,7,321,654},
-        {1,2,255,4096,2048},
+static void test_setprojection_equivalence(void) {
+    struct {
+        S32 xc, yc, cl, fx, fy;
+    } cases[] = {
+        {320, 240, 10, 500, 400},
+        {0, 0, 1, 100, 100},
+        {640, 480, 50, 1000, 800},
+        {123, 456, 7, 321, 654},
+        {1, 2, 255, 4096, 2048},
     };
-    for (int i=0;i<(int)(sizeof(cases)/sizeof(cases[0]));i++) {
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); i++) {
         char lbl[96];
         snprintf(lbl, sizeof(lbl), "SetProjection fixed xc=%d yc=%d cl=%d fx=%d fy=%d",
                  cases[i].xc, cases[i].yc, cases[i].cl, cases[i].fx, cases[i].fy);
@@ -109,24 +104,24 @@ static void test_setprojection_equivalence(void)
     }
 }
 
-static void test_setprojection_random_equivalence(void)
-{
+static void test_setprojection_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
-    for (int i=0;i<200;i++) {
-        S32 xc=(S32)(rng_next()%1280u);
-        S32 yc=(S32)(rng_next()%960u);
-        S32 cl=(S32)(rng_next()%255u)+1;
-        S32 fx=(S32)(rng_next()%4096u)+1;
-        S32 fy=(S32)(rng_next()%4096u)+1;
+    for (int i = 0; i < 200; i++) {
+        S32 xc = (S32)(rng_next() % 1280u);
+        S32 yc = (S32)(rng_next() % 960u);
+        S32 cl = (S32)(rng_next() % 255u) + 1;
+        S32 fx = (S32)(rng_next() % 4096u) + 1;
+        S32 fy = (S32)(rng_next() % 4096u) + 1;
         char lbl[96];
         snprintf(lbl, sizeof(lbl), "SetProjection rand xc=%d yc=%d cl=%d fx=%d fy=%d", xc, yc, cl, fx, fy);
         assert_set_projection_case(lbl, xc, yc, cl, fx, fy);
     }
 }
 
-static void test_setisoprojection_equivalence(void)
-{
-    struct { S32 xc, yc; } cases[] = {
+static void test_setisoprojection_equivalence(void) {
+    struct {
+        S32 xc, yc;
+    } cases[] = {
         {320, 240},
         {0, 0},
         {640, 480},
@@ -141,8 +136,7 @@ static void test_setisoprojection_equivalence(void)
     }
 }
 
-static void test_setisoprojection_random_equivalence(void)
-{
+static void test_setisoprojection_random_equivalence(void) {
     rng_seed(0xC0FFEEu);
     for (int i = 0; i < 200; ++i) {
         S32 xc = (S32)(rng_next() % 1280u) - 320;
@@ -153,8 +147,7 @@ static void test_setisoprojection_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_setprojection_equivalence);
     RUN_TEST(test_setprojection_random_equivalence);
     RUN_TEST(test_setisoprojection_equivalence);

@@ -9,18 +9,15 @@
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
-T_CLICK_BOX *GetPtrLcb(T_MENU *ptrmenu, S32 handle)
-{
+T_CLICK_BOX *GetPtrLcb(T_MENU *ptrmenu, S32 handle) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
 
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             return ptrlcb;
         }
         ptrlcb++;
@@ -30,18 +27,15 @@ T_CLICK_BOX *GetPtrLcb(T_MENU *ptrmenu, S32 handle)
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
-void SwitchButton(T_MENU *ptrmenu, S32 handle)
-{
+void SwitchButton(T_MENU *ptrmenu, S32 handle) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
 
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             ptrlcb->Flags ^= FLAG_PUSHED;
 
             return;
@@ -53,21 +47,17 @@ void SwitchButton(T_MENU *ptrmenu, S32 handle)
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
-void ChangeButtonFlags(T_MENU *ptrmenu, S32 handle, S32 flags, S32 flagaff)
-{
+void ChangeButtonFlags(T_MENU *ptrmenu, S32 handle, S32 flags, S32 flagaff) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
 
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             ptrlcb->Flags = flags;
-            if (flagaff)
-            {
+            if (flagaff) {
                 DrawBox(ptrmenu, n, NO_FLAG);
             }
             return;
@@ -78,18 +68,15 @@ void ChangeButtonFlags(T_MENU *ptrmenu, S32 handle, S32 flags, S32 flagaff)
 
 /*──────────────────────────────────────────────────────────────────────────*/
 //	Remise en fonction le 09/10/95
-S32 GetButtonFlags(T_MENU *ptrmenu, S32 handle)
-{
+S32 GetButtonFlags(T_MENU *ptrmenu, S32 handle) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
 
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             return ptrlcb->Flags;
         }
         ptrlcb++;
@@ -100,21 +87,17 @@ S32 GetButtonFlags(T_MENU *ptrmenu, S32 handle)
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
-void ChangeButtonString(T_MENU *ptrmenu, S32 handle, char *string, S32 flagaff)
-{
+void ChangeButtonString(T_MENU *ptrmenu, S32 handle, char *string, S32 flagaff) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
 
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             ptrlcb->PtrString = string;
-            if (flagaff)
-            {
+            if (flagaff) {
                 DrawBox(ptrmenu, n, NO_FLAG);
             }
             return;
@@ -125,18 +108,15 @@ void ChangeButtonString(T_MENU *ptrmenu, S32 handle, char *string, S32 flagaff)
 
 /*──────────────────────────────────────────────────────────────────────────*/
 //	Remise en fonction le 09/10/95
-const char *GetButtonString(T_MENU *ptrmenu, S32 handle)
-{
+const char *GetButtonString(T_MENU *ptrmenu, S32 handle) {
     S32 n, nblcb;
     T_CLICK_BOX *ptrlcb;
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
 
-    for (n = 0; n < nblcb; n++)
-    {
-        if (ptrlcb->Handle == handle)
-        {
+    for (n = 0; n < nblcb; n++) {
+        if (ptrlcb->Handle == handle) {
             return ptrlcb->PtrString;
         }
         ptrlcb++;
@@ -146,8 +126,7 @@ const char *GetButtonString(T_MENU *ptrmenu, S32 handle)
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
-void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
-{
+void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar) {
     S32 n, nblcb, numlcb;
     S32 coul, x, y;
     S32 x1, y1, x2, y2;
@@ -170,8 +149,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
 
     nblcb = ptrmenu->NbBox;
     ptrlcb = ptrmenu->PtrMallocList;
-    for (n = 0; n < nblcb; n++)
-    {
+    for (n = 0; n < nblcb; n++) {
         if (ptrlcb->Handle == handle)
             break;
         ptrlcb++;
@@ -202,8 +180,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
     AsciiMode = TRUE;
     CoulText(WHITE, -1);
 
-    while (Click)
-    {
+    while (Click) {
         BoxUpdate();
     }
 
@@ -219,8 +196,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
     Box(x1, y1, x2, y2, coul);
     BoxStaticAdd(x1, y1, x2, y2);
 
-    while (!exit)
-    {
+    while (!exit) {
         /* affichage */
 
         len = strlen(string);
@@ -230,36 +206,27 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
         if (pc < start)
             start = pc;
 
-        if (pc == -1)
-        {
+        if (pc == -1) {
             x = x1 + (len * SizeChar);
             if (x > x2)
                 x = x2;
             Box(x1, y1, x, y2, 9);
-        }
-        else
-        {
+        } else {
             Box(x1, y1, x2, y2, coul);
         }
 
         x = x1;
         y = y1;
-        for (n = 0; n <= len; n++)
-        {
+        for (n = 0; n <= len; n++) {
             if (n < start)
                 continue;
-            if (n == pc)
-            {
+            if (n == pc) {
                 Box(x, y, x + SizeChar - 2, y + SizeChar - 1, WHITE);
                 x += SizeChar;
-                if (x > x2 - SizeChar - 1)
-                {
-                    if (y > y2 - SizeChar - 1)
-                    {
+                if (x > x2 - SizeChar - 1) {
+                    if (y > y2 - SizeChar - 1) {
                         break;
-                    }
-                    else
-                    {
+                    } else {
                         y += SizeChar;
                         x = x1;
                     }
@@ -268,15 +235,11 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
 
             GraphPrintf(FALSE, x, y, "%c", string[n]);
             x += SizeChar;
-            if (x > x2 - SizeChar - 1)
-            {
+            if (x > x2 - SizeChar - 1) {
                 y += SizeChar;
-                if (y > y2 - SizeChar - 1)
-                {
+                if (y > y2 - SizeChar - 1) {
                     break;
-                }
-                else
-                {
+                } else {
                     x = x1;
                 }
             }
@@ -286,33 +249,26 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
 
         /* input */
 
-        do
-        {
+        do {
             mykey = GetAscii();
             myclick = Click;
             BoxUpdate();
         } while (!(mykey OR myclick));
 
-        if (myclick)
-        {
+        if (myclick) {
             exit = TRUE;
             break;
         }
 
         car = mykey;
 
-        if ((car >= 32) AND(car < 255))
-        {
-            if (pc == -1)
-            {
+        if ((car >= 32) AND(car < 255)) {
+            if (pc == -1) {
                 pc = 1;
                 string[0] = car;
                 string[1] = 0;
-            }
-            else
-            {
-                if (len < maxcar)
-                { /* insert */
+            } else {
+                if (len < maxcar) { /* insert */
                     memmove(&string[pc + 1], &string[pc], strlen(&string[pc]) + 1);
                     string[pc] = car;
                     pc++;
@@ -320,12 +276,8 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
                         string[pc] = 0;
                 }
             }
-        }
-        else
-        {
-            switch (mykey)
-            {
-
+        } else {
+            switch (mykey) {
             case A_ESC:
                 exit = TRUE;
                 break;
@@ -345,8 +297,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
             case A_BACKSPACE:
                 if (pc == -1)
                     pc = len;
-                if (pc > 0)
-                {
+                if (pc > 0) {
                     pc--;
                     memmove(&string[pc], &string[pc + 1], strlen(&string[pc + 1]) + 1);
                 }
@@ -355,8 +306,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
             case A_SUPPR:
                 if (pc == -1)
                     pc = len;
-                if (pc < len)
-                {
+                if (pc < len) {
                     memmove(&string[pc], &string[pc + 1], strlen(&string[pc + 1]) + 1);
                 }
                 break;
@@ -376,14 +326,12 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
                 break;
 
             case A_DOWN:
-                if (pc == -1)
-                {
+                if (pc == -1) {
                     if (carsizex < len)
                         pc = carsizex;
                     else
                         pc = 0;
-                }
-                else if (pc + carsizex < len)
+                } else if (pc + carsizex < len)
                     pc += carsizex;
                 break;
 
@@ -397,8 +345,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
         }
     }
 
-    if ((mykey == A_RETURN) OR(myclick))
-    {
+    if ((mykey == A_RETURN) OR(myclick)) {
         // FIXME: This compilation fix is dangerous, but reflects the
         //    same behavior as before (possible writing over static mem)
         //    The intention right now is just to compile, not fix bugs
@@ -409,8 +356,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
 
     AsciiMode = memoasciimode;
 
-    while (Key OR Click)
-    {
+    while (Key OR Click) {
         BoxUpdate();
         ManageEvents();
     }
@@ -422,8 +368,7 @@ void InputString(T_MENU *ptrmenu, S32 handle, S32 maxcar)
 /*══════════════════════════════════════════════════════════════════════════*/
 /* fontions evoluées */
 
-void Message(const char *message, S32 flag)
-{
+void Message(const char *message, S32 flag) {
     T_MENU menu;
     S32 len;
 
@@ -435,27 +380,21 @@ void Message(const char *message, S32 flag)
 
     DrawMenu(&menu, -1, -1);
 
-    if (flag)
-    {
-        while (Click OR Key)
-        {
+    if (flag) {
+        while (Click OR Key) {
             BoxUpdate();
         }
 
-        while (!Click AND !Key)
-        {
+        while (!Click AND !Key) {
             BoxUpdate();
         }
 
         CloseMenu(&menu);
 
-        while (Click OR Key)
-        {
+        while (Click OR Key) {
             BoxUpdate();
         }
-    }
-    else
-    {
+    } else {
         Free(menu.PtrMallocList);
     }
 }
@@ -463,8 +402,7 @@ void Message(const char *message, S32 flag)
 /*══════════════════════════════════════════════════════════════════════════*/
 /* Confirm( "Voulez-vous vraiment ?", "OUI" (RETURN), "NON"(ESC) ) ; */
 
-S32 Confirm(const char *message, const char *oui, const char *non)
-{
+S32 Confirm(const char *message, const char *oui, const char *non) {
     T_MENU menu;
     S32 len, select;
 
@@ -479,22 +417,18 @@ S32 Confirm(const char *message, const char *oui, const char *non)
 
     ShowMouse(true);
 
-    do
-    {
+    do {
         BoxUpdate();
         ManageEvents();
     } while (Click OR Key);
 
-    do
-    {
+    do {
         select = GereMenu(&menu);
-        if (Key == K_ENTER)
-        {
+        if (Key == K_ENTER) {
             select = 1;
             DrawBox(&menu, 1, FLAG_PUSHED);
         }
-        if (Key == K_ESC)
-        {
+        if (Key == K_ESC) {
             select = 2;
             DrawBox(&menu, 2, FLAG_PUSHED);
         }
@@ -503,8 +437,7 @@ S32 Confirm(const char *message, const char *oui, const char *non)
 
     CloseMenu(&menu);
 
-    do
-    {
+    do {
         ManageEvents();
         BoxUpdate();
     } while (Click OR Key);
@@ -514,14 +447,12 @@ S32 Confirm(const char *message, const char *oui, const char *non)
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
-void ChangeButtonValueLimit(T_MENU *ptrmenu, S32 handle, S32 valmin, S32 valmax)
-{
+void ChangeButtonValueLimit(T_MENU *ptrmenu, S32 handle, S32 valmin, S32 valmax) {
     T_CLICK_BOX *ptrlcb;
 
     ptrlcb = GetPtrLcb(ptrmenu, handle);
 
-    if ((ptrlcb != 0) AND(ptrlcb->Type == TYPE_CHANGE_VALUE))
-    {
+    if ((ptrlcb != 0) AND(ptrlcb->Type == TYPE_CHANGE_VALUE)) {
         ptrlcb++; // next button (TYPE_DEC_VALUE)
         if (ptrlcb->Type == TYPE_DEC_VALUE)
             ptrlcb->Mask = valmin; /* minvar */

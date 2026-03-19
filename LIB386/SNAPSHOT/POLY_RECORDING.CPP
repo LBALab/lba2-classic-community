@@ -20,12 +20,12 @@
 
 static char g_filename[256];
 static T_POLYREC_STATE g_rec;
-int g_polyrec_recording = 0;   /* Exposed for fast checking from hooks */
+int g_polyrec_recording = 0; /* Exposed for fast checking from hooks */
 
 /* Use g_polyrec_recording as THE recording flag (no separate g_recording) */
 #define g_recording g_polyrec_recording
 
-#define INITIAL_BUF_SIZE  (1024 * 1024)  /* 1 MB */
+#define INITIAL_BUF_SIZE (1024 * 1024) /* 1 MB */
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  HELPERS                                                                   */
@@ -38,7 +38,8 @@ static int ensure_space(U32 needed) {
     while (new_size < g_rec.event_buf_used + needed)
         new_size *= 2;
     U8 *new_buf = (U8 *)realloc(g_rec.event_buf, new_size);
-    if (!new_buf) return -1;
+    if (!new_buf)
+        return -1;
     g_rec.event_buf = new_buf;
     g_rec.event_buf_size = new_size;
     return 0;
@@ -96,7 +97,8 @@ static U32 texture_size_from_repmask(S32 rep_mask) {
  * Returns the texture index, or -1 on error. */
 static S32 find_or_add_texture(U8 *ptr_map, S32 rep_mask) {
     U32 i;
-    if (!ptr_map) return -1;
+    if (!ptr_map)
+        return -1;
 
     /* Check if already recorded (must match pointer, size, AND content).
      * The same pointer can be reused by the game for different texture data
@@ -120,7 +122,8 @@ static S32 find_or_add_texture(U8 *ptr_map, S32 rep_mask) {
     g_rec.textures[idx].rep_mask = (U32)rep_mask;
     g_rec.textures[idx].data_size = data_size;
     g_rec.textures[idx].data = (U8 *)malloc(data_size);
-    if (!g_rec.textures[idx].data) return -1;
+    if (!g_rec.textures[idx].data)
+        return -1;
     memcpy(g_rec.textures[idx].data, ptr_map, data_size);
     g_rec.textures[idx].original_ptr = ptr_map;
 
@@ -133,7 +136,8 @@ static S32 find_or_add_texture(U8 *ptr_map, S32 rep_mask) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 int polyrec_start(const char *filename) {
-    if (g_recording) return -1;
+    if (g_recording)
+        return -1;
 
     fprintf(stderr, "POLYREC: Starting recording to '%s'\n", filename);
     fflush(stderr);
@@ -142,7 +146,8 @@ int polyrec_start(const char *filename) {
 
     /* Allocate event buffer */
     g_rec.event_buf = (U8 *)malloc(INITIAL_BUF_SIZE);
-    if (!g_rec.event_buf) return -1;
+    if (!g_rec.event_buf)
+        return -1;
     g_rec.event_buf_size = INITIAL_BUF_SIZE;
     g_rec.event_buf_used = 0;
     g_rec.num_events = 0;
@@ -156,11 +161,13 @@ int polyrec_start(const char *filename) {
     memcpy(g_rec.palette, Fill_Logical_Palette, POLYREC_PALETTE_SIZE);
     if (PtrCLUTFog) {
         g_rec.clut_fog = (U8 *)malloc(POLYREC_CLUT_SIZE);
-        if (g_rec.clut_fog) memcpy(g_rec.clut_fog, PtrCLUTFog, POLYREC_CLUT_SIZE);
+        if (g_rec.clut_fog)
+            memcpy(g_rec.clut_fog, PtrCLUTFog, POLYREC_CLUT_SIZE);
     }
     if (PtrCLUTGouraud) {
         g_rec.clut_gouraud = (U8 *)malloc(POLYREC_CLUT_SIZE);
-        if (g_rec.clut_gouraud) memcpy(g_rec.clut_gouraud, PtrCLUTGouraud, POLYREC_CLUT_SIZE);
+        if (g_rec.clut_gouraud)
+            memcpy(g_rec.clut_gouraud, PtrCLUTGouraud, POLYREC_CLUT_SIZE);
     }
 
     /* Compute initial CLUT line from PtrTruePal offset into PtrCLUTFog */
@@ -209,7 +216,8 @@ int polyrec_is_recording(void) {
 }
 
 void polyrec_set_rgb_palette(const U8 *rgb_palette) {
-    if (!g_recording || !rgb_palette) return;
+    if (!g_recording || !rgb_palette)
+        return;
     memcpy(g_rec.rgb_palette, rgb_palette, POLYREC_RGB_PALETTE_SIZE);
     g_rec.has_rgb_palette = 1;
 }
@@ -219,10 +227,13 @@ void polyrec_set_rgb_palette(const U8 *rgb_palette) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 void polyrec_record_switch_fillers(U32 bank) {
-    if (!g_recording) return;
-    if (bank == g_rec.last_filler_bank) return;
+    if (!g_recording)
+        return;
+    if (bank == g_rec.last_filler_bank)
+        return;
 
-    if (ensure_space(5) != 0) return;
+    if (ensure_space(5) != 0)
+        return;
     emit_u8(POLYREC_EVT_SWITCH_FILLERS);
     emit_u32(bank);
     g_rec.num_events++;
@@ -235,10 +246,13 @@ void polyrec_record_switch_fillers(U32 bank) {
 }
 
 void polyrec_record_set_fog(S32 z_near, S32 z_far) {
-    if (!g_recording) return;
-    if (z_near == g_rec.last_fog_near && z_far == g_rec.last_fog_far) return;
+    if (!g_recording)
+        return;
+    if (z_near == g_rec.last_fog_near && z_far == g_rec.last_fog_far)
+        return;
 
-    if (ensure_space(9) != 0) return;
+    if (ensure_space(9) != 0)
+        return;
     emit_u8(POLYREC_EVT_SET_FOG);
     emit_s32(z_near);
     emit_s32(z_far);
@@ -248,10 +262,13 @@ void polyrec_record_set_fog(S32 z_near, S32 z_far) {
 }
 
 void polyrec_record_set_clut(U32 line) {
-    if (!g_recording) return;
-    if (line == g_rec.last_clut_line) return;
+    if (!g_recording)
+        return;
+    if (line == g_rec.last_clut_line)
+        return;
 
-    if (ensure_space(5) != 0) return;
+    if (ensure_space(5) != 0)
+        return;
     emit_u8(POLYREC_EVT_SET_CLUT);
     emit_u32(line);
     g_rec.num_events++;
@@ -337,13 +354,15 @@ static void check_state_changes(void) {
 void polyrec_record_fill_poly(S32 type_poly, S32 color_poly, S32 nb_points,
                               const void *ptr_points) {
     U32 points_size;
-    if (!g_recording) return;
+    if (!g_recording)
+        return;
 
     check_state_changes();
 
     /* 1 (type byte) + 4 (type_poly) + 4 (color_poly) + 4 (nb_points) + 16*nb_points */
     points_size = (U32)nb_points * 16;
-    if (ensure_space(13 + points_size) != 0) return;
+    if (ensure_space(13 + points_size) != 0)
+        return;
 
     emit_u8(POLYREC_EVT_FILL_POLY);
     emit_s32(type_poly);
@@ -356,11 +375,13 @@ void polyrec_record_fill_poly(S32 type_poly, S32 color_poly, S32 nb_points,
 void polyrec_record_fill_sphere(S32 type_sphere, S32 color_sphere,
                                 S32 centre_x, S32 centre_y,
                                 S32 rayon, S32 zbuf_value) {
-    if (!g_recording) return;
+    if (!g_recording)
+        return;
 
     check_state_changes();
 
-    if (ensure_space(25) != 0) return;
+    if (ensure_space(25) != 0)
+        return;
     emit_u8(POLYREC_EVT_FILL_SPHERE);
     emit_s32(type_sphere);
     emit_s32(color_sphere);
@@ -373,11 +394,13 @@ void polyrec_record_fill_sphere(S32 type_sphere, S32 color_sphere,
 
 void polyrec_record_line_a(S32 x0, S32 y0, S32 x1, S32 y1,
                            S32 col, S32 z1, S32 z2) {
-    if (!g_recording) return;
+    if (!g_recording)
+        return;
 
     check_state_changes();
 
-    if (ensure_space(29) != 0) return;
+    if (ensure_space(29) != 0)
+        return;
     emit_u8(POLYREC_EVT_LINE_A);
     emit_s32(x0);
     emit_s32(y0);
@@ -401,7 +424,8 @@ int polyrec_stop(void) {
     fprintf(stderr, "POLYREC: polyrec_stop() called, g_recording=%d\n", g_recording);
     fflush(stderr);
 
-    if (!g_recording) return -1;
+    if (!g_recording)
+        return -1;
     g_recording = 0;
     g_polyrec_recording = 0;
 
@@ -426,7 +450,8 @@ int polyrec_stop(void) {
 
     /* Write file */
     f = fopen(g_filename, "wb");
-    if (!f) goto cleanup;
+    if (!f)
+        goto cleanup;
 
     /* ── File header ── */
     {
@@ -441,7 +466,8 @@ int polyrec_stop(void) {
         hdr.clip_ymin = g_rec.init_state.clip_ymin;
         hdr.clip_xmax = g_rec.init_state.clip_xmax;
         hdr.clip_ymax = g_rec.init_state.clip_ymax;
-        if (write_bytes(f, &hdr, sizeof(hdr)) != 0) goto fail;
+        if (write_bytes(f, &hdr, sizeof(hdr)) != 0)
+            goto fail;
     }
 
     /* ── CLUT section ── */
@@ -456,16 +482,22 @@ int polyrec_stop(void) {
         clut_hdr.initial_clut_line = g_rec.initial_clut_line;
 
         clut_data_size = sizeof(clut_hdr);
-        if (g_rec.clut_fog) clut_data_size += POLYREC_CLUT_SIZE;
-        if (g_rec.clut_gouraud) clut_data_size += POLYREC_CLUT_SIZE;
+        if (g_rec.clut_fog)
+            clut_data_size += POLYREC_CLUT_SIZE;
+        if (g_rec.clut_gouraud)
+            clut_data_size += POLYREC_CLUT_SIZE;
 
-        if (write_section_header(f, POLYREC_SECTION_CLUT, clut_data_size) != 0) goto fail;
-        if (write_bytes(f, &clut_hdr, sizeof(clut_hdr)) != 0) goto fail;
+        if (write_section_header(f, POLYREC_SECTION_CLUT, clut_data_size) != 0)
+            goto fail;
+        if (write_bytes(f, &clut_hdr, sizeof(clut_hdr)) != 0)
+            goto fail;
         if (g_rec.clut_fog) {
-            if (write_bytes(f, g_rec.clut_fog, POLYREC_CLUT_SIZE) != 0) goto fail;
+            if (write_bytes(f, g_rec.clut_fog, POLYREC_CLUT_SIZE) != 0)
+                goto fail;
         }
         if (g_rec.clut_gouraud) {
-            if (write_bytes(f, g_rec.clut_gouraud, POLYREC_CLUT_SIZE) != 0) goto fail;
+            if (write_bytes(f, g_rec.clut_gouraud, POLYREC_CLUT_SIZE) != 0)
+                goto fail;
         }
     }
 
@@ -479,39 +511,51 @@ int polyrec_stop(void) {
             section_size += sizeof(T_POLYREC_TEXTURE_ENTRY) + g_rec.textures[i].data_size;
         }
 
-        if (write_section_header(f, POLYREC_SECTION_TEXTURES, section_size) != 0) goto fail;
-        if (write_bytes(f, &tex_hdr, sizeof(tex_hdr)) != 0) goto fail;
+        if (write_section_header(f, POLYREC_SECTION_TEXTURES, section_size) != 0)
+            goto fail;
+        if (write_bytes(f, &tex_hdr, sizeof(tex_hdr)) != 0)
+            goto fail;
 
         for (i = 0; i < g_rec.num_textures; i++) {
             T_POLYREC_TEXTURE_ENTRY entry;
             entry.texture_id = g_rec.textures[i].texture_id;
             entry.rep_mask = g_rec.textures[i].rep_mask;
             entry.data_size = g_rec.textures[i].data_size;
-            if (write_bytes(f, &entry, sizeof(entry)) != 0) goto fail;
-            if (write_bytes(f, g_rec.textures[i].data, g_rec.textures[i].data_size) != 0) goto fail;
+            if (write_bytes(f, &entry, sizeof(entry)) != 0)
+                goto fail;
+            if (write_bytes(f, g_rec.textures[i].data, g_rec.textures[i].data_size) != 0)
+                goto fail;
         }
     }
 
     /* ── INIT_STATE section ── */
-    if (write_section_header(f, POLYREC_SECTION_INIT_STATE, sizeof(T_POLYREC_INIT_STATE)) != 0) goto fail;
-    if (write_bytes(f, &g_rec.init_state, sizeof(T_POLYREC_INIT_STATE)) != 0) goto fail;
+    if (write_section_header(f, POLYREC_SECTION_INIT_STATE, sizeof(T_POLYREC_INIT_STATE)) != 0)
+        goto fail;
+    if (write_bytes(f, &g_rec.init_state, sizeof(T_POLYREC_INIT_STATE)) != 0)
+        goto fail;
 
     /* ── EVENTS section ── */
     {
         U32 events_section_size = sizeof(U32) + g_rec.event_buf_used;
-        if (write_section_header(f, POLYREC_SECTION_EVENTS, events_section_size) != 0) goto fail;
-        if (write_bytes(f, &g_rec.num_events, sizeof(U32)) != 0) goto fail;
-        if (write_bytes(f, g_rec.event_buf, g_rec.event_buf_used) != 0) goto fail;
+        if (write_section_header(f, POLYREC_SECTION_EVENTS, events_section_size) != 0)
+            goto fail;
+        if (write_bytes(f, &g_rec.num_events, sizeof(U32)) != 0)
+            goto fail;
+        if (write_bytes(f, g_rec.event_buf, g_rec.event_buf_used) != 0)
+            goto fail;
     }
 
     /* ── REF_FB section (game's actual framebuffer) ── */
     if (g_rec.ref_framebuffer && g_rec.ref_fb_size > 0) {
-        if (write_section_header(f, POLYREC_SECTION_REF_FB, g_rec.ref_fb_size) != 0) goto fail;
-        if (write_bytes(f, g_rec.ref_framebuffer, g_rec.ref_fb_size) != 0) goto fail;
+        if (write_section_header(f, POLYREC_SECTION_REF_FB, g_rec.ref_fb_size) != 0)
+            goto fail;
+        if (write_bytes(f, g_rec.ref_framebuffer, g_rec.ref_fb_size) != 0)
+            goto fail;
     }
 
     /* ── END section ── */
-    if (write_section_header(f, POLYREC_SECTION_END, 0) != 0) goto fail;
+    if (write_section_header(f, POLYREC_SECTION_END, 0) != 0)
+        goto fail;
 
     fclose(f);
     fprintf(stderr, "POLYREC: Written '%s'\n", g_filename);
@@ -523,12 +567,27 @@ fail:
 
 cleanup:
     /* Free all recording memory */
-    if (g_rec.event_buf) { free(g_rec.event_buf); g_rec.event_buf = NULL; }
-    if (g_rec.clut_fog) { free(g_rec.clut_fog); g_rec.clut_fog = NULL; }
-    if (g_rec.clut_gouraud) { free(g_rec.clut_gouraud); g_rec.clut_gouraud = NULL; }
-    if (g_rec.ref_framebuffer) { free(g_rec.ref_framebuffer); g_rec.ref_framebuffer = NULL; }
+    if (g_rec.event_buf) {
+        free(g_rec.event_buf);
+        g_rec.event_buf = NULL;
+    }
+    if (g_rec.clut_fog) {
+        free(g_rec.clut_fog);
+        g_rec.clut_fog = NULL;
+    }
+    if (g_rec.clut_gouraud) {
+        free(g_rec.clut_gouraud);
+        g_rec.clut_gouraud = NULL;
+    }
+    if (g_rec.ref_framebuffer) {
+        free(g_rec.ref_framebuffer);
+        g_rec.ref_framebuffer = NULL;
+    }
     for (i = 0; i < g_rec.num_textures; i++) {
-        if (g_rec.textures[i].data) { free(g_rec.textures[i].data); g_rec.textures[i].data = NULL; }
+        if (g_rec.textures[i].data) {
+            free(g_rec.textures[i].data);
+            g_rec.textures[i].data = NULL;
+        }
     }
     memset(&g_rec, 0, sizeof(g_rec));
 
@@ -546,25 +605,31 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
     memset(out, 0, sizeof(T_POLYREC_LOADED));
 
     f = fopen(filename, "rb");
-    if (!f) return -1;
+    if (!f)
+        return -1;
 
     /* Read file header */
-    if (read_bytes(f, &out->header, sizeof(T_POLYREC_FILE_HEADER)) != 0) goto fail;
-    if (memcmp(out->header.magic, POLYREC_MAGIC, POLYREC_MAGIC_SIZE) != 0) goto fail;
-    if (out->header.version != POLYREC_VERSION) goto fail;
+    if (read_bytes(f, &out->header, sizeof(T_POLYREC_FILE_HEADER)) != 0)
+        goto fail;
+    if (memcmp(out->header.magic, POLYREC_MAGIC, POLYREC_MAGIC_SIZE) != 0)
+        goto fail;
+    if (out->header.version != POLYREC_VERSION)
+        goto fail;
 
     /* Read sections */
     while (!done) {
         T_POLYREC_SECTION_HEADER sec_hdr;
-        if (read_bytes(f, &sec_hdr, sizeof(sec_hdr)) != 0) goto fail;
+        if (read_bytes(f, &sec_hdr, sizeof(sec_hdr)) != 0)
+            goto fail;
 
         switch (sec_hdr.type) {
-
         case POLYREC_SECTION_CLUT: {
             T_POLYREC_CLUT_HEADER clut_hdr;
             U32 remaining;
-            if (sec_hdr.size < sizeof(clut_hdr)) goto fail;
-            if (read_bytes(f, &clut_hdr, sizeof(clut_hdr)) != 0) goto fail;
+            if (sec_hdr.size < sizeof(clut_hdr))
+                goto fail;
+            if (read_bytes(f, &clut_hdr, sizeof(clut_hdr)) != 0)
+                goto fail;
 
             memcpy(out->palette, clut_hdr.palette, POLYREC_PALETTE_SIZE);
             memcpy(out->rgb_palette, clut_hdr.rgb_palette, POLYREC_RGB_PALETTE_SIZE);
@@ -574,19 +639,24 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
             remaining = sec_hdr.size - sizeof(clut_hdr);
             if (remaining >= POLYREC_CLUT_SIZE) {
                 out->clut_fog = (U8 *)malloc(POLYREC_CLUT_SIZE);
-                if (!out->clut_fog) goto fail;
-                if (read_bytes(f, out->clut_fog, POLYREC_CLUT_SIZE) != 0) goto fail;
+                if (!out->clut_fog)
+                    goto fail;
+                if (read_bytes(f, out->clut_fog, POLYREC_CLUT_SIZE) != 0)
+                    goto fail;
                 remaining -= POLYREC_CLUT_SIZE;
             }
             if (remaining >= POLYREC_CLUT_SIZE) {
                 out->clut_gouraud = (U8 *)malloc(POLYREC_CLUT_SIZE);
-                if (!out->clut_gouraud) goto fail;
-                if (read_bytes(f, out->clut_gouraud, POLYREC_CLUT_SIZE) != 0) goto fail;
+                if (!out->clut_gouraud)
+                    goto fail;
+                if (read_bytes(f, out->clut_gouraud, POLYREC_CLUT_SIZE) != 0)
+                    goto fail;
                 remaining -= POLYREC_CLUT_SIZE;
             }
             /* Skip any extra bytes */
             if (remaining > 0) {
-                if (fseek(f, (long)remaining, SEEK_CUR) != 0) goto fail;
+                if (fseek(f, (long)remaining, SEEK_CUR) != 0)
+                    goto fail;
             }
             break;
         }
@@ -594,40 +664,51 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
         case POLYREC_SECTION_TEXTURES: {
             T_POLYREC_TEXTURES_HEADER tex_hdr;
             U32 j;
-            if (read_bytes(f, &tex_hdr, sizeof(tex_hdr)) != 0) goto fail;
-            if (tex_hdr.num_textures > POLYREC_MAX_TEXTURES) goto fail;
+            if (read_bytes(f, &tex_hdr, sizeof(tex_hdr)) != 0)
+                goto fail;
+            if (tex_hdr.num_textures > POLYREC_MAX_TEXTURES)
+                goto fail;
             out->num_textures = tex_hdr.num_textures;
 
             for (j = 0; j < tex_hdr.num_textures; j++) {
                 T_POLYREC_TEXTURE_ENTRY entry;
-                if (read_bytes(f, &entry, sizeof(entry)) != 0) goto fail;
+                if (read_bytes(f, &entry, sizeof(entry)) != 0)
+                    goto fail;
                 out->textures[j].texture_id = entry.texture_id;
                 out->textures[j].rep_mask = entry.rep_mask;
                 out->textures[j].data_size = entry.data_size;
                 out->textures[j].data = (U8 *)malloc(entry.data_size);
-                if (!out->textures[j].data) goto fail;
-                if (read_bytes(f, out->textures[j].data, entry.data_size) != 0) goto fail;
+                if (!out->textures[j].data)
+                    goto fail;
+                if (read_bytes(f, out->textures[j].data, entry.data_size) != 0)
+                    goto fail;
                 out->textures[j].original_ptr = NULL; /* not meaningful for loaded data */
             }
             break;
         }
 
         case POLYREC_SECTION_INIT_STATE:
-            if (sec_hdr.size != sizeof(T_POLYREC_INIT_STATE)) goto fail;
-            if (read_bytes(f, &out->init_state, sizeof(T_POLYREC_INIT_STATE)) != 0) goto fail;
+            if (sec_hdr.size != sizeof(T_POLYREC_INIT_STATE))
+                goto fail;
+            if (read_bytes(f, &out->init_state, sizeof(T_POLYREC_INIT_STATE)) != 0)
+                goto fail;
             break;
 
         case POLYREC_SECTION_EVENTS: {
             U32 num_events;
             U32 data_size;
-            if (sec_hdr.size < sizeof(U32)) goto fail;
-            if (read_bytes(f, &num_events, sizeof(U32)) != 0) goto fail;
+            if (sec_hdr.size < sizeof(U32))
+                goto fail;
+            if (read_bytes(f, &num_events, sizeof(U32)) != 0)
+                goto fail;
             out->num_events = num_events;
             data_size = sec_hdr.size - sizeof(U32);
             if (data_size > 0) {
                 out->event_data = (U8 *)malloc(data_size);
-                if (!out->event_data) goto fail;
-                if (read_bytes(f, out->event_data, data_size) != 0) goto fail;
+                if (!out->event_data)
+                    goto fail;
+                if (read_bytes(f, out->event_data, data_size) != 0)
+                    goto fail;
                 out->event_data_size = data_size;
             }
             break;
@@ -637,8 +718,10 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
             if (sec_hdr.size > 0) {
                 out->ref_fb_size = sec_hdr.size;
                 out->ref_framebuffer = (U8 *)malloc(sec_hdr.size);
-                if (!out->ref_framebuffer) goto fail;
-                if (read_bytes(f, out->ref_framebuffer, sec_hdr.size) != 0) goto fail;
+                if (!out->ref_framebuffer)
+                    goto fail;
+                if (read_bytes(f, out->ref_framebuffer, sec_hdr.size) != 0)
+                    goto fail;
             }
             break;
 
@@ -648,7 +731,8 @@ int polyrec_load(const char *filename, T_POLYREC_LOADED *out) {
 
         default:
             /* Unknown section: skip */
-            if (fseek(f, (long)sec_hdr.size, SEEK_CUR) != 0) goto fail;
+            if (fseek(f, (long)sec_hdr.size, SEEK_CUR) != 0)
+                goto fail;
             break;
         }
     }
@@ -669,13 +753,28 @@ fail:
 void polyrec_free(T_POLYREC_LOADED *rec) {
     U32 i;
 
-    if (rec->clut_fog) { free(rec->clut_fog); rec->clut_fog = NULL; }
-    if (rec->clut_gouraud) { free(rec->clut_gouraud); rec->clut_gouraud = NULL; }
-    if (rec->event_data) { free(rec->event_data); rec->event_data = NULL; }
-    if (rec->ref_framebuffer) { free(rec->ref_framebuffer); rec->ref_framebuffer = NULL; }
+    if (rec->clut_fog) {
+        free(rec->clut_fog);
+        rec->clut_fog = NULL;
+    }
+    if (rec->clut_gouraud) {
+        free(rec->clut_gouraud);
+        rec->clut_gouraud = NULL;
+    }
+    if (rec->event_data) {
+        free(rec->event_data);
+        rec->event_data = NULL;
+    }
+    if (rec->ref_framebuffer) {
+        free(rec->ref_framebuffer);
+        rec->ref_framebuffer = NULL;
+    }
 
     for (i = 0; i < rec->num_textures; i++) {
-        if (rec->textures[i].data) { free(rec->textures[i].data); rec->textures[i].data = NULL; }
+        if (rec->textures[i].data) {
+            free(rec->textures[i].data);
+            rec->textures[i].data = NULL;
+        }
     }
 
     memset(rec, 0, sizeof(T_POLYREC_LOADED));

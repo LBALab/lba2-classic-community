@@ -10,8 +10,8 @@ extern "C" {
 
 // --- Public state ------------------------------------------------------------
 extern void *Phys;
-extern U32 ModeResX; ///< X resolution for Phys
-extern U32 ModeResY; ///< Y resolution for Phys
+extern U32 ModeResX;                          ///< X resolution for Phys
+extern U32 ModeResY;                          ///< Y resolution for Phys
 extern U32 TabOffPhysLine[ADELINE_MAX_Y_RES]; ///< Line offsets for Phys
 
 // --- Initialization ----------------------------------------------------------

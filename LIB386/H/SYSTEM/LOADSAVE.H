@@ -1,29 +1,29 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_LOADSAVE
+#ifndef LIB_SYSTEM_LOADSAVE
 #define LIB_SYSTEM_LOADSAVE
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	Load( char *name, void *buffer )		;
+extern U32 Load(char *name, void *buffer);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	LoadSize( char *name, void *buffer, S32 size )	;
+extern S32 LoadSize(char *name, void *buffer, S32 size);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	Save( char *name, void *buffer, U32 size )	;
+extern U32 Save(char *name, void *buffer, U32 size);
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_LOADSAVE
+#endif //LIB_SYSTEM_LOADSAVE
 
 //──────────────────────────────────────────────────────────────────────────

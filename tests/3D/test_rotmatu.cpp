@@ -19,19 +19,16 @@ static void call_asm_RotateMatrixU(TYPE_MAT *d, TYPE_MAT *s, S32 x, S32 y, S32 z
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static TYPE_MAT make_identity_mat(void)
-{
+static TYPE_MAT make_identity_mat(void) {
     TYPE_MAT m;
     memset(&m, 0, sizeof(m));
     m.F.M11 = 1.0f;
@@ -40,28 +37,37 @@ static TYPE_MAT make_identity_mat(void)
     return m;
 }
 
-static TYPE_MAT make_test_mat(void)
-{
+static TYPE_MAT make_test_mat(void) {
     TYPE_MAT m;
     memset(&m, 0, sizeof(m));
-    m.F.M11 = 0.5f;   m.F.M12 = 0.3f;   m.F.M13 = 0.1f;
-    m.F.M21 = 0.2f;   m.F.M22 = 0.8f;   m.F.M23 = 0.4f;
-    m.F.M31 = 0.7f;   m.F.M32 = 0.6f;   m.F.M33 = 0.9f;
+    m.F.M11 = 0.5f;
+    m.F.M12 = 0.3f;
+    m.F.M13 = 0.1f;
+    m.F.M21 = 0.2f;
+    m.F.M22 = 0.8f;
+    m.F.M23 = 0.4f;
+    m.F.M31 = 0.7f;
+    m.F.M32 = 0.6f;
+    m.F.M33 = 0.9f;
     return m;
 }
 
-static TYPE_MAT make_alt_test_mat(void)
-{
+static TYPE_MAT make_alt_test_mat(void) {
     TYPE_MAT m;
     memset(&m, 0, sizeof(m));
-    m.F.M11 = -0.75f; m.F.M12 = 0.25f;  m.F.M13 = 0.5f;
-    m.F.M21 = 0.125f; m.F.M22 = -0.5f;  m.F.M23 = 0.75f;
-    m.F.M31 = 0.625f; m.F.M32 = -0.25f; m.F.M33 = 0.375f;
+    m.F.M11 = -0.75f;
+    m.F.M12 = 0.25f;
+    m.F.M13 = 0.5f;
+    m.F.M21 = 0.125f;
+    m.F.M22 = -0.5f;
+    m.F.M23 = 0.75f;
+    m.F.M31 = 0.625f;
+    m.F.M32 = -0.25f;
+    m.F.M33 = 0.375f;
     return m;
 }
 
-static void fill_rand_mat(TYPE_MAT *m)
-{
+static void fill_rand_mat(TYPE_MAT *m) {
     float *values = &m->F.M11;
     memset(m, 0, sizeof(*m));
     for (int index = 0; index < 9; ++index) {
@@ -70,8 +76,7 @@ static void fill_rand_mat(TYPE_MAT *m)
     }
 }
 
-static void assert_rotmatu_case(const char *label, const TYPE_MAT *source_matrix, S32 x, S32 y, S32 z)
-{
+static void assert_rotmatu_case(const char *label, const TYPE_MAT *source_matrix, S32 x, S32 y, S32 z) {
     TYPE_MAT cpp_src;
     TYPE_MAT asm_src;
     TYPE_MAT cpp_dst;
@@ -90,25 +95,26 @@ static void assert_rotmatu_case(const char *label, const TYPE_MAT *source_matrix
     ASSERT_ASM_CPP_MEM_EQ(source_matrix, &asm_src, sizeof(TYPE_MAT), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     TYPE_MAT matrices[] = {
         make_identity_mat(),
         make_test_mat(),
         make_alt_test_mat(),
     };
-    struct { S32 a,b,g; } cases[] = {
-        {0,0,0},
-        {1024,0,0},
-        {0,1024,0},
-        {0,0,1024},
-        {512,512,512},
-        {1023,1024,1025},
-        {-1,0,1},
-        {4096,-4096,8192},
+    struct {
+        S32 a, b, g;
+    } cases[] = {
+        {0, 0, 0},
+        {1024, 0, 0},
+        {0, 1024, 0},
+        {0, 0, 1024},
+        {512, 512, 512},
+        {1023, 1024, 1025},
+        {-1, 0, 1},
+        {4096, -4096, 8192},
     };
-    for (int matrix_index = 0; matrix_index < (int)(sizeof(matrices)/sizeof(matrices[0])); ++matrix_index) {
-        for (int i = 0; i < (int)(sizeof(cases)/sizeof(cases[0])); i++) {
+    for (int matrix_index = 0; matrix_index < (int)(sizeof(matrices) / sizeof(matrices[0])); ++matrix_index) {
+        for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); i++) {
             char lbl[128];
             snprintf(lbl, sizeof(lbl), "RotateMatrixU fixed m=%d a=%d b=%d g=%d",
                      matrix_index, cases[i].a, cases[i].b, cases[i].g);
@@ -117,8 +123,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
         TYPE_MAT src;
@@ -133,8 +138,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

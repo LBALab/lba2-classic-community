@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_MENU_MENUFUNC
-#define	LIB_MENU_MENUFUNC
+#ifndef LIB_MENU_MENUFUNC
+#define LIB_MENU_MENUFUNC
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -8,32 +8,32 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern void 		Message(const char *message, S32 flag		);
-extern S32 		Confirm(const char *message, const char *yes, const char *no	);
+extern void Message(const char *message, S32 flag);
+extern S32 Confirm(const char *message, const char *yes, const char *no);
 
 //──────────────────────────────────────────────────────────────────────────
-extern void 		InputString(		T_MENU *ptrmenu, S32 handle,
-						S32 maxchar		);
+extern void InputString(T_MENU *ptrmenu, S32 handle,
+                        S32 maxchar);
 
 //──────────────────────────────────────────────────────────────────────────
-extern void 		SwitchButton(		T_MENU *ptrmenu, S32 handle);
+extern void SwitchButton(T_MENU *ptrmenu, S32 handle);
 
-extern void 		ChangeButtonFlags(	T_MENU *ptrmenu, S32 handle,
-						S32 flags,	 S32 flagaff);
+extern void ChangeButtonFlags(T_MENU *ptrmenu, S32 handle,
+                              S32 flags, S32 flagaff);
 
-extern void 		ChangeButtonString(	T_MENU *ptrmenu, S32 handle,
-						char *string,	 S32 flagaff);
+extern void ChangeButtonString(T_MENU *ptrmenu, S32 handle,
+                               char *string, S32 flagaff);
 
-extern void 		ChangeButtonValueLimit( T_MENU *ptrmenu, S32 handle,
-						S32 valmin, 	 S32 valmax );
-
-//──────────────────────────────────────────────────────────────────────────
-extern	S32		GetButtonFlags(		T_MENU *ptrmenu, S32 handle );
-
-extern	const char*		GetButtonString(	T_MENU *ptrmenu, S32 handle );
+extern void ChangeButtonValueLimit(T_MENU *ptrmenu, S32 handle,
+                                   S32 valmin, S32 valmax);
 
 //──────────────────────────────────────────────────────────────────────────
-extern T_CLICK_BOX 	*GetPtrLcb(		T_MENU *ptrmenu,S32 handle  );
+extern S32 GetButtonFlags(T_MENU *ptrmenu, S32 handle);
+
+extern const char *GetButtonString(T_MENU *ptrmenu, S32 handle);
+
+//──────────────────────────────────────────────────────────────────────────
+extern T_CLICK_BOX *GetPtrLcb(T_MENU *ptrmenu, S32 handle);
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -41,6 +41,6 @@ extern T_CLICK_BOX 	*GetPtrLcb(		T_MENU *ptrmenu,S32 handle  );
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_MENU_MENUFUNC
+#endif //LIB_MENU_MENUFUNC
 
 //──────────────────────────────────────────────────────────────────────────

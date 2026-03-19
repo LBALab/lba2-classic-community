@@ -223,8 +223,7 @@ typedef struct
     U16 HandleEnv;
 } STRUC_POLY4_ENV;
 
-static TYPE_VT32 RotateEnvNormal(const TYPE_VT16 *normal)
-{
+static TYPE_VT32 RotateEnvNormal(const TYPE_VT16 *normal) {
     TYPE_VT32 rotated;
 
     RotatePointNoMMX(&TabMat[normal->Grp], normal->X, normal->Y, normal->Z);
@@ -235,8 +234,7 @@ static TYPE_VT32 RotateEnvNormal(const TYPE_VT16 *normal)
     return rotated;
 }
 
-static U32 BuildEnvMappedUv(const TYPE_VT32 *rotated, U16 scale)
-{
+static U32 BuildEnvMappedUv(const TYPE_VT32 *rotated, U16 scale) {
     const S32 scaleX = (S32)(scale & 0xFFu);
     const S32 scaleY = (S32)((U32)scale >> 8);
     const S32 mapU = ((S32)(U16)(rotated->X + 0x4000) * scaleX) >> 4;
@@ -245,8 +243,7 @@ static U32 BuildEnvMappedUv(const TYPE_VT32 *rotated, U16 scale)
     return (U32)mapU | packedMapV;
 }
 
-static void SetEnvMappedTriangleUvs(Struc_Point *points, const STRUC_POLY3_ENV *poly)
-{
+static void SetEnvMappedTriangleUvs(Struc_Point *points, const STRUC_POLY3_ENV *poly) {
     const TYPE_VT16 *normals = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
     TYPE_VT32 rotated;
 
@@ -261,8 +258,7 @@ static void SetEnvMappedTriangleUvs(Struc_Point *points, const STRUC_POLY3_ENV *
     Z0 = rotated.Z;
 }
 
-static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly)
-{
+static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly) {
     const TYPE_VT16 *normals = (TYPE_VT16 *)((U8 *)lBody + lBody->OffNormales);
     TYPE_VT32 rotated;
 
@@ -279,34 +275,28 @@ static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly
     Z0 = rotated.Z;
 }
 
-void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3)
-{
-    if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D)
-    {
+void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
+    if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D) {
         return;
     }
 
     U16 indices[3] = {index1, index2, index3};
 
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
         U16 idx = indices[i];
         S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
     }
 }
 
-void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4)
-{
-    if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D)
-    {
+void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
+    if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D) {
         return;
     }
 
     U16 indices[4] = {index1, index2, index3, index4};
 
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         U16 idx = indices[i];
         S32 Z = -Obj_ListRotatedPoints[idx].Z - PosZWr;
         dst[i].Pt_ZO = (Z * Fill_ZBuffer_Factor) >> 16;
@@ -316,8 +306,7 @@ void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4)
 // *************
 // *** SOLID ***
 // *************
-S32 Triangle_Solid(U32 typePoly, void *poly)
-{
+S32 Triangle_Solid(U32 typePoly, void *poly) {
     STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -331,8 +320,7 @@ S32 Triangle_Solid(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, poly3->Couleur & 0xFF, 3, ListFillPoly);
 }
 
-S32 Quad_Solid(U32 typePoly, void *poly)
-{
+S32 Quad_Solid(U32 typePoly, void *poly) {
     STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -351,8 +339,7 @@ S32 Quad_Solid(U32 typePoly, void *poly)
 // ************
 // *** FLAT ***
 // ************
-S32 Triangle_Flat(U32 typePoly, void *poly)
-{
+S32 Triangle_Flat(U32 typePoly, void *poly) {
     STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
 
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
@@ -370,8 +357,7 @@ S32 Triangle_Flat(U32 typePoly, void *poly)
     return Fill_Poly(1, color, 3, ListFillPoly);
 }
 
-S32 Quad_Flat(U32 typePoly, void *poly)
-{
+S32 Quad_Flat(U32 typePoly, void *poly) {
     STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
 
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
@@ -394,8 +380,7 @@ S32 Quad_Flat(U32 typePoly, void *poly)
 // ***************
 // *** GOURAUD ***
 // ***************
-S32 Triangle_Gouraud(U32 typePoly, void *poly)
-{
+S32 Triangle_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY3_LIGHT *poly3 = (STRUC_POLY3_LIGHT *)poly;
 
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
@@ -413,8 +398,7 @@ S32 Triangle_Gouraud(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, poly3->Couleur, 3, ListFillPoly);
 }
 
-S32 Quad_Gouraud(U32 typePoly, void *poly)
-{
+S32 Quad_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -437,8 +421,7 @@ S32 Quad_Gouraud(U32 typePoly, void *poly)
 // *********************
 // *** TEXTURE SOLID ***
 // *********************
-S32 Triangle_Texture_Solid(U32 typePoly, void *poly)
-{
+S32 Triangle_Texture_Solid(U32 typePoly, void *poly) {
     STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -462,8 +445,7 @@ S32 Triangle_Texture_Solid(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
 
-S32 Quad_Texture_Solid(U32 typePoly, void *poly)
-{
+S32 Quad_Texture_Solid(U32 typePoly, void *poly) {
     STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -494,8 +476,7 @@ S32 Quad_Texture_Solid(U32 typePoly, void *poly)
 // ********************
 // *** TEXTURE FLAT ***
 // ********************
-S32 Triangle_Texture_Flat(U32 typePoly, void *poly)
-{
+S32 Triangle_Texture_Flat(U32 typePoly, void *poly) {
     STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -521,8 +502,7 @@ S32 Triangle_Texture_Flat(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, normal, 3, ListFillPoly);
 }
 
-S32 Quad_Texture_Flat(U32 typePoly, void *poly)
-{
+S32 Quad_Texture_Flat(U32 typePoly, void *poly) {
     STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -555,8 +535,7 @@ S32 Quad_Texture_Flat(U32 typePoly, void *poly)
 // ***********************
 // *** TEXTURE GOURAUD ***
 // ***********************
-S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly)
-{
+S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -584,8 +563,7 @@ S32 Triangle_Texture_Gouraud(U32 typePoly, void *poly)
 }
 
 // Verified
-S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
-{
+S32 Quad_Texture_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -620,8 +598,7 @@ S32 Quad_Texture_Gouraud(U32 typePoly, void *poly)
 // ***********************
 // *** TEXTURE Z SOLID ***
 // ***********************
-S32 Triangle_TextureZ_Solid(U32 typePoly, void *poly)
-{
+S32 Triangle_TextureZ_Solid(U32 typePoly, void *poly) {
     STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
 
     // Extract polygon type and vertex indices
@@ -680,8 +657,7 @@ S32 Triangle_TextureZ_Solid(U32 typePoly, void *poly)
     return Fill_Poly(typePoly, 0, 3, ListFillPoly);
 }
 
-S32 Quad_TextureZ_Solid(U32 typePoly, void *poly)
-{
+S32 Quad_TextureZ_Solid(U32 typePoly, void *poly) {
     STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -718,8 +694,7 @@ S32 Quad_TextureZ_Solid(U32 typePoly, void *poly)
 // *** TEXTURE Z FLAT ***
 // **********************
 // Verified against original, but not tested
-S32 Triangle_TextureZ_Flat(U32 typePoly, void *poly)
-{
+S32 Triangle_TextureZ_Flat(U32 typePoly, void *poly) {
     STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -749,8 +724,7 @@ S32 Triangle_TextureZ_Flat(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, intensity, 3, ListFillPoly);
 }
 
-S32 Quad_TextureZ_Flat(U32 typePoly, void *poly)
-{
+S32 Quad_TextureZ_Flat(U32 typePoly, void *poly) {
     STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -789,8 +763,7 @@ S32 Quad_TextureZ_Flat(U32 typePoly, void *poly)
 // *** TEXTURE Z GOURAUD ***
 // *************************
 // Converted from ASM - Textured triangle rendering with Z-buffer and Gouraud shading
-S32 Triangle_TextureZ_Gouraud(U32 typePoly, void *poly)
-{
+S32 Triangle_TextureZ_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY3_TEXTURE *poly3 = (STRUC_POLY3_TEXTURE *)poly;
 
     // Extract point indices from the polygon structure
@@ -842,8 +815,7 @@ S32 Triangle_TextureZ_Gouraud(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
 
-S32 Quad_TextureZ_Gouraud(U32 typePoly, void *poly)
-{
+S32 Quad_TextureZ_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY4_TEXTURE *poly4 = (STRUC_POLY4_TEXTURE *)poly;
 
     // Extract point indices from the polygon structure
@@ -898,8 +870,7 @@ S32 Quad_TextureZ_Gouraud(U32 typePoly, void *poly)
 // *************************
 // *** TEXTURE ENV SOLID ***
 // *************************
-S32 Triangle_EnvTexture_Solid(U32 typePoly, void *poly)
-{
+S32 Triangle_EnvTexture_Solid(U32 typePoly, void *poly) {
     STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -920,8 +891,7 @@ S32 Triangle_EnvTexture_Solid(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, poly3->Couleur & 0xFF, 3, ListFillPoly);
 }
 
-S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly)
-{
+S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly) {
     STRUC_POLY4_ENV *poly4 = (STRUC_POLY4_ENV *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -946,8 +916,7 @@ S32 Quad_EnvTexture_Solid(U32 typePoly, void *poly)
 // ************************
 // *** TEXTURE ENV FLAT ***
 // ************************
-S32 Triangle_EnvTexture_Flat(U32 typePoly, void *poly)
-{
+S32 Triangle_EnvTexture_Flat(U32 typePoly, void *poly) {
     STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -969,8 +938,7 @@ S32 Triangle_EnvTexture_Flat(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, intensity, 3, ListFillPoly);
 }
 
-S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly)
-{
+S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly) {
     STRUC_POLY4_ENV *poly4 = (STRUC_POLY4_ENV *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -997,8 +965,7 @@ S32 Quad_EnvTexture_Flat(U32 typePoly, void *poly)
 // ***************************
 // *** TEXTURE ENV GOURAUD ***
 // ***************************
-S32 Triangle_EnvTexture_Gouraud(U32 typePoly, void *poly)
-{
+S32 Triangle_EnvTexture_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)poly;
     GetZO3(ListFillPoly, poly3->P1, poly3->P2, poly3->P3);
 
@@ -1023,8 +990,7 @@ S32 Triangle_EnvTexture_Gouraud(U32 typePoly, void *poly)
     return Fill_Poly(typePoly >> 2, 0, 3, ListFillPoly);
 }
 
-S32 Quad_EnvTexture_Gouraud(U32 typePoly, void *poly)
-{
+S32 Quad_EnvTexture_Gouraud(U32 typePoly, void *poly) {
     STRUC_POLY4_ENV *poly4 = (STRUC_POLY4_ENV *)poly;
     GetZO4(ListFillPoly, poly4->P1, poly4->P2, poly4->P3, poly4->P4);
 
@@ -1055,8 +1021,7 @@ S32 Quad_EnvTexture_Gouraud(U32 typePoly, void *poly)
 // ************
 // *** LINE ***
 // ************
-S32 Line(U32 typePoly, void *poly)
-{
+S32 Line(U32 typePoly, void *poly) {
     T_OBJ_LINE *line = (T_OBJ_LINE *)poly;
 
     TYPE_PT p1 = Obj_ListProjectedPoints[line->P1];
@@ -1065,8 +1030,7 @@ S32 Line(U32 typePoly, void *poly)
     S32 z1 = 0;
     S32 z2 = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
-    {
+    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
         T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
 
@@ -1075,8 +1039,7 @@ S32 Line(U32 typePoly, void *poly)
         z2 = Fill_ZBuffer_Factor * (~rotatedP2.Z - (PosZWr - 1)) >> 16;
     }
 
-    if ((p1.X == -0x8000 && p1.Y == -0x8000) || (p2.X == -0x8000 && p2.Y == -0x8000))
-    {
+    if ((p1.X == -0x8000 && p1.Y == -0x8000) || (p2.X == -0x8000 && p2.Y == -0x8000)) {
         return 0;
     }
 
@@ -1087,20 +1050,16 @@ S32 Line(U32 typePoly, void *poly)
 // **************
 // *** SPHERE ***
 // **************
-S32 Sphere(U32 typePoly, void *poly)
-{
+S32 Sphere(U32 typePoly, void *poly) {
     T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)poly;
 
     S32 radius = sphere->Rayon;
 
-    if (TypeProj != TYPE_3D)
-    {
+    if (TypeProj != TYPE_3D) {
         radius += radius + (radius << 5);
         radius >>= 9;
         radius = ~radius;
-    }
-    else
-    {
+    } else {
         // @@Radius_Proj:
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         radius *= LFactorX;
@@ -1112,33 +1071,28 @@ S32 Sphere(U32 typePoly, void *poly)
 
     radius = ((radius ^ -1) + 1);
     S32 topY = p1.Y - radius;
-    if (topY < ScreenYMin)
-    {
+    if (topY < ScreenYMin) {
         ScreenYMin = topY;
     }
 
     S32 bottomY = topY + 2 * radius;
-    if (bottomY > ScreenYMax)
-    {
+    if (bottomY > ScreenYMax) {
         ScreenYMax = bottomY;
     }
 
     S32 leftX = p1.X - radius;
-    if (leftX < ScreenXMin)
-    {
+    if (leftX < ScreenXMin) {
         ScreenXMin = leftX;
     }
 
     S32 rightX = leftX + 2 * radius;
-    if (rightX > ScreenXMax)
-    {
+    if (rightX > ScreenXMax) {
         ScreenXMax = rightX;
     }
 
     S32 z = 0;
 
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
-    {
+    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
         z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
@@ -1151,20 +1105,16 @@ S32 Sphere(U32 typePoly, void *poly)
 // *********************
 // *** SPHERE TRANSP ***
 // *********************
-S32 Sphere_Transp(U32 typePoly, void *poly)
-{
+S32 Sphere_Transp(U32 typePoly, void *poly) {
     T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)poly;
 
     S32 radius = sphere->Rayon;
 
-    if (TypeProj != TYPE_3D)
-    {
+    if (TypeProj != TYPE_3D) {
         radius += radius + (radius << 5);
         radius >>= 9;
         radius = ~radius;
-    }
-    else
-    {
+    } else {
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         radius *= LFactorX;
         radius /= z + PosZWr;
@@ -1174,32 +1124,27 @@ S32 Sphere_Transp(U32 typePoly, void *poly)
 
     radius = ((radius ^ -1) + 1);
     S32 topY = p1.Y - radius;
-    if (topY < ScreenYMin)
-    {
+    if (topY < ScreenYMin) {
         ScreenYMin = topY;
     }
 
     S32 bottomY = topY + 2 * radius;
-    if (bottomY > ScreenYMax)
-    {
+    if (bottomY > ScreenYMax) {
         ScreenYMax = bottomY;
     }
 
     S32 leftX = p1.X - radius;
-    if (leftX < ScreenXMin)
-    {
+    if (leftX < ScreenXMin) {
         ScreenXMin = leftX;
     }
 
     S32 rightX = leftX + 2 * radius;
-    if (rightX > ScreenXMax)
-    {
+    if (rightX > ScreenXMax) {
         ScreenXMax = rightX;
     }
 
     S32 z = 0;
-    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D)
-    {
+    if (Fill_Flag_ZBuffer && TypeProj == TYPE_3D) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[sphere->P1];
         z = (Fill_ZBuffer_Factor * (-rotatedP1.Z - PosZWr)) >> 16;
     }
@@ -1208,14 +1153,12 @@ S32 Sphere_Transp(U32 typePoly, void *poly)
     return 0;
 }
 
-bool TestVisible(STRUC_POLY3_ENV *poly)
-{
+bool TestVisible(STRUC_POLY3_ENV *poly) {
     TYPE_PT projectedP1 = Obj_ListProjectedPoints[poly->P1];
     TYPE_PT projectedP2 = Obj_ListProjectedPoints[poly->P2];
     TYPE_PT projectedP3 = Obj_ListProjectedPoints[poly->P3];
 
-    if ((projectedP1.X == -0x8000 && projectedP1.Y == -0x8000) || (projectedP2.X == -0x8000 && projectedP2.Y == -0x8000) || (projectedP3.X == -0x8000 && projectedP3.Y == -0x8000))
-    {
+    if ((projectedP1.X == -0x8000 && projectedP1.Y == -0x8000) || (projectedP2.X == -0x8000 && projectedP2.Y == -0x8000) || (projectedP3.X == -0x8000 && projectedP3.Y == -0x8000)) {
         return false;
     }
 
@@ -1223,10 +1166,8 @@ bool TestVisible(STRUC_POLY3_ENV *poly)
     return (value & 0x80000000) == 0;
 }
 
-void QuickSort(S32 *beginning, S32 *end)
-{
-    if (end <= beginning)
-    {
+void QuickSort(S32 *beginning, S32 *end) {
+    if (end <= beginning) {
         return;
     }
 
@@ -1234,14 +1175,12 @@ void QuickSort(S32 *beginning, S32 *end)
     S32 *next = left + 1;
     S32 pivot = *beginning;
 
-    do
-    {
+    do {
         // @Next:
         S32 nextValue = *next;
         next++;
 
-        if (pivot >= nextValue)
-        {
+        if (pivot >= nextValue) {
             *left = nextValue;
             *(next - 1) = *(left + 1);
             *(left + 1) = pivot;
@@ -1255,10 +1194,8 @@ void QuickSort(S32 *beginning, S32 *end)
     QuickSort(left + 1, end);
 }
 
-void QuickSortInv(S32 *beginning, S32 *end)
-{
-    if (end <= beginning)
-    {
+void QuickSortInv(S32 *beginning, S32 *end) {
+    if (end <= beginning) {
         return;
     }
 
@@ -1266,14 +1203,12 @@ void QuickSortInv(S32 *beginning, S32 *end)
     S32 *next = left + 1;
     S32 pivot = *beginning;
 
-    do
-    {
+    do {
         // @Next:
         S32 nextValue = *next;
         next++;
 
-        if (pivot <= nextValue)
-        {
+        if (pivot <= nextValue) {
             *left = nextValue;
             *(next - 1) = *(left + 1);
             *(left + 1) = pivot;
@@ -1287,64 +1222,53 @@ void QuickSortInv(S32 *beginning, S32 *end)
     QuickSortInv(left + 1, end);
 }
 
-S16 TestZFar4(STRUC_POLY3_ENV *poly)
-{
+S16 TestZFar4(STRUC_POLY3_ENV *poly) {
     S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
 
-    if (zFar > Obj_ListRotatedPoints[poly->P2].Z)
-    {
+    if (zFar > Obj_ListRotatedPoints[poly->P2].Z) {
         zFar = Obj_ListRotatedPoints[poly->P2].Z;
     }
 
-    if (zFar > Obj_ListRotatedPoints[poly->P3].Z)
-    {
+    if (zFar > Obj_ListRotatedPoints[poly->P3].Z) {
         zFar = Obj_ListRotatedPoints[poly->P3].Z;
     }
 
     U16 poly4P4 = ((STRUC_POLY4_LIGHT *)poly)->P4;
 
-    if (zFar > Obj_ListRotatedPoints[poly4P4].Z)
-    {
+    if (zFar > Obj_ListRotatedPoints[poly4P4].Z) {
         zFar = Obj_ListRotatedPoints[poly4P4].Z;
     }
 
     return zFar;
 }
 
-S16 TestZFar3(STRUC_POLY3_ENV *poly)
-{
+S16 TestZFar3(STRUC_POLY3_ENV *poly) {
     S16 zFar = Obj_ListRotatedPoints[poly->P1].Z;
 
-    if (zFar > Obj_ListRotatedPoints[poly->P2].Z)
-    {
+    if (zFar > Obj_ListRotatedPoints[poly->P2].Z) {
         zFar = Obj_ListRotatedPoints[poly->P2].Z;
     }
 
-    if (zFar > Obj_ListRotatedPoints[poly->P3].Z)
-    {
+    if (zFar > Obj_ListRotatedPoints[poly->P3].Z) {
         zFar = Obj_ListRotatedPoints[poly->P3].Z;
     }
 
     return zFar;
 }
 
-void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
-{
-    for (int i = 0; i < header->NbPoly; i++)
-    {
+void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
+    for (int i = 0; i < header->NbPoly; i++) {
         // @@Do_Triangle:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-        if (TestVisible(poly3))
-        {
+        if (TestVisible(poly3)) {
             U32 zFar = TestZFar3(poly3);
 
             // | ZFar | Poly Number |
             Off_Sort[0] = (zFar << 16) | (Nb_Sort & 0xFFFF);
 
             U32 polyType = header->TypePoly << 26;
-            if (type == 2)
-            {
+            if (type == 2) {
                 polyType |= 0b10 << 24; // Bit environment
             }
             // | PolyType (8 bit) | Poly Offset (24 bit) |
@@ -1356,16 +1280,11 @@ void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset
 
         // @@Next_Triangle:
         U32 size = 0;
-        if (type == 0)
-        {
+        if (type == 0) {
             size = sizeof(STRUC_POLY3_LIGHT);
-        }
-        else if (type == 1)
-        {
+        } else if (type == 1) {
             size = sizeof(STRUC_POLY3_TEXTURE);
-        }
-        else
-        {
+        } else {
             size = sizeof(STRUC_POLY3_ENV);
         }
 
@@ -1374,29 +1293,22 @@ void InsertTriangle(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset
     }
 }
 
-void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
-{
-    for (int i = 0; i < header->NbPoly; i++)
-    {
+void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset) {
+    for (int i = 0; i < header->NbPoly; i++) {
         // @@Do_Quad:
         STRUC_POLY3_ENV *poly3 = (STRUC_POLY3_ENV *)*poly;
 
-        if (TestVisible(poly3))
-        {
+        if (TestVisible(poly3)) {
             STRUC_POLY4_LIGHT *poly4 = (STRUC_POLY4_LIGHT *)*poly;
 
             S16 zFar = TestZFar4(poly3);
 
             TYPE_PT p4 = Obj_ListProjectedPoints[poly4->P4];
-            if (p4.X != -0x8000 || p4.Y != -0x8000)
-            {
+            if (p4.X != -0x8000 || p4.Y != -0x8000) {
                 U32 polyType = (header->TypePoly << 26);
-                if (type == 2)
-                {
+                if (type == 2) {
                     polyType |= (0b11 << 24); // Bit quad+environment
-                }
-                else
-                {
+                } else {
                     polyType |= (0b01 << 24); // Bit quad
                 }
 
@@ -1412,16 +1324,11 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
         }
         // @@Next_Quad:
         U32 size = 0;
-        if (type == 0)
-        {
+        if (type == 0) {
             size = sizeof(STRUC_POLY4_LIGHT);
-        }
-        else if (type == 1)
-        {
+        } else if (type == 1) {
             size = sizeof(STRUC_POLY4_TEXTURE);
-        }
-        else
-        {
+        } else {
             size = sizeof(STRUC_POLY4_ENV);
         }
 
@@ -1430,8 +1337,7 @@ void InsertQuad(U8 type, T_POLY_HEADER *header, void **poly, U32 *polyOffset)
     }
 }
 
-S32 EntityCreation(T_BODY_HEADER *body)
-{
+S32 EntityCreation(T_BODY_HEADER *body) {
     // *****************
     // *** POLYGONES ***
     // *****************
@@ -1444,8 +1350,7 @@ S32 EntityCreation(T_BODY_HEADER *body)
     U32 bodyOffset = body->OffPolys;
 
     // @@Loop_Polys:
-    while (currentPoly != lines)
-    {
+    while (currentPoly != lines) {
         T_POLY_HEADER *header = (T_POLY_HEADER *)currentPoly;
         U32 mask = 0;
         memcpy(&mask, header, sizeof(U32));
@@ -1454,33 +1359,22 @@ S32 EntityCreation(T_BODY_HEADER *body)
         bodyOffset += sizeof(T_POLY_HEADER);
 
         // *** Type dispatch ***
-        if (mask & MASK_QUADRILATERE)
-        {
+        if (mask & MASK_QUADRILATERE) {
             // Dispatch a quad
-            if (mask & MASK_ENVIRONMENT)
-            {
+            if (mask & MASK_ENVIRONMENT) {
                 InsertQuad(2, header, &currentPoly, &bodyOffset);
-            }
-            else if (typePoly <= POLY_DITHER_TABLE)
-            {
+            } else if (typePoly <= POLY_DITHER_TABLE) {
                 InsertQuad(0, header, &currentPoly, &bodyOffset);
-            }
-            else
-            {
+            } else {
                 InsertQuad(1, header, &currentPoly, &bodyOffset);
             }
         }
         // Dispatch a triangle
-        else if (mask & MASK_ENVIRONMENT)
-        {
+        else if (mask & MASK_ENVIRONMENT) {
             InsertTriangle(2, header, &currentPoly, &bodyOffset);
-        }
-        else if (typePoly <= POLY_DITHER_TABLE)
-        {
+        } else if (typePoly <= POLY_DITHER_TABLE) {
             InsertTriangle(0, header, &currentPoly, &bodyOffset);
-        }
-        else
-        {
+        } else {
             InsertTriangle(1, header, &currentPoly, &bodyOffset);
         }
     }
@@ -1489,19 +1383,16 @@ S32 EntityCreation(T_BODY_HEADER *body)
     // *** LINES ***
     // *************
     // @@Do_Lines:
-    if (lBody->NbLines != 0)
-    {
+    if (lBody->NbLines != 0) {
         T_OBJ_LINE *line = (T_OBJ_LINE *)lines;
 
-        for (int i = 0; i < body->NbLines; ++i)
-        {
+        for (int i = 0; i < body->NbLines; ++i) {
             // @@Loop_Lines:
             T_OBJ_POINT p1 = Obj_ListRotatedPoints[line->P1];
             T_OBJ_POINT p2 = Obj_ListRotatedPoints[line->P2];
             S16 minZ = p1.Z;
 
-            if (p1.Z > p2.Z)
-            {
+            if (p1.Z > p2.Z) {
                 minZ = p2.Z;
             }
 
@@ -1524,12 +1415,10 @@ S32 EntityCreation(T_BODY_HEADER *body)
     // *** SPHERES ***
     // ***************
     // @@Do_Spheres:
-    if (lBody->NbSpheres != 0)
-    {
+    if (lBody->NbSpheres != 0) {
         T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)((U8 *)lBody + lBody->OffSpheres);
 
-        for (int i = 0; i < body->NbSpheres; ++i)
-        {
+        for (int i = 0; i < body->NbSpheres; ++i) {
             // @@Loop_Spheres:
             S16 zFar = Obj_ListRotatedPoints[sphere->P1].Z;
             // | ZFar | Poly Number |
@@ -1554,20 +1443,15 @@ S32 EntityCreation(T_BODY_HEADER *body)
 
     // @@Do_Sort:
     // Anything to do ?
-    if (Off_Sort == ListSort)
-    {
+    if (Off_Sort == ListSort) {
         return 0;
     }
 
-    if (!(lBody->Info & MASK_OBJECT_NO_SORT))
-    {
-        if (!Fill_Flag_ZBuffer || (lBody->Info & MASK_OBJECT_TRANSPARENT) || Fill_Flag_NZW)
-        {
+    if (!(lBody->Info & MASK_OBJECT_NO_SORT)) {
+        if (!Fill_Flag_ZBuffer || (lBody->Info & MASK_OBJECT_TRANSPARENT) || Fill_Flag_NZW) {
             // @@SortNormal:
             QuickSort(ListSort, Off_Sort - 1);
-        }
-        else
-        {
+        } else {
             // @@SortZBuffer:
             QuickSortInv(ListSort, Off_Sort - 1);
         }
@@ -1583,8 +1467,7 @@ S32 EntityCreation(T_BODY_HEADER *body)
     PtrTextures = (U32 *)((U8 *)lBody + lBody->OffTextures);
     S32 *list = ListSort;
     S32 *polyInfo = ListSort + MAX_NB_POLYS;
-    for (int i = 0; i < Nb_Sort; i++)
-    {
+    for (int i = 0; i < Nb_Sort; i++) {
         // @@ Do_Display:
         U16 number = *list & 0xFFFF;
         S32 info = polyInfo[number];
@@ -1601,12 +1484,10 @@ S32 EntityCreation(T_BODY_HEADER *body)
     return 1;
 }
 
-S32 ObjectDisplay(T_OBJ_3D *obj)
-{
-    LIB386_TRACE_CPP("ObjectDisplay", "1", "obj=%p", (void*)obj);
+S32 ObjectDisplay(T_OBJ_3D *obj) {
+    LIB386_TRACE_CPP("ObjectDisplay", "1", "obj=%p", (void *)obj);
     // Must we change the texture pointer ?
-    if (obj->Texture != NULL && obj->Texture != (void *)-1)
-    {
+    if (obj->Texture != NULL && obj->Texture != (void *)-1) {
         ObjPtrMap = (U8 *)obj->Texture;
     }
 
@@ -1621,8 +1502,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
     S32 y = obj->Y;
     S32 z = obj->Z;
 
-    if (TypeProj == TYPE_3D)
-    {
+    if (TypeProj == TYPE_3D) {
         LongRotatePoint(&MatriceWorld, x, y, z);
 
         x = X0;
@@ -1643,8 +1523,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
     void *body = obj->Body.Ptr;
 
     // Convert it to a ptr
-    if (TransFctBody != NULL)
-    {
+    if (TransFctBody != NULL) {
         body = TransFctBody(obj->Body.Num);
     }
 
@@ -1704,8 +1583,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
     PtrNormales = (TYPE_VT16 *)((U8 *)PtrNormales + groupeNbPts * 8);
     PtrListLights = (PTR_U16)((U8 *)PtrListLights + groupeNbPts * 2);
 
-    if (groupeNbNorm != 0)
-    {
+    if (groupeNbNorm != 0) {
         LightList(Current_Matrix, PtrListLightsFaces,
                   PtrNormFaces, groupeNbNorm);
 
@@ -1713,8 +1591,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
         PtrListLightsFaces = (PTR_U16)((U8 *)PtrListLightsFaces + groupeNbNorm * 2);
     }
 
-    while (--NbGroupes > 0)
-    {
+    while (--NbGroupes > 0) {
         PtrGroupes = PtrGroupes + 1;
         ListGroupAnim = ListGroupAnim + 1;
 
@@ -1730,8 +1607,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
         TYPE_MAT *mat = &TabMat[orgGroupe];
 
-        if (ListGroupAnim->Type & TYPE_TRANSLATE)
-        {
+        if (ListGroupAnim->Type & TYPE_TRANSLATE) {
             RotatePoint(mat, ListGroupAnim->Alpha,
                         ListGroupAnim->Beta, ListGroupAnim->Gamma);
 
@@ -1739,9 +1615,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
             InitMatrixTrans(Current_Matrix, X0 + TransX,
                             Y0 + TransY, Z0 + TransZ);
-        }
-        else
-        {
+        } else {
             RotateMatrix(Current_Matrix, mat, ListGroupAnim->Alpha,
                          ListGroupAnim->Beta, ListGroupAnim->Gamma);
 
@@ -1773,8 +1647,7 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
         PtrNormales = (TYPE_VT16 *)((U8 *)PtrNormales + groupeNbPts * 8);
         PtrListLights = (PTR_U16)((U8 *)PtrListLights + groupeNbPts * 2);
 
-        if (groupeNbNorm != 0)
-        {
+        if (groupeNbNorm != 0) {
             LightList(Current_Matrix, PtrListLightsFaces,
                       PtrNormFaces, groupeNbNorm);
 
@@ -1792,16 +1665,14 @@ S32 ObjectDisplay(T_OBJ_3D *obj)
 
     // Is the object visible?
     if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
-        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin)
-    {
+        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin) {
         return 0;
     }
 
     return EntityCreation(lBody);
 }
 
-S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 beta, S32 gamma, void *obj)
-{
+S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 beta, S32 gamma, void *obj) {
     LIB386_TRACE_CPP("BodyDisplay", "1", "entry");
     RotateMatrix(dstMatrix, srcMatrix, alpha, beta, gamma);
 
@@ -1817,8 +1688,7 @@ S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 
 
     // Is the object visible?
     if (ScreenXMin > ClipXMax || ScreenYMin > ClipYMax ||
-        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin)
-    {
+        ScreenXMax < ClipXMin || ScreenYMax < ClipYMin) {
         return 0;
     }
 
@@ -1848,8 +1718,7 @@ S32 Return_BodyDisplay(TYPE_MAT *srcMatrix, TYPE_MAT *dstMatrix, S32 alpha, S32 
 // ║                                                                            ║
 // ╚════════════════════════════════════════════════════════════════════════════╝
 S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
-                void *obj)
-{
+                void *obj) {
     lBody = (T_BODY_HEADER *)obj;
     // Init 2D box
     ScreenXMin = 0x7FFFFFFF;
@@ -1857,16 +1726,13 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
     ScreenXMax = 0x80000000;
     ScreenYMax = 0x80000000;
 
-    if (TypeProj == TYPE_3D)
-    {
+    if (TypeProj == TYPE_3D) {
         LongRotatePoint(&MatriceWorld, x, y, z);
 
         PosXWr = X0 - CameraXr;
         PosYWr = Y0 - CameraYr;
         PosZWr = Z0 - CameraZr;
-    }
-    else
-    {
+    } else {
         // Object world position
         PosXWr = x - CameraXr;
         PosYWr = y - CameraYr;
@@ -1896,8 +1762,7 @@ S32 BodyDisplay(S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
 // ║                                                                            ║
 // ╚════════════════════════════════════════════════════════════════════════════╝
 S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
-                          S32 gamma, void *obj)
-{
+                          S32 gamma, void *obj) {
     lBody = (T_BODY_HEADER *)obj;
     ScreenXMin = 0x7FFFFFFF; // Init 2D box
     ScreenYMin = 0x7FFFFFFF;
@@ -1905,15 +1770,12 @@ S32 BodyDisplay_AlphaBeta(S32 x, S32 y, S32 z, S32 alpha, S32 beta,
     ScreenYMax = 0x80000000;
 
     // Object position
-    if (TypeProj == TYPE_3D)
-    {
+    if (TypeProj == TYPE_3D) {
         LongRotatePoint(&MatriceWorld, x, y, z); // If perspective
         PosXWr = X0 - CameraXr;
         PosYWr = Y0 - CameraYr;
         PosZWr = Z0 - CameraZr;
-    }
-    else
-    {
+    } else {
         PosXWr = x - CameraXr;
         PosYWr = y - CameraYr;
         PosZWr = z - CameraZr;

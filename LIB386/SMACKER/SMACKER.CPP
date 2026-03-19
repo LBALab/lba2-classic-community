@@ -49,8 +49,7 @@ extern HDIGDRIVER DigDriver; // Handle to digital audio driver
 
 // ████████████████████████████████████████████████████████████████████████████
 
-RCFUNC void *RADLINK radmalloc(U32 size)
-{
+RCFUNC void *RADLINK radmalloc(U32 size) {
     MALLOC_BLOCK *ptr;
     MALLOC_BLOCK *next;
     S32 i, found;
@@ -62,27 +61,22 @@ RCFUNC void *RADLINK radmalloc(U32 size)
     found = FALSE;
     size = (size + 15) & ~15;
 
-    for (i = 0; i < NbBlock; i++)
-    {
+    for (i = 0; i < NbBlock; i++) {
         ptr = Block[i].Ptr;
 
-        while (TRUE)
-        {
-            if ((ptr->Flags & FLAG_FREE) && (ptr->Size >= size))
-            {
+        while (TRUE) {
+            if ((ptr->Flags & FLAG_FREE) && (ptr->Size >= size)) {
                 found = TRUE;
                 goto end;
             }
-            if (ptr->Flags & FLAG_LAST)
-            {
+            if (ptr->Flags & FLAG_LAST) {
                 break;
             }
             ptr = (MALLOC_BLOCK *)((U8 *)ptr + sizeof(MALLOC_BLOCK) + ptr->Size);
         }
     }
 end:
-    if (!found)
-    {
+    if (!found) {
         LogPuts("Not Enough memory for Smacker!");
         return SmartMalloc(size);
     }
@@ -91,8 +85,7 @@ end:
 
     left = ptr->Size - size;
 
-    if (left < sizeof(MALLOC_BLOCK) + 16)
-    {
+    if (left < sizeof(MALLOC_BLOCK) + 16) {
         return (void *)(ptr + 1);
     }
 
@@ -109,8 +102,7 @@ end:
 
 // ████████████████████████████████████████████████████████████████████████████
 
-RCFUNC void RADLINK radfree(void *ptr)
-{
+RCFUNC void RADLINK radfree(void *ptr) {
     S32 i, found;
     MALLOC_BLOCK *prev, *block, *next;
 
@@ -119,30 +111,23 @@ RCFUNC void RADLINK radfree(void *ptr)
 
     found = FALSE;
 
-    for (i = 0; i < NbBlock; i++)
-    {
+    for (i = 0; i < NbBlock; i++) {
         prev = NULL;
         block = Block[i].Ptr;
 
-        while (TRUE)
-        {
-            if (block->Flags & FLAG_LAST)
-            {
+        while (TRUE) {
+            if (block->Flags & FLAG_LAST) {
                 next = NULL;
-            }
-            else
-            {
+            } else {
                 next = (MALLOC_BLOCK *)((U8 *)block + sizeof(MALLOC_BLOCK) + block->Size);
             }
 
-            if (block + 1 == (MALLOC_BLOCK *)ptr)
-            {
+            if (block + 1 == (MALLOC_BLOCK *)ptr) {
                 found = TRUE;
                 goto end;
             }
 
-            if (!next)
-            {
+            if (!next) {
                 break;
             }
             prev = block;
@@ -150,23 +135,20 @@ RCFUNC void RADLINK radfree(void *ptr)
         }
     }
 end:
-    if (!found)
-    {
+    if (!found) {
         Free(ptr);
         return;
     }
 
     block->Flags |= FLAG_FREE;
 
-    if (prev && (prev->Flags & FLAG_FREE))
-    {
+    if (prev && (prev->Flags & FLAG_FREE)) {
         prev->Size += block->Size + sizeof(MALLOC_BLOCK);
         prev->Flags |= block->Flags;
         block = prev;
     }
 
-    if (next && (next->Flags & FLAG_FREE))
-    {
+    if (next && (next->Flags & FLAG_FREE)) {
         block->Size += next->Size + sizeof(MALLOC_BLOCK);
         block->Flags |= next->Flags;
     }
@@ -174,8 +156,7 @@ end:
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void SmackRegisterMemory(void *ptr, U32 size)
-{
+void SmackRegisterMemory(void *ptr, U32 size) {
     if (NbBlock >= MAX_BLOCKS)
         return;
 
@@ -187,12 +168,10 @@ void SmackRegisterMemory(void *ptr, U32 size)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void SmackResetMemory()
-{
+void SmackResetMemory() {
     S32 i;
 
-    for (i = 0; i < NbBlock; i++)
-    {
+    for (i = 0; i < NbBlock; i++) {
         Block[i].Ptr->Size = Block[i].Size - sizeof(MALLOC_BLOCK);
         Block[i].Ptr->Flags = FLAG_FREE | FLAG_LAST;
     }
@@ -200,16 +179,12 @@ void SmackResetMemory()
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void InitSmacker()
-{
+void InitSmacker() {
     SmackSoundUseMSS(DigDriver);
 
-    if (DigDriver)
-    {
+    if (DigDriver) {
         LogPuts("Digital Sound Driver linked to Smacker.");
-    }
-    else
-    {
+    } else {
         LogPuts("No Digital Sound Driver. Smacker will not playback soundtracks.");
     }
 }

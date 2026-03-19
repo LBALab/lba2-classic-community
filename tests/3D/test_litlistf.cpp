@@ -19,27 +19,23 @@ static void call_asm_LightListF(TYPE_MAT *m, U16 *d, TYPE_VT16 *s, S32 n) {
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void set_identity_matrix(TYPE_MAT *m)
-{
+static void set_identity_matrix(TYPE_MAT *m) {
     memset(m, 0, sizeof(*m));
     m->F.M11 = 1.0f;
     m->F.M22 = 1.0f;
     m->F.M33 = 1.0f;
 }
 
-static void assert_lightlist_case(const char *label, TYPE_MAT *matrix, TYPE_VT16 *src, S32 n)
-{
+static void assert_lightlist_case(const char *label, TYPE_MAT *matrix, TYPE_VT16 *src, S32 n) {
     TYPE_MAT cpp_matrix;
     TYPE_MAT asm_matrix;
     U16 cpp_dst[8];
@@ -66,8 +62,7 @@ static void assert_lightlist_case(const char *label, TYPE_MAT *matrix, TYPE_VT16
     ASSERT_ASM_CPP_MEM_EQ(&asm_matrix, &cpp_matrix, sizeof(TYPE_MAT), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     TYPE_MAT matrix;
     TYPE_VT16 src[3] = {{100, 0, 0, 0}, {0, 100, 0, 0}, {0, 0, 100, 0}};
 
@@ -80,8 +75,7 @@ static void test_equivalence(void)
     assert_lightlist_case("LightList fixed", &matrix, src, 3);
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     TYPE_MAT matrix;
     rng_seed(0xDEADBEEFu);
     set_identity_matrix(&matrix);
@@ -108,8 +102,7 @@ static void test_random_equivalence(void)
     }
 }
 
-static void test_zero_count_preserves_globals(void)
-{
+static void test_zero_count_preserves_globals(void) {
     TYPE_MAT matrix;
     TYPE_VT16 src[1] = {{1, 2, 3, 0}};
 
@@ -136,8 +129,7 @@ static void test_zero_count_preserves_globals(void)
     ASSERT_ASM_CPP_EQ_INT(Z0, cpp_z0, "LightList zero-count Z0");
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     RUN_TEST(test_zero_count_preserves_globals);

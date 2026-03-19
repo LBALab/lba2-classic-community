@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-#define KeyBit(x) ((x) < 256 ? 0x80 : (1 << ((x)&7)))
+#define KeyBit(x) ((x) < 256 ? 0x80 : (1 << ((x) & 7)))
 #define KeyIndex(x) ((x) < 256 ? (x) : 256 - 32 + ((x) >> 3))
 
 // --- Public state ------------------------------------------------------------
@@ -22,76 +22,76 @@ U8 TabKeys[TABKEYS_NUM_KEYS];
 
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {
-  ManageEvents();
+    ManageEvents();
 
-  Key = 0;
-  memset(TabKeys, 0, 256);
+    Key = 0;
+    memset(TabKeys, 0, 256);
 
-  SDL_PumpEvents();
-  const bool *keystate = SDL_GetKeyboardState(NULL);
-  for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
-    if (keystate[keyIndex]) {
-      TabKeys[KeyIndex(keyIndex)] |= KeyBit(keyIndex);
+    SDL_PumpEvents();
+    const bool *keystate = SDL_GetKeyboardState(NULL);
+    for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
+        if (keystate[keyIndex]) {
+            TabKeys[KeyIndex(keyIndex)] |= KeyBit(keyIndex);
 
-      if (Key == 0) {
-        Key = keyIndex;
-      }
+            if (Key == 0) {
+                Key = keyIndex;
+            }
+        }
     }
-  }
 }
 
 // --- Initialization ----------------------------------------------------------
 void InitKeyboard() {
-  // Empty
+    // Empty
 }
 
 void EndKeyboard() {
-  // Empty
+    // Empty
 }
 
 // --- Interface ---------------------------------------------------------------
 S32 GetAscii() {
-  static SDL_Keycode lastReturnedAscii = 0;
+    static SDL_Keycode lastReturnedAscii = 0;
 
-  ManageEvents();
+    ManageEvents();
 
-  const bool *keystate = SDL_GetKeyboardState(NULL);
-  for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
-    if (keystate[keyIndex]) {
-      SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)keyIndex, SDL_KMOD_NONE, true);
+    const bool *keystate = SDL_GetKeyboardState(NULL);
+    for (int keyIndex = 0; keyIndex < SDL_SCANCODE_COUNT; keyIndex++) {
+        if (keystate[keyIndex]) {
+            SDL_Keycode asciiValue = SDL_GetKeyFromScancode((SDL_Scancode)keyIndex, SDL_KMOD_NONE, true);
 
-      if (lastReturnedAscii == asciiValue) {
-        return 0;
-      }
+            if (lastReturnedAscii == asciiValue) {
+                return 0;
+            }
 
-      lastReturnedAscii = asciiValue;
-      return asciiValue;
+            lastReturnedAscii = asciiValue;
+            return asciiValue;
+        }
     }
-  }
 
-  lastReturnedAscii = 0;
+    lastReturnedAscii = 0;
 
-  return 0;
+    return 0;
 }
 
 S32 CheckKey(U32 key) {
-  return ((key) < 256 ? TabKeys[(key)] & 0x80
-                      : TabKeys[256 - 32 + ((key) >> 3)] & (1 << ((key)&7)));
+    return ((key) < 256 ? TabKeys[(key)] & 0x80
+                        : TabKeys[256 - 32 + ((key) >> 3)] & (1 << ((key) & 7)));
 }
 
 void GetKeyScancodeName(char *string, U8 strMaxLen, U32 scanCode) {
-  const char *name = SDL_GetScancodeName((SDL_Scancode)scanCode);
-  snprintf(string, strMaxLen, "%s", name);
+    const char *name = SDL_GetScancodeName((SDL_Scancode)scanCode);
+    snprintf(string, strMaxLen, "%s", name);
 }
 
 void ManageKeyboard() {
-  UpdateKeyboardState();
+    UpdateKeyboardState();
 }
 
 void HandleEventsKeyboard(const void *event) {
-  // Empty
-  // New implementation using SDL does not make use of events, but this may
-  //  change in the future
+    // Empty
+    // New implementation using SDL does not make use of events, but this may
+    //  change in the future
 }
 
 // =============================================================================

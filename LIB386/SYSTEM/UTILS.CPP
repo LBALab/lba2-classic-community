@@ -2,76 +2,60 @@
 
 #include <math.h>
 
-U32 ROR32(U32 value, U32 shift)
-{
-  shift &= 31;
-  if (shift == 0)
-  {
-    return value;
-  }
+U32 ROR32(U32 value, U32 shift) {
+    shift &= 31;
+    if (shift == 0) {
+        return value;
+    }
     return (value >> shift) | (value << (32 - shift));
 }
 
-U32 ROL32(U32 value, U32 shift)
-{
-  shift &= 31;
-  if (shift == 0)
-  {
-    return value;
-  }
+U32 ROL32(U32 value, U32 shift) {
+    shift &= 31;
+    if (shift == 0) {
+        return value;
+    }
     return (value << shift) | (value >> (32 - shift));
 }
 
-U16 ROR16(U16 value, U32 shift)
-{
-  shift &= 15;
-  if (shift == 0)
-  {
-    return value;
-  }
+U16 ROR16(U16 value, U32 shift) {
+    shift &= 15;
+    if (shift == 0) {
+        return value;
+    }
     return (value >> shift) | (value << (16 - shift));
 }
 
-U16 ROL16(U16 value, U32 shift)
-{
-  shift &= 15;
-  if (shift == 0)
-  {
-    return value;
-  }
+U16 ROL16(U16 value, U32 shift) {
+    shift &= 15;
+    if (shift == 0) {
+        return value;
+    }
     return (value << shift) | (value >> (16 - shift));
 }
 
-U8 ROR8(U8 value, U32 shift)
-{
+U8 ROR8(U8 value, U32 shift) {
     shift &= 7;
-  if (shift == 0)
-  {
-    return value;
-  }
+    if (shift == 0) {
+        return value;
+    }
     return (value >> shift) | (value << (8 - shift));
 }
 
-U8 ROL8(U8 value, U32 shift)
-{
+U8 ROL8(U8 value, U32 shift) {
     shift &= 7;
-  if (shift == 0)
-  {
-    return value;
-  }
+    if (shift == 0) {
+        return value;
+    }
     return (value << shift) | (value >> (8 - shift));
 }
 
 ROUND_TYPE RoundType = ROUND_TYPE_FLOAT;
 
-double ROUND(double value)
-{
-  if (RoundType == ROUND_TYPE_FLOAT)
-  {
-    return roundf(value);
-  }
-  else
-  {
-    return (double)(S64)value;
-  }
+double ROUND(double value) {
+    if (RoundType == ROUND_TYPE_FLOAT) {
+        return roundf(value);
+    } else {
+        return (double)(S64)value;
+    }
 }

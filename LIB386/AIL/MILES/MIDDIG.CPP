@@ -24,13 +24,11 @@ static S32 SizeLib = 0;
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void InitSampleSynthesizer(void *wavelib, S32 sizelib, S32 voices)
-{
+void InitSampleSynthesizer(void *wavelib, S32 sizelib, S32 voices) {
     if ((!Midi_Driver_Enabled) || (!Sample_Driver_Enabled))
         return;
 
-    if (WaveLib)
-    {
+    if (WaveLib) {
         AIL_destroy_wave_synthesizer((WAVE_SYNTH *)WaveSynthesizer);
         AIL_vmm_unlock(WaveLib, SizeLib);
     }
@@ -46,8 +44,7 @@ void InitSampleSynthesizer(void *wavelib, S32 sizelib, S32 voices)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void ClearSampleSynthesizer()
-{
+void ClearSampleSynthesizer() {
     if ((!Midi_Driver_Enabled) || (!Sample_Driver_Enabled))
         return;
 

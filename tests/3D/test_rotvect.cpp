@@ -16,19 +16,16 @@ static void call_asm_RotateVector(S32 n, S32 a, S32 b, S32 g) {
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void assert_rotatevector_case(const char *label, S32 n, S32 a, S32 b, S32 g)
-{
+static void assert_rotatevector_case(const char *label, S32 n, S32 a, S32 b, S32 g) {
     RotateVector(n, a, b, g);
     S32 cpp_x = X0;
     S32 cpp_y = Y0;
@@ -41,9 +38,10 @@ static void assert_rotatevector_case(const char *label, S32 n, S32 a, S32 b, S32
     ASSERT_ASM_CPP_EQ_INT(Z0, cpp_z, label);
 }
 
-static void test_equivalence(void)
-{
-    struct { S32 n,a,b,g; } cases[] = {
+static void test_equivalence(void) {
+    struct {
+        S32 n, a, b, g;
+    } cases[] = {
         {0, 0, 0, 0},
         {100, 0, 0, 0},
         {100, 1024, 0, 0},
@@ -63,8 +61,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
         S32 n = (S32)(((U32)rng_next() << 16) | rng_next());
@@ -78,8 +75,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

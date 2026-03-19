@@ -6,20 +6,17 @@
 #include "PCXHEAD.H"
 
 // ──────────────────────────────────────────────────────────────────────────
-static void next_char(U32 fd, U8 *pt, S32 val)
-{
+static void next_char(U32 fd, U8 *pt, S32 val) {
     pt[Index++] = (U8)val;
 
-    if (Index == SIZE_BUF)
-    {
+    if (Index == SIZE_BUF) {
         Index = 0;
         Write(fd, pt, SIZE_BUF);
     }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-void SavePCX(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette)
-{
+void SavePCX(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette) {
     S32 i, k, number, num_out;
     S32 ch, old_ch;
     U8 file_buf[SIZE_BUF];
@@ -44,8 +41,7 @@ void SavePCX(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette)
 
     fd = OpenWrite(filename);
 
-    if (!fd)
-    {
+    if (!fd) {
         return;
     }
 
@@ -53,32 +49,23 @@ void SavePCX(char *filename, void *screen, S32 xres, S32 yres, void *ptrpalette)
 
     Index = 0;
 
-    for (k = 0; k < yres; k++)
-    {
+    for (k = 0; k < yres; k++) {
         number = 1;
 
         old_ch = ((U8 *)screen)[ModeDesiredX * k];
 
-        for (i = 1; i <= xres; i++)
-        {
-            if (i == xres)
-            {
+        for (i = 1; i <= xres; i++) {
+            if (i == xres) {
                 ch = old_ch - 1;
-            }
-            else
-            {
+            } else {
                 ch = ((U8 *)screen)[ModeDesiredX * k + i];
             }
 
-            if ((ch == old_ch) && (number < 63))
-            {
+            if ((ch == old_ch) && (number < 63)) {
                 number++;
-            }
-            else
-            {
+            } else {
                 num_out = ((U8)number | 0xC0);
-                if ((number != 1) || ((old_ch & 0xC0) == 0xC0))
-                {
+                if ((number != 1) || ((old_ch & 0xC0) == 0xC0)) {
                     next_char(fd, file_buf, num_out);
                 }
                 next_char(fd, file_buf, old_ch);

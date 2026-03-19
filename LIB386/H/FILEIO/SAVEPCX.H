@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_FILEIO_SAVEPCX
-#define	LIB_FILEIO_SAVEPCX
+#ifndef LIB_FILEIO_SAVEPCX
+#define LIB_FILEIO_SAVEPCX
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -8,8 +8,8 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern void SavePCX(	char *filename, void *screen,
-			S32 xres, S32 yres, void *ptrpalette	)	;
+extern void SavePCX(char *filename, void *screen,
+                    S32 xres, S32 yres, void *ptrpalette);
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -17,6 +17,6 @@ extern void SavePCX(	char *filename, void *screen,
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_FILEIO_SAVEPCX
+#endif //LIB_FILEIO_SAVEPCX
 
 //──────────────────────────────────────────────────────────────────────────

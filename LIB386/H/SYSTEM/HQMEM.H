@@ -1,48 +1,48 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_HQ_MEM
+#ifndef LIB_SYSTEM_HQ_MEM
 #define LIB_SYSTEM_HQ_MEM
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
 // Init le buffer global
-extern	S32	HQM_Init_Memory(U32 size)		;
+extern S32 HQM_Init_Memory(U32 size);
 
 //──────────────────────────────────────────────────────────────────────────
 // free le buffer global
-extern	void	HQM_Clear_Memory()			;
+extern void HQM_Clear_Memory();
 
 //──────────────────────────────────────────────────────────────────────────
 // alloue un bloc de memoire
-extern	S32	HQM_Alloc(U32 size, void **ptr)		;
+extern S32 HQM_Alloc(U32 size, void **ptr);
 
 //──────────────────────────────────────────────────────────────────────────
 // free tous les blocs dans le buffer global
-extern	void	HQM_Free_All()				;
+extern void HQM_Free_All();
 
 //──────────────────────────────────────────────────────────────────────────
 // resize le dernier bloc de memoire
-extern	void	HQM_Shrink_Last(void *ptr, U32 newsize)	;
+extern void HQM_Shrink_Last(void *ptr, U32 newsize);
 
 //──────────────────────────────────────────────────────────────────────────
 // libere un bloc de memoire et bouche le trou (remap les ptrs)
-extern	void	HQM_Free(void *ptr)			;
+extern void HQM_Free(void *ptr);
 
 //──────────────────────────────────────────────────────────────────────────
 // test la cohérence du buffer global
-extern	S32	HQM_Check()				;
+extern S32 HQM_Check();
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_HQ_MEM
+#endif //LIB_SYSTEM_HQ_MEM
 
 //──────────────────────────────────────────────────────────────────────────

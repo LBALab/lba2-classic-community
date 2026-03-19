@@ -60,133 +60,132 @@ atexit(SafeErrorMallocMsg);
 // ··········································································
 
 void InitAdeline(S32 argc, char *argv[]) {
+    {
+        char resFolderPath[ADELINE_MAX_PATH] = "";
+        char saveFolderPath[ADELINE_MAX_PATH] = "";
+        char cfgFolderPath[ADELINE_MAX_PATH] = "";
+        char logFilePath[ADELINE_MAX_PATH] = "";
 
-  {
-    char resFolderPath[ADELINE_MAX_PATH] = "";
-    char saveFolderPath[ADELINE_MAX_PATH] = "";
-    char cfgFolderPath[ADELINE_MAX_PATH] = "";
-    char logFilePath[ADELINE_MAX_PATH] = "";
+        GetResPath(resFolderPath, ADELINE_MAX_PATH, NULL);
+        GetSavePath(saveFolderPath, ADELINE_MAX_PATH, NULL);
+        GetCfgPath(cfgFolderPath, ADELINE_MAX_PATH, NULL);
 
-    GetResPath(resFolderPath, ADELINE_MAX_PATH, NULL);
-    GetSavePath(saveFolderPath, ADELINE_MAX_PATH, NULL);
-    GetCfgPath(cfgFolderPath, ADELINE_MAX_PATH, NULL);
-
-    GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
-    CreateLog(logFilePath);
-    LogPuts("Starting game...");
-    LogPuts("Paths used:");
-    LogPrintf("\t* Assets:\t%s\n"
-              "\t* Saves:\t%s\n"
-              "\t* Config:\t%s\n",
-              resFolderPath, saveFolderPath, cfgFolderPath);
-  }
-
-  // ··········································································
-  {
-    LogPuts("\nInitialising Event system. Please wait...\n");
-    if (!InitEvents()) {
-      exit(1); // TODO: Implement graceful exit
-    }
-  }
-
-  // --- WINDOW ----------------------------------------------------------------
-  {
-    LogPuts("\nInitialising Window. Please wait...\n");
-    if (!InitWindow(APPNAME)) {
-      exit(1); // TODO: Implement graceful exit
-    }
-  }
-
-  // ··········································································
-  //  Config File
-  GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-  if (!ExistsFileOrDir(PathConfigFile)) {
-    LogPuts("Config file not found! Copying default from assets folder...");
-
-    char PathDefaultConfigFile[ADELINE_MAX_PATH];
-    GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-    if (!ExistsFileOrDir(PathDefaultConfigFile)) {
-      LogPrintf("Error: Can't find default config file %s\n\n", PathDefaultConfigFile);
-      exit(1);
+        GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
+        CreateLog(logFilePath);
+        LogPuts("Starting game...");
+        LogPuts("Paths used:");
+        LogPrintf("\t* Assets:\t%s\n"
+                  "\t* Saves:\t%s\n"
+                  "\t* Config:\t%s\n",
+                  resFolderPath, saveFolderPath, cfgFolderPath);
     }
 
-    const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
-    if (!copyResult) {
-      LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n", PathDefaultConfigFile, PathConfigFile);
-      exit(1);
+    // ··········································································
+    {
+        LogPuts("\nInitialising Event system. Please wait...\n");
+        if (!InitEvents()) {
+            exit(1); // TODO: Implement graceful exit
+        }
     }
-  }
 
-  // ··········································································
-  //  CMDLINE
-  GetCmdLine(argc, argv);
+    // --- WINDOW ----------------------------------------------------------------
+    {
+        LogPuts("\nInitialising Window. Please wait...\n");
+        if (!InitWindow(APPNAME)) {
+            exit(1); // TODO: Implement graceful exit
+        }
+    }
 
-  // ··········································································
-  //  OS
-  LogPuts("\nIdentifying Operating System. Please wait...\n");
-  DisplayOS();
+    // ··········································································
+    //  Config File
+    GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+    if (!ExistsFileOrDir(PathConfigFile)) {
+        LogPuts("Config file not found! Copying default from assets folder...");
 
-  // ··········································································
-  //  CPU
-  // TODO: Remove when all ASM is ported to C
-  if (!FindAndRemoveParam("/CPUNodetect")) {
-    //ProcessorIdentification();
-    ProcessorSignature.FPU = 1;
-    ProcessorSignature.Family = 5;
-    ProcessorSignature.Model = 4;
-    ProcessorSignature.Manufacturer = 1;
-    ProcessorFeatureFlags.MMX = 0;
-  }
+        char PathDefaultConfigFile[ADELINE_MAX_PATH];
+        GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+        if (!ExistsFileOrDir(PathDefaultConfigFile)) {
+            LogPrintf("Error: Can't find default config file %s\n\n", PathDefaultConfigFile);
+            exit(1);
+        }
 
-  // ··········································································
-  //  AIL API init (for vmm_lock/timer)
+        const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
+        if (!copyResult) {
+            LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n", PathDefaultConfigFile, PathConfigFile);
+            exit(1);
+        }
+    }
 
-  InitAIL(); // TODO: Reorganize/reposition closer to sound subsystem
+    // ··········································································
+    //  CMDLINE
+    GetCmdLine(argc, argv);
 
-  // --- VIDEO
-  // -------------------------------------------------------------------
+    // ··········································································
+    //  OS
+    LogPuts("\nIdentifying Operating System. Please wait...\n");
+    DisplayOS();
 
-  LogPuts("\nInitialising Video. Please wait...\n");
+    // ··········································································
+    //  CPU
+    // TODO: Remove when all ASM is ported to C
+    if (!FindAndRemoveParam("/CPUNodetect")) {
+        //ProcessorIdentification();
+        ProcessorSignature.FPU = 1;
+        ProcessorSignature.Family = 5;
+        ProcessorSignature.Model = 4;
+        ProcessorSignature.Manufacturer = 1;
+        ProcessorFeatureFlags.MMX = 0;
+    }
 
-  if (!InitVideo()) {
-    exit(1); // TODO: Implement graceful exit
-  }
+    // ··········································································
+    //  AIL API init (for vmm_lock/timer)
 
-  if (!InitScreen()) {
-    exit(1); // TODO: Implement graceful exit
-  }
+    InitAIL(); // TODO: Reorganize/reposition closer to sound subsystem
 
-  if (!InitGraphics(RESOLUTION_X, RESOLUTION_Y)) {
-    exit(1); // TODO: Implement graceful exit
-  }
+    // --- VIDEO
+    // -------------------------------------------------------------------
 
-  // ··········································································
-  //  Midi device
+    LogPuts("\nInitialising Video. Please wait...\n");
 
-#if ((inits)&INIT_MIDI)
+    if (!InitVideo()) {
+        exit(1); // TODO: Implement graceful exit
+    }
+
+    if (!InitScreen()) {
+        exit(1); // TODO: Implement graceful exit
+    }
+
+    if (!InitGraphics(RESOLUTION_X, RESOLUTION_Y)) {
+        exit(1); // TODO: Implement graceful exit
+    }
+
+    // ··········································································
+    //  Midi device
+
+#if ((inits) & INIT_MIDI)
 #ifndef LIB_AIL
 #error ADELINE: you need to include AIL.H
 #endif
-  LogPuts("\nInitialising Midi device. Please wait...\n");
-  if (!InitMidiDriver(NULL))
-    exit(1);
+    LogPuts("\nInitialising Midi device. Please wait...\n");
+    if (!InitMidiDriver(NULL))
+        exit(1);
 #endif
 
-  // ··········································································
-  //  Sample device
-  {
+    // ··········································································
+    //  Sample device
+    {
 #ifndef LIB_AIL
 #error ADELINE: you need to include AIL.H
 #endif
-    LogPuts("\nInitialising Sample device. Please wait...\n");
-    if (!InitSampleDriver(NULL)) {
-      exit(1); // TODO: Implement graceful exit
+        LogPuts("\nInitialising Sample device. Please wait...\n");
+        if (!InitSampleDriver(NULL)) {
+            exit(1); // TODO: Implement graceful exit
+        }
     }
-  }
 
-  // ··········································································
-  //  Smacker
-  /*
+    // ··········································································
+    //  Smacker
+    /*
   #ifndef LIB_SMACKER
 
   #error ADELINE: you need to include SMACKER.H
@@ -197,29 +196,29 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     InitSmacker()	;
   */
-  // ··········································································
-  //  keyboard
+    // ··········································································
+    //  keyboard
 
-  InitKeyboard();
+    InitKeyboard();
 
-  // ··········································································
-  //  mouse
-  InitMouse();
+    // ··········································································
+    //  mouse
+    InitMouse();
 
-  // ··········································································
-  //  init Timer
+    // ··········································································
+    //  init Timer
 
-  InitTimer();
+    InitTimer();
 
-  // ··········································································
-  //chdir(resFolderPath);
+    // ··········································································
+    //chdir(resFolderPath);
 
-  // ··········································································
-  //  DefFile
+    // ··········································································
+    //  DefFile
 
-  DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
+    DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
 
-  // ··········································································
+    // ··········································································
 }
 
 // ··········································································

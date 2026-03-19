@@ -15,14 +15,12 @@
 #ifndef _WIN32
 
 // ████████████████████████████████████████████████████████████████████████████
-S32 InitTimerAIL()
-{
+S32 InitTimerAIL() {
     HTIMER HandleTimer;
 
     LockVMMTimer();
     HandleTimer = AIL_register_timer((AILTIMERCB)NewProc08);
-    if (HandleTimer == -1)
-    {
+    if (HandleTimer == -1) {
         return FALSE;
     }
 

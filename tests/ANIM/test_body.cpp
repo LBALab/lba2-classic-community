@@ -13,27 +13,23 @@ static U8 fake_body_c[64];
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void init_obj(T_OBJ_3D *obj, U32 status, S32 body_num, S32 next_body_num)
-{
+static void init_obj(T_OBJ_3D *obj, U32 status, S32 body_num, S32 next_body_num) {
     memset(obj, 0xA5, sizeof(*obj));
     obj->Status = status;
     obj->Body.Num = body_num;
     obj->NextBody.Num = next_body_num;
 }
 
-static void assert_body_case(const char *label, const T_OBJ_3D *initial_obj, void *body)
-{
+static void assert_body_case(const char *label, const T_OBJ_3D *initial_obj, void *body) {
     T_OBJ_3D cpp_obj;
     T_OBJ_3D asm_obj;
 
@@ -46,8 +42,7 @@ static void assert_body_case(const char *label, const T_OBJ_3D *initial_obj, voi
     ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     T_OBJ_3D initial;
 
     init_obj(&initial, 0, -1, 0);
@@ -63,9 +58,8 @@ static void test_equivalence(void)
     assert_body_case("ObjectInitBody all-status-bits", &initial, fake_body_a);
 }
 
-static void test_random_equivalence(void)
-{
-    void *bodies[] = { fake_body_a, fake_body_b, fake_body_c };
+static void test_random_equivalence(void) {
+    void *bodies[] = {fake_body_a, fake_body_b, fake_body_c};
 
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; ++i) {
@@ -81,8 +75,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

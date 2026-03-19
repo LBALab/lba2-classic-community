@@ -37,8 +37,7 @@ VOID_FUNC *ResumeSamplesPtr = NULL;
 // ████████████████████████████████████████████████████████████████████████████
 #ifdef _WIN32
 
-void PauseBothMiles()
-{
+void PauseBothMiles() {
     (*PauseSamplesPtr)();
     (*PauseMidiPtr)();
 }
@@ -48,8 +47,7 @@ void PauseBothMiles()
 // ████████████████████████████████████████████████████████████████████████████
 #ifdef _WIN32
 
-void ResumeBothMiles()
-{
+void ResumeBothMiles() {
     (*ResumeMidiPtr)();
     (*ResumeSamplesPtr)();
 }
@@ -57,17 +55,15 @@ void ResumeBothMiles()
 #endif
 
 // ████████████████████████████████████████████████████████████████████████████
-void InitAIL()
-{
-  AIL_startup();
+void InitAIL() {
+    AIL_startup();
 
-  RegisterInitClear(InitAIL, ClearAIL);
+    RegisterInitClear(InitAIL, ClearAIL);
 }
 
 // ████████████████████████████████████████████████████████████████████████████
-void ClearAIL()
-{
-  AIL_shutdown();
+void ClearAIL() {
+    AIL_shutdown();
 }
 
 // ████████████████████████████████████████████████████████████████████████████

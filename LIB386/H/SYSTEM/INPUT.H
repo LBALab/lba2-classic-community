@@ -1,32 +1,32 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_INPUT
+#ifndef LIB_SYSTEM_INPUT
 #define LIB_SYSTEM_INPUT
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	Input	;
+extern U32 Input;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	DefineInputKeys(S32 nbkeymasks, U32 *keys, U32 *inputmasks);
+extern void DefineInputKeys(S32 nbkeymasks, U32 *keys, U32 *inputmasks);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void    GetInput(U32 norepeat)	;
+extern void GetInput(U32 norepeat);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void    ClearNoRepeatInput( void ) ;
+extern void ClearNoRepeatInput(void);
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_INPUT
+#endif //LIB_SYSTEM_INPUT
 
 //──────────────────────────────────────────────────────────────────────────

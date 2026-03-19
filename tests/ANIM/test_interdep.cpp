@@ -32,13 +32,12 @@ extern void InitMatrixStdF(TYPE_MAT *MatDst, S32 alpha, S32 beta, S32 gamma);
 extern void LongRotatePointF(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
 
 /* C-callable wrappers that the inline asm can reference */
-extern "C" void c_InitMatrixStdF(TYPE_MAT *m, S32 a, S32 b, S32 g) { InitMatrixStdF(m,a,b,g); }
-extern "C" void c_LongRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z) { LongRotatePointF(m,x,y,z); }
+extern "C" void c_InitMatrixStdF(TYPE_MAT *m, S32 a, S32 b, S32 g) { InitMatrixStdF(m, a, b, g); }
+extern "C" void c_LongRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z) { LongRotatePointF(m, x, y, z); }
 
 /* Shim: called with Watcom regs edi=MatDst eax=alpha ebx=beta ecx=gamma.
  * Must be naked to prevent prologue/epilogue from clobbering regs. */
-__attribute__((naked)) static void shim_InitMatrixStdF(void)
-{
+__attribute__((naked)) static void shim_InitMatrixStdF(void) {
     __asm__ __volatile__(
         "push  %%ecx\n\t"
         "push  %%ebx\n\t"
@@ -46,14 +45,11 @@ __attribute__((naked)) static void shim_InitMatrixStdF(void)
         "push  %%edi\n\t"
         "call  c_InitMatrixStdF\n\t"
         "add   $16, %%esp\n\t"
-        "ret\n\t"
-        ::: "memory"
-    );
+        "ret\n\t" ::: "memory");
 }
 
 /* Shim: called with Watcom regs esi=Mat eax=x ebx=y ecx=z */
-__attribute__((naked)) static void shim_LongRotatePointF(void)
-{
+__attribute__((naked)) static void shim_LongRotatePointF(void) {
     __asm__ __volatile__(
         "push  %%ecx\n\t"
         "push  %%ebx\n\t"
@@ -61,21 +57,17 @@ __attribute__((naked)) static void shim_LongRotatePointF(void)
         "push  %%esi\n\t"
         "call  c_LongRotatePointF\n\t"
         "add   $16, %%esp\n\t"
-        "ret\n\t"
-        ::: "memory"
-    );
+        "ret\n\t" ::: "memory");
 }
 
-static void install_shims(void)
-{
+static void install_shims(void) {
     InitMatrixStd = (Func_InitMatrix *)shim_InitMatrixStdF;
-    RotatePoint   = (Func_RotatePoint *)shim_LongRotatePointF;
+    RotatePoint = (Func_RotatePoint *)shim_LongRotatePointF;
 }
 
 static U8 test_anim_data[512];
 
-static void build_dep_anim(void)
-{
+static void build_dep_anim(void) {
     build_anim_header(test_anim_data, 3, 3, 1, 100);
     /* Master = 0 (no rotation) for simplicity */
     set_anim_group(test_anim_data, 3, 0, 0, 0, 0, 0, 0); /* master group frame 0 */
@@ -89,8 +81,7 @@ static void build_dep_anim(void)
     set_anim_group(test_anim_data, 3, 2, 2, 0, 1200, 1500, 1800);
 }
 
-static void setup_dep(T_OBJ_3D *obj)
-{
+static void setup_dep(T_OBJ_3D *obj) {
     build_dep_anim();
     init_test_obj(obj);
     init_anim_buffer();
@@ -107,30 +98,27 @@ static void setup_dep(T_OBJ_3D *obj)
     obj->NextTimer = 100;
 }
 
-static void test_cpp_midpoint(void)
-{
+static void test_cpp_midpoint(void) {
     T_OBJ_3D obj;
     setup_dep(&obj);
-    TimerRefHR = 50;  /* 50% between LastTimer=0 and NextTimer=100 */
+    TimerRefHR = 50; /* 50% between LastTimer=0 and NextTimer=100 */
     S32 result = ObjectSetInterDep(&obj);
     /* Interpolator should be ~0x8000 (50%) */
     ASSERT_TRUE(obj.Interpolator > 0x7000 && obj.Interpolator < 0x9000);
     (void)result;
 }
 
-static void test_cpp_frame_advance(void)
-{
+static void test_cpp_frame_advance(void) {
     T_OBJ_3D obj;
     setup_dep(&obj);
-    TimerRefHR = 150;  /* Past NextTimer=100, should advance frame */
+    TimerRefHR = 150; /* Past NextTimer=100, should advance frame */
     S32 result = ObjectSetInterDep(&obj);
     /* Status should include FLAG_FRAME (frame transition) */
     ASSERT_TRUE(obj.Status & FLAG_FRAME);
     (void)result;
 }
 
-static void test_cpp_loop(void)
-{
+static void test_cpp_loop(void) {
     T_OBJ_3D obj;
     setup_dep(&obj);
     /* Advance time past NextTimer to trigger frame advance */
@@ -141,8 +129,7 @@ static void test_cpp_loop(void)
     (void)result;
 }
 
-static void test_asm_equiv_midpoint(void)
-{
+static void test_asm_equiv_midpoint(void) {
     T_OBJ_3D cpp_obj, asm_obj;
     TransFctAnim = NULL;
 
@@ -158,8 +145,7 @@ static void test_asm_equiv_midpoint(void)
     ASSERT_EQ_UINT(cpp_obj.Status, asm_obj.Status);
 }
 
-static void test_asm_equiv_frame_advance(void)
-{
+static void test_asm_equiv_frame_advance(void) {
     T_OBJ_3D cpp_obj, asm_obj;
     TransFctAnim = NULL;
 
@@ -177,8 +163,7 @@ static void test_asm_equiv_frame_advance(void)
     ASSERT_EQ_UINT(cpp_obj.Interpolator, asm_obj.Interpolator);
 }
 
-static void test_asm_equiv_with_rotation(void)
-{
+static void test_asm_equiv_with_rotation(void) {
     /* Build anim with Master=1 (rotation path) */
     U8 rot_anim[512];
     build_anim_header(rot_anim, 3, 3, 1, 100);
@@ -233,8 +218,7 @@ static void test_asm_equiv_with_rotation(void)
     ASSERT_EQ_INT(cpp_obj.Z, asm_obj.Z);
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_cpp_midpoint);
     RUN_TEST(test_cpp_frame_advance);
     RUN_TEST(test_cpp_loop);

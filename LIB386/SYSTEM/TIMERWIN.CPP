@@ -1,130 +1,114 @@
 //-------------------------------------------------------------------------
-#include	<SYSTEM/ADELINE.H>
-#include	<SYSTEM/WINSYS.H>
-#include	<SYSTEM/TIMERWIN.H>
+#include <SYSTEM/ADELINE.H>
+#include <SYSTEM/WINSYS.H>
+#include <SYSTEM/TIMERWIN.H>
 
 //-------------------------------------------------------------------------
-volatile U32	TimerSystemHR	;
-volatile U32	TimerRefHR	;
+volatile U32 TimerSystemHR;
+volatile U32 TimerRefHR;
 
 //-------------------------------------------------------------------------
-volatile S32	TimerLock	;
+volatile S32 TimerLock;
 
 //-------------------------------------------------------------------------
-volatile S32	CmptFrame	;
-volatile S32	NbFramePerSecond;
+volatile S32 CmptFrame;
+volatile S32 NbFramePerSecond;
 
 //-------------------------------------------------------------------------
-volatile S32	CmptMemoTimerRef;
+volatile S32 CmptMemoTimerRef;
 
 //-------------------------------------------------------------------------
-	U32	LastTime	;
-	U32	LastEvaluate	;
+U32 LastTime;
+U32 LastEvaluate;
 
 //-------------------------------------------------------------------------
-static	U32	MemoTimerRefHR	;
+static U32 MemoTimerRefHR;
 
 //----------------------------------------------------------------------------
-WINDOW_PROC_PTR	OldTimerWindowProc;
+WINDOW_PROC_PTR OldTimerWindowProc;
 
 //----------------------------------------------------------------------------
-S32	TimerWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch (message)
-	{
-	case WM_CREATE:
-		LastTime = LastEvaluate = timeGetTime();
-		ManageTime()	;
-		break		;
+S32 TimerWindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_CREATE:
+        LastTime = LastEvaluate = timeGetTime();
+        ManageTime();
+        break;
 
-	case WM_SETFOCUS:
-		if(!AppActive)
-		{
-			UnlockTimer()	;
-		}
-		break		;
+    case WM_SETFOCUS:
+        if (!AppActive) {
+            UnlockTimer();
+        }
+        break;
 
-	case WM_KILLFOCUS:
-		if(AppActive)
-		{
-			LockTimer()	;
-		}
-		break		;
-	}
+    case WM_KILLFOCUS:
+        if (AppActive) {
+            LockTimer();
+        }
+        break;
+    }
 
-	return OldTimerWindowProc(hWnd, message, wParam, lParam);
+    return OldTimerWindowProc(hWnd, message, wParam, lParam);
 }
 
 //-------------------------------------------------------------------------
-void	ManageTime()
-{
-	S32		time	;
+void ManageTime() {
+    S32 time;
 
-	TimerSystemHR = timeGetTime() ;
+    TimerSystemHR = timeGetTime();
 
-	if(!TimerLock)
-	{
-		TimerRefHR += TimerSystemHR - LastTime 	;
-	}
+    if (!TimerLock) {
+        TimerRefHR += TimerSystemHR - LastTime;
+    }
 
-	LastTime = TimerSystemHR		;
+    LastTime = TimerSystemHR;
 
-	time = TimerSystemHR - LastEvaluate	;
+    time = TimerSystemHR - LastEvaluate;
 
-	if(time >= 1000)
-	{
-		NbFramePerSecond = (CmptFrame*1000 + time/2) / time	;
-		CmptFrame	 = 0					;
-		LastEvaluate	+= (time/1000)*1000			;
-	}
+    if (time >= 1000) {
+        NbFramePerSecond = (CmptFrame * 1000 + time / 2) / time;
+        CmptFrame = 0;
+        LastEvaluate += (time / 1000) * 1000;
+    }
 }
 
 //-------------------------------------------------------------------------
-void	SaveTimer()
-{
-	if(!CmptMemoTimerRef++)
-	{
-		ManageTime()			;
-		MemoTimerRefHR = TimerRefHR	;
-	}
+void SaveTimer() {
+    if (!CmptMemoTimerRef++) {
+        ManageTime();
+        MemoTimerRefHR = TimerRefHR;
+    }
 }
 
 //-------------------------------------------------------------------------
-void	RestoreTimer()
-{
-	if(CmptMemoTimerRef)
-	{
-		if(!--CmptMemoTimerRef)
-		{
-			ManageTime()			;
-			TimerRefHR = MemoTimerRefHR	;
-		}
-	}
+void RestoreTimer() {
+    if (CmptMemoTimerRef) {
+        if (!--CmptMemoTimerRef) {
+            ManageTime();
+            TimerRefHR = MemoTimerRefHR;
+        }
+    }
 }
 
 //-------------------------------------------------------------------------
-void	SetTimerHR(U32 timer)
-{
-	LockTimer()		;
-	TimerRefHR = timer	;
-	UnlockTimer()		;
+void SetTimerHR(U32 timer) {
+    LockTimer();
+    TimerRefHR = timer;
+    UnlockTimer();
 }
 
 //-------------------------------------------------------------------------
-void	LockTimer()
-{
-	ManageTime()	;
-	TimerLock++	;
+void LockTimer() {
+    ManageTime();
+    TimerLock++;
 }
 
 //-------------------------------------------------------------------------
-void	UnlockTimer()
-{
-	if(TimerLock)
-	{
-		ManageTime()	;
-		TimerLock--	;
-	}
+void UnlockTimer() {
+    if (TimerLock) {
+        ManageTime();
+        TimerLock--;
+    }
 }
 
 //-------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_STREAM_MILES
-#define	LIB_AIL_STREAM_MILES
+#ifndef LIB_AIL_STREAM_MILES
+#define LIB_AIL_STREAM_MILES
 
 // This header contains declarations private to MILES
 
@@ -20,6 +20,6 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_STREAM_MILES
+#endif //LIB_AIL_STREAM_MILES
 
 //--------------------------------------------------------------------------

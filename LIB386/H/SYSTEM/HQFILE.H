@@ -1,40 +1,39 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_HQFILE
+#ifndef LIB_SYSTEM_HQFILE
 #define LIB_SYSTEM_HQFILE
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<SYSTEM/FILES.H>
+#include <SYSTEM/FILES.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	HQF_File			;
+extern S32 HQF_File;
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	HQF_Init(const char *name, S32 index)	;
+extern U32 HQF_Init(const char *name, S32 index);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void	HQF_Close()			;
+extern void HQF_Close();
 
 //──────────────────────────────────────────────────────────────────────────
-extern	U32	HQF_LoadClose(void *ptr)	;
+extern U32 HQF_LoadClose(void *ptr);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	HQF_ResSize(const char *name, S32 index);
+extern S32 HQF_ResSize(const char *name, S32 index);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	HQF_NbRes(char *name)		;
+extern S32 HQF_NbRes(char *name);
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_HQFILE
+#endif //LIB_SYSTEM_HQFILE
 
 //──────────────────────────────────────────────────────────────────────────
-

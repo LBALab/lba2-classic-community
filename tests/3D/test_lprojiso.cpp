@@ -12,19 +12,16 @@ static S32 call_asm_LongProjectPointIso(S32 x, S32 y, S32 z) {
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void configure_iso_state(S32 camera_x, S32 camera_y, S32 camera_z, S32 xcentre, S32 ycentre)
-{
+static void configure_iso_state(S32 camera_x, S32 camera_y, S32 camera_z, S32 xcentre, S32 ycentre) {
     CameraX = camera_x;
     CameraY = camera_y;
     CameraZ = camera_z;
@@ -32,8 +29,7 @@ static void configure_iso_state(S32 camera_x, S32 camera_y, S32 camera_z, S32 xc
     YCentre = ycentre;
 }
 
-static void assert_iso_case(const char *label, S32 x, S32 y, S32 z)
-{
+static void assert_iso_case(const char *label, S32 x, S32 y, S32 z) {
     S32 cpp_ret = LongProjectPointIso(x, y, z);
     S32 cpp_xp = Xp;
     S32 cpp_yp = Yp;
@@ -44,14 +40,17 @@ static void assert_iso_case(const char *label, S32 x, S32 y, S32 z)
     ASSERT_ASM_CPP_EQ_INT(Yp, cpp_yp, label);
 }
 
-static void test_equivalence(void)
-{
-    struct { S32 camera_x, camera_y, camera_z, xcentre, ycentre; } configs[] = {
+static void test_equivalence(void) {
+    struct {
+        S32 camera_x, camera_y, camera_z, xcentre, ycentre;
+    } configs[] = {
         {0, 0, 0, 320, 240},
         {100, -50, 25, 160, 100},
         {-256, 512, -128, 400, 300},
     };
-    struct { S32 x, y, z; } cases[] = {
+    struct {
+        S32 x, y, z;
+    } cases[] = {
         {0, 0, 0},
         {64, 0, 0},
         {0, 64, 0},
@@ -78,8 +77,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
     for (int i = 0; i < 200; i++) {
@@ -100,8 +98,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

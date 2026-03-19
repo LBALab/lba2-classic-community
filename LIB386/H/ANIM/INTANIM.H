@@ -1,28 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_INTANIM
-#define	LIB_ANI_INTANIM
+#ifndef LIB_ANI_INTANIM
+#define LIB_ANI_INTANIM
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-S32	ObjectSetInterAnim(T_OBJ_3D *obj)	;
+S32 ObjectSetInterAnim(T_OBJ_3D *obj);
 
-#pragma aux ObjectSetInterAnim	"*"	\
-	parm caller	[ebx]		\
-	modify	 	[eax ecx edx esi edi]
+#pragma aux ObjectSetInterAnim "*" parm caller[ebx] modify[eax ecx edx esi edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_INTANIM
+#endif //LIB_ANI_INTANIM
 
 //****************************************************************************
-

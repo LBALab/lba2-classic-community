@@ -20,8 +20,8 @@ U32 OSType = OS_NT; // TODO: Remove, is required by CPU.ASM right now
 
 // --- Interface ---------------------------------------------------------------
 void DisplayOS() {
-  const char *platformStr = SDL_GetPlatform();
-  LogPrintf("Platform: %s\n", platformStr);
+    const char *platformStr = SDL_GetPlatform();
+    LogPrintf("Platform: %s\n", platformStr);
 }
 
 // =============================================================================

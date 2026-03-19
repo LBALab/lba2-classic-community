@@ -14,7 +14,10 @@ extern "C" U8 *asm_PtrLib3DBufferAnim;
 
 extern void ClearObjects(void);
 
-static void *dummy_trans(S32 num) { (void)num; return NULL; }
+static void *dummy_trans(S32 num) {
+    (void)num;
+    return NULL;
+}
 static void *dummy_trans_alt(S32 num) { return (void *)(intptr_t)(num + 1); }
 
 typedef struct {
@@ -25,8 +28,7 @@ typedef struct {
     U8 *ptr;
 } AnimLibState;
 
-static AnimLibState capture_cpp_state(void)
-{
+static AnimLibState capture_cpp_state(void) {
     AnimLibState state;
     state.body = TransFctBody;
     state.anim = TransFctAnim;
@@ -36,8 +38,7 @@ static AnimLibState capture_cpp_state(void)
     return state;
 }
 
-static AnimLibState capture_asm_state(void)
-{
+static AnimLibState capture_asm_state(void) {
     AnimLibState state;
     state.body = TransFctBody;
     state.anim = asm_TransFctAnim;
@@ -47,8 +48,7 @@ static AnimLibState capture_asm_state(void)
     return state;
 }
 
-static void restore_cpp_state(const AnimLibState *state)
-{
+static void restore_cpp_state(const AnimLibState *state) {
     TransFctBody = state->body;
     TransFctAnim = state->anim;
     Lib3DBufferAnim = state->lib;
@@ -56,8 +56,7 @@ static void restore_cpp_state(const AnimLibState *state)
     PtrLib3DBufferAnim = state->ptr;
 }
 
-static void restore_asm_state(const AnimLibState *state)
-{
+static void restore_asm_state(const AnimLibState *state) {
     TransFctBody = state->body;
     asm_TransFctAnim = state->anim;
     asm_Lib3DBufferAnim = state->lib;
@@ -65,16 +64,14 @@ static void restore_asm_state(const AnimLibState *state)
     asm_PtrLib3DBufferAnim = state->ptr;
 }
 
-static void assert_state_eq(const AnimLibState *expected, const AnimLibState *actual, const char *label)
-{
+static void assert_state_eq(const AnimLibState *expected, const AnimLibState *actual, const char *label) {
     ASSERT_ASM_CPP_MEM_EQ(expected, actual, sizeof(AnimLibState), label);
 }
 
 static void assert_initobjects_case(const char *label, const AnimLibState *initial_state,
                                     void *buffer, U32 size,
                                     Func_TransNumPtr *body_fct,
-                                    Func_TransNumPtr *anim_fct)
-{
+                                    Func_TransNumPtr *anim_fct) {
     AnimLibState asm_state;
     AnimLibState cpp_state;
 
@@ -89,8 +86,7 @@ static void assert_initobjects_case(const char *label, const AnimLibState *initi
     assert_state_eq(&asm_state, &cpp_state, label);
 }
 
-static void assert_clearobjects_case(const char *label, const AnimLibState *initial_state)
-{
+static void assert_clearobjects_case(const char *label, const AnimLibState *initial_state) {
     AnimLibState asm_state;
     AnimLibState cpp_state;
 
@@ -105,8 +101,7 @@ static void assert_clearobjects_case(const char *label, const AnimLibState *init
     assert_state_eq(&asm_state, &cpp_state, label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     U8 buffer[4096];
     U8 other_buffer[8192];
     AnimLibState initial;
@@ -147,8 +142,7 @@ static void test_equivalence(void)
     assert_clearobjects_case("ClearObjects no malloc buffer", &initial);
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;

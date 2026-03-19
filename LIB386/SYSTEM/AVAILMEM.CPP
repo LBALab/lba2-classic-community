@@ -9,8 +9,8 @@ extern "C" {
 
 // --- Interface ---------------------------------------------------------------
 U64 AvailableMem() {
-  // Not the same as available, but good enough for now...
-  return SDL_GetSystemRAM();
+    // Not the same as available, but good enough for now...
+    return SDL_GetSystemRAM();
 }
 
 // =============================================================================

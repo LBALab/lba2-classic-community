@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_SAMPLE_MILES
-#define	LIB_AIL_SAMPLE_MILES
+#ifndef LIB_AIL_SAMPLE_MILES
+#define LIB_AIL_SAMPLE_MILES
 
 // This header contains declarations private to MILES
 
@@ -13,17 +13,17 @@ extern "C" {
 #endif
 
 //--------------------------------------------------------------------------
-extern	S32		SampleOverflow		;
+extern S32 SampleOverflow;
 
 //--------------------------------------------------------------------------
-extern	VOID_FUNC	ClearSampleDriver	;
+extern VOID_FUNC ClearSampleDriver;
 
 //--------------------------------------------------------------------------
 //	GetMasterVolumeSample :		Get master volume for all samples
 //
 //	Returns	: 			Master Volume
 //--------------------------------------------------------------------------
-S32	GetMasterVolumeSample(	void			)	;
+S32 GetMasterVolumeSample(void);
 
 //--------------------------------------------------------------------------
 //	TimerPlaySample :		Play a Sample and repeat with period
@@ -38,20 +38,20 @@ S32	GetMasterVolumeSample(	void			)	;
 //
 //	Returns	: 			TRUE / FALSE
 //--------------------------------------------------------------------------
-U32	TimerPlaySample(	void *ptrsample,
-				U32 usernum,
-				S32 pitchbend,
-				S32 nbrepeat,
-				S32 volume,
-				S32 pan,
-				S32 period	);
+U32 TimerPlaySample(void *ptrsample,
+                    U32 usernum,
+                    S32 pitchbend,
+                    S32 nbrepeat,
+                    S32 volume,
+                    S32 pan,
+                    S32 period);
 
 //--------------------------------------------------------------------------
 //	TimerStopSample :		stop TimerPlaySample
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	TimerStopSample(	void		)	;
+void TimerStopSample(void);
 
 //--------------------------------------------------------------------------
 //	GetSampleMSSHandle :		return MSS handle for a sample
@@ -60,7 +60,7 @@ void	TimerStopSample(	void		)	;
 //
 //	Returns	:			HSAMPLE (see MSS doc)
 //--------------------------------------------------------------------------
-void*	GetSampleMSSHandle( 	U32 sample 	)	;
+void *GetSampleMSSHandle(U32 sample);
 
 //--------------------------------------------------------------------------
 //	PauseOneSample :		pause a sample
@@ -69,7 +69,7 @@ void*	GetSampleMSSHandle( 	U32 sample 	)	;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	PauseOneSample(		U32 sample 		)	;
+void PauseOneSample(U32 sample);
 
 //--------------------------------------------------------------------------
 //	ResumeOneSample :		resume a sample
@@ -78,7 +78,7 @@ void	PauseOneSample(		U32 sample 		)	;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	ResumeOneSample(	U32 sample 		)	;
+void ResumeOneSample(U32 sample);
 
 //--------------------------------------------------------------------------
 //	GetPlayingSamples :		get list of all playing samples
@@ -88,8 +88,8 @@ void	ResumeOneSample(	U32 sample 		)	;
 //
 //	Returns	:			number of samples playing
 //--------------------------------------------------------------------------
-S32	GetPlayingSamples(	SAMPLE_PLAYING tab[],
-				S32 max			)	;
+S32 GetPlayingSamples(SAMPLE_PLAYING tab[],
+                      S32 max);
 
 //--------------------------------------------------------------------------
 //	GetSamplePostion :		get sample number currently playing
@@ -98,14 +98,14 @@ S32	GetPlayingSamples(	SAMPLE_PLAYING tab[],
 //
 //	Returns	:			sample position
 //--------------------------------------------------------------------------
-S32	GetSamplePosition( U32 sample )				;
+S32 GetSamplePosition(U32 sample);
 
 //--------------------------------------------------------------------------
 //	GetSamplePostion :		get sample polyphonie
 //
 //	Returns	:			number of samples playing
 //--------------------------------------------------------------------------
-S32	GetSamplePoly( void )					;
+S32 GetSamplePoly(void);
 
 //--------------------------------------------------------------------------
 //	GetSamplePostion :		get a piece of data
@@ -116,7 +116,7 @@ S32	GetSamplePoly( void )					;
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	SetDataSample( U32 sample, S32 index, S32 value )	;
+void SetDataSample(U32 sample, S32 index, S32 value);
 
 //--------------------------------------------------------------------------
 //	GetSamplePostion :		get a piece of data
@@ -126,7 +126,7 @@ void	SetDataSample( U32 sample, S32 index, S32 value )	;
 //
 //	Returns	:			value
 //--------------------------------------------------------------------------
-S32	GetDataSample( U32 sample, S32 index )			;
+S32 GetDataSample(U32 sample, S32 index);
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -134,6 +134,6 @@ S32	GetDataSample( U32 sample, S32 index )			;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_SAMPLE_MILES
+#endif //LIB_AIL_SAMPLE_MILES
 
 //--------------------------------------------------------------------------

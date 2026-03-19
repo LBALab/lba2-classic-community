@@ -17,19 +17,16 @@ static U8 cpp_dst[kBufferSize];
 static U8 asm_dst[kBufferSize];
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void fill_source_pattern(U32 salt)
-{
+static void fill_source_pattern(U32 salt) {
     for (U32 i = 0; i < kBufferSize; ++i) {
         U8 value = (U8)(((i * 37u) + (salt * 13u) + (i >> 1)) & 0xFFu);
         if (((i + salt) & 0x0Fu) == 0u) {
@@ -39,16 +36,14 @@ static void fill_source_pattern(U32 salt)
     }
 }
 
-static void fill_dest_pattern(U32 salt)
-{
+static void fill_dest_pattern(U32 salt) {
     for (U32 i = 0; i < kBufferSize; ++i) {
         dst_init[i] = (U8)(((i * 11u) + (salt * 29u) + 0x55u) & 0xFFu);
     }
 }
 
 static void assert_fastcopy_case(const char *label, U32 dst_offset, U32 src_offset,
-                                 U32 len, U32 salt)
-{
+                                 U32 len, U32 salt) {
     fill_source_pattern(salt);
     fill_dest_pattern(salt + 1u);
     memcpy(cpp_src, src_init, sizeof(cpp_src));
@@ -64,13 +59,11 @@ static void assert_fastcopy_case(const char *label, U32 dst_offset, U32 src_offs
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), label);
 }
 
-static void test_zero_length(void)
-{
+static void test_zero_length(void) {
     assert_fastcopy_case("FastCopy zero length", 0, 0, 0, 1u);
 }
 
-static void test_fixed_equivalence(void)
-{
+static void test_fixed_equivalence(void) {
     assert_fastcopy_case("FastCopy len1", 0, 0, 1, 2u);
     assert_fastcopy_case("FastCopy len4", 3, 5, 4, 3u);
     assert_fastcopy_case("FastCopy len7", 1, 2, 7, 4u);
@@ -84,8 +77,7 @@ static void test_fixed_equivalence(void)
     assert_fastcopy_case("FastCopy len1024 window", 0, 0, 1024, 12u);
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; ++i) {
         U32 len = rng_next() % (kBufferSize + 1u);
@@ -100,8 +92,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_zero_length);
     RUN_TEST(test_fixed_equivalence);
     RUN_TEST(test_random_equivalence);

@@ -23,79 +23,70 @@ S32 IncZ = 0;
 //   deltaZBuf = scaledZ0 - scaledZ1  (feet - head)
 //   IncZ      = deltaZBuf / deltaY
 //   starting scaledZ = scaledZ1 (head)
-S32	ZBufBoxOverWrite2(S32 z0, S32 z1,
-		S32 xmin, S32 ymin,
-		S32 xmax, S32 ymax
-) {
-  S32 deltaY = ymax - ymin + 1; // eax
-  S32 deltaX = xmax - xmin + 1; // ebx
-  // ASM: ESI = z1 * Factor (head), EDI = z0 * Factor (feet)
-  S32 scaledZ0 = Fill_ZBuffer_Factor * z0; // feet_scaled (EDI in ASM)
-  S32 scaledZ1 = Fill_ZBuffer_Factor * z1; // head_scaled (ESI in ASM)
-  // ASM: sub edi, esi → deltaZBuf = feet - head
-  S32 deltaZBuf = scaledZ0 - scaledZ1;
-  IncZ = (S32)((S64)deltaZBuf / deltaY);
-  // ASM loop starts with ESI (head_scaled), interpolating toward feet
-  S32 scaledZ = scaledZ1;
-  U32 startOffset = TabOffLine[ymin] + xmin + deltaX; // edx
-  U8 *dstLog = (U8 *)Log + startOffset; // ebp
-  U16 *dstZBuf = PtrZBuffer + startOffset; // edi
-  U8 *dstScreen = (U8 *)Screen + startOffset; // edx
-  S32 i = -deltaX;
-  U8 flag = 1;
+S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
+                      S32 xmin, S32 ymin,
+                      S32 xmax, S32 ymax) {
+    S32 deltaY = ymax - ymin + 1; // eax
+    S32 deltaX = xmax - xmin + 1; // ebx
+    // ASM: ESI = z1 * Factor (head), EDI = z0 * Factor (feet)
+    S32 scaledZ0 = Fill_ZBuffer_Factor * z0; // feet_scaled (EDI in ASM)
+    S32 scaledZ1 = Fill_ZBuffer_Factor * z1; // head_scaled (ESI in ASM)
+    // ASM: sub edi, esi → deltaZBuf = feet - head
+    S32 deltaZBuf = scaledZ0 - scaledZ1;
+    IncZ = (S32)((S64)deltaZBuf / deltaY);
+    // ASM loop starts with ESI (head_scaled), interpolating toward feet
+    S32 scaledZ = scaledZ1;
+    U32 startOffset = TabOffLine[ymin] + xmin + deltaX; // edx
+    U8 *dstLog = (U8 *)Log + startOffset;               // ebp
+    U16 *dstZBuf = PtrZBuffer + startOffset;            // edi
+    U8 *dstScreen = (U8 *)Screen + startOffset;         // edx
+    S32 i = -deltaX;
+    U8 flag = 1;
 
-  do
-  {
-    // ASM uses shr (logical/unsigned shift), not sar (arithmetic/signed shift)
-    U32 z0Int = (U32)scaledZ >> 16; // esi
+    do {
+        // ASM uses shr (logical/unsigned shift), not sar (arithmetic/signed shift)
+        U32 z0Int = (U32)scaledZ >> 16; // esi
 
-    while (1)
-    {
-      // Read ZBuffer (no AGI)
-      U16 z = dstZBuf[i];
+        while (1) {
+            // Read ZBuffer (no AGI)
+            U16 z = dstZBuf[i];
 
-      // Is our pixel hidden?
-      if (z >= z0Int)
-      {
-        flag = 0;
+            // Is our pixel hidden?
+            if (z >= z0Int) {
+                flag = 0;
 
-        while (1)
-        {
-          i++;
-          if (i > 0)
-          {
-            break;
-          }
+                while (1) {
+                    i++;
+                    if (i > 0) {
+                        break;
+                    }
 
-          // Read ZBuffer (no AGI)
-          U16 z = dstZBuf[i];
+                    // Read ZBuffer (no AGI)
+                    U16 z = dstZBuf[i];
 
-          // Is our pixel hidden?
-          if (z < z0Int)
-          {
+                    // Is our pixel hidden?
+                    if (z < z0Int) {
+                        dstLog[i] = dstScreen[i]; // No: Copy it
+                    }
+                }
+
+                break;
+            }
+
             dstLog[i] = dstScreen[i]; // No: Copy it
-          }
+            i++;
+            if (i > 0) {
+                break;
+            }
         }
 
-        break;
-      }
+        i = -deltaX;
+        dstScreen += ScreenPitch;
+        dstLog += ScreenPitch;
+        dstZBuf += ScreenPitch;
+        scaledZ += IncZ;
+        deltaY--;
+    } while (deltaY != 0);
 
-      dstLog[i] = dstScreen[i]; // No: Copy it
-      i++;
-      if (i > 0)
-      {
-        break;
-      }
-    }
-
-    i = -deltaX;
-    dstScreen += ScreenPitch;
-    dstLog += ScreenPitch;
-    dstZBuf += ScreenPitch;
-    scaledZ += IncZ;
-    deltaY--;
-  }
-  while (deltaY != 0);
-
-  return flag;
+    return flag;
 }

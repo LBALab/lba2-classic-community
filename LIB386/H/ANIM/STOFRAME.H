@@ -1,34 +1,31 @@
 //****************************************************************************
-#ifndef	LIB_ANI_STOFRAME
-#define	LIB_ANI_STOFRAME
+#ifndef LIB_ANI_STOFRAME
+#define LIB_ANI_STOFRAME
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-#define AnimGetNbFrames(a)	(*(U16*)(a))
+#define AnimGetNbFrames(a) (*(U16 *)(a))
 
 //****************************************************************************
-#define AnimGetLoop(a)		(*((U16*)(a)+2))
+#define AnimGetLoop(a) (*((U16 *)(a) + 2))
 
 //****************************************************************************
-void	ObjectStoreFrame(T_OBJ_3D *Obj)	;
+void ObjectStoreFrame(T_OBJ_3D *Obj);
 
-#pragma aux ObjectStoreFrame	"*"		\
-	parm caller		[ebx]			\
-	modify exact	[eax ecx esi edi]
+#pragma aux ObjectStoreFrame "*" parm caller[ebx] modify exact[eax ecx esi edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_STOFRAME
+#endif //LIB_ANI_STOFRAME
 
 //****************************************************************************
-

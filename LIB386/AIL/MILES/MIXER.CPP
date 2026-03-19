@@ -10,8 +10,7 @@ static MIXERCONTROLDETAILS_UNSIGNED VolumeValue[2];
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetMixerVolDevice(VOLUMECONTROL *volcontrol, S32 type)
-{
+S32 GetMixerVolDevice(VOLUMECONTROL *volcontrol, S32 type) {
     S32 voldeviceid;
     S32 i;
     MIXERLINE lineinfo;
@@ -19,18 +18,15 @@ S32 GetMixerVolDevice(VOLUMECONTROL *volcontrol, S32 type)
     MIXERCONTROL volumecontrol;
 
     // try the mixer api for volume control first
-    for (i = mixerGetNumDevs() - 1; i >= 0; i--)
-    {
-        if (mixerOpen((HMIXER *)&voldeviceid, i, 0, 0, 0) != MMSYSERR_NOERROR)
-        {
+    for (i = mixerGetNumDevs() - 1; i >= 0; i--) {
+        if (mixerOpen((HMIXER *)&voldeviceid, i, 0, 0, 0) != MMSYSERR_NOERROR) {
             continue;
         }
         memset(&lineinfo, 0, sizeof(lineinfo));
         lineinfo.cbStruct = sizeof(lineinfo);
         lineinfo.dwComponentType = type;
 
-        if (mixerGetLineInfo((HMIXEROBJ)voldeviceid, &lineinfo, MIXER_GETLINEINFOF_COMPONENTTYPE) != MMSYSERR_NOERROR)
-        {
+        if (mixerGetLineInfo((HMIXEROBJ)voldeviceid, &lineinfo, MIXER_GETLINEINFOF_COMPONENTTYPE) != MMSYSERR_NOERROR) {
             goto error;
         }
 
@@ -43,8 +39,7 @@ S32 GetMixerVolDevice(VOLUMECONTROL *volcontrol, S32 type)
         linecontrols.cbmxctrl = sizeof(volumecontrol);
         linecontrols.pamxctrl = &volumecontrol;
 
-        if (mixerGetLineControls((HMIXEROBJ)voldeviceid, &linecontrols, MIXER_GETLINECONTROLSF_ONEBYTYPE) != MMSYSERR_NOERROR)
-        {
+        if (mixerGetLineControls((HMIXEROBJ)voldeviceid, &linecontrols, MIXER_GETLINECONTROLSF_ONEBYTYPE) != MMSYSERR_NOERROR) {
         error:
             mixerClose((HMIXER)voldeviceid);
             continue;
@@ -58,8 +53,7 @@ S32 GetMixerVolDevice(VOLUMECONTROL *volcontrol, S32 type)
         VolumeDetails.cbDetails = sizeof(VolumeValue[0]);
         VolumeDetails.paDetails = VolumeValue;
 
-        if (mixerGetControlDetails((HMIXEROBJ)voldeviceid, &VolumeDetails, MIXER_SETCONTROLDETAILSF_VALUE) == MMSYSERR_NOERROR)
-        {
+        if (mixerGetControlDetails((HMIXEROBJ)voldeviceid, &VolumeDetails, MIXER_SETCONTROLDETAILSF_VALUE) == MMSYSERR_NOERROR) {
             volcontrol->DeviceID = voldeviceid;
             volcontrol->ControlID = volumecontrol.dwControlID;
             volcontrol->Channels = lineinfo.cChannels;
@@ -75,10 +69,8 @@ S32 GetMixerVolDevice(VOLUMECONTROL *volcontrol, S32 type)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-S32 GetMixerVolume(VOLUMECONTROL *volcontrol)
-{
-    if (volcontrol->DeviceID == -1)
-    {
+S32 GetMixerVolume(VOLUMECONTROL *volcontrol) {
+    if (volcontrol->DeviceID == -1) {
         return 0;
     }
 
@@ -92,19 +84,14 @@ S32 GetMixerVolume(VOLUMECONTROL *volcontrol)
 
 // ████████████████████████████████████████████████████████████████████████████
 
-void SetMixerVolume(VOLUMECONTROL *volcontrol, S32 volume)
-{
-    if (volcontrol->DeviceID == -1)
-    {
+void SetMixerVolume(VOLUMECONTROL *volcontrol, S32 volume) {
+    if (volcontrol->DeviceID == -1) {
         return;
     }
 
-    if (volume < 0)
-    {
+    if (volume < 0) {
         volume = 0;
-    }
-    else if (volume > 127)
-    {
+    } else if (volume > 127) {
         volume = 127;
     }
 

@@ -1,13 +1,13 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_FILEIO
-#define	LIB_FILEIO
+#ifndef LIB_FILEIO
+#define LIB_FILEIO
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<FILEIO/LOADPCX.H>
-#include	<FILEIO/SAVEPCX.H>
-#include	<FILEIO/SAVEPNG.H>
+#include <FILEIO/LOADPCX.H>
+#include <FILEIO/SAVEPCX.H>
+#include <FILEIO/SAVEPNG.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_FILEIO
+#endif //LIB_FILEIO
 
 //──────────────────────────────────────────────────────────────────────────

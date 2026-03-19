@@ -1,11 +1,11 @@
 #pragma once
 
-#ifdef _WIN32 // Portability - mkdir has different includes and signature
-#include <direct.h> // For ADELINE_MKDIR
-#else // _WIN32
+#ifdef _WIN32          // Portability - mkdir has different includes and signature
+#include <direct.h>    // For ADELINE_MKDIR
+#else                  // _WIN32
 #include <sys/stat.h>  // For ADELINE_MKDIR
 #include <sys/types.h> // For ADELINE_MKDIR
-#endif // _WIN32
+#endif                 // _WIN32
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -13,19 +13,19 @@ extern "C" {
 #endif
 
 // -----------------------------------------------------------------------------
-#define ade_max(a, b)                                                          \
-  ({                                                                           \
-    __typeof__(a) _a = (a);                                                    \
-    __typeof__(b) _b = (b);                                                    \
-    _a > _b ? _a : _b;                                                         \
-  })
+#define ade_max(a, b)           \
+    ({                          \
+        __typeof__(a) _a = (a); \
+        __typeof__(b) _b = (b); \
+        _a > _b ? _a : _b;      \
+    })
 
-#define ade_min(a, b)                                                          \
-  ({                                                                           \
-    __typeof__(a) _a = (a);                                                    \
-    __typeof__(b) _b = (b);                                                    \
-    _a < _b ? _a : _b;                                                         \
-  })
+#define ade_min(a, b)           \
+    ({                          \
+        __typeof__(a) _a = (a); \
+        __typeof__(b) _b = (b); \
+        _a < _b ? _a : _b;      \
+    })
 
 // -----------------------------------------------------------------------------
 // FIXME: Find places that depend on this pack(1) and do the correct push/pop

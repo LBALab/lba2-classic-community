@@ -1,18 +1,22 @@
-#include	"C_EXTERN.H"
+#include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
 
 #include <errno.h>
 
-U8	*PtrSce ;
-U8	*PtrScene ;
-S32	CubeMode = 0 ; // 0-->Intérieur - 1-->Extérieur
-S32	LastCubeMode = 0 ; // 0-->Intérieur - 1-->Extérieur
+U8 *PtrSce;
+U8 *PtrScene;
+S32 CubeMode = 0;     // 0-->Intérieur - 1-->Extérieur
+S32 LastCubeMode = 0; // 0-->Intérieur - 1-->Extérieur
 
-#define	GET_S8	(*PtrSce++)
-#define	GET_S16	(*(S16*)PtrSce) ; PtrSce+=2
-#define	GET_U32	(*(U32*)PtrSce) ; PtrSce+=4
+#define GET_S8 (*PtrSce++)
+#define GET_S16       \
+    (*(S16 *)PtrSce); \
+    PtrSce += 2
+#define GET_U32       \
+    (*(U32 *)PtrSce); \
+    PtrSce += 4
 
 /*══════════════════════════════════════════════════════════════════════════*
 	     █▀▀▀▄  █    ██▀▀▀ █  ▄▀       █▀▀▀▀ █   █ ██▄ █ █▀▀▀▀
@@ -43,385 +47,367 @@ void	RestoreDiskEnv()
 	  ▀▀▀▀▀ ▀▀▀▀▀ ▀▀▀▀▀ ▀▀  ▀ ▀▀▀▀▀ ▀▀▀▀▀ ▀▀     ▀▀   ▀▀▀▀▀ ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
-S32	LoadScene( S32 numscene )
-{
-	T_OBJET	*ptrobj ;
-	T_ZONE  *ptrz   ;
-	S32	sizetoload ;
-	S32	indexfile3d ;
-	U8	n ;
-	char tmpFilePath[ADELINE_MAX_PATH];
-//        U8	t ;
+S32 LoadScene(S32 numscene) {
+    T_OBJET *ptrobj;
+    T_ZONE *ptrz;
+    S32 sizetoload;
+    S32 indexfile3d;
+    U8 n;
+    char tmpFilePath[ADELINE_MAX_PATH];
+    //        U8	t ;
 
-	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
-	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
-	if( !Load_HQR( tmpFilePath, PtrScene, numscene+1 ) )
-	{
-		TheEndCheckFile( tmpFilePath ) ;
-	}
+    // numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
+    GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+    if (!Load_HQR(tmpFilePath, PtrScene, numscene + 1)) {
+        TheEndCheckFile(tmpFilePath);
+    }
 
-	ManageSystem() ;// for streaming
+    ManageSystem(); // for streaming
 
-	PtrSce = PtrScene ;
+    PtrSce = PtrScene;
 
-// info world: INFO_WORLD
+    // info world: INFO_WORLD
 
-		NewCube = numscene ;
+    NewCube = numscene;
 
-		Island = GET_S8 ;
+    Island = GET_S8;
 
-		Planet = TabArrow[Island].Planet;
+    Planet = TabArrow[Island].Planet;
 
-		// Sert uniquement pour la 3DExt
-		CurrentCubeX = GET_S8 ;
-		CurrentCubeY = GET_S8 ;
+    // Sert uniquement pour la 3DExt
+    CurrentCubeX = GET_S8;
+    CurrentCubeY = GET_S8;
 
-		ShadowLevel = GET_S8 ;
-		ModeLabyrinthe = GET_S8 ;
+    ShadowLevel = GET_S8;
+    ModeLabyrinthe = GET_S8;
 
-		CubeMode = GET_S8 ;
+    CubeMode = GET_S8;
 
-		if( !FlagLoadGame
-		AND (!FlagDrawHorizon OR (CubeMode+LastCubeMode!=2)) )
-		{
-			FadeToBlackAndSamples( PtrPal ) ;
-			HQ_StopSample() ;
+    if (!FlagLoadGame
+            AND(!FlagDrawHorizon OR(CubeMode + LastCubeMode != 2))) {
+        FadeToBlackAndSamples(PtrPal);
+        HQ_StopSample();
 
-			Cls() ;
-			BoxUpdate() ;
-		}
+        Cls();
+        BoxUpdate();
+    }
 
-		n = GET_S8 ;
+    n = GET_S8;
 
-// ambiance: AMBIANCE
+    // ambiance: AMBIANCE
 
-		AlphaLight = GET_S16 ;
-		BetaLight = GET_S16 ;
+    AlphaLight = GET_S16;
+    BetaLight = GET_S16;
 
-		SampleAmbiance[0] = GET_S16 ;
-		SampleRepeat[0] = GET_S16 ;
-		SampleRnd[0] = GET_S16 ;
-		SampleFreq[0] = GET_S16 ;
-		SampleVol[0] = GET_S16 ;
-		SampleAmbiance[1] = GET_S16 ;
-		SampleRepeat[1] = GET_S16 ;
-		SampleRnd[1] = GET_S16 ;
-		SampleFreq[1] = GET_S16 ;
-		SampleVol[1] = GET_S16 ;
-		SampleAmbiance[2] = GET_S16 ;
-		SampleRepeat[2] = GET_S16 ;
-		SampleRnd[2] = GET_S16 ;
-		SampleFreq[2] = GET_S16 ;
-		SampleVol[2] = GET_S16 ;
-		SampleAmbiance[3] = GET_S16 ;
-		SampleRepeat[3] = GET_S16 ;
-		SampleRnd[3] = GET_S16 ;
-		SampleFreq[3] = GET_S16 ;
-		SampleVol[3] = GET_S16 ;
-		SecondMin = GET_S16 ;
-		SecondEcart = GET_S16 ;
+    SampleAmbiance[0] = GET_S16;
+    SampleRepeat[0] = GET_S16;
+    SampleRnd[0] = GET_S16;
+    SampleFreq[0] = GET_S16;
+    SampleVol[0] = GET_S16;
+    SampleAmbiance[1] = GET_S16;
+    SampleRepeat[1] = GET_S16;
+    SampleRnd[1] = GET_S16;
+    SampleFreq[1] = GET_S16;
+    SampleVol[1] = GET_S16;
+    SampleAmbiance[2] = GET_S16;
+    SampleRepeat[2] = GET_S16;
+    SampleRnd[2] = GET_S16;
+    SampleFreq[2] = GET_S16;
+    SampleVol[2] = GET_S16;
+    SampleAmbiance[3] = GET_S16;
+    SampleRepeat[3] = GET_S16;
+    SampleRnd[3] = GET_S16;
+    SampleFreq[3] = GET_S16;
+    SampleVol[3] = GET_S16;
+    SecondMin = GET_S16;
+    SecondEcart = GET_S16;
 
-		CubeJingle = GET_S8 ;
+    CubeJingle = GET_S8;
 
-// hero inits: HERO_START
+    // hero inits: HERO_START
 
-		ptrobj = ListObjet ;
+    ptrobj = ListObjet;
 
-		CubeStartX = GET_S16 ;
-		CubeStartY = GET_S16 ;
-		CubeStartZ = GET_S16 ;
+    CubeStartX = GET_S16;
+    CubeStartY = GET_S16;
+    CubeStartZ = GET_S16;
 
-		sizetoload = GET_S16 ;
-		ptrobj->PtrTrack = PtrSce ;
-		PtrSce += sizetoload ;
+    sizetoload = GET_S16;
+    ptrobj->PtrTrack = PtrSce;
+    PtrSce += sizetoload;
 
-		sizetoload = GET_S16 ;
-		ptrobj->PtrLife = PtrSce ;
-		PtrSce += sizetoload ;
+    sizetoload = GET_S16;
+    ptrobj->PtrLife = PtrSce;
+    PtrSce += sizetoload;
 
-		ptrobj++ ;
+    ptrobj++;
 
-// objets: OBJECT
+    // objets: OBJECT
 
-		NbObjets = GET_S16 ;
-		for( n=1; n<NbObjets; n++, ptrobj++ )
-		{
-			InitObject( n ) ;
+    NbObjets = GET_S16;
+    for (n = 1; n < NbObjets; n++, ptrobj++) {
+        InitObject(n);
 
-			ptrobj->Flags  = GET_U32 ;
+        ptrobj->Flags = GET_U32;
 
-			indexfile3d = GET_S16 ;
+        indexfile3d = GET_S16;
 
-			if( !(ptrobj->Flags & SPRITE_3D) )
-			{
-				if( !FlagLoadGame )
-				{
-					ptrobj->PtrFile3D = LoadFile3D( indexfile3d ) ;
-				}
+        if (!(ptrobj->Flags & SPRITE_3D)) {
+            if (!FlagLoadGame) {
+                ptrobj->PtrFile3D = LoadFile3D(indexfile3d);
+            }
 
-				ptrobj->IndexFile3D = indexfile3d ;
-			}
+            ptrobj->IndexFile3D = indexfile3d;
+        }
 
-			ManageSystem() ;// for streaming
+        ManageSystem(); // for streaming
 
-			ptrobj->GenBody = GET_S8 ;
-			ptrobj->GenAnim = GET_S16 ;
-			ptrobj->Sprite = GET_S16 ;
+        ptrobj->GenBody = GET_S8;
+        ptrobj->GenAnim = GET_S16;
+        ptrobj->Sprite = GET_S16;
 
-			ptrobj->OldPosX = ptrobj->Obj.X = GET_S16 ;
-			ptrobj->OldPosY = ptrobj->Obj.Y = GET_S16 ;
-			ptrobj->OldPosZ = ptrobj->Obj.Z = GET_S16 ;
-			ptrobj->HitForce = GET_S8 ;
-			ptrobj->OptionFlags = GET_S16 ;
-			ptrobj->OptionFlags &= ~EXTRA_GIVE_NOTHING ;
-			ptrobj->Obj.Beta = GET_S16 ;
-			ptrobj->SRot = GET_S16 ;
-			ptrobj->Move = GET_S8 ;
+        ptrobj->OldPosX = ptrobj->Obj.X = GET_S16;
+        ptrobj->OldPosY = ptrobj->Obj.Y = GET_S16;
+        ptrobj->OldPosZ = ptrobj->Obj.Z = GET_S16;
+        ptrobj->HitForce = GET_S8;
+        ptrobj->OptionFlags = GET_S16;
+        ptrobj->OptionFlags &= ~EXTRA_GIVE_NOTHING;
+        ptrobj->Obj.Beta = GET_S16;
+        ptrobj->SRot = GET_S16;
+        ptrobj->Move = GET_S8;
 
-			if( !(ptrobj->Flags&SPRITE_3D)
-			AND ptrobj->Move!=MOVE_WAGON	// cf TM_SPEED
-			AND ptrobj->SRot )
-			{
-				// A Priori, ce test ne sert à rien ici
-				if(ptrobj->SRot==1)
-				{
-					ptrobj->SRot++ ;
-				}
+        if (!(ptrobj->Flags & SPRITE_3D)
+                 AND ptrobj->Move != MOVE_WAGON // cf TM_SPEED
+                                         AND ptrobj->SRot) {
+            // A Priori, ce test ne sert à rien ici
+            if (ptrobj->SRot == 1) {
+                ptrobj->SRot++;
+            }
 
-				ptrobj->SRot = (S16)(51200 / (S32)ptrobj->SRot) ; // 1024*1000/20
-			}
+            ptrobj->SRot = (S16)(51200 / (S32)ptrobj->SRot); // 1024*1000/20
+        }
 
-			ptrobj->Info  = GET_S16 ;
-			ptrobj->Info1 = GET_S16 ;
-			ptrobj->Info2 = GET_S16 ;
-			ptrobj->Info3 = GET_S16 ;
+        ptrobj->Info = GET_S16;
+        ptrobj->Info1 = GET_S16;
+        ptrobj->Info2 = GET_S16;
+        ptrobj->Info3 = GET_S16;
 
-			ptrobj->NbBonus = GET_S16 ;
-			ptrobj->CoulObj = GET_S8 ;
+        ptrobj->NbBonus = GET_S16;
+        ptrobj->CoulObj = GET_S8;
 
-			if( ptrobj->Flags & ANIM_3DS )
-			{
-				// num anim 3DS
-				ptrobj->Coord.A3DS.Num = GET_U32 ;
-				// NbFps
-				ptrobj->Info3 = ptrobj->SizeSHit = GET_S16 ;
-			}
+        if (ptrobj->Flags & ANIM_3DS) {
+            // num anim 3DS
+            ptrobj->Coord.A3DS.Num = GET_U32;
+            // NbFps
+            ptrobj->Info3 = ptrobj->SizeSHit = GET_S16;
+        }
 
-			ptrobj->Armure = GET_S8 ;
-			ptrobj->LifePoint = GET_S8 ;
+        ptrobj->Armure = GET_S8;
+        ptrobj->LifePoint = GET_S8;
 
-			// Message chapter (a virer)
-/*			for( t=0; t<MAX_CHAPTER; t++ )
+        // Message chapter (a virer)
+        /*			for( t=0; t<MAX_CHAPTER; t++ )
 			{
 				ptrobj->MessageChapter[t] = GET_S16 ;
 			}
 */
-			sizetoload = GET_S16 ;
-			ptrobj->PtrTrack = PtrSce ;
-			PtrSce = PtrSce + sizetoload ;
+        sizetoload = GET_S16;
+        ptrobj->PtrTrack = PtrSce;
+        PtrSce = PtrSce + sizetoload;
 
-			sizetoload = GET_S16 ;
-			ptrobj->PtrLife = PtrSce ;
-			PtrSce = PtrSce + sizetoload ;
-		}
+        sizetoload = GET_S16;
+        ptrobj->PtrLife = PtrSce;
+        PtrSce = PtrSce + sizetoload;
+    }
 
-		Checksum = GET_U32 ;
+    Checksum = GET_U32;
 
-// zone declechement: ZONE
+    // zone declechement: ZONE
 
-		NbZones = GET_S16 ;
-		ListZone = (T_ZONE*)PtrSce ;
-		PtrSce += NbZones * sizeof(T_ZONE) ;
+    NbZones = GET_S16;
+    ListZone = (T_ZONE *)PtrSce;
+    PtrSce += NbZones * sizeof(T_ZONE);
 
-		ptrz = ListZone ;
+    ptrz = ListZone;
 
-		for( n=0; n<NbZones; n++, ptrz++ )
-		{
-			switch( ptrz->Type )
-			{
-				case 0: // change cube
-					if( ptrz->Info5&1 )
-						ptrz->Info5 |= ZONE_TEST_BRICK ;
-					else	ptrz->Info5 &= ~(ZONE_TEST_BRICK) ;
+    for (n = 0; n < NbZones; n++, ptrz++) {
+        switch (ptrz->Type) {
+        case 0: // change cube
+            if (ptrz->Info5 & 1)
+                ptrz->Info5 |= ZONE_TEST_BRICK;
+            else
+                ptrz->Info5 &= ~(ZONE_TEST_BRICK);
 
-					if( ptrz->Info6&1 )
-						ptrz->Info6 |= ZONE_DONT_REAJUST_POS_TWINSEN ;
-					else	ptrz->Info6 &= ~(ZONE_DONT_REAJUST_POS_TWINSEN) ;
-				case 1:	// camera
-					if( ptrz->Info7&1 )
-						ptrz->Info7 |= ZONE_ON ;
-					else	ptrz->Info7 &= ~(ZONE_ON) ;
+            if (ptrz->Info6 & 1)
+                ptrz->Info6 |= ZONE_DONT_REAJUST_POS_TWINSEN;
+            else
+                ptrz->Info6 &= ~(ZONE_DONT_REAJUST_POS_TWINSEN);
+        case 1: // camera
+            if (ptrz->Info7 & 1)
+                ptrz->Info7 |= ZONE_ON;
+            else
+                ptrz->Info7 &= ~(ZONE_ON);
 
-					ptrz->Info7 &= ~(ZONE_ACTIVE) ;
-					break ;
+            ptrz->Info7 &= ~(ZONE_ACTIVE);
+            break;
 
-				case 3:	// zone grm
-					ptrz->Info1 = 0 ;
-					break ;
+        case 3: // zone grm
+            ptrz->Info1 = 0;
+            break;
 
-				case 4:	/* zone giver */
-					ptrz->Info2 = 0 ;	/* pas encore pris */
-					break ;
+        case 4:              /* zone giver */
+            ptrz->Info2 = 0; /* pas encore pris */
+            break;
 
-				case 6: // echelle
-				case 9: // Rail
-					ptrz->Info1 = ptrz->Info0 ;
-					break ;
+        case 6: // echelle
+        case 9: // Rail
+            ptrz->Info1 = ptrz->Info0;
+            break;
 
-				case 8: // zone Hit
-					ptrz->Info3 = 0 ; // init TimerRef
-					break ;
-			}
-		}
+        case 8:              // zone Hit
+            ptrz->Info3 = 0; // init TimerRef
+            break;
+        }
+    }
 
-// point track: TRACK
+    // point track: TRACK
 
-		NbBrickTrack = GET_S16 ;
-		ListBrickTrack = (T_TRACK*)PtrSce ;
-		PtrSce += NbBrickTrack * sizeof(T_TRACK) ;
+    NbBrickTrack = GET_S16;
+    ListBrickTrack = (T_TRACK *)PtrSce;
+    PtrSce += NbBrickTrack * sizeof(T_TRACK);
 
-		//--------- PATCHES ----------
-		NbPatches   = GET_U32 ;
-		ListPatches = (T_PATCH *)PtrSce ;
-		//----------------------------
+    //--------- PATCHES ----------
+    NbPatches = GET_U32;
+    ListPatches = (T_PATCH *)PtrSce;
+    //----------------------------
 
-		if( NumCube==NUM_CUBE_PHANTOM )
-		{
-			Island = PhantomIsland ;
-			CurrentCubeX = PhantomX ;
-			CurrentCubeY = PhantomY ;
-		}
+    if (NumCube == NUM_CUBE_PHANTOM) {
+        Island = PhantomIsland;
+        CurrentCubeX = PhantomX;
+        CurrentCubeY = PhantomY;
+    }
 
-		ManageSystem() ;// for streaming
+    ManageSystem(); // for streaming
 
-		ChoicePalette() ;
+    ChoicePalette();
 
-//		FlagFade = TRUE ;
+    //		FlagFade = TRUE ;
 
-		// Init suivant type de cube
-		PtrInit3DGame() ;
+    // Init suivant type de cube
+    PtrInit3DGame();
 
-		return TRUE ;
+    return TRUE;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Pour le buggy pour recupérer les coordonnées 2D d'un cube extérieur dans
 // la map
-S32	LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey )
-{
-	S32	x, y 	;
-	U8	island, shadowlvl, modelaby, cubemode ;
-	char tmpFilePath[ADELINE_MAX_PATH];
+S32 LoadSceneCubeXY(S32 numcube, S32 *cubex, S32 *cubey) {
+    S32 x, y;
+    U8 island, shadowlvl, modelaby, cubemode;
+    char tmpFilePath[ADELINE_MAX_PATH];
 
-	// ATTENTION: chargée dans ScreenAux car normalement appelée dans le
-	//	      comportement d'init du buggy
+    // ATTENTION: chargée dans ScreenAux car normalement appelée dans le
+    //	      comportement d'init du buggy
 
-	// numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
-	GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
-	if( !Load_HQR( tmpFilePath, ScreenAux, numcube+1 ) )
-	{
-		TheEndCheckFile( tmpFilePath ) ;
-	}
+    // numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
+    GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
+    if (!Load_HQR(tmpFilePath, ScreenAux, numcube + 1)) {
+        TheEndCheckFile(tmpFilePath);
+    }
 
-	*cubex = *cubey = 0 ;
+    *cubex = *cubey = 0;
 
-	PtrSce = ScreenAux ;
+    PtrSce = ScreenAux;
 
-// info world: INFO_WORLD
+    // info world: INFO_WORLD
 
-	island = GET_S8 ;
+    island = GET_S8;
 
-	// Sert uniquement pour la 3DExt
-	x = GET_S8 ;
-	y = GET_S8 ;
+    // Sert uniquement pour la 3DExt
+    x = GET_S8;
+    y = GET_S8;
 
-	shadowlvl = GET_S8 ;
-	modelaby  = GET_S8 ;
-	cubemode  = GET_S8 ;
+    shadowlvl = GET_S8;
+    modelaby = GET_S8;
+    cubemode = GET_S8;
 
-	if( cubemode==CUBE_EXTERIEUR
-	AND island==Island
-	AND abs(x-CurrentCubeX)<=1
-	AND abs(y-CurrentCubeY)<=1
-	)
-	{
-		*cubex = x ;
-		*cubey = y ;
+    if (cubemode == CUBE_EXTERIEUR AND island == Island AND abs(x - CurrentCubeX) <= 1 AND abs(y - CurrentCubeY) <= 1) {
+        *cubex = x;
+        *cubey = y;
 
-		return TRUE ;
-	}
-	else	return FALSE ;
+        return TRUE;
+    } else
+        return FALSE;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-U8 AddDirIfNot( const char *path ) {
-  if (ExistsFileOrDir(path)) {
-    return IsDirectory(path);
-  }
-
-  char *copypath = strdup(path);
-
-  { // If path ends in separator, remove it
-    size_t copyLen = strlen(copypath);
-    if ((copyLen > 0) && (copypath[copyLen - 1] == ADELINE_PATH_SEP_CHAR)) {
-      copypath[copyLen - 1] = '\0';
+U8 AddDirIfNot(const char *path) {
+    if (ExistsFileOrDir(path)) {
+        return IsDirectory(path);
     }
-  }
 
-  int status = 0;
-  char *pp = copypath;
-  char *sp;
-  while ((status == 0 || errno == EEXIST) &&
-         ((sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != NULL)) {
-    if (sp != pp) {
-      *sp = '\0';
-      status = ADELINE_MKDIR(copypath);
-      *sp = ADELINE_PATH_SEP_CHAR;
+    char *copypath = strdup(path);
+
+    { // If path ends in separator, remove it
+        size_t copyLen = strlen(copypath);
+        if ((copyLen > 0) && (copypath[copyLen - 1] == ADELINE_PATH_SEP_CHAR)) {
+            copypath[copyLen - 1] = '\0';
+        }
     }
-    pp = sp + 1;
-  }
 
-  if (status == 0 || errno == EEXIST) {
-    errno = 0;
-    status = ADELINE_MKDIR(path);
-  }
+    int status = 0;
+    char *pp = copypath;
+    char *sp;
+    while ((status == 0 || errno == EEXIST) &&
+           ((sp = strchr(pp, ADELINE_PATH_SEP_CHAR)) != NULL)) {
+        if (sp != pp) {
+            *sp = '\0';
+            status = ADELINE_MKDIR(copypath);
+            *sp = ADELINE_PATH_SEP_CHAR;
+        }
+        pp = sp + 1;
+    }
 
-  free(copypath);
+    if (status == 0 || errno == EEXIST) {
+        errno = 0;
+        status = ADELINE_MKDIR(path);
+    }
 
-  return (status == 0);
+    free(copypath);
+
+    return (status == 0);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
-void	CreateLbaDirectories( void )
-{
-	char tmpDirPath[ADELINE_MAX_PATH];
+void CreateLbaDirectories(void) {
+    char tmpDirPath[ADELINE_MAX_PATH];
 
-#ifndef	DEMO
-	GetVoicePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	AddDirIfNot( tmpDirPath ) ;
+#ifndef DEMO
+    GetVoicePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+    AddDirIfNot(tmpDirPath);
 #endif
 
-	GetSavePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	AddDirIfNot( tmpDirPath ) ;
+    GetSavePath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+    AddDirIfNot(tmpDirPath);
 
-	GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	AddDirIfNot( tmpDirPath ) ;
+    GetShootPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+    AddDirIfNot(tmpDirPath);
 
 #ifdef DEBUG_TOOLS
-	GetBugPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	if( !ExistsFileOrDir( tmpDirPath ) ) {
-		if( AddDirIfNot( tmpDirPath ) ) {
-			LogPrintf("Created bugs directory: %s\n", tmpDirPath);
-		}
-	}
+    GetBugPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+    if (!ExistsFileOrDir(tmpDirPath)) {
+        if (AddDirIfNot(tmpDirPath)) {
+            LogPrintf("Created bugs directory: %s\n", tmpDirPath);
+        }
+    }
 #endif
 
-	GetLogPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
-	AddDirIfNot( tmpDirPath ) ;
+    GetLogPath(tmpDirPath, ADELINE_MAX_PATH, NULL);
+    AddDirIfNot(tmpDirPath);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
-
