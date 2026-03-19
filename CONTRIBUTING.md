@@ -36,6 +36,18 @@ The original codebase uses tabs for indentation. There is an ongoing effort to m
 
 The codebase mixes C and C++ (C++98) along with x86 assembly (UASM). Please keep changes consistent with the style of the file you are modifying.
 
+For C and C++ files, the repository now uses `clang-format` with a checked-in style file. In VS Code, workspace settings enable format-on-save for C and C++ when the recommended `ms-vscode.cpptools` extension is installed.
+
+ASM files are intentionally excluded from automatic formatting, and `LIB386/libsmacker/` is kept out of formatting because it is third-party code.
+
+If you are doing the one-time whitespace migration or reviewing it locally, keep it as a dedicated formatting-only commit and then configure git blame to ignore that commit:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+After the bootstrap formatting commit exists, add its SHA to `.git-blame-ignore-revs`. Do not mix semantic changes into that commit.
+
 ### Preservation of Original Code
 
 This project values preservation. When modifying original source files:
