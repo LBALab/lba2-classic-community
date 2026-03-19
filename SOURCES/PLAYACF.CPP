@@ -7,6 +7,17 @@
 #include "INPUT.H"
 #include "MESSAGE.H"
 #include <AIL/VIDEO_AUDIO.H>
+#include <AIL/VIDEO_AUDIO_RESAMPLE.H>
+
+static int videoLogEnabled = 0;
+
+void VideoLogEnable(int enable) {
+  videoLogEnabled = (enable != 0) ? 1 : 0;
+}
+
+int VideoLogIsEnabled(void) {
+  return videoLogEnabled;
+}
 #include <SVGA/DIRTYBOX.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -155,6 +166,9 @@ void	PlayAllAcf( void )
 	S32	var = FLAG_ACF ;
 	char	getname[13] ;
 
+	if ( !ListAcf || !EndListAcf || ListAcf >= EndListAcf )
+		return ;
+
 	PtrAcf = ListAcf ;
 
 #if defined(LBA_EDITOR)||defined(CDROM)
@@ -231,81 +245,6 @@ static void ReadNextVideoFrame(smk smkObject, U8 *buffer, U8 **pal) {
     memcpy(targetRow + screenWidth, targetRow, screenWidth);
     targetRow += screenWidth * 2;
   }
-}
-
-/* Resample chunk to exactly mixSamples (one frame at stream rate) and add into mix. Uses fractional indexing so pitch/duration stay correct. */
-static void ResampleAndAddToMix(unsigned long srcRate, unsigned long targetRate, const void *srcPtr, unsigned long srcBytes,
-    void *mixPtr, unsigned long mixSamples, int is16) {
-  if (srcRate == 0 || targetRate == 0 || mixSamples == 0) return;
-  unsigned long srcSamples = srcBytes / (is16 ? 2u : 1u);
-  if (srcSamples == 0) return;
-
-  if (srcRate == targetRate) {
-    unsigned long n = (srcSamples < mixSamples) ? srcSamples : mixSamples;
-    if (is16) {
-      const short *src = (const short *)srcPtr;
-      short *mix = (short *)mixPtr;
-      for (unsigned long j = 0; j < n; j++) {
-        int s = (int)mix[j] + (int)src[j];
-        if (s > 32767) s = 32767;
-        if (s < -32768) s = -32768;
-        mix[j] = (short)s;
-      }
-    } else {
-      const U8 *src = (const U8 *)srcPtr;
-      U8 *mix = (U8 *)mixPtr;
-      for (unsigned long j = 0; j < n; j++) {
-        int s = (int)(mix[j]) - 128 + (int)(src[j]) - 128;
-        if (s > 127) s = 127;
-        if (s < -128) s = -128;
-        mix[j] = (U8)(s + 128);
-      }
-    }
-    return;
-  }
-
-  /* Resample to exactly mixSamples with linear interpolation to reduce grain. */
-  if (is16) {
-    const short *src = (const short *)srcPtr;
-    short *mix = (short *)mixPtr;
-    for (unsigned long k = 0; k < mixSamples; k++) {
-      double idx = (double)k * (double)srcSamples / (double)mixSamples;
-      unsigned long idx0 = (unsigned long)idx;
-      if (idx0 >= srcSamples) idx0 = srcSamples - 1;
-      unsigned long idx1 = idx0 + 1;
-      if (idx1 >= srcSamples) idx1 = srcSamples - 1;
-      double frac = idx - (double)idx0;
-      int sample = (int)((1.0 - frac) * (double)src[idx0] + frac * (double)src[idx1]);
-      int s = (int)mix[k] + sample;
-      if (s > 32767) s = 32767;
-      if (s < -32768) s = -32768;
-      mix[k] = (short)s;
-    }
-  } else {
-    const U8 *src = (const U8 *)srcPtr;
-    U8 *mix = (U8 *)mixPtr;
-    for (unsigned long k = 0; k < mixSamples; k++) {
-      double idx = (double)k * (double)srcSamples / (double)mixSamples;
-      unsigned long idx0 = (unsigned long)idx;
-      if (idx0 >= srcSamples) idx0 = srcSamples - 1;
-      unsigned long idx1 = idx0 + 1;
-      if (idx1 >= srcSamples) idx1 = srcSamples - 1;
-      double frac = idx - (double)idx0;
-      int sample = (int)((1.0 - frac) * ((int)(src[idx0]) - 128) + frac * ((int)(src[idx1]) - 128));
-      int s = (int)(mix[k]) - 128 + sample;
-      if (s > 127) s = 127;
-      if (s < -128) s = -128;
-      mix[k] = (U8)(s + 128);
-    }
-  }
-}
-
-/* LBA2 intro: voice tracks 1/2/3 often have header rate=22050 but are actually 11025 Hz. Return effective rate for resampling. */
-static unsigned long GetEffectiveTrackRate(int t, const unsigned long *a_r, const U8 *a_c, unsigned long targetRate) {
-  unsigned long r = a_r[t];
-  if (t >= 1 && t <= 3 && r == 22050 && (a_c[t] == 1) && targetRate == 22050)
-    return 11025u;
-  return r;
 }
 
 /* Push current frame's audio for requested tracks; mix if numTracks > 1. Resample to stream rate with duration-correct resampling. */
@@ -392,12 +331,11 @@ S32	PlayAcf( const char *name )
 
     S32 n = GetNumAcf(name);
     if (n == -1) {
-      LogPrintf("PlayAcf: video name '%s' not found in ACF list (GetNumAcf returned -1)\n", name);
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: video name '%s' not found in ACF list", name);
       s_playacf_playing = 0;
       return 0;
     }
-
-    LogPrintf("PlayAcf: playing '%s' index %d from %s\n", name, (int)n, PathAcf);
 
     ListVarGame[FLAG_ACF + (n / 16)] |= (S16)(1 << (n & 15));
 
@@ -408,8 +346,15 @@ S32	PlayAcf( const char *name )
     const U32 logSize = (U32)(ModeDesiredX * ModeDesiredY);
     const U32 palSize = 768;
     U8 *savedLog = (U8 *)malloc(logSize + palSize);
-    U8 *savedPal = savedLog ? savedLog + logSize : NULL;
-    if (savedLog && Log && PtrPal) {
+    if (!savedLog) {
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: malloc failed for screen save");
+      HQ_ResumeSamples();
+      s_playacf_playing = 0;
+      return 0;
+    }
+    U8 *savedPal = savedLog + logSize;
+    if (Log && PtrPal) {
       memcpy(savedLog, Log, logSize);
       memcpy(savedPal, PtrPal, palSize);
     }
@@ -417,13 +362,15 @@ S32	PlayAcf( const char *name )
     U8 *decompbuf = (U8 *)LoadMalloc_HQR(PathAcf, n);
     U32 size = LoadMallocFileSize;
     if (!size) {
-      LogPrintf("PlayAcf: LoadMalloc_HQR failed for index %d\n", (int)n);
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: LoadMalloc_HQR failed for index %d", (int)n);
       TheEnd(PROGRAM_OK, MessageNoCD);
     }
 
     smk smkObject = smk_open_memory(decompbuf, (unsigned long)size);
     if (!smkObject) {
-      LogPrintf("PlayAcf: smk_open_memory failed for index %d (size %u)\n", (int)n, (unsigned)size);
+      if (VideoLogIsEnabled())
+        SDL_Log("[VIDEO] PlayAcf: smk_open_memory failed for index %d (size %u)", (int)n, (unsigned)size);
       Free(decompbuf);
       TheEnd(PROGRAM_OK, MessageNoCD);
     }
@@ -477,6 +424,22 @@ S32	PlayAcf( const char *name )
       }
     }
 
+    if (VideoLogIsEnabled()) {
+      if (!strncasecmp(name, "INTRO", 5) && numTracks > 0) {
+        static const char *voiceLang[] = { "FR", "DE", "EN" };
+        const char *lang = (LanguageCD >= 0 && LanguageCD <= 2) ? voiceLang[LanguageCD] : "FR";
+        if (numTracks > 1) {
+          SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=%s track %d)",
+                  name, (int)n, PathAcf, LanguageCD, lang, tracksToPlay[1]);
+        } else {
+          SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s (LanguageCD=%d, voice=off)",
+                  name, (int)n, PathAcf, LanguageCD);
+        }
+      } else {
+        SDL_Log("[VIDEO] PlayAcf: playing '%s' index %d from %s", name, (int)n, PathAcf);
+      }
+    }
+
     smk_enable_all(smkObject, SMK_VIDEO_TRACK | a_t);
     smk_first(smkObject);
 
@@ -497,10 +460,11 @@ S32	PlayAcf( const char *name )
       frameMs = 67;  /* ~15 fps */
 
     /* Pre-fill audio buffer before starting playback (like lba2-classic-ida's SoLoud deque).
-     * Stream is created paused; we fill it then resume so the device never underruns. */
+     * Stream is created paused; we fill it then resume so the device never underruns.
+     * Formula: ~2s for long videos (60+ fps), ~1s for medium (30+), ~0.5s for short; avoids
+     * underrun at start while not delaying playback too much on brief clips. */
     unsigned long prebufFrames = 0;
     if (numTracks > 0 && f > 8u) {
-      /* ~2 seconds of audio so playback stays smooth */
       prebufFrames = (f > 60u) ? 30u : (f > 30u) ? 25u : (f > 15u) ? 15u : (unsigned long)(f / 2);
       if (prebufFrames > f)
         prebufFrames = f;
@@ -516,6 +480,9 @@ S32	PlayAcf( const char *name )
 
     U8 *pal = NULL;
     U32 videoStartTicks = 0;
+#ifdef CONSOLE_MODULE
+    static int s_wasConsoleOpen = 0;
+#endif
     for (unsigned long c = 0; c < f; c++) {
       /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
       if (numTracks > 0 && c >= prebufFrames) {
@@ -540,11 +507,24 @@ S32	PlayAcf( const char *name )
         if (MyKey == K_ESC || (Input & I_MENUS))
           goto fin_play;
 #ifdef CONSOLE_MODULE
-        /* Pause video while console is open: keep presenting current frame until they close it. */
+        /* Pause video while console is open: keep presenting current frame until they close it.
+         * Pause video audio so the buffer doesn't drain and cause a gap when console closes. */
         if (Console_IsOpen()) {
+          if (!s_wasConsoleOpen && numTracks > 0) {
+            PauseVideoAudio();
+            if (VideoLogIsEnabled())
+              SDL_Log("[VIDEO] Audio paused (console open)");
+            s_wasConsoleOpen = 1;
+          }
           BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
           BoxUpdate();
           continue;
+        }
+        if (s_wasConsoleOpen && numTracks > 0) {
+          ResumeVideoAudio();
+          if (VideoLogIsEnabled())
+            SDL_Log("[VIDEO] Audio resumed (console closed)");
+          s_wasConsoleOpen = 0;
         }
 #endif
         now = SDL_GetTicks();
@@ -557,15 +537,18 @@ S32	PlayAcf( const char *name )
     }
 
 fin_play:
+#ifdef CONSOLE_MODULE
+    s_wasConsoleOpen = 0;
+#endif
     StopVideoAudio();
     smk_close(smkObject);
     free(dest);
     Free(decompbuf);
 
     /* Restore screen and palette so we don't leave a black screen. */
-    if (savedLog && savedPal && Log && PtrPal) {
+    if (savedLog && Log && PtrPal) {
       memcpy(Log, savedLog, logSize);
-      memcpy(PtrPal, savedPal, palSize);
+      memcpy(PtrPal, savedLog + logSize, palSize);
       PaletteSync(PtrPal);
     }
     if (savedLog) free(savedLog);

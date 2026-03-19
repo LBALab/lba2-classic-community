@@ -19,6 +19,9 @@ S32 StartVideoAudio(S32 freq, S32 channels, S32 is16bit);
 // Start playback (call after pushing initial buffer so device doesn't underrun).
 void ResumeVideoAudio(void);
 
+// Pause playback (e.g. when console is open). Call ResumeVideoAudio() to resume.
+void PauseVideoAudio(void);
+
 // Push PCM data to the video audio stream. data is sizeBytes bytes.
 void PushVideoAudio(const void *data, U32 sizeBytes);
 

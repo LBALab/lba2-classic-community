@@ -24,11 +24,11 @@ If you have an idea, you can [create a feature request](https://github.com/2poin
 See the [README](README.md) for prerequisites and build instructions. In short:
 
 ```bash
-cmake -B build -DSOUND_BACKEND=sdl -DMVIDEO_BACKEND=smacker
+cmake -B build
 cmake --build build
 ```
 
-This example configuration enables SDL3-based audio and Smacker FMV playback via `libsmacker`. Other combinations of `SOUND_BACKEND` and `MVIDEO_BACKEND` are available; see the build options table in the README.
+The default build includes SDL3-based audio and Smacker FMV playback. Override with `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for a minimal build; see the build options table in the README.
 
 ### Code Style
 

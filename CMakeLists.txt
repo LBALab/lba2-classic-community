@@ -22,8 +22,8 @@ endif()
 set(CMAKE_CXX_STANDARD 98)
 
 # Compilation options
-set(SOUND_BACKEND "null" CACHE STRING "Sound backend to be used")
-set(MVIDEO_BACKEND "null" CACHE STRING "Motion Video backend to be used")
+set(SOUND_BACKEND "sdl" CACHE STRING "Sound backend to be used")
+set(MVIDEO_BACKEND "smacker" CACHE STRING "Motion Video backend to be used")
 option(CONSOLE_MODULE "Enable Quake-style debug console (backtick/F12)" OFF)
 
 # Compilation options sanitization
