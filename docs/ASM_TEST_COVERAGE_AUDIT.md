@@ -217,6 +217,10 @@ For each listed ASM/CPP pair:
   - Tightened the basic Gouraud and Dither triangle smoke cases so they now
     assert the exact deterministic `3640`-pixel footprint instead of only
     checking that a large enough area was filled.
+- Completed: exact uniform-light Gouraud center sample in `test_polygour.cpp`
+  - Tightened the uniform-light Gouraud smoke check so it now asserts the
+    exact deterministic center pixel value `11` instead of only checking that
+    the pixel was non-zero.
 - Completed: `Fill_Poly` textured Gouraud/Dither path in `test_polygtex.cpp`
   - Replaced the clipped/random placeholder checks with deterministic
     framebuffer assertions.
