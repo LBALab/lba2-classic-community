@@ -12,6 +12,11 @@
 #include "poly_test_fixture.h"
 #include <string.h>
 
+static void assert_fill_sphere_matches(const char *label,
+                                       S32 type, S32 color,
+                                       S32 cx, S32 cy, S32 r, S32 zbuf,
+                                       U8 prefill);
+
 /* ── Basic sphere rendering ────────────────────────────────────── */
 
 static void test_sphere_centre(void) {
@@ -39,10 +44,8 @@ static void test_sphere_small_radius(void) {
 }
 
 static void test_sphere_zero_radius(void) {
-    setup_polygon_screen();
-    /* Radius 0 should not crash */
-    Fill_Sphere(0, 0xDD, 80, 60, 0, 0);
-    ASSERT_TRUE(1); /* no crash */
+    assert_fill_sphere_matches("Fill_Sphere zero radius cpp path", 0,
+                               0xDD, 80, 60, 0, 0, 0);
 }
 
 /* ── Clipping ──────────────────────────────────────────────────── */
@@ -95,14 +98,17 @@ static void test_sphere_fog(void) {
 static void test_sphere_random(void) {
     poly_rng_seed(0xDEADBEEF);
     for (int i = 0; i < 30; i++) {
-        setup_polygon_screen();
         S32 cx = (S32)(poly_rng_next() % (TEST_POLY_W + 60)) - 30;
         S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
         S32 r = (S32)(poly_rng_next() % 40);
         S32 color = (S32)(poly_rng_next() & 0xFF) | 1;
         S32 type = (S32)(poly_rng_next() % 3); /* 0=flat, 1=flat, 2=transp */
-        Fill_Sphere(type, color, cx, cy, r, 0);
-        ASSERT_TRUE(1);
+        U8 prefill = (type == 2) ? (U8)(0x10 | (poly_rng_next() & 0x0F)) : 0;
+        char msg[128];
+        snprintf(msg, sizeof(msg),
+                 "Fill_Sphere random #%d type=%d cx=%d cy=%d r=%d col=%d",
+                 i, type, cx, cy, r, color);
+        assert_fill_sphere_matches(msg, type, color, cx, cy, r, 0, prefill);
     }
 }
 

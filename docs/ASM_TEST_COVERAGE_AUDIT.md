@@ -188,11 +188,19 @@ For each listed ASM/CPP pair:
     fixed-case ASM-vs-CPP framebuffer comparisons.
   - The new cases cover both a narrow strip and a wider strip with explicit
     non-default perspective parameters.
+- Completed: remaining `Fill_Sphere` / `Fill_Poly` placeholder cleanup in
+  `test_polydisc.cpp` and `test_poly.cpp`
+  - Replaced the last `Fill_Sphere` zero-radius and randomized no-crash checks
+    with deterministic framebuffer equivalence using the existing ASM wrapper.
+  - Replaced the `Fill_Poly` random type smoke loop with repeatable full-
+    framebuffer assertions plus bounding-box invariants.
+  - Tightened the invalid-domain helpers so `INV64(1)` and `SetFog(0,0)` are
+    explicit CPP-only checks; `SetFog(0,0)` cannot be sent through the ASM path
+    because the original routine traps with a numeric exception.
 
-### Next pol_work Candidates
+### Next Candidates
 
-- `Fill_Sphere` / `Fill_Poly`
-  - Reconcile the remaining placeholder assertions still present in
-    `test_polydisc.cpp` and `test_poly.cpp`, then either eliminate them or
-    narrow the audit notes if those paths are intentionally outside strict
-    equivalence coverage.
+- Broader placeholder sweep outside `pol_work`
+  - Re-run the repo-wide audit for remaining `ASSERT_TRUE(1)` / no-crash style
+    tests in other ASM/CPP areas now that the visible `pol_work` backlog is
+    cleared.

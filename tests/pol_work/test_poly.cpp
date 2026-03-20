@@ -158,9 +158,8 @@ static void test_inv64_positive(void) {
 
 static void test_inv64_small(void) {
     S32 r = INV64(1);
-    /* 2^32 / 1 wraps to 0 in 32-bit signed — expected behavior */
-    (void)r; /* just confirm it doesn't crash */
-    ASSERT_TRUE(1);
+    /* ASM idiv overflows for |a| <= 2, so this stays a CPP-only invalid-domain check. */
+    ASSERT_EQ_INT(0, r);
 }
 
 static void test_inv64_negative(void) {
@@ -178,11 +177,14 @@ static void test_setfog_basic(void) {
 }
 
 static void test_setfog_zero_far(void) {
-    /* z_far=0 should be clamped to 1 to avoid division by zero */
+    /* ASM SetFog(0,0) traps with a numeric exception, so this is a
+     * CPP-only invalid-domain clamp check. */
     SetFog(0, 0);
     ASSERT_EQ_INT(1, Fill_Z_Fog_Far);
-    /* ZBuffer factor may wrap with these extreme values — just check no crash */
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(0, Fill_Z_Fog_Near);
+    ASSERT_EQ_INT(0, Fill_ScaledFogNear);
+    ASSERT_EQ_UINT(0, Fill_ZBuffer_Factor);
+    ASSERT_EQ_UINT(256, Fill_Fog_Factor);
 }
 
 static void test_setfog_large_range(void) {
@@ -246,23 +248,58 @@ static void test_fill_poly_quad(void) {
 /* ── Randomized stress: random triangles with random types ──────── */
 
 static void test_fill_poly_random_types(void) {
+    static U8 first_pass[TEST_POLY_SIZE];
+
     poly_rng_seed(0xCAFEBABE);
-    for (int i = 0; i < 300; i++) {
+    for (int i = 0; i < 30; i++) {
         setup_polygon_screen();
         /* Pre-fill for transparency tests */
         memset(g_poly_framebuf, 0x11, TEST_POLY_SIZE);
         Struc_Point pts[3];
+        Struc_Point pts_repeat[3];
+        S16 min_x = TEST_POLY_W;
+        S16 min_y = TEST_POLY_H;
+        S16 max_x = -1;
+        S16 max_y = -1;
         for (int v = 0; v < 3; v++) {
             S16 x = (S16)((poly_rng_next() % (TEST_POLY_W + 20)) - 10);
             S16 y = (S16)((poly_rng_next() % (TEST_POLY_H + 20)) - 10);
             pts[v] = make_point(x, y);
+            pts_repeat[v] = pts[v];
+            if (x < min_x)
+                min_x = x;
+            if (y < min_y)
+                min_y = y;
+            if (x > max_x)
+                max_x = x;
+            if (y > max_y)
+                max_y = y;
         }
         U8 color = (U8)(poly_rng_next() | 1);
         /* Test types 0-3 (flat/trans/trame) */
         S32 type = (S32)(poly_rng_next() % 4);
         Fill_Poly(type, color, 3, pts);
-        /* Just ensure no crash */
-        ASSERT_TRUE(1);
+        memcpy(first_pass, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_polygon_screen();
+        memset(g_poly_framebuf, 0x11, TEST_POLY_SIZE);
+        Fill_Poly(type, color, 3, pts_repeat);
+
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Fill_Poly random type #%d type=%d", i, type);
+        ASSERT_ASM_CPP_MEM_EQ(first_pass, g_poly_framebuf, TEST_POLY_SIZE, msg);
+
+        for (int y = 0; y < TEST_POLY_H; ++y) {
+            for (int x = 0; x < TEST_POLY_W; ++x) {
+                U8 pixel = g_poly_framebuf[y * TEST_POLY_W + x];
+                if (pixel == 0x11)
+                    continue;
+                ASSERT_TRUE(x >= min_x - 1);
+                ASSERT_TRUE(x <= max_x + 1);
+                ASSERT_TRUE(y >= min_y);
+                ASSERT_TRUE(y <= max_y);
+            }
+        }
     }
 }
 
