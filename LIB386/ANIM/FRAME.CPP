@@ -54,11 +54,11 @@ void ObjectSetFrame(T_OBJ_3D *obj, U32 frame) {
     frame++;
 
     if (frame == obj->NbFrames) {
-        U16 animTime = animPtr[0];
+        U16 animTime = animPtr[4];
         obj->NextFrame = 0;
         obj->NextOfsFrame = (PTR_U32)8;
         obj->NextTimer = obj->LastTimer + animTime;
-        obj->Master = ((U16 *)animFrame)[8];
+        obj->Master = animPtr[8];
     } else {
         U16 animTime = ((U16 *)animFrame)[0];
         obj->NextFrame = frame;

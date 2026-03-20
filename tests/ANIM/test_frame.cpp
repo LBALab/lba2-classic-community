@@ -81,13 +81,17 @@ static void test_asm_equiv_frame0(void) {
     TransFctAnim = NULL;
 
     setup_obj(&cpp_obj);
+    seed_frame_state(&cpp_obj);
+    TimerRefHR = 4000;
     ObjectSetFrame(&cpp_obj, 0);
 
     setup_obj(&asm_obj);
+    seed_frame_state(&asm_obj);
+    TimerRefHR = 4000;
     asm_ObjectSetFrame(&asm_obj, 0);
 
-    ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame,
-                          2 * sizeof(T_GROUP_INFO), "ObjectSetFrame frame 0");
+    ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectSetFrame full state frame 0");
 }
 
 static void test_asm_equiv_frame2(void) {
@@ -95,13 +99,17 @@ static void test_asm_equiv_frame2(void) {
     TransFctAnim = NULL;
 
     setup_obj(&cpp_obj);
+    seed_frame_state(&cpp_obj);
+    TimerRefHR = 5000;
     ObjectSetFrame(&cpp_obj, 2);
 
     setup_obj(&asm_obj);
+    seed_frame_state(&asm_obj);
+    TimerRefHR = 5000;
     asm_ObjectSetFrame(&asm_obj, 2);
 
-    ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame,
-                          2 * sizeof(T_GROUP_INFO), "ObjectSetFrame frame 2");
+    ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectSetFrame full state frame 2");
 }
 
 static void test_frame_resets_state(void) {

@@ -109,7 +109,11 @@ For each listed ASM/CPP pair:
 
 - Completed: `ObjectSetFrame`
   - Added explicit reset-state assertions for interpolation, step accumulators, timers, and status.
-  - Added full-struct ASM-vs-CPP comparison for a non-zero preseeded object state.
+  - Widened the full-struct ASM-vs-CPP comparison from the frame-1 path to the
+    frame-0 and frame-2 branches as well, using non-zero preseeded object state.
+  - Fixed `LIB386/ANIM/FRAME.CPP` so the last-frame loop-back branch reads the
+    next timer and master state from frame 0 like the ASM, instead of from the
+    anim header/end pointer.
 - Completed: `ObjectSetInterDep`
   - Added explicit no-rotation branch checks to prove angle state is preserved when `Master & 1 == 0`.
   - Added ASM-vs-CPP comparison for the same no-rotation midpoint state.
