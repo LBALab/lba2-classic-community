@@ -102,7 +102,9 @@ For each listed ASM/CPP pair:
     sampling and confirm byte-for-byte parity through two consecutive fire
     updates.
 - `BoxFlow` / `ShadeBoxBlk` / `CopyBlockShade`
-  - Review clipped-edge combinations and repeated-application stability.
+  - Added repeated-application stability sequences for all three helpers.
+  - Clipped-edge combinations still remain the main follow-up if higher-level
+    coverage exposes a gap.
 
 ### 3DEXT
 
