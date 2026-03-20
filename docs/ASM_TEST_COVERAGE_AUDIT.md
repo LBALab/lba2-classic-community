@@ -204,6 +204,14 @@ For each listed ASM/CPP pair:
   - Added exact 0%, 25%, 50%, and 75% expectations plus deterministic
     ASM-vs-CPP stress over interpolator values with full `CurrentFrame`
     byte comparison.
+- Completed: `ObjectSetInterAnim` exact timer/interpolation coverage in
+  `tests/ANIM/test_intanim.cpp`
+  - Replaced the midpoint range check with exact state assertions.
+  - Added deterministic timer-sweep checks for the CPP path, covering the
+    no-op entry case, midpoint interpolation, near-endpoint rounding, and
+    the exact frame-transition state.
+  - Kept ASM parity scoped to the documented safe domain (midpoint), since
+    frame-transition/full-state divergence is inherited from `INTERDEP`.
 
 ### Next Candidates
 
@@ -211,7 +219,7 @@ For each listed ASM/CPP pair:
   - Re-run the repo-wide audit for remaining `ASSERT_TRUE(1)` / no-crash style
     tests in other ASM/CPP areas now that the visible `pol_work` backlog is
     cleared.
-- `ObjectSetInterAnim`
-  - Replace the midpoint range check in `tests/ANIM/test_intanim.cpp` with
-    exact state assertions and broaden the ASM-vs-CPP comparison beyond the
-    current midpoint / interpolator-only checks.
+- `AffMask` hotspot high-byte cases
+  - Add explicit hotspot values in the 128..255 range to prove whether the
+    current raw-byte/signed-byte behavior still matches ASM across both
+    framebuffer output and `ScreenX/Y` bounds.
