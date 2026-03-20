@@ -1622,6 +1622,12 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 514;
     if (strcmp(label, "ObjectDisplay env gouraud render") == 0)
         return 514;
+    if (strcmp(label, "ObjectDisplay env flat scaled render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env solid scaled render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env gouraud scaled render") == 0)
+        return 514;
     return -1;
 }
 
