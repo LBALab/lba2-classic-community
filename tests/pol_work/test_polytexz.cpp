@@ -80,6 +80,28 @@ static U8 texz_asm_buf[TEST_POLY_SIZE];
 static U16 texz_cpp_zbuf[TEST_POLY_SIZE];
 static U16 texz_asm_zbuf[TEST_POLY_SIZE];
 
+static void setup_texz_filler(U32 startY, U32 nbLines,
+                              U32 xmin_fp, U32 xmax_fp);
+
+static void assert_texz_fb_case(U32 start_y, U32 nb_lines,
+                                U32 xmin_fp, U32 xmax_fp,
+                                U32 mapu_xslope, S32 cur_w,
+                                const char *label) {
+    setup_texz_filler(start_y, nb_lines, xmin_fp, xmax_fp);
+    Fill_MapU_XSlope = mapu_xslope;
+    Fill_Cur_W = cur_w;
+    Filler_TextureZ(nb_lines, xmin_fp, xmax_fp);
+    memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_texz_filler(start_y, nb_lines, xmin_fp, xmax_fp);
+    Fill_MapU_XSlope = mapu_xslope;
+    Fill_Cur_W = cur_w;
+    call_asm_Filler_TextureZ(nb_lines, xmin_fp, xmax_fp);
+    memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, label);
+}
+
 /* ── Base setup (unchanged from original) ──────────────────────── */
 
 static void setup_texz_filler(U32 startY, U32 nbLines,
@@ -331,15 +353,15 @@ static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
  * ══════════════════════════════════════════════════════════════════ */
 
 static void test_texz_cpp_narrow(void) {
-    setup_texz_filler(50, 2, 60 << 16, 68 << 16);
-    Filler_TextureZ(2, 60 << 16, 68 << 16);
-    ASSERT_TRUE(1);
+    assert_texz_fb_case(50, 2, 60 << 16, 68 << 16,
+                        0x018000, 0x14000,
+                        "Filler_TextureZ narrow strip");
 }
 
 static void test_texz_cpp_wide(void) {
-    setup_texz_filler(30, 4, 20 << 16, 80 << 16);
-    Filler_TextureZ(4, 20 << 16, 80 << 16);
-    ASSERT_TRUE(1);
+    assert_texz_fb_case(30, 4, 20 << 16, 80 << 16,
+                        0x008000, 0x0C000,
+                        "Filler_TextureZ wide strip");
 }
 
 static void test_asm_equiv_texz(void) {
