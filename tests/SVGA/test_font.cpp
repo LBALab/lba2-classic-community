@@ -129,7 +129,7 @@ static void test_random_sizefont(void) {
     setup_font();
     rng_seed(0xF00D1234);
     int prev = test_failures;
-    for (int i = 0; i < 30 && test_failures == prev; i++) {
+    for (int i = 0; i < 45 && test_failures == prev; i++) {
         char str[16];
         int len = (int)(rng_next() % 8) + 1;
         for (int j = 0; j < len; j++) {
