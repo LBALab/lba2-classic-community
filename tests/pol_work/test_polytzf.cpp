@@ -18,6 +18,20 @@
 static U8 g_texture[TEX_SIZE * TEX_SIZE];
 static U8 g_fog_clut[65536]; /* Fog CLUT: base + 12*256 + fogRow(up to 0xF000) + texel(0-255) */
 
+static void assert_tzf_pixels_within_bounds(S16 min_x, S16 min_y, S16 max_x, S16 max_y) {
+    for (int y = 0; y < TEST_POLY_H; ++y) {
+        for (int x = 0; x < TEST_POLY_W; ++x) {
+            U8 pixel = g_poly_framebuf[y * TEST_POLY_W + x];
+            if (pixel == 0)
+                continue;
+            ASSERT_TRUE(x >= min_x - 1);
+            ASSERT_TRUE(x <= max_x + 1);
+            ASSERT_TRUE(y >= min_y);
+            ASSERT_TRUE(y <= max_y);
+        }
+    }
+}
+
 static Struc_Point make_point_uvw(S16 x, S16 y, U16 u, U16 v, S32 w) {
     Struc_Point p;
     memset(&p, 0, sizeof(p));
@@ -48,15 +62,24 @@ static void setup_tzf_screen(void) {
 /* ── Basic TextureZ fog ────────────────────────────────────────── */
 
 static void test_tzf_basic(void) {
+    static U8 first_pass[TEST_POLY_SIZE];
     setup_tzf_screen();
     Struc_Point pts[3];
+    Struc_Point pts_repeat[3];
     pts[0] = make_point_uvw(80, 10, 0, 0, 0x10000);
     pts[1] = make_point_uvw(40, 100, 0, 50 << 8, 0x8000);
     pts[2] = make_point_uvw(120, 100, 50 << 8, 50 << 8, 0x8000);
+    memcpy(pts_repeat, pts, sizeof(pts));
     Fill_Poly(POLY_TEXTURE_Z_FOG, 0, 3, pts);
-    /* Fog mode may map outputs to 0 depending on palette/CLUT setup;
-     * just verify no crash. The random test does more thorough validation. */
-    ASSERT_TRUE(1);
+    memcpy(first_pass, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_tzf_screen();
+    Fill_Poly(POLY_TEXTURE_Z_FOG, 0, 3, pts_repeat);
+
+    ASSERT_ASM_CPP_MEM_EQ(first_pass, g_poly_framebuf, TEST_POLY_SIZE,
+                          "Fill_Poly TextureZFog basic repeatable");
+    assert_tzf_pixels_within_bounds(40, 10, 120, 100);
+    Switch_Fillers(FILL_POLY_NO_TEXTURES);
 }
 
 static void test_tzf_offscreen(void) {
@@ -72,10 +95,16 @@ static void test_tzf_offscreen(void) {
 /* ── Randomized stress test ────────────────────────────────────── */
 
 static void test_tzf_random(void) {
+    static U8 first_pass[TEST_POLY_SIZE];
+
     poly_rng_seed(0xDEADBEEF);
     for (int i = 0; i < 20; i++) {
-        setup_tzf_screen();
         Struc_Point pts[3];
+        Struc_Point pts_repeat[3];
+        S16 min_x = TEST_POLY_W;
+        S16 min_y = TEST_POLY_H;
+        S16 max_x = -1;
+        S16 max_y = -1;
         for (int v = 0; v < 3; v++) {
             S16 x = (S16)((poly_rng_next() % (TEST_POLY_W + 40)) - 20);
             S16 y = (S16)((poly_rng_next() % (TEST_POLY_H + 40)) - 20);
@@ -83,9 +112,28 @@ static void test_tzf_random(void) {
             U16 vc = (U16)((poly_rng_next() % TEX_SIZE) << 8);
             S32 w = (S32)(poly_rng_next() % 0xFFFF) + 0x100;
             pts[v] = make_point_uvw(x, y, u, vc, w);
+            pts_repeat[v] = pts[v];
+            if (x < min_x)
+                min_x = x;
+            if (y < min_y)
+                min_y = y;
+            if (x > max_x)
+                max_x = x;
+            if (y > max_y)
+                max_y = y;
         }
+
+        setup_tzf_screen();
         Fill_Poly(POLY_TEXTURE_Z_FOG, 0, 3, pts);
-        ASSERT_TRUE(1);
+        memcpy(first_pass, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_tzf_screen();
+        Fill_Poly(POLY_TEXTURE_Z_FOG, 0, 3, pts_repeat);
+
+        char label[96];
+        snprintf(label, sizeof(label), "Fill_Poly TextureZFog random #%d", i);
+        ASSERT_ASM_CPP_MEM_EQ(first_pass, g_poly_framebuf, TEST_POLY_SIZE, label);
+        assert_tzf_pixels_within_bounds(min_x, min_y, max_x, max_y);
     }
     /* Restore normal mode */
     Switch_Fillers(FILL_POLY_NO_TEXTURES);

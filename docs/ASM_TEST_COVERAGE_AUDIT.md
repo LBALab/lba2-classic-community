@@ -177,10 +177,16 @@ For each listed ASM/CPP pair:
   - The clipped case now asserts repeatable output plus clipped bounding-box
     behavior, and the random textured rounds now assert repeatable
     full-framebuffer output plus bounding-box invariants.
+- Completed: `Fill_Poly` TextureZ fog path in `test_polytzf.cpp`
+  - Replaced the basic/random placeholder checks with deterministic
+    framebuffer assertions.
+  - The basic case now asserts repeatable output plus bounding-box behavior,
+    and the random fog rounds now assert repeatable full-framebuffer output
+    plus bounding-box invariants.
 
 ### Next pol_work Candidates
 
-- `Filler_TextureZFogSmooth` / `Filler_TextureZ*`
-  - Review the remaining `polytzf` and `polytexz` placeholder cases, which are
-    likely the next highest-value renderer paths after the flat/gouraud/textured
-    `Fill_Poly` wrappers.
+- `Filler_TextureZ*`
+  - Tighten the remaining lightweight placeholder CPP checks in
+    `test_polytexz.cpp` (the current narrow/wide `Filler_TextureZ` smoke cases
+    still only assert non-crash).
