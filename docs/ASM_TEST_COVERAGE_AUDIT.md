@@ -77,7 +77,7 @@ For each listed ASM/CPP pair:
 - `LightList` / `RotTransListF`
   - Revisit only if higher-level suites expose precision or accumulation gaps.
 - `MulMatrixF` / `RotateMatrixU`
-  - Review matrix-composition coverage for identity, zeroed translation, and source-preservation edge cases.
+  - Added fixed non-zero input `TX/TY/TZ` cases so matrix-composition coverage now exercises the ASM's zeroed-translation/output behavior and source-preservation semantics directly.
 - `RotTransListF` / `LightList`
   - Already strengthened; revisit only if higher-level suites expose new gaps.
 

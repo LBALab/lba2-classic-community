@@ -67,6 +67,24 @@ static TYPE_MAT make_alt_test_mat(void) {
     return m;
 }
 
+static TYPE_MAT make_translated_test_mat(void) {
+    TYPE_MAT m;
+    memset(&m, 0, sizeof(m));
+    m.F.M11 = 0.875f;
+    m.F.M12 = -0.125f;
+    m.F.M13 = 0.25f;
+    m.F.M21 = 0.5f;
+    m.F.M22 = 0.625f;
+    m.F.M23 = -0.75f;
+    m.F.M31 = -0.375f;
+    m.F.M32 = 1.0f;
+    m.F.M33 = 0.125f;
+    m.F.TX = 48.0f;
+    m.F.TY = -96.0f;
+    m.F.TZ = 24.0f;
+    return m;
+}
+
 static void fill_rand_mat(TYPE_MAT *m) {
     float *values = &m->F.M11;
     memset(m, 0, sizeof(*m));
@@ -100,6 +118,7 @@ static void test_equivalence(void) {
         make_identity_mat(),
         make_test_mat(),
         make_alt_test_mat(),
+        make_translated_test_mat(),
     };
     struct {
         S32 a, b, g;
@@ -112,6 +131,7 @@ static void test_equivalence(void) {
         {1023, 1024, 1025},
         {-1, 0, 1},
         {4096, -4096, 8192},
+        {2048, 2048, -2048},
     };
     for (int matrix_index = 0; matrix_index < (int)(sizeof(matrices) / sizeof(matrices[0])); ++matrix_index) {
         for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); i++) {
