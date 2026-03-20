@@ -170,8 +170,8 @@ For each listed ASM/CPP pair:
   - `ScaleSprite` is now tightened for 1:1 equivalence; follow up only if the
     scaled-factor path is ported.
   - `ScaleBox` now has a deeper 100-case deterministic random sweep plus fixed
-    single-pixel, 1-pixel strip, and bottom-right edge-placement equivalence
-    cases.
+    same-size exact-copy, single-pixel, 1-pixel strip, and bottom-right edge-
+    placement equivalence cases.
 
 ### SYSTEM
 
