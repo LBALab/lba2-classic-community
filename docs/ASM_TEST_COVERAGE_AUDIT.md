@@ -215,6 +215,13 @@ For each listed ASM/CPP pair:
 - Completed: clipped `Line` sanity tightening in `tests/pol_work/test_polyline.cpp`
   - Replaced the remaining off-screen-left no-crash comment with exact
     visible-span assertions for the clipped horizontal line case.
+- Completed: `ObjectSetInterDep` exact-state CPP checks in
+  `tests/ANIM/test_interdep.cpp`
+  - Replaced the midpoint range check with the exact `0x8000`
+    interpolator expectation.
+  - Tightened frame-advance and loop coverage to assert the exact CPP
+    post-call state rather than only checking for a frame bit or a changed
+    next-frame index.
 
 ### Next Candidates
 

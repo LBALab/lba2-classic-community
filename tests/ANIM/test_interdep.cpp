@@ -115,9 +115,9 @@ static void test_cpp_midpoint(void) {
     setup_dep(&obj);
     TimerRefHR = 50; /* 50% between LastTimer=0 and NextTimer=100 */
     S32 result = ObjectSetInterDep(&obj);
-    /* Interpolator should be ~0x8000 (50%) */
-    ASSERT_TRUE(obj.Interpolator > 0x7000 && obj.Interpolator < 0x9000);
-    (void)result;
+    ASSERT_EQ_INT(FLAG_CHANGE, result);
+    ASSERT_EQ_INT(FLAG_CHANGE, obj.Status);
+    ASSERT_EQ_UINT(0x8000, obj.Interpolator);
 }
 
 static void test_cpp_no_rotation_preserves_angles(void) {
@@ -141,20 +141,34 @@ static void test_cpp_frame_advance(void) {
     setup_dep(&obj);
     TimerRefHR = 150; /* Past NextTimer=100, should advance frame */
     S32 result = ObjectSetInterDep(&obj);
-    /* Status should include FLAG_FRAME (frame transition) */
-    ASSERT_TRUE(obj.Status & FLAG_FRAME);
-    (void)result;
+    ASSERT_EQ_INT(FLAG_CHANGE | FLAG_FRAME, result);
+    ASSERT_EQ_INT(FLAG_CHANGE | FLAG_FRAME, obj.Status);
+    ASSERT_EQ_UINT(0, obj.Interpolator);
+    ASSERT_EQ_INT(1, obj.LastFrame);
+    ASSERT_EQ_INT(2, obj.NextFrame);
+    ASSERT_EQ_UINT(150, obj.LastTimer);
+    ASSERT_EQ_UINT(250, obj.NextTimer);
 }
 
 static void test_cpp_loop(void) {
     T_OBJ_3D obj;
     setup_dep(&obj);
-    /* Advance time past NextTimer to trigger frame advance */
+    obj.LastFrame = 1;
+    obj.NextFrame = 2;
+    obj.LastOfsFrame = (PTR_U32)anim_frame_offset(3, 1);
+    obj.NextOfsFrame = (PTR_U32)anim_frame_offset(3, 2);
+    obj.LastTimer = 100;
+    obj.NextTimer = 200;
+    /* Advance time past the last frame to trigger loopFrame=1. */
     TimerRefHR = 200;
     S32 result = ObjectSetInterDep(&obj);
-    /* After frame advance, NextFrame should have changed from initial value */
-    ASSERT_TRUE(obj.NextFrame != 1 || (obj.Status & FLAG_FRAME));
-    (void)result;
+    ASSERT_EQ_INT(FLAG_CHANGE | FLAG_FRAME | FLAG_LAST_FRAME, result);
+    ASSERT_EQ_INT(FLAG_CHANGE | FLAG_FRAME | FLAG_LAST_FRAME, obj.Status);
+    ASSERT_EQ_UINT(0, obj.Interpolator);
+    ASSERT_EQ_INT(2, obj.LastFrame);
+    ASSERT_EQ_INT(1, obj.NextFrame);
+    ASSERT_EQ_UINT(200, obj.LastTimer);
+    ASSERT_EQ_UINT(300, obj.NextTimer);
 }
 
 static void test_asm_equiv_midpoint(void) {
