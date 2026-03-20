@@ -173,8 +173,9 @@ For each listed ASM/CPP pair:
 
 - Completed: `Fill_Sphere`
   - Replaced the remaining placeholder no-crash checks with strict
-    framebuffer equivalence for zero-radius, transparent, fog, and 300 random
-    mixed-type rounds.
+    framebuffer equivalence for zero-radius, transparent, fog, and a 100-case
+    deterministic mixed-type sweep, while keeping the separate 300-round
+    ASM-vs-CPP random loop in place.
   - Reused the existing Watcom ABI wrapper instead of introducing any new
     inline-ASM behavior in library code.
 - Completed: `Fill_Poly` solid path in `test_polyflat.cpp`
@@ -209,7 +210,8 @@ For each listed ASM/CPP pair:
 - Completed: remaining `Fill_Sphere` / `Fill_Poly` placeholder cleanup in
   `test_polydisc.cpp` and `test_poly.cpp`
   - Replaced the last `Fill_Sphere` zero-radius and randomized no-crash checks
-    with deterministic framebuffer equivalence using the existing ASM wrapper.
+    with deterministic framebuffer equivalence using the existing ASM wrapper,
+    now exercised across a 100-case front-end random sweep.
   - Replaced the `Fill_Poly` random type smoke loop with repeatable full-
     framebuffer assertions plus bounding-box invariants.
   - Tightened the invalid-domain helpers so `INV64(1)` and `SetFog(0,0)` are

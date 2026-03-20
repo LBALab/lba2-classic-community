@@ -97,7 +97,7 @@ static void test_sphere_fog(void) {
 
 static void test_sphere_random(void) {
     poly_rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 100; i++) {
         S32 cx = (S32)(poly_rng_next() % (TEST_POLY_W + 60)) - 30;
         S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
         S32 r = (S32)(poly_rng_next() % 40);
