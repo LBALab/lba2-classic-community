@@ -113,3 +113,12 @@ For each listed ASM/CPP pair:
 - Completed: `ObjectSetInterDep`
   - Added explicit no-rotation branch checks to prove angle state is preserved when `Master & 1 == 0`.
   - Added ASM-vs-CPP comparison for the same no-rotation midpoint state.
+
+### SVGA
+
+- Completed: `GetBoxGraph`
+  - Fixed signed hotspot handling in the CPP implementation.
+  - Added explicit negative-hotspot tests and ASM-vs-CPP equivalence coverage for that path.
+- Completed: `AffMask`
+  - Added high-bit hotspot-byte interior, clip-window, and off-screen cases.
+  - Verified that the CPP path keeps the ASM's raw-byte hotspot semantics for this function.
