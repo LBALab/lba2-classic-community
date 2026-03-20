@@ -200,7 +200,7 @@ For each listed ASM/CPP pair:
     framebuffer assertions.
   - The basic case now asserts repeatable output plus bounding-box behavior,
     and the random fog rounds now assert repeatable full-framebuffer output
-    plus bounding-box invariants.
+    plus bounding-box invariants across a 100-case deterministic sweep.
 - Completed: `Filler_TextureZ` fixed strip cases in `test_polytexz.cpp`
   - Replaced the remaining narrow/wide placeholder smoke checks with strict
     fixed-case ASM-vs-CPP framebuffer comparisons.
