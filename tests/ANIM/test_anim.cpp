@@ -145,7 +145,7 @@ static void test_asm_equiv_same_anim_promotes_pending_visuals(void) {
 static void test_random_batch(void) {
     rng_seed(0xA01B0001);
     int prev = test_failures;
-    for (int i = 0; i < 35 && test_failures == prev; i++) {
+    for (int i = 0; i < 100 && test_failures == prev; i++) {
         U8 anim[1024];
         U16 nf = (U16)(rng_next() % 5) + 1;
         U16 ng = (U16)(rng_next() % 4) + 2;
