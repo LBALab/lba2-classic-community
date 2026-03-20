@@ -103,8 +103,7 @@ For each listed ASM/CPP pair:
     updates.
 - `BoxFlow` / `ShadeBoxBlk` / `CopyBlockShade`
   - Added repeated-application stability sequences for all three helpers.
-  - Clipped-edge combinations still remain the main follow-up if higher-level
-    coverage exposes a gap.
+  - Added custom clip-window edge cases for `BoxFlow` and `ShadeBoxBlk`.
 
 ### 3DEXT
 

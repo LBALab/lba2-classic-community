@@ -192,6 +192,34 @@ static void test_boxflow_repeated_application(void) {
     ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, sizeof(cpp_log), "BoxFlow repeated application");
 }
 
+static void test_boxflow_custom_clip_window(void) {
+    U8 cpp_log[640 * 480];
+    U8 asm_log[640 * 480];
+
+    init_globals();
+    ClipXMin = 100;
+    ClipYMin = 50;
+    ClipXMax = 120;
+    ClipYMax = 70;
+
+    memset(cpp_log, 0x5C, sizeof(cpp_log));
+    memset(asm_log, 0x5C, sizeof(asm_log));
+
+    Log = cpp_log;
+    BoxFlow(99, 60, 0x11);
+    BoxFlow(100, 50, 0x22);
+    BoxFlow(119, 69, 0x33);
+    BoxFlow(120, 68, 0x44);
+
+    Log = asm_log;
+    call_asm_BoxFlow(99, 60, 0x11);
+    call_asm_BoxFlow(100, 50, 0x22);
+    call_asm_BoxFlow(119, 69, 0x33);
+    call_asm_BoxFlow(120, 68, 0x44);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, sizeof(cpp_log), "BoxFlow custom clip window");
+}
+
 static void test_shadeboxblk_equivalence(void) {
     U8 cpp_log[640 * 480 + 640];
     U8 asm_log[640 * 480 + 640];
@@ -267,6 +295,33 @@ static void test_shadeboxblk_repeated_application(void) {
     call_asm_ShadeBoxBlk(50, 60, 95, 110, 5);
 
     ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, 640 * 480, "ShadeBoxBlk repeated application");
+}
+
+static void test_shadeboxblk_custom_clip_window(void) {
+    U8 cpp_log[640 * 480 + 640];
+    U8 asm_log[640 * 480 + 640];
+
+    init_globals();
+    ClipXMin = 100;
+    ClipYMin = 50;
+    ClipXMax = 120;
+    ClipYMax = 70;
+
+    rng_seed(0x31415926u);
+    fill_random(cpp_log, sizeof(cpp_log));
+    memcpy(asm_log, cpp_log, sizeof(cpp_log));
+
+    Log = cpp_log;
+    ShadeBoxBlk(95, 48, 100, 52, 3);
+    ShadeBoxBlk(118, 68, 125, 75, 6);
+    ShadeBoxBlk(121, 60, 130, 65, 2);
+
+    Log = asm_log;
+    call_asm_ShadeBoxBlk(95, 48, 100, 52, 3);
+    call_asm_ShadeBoxBlk(118, 68, 125, 75, 6);
+    call_asm_ShadeBoxBlk(121, 60, 130, 65, 2);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, 640 * 480, "ShadeBoxBlk custom clip window");
 }
 
 static void test_copyblockshade_equivalence(void) {
@@ -356,9 +411,11 @@ int main(void) {
     RUN_TEST(test_boxflow_equivalence);
     RUN_TEST(test_boxflow_random_stress);
     RUN_TEST(test_boxflow_repeated_application);
+    RUN_TEST(test_boxflow_custom_clip_window);
     RUN_TEST(test_shadeboxblk_equivalence);
     RUN_TEST(test_shadeboxblk_random_stress);
     RUN_TEST(test_shadeboxblk_repeated_application);
+    RUN_TEST(test_shadeboxblk_custom_clip_window);
     RUN_TEST(test_copyblockshade_equivalence);
     RUN_TEST(test_copyblockshade_random_stress);
     RUN_TEST(test_copyblockshade_repeated_application);

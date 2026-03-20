@@ -48,7 +48,7 @@ exists in both `.ASM` and `.CPP` form.
    - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, 64-entry random stress, plus 100-round dedicated 256-entry full-palette stress that exercises wider `coulmin`/`coulmax` spans and deeper search ranges while verifying the palette remains unchanged byte-for-byte.
 
 - [x] `FLOW_A.ASM` -> `FLOW_A.CPP`
-   - Added `tests/test_flow_a.cpp` covering `BoxFlow`, `ShadeBoxBlk`, and `CopyBlockShade` with fixed clipped/unclipped cases, repeated-application stability sequences, plus deterministic random stress, comparing the full destination buffers byte-for-byte.
+   - Added `tests/test_flow_a.cpp` covering `BoxFlow`, `ShadeBoxBlk`, and `CopyBlockShade` with fixed clipped/unclipped cases, custom clip-window boundary cases, repeated-application stability sequences, plus deterministic random stress, comparing the full destination buffers byte-for-byte.
 
 - [x] `FIRE.ASM` -> `FIRE.CPP`
    - Added `tests/test_fire.cpp` covering `Do_Fire` with zero, all-`0xFF`, checkerboard, sequential, vertical-stripe, and edge-impulse inputs plus 300 deterministic random rounds, comparing both 32x36 work buffers, the 32x256 texture output, and the unchanged color table byte-for-byte after two consecutive calls from the same initial seed/state.
