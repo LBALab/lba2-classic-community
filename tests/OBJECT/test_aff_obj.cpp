@@ -1640,6 +1640,10 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 1058;
     if (strcmp(label, "ObjectDisplay env quad gouraud render") == 0)
         return 1058;
+    if (strcmp(label, "ObjectDisplay multigroup visible render") == 0)
+        return 1255;
+    if (strcmp(label, "ObjectDisplay multigroup translate render") == 0)
+        return 1255;
     return -1;
 }
 
