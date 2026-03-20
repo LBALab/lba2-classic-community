@@ -175,7 +175,7 @@ static void test_random_batch(void) {
     build_multi_bank(8);
     rng_seed(0x5A710001);
     int prev = test_failures;
-    for (int i = 0; i < 30 && test_failures == prev; i++) {
+    for (int i = 0; i < 100 && test_failures == prev; i++) {
         S32 num = (S32)(rng_next() % 8);
         S32 sx = (S32)(rng_next() % 680) - 20;
         S32 sy = (S32)(rng_next() % 520) - 20;
