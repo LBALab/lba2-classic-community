@@ -47,8 +47,8 @@ static void test_resample_upsample_16bit(void) {
     short src[2] = {1000, 2000};
     short mix[4] = {0, 0, 0, 0};
     ResampleAndAddToMix(11025, 22050, src, 4, mix, 4, 1);
-    ASSERT_TRUE(mix[0] >= 500 && mix[0] <= 1500);
-    ASSERT_TRUE(mix[3] >= 1500 && mix[3] <= 2500);
+    ASSERT_EQ_INT(1000, mix[0]);
+    ASSERT_EQ_INT(2000, mix[3]);
 }
 
 static void test_resample_zero_input_noop(void) {
