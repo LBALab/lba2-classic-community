@@ -330,6 +330,13 @@ For each listed ASM/CPP pair:
     `ObjectDisplay textured gouraud render` cases so they now assert the exact
     deterministic `NonZeroPixels == 514` count, rather than only checking that
     pixels were drawn.
+- Completed: `AFF_OBJ` textured-Z triangle exact visible counts in
+  `tests/OBJECT/test_aff_obj.cpp`
+  - Tightened the dedicated `ObjectDisplay textured Z flat render`,
+    `ObjectDisplay textured Z solid render`, and
+    `ObjectDisplay textured Z gouraud render` cases so they now assert the
+    exact deterministic `NonZeroPixels == 514` count, rather than only
+    checking that pixels were drawn.
 - Completed: fixed-table float-to-int placeholder cleanup in
   `tests/fpu_precision/test_fpu_precision.cpp`
   - Replaced the placeholder pass-through assertions in the deterministic
