@@ -354,6 +354,36 @@ void InitLanguage() {
 }
 
 /*-------------------------------------------------------------------------*/
+S32 GetLanguageCount(void) {
+    return NB_LANGUAGES;
+}
+
+/*-------------------------------------------------------------------------*/
+const char *GetLanguageName(S32 language) {
+    if (language < 0 OR language >= NB_LANGUAGES) {
+        return TabLanguage[1];
+    }
+
+    return TabLanguage[language];
+}
+
+#ifdef CDROM
+/*-------------------------------------------------------------------------*/
+S32 GetVoiceLanguageCount(void) {
+    return 3;
+}
+#endif
+
+/*-------------------------------------------------------------------------*/
+void ReloadMultiTextFile(S32 file) {
+    BufferMultiText[0] = 0;
+    NumMultiText = -1;
+    FileMultiText = -1;
+    LastFileInit = -1;
+    InitDial(file);
+}
+
+/*-------------------------------------------------------------------------*/
 
 S32 FindText(S32 text) {
     U16 *pt;
@@ -406,7 +436,6 @@ void ClearVoiceFile() {
     T_FILEONHD *pt;
     S32 i;
 #endif
-
     CloseFdNar();
 
     if (FlagKeepVoice)
