@@ -7,6 +7,9 @@
 
 void ObjectInitAnim(T_OBJ_3D *obj, void *anim) {
     LIB386_TRACE_CPP("ObjectInitAnim", "1", "obj=%p anim=%p", (void *)obj, anim);
+    obj->Body = obj->NextBody;
+    obj->Texture = obj->NextTexture;
+
     if (obj->Anim.Ptr == anim) {
         return;
     }
