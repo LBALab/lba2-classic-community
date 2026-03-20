@@ -29,6 +29,21 @@ static void setup(void) {
     memset(dstbuf, 0, sizeof(dstbuf));
 }
 
+static void assert_scalebox_equiv(const char *label,
+                                  S32 xs0, S32 ys0, S32 xs1, S32 ys1,
+                                  S32 xd0, S32 yd0, S32 xd1, S32 yd1) {
+    U8 cpp_dst[640 * 480];
+    U8 asm_dst[640 * 480];
+
+    memset(cpp_dst, 0, sizeof(cpp_dst));
+    ScaleBox(xs0, ys0, xs1, ys1, srcbuf, xd0, yd0, xd1, yd1, cpp_dst);
+
+    memset(asm_dst, 0, sizeof(asm_dst));
+    asm_ScaleBox(xs0, ys0, xs1, ys1, srcbuf, xd0, yd0, xd1, yd1, asm_dst);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), label);
+}
+
 static void test_same_size_copy(void) {
     setup();
     for (int y = 0; y < 10; y++)
@@ -81,22 +96,42 @@ static void test_asm_equiv_same_size(void) {
 }
 
 static void test_asm_equiv_upscale(void) {
-    U8 cpp_dst[640 * 480];
-    U8 asm_dst[640 * 480];
-
     setup();
     for (int y = 0; y < 10; y++)
         for (int x = 0; x < 10; x++)
             srcbuf[y * 640 + x] = (U8)((x + y) & 0xFF);
 
-    memset(cpp_dst, 0, sizeof(cpp_dst));
-    ScaleBox(0, 0, 9, 9, srcbuf, 0, 100, 29, 129, cpp_dst);
-
-    memset(asm_dst, 0, sizeof(asm_dst));
-    asm_ScaleBox(0, 0, 9, 9, srcbuf, 0, 100, 29, 129, asm_dst);
-
-    ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "ScaleBox upscale 10x10→30x30");
+    assert_scalebox_equiv("ScaleBox upscale 10x10→30x30", 0, 0, 9, 9, 0, 100, 29, 129);
 }
+
+static void test_asm_equiv_single_pixel_upscale(void) {
+    setup();
+    srcbuf[7 * 640 + 5] = 0xA5;
+    assert_scalebox_equiv("ScaleBox single pixel 1x1→4x4", 5, 7, 5, 7, 200, 210, 203, 213);
+}
+
+static void test_asm_equiv_vertical_strip(void) {
+    setup();
+    for (int y = 0; y < 8; y++)
+        srcbuf[(20 + y) * 640 + 3] = (U8)(0x20 + y * 7);
+    assert_scalebox_equiv("ScaleBox vertical strip 1x8→6x12", 3, 20, 3, 27, 300, 120, 305, 131);
+}
+
+static void test_asm_equiv_horizontal_strip(void) {
+    setup();
+    for (int x = 0; x < 9; x++)
+        srcbuf[15 * 640 + 40 + x] = (U8)(0x80 + x * 3);
+    assert_scalebox_equiv("ScaleBox horizontal strip 9x1→4x5", 40, 15, 48, 15, 150, 260, 153, 264);
+}
+
+static void test_asm_equiv_bottom_right_edge(void) {
+    setup();
+    for (int y = 0; y < 4; y++)
+        for (int x = 0; x < 4; x++)
+            srcbuf[(30 + y) * 640 + 60 + x] = (U8)(0x40 + y * 4 + x);
+    assert_scalebox_equiv("ScaleBox bottom-right edge 4x4→4x4", 60, 30, 63, 33, 636, 476, 639, 479);
+}
+
 static void test_random_batch(void) {
     U8 cpp_dst[640 * 480];
     U8 asm_dst[640 * 480];
@@ -132,6 +167,10 @@ int main(void) {
     RUN_TEST(test_asm_equiv_downscale);
     RUN_TEST(test_asm_equiv_same_size);
     RUN_TEST(test_asm_equiv_upscale);
+    RUN_TEST(test_asm_equiv_single_pixel_upscale);
+    RUN_TEST(test_asm_equiv_vertical_strip);
+    RUN_TEST(test_asm_equiv_horizontal_strip);
+    RUN_TEST(test_asm_equiv_bottom_right_edge);
     RUN_TEST(test_random_batch);
     TEST_SUMMARY();
     return test_failures != 0;
