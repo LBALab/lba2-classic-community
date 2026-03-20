@@ -222,6 +222,14 @@ For each listed ASM/CPP pair:
   - Tightened frame-advance and loop coverage to assert the exact CPP
     post-call state rather than only checking for a frame bit or a changed
     next-frame index.
+- Completed: `AffMask` high-bit hotspot coverage in
+  `tests/SVGA/test_mask.cpp`
+  - Added explicit hotspot-byte cases in the middle and upper parts of the
+    high-bit range (`0x80`, `0x81`, `0x90`, `0xC0`, `0xC8`) in addition to the
+    existing `0xFB..0xFF` cases.
+  - Verified both full framebuffer output and `ScreenX/Y` bounds against ASM,
+    plus a direct CPP sanity check that the hotspot bytes are treated as raw
+    unsigned offsets rather than sign-extended values.
 
 ### Next Candidates
 
@@ -229,7 +237,7 @@ For each listed ASM/CPP pair:
   - Re-run the repo-wide audit for remaining `ASSERT_TRUE(1)` / no-crash style
     tests in other ASM/CPP areas now that the visible `pol_work` backlog is
     cleared.
-- `AffMask` hotspot high-byte cases
-  - Add explicit hotspot values in the 128..255 range to prove whether the
-    current raw-byte/signed-byte behavior still matches ASM across both
-    framebuffer output and `ScreenX/Y` bounds.
+- `GetBoxGraph` / `AffGraph` hotspot byte boundary cases
+  - Contrast `AffGraph`/`AffMask` raw-byte hotspot handling with `GetBoxGraph`'s
+    signed hotspot interpretation by adding explicit `0x80`-range hotspot
+    fixtures to `tests/SVGA/test_graph.cpp`.
