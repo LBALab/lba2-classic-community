@@ -52,9 +52,9 @@ void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank)
         return;
     }
     ScreenXMin = sx;
-    ScreenXMax = end_x - 1;
+    ScreenXMax = end_x;
     ScreenYMin = sy;
-    ScreenYMax = end_y - 1;
+    ScreenYMax = end_y;
 
     U8 *src = (U8 *)sprite + sizeof(Struc_Sprite) + start_y * sw + start_x;
     U8 *dst = (U8 *)Log + TabOffLine[sy] + sx;

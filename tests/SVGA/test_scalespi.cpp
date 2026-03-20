@@ -27,6 +27,15 @@ static U32 rng_next(void) {
 
 static U8 g_bank[4096];
 static U8 framebuf[640 * 480];
+static U8 cpp_framebuf[640 * 480];
+static U8 asm_framebuf[640 * 480];
+
+typedef struct SpriteRunResult {
+    S32 xmin;
+    S32 xmax;
+    S32 ymin;
+    S32 ymax;
+} SpriteRunResult;
 
 static U32 build_multi_bank(int n) {
     memset(g_bank, 0, sizeof(g_bank));
@@ -49,9 +58,9 @@ static U32 build_multi_bank(int n) {
     return pos;
 }
 
-static void setup(void) {
-    memset(framebuf, 0, sizeof(framebuf));
-    Log = framebuf;
+static void setup_screen(U8 *buf) {
+    memset(buf, 0, sizeof(framebuf));
+    Log = buf;
     ModeDesiredX = 640;
     ModeDesiredY = 480;
     for (U32 i = 0; i < 480; i++)
@@ -60,6 +69,43 @@ static void setup(void) {
     ClipYMin = 0;
     ClipXMax = 639;
     ClipYMax = 479;
+}
+
+static void setup(void) {
+    setup_screen(framebuf);
+}
+
+static SpriteRunResult run_cpp_case(S32 num, S32 x, S32 y) {
+    SpriteRunResult result;
+    setup_screen(cpp_framebuf);
+    ScaleSprite(num, x, y, 0x10000, 0x10000, g_bank);
+    result.xmin = ScreenXMin;
+    result.xmax = ScreenXMax;
+    result.ymin = ScreenYMin;
+    result.ymax = ScreenYMax;
+    return result;
+}
+
+static SpriteRunResult run_asm_case(S32 num, S32 x, S32 y) {
+    SpriteRunResult result;
+    setup_screen(asm_framebuf);
+    call_asm_ScaleSprite(num, x, y, 0x10000, 0x10000, g_bank);
+    result.xmin = ScreenXMin;
+    result.xmax = ScreenXMax;
+    result.ymin = ScreenYMin;
+    result.ymax = ScreenYMax;
+    return result;
+}
+
+static void assert_case_matches(const char *label, S32 num, S32 x, S32 y) {
+    SpriteRunResult cpp_result = run_cpp_case(num, x, y);
+    SpriteRunResult asm_result = run_asm_case(num, x, y);
+
+    ASSERT_ASM_CPP_EQ_INT(asm_result.xmin, cpp_result.xmin, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.xmax, cpp_result.xmax, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.ymin, cpp_result.ymin, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.ymax, cpp_result.ymax, label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_framebuf, cpp_framebuf, sizeof(cpp_framebuf), label);
 }
 
 static void test_basic(void) {
@@ -72,13 +118,7 @@ static void test_basic(void) {
 
 static void test_asm_minimal(void) {
     build_multi_bank(1);
-    setup();
-    printf("# test_asm_minimal: calling asm_ScaleSprite...\n");
-    fflush(stdout);
-    call_asm_ScaleSprite(0, 100, 100, 0x10000, 0x10000, g_bank);
-    printf("# test_asm_minimal: returned OK\n");
-    fflush(stdout);
-    ASSERT_TRUE(1);
+    assert_case_matches("ScaleSprite minimal 1:1", 0, 100, 100);
 }
 
 static void test_transparency(void) {
@@ -94,45 +134,32 @@ static void test_transparency(void) {
 
 static void test_fully_clipped(void) {
     build_multi_bank(1);
-    setup();
-    ScaleSprite(0, -100, -100, 0x10000, 0x10000, g_bank);
-    ASSERT_TRUE(ScreenXMin > ScreenXMax);
+    assert_case_matches("ScaleSprite fully clipped", 0, -100, -100);
 }
 
 static void test_clip_left(void) {
     build_multi_bank(4);
-    setup();
-    ScaleSprite(3, -2, 100, 0x10000, 0x10000, g_bank);
-    ASSERT_TRUE(ScreenXMin >= 0);
+    assert_case_matches("ScaleSprite clip left", 3, -2, 100);
 }
 
 static void test_clip_right(void) {
     build_multi_bank(4);
-    setup();
-    ScaleSprite(3, 636, 100, 0x10000, 0x10000, g_bank);
-    ASSERT_TRUE(ScreenXMax <= 639);
+    assert_case_matches("ScaleSprite clip right", 3, 636, 100);
 }
 
 static void test_clip_top(void) {
     build_multi_bank(4);
-    setup();
-    ScaleSprite(3, 100, -2, 0x10000, 0x10000, g_bank);
-    ASSERT_TRUE(ScreenYMin >= 0);
+    assert_case_matches("ScaleSprite clip top", 3, 100, -2);
 }
 
 static void test_clip_bottom(void) {
     build_multi_bank(4);
-    setup();
-    ScaleSprite(3, 100, 477, 0x10000, 0x10000, g_bank);
-    ASSERT_TRUE(ScreenYMax <= 479);
+    assert_case_matches("ScaleSprite clip bottom", 3, 100, 477);
 }
 
 static void test_hotspot(void) {
     build_multi_bank(4);
-    setup();
-    /* Sprite 2: w=4, h=4, hx=2, hy=0. Hot_X adds 2 to x position */
-    ScaleSprite(2, 200, 200, 0x10000, 0x10000, g_bank);
-    ASSERT_EQ_INT(202, ScreenXMin); /* 200 + hx(2) */
+    assert_case_matches("ScaleSprite hotspot", 2, 200, 200);
 }
 
 static void test_multi_sprites(void) {
@@ -149,55 +176,26 @@ static void test_random_batch(void) {
     rng_seed(0x5A710001);
     int prev = test_failures;
     for (int i = 0; i < 30 && test_failures == prev; i++) {
-        setup();
         S32 num = (S32)(rng_next() % 8);
         S32 sx = (S32)(rng_next() % 680) - 20;
         S32 sy = (S32)(rng_next() % 520) - 20;
-        ScaleSprite(num, sx, sy, 0x10000, 0x10000, g_bank);
-        if (ScreenXMin <= ScreenXMax) {
-            ASSERT_TRUE(ScreenXMin >= 0);
-            ASSERT_TRUE(ScreenXMax <= 639);
-            ASSERT_TRUE(ScreenYMin >= 0);
-            ASSERT_TRUE(ScreenYMax <= 479);
-        }
+        char label[64];
+        snprintf(label, sizeof(label), "ScaleSprite random #%d", i);
+        assert_case_matches(label, num, sx, sy);
     }
 }
 
 static void test_asm_equiv_1to1(void) {
-    static U8 cpp_buf[640 * 480];
-    static U8 asm_buf[640 * 480];
     build_multi_bank(1);
-
-    setup();
-    ScaleSprite(0, 50, 50, 0x10000, 0x10000, g_bank);
-    memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
-
-    setup();
-    call_asm_ScaleSprite(0, 50, 50, 0x10000, 0x10000, g_bank);
-    memcpy(asm_buf, framebuf, sizeof(asm_buf));
-
-    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "ScaleSprite 1:1");
+    assert_case_matches("ScaleSprite 1:1", 0, 50, 50);
 }
 
 static void test_asm_equiv_clipped(void) {
-    static U8 cpp_buf[640 * 480];
-    static U8 asm_buf[640 * 480];
     build_multi_bank(4);
-
-    setup();
-    ScaleSprite(3, -1, -1, 0x10000, 0x10000, g_bank);
-    memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
-
-    setup();
-    call_asm_ScaleSprite(3, -1, -1, 0x10000, 0x10000, g_bank);
-    memcpy(asm_buf, framebuf, sizeof(asm_buf));
-
-    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "ScaleSprite clipped");
+    assert_case_matches("ScaleSprite clipped", 3, -1, -1);
 }
 
 static void test_asm_equiv_random(void) {
-    static U8 cpp_buf[640 * 480];
-    static U8 asm_buf[640 * 480];
     build_multi_bank(8);
     rng_seed(0xA5E01234);
     int prev = test_failures;
@@ -206,17 +204,9 @@ static void test_asm_equiv_random(void) {
         S32 sx = (S32)(rng_next() % 600) + 10;
         S32 sy = (S32)(rng_next() % 440) + 10;
 
-        setup();
-        ScaleSprite(num, sx, sy, 0x10000, 0x10000, g_bank);
-        memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
-
-        setup();
-        call_asm_ScaleSprite(num, sx, sy, 0x10000, 0x10000, g_bank);
-        memcpy(asm_buf, framebuf, sizeof(asm_buf));
-
         char label[64];
         snprintf(label, sizeof(label), "ScaleSprite random #%d spr=%d (%d,%d)", i, num, sx, sy);
-        ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), label);
+        assert_case_matches(label, num, sx, sy);
     }
 }
 

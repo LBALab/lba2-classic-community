@@ -116,12 +116,31 @@ For each listed ASM/CPP pair:
 
 ### SVGA
 
+- Completed: `AffGraph`
+  - Added strict ASM-vs-CPP framebuffer and `ScreenX/Y` bounds coverage.
+  - Added unclipped solid/pattern draws, signed-hotspot interior placement,
+    clip-window and screen-edge clipping, off-screen no-op cases, and 50
+    deterministic random banks.
 - Completed: `GetBoxGraph`
   - Fixed signed hotspot handling in the CPP implementation.
   - Added explicit negative-hotspot tests and ASM-vs-CPP equivalence coverage for that path.
 - Completed: `AffMask`
   - Added high-bit hotspot-byte interior, clip-window, and off-screen cases.
   - Verified that the CPP path keeps the ASM's raw-byte hotspot semantics for this function.
+- Completed: `ScaleSprite`
+  - Replaced the placeholder and min/max-only checks with strict 1:1
+    framebuffer and `ScreenX/Y` bounds equivalence for minimal, hotspot,
+    clipped-edge, fully clipped, and deterministic random cases.
+  - Fixed the CPP path so `ScreenXMax`/`ScreenYMax` match the ASM's exclusive
+    upper-edge bounds semantics.
+
+### Next SVGA Candidates
+
+- `ScaleBox` / `ScaleSprite`
+  - `ScaleSprite` is now tightened for 1:1 equivalence; follow up only if the
+    scaled-factor path is ported.
+  - Add deterministic clipped-edge and degenerate-dimension cases for
+    `ScaleBox`, whose current coverage is still mostly size-shape focused.
 
 ### SYSTEM
 
