@@ -147,6 +147,8 @@ For each listed ASM/CPP pair:
   - Replaced the placeholder and min/max-only checks with strict 1:1
     framebuffer and `ScreenX/Y` bounds equivalence for minimal, hotspot,
     clipped-edge, fully clipped, and deterministic random cases.
+  - Deepened the broad 1:1 random equivalence sweep to 100 deterministic
+    cases covering a wider visible/off-screen placement domain.
   - Fixed the CPP path so `ScreenXMax`/`ScreenYMax` match the ASM's exclusive
     upper-edge bounds semantics.
 
