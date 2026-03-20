@@ -19,6 +19,20 @@
  * For testing: CLUT[row][col] = (row << 4) | (col & 0xF) */
 static U8 g_gouraud_clut[4096];
 
+static void assert_pixels_within_bounds(S16 min_x, S16 min_y, S16 max_x, S16 max_y) {
+    for (int y = 0; y < TEST_POLY_H; ++y) {
+        for (int x = 0; x < TEST_POLY_W; ++x) {
+            U8 pixel = g_poly_framebuf[y * TEST_POLY_W + x];
+            if (pixel == 0)
+                continue;
+            ASSERT_TRUE(x >= min_x - 1);
+            ASSERT_TRUE(x <= max_x + 1);
+            ASSERT_TRUE(y >= min_y);
+            ASSERT_TRUE(y <= max_y);
+        }
+    }
+}
+
 static void setup_gouraud_screen(void) {
     setup_polygon_screen();
     /* Build a simple gouraud CLUT */
@@ -82,34 +96,68 @@ static void test_gouraud_offscreen(void) {
 }
 
 static void test_gouraud_clipped(void) {
+    static U8 first_pass[TEST_POLY_SIZE];
     setup_gouraud_screen();
     Struc_Point pts[3];
+    Struc_Point pts_repeat[3];
     /* Triangle partially off-screen */
     pts[0] = make_point_lit(-10, 50, 0x0800);
     pts[1] = make_point_lit(60, 20, 0x0400);
     pts[2] = make_point_lit(60, 80, 0x0C00);
+    memcpy(pts_repeat, pts, sizeof(pts));
     Fill_Poly(POLY_GOURAUD, 0x02, 3, pts);
-    /* Gouraud CLUT may map some combinations to 0; just verify no crash */
-    ASSERT_TRUE(1);
+    memcpy(first_pass, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_gouraud_screen();
+    Fill_Poly(POLY_GOURAUD, 0x02, 3, pts_repeat);
+
+    ASSERT_ASM_CPP_MEM_EQ(first_pass, g_poly_framebuf, TEST_POLY_SIZE,
+                          "Fill_Poly Gouraud clipped repeatable");
+    assert_pixels_within_bounds(-10, 20, 60, 80);
 }
 
 /* ── Randomized stress test ────────────────────────────────────── */
 
 static void test_gouraud_random(void) {
+    static U8 first_pass[TEST_POLY_SIZE];
+
     poly_rng_seed(0xDEADBEEF);
     for (int i = 0; i < 30; i++) {
-        setup_gouraud_screen();
         Struc_Point pts[3];
+        Struc_Point pts_repeat[3];
+        S16 min_x = TEST_POLY_W;
+        S16 min_y = TEST_POLY_H;
+        S16 max_x = -1;
+        S16 max_y = -1;
         for (int v = 0; v < 3; v++) {
             S16 x = (S16)((poly_rng_next() % (TEST_POLY_W + 40)) - 20);
             S16 y = (S16)((poly_rng_next() % (TEST_POLY_H + 40)) - 20);
             U16 light = (U16)((poly_rng_next() % 14) << 8);
             pts[v] = make_point_lit(x, y, light);
+            pts_repeat[v] = pts[v];
+            if (x < min_x)
+                min_x = x;
+            if (y < min_y)
+                min_y = y;
+            if (x > max_x)
+                max_x = x;
+            if (y > max_y)
+                max_y = y;
         }
         U8 color = (U8)(poly_rng_next() & 0x0F);
         S32 type = (poly_rng_next() & 1) ? POLY_GOURAUD : POLY_DITHER;
+
+        setup_gouraud_screen();
         Fill_Poly(type, color, 3, pts);
-        ASSERT_TRUE(1);
+        memcpy(first_pass, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_gouraud_screen();
+        Fill_Poly(type, color, 3, pts_repeat);
+
+        char label[96];
+        snprintf(label, sizeof(label), "Fill_Poly Gouraud random #%d type=%d", i, type);
+        ASSERT_ASM_CPP_MEM_EQ(first_pass, g_poly_framebuf, TEST_POLY_SIZE, label);
+        assert_pixels_within_bounds(min_x, min_y, max_x, max_y);
     }
 }
 

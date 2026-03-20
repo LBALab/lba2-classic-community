@@ -165,9 +165,15 @@ For each listed ASM/CPP pair:
   - Collinear triangles now assert an unchanged framebuffer, and 30 random
     solid triangles now assert repeatable full-framebuffer output plus
     color/bounds invariants.
+- Completed: `Fill_Poly` Gouraud/Dither path in `test_polygour.cpp`
+  - Replaced the clipped/random placeholder checks with deterministic
+    framebuffer assertions.
+  - The clipped case now asserts repeatable output plus clipped bounding-box
+    behavior, and 30 random Gouraud/Dither rounds now assert repeatable
+    full-framebuffer output plus bounding-box invariants.
 
 ### Next pol_work Candidates
 
-- `Filler_Gouraud` / `Filler_TextureGouraud`
+- `Filler_TextureGouraud`
   - Tighten the clipped and random `Fill_Poly`-level tests that still only
-    assert “no crash” in `test_polygour.cpp` and `test_polygtex.cpp`.
+    assert “no crash” in `test_polygtex.cpp`.
