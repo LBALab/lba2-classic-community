@@ -317,6 +317,12 @@ For each listed ASM/CPP pair:
     `ObjectDisplay dither table render` cases so they now assert the exact
     deterministic `NonZeroPixels == 233` count, rather than only checking
     that pixels were drawn.
+- Completed: `AFF_OBJ` transparent and trame exact visible counts in
+  `tests/OBJECT/test_aff_obj.cpp`
+  - Tightened the dedicated `ObjectDisplay transparent render` and
+    `ObjectDisplay trame render` cases so they now assert exact deterministic
+    `NonZeroPixels` counts of `233` and `111`, rather than only checking that
+    pixels were drawn.
 - Completed: fixed-table float-to-int placeholder cleanup in
   `tests/fpu_precision/test_fpu_precision.cpp`
   - Replaced the placeholder pass-through assertions in the deterministic
