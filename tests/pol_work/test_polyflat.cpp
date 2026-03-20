@@ -148,7 +148,7 @@ static void test_fill_poly_random_solid(void) {
     static U8 first_pass[TEST_POLY_SIZE];
 
     poly_rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 100; i++) {
         Struc_Point pts[3];
         Struc_Point pts_repeat[3];
         S16 min_x = TEST_POLY_W;

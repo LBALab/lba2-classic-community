@@ -181,7 +181,7 @@ For each listed ASM/CPP pair:
 - Completed: `Fill_Poly` solid path in `test_polyflat.cpp`
   - Replaced the remaining degenerate/random placeholder checks with
     deterministic framebuffer assertions.
-  - Collinear triangles now assert an unchanged framebuffer, and 30 random
+  - Collinear triangles now assert an unchanged framebuffer, and 100 random
     solid triangles now assert repeatable full-framebuffer output plus
     color/bounds invariants.
 - Completed: `Fill_Poly` Gouraud/Dither path in `test_polygour.cpp`
