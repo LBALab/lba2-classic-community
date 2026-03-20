@@ -237,6 +237,12 @@ For each listed ASM/CPP pair:
   - Added matching `AffGraph` framebuffer/bounds equivalence cases to verify
     the signed hotspot interpretation end-to-end at visible on-screen
     coordinates.
+- Completed: `ObjectStoreFrame` full object-state equivalence in
+  `tests/ANIM/test_stoframe.cpp`
+  - Replaced the last field-only ASM checks with a full `T_OBJ_3D`
+    byte-for-byte comparison after the store operation.
+  - Kept the existing strict stored-buffer comparison, so the test now proves
+    both the circular-buffer contents and the object-side bookkeeping state.
 
 ### Next Candidates
 
