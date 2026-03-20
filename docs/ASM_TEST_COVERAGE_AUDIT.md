@@ -375,6 +375,12 @@ For each listed ASM/CPP pair:
     `ObjectDisplay env quad gouraud scaled render` cases so they now assert
     the exact deterministic `NonZeroPixels == 1058` count, rather than only
     checking that pixels were drawn.
+- Completed: `AFF_OBJ` multigroup exact visible counts in
+  `tests/OBJECT/test_aff_obj.cpp`
+  - Tightened the dedicated `ObjectDisplay multigroup visible render` and
+    `ObjectDisplay multigroup translate render` cases so they now assert the
+    exact deterministic `NonZeroPixels == 1255` count, rather than only
+    checking that pixels were drawn.
 - Completed: fixed-table float-to-int placeholder cleanup in
   `tests/fpu_precision/test_fpu_precision.cpp`
   - Replaced the placeholder pass-through assertions in the deterministic
