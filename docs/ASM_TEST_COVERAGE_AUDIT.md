@@ -171,9 +171,16 @@ For each listed ASM/CPP pair:
   - The clipped case now asserts repeatable output plus clipped bounding-box
     behavior, and 30 random Gouraud/Dither rounds now assert repeatable
     full-framebuffer output plus bounding-box invariants.
+- Completed: `Fill_Poly` textured Gouraud/Dither path in `test_polygtex.cpp`
+  - Replaced the clipped/random placeholder checks with deterministic
+    framebuffer assertions.
+  - The clipped case now asserts repeatable output plus clipped bounding-box
+    behavior, and the random textured rounds now assert repeatable
+    full-framebuffer output plus bounding-box invariants.
 
 ### Next pol_work Candidates
 
-- `Filler_TextureGouraud`
-  - Tighten the clipped and random `Fill_Poly`-level tests that still only
-    assert “no crash” in `test_polygtex.cpp`.
+- `Filler_TextureZFogSmooth` / `Filler_TextureZ*`
+  - Review the remaining `polytzf` and `polytexz` placeholder cases, which are
+    likely the next highest-value renderer paths after the flat/gouraud/textured
+    `Fill_Poly` wrappers.
