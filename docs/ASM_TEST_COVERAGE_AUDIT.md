@@ -239,6 +239,12 @@ For each listed ASM/CPP pair:
     checks so they now assert exact deterministic
     `Fill_ZBuffer_Factor`/`Fill_ScaledFogNear`/`Fill_Fog_Factor` values
     instead of only checking that the Z-buffer factor was positive.
+- Completed: exact `Fill_Poly(POLY_TEXTURE)` basic triangle count in
+  `test_polytext.cpp`
+  - Tightened the basic textured triangle smoke case so it now asserts the
+    exact deterministic `3640`-pixel footprint for both the solid reference
+    fill and the textured render, instead of only checking that some pixels
+    were drawn.
 - Completed: `ObjectSetInterFrame` exact-factor coverage in
   `tests/ANIM/test_intframe.cpp`
   - Expanded the fixture to cover both rotate and translate group
