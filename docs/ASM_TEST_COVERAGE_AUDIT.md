@@ -234,6 +234,11 @@ For each listed ASM/CPP pair:
   - Tightened the invalid-domain helpers so `INV64(1)` and `SetFog(0,0)` are
     explicit CPP-only checks; `SetFog(0,0)` cannot be sent through the ASM path
     because the original routine traps with a numeric exception.
+- Completed: exact `SetFog` fixture outputs in `test_poly.cpp`
+  - Tightened the representative `SetFog(100,1000)` and `SetFog(0,65535)`
+    checks so they now assert exact deterministic
+    `Fill_ZBuffer_Factor`/`Fill_ScaledFogNear`/`Fill_Fog_Factor` values
+    instead of only checking that the Z-buffer factor was positive.
 - Completed: `ObjectSetInterFrame` exact-factor coverage in
   `tests/ANIM/test_intframe.cpp`
   - Expanded the fixture to cover both rotate and translate group
