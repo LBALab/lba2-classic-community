@@ -303,6 +303,31 @@ static void test_negative_hotspot_cases(void) {
     assert_case_matches("AffMask pattern negative hotspot boundary", 100, 1, 0x63, 0, 0, 639, 479);
 }
 
+static void test_highbit_hotspot_cases(void) {
+    build_solid_rect_bank(5, 3, 0x80, 0x81);
+    assert_case_matches("AffMask hotspot 0x80/0x81 interior", 10, 12, 0x64, 0, 0, 639, 479);
+    assert_case_matches("AffMask hotspot 0x80/0x81 clip window", 0, 0, 0x65, 130, 140, 138, 144);
+
+    build_solid_rect_bank(4, 2, 0xC8, 0x90);
+    assert_case_matches("AffMask hotspot 0xC8/0x90 interior", 30, 40, 0x66, 0, 0, 639, 479);
+
+    build_pattern_bank();
+    g_bank[6] = 0x80;
+    g_bank[7] = 0xC0;
+    assert_case_matches("AffMask pattern hotspot 0x80/0xC0", 25, 15, 0x67, 0, 0, 639, 479);
+
+    setup_screen(g_cpp_framebuf, 0, 0, 639, 479);
+    ColMask = 0x68;
+    build_solid_rect_bank(3, 2, 0x80, 0x80);
+    AffMask(0, 5, 7, g_bank);
+    ASSERT_EQ_UINT(0x68, g_cpp_framebuf[135 * 640 + 133]);
+    ASSERT_EQ_UINT(0x68, g_cpp_framebuf[136 * 640 + 135]);
+    ASSERT_EQ_INT(133, ScreenXMin);
+    ASSERT_EQ_INT(135, ScreenXMax);
+    ASSERT_EQ_INT(135, ScreenYMin);
+    ASSERT_EQ_INT(136, ScreenYMax);
+}
+
 static void test_fully_clipped_noop_cases(void) {
     build_solid_rect_bank(4, 2, 0, 0);
     assert_case_matches("AffMask fully off left", -5, 140, 0x20, 0, 0, 639, 479);
@@ -368,6 +393,7 @@ int main(void) {
     RUN_TEST(test_screen_edge_clipping_cases);
     RUN_TEST(test_clip_window_cases);
     RUN_TEST(test_negative_hotspot_cases);
+    RUN_TEST(test_highbit_hotspot_cases);
     RUN_TEST(test_fully_clipped_noop_cases);
     RUN_TEST(test_randomized_stress);
     TEST_SUMMARY();
