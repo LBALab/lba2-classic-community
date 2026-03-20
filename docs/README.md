@@ -39,6 +39,7 @@ Index of documentation in this repository.
 
 | Doc | Description |
 |-----|-------------|
+| [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |

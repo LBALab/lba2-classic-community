@@ -1,5 +1,7 @@
 # Copilot Instructions — LBA2 Classic Community
 
+See [AGENTS.md](../AGENTS.md) for project context, principles, and golden rules. This file expands on ASM↔CPP workflow, polyrec debugging, and test patterns.
+
 ## ASM → C Equivalence Testing
 
 This project maintains both the original x86 ASM implementations and their C/C++
