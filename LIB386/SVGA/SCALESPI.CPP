@@ -13,8 +13,8 @@ extern "C" {
 typedef struct {
     U8 Delta_X;
     U8 Delta_Y;
-    U8 Hot_X;
-    U8 Hot_Y;
+    S8 Hot_X;
+    S8 Hot_Y;
 } Struc_Sprite;
 
 void ScaleSprite(S32 num, S32 x, S32 y, S32 factorx, S32 factory, void *ptrbank) {
