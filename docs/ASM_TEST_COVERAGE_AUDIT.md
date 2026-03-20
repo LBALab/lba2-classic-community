@@ -212,6 +212,9 @@ For each listed ASM/CPP pair:
     the exact frame-transition state.
   - Kept ASM parity scoped to the documented safe domain (midpoint), since
     frame-transition/full-state divergence is inherited from `INTERDEP`.
+- Completed: clipped `Line` sanity tightening in `tests/pol_work/test_polyline.cpp`
+  - Replaced the remaining off-screen-left no-crash comment with exact
+    visible-span assertions for the clipped horizontal line case.
 
 ### Next Candidates
 

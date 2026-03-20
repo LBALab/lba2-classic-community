@@ -95,9 +95,11 @@ static void test_clipped(void) {
     setup_polygon_screen();
     /* Line extending outside clip region */
     Line(-10, 50, 20, 50, 0xDD);
-    /* Pixel at (0,50) should be set (clamped) */
+    /* Visible span should be clipped to x=0..20 on the target row. */
     ASSERT_EQ_UINT(0xDD, g_poly_framebuf[50 * TEST_POLY_W + 0]);
-    /* Nothing written at negative coords (no crash) */
+    ASSERT_EQ_UINT(0xDD, g_poly_framebuf[50 * TEST_POLY_W + 20]);
+    ASSERT_EQ_INT(21, count_nonzero_pixels(0, 50, 21, 51));
+    ASSERT_EQ_INT(21, count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H));
 }
 
 static void test_fully_outside(void) {
