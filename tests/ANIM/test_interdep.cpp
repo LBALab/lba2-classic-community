@@ -98,6 +98,18 @@ static void setup_dep(T_OBJ_3D *obj) {
     obj->NextTimer = 100;
 }
 
+static void seed_no_rotation_state(T_OBJ_3D *obj) {
+    obj->Alpha = 0x111;
+    obj->Beta = 0x222;
+    obj->Gamma = 0x333;
+    obj->LastAnimStepAlpha = 17;
+    obj->LastAnimStepBeta = 29;
+    obj->LastAnimStepGamma = 43;
+    obj->X = 1000;
+    obj->Y = -2000;
+    obj->Z = 3000;
+}
+
 static void test_cpp_midpoint(void) {
     T_OBJ_3D obj;
     setup_dep(&obj);
@@ -106,6 +118,22 @@ static void test_cpp_midpoint(void) {
     /* Interpolator should be ~0x8000 (50%) */
     ASSERT_TRUE(obj.Interpolator > 0x7000 && obj.Interpolator < 0x9000);
     (void)result;
+}
+
+static void test_cpp_no_rotation_preserves_angles(void) {
+    T_OBJ_3D obj;
+
+    setup_dep(&obj);
+    seed_no_rotation_state(&obj);
+    TimerRefHR = 50;
+    ObjectSetInterDep(&obj);
+
+    ASSERT_EQ_INT(0x111, obj.Alpha);
+    ASSERT_EQ_INT(0x222, obj.Beta);
+    ASSERT_EQ_INT(0x333, obj.Gamma);
+    ASSERT_EQ_INT(17, obj.LastAnimStepAlpha);
+    ASSERT_EQ_INT(29, obj.LastAnimStepBeta);
+    ASSERT_EQ_INT(43, obj.LastAnimStepGamma);
 }
 
 static void test_cpp_frame_advance(void) {
@@ -143,6 +171,33 @@ static void test_asm_equiv_midpoint(void) {
 
     ASSERT_EQ_UINT(cpp_obj.Interpolator, asm_obj.Interpolator);
     ASSERT_EQ_UINT(cpp_obj.Status, asm_obj.Status);
+}
+
+static void test_asm_equiv_midpoint_no_rotation_state(void) {
+    T_OBJ_3D cpp_obj, asm_obj;
+    TransFctAnim = NULL;
+
+    setup_dep(&cpp_obj);
+    seed_no_rotation_state(&cpp_obj);
+    TimerRefHR = 50;
+    ObjectSetInterDep(&cpp_obj);
+
+    setup_dep(&asm_obj);
+    seed_no_rotation_state(&asm_obj);
+    TimerRefHR = 50;
+    asm_ObjectSetInterDep(&asm_obj);
+
+    ASSERT_EQ_INT(asm_obj.Alpha, cpp_obj.Alpha);
+    ASSERT_EQ_INT(asm_obj.Beta, cpp_obj.Beta);
+    ASSERT_EQ_INT(asm_obj.Gamma, cpp_obj.Gamma);
+    ASSERT_EQ_INT(asm_obj.LastAnimStepAlpha, cpp_obj.LastAnimStepAlpha);
+    ASSERT_EQ_INT(asm_obj.LastAnimStepBeta, cpp_obj.LastAnimStepBeta);
+    ASSERT_EQ_INT(asm_obj.LastAnimStepGamma, cpp_obj.LastAnimStepGamma);
+    ASSERT_EQ_INT(asm_obj.X, cpp_obj.X);
+    ASSERT_EQ_INT(asm_obj.Y, cpp_obj.Y);
+    ASSERT_EQ_INT(asm_obj.Z, cpp_obj.Z);
+    ASSERT_EQ_UINT(asm_obj.Interpolator, cpp_obj.Interpolator);
+    ASSERT_EQ_UINT(asm_obj.Status, cpp_obj.Status);
 }
 
 static void test_asm_equiv_frame_advance(void) {
@@ -220,9 +275,11 @@ static void test_asm_equiv_with_rotation(void) {
 
 int main(void) {
     RUN_TEST(test_cpp_midpoint);
+    RUN_TEST(test_cpp_no_rotation_preserves_angles);
     RUN_TEST(test_cpp_frame_advance);
     RUN_TEST(test_cpp_loop);
     RUN_TEST(test_asm_equiv_midpoint);
+    RUN_TEST(test_asm_equiv_midpoint_no_rotation_state);
     RUN_TEST(test_asm_equiv_frame_advance);
     RUN_TEST(test_asm_equiv_with_rotation);
     TEST_SUMMARY();

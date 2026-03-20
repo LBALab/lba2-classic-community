@@ -96,3 +96,20 @@ For each listed ASM/CPP pair:
   - Re-check whether additional deterministic edge patterns uncover propagation differences beyond the existing zero, checkerboard, and sequential cases.
 - `BoxFlow` / `ShadeBoxBlk` / `CopyBlockShade`
   - Review clipped-edge combinations and repeated-application stability.
+
+### 3DEXT
+
+- Reviewed: `ZBufBoxOverWrite2`
+  - Existing visible, hidden, mixed, single-pixel, negative-depth, and random coverage already looks strong.
+- Reviewed: `LineRain`
+  - Existing horizontal, diagonal fog, vertical occluded, single-pixel, fully clipped, and random coverage already looks strong.
+  - A dedicated depth-intersection return-flag case could still be added later, but this is lower priority than the remaining modules.
+
+### ANIM
+
+- Completed: `ObjectSetFrame`
+  - Added explicit reset-state assertions for interpolation, step accumulators, timers, and status.
+  - Added full-struct ASM-vs-CPP comparison for a non-zero preseeded object state.
+- Completed: `ObjectSetInterDep`
+  - Added explicit no-rotation branch checks to prove angle state is preserved when `Master & 1 == 0`.
+  - Added ASM-vs-CPP comparison for the same no-rotation midpoint state.
