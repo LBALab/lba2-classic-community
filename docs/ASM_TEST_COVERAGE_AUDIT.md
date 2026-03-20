@@ -183,10 +183,16 @@ For each listed ASM/CPP pair:
   - The basic case now asserts repeatable output plus bounding-box behavior,
     and the random fog rounds now assert repeatable full-framebuffer output
     plus bounding-box invariants.
+- Completed: `Filler_TextureZ` fixed strip cases in `test_polytexz.cpp`
+  - Replaced the remaining narrow/wide placeholder smoke checks with strict
+    fixed-case ASM-vs-CPP framebuffer comparisons.
+  - The new cases cover both a narrow strip and a wider strip with explicit
+    non-default perspective parameters.
 
 ### Next pol_work Candidates
 
-- `Filler_TextureZ*`
-  - Tighten the remaining lightweight placeholder CPP checks in
-    `test_polytexz.cpp` (the current narrow/wide `Filler_TextureZ` smoke cases
-    still only assert non-crash).
+- `Fill_Sphere` / `Fill_Poly`
+  - Reconcile the remaining placeholder assertions still present in
+    `test_polydisc.cpp` and `test_poly.cpp`, then either eliminate them or
+    narrow the audit notes if those paths are intentionally outside strict
+    equivalence coverage.
