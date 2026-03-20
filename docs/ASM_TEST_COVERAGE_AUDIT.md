@@ -243,6 +243,15 @@ For each listed ASM/CPP pair:
     byte-for-byte comparison after the store operation.
   - Kept the existing strict stored-buffer comparison, so the test now proves
     both the circular-buffer contents and the object-side bookkeeping state.
+- Completed: `ObjectInitAnim` full-state and same-anim visual promotion in
+  `tests/ANIM/test_anim.cpp`
+  - Replaced the fixed first-init ASM check and the deterministic random batch
+    with full `T_OBJ_3D` byte-for-byte comparisons.
+  - Added explicit coverage for the same-anim early-return path, proving that
+    pending `NextBody` and `NextTexture` still have to be promoted into
+    `Body` and `Texture` before the function exits.
+  - Fixed `LIB386/ANIM/ANIM.CPP` so the CPP path matches the ASM's up-front
+    body/texture promotion behavior.
 
 ### Next Candidates
 

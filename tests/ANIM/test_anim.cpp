@@ -12,6 +12,9 @@
 extern "C" void asm_ObjectInitAnim(T_OBJ_3D *obj, void *anim);
 
 static U32 rng_state;
+static U8 fake_texture_a[8];
+static U8 fake_texture_b[8];
+
 static void rng_seed(U32 s) { rng_state = s; }
 static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
@@ -40,8 +43,31 @@ static void test_cpp_init_basic(void) {
     ASSERT_EQ_UINT(3, obj.NbFrames);
     ASSERT_EQ_UINT(3, obj.NbGroups);
     ASSERT_EQ_INT(1, obj.LoopFrame);
-    ASSERT_TRUE(obj.Status & FLAG_FRAME);
-    ASSERT_TRUE(obj.Anim.Ptr == test_anim_data);
+    ASSERT_EQ_UINT(FLAG_FRAME, obj.Status);
+    ASSERT_EQ_UINT((PTR_U32)test_anim_data, (PTR_U32)obj.Anim.Ptr);
+}
+
+static void test_cpp_same_anim_promotes_pending_visuals(void) {
+    T_OBJ_3D obj;
+
+    build_test_anim();
+    init_test_obj(&obj);
+    init_anim_buffer();
+    TransFctAnim = NULL;
+    ObjectInitAnim(&obj, test_anim_data);
+
+    obj.Body.Num = 111;
+    obj.NextBody.Num = 222;
+    obj.Texture = fake_texture_a;
+    obj.NextTexture = fake_texture_b;
+    obj.Status = 0x13572468u;
+
+    ObjectInitAnim(&obj, test_anim_data);
+
+    ASSERT_EQ_INT(222, obj.Body.Num);
+    ASSERT_EQ_UINT((PTR_U32)fake_texture_b, (PTR_U32)obj.Texture);
+    ASSERT_EQ_UINT(0x13572468u, obj.Status);
+    ASSERT_EQ_UINT((PTR_U32)test_anim_data, (PTR_U32)obj.Anim.Ptr);
 }
 
 static void test_cpp_currentframe(void) {
@@ -84,12 +110,36 @@ static void test_asm_equiv(void) {
     init_anim_buffer();
     asm_ObjectInitAnim(&asm_obj, test_anim_data);
 
-    ASSERT_EQ_UINT(cpp_obj.NbFrames, asm_obj.NbFrames);
-    ASSERT_EQ_UINT(cpp_obj.NbGroups, asm_obj.NbGroups);
-    ASSERT_EQ_INT(cpp_obj.LoopFrame, asm_obj.LoopFrame);
-    ASSERT_EQ_UINT(cpp_obj.Status, asm_obj.Status);
-    ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame,
-                          2 * sizeof(T_GROUP_INFO), "ObjectInitAnim CurrentFrame");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectInitAnim first init object state");
+}
+
+static void test_asm_equiv_same_anim_promotes_pending_visuals(void) {
+    T_OBJ_3D initial_obj;
+    T_OBJ_3D cpp_obj;
+    T_OBJ_3D asm_obj;
+
+    build_test_anim();
+    TransFctAnim = NULL;
+
+    init_test_obj(&initial_obj);
+    init_anim_buffer();
+    asm_ObjectInitAnim(&initial_obj, test_anim_data);
+
+    initial_obj.Body.Num = 111;
+    initial_obj.NextBody.Num = 222;
+    initial_obj.Texture = fake_texture_a;
+    initial_obj.NextTexture = fake_texture_b;
+    initial_obj.Status = 0x13572468u;
+
+    memcpy(&cpp_obj, &initial_obj, sizeof(cpp_obj));
+    memcpy(&asm_obj, &initial_obj, sizeof(asm_obj));
+
+    ObjectInitAnim(&cpp_obj, test_anim_data);
+    asm_ObjectInitAnim(&asm_obj, test_anim_data);
+
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectInitAnim same anim pending visuals");
 }
 
 static void test_random_batch(void) {
@@ -120,19 +170,17 @@ static void test_random_batch(void) {
 
         char label[64];
         snprintf(label, sizeof(label), "InitAnim random #%d nf=%d ng=%d", i, nf, ng);
-        ASSERT_EQ_UINT(cpp_obj.NbFrames, asm_obj.NbFrames);
-        ASSERT_EQ_UINT(cpp_obj.NbGroups, asm_obj.NbGroups);
-        U32 cf_size = (ng > 1) ? (ng - 1) * sizeof(T_GROUP_INFO) : 0;
-        if (cf_size > 0)
-            ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame, cf_size, label);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D), label);
     }
 }
 
 int main(void) {
     RUN_TEST(test_cpp_init_basic);
+    RUN_TEST(test_cpp_same_anim_promotes_pending_visuals);
     RUN_TEST(test_cpp_currentframe);
     RUN_TEST(test_cpp_single_frame);
     RUN_TEST(test_asm_equiv);
+    RUN_TEST(test_asm_equiv_same_anim_promotes_pending_visuals);
     RUN_TEST(test_random_batch);
     TEST_SUMMARY();
     return test_failures != 0;
