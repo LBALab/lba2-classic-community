@@ -155,7 +155,7 @@ static void test_asm_equiv_random_interpolators(void) {
     T_OBJ_3D cpp_obj, asm_obj;
 
     rng_state = 0xDEADBEEFu;
-    for (int i = 0; i < 50; ++i) {
+    for (int i = 0; i < 100; ++i) {
         U16 interpolator;
         rng_state = rng_state * 1103515245u + 12345u;
         interpolator = (U16)(rng_state >> 16);
