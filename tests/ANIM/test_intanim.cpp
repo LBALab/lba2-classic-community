@@ -177,6 +177,23 @@ static void test_asm_equiv_midpoint(void) {
                           2 * sizeof(T_GROUP_INFO), "ObjectSetInterAnim midpoint");
 }
 
+static void test_asm_equiv_no_change(void) {
+    T_OBJ_3D cpp_obj, asm_obj;
+
+    setup(&cpp_obj);
+    cpp_obj.Status = 0;
+    TimerRefHR = 50;
+    ObjectSetInterAnim(&cpp_obj);
+
+    setup(&asm_obj);
+    asm_obj.Status = 0;
+    TimerRefHR = 50;
+    asm_ObjectSetInterAnim(&asm_obj);
+
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectSetInterAnim no change");
+}
+
 static void test_asm_equiv_frame_transition(void) {
     T_OBJ_3D cpp_obj, asm_obj;
 
@@ -200,6 +217,7 @@ int main(void) {
     RUN_TEST(test_cpp_no_change);
     RUN_TEST(test_cpp_timer_sweep_exact);
     RUN_TEST(test_asm_equiv_midpoint);
+    RUN_TEST(test_asm_equiv_no_change);
     RUN_TEST(test_asm_equiv_frame_transition);
     TEST_SUMMARY();
     return test_failures != 0;
