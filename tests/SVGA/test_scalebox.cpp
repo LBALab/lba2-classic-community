@@ -20,6 +20,19 @@ static U32 rng_next(void) {
 static U8 srcbuf[640 * 480];
 static U8 dstbuf[640 * 480];
 
+static int count_nonzero_pixels(const U8 *buffer,
+                                S32 x0, S32 y0,
+                                S32 width, S32 height) {
+    int count = 0;
+    for (S32 y = y0; y < y0 + height; ++y) {
+        for (S32 x = x0; x < x0 + width; ++x) {
+            if (buffer[y * 640 + x] != 0)
+                count++;
+        }
+    }
+    return count;
+}
+
 static void setup(void) {
     ModeDesiredX = 640;
     ModeDesiredY = 480;
@@ -45,18 +58,23 @@ static void assert_scalebox_equiv(const char *label,
 }
 
 static void test_same_size_copy(void) {
+    U8 cpp_dst[640 * 480];
+    U8 asm_dst[640 * 480];
+
     setup();
     for (int y = 0; y < 10; y++)
         for (int x = 0; x < 10; x++)
             srcbuf[y * 640 + x] = (U8)((x + y * 10) & 0xFF);
-    ScaleBox(0, 0, 9, 9, srcbuf, 100, 100, 109, 109, dstbuf);
-    /* Verify some pixels were written */
-    int nonzero = 0;
-    for (int y = 0; y < 10; y++)
-        for (int x = 0; x < 10; x++)
-            if (dstbuf[(100 + y) * 640 + 100 + x] != 0)
-                nonzero++;
-    ASSERT_TRUE(nonzero > 0);
+
+    memset(cpp_dst, 0, sizeof(cpp_dst));
+    ScaleBox(0, 0, 9, 9, srcbuf, 100, 100, 109, 109, cpp_dst);
+    ASSERT_EQ_INT(98, count_nonzero_pixels(cpp_dst, 100, 100, 10, 10));
+
+    memset(asm_dst, 0, sizeof(asm_dst));
+    asm_ScaleBox(0, 0, 9, 9, srcbuf, 100, 100, 109, 109, asm_dst);
+    ASSERT_EQ_INT(98, count_nonzero_pixels(asm_dst, 100, 100, 10, 10));
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "ScaleBox same-size exact 10x10");
 }
 
 static void test_asm_equiv_downscale(void) {
