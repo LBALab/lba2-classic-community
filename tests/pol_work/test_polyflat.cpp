@@ -35,7 +35,7 @@ static void test_flat_solid_triangle(void) {
     Fill_Poly(POLY_SOLID, 0xFF, 3, pts);
     /* Horizontal strip should be filled */
     for (int y = 50; y <= 54; y++)
-        ASSERT_TRUE(g_poly_framebuf[y * TEST_POLY_W + 80] != 0);
+        ASSERT_EQ_UINT(0xFF, g_poly_framebuf[y * TEST_POLY_W + 80]);
     /* Outside should be empty */
     ASSERT_EQ_UINT(0, g_poly_framebuf[5 * TEST_POLY_W + 5]);
 }
@@ -47,7 +47,7 @@ static void test_flat_single_pixel_area(void) {
     pts[1] = make_point(10, 60);
     pts[2] = make_point(50, 60);
     Fill_Poly(POLY_SOLID, 0xFF, 3, pts);
-    ASSERT_TRUE(g_poly_framebuf[40 * TEST_POLY_W + 20] != 0);
+    ASSERT_EQ_UINT(0xFF, g_poly_framebuf[40 * TEST_POLY_W + 20]);
 }
 
 static void test_flat_with_different_color(void) {
