@@ -1628,6 +1628,18 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 514;
     if (strcmp(label, "ObjectDisplay env gouraud scaled render") == 0)
         return 514;
+    if (strcmp(label, "ObjectDisplay env quad flat scaled render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad flat render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad solid scaled render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad solid render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad gouraud scaled render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad gouraud render") == 0)
+        return 1058;
     return -1;
 }
 
