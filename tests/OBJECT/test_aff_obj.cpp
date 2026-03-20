@@ -1588,6 +1588,10 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 233;
     if (strcmp(label, "ObjectDisplay dither table render") == 0)
         return 233;
+    if (strcmp(label, "ObjectDisplay transparent render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay trame render") == 0)
+        return 111;
     return -1;
 }
 
