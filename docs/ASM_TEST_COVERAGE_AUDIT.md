@@ -298,6 +298,12 @@ For each listed ASM/CPP pair:
   - Deepened the deterministic full-state random sweep to 100 rounds.
   - Fixed `LIB386/ANIM/ANIM.CPP` so the CPP path matches the ASM's up-front
     body/texture promotion behavior.
+- Completed: `AFF_OBJ` base visible render exactness in
+  `tests/OBJECT/test_aff_obj.cpp`
+  - Tightened the three base visible render helpers so `BodyDisplay`,
+    `BodyDisplay_AlphaBeta`, and `ObjectDisplay` now assert the exact
+    deterministic `NonZeroPixels == 233` count for the shared simple fixture,
+    rather than only checking that some pixels were drawn.
 
 ### Next Candidates
 
