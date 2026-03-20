@@ -318,6 +318,12 @@ For each listed ASM/CPP pair:
     assert direct ASM-vs-CPP equality and their deterministic stress loops now
     require all 500 rounds to match exactly, rather than only printing the
     counts.
+- Completed: broader full-match FPU precision placeholder cleanup in
+  `tests/fpu_precision/test_fpu_precision.cpp`
+  - Replaced the remaining placeholder assertions in the sections that already
+    report exact deterministic parity: integer division round/trunc, slope
+    round/trunc, interpolation, mul-add, mul-sub, dot3, perspective UV, and
+    reciprocal-mul-256 now all require their exact `500/500` match counts.
 
 ### Next Candidates
 

@@ -395,7 +395,9 @@ static void test_int_div_int(void) {
     }
     printf("  Results (%d rounds): double=%d/%d  long_double=%d/%d  volatile_ld=%d/%d\n",
            N_STRESS, match_d, N_STRESS, match_ld, N_STRESS, match_vld, N_STRESS);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
 }
 
 static void test_int_div_int_trunc(void) {
@@ -426,7 +428,9 @@ static void test_int_div_int_trunc(void) {
     }
     printf("  Results (%d rounds): (int)(double)=%d/%d  (int)(long_double)=%d/%d  volatile_ld=%d/%d\n",
            N_STRESS, match_d, N_STRESS, match_ld, N_STRESS, match_vld, N_STRESS);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
 }
 
 static void test_reciprocal_mul(void) {
@@ -498,7 +502,10 @@ static void test_slope(void) {
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld, match_sld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
+    ASSERT_EQ_INT(N_STRESS, match_sld);
 }
 
 static void test_slope_trunc(void) {
@@ -533,7 +540,10 @@ static void test_slope_trunc(void) {
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld, match_sld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
+    ASSERT_EQ_INT(N_STRESS, match_sld);
 }
 
 static void test_interp_factor(void) {
@@ -570,7 +580,9 @@ static void test_interp_factor(void) {
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
 }
 
 static void test_float_to_int_round(void) {
@@ -662,7 +674,10 @@ static void test_mul_add_chain(void) {
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d  volatile_ld=%d\n",
            N_STRESS, match_f, match_d, match_ld, match_vld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_f);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
 }
 
 static void test_mul_sub_chain(void) {
@@ -699,7 +714,9 @@ static void test_mul_sub_chain(void) {
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d\n",
            N_STRESS, match_f, match_d, match_ld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_f);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
 }
 
 static void test_dot3(void) {
@@ -738,7 +755,9 @@ static void test_dot3(void) {
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d\n",
            N_STRESS, match_f, match_d, match_ld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_f);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
 }
 
 static void test_perspective_uv(void) {
@@ -791,7 +810,9 @@ static void test_perspective_uv(void) {
     }
     printf("  Results (%d rounds): double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_vld, match_sld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
+    ASSERT_EQ_INT(N_STRESS, match_sld);
 }
 
 static void test_reciprocal_mul_256(void) {
@@ -824,7 +845,10 @@ static void test_reciprocal_mul_256(void) {
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld, match_sld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
+    ASSERT_EQ_INT(N_STRESS, match_sld);
 }
 
 /* ====================================================================
