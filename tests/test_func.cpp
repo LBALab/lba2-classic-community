@@ -93,10 +93,45 @@ static void test_searchboundcolrgb_random_stress(void) {
     }
 }
 
+static void test_searchboundcolrgb_full_palette_stress(void) {
+    U8 palette[256 * 3];
+
+    rng_seed(0xC0FFEE11u);
+    for (int round = 0; round < 24; ++round) {
+        for (U32 i = 0; i < sizeof(palette); ++i) {
+            palette[i] = (U8)rng_next();
+        }
+
+        U8 red = (U8)rng_next();
+        U8 green = (U8)rng_next();
+        U8 blue = (U8)rng_next();
+        U8 coulmin = (U8)(rng_next() % 256u);
+        U8 coulmax = (U8)(rng_next() % 256u);
+        char label[128];
+
+        if ((round & 3) == 0) {
+            coulmin = 0;
+            coulmax = 255;
+        } else if ((round & 3) == 1) {
+            coulmin = 12;
+            coulmax = 240;
+        } else if ((round & 3) == 2) {
+            coulmin = 200;
+            coulmax = 255;
+        }
+
+        snprintf(label, sizeof(label), "SearchBoundColRGB full palette round=%d min=%u max=%u",
+                 round, (unsigned)coulmin, (unsigned)coulmax);
+        run_searchboundcolrgb_case(label, red, green, blue, palette,
+                                   coulmin, coulmax, sizeof(palette));
+    }
+}
+
 int main(void) {
     RUN_TEST(test_searchboundcolrgb_fixed_cases);
     RUN_TEST(test_searchboundcolrgb_edge_cases);
     RUN_TEST(test_searchboundcolrgb_random_stress);
+    RUN_TEST(test_searchboundcolrgb_full_palette_stress);
     TEST_SUMMARY();
     return test_failures != 0;
 }
