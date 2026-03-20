@@ -311,6 +311,13 @@ For each listed ASM/CPP pair:
     `lrintf` and `lrintl(long double)` must match the ASM for all 19 fixed
     round cases, and the plain C cast must match the ASM for all 11 fixed
     truncation cases.
+- Completed: exact isolated XSlope and TextureZ FPU parity checks in
+  `tests/fpu_precision/test_fpu_precision.cpp`
+  - Tightened the isolated `test_xslope_cross` and
+    `test_texz_uslope_stacked_vs_stored` sections so their concrete cases now
+    assert direct ASM-vs-CPP equality and their deterministic stress loops now
+    require all 500 rounds to match exactly, rather than only printing the
+    counts.
 
 ### Next Candidates
 

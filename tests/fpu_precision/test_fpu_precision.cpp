@@ -910,6 +910,8 @@ static void test_xslope_cross(void) {
             printf("    (game ASM=%d differs from isolated ASM=%d by %d — expected due to InvDenom reuse)\n",
                    cases[i].game_asm, asm_r, cases[i].game_asm - asm_r);
         }
+
+        ASSERT_EQ_INT(asm_r, c_r);
     }
 
     /* Randomized stress test with LCG */
@@ -943,7 +945,7 @@ static void test_xslope_cross(void) {
             match++;
     }
     printf("  Results (%d rounds): volatile_ld+truncl=%d\n", N_STRESS, match);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, match);
 }
 
 /* ====================================================================
@@ -1014,6 +1016,9 @@ static void test_texz_uslope_stacked_vs_stored(void) {
     else
         printf("    stored != c_volatile_ld (diff=%d) → even ASM store/reload differs from C!\n", stored - c_vld);
 
+    ASSERT_EQ_INT(stacked, stored);
+    ASSERT_EQ_INT(stacked, c_vld);
+
     total_comparisons += 2;
     if (stacked != stored)
         total_mismatches++;
@@ -1065,7 +1070,9 @@ static void test_texz_uslope_stacked_vs_stored(void) {
     }
     printf("  Results (%d rounds): stacked==stored: %d  stacked==c: %d  stored==c: %d\n",
            N_STRESS, stacked_eq_stored, stacked_eq_c, stored_eq_c);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS, stacked_eq_stored);
+    ASSERT_EQ_INT(N_STRESS, stacked_eq_c);
+    ASSERT_EQ_INT(N_STRESS, stored_eq_c);
 }
 
 /* ====================================================================
