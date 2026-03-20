@@ -103,7 +103,7 @@ static void test_random_batch(void) {
 
     rng_seed(0xCAFEBABE);
     int prev = test_failures;
-    for (int i = 0; i < 20 && test_failures == prev; i++) {
+    for (int i = 0; i < 100 && test_failures == prev; i++) {
         setup();
         S32 sw = (S32)(rng_next() % 60) + 2;
         S32 sh = (S32)(rng_next() % 60) + 2;
