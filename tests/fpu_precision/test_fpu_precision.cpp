@@ -467,7 +467,11 @@ static void test_reciprocal_mul(void) {
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_f, match_d, match_ld, match_vld, match_sld);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(N_STRESS - 1, match_f);
+    ASSERT_EQ_INT(N_STRESS, match_d);
+    ASSERT_EQ_INT(N_STRESS, match_ld);
+    ASSERT_EQ_INT(N_STRESS, match_vld);
+    ASSERT_EQ_INT(N_STRESS, match_sld);
 }
 
 static void test_slope(void) {
