@@ -103,6 +103,41 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_clip_boundary_equivalence(void) {
+    TYPE_VT16 src[] = {
+        {0, 0, -16, 0},
+        {12, -6, -15, 0},
+        {-32, 48, -64, 0},
+        {24, 12, -17, 0},
+        {-8, -8, -14, 0},
+    };
+
+    SetProjection(320, 240, 16, 256, 192);
+    assert_project_list_case("ProjectList3DF exact near-clip boundary", src, 5, 0, 0, 0);
+}
+
+static void test_all_clipped_and_mixed_equivalence(void) {
+    TYPE_VT16 all_clipped[] = {
+        {0, 0, -1, 0},
+        {40, 10, -31, 0},
+        {-40, -10, -30, 0},
+        {3, 7, 0, 0},
+    };
+    TYPE_VT16 mixed[] = {
+        {1, 0, -1, 0},
+        {2, 0, -1, 0},
+        {0, 1, -1, 0},
+        {0, 0, -2, 0},
+        {0, 0, 0, 0},
+    };
+
+    SetProjection(160, 100, 32, 300, 240);
+    assert_project_list_case("ProjectList3DF all points clipped", all_clipped, 4, 0, 0, 0);
+
+    SetProjection(0, 0, 1, 32000, 32000);
+    assert_project_list_case("ProjectList3DF mixed visible clipped overflow", mixed, 5, 0, 0, 0);
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
@@ -159,6 +194,8 @@ static void test_zero_count_preserves_bounds(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_clip_boundary_equivalence);
+    RUN_TEST(test_all_clipped_and_mixed_equivalence);
     RUN_TEST(test_random_equivalence);
     RUN_TEST(test_zero_count_preserves_bounds);
     TEST_SUMMARY();

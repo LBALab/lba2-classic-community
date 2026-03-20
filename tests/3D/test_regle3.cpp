@@ -49,6 +49,38 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_boundary_equivalence(void) {
+    struct {
+        S32 v1, v2, steps, step;
+    } cases[] = {
+        {100, 200, 3, -1},
+        {100, 200, 3, 0},
+        {100, 200, 3, 1},
+        {100, 200, 3, 2},
+        {100, 200, 3, 3},
+        {100, 200, 3, 4},
+        {200, 100, 3, -1},
+        {200, 100, 3, 0},
+        {200, 100, 3, 1},
+        {200, 100, 3, 2},
+        {200, 100, 3, 3},
+        {200, 100, 3, 4},
+        {-7, 7, 2, 1},
+        {-7, 7, 2, 2},
+        {-7, 7, 2, 3},
+        {100, 200, -1, -1},
+        {100, 200, -1, 0},
+        {100, 200, -1, 1},
+    };
+
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); ++i) {
+        char lbl[96];
+        snprintf(lbl, sizeof(lbl), "Regle3 boundary v1=%d v2=%d steps=%d step=%d",
+                 cases[i].v1, cases[i].v2, cases[i].steps, cases[i].step);
+        assert_regle_case(lbl, cases[i].v1, cases[i].v2, cases[i].steps, cases[i].step);
+    }
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
@@ -64,6 +96,7 @@ static void test_random_equivalence(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_boundary_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;
