@@ -120,6 +120,11 @@ For each listed ASM/CPP pair:
 
 ### SVGA
 
+- Completed: `BlitBoxF`
+  - Raised the deterministic random full-buffer ASM-vs-CPP stress from 20 to
+    100 source/destination pairs.
+  - Kept the existing strict destination and source-preservation byte-for-byte
+    assertions intact; this slice only deepened coverage.
 - Completed: `AffGraph`
   - Added strict ASM-vs-CPP framebuffer and `ScreenX/Y` bounds coverage.
   - Added unclipped solid/pattern draws, signed-hotspot interior placement,
