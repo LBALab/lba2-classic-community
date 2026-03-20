@@ -29,7 +29,6 @@ static U8 g_cpp_framebuf[640 * 480];
 static U8 g_asm_framebuf[640 * 480];
 
 typedef struct GraphRunResult {
-    S32 ret;
     S32 xmin;
     S32 ymin;
     S32 xmax;
@@ -162,7 +161,7 @@ static GraphRunResult run_cpp_affgraph(S32 x, S32 y,
     GraphRunResult result;
 
     setup_screen(g_cpp_framebuf, clip_xmin, clip_ymin, clip_xmax, clip_ymax);
-    result.ret = AffGraph(0, x, y, g_bank);
+    AffGraph(0, x, y, g_bank);
     result.xmin = ScreenXMin;
     result.ymin = ScreenYMin;
     result.xmax = ScreenXMax;
@@ -176,7 +175,7 @@ static GraphRunResult run_asm_affgraph(S32 x, S32 y,
     GraphRunResult result;
 
     setup_screen(g_asm_framebuf, clip_xmin, clip_ymin, clip_xmax, clip_ymax);
-    result.ret = asm_AffGraph(0, x, y, g_bank);
+    asm_AffGraph(0, x, y, g_bank);
     result.xmin = ScreenXMin;
     result.ymin = ScreenYMin;
     result.xmax = ScreenXMax;
@@ -191,6 +190,9 @@ static void assert_affgraph_case(const char *label,
     GraphRunResult cpp_result = run_cpp_affgraph(x, y, clip_xmin, clip_ymin, clip_xmax, clip_ymax);
     GraphRunResult asm_result = run_asm_affgraph(x, y, clip_xmin, clip_ymin, clip_xmax, clip_ymax);
 
+    /* AffGraph has an S32 signature, but the ASM exits via raw ret paths
+       without defining EAX, so only the framebuffer and ScreenX/Y globals
+       are stable equivalence outputs here. */
     ASSERT_ASM_CPP_EQ_INT(asm_result.xmin, cpp_result.xmin, label);
     ASSERT_ASM_CPP_EQ_INT(asm_result.ymin, cpp_result.ymin, label);
     ASSERT_ASM_CPP_EQ_INT(asm_result.xmax, cpp_result.xmax, label);
