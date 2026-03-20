@@ -45,11 +45,10 @@ static void test_cpp_getbox_hotspot(void) {
     S32 x0, y0, x1, y1;
     build_bank();
     GetBoxGraph(1, &x0, &y0, &x1, &y1, g_bank);
-    /* HotX=0xFD (253 unsigned), HotY=0xFE (254 unsigned), DeltaX=8, DeltaY=6 */
-    ASSERT_EQ_INT(253, x0);
-    ASSERT_EQ_INT(254, y0);
-    ASSERT_EQ_INT(261, x1); /* 253 + 8 */
-    ASSERT_EQ_INT(260, y1); /* 254 + 6 */
+    ASSERT_EQ_INT(-3, x0);
+    ASSERT_EQ_INT(-2, y0);
+    ASSERT_EQ_INT(5, x1);
+    ASSERT_EQ_INT(4, y1);
 }
 
 static void test_asm_equiv_getbox(void) {
@@ -66,14 +65,25 @@ static void test_asm_equiv_getbox(void) {
     ASSERT_EQ_INT(cpp_y1, asm_y1);
 }
 
-/* ASM sign-extends HotX/HotY (S8→S32), CPP zero-extends (U8→S32).
-   For negative hotspots, ASM gives (-3,-2,5,4), CPP gives (253,254,261,260).
-   This is a known discrepancy. Test unsigned-only hotspot for ASM equiv. */
 static void test_asm_equiv_getbox_hotspot(void) {
     S32 cpp_x0, cpp_y0, cpp_x1, cpp_y1;
     S32 asm_x0, asm_y0, asm_x1, asm_y1;
 
-    /* Build bank with POSITIVE hotspot to avoid sign extension difference */
+    build_bank();
+
+    GetBoxGraph(1, &cpp_x0, &cpp_y0, &cpp_x1, &cpp_y1, g_bank);
+    asm_GetBoxGraph(1, &asm_x0, &asm_y0, &asm_x1, &asm_y1, g_bank);
+
+    ASSERT_EQ_INT(cpp_x0, asm_x0);
+    ASSERT_EQ_INT(cpp_y0, asm_y0);
+    ASSERT_EQ_INT(cpp_x1, asm_x1);
+    ASSERT_EQ_INT(cpp_y1, asm_y1);
+}
+
+static void test_asm_equiv_getbox_positive_hotspot(void) {
+    S32 cpp_x0, cpp_y0, cpp_x1, cpp_y1;
+    S32 asm_x0, asm_y0, asm_x1, asm_y1;
+
     memset(g_bank, 0, sizeof(g_bank));
     U32 *offsets = (U32 *)g_bank;
     offsets[0] = 4;
@@ -96,6 +106,7 @@ int main(void) {
     RUN_TEST(test_cpp_getbox_hotspot);
     RUN_TEST(test_asm_equiv_getbox);
     RUN_TEST(test_asm_equiv_getbox_hotspot);
+    RUN_TEST(test_asm_equiv_getbox_positive_hotspot);
     TEST_SUMMARY();
     return test_failures != 0;
 }

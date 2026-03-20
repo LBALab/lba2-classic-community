@@ -291,6 +291,18 @@ static void test_clip_window_cases(void) {
     assert_case_matches("AffMask sparse narrow clip", 50, 52, 0x38, 52, 54, 54, 57);
 }
 
+static void test_negative_hotspot_cases(void) {
+    build_solid_rect_bank(6, 4, (U8)(-3), (U8)(-2));
+    assert_case_matches("AffMask negative hotspot interior", 20, 18, 0x60, 0, 0, 639, 479);
+    assert_case_matches("AffMask negative hotspot clip window", 5, 5, 0x61, 10, 10, 20, 20);
+    assert_case_matches("AffMask negative hotspot offscreen", -10, -10, 0x62, 0, 0, 639, 479);
+
+    build_pattern_bank();
+    g_bank[6] = (U8)(-5);
+    g_bank[7] = (U8)(-1);
+    assert_case_matches("AffMask pattern negative hotspot boundary", 100, 1, 0x63, 0, 0, 639, 479);
+}
+
 static void test_fully_clipped_noop_cases(void) {
     build_solid_rect_bank(4, 2, 0, 0);
     assert_case_matches("AffMask fully off left", -5, 140, 0x20, 0, 0, 639, 479);
@@ -355,6 +367,7 @@ int main(void) {
     RUN_TEST(test_solid_and_pattern_fixed_cases);
     RUN_TEST(test_screen_edge_clipping_cases);
     RUN_TEST(test_clip_window_cases);
+    RUN_TEST(test_negative_hotspot_cases);
     RUN_TEST(test_fully_clipped_noop_cases);
     RUN_TEST(test_randomized_stress);
     TEST_SUMMARY();
