@@ -66,6 +66,29 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_vertical_and_wrap_equivalence(void) {
+    struct {
+        S32 x, y, z;
+    } cases[] = {
+        {0, 1, 0},
+        {0, -1, 0},
+        {0, 32767, 0},
+        {0, -32767, 0},
+        {1, 32767, 0},
+        {0, 32767, 1},
+        {1, -32767, 1},
+        {32767, 1, 32767},
+        {-32767, 1, 32767},
+        {32767, -1, -32767},
+    };
+
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); ++i) {
+        char lbl[112];
+        snprintf(lbl, sizeof(lbl), "GetAngleVector3D vertical x=%d y=%d z=%d", cases[i].x, cases[i].y, cases[i].z);
+        assert_angle3d_case(lbl, cases[i].x, cases[i].y, cases[i].z);
+    }
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
@@ -80,6 +103,7 @@ static void test_random_equivalence(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_vertical_and_wrap_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;

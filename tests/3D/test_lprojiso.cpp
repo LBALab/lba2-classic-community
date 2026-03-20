@@ -77,6 +77,39 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_shift_boundary_equivalence(void) {
+    struct {
+        S32 x, y, z;
+    } cases[] = {
+        {0, 0, 0},
+        {1, 0, 0},
+        {-1, 0, 0},
+        {63, 0, 0},
+        {64, 0, 0},
+        {65, 0, 0},
+        {-63, 0, 0},
+        {-64, 0, 0},
+        {-65, 0, 0},
+        {0, 17, 0},
+        {0, -17, 0},
+        {31, 15, -7},
+        {-31, -15, 7},
+    };
+
+    configure_iso_state(0, 0, 0, 320, 240);
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); ++i) {
+        char lbl[112];
+        snprintf(lbl, sizeof(lbl), "LongProjectPointIso shift boundary x=%d y=%d z=%d", cases[i].x, cases[i].y, cases[i].z);
+        assert_iso_case(lbl, cases[i].x, cases[i].y, cases[i].z);
+    }
+}
+
+static void test_camera_cancel_equivalence(void) {
+    configure_iso_state(123, -77, 19, 160, 100);
+    assert_iso_case("LongProjectPointIso camera cancellation", CameraX, CameraY, CameraZ);
+    assert_iso_case("LongProjectPointIso camera cancellation offset", CameraX + 64, CameraY - 32, CameraZ + 16);
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
@@ -100,6 +133,8 @@ static void test_random_equivalence(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_shift_boundary_equivalence);
+    RUN_TEST(test_camera_cancel_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;

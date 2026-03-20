@@ -95,6 +95,30 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_sortkey_and_overflow_equivalence(void) {
+    TYPE_VT16 sortkey_cases[] = {
+        {100, 20, 101, 0x1234},
+        {-100, 20, -101, 0x4321},
+        {32767, 0, 32767, 0x7FFF},
+        {-32768, 0, -32768, 0x5555},
+        {50, -50, -49, 0x2222},
+    };
+    TYPE_VT16 overflow_cases[] = {
+        {2048, 0, -2048, 0x1111},
+        {-2048, 0, 2048, 0x2222},
+        {0, 4096, 0, 0x3333},
+        {16, 0, 16, 0x4444},
+    };
+
+    XCentre = 320;
+    YCentre = 240;
+    assert_project_iso_case("ProjectListIso sort-key overwrite", sortkey_cases, 5, 0, 0, 0);
+
+    XCentre = 32760;
+    YCentre = 32760;
+    assert_project_iso_case("ProjectListIso mixed overflow", overflow_cases, 4, 0, 0, 0);
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
@@ -124,6 +148,7 @@ static void test_random_equivalence(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_sortkey_and_overflow_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;
