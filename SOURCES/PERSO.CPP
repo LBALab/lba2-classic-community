@@ -1760,9 +1760,9 @@ void WriteConfigFile(void) {
     WriteInputConfig();    // Sauve Config Clavier dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
-    DefFileBufferWriteString("Language", (char *)GetLanguageName(Language));
+    DefFileBufferWriteString("Language", GetLanguageName(Language));
 #ifdef CDROM
-    DefFileBufferWriteString("LanguageCD", (char *)GetLanguageName(LanguageCD));
+    DefFileBufferWriteString("LanguageCD", GetLanguageName(LanguageCD));
 #endif
 
     DefFileBufferWriteString("LastSave", PlayerName);
