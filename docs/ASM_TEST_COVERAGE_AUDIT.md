@@ -260,6 +260,9 @@ For each listed ASM/CPP pair:
   - Added matching `AffGraph` framebuffer/bounds equivalence cases to verify
     the signed hotspot interpretation end-to-end at visible on-screen
     coordinates.
+  - Deepened the deterministic random `AffGraph` sweep to 100 banks to keep
+    clipping, hotspot, and framebuffer equivalence coverage at the same stress
+    depth as the stronger SVGA front-end tests.
 - Completed: `ObjectStoreFrame` full object-state equivalence in
   `tests/ANIM/test_stoframe.cpp`
   - Replaced the last field-only ASM checks with a full `T_OBJ_3D`
