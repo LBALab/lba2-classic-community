@@ -14,6 +14,7 @@ extern "C" S32 asm_CalcGraphMsk(S32 numbrick, U8 *bankbrick, U8 *ptmask);
 static U8 g_brick[512];
 static U8 g_mask_cpp[512];
 static U8 g_mask_asm[512];
+static const U8 k_simple_mask_expected[] = {8, 2, 0, 0, 1, 10, 1, 3};
 
 static void build_simple_brick(void) {
     memset(g_brick, 0, sizeof(g_brick));
@@ -113,7 +114,9 @@ static void test_cpp_basic(void) {
     build_simple_brick();
     memset(g_mask_cpp, 0, sizeof(g_mask_cpp));
     S32 size = CalcGraphMsk(0, g_brick, g_mask_cpp);
-    ASSERT_TRUE(size > 0);
+
+    ASSERT_EQ_INT((S32)sizeof(k_simple_mask_expected), size);
+    ASSERT_MEM_EQ(k_simple_mask_expected, g_mask_cpp, sizeof(k_simple_mask_expected));
 }
 
 static void test_asm_equiv(void) {

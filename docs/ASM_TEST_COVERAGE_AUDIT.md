@@ -148,6 +148,10 @@ For each listed ASM/CPP pair:
 - Completed: `AffMask`
   - Added high-bit hotspot-byte interior, clip-window, and off-screen cases.
   - Verified that the CPP path keeps the ASM's raw-byte hotspot semantics for this function.
+- Completed: `CalcGraphMsk`
+  - Replaced the remaining synthetic-brick `size > 0` sanity check with exact
+    expected mask bytes for the fixed fixture, while keeping the strict ASM-vs-CPP
+    synthetic and random coverage.
 - Completed: `SizeFont`
   - Deepened the deterministic synthetic-bank ASM-vs-CPP string sweep to 100
     cases while keeping the fixed width/space cases intact.
