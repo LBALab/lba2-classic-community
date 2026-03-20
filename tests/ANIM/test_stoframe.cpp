@@ -77,8 +77,8 @@ static void test_asm_equiv(void) {
     ASSERT_EQ_UINT(cpp_advance, asm_advance);
     ASSERT_ASM_CPP_MEM_EQ(asm_buffer, cpp_buffer, cpp_advance,
                           "ObjectStoreFrame buffer");
-    ASSERT_EQ_UINT(cpp_obj.LastOfsIsPtr, asm_obj.LastOfsIsPtr);
-    ASSERT_EQ_INT(cpp_obj.LastFrame, asm_obj.LastFrame);
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectStoreFrame object state");
 }
 
 int main(void) {
