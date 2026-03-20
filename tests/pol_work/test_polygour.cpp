@@ -54,7 +54,7 @@ static void test_gouraud_basic(void) {
     Fill_Poly(POLY_GOURAUD, 0x05, 3, pts);
     /* Some pixels should be written */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 100);
+    ASSERT_EQ_INT(3640, n);
 }
 
 static void test_gouraud_uniform_light(void) {
@@ -80,7 +80,7 @@ static void test_dither_basic(void) {
     pts[2] = make_point_lit(100, 100, 0x0600);
     Fill_Poly(POLY_DITHER, 0x07, 3, pts);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 100);
+    ASSERT_EQ_INT(3640, n);
 }
 
 /* ── Edge cases ────────────────────────────────────────────────── */

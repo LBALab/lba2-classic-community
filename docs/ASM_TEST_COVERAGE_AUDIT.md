@@ -207,6 +207,11 @@ For each listed ASM/CPP pair:
   - The clipped case now asserts repeatable output plus clipped bounding-box
     behavior, and 100 random Gouraud/Dither rounds now assert repeatable
     full-framebuffer output plus bounding-box invariants.
+- Completed: exact `Fill_Poly(POLY_GOURAUD/POLY_DITHER)` basic triangle counts
+  in `test_polygour.cpp`
+  - Tightened the basic Gouraud and Dither triangle smoke cases so they now
+    assert the exact deterministic `3640`-pixel footprint instead of only
+    checking that a large enough area was filled.
 - Completed: `Fill_Poly` textured Gouraud/Dither path in `test_polygtex.cpp`
   - Replaced the clipped/random placeholder checks with deterministic
     framebuffer assertions.
