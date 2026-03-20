@@ -158,7 +158,7 @@ static int random_round(int idx) {
 static void test_random_batch(void) {
     rng_seed(0xDEADBEEF);
     int prev_failures = test_failures;
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 100; i++) {
         random_round(i);
         if (test_failures != prev_failures)
             return; /* stop on first failure so output stays readable */
