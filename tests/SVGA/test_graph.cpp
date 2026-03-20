@@ -95,16 +95,25 @@ static void build_solid_rect_bank(U8 width, U8 height, U8 hot_x, U8 hot_y, U8 co
 static void build_pattern_bank(void) {
     static const U8 line_bytes[] = {
         3,
-        0x00,       /* jump 1 */
-        0x41, 0x11, 0x22,
-        0x81, 0x33,
+        0x00, /* jump 1 */
+        0x41,
+        0x11,
+        0x22,
+        0x81,
+        0x33,
         3,
-        0x80, 0x44,
+        0x80,
+        0x44,
         0x01,
-        0x42, 0x55, 0x66, 0x77,
+        0x42,
+        0x55,
+        0x66,
+        0x77,
         2,
-        0x82, 0x88,
-        0x40, 0x99,
+        0x82,
+        0x88,
+        0x40,
+        0x99,
     };
     build_graph_bank_from_lines(6, 3, 1, 2, line_bytes, sizeof(line_bytes));
 }
@@ -279,6 +288,43 @@ static void test_asm_equiv_getbox_positive_hotspot(void) {
     ASSERT_EQ_INT(cpp_y1, asm_y1);
 }
 
+static void test_cpp_getbox_highbit_hotspot(void) {
+    S32 x0, y0, x1, y1;
+
+    memset(g_bank, 0, sizeof(g_bank));
+    ((U32 *)g_bank)[0] = 4;
+    g_bank[4] = 5;
+    g_bank[5] = 4;
+    g_bank[6] = 0x80; /* HotX = -128 */
+    g_bank[7] = 0xC8; /* HotY = -56 */
+
+    GetBoxGraph(0, &x0, &y0, &x1, &y1, g_bank);
+    ASSERT_EQ_INT(-128, x0);
+    ASSERT_EQ_INT(-56, y0);
+    ASSERT_EQ_INT(-123, x1);
+    ASSERT_EQ_INT(-52, y1);
+}
+
+static void test_asm_equiv_getbox_highbit_hotspot(void) {
+    S32 cpp_x0, cpp_y0, cpp_x1, cpp_y1;
+    S32 asm_x0, asm_y0, asm_x1, asm_y1;
+
+    memset(g_bank, 0, sizeof(g_bank));
+    ((U32 *)g_bank)[0] = 4;
+    g_bank[4] = 5;
+    g_bank[5] = 4;
+    g_bank[6] = 0x80;
+    g_bank[7] = 0xC8;
+
+    GetBoxGraph(0, &cpp_x0, &cpp_y0, &cpp_x1, &cpp_y1, g_bank);
+    asm_GetBoxGraph(0, &asm_x0, &asm_y0, &asm_x1, &asm_y1, g_bank);
+
+    ASSERT_EQ_INT(cpp_x0, asm_x0);
+    ASSERT_EQ_INT(cpp_y0, asm_y0);
+    ASSERT_EQ_INT(cpp_x1, asm_x1);
+    ASSERT_EQ_INT(cpp_y1, asm_y1);
+}
+
 static void test_cpp_affgraph_basic(void) {
     build_solid_rect_bank(4, 2, 0, 0, 0x5A);
     setup_screen(g_cpp_framebuf, 0, 0, 639, 479);
@@ -302,6 +348,19 @@ static void test_affgraph_fixed_equivalence(void) {
 
     build_solid_rect_bank(6, 3, (U8)-3, (U8)-2, 0x4C);
     assert_affgraph_case("AffGraph negative hotspot interior", 30, 40, 0, 0, 639, 479);
+
+    build_solid_rect_bank(5, 3, 0x80, 0xC8, 0x6D);
+    assert_affgraph_case("AffGraph highbit hotspot interior", 200, 100, 0, 0, 639, 479);
+
+    setup_screen(g_cpp_framebuf, 0, 0, 639, 479);
+    build_solid_rect_bank(5, 3, 0x80, 0xC8, 0x6E);
+    AffGraph(0, 200, 100, g_bank);
+    ASSERT_EQ_INT(72, ScreenXMin);
+    ASSERT_EQ_INT(44, ScreenYMin);
+    ASSERT_EQ_INT(76, ScreenXMax);
+    ASSERT_EQ_INT(46, ScreenYMax);
+    ASSERT_EQ_UINT(0x6E, g_cpp_framebuf[44 * 640 + 72]);
+    ASSERT_EQ_UINT(0x6E, g_cpp_framebuf[46 * 640 + 76]);
 }
 
 static void test_affgraph_clipping_equivalence(void) {
@@ -334,9 +393,11 @@ static void test_affgraph_random_equivalence(void) {
 int main(void) {
     RUN_TEST(test_cpp_getbox_basic);
     RUN_TEST(test_cpp_getbox_hotspot);
+    RUN_TEST(test_cpp_getbox_highbit_hotspot);
     RUN_TEST(test_asm_equiv_getbox);
     RUN_TEST(test_asm_equiv_getbox_hotspot);
     RUN_TEST(test_asm_equiv_getbox_positive_hotspot);
+    RUN_TEST(test_asm_equiv_getbox_highbit_hotspot);
     RUN_TEST(test_cpp_affgraph_basic);
     RUN_TEST(test_affgraph_fixed_equivalence);
     RUN_TEST(test_affgraph_clipping_equivalence);

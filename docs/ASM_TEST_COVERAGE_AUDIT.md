@@ -230,6 +230,13 @@ For each listed ASM/CPP pair:
   - Verified both full framebuffer output and `ScreenX/Y` bounds against ASM,
     plus a direct CPP sanity check that the hotspot bytes are treated as raw
     unsigned offsets rather than sign-extended values.
+- Completed: `GetBoxGraph` / `AffGraph` high-bit hotspot boundary coverage in
+  `tests/SVGA/test_graph.cpp`
+  - Added explicit `0x80`-range hotspot cases to prove that `GetBoxGraph`
+    sign-extends those bytes into negative bounds.
+  - Added matching `AffGraph` framebuffer/bounds equivalence cases to verify
+    the signed hotspot interpretation end-to-end at visible on-screen
+    coordinates.
 
 ### Next Candidates
 
@@ -237,7 +244,7 @@ For each listed ASM/CPP pair:
   - Re-run the repo-wide audit for remaining `ASSERT_TRUE(1)` / no-crash style
     tests in other ASM/CPP areas now that the visible `pol_work` backlog is
     cleared.
-- `GetBoxGraph` / `AffGraph` hotspot byte boundary cases
-  - Contrast `AffGraph`/`AffMask` raw-byte hotspot handling with `GetBoxGraph`'s
-    signed hotspot interpretation by adding explicit `0x80`-range hotspot
-    fixtures to `tests/SVGA/test_graph.cpp`.
+- Broader exactness sweep in already-tested modules
+  - Look for CPP-side range checks, bit-only checks, or partial-struct
+    comparisons that can be tightened to exact state or full-buffer
+    assertions without overstepping known ASM-domain limitations.
