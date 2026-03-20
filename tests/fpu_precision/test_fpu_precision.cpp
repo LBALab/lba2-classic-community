@@ -599,7 +599,8 @@ static void test_float_to_int_round(void) {
     int n = (int)(sizeof(test_vals) / sizeof(test_vals[0]));
     printf("  Results (%d cases): lrintf=%d/%d  lrintl(ld)=%d/%d\n",
            n, match_f, n, match_ld, n);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(n, match_f);
+    ASSERT_EQ_INT(n, match_ld);
 }
 
 static void test_float_to_int_trunc(void) {
@@ -619,7 +620,7 @@ static void test_float_to_int_trunc(void) {
     }
     int n = (int)(sizeof(test_vals) / sizeof(test_vals[0]));
     printf("  Results (%d cases): (int32_t)cast=%d/%d\n", n, match, n);
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(n, match);
 }
 
 static void test_mul_add_chain(void) {
