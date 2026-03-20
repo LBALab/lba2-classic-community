@@ -61,7 +61,7 @@ exists in both `.ASM` and `.CPP` form.
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `3DEXT/BOXZBUF.ASM` | `3DEXT/BOXZBUF.CPP` | `ZBufBoxOverWrite2` | Re-apply terrain occlusion over object bounding box | ASM ≡ CPP: return value plus post-call `Log`, `Screen`, and `PtrZBuffer` contents verified for visible, hidden, mixed, single-pixel, negative-depth, and 30 random rounds. |
-| [x] | `3DEXT/LINERAIN.ASM` | `3DEXT/LINERAIN.CPP` | `LineRain` | Rain line rendering helper | ASM ≡ CPP: return flags, screen bbox globals, full `Log` buffer, and no-Z-write `PtrZBuffer` contents verified for horizontal, diagonal fog, vertical occluded, single-pixel, fully-clipped, and 50 random rounds. |
+| [x] | `3DEXT/LINERAIN.ASM` | `3DEXT/LINERAIN.CPP` | `LineRain` | Rain line rendering helper | ASM ≡ CPP: return flags, screen bbox globals, full `Log` buffer, and no-Z-write `PtrZBuffer` contents verified for horizontal, diagonal fog, vertical occluded, plain single-pixel, dedicated background-intersection single-pixel, fully-clipped, and 300 random rounds. |
 
 ## ANIM/ — Object Animation (10 pairs)
 

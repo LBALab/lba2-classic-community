@@ -111,7 +111,7 @@ For each listed ASM/CPP pair:
   - Existing visible, hidden, mixed, single-pixel, negative-depth, and random coverage already looks strong.
 - Reviewed: `LineRain`
   - Existing horizontal, diagonal fog, vertical occluded, single-pixel, fully clipped, and random coverage already looks strong.
-  - A dedicated depth-intersection return-flag case could still be added later, but this is lower priority than the remaining modules.
+  - Added a dedicated single-pixel depth-intersection return-flag case to isolate the `ret == 3` path.
 
 ### ANIM
 

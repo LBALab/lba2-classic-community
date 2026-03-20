@@ -249,6 +249,43 @@ static void test_linerain_single_pixel(void) {
                             0);
 }
 
+static void test_linerain_single_pixel_background_intersection(void) {
+    RunResult cpp_result;
+    RunResult asm_result;
+
+    init_default_buffers();
+    initial_zbuf[22 * kWidth + 18] = 219;
+    clone_initial_state();
+
+    cpp_result = run_cpp(18, 22, 120,
+                         18, 22, 120,
+                         0x4D,
+                         0, 0, kWidth - 1, kHeight - 1,
+                         0);
+    asm_result = run_asm(18, 22, 120,
+                         18, 22, 120,
+                         0x4D,
+                         0, 0, kWidth - 1, kHeight - 1,
+                         0);
+
+    ASSERT_ASM_CPP_EQ_INT(asm_result.ret, cpp_result.ret,
+                          "LineRain single pixel background intersection");
+    ASSERT_EQ_INT(3, asm_result.ret);
+    ASSERT_EQ_INT(3, cpp_result.ret);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.screen_xmin, cpp_result.screen_xmin,
+                          "LineRain single pixel background intersection");
+    ASSERT_ASM_CPP_EQ_INT(asm_result.screen_ymin, cpp_result.screen_ymin,
+                          "LineRain single pixel background intersection");
+    ASSERT_ASM_CPP_EQ_INT(asm_result.screen_xmax, cpp_result.screen_xmax,
+                          "LineRain single pixel background intersection");
+    ASSERT_ASM_CPP_EQ_INT(asm_result.screen_ymax, cpp_result.screen_ymax,
+                          "LineRain single pixel background intersection");
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, sizeof(cpp_log),
+                          "LineRain single pixel background intersection");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)asm_zbuf, (U8 *)cpp_zbuf, sizeof(cpp_zbuf),
+                          "LineRain single pixel background intersection");
+}
+
 static void test_linerain_fully_clipped(void) {
     init_default_buffers();
 
@@ -296,6 +333,7 @@ int main(void) {
     RUN_TEST(test_linerain_diagonal_fog_intersection);
     RUN_TEST(test_linerain_vertical_occluded);
     RUN_TEST(test_linerain_single_pixel);
+    RUN_TEST(test_linerain_single_pixel_background_intersection);
     RUN_TEST(test_linerain_fully_clipped);
     RUN_TEST(test_linerain_random_stress);
     TEST_SUMMARY();
