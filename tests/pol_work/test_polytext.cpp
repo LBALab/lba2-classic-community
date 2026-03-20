@@ -50,7 +50,8 @@ static void test_texture_basic_triangle(void) {
     setup_texture_env();
     Fill_Poly(POLY_TEXTURE, 0, 3, pts);
     int px = count_nonzero_pixels(0, 0, TEST_POLY_W - 1, TEST_POLY_H - 1);
-    ASSERT_TRUE(px > 0 || px_solid > 0);
+    ASSERT_EQ_INT(3640, px_solid);
+    ASSERT_EQ_INT(3640, px);
 }
 
 static void test_texture_offscreen(void) {
