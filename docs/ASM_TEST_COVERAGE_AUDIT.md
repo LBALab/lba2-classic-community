@@ -188,7 +188,7 @@ For each listed ASM/CPP pair:
   - Replaced the clipped/random placeholder checks with deterministic
     framebuffer assertions.
   - The clipped case now asserts repeatable output plus clipped bounding-box
-    behavior, and 30 random Gouraud/Dither rounds now assert repeatable
+    behavior, and 100 random Gouraud/Dither rounds now assert repeatable
     full-framebuffer output plus bounding-box invariants.
 - Completed: `Fill_Poly` textured Gouraud/Dither path in `test_polygtex.cpp`
   - Replaced the clipped/random placeholder checks with deterministic
