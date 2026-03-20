@@ -68,7 +68,7 @@ static void test_texture_gouraud_basic(void) {
     pts[2] = make_point_uv_lit(120, 100, 50 << 8, 50 << 8, 0x0C00);
     Fill_Poly(POLY_TEXTURE_GOURAUD, 0, 3, pts);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 100);
+    ASSERT_EQ_INT(3640, n);
 }
 
 /* ── TextureDither ─────────────────────────────────────────────── */
@@ -81,7 +81,7 @@ static void test_texture_dither_basic(void) {
     pts[2] = make_point_uv_lit(100, 80, 40 << 8, 40 << 8, 0x0A00);
     Fill_Poly(POLY_TEXTURE_DITHER, 0, 3, pts);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 100);
+    ASSERT_EQ_INT(2840, n);
 }
 
 /* ── Edge cases ────────────────────────────────────────────────── */
