@@ -45,7 +45,7 @@ exists in both `.ASM` and `.CPP` form.
    - Added `tests/test_grille.cpp` covering `GetAdrBlock`, `Map2Screen`, `DecompColonne`, `WorldCodeBrick`, `GetBlockBrick`, `GetWorldColBrickVisible`, and `WorldColBrickFull` with fixed in-memory cube/block fixtures plus deterministic random stress, comparing return values and touched globals (`XMap`, `YMap`, `ZMap`, `XScreen`, `YScreen`) byte-for-byte/strictly. Fixed CPP world-coordinate conversion to use the ASM's raw shift semantics and matched `WorldColBrickFull`'s upward scan. Note: the `WorldColBrickFull` negative-`y` ASM path is excluded because that proc jumps to a shared `pop ebx` return path without a matching push and crashes before returning.
 
 - [x] `FUNC.ASM` -> `FUNC.CPP`
-   - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, plus 40 deterministic random rounds comparing return values and verifying the palette remains unchanged byte-for-byte.
+   - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, 64-entry random stress, plus dedicated 256-entry full-palette stress that exercises wider `coulmin`/`coulmax` spans and deeper search ranges while verifying the palette remains unchanged byte-for-byte.
 
 - [x] `FLOW_A.ASM` -> `FLOW_A.CPP`
    - Added `tests/test_flow_a.cpp` covering `BoxFlow`, `ShadeBoxBlk`, and `CopyBlockShade` with fixed clipped/unclipped cases plus deterministic random stress, comparing the full destination buffers byte-for-byte.
@@ -54,7 +54,7 @@ exists in both `.ASM` and `.CPP` form.
    - Added `tests/test_fire.cpp` covering `Do_Fire` with zero, all-`0xFF`, checkerboard, sequential, and 40-round deterministic random inputs, comparing both 32x36 work buffers, the 32x256 texture output, and the unchanged color table byte-for-byte after two consecutive calls from the same initial seed/state.
 
 - [x] `COMPRESS.ASM` -> active CPP port lives in `LZSS.CPP` (`COMPRESS.CPP` is a commented legacy stub)
-   - Added `tests/test_compress.cpp` covering `AddString` and `DeleteString` with fixed tree-shape cases plus deterministic random stress, comparing return values and full tree/window/global state.
+   - Added `tests/test_compress.cpp` covering `AddString` and `DeleteString` with fixed tree-shape cases, deterministic random stress, and mixed interleaved AddString/DeleteString sequences, comparing return values and full tree/window/global state after each operation.
 
 ## 3DEXT/ - Scene Extension Helpers (2 pairs)
 

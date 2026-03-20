@@ -80,3 +80,19 @@ For each listed ASM/CPP pair:
   - Review matrix-composition coverage for identity, zeroed translation, and source-preservation edge cases.
 - `RotTransListF` / `LightList`
   - Already strengthened; revisit only if higher-level suites expose new gaps.
+
+### SOURCES
+
+- Completed: `SearchBoundColRGB`
+  - Added deterministic full 256-entry palette stress.
+  - Added wider `coulmin`/`coulmax` spans to exercise deeper search ranges.
+- Completed: `AddString` / `DeleteString`
+  - Added interleaved mixed-operation stress instead of testing the two operations only in isolation.
+  - Compared full tree, window, and global state after every mixed step.
+
+### Next SOURCES Candidates
+
+- `Do_Fire`
+  - Re-check whether additional deterministic edge patterns uncover propagation differences beyond the existing zero, checkerboard, and sequential cases.
+- `BoxFlow` / `ShadeBoxBlk` / `CopyBlockShade`
+  - Review clipped-edge combinations and repeated-application stability.
