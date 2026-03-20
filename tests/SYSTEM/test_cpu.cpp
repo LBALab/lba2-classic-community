@@ -21,19 +21,42 @@ extern "C" U8 asm_ProcessorL1DataCache[4];
 extern "C" U8 asm_ProcessorL1InstructionCache[4];
 extern "C" U8 asm_ProcessorL2Cache[4];
 
-static void test_globals_exist(void) {
-    ASSERT_TRUE(1);
+static void assert_global_equiv(const void *asm_data, const void *cpp_data,
+                                size_t size, const char *label) {
+    ASSERT_ASM_CPP_MEM_EQ(asm_data, cpp_data, size, label);
 }
 
-static void test_string_equiv(void) {
-    ASSERT_ASM_CPP_MEM_EQ(asm_ProcessorManufacturerIDString,
-                          ProcessorManufacturerIDString, 13,
-                          "ProcessorManufacturerIDString");
+static void test_global_initializers_equiv(void) {
+    static const U8 expected_signature[4] = {0x00, 0x04, 0x00, 0x00};
+
+    assert_global_equiv(asm_ProcessorManufacturerIDString,
+                        ProcessorManufacturerIDString, 13,
+                        "ProcessorManufacturerIDString");
+    assert_global_equiv(asm_ProcessorSignature, &ProcessorSignature,
+                        sizeof(ProcessorSignature), "ProcessorSignature");
+    assert_global_equiv(asm_ProcessorFeatureFlags, &ProcessorFeatureFlags,
+                        sizeof(ProcessorFeatureFlags), "ProcessorFeatureFlags");
+    assert_global_equiv(asm_Processor4KBDataTLB, &Processor4KBDataTLB,
+                        sizeof(Processor4KBDataTLB), "Processor4KBDataTLB");
+    assert_global_equiv(asm_Processor4KBInstructionTLB, &Processor4KBInstructionTLB,
+                        sizeof(Processor4KBInstructionTLB), "Processor4KBInstructionTLB");
+    assert_global_equiv(asm_Processor4MBDataTLB, &Processor4MBDataTLB,
+                        sizeof(Processor4MBDataTLB), "Processor4MBDataTLB");
+    assert_global_equiv(asm_Processor4MBInstructionTLB, &Processor4MBInstructionTLB,
+                        sizeof(Processor4MBInstructionTLB), "Processor4MBInstructionTLB");
+    assert_global_equiv(asm_ProcessorL1DataCache, &ProcessorL1DataCache,
+                        sizeof(ProcessorL1DataCache), "ProcessorL1DataCache");
+    assert_global_equiv(asm_ProcessorL1InstructionCache, &ProcessorL1InstructionCache,
+                        sizeof(ProcessorL1InstructionCache), "ProcessorL1InstructionCache");
+    assert_global_equiv(asm_ProcessorL2Cache, &ProcessorL2Cache,
+                        sizeof(ProcessorL2Cache), "ProcessorL2Cache");
+
+    ASSERT_MEM_EQ(expected_signature, (const U8 *)&ProcessorSignature,
+                  sizeof(expected_signature));
 }
 
 int main(void) {
-    RUN_TEST(test_globals_exist);
-    RUN_TEST(test_string_equiv);
+    RUN_TEST(test_global_initializers_equiv);
     TEST_SUMMARY();
     return test_failures != 0;
 }
