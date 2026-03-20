@@ -159,12 +159,15 @@ For each listed ASM/CPP pair:
     mixed-type rounds.
   - Reused the existing Watcom ABI wrapper instead of introducing any new
     inline-ASM behavior in library code.
+- Completed: `Fill_Poly` solid path in `test_polyflat.cpp`
+  - Replaced the remaining degenerate/random placeholder checks with
+    deterministic framebuffer assertions.
+  - Collinear triangles now assert an unchanged framebuffer, and 30 random
+    solid triangles now assert repeatable full-framebuffer output plus
+    color/bounds invariants.
 
 ### Next pol_work Candidates
 
-- `Fill_Poly` / `Filler_Flat`
-  - Replace the remaining degenerate/random placeholder checks with exact
-    framebuffer comparisons in `test_polyflat.cpp`.
 - `Filler_Gouraud` / `Filler_TextureGouraud`
   - Tighten the clipped and random `Fill_Poly`-level tests that still only
     assert “no crash” in `test_polygour.cpp` and `test_polygtex.cpp`.
