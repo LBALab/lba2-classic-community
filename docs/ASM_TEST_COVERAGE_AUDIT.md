@@ -250,6 +250,10 @@ For each listed ASM/CPP pair:
   - Tightened the invalid-domain helpers so `INV64(1)` and `SetFog(0,0)` are
     explicit CPP-only checks; `SetFog(0,0)` cannot be sent through the ASM path
     because the original routine traps with a numeric exception.
+- Completed: exact `Fill_Sphere` basic/front-edge counts in `test_polydisc.cpp`
+  - Tightened the remaining radius-coverage, small-radius, and partially
+    clipped front-end smoke cases so they now assert exact deterministic
+    `770`-pixel, `6`-pixel, and `846`-pixel footprints respectively.
 - Completed: exact `SetFog` fixture outputs in `test_poly.cpp`
   - Tightened the representative `SetFog(100,1000)` and `SetFog(0,65535)`
     checks so they now assert exact deterministic

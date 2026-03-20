@@ -30,17 +30,14 @@ static void test_sphere_radius_coverage(void) {
     setup_polygon_screen();
     Fill_Sphere(0, 0x55, 80, 60, 15, 0);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    /* A circle of radius 15 should have ~pi*15^2=~707 pixels */
-    ASSERT_TRUE(n > 400);
-    ASSERT_TRUE(n < 1000);
+    ASSERT_EQ_INT(770, n);
 }
 
 static void test_sphere_small_radius(void) {
     setup_polygon_screen();
     Fill_Sphere(0, 0xCC, 80, 60, 1, 0);
-    /* At least the centre pixel should be set */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n >= 1);
+    ASSERT_EQ_INT(6, n);
 }
 
 static void test_sphere_zero_radius(void) {
@@ -54,9 +51,8 @@ static void test_sphere_partially_clipped(void) {
     setup_polygon_screen();
     /* Sphere at edge — partially clipped */
     Fill_Sphere(0, 0x77, 10, 10, 20, 0);
-    /* Some pixels should be drawn in the visible area */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 50);
+    ASSERT_EQ_INT(846, n);
 }
 
 static void test_sphere_fully_offscreen(void) {
