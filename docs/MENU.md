@@ -17,19 +17,25 @@ Main Menu
 │       └── SavedConfirmMenu: Cancel (24) / Delete (48)
 ├── Options (74)
 │   ├── Back (26)
-│   ├── Volume (11)
+│   ├── Sound volume (11)
 │   │   ├── Back (26)
 │   │   ├── Samples (19)       [slider]
 │   │   ├── Voice (20)         [slider, if FlagSpeak]
 │   │   ├── Music (21)         [slider]
-│   │   ├── CD (22)            [slider]
-│   │   └── Master (23)        [slider]
-│   ├── Reverse Stereo (12/13)
-│   ├── Detail Level (45)     [slider 0–3]
-│   ├── Cameras (46/47)
+│   │   └── General volume (23) [slider]
+│   ├── Choose language [custom localized label]
+│   │   ├── Back (26)
+│   │   ├── Texts: <language> [custom localized label]
+│   │   └── Voices: <language> [custom localized label, CDROM builds]
+│   ├── Advanced options [custom localized label]
+│   │   ├── Back (26)
+│   │   ├── Reverse stereo channels OFF/ON (12/13)
+│   │   ├── Detail Level (45)             [slider 0–3]
+│   │   ├── Movie camera OFF/ON (46/47)
+│   │   ├── Small videos / Full screen videos (27/28)
+│   │   ├── Fullscreen display OFF/ON     [custom localized label]
+│   │   └── Don't display text / Display text (16/17)
 │   ├── Keyboard Config (14)
-│   ├── Fullscreen (27/28)
-│   └── Display Text (16/17)
 └── Quit (75)
 ```
 
@@ -41,7 +47,7 @@ Main Menu
 |------|------------|
 | CURRENTSAVE | Quick-save file (current.lba); Resume is shown when it exists |
 | SavingEnable | Flag allowing Save; false during intro |
-| FlagSpeak | Voice support; controls Volume submenu (Voice slider) and Display Text visibility |
+| FlagSpeak | Voice support; controls Voice sample preview and whether Display Text can be turned OFF |
 | MainGameMenu | Entry point for the main menu |
 
 ## Entry and flow
@@ -64,8 +70,10 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Submenus
 
-- **Options** (`OptionsMenu`): Volume, Reverse Stereo, Detail Level, Cameras, Keyboard Config, Fullscreen, Display Text. Uses `GameOptionMenu[]` (text IDs 11–47). Calls `GereVolumeMenu()`, `MenuConfig()`, toggles globals (`AllCameras`, `ReverseStereo`, `VideoFullScreen`, `FlagDisplayText`). Calls `SetDetailLevel()` on exit.
-- **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, CD, Master. Persisted via [CONFIG.md](CONFIG.md).
+- **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `text.hqr` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
+- **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
+- **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `text.hqr` immediately; voice changes update the active `LanguageCD` setting.
+- **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, video playback size, window fullscreen mode, and subtitle display; includes the existing Detail Level slider.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
 
@@ -74,16 +82,17 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - `U16 *ptrmenu`: `[selected, nb_entries, y_center, dia_num, (type, text_id)*]`
 - `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP (lines 1591, 1661)
 - Text IDs from `text.hqr` / dialogue system (`GetMultiText`)
-- **Type** in each entry: 0 = plain text, 2–6 = volume sliders (Sample/Voice/Music/CD/Master), 7 = Detail Level slider
+- **Type** in each entry: 0 = plain text/toggle, 2–6 = volume sliders, 7 = Detail Level slider, 8 = text language cycle, 9 = voice language cycle
 
 ## Implementation notes
 
 - **Plasma background**: A hallmark of LBA1 and LBA2 menus. `InitPlasmaMenu()` (ANIMTEX.CPP) sets up an animated plasma texture; `DrawFireBar` / `DrawFire` render textured bars (selection highlight, sliders, input fields). The effect is plasma (not the separate fire algorithm); `SelectPlasmaBank(12)` for selection, `SelectPlasmaBank(4)` for sliders.
 - **Save screenshot**: Generated at save time in `SaveGame()` (SAVEGAME.CPP); shown via `LoadGameScreen()` and `DrawScreenSave()`. See [SAVEGAME.md](SAVEGAME.md) for the full flow.
 - **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down). After ~50 min idle (or Shift+D), `SlideShow()` runs; returns `9999` to trigger credits.
-- **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and Master sliders play random SFX preview when focused.
+- **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and General volume sliders play random SFX preview when focused.
 - **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 210) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
-- **Options entry count**: `GameOptionMenu[1]` is 7 or 8 depending on `FlagSpeak` (Display Text hidden when no voice support).
+- **Localized custom labels**: The reworked Options tree now reuses original `text.hqr` labels for Sound volume, General volume, stereo, camera, video size, and subtitle toggles. Only the new submenu headings and the display-fullscreen toggle still use in-code translations.
+- **Options entry count**: `GameOptionMenu[1]` is now fixed at 5 for the top-level Options submenu.
 
 ## Limitations
 

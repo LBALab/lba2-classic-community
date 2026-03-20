@@ -14,6 +14,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
+#include <SYSTEM/WINDOW.H>
 
 #ifdef DEBUG_TOOLS
 static inline U32 DosAvailableMem(void) { return 0; }
@@ -1734,6 +1735,13 @@ void ReadConfigFile(void) {
     if (VideoFullScreen < 0 OR VideoFullScreen > 1)
         VideoFullScreen = TRUE;
 
+    DisplayFullScreen = DefFileBufferReadValueDefault("DisplayFullScreen", FALSE);
+
+    if (DisplayFullScreen < 0 OR DisplayFullScreen > 1)
+        DisplayFullScreen = FALSE;
+
+    SetWindowFullscreen(DisplayFullScreen != FALSE);
+
     ptr = DefFileBufferReadStringDefault("FlagDisplayText", "ON");
 
     if (ptr AND !strcasecmp(ptr, "OFF"))
@@ -1752,6 +1760,11 @@ void WriteConfigFile(void) {
     WriteInputConfig();    // Sauve Config Clavier dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
+    DefFileBufferWriteString("Language", GetLanguageName(Language));
+#ifdef CDROM
+    DefFileBufferWriteString("LanguageCD", GetLanguageName(LanguageCD));
+#endif
+
     DefFileBufferWriteString("LastSave", PlayerName);
 
     DefFileBufferWriteValue("Shadow", Shadow);
@@ -1759,6 +1772,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
+    DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
 
     if (FlagDisplayText)
         DefFileBufferWriteString("FlagDisplayText", "ON");
