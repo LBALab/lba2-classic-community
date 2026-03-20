@@ -82,7 +82,7 @@ exists in both `.ASM` and `.CPP` form.
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
-| [x] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM ≡ CPP: fixed pixel offset, line stride, TextPaper support, Font8x8 patches (chars 0xC6, 0xE4), and 100 deterministic random string/position/ink/paper rounds |
+| [x] | `SVGA/AFFSTR.ASM` | `SVGA/AFFSTR.CPP` | `AffString` | Display string at screen position | ASM ≡ CPP: fixed single-glyph exact coverage (including the `A` glyph's 28-pixel footprint), pixel offset, line stride, TextPaper support, Font8x8 patches (chars 0xC6, 0xE4), and 100 deterministic random string/position/ink/paper rounds |
 | [x] | `SVGA/BLITBOXF.ASM` | `SVGA/BLITBOXF.CPP` | `BlitBoxF` | Fast blit rectangular region with transparency | Implemented the missing C++ port in `LIB386/SVGA/BLITBOXF.CPP` and added strict full-buffer ASM-vs-CPP tests in `tests/SVGA/test_blitboxf.cpp`, covering fixed cases plus 100 deterministic random source/destination contents. The CPP port must match the ASM’s x87 `fld`/`fstp` transfer semantics for each 8-byte chunk, not a raw byte `memcpy`. |
 | [x] | `SVGA/BOX.ASM` | `SVGA/BOX.CPP` | `Box` | Draw rectangle outline with clipping | `tests/SVGA/test_box.cpp` now uses strict whole-framebuffer ASM-vs-CPP comparisons over fixed and deterministic random rectangles and clip windows. |
 | [x] | `SVGA/CALCMASK.ASM` | `SVGA/CALCMASK.CPP` | `CalcGraphMsk` | Calculate graphical mask | ASM ≡ CPP: synthetic brick + 300-round random stress test |

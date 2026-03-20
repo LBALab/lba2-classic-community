@@ -151,6 +151,10 @@ For each listed ASM/CPP pair:
 - Completed: `SizeFont`
   - Deepened the deterministic synthetic-bank ASM-vs-CPP string sweep to 100
     cases while keeping the fixed width/space cases intact.
+- Completed: `AffString`
+  - Replaced the remaining weak single-glyph sanity check with strict ASM-vs-CPP
+    framebuffer equivalence for a single `A`, plus the exact 28-pixel glyph
+    footprint from the embedded `Font8x8` data.
 - Completed: `ScaleSprite`
   - Replaced the placeholder and min/max-only checks with strict 1:1
     framebuffer and `ScreenX/Y` bounds equivalence for minimal, hotspot,
