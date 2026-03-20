@@ -1576,6 +1576,12 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 233;
     if (strcmp(label, "ObjectDisplay visible render") == 0)
         return 233;
+    if (strcmp(label, "ObjectDisplay line render") == 0)
+        return 32;
+    if (strcmp(label, "ObjectDisplay sphere render") == 0)
+        return 136;
+    if (strcmp(label, "ObjectDisplay sphere transparent render") == 0)
+        return 136;
     return -1;
 }
 
