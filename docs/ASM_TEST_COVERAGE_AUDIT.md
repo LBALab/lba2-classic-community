@@ -324,6 +324,12 @@ For each listed ASM/CPP pair:
     report exact deterministic parity: integer division round/trunc, slope
     round/trunc, interpolation, mul-add, mul-sub, dot3, perspective UV, and
     reciprocal-mul-256 now all require their exact `500/500` match counts.
+- Completed: deterministic reciprocal-mul precision-gap assertion in
+  `tests/fpu_precision/test_fpu_precision.cpp`
+  - Tightened `test_reciprocal_mul` so it now asserts the exact current
+    deterministic match counts: `float+lrintf` matches the ASM in `499/500`
+    rounds, while the `double`, `long double`, `volatile long double`, and
+    staged long-double variants all match in `500/500` rounds.
 
 ### Next Candidates
 
