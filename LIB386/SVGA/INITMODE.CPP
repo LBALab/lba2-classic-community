@@ -14,32 +14,32 @@ extern "C" {
 
 // --- Initialization ----------------------------------------------------------
 bool InitGraphics(U32 resX, U32 resY) {
-  if (resY > ADELINE_MAX_Y_RES) {
-    return false;
-  }
+    if (resY > ADELINE_MAX_Y_RES) {
+        return false;
+    }
 
-  LogPrintf("\nDesired resolution: %i*%i\n", resX, resY);
+    LogPrintf("\nDesired resolution: %i*%i\n", resX, resY);
 
-  if (!CreateWindowSurface(resX, resY)) {
-    return false;
-  }
+    if (!CreateWindowSurface(resX, resY)) {
+        return false;
+    }
 
-  if (!CreateVideoSurface(resX, resY)) {
-    return false;
-  }
+    if (!CreateVideoSurface(resX, resY)) {
+        return false;
+    }
 
-  if (!CreateScreenMemory(resX, resY)) {
-    return false;
-  }
+    if (!CreateScreenMemory(resX, resY)) {
+        return false;
+    }
 
-  SetClipWindow(0, 0, resX - 1, resY - 1);
-  SetClip(0, 0, resX - 1, resY - 1);
+    SetClipWindow(0, 0, resX - 1, resY - 1);
+    SetClip(0, 0, resX - 1, resY - 1);
 
-  return true;
+    return true;
 }
 
 void EndGraphics() {
-  // Empty
+    // Empty
 }
 
 // =============================================================================

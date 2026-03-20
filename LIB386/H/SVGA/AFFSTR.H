@@ -19,11 +19,11 @@ extern void AffString(S32 x, S32 y, char *str);
 void AffStringToBuffer(U8 *dst, U32 pitch, S32 x, S32 y, const char *str, U8 ink);
 
 // -----------------------------------------------------------------------------
-#define CoulText(ink, paper)                                                   \
-  {                                                                            \
-    TextInk = (U8)(ink);                                                       \
-    TextPaper = (U8)(paper);                                                   \
-  }
+#define CoulText(ink, paper)     \
+    {                            \
+        TextInk = (U8)(ink);     \
+        TextPaper = (U8)(paper); \
+    }
 
 // =============================================================================
 #ifdef __cplusplus

@@ -22,27 +22,23 @@ static void call_asm_ProjectList3DF(TYPE_PT *d, TYPE_VT16 *s, S32 n, S32 ox, S32
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void reset_screen_bounds(void)
-{
+static void reset_screen_bounds(void) {
     ScreenXMin = 32767;
     ScreenXMax = -32767;
     ScreenYMin = 32767;
     ScreenYMax = -32767;
 }
 
-static void assert_project_list_case(const char *label, TYPE_VT16 *src, S32 n, S32 ox, S32 oy, S32 oz)
-{
+static void assert_project_list_case(const char *label, TYPE_VT16 *src, S32 n, S32 ox, S32 oy, S32 oz) {
     TYPE_PT cpp_dst[8];
     TYPE_PT asm_dst[8];
 
@@ -78,8 +74,7 @@ static void assert_project_list_case(const char *label, TYPE_VT16 *src, S32 n, S
     ASSERT_ASM_CPP_EQ_INT(Z0, cpp_z0, label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     struct {
         S32 xcentre, ycentre, near_clip, ratio_x, ratio_y;
         S32 ox, oy, oz;
@@ -108,8 +103,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
     for (int i = 0; i < 200; i++) {
@@ -137,8 +131,7 @@ static void test_random_equivalence(void)
     }
 }
 
-static void test_zero_count_preserves_bounds(void)
-{
+static void test_zero_count_preserves_bounds(void) {
     TYPE_VT16 src[1] = {{1, 2, 3, 0}};
 
     SetProjection(320, 240, 1, 300, 300);
@@ -164,8 +157,7 @@ static void test_zero_count_preserves_bounds(void)
     ASSERT_ASM_CPP_EQ_INT(ScreenYMax, cpp_ymax, "ProjectList3DF zero-count YMax");
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     RUN_TEST(test_zero_count_preserves_bounds);

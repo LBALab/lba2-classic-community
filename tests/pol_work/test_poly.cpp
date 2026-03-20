@@ -74,13 +74,14 @@ extern "C" U32 Fill_Fog_Factor;
 extern "C" U32 Fill_Type;
 
 /* F_256: ASM REAL4 constant needed by TextureZ perspective code in POLYTZF.ASM */
-extern "C" { float F_256 = 256.0f; }
+extern "C" {
+float F_256 = 256.0f;
+}
 
 /* INV64 is not in POLY.ASM (it was likely a compiler intrinsic or
  * inline in the original Watcom build).  Replicate the exact x86
  * instruction sequence: xor eax,eax / mov edx,1 / idiv <a>. */
-static S32 asm_INV64(S32 a)
-{
+static S32 asm_INV64(S32 a) {
     S32 result;
     __asm__ __volatile__(
         "xorl %%eax, %%eax\n\t"
@@ -88,20 +89,17 @@ static S32 asm_INV64(S32 a)
         "idivl %[divisor]"
         : "=a"(result)
         : [divisor] "rm"(a)
-        : "edx"
-    );
+        : "edx");
     return result;
 }
 
 /* Inline wrapper for Switch_Fillers_ASM (Bank in EAX). */
-static void call_asm_Switch_Fillers(U32 bank)
-{
+static void call_asm_Switch_Fillers(U32 bank) {
     __asm__ __volatile__(
         "call asm_Switch_Fillers_ASM\n"
         :
         : "a"(bank)
-        : "memory", "cc"
-    );
+        : "memory", "cc");
 }
 
 /* Fill_PolyClip's epilogue does: pop esi / pop ecx / pop ebp / ret.
@@ -109,42 +107,37 @@ static void call_asm_Switch_Fillers(U32 bank)
  * that Fill_PolyFast pushes.  For standalone calls we mimic that
  * stack layout: push return_addr (for ret), push ebp (for pop ebp),
  * then jmp.  */
-static S32 call_asm_Fill_PolyClip(S32 nb_pts, Struc_Point *pts)
-{
+static S32 call_asm_Fill_PolyClip(S32 nb_pts, Struc_Point *pts) {
     S32 result;
     __asm__ __volatile__(
-        "push %%ebp\n\t"              /* save caller ebp                 */
-        "pushl $1f\n\t"               /* return address for ret          */
-        "push %%ebp\n\t"              /* dummy for pop ebp in epilogue   */
+        "push %%ebp\n\t" /* save caller ebp                 */
+        "pushl $1f\n\t"  /* return address for ret          */
+        "push %%ebp\n\t" /* dummy for pop ebp in epilogue   */
         "jmp  asm_Fill_PolyClip\n\t"
         "1:\n\t"
-        "pop  %%ebp\n\t"              /* restore caller ebp              */
+        "pop  %%ebp\n\t" /* restore caller ebp              */
         : "=a"(result)
         : "c"(nb_pts), "S"(pts)
-        : "edi", "ebx", "edx", "memory", "cc"
-    );
+        : "edi", "ebx", "edx", "memory", "cc");
     return result;
 }
 
 /* Fill_Sphere: ESI=Type, EDX=Color, EAX=CentreX, EBX=CentreY,
  *              ECX=Rayon, EDI=zBufValue. */
 static void call_asm_Fill_Sphere(S32 type, S32 color,
-                                  S32 cx, S32 cy, S32 r, S32 zbuf)
-{
+                                 S32 cx, S32 cy, S32 r, S32 zbuf) {
     __asm__ __volatile__(
         "push %%ebp\n\t"
         "call asm_Fill_Sphere\n\t"
         "pop  %%ebp"
         :
         : "S"(type), "d"(color), "a"(cx), "b"(cy), "c"(r), "D"(zbuf)
-        : "memory", "cc"
-    );
+        : "memory", "cc");
 }
 
 /* Line_A: EAX=x0, EBX=y0, ECX=x1, EDX=y1, EBP=color.
  * Z params (EDI/ESI) only used by zbuffer paths; we test non-zbuffer. */
-static void call_asm_Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
-{
+static void call_asm_Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col) {
     __asm__ __volatile__(
         "push %%ebp\n\t"
         "movl %4, %%ebp\n\t"
@@ -152,45 +145,39 @@ static void call_asm_Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col)
         "pop  %%ebp"
         :
         : "a"(x0), "b"(y0), "c"(x1), "d"(y1), "m"(col)
-        : "esi", "edi", "memory", "cc"
-    );
+        : "esi", "edi", "memory", "cc");
 }
 
 /* ── INV64 ─────────────────────────────────────────────────────── */
 
-static void test_inv64_positive(void)
-{
+static void test_inv64_positive(void) {
     /* INV64(a) = (1<<32) / a — integer reciprocal for 16.16 fixed point */
     S32 r = INV64(65536);
     ASSERT_EQ_INT(65536, r);
 }
 
-static void test_inv64_small(void)
-{
+static void test_inv64_small(void) {
     S32 r = INV64(1);
     /* 2^32 / 1 wraps to 0 in 32-bit signed — expected behavior */
     (void)r; /* just confirm it doesn't crash */
     ASSERT_TRUE(1);
 }
 
-static void test_inv64_negative(void)
-{
+static void test_inv64_negative(void) {
     S32 r = INV64(-65536);
     ASSERT_EQ_INT(-65536, r);
 }
 
 /* ── SetFog ────────────────────────────────────────────────────── */
 
-static void test_setfog_basic(void)
-{
+static void test_setfog_basic(void) {
     SetFog(100, 1000);
     ASSERT_EQ_INT(100, Fill_Z_Fog_Near);
     ASSERT_EQ_INT(1000, Fill_Z_Fog_Far);
     ASSERT_TRUE(Fill_ZBuffer_Factor > 0);
 }
 
-static void test_setfog_zero_far(void)
-{
+static void test_setfog_zero_far(void) {
     /* z_far=0 should be clamped to 1 to avoid division by zero */
     SetFog(0, 0);
     ASSERT_EQ_INT(1, Fill_Z_Fog_Far);
@@ -198,8 +185,7 @@ static void test_setfog_zero_far(void)
     ASSERT_TRUE(1);
 }
 
-static void test_setfog_large_range(void)
-{
+static void test_setfog_large_range(void) {
     SetFog(0, 65535);
     ASSERT_EQ_INT(0, Fill_Z_Fog_Near);
     ASSERT_EQ_INT(65535, Fill_Z_Fog_Far);
@@ -208,31 +194,27 @@ static void test_setfog_large_range(void)
 
 /* ── Switch_Fillers ────────────────────────────────────────────── */
 
-static void test_switch_normal(void)
-{
+static void test_switch_normal(void) {
     Switch_Fillers(FILL_POLY_NO_TEXTURES);
     ASSERT_EQ_UINT(FALSE, Fill_Flag_Fog);
     ASSERT_EQ_UINT(FALSE, Fill_Flag_ZBuffer);
     ASSERT_EQ_UINT(FALSE, Fill_Flag_NZW);
 }
 
-static void test_switch_fog(void)
-{
+static void test_switch_fog(void) {
     Switch_Fillers(FILL_POLY_FOG);
     ASSERT_EQ_UINT(TRUE, Fill_Flag_Fog);
     ASSERT_EQ_UINT(FALSE, Fill_Flag_ZBuffer);
 }
 
-static void test_switch_zbuffer(void)
-{
+static void test_switch_zbuffer(void) {
     Switch_Fillers(FILL_POLY_ZBUFFER);
     ASSERT_EQ_UINT(FALSE, Fill_Flag_Fog);
     ASSERT_EQ_UINT(TRUE, Fill_Flag_ZBuffer);
     ASSERT_EQ_UINT(FALSE, Fill_Flag_NZW);
 }
 
-static void test_switch_nzw(void)
-{
+static void test_switch_nzw(void) {
     Switch_Fillers(FILL_POLY_NZW);
     ASSERT_EQ_UINT(TRUE, Fill_Flag_ZBuffer);
     ASSERT_EQ_UINT(TRUE, Fill_Flag_NZW);
@@ -240,9 +222,8 @@ static void test_switch_nzw(void)
 
 /* ── SetScreenPitch ────────────────────────────────────────────── */
 
-static void test_set_screen_pitch(void)
-{
-    U32 tab[2] = { 0, 320 };
+static void test_set_screen_pitch(void) {
+    U32 tab[2] = {0, 320};
     SetScreenPitch(tab);
     ASSERT_EQ_UINT(320, ScreenPitch);
     ASSERT_TRUE(PTR_TabOffLine == tab);
@@ -250,8 +231,7 @@ static void test_set_screen_pitch(void)
 
 /* ── Fill_Poly integration with quad (4 points) ─────────────────── */
 
-static void test_fill_poly_quad(void)
-{
+static void test_fill_poly_quad(void) {
     setup_polygon_screen();
     Struc_Point pts[4];
     pts[0] = make_point(20, 20);
@@ -265,8 +245,7 @@ static void test_fill_poly_quad(void)
 
 /* ── Randomized stress: random triangles with random types ──────── */
 
-static void test_fill_poly_random_types(void)
-{
+static void test_fill_poly_random_types(void) {
     poly_rng_seed(0xCAFEBABE);
     for (int i = 0; i < 300; i++) {
         setup_polygon_screen();
@@ -293,17 +272,16 @@ static void test_fill_poly_random_types(void)
 
 /* ── INV64: 300-round ASM-vs-CPP random stress ──────────────────── */
 
-static void test_asm_random_inv64(void)
-{
+static void test_asm_random_inv64(void) {
     poly_rng_seed(0x1234ABCD);
     int rounds = 0;
     while (rounds < 300) {
         /* Generate a full 32-bit random value (both positive and negative) */
-        S32 a = (S32)((poly_rng_next() << 17) | (poly_rng_next() << 2)
-                      | (poly_rng_next() & 0x3));
+        S32 a = (S32)((poly_rng_next() << 17) | (poly_rng_next() << 2) | (poly_rng_next() & 0x3));
         /* Avoid values that cause x86 idiv #DE overflow:
          * a == 0 (div-by-zero), |a| <= 2 (quotient > INT32_MAX). */
-        if (a >= -2 && a <= 2) continue;
+        if (a >= -2 && a <= 2)
+            continue;
 
         S32 cpp_result = INV64(a);
         S32 asm_result = asm_INV64(a);
@@ -317,40 +295,38 @@ static void test_asm_random_inv64(void)
 
 /* ── SetFog: 300-round ASM-vs-CPP random stress ─────────────────── */
 
-static void test_asm_random_setfog(void)
-{
+static void test_asm_random_setfog(void) {
     poly_rng_seed(0xF0600000);
     for (int i = 0; i < 300; i++) {
         S32 z_near = (S32)(poly_rng_next() % 10000);
-        S32 z_far  = (S32)(poly_rng_next() % 50000) + 2; /* >= 2: avoid overflow */
+        S32 z_far = (S32)(poly_rng_next() % 50000) + 2; /* >= 2: avoid overflow */
 
         /* CPP */
         SetFog(z_near, z_far);
         S32 cpp_near = Fill_Z_Fog_Near;
-        S32 cpp_far  = Fill_Z_Fog_Far;
-        U32 cpp_zbf  = Fill_ZBuffer_Factor;
-        U32 cpp_sfn  = Fill_ScaledFogNear;
-        U32 cpp_ff   = Fill_Fog_Factor;
+        S32 cpp_far = Fill_Z_Fog_Far;
+        U32 cpp_zbf = Fill_ZBuffer_Factor;
+        U32 cpp_sfn = Fill_ScaledFogNear;
+        U32 cpp_ff = Fill_Fog_Factor;
 
         /* ASM */
         asm_SetFog(z_near, z_far);
 
         char msg[128];
         snprintf(msg, sizeof(msg), "SetFog(%d,%d) #%d", z_near, z_far, i);
-        ASSERT_ASM_CPP_EQ_INT(Fill_Z_Fog_Near,       cpp_near, msg);
-        ASSERT_ASM_CPP_EQ_INT(Fill_Z_Fog_Far,        cpp_far,  msg);
+        ASSERT_ASM_CPP_EQ_INT(Fill_Z_Fog_Near, cpp_near, msg);
+        ASSERT_ASM_CPP_EQ_INT(Fill_Z_Fog_Far, cpp_far, msg);
         ASSERT_ASM_CPP_EQ_INT((S32)Fill_ZBuffer_Factor, (S32)cpp_zbf, msg);
-        ASSERT_ASM_CPP_EQ_INT((S32)Fill_ScaledFogNear,  (S32)cpp_sfn, msg);
-        ASSERT_ASM_CPP_EQ_INT((S32)Fill_Fog_Factor,     (S32)cpp_ff,  msg);
+        ASSERT_ASM_CPP_EQ_INT((S32)Fill_ScaledFogNear, (S32)cpp_sfn, msg);
+        ASSERT_ASM_CPP_EQ_INT((S32)Fill_Fog_Factor, (S32)cpp_ff, msg);
     }
 }
 
 /* ── SetCLUT: 300-round ASM-vs-CPP random stress ────────────────── */
 
-static U8 g_fake_clut[65536];  /* 256 rows × 256 cols */
+static U8 g_fake_clut[65536]; /* 256 rows × 256 cols */
 
-static void test_asm_random_setclut(void)
-{
+static void test_asm_random_setclut(void) {
     /* Initialize fake CLUT with a known pattern */
     for (int i = 0; i < 65536; i++)
         g_fake_clut[i] = (U8)(i & 0xFF);
@@ -361,15 +337,15 @@ static void test_asm_random_setclut(void)
         U32 line = poly_rng_next() % 256;
 
         /* CPP */
-        PtrTruePal = NULL;  /* force update, bypass early-exit check */
+        PtrTruePal = NULL; /* force update, bypass early-exit check */
         SetCLUT(line);
-        PTR_U8 cpp_truePal     = PtrTruePal;
+        PTR_U8 cpp_truePal = PtrTruePal;
         PTR_U8 cpp_clutGouraud = PtrCLUTGouraud;
         U8 cpp_palette[256];
         memcpy(cpp_palette, Fill_Logical_Palette, 256);
 
         /* ASM */
-        PtrTruePal = NULL;  /* force update */
+        PtrTruePal = NULL; /* force update */
         asm_SetCLUT(line);
 
         char msg[128];
@@ -384,26 +360,25 @@ static void test_asm_random_setclut(void)
 
 /* ── Switch_Fillers: 300-round ASM-vs-CPP random stress ──────────── */
 
-static void test_asm_random_switch_fillers(void)
-{
+static void test_asm_random_switch_fillers(void) {
     poly_rng_seed(0x5F110000);
     for (int i = 0; i < 300; i++) {
         U32 bank = poly_rng_next() % 8;
 
         /* CPP */
         Switch_Fillers(bank);
-        U8 cpp_fog  = Fill_Flag_Fog;
+        U8 cpp_fog = Fill_Flag_Fog;
         U8 cpp_zbuf = Fill_Flag_ZBuffer;
-        U8 cpp_nzw  = Fill_Flag_NZW;
+        U8 cpp_nzw = Fill_Flag_NZW;
 
         /* ASM */
         call_asm_Switch_Fillers(bank);
 
         char msg[128];
         snprintf(msg, sizeof(msg), "Switch_Fillers(%u) #%d", bank, i);
-        ASSERT_ASM_CPP_EQ_INT(Fill_Flag_Fog,     cpp_fog,  msg);
-        ASSERT_ASM_CPP_EQ_INT(Fill_Flag_ZBuffer,  cpp_zbuf, msg);
-        ASSERT_ASM_CPP_EQ_INT(Fill_Flag_NZW,      cpp_nzw,  msg);
+        ASSERT_ASM_CPP_EQ_INT(Fill_Flag_Fog, cpp_fog, msg);
+        ASSERT_ASM_CPP_EQ_INT(Fill_Flag_ZBuffer, cpp_zbuf, msg);
+        ASSERT_ASM_CPP_EQ_INT(Fill_Flag_NZW, cpp_nzw, msg);
     }
 }
 
@@ -434,8 +409,7 @@ static U8 poly_asm_buf[TEST_POLY_SIZE];
  * tail-call chain (jmp Triangle_ReadNextEdge) runs on every
  * scanline strip.                                                     */
 
-static void test_asm_random_fill_polyclip(void)
-{
+static void test_asm_random_fill_polyclip(void) {
     poly_rng_seed(0xC110DEAD);
     for (int i = 0; i < 300; i++) {
         Struc_Point pts[3];
@@ -469,19 +443,18 @@ static void test_asm_random_fill_polyclip(void)
         char msg[128];
         snprintf(msg, sizeof(msg), "Fill_PolyClip #%d", i);
         ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
-                               TEST_POLY_SIZE, msg);
+                              TEST_POLY_SIZE, msg);
     }
 }
 
 /* ── Fill_Sphere: 300-round ASM-vs-CPP ──────────────────────────── */
 
-static void test_asm_random_fill_sphere(void)
-{
+static void test_asm_random_fill_sphere(void) {
     poly_rng_seed(0x5E4E1E42);
     for (int i = 0; i < 300; i++) {
         S32 cx = (S32)(poly_rng_next() % (TEST_POLY_W + 60)) - 30;
         S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
-        S32 r  = (S32)(poly_rng_next() % 40);
+        S32 r = (S32)(poly_rng_next() % 40);
         S32 color = (S32)(poly_rng_next() & 0xFE) | 1;
 
         setup_polygon_screen();
@@ -497,14 +470,13 @@ static void test_asm_random_fill_sphere(void)
                  "Fill_Sphere #%d cx=%d cy=%d r=%d col=%d",
                  i, cx, cy, r, color);
         ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
-                               TEST_POLY_SIZE, msg);
+                              TEST_POLY_SIZE, msg);
     }
 }
 
 /* ── Line_A: 300-round ASM-vs-CPP (non-zbuffer mode) ────────────── */
 
-static void test_asm_random_line_a(void)
-{
+static void test_asm_random_line_a(void) {
     poly_rng_seed(0x11AEBEEF);
     for (int i = 0; i < 300; i++) {
         S32 x0 = (S32)(poly_rng_next() % (TEST_POLY_W + 40)) - 20;
@@ -512,7 +484,8 @@ static void test_asm_random_line_a(void)
         S32 x1 = (S32)(poly_rng_next() % (TEST_POLY_W + 40)) - 20;
         S32 y1 = (S32)(poly_rng_next() % (TEST_POLY_H + 40)) - 20;
         S32 col = (S32)(poly_rng_next() & 0xFF);
-        if (col == 0) col = 1;
+        if (col == 0)
+            col = 1;
 
         setup_polygon_screen();
         Line_A(x0, y0, x1, y1, col, 0, 0);
@@ -527,7 +500,7 @@ static void test_asm_random_line_a(void)
                  "Line_A #%d (%d,%d)-(%d,%d) col=%d",
                  i, x0, y0, x1, y1, col);
         ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
-                               TEST_POLY_SIZE, msg);
+                              TEST_POLY_SIZE, msg);
     }
 }
 
@@ -557,8 +530,7 @@ extern "C" S32 Calc_TextureZGouraudLeftSlopeFPU(U32 fillType, S32 diffX, S32 dif
 extern "C" S32 Calc_TextureZLeftSlopeZBufFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 extern "C" S32 Calc_LeftSlopeZBufferFPU(U32 fillType, S32 diffX, S32 diffY, Struc_Point *PtA, Struc_Point *PtB);
 
-static Struc_Point make_texz_point(S16 x, S16 y, U16 u, U16 v, S32 w, U16 light, U16 zo)
-{
+static Struc_Point make_texz_point(S16 x, S16 y, U16 u, U16 v, S32 w, U16 light, U16 zo) {
     Struc_Point p;
     memset(&p, 0, sizeof(p));
     p.Pt_XE = x;
@@ -576,8 +548,7 @@ static Struc_Point make_texz_point(S16 x, S16 y, U16 u, U16 v, S32 w, U16 light,
  * any filler.  Fill_CurY must equal the exit-point Y so that
  * Test_Scan gets diffY==0 and recurses into Triangle_ReadNextEdge,
  * which finds a point with lower Y and returns immediately. */
-static void setup_slope_test_state(S16 exitY)
-{
+static void setup_slope_test_state(S16 exitY) {
     setup_polygon_screen();
     setup_filler_exit(exitY);
     Fill_CurY = exitY;
@@ -587,8 +558,7 @@ static void setup_slope_test_state(S16 exitY)
     Fill_Filler = NULL;
 }
 
-static void test_texturez_xslope(void)
-{
+static void test_texturez_xslope(void) {
     poly_rng_seed(0xDEADBEEF);
 
     for (int i = 0; i < 300; i++) {
@@ -599,8 +569,10 @@ static void test_texturez_xslope(void)
         S16 xC = (S16)(poly_rng_next() % TEST_POLY_W);
         S16 yC = (S16)(poly_rng_next() % TEST_POLY_H);
 
-        if (yA == yB && yB == yC) yC = (S16)((yC + 5) % TEST_POLY_H);
-        if (yA == yB) yB = (S16)((yB + 3) % TEST_POLY_H);
+        if (yA == yB && yB == yC)
+            yC = (S16)((yC + 5) % TEST_POLY_H);
+        if (yA == yB)
+            yB = (S16)((yB + 3) % TEST_POLY_H);
 
         U16 uA = (U16)(poly_rng_next() & 0xFF);
         U16 vA = (U16)(poly_rng_next() & 0xFF);
@@ -620,9 +592,9 @@ static void test_texturez_xslope(void)
         /* Compute denominator as Draw_Triangle does */
         double yb_ya = ptB.Pt_YE - ptA.Pt_YE;
         double yc_ya = ptC.Pt_YE - ptA.Pt_YE;
-        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE)
-                                       - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
-        if (raw_Denom == 0) continue;
+        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE) - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
+        if (raw_Denom == 0)
+            continue;
 
         YB_YA = yb_ya;
         YC_YA = yc_ya;
@@ -680,8 +652,7 @@ static void test_texturez_xslope(void)
     }
 }
 
-static void test_texturez_gouraud_xslope(void)
-{
+static void test_texturez_gouraud_xslope(void) {
     poly_rng_seed(0xCAFE1234);
 
     for (int i = 0; i < 300; i++) {
@@ -692,8 +663,10 @@ static void test_texturez_gouraud_xslope(void)
         S16 xC = (S16)(poly_rng_next() % TEST_POLY_W);
         S16 yC = (S16)(poly_rng_next() % TEST_POLY_H);
 
-        if (yA == yB && yB == yC) yC = (S16)((yC + 5) % TEST_POLY_H);
-        if (yA == yB) yB = (S16)((yB + 3) % TEST_POLY_H);
+        if (yA == yB && yB == yC)
+            yC = (S16)((yC + 5) % TEST_POLY_H);
+        if (yA == yB)
+            yB = (S16)((yB + 3) % TEST_POLY_H);
 
         U16 uA = (U16)(poly_rng_next() & 0xFF);
         U16 vA = (U16)(poly_rng_next() & 0xFF);
@@ -716,9 +689,9 @@ static void test_texturez_gouraud_xslope(void)
 
         double yb_ya = ptB.Pt_YE - ptA.Pt_YE;
         double yc_ya = ptC.Pt_YE - ptA.Pt_YE;
-        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE)
-                                       - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
-        if (raw_Denom == 0) continue;
+        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE) - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
+        if (raw_Denom == 0)
+            continue;
 
         YB_YA = yb_ya;
         YC_YA = yc_ya;
@@ -782,8 +755,7 @@ static void test_texturez_gouraud_xslope(void)
     }
 }
 
-static void test_texturez_xslope_zbuf(void)
-{
+static void test_texturez_xslope_zbuf(void) {
     poly_rng_seed(0xBEEF4567);
 
     for (int i = 0; i < 300; i++) {
@@ -794,8 +766,10 @@ static void test_texturez_xslope_zbuf(void)
         S16 xC = (S16)(poly_rng_next() % TEST_POLY_W);
         S16 yC = (S16)(poly_rng_next() % TEST_POLY_H);
 
-        if (yA == yB && yB == yC) yC = (S16)((yC + 5) % TEST_POLY_H);
-        if (yA == yB) yB = (S16)((yB + 3) % TEST_POLY_H);
+        if (yA == yB && yB == yC)
+            yC = (S16)((yC + 5) % TEST_POLY_H);
+        if (yA == yB)
+            yB = (S16)((yB + 3) % TEST_POLY_H);
 
         U16 uA = (U16)(poly_rng_next() & 0xFF);
         U16 vA = (U16)(poly_rng_next() & 0xFF);
@@ -818,9 +792,9 @@ static void test_texturez_xslope_zbuf(void)
 
         double yb_ya = ptB.Pt_YE - ptA.Pt_YE;
         double yc_ya = ptC.Pt_YE - ptA.Pt_YE;
-        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE)
-                                       - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
-        if (raw_Denom == 0) continue;
+        volatile long double raw_Denom = (long double)yb_ya * (long double)(ptC.Pt_XE - ptA.Pt_XE) - (long double)yc_ya * (long double)(ptB.Pt_XE - ptA.Pt_XE);
+        if (raw_Denom == 0)
+            continue;
 
         YB_YA = yb_ya;
         YC_YA = yc_ya;
@@ -881,8 +855,7 @@ static void test_texturez_xslope_zbuf(void)
     }
 }
 
-static void test_texturez_leftslope(void)
-{
+static void test_texturez_leftslope(void) {
     poly_rng_seed(0xABCD5678);
 
     for (int i = 0; i < 300; i++) {
@@ -904,7 +877,8 @@ static void test_texturez_leftslope(void)
 
         S32 diffX = (ptB.Pt_XE - ptA.Pt_XE) << 16;
         S32 diffY = ptB.Pt_YE - ptA.Pt_YE;
-        if (diffY <= 0) continue;
+        if (diffY <= 0)
+            continue;
 
         fesetround(FE_TOWARDZERO);
         RoundType = ROUND_TYPE_INT;
@@ -968,8 +942,7 @@ static void test_texturez_leftslope(void)
     }
 }
 
-static void test_texturez_gouraud_leftslope(void)
-{
+static void test_texturez_gouraud_leftslope(void) {
     poly_rng_seed(0x12349ABC);
 
     for (int i = 0; i < 300; i++) {
@@ -994,7 +967,8 @@ static void test_texturez_gouraud_leftslope(void)
 
         S32 diffX = (ptB.Pt_XE - ptA.Pt_XE) << 16;
         S32 diffY = ptB.Pt_YE - ptA.Pt_YE;
-        if (diffY <= 0) continue;
+        if (diffY <= 0)
+            continue;
 
         fesetround(FE_TOWARDZERO);
         RoundType = ROUND_TYPE_INT;
@@ -1073,8 +1047,7 @@ static void test_texturez_gouraud_leftslope(void)
     }
 }
 
-static void test_texturez_leftslope_zbuf(void)
-{
+static void test_texturez_leftslope_zbuf(void) {
     poly_rng_seed(0xFEDC9876);
 
     for (int i = 0; i < 300; i++) {
@@ -1099,7 +1072,8 @@ static void test_texturez_leftslope_zbuf(void)
 
         S32 diffX = (ptB.Pt_XE - ptA.Pt_XE) << 16;
         S32 diffY = ptB.Pt_YE - ptA.Pt_YE;
-        if (diffY <= 0) continue;
+        if (diffY <= 0)
+            continue;
 
         fesetround(FE_TOWARDZERO);
         RoundType = ROUND_TYPE_INT;
@@ -1194,8 +1168,7 @@ static void test_texturez_leftslope_zbuf(void)
  * clear, SetScreenPitch call, Fill_Type assignment, color masking,
  * and dispatch-table lookup — against the ASM clipper/filler chain. */
 
-static void test_asm_fill_poly_random(void)
-{
+static void test_asm_fill_poly_random(void) {
     /* Sanity: verify ASM jump table was linked and has a valid entry */
     ASSERT_TRUE(asm_Fill_N_Table_Jumps[0] != 0);
 
@@ -1231,7 +1204,7 @@ static void test_asm_fill_poly_random(void)
         char msg[128];
         snprintf(msg, sizeof(msg), "Fill_Poly #%d", i);
         ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
-                               TEST_POLY_SIZE, msg);
+                              TEST_POLY_SIZE, msg);
     }
 }
 
@@ -1273,8 +1246,7 @@ static RecFillerCall g_rec_calls[REC_MAX_CALLS];
 static U32 g_rec_count = 0;
 static Fill_Filler_Func g_rec_real_filler = NULL;
 
-static S32 recording_filler(U32 nbLines, U32 xmin, U32 xmax)
-{
+static S32 recording_filler(U32 nbLines, U32 xmin, U32 xmax) {
     if (g_rec_count < REC_MAX_CALLS) {
         RecFillerCall *c = &g_rec_calls[g_rec_count++];
         c->nbLines = nbLines;
@@ -1343,12 +1315,10 @@ __asm__(
     "  pushf\n"
     "  incl g_asm_rec_count\n"
     "  popf\n"
-    "  jmp *g_asm_real_filler_ptr\n"
-);
+    "  jmp *g_asm_real_filler_ptr\n");
 extern "C" void asm_recording_filler_entry(void);
 
-static void print_rec_calls(const char *label)
-{
+static void print_rec_calls(const char *label) {
     U32 count = 0;
     RecFillerCall *calls = NULL;
     if (label[0] == 'A') {
@@ -1376,8 +1346,7 @@ static void print_rec_calls(const char *label)
     }
 }
 
-static void setup_texz_fogzbuf(void)
-{
+static void setup_texz_fogzbuf(void) {
     setup_polygon_screen();
     /* Texture: synthetic 256×256 pattern, always non-zero */
     for (int y = 0; y < 256; y++)
@@ -1402,13 +1371,12 @@ static void setup_texz_fogzbuf(void)
 
 /* Game trace: real terrain quad scaled to fit 160×120 framebuffer.
  * Original: v0(8984,1052) v1(7114,799) v2(3090,355) v3(6989,1052) */
-static void test_asm_fill_polyclip_texz_trace(void)
-{
+static void test_asm_fill_polyclip_texz_trace(void) {
     Struc_Point pts[4];
-    pts[0] = make_texz_point(155, 110, 4823,  0,     1431178, 39839, 5509);
-    pts[1] = make_texz_point(122, 83,  0,      0,     1104672, 46716, 7137);
-    pts[2] = make_texz_point(53,  37,  0,      32767, 531686,  7,     14829);
-    pts[3] = make_texz_point(120, 110, 27602,  32767, 1431178, 25656, 5509);
+    pts[0] = make_texz_point(155, 110, 4823, 0, 1431178, 39839, 5509);
+    pts[1] = make_texz_point(122, 83, 0, 0, 1104672, 46716, 7137);
+    pts[2] = make_texz_point(53, 37, 0, 32767, 531686, 7, 14829);
+    pts[3] = make_texz_point(120, 110, 27602, 32767, 1431178, 25656, 5509);
 
     /* CPP path: record all filler calls.
      * Fill_PolyClip modifies pts[] in-place for quad decomposition,
@@ -1451,29 +1419,28 @@ static void test_asm_fill_polyclip_texz_trace(void)
     printf("# CPP: %u filler calls\n", g_rec_count);
 
     ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
-                           TEST_POLY_SIZE, "Fill_PolyClip texZ trace fb");
+                          TEST_POLY_SIZE, "Fill_PolyClip texZ trace fb");
     ASSERT_ASM_CPP_MEM_EQ((U8 *)poly_asm_zbuf, (U8 *)poly_cpp_zbuf,
-                           TEST_POLY_SIZE * (int)sizeof(U16),
-                           "Fill_PolyClip texZ trace zbuf");
+                          TEST_POLY_SIZE * (int)sizeof(U16),
+                          "Fill_PolyClip texZ trace zbuf");
 }
 
 /* 300-round random stress: random tri/quad with type 24 (TextureZFogZBuf) */
-static void test_asm_random_fill_polyclip_texz(void)
-{
+static void test_asm_random_fill_polyclip_texz(void) {
     poly_rng_seed(0xDE4D7E42);
     for (int i = 0; i < 300; i++) {
         int nv = (poly_rng_next() % 2) + 3; /* 3 or 4 vertices */
         Struc_Point pts[4];
         for (int v = 0; v < nv; v++) {
-            S16 x  = (S16)(poly_rng_next() % TEST_POLY_W);
-            S16 y  = (S16)(poly_rng_next() % TEST_POLY_H);
-            U16 u  = (U16)(poly_rng_next() & 0x7FFF);
+            S16 x = (S16)(poly_rng_next() % TEST_POLY_W);
+            S16 y = (S16)(poly_rng_next() % TEST_POLY_H);
+            U16 u = (U16)(poly_rng_next() & 0x7FFF);
             U16 mv = (U16)(poly_rng_next() & 0x7FFF);
             U16 light = (U16)((poly_rng_next() & 0x7FFF) |
                               ((poly_rng_next() & 1) << 15));
             U16 zo = (U16)((poly_rng_next() & 0x7FFF) |
                            ((poly_rng_next() & 1) << 15));
-            S32 w  = (S32)((poly_rng_next() << 7) + 0x1000);
+            S32 w = (S32)((poly_rng_next() << 7) + 0x1000);
             pts[v] = make_texz_point(x, y, u, mv, w, light, zo);
         }
 
@@ -1508,22 +1475,21 @@ static void test_asm_random_fill_polyclip_texz(void)
         char msg[128];
         snprintf(msg, sizeof(msg), "Fill_PolyClip texZ #%d nv=%d", i, nv);
         ASSERT_ASM_CPP_MEM_EQ(poly_asm_buf, poly_cpp_buf,
-                               TEST_POLY_SIZE, msg);
+                              TEST_POLY_SIZE, msg);
 
         snprintf(msg, sizeof(msg), "Fill_PolyClip texZ zbuf #%d", i);
         ASSERT_ASM_CPP_MEM_EQ((U8 *)poly_asm_zbuf, (U8 *)poly_cpp_zbuf,
-                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+                              TEST_POLY_SIZE * (int)sizeof(U16), msg);
     }
 }
 
 /* Test case: polyrec_0002 DC#3226 — exact ASM vs CPP slope comparison.
  * This DC (type=17, FogZBuf) showed UXS mismatch in polyrec bisect. */
-static void test_asm_polyrec_dc3226(void)
-{
+static void test_asm_polyrec_dc3226(void) {
     Struc_Point pts[4];
-    pts[0] = make_texz_point(0,   84, 43117, 22537, -48312, 0, 40799);
-    pts[1] = make_texz_point(42,  77, 29331, 22537, -46109, 0, 42748);
-    pts[2] = make_texz_point(31,  23, 29331, 45047, -47937, 0, 41118);
+    pts[0] = make_texz_point(0, 84, 43117, 22537, -48312, 0, 40799);
+    pts[1] = make_texz_point(42, 77, 29331, 22537, -46109, 0, 42748);
+    pts[2] = make_texz_point(31, 23, 29331, 45047, -47937, 0, 41118);
     pts[3] = make_texz_point(-14, 27, 43117, 45047, -50325, 0, 39167);
 
     Struc_Point saved_pts[4];
@@ -1538,7 +1504,7 @@ static void test_asm_polyrec_dc3226(void)
     S32 cpp_VXS = Fill_MapV_XSlope;
     S32 cpp_WXS = Fill_W_XSlope;
     S32 cpp_ZXS = Fill_ZBuf_XSlope;
-    S32 cpp_LS  = Fill_LeftSlope;
+    S32 cpp_LS = Fill_LeftSlope;
     S32 cpp_ULS = Fill_MapU_LeftSlope;
     S32 cpp_VLS = Fill_MapV_LeftSlope;
     S32 cpp_ZLS = Fill_ZBuf_LeftSlope;
@@ -1562,7 +1528,7 @@ static void test_asm_polyrec_dc3226(void)
     S32 asm_VXS = Fill_MapV_XSlope;
     S32 asm_WXS = Fill_W_XSlope;
     S32 asm_ZXS = Fill_ZBuf_XSlope;
-    S32 asm_LS  = Fill_LeftSlope;
+    S32 asm_LS = Fill_LeftSlope;
     S32 asm_ULS = Fill_MapU_LeftSlope;
     S32 asm_VLS = Fill_MapV_LeftSlope;
     S32 asm_ZLS = Fill_ZBuf_LeftSlope;
@@ -1592,8 +1558,7 @@ static void test_asm_polyrec_dc3226(void)
     ASSERT_ASM_CPP_EQ_INT(asm_ZLS, cpp_ZLS, "DC3226 Z_LeftSlope");
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_inv64_positive);
     RUN_TEST(test_inv64_small);
     RUN_TEST(test_inv64_negative);

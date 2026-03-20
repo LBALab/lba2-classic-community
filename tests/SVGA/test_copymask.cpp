@@ -13,46 +13,52 @@ static U8 framebuf[640 * 480];
 static U8 srcbuf[640 * 480];
 static U8 g_bank[128];
 
-static void setup_screen(void)
-{
+static void setup_screen(void) {
     memset(framebuf, 0, sizeof(framebuf));
     Log = framebuf;
-    ModeDesiredX = 640; ModeDesiredY = 480;
-    for (U32 i = 0; i < 480; i++) TabOffLine[i] = i * 640;
-    ClipXMin = 0; ClipYMin = 0; ClipXMax = 639; ClipYMax = 479;
+    ModeDesiredX = 640;
+    ModeDesiredY = 480;
+    for (U32 i = 0; i < 480; i++)
+        TabOffLine[i] = i * 640;
+    ClipXMin = 0;
+    ClipYMin = 0;
+    ClipXMax = 639;
+    ClipYMax = 479;
 }
 
-static void build_mask_bank(void)
-{
+static void build_mask_bank(void) {
     memset(g_bank, 0, sizeof(g_bank));
     U32 *offsets = (U32 *)g_bank;
     offsets[0] = 4;
     U8 *b = g_bank + 4;
-    b[0] = 4; b[1] = 1; b[2] = 0; b[3] = 0;
+    b[0] = 4;
+    b[1] = 1;
+    b[2] = 0;
+    b[3] = 0;
     /* Line 0: NbBlock=2 (1 skip/fill pair) */
     b[4] = 2;
-    b[5] = 0;  /* NbTransp */
-    b[6] = 4;  /* NbFill */
+    b[5] = 0; /* NbTransp */
+    b[6] = 4; /* NbFill */
 }
 
-static void test_cpp_basic(void)
-{
+static void test_cpp_basic(void) {
     build_mask_bank();
     setup_screen();
     /* Fill source with gradient */
-    for (int i = 0; i < 640 * 480; i++) srcbuf[i] = (U8)(i & 0xFF);
+    for (int i = 0; i < 640 * 480; i++)
+        srcbuf[i] = (U8)(i & 0xFF);
     CopyMask(0, 100, 100, g_bank, srcbuf);
     /* Pixels at (100,100)..(103,100) should be copied from source */
     ASSERT_EQ_UINT(srcbuf[100 * 640 + 100], framebuf[100 * 640 + 100]);
     ASSERT_EQ_UINT(srcbuf[100 * 640 + 103], framebuf[100 * 640 + 103]);
 }
 
-static void test_asm_equiv(void)
-{
+static void test_asm_equiv(void) {
     U8 cpp_buf[640 * 480];
     U8 asm_buf[640 * 480];
     build_mask_bank();
-    for (int i = 0; i < 640 * 480; i++) srcbuf[i] = (U8)(i * 7 & 0xFF);
+    for (int i = 0; i < 640 * 480; i++)
+        srcbuf[i] = (U8)(i * 7 & 0xFF);
 
     setup_screen();
     CopyMask(0, 50, 50, g_bank, srcbuf);
@@ -65,8 +71,7 @@ static void test_asm_equiv(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "CopyMask");
 }
 
-static void test_random_positions(void)
-{
+static void test_random_positions(void) {
     U8 cpp_buf[640 * 480];
     U8 asm_buf[640 * 480];
     U32 rng = 0xABCD5678;
@@ -78,7 +83,8 @@ static void test_random_positions(void)
         rng = rng * 1103515245u + 12345u;
         S32 my = (S32)((rng >> 16) % 460);
 
-        for (int j = 0; j < 640 * 480; j++) srcbuf[j] = (U8)((j * 13 + i) & 0xFF);
+        for (int j = 0; j < 640 * 480; j++)
+            srcbuf[j] = (U8)((j * 13 + i) & 0xFF);
 
         setup_screen();
         CopyMask(0, mx, my, g_bank, srcbuf);
@@ -94,8 +100,7 @@ static void test_random_positions(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_cpp_basic);
     RUN_TEST(test_asm_equiv);
     RUN_TEST(test_random_positions);

@@ -1,6 +1,6 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_FILEIO_LOADPCX
-#define	LIB_FILEIO_LOADPCX
+#ifndef LIB_FILEIO_LOADPCX
+#define LIB_FILEIO_LOADPCX
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -8,8 +8,8 @@ extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-extern void LoadPCX(	char *file_name, void *screen,
-			S32 *resx, S32 *resy, void *tabcol	)	;
+extern void LoadPCX(char *file_name, void *screen,
+                    S32 *resx, S32 *resy, void *tabcol);
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
@@ -17,6 +17,6 @@ extern void LoadPCX(	char *file_name, void *screen,
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_FILEIO_LOADPCX
+#endif //LIB_FILEIO_LOADPCX
 
 //──────────────────────────────────────────────────────────────────────────

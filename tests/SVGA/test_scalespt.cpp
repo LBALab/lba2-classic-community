@@ -18,19 +18,16 @@ static U8 g_cpp_framebuf[640 * 480];
 static U8 g_asm_framebuf[640 * 480];
 static U8 g_transp[256 * 256];
 
-static void rng_seed(U32 seed_value)
-{
+static void rng_seed(U32 seed_value) {
     rng_state = seed_value;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static U32 build_multi_bank(int count)
-{
+static U32 build_multi_bank(int count) {
     static const S8 hot_x_values[] = {0, 1, -1, 2, -2, 3, -3, 1};
     static const S8 hot_y_values[] = {0, -1, 1, -2, 2, -3, 3, 0};
 
@@ -38,8 +35,7 @@ static U32 build_multi_bank(int count)
 
     U32 *offsets = (U32 *)g_bank;
     U32 pos = (U32)(count * 4);
-    for (int index = 0; index < count; ++index)
-    {
+    for (int index = 0; index < count; ++index) {
         const U8 width = (U8)((index % 5) + 2);
         const U8 height = (U8)((index % 4) + 2);
         offsets[index] = pos;
@@ -49,13 +45,10 @@ static U32 build_multi_bank(int count)
         g_bank[pos + 3] = (U8)hot_y_values[index & 7];
 
         U8 *pixels = g_bank + pos + 4;
-        for (U8 y = 0; y < height; ++y)
-        {
-            for (U8 x = 0; x < width; ++x)
-            {
+        for (U8 y = 0; y < height; ++y) {
+            for (U8 x = 0; x < width; ++x) {
                 U8 value = (U8)((index * 17 + x * 5 + y * 11 + 1) & 0xFF);
-                if (((x + y + index) & 1) != 0)
-                {
+                if (((x + y + index) & 1) != 0) {
                     value = 0;
                 }
                 pixels[y * width + x] = value;
@@ -68,36 +61,28 @@ static U32 build_multi_bank(int count)
     return pos;
 }
 
-static void init_transp_table(void)
-{
-    for (U32 src = 0; src < 256; ++src)
-    {
-        for (U32 dst = 0; dst < 256; ++dst)
-        {
+static void init_transp_table(void) {
+    for (U32 src = 0; src < 256; ++src) {
+        for (U32 dst = 0; dst < 256; ++dst) {
             g_transp[(src << 8) | dst] = (U8)((src + (dst * 3) + 7) & 0xFF);
         }
     }
 }
 
-static void fill_background(U8 *buffer)
-{
-    for (U32 y = 0; y < 480; ++y)
-    {
-        for (U32 x = 0; x < 640; ++x)
-        {
+static void fill_background(U8 *buffer) {
+    for (U32 y = 0; y < 480; ++y) {
+        for (U32 x = 0; x < 640; ++x) {
             buffer[y * 640 + x] = (U8)((x * 3 + y * 5 + 0x21) & 0xFF);
         }
     }
 }
 
-static void setup_screen(U8 *framebuf)
-{
+static void setup_screen(U8 *framebuf) {
     fill_background(framebuf);
     Log = framebuf;
     ModeDesiredX = 640;
     ModeDesiredY = 480;
-    for (U32 row = 0; row < 480; ++row)
-    {
+    for (U32 row = 0; row < 480; ++row) {
         TabOffLine[row] = row * 640;
     }
 
@@ -113,8 +98,7 @@ static void setup_screen(U8 *framebuf)
 
 static void run_scalespt_case(const char *label,
                               S32 num, S32 x, S32 y,
-                              S32 factorx, S32 factory)
-{
+                              S32 factorx, S32 factory) {
     S32 cpp_xmin, cpp_xmax, cpp_ymin, cpp_ymax;
     S32 asm_xmin, asm_xmax, asm_ymin, asm_ymax;
 
@@ -139,8 +123,7 @@ static void run_scalespt_case(const char *label,
     ASSERT_ASM_CPP_MEM_EQ(g_asm_framebuf, g_cpp_framebuf, sizeof(g_cpp_framebuf), label);
 }
 
-static void test_scalespt_fixed_cases(void)
-{
+static void test_scalespt_fixed_cases(void) {
     build_multi_bank(8);
     init_transp_table();
 
@@ -149,8 +132,7 @@ static void test_scalespt_fixed_cases(void)
     run_scalespt_case("ScaleSpriteTransp scaled down", 5, 320, 200, 0x08000, 0x0C000);
 }
 
-static void test_scalespt_edge_cases(void)
-{
+static void test_scalespt_edge_cases(void) {
     build_multi_bank(8);
     init_transp_table();
 
@@ -160,14 +142,12 @@ static void test_scalespt_edge_cases(void)
     run_scalespt_case("ScaleSpriteTransp zero factor early exit", 1, 70, 60, 0, 0x10000);
 }
 
-static void test_scalespt_random_stress(void)
-{
+static void test_scalespt_random_stress(void) {
     build_multi_bank(8);
     init_transp_table();
     rng_seed(0xDEADBEEFu);
 
-    for (int round = 0; round < 300; ++round)
-    {
+    for (int round = 0; round < 300; ++round) {
         S32 num = (S32)(rng_next() % 8);
         S32 x = (S32)(rng_next() % 760) - 60;
         S32 y = (S32)(rng_next() % 600) - 60;
@@ -184,8 +164,7 @@ static void test_scalespt_random_stress(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_scalespt_fixed_cases);
     RUN_TEST(test_scalespt_edge_cases);
     RUN_TEST(test_scalespt_random_stress);

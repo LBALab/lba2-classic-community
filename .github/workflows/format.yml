@@ -1,0 +1,20 @@
+name: Format
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format-17
+
+      - name: Check formatting
+        run: bash ./scripts/ci/check-format.sh

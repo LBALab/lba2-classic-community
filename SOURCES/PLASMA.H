@@ -2,30 +2,29 @@
 extern "C" {
 #endif
 
-#ifndef	PLASMA_H
-#define	PLASMA_H
+#ifndef PLASMA_H
+#define PLASMA_H
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
-typedef struct  {
+typedef struct {
+    S16 *TabVirgule;
+    S16 *TabSpeed;
+    S32 *TabAcc;
+    U8 *TabColors;
 
-        S16     *TabVirgule ;
-        S16     *TabSpeed   ;
-        S32     *TabAcc     ;
-        U8      *TabColors  ;
+    U8 *TexOffset; // devenu ptr sur effet dans tex
 
-        U8      *TexOffset  ;           // devenu ptr sur effet dans tex
+    U8 Interleave;
+    U8 NbActivePoints;
+    U8 NbColors;
+    U8 Speed;
 
-        U8      Interleave ;
-        U8      NbActivePoints ;
-        U8      NbColors ;
-        U8      Speed ;
+    U8 data_start;
 
-        U8      data_start ;
+} T_PLASMA;
 
-        }       T_PLASMA ;
-
-void Do_Plasma( T_PLASMA *PtrEffectStruct );
+void Do_Plasma(T_PLASMA *PtrEffectStruct);
 
 #endif
 

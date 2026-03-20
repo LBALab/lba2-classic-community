@@ -12,25 +12,21 @@ static void call_asm_LongInverseRotatePointF(TYPE_MAT *m, S32 x, S32 y, S32 z) {
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void set_matrix(TYPE_MAT *m, const float *values)
-{
+static void set_matrix(TYPE_MAT *m, const float *values) {
     memset(m, 0, sizeof(*m));
     memcpy(&m->F.M11, values, 9 * sizeof(float));
 }
 
-static void assert_inverse_rotate_case(const char *label, const TYPE_MAT *source_matrix, S32 x, S32 y, S32 z)
-{
+static void assert_inverse_rotate_case(const char *label, const TYPE_MAT *source_matrix, S32 x, S32 y, S32 z) {
     TYPE_MAT cpp_matrix;
     TYPE_MAT asm_matrix;
 
@@ -51,14 +47,15 @@ static void assert_inverse_rotate_case(const char *label, const TYPE_MAT *source
     ASSERT_ASM_CPP_MEM_EQ(source_matrix, &asm_matrix, sizeof(TYPE_MAT), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     static const float matrices[][9] = {
         {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f},
         {0.5f, 0.3f, 0.1f, 0.2f, 0.8f, 0.4f, 0.7f, 0.6f, 0.9f},
         {-0.75f, 0.25f, 0.5f, 0.125f, -0.5f, 0.75f, 0.625f, -0.25f, 0.375f},
     };
-    struct { S32 x, y, z; } cases[] = {
+    struct {
+        S32 x, y, z;
+    } cases[] = {
         {0, 0, 0},
         {100, 200, 300},
         {-100, -200, -300},
@@ -81,8 +78,7 @@ static void test_equivalence(void)
     }
 }
 
-static void test_random_equivalence(void)
-{
+static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; ++i) {
         TYPE_MAT matrix;
@@ -104,8 +100,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();

@@ -1,15 +1,15 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_AIL
-#define	LIB_AIL
+#ifndef LIB_AIL
+#define LIB_AIL
 
 //──────────────────────────────────────────────────────────────────────────
-#include	<AIL/CD.H>
-#include	<AIL/COMMON.H>
-#include	<AIL/MIDI.H>
-#include	<AIL/SAMPLE.H>
-#include	<AIL/STREAM.H>
+#include <AIL/CD.H>
+#include <AIL/COMMON.H>
+#include <AIL/MIDI.H>
+#include <AIL/SAMPLE.H>
+#include <AIL/STREAM.H>
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_AIL
+#endif //LIB_AIL
 
 //──────────────────────────────────────────────────────────────────────────

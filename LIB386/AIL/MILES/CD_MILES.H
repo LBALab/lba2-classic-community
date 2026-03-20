@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_CD_MILES
-#define	LIB_AIL_CD_MILES
+#ifndef LIB_AIL_CD_MILES
+#define LIB_AIL_CD_MILES
 
 // This header contains declarations private to MILES
 
@@ -17,7 +17,7 @@ extern "C" {
 //
 //	Returns	:			nothing
 //--------------------------------------------------------------------------
-void	CloseCD()			;
+void CloseCD();
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -25,6 +25,6 @@ void	CloseCD()			;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_CD_MILES
+#endif //LIB_AIL_CD_MILES
 
 //--------------------------------------------------------------------------

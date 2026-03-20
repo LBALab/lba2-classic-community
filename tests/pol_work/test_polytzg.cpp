@@ -12,22 +12,24 @@
 #include <string.h>
 
 /* F_256 constant needed by ASM perspective code */
-extern "C" { float F_256 = 256.0f; }
+extern "C" {
+float F_256 = 256.0f;
+}
 
 /* ── ASM wrappers ───────────────────────────────────────────────── */
 
-#define DECLARE_ASM_FILLER(name) \
-    extern "C" void asm_##name(void); \
+#define DECLARE_ASM_FILLER(name)                                         \
+    extern "C" void asm_##name(void);                                    \
     static inline S32 call_asm_##name(U32 nbLines, U32 xmin, U32 xmax) { \
-        S32 result; \
-        __asm__ __volatile__( \
-            "push %%ebp\n\t" \
-            "call asm_" #name "\n\t" \
-            "pop %%ebp" \
-            : "=a"(result) \
-            : "c"(nbLines), "b"(xmin), "d"(xmax) \
-            : "edi", "esi", "memory", "cc"); \
-        return result; \
+        S32 result;                                                      \
+        __asm__ __volatile__(                                            \
+            "push %%ebp\n\t"                                             \
+            "call asm_" #name "\n\t"                                     \
+            "pop %%ebp"                                                  \
+            : "=a"(result)                                               \
+            : "c"(nbLines), "b"(xmin), "d"(xmax)                         \
+            : "edi", "esi", "memory", "cc");                             \
+        return result;                                                   \
     }
 
 DECLARE_ASM_FILLER(Filler_TextureZGouraud)
@@ -39,16 +41,15 @@ DECLARE_ASM_FILLER(Filler_TextureZGouraudChromaKeyNZW)
 
 /* ── Buffers ────────────────────────────────────────────────────── */
 
-static U8  tzg_cpp_buf[TEST_POLY_SIZE];
-static U8  tzg_asm_buf[TEST_POLY_SIZE];
+static U8 tzg_cpp_buf[TEST_POLY_SIZE];
+static U8 tzg_asm_buf[TEST_POLY_SIZE];
 static U16 tzg_cpp_zbuf[TEST_POLY_SIZE];
 static U16 tzg_asm_zbuf[TEST_POLY_SIZE];
 
 /* ── Setup helpers ──────────────────────────────────────────────── */
 
 static void setup_tzg_filler(U32 startY, U32 nbLines,
-                              U32 xmin_fp, U32 xmax_fp)
-{
+                             U32 xmin_fp, U32 xmax_fp) {
     setup_filler_common(startY, nbLines, xmin_fp, xmax_fp, 0);
     init_test_texture();
     init_test_clut();
@@ -81,15 +82,13 @@ static void setup_tzg_filler(U32 startY, U32 nbLines,
     Fill_Gouraud_XSlope = 0x800;
 }
 
-static void init_chromakey_texture(void)
-{
+static void init_chromakey_texture(void) {
     for (int i = 0; i < TEST_TEX_PIXELS; i++)
         g_test_texture[i] = (i % 4 == 0) ? 0 : (U8)((i & 0xFE) | 1);
 }
 
 static void setup_tzg_zbuf_filler(U32 startY, U32 nbLines,
-                                   U32 xmin_fp, U32 xmax_fp)
-{
+                                  U32 xmin_fp, U32 xmax_fp) {
     setup_tzg_filler(startY, nbLines, xmin_fp, xmax_fp);
     init_test_zbuffer(0xFFFF);
     PtrZBuffer = (PTR_U16)g_test_zbuffer;
@@ -103,8 +102,7 @@ static void setup_tzg_zbuf_filler(U32 startY, U32 nbLines,
  *  1. Filler_TextureZGouraud
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_asm_equiv_tzg(void)
-{
+static void test_asm_equiv_tzg(void) {
     setup_tzg_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZGouraud(4, 20 << 16, 50 << 16);
     memcpy(tzg_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -114,19 +112,20 @@ static void test_asm_equiv_tzg(void)
     memcpy(tzg_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
     ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZGouraud strip");
+                          "Filler_TextureZGouraud strip");
 }
 
-static void test_asm_random_tzg(void)
-{
+static void test_asm_random_tzg(void) {
     poly_rng_seed(0xA1B20001);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 gStart = (poly_rng_next() % 0x0E) << 16;
         U32 gSlope = poly_rng_next() % 0x2000;
 
@@ -163,8 +162,7 @@ static void test_asm_random_tzg(void)
  *  2. Filler_TextureZGouraudChromaKey
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_asm_equiv_tzg_chromakey(void)
-{
+static void test_asm_equiv_tzg_chromakey(void) {
     setup_tzg_filler(30, 4, 20 << 16, 50 << 16);
     init_chromakey_texture();
     Filler_TextureZGouraudChromaKey(4, 20 << 16, 50 << 16);
@@ -176,19 +174,20 @@ static void test_asm_equiv_tzg_chromakey(void)
     memcpy(tzg_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
     ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZGouraudChromaKey strip");
+                          "Filler_TextureZGouraudChromaKey strip");
 }
 
-static void test_asm_random_tzg_chromakey(void)
-{
+static void test_asm_random_tzg_chromakey(void) {
     poly_rng_seed(0xA1C40002);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 gStart = (poly_rng_next() % 0x0E) << 16;
         U32 gSlope = poly_rng_next() % 0x2000;
 
@@ -227,8 +226,7 @@ static void test_asm_random_tzg_chromakey(void)
  *  3. Filler_TextureZGouraudZBuf
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_asm_equiv_tzg_zbuf(void)
-{
+static void test_asm_equiv_tzg_zbuf(void) {
     setup_tzg_zbuf_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZGouraudZBuf(4, 20 << 16, 50 << 16);
     memcpy(tzg_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -240,22 +238,23 @@ static void test_asm_equiv_tzg_zbuf(void)
     memcpy(tzg_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
 
     ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZGouraudZBuf framebuf");
-    ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                           TEST_POLY_SIZE * (int)sizeof(U16),
-                           "Filler_TextureZGouraudZBuf zbuf");
+                          "Filler_TextureZGouraudZBuf framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                          TEST_POLY_SIZE * (int)sizeof(U16),
+                          "Filler_TextureZGouraudZBuf zbuf");
 }
 
-static void test_asm_random_tzg_zbuf(void)
-{
+static void test_asm_random_tzg_zbuf(void) {
     poly_rng_seed(0xA12B0003);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 gStart = (poly_rng_next() % 0x0E) << 16;
         U32 gSlope = poly_rng_next() % 0x2000;
         U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
@@ -295,8 +294,8 @@ static void test_asm_random_tzg_zbuf(void)
         ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE, msg);
         snprintf(msg, sizeof(msg), "random tzg_zbuf zbuf #%d y=%u h=%u x=%u-%u",
                  i, y, h, x0, x1);
-        ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                              TEST_POLY_SIZE * (int)sizeof(U16), msg);
     }
 }
 
@@ -304,8 +303,7 @@ static void test_asm_random_tzg_zbuf(void)
  *  4. Filler_TextureZGouraudChromaKeyZBuf
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_asm_equiv_tzg_chromakey_zbuf(void)
-{
+static void test_asm_equiv_tzg_chromakey_zbuf(void) {
     setup_tzg_zbuf_filler(30, 4, 20 << 16, 50 << 16);
     init_chromakey_texture();
     Filler_TextureZGouraudChromaKeyZBuf(4, 20 << 16, 50 << 16);
@@ -319,22 +317,23 @@ static void test_asm_equiv_tzg_chromakey_zbuf(void)
     memcpy(tzg_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
 
     ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZGouraudChromaKeyZBuf framebuf");
-    ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                           TEST_POLY_SIZE * (int)sizeof(U16),
-                           "Filler_TextureZGouraudChromaKeyZBuf zbuf");
+                          "Filler_TextureZGouraudChromaKeyZBuf framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                          TEST_POLY_SIZE * (int)sizeof(U16),
+                          "Filler_TextureZGouraudChromaKeyZBuf zbuf");
 }
 
-static void test_asm_random_tzg_chromakey_zbuf(void)
-{
+static void test_asm_random_tzg_chromakey_zbuf(void) {
     poly_rng_seed(0xA1CB0004);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 gStart = (poly_rng_next() % 0x0E) << 16;
         U32 gSlope = poly_rng_next() % 0x2000;
         U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
@@ -376,8 +375,8 @@ static void test_asm_random_tzg_chromakey_zbuf(void)
         ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE, msg);
         snprintf(msg, sizeof(msg), "random tzg_ck_zbuf zb #%d y=%u h=%u x=%u-%u",
                  i, y, h, x0, x1);
-        ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                              TEST_POLY_SIZE * (int)sizeof(U16), msg);
     }
 }
 
@@ -385,8 +384,7 @@ static void test_asm_random_tzg_chromakey_zbuf(void)
  *  5. Filler_TextureZGouraudNZW
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_asm_equiv_tzg_nzw(void)
-{
+static void test_asm_equiv_tzg_nzw(void) {
     setup_tzg_zbuf_filler(30, 4, 20 << 16, 50 << 16);
     Filler_TextureZGouraudNZW(4, 20 << 16, 50 << 16);
     memcpy(tzg_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
@@ -398,22 +396,23 @@ static void test_asm_equiv_tzg_nzw(void)
     memcpy(tzg_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
 
     ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZGouraudNZW framebuf");
-    ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                           TEST_POLY_SIZE * (int)sizeof(U16),
-                           "Filler_TextureZGouraudNZW zbuf unchanged");
+                          "Filler_TextureZGouraudNZW framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                          TEST_POLY_SIZE * (int)sizeof(U16),
+                          "Filler_TextureZGouraudNZW zbuf unchanged");
 }
 
-static void test_asm_random_tzg_nzw(void)
-{
+static void test_asm_random_tzg_nzw(void) {
     poly_rng_seed(0xA1020005);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 gStart = (poly_rng_next() % 0x0E) << 16;
         U32 gSlope = poly_rng_next() % 0x2000;
         U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
@@ -453,8 +452,8 @@ static void test_asm_random_tzg_nzw(void)
         ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE, msg);
         snprintf(msg, sizeof(msg), "random tzg_nzw zbuf #%d y=%u h=%u x=%u-%u",
                  i, y, h, x0, x1);
-        ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                              TEST_POLY_SIZE * (int)sizeof(U16), msg);
     }
 }
 
@@ -462,8 +461,7 @@ static void test_asm_random_tzg_nzw(void)
  *  6. Filler_TextureZGouraudChromaKeyNZW
  * ══════════════════════════════════════════════════════════════════ */
 
-static void test_asm_equiv_tzg_chromakey_nzw(void)
-{
+static void test_asm_equiv_tzg_chromakey_nzw(void) {
     setup_tzg_zbuf_filler(30, 4, 20 << 16, 50 << 16);
     init_chromakey_texture();
     Filler_TextureZGouraudChromaKeyNZW(4, 20 << 16, 50 << 16);
@@ -477,22 +475,23 @@ static void test_asm_equiv_tzg_chromakey_nzw(void)
     memcpy(tzg_asm_zbuf, g_test_zbuffer, TEST_POLY_SIZE * sizeof(U16));
 
     ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE,
-                           "Filler_TextureZGouraudChromaKeyNZW framebuf");
-    ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                           TEST_POLY_SIZE * (int)sizeof(U16),
-                           "Filler_TextureZGouraudChromaKeyNZW zbuf unchanged");
+                          "Filler_TextureZGouraudChromaKeyNZW framebuf");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                          TEST_POLY_SIZE * (int)sizeof(U16),
+                          "Filler_TextureZGouraudChromaKeyNZW zbuf unchanged");
 }
 
-static void test_asm_random_tzg_chromakey_nzw(void)
-{
+static void test_asm_random_tzg_chromakey_nzw(void) {
     poly_rng_seed(0xA1C20006);
     for (int i = 0; i < 300; i++) {
         U32 y = poly_rng_next() % (TEST_POLY_H - 20);
         U32 h = 1 + poly_rng_next() % 8;
-        if (y + h + 1 >= (U32)TEST_POLY_H) h = TEST_POLY_H - y - 2;
+        if (y + h + 1 >= (U32)TEST_POLY_H)
+            h = TEST_POLY_H - y - 2;
         U32 x0 = poly_rng_next() % (TEST_POLY_W - 30);
         U32 x1 = x0 + 5 + poly_rng_next() % 30;
-        if (x1 >= (U32)TEST_POLY_W) x1 = TEST_POLY_W - 1;
+        if (x1 >= (U32)TEST_POLY_W)
+            x1 = TEST_POLY_W - 1;
         U32 gStart = (poly_rng_next() % 0x0E) << 16;
         U32 gSlope = poly_rng_next() % 0x2000;
         U32 zBufMin = (poly_rng_next() % 0x7FFF) << 8;
@@ -534,13 +533,12 @@ static void test_asm_random_tzg_chromakey_nzw(void)
         ASSERT_ASM_CPP_MEM_EQ(tzg_asm_buf, tzg_cpp_buf, TEST_POLY_SIZE, msg);
         snprintf(msg, sizeof(msg), "random tzg_ck_nzw zb #%d y=%u h=%u x=%u-%u",
                  i, y, h, x0, x1);
-        ASSERT_ASM_CPP_MEM_EQ((U8*)tzg_asm_zbuf, (U8*)tzg_cpp_zbuf,
-                               TEST_POLY_SIZE * (int)sizeof(U16), msg);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)tzg_asm_zbuf, (U8 *)tzg_cpp_zbuf,
+                              TEST_POLY_SIZE * (int)sizeof(U16), msg);
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_asm_equiv_tzg);
     RUN_TEST(test_asm_random_tzg);
     RUN_TEST(test_asm_equiv_tzg_chromakey);

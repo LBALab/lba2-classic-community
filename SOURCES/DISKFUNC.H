@@ -1,20 +1,20 @@
-#ifndef	DISKFUNC_H
-#define	DISKFUNC_H
+#ifndef DISKFUNC_H
+#define DISKFUNC_H
 
 /*--------------------------------------------------------------------------*/
 //extern void GetDiskEnv(char *progpath);
 /*--------------------------------------------------------------------------*/
 //extern void RestoreDiskEnv(void);
 /*--------------------------------------------------------------------------*/
-extern void ChoicePalette(void) ;
+extern void ChoicePalette(void);
 /*--------------------------------------------------------------------------*/
-extern S32  LoadScene(S32 numscene);
+extern S32 LoadScene(S32 numscene);
 /*--------------------------------------------------------------------------*/
-extern S32  LoadSceneCubeXY( S32 numcube, S32 *cubex, S32 *cubey ) ;
+extern S32 LoadSceneCubeXY(S32 numcube, S32 *cubex, S32 *cubey);
 /*--------------------------------------------------------------------------*/
-extern void CreateLbaDirectories( void ) ;
+extern void CreateLbaDirectories(void);
 /*--------------------------------------------------------------------------*/
 extern U8 AddDirIfNot(const char *path);
 /*--------------------------------------------------------------------------*/
 
-#endif	// DISKFUNC_H
+#endif // DISKFUNC_H

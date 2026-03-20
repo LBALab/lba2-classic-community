@@ -32,102 +32,100 @@ extern U8 *BinGphMouse;
 
 // --- Initialization ----------------------------------------------------------
 void InitMouse() {
-  ClearMouseBox();
+    ClearMouseBox();
 
-  MouseSpriteGraphic = BinGphMouse;
-  MouseSpriteGraphicNum = 0;
+    MouseSpriteGraphic = BinGphMouse;
+    MouseSpriteGraphicNum = 0;
 }
 
 void EndMouse() {
-  // Empty
+    // Empty
 }
 
 // --- Interface ---------------------------------------------------------------
 void ShowMouse(bool show) { FlagMouse = show; }
 
 void SetMousePos(U32 x, U32 y) {
-  MouseX = x;
-  MouseY = y;
+    MouseX = x;
+    MouseY = y;
 
-  // Clamp to limits, X
-  if (MouseX < MouseBoxX0) {
-    MouseX = MouseBoxX0;
-  } else if (MouseX > MouseBoxX1) {
-    MouseX = MouseBoxX1;
-  }
+    // Clamp to limits, X
+    if (MouseX < MouseBoxX0) {
+        MouseX = MouseBoxX0;
+    } else if (MouseX > MouseBoxX1) {
+        MouseX = MouseBoxX1;
+    }
 
-  // Clamp to limits, Y
-  if (MouseY < MouseBoxY0) {
-    MouseY = MouseBoxY0;
-  } else if (MouseY > MouseBoxY1) {
-    MouseY = MouseBoxY1;
-  }
+    // Clamp to limits, Y
+    if (MouseY < MouseBoxY0) {
+        MouseY = MouseBoxY0;
+    } else if (MouseY > MouseBoxY1) {
+        MouseY = MouseBoxY1;
+    }
 }
 
 void SetMouseBox(U32 x0, U32 y0, U32 x1, U32 y1) {
-  assert((x0 <= x1) && (y0 <= y1));
+    assert((x0 <= x1) && (y0 <= y1));
 
-  // Limits can't be greater than screen
-  if (x1 >= ModeDesiredX) {
-    x1 = ModeDesiredX - 1;
-  }
-  if (y1 >= ModeDesiredY) {
-    y1 = ModeDesiredY - 1;
-  }
+    // Limits can't be greater than screen
+    if (x1 >= ModeDesiredX) {
+        x1 = ModeDesiredX - 1;
+    }
+    if (y1 >= ModeDesiredY) {
+        y1 = ModeDesiredY - 1;
+    }
 
-  MouseBoxX0 = x0;
-  MouseBoxY0 = y0;
-  MouseBoxX1 = x1;
-  MouseBoxY1 = y1;
+    MouseBoxX0 = x0;
+    MouseBoxY0 = y0;
+    MouseBoxX1 = x1;
+    MouseBoxY1 = y1;
 
-  SetMousePos(MouseX, MouseY);
+    SetMousePos(MouseX, MouseY);
 }
 
 void ClearMouseBox() { SetMouseBox(0, 0, ModeDesiredX - 1, ModeDesiredY - 1); }
 
 void ManageMouse() {
-  MouseXDep = LibMouseXDep;
-  MouseYDep = LibMouseYDep;
+    MouseXDep = LibMouseXDep;
+    MouseYDep = LibMouseYDep;
 
-  LibMouseXDep = 0;
-  LibMouseYDep = 0;
+    LibMouseXDep = 0;
+    LibMouseYDep = 0;
 }
 
 void HandleEventsMouse(const void *event) {
-  assert(event != NULL);
+    assert(event != NULL);
 
-  const SDL_Event *sdlEvent = (SDL_Event *)(event);
+    const SDL_Event *sdlEvent = (SDL_Event *)(event);
 
-  switch (sdlEvent->type) {
-  case SDL_EVENT_MOUSE_MOTION:
-    {
-      S32 prevX;
-      S32 prevY;
-      S32 curX;
-      S32 curY;
+    switch (sdlEvent->type) {
+    case SDL_EVENT_MOUSE_MOTION: {
+        S32 prevX;
+        S32 prevY;
+        S32 curX;
+        S32 curY;
 
-      WindowToSurfaceCoords((S32)(sdlEvent->motion.x - sdlEvent->motion.xrel),
-                            (S32)(sdlEvent->motion.y - sdlEvent->motion.yrel),
-                            &prevX, &prevY);
-      WindowToSurfaceCoords((S32)sdlEvent->motion.x, (S32)sdlEvent->motion.y,
-                            &curX, &curY);
+        WindowToSurfaceCoords((S32)(sdlEvent->motion.x - sdlEvent->motion.xrel),
+                              (S32)(sdlEvent->motion.y - sdlEvent->motion.yrel),
+                              &prevX, &prevY);
+        WindowToSurfaceCoords((S32)sdlEvent->motion.x, (S32)sdlEvent->motion.y,
+                              &curX, &curY);
 
-      LibMouseXDep += curX - prevX;
-      LibMouseYDep += curY - prevY;
-      SetMousePos((U32)curX, (U32)curY);
+        LibMouseXDep += curX - prevX;
+        LibMouseYDep += curY - prevY;
+        SetMousePos((U32)curX, (U32)curY);
+    } break;
+
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        Click |= (sdlEvent->button.button == 1) ? 1 : 0;
+        Click |= (sdlEvent->button.button == 3) ? 2 : 0;
+        break;
+
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        Click &= (sdlEvent->button.button == 1) ? ~1 : Click;
+        Click &= (sdlEvent->button.button == 3) ? ~2 : Click;
+        break;
     }
-    break;
-
-  case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    Click |= (sdlEvent->button.button == 1) ? 1 : 0;
-    Click |= (sdlEvent->button.button == 3) ? 2 : 0;
-    break;
-
-  case SDL_EVENT_MOUSE_BUTTON_UP:
-    Click &= (sdlEvent->button.button == 1) ? ~1 : Click;
-    Click &= (sdlEvent->button.button == 3) ? ~2 : Click;
-    break;
-  }
 }
 
 // =============================================================================

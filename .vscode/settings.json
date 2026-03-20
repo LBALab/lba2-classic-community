@@ -1,5 +1,22 @@
 {
   "editor.formatOnSave": false,
   "editor.tabSize": 4,
-  "editor.detectIndentation": false
+  "editor.detectIndentation": false,
+  "editor.defaultFormatter": "ms-vscode.cpptools",
+  "C_Cpp.clang_format_style": "file",
+  "C_Cpp.formatting": "clangFormat",
+  "files.associations": {
+    "*.C": "cpp",
+    "*.CPP": "cpp",
+    "*.H": "cpp",
+    "*.HPP": "cpp"
+  },
+  "[c]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+  },
+  "[cpp]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "ms-vscode.cpptools"
+  }
 }

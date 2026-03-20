@@ -10,7 +10,7 @@ extern "C" {
 
 // -----------------------------------------------------------------------------
 //****************************************************************************
-typedef	void (Func_LongRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z) ;
+typedef void(Func_LongRotatePoint)(TYPE_MAT *Mat, S32 x, S32 y, S32 z);
 
 extern Func_LongRotatePoint *LongRotatePoint;
 

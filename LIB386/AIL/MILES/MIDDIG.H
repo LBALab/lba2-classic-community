@@ -1,6 +1,6 @@
 //--------------------------------------------------------------------------
-#ifndef	LIB_AIL_MIDDIG
-#define	LIB_AIL_MIDDIG
+#ifndef LIB_AIL_MIDDIG
+#define LIB_AIL_MIDDIG
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -16,16 +16,16 @@ extern "C" {
 //
 //	Returns	: 			nothing
 //--------------------------------------------------------------------------
-void	InitSampleSynthesizer(	void *wavelib,
-				S32 sizelib,
-				S32 voices 		)	;
+void InitSampleSynthesizer(void *wavelib,
+                           S32 sizelib,
+                           S32 voices);
 
 //--------------------------------------------------------------------------
 //	ClearSampleSynthesizer: 	destroy the Wavetable synthesizer
 //
 //	Returns	: 			nothing
 //--------------------------------------------------------------------------
-void	ClearSampleSynthesizer(	void			)	;
+void ClearSampleSynthesizer(void);
 
 //--------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -33,6 +33,6 @@ void	ClearSampleSynthesizer(	void			)	;
 #endif
 
 //--------------------------------------------------------------------------
-#endif//LIB_AIL_MIDDIG
+#endif //LIB_AIL_MIDDIG
 
 //--------------------------------------------------------------------------

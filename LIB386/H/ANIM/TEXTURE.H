@@ -1,27 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_TEXTURE
-#define	LIB_ANI_TEXTURE
+#ifndef LIB_ANI_TEXTURE
+#define LIB_ANI_TEXTURE
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-void	ObjectInitTexture(T_OBJ_3D *obj, void *texture)	;
+void ObjectInitTexture(T_OBJ_3D *obj, void *texture);
 
-#pragma aux ObjectInitTexture	"*"	\
-	parm caller		[ebx] [eax]	\
-	modify exact 	[]
+#pragma aux ObjectInitTexture "*" parm caller[ebx][eax] modify exact[]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_TEXTURE
+#endif //LIB_ANI_TEXTURE
 
 //****************************************************************************

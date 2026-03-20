@@ -20,36 +20,36 @@
 
 /* ── ASM reference functions (from fpu_ops.asm, renamed via objcopy) ── */
 extern "C" {
-    int32_t asm_fpu_fild_fistp_round(int32_t val);
-    int32_t asm_fpu_int_div_int(int32_t a, int32_t b);
-    int32_t asm_fpu_int_div_int_trunc(int32_t a, int32_t b);
-    int32_t asm_fpu_reciprocal_mul(int32_t w, int32_t val);
-    int32_t asm_fpu_reciprocal_mul_trunc(int32_t w, int32_t val);
-    int32_t asm_fpu_slope(int32_t dx, int32_t dy);
-    int32_t asm_fpu_slope_trunc(int32_t dx, int32_t dy);
-    int32_t asm_fpu_interp_factor(int32_t zclip, int32_t lastZ, int32_t curZ,
-                                   int32_t lastVal, int32_t curVal);
-    void    asm_fpu_mul_add_chain(float a, float b, float c, float d, float *out);
-    void    asm_fpu_mul_sub_chain(float a, float b, float c, float d, float *out);
-    int32_t asm_fpu_float_to_int_round(float val);
-    int32_t asm_fpu_float_to_int_trunc(float val);
-    void    asm_fpu_perspective_uv(int32_t w, int32_t u, int32_t v,
-                                    int32_t *out_u, int32_t *out_v);
-    void    asm_fpu_dot3(float *a, float *b, float *out);
-    int32_t asm_fpu_reciprocal_mul_256(int32_t w, int32_t val);
-    int32_t asm_fpu_xslope_cross(int32_t XB_XA, int32_t YB_YA,
-                                 int32_t XC_XA, int32_t YC_YA,
-                                 int32_t DB_DA, int32_t DC_DA);
-    int32_t asm_fpu_texz_uslope_stacked(int32_t rawDenom,
-                                         int32_t MapU_A, int32_t W_A,
-                                         int32_t MapU_B, int32_t W_B,
-                                         int32_t MapU_C, int32_t W_C,
-                                         int32_t YB_YA, int32_t YC_YA);
-    int32_t asm_fpu_texz_uslope_stored(int32_t rawDenom,
-                                        int32_t MapU_A, int32_t W_A,
-                                        int32_t MapU_B, int32_t W_B,
-                                        int32_t MapU_C, int32_t W_C,
-                                        int32_t YB_YA, int32_t YC_YA);
+int32_t asm_fpu_fild_fistp_round(int32_t val);
+int32_t asm_fpu_int_div_int(int32_t a, int32_t b);
+int32_t asm_fpu_int_div_int_trunc(int32_t a, int32_t b);
+int32_t asm_fpu_reciprocal_mul(int32_t w, int32_t val);
+int32_t asm_fpu_reciprocal_mul_trunc(int32_t w, int32_t val);
+int32_t asm_fpu_slope(int32_t dx, int32_t dy);
+int32_t asm_fpu_slope_trunc(int32_t dx, int32_t dy);
+int32_t asm_fpu_interp_factor(int32_t zclip, int32_t lastZ, int32_t curZ,
+                              int32_t lastVal, int32_t curVal);
+void asm_fpu_mul_add_chain(float a, float b, float c, float d, float *out);
+void asm_fpu_mul_sub_chain(float a, float b, float c, float d, float *out);
+int32_t asm_fpu_float_to_int_round(float val);
+int32_t asm_fpu_float_to_int_trunc(float val);
+void asm_fpu_perspective_uv(int32_t w, int32_t u, int32_t v,
+                            int32_t *out_u, int32_t *out_v);
+void asm_fpu_dot3(float *a, float *b, float *out);
+int32_t asm_fpu_reciprocal_mul_256(int32_t w, int32_t val);
+int32_t asm_fpu_xslope_cross(int32_t XB_XA, int32_t YB_YA,
+                             int32_t XC_XA, int32_t YC_YA,
+                             int32_t DB_DA, int32_t DC_DA);
+int32_t asm_fpu_texz_uslope_stacked(int32_t rawDenom,
+                                    int32_t MapU_A, int32_t W_A,
+                                    int32_t MapU_B, int32_t W_B,
+                                    int32_t MapU_C, int32_t W_C,
+                                    int32_t YB_YA, int32_t YC_YA);
+int32_t asm_fpu_texz_uslope_stored(int32_t rawDenom,
+                                   int32_t MapU_A, int32_t W_A,
+                                   int32_t MapU_B, int32_t W_B,
+                                   int32_t MapU_C, int32_t W_C,
+                                   int32_t YB_YA, int32_t YC_YA);
 }
 
 /* ── Deterministic LCG RNG ─────────────────────────────────────────── */
@@ -65,13 +65,13 @@ static int32_t rng_range(int32_t lo, int32_t hi) {
 
 /* ── Counters for summary ──────────────────────────────────────────── */
 static int total_comparisons = 0;
-static int total_matches     = 0;
-static int total_mismatches  = 0;
+static int total_matches = 0;
+static int total_mismatches = 0;
 
 /* ── Report helper ─────────────────────────────────────────────────── */
 static void report_int_comparison(const char *op_name, const char *approach,
-                                   int32_t asm_val, int32_t cpp_val,
-                                   const char *input_desc) {
+                                  int32_t asm_val, int32_t cpp_val,
+                                  const char *input_desc) {
     total_comparisons++;
     int32_t diff = asm_val - cpp_val;
     if (diff == 0) {
@@ -84,8 +84,8 @@ static void report_int_comparison(const char *op_name, const char *approach,
 }
 
 static void report_float_comparison(const char *op_name, const char *approach,
-                                     float asm_val, float cpp_val,
-                                     const char *input_desc) {
+                                    float asm_val, float cpp_val,
+                                    const char *input_desc) {
     total_comparisons++;
     /* Bit-exact comparison */
     uint32_t asm_bits, cpp_bits;
@@ -110,10 +110,9 @@ static void report_float_comparison(const char *op_name, const char *approach,
  * Formula: trunc( (YB_YA * DC_DA - YC_YA * DB_DA) * (256.0 / (XB_XA * YC_YA - XC_XA * YB_YA)) )
  * All in 80-bit precision with truncation towards zero. */
 static int32_t c_xslope_cross_longdouble(int32_t XB_XA, int32_t YB_YA,
-                                          int32_t XC_XA, int32_t YC_YA,
-                                          int32_t DB_DA, int32_t DC_DA) {
-    volatile long double denom = (long double)XB_XA * (long double)YC_YA
-                               - (long double)XC_XA * (long double)YB_YA;
+                                         int32_t XC_XA, int32_t YC_YA,
+                                         int32_t DB_DA, int32_t DC_DA) {
+    volatile long double denom = (long double)XB_XA * (long double)YC_YA - (long double)XC_XA * (long double)YB_YA;
     volatile long double inv_denom = 256.0L / denom;
     volatile long double M1 = (long double)DB_DA * (long double)YC_YA;
     volatile long double M2 = (long double)DC_DA * (long double)YB_YA;
@@ -129,10 +128,10 @@ static const float C_F_256 = 256.0f;
 static const float C_FInv_65536 = 0.0000152588f;
 
 static int32_t c_texz_uslope(int32_t rawDenom,
-                               int32_t MapU_A, int32_t W_A,
-                               int32_t MapU_B, int32_t W_B,
-                               int32_t MapU_C, int32_t W_C,
-                               int32_t YB_YA, int32_t YC_YA) {
+                             int32_t MapU_A, int32_t W_A,
+                             int32_t MapU_B, int32_t W_B,
+                             int32_t MapU_C, int32_t W_C,
+                             int32_t YB_YA, int32_t YC_YA) {
     volatile long double inv_denom = (long double)C_F_256 / (long double)rawDenom;
     volatile long double Dp = inv_denom * (long double)C_FInv_65536;
     volatile long double UAp = (long double)MapU_A * (long double)W_A;
@@ -221,7 +220,7 @@ static int32_t c_slope_staged_ld(int32_t dx, int32_t dy) {
     volatile long double vdy = (long double)dy;
     volatile long double inv_dy = (long double)1.0f / vdy; /* fdivr F_1 (F_1 is float 1.0) */
     volatile long double vdx = (long double)dx;
-    volatile long double product = vdx * inv_dy;            /* fmulp */
+    volatile long double product = vdx * inv_dy;               /* fmulp */
     volatile long double result = product + (long double)1.0f; /* fadd F_1 */
     return (int32_t)lrintl(result);
 }
@@ -252,17 +251,17 @@ static int32_t c_slope_trunc_staged_ld(int32_t dx, int32_t dy) {
 
 /* --- interpolation factor --- */
 static int32_t c_interp_double(int32_t zclip, int32_t lastZ, int32_t curZ,
-                                int32_t lastVal, int32_t curVal) {
+                               int32_t lastVal, int32_t curVal) {
     double factor = (double)(zclip - lastZ) / (double)(curZ - lastZ);
     return (int32_t)lrint((double)lastVal + (double)(curVal - lastVal) * factor);
 }
 static int32_t c_interp_longdouble(int32_t zclip, int32_t lastZ, int32_t curZ,
-                                    int32_t lastVal, int32_t curVal) {
+                                   int32_t lastVal, int32_t curVal) {
     long double factor = (long double)(zclip - lastZ) / (long double)(curZ - lastZ);
     return (int32_t)lrintl((long double)lastVal + (long double)(curVal - lastVal) * factor);
 }
 static int32_t c_interp_volatile_ld(int32_t zclip, int32_t lastZ, int32_t curZ,
-                                     int32_t lastVal, int32_t curVal) {
+                                    int32_t lastVal, int32_t curVal) {
     volatile long double num = (long double)(zclip - lastZ);
     volatile long double den = (long double)(curZ - lastZ);
     volatile long double factor = num / den;
@@ -320,13 +319,13 @@ static float c_mul_sub_longdouble(float a, float b, float c, float d) {
 
 /* --- dot product --- */
 static float c_dot3_float(float *a, float *b) {
-    return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 static float c_dot3_double(float *a, float *b) {
-    return (float)((double)a[0]*(double)b[0] + (double)a[1]*(double)b[1] + (double)a[2]*(double)b[2]);
+    return (float)((double)a[0] * (double)b[0] + (double)a[1] * (double)b[1] + (double)a[2] * (double)b[2]);
 }
 static float c_dot3_longdouble(float *a, float *b) {
-    return (float)((long double)a[0]*(long double)b[0] + (long double)a[1]*(long double)b[1] + (long double)a[2]*(long double)b[2]);
+    return (float)((long double)a[0] * (long double)b[0] + (long double)a[1] * (long double)b[1] + (long double)a[2] * (long double)b[2]);
 }
 
 /* --- reciprocal_mul_256: 256.0/w * val * 256.0 --- */
@@ -361,7 +360,7 @@ static int32_t c_recip256_staged_ld(int32_t w, int32_t val) {
 static void test_fild_fistp_round(void) {
     printf("\n=== fild_fistp_round (identity through FPU) ===\n");
     int32_t vals[] = {0, 1, -1, 42, -42, 1000000, -1000000, 0x7FFFFFFF, (int32_t)0x80000000};
-    for (int i = 0; i < (int)(sizeof(vals)/sizeof(vals[0])); i++) {
+    for (int i = 0; i < (int)(sizeof(vals) / sizeof(vals[0])); i++) {
         int32_t asm_r = asm_fpu_fild_fistp_round(vals[i]);
         ASSERT_EQ_INT(vals[i], asm_r); /* identity check */
     }
@@ -376,9 +375,10 @@ static void test_int_div_int(void) {
     for (int i = 0; i < N_STRESS; i++) {
         int32_t a = rng_range(-2000000, 2000000);
         int32_t b = rng_range(1, 100000);
-        if (rng_next() & 1) b = -b;
+        if (rng_next() & 1)
+            b = -b;
         int32_t asm_r = asm_fpu_int_div_int(a, b);
-        int32_t c_d  = c_int_div_int_double(a, b);
+        int32_t c_d = c_int_div_int_double(a, b);
         int32_t c_ld = c_int_div_int_longdouble(a, b);
         int32_t c_vld = c_int_div_int_volatile_ld(a, b);
         char desc[128];
@@ -386,9 +386,12 @@ static void test_int_div_int(void) {
         report_int_comparison("int_div_round", "double+lrint", asm_r, c_d, desc);
         report_int_comparison("int_div_round", "long_double+lrintl", asm_r, c_ld, desc);
         report_int_comparison("int_div_round", "volatile_ld+lrintl", asm_r, c_vld, desc);
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
     }
     printf("  Results (%d rounds): double=%d/%d  long_double=%d/%d  volatile_ld=%d/%d\n",
            N_STRESS, match_d, N_STRESS, match_ld, N_STRESS, match_vld, N_STRESS);
@@ -403,19 +406,23 @@ static void test_int_div_int_trunc(void) {
     for (int i = 0; i < N_STRESS; i++) {
         int32_t a = rng_range(-2000000, 2000000);
         int32_t b = rng_range(1, 100000);
-        if (rng_next() & 1) b = -b;
+        if (rng_next() & 1)
+            b = -b;
         int32_t asm_r = asm_fpu_int_div_int_trunc(a, b);
-        int32_t c_d   = c_int_div_int_trunc_cast(a, b);
-        int32_t c_ld  = c_int_div_int_trunc_ld(a, b);
+        int32_t c_d = c_int_div_int_trunc_cast(a, b);
+        int32_t c_ld = c_int_div_int_trunc_ld(a, b);
         int32_t c_vld = c_int_div_int_trunc_volatile_ld(a, b);
         char desc[128];
         snprintf(desc, sizeof(desc), "%d/%d", a, b);
         report_int_comparison("int_div_trunc", "(int)(double)", asm_r, c_d, desc);
         report_int_comparison("int_div_trunc", "(int)(long_double)", asm_r, c_ld, desc);
         report_int_comparison("int_div_trunc", "volatile_ld_cast", asm_r, c_vld, desc);
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
     }
     printf("  Results (%d rounds): (int)(double)=%d/%d  (int)(long_double)=%d/%d  volatile_ld=%d/%d\n",
            N_STRESS, match_d, N_STRESS, match_ld, N_STRESS, match_vld, N_STRESS);
@@ -431,9 +438,9 @@ static void test_reciprocal_mul(void) {
         int32_t w = rng_range(1, 500000);
         int32_t val = rng_range(-500000, 500000);
         int32_t asm_r = asm_fpu_reciprocal_mul(w, val);
-        int32_t c_f   = c_recip_mul_float(w, val);
-        int32_t c_d   = c_recip_mul_double(w, val);
-        int32_t c_ld  = c_recip_mul_longdouble(w, val);
+        int32_t c_f = c_recip_mul_float(w, val);
+        int32_t c_d = c_recip_mul_double(w, val);
+        int32_t c_ld = c_recip_mul_longdouble(w, val);
         int32_t c_vld = c_recip_mul_volatile_ld(w, val);
         int32_t c_sld = c_recip_mul_staged_ld(w, val);
         char desc[128];
@@ -443,11 +450,16 @@ static void test_reciprocal_mul(void) {
         report_int_comparison("recip_mul", "long_double+lrintl", asm_r, c_ld, desc);
         report_int_comparison("recip_mul", "volatile_ld+lrintl", asm_r, c_vld, desc);
         report_int_comparison("recip_mul", "staged_ld+lrintl", asm_r, c_sld, desc);
-        if (asm_r == c_f) match_f++;
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
-        if (asm_r == c_sld) match_sld++;
+        if (asm_r == c_f)
+            match_f++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
+        if (asm_r == c_sld)
+            match_sld++;
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_f, match_d, match_ld, match_vld, match_sld);
@@ -462,10 +474,11 @@ static void test_slope(void) {
     for (int i = 0; i < N_STRESS; i++) {
         int32_t dx = rng_range(-500000, 500000);
         int32_t dy = rng_range(1, 100000);
-        if (rng_next() & 1) dy = -dy;
+        if (rng_next() & 1)
+            dy = -dy;
         int32_t asm_r = asm_fpu_slope(dx, dy);
-        int32_t c_d   = c_slope_double(dx, dy);
-        int32_t c_ld  = c_slope_longdouble(dx, dy);
+        int32_t c_d = c_slope_double(dx, dy);
+        int32_t c_ld = c_slope_longdouble(dx, dy);
         int32_t c_vld = c_slope_volatile_ld(dx, dy);
         int32_t c_sld = c_slope_staged_ld(dx, dy);
         char desc[128];
@@ -474,10 +487,14 @@ static void test_slope(void) {
         report_int_comparison("slope_round", "long_double+lrintl", asm_r, c_ld, desc);
         report_int_comparison("slope_round", "volatile_ld+lrintl", asm_r, c_vld, desc);
         report_int_comparison("slope_round", "staged_ld+lrintl", asm_r, c_sld, desc);
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
-        if (asm_r == c_sld) match_sld++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
+        if (asm_r == c_sld)
+            match_sld++;
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld, match_sld);
@@ -492,10 +509,11 @@ static void test_slope_trunc(void) {
     for (int i = 0; i < N_STRESS; i++) {
         int32_t dx = rng_range(-500000, 500000);
         int32_t dy = rng_range(1, 100000);
-        if (rng_next() & 1) dy = -dy;
+        if (rng_next() & 1)
+            dy = -dy;
         int32_t asm_r = asm_fpu_slope_trunc(dx, dy);
-        int32_t c_d   = c_slope_trunc_double(dx, dy);
-        int32_t c_ld  = c_slope_trunc_longdouble(dx, dy);
+        int32_t c_d = c_slope_trunc_double(dx, dy);
+        int32_t c_ld = c_slope_trunc_longdouble(dx, dy);
         int32_t c_vld = c_slope_trunc_volatile_ld(dx, dy);
         int32_t c_sld = c_slope_trunc_staged_ld(dx, dy);
         char desc[128];
@@ -504,10 +522,14 @@ static void test_slope_trunc(void) {
         report_int_comparison("slope_trunc", "(int)(long_double)", asm_r, c_ld, desc);
         report_int_comparison("slope_trunc", "volatile_ld_cast", asm_r, c_vld, desc);
         report_int_comparison("slope_trunc", "staged_ld_cast", asm_r, c_sld, desc);
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
-        if (asm_r == c_sld) match_sld++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
+        if (asm_r == c_sld)
+            match_sld++;
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld, match_sld);
@@ -521,16 +543,17 @@ static void test_interp_factor(void) {
     int match_d = 0, match_ld = 0, match_vld = 0;
     for (int i = 0; i < N_STRESS; i++) {
         int32_t lastZ = rng_range(-500, 500);
-        int32_t curZ  = rng_range(-500, 500);
+        int32_t curZ = rng_range(-500, 500);
         /* Ensure curZ != lastZ to avoid division by zero */
-        if (curZ == lastZ) curZ = lastZ + 1;
+        if (curZ == lastZ)
+            curZ = lastZ + 1;
         int32_t zclip = rng_range(-500, 500);
         int32_t lastVal = rng_range(-30000, 30000);
-        int32_t curVal  = rng_range(-30000, 30000);
+        int32_t curVal = rng_range(-30000, 30000);
 
         int32_t asm_r = asm_fpu_interp_factor(zclip, lastZ, curZ, lastVal, curVal);
-        int32_t c_d   = c_interp_double(zclip, lastZ, curZ, lastVal, curVal);
-        int32_t c_ld  = c_interp_longdouble(zclip, lastZ, curZ, lastVal, curVal);
+        int32_t c_d = c_interp_double(zclip, lastZ, curZ, lastVal, curVal);
+        int32_t c_ld = c_interp_longdouble(zclip, lastZ, curZ, lastVal, curVal);
         int32_t c_vld = c_interp_volatile_ld(zclip, lastZ, curZ, lastVal, curVal);
         char desc[128];
         snprintf(desc, sizeof(desc), "zc=%d lz=%d cz=%d lv=%d cv=%d",
@@ -538,9 +561,12 @@ static void test_interp_factor(void) {
         report_int_comparison("interp", "double+lrint", asm_r, c_d, desc);
         report_int_comparison("interp", "long_double+lrintl", asm_r, c_ld, desc);
         report_int_comparison("interp", "volatile_ld+lrintl", asm_r, c_vld, desc);
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld);
@@ -556,20 +582,21 @@ static void test_float_to_int_round(void) {
         0.5f, 1.5f, 2.5f, 3.5f, -0.5f, -1.5f, -2.5f, -3.5f,
         0.4999f, 0.5001f, 1.4999f, 1.5001f,
         100.7f, -100.7f, 0.0f, 1.0f, -1.0f,
-        123456.789f, -123456.789f
-    };
-    for (int i = 0; i < (int)(sizeof(test_vals)/sizeof(test_vals[0])); i++) {
+        123456.789f, -123456.789f};
+    for (int i = 0; i < (int)(sizeof(test_vals) / sizeof(test_vals[0])); i++) {
         int32_t asm_r = asm_fpu_float_to_int_round(test_vals[i]);
-        int32_t c_f   = c_ftoi_round_lrint(test_vals[i]);
-        int32_t c_ld  = c_ftoi_round_lrintl_ld(test_vals[i]);
+        int32_t c_f = c_ftoi_round_lrint(test_vals[i]);
+        int32_t c_ld = c_ftoi_round_lrintl_ld(test_vals[i]);
         char desc[64];
         snprintf(desc, sizeof(desc), "%.6f", test_vals[i]);
         report_int_comparison("ftoi_round", "lrintf", asm_r, c_f, desc);
         report_int_comparison("ftoi_round", "lrintl(ld)", asm_r, c_ld, desc);
-        if (asm_r == c_f) match_f++;
-        if (asm_r == c_ld) match_ld++;
+        if (asm_r == c_f)
+            match_f++;
+        if (asm_r == c_ld)
+            match_ld++;
     }
-    int n = (int)(sizeof(test_vals)/sizeof(test_vals[0]));
+    int n = (int)(sizeof(test_vals) / sizeof(test_vals[0]));
     printf("  Results (%d cases): lrintf=%d/%d  lrintl(ld)=%d/%d\n",
            n, match_f, n, match_ld, n);
     ASSERT_TRUE(1);
@@ -579,18 +606,18 @@ static void test_float_to_int_trunc(void) {
     printf("\n=== float_to_int (truncation) ===\n");
     float test_vals[] = {
         0.9f, -0.9f, 1.9f, -1.9f, 100.99f, -100.99f,
-        0.0f, 1.0f, -1.0f, 0.5f, -0.5f
-    };
+        0.0f, 1.0f, -1.0f, 0.5f, -0.5f};
     int match = 0;
-    for (int i = 0; i < (int)(sizeof(test_vals)/sizeof(test_vals[0])); i++) {
+    for (int i = 0; i < (int)(sizeof(test_vals) / sizeof(test_vals[0])); i++) {
         int32_t asm_r = asm_fpu_float_to_int_trunc(test_vals[i]);
-        int32_t c_r   = c_ftoi_trunc_cast(test_vals[i]);
+        int32_t c_r = c_ftoi_trunc_cast(test_vals[i]);
         char desc[64];
         snprintf(desc, sizeof(desc), "%.6f", test_vals[i]);
         report_int_comparison("ftoi_trunc", "(int32_t)cast", asm_r, c_r, desc);
-        if (asm_r == c_r) match++;
+        if (asm_r == c_r)
+            match++;
     }
-    int n = (int)(sizeof(test_vals)/sizeof(test_vals[0]));
+    int n = (int)(sizeof(test_vals) / sizeof(test_vals[0]));
     printf("  Results (%d cases): (int32_t)cast=%d/%d\n", n, match, n);
     ASSERT_TRUE(1);
 }
@@ -607,9 +634,9 @@ static void test_mul_add_chain(void) {
         float d = (float)rng_range(-1000, 1000) + (float)(rng_next() % 1000) / 1000.0f;
         float asm_r;
         asm_fpu_mul_add_chain(a, b, c, d, &asm_r);
-        float c_f   = c_mul_add_float(a, b, c, d);
-        float c_d   = c_mul_add_double(a, b, c, d);
-        float c_ld  = c_mul_add_longdouble(a, b, c, d);
+        float c_f = c_mul_add_float(a, b, c, d);
+        float c_d = c_mul_add_double(a, b, c, d);
+        float c_ld = c_mul_add_longdouble(a, b, c, d);
         float c_vld = c_mul_add_volatile_ld(a, b, c, d);
         char desc[128];
         snprintf(desc, sizeof(desc), "%.3f*%.3f+%.3f*%.3f", a, b, c, d);
@@ -618,12 +645,19 @@ static void test_mul_add_chain(void) {
         report_float_comparison("mul_add", "via_long_double", asm_r, c_ld, desc);
         report_float_comparison("mul_add", "volatile_ld", asm_r, c_vld, desc);
         uint32_t ab, af, ad, ald, avld;
-        memcpy(&ab, &asm_r, 4); memcpy(&af, &c_f, 4);
-        memcpy(&ad, &c_d, 4); memcpy(&ald, &c_ld, 4); memcpy(&avld, &c_vld, 4);
-        if (ab == af) match_f++;
-        if (ab == ad) match_d++;
-        if (ab == ald) match_ld++;
-        if (ab == avld) match_vld++;
+        memcpy(&ab, &asm_r, 4);
+        memcpy(&af, &c_f, 4);
+        memcpy(&ad, &c_d, 4);
+        memcpy(&ald, &c_ld, 4);
+        memcpy(&avld, &c_vld, 4);
+        if (ab == af)
+            match_f++;
+        if (ab == ad)
+            match_d++;
+        if (ab == ald)
+            match_ld++;
+        if (ab == avld)
+            match_vld++;
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d  volatile_ld=%d\n",
            N_STRESS, match_f, match_d, match_ld, match_vld);
@@ -642,8 +676,8 @@ static void test_mul_sub_chain(void) {
         float d = (float)rng_range(-1000, 1000) + (float)(rng_next() % 1000) / 1000.0f;
         float asm_r;
         asm_fpu_mul_sub_chain(a, b, c, d, &asm_r);
-        float c_f  = c_mul_sub_float(a, b, c, d);
-        float c_d  = c_mul_sub_double(a, b, c, d);
+        float c_f = c_mul_sub_float(a, b, c, d);
+        float c_d = c_mul_sub_double(a, b, c, d);
         float c_ld = c_mul_sub_longdouble(a, b, c, d);
         char desc[128];
         snprintf(desc, sizeof(desc), "%.3f*%.3f-%.3f*%.3f", a, b, c, d);
@@ -651,11 +685,16 @@ static void test_mul_sub_chain(void) {
         report_float_comparison("mul_sub", "via_double", asm_r, c_d, desc);
         report_float_comparison("mul_sub", "via_long_double", asm_r, c_ld, desc);
         uint32_t ab, af, ad, ald;
-        memcpy(&ab, &asm_r, 4); memcpy(&af, &c_f, 4);
-        memcpy(&ad, &c_d, 4); memcpy(&ald, &c_ld, 4);
-        if (ab == af) match_f++;
-        if (ab == ad) match_d++;
-        if (ab == ald) match_ld++;
+        memcpy(&ab, &asm_r, 4);
+        memcpy(&af, &c_f, 4);
+        memcpy(&ad, &c_d, 4);
+        memcpy(&ald, &c_ld, 4);
+        if (ab == af)
+            match_f++;
+        if (ab == ad)
+            match_d++;
+        if (ab == ald)
+            match_ld++;
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d\n",
            N_STRESS, match_f, match_d, match_ld);
@@ -675,8 +714,8 @@ static void test_dot3(void) {
         }
         float asm_r;
         asm_fpu_dot3(a, b, &asm_r);
-        float c_f  = c_dot3_float(a, b);
-        float c_d  = c_dot3_double(a, b);
+        float c_f = c_dot3_float(a, b);
+        float c_d = c_dot3_double(a, b);
         float c_ld = c_dot3_longdouble(a, b);
         char desc[128];
         snprintf(desc, sizeof(desc), "[%.1f,%.1f,%.1f].[%.1f,%.1f,%.1f]",
@@ -685,11 +724,16 @@ static void test_dot3(void) {
         report_float_comparison("dot3", "via_double", asm_r, c_d, desc);
         report_float_comparison("dot3", "via_long_double", asm_r, c_ld, desc);
         uint32_t ab_bits, af, ad, ald;
-        memcpy(&ab_bits, &asm_r, 4); memcpy(&af, &c_f, 4);
-        memcpy(&ad, &c_d, 4); memcpy(&ald, &c_ld, 4);
-        if (ab_bits == af) match_f++;
-        if (ab_bits == ad) match_d++;
-        if (ab_bits == ald) match_ld++;
+        memcpy(&ab_bits, &asm_r, 4);
+        memcpy(&af, &c_f, 4);
+        memcpy(&ad, &c_d, 4);
+        memcpy(&ald, &c_ld, 4);
+        if (ab_bits == af)
+            match_f++;
+        if (ab_bits == ad)
+            match_d++;
+        if (ab_bits == ald)
+            match_ld++;
     }
     printf("  Results (%d rounds): float=%d  double=%d  long_double=%d\n",
            N_STRESS, match_f, match_d, match_ld);
@@ -737,9 +781,12 @@ static void test_perspective_uv(void) {
         report_int_comparison("persp_uv_v", "volatile_ld", asm_ov, vld_v, desc);
         report_int_comparison("persp_uv_u", "staged_ld", asm_ou, sld_u, desc);
         report_int_comparison("persp_uv_v", "staged_ld", asm_ov, sld_v, desc);
-        if (asm_ou == d_u && asm_ov == d_v) match_d++;
-        if (asm_ou == vld_u && asm_ov == vld_v) match_vld++;
-        if (asm_ou == sld_u && asm_ov == sld_v) match_sld++;
+        if (asm_ou == d_u && asm_ov == d_v)
+            match_d++;
+        if (asm_ou == vld_u && asm_ov == vld_v)
+            match_vld++;
+        if (asm_ou == sld_u && asm_ov == sld_v)
+            match_sld++;
     }
     printf("  Results (%d rounds): double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_vld, match_sld);
@@ -755,8 +802,8 @@ static void test_reciprocal_mul_256(void) {
         int32_t w = rng_range(1, 500000);
         int32_t val = rng_range(-500000, 500000);
         int32_t asm_r = asm_fpu_reciprocal_mul_256(w, val);
-        int32_t c_d   = c_recip256_double(w, val);
-        int32_t c_ld  = c_recip256_longdouble(w, val);
+        int32_t c_d = c_recip256_double(w, val);
+        int32_t c_ld = c_recip256_longdouble(w, val);
         int32_t c_vld = c_recip256_volatile_ld(w, val);
         int32_t c_sld = c_recip256_staged_ld(w, val);
         char desc[128];
@@ -765,10 +812,14 @@ static void test_reciprocal_mul_256(void) {
         report_int_comparison("recip256", "long_double+lrintl", asm_r, c_ld, desc);
         report_int_comparison("recip256", "volatile_ld+lrintl", asm_r, c_vld, desc);
         report_int_comparison("recip256", "staged_ld+lrintl", asm_r, c_sld, desc);
-        if (asm_r == c_d) match_d++;
-        if (asm_r == c_ld) match_ld++;
-        if (asm_r == c_vld) match_vld++;
-        if (asm_r == c_sld) match_sld++;
+        if (asm_r == c_d)
+            match_d++;
+        if (asm_r == c_ld)
+            match_ld++;
+        if (asm_r == c_vld)
+            match_vld++;
+        if (asm_r == c_sld)
+            match_sld++;
     }
     printf("  Results (%d rounds): double=%d  long_double=%d  volatile_ld=%d  staged_ld=%d\n",
            N_STRESS, match_d, match_ld, match_vld, match_sld);
@@ -813,16 +864,16 @@ static void test_xslope_cross(void) {
     struct {
         const char *name;
         int32_t XB_XA, YB_YA, XC_XA, YC_YA;
-        int32_t DB_DA, DC_DA;   /* delta of the data value (U, V, W, or Z) */
-        int32_t game_asm;       /* known result from game ASM (polyrec trace) — may differ
+        int32_t DB_DA, DC_DA; /* delta of the data value (U, V, W, or Z) */
+        int32_t game_asm;     /* known result from game ASM (polyrec trace) — may differ
                                    from isolated test due to FPU InvDenom reuse pattern */
     } cases[] = {
         /* U XSlope: UB-UA = 43117-29331 = 13786, UC-UA = 43117-29331 = 13786 */
-        { "U_XSlope (DC#3226)", -45, 4, -31, 61, 13786, 13786, 65655 },
+        {"U_XSlope (DC#3226)", -45, 4, -31, 61, 13786, 13786, 65655},
         /* W XSlope: WB-WA = -50325-(-47937) = -2388, WC-WA = -48312-(-47937) = -375 */
-        { "W_XSlope (DC#3226)", -45, 4, -31, 61, -2388, -375, 0 },
+        {"W_XSlope (DC#3226)", -45, 4, -31, 61, -2388, -375, 0},
         /* Z XSlope: ZB-ZA = 39167-41118 = -1951, ZC-ZA = 40799-41118 = -319 */
-        { "Z_XSlope (DC#3226)", -45, 4, -31, 61, -1951, -319, 11565 },
+        {"Z_XSlope (DC#3226)", -45, 4, -31, 61, -1951, -319, 11565},
     };
     int num_cases = sizeof(cases) / sizeof(cases[0]);
 
@@ -847,7 +898,7 @@ static void test_xslope_cross(void) {
         total_comparisons++;
 
         printf("    %s: asm=%d cpp=%d game_asm=%d -> %s",
-            cases[i].name, asm_r, c_r, cases[i].game_asm, status);
+               cases[i].name, asm_r, c_r, cases[i].game_asm, status);
         if (asm_r != c_r)
             printf(" (diff=%d)", asm_r - c_r);
         printf("\n");
@@ -856,7 +907,7 @@ static void test_xslope_cross(void) {
          * We only verify that our isolated ASM matches the isolated CPP. */
         if (cases[i].game_asm != 0 && asm_r != cases[i].game_asm) {
             printf("    (game ASM=%d differs from isolated ASM=%d by %d — expected due to InvDenom reuse)\n",
-                cases[i].game_asm, asm_r, cases[i].game_asm - asm_r);
+                   cases[i].game_asm, asm_r, cases[i].game_asm - asm_r);
         }
     }
 
@@ -872,7 +923,9 @@ static void test_xslope_cross(void) {
         int32_t YC_YA = (int32_t)(rng_next() % 201) - 100;
         /* Ensure non-zero denom */
         int32_t denom = XB_XA * YC_YA - XC_XA * YB_YA;
-        if (denom == 0) { YC_YA += 1; }
+        if (denom == 0) {
+            YC_YA += 1;
+        }
 
         int32_t DB_DA = (int32_t)(rng_next() % 131071) - 65535;
         int32_t DC_DA = (int32_t)(rng_next() % 131071) - 65535;
@@ -882,10 +935,11 @@ static void test_xslope_cross(void) {
 
         char desc[256];
         snprintf(desc, sizeof(desc),
-            "XB_XA=%d YB_YA=%d XC_XA=%d YC_YA=%d DB_DA=%d DC_DA=%d",
-            XB_XA, YB_YA, XC_XA, YC_YA, DB_DA, DC_DA);
+                 "XB_XA=%d YB_YA=%d XC_XA=%d YC_YA=%d DB_DA=%d DC_DA=%d",
+                 XB_XA, YB_YA, XC_XA, YC_YA, DB_DA, DC_DA);
         report_int_comparison("xslope_cross", "volatile_ld+truncl", asm_r, c_r, desc);
-        if (asm_r == c_r) match++;
+        if (asm_r == c_r)
+            match++;
     }
     printf("  Results (%d rounds): volatile_ld+truncl=%d\n", N_STRESS, match);
     ASSERT_TRUE(1);
@@ -934,14 +988,14 @@ static void test_texz_uslope_stacked_vs_stored(void) {
     int32_t MapU_C = 43117, W_C = -48312;
 
     int32_t stacked = asm_fpu_texz_uslope_stacked(rawDenom,
-        MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
+                                                  MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
     int32_t stored = asm_fpu_texz_uslope_stored(rawDenom,
-        MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
+                                                MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
     int32_t c_vld = c_texz_uslope(rawDenom,
-        MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
+                                  MapU_A, W_A, MapU_B, W_B, MapU_C, W_C, YB_YA, YC_YA);
 
     printf("    U_XSlope: stacked=%d stored=%d c_volatile_ld=%d\n",
-        stacked, stored, c_vld);
+           stacked, stored, c_vld);
     printf("    game_ASM_expected=65655, game_CPP_expected=65656\n");
 
     if (stacked == stored)
@@ -960,8 +1014,10 @@ static void test_texz_uslope_stacked_vs_stored(void) {
         printf("    stored != c_volatile_ld (diff=%d) → even ASM store/reload differs from C!\n", stored - c_vld);
 
     total_comparisons += 2;
-    if (stacked != stored) total_mismatches++;
-    if (stacked != c_vld) total_mismatches++;
+    if (stacked != stored)
+        total_mismatches++;
+    if (stacked != c_vld)
+        total_mismatches++;
 
     /* Stress test: check many different inputs */
     printf("  Stress test (%d rounds): stacked vs stored vs C\n", N_STRESS);
@@ -973,8 +1029,13 @@ static void test_texz_uslope_stacked_vs_stored(void) {
         int32_t xca = (int32_t)(rng_next() % 201) - 100;
         int32_t yca = (int32_t)(rng_next() % 121) - 10;
         int32_t d = xba * yca - xca * yba;
-        if (d == 0) { yca += 1; d = xba * yca - xca * yba; }
-        if (d == 0) { d = 1; }
+        if (d == 0) {
+            yca += 1;
+            d = xba * yca - xca * yba;
+        }
+        if (d == 0) {
+            d = 1;
+        }
 
         int32_t mA = (int32_t)(rng_next() % 65536);
         int32_t wA = -(int32_t)(rng_next() % 65536) - 1;
@@ -987,19 +1048,22 @@ static void test_texz_uslope_stacked_vs_stored(void) {
         int32_t s2 = asm_fpu_texz_uslope_stored(d, mA, wA, mB, wB, mC, wC, yba, yca);
         int32_t s3 = c_texz_uslope(d, mA, wA, mB, wB, mC, wC, yba, yca);
 
-        if (s1 == s2) stacked_eq_stored++;
-        if (s1 == s3) stacked_eq_c++;
-        if (s2 == s3) stored_eq_c++;
+        if (s1 == s2)
+            stacked_eq_stored++;
+        if (s1 == s3)
+            stacked_eq_c++;
+        if (s2 == s3)
+            stored_eq_c++;
 
         if (s1 != s2 || s1 != s3) {
             char desc[256];
             snprintf(desc, sizeof(desc), "d=%d mA=%d wA=%d mB=%d wB=%d mC=%d wC=%d yba=%d yca=%d",
-                d, mA, wA, mB, wB, mC, wC, yba, yca);
+                     d, mA, wA, mB, wB, mC, wC, yba, yca);
             printf("    MISMATCH: stacked=%d stored=%d c=%d | %s\n", s1, s2, s3, desc);
         }
     }
     printf("  Results (%d rounds): stacked==stored: %d  stacked==c: %d  stored==c: %d\n",
-        N_STRESS, stacked_eq_stored, stacked_eq_c, stored_eq_c);
+           N_STRESS, stacked_eq_stored, stacked_eq_c, stored_eq_c);
     ASSERT_TRUE(1);
 }
 

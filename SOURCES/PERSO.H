@@ -1,18 +1,18 @@
-#ifndef	PERSO_H
-#define	PERSO_H
+#ifndef PERSO_H
+#define PERSO_H
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
 /*--------------------------------------------------------------------------*/
 extern void AffDebugMenu(void);
 /*--------------------------------------------------------------------------*/
-#endif	// DEBUG_TOOLS
+#endif // DEBUG_TOOLS
 
 /*--------------------------------------------------------------------------*/
 extern void CheckSavePcx(void);
 /*--------------------------------------------------------------------------*/
-extern void CheckSaveLogPcx( U8 *pal );
+extern void CheckSaveLogPcx(U8 *pal);
 /*--------------------------------------------------------------------------*/
-extern void LoadListAnim3DS( void );
+extern void LoadListAnim3DS(void);
 /*--------------------------------------------------------------------------*/
 extern void InitGameLists(void);
 /*--------------------------------------------------------------------------*/
@@ -22,19 +22,19 @@ extern void Introduction(void);
 /*--------------------------------------------------------------------------*/
 extern void GamePaused(U32 flags);
 /*--------------------------------------------------------------------------*/
-extern S32  MainLoop(void);
+extern S32 MainLoop(void);
 /*--------------------------------------------------------------------------*/
 extern void InitProgram();
 /*--------------------------------------------------------------------------*/
 extern void TheEndCheckFile(const char *filename);
 /*--------------------------------------------------------------------------*/
-extern void InitTheEnd(S32 num,char *error);
+extern void InitTheEnd(S32 num, char *error);
 /*--------------------------------------------------------------------------*/
 extern void TheEnd(S32 num, const char *error);
 /*--------------------------------------------------------------------------*/
 extern void TheEndInfo(void);
 /*--------------------------------------------------------------------------*/
-extern void Message(const char *mess,S32 flag);
+extern void Message(const char *mess, S32 flag);
 /*--------------------------------------------------------------------------*/
 
-#endif	// PERSO_H
+#endif // PERSO_H

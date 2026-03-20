@@ -11,13 +11,13 @@ extern "C" {
 // -----------------------------------------------------------------------------
 // #pragma pack(push, 1)
 typedef struct {
-  S32 V_X0;
-  S32 V_Y0;
-  S32 V_Z0;
-  U16 V_MapU;
-  U16 V_MapV;
-  U16 V_Light;
-  U16 V_Dummy;
+    S32 V_X0;
+    S32 V_Y0;
+    S32 V_Z0;
+    U16 V_MapU;
+    U16 V_MapV;
+    U16 V_Light;
+    U16 V_Dummy;
 } STRUC_CLIPVERTEX;
 // #pragma pack(pop)
 

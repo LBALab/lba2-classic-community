@@ -1,28 +1,25 @@
 //****************************************************************************
-#ifndef	LIB_ANI_INTDEP
-#define	LIB_ANI_INTDEP
+#ifndef LIB_ANI_INTDEP
+#define LIB_ANI_INTDEP
 
 #include <OBJECT/AFF_OBJ.H>
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
-S32	ObjectSetInterDep(T_OBJ_3D *obj)	;
+S32 ObjectSetInterDep(T_OBJ_3D *obj);
 
-#pragma aux ObjectSetInterDep	"*"		\
-	parm caller		[ebx]			\
-	modify exact 	[eax ecx edx esi edi]
+#pragma aux ObjectSetInterDep "*" parm caller[ebx] modify exact[eax ecx edx esi edi]
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_ANI_INTDEP
+#endif //LIB_ANI_INTDEP
 
 //****************************************************************************
-

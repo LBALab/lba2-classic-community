@@ -10,30 +10,24 @@ U8 *EndLib3DBufferAnim = NULL;
 U8 *PtrLib3DBufferAnim = NULL;
 U8 *MallocBuffer = NULL;
 
-void ClearObjects()
-{
+void ClearObjects() {
     LIB386_TRACE_CPP("ClearObjects", "1", "entry");
-    if (MallocBuffer != NULL)
-    {
+    if (MallocBuffer != NULL) {
         free(MallocBuffer);
         MallocBuffer = NULL;
         Lib3DBufferAnim = NULL;
     }
 }
 
-void InitObjects(void *buffer, U32 size, Func_TransNumPtr *fctbody, Func_TransNumPtr *fctanim)
-{
-    LIB386_TRACE_CPP("InitObjects", "1", "buf=%p size=%u fctbody=%p fctanim=%p", buffer, size, (void*)fctbody, (void*)fctanim);
+void InitObjects(void *buffer, U32 size, Func_TransNumPtr *fctbody, Func_TransNumPtr *fctanim) {
+    LIB386_TRACE_CPP("InitObjects", "1", "buf=%p size=%u fctbody=%p fctanim=%p", buffer, size, (void *)fctbody, (void *)fctanim);
     TransFctBody = fctbody;
     TransFctAnim = fctanim;
 
-    if (buffer == NULL)
-    {
-        if (Lib3DBufferAnim == NULL)
-        {
+    if (buffer == NULL) {
+        if (Lib3DBufferAnim == NULL) {
             Lib3DBufferAnim = (U8 *)malloc(size);
-            if (Lib3DBufferAnim == NULL)
-            {
+            if (Lib3DBufferAnim == NULL) {
                 return;
             }
 
@@ -44,9 +38,7 @@ void InitObjects(void *buffer, U32 size, Func_TransNumPtr *fctbody, Func_TransNu
 
             MallocBuffer = Lib3DBufferAnim;
         }
-    }
-    else
-    {
+    } else {
         Lib3DBufferAnim = (U8 *)buffer;
         PtrLib3DBufferAnim = Lib3DBufferAnim;
         EndLib3DBufferAnim = Lib3DBufferAnim + size - 31 * sizeof(T_GROUP_INFO) + 1;

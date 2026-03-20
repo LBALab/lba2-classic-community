@@ -10,24 +10,26 @@ extern "C" void asm_ScaleBox(S32 xs0, S32 ys0, S32 xs1, S32 ys1, void *ptrs, S32
 
 static U32 rng_state;
 static void rng_seed(U32 s) { rng_state = s; }
-static U32 rng_next(void) { rng_state = rng_state * 1103515245u + 12345u; return (rng_state >> 16) & 0x7FFF; }
+static U32 rng_next(void) {
+    rng_state = rng_state * 1103515245u + 12345u;
+    return (rng_state >> 16) & 0x7FFF;
+}
 
 /* ScaleBox reads TabOffLine[] for both source and destination Y indexing.
    We use a 640-wide virtual screen so TabOffLine[y] = y * 640. */
 static U8 srcbuf[640 * 480];
 static U8 dstbuf[640 * 480];
 
-static void setup(void)
-{
+static void setup(void) {
     ModeDesiredX = 640;
     ModeDesiredY = 480;
-    for (U32 i = 0; i < 480; i++) TabOffLine[i] = i * 640;
+    for (U32 i = 0; i < 480; i++)
+        TabOffLine[i] = i * 640;
     memset(srcbuf, 0, sizeof(srcbuf));
     memset(dstbuf, 0, sizeof(dstbuf));
 }
 
-static void test_same_size_copy(void)
-{
+static void test_same_size_copy(void) {
     setup();
     for (int y = 0; y < 10; y++)
         for (int x = 0; x < 10; x++)
@@ -37,12 +39,12 @@ static void test_same_size_copy(void)
     int nonzero = 0;
     for (int y = 0; y < 10; y++)
         for (int x = 0; x < 10; x++)
-            if (dstbuf[(100 + y) * 640 + 100 + x] != 0) nonzero++;
+            if (dstbuf[(100 + y) * 640 + 100 + x] != 0)
+                nonzero++;
     ASSERT_TRUE(nonzero > 0);
 }
 
-static void test_asm_equiv_downscale(void)
-{
+static void test_asm_equiv_downscale(void) {
     U8 cpp_dst[640 * 480];
     U8 asm_dst[640 * 480];
 
@@ -60,8 +62,7 @@ static void test_asm_equiv_downscale(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "ScaleBox downscale 4x4→2x2");
 }
 
-static void test_asm_equiv_same_size(void)
-{
+static void test_asm_equiv_same_size(void) {
     U8 cpp_dst[640 * 480];
     U8 asm_dst[640 * 480];
 
@@ -79,8 +80,7 @@ static void test_asm_equiv_same_size(void)
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "ScaleBox same-size");
 }
 
-static void test_asm_equiv_upscale(void)
-{
+static void test_asm_equiv_upscale(void) {
     U8 cpp_dst[640 * 480];
     U8 asm_dst[640 * 480];
 
@@ -97,8 +97,7 @@ static void test_asm_equiv_upscale(void)
 
     ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "ScaleBox upscale 10x10→30x30");
 }
-static void test_random_batch(void)
-{
+static void test_random_batch(void) {
     U8 cpp_dst[640 * 480];
     U8 asm_dst[640 * 480];
 
@@ -128,8 +127,7 @@ static void test_random_batch(void)
         ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), label);
     }
 }
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_same_size_copy);
     RUN_TEST(test_asm_equiv_downscale);
     RUN_TEST(test_asm_equiv_same_size);

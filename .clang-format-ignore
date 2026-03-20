@@ -1,0 +1,18 @@
+# Shared exclusion list for clang-format tooling.
+# The local scripts under scripts/ci/ read this file directly.
+build/
+build_test/
+build_logs/
+out/
+LIB386/libsmacker/
+LIB386/AIL/SDL/stb_vorbis.c
+LIB386/AIL/SDL/stb_vorbis.h
+LIB386/FILEIO/stb_image_write.h
+SOURCES/3DEXT/LBA_EXT.H
+SOURCES/3DEXT/MAPTOOLS.CPP
+SOURCES/COMMON.H
+SOURCES/DEC.CPP
+SOURCES/DEC_XCF.CPP
+SOURCES/EXTRA.CPP
+**/*.ASM
+**/*.asm

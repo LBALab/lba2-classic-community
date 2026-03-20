@@ -1,35 +1,32 @@
 //****************************************************************************
-#ifndef	LIB_3D_ROT2D
-#define	LIB_3D_ROT2D
+#ifndef LIB_3D_ROT2D
+#define LIB_3D_ROT2D
 
 //****************************************************************************
-#include	"LROT2D.H"
+#include "LROT2D.H"
 
 //****************************************************************************
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //****************************************************************************
 
-#pragma aux Arg_Rotate	"*"	       		\
-	parm caller	[eax] [ecx] [edx]	\
-	modify		[ebx esi edi]
+#pragma aux Arg_Rotate "*" parm caller[eax][ecx][edx] modify[ebx esi edi]
 
-#pragma	aux (Arg_Rotate)	Func_Rotate
+#pragma aux(Arg_Rotate) Func_Rotate
 
 //****************************************************************************
-extern	void Rotate(S32 x, S32 z, S32 angle)	;
+extern void Rotate(S32 x, S32 z, S32 angle);
 
-#pragma aux	Rotate		"*"
+#pragma aux Rotate "*"
 
 //****************************************************************************
-#ifdef	__cplusplus
+#ifdef __cplusplus
 }
 #endif
 
 //****************************************************************************
-#endif//LIB_3D_ROT2D
+#endif //LIB_3D_ROT2D
 
 //****************************************************************************
-

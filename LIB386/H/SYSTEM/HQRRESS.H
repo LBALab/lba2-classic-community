@@ -1,78 +1,78 @@
 //──────────────────────────────────────────────────────────────────────────
-#ifndef	LIB_SYSTEM_HQRRESS
+#ifndef LIB_SYSTEM_HQRRESS
 #define LIB_SYSTEM_HQRRESS
 
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM/LIMITS.H>
 
-#include	<stdlib.h>
+#include <stdlib.h>
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
-extern	"C"	{
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#pragma	pack(push, 4)
+#pragma pack(push, 4)
 
 //──────────────────────────────────────────────────────────────────────────
-typedef struct  {
-                        S32		MaxSize	;
-                        S32		FreeSize;
-                        S32		MaxIndex;
-                        S32		NbIndex	;
-                        void		*Buffer	;
-                        char		Name[ADELINE_MAX_PATH];
-		}	T_HQR_HEADER 		;
+typedef struct {
+    S32 MaxSize;
+    S32 FreeSize;
+    S32 MaxIndex;
+    S32 NbIndex;
+    void *Buffer;
+    char Name[ADELINE_MAX_PATH];
+} T_HQR_HEADER;
 
 //──────────────────────────────────────────────────────────────────────────
-#pragma	pack(pop)
+#pragma pack(pop)
 
 //──────────────────────────────────────────────────────────────────────────
-typedef	void	(HQR_GET_CALLBACK)(char *hqrname, S32 index);
+typedef void(HQR_GET_CALLBACK)(char *hqrname, S32 index);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	HQR_GET_CALLBACK	*HQRGetErrorFunc;
+extern HQR_GET_CALLBACK *HQRGetErrorFunc;
 
-#pragma	aux	HqrGetErrorFunc	"*"
-
-//──────────────────────────────────────────────────────────────────────────
-extern	HQR_GET_CALLBACK	*HQRGetDelFunc	;
-
-#pragma	aux	HqrGetDelFunc	"*"
+#pragma aux HqrGetErrorFunc "*"
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32	HQR_Flag ;
+extern HQR_GET_CALLBACK *HQRGetDelFunc;
+
+#pragma aux HqrGetDelFunc "*"
 
 //──────────────────────────────────────────────────────────────────────────
-extern	T_HQR_HEADER	*HQR_Init_Ressource(	const char	*hqrname,
- 						S32	maxsize,
-						S32	maxrsrc		);
+extern S32 HQR_Flag;
 
 //──────────────────────────────────────────────────────────────────────────
-#define			HQR_Lock_Ressource(header)
+extern T_HQR_HEADER *HQR_Init_Ressource(const char *hqrname,
+                                        S32 maxsize,
+                                        S32 maxrsrc);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void		HQR_Reset_Ressource(	T_HQR_HEADER *header	);
+#define HQR_Lock_Ressource(header)
 
 //──────────────────────────────────────────────────────────────────────────
-extern	S32		HQR_Change_Ressource(	T_HQR_HEADER *header,
-						const char *newhqrname	);
+extern void HQR_Reset_Ressource(T_HQR_HEADER *header);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void		HQR_Free_Ressource(	T_HQR_HEADER *header	);
+extern S32 HQR_Change_Ressource(T_HQR_HEADER *header,
+                                const char *newhqrname);
 
 //──────────────────────────────────────────────────────────────────────────
-extern	void		*HQR_Get(		T_HQR_HEADER *header,
-						S32 index,
-						S32* outSize = NULL);
+extern void HQR_Free_Ressource(T_HQR_HEADER *header);
 
 //──────────────────────────────────────────────────────────────────────────
-#ifdef	__cplusplus
+extern void *HQR_Get(T_HQR_HEADER *header,
+                     S32 index,
+                     S32 *outSize = NULL);
+
+//──────────────────────────────────────────────────────────────────────────
+#ifdef __cplusplus
 }
 #endif
 
 //──────────────────────────────────────────────────────────────────────────
-#endif//LIB_SYSTEM_HQRRESS
+#endif //LIB_SYSTEM_HQRRESS
 
 //──────────────────────────────────────────────────────────────────────────

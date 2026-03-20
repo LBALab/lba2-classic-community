@@ -39,33 +39,28 @@ Nb_Pts_Control		dd	0
 U32 Nb_Pts_Inter = 0;
 U32 Nb_Pts_Control = 0;
 
-static S32 plasma_arithmetic_shift_right(S32 value, U8 shift)
-{
-	if (shift == 0)
-	{
-		return value;
-	}
+static S32 plasma_arithmetic_shift_right(S32 value, U8 shift) {
+    if (shift == 0) {
+        return value;
+    }
 
-	if (value >= 0)
-	{
-		return value >> shift;
-	}
+    if (value >= 0) {
+        return value >> shift;
+    }
 
-	return (S32)(-(((-(long long)value) + ((1LL << shift) - 1)) >> shift));
+    return (S32)(-(((-(long long)value) + ((1LL << shift) - 1)) >> shift));
 }
 
-static S32 plasma_step_from_delta(S32 delta, U8 interleave)
-{
-	const S32 shifted = plasma_arithmetic_shift_right(delta, interleave);
-	const U32 carry = ((U32)shifted >> 31) & 1u;
-	const U32 doubled = (U32)shifted << 1;
-	const U32 rounded = doubled + 1u + carry;
-	return plasma_arithmetic_shift_right((S32)rounded, 1);
+static S32 plasma_step_from_delta(S32 delta, U8 interleave) {
+    const S32 shifted = plasma_arithmetic_shift_right(delta, interleave);
+    const U32 carry = ((U32)shifted >> 31) & 1u;
+    const U32 doubled = (U32)shifted << 1;
+    const U32 rounded = doubled + 1u + carry;
+    return plasma_arithmetic_shift_right((S32)rounded, 1);
 }
 
-void	Do_Plasma( T_PLASMA *PtrEffectStruct )
-{
-  /*
+void Do_Plasma(T_PLASMA *PtrEffectStruct) {
+    /*
 Do_Plasma		PROC \
 			uses eax ebx ecx edx edi esi ebp\
 			PtrEffectStruct: DWORD
@@ -244,89 +239,81 @@ Do_Plasma		PROC \
 Do_Plasma		ENDP
   */
 
-	// *** Calcul des coeff de Gouraud ***
-  U8 interleave = PtrEffectStruct->Interleave;
-  U32 nbActivePoints = PtrEffectStruct->NbActivePoints;
-  Nb_Pts_Inter = 1 << interleave;
-  U32 lastPtInter = Nb_Pts_Inter - 1;
-  Nb_Pts_Control = nbActivePoints;
+    // *** Calcul des coeff de Gouraud ***
+    U8 interleave = PtrEffectStruct->Interleave;
+    U32 nbActivePoints = PtrEffectStruct->NbActivePoints;
+    Nb_Pts_Inter = 1 << interleave;
+    U32 lastPtInter = Nb_Pts_Inter - 1;
+    Nb_Pts_Control = nbActivePoints;
 
-  S16 *tabVirgule = PtrEffectStruct->TabVirgule;
-  for (U32 k = 0; k < nbActivePoints; ++k)
-  {
-    // @@Lines:
-    // Each line
-    // Memo le ptr de controle
-    S16 *prevTabVirgule = tabVirgule;
+    S16 *tabVirgule = PtrEffectStruct->TabVirgule;
+    for (U32 k = 0; k < nbActivePoints; ++k) {
+        // @@Lines:
+        // Each line
+        // Memo le ptr de controle
+        S16 *prevTabVirgule = tabVirgule;
 
-    // If 4 control points, then 3 iterations plus the special case of the last
-    // point, which must loop with the first
-    for (U32 i = 0; i < nbActivePoints - 1; ++i)
-    {
-      // @@Col:
-			U32 current = (U16)*tabVirgule;
-			U32 last = (U16)tabVirgule[lastPtInter + 1];
-      ++tabVirgule;
-			S32 step = plasma_step_from_delta((S32)(last - current), interleave);
-      for (U32 j = 0; j < lastPtInter; ++j)
-      {
-        // @@Fill:
-				current = (U32)(current + step);
-				*tabVirgule = (S16)current;
-        ++tabVirgule;
-      }
+        // If 4 control points, then 3 iterations plus the special case of the last
+        // point, which must loop with the first
+        for (U32 i = 0; i < nbActivePoints - 1; ++i) {
+            // @@Col:
+            U32 current = (U16)*tabVirgule;
+            U32 last = (U16)tabVirgule[lastPtInter + 1];
+            ++tabVirgule;
+            S32 step = plasma_step_from_delta((S32)(last - current), interleave);
+            for (U32 j = 0; j < lastPtInter; ++j) {
+                // @@Fill:
+                current = (U32)(current + step);
+                *tabVirgule = (S16)current;
+                ++tabVirgule;
+            }
+        }
+
+        // Treat the last point
+        U32 lastPoint = (U16)*tabVirgule;
+        ++tabVirgule; // The first point already exists
+        S32 step = plasma_step_from_delta((S32)((U16)*prevTabVirgule - lastPoint), interleave);
+
+        for (U32 j = 0; j < lastPtInter; ++j) {
+            // @@Fill_Last:
+            lastPoint = (U32)(lastPoint + step);
+            *tabVirgule = (S16)lastPoint;
+            ++tabVirgule;
+        }
     }
 
-    // Treat the last point
-		U32 lastPoint = (U16)*tabVirgule;
-    ++tabVirgule; // The first point already exists
-		S32 step = plasma_step_from_delta((S32)((U16)*prevTabVirgule - lastPoint), interleave);
+    U8 *texture = PtrEffectStruct->TexOffset;
+    // *** Copy ***
+    S16 *tabVirguleCopy = PtrEffectStruct->TabVirgule;
 
-    for (U32 j = 0; j < lastPtInter; ++j)
-    {
-      // @@Fill_Last:
-			lastPoint = (U32)(lastPoint + step);
-			*tabVirgule = (S16)lastPoint;
-      ++tabVirgule;
+    // Next line offset
+    S32 nextLineOffset = Nb_Pts_Inter * nbActivePoints;
+
+    for (U32 k = 0; k < nbActivePoints; ++k) {
+        // @@Copy_0:
+        U8 *originalTexture = texture;
+        S32 originalNextLineOffset = nextLineOffset;
+        if (k == nbActivePoints - 1) {
+            nextLineOffset = -(Nb_Pts_Control * nextLineOffset - nextLineOffset);
+        }
+
+        for (U32 y = 0; y < originalNextLineOffset; y++) {
+            // @@Copy_1:
+            U8 *baseTexture = texture;
+            U32 current = (U16)*tabVirguleCopy;
+            U32 nextPoint = (U16)tabVirguleCopy[nextLineOffset];
+            S32 step = plasma_step_from_delta((S32)(nextPoint - current), interleave);
+            for (U32 x = 0; x < Nb_Pts_Inter; x++) {
+                // @@Copy_2:
+                U32 color = (current >> 8) & 0xFFu;
+                current = (U32)(current + step);
+                *texture = PtrEffectStruct->TabColors[color];
+                texture++;
+            }
+            texture = baseTexture + 256;
+            ++tabVirguleCopy;
+        }
+        nextLineOffset = originalNextLineOffset;
+        texture = &originalTexture[Nb_Pts_Inter];
     }
-  }
-
-  U8 *texture = PtrEffectStruct->TexOffset;
-  // *** Copy ***
-  S16 *tabVirguleCopy = PtrEffectStruct->TabVirgule;
-
-  // Next line offset
-  S32 nextLineOffset = Nb_Pts_Inter * nbActivePoints;
-
-  for (U32 k = 0; k < nbActivePoints; ++k)
-  {
-    // @@Copy_0:
-    U8 *originalTexture = texture;
-    S32 originalNextLineOffset = nextLineOffset;
-    if (k == nbActivePoints - 1)
-    {
-      nextLineOffset = -(Nb_Pts_Control * nextLineOffset - nextLineOffset);
-    }
-
-    for (U32 y = 0; y < originalNextLineOffset; y++)
-    {
-      // @@Copy_1:
-      U8 *baseTexture = texture;
-			U32 current = (U16)*tabVirguleCopy;
-			U32 nextPoint = (U16)tabVirguleCopy[nextLineOffset];
-			S32 step = plasma_step_from_delta((S32)(nextPoint - current), interleave);
-      for (U32 x = 0; x < Nb_Pts_Inter; x++)
-      {
-        // @@Copy_2:
-				U32 color = (current >> 8) & 0xFFu;
-				current = (U32)(current + step);
-        *texture = PtrEffectStruct->TabColors[color];
-        texture++;
-      }
-      texture = baseTexture + 256;
-      ++tabVirguleCopy;
-    }
-    nextLineOffset = originalNextLineOffset;
-    texture = &originalTexture[Nb_Pts_Inter];
-  }
 }

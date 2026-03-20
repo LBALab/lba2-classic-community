@@ -20,18 +20,30 @@
 /* ── Dump mode: print event stream without rendering ───────────────────── */
 static const char *evt_name(U8 type) {
     switch (type) {
-        case POLYREC_EVT_SWITCH_FILLERS: return "SWITCH_FILLERS";
-        case POLYREC_EVT_SET_FOG:        return "SET_FOG";
-        case POLYREC_EVT_SET_CLUT:       return "SET_CLUT";
-        case POLYREC_EVT_SET_TEXTURE:    return "SET_TEXTURE";
-        case POLYREC_EVT_SET_CLIP:       return "SET_CLIP";
-        case POLYREC_EVT_SET_REPMASK:    return "SET_REPMASK";
-        case POLYREC_EVT_SET_FILL_PATCH: return "SET_FILL_PATCH";
-        case POLYREC_EVT_FILL_POLY:      return "FILL_POLY";
-        case POLYREC_EVT_FILL_SPHERE:    return "FILL_SPHERE";
-        case POLYREC_EVT_LINE_A:         return "LINE_A";
-        case POLYREC_EVT_EOF:            return "EOF";
-        default:                         return "UNKNOWN";
+    case POLYREC_EVT_SWITCH_FILLERS:
+        return "SWITCH_FILLERS";
+    case POLYREC_EVT_SET_FOG:
+        return "SET_FOG";
+    case POLYREC_EVT_SET_CLUT:
+        return "SET_CLUT";
+    case POLYREC_EVT_SET_TEXTURE:
+        return "SET_TEXTURE";
+    case POLYREC_EVT_SET_CLIP:
+        return "SET_CLIP";
+    case POLYREC_EVT_SET_REPMASK:
+        return "SET_REPMASK";
+    case POLYREC_EVT_SET_FILL_PATCH:
+        return "SET_FILL_PATCH";
+    case POLYREC_EVT_FILL_POLY:
+        return "FILL_POLY";
+    case POLYREC_EVT_FILL_SPHERE:
+        return "FILL_SPHERE";
+    case POLYREC_EVT_LINE_A:
+        return "LINE_A";
+    case POLYREC_EVT_EOF:
+        return "EOF";
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -75,71 +87,91 @@ static int dump_recording(const char *filename) {
 
         switch (type) {
         case POLYREC_EVT_SWITCH_FILLERS: {
-            U32 bank; memcpy(&bank, rec.event_data + pos, 4); pos += 4;
+            U32 bank;
+            memcpy(&bank, rec.event_data + pos, 4);
+            pos += 4;
             printf("(%u)\n", bank);
             break;
         }
         case POLYREC_EVT_SET_FOG: {
             S32 zn, zf;
-            memcpy(&zn, rec.event_data + pos, 4); pos += 4;
-            memcpy(&zf, rec.event_data + pos, 4); pos += 4;
+            memcpy(&zn, rec.event_data + pos, 4);
+            pos += 4;
+            memcpy(&zf, rec.event_data + pos, 4);
+            pos += 4;
             printf("(near=%d, far=%d)\n", zn, zf);
             break;
         }
         case POLYREC_EVT_SET_CLUT: {
-            U32 line; memcpy(&line, rec.event_data + pos, 4); pos += 4;
+            U32 line;
+            memcpy(&line, rec.event_data + pos, 4);
+            pos += 4;
             printf("(%u)\n", line);
             break;
         }
         case POLYREC_EVT_SET_TEXTURE: {
-            U32 idx; memcpy(&idx, rec.event_data + pos, 4); pos += 4;
+            U32 idx;
+            memcpy(&idx, rec.event_data + pos, 4);
+            pos += 4;
             printf("(%u)\n", idx);
             break;
         }
         case POLYREC_EVT_SET_CLIP: {
             S32 v[4];
-            memcpy(v, rec.event_data + pos, 16); pos += 16;
+            memcpy(v, rec.event_data + pos, 16);
+            pos += 16;
             printf("(%d,%d)-(%d,%d)\n", v[0], v[1], v[2], v[3]);
             break;
         }
         case POLYREC_EVT_SET_REPMASK: {
-            U32 rm; memcpy(&rm, rec.event_data + pos, 4); pos += 4;
+            U32 rm;
+            memcpy(&rm, rec.event_data + pos, 4);
+            pos += 4;
             printf("(0x%04X)\n", rm);
             break;
         }
         case POLYREC_EVT_SET_FILL_PATCH: {
-            U32 fp; memcpy(&fp, rec.event_data + pos, 4); pos += 4;
+            U32 fp;
+            memcpy(&fp, rec.event_data + pos, 4);
+            pos += 4;
             printf("(%u)\n", fp);
             break;
         }
         case POLYREC_EVT_FILL_POLY: {
             S32 tp, cp, nb;
-            memcpy(&tp, rec.event_data + pos, 4); pos += 4;
-            memcpy(&cp, rec.event_data + pos, 4); pos += 4;
-            memcpy(&nb, rec.event_data + pos, 4); pos += 4;
+            memcpy(&tp, rec.event_data + pos, 4);
+            pos += 4;
+            memcpy(&cp, rec.event_data + pos, 4);
+            pos += 4;
+            memcpy(&nb, rec.event_data + pos, 4);
+            pos += 4;
             printf("(type=%d, color=%d, pts=%d)", tp, cp, nb);
             /* Print vertex data: Struc_Point is 16 bytes packed */
             for (S32 v = 0; v < nb && v < 8; v++) {
-                S16 xe, ye; U16 mu, mv, light, zo; S32 w;
-                memcpy(&xe,    rec.event_data + pos + v*16 + 0, 2);
-                memcpy(&ye,    rec.event_data + pos + v*16 + 2, 2);
-                memcpy(&mu,    rec.event_data + pos + v*16 + 4, 2);
-                memcpy(&mv,    rec.event_data + pos + v*16 + 6, 2);
-                memcpy(&light, rec.event_data + pos + v*16 + 8, 2);
-                memcpy(&zo,    rec.event_data + pos + v*16 + 10, 2);
-                memcpy(&w,     rec.event_data + pos + v*16 + 12, 4);
+                S16 xe, ye;
+                U16 mu, mv, light, zo;
+                S32 w;
+                memcpy(&xe, rec.event_data + pos + v * 16 + 0, 2);
+                memcpy(&ye, rec.event_data + pos + v * 16 + 2, 2);
+                memcpy(&mu, rec.event_data + pos + v * 16 + 4, 2);
+                memcpy(&mv, rec.event_data + pos + v * 16 + 6, 2);
+                memcpy(&light, rec.event_data + pos + v * 16 + 8, 2);
+                memcpy(&zo, rec.event_data + pos + v * 16 + 10, 2);
+                memcpy(&w, rec.event_data + pos + v * 16 + 12, 4);
                 printf("\n        v[%d]: xy=(%d,%d) uv=(%u,%u) light=%u zo=%u w=%d",
                        v, xe, ye, mu, mv, light, zo, w);
             }
             printf("\n");
             pos += (U32)nb * 16;
-            if (tp >= 0 && tp < 32) poly_type_counts[tp]++;
+            if (tp >= 0 && tp < 32)
+                poly_type_counts[tp]++;
             draw_count++;
             break;
         }
         case POLYREC_EVT_FILL_SPHERE: {
             S32 v[6];
-            memcpy(v, rec.event_data + pos, 24); pos += 24;
+            memcpy(v, rec.event_data + pos, 24);
+            pos += 24;
             printf("(type=%d, color=%d, cx=%d, cy=%d, r=%d, z=%d)\n",
                    v[0], v[1], v[2], v[3], v[4], v[5]);
             draw_count++;
@@ -147,7 +179,8 @@ static int dump_recording(const char *filename) {
         }
         case POLYREC_EVT_LINE_A: {
             S32 v[7];
-            memcpy(v, rec.event_data + pos, 28); pos += 28;
+            memcpy(v, rec.event_data + pos, 28);
+            pos += 28;
             printf("(x0=%d,y0=%d,x1=%d,y1=%d,col=%d,z1=%d,z2=%d)\n",
                    v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
             draw_count++;
@@ -186,8 +219,8 @@ int main(int argc, char *argv[]) {
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <recording.lba2polyrec> <output.raw> "
-            "[--ppm output.ppm] [--ref-ppm ref.ppm] "
-            "[--start-after N] [--stop-after N] [--dump]\n",
+                        "[--ppm output.ppm] [--ref-ppm ref.ppm] "
+                        "[--start-after N] [--stop-after N] [--dump]\n",
                 argv[0]);
         return 1;
     }
@@ -205,8 +238,8 @@ int main(int argc, char *argv[]) {
 
     if (argc < 3) {
         fprintf(stderr, "Usage: %s <recording.lba2polyrec> <output.raw> "
-            "[--ppm output.ppm] [--ref-ppm ref.ppm] "
-            "[--start-after N] [--stop-after N] [--zbuf output.zbuf] [--dump]\n",
+                        "[--ppm output.ppm] [--ref-ppm ref.ppm] "
+                        "[--start-after N] [--stop-after N] [--zbuf output.zbuf] [--dump]\n",
                 argv[0]);
         return 1;
     }

@@ -5,10 +5,8 @@
 #include "PCXHEAD.H"
 
 // ──────────────────────────────────────────────────────────────────────────
-static S32 next_char(U32 fd, U8 *pt)
-{
-    if (Index == SIZE_BUF)
-    {
+static S32 next_char(U32 fd, U8 *pt) {
+    if (Index == SIZE_BUF) {
         Index = 0;
         Read(fd, pt, SIZE_BUF);
     }
@@ -17,8 +15,7 @@ static S32 next_char(U32 fd, U8 *pt)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-void LoadPCX(char *file_name, void *screen, S32 *resx, S32 *resy, void *tabcol)
-{
+void LoadPCX(char *file_name, void *screen, S32 *resx, S32 *resy, void *tabcol) {
     S32 col, row, sizex;
     S32 fd;
     U8 *buffer, file_buf[SIZE_BUF];
@@ -27,8 +24,7 @@ void LoadPCX(char *file_name, void *screen, S32 *resx, S32 *resy, void *tabcol)
 
     fd = OpenRead(file_name);
 
-    if (!fd)
-    {
+    if (!fd) {
         return;
     }
 
@@ -44,27 +40,21 @@ void LoadPCX(char *file_name, void *screen, S32 *resx, S32 *resy, void *tabcol)
     if (resx)
         *resx = sizex + 1;
 
-    for (; row >= 0; row--)
-    {
-        for (col = sizex; col >= 0;)
-        {
+    for (; row >= 0; row--) {
+        for (col = sizex; col >= 0;) {
             S32 ch, pass;
 
             ch = next_char(fd, file_buf);
-            if ((ch & 0xC0) != 0xC0)
-            {
+            if ((ch & 0xC0) != 0xC0) {
                 pass = 1;
-            }
-            else
-            {
+            } else {
                 pass = ch & 0x3F;
                 ch = next_char(fd, file_buf);
             }
 
             col -= pass;
 
-            for (; pass > 0; pass--)
-            {
+            for (; pass > 0; pass--) {
                 *buffer++ = (U8)ch;
             }
         }

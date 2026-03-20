@@ -63,27 +63,27 @@ FALSE			EQU	0
 SIZE_VIDEOLINE		EQU	640
 */
 // Nb de cotes max apres clipping
-#define NB_MAX_COTES	16
-#define NB_MAX_EDGES	NB_MAX_COTES
+#define NB_MAX_COTES 16
+#define NB_MAX_EDGES NB_MAX_COTES
 
-#define PERSP_SHIFT 4 // Shift value (log2(PERSP_VALUE))
+#define PERSP_SHIFT 4                  // Shift value (log2(PERSP_VALUE))
 #define PERSP_VALUE (1 << PERSP_SHIFT) // Nb of pixels rendered between two corrections
 
 // Pour le Flag_Display
 // Champ de bits
-#define READ_NEXT_G 1		// Bit 0 : Lire le prochain sommet a gauche?
-#define READ_NEXT_D 2		// Bit 1	: idem a droite ?
-#define END_READ 4		// Bit 2	: quitter ?
-#define READ_NEXT_L 1		// Bit 0 : Read next left point
-#define READ_NEXT_R 2		// Bit 1	: Read next right point
+#define READ_NEXT_G 1 // Bit 0 : Lire le prochain sommet a gauche?
+#define READ_NEXT_D 2 // Bit 1	: idem a droite ?
+#define END_READ 4    // Bit 2	: quitter ?
+#define READ_NEXT_L 1 // Bit 0 : Read next left point
+#define READ_NEXT_R 2 // Bit 1	: Read next right point
 
-#define CLIP_FLAT	1		// Clipper les bords des polys
-#define CLIP_LIGHT	2		// Clipper la couleur
-#define CLIP_TEXTURE	4		// Clipper la texture
-#define CLIP_TEXTUREZ	8		// Clipper la texture plus le Z (cas d'une perspective corrected)
-#define CLIP_ZBUFFER	16		// Heu, juste pour dire ZBuffer On
-#define CLIP_ZFOG	32		// Flag de Fog pour le cas du TextureZ Fog
-#define CLIP_DITHER	64		// If dithering On
+#define CLIP_FLAT 1     // Clipper les bords des polys
+#define CLIP_LIGHT 2    // Clipper la couleur
+#define CLIP_TEXTURE 4  // Clipper la texture
+#define CLIP_TEXTUREZ 8 // Clipper la texture plus le Z (cas d'une perspective corrected)
+#define CLIP_ZBUFFER 16 // Heu, juste pour dire ZBuffer On
+#define CLIP_ZFOG 32    // Flag de Fog pour le cas du TextureZ Fog
+#define CLIP_DITHER 64  // If dithering On
 
 /*
 

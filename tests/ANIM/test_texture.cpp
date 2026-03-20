@@ -22,26 +22,22 @@ static U8 fake_texture_c[64];
 
 static U32 rng_state;
 
-static void rng_seed(U32 seed)
-{
+static void rng_seed(U32 seed) {
     rng_state = seed;
 }
 
-static U32 rng_next(void)
-{
+static U32 rng_next(void) {
     rng_state = rng_state * 1103515245u + 12345u;
     return (rng_state >> 16) & 0x7FFFu;
 }
 
-static void init_obj(T_OBJ_3D *obj, void *texture, void *next_texture)
-{
+static void init_obj(T_OBJ_3D *obj, void *texture, void *next_texture) {
     memset(obj, 0xA5, sizeof(*obj));
     obj->Texture = texture;
     obj->NextTexture = next_texture;
 }
 
-static void assert_texture_case(const char *label, const T_OBJ_3D *initial_obj, void *texture)
-{
+static void assert_texture_case(const char *label, const T_OBJ_3D *initial_obj, void *texture) {
     T_OBJ_3D cpp_obj;
     T_OBJ_3D asm_obj;
 
@@ -54,8 +50,7 @@ static void assert_texture_case(const char *label, const T_OBJ_3D *initial_obj, 
     ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), label);
 }
 
-static void test_equivalence(void)
-{
+static void test_equivalence(void) {
     T_OBJ_3D initial;
 
     init_obj(&initial, (void *)-1, (void *)-1);
@@ -71,9 +66,8 @@ static void test_equivalence(void)
     assert_texture_case("ObjectInitTexture overwrite next texture", &initial, fake_texture_a);
 }
 
-static void test_random_equivalence(void)
-{
-    void *textures[] = { fake_texture_a, fake_texture_b, fake_texture_c, NULL, (void *)-1 };
+static void test_random_equivalence(void) {
+    void *textures[] = {fake_texture_a, fake_texture_b, fake_texture_c, NULL, (void *)-1};
 
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; ++i) {
@@ -89,8 +83,7 @@ static void test_random_equivalence(void)
     }
 }
 
-int main(void)
-{
+int main(void) {
     RUN_TEST(test_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
