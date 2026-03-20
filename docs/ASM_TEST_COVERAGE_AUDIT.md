@@ -89,6 +89,8 @@ For each listed ASM/CPP pair:
 - Completed: `AddString` / `DeleteString`
   - Added interleaved mixed-operation stress instead of testing the two operations only in isolation.
   - Compared full tree, window, and global state after every mixed step.
+  - Deepened the delete-only stress to 150 deterministic rounds and the mixed
+    AddString/DeleteString pipeline to 80 deterministic sequences.
 
 ### Next SOURCES Candidates
 
