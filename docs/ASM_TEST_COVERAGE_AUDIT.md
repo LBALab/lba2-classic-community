@@ -304,6 +304,12 @@ For each listed ASM/CPP pair:
     `BodyDisplay_AlphaBeta`, and `ObjectDisplay` now assert the exact
     deterministic `NonZeroPixels == 233` count for the shared simple fixture,
     rather than only checking that some pixels were drawn.
+- Completed: `AFF_OBJ` line and sphere exact visible counts in
+  `tests/OBJECT/test_aff_obj.cpp`
+  - Tightened the dedicated `ObjectDisplay line render`, `ObjectDisplay sphere
+    render`, and `ObjectDisplay sphere transparent render` cases so they now
+    assert exact deterministic `NonZeroPixels` counts of `32`, `136`, and
+    `136`, rather than only checking that pixels were drawn.
 - Completed: fixed-table float-to-int placeholder cleanup in
   `tests/fpu_precision/test_fpu_precision.cpp`
   - Replaced the placeholder pass-through assertions in the deterministic
