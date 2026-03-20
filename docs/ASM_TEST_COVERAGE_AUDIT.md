@@ -157,8 +157,8 @@ For each listed ASM/CPP pair:
 - `ScaleBox` / `ScaleSprite`
   - `ScaleSprite` is now tightened for 1:1 equivalence; follow up only if the
     scaled-factor path is ported.
-  - Add deterministic clipped-edge and degenerate-dimension cases for
-    `ScaleBox`, whose current coverage is still mostly size-shape focused.
+  - `ScaleBox` now has a deeper 100-case deterministic random sweep; the next
+    meaningful follow-up is still clipped-edge and degenerate-dimension cases.
 
 ### SYSTEM
 
