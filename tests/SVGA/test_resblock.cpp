@@ -113,7 +113,7 @@ static void test_random_batch(void) {
 
     rng_seed(0xDEADBEEF);
     int prev = test_failures;
-    for (int i = 0; i < 20 && test_failures == prev; i++) {
+    for (int i = 0; i < 100 && test_failures == prev; i++) {
         S32 x0 = (S32)(rng_next() % 600);
         S32 y0 = (S32)(rng_next() % 440);
         S32 x1 = x0 + (S32)(rng_next() % (639 - x0));
