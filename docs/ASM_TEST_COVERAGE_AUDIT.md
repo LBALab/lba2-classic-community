@@ -94,8 +94,12 @@ For each listed ASM/CPP pair:
 
 ### Next SOURCES Candidates
 
-- `Do_Fire`
-  - Re-check whether additional deterministic edge patterns uncover propagation differences beyond the existing zero, checkerboard, and sequential cases.
+- Completed: `Do_Fire`
+  - Added deterministic vertical-stripe inputs to exercise the horizontal
+    wraparound averaging path explicitly.
+  - Added isolated edge-impulse inputs to exercise boundary-column neighbor
+    sampling and confirm byte-for-byte parity through two consecutive fire
+    updates.
 - `BoxFlow` / `ShadeBoxBlk` / `CopyBlockShade`
   - Review clipped-edge combinations and repeated-application stability.
 

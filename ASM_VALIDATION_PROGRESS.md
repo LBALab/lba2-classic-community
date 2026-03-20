@@ -51,7 +51,7 @@ exists in both `.ASM` and `.CPP` form.
    - Added `tests/test_flow_a.cpp` covering `BoxFlow`, `ShadeBoxBlk`, and `CopyBlockShade` with fixed clipped/unclipped cases plus deterministic random stress, comparing the full destination buffers byte-for-byte.
 
 - [x] `FIRE.ASM` -> `FIRE.CPP`
-   - Added `tests/test_fire.cpp` covering `Do_Fire` with zero, all-`0xFF`, checkerboard, sequential, and 40-round deterministic random inputs, comparing both 32x36 work buffers, the 32x256 texture output, and the unchanged color table byte-for-byte after two consecutive calls from the same initial seed/state.
+   - Added `tests/test_fire.cpp` covering `Do_Fire` with zero, all-`0xFF`, checkerboard, sequential, vertical-stripe, and edge-impulse inputs plus 300 deterministic random rounds, comparing both 32x36 work buffers, the 32x256 texture output, and the unchanged color table byte-for-byte after two consecutive calls from the same initial seed/state.
 
 - [x] `COMPRESS.ASM` -> active CPP port lives in `LZSS.CPP` (`COMPRESS.CPP` is a commented legacy stub)
    - Added `tests/test_compress.cpp` covering `AddString` and `DeleteString` with fixed tree-shape cases, 300-round add stress, 150-round delete stress, and 80 deterministic mixed interleaved AddString/DeleteString sequences, comparing return values and full tree/window/global state after each operation.
