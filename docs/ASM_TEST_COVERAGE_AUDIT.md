@@ -122,3 +122,12 @@ For each listed ASM/CPP pair:
 - Completed: `AffMask`
   - Added high-bit hotspot-byte interior, clip-window, and off-screen cases.
   - Verified that the CPP path keeps the ASM's raw-byte hotspot semantics for this function.
+
+### SYSTEM
+
+- Completed: `CPU` globals
+  - Replaced the placeholder existence test with byte-for-byte comparison of all exported globals.
+  - Fixed the CPP static initializers to match the ASM data segment, including `ProcessorSignature = 0x400`.
+- Completed: `Mouse data`
+  - Replaced placeholder link/nonzero assertions with fixed-byte sanity checks.
+  - Kept the strict 541-byte ASM-vs-CPP comparison for `BinGphMouse`.
