@@ -1582,6 +1582,12 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 136;
     if (strcmp(label, "ObjectDisplay sphere transparent render") == 0)
         return 136;
+    if (strcmp(label, "ObjectDisplay dither render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay gouraud table render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay dither table render") == 0)
+        return 233;
     return -1;
 }
 
