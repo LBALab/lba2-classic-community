@@ -38,6 +38,9 @@ typedef struct SpriteRunResult {
 } SpriteRunResult;
 
 static U32 build_multi_bank(int n) {
+    static const S8 hot_x_values[] = {0, 1, -1, 2, -2, 3, -3, 1};
+    static const S8 hot_y_values[] = {0, -1, 1, -2, 2, -3, 3, 0};
+
     memset(g_bank, 0, sizeof(g_bank));
     U32 *off = (U32 *)g_bank;
     U32 pos = (U32)(n * 4);
@@ -47,8 +50,8 @@ static U32 build_multi_bank(int n) {
         U8 h = (U8)((i % 6) + 2);
         g_bank[pos] = w;
         g_bank[pos + 1] = h;
-        g_bank[pos + 2] = (U8)(i % 3);
-        g_bank[pos + 3] = (U8)(i % 2);
+        g_bank[pos + 2] = (U8)hot_x_values[i & 7];
+        g_bank[pos + 3] = (U8)hot_y_values[i & 7];
         U8 *px = g_bank + pos + 4;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
@@ -162,6 +165,11 @@ static void test_hotspot(void) {
     assert_case_matches("ScaleSprite hotspot", 2, 200, 200);
 }
 
+static void test_negative_hotspot(void) {
+    build_multi_bank(8);
+    assert_case_matches("ScaleSprite negative hotspot", 4, 1, 1);
+}
+
 static void test_multi_sprites(void) {
     build_multi_bank(8);
     setup();
@@ -220,6 +228,7 @@ int main(void) {
     RUN_TEST(test_clip_top);
     RUN_TEST(test_clip_bottom);
     RUN_TEST(test_hotspot);
+    RUN_TEST(test_negative_hotspot);
     RUN_TEST(test_multi_sprites);
     RUN_TEST(test_random_batch);
     RUN_TEST(test_asm_equiv_1to1);
