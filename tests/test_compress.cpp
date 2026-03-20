@@ -335,7 +335,7 @@ static void test_deletestring_random_stress(void) {
     int node;
     int round;
 
-    for (round = 0; round < 40; ++round) {
+    for (round = 0; round < 150; ++round) {
         prepare_random_delete_state(0x0BADCAFEu + (unsigned int)round, &initial_state, &node);
         expect_deletestring_equivalent(&initial_state, node);
     }
@@ -346,7 +346,7 @@ static void test_addstring_deletestring_mixed_stress(void) {
     CompressState deleted_state;
     CompressState next_state;
 
-    for (int round = 0; round < 24; ++round) {
+    for (int round = 0; round < 80; ++round) {
         unsigned int sequence_seed = 0x13572468u + (unsigned int)round;
         int operations = 8 + (int)(sequence_seed % 5u);
 
