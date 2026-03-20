@@ -304,6 +304,13 @@ For each listed ASM/CPP pair:
     `BodyDisplay_AlphaBeta`, and `ObjectDisplay` now assert the exact
     deterministic `NonZeroPixels == 233` count for the shared simple fixture,
     rather than only checking that some pixels were drawn.
+- Completed: fixed-table float-to-int placeholder cleanup in
+  `tests/fpu_precision/test_fpu_precision.cpp`
+  - Replaced the placeholder pass-through assertions in the deterministic
+    round-to-nearest and truncation tables with exact full-match checks:
+    `lrintf` and `lrintl(long double)` must match the ASM for all 19 fixed
+    round cases, and the plain C cast must match the ASM for all 11 fixed
+    truncation cases.
 
 ### Next Candidates
 
