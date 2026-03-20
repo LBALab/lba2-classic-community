@@ -150,3 +150,21 @@ For each listed ASM/CPP pair:
 - Completed: `Mouse data`
   - Replaced placeholder link/nonzero assertions with fixed-byte sanity checks.
   - Kept the strict 541-byte ASM-vs-CPP comparison for `BinGphMouse`.
+
+### pol_work
+
+- Completed: `Fill_Sphere`
+  - Replaced the remaining placeholder no-crash checks with strict
+    framebuffer equivalence for zero-radius, transparent, fog, and 300 random
+    mixed-type rounds.
+  - Reused the existing Watcom ABI wrapper instead of introducing any new
+    inline-ASM behavior in library code.
+
+### Next pol_work Candidates
+
+- `Fill_Poly` / `Filler_Flat`
+  - Replace the remaining degenerate/random placeholder checks with exact
+    framebuffer comparisons in `test_polyflat.cpp`.
+- `Filler_Gouraud` / `Filler_TextureGouraud`
+  - Tighten the clipped and random `Fill_Poly`-level tests that still only
+    assert “no crash” in `test_polygour.cpp` and `test_polygtex.cpp`.
