@@ -114,6 +114,10 @@ For each listed ASM/CPP pair:
 
 ### ANIM
 
+- Completed: `ObjectInitAnim`
+  - Added strict full-`T_OBJ_3D` ASM-vs-CPP comparison for the same-anim
+    early-return path after pending visual promotion.
+  - Deepened the deterministic full-state random sweep to 100 rounds.
 - Completed: `ObjectSetFrame`
   - Added explicit reset-state assertions for interpolation, step accumulators, timers, and status.
   - Widened the full-struct ASM-vs-CPP comparison from the frame-1 path to the
@@ -135,7 +139,7 @@ For each listed ASM/CPP pair:
 - Completed: `AffGraph`
   - Added strict ASM-vs-CPP framebuffer and `ScreenX/Y` bounds coverage.
   - Added unclipped solid/pattern draws, signed-hotspot interior placement,
-    clip-window and screen-edge clipping, off-screen no-op cases, and 50
+    clip-window and screen-edge clipping, off-screen no-op cases, and 100
     deterministic random banks.
 - Completed: `GetBoxGraph`
   - Fixed signed hotspot handling in the CPP implementation.
@@ -143,6 +147,9 @@ For each listed ASM/CPP pair:
 - Completed: `AffMask`
   - Added high-bit hotspot-byte interior, clip-window, and off-screen cases.
   - Verified that the CPP path keeps the ASM's raw-byte hotspot semantics for this function.
+- Completed: `SizeFont`
+  - Deepened the deterministic synthetic-bank ASM-vs-CPP string sweep to 100
+    cases while keeping the fixed width/space cases intact.
 - Completed: `ScaleSprite`
   - Replaced the placeholder and min/max-only checks with strict 1:1
     framebuffer and `ScreenX/Y` bounds equivalence for minimal, hotspot,
@@ -278,6 +285,7 @@ For each listed ASM/CPP pair:
   - Added explicit coverage for the same-anim early-return path, proving that
     pending `NextBody` and `NextTexture` still have to be promoted into
     `Body` and `Texture` before the function exits.
+  - Deepened the deterministic full-state random sweep to 100 rounds.
   - Fixed `LIB386/ANIM/ANIM.CPP` so the CPP path matches the ASM's up-front
     body/texture promotion behavior.
 
