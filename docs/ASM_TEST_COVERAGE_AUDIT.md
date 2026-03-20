@@ -258,6 +258,10 @@ For each listed ASM/CPP pair:
   - Tightened the remaining radius-coverage, small-radius, and partially
     clipped front-end smoke cases so they now assert exact deterministic
     `770`-pixel, `6`-pixel, and `846`-pixel footprints respectively.
+- Completed: exact `ClipperZ` all-behind return in `test_polyclip.cpp`
+  - Tightened the CPP-only all-behind sanity case so it now asserts the exact
+    deterministic return value `0` instead of accepting either `0` or
+    `(U32)-1`.
 - Completed: exact `SetFog` fixture outputs in `test_poly.cpp`
   - Tightened the representative `SetFog(100,1000)` and `SetFog(0,65535)`
     checks so they now assert exact deterministic
