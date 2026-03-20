@@ -85,6 +85,7 @@ For each listed ASM/CPP pair:
 
 - Completed: `SearchBoundColRGB`
   - Added deterministic full 256-entry palette stress.
+  - Deepened the 256-entry palette stress to 100 deterministic rounds.
   - Added wider `coulmin`/`coulmax` spans to exercise deeper search ranges.
 - Completed: `AddString` / `DeleteString`
   - Added interleaved mixed-operation stress instead of testing the two operations only in isolation.

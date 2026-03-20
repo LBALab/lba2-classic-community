@@ -97,7 +97,7 @@ static void test_searchboundcolrgb_full_palette_stress(void) {
     U8 palette[256 * 3];
 
     rng_seed(0xC0FFEE11u);
-    for (int round = 0; round < 24; ++round) {
+    for (int round = 0; round < 100; ++round) {
         for (U32 i = 0; i < sizeof(palette); ++i) {
             palette[i] = (U8)rng_next();
         }

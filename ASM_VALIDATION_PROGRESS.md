@@ -45,7 +45,7 @@ exists in both `.ASM` and `.CPP` form.
    - Added `tests/test_grille.cpp` covering `GetAdrBlock`, `Map2Screen`, `DecompColonne`, `WorldCodeBrick`, `GetBlockBrick`, `GetWorldColBrickVisible`, and `WorldColBrickFull` with fixed in-memory cube/block fixtures plus deterministic random stress, comparing return values and touched globals (`XMap`, `YMap`, `ZMap`, `XScreen`, `YScreen`) byte-for-byte/strictly. Fixed CPP world-coordinate conversion to use the ASM's raw shift semantics and matched `WorldColBrickFull`'s upward scan. Note: the `WorldColBrickFull` negative-`y` ASM path is excluded because that proc jumps to a shared `pop ebx` return path without a matching push and crashes before returning.
 
 - [x] `FUNC.ASM` -> `FUNC.CPP`
-   - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, 64-entry random stress, plus dedicated 256-entry full-palette stress that exercises wider `coulmin`/`coulmax` spans and deeper search ranges while verifying the palette remains unchanged byte-for-byte.
+   - Added `tests/test_func.cpp` covering `SearchBoundColRGB` with fixed exact/subrange/upper-bound cases, edge cases for single-entry and `coulmin > coulmax`, 64-entry random stress, plus 100-round dedicated 256-entry full-palette stress that exercises wider `coulmin`/`coulmax` spans and deeper search ranges while verifying the palette remains unchanged byte-for-byte.
 
 - [x] `FLOW_A.ASM` -> `FLOW_A.CPP`
    - Added `tests/test_flow_a.cpp` covering `BoxFlow`, `ShadeBoxBlk`, and `CopyBlockShade` with fixed clipped/unclipped cases plus deterministic random stress, comparing the full destination buffers byte-for-byte.
