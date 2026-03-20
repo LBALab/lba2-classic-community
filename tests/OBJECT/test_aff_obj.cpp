@@ -1604,6 +1604,12 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
         return 514;
     if (strcmp(label, "ObjectDisplay textured Z gouraud render") == 0)
         return 514;
+    if (strcmp(label, "ObjectDisplay textured quad flat render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad solid render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad gouraud render") == 0)
+        return 1058;
     return -1;
 }
 
