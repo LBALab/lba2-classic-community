@@ -201,6 +201,11 @@ For each listed ASM/CPP pair:
   - Collinear triangles now assert an unchanged framebuffer, and 100 random
     solid triangles now assert repeatable full-framebuffer output plus
     color/bounds invariants.
+- Completed: exact `Fill_Poly(POLY_SOLID/POLY_TRAME)` basic area counts in
+  `test_polyflat.cpp`
+  - Tightened the basic solid and trame front-end area checks so they now
+    assert exact deterministic `820`-pixel and `745`-pixel footprints instead
+    of only checking that a large enough area was filled.
 - Completed: `Fill_Poly` Gouraud/Dither path in `test_polygour.cpp`
   - Replaced the clipped/random placeholder checks with deterministic
     framebuffer assertions.

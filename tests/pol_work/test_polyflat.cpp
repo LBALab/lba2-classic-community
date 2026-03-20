@@ -83,7 +83,7 @@ static void test_fill_poly_solid_covers_area(void) {
     pts[2] = make_point(50, 60);
     Fill_Poly(POLY_SOLID, 0x55, 3, pts);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 100); /* should fill a significant area */
+    ASSERT_EQ_INT(820, n);
 }
 
 /* ── Fill_Poly with POLY_TRAME (type 3) ──────────────────────── */
@@ -98,7 +98,7 @@ static void test_fill_poly_trame_checkerboard(void) {
     /* Trame fills every other pixel — should have roughly half the
      * pixels of a solid fill */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 50); /* some pixels filled */
+    ASSERT_EQ_INT(745, n);
 }
 
 /* ── Fill_Poly with POLY_TRANS (type 2) ──────────────────────── */
