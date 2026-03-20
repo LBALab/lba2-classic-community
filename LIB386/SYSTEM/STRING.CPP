@@ -282,14 +282,25 @@ void CopyUtf8ToCp850(char *dst, size_t dstSize, const char *src) {
 }
 
 void FormatUtf8ToCp850(char *dst, size_t dstSize, const char *fmt, ...) {
-    char utf8Buffer[256];
     va_list args;
 
+    if (dstSize == 0) {
+        return;
+    }
+
+    char *utf8Buffer = (char *)SDL_malloc(dstSize);
+    if (!utf8Buffer) {
+        dst[0] = '\0';
+        return;
+    }
+
     va_start(args, fmt);
-    vsnprintf(utf8Buffer, sizeof(utf8Buffer), fmt, args);
+    vsnprintf(utf8Buffer, dstSize, fmt, args);
     va_end(args);
 
     CopyUtf8ToCp850(dst, dstSize, utf8Buffer);
+
+    SDL_free(utf8Buffer);
 }
 
 // =============================================================================
