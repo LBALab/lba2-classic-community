@@ -67,7 +67,7 @@ static void test_gouraud_uniform_light(void) {
     Fill_Poly(POLY_GOURAUD, 0x03, 3, pts);
     /* Centre pixel should be set (non-zero) */
     U8 centre = g_poly_framebuf[60 * TEST_POLY_W + 40];
-    ASSERT_TRUE(centre != 0);
+    ASSERT_EQ_UINT(11, centre);
 }
 
 /* ── Dither triangle ───────────────────────────────────────────── */
