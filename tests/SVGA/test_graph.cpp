@@ -375,7 +375,7 @@ static void test_affgraph_clipping_equivalence(void) {
 
 static void test_affgraph_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
-    for (int round = 0; round < 50; ++round) {
+    for (int round = 0; round < 100; ++round) {
         S32 x = (S32)(rng_next() % 680u) - 20;
         S32 y = (S32)(rng_next() % 520u) - 20;
         S32 clip_xmin = (S32)(rng_next() % 320u);
