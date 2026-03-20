@@ -201,9 +201,9 @@ For each listed ASM/CPP pair:
   `tests/ANIM/test_intframe.cpp`
   - Expanded the fixture to cover both rotate and translate group
     interpolation.
-  - Added exact 0%, 25%, 50%, and 75% expectations plus deterministic
-    ASM-vs-CPP stress over interpolator values with full `CurrentFrame`
-    byte comparison.
+  - Added exact 0%, 25%, 50%, 75%, and `0xFFFF` endpoint expectations.
+  - Widened the deterministic ASM-vs-CPP stress coverage to compare the full
+    `T_OBJ_3D` state instead of only the interpolated frame bytes.
 - Completed: `ObjectSetInterAnim` exact timer/interpolation coverage in
   `tests/ANIM/test_intanim.cpp`
   - Replaced the midpoint range check with exact state assertions.

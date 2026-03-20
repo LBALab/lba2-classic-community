@@ -85,6 +85,15 @@ static void test_cpp_interp_75pct(void) {
     assert_group_eq(&obj.CurrentFrame[1], TYPE_TRANSLATE, -500, 1000, -1500);
 }
 
+static void test_cpp_interp_ffffpct(void) {
+    T_OBJ_3D obj;
+    setup_interp(&obj);
+    obj.Interpolator = 0xFFFF; /* fixed-point endpoint, not exact frame copy */
+    ObjectSetInterFrame(&obj);
+    assert_group_eq(&obj.CurrentFrame[0], TYPE_ROTATE, 199, 399, 599);
+    assert_group_eq(&obj.CurrentFrame[1], TYPE_TRANSLATE, -1000, 1999, -3000);
+}
+
 static void test_cpp_no_interp_when_flag_frame(void) {
     T_OBJ_3D obj;
     T_GROUP_INFO saved_frame[2];
@@ -105,8 +114,8 @@ static void test_asm_equiv(void) {
     setup_interp(&asm_obj);
     asm_ObjectSetInterFrame(&asm_obj);
 
-    ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame,
-                          2 * sizeof(T_GROUP_INFO), "ObjectSetInterFrame 50%");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectSetInterFrame 50%");
 }
 
 static void test_asm_equiv_25pct(void) {
@@ -121,8 +130,24 @@ static void test_asm_equiv_25pct(void) {
     asm_obj.Interpolator = 0x4000;
     asm_ObjectSetInterFrame(&asm_obj);
 
-    ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame,
-                          2 * sizeof(T_GROUP_INFO), "ObjectSetInterFrame 25%");
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectSetInterFrame 25%");
+}
+
+static void test_asm_equiv_ffffpct(void) {
+    T_OBJ_3D cpp_obj, asm_obj;
+    TransFctAnim = NULL;
+
+    setup_interp(&cpp_obj);
+    cpp_obj.Interpolator = 0xFFFF;
+    ObjectSetInterFrame(&cpp_obj);
+
+    setup_interp(&asm_obj);
+    asm_obj.Interpolator = 0xFFFF;
+    asm_ObjectSetInterFrame(&asm_obj);
+
+    ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D),
+                          "ObjectSetInterFrame 0xFFFF");
 }
 
 static void test_asm_equiv_random_interpolators(void) {
@@ -145,8 +170,7 @@ static void test_asm_equiv_random_interpolators(void) {
 
         char label[96];
         snprintf(label, sizeof(label), "ObjectSetInterFrame random #%d interp=%u", i, interpolator);
-        ASSERT_ASM_CPP_MEM_EQ(asm_obj.CurrentFrame, cpp_obj.CurrentFrame,
-                              2 * sizeof(T_GROUP_INFO), label);
+        ASSERT_ASM_CPP_MEM_EQ((U8 *)&asm_obj, (U8 *)&cpp_obj, sizeof(T_OBJ_3D), label);
     }
 }
 
@@ -155,9 +179,11 @@ int main(void) {
     RUN_TEST(test_cpp_interp_0pct);
     RUN_TEST(test_cpp_interp_25pct);
     RUN_TEST(test_cpp_interp_75pct);
+    RUN_TEST(test_cpp_interp_ffffpct);
     RUN_TEST(test_cpp_no_interp_when_flag_frame);
     RUN_TEST(test_asm_equiv);
     RUN_TEST(test_asm_equiv_25pct);
+    RUN_TEST(test_asm_equiv_ffffpct);
     RUN_TEST(test_asm_equiv_random_interpolators);
     TEST_SUMMARY();
     return test_failures != 0;
