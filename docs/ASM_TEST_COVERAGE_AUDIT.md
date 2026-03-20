@@ -214,8 +214,11 @@ For each listed ASM/CPP pair:
   - Added deterministic timer-sweep checks for the CPP path, covering the
     no-op entry case, midpoint interpolation, near-endpoint rounding, and
     the exact frame-transition state.
-  - Kept ASM parity scoped to the documented safe domain (midpoint), since
-    frame-transition/full-state divergence is inherited from `INTERDEP`.
+  - Added full `T_OBJ_3D` ASM-vs-CPP parity for the no-change early-return
+    path.
+  - Kept midpoint and frame-transition ASM parity scoped to the documented
+    safe domain, since broader full-state divergence is inherited from
+    `INTERDEP`.
 - Completed: clipped `Line` sanity tightening in `tests/pol_work/test_polyline.cpp`
   - Replaced the remaining off-screen-left no-crash comment with exact
     visible-span assertions for the clipped horizontal line case.
