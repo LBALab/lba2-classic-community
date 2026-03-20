@@ -224,6 +224,8 @@ For each listed ASM/CPP pair:
   - Added exact 0%, 25%, 50%, 75%, and `0xFFFF` endpoint expectations.
   - Widened the deterministic ASM-vs-CPP stress coverage to compare the full
     `T_OBJ_3D` state instead of only the interpolated frame bytes.
+  - Deepened the deterministic interpolator sweep to 100 rounds so this path
+    stays aligned with the stronger recent strict stress coverage.
 - Completed: `ObjectSetInterAnim` exact timer/interpolation coverage in
   `tests/ANIM/test_intanim.cpp`
   - Replaced the midpoint range check with exact state assertions.
