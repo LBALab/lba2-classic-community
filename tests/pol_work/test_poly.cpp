@@ -173,7 +173,9 @@ static void test_setfog_basic(void) {
     SetFog(100, 1000);
     ASSERT_EQ_INT(100, Fill_Z_Fog_Near);
     ASSERT_EQ_INT(1000, Fill_Z_Fog_Far);
-    ASSERT_TRUE(Fill_ZBuffer_Factor > 0);
+    ASSERT_EQ_UINT(4294967u, Fill_ZBuffer_Factor);
+    ASSERT_EQ_UINT(6553u, Fill_ScaledFogNear);
+    ASSERT_EQ_UINT(284u, Fill_Fog_Factor);
 }
 
 static void test_setfog_zero_far(void) {
@@ -191,7 +193,9 @@ static void test_setfog_large_range(void) {
     SetFog(0, 65535);
     ASSERT_EQ_INT(0, Fill_Z_Fog_Near);
     ASSERT_EQ_INT(65535, Fill_Z_Fog_Far);
-    ASSERT_TRUE(Fill_ZBuffer_Factor > 0);
+    ASSERT_EQ_UINT(65537u, Fill_ZBuffer_Factor);
+    ASSERT_EQ_UINT(0u, Fill_ScaledFogNear);
+    ASSERT_EQ_UINT(256u, Fill_Fog_Factor);
 }
 
 /* ── Switch_Fillers ────────────────────────────────────────────── */
