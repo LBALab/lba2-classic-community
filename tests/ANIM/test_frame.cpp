@@ -4,8 +4,10 @@
 #include <ANIM/ANIM.H>
 #include <ANIM/LIBINIT.H>
 #include <ANIM/CLEAR.H>
+#include <ANIM.H>
 #include <OBJECT/AFF_OBJ.H>
 #include "anim_test_fixture.h"
+#include <SYSTEM/TIMER.H>
 #include <string.h>
 
 extern "C" void asm_ObjectSetFrame(T_OBJ_3D *obj, U32 frame);
@@ -28,6 +30,20 @@ static void setup_obj(T_OBJ_3D *obj) {
     init_anim_buffer();
     TransFctAnim = NULL;
     ObjectInitAnim(obj, test_anim);
+}
+
+static void seed_frame_state(T_OBJ_3D *obj) {
+    obj->Interpolator = 0x12345678u;
+    obj->LastAnimStepX = 111;
+    obj->LastAnimStepY = 222;
+    obj->LastAnimStepZ = 333;
+    obj->LastAnimStepAlpha = 444;
+    obj->LastAnimStepBeta = 555;
+    obj->LastAnimStepGamma = 666;
+    obj->LastOfsIsPtr = 1;
+    obj->Status = FLAG_CHANGE | FLAG_BODY;
+    obj->Time = 77;
+    obj->LastTimer = 88;
 }
 
 static void test_set_frame0(void) {
@@ -88,12 +104,56 @@ static void test_asm_equiv_frame2(void) {
                           2 * sizeof(T_GROUP_INFO), "ObjectSetFrame frame 2");
 }
 
+static void test_frame_resets_state(void) {
+    T_OBJ_3D obj;
+
+    setup_obj(&obj);
+    seed_frame_state(&obj);
+    TimerRefHR = 1234;
+    ObjectSetFrame(&obj, 1);
+
+    ASSERT_EQ_INT(0, obj.Interpolator);
+    ASSERT_EQ_INT(0, obj.LastAnimStepX);
+    ASSERT_EQ_INT(0, obj.LastAnimStepY);
+    ASSERT_EQ_INT(0, obj.LastAnimStepZ);
+    ASSERT_EQ_INT(0, obj.LastAnimStepAlpha);
+    ASSERT_EQ_INT(0, obj.LastAnimStepBeta);
+    ASSERT_EQ_INT(0, obj.LastAnimStepGamma);
+    ASSERT_EQ_INT(0, obj.LastOfsIsPtr);
+    ASSERT_EQ_INT(FLAG_FRAME, obj.Status);
+    ASSERT_EQ_INT(3, obj.NbGroups);
+    ASSERT_EQ_INT(3, obj.LastNbGroups);
+    ASSERT_EQ_INT(3, obj.NextNbGroups);
+    ASSERT_EQ_UINT(1234u, obj.Time);
+    ASSERT_EQ_UINT(1234u, obj.LastTimer);
+}
+
+static void test_asm_equiv_full_state_frame1(void) {
+    T_OBJ_3D cpp_obj;
+    T_OBJ_3D asm_obj;
+    TransFctAnim = NULL;
+
+    setup_obj(&cpp_obj);
+    seed_frame_state(&cpp_obj);
+    TimerRefHR = 4321;
+    ObjectSetFrame(&cpp_obj, 1);
+
+    setup_obj(&asm_obj);
+    seed_frame_state(&asm_obj);
+    TimerRefHR = 4321;
+    asm_ObjectSetFrame(&asm_obj, 1);
+
+    ASSERT_ASM_CPP_MEM_EQ(&asm_obj, &cpp_obj, sizeof(T_OBJ_3D), "ObjectSetFrame full state frame 1");
+}
+
 int main(void) {
     RUN_TEST(test_set_frame0);
     RUN_TEST(test_set_frame1);
     RUN_TEST(test_set_frame2);
     RUN_TEST(test_asm_equiv_frame0);
     RUN_TEST(test_asm_equiv_frame2);
+    RUN_TEST(test_frame_resets_state);
+    RUN_TEST(test_asm_equiv_full_state_frame1);
     TEST_SUMMARY();
     return test_failures != 0;
 }
