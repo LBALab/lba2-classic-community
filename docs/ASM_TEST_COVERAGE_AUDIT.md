@@ -197,6 +197,13 @@ For each listed ASM/CPP pair:
   - Tightened the invalid-domain helpers so `INV64(1)` and `SetFog(0,0)` are
     explicit CPP-only checks; `SetFog(0,0)` cannot be sent through the ASM path
     because the original routine traps with a numeric exception.
+- Completed: `ObjectSetInterFrame` exact-factor coverage in
+  `tests/ANIM/test_intframe.cpp`
+  - Expanded the fixture to cover both rotate and translate group
+    interpolation.
+  - Added exact 0%, 25%, 50%, and 75% expectations plus deterministic
+    ASM-vs-CPP stress over interpolator values with full `CurrentFrame`
+    byte comparison.
 
 ### Next Candidates
 
@@ -204,3 +211,7 @@ For each listed ASM/CPP pair:
   - Re-run the repo-wide audit for remaining `ASSERT_TRUE(1)` / no-crash style
     tests in other ASM/CPP areas now that the visible `pol_work` backlog is
     cleared.
+- `ObjectSetInterAnim`
+  - Replace the midpoint range check in `tests/ANIM/test_intanim.cpp` with
+    exact state assertions and broaden the ASM-vs-CPP comparison beyond the
+    current midpoint / interpolator-only checks.
