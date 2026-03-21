@@ -1,6 +1,6 @@
 # Game Menu
 
-Primary UI for start/load/save and options. Entry point: main() in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) calls `MainGameMenu(load)` at line 2518. In-game, Options/Save/Load keys open submenus; ESC/MENUS opens pause. Option changes are persisted in lba2.cfg at exit (see [CONFIG.md](CONFIG.md)).
+Primary UI for start/load/save and options. Entry point: main() in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) calls `MainGameMenu(load)` at line 2398. In-game, Options/Save/Load keys open submenus; ESC/MENUS opens pause. Option changes are persisted in lba2.cfg at exit (see [CONFIG.md](CONFIG.md)).
 
 ## Menu tree
 
@@ -52,7 +52,7 @@ Main Menu
 
 ## Entry and flow
 
-- `MainGameMenu(load)` in [SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) (line 2443)
+- `MainGameMenu(load)` in [SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) (line 2651)
 - First-time vs returning: `IsFirstGameLaunched()` skips to intro; otherwise `BuildGameMainMenu()` builds the visible entries
 - Plasma background, `InitPlasmaMenu()`, `FlagShadeMenu`
 
@@ -63,8 +63,8 @@ The main menu uses a **template → build → drive** flow:
 | Component | Role |
 |-----------|------|
 | **RealGameMainMenu** | Static template array with all 6 entries (70–75). Never passed to `DoGameMenu` directly. |
-| **BuildGameMainMenu** | Copies from template into `GameMainMenu`, filtering by runtime state. Resume only if `CURRENTSAVE` exists; Load only if `IsExistSavedGame()`; Save only if `!firstloop` and `SavingEnable`. Always includes New Game, Options, Quit. Updates `nb`, `ycenter`, and default selection. |
-| **DoGameMenu** | Generic driver for any menu array. Runs input loop (Up/Down, Fire/Action), handles sliders (type 2–7), draws via `DrawGameMenu`, returns selected text ID or `1000` (ESC). Used for main menu, Options, Volume, etc. |
+| **BuildGameMainMenu** | Copies from template into `GameMainMenu`, filtering by runtime state. Resume only if `CURRENTSAVE` exists; Load only if `IsExistSavedGame()`; Save only if `!firstloop` and `SavingEnable`. Always includes New Game, Options, Quit. Updates `nb`, `ycenter` (275 without Resume, 335 when Resume is present), and default selection. |
+| **DoGameMenu** | Generic driver for any menu array. Runs input loop (Up/Down, Fire/Action), handles sliders (type 2–7), language cycling (types 8–9), draws via `DrawGameMenu`, returns selected text ID or `1000` (ESC). Used for main menu, Options, Volume, etc. |
 
 Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `GameMainMenu` (filtered) → `DoGameMenu(GameMainMenu)` → returns 70–75 or 1000.
 
@@ -80,9 +80,38 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 ## Menu data format
 
 - `U16 *ptrmenu`: `[selected, nb_entries, y_center, dia_num, (type, text_id)*]`
-- `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP (lines 1591, 1661)
-- Text IDs from `text.hqr` / dialogue system (`GetMultiText`)
+- `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP (lines 1760, 1823)
+- Text IDs from `text.hqr` / dialogue system (`GetMultiText`), plus **synthetic IDs** (e.g. `MENU_ID_*` in the 2100 range) resolved in `BuildCustomMenuText()`
 - **Type** in each entry: 0 = plain text/toggle, 2–6 = volume sliders, 7 = Detail Level slider, 8 = text language cycle, 9 = voice language cycle
+
+## Menu layout
+
+Layout uses **logical coordinates** in the game framebuffer. Default size is **640×480** (`RESOLUTION_X` / `RESOLUTION_Y` in [SOURCES/INITADEL.C](SOURCES/INITADEL.C)); `ModeDesiredX` / `ModeDesiredY` ([LIB386/SVGA/SCREEN.CPP](LIB386/SVGA/SCREEN.CPP)) follow the allocated buffer. Menu code still uses many **fixed 320 / 639 / 479** values for centering and full-screen effects; `BoxStaticAdd` often uses `ModeDesiredX - 1` / `ModeDesiredY - 1` so dirty rectangles match the buffer.
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `LargeurMenu` | 550 | Half-width from center for selection bars and long-text clip/scroll |
+| `HAUTEUR_STANDARD` | 50 | Height of one menu row |
+| `MENU_SPACE` | 6 | Vertical gap between rows (`DrawGameMenu`) |
+| Main menu `y` center (template) | 335 | `RealGameMainMenu[2]`; `BuildGameMainMenu` sets **275** when there is no Resume row, **335** when `CURRENTSAVE` exists |
+| Options menu `y` center (template) | 260 | `GameOptionMenu[2]` |
+| Horizontal center | `x = 320` | `DrawOneChoice` / `DrawGameMenu` (half of 640-wide layout) |
+
+Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), **60** px between rows (`ChoosePlayerName`).
+
+## Languages and localization
+
+The **main menu** still uses only the six template actions (70–75). **Options (74)** adds in-game **Choose language** and **Advanced options** (see menu tree): top-level `GameOptionMenu` has **5** rows (Sound volume, Choose language, Advanced options, Keyboard Config, Back).
+
+| Mechanism | Where | Notes |
+|-----------|--------|--------|
+| **`BuildCustomMenuText`** | [SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) (`DrawOneChoice`) | Rows use either **`GetMultiText`** (classic dialogue IDs) or **synthetic menu IDs** (e.g. `MENU_ID_CHOOSE_LANGUAGE`); new headings can use **in-code UTF-8 strings** converted to CP850 for the font. |
+| **Language submenu** (`GereLanguageMenu` / `LanguageMenu`) | Types **8** / **9** in `DoGameMenu` | **8**: cycle **UI text language** (`Language`, left/right); **`ReloadMultiTextFile`** applies immediately. **9** (CDROM): cycle **voice language** (`LanguageCD`). |
+| **`Language` / `LanguageCD` in lba2.cfg** | `InitLanguage()` / `WriteConfigFile()` | Read at startup; **written at process exit** with other settings (see [CONFIG.md](CONFIG.md)). Not flushed when leaving Options mid-session. |
+| **Long translated labels** | `DrawOneChoice` | If `SizeFont(string) > LargeurMenu`, the **selected** row scrolls the label horizontally inside the clip; unselected rows align left inside the bar. |
+| **Voice preview (Volume menu)** | `DrawOneChoice`, type 3 | Uses `SAMPLE_VOICE_MENU + LanguageCD` so the voice test matches **CD/voice language**. |
+
+For voice lines and packaged assets, see [GLOSSARY.md](GLOSSARY.md) and [CONFIG.md](CONFIG.md) (`Language`, `LanguageCD`).
 
 ## Implementation notes
 
@@ -90,9 +119,9 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 - **Save screenshot**: Generated at save time in `SaveGame()` (SAVEGAME.CPP); shown via `LoadGameScreen()` and `DrawScreenSave()`. See [SAVEGAME.md](SAVEGAME.md) for the full flow.
 - **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down). After ~50 min idle (or Shift+D), `SlideShow()` runs; returns `9999` to trigger credits.
 - **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and General volume sliders play random SFX preview when focused.
-- **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 210) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
-- **Localized custom labels**: The reworked Options tree now reuses original `text.hqr` labels for Sound volume, General volume, stereo, camera, video size, and subtitle toggles. Only the new submenu headings and the display-fullscreen toggle still use in-code translations.
-- **Options entry count**: `GameOptionMenu[1]` is now fixed at 5 for the top-level Options submenu.
+- **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 458) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
+- **Localized custom labels**: The reworked Options tree reuses original `text.hqr` labels for Sound volume, General volume, stereo, camera, video size, and subtitle toggles. Only the new submenu headings and the display-fullscreen toggle still use in-code translations.
+- **Options entry count**: Top-level `GameOptionMenu[1]` is **5** in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
 
 ## Limitations
 
@@ -101,8 +130,8 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 | Main menu entries | 6 | `MAX_MAIN_MENUS`, `GameMainMenu[4+6*2]` |
 | Save slots visible | 5 | `NB_GAME_CHOICE`, `Y_START_CHOICE`; list scrolls |
 | Player name length | 100 chars | `MAX_SIZE_PLAYER_NAME` |
-| Resolution | 640×480 | Menu centered at x=320, `LargeurMenu=550` |
-| Long text | No wrap | Text wider than 550px scrolls horizontally |
+| Resolution | 640×480 (default) | See **Menu layout**; window may scale; internal layout as above |
+| Long text | No wrap | Wider than `LargeurMenu` (550px): see **Languages and localization** |
 | Input | Keyboard/joystick | No mouse; Up/Down/Fire/Action |
 
 **Note:** `IsExistSavedGame()` uses a hardcoded 100000L buffer; the save list elsewhere uses `MAX_PLAYER` derived from `BufSpeak` size.
@@ -122,7 +151,7 @@ Ideas that stay in the spirit of the original design:
 
 The menu code preserves 1997-era developer artifacts worth noting for preservation:
 
-- **Detail Level hardware comments** – `SetDetailLevel()` (GAMEMENU.CPP lines 217–237) labels each quality tier with informal French: *machine bof* (crap machine), *486 ?*, *Pentium de base ?*, *machine de folie* (crazy machine). These reflect the target hardware of the day. See [FRENCH_COMMENTS.md](FRENCH_COMMENTS.md).
+- **Detail Level hardware comments** – `SetDetailLevel()` (GAMEMENU.CPP lines 462–490) labels each quality tier with informal French: *machine bof* (crap machine), *486 ?*, *Pentium de base ?*, *machine de folie* (crazy machine). These reflect the target hardware of the day. See [FRENCH_COMMENTS.md](FRENCH_COMMENTS.md).
 - **Distributor logos** – `DistribLogo()` and `AdelineLogo()` show different publisher logos (Activision, EA, Virgin) based on `DistribVersion`, reflecting regional publishers in 1997.
 - **Isabelle** – `MAX_SIZE_PLAYER_NAME` in DEFINES.H is attributed: *Calculé avec des ',' par Isabelle* (calculated with commas by Isabelle).
 
@@ -134,12 +163,14 @@ For broader preservation (ASCII art, French comments, developer culture), see [F
 | ----------------- | ------------ | --------------------------------------------------------------------- |
 | Main menu entry   | GAMEMENU.CPP | MainGameMenu, BuildGameMainMenu                                       |
 | Menu render/input | GAMEMENU.CPP | DoGameMenu, DrawGameMenu                                               |
-| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereVolumeMenu                                            |
+| Options submenu   | GAMEMENU.CPP | OptionsMenu, GereVolumeMenu, GereLanguageMenu, GereAdvancedOptionsMenu |
 | Save/Load list    | GAMEMENU.CPP, SAVEGAME.CPP | PlayerGameList, ChoosePlayerName, DeleteSavedGame, LoadGameScreen, DrawScreenSave |
+| Menu label text   | GAMEMENU.CPP | `BuildCustomMenuText`, `GetMultiText`                                 |
+| UI language / text | MESSAGE.CPP | InitLanguage, GetMultiText, `Language`, `LanguageCD`                  |
 
 ## Cross-references
 
-- [CONFIG.md](CONFIG.md) for options persistence
+- [CONFIG.md](CONFIG.md) for options persistence and `Language` / `LanguageCD`
 - [SAVEGAME.md](SAVEGAME.md) for save/load format and lifecycle
 - [DEBUG.md](DEBUG.md) for bug save/load menu integration
 - [CONSOLE.md](CONSOLE.md) for console availability in menu

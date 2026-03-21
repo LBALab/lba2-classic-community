@@ -17,8 +17,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 ## Lifecycle
 
-- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) (line 1828), called from `InitProgram()` (line 1934)
-- **Write**: `WriteConfigFile()` in PERSO.CPP (line 1871), called from `TheEndInfo()` at exit (line 2073)
+- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) (line 1701), invoked from `InitProgram()` at line 1825
+- **Write**: `WriteConfigFile()` in PERSO.CPP (line 1757), called from `TheEndInfo()` (line 1955)
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 
 ## Keys: what each does

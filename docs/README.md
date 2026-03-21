@@ -9,7 +9,7 @@ Index of documentation in this repository.
 | [GLOSSARY.md](GLOSSARY.md) | Domain terms (Cube, Zone, T_OBJET, scripts, hero, collision, enums) with code locations. |
 | [LIFECYCLES.md](LIFECYCLES.md) | Main loop order, scene load, object/hero/animation lifecycles and where they live in code. |
 | [SCENES.md](SCENES.md) | All 223 cubes by island with location names; interior/exterior; object and zone counts. |
-| [MENU.md](MENU.md) | Game menu flow, submenus, and entry points. |
+| [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 
@@ -40,6 +40,7 @@ Index of documentation in this repository.
 | Doc | Description |
 |-----|-------------|
 | [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
+| [MODDING.md](MODDING.md) | Feature requirements: optional mod layer (directory + single-file pack), engine vs tooling, acceptance criteria. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |

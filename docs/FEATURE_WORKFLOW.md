@@ -59,7 +59,7 @@ Truth hierarchy: **code > this document > external sources**.
 
 1. **AGENTS.md:** Preserve the nature of the game → menu changes affect UX. If adding (e.g. new Options toggle), make it opt-in or behind a config key. If reordering, ensure we don't break existing behavior.
 
-2. **Read first:** [docs/MENU.md](MENU.md) — Menu tree, terms (CURRENTSAVE, SavingEnable, FlagSpeak), entry points (`MainGameMenu`, `BuildGameMainMenu`, `DoGameMenu`), template → build → drive flow.
+2. **Read first:** [docs/MENU.md](MENU.md) — Menu tree, terms (CURRENTSAVE, SavingEnable, FlagSpeak), entry points (`MainGameMenu`, `BuildGameMainMenu`, `DoGameMenu`), template → build → drive flow, **Menu layout**, and **Languages and localization** (`BuildCustomMenuText`, language submenu, `InitLanguage` / config).
 
 3. **Map the code:**
    - `RealGameMainMenu` — static template (text IDs 70–75)
