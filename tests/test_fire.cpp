@@ -38,6 +38,14 @@ static void fill_checker(U8 *buffer, U32 width, U32 height, U8 a, U8 b) {
     }
 }
 
+static void fill_vertical_stripes(U8 *buffer, U32 width, U32 height, U8 a, U8 b) {
+    for (U32 y = 0; y < height; ++y) {
+        for (U32 x = 0; x < width; ++x) {
+            buffer[y * width + x] = (x & 1u) ? a : b;
+        }
+    }
+}
+
 static void fill_random(U8 *buffer, U32 size) {
     for (U32 i = 0; i < size; ++i) {
         buffer[i] = (U8)rng_next();
@@ -133,6 +141,42 @@ static void test_fire_sequential_inputs(void) {
     run_fire_equivalence(work1, work2, colortable, tex, "Do_Fire sequential work1");
 }
 
+static void test_fire_vertical_stripe_inputs(void) {
+    U8 work1[32 * 36];
+    U8 work2[32 * 36];
+    U8 colortable[32];
+    U8 tex[32 * 256];
+
+    fill_vertical_stripes(work1, 32, 36, 0x08, 0xF0);
+    fill_vertical_stripes(work2, 32, 36, 0x7F, 0x40);
+    fill_sequential(colortable, sizeof(colortable), 0x20);
+    fill_checker(tex, 32, 256, 0x12, 0xE1);
+
+    run_fire_equivalence(work1, work2, colortable, tex, "Do_Fire vertical stripes work1");
+}
+
+static void test_fire_edge_impulse_inputs(void) {
+    U8 work1[32 * 36];
+    U8 work2[32 * 36];
+    U8 colortable[32];
+    U8 tex[32 * 256];
+
+    fill_constant(work1, sizeof(work1), 0x00);
+    fill_constant(work2, sizeof(work2), 0x00);
+    fill_constant(tex, sizeof(tex), 0x00);
+    fill_sequential(colortable, sizeof(colortable), 0x60);
+
+    work1[1 * 32 + 0] = 0xFF;
+    work1[1 * 32 + 31] = 0x80;
+    work1[16 * 32 + 0] = 0x40;
+    work2[2 * 32 + 31] = 0xFF;
+    work2[20 * 32 + 0] = 0x7F;
+    tex[0] = 0xAA;
+    tex[31] = 0x55;
+
+    run_fire_equivalence(work1, work2, colortable, tex, "Do_Fire edge impulse work1");
+}
+
 static void test_fire_random_stress(void) {
     U8 work1[32 * 36];
     U8 work2[32 * 36];
@@ -159,6 +203,8 @@ int main(void) {
     RUN_TEST(test_fire_all_ff_inputs);
     RUN_TEST(test_fire_checkerboard_inputs);
     RUN_TEST(test_fire_sequential_inputs);
+    RUN_TEST(test_fire_vertical_stripe_inputs);
+    RUN_TEST(test_fire_edge_impulse_inputs);
     RUN_TEST(test_fire_random_stress);
     TEST_SUMMARY();
     return test_failures != 0;

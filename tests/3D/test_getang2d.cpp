@@ -55,6 +55,35 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_boundary_equivalence(void) {
+    struct {
+        S32 x, z;
+    } cases[] = {
+        {1, 1},
+        {1, 2},
+        {2, 1},
+        {-1, 1},
+        {1, -1},
+        {-1, -1},
+        {-1, 2},
+        {2, -1},
+        {4095, 4096},
+        {4096, 4095},
+        {-4095, 4096},
+        {4096, -4095},
+        {7, 8},
+        {8, 7},
+        {-7, 8},
+        {8, -7},
+    };
+
+    for (int i = 0; i < (int)(sizeof(cases) / sizeof(cases[0])); ++i) {
+        char lbl[96];
+        snprintf(lbl, sizeof(lbl), "GetAngleVector2D boundary x=%d z=%d", cases[i].x, cases[i].z);
+        assert_angle_case(lbl, cases[i].x, cases[i].z);
+    }
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
     for (int i = 0; i < 200; i++) {
@@ -68,6 +97,7 @@ static void test_random_equivalence(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_boundary_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;

@@ -49,8 +49,7 @@ static void test_all_behind(void) {
     src[2] = make_cv(50, 80, 400);
     memset(dst_cpp, 0, sizeof(dst_cpp));
     U32 n = ClipperZ(dst_cpp, src, 3, 500, 0);
-    /* All behind — should get 0 or (U32)-1 (fully clipped) */
-    ASSERT_TRUE(n == 0 || n == (U32)-1);
+    ASSERT_EQ_UINT(0, n);
 }
 
 static void test_one_behind(void) {

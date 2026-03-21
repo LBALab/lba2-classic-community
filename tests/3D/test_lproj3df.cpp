@@ -85,6 +85,19 @@ static void test_equivalence(void) {
     }
 }
 
+static void test_clip_boundary_equivalence(void) {
+    configure_projection_state(320, 240, 16, 256, 192, 20, -10, 1000);
+    assert_projection_case("LongProjectPoint3DF clip boundary exact", 20, -10, CameraZrClip);
+    assert_projection_case("LongProjectPoint3DF clip boundary just inside", 44, -22, CameraZrClip - 1);
+    assert_projection_case("LongProjectPoint3DF clip boundary just outside", 44, -22, CameraZrClip + 1);
+}
+
+static void test_camera_center_and_sentinel_equivalence(void) {
+    configure_projection_state(160, 100, 8, 300, 180, -50, 25, 750);
+    assert_projection_case("LongProjectPoint3DF camera centre visible", CameraXr, CameraYr, CameraZrClip);
+    assert_projection_case("LongProjectPoint3DF camera centre clipped", CameraXr, CameraYr, CameraZrClip + 10);
+}
+
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
 
@@ -114,6 +127,8 @@ static void test_random_equivalence(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_clip_boundary_equivalence);
+    RUN_TEST(test_camera_center_and_sentinel_equivalence);
     RUN_TEST(test_random_equivalence);
     TEST_SUMMARY();
     return test_failures != 0;

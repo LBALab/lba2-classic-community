@@ -96,7 +96,7 @@ static void test_equivalence(void) {
 
 static void test_random_equivalence(void) {
     rng_seed(0xDEADBEEFu);
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 100; ++i) {
         char label[64];
 
         fill_random_bytes(src_seed, sizeof(src_seed));

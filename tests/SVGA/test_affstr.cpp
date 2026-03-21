@@ -13,6 +13,17 @@ extern "C" U8 asm_TextPaper;
 
 static U8 framebuf[640 * 480];
 
+static int count_ink_pixels(S32 x0, S32 y0, S32 width, S32 height, U8 ink) {
+    int count = 0;
+    for (S32 y = y0; y < y0 + height; ++y) {
+        for (S32 x = x0; x < x0 + width; ++x) {
+            if (framebuf[y * 640 + x] == ink)
+                count++;
+        }
+    }
+    return count;
+}
+
 static void setup_screen(void) {
     memset(framebuf, 0, sizeof(framebuf));
     Log = framebuf;
@@ -28,15 +39,21 @@ static void setup_screen(void) {
     asm_TextPaper = 0xFF;
 }
 
-static void test_cpp_renders_char(void) {
+static void test_asm_equiv_single_char_exact(void) {
+    U8 cpp_buf[640 * 480];
+    U8 asm_buf[640 * 480];
+
     setup_screen();
     AffString(0, 0, (char *)"A");
-    int nonzero = 0;
-    for (int y = 0; y < 8; y++)
-        for (int x = 0; x < 16; x++)
-            if (framebuf[y * 640 + x] == 0xFF)
-                nonzero++;
-    ASSERT_TRUE(nonzero > 0);
+    ASSERT_EQ_INT(28, count_ink_pixels(0, 0, 8, 8, 0xFF));
+    memcpy(cpp_buf, framebuf, sizeof(cpp_buf));
+
+    setup_screen();
+    asm_AffString(0, 0, (char *)"A");
+    ASSERT_EQ_INT(28, count_ink_pixels(0, 0, 8, 8, 0xFF));
+    memcpy(asm_buf, framebuf, sizeof(asm_buf));
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_buf, cpp_buf, sizeof(cpp_buf), "AffString single char exact");
 }
 
 static void test_empty_string(void) {
@@ -158,7 +175,7 @@ static int random_round(int idx) {
 static void test_random_batch(void) {
     rng_seed(0xDEADBEEF);
     int prev_failures = test_failures;
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 100; i++) {
         random_round(i);
         if (test_failures != prev_failures)
             return; /* stop on first failure so output stays readable */
@@ -210,7 +227,7 @@ static void test_asm_equiv_with_paper(void) {
 }
 
 int main(void) {
-    RUN_TEST(test_cpp_renders_char);
+    RUN_TEST(test_asm_equiv_single_char_exact);
     RUN_TEST(test_empty_string);
     RUN_TEST(test_asm_equiv_hello);
     RUN_TEST(test_asm_equiv_special);

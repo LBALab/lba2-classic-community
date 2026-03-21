@@ -171,6 +171,55 @@ static void test_boxflow_random_stress(void) {
     }
 }
 
+static void test_boxflow_repeated_application(void) {
+    U8 cpp_log[640 * 480];
+    U8 asm_log[640 * 480];
+
+    init_globals();
+    memset(cpp_log, 0x33, sizeof(cpp_log));
+    memset(asm_log, 0x33, sizeof(asm_log));
+
+    Log = cpp_log;
+    BoxFlow(100, 120, 0x21);
+    BoxFlow(101, 121, 0x87);
+    BoxFlow(100, 120, 0x4A);
+
+    Log = asm_log;
+    call_asm_BoxFlow(100, 120, 0x21);
+    call_asm_BoxFlow(101, 121, 0x87);
+    call_asm_BoxFlow(100, 120, 0x4A);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, sizeof(cpp_log), "BoxFlow repeated application");
+}
+
+static void test_boxflow_custom_clip_window(void) {
+    U8 cpp_log[640 * 480];
+    U8 asm_log[640 * 480];
+
+    init_globals();
+    ClipXMin = 100;
+    ClipYMin = 50;
+    ClipXMax = 120;
+    ClipYMax = 70;
+
+    memset(cpp_log, 0x5C, sizeof(cpp_log));
+    memset(asm_log, 0x5C, sizeof(asm_log));
+
+    Log = cpp_log;
+    BoxFlow(99, 60, 0x11);
+    BoxFlow(100, 50, 0x22);
+    BoxFlow(119, 69, 0x33);
+    BoxFlow(120, 68, 0x44);
+
+    Log = asm_log;
+    call_asm_BoxFlow(99, 60, 0x11);
+    call_asm_BoxFlow(100, 50, 0x22);
+    call_asm_BoxFlow(119, 69, 0x33);
+    call_asm_BoxFlow(120, 68, 0x44);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, sizeof(cpp_log), "BoxFlow custom clip window");
+}
+
 static void test_shadeboxblk_equivalence(void) {
     U8 cpp_log[640 * 480 + 640];
     U8 asm_log[640 * 480 + 640];
@@ -226,6 +275,53 @@ static void test_shadeboxblk_random_stress(void) {
 
         ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, 640 * 480, "ShadeBoxBlk random");
     }
+}
+
+static void test_shadeboxblk_repeated_application(void) {
+    U8 cpp_log[640 * 480 + 640];
+    U8 asm_log[640 * 480 + 640];
+
+    init_globals();
+    rng_seed(0x2468ACE0u);
+    fill_random(cpp_log, sizeof(cpp_log));
+    memcpy(asm_log, cpp_log, sizeof(cpp_log));
+
+    Log = cpp_log;
+    ShadeBoxBlk(30, 40, 70, 90, 2);
+    ShadeBoxBlk(50, 60, 95, 110, 5);
+
+    Log = asm_log;
+    call_asm_ShadeBoxBlk(30, 40, 70, 90, 2);
+    call_asm_ShadeBoxBlk(50, 60, 95, 110, 5);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, 640 * 480, "ShadeBoxBlk repeated application");
+}
+
+static void test_shadeboxblk_custom_clip_window(void) {
+    U8 cpp_log[640 * 480 + 640];
+    U8 asm_log[640 * 480 + 640];
+
+    init_globals();
+    ClipXMin = 100;
+    ClipYMin = 50;
+    ClipXMax = 120;
+    ClipYMax = 70;
+
+    rng_seed(0x31415926u);
+    fill_random(cpp_log, sizeof(cpp_log));
+    memcpy(asm_log, cpp_log, sizeof(cpp_log));
+
+    Log = cpp_log;
+    ShadeBoxBlk(95, 48, 100, 52, 3);
+    ShadeBoxBlk(118, 68, 125, 75, 6);
+    ShadeBoxBlk(121, 60, 130, 65, 2);
+
+    Log = asm_log;
+    call_asm_ShadeBoxBlk(95, 48, 100, 52, 3);
+    call_asm_ShadeBoxBlk(118, 68, 125, 75, 6);
+    call_asm_ShadeBoxBlk(121, 60, 130, 65, 2);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_log, cpp_log, 640 * 480, "ShadeBoxBlk custom clip window");
 }
 
 static void test_copyblockshade_equivalence(void) {
@@ -291,13 +387,38 @@ static void test_copyblockshade_random_stress(void) {
     }
 }
 
+static void test_copyblockshade_repeated_application(void) {
+    U8 cpp_dst[640 * 480];
+    U8 asm_dst[640 * 480];
+    U8 src[640 * 480];
+
+    init_globals();
+    rng_seed(0x13579BDFu);
+    fill_random(src, sizeof(src));
+    fill_random(cpp_dst, sizeof(cpp_dst));
+    memcpy(asm_dst, cpp_dst, sizeof(cpp_dst));
+
+    CopyBlockShade(10, 10, 30, 25, src, 200, 120, cpp_dst, 2);
+    CopyBlockShade(12, 12, 28, 20, src, 205, 126, cpp_dst, 6);
+
+    call_asm_CopyBlockShade(10, 10, 30, 25, src, 200, 120, asm_dst, 2);
+    call_asm_CopyBlockShade(12, 12, 28, 20, src, 205, 126, asm_dst, 6);
+
+    ASSERT_ASM_CPP_MEM_EQ(asm_dst, cpp_dst, sizeof(cpp_dst), "CopyBlockShade repeated application");
+}
+
 int main(void) {
     RUN_TEST(test_boxflow_equivalence);
     RUN_TEST(test_boxflow_random_stress);
+    RUN_TEST(test_boxflow_repeated_application);
+    RUN_TEST(test_boxflow_custom_clip_window);
     RUN_TEST(test_shadeboxblk_equivalence);
     RUN_TEST(test_shadeboxblk_random_stress);
+    RUN_TEST(test_shadeboxblk_repeated_application);
+    RUN_TEST(test_shadeboxblk_custom_clip_window);
     RUN_TEST(test_copyblockshade_equivalence);
     RUN_TEST(test_copyblockshade_random_stress);
+    RUN_TEST(test_copyblockshade_repeated_application);
     TEST_SUMMARY();
     return test_failures != 0;
 }
