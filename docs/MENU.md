@@ -101,7 +101,7 @@ Save/load slot list: `NB_GAME_CHOICE` (5 visible rows), `Y_START_CHOICE` (205), 
 
 ## Languages and localization
 
-The **main menu** still uses only the six template actions (70–75). **Options (74)** adds in-game **Choose language** and **Advanced options** (see menu tree): top-level `GameOptionMenu` has **5** rows (Sound volume, Choose language, Advanced options, Keyboard Config, Back).
+The **main menu** still uses only the six template actions (70–75). **Options (74)** adds in-game **Choose language** and **Advanced options** (see menu tree): top-level `GameOptionMenu` has **5** rows in **display order** — **Back (26)**, Sound volume, Choose language, Advanced options, Keyboard Config (14).
 
 | Mechanism | Where | Notes |
 |-----------|--------|--------|
@@ -110,6 +110,19 @@ The **main menu** still uses only the six template actions (70–75). **Options 
 | **`Language` / `LanguageCD` in lba2.cfg** | `InitLanguage()` / `WriteConfigFile()` | Read at startup; **written at process exit** with other settings (see [CONFIG.md](CONFIG.md)). Not flushed when leaving Options mid-session. |
 | **Long translated labels** | `DrawOneChoice` | If `SizeFont(string) > LargeurMenu`, the **selected** row scrolls the label horizontally inside the clip; unselected rows align left inside the bar. |
 | **Voice preview (Volume menu)** | `DrawOneChoice`, type 3 | Uses `SAMPLE_VOICE_MENU + LanguageCD` so the voice test matches **CD/voice language**. |
+
+### Mixed localization (new Options strings)
+
+The reworked Options screen uses **two sources** of copy, by design:
+
+- **`text.hqr` via `GetMultiText`** — Original dialogue IDs for volume, stereo, movie camera, video size, subtitles, and other strings that already existed in the retail game.
+- **In-code `LocalizedMenuLabels`** in [SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) — UTF-8 strings (one row per `TabLanguage[]` / `NB_LANGUAGES`), converted with **`CopyUtf8ToCp850`** / **`FormatUtf8ToCp850`** for the menu font. The active row follows **`Language`** (same index as the UI language). Used for new submenu titles (“Choose language”, “Advanced options”, …) and the **display fullscreen** OFF/ON lines.
+
+When the player **changes UI language**, `ReloadMultiTextFile` refreshes `text.hqr` strings and the **`LocalizedMenuLabels`** index updates together, so both layers stay aligned.
+
+The **“Texts:” / “Voices:”** lines format **`GetLocalizedMenuLabel`** with **`GetLanguageName(Language)`** / **`GetLanguageName(LanguageCD)`** — i.e. the canonical names from `TabLanguage[]` (English, Français, …), not per-locale translations of those names.
+
+**Adding a new UI language** requires both the usual **`text.hqr`** coverage **and** a new row in **`LocalizedMenuLabels`** (see `BuildCustomMenuText`).
 
 For voice lines and packaged assets, see [GLOSSARY.md](GLOSSARY.md) and [CONFIG.md](CONFIG.md) (`Language`, `LanguageCD`).
 
@@ -120,7 +133,7 @@ For voice lines and packaged assets, see [GLOSSARY.md](GLOSSARY.md) and [CONFIG.
 - **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down). After ~50 min idle (or Shift+D), `SlideShow()` runs; returns `9999` to trigger credits.
 - **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and General volume sliders play random SFX preview when focused.
 - **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 458) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
-- **Localized custom labels**: The reworked Options tree reuses original `text.hqr` labels for Sound volume, General volume, stereo, camera, video size, and subtitle toggles. Only the new submenu headings and the display-fullscreen toggle still use in-code translations.
+- **Localized custom labels**: See **Mixed localization (new Options strings)** above — split between `text.hqr` and `LocalizedMenuLabels` / CP850.
 - **Options entry count**: Top-level `GameOptionMenu[1]` is **5** in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
 
 ## Limitations
