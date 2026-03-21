@@ -35,7 +35,7 @@ static void test_flat_solid_triangle(void) {
     Fill_Poly(POLY_SOLID, 0xFF, 3, pts);
     /* Horizontal strip should be filled */
     for (int y = 50; y <= 54; y++)
-        ASSERT_TRUE(g_poly_framebuf[y * TEST_POLY_W + 80] != 0);
+        ASSERT_EQ_UINT(0xFF, g_poly_framebuf[y * TEST_POLY_W + 80]);
     /* Outside should be empty */
     ASSERT_EQ_UINT(0, g_poly_framebuf[5 * TEST_POLY_W + 5]);
 }
@@ -47,7 +47,7 @@ static void test_flat_single_pixel_area(void) {
     pts[1] = make_point(10, 60);
     pts[2] = make_point(50, 60);
     Fill_Poly(POLY_SOLID, 0xFF, 3, pts);
-    ASSERT_TRUE(g_poly_framebuf[40 * TEST_POLY_W + 20] != 0);
+    ASSERT_EQ_UINT(0xFF, g_poly_framebuf[40 * TEST_POLY_W + 20]);
 }
 
 static void test_flat_with_different_color(void) {
@@ -83,7 +83,7 @@ static void test_fill_poly_solid_covers_area(void) {
     pts[2] = make_point(50, 60);
     Fill_Poly(POLY_SOLID, 0x55, 3, pts);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 100); /* should fill a significant area */
+    ASSERT_EQ_INT(820, n);
 }
 
 /* ── Fill_Poly with POLY_TRAME (type 3) ──────────────────────── */
@@ -98,7 +98,7 @@ static void test_fill_poly_trame_checkerboard(void) {
     /* Trame fills every other pixel — should have roughly half the
      * pixels of a solid fill */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 50); /* some pixels filled */
+    ASSERT_EQ_INT(745, n);
 }
 
 /* ── Fill_Poly with POLY_TRANS (type 2) ──────────────────────── */
@@ -122,14 +122,13 @@ static void test_fill_poly_transparent(void) {
 
 static void test_fill_poly_degenerate_line(void) {
     setup_polygon_screen();
-    /* All points collinear — should NOT crash, fill nothing or minimal */
+    /* All points collinear: solid fill should not write any covered area. */
     Struc_Point pts[3];
     pts[0] = make_point(10, 50);
     pts[1] = make_point(50, 50);
     pts[2] = make_point(90, 50);
     Fill_Poly(POLY_SOLID, 0xCC, 3, pts);
-    /* No crash — pixels might or might not be filled; just verify no OOB */
-    ASSERT_TRUE(1);
+    ASSERT_EQ_INT(0, count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H));
 }
 
 static void test_fill_poly_fully_clipped(void) {
@@ -146,19 +145,58 @@ static void test_fill_poly_fully_clipped(void) {
 /* ── Randomized stress test ────────────────────────────────────── */
 
 static void test_fill_poly_random_solid(void) {
+    static U8 first_pass[TEST_POLY_SIZE];
+
     poly_rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
-        setup_polygon_screen();
+    for (int i = 0; i < 100; i++) {
         Struc_Point pts[3];
+        Struc_Point pts_repeat[3];
+        S16 min_x = TEST_POLY_W;
+        S16 min_y = TEST_POLY_H;
+        S16 max_x = -1;
+        S16 max_y = -1;
         for (int v = 0; v < 3; v++) {
             S16 x = (S16)((poly_rng_next() % (TEST_POLY_W + 40)) - 20);
             S16 y = (S16)((poly_rng_next() % (TEST_POLY_H + 40)) - 20);
             pts[v] = make_point(x, y);
+            pts_repeat[v] = pts[v];
+            if (x < min_x)
+                min_x = x;
+            if (y < min_y)
+                min_y = y;
+            if (x > max_x)
+                max_x = x;
+            if (y > max_y)
+                max_y = y;
         }
         U8 color = (U8)(poly_rng_next() | 1);
-        /* Should not crash for any random triangle */
+
+        setup_polygon_screen();
         Fill_Poly(POLY_SOLID, color, 3, pts);
-        ASSERT_TRUE(1);
+        memcpy(first_pass, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_polygon_screen();
+        Fill_Poly(POLY_SOLID, color, 3, pts_repeat);
+
+        char label[96];
+        snprintf(label, sizeof(label), "Fill_Poly random solid #%d", i);
+        ASSERT_ASM_CPP_MEM_EQ(first_pass, g_poly_framebuf, TEST_POLY_SIZE, label);
+
+        for (int y = 0; y < TEST_POLY_H; ++y) {
+            for (int x = 0; x < TEST_POLY_W; ++x) {
+                U8 pixel = g_poly_framebuf[y * TEST_POLY_W + x];
+                if (pixel == 0)
+                    continue;
+
+                ASSERT_EQ_UINT(color, pixel);
+                ASSERT_TRUE(x >= 0 && x < TEST_POLY_W);
+                ASSERT_TRUE(y >= 0 && y < TEST_POLY_H);
+                ASSERT_TRUE(x >= min_x - 1);
+                ASSERT_TRUE(x <= max_x + 1);
+                ASSERT_TRUE(y >= min_y);
+                ASSERT_TRUE(y <= max_y);
+            }
+        }
     }
 }
 

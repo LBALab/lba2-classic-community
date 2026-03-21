@@ -85,6 +85,31 @@ static void expect_addstring_equivalent(const CompressState *initial_state) {
     ASSERT_ASM_CPP_MEM_EQ(asm_state.tree_snapshot, cpp_state.tree_snapshot, sizeof(cpp_state.tree_snapshot), "tree after AddString");
 }
 
+static void run_addstring_equivalent(const CompressState *initial_state,
+                                     const char *label,
+                                     CompressState *next_state) {
+    CompressState cpp_state;
+    CompressState asm_state;
+    int cpp_result;
+    int asm_result;
+
+    restore_state(initial_state);
+    cpp_result = AddString();
+    capture_state(&cpp_state);
+
+    restore_state(initial_state);
+    asm_result = asm_AddString();
+    capture_state(&asm_state);
+
+    ASSERT_ASM_CPP_EQ_INT(asm_result, cpp_result, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_state.current_position, cpp_state.current_position, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_state.match_position, cpp_state.match_position, label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_state.window_snapshot, cpp_state.window_snapshot, sizeof(cpp_state.window_snapshot), label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_state.tree_snapshot, cpp_state.tree_snapshot, sizeof(cpp_state.tree_snapshot), label);
+
+    memcpy(next_state, &cpp_state, sizeof(*next_state));
+}
+
 static void expect_deletestring_equivalent(const CompressState *initial_state, int node) {
     CompressState cpp_state;
     CompressState asm_state;
@@ -101,6 +126,29 @@ static void expect_deletestring_equivalent(const CompressState *initial_state, i
     ASSERT_ASM_CPP_EQ_INT(asm_state.match_position, cpp_state.match_position, "Match_position after DeleteString");
     ASSERT_ASM_CPP_MEM_EQ(asm_state.window_snapshot, cpp_state.window_snapshot, sizeof(cpp_state.window_snapshot), "window after DeleteString");
     ASSERT_ASM_CPP_MEM_EQ(asm_state.tree_snapshot, cpp_state.tree_snapshot, sizeof(cpp_state.tree_snapshot), "tree after DeleteString");
+}
+
+static void run_deletestring_equivalent(const CompressState *initial_state,
+                                        int node,
+                                        const char *label,
+                                        CompressState *next_state) {
+    CompressState cpp_state;
+    CompressState asm_state;
+
+    restore_state(initial_state);
+    DeleteString(node);
+    capture_state(&cpp_state);
+
+    restore_state(initial_state);
+    asm_DeleteString(node);
+    capture_state(&asm_state);
+
+    ASSERT_ASM_CPP_EQ_INT(asm_state.current_position, cpp_state.current_position, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_state.match_position, cpp_state.match_position, label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_state.window_snapshot, cpp_state.window_snapshot, sizeof(cpp_state.window_snapshot), label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_state.tree_snapshot, cpp_state.tree_snapshot, sizeof(cpp_state.tree_snapshot), label);
+
+    memcpy(next_state, &cpp_state, sizeof(*next_state));
 }
 
 static void prepare_add_leaf_state(CompressState *state) {
@@ -219,6 +267,29 @@ static void prepare_random_delete_state(unsigned int seed_value, CompressState *
     capture_state(state);
 }
 
+static void prepare_pipeline_state(unsigned int seed_value, CompressState *state) {
+    int root;
+    int insert_count;
+    int step;
+
+    rng_seed(seed_value);
+    reset_dictionary();
+    fill_window_random();
+
+    root = (int)rng_next() % WINDOW_SIZE;
+    Current_position = root;
+    InitTree(Current_position);
+
+    Current_position = MOD_WINDOW(root + 1);
+    insert_count = LOOK_AHEAD_SIZE + 32 + ((int)rng_next() % 16);
+    for (step = 0; step < insert_count; ++step) {
+        AddString();
+        Current_position = MOD_WINDOW(Current_position + 1);
+    }
+
+    capture_state(state);
+}
+
 static void test_addstring_inserts_leaf(void) {
     CompressState initial_state;
 
@@ -264,9 +335,44 @@ static void test_deletestring_random_stress(void) {
     int node;
     int round;
 
-    for (round = 0; round < 40; ++round) {
+    for (round = 0; round < 150; ++round) {
         prepare_random_delete_state(0x0BADCAFEu + (unsigned int)round, &initial_state, &node);
         expect_deletestring_equivalent(&initial_state, node);
+    }
+}
+
+static void test_addstring_deletestring_mixed_stress(void) {
+    CompressState state;
+    CompressState deleted_state;
+    CompressState next_state;
+
+    for (int round = 0; round < 80; ++round) {
+        unsigned int sequence_seed = 0x13572468u + (unsigned int)round;
+        int operations = 8 + (int)(sequence_seed % 5u);
+
+        prepare_pipeline_state(0x2468ACE0u + (unsigned int)round, &state);
+        rng_seed(sequence_seed);
+
+        for (int step = 0; step < operations; ++step) {
+            int delete_node = MOD_WINDOW(state.current_position + LOOK_AHEAD_SIZE);
+            char delete_label[128];
+            char add_label[128];
+
+            snprintf(delete_label, sizeof(delete_label),
+                     "DeleteString pipeline round=%d step=%d node=%d",
+                     round, step, delete_node);
+            run_deletestring_equivalent(&state, delete_node, delete_label, &deleted_state);
+
+            deleted_state.window_snapshot[delete_node] = (unsigned char)rng_next();
+
+            snprintf(add_label, sizeof(add_label),
+                     "AddString pipeline round=%d step=%d pos=%d",
+                     round, step, deleted_state.current_position);
+            run_addstring_equivalent(&deleted_state, add_label, &next_state);
+            next_state.current_position = MOD_WINDOW(next_state.current_position + 1);
+
+            memcpy(&state, &next_state, sizeof(state));
+        }
     }
 }
 
@@ -277,6 +383,7 @@ int main(void) {
     RUN_TEST(test_deletestring_removes_two_child_node);
     RUN_TEST(test_addstring_random_stress);
     RUN_TEST(test_deletestring_random_stress);
+    RUN_TEST(test_addstring_deletestring_mixed_stress);
     TEST_SUMMARY();
     return test_failures != 0;
 }

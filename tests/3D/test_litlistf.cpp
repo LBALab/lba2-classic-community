@@ -35,6 +35,42 @@ static void set_identity_matrix(TYPE_MAT *m) {
     m->F.M33 = 1.0f;
 }
 
+static TYPE_MAT make_axis_swap_matrix(void) {
+    TYPE_MAT m;
+
+    memset(&m, 0, sizeof(m));
+    m.F.M12 = 1.0f;
+    m.F.M21 = -1.0f;
+    m.F.M33 = 1.0f;
+    return m;
+}
+
+static TYPE_MAT make_skew_matrix(void) {
+    TYPE_MAT m;
+
+    memset(&m, 0, sizeof(m));
+    m.F.M11 = 0.125f;
+    m.F.M12 = -1.5f;
+    m.F.M13 = 0.25f;
+    m.F.M21 = 1.75f;
+    m.F.M22 = 0.5f;
+    m.F.M23 = -0.125f;
+    m.F.M31 = -0.25f;
+    m.F.M32 = 0.75f;
+    m.F.M33 = 0.03125f;
+    return m;
+}
+
+static void fill_rand_matrix(TYPE_MAT *m) {
+    float *values = &m->F.M11;
+
+    memset(m, 0, sizeof(*m));
+    for (int index = 0; index < 9; ++index) {
+        S32 sample = (S32)(rng_next() % 1025u) - 512;
+        values[index] = (float)sample / 256.0f;
+    }
+}
+
 static void assert_lightlist_case(const char *label, TYPE_MAT *matrix, TYPE_VT16 *src, S32 n) {
     TYPE_MAT cpp_matrix;
     TYPE_MAT asm_matrix;
@@ -75,24 +111,60 @@ static void test_equivalence(void) {
     assert_lightlist_case("LightList fixed", &matrix, src, 3);
 }
 
+static void test_matrix_and_factor_equivalence(void) {
+    TYPE_MAT identity_matrix;
+    TYPE_MAT axis_swap_matrix = make_axis_swap_matrix();
+    TYPE_MAT skew_matrix = make_skew_matrix();
+    TYPE_VT16 cardinal_points[8] = {
+        {256, 0, 0, 0},
+        {-256, 0, 0, 0},
+        {0, 256, 0, 0},
+        {0, -256, 0, 0},
+        {0, 0, 256, 0},
+        {0, 0, -256, 0},
+        {128, 128, -128, 0},
+        {-96, 64, 32, 0},
+    };
+
+    set_identity_matrix(&identity_matrix);
+
+    CameraXLight = 192;
+    CameraYLight = 0;
+    CameraZLight = 0;
+    FactorLight = 0.25f;
+    assert_lightlist_case("LightList identity directional clamp", &identity_matrix, cardinal_points, 8);
+
+    CameraXLight = 0;
+    CameraYLight = 180;
+    CameraZLight = -90;
+    FactorLight = 1.0f / 4096.0f;
+    assert_lightlist_case("LightList axis-swap tiny factor", &axis_swap_matrix, cardinal_points, 8);
+
+    CameraXLight = -77;
+    CameraYLight = 211;
+    CameraZLight = 33;
+    FactorLight = 1.75f;
+    assert_lightlist_case("LightList skew matrix large factor", &skew_matrix, cardinal_points, 8);
+}
+
 static void test_random_equivalence(void) {
-    TYPE_MAT matrix;
     rng_seed(0xDEADBEEFu);
-    set_identity_matrix(&matrix);
 
     for (int i = 0; i < 200; i++) {
-        TYPE_VT16 src[4];
-        S32 n = (S32)(rng_next() % 4u) + 1;
+        TYPE_MAT matrix;
+        TYPE_VT16 src[8];
+        S32 n = (S32)(rng_next() % 8u) + 1;
 
-        FactorLight = ((float)((S32)(rng_next() % 33u) - 16)) / 256.0f;
-        CameraXLight = (S32)(rng_next() % 257u) - 128;
-        CameraYLight = (S32)(rng_next() % 257u) - 128;
-        CameraZLight = (S32)(rng_next() % 257u) - 128;
+        fill_rand_matrix(&matrix);
+        FactorLight = ((float)((S32)(rng_next() % 513u) - 256)) / 128.0f;
+        CameraXLight = (S32)(rng_next() % 1025u) - 512;
+        CameraYLight = (S32)(rng_next() % 1025u) - 512;
+        CameraZLight = (S32)(rng_next() % 1025u) - 512;
 
         for (S32 index = 0; index < n; ++index) {
-            src[index].X = (S16)((S32)(rng_next() % 513u) - 256);
-            src[index].Y = (S16)((S32)(rng_next() % 513u) - 256);
-            src[index].Z = (S16)((S32)(rng_next() % 513u) - 256);
+            src[index].X = (S16)((S32)(rng_next() % 2049u) - 1024);
+            src[index].Y = (S16)((S32)(rng_next() % 2049u) - 1024);
+            src[index].Z = (S16)((S32)(rng_next() % 2049u) - 1024);
             src[index].Grp = 0;
         }
 
@@ -131,6 +203,7 @@ static void test_zero_count_preserves_globals(void) {
 
 int main(void) {
     RUN_TEST(test_equivalence);
+    RUN_TEST(test_matrix_and_factor_equivalence);
     RUN_TEST(test_random_equivalence);
     RUN_TEST(test_zero_count_preserves_globals);
     TEST_SUMMARY();

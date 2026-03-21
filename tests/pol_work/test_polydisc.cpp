@@ -12,6 +12,11 @@
 #include "poly_test_fixture.h"
 #include <string.h>
 
+static void assert_fill_sphere_matches(const char *label,
+                                       S32 type, S32 color,
+                                       S32 cx, S32 cy, S32 r, S32 zbuf,
+                                       U8 prefill);
+
 /* ── Basic sphere rendering ────────────────────────────────────── */
 
 static void test_sphere_centre(void) {
@@ -25,24 +30,19 @@ static void test_sphere_radius_coverage(void) {
     setup_polygon_screen();
     Fill_Sphere(0, 0x55, 80, 60, 15, 0);
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    /* A circle of radius 15 should have ~pi*15^2=~707 pixels */
-    ASSERT_TRUE(n > 400);
-    ASSERT_TRUE(n < 1000);
+    ASSERT_EQ_INT(770, n);
 }
 
 static void test_sphere_small_radius(void) {
     setup_polygon_screen();
     Fill_Sphere(0, 0xCC, 80, 60, 1, 0);
-    /* At least the centre pixel should be set */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n >= 1);
+    ASSERT_EQ_INT(6, n);
 }
 
 static void test_sphere_zero_radius(void) {
-    setup_polygon_screen();
-    /* Radius 0 should not crash */
-    Fill_Sphere(0, 0xDD, 80, 60, 0, 0);
-    ASSERT_TRUE(1); /* no crash */
+    assert_fill_sphere_matches("Fill_Sphere zero radius cpp path", 0,
+                               0xDD, 80, 60, 0, 0, 0);
 }
 
 /* ── Clipping ──────────────────────────────────────────────────── */
@@ -51,9 +51,8 @@ static void test_sphere_partially_clipped(void) {
     setup_polygon_screen();
     /* Sphere at edge — partially clipped */
     Fill_Sphere(0, 0x77, 10, 10, 20, 0);
-    /* Some pixels should be drawn in the visible area */
     int n = count_nonzero_pixels(0, 0, TEST_POLY_W, TEST_POLY_H);
-    ASSERT_TRUE(n > 50);
+    ASSERT_EQ_INT(846, n);
 }
 
 static void test_sphere_fully_offscreen(void) {
@@ -94,15 +93,18 @@ static void test_sphere_fog(void) {
 
 static void test_sphere_random(void) {
     poly_rng_seed(0xDEADBEEF);
-    for (int i = 0; i < 30; i++) {
-        setup_polygon_screen();
+    for (int i = 0; i < 100; i++) {
         S32 cx = (S32)(poly_rng_next() % (TEST_POLY_W + 60)) - 30;
         S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
         S32 r = (S32)(poly_rng_next() % 40);
         S32 color = (S32)(poly_rng_next() & 0xFF) | 1;
         S32 type = (S32)(poly_rng_next() % 3); /* 0=flat, 1=flat, 2=transp */
-        Fill_Sphere(type, color, cx, cy, r, 0);
-        ASSERT_TRUE(1);
+        U8 prefill = (type == 2) ? (U8)(0x10 | (poly_rng_next() & 0x0F)) : 0;
+        char msg[128];
+        snprintf(msg, sizeof(msg),
+                 "Fill_Sphere random #%d type=%d cx=%d cy=%d r=%d col=%d",
+                 i, type, cx, cy, r, color);
+        assert_fill_sphere_matches(msg, type, color, cx, cy, r, 0, prefill);
     }
 }
 
@@ -127,30 +129,67 @@ static void call_asm_Fill_Sphere(S32 type, S32 color,
 static U8 disc_cpp_buf[TEST_POLY_SIZE];
 static U8 disc_asm_buf[TEST_POLY_SIZE];
 
-static void test_asm_equiv_sphere_centre(void) {
+static void assert_fill_sphere_matches(const char *label,
+                                       S32 type, S32 color,
+                                       S32 cx, S32 cy, S32 r, S32 zbuf,
+                                       U8 prefill) {
     setup_polygon_screen();
-    Fill_Sphere(0, 42, 80, 60, 20, 0);
+    if (prefill != 0)
+        memset(g_poly_framebuf, prefill, TEST_POLY_SIZE);
+    Fill_Sphere(type, color, cx, cy, r, zbuf);
     memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
     setup_polygon_screen();
-    call_asm_Fill_Sphere(0, 42, 80, 60, 20, 0);
+    if (prefill != 0)
+        memset(g_poly_framebuf, prefill, TEST_POLY_SIZE);
+    call_asm_Fill_Sphere(type, color, cx, cy, r, zbuf);
     memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
 
-    ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE,
-                          "Fill_Sphere solid centre");
+    ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE, label);
+}
+
+static void assert_fill_sphere_fog_matches(const char *label,
+                                           S32 type, S32 color,
+                                           S32 cx, S32 cy, S32 r, S32 zbuf) {
+    memset(Fill_Logical_Palette, 0, sizeof(Fill_Logical_Palette));
+    for (int i = 0; i < 256; ++i)
+        Fill_Logical_Palette[i] = (U8)((i + 0x33) & 0xFF);
+
+    setup_polygon_screen();
+    Switch_Fillers(FILL_POLY_FOG);
+    Fill_Sphere(type, color, cx, cy, r, zbuf);
+    memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    setup_polygon_screen();
+    Switch_Fillers(FILL_POLY_FOG);
+    memset(Fill_Logical_Palette, 0, sizeof(Fill_Logical_Palette));
+    for (int i = 0; i < 256; ++i)
+        Fill_Logical_Palette[i] = (U8)((i + 0x33) & 0xFF);
+    call_asm_Fill_Sphere(type, color, cx, cy, r, zbuf);
+    memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+    Switch_Fillers(FILL_POLY_NO_TEXTURES);
+    ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE, label);
+}
+
+static void test_asm_equiv_sphere_centre(void) {
+    assert_fill_sphere_matches("Fill_Sphere solid centre", 0, 42, 80, 60, 20, 0, 0);
 }
 
 static void test_asm_equiv_sphere_clipped(void) {
-    setup_polygon_screen();
-    Fill_Sphere(0, 33, 5, 5, 25, 0);
-    memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+    assert_fill_sphere_matches("Fill_Sphere clipped top-left", 0, 33, 5, 5, 25, 0, 0);
+}
 
-    setup_polygon_screen();
-    call_asm_Fill_Sphere(0, 33, 5, 5, 25, 0);
-    memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+static void test_asm_equiv_zero_radius(void) {
+    assert_fill_sphere_matches("Fill_Sphere zero radius", 0, 0xDD, 80, 60, 0, 0, 0);
+}
 
-    ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE,
-                          "Fill_Sphere clipped top-left");
+static void test_asm_equiv_transparent(void) {
+    assert_fill_sphere_matches("Fill_Sphere transparent", 2, 0xA0, 80, 60, 15, 0, 0x11);
+}
+
+static void test_asm_equiv_fog(void) {
+    assert_fill_sphere_fog_matches("Fill_Sphere fog", 0, 0x55, 80, 60, 15, 0);
 }
 
 static void test_asm_random_spheres(void) {
@@ -160,20 +199,14 @@ static void test_asm_random_spheres(void) {
         S32 cy = (S32)(poly_rng_next() % (TEST_POLY_H + 60)) - 30;
         S32 r = (S32)(poly_rng_next() % 40);
         S32 color = (S32)(poly_rng_next() & 0xFE) | 1;
-
-        setup_polygon_screen();
-        Fill_Sphere(0, color, cx, cy, r, 0);
-        memcpy(disc_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
-
-        setup_polygon_screen();
-        call_asm_Fill_Sphere(0, color, cx, cy, r, 0);
-        memcpy(disc_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+        S32 type = (S32)(poly_rng_next() % 3);
+        U8 prefill = (type == 2) ? (U8)(0x10 | (poly_rng_next() & 0x0F)) : 0;
 
         char msg[128];
         snprintf(msg, sizeof(msg),
-                 "random sphere #%d cx=%d cy=%d r=%d col=%d",
-                 i, cx, cy, r, color);
-        ASSERT_ASM_CPP_MEM_EQ(disc_asm_buf, disc_cpp_buf, TEST_POLY_SIZE, msg);
+                 "random sphere #%d type=%d cx=%d cy=%d r=%d col=%d",
+                 i, type, cx, cy, r, color);
+        assert_fill_sphere_matches(msg, type, color, cx, cy, r, 0, prefill);
     }
 }
 
@@ -189,6 +222,9 @@ int main(void) {
     RUN_TEST(test_sphere_random);
     RUN_TEST(test_asm_equiv_sphere_centre);
     RUN_TEST(test_asm_equiv_sphere_clipped);
+    RUN_TEST(test_asm_equiv_zero_radius);
+    RUN_TEST(test_asm_equiv_transparent);
+    RUN_TEST(test_asm_equiv_fog);
     RUN_TEST(test_asm_random_spheres);
     TEST_SUMMARY();
     return test_failures != 0;

@@ -1569,6 +1569,84 @@ static void compare_render_snapshots(const char *label, const RENDER_SNAPSHOT *a
                           sizeof(asm_snapshot->Framebuffer), label);
 }
 
+static S32 expected_nonzero_pixels_for_label(const char *label) {
+    if (strcmp(label, "BodyDisplay visible render") == 0)
+        return 233;
+    if (strcmp(label, "BodyDisplay_AlphaBeta visible render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay visible render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay line render") == 0)
+        return 32;
+    if (strcmp(label, "ObjectDisplay sphere render") == 0)
+        return 136;
+    if (strcmp(label, "ObjectDisplay sphere transparent render") == 0)
+        return 136;
+    if (strcmp(label, "ObjectDisplay dither render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay gouraud table render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay dither table render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay transparent render") == 0)
+        return 233;
+    if (strcmp(label, "ObjectDisplay trame render") == 0)
+        return 111;
+    if (strcmp(label, "ObjectDisplay textured flat render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay textured solid render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay textured gouraud render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay textured Z flat render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay textured Z solid render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay textured Z gouraud render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay textured quad flat render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad solid render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad gouraud render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad Z flat render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad Z solid render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay textured quad Z gouraud render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env flat render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env solid render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env gouraud render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env flat scaled render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env solid scaled render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env gouraud scaled render") == 0)
+        return 514;
+    if (strcmp(label, "ObjectDisplay env quad flat scaled render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad flat render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad solid scaled render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad solid render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad gouraud scaled render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay env quad gouraud render") == 0)
+        return 1058;
+    if (strcmp(label, "ObjectDisplay multigroup visible render") == 0)
+        return 1255;
+    if (strcmp(label, "ObjectDisplay multigroup translate render") == 0)
+        return 1255;
+    return -1;
+}
+
 static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
                                         S32 alpha, S32 beta, S32 gamma,
                                         S32 expected_result, int expect_pixels) {
@@ -1596,8 +1674,14 @@ static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
     ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
 
     if (expect_pixels) {
-        ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
-        ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        S32 expected_nonzero = expected_nonzero_pixels_for_label(label);
+        if (expected_nonzero >= 0) {
+            ASSERT_EQ_INT(expected_nonzero, cpp_snapshot.NonZeroPixels);
+            ASSERT_EQ_INT(expected_nonzero, asm_snapshot.NonZeroPixels);
+        } else {
+            ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
+            ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        }
         ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
         ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
     } else {
@@ -1634,8 +1718,14 @@ static void run_bodydisplay_alphabeta_render_case(const char *label, S32 x, S32 
     ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
 
     if (expect_pixels) {
-        ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
-        ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        S32 expected_nonzero = expected_nonzero_pixels_for_label(label);
+        if (expected_nonzero >= 0) {
+            ASSERT_EQ_INT(expected_nonzero, cpp_snapshot.NonZeroPixels);
+            ASSERT_EQ_INT(expected_nonzero, asm_snapshot.NonZeroPixels);
+        } else {
+            ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
+            ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        }
         ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
         ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
     } else {
@@ -1688,8 +1778,14 @@ static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
     ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
 
     if (expect_pixels) {
-        ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
-        ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        S32 expected_nonzero = expected_nonzero_pixels_for_label(label);
+        if (expected_nonzero >= 0) {
+            ASSERT_EQ_INT(expected_nonzero, cpp_snapshot.NonZeroPixels);
+            ASSERT_EQ_INT(expected_nonzero, asm_snapshot.NonZeroPixels);
+        } else {
+            ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
+            ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        }
     } else {
         ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
         ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);

@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-char ProcessorManufacturerIDString[] = "";
+char ProcessorManufacturerIDString[13] = {0};
 
-s_ProcessorSignature ProcessorSignature;
+s_ProcessorSignature ProcessorSignature = {0, 0, 4, 0, 0, 0, 0, 0, 0, 0};
 s_ProcessorFeatureFlags ProcessorFeatureFlags;
 
 TLB Processor4KBDataTLB;

@@ -69,6 +69,33 @@ static TYPE_MAT make_test_mat_b(void) {
     return m;
 }
 
+static TYPE_MAT make_translation_heavy_mat(void) {
+    TYPE_MAT m;
+    memset(&m, 0, sizeof(m));
+    m.F.M11 = 0.25f;
+    m.F.M12 = -0.5f;
+    m.F.M13 = 1.25f;
+    m.F.M21 = 1.5f;
+    m.F.M22 = 0.75f;
+    m.F.M23 = -0.125f;
+    m.F.M31 = -0.875f;
+    m.F.M32 = 0.625f;
+    m.F.M33 = 0.5f;
+    m.F.TX = 123.5f;
+    m.F.TY = -77.25f;
+    m.F.TZ = 9.75f;
+    return m;
+}
+
+static TYPE_MAT make_zero_rotation_with_translation(void) {
+    TYPE_MAT m;
+    memset(&m, 0, sizeof(m));
+    m.F.TX = -15.0f;
+    m.F.TY = 31.0f;
+    m.F.TZ = 47.0f;
+    return m;
+}
+
 static void assert_mul_case(const char *label, const TYPE_MAT *src1, const TYPE_MAT *src2) {
     TYPE_MAT cpp_src1;
     TYPE_MAT cpp_src2;
@@ -98,10 +125,15 @@ static void test_equivalence(void) {
     TYPE_MAT identity = make_identity_mat();
     TYPE_MAT a = make_test_mat_a();
     TYPE_MAT b = make_test_mat_b();
+    TYPE_MAT translated = make_translation_heavy_mat();
+    TYPE_MAT zero_rot_translated = make_zero_rotation_with_translation();
 
     assert_mul_case("MulMatrixF identity-left", &identity, &a);
     assert_mul_case("MulMatrixF identity-right", &a, &identity);
     assert_mul_case("MulMatrixF fixed", &a, &b);
+    assert_mul_case("MulMatrixF translated-left", &translated, &b);
+    assert_mul_case("MulMatrixF translated-right", &a, &translated);
+    assert_mul_case("MulMatrixF zero-rotation-translated", &zero_rot_translated, &translated);
 }
 
 static void test_random_equivalence(void) {

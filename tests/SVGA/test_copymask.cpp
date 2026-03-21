@@ -77,7 +77,7 @@ static void test_random_positions(void) {
     U32 rng = 0xABCD5678;
     int prev = test_failures;
     build_mask_bank();
-    for (int i = 0; i < 20 && test_failures == prev; i++) {
+    for (int i = 0; i < 100 && test_failures == prev; i++) {
         rng = rng * 1103515245u + 12345u;
         S32 mx = (S32)((rng >> 16) % 600);
         rng = rng * 1103515245u + 12345u;

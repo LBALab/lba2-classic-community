@@ -244,8 +244,8 @@ S32 GetBoxGraph(S32 numgraph, S32 *x0, S32 *y0, S32 *x1, S32 *y1,
 
     U8 dx = bank[0];
     U8 dy = bank[1];
-    U8 hotX = bank[2];
-    U8 hotY = bank[3];
+    S8 hotX = (S8)bank[2];
+    S8 hotY = (S8)bank[3];
 
     *x0 = hotX;
     *y0 = hotY;
