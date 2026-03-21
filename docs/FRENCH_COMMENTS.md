@@ -218,7 +218,7 @@ Time Commando (1996) was another game by Adeline Software. This credit, nestled 
 
 The Options menu's Detail Level slider (graphics quality) is annotated with informal French that maps each tier to 1997-era hardware. The progression reads like a developer ranking their players' PCs:
 
-**`SOURCES/GAMEMENU.CPP:217-237`**
+**`SOURCES/GAMEMENU.CPP:462-490`** (`SetDetailLevel` switch)
 ```
 case 0: // machine bof !!!!!!
 	case 1: // 486 ?
