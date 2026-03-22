@@ -198,6 +198,7 @@ S32 CubeStartX, CubeStartY, CubeStartZ;
 S32 ExtraConque = -1; // Numero extra visant Twinsen (avec Conque)
 
 S32 AllCameras = TRUE;
+S32 AutoCameraCenter = FALSE;
 S32 ReverseStereo = FALSE;
 S32 Island = 0;
 S32 Planet = 0;

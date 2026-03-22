@@ -14,6 +14,7 @@ Index of documentation in this repository.
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
+| [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, AutoCameraCenter. |
 
 ## Build & debug
 

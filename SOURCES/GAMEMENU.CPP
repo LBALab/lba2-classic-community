@@ -58,6 +58,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_FULLSCREEN 2108
 #define MENU_ID_DISPLAY_TEXT 2109
 #define MENU_ID_GENERAL_VOLUME 2110
+#define MENU_ID_AUTO_CAMERA_CENTER 2111
 
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
@@ -126,7 +127,7 @@ U16 LanguageMenu[] = {
 
 U16 AdvancedOptionMenu[] = {
     0,   // selected
-    7,   // nb entries
+    8,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -138,6 +139,8 @@ U16 AdvancedOptionMenu[] = {
     45, // Niveau des détails
     0,
     MENU_ID_MOVIE_CAMERA,
+    0,
+    MENU_ID_AUTO_CAMERA_CENTER,
     0,
     MENU_ID_VIDEO_SIZE,
     0,
@@ -257,6 +260,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_VOICE_LANGUAGE,
     MENU_LABEL_DISPLAY_FULLSCREEN_OFF,
     MENU_LABEL_DISPLAY_FULLSCREEN_ON,
+    MENU_LABEL_AUTO_CAMERA_CENTER,
+    MENU_LABEL_MANUAL_CAMERA_CENTER,
     MENU_LABEL_COUNT,
 };
 
@@ -268,6 +273,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voices: %s",
         "Fullscreen display: OFF",
         "Fullscreen display: ON",
+        "Auto camera centering",
+        "Manual camera centering",
     },
     {
         "Choix de la langue",
@@ -276,6 +283,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voix : %s",
         "Affichage plein écran : OFF",
         "Affichage plein écran : ON",
+        "Centrage caméra automatique",
+        "Centrage caméra manuel",
     },
     {
         "Sprachauswahl",
@@ -284,6 +293,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Stimmen: %s",
         "Vollbildanzeige: OFF",
         "Vollbildanzeige: ON",
+        "Automatische Kamerazentrierung",
+        "Manuelle Kamerazentrierung",
     },
     {
         "Elegir idioma",
@@ -292,6 +303,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voces: %s",
         "Pantalla completa: OFF",
         "Pantalla completa: ON",
+        "Centrado de cámara automático",
+        "Centrado de cámara manual",
     },
     {
         "Scegli lingua",
@@ -300,6 +313,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voci: %s",
         "A schermo intero: OFF",
         "A schermo intero: ON",
+        "Centratura telecamera automatica",
+        "Centratura telecamera manuale",
     },
     {
         "Escolha do idioma",
@@ -308,6 +323,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voz: %s",
         "Exibição em tela cheia: OFF",
         "Exibição em tela cheia: ON",
+        "Centralização de câmera automática",
+        "Centralização de câmera manual",
     },
 };
 
@@ -369,6 +386,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_FULLSCREEN:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayFullScreen ? MENU_LABEL_DISPLAY_FULLSCREEN_ON : MENU_LABEL_DISPLAY_FULLSCREEN_OFF));
+        break;
+
+    case MENU_ID_AUTO_CAMERA_CENTER:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(AutoCameraCenter ? MENU_LABEL_AUTO_CAMERA_CENTER : MENU_LABEL_MANUAL_CAMERA_CENTER));
         break;
 
     case MENU_ID_DISPLAY_TEXT:
@@ -2616,6 +2637,10 @@ S32 GereAdvancedOptionsMenu(void) {
 
         case MENU_ID_MOVIE_CAMERA:
             AllCameras ^= 1;
+            break;
+
+        case MENU_ID_AUTO_CAMERA_CENTER:
+            AutoCameraCenter ^= 1;
             break;
 
         case MENU_ID_VIDEO_SIZE:

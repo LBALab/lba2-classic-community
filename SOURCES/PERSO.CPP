@@ -48,6 +48,18 @@ extern S32 PersoFlashTimer; // pour quand le perso eh ben y meurt !!!
 
 S32 EscTimer;
 
+/* AutoCameraCenter: terrain (RefreshGrille / AffGrilleExt) is the dominant
+ * per-frame cost in software rendering.  Throttle full terrain refreshes to
+ * every AUTO_CAM_TERRAIN_REFRESH_INTERVAL frames while the camera is moving;
+ * intermediate frames use AFF_OBJETS_FLIP (objects only).  When the hero is
+ * idle (position + angle unchanged), skip camera + terrain work entirely. */
+#define AUTO_CAM_TERRAIN_REFRESH_INTERVAL 2
+static S32 AutoCamTerrainCounter = 0;
+static S32 AutoCamPrevHeroX = 0;
+static S32 AutoCamPrevHeroY = 0;
+static S32 AutoCamPrevHeroZ = 0;
+static S32 AutoCamPrevHeroBeta = 0;
+
 /*══════════════════════════════════════════════════════════════════════════*/
 char NamePcxSave[ADELINE_MAX_PATH];
 S32 NumPcxSave = 0;
@@ -1609,6 +1621,43 @@ restartloop:
                     InitWaitNoInput(I_CAMERA);
                     RestoreTimer();
                 }
+
+                if (!AutoCameraCenter OR CubeMode != CUBE_EXTERIEUR)
+                    AutoCamTerrainCounter = 0;
+
+                if (AutoCameraCenter AND CubeMode == CUBE_EXTERIEUR AND FirstTime == AFF_OBJETS_FLIP) {
+                    T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+
+                    if (ptr3d->X != AutoCamPrevHeroX OR ptr3d->Y != AutoCamPrevHeroY OR ptr3d->Z != AutoCamPrevHeroZ OR ptr3d->Beta != AutoCamPrevHeroBeta) {
+                        S32 newbeta = AddBetaCam + ptr3d->Beta;
+                        newbeta &= 4095;
+
+                        Rotate(0, DISTANCE_VISEE, newbeta);
+
+                        VueOffsetX = ptr3d->X + X0;
+                        VueOffsetY = ptr3d->Y;
+                        VueOffsetZ = ptr3d->Z + Z0;
+
+                        StartXCube = VueOffsetX / SIZE_BRICK_XZ;
+                        StartYCube = VueOffsetY / SIZE_BRICK_Y;
+                        StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
+
+                        BetaCam = 2048 - newbeta;
+                        BetaCam &= 4095;
+
+                        CameraCenter(3);
+
+                        AutoCamTerrainCounter++;
+                        if (AutoCamTerrainCounter % AUTO_CAM_TERRAIN_REFRESH_INTERVAL == 0) {
+                            FirstTime = AFF_ALL_NO_FLIP;
+                        }
+
+                        AutoCamPrevHeroX = ptr3d->X;
+                        AutoCamPrevHeroY = ptr3d->Y;
+                        AutoCamPrevHeroZ = ptr3d->Z;
+                        AutoCamPrevHeroBeta = ptr3d->Beta;
+                    }
+                }
             }
 
             if (FirstTime == AFF_OBJETS_FLIP) {
@@ -1724,6 +1773,11 @@ void ReadConfigFile(void) {
 
     Shadow = DefFileBufferReadValueDefault("Shadow", 3);
     AllCameras = DefFileBufferReadValueDefault("AllCameras", TRUE);
+    AutoCameraCenter = DefFileBufferReadValueDefault("AutoCameraCenter", FALSE);
+
+    if (AutoCameraCenter < 0 OR AutoCameraCenter > 1)
+        AutoCameraCenter = FALSE;
+
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
     InverseStereoSample(ReverseStereo);
@@ -1780,6 +1834,7 @@ void WriteConfigFile(void) {
 
     DefFileBufferWriteValue("Shadow", Shadow);
     DefFileBufferWriteValue("AllCameras", AllCameras);
+    DefFileBufferWriteValue("AutoCameraCenter", AutoCameraCenter);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
