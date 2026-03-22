@@ -35,7 +35,9 @@ static U32 paletteLUT[PAL_MAX_COLORS];
 static void PresentFrame();
 
 static void RebuildPaletteLUT() {
-    if (!sdlPalette) return;
+    if (!sdlPalette) {
+        return;
+    }
     for (int i = 0; i < PAL_MAX_COLORS; ++i) {
         SDL_Color c = sdlPalette->colors[i];
         paletteLUT[i] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
