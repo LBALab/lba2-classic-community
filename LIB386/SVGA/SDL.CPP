@@ -28,11 +28,19 @@ U32 TabOffPhysLine[ADELINE_MAX_Y_RES];
 SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
 bool frameDirty = false;
-U32 *frameBuffer = NULL;
 static PrePresentFn s_prePresent = NULL;
+static U32 paletteLUT[PAL_MAX_COLORS];
 
 // --- Private functions -------------------------------------------------------
 static void PresentFrame();
+
+static void RebuildPaletteLUT() {
+    if (!sdlPalette) return;
+    for (int i = 0; i < PAL_MAX_COLORS; ++i) {
+        SDL_Color c = sdlPalette->colors[i];
+        paletteLUT[i] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
+    }
+}
 
 // --- Initialization ----------------------------------------------------------
 bool InitVideo() {
@@ -50,11 +58,6 @@ void EndVideo() {
     if (sdlPalette) {
         SDL_DestroyPalette(sdlPalette);
         sdlPalette = NULL;
-    }
-
-    if (frameBuffer) {
-        free(frameBuffer);
-        frameBuffer = NULL;
     }
 }
 
@@ -76,13 +79,6 @@ bool CreateVideoSurface(U32 resX, U32 resY) {
     ModeResY = resY;
 
     Phys = malloc(resX * resY);
-
-    frameBuffer = (U32 *)malloc(resX * resY * sizeof(U32));
-    if (!frameBuffer) {
-        LogPrintf("Error: Unable to allocate frame buffer.\n");
-        return false;
-    }
-    memset(frameBuffer, 0, resX * resY * sizeof(U32));
 
     S32 off = 0;
     for (S32 i = 0; i < ADELINE_MAX_Y_RES; i++) {
@@ -143,6 +139,8 @@ void SetVideoPalette(const U8 src[], S32 startIdx, S32 count) {
                   "\tSDL message: %s\n",
                   errorMsg);
     }
+
+    RebuildPaletteLUT();
 }
 
 void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
@@ -160,6 +158,8 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
                   "\tSDL message: %s\n",
                   errorMsg);
     }
+
+    paletteLUT[colorIdx] = ((U32)0xFF << 24) | ((U32)r << 16) | ((U32)g << 8) | b;
 }
 
 void SetVideoPaletteSync(const U8 src[]) {
@@ -193,31 +193,37 @@ void SetPrePresentCallback(PrePresentFn fn) {
 
 static void PresentFrame() {
     assert(sdlPalette != NULL);
-    assert(frameBuffer != NULL);
     assert(Log != NULL);
+
+    void *texPixels;
+    int texPitch;
+
+    if (!LockRendererTexture(&texPixels, &texPitch)) {
+        return;
+    }
 
     U8 *logMem = (U8 *)Log;
 
     for (U32 y = 0; y < ModeDesiredY; ++y) {
         U8 *srcRow = logMem + y * ModeDesiredX;
-        U32 *dstRow = frameBuffer + y * ModeResX;
+        U32 *dstRow = (U32 *)((U8 *)texPixels + y * texPitch);
         for (U32 x = 0; x < ModeDesiredX; ++x) {
-            SDL_Color c = sdlPalette->colors[srcRow[x]];
-            dstRow[x] = ((U32)0xFF << 24) | ((U32)c.r << 16) | ((U32)c.g << 8) | c.b;
+            dstRow[x] = paletteLUT[srcRow[x]];
         }
     }
 
     if (s_prePresent) {
         static U8 paletteRgb[256 * 3];
         for (int i = 0; i < 256; i++) {
-            paletteRgb[i * 3 + 0] = (U8)sdlPalette->colors[i].r;
-            paletteRgb[i * 3 + 1] = (U8)sdlPalette->colors[i].g;
-            paletteRgb[i * 3 + 2] = (U8)sdlPalette->colors[i].b;
+            U32 c = paletteLUT[i];
+            paletteRgb[i * 3 + 0] = (U8)(c >> 16);
+            paletteRgb[i * 3 + 1] = (U8)(c >> 8);
+            paletteRgb[i * 3 + 2] = (U8)(c);
         }
-        s_prePresent(frameBuffer, ModeResX * (U32)sizeof(U32), ModeResX, ModeResY, paletteRgb);
+        s_prePresent((U32 *)texPixels, (U32)texPitch, ModeResX, ModeResY, paletteRgb);
     }
 
-    PresentRendererFrame(frameBuffer, ModeResX * sizeof(U32));
+    UnlockAndPresentRendererTexture();
 }
 
 void HandleEventsVideo(const void *event) {
