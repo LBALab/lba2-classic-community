@@ -201,6 +201,23 @@ void PresentRendererFrame(const void *pixels, U32 pitch) {
     PresentCurrentTexture();
 }
 
+bool LockRendererTexture(void **pixels, int *pitch) {
+    assert(sdlRenderer != NULL);
+    assert(sdlTexture != NULL);
+    assert(pixels != NULL);
+    assert(pitch != NULL);
+
+    return SDL_LockTexture(sdlTexture, NULL, pixels, pitch);
+}
+
+void UnlockAndPresentRendererTexture() {
+    assert(sdlRenderer != NULL);
+    assert(sdlTexture != NULL);
+
+    SDL_UnlockTexture(sdlTexture);
+    PresentCurrentTexture();
+}
+
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
     assert(surfaceX != NULL);
     assert(surfaceY != NULL);
