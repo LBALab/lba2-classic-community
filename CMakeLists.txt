@@ -50,6 +50,27 @@ if(DEBUG_TOOLS)
     add_compile_definitions(DEBUG_TOOLS=1)
 endif()
 
+# Performance options
+option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+    if(ipo_supported)
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    else()
+        message(STATUS "LTO not supported: ${ipo_error}")
+    endif()
+endif()
+
+if(LBA2_NATIVE_ARCH)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i[3-6]86")
+        add_compile_options(-march=native)
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+        add_compile_options(-mcpu=native)
+    endif()
+endif()
+
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
