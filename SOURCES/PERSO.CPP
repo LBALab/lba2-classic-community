@@ -48,13 +48,15 @@ extern S32 PersoFlashTimer; // pour quand le perso eh ben y meurt !!!
 
 S32 EscTimer;
 
-/* AutoCameraCenter: terrain (RefreshGrille / AffGrilleExt) is the dominant
- * per-frame cost in software rendering.  Throttle full terrain refreshes to
- * every AUTO_CAM_TERRAIN_REFRESH_INTERVAL frames while the camera is moving;
- * intermediate frames use AFF_OBJETS_FLIP (objects only).  When the hero is
- * idle (position + angle unchanged), skip camera + terrain work entirely. */
-#define AUTO_CAM_TERRAIN_REFRESH_INTERVAL 2
-static S32 AutoCamTerrainCounter = 0;
+/* AutoCameraCenter refreshes terrain with AFF_ALL_FLIP every movement frame.
+ * AFF_ALL_FLIP runs the full AffScene preamble (MemoClipWindow / UnsetClipWindow
+ * / ClearImpactRain) before the render, preventing black edges from active clip
+ * regions.  The timer lock during render+vsync is compensated by the
+ * SaveTimer/RestoreTimer + TimerSystemHR adjustment around AffScene below, so
+ * game logic (hero, NPCs, rain) runs at correct wall-clock speed.
+ * Vsync naturally caps terrain refreshes at the display rate (~60 Hz).
+ * When the hero is idle, all work is skipped entirely. */
+static S32 AutoCamTerrainFrame = FALSE;
 static S32 AutoCamPrevHeroX = 0;
 static S32 AutoCamPrevHeroY = 0;
 static S32 AutoCamPrevHeroZ = 0;
@@ -1622,9 +1624,6 @@ restartloop:
                     RestoreTimer();
                 }
 
-                if (!AutoCameraCenter OR CubeMode != CUBE_EXTERIEUR)
-                    AutoCamTerrainCounter = 0;
-
                 if (AutoCameraCenter AND CubeMode == CUBE_EXTERIEUR AND FirstTime == AFF_OBJETS_FLIP) {
                     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
 
@@ -1647,10 +1646,8 @@ restartloop:
 
                         CameraCenter(3);
 
-                        AutoCamTerrainCounter++;
-                        if (AutoCamTerrainCounter % AUTO_CAM_TERRAIN_REFRESH_INTERVAL == 0) {
-                            FirstTime = AFF_ALL_NO_FLIP;
-                        }
+                        FirstTime = AFF_ALL_FLIP;
+                        AutoCamTerrainFrame = TRUE;
 
                         AutoCamPrevHeroX = ptr3d->X;
                         AutoCamPrevHeroY = ptr3d->Y;
@@ -1713,7 +1710,24 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
 
+        /* For AutoCameraCenter AFF_ALL_FLIP frames: save the timer before the
+         * render+vsync and restore it after, then add back the real wall-clock
+         * time elapsed (TimerSystemHR is updated by ManageTime inside
+         * RestoreTimer).  This makes the full render+vsync transparent to the
+         * game clock so hero, NPCs, and rain run at correct speed. */
+        U32 AutoCamTimerBefore = 0;
+        if (AutoCamTerrainFrame) {
+            SaveTimer();
+            AutoCamTimerBefore = TimerSystemHR;
+        }
+
         AffScene(FirstTime);
+
+        if (AutoCamTerrainFrame) {
+            RestoreTimer();
+            TimerRefHR += TimerSystemHR - AutoCamTimerBefore;
+            AutoCamTerrainFrame = FALSE;
+        }
 
         if ((FirstLoop OR RestartMusic)
                 AND !PLAY_THE_END) {

@@ -80,20 +80,20 @@ Probes terrain and decors along the camera-to-target line to find an unoccluded 
 
 ## AutoCameraCenter (community addition)
 
-Config key `AutoCameraCenter` (0 = manual, 1 = auto; **default 0**). Toggled in Options → Advanced options ("Auto camera centering" / "Manual camera centering"). Off by default: the feature still has visible trade-offs (terrain throttle vs object projection) and cost on CPU software rendering; turn it on when acceptable or after future architectural improvements (e.g. unified per-frame terrain/object camera path or accelerated terrain).
+Config key `AutoCameraCenter` (0 = manual, 1 = auto; **default 0**). Toggled in Options → Advanced options ("Auto camera centering" / "Manual camera centering"). Off by default: the feature has a visible trade-off between terrain refresh rate and object-vs-ground desync on slow hardware; turn it on when acceptable.
 
 When enabled in exterior mode (and not in a camera zone or cinema), the main loop reorients the camera behind the hero when the hero's position or facing changes. Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). The player's `AddBetaCam` offset (camera cycle) is preserved; `AlphaCam` and `VueDistance` are not reset, so elevation and zoom remain as the player set them.
 
 **Performance:** Terrain (`RefreshGrille` → `AffGrilleExt`) is the dominant per-frame cost in software rendering: 65x65 vertex projection, 64x64 textured Z-buffered polygon rasterization, horizon, sky/sea, and decor objects — all on the CPU. Two optimizations keep this manageable:
 
 1. **Idle skip:** A dirty check on the hero's `X`, `Y`, `Z`, and `Beta` avoids all camera and terrain work when the hero hasn't moved. Standing still has zero extra cost compared to manual mode.
-2. **Terrain throttle:** When moving, terrain refreshes are throttled with `AUTO_CAM_TERRAIN_REFRESH_INTERVAL` (default **2** in `PERSO.CPP`): only every Nth movement update sets `FirstTime = AFF_ALL_NO_FLIP` to trigger `RefreshGrille`. On intermediate frames, `AffScene` runs the cheaper `AFF_OBJETS_FLIP` path (objects use the live camera; terrain pixels lag). Higher N saves CPU but increases object-vs-ground desync. **N=2** is the usual compromise.
+2. **Full refresh on movement:** When the hero moves, the update sets `FirstTime = AFF_ALL_FLIP` so camera, terrain, objects, and screen flip all happen in one frame. `AFF_ALL_FLIP` runs the full `AffScene` preamble (`MemoClipWindow` / `UnsetClipWindow` / `ClearImpactRain`) before the render, which prevents black edges from any active clip region (HUD bars, cinema mode). Vsync acts as the natural rate limiter (~60 Hz). The timer lock during render+vsync is compensated by the `SaveTimer`/`RestoreTimer` + `TimerSystemHR` adjustment around `AffScene`, so game logic (hero, NPCs, rain) runs at correct wall-clock speed.
 
 See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu entry.
 
 ### Future work
 
-- **Rendering architecture:** Throttling terrain without redrawing it every frame causes a mismatch between the ground bitmap (last full `RefreshGrille`) and objects (current camera). A proper fix is to refresh terrain every frame when the camera moves at acceptable cost (e.g. faster terrain path, GPU, or structural changes so ground and actors share one consistent camera state per frame).
+- **Rendering architecture:** Terrain and objects must share the same camera state per frame to avoid visual desync. Currently achieved by always doing a full `RefreshGrille` on movement frames. A faster terrain path (GPU or structural changes) would reduce the CPU cost of this per-frame refresh.
 - **Smooth swivel:** Interpolate `BetaCam` toward the target angle over several frames rather than snapping. Would give a more polished feel similar to the enhanced edition's rotation.
 - **Dead zone:** Only reorient when the hero's facing changes by more than a threshold, to avoid jitter during small movements.
 
