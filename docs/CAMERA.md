@@ -84,6 +84,8 @@ Config key `AutoCameraCenter` (0 = manual, 1 = auto; **default 0**). Toggled in 
 
 When enabled in exterior mode (and not in a camera zone or cinema), the main loop reorients the camera behind the hero when the hero's position or facing changes. Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). The player's `AddBetaCam` offset (camera cycle) is preserved; `AlphaCam` and `VueDistance` are not reset, so elevation and zoom remain as the player set them.
 
+**Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) while `AutoCameraCenter` is on, instead of switching between the two fixed `VueCamera` presets. The adjustment fires every frame while the key is held (no debounce), giving smooth real-time tilt. The position tracking runs concurrently so the hero can be moving at the same time.
+
 **Performance:** Terrain (`RefreshGrille` → `AffGrilleExt`) is the dominant per-frame cost in software rendering: 65x65 vertex projection, 64x64 textured Z-buffered polygon rasterization, horizon, sky/sea, and decor objects — all on the CPU. Two optimizations keep this manageable:
 
 1. **Idle skip:** A dirty check on the hero's `X`, `Y`, `Z`, and `Beta` avoids all camera and terrain work when the hero hasn't moved. Standing still has zero extra cost compared to manual mode.
@@ -108,6 +110,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | CameraCenter            | SOURCES/INTEXT.CPP         | `CameraCenter(flagbeta)`                                                            |
 | SearchCameraPos         | SOURCES/3DEXT/MAPTOOLS.CPP | `SearchCameraPos(x, y, z, objbeta, mode)`                                           |
 | Exterior init           | SOURCES/EXTFUNC.CPP        | `Init3DExtView`, `Init3DExtGame`                                                    |
+| Camera level keys       | SOURCES/EXTFUNC.CPP        | `GereExtKeys` — preset switch (manual) or free `AlphaCam` tilt (AutoCameraCenter)  |
 | Main loop recenter      | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, `AutoCameraCenter` block                      |
 | AutoCameraCenter global | SOURCES/GLOBAL.CPP         | `AutoCameraCenter`                                                                  |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |

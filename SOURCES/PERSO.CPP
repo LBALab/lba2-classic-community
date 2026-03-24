@@ -1624,7 +1624,7 @@ restartloop:
                     RestoreTimer();
                 }
 
-                if (AutoCameraCenter AND CubeMode == CUBE_EXTERIEUR AND FirstTime == AFF_OBJETS_FLIP) {
+                if (AutoCameraCenter AND CubeMode == CUBE_EXTERIEUR) {
                     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
 
                     if (ptr3d->X != AutoCamPrevHeroX OR ptr3d->Y != AutoCamPrevHeroY OR ptr3d->Z != AutoCamPrevHeroZ OR ptr3d->Beta != AutoCamPrevHeroBeta) {

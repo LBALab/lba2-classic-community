@@ -2176,21 +2176,33 @@ S32 GereExtKeys(U32 key)
 #endif
 
     if (Input & I_CAMERA_LEVEL_MOINS) {
-        if (VueCamera > 0) {
-            VueCamera--;
+        if (AutoCameraCenter) {
+            if (AlphaCam > 150)
+                AlphaCam -= 5;
             FirstTime = AFF_ALL_FLIP;
-            CameraCenter(2);
+        } else {
+            if (VueCamera > 0) {
+                VueCamera--;
+                FirstTime = AFF_ALL_FLIP;
+                CameraCenter(2);
+            }
+            InitWaitNoInput(I_CAMERA_LEVEL_MOINS);
         }
-        InitWaitNoInput(I_CAMERA_LEVEL_MOINS);
     }
 
     if (Input & I_CAMERA_LEVEL_PLUS) {
-        if (VueCamera < NB_VUE_CAMERA - 1) {
-            VueCamera++;
+        if (AutoCameraCenter) {
+            if (AlphaCam < 600)
+                AlphaCam += 5;
             FirstTime = AFF_ALL_FLIP;
-            CameraCenter(2);
+        } else {
+            if (VueCamera < NB_VUE_CAMERA - 1) {
+                VueCamera++;
+                FirstTime = AFF_ALL_FLIP;
+                CameraCenter(2);
+            }
+            InitWaitNoInput(I_CAMERA_LEVEL_PLUS);
         }
-        InitWaitNoInput(I_CAMERA_LEVEL_PLUS);
     }
 #endif
 
