@@ -3008,6 +3008,9 @@ S32 MainGameMenu(S32 load) {
 
             FlagShadeMenu = TRUE;
 
+            /* Menu mouse is for menu UI only; do not composite it during MainLoop (gameplay). */
+            MenuMouseRelease();
+
             ret = MainLoop();
 
             BackupScreen(FALSE);
@@ -3069,6 +3072,8 @@ S32 MainGameMenu(S32 load) {
             FlagShadeMenu = TRUE;
             gogame = FALSE;
             InitPlasmaMenu();
+
+            MenuMouseAcquire();
         }
 
         BuildGameMainMenu(firstloop);
