@@ -35,7 +35,11 @@ static inline U32 DosAvailableMem(void) { return 0; }
 #endif
 */
 
+#ifdef DEMO
 extern char *Version;
+#else
+extern const char *Version;
+#endif
 
 extern T_OBJ_3D InvObjTwinsen[];
 
