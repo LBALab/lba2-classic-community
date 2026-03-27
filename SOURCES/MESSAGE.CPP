@@ -31,7 +31,7 @@ S32 FlagRestoreCD = 0;
 
 /*-------------------------------------------------------------------------*/
 //======================== Issus de Dial
-/* DIAL_DEF, DIAL_BIG, DIAL_FUL, DIAL_SAY: COMMON.H */
+/* DIAL_DEF…DIAL_SAY (Texte normal, BigMessage, etc.): voir COMMON.H */
 //#define       DIAL_INT        (1<<4)  // Resonnance de la voix en interieur
 //#define       DIAL_EXT        (1<<5)  // Resonnance de la voix en exterieur
 //#define       DIAL_CAV        (1<<6)  // Resonnance de la voix en cave
