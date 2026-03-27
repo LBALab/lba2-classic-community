@@ -14,8 +14,9 @@
 S32 LongProjectPoint3D(S32 x, S32 y, S32 z) {
     LIB386_TRACE_CPP("LongProjectPoint3DF", "1", "x=%d y=%d z=%d", x, y, z);
     if (z > CameraZrClip) {
-        Xp = -2147483648; // 0x80000000
-        Yp = -2147483648;
+        /* INT_MIN; avoid -2147483648 (decimal literal is unsigned in ISO C90 rules) */
+        Xp = -2147483647 - 1;
+        Yp = -2147483647 - 1;
 
         LIB386_TRACE_CPP("LongProjectPoint3DF", "2", "ret=%d Xp=%d Yp=%d", 0, Xp, Yp);
         return 0;
