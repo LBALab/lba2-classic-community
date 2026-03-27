@@ -1683,7 +1683,7 @@ restartloop:
                             S32 step = drift / FOLLOW_CAM_DRIFT_DIVISOR;
                             if (step > 0 AND step < FOLLOW_CAM_DRIFT_MIN_STEP)
                                 step = FOLLOW_CAM_DRIFT_MIN_STEP;
-                            if (step < 0 AND step > -FOLLOW_CAM_DRIFT_MIN_STEP)
+                            if (step<0 AND step> - FOLLOW_CAM_DRIFT_MIN_STEP)
                                 step = -FOLLOW_CAM_DRIFT_MIN_STEP;
                             if (drift > FOLLOW_CAM_DRIFT_THRESHOLD OR drift < -FOLLOW_CAM_DRIFT_THRESHOLD)
                                 AddBetaCam = (AddBetaCam - step) & 4095;
@@ -1704,7 +1704,7 @@ restartloop:
                     if (catchupDiff < -2048)
                         catchupDiff += 4096;
 
-                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR (catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam) {
+                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam) {
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
@@ -1747,7 +1747,7 @@ restartloop:
                                 S32 step = diff / dynamicDiv;
                                 if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
                                     step = FOLLOW_CAM_ROT_MIN_STEP;
-                                if (step < 0 AND step > -FOLLOW_CAM_ROT_MIN_STEP)
+                                if (step<0 AND step> - FOLLOW_CAM_ROT_MIN_STEP)
                                     step = -FOLLOW_CAM_ROT_MIN_STEP;
                                 BetaCam = (BetaCam + step) & 4095;
                             } else {
@@ -1777,10 +1777,11 @@ restartloop:
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
 
-                            /* Single per-frame penetration: shorten arm (or
-                             * raise AlphaCam at min arm) by small steps from
-                             * FOLLOWCAM_CFG.H so CameraCenter(3) does not lurch. */
-                            {
+                            /* Optional: pull camera out of ground at (CameraX,Z); off by default. */
+                            if (FollowCameraPenetration) {
+                                /* Single per-frame penetration: shorten arm (or
+                                 * raise AlphaCam at min arm) by small steps from
+                                 * FOLLOWCAM_CFG.H so CameraCenter(3) does not lurch. */
                                 S32 gx = CameraX;
                                 S32 gz = CameraZ;
                                 if (gx >= 0 AND gx <= 32767 AND gz >= 0 AND gz <= 32767) {
@@ -1961,6 +1962,10 @@ void ReadConfigFile(void) {
     if (FollowCamera < 0 OR FollowCamera > 1)
         FollowCamera = FALSE;
 
+    FollowCameraPenetration = DefFileBufferReadValueDefault("FollowCameraPenetration", FALSE);
+    if (FollowCameraPenetration < 0 OR FollowCameraPenetration > 1)
+        FollowCameraPenetration = FALSE;
+
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
     InverseStereoSample(ReverseStereo);
@@ -2018,6 +2023,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("Shadow", Shadow);
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
+    DefFileBufferWriteValue("FollowCameraPenetration", FollowCameraPenetration);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);

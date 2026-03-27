@@ -198,6 +198,7 @@ extern S32 Planet;
 
 extern S32 AllCameras;
 extern S32 FollowCamera;
+extern S32 FollowCameraPenetration;
 extern S32 FollowCamBaseDist;
 extern S32 ReverseStereo;
 
