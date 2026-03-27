@@ -29,7 +29,7 @@ Index of documentation in this repository.
 
 | Doc | Description |
 |-----|-------------|
-| [TESTING.md](TESTING.md) | Test suite architecture, conventions, and how to run tests in Docker. |
+| [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and **CI workflow** summary. |
 
 ## Preservation & culture
 

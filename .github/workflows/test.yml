@@ -1,4 +1,4 @@
-name: Tests
+name: Tests (Docker ASM equivalence)
 on: [push, pull_request, workflow_dispatch]
 
 concurrency:
@@ -6,12 +6,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  docker-asm-tests:
     runs-on: ubuntu-latest
 
     steps:
       - name: Code Checkout
         uses: actions/checkout@v5
 
-      - name: Run tests in Docker
+      - name: Run ASM vs C++ equivalence tests in Docker
         run: ./run_tests_docker.sh

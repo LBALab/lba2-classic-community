@@ -19,6 +19,20 @@ All equivalence tests must compare ASM and CPP results exactly.
 For current coverage and status, see `ASM_VALIDATION_PROGRESS.md` in the repo
 root.
 
+## CI (GitHub Actions)
+
+Workflows under `.github/workflows/`:
+
+| Workflow | What it does |
+|----------|----------------|
+| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery`, run `ctest -R test_res_discovery` |
+| `macos.yml` | Same host tests on `macos-latest` (preset `macos_arm64`) |
+| `windows.yml` | Same host tests on Windows MSYS2 UCRT64 (preset `windows_ucrt64`) |
+| `format.yml` | `scripts/ci/check-format.sh` (clang-format) |
+| `test.yml` | **Docker:** `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only; slow) |
+
+Host jobs do **not** need retail game files or Docker. The Docker job does not run discovery tests; it focuses on LIB386 equivalence.
+
 ## What Is In Scope
 
 The repo currently uses three complementary testing workflows.
