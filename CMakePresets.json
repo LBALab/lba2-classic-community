@@ -41,6 +41,16 @@
       }
     },
     {
+      "name": "linux_clang",
+      "inherits": "linux",
+      "displayName": "Linux (Clang)",
+      "description": "Same as linux but with clang/clang++ — use locally to compare warnings vs GCC (not CI default).",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
       "name": "linux_test",
       "inherits": "linux",
       "displayName": "Linux Tests (ASM + CPP equivalence)",
@@ -128,6 +138,10 @@
     {
       "name": "linux",
       "configurePreset": "linux"
+    },
+    {
+      "name": "linux_clang",
+      "configurePreset": "linux_clang"
     },
     {
       "name": "linux_test",
