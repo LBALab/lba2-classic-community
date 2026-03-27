@@ -60,16 +60,15 @@ S32 EscTimer;
 /* Default resting distance for the spring arm: midpoint of the two VueCamera
  * presets (DefVueDistance[0]=10500, DefVueDistance[1]=17000). */
 #define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
-static S32 FollowCamTerrainFrame   = FALSE;
-static S32 FollowCamPrevHeroX      = 0;
-static S32 FollowCamPrevHeroY      = 0;
-static S32 FollowCamPrevHeroZ      = 0;
-static S32 FollowCamPrevHeroBeta   = 0;
-static S32 FollowCamPrevAddBeta    = 0;  /* dirty check: last seen AddBetaCam */
-static S32 FollowCamEffectiveDist  = 0;  /* spring arm: smoothed distance (0 = uninitialised) */
-static S32 FollowCamTargetBeta     = 0;  /* rotation lag: desired BetaCam */
-static S32 FollowCamReengageDelay  = 0;  /* frames before auto-center resumes after manual pan */
-static S32 FollowCamDesiredAlpha   = 0;  /* player's intended elevation (0 = uninitialised) */
+static S32 FollowCamTerrainFrame = FALSE;
+static S32 FollowCamPrevHeroX = 0;
+static S32 FollowCamPrevHeroY = 0;
+static S32 FollowCamPrevHeroZ = 0;
+static S32 FollowCamPrevHeroBeta = 0;
+static S32 FollowCamPrevAddBeta = 0;   /* dirty check: last seen AddBetaCam */
+static S32 FollowCamEffectiveDist = 0; /* spring arm: smoothed distance (0 = uninitialised) */
+static S32 FollowCamTargetBeta = 0;    /* rotation lag: desired BetaCam */
+static S32 FollowCamReengageDelay = 0; /* frames before auto-center resumes after manual pan */
 
 /*══════════════════════════════════════════════════════════════════════════*/
 char NamePcxSave[ADELINE_MAX_PATH];
@@ -1429,10 +1428,9 @@ restartloop:
                     /* Re-sync follow camera state so it continues
                      * smoothly from the reset position. */
                     if (FollowCamera) {
-                        FollowCamBaseDist      = FOLLOW_CAM_INITIAL_DIST;
+                        FollowCamBaseDist = FOLLOW_CAM_INITIAL_DIST;
                         FollowCamEffectiveDist = FollowCamBaseDist;
-                        FollowCamTargetBeta    = BetaCam;
-                        FollowCamDesiredAlpha  = AlphaCam;
+                        FollowCamTargetBeta = BetaCam;
                         FollowCamReengageDelay = 0;
                     }
 
@@ -1661,8 +1659,7 @@ restartloop:
                         FollowCamBaseDist = FOLLOW_CAM_INITIAL_DIST;
                     if (FollowCamEffectiveDist == 0) {
                         FollowCamEffectiveDist = FollowCamBaseDist;
-                        FollowCamTargetBeta    = BetaCam;
-                        FollowCamDesiredAlpha  = AlphaCam;
+                        FollowCamTargetBeta = BetaCam;
                     }
 
                     /* --- AddBetaCam drift ---
@@ -1675,10 +1672,13 @@ restartloop:
                             FollowCamReengageDelay--;
                         } else if (AddBetaCam != 0) {
                             S32 drift = AddBetaCam;
-                            if (drift > 2048)  drift -= 4096;
+                            if (drift > 2048)
+                                drift -= 4096;
                             S32 step = drift / FOLLOW_CAM_DRIFT_DIVISOR;
-                            if (step > 0 AND step < FOLLOW_CAM_DRIFT_MIN_STEP)  step = FOLLOW_CAM_DRIFT_MIN_STEP;
-                            if (step < 0 AND step > -FOLLOW_CAM_DRIFT_MIN_STEP) step = -FOLLOW_CAM_DRIFT_MIN_STEP;
+                            if (step > 0 AND step < FOLLOW_CAM_DRIFT_MIN_STEP)
+                                step = FOLLOW_CAM_DRIFT_MIN_STEP;
+                            if (step<0 AND step> - FOLLOW_CAM_DRIFT_MIN_STEP)
+                                step = -FOLLOW_CAM_DRIFT_MIN_STEP;
                             if (drift > FOLLOW_CAM_DRIFT_THRESHOLD OR drift < -FOLLOW_CAM_DRIFT_THRESHOLD)
                                 AddBetaCam = (AddBetaCam - step) & 4095;
                             else
@@ -1693,10 +1693,12 @@ restartloop:
                      * or standing.  Smoothness comes from the lerp speed, not
                      * from skipping updates. */
                     S32 catchupDiff = FollowCamTargetBeta - BetaCam;
-                    if (catchupDiff > 2048)  catchupDiff -= 4096;
-                    if (catchupDiff < -2048) catchupDiff += 4096;
+                    if (catchupDiff > 2048)
+                        catchupDiff -= 4096;
+                    if (catchupDiff < -2048)
+                        catchupDiff += 4096;
 
-                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR (catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD)) {
+                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD)) {
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
@@ -1728,126 +1730,88 @@ restartloop:
                             BetaCam = FollowCamTargetBeta;
                         } else if (FollowCamReengageDelay == 0) {
                             S32 diff = FollowCamTargetBeta - BetaCam;
-                            if (diff > 2048)  diff -= 4096;
-                            if (diff < -2048) diff += 4096;
+                            if (diff > 2048)
+                                diff -= 4096;
+                            if (diff < -2048)
+                                diff += 4096;
                             if (diff > FOLLOW_CAM_ROT_THRESHOLD OR diff < -FOLLOW_CAM_ROT_THRESHOLD) {
                                 S32 dynamicDiv = FOLLOW_CAM_ROT_DIVISOR * FollowCamEffectiveDist / FollowCamBaseDist;
-                                if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3) dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
+                                if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3)
+                                    dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
                                 S32 step = diff / dynamicDiv;
-                                if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)  step = FOLLOW_CAM_ROT_MIN_STEP;
-                                if (step < 0 AND step > -FOLLOW_CAM_ROT_MIN_STEP) step = -FOLLOW_CAM_ROT_MIN_STEP;
+                                if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
+                                    step = FOLLOW_CAM_ROT_MIN_STEP;
+                                if (step<0 AND step> - FOLLOW_CAM_ROT_MIN_STEP)
+                                    step = -FOLLOW_CAM_ROT_MIN_STEP;
                                 BetaCam = (BetaCam + step) & 4095;
                             } else {
                                 BetaCam = FollowCamTargetBeta;
                             }
                         }
 
-                        /* --- Spring arm ---
-                         * Walk the camera ray outward in FOLLOW_CAM_SPRING_STEP
-                         * increments; stop at the first terrain hit.  Snap in
-                         * when blocked, recover at FOLLOW_CAM_SPRING_RECOVER/frame
-                         * when clear.  Raise AlphaCam proportionally when
-                         * shortened, lerp back to FollowCamDesiredAlpha on recovery. */
+                        /* --- Zoom distance + terrain penetration ---
+                         * No ray along the boom: terrain between the hero and the lens
+                         * may occlude (hills, scenery).  We only shorten the arm or
+                         * raise AlphaCam when the camera would sit below the ground
+                         * height at (CameraX, CameraZ).  VueDistance must match
+                         * FollowCamEffectiveDist before CameraCenter(3) so terrain
+                         * render (AffGrilleExt) stays consistent. */
                         if (!CameraZone) {
-                            S32 targetDist = FollowCamBaseDist;
-                            S32 springBeta = 2048 - BetaCam;
-                            for (S32 n = FOLLOW_CAM_SPRING_MIN; n < FollowCamBaseDist; n += FOLLOW_CAM_SPRING_STEP) {
-                                Rotate(n, 0, AlphaCam);
-                                S32 stepY = ptr3d->Y + 512 - Z0;
-                                Rotate(0, -X0, springBeta);
-                                S32 stepX = ptr3d->X + X0;
-                                S32 stepZ = ptr3d->Z + Z0;
-                                if (stepX < 0 OR stepX > 32768 OR stepZ < 0 OR stepZ > 32768)
-                                    break;
-                                if (CalculAltitudeObjet(stepX, stepZ, 0) > stepY) {
-                                    targetDist = (n >= FOLLOW_CAM_SPRING_MIN + FOLLOW_CAM_SPRING_STEP)
-                                                 ? n - FOLLOW_CAM_SPRING_STEP : FOLLOW_CAM_SPRING_MIN;
-                                    break;
-                                }
-                            }
-
-                            if (targetDist < FollowCamEffectiveDist) {
-                                FollowCamEffectiveDist = targetDist;
-                            } else if (FollowCamEffectiveDist < FollowCamBaseDist) {
+                            if (FollowCamEffectiveDist < FollowCamBaseDist) {
                                 FollowCamEffectiveDist += FOLLOW_CAM_SPRING_RECOVER;
                                 if (FollowCamEffectiveDist > FollowCamBaseDist)
                                     FollowCamEffectiveDist = FollowCamBaseDist;
                             }
 
-                            /* Alpha raise/recovery */
-                            if (FollowCamEffectiveDist >= FollowCamBaseDist) {
-                                FollowCamDesiredAlpha = AlphaCam;
-                            } else {
-                                S32 shortFrac = FollowCamBaseDist - FollowCamEffectiveDist;
-                                S32 maxShort  = FollowCamBaseDist - FOLLOW_CAM_SPRING_MIN;
-                                S32 targetAlpha = FollowCamDesiredAlpha + shortFrac * FOLLOW_CAM_SPRING_ALPHA_RAISE / maxShort;
-                                if (targetAlpha > FOLLOW_CAM_ALPHA_MAX) targetAlpha = FOLLOW_CAM_ALPHA_MAX;
-                                AlphaCam = targetAlpha;
-                            }
-                        }
+                            VueDistance = FollowCamEffectiveDist;
+                            CameraCenter(3);
 
-                        /* Set VueDistance to the arm distance BEFORE CameraCenter(3).
-                         * This is critical: AffGrilleExt (terrain render) also calls
-                         * SetFollowCamera(... VueDistance).  If VueDistance doesn't
-                         * match FollowCamEffectiveDist, the terrain renders at the wrong
-                         * distance and the spring arm has no visible effect. */
-                        VueDistance = FollowCamEffectiveDist;
-                        CameraCenter(3);
-
-                        /* Post-hoc line-of-sight check: sample terrain at
-                         * several points between hero and camera.  If any
-                         * sample has terrain above the hero→camera line, a
-                         * cliff face is blocking the view.  Pull the arm to
-                         * minimum and raise AlphaCam until the line of sight
-                         * is clear. */
-                        if (!CameraZone) {
-                            S32 losBlocked = FALSE;
-                            for (S32 s = 1; s <= 4; s++) {
-                                S32 sx = ptr3d->X + (CameraX - ptr3d->X) * s / 5;
-                                S32 sz = ptr3d->Z + (CameraZ - ptr3d->Z) * s / 5;
-                                S32 sy = ptr3d->Y + (CameraY - ptr3d->Y) * s / 5;
-                                if (sx >= 0 AND sx < 32768 AND sz >= 0 AND sz < 32768) {
-                                    if (CalculAltitudeObjet(sx, sz, 0) > sy) {
-                                        losBlocked = TRUE;
+                            {
+                                S32 penIter = 0;
+                                while (penIter < FOLLOW_CAM_PENETRATION_MAX_ITERS) {
+                                    penIter++;
+                                    S32 gx = CameraX;
+                                    S32 gz = CameraZ;
+                                    if (gx < 0 OR gx > 32767 OR gz < 0 OR gz > 32767)
                                         break;
+                                    S32 groundY = CalculAltitudeObjet(gx, gz, 0);
+                                    if (groundY < 0)
+                                        break;
+                                    if (CameraY >= groundY + FOLLOW_CAM_CLEAR_MARGIN)
+                                        break;
+
+                                    if (FollowCamEffectiveDist > FOLLOW_CAM_SPRING_MIN) {
+                                        FollowCamEffectiveDist -= FOLLOW_CAM_PEN_STEP;
+                                        if (FollowCamEffectiveDist < FOLLOW_CAM_SPRING_MIN)
+                                            FollowCamEffectiveDist = FOLLOW_CAM_SPRING_MIN;
+                                        VueDistance = FollowCamEffectiveDist;
+                                        CameraCenter(3);
+                                        continue;
                                     }
+                                    if (AlphaCam < FOLLOW_CAM_ALPHA_MAX) {
+                                        AlphaCam += FOLLOW_CAM_ALPHA_ESCAPE_STEP;
+                                        if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+                                            AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+                                        VueDistance = FollowCamEffectiveDist;
+                                        CameraCenter(3);
+                                        continue;
+                                    }
+                                    break;
                                 }
                             }
-                            if (losBlocked) {
-                                FollowCamEffectiveDist = FOLLOW_CAM_SPRING_MIN;
-                                VueDistance = FollowCamEffectiveDist;
-                                /* Raise elevation in large steps until LOS clears */
-                                while (AlphaCam < FOLLOW_CAM_ALPHA_MAX) {
-                                    CameraCenter(3);
-                                    losBlocked = FALSE;
-                                    for (S32 s = 1; s <= 4; s++) {
-                                        S32 sx = ptr3d->X + (CameraX - ptr3d->X) * s / 5;
-                                        S32 sz = ptr3d->Z + (CameraZ - ptr3d->Z) * s / 5;
-                                        S32 sy = ptr3d->Y + (CameraY - ptr3d->Y) * s / 5;
-                                        if (sx >= 0 AND sx < 32768 AND sz >= 0 AND sz < 32768) {
-                                            if (CalculAltitudeObjet(sx, sz, 0) > sy) {
-                                                losBlocked = TRUE;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (!losBlocked) break;
-                                    AlphaCam += FOLLOW_CAM_ALPHA_ESCAPE_STEP;
-                                }
-                                if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
-                                    AlphaCam = FOLLOW_CAM_ALPHA_MAX;
-                                CameraCenter(3);
-                            }
+                        } else {
+                            VueDistance = FollowCamEffectiveDist;
+                            CameraCenter(3);
                         }
 
                         FirstTime = AFF_ALL_FLIP;
                         FollowCamTerrainFrame = TRUE;
 
-                        FollowCamPrevHeroX    = ptr3d->X;
-                        FollowCamPrevHeroY    = ptr3d->Y;
-                        FollowCamPrevHeroZ    = ptr3d->Z;
+                        FollowCamPrevHeroX = ptr3d->X;
+                        FollowCamPrevHeroY = ptr3d->Y;
+                        FollowCamPrevHeroZ = ptr3d->Z;
                         FollowCamPrevHeroBeta = ptr3d->Beta;
-                        FollowCamPrevAddBeta  = AddBetaCam;
+                        FollowCamPrevAddBeta = AddBetaCam;
                     }
                 }
             }
@@ -1865,7 +1829,7 @@ restartloop:
                  * every frame — the classic off-screen snap (CameraCenter(0))
                  * would fight it and cause jarring resets near trees / decors. */
                 if ((Xp < 80 OR Xp > 539 OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50) /*429*/)
-                    AND !(FollowCamera AND CubeMode == CUBE_EXTERIEUR)) {
+                        AND !(FollowCamera AND CubeMode == CUBE_EXTERIEUR)) {
                     SaveTimer();
 
                     if (CubeMode == CUBE_INTERIEUR) {
@@ -1987,7 +1951,7 @@ void ReadConfigFile(void) {
     Shadow = DefFileBufferReadValueDefault("Shadow", 3);
     AllCameras = DefFileBufferReadValueDefault("AllCameras", TRUE);
     FollowCamera = DefFileBufferReadValueDefault("FollowCamera",
-                       DefFileBufferReadValueDefault("AutoCameraCenter", FALSE));
+                                                 DefFileBufferReadValueDefault("AutoCameraCenter", FALSE));
 
     if (FollowCamera < 0 OR FollowCamera > 1)
         FollowCamera = FALSE;

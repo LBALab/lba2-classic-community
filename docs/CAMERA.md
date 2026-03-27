@@ -85,8 +85,7 @@ Config key `FollowCamera` (0 = classic, 1 = follow; **default 0**). Also reads l
 When enabled in exterior mode (and not in a camera zone or cinema), the camera acts as a third-person follow camera that lazily orbits behind the hero:
 
 - **Rotation lag:** `BetaCam` lerps toward the hero's facing with distance-based inertia — closer camera = tighter follow, further = lazy cinematic drift. Tuning constants in `FOLLOWCAM_CFG.H`.
-- **Spring arm:** Ray probes terrain outward from the hero; shortens the arm on terrain hit, recovers when clear. Raises `AlphaCam` proportionally when shortened.
-- **Line-of-sight escape:** Post-hoc check samples terrain between hero and camera. If a cliff face blocks the view, the arm snaps to minimum and `AlphaCam` raises until line of sight clears.
+- **Terrain penetration only:** There is no “spring arm” ray along the boom; hills or scenery between the hero and the lens may occlude. After `CameraCenter(3)`, if `CameraY` is below ground height at `(CameraX, CameraZ)` (from `CalculAltitudeObjet`), the arm shortens toward `FOLLOW_CAM_SPRING_MIN` and, if still stuck, `AlphaCam` steps up until clear or max. The arm recovers toward the player’s zoom (`FollowCamBaseDist`) when no longer penetrating.
 - **Pan drift:** `[`/`]` keys pan the camera (`AddBetaCam`). Pan drifts back to center only while the hero is walking; preserved when standing still.
 - Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` are not reset, so elevation and zoom remain as the player set them.
 

@@ -3,11 +3,12 @@
  * This follow camera was never part of the original game.
  * Change these values to adjust camera feel without touching the logic. */
 
-/* Spring arm ----------------------------------------------------------------*/
-#define FOLLOW_CAM_SPRING_STEP         100  /* ray probe step size (world units) */
+/* Arm length vs terrain (penetration only) ----------------------------------*/
 #define FOLLOW_CAM_SPRING_MIN          200  /* minimum arm length (world units) */
-#define FOLLOW_CAM_SPRING_RECOVER      200  /* arm distance recovered per frame when terrain clears */
-#define FOLLOW_CAM_SPRING_ALPHA_RAISE  100  /* max extra elevation added when arm is fully shortened */
+#define FOLLOW_CAM_SPRING_RECOVER      200  /* recover toward zoom after penetration clears */
+#define FOLLOW_CAM_CLEAR_MARGIN        400  /* require CameraY >= ground + margin at camera (X,Z) */
+#define FOLLOW_CAM_PEN_STEP            200  /* shorten arm per iteration when camera is inside terrain */
+#define FOLLOW_CAM_PENETRATION_MAX_ITERS 48 /* safety cap on penetration resolve loop */
 
 /* Rotation lag (BetaCam lerp) -----------------------------------------------*/
 #define FOLLOW_CAM_ROT_DIVISOR         50   /* lerp denominator: 1/50 = 2 % per frame (higher = slower) */
@@ -24,7 +25,7 @@
 #define FOLLOW_CAM_ALPHA_MIN           150  /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX           600  /* maximum elevation angle */
 #define FOLLOW_CAM_ALPHA_STEP          5    /* elevation change per numpad +/- key press */
-#define FOLLOW_CAM_ALPHA_ESCAPE_STEP   50   /* elevation step for terrain escape (post-hoc check) */
+#define FOLLOW_CAM_ALPHA_ESCAPE_STEP   50   /* elevation step when arm at min and still penetrating */
 
 /* Zoom (numpad * / /) — adjusts default arm distance -----------------------*/
 #define FOLLOW_CAM_ZOOM_STEP           200  /* distance change per frame while key held */
