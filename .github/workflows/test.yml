@@ -6,7 +6,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  docker-asm-tests:
+  # Job id must stay `test` — branch protection on main requires this check name.
+  test:
     runs-on: ubuntu-latest
 
     steps:
