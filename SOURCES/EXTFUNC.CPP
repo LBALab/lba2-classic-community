@@ -1917,7 +1917,7 @@ S32 GereExtKeys(U32 key)
     S32 savetimer;
     S32 savetimer2;
 
-    if (CubeMode != CUBE_EXTERIEUR OR (!key AND !FollowCamera))
+    if (CubeMode != CUBE_EXTERIEUR OR(!key AND !FollowCamera))
         return (FALSE);
 
     savetimer = TimerRefHR;
