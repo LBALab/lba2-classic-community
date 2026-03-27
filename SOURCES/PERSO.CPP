@@ -14,6 +14,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include "FOLLOWCAM_CFG.H"
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -48,7 +49,7 @@ extern S32 PersoFlashTimer; // pour quand le perso eh ben y meurt !!!
 
 S32 EscTimer;
 
-/* AutoCameraCenter refreshes terrain with AFF_ALL_FLIP every movement frame.
+/* FollowCamera refreshes terrain with AFF_ALL_FLIP every movement frame.
  * AFF_ALL_FLIP runs the full AffScene preamble (MemoClipWindow / UnsetClipWindow
  * / ClearImpactRain) before the render, preventing black edges from active clip
  * regions.  The timer lock during render+vsync is compensated by the
@@ -56,11 +57,19 @@ S32 EscTimer;
  * game logic (hero, NPCs, rain) runs at correct wall-clock speed.
  * Vsync naturally caps terrain refreshes at the display rate (~60 Hz).
  * When the hero is idle, all work is skipped entirely. */
-static S32 AutoCamTerrainFrame = FALSE;
-static S32 AutoCamPrevHeroX = 0;
-static S32 AutoCamPrevHeroY = 0;
-static S32 AutoCamPrevHeroZ = 0;
-static S32 AutoCamPrevHeroBeta = 0;
+/* Default resting distance for the spring arm: midpoint of the two VueCamera
+ * presets (DefVueDistance[0]=10500, DefVueDistance[1]=17000). */
+#define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
+static S32 FollowCamTerrainFrame   = FALSE;
+static S32 FollowCamPrevHeroX      = 0;
+static S32 FollowCamPrevHeroY      = 0;
+static S32 FollowCamPrevHeroZ      = 0;
+static S32 FollowCamPrevHeroBeta   = 0;
+static S32 FollowCamPrevAddBeta    = 0;  /* dirty check: last seen AddBetaCam */
+static S32 FollowCamEffectiveDist  = 0;  /* spring arm: smoothed distance (0 = uninitialised) */
+static S32 FollowCamTargetBeta     = 0;  /* rotation lag: desired BetaCam */
+static S32 FollowCamReengageDelay  = 0;  /* frames before auto-center resumes after manual pan */
+static S32 FollowCamDesiredAlpha   = 0;  /* player's intended elevation (0 = uninitialised) */
 
 /*══════════════════════════════════════════════════════════════════════════*/
 char NamePcxSave[ADELINE_MAX_PATH];
@@ -1417,6 +1426,16 @@ restartloop:
                     CameraCenter(1);
                     FirstTime = AFF_ALL_FLIP;
 
+                    /* Re-sync follow camera state so it continues
+                     * smoothly from the reset position. */
+                    if (FollowCamera) {
+                        FollowCamBaseDist      = FOLLOW_CAM_INITIAL_DIST;
+                        FollowCamEffectiveDist = FollowCamBaseDist;
+                        FollowCamTargetBeta    = BetaCam;
+                        FollowCamDesiredAlpha  = AlphaCam;
+                        FollowCamReengageDelay = 0;
+                    }
+
                     RestoreTimer();
 
 #ifndef DEBUG_TOOL
@@ -1615,6 +1634,12 @@ restartloop:
                 // AlphaCam (touches '+' et '-' *)
                 GereExtKeys(MyKey);
 
+                /* Any AFF_ALL_FLIP forced by GereExtKeys (e.g. elevation +/-)
+                 * while the follow camera is active needs timer compensation
+                 * so the vsync lock doesn't bleed into the game clock. */
+                if (FollowCamera AND CubeMode == CUBE_EXTERIEUR AND FirstTime == AFF_ALL_FLIP)
+                    FollowCamTerrainFrame = TRUE;
+
                 if (Input & I_CAMERA) {
                     SaveTimer();
                     AddBetaCam = (AddBetaCam + 1024) & 4095;
@@ -1624,14 +1649,64 @@ restartloop:
                     RestoreTimer();
                 }
 
-                if (AutoCameraCenter AND CubeMode == CUBE_EXTERIEUR) {
+                if (FollowCamera AND CubeMode == CUBE_EXTERIEUR) {
                     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
+                    S32 manualPan = CheckKey(K_LBRACKET) OR CheckKey(K_RBRACKET);
+                    S32 heroMoving = (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Z != FollowCamPrevHeroZ);
 
-                    if (ptr3d->X != AutoCamPrevHeroX OR ptr3d->Y != AutoCamPrevHeroY OR ptr3d->Z != AutoCamPrevHeroZ OR ptr3d->Beta != AutoCamPrevHeroBeta) {
+                    /* First-frame init: sync to current camera state.
+                     * FollowCamTargetBeta defaults to 0 but BetaCam starts ~2048
+                     * after CameraCenter(1), causing a bogus initial spin. */
+                    if (FollowCamBaseDist == 0)
+                        FollowCamBaseDist = FOLLOW_CAM_INITIAL_DIST;
+                    if (FollowCamEffectiveDist == 0) {
+                        FollowCamEffectiveDist = FollowCamBaseDist;
+                        FollowCamTargetBeta    = BetaCam;
+                        FollowCamDesiredAlpha  = AlphaCam;
+                    }
+
+                    /* --- AddBetaCam drift ---
+                     * Only drift pan back to centre while the hero is walking.
+                     * While standing still, [ / ] pan is preserved. */
+                    if (manualPan) {
+                        FollowCamReengageDelay = FOLLOW_CAM_REENGAGE_FRAMES;
+                    } else if (heroMoving) {
+                        if (FollowCamReengageDelay > 0) {
+                            FollowCamReengageDelay--;
+                        } else if (AddBetaCam != 0) {
+                            S32 drift = AddBetaCam;
+                            if (drift > 2048)  drift -= 4096;
+                            S32 step = drift / FOLLOW_CAM_DRIFT_DIVISOR;
+                            if (step > 0 AND step < FOLLOW_CAM_DRIFT_MIN_STEP)  step = FOLLOW_CAM_DRIFT_MIN_STEP;
+                            if (step < 0 AND step > -FOLLOW_CAM_DRIFT_MIN_STEP) step = -FOLLOW_CAM_DRIFT_MIN_STEP;
+                            if (drift > FOLLOW_CAM_DRIFT_THRESHOLD OR drift < -FOLLOW_CAM_DRIFT_THRESHOLD)
+                                AddBetaCam = (AddBetaCam - step) & 4095;
+                            else
+                                AddBetaCam = 0;
+                        }
+                    }
+
+                    /* --- Dirty check ---
+                     * Triggers on position, facing, pan, or pending BetaCam
+                     * catchup.  Hero Beta IS included: the camera always lazily
+                     * orbits behind the hero whether running, turning in place,
+                     * or standing.  Smoothness comes from the lerp speed, not
+                     * from skipping updates. */
+                    S32 catchupDiff = FollowCamTargetBeta - BetaCam;
+                    if (catchupDiff > 2048)  catchupDiff -= 4096;
+                    if (catchupDiff < -2048) catchupDiff += 4096;
+
+                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR (catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD)) {
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
-                        Rotate(0, DISTANCE_VISEE, newbeta);
+                        /* Use the camera's current angle for the forward lean,
+                         * not the hero's facing.  This keeps the orbit center
+                         * stable when the hero turns in place — the lean point
+                         * drifts smoothly as BetaCam lerps toward the target,
+                         * instead of snapping with the hero's Beta. */
+                        S32 leanBeta = (2048 - BetaCam) & 4095;
+                        Rotate(0, DISTANCE_VISEE, leanBeta);
 
                         VueOffsetX = ptr3d->X + X0;
                         VueOffsetY = ptr3d->Y;
@@ -1641,18 +1716,138 @@ restartloop:
                         StartYCube = VueOffsetY / SIZE_BRICK_Y;
                         StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
 
-                        BetaCam = 2048 - newbeta;
-                        BetaCam &= 4095;
+                        /* Rotation lag with distance-based inertia.
+                         * The camera always tracks "behind the hero".  The lerp
+                         * divisor scales with the spring arm length: closer camera
+                         * (arm shortened near terrain) → tighter follow; full
+                         * distance → lazy, cinematic drift.  Floor at divisor/3
+                         * to avoid jitter when very close. */
+                        FollowCamTargetBeta = (2048 - newbeta) & 4095;
 
+                        if (manualPan) {
+                            BetaCam = FollowCamTargetBeta;
+                        } else if (FollowCamReengageDelay == 0) {
+                            S32 diff = FollowCamTargetBeta - BetaCam;
+                            if (diff > 2048)  diff -= 4096;
+                            if (diff < -2048) diff += 4096;
+                            if (diff > FOLLOW_CAM_ROT_THRESHOLD OR diff < -FOLLOW_CAM_ROT_THRESHOLD) {
+                                S32 dynamicDiv = FOLLOW_CAM_ROT_DIVISOR * FollowCamEffectiveDist / FollowCamBaseDist;
+                                if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3) dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
+                                S32 step = diff / dynamicDiv;
+                                if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)  step = FOLLOW_CAM_ROT_MIN_STEP;
+                                if (step < 0 AND step > -FOLLOW_CAM_ROT_MIN_STEP) step = -FOLLOW_CAM_ROT_MIN_STEP;
+                                BetaCam = (BetaCam + step) & 4095;
+                            } else {
+                                BetaCam = FollowCamTargetBeta;
+                            }
+                        }
+
+                        /* --- Spring arm ---
+                         * Walk the camera ray outward in FOLLOW_CAM_SPRING_STEP
+                         * increments; stop at the first terrain hit.  Snap in
+                         * when blocked, recover at FOLLOW_CAM_SPRING_RECOVER/frame
+                         * when clear.  Raise AlphaCam proportionally when
+                         * shortened, lerp back to FollowCamDesiredAlpha on recovery. */
+                        if (!CameraZone) {
+                            S32 targetDist = FollowCamBaseDist;
+                            S32 springBeta = 2048 - BetaCam;
+                            for (S32 n = FOLLOW_CAM_SPRING_MIN; n < FollowCamBaseDist; n += FOLLOW_CAM_SPRING_STEP) {
+                                Rotate(n, 0, AlphaCam);
+                                S32 stepY = ptr3d->Y + 512 - Z0;
+                                Rotate(0, -X0, springBeta);
+                                S32 stepX = ptr3d->X + X0;
+                                S32 stepZ = ptr3d->Z + Z0;
+                                if (stepX < 0 OR stepX > 32768 OR stepZ < 0 OR stepZ > 32768)
+                                    break;
+                                if (CalculAltitudeObjet(stepX, stepZ, 0) > stepY) {
+                                    targetDist = (n >= FOLLOW_CAM_SPRING_MIN + FOLLOW_CAM_SPRING_STEP)
+                                                 ? n - FOLLOW_CAM_SPRING_STEP : FOLLOW_CAM_SPRING_MIN;
+                                    break;
+                                }
+                            }
+
+                            if (targetDist < FollowCamEffectiveDist) {
+                                FollowCamEffectiveDist = targetDist;
+                            } else if (FollowCamEffectiveDist < FollowCamBaseDist) {
+                                FollowCamEffectiveDist += FOLLOW_CAM_SPRING_RECOVER;
+                                if (FollowCamEffectiveDist > FollowCamBaseDist)
+                                    FollowCamEffectiveDist = FollowCamBaseDist;
+                            }
+
+                            /* Alpha raise/recovery */
+                            if (FollowCamEffectiveDist >= FollowCamBaseDist) {
+                                FollowCamDesiredAlpha = AlphaCam;
+                            } else {
+                                S32 shortFrac = FollowCamBaseDist - FollowCamEffectiveDist;
+                                S32 maxShort  = FollowCamBaseDist - FOLLOW_CAM_SPRING_MIN;
+                                S32 targetAlpha = FollowCamDesiredAlpha + shortFrac * FOLLOW_CAM_SPRING_ALPHA_RAISE / maxShort;
+                                if (targetAlpha > FOLLOW_CAM_ALPHA_MAX) targetAlpha = FOLLOW_CAM_ALPHA_MAX;
+                                AlphaCam = targetAlpha;
+                            }
+                        }
+
+                        /* Set VueDistance to the arm distance BEFORE CameraCenter(3).
+                         * This is critical: AffGrilleExt (terrain render) also calls
+                         * SetFollowCamera(... VueDistance).  If VueDistance doesn't
+                         * match FollowCamEffectiveDist, the terrain renders at the wrong
+                         * distance and the spring arm has no visible effect. */
+                        VueDistance = FollowCamEffectiveDist;
                         CameraCenter(3);
 
-                        FirstTime = AFF_ALL_FLIP;
-                        AutoCamTerrainFrame = TRUE;
+                        /* Post-hoc line-of-sight check: sample terrain at
+                         * several points between hero and camera.  If any
+                         * sample has terrain above the hero→camera line, a
+                         * cliff face is blocking the view.  Pull the arm to
+                         * minimum and raise AlphaCam until the line of sight
+                         * is clear. */
+                        if (!CameraZone) {
+                            S32 losBlocked = FALSE;
+                            for (S32 s = 1; s <= 4; s++) {
+                                S32 sx = ptr3d->X + (CameraX - ptr3d->X) * s / 5;
+                                S32 sz = ptr3d->Z + (CameraZ - ptr3d->Z) * s / 5;
+                                S32 sy = ptr3d->Y + (CameraY - ptr3d->Y) * s / 5;
+                                if (sx >= 0 AND sx < 32768 AND sz >= 0 AND sz < 32768) {
+                                    if (CalculAltitudeObjet(sx, sz, 0) > sy) {
+                                        losBlocked = TRUE;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (losBlocked) {
+                                FollowCamEffectiveDist = FOLLOW_CAM_SPRING_MIN;
+                                VueDistance = FollowCamEffectiveDist;
+                                /* Raise elevation in large steps until LOS clears */
+                                while (AlphaCam < FOLLOW_CAM_ALPHA_MAX) {
+                                    CameraCenter(3);
+                                    losBlocked = FALSE;
+                                    for (S32 s = 1; s <= 4; s++) {
+                                        S32 sx = ptr3d->X + (CameraX - ptr3d->X) * s / 5;
+                                        S32 sz = ptr3d->Z + (CameraZ - ptr3d->Z) * s / 5;
+                                        S32 sy = ptr3d->Y + (CameraY - ptr3d->Y) * s / 5;
+                                        if (sx >= 0 AND sx < 32768 AND sz >= 0 AND sz < 32768) {
+                                            if (CalculAltitudeObjet(sx, sz, 0) > sy) {
+                                                losBlocked = TRUE;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!losBlocked) break;
+                                    AlphaCam += FOLLOW_CAM_ALPHA_ESCAPE_STEP;
+                                }
+                                if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+                                    AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+                                CameraCenter(3);
+                            }
+                        }
 
-                        AutoCamPrevHeroX = ptr3d->X;
-                        AutoCamPrevHeroY = ptr3d->Y;
-                        AutoCamPrevHeroZ = ptr3d->Z;
-                        AutoCamPrevHeroBeta = ptr3d->Beta;
+                        FirstTime = AFF_ALL_FLIP;
+                        FollowCamTerrainFrame = TRUE;
+
+                        FollowCamPrevHeroX    = ptr3d->X;
+                        FollowCamPrevHeroY    = ptr3d->Y;
+                        FollowCamPrevHeroZ    = ptr3d->Z;
+                        FollowCamPrevHeroBeta = ptr3d->Beta;
+                        FollowCamPrevAddBeta  = AddBetaCam;
                     }
                 }
             }
@@ -1666,7 +1861,11 @@ restartloop:
                                 ptrobj->Obj.Y,
                                 ptrobj->Obj.Z);
 
-                if (Xp < 80 OR Xp > 539 OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50) /*429*/) {
+                /* FollowCamera (exterior): the follow camera tracks the hero
+                 * every frame — the classic off-screen snap (CameraCenter(0))
+                 * would fight it and cause jarring resets near trees / decors. */
+                if ((Xp < 80 OR Xp > 539 OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50) /*429*/)
+                    AND !(FollowCamera AND CubeMode == CUBE_EXTERIEUR)) {
                     SaveTimer();
 
                     if (CubeMode == CUBE_INTERIEUR) {
@@ -1710,23 +1909,23 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
 
-        /* For AutoCameraCenter AFF_ALL_FLIP frames: save the timer before the
+        /* For FollowCamera AFF_ALL_FLIP frames: save the timer before the
          * render+vsync and restore it after, then add back the real wall-clock
          * time elapsed (TimerSystemHR is updated by ManageTime inside
          * RestoreTimer).  This makes the full render+vsync transparent to the
          * game clock so hero, NPCs, and rain run at correct speed. */
-        U32 AutoCamTimerBefore = 0;
-        if (AutoCamTerrainFrame) {
+        U32 FollowCamTimerBefore = 0;
+        if (FollowCamTerrainFrame) {
             SaveTimer();
-            AutoCamTimerBefore = TimerSystemHR;
+            FollowCamTimerBefore = TimerSystemHR;
         }
 
         AffScene(FirstTime);
 
-        if (AutoCamTerrainFrame) {
+        if (FollowCamTerrainFrame) {
             RestoreTimer();
-            TimerRefHR += TimerSystemHR - AutoCamTimerBefore;
-            AutoCamTerrainFrame = FALSE;
+            TimerRefHR += TimerSystemHR - FollowCamTimerBefore;
+            FollowCamTerrainFrame = FALSE;
         }
 
         if ((FirstLoop OR RestartMusic)
@@ -1787,10 +1986,11 @@ void ReadConfigFile(void) {
 
     Shadow = DefFileBufferReadValueDefault("Shadow", 3);
     AllCameras = DefFileBufferReadValueDefault("AllCameras", TRUE);
-    AutoCameraCenter = DefFileBufferReadValueDefault("AutoCameraCenter", FALSE);
+    FollowCamera = DefFileBufferReadValueDefault("FollowCamera",
+                       DefFileBufferReadValueDefault("AutoCameraCenter", FALSE));
 
-    if (AutoCameraCenter < 0 OR AutoCameraCenter > 1)
-        AutoCameraCenter = FALSE;
+    if (FollowCamera < 0 OR FollowCamera > 1)
+        FollowCamera = FALSE;
 
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
@@ -1848,7 +2048,7 @@ void WriteConfigFile(void) {
 
     DefFileBufferWriteValue("Shadow", Shadow);
     DefFileBufferWriteValue("AllCameras", AllCameras);
-    DefFileBufferWriteValue("AutoCameraCenter", AutoCameraCenter);
+    DefFileBufferWriteValue("FollowCamera", FollowCamera);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);

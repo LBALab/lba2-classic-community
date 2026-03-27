@@ -1,6 +1,6 @@
 # Camera System
 
-The camera behaves differently in interior (isometric) and exterior (perspective) scenes. This document covers both paths, the `CameraCenter` function that ties them together, and the `AutoCameraCenter` option for exterior follow-camera behavior.
+The camera behaves differently in interior (isometric) and exterior (perspective) scenes. This document covers both paths, the `CameraCenter` function that ties them together, and the `FollowCamera` option — a community addition for third-person follow camera behavior in exterior scenes (not part of the original game).
 
 ## Low-level camera ([LIB386/3D/CAMERA.CPP](../LIB386/3D/CAMERA.CPP))
 
@@ -78,26 +78,31 @@ After the switch, `CameraCenter` calls:
 
 Probes terrain and decors along the camera-to-target line to find an unoccluded position. Iterates from near (1000) to `VueDistance` in 512-unit steps, checking `CalculAltitudeObjet` and `NbObjDecors` bounding boxes. Cost is proportional to `(VueDistance - 1000) / 512 * NbObjDecors`.
 
-## AutoCameraCenter (community addition)
+## FollowCamera (community addition — not in the original game)
 
-Config key `AutoCameraCenter` (0 = manual, 1 = auto; **default 0**). Toggled in Options → Advanced options ("Auto camera centering" / "Manual camera centering"). Off by default: the feature has a visible trade-off between terrain refresh rate and object-vs-ground desync on slow hardware; turn it on when acceptable.
+Config key `FollowCamera` (0 = classic, 1 = follow; **default 0**). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Follow camera" / "Classic camera"). Off by default so the original camera behavior is preserved.
 
-When enabled in exterior mode (and not in a camera zone or cinema), the main loop reorients the camera behind the hero when the hero's position or facing changes. Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). The player's `AddBetaCam` offset (camera cycle) is preserved; `AlphaCam` and `VueDistance` are not reset, so elevation and zoom remain as the player set them.
+When enabled in exterior mode (and not in a camera zone or cinema), the camera acts as a third-person follow camera that lazily orbits behind the hero:
 
-**Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) while `AutoCameraCenter` is on, instead of switching between the two fixed `VueCamera` presets. The adjustment fires every frame while the key is held (no debounce), giving smooth real-time tilt. The position tracking runs concurrently so the hero can be moving at the same time.
+- **Rotation lag:** `BetaCam` lerps toward the hero's facing with distance-based inertia — closer camera = tighter follow, further = lazy cinematic drift. Tuning constants in `FOLLOWCAM_CFG.H`.
+- **Spring arm:** Ray probes terrain outward from the hero; shortens the arm on terrain hit, recovers when clear. Raises `AlphaCam` proportionally when shortened.
+- **Line-of-sight escape:** Post-hoc check samples terrain between hero and camera. If a cliff face blocks the view, the arm snaps to minimum and `AlphaCam` raises until line of sight clears.
+- **Pan drift:** `[`/`]` keys pan the camera (`AddBetaCam`). Pan drifts back to center only while the hero is walking; preserved when standing still.
+- Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` are not reset, so elevation and zoom remain as the player set them.
 
-**Performance:** Terrain (`RefreshGrille` → `AffGrilleExt`) is the dominant per-frame cost in software rendering: 65x65 vertex projection, 64x64 textured Z-buffered polygon rasterization, horizon, sky/sea, and decor objects — all on the CPU. Two optimizations keep this manageable:
+**Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
-1. **Idle skip:** A dirty check on the hero's `X`, `Y`, `Z`, and `Beta` avoids all camera and terrain work when the hero hasn't moved. Standing still has zero extra cost compared to manual mode.
-2. **Full refresh on movement:** When the hero moves, the update sets `FirstTime = AFF_ALL_FLIP` so camera, terrain, objects, and screen flip all happen in one frame. `AFF_ALL_FLIP` runs the full `AffScene` preamble (`MemoClipWindow` / `UnsetClipWindow` / `ClearImpactRain`) before the render, which prevents black edges from any active clip region (HUD bars, cinema mode). Vsync acts as the natural rate limiter (~60 Hz). The timer lock during render+vsync is compensated by the `SaveTimer`/`RestoreTimer` + `TimerSystemHR` adjustment around `AffScene`, so game logic (hero, NPCs, rain) runs at correct wall-clock speed.
+**Performance:** Two optimizations keep the per-frame cost manageable:
+
+1. **Idle skip:** Dirty check on hero `X`, `Y`, `Z`, `Beta` skips all camera/terrain work when the hero hasn't moved. Standing still has zero extra cost.
+2. **Full refresh on movement:** Sets `FirstTime = AFF_ALL_FLIP` for full render + flip in one frame. `AFF_ALL_FLIP` runs the `AffScene` preamble (`MemoClipWindow` / `UnsetClipWindow` / `ClearImpactRain`) preventing black edges. Vsync caps at ~60 Hz. Timer compensation (`SaveTimer`/`RestoreTimer` + `TimerSystemHR`) keeps game logic at correct speed.
 
 See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu entry.
 
 ### Future work
 
-- **Rendering architecture:** Terrain and objects must share the same camera state per frame to avoid visual desync. Currently achieved by always doing a full `RefreshGrille` on movement frames. A faster terrain path (GPU or structural changes) would reduce the CPU cost of this per-frame refresh.
-- **Smooth swivel:** Interpolate `BetaCam` toward the target angle over several frames rather than snapping. Would give a more polished feel similar to the enhanced edition's rotation.
-- **Dead zone:** Only reorient when the hero's facing changes by more than a threshold, to avoid jitter during small movements.
+- **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
+- **Gamepad support:** Dual-stick camera control for controllers.
 
 ## Code reference
 
@@ -110,16 +115,17 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | CameraCenter            | SOURCES/INTEXT.CPP         | `CameraCenter(flagbeta)`                                                            |
 | SearchCameraPos         | SOURCES/3DEXT/MAPTOOLS.CPP | `SearchCameraPos(x, y, z, objbeta, mode)`                                           |
 | Exterior init           | SOURCES/EXTFUNC.CPP        | `Init3DExtView`, `Init3DExtGame`                                                    |
-| Camera level keys       | SOURCES/EXTFUNC.CPP        | `GereExtKeys` — preset switch (manual) or free `AlphaCam` tilt (AutoCameraCenter)  |
-| Main loop recenter      | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, `AutoCameraCenter` block                      |
-| AutoCameraCenter global | SOURCES/GLOBAL.CPP         | `AutoCameraCenter`                                                                  |
+| Camera level keys       | SOURCES/EXTFUNC.CPP        | `GereExtKeys` — preset switch (classic) or free `AlphaCam` tilt (FollowCamera)     |
+| Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, follow camera block                            |
+| FollowCamera global     | SOURCES/GLOBAL.CPP         | `FollowCamera`                                                                      |
+| Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
 
 
 ## Cross-references
 
-- [CONFIG.md](CONFIG.md) — `AutoCameraCenter` key
+- [CONFIG.md](CONFIG.md) — `FollowCamera` key
 - [MENU.md](MENU.md) — Advanced options menu entry
 - [GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera zone; `AllCameras`
 - [LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: initialize camera; main loop step 7: `AffScene`

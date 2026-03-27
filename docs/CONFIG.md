@@ -30,7 +30,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | LastSave | string | Player name, max 100 chars | (empty) | Used for quick load |
 | Shadow | int | 1–3 | 3 | Overwritten by DetailLevel when leaving Options. 1=none on extras, 2=no impact shadows, 3=full |
 | AllCameras | int | 0, 1 | 1 | 0=OFF, 1=ON |
-| AutoCameraCenter | int | 0, 1 | 0 | 0=manual (default), 1=auto. Exterior follow-camera; opt-in until full-render perf improves |
+| FollowCamera | int | 0, 1 | 0 | 0=classic (default), 1=follow camera. Community addition: third-person follow camera for exterior scenes. Also reads legacy key `AutoCameraCenter` |
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
 | DetailLevel | int | 0–3 | 3 | 0=min (no rain, no sea, no horizon), 1=486, 2=base Pentium, 3=max. Drives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon |
 | FullScreen | int | 0, 1 | 1 | 0=small videos, 1=fullscreen videos. Invalid values → 1 |
@@ -76,7 +76,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Key | Purpose | Source | Menu |
 |-----|---------|--------|------|
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
-| AutoCameraCenter | Exterior auto follow-camera (0=manual, 1=auto) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| FollowCamera | Third-person follow camera for exterior scenes (0=classic, 1=follow). Community addition, not in original game | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 
 ## Code reference
 
@@ -96,5 +96,5 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 - [SAVEGAME.md](SAVEGAME.md) for LastSave and CompressSave usage
 - [AUDIO.md](AUDIO.md) for volume/master volume behavior
 - [GFX_OPTIONS.md](GFX_OPTIONS.md) for DetailLevel / Shadow effects
-- [CAMERA.md](CAMERA.md) for camera system and AutoCameraCenter behavior
+- [CAMERA.md](CAMERA.md) for camera system and FollowCamera behavior
 

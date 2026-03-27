@@ -15,6 +15,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include "FOLLOWCAM_CFG.H"
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
@@ -2176,9 +2177,9 @@ S32 GereExtKeys(U32 key)
 #endif
 
     if (Input & I_CAMERA_LEVEL_MOINS) {
-        if (AutoCameraCenter) {
-            if (AlphaCam > 150)
-                AlphaCam -= 5;
+        if (FollowCamera) {
+            if (AlphaCam > FOLLOW_CAM_ALPHA_MIN)
+                AlphaCam -= FOLLOW_CAM_ALPHA_STEP;
             FirstTime = AFF_ALL_FLIP;
         } else {
             if (VueCamera > 0) {
@@ -2191,9 +2192,9 @@ S32 GereExtKeys(U32 key)
     }
 
     if (Input & I_CAMERA_LEVEL_PLUS) {
-        if (AutoCameraCenter) {
-            if (AlphaCam < 600)
-                AlphaCam += 5;
+        if (FollowCamera) {
+            if (AlphaCam < FOLLOW_CAM_ALPHA_MAX)
+                AlphaCam += FOLLOW_CAM_ALPHA_STEP;
             FirstTime = AFF_ALL_FLIP;
         } else {
             if (VueCamera < NB_VUE_CAMERA - 1) {
@@ -2202,6 +2203,32 @@ S32 GereExtKeys(U32 key)
                 CameraCenter(2);
             }
             InitWaitNoInput(I_CAMERA_LEVEL_PLUS);
+        }
+    }
+
+    if (FollowCamera) {
+        if (CheckKey(K_LBRACKET)) {
+            AddBetaCam = (AddBetaCam - FOLLOW_CAM_PAN_STEP) & 4095;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
+        if (CheckKey(K_RBRACKET)) {
+            AddBetaCam = (AddBetaCam + FOLLOW_CAM_PAN_STEP) & 4095;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
+        /* Zoom: numpad / = closer, numpad * = further */
+        if (CheckKey(K_NUMPAD_DIV)) {
+            if (FollowCamBaseDist > FOLLOW_CAM_DIST_MIN)
+                FollowCamBaseDist -= FOLLOW_CAM_ZOOM_STEP;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
+        if (CheckKey(K_NUMPAD_MUL)) {
+            if (FollowCamBaseDist < FOLLOW_CAM_DIST_MAX)
+                FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
         }
     }
 #endif
