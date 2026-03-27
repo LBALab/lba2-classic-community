@@ -58,13 +58,13 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 4. Host tests (game data discovery)
 
-`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping) and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON`, build target `test_res_discovery`, then:
+`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON`, build target `test_res_discovery`, then:
 
 ```bash
 cd build && ctest -R test_res_discovery --output-on-failure
 ```
 
-or `make test-discovery` from the repo root (after configuring with tests enabled).
+or **`make test`** / **`make test-discovery`** from the repo root (configures with tests if needed, builds, and runs CTest).
 
 ## Test Harness
 

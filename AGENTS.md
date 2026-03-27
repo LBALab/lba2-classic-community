@@ -53,7 +53,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Build:** `cmake -B build && cmake --build build`. Or use presets for your platform: `cmake --preset <preset> && cmake --build --preset <preset>` — `linux`, `macos_arm64`, `macos_x86_64`, `windows_ucrt64` (see `CMakePresets.json`).
 - **Game data:** Retail files are not in the repo. See `docs/GAME_DATA.md`. Set `LBA2_GAME_DIR`, use `--game-dir`, or place data in `./data` / `../LBA2` relative to the repo. From anywhere in the clone: `./scripts/dev/build-and-run.sh` or `make run` (repo root).
 - **Tests:** Run via Docker: `./run_tests_docker.sh`. Works on Linux, macOS (Docker + QEMU), and Windows (Docker Desktop). Tests require 32-bit x86 + UASM inside the container.
-- **Host discovery tests:** With `-DLBA2_BUILD_TESTS=ON`, `ctest -R test_res_discovery` or `make test-discovery` (no Docker).
+- **Host discovery tests:** `make test` / `make test-discovery` (or `ctest -R test_res_discovery` after configure with `-DLBA2_BUILD_TESTS=ON`). No Docker, no retail files.
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
 - **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.

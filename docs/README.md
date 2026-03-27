@@ -2,6 +2,8 @@
 
 Index of documentation in this repository.
 
+**New to the fork?** Start with the root [README](../README.md) (**First clone** + prerequisites), then [GAME_DATA.md](GAME_DATA.md) for retail files and discovery (you are not required to use a fixed layout — see overrides there).
+
 ## Engine reference
 
 | Doc | Description |

@@ -3,19 +3,30 @@
 #include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOGPRINT.H>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_filesystem.h>
 
+#include <dirent.h>
+
 #include <stdlib.h>
 #include <string.h>
 
 namespace {
 
-const int kMaxTried = 48;
+const int kMaxTried = 160;
 const int kParentWalkMax = 8;
+const int kMaxSiblingEntries = 24;
+
+static const char *const kSiblingSubdirs[] = {
+    "CommonClassic",
+    "common",
+    "Common",
+    "Classic",
+};
 
 void EnsureTrailingSeparator(char *path, U16 maxLen) {
     const size_t n = strlen(path);
@@ -146,6 +157,72 @@ bool TryJoinBaseSub(const char *base, const char *sub, char *outDir, U16 outMax,
     return NormalizeAndTry(buf, outDir, outMax, tried, triedCount);
 }
 
+/**
+ * Under the parent of the current working directory, try each immediate
+ * subdirectory as a game root, then common distributor subfolders (e.g.
+ * CommonClassic). Bounded by kMaxSiblingEntries; only directories are
+ * considered. Success still requires lba2.hqr (IsValidResourceDir).
+ */
+bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PATH],
+                          int *triedCount) {
+    char cwd[ADELINE_MAX_PATH];
+    GetCurrentRunningDir(cwd);
+    cwd[ADELINE_MAX_PATH - 1] = '\0';
+    if (cwd[0] == '\0') {
+        return false;
+    }
+    EnsureTrailingSeparator(cwd, ADELINE_MAX_PATH);
+    char parent[ADELINE_MAX_PATH];
+    strncpy(parent, cwd, ADELINE_MAX_PATH);
+    parent[ADELINE_MAX_PATH - 1] = '\0';
+    if (!PathRemoveLastComponent(parent)) {
+        return false;
+    }
+    EnsureTrailingSeparator(parent, ADELINE_MAX_PATH);
+
+    DIR *dirp = opendir(parent);
+    if (dirp == NULL) {
+        return false;
+    }
+
+    int n = 0;
+    int iter = 0;
+    struct dirent *ent;
+    while ((ent = readdir(dirp)) != NULL && iter < 256) {
+        iter++;
+        if (n >= kMaxSiblingEntries) {
+            break;
+        }
+        if (ent->d_name[0] == '.' &&
+            (ent->d_name[1] == '\0' ||
+             (ent->d_name[1] == '.' && ent->d_name[2] == '\0'))) {
+            continue;
+        }
+        char childPath[ADELINE_MAX_PATH];
+        snprintf(childPath, ADELINE_MAX_PATH, "%s%s", parent, ent->d_name);
+        childPath[ADELINE_MAX_PATH - 1] = '\0';
+        if (!IsDirectory(childPath)) {
+            continue;
+        }
+        n++;
+        EnsureTrailingSeparator(childPath, ADELINE_MAX_PATH);
+        if (TryJoinBaseSub(childPath, "", outDir, outMax, tried, triedCount)) {
+            closedir(dirp);
+            return true;
+        }
+        for (size_t si = 0; si < sizeof(kSiblingSubdirs) / sizeof(kSiblingSubdirs[0]);
+             si++) {
+            if (TryJoinBaseSub(childPath, kSiblingSubdirs[si], outDir, outMax, tried,
+                               triedCount)) {
+                closedir(dirp);
+                return true;
+            }
+        }
+    }
+    closedir(dirp);
+    return false;
+}
+
 } // namespace
 
 #ifdef __cplusplus
@@ -158,7 +235,6 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     char cliPath[ADELINE_MAX_PATH];
     char walk[ADELINE_MAX_PATH];
     const char *basePath = NULL;
-    bool sdlInitOk = false;
 
     ExtractGameDirFromArgv(*argc, argv, cliPath, ADELINE_MAX_PATH);
     StripGameDirArgs(argc, argv);
@@ -174,35 +250,25 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         return true;
     }
 
-    sdlInitOk = SDL_Init(0);
-    if (!sdlInitOk) {
-        LogPrintf("Warning: SDL_Init(0) failed for game path discovery: %s\n",
-                  SDL_GetError());
-    }
+    /* SDL_Init must be done by the caller before SDL_GetBasePath / cwd helpers
+     * (see main in PERSO.CPP). Do not SDL_Quit here — InitAdeline needs SDL.
+     *
+     * SDL3: SDL_GetBasePath() returns an internal cached pointer; do not SDL_free
+     * it (SDL_QuitFilesystem frees it). */
 
     basePath = SDL_GetBasePath();
     if (basePath != NULL) {
         if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount) ||
             TryJoinBaseSub(basePath, "data", outDir, outMax, tried, &triedCount) ||
             TryJoinBaseSub(basePath, "game", outDir, outMax, tried, &triedCount)) {
-            SDL_free((void *)basePath);
-            basePath = NULL;
-            if (sdlInitOk) {
-                SDL_Quit();
-            }
             return true;
         }
-        SDL_free((void *)basePath);
-        basePath = NULL;
     }
 
     GetCurrentRunningDir(walk);
     walk[ADELINE_MAX_PATH - 1] = '\0';
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
     if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount)) {
-        if (sdlInitOk) {
-            SDL_Quit();
-        }
         return true;
     }
 
@@ -215,9 +281,6 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         }
         EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
         if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount)) {
-            if (sdlInitOk) {
-                SDL_Quit();
-            }
             return true;
         }
     }
@@ -230,9 +293,6 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         snprintf(rel, ADELINE_MAX_PATH, "%s%s%s", walk, "data", ADELINE_PATH_SEP);
         rel[ADELINE_MAX_PATH - 1] = '\0';
         if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
-            if (sdlInitOk) {
-                SDL_Quit();
-            }
             return true;
         }
     }
@@ -246,9 +306,6 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
                  ADELINE_PATH_SEP);
         rel[ADELINE_MAX_PATH - 1] = '\0';
         if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
-            if (sdlInitOk) {
-                SDL_Quit();
-            }
             return true;
         }
     }
@@ -262,15 +319,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
                  ADELINE_PATH_SEP);
         rel[ADELINE_MAX_PATH - 1] = '\0';
         if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
-            if (sdlInitOk) {
-                SDL_Quit();
-            }
             return true;
         }
     }
 
-    if (sdlInitOk) {
-        SDL_Quit();
+    if (TryParentSiblingScan(outDir, outMax, tried, &triedCount)) {
+        return true;
     }
 
     LogFailure(tried, triedCount);

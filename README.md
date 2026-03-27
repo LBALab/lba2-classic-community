@@ -12,17 +12,29 @@ The **original** LBA2 engine source is the **lba2-classic** codebase: it is most
 
 ## Quick start (running the game)
 
-1. Build prerequisites below (CMake, Ninja, SDL3).
-2. Obtain **retail game data** (not in this repo)—you need a folder containing `lba2.hqr`. See [docs/GAME_DATA.md](docs/GAME_DATA.md).
-3. Point the engine at that folder: `export LBA2_GAME_DIR=/path/to/game`, or symlink/copy data into `./data` or `../LBA2` next to this repo, or pass `--game-dir /path/to/game`.
-4. From the repository root:
+### First clone
 
-   ```bash
-   cmake -B build && cmake --build build
-   ./build/SOURCES/lba2
-   ```
+1. **Dependencies:** CMake (3.23+), a C/C++ compiler, **SDL3**. The repo **`Makefile`** also expects **Ninja** on `PATH`. You can skip the Makefile and use plain CMake with your preferred generator instead.
+2. **`make`** or **`make help`** — lists convenience targets (`build`, `run`, `clean`, `test`, …).
+3. **`make build`** — configures `build/` (Ninja, Debug) and compiles `lba2`. Or: `cmake -B build && cmake --build build` (default generator is fine if you do not use `make build`).
+4. **Retail game data** are not in this repo. You need a directory that contains **`lba2.hqr`**. How you point the engine at it is **your choice**: `export LBA2_GAME_DIR=/path`, **`./data/`** (gitignored), **`--game-dir`**, or bounded automatic discovery — see [docs/GAME_DATA.md](docs/GAME_DATA.md). Nothing is “special-cased” except that marker file.
+5. **`make run`** or **`./scripts/dev/build-and-run.sh`** — build if needed, then run (exits with a clear message if no valid data directory was found).
+6. **`make test`** (alias for **`make test-discovery`**) — host-only tests for path resolution and embedded default config; **no** retail files or Docker required.
 
-   Or: **`make run`** / **`./scripts/dev/build-and-run.sh`** (builds then runs; sets `LBA2_GAME_DIR` if `./data` or `../LBA2` exists).
+**Windows:** Use **MSYS2** (recommended; see [docs/WINDOWS.md](docs/WINDOWS.md)). Discovery and the game work the same (`LBA2_GAME_DIR`, `--game-dir`, paths with `\` or `/`). The root **`Makefile`** and **`scripts/dev/*.sh`** need a **Unix-like shell** (MSYS2 UCRT64, Git Bash, or WSL); alternatively run **`cmake`** and **`build/SOURCES/lba2.exe`** from **cmd.exe** / PowerShell and set the env var with `set LBA2_GAME_DIR=...`.
+
+### Build and run (reference)
+
+```bash
+cmake -B build && cmake --build build
+./build/SOURCES/lba2
+```
+
+With optional game data path: `./build/SOURCES/lba2 --game-dir /path/to/classic/install` or set **`LBA2_GAME_DIR`** first.
+
+**`make run`** sets **`LBA2_GAME_DIR`** automatically if **`./data`** or **`../LBA2`** contains `lba2.hqr`.
+
+Run **`make`** for convenience targets: **`make build`**, **`make clean`** (removes the default **`build/`** tree; override with **`BUILD_DIR`**), **`make test`**, **`make test-docker`**, etc.
 
 ## Prerequisites
 

@@ -198,20 +198,15 @@ void EndDirectories() { directoriesInitialized = false; }
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir) {
-    static bool initialized = false;
-    static char runDir[ADELINE_MAX_PATH] = "";
-
-    if (!initialized) {
-        initialized = true;
-
-        char *sdlBasePath = SDL_GetCurrentDirectory();
-        strncpy(runDir, sdlBasePath, ADELINE_MAX_PATH);
-        runDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-
-        SDL_free(sdlBasePath);
+    /* Always query the OS; cwd may change (e.g. tests) and must not be cached. */
+    char *sdlBasePath = SDL_GetCurrentDirectory();
+    if (sdlBasePath == NULL) {
+        outDir[0] = '\0';
+        return;
     }
-
-    strncpy(outDir, runDir, ADELINE_MAX_PATH);
+    strncpy(outDir, sdlBasePath, ADELINE_MAX_PATH);
+    outDir[ADELINE_MAX_PATH - 1] = '\0';
+    SDL_free(sdlBasePath);
 }
 
 void GetDefaultUserDir(char *outDir) {

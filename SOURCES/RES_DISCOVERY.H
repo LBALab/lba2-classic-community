@@ -9,7 +9,8 @@ extern "C" {
 /**
  * Resolve the game asset directory (must contain lba2.hqr per IsValidResourceDir).
  * Order: --game-dir/--data-dir, LBA2_GAME_DIR, SDL base path candidates, cwd,
- * parent walk, relative dev paths.
+ * parent walk, relative dev paths, then sibling scan (parent of cwd: each
+ * subdirectory and CommonClassic/common/Common/Classic).
  *
  * Strips --game-dir and --data-dir from argv and updates *argc before GetCmdLine.
  *
