@@ -1777,11 +1777,9 @@ restartloop:
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
 
-                            /* Single per-frame penetration check.  Instead of
-                             * looping to full resolution (which teleports the
-                             * camera), we adjust one step per frame so the
-                             * pull-in is smooth.  At 60 fps with PEN_STEP=1000,
-                             * worst-case retract takes ~14 frames (~230 ms). */
+                            /* Single per-frame penetration: shorten arm (or
+                             * raise AlphaCam at min arm) by small steps from
+                             * FOLLOWCAM_CFG.H so CameraCenter(3) does not lurch. */
                             {
                                 S32 gx = CameraX;
                                 S32 gz = CameraZ;

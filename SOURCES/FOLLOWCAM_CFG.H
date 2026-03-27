@@ -7,7 +7,8 @@
 #define FOLLOW_CAM_SPRING_MIN          200  /* minimum arm length (world units) */
 #define FOLLOW_CAM_SPRING_RECOVER      200  /* recover toward zoom after penetration clears */
 #define FOLLOW_CAM_CLEAR_MARGIN        400  /* require CameraY >= ground + margin at camera (X,Z) */
-#define FOLLOW_CAM_PEN_STEP            1000 /* shorten arm per frame when camera is inside terrain */
+#define FOLLOW_CAM_PEN_STEP            320  /* max arm shorten per frame when penetrating (smaller = smoother) */
+#define FOLLOW_CAM_ALPHA_ESCAPE_STEP   18   /* elevation per frame at min arm when still penetrating */
 
 /* Rotation lag (BetaCam lerp) -----------------------------------------------*/
 #define FOLLOW_CAM_ROT_DIVISOR         36   /* lerp denominator (higher = slower) */
@@ -24,7 +25,6 @@
 #define FOLLOW_CAM_ALPHA_MIN           150  /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX           600  /* maximum elevation angle */
 #define FOLLOW_CAM_ALPHA_STEP          5    /* elevation change per numpad +/- key press */
-#define FOLLOW_CAM_ALPHA_ESCAPE_STEP   50   /* elevation step when arm at min and still penetrating */
 
 /* Zoom (numpad * / /) — adjusts default arm distance -----------------------*/
 #define FOLLOW_CAM_ZOOM_STEP           200  /* distance change per frame while key held */
