@@ -69,6 +69,8 @@ static S32 FollowCamPrevAddBeta = 0;   /* dirty check: last seen AddBetaCam */
 static S32 FollowCamEffectiveDist = 0; /* spring arm: smoothed distance (0 = uninitialised) */
 static S32 FollowCamTargetBeta = 0;    /* rotation lag: desired BetaCam */
 static S32 FollowCamReengageDelay = 0; /* frames before auto-center resumes after manual pan */
+static S32 FollowCamPrevBaseDist = -1; /* dirty: zoom from GereExtKeys (numpad * /) */
+static S32 FollowCamPrevAlphaCam = -1; /* dirty: numpad +/- elevation while follow */
 
 /*══════════════════════════════════════════════════════════════════════════*/
 char NamePcxSave[ADELINE_MAX_PATH];
@@ -1432,6 +1434,8 @@ restartloop:
                         FollowCamEffectiveDist = FollowCamBaseDist;
                         FollowCamTargetBeta = BetaCam;
                         FollowCamReengageDelay = 0;
+                        FollowCamPrevBaseDist = FollowCamBaseDist;
+                        FollowCamPrevAlphaCam = AlphaCam;
                     }
 
                     RestoreTimer();
@@ -1660,6 +1664,8 @@ restartloop:
                     if (FollowCamEffectiveDist == 0) {
                         FollowCamEffectiveDist = FollowCamBaseDist;
                         FollowCamTargetBeta = BetaCam;
+                        FollowCamPrevBaseDist = FollowCamBaseDist;
+                        FollowCamPrevAlphaCam = AlphaCam;
                     }
 
                     /* --- AddBetaCam drift ---
@@ -1698,7 +1704,7 @@ restartloop:
                     if (catchupDiff < -2048)
                         catchupDiff += 4096;
 
-                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD)) {
+                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR (catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam) {
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
@@ -1812,6 +1818,8 @@ restartloop:
                         FollowCamPrevHeroZ = ptr3d->Z;
                         FollowCamPrevHeroBeta = ptr3d->Beta;
                         FollowCamPrevAddBeta = AddBetaCam;
+                        FollowCamPrevBaseDist = FollowCamBaseDist;
+                        FollowCamPrevAlphaCam = AlphaCam;
                     }
                 }
             }

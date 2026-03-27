@@ -11,8 +11,8 @@
 #define FOLLOW_CAM_PENETRATION_MAX_ITERS 48 /* safety cap on penetration resolve loop */
 
 /* Rotation lag (BetaCam lerp) -----------------------------------------------*/
-#define FOLLOW_CAM_ROT_DIVISOR         50   /* lerp denominator: 1/50 = 2 % per frame (higher = slower) */
-#define FOLLOW_CAM_ROT_MIN_STEP        2    /* minimum BetaCam step per lerp tick (units) */
+#define FOLLOW_CAM_ROT_DIVISOR         36   /* lerp denominator (higher = slower) */
+#define FOLLOW_CAM_ROT_MIN_STEP        3    /* minimum BetaCam step per lerp tick (units) */
 #define FOLLOW_CAM_ROT_THRESHOLD       10   /* snap BetaCam when within this many units of target */
 
 /* Pan drift (AddBetaCam drift toward 0 after [ / ] released) ----------------*/

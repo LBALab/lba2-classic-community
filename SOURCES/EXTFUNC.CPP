@@ -2217,14 +2217,14 @@ S32 GereExtKeys(U32 key)
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
-        /* Zoom: numpad / = closer, numpad * = further */
-        if (CheckKey(K_NUMPAD_DIV)) {
+        /* Zoom: numpad / = closer, numpad * = further; comma/period = alt (no numpad) */
+        if (CheckKey(K_NUMPAD_DIV) OR CheckKey(K_COMMA)) {
             if (FollowCamBaseDist > FOLLOW_CAM_DIST_MIN)
                 FollowCamBaseDist -= FOLLOW_CAM_ZOOM_STEP;
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
-        if (CheckKey(K_NUMPAD_MUL)) {
+        if (CheckKey(K_NUMPAD_MUL) OR CheckKey(K_PERIOD)) {
             if (FollowCamBaseDist < FOLLOW_CAM_DIST_MAX)
                 FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
             FirstTime = AFF_ALL_FLIP;
