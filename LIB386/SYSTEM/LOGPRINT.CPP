@@ -42,7 +42,7 @@ void LogPrintf(const char *format, ...) {
 
     va_start(arglist, format);
 
-    vsprintf(LogStr, format, arglist);
+    (void)vsnprintf(LogStr, sizeof(LogStr), format, arglist);
 
     for (ptr = LogStr; *ptr; ptr++) {
         if (*ptr == '\n') {

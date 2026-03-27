@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include <stdio.h>
+
 #include "INPUT.H"
 #ifdef ENABLE_POLY_RECORDING
 #include <SNAPSHOT/POLY_RECORDING.H>
@@ -5317,7 +5319,7 @@ startaffscene:
     static char polyrec_pending_name[256] = {0};
     if (SnapshotRequested) {
         static int polyrec_counter = 0;
-        sprintf(polyrec_pending_name, "polyrec_%04d.lba2polyrec", polyrec_counter++);
+        snprintf(polyrec_pending_name, sizeof(polyrec_pending_name), "polyrec_%04d.lba2polyrec", polyrec_counter++);
         polyrec_start(polyrec_pending_name);
         // Provide RGB palette for PPM output
         {
