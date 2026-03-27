@@ -1944,6 +1944,7 @@ void ReadConfigFile(void) {
 
     Shadow = DefFileBufferReadValueDefault("Shadow", 3);
     AllCameras = DefFileBufferReadValueDefault("AllCameras", TRUE);
+    /* User-facing name: "Auto camera" (menu/docs); config key FollowCamera; legacy AutoCameraCenter */
     FollowCamera = DefFileBufferReadValueDefault("FollowCamera",
                                                  DefFileBufferReadValueDefault("AutoCameraCenter", FALSE));
 

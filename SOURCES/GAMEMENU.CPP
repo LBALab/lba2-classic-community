@@ -260,7 +260,7 @@ enum MenuLocalizedLabel {
     MENU_LABEL_VOICE_LANGUAGE,
     MENU_LABEL_DISPLAY_FULLSCREEN_OFF,
     MENU_LABEL_DISPLAY_FULLSCREEN_ON,
-    MENU_LABEL_FOLLOW_CAMERA,
+    MENU_LABEL_AUTO_CAMERA,
     MENU_LABEL_CLASSIC_CAMERA,
     MENU_LABEL_COUNT,
 };
@@ -273,7 +273,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voices: %s",
         "Fullscreen display: OFF",
         "Fullscreen display: ON",
-        "Follow camera",
+        "Auto camera",
         "Classic camera",
     },
     {
@@ -283,7 +283,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voix : %s",
         "Affichage plein écran : OFF",
         "Affichage plein écran : ON",
-        "Caméra de suivi",
+        "Caméra automatique",
         "Caméra classique",
     },
     {
@@ -293,7 +293,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Stimmen: %s",
         "Vollbildanzeige: OFF",
         "Vollbildanzeige: ON",
-        "Verfolgungskamera",
+        "Automatische Kamera",
         "Klassische Kamera",
     },
     {
@@ -303,7 +303,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voces: %s",
         "Pantalla completa: OFF",
         "Pantalla completa: ON",
-        "Cámara de seguimiento",
+        "Cámara automática",
         "Cámara clásica",
     },
     {
@@ -313,7 +313,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voci: %s",
         "A schermo intero: OFF",
         "A schermo intero: ON",
-        "Telecamera di inseguimento",
+        "Telecamera automatica",
         "Telecamera classica",
     },
     {
@@ -323,7 +323,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Voz: %s",
         "Exibição em tela cheia: OFF",
         "Exibição em tela cheia: ON",
-        "Câmera de seguimento",
+        "Câmera automática",
         "Câmera clássica",
     },
 };
@@ -389,7 +389,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_FOLLOW_CAMERA:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_FOLLOW_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_AUTO_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
         break;
 
     case MENU_ID_DISPLAY_TEXT:

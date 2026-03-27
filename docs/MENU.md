@@ -32,7 +32,7 @@ Main Menu
 │   │   ├── Reverse stereo channels OFF/ON (12/13)
 │   │   ├── Detail Level (45)             [slider 0–3]
 │   │   ├── Movie camera OFF/ON (46/47)
-│   │   ├── Follow camera / Classic camera [custom localized label, community addition]
+│   │   ├── Auto camera / Classic camera [custom localized label, community addition]
 │   │   ├── Small videos / Full screen videos (27/28)
 │   │   ├── Fullscreen display OFF/ON     [custom localized label]
 │   │   └── Don't display text / Display text (16/17)
