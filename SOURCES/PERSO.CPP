@@ -1774,15 +1774,11 @@ restartloop:
                             }
                         }
 
-                        /* --- Zoom distance + terrain penetration ---
-                         * No ray along the boom: terrain between the hero and the lens
-                         * may occlude (hills, scenery).  We only shorten the arm or
-                         * raise AlphaCam when the camera would sit below the ground
-                         * height at (CameraX, CameraZ).  VueDistance must match
+                        /* --- Zoom distance: converge FollowCamEffectiveDist toward
+                         * FollowCamBaseDist (numpad * /).  VueDistance must match
                          * FollowCamEffectiveDist before CameraCenter(3) so terrain
                          * render (AffGrilleExt) stays consistent. */
                         if (!CameraZone) {
-                            /* Converge toward the player's chosen zoom distance. */
                             if (FollowCamEffectiveDist < FollowCamBaseDist) {
                                 FollowCamEffectiveDist += FOLLOW_CAM_SPRING_RECOVER;
                                 if (FollowCamEffectiveDist > FollowCamBaseDist)
@@ -1795,33 +1791,6 @@ restartloop:
 
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
-
-                            /* Optional: pull camera out of ground at (CameraX,Z); off by default. */
-                            if (FollowCameraPenetration) {
-                                /* Single per-frame penetration: shorten arm (or
-                                 * raise AlphaCam at min arm) by small steps from
-                                 * FOLLOWCAM_CFG.H so CameraCenter(3) does not lurch. */
-                                S32 gx = CameraX;
-                                S32 gz = CameraZ;
-                                if (gx >= 0 AND gx <= 32767 AND gz >= 0 AND gz <= 32767) {
-                                    S32 groundY = CalculAltitudeObjet(gx, gz, 0);
-                                    if (groundY >= 0 AND CameraY < groundY + FOLLOW_CAM_CLEAR_MARGIN) {
-                                        if (FollowCamEffectiveDist > FOLLOW_CAM_SPRING_MIN) {
-                                            FollowCamEffectiveDist -= FOLLOW_CAM_PEN_STEP;
-                                            if (FollowCamEffectiveDist < FOLLOW_CAM_SPRING_MIN)
-                                                FollowCamEffectiveDist = FOLLOW_CAM_SPRING_MIN;
-                                            VueDistance = FollowCamEffectiveDist;
-                                            CameraCenter(3);
-                                        } else if (AlphaCam < FOLLOW_CAM_ALPHA_MAX) {
-                                            AlphaCam += FOLLOW_CAM_ALPHA_ESCAPE_STEP;
-                                            if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
-                                                AlphaCam = FOLLOW_CAM_ALPHA_MAX;
-                                            VueDistance = FollowCamEffectiveDist;
-                                            CameraCenter(3);
-                                        }
-                                    }
-                                }
-                            }
                         } else {
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
@@ -1981,10 +1950,6 @@ void ReadConfigFile(void) {
     if (FollowCamera < 0 OR FollowCamera > 1)
         FollowCamera = FALSE;
 
-    FollowCameraPenetration = DefFileBufferReadValueDefault("FollowCameraPenetration", FALSE);
-    if (FollowCameraPenetration < 0 OR FollowCameraPenetration > 1)
-        FollowCameraPenetration = FALSE;
-
     ReverseStereo = DefFileBufferReadValueDefault("ReverseStereo", FALSE);
 
     InverseStereoSample(ReverseStereo);
@@ -2042,7 +2007,6 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("Shadow", Shadow);
     DefFileBufferWriteValue("AllCameras", AllCameras);
     DefFileBufferWriteValue("FollowCamera", FollowCamera);
-    DefFileBufferWriteValue("FollowCameraPenetration", FollowCameraPenetration);
     DefFileBufferWriteValue("ReverseStereo", ReverseStereo);
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);

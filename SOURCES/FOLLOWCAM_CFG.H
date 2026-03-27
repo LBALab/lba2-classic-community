@@ -3,12 +3,8 @@
  * This follow camera was never part of the original game.
  * Change these values to adjust camera feel without touching the logic. */
 
-/* Arm length vs terrain (penetration only) ----------------------------------*/
-#define FOLLOW_CAM_SPRING_MIN          200  /* minimum arm length (world units) */
-#define FOLLOW_CAM_SPRING_RECOVER      200  /* recover toward zoom after penetration clears */
-#define FOLLOW_CAM_CLEAR_MARGIN        400  /* require CameraY >= ground + margin at camera (X,Z) */
-#define FOLLOW_CAM_PEN_STEP            320  /* max arm shorten per frame when penetrating (smaller = smoother) */
-#define FOLLOW_CAM_ALPHA_ESCAPE_STEP   18   /* elevation per frame at min arm when still penetrating */
+/* Zoom arm recovery (FollowCamEffectiveDist vs FollowCamBaseDist) ----------*/
+#define FOLLOW_CAM_SPRING_RECOVER      200  /* move effective arm toward chosen zoom per frame */
 
 /* Rotation lag (BetaCam lerp) -----------------------------------------------*/
 #define FOLLOW_CAM_ROT_DIVISOR         36   /* lerp denominator (higher = slower) */

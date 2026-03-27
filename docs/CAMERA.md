@@ -85,9 +85,8 @@ Config key `FollowCamera` (0 = classic, 1 = follow; **default 0**). Also reads l
 When enabled in exterior mode (and not in a camera zone or cinema), the camera acts as a third-person follow camera that lazily orbits behind the hero:
 
 - **Rotation lag:** `BetaCam` lerps toward the hero's facing with distance-based inertia — closer camera = tighter follow, further = lazy cinematic drift. Tuning constants in `FOLLOWCAM_CFG.H`.
-- **Terrain penetration (optional, default off):** Config key `FollowCameraPenetration` (0/1, default 0). When enabled, there is still no “spring arm” ray along the boom; hills or scenery between the hero and the lens may occlude. After `CameraCenter(3)`, if `CameraY` is below ground height at `(CameraX, CameraZ)` (from `CalculAltitudeObjet`), the arm shortens a little each frame toward `FOLLOW_CAM_SPRING_MIN` (`FOLLOW_CAM_PEN_STEP`); at min arm, `AlphaCam` rises gradually (`FOLLOW_CAM_ALPHA_ESCAPE_STEP`) until clear or max. The arm recovers toward the player’s zoom (`FollowCamBaseDist`) when no longer penetrating.
 - **Pan drift:** `[`/`]` keys pan the camera (`AddBetaCam`). Pan drifts back to center only while the hero is walking; preserved when standing still.
-- Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` stay at player settings (camera cycle uses `CameraCenter(3)` only — see **Manual controls**). Optional penetration: see above.
+- Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` stay at player settings (camera cycle uses `CameraCenter(3)` only — see **Manual controls**). There is no terrain-height penetration pass for the lens; hills or scenery may occlude between the hero and the camera.
 
 **Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
@@ -104,6 +103,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
 - **Gamepad support:** Dual-stick camera control for controllers.
+- **Follow camera vs terrain / decor:** Optional collision or ground clearance for the lens was explored and removed; a future approach could revisit with clearer correction (see project history on `feature/auto-camera-center`).
 
 ## Code reference
 
@@ -118,7 +118,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | Exterior init           | SOURCES/EXTFUNC.CPP        | `Init3DExtView`, `Init3DExtGame`                                                    |
 | Camera level keys       | SOURCES/EXTFUNC.CPP        | `GereExtKeys` — preset switch (classic) or free `AlphaCam` tilt (FollowCamera)     |
 | Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, follow camera block                            |
-| FollowCamera globals    | SOURCES/GLOBAL.CPP         | `FollowCamera`, `FollowCameraPenetration`                                           |
+| FollowCamera global     | SOURCES/GLOBAL.CPP         | `FollowCamera`, `FollowCamBaseDist`                                                 |
 | Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
@@ -126,7 +126,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 
 ## Cross-references
 
-- [CONFIG.md](CONFIG.md) — `FollowCamera`, `FollowCameraPenetration` keys
+- [CONFIG.md](CONFIG.md) — `FollowCamera` key
 - [MENU.md](MENU.md) — Advanced options menu entry
 - [GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera zone; `AllCameras`
 - [LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: initialize camera; main loop step 7: `AffScene`
