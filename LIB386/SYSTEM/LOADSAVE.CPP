@@ -7,7 +7,6 @@
 
 #include <stdlib.h>
 #include <limits.h>
-#include <stdint.h>
 
 //──────────────────────────────────────────────────────────────────────────
 U32 Load(char *name, void *buffer) {
@@ -43,7 +42,7 @@ S32 LoadSize(char *name, void *buffer, S32 size) {
         if (sizeread < sizetoread) {
             if (sizeread < maxsize) {
                 // error reading
-                sizeread = INT32_MIN;
+                sizeread = (S32)INT_MIN; /* min 32-bit int; avoid LONG_MIN on LP64 */
             }
         } else {
             if (maxsize > size) {

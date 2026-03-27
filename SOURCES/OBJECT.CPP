@@ -1054,7 +1054,7 @@ void InitLoadedGame() {
             AND !(ptrobj->CarryBy & CARRY_BY_DECORS)) {
         nu = (U8)ptrobj->CarryBy;
         ptrobj->PtrZoneRail = (T_ZONE *)(uintptr_t)(U32)Distance2D(ListObjet[nu].Obj.X, ListObjet[nu].Obj.Z,
-                                                   ptrobj->Obj.X, ptrobj->Obj.Z);
+                                                                   ptrobj->Obj.X, ptrobj->Obj.Z);
     }
 
     ptrobj++;
@@ -1065,7 +1065,7 @@ void InitLoadedGame() {
                 AND !(ptrobj->CarryBy & CARRY_BY_DECORS)) {
             nu = (U8)ptrobj->CarryBy;
             ptrobj->PtrZoneRail = (T_ZONE *)(uintptr_t)(U32)Distance2D(ListObjet[nu].Obj.X, ListObjet[nu].Obj.Z,
-                                                       ptrobj->Obj.X, ptrobj->Obj.Z);
+                                                                       ptrobj->Obj.X, ptrobj->Obj.Z);
         }
 
         if (!(ptrobj->Flags & SPRITE_3D)) {
