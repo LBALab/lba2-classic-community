@@ -54,7 +54,7 @@ When the hero projects outside the screen clip bounds ([PERSO.CPP](../SOURCES/PE
 
 - **Enter (`I_RETURN`):** calls `CameraCenter(1)` — full reorient behind the hero ([PERSO.CPP](../SOURCES/PERSO.CPP) lines 1386–1408).
 - **Camera cycle (`I_CAMERA`):** rotates `AddBetaCam` by 90° (1024 units). **Classic:** `CameraCenter(2)` (preset `AlphaCam` / `VueDistance`). **Auto camera (`FollowCamera`, exterior):** recomputes `VueOffset*` / `BetaCam` from the hero and `AddBetaCam` only, then `CameraCenter(3)` — zoom and numpad elevation are **not** reset.
-- `**GereExtKeys`:** keyboard/mouse-driven `AlphaCam` / `BetaCam` adjustment ([SOURCES/EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP) line 1910+).
+- **`GereExtKeys`:** keyboard-driven `AlphaCam` / `BetaCam` adjustment ([SOURCES/EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP) line 1910+).
 
 ## CameraCenter ([SOURCES/INTEXT.CPP](../SOURCES/INTEXT.CPP) line 331)
 
@@ -82,15 +82,30 @@ Probes terrain and decors along the camera-to-target line to find an unoccluded 
 
 Config key `FollowCamera` (0 = classic, 1 = auto; **default 0**). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
 
-When enabled in exterior mode (and not in a camera zone or cinema), the camera acts as a third-person follow camera that lazily orbits behind the hero:
+When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a **third-person follow** with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in `PERSO.CPP` / `EXTFUNC.CPP`):
 
-- **Rotation lag:** `BetaCam` lerps toward the hero's facing with distance-based inertia — closer camera = tighter follow, further = lazy cinematic drift. Tuning constants in `FOLLOWCAM_CFG.H`.
-- **Pan drift:** `[`/`]` keys pan the camera (`AddBetaCam`). Pan drifts back to center only while the hero is walking; preserved when standing still.
-- Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` stay at player settings (camera cycle uses `CameraCenter(3)` only — see **Manual controls**). There is no terrain-height penetration pass for the lens; hills or scenery may occlude between the hero and the camera.
+### Spring arm (zoom)
+
+Zoom is not a single distance: the player sets a **target** arm length, and the camera **smoothly converges** toward it each frame — a standard **spring-arm** pattern:
+
+- **`FollowCamBaseDist`** — target distance (numpad `/` closer, `*` farther; clamped `FOLLOW_CAM_DIST_MIN`–`FOLLOW_CAM_DIST_MAX`).
+- **`FollowCamEffectiveDist`** — smoothed length (static state in `PERSO.CPP`); moves toward `FollowCamBaseDist` by `FOLLOW_CAM_SPRING_RECOVER` per frame whether the arm is too short or too long.
+- **`VueDistance`** is set from **`FollowCamEffectiveDist`** before `CameraCenter(3)`, so terrain render matches the eased distance.
+
+Branch history tried heavier correction (terrain penetration along the boom, LOS samples); those were **removed** to keep behavior predictable and the PR focused — so there is **no** lens pull-through-terrain and **no** classic `SearchCameraPos` on this path (see below).
+
+### Lazy orbit and pan
+
+- **Rotation lag:** `BetaCam` lerps toward “behind the hero” with **distance-scaled** inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
+- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is **walking**; standing still preserves pan.
+
+### Apply path
+
+- Uses **`CameraCenter(3)`** (apply current globals only; **skips `SearchCameraPos`**). So unlike classic exterior, the camera is **not** slid along the ray when decor blocks — hills and objects may **occlude**; that tradeoff avoids fighting the orbit every frame and matches “cinematic follow” rather than “collision camera.”
 
 **Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
-**Camera zoom:** Numpad `/` (closer) and `*` (farther) adjust the spring-arm base distance (`FollowCamBaseDist`), clamped to 7000–20000 world units (`FOLLOW_CAM_DIST_MIN` / `FOLLOW_CAM_DIST_MAX` in `FOLLOWCAM_CFG.H`). Fires every frame while held; applies while standing still (main loop dirty check tracks zoom and elevation changes).
+**Zoom input:** Numpad `/` and `*` update **`FollowCamBaseDist`** every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`).
 
 **Performance:** Two optimizations keep the per-frame cost manageable:
 
@@ -102,7 +117,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 ### Future work
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
-- **Gamepad support:** Dual-stick camera control for controllers.
+- **Gamepad / rebinding:** Dual-stick camera; optional rebinding of zoom/tilt/pan (today numpad-heavy) for laptops and alternate layouts.
 - **Auto camera vs terrain / decor:** Optional collision or ground clearance for the lens was explored and removed; a future approach could revisit with clearer correction (see project history on `feature/auto-camera-center`).
 
 ## Code reference
@@ -118,7 +133,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | Exterior init           | SOURCES/EXTFUNC.CPP        | `Init3DExtView`, `Init3DExtGame`                                                    |
 | Camera level keys       | SOURCES/EXTFUNC.CPP        | `GereExtKeys` — preset switch (classic) or free `AlphaCam` tilt (auto `FollowCamera`) |
 | Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, follow camera block                            |
-| FollowCamera global     | SOURCES/GLOBAL.CPP         | `FollowCamera`, `FollowCamBaseDist` (user-facing: Auto camera)                       |
+| FollowCamera state      | SOURCES/GLOBAL.CPP, PERSO  | `FollowCamera`, `FollowCamBaseDist`; `FollowCamEffectiveDist` (spring arm, static in `PERSO.CPP`) |
 | Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
