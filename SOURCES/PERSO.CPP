@@ -1645,7 +1645,26 @@ restartloop:
                 if (Input & I_CAMERA) {
                     SaveTimer();
                     AddBetaCam = (AddBetaCam + 1024) & 4095;
-                    CameraCenter(2);
+                    /* FollowCamera: do not use CameraCenter(2) — it resets
+                     * AlphaCam/VueDistance to VueCamera presets.  Recompute
+                     * target offset and BetaCam like case 2, then apply only. */
+                    if (FollowCamera AND CubeMode == CUBE_EXTERIEUR) {
+                        T_OBJ_3D *ptr3d_cc = &ListObjet[NumObjFollow].Obj;
+                        S32 newbeta_cc = AddBetaCam + ptr3d_cc->Beta;
+                        newbeta_cc &= 4095;
+                        Rotate(0, DISTANCE_VISEE, newbeta_cc);
+                        VueOffsetX = ptr3d_cc->X + X0;
+                        VueOffsetY = ptr3d_cc->Y;
+                        VueOffsetZ = ptr3d_cc->Z + Z0;
+                        StartXCube = VueOffsetX / SIZE_BRICK_XZ;
+                        StartYCube = VueOffsetY / SIZE_BRICK_Y;
+                        StartZCube = VueOffsetZ / SIZE_BRICK_XZ;
+                        BetaCam = (2048 - newbeta_cc) & 4095;
+                        FollowCamTargetBeta = BetaCam;
+                        CameraCenter(3);
+                    } else {
+                        CameraCenter(2);
+                    }
                     FirstTime = AFF_ALL_FLIP;
                     InitWaitNoInput(I_CAMERA);
                     RestoreTimer();

@@ -53,7 +53,7 @@ When the hero projects outside the screen clip bounds ([PERSO.CPP](../SOURCES/PE
 ### Manual controls
 
 - **Enter (`I_RETURN`):** calls `CameraCenter(1)` — full reorient behind the hero ([PERSO.CPP](../SOURCES/PERSO.CPP) lines 1386–1408).
-- **Camera cycle (`I_CAMERA`):** rotates `AddBetaCam` by 90° (1024 units), calls `CameraCenter(2)` ([PERSO.CPP](../SOURCES/PERSO.CPP) lines 1599–1606).
+- **Camera cycle (`I_CAMERA`):** rotates `AddBetaCam` by 90° (1024 units). **Classic:** `CameraCenter(2)` (preset `AlphaCam` / `VueDistance`). **FollowCamera (exterior):** recomputes `VueOffset*` / `BetaCam` from the hero and `AddBetaCam` only, then `CameraCenter(3)` — zoom and numpad elevation are **not** reset.
 - `**GereExtKeys`:** keyboard/mouse-driven `AlphaCam` / `BetaCam` adjustment ([SOURCES/EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP) line 1910+).
 
 ## CameraCenter ([SOURCES/INTEXT.CPP](../SOURCES/INTEXT.CPP) line 331)
@@ -87,7 +87,7 @@ When enabled in exterior mode (and not in a camera zone or cinema), the camera a
 - **Rotation lag:** `BetaCam` lerps toward the hero's facing with distance-based inertia — closer camera = tighter follow, further = lazy cinematic drift. Tuning constants in `FOLLOWCAM_CFG.H`.
 - **Terrain penetration (optional, default off):** Config key `FollowCameraPenetration` (0/1, default 0). When enabled, there is still no “spring arm” ray along the boom; hills or scenery between the hero and the lens may occlude. After `CameraCenter(3)`, if `CameraY` is below ground height at `(CameraX, CameraZ)` (from `CalculAltitudeObjet`), the arm shortens a little each frame toward `FOLLOW_CAM_SPRING_MIN` (`FOLLOW_CAM_PEN_STEP`); at min arm, `AlphaCam` rises gradually (`FOLLOW_CAM_ALPHA_ESCAPE_STEP`) until clear or max. The arm recovers toward the player’s zoom (`FollowCamBaseDist`) when no longer penetrating.
 - **Pan drift:** `[`/`]` keys pan the camera (`AddBetaCam`). Pan drifts back to center only while the hero is walking; preserved when standing still.
-- Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` are not reset, so elevation and zoom remain as the player set them.
+- Uses `CameraCenter(3)` (camera-apply-only, no `SearchCameraPos`). `AlphaCam` and `VueDistance` stay at player settings (camera cycle uses `CameraCenter(3)` only — see **Manual controls**). Optional penetration: see above.
 
 **Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
