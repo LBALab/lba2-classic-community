@@ -145,9 +145,29 @@ For voice lines and packaged assets, see [GLOSSARY.md](GLOSSARY.md) and [CONFIG.
 | Player name length | 100 chars | `MAX_SIZE_PLAYER_NAME` |
 | Resolution | 640×480 (default) | See **Menu layout**; window may scale; internal layout as above |
 | Long text | No wrap | Wider than `LargeurMenu` (550px): see **Languages and localization** |
-| Input | Keyboard/joystick | No mouse; Up/Down/Fire/Action |
+| Input | Keyboard/joystick always | Optional mouse when **`MenuMouse: 1`** in [CONFIG.md](CONFIG.md) (default); see **Mouse in menus** below |
 
 **Note:** `IsExistSavedGame()` uses a hardcoded 100000L buffer; the save list elsewhere uses `MAX_PLAYER` derived from `BufSpeak` size.
+
+## Mouse in menus
+
+When **`MenuMouse`** is enabled (`FlagMenuMouse`, default on), the game shows the **software** menu pointer (`FlagMouse` in [LIB386/SYSTEM/MOUSE.CPP](LIB386/SYSTEM/MOUSE.CPP), composited in `BoxBlit`), maps hover to the highlighted row, and confirms with **left press + release** on the same row (release-edge confirm). The mouse wheel adjusts **focused sliders** in `DoGameMenu` (volume/detail/language rows) and scrolls the **save/load name list** in `ChoosePlayerName`. Refcounted **`MenuMouseAcquire` / `MenuMouseRelease`** wrap menu entry points so nested menus keep the pointer until the outer scope exits.
+
+**OS cursor:** After the window is created, the engine calls **`SDL_HideCursor()`** and **`SDL_SetCursor(NULL)`** ([LIB386/SYSTEM/WINDOW.CPP](LIB386/SYSTEM/WINDOW.CPP)); the same pair runs again on **`SDL_EVENT_WINDOW_FOCUS_GAINED`** and **`SDL_EVENT_WINDOW_MOUSE_ENTER`** so the compositor does not bring back the arrow over the game. Only the framebuffer sprite is intended to be visible.
+
+**When the sprite appears:** On first `MenuMouseAcquire`, the engine calls **`ShowMouseAfterFirstMotion()`** — the sprite stays off until the **first `SDL_EVENT_MOUSE_MOTION`** (keyboard-only menu use stays pointer-free). After it is shown, **`MouseSpriteShouldDraw()`** in [LIB386/SYSTEM/MOUSE.CPP](LIB386/SYSTEM/MOUSE.CPP) hides the software sprite again after **3 seconds** without mouse **motion, buttons, or wheel**; any of those refreshes the timer and shows the sprite. The internal **`LIB386/MENU`** file dialogs call **`ShowMouse(true)`** and get an **immediate** pointer and the same idle-hide behaviour.
+
+**Logo screens** (`AdelineLogo`, `ShowLogo`): no menu pointer; **left click** still skips the wait (`Click` from SDL). **Name entry / “dialog” caret:** `CursorActif` and **`DrawCursor()`** in [SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) (`DrawOneString`) draw a **blinking text caret** from `HQR_Get(HQRPtrSprite, 9)` — that is **not** the mouse pointer; it only indicates the typing position when editing the save name.
+
+Set **`MenuMouse: 0`** in `lba2.cfg` for keyboard/joystick-only menus.
+
+### Why the menu pointer matches the game (`SPRITE_CURSOR`)
+
+Retail LBA2 almost never needed a mouse in the **main menus** (keyboard/joystick first), so the shipped menus used a tiny embedded bitmap (**`BinGphMouse`** in the engine). Separately, the data tables in [SOURCES/COMMON.H](SOURCES/COMMON.H) already name a **`SPRITE_CURSOR`** index (**173**) next to other UI chrome (`SPRITE_DISK`, ardoise corners, etc.). That entry lives in **`sprites.hqr`** and was meant for **in-game** UI pointer use, not for the classic menu loop—easy to miss if you never played with the mouse in contexts that draw it.
+
+The community menu mouse path simply loads **`HQR_Get(HQRPtrSprite, SPRITE_CURSOR)`** ([SOURCES/DEFINES.H](SOURCES/DEFINES.H) → `MENU_MOUSE_SPRITE_HQR_INDEX`). So the pointer is **original art already on the disc**; we are not inventing new pixels. If `sprites.hqr` is missing or the entry fails to load, [SOURCES/GAMEMENU_MOUSE.CPP](SOURCES/GAMEMENU_MOUSE.CPP) falls back to **`BinGphMouse`** like the DOS build.
+
+**Implementation:** [SOURCES/GAMEMENU_MOUSE.CPP](SOURCES/GAMEMENU_MOUSE.CPP), [SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) (`DoGameMenu`, `ChoosePlayerName`).
 
 ## Future enhancements
 
@@ -155,7 +175,6 @@ Ideas that stay in the spirit of the original design:
 
 - **More visible save slots** – 5 is arbitrary; 7–8 with tighter spacing (`NB_GAME_CHOICE`, `Y_START_CHOICE`) keeps the same UX.
 - **Config saved when leaving Options** – Currently written only at exit; saving on Options back would avoid loss on crash.
-- **Mouse support** – Click-to-select alongside keyboard/joystick; common in modern ports.
 - **Additional Options entries** – Structure supports it; extend `GameOptionMenu` and add handlers.
 - **Resolution scaling** – Scale layout for higher res while preserving the plasma/font look.
 - **Open-source / community distributor logo** – A logo for community builds (engine branding, not game rebranding). Add a `DistribVersion` value for community builds; show the logo only when that value is set. The logo asset must be created and licensed as open-source (e.g. CC0, MIT) and live in the repo. Does not replace or obscure the original game identity; analogous to ScummVM/OpenMW splash screens. Game assets (GOG/Steam, etc.) remain under their original licenses.
@@ -176,6 +195,7 @@ For broader preservation (ASCII art, French comments, developer culture), see [F
 | ----------------- | ------------ | --------------------------------------------------------------------- |
 | Main menu entry   | GAMEMENU.CPP | MainGameMenu, BuildGameMainMenu                                       |
 | Menu render/input | GAMEMENU.CPP | DoGameMenu, DrawGameMenu                                               |
+| Menu mouse        | GAMEMENU_MOUSE.CPP | MenuMouseAcquire/Release, hit-test, wheel/slider helpers        |
 | Options submenu   | GAMEMENU.CPP | OptionsMenu, GereVolumeMenu, GereLanguageMenu, GereAdvancedOptionsMenu |
 | Save/Load list    | GAMEMENU.CPP, SAVEGAME.CPP | PlayerGameList, ChoosePlayerName, DeleteSavedGame, LoadGameScreen, DrawScreenSave |
 | Menu label text   | GAMEMENU.CPP | `BuildCustomMenuText`, `GetMultiText`                                 |

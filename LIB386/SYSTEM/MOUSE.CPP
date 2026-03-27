@@ -4,7 +4,12 @@
 #include <SYSTEM/WINDOW.H>
 
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_timer.h>
+#include <math.h>
 #include <assert.h>
+
+/** Hide framebuffer pointer after this many ms without mouse activity (motion / buttons / wheel). */
+#define MOUSE_SPRITE_IDLE_HIDE_MS 3000U
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -26,6 +31,15 @@ const void *MouseSpriteGraphic = NULL;
 S32 LibMouseXDep, LibMouseYDep;
 U32 MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1;
 
+volatile S32 MouseWheelYAccum = 0;
+
+static bool s_showSpriteAfterFirstMotion = false;
+static Uint32 s_lastPointerActivityMs = 0;
+
+static void MousePointerMarkActivity(void) {
+    s_lastPointerActivityMs = SDL_GetTicks();
+}
+
 // --- Extern state ------------------------------------------------------------
 // TODO: Convert the asm to .h to hold the data (currently on MOUSEDAT.ASM)
 extern U8 BinGphMouse[];
@@ -34,7 +48,7 @@ extern U8 BinGphMouse[];
 void InitMouse() {
     ClearMouseBox();
 
-    MouseSpriteGraphic = BinGphMouse;
+    MouseSpriteGraphic = (const void *)BinGphMouse;
     MouseSpriteGraphicNum = 0;
 }
 
@@ -42,8 +56,39 @@ void EndMouse() {
     // Empty
 }
 
+bool MouseSpriteShouldDraw(void) {
+    if (!FlagMouse)
+        return false;
+    if (s_showSpriteAfterFirstMotion)
+        return false;
+    if (MouseSpriteGraphic == NULL)
+        return false;
+    {
+        Uint32 now = SDL_GetTicks();
+        Uint32 elapsed = now - s_lastPointerActivityMs;
+
+        if (elapsed >= MOUSE_SPRITE_IDLE_HIDE_MS)
+            return false;
+    }
+    return true;
+}
+
 // --- Interface ---------------------------------------------------------------
-void ShowMouse(bool show) { FlagMouse = show; }
+void ShowMouse(bool show) {
+    if (!show) {
+        FlagMouse = false;
+        s_showSpriteAfterFirstMotion = false;
+        return;
+    }
+    s_showSpriteAfterFirstMotion = false;
+    FlagMouse = true;
+    MousePointerMarkActivity();
+}
+
+void ShowMouseAfterFirstMotion(void) {
+    s_showSpriteAfterFirstMotion = true;
+    FlagMouse = false;
+}
 
 void SetMousePos(U32 x, U32 y) {
     MouseX = x;
@@ -114,18 +159,40 @@ void HandleEventsMouse(const void *event) {
         LibMouseXDep += curX - prevX;
         LibMouseYDep += curY - prevY;
         SetMousePos((U32)curX, (U32)curY);
+
+        MousePointerMarkActivity();
+
+        if (s_showSpriteAfterFirstMotion) {
+            s_showSpriteAfterFirstMotion = false;
+            FlagMouse = true;
+        }
     } break;
 
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        MousePointerMarkActivity();
         Click |= (sdlEvent->button.button == 1) ? 1 : 0;
         Click |= (sdlEvent->button.button == 3) ? 2 : 0;
         break;
 
     case SDL_EVENT_MOUSE_BUTTON_UP:
+        MousePointerMarkActivity();
         Click &= (sdlEvent->button.button == 1) ? ~1 : Click;
         Click &= (sdlEvent->button.button == 3) ? ~2 : Click;
         break;
+
+    case SDL_EVENT_MOUSE_WHEEL:
+        MousePointerMarkActivity();
+        MouseWheelYAccum += (S32)lround((double)sdlEvent->wheel.y);
+        break;
     }
+}
+
+S32 ConsumeMouseWheelY(void) {
+    S32 v;
+
+    v = MouseWheelYAccum;
+    MouseWheelYAccum = 0;
+    return v;
 }
 
 // =============================================================================
