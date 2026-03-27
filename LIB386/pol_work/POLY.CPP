@@ -52,7 +52,7 @@ U32 Fill_Type = 0; // Polygon type number
 U32 **Fill_Restart = NULL;
 Fill_Filler_Func Fill_Filler = NULL;
 U32 Fill_Patch = 0;
-T_FILL_COLOR Fill_Color = {Num : 0};
+T_FILL_COLOR Fill_Color = {0}; /* Num = 0 / Ptr = NULL: same union bits */
 
 Struc_Point *Fill_FirstPoint = NULL;
 Struc_Point *Fill_LastPoint = NULL;
