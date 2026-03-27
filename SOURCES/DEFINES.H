@@ -223,7 +223,10 @@
 #define VIEW_X1 680
 #define VIEW_Y1 580
 
-/* TYPE_OBJ_3D … TYPE_EXTRA: see COMMON.H (included above). */
+/*──────────────────────────────────────────────────────────────────────────*/
+/* type objet pour affscene */
+
+/* TYPE_OBJ_3D … TYPE_EXTRA: COMMON.H (included above). */
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /* pour les menus (GAMEMENU.CPP) */
