@@ -1,7 +1,6 @@
 #include "DIRECTORIES.H"
 
-#include "DEFINES.H"
-
+#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOGPRINT.H>
@@ -10,7 +9,15 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
+
+#ifndef UNKNOWN_VERSION
+#define UNKNOWN_VERSION 0
+#endif
+#ifndef EA_VERSION
+#define EA_VERSION 3
+#endif
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus

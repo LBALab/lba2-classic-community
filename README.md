@@ -10,6 +10,20 @@ The engine uses Assembly code and was originally compiled with non-open source l
 
 The **original** LBA2 engine source is the **lba2-classic** codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. **lba2-classic-community** is a **community fork** for evolving and modernizing the code: ports of assembly to C++, SDL3, libsmacker, and other updates. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
 
+## Quick start (running the game)
+
+1. Build prerequisites below (CMake, Ninja, SDL3).
+2. Obtain **retail game data** (not in this repo)—you need a folder containing `lba2.hqr`. See [docs/GAME_DATA.md](docs/GAME_DATA.md).
+3. Point the engine at that folder: `export LBA2_GAME_DIR=/path/to/game`, or symlink/copy data into `./data` or `../LBA2` next to this repo, or pass `--game-dir /path/to/game`.
+4. From the repository root:
+
+   ```bash
+   cmake -B build && cmake --build build
+   ./build/SOURCES/lba2
+   ```
+
+   Or: **`make run`** / **`./scripts/dev/build-and-run.sh`** (builds then runs; sets `LBA2_GAME_DIR` if `./data` or `../LBA2` exists).
+
 ## Prerequisites
 
 - **CMake** 3.23 or later
@@ -76,6 +90,7 @@ available on `PATH`.
 | `MVIDEO_BACKEND` | `null`, `smacker` | `smacker` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
+| `LBA2_BUILD_TESTS` | `ON`, `OFF` | `OFF` | Build CTest targets (ASM equivalence + host tests such as `test_res_discovery`). |
 
 When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the FMV player. Video audio routes through the active sound backend (SDL: real audio; NULL/MILES: silent). See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 

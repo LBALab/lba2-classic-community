@@ -2,6 +2,7 @@
 
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
+#include "RES_DISCOVERY.H"
 #include "INPUT.H"
 #ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
@@ -2019,9 +2020,11 @@ int main(int argc, char *argv[]) {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char userFolderPath[ADELINE_MAX_PATH] = "";
 
-        // TODO: Implement set folders by command line arguments
-        GetDefaultResDir(resFolderPath);
         GetDefaultUserDir(userFolderPath);
+
+        if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
+            exit(EXIT_FAILURE);
+        }
 
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
                         DistribVersion);

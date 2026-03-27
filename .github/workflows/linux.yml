@@ -35,10 +35,21 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" --preset linux
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+            -DLBA2_BUILD_TESTS=ON \
+            -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
+            --preset linux
 
       - name: Build
-        run: cmake --build build --target lba2
+        run: |
+          cmake --build build --target lba2
+          cmake --build build --target test_res_discovery
+
+      - name: Host tests (game data discovery)
+        run: cd build && ctest -R test_res_discovery --output-on-failure
 
       - name: Verify Binary
         run: test -f build/SOURCES/lba2 && echo "Build successful"

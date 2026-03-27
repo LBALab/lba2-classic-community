@@ -35,6 +35,8 @@ cmake --build build
 
 The default build includes SDL3-based audio and Smacker FMV playback. Override with `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for a minimal build; see the build options table in the README.
 
+To **run** the game you need retail data (not in the repo); see [docs/GAME_DATA.md](docs/GAME_DATA.md).
+
 ### Code Style
 
 The original codebase uses tabs for indentation. There is an ongoing effort to migrate to 4 spaces -- new contributions should use 4 spaces for indentation.

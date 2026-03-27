@@ -56,6 +56,16 @@ Some mismatches come from x87 behavior, intermediate rounding, or calling
 convention details rather than high-level logic. The `tests/fpu_precision`
 directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
+### 4. Host tests (game data discovery)
+
+`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping) and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON`, build target `test_res_discovery`, then:
+
+```bash
+cd build && ctest -R test_res_discovery --output-on-failure
+```
+
+or `make test-discovery` from the repo root (after configuring with tests enabled).
+
 ## Test Harness
 
 `tests/test_harness.h` provides a minimal TAP-style harness with no external
