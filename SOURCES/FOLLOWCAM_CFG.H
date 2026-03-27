@@ -7,8 +7,7 @@
 #define FOLLOW_CAM_SPRING_MIN          200  /* minimum arm length (world units) */
 #define FOLLOW_CAM_SPRING_RECOVER      200  /* recover toward zoom after penetration clears */
 #define FOLLOW_CAM_CLEAR_MARGIN        400  /* require CameraY >= ground + margin at camera (X,Z) */
-#define FOLLOW_CAM_PEN_STEP            200  /* shorten arm per iteration when camera is inside terrain */
-#define FOLLOW_CAM_PENETRATION_MAX_ITERS 48 /* safety cap on penetration resolve loop */
+#define FOLLOW_CAM_PEN_STEP            1000 /* shorten arm per frame when camera is inside terrain */
 
 /* Rotation lag (BetaCam lerp) -----------------------------------------------*/
 #define FOLLOW_CAM_ROT_DIVISOR         36   /* lerp denominator (higher = slower) */

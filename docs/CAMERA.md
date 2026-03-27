@@ -91,7 +91,7 @@ When enabled in exterior mode (and not in a camera zone or cinema), the camera a
 
 **Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
-**Camera zoom:** Numpad `/` (closer) and `*` (farther), or `,` / `.` if you have no numpad, adjust the spring-arm base distance (`FollowCamBaseDist`), clamped to 7000–20000 world units (`FOLLOW_CAM_DIST_MIN` / `FOLLOW_CAM_DIST_MAX` in `FOLLOWCAM_CFG.H`). Fires every frame while held; applies while standing still (main loop dirty check tracks zoom and elevation changes).
+**Camera zoom:** Numpad `/` (closer) and `*` (farther) adjust the spring-arm base distance (`FollowCamBaseDist`), clamped to 7000–20000 world units (`FOLLOW_CAM_DIST_MIN` / `FOLLOW_CAM_DIST_MAX` in `FOLLOWCAM_CFG.H`). Fires every frame while held; applies while standing still (main loop dirty check tracks zoom and elevation changes).
 
 **Performance:** Two optimizations keep the per-frame cost manageable:
 

@@ -1683,7 +1683,7 @@ restartloop:
                             S32 step = drift / FOLLOW_CAM_DRIFT_DIVISOR;
                             if (step > 0 AND step < FOLLOW_CAM_DRIFT_MIN_STEP)
                                 step = FOLLOW_CAM_DRIFT_MIN_STEP;
-                            if (step<0 AND step> - FOLLOW_CAM_DRIFT_MIN_STEP)
+                            if (step < 0 AND step > -FOLLOW_CAM_DRIFT_MIN_STEP)
                                 step = -FOLLOW_CAM_DRIFT_MIN_STEP;
                             if (drift > FOLLOW_CAM_DRIFT_THRESHOLD OR drift < -FOLLOW_CAM_DRIFT_THRESHOLD)
                                 AddBetaCam = (AddBetaCam - step) & 4095;
@@ -1747,7 +1747,7 @@ restartloop:
                                 S32 step = diff / dynamicDiv;
                                 if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
                                     step = FOLLOW_CAM_ROT_MIN_STEP;
-                                if (step<0 AND step> - FOLLOW_CAM_ROT_MIN_STEP)
+                                if (step < 0 AND step > -FOLLOW_CAM_ROT_MIN_STEP)
                                     step = -FOLLOW_CAM_ROT_MIN_STEP;
                                 BetaCam = (BetaCam + step) & 4095;
                             } else {
@@ -1763,46 +1763,45 @@ restartloop:
                          * FollowCamEffectiveDist before CameraCenter(3) so terrain
                          * render (AffGrilleExt) stays consistent. */
                         if (!CameraZone) {
+                            /* Converge toward the player's chosen zoom distance. */
                             if (FollowCamEffectiveDist < FollowCamBaseDist) {
                                 FollowCamEffectiveDist += FOLLOW_CAM_SPRING_RECOVER;
                                 if (FollowCamEffectiveDist > FollowCamBaseDist)
+                                    FollowCamEffectiveDist = FollowCamBaseDist;
+                            } else if (FollowCamEffectiveDist > FollowCamBaseDist) {
+                                FollowCamEffectiveDist -= FOLLOW_CAM_SPRING_RECOVER;
+                                if (FollowCamEffectiveDist < FollowCamBaseDist)
                                     FollowCamEffectiveDist = FollowCamBaseDist;
                             }
 
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
 
+                            /* Single per-frame penetration check.  Instead of
+                             * looping to full resolution (which teleports the
+                             * camera), we adjust one step per frame so the
+                             * pull-in is smooth.  At 60 fps with PEN_STEP=1000,
+                             * worst-case retract takes ~14 frames (~230 ms). */
                             {
-                                S32 penIter = 0;
-                                while (penIter < FOLLOW_CAM_PENETRATION_MAX_ITERS) {
-                                    penIter++;
-                                    S32 gx = CameraX;
-                                    S32 gz = CameraZ;
-                                    if (gx < 0 OR gx > 32767 OR gz < 0 OR gz > 32767)
-                                        break;
+                                S32 gx = CameraX;
+                                S32 gz = CameraZ;
+                                if (gx >= 0 AND gx <= 32767 AND gz >= 0 AND gz <= 32767) {
                                     S32 groundY = CalculAltitudeObjet(gx, gz, 0);
-                                    if (groundY < 0)
-                                        break;
-                                    if (CameraY >= groundY + FOLLOW_CAM_CLEAR_MARGIN)
-                                        break;
-
-                                    if (FollowCamEffectiveDist > FOLLOW_CAM_SPRING_MIN) {
-                                        FollowCamEffectiveDist -= FOLLOW_CAM_PEN_STEP;
-                                        if (FollowCamEffectiveDist < FOLLOW_CAM_SPRING_MIN)
-                                            FollowCamEffectiveDist = FOLLOW_CAM_SPRING_MIN;
-                                        VueDistance = FollowCamEffectiveDist;
-                                        CameraCenter(3);
-                                        continue;
+                                    if (groundY >= 0 AND CameraY < groundY + FOLLOW_CAM_CLEAR_MARGIN) {
+                                        if (FollowCamEffectiveDist > FOLLOW_CAM_SPRING_MIN) {
+                                            FollowCamEffectiveDist -= FOLLOW_CAM_PEN_STEP;
+                                            if (FollowCamEffectiveDist < FOLLOW_CAM_SPRING_MIN)
+                                                FollowCamEffectiveDist = FOLLOW_CAM_SPRING_MIN;
+                                            VueDistance = FollowCamEffectiveDist;
+                                            CameraCenter(3);
+                                        } else if (AlphaCam < FOLLOW_CAM_ALPHA_MAX) {
+                                            AlphaCam += FOLLOW_CAM_ALPHA_ESCAPE_STEP;
+                                            if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+                                                AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+                                            VueDistance = FollowCamEffectiveDist;
+                                            CameraCenter(3);
+                                        }
                                     }
-                                    if (AlphaCam < FOLLOW_CAM_ALPHA_MAX) {
-                                        AlphaCam += FOLLOW_CAM_ALPHA_ESCAPE_STEP;
-                                        if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
-                                            AlphaCam = FOLLOW_CAM_ALPHA_MAX;
-                                        VueDistance = FollowCamEffectiveDist;
-                                        CameraCenter(3);
-                                        continue;
-                                    }
-                                    break;
                                 }
                             }
                         } else {

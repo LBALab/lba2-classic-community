@@ -1917,7 +1917,7 @@ S32 GereExtKeys(U32 key)
     S32 savetimer;
     S32 savetimer2;
 
-    if (CubeMode != CUBE_EXTERIEUR OR !key)
+    if (CubeMode != CUBE_EXTERIEUR OR (!key AND !FollowCamera))
         return (FALSE);
 
     savetimer = TimerRefHR;
@@ -2217,14 +2217,14 @@ S32 GereExtKeys(U32 key)
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
-        /* Zoom: numpad / = closer, numpad * = further; comma/period = alt (no numpad) */
-        if (CheckKey(K_NUMPAD_DIV) OR CheckKey(K_COMMA)) {
+        /* Zoom: numpad / = closer, numpad * = further */
+        if (CheckKey(K_NUMPAD_DIV)) {
             if (FollowCamBaseDist > FOLLOW_CAM_DIST_MIN)
                 FollowCamBaseDist -= FOLLOW_CAM_ZOOM_STEP;
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
         }
-        if (CheckKey(K_NUMPAD_MUL) OR CheckKey(K_PERIOD)) {
+        if (CheckKey(K_NUMPAD_MUL)) {
             if (FollowCamBaseDist < FOLLOW_CAM_DIST_MAX)
                 FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
             FirstTime = AFF_ALL_FLIP;
