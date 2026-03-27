@@ -146,7 +146,7 @@ void CheckSavePcx() {
         GetNumPcxSave();
 
         char PCXFilename[ADELINE_MAX_PATH];
-        sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
+        snprintf(PCXFilename, sizeof(PCXFilename), "LBA%05d.PCX", NumPcxSave);
         GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
 
         CoulText(LBAWHITE, 0);
@@ -188,7 +188,7 @@ void CheckSaveLogPcx(U8 *pal) {
         GetNumPcxSave();
 
         char PCXFilename[ADELINE_MAX_PATH];
-        sprintf(PCXFilename, "LBA%05d.PCX", NumPcxSave);
+        snprintf(PCXFilename, sizeof(PCXFilename), "LBA%05d.PCX", NumPcxSave);
         GetShootPath(NamePcxSave, ADELINE_MAX_PATH, PCXFilename);
 
         SavePCX(NamePcxSave, Log, ModeDesiredX, ModeDesiredY, pal);
@@ -1803,7 +1803,7 @@ HQR_GET_CALLBACK ErrorHQRGet;
 void ErrorHQRGet(char *name, S32 index) {
     char errstring[256];
 
-    sprintf(errstring, "HQR_Get(%s): buffer trop petit (index %d)", name, index);
+    snprintf(errstring, sizeof(errstring), "HQR_Get(%s): buffer trop petit (index %d)", name, index);
 
     TheEnd(NOT_ENOUGH_MEM, errstring);
 }

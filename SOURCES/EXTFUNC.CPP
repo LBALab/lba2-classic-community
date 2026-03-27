@@ -11,6 +11,8 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <stdio.h>
+
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
@@ -2314,9 +2316,9 @@ S16 SearchNumCube(S32 x, S32 y) {
     S32 len;
 
     if (Island < 10)
-        sprintf(scename, "%1d_x%02d_%02d", Island, x, y);
+        snprintf(scename, sizeof(scename), "%1d_x%02d_%02d", Island, x, y);
     else
-        sprintf(scename, "%2d_%02d_%02d", Island, x, y);
+        snprintf(scename, sizeof(scename), "%2d_%02d_%02d", Island, x, y);
 
     len = strlen(scename);
 

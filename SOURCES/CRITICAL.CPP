@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include <stdio.h>
+
 static char *CriticalErrMsg[] = {
     "write protect",
     "unknown unit",
@@ -49,7 +51,7 @@ int __far CriticalErrorHandler(unsigned int deverr,
 
     if (CriticalErrorCount >= CRITICAL_ERROR_COUNT_FAILURE) {
         // report which error it was
-        sprintf(msg, "Critical Error: %s drive %c.", CriticalErrMsg[(errcode & 0x00FF)], 'A' + (deverr & 0x00FF));
+        snprintf(msg, sizeof(msg), "Critical Error: %s drive %c.", CriticalErrMsg[(errcode & 0x00FF)], 'A' + (deverr & 0x00FF));
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
         // return to program

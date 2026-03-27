@@ -18,6 +18,8 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <stdio.h>
+
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
@@ -238,10 +240,10 @@ void GetKeyText(char *string, U32 scan) {
 
         joy = 1 + (scan >> 6);
         button = scan & 63;
-        sprintf(string, "Joy %d ", joy);
+        (void)snprintf(string, 50, "Joy %d ", joy);
 
         if (button < 32) {
-            sprintf(rest, "Btn %d", button + 1);
+            (void)snprintf(rest, sizeof(rest), "Btn %d", button + 1);
         } else {
             switch (button) {
             case 32:
