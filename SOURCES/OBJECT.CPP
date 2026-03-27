@@ -5623,7 +5623,7 @@ startaffscene:
         if (!PtrProjectPoint(x, y, z))
             continue;
 
-        if (ptrextra->Sprite == 0x8004) // Dalle labyrinthe
+        if ((U16)ptrextra->Sprite == 0x8004u) // Dalle labyrinthe
         {
             TreeInsert((S16)(n | TYPE_LABY),
                        x, y, z,
