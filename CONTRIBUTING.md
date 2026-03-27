@@ -22,6 +22,8 @@ If you have an idea, you can [create a feature request](https://github.com/2poin
 4. Run `./run_tests_docker.sh` before submitting (or N/A if docs-only). CI will catch failures, but local run saves round-trips.
 5. Submit a pull request
 
+PRs and pushes run build checks on **Linux**, **Windows** (MSYS2 UCRT64), and **macOS** (arm64); see `.github/workflows/`. Equivalence tests still run in Docker on Linux only (`test.yml`).
+
 ### Setting Up a Development Environment
 
 See the [README](README.md) for prerequisites and build instructions. In short:
