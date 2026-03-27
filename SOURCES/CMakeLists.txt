@@ -34,8 +34,9 @@ if(CONSOLE_MODULE)
   target_compile_definitions(lba2 PRIVATE CONSOLE_MODULE)
   target_include_directories(lba2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/CONSOLE)
 endif()
-# 3dext pulls sys svg 3D obj poly ani fio via PUBLIC; list them only once to avoid duplicate -l warnings.
-target_link_libraries(lba2 PRIVATE 3dext ail SDL3::SDL3)
+# Explicit order matters for GNU static linking: poly references RoundType/ROUND in libsys (UTILS.CPP);
+# sys must follow poly. (Transitive deps from 3dext alone order sys before poly and break -m32 links.)
+target_link_libraries(lba2 PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL3::SDL3)
 if (WIN32)
     target_link_libraries(lba2 PRIVATE gdi32 user32 ddraw winmm kernel32)
 endif ()
