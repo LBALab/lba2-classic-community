@@ -30,7 +30,8 @@ run build-run:
 
 test-discovery:
 	$(CMAKE) -S "$(REPO_ROOT)" -B "$(BUILD_DIR)" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
-		-DLBA2_BUILD_TESTS=ON
+		-DLBA2_BUILD_TESTS=ON \
+		-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
 	$(CMAKE) --build "$(BUILD_DIR)" --target test_res_discovery
 	cd "$(BUILD_DIR)" && ctest -R test_res_discovery --output-on-failure
 

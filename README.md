@@ -103,6 +103,7 @@ available on `PATH`.
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
 | `LBA2_BUILD_TESTS` | `ON`, `OFF` | `OFF` | Build CTest targets (ASM equivalence + host tests such as `test_res_discovery`). |
+| `LBA2_BUILD_ASM_EQUIV_TESTS` | `ON`, `OFF` | `ON` | ASM↔CPP equivalence suite (needs `objcopy`). Set `OFF` for host-only `test_res_discovery` (e.g. macOS CI, `make test-discovery`). |
 
 When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the FMV player. Video audio routes through the active sound backend (SDL: real audio; NULL/MILES: silent). See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 

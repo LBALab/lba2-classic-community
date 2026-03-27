@@ -153,11 +153,13 @@ docker run --rm \
         if [ "${CONFIGURE_PRESET}" = "${PRESET}" ]; then
             cmake -S . -B build \
                 -DLBA2_BUILD_TESTS=ON \
+                -DLBA2_BUILD_ASM_EQUIV_TESTS=ON \
                 --preset ${CONFIGURE_PRESET}
         else
             cmake -S . -B build \
                 --preset ${CONFIGURE_PRESET} \
                 -DLBA2_BUILD_TESTS=ON \
+                -DLBA2_BUILD_ASM_EQUIV_TESTS=ON \
                 -DENABLE_ASM=ON \
                 -DCMAKE_BUILD_TYPE=Debug \
                 -DCMAKE_C_FLAGS=-m32 \
