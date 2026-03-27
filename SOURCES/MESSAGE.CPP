@@ -31,10 +31,7 @@ S32 FlagRestoreCD = 0;
 
 /*-------------------------------------------------------------------------*/
 //======================== Issus de Dial
-#define DIAL_DEF (1 << 0) // Texte normal (defaut)
-#define DIAL_BIG (1 << 1) // Texte affiche en BigMessage
-#define DIAL_FUL (1 << 2) // Texte affiche en BigMessage sans cadre (Full Screen)
-#define DIAL_SAY (1 << 3) // Texte affiche en SayMessage
+/* DIAL_DEF, DIAL_BIG, DIAL_FUL, DIAL_SAY: COMMON.H */
 //#define       DIAL_INT        (1<<4)  // Resonnance de la voix en interieur
 //#define       DIAL_EXT        (1<<5)  // Resonnance de la voix en exterieur
 //#define       DIAL_CAV        (1<<6)  // Resonnance de la voix en cave
@@ -1810,7 +1807,7 @@ void InitWhoSpeak(S32 numobj) {
 #endif
     }
 
-    ObjectInitAnim(&PtrWhoSpeak->Obj, (void *)numanim);
+    ObjectInitAnim(&PtrWhoSpeak->Obj, (void *)(uintptr_t)(U32)numanim);
 }
 /*-------------------------------------------------------------------------*/
 void ClearWhoSpeak() {
@@ -1825,7 +1822,7 @@ void ClearWhoSpeak() {
     PtrWhoSpeak->Obj.Beta = BetaSpeak;
     PtrWhoSpeak->Obj.Gamma = GammaSpeak;
 
-    ObjectInitAnim(&PtrWhoSpeak->Obj, (void *)OrgAnimSpeak);
+    ObjectInitAnim(&PtrWhoSpeak->Obj, (void *)(uintptr_t)(U32)OrgAnimSpeak);
 }
 /*-------------------------------------------------------------------------*/
 

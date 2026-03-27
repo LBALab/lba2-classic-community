@@ -8,6 +8,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <stdint.h>
 
 extern S32 FlagAnimWhoSpeak; // MESSAGE.CPP
 
@@ -1052,7 +1053,7 @@ void InitLoadedGame() {
     if ((ptrobj->CarryBy != -1)
             AND !(ptrobj->CarryBy & CARRY_BY_DECORS)) {
         nu = (U8)ptrobj->CarryBy;
-        ptrobj->PtrZoneRail = (T_ZONE *)Distance2D(ListObjet[nu].Obj.X, ListObjet[nu].Obj.Z,
+        ptrobj->PtrZoneRail = (T_ZONE *)(uintptr_t)(U32)Distance2D(ListObjet[nu].Obj.X, ListObjet[nu].Obj.Z,
                                                    ptrobj->Obj.X, ptrobj->Obj.Z);
     }
 
@@ -1063,7 +1064,7 @@ void InitLoadedGame() {
         if ((ptrobj->CarryBy != -1)
                 AND !(ptrobj->CarryBy & CARRY_BY_DECORS)) {
             nu = (U8)ptrobj->CarryBy;
-            ptrobj->PtrZoneRail = (T_ZONE *)Distance2D(ListObjet[nu].Obj.X, ListObjet[nu].Obj.Z,
+            ptrobj->PtrZoneRail = (T_ZONE *)(uintptr_t)(U32)Distance2D(ListObjet[nu].Obj.X, ListObjet[nu].Obj.Z,
                                                        ptrobj->Obj.X, ptrobj->Obj.Z);
         }
 
@@ -1658,7 +1659,7 @@ S32 CheckObjCol(U8 numobj) {
                             // Attention, on mémorise le beta de l'objet qui nous porte
                             ptrobj->OldBeta = (GetAngle2D(ptrobjt->Obj.X, ptrobjt->Obj.Z, Nxw, Nzw) - ptrobjt->Obj.Beta) & 4095;
 
-                            ptrobj->PtrZoneRail = (T_ZONE *)Distance2D(ptrobjt->Obj.X, ptrobjt->Obj.Z, Nxw, Nzw);
+                            ptrobj->PtrZoneRail = (T_ZONE *)(uintptr_t)(U32)Distance2D(ptrobjt->Obj.X, ptrobjt->Obj.Z, Nxw, Nzw);
                             ptrobj->CarryBy = n;
                         }
                         continue;
@@ -2299,7 +2300,7 @@ void InitBody(U8 gennewbody,
             if (FirstLoop)
                 ptrobj->Obj.Body.Num = -1;
 
-            ObjectInitBody(&ptrobj->Obj, (void *)newbody);
+            ObjectInitBody(&ptrobj->Obj, (void *)(uintptr_t)(U32)newbody);
 
             ptrobj->GenBody = gennewbody;
         }
@@ -2450,7 +2451,7 @@ S32 InitAnim(U16 gennewanim,
         break;
     }
 
-    ObjectInitAnim(&ptrobj->Obj, (void *)newanim);
+    ObjectInitAnim(&ptrobj->Obj, (void *)(uintptr_t)(U32)newanim);
 
     ptrobj->GenAnim = gennewanim;
 
@@ -2893,7 +2894,7 @@ S32 CheckCarryBy(U8 numobj) {
                     // Attention, on mémorise le beta de l'objet qui nous porte
                     APtObj->OldBeta = (GetAngle2D(ptrobjc->Obj.X, ptrobjc->Obj.Z, Nxw, Nzw) - ptrobjc->Obj.Beta) & 4095;
 
-                    APtObj->PtrZoneRail = (T_ZONE *)Distance2D(ptrobjc->Obj.X, ptrobjc->Obj.Z, Nxw, Nzw);
+                    APtObj->PtrZoneRail = (T_ZONE *)(uintptr_t)(U32)Distance2D(ptrobjc->Obj.X, ptrobjc->Obj.Z, Nxw, Nzw);
                 }
             }
 
@@ -3246,7 +3247,7 @@ void GereObjAnim(U8 numobj) {
                         APtObj->GenAnim = GEN_ANIM_RIEN;
                         numanim = SearchAnim(GEN_ANIM_RIEN, numobj);
                     }
-                    ObjectInitAnim(&APtObj->Obj, (void *)numanim);
+                    ObjectInitAnim(&APtObj->Obj, (void *)(uintptr_t)(U32)numanim);
 
                     APtObj->PtrAnimAction = SearchPtrAnimAction;
 
@@ -3404,7 +3405,7 @@ static void DoAnimSprite3D() {
 
             if (newsprite > APtObj->Coord.A3DS.Fin) {
                 newsprite = APtObj->Coord.A3DS.Deb;
-                APtObj->PtrFile3D = (U8 *)TimerRefHR;
+                APtObj->PtrFile3D = (U8 *)(uintptr_t)(U32)TimerRefHR;
             }
         } else {
             // on joue l'anim en arriere
@@ -3416,7 +3417,7 @@ static void DoAnimSprite3D() {
 
             if (newsprite < APtObj->Coord.A3DS.Fin) {
                 newsprite = APtObj->Coord.A3DS.Deb;
-                APtObj->PtrFile3D = (U8 *)TimerRefHR;
+                APtObj->PtrFile3D = (U8 *)(uintptr_t)(U32)TimerRefHR;
             }
         }
 

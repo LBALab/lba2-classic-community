@@ -35,7 +35,7 @@ U32 LoadMemoryHQR(void *ptrhqr, void *ptrdest, S32 index) {
     header = GetPtrBlockMemoryHQR(ptrhqr, index);
 
     if (!header) {
-        return NULL;
+        return 0;
     }
 
     switch (header->CompressMethod) {
