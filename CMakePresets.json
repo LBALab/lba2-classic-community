@@ -98,7 +98,7 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "C:/msys64/mingw32/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/msys64/mingw32/bin/g++.exe",
-        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_BUILD_TYPE": "Release",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker",
         "CMAKE_C_FLAGS": {
@@ -117,7 +117,7 @@
       "displayName": "Windows UCRT64 (64-bit)",
       "description": "Native 64-bit build using MSYS2 UCRT64 (recommended for Windows 10+)",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_BUILD_TYPE": "Release",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
       }
@@ -128,7 +128,7 @@
       "displayName": "Windows MinGW64 (64-bit)",
       "description": "Native 64-bit build using MSYS2 MinGW64 (for Windows 7/8 compatibility)",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_BUILD_TYPE": "Release",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
       }

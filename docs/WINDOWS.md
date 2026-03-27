@@ -71,6 +71,13 @@ cmake --preset windows_mingw64
 cmake --build --preset windows_mingw64
 ```
 
+Presets use **`CMAKE_BUILD_TYPE=Release`** by default (same idea as Linux/macOS presets and CI). For a **Debug** build (easier debugging, no optimization), override when configuring:
+
+```bash
+cmake --preset windows_ucrt64 -DCMAKE_BUILD_TYPE=Debug
+cmake --build --preset windows_ucrt64
+```
+
 ### Manual Build
 
 ```bash
@@ -130,22 +137,7 @@ For 32-bit builds (required for the original ASM code path), use the `windows` p
 
 ```bash
 cmake --preset windows
-cmake --build out/build/windows
+cmake --build --preset windows
 ```
 
-This requires MSYS2 MINGW32 and produces a 32-bit executable.
-
-## Known Issues
-
-### Release build crashes on startup (64-bit)
-
-The 64-bit Release build may crash with a segmentation fault during scene rendering (in `GetShadow`). This appears to be a pre-existing issue with uninitialized memory or undefined behavior that is only exposed by Windows Release optimizations. Linux and macOS builds are not affected.
-
-**Workaround:** Build in Debug mode:
-
-```bash
-cmake --preset windows_ucrt64 -DCMAKE_BUILD_TYPE=Debug
-cmake --build --preset windows_ucrt64
-```
-
-The Debug build runs correctly, though with reduced performance.
+This requires MSYS2 MINGW32 and produces a 32-bit executable at `out/build/windows/SOURCES/lba2.exe`.
