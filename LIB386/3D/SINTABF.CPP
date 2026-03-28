@@ -172,9 +172,8 @@ U32 SinTabU32[] = {
     0x3f7fdaaf, 0x3f7fde00, 0x3f7fe129, 0x3f7fe42b, 0x3f7fe705, 0x3f7fe9b8,
     0x3f7fec43, 0x3f7feea7, 0x3f7ff0e3, 0x3f7ff2f8, 0x3f7ff4e6, 0x3f7ff6ac,
     0x3f7ff84a, 0x3f7ff9c1, 0x3f7ffb11, 0x3f7ffc39, 0x3f7ffd39, 0x3f7ffe13,
-    0x3f7ffec4, 0x3f7fff4e, 0x3f7fffb1, 0x3f7fffec};
-
-U32 CosTabU32[] = {
+    0x3f7ffec4, 0x3f7fff4e, 0x3f7fffb1, 0x3f7fffec,
+    /* CosTabU32 follows contiguously — same ASM layout as SinTab/CosTab (see SINTAB.CPP). */
     0x3f800000,
     0x3f7fffec,
     0x3f7fffb1,
@@ -4274,6 +4273,5 @@ U32 CosTabU32[] = {
     0x3f800000,
 };
 
-// TODO: Is this correct in all platforms/architectures? (32 vs 64 bits)
 float *SinTabF = (float *)SinTabU32;
-float *CosTabF = (float *)CosTabU32;
+float *CosTabF = (float *)&SinTabU32[1024];

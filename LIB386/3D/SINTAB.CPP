@@ -1025,9 +1025,9 @@ S16 SinTab[] = {
     0x4000,
     0x4000,
     0x4000,
-};
-
-S16 CosTab[] = {
+    /* Original ASM: SinTab (1024) + CosTab (4096) = 5120 entries as one contiguous block.
+       CosTab label pointed to SinTab[1024]. Game code indexes SinTab[n] for n > 1023
+       (e.g. SORT.CPP: SinTab[CameraBeta] with Beta up to 4095), reading into CosTab. */
     0x4000,
     0x4000,
     0x4000,
