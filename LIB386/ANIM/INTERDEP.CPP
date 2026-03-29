@@ -1,6 +1,7 @@
 #include <ANIM/INTERDEP.H>
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <SYSTEM/TIMER.H>
@@ -132,7 +133,7 @@ S32 ObjectSetInterDep(T_OBJ_3D *obj) {
 
     if (nextFrame >= obj->NbFrames) {
         nextFrame = obj->LoopFrame;
-        nextOfsFrame = (PTR_U32)obj->LoopOfsFrame;
+        nextOfsFrame = (PTR_U32)(uintptr_t)obj->LoopOfsFrame;
         obj->Status = FLAG_FRAME + FLAG_LAST_FRAME + FLAG_CHANGE;
     } else {
         nextOfsFrame = (U32 *)((U8 *)prevNextOfsFrame + 4 * size + 16);

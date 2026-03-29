@@ -226,13 +226,7 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 /* type objet pour affscene */
 
-#define TYPE_OBJ_3D (1024 * 0)
-#define TYPE_FLAG_RED (1024 * 1)
-#define TYPE_FLAG_YELLOW (1024 * 2)
-#define TYPE_SHADOW (1024 * 3)
-#define TYPE_OBJ_SPRITE (1024 * 4)
-#define TYPE_ZONE_DEC (1024 * 5)
-#define TYPE_EXTRA (1024 * 6)
+/* TYPE_OBJ_3D … TYPE_EXTRA: COMMON.H (included above). */
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /* pour les menus (GAMEMENU.CPP) */

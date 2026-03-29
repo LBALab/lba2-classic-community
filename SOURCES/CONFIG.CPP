@@ -18,6 +18,8 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <stdio.h>
+
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
@@ -31,6 +33,7 @@
 #define START_KEYS_TXT 200
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+#define KEY_STRING_LEN 50
 #define KEY_STRING_EMPTY ".............."
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -89,7 +92,7 @@ S32 SelectKey = 0;
 #define COUL_MENU (10 * 16 + 14)
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-char KeyStrings[MAX_INPUT * 2][50]; // 14 char max
+char KeyStrings[MAX_INPUT * 2][KEY_STRING_LEN]; // 14 char max
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 U8 ScanKnown[] =
@@ -238,10 +241,10 @@ void GetKeyText(char *string, U32 scan) {
 
         joy = 1 + (scan >> 6);
         button = scan & 63;
-        sprintf(string, "Joy %d ", joy);
+        (void)snprintf(string, KEY_STRING_LEN, "Joy %d ", joy);
 
         if (button < 32) {
-            sprintf(rest, "Btn %d", button + 1);
+            (void)snprintf(rest, sizeof(rest), "Btn %d", button + 1);
         } else {
             switch (button) {
             case 32:

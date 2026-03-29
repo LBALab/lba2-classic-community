@@ -18,6 +18,10 @@
 ; ║			;		2 : line intersects the background                             ║
 ; ╚════════════════════════════════════════════════════════════════════════╝
 */
+/* Invalid bbox sentinel (ASM): min=INT_MAX, max bit pattern 0x80000000 as S32. */
+#define LINE_RAIN_BOX_MIN (S32)0x7FFFFFFF
+#define LINE_RAIN_BOX_MAX (S32)0x80000000u
+
 S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
     int v1;              // eax@1
     int v2;              // ebx@1
@@ -106,10 +110,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
         v10 = v3 - v9;
         if (v3 == v9) {
             if (v9 < ClipXMin || v9 > ClipXMax) {
-                ScreenXMin = 0x7FFFFFFF;
-                ScreenYMin = 0x7FFFFFFF;
-                ScreenXMax = 2147483648;
-                ScreenYMax = 2147483648;
+                ScreenXMin = LINE_RAIN_BOX_MIN;
+                ScreenYMin = LINE_RAIN_BOX_MIN;
+                ScreenXMax = LINE_RAIN_BOX_MAX;
+                ScreenYMax = LINE_RAIN_BOX_MAX;
                 return 0;
             }
             v42 = v4 - v2;
@@ -118,10 +122,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
             }
             if (v2 < ClipYMin) {
                 if (v4 < ClipYMin) {
-                    ScreenXMin = 0x7FFFFFFF;
-                    ScreenYMin = 0x7FFFFFFF;
-                    ScreenXMax = 2147483648;
-                    ScreenYMax = 2147483648;
+                    ScreenXMin = LINE_RAIN_BOX_MIN;
+                    ScreenYMin = LINE_RAIN_BOX_MIN;
+                    ScreenXMax = LINE_RAIN_BOX_MAX;
+                    ScreenYMax = LINE_RAIN_BOX_MAX;
                     return 0;
                 }
                 CurrentZ1 -= DZ * (S64)(v2 - ClipYMin) / v42;
@@ -133,10 +137,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
             }
             if (v2 > ClipYMax) {
                 if (v4 > ClipYMax) {
-                    ScreenXMin = 0x7FFFFFFF;
-                    ScreenYMin = 0x7FFFFFFF;
-                    ScreenXMax = 2147483648;
-                    ScreenYMax = 2147483648;
+                    ScreenXMin = LINE_RAIN_BOX_MIN;
+                    ScreenYMin = LINE_RAIN_BOX_MIN;
+                    ScreenXMax = LINE_RAIN_BOX_MAX;
+                    ScreenYMax = LINE_RAIN_BOX_MAX;
                     return 0;
                 }
                 CurrentZ1 -= DZ * (S64)(v2 - ClipYMax) / v42;
@@ -169,10 +173,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
         }
         if (v9 < ClipXMin) {
             if (v3 < ClipXMin) {
-                ScreenXMin = 0x7FFFFFFF;
-                ScreenYMin = 0x7FFFFFFF;
-                ScreenXMax = 2147483648;
-                ScreenYMax = 2147483648;
+                ScreenXMin = LINE_RAIN_BOX_MIN;
+                ScreenYMin = LINE_RAIN_BOX_MIN;
+                ScreenXMax = LINE_RAIN_BOX_MAX;
+                ScreenYMax = LINE_RAIN_BOX_MAX;
                 return 0;
             }
             v36 = v9 - ClipXMin;
@@ -181,10 +185,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
             v9 = ClipXMin;
         } else if (v9 > ClipXMax) {
             if (v3 > ClipXMax) {
-                ScreenXMin = 0x7FFFFFFF;
-                ScreenYMin = 0x7FFFFFFF;
-                ScreenXMax = 2147483648;
-                ScreenYMax = 2147483648;
+                ScreenXMin = LINE_RAIN_BOX_MIN;
+                ScreenYMin = LINE_RAIN_BOX_MIN;
+                ScreenXMax = LINE_RAIN_BOX_MAX;
+                ScreenYMax = LINE_RAIN_BOX_MAX;
                 return 0;
             }
             v37 = v9 - ClipXMax;
@@ -207,10 +211,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
             v9 = v40;
         } else if (v2 < ClipYMin) {
             if (v4 < ClipYMin) {
-                ScreenXMin = 0x7FFFFFFF;
-                ScreenYMin = 0x7FFFFFFF;
-                ScreenXMax = 2147483648;
-                ScreenYMax = 2147483648;
+                ScreenXMin = LINE_RAIN_BOX_MIN;
+                ScreenYMin = LINE_RAIN_BOX_MIN;
+                ScreenXMax = LINE_RAIN_BOX_MAX;
+                ScreenYMax = LINE_RAIN_BOX_MAX;
                 return 0;
             }
             CurrentZ1 -= DZ * (S64)(v2 - ClipYMin) / v11;
@@ -218,10 +222,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
             v2 = ClipYMin;
         } else if (v2 > ClipYMax) {
             if (v4 > ClipYMax) {
-                ScreenXMin = 0x7FFFFFFF;
-                ScreenYMin = 0x7FFFFFFF;
-                ScreenXMax = 2147483648;
-                ScreenYMax = 2147483648;
+                ScreenXMin = LINE_RAIN_BOX_MIN;
+                ScreenYMin = LINE_RAIN_BOX_MIN;
+                ScreenXMax = LINE_RAIN_BOX_MAX;
+                ScreenYMax = LINE_RAIN_BOX_MAX;
                 return 0;
             }
             CurrentZ1 -= DZ * (S64)(v2 - ClipYMax) / v11;
@@ -241,18 +245,18 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
         }
     }
     if (v2 < ClipYMin || v2 > ClipYMax) {
-        ScreenXMin = 0x7FFFFFFF;
-        ScreenYMin = 0x7FFFFFFF;
-        ScreenXMax = 2147483648;
-        ScreenYMax = 2147483648;
+        ScreenXMin = LINE_RAIN_BOX_MIN;
+        ScreenYMin = LINE_RAIN_BOX_MIN;
+        ScreenXMax = LINE_RAIN_BOX_MAX;
+        ScreenYMax = LINE_RAIN_BOX_MAX;
         return 0;
     }
     if (v9 < ClipXMin) {
         if (v3 < ClipXMin) {
-            ScreenXMin = 0x7FFFFFFF;
-            ScreenYMin = 0x7FFFFFFF;
-            ScreenXMax = 2147483648;
-            ScreenYMax = 2147483648;
+            ScreenXMin = LINE_RAIN_BOX_MIN;
+            ScreenYMin = LINE_RAIN_BOX_MIN;
+            ScreenXMax = LINE_RAIN_BOX_MAX;
+            ScreenYMax = LINE_RAIN_BOX_MAX;
             return 0;
         }
         CurrentZ1 -= DZ * (S64)(v9 - ClipXMin) / v10;
@@ -264,10 +268,10 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
     }
     if (v9 > ClipXMax) {
         if (v3 > ClipXMin) {
-            ScreenXMin = 0x7FFFFFFF;
-            ScreenYMin = 0x7FFFFFFF;
-            ScreenXMax = 2147483648;
-            ScreenYMax = 2147483648;
+            ScreenXMin = LINE_RAIN_BOX_MIN;
+            ScreenYMin = LINE_RAIN_BOX_MIN;
+            ScreenXMax = LINE_RAIN_BOX_MAX;
+            ScreenYMax = LINE_RAIN_BOX_MAX;
             return 0;
         }
         CurrentZ1 -= DZ * (S64)(v9 - ClipXMax) / v10;
@@ -398,31 +402,31 @@ S32 LineRain(S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1, S32 coul) {
     }
 LABEL_80:
     if (v2 < ClipYMin) {
-        ScreenXMin = 0x7FFFFFFF;
-        ScreenYMin = 0x7FFFFFFF;
-        ScreenXMax = 2147483648;
-        ScreenYMax = 2147483648;
+        ScreenXMin = LINE_RAIN_BOX_MIN;
+        ScreenYMin = LINE_RAIN_BOX_MIN;
+        ScreenXMax = LINE_RAIN_BOX_MAX;
+        ScreenYMax = LINE_RAIN_BOX_MAX;
         return 0;
     }
     if (v2 > ClipYMax) {
-        ScreenXMin = 0x7FFFFFFF;
-        ScreenYMin = 0x7FFFFFFF;
-        ScreenXMax = 2147483648;
-        ScreenYMax = 2147483648;
+        ScreenXMin = LINE_RAIN_BOX_MIN;
+        ScreenYMin = LINE_RAIN_BOX_MIN;
+        ScreenXMax = LINE_RAIN_BOX_MAX;
+        ScreenYMax = LINE_RAIN_BOX_MAX;
         return 0;
     }
     if (v9 < ClipXMin) {
-        ScreenXMin = 0x7FFFFFFF;
-        ScreenYMin = 0x7FFFFFFF;
-        ScreenXMax = 2147483648;
-        ScreenYMax = 2147483648;
+        ScreenXMin = LINE_RAIN_BOX_MIN;
+        ScreenYMin = LINE_RAIN_BOX_MIN;
+        ScreenXMax = LINE_RAIN_BOX_MAX;
+        ScreenYMax = LINE_RAIN_BOX_MAX;
         return 0;
     }
     if (v9 > ClipXMax) {
-        ScreenXMin = 0x7FFFFFFF;
-        ScreenYMin = 0x7FFFFFFF;
-        ScreenXMax = 2147483648;
-        ScreenYMax = 2147483648;
+        ScreenXMin = LINE_RAIN_BOX_MIN;
+        ScreenYMin = LINE_RAIN_BOX_MIN;
+        ScreenXMax = LINE_RAIN_BOX_MAX;
+        ScreenYMax = LINE_RAIN_BOX_MAX;
         return 0;
     }
     ScreenXMin = v9;
@@ -433,10 +437,10 @@ LABEL_80:
     v44 = (U8)Color;
     v45 = PtrZBuffer[v43] - ((CurrentZ1 >> 16) - 100);
     if (v45 < 0) {
-        ScreenXMin = 0x7FFFFFFF;
-        ScreenYMin = 0x7FFFFFFF;
-        ScreenXMax = 2147483648;
-        ScreenYMax = 2147483648;
+        ScreenXMin = LINE_RAIN_BOX_MIN;
+        ScreenYMin = LINE_RAIN_BOX_MIN;
+        ScreenXMax = LINE_RAIN_BOX_MAX;
+        ScreenYMax = LINE_RAIN_BOX_MAX;
         return 0;
     }
     if (v45 < 200) {

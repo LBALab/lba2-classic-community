@@ -3,6 +3,7 @@
 #include <SYSTEM/TIMER.H>
 
 #include <stddef.h>
+#include <stdint.h>
 #include <SYSTEM/DEBUG_TRACES.H>
 
 void ObjectSetFrame(T_OBJ_3D *obj, U32 frame) {
@@ -43,7 +44,7 @@ void ObjectSetFrame(T_OBJ_3D *obj, U32 frame) {
     obj->Status = FLAG_FRAME;
 
     U32 ofsFrame = (nbGroups * 8 + 8) * frame + 8;
-    obj->LastOfsFrame = (PTR_U32)ofsFrame;
+    obj->LastOfsFrame = (PTR_U32)(uintptr_t)ofsFrame;
     obj->LastFrame = frame;
 
     U32 *animFrame = (U32 *)((U8 *)anim + ofsFrame + 16);
@@ -56,7 +57,7 @@ void ObjectSetFrame(T_OBJ_3D *obj, U32 frame) {
     if (frame == obj->NbFrames) {
         U16 animTime = animPtr[4];
         obj->NextFrame = 0;
-        obj->NextOfsFrame = (PTR_U32)8;
+        obj->NextOfsFrame = (PTR_U32)(uintptr_t)8u;
         obj->NextTimer = obj->LastTimer + animTime;
         obj->Master = animPtr[8];
     } else {

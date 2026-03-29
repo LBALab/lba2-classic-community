@@ -14,6 +14,8 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
+#include <stdint.h>
+
 #define ULTRA -1L
 #define ALWAYS ULTRA
 
@@ -479,8 +481,8 @@ void MenuComportement(S32 affone) {
         }
 #endif
 
-        ObjectInitBody(&InvObjTwinsen[n], (void *)bodyhero);
-        ObjectInitAnim(&InvObjTwinsen[n], (void *)ListComportement[n].AnimRien);
+        ObjectInitBody(&InvObjTwinsen[n], (void *)(uintptr_t)(U32)bodyhero);
+        ObjectInitAnim(&InvObjTwinsen[n], (void *)(uintptr_t)(U32)ListComportement[n].AnimRien);
     }
 
     ptrobj->PtrFile3D = memoptrfile3d;

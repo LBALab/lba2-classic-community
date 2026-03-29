@@ -132,7 +132,7 @@ void ScanTextureAnimation(U8 *ptrtex, S32 nbscanlines) {
                     ptra[os] = 500;
                 }
 
-                // color table
+                // color table (ptrc points into Malloc tail after T_PLASMA)
                 ptrcol = &ptrtex[1 + 3 * 256];
                 for (os = 0; os < nbcols; os++) {
                     ptrc[os] = ptrcol[os];
