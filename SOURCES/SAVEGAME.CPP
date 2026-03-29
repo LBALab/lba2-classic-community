@@ -7,6 +7,8 @@
 
 #include "C_EXTERN.H"
 
+#include <stdint.h>
+
 #include <SVGA/SCREEN.H>
 #include "DIRECTORIES.H"
 #include "INPUT.H"
@@ -1205,7 +1207,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(ExtraConque);
         LbaReadByte(PingouinActif);
 
-        PtrZoneClimb = (T_ZONE *)*(U32 *)PtrSave;
+        PtrZoneClimb = (T_ZONE *)(uintptr_t)(*(U32 *)PtrSave);
         PtrSave += 4;
 
         // Flechettes
