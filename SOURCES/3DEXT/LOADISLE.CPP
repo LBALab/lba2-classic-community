@@ -138,12 +138,13 @@ void LoadIsland() {
 
     // reinit ressources HQR
 
-    snprintf(islandFilename, ADELINE_MAX_PATH, "%s.obl", IslandName);
+    /* Bound %s length so ".obl" / ".ile" + NUL fit in ADELINE_MAX_PATH (GCC -Wformat-truncation). */
+    snprintf(islandFilename, ADELINE_MAX_PATH, "%.*s.obl", (int)(ADELINE_MAX_PATH - 5), IslandName);
     GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
     if (!HQR_Change_Ressource(HQR_Isle_Obj, islandFilePath))
         TheEndCheckFile(islandFilePath);
 
-    snprintf(islandFilename, ADELINE_MAX_PATH, "%s.ile", IslandName);
+    snprintf(islandFilename, ADELINE_MAX_PATH, "%.*s.ile", (int)(ADELINE_MAX_PATH - 5), IslandName);
     GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
 
     if (!HQR_Change_Ressource(HQR_CubeInfos, islandFilePath))

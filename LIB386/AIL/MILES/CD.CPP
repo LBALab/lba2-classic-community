@@ -55,7 +55,7 @@ char OpenCD(char *volume_name) {
                     char volume[_MAX_PATH];
                     unsigned long maxlength, fsflags;
 
-                    sprintf(rootpath, "%c:\\", drive);
+                    snprintf(rootpath, sizeof(rootpath), "%c:\\", drive);
 
                     if (GetDriveType(rootpath) != DRIVE_CDROM) {
                         goto error;
@@ -81,7 +81,7 @@ char OpenCD(char *volume_name) {
                     struct find_t fileinfo;
                     char filter[7];
 
-                    sprintf(filter, "%c:\\*.*", drive);
+                    snprintf(filter, sizeof(filter), "%c:\\*.*", drive);
 
                     if (!_dos_findfirst(filter, _A_VOLID, &fileinfo)) {
                         if (!strcmp(volume_name, fileinfo.name)) {

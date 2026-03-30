@@ -1,6 +1,7 @@
 #include "C_EXTERN.H"
 
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <stdint.h>
 
 /*══════════════════════════════════════════════════════════════════════════*
 	  █▀▀▀▀ █▀▀▀▀ █▀▀▀█ █▀▀▀▀       ▀▀█▀▀ █▀▀▀█ █▀▀▀█ █▀▀▀▀ █  ▄▀
@@ -834,7 +835,7 @@ void DoTrack(U8 numobj) {
             if (ptrobj->Flags & ANIM_3DS) {
                 InitSprite(ptrobj->Coord.A3DS.Deb, ptrobj);
                 ptrobj->SizeSHit = n;
-                ptrobj->PtrFile3D = (U8 *)TimerRefHR;
+                ptrobj->PtrFile3D = (U8 *)(uintptr_t)(U32)TimerRefHR;
             }
             break;
 

@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include <stdio.h>
+
 // Input
 U32 WaitNoKey = 0;
 
@@ -132,13 +134,13 @@ void ReadInputConfig(void) {
         // mais bon, bof !!!
 
         for (n = 0; n < MAX_INPUT; n++) {
-            sprintf(id, "Input%d_1", n);
+            snprintf(id, sizeof(id), "Input%d_1", n);
             DefKeys[n].Key1 = DefFileBufferReadValueDefault(id, DefKeysDefault[n].Key1);
             // Blindage si les Inputs sont configurés à 0
             if (!DefKeys[n].Key1)
                 DefKeys[n].Key1 = DefKeysDefault[n].Key1;
 
-            sprintf(id, "Input%d_2", n);
+            snprintf(id, sizeof(id), "Input%d_2", n);
             DefKeys[n].Key2 = DefFileBufferReadValueDefault(id, DefKeysDefault[n].Key2);
             // Blindage si les Inputs sont configurés à 0
             if (!DefKeys[n].Key2)
@@ -163,10 +165,10 @@ void WriteInputConfig(void) {
     // mais bon, bof !!!
 
     for (n = 0; n < MAX_INPUT; n++) {
-        sprintf(id, "Input%d_1", n);
+        snprintf(id, sizeof(id), "Input%d_1", n);
         DefFileBufferWriteValue(id, DefKeys[n].Key1);
 
-        sprintf(id, "Input%d_2", n);
+        snprintf(id, sizeof(id), "Input%d_2", n);
         DefFileBufferWriteValue(id, DefKeys[n].Key2);
     }
 }

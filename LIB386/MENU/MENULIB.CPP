@@ -6,6 +6,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/MOUSE.H>
 
+#include <stdio.h>
 #include <string.h>
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -319,7 +320,7 @@ void DrawBox(T_MENU *ptrmenu, S32 numlcb, S32 pushed) {
 
     strcpy(string, ptrlcb->PtrString);
     if (ptrlcb->Type == TYPE_CHANGE_VALUE) {
-        sprintf(valuestring, "%d", *(ptrlcb->PtrVar));
+        snprintf(valuestring, sizeof(valuestring), "%d", *(ptrlcb->PtrVar));
         strcat(string, valuestring);
     }
 
@@ -782,7 +783,7 @@ S32 GereMenu(T_MENU *ptrmenu) {
                 } else /* input value */
                 {
                     memostring = ptrlcb->PtrString;
-                    sprintf(inputvaluestring, "%d", value);
+                    snprintf(inputvaluestring, sizeof(inputvaluestring), "%d", value);
                     ptrlcb->PtrString = inputvaluestring;
                     ptrlcb->Type = TYPE_TEXT;
                     DrawBox(ptrmenu, select, FLAG_PUSHED);

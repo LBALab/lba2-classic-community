@@ -6,6 +6,7 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <stdint.h>
 
 #define SHADE_INVENT_LVL 8
 
@@ -1503,7 +1504,7 @@ void DoFoundObj(S32 numvar) {
 
     organi = SearchAnim(GEN_ANIM_RIEN, NUM_PERSO); //ptrobj->Obj.Anim;
     numanim = SearchAnim(genanim, NUM_PERSO);
-    ObjectInitAnim(&ptrobj->Obj, (void *)numanim);
+    ObjectInitAnim(&ptrobj->Obj, (void *)(uintptr_t)(U32)numanim);
     numanim = SearchAnim(GEN_ANIM_TROUVE, NUM_PERSO);
 
     if (numanim == -1)
@@ -1606,7 +1607,7 @@ void DoFoundObj(S32 numvar) {
         if (!flag) {
             ptrobj->Obj.Beta = BoundRegleTrois(sb, end, 25 * 20, TimerRefHR - savetimer);
             if (ptrobj->Obj.Beta == end)
-                ObjectInitAnim(&ptrobj->Obj, (void *)numanim);
+                ObjectInitAnim(&ptrobj->Obj, (void *)(uintptr_t)(U32)numanim);
         } else {
             ptrobj->Obj.Beta = BoundRegleTrois(end, sb, 20 * 20, TimerRefHR - savetimer);
             if (ptrobj->Obj.Beta == sb)
@@ -1626,7 +1627,7 @@ void DoFoundObj(S32 numvar) {
             StopSpeak();
             flag = 1;
             savetimer = TimerRefHR;
-            ObjectInitAnim(&ptrobj->Obj, (void *)organi);
+            ObjectInitAnim(&ptrobj->Obj, (void *)(uintptr_t)(U32)organi);
         }
 
         if (DemoSlide) {
@@ -1649,7 +1650,7 @@ void DoFoundObj(S32 numvar) {
                 StopSpeak();
                 flag = 1;
                 savetimer = TimerRefHR;
-                ObjectInitAnim(&ptrobj->Obj, (void *)organi);
+                ObjectInitAnim(&ptrobj->Obj, (void *)(uintptr_t)(U32)organi);
                 //				InitWaitNoInput( I_ACTION | I_MENUS ) ;
                 //				InitWaitNoKey() ;
             }

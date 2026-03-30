@@ -1,10 +1,12 @@
 #include	"C_EXTERN.H"
 
+#include <stdint.h>
+
 #define	CONE_GANT	2048
 #define	RND_BETA_BONUS	300	// Angle aléatoire rajouter
 
 extern	S32	MagicBallFlags ;
-extern	S32	InitMagicBall = FALSE ;	// Pour ne pas traiter la balle
+S32	InitMagicBall = FALSE ;	// Pour ne pas traiter la balle
 					// magique (ou plutot son ombre de
 					// retour) dans la boucle ou elle a
 					// été initialisée
@@ -851,7 +853,7 @@ S32	InitExtraPof( S32 x, S32 y, S32 z, S16 num, S32 alpha, S32 beta, S32 speed, 
 		ptrextra->Info  = scaledeb ;
 		ptrextra->Beta  = (S16)scalefin ;
 
-		ptrextra->PtrBody = (U8*)duree ;
+		ptrextra->PtrBody = (U8 *)(uintptr_t)(U32)duree ;
 
 		ptrextra->Flags = EXTRA_END_COL|EXTRA_NO_SHADOW ;
 
