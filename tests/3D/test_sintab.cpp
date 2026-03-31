@@ -18,6 +18,11 @@ static void test_equivalence(void) {
    reading into CosTab.  Verify the CPP arrays honour this contract by
    checking that CosTab points exactly to &SinTab[1024]. */
 static void test_contiguity(void) {
+    if (CosTab != &SinTab[1024]) {
+        fprintf(stderr, "FAIL: CosTab = %p, &SinTab[1024] = %p (must be equal)\n",
+                (void *)CosTab, (void *)&SinTab[1024]);
+        test_failures++;
+    }
     if (&SinTab[1024] != &CosTab[0]) {
         fprintf(stderr, "FAIL: &SinTab[1024] = %p, &CosTab[0] = %p (must be equal)\n"
                         "  SinTab and CosTab must be contiguous; game code indexes\n"
