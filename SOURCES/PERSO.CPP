@@ -1755,6 +1755,12 @@ void ReadConfigFile(void) {
 
     // version distributeur
     DistribVersion = DefFileBufferReadValueDefault("Version", UNKNOWN_VERSION);
+
+    FlagMenuMouse = DefFileBufferReadValueDefault("MenuMouse", TRUE);
+    if (FlagMenuMouse != 0)
+        FlagMenuMouse = TRUE;
+    else
+        FlagMenuMouse = FALSE;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1782,6 +1788,8 @@ void WriteConfigFile(void) {
         DefFileBufferWriteString("FlagDisplayText", "ON");
     else
         DefFileBufferWriteString("FlagDisplayText", "OFF");
+
+    DefFileBufferWriteValue("MenuMouse", FlagMenuMouse);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*

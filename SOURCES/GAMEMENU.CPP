@@ -11,6 +11,9 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
+#include <SYSTEM/MOUSE.H>
+
+#include "GAMEMENU_MOUSE.H"
 
 #include <dirent.h>
 #include <stdint.h>
@@ -918,6 +921,31 @@ void DrawCadreNewGame(void) {
 /*──────────────────────────────────────────────────────────────────────────*/
 #define NB_GAME_CHOICE 5
 #define Y_START_CHOICE 205
+#define GM_MENU_HALF_WIDTH_SAVE 275
+
+static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSel) {
+    S32 n;
+    S32 x0 = 320 - GM_MENU_HALF_WIDTH_SAVE;
+    S32 x1 = 320 + GM_MENU_HALF_WIDTH_SAVE;
+
+    for (n = 0; n < NB_GAME_CHOICE; n++) {
+        S32 y;
+        S32 y0;
+        S32 y1;
+
+        if (n + start >= nb)
+            break;
+
+        y = Y_START_CHOICE + 60 * n;
+        y0 = y - HAUTEUR_STANDARD / 2;
+        y1 = y + HAUTEUR_STANDARD / 2;
+        if ((S32)mx >= x0 && (S32)mx <= x1 && (S32)my >= y0 && (S32)my <= y1) {
+            *outSel = n + start;
+            return 1;
+        }
+    }
+    return 0;
+}
 
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
@@ -1068,6 +1096,9 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     S32 timerdraw = 1;
     U32 draw = 1;
     U32 newcube = NewCube;
+    S32 save_press = -1;
+    S32 save_prev_click = 0;
+    S32 mouse_fire = 0;
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
 #ifdef DEBUG_TOOLS
     S32 isBugMode = FALSE;
@@ -1156,6 +1187,11 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
     InitWaitNoKey();
 
+    MenuMouseAcquire();
+    save_press = -1;
+    save_prev_click = 0;
+    mouse_fire = 0;
+
     while (MyKey != K_ESC AND !(Input & I_MENUS)) {
         ManageTime();
 
@@ -1224,8 +1260,103 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             timerdraw = 0;
         }
 
-        if (TimerRefHR > timeranotherkey)
+        if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
             MyGetInput();
+        } else if (TimerRefHR > timeranotherkey)
+            MyGetInput();
+
+        if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
+            S32 hitSel = -1;
+            S32 cur, leftDown, prevLeft, leftDownEdge, leftUpEdge, relSel;
+            S32 wy;
+
+            GameMenuMousePollFocus();
+            cur = Click;
+            leftDown = (cur & 1) != 0;
+            prevLeft = (save_prev_click & 1) != 0;
+            leftDownEdge = leftDown && !prevLeft;
+            leftUpEdge = !leftDown && prevLeft;
+            save_prev_click = cur;
+
+            if (GameMenuSaveListHitTest(MouseX, MouseY, nb, start, &hitSel)) {
+                if (!leftDown && save_press < 0 && hitSel != select) {
+                    select = hitSel;
+                    flag = 1;
+                    if (flagnew AND select == nb - 1)
+                        timerzoom = TimerRefHR;
+                    else
+                        timerzoom = 0;
+                    timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
+                }
+            }
+
+            if (leftDownEdge && GameMenuSaveListHitTest(MouseX, MouseY, nb, start, &hitSel)) {
+                save_press = hitSel;
+                if (select != hitSel) {
+                    select = hitSel;
+                    flag = 1;
+                    if (flagnew AND select == nb - 1)
+                        timerzoom = TimerRefHR;
+                    else
+                        timerzoom = 0;
+                    timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
+                }
+            }
+
+            if (leftDown && save_press >= 0) {
+                if (select != save_press) {
+                    select = save_press;
+                    flag = 1;
+                }
+            }
+
+            if (leftUpEdge && save_press >= 0) {
+                relSel = -1;
+                if (GameMenuSaveListHitTest(MouseX, MouseY, nb, start, &relSel) && relSel == save_press)
+                    mouse_fire = 1;
+                save_press = -1;
+            }
+
+            wy = ConsumeMouseWheelY();
+            while (wy > 0) {
+                if (select < (nb - 1)) {
+                    select++;
+                    if (select >= (start + NB_GAME_CHOICE)) {
+                        if (start < (nb - 1)) {
+                            start++;
+                        }
+                    } else {
+                        DrawOneString(320, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
+                    }
+                    flag = 1;
+
+                    if (flagnew AND select == nb - 1)
+                        timerzoom = TimerRefHR;
+                    else
+                        timerzoom = 0;
+                    timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
+                }
+                wy--;
+            }
+            while (wy < 0) {
+                if (select > 0) {
+                    select--;
+
+                    if (select < start) {
+                        start--;
+                    } else {
+                        DrawOneString(320, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
+                    }
+                    flag = 1;
+                    if (flagnew AND select == nb - 1)
+                        timerzoom = TimerRefHR;
+                    else
+                        timerzoom = 0;
+                    timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
+                }
+                wy++;
+            }
+        }
 
         DrawOneString(320, ys, ptrlist[select], draw);
         BoxUpdate();
@@ -1402,7 +1533,9 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             timerdraw = TimerRefHR + TEMPO_SCREEN_SAVE;
         }
 
-        if (Input & I_FIRE OR MyKey == K_ENTER OR MyKey == K_NUMPAD_ENTER) {
+        if (Input & I_FIRE OR MyKey == K_ENTER OR MyKey == K_NUMPAD_ENTER OR mouse_fire) {
+            if (mouse_fire)
+                mouse_fire = 0;
             if (timerdraw) {
                 strcpy(PlayerName, ptrlist[select]);
 
@@ -1484,6 +1617,8 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             }
         }
     }
+
+    MenuMouseRelease();
 
     if (Key == K_ESC OR Input & I_MENUS) {
         NewCube = newcube;
@@ -1820,6 +1955,144 @@ void DrawGameMenu(U16 *ptrmenu, S32 justone) {
 
 #define VOLUME_TIMER_KEY 5
 
+static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy, S32 *timerkey, S32 *flag) {
+    S32 t;
+    S32 n;
+    S32 dir;
+    S32 i;
+    S32 applied;
+
+    if (wy == 0 || !FlagMenuMouse || MenuMouse_GetRefCount() <= 0)
+        return;
+
+    t = ptrmenu[4 + 0 + selected * 2];
+    dir = (wy > 0) ? 1 : -1;
+    n = (wy > 0) ? wy : -wy;
+    if (n > 16)
+        n = 16;
+
+    for (i = 0; i < n; i++) {
+        if (TimerRefHR <= *timerkey)
+            break;
+        *timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+        applied = 0;
+
+        switch (t) {
+        case 2:
+            if (dir < 0 AND SampleVolume > 0) {
+                SampleVolume -= 1;
+                applied = 1;
+            } else if (dir > 0 AND SampleVolume < 127) {
+                SampleVolume += 1;
+                applied = 1;
+            }
+            break;
+
+        case 3:
+            if (dir < 0 AND VoiceVolume > 0) {
+                VoiceVolume -= 1;
+                applied = 1;
+            } else if (dir > 0 AND VoiceVolume < 127) {
+                VoiceVolume += 1;
+                applied = 1;
+            }
+            break;
+
+        case 4:
+            if (dir < 0 AND JingleVolume > 0) {
+                JingleVolume -= 1;
+                SetVolumeJingle(JingleVolume);
+                applied = 1;
+            } else if (dir > 0 AND JingleVolume < 127) {
+                JingleVolume += 1;
+                SetVolumeJingle(JingleVolume);
+                applied = 1;
+            }
+            break;
+
+        case 5:
+#ifdef CDROM
+            if (dir < 0 AND CDVolume > 0) {
+                CDVolume -= 1;
+                SetVolumeCD(CDVolume);
+                SetVolumeJingle(CDVolume);
+                applied = 1;
+            } else if (dir > 0 AND CDVolume < 127) {
+                CDVolume += 1;
+                SetVolumeCD(CDVolume);
+                SetVolumeJingle(CDVolume);
+                applied = 1;
+            }
+#endif
+            break;
+
+        case 6:
+            if (dir < 0 AND MasterVolume > 0) {
+                MasterVolume -= 1;
+                SetMasterVolumeSample(MasterVolume);
+                SetVolumeJingle(JingleVolume);
+#ifdef CDROM
+                SetVolumeCD(CDVolume);
+#endif
+                applied = 1;
+            } else if (dir > 0 AND MasterVolume < 127) {
+                MasterVolume += 1;
+                SetMasterVolumeSample(MasterVolume);
+                SetVolumeJingle(JingleVolume);
+#ifdef CDROM
+                SetVolumeCD(CDVolume);
+#endif
+                applied = 1;
+            }
+            break;
+
+        case 7:
+            if (dir < 0 AND DetailLevel > 0) {
+                DetailLevel--;
+                InitWaitNoInput(I_LEFT);
+                InitWaitNoKey();
+                applied = 1;
+            } else if (dir > 0 AND DetailLevel < MAX_DETAIL_LEVEL) {
+                DetailLevel++;
+                InitWaitNoInput(I_RIGHT);
+                InitWaitNoKey();
+                applied = 1;
+            }
+            break;
+
+        case MENU_TYPE_TEXT_LANGUAGE:
+            if (dir < 0)
+                CycleTextLanguage(-1);
+            else
+                CycleTextLanguage(1);
+            *flag = 1;
+            InitWaitNoInput(dir < 0 ? I_LEFT : I_RIGHT);
+            InitWaitNoKey();
+            applied = 1;
+            break;
+
+#ifdef CDROM
+        case MENU_TYPE_VOICE_LANGUAGE:
+            if (dir < 0)
+                CycleVoiceLanguage(-1);
+            else
+                CycleVoiceLanguage(1);
+            *flag = 1;
+            InitWaitNoInput(dir < 0 ? I_LEFT : I_RIGHT);
+            InitWaitNoKey();
+            applied = 1;
+            break;
+#endif
+
+        default:
+            break;
+        }
+
+        if (!applied)
+            break;
+    }
+}
+
 S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
@@ -1847,6 +2120,16 @@ S32 DoGameMenu(U16 *ptrmenu) {
     while (TRUE) {
         ManageTime();
         MyGetInput();
+
+        if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
+            S32 mret = GameMenuMouseProcessDoGameMenu(ptrmenu, &selected, &flag);
+
+            if (mret >= 0) {
+                WaitNoInput();
+                AsciiMode = FALSE;
+                return mret;
+            }
+        }
 
 #ifdef DEBUG_TOOLS
         CheckSaveLogPcx(PtrPalNormal);
@@ -2071,6 +2354,13 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
             break;
 #endif
+        }
+
+        if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
+            S32 wy = ConsumeMouseWheelY();
+
+            if (wy != 0)
+                GameMenuApplyMouseWheelDoGameMenu(ptrmenu, selected, wy, &timerkey, &flag);
         }
 
         if (flag == 1) {
@@ -2384,6 +2674,8 @@ S32 OptionsMenu(S32 flagflip) {
 
     GameOptionMenu[1] = 5;
 
+    MenuMouseAcquire();
+
     while (!flag) {
         select = DoGameMenu(GameOptionMenu);
 
@@ -2427,6 +2719,7 @@ S32 OptionsMenu(S32 flagflip) {
 
     WaitNoInput();
 
+    MenuMouseRelease();
     return FALSE;
 }
 
@@ -2444,6 +2737,8 @@ S32 DeleteSavedGame(void) {
     BoxUpdate();
 
     SavedConfirmMenu[0] = 0;
+
+    MenuMouseAcquire();
 
     while (ret == -1) {
         select = DoGameMenu(SavedConfirmMenu);
@@ -2466,6 +2761,7 @@ S32 DeleteSavedGame(void) {
     InitWaitNoKey();
     InitWaitNoInput(I_FIRE | I_ACTION | I_JOY | I_MENUS);
 
+    MenuMouseRelease();
     return ret;
 }
 
@@ -2701,6 +2997,8 @@ S32 MainGameMenu(S32 load) {
     BackupScreen(FALSE);
     CopyScreen(Log, Screen);
 
+    MenuMouseAcquire();
+
     while (!flag) {
         if (gogame) {
             DemoSlide = FALSE;
@@ -2709,6 +3007,9 @@ S32 MainGameMenu(S32 load) {
             ClearPlasmaMenu(); // vire plasma menu
 
             FlagShadeMenu = TRUE;
+
+            /* Menu mouse is for menu UI only; do not composite it during MainLoop (gameplay). */
+            MenuMouseRelease();
 
             ret = MainLoop();
 
@@ -2771,6 +3072,8 @@ S32 MainGameMenu(S32 load) {
             FlagShadeMenu = TRUE;
             gogame = FALSE;
             InitPlasmaMenu();
+
+            MenuMouseAcquire();
         }
 
         BuildGameMainMenu(firstloop);
@@ -3050,6 +3353,7 @@ S32 MainGameMenu(S32 load) {
 #endif
         }
     }
+    MenuMouseRelease();
     return FALSE;
 }
 
@@ -3077,6 +3381,8 @@ void GameAskChoice(S32 nummess) {
 
     InitPlasmaMenu();
 
+    MenuMouseAcquire();
+
     if (DoGameMenu(GameChoiceMenu) != 1000)
         GameChoice = GameListChoice[GameChoiceMenu[0]]; // ret num mess
     else {
@@ -3088,6 +3394,8 @@ void GameAskChoice(S32 nummess) {
     }
 
     ClearPlasmaMenu();
+
+    MenuMouseRelease();
 
     InitWaitNoKey();
     InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
@@ -3518,6 +3826,8 @@ S32 AdelineLogo(void) {
     while ((TimerRefHR <= endtimer OR IsStreamPlaying()) AND !MyKey) {
         ManageTime();
         MyGetInput();
+        if (FlagMenuMouse && (Click & 1))
+            break;
     }
     if (MyKey == K_ESC OR(Input & I_MENUS))
         ret = FALSE;
@@ -3530,6 +3840,8 @@ S32 AdelineLogo(void) {
     while (TimerRefHR <= endtimer AND !MyKey) {
         ManageTime();
         MyGetInput();
+        if (FlagMenuMouse && (Click & 1))
+            break;
     }
     if (MyKey == K_ESC OR(Input & I_MENUS))
         ret = FALSE;
@@ -3573,6 +3885,8 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
         while (TimerRefHR <= endtimer AND !MyKey) {
             ManageTime();
             MyGetInput();
+            if (FlagMenuMouse && (Click & 1))
+                break;
         }
 
         if (MyKey == K_ESC OR(Input & I_MENUS))

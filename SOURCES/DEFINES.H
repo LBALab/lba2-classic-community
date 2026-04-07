@@ -174,6 +174,9 @@
 
 #include "COMMON.H"
 
+/* Same `sprites.hqr` index as the original UI cursor (`SPRITE_CURSOR` in COMMON.H); see docs/MENU.md. */
+#define MENU_MOUSE_SPRITE_HQR_INDEX SPRITE_CURSOR
+
 // Puisqu'on n'inclue pas LIB_MEN3\LIB_MENU.H :
 #ifdef WHITE
 #undef WHITE
