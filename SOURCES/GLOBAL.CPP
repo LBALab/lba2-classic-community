@@ -80,6 +80,8 @@ S32 DetailLevel = MAX_DETAIL_LEVEL;
 S32 VideoFullScreen = TRUE;
 S32 DisplayFullScreen = FALSE;
 
+S32 FlagMenuMouse = TRUE;
+
 //S32	FlagPalettePcx = FALSE ;
 S32 FlagFade = FALSE;
 S32 FlagPal = FALSE;

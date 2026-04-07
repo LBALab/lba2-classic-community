@@ -33,7 +33,7 @@ LBA File Info omits `video.hqr`; the list below is complete per the source code.
 | `samples.hqr` | Sound samples (excluding voices) |
 | `text.hqr` | In-game dialogue text |
 | `screen.hqr` | Full-screen images |
-| `sprites.hqr` | Compressed sprites |
+| `sprites.hqr` | Compressed sprites; see [MENU.md](MENU.md) for **`SPRITE_CURSOR`** (173) and the menu pointer |
 | `spriraw.hqr` | Raw-format sprites |
 | `ress.hqr` | Miscellaneous resources |
 | `lba_bkg.hqr` | Isometric background maps, bricks, objects |

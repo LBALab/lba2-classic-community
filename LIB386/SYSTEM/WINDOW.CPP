@@ -26,6 +26,12 @@ U32 windowSurfaceResX = 0;
 U32 windowSurfaceResY = 0;
 bool windowFullscreenEnabled = false;
 
+static void ApplyGameWindowHideSystemCursor(void) {
+    SDL_HideCursor();
+    /* Clear default cursor; some WMs still show an arrow until this runs. */
+    SDL_SetCursor(NULL);
+}
+
 static void ComputePresentationRect(SDL_FRect *dstRect) {
     assert(dstRect != NULL);
 
@@ -171,6 +177,9 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
     windowSurfaceResX = resX;
     windowSurfaceResY = resY;
 
+    /* Game draws the pointer in the framebuffer; hide the OS cursor to avoid double cursors. */
+    ApplyGameWindowHideSystemCursor();
+
     return true;
 }
 
@@ -307,6 +316,14 @@ void HandleEventsWindow(const void *event) {
     switch (sdlEvent->type) {
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         AppActive = true;
+        if (sdlWindow != NULL) {
+            ApplyGameWindowHideSystemCursor();
+        }
+        break;
+    case SDL_EVENT_WINDOW_MOUSE_ENTER:
+        if (sdlWindow != NULL) {
+            ApplyGameWindowHideSystemCursor();
+        }
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         AppActive = false;

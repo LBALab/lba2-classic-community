@@ -47,6 +47,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Language | string | English, Français, Deutsch, Español, Italiano, Portugues | Français | Must match `TabLanguage[]` exactly (case-insensitive) |
 | LanguageCD | string | Same as Language | Français | Voice CD language; only used with CDROM build |
 | FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
+| MenuMouse | int | 0, 1 | 1 | 1 = menu cursor, hover/left-click confirm, wheel for sliders and save list; 0 = keyboard/joystick only (classic) |
 
 ### Original keys (Adeline)
 
@@ -70,6 +71,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 **Note:** `FlagKeepVoice` remains installer / CONFIG-tool managed. `Language` and `LanguageCD` are now also written by the in-game Options menu.
 
 ### Community / modernized additions
+
+- **`MenuMouse`** — Optional mouse UX in game menus (`FlagMenuMouse` in code). Default **1** (on). Set **0** to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) for behavior (hover, click, wheel).
 
 - Document any keys added in this fork (e.g. SDL backend, new paths). Leave a section for future additions so new config can be clearly marked.
 

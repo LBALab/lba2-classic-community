@@ -394,7 +394,8 @@ void BoxBlitStaticListToScreen() {
 
 void BoxBlit() {
     S32 SaveClipXMin, SaveClipYMin, SaveClipXMax, SaveClipYMax;
-    S32 x0, y0, x1, y1;
+    /* Safe defaults if mouse cursor graphic is missing (restore block must not use garbage). */
+    S32 x0 = 0, y0 = 0, x1 = -1, y1 = -1;
 
     ManageEvents();
 
@@ -405,7 +406,7 @@ void BoxBlit() {
                            &pBoxStaticList); // add static boxes and clear
     }
 
-    if (FlagMouse) // Display mouse
+    if (MouseSpriteShouldDraw()) // Display mouse (see MOUSE.CPP)
     {
         S32 sx, sy;
 
@@ -476,7 +477,7 @@ void BoxBlit() {
 
     UnlockVideoSurface(); // Release screen
 
-    if (FlagMouse && (x1 > x0) && (y1 > y0)) // remove sprite from Log
+    if (MouseSpriteShouldDraw() && (x1 > x0) && (y1 > y0)) // remove sprite from Log
     {
         // Clean Log
         RestoreBlock(Log, BufferSprite, x0, y0, x1 - 1, y1 - 1);
