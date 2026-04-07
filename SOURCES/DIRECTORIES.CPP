@@ -198,15 +198,35 @@ void EndDirectories() { directoriesInitialized = false; }
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir) {
-    /* Always query the OS; cwd may change (e.g. tests) and must not be cached. */
+#ifndef LBA2_BUILD_TESTS
+    static bool initialized = false;
+    static char cachedDir[ADELINE_MAX_PATH] = "";
+    if (initialized) {
+        strncpy(outDir, cachedDir, ADELINE_MAX_PATH);
+        return;
+    }
+#endif
+
     char *sdlBasePath = SDL_GetCurrentDirectory();
     if (sdlBasePath == NULL) {
+        outDir[0] = '\0';
+        return;
+    }
+    if (SDL_strlen(sdlBasePath) >= ADELINE_MAX_PATH) {
+        LogPrintf("Error: Current directory path too long (>= %d)\n",
+                  ADELINE_MAX_PATH);
+        SDL_free(sdlBasePath);
         outDir[0] = '\0';
         return;
     }
     strncpy(outDir, sdlBasePath, ADELINE_MAX_PATH);
     outDir[ADELINE_MAX_PATH - 1] = '\0';
     SDL_free(sdlBasePath);
+
+#ifndef LBA2_BUILD_TESTS
+    strncpy(cachedDir, outDir, ADELINE_MAX_PATH);
+    initialized = true;
+#endif
 }
 
 void GetDefaultUserDir(char *outDir) {

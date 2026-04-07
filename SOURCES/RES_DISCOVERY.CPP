@@ -152,8 +152,11 @@ bool TryJoinBaseSub(const char *base, const char *sub, char *outDir, U16 outMax,
     if (sub == NULL || sub[0] == '\0') {
         return NormalizeAndTry(baseBuf, outDir, outMax, tried, triedCount);
     }
-    snprintf(buf, ADELINE_MAX_PATH, "%s%s%s", baseBuf, sub, ADELINE_PATH_SEP);
-    buf[ADELINE_MAX_PATH - 1] = '\0';
+    int n = snprintf(buf, ADELINE_MAX_PATH, "%s%s%s", baseBuf, sub,
+                     ADELINE_PATH_SEP);
+    if (n < 0 || (size_t)n >= ADELINE_MAX_PATH) {
+        return false;
+    }
     return NormalizeAndTry(buf, outDir, outMax, tried, triedCount);
 }
 
@@ -199,8 +202,11 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
             continue;
         }
         char childPath[ADELINE_MAX_PATH];
-        snprintf(childPath, ADELINE_MAX_PATH, "%s%s", parent, ent->d_name);
-        childPath[ADELINE_MAX_PATH - 1] = '\0';
+        int cn = snprintf(childPath, ADELINE_MAX_PATH, "%s%s", parent,
+                          ent->d_name);
+        if (cn < 0 || (size_t)cn >= ADELINE_MAX_PATH) {
+            continue;
+        }
         if (!IsDirectory(childPath)) {
             continue;
         }
@@ -290,10 +296,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
     {
         char rel[ADELINE_MAX_PATH];
-        snprintf(rel, ADELINE_MAX_PATH, "%s%s%s", walk, "data", ADELINE_PATH_SEP);
-        rel[ADELINE_MAX_PATH - 1] = '\0';
-        if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
-            return true;
+        int n = snprintf(rel, ADELINE_MAX_PATH, "%s%s%s", walk, "data",
+                         ADELINE_PATH_SEP);
+        if (n > 0 && (size_t)n < ADELINE_MAX_PATH) {
+            if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
+                return true;
+            }
         }
     }
 
@@ -302,11 +310,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
     {
         char rel[ADELINE_MAX_PATH];
-        snprintf(rel, ADELINE_MAX_PATH, "%s..%s%s%s", walk, ADELINE_PATH_SEP, "LBA2",
-                 ADELINE_PATH_SEP);
-        rel[ADELINE_MAX_PATH - 1] = '\0';
-        if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
-            return true;
+        int n = snprintf(rel, ADELINE_MAX_PATH, "%s..%s%s%s", walk,
+                         ADELINE_PATH_SEP, "LBA2", ADELINE_PATH_SEP);
+        if (n > 0 && (size_t)n < ADELINE_MAX_PATH) {
+            if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
+                return true;
+            }
         }
     }
 
@@ -315,11 +324,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
     {
         char rel[ADELINE_MAX_PATH];
-        snprintf(rel, ADELINE_MAX_PATH, "%s..%s%s%s", walk, ADELINE_PATH_SEP, "game",
-                 ADELINE_PATH_SEP);
-        rel[ADELINE_MAX_PATH - 1] = '\0';
-        if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
-            return true;
+        int n = snprintf(rel, ADELINE_MAX_PATH, "%s..%s%s%s", walk,
+                         ADELINE_PATH_SEP, "game", ADELINE_PATH_SEP);
+        if (n > 0 && (size_t)n < ADELINE_MAX_PATH) {
+            if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
+                return true;
+            }
         }
     }
 

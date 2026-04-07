@@ -18,11 +18,7 @@ void GetDefaultUserDir(char *outDir);    ///< Path for user writable data
 void GetDefaultResDir(char *outDir);     ///< Path for game resources
 
 /// True if \p path is a directory containing lba2.hqr (case-discovered).
-#ifdef __cplusplus
 bool IsValidResourceDir(const char *path);
-#else
-int IsValidResourceDir(const char *path);
-#endif
 
 void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 

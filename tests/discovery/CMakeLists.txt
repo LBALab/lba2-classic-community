@@ -16,6 +16,7 @@ target_include_directories(test_res_discovery PRIVATE
 target_link_libraries(test_res_discovery PRIVATE sys SDL3::SDL3)
 
 target_compile_definitions(test_res_discovery PRIVATE
+    LBA2_BUILD_TESTS
     "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
 )
 
