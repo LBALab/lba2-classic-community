@@ -15,6 +15,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include "FOLLOWCAM_CFG.H"
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
@@ -1916,7 +1917,7 @@ S32 GereExtKeys(U32 key)
     S32 savetimer;
     S32 savetimer2;
 
-    if (CubeMode != CUBE_EXTERIEUR OR !key)
+    if (CubeMode != CUBE_EXTERIEUR OR(!key AND !FollowCamera))
         return (FALSE);
 
     savetimer = TimerRefHR;
@@ -2176,21 +2177,59 @@ S32 GereExtKeys(U32 key)
 #endif
 
     if (Input & I_CAMERA_LEVEL_MOINS) {
-        if (VueCamera > 0) {
-            VueCamera--;
+        if (FollowCamera) {
+            if (AlphaCam > FOLLOW_CAM_ALPHA_MIN)
+                AlphaCam -= FOLLOW_CAM_ALPHA_STEP;
             FirstTime = AFF_ALL_FLIP;
-            CameraCenter(2);
+        } else {
+            if (VueCamera > 0) {
+                VueCamera--;
+                FirstTime = AFF_ALL_FLIP;
+                CameraCenter(2);
+            }
+            InitWaitNoInput(I_CAMERA_LEVEL_MOINS);
         }
-        InitWaitNoInput(I_CAMERA_LEVEL_MOINS);
     }
 
     if (Input & I_CAMERA_LEVEL_PLUS) {
-        if (VueCamera < NB_VUE_CAMERA - 1) {
-            VueCamera++;
+        if (FollowCamera) {
+            if (AlphaCam < FOLLOW_CAM_ALPHA_MAX)
+                AlphaCam += FOLLOW_CAM_ALPHA_STEP;
             FirstTime = AFF_ALL_FLIP;
-            CameraCenter(2);
+        } else {
+            if (VueCamera < NB_VUE_CAMERA - 1) {
+                VueCamera++;
+                FirstTime = AFF_ALL_FLIP;
+                CameraCenter(2);
+            }
+            InitWaitNoInput(I_CAMERA_LEVEL_PLUS);
         }
-        InitWaitNoInput(I_CAMERA_LEVEL_PLUS);
+    }
+
+    if (FollowCamera) {
+        if (CheckKey(K_LBRACKET)) {
+            AddBetaCam = (AddBetaCam - FOLLOW_CAM_PAN_STEP) & 4095;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
+        if (CheckKey(K_RBRACKET)) {
+            AddBetaCam = (AddBetaCam + FOLLOW_CAM_PAN_STEP) & 4095;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
+        /* Zoom: numpad / = closer, numpad * = further */
+        if (CheckKey(K_NUMPAD_DIV)) {
+            if (FollowCamBaseDist > FOLLOW_CAM_DIST_MIN)
+                FollowCamBaseDist -= FOLLOW_CAM_ZOOM_STEP;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
+        if (CheckKey(K_NUMPAD_MUL)) {
+            if (FollowCamBaseDist < FOLLOW_CAM_DIST_MAX)
+                FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
+            FirstTime = AFF_ALL_FLIP;
+            flag = 1;
+        }
     }
 #endif
 

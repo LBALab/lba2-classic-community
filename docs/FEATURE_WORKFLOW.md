@@ -85,24 +85,15 @@ Truth hierarchy: **code > this document > external sources**.
 1. **AGENTS.md:** Documentation first → use GLOSSARY, LIFECYCLES before inferring from code.
 
 2. **Read first:**
+   - [docs/CAMERA.md](CAMERA.md) — Interior vs exterior paths, `CameraCenter`, `SearchCameraPos`, Auto camera / `FollowCamera` (community).
    - [docs/GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera. `AllCameras` in CONFIG.
    - [docs/LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: "Initialize camera position". Main loop step 7: `AffScene` (render).
-   - [docs/MENU.md](MENU.md) — Options → Cameras (46/47), toggles `AllCameras`.
-   - [docs/CONFIG.md](CONFIG.md) — `AllCameras` 0=OFF, 1=ON.
+   - [docs/MENU.md](MENU.md) — Options → Cameras (46/47), toggles `AllCameras`; Advanced options for Auto camera (`FollowCamera`).
+   - [docs/CONFIG.md](CONFIG.md) — `AllCameras`, `FollowCamera` (Auto camera), legacy `AutoCameraCenter`.
 
-3. **Gap in docs:** No dedicated CAMERA.md. Camera logic is spread across:
-   - Zone type 1 (camera zones in scenes)
-   - `AffScene` (rendering uses camera)
-   - OBJECT.CPP (ChangeCube initializes camera)
-   - Projection globals (LIB386/3D/PROJ — `XCentre`, `YCentre`, `NearClip`, etc.)
+3. **Also in code:** Zone type 1 (camera zones), `AffScene` / projection, `ChangeCube`/`OBJECT.CPP` for camera init, projection globals (`LIB386/3D/PROJ` — `XCentre`, `YCentre`, `NearClip`, etc.).
 
-4. **Docs to create:** If doing camera work, add `docs/CAMERA.md`:
-   - Camera position source (hero-follow? zone-triggered?)
-   - Projection setup (PROJ.CPP, SetProjection, SetIsoProjection)
-   - Zone type 1 behavior (CheckZoneSce)
-   - `AllCameras` effect (scenario cameras vs fixed)
-
-5. **Code locations:** Search for `Camera`, `Alpha`, `Beta`, `Gamma` (view angles), `XCentre`, `YCentre`, projection globals.
+4. **Code locations:** Search for `Camera`, `Alpha`, `Beta`, `Gamma` (view angles), `XCentre`, `YCentre`, projection globals.
 
 ---
 
