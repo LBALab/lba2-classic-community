@@ -197,6 +197,8 @@ extern S32 Island;
 extern S32 Planet;
 
 extern S32 AllCameras;
+extern S32 FollowCamera;
+extern S32 FollowCamBaseDist;
 extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;
