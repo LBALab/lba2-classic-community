@@ -3,6 +3,9 @@
 CMakeUserPresets.json
 out/
 build/
+
+# Local retail drop (symlink or copy classic data here; never commit assets)
+/data/
 /build_test
 /build_logs/
 .tmp/

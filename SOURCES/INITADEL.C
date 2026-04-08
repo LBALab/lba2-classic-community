@@ -23,6 +23,14 @@
 
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
+#ifdef __cplusplus
+}
+#endif
 #include <unistd.h>
 
 // -----------------------------------------------------------------------------
@@ -105,14 +113,20 @@ void InitAdeline(S32 argc, char *argv[]) {
         char PathDefaultConfigFile[ADELINE_MAX_PATH];
         GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
         if (!ExistsFileOrDir(PathDefaultConfigFile)) {
-            LogPrintf("Error: Can't find default config file %s\n\n", PathDefaultConfigFile);
-            exit(1);
-        }
+            LogPuts("Default config not in assets folder; writing embedded template...");
 
-        const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
-        if (!copyResult) {
-            LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n", PathDefaultConfigFile, PathConfigFile);
-            exit(1);
+            if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
+                LogPrintf("Error: Can't write embedded default config to '%s'\n\n",
+                          PathConfigFile);
+                exit(1);
+            }
+        } else {
+            const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
+            if (!copyResult) {
+                LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n",
+                          PathDefaultConfigFile, PathConfigFile);
+                exit(1);
+            }
         }
     }
 
