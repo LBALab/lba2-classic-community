@@ -2,6 +2,7 @@
 
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
+#include "RES_DISCOVERY.H"
 #include "INPUT.H"
 #ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
@@ -2015,13 +2016,24 @@ int main(int argc, char *argv[]) {
     MemoDosMemory = DosAvailableMem(); // Dos memory at start
 #endif
 
+    /* SDL filesystem APIs (GetDefaultUserDir, ResolveGameDataDir) require SDL
+     * to be initialized before use. */
+    if (!SDL_Init(0)) {
+        LogPrintf("SDL_Init failed: %s\n", SDL_GetError());
+        exit(EXIT_FAILURE);
+    }
+
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char userFolderPath[ADELINE_MAX_PATH] = "";
 
-        // TODO: Implement set folders by command line arguments
-        GetDefaultResDir(resFolderPath);
         GetDefaultUserDir(userFolderPath);
+
+        if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
+            /* Do not SDL_Quit() here: SDL3 can double-free in SDL_QuitFilesystem
+             * when shutting down after early filesystem API use; exiting is enough. */
+            exit(EXIT_FAILURE);
+        }
 
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
                         DistribVersion);

@@ -19,7 +19,7 @@ If you have an idea, you can [create a feature request](https://github.com/2poin
 1. Fork the repository
 2. Create a feature branch from `main`
 3. Make your changes
-4. Run `./run_tests_docker.sh` before submitting (or N/A if docs-only). CI will catch failures, but local run saves round-trips.
+4. Run `./run_tests_docker.sh` before submitting (or N/A if docs-only). CI will catch failures, but local run saves round-trips. PRs also run **host** discovery tests (`test_res_discovery`) on **Linux, macOS, and Windows** plus **format**; full ASM equivalence is the Docker workflow on Linux.
 5. Submit a pull request
 
 PRs and pushes run build checks on **Linux**, **Windows** (MSYS2 UCRT64), and **macOS** (arm64); see `.github/workflows/`. Equivalence tests still run in Docker on Linux only (`test.yml`).
@@ -34,6 +34,8 @@ cmake --build build
 ```
 
 The default build includes SDL3-based audio and Smacker FMV playback. Override with `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for a minimal build; see the build options table in the README.
+
+To **run** the game you need retail data (not in the repo); see [docs/GAME_DATA.md](docs/GAME_DATA.md).
 
 ### Code Style
 

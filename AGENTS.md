@@ -51,7 +51,9 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 ## Build & Test
 
 - **Build:** `cmake -B build && cmake --build build`. Or use presets for your platform: `cmake --preset <preset> && cmake --build --preset <preset>` — `linux`, `macos_arm64`, `macos_x86_64`, `windows_ucrt64` (see `CMakePresets.json`).
+- **Game data:** Retail files are not in the repo. See `docs/GAME_DATA.md`. Set `LBA2_GAME_DIR`, use `--game-dir`, or place data in `./data` / `../LBA2` relative to the repo. From anywhere in the clone: `./scripts/dev/build-and-run.sh` or `make run` (repo root).
 - **Tests:** Run via Docker: `./run_tests_docker.sh`. Works on Linux, macOS (Docker + QEMU), and Windows (Docker Desktop). Tests require 32-bit x86 + UASM inside the container.
+- **Host discovery tests:** `make test` / `make test-discovery` (or `ctest -R test_res_discovery` after configure with `-DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`). No Docker, no retail files. CI runs these on Linux, macOS, and Windows (see `.github/workflows/*.yml`).
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
 - **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.
@@ -68,7 +70,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update ASM_VALIDATION_PROGRESS | docs/TESTING.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Debug tools | DEBUG_TOOLS, CONSOLE_MODULE | docs/DEBUG.md, docs/CONSOLE.md |
-| Config / lba2.cfg | Keys, persistence, installer vs game | docs/CONFIG.md |
+| Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 2 |

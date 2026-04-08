@@ -42,6 +42,7 @@ endif ()
 
 # Testing options
 option(LBA2_BUILD_TESTS "Build test suites" OFF)
+option(LBA2_BUILD_ASM_EQUIV_TESTS "Build ASM↔CPP equivalence tests (requires objcopy; use OFF for host-only discovery tests)" ON)
 option(ENABLE_POLY_RECORDING "Enable polygon call recording for ASM-vs-CPP testing" OFF)
 
 # Debug tools (original Adeline developer debug features)

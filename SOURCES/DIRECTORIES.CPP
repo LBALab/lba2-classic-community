@@ -1,7 +1,6 @@
 #include "DIRECTORIES.H"
 
-#include "DEFINES.H"
-
+#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOGPRINT.H>
@@ -10,7 +9,15 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
+
+#ifndef UNKNOWN_VERSION
+#define UNKNOWN_VERSION 0
+#endif
+#ifndef EA_VERSION
+#define EA_VERSION 3
+#endif
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -191,20 +198,35 @@ void EndDirectories() { directoriesInitialized = false; }
 
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir) {
+#ifndef LBA2_BUILD_TESTS
     static bool initialized = false;
-    static char runDir[ADELINE_MAX_PATH] = "";
-
-    if (!initialized) {
-        initialized = true;
-
-        char *sdlBasePath = SDL_GetCurrentDirectory();
-        strncpy(runDir, sdlBasePath, ADELINE_MAX_PATH);
-        runDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-
-        SDL_free(sdlBasePath);
+    static char cachedDir[ADELINE_MAX_PATH] = "";
+    if (initialized) {
+        strncpy(outDir, cachedDir, ADELINE_MAX_PATH);
+        return;
     }
+#endif
 
-    strncpy(outDir, runDir, ADELINE_MAX_PATH);
+    char *sdlBasePath = SDL_GetCurrentDirectory();
+    if (sdlBasePath == NULL) {
+        outDir[0] = '\0';
+        return;
+    }
+    if (SDL_strlen(sdlBasePath) >= ADELINE_MAX_PATH) {
+        LogPrintf("Error: Current directory path too long (>= %d)\n",
+                  ADELINE_MAX_PATH);
+        SDL_free(sdlBasePath);
+        outDir[0] = '\0';
+        return;
+    }
+    strncpy(outDir, sdlBasePath, ADELINE_MAX_PATH);
+    outDir[ADELINE_MAX_PATH - 1] = '\0';
+    SDL_free(sdlBasePath);
+
+#ifndef LBA2_BUILD_TESTS
+    strncpy(cachedDir, outDir, ADELINE_MAX_PATH);
+    initialized = true;
+#endif
 }
 
 void GetDefaultUserDir(char *outDir) {

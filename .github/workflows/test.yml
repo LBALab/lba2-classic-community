@@ -1,4 +1,4 @@
-name: Tests
+name: Tests (Docker ASM equivalence)
 on: [push, pull_request, workflow_dispatch]
 
 concurrency:
@@ -6,6 +6,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Job id must stay `test` — branch protection on main requires this check name.
   test:
     runs-on: ubuntu-latest
 
@@ -13,5 +14,5 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@v5
 
-      - name: Run tests in Docker
+      - name: Run ASM vs C++ equivalence tests in Docker
         run: ./run_tests_docker.sh

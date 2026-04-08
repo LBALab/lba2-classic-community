@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.23)
 
 enable_testing()
 
+add_subdirectory(discovery)
+
+if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
 
 add_asm_cpp_test(
@@ -71,3 +74,5 @@ add_subdirectory(OBJECT)
 add_subdirectory(SNAPSHOT)
 add_subdirectory(fpu_precision)
 add_subdirectory(VIDEO_AUDIO)
+
+endif()
