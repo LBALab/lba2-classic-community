@@ -24,6 +24,9 @@ extern const void *MouseSpriteGraphic; ///< Memory of graphic for mouse cursor
 /// True when the software cursor should be composited this frame (respects idle hide).
 bool MouseSpriteShouldDraw(void);
 
+/// True when mouse has moved since last call (edge-consuming).
+bool MouseConsumeMotionFlag(void);
+
 // --- Initialization ----------------------------------------------------------
 void InitMouse();
 void EndMouse();

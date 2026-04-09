@@ -1290,8 +1290,10 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             S32 hitSel = -1;
             S32 cur, leftDown, prevLeft, leftDownEdge, leftUpEdge, relSel;
             S32 wy;
+            bool saveMoved;
 
             GameMenuMousePollFocus();
+            saveMoved = MouseConsumeMotionFlag();
             cur = Click;
             leftDown = (cur & 1) != 0;
             prevLeft = (save_prev_click & 1) != 0;
@@ -1299,7 +1301,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             leftUpEdge = !leftDown && prevLeft;
             save_prev_click = cur;
 
-            if (GameMenuSaveListHitTest(MouseX, MouseY, nb, start, &hitSel)) {
+            if (saveMoved && GameMenuSaveListHitTest(MouseX, MouseY, nb, start, &hitSel)) {
                 if (!leftDown && save_press < 0 && hitSel != select) {
                     select = hitSel;
                     flag = 1;

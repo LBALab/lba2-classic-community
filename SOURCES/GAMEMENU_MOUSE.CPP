@@ -2,7 +2,6 @@
 
 #include "C_EXTERN.H"
 
-#include <SYSTEM/HQRRESS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -24,23 +23,7 @@ void GameMenuMouseResetPress(void) {
 }
 
 void MenuMouseApplyCursorSprite(void) {
-    extern T_HQR_HEADER *HQRPtrSprite;
-
-    if (HQRPtrSprite == NULL) {
-        InitMouse();
-        return;
-    }
-
-    {
-        const U8 *g = (const U8 *)HQR_Get(HQRPtrSprite, (U32)MENU_MOUSE_SPRITE_HQR_INDEX);
-
-        if (g == NULL) {
-            InitMouse();
-            return;
-        }
-        MouseSpriteGraphic = g;
-        MouseSpriteGraphicNum = 0;
-    }
+    /* No-op: menus use the default BinGphMouse arrow set by InitMouse(). */
 }
 
 void MenuMouseAcquire(void) {
@@ -48,7 +31,6 @@ void MenuMouseAcquire(void) {
         return;
     s_menuMouseRefCount++;
     if (s_menuMouseRefCount == 1) {
-        MenuMouseApplyCursorSprite();
         ShowMouseAfterFirstMotion();
     }
 }
@@ -125,11 +107,13 @@ S32 GameMenuMouseProcessDoGameMenu(U16 *ptrmenu, S16 *selected, S32 *flag) {
     S32 leftUpEdge;
     S32 rel;
     S32 mess;
+    bool mouseMoved;
 
     if (!FlagMenuMouse || s_menuMouseRefCount <= 0)
         return -1;
 
     GameMenuMousePollFocus();
+    mouseMoved = MouseConsumeMotionFlag();
 
     cur = Click;
     leftDown = (cur & 1) != 0;
@@ -158,7 +142,8 @@ S32 GameMenuMouseProcessDoGameMenu(U16 *ptrmenu, S16 *selected, S32 *flag) {
             ptrmenu[0] = *selected;
         }
     } else if (!leftDown && s_pressRow < 0) {
-        if (row >= 0 && row != *selected) {
+        /* Hover: only update selection when the mouse actually moved. */
+        if (mouseMoved && row >= 0 && row != *selected) {
             *selected = row;
             *flag = 1;
             ptrmenu[0] = *selected;

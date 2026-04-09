@@ -35,6 +35,7 @@ volatile S32 MouseWheelYAccum = 0;
 
 static bool s_showSpriteAfterFirstMotion = false;
 static Uint32 s_lastPointerActivityMs = 0;
+static bool s_mouseMotionFlag = false;
 
 static void MousePointerMarkActivity(void) {
     s_lastPointerActivityMs = SDL_GetTicks();
@@ -71,6 +72,12 @@ bool MouseSpriteShouldDraw(void) {
             return false;
     }
     return true;
+}
+
+bool MouseConsumeMotionFlag(void) {
+    bool v = s_mouseMotionFlag;
+    s_mouseMotionFlag = false;
+    return v;
 }
 
 // --- Interface ---------------------------------------------------------------
@@ -161,6 +168,7 @@ void HandleEventsMouse(const void *event) {
         SetMousePos((U32)curX, (U32)curY);
 
         MousePointerMarkActivity();
+        s_mouseMotionFlag = true;
 
         if (s_showSpriteAfterFirstMotion) {
             s_showSpriteAfterFirstMotion = false;
