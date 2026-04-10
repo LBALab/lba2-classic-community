@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "FOLLOWCAM_CFG.H"
 
 /*══════════════════════════════════════════════════════════════════════════*
 			 █▀▀▀█ █▀▀▀▀ █▀▀▀█ ██▀▀▀ █▀▀▀█
@@ -200,6 +201,14 @@ S32 ExtraConque = -1; // Numero extra visant Twinsen (avec Conque)
 S32 AllCameras = TRUE;
 S32 FollowCamera = FALSE;
 S32 FollowCamBaseDist = 0; /* player's chosen zoom distance (0 = uninitialised) */
+S32 FlagMouseCamera = TRUE;
+S32 FlagMouseCameraDrag = TRUE; /* 0=free orbit on move, 1=require right-drag */
+S32 MouseCameraSensX = MOUSE_CAM_SENS_DEFAULT;
+S32 MouseCameraSensY = MOUSE_CAM_SENS_DEFAULT;
+S32 MouseCameraInvertY = FALSE;
+S32 MouseCameraDivisor = MOUSE_CAM_DIVISOR_DEFAULT;
+S32 MouseCameraSmoothing = MOUSE_CAM_SMOOTHING_DEFAULT;
+S32 MouseCameraOrbitActive = FALSE;
 S32 ReverseStereo = FALSE;
 S32 Island = 0;
 S32 Planet = 0;

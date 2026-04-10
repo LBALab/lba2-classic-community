@@ -179,12 +179,14 @@ void HandleEventsMouse(const void *event) {
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         MousePointerMarkActivity();
         Click |= (sdlEvent->button.button == 1) ? 1 : 0;
+        Click |= (sdlEvent->button.button == 2) ? 4 : 0;
         Click |= (sdlEvent->button.button == 3) ? 2 : 0;
         break;
 
     case SDL_EVENT_MOUSE_BUTTON_UP:
         MousePointerMarkActivity();
         Click &= (sdlEvent->button.button == 1) ? ~1 : Click;
+        Click &= (sdlEvent->button.button == 2) ? ~4 : Click;
         Click &= (sdlEvent->button.button == 3) ? ~2 : Click;
         break;
 
