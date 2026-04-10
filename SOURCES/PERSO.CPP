@@ -68,7 +68,7 @@ static S32 FollowCamPrevHeroBeta = 0;
 static S32 FollowCamPrevAddBeta = 0;   /* dirty check: last seen AddBetaCam */
 static S32 FollowCamEffectiveDist = 0; /* spring arm: smoothed distance (0 = uninitialised) */
 static S32 FollowCamTargetBeta = 0;    /* rotation lag: desired BetaCam */
-S32 FollowCamReengageDelay = 0; /* frames before auto-center resumes after manual pan */
+S32 FollowCamReengageDelay = 0;        /* frames before auto-center resumes after manual pan */
 static S32 FollowCamPrevBaseDist = -1; /* dirty: zoom from GereExtKeys (numpad * /) */
 static S32 FollowCamPrevAlphaCam = -1; /* dirty: numpad +/- elevation while follow */
 
