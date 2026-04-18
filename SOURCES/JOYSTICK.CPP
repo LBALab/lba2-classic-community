@@ -7,9 +7,32 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gamepad.h>
 
+#include <math.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// Stick-feel tunables. Cardinal-snap widens the band where the stick emits a
+// pure cardinal (vs. an 8-way diagonal); hysteresis prevents frame-to-frame
+// flicker when the stick angle sits on an octant boundary (which otherwise
+// causes zig-zag under auto-camera).
+static const float CARDINAL_SNAP_DEG = 25.0f;
+static const float STICK_HYSTERESIS_DEG = 4.0f;
+
+enum StickDir {
+    DIR_NEUTRAL = 0,
+    DIR_N,
+    DIR_NE,
+    DIR_E,
+    DIR_SE,
+    DIR_S,
+    DIR_SW,
+    DIR_W,
+    DIR_NW,
+};
+static StickDir s_prevLeftDir = DIR_NEUTRAL;
+static StickDir s_prevRightDir = DIR_NEUTRAL;
 
 //***************************************************************************
 S32 FlagJoystick = 1;
@@ -119,12 +142,107 @@ void HandleEventsJoystick(const void *event) {
             s_gamepad = NULL;
             s_gamepadId = 0;
             ClearGamepadBits();
+            s_prevLeftDir = DIR_NEUTRAL;
+            s_prevRightDir = DIR_NEUTRAL;
             OpenFirstAvailableGamepad();
         }
         break;
     default:
         break;
     }
+}
+
+//***************************************************************************
+// Convert an analog stick position (SDL axis units, Y+ = down) into at most
+// two virtual direction keys. Three-layer conversion:
+//  1. Radial deadzone: magnitude < JoystickDeadzone → neutral.
+//  2. Cardinal snap: within CARDINAL_SNAP_DEG of a cardinal, emit only that
+//     cardinal (prevents accidental diagonals from slight off-axis tilt).
+//  3. Hysteresis: the previous sector's band is widened by STICK_HYSTERESIS_DEG
+//     so single-frame oscillation at an octant boundary doesn't flicker the
+//     emitted direction (which otherwise causes zig-zag under auto-camera).
+static void ApplyStickDirection(S16 x, S16 y, U32 keyLeft, U32 keyRight,
+                                U32 keyUp, U32 keyDown, StickDir *prevState) {
+    float fx = (float)x;
+    float fy = (float)y;
+    float mag2 = fx * fx + fy * fy;
+    float dz = (float)JoystickDeadzone;
+    if (mag2 < dz * dz) {
+        *prevState = DIR_NEUTRAL;
+        return;
+    }
+
+    // atan2(-y, x): 0° = east, 90° = north (SDL Y+ = down, so negate).
+    float deg = atan2f(-fy, fx) * (180.0f / (float)M_PI);
+    while (deg < 0.0f)
+        deg += 360.0f;
+
+    // Sectors: 0=E, 1=NE, 2=N, 3=NW, 4=W, 5=SW, 6=S, 7=SE. Center = i*45°.
+    // Cardinals (even i) get CARDINAL_SNAP_DEG half-width; diagonals get the
+    // remainder (45 - CARDINAL_SNAP_DEG). Sum = 360°.
+    int sector = -1;
+
+    // Check previous sector first with hysteresis widening.
+    if (*prevState != DIR_NEUTRAL) {
+        int prev = (int)(*prevState) - 1;
+        bool isCard = (prev % 2) == 0;
+        float halfWidth = isCard ? CARDINAL_SNAP_DEG : (45.0f - CARDINAL_SNAP_DEG);
+        float diff = fabsf(deg - prev * 45.0f);
+        if (diff > 180.0f)
+            diff = 360.0f - diff;
+        if (diff <= halfWidth + STICK_HYSTERESIS_DEG) {
+            sector = prev;
+        }
+    }
+    if (sector < 0) {
+        for (int i = 0; i < 8; i++) {
+            bool isCard = (i % 2) == 0;
+            float halfWidth = isCard ? CARDINAL_SNAP_DEG : (45.0f - CARDINAL_SNAP_DEG);
+            float diff = fabsf(deg - i * 45.0f);
+            if (diff > 180.0f)
+                diff = 360.0f - diff;
+            if (diff <= halfWidth) {
+                sector = i;
+                break;
+            }
+        }
+    }
+    if (sector < 0) {
+        *prevState = DIR_NEUTRAL;
+        return;
+    }
+
+    switch (sector) {
+    case 0:
+        SetVirtualKeyDown(keyRight);
+        break;
+    case 1:
+        SetVirtualKeyDown(keyRight);
+        SetVirtualKeyDown(keyUp);
+        break;
+    case 2:
+        SetVirtualKeyDown(keyUp);
+        break;
+    case 3:
+        SetVirtualKeyDown(keyLeft);
+        SetVirtualKeyDown(keyUp);
+        break;
+    case 4:
+        SetVirtualKeyDown(keyLeft);
+        break;
+    case 5:
+        SetVirtualKeyDown(keyLeft);
+        SetVirtualKeyDown(keyDown);
+        break;
+    case 6:
+        SetVirtualKeyDown(keyDown);
+        break;
+    case 7:
+        SetVirtualKeyDown(keyRight);
+        SetVirtualKeyDown(keyDown);
+        break;
+    }
+    *prevState = (StickDir)(sector + 1);
 }
 
 //***************************************************************************
@@ -191,23 +309,14 @@ void UpdateJoystick(void) {
     S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
     S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
+    ApplyStickDirection(lx, ly, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
+                        K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
+                        &s_prevLeftDir);
+    ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
+                        K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
+                        &s_prevRightDir);
+
     S16 dz = (S16)JoystickDeadzone;
-    if (lx < -dz)
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_LEFT);
-    if (lx > dz)
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_RIGHT);
-    if (ly < -dz)
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_UP); // SDL Y is +down
-    if (ly > dz)
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_DOWN);
-    if (rx < -dz)
-        SetVirtualKeyDown(K_GAMEPAD_RSTICK_LEFT);
-    if (rx > dz)
-        SetVirtualKeyDown(K_GAMEPAD_RSTICK_RIGHT);
-    if (ry < -dz)
-        SetVirtualKeyDown(K_GAMEPAD_RSTICK_UP);
-    if (ry > dz)
-        SetVirtualKeyDown(K_GAMEPAD_RSTICK_DOWN);
     if (lt > dz)
         SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
     if (rt > dz)
