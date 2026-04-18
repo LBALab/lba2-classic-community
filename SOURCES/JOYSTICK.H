@@ -9,8 +9,8 @@ extern "C" {
 #endif
 
 /*--------------------------------------------------------------------------*/
-extern S32 FlagJoystick;      // GamepadEnabled config
-extern S32 JoystickDeadzone;  // GamepadDeadzone config, SDL axis units (0..32767)
+extern S32 FlagJoystick;     // GamepadEnabled config
+extern S32 JoystickDeadzone; // GamepadDeadzone config, SDL axis units (0..32767)
 
 /*--------------------------------------------------------------------------*/
 void InitJoystick(void);

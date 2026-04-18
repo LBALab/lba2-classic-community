@@ -30,7 +30,7 @@ static U32 s_firstPressedThisFrame = 0;
 // Writing into TabKeys here lets CheckKey() / GetInput() consume gamepad
 // state with no special-casing in LIB386.
 #define PAD_KEY_INDEX(x) (256 - 32 + ((x) >> 3))
-#define PAD_KEY_BIT(x)   (1 << ((x) & 7))
+#define PAD_KEY_BIT(x) (1 << ((x) & 7))
 
 static inline void SetVirtualKeyDown(U32 scancode) {
     TabKeys[PAD_KEY_INDEX(scancode)] |= (U8)PAD_KEY_BIT(scancode);
@@ -40,7 +40,7 @@ static inline void SetVirtualKeyDown(U32 scancode) {
 // writing fresh state, because keyboard polling only clears TabKeys[0..255].
 static inline void ClearGamepadBits(void) {
     U32 first = PAD_KEY_INDEX(K_GAMEPAD_BASE);
-    U32 last  = PAD_KEY_INDEX(K_GAMEPAD_BASE + K_GAMEPAD_COUNT - 1);
+    U32 last = PAD_KEY_INDEX(K_GAMEPAD_BASE + K_GAMEPAD_COUNT - 1);
     for (U32 i = first; i <= last; i++) {
         TabKeys[i] = 0;
     }
@@ -103,27 +103,27 @@ void DetectJoys(void) {
 void HandleEventsJoystick(const void *event) {
     const SDL_Event *ev = (const SDL_Event *)event;
     switch (ev->type) {
-        case SDL_EVENT_GAMEPAD_ADDED:
-            if (s_gamepad == NULL) {
-                SDL_Gamepad *pad = SDL_OpenGamepad(ev->gdevice.which);
-                if (pad != NULL) {
-                    s_gamepad = pad;
-                    s_gamepadId = ev->gdevice.which;
-                    LogPrintf("Gamepad hot-plugged: %s\n", SDL_GetGamepadName(pad));
-                }
+    case SDL_EVENT_GAMEPAD_ADDED:
+        if (s_gamepad == NULL) {
+            SDL_Gamepad *pad = SDL_OpenGamepad(ev->gdevice.which);
+            if (pad != NULL) {
+                s_gamepad = pad;
+                s_gamepadId = ev->gdevice.which;
+                LogPrintf("Gamepad hot-plugged: %s\n", SDL_GetGamepadName(pad));
             }
-            break;
-        case SDL_EVENT_GAMEPAD_REMOVED:
-            if (s_gamepad != NULL && s_gamepadId == ev->gdevice.which) {
-                SDL_CloseGamepad(s_gamepad);
-                s_gamepad = NULL;
-                s_gamepadId = 0;
-                ClearGamepadBits();
-                OpenFirstAvailableGamepad();
-            }
-            break;
-        default:
-            break;
+        }
+        break;
+    case SDL_EVENT_GAMEPAD_REMOVED:
+        if (s_gamepad != NULL && s_gamepadId == ev->gdevice.which) {
+            SDL_CloseGamepad(s_gamepad);
+            s_gamepad = NULL;
+            s_gamepadId = 0;
+            ClearGamepadBits();
+            OpenFirstAvailableGamepad();
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -132,7 +132,7 @@ void UpdateJoystick(void) {
     // Snapshot previous gamepad bits before clearing, so we can diff after
     // polling to detect newly-pressed scancodes.
     U32 firstByte = PAD_KEY_INDEX(K_GAMEPAD_BASE);
-    U32 lastByte  = PAD_KEY_INDEX(K_GAMEPAD_BASE + K_GAMEPAD_COUNT - 1);
+    U32 lastByte = PAD_KEY_INDEX(K_GAMEPAD_BASE + K_GAMEPAD_COUNT - 1);
     U8 prevBits[8];
     for (U32 i = firstByte; i <= lastByte; i++) {
         prevBits[i - firstByte] = TabKeys[i];
@@ -150,21 +150,21 @@ void UpdateJoystick(void) {
         U32 key;
     };
     static const ButtonMap kButtons[] = {
-        { SDL_GAMEPAD_BUTTON_SOUTH,          K_GAMEPAD_A },
-        { SDL_GAMEPAD_BUTTON_EAST,           K_GAMEPAD_B },
-        { SDL_GAMEPAD_BUTTON_WEST,           K_GAMEPAD_X },
-        { SDL_GAMEPAD_BUTTON_NORTH,          K_GAMEPAD_Y },
-        { SDL_GAMEPAD_BUTTON_BACK,           K_GAMEPAD_BACK },
-        { SDL_GAMEPAD_BUTTON_GUIDE,          K_GAMEPAD_GUIDE },
-        { SDL_GAMEPAD_BUTTON_START,          K_GAMEPAD_START },
-        { SDL_GAMEPAD_BUTTON_LEFT_STICK,     K_GAMEPAD_LSTICK_BTN },
-        { SDL_GAMEPAD_BUTTON_RIGHT_STICK,    K_GAMEPAD_RSTICK_BTN },
-        { SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,  K_GAMEPAD_LSHOULDER },
-        { SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER },
-        { SDL_GAMEPAD_BUTTON_DPAD_UP,        K_GAMEPAD_DPAD_UP },
-        { SDL_GAMEPAD_BUTTON_DPAD_DOWN,      K_GAMEPAD_DPAD_DOWN },
-        { SDL_GAMEPAD_BUTTON_DPAD_LEFT,      K_GAMEPAD_DPAD_LEFT },
-        { SDL_GAMEPAD_BUTTON_DPAD_RIGHT,     K_GAMEPAD_DPAD_RIGHT },
+        {SDL_GAMEPAD_BUTTON_SOUTH, K_GAMEPAD_A},
+        {SDL_GAMEPAD_BUTTON_EAST, K_GAMEPAD_B},
+        {SDL_GAMEPAD_BUTTON_WEST, K_GAMEPAD_X},
+        {SDL_GAMEPAD_BUTTON_NORTH, K_GAMEPAD_Y},
+        {SDL_GAMEPAD_BUTTON_BACK, K_GAMEPAD_BACK},
+        {SDL_GAMEPAD_BUTTON_GUIDE, K_GAMEPAD_GUIDE},
+        {SDL_GAMEPAD_BUTTON_START, K_GAMEPAD_START},
+        {SDL_GAMEPAD_BUTTON_LEFT_STICK, K_GAMEPAD_LSTICK_BTN},
+        {SDL_GAMEPAD_BUTTON_RIGHT_STICK, K_GAMEPAD_RSTICK_BTN},
+        {SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, K_GAMEPAD_LSHOULDER},
+        {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, K_GAMEPAD_RSHOULDER},
+        {SDL_GAMEPAD_BUTTON_DPAD_UP, K_GAMEPAD_DPAD_UP},
+        {SDL_GAMEPAD_BUTTON_DPAD_DOWN, K_GAMEPAD_DPAD_DOWN},
+        {SDL_GAMEPAD_BUTTON_DPAD_LEFT, K_GAMEPAD_DPAD_LEFT},
+        {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, K_GAMEPAD_DPAD_RIGHT},
     };
     for (size_t i = 0; i < sizeof(kButtons) / sizeof(kButtons[0]); i++) {
         if (SDL_GetGamepadButton(s_gamepad, kButtons[i].btn)) {
@@ -175,10 +175,14 @@ void UpdateJoystick(void) {
     // D-pad also lights up the LSTICK directional virtual keys, so bindings
     // that target the left stick cover the D-pad for free (standard action-game
     // convention where stick and D-pad are interchangeable for movement).
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP))    SetVirtualKeyDown(K_GAMEPAD_LSTICK_UP);
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))  SetVirtualKeyDown(K_GAMEPAD_LSTICK_DOWN);
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))  SetVirtualKeyDown(K_GAMEPAD_LSTICK_LEFT);
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT)) SetVirtualKeyDown(K_GAMEPAD_LSTICK_RIGHT);
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP))
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_UP);
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_DOWN);
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_LEFT);
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_RIGHT);
 
     S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
     S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
@@ -188,16 +192,26 @@ void UpdateJoystick(void) {
     S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
     S16 dz = (S16)JoystickDeadzone;
-    if (lx < -dz) SetVirtualKeyDown(K_GAMEPAD_LSTICK_LEFT);
-    if (lx >  dz) SetVirtualKeyDown(K_GAMEPAD_LSTICK_RIGHT);
-    if (ly < -dz) SetVirtualKeyDown(K_GAMEPAD_LSTICK_UP);   // SDL Y is +down
-    if (ly >  dz) SetVirtualKeyDown(K_GAMEPAD_LSTICK_DOWN);
-    if (rx < -dz) SetVirtualKeyDown(K_GAMEPAD_RSTICK_LEFT);
-    if (rx >  dz) SetVirtualKeyDown(K_GAMEPAD_RSTICK_RIGHT);
-    if (ry < -dz) SetVirtualKeyDown(K_GAMEPAD_RSTICK_UP);
-    if (ry >  dz) SetVirtualKeyDown(K_GAMEPAD_RSTICK_DOWN);
-    if (lt >  dz) SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
-    if (rt >  dz) SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
+    if (lx < -dz)
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_LEFT);
+    if (lx > dz)
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_RIGHT);
+    if (ly < -dz)
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_UP); // SDL Y is +down
+    if (ly > dz)
+        SetVirtualKeyDown(K_GAMEPAD_LSTICK_DOWN);
+    if (rx < -dz)
+        SetVirtualKeyDown(K_GAMEPAD_RSTICK_LEFT);
+    if (rx > dz)
+        SetVirtualKeyDown(K_GAMEPAD_RSTICK_RIGHT);
+    if (ry < -dz)
+        SetVirtualKeyDown(K_GAMEPAD_RSTICK_UP);
+    if (ry > dz)
+        SetVirtualKeyDown(K_GAMEPAD_RSTICK_DOWN);
+    if (lt > dz)
+        SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
+    if (rt > dz)
+        SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
 
     // Edge-detect: find the first bit that went 0 -> 1 this frame.
     for (U32 i = firstByte; i <= lastByte; i++) {
@@ -240,10 +254,14 @@ S32 JoystickMenuAction(void) {
     S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
     S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
     S16 dz = (S16)JoystickDeadzone;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP)    || ly < -dz) return K_UP;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN)  || ly >  dz) return K_DOWN;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT)  || lx < -dz) return K_LEFT;
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || lx >  dz) return K_RIGHT;
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP) || ly < -dz)
+        return K_UP;
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN) || ly > dz)
+        return K_DOWN;
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT) || lx < -dz)
+        return K_LEFT;
+    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT) || lx > dz)
+        return K_RIGHT;
     return 0;
 }
 

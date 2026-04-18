@@ -17,7 +17,12 @@ extern "C" {
 
 // Implemented in SOURCES/JOYSTICK.CPP. Forward-declared here so LIB386 does
 // not pull in game-side headers; the symbol is resolved at final link time.
+// A weak no-op default lets ASM-equivalence test binaries link without
+// dragging in the full gamepad translation unit.
 void HandleEventsJoystick(const void *event);
+__attribute__((weak)) void HandleEventsJoystick(const void *event) {
+    (void)event;
+}
 
 // --- Private state -----------------------------------------------------------
 bool eventSystemInitialized = false;
