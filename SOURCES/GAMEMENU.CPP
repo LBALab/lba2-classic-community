@@ -297,7 +297,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Auto camera",
         "Classic camera",
         "Controller",
-        "Game Controller",
+        "Game controller",
     },
     {
         "Choix de la langue",
