@@ -230,6 +230,24 @@ void GetKeyText(char *string, U32 scan) {
         return;
     }
 
+    if (scan >= K_GAMEPAD_BASE && scan < K_GAMEPAD_BASE + K_GAMEPAD_COUNT) {
+        // Friendly labels for the SDL-positional gamepad virtual scancodes.
+        static const char *kNames[K_GAMEPAD_COUNT] = {
+            "Pad A", "Pad B", "Pad X", "Pad Y",
+            "Back", "Guide", "Start",
+            "L-Stick", "R-Stick",
+            "LB", "RB",
+            "D-Up", "D-Down", "D-Left", "D-Right",
+            "LS Up", "LS Down", "LS Left", "LS Right",
+            "RS Up", "RS Down", "RS Left", "RS Right",
+            "LT", "RT",
+        };
+        const char *name = kNames[scan - K_GAMEPAD_BASE];
+        snprintf(string, KEY_STRING_LEN, "%s", name);
+        string[14] = 0;
+        return;
+    }
+
     if (scan < 256) {
         GetKeyScancodeName(string, 14, scan);
     } else {
@@ -716,6 +734,12 @@ void MenuConfig(void) {
                 MyKey = 0;
                 while (!MyKey) {
                     MyKey = KeyDown();
+                    // Input-source guard: this is the keyboard rebind screen,
+                    // so ignore any gamepad scancode the user happens to press.
+                    // The parallel Game Controller screen handles pad bindings.
+                    if (MyKey >= (S32)K_GAMEPAD_BASE) {
+                        MyKey = 0;
+                    }
 
                     if ((TimerRefHR & 0xFF) < 127) // aff 2/3 eff 1/3
                     {
@@ -834,6 +858,292 @@ endloop:
 
     InitInput();
 
+    InitWaitNoInput(Input | I_MENUS | I_FIRE);
+    InitWaitNoKey();
+
+    if (memoclipwindow) {
+        RestoreClipWindow();
+    }
+}
+
+//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+// Gamepad remap screen — derived from MenuConfig above. Operates on the
+// parallel GamepadKeys[] table and guards the capture loop to pad-only
+// scancodes so the two input channels never cross-contaminate. Column 2 of
+// the shared DrawOneConfig renderer is left blank since each action has a
+// single gamepad binding.
+
+static void InitGamepadKeyStrings(void) {
+    for (S32 n = 0; n < MAX_INPUT; n++) {
+        GetKeyText(KeyStrings[n * 2], GamepadKeys[n]);
+        strcpy(KeyStrings[n * 2 + 1], KEY_STRING_EMPTY);
+    }
+}
+
+static S32 CheckGamepadKeyConfig(S32 key) {
+    for (S32 n = 0; n < MAX_INPUT; n++) {
+        if ((S32)GamepadKeys[n] == key) {
+            return n;
+        }
+    }
+    return -1;
+}
+
+void MenuGamepadConfig(void) {
+    S32 oldselect;
+    U32 lasttime;
+    U32 repeattime;
+    S32 ok = FALSE;
+    S32 memoclipwindow = FALSE;
+    U32 MemoGamepadKeys[MAX_INPUT];
+
+    if (ClipWindowYMin > 0) {
+        MemoClipWindow();
+        UnsetClipWindow();
+        memoclipwindow = TRUE;
+    }
+
+    PaletteSync(PtrPalNormal);
+
+    InitGamepadKeyStrings();
+    DrawScreenConfig();
+
+    WaitNoInput();
+
+    oldselect = SelectConfig;
+    SelectKey = 0; // single-column; column 2 stays blank
+
+    memcpy(MemoGamepadKeys, GamepadKeys, sizeof(MemoGamepadKeys));
+
+    MyKey = 0;
+    ManageTime();
+    lasttime = TimerRefHR;
+
+    while (!ok) {
+        S32 oldkey;
+        S32 time;
+
+        DrawOneConfigMenu(SelectConfig);
+        BoxUpdate();
+
+        oldkey = MyKey;
+        DetectJoys();
+        MyGetInput();
+
+        switch (MyKey) {
+        case K_NUMPAD_8:
+            MyKey = K_UP;
+            break;
+        case K_NUMPAD_2:
+            MyKey = K_DOWN;
+            break;
+        case K_NUMPAD_9:
+            MyKey = K_PAGE_UP;
+            break;
+        case K_NUMPAD_3:
+            MyKey = K_PAGE_DOWN;
+            break;
+        case K_NUMPAD_7:
+            MyKey = K_HOME;
+            break;
+        case K_NUMPAD_1:
+            MyKey = K_END;
+            break;
+        case K_NUMPAD_POINT:
+        case K_BACKSPACE:
+            MyKey = K_SUPPR;
+            break;
+        case K_NUMPAD_ENTER:
+        case K_SPACE:
+            MyKey = K_ENTER;
+            break;
+        case K_UP:
+        case K_DOWN:
+        case K_PAGE_UP:
+        case K_PAGE_DOWN:
+        case K_HOME:
+        case K_END:
+        case K_SUPPR:
+        case K_ENTER:
+        case K_ESC:
+            break;
+        default:
+            MyKey = 0;
+            break;
+        }
+
+        if (!MyKey) {
+            if (Input & I_UP) {
+                MyKey = K_UP;
+            } else if (Input & I_DOWN) {
+                MyKey = K_DOWN;
+            }
+            if (Input & ~I_JOY) {
+                MyKey = K_ENTER;
+            }
+        }
+
+        if (!MyKey) {
+            MyKey = JoystickMenuAction();
+            // Ignore LEFT/RIGHT here — no column toggle in gamepad mode.
+            if (MyKey == K_LEFT || MyKey == K_RIGHT) {
+                MyKey = 0;
+            }
+        }
+
+        ManageTime();
+        time = TimerRefHR;
+
+        if (oldkey == MyKey) {
+            if (MyKey == K_ESC) {
+                continue;
+            }
+            if (time - lasttime < REPEATDELAY) {
+                repeattime = 0;
+                continue;
+            }
+            if (repeattime) {
+                if (time - repeattime < REPEATRATE) {
+                    continue;
+                }
+                repeattime += REPEATRATE;
+            } else {
+                repeattime = time;
+            }
+        } else {
+            lasttime = time;
+        }
+
+        if (MyKey == K_UP) {
+            SelectConfig--;
+            if (SelectConfig < 0)
+                SelectConfig = MAX_INPUT - 1 + 3;
+        } else if (MyKey == K_DOWN) {
+            SelectConfig++;
+            if (SelectConfig >= (MAX_INPUT + 3))
+                SelectConfig = 0;
+        } else if (MyKey == K_ENTER) {
+            if (SelectConfig < MAX_INPUT) {
+                S32 memokey;
+                U32 *ptr = &GamepadKeys[SelectConfig];
+                memokey = (S32)*ptr;
+
+                WaitNoInput();
+                *ptr = 0;
+
+                KeyDown();
+                MyKey = 0;
+                while (!MyKey) {
+                    MyKey = KeyDown();
+                    // Input-source guard (inverse of MenuConfig): accept only
+                    // gamepad virtual scancodes, plus ESC as cancel.
+                    if (MyKey != 0 && MyKey != K_ESC &&
+                        !(MyKey >= (S32)K_GAMEPAD_BASE &&
+                          MyKey < (S32)(K_GAMEPAD_BASE + K_GAMEPAD_COUNT))) {
+                        MyKey = 0;
+                    }
+
+                    if ((TimerRefHR & 0xFF) < 127) {
+                        DrawStatusConfig(STATUS_NOTHING);
+                        strcpy(KeyStrings[SelectConfig * 2], "              ");
+                    } else {
+                        DrawStatusConfig(STATUS_PRESS);
+                        strcpy(KeyStrings[SelectConfig * 2], KEY_STRING_EMPTY);
+                    }
+
+                    DrawOneConfig(SelectConfig);
+                    BoxUpdate();
+                }
+
+                if (MyKey == K_ESC) {
+                    MyKey = memokey;
+                    DrawStatusConfig(STATUS_MENU);
+                } else {
+                    if (CheckGamepadKeyConfig(MyKey) != -1) {
+                        PlayErrorSample();
+                        MyKey = memokey;
+                        DrawStatusConfig(STATUS_ERROR);
+                    } else {
+                        DrawStatusConfig(STATUS_MENU);
+                    }
+                }
+
+                *ptr = MyKey;
+                GetKeyText(KeyStrings[SelectConfig * 2], MyKey);
+                WaitNoInput();
+            } else {
+                switch ((SelectConfig - MAX_INPUT)) {
+                case 0: // restore defaults
+                    memcpy(MemoGamepadKeys, GamepadKeys, sizeof(MemoGamepadKeys));
+                    memcpy(GamepadKeys, GamepadKeysDefault, sizeof(GamepadKeys));
+                    InitGamepadKeyStrings();
+                    DrawScreenConfig();
+                    break;
+
+                case 1: // restore previous
+                    memcpy(GamepadKeys, MemoGamepadKeys, sizeof(GamepadKeys));
+                    InitGamepadKeyStrings();
+                    DrawScreenConfig();
+                    break;
+
+                case 2: // accept
+                    ok = TRUE;
+                    break;
+                }
+            }
+        }
+
+        switch (MyKey) {
+        case K_PAGE_UP:
+            SelectConfig -= 10;
+            if (SelectConfig < 0)
+                SelectConfig = 0;
+            break;
+        case K_PAGE_DOWN:
+            SelectConfig += 10;
+            if (SelectConfig >= (MAX_INPUT + 3))
+                SelectConfig = MAX_INPUT - 1 + 3;
+            break;
+        case K_HOME:
+            SelectConfig = 0;
+            break;
+        case K_END:
+            SelectConfig = MAX_INPUT - 1 + 3;
+            break;
+        case K_ESC:
+            if (SelectConfig != MAX_INPUT + 2) {
+                SelectConfig = MAX_INPUT + 2;
+            } else {
+                goto endloop_pad;
+            }
+            break;
+        }
+
+        if (oldselect != SelectConfig) {
+            DrawOneConfigMenu(oldselect);
+            oldselect = SelectConfig;
+        }
+
+        if (SelectConfig < MAX_INPUT && MyKey == K_SUPPR) {
+            GamepadKeys[SelectConfig] = 0;
+            strcpy(KeyStrings[SelectConfig * 2], KEY_STRING_EMPTY);
+        }
+    }
+endloop_pad:
+    if (!ok) {
+        // ESC without accepting — restore pre-entry values.
+        memcpy(GamepadKeys, MemoGamepadKeys, sizeof(GamepadKeys));
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX, ModeDesiredY);
+
+    // Repopulate KeyStrings from the keyboard table so the parent menu
+    // continues to reflect keyboard bindings (the gamepad screen used the
+    // shared storage for its own rendering).
+    InitKeyStrings();
+
+    InitInput();
     InitWaitNoInput(Input | I_MENUS | I_FIRE);
     InitWaitNoKey();
 

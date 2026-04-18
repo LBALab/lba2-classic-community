@@ -253,6 +253,14 @@ void MyGetInput() {
     ApplyGamepadBindings();
 
     MyKey = Key;
+    // Gamepad "press any key" parity: if no keyboard key was pressed this
+    // frame, expose the first newly-pressed gamepad scancode through MyKey so
+    // intro/logo skips, WaitInput(), and menu prompts all respond to pad input
+    // without needing to touch each callsite. Gamepad scancodes are >= 1024 so
+    // they can't collide with existing MyKey == K_FOO keyboard branches.
+    if (!MyKey) {
+        MyKey = (S32)JoystickFirstPressedScancode();
+    }
 
 #ifdef CONSOLE_MODULE
     /* Reserve backtick/F12 from game (toggle is only in Console_FeedEvent so we don't double-toggle). */

@@ -19,6 +19,12 @@ static SDL_Gamepad *s_gamepad = NULL;
 static SDL_JoystickID s_gamepadId = 0;
 static bool s_subsystemInit = false;
 
+// Scancode of the first gamepad button/stick/trigger newly pressed this frame,
+// or 0 if none. Refreshed by UpdateJoystick; consumed by MyGetInput to feed
+// MyKey so "press any key" wait loops pick up gamepad input without any
+// per-callsite changes.
+static U32 s_firstPressedThisFrame = 0;
+
 //***************************************************************************
 // Mirror of KEYBOARD.CPP's bit-packing for virtual scancodes (>= 256).
 // Writing into TabKeys here lets CheckKey() / GetInput() consume gamepad
@@ -123,7 +129,17 @@ void HandleEventsJoystick(const void *event) {
 
 //***************************************************************************
 void UpdateJoystick(void) {
+    // Snapshot previous gamepad bits before clearing, so we can diff after
+    // polling to detect newly-pressed scancodes.
+    U32 firstByte = PAD_KEY_INDEX(K_GAMEPAD_BASE);
+    U32 lastByte  = PAD_KEY_INDEX(K_GAMEPAD_BASE + K_GAMEPAD_COUNT - 1);
+    U8 prevBits[8];
+    for (U32 i = firstByte; i <= lastByte; i++) {
+        prevBits[i - firstByte] = TabKeys[i];
+    }
+
     ClearGamepadBits();
+    s_firstPressedThisFrame = 0;
 
     if (!FlagJoystick || s_gamepad == NULL) {
         return;
@@ -182,6 +198,24 @@ void UpdateJoystick(void) {
     if (ry >  dz) SetVirtualKeyDown(K_GAMEPAD_RSTICK_DOWN);
     if (lt >  dz) SetVirtualKeyDown(K_GAMEPAD_LTRIGGER);
     if (rt >  dz) SetVirtualKeyDown(K_GAMEPAD_RTRIGGER);
+
+    // Edge-detect: find the first bit that went 0 -> 1 this frame.
+    for (U32 i = firstByte; i <= lastByte; i++) {
+        U8 pressed = (U8)(TabKeys[i] & ~prevBits[i - firstByte]);
+        if (pressed) {
+            for (U32 b = 0; b < 8; b++) {
+                if (pressed & (1u << b)) {
+                    s_firstPressedThisFrame = ((i - (256 - 32)) << 3) | b;
+                    return;
+                }
+            }
+        }
+    }
+}
+
+//***************************************************************************
+U32 JoystickFirstPressedScancode(void) {
+    return s_firstPressedThisFrame;
 }
 
 //***************************************************************************

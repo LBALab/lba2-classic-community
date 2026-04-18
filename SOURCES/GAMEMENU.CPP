@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "CONFIG.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #ifdef CONSOLE_MODULE
@@ -59,6 +60,8 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY_TEXT 2109
 #define MENU_ID_GENERAL_VOLUME 2110
 #define MENU_ID_FOLLOW_CAMERA 2111
+#define MENU_ID_CONTROLLER 2112
+#define MENU_ID_GAMEPAD_CONFIG 2113
 
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
@@ -102,7 +105,23 @@ U16 GameOptionMenu[] = {
     0,
     MENU_ID_ADVANCED_OPTIONS,
     0,
-    14, // Configuration Clavier
+    MENU_ID_CONTROLLER,
+};
+
+// Controller submenu: split keyboard remap and gamepad remap under one parent
+// so adding the pad doesn't clutter the top-level Options screen.
+U16 ControllerMenu[] = {
+    0,   // selected
+    3,   // nb entries
+    260, // y center
+    0,   // .dia num
+
+    0,
+    26, // menu precedent
+    0,
+    14, // Configuration Clavier (existing keyboard remap screen)
+    0,
+    MENU_ID_GAMEPAD_CONFIG,
 };
 
 U16 LanguageMenu[] = {
@@ -262,6 +281,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_DISPLAY_FULLSCREEN_ON,
     MENU_LABEL_AUTO_CAMERA,
     MENU_LABEL_CLASSIC_CAMERA,
+    MENU_LABEL_CONTROLLER,
+    MENU_LABEL_GAME_CONTROLLER,
     MENU_LABEL_COUNT,
 };
 
@@ -275,6 +296,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Fullscreen display: ON",
         "Auto camera",
         "Classic camera",
+        "Controller",
+        "Game Controller",
     },
     {
         "Choix de la langue",
@@ -285,6 +308,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Affichage plein écran : ON",
         "Caméra automatique",
         "Caméra classique",
+        "Contrôleur",
+        "Manette",
     },
     {
         "Sprachauswahl",
@@ -295,6 +320,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vollbildanzeige: ON",
         "Automatische Kamera",
         "Klassische Kamera",
+        "Steuerung",
+        "Gamepad",
     },
     {
         "Elegir idioma",
@@ -305,6 +332,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Pantalla completa: ON",
         "Cámara automática",
         "Cámara clásica",
+        "Control",
+        "Mando",
     },
     {
         "Scegli lingua",
@@ -315,6 +344,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "A schermo intero: ON",
         "Telecamera automatica",
         "Telecamera classica",
+        "Controller",
+        "Joypad",
     },
     {
         "Escolha do idioma",
@@ -325,6 +356,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Exibição em tela cheia: ON",
         "Câmera automática",
         "Câmera clássica",
+        "Controle",
+        "Joypad",
     },
 };
 
@@ -358,6 +391,14 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_ADVANCED_OPTIONS:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_ADVANCED_OPTIONS));
+        break;
+
+    case MENU_ID_CONTROLLER:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_CONTROLLER));
+        break;
+
+    case MENU_ID_GAMEPAD_CONFIG:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GAME_CONTROLLER));
         break;
 
     case MENU_ID_TEXT_LANGUAGE:
@@ -968,6 +1009,8 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
     return 0;
 }
 
+// TODO(gamepad): uses GetAscii() (keyboard-only) — pure-gamepad users cannot enter
+// save/profile names. Needs an on-screen D-pad character grid to close the gap.
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
     S32 flag = 1;
@@ -2673,6 +2716,47 @@ S32 GereAdvancedOptionsMenu(void) {
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
+/*──────────────────────────────────────────────────────────────────────────*/
+
+S32 GereControllerMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(ControllerMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case 14: // Configuration Clavier (keyboard remap screen, source-guarded)
+            MenuConfig();
+            break;
+
+        case MENU_ID_GAMEPAD_CONFIG:
+            MenuGamepadConfig();
+            break;
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -2722,8 +2806,8 @@ S32 OptionsMenu(S32 flagflip) {
             GereLanguageMenu();
             break;
 
-        case 14: // Configuration Clavier
-            MenuConfig();
+        case MENU_ID_CONTROLLER:
+            GereControllerMenu();
             break;
 
         case MENU_ID_ADVANCED_OPTIONS:
