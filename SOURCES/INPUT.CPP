@@ -6,6 +6,7 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
 #include "INPUT.H"
+#include "JOYSTICK.H"
 
 #ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
@@ -75,6 +76,38 @@ T_DEF_KEY DefKeys[MAX_INPUT + 1];
 // tableau de configuration des touches utilisé au cours du jeux
 U32 TabInputBit[MAX_INPUT * 2 + 1];
 
+U32 GamepadKeys[MAX_INPUT];
+
+const U32 GamepadKeysDefault[MAX_INPUT] = {
+    K_GAMEPAD_LSTICK_UP,    // 0  I_UP
+    K_GAMEPAD_LSTICK_DOWN,  // 1  I_DOWN
+    K_GAMEPAD_LSTICK_LEFT,  // 2  I_LEFT
+    K_GAMEPAD_LSTICK_RIGHT, // 3  I_RIGHT
+    K_GAMEPAD_X,            // 4  I_THROW
+    K_GAMEPAD_RSHOULDER,    // 5  I_COMPORTEMENT (behavior menu)
+    K_GAMEPAD_LSHOULDER,    // 6  I_INVENTORY
+    K_GAMEPAD_A,            // 7  I_ACTION_M (primary action)
+    K_GAMEPAD_Y,            // 8  I_ACTION_ALWAYS (dialogue/inspect)
+    K_GAMEPAD_LSTICK_BTN,   // 9  I_RETURN (recenter camera)
+    K_GAMEPAD_START,        // 10 I_MENUS
+    K_GAMEPAD_BACK,         // 11 I_HOLOMAP
+    K_GAMEPAD_GUIDE,        // 12 I_PAUSE
+    K_GAMEPAD_B,            // 13 I_ESQUIVE (dodge)
+    0,                      // 14 I_NORMAL
+    0,                      // 15 I_SPORTIF
+    0,                      // 16 I_AGRESSIF
+    0,                      // 17 I_DISCRET
+    0,                      // 18 I_HELP
+    0,                      // 19 I_SAVE
+    0,                      // 20 I_LOAD
+    0,                      // 21 I_OPTIONS
+    0,                      // 22 I_CAMERA
+    K_GAMEPAD_RTRIGGER,     // 23 I_CAMERA_LEVEL_PLUS
+    K_GAMEPAD_LTRIGGER,     // 24 I_CAMERA_LEVEL_MOINS
+    0, 0, 0, 0, 0, 0, 0,    // 25-31 I_WEAPON_1..7
+    0, 0, 0, 0,             // 32-35 I_PINGOUIN, I_JETPACK, I_PROTECTION, I_FOUDRE
+};
+
 /*══════════════════════════════════════════════════════════════════════════*
 			██████┐ ██┐ ██┐ ██████┐ ██████┐
 			└─██┌─┘ ███┐██│ └─██┌─┘ └─██┌─┘
@@ -107,6 +140,7 @@ void RestoreInput() {
     DEFKEYSDEFAULT = DefKeysDefault95;
 
     memcpy(DefKeys, DEFKEYSDEFAULT, sizeof(T_DEF_KEY) * MAX_INPUT);
+    memcpy(GamepadKeys, GamepadKeysDefault, sizeof(GamepadKeys));
 }
 
 //-------------------------------------------------------------------------
@@ -166,9 +200,57 @@ void WriteInputConfig(void) {
 }
 
 //-------------------------------------------------------------------------
+void ReadGamepadConfig(void) {
+    FlagJoystick = DefFileBufferReadValueDefault("GamepadEnabled", 1);
+    JoystickDeadzone = DefFileBufferReadValueDefault("GamepadDeadzone", 8000);
+    if (JoystickDeadzone < 0)
+        JoystickDeadzone = 0;
+    if (JoystickDeadzone > 32767)
+        JoystickDeadzone = 32767;
+
+    char id[32];
+    for (S32 n = 0; n < MAX_INPUT; n++) {
+        snprintf(id, sizeof(id), "Gamepad%d", n);
+        GamepadKeys[n] = DefFileBufferReadValueDefault(id, GamepadKeysDefault[n]);
+    }
+}
+
+//-------------------------------------------------------------------------
+void WriteGamepadConfig(void) {
+    if (!FileSize(PathConfigFile))
+        return;
+
+    DefFileBufferWriteValue("GamepadEnabled", FlagJoystick);
+    DefFileBufferWriteValue("GamepadDeadzone", JoystickDeadzone);
+
+    char id[32];
+    for (S32 n = 0; n < MAX_INPUT; n++) {
+        snprintf(id, sizeof(id), "Gamepad%d", n);
+        DefFileBufferWriteValue(id, GamepadKeys[n]);
+    }
+}
+
+//-------------------------------------------------------------------------
+// OR gamepad-bound contributions into the global Input bitfield. Only the
+// first 32 action slots map to bits in Input (matching the NbInput=64 clamp
+// applied by GetInput()); slots 32-35 are reserved for spells that the
+// engine never reads through the Input path.
+void ApplyGamepadBindings(void) {
+    if (!FlagJoystick)
+        return;
+    for (S32 n = 0; n < 32; n++) {
+        U32 code = GamepadKeys[n];
+        if (code != 0 && CheckKey(code)) {
+            Input |= (1u << n);
+        }
+    }
+}
+
+//-------------------------------------------------------------------------
 void MyGetInput() {
     GetJoys((U32 *)&TabKeys[256]);
     GetInput(0); // no norepeat keys
+    ApplyGamepadBindings();
 
     MyKey = Key;
 

@@ -15,6 +15,10 @@
 extern "C" {
 #endif
 
+// Implemented in SOURCES/JOYSTICK.CPP. Forward-declared here so LIB386 does
+// not pull in game-side headers; the symbol is resolved at final link time.
+void HandleEventsJoystick(const void *event);
+
 // --- Private state -----------------------------------------------------------
 bool eventSystemInitialized = false;
 static EventFilterFn s_eventFilter = NULL;
@@ -64,6 +68,7 @@ void ManageEvents() {
             HandleEventsTimer(transparentEvent);
             HandleEventsMouse(transparentEvent);
             HandleEventsKeyboard(transparentEvent);
+            HandleEventsJoystick(transparentEvent);
             HandleEventsVideo(transparentEvent);
             HandleEventsWindow(transparentEvent);
         }

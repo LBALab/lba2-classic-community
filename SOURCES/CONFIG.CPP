@@ -660,33 +660,7 @@ void MenuConfig(void) {
         }
 
         if (!MyKey) {
-            S32 i;
-            U32 *joys;
-
-            joys = (U32 *)&TabKeys[256];
-
-            for (i = 0; i < 16 * 2; i += 2) {
-                if (joys[i]) {
-                    MyKey = K_ENTER;
-                    break;
-                }
-                if (joys[i + 1] & 1) {
-                    MyKey = K_RIGHT;
-                    break;
-                }
-                if (joys[i + 1] & 2) {
-                    MyKey = K_LEFT;
-                    break;
-                }
-                if (joys[i + 1] & 4) {
-                    MyKey = K_DOWN;
-                    break;
-                }
-                if (joys[i + 1] & 8) {
-                    MyKey = K_UP;
-                    break;
-                }
-            }
+            MyKey = JoystickMenuAction();
         }
         ManageTime();
         time = TimerRefHR;
