@@ -96,6 +96,12 @@ void InitAdeline(S32 argc, char *argv[]) {
         }
     }
 
+    // ··········································································
+    {
+        LogPuts("\nInitialising Joystick. Please wait...\n");
+        InitJoystick();
+    }
+
     // --- WINDOW ----------------------------------------------------------------
     {
         LogPuts("\nInitialising Window. Please wait...\n");
