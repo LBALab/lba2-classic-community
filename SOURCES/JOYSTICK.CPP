@@ -360,6 +360,14 @@ S32 JoystickMenuAction(void) {
         SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_START)) {
         return K_ENTER;
     }
+    return JoystickMenuNavOnly();
+}
+
+//***************************************************************************
+S32 JoystickMenuNavOnly(void) {
+    if (!FlagJoystick || s_gamepad == NULL) {
+        return 0;
+    }
     S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
     S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
     S16 dz = (S16)JoystickDeadzone;

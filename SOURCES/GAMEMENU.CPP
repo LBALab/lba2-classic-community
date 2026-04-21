@@ -296,8 +296,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Fullscreen display: ON",
         "Auto camera",
         "Classic camera",
-        "Controller",
-        "Game controller",
+        "Controls",
+        "Gamepad",
     },
     {
         "Choix de la langue",
@@ -308,7 +308,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Affichage plein écran : ON",
         "Caméra automatique",
         "Caméra classique",
-        "Contrôleur",
+        "Contrôles",
         "Manette",
     },
     {
@@ -332,7 +332,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Pantalla completa: ON",
         "Cámara automática",
         "Cámara clásica",
-        "Control",
+        "Controles",
         "Mando",
     },
     {
@@ -344,8 +344,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "A schermo intero: ON",
         "Telecamera automatica",
         "Telecamera classica",
-        "Controller",
-        "Joypad",
+        "Controlli",
+        "Gamepad",
     },
     {
         "Escolha do idioma",
@@ -356,8 +356,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Exibição em tela cheia: ON",
         "Câmera automática",
         "Câmera clássica",
-        "Controle",
-        "Joypad",
+        "Controles",
+        "Gamepad",
     },
 };
 

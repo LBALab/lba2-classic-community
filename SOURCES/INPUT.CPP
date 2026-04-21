@@ -76,36 +76,45 @@ T_DEF_KEY DefKeys[MAX_INPUT + 1];
 // tableau de configuration des touches utilisé au cours du jeux
 U32 TabInputBit[MAX_INPUT * 2 + 1];
 
-U32 GamepadKeys[MAX_INPUT];
+T_DEF_KEY GamepadKeys[MAX_INPUT];
 
-const U32 GamepadKeysDefault[MAX_INPUT] = {
-    K_GAMEPAD_LSTICK_UP,    // 0  I_UP
-    K_GAMEPAD_LSTICK_DOWN,  // 1  I_DOWN
-    K_GAMEPAD_LSTICK_LEFT,  // 2  I_LEFT
-    K_GAMEPAD_LSTICK_RIGHT, // 3  I_RIGHT
-    K_GAMEPAD_X,            // 4  I_THROW
-    K_GAMEPAD_RSHOULDER,    // 5  I_COMPORTEMENT (behavior menu)
-    K_GAMEPAD_LSHOULDER,    // 6  I_INVENTORY
-    K_GAMEPAD_A,            // 7  I_ACTION_M (primary action)
-    K_GAMEPAD_Y,            // 8  I_ACTION_ALWAYS (dialogue/inspect)
-    K_GAMEPAD_LSTICK_BTN,   // 9  I_RETURN (recenter camera)
-    K_GAMEPAD_START,        // 10 I_MENUS
-    K_GAMEPAD_BACK,         // 11 I_HOLOMAP
-    K_GAMEPAD_GUIDE,        // 12 I_PAUSE
-    K_GAMEPAD_B,            // 13 I_ESQUIVE (dodge)
-    0,                      // 14 I_NORMAL
-    0,                      // 15 I_SPORTIF
-    0,                      // 16 I_AGRESSIF
-    0,                      // 17 I_DISCRET
-    0,                      // 18 I_HELP
-    0,                      // 19 I_SAVE
-    0,                      // 20 I_LOAD
-    0,                      // 21 I_OPTIONS
-    0,                      // 22 I_CAMERA
-    K_GAMEPAD_RTRIGGER,     // 23 I_CAMERA_LEVEL_PLUS
-    K_GAMEPAD_LTRIGGER,     // 24 I_CAMERA_LEVEL_MOINS
-    0, 0, 0, 0, 0, 0, 0,    // 25-31 I_WEAPON_1..7
-    0, 0, 0, 0,             // 32-35 I_PINGOUIN, I_JETPACK, I_PROTECTION, I_FOUDRE
+const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
+    {K_GAMEPAD_RTRIGGER, 0},               // 0  I_UP
+    {K_GAMEPAD_LTRIGGER, 0},               // 1  I_DOWN
+    {K_GAMEPAD_LSTICK_LEFT, 0},            // 2  I_LEFT
+    {K_GAMEPAD_LSTICK_RIGHT, 0},           // 3  I_RIGHT
+    {K_GAMEPAD_RSHOULDER, 0},              // 4  I_THROW
+    {K_GAMEPAD_LSHOULDER, 0},              // 5  I_COMPORTEMENT
+    {K_GAMEPAD_Y, 0},                      // 6  I_INVENTORY
+    {K_GAMEPAD_X, 0},                      // 7  I_ACTION_M
+    {K_GAMEPAD_A, 0},                      // 8  I_ACTION_ALWAYS
+    {K_GAMEPAD_B, 0},                      // 9  I_RETURN
+    {K_GAMEPAD_START, 0},                  // 10 I_MENUS
+    {K_GAMEPAD_BACK, 0},                   // 11 I_HOLOMAP
+    {0, 0},                                       // 12 I_PAUSE (unbound; Start opens the in-game menu)
+    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN}, // 13 I_ESQUIVE
+    {0, 0},                                // 14 I_NORMAL
+    {0, 0},                                // 15 I_SPORTIF
+    {0, 0},                                // 16 I_AGRESSIF
+    {0, 0},                                // 17 I_DISCRET
+    {0, 0},                                // 18 I_HELP
+    {0, 0},                                // 19 I_SAVE
+    {0, 0},                                // 20 I_LOAD
+    {0, 0},                                // 21 I_OPTIONS
+    {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT}, // 22 I_CAMERA
+    {K_GAMEPAD_RSTICK_UP, 0},              // 23 I_CAMERA_LEVEL_PLUS
+    {K_GAMEPAD_RSTICK_DOWN, 0},            // 24 I_CAMERA_LEVEL_MOINS
+    {0, 0},                                // 25 I_WEAPON_1
+    {0, 0},                                // 26
+    {0, 0},                                // 27
+    {0, 0},                                // 28
+    {0, 0},                                // 29
+    {0, 0},                                // 30
+    {0, 0},                                // 31
+    {K_GAMEPAD_DPAD_RIGHT, 0},             // 32 I_PINGOUIN
+    {K_GAMEPAD_DPAD_DOWN, 0},              // 33 I_JETPACK
+    {K_GAMEPAD_DPAD_UP, 0},                // 34 I_PROTECTION
+    {K_GAMEPAD_DPAD_LEFT, 0},              // 35 I_FOUDRE
 };
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -211,7 +220,11 @@ void ReadGamepadConfig(void) {
     char id[32];
     for (S32 n = 0; n < MAX_INPUT; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
-        GamepadKeys[n] = DefFileBufferReadValueDefault(id, GamepadKeysDefault[n]);
+        GamepadKeys[n].Key1 =
+            DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key1);
+        snprintf(id, sizeof(id), "Gamepad%d_2", n);
+        GamepadKeys[n].Key2 =
+            DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key2);
     }
 }
 
@@ -226,7 +239,9 @@ void WriteGamepadConfig(void) {
     char id[32];
     for (S32 n = 0; n < MAX_INPUT; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
-        DefFileBufferWriteValue(id, GamepadKeys[n]);
+        DefFileBufferWriteValue(id, GamepadKeys[n].Key1);
+        snprintf(id, sizeof(id), "Gamepad%d_2", n);
+        DefFileBufferWriteValue(id, GamepadKeys[n].Key2);
     }
 }
 
@@ -239,8 +254,9 @@ void ApplyGamepadBindings(void) {
     if (!FlagJoystick)
         return;
     for (S32 n = 0; n < 32; n++) {
-        U32 code = GamepadKeys[n];
-        if (code != 0 && CheckKey(code)) {
+        U32 k1 = GamepadKeys[n].Key1;
+        U32 k2 = GamepadKeys[n].Key2;
+        if ((k1 != 0 && CheckKey(k1)) || (k2 != 0 && CheckKey(k2))) {
             Input |= (1u << n);
         }
     }

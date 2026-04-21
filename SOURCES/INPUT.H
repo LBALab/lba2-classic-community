@@ -91,11 +91,11 @@ extern T_DEF_KEY MemoDefKeys[MAX_INPUT + 1];
 // tableau de configuration des touches utilisé au cours du jeu
 extern U32 TabInputBit[MAX_INPUT * 2 + 1];
 
-// Parallel gamepad binding table: one virtual scancode per action (see
-// KEYBOARD_KEYS.H for K_GAMEPAD_*). 0 = unbound. Applied by
-// ApplyGamepadBindings() in addition to the keyboard slots in DefKeys.
-extern U32 GamepadKeys[MAX_INPUT];
-extern const U32 GamepadKeysDefault[MAX_INPUT];
+// Parallel gamepad binding table: Key1 / Key2 are alternate bindings (OR),
+// same semantics as DefKeys (see KEYBOARD_KEYS.H for K_GAMEPAD_*). 0 =
+// unbound. Applied by ApplyGamepadBindings() in addition to DefKeys.
+extern T_DEF_KEY GamepadKeys[MAX_INPUT];
+extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT];
 
 /*══════════════════════════════════════════════════════════════════════════*
 			██████┐ ██┐ ██┐ ██████┐ ██████┐
