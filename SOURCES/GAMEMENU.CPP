@@ -2164,10 +2164,13 @@ S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
     S32 timerkey;
-    // Throttle up/down nav so a held trigger/stick/dpad doesn't skip through
-    // entries every frame. TimerRefHR ticks at 50Hz; 8 ticks ≈ 160ms.
-    S32 navtimer = 0;
-    const S32 NAV_TIMER_KEY = 8;
+    // Gamepad D-pad / stick fallback repeat machine. TimerRefHR ticks at
+    // 50Hz; 20 ≈ 400ms initial hold, 5 ≈ 100ms between repeats. Held on
+    // entry must not auto-fire: padNavNextFire is primed below.
+    S32 padNavDir = 0;
+    S32 padNavNextFire = 0;
+    const S32 NAV_INITIAL_DELAY = 20;
+    const S32 NAV_REPEAT_RATE = 5;
     S16 nb, selected;
 
     selected = ptrmenu[0];
@@ -2183,6 +2186,8 @@ S32 DoGameMenu(U16 *ptrmenu) {
     MenuIncrustSprite = -1;
 
     timerkey = TimerRefHR + VOLUME_TIMER_KEY;
+    padNavDir = JoystickMenuNavOnly();
+    padNavNextFire = TimerRefHR + NAV_INITIAL_DELAY;
 
     InitShakeChoice(); //     NEW
 
@@ -2194,16 +2199,31 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
         // Gamepad D-pad / left stick feed the same codes as keyboard arrows so
         // menu navigation works regardless of which Input binding is active.
+        // Edge + initial-delay + repeat so a single tap moves one entry and a
+        // held direction ramps into repeat after NAV_INITIAL_DELAY.
         if (!MyKey) {
-            S32 navKey = JoystickMenuNavOnly();
-            if (navKey == K_UP)
-                MyKey = K_GRAY_UP;
-            else if (navKey == K_DOWN)
-                MyKey = K_GRAY_DOWN;
-            else if (navKey == K_LEFT)
-                MyKey = K_GRAY_LEFT;
-            else if (navKey == K_RIGHT)
-                MyKey = K_GRAY_RIGHT;
+            S32 rawDir = JoystickMenuNavOnly();
+            S32 fire = 0;
+            if (rawDir != padNavDir) {
+                padNavDir = rawDir;
+                if (rawDir != 0) {
+                    fire = 1;
+                    padNavNextFire = TimerRefHR + NAV_INITIAL_DELAY;
+                }
+            } else if (rawDir != 0 && TimerRefHR >= padNavNextFire) {
+                fire = 1;
+                padNavNextFire = TimerRefHR + NAV_REPEAT_RATE;
+            }
+            if (fire) {
+                if (rawDir == K_UP)
+                    MyKey = K_GRAY_UP;
+                else if (rawDir == K_DOWN)
+                    MyKey = K_GRAY_DOWN;
+                else if (rawDir == K_LEFT)
+                    MyKey = K_GRAY_LEFT;
+                else if (rawDir == K_RIGHT)
+                    MyKey = K_GRAY_RIGHT;
+            }
         }
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
@@ -2262,7 +2282,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
         }
 
-        if ((Input & I_DOWN OR MyKey == K_GRAY_DOWN) AND TimerRefHR >= navtimer) {
+        if (Input & I_DOWN OR MyKey == K_GRAY_DOWN) {
 #ifdef DEMO
             if (ptrmenu == GameMainMenu) {
                 do {
@@ -2278,10 +2298,9 @@ S32 DoGameMenu(U16 *ptrmenu) {
             if (selected >= nb)
                 selected = 0;
             flag = 1;
-            navtimer = TimerRefHR + NAV_TIMER_KEY;
         }
 
-        if ((Input & I_UP OR MyKey == K_GRAY_UP) AND TimerRefHR >= navtimer) {
+        if (Input & I_UP OR MyKey == K_GRAY_UP) {
 #ifdef DEMO
             if (ptrmenu == GameMainMenu) {
                 do {
@@ -2296,7 +2315,6 @@ S32 DoGameMenu(U16 *ptrmenu) {
             if (selected < 0)
                 selected = (U16)(nb - 1);
             flag = 1;
-            navtimer = TimerRefHR + NAV_TIMER_KEY;
         }
 
         switch (ptrmenu[4 + 0 + selected * 2]) // type
