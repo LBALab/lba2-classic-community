@@ -2164,6 +2164,10 @@ S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
     S32 timerkey;
+    // Throttle up/down nav so a held trigger/stick/dpad doesn't skip through
+    // entries every frame. TimerRefHR ticks at 50Hz; 8 ticks ≈ 160ms.
+    S32 navtimer = 0;
+    const S32 NAV_TIMER_KEY = 8;
     S16 nb, selected;
 
     selected = ptrmenu[0];
@@ -2258,7 +2262,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
         }
 
-        if (Input & I_DOWN OR MyKey == K_GRAY_DOWN) {
+        if ((Input & I_DOWN OR MyKey == K_GRAY_DOWN) AND TimerRefHR >= navtimer) {
 #ifdef DEMO
             if (ptrmenu == GameMainMenu) {
                 do {
@@ -2274,9 +2278,10 @@ S32 DoGameMenu(U16 *ptrmenu) {
             if (selected >= nb)
                 selected = 0;
             flag = 1;
+            navtimer = TimerRefHR + NAV_TIMER_KEY;
         }
 
-        if (Input & I_UP OR MyKey == K_GRAY_UP) {
+        if ((Input & I_UP OR MyKey == K_GRAY_UP) AND TimerRefHR >= navtimer) {
 #ifdef DEMO
             if (ptrmenu == GameMainMenu) {
                 do {
@@ -2291,6 +2296,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
             if (selected < 0)
                 selected = (U16)(nb - 1);
             flag = 1;
+            navtimer = TimerRefHR + NAV_TIMER_KEY;
         }
 
         switch (ptrmenu[4 + 0 + selected * 2]) // type

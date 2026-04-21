@@ -101,7 +101,7 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
     {0, 0},                                // 19 I_SAVE
     {0, 0},                                // 20 I_LOAD
     {0, 0},                                // 21 I_OPTIONS
-    {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT}, // 22 I_CAMERA
+    {0, 0},                                // 22 I_CAMERA (unbound; turn-camera pending auto-camera integration)
     {K_GAMEPAD_RSTICK_UP, 0},              // 23 I_CAMERA_LEVEL_PLUS
     {K_GAMEPAD_RSTICK_DOWN, 0},            // 24 I_CAMERA_LEVEL_MOINS
     {0, 0},                                // 25 I_WEAPON_1
