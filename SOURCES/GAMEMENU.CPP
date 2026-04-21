@@ -2164,13 +2164,10 @@ S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
     S32 timerkey;
-    // Gamepad D-pad / stick fallback repeat machine. TimerRefHR ticks at
-    // 50Hz; 20 ≈ 400ms initial hold, 5 ≈ 100ms between repeats. Held on
-    // entry must not auto-fire: padNavNextFire is primed below.
+    // Gamepad D-pad / stick fallback: edge-only, matching the keyboard-arrow
+    // feel (one step per press, no auto-repeat). Primed below so a stick
+    // already deflected on menu entry does not auto-fire.
     S32 padNavDir = 0;
-    S32 padNavNextFire = 0;
-    const S32 NAV_INITIAL_DELAY = 20;
-    const S32 NAV_REPEAT_RATE = 5;
     S16 nb, selected;
 
     selected = ptrmenu[0];
@@ -2187,7 +2184,6 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
     timerkey = TimerRefHR + VOLUME_TIMER_KEY;
     padNavDir = JoystickMenuNavOnly();
-    padNavNextFire = TimerRefHR + NAV_INITIAL_DELAY;
 
     InitShakeChoice(); //     NEW
 
@@ -2197,24 +2193,13 @@ S32 DoGameMenu(U16 *ptrmenu) {
         ManageTime();
         MyGetInput();
 
-        // Gamepad D-pad / left stick feed the same codes as keyboard arrows so
-        // menu navigation works regardless of which Input binding is active.
-        // Edge + initial-delay + repeat so a single tap moves one entry and a
-        // held direction ramps into repeat after NAV_INITIAL_DELAY.
+        // Gamepad D-pad / left stick feed the same codes as keyboard arrows.
+        // Edge-only: fire one K_GRAY_* on the direction change so a held
+        // stick/dpad behaves like a held keyboard arrow (one step, stay).
         if (!MyKey) {
             S32 rawDir = JoystickMenuNavOnly();
-            S32 fire = 0;
             if (rawDir != padNavDir) {
                 padNavDir = rawDir;
-                if (rawDir != 0) {
-                    fire = 1;
-                    padNavNextFire = TimerRefHR + NAV_INITIAL_DELAY;
-                }
-            } else if (rawDir != 0 && TimerRefHR >= padNavNextFire) {
-                fire = 1;
-                padNavNextFire = TimerRefHR + NAV_REPEAT_RATE;
-            }
-            if (fire) {
                 if (rawDir == K_UP)
                     MyKey = K_GRAY_UP;
                 else if (rawDir == K_DOWN)
