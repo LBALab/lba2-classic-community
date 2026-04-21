@@ -210,7 +210,6 @@ void WriteInputConfig(void) {
 
 //-------------------------------------------------------------------------
 void ReadGamepadConfig(void) {
-    FlagJoystick = DefFileBufferReadValueDefault("GamepadEnabled", 1);
     JoystickDeadzone = DefFileBufferReadValueDefault("GamepadDeadzone", 8000);
     if (JoystickDeadzone < 0)
         JoystickDeadzone = 0;
@@ -233,7 +232,6 @@ void WriteGamepadConfig(void) {
     if (!FileSize(PathConfigFile))
         return;
 
-    DefFileBufferWriteValue("GamepadEnabled", FlagJoystick);
     DefFileBufferWriteValue("GamepadDeadzone", JoystickDeadzone);
 
     char id[32];
@@ -251,7 +249,7 @@ void WriteGamepadConfig(void) {
 // applied by GetInput()); slots 32-35 are reserved for spells that the
 // engine never reads through the Input path.
 void ApplyGamepadBindings(void) {
-    if (!FlagJoystick)
+    if (!JoystickIsPresent())
         return;
     for (S32 n = 0; n < 32; n++) {
         U32 k1 = GamepadKeys[n].Key1;

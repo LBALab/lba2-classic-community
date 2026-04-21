@@ -35,7 +35,6 @@ static StickDir s_prevLeftDir = DIR_NEUTRAL;
 static StickDir s_prevRightDir = DIR_NEUTRAL;
 
 //***************************************************************************
-S32 FlagJoystick = 1;
 S32 JoystickDeadzone = 8000;
 
 static SDL_Gamepad *s_gamepad = NULL;
@@ -259,7 +258,7 @@ void UpdateJoystick(void) {
     ClearGamepadBits();
     s_firstPressedThisFrame = 0;
 
-    if (!FlagJoystick || s_gamepad == NULL) {
+    if (s_gamepad == NULL) {
         return;
     }
 
@@ -342,6 +341,11 @@ U32 JoystickFirstPressedScancode(void) {
 }
 
 //***************************************************************************
+S32 JoystickIsPresent(void) {
+    return (s_gamepad != NULL) ? 1 : 0;
+}
+
+//***************************************************************************
 // Legacy entry point: the call-site INPUT.CPP:170 passes &TabKeys[256], the
 // base of the extended region. UpdateJoystick writes directly into TabKeys
 // via the bit-packed virtual-scancode layout, so the bitfield parameter is
@@ -353,7 +357,7 @@ void GetJoys(U32 *bitfield) {
 
 //***************************************************************************
 S32 JoystickMenuAction(void) {
-    if (!FlagJoystick || s_gamepad == NULL) {
+    if (s_gamepad == NULL) {
         return 0;
     }
     if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_SOUTH) ||
@@ -365,7 +369,7 @@ S32 JoystickMenuAction(void) {
 
 //***************************************************************************
 S32 JoystickMenuNavOnly(void) {
-    if (!FlagJoystick || s_gamepad == NULL) {
+    if (s_gamepad == NULL) {
         return 0;
     }
     S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);

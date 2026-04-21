@@ -2,6 +2,7 @@
 #include "CONFIG.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "JOYSTICK.H"
 #ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
 #endif
@@ -297,7 +298,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Auto camera",
         "Classic camera",
         "Controls",
-        "Gamepad",
+        "Configure gamepad",
     },
     {
         "Choix de la langue",
@@ -309,7 +310,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Caméra automatique",
         "Caméra classique",
         "Contrôles",
-        "Manette",
+        "Configuration manette",
     },
     {
         "Sprachauswahl",
@@ -321,7 +322,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Automatische Kamera",
         "Klassische Kamera",
         "Steuerung",
-        "Gamepad",
+        "Gamepad konfigurieren",
     },
     {
         "Elegir idioma",
@@ -333,7 +334,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Cámara automática",
         "Cámara clásica",
         "Controles",
-        "Mando",
+        "Configurar mando",
     },
     {
         "Scegli lingua",
@@ -345,7 +346,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Telecamera automatica",
         "Telecamera classica",
         "Controlli",
-        "Gamepad",
+        "Configura gamepad",
     },
     {
         "Escolha do idioma",
@@ -357,7 +358,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Câmera automática",
         "Câmera clássica",
         "Controles",
-        "Gamepad",
+        "Configurar gamepad",
     },
 };
 
@@ -2186,6 +2187,20 @@ S32 DoGameMenu(U16 *ptrmenu) {
     while (TRUE) {
         ManageTime();
         MyGetInput();
+
+        // Gamepad D-pad / left stick feed the same codes as keyboard arrows so
+        // menu navigation works regardless of which Input binding is active.
+        if (!MyKey) {
+            S32 navKey = JoystickMenuNavOnly();
+            if (navKey == K_UP)
+                MyKey = K_GRAY_UP;
+            else if (navKey == K_DOWN)
+                MyKey = K_GRAY_DOWN;
+            else if (navKey == K_LEFT)
+                MyKey = K_GRAY_LEFT;
+            else if (navKey == K_RIGHT)
+                MyKey = K_GRAY_RIGHT;
+        }
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
             S32 mret = GameMenuMouseProcessDoGameMenu(ptrmenu, &selected, &flag);

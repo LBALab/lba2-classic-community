@@ -948,7 +948,7 @@ endloop:
 #define GP_MENU_ROW_EXIT 9
 
 static S32 GamepadBindHeld(const T_DEF_KEY *k) {
-    return ((k->Key1 != 0 && CheckKey(k->Key1)) OR (k->Key2 != 0 && CheckKey(k->Key2)));
+    return ((k->Key1 != 0 && CheckKey(k->Key1)) OR(k->Key2 != 0 && CheckKey(k->Key2)));
 }
 
 static S32 GamepadRebindAllowed(S32 scan) {
@@ -970,7 +970,7 @@ static void InitGamepadKeyStrings(void) {
 
 static S32 CheckGamepadKeyConfig(S32 key) {
     for (S32 n = 0; n < MAX_INPUT; n++) {
-        if ((S32)GamepadKeys[n].Key1 == key OR (S32)GamepadKeys[n].Key2 == key) {
+        if ((S32)GamepadKeys[n].Key1 == key OR(S32) GamepadKeys[n].Key2 == key) {
             return n;
         }
     }
