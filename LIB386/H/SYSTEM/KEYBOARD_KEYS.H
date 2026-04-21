@@ -212,4 +212,39 @@
 #define A_9 '9'
 #define A_0 '0'
 
+// -----------------------------------------------------------------------------
+// Gamepad virtual scancodes. Placed well above SDL_SCANCODE_COUNT (currently
+// 512) so they never collide with real SDL scancodes as SDL grows. They slot
+// into the extended bit-packed region of TabKeys via KeyBit()/KeyIndex(),
+// so CheckKey() and GetInput() handle them with no special-case code.
+#define K_GAMEPAD_BASE 1024
+
+#define K_GAMEPAD_A (K_GAMEPAD_BASE + 0) // SDL_GAMEPAD_BUTTON_SOUTH
+#define K_GAMEPAD_B (K_GAMEPAD_BASE + 1) // SDL_GAMEPAD_BUTTON_EAST
+#define K_GAMEPAD_X (K_GAMEPAD_BASE + 2) // SDL_GAMEPAD_BUTTON_WEST
+#define K_GAMEPAD_Y (K_GAMEPAD_BASE + 3) // SDL_GAMEPAD_BUTTON_NORTH
+#define K_GAMEPAD_BACK (K_GAMEPAD_BASE + 4)
+#define K_GAMEPAD_GUIDE (K_GAMEPAD_BASE + 5)
+#define K_GAMEPAD_START (K_GAMEPAD_BASE + 6)
+#define K_GAMEPAD_LSTICK_BTN (K_GAMEPAD_BASE + 7)
+#define K_GAMEPAD_RSTICK_BTN (K_GAMEPAD_BASE + 8)
+#define K_GAMEPAD_LSHOULDER (K_GAMEPAD_BASE + 9)
+#define K_GAMEPAD_RSHOULDER (K_GAMEPAD_BASE + 10)
+#define K_GAMEPAD_DPAD_UP (K_GAMEPAD_BASE + 11)
+#define K_GAMEPAD_DPAD_DOWN (K_GAMEPAD_BASE + 12)
+#define K_GAMEPAD_DPAD_LEFT (K_GAMEPAD_BASE + 13)
+#define K_GAMEPAD_DPAD_RIGHT (K_GAMEPAD_BASE + 14)
+#define K_GAMEPAD_LSTICK_UP (K_GAMEPAD_BASE + 15)
+#define K_GAMEPAD_LSTICK_DOWN (K_GAMEPAD_BASE + 16)
+#define K_GAMEPAD_LSTICK_LEFT (K_GAMEPAD_BASE + 17)
+#define K_GAMEPAD_LSTICK_RIGHT (K_GAMEPAD_BASE + 18)
+#define K_GAMEPAD_RSTICK_UP (K_GAMEPAD_BASE + 19)
+#define K_GAMEPAD_RSTICK_DOWN (K_GAMEPAD_BASE + 20)
+#define K_GAMEPAD_RSTICK_LEFT (K_GAMEPAD_BASE + 21)
+#define K_GAMEPAD_RSTICK_RIGHT (K_GAMEPAD_BASE + 22)
+#define K_GAMEPAD_LTRIGGER (K_GAMEPAD_BASE + 23)
+#define K_GAMEPAD_RTRIGGER (K_GAMEPAD_BASE + 24)
+
+#define K_GAMEPAD_COUNT 25
+
 // =============================================================================

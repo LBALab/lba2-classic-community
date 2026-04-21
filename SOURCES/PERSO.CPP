@@ -1927,6 +1927,7 @@ void ReadConfigFile(void) {
     const char *ptr;
 
     ReadInputConfig();    // Lit Config Clavier dans LBA2.CFG
+    ReadGamepadConfig();  // Lit Config Gamepad dans LBA2.CFG
     ReadVolumeSettings(); // Lit Volumes dans LBA2.CFG
 
     Version_US = DefFileBufferReadValue("Version_US");
@@ -1996,6 +1997,7 @@ void WriteConfigFile(void) {
     DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA));
 
     WriteInputConfig();    // Sauve Config Clavier dans LBA2.CFG
+    WriteGamepadConfig();  // Sauve Config Gamepad dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
 
     DefFileBufferWriteString("Language", GetLanguageName(Language));
