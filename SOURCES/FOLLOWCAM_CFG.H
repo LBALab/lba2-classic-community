@@ -29,3 +29,10 @@
 
 /* Horizontal pan keys [ ] ---------------------------------------------------*/
 #define FOLLOW_CAM_PAN_STEP 30 /* AddBetaCam change per [ / ] key press per frame */
+
+/* Mouse camera --------------------------------------------------------------*/
+#define MOUSE_CAM_DIVISOR_DEFAULT 4   /* pixel-to-angle scaling (lower = faster) */
+#define MOUSE_CAM_SMOOTHING_DEFAULT 2 /* BetaCam lerp divisor during orbit (1=snap, higher=laggier) */
+#define MOUSE_CAM_DEAD_ZONE 2         /* ignore deltas smaller than this (pixels, pre-scale) */
+#define MOUSE_CAM_ZOOM_MULT 1         /* wheel zoom multiplier (applied to FOLLOW_CAM_ZOOM_STEP) */
+#define MOUSE_CAM_SENS_DEFAULT 4      /* default sensitivity (1-10 range) */

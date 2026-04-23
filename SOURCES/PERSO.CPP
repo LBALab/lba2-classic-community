@@ -68,7 +68,7 @@ static S32 FollowCamPrevHeroBeta = 0;
 static S32 FollowCamPrevAddBeta = 0;   /* dirty check: last seen AddBetaCam */
 static S32 FollowCamEffectiveDist = 0; /* spring arm: smoothed distance (0 = uninitialised) */
 static S32 FollowCamTargetBeta = 0;    /* rotation lag: desired BetaCam */
-static S32 FollowCamReengageDelay = 0; /* frames before auto-center resumes after manual pan */
+S32 FollowCamReengageDelay = 0;        /* frames before auto-center resumes after manual pan */
 static S32 FollowCamPrevBaseDist = -1; /* dirty: zoom from GereExtKeys (numpad * /) */
 static S32 FollowCamPrevAlphaCam = -1; /* dirty: numpad +/- elevation while follow */
 
@@ -1753,16 +1753,23 @@ restartloop:
 
                         if (manualPan) {
                             BetaCam = FollowCamTargetBeta;
-                        } else if (FollowCamReengageDelay == 0) {
+                        } else if (MouseCameraOrbitActive OR FollowCamReengageDelay == 0) {
                             S32 diff = FollowCamTargetBeta - BetaCam;
                             if (diff > 2048)
                                 diff -= 4096;
                             if (diff < -2048)
                                 diff += 4096;
                             if (diff > FOLLOW_CAM_ROT_THRESHOLD OR diff < -FOLLOW_CAM_ROT_THRESHOLD) {
-                                S32 dynamicDiv = FOLLOW_CAM_ROT_DIVISOR * FollowCamEffectiveDist / FollowCamBaseDist;
-                                if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3)
-                                    dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
+                                /* Mouse orbit: tight lerp for responsive feel.
+                                 * Auto-follow: distance-scaled inertia for cinematic drift. */
+                                S32 dynamicDiv;
+                                if (MouseCameraOrbitActive) {
+                                    dynamicDiv = MouseCameraSmoothing;
+                                } else {
+                                    dynamicDiv = FOLLOW_CAM_ROT_DIVISOR * FollowCamEffectiveDist / FollowCamBaseDist;
+                                    if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3)
+                                        dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
+                                }
                                 S32 step = diff / dynamicDiv;
                                 if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
                                     step = FOLLOW_CAM_ROT_MIN_STEP;
@@ -1990,6 +1997,48 @@ void ReadConfigFile(void) {
         FlagMenuMouse = TRUE;
     else
         FlagMenuMouse = FALSE;
+
+    FlagMouseCamera = DefFileBufferReadValueDefault("MouseCamera", TRUE);
+    if (FlagMouseCamera != 0)
+        FlagMouseCamera = TRUE;
+    else
+        FlagMouseCamera = FALSE;
+
+    FlagMouseCameraDrag = DefFileBufferReadValueDefault("MouseCameraDrag", TRUE);
+    if (FlagMouseCameraDrag != 0)
+        FlagMouseCameraDrag = TRUE;
+    else
+        FlagMouseCameraDrag = FALSE;
+
+    MouseCameraSensX = DefFileBufferReadValueDefault("MouseSensitivityX", MOUSE_CAM_SENS_DEFAULT);
+    if (MouseCameraSensX < 1)
+        MouseCameraSensX = 1;
+    if (MouseCameraSensX > 10)
+        MouseCameraSensX = 10;
+
+    MouseCameraSensY = DefFileBufferReadValueDefault("MouseSensitivityY", MOUSE_CAM_SENS_DEFAULT);
+    if (MouseCameraSensY < 1)
+        MouseCameraSensY = 1;
+    if (MouseCameraSensY > 10)
+        MouseCameraSensY = 10;
+
+    MouseCameraInvertY = DefFileBufferReadValueDefault("MouseInvertY", FALSE);
+    if (MouseCameraInvertY != 0)
+        MouseCameraInvertY = TRUE;
+    else
+        MouseCameraInvertY = FALSE;
+
+    MouseCameraDivisor = DefFileBufferReadValueDefault("MouseCameraDivisor", MOUSE_CAM_DIVISOR_DEFAULT);
+    if (MouseCameraDivisor < 1)
+        MouseCameraDivisor = 1;
+    if (MouseCameraDivisor > 16)
+        MouseCameraDivisor = 16;
+
+    MouseCameraSmoothing = DefFileBufferReadValueDefault("MouseCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
+    if (MouseCameraSmoothing < 1)
+        MouseCameraSmoothing = 1;
+    if (MouseCameraSmoothing > 16)
+        MouseCameraSmoothing = 16;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2021,6 +2070,13 @@ void WriteConfigFile(void) {
         DefFileBufferWriteString("FlagDisplayText", "OFF");
 
     DefFileBufferWriteValue("MenuMouse", FlagMenuMouse);
+    DefFileBufferWriteValue("MouseCamera", FlagMouseCamera);
+    DefFileBufferWriteValue("MouseCameraDrag", FlagMouseCameraDrag);
+    DefFileBufferWriteValue("MouseSensitivityX", MouseCameraSensX);
+    DefFileBufferWriteValue("MouseSensitivityY", MouseCameraSensY);
+    DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
+    DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
+    DefFileBufferWriteValue("MouseCameraSmoothing", MouseCameraSmoothing);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
