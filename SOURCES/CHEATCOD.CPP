@@ -229,4 +229,3 @@ int TryExecuteCheatByName(const char *name) {
     }
     return 0;
 }
-

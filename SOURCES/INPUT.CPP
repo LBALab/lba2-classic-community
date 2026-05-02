@@ -47,7 +47,7 @@ T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1] =
         {K_F3, K_L},                // I_LOAD
         {K_F4, K_O},                // I_OPTIONS
         {K_BACKSPACE,
-         0}, // I_CAMERA (backtick used for console)
+         0},                                // I_CAMERA (backtick used for console)
         {K_NUMPAD_PLUS, K_GRAY_PAGE_UP},    // I_CAMERA_LEVEL_PLUS
         {K_NUMPAD_MOINS, K_GRAY_PAGE_DOWN}, // I_CAMERA_LEVEL_MOINS
         {K_1, 0},                           // I_WEAPON_1
