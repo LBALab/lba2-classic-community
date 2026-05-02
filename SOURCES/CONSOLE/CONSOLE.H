@@ -46,6 +46,8 @@ typedef enum {
 } Console_CvarType;
 
 void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help);
+/** Register with optional one-line usage and context (for `help <cmd>`); pass NULL to omit. */
+void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context);
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help);
 
 /* Called from CONSOLE_CMD.CPP to register all commands/cvars */

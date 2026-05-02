@@ -21,12 +21,21 @@ The console is supported with the SDL backend (default in this project).
 - **Backspace**: delete last character.
 - **Up/Down**: scroll console output; the input line stays fixed at the bottom. When you are not at the newest lines, the last visible scrollback line shows `...`.
 
+## Context on open
+
+When you open the console, one line is printed with **mode**, **island**, **cube**, and **chapter**:
+
+- **mode** is `game` (in a loaded cube), `menu` (phantom cube or no scene yet), or `video` (ACF playback active).
+- **island**, **cube**, and **chapter** are only shown as numbers when you are in that loaded in-scene state (same conditions as commands like **give**). During ACF video, or before a scene is ready, they appear as `-` so leftover globals from a previous session are not mistaken for the current state.
+
 ## Discovery
 
-- **help** – list all commands with short descriptions.
+- **help** – list all commands with short descriptions. With an argument, **help &lt;name&gt;** prints usage and context for that command or cvar (e.g. `help cube`, `help fps`).
 - **cmdlist** – list command names only.
 - **varlist** – list cvars (variables) with descriptions.
 - **buildinfo** – print build timestamp and CMake options (SOUND_BACKEND, MVIDEO_BACKEND, ENABLE_ASM). The same string is written to the log at startup.
+
+Unknown commands print a hint to use **cmdlist**. Commands that need an in-game scene (**give**, **savebug**) print a short reason if used while a video is playing, before a scene exists, or in the phantom-cube state.
 
 ## Cheats (by name)
 
@@ -90,7 +99,7 @@ Get/set with `varname` (print value) or `varname value` (set).
 
 ### Extending commands and cheats
 
-- **Commands**: Add new handlers in `SOURCES/CONSOLE/CONSOLE_CMD.CPP` and register them via `Console_RegisterCommand("name", handler, "short description")` inside `Console_RegisterAll()`.
+- **Commands**: Add new handlers in `SOURCES/CONSOLE/CONSOLE_CMD.CPP` and register them via `Console_RegisterCommandEx("name", handler, "short description", "usage line", "context line")` (or `Console_RegisterCommand` if usage/context are omitted) inside `Console_RegisterAll()`.
 - **CVars**: Register new tunables via `Console_RegisterCvar` in `CONSOLE_CMD.CPP`, wiring them to existing globals rather than duplicating state.
 - **Cheats**: To add a cheat that works both from key sequences and the console, extend `CheatNames[]` and `ApplyCheat` in `SOURCES/CHEATCOD.CPP`; the console will automatically route matching command names through `TryExecuteCheatByName`.
 - **Safety**: Prefer read-only inspection commands or one-shot state changes that leave the game in a consistent, save/load-safe state. If a command is inherently risky (e.g. heavy state mutation), call it out explicitly in its help text.

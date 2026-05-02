@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.23)
 enable_testing()
 
 add_subdirectory(discovery)
+add_subdirectory(console)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)

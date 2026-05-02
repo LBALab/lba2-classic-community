@@ -1,6 +1,15 @@
 #include "CONSOLE.H"
 #include "CHEATCOD.H"
+#include "CONSOLE_STATE.H"
 #include <ctype.h>
+
+/* Minimal game-state externs for context line (avoid pulling full C_EXTERN into libconsole). */
+extern U8 FlagPlayAcf;
+extern U8 *PtrScene;
+extern S32 NumCube;
+extern S32 Island;
+extern S16 ListVarGame[];
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +38,8 @@ struct cmd_entry {
     const char *name;
     Console_CmdFn fn;
     const char *help;
+    const char *usage;
+    const char *context;
 };
 struct key_event {
     int scancode;
@@ -81,6 +92,7 @@ static char s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX] = "";
 static int s_screenshot_png = 0;
 
 static void Console_SubmitLine(void);
+static void console_print_open_context(void);
 
 void Console_SetSlideShowActive(int active) {
     s_slide_show_active = (active != 0);
@@ -132,6 +144,7 @@ void Console_Toggle(void) {
             s_registered = 1;
         }
         s_history_index = -1;
+        console_print_open_context();
     } else {
         /* Clear input line when closing so it doesn't persist on next open */
         free(s_console_buf);
@@ -469,13 +482,19 @@ int Console_ShouldSuppressInputThisFrame(void) {
     return 1;
 }
 
-void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help) {
+void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context) {
     if (s_cmd_count >= CONSOLE_MAX_CMDS)
         return;
     s_cmds[s_cmd_count].name = name;
     s_cmds[s_cmd_count].fn = callback;
     s_cmds[s_cmd_count].help = help;
+    s_cmds[s_cmd_count].usage = usage;
+    s_cmds[s_cmd_count].context = context;
     s_cmd_count++;
+}
+
+void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help) {
+    Console_RegisterCommandEx(name, callback, help, NULL, NULL);
 }
 
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help) {
@@ -486,6 +505,19 @@ void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, co
     s_cvars[s_cvar_count].type = type;
     s_cvars[s_cvar_count].help = help;
     s_cvar_count++;
+}
+
+static void console_print_open_context(void) {
+    char linebuf[CONSOLE_LINE_MAX];
+    Console_FormatContextLine_FromState(linebuf, sizeof(linebuf),
+                                        FlagPlayAcf ? 1 : 0,
+                                        (const void *)PtrScene,
+                                        NumCube,
+                                        CONSOLE_NUM_CUBE_PHANTOM_DEFAULT,
+                                        Island,
+                                        ListVarGame,
+                                        CONSOLE_LISTVAR_FLAG_CHAPTER);
+    Console_Print("%s", linebuf);
 }
 
 void Console_Execute(const char *line);
@@ -544,6 +576,28 @@ void Console_Execute(const char *line) {
 
     /* Built-in: help, cmdlist, varlist */
     if (strcmp(argv[0], "help") == 0) {
+        if (argc >= 2 && argv[1][0]) {
+            const char *topic = argv[1];
+            for (i = 0; i < s_cmd_count; i++) {
+                if (strcmp(s_cmds[i].name, topic) == 0) {
+                    Console_Print("%s - %s", s_cmds[i].name, s_cmds[i].help ? s_cmds[i].help : "");
+                    if (s_cmds[i].usage && s_cmds[i].usage[0])
+                        Console_Print("  Usage: %s", s_cmds[i].usage);
+                    if (s_cmds[i].context && s_cmds[i].context[0])
+                        Console_Print("  Context: %s", s_cmds[i].context);
+                    return;
+                }
+            }
+            for (i = 0; i < s_cvar_count; i++) {
+                if (strcmp(s_cvars[i].name, topic) == 0) {
+                    Console_Print("cvar %s - %s", s_cvars[i].name, s_cvars[i].help ? s_cvars[i].help : "");
+                    Console_Print("  Usage: %s  (bool: no arg toggles; %s 0|1). Int: %s <n>.", s_cvars[i].name, s_cvars[i].name, s_cvars[i].name);
+                    return;
+                }
+            }
+            Console_Print("Unknown help topic: %s (try: cmdlist, varlist)", topic);
+            return;
+        }
         int idx[CONSOLE_MAX_CMDS];
         int n = s_cmd_count;
         if (n > CONSOLE_MAX_CMDS)
@@ -555,6 +609,7 @@ void Console_Execute(const char *line) {
             const struct cmd_entry *ce = &s_cmds[idx[i]];
             Console_Print("  %s - %s", ce->name, ce->help ? ce->help : "");
         }
+        Console_Print("Use: help <name> for usage and context. Try: cmdlist, varlist");
         return;
     }
     if (strcmp(argv[0], "cmdlist") == 0) {
@@ -625,5 +680,5 @@ void Console_Execute(const char *line) {
         return;
     }
 
-    Console_Print("Unknown command: %s", argv[0]);
+    Console_Print("Unknown command: %s (try: cmdlist)", argv[0]);
 }
