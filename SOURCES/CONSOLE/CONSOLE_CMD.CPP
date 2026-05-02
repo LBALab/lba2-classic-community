@@ -20,9 +20,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#ifdef CONSOLE_MODULE
 #include <SYSTEM/TIMER.H>
-#endif
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Command handlers */
@@ -135,16 +133,37 @@ static void cmd_load(int argc, const char *argv[]) {
 }
 
 static void cmd_loadbug(int argc, const char *argv[]) {
-    (void)argc;
-    (void)argv;
-#ifdef DEBUG_TOOLS
-    Console_Print("Use debug menu to load bug save.");
-#else
-    Console_Print("Not available (build with DEBUG_TOOLS).");
-#endif
+    const char *name = (argc >= 2 && argv[1][0]) ? argv[1] : "bug";
+    char safeName[MAX_SIZE_PLAYER_NAME + 1];
+    size_t i, j;
+
+    for (i = 0, j = 0; name[i] && j < MAX_SIZE_PLAYER_NAME; i++) {
+        char c = name[i];
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_')
+            safeName[j++] = c;
+    }
+    safeName[j] = '\0';
+    if (j == 0) {
+        safeName[0] = 'b';
+        safeName[1] = 'u';
+        safeName[2] = 'g';
+        safeName[3] = '\0';
+    }
+
+    char relPath[ADELINE_MAX_PATH];
+    snprintf(relPath, sizeof(relPath), "bugs%c%s.lba", '/', safeName);
+    GetSavePath(GamePathname, ADELINE_MAX_PATH, relPath);
+    if (!ExistsFileOrDir(GamePathname)) {
+        Console_Print("Bug save not found: %s", safeName);
+        return;
+    }
+
+    Console_Close();
+    FlagLoadGame = TRUE;
+    LoadGameNumCube();
+    Console_Print("Loading bug save: %s", safeName);
 }
 
-#ifdef DEBUG_TOOLS
 static void cmd_savebug(int argc, const char *argv[]) {
     if (NumCube == NUM_CUBE_PHANTOM || PtrScene == NULL || FlagPlayAcf) {
         Console_Print("savebug only available in-game when a cube is loaded.");
@@ -179,18 +198,11 @@ static void cmd_savebug(int argc, const char *argv[]) {
     SaveGame(TRUE);
     Console_Print("Bug save: %s", GamePathname);
 }
-#endif
 
 static void cmd_timer(int argc, const char *argv[]) {
-#ifdef CONSOLE_MODULE
     S32 delta = (argc >= 2 && argv[1][0]) ? (S32)strtol(argv[1], NULL, 0) : 200;
     SetTimerHR(TimerRefHR + (U32)delta);
     Console_Print("Timer +%d (now %u)", delta, (unsigned int)TimerRefHR);
-#else
-    (void)argc;
-    (void)argv;
-    Console_Print("timer requires CONSOLE_MODULE (timer API).");
-#endif
 }
 
 static void cmd_status(int argc, const char *argv[]) {
@@ -198,15 +210,11 @@ static void cmd_status(int argc, const char *argv[]) {
     (void)argv;
     Console_Print("Island: %d  Cube: %d  Chapter: %d", Island, NumCube, (int)ListVarGame[FLAG_CHAPTER]);
     Console_Print("Obj: %d  Zones: %d  Tracks: %d", NbObjets, NbZones, NbBrickTrack);
-#ifdef CONSOLE_MODULE
     {
         extern volatile S32 NbFramePerSecond;
         extern volatile U32 TimerRefHR;
         Console_Print("FPS: %d  TimerRefHR: %u", NbFramePerSecond, (unsigned int)TimerRefHR);
     }
-#else
-    Console_Print("(FPS/timer with CONSOLE_MODULE)");
-#endif
     Console_Print("Pos: (%d,%d,%d)", Nxw, Nyw, Nzw);
 }
 
@@ -629,9 +637,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommand("timer", cmd_timer, "Advance timer by N ms (default 200)");
     Console_RegisterCommand("status", cmd_status, "Print island, cube, chapter, objs, FPS, pos");
     Console_RegisterCommand("screenshot", cmd_screenshot, "Save next frame as PPM (no console)");
-#ifdef DEBUG_TOOLS
     Console_RegisterCommand("savebug", cmd_savebug, "Save current game to bugs dir (optional name)");
-#endif
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");

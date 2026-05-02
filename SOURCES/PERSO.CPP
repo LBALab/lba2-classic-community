@@ -4,15 +4,12 @@
 #include "DIRECTORIES.H"
 #include "RES_DISCOVERY.H"
 #include "INPUT.H"
-#ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
 #include <FILEIO/SAVEPNG.H>
-#endif
 
 #include <SVGA/SCREEN.H>
-#include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
 #include <SYSTEM/STRING.H>
@@ -761,7 +758,6 @@ restartloop:
 
         CheckSavePcx(); // F9: Sauve Screen
 
-#ifdef CONSOLE_MODULE
         /* Console screenshot (PNG): requested without overlay; perform here where we have Screen + PtrPal. */
         {
             char shotPath[ADELINE_MAX_PATH];
@@ -771,7 +767,6 @@ restartloop:
                 Console_ClearPendingScreenshot();
             }
         }
-#endif
 
         /*-------------------------------------------------------------------------*/
         /* gestion clavier */ /* game */
@@ -2275,10 +2270,8 @@ int main(int argc, char *argv[]) {
 
     InitAdeline(argc, argv);
 
-#ifdef CONSOLE_MODULE
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
-#endif
 
     atexit(TheEndInfo);
 

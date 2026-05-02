@@ -12,7 +12,7 @@ Truth hierarchy: **code > this document > external sources**.
 
 **Reasoning:**
 
-1. **AGENTS.md:** Optional features behind flags → console is already behind `CONSOLE_MODULE`. New commands are additive; no gameplay change by default.
+1. **AGENTS.md:** Console is always available; new commands are additive and should avoid gameplay changes by default.
 
 2. **Read first:** [docs/CONSOLE.md](CONSOLE.md) — lists existing commands, cvars, layout. Commands are registered somewhere; cvars have get/set pattern.
 

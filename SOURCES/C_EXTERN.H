@@ -112,9 +112,7 @@ extern S32 FlagBlackPal;
 
 extern S32 FlagShadeMenu;
 
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 extern S32 DrawZVObjets;
-#endif
 
 extern S32 FlaFromCD;
 extern char PathFla[];

@@ -15,6 +15,7 @@ Index of documentation in this repository.
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 | [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |
+| [LBA_EDITOR.md](LBA_EDITOR.md) | What `LBA_EDITOR`/`PERSO` paths still do: editor capabilities, runtime hooks, and likely missing pieces. |
 
 ## Build & debug
 
@@ -23,7 +24,7 @@ Index of documentation in this repository.
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
-| [CONSOLE.md](CONSOLE.md) | Quake-style debug console (CONSOLE_MODULE=ON): backtick/F12, commands and cvars. |
+| [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
 
 
 ## Testing

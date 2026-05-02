@@ -1,7 +1,5 @@
 #include "CONSOLE.H"
-#ifdef CONSOLE_MODULE
 #include "CHEATCOD.H"
-#endif
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -541,10 +539,8 @@ void Console_Execute(const char *line) {
     if (argc == 0)
         return;
 
-#ifdef CONSOLE_MODULE
     if (TryExecuteCheatByName(argv[0]))
         return;
-#endif
 
     /* Built-in: help, cmdlist, varlist */
     if (strcmp(argv[0], "help") == 0) {

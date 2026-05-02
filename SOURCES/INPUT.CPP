@@ -7,12 +7,10 @@
 
 #include "INPUT.H"
 
-#ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/INPUT.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/DIRTYBOX.H>
-#endif
 
 // Input
 U32 WaitNoKey = 0;
@@ -49,11 +47,7 @@ T_DEF_KEY DefKeysDefault95[MAX_INPUT + 1] =
         {K_F3, K_L},                // I_LOAD
         {K_F4, K_O},                // I_OPTIONS
         {K_BACKSPACE,
-#ifdef CONSOLE_MODULE
          0}, // I_CAMERA (backtick used for console)
-#else
-         K_CARRE}, // I_CAMERA
-#endif
         {K_NUMPAD_PLUS, K_GRAY_PAGE_UP},    // I_CAMERA_LEVEL_PLUS
         {K_NUMPAD_MOINS, K_GRAY_PAGE_DOWN}, // I_CAMERA_LEVEL_MOINS
         {K_1, 0},                           // I_WEAPON_1
@@ -172,7 +166,6 @@ void MyGetInput() {
 
     MyKey = Key;
 
-#ifdef CONSOLE_MODULE
     /* Reserve backtick/F12 from game (toggle is only in Console_FeedEvent so we don't double-toggle). */
     TabKeys[(U32)K_CARRE] = 0;
     TabKeys[(U32)K_F12] = 0;
@@ -204,7 +197,6 @@ void MyGetInput() {
         BoxUpdate();
         return;
     }
-#endif
 
     // Attente d'événement de touche dans la boucle
 

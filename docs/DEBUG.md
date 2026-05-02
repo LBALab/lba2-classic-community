@@ -45,7 +45,7 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |
 | `F12` | Toggle ASCII mode | Toggles between text input and gameplay input modes |
 
-Note: `D` and `F` are also available in TEST_TOOLS builds. All other keys require DEBUG_TOOLS. When the build also has `CONSOLE_MODULE`, `F12` opens the debug console instead of toggling ASCII mode.
+Note: `D` and `F` are also available in TEST_TOOLS builds. All other keys require DEBUG_TOOLS. The always-on console also binds `F12`, so this key opens/closes the console instead of toggling ASCII mode when console input handling is active.
 
 ### What is ASCII Mode?
 
@@ -68,7 +68,7 @@ All debug-related files are saved to your user data directory:
 ### Screenshots (`F9`)
 
 Saved to `save/shoot/LBA00000.PCX`, `LBA00001.PCX`, etc. (original PCX format).  
-For PNG screenshots without the debug overlay, use the **debug console** when built with `CONSOLE_MODULE`: see [CONSOLE.md](CONSOLE.md) and the `screenshot` command.
+For PNG screenshots without the debug overlay, use the **debug console**: see [CONSOLE.md](CONSOLE.md) and the `screenshot` command.
 
 ### Bug Saves (`G` key)
 

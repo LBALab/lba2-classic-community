@@ -1,18 +1,17 @@
 # Debug Console
 
-Quake-style drop-down debug console for LBA2. It is an alternative to DEBUG_TOOLS and works everywhere: in-game, menu, inventory, credits, and during video playback. When both are available, the console can cover the same workflows (status, timer, savebug, screenshot) so you can use either.
+Quake-style drop-down debug console for LBA2. The console is always compiled and works everywhere: in-game, menu, inventory, credits, and during video playback. DEBUG_TOOLS remains a separate optional layer for additional legacy hotkeys/features.
 
 ## Build
 
-Enable the console with the CMake option:
+The console is part of normal builds (no dedicated CMake flag required).
 
 ```bash
-cmake -B build -DCONSOLE_MODULE=ON
+cmake -B build
 cmake --build build
 ```
 
-If `CONSOLE_MODULE` is **OFF** (default), the console is not compiled and no keys are consumed for it.  
-The console is only supported with the SDL backend (as selected above).
+The console is supported with the SDL backend (default in this project).
 
 ## Toggle and input
 
@@ -27,7 +26,7 @@ The console is only supported with the SDL backend (as selected above).
 - **help** – list all commands with short descriptions.
 - **cmdlist** – list command names only.
 - **varlist** – list cvars (variables) with descriptions.
-- **buildinfo** – print build timestamp and CMake options (CONSOLE_MODULE, SOUND_BACKEND, MVIDEO_BACKEND, ENABLE_ASM). The same string is written to the log at startup.
+- **buildinfo** – print build timestamp and CMake options (SOUND_BACKEND, MVIDEO_BACKEND, ENABLE_ASM). The same string is written to the log at startup.
 
 ## Cheats (by name)
 
@@ -48,10 +47,10 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 |---------------|-------------|
 | **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). |
 | **load**      | Load save by player name as printed by `listsaves`, or by file name (with optional `.lba`). |
-| **loadbug**   | Hint for loading bug saves (see listbugs). |
+| **loadbug**   | Load bug save by name or file (optional `.lba`), default `bug`. |
 | **listsaves** | List save games (player names from .lba files). |
 | **listbugs**  | List bug saves in the bugs directory (same path as savebug). |
-| **savebug** [name] | *(DEBUG_TOOLS)* Save current game to bugs directory; optional name (default `bug`). |
+| **savebug** [name] | Save current game to bugs directory; optional name (default `bug`). |
 | **timer** [ms] | Advance in-game timer by N ms (default 200). |
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
 | **screenshot** | Save the **next** frame as PNG in the shoot directory **without** the console visible (uses SavePNG). |
@@ -84,8 +83,8 @@ Get/set with `varname` (print value) or `varname value` (set).
 ## Implementation notes
 
 - **Independent of game buffer**: The console uses its own 8-bit overlay buffer. It is drawn via `AffStringToBuffer` (LIB386/SVGA) and composited in the video layer’s **pre-present callback** (`Console_PrePresent`), so it never touches the game’s `Log` or dirty-box pipeline.
-- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). **Backtick and F12 are reserved**: they are cleared from `TabKeys` and `Key` so the game never sees them (no clash with e.g. I_CAMERA).
-- **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` only toggles (when it sees the reserved keys before they are cleared), reserves backtick/F12, and when the console is open calls `Console_Update()` and returns.
+- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). **Backtick and F12 are reserved**: they are cleared from `TabKeys` and `Key` so the game never sees them (no clash with e.g. `I_CAMERA`).
+- **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves backtick/F12, and when the console is open calls `Console_Update()` and returns.
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.
 - **Gameplay integration**: Commands call existing engine functions (`LoadGameNumCube`, `PlayAcf`, `DoFoundObj`, etc.) rather than introducing console-only code paths. Cube changes no longer trigger autosave to keep debug teleports tidy; other save behavior is unchanged.
 

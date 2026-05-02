@@ -24,8 +24,6 @@ set(CMAKE_CXX_STANDARD 98)
 # Compilation options
 set(SOUND_BACKEND "sdl" CACHE STRING "Sound backend to be used")
 set(MVIDEO_BACKEND "smacker" CACHE STRING "Motion Video backend to be used")
-option(CONSOLE_MODULE "Enable Quake-style debug console (backtick/F12)" OFF)
-
 # Compilation options sanitization
 ## Sound backend
 set(SOUND_BACKEND_OPTIONS null miles sdl)
@@ -76,7 +74,7 @@ endif()
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
 # Build info header (timestamp from compile, flags from configure)
-set(BUILD_FLAGS_STR "CONSOLE_MODULE=${CONSOLE_MODULE} SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
+set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Process the targets
