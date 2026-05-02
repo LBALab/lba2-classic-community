@@ -21,16 +21,16 @@ The console is supported with the SDL backend (default in this project).
 - **Backspace**: delete last character.
 - **Up/Down**: scroll console output; the input line stays fixed at the bottom. When you are not at the newest lines, the last visible scrollback line shows `...`.
 
-## Context on open
+## Context command
 
-When you open the console, one line is printed with **mode**, **island**, **cube**, and **chapter**:
+Run **`context`** to print **cube** and **chapter** on one line (nothing is printed automatically when the console opens). More UI/engine context can be added later.
 
-- **mode** is `game` (in a loaded cube), `menu` (phantom cube or no scene yet), or `video` (ACF playback active).
-- **island**, **cube**, and **chapter** are only shown as numbers when you are in that loaded in-scene state (same conditions as commands like **give**). During ACF video, or before a scene is ready, they appear as `-` so leftover globals from a previous session are not mistaken for the current state.
+- Output looks like: `[Context] cube=N chapter=M`.
+- Values are numeric only when **give**-style scene rules pass (loaded scene, non-phantom cube, not during ACF). Otherwise they are `-` so stale globals are not mistaken for live play state.
 
 ## Discovery
 
-- **help** – list all commands with short descriptions. With an argument, **help &lt;name&gt;** prints usage and context for that command or cvar (e.g. `help cube`, `help fps`).
+- **help** – list all commands with short descriptions. With an argument, **help &lt;name&gt;** prints usage and context for that command or cvar (e.g. `help cube`, `help fps`, `help context`).
 - **cmdlist** – list command names only.
 - **varlist** – list cvars (variables) with descriptions.
 - **buildinfo** – print build timestamp and CMake options (SOUND_BACKEND, MVIDEO_BACKEND, ENABLE_ASM). The same string is written to the log at startup.

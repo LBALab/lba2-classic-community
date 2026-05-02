@@ -1,14 +1,6 @@
 #include "CONSOLE.H"
 #include "CHEATCOD.H"
-#include "CONSOLE_STATE.H"
 #include <ctype.h>
-
-/* Minimal game-state externs for context line (avoid pulling full C_EXTERN into libconsole). */
-extern U8 FlagPlayAcf;
-extern U8 *PtrScene;
-extern S32 NumCube;
-extern S32 Island;
-extern S16 ListVarGame[];
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -92,7 +84,6 @@ static char s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX] = "";
 static int s_screenshot_png = 0;
 
 static void Console_SubmitLine(void);
-static void console_print_open_context(void);
 
 void Console_SetSlideShowActive(int active) {
     s_slide_show_active = (active != 0);
@@ -144,7 +135,6 @@ void Console_Toggle(void) {
             s_registered = 1;
         }
         s_history_index = -1;
-        console_print_open_context();
     } else {
         /* Clear input line when closing so it doesn't persist on next open */
         free(s_console_buf);
@@ -507,19 +497,6 @@ void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, co
     s_cvar_count++;
 }
 
-static void console_print_open_context(void) {
-    char linebuf[CONSOLE_LINE_MAX];
-    Console_FormatContextLine_FromState(linebuf, sizeof(linebuf),
-                                        FlagPlayAcf ? 1 : 0,
-                                        (const void *)PtrScene,
-                                        NumCube,
-                                        CONSOLE_NUM_CUBE_PHANTOM_DEFAULT,
-                                        Island,
-                                        ListVarGame,
-                                        CONSOLE_LISTVAR_FLAG_CHAPTER);
-    Console_Print("%s", linebuf);
-}
-
 void Console_Execute(const char *line);
 
 static void Console_SubmitLine(void) {
@@ -591,7 +568,12 @@ void Console_Execute(const char *line) {
             for (i = 0; i < s_cvar_count; i++) {
                 if (strcmp(s_cvars[i].name, topic) == 0) {
                     Console_Print("cvar %s - %s", s_cvars[i].name, s_cvars[i].help ? s_cvars[i].help : "");
-                    Console_Print("  Usage: %s  (bool: no arg toggles; %s 0|1). Int: %s <n>.", s_cvars[i].name, s_cvars[i].name, s_cvars[i].name);
+                    if (s_cvars[i].type == CONSOLE_CVAR_INT)
+                        Console_Print("  Usage: %s <integer>", s_cvars[i].name);
+                    else if (s_cvars[i].type == CONSOLE_CVAR_BOOL_U8)
+                        Console_Print("  Usage: %s  (0|1)", s_cvars[i].name);
+                    else
+                        Console_Print("  Usage: %s  (no arg toggles; or %s 0|1)", s_cvars[i].name, s_cvars[i].name);
                     return;
                 }
             }

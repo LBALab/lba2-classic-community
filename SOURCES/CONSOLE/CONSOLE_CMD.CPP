@@ -10,7 +10,6 @@
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INVENT.H"
-#include "../GAMEMENU.H"
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
 #include <SVGA/SCREEN.H>
@@ -23,6 +22,14 @@
 #include <time.h>
 #include <SYSTEM/TIMER.H>
 
+/* libconsole cannot include COMMON.H; keep CONSOLE_STATE.H sentinels in sync (compile fails if they drift). */
+#if NUM_CUBE_PHANTOM != CONSOLE_NUM_CUBE_PHANTOM_DEFAULT
+#error "CONSOLE_STATE.H CONSOLE_NUM_CUBE_PHANTOM_DEFAULT must match COMMON.H NUM_CUBE_PHANTOM"
+#endif
+#if FLAG_CHAPTER != CONSOLE_LISTVAR_FLAG_CHAPTER
+#error "CONSOLE_STATE.H CONSOLE_LISTVAR_FLAG_CHAPTER must match COMMON.H FLAG_CHAPTER"
+#endif
+
 /* Shared console command availability (clear messages for Phase 1 UX). */
 static const char *console_avail_in_game_scene(void) {
     return Console_AvailInGameScene_FromState(
@@ -32,10 +39,10 @@ static const char *console_avail_in_game_scene(void) {
         NUM_CUBE_PHANTOM);
 }
 
-/** DoFoundObj indexes TabObj3D[IdObj3D]; guard before calling into INVENT.CPP. */
+/** DoFoundObj indexes TabInv[numvar].TabObj3D[IdObj3D] (see T_INV_TABOBJ3D_COUNT). */
 static const char *console_give_tabinv_not_ready_reason(S32 numvar) {
     const S16 id = TabInv[numvar].IdObj3D;
-    if (id < 0 || id > 3)
+    if (id < 0 || id >= (S16)T_INV_TABOBJ3D_COUNT)
         return "Not available: inventory data for this slot is not valid (not in a normal play state).";
     return NULL;
 }
@@ -618,6 +625,17 @@ static void cmd_listsaves(int argc, const char *argv[]) {
     Console_Print("Saves: %d", nb);
 }
 
+static void cmd_context(int argc, const char *argv[]) {
+    char linebuf[512];
+
+    (void)argc;
+    (void)argv;
+
+    Console_FormatContextLine_FromState(linebuf, sizeof(linebuf), FlagPlayAcf ? 1 : 0, (const void *)PtrScene, NumCube,
+                                        NUM_CUBE_PHANTOM, ListVarGame, CONSOLE_LISTVAR_FLAG_CHAPTER);
+    Console_Print("%s", linebuf);
+}
+
 static void cmd_listbugs(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -676,6 +694,8 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("listsaves", cmd_listsaves, "List save games (names)", "(no args)", "Reads save/ directory.");
     Console_RegisterCommandEx("listbugs", cmd_listbugs, "List bug saves in bugs directory", "(no args)", "Reads bugs/ directory.");
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");
+    Console_RegisterCommandEx("context", cmd_context, "Print cube and chapter (give-style scene rules)", "(no args)",
+                              "Cube/chapter are numeric only in a loaded non-phantom cube, not during ACF; else '-'.");
     Console_RegisterCommandEx("status", cmd_status, "Print island, cube, chapter, objs, FPS, pos", "(no args)",
                               "Snapshot of current game state.");
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",

@@ -1373,6 +1373,9 @@ typedef	struct
 	U8	TabObj3D[4]	;//	Objects evolution ( selon IdObj3D )
 } T_INV_OBJ	;
 
+/** Length of T_INV_OBJ::TabObj3D; DoFoundObj indexes TabObj3D[IdObj3D] — IdObj3D must be in [0, N-1]. */
+#define T_INV_TABOBJ3D_COUNT 4
+
 //======================== Issus de Dial 
 #define	DIAL_DEF	(1<<0)	// Texte normal (defaut)
 #define DIAL_BIG	(1<<1)	// Texte affiche en BigMessage
