@@ -91,6 +91,12 @@ extern T_DEF_KEY MemoDefKeys[MAX_INPUT + 1];
 // tableau de configuration des touches utilisé au cours du jeu
 extern U32 TabInputBit[MAX_INPUT * 2 + 1];
 
+// Parallel gamepad binding table: Key1 / Key2 are alternate bindings (OR),
+// same semantics as DefKeys (see KEYBOARD_KEYS.H for K_GAMEPAD_*). 0 =
+// unbound. Applied by ApplyGamepadBindings() in addition to DefKeys.
+extern T_DEF_KEY GamepadKeys[MAX_INPUT];
+extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT];
+
 /*══════════════════════════════════════════════════════════════════════════*
 			██████┐ ██┐ ██┐ ██████┐ ██████┐
 			└─██┌─┘ ███┐██│ └─██┌─┘ └─██┌─┘
@@ -114,6 +120,12 @@ extern void MyGetInput(void);
 extern void WaitNoInput(void);
 //-------------------------------------------------------------------------
 extern void WaitInput(void);
+//-------------------------------------------------------------------------
+extern void ReadGamepadConfig(void);
+//-------------------------------------------------------------------------
+extern void WriteGamepadConfig(void);
+//-------------------------------------------------------------------------
+extern void ApplyGamepadBindings(void);
 //-------------------------------------------------------------------------
 
 #endif // INPUT_H
