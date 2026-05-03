@@ -79,13 +79,15 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 `tests/console/test_console_state.cpp` links the `console` library and exercises **`SOURCES/CONSOLE/CONSOLE_STATE.CPP`**: availability strings (same contract as `console_avail_in_game_scene` in `CONSOLE_CMD.CPP`), legacy **video/menu/game** labels from **`Console_ModeString_FromState`** (for tests), and **`Console_FormatStatusIslandLine_FromState`** (first line of the **`status`** command: island, cube, chapter; raw values like `cmd_status`, not give-style scene masking). No retail `lba2.hqr` or full engine init.
 
-PR host jobs and **`make test`** / **`make test-discovery`** build `test_res_discovery` and `test_console_state`, then:
+`tests/console/test_console_commands.cpp` covers parser/output integration in **`SOURCES/CONSOLE/CONSOLE.CPP`** using host-only hooks: built-in `help` and `cmdlist`, unknown-command diagnostics, cvar set/get (`fps`), and a registered **`status`** command path that prints the same status headline format.
+
+PR host jobs and **`make test`** / **`make test-discovery`** build `test_res_discovery`, `test_console_state`, and `test_console_commands`, then:
 
 ```bash
-cd build && ctest -R 'test_(res_discovery|console_state)' --output-on-failure
+cd build && ctest -R 'test_(res_discovery|console_state|console_commands)' --output-on-failure
 ```
 
-To run only the console suite: `ctest -R test_console_state --output-on-failure`.
+To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
 ## Test Harness
 

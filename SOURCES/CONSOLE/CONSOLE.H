@@ -50,6 +50,7 @@ void Console_ClearPendingScreenshot(void);
 
 /* Extensibility - used only inside the console module */
 typedef void (*Console_CmdFn)(int argc, const char *argv[]);
+typedef void (*Console_LineSinkFn)(const char *line);
 
 typedef enum {
     CONSOLE_CVAR_INT,
@@ -64,6 +65,11 @@ void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, co
 
 /* Called from CONSOLE_CMD.CPP to register all commands/cvars */
 void Console_RegisterAll(void);
+
+/* Internal command execution entry point; used by host-only parser tests. */
+void Console_Execute(const char *line);
+/* Test hook: receives each console output line after it is pushed to scrollback. */
+void Console_SetLineSinkForTests(Console_LineSinkFn sink);
 
 #ifdef __cplusplus
 }

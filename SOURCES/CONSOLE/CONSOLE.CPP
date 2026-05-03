@@ -84,6 +84,7 @@ static int s_scroll_offset = 0;
 #define CONSOLE_SCREENSHOT_PATH_MAX 256
 static char s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX] = "";
 static int s_screenshot_png = 0;
+static Console_LineSinkFn s_line_sink_for_tests = NULL;
 
 static void Console_SubmitLine(void);
 
@@ -237,6 +238,12 @@ void Console_Print(const char *fmt, ...) {
     va_end(ap);
     buf[CONSOLE_LINE_MAX - 1] = '\0';
     scrollback_push_wrapped(buf);
+    if (s_line_sink_for_tests)
+        s_line_sink_for_tests(buf);
+}
+
+void Console_SetLineSinkForTests(Console_LineSinkFn sink) {
+    s_line_sink_for_tests = sink;
 }
 
 /* Helpers to sort commands/cvars alphabetically for help/cmdlist/varlist. */

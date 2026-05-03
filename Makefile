@@ -32,8 +32,8 @@ test-discovery:
 	$(CMAKE) -S "$(REPO_ROOT)" -B "$(BUILD_DIR)" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
 		-DLBA2_BUILD_TESTS=ON \
 		-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
-	$(CMAKE) --build "$(BUILD_DIR)" --target test_res_discovery test_console_state
-	cd "$(BUILD_DIR)" && ctest -R 'test_(res_discovery|console_state)' --output-on-failure
+	$(CMAKE) --build "$(BUILD_DIR)" --target test_res_discovery test_console_state test_console_commands
+	cd "$(BUILD_DIR)" && ctest -R 'test_(res_discovery|console_state|console_commands)' --output-on-failure
 
 test tests: test-discovery
 
