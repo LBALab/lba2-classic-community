@@ -30,7 +30,7 @@
 #error "CONSOLE_STATE.H CONSOLE_LISTVAR_FLAG_CHAPTER must match COMMON.H FLAG_CHAPTER"
 #endif
 
-/* Shared gate for give/savebug: user-facing reason strings (same predicate as context cube/chapter). */
+/* Shared gate for give/savebug: user-facing reason strings (in-scene predicate). */
 static const char *console_avail_in_game_scene(void) {
     return Console_AvailInGameScene_FromState(
         FlagPlayAcf ? 1 : 0,
@@ -234,9 +234,11 @@ static void cmd_timer(int argc, const char *argv[]) {
 }
 
 static void cmd_status(int argc, const char *argv[]) {
+    char linebuf[128];
     (void)argc;
     (void)argv;
-    Console_Print("Island: %d  Cube: %d  Chapter: %d", Island, NumCube, (int)ListVarGame[FLAG_CHAPTER]);
+    Console_FormatStatusIslandLine_FromState(linebuf, sizeof(linebuf), Island, NumCube, ListVarGame, CONSOLE_LISTVAR_FLAG_CHAPTER);
+    Console_Print("%s", linebuf);
     Console_Print("Obj: %d  Zones: %d  Tracks: %d", NbObjets, NbZones, NbBrickTrack);
     {
         extern volatile S32 NbFramePerSecond;
@@ -625,17 +627,6 @@ static void cmd_listsaves(int argc, const char *argv[]) {
     Console_Print("Saves: %d", nb);
 }
 
-static void cmd_context(int argc, const char *argv[]) {
-    char linebuf[512];
-
-    (void)argc;
-    (void)argv;
-
-    Console_FormatContextLine_FromState(linebuf, sizeof(linebuf), FlagPlayAcf ? 1 : 0, (const void *)PtrScene, NumCube,
-                                        NUM_CUBE_PHANTOM, ListVarGame, CONSOLE_LISTVAR_FLAG_CHAPTER);
-    Console_Print("%s", linebuf);
-}
-
 static void cmd_listbugs(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -694,8 +685,6 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("listsaves", cmd_listsaves, "List save games (names)", "(no args)", "Reads save/ directory.");
     Console_RegisterCommandEx("listbugs", cmd_listbugs, "List bug saves in bugs directory", "(no args)", "Reads bugs/ directory.");
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");
-    Console_RegisterCommandEx("context", cmd_context, "Print cube and chapter (give-style scene rules)", "(no args)",
-                              "Cube/chapter are numeric only in a loaded non-phantom cube, not during ACF; else '-'.");
     Console_RegisterCommandEx("status", cmd_status, "Print island, cube, chapter, objs, FPS, pos", "(no args)",
                               "Snapshot of current game state.");
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",

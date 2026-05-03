@@ -77,7 +77,7 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 5. Host tests — console (`tests/console`)
 
-`tests/console/test_console_state.cpp` links the `console` library and exercises **`SOURCES/CONSOLE/CONSOLE_STATE.CPP`**: availability strings (same contract as `console_avail_in_game_scene` in `CONSOLE_CMD.CPP`), legacy **video/menu/game** labels from **`Console_ModeString_FromState`** (for tests), and **`Console_FormatContextLine_FromState`** used by the **`context`** command (**cube** / **chapter** only; numeric **iff** `Console_AvailInGameScene_FromState` returns NULL, matching **give**). No retail `lba2.hqr` or full engine init.
+`tests/console/test_console_state.cpp` links the `console` library and exercises **`SOURCES/CONSOLE/CONSOLE_STATE.CPP`**: availability strings (same contract as `console_avail_in_game_scene` in `CONSOLE_CMD.CPP`), legacy **video/menu/game** labels from **`Console_ModeString_FromState`** (for tests), and **`Console_FormatStatusIslandLine_FromState`** (first line of the **`status`** command: island, cube, chapter; raw values like `cmd_status`, not give-style scene masking). No retail `lba2.hqr` or full engine init.
 
 PR host jobs and **`make test`** / **`make test-discovery`** build `test_res_discovery` and `test_console_state`, then:
 

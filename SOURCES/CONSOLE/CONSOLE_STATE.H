@@ -23,28 +23,24 @@ const char *Console_AvailInGameScene_FromState(int flag_play_acf,
                                                S32 num_cube,
                                                S32 num_cube_phantom);
 
-/** Legacy three-way label "video" | "menu" | "game" (host tests; not used in context output). */
+/** Legacy three-way label "video" | "menu" | "game" (host tests only). */
 const char *Console_ModeString_FromState(int flag_play_acf,
                                          const void *ptr_scene,
                                          S32 num_cube,
                                          S32 num_cube_phantom);
 
 /**
- * Writes "[Context] cube=... chapter=..." into buf.
- * When there is no loaded in-scene state (PtrScene NULL, phantom cube, or
- * video playing), cube and chapter are shown as '-' so stale globals are not
- * mistaken for live play state (same predicate as give availability).
+ * First line of the status command: island, cube, chapter from globals passed in.
+ * Matches cmd_status formatting (raw values; no give-style scene masking).
  *
- * \a list_var_game may be NULL; \a flag_chapter_index is ignored then or if
- * out of range 0..255 (defensive bound, not the real ListVarGame array size).
+ * \a list_var_game may be NULL; chapter is 0 then. \a flag_chapter_index is
+ * ignored if out of range 0..255 (defensive bound, not the real ListVarGame size).
  */
-void Console_FormatContextLine_FromState(char *buf, size_t buflen,
-                                         int flag_play_acf,
-                                         const void *ptr_scene,
-                                         S32 num_cube,
-                                         S32 num_cube_phantom,
-                                         const S16 *list_var_game,
-                                         int flag_chapter_index);
+void Console_FormatStatusIslandLine_FromState(char *buf, size_t buflen,
+                                              S32 island,
+                                              S32 num_cube,
+                                              const S16 *list_var_game,
+                                              int flag_chapter_index);
 
 #ifdef __cplusplus
 }

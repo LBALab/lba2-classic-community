@@ -1,7 +1,6 @@
 #include "CONSOLE_STATE.H"
 
 #include <stdio.h>
-#include <string.h>
 
 const char *Console_AvailInGameScene_FromState(int flag_play_acf,
                                                const void *ptr_scene,
@@ -27,35 +26,16 @@ const char *Console_ModeString_FromState(int flag_play_acf,
     return "game";
 }
 
-void Console_FormatContextLine_FromState(char *buf, size_t buflen,
-                                         int flag_play_acf,
-                                         const void *ptr_scene,
-                                         S32 num_cube,
-                                         S32 num_cube_phantom,
-                                         const S16 *list_var_game,
-                                         int flag_chapter_index) {
-    /* Same "in loaded cube" idea as Console_AvailInGameScene_FromState (ACF folded into !flag_play_acf here). */
-    const int in_scene = (ptr_scene != NULL && num_cube != num_cube_phantom && !flag_play_acf);
-    char cube_str[32];
-    char chap_str[32];
-
-    if (in_scene) {
-        snprintf(cube_str, sizeof(cube_str), "%d", (int)num_cube);
-        if (list_var_game != NULL && flag_chapter_index >= 0 && flag_chapter_index <= 255) {
-            snprintf(chap_str, sizeof(chap_str), "%d", (int)list_var_game[flag_chapter_index]);
-        } else {
-            strncpy(chap_str, "-", sizeof(chap_str));
-            chap_str[sizeof(chap_str) - 1] = '\0';
-        }
-    } else {
-        strncpy(cube_str, "-", sizeof(cube_str));
-        cube_str[sizeof(cube_str) - 1] = '\0';
-        strncpy(chap_str, "-", sizeof(chap_str));
-        chap_str[sizeof(chap_str) - 1] = '\0';
-    }
-
+void Console_FormatStatusIslandLine_FromState(char *buf, size_t buflen,
+                                              S32 island,
+                                              S32 num_cube,
+                                              const S16 *list_var_game,
+                                              int flag_chapter_index) {
+    int chapter = 0;
+    if (list_var_game != NULL && flag_chapter_index >= 0 && flag_chapter_index <= 255)
+        chapter = (int)list_var_game[flag_chapter_index];
     if (buflen == 0)
         return;
-    snprintf(buf, buflen, "[Context] cube=%s chapter=%s", cube_str, chap_str);
+    snprintf(buf, buflen, "Island: %d  Cube: %d  Chapter: %d", (int)island, (int)num_cube, chapter);
     buf[buflen - 1] = '\0';
 }

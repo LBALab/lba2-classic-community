@@ -2,12 +2,11 @@
  * Host-only tests for console state helpers (no retail game data, no engine init).
  *
  * Intent (must stay aligned with production code):
- * - SOURCES/CONSOLE/CONSOLE_CMD.CPP: `console_avail_in_game_scene()` delegates to
- *   `Console_AvailInGameScene_FromState` — same predicate as whether stateful
- *   commands like `give` may run.
- * - Console_FormatContextLine_FromState: cube and chapter as numbers only when
- *   "in scene" — same boolean as availability (non-NULL scene, non-phantom
- *   cube, not during ACF video). Matches the in-game context command.
+ * - SOURCES/CONSOLE/CONSOLE_CMD.CPP: console_avail_in_game_scene() delegates to
+ *   Console_AvailInGameScene_FromState — same predicate as whether stateful
+ *   commands like give may run.
+ * - Console_FormatStatusIslandLine_FromState: first line of the status command
+ *   (island, cube, chapter); same string as cmd_status (raw globals, no masking).
  */
 
 #include "CONSOLE/CONSOLE_STATE.H"
@@ -31,26 +30,10 @@ static int console_in_scene_intent(int flag_acf, const void *scene, S32 cube, S3
     return (scene != NULL) && (cube != phantom) && !flag_acf;
 }
 
-static void assert_avail_matches_context_cube_chapter(int flag_acf, const void *scene, S32 cube, S32 phantom) {
+static void assert_avail_matches_in_scene_predicate(int flag_acf, const void *scene, S32 cube, S32 phantom) {
     const char *avail = Console_AvailInGameScene_FromState(flag_acf, scene, cube, phantom);
     const int in_scene = console_in_scene_intent(flag_acf, scene, cube, phantom);
     assert((avail == NULL) == (in_scene != 0));
-
-    char buf[256];
-    S16 vars[256];
-    memset(vars, 0, sizeof(vars));
-    vars[CONSOLE_LISTVAR_FLAG_CHAPTER] = 88;
-    Console_FormatContextLine_FromState(buf, sizeof(buf), flag_acf, scene, cube, phantom, vars, CONSOLE_LISTVAR_FLAG_CHAPTER);
-
-    if (in_scene) {
-        char expect_cube[32];
-        snprintf(expect_cube, sizeof(expect_cube), "cube=%d", (int)cube);
-        assert(strstr(buf, expect_cube) != NULL);
-        assert(strstr(buf, "chapter=88") != NULL);
-    } else {
-        assert(strstr(buf, "cube=-") != NULL);
-        assert(strstr(buf, "chapter=-") != NULL);
-    }
 }
 
 int main(void) {
@@ -70,37 +53,28 @@ int main(void) {
     assert(strcmp(Console_ModeString_FromState(0, (void *)1, 94, 94), "menu") == 0);
     assert(strcmp(Console_ModeString_FromState(0, (void *)1, 3, 94), "game") == 0);
 
-    assert_avail_matches_context_cube_chapter(0, (void *)1, 100, 100);
-    assert_avail_matches_context_cube_chapter(0, (void *)1, 101, 100);
+    assert_avail_matches_in_scene_predicate(0, (void *)1, 100, 100);
+    assert_avail_matches_in_scene_predicate(0, (void *)1, 101, 100);
 
     char buf[256];
     S16 vars[256];
     memset(vars, 0, sizeof(vars));
     vars[CONSOLE_LISTVAR_FLAG_CHAPTER] = 7;
 
-    Console_FormatContextLine_FromState(buf, sizeof(buf), 0, (void *)1, 3, 94, vars, CONSOLE_LISTVAR_FLAG_CHAPTER);
-    assert(strstr(buf, "cube=3") != NULL);
-    assert(strstr(buf, "chapter=7") != NULL);
-    assert(strstr(buf, "mode=") == NULL);
-    assert(strstr(buf, "island=") == NULL);
+    Console_FormatStatusIslandLine_FromState(buf, sizeof(buf), 10, 3, vars, CONSOLE_LISTVAR_FLAG_CHAPTER);
+    assert(strcmp(buf, "Island: 10  Cube: 3  Chapter: 7") == 0);
 
-    Console_FormatContextLine_FromState(buf, sizeof(buf), 0, NULL, 99, 94, vars, CONSOLE_LISTVAR_FLAG_CHAPTER);
-    assert(strstr(buf, "cube=-") != NULL);
-    assert(strstr(buf, "chapter=-") != NULL);
+    /* status uses raw globals: chapter still shown when not in loaded cube. */
+    Console_FormatStatusIslandLine_FromState(buf, sizeof(buf), 0, 99, vars, CONSOLE_LISTVAR_FLAG_CHAPTER);
+    assert(strcmp(buf, "Island: 0  Cube: 99  Chapter: 7") == 0);
 
-    Console_FormatContextLine_FromState(buf, sizeof(buf), 1, (void *)1, 3, 94, vars, CONSOLE_LISTVAR_FLAG_CHAPTER);
-    assert(strstr(buf, "cube=-") != NULL);
-    assert(strstr(buf, "chapter=-") != NULL);
+    Console_FormatStatusIslandLine_FromState(buf, sizeof(buf), 1, 2, NULL, CONSOLE_LISTVAR_FLAG_CHAPTER);
+    assert(strcmp(buf, "Island: 1  Cube: 2  Chapter: 0") == 0);
 
-    Console_FormatContextLine_FromState(buf, sizeof(buf), 0, (void *)1, 2, 94, NULL, CONSOLE_LISTVAR_FLAG_CHAPTER);
-    assert(Console_AvailInGameScene_FromState(0, (void *)1, 2, 94) == NULL);
-    assert(strstr(buf, "cube=2") != NULL);
-    assert(strstr(buf, "chapter=-") != NULL);
-
-    assert_avail_matches_context_cube_chapter(0, NULL, 1, 94);
-    assert_avail_matches_context_cube_chapter(0, (void *)0x1, 94, 94);
-    assert_avail_matches_context_cube_chapter(1, (void *)0x1, 3, 94);
-    assert_avail_matches_context_cube_chapter(0, (void *)0x1, 0, 94);
+    assert_avail_matches_in_scene_predicate(0, NULL, 1, 94);
+    assert_avail_matches_in_scene_predicate(0, (void *)0x1, 94, 94);
+    assert_avail_matches_in_scene_predicate(1, (void *)0x1, 3, 94);
+    assert_avail_matches_in_scene_predicate(0, (void *)0x1, 0, 94);
 
     return 0;
 }
