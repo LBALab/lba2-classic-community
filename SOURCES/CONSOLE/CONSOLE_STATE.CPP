@@ -34,6 +34,7 @@ void Console_FormatContextLine_FromState(char *buf, size_t buflen,
                                          S32 num_cube_phantom,
                                          const S16 *list_var_game,
                                          int flag_chapter_index) {
+    /* Same "in loaded cube" idea as Console_AvailInGameScene_FromState (ACF folded into !flag_play_acf here). */
     const int in_scene = (ptr_scene != NULL && num_cube != num_cube_phantom && !flag_play_acf);
     char cube_str[32];
     char chap_str[32];

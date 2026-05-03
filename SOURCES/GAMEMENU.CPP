@@ -3771,6 +3771,7 @@ S32 SlideShow(void) {
 
     InitDial(2); // pour les textes sur les screen shots
 
+    /* Prevent opening console during slideshow frames (no stable gameplay buffers/callback flow there). */
     Console_SetSlideShowActive(1);
     Bulle = FALSE;
 
@@ -3849,6 +3850,7 @@ S32 SlideShow(void) {
 
     GameInProgress = TRUE; // pour recharger la partie en cours
 
+    /* Restore normal console availability once slideshow exits. */
     Console_SetSlideShowActive(0);
     return ret;
 }

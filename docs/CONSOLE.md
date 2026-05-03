@@ -96,6 +96,7 @@ Get/set with `varname` (print value) or `varname value` (set).
 - **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves backtick/F12, and when the console is open calls `Console_Update()` and returns.
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.
 - **Gameplay integration**: Commands call existing engine functions (`LoadGameNumCube`, `PlayAcf`, `DoFoundObj`, etc.) rather than introducing console-only code paths. Cube changes no longer trigger autosave to keep debug teleports tidy; other save behavior is unchanged.
+- **External call sites** (outside `SOURCES/CONSOLE/`): `INPUT.CPP` (input path when open), `PLAYACF.CPP` (stall ACF while open), `PERSO.CPP` (event filter, pre-present, screenshot handoff), `GAMEMENU.CPP` (slide-show gate). Cheat names live in `CHEATCOD.CPP`. Build wiring: `SOURCES/CMakeLists.txt`, `SOURCES/CONSOLE/CMakeLists.txt`, `tests/console/`. A one-line map also lives in `CONSOLE.H` above the public API.
 
 ### Extending commands and cheats
 

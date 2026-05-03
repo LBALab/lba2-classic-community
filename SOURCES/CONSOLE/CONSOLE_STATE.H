@@ -23,7 +23,7 @@ const char *Console_AvailInGameScene_FromState(int flag_play_acf,
                                                S32 num_cube,
                                                S32 num_cube_phantom);
 
-/** Legacy transport labels: "video" | "menu" | "game" (tests / future use). */
+/** Legacy three-way label "video" | "menu" | "game" (host tests; not used in context output). */
 const char *Console_ModeString_FromState(int flag_play_acf,
                                          const void *ptr_scene,
                                          S32 num_cube,
@@ -33,10 +33,10 @@ const char *Console_ModeString_FromState(int flag_play_acf,
  * Writes "[Context] cube=... chapter=..." into buf.
  * When there is no loaded in-scene state (PtrScene NULL, phantom cube, or
  * video playing), cube and chapter are shown as '-' so stale globals are not
- * mistaken for live play state (same predicate as **give** availability).
+ * mistaken for live play state (same predicate as give availability).
  *
  * \a list_var_game may be NULL; \a flag_chapter_index is ignored then or if
- * out of supported range (0..255).
+ * out of range 0..255 (defensive bound, not the real ListVarGame array size).
  */
 void Console_FormatContextLine_FromState(char *buf, size_t buflen,
                                          int flag_play_acf,

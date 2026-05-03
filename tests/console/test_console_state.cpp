@@ -5,9 +5,9 @@
  * - SOURCES/CONSOLE/CONSOLE_CMD.CPP: `console_avail_in_game_scene()` delegates to
  *   `Console_AvailInGameScene_FromState` — same predicate as whether stateful
  *   commands like `give` may run.
- * - `Console_FormatContextLine_FromState`: **cube** and **chapter** as numbers
- *   only when "in scene" — same boolean as availability (non-NULL scene,
- *   non-phantom cube, not during ACF video). Matches the **`context`** command.
+ * - Console_FormatContextLine_FromState: cube and chapter as numbers only when
+ *   "in scene" — same boolean as availability (non-NULL scene, non-phantom
+ *   cube, not during ACF video). Matches the in-game context command.
  */
 
 #include "CONSOLE/CONSOLE_STATE.H"

@@ -7,6 +7,13 @@
 extern "C" {
 #endif
 
+/*
+ * Other TUs that call this API: INPUT (UpdateGameInput: open-state update, suppress flag),
+ * PLAYACF (ACF loop: stall while open), PERSO (SDL event filter + pre-present + PNG save),
+ * GAMEMENU (slide-show gate). Command table and cheats: CONSOLE_CMD.CPP. Scene/mode strings
+ * shared with commands: CONSOLE_STATE.H / CONSOLE_STATE.CPP. Host tests: tests/console/.
+ */
+
 /* Public API */
 
 int Console_IsOpen(void);

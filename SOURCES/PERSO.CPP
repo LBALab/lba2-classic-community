@@ -2272,6 +2272,7 @@ int main(int argc, char *argv[]) {
 
     InitAdeline(argc, argv);
 
+    /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
 

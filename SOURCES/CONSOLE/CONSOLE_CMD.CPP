@@ -30,7 +30,7 @@
 #error "CONSOLE_STATE.H CONSOLE_LISTVAR_FLAG_CHAPTER must match COMMON.H FLAG_CHAPTER"
 #endif
 
-/* Shared console command availability (clear messages for Phase 1 UX). */
+/* Shared gate for give/savebug: user-facing reason strings (same predicate as context cube/chapter). */
 static const char *console_avail_in_game_scene(void) {
     return Console_AvailInGameScene_FromState(
         FlagPlayAcf ? 1 : 0,
