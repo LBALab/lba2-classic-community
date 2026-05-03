@@ -270,11 +270,14 @@ void MyGetInput() {
         MyKey = (S32)JoystickFirstPressedScancode();
     }
 
-    /* Reserve backtick/F12 from game (toggle is only in Console_FeedEvent so we don't double-toggle). */
-    TabKeys[(U32)K_CARRE] = 0;
-    TabKeys[(U32)K_F12] = 0;
-    if (Key == (S32)K_CARRE || Key == (S32)K_F12)
-        Key = 0;
+    /* Reserve configured console toggle key from gameplay so toggle isn't handled twice. */
+    {
+        int toggle_scancode = Console_GetToggleScancode();
+        if (toggle_scancode > 0 && toggle_scancode < TABKEYS_NUM_KEYS)
+            TabKeys[(U32)toggle_scancode] = 0;
+        if (Key == toggle_scancode)
+            Key = 0;
+    }
     /* When we just closed the console, suppress all game input for one frame so the toggle key doesn't trigger camera etc. */
     if (Console_ShouldSuppressInputThisFrame()) {
         Key = 0;

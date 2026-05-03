@@ -43,9 +43,9 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `F9` | Screenshot | Captures screenshot as PCX (original format) |
 | `F10` | Terrain benchmark | Runs 20-loop terrain rendering benchmark (exterior only) |
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |
-| `F12` | Toggle ASCII mode | Toggles between text input and gameplay input modes |
+| `F12` | Toggle ASCII mode | Toggles between text input and gameplay input modes (unless console toggle is set to F12) |
 
-Note: `D` and `F` are also available in TEST_TOOLS builds. All other keys require DEBUG_TOOLS. The always-on console also binds `F12`, so this key opens/closes the console instead of toggling ASCII mode when console input handling is active.
+Note: `D` and `F` are also available in TEST_TOOLS builds. All other keys require DEBUG_TOOLS. The always-on console toggle is configurable via `ConsoleToggleKey` in `lba2.cfg` and defaults to `F12`, so ASCII mode toggle on `F12` can be shadowed when that default is used.
 
 ### What is ASCII Mode?
 
@@ -53,7 +53,7 @@ ASCII mode controls how the game interprets keyboard input:
 - **ON**: Captures typed characters (for text entry like player names, cheat codes)
 - **OFF**: Captures raw key scancodes (for gameplay controls)
 
-Pressing `F12` toggles between these modes. This was useful during development for testing text input vs gameplay.
+Pressing `F12` toggles between these modes. If console toggle also uses `F12` (default), set `ConsoleToggleKey` to a different scancode in `lba2.cfg`.
 
 ## File Locations
 

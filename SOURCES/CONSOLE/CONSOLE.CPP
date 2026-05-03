@@ -74,6 +74,8 @@ static int s_key_tail = 0;
 
 /* Set by game when entering/leaving demo slide show so we don't open console there (avoids segfault). */
 static int s_slide_show_active = 0;
+/* Configurable toggle scancode; defaults to F12. */
+static int s_toggle_scancode = K_F12;
 
 /* Scrollback view offset: 0 = newest, >0 = scrolled up into history. */
 static int s_scroll_offset = 0;
@@ -87,6 +89,18 @@ static void Console_SubmitLine(void);
 
 void Console_SetSlideShowActive(int active) {
     s_slide_show_active = (active != 0);
+}
+
+void Console_SetToggleScancode(int scancode) {
+    if (scancode <= 0 || scancode >= SDL_SCANCODE_COUNT) {
+        s_toggle_scancode = K_F12;
+        return;
+    }
+    s_toggle_scancode = scancode;
+}
+
+int Console_GetToggleScancode(void) {
+    return s_toggle_scancode;
 }
 
 void Console_RequestScreenshot(const char *path, int use_png) {
@@ -442,7 +456,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         key = (SDL_Keycode)'_';
 
     /* Toggle only on first key down, not key repeat. */
-    if ((scan == (SDL_Scancode)K_CARRE || scan == (SDL_Scancode)K_F12) && !ev->key.repeat) {
+    if ((scan == (SDL_Scancode)s_toggle_scancode) && !ev->key.repeat) {
         if (s_slide_show_active && !s_console_open)
             return 0;
         Console_Toggle();

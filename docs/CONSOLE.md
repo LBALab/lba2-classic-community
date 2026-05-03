@@ -15,7 +15,8 @@ The console is supported with the SDL backend (default in this project).
 
 ## Toggle and input
 
-- **Backtick (`)** or **F12**: open/close the console.
+- **F12** by default: open/close the console.
+- Optional override in `lba2.cfg`: set `ConsoleToggleKey=<SDL scancode int>` (for example `41` for `K_CARRE` on AZERTY layouts).
 - When the console is open, all keyboard input is consumed by the console (no game/menu input).
 - Type a line and press **Enter** to run a command or cheat.
 - **Backspace**: delete last character.
@@ -92,8 +93,8 @@ Get/set with `varname` (print value) or `varname value` (set).
 ## Implementation notes
 
 - **Independent of game buffer**: The console uses its own 8-bit overlay buffer. It is drawn via `AffStringToBuffer` (LIB386/SVGA) and composited in the video layer’s **pre-present callback** (`Console_PrePresent`), so it never touches the game’s `Log` or dirty-box pipeline.
-- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). **Backtick and F12 are reserved**: they are cleared from `TabKeys` and `Key` so the game never sees them (no clash with e.g. `I_CAMERA`).
-- **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves backtick/F12, and when the console is open calls `Console_Update()` and returns.
+- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). The configured toggle key is reserved from gameplay input to avoid double-handling.
+- **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves the configured toggle key, and when the console is open calls `Console_Update()` and returns.
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.
 - **Gameplay integration**: Commands call existing engine functions (`LoadGameNumCube`, `PlayAcf`, `DoFoundObj`, etc.) rather than introducing console-only code paths. Cube changes no longer trigger autosave to keep debug teleports tidy; other save behavior is unchanged.
 - **External call sites** (outside `SOURCES/CONSOLE/`): `INPUT.CPP` (input path when open), `PLAYACF.CPP` (stall ACF while open), `PERSO.CPP` (event filter, pre-present, screenshot handoff), `GAMEMENU.CPP` (slide-show gate). Cheat names live in `CHEATCOD.CPP`. Build wiring: `SOURCES/CMakeLists.txt`, `SOURCES/CONSOLE/CMakeLists.txt`, `tests/console/`. A one-line map also lives in `CONSOLE.H` above the public API.

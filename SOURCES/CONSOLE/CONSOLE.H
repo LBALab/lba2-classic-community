@@ -30,6 +30,11 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
 /** Event filter: call from ManageEvents. Returns 1 if event was consumed (toggle or console input). */
 int Console_FeedEvent(const void *sdlEvent);
 
+/** Set console toggle scancode (SDL scancode value). Invalid values fall back to F12. */
+void Console_SetToggleScancode(int scancode);
+/** Current console toggle scancode used by Console_FeedEvent / input reservation. */
+int Console_GetToggleScancode(void);
+
 /** Returns 1 for one frame after closing the console; call from input path and suppress game input when 1. Clears the flag. */
 int Console_ShouldSuppressInputThisFrame(void);
 

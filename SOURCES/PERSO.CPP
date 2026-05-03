@@ -1970,6 +1970,9 @@ void ReadConfigFile(void) {
 
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
+    /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
+    Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
+
     ptr = DefFileBufferReadStringDefault("FlagDisplayText", "ON");
 
     if (ptr AND !strcasecmp(ptr, "OFF"))
@@ -2009,6 +2012,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
+    DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
 
     if (FlagDisplayText)
         DefFileBufferWriteString("FlagDisplayText", "ON");
