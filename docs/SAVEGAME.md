@@ -309,7 +309,15 @@ Much of the extended payload is written as **`memcpy`-sized struct regions** (e.
 
 **Consequence:** A save from the **original 32-bit** game is **not guaranteed** to load on this **64-bit** fork even when the first byte matches **`0x24` / `0xA4`**. Saves from this port match the port’s ABI.
 
-**Community (issue #62):** When loading the extended object array, the engine may pick a **278-byte-per-object** (32-bit wire) stride vs the native stride using the same **`NbPatches`** sniff as [scripts/save_probe.py](../scripts/save_probe.py), then expand the embedded **`T_OBJ_3D`** (without `CurrentFrame`) with pointer fields cleared / numeric fields preserved. If both sniff positions look plausible, **`SaveLoadGuessObjectWireStride`** prefers the stride whose sniffed patch count equals **`NbPatches` from the scene already loaded from disk** (before the save stream overwrites it), so patch data stays aligned. If **both** sniff positions match that count (common when **`NbPatches` is 0** and padding reads as zero), the engine picks the **278-byte** retail wire stride. Stride sniffing compares the raw **`S32`** at each candidate offset to the scene count (memcmp) before plausibility rules. Sniffed patch counts are capped at **`MAX_PATCHES`** so values like misread **`384000`** do not win the **`s32 > s64`** tie-break and force the wrong wire. If **both** sniffs still fail and **neither** raw `NbPatches` word at the 278- nor 64-bit-native offset matches the scene hint (see `SaveLoadGuessObjectWireStride` in [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP)), the guess returns **0** and `LoadContexte` uses the **host native** per-object stride — this avoids forcing retail wire when the save is actually a **native/port** blob (fixes regression on saves like **009** where both sniffs were unusable garbage). When only one stride offset fits the buffer, an exact **raw S32 == scene `NbPatches`** still picks that layout. Override with environment **`LBA2_SAVE_LOAD_ABI=32`** to force the legacy stride (useful when the heuristic is ambiguous).
+**Community (issue #62):** Two per-object strides are possible — `278` B (32-bit retail wire) or `142 + sizeof(T_OBJ_3D) − sizeof(CurrentFrame)` B (host native). Choice flow:
+
+1. `LBA2_SAVE_LOAD_ABI=32` env var → force `278`.
+2. Otherwise, `SaveLoadGuessObjectWireStride` picks a first candidate by sniffing `NbPatches` at each of the two offsets and (when both look plausible) preferring the stride whose sniffed value matches the scene's `NbPatches` exclusively. Ambiguous cases fall back to the host-native stride.
+3. `LoadContexte` reads at the chosen stride, then **validates `IndexFile3D` per object** (see `LoadContexteReadObjectsAtStride`).
+4. On validate-fail (typical of wrong-stride misalignment), it **rewinds `PtrSave` and retries the alternate stride**.
+5. If both strides fail validation, returns `SAVELOAD_CTX_ERR`.
+
+The retry is what makes the choice safe: a wrong heuristic guess no longer corrupts the load — `IndexFile3D` validation catches the misalignment before `LoadFile3D(garbage)` SIGSEGVs in `InitLoadedGame`. See the [Format hardening reference](#format-hardening-issue-62) table for the full guard set.
 
 **`PtrZoneClimb`:** stored and restored as a **32-bit** value (`LbaWriteLong` / read as `U32`); it does not round-trip a true 64-bit pointer. See `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
 
@@ -319,7 +327,7 @@ Much of the extended payload is written as **`memcpy`-sized struct regions** (e.
 - **Backward compatibility:** An older engine loading a newer revision misaligns the stream; avoid.
 - **Upgrade:** After loading an old save in a build that supports it, save again to rewrite the current format.
 
-### Format hardening (issue #62)
+## Format hardening (issue #62)
 
 Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load of 32-bit retail-wire saves on 64-bit hosts. Implemented in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) and [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP). Reference table — every guard at a glance:
 
@@ -345,7 +353,17 @@ Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load 
 
 DEBUG / `NumVersion` < 34 extra fields are unchanged (still only in DEBUG / TEST / EDIT builds).
 
-#### Still future / larger change
+### Adding a new field
+
+To extend the save format with a new global / count / sub-array, the pattern is:
+
+1. **Pair the read with the existing matching write** in `SaveContexte` ↔ `LoadContexte` (same order, same widths). Reordering or inserting in the middle breaks every existing save — bump `NUM_VERSION` if the change is incompatible with the previous layout.
+2. **For counts**: add a `MAX_<THING>` constant (or reuse an existing one) and gate the loop with the matching range check immediately after `LbaReadLong(NbThing)`. Add a row to the Format-hardening table above. The bounded `LbaRead*` macros in `LoadContexte` already propagate `SAVELOAD_CTX_ERR` on overrun, so you don't need a manual room check unless you're sizing a multi-element read in advance (e.g., the per-object pre-check before the stride retry).
+3. **For offset-into-buffer fields** (like patch `Offset`/`Size`): validate against the destination buffer size (e.g., `PtrSceneMem`) **before** any write into the buffer.
+4. **For pointer-bearing structs**: prefer not to `LbaRead`/`LbaWrite` whole-struct memcpy — those are exactly the fields the 32-bit-vs-64-bit ABI hazard (above) bites. If you must, document the exact field layout next to the read, like `T_OBJ_3D_WIRE32`.
+5. **Test it.** Add a Layer-1 unit case to [tests/savegame/test_load_bounds.cpp](../tests/savegame/test_load_bounds.cpp) for any new pure helper. For end-to-end, drive a real save through `lba2 --save-load-test <path>` (see Tooling section below) before and after the change and confirm the corpus matrix is unchanged.
+
+### Still future / larger change
 
 - **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs. Removes the need for the stride retry entirely.
 - **Layer-2 host fixture test** — synthetic `.lba` byte arrays driven through `LoadContexte` directly (no retail data, no engine boot). Closes the gap between Layer-1 (helpers only) and Layer-3 (full engine, retail-bound — see [tests/savegame/corpus/](../tests/savegame/corpus/)) so CI catches full-parse regressions.
@@ -400,11 +418,12 @@ A complete save format doc enables console commands such as:
 | Startup argv save | PERSO.CPP | Resolves path, sets `FlagLoadGame`, `LoadGameNumCube` in init flow |
 | Paths | DIRECTORIES.CPP | GetSavePath |
 
-## Tooling (`save_probe` / `save_decompress`)
+## Tooling (`save_probe` / `save_decompress` / `--save-load-test`)
 
 - **[scripts/save_probe.py](../scripts/save_probe.py)** — Header, optional **LZSS** decompression via **`save_decompress`**, `NbObjets` at game-context offset **1478**, heuristic **`obj3d_abi`** (32 vs 64) using **`NbPatches`**, strict patch-blob fit, and extras count bound (reports **`ambiguous`** when neither stride wins clearly — use **`--obj3d-abi 32|64`** to force). Environment **`LBA2_SAVE_PROBE_ABI=32|64`** applies when **`--obj3d-abi auto`** (CLI overrides env). **`--json-lines`** prints **NDJSON** (includes **`version_byte_hex`**, **`dump_lines`** as a string array when **`--dump`**). **`num_version` < 34** sets **`layout_warning`**. Flags: **`--dump`**, **`--json-lines`**, **`--compare`**, **`--recursive`**, **`--summary`** (counts on stderr, safe with **`--json-lines`**). Set **`LBA2_SAVE_DECOMPRESS`** to the helper if it is not found under `build/tools/` or `out/build/*/tools/` (or **`PATH`**).
 - **`save_decompress`** (CMake target) — stdin = compressed tail, argv\[1\] = decompressed byte count, stdout = raw payload. Uses **`ExpandLZ(..., MinBloc=2)`** from [LIB386/SYSTEM/LZ.CPP](LIB386/SYSTEM/LZ.CPP). Build: `cmake --build <dir> --target save_decompress` (option **`LBA2_BUILD_SAVE_TOOLS`**, default ON).
 - **[scripts/save_probe_lz_selftest.py](../scripts/save_probe_lz_selftest.py)** — Golden LZ vectors aligned with [tests/SYSTEM/test_lz.cpp](tests/SYSTEM/test_lz.cpp). **`make save-probe-lz-selftest`** configures with **`LBA2_BUILD_SAVE_TOOLS=ON`**, builds **`save_decompress`**, runs the script.
+- **`lba2 --save-load-test <path>`** — single-shot load harness. Boots the engine to the menu (skips logos in this mode), replicates the "Load Game" path on the given save (`InitGame(-1)` + `ChangeCube()`), prints `SAVE_LOAD_TEST: stage=<name> …` lines to stdout, and exits. Useful when investigating any save-loading bug — much faster iteration than navigating to the menu manually. Requires retail game data (use `--game-dir` or `LBA2_GAME_DIR`). Layer-3 driver scripts in [tests/savegame/corpus/](../tests/savegame/corpus/) wrap this for full-corpus regression matrices.
 
 ## Cross-references
 
