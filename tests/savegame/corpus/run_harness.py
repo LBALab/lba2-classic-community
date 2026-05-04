@@ -9,12 +9,12 @@ which we parse for {flagload, nb_objets, nb_patches} and the latest stage
 reached (so we can tell a crash that happened *during* LoadGame from one that
 happened after).
 
-Usage: tests/savegame_corpus/run_harness.py [--lba2 PATH] [--game-dir PATH] [--timeout N]
+Usage: tests/savegame/corpus/run_harness.py [--lba2 PATH] [--game-dir PATH] [--timeout N]
 """
 import argparse, json, os, re, subprocess, sys, signal
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 MANIFEST = HERE / "manifest.json"
 

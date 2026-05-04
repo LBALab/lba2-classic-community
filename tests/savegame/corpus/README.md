@@ -5,7 +5,7 @@ Layer-3 regression harness — runs the real `lba2` binary on a directory of
 
 **Requires retail game data (`lba2.hqr`)**, so it does not run in public CI.
 For pure parser regressions that need no retail, see
-`tests/discovery/test_savegame_load_bounds.cpp`.
+`tests/savegame/test_load_bounds.cpp`.
 
 ## Workflow
 
@@ -18,13 +18,13 @@ export LBA2_SAVE_TEST_DIR=$HOME/.local/share/Twinsen/LBA2/save
 LBA2_SAVE_DECOMPRESS=$PWD/build/tools/save_decompress \
     python3 scripts/save_probe.py --recursive --json-lines \
     "$LBA2_SAVE_TEST_DIR" \
-    > tests/savegame_corpus/probe.ndjson
+    > tests/savegame/corpus/probe.ndjson
 
 # 3. Build classification manifest
-python3 tests/savegame_corpus/build_manifest.py
+python3 tests/savegame/corpus/build_manifest.py
 
 # 4. Drive lba2 --save-load-test on each save (auto + abi=32 by default)
-python3 tests/savegame_corpus/run_harness.py --timeout 15 --game-dir ../LBA2
+python3 tests/savegame/corpus/run_harness.py --timeout 15 --game-dir ../LBA2
 ```
 
 `run_harness.py` writes the per-save outcome (`ok_init`, `ok_loaded`,

@@ -4,6 +4,7 @@ enable_testing()
 
 add_subdirectory(discovery)
 add_subdirectory(console)
+add_subdirectory(savegame)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)

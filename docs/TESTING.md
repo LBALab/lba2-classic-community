@@ -73,7 +73,13 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 4. Host tests — game data discovery (`tests/discovery`)
 
-`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. **`tests/discovery/test_savegame_load_bounds.cpp`** (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks **`SaveLoadValidateCompressedStaging`** / **`SaveLoadGuessObjectWireStride`** on synthetic buffers. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs).
+`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs).
+
+### 6. Host tests — savegame (`tests/savegame`)
+
+`tests/savegame/test_load_bounds.cpp` (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks **`SaveLoadValidateCompressedStaging`** / **`SaveLoadGuessObjectWireStride`** on synthetic buffers — pure parser bounds, no retail game data. Built and run as part of `make test-discovery` / PR host jobs.
+
+`tests/savegame/corpus/` holds the Layer-3 driver scripts (`run_harness.py`, `build_manifest.py`) that exercise the real `lba2 --save-load-test` flag against a directory of `.lba` saves; **requires retail game data** so it runs locally only. See `tests/savegame/corpus/README.md`.
 
 ### 5. Host tests — console (`tests/console`)
 

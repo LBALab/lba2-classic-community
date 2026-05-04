@@ -12,7 +12,7 @@ Working document for [GitHub issue #62](https://github.com/LBALab/lba2-classic-c
 - [x] Where feasible: **load legacy 32-bit wire layout** — heuristic + **`LBA2_SAVE_LOAD_ABI=32`** override; **`T_OBJ_3D`** wire migration in [SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP).
 - [x] **Hardening** that benefits everyone: bounded counts, capped file read, decompressed size vs buffer, etc.
 - [x] **docs/SAVEGAME.md** updated (limits + env + `flagload`; canonical serializer still future).
-- [x] **Tests** — `test_savegame_load_bounds` host harness ([tests/discovery/test_savegame_load_bounds.cpp](../tests/discovery/test_savegame_load_bounds.cpp)); do **not** relax unrelated ASM↔CPP tests ([AGENTS.md](../AGENTS.md)).
+- [x] **Tests** — `test_savegame_load_bounds` host harness ([tests/savegame/test_load_bounds.cpp](../tests/savegame/test_load_bounds.cpp)); do **not** relax unrelated ASM↔CPP tests ([AGENTS.md](../AGENTS.md)).
 
 **Non-goals (issue):** portable `NUM_VERSION` 37+ on-disk format—separate follow-up.
 

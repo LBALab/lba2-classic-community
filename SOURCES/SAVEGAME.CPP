@@ -732,8 +732,7 @@ S32 LoadGame(void) {
             goto loadgame_tail_fail;
         LbaReadLong(ValideCube);
         LbaReadLong(SizeOfBufferValidePos);
-        if (SizeOfBufferValidePos < 0
-            || (U32)SizeOfBufferValidePos > (U32)SIZE_BUFFER_VALIDE_POS)
+        if (SizeOfBufferValidePos < 0 || (U32)SizeOfBufferValidePos > (U32)SIZE_BUFFER_VALIDE_POS)
             goto loadgame_tail_fail;
         if (!SaveLoadRoom((size_t)SizeOfBufferValidePos))
             goto loadgame_tail_fail;
