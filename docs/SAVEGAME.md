@@ -319,23 +319,36 @@ Much of the extended payload is written as **`memcpy`-sized struct regions** (e.
 - **Backward compatibility:** An older engine loading a newer revision misaligns the stream; avoid.
 - **Upgrade:** After loading an old save in a build that supports it, save again to rewrite the current format.
 
-### Format hardening (issue #62 — implemented vs planned)
+### Format hardening (issue #62)
 
-**Implemented** ([SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP), [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP), [docs/SAVEGAME_ISSUE62_CHECKLIST.md](SAVEGAME_ISSUE62_CHECKLIST.md)):
+Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load of 32-bit retail-wire saves on 64-bit hosts. Implemented in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) and [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP). Reference table — every guard at a glance:
 
-- **Whole-file read cap:** `LoadSize` into the **`Screen`** / **`BufSpeak+50000`** buffer with size **`640×480 + RECOVER_AREA`** (same allocation as [SOURCES/MEM.CPP](SOURCES/MEM.CPP)); oversize files are rejected.
-- **Player name:** NUL-terminated read capped at **`MAX_SIZE_PLAYER_NAME`**; missing NUL → load failure.
-- **Compressed block:** declared **`sizefile`** and compressed tail validated against buffer geometry **before** `ExpandLZ` / staging `memcpy`.
-- **`LoadContexte`:** read cursor may not pass a configured end (`SaveLoadSetReadLimit`); on truncation **`LoadContexte` returns `-1`** and **`LoadGame`** returns **`LOADGAME_ERR_CONTEXT` (`-2`)** (not `FALSE`) so **`ChangeCube` does not call `InitLoadedGame()`** on a half-parsed `ListObjet` (that path could **SIGSEGV**). **`CheckProtoPack`** is skipped for the same return. Other **`LoadGame` failures** still use the legacy **`InitLoadedGame()`** path.
-- **Counts:** `NbObjets` ≤ **`MAX_OBJETS`**, `NbPatches` ≤ **`MAX_PATCHES`**, patch **`Offset`/`Size`** within **`PtrSceneMem`**, extras / incrust / flows / flow-dot counts bounded (`MAX_EXTRAS`, `MAX_INCRUST_DISP`, `MAX_FLOWS`, `MAX_FLOW_DOTS`), `NbZones` ≤ **`MAX_ZONES`**, valid-position blob ≤ **`SIZE_BUFFER_VALIDE_POS`**.
-- **Legacy object blob:** optional **136-byte** wire decode + field migration (see *32-bit vs 64-bit* above).
-- **Clip window / cinema:** After reading **`ClipWindowYMin`** / **`ClipWindowYMax`** from the context tail, if either value is outside **`[0, ModeDesiredY-1]`**, **`YMin >= YMax`**, or negative, the pair is treated as corrupt (often tail misalignment when wire stride is wrong). The engine resets clip to **full height** (`0` … **`ModeDesiredY-1`**, fallback **479**) and clears **`CinemaMode`** plus **`TimerCinema`**, **`LastYCinema`**, **`DebCycleCinema`**, **`DureeCycleCinema`** so letterbox / menu paths do not run with impossible geometry. Debug NDJSON may log **`H12c`** when this fires.
-- **Checkpoint reload:** [SOURCES/VALIDPOS.CPP](SOURCES/VALIDPOS.CPP) sets the read limit around **`BufferValidePos`**.
+| Field / region | Limit | Behavior on violation | Notes |
+|----------------|-------|------------------------|-------|
+| Whole `.lba` file | `640×480 + RECOVER_AREA` (`SaveLoadScreenBufferBytes`) | **Reject** | `LoadSize` caps the read; oversize files never touch the parser. |
+| Player name (header) | `MAX_SIZE_PLAYER_NAME` + NUL | **Reject** | Bounded scan; missing NUL → fail clean. |
+| `sizefile` + compressed tail | Buffer geometry | **Reject** | `SaveLoadValidateCompressedStaging` runs before `ExpandLZ` staging memcpy. |
+| `LoadContexte` cursor | `SaveLoadSetReadLimit(end)` | **Reject** with `SAVELOAD_CTX_ERR` (-1) | Bounded `LbaRead*` macros propagate the error out. |
+| `NbObjets` | `MAX_OBJETS` (100) | **Reject** | Range check; pre-check room for `nb × max(stride278, stride_native)` so the retry below cannot overrun. |
+| Per-object stride | `278` (32-bit retail wire) or `142 + sizeof(T_OBJ_3D) − sizeof(CurrentFrame)` (host native) | **Auto-retry** | First stride from heuristic (or `LBA2_SAVE_LOAD_ABI=32` env override). Helper validates `IndexFile3D` post-read; on mismatch, rewind `PtrSave` and retry the alternate stride. Both fail → `SAVELOAD_CTX_ERR`. Closes the `LoadFile3D(garbage)` SIGSEGV path in `InitLoadedGame`. |
+| `T_OBJ_3D` blob (32-bit wire) | 136 bytes | **Migrate** | `T_OBJ_3D_WIRE32` decode + `SavegameObj3dFromWire32` field-by-field copy with pointer fields zeroed. |
+| `NbPatches` | `MAX_PATCHES` (500) | **Reject** | Range check before patch loop. |
+| Patch apply | `PtrSceneMem` | **Reject** | Per-patch `Offset` ≥ 0, `Size` ≥ 0, `Offset + Size` within scene buffer. |
+| Extras count byte | `MAX_EXTRAS` (50) | **Reject** | Upper bound. |
+| `NbZones` | `MAX_ZONES` (255) | **Reject** | Range check. |
+| Incrust count | `MAX_INCRUST_DISP` (10) | **Reject** + bugfix | Upper bound; rain-init loop now `n++` only (was incrementing the wrong pointer). |
+| Flow count | `MAX_FLOWS` (10) | **Reject** | Upper bound. |
+| Flow dots `wbyte2` | `MAX_FLOW_DOTS` (100) | **Reject** | Upper bound. |
+| Valid-pos tail `SizeOfBufferValidePos` | `SIZE_BUFFER_VALIDE_POS` | **Reject** | Checked in `LoadGame`. |
+| Checkpoint `LoadContexte` | `BufferValidePos` allocation | **Reject** | [SOURCES/VALIDPOS.CPP](SOURCES/VALIDPOS.CPP) sets the read limit before calling. |
+| Post-load branch | `OBJECT.CPP::ChangeCube` | **Fail safe** | `flagload == LOADGAME_ERR_CONTEXT` → skip `InitLoadedGame` *and* `CheckProtoPack`. Other negative / falsy returns still take the legacy `InitLoadedGame` path. |
 
-**Still future / larger change:**
+DEBUG / `NumVersion` < 34 extra fields are unchanged (still only in DEBUG / TEST / EDIT builds).
 
-- **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs.
-- **More host tests** with tiny binary fixtures hitting `LoadGame` end-to-end; optional save inspection via [scripts/save_probe.py](../scripts/save_probe.py) (LZSS via **`save_decompress`** — see [Tooling](#tooling-save_probe--save_decompress)).
+#### Still future / larger change
+
+- **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs. Removes the need for the stride retry entirely.
+- **Layer-2 host fixture test** — synthetic `.lba` byte arrays driven through `LoadContexte` directly (no retail data, no engine boot). Closes the gap between Layer-1 (helpers only) and Layer-3 (full engine, retail-bound — see [tests/savegame/corpus/](../tests/savegame/corpus/)) so CI catches full-parse regressions.
 
 ## For save editors
 
@@ -395,7 +408,6 @@ A complete save format doc enables console commands such as:
 
 ## Cross-references
 
-- [SAVEGAME_ISSUE62_CHECKLIST.md](SAVEGAME_ISSUE62_CHECKLIST.md) — tracked work for [#62](https://github.com/LBALab/lba2-classic-community/issues/62) (load safety / legacy layout); merge into this doc when stable.
 - [MENU.md](MENU.md) for Save/Load menu flow and screenshot display
 - [CONFIG.md](CONFIG.md) for LastSave and CompressSave
 - [DEBUG.md](DEBUG.md) for DEBUG_TOOLS bug save/load (G/L keys, menu cases 2000/2001)
