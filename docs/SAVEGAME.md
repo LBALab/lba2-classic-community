@@ -164,9 +164,14 @@ Layout as written by `SaveContexte()` (SAVEGAME.CPP ~706). All offsets below are
 | Offset | Size | Content |
 |--------|------|---------|
 | 1339 | 4 | `Checksum` – engine validates; mismatch can trigger fallback position |
-| 1343 | var | Input state, darts, objects, patches, extras, zones, incrust, flows, camera, etc. |
+| 1343 | 47 | Input / magic / movement block (`LastMyFire` … `PingouinActif`) — see `LoadContexte` |
+| 1390 | 4 | `PtrZoneClimb` stored as **U32** (load casts to `T_ZONE *`) |
+| 1394 | 84 | `ListDart[0..2]` — **3** darts × **7×`S32`** each (`MAX_DARTS`, `SAVEGAME.CPP`) |
+| **1478** | **4** | **`NbObjets`** (`S32`) — count for the following per-object records |
 
-The full `SaveContexte` / `LoadContexte` continues with objects, zones, camera, and more. See SAVEGAME.CPP lines 706–1076 (save) and 1080–1548 (load).
+| 1482 | var | Object array: `NbObjets` × (fixed `T_OBJET` prefix + `T_OBJ_3D` without `CurrentFrame`) — size depends on **32 vs 64-bit** ABI |
+
+The full `SaveContexte` / `LoadContexte` continues with patches, extras, zones, incrust, flows, camera, and more. See SAVEGAME.CPP lines 706–1076 (save) and 1080–1548 (load).
 
 ## ListVarGame – inventory and quest flags
 
@@ -316,7 +321,7 @@ Much of the extended payload is written as **`memcpy`-sized struct regions** (e.
 
 - **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs.
 - **Bounded reads** and validation of counts from the file before `memcpy` (reduce SIGSEGV on corrupt saves).
-- **Host tests** with tiny binary fixtures; optional header inspection via [scripts/save_probe.py](../scripts/save_probe.py) (does not implement LZSS — see script docstring).
+- **Host tests** with tiny binary fixtures; optional save inspection via [scripts/save_probe.py](../scripts/save_probe.py) (LZSS via **`save_decompress`** — see [Tooling](#tooling-save_probe--save_decompress)).
 
 ## For save editors
 
@@ -367,7 +372,11 @@ A complete save format doc enables console commands such as:
 | Startup argv save | PERSO.CPP | Resolves path, sets `FlagLoadGame`, `LoadGameNumCube` in init flow |
 | Paths | DIRECTORIES.CPP | GetSavePath |
 
-**Dev helper:** [scripts/save_probe.py](../scripts/save_probe.py) — prints header fields and, for uncompressed saves, reads `NbObjets` at the fixed offset used by the engine; supports `--compare` and `--csv`. Does not implement LZSS (see script docstring).
+## Tooling (`save_probe` / `save_decompress`)
+
+- **[scripts/save_probe.py](../scripts/save_probe.py)** — Header, optional **LZSS** decompression via **`save_decompress`**, `NbObjets` at game-context offset **1478**, heuristic **`obj3d_abi`** (32 vs 64) using **`NbPatches`**, strict patch-blob fit, and extras count bound (reports **`ambiguous`** when neither stride wins clearly — use **`--obj3d-abi 32|64`** to force). Environment **`LBA2_SAVE_PROBE_ABI=32|64`** applies when **`--obj3d-abi auto`** (CLI overrides env). **`--json-lines`** prints **NDJSON** (includes **`version_byte_hex`**, **`dump_lines`** as a string array when **`--dump`**). **`num_version` < 34** sets **`layout_warning`**. Flags: **`--dump`**, **`--json-lines`**, **`--compare`**, **`--recursive`**, **`--summary`** (counts on stderr, safe with **`--json-lines`**). Set **`LBA2_SAVE_DECOMPRESS`** to the helper if it is not found under `build/tools/` or `out/build/*/tools/` (or **`PATH`**).
+- **`save_decompress`** (CMake target) — stdin = compressed tail, argv\[1\] = decompressed byte count, stdout = raw payload. Uses **`ExpandLZ(..., MinBloc=2)`** from [LIB386/SYSTEM/LZ.CPP](LIB386/SYSTEM/LZ.CPP). Build: `cmake --build <dir> --target save_decompress` (option **`LBA2_BUILD_SAVE_TOOLS`**, default ON).
+- **[scripts/save_probe_lz_selftest.py](../scripts/save_probe_lz_selftest.py)** — Golden LZ vectors aligned with [tests/SYSTEM/test_lz.cpp](tests/SYSTEM/test_lz.cpp). **`make save-probe-lz-selftest`** configures with **`LBA2_BUILD_SAVE_TOOLS=ON`**, builds **`save_decompress`**, runs the script.
 
 ## Cross-references
 

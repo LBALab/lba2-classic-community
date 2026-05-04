@@ -82,6 +82,7 @@ configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/B
 # Process the targets
 add_subdirectory(LIB386)
 add_subdirectory(SOURCES)
+add_subdirectory(tools)
 
 if(LBA2_BUILD_TESTS)
     enable_testing()
