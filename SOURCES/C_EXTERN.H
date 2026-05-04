@@ -38,6 +38,7 @@ extern char OldGamePathname[];
 extern char PlayerName[MAX_SIZE_PLAYER_NAME + 1];
 
 extern U8 *PtrScene;
+extern S32 PtrSceneMem;
 
 extern U8 *LbaFont;
 extern U8 PalettePcx[];

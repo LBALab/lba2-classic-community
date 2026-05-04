@@ -65,11 +65,11 @@ Constants: `NUM_VERSION`, `SAVE_COMPRESS`, `MASK_NUM_VERSION` in [SOURCES/COMMON
 
 ## Full load pipeline (`LoadGame`)
 
-1. **`LoadGameV4`** — `Load(name, (U8 *)Screen)` reads the **entire file** into the **`Screen`** buffer (`640×480 + RECOVER_AREA`; see [SOURCES/MEM.CPP](SOURCES/MEM.CPP)). There is no size cap in this helper beyond that allocation.
-2. Read **`NumVersion`**, **`NewCube`**, **`PlayerName`** (NUL-terminated in the file; the reader loops until `0`).
-3. If **`NumVersion & SAVE_COMPRESS`**: read **`sizefile`**, copy compressed tail, **`ExpandLZ(..., mode 2)`** (matches `Compress_LZSS`).
+1. **`LoadSize`** — reads into **`Screen`** up to **`640×480 + RECOVER_AREA`** (see [SOURCES/MEM.CPP](SOURCES/MEM.CPP)); larger files are rejected.
+2. Read **`NumVersion`**, **`NewCube`**, **`PlayerName`** (NUL-terminated in the file; reader is **bounded** by **`MAX_SIZE_PLAYER_NAME`**).
+3. If **`NumVersion & SAVE_COMPRESS`**: read **`sizefile`**, validate staging, copy compressed tail, **`ExpandLZ(..., mode 2)`** (matches `Compress_LZSS`).
 4. **`PtrSave += 160 * 120`** — skip screenshot so the next reads align with **game context** offsets in this doc.
-5. **`LoadContexte(&savetimerrefhr)`** — restores globals through camera / buggy / ardoise / `VueCamera`; returns a boolean **`flaginit`** to `LoadGame` (see [Version compatibility](#version-compatibility)).
+5. **`LoadContexte(&savetimerrefhr)`** — restores globals through camera / buggy / ardoise / `VueCamera`; returns **`flaginit`** (`0`/`1`) or **`-1`** on stream/bounds failure (see [Version compatibility](#version-compatibility)).
 6. Read valid-position tail: **`ValidePos` / `LastValidePos`**, optional **`BufferValidePos`** blob.
 7. Restart music, palette, **`CameraCenter(0)`**, restore timer from save, **`SaveTimer()`**. **`LoadGame`** returns **`flaginit`** to **`ChangeCube`**, which stores it in **`flagload`**.
 
@@ -289,10 +289,10 @@ After reading the stored **`Checksum`**, the engine compares it to the runtime *
 **`LoadGame`** returns that value into **`flagload`** in **`ChangeCube`** ([SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP)):
 
 ```text
-if (!flagload) InitLoadedGame(); else LoadFile3dObjects();
+if (flagload < 0 || !flagload) InitLoadedGame(); else LoadFile3dObjects();
 ```
 
-So **`flagload == 0`** (falsy → **`InitLoadedGame()`**) is the **usual** full load path; **non-zero `flagload`** skips **`InitLoadedGame`** and uses **`LoadFile3dObjects()`** only (extended state was already reconciled inside `LoadContexte`). **`LoadGameOldVersion`** returns **`TRUE`** (non-zero), so it always takes the **`LoadFile3dObjects()`** branch after the minimal restore.
+So **`flagload == 0`** (falsy → **`InitLoadedGame()`**) is the **usual** full load path; **`flagload < 0`** means **`LoadContexte`** hit a **stream truncation / bounds error** (issue #62) and also falls back to **`InitLoadedGame()`**; **non-zero positive `flagload`** skips **`InitLoadedGame`** and uses **`LoadFile3dObjects()`** only (extended state was already reconciled inside `LoadContexte`). **`LoadGameOldVersion`** returns **`TRUE`** (non-zero), so it always takes the **`LoadFile3dObjects()`** branch after the minimal restore.
 
 ### Version mismatch and `LoadGameOldVersion`
 
@@ -309,6 +309,8 @@ Much of the extended payload is written as **`memcpy`-sized struct regions** (e.
 
 **Consequence:** A save from the **original 32-bit** game is **not guaranteed** to load on this **64-bit** fork even when the first byte matches **`0x24` / `0xA4`**. Saves from this port match the port’s ABI.
 
+**Community (issue #62):** When loading the extended object array, the engine may pick a **278-byte-per-object** (32-bit wire) stride vs the native stride using the same **`NbPatches`** sniff as [scripts/save_probe.py](../scripts/save_probe.py), then expand the embedded **`T_OBJ_3D`** (without `CurrentFrame`) with pointer fields cleared / numeric fields preserved. If both sniff positions look plausible, **`SaveLoadGuessObjectWireStride`** prefers the stride whose sniffed patch count equals **`NbPatches` from the scene already loaded from disk** (before the save stream overwrites it), so patch data stays aligned. If **both** sniff positions match that count (common when **`NbPatches` is 0** and padding reads as zero), the engine picks the **278-byte** retail wire stride. Stride sniffing compares the raw **`S32`** at each candidate offset to the scene count (memcmp) before plausibility rules. Sniffed patch counts are capped at **`MAX_PATCHES`** so values like misread **`384000`** do not win the **`s32 > s64`** tie-break and force the wrong wire. If **both** sniffs still fail and **neither** raw `NbPatches` word at the 278- nor 64-bit-native offset matches the scene hint (see `SaveLoadGuessObjectWireStride` in [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP)), the guess returns **0** and `LoadContexte` uses the **host native** per-object stride — this avoids forcing retail wire when the save is actually a **native/port** blob (fixes regression on saves like **009** where both sniffs were unusable garbage). When only one stride offset fits the buffer, an exact **raw S32 == scene `NbPatches`** still picks that layout. Override with environment **`LBA2_SAVE_LOAD_ABI=32`** to force the legacy stride (useful when the heuristic is ambiguous).
+
 **`PtrZoneClimb`:** stored and restored as a **32-bit** value (`LbaWriteLong` / read as `U32`); it does not round-trip a true 64-bit pointer. See `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
 
 ### Recommendations
@@ -317,14 +319,27 @@ Much of the extended payload is written as **`memcpy`-sized struct regions** (e.
 - **Backward compatibility:** An older engine loading a newer revision misaligns the stream; avoid.
 - **Upgrade:** After loading an old save in a build that supports it, save again to rewrite the current format.
 
-### Format hardening (future engineering)
+### Format hardening (issue #62 — implemented vs planned)
+
+**Implemented** ([SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP), [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP), [docs/SAVEGAME_ISSUE62_CHECKLIST.md](SAVEGAME_ISSUE62_CHECKLIST.md)):
+
+- **Whole-file read cap:** `LoadSize` into the **`Screen`** / **`BufSpeak+50000`** buffer with size **`640×480 + RECOVER_AREA`** (same allocation as [SOURCES/MEM.CPP](SOURCES/MEM.CPP)); oversize files are rejected.
+- **Player name:** NUL-terminated read capped at **`MAX_SIZE_PLAYER_NAME`**; missing NUL → load failure.
+- **Compressed block:** declared **`sizefile`** and compressed tail validated against buffer geometry **before** `ExpandLZ` / staging `memcpy`.
+- **`LoadContexte`:** read cursor may not pass a configured end (`SaveLoadSetReadLimit`); on truncation **`LoadContexte` returns `-1`** and **`LoadGame`** returns **`LOADGAME_ERR_CONTEXT` (`-2`)** (not `FALSE`) so **`ChangeCube` does not call `InitLoadedGame()`** on a half-parsed `ListObjet` (that path could **SIGSEGV**). **`CheckProtoPack`** is skipped for the same return. Other **`LoadGame` failures** still use the legacy **`InitLoadedGame()`** path.
+- **Counts:** `NbObjets` ≤ **`MAX_OBJETS`**, `NbPatches` ≤ **`MAX_PATCHES`**, patch **`Offset`/`Size`** within **`PtrSceneMem`**, extras / incrust / flows / flow-dot counts bounded (`MAX_EXTRAS`, `MAX_INCRUST_DISP`, `MAX_FLOWS`, `MAX_FLOW_DOTS`), `NbZones` ≤ **`MAX_ZONES`**, valid-position blob ≤ **`SIZE_BUFFER_VALIDE_POS`**.
+- **Legacy object blob:** optional **136-byte** wire decode + field migration (see *32-bit vs 64-bit* above).
+- **Clip window / cinema:** After reading **`ClipWindowYMin`** / **`ClipWindowYMax`** from the context tail, if either value is outside **`[0, ModeDesiredY-1]`**, **`YMin >= YMax`**, or negative, the pair is treated as corrupt (often tail misalignment when wire stride is wrong). The engine resets clip to **full height** (`0` … **`ModeDesiredY-1`**, fallback **479**) and clears **`CinemaMode`** plus **`TimerCinema`**, **`LastYCinema`**, **`DebCycleCinema`**, **`DureeCycleCinema`** so letterbox / menu paths do not run with impossible geometry. Debug NDJSON may log **`H12c`** when this fires.
+- **Checkpoint reload:** [SOURCES/VALIDPOS.CPP](SOURCES/VALIDPOS.CPP) sets the read limit around **`BufferValidePos`**.
+
+**Still future / larger change:**
 
 - **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs.
-- **Bounded reads** and validation of counts from the file before `memcpy` (reduce SIGSEGV on corrupt saves).
-- **Host tests** with tiny binary fixtures; optional save inspection via [scripts/save_probe.py](../scripts/save_probe.py) (LZSS via **`save_decompress`** — see [Tooling](#tooling-save_probe--save_decompress)).
+- **More host tests** with tiny binary fixtures hitting `LoadGame` end-to-end; optional save inspection via [scripts/save_probe.py](../scripts/save_probe.py) (LZSS via **`save_decompress`** — see [Tooling](#tooling-save_probe--save_decompress)).
 
 ## For save editors
 
+- **`EDITLBA2`:** The tree still contains **`#ifdef EDITLBA2`** / **`#ifndef EDITLBA2`** branches around save/load and tools; the classic community build does not ship that editor configuration. A future cleanup may fold or remove those dead paths; behaviour documented here is the **non-editor** path unless stated otherwise.
 - **Offsets:** All byte offsets in this doc are relative to the stated base (header, screenshot, or game context).
 - **Endianness:** Little-endian (x86).
 - **Validation:** Engine checks `NUM_VERSION` (low 7 bits of version byte) and `Checksum`. Checksum mismatch sets `SceneStartX=-1` (fallback to scene start) and, in DEBUG_TOOLS/TEST_TOOLS, shows: *"Warning: The save doesn't match the scenario!"* (French: *La sauvegarde ne correspond pas au scénario !*).
@@ -362,7 +377,7 @@ A complete save format doc enables console commands such as:
 | Load | SAVEGAME.CPP | LoadGame, LoadGameNumCube, LoadGameScreen, LoadGamePlayerName |
 | Context | SAVEGAME.CPP | SaveContexte, LoadContexte |
 | Compression | SAVEGAME.CPP, LZSS.CPP, LIB386/SYSTEM/LZ.CPP | Compress_LZSS, ExpandLZ |
-| Whole-file read | LIB386/SYSTEM/LOADSAVE.CPP | `Load` (used by `LoadGameV4`) |
+| Whole-file read | LIB386/SYSTEM/LOADSAVE.CPP | `LoadSize` (capped load for save paths; `Load` still used elsewhere) |
 | `Screen` buffer size | MEM.CPP | `SmartMalloc` entry for `Screen` |
 | Post-load branch | OBJECT.CPP | `ChangeCube` (`FlagLoadGame`, `flagload`, `InitLoadedGame`, `LoadFile3dObjects`) |
 | Screenshot capture | SAVEGAME.CPP | ScaleBox, SaveBlock, RemapPicture |
@@ -380,6 +395,7 @@ A complete save format doc enables console commands such as:
 
 ## Cross-references
 
+- [SAVEGAME_ISSUE62_CHECKLIST.md](SAVEGAME_ISSUE62_CHECKLIST.md) — tracked work for [#62](https://github.com/LBALab/lba2-classic-community/issues/62) (load safety / legacy layout); merge into this doc when stable.
 - [MENU.md](MENU.md) for Save/Load menu flow and screenshot display
 - [CONFIG.md](CONFIG.md) for LastSave and CompressSave
 - [DEBUG.md](DEBUG.md) for DEBUG_TOOLS bug save/load (G/L keys, menu cases 2000/2001)

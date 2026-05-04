@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include "SAVEGAME.H"
+
 #include <stdio.h>
 
 #include "INPUT.H"
@@ -9,6 +11,7 @@
 
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
 
@@ -1357,12 +1360,29 @@ void ChangeCube() {
         flagload = LoadGame();
 #endif
 
-        if (!flagload)
-            InitLoadedGame();
-        else
-            LoadFile3dObjects();
 
-        CheckProtoPack();
+        /* Issue #62 harness: surface flagload before any post-load step that might
+         * crash, so the driver script always sees the load outcome. */
+        {
+            extern S32 SaveLoadTestMode;
+            if (SaveLoadTestMode) {
+                fprintf(stdout, "SAVE_LOAD_TEST: stage=after_loadgame flagload=%d numcube=%d\n",
+                        (int)flagload, (int)NumCube);
+                fflush(stdout);
+            }
+        }
+
+        if (flagload == LOADGAME_ERR_CONTEXT) {
+            /* LoadContexte failed mid-stream; ListObjet may be partial — InitLoadedGame would SIGSEGV. */
+        } else if (flagload < 0 OR !flagload)
+            InitLoadedGame();
+        else {
+            LoadFile3dObjects();
+        }
+
+        if (flagload != LOADGAME_ERR_CONTEXT) {
+            CheckProtoPack();
+        }
 
         NewCube = -1;
     } else {

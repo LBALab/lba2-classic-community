@@ -25,7 +25,7 @@ Workflows under `.github/workflows/`:
 
 | Workflow | What it does |
 |----------|----------------|
-| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery`, run `ctest -R test_res_discovery` |
+| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_savegame_load_bounds`, run `ctest -R "test_res_discovery|test_savegame_load_bounds"` |
 | `macos.yml` | Same host tests on `macos-latest` (preset `macos_arm64`) |
 | `windows.yml` | Same host tests on Windows MSYS2 UCRT64 (preset `windows_ucrt64`) |
 | `format.yml` | `scripts/ci/check-format.sh` (clang-format) |
@@ -72,13 +72,13 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 4. Host tests (game data discovery)
 
-`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs). Build target `test_res_discovery`, then:
+`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. **`tests/discovery/test_savegame_load_bounds.cpp`** (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks **`SaveLoadValidateCompressedStaging`** / **`SaveLoadGuessObjectWireStride`** on synthetic buffers. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs). Build targets **`test_res_discovery`** and **`test_savegame_load_bounds`**, then:
 
 ```bash
-cd build && ctest -R test_res_discovery --output-on-failure
+cd build && ctest -R "test_res_discovery|test_savegame_load_bounds" --output-on-failure
 ```
 
-or **`make test`** / **`make test-discovery`** from the repo root (configures with tests if needed, builds, and runs CTest).
+Or **`make test`** / **`make test-discovery`** from the repo root (configures with tests if needed, builds, and runs CTest).
 
 ## Test Harness
 

@@ -31,6 +31,7 @@ Index of documentation in this repository.
 | Doc | Description |
 |-----|-------------|
 | [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and **CI workflow** summary. |
+| [SAVEGAME_ISSUE62_CHECKLIST.md](SAVEGAME_ISSUE62_CHECKLIST.md) | Tracked checklist for [#62](https://github.com/LBALab/lba2-classic-community/issues/62): save load safety, legacy layout work, tests—separate from [SAVEGAME.md](SAVEGAME.md) until merged. |
 
 ## Preservation & culture
 

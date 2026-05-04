@@ -13,7 +13,7 @@ help:
 	@echo "  make build          - configure (Ninja) and build lba2"
 	@echo "  make run            - build and run (uses scripts/dev/build-and-run.sh)"
 	@echo "  make build-run      - same as run"
-	@echo "  make test-discovery - configure with tests, build test_res_discovery, run CTest"
+	@echo "  make test-discovery - configure with tests, build host discovery tests, run CTest"
 	@echo "  make test | tests   - same as test-discovery (host path tests; no retail files)"
 	@echo "  make test-docker    - ./run_tests_docker.sh (ASM suite; requires Docker)"
 	@echo "  make format-check   - scripts/ci/check-format.sh"
@@ -33,8 +33,8 @@ test-discovery:
 	$(CMAKE) -S "$(REPO_ROOT)" -B "$(BUILD_DIR)" -G Ninja -DCMAKE_BUILD_TYPE=Debug \
 		-DLBA2_BUILD_TESTS=ON \
 		-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF
-	$(CMAKE) --build "$(BUILD_DIR)" --target test_res_discovery
-	cd "$(BUILD_DIR)" && ctest -R test_res_discovery --output-on-failure
+	$(CMAKE) --build "$(BUILD_DIR)" --target test_res_discovery test_savegame_load_bounds
+	cd "$(BUILD_DIR)" && ctest -R "test_res_discovery|test_savegame_load_bounds" --output-on-failure
 
 test tests: test-discovery
 
