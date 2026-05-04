@@ -1360,7 +1360,6 @@ void ChangeCube() {
         flagload = LoadGame();
 #endif
 
-
         /* Issue #62 harness: surface flagload before any post-load step that might
          * crash, so the driver script always sees the load outcome. */
         {

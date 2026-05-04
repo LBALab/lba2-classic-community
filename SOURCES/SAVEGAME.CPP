@@ -25,7 +25,6 @@
 
 #include <OBJECT/AFF_OBJ.H>
 
-
 extern char PlayerName[MAX_SIZE_PLAYER_NAME + 1];
 
 extern S32 LastMyJoy;
@@ -693,13 +692,11 @@ S32 LoadGame(void) {
 
     HQ_StopSample();
 
-
     loaded = SaveLoadFileToScreen(GamePathname);
     if (!loaded) {
         SaveLoadClearReadLimit();
         return FALSE;
     }
-
 
     LbaReadByte(NumVersion); // num version
     LbaReadLong(NewCube);
@@ -709,12 +706,10 @@ S32 LoadGame(void) {
         return FALSE;
     }
 
-
     if (!SaveLoadDecompressIfNeeded((U8 *)Screen, SaveLoadScreenBufferBytes(), loaded)) {
         SaveLoadClearReadLimit();
         return FALSE;
     }
-
 
     PtrSave += 160 * 120;
 
@@ -738,7 +733,7 @@ S32 LoadGame(void) {
         LbaReadLong(ValideCube);
         LbaReadLong(SizeOfBufferValidePos);
         if (SizeOfBufferValidePos < 0
-            OR (U32)SizeOfBufferValidePos > (U32)SIZE_BUFFER_VALIDE_POS)
+            || (U32)SizeOfBufferValidePos > (U32)SIZE_BUFFER_VALIDE_POS)
             goto loadgame_tail_fail;
         if (!SaveLoadRoom((size_t)SizeOfBufferValidePos))
             goto loadgame_tail_fail;
@@ -753,7 +748,6 @@ S32 LoadGame(void) {
     CameraCenter(0);
     SetTimerHR(savetimerrefhr);
     SaveTimer();
-
 
     return flaginit;
 
@@ -1335,38 +1329,38 @@ void SaveContexte(S32 savetimerrefhr) {
 
 #ifndef EDITLBA2
 #undef LbaRead
-#define LbaRead(ptr, size)                                                                 \
-    do {                                                                                   \
-        if (!SaveLoadRoom((size_t)(size)))                                                  \
-            return SAVELOAD_CTX_ERR;                                                       \
-        memcpy((ptr), PtrSave, (size_t)(size));                                            \
-        PtrSave += (size_t)(size);                                                         \
+#define LbaRead(ptr, size)                      \
+    do {                                        \
+        if (!SaveLoadRoom((size_t)(size)))      \
+            return SAVELOAD_CTX_ERR;            \
+        memcpy((ptr), PtrSave, (size_t)(size)); \
+        PtrSave += (size_t)(size);              \
     } while (0)
 
 #undef LbaReadByte
-#define LbaReadByte(ptr)                                                                   \
-    do {                                                                                   \
-        if (!SaveLoadRoom(1))                                                              \
-            return SAVELOAD_CTX_ERR;                                                       \
-        (ptr) = *PtrSave++;                                                                \
+#define LbaReadByte(ptr)             \
+    do {                             \
+        if (!SaveLoadRoom(1))        \
+            return SAVELOAD_CTX_ERR; \
+        (ptr) = *PtrSave++;          \
     } while (0)
 
 #undef LbaReadWord
-#define LbaReadWord(ptr)                                                                   \
-    do {                                                                                   \
-        if (!SaveLoadRoom(2))                                                              \
-            return SAVELOAD_CTX_ERR;                                                       \
-        (ptr) = *(S16 *)PtrSave;                                                           \
-        PtrSave += 2;                                                                      \
+#define LbaReadWord(ptr)             \
+    do {                             \
+        if (!SaveLoadRoom(2))        \
+            return SAVELOAD_CTX_ERR; \
+        (ptr) = *(S16 *)PtrSave;     \
+        PtrSave += 2;                \
     } while (0)
 
 #undef LbaReadLong
-#define LbaReadLong(ptr)                                                                   \
-    do {                                                                                   \
-        if (!SaveLoadRoom(4))                                                              \
-            return SAVELOAD_CTX_ERR;                                                       \
-        (ptr) = *(S32 *)PtrSave;                                                           \
-        PtrSave += 4;                                                                      \
+#define LbaReadLong(ptr)             \
+    do {                             \
+        if (!SaveLoadRoom(4))        \
+            return SAVELOAD_CTX_ERR; \
+        (ptr) = *(S32 *)PtrSave;     \
+        PtrSave += 4;                \
     } while (0)
 
 /* Issue #62: read NbObjets objects from PtrSave at the configured stride and
@@ -1704,7 +1698,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaRead(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
         }
 #else
-        if (NbObjets < 0 OR NbObjets > MAX_OBJETS)
+        if (NbObjets < 0 || NbObjets > MAX_OBJETS)
             return SAVELOAD_CTX_ERR;
         {
             /* Match writer at SAVEGAME.CPP SaveContexte: LbaWrite(&Obj, sizeof(Obj) - sizeof(Obj.CurrentFrame)).
@@ -1764,7 +1758,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(SizePatches);
         LbaRead(BufferPatches, SizePatches);
 #else
-        if (NbPatches < 0 OR NbPatches > MAX_PATCHES)
+        if (NbPatches < 0 || NbPatches > MAX_PATCHES)
             return SAVELOAD_CTX_ERR;
 
         LbaReadLong(wlong);
@@ -1772,9 +1766,9 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         ptrpatch = ListPatches;
 
         for (n = 0; n < NbPatches; n++, ptrpatch++) {
-            if (ptrpatch->Offset < 0 OR ptrpatch->Size < 0
-                OR ptrpatch->Offset > PtrSceneMem OR ptrpatch->Size > PtrSceneMem
-                OR (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
+            if (ptrpatch->Offset < 0 || ptrpatch->Size < 0
+                || ptrpatch->Offset > PtrSceneMem || ptrpatch->Size > PtrSceneMem
+                || (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
                 return SAVELOAD_CTX_ERR;
 
             switch (ptrpatch->Size) {
@@ -1828,7 +1822,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(NbZones); // pour EditLba2
 
 #ifndef EDITLBA2
-        if (NbZones < 0 OR NbZones > MAX_ZONES)
+        if (NbZones < 0 || NbZones > MAX_ZONES)
             return SAVELOAD_CTX_ERR;
 #endif
 

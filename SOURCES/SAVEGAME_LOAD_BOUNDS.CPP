@@ -91,8 +91,7 @@ S32 SaveLoadGuessObjectWireStride(S32 nb_objets, const U8 *after_nb_objets, cons
     if (ok64 && !ok32)
         return stride64_native;
 
-    if (ok32 && ok64 && scene_nb_patches_hint >= 0
-        && scene_nb_patches_hint <= SAVEGAME_MAX_PATCHES) {
+    if (ok32 && ok64 && scene_nb_patches_hint >= 0 && scene_nb_patches_hint <= SAVEGAME_MAX_PATCHES) {
         if (s32 == scene_nb_patches_hint && s64 != scene_nb_patches_hint)
             return (S32)SAVEGAME_STRIDE32;
         if (s64 == scene_nb_patches_hint && s32 != scene_nb_patches_hint)
