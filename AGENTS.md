@@ -41,6 +41,15 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Search before adding:** Check for existing implementations before adding new code; avoid duplication.
 - **Say when unsure:** If uncertain whether a change is correct, say so. Prefer "I'm not certain" over confident but wrong.
 
+## Execution Style (Karpathy-Inspired)
+
+Apply these behavior rules on every non-trivial task:
+
+1. **Think before coding:** State assumptions explicitly. If intent is ambiguous, ask before implementing. Surface tradeoffs instead of silently picking one path.
+2. **Simplicity first:** Prefer the minimum code and the minimum API needed to satisfy the request. Avoid speculative abstractions and "future-proofing" unless requested.
+3. **Surgical changes:** Touch only files and lines needed for the requested outcome. Avoid drive-by refactors, formatting churn, or unrelated cleanup.
+4. **Goal-driven execution:** Define concrete success criteria (preferably tests or reproducible checks), implement, then verify results before declaring done.
+
 ## Project Overview
 
 - **What:** Community fork of the LBA2 (Twinsen's Odyssey) engine for preservation and modernization.
@@ -69,7 +78,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 | SOURCES/3DEXT/ | Same as LIB386; check ASM_TO_CPP_REFERENCE | docs/ASM_TO_CPP_REFERENCE.md |
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update ASM_VALIDATION_PROGRESS | docs/TESTING.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
-| Debug tools | DEBUG_TOOLS, CONSOLE_MODULE | docs/DEBUG.md, docs/CONSOLE.md |
+| Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |

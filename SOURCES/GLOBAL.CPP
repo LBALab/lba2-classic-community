@@ -90,9 +90,7 @@ S32 FlagBlackPal = FALSE;
 
 S32 FlagShadeMenu = FALSE;
 
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 S32 DrawZVObjets = FALSE;
-#endif
 
 char PathFla[ADELINE_MAX_PATH];
 

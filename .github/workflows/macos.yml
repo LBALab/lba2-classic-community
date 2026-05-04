@@ -39,10 +39,10 @@ jobs:
       - name: Build
         run: |
           cmake --build build --target lba2
-          cmake --build build --target test_res_discovery test_savegame_load_bounds
+          cmake --build build --target test_res_discovery test_console_state test_savegame_load_bounds
 
       - name: Host tests (game data discovery)
-        run: cd build && ctest -R "test_res_discovery|test_savegame_load_bounds" --output-on-failure
+        run: cd build && ctest -R 'test_(res_discovery|console_state|savegame_load_bounds)' --output-on-failure
 
       - name: Verify Binary
         run: test -f build/SOURCES/lba2 && echo "Build successful"

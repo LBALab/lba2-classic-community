@@ -25,7 +25,7 @@ Workflows under `.github/workflows/`:
 
 | Workflow | What it does |
 |----------|----------------|
-| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_savegame_load_bounds`, run `ctest -R "test_res_discovery|test_savegame_load_bounds"` |
+| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_console_state` + `test_savegame_load_bounds`, run `ctest -R 'test_(res_discovery|console_state|savegame_load_bounds)'` |
 | `macos.yml` | Same host tests on `macos-latest` (preset `macos_arm64`) |
 | `windows.yml` | Same host tests on Windows MSYS2 UCRT64 (preset `windows_ucrt64`) |
 | `format.yml` | `scripts/ci/check-format.sh` (clang-format) |
@@ -51,9 +51,10 @@ Most tests live under `tests/` and are grouped by subsystem:
 - `tests/fpu_precision`
 - `tests/VIDEO_AUDIO` (CPP-only; ResampleAndAddToMix, GetEffectiveTrackRate)
 - `tests/SNAPSHOT`
+- `tests/console` (host-only; `CONSOLE_STATE` helpers — see §5; plain `main` + asserts, no `test_harness.h`)
 
-These tests are registered through CTest and use the custom harness in
-`tests/test_harness.h`.
+These tests are registered through CTest and typically use the custom harness in
+`tests/test_harness.h` (ASM↔CPP and subsystem fixtures above; not `tests/console`).
 
 ### 2. Polygon Recording Replay (`.lba2polyrec`)
 
@@ -70,15 +71,23 @@ Some mismatches come from x87 behavior, intermediate rounding, or calling
 convention details rather than high-level logic. The `tests/fpu_precision`
 directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
-### 4. Host tests (game data discovery)
+### 4. Host tests — game data discovery (`tests/discovery`)
 
-`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. **`tests/discovery/test_savegame_load_bounds.cpp`** (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks **`SaveLoadValidateCompressedStaging`** / **`SaveLoadGuessObjectWireStride`** on synthetic buffers. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs). Build targets **`test_res_discovery`** and **`test_savegame_load_bounds`**, then:
+`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. **`tests/discovery/test_savegame_load_bounds.cpp`** (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks **`SaveLoadValidateCompressedStaging`** / **`SaveLoadGuessObjectWireStride`** on synthetic buffers. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs).
+
+### 5. Host tests — console (`tests/console`)
+
+`tests/console/test_console_state.cpp` links the `console` library and exercises **`SOURCES/CONSOLE/CONSOLE_STATE.CPP`**: availability strings (same contract as `console_avail_in_game_scene` in `CONSOLE_CMD.CPP`), legacy **video/menu/game** labels from **`Console_ModeString_FromState`** (for tests), and **`Console_FormatStatusIslandLine_FromState`** (first line of the **`status`** command: island, cube, chapter; raw values like `cmd_status`, not give-style scene masking). No retail `lba2.hqr` or full engine init.
+
+`tests/console/test_console_commands.cpp` covers parser/output integration in **`SOURCES/CONSOLE/CONSOLE.CPP`** using host-only hooks: built-in `help` and `cmdlist`, unknown-command diagnostics, cvar set/get (`fps`), and a registered **`status`** command path that prints the same status headline format.
+
+PR host jobs and **`make test`** / **`make test-discovery`** build `test_res_discovery`, `test_console_state`, `test_console_commands`, and `test_savegame_load_bounds`, then:
 
 ```bash
-cd build && ctest -R "test_res_discovery|test_savegame_load_bounds" --output-on-failure
+cd build && ctest -R 'test_(res_discovery|console_state|console_commands|savegame_load_bounds)' --output-on-failure
 ```
 
-Or **`make test`** / **`make test-discovery`** from the repo root (configures with tests if needed, builds, and runs CTest).
+To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
 ## Test Harness
 

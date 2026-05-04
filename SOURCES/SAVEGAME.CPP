@@ -1766,9 +1766,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         ptrpatch = ListPatches;
 
         for (n = 0; n < NbPatches; n++, ptrpatch++) {
-            if (ptrpatch->Offset < 0 || ptrpatch->Size < 0
-                || ptrpatch->Offset > PtrSceneMem || ptrpatch->Size > PtrSceneMem
-                || (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
+            if (ptrpatch->Offset < 0 || ptrpatch->Size < 0 || ptrpatch->Offset > PtrSceneMem || ptrpatch->Size > PtrSceneMem || (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
                 return SAVELOAD_CTX_ERR;
 
             switch (ptrpatch->Size) {

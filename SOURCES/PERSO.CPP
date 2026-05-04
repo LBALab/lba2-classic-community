@@ -4,15 +4,12 @@
 #include "DIRECTORIES.H"
 #include "RES_DISCOVERY.H"
 #include "INPUT.H"
-#ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
 #include <FILEIO/SAVEPNG.H>
-#endif
 
 #include <SVGA/SCREEN.H>
-#include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
 #include <SYSTEM/STRING.H>
@@ -761,7 +758,6 @@ restartloop:
 
         CheckSavePcx(); // F9: Sauve Screen
 
-#ifdef CONSOLE_MODULE
         /* Console screenshot (PNG): requested without overlay; perform here where we have Screen + PtrPal. */
         {
             char shotPath[ADELINE_MAX_PATH];
@@ -771,7 +767,6 @@ restartloop:
                 Console_ClearPendingScreenshot();
             }
         }
-#endif
 
         /*-------------------------------------------------------------------------*/
         /* gestion clavier */ /* game */
@@ -1975,6 +1970,9 @@ void ReadConfigFile(void) {
 
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
+    /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
+    Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
+
     ptr = DefFileBufferReadStringDefault("FlagDisplayText", "ON");
 
     if (ptr AND !strcasecmp(ptr, "OFF"))
@@ -2014,6 +2012,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
+    DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
 
     if (FlagDisplayText)
         DefFileBufferWriteString("FlagDisplayText", "ON");
@@ -2303,10 +2302,9 @@ int main(int argc, char *argv[]) {
 
     InitAdeline(argc, argv);
 
-#ifdef CONSOLE_MODULE
+    /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
-#endif
 
     atexit(TheEndInfo);
 

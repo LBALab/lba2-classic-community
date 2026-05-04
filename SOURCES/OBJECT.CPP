@@ -91,8 +91,6 @@ extern S16 M_XMin, M_XMax, M_YMin, M_YMax, M_ZMin, M_ZMax;
 extern U8 *SearchPtrAnimAction;
 
 /*══════════════════════════════════════════════════════════════════════════*/
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
-
 #define HashLine(x0, y0, x1, y1, coul, ep) Line(x0, y0, x1, y1, coul)
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -350,7 +348,6 @@ void DrawZonesDec() {
 
     UnsetClip();
 }
-#endif
 /*══════════════════════════════════════════════════════════════════════════*/
 void InitSysText(void) {
     S32 n;
@@ -4648,7 +4645,6 @@ void DoDir(U8 numobj) {
  *══════════════════════════════════════════════════════════════════════════*/
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
 void DrawZV(T_OBJET *ptrobj) {
     if (DrawCube(ptrobj->XMin + ptrobj->Obj.X,
                  ptrobj->YMin + ptrobj->Obj.Y,
@@ -4662,8 +4658,6 @@ void DrawZV(T_OBJET *ptrobj) {
 
     UnsetClip();
 }
-
-#endif
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -4934,11 +4928,9 @@ S32 AffOneObject(T_SORT *pt) {
                               ClipXMin, ClipYMin, Screen);
                 }
 
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
                 if (DrawZVObjets) {
                     DrawZV(ptrobj);
                 }
-#endif
             }
         }
 
@@ -5061,11 +5053,9 @@ S32 AffOneObject(T_SORT *pt) {
                 CopyBlock(ClipXMin, ClipYMin, ClipXMax, ClipYMax, Log,
                           ClipXMin, ClipYMin, Screen);
             }
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
             if (DrawZVObjets) {
                 DrawZV(ptrobj);
             }
-#endif
         }
         break;
 
@@ -5149,11 +5139,9 @@ S32 AffOneObject(T_SORT *pt) {
                 CopyBlock(ClipXMin, ClipYMin, ClipXMax, ClipYMax, Log,
                           ClipXMin, ClipYMin, Screen);
             }
-#if defined(DEBUG_TOOLS) || defined(CONSOLE_MODULE)
             if (DrawZVObjets) {
                 DrawZV(ptrobj);
             }
-#endif
         }
         break;
 

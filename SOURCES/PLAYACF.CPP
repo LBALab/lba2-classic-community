@@ -26,9 +26,7 @@ int VideoLogIsEnabled(void) {
 #include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef CONSOLE_MODULE
 #include "CONSOLE/CONSOLE.H"
-#endif
 #endif
 
 char PathAcf[ADELINE_MAX_PATH];
@@ -492,9 +490,7 @@ S32 PlayAcf(const char *name) {
 
         U8 *pal = NULL;
         U32 videoStartTicks = 0;
-#ifdef CONSOLE_MODULE
         static int s_wasConsoleOpen = 0;
-#endif
         for (unsigned long c = 0; c < f; c++) {
             /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
             if (numTracks > 0 && c >= prebufFrames) {
@@ -518,7 +514,6 @@ S32 PlayAcf(const char *name) {
                 ManageTime();
                 if (MyKey == K_ESC || (Input & I_MENUS))
                     goto fin_play;
-#ifdef CONSOLE_MODULE
                 /* Pause video while console is open: keep presenting current frame until they close it.
          * Pause video audio so the buffer doesn't drain and cause a gap when console closes. */
                 if (Console_IsOpen()) {
@@ -538,7 +533,6 @@ S32 PlayAcf(const char *name) {
                         SDL_Log("[VIDEO] Audio resumed (console closed)");
                     s_wasConsoleOpen = 0;
                 }
-#endif
                 now = SDL_GetTicks();
                 if (now >= nextAt)
                     break;
@@ -549,9 +543,7 @@ S32 PlayAcf(const char *name) {
         }
 
     fin_play:
-#ifdef CONSOLE_MODULE
         s_wasConsoleOpen = 0;
-#endif
         StopVideoAudio();
         smk_close(smkObject);
         free(dest);
