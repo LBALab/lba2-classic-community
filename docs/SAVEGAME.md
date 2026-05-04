@@ -1,6 +1,6 @@
 # Savegame System
 
-Savegame files (`.lba`) store game state: scene, position, inventory, holomap, screenshot, and more. This doc covers the engine lifecycle and full binary layout. Layout is verified against `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
+Savegame files (`.lba`) store game state: scene, position, inventory, holomap, screenshot, and more. This doc covers the engine **lifecycle**, **save/load pipelines**, **binary layout**, and **version / compatibility** behaviour. Layout is verified against `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
 
 Truth hierarchy: **code > this document > external sources**.
 
@@ -14,6 +14,18 @@ Truth hierarchy: **code > this document > external sources**.
 
 Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir>/save/` + filename ([SOURCES/DIRECTORIES.CPP](SOURCES/DIRECTORIES.CPP)).
 
+### Bug saves (`save/bugs/`)
+
+**Purpose:** Repro / QA snapshots kept **separate** from player slots. Same **`.lba` binary format** and **`SaveGame()` / `LoadGame()`** machinery as normal saves ([SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP)); only **path**, **who triggers the write**, and **default compression** differ.
+
+| Topic | Regular saves | Bug saves |
+|--------|----------------|-----------|
+| **Directory** | `GetSavePath(..., "<file>.lba")` → `<userDir>/save/` (root) for named slots; `current.lba` / `autosave.lba` for quick/auto | `GetBugPath(..., "<file>.lba")` → `<userDir>/save/bugs/` ([SOURCES/DIRECTORIES.CPP](SOURCES/DIRECTORIES.CPP) `GetBugPath`) |
+| **Compression** | **`AutoSaveGame` / `CurrentSaveGame`:** `NumVersion = NUM_VERSION` only (uncompressed). **`CompressSave` in `lba2.cfg`:** merged at startup into `NumVersion` ([SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) `ReadConfigFile`). **Menu “Save Game” (slot):** sets the compression high bit on `NumVersion` before `SaveGame` ([SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP)). | **DEBUG menu bug save** and **console `savebug`:** set `NumVersion` to **`NUM_VERSION` with `SAVE_COMPRESS`** before `SaveGame` ([SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) case 2001; [SOURCES/CONSOLE/CONSOLE_CMD.CPP](SOURCES/CONSOLE/CONSOLE_CMD.CPP) `cmd_savebug`). |
+| **Entry points** | Main menu save/load, autosave, argv/console **`load`** | **DEBUG_TOOLS:** in-game `G` / menu load case 2000 / menu save case 2001 ([SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP)). **Always-on console:** `savebug`, `loadbug`, `listbugs` ([CONSOLE.md](CONSOLE.md)). |
+
+**Console `savebug`:** requires an **in-game loaded scene** (same gate as `give`); **`loadbug`** only checks that `bugs/<name>.lba` exists. See [CONSOLE.md](CONSOLE.md).
+
 ## Lifecycle
 
 ### Save
@@ -23,7 +35,7 @@ Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir
 | Menu Save | `SaveGame(TRUE)` | User-initiated |
 | Quick-save (MENUS) | `CurrentSaveGame()` | Saves to `current.lba`; player name set to "CURRENT" |
 | Auto-save | `AutoSaveGame()` | Saves to `autosave.lba` at scene transitions |
-| Bug save (DEBUG_TOOLS) | `SaveGame(TRUE)` | Debug save to bug directory |
+| Bug save | `SaveGame(TRUE)` | **`save/bugs/`** via DEBUG menu (DEBUG_TOOLS), in-game **`G`**, or console **`savebug`** |
 
 **Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) – `SaveGame`, `CurrentSaveGame`, `AutoSaveGame`
 
@@ -34,8 +46,34 @@ Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir
 | Menu Load / Resume | `LoadGame()` | Full load; sets `NewCube`, `PlayerName`, restores state |
 | Load screenshot only | `LoadGameScreen()` | Reads header + 160×120 image; used for menu preview |
 | Load player name only | `LoadGamePlayerName()` | Reads header + player name; used when listing saves |
+| Cube index only (lightweight) | `LoadGameNumCube()` | Used when `FlagLoadGame` is set before a cube transition (e.g. startup argv save, console **`load`** / **`loadbug`**) — reads header, optional decompress, skips screenshot, restores `ListVarGame` only |
 
-**Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) – `LoadGame`, `LoadGameNumCube`, `LoadGameScreen`, `LoadGamePlayerName`
+**Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) – `LoadGame`, `LoadGameNumCube`, `LoadGameScreen`, `LoadGamePlayerName`. Full game load from disk is wired through `FlagLoadGame` in [SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP) `ChangeCube` (see [Version compatibility](#version-compatibility)).
+
+## Save pipeline (`SaveGame`)
+
+Order in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) (retail path):
+
+1. Build stream at `PtrSave` (from `BufSpeak + 50000` in the non-editor build).
+2. Write **version byte** (`NUM_VERSION` in low 7 bits; high bit set if `CompressSave` requests compression — see [Version byte on disk](#version-byte-on-disk)), **cube** (`NumCube`), null-terminated **`PlayerName`**.
+3. If compressing: reserve **4 bytes** for plaintext size (`sizefile`), remember `memoptr`.
+4. Write **160×120** screenshot bytes, then **`SaveContexte(savetimerrefhr)`** (full game state).
+5. Append **`ValidePos` / `LastValidePos`**; if `!ValidePos`, append **`ValideCube`**, **`SizeOfBufferValidePos`**, and **`BufferValidePos`**.
+6. If compressing: LZSS-compress the block from `memoptr` onward, patch **`sizefile`**, write file with **`Save()`**.
+
+Constants: `NUM_VERSION`, `SAVE_COMPRESS`, `MASK_NUM_VERSION` in [SOURCES/COMMON.H](SOURCES/COMMON.H).
+
+## Full load pipeline (`LoadGame`)
+
+1. **`LoadGameV4`** — `Load(name, (U8 *)Screen)` reads the **entire file** into the **`Screen`** buffer (`640×480 + RECOVER_AREA`; see [SOURCES/MEM.CPP](SOURCES/MEM.CPP)). There is no size cap in this helper beyond that allocation.
+2. Read **`NumVersion`**, **`NewCube`**, **`PlayerName`** (NUL-terminated in the file; the reader loops until `0`).
+3. If **`NumVersion & SAVE_COMPRESS`**: read **`sizefile`**, copy compressed tail, **`ExpandLZ(..., mode 2)`** (matches `Compress_LZSS`).
+4. **`PtrSave += 160 * 120`** — skip screenshot so the next reads align with **game context** offsets in this doc.
+5. **`LoadContexte(&savetimerrefhr)`** — restores globals through camera / buggy / ardoise / `VueCamera`; returns a boolean **`flaginit`** to `LoadGame` (see [Version compatibility](#version-compatibility)).
+6. Read valid-position tail: **`ValidePos` / `LastValidePos`**, optional **`BufferValidePos`** blob.
+7. Restart music, palette, **`CameraCenter(0)`**, restore timer from save, **`SaveTimer()`**. **`LoadGame`** returns **`flaginit`** to **`ChangeCube`**, which stores it in **`flagload`**.
+
+Partial loaders (`LoadGameScreen`, `LoadGamePlayerName`, `LoadGameNumCube`) use the same header (+ optional decompress where applicable) but only consume a prefix of the stream.
 
 ## File format – header and screenshot
 
@@ -57,6 +95,20 @@ Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir
 | 19200 | var | Game context (see below) |
 
 Compression: `Compress_LZSS` / `ExpandLZ` (mode 2). The payload (screenshot + game context) is compressed as one block; the header (version, cube, name) is always uncompressed.
+
+### Version byte on disk
+
+The first byte combines two ideas (macros in [SOURCES/COMMON.H](SOURCES/COMMON.H)):
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `NUM_VERSION` | `36` | Low **7 bits**: layout revision of the serialized game context (branches in `LoadContexte` / `SaveContexte`). |
+| `SAVE_COMPRESS` | `0x80` | High bit: screenshot + context stored LZSS-compressed after the header. |
+| `MASK_NUM_VERSION` | `~(SAVE_COMPRESS)` | Strip compression when comparing layout (e.g. `(NumVersion & MASK_NUM_VERSION) != NUM_VERSION` in `OBJECT.CPP`). |
+
+Typical values: **`0x24`** = uncompressed layout 36; **`0xA4`** = compressed (`0x80 | 36`).
+
+**Not an ABI tag:** the same first byte can appear on **original 32-bit** retail saves and **64-bit** community builds. It does **not** identify pointer width or compiler. Pointer-sized blobs in the stream still differ by platform (see [Version compatibility](#version-compatibility)).
 
 ## File format – game context (after screenshot)
 
@@ -210,34 +262,61 @@ Shown at load time: `LoadGameScreen()` returns pointer to image data; `DrawScree
 
 ## Version compatibility
 
-The version byte (low 7 bits) is `NUM_VERSION` (36). Layout changes between versions; old saves can fail or load incorrectly.
+The **layout revision** is the low 7 bits of the first byte (`NUM_VERSION`, currently **36**). Branches in `LoadContexte` / `SaveContexte` change what is read and written after the fixed prefix (through checksum). The **compression** bit is independent (see [Version byte on disk](#version-byte-on-disk)).
 
-### Version-specific layout (LoadContexte)
+### Version-specific layout (`LoadContexte`)
 
 | Version | Change |
 |---------|--------|
-| &lt; 34 | Input state: `LastStepFalling`, `LastStepShifting`; objects: `TempoRealAngle` instead of `BoundAngle`. *(DEBUG_TOOLS only)* |
-| ≥ 35 | Objects: `SampleAlways` field added |
-| ≥ 36 | Objects: `SampleVolume` field added |
+| &lt; 34 | Extra input fields (`LastStepFalling`, `LastStepShifting`); objects use `TempoRealAngle` instead of `BoundAngle`. **Only compiled in `DEBUG_TOOLS`, `TEST_TOOLS`, or `EDITLBA2`** — not in a default release player build. |
+| ≥ 35 | Per-object **`SampleAlways`** (`S32`) added. |
+| ≥ 36 | Per-object **`SampleVolume`** (`U8`) added. |
 
-**Code:** SAVEGAME.CPP lines 1216–1356.
+**Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) — `LoadContexte` / `SaveContexte` (object loop ~1216–1356).
 
-### Version mismatch handling
+### Checksum, `SceneStartX`, and `flaginit`
 
-- **Release build:** Always uses `LoadGame()` → `LoadContexte`. If the save version differs, the stream can misalign and produce corruption or crashes.
-- **DEBUG_TOOLS / TEST_TOOLS:** If `(NumVersion & MASK_NUM_VERSION) != NUM_VERSION`, shows: *"Warning: Save too old. I'll try to load it, but be careful!"* (French: *Sauvegarde trop ancienne. Je vais tenter de la charger, mais méfie !!*) and calls `LoadGameOldVersion()` instead.
+After reading the stored **`Checksum`**, the engine compares it to the runtime **`Checksum`** (scenario-dependent).
 
-### LoadGameOldVersion (fallback)
+- **Mismatch:** `SceneStartX` is forced to **`-1`**. A warning may be shown in **DEBUG_TOOLS** / **TEST_TOOLS**. The loader then follows the **`if (SceneStartX == -1)`** branch in `LoadContexte` and **skips** restoring the large “extended” blob (objects, patches, flows, camera, …) — see the `if (SceneStartX == -1)` vs `else` structure in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
+- **`LoadContexte` return value (`flaginit` inside `LoadGame`):** **`TRUE`** when the checksum / `SceneStartX == -1` short path ran (hero and globals repaired without consuming the extended blob), **`FALSE`** after a normal full restore of objects, patches, flows, etc.
 
-A simplified loader that reads only the core context (ListVarGame, ListVarCube, Comportement, magic, position, TabArrow, TabInv) and sets the hero position. It does **not** restore: darts, object positions, patches, extras, zones, incrust, flows, camera state, etc. Use when a full load would fail; the game will start with correct inventory and position but lose scene detail.
+**`LoadGame`** returns that value into **`flagload`** in **`ChangeCube`** ([SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP)):
 
-**Code:** SAVEGAME.CPP `LoadGameOldVersion`, OBJECT.CPP ~1495.
+```text
+if (!flagload) InitLoadedGame(); else LoadFile3dObjects();
+```
+
+So **`flagload == 0`** (falsy → **`InitLoadedGame()`**) is the **usual** full load path; **non-zero `flagload`** skips **`InitLoadedGame`** and uses **`LoadFile3dObjects()`** only (extended state was already reconciled inside `LoadContexte`). **`LoadGameOldVersion`** returns **`TRUE`** (non-zero), so it always takes the **`LoadFile3dObjects()`** branch after the minimal restore.
+
+### Version mismatch and `LoadGameOldVersion`
+
+- **Release build:** When loading a save, **`LoadGame()` → `LoadContexte`** is always used. If the save’s layout revision **≠** `NUM_VERSION`, the byte stream **misaligns** — expect corruption or crashes; there is **no** automatic fallback.
+- **`DEBUG_TOOLS` or `TEST_TOOLS`:** In `ChangeCube`, if **`(NumVersion & MASK_NUM_VERSION) != NUM_VERSION`**, the engine shows the French warning (*Sauvegarde trop ancienne…*) and calls **`LoadGameOldVersion()`** instead of **`LoadGame()`**.
+
+**`LoadGameOldVersion`** ([SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP)): same header + optional decompress + skip screenshot, then restores only the **early** context (`ListVarGame`, `ListVarCube`, comportement, money/magic/keys, start positions, holomap, inventory). It does **not** restore darts, objects, patches, extras, zones, incrust, flows, camera, etc. Returns **`TRUE`**.
+
+**Call site:** [SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP) — `ChangeCube`, `if (FlagLoadGame)` block (search for `LoadGameOldVersion` / `FlagLoadGame`).
+
+### 32-bit vs 64-bit and pointers
+
+Much of the extended payload is written as **`memcpy`-sized struct regions** (e.g. `T_OBJ_3D` minus `CurrentFrame`, full **`T_EXTRA`**, **`S_PART_FLOW`**). Sizes and padding depend on the **compiler and pointer width** of the binary that **wrote** the file.
+
+**Consequence:** A save from the **original 32-bit** game is **not guaranteed** to load on this **64-bit** fork even when the first byte matches **`0x24` / `0xA4`**. Saves from this port match the port’s ABI.
+
+**`PtrZoneClimb`:** stored and restored as a **32-bit** value (`LbaWriteLong` / read as `U32`); it does not round-trip a true 64-bit pointer. See `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
 
 ### Recommendations
 
-- **Forward compatibility:** A newer engine can load older saves via `LoadContexte` version branches.
-- **Backward compatibility:** An older engine loading a newer-version save will misalign the stream; avoid.
-- **Upgrade:** After loading an old save, save again to upgrade to the current format.
+- **Forward compatibility:** A newer engine can load older saves via `LoadContexte` version branches (when revisions match or debug fallback applies).
+- **Backward compatibility:** An older engine loading a newer revision misaligns the stream; avoid.
+- **Upgrade:** After loading an old save in a build that supports it, save again to rewrite the current format.
+
+### Format hardening (future engineering)
+
+- **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs.
+- **Bounded reads** and validation of counts from the file before `memcpy` (reduce SIGSEGV on corrupt saves).
+- **Host tests** with tiny binary fixtures; optional header inspection via [scripts/save_probe.py](../scripts/save_probe.py) (does not implement LZSS — see script docstring).
 
 ## For save editors
 
@@ -277,16 +356,25 @@ A complete save format doc enables console commands such as:
 | Save | SAVEGAME.CPP | SaveGame, CurrentSaveGame, AutoSaveGame |
 | Load | SAVEGAME.CPP | LoadGame, LoadGameNumCube, LoadGameScreen, LoadGamePlayerName |
 | Context | SAVEGAME.CPP | SaveContexte, LoadContexte |
-| Compression | SAVEGAME.CPP, COMPRESS.CPP | Compress_LZSS, ExpandLZ |
+| Compression | SAVEGAME.CPP, LZSS.CPP, LIB386/SYSTEM/LZ.CPP | Compress_LZSS, ExpandLZ |
+| Whole-file read | LIB386/SYSTEM/LOADSAVE.CPP | `Load` (used by `LoadGameV4`) |
+| `Screen` buffer size | MEM.CPP | `SmartMalloc` entry for `Screen` |
+| Post-load branch | OBJECT.CPP | `ChangeCube` (`FlagLoadGame`, `flagload`, `InitLoadedGame`, `LoadFile3dObjects`) |
 | Screenshot capture | SAVEGAME.CPP | ScaleBox, SaveBlock, RemapPicture |
 | Screenshot display | GAMEMENU.CPP | LoadGameScreen, DrawScreenSave |
+| Menu / listing | GAMEMENU.CPP | Player listing, `FindPlayerFile`, etc. |
+| Console load | CONSOLE/CONSOLE_CMD.CPP | `load` command (`FlagLoadGame`, `LoadGameNumCube`) |
+| Startup argv save | PERSO.CPP | Resolves path, sets `FlagLoadGame`, `LoadGameNumCube` in init flow |
 | Paths | DIRECTORIES.CPP | GetSavePath |
+
+**Dev helper:** [scripts/save_probe.py](../scripts/save_probe.py) — prints header fields and, for uncompressed saves, reads `NbObjets` at the fixed offset used by the engine; supports `--compare` and `--csv`. Does not implement LZSS (see script docstring).
 
 ## Cross-references
 
 - [MENU.md](MENU.md) for Save/Load menu flow and screenshot display
 - [CONFIG.md](CONFIG.md) for LastSave and CompressSave
-- [DEBUG.md](DEBUG.md) for bug save/load
+- [DEBUG.md](DEBUG.md) for DEBUG_TOOLS bug save/load (G/L keys, menu cases 2000/2001)
+- [CONSOLE.md](CONSOLE.md) for `savebug` / `loadbug` / `listbugs`
 - [GLOSSARY.md](GLOSSARY.md) for Comportement, GenBody, GenAnim
 
 ## External resources
