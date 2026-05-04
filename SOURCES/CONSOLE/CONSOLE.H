@@ -7,6 +7,13 @@
 extern "C" {
 #endif
 
+/*
+ * Other TUs that call this API: INPUT (UpdateGameInput: open-state update, suppress flag),
+ * PLAYACF (ACF loop: stall while open), PERSO (SDL event filter + pre-present + PNG save),
+ * GAMEMENU (slide-show gate). Command table and cheats: CONSOLE_CMD.CPP. Scene/mode strings
+ * shared with commands: CONSOLE_STATE.H / CONSOLE_STATE.CPP. Host tests: tests/console/.
+ */
+
 /* Public API */
 
 int Console_IsOpen(void);
@@ -23,6 +30,11 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
 /** Event filter: call from ManageEvents. Returns 1 if event was consumed (toggle or console input). */
 int Console_FeedEvent(const void *sdlEvent);
 
+/** Set console toggle scancode (SDL scancode value). Invalid values fall back to F12. */
+void Console_SetToggleScancode(int scancode);
+/** Current console toggle scancode used by Console_FeedEvent / input reservation. */
+int Console_GetToggleScancode(void);
+
 /** Returns 1 for one frame after closing the console; call from input path and suppress game input when 1. Clears the flag. */
 int Console_ShouldSuppressInputThisFrame(void);
 
@@ -38,6 +50,7 @@ void Console_ClearPendingScreenshot(void);
 
 /* Extensibility - used only inside the console module */
 typedef void (*Console_CmdFn)(int argc, const char *argv[]);
+typedef void (*Console_LineSinkFn)(const char *line);
 
 typedef enum {
     CONSOLE_CVAR_INT,
@@ -46,10 +59,17 @@ typedef enum {
 } Console_CvarType;
 
 void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help);
+/** Register with optional one-line usage and context (for `help <cmd>`); pass NULL to omit. */
+void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context);
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help);
 
 /* Called from CONSOLE_CMD.CPP to register all commands/cvars */
 void Console_RegisterAll(void);
+
+/* Internal command execution entry point; used by host-only parser tests. */
+void Console_Execute(const char *line);
+/* Test hook: receives each console output line after it is pushed to scrollback. */
+void Console_SetLineSinkForTests(Console_LineSinkFn sink);
 
 #ifdef __cplusplus
 }

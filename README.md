@@ -101,7 +101,6 @@ available on `PATH`.
 | `SOUND_BACKEND` | `null`, `miles`, `sdl` | `sdl` | Sound backend. Use `sdl` for audio via SDL3. `miles` requires the proprietary Miles Sound System SDK. See [docs/AUDIO.md](docs/AUDIO.md). |
 | `MVIDEO_BACKEND` | `null`, `smacker` | `smacker` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
-| `CONSOLE_MODULE` | `ON`, `OFF` | `OFF` | Enable Quake-style debug console (backtick/F12). See [docs/CONSOLE.md](docs/CONSOLE.md). |
 | `LBA2_BUILD_TESTS` | `ON`, `OFF` | `OFF` | Build CTest targets (ASM equivalence + host tests such as `test_res_discovery`). |
 | `LBA2_BUILD_ASM_EQUIV_TESTS` | `ON`, `OFF` | `ON` | ASM↔CPP equivalence suite (needs `objcopy`). Set `OFF` for host-only `test_res_discovery` (e.g. macOS CI, `make test-discovery`). |
 
@@ -118,6 +117,14 @@ cmake --build build
 
 This enables keyboard shortcuts for debugging (debug overlay, FPS counter, screenshots, collision visualization, benchmarks), cheat codes, bug save/load system, and command-line scene selection. See [docs/DEBUG.md](docs/DEBUG.md) for full documentation.
 
+### Debug Console
+
+This source port includes a Quake-style drop-down debug console. It lets you inspect engine/game state and run developer commands during gameplay, which is useful for both debugging and interactive exploration of engine behavior.
+
+It is designed to be minimally invasive: normal gameplay is unchanged unless you open and use it.
+
+See [docs/CONSOLE.md](docs/CONSOLE.md) for commands, usage, and integration details.
+
 ### Cross-compiling for Windows (from Linux)
 
 A MinGW toolchain file is provided for cross-compiling a 32-bit Windows build from Linux:
@@ -129,26 +136,33 @@ cmake --build build
 
 ## Project Structure
 
-```
+```text
 lba2-classic-community/
 ├── CMakeLists.txt            # Root build configuration
-├── cmake/                    # Cross-compilation toolchain files
-├── SOURCES/                  # Main game logic
-│   ├── 3DEXT/                # 3D extensions (terrain, sky, rain, decor rendering)
-│   ├── CONFIG/               # Configuration and key binding
-│   └── *.CPP, *.H, *.ASM    # Game modules (AI, physics, inventory, save/load, etc.)
+├── CMakePresets.json         # Cross-platform preset builds (linux/macos/windows/...)
+├── Makefile                  # Convenience targets (build/run/test/format)
+├── cmake/                    # Toolchains and CMake helpers
+├── scripts/                  # Dev and CI helper scripts
+├── SOURCES/                  # Main game logic and app entrypoints
+│   ├── CONSOLE/              # Always-on debug console module (core + state)
+│   ├── 3DEXT/                # 3D extensions (terrain, sky, rain, decor)
+│   ├── CONFIG/               # Input/config UI and bindings
+│   └── *.CPP, *.H, *.ASM     # Gameplay systems (AI, physics, save/load, etc.)
 ├── LIB386/                   # Engine libraries
-│   ├── 3D/                   # 3D math (projection, rotation, matrices)
-│   ├── AIL/                  # Audio abstraction layer (SDL, Miles, or null backends)
+│   ├── 3D/                   # Projection, rotation, matrices
+│   ├── AIL/                  # Audio abstraction (SDL/Miles/null)
 │   ├── ANIM/                 # Animation system
-│   ├── FILEIO/               # File I/O
-│   ├── libsmacker/           # Open-source Smacker video decoder (LGPL 2.1)
-│   ├── OBJECT/               # 3D object display
-│   ├── pol_work/             # Polygon rendering (flat, gouraud, textured)
-│   ├── SVGA/                 # Graphics / sprite scaling
-│   ├── SYSTEM/               # System abstraction
-│   └── H/                    # Shared headers
-└── docs/                     # Additional documentation
+│   ├── OBJECT/               # 3D object rendering
+│   ├── pol_work/             # Polygon fillers/rasterization
+│   ├── SVGA/                 # Text/sprite/dirty-box rendering paths
+│   ├── SYSTEM/               # Platform/system/input/timer abstractions
+│   ├── H/                    # Shared legacy headers/types
+│   └── libsmacker/           # Open-source Smacker decoder (LGPL 2.1)
+├── tests/                    # Host tests + ASM↔CPP equivalence test wiring
+│   ├── console/              # Console-focused host tests
+│   └── discovery/            # Game data discovery/config tests
+├── docs/                     # Project documentation index and subsystem docs
+└── run_tests_docker.sh       # Docker wrapper for ASM↔CPP test workflows
 ```
 
 ## Documentation

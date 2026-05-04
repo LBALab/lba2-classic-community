@@ -210,7 +210,6 @@ void GereCheatCode(void) {
     }
 }
 
-#ifdef CONSOLE_MODULE
 int TryExecuteCheatByName(const char *name) {
     char buf[32];
     S32 text = -1, sprite = -1;
@@ -230,4 +229,3 @@ int TryExecuteCheatByName(const char *name) {
     }
     return 0;
 }
-#endif

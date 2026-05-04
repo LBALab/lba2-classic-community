@@ -1,22 +1,22 @@
 # Debug Console
 
-Quake-style drop-down debug console for LBA2. It is an alternative to DEBUG_TOOLS and works everywhere: in-game, menu, inventory, credits, and during video playback. When both are available, the console can cover the same workflows (status, timer, savebug, screenshot) so you can use either.
+Quake-style drop-down debug console for LBA2. The console is always compiled and works everywhere: in-game, menu, inventory, credits, and during video playback. DEBUG_TOOLS remains a separate optional layer for additional legacy hotkeys/features.
 
 ## Build
 
-Enable the console with the CMake option:
+The console is part of normal builds (no dedicated CMake flag required).
 
 ```bash
-cmake -B build -DCONSOLE_MODULE=ON
+cmake -B build
 cmake --build build
 ```
 
-If `CONSOLE_MODULE` is **OFF** (default), the console is not compiled and no keys are consumed for it.  
-The console is only supported with the SDL backend (as selected above).
+The console is supported with the SDL backend (default in this project).
 
 ## Toggle and input
 
-- **Backtick (`)** or **F12**: open/close the console.
+- **F12** by default: open/close the console.
+- Optional override in `lba2.cfg`: set `ConsoleToggleKey=<SDL scancode int>` (for example `41` for `K_CARRE` on AZERTY layouts).
 - When the console is open, all keyboard input is consumed by the console (no game/menu input).
 - Type a line and press **Enter** to run a command or cheat.
 - **Backspace**: delete last character.
@@ -24,10 +24,12 @@ The console is only supported with the SDL backend (as selected above).
 
 ## Discovery
 
-- **help** – list all commands with short descriptions.
+- **help** – list all commands with short descriptions. With an argument, **help &lt;name&gt;** prints usage and context for that command or cvar (e.g. `help cube`, `help fps`, `help status`).
 - **cmdlist** – list command names only.
 - **varlist** – list cvars (variables) with descriptions.
-- **buildinfo** – print build timestamp and CMake options (CONSOLE_MODULE, SOUND_BACKEND, MVIDEO_BACKEND, ENABLE_ASM). The same string is written to the log at startup.
+- **buildinfo** – print build timestamp and CMake options (SOUND_BACKEND, MVIDEO_BACKEND, ENABLE_ASM). The same string is written to the log at startup.
+
+Unknown commands print a hint to use **cmdlist**. Commands that need an in-game scene (**give**, **savebug**) print a short reason if used while a video is playing, before a scene exists, or in the phantom-cube state.
 
 ## Cheats (by name)
 
@@ -48,10 +50,10 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 |---------------|-------------|
 | **cube** &lt;n&gt; | Request change to cube number &lt;n&gt; (applied next frame in game; cube changes no longer trigger autosave). |
 | **load**      | Load save by player name as printed by `listsaves`, or by file name (with optional `.lba`). |
-| **loadbug**   | Hint for loading bug saves (see listbugs). |
+| **loadbug**   | Load bug save by name or file (optional `.lba`), default `bug`. |
 | **listsaves** | List save games (player names from .lba files). |
 | **listbugs**  | List bug saves in the bugs directory (same path as savebug). |
-| **savebug** [name] | *(DEBUG_TOOLS)* Save current game to bugs directory; optional name (default `bug`). |
+| **savebug** [name] | Save current game to bugs directory; optional name (default `bug`). |
 | **timer** [ms] | Advance in-game timer by N ms (default 200). |
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
 | **screenshot** | Save the **next** frame as PNG in the shoot directory **without** the console visible (uses SavePNG). |
@@ -84,14 +86,15 @@ Get/set with `varname` (print value) or `varname value` (set).
 ## Implementation notes
 
 - **Independent of game buffer**: The console uses its own 8-bit overlay buffer. It is drawn via `AffStringToBuffer` (LIB386/SVGA) and composited in the video layer’s **pre-present callback** (`Console_PrePresent`), so it never touches the game’s `Log` or dirty-box pipeline.
-- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). **Backtick and F12 are reserved**: they are cleared from `TabKeys` and `Key` so the game never sees them (no clash with e.g. I_CAMERA).
-- **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` only toggles (when it sees the reserved keys before they are cleared), reserves backtick/F12, and when the console is open calls `Console_Update()` and returns.
+- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). The configured toggle key is reserved from gameplay input to avoid double-handling.
+- **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves the configured toggle key, and when the console is open calls `Console_Update()` and returns.
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.
 - **Gameplay integration**: Commands call existing engine functions (`LoadGameNumCube`, `PlayAcf`, `DoFoundObj`, etc.) rather than introducing console-only code paths. Cube changes no longer trigger autosave to keep debug teleports tidy; other save behavior is unchanged.
+- **External call sites** (outside `SOURCES/CONSOLE/`): `INPUT.CPP` (input path when open), `PLAYACF.CPP` (stall ACF while open), `PERSO.CPP` (event filter, pre-present, screenshot handoff), `GAMEMENU.CPP` (slide-show gate). Cheat names live in `CHEATCOD.CPP`. Build wiring: `SOURCES/CMakeLists.txt`, `SOURCES/CONSOLE/CMakeLists.txt`, `tests/console/`. A one-line map also lives in `CONSOLE.H` above the public API.
 
 ### Extending commands and cheats
 
-- **Commands**: Add new handlers in `SOURCES/CONSOLE/CONSOLE_CMD.CPP` and register them via `Console_RegisterCommand("name", handler, "short description")` inside `Console_RegisterAll()`.
+- **Commands**: Add new handlers in `SOURCES/CONSOLE/CONSOLE_CMD.CPP` and register them via `Console_RegisterCommandEx("name", handler, "short description", "usage line", "context line")` (or `Console_RegisterCommand` if usage/context are omitted) inside `Console_RegisterAll()`.
 - **CVars**: Register new tunables via `Console_RegisterCvar` in `CONSOLE_CMD.CPP`, wiring them to existing globals rather than duplicating state.
 - **Cheats**: To add a cheat that works both from key sequences and the console, extend `CheatNames[]` and `ApplyCheat` in `SOURCES/CHEATCOD.CPP`; the console will automatically route matching command names through `TryExecuteCheatByName`.
 - **Safety**: Prefer read-only inspection commands or one-shot state changes that leave the game in a consistent, save/load-safe state. If a command is inherently risky (e.g. heavy state mutation), call it out explicitly in its help text.

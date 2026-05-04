@@ -1,8 +1,7 @@
 #include "CONSOLE.H"
-#ifdef CONSOLE_MODULE
 #include "CHEATCOD.H"
-#endif
 #include <ctype.h>
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +30,8 @@ struct cmd_entry {
     const char *name;
     Console_CmdFn fn;
     const char *help;
+    const char *usage;
+    const char *context;
 };
 struct key_event {
     int scancode;
@@ -73,6 +74,8 @@ static int s_key_tail = 0;
 
 /* Set by game when entering/leaving demo slide show so we don't open console there (avoids segfault). */
 static int s_slide_show_active = 0;
+/* Configurable toggle scancode; defaults to F12. */
+static int s_toggle_scancode = K_F12;
 
 /* Scrollback view offset: 0 = newest, >0 = scrolled up into history. */
 static int s_scroll_offset = 0;
@@ -81,11 +84,24 @@ static int s_scroll_offset = 0;
 #define CONSOLE_SCREENSHOT_PATH_MAX 256
 static char s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX] = "";
 static int s_screenshot_png = 0;
+static Console_LineSinkFn s_line_sink_for_tests = NULL;
 
 static void Console_SubmitLine(void);
 
 void Console_SetSlideShowActive(int active) {
     s_slide_show_active = (active != 0);
+}
+
+void Console_SetToggleScancode(int scancode) {
+    if (scancode <= 0 || scancode >= SDL_SCANCODE_COUNT) {
+        s_toggle_scancode = K_F12;
+        return;
+    }
+    s_toggle_scancode = scancode;
+}
+
+int Console_GetToggleScancode(void) {
+    return s_toggle_scancode;
 }
 
 void Console_RequestScreenshot(const char *path, int use_png) {
@@ -222,6 +238,12 @@ void Console_Print(const char *fmt, ...) {
     va_end(ap);
     buf[CONSOLE_LINE_MAX - 1] = '\0';
     scrollback_push_wrapped(buf);
+    if (s_line_sink_for_tests)
+        s_line_sink_for_tests(buf);
+}
+
+void Console_SetLineSinkForTests(Console_LineSinkFn sink) {
+    s_line_sink_for_tests = sink;
 }
 
 /* Helpers to sort commands/cvars alphabetically for help/cmdlist/varlist. */
@@ -441,7 +463,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         key = (SDL_Keycode)'_';
 
     /* Toggle only on first key down, not key repeat. */
-    if ((scan == (SDL_Scancode)K_CARRE || scan == (SDL_Scancode)K_F12) && !ev->key.repeat) {
+    if ((scan == (SDL_Scancode)s_toggle_scancode) && !ev->key.repeat) {
         if (s_slide_show_active && !s_console_open)
             return 0;
         Console_Toggle();
@@ -471,13 +493,19 @@ int Console_ShouldSuppressInputThisFrame(void) {
     return 1;
 }
 
-void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help) {
+void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context) {
     if (s_cmd_count >= CONSOLE_MAX_CMDS)
         return;
     s_cmds[s_cmd_count].name = name;
     s_cmds[s_cmd_count].fn = callback;
     s_cmds[s_cmd_count].help = help;
+    s_cmds[s_cmd_count].usage = usage;
+    s_cmds[s_cmd_count].context = context;
     s_cmd_count++;
+}
+
+void Console_RegisterCommand(const char *name, Console_CmdFn callback, const char *help) {
+    Console_RegisterCommandEx(name, callback, help, NULL, NULL);
 }
 
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help) {
@@ -541,13 +569,38 @@ void Console_Execute(const char *line) {
     if (argc == 0)
         return;
 
-#ifdef CONSOLE_MODULE
     if (TryExecuteCheatByName(argv[0]))
         return;
-#endif
 
     /* Built-in: help, cmdlist, varlist */
     if (strcmp(argv[0], "help") == 0) {
+        if (argc >= 2 && argv[1][0]) {
+            const char *topic = argv[1];
+            for (i = 0; i < s_cmd_count; i++) {
+                if (strcmp(s_cmds[i].name, topic) == 0) {
+                    Console_Print("%s - %s", s_cmds[i].name, s_cmds[i].help ? s_cmds[i].help : "");
+                    if (s_cmds[i].usage && s_cmds[i].usage[0])
+                        Console_Print("  Usage: %s", s_cmds[i].usage);
+                    if (s_cmds[i].context && s_cmds[i].context[0])
+                        Console_Print("  Context: %s", s_cmds[i].context);
+                    return;
+                }
+            }
+            for (i = 0; i < s_cvar_count; i++) {
+                if (strcmp(s_cvars[i].name, topic) == 0) {
+                    Console_Print("cvar %s - %s", s_cvars[i].name, s_cvars[i].help ? s_cvars[i].help : "");
+                    if (s_cvars[i].type == CONSOLE_CVAR_INT)
+                        Console_Print("  Usage: %s <integer>", s_cvars[i].name);
+                    else if (s_cvars[i].type == CONSOLE_CVAR_BOOL_U8)
+                        Console_Print("  Usage: %s  (0|1)", s_cvars[i].name);
+                    else
+                        Console_Print("  Usage: %s  (no arg toggles; or %s 0|1)", s_cvars[i].name, s_cvars[i].name);
+                    return;
+                }
+            }
+            Console_Print("Unknown help topic: %s (try: cmdlist, varlist)", topic);
+            return;
+        }
         int idx[CONSOLE_MAX_CMDS];
         int n = s_cmd_count;
         if (n > CONSOLE_MAX_CMDS)
@@ -559,6 +612,7 @@ void Console_Execute(const char *line) {
             const struct cmd_entry *ce = &s_cmds[idx[i]];
             Console_Print("  %s - %s", ce->name, ce->help ? ce->help : "");
         }
+        Console_Print("Use: help <name> for usage and context. Try: cmdlist, varlist");
         return;
     }
     if (strcmp(argv[0], "cmdlist") == 0) {
@@ -629,5 +683,5 @@ void Console_Execute(const char *line) {
         return;
     }
 
-    Console_Print("Unknown command: %s", argv[0]);
+    Console_Print("Unknown command: %s (try: cmdlist)", argv[0]);
 }
