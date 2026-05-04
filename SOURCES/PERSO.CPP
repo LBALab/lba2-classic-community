@@ -2237,12 +2237,13 @@ void Message(const char *mess, S32 flag) {
 
 /* Issue #62 host harness: --save-load-test <path> drives InitGame(-1) + ChangeCube()
  * and exits, so a driver script can run each save in a subprocess and capture
- * { exit_code, RESULT lines }.  Defined here so SaveLoadTestPath survives across
- * InitGame/ChangeCube; consumed in OBJECT.CPP::ChangeCube and at end of main. */
+ * { exit_code, SAVE_LOAD_TEST stage lines }.  SaveLoadTestMode is declared in
+ * SAVEGAME.H so OBJECT.CPP::ChangeCube can emit a stage line on flagload;
+ * SaveLoadTestPath is file-local — only the parser-and-driver path here needs it. */
 S32 SaveLoadTestMode = 0;
-char SaveLoadTestPath[ADELINE_MAX_PATH] = "";
+static char SaveLoadTestPath[ADELINE_MAX_PATH] = "";
 
-static int parse_save_load_test_flag(int *argc, char *argv[]) {
+static void parse_save_load_test_flag(int *argc, char *argv[]) {
     int read = 1, write = 1;
     while (read < *argc) {
         if (!strcmp(argv[read], "--save-load-test") && read + 1 < *argc) {
@@ -2256,7 +2257,6 @@ static int parse_save_load_test_flag(int *argc, char *argv[]) {
     }
     argv[write] = NULL;
     *argc = write;
-    return SaveLoadTestMode;
 }
 
 int main(int argc, char *argv[]) {

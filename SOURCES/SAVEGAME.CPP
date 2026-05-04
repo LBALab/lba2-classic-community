@@ -112,14 +112,17 @@ void SaveLoadClearReadLimit(void) {
     g_save_read_limit = NULL;
 }
 
-#define SAVELOAD_CTX_ERR ((S32)(-1))
+/* SAVELOAD_CTX_ERR is declared in SAVEGAME.H so RestartValidePos / external
+ * callers can compare against the symbolic value rather than `flagload < 0`. */
 
 static S32 SaveLoadRoom(size_t n) {
     if (!g_save_read_limit)
         return TRUE;
-    if ((U8 *)(uintptr_t)((uintptr_t)PtrSave + n) < PtrSave)
-        return FALSE;
-    return (size_t)(g_save_read_limit - PtrSave) >= n;
+    /* Invariant when set: PtrSave <= g_save_read_limit (both point into the
+     * same allocation), so the subtraction is well-defined and we just check
+     * room. Casts via uintptr_t for "PtrSave + n overflows" were UB-tinged
+     * and unnecessary — `n` would have to exceed buffer-relative bytes. */
+    return n <= (size_t)(g_save_read_limit - PtrSave);
 }
 
 static S32 SaveLoadReadPlayerName(void) {
@@ -141,10 +144,16 @@ static S32 SaveLoadReadPlayerName(void) {
     return FALSE;
 }
 
+/* Save payload starts at this offset inside the BufSpeak scratch buffer; the
+ * [0, BUFSPEAK_SAVE_OFFSET) prefix holds voice-sample slack. The same literal
+ * is hand-rolled at the older SaveGame() / RemapPicture() sites — folding
+ * those into this constant is a separate cleanup. */
+#define BUFSPEAK_SAVE_OFFSET 50000u
+
 /* Returns bytes read, or 0 on failure. */
-static S32 SaveLoadFileToScreen(char *path) {
+static S32 SaveLoadFileToScreen(const char *path) {
     U32 cap = SaveLoadScreenBufferBytes();
-    S32 n = LoadSize(path, (U8 *)Screen, (S32)cap);
+    S32 n = LoadSize((char *)path, (U8 *)Screen, (S32)cap);
     if (n <= 0 || n == (S32)INT_MIN)
         return 0;
     PtrSave = (U8 *)Screen;
@@ -152,10 +161,10 @@ static S32 SaveLoadFileToScreen(char *path) {
     return n;
 }
 
-static S32 SaveLoadFileToBufSpeakSave(void) {
-    U32 cap = SaveLoadSubbufferBytesFromLeadingSkip(50000u);
-    U8 *base = BufSpeak + 50000L;
-    S32 n = LoadSize(GamePathname, base, (S32)cap);
+static S32 SaveLoadFileToBufSpeakSave(const char *path) {
+    U32 cap = SaveLoadSubbufferBytesFromLeadingSkip(BUFSPEAK_SAVE_OFFSET);
+    U8 *base = BufSpeak + BUFSPEAK_SAVE_OFFSET;
+    S32 n = LoadSize((char *)path, base, (S32)cap);
     if (n <= 0 || n == (S32)INT_MIN)
         return 0;
     PtrSave = base;
@@ -582,7 +591,7 @@ void LoadGamePlayerName() {
 #ifdef EDITLBA2
     PtrSave = BufTempo;
 #else
-    if (!SaveLoadFileToBufSpeakSave())
+    if (!SaveLoadFileToBufSpeakSave(GamePathname))
         return;
 #endif
 
@@ -653,15 +662,16 @@ U8 *LoadGameScreen() {
 #else
     {
         S32 loaded;
-        U8 *base = BufSpeak + 50000L;
+        U8 *base = BufSpeak + BUFSPEAK_SAVE_OFFSET;
 
-        loaded = SaveLoadFileToBufSpeakSave();
+        loaded = SaveLoadFileToBufSpeakSave(GamePathname);
         if (!loaded) {
             SaveLoadClearReadLimit();
             return (NULL);
         }
 
-        if (!SaveLoadRoom(1 + 4))
+        /* Header check: NumVersion (1 B) + NewCube (4 B). */
+        if (!SaveLoadRoom(5))
             goto load_screen_fail;
 
         LbaReadByte(NumVersion); // num version
@@ -670,7 +680,9 @@ U8 *LoadGameScreen() {
         if (!SaveLoadReadPlayerName())
             goto load_screen_fail;
 
-        if (!SaveLoadDecompressIfNeeded(base, SaveLoadSubbufferBytesFromLeadingSkip(50000u), loaded))
+        if (!SaveLoadDecompressIfNeeded(base,
+                                        SaveLoadSubbufferBytesFromLeadingSkip(BUFSPEAK_SAVE_OFFSET),
+                                        loaded))
             goto load_screen_fail;
 
         SaveLoadClearReadLimit();
@@ -1446,9 +1458,16 @@ static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
     /* Validate decoded objects.  A wrong-stride read misaligns the cursor by
      * ~28 bytes per object on 64-bit hosts; IndexFile3D ends up reading bytes
      * from another field and InitLoadedGame's LoadFile3D(garbage) deref segvs
-     * (OBJECT.CPP InitLoadedGame).  IndexFile3D is the only field large
-     * enough to catch this — GenAnim (U16) and GenBody (U8) cannot overflow
-     * the 1M check the earlier H17 instrumentation used. */
+     * (see OBJECT.CPP InitLoadedGame: ptrobj->PtrFile3D = LoadFile3D(...)).
+     *
+     * Bound rationale: IndexFile3D is an entry into the body HQR's offset
+     * table (BufferFile3D) — real values are small (low hundreds in retail).
+     * 100000 is a defense-in-depth ceiling, not a tight bound: garbage that
+     * happens to fall inside [0, 100000] can still alias a valid-looking
+     * offset and corrupt PtrFile3D downstream.  Tighter would require
+     * reading the actual entry count from BufferFile3D's header at this
+     * point, which we don't currently plumb through.  GenAnim (U16) and
+     * GenBody (U8) cannot exceed that ceiling and aren't useful here. */
     for (n = 0; n < NbObjets; n++) {
         if (ListObjet[n].IndexFile3D < -1 || ListObjet[n].IndexFile3D > 100000)
             return 0;
@@ -1473,8 +1492,6 @@ S32 LoadContexte(S32 *savetimerrefhr) {
     S_ONE_DOT *ptrdot;
     S32 flaginit = FALSE;
     U8 wbyte2;
-    S32 per_object_stride = 0;
-    U8 use_wire32_obj = 0;
 #endif
     U8 wbyte;
 
@@ -1744,9 +1761,6 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             }
             if (r != 1)
                 return SAVELOAD_CTX_ERR;
-
-            per_object_stride = first_stride;
-            use_wire32_obj = (per_object_stride == 278) ? 1 : 0;
         }
 #endif
 
@@ -1765,8 +1779,17 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         ptrpatch = ListPatches;
 
         for (n = 0; n < NbPatches; n++, ptrpatch++) {
-            if (ptrpatch->Offset < 0 || ptrpatch->Size < 0 || ptrpatch->Offset > PtrSceneMem || ptrpatch->Size > PtrSceneMem || (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
+            // clang-format off
+            /* Reject patches whose target falls outside the loaded scene buffer.
+             * Each disjunct catches a different way an attacker / corrupt save
+             * could push PtrScene+Offset out of bounds. */
+            if (ptrpatch->Offset < 0
+                || ptrpatch->Size < 0
+                || ptrpatch->Offset > PtrSceneMem
+                || ptrpatch->Size > PtrSceneMem
+                || (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
                 return SAVELOAD_CTX_ERR;
+            // clang-format on
 
             switch (ptrpatch->Size) {
             case 1:

@@ -77,10 +77,20 @@ def run_one(lba2, game_dir, save_path, timeout, abi):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lba2", default=str(ROOT / "build" / "SOURCES" / "lba2"))
-    ap.add_argument("--game-dir", default=os.environ.get("LBA2_GAME_DIR", str(ROOT.parent / "LBA2")))
+    ap.add_argument(
+        "--game-dir",
+        default=os.environ.get("LBA2_GAME_DIR"),
+        help="retail game data dir (or set $LBA2_GAME_DIR); required",
+    )
     ap.add_argument("--timeout", type=int, default=30)
     ap.add_argument("--abis", default="auto,32", help="comma-sep set of ABI modes")
     args = ap.parse_args()
+    if not args.game_dir:
+        sys.stderr.write(
+            "--game-dir not set and $LBA2_GAME_DIR not exported. The harness needs retail "
+            "game files; point it at your install dir.\n"
+        )
+        sys.exit(2)
 
     manifest = json.loads(MANIFEST.read_text())
     save_root = manifest["save_root"]

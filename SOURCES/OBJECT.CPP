@@ -1359,13 +1359,10 @@ void ChangeCube() {
 
         /* Issue #62 harness: surface flagload before any post-load step that might
          * crash, so the driver script always sees the load outcome. */
-        {
-            extern S32 SaveLoadTestMode;
-            if (SaveLoadTestMode) {
-                fprintf(stdout, "SAVE_LOAD_TEST: stage=after_loadgame flagload=%d numcube=%d\n",
-                        (int)flagload, (int)NumCube);
-                fflush(stdout);
-            }
+        if (SaveLoadTestMode) {
+            fprintf(stdout, "SAVE_LOAD_TEST: stage=after_loadgame flagload=%d numcube=%d\n",
+                    (int)flagload, (int)NumCube);
+            fflush(stdout);
         }
 
         if (flagload == LOADGAME_ERR_CONTEXT) {

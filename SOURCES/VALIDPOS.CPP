@@ -55,7 +55,7 @@ void RestartValidePos(void) {
     SaveLoadClearReadLimit();
 #endif
 
-    if (flagload < 0)
+    if (flagload == SAVELOAD_CTX_ERR)
         return;
 
     if (!flagload)
