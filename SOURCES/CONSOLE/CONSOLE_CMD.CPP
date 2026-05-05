@@ -312,6 +312,15 @@ static void cmd_credits(int argc, const char *argv[]) {
         mode = (S32)strtol(argv[1], NULL, 0);
     Console_Close();
     Credits(mode);
+    /* Credits leaves the palette black on exit. Existing engine call sites
+       (endgame win path → PlayAcf, demo-timeout → fade-to-black + return to
+       menu) intentionally rely on that; doing the fade-in inside Credits
+       would regress them. From the console we want the screen visible
+       immediately on return, so handle it here for mode=0. */
+    if (mode == 0) {
+        FadeToPal(PtrPalNormal);
+        PtrPal = PtrPalNormal;
+    }
     Console_Print("Credits done (mode=%d)", (int)mode);
 }
 

@@ -3798,12 +3798,6 @@ void Credits(S32 mode) {
         Load_HQR(tmpFilePath, Screen, PCR_MENU);
         CopyScreen(Screen, Log);
         BoxStaticFullflip();
-        /* Fade the restored palette in here. DoGameMenu only consumes
-           FadeMenu inside its flag==1 branch, so callers that re-enter the
-           menu loop without a selection event (e.g. console-invoked credits)
-           would otherwise stay on a black screen until the next arrow press. */
-        FadeToPal(PtrPalNormal);
-        PtrPal = PtrPalNormal;
     }
 
     FadeMenu = TRUE;
