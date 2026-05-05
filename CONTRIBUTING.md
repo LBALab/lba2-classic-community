@@ -4,15 +4,15 @@ If you'd like to contribute to the project, there are several ways you can help.
 
 If you use an AI assistant (Cursor, Copilot, Claude), point it at [AGENTS.md](AGENTS.md) for project context.
 
-If you need help getting started, join us on [Discord](https://discord.gg/gfzna5SfZ5).
+If you need help getting started, join us on [Discord](https://discord.gg/jsTPWYXHsh).
 
 ## Reporting Crashes and Bugs
 
-If you observe a bug you can report it [here](https://github.com/2point21/lba2-classic-community/issues/new).
+If you observe a bug you can report it [here](https://github.com/LBALab/lba2-classic-community/issues/new).
 
 ## Proposing Features
 
-If you have an idea, you can [create a feature request](https://github.com/2point21/lba2-classic-community/issues/new) to suggest a new feature.
+If you have an idea, you can [create a feature request](https://github.com/LBALab/lba2-classic-community/issues/new) to suggest a new feature.
 
 ## Contributing Code
 
@@ -83,4 +83,4 @@ This project values preservation. When modifying original source files:
 
 ## Contributing to the Documentation
 
-You can also help build the official documentation here: https://github.com/2point21/lba-classic-doc
+You can also help build the official documentation here: https://github.com/LBALab/lba-classic-doc
