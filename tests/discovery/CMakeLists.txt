@@ -23,3 +23,5 @@ target_compile_definitions(test_res_discovery PRIVATE
 set_target_properties(test_res_discovery PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_res_discovery COMMAND test_res_discovery)
+
+register_host_test(test_res_discovery)

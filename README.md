@@ -19,7 +19,7 @@ The **original** LBA2 engine source is the **lba2-classic** codebase: it is most
 3. **`make build`** — configures `build/` (Ninja, Debug) and compiles `lba2`. Or: `cmake -B build && cmake --build build` (default generator is fine if you do not use `make build`).
 4. **Retail game data** are not in this repo. You need a directory that contains **`lba2.hqr`**. How you point the engine at it is **your choice**: `export LBA2_GAME_DIR=/path`, **`./data/`** (gitignored), **`--game-dir`**, or bounded automatic discovery — see [docs/GAME_DATA.md](docs/GAME_DATA.md). Nothing is “special-cased” except that marker file.
 5. **`make run`** or **`./scripts/dev/build-and-run.sh`** — build if needed, then run (exits with a clear message if no valid data directory was found).
-6. **`make test`** (alias for **`make test-discovery`**) — host-only tests for path resolution and embedded default config; **no** retail files or Docker required.
+6. **`make test`** — host-only tests (path resolution, embedded default config, console parser, credits parse); **no** retail files or Docker required.
 
 **Windows:** Use **MSYS2** (recommended; see [docs/WINDOWS.md](docs/WINDOWS.md)). Discovery and the game work the same (`LBA2_GAME_DIR`, `--game-dir`, paths with `\` or `/`). The root **`Makefile`** and **`scripts/dev/*.sh`** need a **Unix-like shell** (MSYS2 UCRT64, Git Bash, or WSL); alternatively run **`cmake`** and **`build/SOURCES/lba2.exe`** from **cmd.exe** / PowerShell and set the env var with `set LBA2_GAME_DIR=...`.
 
@@ -102,7 +102,7 @@ available on `PATH`.
 | `MVIDEO_BACKEND` | `null`, `smacker` | `smacker` | Motion video backend. Use `smacker` for FMV playback via the bundled open-source libsmacker. |
 | `DEBUG_TOOLS` | `ON`, `OFF` | `OFF` | Enable original Adeline developer debug tools. See [docs/DEBUG.md](docs/DEBUG.md). |
 | `LBA2_BUILD_TESTS` | `ON`, `OFF` | `OFF` | Build CTest targets (ASM equivalence + host tests such as `test_res_discovery`). |
-| `LBA2_BUILD_ASM_EQUIV_TESTS` | `ON`, `OFF` | `ON` | ASM↔CPP equivalence suite (needs `objcopy`). Set `OFF` for host-only `test_res_discovery` (e.g. macOS CI, `make test-discovery`). |
+| `LBA2_BUILD_ASM_EQUIV_TESTS` | `ON`, `OFF` | `ON` | ASM↔CPP equivalence suite (needs `objcopy`). Set `OFF` for host-only tests (e.g. macOS CI, `make test`). |
 
 When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the FMV player. Video audio routes through the active sound backend (SDL: real audio; NULL/MILES: silent). See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 
@@ -159,8 +159,6 @@ lba2-classic-community/
 │   ├── H/                    # Shared legacy headers/types
 │   └── libsmacker/           # Open-source Smacker decoder (LGPL 2.1)
 ├── tests/                    # Host tests + ASM↔CPP equivalence test wiring
-│   ├── console/              # Console-focused host tests
-│   └── discovery/            # Game data discovery/config tests
 ├── docs/                     # Project documentation index and subsystem docs
 └── run_tests_docker.sh       # Docker wrapper for ASM↔CPP test workflows
 ```
