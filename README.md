@@ -180,19 +180,19 @@ This codebase is a window into 1990s game development at Adeline Software Intern
 
 ## Licence
 
-This source code is licensed under the [GNU General Public License](https://github.com/2point21/lba2-classic-community/blob/main/LICENSE).
+This source code is licensed under the [GNU General Public License](https://github.com/LBALab/lba2-classic-community/blob/main/LICENSE).
 
 Please note this license only applies to **Little Big Adventure 2** engine source code. **Little Big Adventure 2** game assets (art, models, textures, audio, etc.) are not open-source and therefore aren't redistributable.
 
 ## How can I contribute?
 
-Read our [Contribution Guidelines](https://github.com/2point21/lba2-classic-community/blob/main/CONTRIBUTING.md).
+Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-community/blob/main/CONTRIBUTING.md).
 
 ## Links
 
 **Official Website:** https://twinsenslittlebigadventure.com/
 
-**Discord:** https://discord.gg/gfzna5SfZ5
+**Discord:** https://discord.gg/jsTPWYXHsh
 
 **Docs:** https://lba-classic-doc.readthedocs.io/
 
