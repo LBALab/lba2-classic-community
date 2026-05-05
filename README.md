@@ -192,7 +192,7 @@ Read our [Contribution Guidelines](https://github.com/2point21/lba2-classic-comm
 
 **Official Website:** https://twinsenslittlebigadventure.com/
 
-**Discord:** https://discord.gg/gfzna5SfZ5
+**Discord:** https://discord.gg/jsTPWYXHsh
 
 **Docs:** https://lba-classic-doc.readthedocs.io/
 

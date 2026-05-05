@@ -1,10 +1,25 @@
 # How to Contribute
 
-If you'd like to contribute to the project, there are several ways you can help.
+This is a hobby project. Maintainers and contributors come and go as life
+allows — that's fine and expected. The goal is a sustainable, friendly
+place to work on an old game we love. Pick something that interests you,
+move at your own pace, and ship it when it's ready.
 
-If you use an AI assistant (Cursor, Copilot, Claude), point it at [AGENTS.md](AGENTS.md) for project context.
+A few notes that keep it sustainable:
 
-If you need help getting started, join us on [Discord](https://discord.gg/gfzna5SfZ5).
+- **Keep PRs focused.** One topic per PR. Sweeping rewrites or
+  whole-subsystem changes (e.g. "port everything to Rust", reorganizing a
+  whole subdirectory) deserve a heads-up on
+  [Discord](https://discord.gg/jsTPWYXHsh) or an issue *before* you start
+  — reviewer time is the scarce resource, not code.
+- **AI assistants are welcome** (Cursor, Copilot, Claude, etc.). The bar
+  is the same as for any contributor: the code has to be correct, the
+  scope has to match what the PR title claims, and ASM equivalence still
+  has to hold. Point your assistant at [AGENTS.md](AGENTS.md) for project
+  context, principles, and the "never" list.
+- **Ask early when in doubt.** A short question on
+  [Discord](https://discord.gg/jsTPWYXHsh) beats a week of work in the
+  wrong direction.
 
 ## Reporting Crashes and Bugs
 
