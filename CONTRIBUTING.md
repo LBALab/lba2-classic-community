@@ -68,6 +68,20 @@ high *without* anyone having to police it.
   maintenance cost. Resist "while I'm here" cleanups; open a separate PR
   instead.
 
+- **Ship a test, or ship a repro hook.** Bugs in pure-data code paths
+  (parsing, serialization, math, projection, sort) are almost always
+  cheap to test once you extract the affected logic into a pure function
+  — that small refactor is usually worth doing as part of the fix, with
+  a host test pinning it. See `tests/3D/test_sintab.cpp` and the
+  savegame corpus harness as patterns. When automation genuinely isn't
+  realistic (state machines, input timing, UI flow), at least ship a
+  **manual repro hook** alongside the fix: a console command, a debug
+  menu entry, or a build flag that re-triggers the affected path. PR
+  #66's `credits [0|1]` console command is the canonical example.
+  *Why:* future you (or someone else) will debug this same area again.
+  A test pins it forever; a repro hook saves an hour of figuring out
+  how to re-trigger the bug. Both beat nothing.
+
 ## Reporting Crashes and Bugs
 
 If you observe a bug you can report it [here](https://github.com/LBALab/lba2-classic-community/issues/new).
