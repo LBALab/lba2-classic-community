@@ -37,8 +37,8 @@ typedef struct {
 #define S_CRED_OBJ_2_DISK_REALANGLE_BYTES 20
 
 typedef struct {
-    char Obj[S_CRED_OBJ_2_DISK_OBJ_BYTES];               // 32-bit T_OBJ_3D
-    char RealAngle[S_CRED_OBJ_2_DISK_REALANGLE_BYTES];   // BOUND_MOVE (fixed-width)
+    char Obj[S_CRED_OBJ_2_DISK_OBJ_BYTES];             // 32-bit T_OBJ_3D
+    char RealAngle[S_CRED_OBJ_2_DISK_REALANGLE_BYTES]; // BOUND_MOVE (fixed-width)
     S32 Flag;
     S32 DestX;
     S32 DestZ;
