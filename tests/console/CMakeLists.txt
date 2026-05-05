@@ -18,3 +18,6 @@ set_target_properties(test_console_commands PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_console_state COMMAND test_console_state)
 add_test(NAME test_console_commands COMMAND test_console_commands)
+
+register_host_test(test_console_state)
+register_host_test(test_console_commands)

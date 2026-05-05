@@ -73,7 +73,7 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 4. Host tests — game data discovery (`tests/discovery`)
 
-`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need discovery tests (no `objcopy`; used by `make test-discovery` and PR host jobs).
+`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need host tests (no `objcopy`; used by `make test` and PR host jobs).
 
 ### 5. Host tests — console (`tests/console`)
 
@@ -81,11 +81,15 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 `tests/console/test_console_commands.cpp` covers parser/output integration in **`SOURCES/CONSOLE/CONSOLE.CPP`** using host-only hooks: built-in `help` and `cmdlist`, unknown-command diagnostics, cvar set/get (`fps`), and a registered **`status`** command path that prints the same status headline format.
 
-PR host jobs and **`make test`** / **`make test-discovery`** build `test_res_discovery`, `test_console_state`, and `test_console_commands`, then:
+PR host jobs and **`make test`** build the `host_tests` aggregate target, then:
 
 ```bash
-cd build && ctest -R 'test_(res_discovery|console_state|console_commands)' --output-on-failure
+cd build && ctest -L host_quick --output-on-failure
 ```
+
+The `host_quick` label is set by `register_host_test()` in
+`tests/CMakeLists.txt`; each test's own CMakeLists opts in with one
+line. Adding a new host test requires no workflow or Makefile edits.
 
 To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
