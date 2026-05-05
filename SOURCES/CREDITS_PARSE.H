@@ -47,9 +47,9 @@ typedef struct {
 /* Return codes from ParseCreditsBlob. Success returns NbObjects (>= 0).
  * Any negative value is an error — distinct codes so tests can pin which
  * validation step fired. */
-#define CRED_PARSE_ERR_NULL       (-1) /* null pointer arg or out_max <= 0 */
-#define CRED_PARSE_ERR_TRUNC_HDR  (-2) /* blob shorter than S_CRED_INFOS_2 */
-#define CRED_PARSE_ERR_NB_RANGE   (-3) /* NbObjects negative or > out_max */
+#define CRED_PARSE_ERR_NULL (-1)       /* null pointer arg or out_max <= 0 */
+#define CRED_PARSE_ERR_TRUNC_HDR (-2)  /* blob shorter than S_CRED_INFOS_2 */
+#define CRED_PARSE_ERR_NB_RANGE (-3)   /* NbObjects negative or > out_max */
 #define CRED_PARSE_ERR_DISK_BLOCK (-4) /* OffTxt - hdr != Nb * sizeof(disk record) */
 #define CRED_PARSE_ERR_TRUNC_RECS (-5) /* blob shorter than declared records area */
 

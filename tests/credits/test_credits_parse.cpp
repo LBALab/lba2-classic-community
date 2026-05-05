@@ -17,37 +17,37 @@
 static int g_failed = 0;
 static int g_test_failed = 0;
 
-#define CHECK(cond)                                                       \
-    do {                                                                  \
-        if (!(cond)) {                                                    \
-            std::fprintf(stderr, "  FAIL %s:%d: %s\n",                    \
-                         __FILE__, __LINE__, #cond);                      \
-            g_test_failed = 1;                                            \
-        }                                                                 \
+#define CHECK(cond)                                    \
+    do {                                               \
+        if (!(cond)) {                                 \
+            std::fprintf(stderr, "  FAIL %s:%d: %s\n", \
+                         __FILE__, __LINE__, #cond);   \
+            g_test_failed = 1;                         \
+        }                                              \
     } while (0)
 
-#define CHECK_EQ(actual, expected)                                        \
-    do {                                                                  \
-        long long _a = (long long)(actual);                               \
-        long long _e = (long long)(expected);                             \
-        if (_a != _e) {                                                   \
+#define CHECK_EQ(actual, expected)                                                     \
+    do {                                                                               \
+        long long _a = (long long)(actual);                                            \
+        long long _e = (long long)(expected);                                          \
+        if (_a != _e) {                                                                \
             std::fprintf(stderr, "  FAIL %s:%d: %s == %s (got %lld, expected %lld)\n", \
-                         __FILE__, __LINE__, #actual, #expected, _a, _e); \
-            g_test_failed = 1;                                            \
-        }                                                                 \
+                         __FILE__, __LINE__, #actual, #expected, _a, _e);              \
+            g_test_failed = 1;                                                         \
+        }                                                                              \
     } while (0)
 
-#define RUN(test)                                                         \
-    do {                                                                  \
-        g_test_failed = 0;                                                \
-        std::printf("[ RUN  ] %s\n", #test);                              \
-        test();                                                           \
-        if (g_test_failed) {                                              \
-            std::printf("[ FAIL ] %s\n", #test);                          \
-            g_failed = 1;                                                 \
-        } else {                                                          \
-            std::printf("[  OK  ] %s\n", #test);                          \
-        }                                                                 \
+#define RUN(test)                                \
+    do {                                         \
+        g_test_failed = 0;                       \
+        std::printf("[ RUN  ] %s\n", #test);     \
+        test();                                  \
+        if (g_test_failed) {                     \
+            std::printf("[ FAIL ] %s\n", #test); \
+            g_failed = 1;                        \
+        } else {                                 \
+            std::printf("[  OK  ] %s\n", #test); \
+        }                                        \
     } while (0)
 
 /* Build a synthetic credits blob: header + nb records, each with a unique
