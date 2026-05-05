@@ -123,9 +123,6 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     S_CRED_OBJ_2 *ptrcrdobj;
     S_CRED_OBJ_2 *ptrobj;
 
-    fprintf(stderr, "[credits] entry mode=%d PtrPal=%p ScreenAux=%p PtrZBuffer=%p\n",
-            (int)mode, (void *)PtrPal, (void *)ScreenAux, (void *)PtrZBuffer);
-
     if (!ScreenAux) {
         fprintf(stderr, "[credits] aborting: ScreenAux is NULL\n");
         return TRUE;
