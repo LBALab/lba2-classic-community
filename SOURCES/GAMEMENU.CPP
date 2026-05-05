@@ -3722,8 +3722,80 @@ void Credits(S32 mode) {
 
     SaveCamera();
 
+    /* Endgame transition can leave audio playing and PtrPal unset (issue #65).
+       Mirror the safety prologue PlayAcf uses so GamePlayCredits has valid
+       prerequisites regardless of caller (endgame win path or console). */
+    StopMusic();
+    HQ_PauseSamples();
+    if (!PtrPal)
+        PtrPal = PtrPalNormal;
+
+    /* GamePlayCredits stomps several gameplay-relevant buffers because the
+       original game never returned to play after credits. To make console
+       invocation safe mid-game, save/restore them around the call. (issue #65)
+
+         * PtrZBuffer's backing buffer aliases BufCube + BufferBrick (the cube
+           grid and brick library — see MEM.CPP:187). Credits memsets it and
+           renders Z into it, destroying the cube state.
+         * BufferAnim holds animation frame state for ALL game objects.
+           InitObjects() resets it; credits writes its own animation state
+           into the buffer, so any in-game T_OBJ_3D with LastOfsIsPtr=1 holds
+           pointers into now-stale data.
+
+       GameInProgress is FALSE during MainLoop (set TRUE only after this
+       function), so it is not a usable gate. Always save; cost is one malloc
+       + memcpy round trip per buffer, ~1 ms total. */
+    U8 *zbufSave = NULL;
+    U32 zbufSize = (U32)ListMem[MEM_PTR_ZBUFFER].Size;
+    if (zbufSize && PtrZBuffer) {
+        zbufSave = (U8 *)malloc(zbufSize);
+        if (zbufSave)
+            memcpy(zbufSave, PtrZBuffer, zbufSize);
+    }
+    extern U8 *PtrLib3DBufferAnim; /* LIB386/ANIM/LIBINIT — local extern to avoid header churn */
+    U8 *animSave = NULL;
+    U8 *animCursorSave = NULL;
+    if (BufferAnim) {
+        animSave = (U8 *)malloc(SIZE_BUFFER_ANIM);
+        if (animSave)
+            memcpy(animSave, BufferAnim, SIZE_BUFFER_ANIM);
+        animCursorSave = PtrLib3DBufferAnim;
+    }
+
+    /* Suppress console toggle for the duration of the credits sequence:
+       opening the console mid-credits side-effects palette and screen state
+       Credits doesn't expect, and there's no useful interaction during a
+       cinematic. Mirrors the gating already in place around SlideShow(). */
+    Console_SetSlideShowActive(1);
+
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, CREDITS_HQR_NAME);
     GamePlayCredits(tmpFilePath, mode);
+
+    Console_SetSlideShowActive(0);
+
+    if (zbufSave) {
+        memcpy(PtrZBuffer, zbufSave, zbufSize);
+        free(zbufSave);
+    }
+    if (animSave) {
+        memcpy(BufferAnim, animSave, SIZE_BUFFER_ANIM);
+        free(animSave);
+        /* end_credits already re-installed the game's body/anim callbacks via
+           InitObjects(BufferAnim, …) but reset the bump cursor to the start.
+           Restore the cursor too, so subsequent ObjectInitAnim allocations
+           don't alias frame slots already referenced by in-game T_OBJ_3D's
+           with LastOfsIsPtr=1. */
+        PtrLib3DBufferAnim = animCursorSave;
+    }
+
+    /* Mirror HoloMap's gameplay-restore tail (HOLOGLOB.CPP:1186-1199): re-bind
+       the per-cube 3D function-pointer table (PtrWorldColBrick, PtrDoAnim, …)
+       and force a full screen flip on the next frame. Without this, returning
+       to MainLoop renders against credits' projection/fog/filler globals and
+       the player character does not appear. */
+    PtrInit3DGame();
+    FlagFade = TRUE;
+    FirstTime = AFF_ALL_FLIP;
 
     RestoreCamera();
 

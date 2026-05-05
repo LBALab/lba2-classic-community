@@ -16,6 +16,11 @@
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
 
+/* The on-disk record layout (S_CRED_OBJ_2_DISK), the size assertions, and
+ * the parser itself all live in CREDITS_PARSE.{H,CPP} so tests/credits/ can
+ * exercise them without linking the rest of the game. See issue #65 and
+ * docs/ABI.md. */
+
 #define GridSizeX 40000
 #define GridSizeZ 40000
 
@@ -123,6 +128,11 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     S_CRED_OBJ_2 *ptrcrdobj;
     S_CRED_OBJ_2 *ptrobj;
 
+    if (!ScreenAux) {
+        fprintf(stderr, "[credits] aborting: ScreenAux is NULL\n");
+        return TRUE;
+    }
+
     // chargement de la ressource
     if ((HQF_ResSize(file_name, 0) + RECOVER_AREA) > (ModeDesiredX * ModeDesiredY + RECOVER_AREA) * 2) {
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
@@ -140,14 +150,29 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     }
 
     ptr = PtrCredits;
-
     ptrinfos = (S_CRED_INFOS_2 *)ptr;
-    ptr += sizeof(S_CRED_INFOS_2);
 
-    NbObjects = ptrinfos->NbObjects;
-
-    ptrcrdobj = (S_CRED_OBJ_2 *)ptr;
-    ptr += sizeof(S_CRED_OBJ_2) * NbObjects;
+    /* Hand the loaded blob to the pure parser. Nothing on the parse path
+     * touches game globals, so it is host-testable in isolation —
+     * see tests/credits/test_credits_parse.cpp. (issue #65) */
+    static S_CRED_OBJ_2 s_cred_objects[CRED_MAX_OBJECTS];
+    {
+        S_CRED_PARSED_OFFSETS parsed[CRED_MAX_OBJECTS];
+        const S32 blob_size = HQF_ResSize(file_name, 0);
+        const S32 rc = ParseCreditsBlob(PtrCredits, blob_size, parsed, CRED_MAX_OBJECTS);
+        if (rc < 0) {
+            fprintf(stderr, "[credits] aborting: ParseCreditsBlob rc=%d\n", (int)rc);
+            return TRUE;
+        }
+        NbObjects = rc;
+        memset(s_cred_objects, 0, sizeof(S_CRED_OBJ_2) * NbObjects);
+        for (S32 i = 0; i < NbObjects; i++) {
+            s_cred_objects[i].OffBody = parsed[i].OffBody;
+            s_cred_objects[i].OffAnim[0] = parsed[i].OffAnim[0];
+            s_cred_objects[i].OffAnim[1] = parsed[i].OffAnim[1];
+        }
+        ptrcrdobj = s_cred_objects;
+    }
 
     InitObjects(BufferAnim, SIZE_BUFFER_ANIM, NULL, NULL);
 
@@ -161,7 +186,8 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
     InitXplPalette(PtrCredits + ptrinfos->OffXpl);
     //	Palette( PalCredits ) ;
-    FadeToBlackAndSamples(PtrPal);
+    if (PtrPal)
+        FadeToBlackAndSamples(PtrPal);
     HQ_StopSample();
 
     x0 = 0;

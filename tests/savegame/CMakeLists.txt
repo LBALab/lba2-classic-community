@@ -9,3 +9,5 @@ target_include_directories(test_savegame_load_bounds PRIVATE
 set_target_properties(test_savegame_load_bounds PROPERTIES CXX_STANDARD 11)
 
 add_test(NAME test_savegame_load_bounds COMMAND test_savegame_load_bounds)
+
+register_host_test(test_savegame_load_bounds)

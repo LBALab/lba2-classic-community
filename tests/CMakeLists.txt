@@ -2,8 +2,23 @@ cmake_minimum_required(VERSION 3.23)
 
 enable_testing()
 
+# Aggregate target + label for host-only tests (no Docker, no retail data;
+# run on Linux/macOS/Windows in CI). Each test registers itself via
+# register_host_test(<target>) — adding a new host test is then two lines in
+# its own CMakeLists.txt, with no workflow edits required.
+#
+#   cmake --build build --target host_tests   # builds every registered test
+#   ctest -L host_quick --output-on-failure   # runs every registered test
+add_custom_target(host_tests)
+
+function(register_host_test test_name)
+    add_dependencies(host_tests ${test_name})
+    set_tests_properties(${test_name} PROPERTIES LABELS host_quick)
+endfunction()
+
 add_subdirectory(discovery)
 add_subdirectory(console)
+add_subdirectory(credits)
 add_subdirectory(savegame)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)

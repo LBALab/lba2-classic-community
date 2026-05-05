@@ -4,6 +4,7 @@
 #include "../COMMON.H"
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
+#include "../GAMEMENU.H"
 #include "../MUSIC.H"
 #include "../AMBIANCE.H"
 #include <AIL/SAMPLE.H>
@@ -301,6 +302,55 @@ static void cmd_playvideo(int argc, const char *argv[]) {
         Console_Print("Playing video: %s", argv[1]);
     else
         Console_Print("Video not found: %s", argv[1]);
+}
+
+static void cmd_credits(int argc, const char *argv[]) {
+    /* Mode: 0 = "demo wrap" variant (no actors), 1 = "win" variant
+       (Twinsen+Zoey). Default to 0. The original engine only invokes Credits
+       on win or after the auto-demo, never returning to its prior state, so
+       Credits() leaves several global side effects behind (GameInProgress=
+       TRUE, main menu screen blitted to Log/Screen, palette black). To make
+       console invocation transparent — usable from both the main menu and
+       live gameplay without flashing menu graphics or flipping the menu
+       into pause-mode — snapshot what Credits will mutate, then restore. */
+    S32 mode = 0;
+    if (argc >= 2)
+        mode = (S32)strtol(argv[1], NULL, 0);
+    Console_Close();
+
+    const S32 savedGameInProgress = GameInProgress;
+    const U32 bufSize = (U32)(ModeDesiredX * ModeDesiredY);
+    U8 *savedLog = (U8 *)malloc(bufSize);
+    U8 *savedScreen = (U8 *)malloc(bufSize);
+    if (savedLog && Log)
+        memcpy(savedLog, Log, bufSize);
+    if (savedScreen && Screen)
+        memcpy(savedScreen, Screen, bufSize);
+
+    Credits(mode);
+
+    GameInProgress = savedGameInProgress;
+    if (savedLog) {
+        if (Log)
+            memcpy(Log, savedLog, bufSize);
+        free(savedLog);
+    }
+    if (savedScreen) {
+        if (Screen)
+            memcpy(Screen, savedScreen, bufSize);
+        free(savedScreen);
+    }
+
+    if (mode == 0) {
+        FadeToPal(PtrPalNormal);
+        PtrPal = PtrPalNormal;
+    }
+    /* Push the restored back-buffer to display so the next render (menu draw
+       or MainLoop AffScene) starts from the pre-credits frame instead of
+       briefly flashing the main menu image Credits left in Log. */
+    BoxStaticFullflip();
+
+    Console_Print("Credits done (mode=%d)", (int)mode);
 }
 
 static void cmd_listvideos(int argc, const char *argv[]) {
@@ -666,6 +716,8 @@ void Console_RegisterAll(void) {
                               "Requires in-game loaded cube (not during video).");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
+    Console_RegisterCommandEx("credits", cmd_credits, "Play credits sequence", "credits [0|1]",
+                              "Closes console. Mode: 0=bad end (default), 1=good end. Press any key to skip.");
     Console_RegisterCommandEx("listvideos", cmd_listvideos, "List available ACF video names", "(no args)",
                               "Scans game ACF list.");
     Console_RegisterCommandEx("playjingle", cmd_playjingle, "Play jingle 1-26", "playjingle <1-26>", "Plays jingle by index.");
