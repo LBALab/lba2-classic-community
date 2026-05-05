@@ -1,0 +1,65 @@
+# git-cliff configuration for lba2-classic-community
+# See https://git-cliff.org/docs for the full reference.
+#
+# Two version concepts in this repo, do not confuse them:
+#   * Engine version (semver, e.g. v0.9.0) — what cliff manages.
+#   * NUM_VERSION (SOURCES/COMMON.H) — the save-file on-disk format version.
+# They are independent. Bumping engine semver does not bump NUM_VERSION,
+# and vice versa.
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to the LBA2 Classic Community engine fork.
+
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+> Engine semver is independent from `NUM_VERSION` (save-file on-disk format,
+> see `SOURCES/COMMON.H`). Save-format changes are tracked there, not here.
+
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}\
+- {{ commit.message | split(pat="\\n") | first | upper_first }}\
+{% if commit.scope %} (*{{ commit.scope }}*){% endif %} \
+([{{ commit.id | truncate(length=7, end="") }}](https://github.com/LBALab/lba2-classic-community/commit/{{ commit.id }}))
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = true
+tag_pattern = "v[0-9]*"
+sort_commits = "newest"
+topo_order = false
+
+# Order matters: first match wins. Skips run before groupings.
+commit_parsers = [
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^Merge ", skip = true },
+    { message = "^feat",        group = "Added" },
+    { message = "^port",        group = "Ported (ASM → C++)" },
+    { message = "^fix",         group = "Fixed" },
+    { message = "^perf",        group = "Performance" },
+    { message = "^refactor",    group = "Changed" },
+    { message = "^docs",        group = "Documentation" },
+    { message = "^test",        group = "Tests" },
+    { message = "^build",       group = "Build" },
+    { message = "^ci",          group = "Internal" },
+    { message = "^chore",       group = "Internal" },
+    { message = ".*",           group = "Other" },
+]

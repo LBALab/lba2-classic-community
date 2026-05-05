@@ -8,11 +8,11 @@ If you need help getting started, join us on [Discord](https://discord.gg/gfzna5
 
 ## Reporting Crashes and Bugs
 
-If you observe a bug you can report it [here](https://github.com/2point21/lba2-classic-community/issues/new).
+If you observe a bug you can report it [here](https://github.com/LBALab/lba2-classic-community/issues/new).
 
 ## Proposing Features
 
-If you have an idea, you can [create a feature request](https://github.com/2point21/lba2-classic-community/issues/new) to suggest a new feature.
+If you have an idea, you can [create a feature request](https://github.com/LBALab/lba2-classic-community/issues/new) to suggest a new feature.
 
 ## Contributing Code
 
@@ -21,6 +21,17 @@ If you have an idea, you can [create a feature request](https://github.com/2poin
 3. Make your changes
 4. Run `./run_tests_docker.sh` before submitting (or N/A if docs-only). CI will catch failures, but local run saves round-trips. PRs also run **host** discovery tests (`test_res_discovery`) on **Linux, macOS, and Windows** plus **format**; full ASM equivalence is the Docker workflow on Linux.
 5. Submit a pull request
+
+### PR titles
+
+The repo uses **squash-merge**, so your PR title becomes the commit on
+`main` and lands in the changelog as-is. Format it as
+`<type>(<scope>): <summary>` — for example
+`fix(credits): preserve gameplay state across console-invoked credits`.
+The full type list and rationale live in
+[AGENTS.md](AGENTS.md#commit--pr-conventions). A CI check verifies the
+title format. You do **not** need to edit `CHANGELOG.md` — it is
+regenerated at release time.
 
 PRs and pushes run build checks on **Linux**, **Windows** (MSYS2 UCRT64), and **macOS** (arm64); see `.github/workflows/`. Equivalence tests still run in Docker on Linux only (`test.yml`).
 
