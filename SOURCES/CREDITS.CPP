@@ -12,20 +12,14 @@
 
 #include "C_EXTERN.H"
 
-#include <cstddef>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
 
-/* On-disk credits HQR records are frozen at the 1997 32-bit DOS ABI. Lock the
-   sizes at compile time so the layout can never silently drift if a contributor
-   changes a field. The runtime S_CRED_OBJ_2 is intentionally larger on 64-bit
-   (T_OBJ_3D grew); the parser must walk the file at the on-disk stride —
-   never sizeof(S_CRED_OBJ_2). See docs/ABI.md and issue #65. */
-typedef char ABI_assert_S_CRED_INFOS_2_size[(sizeof(S_CRED_INFOS_2) == 12) ? 1 : -1];
-typedef char ABI_assert_S_CRED_OBJ_2_DISK_size[(sizeof(S_CRED_OBJ_2_DISK) == 420) ? 1 : -1];
-typedef char ABI_assert_S_CRED_OBJ_2_DISK_offset_OffBody[(offsetof(S_CRED_OBJ_2_DISK, OffBody) == 408) ? 1 : -1];
-typedef char ABI_assert_S_CRED_OBJ_2_DISK_offset_OffAnim[(offsetof(S_CRED_OBJ_2_DISK, OffAnim) == 412) ? 1 : -1];
+/* The on-disk record layout (S_CRED_OBJ_2_DISK), the size assertions, and
+ * the parser itself all live in CREDITS_PARSE.{H,CPP} so tests/credits/ can
+ * exercise them without linking the rest of the game. See issue #65 and
+ * docs/ABI.md. */
 
 #define GridSizeX 40000
 #define GridSizeZ 40000
@@ -156,38 +150,26 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     }
 
     ptr = PtrCredits;
-
     ptrinfos = (S_CRED_INFOS_2 *)ptr;
-    ptr += sizeof(S_CRED_INFOS_2);
 
-    NbObjects = ptrinfos->NbObjects;
-
-    /* Parse the on-disk array via S_CRED_OBJ_2_DISK (frozen 32-bit ABI, see
-       CREDITS.H + the static_asserts at the top of this file) into a runtime
-       S_CRED_OBJ_2 array. We only copy the fields actually consumed — the
-       embedded T_OBJ_3D is reset by ObjectClear() before use anyway. Walking
-       the file at sizeof(S_CRED_OBJ_2) is wrong on 64-bit; the disk struct
-       is what authoritatively defines the stride. (issue #65, docs/ABI.md) */
+    /* Hand the loaded blob to the pure parser. Nothing on the parse path
+     * touches game globals, so it is host-testable in isolation —
+     * see tests/credits/test_credits_parse.cpp. (issue #65) */
     static S_CRED_OBJ_2 s_cred_objects[CRED_MAX_OBJECTS];
-    if (NbObjects < 0 || NbObjects > CRED_MAX_OBJECTS) {
-        fprintf(stderr, "[credits] aborting: NbObjects=%d exceeds CRED_MAX_OBJECTS=%d\n",
-                (int)NbObjects, CRED_MAX_OBJECTS);
-        return TRUE;
-    }
     {
-        const S32 disk_block = ptrinfos->OffTxt - (S32)sizeof(S_CRED_INFOS_2);
-        const S32 expected = (S32)sizeof(S_CRED_OBJ_2_DISK) * NbObjects;
-        if (NbObjects == 0 || disk_block != expected) {
-            fprintf(stderr, "[credits] aborting: disk_block=%d != %d × sizeof(S_CRED_OBJ_2_DISK)=%d\n",
-                    (int)disk_block, (int)NbObjects, (int)sizeof(S_CRED_OBJ_2_DISK));
+        S_CRED_PARSED_OFFSETS parsed[CRED_MAX_OBJECTS];
+        const S32 blob_size = HQF_ResSize(file_name, 0);
+        const S32 rc = ParseCreditsBlob(PtrCredits, blob_size, parsed, CRED_MAX_OBJECTS);
+        if (rc < 0) {
+            fprintf(stderr, "[credits] aborting: ParseCreditsBlob rc=%d\n", (int)rc);
             return TRUE;
         }
-        const S_CRED_OBJ_2_DISK *disk_recs = (const S_CRED_OBJ_2_DISK *)ptr;
+        NbObjects = rc;
         memset(s_cred_objects, 0, sizeof(S_CRED_OBJ_2) * NbObjects);
         for (S32 i = 0; i < NbObjects; i++) {
-            s_cred_objects[i].OffBody = disk_recs[i].OffBody;
-            s_cred_objects[i].OffAnim[0] = disk_recs[i].OffAnim[0];
-            s_cred_objects[i].OffAnim[1] = disk_recs[i].OffAnim[1];
+            s_cred_objects[i].OffBody = parsed[i].OffBody;
+            s_cred_objects[i].OffAnim[0] = parsed[i].OffAnim[0];
+            s_cred_objects[i].OffAnim[1] = parsed[i].OffAnim[1];
         }
         ptrcrdobj = s_cred_objects;
     }
