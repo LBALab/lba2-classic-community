@@ -305,22 +305,51 @@ static void cmd_playvideo(int argc, const char *argv[]) {
 }
 
 static void cmd_credits(int argc, const char *argv[]) {
-    /* Mode: 0 = bad end (loads menu screen after), 1 = good end (Twinsen+Zoey).
-       Default to 0; pass `credits 1` for the win-path variant. */
+    /* Mode: 0 = "demo wrap" variant (no actors), 1 = "win" variant
+       (Twinsen+Zoey). Default to 0. The original engine only invokes Credits
+       on win or after the auto-demo, never returning to its prior state, so
+       Credits() leaves several global side effects behind (GameInProgress=
+       TRUE, main menu screen blitted to Log/Screen, palette black). To make
+       console invocation transparent — usable from both the main menu and
+       live gameplay without flashing menu graphics or flipping the menu
+       into pause-mode — snapshot what Credits will mutate, then restore. */
     S32 mode = 0;
     if (argc >= 2)
         mode = (S32)strtol(argv[1], NULL, 0);
     Console_Close();
+
+    const S32 savedGameInProgress = GameInProgress;
+    const U32 bufSize = (U32)(ModeDesiredX * ModeDesiredY);
+    U8 *savedLog = (U8 *)malloc(bufSize);
+    U8 *savedScreen = (U8 *)malloc(bufSize);
+    if (savedLog && Log)
+        memcpy(savedLog, Log, bufSize);
+    if (savedScreen && Screen)
+        memcpy(savedScreen, Screen, bufSize);
+
     Credits(mode);
-    /* Credits leaves the palette black on exit. Existing engine call sites
-       (endgame win path → PlayAcf, demo-timeout → fade-to-black + return to
-       menu) intentionally rely on that; doing the fade-in inside Credits
-       would regress them. From the console we want the screen visible
-       immediately on return, so handle it here for mode=0. */
+
+    GameInProgress = savedGameInProgress;
+    if (savedLog) {
+        if (Log)
+            memcpy(Log, savedLog, bufSize);
+        free(savedLog);
+    }
+    if (savedScreen) {
+        if (Screen)
+            memcpy(Screen, savedScreen, bufSize);
+        free(savedScreen);
+    }
+
     if (mode == 0) {
         FadeToPal(PtrPalNormal);
         PtrPal = PtrPalNormal;
     }
+    /* Push the restored back-buffer to display so the next render (menu draw
+       or MainLoop AffScene) starts from the pre-credits frame instead of
+       briefly flashing the main menu image Credits left in Log. */
+    BoxStaticFullflip();
+
     Console_Print("Credits done (mode=%d)", (int)mode);
 }
 
