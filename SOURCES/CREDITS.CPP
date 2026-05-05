@@ -12,9 +12,20 @@
 
 #include "C_EXTERN.H"
 
+#include <cstddef>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
+
+/* On-disk credits HQR records are frozen at the 1997 32-bit DOS ABI. Lock the
+   sizes at compile time so the layout can never silently drift if a contributor
+   changes a field. The runtime S_CRED_OBJ_2 is intentionally larger on 64-bit
+   (T_OBJ_3D grew); the parser must walk the file at the on-disk stride —
+   never sizeof(S_CRED_OBJ_2). See docs/ABI.md and issue #65. */
+typedef char ABI_assert_S_CRED_INFOS_2_size[(sizeof(S_CRED_INFOS_2) == 12) ? 1 : -1];
+typedef char ABI_assert_S_CRED_OBJ_2_DISK_size[(sizeof(S_CRED_OBJ_2_DISK) == 420) ? 1 : -1];
+typedef char ABI_assert_S_CRED_OBJ_2_DISK_offset_OffBody[(offsetof(S_CRED_OBJ_2_DISK, OffBody) == 408) ? 1 : -1];
+typedef char ABI_assert_S_CRED_OBJ_2_DISK_offset_OffAnim[(offsetof(S_CRED_OBJ_2_DISK, OffAnim) == 412) ? 1 : -1];
 
 #define GridSizeX 40000
 #define GridSizeZ 40000
@@ -151,13 +162,12 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
     NbObjects = ptrinfos->NbObjects;
 
-    /* The credits HQR was authored with the original 32-bit struct layout, but
-       on 64-bit T_OBJ_3D (embedded in S_CRED_OBJ_2) grew because T_PTR_NUM,
-       void*, and PTR_U32 fields are 8 bytes instead of 4. Walking the on-disk
-       array at sizeof(S_CRED_OBJ_2) stride therefore mis-reads OffBody/OffAnim.
-       Parse each disk record at its own stride (derived from OffTxt) and only
-       copy the fields we actually consume — the embedded T_OBJ_3D is reset by
-       ObjectClear() before use anyway. (issue #65) */
+    /* Parse the on-disk array via S_CRED_OBJ_2_DISK (frozen 32-bit ABI, see
+       CREDITS.H + the static_asserts at the top of this file) into a runtime
+       S_CRED_OBJ_2 array. We only copy the fields actually consumed — the
+       embedded T_OBJ_3D is reset by ObjectClear() before use anyway. Walking
+       the file at sizeof(S_CRED_OBJ_2) is wrong on 64-bit; the disk struct
+       is what authoritatively defines the stride. (issue #65, docs/ABI.md) */
     static S_CRED_OBJ_2 s_cred_objects[CRED_MAX_OBJECTS];
     if (NbObjects < 0 || NbObjects > CRED_MAX_OBJECTS) {
         fprintf(stderr, "[credits] aborting: NbObjects=%d exceeds CRED_MAX_OBJECTS=%d\n",
@@ -166,27 +176,18 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     }
     {
         const S32 disk_block = ptrinfos->OffTxt - (S32)sizeof(S_CRED_INFOS_2);
-        if (NbObjects == 0 || disk_block <= 0 || (disk_block % NbObjects) != 0) {
-            fprintf(stderr, "[credits] aborting: bad disk layout NbObjects=%d disk_block=%d\n",
-                    (int)NbObjects, (int)disk_block);
+        const S32 expected = (S32)sizeof(S_CRED_OBJ_2_DISK) * NbObjects;
+        if (NbObjects == 0 || disk_block != expected) {
+            fprintf(stderr, "[credits] aborting: disk_block=%d != %d × sizeof(S_CRED_OBJ_2_DISK)=%d\n",
+                    (int)disk_block, (int)NbObjects, (int)sizeof(S_CRED_OBJ_2_DISK));
             return TRUE;
         }
-        const S32 disk_stride = disk_block / NbObjects;
+        const S_CRED_OBJ_2_DISK *disk_recs = (const S_CRED_OBJ_2_DISK *)ptr;
         memset(s_cred_objects, 0, sizeof(S_CRED_OBJ_2) * NbObjects);
-        U8 *disk_base = ptr; /* first disk record */
         for (S32 i = 0; i < NbObjects; i++) {
-            U8 *rec = disk_base + (S32)i * disk_stride;
-            /* Trailing fields, in order: Flag, DestX, DestZ, OffBody, OffAnim[2].
-               Only OffBody/OffAnim[] are actually read from disk; the others get
-               (re)written by the runtime. */
-            U8 *tail = rec + disk_stride;
-            S32 OffBody, OffAnim0, OffAnim1;
-            memcpy(&OffAnim1, tail - 4, sizeof(S32));
-            memcpy(&OffAnim0, tail - 8, sizeof(S32));
-            memcpy(&OffBody, tail - 12, sizeof(S32));
-            s_cred_objects[i].OffBody = OffBody;
-            s_cred_objects[i].OffAnim[0] = OffAnim0;
-            s_cred_objects[i].OffAnim[1] = OffAnim1;
+            s_cred_objects[i].OffBody = disk_recs[i].OffBody;
+            s_cred_objects[i].OffAnim[0] = disk_recs[i].OffAnim[0];
+            s_cred_objects[i].OffAnim[1] = disk_recs[i].OffAnim[1];
         }
         ptrcrdobj = s_cred_objects;
     }
