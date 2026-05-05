@@ -123,6 +123,11 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     S_CRED_OBJ_2 *ptrcrdobj;
     S_CRED_OBJ_2 *ptrobj;
 
+    if (!ScreenAux) {
+        fprintf(stderr, "[credits] aborting: ScreenAux is NULL\n");
+        return TRUE;
+    }
+
     // chargement de la ressource
     if ((HQF_ResSize(file_name, 0) + RECOVER_AREA) > (ModeDesiredX * ModeDesiredY + RECOVER_AREA) * 2) {
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
@@ -146,8 +151,45 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
     NbObjects = ptrinfos->NbObjects;
 
-    ptrcrdobj = (S_CRED_OBJ_2 *)ptr;
-    ptr += sizeof(S_CRED_OBJ_2) * NbObjects;
+    /* The credits HQR was authored with the original 32-bit struct layout, but
+       on 64-bit T_OBJ_3D (embedded in S_CRED_OBJ_2) grew because T_PTR_NUM,
+       void*, and PTR_U32 fields are 8 bytes instead of 4. Walking the on-disk
+       array at sizeof(S_CRED_OBJ_2) stride therefore mis-reads OffBody/OffAnim.
+       Parse each disk record at its own stride (derived from OffTxt) and only
+       copy the fields we actually consume — the embedded T_OBJ_3D is reset by
+       ObjectClear() before use anyway. (issue #65) */
+    static S_CRED_OBJ_2 s_cred_objects[CRED_MAX_OBJECTS];
+    if (NbObjects < 0 || NbObjects > CRED_MAX_OBJECTS) {
+        fprintf(stderr, "[credits] aborting: NbObjects=%d exceeds CRED_MAX_OBJECTS=%d\n",
+                (int)NbObjects, CRED_MAX_OBJECTS);
+        return TRUE;
+    }
+    {
+        const S32 disk_block = ptrinfos->OffTxt - (S32)sizeof(S_CRED_INFOS_2);
+        if (NbObjects == 0 || disk_block <= 0 || (disk_block % NbObjects) != 0) {
+            fprintf(stderr, "[credits] aborting: bad disk layout NbObjects=%d disk_block=%d\n",
+                    (int)NbObjects, (int)disk_block);
+            return TRUE;
+        }
+        const S32 disk_stride = disk_block / NbObjects;
+        memset(s_cred_objects, 0, sizeof(S_CRED_OBJ_2) * NbObjects);
+        U8 *disk_base = ptr; /* first disk record */
+        for (S32 i = 0; i < NbObjects; i++) {
+            U8 *rec = disk_base + (S32)i * disk_stride;
+            /* Trailing fields, in order: Flag, DestX, DestZ, OffBody, OffAnim[2].
+               Only OffBody/OffAnim[] are actually read from disk; the others get
+               (re)written by the runtime. */
+            U8 *tail = rec + disk_stride;
+            S32 OffBody, OffAnim0, OffAnim1;
+            memcpy(&OffAnim1, tail - 4, sizeof(S32));
+            memcpy(&OffAnim0, tail - 8, sizeof(S32));
+            memcpy(&OffBody, tail - 12, sizeof(S32));
+            s_cred_objects[i].OffBody = OffBody;
+            s_cred_objects[i].OffAnim[0] = OffAnim0;
+            s_cred_objects[i].OffAnim[1] = OffAnim1;
+        }
+        ptrcrdobj = s_cred_objects;
+    }
 
     InitObjects(BufferAnim, SIZE_BUFFER_ANIM, NULL, NULL);
 
@@ -161,7 +203,8 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
     InitXplPalette(PtrCredits + ptrinfos->OffXpl);
     //	Palette( PalCredits ) ;
-    FadeToBlackAndSamples(PtrPal);
+    if (PtrPal)
+        FadeToBlackAndSamples(PtrPal);
     HQ_StopSample();
 
     x0 = 0;
