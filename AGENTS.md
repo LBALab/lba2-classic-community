@@ -94,6 +94,39 @@ Apply these behavior rules on every non-trivial task:
 - Types: S32, U32 from `LIB386/H/SYSTEM/ADELINE_TYPES.H`
 - C++98 for game code; tests may use C11/C++11
 
+## Commit & PR conventions
+
+The repo uses **squash-merge**, so the **PR title** becomes the single
+commit on `main`. That title drives the changelog (`git-cliff` reads it),
+so it has to follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<optional scope>): <summary>
+```
+
+Allowed types:
+
+| Type       | Use for                                                     |
+|------------|-------------------------------------------------------------|
+| `feat`     | New feature visible to players or contributors              |
+| `fix`      | Bug fix                                                     |
+| `port`     | ASM → C++ port work (fork-specific, distinct from refactor) |
+| `perf`     | Performance improvement, no behavior change                 |
+| `refactor` | Code restructuring, no behavior change                      |
+| `docs`     | Documentation only                                          |
+| `test`     | Adding or tightening tests                                  |
+| `build`    | Build system, CMake, presets                                |
+| `ci`       | CI workflows                                                |
+| `chore`    | Internal housekeeping                                       |
+
+Scope is optional but useful (`fix(credits): ...`, `port(SORT): ...`).
+
+A lightweight CI check (`.github/workflows/pr-title.yml`) verifies the PR
+title format. **Individual commits inside the PR can be messy** — only the
+final squashed title matters. Contributors do not need to edit
+`CHANGELOG.md`; it is regenerated at release time. See
+[docs/RELEASING.md](docs/RELEASING.md).
+
 ## Further Reading
 
 - [LICENSE](LICENSE) — GPL v2; project license

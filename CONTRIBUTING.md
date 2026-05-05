@@ -100,6 +100,17 @@ If you have an idea, you can [create a feature request](https://github.com/LBALa
 
 PRs and pushes run build checks on **Linux**, **Windows** (MSYS2 UCRT64), and **macOS** (arm64); see `.github/workflows/`. Equivalence tests still run in Docker on Linux only (`test.yml`).
 
+### PR titles
+
+The repo uses **squash-merge**, so your PR title becomes the commit on
+`main` and lands in the changelog as-is. Format it as
+`<type>(<scope>): <summary>` — for example
+`fix(credits): preserve gameplay state across console-invoked credits`.
+The full type list and rationale live in
+[AGENTS.md](AGENTS.md#commit--pr-conventions). A CI check verifies the
+title format. You do **not** need to edit `CHANGELOG.md` — it is
+regenerated at release time.
+
 ### Setting Up a Development Environment
 
 See the [README](README.md) for prerequisites and build instructions. In short:
