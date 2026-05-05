@@ -3722,6 +3722,14 @@ void Credits(S32 mode) {
 
     SaveCamera();
 
+    /* Endgame transition can leave audio playing and PtrPal unset (issue #65).
+       Mirror the safety prologue PlayAcf uses so GamePlayCredits has valid
+       prerequisites regardless of caller (endgame win path or console). */
+    StopMusic();
+    HQ_PauseSamples();
+    if (!PtrPal)
+        PtrPal = PtrPalNormal;
+
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, CREDITS_HQR_NAME);
     GamePlayCredits(tmpFilePath, mode);
 

@@ -4,6 +4,7 @@
 #include "../COMMON.H"
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
+#include "../GAMEMENU.H"
 #include "../MUSIC.H"
 #include "../AMBIANCE.H"
 #include <AIL/SAMPLE.H>
@@ -301,6 +302,17 @@ static void cmd_playvideo(int argc, const char *argv[]) {
         Console_Print("Playing video: %s", argv[1]);
     else
         Console_Print("Video not found: %s", argv[1]);
+}
+
+static void cmd_credits(int argc, const char *argv[]) {
+    /* Mode: 0 = bad end (loads menu screen after), 1 = good end (Twinsen+Zoey).
+       Default to 0; pass `credits 1` for the win-path variant. */
+    S32 mode = 0;
+    if (argc >= 2)
+        mode = (S32)strtol(argv[1], NULL, 0);
+    Console_Close();
+    Credits(mode);
+    Console_Print("Credits done (mode=%d)", (int)mode);
 }
 
 static void cmd_listvideos(int argc, const char *argv[]) {
@@ -666,6 +678,8 @@ void Console_RegisterAll(void) {
                               "Requires in-game loaded cube (not during video).");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
+    Console_RegisterCommandEx("credits", cmd_credits, "Play credits sequence", "credits [0|1]",
+                              "Closes console. Mode: 0=bad end (default), 1=good end. Press any key to skip.");
     Console_RegisterCommandEx("listvideos", cmd_listvideos, "List available ACF video names", "(no args)",
                               "Scans game ACF list.");
     Console_RegisterCommandEx("playjingle", cmd_playjingle, "Play jingle 1-26", "playjingle <1-26>", "Plays jingle by index.");

@@ -1,6 +1,10 @@
 #ifndef CREDITS_H
 #define CREDITS_H
 
+/* Cap for the static parsed-objects array. Retail credits HQR has 29 entries;
+   64 leaves headroom and keeps the static buffer size modest. */
+#define CRED_MAX_OBJECTS 64
+
 typedef struct {
     S32 NbObjects;
     S32 OffTxt;
