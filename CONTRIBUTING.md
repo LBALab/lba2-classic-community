@@ -21,6 +21,53 @@ A few notes that keep it sustainable:
   [Discord](https://discord.gg/jsTPWYXHsh) beats a week of work in the
   wrong direction.
 
+## Doing good work here
+
+A few principles. The *why* matters more than the rule — once you
+understand the why, you can apply judgment in cases the rule doesn't
+cover. None of this is unique to this project; it's how good engineering
+works generally. It's written down because this is a small hobby project
+where reviewer time is scarce, and these habits are what keep quality
+high *without* anyone having to police it.
+
+- **Own what you ship.** If you used an AI assistant, you are still the
+  author. Read the diff yourself before opening the PR; you should be
+  able to explain every line and defend every decision under review.
+  *Why:* outsourcing typing is fine — outsourcing *understanding* is how
+  subtle bugs land in old code. Your name on the PR is a commitment.
+
+- **Actually test your change.** Build it. Run the game (or the relevant
+  test). Walk through the path your change touches. Then try one path it
+  doesn't touch, in case you broke something next door. *Why:* "the
+  automated tests pass" is necessary, not sufficient. This codebase is
+  25 years old and full of failure modes nothing has ever automated. You
+  are the last pair of eyes before review.
+
+- **Write tests when you reasonably can.** Especially for new logic,
+  regressions you just fixed, and anything in `LIB386/` where ASM
+  equivalence is the bar. *Why:* a test you write today catches the bug
+  your future self introduces in six months, on a platform you don't
+  own, for a contributor you've never met. That's a great trade.
+
+- **CI is on your side.** When it fails, read the log and fix the cause.
+  Don't disable a check, skip a hook (`--no-verify`), or work around the
+  failure to "unblock" yourself. *Why:* CI catches what you forgot to
+  check on your machine — that's its whole job, and it's free. Fighting
+  it just defers the same problem to whoever merges after you, often on
+  a platform you didn't test.
+
+- **Explain *why*, not *what*.** In PR descriptions, commit messages,
+  and code comments alike. *Why:* the diff already shows what changed.
+  What it can't show is why this approach over the obvious alternative,
+  what constraint you hit, or what you considered and rejected. That's
+  the part future contributors (and your future self) will need.
+
+- **Smaller is better.** The smallest change that solves the problem is
+  easier to review, easier to revert if it turns out to be wrong, and
+  easier to come back to after a break. *Why:* every line is a
+  maintenance cost. Resist "while I'm here" cleanups; open a separate PR
+  instead.
+
 ## Reporting Crashes and Bugs
 
 If you observe a bug you can report it [here](https://github.com/LBALab/lba2-classic-community/issues/new).
