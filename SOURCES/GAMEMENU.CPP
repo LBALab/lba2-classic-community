@@ -3762,8 +3762,16 @@ void Credits(S32 mode) {
         animCursorSave = PtrLib3DBufferAnim;
     }
 
+    /* Suppress console toggle for the duration of the credits sequence:
+       opening the console mid-credits side-effects palette and screen state
+       Credits doesn't expect, and there's no useful interaction during a
+       cinematic. Mirrors the gating already in place around SlideShow(). */
+    Console_SetSlideShowActive(1);
+
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, CREDITS_HQR_NAME);
     GamePlayCredits(tmpFilePath, mode);
+
+    Console_SetSlideShowActive(0);
 
     if (zbufSave) {
         memcpy(PtrZBuffer, zbufSave, zbufSize);
