@@ -40,6 +40,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Verify before claiming:** Run build or tests to confirm changes work; do not claim something works without verification.
 - **Search before adding:** Check for existing implementations before adding new code; avoid duplication.
 - **Say when unsure:** If uncertain whether a change is correct, say so. Prefer "I'm not certain" over confident but wrong.
+- **Pin fixes with a test or a repro hook.** When fixing a bug, first ask whether the affected logic is pure-data (parsing, serialization, math, projection, sort) — if yes, extracting it into a pure function and adding a host test is usually a small additional refactor and should be done as part of the fix. When automation is impractical (state, timing, UI), ship a manual repro hook instead (a console command, debug menu entry, or build flag). See [CONTRIBUTING.md "Doing good work here"](CONTRIBUTING.md#doing-good-work-here) for the rationale.
 
 ## Execution Style (Karpathy-Inspired)
 
@@ -84,6 +85,7 @@ Apply these behavior rules on every non-trivial task:
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 2 |
+| Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
 
 ## Code Conventions
 
