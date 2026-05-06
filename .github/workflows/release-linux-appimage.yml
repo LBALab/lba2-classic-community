@@ -31,18 +31,6 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release --preset linux
           cmake --build build --target lba2
           
-          # Desktop entry
-          cat > AppDir/lba2.desktop <<EOF
-          [Desktop Entry]
-          Name=LBA2 Community
-          Exec=lba2
-          Icon=lba2
-          Type=Application
-          Categories=Game;
-          EOF
-          wget "https://raw.githubusercontent.com/pkgforge-dev/lba2-classic-community-AppImage/refs/heads/main/AppDir/lba2.png" -O AppDir/lba2.png
-          wget "https://raw.githubusercontent.com/pkgforge-dev/lba2-classic-community-AppImage/refs/heads/main/AppDir/bin/change-working-dir.hook" -O AppDir/bin/change-working-dir.hook
-          
           # quick-sharun
           wget "https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh" -O ./quick-sharun
           chmod +x ./quick-sharun
