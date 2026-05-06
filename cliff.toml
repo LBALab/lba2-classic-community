@@ -58,7 +58,10 @@ topo_order = false
 # Order matters: first match wins. Skips run before groupings.
 commit_parsers = [
     { message = "^chore\\(release\\)", skip = true },
-    { message = "^Merge ", skip = true },
+    # Skip GitHub-/git-generated merge commits, but NOT user PR titles that
+    # happen to start with "Merge" as a verb (e.g. "Merge SinTab/CosTab into
+    # contiguous array" — a real fix that should land in the changelog).
+    { message = "^Merge (pull request|branch|remote-tracking) ", skip = true },
     { message = "^feat",        group = "Added" },
     { message = "^port",        group = "Ported (ASM → C++)" },
     { message = "^fix",         group = "Fixed" },

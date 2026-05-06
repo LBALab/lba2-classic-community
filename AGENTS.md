@@ -129,6 +129,13 @@ it is regenerated at release time. Use `chore:` for any PR you want kept
 out of the public changelog (formatting, tooling, internal cleanups).
 See [docs/RELEASING.md](docs/RELEASING.md).
 
+**Do not include `(#issue_num)` in the PR title.** When a PR is
+squash-merged, GitHub appends `(#PR_num)` to the resulting commit subject
+— if the title already contained `(#issue_num)`, the commit ends up with
+both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
+*body* instead, using GitHub's standard keywords (`Closes #65`,
+`Fixes #65`, `Refs #65`).
+
 ## Further Reading
 
 - [LICENSE](LICENSE) — GPL v2; project license
