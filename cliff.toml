@@ -26,13 +26,11 @@ body = """
 {% else %}\
 ## [Unreleased]
 {% endif %}\
-{% for group, commits in commits | group_by(attribute="group") %}
+{% for group, commits in commits | filter(attribute="remote.pr_number") | group_by(attribute="group") %}
 ### {{ group | upper_first }}
 {% for commit in commits %}\
-{% if commit.remote.pr_number %}\
 - {{ commit.remote.pr_title | trim }} ([#{{ commit.remote.pr_number }}](https://github.com/LBALab/lba2-classic-community/pull/{{ commit.remote.pr_number }}))\
 {% if commit.remote.username %} — by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% endif %}
-{% endif %}\
 {% endfor %}
 {% endfor %}
 """
