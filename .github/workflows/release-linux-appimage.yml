@@ -72,12 +72,16 @@ jobs:
         with:
           name: AppImage-${{ matrix.arch }}
           path: dist
-
-  release:
+          
+   release:
     needs: [build]
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -85,7 +89,6 @@ jobs:
           merge-multiple: true
       - name: Generate appinfo for release
         run: |
-          # Use the same versioning logic as the build job
           VERSION=$(git rev-parse --short=9 HEAD)
           echo "X-AppImage-Name=lba2-classic-community" > ./appinfo
           echo "X-AppImage-Version=$VERSION" >> ./appinfo
