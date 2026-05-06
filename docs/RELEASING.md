@@ -41,32 +41,82 @@ These are **independent**:
 
 ## Cutting a release
 
-Prerequisites: [`git-cliff`](https://git-cliff.org/) installed locally.
+The flow differs slightly between the very first tagged release and every
+release after it. The difference is whether `git-cliff` should generate
+the section content (subsequent releases) or the existing hand-curated
+`[Unreleased]` section is the content (first release).
+
+### First release (`v0.9.0`)
+
+The current `[Unreleased]` section in `CHANGELOG.md` is hand-curated — it
+narrates everything shipped since the fork was created and is the
+canonical content for `v0.9.0`. **Do not run `git cliff -o`** here; it
+would replace the narrative with a sparse auto-generated section (most
+pre-tag commits are not conventional-commit-formatted). Just promote the
+heading.
 
 ```bash
-# 1. Pick the version. Pre-1.0 examples: v0.9.0, v0.9.1, v0.10.0
 VERSION=v0.9.0
+DATE=$(date +%Y-%m-%d)
 
-# 2. Regenerate CHANGELOG.md from history. The [Unreleased] section
-#    becomes the new version's section. GITHUB_TOKEN lets cliff resolve
-#    each commit's GitHub username (`@handle`) for per-line attribution.
-#    Without it the template falls back to git author names — still works,
-#    just less linkable. Use a token with public read scope only.
-GITHUB_TOKEN="$(gh auth token)" git cliff --tag "$VERSION" -o CHANGELOG.md
-
-# 3. Review the diff. Hand-curate the top of the new section if useful
-#    (group highlights, link to docs).
+# 1. In CHANGELOG.md, change:
+#      ## [Unreleased]
+#    to:
+#      ## [Unreleased]
+#      _Nothing yet._
+#
+#      ## [0.9.0] - YYYY-MM-DD
+#
+#    Update the compare link at the bottom of the file:
+#      [Unreleased]: .../compare/main...HEAD
+#    becomes:
+#      [Unreleased]: .../compare/v0.9.0...HEAD
+#      [0.9.0]:      .../compare/<initial-commit-sha>...v0.9.0
+#
+# 2. Review, commit, tag, push.
 git diff CHANGELOG.md
-
-# 4. Commit and tag.
 git add CHANGELOG.md
 git commit -m "chore(release): $VERSION"
 git tag -a "$VERSION" -m "Release $VERSION"
-
-# 5. Push.
 git push origin main
 git push origin "$VERSION"
 ```
+
+`git-cliff` is **not required** for the first release.
+
+### Subsequent releases
+
+From the second release on, `git cliff --prepend` adds a new versioned
+section to the top of `CHANGELOG.md`, generated from PR titles since the
+previous tag. Existing content (including the hand-curated v0.9.0
+narrative) stays untouched.
+
+```bash
+VERSION=v0.10.0
+
+# 1. Prepend the new section. NOTE: --prepend, not -o (which would
+#    overwrite the entire file).
+GITHUB_TOKEN="$(gh auth token)" git cliff --tag "$VERSION" --prepend CHANGELOG.md
+
+# 2. Review the new section at the top. Hand-curate if useful (group
+#    highlights, link to docs).
+git diff CHANGELOG.md
+
+# 3. Add a compare link at the bottom of the file:
+#      [v0.10.0]: .../compare/v0.9.0...v0.10.0
+
+# 4. Commit, tag, push.
+git add CHANGELOG.md
+git commit -m "chore(release): $VERSION"
+git tag -a "$VERSION" -m "Release $VERSION"
+git push origin main
+git push origin "$VERSION"
+```
+
+`GITHUB_TOKEN` lets cliff resolve each commit's GitHub username
+(`@handle`) for per-line attribution. Without it the template falls back
+to plain git author names — still works, just less linkable. Use a token
+with public read scope only.
 
 ## GitHub Release
 
