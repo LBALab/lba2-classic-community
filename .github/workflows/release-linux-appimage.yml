@@ -22,12 +22,6 @@ jobs:
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      # Get the version on the HOST (outside the container)
-      - name: Get version
-        id: get_version
-        run: echo "VERSION=$(git rev-parse --short=9 HEAD)" >> $GITHUB_ENV
       - name: Preparing Container
         uses: pkgforge-dev/anylinux-setup-action@v2
       - name: Install Dependencies
@@ -48,12 +42,7 @@ jobs:
           Icon=lba2
           StartupWMClass=lba2
           Categories=Game;Adventure;Platform;
-          X-AppImage-Version=$VERSION
           EOF
-
-          # Metadata for Release Action
-          echo "X-AppImage-Name=lba2-classic-community" > ./appinfo
-          echo "X-AppImage-Version=$VERSION" >> ./appinfo
           
           # quick-sharun
           wget "https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh" -O ./quick-sharun
@@ -87,10 +76,26 @@ jobs:
         with:
           pattern: AppImage-*
           merge-multiple: true
+      - name: Rename AppImages with Version
+        run: |
+          # Get the same version string
+          VERSION=$(git rev-parse --short=9 HEAD)
+          # Rename all AppImages found in the workspace
+          # This handles both x86_64 and aarch64
+          for f in *.AppImage; do
+            # Extract architecture from original name (e.g., x86_64)
+            ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
+            mv "$f" "LBA2_Classic_Community-${VERSION}-${ARCH}.AppImage"
+          done
+          # Rename companion zsync files to match
+          for f in *.zsync; do
+            ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
+            mv "$f" "LBA2_Classic_Community-${VERSION}-${ARCH}.AppImage.zsync"
+          done
       - name: Generate appinfo for release
         run: |
           VERSION=$(git rev-parse --short=9 HEAD)
-          echo "X-AppImage-Name=lba2-classic-community" > ./appinfo
+          echo "X-AppImage-Name=LBA2 Classic Community" > ./appinfo
           echo "X-AppImage-Version=$VERSION" >> ./appinfo
       - name: Release AppImage
         uses: pkgforge-dev/make-stable-appimage-release@v1.1
