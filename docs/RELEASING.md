@@ -47,8 +47,11 @@ Prerequisites: [`git-cliff`](https://git-cliff.org/) installed locally.
 VERSION=v0.9.0
 
 # 2. Regenerate CHANGELOG.md from history. The [Unreleased] section
-#    becomes the new version's section.
-git cliff --tag "$VERSION" -o CHANGELOG.md
+#    becomes the new version's section. GITHUB_TOKEN lets cliff resolve
+#    each commit's GitHub username (`@handle`) for per-line attribution.
+#    Without it the template falls back to git author names — still works,
+#    just less linkable. Use a token with public read scope only.
+GITHUB_TOKEN="$(gh auth token)" git cliff --tag "$VERSION" -o CHANGELOG.md
 
 # 3. Review the diff. Hand-curate the top of the new section if useful
 #    (group highlights, link to docs).
@@ -84,3 +87,8 @@ body. Source-only releases are valid; players build from source per the
   to `main`, and the PR title is that commit's message. The PR-title CI
   check (`.github/workflows/pr-title.yml`) is what keeps the log clean
   enough for cliff to parse.
+- The `[remote.github]` block in `cliff.toml` enables author handle
+  lookup via the GitHub API (`commit.remote.username`). Each entry then
+  ends with ` — by @handle` linking to the author's profile. If the API
+  call is unauthenticated and rate-limited, cliff falls back to the git
+  author name — exporting `GITHUB_TOKEN` (above) avoids that.

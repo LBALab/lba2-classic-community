@@ -31,12 +31,20 @@ body = """
 {% for commit in commits %}\
 - {{ commit.message | split(pat="\\n") | first | upper_first }}\
 {% if commit.scope %} (*{{ commit.scope }}*){% endif %} \
-([{{ commit.id | truncate(length=7, end="") }}](https://github.com/LBALab/lba2-classic-community/commit/{{ commit.id }}))
+([{{ commit.id | truncate(length=7, end="") }}](https://github.com/LBALab/lba2-classic-community/commit/{{ commit.id }}))\
+{% if commit.remote.username %} — by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% elif commit.author.name %} — by {{ commit.author.name }}{% endif %}
 {% endfor %}
 {% endfor %}
 """
 trim = true
 footer = ""
+
+# GitHub integration populates `commit.remote.username` so each entry can
+# link to the author's handle. Without this block the template falls back
+# to `commit.author.name` (the git author's plain name).
+[remote.github]
+owner = "LBALab"
+repo = "lba2-classic-community"
 
 [git]
 conventional_commits = true
