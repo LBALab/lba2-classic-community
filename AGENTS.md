@@ -96,9 +96,10 @@ Apply these behavior rules on every non-trivial task:
 
 ## Commit & PR conventions
 
-The repo uses **squash-merge**, so the **PR title** becomes the single
-commit on `main`. That title drives the changelog (`git-cliff` reads it),
-so it has to follow [Conventional Commits](https://www.conventionalcommits.org/):
+The **PR title** drives the changelog. `git-cliff` parses it from the
+commit log on `main` regardless of which merge mode you pick (merge,
+squash, or rebase), so the title has to follow
+[Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<optional scope>): <summary>
@@ -117,15 +118,16 @@ Allowed types:
 | `test`     | Adding or tightening tests                                  |
 | `build`    | Build system, CMake, presets                                |
 | `ci`       | CI workflows                                                |
-| `chore`    | Internal housekeeping                                       |
+| `chore`    | Housekeeping — **skipped from the public changelog**        |
 
 Scope is optional but useful (`fix(credits): ...`, `port(SORT): ...`).
 
 A lightweight CI check (`.github/workflows/pr-title.yml`) verifies the PR
-title format. **Individual commits inside the PR can be messy** — only the
-final squashed title matters. Contributors do not need to edit
-`CHANGELOG.md`; it is regenerated at release time. See
-[docs/RELEASING.md](docs/RELEASING.md).
+title format. **Individual commits inside the PR can be free-form** — only
+the PR title is enforced. Contributors do not need to edit `CHANGELOG.md`;
+it is regenerated at release time. Use `chore:` for any PR you want kept
+out of the public changelog (formatting, tooling, internal cleanups).
+See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Further Reading
 

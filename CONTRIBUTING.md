@@ -102,13 +102,14 @@ PRs and pushes run build checks on **Linux**, **Windows** (MSYS2 UCRT64), and **
 
 ### PR titles
 
-The repo uses **squash-merge**, so your PR title becomes the commit on
-`main` and lands in the changelog as-is. Format it as
+Your PR title becomes the changelog entry for the PR. Format it as
 `<type>(<scope>): <summary>` — for example
 `fix(credits): preserve gameplay state across console-invoked credits`.
-The full type list and rationale live in
-[AGENTS.md](AGENTS.md#commit--pr-conventions). A CI check verifies the
-title format. You do **not** need to edit `CHANGELOG.md` — it is
+A CI check verifies the format. The full type list and rationale live
+in [AGENTS.md](AGENTS.md#commit--pr-conventions); `chore:` is the
+explicit "skip this from the public changelog" prefix for housekeeping
+PRs. Individual commits inside your PR can be free-form — only the PR
+title is enforced. You do **not** need to edit `CHANGELOG.md`; it's
 regenerated at release time.
 
 ### Setting Up a Development Environment

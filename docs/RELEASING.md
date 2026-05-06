@@ -15,17 +15,18 @@ The engine uses [Semantic Versioning](https://semver.org/). The fork is
 
 ### `1.0.0` bar
 
-`1.0.0` is reached when all of the following hold:
+`1.0.0` is reached when:
 
-- Main story completable on **Linux, macOS, and Windows** without known crashes.
-- Save / load round-trip stable across a full playthrough.
-- Equivalence and host-discovery tests pass on all three platforms in CI.
-- Memory-safety hardening (issue
-  [#47](https://github.com/LBALab/lba2-classic-community/issues/47)) closed
-  for the main-story code paths.
+- **All original features are implemented and working** — feature parity with
+  the retail game, no functional gaps.
+- The fork has had **at least a few rounds of community play-tests** to
+  surface remaining issues against a real playthrough.
+- Equivalence and host tests pass on Linux, macOS, and Windows in CI.
 
 Until then, MINOR releases ship features and platform progress; PATCH
-releases ship fixes.
+releases ship fixes. Don't wait for `1.0` to bump versions — there's
+plenty of new work in the fork already, and incremental `0.x` releases
+keep momentum.
 
 ### Engine version vs `NUM_VERSION`
 
@@ -83,10 +84,20 @@ body. Source-only releases are valid; players build from source per the
   the section grouping. See `cliff.toml` and the
   [Commit & PR conventions](../AGENTS.md#commit--pr-conventions) section in
   AGENTS.md.
-- The repo uses **squash-merge**, so each PR contributes exactly one commit
-  to `main`, and the PR title is that commit's message. The PR-title CI
+- The PR title drives each changelog entry. Whichever merge mode you pick
+  (merge commit, squash, or rebase), the PR title ends up on `main` as a
+  conventional-commit-formatted line that cliff parses. The PR-title CI
   check (`.github/workflows/pr-title.yml`) is what keeps the log clean
-  enough for cliff to parse.
+  enough.
+- **Optional GitHub setting:** Settings → General → "Default to PR title
+  for merge commits". Turning this on makes merge-commit subjects read as
+  the clean PR title (e.g. `fix(credits): ... (#66)`) instead of the noisy
+  `Merge pull request #66 from ...` default. Highly recommended if the
+  repo uses merge commits as a default — it lets cliff treat them as
+  normal entries.
+- **`chore:` is the explicit "skip from changelog" prefix.** Use it for
+  housekeeping commits (formatting, internal refactors that aren't worth
+  surfacing to readers, tooling fixes). Cliff drops them entirely.
 - The `[remote.github]` block in `cliff.toml` enables author handle
   lookup via the GitHub API (`commit.remote.username`). Each entry then
   ends with ` — by @handle` linking to the author's profile. If the API
