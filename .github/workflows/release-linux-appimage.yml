@@ -3,7 +3,7 @@ name: Release Linux AppImage
 on:
   push:
     tags:
-      - 'v*' # Triggers only on version tags like v1.0.0
+      - 'v*' # Triggers only on version tags
   workflow_dispatch:
 
 jobs:
