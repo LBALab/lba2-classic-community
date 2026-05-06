@@ -55,6 +55,12 @@ would replace the narrative with a sparse auto-generated section (most
 pre-tag commits are not conventional-commit-formatted). Just promote the
 heading.
 
+The version number itself lives in the **`VERSION` file at the repo
+root**. CMake reads it, embeds it in the binary, and writes it to
+`build/VERSION.txt` for release pipelines (PR #74) to consume. So a release
+cut also bumps that file: `0.9.0-dev` → `0.9.0` for the release commit,
+then `0.10.0-dev` for the next development cycle.
+
 ```bash
 VERSION=v0.9.0
 DATE=$(date +%Y-%m-%d)
@@ -72,14 +78,28 @@ DATE=$(date +%Y-%m-%d)
 #    becomes:
 #      [Unreleased]: .../compare/v0.9.0...HEAD
 #      [0.9.0]:      .../compare/<initial-commit-sha>...v0.9.0
-#
-# 2. Review, commit, tag, push.
-git diff CHANGELOG.md
-git add CHANGELOG.md
+
+# 2. Bump VERSION file: 0.9.0-dev -> 0.9.0
+echo "0.9.0" > VERSION
+
+# 3. Review, commit, tag, push.
+git diff CHANGELOG.md VERSION
+git add CHANGELOG.md VERSION
 git commit -m "chore(release): $VERSION"
 git tag -a "$VERSION" -m "Release $VERSION"
 git push origin main
 git push origin "$VERSION"
+
+# 4. Sanity-check the binary picks it up.
+cmake --build build --target lba2
+./build/SOURCES/lba2 --version    # expect: 0.9.0
+cat build/VERSION.txt                  # expect: 0.9.0
+
+# 5. Bump VERSION for next development cycle: 0.9.0 -> 0.10.0-dev
+echo "0.10.0-dev" > VERSION
+git add VERSION
+git commit -m "chore: bump VERSION to 0.10.0-dev"
+git push origin main
 ```
 
 `git-cliff` is **not required** for the first release.
@@ -179,20 +199,39 @@ macOS/Windows. For now, build from source per the README.
 
 These become unblocked once `v0.9.0` is tagged:
 
-- **Version-string follow-up.** Wire `git describe --tags` into the
-  binary so `lba2 --version` and the console `version` command surface
-  the actual semver. The infrastructure (`SOURCES/BUILD_INFO.h.in`,
-  `VERSION.CPP`) is already in place; CMake just needs to substitute
-  the value at build time. Worth doing first because PR #74's
-  AppImages currently report `UNKNOWN`.
 - **Linux AppImages**
   ([PR #74](https://github.com/LBALab/lba2-classic-community/pull/74))
-  and macOS/Windows release pipelines. With the tag in place and the
-  version-string follow-up landed, AppImages stop saying `UNKNOWN`.
+  and macOS/Windows release pipelines. They consume `build/VERSION.txt`
+  to name artifacts.
 - **Optional GitHub repo setting:** Settings → General → "Default to
   PR title for merge commits". Turning it on makes merge-commit
   subjects in the git log match the PR title. Cosmetic — cliff handles
   both formats already.
+
+## How the binary knows its version
+
+The `VERSION` file at the repo root is the single source of truth.
+CMake reads it at build time and produces:
+
+- **`build/VERSION.txt`** — plain text, the resolved version. Release
+  pipelines (PR #74) `cat` this to name artifacts.
+- **`LBA2_VERSION_STRING` macro** in `build/VERSION_GENERATED.h`,
+  pulled in via `BUILD_INFO.h`. The game banner (`Version` in
+  `SOURCES/VERSION.CPP`) and `./lba2 --version` both read it.
+
+If git is available and the working tree has uncommitted changes, the
+resolved version is suffixed with `-dirty`. So:
+
+| Build context | `./lba2 --version` |
+|---|---|
+| Tarball (no `.git`) | `0.9.0-dev` (whatever the file says) |
+| Clean dev clone | `0.9.0-dev` |
+| Dev clone with uncommitted changes | `0.9.0-dev-dirty` |
+| At a release commit (file says `0.9.0`) | `0.9.0` |
+
+The maintainer bumps the `VERSION` file as part of cutting a release
+(see step 2 in the recipe above). After the bump-and-commit lands on
+`main`, `./lba2 --version` reports the real semver.
 
 ## What `git-cliff` reads
 

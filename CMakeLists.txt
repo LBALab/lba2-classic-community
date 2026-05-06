@@ -73,7 +73,15 @@ endif()
 # Dependencies
 find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 
-# Build info header (timestamp from compile, flags from configure)
+# Engine version string. Reads the canonical value from the VERSION file
+# at the repo root and (optionally) appends -dirty when the working tree
+# has uncommitted changes. Produces both ${CMAKE_BINARY_DIR}/VERSION.txt
+# (plain text, for release pipelines) and ${CMAKE_BINARY_DIR}/VERSION_GENERATED.h
+# (defines LBA2_VERSION_STRING for the binary).
+include(${CMAKE_SOURCE_DIR}/cmake/git_version.cmake)
+
+# Build info header (timestamp from compile, flags from configure,
+# version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
 set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 

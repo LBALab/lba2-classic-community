@@ -598,6 +598,11 @@ static void cmd_audio(int argc, const char *argv[]) {
 static void cmd_buildinfo(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
+    /* Mirror what TheEndInfo() logs at exit: version banner + build info.
+     * Same content, two surfaces (atexit log + in-game console).
+     * Console_Print splits on '\n', so the bracketing newlines in
+     * Version's log-formatting collapse cleanly here. */
+    Console_Print("%s", Version ? Version : "(no version)");
     Console_Print("%s", BuildInfo ? BuildInfo : "(no build info)");
 }
 
@@ -731,7 +736,7 @@ void Console_RegisterAll(void) {
 #ifdef USE_MVIDEO_SMACKER
     Console_RegisterCommandEx("video", cmd_video, "Video commands (log)", "video log <0|1>", "Smacker backend only.");
 #endif
-    Console_RegisterCommandEx("buildinfo", cmd_buildinfo, "Build timestamp and CMake flags", "(no args)",
+    Console_RegisterCommandEx("buildinfo", cmd_buildinfo, "Engine version, build timestamp, and CMake flags", "(no args)",
                               "Same string as logged at startup.");
     Console_RegisterCommandEx("exit", cmd_exit, "Exit the game immediately", "(no args)", "Clean shutdown.");
     Console_RegisterCommandEx("listsaves", cmd_listsaves, "List save games (names)", "(no args)", "Reads save/ directory.");

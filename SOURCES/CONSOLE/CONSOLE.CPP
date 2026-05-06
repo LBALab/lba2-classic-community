@@ -237,9 +237,27 @@ void Console_Print(const char *fmt, ...) {
     vsnprintf(buf, CONSOLE_LINE_MAX, fmt, ap);
     va_end(ap);
     buf[CONSOLE_LINE_MAX - 1] = '\0';
-    scrollback_push_wrapped(buf);
-    if (s_line_sink_for_tests)
-        s_line_sink_for_tests(buf);
+
+    /* Split on '\n' so callers can pass multi-line strings naturally
+     * (matches printf intuition: '\n' in the format means "advance to
+     * a new line"). Empty segments — from leading, trailing, or
+     * repeated '\n' — are skipped, matching the behavior console
+     * users expect (no spurious blank lines). The sink-for-tests
+     * sees exactly what gets pushed to the scrollback. */
+    char *p = buf;
+    while (*p) {
+        char *nl = strchr(p, '\n');
+        if (nl)
+            *nl = '\0';
+        if (*p) {
+            scrollback_push_wrapped(p);
+            if (s_line_sink_for_tests)
+                s_line_sink_for_tests(p);
+        }
+        if (!nl)
+            break;
+        p = nl + 1;
+    }
 }
 
 void Console_SetLineSinkForTests(Console_LineSinkFn sink) {
