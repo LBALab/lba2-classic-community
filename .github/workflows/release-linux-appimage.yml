@@ -52,7 +52,8 @@ jobs:
           EOF
 
           # Metadata for Release Action
-          echo "X-AppImage-Version=$VERSION" > ./appinfo
+          echo "X-AppImage-Name=lba2-classic-community" > ./appinfo
+          echo "X-AppImage-Version=$VERSION" >> ./appinfo
           
           # quick-sharun
           wget "https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh" -O ./quick-sharun
