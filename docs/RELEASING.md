@@ -95,7 +95,9 @@ narrative) stays untouched.
 VERSION=v0.10.0
 
 # 1. Prepend the new section. NOTE: --prepend, not -o (which would
-#    overwrite the entire file).
+#    overwrite the entire file). GITHUB_TOKEN is required: the body
+#    template renders one entry per PR using the PR title resolved from
+#    the GitHub API. Without a token, no entries render.
 GITHUB_TOKEN="$(gh auth token)" git cliff --tag "$VERSION" --prepend CHANGELOG.md
 
 # 2. Review the new section at the top. Hand-curate if useful (group
@@ -113,10 +115,12 @@ git push origin main
 git push origin "$VERSION"
 ```
 
-`GITHUB_TOKEN` lets cliff resolve each commit's GitHub username
-(`@handle`) for per-line attribution. Without it the template falls back
-to plain git author names — still works, just less linkable. Use a token
-with public read scope only.
+**Why `GITHUB_TOKEN` is required.** The template renders **one entry per
+PR** using `commit.remote.pr_title` and `commit.remote.pr_number`, which
+cliff fetches from the GitHub API for each commit. This is what gives a
+single clean entry per PR regardless of merge mode (squash, merge-commit,
+or rebase). Without a token, those fields are empty and no entries
+render. Use a token with public read scope only.
 
 ## GitHub Release
 
@@ -134,19 +138,18 @@ body. Source-only releases are valid; players build from source per the
   the section grouping. See `cliff.toml` and the
   [Commit & PR conventions](../AGENTS.md#commit--pr-conventions) section in
   AGENTS.md.
-- The PR title drives each changelog entry. Whichever merge mode you pick
-  (merge commit, squash, or rebase), the PR title ends up on `main` as a
-  conventional-commit-formatted line that cliff parses. The PR-title CI
-  check (`.github/workflows/pr-title.yml`) is what keeps the log clean
-  enough.
-- **Optional GitHub setting:** Settings → General → "Default to PR title
-  for merge commits". Turning this on makes merge-commit subjects read as
-  the clean PR title (e.g. `fix(credits): ... (#66)`) instead of the noisy
-  `Merge pull request #66 from ...` default. Highly recommended if the
-  repo uses merge commits as a default — it lets cliff treat them as
-  normal entries.
+- One entry per PR. Cliff queries the GitHub API for each commit on `main`
+  to resolve its associated PR (number + title) and renders one line per
+  PR. Works identically for squash-merge, merge-commit, and rebase modes —
+  the merge mode doesn't matter, the PR title does. The PR-title CI check
+  (`.github/workflows/pr-title.yml`) is what keeps the log clean enough.
+- A small `commit_preprocessors` rule rewrites GitHub's default merge
+  subject (`Merge pull request #N from owner/branch`) into the
+  conventional-commit-formatted PR title that GitHub puts on the third
+  line of the body. This lets the type-based grouping (Added / Fixed /
+  ...) work correctly for merge-commit-mode PRs.
 - **`chore:` is the explicit "skip from changelog" prefix.** Use it for
-  housekeeping commits (formatting, internal refactors that aren't worth
+  housekeeping PRs (formatting, internal refactors that aren't worth
   surfacing to readers, tooling fixes). Cliff drops them entirely.
 - The `[remote.github]` block in `cliff.toml` enables author handle
   lookup via the GitHub API (`commit.remote.username`). Each entry then
