@@ -7,6 +7,15 @@ Layer-3 regression harness — runs the real `lba2` binary on a directory of
 For pure parser regressions that need no retail, see
 `tests/savegame/test_load_bounds.cpp`.
 
+## Bundled reference corpus
+
+`saves/steam_classic_2023/` ships with the repo: 50 anonymized saves
+captured from the Steam re-release (`TLBA2C.exe`, app 397330). Provenance,
+license, and the anonymization process are documented in
+`saves/steam_classic_2023/README.md`. Use this corpus as the regression
+baseline when changing `SOURCES/SAVEGAME.CPP` — expected outcome is
+50/50 `ok_init` under both `auto` and forced `LBA2_SAVE_LOAD_ABI=32`.
+
 ## Workflow
 
 ```bash
