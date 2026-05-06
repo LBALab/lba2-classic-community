@@ -124,12 +124,75 @@ render. Use a token with public read scope only.
 
 ## GitHub Release
 
-Creating a GitHub Release with attached binaries is tracked separately in
-[issue #46](https://github.com/LBALab/lba2-classic-community/issues/46).
-Until that workflow lands, push the tag (above) and optionally draft a
-plain Release on GitHub with the relevant CHANGELOG section pasted as the
-body. Source-only releases are valid; players build from source per the
-[README](../README.md).
+A git tag is just a pointer to a commit. A **GitHub Release** is a
+separate object layered *on top of* a tag — it adds the user-facing
+Releases-page entry (`/releases/tag/v0.9.0`), a title and rendered
+release notes, optional binary attachments, and an RSS feed (`/releases.atom`)
+that auto-update tools watch. Pushing the tag without creating a Release
+means it shows up under "Tags" but not "Releases" — most browsers and
+tools only look at the latter.
+
+### Drafting the Release
+
+Two equivalent paths.
+
+**CLI (recommended for repeatability):**
+
+```bash
+# Extract the v0.9.0 section from CHANGELOG.md into a notes file
+sed -n '/^## \[0\.9\.0\]/,/^## \[/{/^## \[/!p;}' CHANGELOG.md > /tmp/release-notes.md
+
+# Create the GitHub Release from the existing tag
+gh release create v0.9.0 --title "v0.9.0" --notes-file /tmp/release-notes.md
+```
+
+**Web UI:** Releases → Draft a new release → pick the `v0.9.0` tag →
+paste the v0.9.0 section from `CHANGELOG.md` as the body → Publish.
+
+For v0.9.0 there are **no binary attachments yet**. The release-binary
+workflow is tracked in
+[issue #46](https://github.com/LBALab/lba2-classic-community/issues/46)
+and [PR #74](https://github.com/LBALab/lba2-classic-community/pull/74)
+(Linux AppImages). Source-only releases are valid; players build from
+source per the [README](../README.md).
+
+For future releases, `gh release create --generate-notes` auto-fills
+the body from PR titles since the previous tag — useful as a sanity
+check against the cliff-generated CHANGELOG section.
+
+## After the release
+
+Tell people. A short Discord post in the LBALab community channel
+helps the release land:
+
+```
+v0.9.0 is out — first tagged release of the fork.
+
+Changelog: https://github.com/LBALab/lba2-classic-community/blob/main/CHANGELOG.md
+Release: https://github.com/LBALab/lba2-classic-community/releases/tag/v0.9.0
+
+No binaries yet — that's coming via #74 (AppImages) and follow-ups for
+macOS/Windows. For now, build from source per the README.
+```
+
+### Natural follow-ups
+
+These become unblocked once `v0.9.0` is tagged:
+
+- **Version-string follow-up.** Wire `git describe --tags` into the
+  binary so `lba2 --version` and the console `version` command surface
+  the actual semver. The infrastructure (`SOURCES/BUILD_INFO.h.in`,
+  `VERSION.CPP`) is already in place; CMake just needs to substitute
+  the value at build time. Worth doing first because PR #74's
+  AppImages currently report `UNKNOWN`.
+- **Linux AppImages**
+  ([PR #74](https://github.com/LBALab/lba2-classic-community/pull/74))
+  and macOS/Windows release pipelines. With the tag in place and the
+  version-string follow-up landed, AppImages stop saying `UNKNOWN`.
+- **Optional GitHub repo setting:** Settings → General → "Default to
+  PR title for merge commits". Turning it on makes merge-commit
+  subjects in the git log match the PR title. Cosmetic — cliff handles
+  both formats already.
 
 ## What `git-cliff` reads
 
