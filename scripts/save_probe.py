@@ -36,6 +36,10 @@ MAX_DARTS = 3
 MAX_PATCHES = 500
 MAX_OBJETS_ENGINE = 100  # sanity; engine MAX_OBJETS may differ slightly
 MAX_EXTRAS = 50  # COMMON.H MAX_EXTRAS
+MAX_ZONES = 255  # COMMON.H MAX_ZONES
+MAX_INCRUST_DISP = 10  # COMMON.H MAX_INCRUST_DISP
+MAX_FLOWS = 10  # FLOW.H MAX_FLOWS
+MAX_FLOW_DOTS = 100  # FLOW.H MAX_FLOW_DOTS
 
 # Bytes from start of game context to NbObjets (S32), release layout (NumVersion >= 34,
 # non-EDITLBA2, no DEBUG-only <34 extra reads): see SAVEGAME.CPP LoadContexte order.
@@ -44,13 +48,37 @@ OFFSET_NB_OBJETS_FROM_GAME_CTX = 1478
 # First byte of object #0 stream (after NbObjets S32)
 OFFSET_OBJ0_FROM_GAME_CTX = OFFSET_NB_OBJETS_FROM_GAME_CTX + 4
 
-# Per-object serialized size (SaveContexte object loop): fixed prefix + sizeof(Obj)-sizeof(CurrentFrame)
-# Prefix = fields before LbaWrite(Obj) in SAVEGAME.CPP; Obj tail = T_OBJ_3D without CurrentFrame[30].
-PER_OBJECT_PREFIX_BYTES = 142
-OBJ3D_BLOB_32 = 136  # sizeof(T_OBJ_3D) - sizeof(CurrentFrame) on ILP32
-OBJ3D_BLOB_64 = 164  # same on LP64
-PER_OBJECT_32 = PER_OBJECT_PREFIX_BYTES + OBJ3D_BLOB_32
-PER_OBJECT_64 = PER_OBJECT_PREFIX_BYTES + OBJ3D_BLOB_64
+# Per-object serialized size — empirically confirmed against the Steam classic
+# corpus (50 saves, all stride=276 to land NbPatches at the correct offset).
+# Engine-side `142 + sizeof(T_OBJ_3D) - sizeof(CurrentFrame)` = 142 + 136 = 278 is
+# off by 2 bytes vs what retail actually wrote; the engine works because
+# LoadContexte reads sequentially (LbaReadByte/Word/Long) so its per-field tally
+# matches the wire even when the magic constant doesn't. The probe needs the
+# real stride to walk the wire offline.
+#
+# Native (64-bit) stride keeps the +28-byte delta (sizeof(T_OBJ_3D) grows by that
+# much when pointers widen): 276 + 28 = 304. Validated below in `forward_simulate`
+# via the patch_region_size cross-check.
+PER_OBJECT_32 = 276
+PER_OBJECT_64 = 304
+
+# Per-extra serialized size (T_EXTRA on the wire — one record per LbaRead in LoadContexte's
+# extras section). 32-bit retail packs T_EXTRA into 68 bytes (T_EXTRA_WIRE32, pack(1));
+# 64-bit native is 80 bytes (4 bytes pad before PtrBody, 4-byte pointer-slot padding to
+# struct alignment). Mirrors SOURCES/SAVEGAME.CPP T_EXTRA_WIRE32.
+EXTRA_SIZE_32 = 68
+EXTRA_SIZE_64 = 80
+
+# Per-flow serialized size (S_PART_FLOW). 32-bit retail = 60 bytes (14×S32 + 4-byte ptr slot);
+# 64-bit native = 64 bytes (8-byte ptr slot, no padding because the leading 14 S32s already
+# 8-byte align the trailing pointer).
+FLOW_SIZE_32 = 60
+FLOW_SIZE_64 = 64
+
+# Fields whose size is host-independent (no pointers, no compiler-padded layouts).
+ZONE_RECORD_BYTES = 16  # 4× LbaWriteLong per zone (Info1/2/3/7 — written individually, no struct read)
+INCRUST_DISP_BYTES = 16  # 6×S16 + U32 = 16 bytes packed; no host variance
+ONE_DOT_BYTES = 40  # 10×S32 = 40; no pointers
 
 
 def read_cstring(data: bytes, start: int, max_len: int = 512) -> Tuple[str, int]:
@@ -273,6 +301,179 @@ def dump_game_context(game_ctx: bytes, hex_cap: int) -> List[str]:
     return lines
 
 
+def forward_simulate(
+    game_ctx: bytes, nb_objets: int, abi: str
+) -> Dict[str, Any]:
+    """Walk LoadContexte landmarks under one ABI hypothesis ("32" or "64"),
+    using the same MAX_ constants the engine bounds-checks against.
+
+    Returns a dict with `ok` (True if every bounds-checked field stayed in range),
+    `stopped_at` (None on success, else the first field that tripped a bound),
+    `final_offset`, plus the values read at each landmark (for diagnostics +
+    cross-check against the harness's actual outcome).
+
+    This is the deterministic "what the engine would do given this ABI"
+    predictor — no scoring, no heuristics.  Both ABIs simulated; exactly one
+    should pass through for a non-corrupt save.
+
+    Patch payload size: the wire carries `NbPatches`, then a U32 patch_region
+    written by the writer as `(PtrSave - saveptr - 4)`.  We use it as a skip
+    count rather than reproducing the per-patch Size lookup (which depends on
+    in-memory ListPatches[n].Size from the loaded scene — not present here).
+    """
+    obj_stride = PER_OBJECT_32 if abi == "32" else PER_OBJECT_64
+    extra_size = EXTRA_SIZE_32 if abi == "32" else EXTRA_SIZE_64
+    flow_size = FLOW_SIZE_32 if abi == "32" else FLOW_SIZE_64
+
+    out: Dict[str, Any] = {
+        "abi": abi,
+        "obj_stride": obj_stride,
+        "extra_size": extra_size,
+        "flow_size": flow_size,
+        "ok": False,
+        "stopped_at": None,
+        "values": {},
+    }
+
+    def fail(field: str, detail: str = "") -> Dict[str, Any]:
+        out["stopped_at"] = field
+        out["stopped_detail"] = detail
+        return out
+
+    if not (0 <= nb_objets <= MAX_OBJETS_ENGINE):
+        return fail("nb_objets", f"out of [0,{MAX_OBJETS_ENGINE}]")
+
+    cur = OFFSET_OBJ0_FROM_GAME_CTX + nb_objets * obj_stride
+    out["values"]["objects_end_offset"] = cur
+
+    # NbPatches
+    if cur + 4 > len(game_ctx):
+        return fail("nb_patches", "truncated")
+    nb_patches = struct.unpack_from("<i", game_ctx, cur)[0]
+    out["values"]["nb_patches"] = nb_patches
+    cur += 4
+    if not (0 <= nb_patches <= MAX_PATCHES):
+        return fail("nb_patches", f"{nb_patches} out of [0,{MAX_PATCHES}]")
+
+    # patch_region_size (writer's PtrSave-saveptr-4 = sum of per-patch payloads)
+    if cur + 4 > len(game_ctx):
+        return fail("patch_region_size", "truncated")
+    patch_region = struct.unpack_from("<i", game_ctx, cur)[0]
+    out["values"]["patch_region_size"] = patch_region
+    cur += 4
+    if patch_region < 0 or cur + patch_region > len(game_ctx):
+        return fail("patch_region_size", f"{patch_region} doesn't fit in remaining buffer")
+    cur += patch_region
+
+    # NbExtras (U8)
+    if cur + 1 > len(game_ctx):
+        return fail("nb_extras", "truncated")
+    nb_extras = game_ctx[cur]
+    out["values"]["nb_extras"] = nb_extras
+    cur += 1
+    if nb_extras > MAX_EXTRAS:
+        return fail("nb_extras", f"{nb_extras} > {MAX_EXTRAS}")
+
+    # ListExtra: nb_extras × extra_size (ABI-dependent)
+    if cur + nb_extras * extra_size > len(game_ctx):
+        return fail("list_extra", f"need {nb_extras * extra_size} B, have {len(game_ctx) - cur}")
+    cur += nb_extras * extra_size
+
+    # NbZones (S32) — the field Dark Monk tripped at 855638016 under the 64-bit hypothesis
+    if cur + 4 > len(game_ctx):
+        return fail("nb_zones", "truncated")
+    nb_zones = struct.unpack_from("<i", game_ctx, cur)[0]
+    out["values"]["nb_zones"] = nb_zones
+    cur += 4
+    if not (0 <= nb_zones <= MAX_ZONES):
+        return fail("nb_zones", f"{nb_zones} out of [0,{MAX_ZONES}]")
+
+    # Zones: nb_zones × 16 bytes (Info1/2/3/7 written individually, no struct read)
+    if cur + nb_zones * ZONE_RECORD_BYTES > len(game_ctx):
+        return fail("list_zones", "truncated")
+    cur += nb_zones * ZONE_RECORD_BYTES
+
+    # NbIncrust (U8)
+    if cur + 1 > len(game_ctx):
+        return fail("nb_incrust", "truncated")
+    nb_incrust = game_ctx[cur]
+    out["values"]["nb_incrust"] = nb_incrust
+    cur += 1
+    if nb_incrust > MAX_INCRUST_DISP:
+        return fail("nb_incrust", f"{nb_incrust} > {MAX_INCRUST_DISP}")
+
+    # ListIncrustDisp: nb_incrust × 16 bytes (host-independent)
+    if cur + nb_incrust * INCRUST_DISP_BYTES > len(game_ctx):
+        return fail("list_incrust", "truncated")
+    cur += nb_incrust * INCRUST_DISP_BYTES
+
+    # NbFlows (U8)
+    if cur + 1 > len(game_ctx):
+        return fail("nb_flows", "truncated")
+    nb_flows = game_ctx[cur]
+    out["values"]["nb_flows"] = nb_flows
+    cur += 1
+    if nb_flows > MAX_FLOWS:
+        return fail("nb_flows", f"{nb_flows} > {MAX_FLOWS}")
+
+    # Per-flow loop: flow_size + NbDots (U8) + NbDots × ONE_DOT_BYTES.
+    # Off to be a Wizard tripped at flow #5 NbDots=254 under the 64-bit hypothesis.
+    flow_dots = []
+    for i in range(nb_flows):
+        if cur + flow_size + 1 > len(game_ctx):
+            return fail(f"flow_{i}_record", "truncated")
+        cur += flow_size
+        nb_dots = game_ctx[cur]
+        cur += 1
+        flow_dots.append(nb_dots)
+        if nb_dots > MAX_FLOW_DOTS:
+            return fail(f"flow_{i}_nb_dots", f"{nb_dots} > {MAX_FLOW_DOTS}")
+        if cur + nb_dots * ONE_DOT_BYTES > len(game_ctx):
+            return fail(f"flow_{i}_dots", "truncated")
+        cur += nb_dots * ONE_DOT_BYTES
+    out["values"]["flow_nb_dots"] = flow_dots
+
+    out["ok"] = True
+    out["final_offset"] = cur
+    return out
+
+
+def predict_abi_and_outcome(
+    game_ctx: bytes, nb_objets: int
+) -> Tuple[str, str, Dict[str, Any]]:
+    """Return (predicted_abi, predicted_outcome, detail).
+
+    predicted_abi: "32", "64", "ambiguous", or "corrupt"
+    predicted_outcome: "ok", "ctxerr_at_<field>", or "corrupt"
+
+    "32" / "64": exactly one ABI walks cleanly through every landmark.
+    "ambiguous": both walks pass — engine's auto-retry will pick the right one,
+        but the probe can't distinguish them without running the engine.
+    "corrupt": neither walks pass; save is genuinely broken.
+    """
+    sim_32 = forward_simulate(game_ctx, nb_objets, "32")
+    sim_64 = forward_simulate(game_ctx, nb_objets, "64")
+    detail = {"sim_32": sim_32, "sim_64": sim_64}
+
+    if sim_32["ok"] and sim_64["ok"]:
+        return ("ambiguous", "ok", detail)
+    if sim_32["ok"]:
+        return ("32", "ok", detail)
+    if sim_64["ok"]:
+        return ("64", "ok", detail)
+    # Both failed.  Pick the one that got further; that's the most likely ABI
+    # for which the save is corrupt at the reported field.
+    f32 = sim_32.get("final_offset", sim_32["values"].get("objects_end_offset", 0))
+    f64 = sim_64.get("final_offset", sim_64["values"].get("objects_end_offset", 0))
+    closer = sim_32 if f32 >= f64 else sim_64
+    abi_guess = closer["abi"]
+    return (
+        "corrupt" if max(f32, f64) == 0 else abi_guess,
+        f"ctxerr_at_{closer['stopped_at']}",
+        detail,
+    )
+
+
 def score_abi_after_objects(game_ctx: bytes, nb_objets: int, stride: int) -> Tuple[int, Dict[str, Any]]:
     """Higher score = more plausible. Uses NbPatches + patch blob + extras count (SAVEGAME.CPP)."""
     details: Dict[str, Any] = {"stride": stride}
@@ -381,6 +582,33 @@ def probe_payload(
     for k in ("score_32", "score_64"):
         if k in abi_info:
             out[k] = abi_info[k]
+
+    # Forward-simulate LoadContexte under each ABI hypothesis using the engine's
+    # actual MAX_ constants.  Predicts what `lba2 --save-load-test` will report:
+    #   predicted_outcome=ok        → expect ok_init / ok_loaded
+    #   predicted_outcome=ctxerr_at_<field>
+    #                               → expect ctxerr from that bound
+    # Refines obj3d_abi when the heuristic flagged "ambiguous" but exactly one
+    # forward walk is clean.
+    pred_abi, pred_outcome, pred_detail = predict_abi_and_outcome(game_ctx, nb)
+    out["predicted_abi"] = pred_abi
+    out["predicted_outcome"] = pred_outcome
+    out["predicted_detail"] = {
+        "sim_32_ok": pred_detail["sim_32"]["ok"],
+        "sim_64_ok": pred_detail["sim_64"]["ok"],
+        "sim_32_stopped_at": pred_detail["sim_32"].get("stopped_at"),
+        "sim_64_stopped_at": pred_detail["sim_64"].get("stopped_at"),
+        "sim_32_values": pred_detail["sim_32"].get("values"),
+        "sim_64_values": pred_detail["sim_64"].get("values"),
+    }
+    # If the heuristic was ambiguous but the forward walk picks one cleanly,
+    # promote that to the obj3d_abi answer (preserving the original under
+    # obj3d_abi_heuristic for traceability).
+    if abi == "ambiguous" and pred_abi in ("32", "64"):
+        out["obj3d_abi_heuristic"] = "ambiguous"
+        out["obj3d_abi"] = pred_abi
+        out["obj3d_abi_method"] = "forward_simulate"
+        out["obj3d_stride"] = PER_OBJECT_32 if pred_abi == "32" else PER_OBJECT_64
 
     if do_dump:
         out["dump_lines"] = dump_game_context(game_ctx, hex_cap)

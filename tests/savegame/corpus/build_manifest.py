@@ -29,6 +29,16 @@ def classify(r):
         return "unknown_version"
     if r.get("compressed") and r.get("save_decompress_ok") is False:
         return "lz_corrupt"
+    # Forward-simulation predictor (preferred): walks LoadContexte landmarks
+    # under each ABI and picks the one whose values stay in MAX_ ranges.
+    pred = r.get("predicted_abi")
+    if pred in ("32", "64"):
+        return f"abi_{pred}"
+    if pred == "ambiguous":
+        return "abi_ambiguous_forward_sim"
+    if pred == "corrupt":
+        return "corrupt"
+    # Fallback to the older heuristic-based classification (for older probes).
     abi = r.get("obj3d_abi")
     if abi in ("32", "64"):
         return f"abi_{abi}"
@@ -66,6 +76,8 @@ def main():
             "cube": r.get("cube"),
             "nb_objets": r.get("nb_objets"),
             "probe_abi": r.get("obj3d_abi"),
+            "predicted_abi": r.get("predicted_abi"),
+            "predicted_outcome": r.get("predicted_outcome"),
             "score_32": r.get("score_32"),
             "score_64": r.get("score_64"),
             "lz_ok": r.get("save_decompress_ok"),

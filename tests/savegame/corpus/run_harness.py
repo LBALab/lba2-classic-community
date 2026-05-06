@@ -125,5 +125,27 @@ def main():
         for k, v in sorted(by_outcome[abi].items()):
             print(f"  {k:20} {v}")
 
+    # Probe-vs-harness consistency: surface any save where the probe predicted
+    # an outcome the harness contradicted.  An "ok" prediction that produced
+    # a real ctxerr is a probe bug *or* a real engine regression — either way
+    # worth flagging.  A "ctxerr_at_<X>" prediction that produced ok_init is
+    # often the engine's auto-retry fixing what the static walk couldn't.
+    divergences = []
+    for entry in manifest["entries"]:
+        actual = entry["harness"].get("auto", {}).get("outcome")
+        predicted = entry.get("predicted_outcome")
+        if predicted is None:
+            continue  # older probe.ndjson; nothing to check
+        actual_ok = actual in ("ok_init", "ok_loaded")
+        predicted_ok = predicted == "ok"
+        if actual_ok != predicted_ok:
+            divergences.append((entry["name"], predicted, actual))
+    if divergences:
+        print(f"\n=== probe-vs-harness divergences ({len(divergences)}) ===")
+        for name, pred, actual in divergences:
+            print(f"  {name:40s} predicted={pred:30s} actual={actual}")
+    else:
+        print("\nprobe-vs-harness: 0 divergences — predictor agrees with engine on all saves.")
+
 if __name__ == "__main__":
     main()
