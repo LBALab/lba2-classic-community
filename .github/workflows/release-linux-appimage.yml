@@ -5,6 +5,7 @@ on:
     tags:
       - 'v*' # Triggers only on version tags
   workflow_dispatch:
+
 jobs:
   build:
     name: "Build ${{ matrix.arch }}"
@@ -71,7 +72,8 @@ jobs:
         with:
           name: AppImage-${{ matrix.arch }}
           path: dist
-   release:  
+          
+  release:
     needs: [build]
     permissions: write-all
     runs-on: ubuntu-latest
