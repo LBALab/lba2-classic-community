@@ -77,7 +77,7 @@ commit_parsers = [
     { message = "^docs",        group = "Documentation" },
     { message = "^test",        group = "Tests" },
     { message = "^build",       group = "Build" },
-    { message = "^ci",          group = "Internal" },
+    { message = "^ci",          group = "CI" },
     # `chore:` is the explicit "skip this from the public changelog"
     # escape hatch. Use it for housekeeping commits that aren't worth
     # surfacing to readers.

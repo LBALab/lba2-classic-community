@@ -117,7 +117,7 @@ Allowed types:
 | `docs`     | Documentation only                                          |
 | `test`     | Adding or tightening tests                                  |
 | `build`    | Build system, CMake, presets                                |
-| `ci`       | CI workflows                                                |
+| `ci`       | CI workflow plumbing (matrix, runners, labels). For user-facing CI work like a release pipeline that ships binaries, prefer `feat:` so it lands in **Added** where end-users look. |
 | `chore`    | Housekeeping — **skipped from the public changelog**        |
 
 Scope is optional but useful (`fix(credits): ...`, `port(SORT): ...`).
