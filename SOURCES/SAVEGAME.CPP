@@ -274,6 +274,91 @@ static void SavegameObj3dFromWire32(const T_OBJ_3D_WIRE32 *s, T_OBJ_3D *d) {
     d->Master = s->Master;
     d->NbGroups = s->NbGroups;
 }
+
+/* T_EXTRA carries a U8 *PtrBody — 4 bytes on 32-bit retail, 8 + 4-pad on
+ * 64-bit hosts.  Reading sizeof(T_EXTRA)*N from a 32-bit-written stream
+ * over-runs the cursor by 12 bytes per extra; downstream NbZones / flow-dot
+ * reads then land on garbage and trip the bounds guards.  Mirror layout
+ * with pack(1) so the wire shape is exactly 68 bytes. */
+#pragma pack(push, 1)
+typedef struct {
+    S32 PosX, PosY, PosZ;        /* 12 */
+    S32 U_0, U_1, U_2;           /* 12  union { MOVE | Org } as opaque 12B */
+    S32 Info;                    /*  4 */
+    U32 PtrBody_w32;             /*  4  32-bit pointer slot (value discarded) */
+    S16 Sprite;                  /*  2 */
+    S16 Vx, Vy, Vz;              /*  6 */
+    U32 Flags;                   /*  4 */
+    U32 Timer;                   /*  4 */
+    S16 Body, Beta;              /*  4 */
+    S16 TimeOut, Divers;         /*  4 */
+    U8 Poids, HitForce, Owner, NewForce; /* 4 */
+    S32 Impact;                  /*  4 */
+    S32 Scale;                   /*  4 */
+} T_EXTRA_WIRE32;                /* total: 68 bytes */
+#pragma pack(pop)
+
+static void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d) {
+    memset(d, 0, sizeof(*d));
+    d->PosX = s->PosX;
+    d->PosY = s->PosY;
+    d->PosZ = s->PosZ;
+    /* Union is 12 raw bytes either way (MOVE = 3xS32, Org = 3xS32). */
+    memcpy(&d->U, &s->U_0, 12);
+    d->Info = s->Info;
+    d->PtrBody = NULL;           /* engine refills from runtime body table */
+    d->Sprite = s->Sprite;
+    d->Vx = s->Vx;
+    d->Vy = s->Vy;
+    d->Vz = s->Vz;
+    d->Flags = s->Flags;
+    d->Timer = s->Timer;
+    d->Body = s->Body;
+    d->Beta = s->Beta;
+    d->TimeOut = s->TimeOut;
+    d->Divers = s->Divers;
+    d->Poids = s->Poids;
+    d->HitForce = s->HitForce;
+    d->Owner = s->Owner;
+    d->NewForce = s->NewForce;
+    d->Impact = s->Impact;
+    d->Scale = s->Scale;
+}
+
+/* S_PART_FLOW has a trailing S_ONE_DOT *PtrListDot.  32-bit retail wrote
+ * 60 bytes per flow; 64-bit native is 64 bytes.  4-byte over-run per flow
+ * misaligns the per-flow NbDots byte and trips MAX_FLOW_DOTS. */
+#pragma pack(push, 1)
+typedef struct {
+    S32 Flag;
+    S32 Owner;
+    S32 NumPoint;
+    S32 NbDot;
+    S32 OrgX, OrgY, OrgZ;
+    S32 XMin, YMin, ZMin;
+    S32 XMax, YMax, ZMax;
+    U32 FlowTimerStart;
+    U32 PtrListDot_w32;          /* 32-bit pointer slot (value discarded) */
+} S_PART_FLOW_WIRE32;            /* total: 60 bytes */
+#pragma pack(pop)
+
+static void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d) {
+    /* Caller stashes/restores PtrListDot externally; everything else copies. */
+    d->Flag = s->Flag;
+    d->Owner = s->Owner;
+    d->NumPoint = s->NumPoint;
+    d->NbDot = s->NbDot;
+    d->OrgX = s->OrgX;
+    d->OrgY = s->OrgY;
+    d->OrgZ = s->OrgZ;
+    d->XMin = s->XMin;
+    d->YMin = s->YMin;
+    d->ZMin = s->ZMin;
+    d->XMax = s->XMax;
+    d->YMax = s->YMax;
+    d->ZMax = s->ZMax;
+    d->FlowTimerStart = s->FlowTimerStart;
+}
 #endif /* !EDITLBA2 */
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1492,6 +1577,11 @@ S32 LoadContexte(S32 *savetimerrefhr) {
     S_ONE_DOT *ptrdot;
     S32 flaginit = FALSE;
     U8 wbyte2;
+    /* Set after the object loop's stride retry resolves; ListExtra and
+     * ListPartFlow reads then use the same ABI.  Single-writer assumption:
+     * a save is written by one program, so all writeable structs share the
+     * same pointer ABI throughout the file. */
+    S32 wire32_abi = 0;
 #endif
     U8 wbyte;
 
@@ -1761,6 +1851,7 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             }
             if (r != 1)
                 return SAVELOAD_CTX_ERR;
+            wire32_abi = (first_stride == 278);
         }
 #endif
 
@@ -1822,7 +1913,20 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             return SAVELOAD_CTX_ERR;
 #endif
 
-        LbaRead(ListExtra, sizeof(T_EXTRA) * wbyte);
+#ifndef EDITLBA2
+        if (wire32_abi) {
+            if (!SaveLoadRoom((size_t)wbyte * sizeof(T_EXTRA_WIRE32)))
+                return SAVELOAD_CTX_ERR;
+            for (n = 0; n < wbyte; n++) {
+                T_EXTRA_WIRE32 w32;
+                LbaRead(&w32, sizeof(w32));
+                SavegameExtraFromWire32(&w32, &ListExtra[n]);
+            }
+        } else
+#endif
+        {
+            LbaRead(ListExtra, sizeof(T_EXTRA) * wbyte);
+        }
 
 #ifndef EDITLBA2
         // Magouille pour éviter de changer le format des sauvegardes
@@ -1905,7 +2009,15 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaRead(ListPtrListDot[n], sizeof(S_ONE_DOT) * NbDots[n]);
 #else
             ptrdot = ptrf->PtrListDot;
-            LbaRead(ptrf, sizeof(S_PART_FLOW));
+            if (wire32_abi) {
+                S_PART_FLOW_WIRE32 fw32;
+                if (!SaveLoadRoom(sizeof(fw32)))
+                    return SAVELOAD_CTX_ERR;
+                LbaRead(&fw32, sizeof(fw32));
+                SavegameFlowFromWire32(&fw32, ptrf);
+            } else {
+                LbaRead(ptrf, sizeof(S_PART_FLOW));
+            }
             ptrf->PtrListDot = ptrdot;
             LbaReadByte(wbyte2);
             if (wbyte2 > MAX_FLOW_DOTS)
