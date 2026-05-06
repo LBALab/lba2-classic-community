@@ -83,5 +83,11 @@ jobs:
         with:
           pattern: AppImage-*
           merge-multiple: true
+      - name: Generate appinfo for release
+        run: |
+          # Use the same versioning logic as the build job
+          VERSION=$(git rev-parse --short=9 HEAD)
+          echo "X-AppImage-Name=lba2-classic-community" > ./appinfo
+          echo "X-AppImage-Version=$VERSION" >> ./appinfo
       - name: Release AppImage
         uses: pkgforge-dev/make-stable-appimage-release@v1.1
