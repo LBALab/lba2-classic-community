@@ -94,6 +94,48 @@ Apply these behavior rules on every non-trivial task:
 - Types: S32, U32 from `LIB386/H/SYSTEM/ADELINE_TYPES.H`
 - C++98 for game code; tests may use C11/C++11
 
+## Commit & PR conventions
+
+The **PR title** drives the changelog. `git-cliff` parses it from the
+commit log on `main` regardless of which merge mode you pick (merge,
+squash, or rebase), so the title has to follow
+[Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<optional scope>): <summary>
+```
+
+Allowed types:
+
+| Type       | Use for                                                     |
+|------------|-------------------------------------------------------------|
+| `feat`     | New feature visible to players or contributors              |
+| `fix`      | Bug fix                                                     |
+| `port`     | ASM → C++ port work (fork-specific, distinct from refactor) |
+| `perf`     | Performance improvement, no behavior change                 |
+| `refactor` | Code restructuring, no behavior change                      |
+| `docs`     | Documentation only                                          |
+| `test`     | Adding or tightening tests                                  |
+| `build`    | Build system, CMake, presets                                |
+| `ci`       | CI workflow plumbing (matrix, runners, labels). For user-facing CI work like a release pipeline that ships binaries, prefer `feat:` so it lands in **Added** where end-users look. |
+| `chore`    | Housekeeping — **skipped from the public changelog**        |
+
+Scope is optional but useful (`fix(credits): ...`, `port(SORT): ...`).
+
+A lightweight CI check (`.github/workflows/pr-title.yml`) verifies the PR
+title format. **Individual commits inside the PR can be free-form** — only
+the PR title is enforced. Contributors do not need to edit `CHANGELOG.md`;
+it is regenerated at release time. Use `chore:` for any PR you want kept
+out of the public changelog (formatting, tooling, internal cleanups).
+See [docs/RELEASING.md](docs/RELEASING.md).
+
+**Do not include `(#issue_num)` in the PR title.** When a PR is
+squash-merged, GitHub appends `(#PR_num)` to the resulting commit subject
+— if the title already contained `(#issue_num)`, the commit ends up with
+both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
+*body* instead, using GitHub's standard keywords (`Closes #65`,
+`Fixes #65`, `Refs #65`).
+
 ## Further Reading
 
 - [LICENSE](LICENSE) — GPL v2; project license

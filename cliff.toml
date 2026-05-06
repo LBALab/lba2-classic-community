@@ -1,0 +1,86 @@
+# git-cliff configuration for lba2-classic-community
+# See https://git-cliff.org/docs for the full reference.
+#
+# Two version concepts in this repo, do not confuse them:
+#   * Engine version (semver, e.g. v0.9.0) — what cliff manages.
+#   * NUM_VERSION (SOURCES/COMMON.H) — the save-file on-disk format version.
+# They are independent. Bumping engine semver does not bump NUM_VERSION,
+# and vice versa.
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to the LBA2 Classic Community engine fork.
+
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+> Engine semver is independent from `NUM_VERSION` (save-file on-disk format,
+> see `SOURCES/COMMON.H`). Save-format changes are tracked there, not here.
+
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | filter(attribute="remote.pr_number") | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}\
+- {{ commit.remote.pr_title | trim }} ([#{{ commit.remote.pr_number }}](https://github.com/LBALab/lba2-classic-community/pull/{{ commit.remote.pr_number }}))\
+{% if commit.remote.username %} — by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% endif %}
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+# GitHub integration populates the `commit.remote.*` fields used in the body
+# template above (pr_number, pr_title, username). Required at release time —
+# without it, no entries render. The `RELEASING.md` recipe sets GITHUB_TOKEN.
+[remote.github]
+owner = "LBALab"
+repo = "lba2-classic-community"
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = true
+tag_pattern = "v[0-9]*"
+sort_commits = "newest"
+topo_order = false
+
+# Rewrite GitHub's default merge-commit subject (`Merge pull request #N from
+# owner/branch`) into the conventional-commit-formatted PR title that GitHub
+# puts on the third line of the message body. This lets `commit_parsers`
+# group merge-commit-mode PRs correctly — without it, every merge commit
+# would land in the catch-all "Other" bucket.
+commit_preprocessors = [
+    { pattern = '^Merge pull request #\d+ from \S+\n\n(.+)', replace = "$1" },
+]
+
+# Order matters: first match wins. Skips run before groupings.
+commit_parsers = [
+    { message = "^chore\\(release\\)", skip = true },
+    # Skip git-generated branch merges. We do NOT skip "Merge pull request"
+    # subjects because the preprocessor above rewrites them to the PR title
+    # so they group correctly via the conventional-commit prefix.
+    { message = "^Merge (branch|remote-tracking) ", skip = true },
+    { message = "^feat",        group = "Added" },
+    { message = "^port",        group = "Ported (ASM → C++)" },
+    { message = "^fix",         group = "Fixed" },
+    { message = "^perf",        group = "Performance" },
+    { message = "^refactor",    group = "Changed" },
+    { message = "^docs",        group = "Documentation" },
+    { message = "^test",        group = "Tests" },
+    { message = "^build",       group = "Build" },
+    { message = "^ci",          group = "CI" },
+    # `chore:` is the explicit "skip this from the public changelog"
+    # escape hatch. Use it for housekeeping commits that aren't worth
+    # surfacing to readers.
+    { message = "^chore",       skip = true },
+    { message = ".*",           group = "Other" },
+]

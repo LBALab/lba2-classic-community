@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 
+#include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
 #include "INITADEL.H"
 #include "DIRECTORIES.H"
 #include "RES_DISCOVERY.H"
@@ -2260,6 +2261,22 @@ static void parse_save_load_test_flag(int *argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+    /* --version: print resolved engine version (from VERSION file at the
+     * repo root, optionally suffixed with -dirty) and exit. Handled before
+     * any other init so it works without retail data, without SDL, and on
+     * stripped-down environments (CI, AppImage builders). The same string
+     * is written to ${CMAKE_BINARY_DIR}/VERSION for release pipelines to
+     * cat directly — see cmake/write_version.cmake. */
+    {
+        int i;
+        for (i = 1; i < argc; ++i) {
+            if (strcmp(argv[i], "--version") == 0) {
+                printf("%s\n", LBA2_VERSION_STRING);
+                return 0;
+            }
+        }
+    }
+
     S32 load = FALSE;
     U8 *ptrdos4gw;
     char tmpFilePath[ADELINE_MAX_PATH];

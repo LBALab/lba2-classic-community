@@ -54,6 +54,11 @@ if(ENABLE_POLY_RECORDING)
   target_compile_definitions(lba2 PRIVATE ENABLE_POLY_RECORDING)
 endif()
 
+# Ensure VERSION_GENERATED.h is up-to-date before any TU including
+# BUILD_INFO.h is compiled. The lba2_version_gen target is declared in
+# cmake/git_version.cmake and runs the write_version.cmake script.
+add_dependencies(lba2 lba2_version_gen)
+
 # Put libsmacker before LIB386/H so <smacker.h> resolves to libsmacker on case-insensitive FS (e.g. macOS)
 target_include_directories(lba2 PRIVATE
         ${CMAKE_BINARY_DIR}
