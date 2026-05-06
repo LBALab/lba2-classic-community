@@ -282,20 +282,20 @@ static void SavegameObj3dFromWire32(const T_OBJ_3D_WIRE32 *s, T_OBJ_3D *d) {
  * with pack(1) so the wire shape is exactly 68 bytes. */
 #pragma pack(push, 1)
 typedef struct {
-    S32 PosX, PosY, PosZ;        /* 12 */
-    S32 U_0, U_1, U_2;           /* 12  union { MOVE | Org } as opaque 12B */
-    S32 Info;                    /*  4 */
-    U32 PtrBody_w32;             /*  4  32-bit pointer slot (value discarded) */
-    S16 Sprite;                  /*  2 */
-    S16 Vx, Vy, Vz;              /*  6 */
-    U32 Flags;                   /*  4 */
-    U32 Timer;                   /*  4 */
-    S16 Body, Beta;              /*  4 */
-    S16 TimeOut, Divers;         /*  4 */
+    S32 PosX, PosY, PosZ;                /* 12 */
+    S32 U_0, U_1, U_2;                   /* 12  union { MOVE | Org } as opaque 12B */
+    S32 Info;                            /*  4 */
+    U32 PtrBody_w32;                     /*  4  32-bit pointer slot (value discarded) */
+    S16 Sprite;                          /*  2 */
+    S16 Vx, Vy, Vz;                      /*  6 */
+    U32 Flags;                           /*  4 */
+    U32 Timer;                           /*  4 */
+    S16 Body, Beta;                      /*  4 */
+    S16 TimeOut, Divers;                 /*  4 */
     U8 Poids, HitForce, Owner, NewForce; /* 4 */
-    S32 Impact;                  /*  4 */
-    S32 Scale;                   /*  4 */
-} T_EXTRA_WIRE32;                /* total: 68 bytes */
+    S32 Impact;                          /*  4 */
+    S32 Scale;                           /*  4 */
+} T_EXTRA_WIRE32;                        /* total: 68 bytes */
 #pragma pack(pop)
 
 static void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d) {
@@ -306,7 +306,7 @@ static void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d) {
     /* Union is 12 raw bytes either way (MOVE = 3xS32, Org = 3xS32). */
     memcpy(&d->U, &s->U_0, 12);
     d->Info = s->Info;
-    d->PtrBody = NULL;           /* engine refills from runtime body table */
+    d->PtrBody = NULL; /* engine refills from runtime body table */
     d->Sprite = s->Sprite;
     d->Vx = s->Vx;
     d->Vy = s->Vy;
@@ -338,8 +338,8 @@ typedef struct {
     S32 XMin, YMin, ZMin;
     S32 XMax, YMax, ZMax;
     U32 FlowTimerStart;
-    U32 PtrListDot_w32;          /* 32-bit pointer slot (value discarded) */
-} S_PART_FLOW_WIRE32;            /* total: 60 bytes */
+    U32 PtrListDot_w32; /* 32-bit pointer slot (value discarded) */
+} S_PART_FLOW_WIRE32;   /* total: 60 bytes */
 #pragma pack(pop)
 
 static void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d) {
