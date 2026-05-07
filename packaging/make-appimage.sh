@@ -22,6 +22,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target lba2
 
 # Copy the version file to the dist folder
+mkdir -p ./dist
 cp build/VERSION.txt ./dist/VERSION.txt
 
 mkdir -p ./AppDir/bin
