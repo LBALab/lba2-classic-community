@@ -1,11 +1,14 @@
 # Convenience targets — delegate to CMake and scripts (see docs/GAME_DATA.md).
-.PHONY: help clean build run build-run test tests test-docker format-check save-probe-lz-selftest
+.PHONY: help clean build run build-run test tests test-docker format-check save-probe-lz-selftest savegame-corpus
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 REPO_ROOT := $(shell "$(MAKEFILE_DIR)scripts/dev/repo_root.sh" 2>/dev/null || echo "$(MAKEFILE_DIR)")
 BUILD_DIR ?= $(REPO_ROOT)/build
 CMAKE ?= cmake
 NINJA ?= ninja
+GAME_DIR ?=
+TIMEOUT ?=
+ABIS ?=
 
 help:
 	@echo "Targets:"
@@ -17,6 +20,7 @@ help:
 	@echo "  make test-docker    - ./run_tests_docker.sh (ASM suite; requires Docker)"
 	@echo "  make format-check   - scripts/ci/check-format.sh"
 	@echo "  make save-probe-lz-selftest - build save_decompress + run LZ golden self-test"
+	@echo "  make savegame-corpus - run bundled save corpus harness (retail game data required)"
 
 clean:
 	rm -rf "$(BUILD_DIR)"
@@ -46,3 +50,9 @@ save-probe-lz-selftest:
 		-DLBA2_BUILD_SAVE_TOOLS=ON
 	$(CMAKE) --build "$(BUILD_DIR)" --target save_decompress
 	python3 "$(REPO_ROOT)/scripts/save_probe_lz_selftest.py"
+
+savegame-corpus:
+	@bash "$(REPO_ROOT)/scripts/dev/run-savegame-corpus.sh" \
+		$(if $(GAME_DIR),--game-dir "$(GAME_DIR)",) \
+		$(if $(TIMEOUT),--timeout "$(TIMEOUT)",) \
+		$(if $(ABIS),--abis "$(ABIS)",)

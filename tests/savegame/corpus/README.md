@@ -16,11 +16,34 @@ license, and the anonymization process are documented in
 baseline when changing `SOURCES/SAVEGAME.CPP` — expected outcome is
 50/50 `ok_init` under both `auto` and forced `LBA2_SAVE_LOAD_ABI=32`.
 
+## Quick start (one command)
+
+```bash
+# Make target (wrapper around scripts/dev/run-savegame-corpus.sh)
+make savegame-corpus
+
+# Explicit retail path override (portable across local layouts)
+make savegame-corpus GAME_DIR=/path/to/LBA2/Common
+
+# Optional harness knobs
+make savegame-corpus GAME_DIR=/path/to/LBA2/Common TIMEOUT=20 ABIS=auto,32
+
+# Direct script usage (same behavior as make target)
+./scripts/dev/run-savegame-corpus.sh --game-dir /path/to/LBA2/Common
+```
+
+The wrapper resolves game data in this order:
+
+1. `--game-dir` / `GAME_DIR=...` override
+2. `LBA2_GAME_DIR`
+3. local candidates: `./data`, `../LBA2`, `../game` (from repo root), if they
+   contain `lba2.hqr`/`LBA2.HQR`
+
 ## Workflow
 
 ```bash
-# 1. Build the engine (any preset)
-cmake --build build --target lba2
+# 1. Build required binaries (any preset)
+cmake --build build --target lba2 save_decompress
 
 # 2. Probe every save into NDJSON (uses scripts/save_probe.py)
 export LBA2_SAVE_TEST_DIR=$HOME/.local/share/Twinsen/LBA2/save
