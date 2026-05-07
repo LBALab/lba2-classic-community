@@ -21,80 +21,49 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
     steps:
       - name: Code Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Preparing Container
         uses: pkgforge-dev/anylinux-setup-action@v2
-      - name: Install Dependencies
-        run: pacman -Syu --noconfirm sdl3 cmake ninja
-      - name: Build and Make AppImage
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target lba2
-
-          # Desktop entry
-          mkdir -p ./AppDir
-          cat > ./AppDir/lba2.desktop <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=LBA2 Classic Community
-          Comment="A community fork for evolving and modernizing LBA2 source port"
-          Exec=lba2
-          Icon=lba2
-          StartupWMClass=lba2
-          Categories=Game;Adventure;Platform;
-          EOF
-          
-          # quick-sharun
-          wget "https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh" -O ./quick-sharun
-          chmod +x ./quick-sharun
-          
-          export ARCH=${{ matrix.arch }}
-          export OUTPATH=./dist
-          export ADD_HOOKS="self-updater.hook"
-          export UPINFO="gh-releases-zsync|${{ github.repository_owner }}|${{ github.event.repository.name }}|latest|*$ARCH.AppImage.zsync"
-          
-          ./quick-sharun ./build/SOURCES/lba2
-          ./quick-sharun --make-appimage
-
+      - name: Make AppImage
+        run: /bin/sh ./packaging/make-appimage.sh
       - name: Upload temporary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: AppImage-${{ matrix.arch }}
           path: dist
           
   release:
     needs: [build]
-    permissions: write-all
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Code Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7 # Matched to v7 for compatibility
         with:
           pattern: AppImage-*
           merge-multiple: true
       - name: Rename AppImages with Version
         run: |
-          # Get the same version string
-          VERSION=$(git rev-parse --short=9 HEAD)
-          # Rename all AppImages found in the workspace
-          # This handles both x86_64 and aarch64
+          # Read the version from the file created during build
+          VERSION=$(cat VERSION.txt)
+          echo "Detected Version: $VERSION"
           for f in *.AppImage; do
-            # Extract architecture from original name (e.g., x86_64)
+            # Extract architecture (x86_64 or aarch64)
             ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
             mv "$f" "LBA2_Classic_Community-${VERSION}-${ARCH}.AppImage"
           done
-          # Rename companion zsync files to match
           for f in *.zsync; do
             ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
             mv "$f" "LBA2_Classic_Community-${VERSION}-${ARCH}.AppImage.zsync"
           done
       - name: Generate appinfo for release
         run: |
-          VERSION=$(git rev-parse --short=9 HEAD)
+          VERSION=$(cat VERSION.txt)
           echo "X-AppImage-Name=LBA2 Classic Community" > ./appinfo
           echo "X-AppImage-Version=$VERSION" >> ./appinfo
       - name: Release AppImage
