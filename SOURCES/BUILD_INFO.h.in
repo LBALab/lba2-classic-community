@@ -1,2 +1,7 @@
 /* Generated at configure time - do not edit */
 #define BUILD_FLAGS_STR "@BUILD_FLAGS_STR@"
+
+/* LBA2_VERSION_STRING is regenerated at build time by cmake/write_version.cmake
+   (read from the VERSION file at the repo root, optionally suffixed with -dirty
+   when the git working tree has uncommitted changes). */
+#include "VERSION_GENERATED.h"

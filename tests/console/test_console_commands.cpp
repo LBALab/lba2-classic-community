@@ -80,6 +80,28 @@ int main(void) {
     Console_Execute("unknown_thing");
     assert(has_line_containing("Unknown command: unknown_thing"));
 
+    /* Console_Print splits on '\n' so callers can pass multi-line strings
+     * naturally (matches printf intuition). Empty segments — from leading,
+     * trailing, or repeated '\n' — collapse so the user doesn't see
+     * spurious blank lines. */
+    clear_lines();
+    Console_Print("first\nsecond\nthird");
+    assert(g_lines.size() == 3);
+    assert(g_lines[0] == "first");
+    assert(g_lines[1] == "second");
+    assert(g_lines[2] == "third");
+
+    clear_lines();
+    Console_Print("\nfoo\n\nbar\n");
+    assert(g_lines.size() == 2);
+    assert(g_lines[0] == "foo");
+    assert(g_lines[1] == "bar");
+
+    clear_lines();
+    Console_Print("single line, no newline");
+    assert(g_lines.size() == 1);
+    assert(g_lines[0] == "single line, no newline");
+
     Console_SetLineSinkForTests(NULL);
     return 0;
 }
