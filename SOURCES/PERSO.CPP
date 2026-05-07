@@ -2350,7 +2350,7 @@ int main(int argc, char *argv[]) {
     ChoicePalette();
 
 #ifdef CDROM
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
+#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(LBA2_SKIP_CDROM_CHECK)
     InitCD("");
 #else
     SetBlackPal(); // pour etre sur ...

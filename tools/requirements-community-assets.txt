@@ -1,0 +1,2 @@
+# Optional: probe/export PNG -> LIM/PAL for startup screens (tools/probe_community_assets.py)
+pillow>=10.0.0

@@ -16,6 +16,7 @@
 #include "GAMEMENU_MOUSE.H"
 
 #include <dirent.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -3981,6 +3982,59 @@ void SlideDemo(int argc, char *argv[]) {
         BumperLogo();
 }
 
+#ifdef LBA2_EMBEDDED_COMMUNITY_STARTUP
+
+extern const unsigned char g_Lba2EmbedCommunitySplashLim[];
+extern const unsigned int g_Lba2EmbedCommunitySplashLimSize;
+extern const unsigned char g_Lba2EmbedCommunitySplashPal[];
+extern const unsigned int g_Lba2EmbedCommunitySplashPalSize;
+
+#define LBA2_FULLSCREEN_BYTES (640 * 480)
+
+static S32 Lba2CopyFullscreenLimPal(const unsigned char *lim, unsigned int limSize,
+        const unsigned char *pal, unsigned int palSize) {
+    if (limSize < (unsigned)LBA2_FULLSCREEN_BYTES || palSize < 768u)
+        return FALSE;
+    memcpy(Log, lim, (size_t)LBA2_FULLSCREEN_BYTES);
+    memcpy(PalettePcx, pal, 768u);
+    PtrPal = PalettePcx;
+    Palette(PalettePcx);
+    return TRUE;
+}
+
+static S32 Lba2ShowEmbeddedFullscreenSeconds(const unsigned char *lim, unsigned int limSize,
+        const unsigned char *pal, unsigned int palSize, S32 nsec) {
+    U32 endtimer;
+    S32 ret = TRUE;
+
+    if (!Lba2CopyFullscreenLimPal(lim, limSize, pal, palSize))
+        return FALSE;
+
+    WaitNoInput();
+
+    PtrPal = PalettePcx;
+
+    BoxStaticFullflip();
+    FadeToPal(PalettePcx);
+
+    ManageTime();
+    endtimer = TimerRefHR + nsec * 1000;
+
+    while (TimerRefHR <= endtimer AND !MyKey) {
+        ManageTime();
+        MyGetInput();
+    }
+
+    if (MyKey == K_ESC OR(Input & I_MENUS))
+        ret = FALSE;
+
+    FadeToBlack(PalettePcx);
+
+    return ret;
+}
+
+#endif // LBA2_EMBEDDED_COMMUNITY_STARTUP
+
 /*──────────────────────────────────────────────────────────────────────────*/
 
 S32 AdelineLogo(void) {
@@ -4104,7 +4158,14 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void DistribLogo(void) {
-#ifdef DEMO
+#if defined(LBA2_EMBEDDED_COMMUNITY_STARTUP)
+    // Single community splash (assets/splash.png via prepare_embedded_startup_assets.py)
+    Lba2ShowEmbeddedFullscreenSeconds(g_Lba2EmbedCommunitySplashLim,
+            g_Lba2EmbedCommunitySplashLimSize,
+            g_Lba2EmbedCommunitySplashPal,
+            g_Lba2EmbedCommunitySplashPalSize,
+            2);
+#elif defined(DEMO)
     // Bumper 3 Distributeurs
     ShowLogo(3 * 2, 5);
 #else

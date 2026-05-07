@@ -52,6 +52,11 @@ endif()
 # Performance options
 option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
 
+# Optional: embed community 640x480 LIM+PAL from assets/embedded/ for startup logos (see assets/embedded/README.txt)
+option(LBA2_EMBEDDED_COMMUNITY_STARTUP "Embed community startup LIM/PAL from assets/embedded (no HQR replacement)" OFF)
+# CD audio check UI is obsolete for this port; default ON skips insert-disc screen and uses InitCD(\"\").
+option(LBA2_SKIP_CDROM_CHECK "Skip CD-ROM insert-disc loop; call InitCD(\"\") instead" ON)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     include(CheckIPOSupported)
     check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
@@ -82,7 +87,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/git_version.cmake)
 
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
-set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
+set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM} LBA2_SKIP_CDROM_CHECK=${LBA2_SKIP_CDROM_CHECK} LBA2_EMBEDDED_COMMUNITY_STARTUP=${LBA2_EMBEDDED_COMMUNITY_STARTUP}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Process the targets

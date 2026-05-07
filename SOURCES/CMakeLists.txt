@@ -32,6 +32,39 @@ set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
 
 list(APPEND SOURCES_FILES CONSOLE/CONSOLE_CMD.CPP)
 add_executable(lba2 ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${EMBEDDED_LBA2_CFG_CPP})
+
+if(LBA2_SKIP_CDROM_CHECK)
+    target_compile_definitions(lba2 PRIVATE LBA2_SKIP_CDROM_CHECK=1)
+endif()
+if(LBA2_EMBEDDED_COMMUNITY_STARTUP)
+    find_package(Python3 3.8 REQUIRED COMPONENTS Interpreter)
+    set(LBA2_EMBED_DIR "${CMAKE_SOURCE_DIR}/assets/embedded")
+    set(LBA2_EMBED_SPLASH_LIM "${LBA2_EMBED_DIR}/community_splash_640x480.lim")
+    set(LBA2_EMBED_SPLASH_PAL "${LBA2_EMBED_DIR}/community_splash_640x480.pal")
+    foreach(_f IN ITEMS
+            "${LBA2_EMBED_SPLASH_LIM}"
+            "${LBA2_EMBED_SPLASH_PAL}")
+        if(NOT EXISTS "${_f}")
+            message(FATAL_ERROR "LBA2_EMBEDDED_COMMUNITY_STARTUP is ON but missing required file: ${_f}\nSee assets/embedded/README.txt")
+        endif()
+    endforeach()
+    set(LBA2_COMMUNITY_EMBED_C "${CMAKE_CURRENT_BINARY_DIR}/community_embedded_data.c")
+    add_custom_command(
+        OUTPUT "${LBA2_COMMUNITY_EMBED_C}"
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/bin2c.py"
+            -o "${LBA2_COMMUNITY_EMBED_C}"
+            "g_Lba2EmbedCommunitySplashLim:${LBA2_EMBED_SPLASH_LIM}"
+            "g_Lba2EmbedCommunitySplashPal:${LBA2_EMBED_SPLASH_PAL}"
+        DEPENDS
+            "${LBA2_EMBED_SPLASH_LIM}"
+            "${LBA2_EMBED_SPLASH_PAL}"
+            "${CMAKE_SOURCE_DIR}/tools/bin2c.py"
+        COMMENT "Generating community_embedded_data.c from assets/embedded"
+        VERBATIM
+    )
+    target_sources(lba2 PRIVATE "${LBA2_COMMUNITY_EMBED_C}")
+    target_compile_definitions(lba2 PRIVATE LBA2_EMBEDDED_COMMUNITY_STARTUP=1)
+endif()
 # GCC LTO mis-infers T_PLASMA::data_start size when ptrc writes into Malloc tail (see ANIMTEX.CPP plasma case).
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set_source_files_properties(ANIMTEX.CPP PROPERTIES COMPILE_OPTIONS "-Wno-stringop-overflow")
