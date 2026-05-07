@@ -13,15 +13,12 @@ echo "Installing debloated packages..."
 echo "---------------------------------------------------------------"
 get-debloated-pkgs --add-common --prefer-nano
 
-# Comment this out if you need an AUR package
-#make-aur-package libsmacker
-
 echo "Making lba2 classic community..."
 echo "---------------------------------------------------------------"
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target lba2
 
-# Copy the version file to the dist folder
+# Copy the version file to dist directory
 mkdir -p ./dist
 cp build/VERSION.txt ./dist/VERSION.txt
 
