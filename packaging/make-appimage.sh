@@ -15,7 +15,7 @@ get-debloated-pkgs --add-common --prefer-nano
 
 echo "Making lba2 classic community..."
 echo "---------------------------------------------------------------"
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCONSOLE_MODULE=ON
 cmake --build build --target lba2
 
 # Copy the version file to dist directory
