@@ -56,11 +56,13 @@ jobs:
           for f in *.AppImage; do
             # Extract architecture (x86_64 or aarch64)
             ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
-            mv "$f" "LBA2_Classic_Community-${VERSION}-${ARCH}.AppImage"
+            # Added "-anylinux-" to the filename string below
+            mv "$f" "LBA2_Classic_Community-${VERSION}-anylinux-${ARCH}.AppImage"
           done
           for f in *.zsync; do
             ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
-            mv "$f" "LBA2_Classic_Community-${VERSION}-${ARCH}.AppImage.zsync"
+            # Match the zsync naming to the new AppImage name
+            mv "$f" "LBA2_Classic_Community-${VERSION}-anylinux-${ARCH}.AppImage.zsync"
           done
       - name: Generate appinfo for release
         run: |
