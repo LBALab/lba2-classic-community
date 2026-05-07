@@ -49,7 +49,7 @@ The engine assumes little-endian throughout. HQR readers cast raw bytes through 
 
 ## 3. Floating-point precision and FPU semantics &nbsp;&nbsp;&nbsp;&nbsp; ⚠ partial
 
-Projection and rotation paths use `long double` + `lrintl()` to match the original x87 FPU's round-to-nearest `fistp` behavior. `long double` is 80-bit on Linux x86_64, 64-bit on macOS arm64 and Windows MSYS2. The result is small but real per-platform divergence in screen coordinates and Z values. Mitigated where it matters (projection, rotation, polygon slopes); tested in `tests/fpu_precision/`. Already noted in [CLAUDE.md](../CLAUDE.md) (search "long double").
+Projection and rotation paths use `long double` + `lrintl()` to match the original x87 FPU's round-to-nearest `fistp` behavior. `long double` is 80-bit on Linux x86_64, 64-bit on macOS arm64 and Windows MSYS2. The result is small but real per-platform divergence in screen coordinates and Z values. Mitigated where it matters (projection, rotation, polygon slopes); tested in `tests/fpu_precision/`.
 
 - `LongProjectPoint3D` — `LIB386/3D/LPROJ3DF.CPP:25-28`
 - `LongRotatePointF` — `LIB386/3D/LROT3DF.CPP:13-15`
@@ -132,6 +132,17 @@ These are not assumptions the doc has fully audited — they are areas worth che
 - **Threading model.** Single-threaded today. `SDL_GetTicks` polled per frame; no `pthread`, `std::thread`, or async primitives in tree. If multithreaded work ever lands, the contract for shared state needs to be written down before the first race lands.
 - **HQR file format.** The on-disk format is implicit in `LIB386/SYSTEM/HQRMEM.CPP` and `LIB386/SYSTEM/HQR.CPP`. A written spec would help future format-touching work the same way [SAVEGAME.md](SAVEGAME.md) helps savegame work.
 - **Save format canonicalization.** A `NUM_VERSION 37+` format that does not memcpy pointer-bearing structs would remove the entire pointer-ABI workaround chain for new saves. Tracked at [issue #64](https://github.com/LBALab/lba2-classic-community/issues/64).
+
+---
+
+## Future directions
+
+Architectural changes that would shift the readiness picture above. Listed here to keep the surface visible; each becomes its own design doc or issue when it matures. Entries are holding-pen items, not commitments.
+
+- **GPU-backed rendering.** The polygon path today is software (`LIB386/pol_work/`, CPU-side rasterization, 8-bit indexed framebuffer). A GPU renderer — `SDL_GPU` or a thin Vulkan/Metal/D3D backend with cross-compiled shaders — would change the FP-precision picture (matches GPU float semantics, not x87), open the door to higher resolutions and HDR, and deprecate the ASM fillers. Big enough that the software path likely stays as a parallel implementation, with the polyrec replay harness as the equivalence test.
+- **Directory restructure.** `LIB386/` ("32-bit Intel") encodes a platform assumption in its name. A renaming sweep (`engine/`, `lib/`, or similar) plus splitting platform-specific files into a `sys/` subtree would surface the boundaries the way Doom 3's `sys/win32/` / `sys/linux/` does. No code change; pure rename + `#include` updates. Worth doing once the team agrees on preferred layout.
+- **Canonical save format (`NUM_VERSION 37+`).** Tracked at [issue #64](https://github.com/LBALab/lba2-classic-community/issues/64). Removes the wire32 / auto-retry chain for new saves; legacy loaders stay.
+- **ASM retirement.** Once profiling confirms the CPP path is fast enough on all targets, the `ENABLE_ASM` option could be removed and the `*.ASM` files retired. The CPP equivalents are already canonical; equivalence is already tested.
 
 ---
 
