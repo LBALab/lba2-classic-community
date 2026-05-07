@@ -30,7 +30,10 @@ EOF
 
 has_hqr_marker() {
   local dir="$1"
-  [[ -f "$dir/lba2.hqr" || -f "$dir/LBA2.HQR" ]]
+  # Match the engine's discovery: HQR can live directly in $dir or one level
+  # down in Common/ (the retail layout). See SOURCES/RES_DISCOVERY.CPP.
+  [[ -f "$dir/lba2.hqr" || -f "$dir/LBA2.HQR" \
+     || -f "$dir/Common/lba2.hqr" || -f "$dir/Common/LBA2.HQR" ]]
 }
 
 abs_path() {
