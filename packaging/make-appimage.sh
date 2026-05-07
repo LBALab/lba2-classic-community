@@ -27,6 +27,7 @@ cp build/VERSION.txt ./dist/VERSION.txt
 mkdir -p ./AppDir/bin
 mv -v ./packaging/lba2.png ./AppDir
 mv -v ./packaging/lba2.desktop ./AppDir
+mv -v ./packaging/change-working-dir.hook ./AppDir/bin
 
 # quick-sharun
 wget "https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh" -O ./quick-sharun
