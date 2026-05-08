@@ -23,8 +23,8 @@ mkdir -p ./dist
 cp build/VERSION.txt ./dist/VERSION.txt
 
 mkdir -p ./AppDir/bin
-mv -v ./packaging/LBAlab.png ./AppDir
-mv -v ./packaging/lba2.desktop ./AppDir
+mv -v ./packaging/lba2cc.png ./AppDir
+mv -v ./packaging/lba2cc.desktop ./AppDir
 
 # SECURE FETCH OF QUICK-SHARUN
 # Pin to a specific commit and verify SHA-256 for reproducibility
