@@ -1,12 +1,12 @@
-# Engine Lifecycles
+# Engine lifecycles
 
 State machines and execution sequences in the LBA2 engine. Each section lists
 states with their code-level constants, the typical sequence, and where the
 logic lives.
 
-Truth hierarchy: **code > this document > external sources**.
+Truth hierarchy: code > this document > external sources.
 
-## Main Loop Frame Order
+## Main loop frame order
 
 Each game frame executes these steps in order. Defined in `MainLoop()`.
 
@@ -25,7 +25,7 @@ Each game frame executes these steps in order. Defined in `MainLoop()`.
 **Code:** `SOURCES/PERSO.CPP` (MainLoop), `SOURCES/GERETRAK.CPP` (DoTrack),
 `SOURCES/GERELIFE.CPP` (DoLife), `SOURCES/OBJECT.CPP` (CheckZoneSce)
 
-## Scene (Cube) Loading
+## Scene (cube) loading
 
 Triggered by `ChangeCube()` when the hero enters a zone-type-0 trigger or a
 life script executes `LM_CHANGE_CUBE`.
@@ -43,7 +43,7 @@ life script executes `LM_CHANGE_CUBE`.
 
 **Code:** `SOURCES/OBJECT.CPP` (`ChangeCube`), `SOURCES/GRILLE.CPP` (grid loading)
 
-## Object Lifecycle
+## Object lifecycle
 
 Objects are loaded when a scene starts and can be killed during gameplay.
 
@@ -67,7 +67,7 @@ Objects are loaded when a scene starts and can be killed during gameplay.
 - Constants: `SOURCES/COMMON.H` (`OBJ_DEAD`, `LM_KILL_OBJ`, `LM_SUICIDE`)
 - Transitions: `SOURCES/GERELIFE.CPP` (`DoLife` opcode handlers)
 
-## Hero Behavior Modes
+## Hero behavior modes
 
 The hero's `Comportement` determines movement style, available actions, and
 combat behavior. Changed by player input or by `LM_COMPORTEMENT_HERO` in
@@ -87,7 +87,7 @@ opcode 30).
 - Constants: `SOURCES/COMMON.H` (`C_NORMAL` through `C_SKELETON`)
 - Transitions: `SOURCES/PERSO.CPP`, `SOURCES/GERELIFE.CPP`
 
-## Animation State
+## Animation state
 
 Each object has an animation that progresses through frames each tick.
 
