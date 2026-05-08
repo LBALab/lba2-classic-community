@@ -123,17 +123,19 @@ Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-commun
 
 ## Original development team
 
-*Direction:* Frédérick Raynal
-*Programmers:* Sébastien Viannay / Laurent Salmeron / Cédric Bermond / Frantz Cournil / Marc Bureau du Colombier
-*3D Artists & Animations:* Paul-Henri Michaud / Arnaud Lhomme
-*Artists:* Yaeël Barroz, Sabine Morlat, Didier Quentin
-*Story & Design:* Frédérick Raynal / Didier Chanfray / Yaël Barroz / Laurent Salmeron / Marc Albinet
-*Dialogs:* Marc Albinet
-*Story coding:* Frantz Cournil / Lionel Chaze / Pascal Dubois
-*Video Sequences:* Frédéric Taquet / Benoît Boucher / Ludovic Rubin / Merlin Pardot
-*Music & Sound FX:* Philippe Vachey
-*Testing:* Bruno Marion / Thomas Ferraz / Alexis Madinier / Christopher Horwood / Bertrand Fillardet
-*Quality Control:* Emmanuel Oualid
+* **Direction:** Frédérick Raynal
+* **Programmers:** Sébastien Viannay / Laurent Salmeron / Cédric Bermond / Frantz Cournil / Marc Bureau du Colombier
+* **3D Artists & Animations:** Paul-Henri Michaud / Arnaud Lhomme
+* **Artists:** Yaeël Barroz, Sabine Morlat, Didier Quentin
+* **Story & Design:** Frédérick Raynal / Didier Chanfray / Yaël Barroz / Laurent Salmeron / Marc Albinet
+* **Dialogs:** Marc Albinet
+* **Story coding:** Frantz Cournil / Lionel Chaze / Pascal Dubois
+* **Video Sequences:** Frédéric Taquet / Benoît Boucher / Ludovic Rubin / Merlin Pardot
+* **Music & Sound FX:** Philippe Vachey
+* **Testing:** Bruno Marion / Thomas Ferraz / Alexis Madinier / Christopher Horwood / Bertrand Fillardet
+* **Quality Control:** Emmanuel Oualid
+
+Use the `credits` command in the [console](docs/CONSOLE.md) to see the full original credits.
 
 ## Copyright
 
