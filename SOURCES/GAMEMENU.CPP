@@ -1325,8 +1325,23 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
             MyGetInput();
-        } else if (TimerRefHR > timeranotherkey)
+        } else if (TimerRefHR > timeranotherkey) {
             MyGetInput();
+        }
+
+        /* Suppress nav keys outside the repeat window; translate gamepad
+           D-pad / stick to K_GRAY_UP/DOWN when the window is open. */
+        if (TimerRefHR <= timeranotherkey) {
+            if (MyKey == K_GRAY_UP || MyKey == K_GRAY_DOWN)
+                MyKey = 0;
+            Input &= ~(I_UP | I_DOWN);
+        } else if (!MyKey) {
+            S32 jdir = JoystickMenuNavOnly();
+            if (jdir == K_UP)
+                MyKey = K_GRAY_UP;
+            else if (jdir == K_DOWN)
+                MyKey = K_GRAY_DOWN;
+        }
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
             S32 hitSel = -1;
