@@ -48,10 +48,5 @@ jobs:
         with:
           pattern: AppImage-*
           merge-multiple: true
-      - name: Generate appinfo for release
-        run: |
-          VERSION=$(cat VERSION.txt)
-          echo "X-AppImage-Name=LBA2 Classic Community" > ./appinfo
-          echo "X-AppImage-Version=$VERSION" >> ./appinfo
       - name: Release AppImage
         uses: pkgforge-dev/make-stable-appimage-release@v1.1
