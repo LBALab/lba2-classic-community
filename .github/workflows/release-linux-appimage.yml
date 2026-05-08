@@ -48,22 +48,6 @@ jobs:
         with:
           pattern: AppImage-*
           merge-multiple: true
-      - name: Rename AppImages with Version
-        run: |
-          # Read the version from the file created during build
-          VERSION=$(cat VERSION.txt)
-          echo "Detected Version: $VERSION"
-          for f in *.AppImage; do
-            # Extract architecture (x86_64 or aarch64)
-            ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
-            # Added "-anylinux-" to the filename string below
-            mv "$f" "LBA2_Classic_Community-${VERSION}-anylinux-${ARCH}.AppImage"
-          done
-          for f in *.zsync; do
-            ARCH=$(echo "$f" | grep -oE '(x86_64|aarch64)')
-            # Match the zsync naming to the new AppImage name
-            mv "$f" "LBA2_Classic_Community-${VERSION}-anylinux-${ARCH}.AppImage.zsync"
-          done
       - name: Generate appinfo for release
         run: |
           VERSION=$(cat VERSION.txt)
