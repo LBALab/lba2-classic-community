@@ -41,6 +41,3 @@ export DEPLOY_OPENGL=1
           
 ./quick-sharun ./build/SOURCES/lba2
 ./quick-sharun --make-appimage
-
-echo "X-AppImage-Name=LBA2 Classic Community" > ./appinfo
-echo "X-AppImage-Version=$VERSION" >> ./appinfo
