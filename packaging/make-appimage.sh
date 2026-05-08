@@ -36,7 +36,7 @@ curl -fsSL "$QUICK_SHARUN_URL" -o ./quick-sharun
 echo "${QUICK_SHARUN_SHA256}  ./quick-sharun" | sha256sum -c -
 chmod +x ./quick-sharun
 
-VERSION=$(cat ./dist/VERSION.txt)
+read -r VERSION < ./dist/VERSION.txt
 export ARCH VERSION
 export OUTPATH=./dist
 export ADD_HOOKS="self-updater.hook"
