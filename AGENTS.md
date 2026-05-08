@@ -86,6 +86,7 @@ Apply these behavior rules on every non-trivial task:
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 2 |
 | Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
+| Editing docs (any `.md`) | Sentence-case headings; bold for structure only (list-item / paragraph leads, table row labels), not mid-sentence emphasis; verify file/line refs; from `docs/`, link to source with `../SOURCES/...` / `../LIB386/...` | "Editing docs" below; CONTRIBUTING.md "Doing good work here" |
 
 ## Code Conventions
 
@@ -93,6 +94,31 @@ Apply these behavior rules on every non-trivial task:
 - Formatting: clang-format with checked-in `.clang-format`; ASM and `LIB386/libsmacker/` excluded
 - Types: S32, U32 from `LIB386/H/SYSTEM/ADELINE_TYPES.H`
 - C++98 for game code; tests may use C11/C++11
+
+## Editing docs
+
+For tone and engineering principles, see [CONTRIBUTING.md "Doing good work here"](CONTRIBUTING.md#doing-good-work-here). The rules below are the doc-formatting standard on top of that.
+
+**User-facing vs agent-facing.** README, CONTRIBUTING, CHANGELOG, and most of `docs/` are user-facing — tone matters and the rules below apply. AGENTS.md and `.github/copilot-instructions.md` are agent-facing — accuracy and structure for agents to parse matter most; tone and bold density matter less.
+
+**Formatting:**
+
+- Headings: sentence case. Proper nouns, place names, and acronyms keep their capitals (e.g. "MSYS2", "ASM", "Citadel Island", "GitHub release").
+- Bold for structure, not emphasis. Keep list-item leads (`- **Foo:** description`), paragraph leads (`**Note:**`, `**Why:**`), and table row labels. Strip mid-sentence emphasis on inline code, product names, and short noun phrases.
+- Italics for semantic markers (`*why*`, `*what*`) are fine. Don't italicise for decoration.
+- Leave smart quotes (`"…"`) and `--` (double-hyphen) dashes alone — don't normalise.
+- Reflow paragraph hard-wraps for consistency: prefer one paragraph per line and one item per list-row. If a doc mixes wrapped and unwrapped paragraphs, reflow.
+
+**Accuracy (always pair with formatting):**
+
+- Verify file paths, line numbers, function names, and command flags against the working tree before believing them.
+- From `docs/`, links to `SOURCES/` or `LIB386/` need the `../` prefix (`[…](../SOURCES/X.CPP)`). Common breakage spot.
+- Cross-check claims about CMake options, presets, and CI workflows against `CMakeLists.txt`, `CMakePresets.json`, and `.github/workflows/`.
+
+**Special cases:**
+
+- Verbatim attributed external content (e.g. [docs/COMPILER_NOTES.md](docs/COMPILER_NOTES.md)): leave entirely as-is.
+- Curated content (`docs/FRENCH_COMMENTS.md`, `docs/ASCII_ART.md`, `docs/ASM_VALIDATION_PROGRESS.md`): light touch only — H1 + the project's own framing prose.
 
 ## Commit & PR conventions
 
