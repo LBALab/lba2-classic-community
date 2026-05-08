@@ -2,7 +2,7 @@
 
 Index of documentation in this repository.
 
-**New to the fork?** Start with the root [README](../README.md) (**First clone** + prerequisites), then [GAME_DATA.md](GAME_DATA.md) for retail files and discovery (you are not required to use a fixed layout — see overrides there).
+**New to the fork?** Start with the root [README](../README.md) (First clone + prerequisites), then [GAME_DATA.md](GAME_DATA.md) for retail files and discovery (you are not required to use a fixed layout — see overrides there).
 
 ## Engine reference
 
@@ -27,12 +27,11 @@ Index of documentation in this repository.
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
 | [RELEASING.md](RELEASING.md) | Maintainer recipe for cutting a release: versioning, the `1.0` bar, `git-cliff`, engine version vs `NUM_VERSION`. |
 
-
 ## Testing
 
 | Doc | Description |
 |-----|-------------|
-| [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and **CI workflow** summary. |
+| [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and CI workflow summary. |
 
 ## Preservation & culture
 
