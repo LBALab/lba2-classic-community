@@ -1,4 +1,4 @@
-# Platform Assumptions
+# Platform assumptions
 
 This is a high-level map of the host assumptions the engine makes — pointer widths, endianness, floating-point precision, OS boundaries, and similar. It exists so contributors stepping into platform work can orient quickly and find the deep-dive doc for whatever they're touching.
 
