@@ -114,7 +114,7 @@ compared in its ASM vs CPP implementations.
 
 ### When adding or modifying ASM equivalence tests
 
-1. **Update `ASM_VALIDATION_PROGRESS.md`** in the project root:
+1. **Update `docs/ASM_VALIDATION_PROGRESS.md`**:
    - Mark the function's status as `[x]` (tested) or `[~]` (partial).
    - Add a note if there is a known discrepancy between ASM and CPP outputs.
 2. **Follow the established test pattern** (see `tests/test_harness.h`):

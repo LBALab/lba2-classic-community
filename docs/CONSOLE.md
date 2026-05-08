@@ -1,4 +1,4 @@
-# Debug Console
+# Debug console
 
 Quake-style drop-down debug console for LBA2. The console is always compiled and works everywhere: in-game, menu, inventory, credits, and during video playback. DEBUG_TOOLS remains a separate optional layer for additional legacy hotkeys/features.
 
@@ -56,7 +56,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **savebug** [name] | Save current game to bugs directory; optional name (default `bug`). |
 | **timer** [ms] | Advance in-game timer by N ms (default 200). |
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
-| **screenshot** | Save the **next** frame as PNG in the shoot directory **without** the console visible (uses SavePNG). |
+| **screenshot** | Save the next frame as PNG in the shoot directory without the console visible (uses SavePNG). |
 | **give** &lt;n&gt; | Play “found object” sequence for inventory entry &lt;n&gt;; some items (e.g. weapons, protopack) also update gameplay state. Mostly for visual/debug use. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
@@ -85,7 +85,7 @@ Get/set with `varname` (print value) or `varname value` (set).
 
 ## Implementation notes
 
-- **Independent of game buffer**: The console uses its own 8-bit overlay buffer. It is drawn via `AffStringToBuffer` (LIB386/SVGA) and composited in the video layer’s **pre-present callback** (`Console_PrePresent`), so it never touches the game’s `Log` or dirty-box pipeline.
+- **Independent of game buffer**: The console uses its own 8-bit overlay buffer. It is drawn via `AffStringToBuffer` (LIB386/SVGA) and composited in the video layer’s pre-present callback (`Console_PrePresent`), so it never touches the game’s `Log` or dirty-box pipeline.
 - **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). The configured toggle key is reserved from gameplay input to avoid double-handling.
 - **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves the configured toggle key, and when the console is open calls `Console_Update()` and returns.
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.

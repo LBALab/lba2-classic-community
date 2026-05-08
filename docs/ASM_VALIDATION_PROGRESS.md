@@ -1,4 +1,4 @@
-# ASM → C Validation Progress
+# ASM → C validation progress
 
 Tracks equivalence testing between original x86 ASM implementations and their
 C/C++ ports in `LIB386/`.  Each row represents a function (or data table) that
@@ -8,7 +8,7 @@ exists in both `.ASM` and `.CPP` form.
 
 ---
 
-## 3D/ — 3D Math & Projection (23 pairs)
+## 3D/ — 3D math & projection (23 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
@@ -36,7 +36,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `3D/SQRROOT.ASM` | `3D/SQRROOT.CPP` | `Sqr`, `QSqr` | Integer square root (32-bit and 64-bit) | `tests/3D/test_sqrroot.cpp` now includes a concrete failing `QSqr` reproducer plus deterministic 32-bit and 64-bit stress coverage. Fixed CPP parity bug: replaced `sqrtl()`-based `QSqr` with a direct portable port of the ASM bitwise algorithm, and `Sqr` now uses the same exact integer method. |
 | [x] | `3D/TANTAB.ASM` | `3D/TANTAB.CPP` | `TanTab[]` | Pre-computed tangent table (512 entries) | `tests/3D/test_tantab.cpp` compares all 513 tangent-table entries exactly against the ASM data. |
 
-## SOURCES/ - Core Source Helpers (6 pairs)
+## SOURCES/ — core source helpers (6 pairs)
 
 - [x] `PLASMA.ASM` -> `PLASMA.CPP`
    - Added `tests/test_plasma.cpp` covering `Do_Plasma` with fixed interleave/active-point cases, safe edge cases (`Interleave=1/3`, `NbActivePoints=2`), and deterministic random stress, comparing `TabVirgule`, the touched texture region, and exported globals (`Nb_Pts_Inter`, `Nb_Pts_Control`) strictly. Fixed CPP interpolation to match the ASM's zero-extended 16-bit control loads and `add/adc/sar` rounding. Note: `NbActivePoints=1` is excluded because the ASM reads past the lone control point, and `Interleave=0` is excluded because the ASM fill loop decrements from zero and walks off the buffer.
@@ -56,14 +56,14 @@ exists in both `.ASM` and `.CPP` form.
 - [x] `COMPRESS.ASM` -> active CPP port lives in `LZSS.CPP` (`COMPRESS.CPP` is a commented legacy stub)
    - Added `tests/test_compress.cpp` covering `AddString` and `DeleteString` with fixed tree-shape cases, 300-round add stress, 150-round delete stress, and 80 deterministic mixed interleaved AddString/DeleteString sequences, comparing return values and full tree/window/global state after each operation.
 
-## 3DEXT/ - Scene Extension Helpers (2 pairs)
+## 3DEXT/ — scene extension helpers (2 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `3DEXT/BOXZBUF.ASM` | `3DEXT/BOXZBUF.CPP` | `ZBufBoxOverWrite2` | Re-apply terrain occlusion over object bounding box | ASM ≡ CPP: return value plus post-call `Log`, `Screen`, and `PtrZBuffer` contents verified for visible, hidden, mixed, single-pixel, negative-depth, and 30 random rounds. |
 | [x] | `3DEXT/LINERAIN.ASM` | `3DEXT/LINERAIN.CPP` | `LineRain` | Rain line rendering helper | ASM ≡ CPP: return flags, screen bbox globals, full `Log` buffer, and no-Z-write `PtrZBuffer` contents verified for horizontal, diagonal fog, vertical occluded, plain single-pixel, dedicated background-intersection single-pixel, fully-clipped, and 300 random rounds. |
 
-## ANIM/ — Object Animation (10 pairs)
+## ANIM/ — object animation (10 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
@@ -78,7 +78,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `ANIM/STOFRAME.ASM` | `ANIM/STOFRAME.CPP` | `ObjectStoreFrame` | Store animation frame state | ASM ≡ CPP: fixed CPP to copy NbGroups\*2-2 dwords (was NbGroups\*2-1), and `tests/ANIM/test_stoframe.cpp` now verifies both the stored buffer bytes and the full post-call `T_OBJ_3D` state. |
 | [x] | `ANIM/TEXTURE.ASM` | `ANIM/TEXTURE.CPP` | `ObjectInitTexture` | Initialize texture for object | `tests/ANIM/test_texture.cpp` now uses strict full-`T_OBJ_3D` ASM-vs-CPP memory comparisons over fixed and deterministic random initial states, covering first-texture assignment, existing-texture preservation, and next-texture overwrite behavior. |
 
-## SVGA/ — Screen Drawing & Sprites (15 pairs)
+## SVGA/ — screen drawing & sprites (15 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
@@ -99,7 +99,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SVGA/SCALESPI.ASM` | `SVGA/SCALESPI.CPP` | `ScaleSprite` | Scale sprite with transparency | ASM fix: added `uses esi edi ebx` (callee-saved regs were clobbered, causing crash). CPP fixes: `ScreenXMax`/`ScreenYMax` now match the ASM's exclusive upper-edge semantics, and hotspot bytes now use signed 8-bit semantics like the ASM `movsx` path. `tests/SVGA/test_scalespi.cpp` now replaces the placeholder/min-max-only checks with strict 1:1 framebuffer and `ScreenX/Y` bounds equivalence for minimal, hotspot, signed-negative-hotspot, clipped-edge, fully clipped, and 100 deterministic random cases across the broader visible/off-screen domain. |
 | [x] | `SVGA/SCALESPT.ASM` | `SVGA/SCALESPT.CPP` | `ScaleSpriteTransp` | Scale sprite with transparency blend table | ASM ≡ CPP: fixed synthetic bank + clipping/fallback edge cases + 100 random rounds comparing full framebuffer and `ScreenXMin/Max`, `ScreenYMin/Max`. ASM fix: added `uses esi edi ebx` (callee-saved regs were clobbered, causing crash). CPP fix: rewritten to match ASM fixed-point scaling, fallback-factor handling, and sentinel exit bounds. |
 
-## SYSTEM/ — System Utilities (4 pairs)
+## SYSTEM/ — system utilities (4 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
@@ -108,13 +108,13 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `SYSTEM/LZ.ASM` | `SYSTEM/LZ.CPP` | `ExpandLZ` | LZ decompression | Existing `tests/SYSTEM/test_lz.cpp` already provides ASM-vs-CPP coverage over literals, bounded output, and 400 deterministic randomized roundtrip cases for `MinBloc` 2 and 3. |
 | [x] | `SYSTEM/MOUSEDAT.ASM` | `SYSTEM/MOUSEDAT.CPP` | Mouse data | Mouse driver data structures | `tests/SYSTEM/test_mousedat.cpp` now uses explicit fixed-byte sanity checks plus strict 541-byte ASM-vs-CPP comparison for `BinGphMouse`, replacing the old placeholder link/nonzero assertions. |
 
-## MENU/ — Menu Utilities (1 pair)
+## MENU/ — menu utilities (1 pair)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
 | [x] | `MENU/SORT.ASM` | `MENU/SORT.CPP` | `MySortCompFunc` | Comparison function for qsort (strcmp-based) | Added the missing C++ implementation in `LIB386/MENU/SORT.CPP` and strict ASM-vs-CPP comparison coverage in `tests/MENU/test_sort.cpp` over fixed and deterministic random string pairs. `tests/MENU/CMakeLists.txt` now compiles `SORT.CPP` directly into the test target so the real CPP implementation is exercised. |
 
-## pol_work/ — Polygon Rendering (14 pairs)
+## pol_work/ — polygon rendering (14 pairs)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
@@ -132,7 +132,7 @@ exists in both `.ASM` and `.CPP` form.
 | [x] | `pol_work/POLYTZG.ASM` | `pol_work/POLYTZG.CPP` | Filler_TextureZGouraud, ... (6 fillers) | TextureZ + Gouraud variants | ASM equiv — all 6 fillers tested (12 tests: 6 static + 6 random×300). Fixed CPP: wrong Z-buffer globals, NZW missing perspective correction, zbuf row offset, Z comparison/write shift, sub-pixel factor, UV addressing (>>8 not >>16). POLYTEXZ.ASM linked as ASM dep for perspective functions. |
 | [x] | `pol_work/TESTVUEF.ASM` | `pol_work/TESTVUEF.CPP` | TestVuePoly | Backface culling / polygon visibility | ASM equiv — 5 CPP + 5 ASM tests. Uses STRIP_C_ADAPT + inline asm wrapper. |
 
-## OBJECT/ — 3D Object Display (1 pair, multiple functions)
+## OBJECT/ — 3D object display (1 pair, multiple functions)
 
 | Status | ASM File | CPP File | Function(s) | Description | Notes |
 |--------|----------|----------|-------------|-------------|-------|
@@ -140,7 +140,7 @@ exists in both `.ASM` and `.CPP` form.
 
 ---
 
-## Known Discrepancies
+## Known discrepancies
 
 ### 1. ~~AffString — Glyph rendering direction and pixel offset~~ (FIXED)
 

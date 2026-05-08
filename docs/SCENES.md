@@ -1,4 +1,4 @@
-# Scene Index
+# Scene index
 
 All 223 game scenes (cubes 0-222), with location names from
 [LBALab/metadata](https://github.com/LBALab/metadata) (`SCENE.HQR.json`).
@@ -10,7 +10,7 @@ Object and zone counts can be observed in-game via the debug console
 
 For engine terms, see [GLOSSARY.md](GLOSSARY.md).
 
-## Zone Connectivity
+## Zone connectivity
 
 Scenes connect via type-0 zones (cube-change triggers). The full game has
 612 such directed edges.
@@ -282,7 +282,7 @@ Scenes connect via type-0 zones (cube-change triggers). The full game has
 | 192  | Secret scene           | interior | 9   | 1     |
 
 
-## Special Scenes
+## Special scenes
 
 
 | Cube | Location                  | Mode     | Obj | Zones |
@@ -292,7 +292,7 @@ Scenes connect via type-0 zones (cube-change triggers). The full game has
 | 222  | (empty)                   | interior | 0   | 0     |
 
 
-## Demo Scenes (193-221)
+## Demo scenes (193-221)
 
 Copies of game scenes used for the non-interactive demo/attract mode.
 

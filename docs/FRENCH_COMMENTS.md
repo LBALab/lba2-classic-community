@@ -1,14 +1,14 @@
-# French Comments
+# French comments
 
 Little Big Adventure 2 was developed by Adeline Software International in Lyon, France. The developers wrote their comments, debug messages, and variable names in French throughout the codebase. Many of these go beyond dry technical notes -- they show real personality, humor, frustration, and the everyday culture of a 1990s game studio under deadline pressure.
 
 This document preserves a curated selection of the most interesting French comments, with English translations that try to capture the original tone and vibe.
 
-**Attribution:** The French comments and strings documented here are from the **original** Adeline / lba2-classic codebase. They appear in C++ files that existed in the original release (e.g. PERSO.CPP, WAGON.CPP, SAVEGAME.CPP, OBJECT.CPP, BEZIER.CPP) or were preserved when porting ASM to C++. They reflect the historical 1990s Adeline team, not the community.
+**Attribution:** The French comments and strings documented here are from the original Adeline / lba2-classic codebase. They appear in C++ files that existed in the original release (e.g. PERSO.CPP, WAGON.CPP, SAVEGAME.CPP, OBJECT.CPP, BEZIER.CPP) or were preserved when porting ASM to C++. They reflect the historical 1990s Adeline team, not the community.
 
 ---
 
-## "Magouille" -- The Team's Favorite Word
+## "Magouille" -- the team's favorite word
 
 The word **magouille** (roughly: hack, kludge, sneaky workaround) appears at least six times across the codebase. It was clearly the team's go-to term for code they knew wasn't clean but needed to ship. In French, "magouille" carries more personality than the English "hack" -- it implies something slightly underhanded, like a dodgy shortcut you hope nobody notices.
 
@@ -56,7 +56,7 @@ Spoiler: the final version shipped with the hack.
 
 ---
 
-## Developer Frustration
+## Developer frustration
 
 **`SOURCES/PERSO.CPP:1953`**
 ```
@@ -119,7 +119,7 @@ The triple-s in "grossse" mirrors the exhaustion of the ellipsis. This comment s
 
 ---
 
-## Colloquial French / Humor
+## Colloquial French / humor
 
 **`SOURCES/PERSO.CPP:30`**
 ```
@@ -165,7 +165,7 @@ The recurring "faut-il le laisser?" suggests this was an actual team discussion 
 
 ---
 
-## In-Game French Strings
+## In-game French strings
 
 Some debug and warning messages were left in French, giving us a window into the developer-facing side of the game.
 
@@ -202,7 +202,7 @@ GraphPrintf( TRUE, 0, 0, "STOP: Patch Inputs trouvé !!!", TRUE ) ;
 
 ---
 
-## Cultural References
+## Cultural references
 
 **`SOURCES/BEZIER.CPP:10`**
 ```
@@ -235,7 +235,7 @@ case 0: // machine bof !!!!!!
 
 ---
 
-## Notable French Variable and Function Names
+## Notable French variable and function names
 
 | Name | File | Translation |
 |------|------|-------------|

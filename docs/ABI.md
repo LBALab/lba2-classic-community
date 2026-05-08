@@ -1,32 +1,32 @@
-# ABI Boundaries
+# ABI boundaries
 
 LBA2's retail data files (HQR resources, save games) were authored against the original 1997 32-bit DOS ABI. Modern builds run on 64-bit, where some C struct types grow because pointer-sized fields go from 4 to 8 bytes. Reading retail data through grown structs misaligns every record after the first pointer-sized field — this is what caused [issue #65](https://github.com/LBALab/lba2-classic-community/issues/65) (endgame credits segfault) and motivated [PR #63](https://github.com/LBALab/lba2-classic-community/pull/63) (legacy save-game compatibility).
 
-Truth hierarchy: **code > this document > external sources**.
+Truth hierarchy: code > this document > external sources.
 
 ## The rule
 
-> **A struct whose layout is dictated by a retail file or a legacy save format must never assume `sizeof(T)` matches the on-disk record size.**
+> A struct whose layout is dictated by a retail file or a legacy save format must never assume `sizeof(T)` matches the on-disk record size.
 
-Direct casts of file buffers to fat runtime structs are **always** wrong on 64-bit. The smell when this bites: two offsets that should differ read as identical, or all trailing fields read as `0`.
+Direct casts of file buffers to fat runtime structs are always wrong on 64-bit. The smell when this bites: two offsets that should differ read as identical, or all trailing fields read as `0`.
 
 ### Three patterns, each with a clear scope
 
-**Pattern (1) — Paired on-disk type.** Define a sister `T_DISK` (or `T_WIRE32`) struct with explicit-width fields, no pointers, no embedded fat types, and pin its size with a static-size assert. Read into the disk type, then copy fields into the runtime type. Use this when the wire format is **frozen and known** — retail HQR records, or the 32-bit-era legacy save layout.
+**Pattern (1) — Paired on-disk type.** Define a sister `T_DISK` (or `T_WIRE32`) struct with explicit-width fields, no pointers, no embedded fat types, and pin its size with a static-size assert. Read into the disk type, then copy fields into the runtime type. Use this when the wire format is frozen and known — retail HQR records, or the 32-bit-era legacy save layout.
 
 Existing examples:
 - [`S_CRED_OBJ_2_DISK`](../SOURCES/CREDITS.H) — credits HQR records, used in [`SOURCES/CREDITS.CPP`](../SOURCES/CREDITS.CPP) (#65).
 - `T_OBJ_3D_WIRE32` + `SavegameObj3dFromWire32` — embedded `T_OBJ_3D` blob in legacy saves, used in [`SOURCES/SAVEGAME.CPP`](../SOURCES/SAVEGAME.CPP) (#63).
 
-**Pattern (2) — Field-by-field serialization.** Read or write each field at a known wire width (`LbaWriteByte`, `LbaWriteWord`, `LbaWriteLong`); the in-memory struct is irrelevant to the format. Use this when **you control the writer** — new save versions, any new format you're authoring. The format becomes a wire protocol, decoupled from any C struct.
+**Pattern (2) — Field-by-field serialization.** Read or write each field at a known wire width (`LbaWriteByte`, `LbaWriteWord`, `LbaWriteLong`); the in-memory struct is irrelevant to the format. Use this when you control the writer — new save versions, any new format you're authoring. The format becomes a wire protocol, decoupled from any C struct.
 
 Existing example: most of [`SaveContexte` / `LoadContexte`](../SOURCES/SAVEGAME.CPP) — see comments at lines 825–837 explicitly skipping `T_OBJ_3D` and pointer fields. Issue #64 extends this pattern into a fully canonical save format.
 
-**Pattern (3) — Tolerant read with stride retry.** When the writer's ABI is **fundamentally unknown at read time** — typically player-authored saves spanning eras (32-bit DOS retail, 32-bit modern, 64-bit modern) — pick a candidate stride, read at it, validate a discriminating field per record, rewind and retry the alternate stride on mismatch. Only fail if every candidate fails.
+**Pattern (3) — Tolerant read with stride retry.** When the writer's ABI is fundamentally unknown at read time — typically player-authored saves spanning eras (32-bit DOS retail, 32-bit modern, 64-bit modern) — pick a candidate stride, read at it, validate a discriminating field per record, rewind and retry the alternate stride on mismatch. Only fail if every candidate fails.
 
 Existing example: `LoadContexteReadObjectsAtStride` + `SaveLoadGuessObjectWireStride` in [`SOURCES/SAVEGAME.CPP`](../SOURCES/SAVEGAME.CPP) (#63). Validates `IndexFile3D` per object as the discriminator.
 
-This is **not a fallback for sloppy parsing** — it's the right answer when player saves authored by older binaries must remain loadable. New formats should use pattern (2) and avoid the need entirely.
+This is not a fallback for sloppy parsing — it's the right answer when player saves authored by older binaries must remain loadable. New formats should use pattern (2) and avoid the need entirely.
 
 ### Bounded reads (orthogonal safety layer)
 

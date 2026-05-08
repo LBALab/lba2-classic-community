@@ -2,7 +2,7 @@
 
 Index of documentation in this repository.
 
-**New to the fork?** Start with the root [README](../README.md) (**First clone** + prerequisites), then [GAME_DATA.md](GAME_DATA.md) for retail files and discovery (you are not required to use a fixed layout — see overrides there).
+**New to the fork?** Start with the root [README](../README.md) (First clone + prerequisites), then [GAME_DATA.md](GAME_DATA.md) for retail files and discovery (you are not required to use a fixed layout — see overrides there).
 
 ## Engine reference
 
@@ -27,12 +27,11 @@ Index of documentation in this repository.
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
 | [RELEASING.md](RELEASING.md) | Maintainer recipe for cutting a release: versioning, the `1.0` bar, `git-cliff`, engine version vs `NUM_VERSION`. |
 
-
 ## Testing
 
 | Doc | Description |
 |-----|-------------|
-| [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and **CI workflow** summary. |
+| [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and CI workflow summary. |
 
 ## Preservation & culture
 
@@ -48,6 +47,8 @@ Index of documentation in this repository.
 | [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
+| [ASM_VALIDATION_PROGRESS.md](ASM_VALIDATION_PROGRESS.md) | Per-pair equivalence-test status across LIB386 ASM/CPP pairs. |
+| [ASM_TEST_COVERAGE_AUDIT.md](ASM_TEST_COVERAGE_AUDIT.md) | Rubric and progress for strengthening existing equivalence-test coverage (branches, side effects, edge inputs). |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |
 | [GFX_OPTIONS.md](GFX_OPTIONS.md) | Variables and locations for graphical quality options. |
 | [ABI.md](ABI.md) | Rule for reading 32-bit DOS-era data on 64-bit hosts; catalogue of fat types; compile-time guards. |

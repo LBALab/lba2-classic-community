@@ -1,4 +1,4 @@
-# Graphical Quality Options
+# Graphical quality options
 
 Variables and locations that can be changed or exposed as options to improve graphical quality, increase details and effects, etc.
 

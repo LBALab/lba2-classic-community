@@ -1,9 +1,9 @@
-# Engine Glossary
+# Engine glossary
 
 Domain terms for the LBA2 engine. Each entry links to the source file where the
 concept is defined or primarily implemented.
 
-Truth hierarchy: **code > this document > external sources**.
+Truth hierarchy: code > this document > external sources.
 
 ## World
 
@@ -16,7 +16,7 @@ Truth hierarchy: **code > this document > external sources**.
 | Zone type | -- | Numeric 0-9 (`MAX_TYPES_ZONE=10`). Type 0 = cube change, type 1 = camera, type 6 = ladder. No named constants in source. | `SOURCES/COMMON.H`, `SOURCES/OBJECT.CPP` | -- |
 | HQR | -- | Archive file format used for all game resources. | `SOURCES/COMMON.H` (file name constants) | [LBA File Info](https://lbafileinfo.kaziq.net/index.php/LBA_2_files) (incomplete; missing video.hqr) |
 
-## HQR Resource Files
+## HQR resource files
 
 Purposes sourced from [LBA File Info](https://lbafileinfo.kaziq.net/index.php/LBA_2_files),
 verified against `#define` constants in `SOURCES/COMMON.H` (lines 66-80).
@@ -41,7 +41,7 @@ LBA File Info omits `video.hqr`; the list below is complete per the source code.
 | `video.hqr` | Video/cinematic data |
 | `scrshot.hqr` | Demo screenshot images |
 
-### ILE/OBL Pairs (exterior island surfaces)
+### ILE/OBL pairs (exterior island surfaces)
 
 Each island has a `.ile` (3D surface + textures) and `.obl` (3D objects) file.
 Loaded dynamically by `SOURCES/3DEXT/LOADISLE.CPP`; island base names (for index)
@@ -64,7 +64,7 @@ in `SOURCES/EXTFUNC.CPP` (lines 202-213). Table below shows asset filenames.
 | `Souscelb.ile/obl` | Volcano Island |
 | `Moon.ile/obl` | Emerald Moon (second visit) |
 
-### VOX Files (voice packs)
+### VOX files (voice packs)
 
 `xx_NNN.vox` where `xx` is the language code. See [LBA File Info](https://lbafileinfo.kaziq.net/index.php/LBA_2_files) for per-island mapping.
 
@@ -98,7 +98,7 @@ in `SOURCES/EXTFUNC.CPP` (lines 202-213). Table below shows asset filenames.
 | Input | Input bitmask | Bitfield of currently pressed actions. See input names table below. | `SOURCES/PERSO.CPP` (`MyGetInput`) | -- |
 | Beta | Facing angle | Object orientation, 0-4095 (4096 = 360 degrees). 0 = +Z (north), 1024 = +X (east), 2048 = -Z (south), 3072 = -X (west). | `SOURCES/DEFINES.H` (`MAX_ANGLE=4096`) | -- |
 
-## Collision Grid (interior scenes)
+## Collision grid (interior scenes)
 
 Interior scenes use an isometric grid-based collision system.
 
@@ -138,7 +138,7 @@ in a 512-unit cell. Off-center positions cause corner clipping.
 | Turn rate (walking) | ~41 beta/frame | UP+LEFT or UP+RIGHT composite input |
 | Beta range | 0-4095 (4096 = 360 degrees) | 0=north, 1024=east, 2048=south, 3072=west |
 
-## Enum Reference Tables
+## Enum reference tables
 
 ### GenAnim (animation IDs)
 
@@ -211,7 +211,7 @@ in a 512-unit cell. Off-center positions cause corner clipping.
 | 11 | GEN_BODY_MAGE_TIR | Wizard (firing) |
 | 12 | GEN_BODY_LABYRINTHE | Labyrinth |
 
-### Move Types
+### Move types
 
 | Value | Constant | Meaning |
 |-------|----------|---------|
@@ -249,7 +249,7 @@ in a 512-unit cell. Off-center positions cause corner clipping.
 | 12 | C_BUGGY | Buggy vehicle |
 | 13 | C_SKELETON | Skeleton disguise |
 
-### Object Flags (bit positions)
+### Object flags (bit positions)
 
 | Bit | Constant | Meaning |
 |-----|----------|---------|
@@ -304,7 +304,7 @@ in a 512-unit cell. Off-center positions cause corner clipping.
 | 22 | WAIT_COORD | Waiting for coordinates |
 | 23 | CHECK_FALLING | Checking fall state |
 
-### Input Names
+### Input names
 
 Available in the `Input` bitmask (see `MyGetInput`):
 
