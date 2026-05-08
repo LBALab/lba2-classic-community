@@ -94,7 +94,7 @@ available on `PATH`.
   cmake --build --preset cross_linux2win
   ```
 
-### Build Options
+### Build options
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
@@ -106,7 +106,7 @@ available on `PATH`.
 
 When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the FMV player. Video audio routes through the active sound backend (SDL: real audio; NULL/MILES: silent). See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 
-### Debug Console
+### Debug console
 
 This source port includes a Quake-style drop-down debug console. It lets you inspect engine/game state and run developer commands during gameplay, which is useful for both debugging and interactive exploration of engine behavior.
 
@@ -114,7 +114,7 @@ It is designed to be minimally invasive: normal gameplay is unchanged unless you
 
 See [docs/CONSOLE.md](docs/CONSOLE.md) for commands, usage, and integration details.
 
-### Debug Tools
+### Debug tools
 
 To build with the original Adeline developer debug tools enabled:
 
@@ -134,7 +134,7 @@ cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-i686.cmake
 cmake --build build
 ```
 
-## Project Structure
+## Project structure
 
 ```text
 lba2-classic-community/
@@ -169,7 +169,7 @@ lba2-classic-community/
 
 Build, debug, preservation, and porting docs are in [docs/](docs/README.md).
 
-## Preservation Notes
+## Preservation notes
 
 This codebase is a window into 1990s game development at Adeline Software International in Lyon, France. Beyond the technical content, the source files contain original developer artifacts worth exploring. The ASCII art and French comments documented below are from the original Adeline / lba2-classic codebase (same files or content preserved when porting ASM to C++ in this fork).
 
@@ -197,7 +197,7 @@ Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-commun
 * [GOG](https://www.gog.com/game/little_big_adventure_2)  
 * [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/)
 
-## Original Development Team
+## Original development team
 
 *Direction:* Frédérick Raynal
 *Programmers:* Sébastien Viannay / Laurent Salmeron / Cédric Bermond / Frantz Cournil / Marc Bureau du Colombier

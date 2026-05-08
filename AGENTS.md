@@ -1,4 +1,4 @@
-# Agent Guidance — LBA2 Classic Community
+# Agent guidance — LBA2 Classic Community
 
 This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work effectively on this codebase. Read it before making changes or answering questions about the code.
 
@@ -31,7 +31,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - Do only what was asked; avoid scope creep (refactoring, "improving" unrelated code)
 - When the user's intent is ambiguous, ask before proceeding—do not guess.
 
-## Golden Rules
+## Golden rules
 
 - **ASM is the source of truth.** All equivalence tests compare ASM vs C++ byte-for-byte. Use `ASSERT_ASM_CPP_EQ_INT` for scalars, `ASSERT_ASM_CPP_MEM_EQ` for buffers.
 - **Preservation:** French comments, ASCII art, attribution—these are historical artifacts. Add clarifying comments alongside originals; do not replace them.
@@ -42,7 +42,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 - **Say when unsure:** If uncertain whether a change is correct, say so. Prefer "I'm not certain" over confident but wrong.
 - **Pin fixes with a test or a repro hook.** When fixing a bug, first ask whether the affected logic is pure-data (parsing, serialization, math, projection, sort) — if yes, extracting it into a pure function and adding a host test is usually a small additional refactor and should be done as part of the fix. When automation is impractical (state, timing, UI), ship a manual repro hook instead (a console command, debug menu entry, or build flag). See [CONTRIBUTING.md "Doing good work here"](CONTRIBUTING.md#doing-good-work-here) for the rationale.
 
-## Execution Style (Karpathy-Inspired)
+## Execution style (Karpathy-inspired)
 
 Apply these behavior rules on every non-trivial task:
 
@@ -51,14 +51,14 @@ Apply these behavior rules on every non-trivial task:
 3. **Surgical changes:** Touch only files and lines needed for the requested outcome. Avoid drive-by refactors, formatting churn, or unrelated cleanup.
 4. **Goal-driven execution:** Define concrete success criteria (preferably tests or reproducible checks), implement, then verify results before declaring done.
 
-## Project Overview
+## Project overview
 
 - **What:** Community fork of the LBA2 (Twinsen's Odyssey) engine for preservation and modernization.
 - **Main work:** Porting x86 assembly to C++ while preserving exact behavior. ASM remains the source of truth.
 - **Stack:** C++98 game logic, LIB386 engine libraries (C linkage), x86 ASM (UASM), SDL3, libsmacker.
 - **Structure:** `SOURCES/` = game logic; `LIB386/` = engine (3D, audio, rendering); `docs/` = reference documentation.
 
-## Build & Test
+## Build & test
 
 - **Build:** `cmake -B build && cmake --build build`. Or use presets for your platform: `cmake --preset <preset> && cmake --build --preset <preset>` — `linux`, `macos_arm64`, `macos_x86_64`, `windows_ucrt64` (see `CMakePresets.json`).
 - **Game data:** Retail files are not in the repo. See `docs/GAME_DATA.md`. Set `LBA2_GAME_DIR`, use `--game-dir`, or place data in `./data` / `../LBA2` relative to the repo. From anywhere in the clone: `./scripts/dev/build-and-run.sh` or `make run` (repo root).
@@ -70,7 +70,7 @@ Apply these behavior rules on every non-trivial task:
 - **When tests fail:** Do not relax tests. For ASM↔CPP: use `--bisect` to find first divergence, add debug traces to both ASM and CPP, extract failing inputs into a focused unit test, fix CPP to match ASM. For other bugs: read the relevant subsystem doc (AUDIO, MENU, DEBUG, etc.), map the code path, fix the bug, verify with build/tests.
 - **Minimal build** (no audio/video): `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for quick iteration.
 
-## When Modifying X, Do Y
+## When modifying X, do Y
 
 | Modifying | Do | See |
 |-----------|-----|-----|
@@ -88,7 +88,7 @@ Apply these behavior rules on every non-trivial task:
 | Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
 | Editing docs (any `.md`) | Sentence-case headings; bold for structure only (list-item / paragraph leads, table row labels), not mid-sentence emphasis; verify file/line refs; from `docs/`, link to source with `../SOURCES/...` / `../LIB386/...` | "Editing docs" below; CONTRIBUTING.md "Doing good work here" |
 
-## Code Conventions
+## Code conventions
 
 - Indentation: 4 spaces (C/C++); tabs preserved in ASM
 - Formatting: clang-format with checked-in `.clang-format`; ASM and `LIB386/libsmacker/` excluded
@@ -162,7 +162,7 @@ both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
 *body* instead, using GitHub's standard keywords (`Closes #65`,
 `Fixes #65`, `Refs #65`).
 
-## Further Reading
+## Further reading
 
 - [LICENSE](LICENSE) — GPL v2; project license
 - [CONTRIBUTING.md](CONTRIBUTING.md) — Code style, preservation, PR workflow
