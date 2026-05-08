@@ -1,8 +1,8 @@
-# Savegame System
+# Savegame system
 
-Savegame files (`.lba`) store game state: scene, position, inventory, holomap, screenshot, and more. This doc covers the engine **lifecycle**, **save/load pipelines**, **binary layout**, and **version / compatibility** behaviour. Layout is verified against `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
+Savegame files (`.lba`) store game state: scene, position, inventory, holomap, screenshot, and more. This doc covers the engine lifecycle, save/load pipelines, binary layout, and version / compatibility behaviour. Layout is verified against `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP).
 
-Truth hierarchy: **code > this document > external sources**.
+Truth hierarchy: code > this document > external sources.
 
 ## File paths
 
@@ -12,17 +12,17 @@ Truth hierarchy: **code > this document > external sources**.
 | `autosave.lba` | `AUTOSAVE_FILENAME` | Auto-save during gameplay |
 | `*.lba` | User-chosen | Named saves (player name → filename) |
 
-Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir>/save/` + filename ([SOURCES/DIRECTORIES.CPP](SOURCES/DIRECTORIES.CPP)).
+Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir>/save/` + filename ([SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP)).
 
 ### Bug saves (`save/bugs/`)
 
-**Purpose:** Repro / QA snapshots kept **separate** from player slots. Same **`.lba` binary format** and **`SaveGame()` / `LoadGame()`** machinery as normal saves ([SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP)); only **path**, **who triggers the write**, and **default compression** differ.
+**Purpose:** Repro / QA snapshots kept **separate** from player slots. Same **`.lba` binary format** and **`SaveGame()` / `LoadGame()`** machinery as normal saves ([SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP)); only **path**, **who triggers the write**, and **default compression** differ.
 
 | Topic | Regular saves | Bug saves |
 |--------|----------------|-----------|
-| **Directory** | `GetSavePath(..., "<file>.lba")` → `<userDir>/save/` (root) for named slots; `current.lba` / `autosave.lba` for quick/auto | `GetBugPath(..., "<file>.lba")` → `<userDir>/save/bugs/` ([SOURCES/DIRECTORIES.CPP](SOURCES/DIRECTORIES.CPP) `GetBugPath`) |
-| **Compression** | **`AutoSaveGame` / `CurrentSaveGame`:** `NumVersion = NUM_VERSION` only (uncompressed). **`CompressSave` in `lba2.cfg`:** merged at startup into `NumVersion` ([SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) `ReadConfigFile`). **Menu “Save Game” (slot):** sets the compression high bit on `NumVersion` before `SaveGame` ([SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP)). | **DEBUG menu bug save** and **console `savebug`:** set `NumVersion` to **`NUM_VERSION` with `SAVE_COMPRESS`** before `SaveGame` ([SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP) case 2001; [SOURCES/CONSOLE/CONSOLE_CMD.CPP](SOURCES/CONSOLE/CONSOLE_CMD.CPP) `cmd_savebug`). |
-| **Entry points** | Main menu save/load, autosave, argv/console **`load`** | **DEBUG_TOOLS:** in-game `G` / menu load case 2000 / menu save case 2001 ([SOURCES/GAMEMENU.CPP](SOURCES/GAMEMENU.CPP)). **Always-on console:** `savebug`, `loadbug`, `listbugs` ([CONSOLE.md](CONSOLE.md)). |
+| **Directory** | `GetSavePath(..., "<file>.lba")` → `<userDir>/save/` (root) for named slots; `current.lba` / `autosave.lba` for quick/auto | `GetBugPath(..., "<file>.lba")` → `<userDir>/save/bugs/` ([SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP) `GetBugPath`) |
+| **Compression** | **`AutoSaveGame` / `CurrentSaveGame`:** `NumVersion = NUM_VERSION` only (uncompressed). **`CompressSave` in `lba2.cfg`:** merged at startup into `NumVersion` ([SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) `ReadConfigFile`). **Menu “Save Game” (slot):** sets the compression high bit on `NumVersion` before `SaveGame` ([SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP)). | **DEBUG menu bug save** and **console `savebug`:** set `NumVersion` to **`NUM_VERSION` with `SAVE_COMPRESS`** before `SaveGame` ([SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) case 2001; [SOURCES/CONSOLE/CONSOLE_CMD.CPP](../SOURCES/CONSOLE/CONSOLE_CMD.CPP) `cmd_savebug`). |
+| **Entry points** | Main menu save/load, autosave, argv/console **`load`** | **DEBUG_TOOLS:** in-game `G` / menu load case 2000 / menu save case 2001 ([SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP)). **Always-on console:** `savebug`, `loadbug`, `listbugs` ([CONSOLE.md](CONSOLE.md)). |
 
 **Console `savebug`:** requires an **in-game loaded scene** (same gate as `give`); **`loadbug`** only checks that `bugs/<name>.lba` exists. See [CONSOLE.md](CONSOLE.md).
 
@@ -37,7 +37,7 @@ Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir
 | Auto-save | `AutoSaveGame()` | Saves to `autosave.lba` at scene transitions |
 | Bug save | `SaveGame(TRUE)` | **`save/bugs/`** via DEBUG menu (DEBUG_TOOLS), in-game **`G`**, or console **`savebug`** |
 
-**Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) – `SaveGame`, `CurrentSaveGame`, `AutoSaveGame`
+**Code:** [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP) – `SaveGame`, `CurrentSaveGame`, `AutoSaveGame`
 
 ### Load
 
@@ -48,11 +48,11 @@ Path resolution: `GetSavePath(outPath, pathMaxSize, saveFilename)` → `<userDir
 | Load player name only | `LoadGamePlayerName()` | Reads header + player name; used when listing saves |
 | Cube index only (lightweight) | `LoadGameNumCube()` | Used when `FlagLoadGame` is set before a cube transition (e.g. startup argv save, console **`load`** / **`loadbug`**) — reads header, optional decompress, skips screenshot, restores `ListVarGame` only |
 
-**Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) – `LoadGame`, `LoadGameNumCube`, `LoadGameScreen`, `LoadGamePlayerName`. Full game load from disk is wired through `FlagLoadGame` in [SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP) `ChangeCube` (see [Version compatibility](#version-compatibility)).
+**Code:** [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP) – `LoadGame`, `LoadGameNumCube`, `LoadGameScreen`, `LoadGamePlayerName`. Full game load from disk is wired through `FlagLoadGame` in [SOURCES/OBJECT.CPP](../SOURCES/OBJECT.CPP) `ChangeCube` (see [Version compatibility](#version-compatibility)).
 
 ## Save pipeline (`SaveGame`)
 
-Order in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) (retail path):
+Order in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP) (retail path):
 
 1. Build stream at `PtrSave` (from `BufSpeak + 50000` in the non-editor build).
 2. Write **version byte** (`NUM_VERSION` in low 7 bits; high bit set if `CompressSave` requests compression — see [Version byte on disk](#version-byte-on-disk)), **cube** (`NumCube`), null-terminated **`PlayerName`**.
@@ -61,11 +61,11 @@ Order in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) (retail path):
 5. Append **`ValidePos` / `LastValidePos`**; if `!ValidePos`, append **`ValideCube`**, **`SizeOfBufferValidePos`**, and **`BufferValidePos`**.
 6. If compressing: LZSS-compress the block from `memoptr` onward, patch **`sizefile`**, write file with **`Save()`**.
 
-Constants: `NUM_VERSION`, `SAVE_COMPRESS`, `MASK_NUM_VERSION` in [SOURCES/COMMON.H](SOURCES/COMMON.H).
+Constants: `NUM_VERSION`, `SAVE_COMPRESS`, `MASK_NUM_VERSION` in [SOURCES/COMMON.H](../SOURCES/COMMON.H).
 
 ## Full load pipeline (`LoadGame`)
 
-1. **`LoadSize`** — reads into **`Screen`** up to **`640×480 + RECOVER_AREA`** (see [SOURCES/MEM.CPP](SOURCES/MEM.CPP)); larger files are rejected.
+1. **`LoadSize`** — reads into **`Screen`** up to **`640×480 + RECOVER_AREA`** (see [SOURCES/MEM.CPP](../SOURCES/MEM.CPP)); larger files are rejected.
 2. Read **`NumVersion`**, **`NewCube`**, **`PlayerName`** (NUL-terminated in the file; reader is **bounded** by **`MAX_SIZE_PLAYER_NAME`**).
 3. If **`NumVersion & SAVE_COMPRESS`**: read **`sizefile`**, validate staging, copy compressed tail, **`ExpandLZ(..., mode 2)`** (matches `Compress_LZSS`).
 4. **`PtrSave += 160 * 120`** — skip screenshot so the next reads align with **game context** offsets in this doc.
@@ -98,7 +98,7 @@ Compression: `Compress_LZSS` / `ExpandLZ` (mode 2). The payload (screenshot + ga
 
 ### Version byte on disk
 
-The first byte combines two ideas (macros in [SOURCES/COMMON.H](SOURCES/COMMON.H)):
+The first byte combines two ideas (macros in [SOURCES/COMMON.H](../SOURCES/COMMON.H)):
 
 | Constant | Value | Role |
 |----------|-------|------|
@@ -277,16 +277,16 @@ The **layout revision** is the low 7 bits of the first byte (`NUM_VERSION`, curr
 | ≥ 35 | Per-object **`SampleAlways`** (`S32`) added. |
 | ≥ 36 | Per-object **`SampleVolume`** (`U8`) added. |
 
-**Code:** [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) — `LoadContexte` / `SaveContexte` (object loop ~1216–1356).
+**Code:** [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP) — `LoadContexte` / `SaveContexte` (object loop ~1216–1356).
 
 ### Checksum, `SceneStartX`, and `flaginit`
 
 After reading the stored **`Checksum`**, the engine compares it to the runtime **`Checksum`** (scenario-dependent).
 
-- **Mismatch:** `SceneStartX` is forced to **`-1`**. A warning may be shown in **DEBUG_TOOLS** / **TEST_TOOLS**. The loader then follows the **`if (SceneStartX == -1)`** branch in `LoadContexte` and **skips** restoring the large “extended” blob (objects, patches, flows, camera, …) — see the `if (SceneStartX == -1)` vs `else` structure in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
+- **Mismatch:** `SceneStartX` is forced to **`-1`**. A warning may be shown in **DEBUG_TOOLS** / **TEST_TOOLS**. The loader then follows the **`if (SceneStartX == -1)`** branch in `LoadContexte` and **skips** restoring the large “extended” blob (objects, patches, flows, camera, …) — see the `if (SceneStartX == -1)` vs `else` structure in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP).
 - **`LoadContexte` return value (`flaginit` inside `LoadGame`):** **`TRUE`** when the checksum / `SceneStartX == -1` short path ran (hero and globals repaired without consuming the extended blob), **`FALSE`** after a normal full restore of objects, patches, flows, etc.
 
-**`LoadGame`** returns that value into **`flagload`** in **`ChangeCube`** ([SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP)):
+**`LoadGame`** returns that value into **`flagload`** in **`ChangeCube`** ([SOURCES/OBJECT.CPP](../SOURCES/OBJECT.CPP)):
 
 ```text
 if (flagload < 0 || !flagload) InitLoadedGame(); else LoadFile3dObjects();
@@ -299,9 +299,9 @@ So **`flagload == 0`** (falsy → **`InitLoadedGame()`**) is the **usual** full 
 - **Release build:** When loading a save, **`LoadGame()` → `LoadContexte`** is always used. If the save’s layout revision **≠** `NUM_VERSION`, the byte stream **misaligns** — expect corruption or crashes; there is **no** automatic fallback.
 - **`DEBUG_TOOLS` or `TEST_TOOLS`:** In `ChangeCube`, if **`(NumVersion & MASK_NUM_VERSION) != NUM_VERSION`**, the engine shows the French warning (*Sauvegarde trop ancienne…*) and calls **`LoadGameOldVersion()`** instead of **`LoadGame()`**.
 
-**`LoadGameOldVersion`** ([SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP)): same header + optional decompress + skip screenshot, then restores only the **early** context (`ListVarGame`, `ListVarCube`, comportement, money/magic/keys, start positions, holomap, inventory). It does **not** restore darts, objects, patches, extras, zones, incrust, flows, camera, etc. Returns **`TRUE`**.
+**`LoadGameOldVersion`** ([SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP)): same header + optional decompress + skip screenshot, then restores only the **early** context (`ListVarGame`, `ListVarCube`, comportement, money/magic/keys, start positions, holomap, inventory). It does **not** restore darts, objects, patches, extras, zones, incrust, flows, camera, etc. Returns **`TRUE`**.
 
-**Call site:** [SOURCES/OBJECT.CPP](SOURCES/OBJECT.CPP) — `ChangeCube`, `if (FlagLoadGame)` block (search for `LoadGameOldVersion` / `FlagLoadGame`).
+**Call site:** [SOURCES/OBJECT.CPP](../SOURCES/OBJECT.CPP) — `ChangeCube`, `if (FlagLoadGame)` block (search for `LoadGameOldVersion` / `FlagLoadGame`).
 
 ### 32-bit vs 64-bit and pointers
 
@@ -325,7 +325,7 @@ The retry is what makes the choice safe: a wrong heuristic guess no longer corru
 
 **Ambiguity is static-walk only — not runtime.** The probe's forward simulator labels a save "ambiguous" when both ABI walks pass through every `MAX_`-bounded landmark (NbPatches, NbZones, NbExtras, NbFlows, per-flow NbDots). Empirically (15/50 of the bundled Steam corpus), this happens when small object/extra/flow counts produce data that satisfies bounds under either stride hypothesis. **The engine resolves these at runtime decisively**: under forced `LBA2_SAVE_LOAD_ABI=32` all 15 load with `flagload=0`; under forced `LBA2_SAVE_LOAD_ABI=64` (audit-only build) all 15 cleanly reject with `flagload=-2`. The engine's discriminating power comes from validation steps the offline probe can't replicate (`IndexFile3D` against the body HQR table, `ListPatches[n].Size` against the loaded scene). Implication for lossiness: a wrong-ABI load *cannot* silently produce corrupt state — it produces `SAVELOAD_CTX_ERR` before any runtime state is replaced. The auto-retry then picks the correct stride and the load succeeds.
 
-**`PtrZoneClimb`:** stored and restored as a **32-bit** value (`LbaWriteLong` / read as `U32`); it does not round-trip a true 64-bit pointer. See `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP).
+**`PtrZoneClimb`:** stored and restored as a **32-bit** value (`LbaWriteLong` / read as `U32`); it does not round-trip a true 64-bit pointer. See `SaveContexte` / `LoadContexte` in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP).
 
 ### Recommendations
 
@@ -335,7 +335,7 @@ The retry is what makes the choice safe: a wrong heuristic guess no longer corru
 
 ## Format hardening (issue #62)
 
-Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load of 32-bit retail-wire saves on 64-bit hosts. Implemented in [SOURCES/SAVEGAME.CPP](SOURCES/SAVEGAME.CPP) and [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](SOURCES/SAVEGAME_LOAD_BOUNDS.CPP). Reference table — every guard at a glance:
+Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load of 32-bit retail-wire saves on 64-bit hosts. Implemented in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP) and [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP). Reference table — every guard at a glance:
 
 | Field / region | Limit | Behavior on violation | Notes |
 |----------------|-------|------------------------|-------|
@@ -356,7 +356,7 @@ Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load 
 | `S_PART_FLOW` blob (32-bit wire) | 60 bytes | **Migrate** | `S_PART_FLOW_WIRE32` decode + `SavegameFlowFromWire32`. Native sizeof 64 → 4-byte over-run per flow; chosen at the same `wire32_abi` flag. |
 | Flow dots `wbyte2` | `MAX_FLOW_DOTS` (100) | **Reject** | Upper bound. |
 | Valid-pos tail `SizeOfBufferValidePos` | `SIZE_BUFFER_VALIDE_POS` | **Reject** | Checked in `LoadGame`. |
-| Checkpoint `LoadContexte` | `BufferValidePos` allocation | **Reject** | [SOURCES/VALIDPOS.CPP](SOURCES/VALIDPOS.CPP) sets the read limit before calling. |
+| Checkpoint `LoadContexte` | `BufferValidePos` allocation | **Reject** | [SOURCES/VALIDPOS.CPP](../SOURCES/VALIDPOS.CPP) sets the read limit before calling. |
 | Post-load branch | `OBJECT.CPP::ChangeCube` | **Fail safe** | `flagload == LOADGAME_ERR_CONTEXT` → skip `InitLoadedGame` *and* `CheckProtoPack`. Other negative / falsy returns still take the legacy `InitLoadedGame` path. |
 
 DEBUG / `NumVersion` < 34 extra fields are unchanged (still only in DEBUG / TEST / EDIT builds).
@@ -429,7 +429,7 @@ A complete save format doc enables console commands such as:
 ## Tooling (`save_probe` / `save_decompress` / `--save-load-test`)
 
 - **[scripts/save_probe.py](../scripts/save_probe.py)** — Header, optional **LZSS** decompression via **`save_decompress`**, `NbObjets` at game-context offset **1478**, heuristic **`obj3d_abi`** (32 vs 64) using **`NbPatches`**, strict patch-blob fit, and extras count bound (reports **`ambiguous`** when neither stride wins clearly — use **`--obj3d-abi 32|64`** to force). Also walks the full `LoadContexte` field sequence (objects → patches → extras → zones → incrust → flows → flow-dots) under each ABI hypothesis using the engine's actual `MAX_` constants and emits **`predicted_abi`** + **`predicted_outcome`** (`ok` / `ctxerr_at_<field>` / `corrupt`). The forward-simulator is what disambiguates most "ambiguous" cases the score-based heuristic flagged; both signals are kept side-by-side for traceability. Environment **`LBA2_SAVE_PROBE_ABI=32|64`** applies when **`--obj3d-abi auto`** (CLI overrides env). **`--json-lines`** prints **NDJSON** (includes **`version_byte_hex`**, **`dump_lines`** as a string array when **`--dump`**). **`num_version` < 34** sets **`layout_warning`**. Flags: **`--dump`**, **`--json-lines`**, **`--compare`**, **`--recursive`**, **`--summary`** (counts on stderr, safe with **`--json-lines`**). Set **`LBA2_SAVE_DECOMPRESS`** to the helper if it is not found under `build/tools/` or `out/build/*/tools/` (or **`PATH`**).
-- **`save_decompress`** (CMake target) — stdin = compressed tail, argv\[1\] = decompressed byte count, stdout = raw payload. Uses **`ExpandLZ(..., MinBloc=2)`** from [LIB386/SYSTEM/LZ.CPP](LIB386/SYSTEM/LZ.CPP). Build: `cmake --build <dir> --target save_decompress` (option **`LBA2_BUILD_SAVE_TOOLS`**, default ON).
+- **`save_decompress`** (CMake target) — stdin = compressed tail, argv\[1\] = decompressed byte count, stdout = raw payload. Uses **`ExpandLZ(..., MinBloc=2)`** from [LIB386/SYSTEM/LZ.CPP](../LIB386/SYSTEM/LZ.CPP). Build: `cmake --build <dir> --target save_decompress` (option **`LBA2_BUILD_SAVE_TOOLS`**, default ON).
 - **[scripts/save_probe_lz_selftest.py](../scripts/save_probe_lz_selftest.py)** — Golden LZ vectors aligned with [tests/SYSTEM/test_lz.cpp](tests/SYSTEM/test_lz.cpp). **`make save-probe-lz-selftest`** configures with **`LBA2_BUILD_SAVE_TOOLS=ON`**, builds **`save_decompress`**, runs the script.
 - **`lba2 --save-load-test <path>`** — single-shot load harness. Boots the engine to the menu (skips logos in this mode), replicates the "Load Game" path on the given save (`InitGame(-1)` + `ChangeCube()`), prints `SAVE_LOAD_TEST: stage=<name> …` lines to stdout, and exits. Useful when investigating any save-loading bug — much faster iteration than navigating to the menu manually. Requires retail game data (use `--game-dir` or `LBA2_GAME_DIR`). Layer-3 driver scripts in [tests/savegame/corpus/](../tests/savegame/corpus/) wrap this for full-corpus regression matrices.
 
