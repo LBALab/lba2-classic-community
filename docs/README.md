@@ -48,6 +48,8 @@ Index of documentation in this repository.
 | [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
+| [ASM_VALIDATION_PROGRESS.md](ASM_VALIDATION_PROGRESS.md) | Per-pair equivalence-test status across LIB386 ASM/CPP pairs. |
+| [ASM_TEST_COVERAGE_AUDIT.md](ASM_TEST_COVERAGE_AUDIT.md) | Rubric and progress for strengthening existing equivalence-test coverage (branches, side effects, edge inputs). |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |
 | [GFX_OPTIONS.md](GFX_OPTIONS.md) | Variables and locations for graphical quality options. |
 | [ABI.md](ABI.md) | Rule for reading 32-bit DOS-era data on 64-bit hosts; catalogue of fat types; compile-time guards. |

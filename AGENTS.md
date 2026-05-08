@@ -6,7 +6,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 1. **Truth hierarchy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins—then update the docs.
 
-2. **Document accuracy:** Docs drift from code over time. When you change behavior, update the relevant docs in the same commit or PR—environment trumps willpower; maintainers may forget. Keep `ASM_VALIDATION_PROGRESS.md` and `ASM_TO_CPP_REFERENCE.md` current. If you notice code and docs conflict, fix the docs (code wins).
+2. **Document accuracy:** Docs drift from code over time. When you change behavior, update the relevant docs in the same commit or PR—environment trumps willpower; maintainers may forget. Keep `docs/ASM_VALIDATION_PROGRESS.md` and `docs/ASM_TO_CPP_REFERENCE.md` current. If you notice code and docs conflict, fix the docs (code wins).
 
 3. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
 
@@ -35,7 +35,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 - **ASM is the source of truth.** All equivalence tests compare ASM vs C++ byte-for-byte. Use `ASSERT_ASM_CPP_EQ_INT` for scalars, `ASSERT_ASM_CPP_MEM_EQ` for buffers.
 - **Preservation:** French comments, ASCII art, attribution—these are historical artifacts. Add clarifying comments alongside originals; do not replace them.
-- **Documentation first:** Use `docs/GLOSSARY.md` for domain terms, `docs/LIFECYCLES.md` for lifecycles, `ASM_TO_CPP_REFERENCE.md` for port status, `ASM_VALIDATION_PROGRESS.md` for test coverage.
+- **Documentation first:** Use `docs/GLOSSARY.md` for domain terms, `docs/LIFECYCLES.md` for lifecycles, `docs/ASM_TO_CPP_REFERENCE.md` for port status, `docs/ASM_VALIDATION_PROGRESS.md` for test coverage, and `docs/ASM_TEST_COVERAGE_AUDIT.md` for what "covered" means in practice (branches, side effects, edge inputs, ASM-invalid domains).
 - **Think like an archaeologist:** This codebase is a window into 1990s game dev at Adeline Software. Surface historical context when relevant. See `docs/FRENCH_COMMENTS.md` and `docs/ASCII_ART.md`.
 - **Verify before claiming:** Run build or tests to confirm changes work; do not claim something works without verification.
 - **Search before adding:** Check for existing implementations before adding new code; avoid duplication.
@@ -74,10 +74,10 @@ Apply these behavior rules on every non-trivial task:
 
 | Modifying | Do | See |
 |-----------|-----|-----|
-| LIB386 C++ port | Check ASM_VALIDATION_PROGRESS Notes; add/update equivalence test | ASM_VALIDATION_PROGRESS.md |
+| LIB386 C++ port | Check ASM_VALIDATION_PROGRESS Notes; add/update equivalence test | docs/ASM_VALIDATION_PROGRESS.md |
 | SOURCES (game logic) | No ASM tests; use docs/GLOSSARY, LIFECYCLES for domain terms | docs/GLOSSARY.md, docs/LIFECYCLES.md |
 | SOURCES/3DEXT/ | Same as LIB386; check ASM_TO_CPP_REFERENCE | docs/ASM_TO_CPP_REFERENCE.md |
-| Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update ASM_VALIDATION_PROGRESS | docs/TESTING.md, .github/copilot-instructions.md |
+| Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update `docs/ASM_VALIDATION_PROGRESS.md`; check `docs/ASM_TEST_COVERAGE_AUDIT.md` for the coverage rubric | docs/TESTING.md, docs/ASM_TEST_COVERAGE_AUDIT.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |

@@ -16,8 +16,7 @@ All equivalence tests must compare ASM and CPP results exactly.
 - If a single byte differs, fix the CPP implementation or isolate the mismatch
   with a smaller test.
 
-For current coverage and status, see `ASM_VALIDATION_PROGRESS.md` in the repo
-root.
+For current coverage and status, see [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATION_PROGRESS.md).
 
 ## CI (GitHub Actions)
 
@@ -270,7 +269,7 @@ When adding or modifying an ASM equivalence test:
 5. Cover normal inputs, edge cases, and a deterministic random stress pass.
 6. If the function writes global state, compare that global state after both
    paths run.
-7. Update `ASM_VALIDATION_PROGRESS.md` so coverage status stays current.
+7. Update [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATION_PROGRESS.md) so coverage status stays current.
 
 For randomized stress tests, use a deterministic seed so failures are
 reproducible.
@@ -365,7 +364,7 @@ test directory.
 
 ## Related Files
 
-- `ASM_VALIDATION_PROGRESS.md` tracks which ASM/CPP pairs are already covered.
+- [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATION_PROGRESS.md) tracks which ASM/CPP pairs are already covered.
 - `tests/test_harness.h` defines the assertion and test runner macros.
 - `tests/cmake/asm_test_helpers.cmake` defines `add_asm_cpp_test(...)`.
 - `run_tests_docker.sh` is the supported entry point for the suite.

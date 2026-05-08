@@ -1,7 +1,7 @@
 # ASM Test Coverage Audit
 
 This document tracks the breadth-first audit of the ASM/CPP pairs listed in
-ASM_VALIDATION_PROGRESS.md. The goal is to treat existing `[x]` entries as
+[ASM_VALIDATION_PROGRESS.md](ASM_VALIDATION_PROGRESS.md). The goal is to treat existing `[x]` entries as
 "already under test" rather than "fully explored", then strengthen coverage so
 missing branches, edge inputs, side effects, and valid-domain boundaries are
 explicitly exercised.
