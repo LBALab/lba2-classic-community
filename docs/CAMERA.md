@@ -1,6 +1,6 @@
-# Camera System
+# Camera system
 
-The camera behaves differently in interior (isometric) and exterior (perspective) scenes. This document covers both paths, the `CameraCenter` function that ties them together, and **Auto camera** — community third-person follow behavior in exterior scenes (config key `FollowCamera`, not part of the original game). The name matches common usage (e.g. Enhanced Edition comparisons); the code and cfg key stay `FollowCamera` for clarity in the source.
+The camera behaves differently in interior (isometric) and exterior (perspective) scenes. This document covers both paths, the `CameraCenter` function that ties them together, and Auto camera — community third-person follow behavior in exterior scenes (config key `FollowCamera`, not part of the original game). The name matches common usage (e.g. Enhanced Edition comparisons); the code and cfg key stay `FollowCamera` for clarity in the source.
 
 ## Low-level camera ([LIB386/3D/CAMERA.CPP](../LIB386/3D/CAMERA.CPP))
 
@@ -53,7 +53,7 @@ When the hero projects outside the screen clip bounds ([PERSO.CPP](../SOURCES/PE
 ### Manual controls
 
 - **Enter (`I_RETURN`):** calls `CameraCenter(1)` — full reorient behind the hero ([PERSO.CPP](../SOURCES/PERSO.CPP) lines 1386–1408).
-- **Camera cycle (`I_CAMERA`):** rotates `AddBetaCam` by 90° (1024 units). **Classic:** `CameraCenter(2)` (preset `AlphaCam` / `VueDistance`). **Auto camera (`FollowCamera`, exterior):** recomputes `VueOffset*` / `BetaCam` from the hero and `AddBetaCam` only, then `CameraCenter(3)` — zoom and numpad elevation are **not** reset.
+- **Camera cycle (`I_CAMERA`):** rotates `AddBetaCam` by 90° (1024 units). **Classic:** `CameraCenter(2)` (preset `AlphaCam` / `VueDistance`). **Auto camera (`FollowCamera`, exterior):** recomputes `VueOffset*` / `BetaCam` from the hero and `AddBetaCam` only, then `CameraCenter(3)` — zoom and numpad elevation are not reset.
 - **`GereExtKeys`:** keyboard-driven `AlphaCam` / `BetaCam` adjustment ([SOURCES/EXTFUNC.CPP](../SOURCES/EXTFUNC.CPP) line 1910+).
 
 ## CameraCenter ([SOURCES/INTEXT.CPP](../SOURCES/INTEXT.CPP) line 331)
@@ -80,32 +80,32 @@ Probes terrain and decors along the camera-to-target line to find an unoccluded 
 
 ## Auto camera (`FollowCamera` — community addition, not in the original game)
 
-Config key `FollowCamera` (0 = classic, 1 = auto; **default 0**). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
+Config key `FollowCamera` (0 = classic, 1 = auto; default 0). Also reads legacy key `AutoCameraCenter` for backward compatibility. Toggled in Options → Advanced options ("Auto camera" / "Classic camera" — localized). Off by default so the original camera behavior is preserved.
 
-When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a **third-person follow** with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in `PERSO.CPP` / `EXTFUNC.CPP`):
+When enabled in exterior mode (and not in a camera zone or cinema), the implementation is a third-person follow with several coupled pieces (tuning in `FOLLOWCAM_CFG.H`, logic in `PERSO.CPP` / `EXTFUNC.CPP`):
 
 ### Spring arm (zoom)
 
-Zoom is not a single distance: the player sets a **target** arm length, and the camera **smoothly converges** toward it each frame — a standard **spring-arm** pattern:
+Zoom is not a single distance: the player sets a target arm length, and the camera smoothly converges toward it each frame — a standard spring-arm pattern:
 
 - **`FollowCamBaseDist`** — target distance (numpad `/` closer, `*` farther; clamped `FOLLOW_CAM_DIST_MIN`–`FOLLOW_CAM_DIST_MAX`).
 - **`FollowCamEffectiveDist`** — smoothed length (static state in `PERSO.CPP`); moves toward `FollowCamBaseDist` by `FOLLOW_CAM_SPRING_RECOVER` per frame whether the arm is too short or too long.
 - **`VueDistance`** is set from **`FollowCamEffectiveDist`** before `CameraCenter(3)`, so terrain render matches the eased distance.
 
-Branch history tried heavier correction (terrain penetration along the boom, LOS samples); those were **removed** to keep behavior predictable and the PR focused — so there is **no** lens pull-through-terrain and **no** classic `SearchCameraPos` on this path (see below).
+Branch history tried heavier correction (terrain penetration along the boom, LOS samples); those were removed to keep behavior predictable and the PR focused — so there is no lens pull-through-terrain and no classic `SearchCameraPos` on this path (see below).
 
 ### Lazy orbit and pan
 
-- **Rotation lag:** `BetaCam` lerps toward “behind the hero” with **distance-scaled** inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
-- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is **walking**; standing still preserves pan.
+- **Rotation lag:** `BetaCam` lerps toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
+- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan.
 
 ### Apply path
 
-- Uses **`CameraCenter(3)`** (apply current globals only; **skips `SearchCameraPos`**). So unlike classic exterior, the camera is **not** slid along the ray when decor blocks — hills and objects may **occlude**; that tradeoff avoids fighting the orbit every frame and matches “cinematic follow” rather than “collision camera.”
+- Uses `CameraCenter(3)` (apply current globals only; skips `SearchCameraPos`). So unlike classic exterior, the camera is not slid along the ray when decor blocks — hills and objects may occlude; that tradeoff avoids fighting the orbit every frame and matches “cinematic follow” rather than “collision camera.”
 
 **Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
-**Zoom input:** Numpad `/` and `*` update **`FollowCamBaseDist`** every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`).
+**Zoom input:** Numpad `/` and `*` update `FollowCamBaseDist` every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`).
 
 **Performance:** Two optimizations keep the per-frame cost manageable:
 
