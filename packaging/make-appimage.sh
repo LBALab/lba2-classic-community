@@ -27,11 +27,9 @@ mv -v ./packaging/lba2cc.png ./AppDir
 mv -v ./packaging/lba2cc.desktop ./AppDir
 
 # SECURE FETCH OF QUICK-SHARUN
-# Fix DNS resolution inside the container
-echo "nameserver 8.8.8.8" > /etc/resolv.conf
 # Pin to a specific commit and verify SHA-256 for reproducibility
 QUICK_SHARUN_COMMIT="92aac234ece00dee3af438d278793313eee8fb4d"
-QUICK_SHARUN_URL="https://githubusercontent.com{QUICK_SHARUN_COMMIT}/useful-tools/quick-sharun.sh"
+QUICK_SHARUN_URL="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/${QUICK_SHARUN_COMMIT}/useful-tools/quick-sharun.sh"
 QUICK_SHARUN_SHA256="d44d51f25152a5b2aa8c9ed5c2cceb24cef4331b4cd4e2a12ff2f0f47728bf77"
 echo "Fetching and verifying quick-sharun..."
 curl -fsSL "$QUICK_SHARUN_URL" -o ./quick-sharun
