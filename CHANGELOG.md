@@ -28,7 +28,7 @@ fork's evolution.
 > port, this unlocked native builds for **Linux x86_64**, **macOS
 > arm64/x86_64**, and **Windows (MSYS2 UCRT64)**, and keeps the door
 > open to other SDL platforms. Community members have already started
-> building it on handheld devices in the wild. 
+> building it on handheld devices in the wild.
 
 ### Stability & 64-bit hardening
 
@@ -52,7 +52,7 @@ fork's evolution.
 ### New features (opt-in)
 
 All new features default-off or default-to-original-behavior, in line with
-[AGENTS.md Principle 4](AGENTS.md#principles).
+[AGENTS.md Principle 3](AGENTS.md#principles).
 
 - Quake-style debug console: built-in, always available, configurable
   toggle key, host-tested
@@ -93,7 +93,7 @@ All new features default-off or default-to-original-behavior, in line with
 - Case-sensitive music paths on Linux — fixed
   ([#12](https://github.com/LBALab/lba2-classic-community/pull/12))
 
-### Audio/Video backends
+### Audio/video backends
 - SDL audio backend with Miles parity gap tracking
   ([#27](https://github.com/LBALab/lba2-classic-community/issues/27),
   [#28](https://github.com/LBALab/lba2-classic-community/pull/28),
