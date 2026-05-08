@@ -2236,6 +2236,30 @@ void Message(const char *mess, S32 flag) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 
+/* Issue #62 host harness: --save-load-test <path> drives InitGame(-1) + ChangeCube()
+ * and exits, so a driver script can run each save in a subprocess and capture
+ * { exit_code, SAVE_LOAD_TEST stage lines }.  SaveLoadTestMode is declared in
+ * SAVEGAME.H so OBJECT.CPP::ChangeCube can emit a stage line on flagload;
+ * SaveLoadTestPath is file-local — only the parser-and-driver path here needs it. */
+S32 SaveLoadTestMode = 0;
+static char SaveLoadTestPath[ADELINE_MAX_PATH] = "";
+
+static void parse_save_load_test_flag(int *argc, char *argv[]) {
+    int read = 1, write = 1;
+    while (read < *argc) {
+        if (!strcmp(argv[read], "--save-load-test") && read + 1 < *argc) {
+            strncpy(SaveLoadTestPath, argv[read + 1], sizeof(SaveLoadTestPath) - 1);
+            SaveLoadTestPath[sizeof(SaveLoadTestPath) - 1] = '\0';
+            SaveLoadTestMode = 1;
+            read += 2;
+            continue;
+        }
+        argv[write++] = argv[read++];
+    }
+    argv[write] = NULL;
+    *argc = write;
+}
+
 int main(int argc, char *argv[]) {
     /* --version: print resolved engine version (from VERSION file at the
      * repo root, optionally suffixed with -dirty) and exit. Handled before
@@ -2256,6 +2280,8 @@ int main(int argc, char *argv[]) {
     S32 load = FALSE;
     U8 *ptrdos4gw;
     char tmpFilePath[ADELINE_MAX_PATH];
+
+    parse_save_load_test_flag(&argc, argv);
 
 #ifdef DEBUG_TOOLS
     MemoMemory = AvailableMem();       // memory at start
@@ -2426,24 +2452,29 @@ int main(int argc, char *argv[]) {
 #ifndef DEBUG_TOOLS
     //-------------------   logo adeline (affiche)
 
-    DistribLogo();
-
-    Cls();
-    BoxUpdate();
-
-    if (!IsFirstGameLaunched()) {
-        AdelineLogo();
+    if (!SaveLoadTestMode) {
+        DistribLogo();
 
         Cls();
         BoxUpdate();
-    }
+
+        if (!IsFirstGameLaunched()) {
+            AdelineLogo();
+
+            Cls();
+            BoxUpdate();
+        }
 
 #ifdef DEMO
-    DemoBumper();
+        DemoBumper();
 
-    Cls();
-    BoxUpdate();
+        Cls();
+        BoxUpdate();
 #endif
+    } else {
+        Cls();
+        BoxUpdate();
+    }
 #else
     Cls();
 #endif
@@ -2663,6 +2694,35 @@ int main(int argc, char *argv[]) {
 #ifdef DEBUG_TOOLS
     HERCULE(HCls());
 #endif
+
+    if (SaveLoadTestMode) {
+        /* Issue #62 harness: drive the menu's "load_game" sequence on a fixed path,
+         * print parseable lines for the driver script, and exit.  Mirrors
+         * GAMEMENU.CPP load_game label: InitGame(-1) → ChangeCube(). */
+        if (!FileSize(SaveLoadTestPath)) {
+            LogPrintf("SAVE_LOAD_TEST: stage=open path=%s status=missing\n", SaveLoadTestPath);
+            fprintf(stdout, "SAVE_LOAD_TEST: stage=open path=%s status=missing\n", SaveLoadTestPath);
+            fflush(stdout);
+            TheEnd(PROGRAM_OK, "");
+            return 2;
+        }
+        strcpy(GamePathname, SaveLoadTestPath);
+        fprintf(stdout, "SAVE_LOAD_TEST: stage=start path=%s\n", SaveLoadTestPath);
+        fflush(stdout);
+        InitGame(-1);
+        fprintf(stdout, "SAVE_LOAD_TEST: stage=after_initgame newcube=%d\n", (int)NewCube);
+        fflush(stdout);
+        ChangeCube();
+        /* ChangeCube prints SAVE_LOAD_TEST: stage=after_loadgame flagload=N when in test mode. */
+        {
+            extern S32 NbPatches;
+            fprintf(stdout, "SAVE_LOAD_TEST: stage=done numcube=%d nb_objets=%d nb_patches=%d\n",
+                    (int)NumCube, (int)NbObjets, (int)NbPatches);
+        }
+        fflush(stdout);
+        TheEnd(PROGRAM_OK, "");
+        return 0;
+    }
 
     MainGameMenu(load);
 

@@ -13,6 +13,18 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <limits.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <SYSTEM/LOADSAVE.H>
+#include <SYSTEM/LZ.H>
+#include "SAVEGAME_LOAD_BOUNDS.H"
+
+#include <OBJECT/AFF_OBJ.H>
+
 extern char PlayerName[MAX_SIZE_PLAYER_NAME + 1];
 
 extern S32 LastMyJoy;
@@ -88,6 +100,266 @@ char *ListDemoSave[NB_DEMOSAVE] = {
 #define LbaWriteLong(val)  \
     *(S32 *)PtrSave = val; \
     PtrSave += 4;
+
+#ifndef EDITLBA2
+static U8 *g_save_read_limit = NULL;
+
+void SaveLoadSetReadLimit(U8 *end_exclusive) {
+    g_save_read_limit = end_exclusive;
+}
+
+void SaveLoadClearReadLimit(void) {
+    g_save_read_limit = NULL;
+}
+
+/* SAVELOAD_CTX_ERR is declared in SAVEGAME.H so RestartValidePos / external
+ * callers can compare against the symbolic value rather than `flagload < 0`. */
+
+static S32 SaveLoadRoom(size_t n) {
+    if (!g_save_read_limit)
+        return TRUE;
+    /* Invariant when set: PtrSave <= g_save_read_limit (both point into the
+     * same allocation), so the subtraction is well-defined and we just check
+     * room. Casts via uintptr_t for "PtrSave + n overflows" were UB-tinged
+     * and unnecessary — `n` would have to exceed buffer-relative bytes. */
+    return n <= (size_t)(g_save_read_limit - PtrSave);
+}
+
+static S32 SaveLoadReadPlayerName(void) {
+    S32 i;
+    for (i = 0; i <= MAX_SIZE_PLAYER_NAME; i++) {
+        if (!SaveLoadRoom(1))
+            return FALSE;
+        {
+            U8 b = *PtrSave++;
+            if (i < MAX_SIZE_PLAYER_NAME)
+                PlayerName[i] = (char)b;
+            if (b == 0) {
+                PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+                return TRUE;
+            }
+        }
+    }
+    PlayerName[MAX_SIZE_PLAYER_NAME] = 0;
+    return FALSE;
+}
+
+/* Save payload starts at this offset inside the BufSpeak scratch buffer; the
+ * [0, BUFSPEAK_SAVE_OFFSET) prefix holds voice-sample slack. The same literal
+ * is hand-rolled at the older SaveGame() / RemapPicture() sites — folding
+ * those into this constant is a separate cleanup. */
+#define BUFSPEAK_SAVE_OFFSET 50000u
+
+/* Returns bytes read, or 0 on failure. */
+static S32 SaveLoadFileToScreen(const char *path) {
+    U32 cap = SaveLoadScreenBufferBytes();
+    S32 n = LoadSize((char *)path, (U8 *)Screen, (S32)cap);
+    if (n <= 0 || n == (S32)INT_MIN)
+        return 0;
+    PtrSave = (U8 *)Screen;
+    SaveLoadSetReadLimit((U8 *)Screen + cap);
+    return n;
+}
+
+static S32 SaveLoadFileToBufSpeakSave(const char *path) {
+    U32 cap = SaveLoadSubbufferBytesFromLeadingSkip(BUFSPEAK_SAVE_OFFSET);
+    U8 *base = BufSpeak + BUFSPEAK_SAVE_OFFSET;
+    S32 n = LoadSize((char *)path, base, (S32)cap);
+    if (n <= 0 || n == (S32)INT_MIN)
+        return 0;
+    PtrSave = base;
+    SaveLoadSetReadLimit(base + cap);
+    return n;
+}
+
+static S32 SaveLoadDecompressIfNeeded(U8 *buf_base, U32 buf_cap, S32 loaded_bytes) {
+    U8 *ptrdecomp;
+    S32 sizefile;
+    S32 compressed_size;
+
+    if (!(NumVersion & SAVE_COMPRESS))
+        return TRUE;
+
+    if (!SaveLoadRoom(sizeof(S32)))
+        return FALSE;
+    memcpy(&sizefile, PtrSave, sizeof(S32));
+    PtrSave += sizeof(S32);
+
+    compressed_size = (S32)((buf_base + (U32)loaded_bytes) - PtrSave);
+    if (compressed_size < 0)
+        return FALSE;
+
+    if (!SaveLoadValidateCompressedStaging(buf_base, buf_cap, PtrSave, (U32)compressed_size, sizefile))
+        return FALSE;
+
+    ptrdecomp = PtrSave + sizefile + RECOVER_AREA;
+    memcpy(ptrdecomp, PtrSave, (size_t)compressed_size);
+    ExpandLZ(PtrSave, ptrdecomp, (U32)sizefile, 2);
+    return TRUE;
+}
+
+#pragma pack(push, 1)
+typedef struct {
+    S32 X;
+    S32 Y;
+    S32 Z;
+    S32 Alpha;
+    S32 Beta;
+    S32 Gamma;
+    S32 BodyNum;
+    S32 NextBodyNum;
+    S32 AnimNum;
+    U32 Texture;
+    U32 NextTexture;
+    U32 LastOfsIsPtr;
+    S32 LastFrame;
+    U32 LastOfsFrame;
+    U32 LastTimer;
+    U32 LastNbGroups;
+    S32 NextFrame;
+    U32 NextOfsFrame;
+    U32 NextTimer;
+    U32 NextNbGroups;
+    S32 LoopFrame;
+    U32 LoopOfsFrame;
+    U32 NbFrames;
+    S32 LastAnimStepX;
+    S32 LastAnimStepY;
+    S32 LastAnimStepZ;
+    S32 LastAnimStepAlpha;
+    S32 LastAnimStepBeta;
+    S32 LastAnimStepGamma;
+    U32 Interpolator;
+    U32 Time;
+    U32 Status;
+    U32 Master;
+    U32 NbGroups;
+} T_OBJ_3D_WIRE32;
+#pragma pack(pop)
+
+static void SavegameObj3dFromWire32(const T_OBJ_3D_WIRE32 *s, T_OBJ_3D *d) {
+    memset(d, 0, sizeof(*d));
+    d->X = s->X;
+    d->Y = s->Y;
+    d->Z = s->Z;
+    d->Alpha = s->Alpha;
+    d->Beta = s->Beta;
+    d->Gamma = s->Gamma;
+    d->Body.Num = s->BodyNum;
+    d->NextBody.Num = s->NextBodyNum;
+    d->Anim.Num = s->AnimNum;
+    d->Texture = NULL;
+    d->NextTexture = NULL;
+    d->LastOfsIsPtr = s->LastOfsIsPtr;
+    d->LastFrame = s->LastFrame;
+    d->LastOfsFrame = (PTR_U32)(uintptr_t)(size_t)s->LastOfsFrame;
+    d->LastTimer = s->LastTimer;
+    d->LastNbGroups = s->LastNbGroups;
+    d->NextFrame = s->NextFrame;
+    d->NextOfsFrame = (PTR_U32)(uintptr_t)(size_t)s->NextOfsFrame;
+    d->NextTimer = s->NextTimer;
+    d->NextNbGroups = s->NextNbGroups;
+    d->LoopFrame = s->LoopFrame;
+    d->LoopOfsFrame = s->LoopOfsFrame;
+    d->NbFrames = s->NbFrames;
+    d->LastAnimStepX = s->LastAnimStepX;
+    d->LastAnimStepY = s->LastAnimStepY;
+    d->LastAnimStepZ = s->LastAnimStepZ;
+    d->LastAnimStepAlpha = s->LastAnimStepAlpha;
+    d->LastAnimStepBeta = s->LastAnimStepBeta;
+    d->LastAnimStepGamma = s->LastAnimStepGamma;
+    d->Interpolator = s->Interpolator;
+    d->Time = s->Time;
+    d->Status = s->Status;
+    d->Master = s->Master;
+    d->NbGroups = s->NbGroups;
+}
+
+/* T_EXTRA carries a U8 *PtrBody — 4 bytes on 32-bit retail, 8 + 4-pad on
+ * 64-bit hosts.  Reading sizeof(T_EXTRA)*N from a 32-bit-written stream
+ * over-runs the cursor by 12 bytes per extra; downstream NbZones / flow-dot
+ * reads then land on garbage and trip the bounds guards.  Mirror layout
+ * with pack(1) so the wire shape is exactly 68 bytes. */
+#pragma pack(push, 1)
+typedef struct {
+    S32 PosX, PosY, PosZ;                /* 12 */
+    S32 U_0, U_1, U_2;                   /* 12  union { MOVE | Org } as opaque 12B */
+    S32 Info;                            /*  4 */
+    U32 PtrBody_w32;                     /*  4  32-bit pointer slot (value discarded) */
+    S16 Sprite;                          /*  2 */
+    S16 Vx, Vy, Vz;                      /*  6 */
+    U32 Flags;                           /*  4 */
+    U32 Timer;                           /*  4 */
+    S16 Body, Beta;                      /*  4 */
+    S16 TimeOut, Divers;                 /*  4 */
+    U8 Poids, HitForce, Owner, NewForce; /* 4 */
+    S32 Impact;                          /*  4 */
+    S32 Scale;                           /*  4 */
+} T_EXTRA_WIRE32;                        /* total: 68 bytes */
+#pragma pack(pop)
+
+static void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d) {
+    memset(d, 0, sizeof(*d));
+    d->PosX = s->PosX;
+    d->PosY = s->PosY;
+    d->PosZ = s->PosZ;
+    /* Union is 12 raw bytes either way (MOVE = 3xS32, Org = 3xS32). */
+    memcpy(&d->U, &s->U_0, 12);
+    d->Info = s->Info;
+    d->PtrBody = NULL; /* engine refills from runtime body table */
+    d->Sprite = s->Sprite;
+    d->Vx = s->Vx;
+    d->Vy = s->Vy;
+    d->Vz = s->Vz;
+    d->Flags = s->Flags;
+    d->Timer = s->Timer;
+    d->Body = s->Body;
+    d->Beta = s->Beta;
+    d->TimeOut = s->TimeOut;
+    d->Divers = s->Divers;
+    d->Poids = s->Poids;
+    d->HitForce = s->HitForce;
+    d->Owner = s->Owner;
+    d->NewForce = s->NewForce;
+    d->Impact = s->Impact;
+    d->Scale = s->Scale;
+}
+
+/* S_PART_FLOW has a trailing S_ONE_DOT *PtrListDot.  32-bit retail wrote
+ * 60 bytes per flow; 64-bit native is 64 bytes.  4-byte over-run per flow
+ * misaligns the per-flow NbDots byte and trips MAX_FLOW_DOTS. */
+#pragma pack(push, 1)
+typedef struct {
+    S32 Flag;
+    S32 Owner;
+    S32 NumPoint;
+    S32 NbDot;
+    S32 OrgX, OrgY, OrgZ;
+    S32 XMin, YMin, ZMin;
+    S32 XMax, YMax, ZMax;
+    U32 FlowTimerStart;
+    U32 PtrListDot_w32; /* 32-bit pointer slot (value discarded) */
+} S_PART_FLOW_WIRE32;   /* total: 60 bytes */
+#pragma pack(pop)
+
+static void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d) {
+    /* Caller stashes/restores PtrListDot externally; everything else copies. */
+    d->Flag = s->Flag;
+    d->Owner = s->Owner;
+    d->NumPoint = s->NumPoint;
+    d->NbDot = s->NbDot;
+    d->OrgX = s->OrgX;
+    d->OrgY = s->OrgY;
+    d->OrgZ = s->OrgZ;
+    d->XMin = s->XMin;
+    d->YMin = s->YMin;
+    d->ZMin = s->ZMin;
+    d->XMax = s->XMax;
+    d->YMax = s->YMax;
+    d->ZMax = s->ZMax;
+    d->FlowTimerStart = s->FlowTimerStart;
+}
+#endif /* !EDITLBA2 */
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Resultat pas terrible
@@ -356,73 +628,81 @@ Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
 #endif
 }
 
-// Version 4 : LBA II only !!
-#define LoadGameV4(name)      \
-    Load(name, (U8 *)Screen); \
-    PtrSave = (U8 *)Screen;
+// Version 4 : LBA II only !! (LoadSize + read limit via SaveLoadFileToScreen)
 
 #ifndef EDITLBA2
 /*──────────────────────────────────────────────────────────────────────────*/
 void LoadGameNumCube() {
     U8 numversion;
-    U8 wbyte;
-    U8 *ptr;
+    S32 loaded;
 
-    LoadGameV4(GamePathname);
+    loaded = SaveLoadFileToScreen(GamePathname);
+    if (!loaded) {
+        SaveLoadClearReadLimit();
+        return;
+    }
 
     LbaReadByte(numversion); // num version
     LbaReadLong(NewCube);
 
-    ptr = (U8 *)PlayerName;
-    do {
-        LbaReadByte(wbyte);
-        *ptr++ = wbyte;
+    if (!SaveLoadReadPlayerName()) {
+        SaveLoadClearReadLimit();
+        return;
+    }
 
-    } while (wbyte != 0);
-
-    if (numversion & SAVE_COMPRESS) // Version compactee
-    {
-        U8 *ptrdecomp;
-        S32 sizefile;
-        S32 size;
-
-        LbaReadLong(sizefile);
-        size = FileSize(GamePathname) - (PtrSave - (U8 *)Screen);
-
-        ptrdecomp = (U8 *)PtrSave + sizefile + RECOVER_AREA;
-        memcpy(ptrdecomp, PtrSave, size);
-        ExpandLZ(PtrSave, ptrdecomp, sizefile, 2);
+    NumVersion = numversion;
+    if (!SaveLoadDecompressIfNeeded((U8 *)Screen, SaveLoadScreenBufferBytes(), loaded)) {
+        SaveLoadClearReadLimit();
+        return;
     }
 
     PtrSave += 160 * 120; // Skip Image
 
     // list Var game
+    if (!SaveLoadRoom((size_t)MAX_VARS_GAME * sizeof(ListVarGame[0]))) {
+        SaveLoadClearReadLimit();
+        return;
+    }
     LbaRead(ListVarGame, MAX_VARS_GAME * sizeof(ListVarGame[0]));
+
+    SaveLoadClearReadLimit();
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void LoadGamePlayerName() {
     U8 wbyte;
     S32 newcube;
-    U8 *ptr;
 
 #ifdef EDITLBA2
     PtrSave = BufTempo;
 #else
-    PtrSave = BufSpeak + 50000L;
+    if (!SaveLoadFileToBufSpeakSave(GamePathname))
+        return;
 #endif
 
+#ifdef EDITLBA2
     Load(GamePathname, PtrSave);
+#endif
 
     LbaReadByte(wbyte); // num version
     LbaReadLong(newcube);
 
-    ptr = (U8 *)PlayerName;
-    do {
-        LbaReadByte(wbyte);
-        *ptr++ = wbyte;
+#ifndef EDITLBA2
+    if (!SaveLoadReadPlayerName()) {
+        SaveLoadClearReadLimit();
+        return;
+    }
+    SaveLoadClearReadLimit();
+#else
+    {
+        U8 *ptr = (U8 *)PlayerName;
+        do {
+            LbaReadByte(wbyte);
+            *ptr++ = wbyte;
 
-    } while (wbyte != 0);
+        } while (wbyte != 0);
+    }
+#endif
 }
 #endif
 
@@ -430,14 +710,11 @@ void LoadGamePlayerName() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 U8 *LoadGameScreen() {
+#ifdef EDITLBA2
     U8 wbyte;
     U8 *ptr;
 
-#ifdef EDITLBA2
     PtrSave = BufTempo;
-#else
-    PtrSave = BufSpeak + 50000L;
-#endif
 
     if (!Load(GamePathname, PtrSave))
         return (NULL);
@@ -459,11 +736,7 @@ U8 *LoadGameScreen() {
         S32 size;
 
         LbaReadLong(sizefile);
-#ifdef EDITLBA2
         size = FileSize(GamePathname) - (PtrSave - BufTempo);
-#else
-        size = FileSize(GamePathname) - (PtrSave - (BufSpeak + 50000L));
-#endif
 
         ptrdecomp = (U8 *)PtrSave + sizefile + RECOVER_AREA;
         memcpy(ptrdecomp, PtrSave, size);
@@ -471,20 +744,118 @@ U8 *LoadGameScreen() {
     }
 
     return (PtrSave);
+#else
+    {
+        S32 loaded;
+        U8 *base = BufSpeak + BUFSPEAK_SAVE_OFFSET;
+
+        loaded = SaveLoadFileToBufSpeakSave(GamePathname);
+        if (!loaded) {
+            SaveLoadClearReadLimit();
+            return (NULL);
+        }
+
+        /* Header check: NumVersion (1 B) + NewCube (4 B). */
+        if (!SaveLoadRoom(5))
+            goto load_screen_fail;
+
+        LbaReadByte(NumVersion); // num version
+        LbaReadLong(NewCube);
+
+        if (!SaveLoadReadPlayerName())
+            goto load_screen_fail;
+
+        if (!SaveLoadDecompressIfNeeded(base,
+                                        SaveLoadSubbufferBytesFromLeadingSkip(BUFSPEAK_SAVE_OFFSET),
+                                        loaded))
+            goto load_screen_fail;
+
+        SaveLoadClearReadLimit();
+        return (PtrSave);
+    }
+load_screen_fail:
+    SaveLoadClearReadLimit();
+    return (NULL);
+#endif
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 S32 LoadGame(void) {
-    U8 *ptr;
-    U8 wbyte;
 #ifndef EDITLBA2
+    U8 wbyte;
     S32 flaginit = FALSE;
     S32 savetimerrefhr;
+    S32 loaded = 0;
 
     HQ_StopSample();
-#endif
 
-    LoadGameV4(GamePathname);
+    loaded = SaveLoadFileToScreen(GamePathname);
+    if (!loaded) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+
+    LbaReadByte(NumVersion); // num version
+    LbaReadLong(NewCube);
+
+    if (!SaveLoadReadPlayerName()) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+
+    if (!SaveLoadDecompressIfNeeded((U8 *)Screen, SaveLoadScreenBufferBytes(), loaded)) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+
+    PtrSave += 160 * 120;
+
+    flaginit = LoadContexte(&savetimerrefhr);
+    if (flaginit == SAVELOAD_CTX_ERR) {
+        SaveLoadClearReadLimit();
+        return LOADGAME_ERR_CONTEXT;
+    }
+
+    // recupere position valide si nécessaire
+    if (!SaveLoadRoom(8)) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+    LbaReadLong(ValidePos);
+    LbaReadLong(LastValidePos);
+
+    if (!ValidePos) {
+        if (!SaveLoadRoom(8))
+            goto loadgame_tail_fail;
+        LbaReadLong(ValideCube);
+        LbaReadLong(SizeOfBufferValidePos);
+        if (SizeOfBufferValidePos < 0 || (U32)SizeOfBufferValidePos > (U32)SIZE_BUFFER_VALIDE_POS)
+            goto loadgame_tail_fail;
+        if (!SaveLoadRoom((size_t)SizeOfBufferValidePos))
+            goto loadgame_tail_fail;
+        LbaRead(BufferValidePos, SizeOfBufferValidePos);
+    }
+
+    SaveLoadClearReadLimit();
+
+    RestartMusic = TRUE;
+    ChoicePalette();
+
+    CameraCenter(0);
+    SetTimerHR(savetimerrefhr);
+    SaveTimer();
+
+    return flaginit;
+
+loadgame_tail_fail:
+    SaveLoadClearReadLimit();
+    return FALSE;
+#else
+    U8 *ptr;
+    U8 wbyte;
+
+    Load(GamePathname, (U8 *)Screen);
+    PtrSave = (U8 *)Screen;
 
     LbaReadByte(NumVersion); // num version
     LbaReadLong(NewCube);
@@ -509,25 +880,16 @@ S32 LoadGame(void) {
         memcpy(ptrdecomp, PtrSave, size);
         ExpandLZ(PtrSave, ptrdecomp, sizefile, 2);
 
-#ifdef EDITLBA2
         SizeFile = sizefile + (PtrSave - (U8 *)Screen - sizeof(sizefile));
         CompressedSizeFile = size + (PtrSave - (U8 *)Screen);
-#endif
-    }
-#ifdef EDITLBA2
-    else {
+    } else {
         SizeFile = FileSize(GamePathname);
         CompressedSizeFile = 0;
     }
-#endif
 
     PtrSave += 160 * 120;
 
-#ifdef EDITLBA2
     LoadContexte(&KeepTimerRefHR);
-#else
-    flaginit = LoadContexte(&savetimerrefhr);
-#endif
 
     // recupere position valide si nécessaire
     LbaReadLong(ValidePos);
@@ -539,16 +901,6 @@ S32 LoadGame(void) {
         LbaRead(BufferValidePos, SizeOfBufferValidePos);
     }
 
-#ifndef EDITLBA2
-    RestartMusic = TRUE;
-    ChoicePalette();
-
-    CameraCenter(0);
-    SetTimerHR(savetimerrefhr);
-    SaveTimer();
-
-    return flaginit;
-#else
     return FALSE;
 #endif
 }
@@ -562,19 +914,44 @@ S32 LoadGameOldVersion(void) {
     S32 savetimerrefhr;
     S32 wlong;
     U8 wbyte;
+#ifndef EDITLBA2
+    S32 loaded_ov = 0;
+#endif
 
-    LoadGameV4(GamePathname);
+#ifndef EDITLBA2
+    loaded_ov = SaveLoadFileToScreen(GamePathname);
+    if (!loaded_ov) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+#else
+    Load(GamePathname, (U8 *)Screen);
+    PtrSave = (U8 *)Screen;
+#endif
 
     LbaReadByte(NumVersion); // num version
     LbaReadLong(NewCube);
 
+#ifndef EDITLBA2
+    if (!SaveLoadReadPlayerName()) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+#else
     ptr = (U8 *)PlayerName;
     do {
         LbaReadByte(wbyte);
         *ptr++ = wbyte;
 
     } while (wbyte != 0);
+#endif
 
+#ifndef EDITLBA2
+    if (!SaveLoadDecompressIfNeeded((U8 *)Screen, SaveLoadScreenBufferBytes(), loaded_ov)) {
+        SaveLoadClearReadLimit();
+        return FALSE;
+    }
+#else
     if (NumVersion & SAVE_COMPRESS) // Version compactee
     {
         U8 *ptrdecomp;
@@ -584,17 +961,13 @@ S32 LoadGameOldVersion(void) {
         LbaReadLong(sizefile);
         size = FileSize(GamePathname) - (PtrSave - (U8 *)Screen);
 
-        ptrdecomp = (U8 *)PtrSave + sizefile /*- size*/ + RECOVER_AREA;
+        ptrdecomp = (U8 *)PtrSave + sizefile + RECOVER_AREA;
         memcpy(ptrdecomp, PtrSave, size);
         ExpandLZ(PtrSave, ptrdecomp, sizefile, 2);
 
-#ifdef EDITLBA2
         SizeFile = sizefile + (PtrSave - (U8 *)Screen - sizeof(sizefile));
         CompressedSizeFile = size + (PtrSave - (U8 *)Screen);
-#endif
-    }
-#ifdef EDITLBA2
-    else {
+    } else {
         SizeFile = FileSize(GamePathname);
         CompressedSizeFile = 0;
     }
@@ -684,6 +1057,9 @@ S32 LoadGameOldVersion(void) {
     SceneStartX = -1;
 #endif
 
+#ifndef EDITLBA2
+    SaveLoadClearReadLimit();
+#endif
     return TRUE;
 }
 
@@ -1046,6 +1422,145 @@ void SaveContexte(S32 savetimerrefhr) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 // Chargement d'une partie se trouvant dans PtrSave
+
+#ifndef EDITLBA2
+#undef LbaRead
+#define LbaRead(ptr, size)                      \
+    do {                                        \
+        if (!SaveLoadRoom((size_t)(size)))      \
+            return SAVELOAD_CTX_ERR;            \
+        memcpy((ptr), PtrSave, (size_t)(size)); \
+        PtrSave += (size_t)(size);              \
+    } while (0)
+
+#undef LbaReadByte
+#define LbaReadByte(ptr)             \
+    do {                             \
+        if (!SaveLoadRoom(1))        \
+            return SAVELOAD_CTX_ERR; \
+        (ptr) = *PtrSave++;          \
+    } while (0)
+
+#undef LbaReadWord
+#define LbaReadWord(ptr)             \
+    do {                             \
+        if (!SaveLoadRoom(2))        \
+            return SAVELOAD_CTX_ERR; \
+        (ptr) = *(S16 *)PtrSave;     \
+        PtrSave += 2;                \
+    } while (0)
+
+#undef LbaReadLong
+#define LbaReadLong(ptr)             \
+    do {                             \
+        if (!SaveLoadRoom(4))        \
+            return SAVELOAD_CTX_ERR; \
+        (ptr) = *(S32 *)PtrSave;     \
+        PtrSave += 4;                \
+    } while (0)
+
+/* Issue #62: read NbObjets objects from PtrSave at the configured stride and
+ * validate the decoded ListObjet[] entries.  Returns 1 on read-ok + validate-pass,
+ * 0 on validate-fail (typical of wrong-stride misalignment), or SAVELOAD_CTX_ERR (-1)
+ * propagated out by the bounded LbaRead* macros on buffer overrun.  Caller may
+ * rewind PtrSave and retry with the alternate stride; the bounded macros above
+ * are scoped to the LoadContexte translation block, so this helper is placed
+ * here to share them. */
+static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
+    S32 n;
+    T_OBJET *ptrobj = ListObjet;
+#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
+    extern S32 TempoRealAngle;
+#endif
+    for (n = 0; n < NbObjets; n++, ptrobj++) {
+        LbaReadByte(ptrobj->GenBody);
+        LbaReadByte(ptrobj->Col);
+        LbaReadWord(ptrobj->GenAnim);
+        LbaReadWord(ptrobj->NextGenAnim);
+        LbaReadLong(ptrobj->OldPosX);
+        LbaReadLong(ptrobj->OldPosY);
+        LbaReadLong(ptrobj->OldPosZ);
+        LbaReadLong(ptrobj->Info);
+        LbaReadLong(ptrobj->Info1);
+        LbaReadLong(ptrobj->Info2);
+        LbaReadLong(ptrobj->Info3);
+        LbaRead(&(ptrobj->Coord), sizeof(ptrobj->Coord));
+        LbaReadWord(ptrobj->SizeSHit);
+        LbaReadByte(ptrobj->HitBy);
+        LbaReadByte(ptrobj->HitForce);
+        LbaReadWord(ptrobj->LifePoint);
+        LbaReadWord(ptrobj->OptionFlags);
+        LbaReadWord(ptrobj->Sprite);
+        LbaReadWord(ptrobj->OffsetLabelTrack);
+        LbaReadLong(ptrobj->IndexFile3D);
+        LbaReadByte(ptrobj->Armure);
+        LbaReadWord(ptrobj->XMin);
+        LbaReadWord(ptrobj->XMax);
+        LbaReadWord(ptrobj->YMin);
+        LbaReadWord(ptrobj->YMax);
+        LbaReadWord(ptrobj->ZMin);
+        LbaReadWord(ptrobj->ZMax);
+        LbaReadLong(ptrobj->OldBeta);
+#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
+        if (NumVersion < 34) {
+            LbaRead(&TempoRealAngle, sizeof(TempoRealAngle));
+        } else
+#endif
+            LbaRead(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle));
+        LbaReadWord(ptrobj->OffsetTrack);
+        LbaReadWord(ptrobj->SRot);
+        LbaReadWord(ptrobj->OffsetLife);
+        LbaReadWord(ptrobj->AnimDial);
+        LbaReadWord(ptrobj->CarryBy);
+        LbaReadByte(ptrobj->Move);
+        LbaReadByte(ptrobj->ObjCol);
+        LbaReadWord(ptrobj->ZoneSce);
+        LbaReadWord(ptrobj->LabelTrack);
+        LbaReadWord(ptrobj->MemoLabelTrack);
+        LbaReadWord(ptrobj->MemoComportement);
+        LbaReadLong(ptrobj->Flags);
+        LbaReadLong(ptrobj->WorkFlags);
+        LbaReadWord(ptrobj->DoorWidth);
+        LbaReadByte(ptrobj->FlagAnim);
+        LbaReadByte(ptrobj->CodeJeu);
+        LbaRead(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch));
+#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
+        if (NumVersion >= 35)
+#endif
+            LbaReadLong(ptrobj->SampleAlways);
+#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
+        if (NumVersion >= 36)
+#endif
+            LbaReadByte(ptrobj->SampleVolume);
+        if (use_wire32) {
+            T_OBJ_3D_WIRE32 w32;
+            LbaRead(&w32, sizeof(w32));
+            SavegameObj3dFromWire32(&w32, &ptrobj->Obj);
+        } else {
+            LbaRead(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
+        }
+    }
+    /* Validate decoded objects.  A wrong-stride read misaligns the cursor by
+     * ~28 bytes per object on 64-bit hosts; IndexFile3D ends up reading bytes
+     * from another field and InitLoadedGame's LoadFile3D(garbage) deref segvs
+     * (see OBJECT.CPP InitLoadedGame: ptrobj->PtrFile3D = LoadFile3D(...)).
+     *
+     * Bound rationale: IndexFile3D is an entry into the body HQR's offset
+     * table (BufferFile3D) — real values are small (low hundreds in retail).
+     * 100000 is a defense-in-depth ceiling, not a tight bound: garbage that
+     * happens to fall inside [0, 100000] can still alias a valid-looking
+     * offset and corrupt PtrFile3D downstream.  Tighter would require
+     * reading the actual entry count from BufferFile3D's header at this
+     * point, which we don't currently plumb through.  GenAnim (U16) and
+     * GenBody (U8) cannot exceed that ceiling and aren't useful here. */
+    for (n = 0; n < NbObjets; n++) {
+        if (ListObjet[n].IndexFile3D < -1 || ListObjet[n].IndexFile3D > 100000)
+            return 0;
+    }
+    return 1;
+}
+#endif
+
 S32 LoadContexte(S32 *savetimerrefhr) {
     T_OBJET *ptrobj;
     S_PART_FLOW *ptrf;
@@ -1062,6 +1577,11 @@ S32 LoadContexte(S32 *savetimerrefhr) {
     S_ONE_DOT *ptrdot;
     S32 flaginit = FALSE;
     U8 wbyte2;
+    /* Set after the object loop's stride retry resolves; ListExtra and
+     * ListPartFlow reads then use the same ABI.  Single-writer assumption:
+     * a save is written by one program, so all writeable structs share the
+     * same pointer ABI throughout the file. */
+    S32 wire32_abi = 0;
 #endif
     U8 wbyte;
 
@@ -1225,8 +1745,8 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
         // Objets
         LbaReadLong(NbObjets); // nb d'objets pour EditLba2
+#ifdef EDITLBA2
         ptrobj = ListObjet;
-
         for (n = 0; n < NbObjets; n++, ptrobj++) {
             LbaReadByte(ptrobj->GenBody);
             LbaReadByte(ptrobj->Col);
@@ -1239,47 +1759,27 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaReadLong(ptrobj->Info1);
             LbaReadLong(ptrobj->Info2);
             LbaReadLong(ptrobj->Info3);
-
             LbaRead(&(ptrobj->Coord), sizeof(ptrobj->Coord));
-
             LbaReadWord(ptrobj->SizeSHit);
             LbaReadByte(ptrobj->HitBy);
             LbaReadByte(ptrobj->HitForce);
             LbaReadWord(ptrobj->LifePoint);
             LbaReadWord(ptrobj->OptionFlags);
-
-            //	U8	*PtrAnimAction ;
-
             LbaReadWord(ptrobj->Sprite);
             LbaReadWord(ptrobj->OffsetLabelTrack);
-
-            //	T_OBJ_3D Obj	;
-            //	U8	*PtrFile3D ;
-
             LbaReadLong(ptrobj->IndexFile3D);
-
-            //	S16	NbBonus ;
             LbaReadByte(ptrobj->Armure);
-            //	U8	CoulObj ;
-
             LbaReadWord(ptrobj->XMin);
             LbaReadWord(ptrobj->XMax);
             LbaReadWord(ptrobj->YMin);
             LbaReadWord(ptrobj->YMax);
             LbaReadWord(ptrobj->ZMin);
             LbaReadWord(ptrobj->ZMax);
-
             LbaReadLong(ptrobj->OldBeta);
-
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
-            if (NumVersion < 34) // Compatibilité sauvegardes
-            {
+            if (NumVersion < 34) {
                 LbaRead(&TempoRealAngle, sizeof(TempoRealAngle));
             } else
-#endif
                 LbaRead(&(ptrobj->BoundAngle), sizeof(ptrobj->BoundAngle));
-
-            //	U8	*PtrTrack ;
             LbaReadWord(ptrobj->OffsetTrack);
             LbaReadWord(ptrobj->SRot);
             LbaReadWord(ptrobj->OffsetLife);
@@ -1297,24 +1797,63 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaReadByte(ptrobj->FlagAnim);
             LbaReadByte(ptrobj->CodeJeu);
             LbaRead(&(ptrobj->ExeSwitch), sizeof(ptrobj->ExeSwitch));
-
-            //	S16	MessageChapter[MAX_CHAPTER] ;
-
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
-            if (NumVersion >= 35) // Compatibilité sauvegardes
-#endif
+            if (NumVersion >= 35)
                 LbaReadLong(ptrobj->SampleAlways);
-
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
-            if (NumVersion >= 36) // Compatibilité sauvegardes
-#endif
+            if (NumVersion >= 36)
                 LbaReadByte(ptrobj->SampleVolume);
-
-            //	T_ZONE	*PtrZoneRail ;
-
-            // on ne veut pas sauver le champ CurrentFrame
             LbaRead(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
         }
+#else
+        if (NbObjets < 0 || NbObjets > MAX_OBJETS)
+            return SAVELOAD_CTX_ERR;
+        {
+            /* Match writer at SAVEGAME.CPP SaveContexte: LbaWrite(&Obj, sizeof(Obj) - sizeof(Obj.CurrentFrame)).
+             * 64-bit-host stride differs from 32-bit retail wire (278) by 28 bytes per object;
+             * picking the wrong stride misaligns the cursor and IndexFile3D ends up reading garbage,
+             * which makes InitLoadedGame's LoadFile3D(garbage) deref segv.  Strategy:
+             *   1. Pre-check the buffer fits the larger of {278, native} so neither attempt overruns.
+             *   2. Try the heuristic-picked stride; the helper validates IndexFile3D after the read.
+             *   3. On validate-fail, rewind PtrSave and try the alternate stride.
+             *   4. If both fail (or env-forced and forced fails), return SAVELOAD_CTX_ERR. */
+            S32 stride64_host = 142 + (S32)(sizeof(T_OBJ_3D) - sizeof(((T_OBJ_3D *)0)->CurrentFrame));
+            const char *abi_env = getenv("LBA2_SAVE_LOAD_ABI");
+            S32 forced_32 = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
+            S32 first_stride;
+            S32 alt_stride;
+            U8 *obj_checkpoint;
+            S32 max_stride;
+            S32 r;
+
+            if (forced_32) {
+                first_stride = 278;
+            } else {
+                U8 *stream_end = g_save_read_limit;
+                if (!stream_end)
+                    stream_end = (U8 *)Screen + SaveLoadScreenBufferBytes();
+                S32 g = SaveLoadGuessObjectWireStride(NbObjets, PtrSave, stream_end,
+                                                      stride64_host, NbPatches);
+                first_stride = g ? g : stride64_host;
+            }
+            alt_stride = (first_stride == 278) ? stride64_host : 278;
+            max_stride = (stride64_host > 278) ? stride64_host : 278;
+
+            if (!SaveLoadRoom((size_t)NbObjets * (size_t)max_stride))
+                return SAVELOAD_CTX_ERR;
+
+            obj_checkpoint = PtrSave;
+            r = LoadContexteReadObjectsAtStride(first_stride == 278);
+            if (r == 0 && !forced_32) {
+                /* Validate failed — likely wrong stride.  Rewind and retry the alternate. */
+                PtrSave = obj_checkpoint;
+                r = LoadContexteReadObjectsAtStride(alt_stride == 278);
+                if (r == 1)
+                    first_stride = alt_stride;
+            }
+            if (r != 1)
+                return SAVELOAD_CTX_ERR;
+            wire32_abi = (first_stride == 278);
+        }
+#endif
 
         //------------- PATCHES -------------
         LbaReadLong(NbPatches);
@@ -1323,11 +1862,26 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         LbaReadLong(SizePatches);
         LbaRead(BufferPatches, SizePatches);
 #else
+        if (NbPatches < 0 || NbPatches > MAX_PATCHES)
+            return SAVELOAD_CTX_ERR;
+
         LbaReadLong(wlong);
 
         ptrpatch = ListPatches;
 
         for (n = 0; n < NbPatches; n++, ptrpatch++) {
+            // clang-format off
+            /* Reject patches whose target falls outside the loaded scene buffer.
+             * Each disjunct catches a different way an attacker / corrupt save
+             * could push PtrScene+Offset out of bounds. */
+            if (ptrpatch->Offset < 0
+                || ptrpatch->Size < 0
+                || ptrpatch->Offset > PtrSceneMem
+                || ptrpatch->Size > PtrSceneMem
+                || (S32)((S64)ptrpatch->Offset + (S64)ptrpatch->Size) > PtrSceneMem)
+                return SAVELOAD_CTX_ERR;
+            // clang-format on
+
             switch (ptrpatch->Size) {
             case 1:
                 LbaReadByte(*(PtrScene + ptrpatch->Offset));
@@ -1354,9 +1908,25 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
 #ifdef EDITLBA2
         NbExtras = wbyte;
+#else
+        if (wbyte > MAX_EXTRAS)
+            return SAVELOAD_CTX_ERR;
 #endif
 
-        LbaRead(ListExtra, sizeof(T_EXTRA) * wbyte);
+#ifndef EDITLBA2
+        if (wire32_abi) {
+            if (!SaveLoadRoom((size_t)wbyte * sizeof(T_EXTRA_WIRE32)))
+                return SAVELOAD_CTX_ERR;
+            for (n = 0; n < wbyte; n++) {
+                T_EXTRA_WIRE32 w32;
+                LbaRead(&w32, sizeof(w32));
+                SavegameExtraFromWire32(&w32, &ListExtra[n]);
+            }
+        } else
+#endif
+        {
+            LbaRead(ListExtra, sizeof(T_EXTRA) * wbyte);
+        }
 
 #ifndef EDITLBA2
         // Magouille pour éviter de changer le format des sauvegardes
@@ -1374,6 +1944,11 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
         // Zones
         LbaReadLong(NbZones); // pour EditLba2
+
+#ifndef EDITLBA2
+        if (NbZones < 0 || NbZones > MAX_ZONES)
+            return SAVELOAD_CTX_ERR;
+#endif
 
         ptrz = ListZone;
 
@@ -1399,12 +1974,15 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
 #ifdef EDITLBA2
         NbIncrust = wbyte;
+#else
+        if (wbyte > MAX_INCRUST_DISP)
+            return SAVELOAD_CTX_ERR;
 #endif
 
         LbaRead(ListIncrustDisp, sizeof(T_INCRUST_DISP) * wbyte);
 
 #ifndef EDITLBA2
-        for (n = 0; n < wbyte; n++, ptrf++) {
+        for (n = 0; n < wbyte; n++) {
             if ((ListIncrustDisp[n].Type & 0xFF) == INCRUST_PLUIE) {
                 FlagRain = TRUE;
                 RestartRainSample = TRUE;
@@ -1419,6 +1997,9 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 
 #ifdef EDITLBA2
         NbFlows = wbyte;
+#else
+        if (wbyte > MAX_FLOWS)
+            return SAVELOAD_CTX_ERR;
 #endif
 
         for (n = 0; n < wbyte; n++, ptrf++) {
@@ -1428,9 +2009,19 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             LbaRead(ListPtrListDot[n], sizeof(S_ONE_DOT) * NbDots[n]);
 #else
             ptrdot = ptrf->PtrListDot;
-            LbaRead(ptrf, sizeof(S_PART_FLOW));
+            if (wire32_abi) {
+                S_PART_FLOW_WIRE32 fw32;
+                if (!SaveLoadRoom(sizeof(fw32)))
+                    return SAVELOAD_CTX_ERR;
+                LbaRead(&fw32, sizeof(fw32));
+                SavegameFlowFromWire32(&fw32, ptrf);
+            } else {
+                LbaRead(ptrf, sizeof(S_PART_FLOW));
+            }
             ptrf->PtrListDot = ptrdot;
             LbaReadByte(wbyte2);
+            if (wbyte2 > MAX_FLOW_DOTS)
+                return SAVELOAD_CTX_ERR;
             LbaRead(ptrf->PtrListDot, sizeof(S_ONE_DOT) * wbyte2);
 #endif
         }
@@ -1458,7 +2049,6 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 #else
         LbaReadLong(wlong);
         LbaReadLong(wlong2);
-
         SetClipWindow(ClipWindowXMin, wlong, ClipWindowXMax, wlong2);
         MemoClipWindow();
 #endif
@@ -1490,3 +2080,23 @@ S32 LoadContexte(S32 *savetimerrefhr) {
     return FALSE;
 #endif
 }
+
+#ifndef EDITLBA2
+#undef LbaRead
+#define LbaRead(ptr, size)      \
+    memcpy(ptr, PtrSave, size); \
+    PtrSave += size;
+
+#undef LbaReadByte
+#define LbaReadByte(ptr) ptr = *PtrSave++;
+
+#undef LbaReadWord
+#define LbaReadWord(ptr)   \
+    ptr = *(S16 *)PtrSave; \
+    PtrSave += 2;
+
+#undef LbaReadLong
+#define LbaReadLong(ptr)   \
+    ptr = *(S32 *)PtrSave; \
+    PtrSave += 4;
+#endif

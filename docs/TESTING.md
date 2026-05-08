@@ -25,7 +25,7 @@ Workflows under `.github/workflows/`:
 
 | Workflow | What it does |
 |----------|----------------|
-| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_console_state`, run `ctest -R 'test_(res_discovery|console_state)'` |
+| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_console_state` + `test_savegame_load_bounds`, run `ctest -R 'test_(res_discovery|console_state|savegame_load_bounds)'` |
 | `macos.yml` | Same host tests on `macos-latest` (preset `macos_arm64`) |
 | `windows.yml` | Same host tests on Windows MSYS2 UCRT64 (preset `windows_ucrt64`) |
 | `format.yml` | `scripts/ci/check-format.sh` (clang-format) |
@@ -92,6 +92,12 @@ The `host_quick` label is set by `register_host_test()` in
 line. Adding a new host test requires no workflow or Makefile edits.
 
 To run only the console suite: `ctest -R test_console_ --output-on-failure`.
+
+### 6. Host tests — savegame (`tests/savegame`)
+
+`tests/savegame/test_load_bounds.cpp` (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks **`SaveLoadValidateCompressedStaging`** / **`SaveLoadGuessObjectWireStride`** on synthetic buffers — pure parser bounds, no retail game data. Built and run as part of `make test` / PR host jobs.
+
+`tests/savegame/corpus/` holds the Layer-3 driver scripts (`run_harness.py`, `build_manifest.py`) that exercise the real `lba2 --save-load-test` flag against a directory of `.lba` saves; **requires retail game data** so it runs locally only. See `tests/savegame/corpus/README.md`.
 
 ## Test Harness
 

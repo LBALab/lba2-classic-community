@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include "SAVEGAME.H"
+
 S32 ValideCube;
 
 S32 ValidePos = TRUE;
@@ -45,7 +47,16 @@ void RestartValidePos(void) {
 
     PtrSave = BufferValidePos;
 
+#ifndef EDITLBA2
+    SaveLoadSetReadLimit(BufferValidePos + SIZE_BUFFER_VALIDE_POS);
+#endif
     flagload = LoadContexte(&savetimerrefhr);
+#ifndef EDITLBA2
+    SaveLoadClearReadLimit();
+#endif
+
+    if (flagload == SAVELOAD_CTX_ERR)
+        return;
 
     if (!flagload)
         InitLoadedGame();

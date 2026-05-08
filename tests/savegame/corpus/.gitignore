@@ -1,0 +1,10 @@
+# Outputs of the corpus harness (regenerated locally; reference user-specific
+# paths, hence not tracked).
+probe.ndjson
+probe.err
+manifest.json
+# Default: ignore any save directories under saves/ (personal save data
+# shouldn't accidentally get committed). Specific tracked corpora opt in
+# via !saves/<name>/ below.
+saves/*/
+!saves/steam_classic_2023/
