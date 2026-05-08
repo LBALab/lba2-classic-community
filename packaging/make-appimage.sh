@@ -31,7 +31,7 @@ mv -v ./packaging/change-working-dir.hook ./AppDir/bin
 wget "https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh" -O ./quick-sharun
 chmod +x ./quick-sharun
 
-VERSION=$(cat VERSION.txt)
+VERSION=$(cat ./dist/VERSION.txt)
 export ARCH VERSION
 export OUTPATH=./dist
 export ADD_HOOKS="self-updater.hook"
