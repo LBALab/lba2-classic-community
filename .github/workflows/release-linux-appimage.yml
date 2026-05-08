@@ -40,9 +40,6 @@ jobs:
     steps:
       - name: Code Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          persist-credentials: false
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with:
@@ -50,9 +47,10 @@ jobs:
           merge-multiple: true
       - name: Release AppImage
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           files: |
-            dist/*.AppImage
-            dist/*.zsync
+            *.AppImage
+            *.zsync
+          tag_name: ${{ github.ref_name }}
           generate_release_notes: true
