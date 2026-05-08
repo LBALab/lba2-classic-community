@@ -1,17 +1,17 @@
-# Debug Tools
+# Debug tools
 
 This document describes the developer debug tools available when building with `-DDEBUG_TOOLS=ON`.
 
 These tools were originally used by the Adeline Software team during LBA2 development and have been restored for use in the community fork.
 
-## Building with Debug Tools
+## Building with debug tools
 
 ```bash
 cmake -B build -DDEBUG_TOOLS=ON
 cmake --build build
 ```
 
-## Command-Line Cube Selection
+## Command-line cube selection
 
 With DEBUG_TOOLS enabled, you can start the game directly at any scene (cube):
 
@@ -22,9 +22,9 @@ With DEBUG_TOOLS enabled, you can start the game directly at any scene (cube):
 
 This bypasses the main menu and loads directly into the specified scene. Useful for quickly testing specific areas of the game.
 
-## Keyboard Shortcuts
+## Keyboard shortcuts
 
-### In-Game Debug Keys
+### In-game debug keys
 
 | Key | Function | Description |
 |-----|----------|-------------|
@@ -36,7 +36,7 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `V` | Teleport to magic ball | Moves Twinsen to the magic ball's current position |
 | `M` | Show palette | Displays the current color palette |
 | `K` | Spawn bonus | Spawns a bonus item above the player |
-| `A` | Play test video | Plays **bu** (test ACF video) and reinitializes the scene |
+| `A` | Play test video | Plays `bu` (test ACF video) and reinitializes the scene |
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
@@ -47,7 +47,7 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 
 Note: `D` and `F` are also available in TEST_TOOLS builds. All other keys require DEBUG_TOOLS. The always-on console toggle is configurable via `ConsoleToggleKey` in `lba2.cfg` and defaults to `F12`, so ASCII mode toggle on `F12` can be shadowed when that default is used.
 
-### What is ASCII Mode?
+### What is ASCII mode?
 
 ASCII mode controls how the game interprets keyboard input:
 - **ON**: Captures typed characters (for text entry like player names, cheat codes)
@@ -55,7 +55,7 @@ ASCII mode controls how the game interprets keyboard input:
 
 Pressing `F12` toggles between these modes. If console toggle also uses `F12` (default), set `ConsoleToggleKey` to a different scancode in `lba2.cfg`.
 
-## File Locations
+## File locations
 
 All debug-related files are saved to your user data directory:
 
@@ -68,21 +68,21 @@ All debug-related files are saved to your user data directory:
 ### Screenshots (`F9`)
 
 Saved to `save/shoot/LBA00000.PCX`, `LBA00001.PCX`, etc. (original PCX format).  
-For PNG screenshots without the debug overlay, use the **debug console**: see [CONSOLE.md](CONSOLE.md) and the `screenshot` command.
+For PNG screenshots without the debug overlay, use the debug console: see [CONSOLE.md](CONSOLE.md) and the `screenshot` command.
 
-### Bug Saves (`G` key)
+### Bug saves (`G` key)
 
 Saved to `save/bugs/*.lba`
 
 The name "bugs" comes from the original French development team - these were used to save game states when reproducing bug reports.
 
-### Regular Saves
+### Regular saves
 
 Saved to `save/*.lba`
 
-## Cheat Codes
+## Cheat codes
 
-Cheat codes are entered by **typing the letters during normal gameplay** - no special key combination needed. Just type the word while playing:
+Cheat codes are entered by typing the letters during normal gameplay — no special key combination needed. Just type the word while playing:
 
 | Code | Short Version | Effect |
 |------|---------------|--------|
@@ -97,20 +97,20 @@ Cheat codes are entered by **typing the letters during normal gameplay** - no sp
 
 The "Short Version" column shows the shorter codes used in DEBUG_TOOLS builds (e.g. `IFE` instead of `LIFE`). When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
 
-## Bug Save/Load System
+## Bug save/load system
 
 The bug save/load system allows developers to save the exact game state at any point and reload it later for debugging.
 
-### Saving a Bug State
+### Saving a bug state
 1. Press `G` during gameplay
 2. Enter a name for the save
 3. State is saved to the bugs directory
 
-### Loading a Bug State
+### Loading a bug state
 1. From the main menu, press `L`
 2. Select the bug save to load
 
-## On-Screen Debug Information
+## On-screen debug information
 
 When DEBUG_TOOLS is enabled, the game may display:
 - Timer desync warnings ("SaveTimer & RestoreTimer Decale")
@@ -139,11 +139,11 @@ On some Windows configurations, F9 and F12 may not be detected by the game. This
 
 Try running the native Windows build instead of WSL2, or check your terminal emulator's key binding settings.
 
-## Historical Context
+## Historical context
 
 These debug tools give us a window into how Adeline Software worked in the mid-1990s.
 
-### Trade Show Demo Mode
+### Trade show demo mode
 
 The codebase contains a commented-out `/NOKEY` flag for trade show demonstrations:
 
@@ -156,7 +156,7 @@ The codebase contains a commented-out `/NOKEY` flag for trade show demonstration
 
 When LBA2 was shown at gaming conventions, Adeline would run the game in a demo mode where keyboard input was disabled to prevent visitors from interfering with the presentation.
 
-### Bug Tracking with Codenames
+### Bug tracking with codenames
 
 The code contains traps for specific bugs tracked by codename:
 
@@ -182,7 +182,7 @@ The codebase has two separate debug defines:
 
 This separation ensured QA testers could see debug information without having access to features that might let them "cheat" past bugs they should be finding. Code guarded by `#if defined(DEBUG_TOOLS)||defined(TEST_TOOLS)` was available to both teams.
 
-## Related Files
+## Related files
 
 - `SOURCES/DEFINES.H` - Contains the `DEBUG_TOOLS` define
 - `SOURCES/PERSO.CPP` - Main debug key handlers, screenshot functions, debug overlay, cube selection

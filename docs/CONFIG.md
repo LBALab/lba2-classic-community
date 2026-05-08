@@ -1,23 +1,23 @@
-# Configuration File (lba2.cfg)
+# Configuration file (lba2.cfg)
 
-lba2.cfg stores user preferences and last-save info. Read at startup, written at exit. Options changed in the menu (see [MENU.md](MENU.md)) are persisted here. This doc distinguishes **original** keys from **community** additions so future changes can be tracked.
+lba2.cfg stores user preferences and last-save info. Read at startup, written at exit. Options changed in the menu (see [MENU.md](MENU.md)) are persisted here. This doc distinguishes original keys from community additions so future changes can be tracked.
 
 ## Path and discovery
 
-- Filename: `lba2.cfg` ([SOURCES/COMMON.H](SOURCES/COMMON.H) line 83: `CFG_NAME`)
-- User config path: `GetCfgPath(PathConfigFile, ..., CFG_NAME)` → `directoriesCfgDir` + filename ([SOURCES/DIRECTORIES.CPP](SOURCES/DIRECTORIES.CPP))
+- Filename: `lba2.cfg` ([SOURCES/COMMON.H](../SOURCES/COMMON.H) line 83: `CFG_NAME`)
+- User config path: `GetCfgPath(PathConfigFile, ..., CFG_NAME)` → `directoriesCfgDir` + filename ([SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP))
 - Default (assets): `GetDefaultCfgPath()` → `directoriesResDir` + filename (same folder as `lba2.hqr`, i.e. the game assets directory)
-- If user config missing: copy from assets to config dir ([SOURCES/INITADEL.C](SOURCES/INITADEL.C)). If the assets folder has **no** `lba2.cfg`, the engine writes an **embedded** copy (generated at build time from [SOURCES/LBA2.CFG](SOURCES/LBA2.CFG) via [cmake/embed_lba2_cfg.cmake](../cmake/embed_lba2_cfg.cmake)) into the user config path instead of exiting.
+- If user config missing: copy from assets to config dir ([SOURCES/INITADEL.C](../SOURCES/INITADEL.C)). If the assets folder has no `lba2.cfg`, the engine writes an embedded copy (generated at build time from [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) via [cmake/embed_lba2_cfg.cmake](../cmake/embed_lba2_cfg.cmake)) into the user config path instead of exiting.
 - **Default config source**: Prefer the file in the asset directory (`directoriesResDir`). The repo has `SOURCES/LBA2.CFG` and `SOURCES/CONFIG/LBA2.CFG` as reference/templates. See [GAME_DATA.md](GAME_DATA.md) for where assets live.
 
 ## File format
 
-- DefFile format: `Key: value` or `Key= value`, `;` comments ([LIB386/SYSTEM/DEFFILE.CPP](LIB386/SYSTEM/DEFFILE.CPP))
+- DefFile format: `Key: value` or `Key= value`, `;` comments ([LIB386/SYSTEM/DEFFILE.CPP](../LIB386/SYSTEM/DEFFILE.CPP))
 - API: `DefFileBufferInit(file, buffer, size)`, `DefFileBufferReadString`/`ReadValue`/`ReadValueDefault`, `DefFileBufferWriteString`/`WriteValue`
 
 ## Lifecycle
 
-- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) (line 1701), invoked from `InitProgram()` at line 1825
+- **Read**: `ReadConfigFile()` in [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) (line 1701), invoked from `InitProgram()` at line 1825
 - **Write**: `WriteConfigFile()` in PERSO.CPP (line 1757), called from `TheEndInfo()` (line 1955)
 - Options menu changes globals only; config is written once at exit. No intermediate saves when changing options.
 
@@ -30,7 +30,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | LastSave | string | Player name, max 100 chars | (empty) | Used for quick load |
 | Shadow | int | 1–3 | 3 | Overwritten by DetailLevel when leaving Options. 1=none on extras, 2=no impact shadows, 3=full |
 | AllCameras | int | 0, 1 | 1 | 0=OFF, 1=ON |
-| FollowCamera | int | 0, 1 | 0 | **Auto camera** (user-facing name; Enhanced Edition–style third-person follow in exterior). Config key stays `FollowCamera` for stability. 0=classic (default), 1=auto. Also reads legacy key `AutoCameraCenter` |
+| FollowCamera | int | 0, 1 | 0 | Auto camera (user-facing name; Enhanced Edition–style third-person follow in exterior). Config key stays `FollowCamera` for stability. 0=classic (default), 1=auto. Also reads legacy key `AutoCameraCenter` |
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
 | DetailLevel | int | 0–3 | 3 | 0=min (no rain, no sea, no horizon), 1=486, 2=base Pentium, 3=max. Drives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon |
 | FullScreen | int | 0, 1 | 1 | 0=small videos, 1=fullscreen videos. Invalid values → 1 |

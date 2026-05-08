@@ -1,12 +1,12 @@
-# Feature Workflow — Reasoning and Docs
+# Feature workflow — reasoning and docs
 
 When tackling a big new feature or tool, follow this workflow: read existing docs first, map the code, then document as you go. This doc shows the reasoning process for several example features.
 
-Truth hierarchy: **code > this document > external sources**.
+Truth hierarchy: code > this document > external sources.
 
 ---
 
-## Example 1: Add Console Commands
+## Example 1: add console commands
 
 **Goal:** Add a new command to the Quake-style debug console.
 
@@ -24,7 +24,7 @@ Truth hierarchy: **code > this document > external sources**.
 
 ---
 
-## Example 2: Headless Mode
+## Example 2: headless mode
 
 **Goal:** Run the engine without a window (e.g. for CI, automation, or server-side).
 
@@ -35,7 +35,7 @@ Truth hierarchy: **code > this document > external sources**.
 2. **Read first:**
    - [docs/LIFECYCLES.md](LIFECYCLES.md) — MainLoop frame order: `MyGetInput`, `ManageTime`, `DoDir`, `DoTrack`, `CheckZoneSce`, `DoLife`, `AffScene`. Headless would skip or stub `AffScene` and input.
    - [docs/GLOSSARY.md](GLOSSARY.md) — Entry point: `MainGameMenu` → `MainLoop`. Need to find where SDL/window is initialized.
-   - [SOURCES/PERSO.CPP](SOURCES/PERSO.CPP) — MainLoop, main entry.
+   - [SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP) — MainLoop, main entry.
 
 3. **Map the code:**
    - Where does SDL create the window? (SYSTEM/, or early in main)
@@ -51,7 +51,7 @@ Truth hierarchy: **code > this document > external sources**.
 
 ---
 
-## Example 3: Change the Game Menu
+## Example 3: change the game menu
 
 **Goal:** Add a new menu option, reorder entries, or change Options structure.
 
@@ -59,7 +59,7 @@ Truth hierarchy: **code > this document > external sources**.
 
 1. **AGENTS.md:** Preserve the nature of the game → menu changes affect UX. If adding (e.g. new Options toggle), make it opt-in or behind a config key. If reordering, ensure we don't break existing behavior.
 
-2. **Read first:** [docs/MENU.md](MENU.md) — Menu tree, terms (CURRENTSAVE, SavingEnable, FlagSpeak), entry points (`MainGameMenu`, `BuildGameMainMenu`, `DoGameMenu`), template → build → drive flow, **Menu layout**, and **Languages and localization** (`BuildCustomMenuText`, language submenu, `InitLanguage` / config).
+2. **Read first:** [docs/MENU.md](MENU.md) — Menu tree, terms (CURRENTSAVE, SavingEnable, FlagSpeak), entry points (`MainGameMenu`, `BuildGameMainMenu`, `DoGameMenu`), template → build → drive flow, Menu layout, and Languages and localization (`BuildCustomMenuText`, language submenu, `InitLanguage` / config).
 
 3. **Map the code:**
    - `RealGameMainMenu` — static template (text IDs 70–75)
@@ -76,7 +76,7 @@ Truth hierarchy: **code > this document > external sources**.
 
 ---
 
-## Example 4: How Does the Camera Work?
+## Example 4: how does the camera work?
 
 **Goal:** Understand camera behavior for a feature (e.g. camera control, replay, or debug view).
 
@@ -97,12 +97,12 @@ Truth hierarchy: **code > this document > external sources**.
 
 ---
 
-## General Workflow for Big Features
+## General workflow for big features
 
 1. **Read AGENTS.md** — principles, Never, When Modifying X Do Y.
 2. **Read relevant docs** — GLOSSARY, LIFECYCLES, and the doc for the subsystem (CONSOLE, MENU, AUDIO, etc.).
 3. **Map the code** — find entry points, data flow, where your change plugs in.
-4. **Document as you go** — if no doc exists, create one (e.g. HEADLESS.md, CAMERA.md). If behavior changes, update the doc **in the same commit** (environment trumps willpower).
+4. **Document as you go** — if no doc exists, create one (e.g. HEADLESS.md, CAMERA.md). If behavior changes, update the doc in the same commit (environment trumps willpower).
 5. **Preserve** — French comments, ASCII art; add new comments alongside.
 6. **Verify** — run tests, format check. For LIB386 changes, run equivalence tests.
 7. **When ambiguous** — ask the user before proceeding; do not guess.

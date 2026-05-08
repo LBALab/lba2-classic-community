@@ -5,7 +5,7 @@ Short maintainer recipe for cutting a release.
 ## Versioning
 
 The engine uses [Semantic Versioning](https://semver.org/). The fork is
-**pre-1.0** while crashes are still being ironed out.
+pre-1.0 while crashes are still being ironed out.
 
 | Bump  | When                                                                |
 |-------|---------------------------------------------------------------------|
@@ -30,11 +30,11 @@ keep momentum.
 
 ### Engine version vs `NUM_VERSION`
 
-These are **independent**:
+These are independent:
 
 - **Engine version** (`v0.9.0`, `v1.0.0`, ...) — the semver tag this doc is about.
 - **`NUM_VERSION`** in `SOURCES/COMMON.H` — the save-file on-disk format
-  version (currently `36`). Bumping the engine version does **not** bump
+  version (currently `36`). Bumping the engine version does not bump
   `NUM_VERSION`, and vice versa. See
   [issue #64](https://github.com/LBALab/lba2-classic-community/issues/64) for
   the canonical save-format work tracked separately.
@@ -50,13 +50,13 @@ the section content (subsequent releases) or the existing hand-curated
 
 The current `[Unreleased]` section in `CHANGELOG.md` is hand-curated — it
 narrates everything shipped since the fork was created and is the
-canonical content for `v0.9.0`. **Do not run `git cliff -o`** here; it
+canonical content for `v0.9.0`. Do not run `git cliff -o` here; it
 would replace the narrative with a sparse auto-generated section (most
 pre-tag commits are not conventional-commit-formatted). Just promote the
 heading.
 
-The version number itself lives in the **`VERSION` file at the repo
-root**. CMake reads it, embeds it in the binary, and writes it to
+The version number itself lives in the `VERSION` file at the repo
+root. CMake reads it, embeds it in the binary, and writes it to
 `build/VERSION.txt` for release pipelines (PR #74) to consume. So a release
 cut also bumps that file: `0.9.0-dev` → `0.9.0` for the release commit,
 then `0.10.0-dev` for the next development cycle.
@@ -102,7 +102,7 @@ git commit -m "chore: bump VERSION to 0.10.0-dev"
 git push origin main
 ```
 
-`git-cliff` is **not required** for the first release.
+`git-cliff` is not required for the first release.
 
 ### Subsequent releases
 
@@ -135,16 +135,16 @@ git push origin main
 git push origin "$VERSION"
 ```
 
-**Why `GITHUB_TOKEN` is required.** The template renders **one entry per
-PR** using `commit.remote.pr_title` and `commit.remote.pr_number`, which
+**Why `GITHUB_TOKEN` is required.** The template renders one entry per
+PR using `commit.remote.pr_title` and `commit.remote.pr_number`, which
 cliff fetches from the GitHub API for each commit. This is what gives a
 single clean entry per PR regardless of merge mode (squash, merge-commit,
 or rebase). Without a token, those fields are empty and no entries
 render. Use a token with public read scope only.
 
-## GitHub Release
+## GitHub release
 
-A git tag is just a pointer to a commit. A **GitHub Release** is a
+A git tag is just a pointer to a commit. A GitHub Release is a
 separate object layered *on top of* a tag — it adds the user-facing
 Releases-page entry (`/releases/tag/v0.9.0`), a title and rendered
 release notes, optional binary attachments, and an RSS feed (`/releases.atom`)
@@ -152,7 +152,7 @@ that auto-update tools watch. Pushing the tag without creating a Release
 means it shows up under "Tags" but not "Releases" — most browsers and
 tools only look at the latter.
 
-### Drafting the Release
+### Drafting the release
 
 Two equivalent paths.
 
@@ -169,7 +169,7 @@ gh release create v0.9.0 --title "v0.9.0" --notes-file /tmp/release-notes.md
 **Web UI:** Releases → Draft a new release → pick the `v0.9.0` tag →
 paste the v0.9.0 section from `CHANGELOG.md` as the body → Publish.
 
-For v0.9.0 there are **no binary attachments yet**. The release-binary
+For v0.9.0 there are no binary attachments yet. The release-binary
 workflow is tracked in
 [issue #46](https://github.com/LBALab/lba2-classic-community/issues/46)
 and [PR #74](https://github.com/LBALab/lba2-classic-community/pull/74)

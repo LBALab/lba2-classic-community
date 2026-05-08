@@ -10,6 +10,11 @@ build/
 /build_logs/
 .tmp/
 
+# Python (e.g. scripts/save_probe.py)
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Polyrec rendered outputs (keep .lba2polyrec fixtures, ignore generated images)
 tests/SNAPSHOT/fixtures/*.png
 tests/SNAPSHOT/fixtures/*.ppm

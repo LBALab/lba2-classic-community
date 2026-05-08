@@ -1,12 +1,12 @@
-# ASM Test Coverage Audit
+# ASM test coverage audit
 
 This document tracks the breadth-first audit of the ASM/CPP pairs listed in
-ASM_VALIDATION_PROGRESS.md. The goal is to treat existing `[x]` entries as
+[ASM_VALIDATION_PROGRESS.md](ASM_VALIDATION_PROGRESS.md). The goal is to treat existing `[x]` entries as
 "already under test" rather than "fully explored", then strengthen coverage so
 missing branches, edge inputs, side effects, and valid-domain boundaries are
 explicitly exercised.
 
-## Audit Rubric
+## Audit rubric
 
 For each listed ASM/CPP pair:
 
@@ -23,7 +23,7 @@ For each listed ASM/CPP pair:
 5. If new coverage exposes a mismatch, keep the failing test and fix the CPP
    implementation portably and idiomatically.
 
-## Sweep Order
+## Sweep order
 
 1. 3D
 2. SOURCES
@@ -72,7 +72,7 @@ For each listed ASM/CPP pair:
   - Added exact clamp and extrapolation boundary cases around `step=-1/0/N-1/N/N+1`.
   - Added explicit negative-`NbStep` boundary cases.
 
-### Next 3D Candidates
+### Next 3D candidates
 
 - `LightList` / `RotTransListF`
   - Revisit only if higher-level suites expose precision or accumulation gaps.
@@ -93,7 +93,7 @@ For each listed ASM/CPP pair:
   - Deepened the delete-only stress to 150 deterministic rounds and the mixed
     AddString/DeleteString pipeline to 80 deterministic sequences.
 
-### Next SOURCES Candidates
+### Next SOURCES candidates
 
 - Completed: `Do_Fire`
   - Added deterministic vertical-stripe inputs to exercise the horizontal
@@ -168,7 +168,7 @@ For each listed ASM/CPP pair:
   - Fixed the CPP path so `ScreenXMax`/`ScreenYMax` match the ASM's exclusive
     upper-edge bounds semantics.
 
-### Next SVGA Candidates
+### Next SVGA candidates
 
 - `ScaleBox` / `ScaleSprite`
   - `ScaleSprite` is now tightened for 1:1 equivalence; follow up only if the
@@ -447,7 +447,7 @@ For each listed ASM/CPP pair:
     rounds, while the `double`, `long double`, `volatile long double`, and
     staged long-double variants all match in `500/500` rounds.
 
-### Next Candidates
+### Next candidates
 
 - Broader placeholder sweep outside `pol_work`
   - Re-run the repo-wide audit for remaining `ASSERT_TRUE(1)` / no-crash style

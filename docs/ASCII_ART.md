@@ -1,12 +1,12 @@
-# ASCII Art Catalog
+# ASCII art catalog
 
 The original Adeline Software developers decorated their source files with elaborate ASCII art word banners. These are preserved here as artifacts of 1990s game development culture.
 
-**Attribution:** The banners documented here appear in the **original** Adeline / lba2-classic codebase: in C++ files that already existed there (e.g. SAVEGAME.CPP, SORT.CPP, GRILLE.CPP, BEZIER.CPP) or in ASM that has been ported to C++ in the community (e.g. the "FIRE" banner and "grossse optimisations" comment in FIRE.ASM are preserved in FIRE.CPP). They are historical, not community additions.
+**Attribution:** The banners documented here appear in the original Adeline / lba2-classic codebase: in C++ files that already existed there (e.g. SAVEGAME.CPP, SORT.CPP, GRILLE.CPP, BEZIER.CPP) or in ASM that has been ported to C++ in the community (e.g. the "FIRE" banner and "grossse optimisations" comment in FIRE.ASM are preserved in FIRE.CPP). They are historical, not community additions.
 
 Two distinct font styles were used throughout the codebase.
 
-## Style 1: Box-Drawing Block Letters
+## Style 1: box-drawing block letters
 
 This style uses full block characters (`██`) with box-drawing corners (`┐┌┘└│─`) to form large, bold letterforms. It appears in files that may have been written or refactored later in development.
 
@@ -92,7 +92,7 @@ Followed by the note: *"Module commun aux mondes interieurs et exterieurs"* (Mod
     └─────┘ └─┘ └─┘ └─┘       └─┘   └─────┘ └─┘ └─┘ └─────┘
 ```
 
-## Style 2: Half-Block Letters
+## Style 2: half-block letters
 
 This style uses upper/lower half-block characters (`█▀▄`) for a more compact look. It appears in many of the game logic modules and was likely the earlier or more common style used by the team.
 
@@ -294,7 +294,7 @@ The CD audio playback module -- charmingly minimal banner for a small module.
 
 Note the `▄▄` used as a period in "EXT.C".
 
-## Decorative Separators
+## Decorative separators
 
 Beyond word banners, the developers used several styles of decorative separator lines:
 

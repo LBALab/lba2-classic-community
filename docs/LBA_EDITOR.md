@@ -1,4 +1,4 @@
-# LBA_EDITOR (PERSO) in Source Code
+# LBA_EDITOR (PERSO) in source code
 
 This document captures what the `LBA_EDITOR` build paths represent in this repository, based on current source code.
 

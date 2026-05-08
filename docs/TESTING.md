@@ -5,7 +5,7 @@ implementation against the C/C++ port and treat the ASM result as the source of
 truth. The tests are designed to catch behavioral drift during the ongoing
 porting work in `LIB386/`.
 
-## Core Rule
+## Core rule
 
 All equivalence tests must compare ASM and CPP results exactly.
 
@@ -16,8 +16,7 @@ All equivalence tests must compare ASM and CPP results exactly.
 - If a single byte differs, fix the CPP implementation or isolate the mismatch
   with a smaller test.
 
-For current coverage and status, see `ASM_VALIDATION_PROGRESS.md` in the repo
-root.
+For current coverage and status, see [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATION_PROGRESS.md).
 
 ## CI (GitHub Actions)
 
@@ -25,19 +24,19 @@ Workflows under `.github/workflows/`:
 
 | Workflow | What it does |
 |----------|----------------|
-| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_console_state`, run `ctest -R 'test_(res_discovery|console_state)'` |
+| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_console_state` + `test_savegame_load_bounds`, run `ctest -R 'test_(res_discovery|console_state|savegame_load_bounds)'` |
 | `macos.yml` | Same host tests on `macos-latest` (preset `macos_arm64`) |
 | `windows.yml` | Same host tests on Windows MSYS2 UCRT64 (preset `windows_ucrt64`) |
 | `format.yml` | `scripts/ci/check-format.sh` (clang-format) |
 | `test.yml` | **Docker:** `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only; slow) |
 
-Host jobs do **not** need retail game files or Docker. The Docker job does not run discovery tests; it focuses on LIB386 equivalence.
+Host jobs do not need retail game files or Docker. The Docker job does not run discovery tests; it focuses on LIB386 equivalence.
 
-## What Is In Scope
+## What is in scope
 
 The repo currently uses three complementary testing workflows.
 
-### 1. Unit and Equivalence Tests
+### 1. Unit and equivalence tests
 
 Most tests live under `tests/` and are grouped by subsystem:
 
@@ -56,7 +55,7 @@ Most tests live under `tests/` and are grouped by subsystem:
 These tests are registered through CTest and typically use the custom harness in
 `tests/test_harness.h` (ASM↔CPP and subsystem fixtures above; not `tests/console`).
 
-### 2. Polygon Recording Replay (`.lba2polyrec`)
+### 2. Polygon recording replay (`.lba2polyrec`)
 
 For rendering bugs that are hard to reproduce with small synthetic fixtures, the
 game can record real polygon draw calls into `.lba2polyrec` files. Replay tools
@@ -65,7 +64,7 @@ compare the resulting framebuffers byte-for-byte.
 
 This is the main workflow for investigating polygon filler mismatches.
 
-### 3. Focused Numerical / Precision Tests
+### 3. Focused numerical / precision tests
 
 Some mismatches come from x87 behavior, intermediate rounding, or calling
 convention details rather than high-level logic. The `tests/fpu_precision`
@@ -73,15 +72,15 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 4. Host tests — game data discovery (`tests/discovery`)
 
-`tests/discovery/test_res_discovery.cpp` exercises **`ResolveGameDataDir`** (`LBA2_GAME_DIR`, `--game-dir` stripping), **parent-directory sibling discovery** (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and **embedded default `lba2.cfg`** writing. These run **on the host** (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and **`-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`** if you only need host tests (no `objcopy`; used by `make test` and PR host jobs).
+`tests/discovery/test_res_discovery.cpp` exercises `ResolveGameDataDir` (`LBA2_GAME_DIR`, `--game-dir` stripping), parent-directory sibling discovery (retail folder or `CommonClassic` next to a fake `repo_clone` via `chdir`), and embedded default `lba2.cfg` writing. These run on the host (no Docker, no 32-bit ASM). Configure with `-DLBA2_BUILD_TESTS=ON` and `-DLBA2_BUILD_ASM_EQUIV_TESTS=OFF` if you only need host tests (no `objcopy`; used by `make test` and PR host jobs).
 
 ### 5. Host tests — console (`tests/console`)
 
-`tests/console/test_console_state.cpp` links the `console` library and exercises **`SOURCES/CONSOLE/CONSOLE_STATE.CPP`**: availability strings (same contract as `console_avail_in_game_scene` in `CONSOLE_CMD.CPP`), legacy **video/menu/game** labels from **`Console_ModeString_FromState`** (for tests), and **`Console_FormatStatusIslandLine_FromState`** (first line of the **`status`** command: island, cube, chapter; raw values like `cmd_status`, not give-style scene masking). No retail `lba2.hqr` or full engine init.
+`tests/console/test_console_state.cpp` links the `console` library and exercises `SOURCES/CONSOLE/CONSOLE_STATE.CPP`: availability strings (same contract as `console_avail_in_game_scene` in `CONSOLE_CMD.CPP`), legacy video/menu/game labels from `Console_ModeString_FromState` (for tests), and `Console_FormatStatusIslandLine_FromState` (first line of the `status` command: island, cube, chapter; raw values like `cmd_status`, not give-style scene masking). No retail `lba2.hqr` or full engine init.
 
-`tests/console/test_console_commands.cpp` covers parser/output integration in **`SOURCES/CONSOLE/CONSOLE.CPP`** using host-only hooks: built-in `help` and `cmdlist`, unknown-command diagnostics, cvar set/get (`fps`), and a registered **`status`** command path that prints the same status headline format.
+`tests/console/test_console_commands.cpp` covers parser/output integration in `SOURCES/CONSOLE/CONSOLE.CPP` using host-only hooks: built-in `help` and `cmdlist`, unknown-command diagnostics, cvar set/get (`fps`), and a registered `status` command path that prints the same status headline format.
 
-PR host jobs and **`make test`** build the `host_tests` aggregate target, then:
+PR host jobs and `make test` build the `host_tests` aggregate target, then:
 
 ```bash
 cd build && ctest -L host_quick --output-on-failure
@@ -93,7 +92,13 @@ line. Adding a new host test requires no workflow or Makefile edits.
 
 To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
-## Test Harness
+### 6. Host tests — savegame (`tests/savegame`)
+
+`tests/savegame/test_load_bounds.cpp` (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks `SaveLoadValidateCompressedStaging` / `SaveLoadGuessObjectWireStride` on synthetic buffers — pure parser bounds, no retail game data. Built and run as part of `make test` / PR host jobs.
+
+`tests/savegame/corpus/` holds the Layer-3 driver scripts (`run_harness.py`, `build_manifest.py`) that exercise the real `lba2 --save-load-test` flag against a directory of `.lba` saves; requires retail game data so it runs locally only. See `tests/savegame/corpus/README.md`.
+
+## Test harness
 
 `tests/test_harness.h` provides a minimal TAP-style harness with no external
 framework dependency.
@@ -110,7 +115,7 @@ Useful macros:
 The harness prints relative source paths and keeps the tests simple enough to
 compile in the same environment as the engine code.
 
-## How ASM-vs-CPP Tests Are Built
+## How ASM-vs-CPP tests are built
 
 The helper in `tests/cmake/asm_test_helpers.cmake` implements
 `add_asm_cpp_test(...)`.
@@ -136,9 +141,9 @@ Important caveats:
   those symbols often need to be renamed consistently in both the main object
   and its dependencies.
 
-## Running Tests
+## Running tests
 
-### Preferred Entry Point
+### Preferred entry point
 
 Run tests through:
 
@@ -154,7 +159,7 @@ CTest.
 This is especially important on macOS ARM64, where the Docker-based workflow
 avoids local 32-bit toolchain and UASM compatibility issues.
 
-### Common Commands
+### Common commands
 
 Run the entire suite:
 
@@ -183,7 +188,7 @@ Run only specific tests by CTest name regex components:
 
 Logs are written automatically to `build_logs/`.
 
-### `run_tests_docker.sh` Parameters
+### `run_tests_docker.sh` parameters
 
 The script accepts a small set of flags plus positional test-name arguments.
 
@@ -253,7 +258,7 @@ by `render_polyrec.sh`, PNGs and a visual diff image are produced as well.
 The Docker image definition used by the script lives at
 `docker/Dockerfile.test`.
 
-## Writing or Updating Unit Tests
+## Writing or updating unit tests
 
 When adding or modifying an ASM equivalence test:
 
@@ -264,12 +269,12 @@ When adding or modifying an ASM equivalence test:
 5. Cover normal inputs, edge cases, and a deterministic random stress pass.
 6. If the function writes global state, compare that global state after both
    paths run.
-7. Update `ASM_VALIDATION_PROGRESS.md` so coverage status stays current.
+7. Update [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATION_PROGRESS.md) so coverage status stays current.
 
 For randomized stress tests, use a deterministic seed so failures are
 reproducible.
 
-## Debugging Mismatches
+## Debugging mismatches
 
 When ASM and CPP diverge, the expected workflow is:
 
@@ -284,9 +289,9 @@ When ASM and CPP diverge, the expected workflow is:
 Avoid changing the test to make a mismatch "acceptable". The point of these
 tests is to preserve exact behavior while the port progresses.
 
-## Polyrec Workflow
+## Polyrec workflow
 
-### What Polyrec Captures
+### What polyrec captures
 
 `LIB386/SNAPSHOT/POLY_RECORDING.CPP` records polygon rendering activity during a
 real game frame, including:
@@ -301,10 +306,9 @@ real game frame, including:
 
 Each recording is written as a `.lba2polyrec` fixture.
 
-### Capturing a Recording From the Game
+### Capturing a recording from the game
 
-The game-side recording hook is enabled by a CMake preset that defines
-`ENABLE_POLY_RECORDING`.
+The game-side recording hook is enabled by configuring with `-DENABLE_POLY_RECORDING=ON` (the option defaults OFF; see `CMakeLists.txt`).
 
 In a recording-enabled build:
 
@@ -318,7 +322,7 @@ In a recording-enabled build:
 New fixtures should be moved into `tests/SNAPSHOT/fixtures/` if they are meant
 to become part of the regression corpus.
 
-### Automated Polyrec Tests
+### Automated polyrec tests
 
 `tests/SNAPSHOT/CMakeLists.txt` registers one CTest per
 `tests/SNAPSHOT/fixtures/*.lba2polyrec` file.
@@ -332,7 +336,7 @@ Each test runs `tests/SNAPSHOT/compare_polyrec.sh`, which:
 If the buffers differ, the script reports size information and the first byte
 differences.
 
-### Replay Utilities
+### Replay utilities
 
 The snapshot test directory contains several useful utilities:
 
@@ -357,9 +361,9 @@ Once the first divergent draw call is known, convert that concrete failure into
 the smallest possible unit regression in `tests/pol_work/` or another relevant
 test directory.
 
-## Related Files
+## Related files
 
-- `ASM_VALIDATION_PROGRESS.md` tracks which ASM/CPP pairs are already covered.
+- [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATION_PROGRESS.md) tracks which ASM/CPP pairs are already covered.
 - `tests/test_harness.h` defines the assertion and test runner macros.
 - `tests/cmake/asm_test_helpers.cmake` defines `add_asm_cpp_test(...)`.
 - `run_tests_docker.sh` is the supported entry point for the suite.

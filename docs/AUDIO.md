@@ -1,8 +1,8 @@
-# Audio System
+# Audio system
 
 ## Overview
 
-The original LBA2 used the proprietary **Miles Sound System (MSS)** for audio. This project replaces Miles with an open-source **SDL-based backend** that implements the same **AIL (Audio Interface Library)** contract the engine was built against.
+The original LBA2 used the proprietary Miles Sound System (MSS) for audio. This project replaces Miles with an open-source SDL-based backend that implements the same AIL (Audio Interface Library) contract the engine was built against.
 
 The SDL backend matches the AIL function signatures and handle semantics, but targets modern hardware and sound quality (44100 Hz, float mixing, clean clipping). This document describes the audio architecture, the AIL contract, how the engine uses audio, and current status.
 
@@ -244,11 +244,11 @@ Under WSL2 with WSLg, audio can stutter due to timing jitter. Known factors:
 
 ## Diagnostic logging
 
-All audio diagnostic logging lives at the **AIL boundary** (`LIB386/AIL/SDL/`). Engine files are not instrumented -- logging is toggled via the console and stays in the backend layer.
+All audio diagnostic logging lives at the AIL boundary (`LIB386/AIL/SDL/`). Engine files are not instrumented -- logging is toggled via the console and stays in the backend layer.
 
 ### Output
 
-Logging uses `SDL_Log()`, which outputs to stderr/NSLog (the timestamped console output). This is **separate** from the engine's `adeline.log` (`~/Library/Application Support/Twinsen/LBA2/adeline.log`), which uses `LogPrintf()`.
+Logging uses `SDL_Log()`, which outputs to stderr/NSLog (the timestamped console output). This is separate from the engine's `adeline.log` (`~/Library/Application Support/Twinsen/LBA2/adeline.log`), which uses `LogPrintf()`.
 
 ### Toggle
 
