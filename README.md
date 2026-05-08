@@ -1,27 +1,27 @@
-# Little Big Adventure 2 - Engine source code - Community
+# Little Big Adventure 2 Classic - Community Engine Source Code
 
-Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel of Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
+Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
 
-We are releasing this code with preservation in mind, as this piece of work was exceptional for the time and we believe it can be a valuable source of education.
-
-The engine uses Assembly code and was originally compiled with non-open source libraries which have been excluded from the project.
+This repository is the community fork of the classic source release. We maintain the project with preservation in mind while improving portability and long-term maintainability.
 
 ## About this repository
 
-The **original** LBA2 engine source is the **lba2-classic** codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. **lba2-classic-community** is a **community fork** for evolving and modernizing the code: ports of assembly to C++, SDL3, libsmacker, and other updates. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
+The original LBA2 engine source is the [`lba2-classic`](https://github.com/2point21/lba2-classic) codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. `lba2-classic-community` is a community fork for evolving and modernizing the code: ports of assembly to C++, SDL3, libsmacker, and other updates. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
+
+For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick start (running the game)
 
 ### First clone
 
-1. **Dependencies:** CMake (3.23+), a C/C++ compiler, **SDL3**. The repo **`Makefile`** also expects **Ninja** on `PATH`. You can skip the Makefile and use plain CMake with your preferred generator instead.
-2. **`make`** or **`make help`** — lists convenience targets (`build`, `run`, `clean`, `test`, …).
-3. **`make build`** — configures `build/` (Ninja, Debug) and compiles `lba2`. Or: `cmake -B build && cmake --build build` (default generator is fine if you do not use `make build`).
-4. **Retail game data** are not in this repo. You need a directory that contains **`lba2.hqr`**. How you point the engine at it is **your choice**: `export LBA2_GAME_DIR=/path`, **`./data/`** (gitignored), **`--game-dir`**, or bounded automatic discovery — see [docs/GAME_DATA.md](docs/GAME_DATA.md). Nothing is “special-cased” except that marker file.
-5. **`make run`** or **`./scripts/dev/build-and-run.sh`** — build if needed, then run (exits with a clear message if no valid data directory was found).
-6. **`make test`** — host-only tests (path resolution, embedded default config, console parser, credits parse); **no** retail files or Docker required.
+1. **Dependencies:** CMake (3.23+), a C/C++ compiler, SDL3. The repo `Makefile` also expects Ninja on `PATH`. You can skip the Makefile and use plain CMake with your preferred generator instead.
+2. `make` or `make help` — lists convenience targets (`build`, `run`, `clean`, `test`, …).
+3. `make build` — configures `build/` (Ninja, Debug) and compiles `lba2`. Or: `cmake -B build && cmake --build build` (default generator is fine if you do not use `make build`).
+4. **Retail game data** are not in this repo. You need a directory that contains `lba2.hqr`. How you point the engine at it is your choice: `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery — see [docs/GAME_DATA.md](docs/GAME_DATA.md). Nothing is “special-cased” except that marker file.
+5. `make run` or `./scripts/dev/build-and-run.sh` — build if needed, then run (exits with a clear message if no valid data directory was found).
+6. `make test` — host-only tests (path resolution, embedded default config, console parser, credits parse); no retail files or Docker required.
 
-**Windows:** Use **MSYS2** (recommended; see [docs/WINDOWS.md](docs/WINDOWS.md)). Discovery and the game work the same (`LBA2_GAME_DIR`, `--game-dir`, paths with `\` or `/`). The root **`Makefile`** and **`scripts/dev/*.sh`** need a **Unix-like shell** (MSYS2 UCRT64, Git Bash, or WSL); alternatively run **`cmake`** and **`build/SOURCES/lba2.exe`** from **cmd.exe** / PowerShell and set the env var with `set LBA2_GAME_DIR=...`.
+**Windows:** Use MSYS2 (recommended; see [docs/WINDOWS.md](docs/WINDOWS.md)). Discovery and the game work the same (`LBA2_GAME_DIR`, `--game-dir`, paths with `\` or `/`). The root `Makefile` and `scripts/dev/*.sh` need a Unix-like shell (MSYS2 UCRT64, Git Bash, or WSL); alternatively run `cmake` and `build/SOURCES/lba2.exe` from cmd.exe / PowerShell and set the env var with `set LBA2_GAME_DIR=...`.
 
 ### Build and run (reference)
 
@@ -30,17 +30,17 @@ cmake -B build && cmake --build build
 ./build/SOURCES/lba2
 ```
 
-With optional game data path: `./build/SOURCES/lba2 --game-dir /path/to/classic/install` or set **`LBA2_GAME_DIR`** first.
+With optional game data path: `./build/SOURCES/lba2 --game-dir /path/to/classic/install` or set `LBA2_GAME_DIR` first.
 
-**`make run`** sets **`LBA2_GAME_DIR`** automatically if **`./data`** or **`../LBA2`** contains `lba2.hqr`.
+`make run` sets `LBA2_GAME_DIR` automatically if `./data` or `../LBA2` contains `lba2.hqr`.
 
-Run **`make`** for convenience targets: **`make build`**, **`make clean`** (removes the default **`build/`** tree; override with **`BUILD_DIR`**), **`make test`**, **`make test-docker`**, etc.
+Run `make` for convenience targets: `make build`, `make clean` (removes the default `build/` tree; override with `BUILD_DIR`), `make test`, `make test-docker`, etc.
 
 ## Prerequisites
 
 - **CMake** 3.23 or later
 - **Ninja** build system for CMake preset-based builds
-- **UASM** assembler (used for x86 assembly sources)
+- **UASM** assembler (optional; only required for `ENABLE_ASM=ON` / ASM-specific workflows)
 - **SDL3** (shared library)
 - A C/C++ compiler with C++98 support (GCC, Clang)
 
@@ -106,6 +106,14 @@ available on `PATH`.
 
 When `MVIDEO_BACKEND` is set to `smacker`, the build links in `libsmacker` and the FMV player. Video audio routes through the active sound backend (SDL: real audio; NULL/MILES: silent). See `LIB386/SMACKER/README.md` and `LIB386/AIL/MILES/README.md` for details on the proprietary SDKs and their open-source replacements.
 
+### Debug Console
+
+This source port includes a Quake-style drop-down debug console. It lets you inspect engine/game state and run developer commands during gameplay, which is useful for both debugging and interactive exploration of engine behavior.
+
+It is designed to be minimally invasive: normal gameplay is unchanged unless you open and use it.
+
+See [docs/CONSOLE.md](docs/CONSOLE.md) for commands, usage, and integration details.
+
 ### Debug Tools
 
 To build with the original Adeline developer debug tools enabled:
@@ -116,14 +124,6 @@ cmake --build build
 ```
 
 This enables keyboard shortcuts for debugging (debug overlay, FPS counter, screenshots, collision visualization, benchmarks), cheat codes, bug save/load system, and command-line scene selection. See [docs/DEBUG.md](docs/DEBUG.md) for full documentation.
-
-### Debug Console
-
-This source port includes a Quake-style drop-down debug console. It lets you inspect engine/game state and run developer commands during gameplay, which is useful for both debugging and interactive exploration of engine behavior.
-
-It is designed to be minimally invasive: normal gameplay is unchanged unless you open and use it.
-
-See [docs/CONSOLE.md](docs/CONSOLE.md) for commands, usage, and integration details.
 
 ### Cross-compiling for Windows (from Linux)
 
@@ -171,12 +171,12 @@ Build, debug, preservation, and porting docs are in [docs/](docs/README.md).
 
 ## Preservation Notes
 
-This codebase is a window into 1990s game development at Adeline Software International in Lyon, France. Beyond the technical content, the source files contain original developer artifacts worth exploring. The ASCII art and French comments documented below are from the **original** Adeline / lba2-classic codebase (same files or content preserved when porting ASM to C++ in this fork).
+This codebase is a window into 1990s game development at Adeline Software International in Lyon, France. Beyond the technical content, the source files contain original developer artifacts worth exploring. The ASCII art and French comments documented below are from the original Adeline / lba2-classic codebase (same files or content preserved when porting ASM to C++ in this fork).
 
 - **ASCII art banners** -- The developers decorated their source files with elaborate text banners in two distinct styles. See [ASCII_ART.md](docs/ASCII_ART.md) for a full catalog.
 - **French comments** -- The code is written with French comments throughout, many of which are informal, humorous, or expressive in ways that reflect the personality of the team. See [FRENCH_COMMENTS.md](docs/FRENCH_COMMENTS.md) for a curated selection with English translations.
 
-## Licence
+## License
 
 This source code is licensed under the [GNU General Public License](https://github.com/LBALab/lba2-classic-community/blob/main/LICENSE).
 
@@ -188,42 +188,30 @@ Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-commun
 
 ## Links
 
-**Official Website:** https://twinsenslittlebigadventure.com/
-
-**Discord:** https://discord.gg/jsTPWYXHsh
-
-**Docs:** https://lba-classic-doc.readthedocs.io/
+* **Official Website:** https://twinsenslittlebigadventure.com/
+* **Discord:** https://discord.gg/jsTPWYXHsh
+* **Docs:** https://lba-classic-doc.readthedocs.io/
 
 ## Buy the game
 
-[[GoG]](https://www.gog.com/game/little_big_adventure_2)  [[Steam]](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/)
+* [GOG](https://www.gog.com/game/little_big_adventure_2)  
+* [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/)
 
-## Original Dev Team
+## Original Development Team
 
-Direction: Frédérick Raynal
-
-Programmers: Sébastien Viannay / Laurent Salmeron / Cédric Bermond / Frantz Cournil / Marc Bureau du Colombier
-
-3D Artists & Animations: Paul-Henri Michaud / Arnaud Lhomme
-
-Artists: Yaeël Barroz, Sabine Morlat, Didier Quentin
-
-Story & Design: Frédérick Raynal / Didier Chanfray / Yaël Barroz / Laurent Salmeron / Marc Albinet
-
-Dialogs: Marc Albinet
-
-Story coding: Frantz Cournil / Lionel Chaze / Pascal Dubois
-
-Video Sequences: Frédéric Taquet / Benoît Boucher / Ludovic Rubin / Merlin Pardot
-
-Music & Sound FX: Philippe Vachey
-
-Testing: Bruno Marion / Thomas Ferraz / Alexis Madinier / Christopher Horwood / Bertrand Fillardet
-
-Quality Control: Emmanuel Oualid
+*Direction:* Frédérick Raynal
+*Programmers:* Sébastien Viannay / Laurent Salmeron / Cédric Bermond / Frantz Cournil / Marc Bureau du Colombier
+*3D Artists & Animations:* Paul-Henri Michaud / Arnaud Lhomme
+*Artists:* Yaeël Barroz, Sabine Morlat, Didier Quentin
+*Story & Design:* Frédérick Raynal / Didier Chanfray / Yaël Barroz / Laurent Salmeron / Marc Albinet
+*Dialogs:* Marc Albinet
+*Story coding:* Frantz Cournil / Lionel Chaze / Pascal Dubois
+*Video Sequences:* Frédéric Taquet / Benoît Boucher / Ludovic Rubin / Merlin Pardot
+*Music & Sound FX:* Philippe Vachey
+*Testing:* Bruno Marion / Thomas Ferraz / Alexis Madinier / Christopher Horwood / Bertrand Fillardet
+*Quality Control:* Emmanuel Oualid
 
 ## Copyright
 
 The intellectual property is currently owned by [2.21]. Copyright [2.21]
-
 Originally developed by Adeline Software International in 1994
