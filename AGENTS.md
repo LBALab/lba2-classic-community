@@ -4,17 +4,15 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Principles
 
-1. **Truth hierarchy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins—then update the docs.
+1. **Truth hierarchy and doc accuracy:** Code > project docs > external sources. Prefer `docs/GLOSSARY.md`, `docs/LIFECYCLES.md`, etc. over inference. When code and docs conflict, code wins — fix the docs in the same commit or PR (environment trumps willpower; maintainers may forget). Keep `docs/ASM_VALIDATION_PROGRESS.md` and `docs/ASM_TO_CPP_REFERENCE.md` current.
 
-2. **Document accuracy:** Docs drift from code over time. When you change behavior, update the relevant docs in the same commit or PR—environment trumps willpower; maintainers may forget. Keep `docs/ASM_VALIDATION_PROGRESS.md` and `docs/ASM_TO_CPP_REFERENCE.md` current. If you notice code and docs conflict, fix the docs (code wins).
+2. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
 
-3. **Preserve the nature of the game:** Do not change gameplay, feel, or behavior by default. Fix bugs that alter behavior; do not "improve" behavior without explicit agreement.
+3. **Optional features behind flags:** New behavior or features that change the experience must be opt-in (build options, config flags, runtime toggles). Default builds should match original behavior.
 
-4. **Optional features behind flags:** New behavior or features that change the experience must be opt-in (build options, config flags, runtime toggles). Default builds should match original behavior.
+4. **Quality over speed:** Equivalence tests must pass. Do not relax tests to unblock. Prefer smaller, well-tested changes. Fix bugs before merging.
 
-5. **Quality over speed:** Equivalence tests must pass. Do not relax tests to unblock. Prefer smaller, well-tested changes. Fix bugs before merging.
-
-6. **Cross-platform priority:** Support Linux, macOS, and Windows. Contributors and agents may be on any of these—do not assume Linux. Avoid platform-specific assumptions (paths, case sensitivity, toolchains). Prefer portable C/C++. No inline x86 in library code. The engine builds on SDL3, which supports [many more platforms](https://github.com/libsdl-org/SDL/blob/main/docs/README-platforms.md)—writing portable code today keeps that door open.
+5. **Cross-platform priority:** Support Linux, macOS, and Windows. Contributors and agents may be on any of these—do not assume Linux. Avoid platform-specific assumptions (paths, case sensitivity, toolchains). Prefer portable C/C++. No inline x86 in library code. The engine builds on SDL3, which supports [many more platforms](https://github.com/libsdl-org/SDL/blob/main/docs/README-platforms.md)—writing portable code today keeps that door open.
 
 ## Never
 
@@ -33,13 +31,11 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 ## Golden rules
 
-- **ASM is the source of truth.** All equivalence tests compare ASM vs C++ byte-for-byte. Use `ASSERT_ASM_CPP_EQ_INT` for scalars, `ASSERT_ASM_CPP_MEM_EQ` for buffers.
-- **Preservation:** French comments, ASCII art, attribution—these are historical artifacts. Add clarifying comments alongside originals; do not replace them.
-- **Documentation first:** Use `docs/GLOSSARY.md` for domain terms, `docs/LIFECYCLES.md` for lifecycles, `docs/ASM_TO_CPP_REFERENCE.md` for port status, `docs/ASM_VALIDATION_PROGRESS.md` for test coverage, and `docs/ASM_TEST_COVERAGE_AUDIT.md` for what "covered" means in practice (branches, side effects, edge inputs, ASM-invalid domains).
+Operational complements to the principles above.
+
+- **ASM is the source of truth.** All equivalence tests compare ASM vs C++ byte-for-byte. Use `ASSERT_ASM_CPP_EQ_INT` for scalars, `ASSERT_ASM_CPP_MEM_EQ` for buffers. See `docs/ASM_TEST_COVERAGE_AUDIT.md` for what "covered" means in practice (branches, side effects, edge inputs, ASM-invalid domains).
 - **Think like an archaeologist:** This codebase is a window into 1990s game dev at Adeline Software. Surface historical context when relevant. See `docs/FRENCH_COMMENTS.md` and `docs/ASCII_ART.md`.
-- **Verify before claiming:** Run build or tests to confirm changes work; do not claim something works without verification.
 - **Search before adding:** Check for existing implementations before adding new code; avoid duplication.
-- **Say when unsure:** If uncertain whether a change is correct, say so. Prefer "I'm not certain" over confident but wrong.
 - **Pin fixes with a test or a repro hook.** When fixing a bug, first ask whether the affected logic is pure-data (parsing, serialization, math, projection, sort) — if yes, extracting it into a pure function and adding a host test is usually a small additional refactor and should be done as part of the fix. When automation is impractical (state, timing, UI), ship a manual repro hook instead (a console command, debug menu entry, or build flag). See [CONTRIBUTING.md "Doing good work here"](CONTRIBUTING.md#doing-good-work-here) for the rationale.
 
 ## Execution style (Karpathy-inspired)
@@ -84,7 +80,7 @@ Apply these behavior rules on every non-trivial task:
 | Code that reads retail HQR data or legacy save formats | Check the rule: never `sizeof(T)`-as-stride for fat structs; use a paired `T_DISK` or field-by-field serialization | docs/ABI.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
-| Any code that affects documented behavior | Update the doc in the same commit | Principle 2 |
+| Any code that affects documented behavior | Update the doc in the same commit | Principle 1 |
 | Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
 | Editing docs (any `.md`) | Sentence-case headings; bold for structure only (list-item / paragraph leads, table row labels), not mid-sentence emphasis; verify file/line refs; from `docs/`, link to source with `../SOURCES/...` / `../LIB386/...` | "Editing docs" below; CONTRIBUTING.md "Doing good work here" |
 
