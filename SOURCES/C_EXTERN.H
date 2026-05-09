@@ -9,9 +9,9 @@ extern S32 DistribVersion;
 
 extern const char *BuildInfo; /* Build timestamp and flags (BUILD_INFO.CPP) */
 #ifdef DEMO
-extern char *Version; /* "LBA2 ... version (date / time)" banner (VERSION.CPP) */
+extern char *Version; /* "<product> <version> (<date> / <time>)" banner (VERSION.CPP) */
 #else
-extern const char *Version; /* "LBA2 ... version (date / time)" banner (VERSION.CPP) */
+extern const char *Version; /* "<product> <version> (<date> / <time>)" banner (VERSION.CPP) */
 #endif
 
 extern char MessageNoCD[50];
