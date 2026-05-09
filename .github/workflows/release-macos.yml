@@ -1,0 +1,105 @@
+name: Release macOS
+
+# Mirrors release-linux-appimage.yml and release-windows.yml so all release
+# workflows follow the same conventions (see "Release workflow conventions"
+# in docs/RELEASING.md).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: "Build ${{ matrix.arch }}"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: macos-latest   # Apple Silicon (arm64)
+            arch: arm64
+            preset: macos_arm64
+          - runs-on: macos-13       # Last reliable Intel runner
+            arch: x86_64
+            preset: macos_x86_64
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          # Full history so cmake/git_version.cmake can detect a clean
+          # vs dirty tree (release tags are clean; -dirty is suppressed).
+          fetch-depth: 0
+
+      - name: Install SDL3 (static build)
+        # libsdl-org/setup-sdl builds SDL3 from source. Pass cmake-arguments
+        # to enable the static archive — our LBA2_LINK_STATIC=ON path
+        # requires SDL3::SDL3-static. SDL_SHARED stays ON so the find_package
+        # COMPONENTS check has both targets available; the explicit static
+        # selection happens in our root CMakeLists.txt.
+        uses: libsdl-org/setup-sdl@main
+        id: sdl
+        with:
+          version: 3-latest
+          build-type: Release
+          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset ${{ matrix.preset }} \
+                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Bundle DMG
+        run: |
+          BUILD_DIR=out/build/${{ matrix.preset }}
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-macos.sh \
+            --app "$BUILD_DIR/SOURCES/lba2cc.app" \
+            --version "$VERSION" \
+            --arch ${{ matrix.arch }} \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: macOS-${{ matrix.arch }}
+          path: dist
+
+  release:
+    name: Attach to GitHub Release
+    needs: [build]
+    # Only create/update a Release on tag pushes. workflow_dispatch runs
+    # produce a downloadable artifact via the build job's upload-artifact
+    # step but do not touch the Releases page (avoids attaching to a
+    # branch-named "release"). Matches release-windows.yml and the
+    # tightened release-linux-appimage.yml.
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: macOS-*
+          merge-multiple: true
+
+      - name: Release macOS DMGs
+        # softprops/action-gh-release@v2 is idempotent: creates the Release
+        # if absent, attaches/updates if present. Lets the AppImage,
+        # Windows, and macOS workflows fire in any order on the same tag
+        # and all land their artifacts on the same Release page.
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            lba2cc-*-macos-*.dmg
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
