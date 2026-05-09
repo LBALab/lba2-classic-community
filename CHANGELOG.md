@@ -139,6 +139,9 @@ All new features default-off or default-to-original-behavior, in line with
 
 ### Cross-platform & build
 
+- First Linux release artifact: AppImage built in CI from an any-linux
+  base, packaged as a single portable binary
+  ([#74](https://github.com/LBALab/lba2-classic-community/pull/74))
 - macOS CI build (arm64); macOS x86_64 preset
   ([#52](https://github.com/LBALab/lba2-classic-community/pull/52))
 - Portable Windows build via MSYS2 UCRT64
