@@ -142,6 +142,12 @@ All new features default-off or default-to-original-behavior, in line with
 - First Linux release artifact: AppImage built in CI from an any-linux
   base, packaged as a single portable binary
   ([#74](https://github.com/LBALab/lba2-classic-community/pull/74))
+- Product metadata (executable name, display name, description, desktop
+  ID) centralized into CMake cache variables so the runtime window
+  title, `.desktop` entry, and AppImage script all consume one source
+  ([#83](https://github.com/LBALab/lba2-classic-community/issues/83)).
+  Window title now shows the version (e.g. `LBA2 Classic Community
+  0.9.0-dev`) — previously just `LBA2`.
 - macOS CI build (arm64); macOS x86_64 preset
   ([#52](https://github.com/LBALab/lba2-classic-community/pull/52))
 - Portable Windows build via MSYS2 UCRT64

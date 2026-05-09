@@ -91,7 +91,7 @@ git push origin main
 git push origin "$VERSION"
 
 # 4. Sanity-check the binary picks it up.
-cmake --build build --target lba2
+cmake --build build
 ./build/SOURCES/lba2 --version    # expect: 0.9.0
 cat build/VERSION.txt                  # expect: 0.9.0
 
