@@ -316,18 +316,21 @@ Iterate on the Windows release ZIP locally without burning CI minutes:
 bash scripts/dev/build-windows-release.sh
 ```
 
-Cross-compiles via the `cross_linux2win` preset with `LBA2_LINK_STATIC=ON`,
-then bundles the result into `dist/lba2cc-<version>-windows-i686.zip` via
-the shared `scripts/packaging/bundle-windows.sh`. The same `bundle-windows.sh`
-is used by the CI Windows release workflow (B2, separate PR), so the ZIP
-layout can't drift between local and CI.
+The script auto-detects the build environment:
 
-Prerequisites on the dev box: `mingw-w64` cross-compile toolchain
-(`apt install mingw-w64` on Debian/Ubuntu, `pacman -S mingw-w64-gcc` on
-Arch), `cmake`, `ninja`, plus either `zip` or `python3` for the archive
-step. SDL3 must be installed for the i686 target — most distros only
-ship 64-bit SDL3, so this script works cleanly inside CI but may need
-manual SDL3-i686 setup locally. CI uses `setup-sdl` to handle this.
+- **MSYS2 (UCRT64 / MINGW64)** — uses the matching native preset, produces an `x64` artifact. This is the recommended local path because it's bit-for-bit the same toolchain the CI release workflow (B2) uses, and SDL3 is straightforward (`pacman -S mingw-w64-ucrt-x86_64-SDL3`).
+- **Linux (incl. WSL)** — falls back to the `cross_linux2win` preset, produces an `i686` (32-bit) artifact. Cheap if you have `mingw-w64` already installed, but **also requires SDL3 for the i686 cross-arch**, which most distros don't ship by default. CI handles this via `setup-sdl`; on a dev box you'd typically just use MSYS2 instead.
+
+Override the preset explicitly with `--preset windows_ucrt64`, `--preset windows_mingw64`, etc. if you want to test a specific configuration regardless of host environment.
+
+Both paths invoke the same `scripts/packaging/bundle-windows.sh`, so the ZIP layout cannot drift between local dry-run and CI. The CI release workflow (B2, separate PR) calls the same script.
+
+Prerequisites:
+
+- `cmake`, `ninja` — both paths.
+- Either `zip` or `python3` for the archive step (script falls back to `python3 -m zipfile` if `zip` isn't installed).
+- **MSYS2 path**: a working MSYS2 UCRT64 dev environment (the same one used for native dev builds).
+- **Linux/WSL path**: `mingw-w64` (`apt install mingw-w64` on Debian/Ubuntu, `pacman -S mingw-w64-gcc` on Arch) plus SDL3 built or installed for i686.
 
 ZIP layout:
 
