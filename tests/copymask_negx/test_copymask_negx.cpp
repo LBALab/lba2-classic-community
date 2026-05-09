@@ -47,7 +47,7 @@ S32 MemoClipYMax = 479;
 
 #define SCREEN_W 640
 #define SCREEN_H 480
-#define GUARD    256
+#define GUARD 256
 #define SENTINEL 0xA5
 
 /* Framebuffer with sentinel guard regions. Anything CopyMask writes
@@ -63,12 +63,12 @@ static U8 g_bank[64];
 
 static int g_failures = 0;
 
-#define CHECK(cond, msg)                                              \
-    do {                                                              \
-        if (!(cond)) {                                                \
-            fprintf(stderr, "FAIL: %s (line %d)\n", msg, __LINE__);   \
-            ++g_failures;                                             \
-        }                                                             \
+#define CHECK(cond, msg)                                            \
+    do {                                                            \
+        if (!(cond)) {                                              \
+            fprintf(stderr, "FAIL: %s (line %d)\n", msg, __LINE__); \
+            ++g_failures;                                           \
+        }                                                           \
     } while (0)
 
 static void setup_screen(void) {
