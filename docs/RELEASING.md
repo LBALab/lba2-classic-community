@@ -270,6 +270,43 @@ sources `build/packaging/appimage_env.sh` so its outputs follow too.
 > file. The binary, window title, and `.desktop` entry don't need the
 > icon and follow overrides cleanly on their own.
 
+### Renaming the default binary (rare)
+
+Overriding `LBA2_EXECUTABLE_NAME` per-build (above) is the common case.
+Bumping the cache *default* — actually changing the project's shipped
+binary name — has happened once (`lba2` → `lba2cc` for retail-collision
+reasons; see [PR #94](https://github.com/LBALab/lba2-classic-community/pull/94)).
+The CMake change is one line; the doc and CI sweep is most of the work,
+and easy to underestimate.
+
+If it ever happens again, run **three** greps — each catches a different
+class of reference, and a single combined grep will leave stale mentions
+behind:
+
+```bash
+OLD=lba2 NEW=lba2new   # adjust
+
+# 1. Build/output paths in CI workflows, scripts, READMEs.
+grep -rnE "build/SOURCES/$OLD|out/build/.+/SOURCES/$OLD" .
+
+# 2. Bare invocations in docs (./lba2 --version, ./lba2 42).
+#    Most error-prone because the token also appears in lba2.cfg,
+#    lba2.hqr, LBA2_* env vars, and brand mentions — filter the
+#    false positives, don't skip the grep.
+grep -rnE "(\./|\s)$OLD( |\$|\.exe)" --include="*.md" --include="*.sh" .
+
+# 3. CMake target references in workflows, Makefiles, scripts.
+grep -rnE "target $OLD" .github/workflows scripts/ Makefile
+```
+
+Don't forget the `Verify Binary` step in `.github/workflows/{linux,macos,windows}.yml`
+— it's a separate `test -f` line that pattern (1) catches but is
+easy to miss visually because it lives outside the build step.
+
+After substituting, rebuild with `make build` to confirm the binary
+lands at the new path, then re-run all three greps with the **new**
+name to catch typos and partial substitutions.
+
 ## What `git-cliff` reads
 
 - Commit messages on `main` since the previous tag.
