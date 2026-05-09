@@ -79,8 +79,22 @@ endif()
 # Dependencies
 if(LBA2_LINK_STATIC)
     find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-static)
+    # Be explicit: SDL3::SDL3 is an alias that resolves to the shared variant
+    # when both shared and static are present in the install tree (the MSYS2
+    # mingw-w64-ucrt-x86_64-SDL3 package ships both). Force the static target
+    # so the resulting binary actually has SDL3 folded in.
+    set(LBA2_SDL3_TARGET SDL3::SDL3-static)
+    if(NOT TARGET ${LBA2_SDL3_TARGET})
+        message(FATAL_ERROR
+            "LBA2_LINK_STATIC=ON but SDL3::SDL3-static is not available. "
+            "Your SDL3 install only provides the shared variant. On MSYS2 "
+            "the package mingw-w64-ucrt-x86_64-SDL3 normally includes both; "
+            "if it doesn't on your platform, build SDL3 from source with "
+            "-DSDL_STATIC=ON or skip -DLBA2_LINK_STATIC=ON.")
+    endif()
 else()
     find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
+    set(LBA2_SDL3_TARGET SDL3::SDL3)
 endif()
 
 # Engine version string. Reads the canonical value from the VERSION file
