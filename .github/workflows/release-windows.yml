@@ -22,7 +22,11 @@ jobs:
             arch: x64
             msystem: UCRT64
             preset: windows_ucrt64
-            sdl3_pkg: mingw-w64-ucrt-x86_64-SDL3
+            # MSYS2 normalizes the SDL3 package name to lowercase (unlike
+            # most other mingw-w64-* packages where the suffix matches the
+            # upstream casing — e.g. SDL2). The 'SDL3' uppercase variant
+            # does not exist in MSYS2 repos and `pacman -S` errors out.
+            sdl3_pkg: mingw-w64-ucrt-x86_64-sdl3
     defaults:
       run:
         # Run all `run:` steps inside the MSYS2 shell so cmake, ninja, gcc,
