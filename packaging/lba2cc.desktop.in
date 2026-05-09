@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=@LBA2_PRODUCT_NAME@
+Comment=@LBA2_PRODUCT_DESCRIPTION@
+Exec=@LBA2_EXECUTABLE_NAME@
+Icon=@LBA2_DESKTOP_ID@
+StartupWMClass=@LBA2_EXECUTABLE_NAME@
+Categories=Game;Adventure;Platform;

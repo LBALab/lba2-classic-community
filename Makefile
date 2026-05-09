@@ -27,7 +27,7 @@ clean:
 
 build:
 	$(CMAKE) -S "$(REPO_ROOT)" -B "$(BUILD_DIR)" -G Ninja -DCMAKE_BUILD_TYPE=Debug
-	$(CMAKE) --build "$(BUILD_DIR)" --target lba2
+	$(CMAKE) --build "$(BUILD_DIR)"
 
 run build-run:
 	@bash "$(REPO_ROOT)/scripts/dev/build-and-run.sh"

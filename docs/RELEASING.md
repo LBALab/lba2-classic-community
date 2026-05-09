@@ -91,7 +91,7 @@ git push origin main
 git push origin "$VERSION"
 
 # 4. Sanity-check the binary picks it up.
-cmake --build build --target lba2
+cmake --build build
 ./build/SOURCES/lba2 --version    # expect: 0.9.0
 cat build/VERSION.txt                  # expect: 0.9.0
 
@@ -232,6 +232,43 @@ resolved version is suffixed with `-dirty`. So:
 The maintainer bumps the `VERSION` file as part of cutting a release
 (see step 2 in the recipe above). After the bump-and-commit lands on
 `main`, `./lba2 --version` reports the real semver.
+
+## Product metadata overrides
+
+Release-facing strings (executable name, runtime window title,
+`.desktop` entry, AppImage label) all flow from one place: the `LBA2_*`
+cache variables in the root `CMakeLists.txt`. Override any of them at
+configure time and every surface follows.
+
+| Cache variable             | Default                         | Used by                                                    |
+|----------------------------|---------------------------------|------------------------------------------------------------|
+| `LBA2_EXECUTABLE_NAME`     | `lba2`                          | binary name, `.desktop` `Exec=` / `StartupWMClass`         |
+| `LBA2_PRODUCT_NAME`        | `LBA2 Classic Community`        | window title (with version), `.desktop` `Name`, AppImage   |
+| `LBA2_PRODUCT_NAME_DEMO`   | `LBA2 Twinsen's Odyssey Demo`   | window title when built with `-DDEMO`                      |
+| `LBA2_PRODUCT_DESCRIPTION` | (one-line fork description)     | `.desktop` `Comment`                                       |
+| `LBA2_DESKTOP_ID`          | `lba2cc`                        | `.desktop` filename stem and `Icon=` value                 |
+
+Example — produce an alternate-branded build:
+
+```bash
+cmake -B build \
+      -DLBA2_PRODUCT_NAME="LBA2 Anniversary Build" \
+      -DLBA2_EXECUTABLE_NAME=lba2-anniv
+cmake --build build
+```
+
+The window title bar reads `LBA2 Anniversary Build <version>`, the
+binary lands at `build/SOURCES/lba2-anniv`, and the generated
+`build/packaging/lba2cc.desktop` carries the matching `Name=` and
+`Exec=` entries. The AppImage script (`packaging/make-appimage.sh`)
+sources `build/packaging/appimage_env.sh` so its outputs follow too.
+
+> **Note on `LBA2_DESKTOP_ID`.** The icon PNG is a committed asset at
+> `packaging/lba2cc.png`. If you override `LBA2_DESKTOP_ID` (say to
+> `lba2-anniv`), the AppImage script will look for
+> `packaging/lba2-anniv.png` and fail unless you've placed a matching
+> file. The binary, window title, and `.desktop` entry don't need the
+> icon and follow overrides cleanly on their own.
 
 ## What `git-cliff` reads
 

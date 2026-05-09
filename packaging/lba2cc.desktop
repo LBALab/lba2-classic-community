@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=LBA2 Classic Community
-Comment="A community fork for evolving and modernizing LBA2 source port"
-Exec=lba2
-Icon=lba2cc
-StartupWMClass=lba2
-Categories=Game;Adventure;Platform;

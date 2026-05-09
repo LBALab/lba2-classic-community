@@ -7,7 +7,15 @@ REPO_ROOT="$("$SCRIPT_DIR/repo_root.sh")"
 BUILD_DIR="${LBA2_BUILD_DIR:-$REPO_ROOT/build}"
 
 cmake -S "$REPO_ROOT" -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE:-Debug}"
-cmake --build "$BUILD_DIR" --target lba2
+
+# Resolve the executable name from CMakeCache.txt so this script follows any
+# -DLBA2_EXECUTABLE_NAME override on every platform (Linux/macOS/msys2). The
+# AppImage env file in build/packaging/ is Linux-only and not sourced here.
+LBA2_EXECUTABLE_NAME=$(awk -F= '/^LBA2_EXECUTABLE_NAME:[A-Z]+=/{print $2; exit}' \
+                          "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || true)
+LBA2_EXECUTABLE_NAME="${LBA2_EXECUTABLE_NAME:-lba2}"
+
+cmake --build "$BUILD_DIR"
 
 GAME_DIR="${LBA2_GAME_DIR:-}"
 if [[ -z "$GAME_DIR" ]]; then
@@ -20,4 +28,4 @@ if [[ -z "$GAME_DIR" ]]; then
   done
 fi
 
-exec "$BUILD_DIR/SOURCES/lba2" "$@"
+exec "$BUILD_DIR/SOURCES/$LBA2_EXECUTABLE_NAME" "$@"
