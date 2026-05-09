@@ -33,6 +33,32 @@ Canonical sites:
 
 **Next:** A canonical `NUM_VERSION 37+` save format that does not memcpy pointer-bearing structs would remove this category for new saves entirely; legacy loaders stay in place. Tracked at [issue #64](https://github.com/LBALab/lba2-classic-community/issues/64).
 
+### Renderer-side wraparound
+
+A second, independent face of the 32→64-bit pointer transition, distinct from the disk-layout side above: pointer arithmetic with a `U32` offset that may legitimately be negative. On 32-bit, `pointer + (U32)-24` wraps in the address space and resolves to `pointer - 24`. On 64-bit it zero-extends to a +4 GiB byte offset, so the pointer lands in unmapped memory — or, worse, a mapped page belonging to something else, which is silent corruption.
+
+Coupled defect that hides the first one: clip tests written in `U32` (`if (xMin < ClipXMin)`) silently fail for negative `xMin`, so the existing margin/clip branch never fires and the corrupted offset reaches the inner loop unnoticed.
+
+Worked example — `LIB386/SVGA/COPYMASK.CPP`, called from `DrawOverBrick3` (interior brick recover pass) with `x = -24` for column 0. The school scene with the grand wizard and foreground candles triggers it on every entry. Fixed in [PR #84](https://github.com/LBALab/lba2-classic-community/pull/84) by switching the geometry locals to `S32`. Pinned by `tests/copymask_negx/`. Investigation runbook in [CRASH_INVESTIGATION.md](CRASH_INVESTIGATION.md).
+
+The smell: a renderer-adjacent function takes signed coordinates but stores them in `U32` locals before doing pointer math against `Log` / `Screen`. Crashes are intermittent because whether `pointer + 4 GiB` lands in a mapped page is allocator/ASLR luck — easy to mistake for "flaky" rather than a real bug.
+
+Audit candidates (not yet swept):
+
+- `LIB386/SVGA/` — sprite, mask, scale, font fillers
+- `LIB386/pol_work/` — flat, gouraud, textured, z-buffer, fog
+- `LIB386/3D/`, `SOURCES/3DEXT/` — projection-adjacent paths
+- `SOURCES/GRILLE.CPP`, `SOURCES/INTEXT.CPP` — interior recover pass
+
+#### Audit log
+
+| File | Function | Verdict | Notes |
+|---|---|---|---|
+| `LIB386/SVGA/COPYMASK.CPP` | `CopyMask` | fixed | PR #84 |
+| `LIB386/SVGA/MASK.CPP` | `ClippingMask` | safe | Geometry locals already `S32`; clipping is explicit before pointer math. |
+
+**Next:** Sweep the candidate list above. Each hit gets either a fix-with-test PR or an in-source justification for why no negative coordinate ever reaches the pointer math.
+
 ---
 
 ## 2. Endianness &nbsp;&nbsp;&nbsp;&nbsp; ✗ exposed
