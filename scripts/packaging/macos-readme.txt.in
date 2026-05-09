@@ -10,11 +10,19 @@ INSTALLING
 Drag @LBA2_EXECUTABLE_NAME@.app onto the Applications shortcut in this
 window. That copies it into your /Applications folder.
 
-First launch: macOS will block the app because it isn't code-signed yet
-(this is on our roadmap). To bypass: right-click @LBA2_EXECUTABLE_NAME@.app
-in /Applications and pick "Open". You'll get a "this app is from an
-unidentified developer" dialog with an Open button — click it once. After
-that, double-click works normally.
+First launch: macOS will block the app because it isn't notarized yet
+(notarization needs an Apple Developer account; on our roadmap). To
+bypass: right-click @LBA2_EXECUTABLE_NAME@.app in /Applications and pick
+"Open". You'll get a "this app is from an unidentified developer" dialog
+with an Open button — click it once. After that, double-click works.
+
+If macOS instead says "the app is damaged and can't be opened" with only
+a Move to Bin button, that's the quarantine attribute blocking launch
+even after our ad-hoc signature. Run this once in Terminal to clear it:
+
+    xattr -cr /Applications/@LBA2_EXECUTABLE_NAME@.app
+
+Then try the right-click → Open above.
 
 
 GAME DATA

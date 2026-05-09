@@ -64,6 +64,20 @@ if(APPLE)
         ${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.icns
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     add_dependencies(${LBA2_EXECUTABLE_NAME} lba2_icns)
+
+    # Ad-hoc codesign the .app post-build. Apple Silicon (macOS 11+) refuses
+    # to launch unsigned binaries — Gatekeeper reports the app as "damaged"
+    # and offers only "Move to Bin" as a remedy, even though the binary is
+    # fine. The `-` identity is an ad-hoc self-attestation (no Apple
+    # Developer account required); it gets the .app past the on-load
+    # signature check while we wait for real Developer ID + notarization
+    # to land. --deep covers any nested frameworks (none today, but
+    # future-proof for when SDL3 might ship as a bundled .dylib).
+    add_custom_command(TARGET ${LBA2_EXECUTABLE_NAME} POST_BUILD
+        COMMAND codesign --force --deep --sign -
+                $<TARGET_BUNDLE_DIR:${LBA2_EXECUTABLE_NAME}>
+        COMMENT "Ad-hoc codesigning ${LBA2_EXECUTABLE_NAME}.app"
+        VERBATIM)
 endif()
 # GCC LTO mis-infers T_PLASMA::data_start size when ptrc writes into Malloc tail (see ANIMTEX.CPP plasma case).
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
