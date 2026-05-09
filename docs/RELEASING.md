@@ -260,7 +260,7 @@ cmake --build build
 The window title bar reads `LBA2 Anniversary Build <version>`, the
 binary lands at `build/SOURCES/lba2-anniv`, and the generated
 `build/packaging/lba2cc.desktop` carries the matching `Name=` and
-`Exec=` entries. The AppImage script (`packaging/make-appimage.sh`)
+`Exec=` entries. The AppImage script (`scripts/packaging/make-appimage.sh`)
 sources `build/packaging/appimage_env.sh` so its outputs follow too.
 
 > **Note on `LBA2_DESKTOP_ID`.** Icon assets are committed under
