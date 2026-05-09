@@ -56,7 +56,12 @@ if [[ ! -f "$EXE_PATH" ]]; then
     exit 1
 fi
 
-REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+# Derive REPO_ROOT from the script's own path rather than `git rev-parse`
+# so this script works in environments without git on PATH (the MSYS2
+# shell on GitHub-hosted Windows runners is one — git is host-side, not
+# inside the MSYS2 prefix). The script lives at
+# scripts/packaging/bundle-windows.sh, so two `..` reach the repo root.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 EXE_NAME="$(basename "$EXE_PATH")"           # lba2cc.exe (or override)
 EXE_STEM="${EXE_NAME%.exe}"                  # lba2cc
 ARTIFACT_NAME="${EXE_STEM}-${VERSION}-windows-${ARCH}"
