@@ -37,7 +37,14 @@ export ARCH VERSION
 export OUTPATH=./dist
 export ADD_HOOKS="self-updater.hook"
 export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|*$ARCH.AppImage.zsync"
-export APPNAME="${LBA2_PRODUCT_NAME}"
+# quick-sharun reads APPNAME to construct the AppImage filename. Use the
+# short executable name (lba2cc) rather than the human product name
+# ("LBA2 Classic Community") so the artifact matches the cross-platform
+# naming convention in docs/RELEASING.md (<exe>-<version>-<platform>-<arch>)
+# and aligns with lba2cc-<version>-windows-x64.zip from the Windows flow.
+# The .desktop entry's user-facing Name= still uses LBA2_PRODUCT_NAME via
+# the CMake-configured packaging/lba2cc.desktop.in — separate code path.
+export APPNAME="${LBA2_EXECUTABLE_NAME}"
 export DEPLOY_OPENGL=1
 
 quick-sharun "./build/SOURCES/${LBA2_EXECUTABLE_NAME}"
