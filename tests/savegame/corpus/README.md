@@ -43,7 +43,7 @@ The wrapper resolves game data in this order:
 
 ```bash
 # 1. Build required binaries (any preset)
-cmake --build build --target lba2 save_decompress
+cmake --build build --target lba2cc save_decompress
 
 # 2. Probe every save into NDJSON (uses scripts/save_probe.py)
 export LBA2_SAVE_TEST_DIR=$HOME/.local/share/Twinsen/LBA2/save

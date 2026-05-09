@@ -92,7 +92,7 @@ git push origin "$VERSION"
 
 # 4. Sanity-check the binary picks it up.
 cmake --build build
-./build/SOURCES/lba2 --version    # expect: 0.9.0
+./build/SOURCES/lba2cc --version    # expect: 0.9.0
 cat build/VERSION.txt                  # expect: 0.9.0
 
 # 5. Bump VERSION for next development cycle: 0.9.0 -> 0.10.0-dev
@@ -242,7 +242,7 @@ configure time and every surface follows.
 
 | Cache variable             | Default                         | Used by                                                    |
 |----------------------------|---------------------------------|------------------------------------------------------------|
-| `LBA2_EXECUTABLE_NAME`     | `lba2`                          | binary name, `.desktop` `Exec=` / `StartupWMClass`         |
+| `LBA2_EXECUTABLE_NAME`     | `lba2cc`                        | binary name, `.desktop` `Exec=` / `StartupWMClass`         |
 | `LBA2_PRODUCT_NAME`        | `LBA2 Classic Community`        | window title (with version), `.desktop` `Name`, AppImage   |
 | `LBA2_PRODUCT_NAME_DEMO`   | `LBA2 Twinsen's Odyssey Demo`   | window title when built with `-DDEMO`                      |
 | `LBA2_PRODUCT_DESCRIPTION` | (one-line fork description)     | `.desktop` `Comment`                                       |

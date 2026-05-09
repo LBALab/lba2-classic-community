@@ -127,7 +127,7 @@ echo "[savegame-corpus] timeout:   $TIMEOUT"
 echo "[savegame-corpus] abis:      $ABIS"
 
 cmake -S "$REPO_ROOT" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE:-Debug}"
-cmake --build "$BUILD_DIR" --target lba2 save_decompress
+cmake --build "$BUILD_DIR" --target lba2cc save_decompress
 
 SAVE_DECOMPRESS_BIN="$(resolve_executable "$BUILD_DIR/tools/save_decompress")" || {
   echo "save_decompress binary not found under $BUILD_DIR/tools" >&2

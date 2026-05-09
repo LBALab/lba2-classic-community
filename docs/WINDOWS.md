@@ -85,7 +85,7 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-The executable will be at `out/build/windows_ucrt64/SOURCES/lba2.exe` (preset) or `build/SOURCES/lba2.exe` (manual).
+The executable will be at `out/build/windows_ucrt64/SOURCES/lba2cc.exe` (preset) or `build/SOURCES/lba2cc.exe` (manual).
 
 ## Running
 
@@ -140,4 +140,4 @@ cmake --preset windows
 cmake --build --preset windows
 ```
 
-This requires MSYS2 MINGW32 and produces a 32-bit executable at `out/build/windows/SOURCES/lba2.exe`.
+This requires MSYS2 MINGW32 and produces a 32-bit executable at `out/build/windows/SOURCES/lba2cc.exe`.
