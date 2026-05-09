@@ -217,12 +217,12 @@ CMake reads it at build time and produces:
   pipelines (PR #74) `cat` this to name artifacts.
 - **`LBA2_VERSION_STRING` macro** in `build/VERSION_GENERATED.h`,
   pulled in via `BUILD_INFO.h`. The game banner (`Version` in
-  `SOURCES/VERSION.CPP`) and `./lba2 --version` both read it.
+  `SOURCES/VERSION.CPP`) and `./lba2cc --version` both read it.
 
 If git is available and the working tree has uncommitted changes, the
 resolved version is suffixed with `-dirty`. So:
 
-| Build context | `./lba2 --version` |
+| Build context | `./lba2cc --version` |
 |---|---|
 | Tarball (no `.git`) | `0.9.0-dev` (whatever the file says) |
 | Clean dev clone | `0.9.0-dev` |
@@ -231,7 +231,7 @@ resolved version is suffixed with `-dirty`. So:
 
 The maintainer bumps the `VERSION` file as part of cutting a release
 (see step 2 in the recipe above). After the bump-and-commit lands on
-`main`, `./lba2 --version` reports the real semver.
+`main`, `./lba2cc --version` reports the real semver.
 
 ## Product metadata overrides
 

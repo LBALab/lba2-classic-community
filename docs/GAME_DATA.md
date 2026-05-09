@@ -16,7 +16,7 @@ Use the directory that contains `lba2.hqr` (and the other `.hqr` files, `music/`
 
 | Mechanism | Example |
 |-----------|---------|
-| Command line | `./lba2 --game-dir /path/to/game` or `--data-dir` (alias) |
+| Command line | `./lba2cc --game-dir /path/to/game` or `--data-dir` (alias) |
 | Environment | `export LBA2_GAME_DIR=/path/to/game` |
 | Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory, current working directory, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
@@ -43,7 +43,7 @@ From any directory in the clone you can use:
 
 or `make run` (see [Makefile](../Makefile)). Set `LBA2_BUILD_DIR` if you do not use `build/`.
 
-Windows without Bash: configure CMake as in [WINDOWS.md](WINDOWS.md), then run `lba2.exe` with `--game-dir` or set `LBA2_GAME_DIR` in the environment.
+Windows without Bash: configure CMake as in [WINDOWS.md](WINDOWS.md), then run `lba2cc.exe` with `--game-dir` or set `LBA2_GAME_DIR` in the environment.
 
 ## Config file
 

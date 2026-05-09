@@ -96,7 +96,7 @@ LBA2 requires the original game files to run. These are not included in this rep
 ### SDL3.dll
 
 When running outside the MSYS2 environment:
-- Copy `SDL3.dll` to the same directory as `lba2.exe`
+- Copy `SDL3.dll` to the same directory as `lba2cc.exe`
 - Or add the MSYS2 bin directory to your PATH
 
 The DLL is located at:

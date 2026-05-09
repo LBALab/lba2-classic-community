@@ -16,8 +16,8 @@ cmake --build build
 With DEBUG_TOOLS enabled, you can start the game directly at any scene (cube):
 
 ```bash
-./lba2 42      # Starts at cube 42
-./lba2 193     # Starts at the intro scene
+./lba2cc 42      # Starts at cube 42
+./lba2cc 193     # Starts at the intro scene
 ```
 
 This bypasses the main menu and loads directly into the specified scene. Useful for quickly testing specific areas of the game.

@@ -133,8 +133,8 @@ SAVE_DECOMPRESS_BIN="$(resolve_executable "$BUILD_DIR/tools/save_decompress")" |
   echo "save_decompress binary not found under $BUILD_DIR/tools" >&2
   exit 1
 }
-LBA2_BIN="$(resolve_executable "$BUILD_DIR/SOURCES/lba2")" || {
-  echo "lba2 binary not found under $BUILD_DIR/SOURCES" >&2
+LBA2_BIN="$(resolve_executable "$BUILD_DIR/SOURCES/lba2cc")" || {
+  echo "lba2cc binary not found under $BUILD_DIR/SOURCES" >&2
   exit 1
 }
 
