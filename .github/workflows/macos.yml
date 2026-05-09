@@ -45,4 +45,4 @@ jobs:
         run: cd build && ctest -L host_quick --output-on-failure
 
       - name: Verify Binary
-        run: test -f build/SOURCES/lba2 && echo "Build successful"
+        run: test -f build/SOURCES/lba2cc && echo "Build successful"
