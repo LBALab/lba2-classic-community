@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and run lba2 from any working directory. Resolves repo root and optional game data.
+# Build and run lba2cc from any working directory. Resolves repo root and optional game data.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

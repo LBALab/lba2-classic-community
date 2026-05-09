@@ -85,7 +85,7 @@ cmake -B build -G Ninja
 cmake --build build
 ```
 
-The executable will be at `out/build/windows_ucrt64/SOURCES/lba2.exe` (preset) or `build/SOURCES/lba2.exe` (manual).
+The executable will be at `out/build/windows_ucrt64/SOURCES/lba2cc.exe` (preset) or `build/SOURCES/lba2cc.exe` (manual).
 
 ## Running
 
@@ -96,7 +96,7 @@ LBA2 requires the original game files to run. These are not included in this rep
 ### SDL3.dll
 
 When running outside the MSYS2 environment:
-- Copy `SDL3.dll` to the same directory as `lba2.exe`
+- Copy `SDL3.dll` to the same directory as `lba2cc.exe`
 - Or add the MSYS2 bin directory to your PATH
 
 The DLL is located at:
@@ -140,4 +140,4 @@ cmake --preset windows
 cmake --build --preset windows
 ```
 
-This requires MSYS2 MINGW32 and produces a 32-bit executable at `out/build/windows/SOURCES/lba2.exe`.
+This requires MSYS2 MINGW32 and produces a 32-bit executable at `out/build/windows/SOURCES/lba2cc.exe`.

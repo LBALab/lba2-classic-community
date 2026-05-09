@@ -83,7 +83,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/git_version.cmake)
 # Product metadata. Single source of truth for executable name, runtime window
 # title, .desktop entry, and AppImage labels. Override any of these with -D...
 # at configure time (see docs/RELEASING.md).
-set(LBA2_EXECUTABLE_NAME    "lba2"                          CACHE STRING "Name of the built game executable")
+set(LBA2_EXECUTABLE_NAME    "lba2cc"                        CACHE STRING "Name of the built game executable")
 set(LBA2_PRODUCT_NAME       "LBA2 Classic Community"        CACHE STRING "Display name (window title, .desktop Name, AppImage label)")
 set(LBA2_PRODUCT_NAME_DEMO  "LBA2 Twinsen's Odyssey Demo"   CACHE STRING "Display name when the binary is built with -DDEMO")
 set(LBA2_PRODUCT_DESCRIPTION "A community fork for evolving and modernizing LBA2 source port"

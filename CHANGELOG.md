@@ -148,6 +148,10 @@ All new features default-off or default-to-original-behavior, in line with
   ([#83](https://github.com/LBALab/lba2-classic-community/issues/83)).
   Window title now shows the version (e.g. `LBA2 Classic Community
   0.9.0-dev`) — previously just `LBA2`.
+- Default binary renamed `lba2` → `lba2cc` to avoid colliding with the
+  retail executables (`lba2.exe`, `tlba2.exe`, `tlba2c.exe`). Path is
+  now `build/SOURCES/lba2cc[.exe]`. Override-able via
+  `-DLBA2_EXECUTABLE_NAME=...` for anyone shipping a custom branded build.
 - macOS CI build (arm64); macOS x86_64 preset
   ([#52](https://github.com/LBALab/lba2-classic-community/pull/52))
 - Portable Windows build via MSYS2 UCRT64

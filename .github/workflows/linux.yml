@@ -39,11 +39,11 @@ jobs:
 
       - name: Build
         run: |
-          cmake --build build --target lba2
+          cmake --build build --target lba2cc
           cmake --build build --target host_tests
 
       - name: Host tests
         run: cd build && ctest -L host_quick --output-on-failure
 
       - name: Verify Binary
-        run: test -f build/SOURCES/lba2 && echo "Build successful"
+        run: test -f build/SOURCES/lba2cc && echo "Build successful"

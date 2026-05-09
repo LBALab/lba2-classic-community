@@ -96,7 +96,7 @@ To run only the console suite: `ctest -R test_console_ --output-on-failure`.
 
 `tests/savegame/test_load_bounds.cpp` (issue #62) links [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP) and checks `SaveLoadValidateCompressedStaging` / `SaveLoadGuessObjectWireStride` on synthetic buffers — pure parser bounds, no retail game data. Built and run as part of `make test` / PR host jobs.
 
-`tests/savegame/corpus/` holds the Layer-3 driver scripts (`run_harness.py`, `build_manifest.py`) that exercise the real `lba2 --save-load-test` flag against a directory of `.lba` saves; requires retail game data so it runs locally only. See `tests/savegame/corpus/README.md`.
+`tests/savegame/corpus/` holds the Layer-3 driver scripts (`run_harness.py`, `build_manifest.py`) that exercise the real `lba2cc --save-load-test` flag against a directory of `.lba` saves; requires retail game data so it runs locally only. See `tests/savegame/corpus/README.md`.
 
 ## Test harness
 

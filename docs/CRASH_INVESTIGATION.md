@@ -38,7 +38,7 @@ cmake -B build-asan -DCMAKE_BUILD_TYPE=Debug \
 cmake --build build-asan -j
 ```
 
-Run via `gdb --args ./build-asan/SOURCES/lba2 --game-dir /path/to/data`.
+Run via `gdb --args ./build-asan/SOURCES/lba2cc --game-dir /path/to/data`.
 
 ### ASan options worth setting
 
