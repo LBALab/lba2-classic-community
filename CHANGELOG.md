@@ -10,9 +10,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Changes accumulated since the fork was created. The first tagged release
-will move this section to a dated heading. See
-[docs/RELEASING.md](docs/RELEASING.md) for the cut recipe._
+_Nothing yet._
+
+## [0.9.0] - 2026-05-09
 
 The list below is hand-curated from merged PRs and tells the story of the
 fork's evolution.
@@ -267,4 +267,5 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/main...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/LBALab/lba2-classic-community/compare/1f3e871...v0.9.0
