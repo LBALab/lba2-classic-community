@@ -10,7 +10,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Cross-platform & build
+
+- macOS native release artifact: a portable DMG with the `.app` bundle
+  inside, drag-to-Applications layout, native multi-resolution `.icns`
+  icon, and an `Info.plist` populated from the same `LBA2_*` cache vars
+  that drive the runtime window title, `.desktop` entry, AppImage labels,
+  and Windows resource. Built for arm64 (Apple Silicon) and x86_64 (Intel)
+  on tag push. Static-linked SDL3, no `.dylib` dependencies. Code signing +
+  notarization deferred — first launch on macOS requires the right-click →
+  Open Gatekeeper bypass; documented in the README inside the DMG.
 
 ## [0.9.0] - 2026-05-09
 
