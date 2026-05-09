@@ -42,6 +42,13 @@ Verdicts:
 | `LIB386/pol_work/POLYLINE.CPP` | `Line`, `Line_Entry`, `Line_A`, `Line_ZBuffer`, `Line_ZBuffer_NZW` | safe | Heavy upfront signed clipping (DX-zero, DY-zero, and general edge cases all clamp `x0/x1/y0/y1` to the clip rect via `continue`/`return`) before any pointer math. The post-clip `U32 offset = PTR_TabOffLine[y0] + x0` and pointer-walk `dst += incrX/incrY` operate on values guaranteed non-negative. |
 | `LIB386/pol_work/POLY_JMP.CPP` | `Jmp_Solid`, `Jmp_Transparent`, `Jmp_Trame*`, etc. | safe | Pure dispatch tables; no screen-pointer math. |
 | `LIB386/pol_work/TESTVUEF.CPP` | `Test_VueF` | safe | Visibility-test helper; no screen-pointer math. |
+| `LIB386/3D/` (entire directory, 33 files) | math/projection/rotation routines | safe (no-op) | Pure math — matrices, sin/cos, rotation, projection, distance, light. Zero references to `Log` / `Screen` / `TabOffLine` across the entire group. The hazard class doesn't apply. |
+| `SOURCES/3DEXT/BOXZBUF.CPP` | `ZBufBoxOverWrite2` | safe (convention) | Same `U32 startOffset = TabOffLine[ymin] + xmin + deltaX` pattern as CopyMask. All current callers (`DrawRecover`, `DrawRecover3` in `SOURCES/INTEXT.CPP`) pass `ClipXMin/ClipYMin/ClipXMax/ClipYMax` (the global clip rect, non-negative). Latent trap if a future caller passes per-object screen-bbox coords with a negative edge — the bug would reproduce identically to #78. |
+| `SOURCES/3DEXT/DECORS.CPP` | `DrawCubeNoBox` | safe | Wireframe debug rendering; projects 3D vertices to screen and dispatches to `Line()` / `Rect()` (POLYLINE, safe). |
+| `SOURCES/3DEXT/DRAWSKY.CPP` | sky rendering | safe | Dispatches to `Fill_Poly` (gated by `Fill_PolyClip`, safe). |
+| `SOURCES/3DEXT/LINERAIN.CPP` | `LineRain` | safe | Heavy upfront signed clipping for every code path before pointer math; same pattern as POLYLINE. |
+| `SOURCES/3DEXT/TERRAIN.CPP` | terrain rendering | safe | Dispatches to `Fill_Poly` (gated, safe). |
+| `SOURCES/3DEXT/MAPTOOLS.CPP`, `LOADISLE.CPP`, `GLOBEXT.CPP`, `LBA_EXT.CPP`, `VAR_EXT.CPP` | island data loading + globals | safe (no-op) | Asset loading and global storage; no rendering. |
 
 ### Architecture insight
 
@@ -53,7 +60,9 @@ pol_work is safe *by construction* — `Fill_PolyClip` is the unconditional gate
 |---|---|---|
 | `LIB386/SVGA/` | swept — 1 fixed, 16 safe | #84, #86 |
 | `LIB386/pol_work/` | swept — 0 new bugs | #87 |
-| `LIB386/3D/` + `SOURCES/3DEXT/` | not yet swept | — |
+| `LIB386/3D/` + `SOURCES/3DEXT/` | swept — 0 new bugs (1 latent trap recorded) | #89 |
 | `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP` | not yet swept | — |
 
-**Next:** Sweep `LIB386/3D/` + `SOURCES/3DEXT/` (projection-adjacent — likely operates pre-clip in world/view space rather than screen space, but worth confirming), then `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP` (interior recover pass — caller side of the original `CopyMask` bug; worth checking for off-by-one writes that corrupt `ListBrickColon` boundaries).
+**Findings from 3D + 3DEXT:** `LIB386/3D/` is entirely off-topic for the class (pure math, zero screen pointers). 3DEXT mostly delegates to gated rendering (`Fill_Poly` via POLY.CPP's `Fill_PolyClip`, or `Line()` via POLYLINE.CPP). The only direct screen-pointer math is `BOXZBUF.CPP::ZBufBoxOverWrite2`, which has the same `U32 + TabOffLine[ymin] + xmin` pattern that caused #78 — currently safe only because every caller passes the global clip rect (non-negative). If a future caller ever passes a per-object screen bbox with a negative edge, the bug reproduces identically. Worth a comment in-source if anyone changes those call sites.
+
+**Next:** Sweep `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP` (interior recover pass — caller side of the original `CopyMask` bug; worth checking for off-by-one writes that corrupt `ListBrickColon` boundaries).
