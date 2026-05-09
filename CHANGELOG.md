@@ -20,15 +20,13 @@ fork's evolution.
 > **Highlights since the fork**
 >
 > The biggest architectural shift is portability. The playable game now
-> builds **without an ASM toolchain** — pure C/C++ on the build path,
-> linked against SDL3 and `libsmacker`. The original 16/32-bit x86
-> assembly is still in the tree (it remains the source of truth and is
-> required to run the ASM↔C++ equivalence tests), but it is **no longer
-> in the build path of the playable binary**. Combined with the SDL3
-> port, this unlocked native builds for **Linux x86_64**, **macOS
-> arm64/x86_64**, and **Windows (MSYS2 UCRT64)**, and keeps the door
-> open to other SDL platforms. Community members have already started
-> building it on handheld devices in the wild.
+> builds as pure C/C++ against SDL3 and `libsmacker`, with no ASM
+> toolchain on the build path. The original 16/32-bit x86 assembly is
+> still in the tree as the source of truth and powers the ASM↔C++
+> equivalence tests, but it no longer runs in the playable binary.
+> Native builds for Linux x86_64, macOS arm64/x86_64, and Windows
+> (MSYS2 UCRT64). Community members are already running it on handheld
+> devices in the wild.
 
 ### Stability & 64-bit hardening
 
