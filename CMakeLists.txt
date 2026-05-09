@@ -113,6 +113,7 @@ set(LBA2_PRODUCT_NAME_DEMO  "LBA2 Twinsen's Odyssey Demo"   CACHE STRING "Displa
 set(LBA2_PRODUCT_DESCRIPTION "A community fork for evolving and modernizing LBA2 source port"
                                                             CACHE STRING "One-line description (.desktop Comment field)")
 set(LBA2_DESKTOP_ID         "lba2cc"                        CACHE STRING "Desktop file basename and icon ID")
+set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "macOS .app bundle reverse-DNS identifier")
 
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
@@ -168,6 +169,49 @@ else()
 endif()
 configure_file(${CMAKE_SOURCE_DIR}/packaging/lba2cc.rc.in
                ${CMAKE_BINARY_DIR}/packaging/lba2cc.rc @ONLY)
+
+# macOS .app bundle metadata (Info.plist) + .icns icon generation.
+# Only meaningful when building on macOS — gated to avoid generating
+# stray files on other platforms.
+if(APPLE)
+    # Pin the deployment target to 11.0 (Big Sur) — first arm64 macOS,
+    # the floor for our universal2-style matrix (arm64 + x86_64). Below
+    # this the OS refuses to launch the .app.
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING
+            "Minimum macOS deployment target")
+    endif()
+
+    configure_file(${CMAKE_SOURCE_DIR}/packaging/Info.plist.in
+                   ${CMAKE_BINARY_DIR}/packaging/Info.plist @ONLY)
+
+    # Generate <id>.icns from <id>.png at build time using macOS native
+    # tools (sips for resampling, iconutil for the multi-resolution
+    # container). Both ship with Xcode CLI tools — no extra deps. The
+    # .icns is consumed by the .app bundle via CFBundleIconFile in the
+    # Info.plist (set to LBA2_DESKTOP_ID, with the .icns extension implied).
+    set(_LBA2_ICNS_PNG     "${CMAKE_SOURCE_DIR}/packaging/${LBA2_DESKTOP_ID}.png")
+    set(_LBA2_ICNS_OUT     "${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.icns")
+    set(_LBA2_ICNS_ICONSET "${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.iconset")
+    add_custom_command(
+        OUTPUT ${_LBA2_ICNS_OUT}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_LBA2_ICNS_ICONSET}
+        COMMAND sips -z 16 16     ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_16x16.png       > /dev/null
+        COMMAND sips -z 32 32     ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_16x16@2x.png    > /dev/null
+        COMMAND sips -z 32 32     ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_32x32.png       > /dev/null
+        COMMAND sips -z 64 64     ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_32x32@2x.png    > /dev/null
+        COMMAND sips -z 128 128   ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_128x128.png     > /dev/null
+        COMMAND sips -z 256 256   ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_128x128@2x.png  > /dev/null
+        COMMAND sips -z 256 256   ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_256x256.png     > /dev/null
+        COMMAND sips -z 512 512   ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_256x256@2x.png  > /dev/null
+        COMMAND sips -z 512 512   ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_512x512.png     > /dev/null
+        COMMAND sips -z 1024 1024 ${_LBA2_ICNS_PNG} --out ${_LBA2_ICNS_ICONSET}/icon_512x512@2x.png  > /dev/null
+        COMMAND iconutil --convert icns ${_LBA2_ICNS_ICONSET} --output ${_LBA2_ICNS_OUT}
+        DEPENDS ${_LBA2_ICNS_PNG}
+        COMMENT "Generating ${LBA2_DESKTOP_ID}.icns from ${LBA2_DESKTOP_ID}.png"
+        VERBATIM)
+    add_custom_target(lba2_icns ALL DEPENDS ${_LBA2_ICNS_OUT})
+endif()
 
 # Process the targets
 add_subdirectory(LIB386)

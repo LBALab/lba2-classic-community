@@ -38,7 +38,33 @@ list(APPEND SOURCES_FILES CONSOLE/CONSOLE_CMD.CPP)
 if(WIN32)
     list(APPEND SOURCES_FILES_WIN ${CMAKE_BINARY_DIR}/packaging/lba2cc.rc)
 endif()
-add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${EMBEDDED_LBA2_CFG_CPP})
+
+# On macOS, the .icns icon goes inside the .app's Contents/Resources/ via
+# the MACOSX_PACKAGE_LOCATION property below. Adding it to the source list
+# makes CMake aware of the dependency so the .app rebuilds when the icon
+# is regenerated.
+set(SOURCES_FILES_MACOS "")
+if(APPLE)
+    list(APPEND SOURCES_FILES_MACOS
+         ${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.icns)
+endif()
+
+add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${SOURCES_FILES_MACOS} ${EMBEDDED_LBA2_CFG_CPP})
+
+# macOS .app bundle metadata: marks the target as a bundled .app, points
+# at the configured Info.plist, and routes the .icns to Contents/Resources/.
+# Without MACOSX_BUNDLE the binary would be a bare executable in
+# build/SOURCES/, not a launchable .app.
+if(APPLE)
+    set_target_properties(${LBA2_EXECUTABLE_NAME} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/packaging/Info.plist
+        OUTPUT_NAME ${LBA2_EXECUTABLE_NAME})
+    set_source_files_properties(
+        ${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.icns
+        PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    add_dependencies(${LBA2_EXECUTABLE_NAME} lba2_icns)
+endif()
 # GCC LTO mis-infers T_PLASMA::data_start size when ptrc writes into Malloc tail (see ANIMTEX.CPP plasma case).
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set_source_files_properties(ANIMTEX.CPP PROPERTIES COMPILE_OPTIONS "-Wno-stringop-overflow")
