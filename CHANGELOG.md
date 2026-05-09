@@ -32,6 +32,20 @@ fork's evolution.
 
 ### Stability & 64-bit hardening
 
+- Magic-school grand-wizard crash on 64-bit hosts — fixed
+  ([#78](https://github.com/LBALab/lba2-classic-community/issues/78),
+  [#84](https://github.com/LBALab/lba2-classic-community/pull/84)).
+  U32+pointer-wraparound trap in `CopyMask`, pinned by a host-only
+  regression test.
+- Renderer-side U32+pointer-wrap class named, documented, and swept
+  across ~80 files in SVGA, pol_work, 3D, 3DEXT, GRILLE, INTEXT — one
+  bug fixed (above), six "safe by convention" latent traps recorded
+  ([#85](https://github.com/LBALab/lba2-classic-community/pull/85),
+  [#86](https://github.com/LBALab/lba2-classic-community/pull/86),
+  [#87](https://github.com/LBALab/lba2-classic-community/pull/87),
+  [#88](https://github.com/LBALab/lba2-classic-community/pull/88),
+  [#89](https://github.com/LBALab/lba2-classic-community/pull/89),
+  [#90](https://github.com/LBALab/lba2-classic-community/pull/90))
 - Endgame credits segfault on 64-bit hosts — fixed
   ([#65](https://github.com/LBALab/lba2-classic-community/issues/65),
   [#66](https://github.com/LBALab/lba2-classic-community/pull/66))
@@ -172,32 +186,61 @@ All new features default-off or default-to-original-behavior, in line with
 - [docs/CONSOLE.md](docs/CONSOLE.md), [docs/DEBUG.md](docs/DEBUG.md),
   [docs/CAMERA.md](docs/CAMERA.md),
   [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md)
+- [docs/PLATFORM.md](docs/PLATFORM.md) — host-assumptions map
+  (pointer width, endianness, FPU semantics, OS boundaries),
+  [docs/PLATFORM_AUDITS.md](docs/PLATFORM_AUDITS.md) — per-file audit
+  logs hung off it
+  ([#85](https://github.com/LBALab/lba2-classic-community/pull/85),
+  [#88](https://github.com/LBALab/lba2-classic-community/pull/88))
+- [docs/ABI.md](docs/ABI.md) — disk-layout patterns for fat structs
+  on 64-bit ([#67](https://github.com/LBALab/lba2-classic-community/pull/67))
+- [docs/CRASH_INVESTIGATION.md](docs/CRASH_INVESTIGATION.md) —
+  AddressSanitizer + gdb runbook
+  ([#85](https://github.com/LBALab/lba2-classic-community/pull/85))
+- [docs/COMPILER_NOTES.md](docs/COMPILER_NOTES.md),
+  [docs/TESTING.md](docs/TESTING.md)
 - [docs/FRENCH_COMMENTS.md](docs/FRENCH_COMMENTS.md) and
   [docs/ASCII_ART.md](docs/ASCII_ART.md) — preservation catalogs
 
-### Earliest fork work
+### Pre-PR foundations
+
+Most of what made this fork buildable and cross-platform predates the
+PR workflow. The themes from that direct-commit era — CMake build
+system and MinGW cross-compile to Windows ([@leokolln](https://github.com/leokolln)),
+macOS M1 build, the bulk of the LIB386 ASM→C++ port, and the ASM↔CPP
+equivalence test infrastructure ([@sergiou87](https://github.com/sergiou87)),
+early renderer/SVGA/object-display ASM→CPP ports ([@xesf](https://github.com/xesf)),
+all building on [@yaz0r](https://github.com/yaz0r)'s original buildable
+prototype — are credited under Contributors below.
+
+The earliest PR-tracked entries that sit alongside that work:
 
 - File encoding preservation
   ([#1](https://github.com/LBALab/lba2-classic-community/pull/1))
-- SDL audio, Smacker FMV, SDL renderer first land
-  ([#9](https://github.com/LBALab/lba2-classic-community/pull/9),
-  [#10](https://github.com/LBALab/lba2-classic-community/pull/10),
-  [#11](https://github.com/LBALab/lba2-classic-community/pull/11))
 - Preservation docs and build configuration clarity
   ([#13](https://github.com/LBALab/lba2-classic-community/pull/13))
 
 ### Contributors
 
 Thanks to everyone who's worked on this fork to date:
+[@gwen-gg](https://github.com/gwen-gg),
 [@innerbytes](https://github.com/innerbytes),
+[@leokolln](https://github.com/leokolln),
+[@Link4Electronics](https://github.com/Link4Electronics),
 [@noctonca](https://github.com/noctonca),
 [@sergiou87](https://github.com/sergiou87),
-[@xesf](https://github.com/xesf).
+[@xesf](https://github.com/xesf),
+[@yaz0r](https://github.com/yaz0r).
 
 
-Special thanks to [@xesf](https://github.com/xesf), one of the owners of LBALab, for foundational early ASM→C++ renderer/SVGA/object-display porting work that helped establish the modern cross-platform baseline of this fork.
+Special thanks to the contributors whose foundational work this fork stands on:
 
-A big thank you to [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code and the original Adeline
+- [@sergiou87](https://github.com/sergiou87) — macOS M1 build, the bulk of the LIB386 ASM→C++ port, and the ASM↔CPP equivalence test infrastructure that makes the cross-platform port verifiable.
+- [@leokolln](https://github.com/leokolln) — the cross-platform build foundation: CMake build system and presets, MinGW cross-compile to Windows, UASM ASM modernisation, 64-bit Linux preset, AIL sound backend structure, and Linux CI.
+- [@xesf](https://github.com/xesf) — implementation work across SVGA, 3D object rendering, brick handling, and `AffString`, plus the CopyMask Tavern crash fix and widescreen Steam Deck work.
+- [@yaz0r](https://github.com/yaz0r) — the original buildable prototype that the cross-platform fork was built on.
+
+A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
 [Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/main...HEAD
