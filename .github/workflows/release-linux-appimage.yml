@@ -47,7 +47,13 @@ jobs:
           merge-multiple: true
       - name: Release AppImage
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        # Tag-only. Without this gate, a workflow_dispatch run on a branch
+        # ref would set tag_name to the branch name (e.g. "main") and
+        # create both a stray tag and a corresponding release object. The
+        # build job's upload-artifact step still exposes the AppImage as
+        # a downloadable workflow artifact for dispatch validation runs.
+        # Matches release-windows.yml.
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             *.AppImage
