@@ -4,6 +4,8 @@ LBA2's retail data files (HQR resources, save games) were authored against the o
 
 Truth hierarchy: code > this document > external sources.
 
+This doc is scoped to **on-disk** struct layout. For 32→64-bit pointer hazards in **runtime** renderer math (`U32` + pointer arithmetic that loses 32-bit address-space wrap), see [PLATFORM.md §1 — Renderer-side wraparound](PLATFORM.md#renderer-side-wraparound). For the asan + gdb workflow used to catch these, see [CRASH_INVESTIGATION.md](CRASH_INVESTIGATION.md).
+
 ## The rule
 
 > A struct whose layout is dictated by a retail file or a legacy save format must never assume `sizeof(T)` matches the on-disk record size.
