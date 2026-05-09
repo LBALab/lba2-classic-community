@@ -103,6 +103,48 @@ configure_file(${CMAKE_SOURCE_DIR}/packaging/lba2cc.desktop.in
 configure_file(${CMAKE_SOURCE_DIR}/packaging/appimage_env.sh.in
                ${CMAKE_BINARY_DIR}/packaging/appimage_env.sh @ONLY)
 
+# Windows resource file: drives the .exe icon and Properties → Details
+# (Product Name, File Description, Product Version, ...). Compiled into
+# the binary on Windows builds via SOURCES/CMakeLists.txt; harmlessly
+# generated and ignored on non-Windows.
+#
+# Configure-time substitution: re-run cmake to refresh after VERSION or
+# git dirty-state changes. Release builds (CI on tag) run on fresh
+# checkouts so this is invisible there; for local dev it just means a
+# stale "Properties → Version" until reconfigure.
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" _LBA2_VER_RAW)
+string(STRIP "${_LBA2_VER_RAW}" LBA2_VERSION_STRING_CONFIG)
+if(GIT_EXECUTABLE AND EXISTS "${CMAKE_SOURCE_DIR}/.git"
+                  AND NOT LBA2_VERSION_STRING_CONFIG MATCHES "-dirty$")
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} diff-index --quiet HEAD --
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        RESULT_VARIABLE _LBA2_GIT_DIRTY
+        OUTPUT_QUIET ERROR_QUIET)
+    if(_LBA2_GIT_DIRTY EQUAL 1)
+        set(LBA2_VERSION_STRING_CONFIG "${LBA2_VERSION_STRING_CONFIG}-dirty")
+    endif()
+endif()
+# 4-tuple of integers for VERSIONINFO FILEVERSION / PRODUCTVERSION:
+# strip pre-release/dirty suffix, split on '.', right-pad zeros to 4 parts.
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" _LBA2_VER_NUM "${LBA2_VERSION_STRING_CONFIG}")
+string(REPLACE "." ";" _LBA2_VER_PARTS "${_LBA2_VER_NUM}")
+list(LENGTH _LBA2_VER_PARTS _LBA2_VER_N)
+while(_LBA2_VER_N LESS 4)
+    list(APPEND _LBA2_VER_PARTS 0)
+    math(EXPR _LBA2_VER_N "${_LBA2_VER_N} + 1")
+endwhile()
+list(JOIN _LBA2_VER_PARTS "," LBA2_VERSION_TUPLE)
+# VS_FF_PRERELEASE (0x2) for any non-pure-numeric version (covers -dev, -dirty,
+# -rc1, etc.). Pure x.y.z → clean release (0x0).
+if(LBA2_VERSION_STRING_CONFIG MATCHES "[a-zA-Z]")
+    set(LBA2_VERSIONINFO_FLAGS "0x2L")
+else()
+    set(LBA2_VERSIONINFO_FLAGS "0x0L")
+endif()
+configure_file(${CMAKE_SOURCE_DIR}/packaging/lba2cc.rc.in
+               ${CMAKE_BINARY_DIR}/packaging/lba2cc.rc @ONLY)
+
 # Process the targets
 add_subdirectory(LIB386)
 add_subdirectory(SOURCES)

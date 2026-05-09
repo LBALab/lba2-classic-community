@@ -152,6 +152,13 @@ All new features default-off or default-to-original-behavior, in line with
   retail executables (`lba2.exe`, `tlba2.exe`, `tlba2c.exe`). Path is
   now `build/SOURCES/lba2cc[.exe]`. Override-able via
   `-DLBA2_EXECUTABLE_NAME=...` for anyone shipping a custom branded build.
+- Windows `.exe` now ships with an embedded application icon and
+  populated File Properties → Details (Product Name, File Description,
+  Product Version, Original Filename). Strings flow from the same
+  `LBA2_*` cache vars that feed the runtime window title, `.desktop`
+  entry, and AppImage labels. Pre-release versions (anything carrying
+  `-dev`/`-dirty`/`-rc` suffix) are flagged with `VS_FF_PRERELEASE` in
+  `VERSIONINFO`.
 - macOS CI build (arm64); macOS x86_64 preset
   ([#52](https://github.com/LBALab/lba2-classic-community/pull/52))
 - Portable Windows build via MSYS2 UCRT64
