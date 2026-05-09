@@ -49,6 +49,8 @@ Verdicts:
 | `SOURCES/3DEXT/LINERAIN.CPP` | `LineRain` | safe | Heavy upfront signed clipping for every code path before pointer math; same pattern as POLYLINE. |
 | `SOURCES/3DEXT/TERRAIN.CPP` | terrain rendering | safe | Dispatches to `Fill_Poly` (gated, safe). |
 | `SOURCES/3DEXT/MAPTOOLS.CPP`, `LOADISLE.CPP`, `GLOBEXT.CPP`, `LBA_EXT.CPP`, `VAR_EXT.CPP` | island data loading + globals | safe (no-op) | Asset loading and global storage; no rendering. |
+| `SOURCES/GRILLE.CPP` | `DrawOverBrick`, `DrawOverBrick3`, `DrawOverBrickCage`, `AffBrickBlock`, `AffBrickBlockColon`, etc. | safe | Pure caller; zero direct `Log` / `Screen` / `TabOffLine` references. Dispatches to `CopyMask` (#84), `AffGraph` (safe), `Line` (safe). The `colscreen = -24` and possibly-negative `ptrlbc->Ys` arguments to `CopyMask` are exactly what motivated #84; with that fix in place the call chain is safe end-to-end. The `&ListBrickColon[col][nb]` write at lines 745, 824 is correctly gated by the `nb < MAX_BRICK` check that follows — pointer-arithmetic-without-deref to one-past-the-end is well-defined. |
+| `SOURCES/INTEXT.CPP` | `DrawRecover`, `DrawRecover3`, `PtrAffGraph`, `PtrProjectSprite`, etc. | safe | Pure caller; zero direct screen-pointer math. Dispatches to `ZBufBoxOverWrite2` (with the global clip rect — exactly the call shape recorded as safe-by-convention in BOXZBUF), `AffGraph` (safe), `DrawOverBrick3` (safe). |
 
 ### Architecture insight
 
@@ -61,8 +63,14 @@ pol_work is safe *by construction* — `Fill_PolyClip` is the unconditional gate
 | `LIB386/SVGA/` | swept — 1 fixed, 16 safe | #84, #86 |
 | `LIB386/pol_work/` | swept — 0 new bugs | #87 |
 | `LIB386/3D/` + `SOURCES/3DEXT/` | swept — 0 new bugs (1 latent trap recorded) | #89 |
-| `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP` | not yet swept | — |
+| `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP` | swept — 0 new bugs | #90 |
 
 **Findings from 3D + 3DEXT:** `LIB386/3D/` is entirely off-topic for the class (pure math, zero screen pointers). 3DEXT mostly delegates to gated rendering (`Fill_Poly` via POLY.CPP's `Fill_PolyClip`, or `Line()` via POLYLINE.CPP). The only direct screen-pointer math is `BOXZBUF.CPP::ZBufBoxOverWrite2`, which has the same `U32 + TabOffLine[ymin] + xmin` pattern that caused #78 — currently safe only because every caller passes the global clip rect (non-negative). If a future caller ever passes a per-object screen bbox with a negative edge, the bug reproduces identically. Worth a comment in-source if anyone changes those call sites.
 
-**Next:** Sweep `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP` (interior recover pass — caller side of the original `CopyMask` bug; worth checking for off-by-one writes that corrupt `ListBrickColon` boundaries).
+**Findings from GRILLE + INTEXT:** Both files are pure callers with zero direct screen-pointer math. The most interesting finding is what *isn't* a bug: the `&ListBrickColon[col][nb]` write in `AffBrickBlock` / `AffBrickBlockColon` is correctly gated by `nb < MAX_BRICK` — the pointer is computed before the check, but the write only happens after, and computing a one-past-the-end pointer without dereferencing it is well-defined in C. (I'd suspected an off-by-one here during the original #78 diagnosis; the suspicion was wrong.) The caller-side coordinates that motivated #78 (`colscreen = -24`, possibly-negative `ptrlbc->Ys`) flow into `CopyMask`, which is now fixed.
+
+## Sweep complete
+
+Renderer-side U32-wrap class is fully audited. Across SVGA + pol_work + 3D + 3DEXT + GRILLE + INTEXT — roughly 80 files touched — only **one real bug** (CopyMask, #84) and **six "safe by convention" latent traps** (`AFFSTR`, `CLRBOXF`, `RESBLOCK`, `SAVBLOCK`, `SCALEBOX`, `BOXZBUF`). The rest is safe-by-construction or safe-because-defensively-clipped.
+
+Best architectural protection in the codebase: the `Fill_PolyClip` gateway in pol_work, which lets the entire filler family use `U32` legitimately by guaranteeing non-negative inputs upstream.
