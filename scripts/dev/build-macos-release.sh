@@ -27,9 +27,22 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 PRESET=""
+LINK_STATIC="ON"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --preset) PRESET="$2"; shift 2 ;;
+        --no-static)
+            # Skip LBA2_LINK_STATIC=ON. Use when the host's SDL3 install
+            # lacks the static archive (common: brew SDL3 ships .dylib only,
+            # SDL3::SDL3-static target isn't exported). The resulting .app
+            # still passes through the full bundle pipeline (Info.plist,
+            # .icns, hdiutil DMG layout) so you can iterate on packaging
+            # logic — but the binary references SDL3.dylib at runtime and
+            # is NOT a release-quality artifact. CI release builds remain
+            # static (CI uses libsdl-org/setup-sdl, which provides static).
+            LINK_STATIC="OFF"
+            shift
+            ;;
         -h|--help)
             sed -n '2,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
             exit 0
@@ -64,9 +77,14 @@ OUTPUT_DIR="${LBA2_DIST_DIR:-dist}"
 
 echo "[build-macos-release] preset:    $PRESET"
 echo "[build-macos-release] arch:      $ARCH"
-echo "[build-macos-release] static:    LBA2_LINK_STATIC=ON"
+echo "[build-macos-release] static:    LBA2_LINK_STATIC=$LINK_STATIC"
 echo "[build-macos-release] build dir: $BUILD_DIR"
 echo "[build-macos-release] output:    $OUTPUT_DIR"
+if [[ "$LINK_STATIC" == "OFF" ]]; then
+    echo "[build-macos-release] WARN: --no-static — produced .app references" >&2
+    echo "[build-macos-release]       SDL3.dylib at runtime; useful for testing" >&2
+    echo "[build-macos-release]       packaging logic, NOT a release artifact." >&2
+fi
 
 # Auto-discover Homebrew so `find_package(SDL3 ...)` resolves to a brew
 # install — Apple Silicon brew's prefix is /opt/homebrew, Intel brew's
@@ -82,7 +100,7 @@ if command -v brew >/dev/null 2>&1; then
     fi
 fi
 
-cmake --preset "$PRESET" -DLBA2_LINK_STATIC=ON
+cmake --preset "$PRESET" -DLBA2_LINK_STATIC="$LINK_STATIC"
 cmake --build --preset "$PRESET"
 
 # Resolve executable / app names (follow LBA2_EXECUTABLE_NAME overrides).
