@@ -68,6 +68,20 @@ echo "[build-macos-release] static:    LBA2_LINK_STATIC=ON"
 echo "[build-macos-release] build dir: $BUILD_DIR"
 echo "[build-macos-release] output:    $OUTPUT_DIR"
 
+# Auto-discover Homebrew so `find_package(SDL3 ...)` resolves to a brew
+# install — Apple Silicon brew's prefix is /opt/homebrew, Intel brew's
+# is /usr/local; CMake doesn't search either by default. Prepended to
+# CMAKE_PREFIX_PATH so brew SDL3 wins over anything else on the host.
+# CI doesn't need this — it uses libsdl-org/setup-sdl with an explicit
+# prefix — so this hint is local-dev-only.
+if command -v brew >/dev/null 2>&1; then
+    BREW_PREFIX="$(brew --prefix 2>/dev/null || true)"
+    if [[ -n "$BREW_PREFIX" ]]; then
+        export CMAKE_PREFIX_PATH="${BREW_PREFIX}${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+        echo "[build-macos-release] brew:      $BREW_PREFIX (prepended to CMAKE_PREFIX_PATH)"
+    fi
+fi
+
 cmake --preset "$PRESET" -DLBA2_LINK_STATIC=ON
 cmake --build --preset "$PRESET"
 

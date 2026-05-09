@@ -347,6 +347,12 @@ build x86_64 on Apple Silicon (Rosetta-friendly Xcode required).
 Requires macOS host — uses `hdiutil` (DMG creation), `sips` (icon resampling),
 and `iconutil` (`.icns` packaging). All three ship with Xcode CLI tools.
 
+SDL3 needs to be discoverable. The simplest setup: `brew install sdl3`. The
+script auto-detects the Homebrew prefix and prepends it to `CMAKE_PREFIX_PATH`
+so `find_package(SDL3)` resolves cleanly on both Apple Silicon (`/opt/homebrew`)
+and Intel (`/usr/local`). CI uses `libsdl-org/setup-sdl` instead and points at
+its own prefix — different machinery, same outcome.
+
 DMG layout (mounted view):
 
 ```
