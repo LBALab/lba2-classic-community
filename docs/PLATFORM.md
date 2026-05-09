@@ -52,12 +52,34 @@ Audit candidates (not yet swept):
 
 #### Audit log
 
+Verdicts:
+- **fixed** — bug was present; PR landed.
+- **safe** — defensive clipping precedes the pointer math in this function. Negative inputs cannot reach the U32 conversion.
+- **safe (convention)** — no defensive clipping, but every caller in the tree passes non-negative coordinates. Latent trap if a future caller ever passes negative — worth a comment in-source pointing at this audit if you touch one of these.
+
 | File | Function | Verdict | Notes |
 |---|---|---|---|
-| `LIB386/SVGA/COPYMASK.CPP` | `CopyMask` | fixed | PR #84 |
-| `LIB386/SVGA/MASK.CPP` | `ClippingMask` | safe | Geometry locals already `S32`; clipping is explicit before pointer math. |
+| `LIB386/SVGA/AFFSTR.CPP` | `AffString`, `AffStringToBuffer` | safe (convention) | Pointer math uses `Log + TabOffLine[y] + x`; signed `+ x` is correct, but `TabOffLine[y]` would OOB-read for negative `y`. All callers are UI/menu code with non-negative coords. |
+| `LIB386/SVGA/BLITBOXF.CPP` | `BlitBoxF` | safe | Fixed coordinates (160, 140); no signed input. |
+| `LIB386/SVGA/BOX.CPP` | `Box` | safe | Signed clipping clamps `x0/y0/x1/y1` into the clip rect before any U32 math. |
+| `LIB386/SVGA/CALCMASK.CPP` | `CalcGraphMsk` | safe | Operates on bank data; no screen-pointer math. |
+| `LIB386/SVGA/CLRBOXF.CPP` | `ClearBox` | safe (convention) | Indexes `TabOffDst[y]` with `S16` from a `T_BOX`. All callers populate the box with non-negative bounds. |
+| `LIB386/SVGA/COPYMASK.CPP` | `CopyMask` | fixed | PR #84. |
+| `LIB386/SVGA/CPYBLOCI.CPP` | `CopyBlockIncrust` | safe | Signed clipping precedes pointer math; both source and destination clipped. |
+| `LIB386/SVGA/CPYBLOCK.CPP` | `CopyBlock` | safe | Same pattern as `CopyBlockIncrust`. |
+| `LIB386/SVGA/FONT.CPP` | `Font`, `CarFont`, `SizeFont` | safe | Delegates to `AffMask` (in `MASK.CPP`). |
+| `LIB386/SVGA/GRAPH.CPP` | `AffGraph`, `ClippingGraph` | safe | Fast-path `AffGraph` dispatches negative-or-overhanging cases to `ClippingGraph`. Both compute pointers as `Log + TabOffLine[y] + x` (pointer + S32, not pointer + U32 — the failing pattern). |
+| `LIB386/SVGA/MASK.CPP` | `AffMask`, `ClippingMask` | safe | Geometry locals already `S32`; clipping explicit before pointer math. |
+| `LIB386/SVGA/PLOT.CPP` | `Plot`, `GetPlot` | safe | Hard signed clip-rect check at entry; returns early on out-of-range. |
+| `LIB386/SVGA/RESBLOCK.CPP` | `RestoreBlock` | safe (convention) | No defensive clipping; mirrored with `SaveBlock` so callers pair the two with the same coords. All call sites use non-negative menu/UI coords. |
+| `LIB386/SVGA/SAVBLOCK.CPP` | `SaveBlock` | safe (convention) | Same pattern and caller set as `RestoreBlock`. |
+| `LIB386/SVGA/SCALEBOX.CPP` | `ScaleBox` | safe (convention) | No defensive clipping. All call sites pass full-screen or hard-coded non-negative source rects. |
+| `LIB386/SVGA/SCALESPI.CPP` | `ScaleSprite` | safe | All-S32 clipping clamps `sx/sy/end_x/end_y` to the clip rect before pointer math. |
+| `LIB386/SVGA/SCALESPT.CPP` | `ScaleSpriteTransp` | safe | Both fast (1:1) and scaled paths clip with signed compares before pointer math. |
 
-**Next:** Sweep the candidate list above. Each hit gets either a fix-with-test PR or an in-source justification for why no negative coordinate ever reaches the pointer math.
+**Status:** SVGA group swept. Only `CopyMask` had the bug. Five files are "safe by convention" — they would break if any future caller passed a negative coordinate; flagged here so the next person who touches them sees the trap.
+
+**Next:** Sweep `LIB386/pol_work/`, `LIB386/3D/` + `SOURCES/3DEXT/`, then `SOURCES/GRILLE.CPP` + `SOURCES/INTEXT.CPP`. `LIB386/pol_work/POLYLINE.CPP` is reachable from SVGA via `Rect` → `Line`, so the pol_work sweep also covers that edge.
 
 ---
 
