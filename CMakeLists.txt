@@ -52,6 +52,12 @@ endif()
 # Performance options
 option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
 
+# Release packaging — static-link SDL3 and the GCC runtime so the binary
+# has no DLL dependencies beyond OS libraries. Used by the Windows release
+# workflow (single-exe portable ZIP). Default OFF; dev workflows keep the
+# faster shared-link path.
+option(LBA2_LINK_STATIC "Static-link SDL3 and the GCC C++ runtime (release packaging)" OFF)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     include(CheckIPOSupported)
     check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
@@ -71,7 +77,11 @@ if(LBA2_NATIVE_ARCH)
 endif()
 
 # Dependencies
-find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
+if(LBA2_LINK_STATIC)
+    find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-static)
+else()
+    find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
+endif()
 
 # Engine version string. Reads the canonical value from the VERSION file
 # at the repo root and (optionally) appends -dirty when the working tree

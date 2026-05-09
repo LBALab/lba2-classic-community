@@ -308,6 +308,45 @@ After substituting, rebuild with `make build` to confirm the binary
 lands at the new path, then re-run all three greps with the **new**
 name to catch typos and partial substitutions.
 
+## Windows release artifact (local dry-run)
+
+Iterate on the Windows release ZIP locally without burning CI minutes:
+
+```bash
+bash scripts/dev/build-windows-release.sh
+```
+
+Cross-compiles via the `cross_linux2win` preset with `LBA2_LINK_STATIC=ON`,
+then bundles the result into `dist/lba2cc-<version>-windows-i686.zip` via
+the shared `scripts/packaging/bundle-windows.sh`. The same `bundle-windows.sh`
+is used by the CI Windows release workflow (B2, separate PR), so the ZIP
+layout can't drift between local and CI.
+
+Prerequisites on the dev box: `mingw-w64` cross-compile toolchain
+(`apt install mingw-w64` on Debian/Ubuntu, `pacman -S mingw-w64-gcc` on
+Arch), `cmake`, `ninja`, plus either `zip` or `python3` for the archive
+step. SDL3 must be installed for the i686 target — most distros only
+ship 64-bit SDL3, so this script works cleanly inside CI but may need
+manual SDL3-i686 setup locally. CI uses `setup-sdl` to handle this.
+
+ZIP layout:
+
+```
+lba2cc-<version>-windows-<arch>/
+    lba2cc.exe        ← static-linked: no SDL3.dll, no MSYS2 runtime DLLs
+    README.txt        ← CRLF line endings, populated from
+                        scripts/packaging/windows-readme.txt.in
+    LICENSE.txt       ← GPL-2.0 from repo root, CRLF
+```
+
+`-arch` is `i686` for the local cross-compile dry-run, `x64` for the
+native MSYS2 UCRT64 release workflow. The bundle script's DLL audit
+flags any non-system DLL dependency that slipped through static linking.
+
+To produce a *non-static* dev build that matches the day-to-day MSYS2
+workflow, use the regular preset and skip this script — it's purely a
+release-packaging path.
+
 ## What `git-cliff` reads
 
 - Commit messages on `main` since the previous tag.

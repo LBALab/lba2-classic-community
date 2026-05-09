@@ -52,6 +52,14 @@ target_include_directories(${LBA2_EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURC
 target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE 3dext 3D ail ani fio obj poly svg sys SDL3::SDL3)
 if (WIN32)
     target_link_libraries(${LBA2_EXECUTABLE_NAME} PRIVATE gdi32 user32 ddraw winmm kernel32)
+    if(LBA2_LINK_STATIC AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        # Fold the GCC C++ runtime into the binary so the released .exe has
+        # no MSYS2/MinGW DLL dependencies (libstdc++-6.dll, libgcc_s_seh-1.dll,
+        # libwinpthread-1.dll). Combined with -DLBA2_LINK_STATIC=ON also
+        # statically linking SDL3, the result is a single self-contained .exe.
+        target_link_options(${LBA2_EXECUTABLE_NAME} PRIVATE
+            -static-libstdc++ -static-libgcc -static)
+    endif()
 endif ()
 
 # Optional: polygon recording support for ASM-vs-CPP testing

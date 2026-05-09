@@ -1,0 +1,57 @@
+@LBA2_PRODUCT_NAME@ @LBA2_VERSION_STRING@
+====================================================
+
+@LBA2_PRODUCT_DESCRIPTION@
+
+This is a portable Windows build. No installer, no registry entries.
+Unzip anywhere and run.
+
+
+GAME DATA
+---------
+
+This fork doesn't include the game data — you need a legitimate copy
+of Little Big Adventure 2 / Twinsen's Odyssey from GOG, Steam, or
+your original retail CD.
+
+The simplest setup: drop lba2.hqr (and the rest of the retail data
+files: music, video, vox, etc.) directly next to @LBA2_EXECUTABLE_NAME@.exe.
+
+The engine also looks for a "data" or "game" subfolder next to the
+.exe, so this layout works too:
+
+    @LBA2_EXECUTABLE_NAME@.exe
+    data\
+        lba2.hqr
+        music\
+        video\
+        ...
+
+Alternative ways to point at game data:
+
+    @LBA2_EXECUTABLE_NAME@.exe --game-dir "C:\path\to\game"
+
+    set LBA2_GAME_DIR=C:\path\to\game
+    @LBA2_EXECUTABLE_NAME@.exe
+
+
+RUNNING
+-------
+
+Double-click @LBA2_EXECUTABLE_NAME@.exe, or run from cmd.exe / PowerShell.
+
+If the game can't find its data, it'll print the directories it tried
+to a log file in your user profile.
+
+
+LICENSE
+-------
+
+GPL-2.0. See LICENSE.txt.
+
+
+PROJECT
+-------
+
+Source code, issues, contributions:
+https://github.com/LBALab/lba2-classic-community
