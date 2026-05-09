@@ -263,6 +263,13 @@ binary lands at `build/SOURCES/lba2-anniv`, and the generated
 `Exec=` entries. The AppImage script (`packaging/make-appimage.sh`)
 sources `build/packaging/appimage_env.sh` so its outputs follow too.
 
+> **Note on `LBA2_DESKTOP_ID`.** The icon PNG is a committed asset at
+> `packaging/lba2cc.png`. If you override `LBA2_DESKTOP_ID` (say to
+> `lba2-anniv`), the AppImage script will look for
+> `packaging/lba2-anniv.png` and fail unless you've placed a matching
+> file. The binary, window title, and `.desktop` entry don't need the
+> icon and follow overrides cleanly on their own.
+
 ## What `git-cliff` reads
 
 - Commit messages on `main` since the previous tag.
