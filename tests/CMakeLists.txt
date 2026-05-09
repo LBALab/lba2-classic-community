@@ -19,6 +19,7 @@ endfunction()
 add_subdirectory(discovery)
 add_subdirectory(console)
 add_subdirectory(credits)
+add_subdirectory(copymask_negx)
 add_subdirectory(version)
 add_subdirectory(savegame)
 

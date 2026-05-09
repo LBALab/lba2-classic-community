@@ -29,24 +29,29 @@ typedef struct {
 
 void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src) {
     LIB386_TRACE_CPP("CopyMask", "1", "num=%d x=%d y=%d bank=%p src=%p", nummask, x, y, (void *)bankmask, (void *)src);
-    U32 screenWidth = TabOffLine[1];
+    S32 screenWidth = (S32)TabOffLine[1];
 
     if (y < 0)
         y = 0;
 
     Struc_Mask_Header *maskHeader = (Struc_Mask_Header *)(bankmask + ((U32 *)bankmask)[nummask]);
-    U32 xMin = maskHeader->HotX + x;
-    U32 yMin = maskHeader->HotY + y;
+    // Geometry must be signed: callers pass x as low as -24 (DrawOverBrick3,
+    // col=0). On the original 32-bit build, U32 arithmetic combined with 32-bit
+    // pointer wraparound made Log + (U32)-24 land at Log - 24. On 64-bit, that
+    // zero-extends to Log + 4 GiB and segfaults — and the U32 clip test
+    // (xMin < ClipXMin) silently fails for negative xMin, so margins stay 0.
+    S32 xMin = (S32)maskHeader->HotX + x;
+    S32 yMin = (S32)maskHeader->HotY + y;
     U8 *maskData = (U8 *)maskHeader + sizeof(Struc_Mask_Header); // Skip header
 
     // Test Clipping
-    U32 xMax = maskHeader->DeltaX + xMin - 1;
-    U32 yMax = maskHeader->DeltaY + yMin - 1;
+    S32 xMax = (S32)maskHeader->DeltaX + xMin - 1;
+    S32 yMax = (S32)maskHeader->DeltaY + yMin - 1;
 
-    U32 marginTop = 0;
-    U32 marginLeft = 0;
-    U32 marginRight = 0;
-    U32 marginBottom = 0;
+    S32 marginTop = 0;
+    S32 marginLeft = 0;
+    S32 marginRight = 0;
+    S32 marginBottom = 0;
 
     if (xMin < ClipXMin || yMin < ClipYMin || xMax > ClipXMax || yMax > ClipYMax) {
         // ClippingMask:
@@ -76,21 +81,21 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src) {
     }
 
     // Calculate Offset Screen
-    U32 deltaX = xMax - xMin + 1; // (deltaX)
-    U32 initialOffset = TabOffLine[yMin] + xMin;
+    S32 deltaX = xMax - xMin + 1; // (deltaX)
+    S32 initialOffset = (S32)TabOffLine[yMin] + xMin;
     U8 *screen = (U8 *)Log + initialOffset;
     U8 *source = (U8 *)src + initialOffset;
-    U32 deltaY = yMax - yMin + 1; // NbLine (deltaY)
-    U32 lineOffset = screenWidth - deltaX;
-    for (U32 y = 0; y < deltaY; y++) {
+    S32 deltaY = yMax - yMin + 1; // NbLine (deltaY)
+    S32 lineOffset = screenWidth - deltaX;
+    for (S32 y = 0; y < deltaY; y++) {
         // NextLine:
         U8 numberOfBlocks = *maskData; // Nb Block for this line
         maskData++;
-        U32 x = 0;
+        S32 x = 0;
 
         do {
             // SameLine:
-            U32 numberOfZeroToJump = *maskData; // Nb Zero to Jump
+            S32 numberOfZeroToJump = *maskData; // Nb Zero to Jump
             maskData++;
             screen += numberOfZeroToJump; // Incrust on Log
             source += numberOfZeroToJump; // And on PtSrc
@@ -101,7 +106,7 @@ void CopyMask(S32 nummask, S32 x, S32 y, U8 *bankmask, void *src) {
 
             x += numberOfZeroToJump;
 
-            U32 numberOfPixelToCopy = *maskData; // Nb Zero to Write
+            S32 numberOfPixelToCopy = *maskData; // Nb Zero to Write
             maskData++;
             do {
                 // loopb:
