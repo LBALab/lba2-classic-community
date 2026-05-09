@@ -1,0 +1,39 @@
+// Windows resource file. Generated at configure time from this template.
+// Source of truth for product strings is the LBA2_* CMake cache variables
+// in the root CMakeLists.txt — same source that feeds the runtime window
+// title, the .desktop entry, and AppImage labels. Reconfigure after
+// editing VERSION or after the working tree's dirty state changes to
+// refresh the strings baked into the binary's Properties → Details.
+
+#include <winver.h>
+
+// Application icon — Windows picks numeric ID 1 as the .exe's default icon.
+1 ICON "@CMAKE_SOURCE_DIR@/packaging/lba2cc.ico"
+
+1 VERSIONINFO
+FILEVERSION    @LBA2_VERSION_TUPLE@
+PRODUCTVERSION @LBA2_VERSION_TUPLE@
+FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+FILEFLAGS      @LBA2_VERSIONINFO_FLAGS@
+FILEOS         VOS_NT_WINDOWS32
+FILETYPE       VFT_APP
+FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        // 040904E4 = English (US), Windows Multilingual code page.
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "ProductName",      "@LBA2_PRODUCT_NAME@"
+            VALUE "FileDescription",  "@LBA2_PRODUCT_DESCRIPTION@"
+            VALUE "OriginalFilename", "@LBA2_EXECUTABLE_NAME@.exe"
+            VALUE "InternalName",     "@LBA2_EXECUTABLE_NAME@"
+            VALUE "ProductVersion",   "@LBA2_VERSION_STRING_CONFIG@"
+            VALUE "FileVersion",      "@LBA2_VERSION_STRING_CONFIG@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04E4
+    END
+END

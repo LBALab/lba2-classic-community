@@ -1,6 +1,10 @@
 add_subdirectory(3DEXT)
 
-# TODO: For Windows target, Compile resource file "lba2.rc" or reuse "lba2.res"
+# Windows resource file: icon + VERSIONINFO. Generated under
+# ${CMAKE_BINARY_DIR}/packaging/ by configure_file in the root CMakeLists.txt.
+if(WIN32)
+    enable_language(RC)
+endif()
 
 set(EMBEDDED_LBA2_CFG_CPP ${CMAKE_BINARY_DIR}/SOURCES/embedded_lba2_cfg_data.cpp)
 add_custom_command(
@@ -31,6 +35,9 @@ set(SOURCES_FILES_DOS CRITICAL.CPP HERCULE.CPP)
 set(SOURCES_FILES_ASM_DOS DEC_XCF.ASM HERCUL_A.ASM KEYB.ASM)
 
 list(APPEND SOURCES_FILES CONSOLE/CONSOLE_CMD.CPP)
+if(WIN32)
+    list(APPEND SOURCES_FILES_WIN ${CMAKE_BINARY_DIR}/packaging/lba2cc.rc)
+endif()
 add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${SOURCES_FILES_WIN} ${EMBEDDED_LBA2_CFG_CPP})
 # GCC LTO mis-infers T_PLASMA::data_start size when ptrc writes into Malloc tail (see ANIMTEX.CPP plasma case).
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
