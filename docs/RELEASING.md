@@ -308,6 +308,48 @@ After substituting, rebuild with `make build` to confirm the binary
 lands at the new path, then re-run all three greps with the **new**
 name to catch typos and partial substitutions.
 
+## Windows release artifact (local dry-run)
+
+Iterate on the Windows release ZIP locally without burning CI minutes:
+
+```bash
+bash scripts/dev/build-windows-release.sh
+```
+
+The script auto-detects the build environment:
+
+- **MSYS2 (UCRT64 / MINGW64)** — uses the matching native preset, produces an `x64` artifact. This is the recommended local path because it's bit-for-bit the same toolchain the CI release workflow (B2) uses, and SDL3 is straightforward (`pacman -S mingw-w64-ucrt-x86_64-SDL3`).
+- **Linux (incl. WSL)** — falls back to the `cross_linux2win` preset, produces an `i686` (32-bit) artifact. Cheap if you have `mingw-w64` already installed, but **also requires SDL3 for the i686 cross-arch**, which most distros don't ship by default. CI handles this via `setup-sdl`; on a dev box you'd typically just use MSYS2 instead.
+
+Override the preset explicitly with `--preset windows_ucrt64`, `--preset windows_mingw64`, etc. if you want to test a specific configuration regardless of host environment.
+
+Both paths invoke the same `scripts/packaging/bundle-windows.sh`, so the ZIP layout cannot drift between local dry-run and CI. The CI release workflow (B2, separate PR) calls the same script.
+
+Prerequisites:
+
+- `cmake`, `ninja` — both paths.
+- Either `zip` or `python3` for the archive step (script falls back to `python3 -m zipfile` if `zip` isn't installed).
+- **MSYS2 path**: a working MSYS2 UCRT64 dev environment (the same one used for native dev builds).
+- **Linux/WSL path**: `mingw-w64` (`apt install mingw-w64` on Debian/Ubuntu, `pacman -S mingw-w64-gcc` on Arch) plus SDL3 built or installed for i686.
+
+ZIP layout:
+
+```
+lba2cc-<version>-windows-<arch>/
+    lba2cc.exe        ← static-linked: no SDL3.dll, no MSYS2 runtime DLLs
+    README.txt        ← CRLF line endings, populated from
+                        scripts/packaging/windows-readme.txt.in
+    LICENSE.txt       ← GPL-2.0 from repo root, CRLF
+```
+
+`-arch` is `i686` for the local cross-compile dry-run, `x64` for the
+native MSYS2 UCRT64 release workflow. The bundle script's DLL audit
+flags any non-system DLL dependency that slipped through static linking.
+
+To produce a *non-static* dev build that matches the day-to-day MSYS2
+workflow, use the regular preset and skip this script — it's purely a
+release-packaging path.
+
 ## What `git-cliff` reads
 
 - Commit messages on `main` since the previous tag.

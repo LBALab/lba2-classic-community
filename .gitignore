@@ -3,6 +3,7 @@
 CMakeUserPresets.json
 out/
 build/
+dist/
 
 # Local retail drop (symlink or copy classic data here; never commit assets)
 /data/
