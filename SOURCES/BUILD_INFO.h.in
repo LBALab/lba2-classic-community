@@ -1,6 +1,14 @@
 /* Generated at configure time - do not edit */
 #define BUILD_FLAGS_STR "@BUILD_FLAGS_STR@"
 
+/* Product metadata. Source of truth is the LBA2_* CMake cache variables in
+   the root CMakeLists.txt; the same values feed the .desktop entry and
+   AppImage labels. */
+#define LBA2_PRODUCT_NAME        "@LBA2_PRODUCT_NAME@"
+#define LBA2_PRODUCT_NAME_DEMO   "@LBA2_PRODUCT_NAME_DEMO@"
+#define LBA2_PRODUCT_DESCRIPTION "@LBA2_PRODUCT_DESCRIPTION@"
+#define LBA2_EXECUTABLE_NAME     "@LBA2_EXECUTABLE_NAME@"
+
 /* LBA2_VERSION_STRING is regenerated at build time by cmake/write_version.cmake
    (read from the VERSION file at the repo root, optionally suffixed with -dirty
    when the git working tree has uncommitted changes). */

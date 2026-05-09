@@ -1,0 +1,7 @@
+# Generated at configure time by CMake. Sourced by packaging/make-appimage.sh
+# so the AppImage script consumes the same product metadata as the binary and
+# .desktop entry. Do not edit; override the LBA2_* CMake cache variables in
+# the root CMakeLists.txt instead.
+export LBA2_PRODUCT_NAME="@LBA2_PRODUCT_NAME@"
+export LBA2_EXECUTABLE_NAME="@LBA2_EXECUTABLE_NAME@"
+export LBA2_DESKTOP_ID="@LBA2_DESKTOP_ID@"

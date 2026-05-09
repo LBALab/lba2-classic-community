@@ -34,10 +34,11 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #include <unistd.h>
 
 // -----------------------------------------------------------------------------
+#include "BUILD_INFO.h"
 #ifdef DEMO
-#define APPNAME "LBA2 Twinsen's Odyssey Demo"
+#define APPNAME LBA2_PRODUCT_NAME_DEMO " " LBA2_VERSION_STRING
 #else // DEMO
-#define APPNAME "LBA2"
+#define APPNAME LBA2_PRODUCT_NAME " " LBA2_VERSION_STRING
 #endif // DEMO
 
 #define ibuffer ScreenAux

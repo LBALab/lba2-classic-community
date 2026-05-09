@@ -80,10 +80,28 @@ find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-shared)
 # (defines LBA2_VERSION_STRING for the binary).
 include(${CMAKE_SOURCE_DIR}/cmake/git_version.cmake)
 
+# Product metadata. Single source of truth for executable name, runtime window
+# title, .desktop entry, and AppImage labels. Override any of these with -D...
+# at configure time (see docs/RELEASE.md).
+set(LBA2_EXECUTABLE_NAME    "lba2"                          CACHE STRING "Name of the built game executable")
+set(LBA2_PRODUCT_NAME       "LBA2 Classic Community"        CACHE STRING "Display name (window title, .desktop Name, AppImage label)")
+set(LBA2_PRODUCT_NAME_DEMO  "LBA2 Twinsen's Odyssey Demo"   CACHE STRING "Display name when the binary is built with -DDEMO")
+set(LBA2_PRODUCT_DESCRIPTION "A community fork for evolving and modernizing LBA2 source port"
+                                                            CACHE STRING "One-line description (.desktop Comment field)")
+set(LBA2_DESKTOP_ID         "lba2cc"                        CACHE STRING "Desktop file basename and icon ID")
+
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
 set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
+
+# Generate the .desktop entry and AppImage env file from the product metadata
+# above. Outputs land in ${CMAKE_BINARY_DIR}/packaging/ — make-appimage.sh
+# sources them.
+configure_file(${CMAKE_SOURCE_DIR}/packaging/lba2cc.desktop.in
+               ${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.desktop @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/packaging/appimage_env.sh.in
+               ${CMAKE_BINARY_DIR}/packaging/appimage_env.sh @ONLY)
 
 # Process the targets
 add_subdirectory(LIB386)
