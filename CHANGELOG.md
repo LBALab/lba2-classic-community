@@ -16,10 +16,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inside, drag-to-Applications layout, native multi-resolution `.icns`
   icon, and an `Info.plist` populated from the same `LBA2_*` cache vars
   that drive the runtime window title, `.desktop` entry, AppImage labels,
-  and Windows resource. Built for arm64 (Apple Silicon) and x86_64 (Intel)
-  on tag push. Static-linked SDL3, no `.dylib` dependencies. Code signing +
-  notarization deferred — first launch on macOS requires the right-click →
-  Open Gatekeeper bypass; documented in the README inside the DMG.
+  and Windows resource. Built for arm64 (Apple Silicon) on tag push;
+  static-linked SDL3, no `.dylib` dependencies, ad-hoc codesigned to
+  satisfy Apple Silicon's mandatory bundle integrity check. First launch
+  still needs the right-click → Open Gatekeeper bypass (Developer ID +
+  notarization deferred); documented in the README inside the DMG.
+  Intel-Mac users can produce a local DMG via
+  `scripts/dev/build-macos-release.sh --preset macos_x86_64` while
+  hosted Intel runners are unreliable.
 
 ## [0.9.0] - 2026-05-09
 

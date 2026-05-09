@@ -17,13 +17,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # arm64-only for now. The macos-13 (Intel) runners GitHub provides
+        # are queueing 30+ minutes per job (Apple is winding them down) while
+        # macos-latest finishes in ~30s. Apple Silicon is the present and
+        # future of Mac; Intel-Mac users can still produce a local DMG via
+        # scripts/dev/build-macos-release.sh --preset macos_x86_64. Add
+        # x86_64 back here only if a hosted runner becomes reliable again,
+        # or when we move to a universal2 (arm64+x86_64) binary built on a
+        # single arm64 runner via lipo.
         include:
           - runs-on: macos-latest   # Apple Silicon (arm64)
             arch: arm64
             preset: macos_arm64
-          - runs-on: macos-13       # Last reliable Intel runner
-            arch: x86_64
-            preset: macos_x86_64
     steps:
       - name: Code Checkout
         uses: actions/checkout@v6
