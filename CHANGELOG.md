@@ -142,6 +142,12 @@ All new features default-off or default-to-original-behavior, in line with
 - First Linux release artifact: AppImage built in CI from an any-linux
   base, packaged as a single portable binary
   ([#74](https://github.com/LBALab/lba2-classic-community/pull/74))
+- First Windows release artifact: a portable ZIP (`lba2cc-<version>-windows-x64.zip`)
+  built in CI under MSYS2 UCRT64 with SDL3 and the GCC C++ runtime
+  static-linked. Drop the single `lba2cc.exe` into your existing LBA2
+  install folder — no DLLs, no installer, no registry entries. Follows
+  the same release-workflow conventions as the AppImage flow (matrix
+  build → idempotent gh-release attach), see `docs/RELEASING.md`.
 - Product metadata (executable name, display name, description, desktop
   ID) centralized into CMake cache variables so the runtime window
   title, `.desktop` entry, and AppImage script all consume one source
