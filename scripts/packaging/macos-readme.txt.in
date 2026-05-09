@@ -1,0 +1,52 @@
+@LBA2_PRODUCT_NAME@ @LBA2_VERSION_STRING@
+====================================================
+
+@LBA2_PRODUCT_DESCRIPTION@
+
+
+INSTALLING
+----------
+
+Drag @LBA2_EXECUTABLE_NAME@.app onto the Applications shortcut in this
+window. That copies it into your /Applications folder.
+
+First launch: macOS will block the app because it isn't code-signed yet
+(this is on our roadmap). To bypass: right-click @LBA2_EXECUTABLE_NAME@.app
+in /Applications and pick "Open". You'll get a "this app is from an
+unidentified developer" dialog with an Open button — click it once. After
+that, double-click works normally.
+
+
+GAME DATA
+---------
+
+This is the engine only — you need a legitimate copy of Little Big
+Adventure 2 / Twinsen's Odyssey from GOG, Steam, or your original
+retail CD.
+
+For now, point the engine at your retail data via Terminal:
+
+    /Applications/@LBA2_EXECUTABLE_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@ \
+        --game-dir "/path/to/your/lba2/install"
+
+Or set an environment variable in Terminal before launching:
+
+    export LBA2_GAME_DIR="/path/to/your/lba2/install"
+    open -a @LBA2_EXECUTABLE_NAME@.app
+
+A native first-launch folder picker is the next step on our roadmap and
+will land soon, eliminating the Terminal step.
+
+
+LICENSE
+-------
+
+GPL-2.0. See LICENSE inside the app bundle (right-click → Show Package
+Contents → Contents/Resources/) or at the project repository.
+
+
+PROJECT
+-------
+
+Source code, issues, contributions:
+https://github.com/LBALab/lba2-classic-community
