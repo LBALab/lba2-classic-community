@@ -1,0 +1,194 @@
+name: Release latest (rolling)
+
+# Rolling pre-release for community testers who want bleeding-edge main builds
+# without cloning + building. Triggers on every push to main; force-overwrites
+# a `latest` GitHub Release with the just-built artifacts.
+#
+# Distinct from the tag-triggered release-{linux-appimage,windows,macos}.yml
+# workflows in trigger only — same packaging scripts, same artifact shape, so
+# `latest` is functionally a tag-release at HEAD-of-main with a rolling tag
+# instead of a versioned one.
+#
+# Marked prerelease: true and make_latest: false so the v0.x.y stable tag
+# stays as the GitHub-promoted "Latest" on the Releases page; this workflow's
+# release sits below it labeled as a rolling pre-release.
+#
+# See docs/RELEASING.md "Rolling latest pre-release" for the full rationale
+# and how this fits with the cross-platform release standard.
+
+on:
+  push:
+    branches: [main]
+
+# Two pushes back-to-back shouldn't queue — cancel any in-flight rolling
+# build, the newest commit wins. Tag-triggered release workflows don't
+# share this concurrency group (different lifecycle).
+concurrency:
+  group: release-latest
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    name: "Build Linux AppImage (${{ matrix.arch }})"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            arch: x86_64
+          - runs-on: ubuntu-24.04-arm
+            arch: aarch64
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+      - name: Preparing Container
+        uses: pkgforge-dev/anylinux-setup-action@v2
+      - name: Make AppImage
+        run: /bin/sh ./scripts/packaging/make-appimage.sh
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: latest-linux-${{ matrix.arch }}
+          path: dist
+
+  build-windows:
+    name: "Build Windows ZIP"
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up MSYS2 (UCRT64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-sdl3
+            zip
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset windows_ucrt64 \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build --preset windows_ucrt64
+      - name: Bundle ZIP
+        run: |
+          BUILD_DIR=out/build/windows_ucrt64
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-windows.sh \
+            --exe "$BUILD_DIR/SOURCES/lba2cc.exe" \
+            --version "$VERSION" \
+            --arch x64 \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: latest-windows-x64
+          path: dist
+
+  build-macos:
+    name: "Build macOS DMG"
+    runs-on: macos-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install SDL3 (static build)
+        uses: libsdl-org/setup-sdl@main
+        id: sdl
+        with:
+          version: 3-latest
+          build-type: Release
+          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset macos_arm64 \
+                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build --preset macos_arm64
+      - name: Bundle DMG
+        run: |
+          BUILD_DIR=out/build/macos_arm64
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-macos.sh \
+            --app "$BUILD_DIR/SOURCES/lba2cc.app" \
+            --version "$VERSION" \
+            --arch arm64 \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: latest-macos-arm64
+          path: dist
+
+  release:
+    name: Update rolling latest release
+    needs: [build-linux, build-windows, build-macos]
+    # Run even if a build leg failed — partial release with whatever
+    # platforms succeeded is more useful for community testers than
+    # blocking the whole rolling release on one flaky leg. Don't run if
+    # the workflow itself was cancelled.
+    if: always() && !cancelled()
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: latest-*
+          merge-multiple: true
+
+      - name: Compose release body
+        run: |
+          SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          cat > release-body.md <<EOF
+          **Rolling pre-release.** Built from \`main\` on every push. For stable releases see [the Releases page](https://github.com/${{ github.repository }}/releases).
+
+          - Commit: [\`${SHA_SHORT}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - Built: ${TIMESTAMP}
+
+          Same artifact shape as tagged releases — Linux AppImage (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release.
+
+          If a particular platform's artifact is missing below, that platform's build leg failed for this commit; the other platforms still updated. Earlier rolling builds remain accessible via the [commit history](https://github.com/${{ github.repository }}/commits/main).
+          EOF
+
+      - name: Update rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Latest (rolling pre-release)"
+          body_path: release-body.md
+          files: |
+            *.AppImage
+            *.AppImage.zsync
+            lba2cc-*-windows-x64.zip
+            lba2cc-*-macos-arm64.dmg
+          # Keep the most recent stable v0.x.y tag as GitHub's "Latest"
+          # badge. This rolling release sits below it as a clearly-labeled
+          # pre-release.
+          prerelease: true
+          make_latest: false
+          # softprops/action-gh-release@v2 moves the existing tag to the
+          # current commit and updates the release in place. No manual
+          # delete-then-create needed.
+          fail_on_unmatched_files: false

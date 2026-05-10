@@ -330,6 +330,35 @@ When adding a new platform, copy the closest existing workflow, swap the
 runner / toolchain / packaging script, and the rest of the shape carries
 over.
 
+## Rolling latest pre-release
+
+`.github/workflows/release-latest.yml` is a deliberate exception to the
+"tags only" convention above. It triggers on every `push: branches: [main]`
+and force-overwrites a `latest` GitHub Release with the just-built
+artifacts. Marked `prerelease: true` and `make_latest: false` so the most
+recent stable tag (e.g. `v0.9.0`) keeps GitHub's "Latest" badge — the
+rolling release sits below it, clearly labeled.
+
+| Aspect | Difference from the per-tag releases |
+|---|---|
+| **Trigger** | `push: branches: [main]` (vs `push: tags: ['v*']`) |
+| **Tag** | Static `latest`, force-moved to current commit on every push |
+| **Pre-release flag** | Always `true` (vs always `false` for versioned tags) |
+| **`make_latest`** | `false` (vs default — versioned tags get GitHub's "Latest" promotion) |
+| **Concurrency** | Single `release-latest` group, `cancel-in-progress: true`. Back-to-back commits don't queue; newest wins. |
+| **Partial release on failure** | `if: always() && !cancelled()` on the release job. If one platform's build leg fails, the rolling release still updates with the platforms that succeeded. Tag releases are stricter (`if: startsWith(github.ref, 'refs/tags/')`) because a tagged release is meant to be complete. |
+
+Same packaging scripts (`make-appimage.sh`, `bundle-windows.sh`,
+`bundle-macos.sh`), same artifact shape, same naming. The rolling
+release is functionally a tag-release at HEAD-of-main with a moving
+tag instead of a fixed semver.
+
+**When to point users at it:** for community testers who want to
+verify a fix on `main` without building from source, or for "does this
+reproduce on the latest main?" bug-report triage. Otherwise prefer
+linking to a versioned release (stable, immutable, won't change under
+their feet between two clicks).
+
 ## macOS release artifact (local dry-run)
 
 On a macOS box (Apple Silicon or Intel):
