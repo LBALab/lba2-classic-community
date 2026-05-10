@@ -12,6 +12,7 @@
 
 #include <dirent.h>
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -118,6 +119,9 @@ void StripGameDirArgs(int *argc, char **argv) {
             readIdx++;
             continue;
         }
+        if (!strcasecmp(argv[readIdx], "--pick-game-dir")) {
+            continue;
+        }
         argv[writeIdx++] = argv[readIdx];
     }
     argv[writeIdx] = NULL;
@@ -131,6 +135,26 @@ bool ExtractGameDirFromArgv(int argc, char **argv, char *outPath, U16 outMax) {
             (i + 1) < argc) {
             strncpy(outPath, argv[i + 1], outMax);
             outPath[outMax - 1] = '\0';
+            return true;
+        }
+    }
+    return false;
+}
+
+/* --pick-game-dir tells ResolveGameDataDir to skip the persisted-LastGameDir
+ * probe and the auto-discovery probe chain — go straight to the picker
+ * fallback regardless of what's been saved or what's adjacent. Useful for:
+ *
+ *   - Testing the first-launch UX repeatedly without rm-ing last_game_dir.txt
+ *   - Switching to a different LBA2 install without editing the persisted file
+ *   - Anyone whose current persisted/auto-discovered path resolves to the
+ *     wrong thing and wants a UI re-do
+ *
+ * Lower priority than --game-dir / LBA2_GAME_DIR (explicit user input wins),
+ * higher priority than persisted / auto-discovery / picker default behavior. */
+bool ExtractPickGameDirFlag(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcasecmp(argv[i], "--pick-game-dir")) {
             return true;
         }
     }
@@ -229,20 +253,87 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
     return false;
 }
 
+/* Persisted-LastGameDir helpers.
+ *
+ * Single-line text file at <prefPath>/last_game_dir.txt holding the
+ * absolute path the user picked via the first-launch folder dialog.
+ * Stored separately from lba2.cfg because it must be written immediately
+ * at picker-success time, before InitDirectories / InitAdeline have set
+ * up the lba2.cfg buffer machinery. Written via stdio; read via stdio.
+ *
+ * Org/app naming ("Twinsen", "LBA2") matches the existing convention in
+ * SOURCES/DIRECTORIES.CPP for SDL_GetPrefPath. */
+bool BuildPersistedGameDirPath(char *outPath, size_t outMax) {
+    char *prefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    if (prefPath == NULL) {
+        return false;
+    }
+    /* SDL_GetPrefPath always returns a path with a trailing separator. */
+    int written = snprintf(outPath, outMax, "%slast_game_dir.txt", prefPath);
+    SDL_free(prefPath);
+    return written > 0 && static_cast<size_t>(written) < outMax;
+}
+
+bool ReadPersistedGameDir(char *outPath, U16 outMax) {
+    char filePath[ADELINE_MAX_PATH];
+    if (!BuildPersistedGameDirPath(filePath, sizeof(filePath))) {
+        return false;
+    }
+
+    FILE *fp = fopen(filePath, "r");
+    if (fp == NULL) {
+        /* No persisted file — first launch or never picked. Silent. */
+        return false;
+    }
+
+    bool ok = (fgets(outPath, outMax, fp) != NULL);
+    fclose(fp);
+    if (!ok) {
+        return false;
+    }
+
+    /* Strip trailing CR/LF. */
+    size_t len = strlen(outPath);
+    while (len > 0 &&
+           (outPath[len - 1] == '\n' || outPath[len - 1] == '\r')) {
+        outPath[--len] = '\0';
+    }
+    return outPath[0] != '\0';
+}
+
 } // namespace
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+bool WritePersistedGameDir(const char *path) {
+    char filePath[ADELINE_MAX_PATH];
+    if (!BuildPersistedGameDirPath(filePath, sizeof(filePath))) {
+        return false;
+    }
+
+    FILE *fp = fopen(filePath, "w");
+    if (fp == NULL) {
+        LogPrintf("RES_DISCOVERY: could not write %s\n", filePath);
+        return false;
+    }
+
+    fprintf(fp, "%s\n", path);
+    fclose(fp);
+    return true;
+}
+
 bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     char tried[kMaxTried][ADELINE_MAX_PATH];
     int triedCount = 0;
     char cliPath[ADELINE_MAX_PATH];
+    char persisted[ADELINE_MAX_PATH];
     char walk[ADELINE_MAX_PATH];
     const char *basePath = NULL;
 
     ExtractGameDirFromArgv(*argc, argv, cliPath, ADELINE_MAX_PATH);
+    const bool forcePicker = ExtractPickGameDirFlag(*argc, argv);
     StripGameDirArgs(argc, argv);
 
     if (cliPath[0] != '\0' &&
@@ -254,6 +345,38 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     if (env != NULL && env[0] != '\0' &&
         NormalizeAndTry(env, outDir, outMax, tried, &triedCount)) {
         return true;
+    }
+
+    /* --pick-game-dir bails out of the implicit-discovery chain and
+     * forces the caller's picker fallback. Explicit --game-dir / env
+     * still win above (user passing both is asking for "use this path,
+     * but if it's bad show the picker"). */
+    if (forcePicker) {
+        LogPuts("RES_DISCOVERY: --pick-game-dir set; skipping persisted "
+                "and auto-discovery probes.");
+        return false;
+    }
+
+    /* Persisted choice from a previous picker session. Higher priority
+     * than auto-discovery (the user explicitly picked it) but lower than
+     * explicit CLI/env overrides (someone passing --game-dir today wants
+     * today's path, not last week's).
+     *
+     * On success: silent. The existing "Paths used" log block in
+     * InitAdeline shows the resolved Assets path on every run; another
+     * log line here would just duplicate that.
+     *
+     * On stale fallthrough (path no longer valid — game folder moved or
+     * deleted, drive ejected): log explicitly. Without this, the picker
+     * silently re-appearing on a previously-persisted launch is hard
+     * to diagnose. */
+    if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH)) {
+        if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
+            return true;
+        }
+        LogPrintf("RES_DISCOVERY: saved game-data path %s no longer "
+                  "valid, re-prompting via picker\n",
+                  persisted);
     }
 
     /* SDL_Init must be done by the caller before SDL_GetBasePath / cwd helpers

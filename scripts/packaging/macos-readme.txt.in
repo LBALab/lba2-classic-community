@@ -32,18 +32,28 @@ This is the engine only — you need a legitimate copy of Little Big
 Adventure 2 / Twinsen's Odyssey from GOG, Steam, or your original
 retail CD.
 
-For now, point the engine at your retail data via Terminal:
+The first time you launch @LBA2_EXECUTABLE_NAME@.app, a folder picker
+will open and ask you to point at your retail install — the folder
+that contains lba2.hqr (alongside music/, video/, vox/, etc., or
+under a Common/ or CommonClassic/ subfolder for Steam/GOG re-releases).
+Your choice is remembered, so subsequent launches skip the picker.
+
+To re-pick later (e.g. switching between two installs), launch from
+Terminal with --pick-game-dir:
+
+    /Applications/@LBA2_EXECUTABLE_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@ \
+        --pick-game-dir
+
+Or skip the picker entirely with an explicit path:
 
     /Applications/@LBA2_EXECUTABLE_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@ \
         --game-dir "/path/to/your/lba2/install"
 
-Or set an environment variable in Terminal before launching:
+The remembered choice lives at:
 
-    export LBA2_GAME_DIR="/path/to/your/lba2/install"
-    open -a @LBA2_EXECUTABLE_NAME@.app
+    ~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt
 
-A native first-launch folder picker is the next step on our roadmap and
-will land soon, eliminating the Terminal step.
+Delete it to force the picker to re-appear on next launch.
 
 
 LICENSE

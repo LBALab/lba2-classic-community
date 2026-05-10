@@ -18,9 +18,60 @@ Use the directory that contains `lba2.hqr` (and the other `.hqr` files, `music/`
 |-----------|---------|
 | Command line | `./lba2cc --game-dir /path/to/game` or `--data-dir` (alias) |
 | Environment | `export LBA2_GAME_DIR=/path/to/game` |
+| Persisted choice | `last_game_dir.txt` in the user-prefs folder, written automatically the first time you pick a folder via the launch dialog (see [First-launch folder picker](#first-launch-folder-picker) below) |
 | Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory, current working directory, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
-If no valid directory is found, the process exits with a log listing candidates tried and hints.
+If none of the above resolves a valid directory, the engine falls back to the [First-launch folder picker](#first-launch-folder-picker). On a headless system (no display, CI runner, etc.), the picker can't open and the process exits with a log listing candidates tried and hints.
+
+## First-launch folder picker
+
+When all four override mechanisms above fail and the engine is running in a windowed environment, it shows the platform-native folder dialog (NSOpenPanel on macOS, IFileDialog on Windows, GTK / xdg-desktop-portal on Linux). The user picks the folder containing `lba2.hqr`; the engine validates it via `IsValidResourceDir`, persists the choice to `last_game_dir.txt`, and continues startup.
+
+| Scenario | Behavior |
+|---|---|
+| User picks a valid folder (contains `lba2.hqr`) | Engine launches; `last_game_dir.txt` updated; subsequent launches skip the dialog. |
+| User picks an invalid folder | Engine shows a "Game data not found" message and re-opens the dialog. |
+| User cancels the dialog | Engine exits cleanly (same exit code as the headless no-data case). |
+| Persisted path no longer valid (game install moved/deleted) | Engine silently falls through to auto-discovery, then the picker. The next valid pick rewrites `last_game_dir.txt`. |
+| Headless environment (no display, CI, dummy video driver) | Picker can't open; engine exits with the existing "no game data" error and the candidate path list. |
+| Linux/WSL with no dialog backend installed | The display works (so the engine shows the "Game data folder not found" message), but `SDL_ShowOpenFolderDialog` reports "File dialog driver unsupported" because neither `zenity` nor `xdg-desktop-portal` is available. Engine shows a follow-up message-box with recovery hints and exits. See [Picker backends per environment](#picker-backends-per-environment) below for the right install command, or use `--game-dir` / `LBA2_GAME_DIR` to skip the picker. |
+
+The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.txt` — typically:
+
+| Platform | Path |
+|---|---|
+| Linux | `~/.local/share/Twinsen/LBA2/last_game_dir.txt` (honors `XDG_DATA_HOME`) |
+| macOS | `~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt` |
+| Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
+
+It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
+
+### Forcing the picker without deleting the file
+
+Pass `--pick-game-dir` on the command line. The engine skips the persisted-LastGameDir probe and the auto-discovery chain, going straight to the picker for this run only. Use cases:
+
+- Test the first-launch UX repeatedly without `rm`-ing the persisted file each time.
+- Switch to a different LBA2 install without editing `last_game_dir.txt` by hand.
+- Anyone whose persisted or auto-discovered path resolves to the wrong place and wants a UI re-do.
+
+A successful pick rewrites `last_game_dir.txt` with the new path (acts as a "switch install" UX). A cancelled pick changes nothing — your previous setting stays intact.
+
+`--game-dir` and `LBA2_GAME_DIR` still win against `--pick-game-dir` if both are set on the same launch (explicit path beats "show the picker"). Useful for `lba2cc --game-dir /path/to/install` overriding a misbehaving persisted setting one-shot, or `--pick-game-dir` for the "let me browse" UX.
+
+### Picker backends per environment
+
+SDL3 implements the Linux folder picker via one of two backends — `zenity` (GTK-based, simple) or `xdg-desktop-portal` (Freedesktop portal protocol, integrates with the desktop environment). [SDL3's hint documentation](https://wiki.libsdl.org/SDL3/SDL_HINT_FILE_DIALOG_DRIVER) says it tries "all available dialog backends in a reasonable order" without committing to one — install whichever fits your environment.
+
+| Environment | Recommended install | Notes |
+|---|---|---|
+| **WSL Ubuntu / Debian** | `sudo apt install zenity` | One package, works immediately. Portal would need extra D-Bus session bus setup that is fragile inside WSL. |
+| **Arch + KDE Plasma** | `pacman -S xdg-desktop-portal xdg-desktop-portal-kde` | Native Plasma-styled file dialog. |
+| **Arch + GNOME** | `pacman -S xdg-desktop-portal xdg-desktop-portal-gnome` (often pre-installed) | Native GNOME dialog. `xdg-desktop-portal-gtk` is an equivalent fallback. |
+| **Arch + Hyprland** | `pacman -S xdg-desktop-portal-hyprland xdg-desktop-portal-gtk` | XDPH itself does not provide a file picker; the [Hyprland wiki](https://wiki.hypr.land/Hypr-Ecosystem/xdg-desktop-portal-hyprland/) recommends installing `-gtk` alongside it. **Don't** add `-kde` or `-gnome` — mixing portal implementations on Hyprland causes D-Bus timeouts and breaks every app that uses portals. |
+| **sway / minimal Wayland** | `xdg-desktop-portal-gtk` (or `zenity` if you have XWayland) | GTK portal is the cleaner Wayland answer. |
+| **i3 / minimal X11** | `zenity` | Simplest universal fallback. |
+
+If you want to force a specific backend even when both are installed, set `SDL_FILE_DIALOG_DRIVER=zenity` (or `=portal`) in the environment before launching. Useful for debugging which backend's misbehaving on a particular setup.
 
 **Explicit path (recommended for anything non-local):** Use `--game-dir` or `LBA2_GAME_DIR` when the install is not next to your working tree (another drive, `~/Games/…`, CI, etc.). That is the stable, portable option.
 
