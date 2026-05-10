@@ -24,6 +24,24 @@ even after our ad-hoc signature. Run this once in Terminal to clear it:
 
 Then try the right-click → Open above.
 
+On macOS Sequoia (15+), Apple changed both the wording and the recovery
+flow. You'll see "Apple could not verify '@LBA2_EXECUTABLE_NAME@' is
+free of malware that may harm your Mac." with only a Done button. The
+right-click → Open shortcut no longer works on Sequoia; the recovery
+flow is:
+
+    1. Click Done.
+    2. Open System Settings → Privacy & Security.
+    3. Scroll to the bottom — there's a one-time notice that
+       "@LBA2_EXECUTABLE_NAME@ was blocked to protect your Mac." Click
+       Open Anyway and authenticate (password / Touch ID).
+    4. Try opening @LBA2_EXECUTABLE_NAME@.app again. This time you'll
+       get a different prompt with an Open button. Click it.
+    5. Subsequent launches double-click normally.
+
+The Terminal one-liner above (xattr -cr) also works on Sequoia and is
+faster if you're comfortable with shell.
+
 
 GAME DATA
 ---------
