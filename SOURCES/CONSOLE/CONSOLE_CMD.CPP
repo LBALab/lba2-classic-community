@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <SYSTEM/TIMER.H>
+#include <SYSTEM/DEFFILE.H>
 
 /* libconsole cannot include COMMON.H; keep CONSOLE_STATE.H sentinels in sync (compile fails if they drift). */
 #if NUM_CUBE_PHANTOM != CONSOLE_NUM_CUBE_PHANTOM_DEFAULT
@@ -373,7 +374,6 @@ static const struct {
 
 static void cmd_slide(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("Usage: slide <name>");
         Console_Print("Available slides:");
         for (size_t i = 0; i < sizeof(s_slideTable) / sizeof(s_slideTable[0]); i++) {
             Console_Print("  %s", s_slideTable[i].name);
@@ -437,6 +437,85 @@ static void cmd_slide(int argc, const char *argv[]) {
     RestoreTimer();
 
     Console_Print("Slide done: %s", argv[1]);
+}
+
+/* Set the distributor (cfg `Version` key) for next launch. The cfg key
+   name is historic — what's stored is which publisher's edition the
+   engine should present (Activision, EA, Virgin, regional variants);
+   the user-facing command is named `distrib` to be honest about that.
+   Persistence-only: writes to lba2.cfg via DefFileBufferWriteValue.
+   Doesn't mutate the in-memory DistribVersion global because several
+   derived globals (MessageNoCD, music track table, etc.) are computed
+   from it once at startup and won't refresh — partial live application
+   would be more confusing than just "takes effect on next launch". */
+static const struct {
+    const char *name;
+    S32 ver;
+} s_distribTable[] = {
+    {"unknown",        UNKNOWN_VERSION},
+    {"activision",     ACTIVISION_VERSION},
+    {"activision_sud", ACTIVISION_SUD_VERSION},
+    {"ea",             EA_VERSION},
+    {"virgin",         VIRGIN_VERSION},
+    {"virgin_asia",    VIRGIN_ASIA_VERSION},
+};
+
+static const char *distrib_name_for(S32 ver) {
+    for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+        if (s_distribTable[i].ver == ver)
+            return s_distribTable[i].name;
+    }
+    return "?";
+}
+
+static void cmd_distrib(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Current: %d (%s)", (int)DistribVersion, distrib_name_for(DistribVersion));
+        Console_Print("Available:");
+        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+            Console_Print("  %d  %s", (int)s_distribTable[i].ver, s_distribTable[i].name);
+        }
+        return;
+    }
+
+    /* Accept numeric (0-5) or table-name. Numeric first so "1" wins
+       cleanly without colliding on a future name that happens to start
+       with a digit. */
+    S32 newVer = -1;
+    char *end = NULL;
+    long n = strtol(argv[1], &end, 0);
+    if (end && *end == '\0' && argv[1][0] != '\0') {
+        S32 found = FALSE;
+        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+            if (s_distribTable[i].ver == (S32)n) {
+                newVer = (S32)n;
+                found = TRUE;
+                break;
+            }
+        }
+        if (!found) {
+            Console_Print("Out of range: %ld (valid 0-5)", n);
+            return;
+        }
+    } else {
+        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+            if (!strcasecmp(argv[1], s_distribTable[i].name)) {
+                newVer = s_distribTable[i].ver;
+                break;
+            }
+        }
+        if (newVer < 0) {
+            Console_Print("Unknown distrib: %s", argv[1]);
+            return;
+        }
+    }
+
+    if (!DefFileBufferWriteValue("Version", newVer)) {
+        Console_Print("Failed to write cfg");
+        return;
+    }
+    Console_Print("Version %d (%s) (next launch)",
+                  (int)newVer, distrib_name_for(newVer));
 }
 
 static void cmd_listvideos(int argc, const char *argv[]) {
@@ -810,6 +889,9 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("slide", cmd_slide, "Show a distributor or bumper slide",
                               "slide <activision|ea|virgin|bumper>",
                               "Cosmetic; restores the prior screen + palette on exit. Run with no args to list.");
+    Console_RegisterCommandEx("distrib", cmd_distrib, "Set distributor (Version) for next launch",
+                              "distrib <activision|ea|virgin|... | 0-5>",
+                              "Persists to lba2.cfg (Version key). Run with no args to show current.");
     Console_RegisterCommandEx("credits", cmd_credits, "Play credits sequence", "credits [0|1]",
                               "Closes console. Mode: 0=bad end (default), 1=good end. Press any key to skip.");
     Console_RegisterCommandEx("listvideos", cmd_listvideos, "List available ACF video names", "(no args)",
