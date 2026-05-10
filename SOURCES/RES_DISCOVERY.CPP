@@ -360,17 +360,18 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     /* Persisted choice from a previous picker session. Higher priority
      * than auto-discovery (the user explicitly picked it) but lower than
      * explicit CLI/env overrides (someone passing --game-dir today wants
-     * today's path, not last week's). Silent fallthrough on stale path
-     * — picker re-prompts, lba2cc rewrites the file.
+     * today's path, not last week's).
      *
-     * Log explicitly on success so the user sees "yes, saved choice
-     * was used" symmetric with the picker's own log on first launch.
-     * Log on stale-fallthrough too so triaging "why did the picker
-     * re-appear?" doesn't require running with extra verbosity. */
+     * On success: silent. The existing "Paths used" log block in
+     * InitAdeline shows the resolved Assets path on every run; another
+     * log line here would just duplicate that.
+     *
+     * On stale fallthrough (path no longer valid — game folder moved or
+     * deleted, drive ejected): log explicitly. Without this, the picker
+     * silently re-appearing on a previously-persisted launch is hard
+     * to diagnose. */
     if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH)) {
         if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
-            LogPrintf("RES_DISCOVERY: using saved game-data path %s\n",
-                      outDir);
             return true;
         }
         LogPrintf("RES_DISCOVERY: saved game-data path %s no longer "
