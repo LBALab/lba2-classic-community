@@ -24,8 +24,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Intel-Mac users can produce a local DMG via
   `scripts/dev/build-macos-release.sh --preset macos_x86_64` while
   hosted Intel runners are unreliable.
-
-## [0.9.0] - 2026-05-09
+- Rolling `latest` pre-release: every push to `main` triggers a CI build
+  of all three platforms (Linux AppImages, Windows ZIP, macOS DMG) and
+  force-updates a `latest`-tagged GitHub Release. Marked pre-release; the
+  most recent stable tag keeps GitHub's "Latest" promotion. Lets community
+  testers grab bleeding-edge main builds without cloning + building.
+  See `docs/RELEASING.md` "Rolling latest pre-release".
 
 The list below is hand-curated from merged PRs and tells the story of the
 fork's evolution.
