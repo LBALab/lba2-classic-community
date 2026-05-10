@@ -332,8 +332,18 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     char walk[ADELINE_MAX_PATH];
     const char *basePath = NULL;
 
+    /* Diagnostic: dump argv exactly as received. Shell quoting / cmd.exe
+     * argument forwarding sometimes mangles flags; this lets a user
+     * paste their startup log to diagnose "why didn't --pick-game-dir
+     * fire" without a code-reading session. */
+    for (int i = 0; i < *argc; i++) {
+        LogPrintf("RES_DISCOVERY: argv[%d]='%s'\n", i, argv[i]);
+    }
+
     ExtractGameDirFromArgv(*argc, argv, cliPath, ADELINE_MAX_PATH);
     const bool forcePicker = ExtractPickGameDirFlag(*argc, argv);
+    LogPrintf("RES_DISCOVERY: forcePicker=%s, cliPath='%s'\n",
+              forcePicker ? "true" : "false", cliPath);
     StripGameDirArgs(argc, argv);
 
     if (cliPath[0] != '\0' &&
