@@ -24,27 +24,60 @@ struct PickerState {
     char chosen[ADELINE_MAX_PATH];
 };
 
+/* Strip trailing whitespace/newlines from a path. Some dialog backends
+ * (notably zenity in some configurations) return the path with a
+ * trailing newline; without trimming, IsValidResourceDir would look for
+ * `lba2.hqr` at the wrong-named directory and silently fail. */
+void TrimTrailingWhitespace(char *s) {
+    size_t len = strlen(s);
+    while (len > 0 &&
+           (s[len - 1] == '\n' || s[len - 1] == '\r' ||
+            s[len - 1] == ' ' || s[len - 1] == '\t')) {
+        s[--len] = '\0';
+    }
+}
+
 void SDLCALL OnFolderChosen(void *userdata, const char *const *filelist,
                             int /*filter*/) {
     PickerState *state = static_cast<PickerState *>(userdata);
+
+    /* Diagnostic: log exactly what the dialog backend handed back so
+     * platform-specific quirks (trailing newlines, empty-string-on-cancel,
+     * etc.) are visible in the log when something goes wrong. */
+    if (filelist == NULL) {
+        LogPrintf("RES_PICKER: callback filelist=NULL, error: %s\n",
+                  SDL_GetError());
+    } else if (filelist[0] == NULL) {
+        LogPuts("RES_PICKER: callback filelist[0]=NULL (cancel)");
+    } else {
+        LogPrintf("RES_PICKER: callback filelist[0]='%s' (len=%zu)\n",
+                  filelist[0], strlen(filelist[0]));
+    }
 
     if (filelist == NULL) {
         /* SDL reported an error (platform dialog backend missing, OOM,
          * permission denied, etc.). Capture for the caller to surface a
          * recovery hint. */
-        LogPrintf("RES_PICKER: dialog error: %s\n", SDL_GetError());
         state->dialog_failed = true;
         state->valid_pick = false;
-    } else if (filelist[0] == NULL) {
-        /* User dismissed the dialog without picking. Silent — they
-         * actively chose not to set the path. */
+    } else if (filelist[0] == NULL || filelist[0][0] == '\0') {
+        /* User dismissed the dialog without picking. Some backends
+         * report cancel via NULL filelist[0]; defensively also treat
+         * an empty string as cancel. */
         state->dialog_failed = false;
         state->valid_pick = false;
     } else {
         strncpy(state->chosen, filelist[0], ADELINE_MAX_PATH - 1);
         state->chosen[ADELINE_MAX_PATH - 1] = '\0';
-        state->dialog_failed = false;
-        state->valid_pick = true;
+        TrimTrailingWhitespace(state->chosen);
+        if (state->chosen[0] == '\0') {
+            /* Whitespace-only string after trimming — same as empty. */
+            state->dialog_failed = false;
+            state->valid_pick = false;
+        } else {
+            state->dialog_failed = false;
+            state->valid_pick = true;
+        }
     }
     state->done = true;
 }
@@ -172,6 +205,18 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
             return false;
         }
 
+        /* Apply trailing-separator normalization BEFORE validation.
+         * Discover() in DIRECTORIES.CPP does `snprintf("%s%s", baseDir,
+         * checkPath)` without injecting a separator, so a baseDir
+         * without a trailing slash gives "Commonlba2.hqr"-style joined
+         * paths that always miss. The auto-discovery probe chain calls
+         * EnsureTrailingSeparator pre-validation in NormalizeAndTry;
+         * the picker has to do the same. Without this, picking a
+         * legitimate retail folder via the dialog silently fails
+         * validation while the same path passed through --game-dir
+         * (which does go through NormalizeAndTry) succeeds. */
+        EnsureTrailingSeparator(state.chosen, ADELINE_MAX_PATH);
+
         /* Validation goes through the same IsValidResourceDir gate the
          * CLI/env/auto-discovery paths use — case-folding for `lba2.hqr`
          * (per Discover() in DIRECTORIES.CPP) included. The picker is
@@ -181,7 +226,6 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
             LogPrintf("RES_PICKER: picked %s\n", state.chosen);
             strncpy(outPath, state.chosen, outMax - 1);
             outPath[outMax - 1] = '\0';
-            EnsureTrailingSeparator(outPath, outMax);
             return true;
         }
 
