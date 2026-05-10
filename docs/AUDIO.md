@@ -10,6 +10,35 @@ The SDL backend matches the AIL function signatures and handle semantics, but ta
 
 ---
 
+## Retail audio assets (what's actually shipped)
+
+What the original 1997 disc (and modern re-releases) contain at the data level. The "what asset is in what format" answer often surprises people because Miles Sound System was capable of MIDI synthesis, and this game's era was MIDI-heavy — but LBA2 itself doesn't use MIDI for any in-game music.
+
+| Asset | Format | Location | Notes |
+|---|---|---|---|
+| Music | ADPCM-encoded WAV | `MUSIC/JADPCM01-18.WAV` (jingles, ~150 KB–1 MB each) and `MUSIC/TADPCM1-5.WAV` (themes, ~9–10 MB each), plus `MUSIC/LOGADPCM.WAV` (logo) | Steam transcoded these to OGG and ships them at `Common/Music/`. GOG ships the original WAVs inside `LBA2.GOG`'s ISO9660 filesystem. |
+| Voice | ADPCM `.VOX` | `VOX/{LANG}_NNN.VOX` per language (DE / EN / FR / etc.) | Steam ships extracted in `Common/VOX/`; GOG `VOX/` directory is empty and the files live inside `LBA2.GOG`. |
+| SFX | ADPCM samples | `SAMPLES.HQR` | Same archive on every distribution. |
+| CD-DA track | One audio track | GOG ships as `LBA2.OGG` (track 2 of `LBA2.DAT` CUE) | The original retail CD also had this as a CD-DA track. The engine's `MUSIC.CPP` `TrackCD` table treats it as a CD-DA-style "track." |
+
+### Music is ADPCM, not MIDI
+
+The `JADPCM` / `TADPCM` filename prefixes ("Jingle ADPCM", "Theme ADPCM") preserve the format lineage from 1997. Steam's `Common/Music/jadpcm01.ogg` etc. are direct OGG transcodes. Nothing in `SOURCES/MUSIC.CPP` ever invokes a MIDI playback API.
+
+The MIDI driver-init code at `INITADEL.C:184` is real — `InitMidiDriver()` is called at startup — but for our default SDL backend the implementation in `LIB386/AIL/SDL/MIDI.CPP` is a no-op stub that just logs and returns `TRUE`. The Miles backend's `LIB386/AIL/MILES/MIDI.CPP` has working `AIL_start_sequence` calls, but no engine code path drives them with LBA2 content. The wiring exists because Miles Sound System bundled MIDI as part of its standard surface.
+
+### The one MIDI artifact: `SETUP.MID`
+
+A single Standard MIDI File exists across all retail distributions: `SETUP.MID` (~55 KB, format 1, 7 tracks), shipped only inside the GOG CD image at `/LBA2/SETUP.MID`. Its filename suggests installer use; the engine source has zero references to it (`grep -ri "SETUP.MID" SOURCES/ LIB386/` returns empty).
+
+It renders cleanly through any General MIDI soundfont — a small piece of the era's auditory texture preserved on the disc but never played at runtime.
+
+### Steam's `soundfont.sf2`
+
+Steam ships a 32 MB `soundfont.sf2` at the install root and inside `Common/`. It's md5-identical to the community-distributed `GeneralUser-GS.sf2` (`bfe69fe5b2702ef7c12c44bd0d34f8f1`). The engine doesn't reference it at any code path; intent unclear.
+
+---
+
 ## Architecture
 
 The game's audio call chain is layered and already has a clean abstraction boundary:

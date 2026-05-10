@@ -104,3 +104,4 @@ See [CONFIG.md](CONFIG.md). If `lba2.cfg` is missing from the user config folder
 
 - [CONFIG.md](CONFIG.md) — `lba2.cfg` keys and paths
 - [TESTING.md](TESTING.md) — `test_res_discovery` (host tests for path resolution)
+- [AUDIO.md](AUDIO.md) — retail audio asset map (Steam vs GOG; what's ADPCM-WAV, what's `.VOX`, the lone `SETUP.MID` artifact)
