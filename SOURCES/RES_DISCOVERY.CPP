@@ -12,6 +12,7 @@
 
 #include <dirent.h>
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -229,16 +230,82 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
     return false;
 }
 
+/* Persisted-LastGameDir helpers.
+ *
+ * Single-line text file at <prefPath>/last_game_dir.txt holding the
+ * absolute path the user picked via the first-launch folder dialog.
+ * Stored separately from lba2.cfg because it must be written immediately
+ * at picker-success time, before InitDirectories / InitAdeline have set
+ * up the lba2.cfg buffer machinery. Written via stdio; read via stdio.
+ *
+ * Org/app naming ("Twinsen", "LBA2") matches the existing convention in
+ * SOURCES/DIRECTORIES.CPP for SDL_GetPrefPath. */
+bool BuildPersistedGameDirPath(char *outPath, size_t outMax) {
+    char *prefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    if (prefPath == NULL) {
+        return false;
+    }
+    /* SDL_GetPrefPath always returns a path with a trailing separator. */
+    int written = snprintf(outPath, outMax, "%slast_game_dir.txt", prefPath);
+    SDL_free(prefPath);
+    return written > 0 && static_cast<size_t>(written) < outMax;
+}
+
+bool ReadPersistedGameDir(char *outPath, U16 outMax) {
+    char filePath[ADELINE_MAX_PATH];
+    if (!BuildPersistedGameDirPath(filePath, sizeof(filePath))) {
+        return false;
+    }
+
+    FILE *fp = fopen(filePath, "r");
+    if (fp == NULL) {
+        /* No persisted file — first launch or never picked. Silent. */
+        return false;
+    }
+
+    bool ok = (fgets(outPath, outMax, fp) != NULL);
+    fclose(fp);
+    if (!ok) {
+        return false;
+    }
+
+    /* Strip trailing CR/LF. */
+    size_t len = strlen(outPath);
+    while (len > 0 &&
+           (outPath[len - 1] == '\n' || outPath[len - 1] == '\r')) {
+        outPath[--len] = '\0';
+    }
+    return outPath[0] != '\0';
+}
+
 } // namespace
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+bool WritePersistedGameDir(const char *path) {
+    char filePath[ADELINE_MAX_PATH];
+    if (!BuildPersistedGameDirPath(filePath, sizeof(filePath))) {
+        return false;
+    }
+
+    FILE *fp = fopen(filePath, "w");
+    if (fp == NULL) {
+        LogPrintf("RES_DISCOVERY: could not write %s\n", filePath);
+        return false;
+    }
+
+    fprintf(fp, "%s\n", path);
+    fclose(fp);
+    return true;
+}
+
 bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     char tried[kMaxTried][ADELINE_MAX_PATH];
     int triedCount = 0;
     char cliPath[ADELINE_MAX_PATH];
+    char persisted[ADELINE_MAX_PATH];
     char walk[ADELINE_MAX_PATH];
     const char *basePath = NULL;
 
@@ -253,6 +320,16 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     const char *env = getenv("LBA2_GAME_DIR");
     if (env != NULL && env[0] != '\0' &&
         NormalizeAndTry(env, outDir, outMax, tried, &triedCount)) {
+        return true;
+    }
+
+    /* Persisted choice from a previous picker session. Higher priority
+     * than auto-discovery (the user explicitly picked it) but lower than
+     * explicit CLI/env overrides (someone passing --game-dir today wants
+     * today's path, not last week's). Silent fallthrough on stale path
+     * — picker re-prompts, lba2cc rewrites the file. */
+    if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH) &&
+        NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
         return true;
     }
 

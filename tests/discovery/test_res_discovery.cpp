@@ -315,6 +315,82 @@ static bool test_embedded_cfg_write() {
     return sz == g_embeddedLba2CfgBytesSize;
 }
 
+/* Persisted-LastGameDir probe: a previous picker session wrote
+ * last_game_dir.txt to <SDL_GetPrefPath>; ResolveGameDataDir must
+ * read it back and return that path before falling through to
+ * auto-discovery.
+ *
+ * Linux-only: SDL_GetPrefPath honors XDG_DATA_HOME on Linux, which
+ * lets us redirect to a test-scratch directory cleanly. macOS / Windows
+ * use platform-specific paths without an env override; we skip there
+ * (still validated manually + via the picker UI flow). */
+static bool test_persisted_last_game_dir() {
+#ifndef __linux__
+    fprintf(stderr, "[skip] test_persisted_last_game_dir: Linux-only\n");
+    return true;
+#else
+    unsetenv_portable("LBA2_GAME_DIR");
+
+    /* Redirect SDL_GetPrefPath via XDG_DATA_HOME. SDL3 reads it on
+     * each call (no caching), so setting it before WritePersistedGameDir
+     * lands the file in our scratch dir. */
+    char xdg[] = "/tmp/lba2disc_xdg_XXXXXX";
+    if (mkdtemp(xdg) == NULL) {
+        return false;
+    }
+    if (setenv_portable("XDG_DATA_HOME", xdg) != 0) {
+        return false;
+    }
+
+    /* Create a valid game-data directory the persisted file will point at. */
+    char gameDir[] = "/tmp/lba2disc_pgd_XXXXXX";
+    if (mkdtemp(gameDir) == NULL) {
+        return false;
+    }
+    create_marker_hqr(gameDir);
+
+    /* Persist it via the public API. SDL_GetPrefPath now resolves under
+     * the scratch XDG_DATA_HOME, so last_game_dir.txt lands there. */
+    if (!WritePersistedGameDir(gameDir)) {
+        return false;
+    }
+
+    /* Run discovery from a directory where auto-discovery would NOT
+     * find a valid resource dir. The persisted probe should fire and
+     * return our gameDir. */
+    char neutralCwd[] = "/tmp/lba2disc_cwd_XXXXXX";
+    if (mkdtemp(neutralCwd) == NULL) {
+        return false;
+    }
+    char originalCwd[ADELINE_MAX_PATH];
+    getcwd_portable(originalCwd, sizeof(originalCwd));
+    chdir_portable(neutralCwd);
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+
+    chdir_portable(originalCwd);
+    unsetenv_portable("XDG_DATA_HOME");
+    /* Best-effort cleanup of scratch dirs. */
+    rmdir_portable(neutralCwd);
+
+    if (!ok) {
+        fprintf(stderr, "test_persisted_last_game_dir: discovery failed\n");
+        return false;
+    }
+    if (strstr(out, gameDir) == NULL) {
+        fprintf(stderr,
+                "test_persisted_last_game_dir: got %s, expected to contain %s\n",
+                out, gameDir);
+        return false;
+    }
+    return true;
+#endif
+}
+
 int main() {
     if (!SDL_Init(0)) {
         return 1;
@@ -333,6 +409,9 @@ int main() {
         failed++;
     }
     if (!test_embedded_cfg_write()) {
+        failed++;
+    }
+    if (!test_persisted_last_game_dir()) {
         failed++;
     }
     SDL_Quit();

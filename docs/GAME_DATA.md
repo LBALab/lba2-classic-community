@@ -18,9 +18,32 @@ Use the directory that contains `lba2.hqr` (and the other `.hqr` files, `music/`
 |-----------|---------|
 | Command line | `./lba2cc --game-dir /path/to/game` or `--data-dir` (alias) |
 | Environment | `export LBA2_GAME_DIR=/path/to/game` |
+| Persisted choice | `last_game_dir.txt` in the user-prefs folder, written automatically the first time you pick a folder via the launch dialog (see [First-launch folder picker](#first-launch-folder-picker) below) |
 | Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory, current working directory, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
-If no valid directory is found, the process exits with a log listing candidates tried and hints.
+If none of the above resolves a valid directory, the engine falls back to the [First-launch folder picker](#first-launch-folder-picker). On a headless system (no display, CI runner, etc.), the picker can't open and the process exits with a log listing candidates tried and hints.
+
+## First-launch folder picker
+
+When all four override mechanisms above fail and the engine is running in a windowed environment, it shows the platform-native folder dialog (NSOpenPanel on macOS, IFileDialog on Windows, GTK / xdg-desktop-portal on Linux). The user picks the folder containing `lba2.hqr`; the engine validates it via `IsValidResourceDir`, persists the choice to `last_game_dir.txt`, and continues startup.
+
+| Scenario | Behavior |
+|---|---|
+| User picks a valid folder (contains `lba2.hqr`) | Engine launches; `last_game_dir.txt` updated; subsequent launches skip the dialog. |
+| User picks an invalid folder | Engine shows a "Game data not found" message and re-opens the dialog. |
+| User cancels the dialog | Engine exits cleanly (same exit code as the headless no-data case). |
+| Persisted path no longer valid (game install moved/deleted) | Engine silently falls through to auto-discovery, then the picker. The next valid pick rewrites `last_game_dir.txt`. |
+| Headless environment (no display, CI, dummy video driver) | Picker can't open; engine exits with the existing "no game data" error and the candidate path list. |
+
+The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.txt` — typically:
+
+| Platform | Path |
+|---|---|
+| Linux | `~/.local/share/Twinsen/LBA2/last_game_dir.txt` (honors `XDG_DATA_HOME`) |
+| macOS | `~/Library/Application Support/Twinsen/LBA2/last_game_dir.txt` |
+| Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
+
+It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
 
 **Explicit path (recommended for anything non-local):** Use `--game-dir` or `LBA2_GAME_DIR` when the install is not next to your working tree (another drive, `~/Games/…`, CI, etc.). That is the stable, portable option.
 
