@@ -367,9 +367,9 @@ static const struct {
     S32 pcr;
 } s_slideTable[] = {
     {"activision", PCR_ACTIVISION},
-    {"ea",         PCR_EA},
-    {"virgin",     PCR_VIRGIN},
-    {"bumper",     PCR_BUMPER},
+    {"ea", PCR_EA},
+    {"virgin", PCR_VIRGIN},
+    {"bumper", PCR_BUMPER},
 };
 
 static void cmd_slide(int argc, const char *argv[]) {
@@ -452,12 +452,12 @@ static const struct {
     const char *name;
     S32 ver;
 } s_distribTable[] = {
-    {"unknown",        UNKNOWN_VERSION},
-    {"activision",     ACTIVISION_VERSION},
+    {"unknown", UNKNOWN_VERSION},
+    {"activision", ACTIVISION_VERSION},
     {"activision_sud", ACTIVISION_SUD_VERSION},
-    {"ea",             EA_VERSION},
-    {"virgin",         VIRGIN_VERSION},
-    {"virgin_asia",    VIRGIN_ASIA_VERSION},
+    {"ea", EA_VERSION},
+    {"virgin", VIRGIN_VERSION},
+    {"virgin_asia", VIRGIN_ASIA_VERSION},
 };
 
 static const char *distrib_name_for(S32 ver) {
