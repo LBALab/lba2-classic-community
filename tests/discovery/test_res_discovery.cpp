@@ -121,6 +121,53 @@ static void create_marker_hqr(const char *dir) {
     }
 }
 
+/* Backup/restore the user's persisted last_game_dir.txt around the test
+ * run. The persisted-LastGameDir probe in ResolveGameDataDir fires
+ * BEFORE auto-discovery, so without clearing the persisted file the
+ * sibling-scan tests pick up the real user's setting instead of their
+ * synthetic test fixture and fail. Backup-and-restore is robust to
+ * the user actually having a persisted picker pick on their dev box. */
+static char saved_persisted[ADELINE_MAX_PATH];
+static bool had_persisted = false;
+static char persisted_path[ADELINE_MAX_PATH];
+
+static void compute_persisted_path() {
+    char *prefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    if (prefPath == NULL) {
+        persisted_path[0] = '\0';
+        return;
+    }
+    snprintf(persisted_path, sizeof(persisted_path), "%slast_game_dir.txt",
+             prefPath);
+    SDL_free(prefPath);
+}
+
+static void backup_persisted_game_dir() {
+    compute_persisted_path();
+    if (persisted_path[0] == '\0') {
+        return;
+    }
+    FILE *f = fopen(persisted_path, "r");
+    if (f != NULL) {
+        if (fgets(saved_persisted, sizeof(saved_persisted), f) != NULL) {
+            had_persisted = true;
+        }
+        fclose(f);
+        unlink_portable(persisted_path);
+    }
+}
+
+static void restore_persisted_game_dir() {
+    if (!had_persisted || persisted_path[0] == '\0') {
+        return;
+    }
+    FILE *f = fopen(persisted_path, "w");
+    if (f != NULL) {
+        fputs(saved_persisted, f);
+        fclose(f);
+    }
+}
+
 static bool test_env_lba2_game_dir() {
     unsetenv_portable("LBA2_GAME_DIR");
 #ifndef _WIN32
@@ -435,6 +482,14 @@ int main() {
     if (!SDL_Init(0)) {
         return 1;
     }
+
+    /* Move the user's real persisted last_game_dir.txt aside (if any)
+     * so it doesn't interfere with the sibling-scan tests, which
+     * expect auto-discovery to find their synthetic fixtures. Restore
+     * via atexit so the user's setting survives test crashes too. */
+    backup_persisted_game_dir();
+    atexit(restore_persisted_game_dir);
+
     int failed = 0;
     if (!test_sibling_direct_next_to_cwd()) {
         failed++;
