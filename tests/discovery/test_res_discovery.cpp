@@ -320,10 +320,20 @@ static bool test_embedded_cfg_write() {
  * read it back and return that path before falling through to
  * auto-discovery.
  *
- * Linux-only: SDL_GetPrefPath honors XDG_DATA_HOME on Linux, which
- * lets us redirect to a test-scratch directory cleanly. macOS / Windows
- * use platform-specific paths without an env override; we skip there
- * (still validated manually + via the picker UI flow). */
+ * The challenge: SDL_GetPrefPath caches the resolved path on first
+ * call within a process (verified empirically: setenv("XDG_DATA_HOME")
+ * after SDL_Init has no effect on subsequent SDL_GetPrefPath calls).
+ * So we can't simply override the env var inside the test and expect
+ * SDL3 to follow.
+ *
+ * Approach: try the override, then check whether SDL_GetPrefPath
+ * actually picked it up by comparing before/after. If it did → run
+ * the full test. If it didn't (SDL cached, override took no effect),
+ * skip cleanly without polluting the user's real prefs directory.
+ *
+ * Linux-only: SDL_GetPrefPath honors XDG_DATA_HOME on Linux when
+ * read fresh. macOS / Windows use platform-specific paths without
+ * a clean env override; skip there. */
 static bool test_persisted_last_game_dir() {
 #ifndef __linux__
     fprintf(stderr, "[skip] test_persisted_last_game_dir: Linux-only\n");
@@ -331,35 +341,66 @@ static bool test_persisted_last_game_dir() {
 #else
     unsetenv_portable("LBA2_GAME_DIR");
 
-    /* Redirect SDL_GetPrefPath via XDG_DATA_HOME. SDL3 reads it on
-     * each call (no caching), so setting it before WritePersistedGameDir
-     * lands the file in our scratch dir. */
-    char xdg[] = "/tmp/lba2disc_xdg_XXXXXX";
-    if (mkdtemp(xdg) == NULL) {
-        return false;
-    }
-    if (setenv_portable("XDG_DATA_HOME", xdg) != 0) {
+    /* Snapshot the un-overridden pref path. */
+    char *originalPrefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    if (originalPrefPath == NULL) {
         return false;
     }
 
-    /* Create a valid game-data directory the persisted file will point at. */
+    char xdg[] = "/tmp/lba2disc_xdg_XXXXXX";
+    if (mkdtemp(xdg) == NULL) {
+        SDL_free(originalPrefPath);
+        return false;
+    }
+    if (setenv_portable("XDG_DATA_HOME", xdg) != 0) {
+        SDL_free(originalPrefPath);
+        return false;
+    }
+
+    /* Did the env override actually take? SDL3 may have cached the
+     * pref path during an earlier call (e.g. from another test in
+     * this same process), in which case our setenv is a no-op. */
+    char *overriddenPrefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    if (overriddenPrefPath == NULL) {
+        SDL_free(originalPrefPath);
+        unsetenv_portable("XDG_DATA_HOME");
+        return false;
+    }
+    const bool overrideTook =
+        (strstr(overriddenPrefPath, xdg) != NULL);
+    SDL_free(originalPrefPath);
+    SDL_free(overriddenPrefPath);
+
+    if (!overrideTook) {
+        /* SDL_GetPrefPath cached the un-overridden path. Running the
+         * full test now would write last_game_dir.txt into the user's
+         * real prefs directory and risk clobbering an actual setting.
+         * Skip without writing anything. */
+        unsetenv_portable("XDG_DATA_HOME");
+        fprintf(stderr,
+                "[skip] test_persisted_last_game_dir: SDL_GetPrefPath "
+                "cached pre-override path; can't isolate.\n");
+        return true;
+    }
+
+    /* Override took. Safe to write under the scratch XDG_DATA_HOME. */
     char gameDir[] = "/tmp/lba2disc_pgd_XXXXXX";
     if (mkdtemp(gameDir) == NULL) {
+        unsetenv_portable("XDG_DATA_HOME");
         return false;
     }
     create_marker_hqr(gameDir);
 
-    /* Persist it via the public API. SDL_GetPrefPath now resolves under
-     * the scratch XDG_DATA_HOME, so last_game_dir.txt lands there. */
     if (!WritePersistedGameDir(gameDir)) {
+        unsetenv_portable("XDG_DATA_HOME");
         return false;
     }
 
     /* Run discovery from a directory where auto-discovery would NOT
-     * find a valid resource dir. The persisted probe should fire and
-     * return our gameDir. */
+     * find a valid resource dir. The persisted probe should fire. */
     char neutralCwd[] = "/tmp/lba2disc_cwd_XXXXXX";
     if (mkdtemp(neutralCwd) == NULL) {
+        unsetenv_portable("XDG_DATA_HOME");
         return false;
     }
     char originalCwd[ADELINE_MAX_PATH];
@@ -374,7 +415,6 @@ static bool test_persisted_last_game_dir() {
 
     chdir_portable(originalCwd);
     unsetenv_portable("XDG_DATA_HOME");
-    /* Best-effort cleanup of scratch dirs. */
     rmdir_portable(neutralCwd);
 
     if (!ok) {

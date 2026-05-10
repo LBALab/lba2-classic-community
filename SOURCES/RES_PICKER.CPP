@@ -51,6 +51,40 @@ void ShowInvalidPickMessage(void) {
 
 } // namespace
 
+namespace {
+
+/* Match the trailing-separator normalization that NormalizeAndTry in
+ * RES_DISCOVERY.CPP applies to every auto-discovered path. Keeps the
+ * picker's output byte-identical to what the rest of discovery would
+ * have produced for the same path — same format flows into
+ * InitDirectories regardless of which probe matched. */
+void EnsureTrailingSeparator(char *path, U16 maxLen) {
+    const size_t n = strlen(path);
+    if (n == 0 || n + 2 > static_cast<size_t>(maxLen)) {
+        return;
+    }
+    const char last = path[n - 1];
+    if (last == '/' || last == '\\') {
+        return;
+    }
+    path[n] = '/';
+    path[n + 1] = '\0';
+}
+
+void ShowDiscoveryFailedMessage(void) {
+    SDL_ShowSimpleMessageBox(
+        SDL_MESSAGEBOX_INFORMATION,
+        "Game data folder not found",
+        "Little Big Adventure 2 retail game data wasn't found in any of "
+        "the usual places.\n\n"
+        "Please pick the folder containing your LBA2 install — the one "
+        "with lba2.hqr, music/, video/, vox/, etc.\n\n"
+        "Your choice will be remembered for future launches.",
+        NULL);
+}
+
+} // namespace
+
 extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
     /* SDL_ShowOpenFolderDialog requires SDL_INIT_VIDEO. Probe it as our
      * headless test: if video can't come up (no display, no Wayland
@@ -62,13 +96,18 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
         return false;
     }
 
+    /* Tell the user why a dialog is about to appear. Without this, the
+     * folder picker pops up unannounced and feels like the app is
+     * confused. The message-box-then-picker pattern matches what other
+     * cross-platform games do for first-launch data discovery. */
+    LogPuts("RES_PICKER: showing 'data not found' message + folder picker...");
+    ShowDiscoveryFailedMessage();
+
     /* Default location for the picker. Home is the universal "user
      * starts here" choice — heuristic install-path detection (~/GOG
      * Games/, etc.) is a rabbit hole and most users won't have data
      * there anyway. */
     const char *defaultLoc = SDL_GetUserFolder(SDL_FOLDER_HOME);
-
-    LogPuts("RES_PICKER: showing folder picker for game data...");
 
     /* Async-to-sync adapter: SDL_ShowOpenFolderDialog returns immediately
      * and invokes the callback later. We poll until the callback fires.
@@ -91,10 +130,16 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
             return false;
         }
 
+        /* Validation goes through the same IsValidResourceDir gate the
+         * CLI/env/auto-discovery paths use — case-folding for `lba2.hqr`
+         * (per Discover() in DIRECTORIES.CPP) included. The picker is
+         * not a special validation path; it's the same probe with a
+         * different input source. */
         if (IsValidResourceDir(state.chosen)) {
             LogPrintf("RES_PICKER: picked %s\n", state.chosen);
             strncpy(outPath, state.chosen, outMax - 1);
             outPath[outMax - 1] = '\0';
+            EnsureTrailingSeparator(outPath, outMax);
             return true;
         }
 
