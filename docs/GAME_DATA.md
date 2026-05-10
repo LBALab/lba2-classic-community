@@ -46,6 +46,18 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 
 It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
 
+### Forcing the picker without deleting the file
+
+Pass `--pick-game-dir` on the command line. The engine skips the persisted-LastGameDir probe and the auto-discovery chain, going straight to the picker for this run only. Use cases:
+
+- Test the first-launch UX repeatedly without `rm`-ing the persisted file each time.
+- Switch to a different LBA2 install without editing `last_game_dir.txt` by hand.
+- Anyone whose persisted or auto-discovered path resolves to the wrong place and wants a UI re-do.
+
+A successful pick rewrites `last_game_dir.txt` with the new path (acts as a "switch install" UX). A cancelled pick changes nothing — your previous setting stays intact.
+
+`--game-dir` and `LBA2_GAME_DIR` still win against `--pick-game-dir` if both are set on the same launch (explicit path beats "show the picker"). Useful for `lba2cc --game-dir /path/to/install` overriding a misbehaving persisted setting one-shot, or `--pick-game-dir` for the "let me browse" UX.
+
 ### Picker backends per environment
 
 SDL3 implements the Linux folder picker via one of two backends — `zenity` (GTK-based, simple) or `xdg-desktop-portal` (Freedesktop portal protocol, integrates with the desktop environment). [SDL3's hint documentation](https://wiki.libsdl.org/SDL3/SDL_HINT_FILE_DIALOG_DRIVER) says it tries "all available dialog backends in a reasonable order" without committing to one — install whichever fits your environment.

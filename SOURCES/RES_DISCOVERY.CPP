@@ -119,6 +119,9 @@ void StripGameDirArgs(int *argc, char **argv) {
             readIdx++;
             continue;
         }
+        if (!strcasecmp(argv[readIdx], "--pick-game-dir")) {
+            continue;
+        }
         argv[writeIdx++] = argv[readIdx];
     }
     argv[writeIdx] = NULL;
@@ -132,6 +135,26 @@ bool ExtractGameDirFromArgv(int argc, char **argv, char *outPath, U16 outMax) {
             (i + 1) < argc) {
             strncpy(outPath, argv[i + 1], outMax);
             outPath[outMax - 1] = '\0';
+            return true;
+        }
+    }
+    return false;
+}
+
+/* --pick-game-dir tells ResolveGameDataDir to skip the persisted-LastGameDir
+ * probe and the auto-discovery probe chain — go straight to the picker
+ * fallback regardless of what's been saved or what's adjacent. Useful for:
+ *
+ *   - Testing the first-launch UX repeatedly without rm-ing last_game_dir.txt
+ *   - Switching to a different LBA2 install without editing the persisted file
+ *   - Anyone whose current persisted/auto-discovered path resolves to the
+ *     wrong thing and wants a UI re-do
+ *
+ * Lower priority than --game-dir / LBA2_GAME_DIR (explicit user input wins),
+ * higher priority than persisted / auto-discovery / picker default behavior. */
+bool ExtractPickGameDirFlag(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (!strcasecmp(argv[i], "--pick-game-dir")) {
             return true;
         }
     }
@@ -310,6 +333,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     const char *basePath = NULL;
 
     ExtractGameDirFromArgv(*argc, argv, cliPath, ADELINE_MAX_PATH);
+    const bool forcePicker = ExtractPickGameDirFlag(*argc, argv);
     StripGameDirArgs(argc, argv);
 
     if (cliPath[0] != '\0' &&
@@ -321,6 +345,16 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     if (env != NULL && env[0] != '\0' &&
         NormalizeAndTry(env, outDir, outMax, tried, &triedCount)) {
         return true;
+    }
+
+    /* --pick-game-dir bails out of the implicit-discovery chain and
+     * forces the caller's picker fallback. Explicit --game-dir / env
+     * still win above (user passing both is asking for "use this path,
+     * but if it's bad show the picker"). */
+    if (forcePicker) {
+        LogPuts("RES_DISCOVERY: --pick-game-dir set; skipping persisted "
+                "and auto-discovery probes.");
+        return false;
     }
 
     /* Persisted choice from a previous picker session. Higher priority
