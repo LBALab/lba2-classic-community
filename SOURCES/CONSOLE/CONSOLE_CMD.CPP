@@ -10,6 +10,7 @@
 #include <AIL/SAMPLE.H>
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
+#include "../INPUT.H"
 #include "../INVENT.H"
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
@@ -22,6 +23,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <SYSTEM/TIMER.H>
+#include <SYSTEM/DEFFILE.H>
 
 /* libconsole cannot include COMMON.H; keep CONSOLE_STATE.H sentinels in sync (compile fails if they drift). */
 #if NUM_CUBE_PHANTOM != CONSOLE_NUM_CUBE_PHANTOM_DEFAULT
@@ -351,6 +353,169 @@ static void cmd_credits(int argc, const char *argv[]) {
     BoxStaticFullflip();
 
     Console_Print("Credits done (mode=%d)", (int)mode);
+}
+
+/* Console invocation of ShowLogo. Mirrors cmd_credits: ShowLogo writes
+   directly into Log + PalettePcx and exits via FadeToBlack — fine in its
+   native menu/title flow, disruptive from live gameplay. Snapshot the
+   same back-buffers cmd_credits does plus the palette bytes ShowLogo
+   overwrites, then restore + flip so the command is transparent from any
+   state. The s_slideTable is the extension point for future additions
+   (e.g. a community-edition slide); one row per slide. */
+static const struct {
+    const char *name;
+    S32 pcr;
+} s_slideTable[] = {
+    {"activision", PCR_ACTIVISION},
+    {"ea", PCR_EA},
+    {"virgin", PCR_VIRGIN},
+    {"bumper", PCR_BUMPER},
+};
+
+static void cmd_slide(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Available slides:");
+        for (size_t i = 0; i < sizeof(s_slideTable) / sizeof(s_slideTable[0]); i++) {
+            Console_Print("  %s", s_slideTable[i].name);
+        }
+        return;
+    }
+
+    S32 pcr = -1;
+    for (size_t i = 0; i < sizeof(s_slideTable) / sizeof(s_slideTable[0]); i++) {
+        if (!strcasecmp(argv[1], s_slideTable[i].name)) {
+            pcr = s_slideTable[i].pcr;
+            break;
+        }
+    }
+    if (pcr < 0) {
+        Console_Print("Unknown slide: %s", argv[1]);
+        return;
+    }
+
+    Console_Close();
+
+    const U32 bufSize = (U32)(ModeDesiredX * ModeDesiredY);
+    U8 *savedLog = (U8 *)malloc(bufSize);
+    U8 *savedScreen = (U8 *)malloc(bufSize);
+    U8 savedPal[768];
+    U8 *savedPtrPal = PtrPal;
+    if (savedLog && Log)
+        memcpy(savedLog, Log, bufSize);
+    if (savedScreen && Screen)
+        memcpy(savedScreen, Screen, bufSize);
+    memcpy(savedPal, PalettePcx, sizeof(savedPal));
+
+    /* ShowLogo advances TimerRefHR via ManageTime for the slide duration.
+       Gameplay AI / animation / movement run off TimerRefHR deltas, so a
+       5-second jump on resume wedges movement state machines while
+       menu/ESC (no timer dep) still work. SaveTimer/RestoreTimer is the
+       standard pattern around modal calls (see cmd_give, MESSAGE.CPP,
+       INVENT.CPP). The Init pair swallows any input bits the slide
+       loop left set so the next gameplay tick starts clean. */
+    SaveTimer();
+
+    ShowLogo(pcr, 5);
+
+    if (savedLog) {
+        if (Log)
+            memcpy(Log, savedLog, bufSize);
+        free(savedLog);
+    }
+    if (savedScreen) {
+        if (Screen)
+            memcpy(Screen, savedScreen, bufSize);
+        free(savedScreen);
+    }
+    memcpy(PalettePcx, savedPal, sizeof(savedPal));
+    PtrPal = savedPtrPal;
+    FadeToPal(PtrPal);
+    BoxStaticFullflip();
+
+    InitWaitNoKey();
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
+    RestoreTimer();
+
+    Console_Print("Slide done: %s", argv[1]);
+}
+
+/* Set the distributor (cfg `Version` key) for next launch. The cfg key
+   name is historic — what's stored is which publisher's edition the
+   engine should present (Activision, EA, Virgin, regional variants);
+   the user-facing command is named `distrib` to be honest about that.
+   Persistence-only: writes to lba2.cfg via DefFileBufferWriteValue.
+   Doesn't mutate the in-memory DistribVersion global because several
+   derived globals (MessageNoCD, music track table, etc.) are computed
+   from it once at startup and won't refresh — partial live application
+   would be more confusing than just "takes effect on next launch". */
+static const struct {
+    const char *name;
+    S32 ver;
+} s_distribTable[] = {
+    {"unknown", UNKNOWN_VERSION},
+    {"activision", ACTIVISION_VERSION},
+    {"activision_sud", ACTIVISION_SUD_VERSION},
+    {"ea", EA_VERSION},
+    {"virgin", VIRGIN_VERSION},
+    {"virgin_asia", VIRGIN_ASIA_VERSION},
+};
+
+static const char *distrib_name_for(S32 ver) {
+    for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+        if (s_distribTable[i].ver == ver)
+            return s_distribTable[i].name;
+    }
+    return "?";
+}
+
+static void cmd_distrib(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Current: %d (%s)", (int)DistribVersion, distrib_name_for(DistribVersion));
+        Console_Print("Available:");
+        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+            Console_Print("  %d  %s", (int)s_distribTable[i].ver, s_distribTable[i].name);
+        }
+        return;
+    }
+
+    /* Accept numeric (0-5) or table-name. Numeric first so "1" wins
+       cleanly without colliding on a future name that happens to start
+       with a digit. */
+    S32 newVer = -1;
+    char *end = NULL;
+    long n = strtol(argv[1], &end, 0);
+    if (end && *end == '\0' && argv[1][0] != '\0') {
+        S32 found = FALSE;
+        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+            if (s_distribTable[i].ver == (S32)n) {
+                newVer = (S32)n;
+                found = TRUE;
+                break;
+            }
+        }
+        if (!found) {
+            Console_Print("Out of range: %ld (valid 0-5)", n);
+            return;
+        }
+    } else {
+        for (size_t i = 0; i < sizeof(s_distribTable) / sizeof(s_distribTable[0]); i++) {
+            if (!strcasecmp(argv[1], s_distribTable[i].name)) {
+                newVer = s_distribTable[i].ver;
+                break;
+            }
+        }
+        if (newVer < 0) {
+            Console_Print("Unknown distrib: %s", argv[1]);
+            return;
+        }
+    }
+
+    if (!DefFileBufferWriteValue("Version", newVer)) {
+        Console_Print("Failed to write cfg");
+        return;
+    }
+    Console_Print("Version %d (%s) (next launch)",
+                  (int)newVer, distrib_name_for(newVer));
 }
 
 static void cmd_listvideos(int argc, const char *argv[]) {
@@ -721,6 +886,12 @@ void Console_RegisterAll(void) {
                               "Requires in-game loaded cube (not during video).");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
+    Console_RegisterCommandEx("slide", cmd_slide, "Show a distributor or bumper slide",
+                              "slide <activision|ea|virgin|bumper>",
+                              "Cosmetic; restores the prior screen + palette on exit. Run with no args to list.");
+    Console_RegisterCommandEx("distrib", cmd_distrib, "Set distributor (Version) for next launch",
+                              "distrib <activision|ea|virgin|... | 0-5>",
+                              "Persists to lba2.cfg (Version key). Run with no args to show current.");
     Console_RegisterCommandEx("credits", cmd_credits, "Play credits sequence", "credits [0|1]",
                               "Closes console. Mode: 0=bad end (default), 1=good end. Press any key to skip.");
     Console_RegisterCommandEx("listvideos", cmd_listvideos, "List available ACF video names", "(no args)",

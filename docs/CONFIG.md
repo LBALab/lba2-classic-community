@@ -44,7 +44,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT` in INPUT.H). Only read when WinMode=1 |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
-| Version, Version_US | int | Distributor ID | UNKNOWN_VERSION | Activision, EA, Virgin, etc. |
+| Version, Version_US | int | Distributor ID | 3 (EA) from template; 0 (UNKNOWN_VERSION) if key missing | Activision, EA, Virgin, regional variants. Set via `distrib` console command. |
 | Language | string | English, Français, Deutsch, Español, Italiano, Portugues | Français | Must match `TabLanguage[]` exactly (case-insensitive) |
 | LanguageCD | string | Same as Language | Français | Voice CD language; only used with CDROM build |
 | FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
@@ -66,7 +66,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | CDVolume | CD audio volume | ReadVolumeSettings / WriteVolumeSettings | config only |
 | Input0_1..Input35_2, WinMode | Keyboard mappings | ReadInputConfig / WriteInputConfig | Options → Keyboard |
 | CompressSave | Save compression format | ReadConfigFile | (installer) |
-| Version, Version_US | Distributor version | ReadConfigFile | (installer) |
+| Version, Version_US | Distributor version | ReadConfigFile / `distrib` console | (installer; `distrib` console) |
 | Language, LanguageCD, FlagKeepVoice | Language / voice CD | MESSAGE.CPP, ReadConfigFile / WriteConfigFile | Options → Choose language |
 
 **Note:** `FlagKeepVoice` remains installer / CONFIG-tool managed. `Language` and `LanguageCD` are now also written by the in-game Options menu.
