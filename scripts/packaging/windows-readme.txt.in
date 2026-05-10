@@ -14,36 +14,41 @@ This fork doesn't include game data — you need a legitimate copy of
 Little Big Adventure 2 / Twinsen's Odyssey from GOG, Steam, or your
 original retail CD.
 
-The simplest setup: copy @LBA2_EXECUTABLE_NAME@.exe directly into
-your existing LBA2 install folder — the one that contains lba2.hqr,
-music\, video\, vox\, etc. — and run it from there. The engine
-looks for game data in the directory the .exe is launched from.
+Easiest setup: just double-click @LBA2_EXECUTABLE_NAME@.exe. A folder
+picker will open and ask you to point at your retail install — the
+folder containing lba2.hqr (alongside music\, video\, vox\, etc., or
+under a Common\ or CommonClassic\ subfolder for Steam/GOG re-releases).
+Your choice is remembered, so subsequent launches skip the picker.
 
-If you'd rather keep @LBA2_EXECUTABLE_NAME@.exe separate from your
-game install, point it at the data with one of:
+Alternative — drop @LBA2_EXECUTABLE_NAME@.exe directly into your
+existing LBA2 install folder and run it from there. The engine
+auto-discovers game data in the directory the .exe is launched from
+(or in a "data" / "game" subfolder next to it), so the picker won't
+appear in that case.
+
+To re-pick later (e.g. switching between two installs):
+
+    @LBA2_EXECUTABLE_NAME@.exe --pick-game-dir
+
+Or skip the picker entirely with an explicit path:
 
     @LBA2_EXECUTABLE_NAME@.exe --game-dir "C:\path\to\game"
-
     set LBA2_GAME_DIR=C:\path\to\game
-    @LBA2_EXECUTABLE_NAME@.exe
 
-The engine also auto-discovers a "data" or "game" subfolder next to
-the .exe, so this layout works without flags too:
+The remembered choice lives at:
 
-    @LBA2_EXECUTABLE_NAME@.exe
-    data\
-        lba2.hqr
-        music\
-        video\
-        ...
+    %APPDATA%\Twinsen\LBA2\last_game_dir.txt
+
+Delete it to force the picker to re-appear on next launch.
 
 
 RUNNING
 -------
 
 Double-click @LBA2_EXECUTABLE_NAME@.exe, or run from cmd.exe /
-PowerShell. If it can't find game data, the log file in your user
-profile lists every directory it tried.
+PowerShell. If it can't find game data and the picker isn't available
+for some reason, the log file in your user profile lists every
+directory it tried.
 
 
 LICENSE
