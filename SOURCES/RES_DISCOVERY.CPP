@@ -361,10 +361,21 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * than auto-discovery (the user explicitly picked it) but lower than
      * explicit CLI/env overrides (someone passing --game-dir today wants
      * today's path, not last week's). Silent fallthrough on stale path
-     * — picker re-prompts, lba2cc rewrites the file. */
-    if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH) &&
-        NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
-        return true;
+     * — picker re-prompts, lba2cc rewrites the file.
+     *
+     * Log explicitly on success so the user sees "yes, saved choice
+     * was used" symmetric with the picker's own log on first launch.
+     * Log on stale-fallthrough too so triaging "why did the picker
+     * re-appear?" doesn't require running with extra verbosity. */
+    if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH)) {
+        if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
+            LogPrintf("RES_DISCOVERY: using saved game-data path %s\n",
+                      outDir);
+            return true;
+        }
+        LogPrintf("RES_DISCOVERY: saved game-data path %s no longer "
+                  "valid, re-prompting via picker\n",
+                  persisted);
     }
 
     /* SDL_Init must be done by the caller before SDL_GetBasePath / cwd helpers
