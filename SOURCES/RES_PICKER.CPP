@@ -104,13 +104,15 @@ void ShowDialogUnavailableMessage(void) {
         SDL_MESSAGEBOX_WARNING,
         "Couldn't open folder picker",
         "The system folder-picker isn't available on this setup.\n\n"
-        "On Linux (including WSL), install one of:\n"
-        "  • zenity  (e.g. sudo apt install zenity)\n"
-        "  • xdg-desktop-portal\n\n"
-        "Alternatively, launch lba2cc from a terminal with\n"
+        "Quickest fix on most Linux setups (including WSL):\n"
+        "    sudo apt install zenity\n"
+        "    (or: pacman -S zenity / dnf install zenity)\n\n"
+        "For native-styled dialogs on KDE / GNOME / Hyprland, install\n"
+        "the matching xdg-desktop-portal package — see docs/GAME_DATA.md\n"
+        "section 'Picker backends per environment'.\n\n"
+        "Or skip the picker entirely: launch from a terminal with\n"
         "    lba2cc --game-dir /path/to/your/lba2/install\n"
-        "or set the LBA2_GAME_DIR environment variable.\n\n"
-        "See docs/GAME_DATA.md for the full list of options.",
+        "or set the LBA2_GAME_DIR environment variable.",
         NULL);
 }
 

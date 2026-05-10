@@ -34,7 +34,7 @@ When all four override mechanisms above fail and the engine is running in a wind
 | User cancels the dialog | Engine exits cleanly (same exit code as the headless no-data case). |
 | Persisted path no longer valid (game install moved/deleted) | Engine silently falls through to auto-discovery, then the picker. The next valid pick rewrites `last_game_dir.txt`. |
 | Headless environment (no display, CI, dummy video driver) | Picker can't open; engine exits with the existing "no game data" error and the candidate path list. |
-| Linux/WSL with no dialog backend installed | The display works (so the engine shows the "Game data folder not found" message), but `SDL_ShowOpenFolderDialog` reports "File dialog driver unsupported" because neither `zenity` nor `xdg-desktop-portal` is available. Engine then shows a follow-up message-box with recovery hints and exits. Fix: `sudo apt install zenity` (or equivalent) on the next run, or use `--game-dir` / `LBA2_GAME_DIR`. |
+| Linux/WSL with no dialog backend installed | The display works (so the engine shows the "Game data folder not found" message), but `SDL_ShowOpenFolderDialog` reports "File dialog driver unsupported" because neither `zenity` nor `xdg-desktop-portal` is available. Engine shows a follow-up message-box with recovery hints and exits. See [Picker backends per environment](#picker-backends-per-environment) below for the right install command, or use `--game-dir` / `LBA2_GAME_DIR` to skip the picker. |
 
 The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.txt` — typically:
 
@@ -45,6 +45,21 @@ The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.
 | Windows | `%APPDATA%\Twinsen\LBA2\last_game_dir.txt` |
 
 It's a single-line text file (the absolute path to the chosen game-data folder). Safe to delete by hand to force the picker to re-appear on next launch — the engine treats a missing file as "never picked," same as a fresh install.
+
+### Picker backends per environment
+
+SDL3 implements the Linux folder picker via one of two backends — `zenity` (GTK-based, simple) or `xdg-desktop-portal` (Freedesktop portal protocol, integrates with the desktop environment). [SDL3's hint documentation](https://wiki.libsdl.org/SDL3/SDL_HINT_FILE_DIALOG_DRIVER) says it tries "all available dialog backends in a reasonable order" without committing to one — install whichever fits your environment.
+
+| Environment | Recommended install | Notes |
+|---|---|---|
+| **WSL Ubuntu / Debian** | `sudo apt install zenity` | One package, works immediately. Portal would need extra D-Bus session bus setup that is fragile inside WSL. |
+| **Arch + KDE Plasma** | `pacman -S xdg-desktop-portal xdg-desktop-portal-kde` | Native Plasma-styled file dialog. |
+| **Arch + GNOME** | `pacman -S xdg-desktop-portal xdg-desktop-portal-gnome` (often pre-installed) | Native GNOME dialog. `xdg-desktop-portal-gtk` is an equivalent fallback. |
+| **Arch + Hyprland** | `pacman -S xdg-desktop-portal-hyprland xdg-desktop-portal-gtk` | XDPH itself does not provide a file picker; the [Hyprland wiki](https://wiki.hypr.land/Hypr-Ecosystem/xdg-desktop-portal-hyprland/) recommends installing `-gtk` alongside it. **Don't** add `-kde` or `-gnome` — mixing portal implementations on Hyprland causes D-Bus timeouts and breaks every app that uses portals. |
+| **sway / minimal Wayland** | `xdg-desktop-portal-gtk` (or `zenity` if you have XWayland) | GTK portal is the cleaner Wayland answer. |
+| **i3 / minimal X11** | `zenity` | Simplest universal fallback. |
+
+If you want to force a specific backend even when both are installed, set `SDL_FILE_DIALOG_DRIVER=zenity` (or `=portal`) in the environment before launching. Useful for debugging which backend's misbehaving on a particular setup.
 
 **Explicit path (recommended for anything non-local):** Use `--game-dir` or `LBA2_GAME_DIR` when the install is not next to your working tree (another drive, `~/Games/…`, CI, etc.). That is the stable, portable option.
 
