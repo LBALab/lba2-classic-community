@@ -34,6 +34,7 @@ When all four override mechanisms above fail and the engine is running in a wind
 | User cancels the dialog | Engine exits cleanly (same exit code as the headless no-data case). |
 | Persisted path no longer valid (game install moved/deleted) | Engine silently falls through to auto-discovery, then the picker. The next valid pick rewrites `last_game_dir.txt`. |
 | Headless environment (no display, CI, dummy video driver) | Picker can't open; engine exits with the existing "no game data" error and the candidate path list. |
+| Linux/WSL with no dialog backend installed | The display works (so the engine shows the "Game data folder not found" message), but `SDL_ShowOpenFolderDialog` reports "File dialog driver unsupported" because neither `zenity` nor `xdg-desktop-portal` is available. Engine then shows a follow-up message-box with recovery hints and exits. Fix: `sudo apt install zenity` (or equivalent) on the next run, or use `--game-dir` / `LBA2_GAME_DIR`. |
 
 The persisted path lives at `<SDL_GetPrefPath("Twinsen", "LBA2")>/last_game_dir.txt` — typically:
 
