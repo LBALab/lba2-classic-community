@@ -34,7 +34,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | ReverseStereo | int | 0, 1 | 0 | 0=OFF, 1=ON |
 | DetailLevel | int | 0–3 | 3 | 0=min (no rain, no sea, no horizon), 1=486, 2=base Pentium, 3=max. Drives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon |
 | FullScreen | int | 0, 1 | 1 | 0=small videos, 1=fullscreen videos. Invalid values → 1 |
-| DisplayFullScreen | int | 0, 1 | 0 | 0=windowed display, 1=fullscreen display. Invalid values → 0 |
+| DisplayFullScreen | int | 0, 1 | 1 | 0=windowed display, 1=fullscreen display. Invalid values → 0 |
 | FlagDisplayText | string | ON, OFF | ON | Case-insensitive. Any other value → ON |
 | WaveVolume | int | 0–127 | 97 | Sample/SFX volume |
 | VoiceVolume | int | 0–127 | 112 | Voice volume |
@@ -44,9 +44,9 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | Input0_1..Input35_2 | int | Key scancodes | DefKeysDefault95 | 36 inputs × 2 keys each (`MAX_INPUT` in INPUT.H). Only read when WinMode=1 |
 | WinMode | int | 0, 1 | 0 | 0=ignore Input* keys, use defaults; 1=read Input* keys. WriteInputConfig always writes WinMode=1 |
 | CompressSave | int | 0, 1 | 1 | 0=uncompressed saves, 1=compressed |
-| Version, Version_US | int | Distributor ID | 3 (EA) from template; 0 (UNKNOWN_VERSION) if key missing | Activision, EA, Virgin, regional variants. Set via `distrib` console command. |
-| Language | string | English, Français, Deutsch, Español, Italiano, Portugues | Français | Must match `TabLanguage[]` exactly (case-insensitive) |
-| LanguageCD | string | Same as Language | Français | Voice CD language; only used with CDROM build |
+| Version, Version_US | int | Distributor ID | 0 (UNKNOWN_VERSION) | Activision, EA, Virgin, regional variants. Set via `distrib` console command. |
+| Language | string | English, Français, Deutsch, Español, Italiano, Portugues | English | Must match `TabLanguage[]` exactly (case-insensitive) |
+| LanguageCD | string | Same as Language | English | Voice CD language; only used with CDROM build |
 | FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
 | MenuMouse | int | 0, 1 | 1 | 1 = menu cursor, hover/left-click confirm, wheel for sliders and save list; 0 = keyboard/joystick only (classic) |
 
