@@ -96,6 +96,27 @@ or `make run` (see [Makefile](../Makefile)). Set `LBA2_BUILD_DIR` if you do not 
 
 Windows without Bash: configure CMake as in [WINDOWS.md](WINDOWS.md), then run `lba2cc.exe` with `--game-dir` or set `LBA2_GAME_DIR` in the environment.
 
+## GOG DRM-free "Original Edition" packages
+
+The GOG DRM-free standalone product (and the equivalent content inside the GOG Galaxy "Original Edition" DLC under `Speedrun/Windows/`) ships the 1997 retail CD-ROM as a raw BIN image (`LBA2.GOG`) rather than extracted files. HQRs are duplicated at the install root so gameplay loads, but `VIDEO.HQR`, music WAVs, and `.VOX` voices live only inside the BIN. The modern engine can't see them.
+
+To make our engine work against one of these installs, extract the media files once:
+
+```
+python3 scripts/dev/extract_lba2_gog_media.py /path/to/gog-install/
+```
+
+This walks the ISO9660 filesystem inside `LBA2.GOG`, extracts everything under `/LBA2/VIDEO/`, `/LBA2/VOX/`, and `/LBA2/MUSIC/`, and writes them next to the existing HQRs (~522 MB total: 1× `VIDEO.HQR`, 39× `.VOX`, 24× ADPCM `.WAV`). Files extracted by this script are byte-identical to what the GOG Galaxy / Steam Classic SKUs ship in `Common/` — verified by md5.
+
+The script is idempotent (re-runs skip files already at the expected size; pass `--force` to overwrite). Python 3 stdlib only, no dependencies. After extraction, point the engine at the install root as usual.
+
+Not affected by this:
+
+- GOG Galaxy or Steam buyers of *TLBA2 Classic* (with or without the Original Edition DLC) — both already ship the assets extracted under `Common/`.
+- Anyone with a 1997 LBA2 retail CD can rip it (`cdrdao read-cd …`) into a BIN/CUE pair that the same script handles.
+
+See issue [#119](https://github.com/LBALab/lba2-classic-community/issues/119) for the analysis behind this and the in-engine-reader follow-up option.
+
 ## Config file
 
 See [CONFIG.md](CONFIG.md). If `lba2.cfg` is missing from the user config folder, the engine copies from the asset directory when present; if the asset directory has no `lba2.cfg`, an embedded template (from the build) is written instead.
