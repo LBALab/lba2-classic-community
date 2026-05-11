@@ -5,11 +5,12 @@ Walks the ISO9660 filesystem inside a raw CD-ROM image (BIN format with
 2352-byte sectors: 16-byte sync+header + 2048 bytes user data + 288
 bytes ECC/EDC). Lists every file with size and path.
 
-Used originally to map the contents of GOG's `LBA2.GOG` (the bit-identical
-1997 retail CD image). See issue #119 for the broader context — this
-script is the working spec for an in-engine ISO9660-from-BIN reader that
-would let the engine read media files directly from the GOG package
-without an extraction step.
+Used originally to map the contents of GOG's `LBA2.GOG` — the bit-exact
+preservation of the 1997 retail CD's *data track* (the disc's CD-DA audio
+track is not in the BIN; GOG ships it separately as `LBA2.OGG`). See
+issue #119 for the broader context — this script is the working spec
+for an in-engine ISO9660-from-BIN reader that would let the engine read
+media files directly from the GOG package without an extraction step.
 
 Usage:
     python3 scripts/dev/iso_bin_reader.py /path/to/image.bin
