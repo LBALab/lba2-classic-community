@@ -1,4 +1,4 @@
-# Little Big Adventure 2 Classic - Community Engine
+# Little Big Adventure 2 Classic Community
 
 Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
 
@@ -12,11 +12,11 @@ For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## Play (release binaries)
 
-Pre-built binaries for Linux, macOS, and Windows since v0.9.0 — no build toolchain required.
+Pre-built binaries for Linux, macOS, and Windows — no build toolchain required.
 
 **Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). Reviewed and play-tested for the milestone. Recommended for predictable behavior.
 
-**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, same artifact shape, may contain unreleased changes. Useful for verifying a fix landed or chasing the freshest content; not play-tested.
+**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, may contain unreleased changes, and sometimes carries artifacts not yet in the latest stable tag (newly added platforms land here first). Useful for verifying a fix landed or chasing the freshest content; not play-tested.
 
 All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/releases).
 
