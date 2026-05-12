@@ -53,6 +53,70 @@ jobs:
           name: latest-linux-${{ matrix.arch }}
           path: dist
 
+  build-linux-tarball:
+    name: "Build Linux tarball (${{ matrix.arch }})"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            arch: x86_64
+          - runs-on: ubuntu-24.04-arm
+            arch: aarch64
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxxf86vm-dev libxss-dev \
+            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev \
+            libudev-dev libdbus-1-dev
+
+      - name: Install SDL3 (static build)
+        uses: libsdl-org/setup-sdl@main
+        id: sdl
+        with:
+          version: 3-latest
+          build-type: Release
+          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset linux \
+                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build --preset linux
+
+      - name: Bundle tarball
+        run: |
+          BUILD_DIR=out/build/linux
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-linux-tarball.sh \
+            --exe "$BUILD_DIR/SOURCES/lba2cc" \
+            --version "$VERSION" \
+            --arch ${{ matrix.arch }} \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: latest-linux-tarball-${{ matrix.arch }}
+          path: dist
+
   build-windows:
     name: "Build Windows ZIP"
     runs-on: windows-latest
@@ -141,7 +205,7 @@ jobs:
 
   release:
     name: Update rolling latest release
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux, build-linux-tarball, build-windows, build-macos]
     # Run even if a build leg failed — partial release with whatever
     # platforms succeeded is more useful for community testers than
     # blocking the whole rolling release on one flaky leg. Don't run if
@@ -167,7 +231,7 @@ jobs:
           - Commit: [\`${SHA_SHORT}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
           - Built: ${TIMESTAMP}
 
-          Same artifact shape as tagged releases — Linux AppImage (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release.
+          Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release.
 
           If a particular platform's artifact is missing below, that platform's build leg failed for this commit; the other platforms still updated. Earlier rolling builds remain accessible via the [commit history](https://github.com/${{ github.repository }}/commits/main).
           EOF
@@ -181,6 +245,7 @@ jobs:
           files: |
             *.AppImage
             *.AppImage.zsync
+            lba2cc-*-linux-*.tar.gz
             lba2cc-*-windows-x64.zip
             lba2cc-*-macos-arm64.dmg
           # Keep the most recent stable v0.x.y tag as GitHub's "Latest"

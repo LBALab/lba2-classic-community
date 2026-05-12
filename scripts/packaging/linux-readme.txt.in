@@ -1,0 +1,70 @@
+@LBA2_PRODUCT_NAME@ @LBA2_VERSION_STRING@
+====================================================
+
+@LBA2_PRODUCT_DESCRIPTION@
+
+This is a portable, statically-linked build. No installer, no package
+manager, no system libraries beyond glibc. Drop @LBA2_EXECUTABLE_NAME@
+anywhere and run.
+
+If you want a desktop menu entry and icon, grab the AppImage release
+artifact instead — that's what it's for. This tarball is the
+"binary-only, scripting-friendly" alternative.
+
+
+GAME DATA
+---------
+
+This fork doesn't include game data — you need a legitimate copy of
+Little Big Adventure 2 / Twinsen's Odyssey from GOG, Steam, or your
+original retail CD.
+
+Easiest setup: run @LBA2_EXECUTABLE_NAME@ from a terminal. A folder
+picker will open and ask you to point at your retail install — the
+folder containing lba2.hqr (alongside music/, video/, vox/, etc., or
+under a Common/ or CommonClassic/ subfolder for Steam/GOG re-releases).
+Your choice is remembered, so subsequent launches skip the picker.
+
+Alternative — drop @LBA2_EXECUTABLE_NAME@ directly into your existing
+LBA2 install folder and run it from there. The engine auto-discovers
+game data in the directory the binary is launched from (or in a "data"
+/ "game" subfolder next to it), so the picker won't appear in that
+case.
+
+To re-pick later (e.g. switching between two installs):
+
+    ./@LBA2_EXECUTABLE_NAME@ --pick-game-dir
+
+Or skip the picker entirely with an explicit path:
+
+    ./@LBA2_EXECUTABLE_NAME@ --game-dir /path/to/game
+    LBA2_GAME_DIR=/path/to/game ./@LBA2_EXECUTABLE_NAME@
+
+The remembered choice lives at:
+
+    ~/.local/share/Twinsen/LBA2/last_game_dir.txt
+    (or $XDG_DATA_HOME/Twinsen/LBA2/last_game_dir.txt if set)
+
+Delete it to force the picker to re-appear on next launch.
+
+
+RUNNING
+-------
+
+    ./@LBA2_EXECUTABLE_NAME@
+
+If it can't find game data and the picker isn't available for some
+reason, the log printed to stderr lists every directory it tried.
+
+
+LICENSE
+-------
+
+GPL-2.0. See LICENSE.txt.
+
+
+PROJECT
+-------
+
+Source code, issues, contributions:
+https://github.com/LBALab/lba2-classic-community
