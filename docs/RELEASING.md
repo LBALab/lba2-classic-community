@@ -180,6 +180,31 @@ For future releases, `gh release create --generate-notes` auto-fills
 the body from PR titles since the previous tag — useful as a sanity
 check against the cliff-generated CHANGELOG section.
 
+## Post-release smoke test
+
+After a tag-driven release publishes its artifacts, run:
+
+```bash
+bash scripts/dev/verify-release.sh v0.9.0   # or `latest` for rolling
+```
+
+The script downloads the Linux tarballs and AppImages attached to the
+release, extracts them, and runs each binary in a clean
+`debian:stable-slim` container with no SDL3 / X11 / audio deps
+installed. Verifies the unique signal CI doesn't cover: the artifact
+GitHub *serves* (post-upload, post-download) actually runs on a fresh
+system, executable bit preserved and static-linking claim holding.
+Cross-arch tarballs are checked via qemu-user-static binfmt (auto-registered);
+cross-arch AppImages are skipped because qemu doesn't handle the AppImage
+type-2 runtime stub reliably.
+
+Windows ZIPs and macOS DMGs aren't checked — running them on a Linux
+host needs `wine` / `qemu-system-x86` / a Mac, which is more
+machinery than the marginal signal justifies.
+
+Use this as a pre-publicize gate: a tagged release that passes the
+local verifier is safe to announce on Discord.
+
 ## After the release
 
 Tell people. A short Discord post in the LBALab community channel
