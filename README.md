@@ -10,9 +10,9 @@ The original LBA2 engine source is the [`lba2-classic`](https://github.com/2poin
 
 For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
-## Play (release binaries)
+## Playing
 
-Pre-built binaries for Linux, macOS, and Windows — no build toolchain required.
+Pre-built binaries for Linux, macOS, and Windows.
 
 **Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
 
@@ -54,7 +54,7 @@ LBA2_GAME_DIR=/path/to/game ./lba2cc
 
 To re-pick later: `./lba2cc --pick-game-dir`. See [docs/GAME_DATA.md](docs/GAME_DATA.md) for the full discovery order and override precedence.
 
-## Quick start (build from source)
+## Building from source quick start
 
 ### Prerequisites
 
