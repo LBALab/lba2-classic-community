@@ -43,7 +43,7 @@ jobs:
         # requires SDL3::SDL3-static. SDL_SHARED stays ON so the find_package
         # COMPONENTS check has both targets available; the explicit static
         # selection happens in our root CMakeLists.txt.
-        uses: libsdl-org/setup-sdl@main
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
         id: sdl
         with:
           version: 3-latest

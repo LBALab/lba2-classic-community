@@ -51,7 +51,7 @@ jobs:
             libudev-dev libdbus-1-dev
 
       - name: Install SDL3 (static build)
-        uses: libsdl-org/setup-sdl@main
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
         id: sdl
         with:
           version: 3-latest
@@ -60,6 +60,11 @@ jobs:
           # SDL3::SDL3-static and the resulting lba2cc binary doesn't link
           # libSDL3.so. Mirrors the macOS leg in release-latest.yml.
           cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+          # setup-sdl's cache key only includes os.platform() (Linux/MacOS/
+          # Windows), not arch — so x86_64 and aarch64 Linux runners collide
+          # and one leg pulls a wrong-arch libSDL3.a from the GH Actions
+          # cache, breaking the link step. Discriminator forces per-arch keys.
+          discriminator: ${{ runner.arch }}
 
       - name: Configure (static-link release build)
         run: |
