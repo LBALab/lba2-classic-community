@@ -1,14 +1,14 @@
 # Little Big Adventure 2 Classic Community
 
-Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997. This is a community-maintained source port — game assets aren't included; you need a legitimate copy of LBA2 to play.
+Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
 
-This repository is the community fork of the classic source release. We maintain the project with preservation in mind while improving portability and long-term maintainability.
+This repository is the community fork of the classic source release — a source port maintained with preservation in mind while improving portability and long-term maintainability. Game assets aren't included; you need a legitimate copy of LBA2 to play.
+
+For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## About this repository
 
 The original LBA2 engine source is the [`lba2-classic`](https://github.com/2point21/lba2-classic) codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. `lba2-classic-community` is a community fork for evolving and modernizing the code: ports of assembly to C++, SDL3, libsmacker, and other updates. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
-
-For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## Playing
 
