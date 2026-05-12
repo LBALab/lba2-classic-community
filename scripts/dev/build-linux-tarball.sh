@@ -51,6 +51,59 @@ ARCH="$(uname -m)"
 BUILD_DIR="${LBA2_BUILD_DIR:-out/build/$PRESET}"
 OUTPUT_DIR="${LBA2_DIST_DIR:-dist}"
 
+# Preflight: -DLBA2_LINK_STATIC=ON requires libSDL3.a. find_package(SDL3)
+# searches CMAKE_PREFIX_PATH first, then system paths. Probe both up
+# front — a several-minute cmake configure that ends in a "set SDL3_FOUND
+# to FALSE" error is the most common first-run failure mode for this
+# script (distros ship SDL3 shared-only), and the error message doesn't
+# point users at the fix.
+find_static_sdl3() {
+    local search_dirs=()
+    if [[ -n "${CMAKE_PREFIX_PATH:-}" ]]; then
+        local IFS=':'
+        for d in $CMAKE_PREFIX_PATH; do
+            search_dirs+=("$d/lib" "$d/lib64" "$d/lib/$ARCH-linux-gnu")
+        done
+    fi
+    search_dirs+=(
+        /usr/local/lib /usr/local/lib64 "/usr/local/lib/$ARCH-linux-gnu"
+        /usr/lib /usr/lib64 "/usr/lib/$ARCH-linux-gnu"
+    )
+    for d in "${search_dirs[@]}"; do
+        if [[ -f "$d/libSDL3.a" ]]; then
+            echo "[build-linux-tarball] found libSDL3.a in $d"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if ! find_static_sdl3; then
+    cat >&2 <<'EOF'
+[build-linux-tarball] error: libSDL3.a not found in CMAKE_PREFIX_PATH or
+system library paths.
+
+-DLBA2_LINK_STATIC=ON requires a static SDL3 build, and most distros
+ship SDL3 as a shared library only — so find_package(SDL3) would fail
+several minutes from now with an unhelpful "SDL3_FOUND set to FALSE"
+error. Build SDL3 from source and re-run with CMAKE_PREFIX_PATH set:
+
+    git clone --depth 1 --branch release-3.2.16 \
+        https://github.com/libsdl-org/SDL /tmp/SDL
+    cmake -S /tmp/SDL -B /tmp/SDL/build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DSDL_STATIC=ON -DSDL_SHARED=OFF \
+          -DCMAKE_INSTALL_PREFIX=/tmp/sdl3-static-prefix
+    cmake --build /tmp/SDL/build && cmake --install /tmp/SDL/build
+    CMAKE_PREFIX_PATH=/tmp/sdl3-static-prefix \
+        bash scripts/dev/build-linux-tarball.sh
+
+CI does the same dance via libsdl-org/setup-sdl in
+.github/workflows/release-linux-tarball.yml.
+EOF
+    exit 1
+fi
+
 echo "[build-linux-tarball] preset:    $PRESET"
 echo "[build-linux-tarball] arch:      $ARCH"
 echo "[build-linux-tarball] static:    LBA2_LINK_STATIC=ON"

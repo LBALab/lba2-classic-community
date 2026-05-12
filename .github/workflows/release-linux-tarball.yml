@@ -48,7 +48,7 @@ jobs:
             libxinerama-dev libxxf86vm-dev libxss-dev \
             libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev \
-            libudev-dev libdbus-1-dev libibus-1.0-dev
+            libudev-dev libdbus-1-dev
 
       - name: Install SDL3 (static build)
         uses: libsdl-org/setup-sdl@main
