@@ -180,6 +180,12 @@ For future releases, `gh release create --generate-notes` auto-fills
 the body from PR titles since the previous tag — useful as a sanity
 check against the cliff-generated CHANGELOG section.
 
+Once the binary attachments have landed (the per-platform release
+workflows finish on a tag in a few minutes each), run the
+[post-release smoke test](#post-release-smoke-test) before announcing
+the release. A 30-second sanity check that confirms the artifacts
+GitHub serves are actually runnable on a clean box.
+
 ## Post-release smoke test
 
 After a tag-driven release publishes its artifacts, run:
@@ -207,8 +213,9 @@ local verifier is safe to announce on Discord.
 
 ## After the release
 
-Tell people. A short Discord post in the LBALab community channel
-helps the release land:
+Don't announce until the [smoke test](#post-release-smoke-test) passes.
+Then tell people — a short Discord post in the LBALab community
+channel helps the release land:
 
 ```
 v0.9.0 is out — first tagged release of the fork.
