@@ -1,16 +1,60 @@
-# Little Big Adventure 2 Classic - Community Engine Source Code
+# Little Big Adventure 2 Classic Community
 
 Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
 
-This repository is the community fork of the classic source release. We maintain the project with preservation in mind while improving portability and long-term maintainability.
+This repository is the community fork of the classic source release — a source port maintained with preservation in mind while improving portability and long-term maintainability. Game assets aren't included; you need a legitimate copy of LBA2 to play.
+
+For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ## About this repository
 
 The original LBA2 engine source is the [`lba2-classic`](https://github.com/2point21/lba2-classic) codebase: it is mostly assembly, with C++ for game logic, and is the canonical historical release. `lba2-classic-community` is a community fork for evolving and modernizing the code: ports of assembly to C++, SDL3, libsmacker, and other updates. The goal is to preserve the history and culture of the original while making the codebase easier to build and extend. See [ASM_TO_CPP_REFERENCE.md](docs/ASM_TO_CPP_REFERENCE.md) for which modules have been ported from ASM to C++ in this fork.
 
-For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
+## Playing
 
-## Quick start (running the game)
+Pre-built binaries for Linux, macOS, and Windows.
+
+**Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
+
+**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, may contain unreleased changes, and sometimes carries artifacts not yet in the latest stable tag (newly added platforms land here first). Useful for verifying a fix landed or chasing the freshest feature; not play-tested.
+
+All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/releases).
+
+### Game data
+
+You need a legitimate copy of LBA2 ([GOG](https://www.gog.com/game/little_big_adventure_2), [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/), or your retail CD) — the engine doesn't ship assets.
+
+On first launch a folder picker opens; point it at the directory containing `lba2.hqr` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder for Steam/GOG re-releases). Your choice is remembered.
+
+To skip the picker, pass an explicit path:
+
+```bash
+./lba2cc --game-dir /path/to/game
+LBA2_GAME_DIR=/path/to/game ./lba2cc
+```
+
+To re-pick later: `./lba2cc --pick-game-dir`. See [docs/GAME_DATA.md](docs/GAME_DATA.md) for the full discovery order and override precedence.
+
+### Linux
+
+Grab `lba2cc-<version>-anylinux-<arch>.AppImage`, then:
+
+```bash
+chmod +x lba2cc-*-anylinux-*.AppImage
+./lba2cc-*-anylinux-*.AppImage
+```
+
+> On distros without FUSE, or for packagers wrapping the binary, a static `lba2cc-<version>-linux-<arch>.tar.gz` is published alongside the AppImage — extract and run `lba2cc`.
+
+### macOS
+
+Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `lba2cc.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
+
+### Windows
+
+Download `lba2cc-<version>-windows-x64.zip`, unzip anywhere, run `lba2cc.exe`. Portable build: no installer, no DLLs needed.
+
+## Building from source quick start
 
 ### Prerequisites
 
@@ -26,8 +70,8 @@ On macOS, install with `brew install ninja sdl3`.
 ### First clone
 
 1. `make` or `make help` — lists convenience targets (`build`, `run`, `clean`, `test`, …).
-2. `make build` — configures `build/` (Ninja, Debug) and compiles `lba2`. Or plain CMake: `cmake -B build && cmake --build build`.
-3. **Retail game data** are not in this repo. You need a directory that contains `lba2.hqr`. How you point the engine at it is your choice: `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery — see [docs/GAME_DATA.md](docs/GAME_DATA.md). Nothing is "special-cased" except that marker file.
+2. `make build` — configures `build/` (Ninja, Debug) and compiles `lba2cc`. Or plain CMake: `cmake -B build && cmake --build build`.
+3. Point the engine at your game data — `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery (the `lba2.hqr` marker is the only special-cased file). See [docs/GAME_DATA.md](docs/GAME_DATA.md).
 4. `make run` or `./scripts/dev/build-and-run.sh` — build if needed, then run. `make run` sets `LBA2_GAME_DIR` automatically if `./data` or `../LBA2` contains `lba2.hqr`; otherwise pass `--game-dir /path/to/classic/install` to the binary.
 5. `make test` — host-only tests (path resolution, parsers, ABI bounds, version checks); no retail files or Docker required.
 
