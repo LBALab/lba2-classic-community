@@ -1,4 +1,4 @@
-# Little Big Adventure 2 Classic - Community Engine Source Code
+# Little Big Adventure 2 Classic - Community Engine
 
 Little Big Adventure 2 (aka Twinsen's Odyssey) is the sequel to Little Big Adventure (aka Relentless: Twinsen's Adventure) in 1997.
 
@@ -10,7 +10,51 @@ The original LBA2 engine source is the [`lba2-classic`](https://github.com/2poin
 
 For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
-## Quick start (running the game)
+## Play (release binaries)
+
+Pre-built binaries for Linux, macOS, and Windows since v0.9.0 — no build toolchain required.
+
+**Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). Reviewed and play-tested for the milestone. Recommended for predictable behavior.
+
+**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, same artifact shape, may contain unreleased changes. Useful for verifying a fix landed or chasing the freshest content; not play-tested.
+
+All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/releases).
+
+### Linux
+
+Grab `lba2cc-<version>-anylinux-<arch>.AppImage`, then:
+
+```bash
+chmod +x lba2cc-*-anylinux-*.AppImage
+./lba2cc-*-anylinux-*.AppImage
+```
+
+> On distros without FUSE, or for packagers wrapping the binary, a static `lba2cc-<version>-linux-<arch>.tar.gz` is published alongside the AppImage — extract and run `lba2cc`.
+
+### macOS
+
+Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `lba2cc.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
+
+### Windows
+
+Download `lba2cc-<version>-windows-x64.zip`, unzip anywhere, run `lba2cc.exe`. Portable build: no installer, no DLLs needed.
+
+### Game data
+
+The engine doesn't ship game data — you need a legitimate copy of LBA2 ([GOG](https://www.gog.com/game/little_big_adventure_2), [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/), or your retail CD).
+
+On first launch a folder picker opens; point it at the directory containing `lba2.hqr` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder for Steam/GOG re-releases). Your choice is remembered.
+
+To skip the picker, pass an explicit path:
+
+```bash
+./lba2cc --game-dir /path/to/game
+LBA2_GAME_DIR=/path/to/game ./lba2cc
+```
+
+To re-pick later: `./lba2cc --pick-game-dir`. See [docs/GAME_DATA.md](docs/GAME_DATA.md) for the full discovery order and override precedence.
+
+## Quick start (build from source)
 
 ### Prerequisites
 
