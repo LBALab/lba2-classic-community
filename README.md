@@ -70,8 +70,8 @@ On macOS, install with `brew install ninja sdl3`.
 ### First clone
 
 1. `make` or `make help` — lists convenience targets (`build`, `run`, `clean`, `test`, …).
-2. `make build` — configures `build/` (Ninja, Debug) and compiles `lba2`. Or plain CMake: `cmake -B build && cmake --build build`.
-3. **Retail game data** are not in this repo. You need a directory that contains `lba2.hqr`. How you point the engine at it is your choice: `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery — see [docs/GAME_DATA.md](docs/GAME_DATA.md). Nothing is "special-cased" except that marker file.
+2. `make build` — configures `build/` (Ninja, Debug) and compiles `lba2cc`. Or plain CMake: `cmake -B build && cmake --build build`.
+3. Point the engine at your game data — `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery (the `lba2.hqr` marker is the only special-cased file). See [docs/GAME_DATA.md](docs/GAME_DATA.md).
 4. `make run` or `./scripts/dev/build-and-run.sh` — build if needed, then run. `make run` sets `LBA2_GAME_DIR` automatically if `./data` or `../LBA2` contains `lba2.hqr`; otherwise pass `--game-dir /path/to/classic/install` to the binary.
 5. `make test` — host-only tests (path resolution, parsers, ABI bounds, version checks); no retail files or Docker required.
 
