@@ -14,9 +14,9 @@ For a history of project changes, please see the [CHANGELOG.md](CHANGELOG.md).
 
 Pre-built binaries for Linux, macOS, and Windows — no build toolchain required.
 
-**Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). Reviewed and play-tested for the milestone. Recommended for predictable behavior.
+**Stable** — [the latest tagged release](https://github.com/LBALab/lba2-classic-community/releases/latest). A milestone build with less churn than rolling. Pre-1.0 — bugs are still being ironed out, and full-playthrough testing isn't part of the release criteria yet (see the [1.0 bar](docs/RELEASING.md) for what changes at 1.0).
 
-**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, may contain unreleased changes, and sometimes carries artifacts not yet in the latest stable tag (newly added platforms land here first). Useful for verifying a fix landed or chasing the freshest content; not play-tested.
+**Bleeding edge** — [the rolling `latest` pre-release](https://github.com/LBALab/lba2-classic-community/releases/tag/latest). Rebuilt from `main` on every push, may contain unreleased changes, and sometimes carries artifacts not yet in the latest stable tag (newly added platforms land here first). Useful for verifying a fix landed or chasing the freshest feature; not play-tested.
 
 All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/releases).
 
