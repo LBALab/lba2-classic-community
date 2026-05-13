@@ -1,0 +1,48 @@
+name: Build Linux AppImage (reusable)
+
+# Reusable build steps for the Linux AppImage target. Called by
+# release-linux-appimage.yml (tag-triggered) and release-latest.yml (rolling
+# pre-release). Produces a `dist/` directory with the AppImage + .zsync
+# files and uploads it as a workflow artifact named
+# `<artifact-prefix>-<arch>`.
+#
+# See docs/RELEASING.md "Adding a new release target" for the recipe this
+# file follows.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: >-
+          Prefix for the upload-artifact name. Caller appends -<arch>.
+          Tag releases pass "AppImage" (default); release-latest passes
+          "latest-linux" so its download-artifact pattern picks them up.
+        type: string
+        required: false
+        default: AppImage
+
+jobs:
+  build:
+    name: "Build ${{ matrix.arch }}"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            arch: x86_64
+          - runs-on: ubuntu-24.04-arm
+            arch: aarch64
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+      - name: Preparing Container
+        uses: pkgforge-dev/anylinux-setup-action@v2
+      - name: Make AppImage
+        run: /bin/sh ./scripts/packaging/make-appimage.sh
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
+          path: dist

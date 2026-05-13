@@ -350,8 +350,8 @@ platform fires first, and adding a new platform is a copy-and-fill exercise:
 | Concern | Convention |
 |---|---|
 | **Triggers** | `push: tags: ['v*']` + `workflow_dispatch:`. Tags do real releases; dispatch is for validation runs. |
-| **Job structure** | Two jobs: `build` (matrix, even if 1×1) → `release`. `fail-fast: false` so one arch failing doesn't drop others. |
-| **Artifact handoff** | Build legs use `actions/upload-artifact@v7` with a name like `<Platform>-<arch>`. The release job picks them up via `download-artifact@v7 pattern: '<Platform>-*' merge-multiple: true`. |
+| **Job structure** | Two jobs: `build` (matrix, even if 1×1) → `release`. The `build` job is a `uses:` call into `.github/workflows/reusable-build-<platform>.yml` — all toolchain setup, configure, build, and bundle steps live there so `release-latest.yml` can share them. Reusables live at the top level of `.github/workflows/`; GitHub Actions rejects `workflow_call` files in subdirectories. `fail-fast: false` so one arch failing doesn't drop others. |
+| **Artifact handoff** | Reusable build legs use `actions/upload-artifact@v7` with `name: <artifact-prefix>-<arch>`, where `artifact-prefix` is a workflow input. Tag callers leave it at the default (`AppImage`, `LinuxTarball`, `Windows`, `macOS`); `release-latest.yml` overrides to `latest-*`. The release job downloads via `pattern: '<prefix>-*' merge-multiple: true`. |
 | **Release upload** | `softprops/action-gh-release@v2` with `generate_release_notes: true`. Idempotent — first platform creates the Release, the rest attach. |
 | **Tag-only upload** | Release job is gated by `if: startsWith(github.ref, 'refs/tags/')`. `workflow_dispatch` produces downloadable artifacts via the build job's upload step but does not touch the Releases page (avoids creating a "release" named after a branch). |
 | **Artifact naming** | `<exe>-<version>-<platform>-<arch>.<ext>`, e.g. `lba2cc-0.9.0-windows-x64.zip`, `lba2cc-0.9.0-AppImage-x86_64.AppImage`, `lba2cc-0.9.0-linux-x86_64.tar.gz`. |
@@ -360,7 +360,91 @@ platform fires first, and adding a new platform is a copy-and-fill exercise:
 
 When adding a new platform, copy the closest existing workflow, swap the
 runner / toolchain / packaging script, and the rest of the shape carries
-over.
+over. The next section spells the steps out.
+
+## Adding a new release target
+
+The release infra is split so adding a platform is mechanical: a packaging
+script + a reusable build workflow + a thin caller + one matrix leg in
+`release-latest.yml`. Concrete order:
+
+1. **Packaging script** — `scripts/packaging/bundle-<platform>.sh` (or a
+   monolithic `make-<platform>.sh` for AppImage-style targets that do
+   their own configure+build inside the script). Takes built artifact,
+   version, arch, build-dir, and output-dir as `--flag` arguments;
+   produces the release artifact under the output dir. Naming:
+   `lba2cc-<version>-<platform>-<arch>.<ext>`. The existing scripts are
+   the templates — Windows is the cleanest split-bundle pattern, AppImage
+   is the monolithic pattern, macOS shows bundle-with-platform-metadata,
+   tarball is the simplest pure-cmake bundle.
+2. **Configured templates** *(optional)* — `scripts/packaging/<platform>-readme.txt.in`
+   for an in-archive README, `packaging/<template>.in` for `Info.plist`-
+   style configure-time substitution. Wire via `configure_file()` in
+   CMake.
+3. **Local dry-run** *(optional but recommended)* —
+   `scripts/dev/build-<platform>-release.sh` that runs the same configure
+   + build + bundle locally without GitHub Actions. Lets contributors
+   exercise the artifact path without pushing a branch.
+4. **Reusable build workflow** —
+   `.github/workflows/reusable-build-<platform>.yml`. Must live at the
+   top level of `.github/workflows/`; GHA rejects `workflow_call`
+   workflows in subdirectories. Copy the nearest sibling and swap
+   runner / preset / toolchain setup / bundle script invocation. Keep
+   the `workflow_call` trigger, the `artifact-prefix` input, and the
+   `upload-artifact` step using
+   `name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}` — that's the
+   contract the release jobs rely on.
+
+   If your target uses `libsdl-org/setup-sdl` **and** has a multi-arch
+   matrix, set `discriminator: ${{ runner.arch }}` under the `with:`
+   block. setup-sdl's cache key only includes `os.platform()` (Linux /
+   MacOS / Windows), not arch, so multi-arch runners on the same OS
+   collide on the cache and one leg pulls a wrong-arch `libSDL3.a`,
+   breaking the link step. The Linux tarball reusable already does this;
+   it's the only current target that hits the multi-arch-with-setup-sdl
+   shape (AppImage uses an Arch container, Windows uses MSYS2 pacman,
+   macOS is single-arch arm64). Re-add to macOS if a universal2 / Intel
+   leg lands; same for any AppImage variant that drops the container.
+5. **Thin caller** — `.github/workflows/release-<platform>.yml`:
+   `on: push: tags: ['v*'] + workflow_dispatch`, a `build` job that just
+   `uses:` the reusable, and a `release` job gated by
+   `if: startsWith(github.ref, 'refs/tags/')` that downloads via
+   `pattern: '<Platform>-*'` and runs `softprops/action-gh-release@v2`.
+   ~25 lines total — `release-windows.yml` is the cleanest example.
+
+   **Build steps belong in the reusable, never in the thin caller.** Any
+   configure/build/bundle step you add only to `release-<platform>.yml`
+   will not run when `release-latest.yml` builds the rolling pre-release,
+   so the tagged and rolling artifacts will diverge silently. If you
+   need a step for one caller only, gate it inside the reusable on a
+   `workflow_call` input rather than splitting it across files.
+6. **`release-latest.yml`** — add a `build-<platform>` job that calls the
+   reusable with `with: artifact-prefix: latest-<platform>`. Add to the
+   `release.needs:` list and the file glob to the `release.files:` block.
+7. **Conventions table** — add an artifact-name row to the table above
+   showing the exact `<exe>-<version>-<platform>-<arch>.<ext>` for the
+   new target.
+8. **CHANGELOG** — entry under `[Unreleased]`.
+
+What CMake might need touching: configure-time templates
+(`configure_file(... Info.plist.in ...)`), per-target properties
+(`MACOSX_BUNDLE`-style), or a new flag if the platform needs a build
+mode the existing `LBA2_LINK_STATIC` toggle doesn't cover. Keep platform
+specifics behind a `CMAKE_SYSTEM_NAME` check, not a new option.
+
+**Testing the new target before tagging:**
+
+- Local dry-run produces an artifact identical in shape to what CI will.
+- `gh workflow run release-<platform>.yml --ref <branch>` triggers a
+  `workflow_dispatch` validation run. Build job runs, artifact uploads,
+  release job is skipped by the tag gate. Download the artifact from the
+  run page and exercise it.
+- For the rolling-release leg: push a no-op commit to a fork's `main`
+  and confirm `release-latest.yml` picks up the new leg and includes its
+  glob in the rolling release.
+- Cut a `v0.X.Y-rc1` pre-release tag once dispatch validation passes —
+  exercises the full tag path end-to-end without committing to a stable
+  version.
 
 ## Rolling latest pre-release
 

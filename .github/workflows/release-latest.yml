@@ -4,10 +4,10 @@ name: Release latest (rolling)
 # without cloning + building. Triggers on every push to main; force-overwrites
 # a `latest` GitHub Release with the just-built artifacts.
 #
-# Distinct from the tag-triggered release-{linux-appimage,windows,macos}.yml
-# workflows in trigger only — same packaging scripts, same artifact shape, so
-# `latest` is functionally a tag-release at HEAD-of-main with a rolling tag
-# instead of a versioned one.
+# Distinct from the tag-triggered release-{linux-appimage,linux-tarball,windows,macos}.yml
+# workflows in trigger only — same reusable build workflows, same packaging
+# scripts, same artifact shape. So `latest` is functionally a tag-release at
+# HEAD-of-main with a rolling tag instead of a versioned one.
 #
 # Marked prerelease: true and make_latest: false so the v0.x.y stable tag
 # stays as the GitHub-promoted "Latest" on the Releases page; this workflow's
@@ -19,6 +19,18 @@ name: Release latest (rolling)
 on:
   push:
     branches: [main]
+    # See linux.yml for paths-ignore rationale. Docs-only commits to main
+    # don't change build output, so skip the rolling pre-release rebuild.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
 
 # Two pushes back-to-back shouldn't queue — cancel any in-flight rolling
 # build, the newest commit wins. Tag-triggered release workflows don't
@@ -29,184 +41,24 @@ concurrency:
 
 jobs:
   build-linux:
-    name: "Build Linux AppImage (${{ matrix.arch }})"
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runs-on: ubuntu-latest
-            arch: x86_64
-          - runs-on: ubuntu-24.04-arm
-            arch: aarch64
-    container: ghcr.io/pkgforge-dev/archlinux:latest
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-      - name: Preparing Container
-        uses: pkgforge-dev/anylinux-setup-action@v2
-      - name: Make AppImage
-        run: /bin/sh ./scripts/packaging/make-appimage.sh
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: latest-linux-${{ matrix.arch }}
-          path: dist
+    uses: ./.github/workflows/reusable-build-linux-appimage.yml
+    with:
+      artifact-prefix: latest-linux
 
   build-linux-tarball:
-    name: "Build Linux tarball (${{ matrix.arch }})"
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runs-on: ubuntu-latest
-            arch: x86_64
-          - runs-on: ubuntu-24.04-arm
-            arch: aarch64
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build build-essential \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
-            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
-            libasound2-dev libpulse-dev \
-            libudev-dev libdbus-1-dev
-
-      - name: Install SDL3 (static build)
-        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
-        id: sdl
-        with:
-          version: 3-latest
-          build-type: Release
-          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
-          # setup-sdl's cache key only includes os.platform() (Linux/MacOS/
-          # Windows), not arch — so x86_64 and aarch64 Linux runners collide
-          # and one leg pulls a wrong-arch libSDL3.a from the GH Actions
-          # cache, breaking the link step. Discriminator forces per-arch keys.
-          discriminator: ${{ runner.arch }}
-
-      - name: Configure (static-link release build)
-        run: |
-          cmake --preset linux \
-                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
-                -DLBA2_LINK_STATIC=ON \
-                -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build --preset linux
-
-      - name: Bundle tarball
-        run: |
-          BUILD_DIR=out/build/linux
-          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
-          mkdir -p dist
-          bash scripts/packaging/bundle-linux-tarball.sh \
-            --exe "$BUILD_DIR/SOURCES/lba2cc" \
-            --version "$VERSION" \
-            --arch ${{ matrix.arch }} \
-            --build-dir "$BUILD_DIR" \
-            --output-dir dist
-
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: latest-linux-tarball-${{ matrix.arch }}
-          path: dist
+    uses: ./.github/workflows/reusable-build-linux-tarball.yml
+    with:
+      artifact-prefix: latest-linux-tarball
 
   build-windows:
-    name: "Build Windows ZIP"
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Set up MSYS2 (UCRT64)
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-sdl3
-            zip
-      - name: Configure (static-link release build)
-        run: |
-          cmake --preset windows_ucrt64 \
-                -DLBA2_LINK_STATIC=ON \
-                -DCMAKE_BUILD_TYPE=Release
-      - name: Build
-        run: cmake --build --preset windows_ucrt64
-      - name: Bundle ZIP
-        run: |
-          BUILD_DIR=out/build/windows_ucrt64
-          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
-          mkdir -p dist
-          bash scripts/packaging/bundle-windows.sh \
-            --exe "$BUILD_DIR/SOURCES/lba2cc.exe" \
-            --version "$VERSION" \
-            --arch x64 \
-            --build-dir "$BUILD_DIR" \
-            --output-dir dist
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: latest-windows-x64
-          path: dist
+    uses: ./.github/workflows/reusable-build-windows.yml
+    with:
+      artifact-prefix: latest-windows
 
   build-macos:
-    name: "Build macOS DMG"
-    runs-on: macos-latest
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Install SDL3 (static build)
-        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
-        id: sdl
-        with:
-          version: 3-latest
-          build-type: Release
-          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
-      - name: Configure (static-link release build)
-        run: |
-          cmake --preset macos_arm64 \
-                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
-                -DLBA2_LINK_STATIC=ON \
-                -DCMAKE_BUILD_TYPE=Release
-      - name: Build
-        run: cmake --build --preset macos_arm64
-      - name: Bundle DMG
-        run: |
-          BUILD_DIR=out/build/macos_arm64
-          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
-          mkdir -p dist
-          bash scripts/packaging/bundle-macos.sh \
-            --app "$BUILD_DIR/SOURCES/lba2cc.app" \
-            --version "$VERSION" \
-            --arch arm64 \
-            --build-dir "$BUILD_DIR" \
-            --output-dir dist
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: latest-macos-arm64
-          path: dist
+    uses: ./.github/workflows/reusable-build-macos.yml
+    with:
+      artifact-prefix: latest-macos
 
   release:
     name: Update rolling latest release

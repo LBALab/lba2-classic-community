@@ -1,5 +1,57 @@
 name: Tests (Docker ASM equivalence)
-on: [push, pull_request, workflow_dispatch]
+
+# paths-ignore is wider here than in the sibling platform CI workflows.
+# ASM equivalence tests are the heaviest CI leg (Docker build + 32-bit
+# UASM + per-test polyrec replay), and they exercise low-level rendering
+# code under LIB386/, SOURCES/, and SOURCES/3DEXT/. They link against
+# SOURCES/*.CPP and the LIB386 libraries, so most source changes still
+# need to trigger the run.
+#
+# What's safe to add on top of the shared doc-paths set:
+#  - release/packaging artefacts (release-*.yml, packaging/, scripts/packaging/)
+#  - sibling CI workflows (linux/macos/windows/format/pr-title) — touching
+#    one of those shouldn't re-run ASM equivalence
+#  - dev convenience (Makefile, scripts/dev/) — not invoked by the Docker
+#    test path
+#  - SOURCES/WIN/** — Windows-only resources; ASM tests run on Linux
+#
+# Do NOT add:
+#  - this workflow itself (test.yml)
+#  - run_tests_docker.sh, docker/Dockerfile.test (the runner + image)
+#  - CMakeLists.txt, CMakePresets.json, cmake/** (linux_test preset, build glue)
+#  - SOURCES/**, LIB386/**, tests/** (test sources, fixtures, linked code)
+on:
+  push:
+    paths-ignore: &ignore-paths
+      # Shared doc / editor-config set (mirrors the platform CI workflows).
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+      # Release / packaging — never enters the Docker test build.
+      - '.github/workflows/release-*.yml'
+      - '.github/workflows/reusable-build-*.yml'
+      - 'packaging/**'
+      - 'scripts/packaging/**'
+      # Sibling CI workflows — changes here don't affect ASM equivalence.
+      - '.github/workflows/linux.yml'
+      - '.github/workflows/macos.yml'
+      - '.github/workflows/windows.yml'
+      - '.github/workflows/format.yml'
+      - '.github/workflows/pr-title.yml'
+      # Dev convenience scripts — the Docker runner doesn't shell out to these.
+      - 'Makefile'
+      - 'scripts/dev/**'
+      # Windows-only resources — ASM tests run on Linux x86_64.
+      - 'SOURCES/WIN/**'
+  pull_request:
+    paths-ignore: *ignore-paths
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}

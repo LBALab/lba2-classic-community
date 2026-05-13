@@ -1,0 +1,90 @@
+name: Build Windows (reusable)
+
+# Reusable build steps for the Windows target. Called by
+# release-windows.yml (tag-triggered) and release-latest.yml (rolling
+# pre-release). Produces a `dist/` directory with the portable ZIP and
+# uploads it as a workflow artifact named `<artifact-prefix>-<arch>`.
+#
+# See docs/RELEASING.md "Adding a new release target" for the recipe this
+# file follows.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: >-
+          Prefix for the upload-artifact name. Caller appends -<arch>.
+          Tag releases pass "Windows" (default); release-latest passes
+          "latest-windows" so its download-artifact pattern picks them up.
+        type: string
+        required: false
+        default: Windows
+
+jobs:
+  build:
+    name: "Build ${{ matrix.arch }}"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: windows-latest
+            arch: x64
+            msystem: UCRT64
+            preset: windows_ucrt64
+            # MSYS2 normalizes the SDL3 package name to lowercase (unlike
+            # most other mingw-w64-* packages where the suffix matches the
+            # upstream casing — e.g. SDL2). The 'SDL3' uppercase variant
+            # does not exist in MSYS2 repos and `pacman -S` errors out.
+            sdl3_pkg: mingw-w64-ucrt-x86_64-sdl3
+    defaults:
+      run:
+        # Run all `run:` steps inside the MSYS2 shell so cmake, ninja, gcc,
+        # SDL3, etc. resolve from the correct prefix.
+        shell: msys2 {0}
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          # Need full history so cmake/git_version.cmake can detect a clean
+          # vs dirty tree (release tags are clean; -dirty is suppressed).
+          fetch-depth: 0
+
+      - name: Set up MSYS2 (${{ matrix.msystem }})
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            ${{ matrix.sdl3_pkg }}
+            zip
+
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset ${{ matrix.preset }} \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Bundle ZIP
+        run: |
+          BUILD_DIR=out/build/${{ matrix.preset }}
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-windows.sh \
+            --exe "$BUILD_DIR/SOURCES/lba2cc.exe" \
+            --version "$VERSION" \
+            --arch ${{ matrix.arch }} \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
+          path: dist
