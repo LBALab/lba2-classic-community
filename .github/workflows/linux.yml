@@ -1,5 +1,25 @@
 name: Linux
-on: [push, pull_request, workflow_dispatch]
+
+# paths-ignore set: docs/asset-only changes don't need a full multi-platform
+# build matrix to fire. Anything that can affect build/test output (source,
+# CMake, scripts, workflow YAML itself) is NOT in the ignore list and still
+# triggers the run. Mirrored in macos.yml, windows.yml, test.yml, and the
+# push: branches:[main] trigger of release-latest.yml.
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}

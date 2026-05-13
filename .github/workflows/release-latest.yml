@@ -19,6 +19,18 @@ name: Release latest (rolling)
 on:
   push:
     branches: [main]
+    # See linux.yml for paths-ignore rationale. Docs-only commits to main
+    # don't change build output, so skip the rolling pre-release rebuild.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
 
 # Two pushes back-to-back shouldn't queue — cancel any in-flight rolling
 # build, the newest commit wins. Tag-triggered release workflows don't

@@ -1,5 +1,21 @@
 name: Windows
-on: [push, pull_request, workflow_dispatch]
+
+# See linux.yml for paths-ignore rationale.
+on:
+  push:
+    paths-ignore: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths-ignore: *doc-paths
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
