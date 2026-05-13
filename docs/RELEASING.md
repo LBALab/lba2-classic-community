@@ -394,6 +394,17 @@ script + a reusable build workflow + a thin caller + one matrix leg in
    `upload-artifact` step using
    `name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}` — that's the
    contract the release jobs rely on.
+
+   If your target uses `libsdl-org/setup-sdl` **and** has a multi-arch
+   matrix, set `discriminator: ${{ runner.arch }}` under the `with:`
+   block. setup-sdl's cache key only includes `os.platform()` (Linux /
+   MacOS / Windows), not arch, so multi-arch runners on the same OS
+   collide on the cache and one leg pulls a wrong-arch `libSDL3.a`,
+   breaking the link step. The Linux tarball reusable already does this;
+   it's the only current target that hits the multi-arch-with-setup-sdl
+   shape (AppImage uses an Arch container, Windows uses MSYS2 pacman,
+   macOS is single-arch arm64). Re-add to macOS if a universal2 / Intel
+   leg lands; same for any AppImage variant that drops the container.
 5. **Thin caller** — `.github/workflows/release-<platform>.yml`:
    `on: push: tags: ['v*'] + workflow_dispatch`, a `build` job that just
    `uses:` the reusable, and a `release` job gated by
