@@ -18,6 +18,7 @@
 #include "SYSTEM/LOGPRINT.H"
 #include "SYSTEM/LZ.H"
 #include "SYSTEM/MOUSE.H"
+#include "SYSTEM/RESOLUTION.H"
 #include "SYSTEM/TIMER.H"
 #include "SYSTEM/WINDOW.H"
 
@@ -42,23 +43,11 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #endif // DEMO
 
 #define ibuffer ScreenAux
-#define ibuffersize (640 * 480 + RECOVER_AREA)
+#define ibuffersize (RESOLUTION_X * RESOLUTION_Y + RECOVER_AREA)
 
 // -----------------------------------------------------------------------------
-#ifndef RESOLUTION_X
-#define RESOLUTION_X 640
-#endif
-
-#ifndef RESOLUTION_Y
-#define RESOLUTION_Y 480
-#endif
-
 #ifndef RESOLUTION_DEPTH
 #define RESOLUTION_DEPTH 8
-#endif
-
-#if (RESOLUTION_X & 7)
-#error Horizontal resolution must be a multiple of 8
 #endif
 
 // ··········································································
