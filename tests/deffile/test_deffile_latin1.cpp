@@ -27,13 +27,13 @@
 // CHECK() survives Release/NDEBUG (unlike <cassert>'s assert). The test uses real file
 // I/O and must hard-abort if a precondition fails, otherwise downstream
 // std::string(size, ...) constructions hit length_error on garbage sizes.
-#define CHECK(cond)                                                      \
-    do {                                                                 \
-        if (!(cond)) {                                                   \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__,  \
-                         __LINE__, #cond);                               \
-            std::abort();                                                \
-        }                                                                \
+#define CHECK(cond)                                                     \
+    do {                                                                \
+        if (!(cond)) {                                                  \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, \
+                         __LINE__, #cond);                              \
+            std::abort();                                               \
+        }                                                               \
     } while (0)
 
 namespace {
