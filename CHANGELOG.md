@@ -31,6 +31,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   testers grab bleeding-edge main builds without cloning + building.
   See `docs/RELEASING.md` "Rolling latest pre-release".
 
+## [0.9.0] - 2026-05-09
+
+First tagged release. Cross-platform builds (Linux AppImage, Windows ZIP)
+published at
+[v0.9.0](https://github.com/LBALab/lba2-classic-community/releases/tag/v0.9.0).
+
 The list below is hand-curated from merged PRs and tells the story of the
 fork's evolution.
 
