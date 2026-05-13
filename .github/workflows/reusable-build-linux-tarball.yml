@@ -1,0 +1,101 @@
+name: Build Linux tarball (reusable)
+
+# Reusable build steps for the Linux portable tarball target. Called by
+# release-linux-tarball.yml (tag-triggered) and release-latest.yml (rolling
+# pre-release). Produces a `dist/` directory with the .tar.gz and uploads
+# it as a workflow artifact named `<artifact-prefix>-<arch>`.
+#
+# See docs/RELEASING.md "Adding a new release target" for the recipe this
+# file follows.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: >-
+          Prefix for the upload-artifact name. Caller appends -<arch>.
+          Tag releases pass "LinuxTarball" (default); release-latest passes
+          "latest-linux-tarball" so its download-artifact pattern picks
+          them up.
+        type: string
+        required: false
+        default: LinuxTarball
+
+jobs:
+  build:
+    name: "Build ${{ matrix.arch }}"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            arch: x86_64
+          - runs-on: ubuntu-24.04-arm
+            arch: aarch64
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          # Need full history so cmake/git_version.cmake can detect a clean
+          # vs dirty tree (release tags are clean; -dirty is suppressed).
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # Build deps only — SDL3 comes from setup-sdl below (as a static
+          # library), so we don't install libsdl3-dev. The transitive deps
+          # SDL3 itself needs at build time (X11, Wayland, ALSA, etc.) are
+          # pulled in here so SDL3's CMake build can configure all backends.
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
+            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev \
+            libudev-dev libdbus-1-dev
+
+      - name: Install SDL3 (static build)
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
+        id: sdl
+        with:
+          version: 3-latest
+          build-type: Release
+          # Force static-only SDL3 so find_package(SDL3) resolves
+          # SDL3::SDL3-static and the resulting lba2cc binary doesn't link
+          # libSDL3.so.
+          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+          # setup-sdl's cache key only includes os.platform() (Linux/MacOS/
+          # Windows), not arch — so x86_64 and aarch64 Linux runners collide
+          # and one leg pulls a wrong-arch libSDL3.a from the GH Actions
+          # cache, breaking the link step. Discriminator forces per-arch keys.
+          discriminator: ${{ runner.arch }}
+
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset linux \
+                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build --preset linux
+
+      - name: Bundle tarball
+        run: |
+          BUILD_DIR=out/build/linux
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-linux-tarball.sh \
+            --exe "$BUILD_DIR/SOURCES/lba2cc" \
+            --version "$VERSION" \
+            --arch ${{ matrix.arch }} \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
+          path: dist

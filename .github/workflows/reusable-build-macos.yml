@@ -1,0 +1,89 @@
+name: Build macOS (reusable)
+
+# Reusable build steps for the macOS target. Called by release-macos.yml
+# (tag-triggered) and release-latest.yml (rolling pre-release). Produces a
+# `dist/` directory with the DMG and uploads it as a workflow artifact
+# named `<artifact-prefix>-<arch>`.
+#
+# See docs/RELEASING.md "Adding a new release target" for the recipe this
+# file follows.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: >-
+          Prefix for the upload-artifact name. Caller appends -<arch>.
+          Tag releases pass "macOS" (default); release-latest passes
+          "latest-macos" so its download-artifact pattern picks them up.
+        type: string
+        required: false
+        default: macOS
+
+jobs:
+  build:
+    name: "Build ${{ matrix.arch }}"
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # arm64-only for now. The macos-13 (Intel) runners GitHub provides
+        # are queueing 30+ minutes per job (Apple is winding them down) while
+        # macos-latest finishes in ~30s. Apple Silicon is the present and
+        # future of Mac; Intel-Mac users can still produce a local DMG via
+        # scripts/dev/build-macos-release.sh --preset macos_x86_64. Add
+        # x86_64 back here only if a hosted runner becomes reliable again,
+        # or when we move to a universal2 (arm64+x86_64) binary built on a
+        # single arm64 runner via lipo.
+        include:
+          - runs-on: macos-latest   # Apple Silicon (arm64)
+            arch: arm64
+            preset: macos_arm64
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          # Full history so cmake/git_version.cmake can detect a clean
+          # vs dirty tree (release tags are clean; -dirty is suppressed).
+          fetch-depth: 0
+
+      - name: Install SDL3 (static build)
+        # libsdl-org/setup-sdl builds SDL3 from source. Pass cmake-arguments
+        # to enable the static archive — our LBA2_LINK_STATIC=ON path
+        # requires SDL3::SDL3-static. SDL_SHARED stays ON so the find_package
+        # COMPONENTS check has both targets available; the explicit static
+        # selection happens in our root CMakeLists.txt.
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
+        id: sdl
+        with:
+          version: 3-latest
+          build-type: Release
+          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
+
+      - name: Configure (static-link release build)
+        run: |
+          cmake --preset ${{ matrix.preset }} \
+                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+                -DLBA2_LINK_STATIC=ON \
+                -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Bundle DMG
+        run: |
+          BUILD_DIR=out/build/${{ matrix.preset }}
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          mkdir -p dist
+          bash scripts/packaging/bundle-macos.sh \
+            --app "$BUILD_DIR/SOURCES/lba2cc.app" \
+            --version "$VERSION" \
+            --arch ${{ matrix.arch }} \
+            --build-dir "$BUILD_DIR" \
+            --output-dir dist
+
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
+          path: dist

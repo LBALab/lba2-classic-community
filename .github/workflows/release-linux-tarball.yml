@@ -1,13 +1,11 @@
 name: Release Linux tarball
 
-# Mirrors the shape of release-linux-appimage.yml and release-windows.yml
-# so all release workflows follow the same conventions (see "Release
-# workflow conventions" in docs/RELEASING.md).
-#
-# Produces a statically-linked, portable .tar.gz alongside the AppImage —
-# the binary-only alternative for distros / environments where AppImage
-# friction matters. Same binary contents, no AppImage runtime, no desktop
-# integration.
+# Tag-triggered portable .tar.gz release — statically-linked, no AppImage
+# runtime, no desktop integration. Same binary contents as the AppImage,
+# different packaging. Build steps live in
+# .github/workflows/reusable-build-linux-tarball.yml so release-latest.yml
+# can share them. See docs/RELEASING.md "Release workflow conventions" and
+# "Adding a new release target".
 
 on:
   push:
@@ -17,89 +15,14 @@ on:
 
 jobs:
   build:
-    name: "Build ${{ matrix.arch }}"
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runs-on: ubuntu-latest
-            arch: x86_64
-          - runs-on: ubuntu-24.04-arm
-            arch: aarch64
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          # Need full history so cmake/git_version.cmake can detect a clean
-          # vs dirty tree (release tags are clean; -dirty is suppressed).
-          fetch-depth: 0
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          # Build deps only — SDL3 comes from setup-sdl below (as a static
-          # library), so we don't install libsdl3-dev. The transitive deps
-          # SDL3 itself needs at build time (X11, Wayland, ALSA, etc.) are
-          # pulled in here so SDL3's CMake build can configure all backends.
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build build-essential \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxinerama-dev libxxf86vm-dev libxss-dev libxtst-dev \
-            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
-            libasound2-dev libpulse-dev \
-            libudev-dev libdbus-1-dev
-
-      - name: Install SDL3 (static build)
-        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
-        id: sdl
-        with:
-          version: 3-latest
-          build-type: Release
-          # Force static-only SDL3 so find_package(SDL3) resolves
-          # SDL3::SDL3-static and the resulting lba2cc binary doesn't link
-          # libSDL3.so. Mirrors the macOS leg in release-latest.yml.
-          cmake-arguments: "-DSDL_STATIC=ON -DSDL_SHARED=OFF"
-          # setup-sdl's cache key only includes os.platform() (Linux/MacOS/
-          # Windows), not arch — so x86_64 and aarch64 Linux runners collide
-          # and one leg pulls a wrong-arch libSDL3.a from the GH Actions
-          # cache, breaking the link step. Discriminator forces per-arch keys.
-          discriminator: ${{ runner.arch }}
-
-      - name: Configure (static-link release build)
-        run: |
-          cmake --preset linux \
-                -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
-                -DLBA2_LINK_STATIC=ON \
-                -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build --preset linux
-
-      - name: Bundle tarball
-        run: |
-          BUILD_DIR=out/build/linux
-          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
-          mkdir -p dist
-          bash scripts/packaging/bundle-linux-tarball.sh \
-            --exe "$BUILD_DIR/SOURCES/lba2cc" \
-            --version "$VERSION" \
-            --arch ${{ matrix.arch }} \
-            --build-dir "$BUILD_DIR" \
-            --output-dir dist
-
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: LinuxTarball-${{ matrix.arch }}
-          path: dist
+    uses: ./.github/workflows/reusable-build-linux-tarball.yml
 
   release:
     name: Attach to GitHub Release
     needs: [build]
     # Only create/update a Release on tag pushes. workflow_dispatch runs
     # produce a downloadable artifact via the build job's upload-artifact
-    # step but do not touch the Releases page. Matches release-windows.yml.
+    # step but do not touch the Releases page.
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
@@ -112,10 +35,6 @@ jobs:
           merge-multiple: true
 
       - name: Release Linux tarball
-        # softprops/action-gh-release@v2 is idempotent: creates the Release
-        # if absent, attaches/updates if present. Lets the AppImage,
-        # Windows, macOS, and tarball workflows fire in any order on the
-        # same tag and all land their artifacts on the same Release page.
         uses: softprops/action-gh-release@v2
         with:
           files: |

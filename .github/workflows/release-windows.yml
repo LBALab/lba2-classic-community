@@ -1,8 +1,9 @@
 name: Release Windows
 
-# Mirrors the shape of release-linux-appimage.yml so all release workflows
-# follow the same conventions (see "Release workflow conventions" in
-# docs/RELEASING.md).
+# Tag-triggered Windows portable ZIP release. Build steps live in
+# .github/workflows/reusable-build-windows.yml so release-latest.yml can
+# share them. See docs/RELEASING.md "Release workflow conventions" and
+# "Adding a new release target".
 
 on:
   push:
@@ -12,80 +13,11 @@ on:
 
 jobs:
   build:
-    name: "Build ${{ matrix.arch }}"
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runs-on: windows-latest
-            arch: x64
-            msystem: UCRT64
-            preset: windows_ucrt64
-            # MSYS2 normalizes the SDL3 package name to lowercase (unlike
-            # most other mingw-w64-* packages where the suffix matches the
-            # upstream casing — e.g. SDL2). The 'SDL3' uppercase variant
-            # does not exist in MSYS2 repos and `pacman -S` errors out.
-            sdl3_pkg: mingw-w64-ucrt-x86_64-sdl3
-    defaults:
-      run:
-        # Run all `run:` steps inside the MSYS2 shell so cmake, ninja, gcc,
-        # SDL3, etc. resolve from the correct prefix.
-        shell: msys2 {0}
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v6
-        with:
-          # Need full history so cmake/git_version.cmake can detect a clean
-          # vs dirty tree (release tags are clean; -dirty is suppressed).
-          fetch-depth: 0
-
-      - name: Set up MSYS2 (${{ matrix.msystem }})
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: ${{ matrix.msystem }}
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-ninja
-            ${{ matrix.sdl3_pkg }}
-            zip
-
-      - name: Configure (static-link release build)
-        run: |
-          cmake --preset ${{ matrix.preset }} \
-                -DLBA2_LINK_STATIC=ON \
-                -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build
-        run: cmake --build --preset ${{ matrix.preset }}
-
-      - name: Bundle ZIP
-        run: |
-          BUILD_DIR=out/build/${{ matrix.preset }}
-          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
-          mkdir -p dist
-          bash scripts/packaging/bundle-windows.sh \
-            --exe "$BUILD_DIR/SOURCES/lba2cc.exe" \
-            --version "$VERSION" \
-            --arch ${{ matrix.arch }} \
-            --build-dir "$BUILD_DIR" \
-            --output-dir dist
-
-      - name: Upload temporary artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: Windows-${{ matrix.arch }}
-          path: dist
+    uses: ./.github/workflows/reusable-build-windows.yml
 
   release:
     name: Attach to GitHub Release
     needs: [build]
-    # Only create/update a Release on tag pushes. workflow_dispatch runs
-    # produce a downloadable artifact via the build job's upload-artifact
-    # step but do not touch the Releases page (avoids attaching to a
-    # branch-named "release" when dispatched from a PR branch).
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
@@ -98,10 +30,6 @@ jobs:
           merge-multiple: true
 
       - name: Release Windows ZIP
-        # softprops/action-gh-release@v2 is idempotent: creates the Release
-        # if absent, attaches/updates if present. Lets the AppImage and
-        # Windows workflows fire in any order on the same tag and both
-        # land their artifacts on the same Release page.
         uses: softprops/action-gh-release@v2
         with:
           files: |
