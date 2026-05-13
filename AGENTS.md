@@ -62,7 +62,7 @@ Apply these behavior rules on every non-trivial task:
 - **Host tests:** `make test` (or `ctest -L host_quick` after configure with `-DLBA2_BUILD_TESTS=ON -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF`). No Docker, no retail files. CI runs these on Linux, macOS, and Windows (see `.github/workflows/*.yml`).
 - **Filter:** `./run_tests_docker.sh test_getang2d test_lirot3df`
 - **Bisect:** `./run_tests_docker.sh --bisect` to find first divergent draw call
-- **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: `clang-format -i` on staged C/C++ files (works on all platforms), or CI runs format check.
+- **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: run `bash ./scripts/ci/apply-format.sh` (or enable the pre-commit hook — see "Code conventions"); CI also runs the format check.
 - **When tests fail:** Do not relax tests. For ASM↔CPP: use `--bisect` to find first divergence, add debug traces to both ASM and CPP, extract failing inputs into a focused unit test, fix CPP to match ASM. For other bugs: read the relevant subsystem doc (AUDIO, MENU, DEBUG, etc.), map the code path, fix the bug, verify with build/tests.
 - **Minimal build** (no audio/video): `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for quick iteration.
 
@@ -87,7 +87,8 @@ Apply these behavior rules on every non-trivial task:
 ## Code conventions
 
 - Indentation: 4 spaces (C/C++); tabs preserved in ASM
-- Formatting: clang-format with checked-in `.clang-format`; ASM and `LIB386/libsmacker/` excluded
+- Formatting: clang-format with checked-in `.clang-format`; exclusions live in `.clang-format-ignore` (ASM, `LIB386/libsmacker/`, vendored `stb_*`, and a handful of legacy lookup-table files). When adding vendored third-party code or generated/hand-tuned lookup tables, add the path to `.clang-format-ignore` in the same commit — single source of truth for local scripts, CI, and the pre-commit hook.
+- Pre-commit hook (optional, recommended): `git config core.hooksPath scripts/git-hooks` once per clone. It runs clang-format `--dry-run` on staged C/C++ files (respecting `.clang-format-ignore`) and blocks commits with violations. Fix with `bash ./scripts/ci/apply-format.sh && git add -u`. Bypass with `git commit --no-verify` or `SKIP_FORMAT=1` when warranted.
 - Types: S32, U32 from `LIB386/H/SYSTEM/ADELINE_TYPES.H`
 - C++98 for game code; tests may use C11/C++11
 

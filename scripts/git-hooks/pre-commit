@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+# Pre-commit hook: clang-format check on staged C/C++ files.
+#
+# Enable once per clone:
+#   git config core.hooksPath scripts/git-hooks
+#
+# Bypass for a single commit: git commit --no-verify
+# Bypass for the session:     SKIP_FORMAT=1 git commit ...
+
+set -euo pipefail
+
+if [ "${SKIP_FORMAT:-0}" = "1" ]; then
+    exit 0
+fi
+
+if command -v clang-format-17 >/dev/null 2>&1; then
+    clang_format=clang-format-17
+elif command -v clang-format >/dev/null 2>&1; then
+    clang_format=clang-format
+elif command -v xcrun >/dev/null 2>&1; then
+    clang_format="$(xcrun --find clang-format)"
+else
+    echo "pre-commit: clang-format not found; skipping format check." >&2
+    echo "            install clang-format-17, or set SKIP_FORMAT=1 to silence." >&2
+    exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+# Staged, added/copied/modified/renamed files only (skip deletes).
+mapfile -d '' -t staged < <(
+    git diff --cached --name-only --diff-filter=ACMR -z -- \
+        '*.c' '*.C' '*.cpp' '*.CPP' '*.h' '*.H' '*.hpp' '*.HPP'
+)
+
+if [ "${#staged[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+# Reuse the CI exclusion filter so local and CI evaluate the same set.
+mapfile -d '' -t files < <(
+    printf '%s\0' "${staged[@]}" | python3 scripts/ci/filter-format-files.py
+)
+
+if [ "${#files[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+status=0
+bad=()
+for file in "${files[@]}"; do
+    # Check the staged blob, not the working tree, so unrelated unstaged
+    # edits don't get blamed and partial-stage workflows still work.
+    if ! git show ":$file" | "$clang_format" --dry-run --Werror \
+            -style=file --assume-filename="$file" >/dev/null 2>&1; then
+        bad+=("$file")
+        status=1
+    fi
+done
+
+if [ "$status" -ne 0 ]; then
+    echo "pre-commit: clang-format issues in staged content:" >&2
+    for f in "${bad[@]}"; do
+        echo "  $f" >&2
+    done
+    echo >&2
+    echo "Fix with: bash ./scripts/ci/apply-format.sh && git add -u" >&2
+    echo "Bypass:   git commit --no-verify   (or SKIP_FORMAT=1)" >&2
+fi
+
+exit "$status"
