@@ -4686,19 +4686,19 @@ void FixeCinemaMode(S32 flagflip) {
                 SetClipWindow(ClipWindowXMin,
                               ymin,
                               ClipWindowXMax,
-                              479 - ymin);
+                              (S32)ModeDesiredY - 1 - ymin);
             }
 
             if (ClipWindowYMin > 0) {
                 MemoClipWindow();
                 UnsetClipWindow();
 
-                Box(0, 0, 639, MemoClipWindowYMin - 1, COUL_CINEMA);
-                Box(0, MemoClipWindowYMax + 1, 639, 479, COUL_CINEMA);
+                Box(0, 0, (S32)ModeDesiredX - 1, MemoClipWindowYMin - 1, COUL_CINEMA);
+                Box(0, MemoClipWindowYMax + 1, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, COUL_CINEMA);
 
                 if (flagflip) {
-                    BoxStaticAdd(0, 0, 639, MemoClipWindowYMin - 1);
-                    BoxStaticAdd(0, MemoClipWindowYMax + 1, 639, 479);
+                    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, MemoClipWindowYMin - 1);
+                    BoxStaticAdd(0, MemoClipWindowYMax + 1, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
                 }
 
                 RestoreClipWindow();
@@ -4708,8 +4708,8 @@ void FixeCinemaMode(S32 flagflip) {
             MemoClipWindow();
             UnsetClipWindow();
 
-            Box(0, 0, 639, MemoClipWindowYMin - 1, COUL_CINEMA);
-            Box(0, MemoClipWindowYMax + 1, 639, 479, COUL_CINEMA);
+            Box(0, 0, (S32)ModeDesiredX - 1, MemoClipWindowYMin - 1, COUL_CINEMA);
+            Box(0, MemoClipWindowYMax + 1, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, COUL_CINEMA);
 
             RestoreClipWindow();
         }
@@ -4724,20 +4724,20 @@ void FixeCinemaMode(S32 flagflip) {
                 SetClipWindow(ClipWindowXMin,
                               ymin,
                               ClipWindowXMax,
-                              479 - ymin);
+                              (S32)ModeDesiredY - 1 - ymin);
             }
 
             MemoClipWindow();
             UnsetClipWindow();
 
             if (MemoClipWindowYMin > 0) {
-                Box(0, 0, 639, MemoClipWindowYMin - 1, COUL_CINEMA);
-                Box(0, MemoClipWindowYMax + 1, 639, 479, COUL_CINEMA);
+                Box(0, 0, (S32)ModeDesiredX - 1, MemoClipWindowYMin - 1, COUL_CINEMA);
+                Box(0, MemoClipWindowYMax + 1, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, COUL_CINEMA);
             }
 
             if (flagflip) {
-                BoxStaticAdd(0, 0, 639, 39);
-                BoxStaticAdd(0, 439, 639, 479);
+                BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, 39);
+                BoxStaticAdd(0, (S32)ModeDesiredY - 41, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
             }
 
             RestoreClipWindow();
@@ -4747,8 +4747,8 @@ void FixeCinemaMode(S32 flagflip) {
                 MemoClipWindow();
                 UnsetClipWindow();
 
-                BoxStaticAdd(0, 0, 639, 39);
-                BoxStaticAdd(0, 439, 639, 479);
+                BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, 39);
+                BoxStaticAdd(0, (S32)ModeDesiredY - 41, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
 
                 RestoreClipWindow();
             }
@@ -4763,8 +4763,8 @@ void RestoreCinemaMode(void) {
     if (!CinemaMode
             AND(ClipWindowYMin > 0 OR ClipWindowYMin != LastYCinema)) {
         // restore Log
-        CopyBlock(0, ClipWindowYMin, 639, 39, Screen, 0, ClipWindowYMin, Log);
-        CopyBlock(0, 439, 639, ClipWindowYMax, Screen, 0, 439, Log);
+        CopyBlock(0, ClipWindowYMin, (S32)ModeDesiredX - 1, 39, Screen, 0, ClipWindowYMin, Log);
+        CopyBlock(0, (S32)ModeDesiredY - 41, (S32)ModeDesiredX - 1, ClipWindowYMax, Screen, 0, (S32)ModeDesiredY - 41, Log);
     }
 }
 
@@ -6055,7 +6055,7 @@ startaffscene:
 #endif
     {
         S32 num = 11;
-        S32 x = 639 - 103;
+        S32 x = (S32)ModeDesiredX - 1 - 103;
 
 #ifndef DEMO
         switch (DistribVersion) {
@@ -6064,7 +6064,7 @@ startaffscene:
         case VIRGIN_VERSION:
         case VIRGIN_ASIA_VERSION:
             num = 16; // Logo Americain
-            x = 639 - 110;
+            x = (S32)ModeDesiredX - 1 - 110;
             break;
         }
 #endif
@@ -6082,7 +6082,7 @@ startaffscene:
         if (CubeMode == CUBE_EXTERIEUR AND TEMPETE_ACTIVE)
             num++;
 
-        AffGraph(0, 639 - 110, 75, HQR_Get(HQRPtrSprite, num));
+        AffGraph(0, (S32)ModeDesiredX - 1 - 110, 75, HQR_Get(HQRPtrSprite, num));
 #else
         // a cause du CinemaMode
         BoxStaticAdd(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
