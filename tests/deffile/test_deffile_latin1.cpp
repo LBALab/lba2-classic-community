@@ -13,12 +13,10 @@
 //      reaches strcpy(FileName, file) with source == dest — undefined
 //      behavior, flagged by ASan as strcpy-param-overlap.
 
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 #include <SYSTEM/ADELINE.H>
@@ -26,33 +24,41 @@
 #include <SYSTEM/DEFFILE.H>
 #include <SYSTEM/FILES.H>
 
+// CHECK() survives Release/NDEBUG (unlike <cassert>'s assert). The test uses real file
+// I/O and must hard-abort if a precondition fails, otherwise downstream
+// std::string(size, ...) constructions hit length_error on garbage sizes.
+#define CHECK(cond)                                                      \
+    do {                                                                 \
+        if (!(cond)) {                                                   \
+            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__,  \
+                         __LINE__, #cond);                               \
+            std::abort();                                                \
+        }                                                                \
+    } while (0)
+
 namespace {
 
-std::string MakeTempCfgPath() {
-    const char *tmp = std::getenv("TMPDIR");
-    if (!tmp || !*tmp)
-        tmp = "/tmp";
-    char buf[512];
-    std::snprintf(buf, sizeof(buf), "%s/lba2_deffile_test_%d.cfg", tmp, (int)getpid());
-    return std::string(buf);
-}
+// CWD-relative path: works identically on POSIX, MSYS2, and native Windows.
+// CTest runs each test in its build directory, which is always writable.
+const char *kTempCfgPath = "test_deffile_latin1.tmp.cfg";
 
 void WriteFile(const char *path, const std::string &contents) {
     FILE *f = std::fopen(path, "wb");
-    assert(f != NULL);
+    CHECK(f != NULL);
     std::fwrite(contents.data(), 1, contents.size(), f);
     std::fclose(f);
 }
 
 std::string ReadFile(const char *path) {
     FILE *f = std::fopen(path, "rb");
-    assert(f != NULL);
+    CHECK(f != NULL);
     std::fseek(f, 0, SEEK_END);
     long n = std::ftell(f);
+    CHECK(n >= 0);
     std::fseek(f, 0, SEEK_SET);
-    std::string out(n, '\0');
+    std::string out((size_t)n, '\0');
     if (n > 0)
-        std::fread(&out[0], 1, n, f);
+        std::fread(&out[0], 1, (size_t)n, f);
     std::fclose(f);
     return out;
 }
@@ -70,9 +76,9 @@ size_t CountOccurrences(const std::string &hay, const std::string &needle) {
 } // namespace
 
 int main() {
-    const std::string path = MakeTempCfgPath();
-    char path_buf[512];
-    std::snprintf(path_buf, sizeof(path_buf), "%s", path.c_str());
+    // DefFileBufferInit takes a non-const char*; copy the path into a buffer.
+    char path[512];
+    std::snprintf(path, sizeof(path), "%s", kTempCfgPath);
 
     // ── Test 1: rewriting a field whose old value contains Latin-1 (Bug A) ──
     // The writer's "skip until EOL" loop at the start of the suffix copy uses
@@ -85,25 +91,25 @@ int main() {
             "Language: Français\r\n"
             "LanguageCD: English\r\n"
             "Input0_1: 42\r\n";
-        WriteFile(path_buf, original);
+        WriteFile(path, original);
 
         std::vector<char> buffer(8192, 0);
-        S32 ok = DefFileBufferInit(path_buf, &buffer[0], (S32)buffer.size());
-        assert(ok == TRUE);
+        S32 ok = DefFileBufferInit(path, &buffer[0], (S32)buffer.size());
+        CHECK(ok == TRUE);
 
         ok = DefFileBufferWriteString("Language", "English");
-        assert(ok == TRUE);
+        CHECK(ok == TRUE);
 
-        const std::string after = ReadFile(path_buf);
+        const std::string after = ReadFile(path);
         // Old value gone, new value in place.
-        assert(after.find("Français") == std::string::npos);
-        assert(after.find("Language: English") != std::string::npos);
+        CHECK(after.find("Français") == std::string::npos);
+        CHECK(after.find("Language: English") != std::string::npos);
         // Bug A signature: stray "ais"-shaped suffix line after the rewrite.
-        assert(after.find("\nais\r\n") == std::string::npos);
-        assert(after.find("\nçais") == std::string::npos);
+        CHECK(after.find("\nais\r\n") == std::string::npos);
+        CHECK(after.find("\nçais") == std::string::npos);
         // Subsequent lines preserved verbatim.
-        assert(after.find("LanguageCD: English") != std::string::npos);
-        assert(after.find("Input0_1: 42") != std::string::npos);
+        CHECK(after.find("LanguageCD: English") != std::string::npos);
+        CHECK(after.find("Input0_1: 42") != std::string::npos);
     }
 
     // ── Test 2: cumulative bleed across repeated rewrites (Bug A) ───────────
@@ -114,20 +120,20 @@ int main() {
         const std::string original =
             "Language: Français\r\n"
             "Input0_1: 1\r\n";
-        WriteFile(path_buf, original);
+        WriteFile(path, original);
 
         std::vector<char> buffer(8192, 0);
-        assert(DefFileBufferInit(path_buf, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
 
-        assert(DefFileBufferWriteString("Language", "English") == TRUE);
-        assert(DefFileBufferWriteString("Language", "Français") == TRUE);
-        assert(DefFileBufferWriteString("Language", "English") == TRUE);
-        assert(DefFileBufferWriteString("Language", "Français") == TRUE);
+        CHECK(DefFileBufferWriteString("Language", "English") == TRUE);
+        CHECK(DefFileBufferWriteString("Language", "Français") == TRUE);
+        CHECK(DefFileBufferWriteString("Language", "English") == TRUE);
+        CHECK(DefFileBufferWriteString("Language", "Français") == TRUE);
 
-        const std::string after = ReadFile(path_buf);
-        assert(CountOccurrences(after, "Français") == 1);
-        assert(after.find("\nais\r\n") == std::string::npos);
-        assert(after.find("Input0_1: 1") != std::string::npos);
+        const std::string after = ReadFile(path);
+        CHECK(CountOccurrences(after, "Français") == 1);
+        CHECK(after.find("\nais\r\n") == std::string::npos);
+        CHECK(after.find("Input0_1: 1") != std::string::npos);
     }
 
     // ── Test 3: DefFileBufferWriteString self-aliasing strcpy (Bug B) ───────
@@ -137,18 +143,18 @@ int main() {
     // state must remain readable.
     {
         const std::string original = "Foo: bar\r\nBaz: qux\r\n";
-        WriteFile(path_buf, original);
+        WriteFile(path, original);
 
         std::vector<char> buffer(8192, 0);
-        assert(DefFileBufferInit(path_buf, &buffer[0], (S32)buffer.size()) == TRUE);
-        assert(DefFileBufferWriteString("Foo", "changed") == TRUE);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(DefFileBufferWriteString("Foo", "changed") == TRUE);
 
         char *foo = DefFileBufferReadString("Foo");
-        assert(foo != NULL);
-        assert(std::strcmp(foo, "changed") == 0);
+        CHECK(foo != NULL);
+        CHECK(std::strcmp(foo, "changed") == 0);
         char *baz = DefFileBufferReadString("Baz");
-        assert(baz != NULL);
-        assert(std::strcmp(baz, "qux") == 0);
+        CHECK(baz != NULL);
+        CHECK(std::strcmp(baz, "qux") == 0);
     }
 
     // ── Test 4: ReadBufferString does not desync past a Latin-1 line ────────
@@ -159,16 +165,16 @@ int main() {
         const std::string original =
             "Header: Français\r\n"
             "Target: hello\r\n";
-        WriteFile(path_buf, original);
+        WriteFile(path, original);
 
         std::vector<char> buffer(8192, 0);
-        assert(DefFileBufferInit(path_buf, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
 
         char *target = DefFileBufferReadString("Target");
-        assert(target != NULL);
-        assert(std::strcmp(target, "hello") == 0);
+        CHECK(target != NULL);
+        CHECK(std::strcmp(target, "hello") == 0);
     }
 
-    std::remove(path_buf);
+    std::remove(path);
     return 0;
 }
