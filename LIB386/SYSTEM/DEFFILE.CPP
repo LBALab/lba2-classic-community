@@ -85,9 +85,9 @@ static inline S32 ReadBufferString(const char *identificateur) {
             }
         }
 
-        while (*ptrdef >= 32)
+        while ((U8)*ptrdef >= 32)
             ptrdef++; // next line
-        while (*ptrdef < 32)
+        while ((U8)*ptrdef < 32 && ptrdef < EndPtrDef)
             ptrdef++;
     }
     return FALSE;
@@ -113,7 +113,12 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
 
     Load(file, buffer);
 
-    strcpy(FileName, file);
+    // Re-entry from DefFileBufferWriteString passes the module-static FileName
+    // back in as `file`, which aliases the strcpy destination. Self-copy is UB
+    // (ASan: strcpy-param-overlap); skip the copy when source and dest alias.
+    if (file != FileName) {
+        strcpy(FileName, file);
+    }
 
     BufferSize = maxsize;
     OrgPtrDef = (char *)buffer;
@@ -123,7 +128,7 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
         if (EndPtrDef < OrgPtrDef) {
             break;
         }
-    } while (*EndPtrDef <= 32);
+    } while ((U8)*EndPtrDef <= 32);
 
     EndPtrDef++;
 
@@ -169,7 +174,7 @@ S32 DefFileBufferReadValue2(const char *ident, S32 *result) {
     }
 
     ptrdef = DefString;
-    while (*ptrdef > 32)
+    while ((U8)*ptrdef > 32)
         ptrdef++;
     *ptrdef = 0;
     LenDefString = ptrdef - DefString;
@@ -228,7 +233,7 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
     {
         Write(handle, OrgPtrDef, PtrEndIdent - OrgPtrDef);
 
-        while (*PtrEndIdent >= 32)
+        while ((U8)*PtrEndIdent >= 32)
             PtrEndIdent++; // skip until EOL
         if (*PtrEndIdent == 13)
             PtrEndIdent++;
