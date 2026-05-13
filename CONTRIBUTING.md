@@ -80,6 +80,14 @@ bash ./scripts/ci/apply-format.sh
 
 `check-format.sh` verifies the tracked C/C++ files that are enforced in CI. `apply-format.sh` applies that same formatter policy to tracked clean files in your worktree.
 
+To catch format issues before they reach CI, enable the optional pre-commit hook once per clone:
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+The hook runs `clang-format --dry-run` against staged C/C++ files only (it checks the staged blob, so unrelated unstaged edits and partial-stage workflows still work) and reuses `.clang-format-ignore`, so it stays in sync with CI. When it blocks a commit, run `bash ./scripts/ci/apply-format.sh && git add -u` and try again. Bypass with `git commit --no-verify`, or `SKIP_FORMAT=1` for a session, when you genuinely need to.
+
 If you use VS Code, install the workspace recommendations from `.vscode/extensions.json`. The current recommended set is `ms-vscode.cpptools`, `ms-vscode.cmake-tools`, and `EditorConfig.EditorConfig`.
 
 `EditorConfig.EditorConfig` is recommended because this repository also has files that are not auto-formatted by `clang-format`. It makes VS Code honor the checked-in `.editorconfig` for baseline indentation rules, which keeps C/C++ files on 4 spaces and preserves tab-based indentation in ASM and related files.
