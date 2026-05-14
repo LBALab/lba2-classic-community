@@ -26,7 +26,7 @@ extern S32 MainLoop(void);
 /*--------------------------------------------------------------------------*/
 extern void InitProgram();
 /*--------------------------------------------------------------------------*/
-extern void TheEndCheckFile(const char *filename);
+extern LBA_NORETURN void TheEndCheckFile(const char *filename);
 /*--------------------------------------------------------------------------*/
 extern void InitTheEnd(S32 num, char *error);
 /*--------------------------------------------------------------------------*/

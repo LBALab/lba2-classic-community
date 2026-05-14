@@ -38,7 +38,7 @@
 
 #define HQR_STEP_CUBE 6
 
-extern void TheEndCheckFile(const char *filename);
+extern LBA_NORETURN void TheEndCheckFile(const char *filename);
 extern void TheEnd(S32 num, const char *error);
 
 //extern	U32	IsleMem ;
