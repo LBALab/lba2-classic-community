@@ -7,10 +7,11 @@
 # modernize-* and readability-* are intentionally disabled: this is a faithful
 # C++98 + x86 ASM port, not a modernization target.
 #
-# A few bugprone-/cert-* checks are disabled because they fire constantly on
-# this codebase's deliberate 1997-era patterns (S16/S32/U32 truncations,
-# unparenthesised macros, reserved-looking identifiers) and would drown the
-# real findings. They can be re-enabled later behind a baseline.
+# Several checks are disabled because they fire in bulk on this codebase's
+# deliberate 1997-era patterns — pervasive strcpy, switches without a default,
+# unchecked printf returns, unparenthesised macros, S16/S32/U32 truncations,
+# dead stores — and would drown the memory-safety findings this pass exists to
+# surface. They can be re-enabled later behind a baseline.
 #
 # Run with: scripts/ci/run-clang-tidy.sh <build-dir>
 # (needs compile_commands.json — CMAKE_EXPORT_COMPILE_COMMANDS is ON by default).
@@ -25,9 +26,13 @@ Checks: >
   -bugprone-implicit-widening-of-multiplication-result,
   -bugprone-macro-parentheses,
   -bugprone-reserved-identifier,
+  -bugprone-switch-missing-default-case,
   -cert-dcl37-c,
   -cert-dcl51-cpp,
-  -cert-err58-cpp
+  -cert-err33-c,
+  -cert-err58-cpp,
+  -clang-analyzer-deadcode.DeadStores,
+  -clang-analyzer-security.insecureAPI.strcpy
 
 WarningsAsErrors: ''
 
