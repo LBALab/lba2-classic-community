@@ -1685,6 +1685,14 @@ void	GereExtras()
 
 		type = ptrextra->Flags & EXTRA_MASK_WEAPON ;
 
+		// EXTRA_END_OBJ / EXTRA_END_COL read oldx/y/z, but only the movement
+		// flags (EXTRA_FLY / EXTRA_SEARCH_*) assign them. Default to the
+		// current position so an extra without a movement flag gets a
+		// zero-length collision check instead of a stale or uninitialised one.
+		oldx = ptrextra->PosX ;
+		oldy = ptrextra->PosY ;
+		oldz = ptrextra->PosZ ;
+
 		if( ptrextra->Flags & EXTRA_TIME_OUT )
 		{
 			if( TimerRefHR >= ptrextra->Timer + ptrextra->TimeOut )
