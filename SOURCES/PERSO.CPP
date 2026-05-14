@@ -2070,7 +2070,7 @@ void InitProgram() {
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
-void TheEndCheckFile(const char *filename) {
+LBA_NORETURN void TheEndCheckFile(const char *filename) {
     if (FileSize(filename))
         End_Num = NOT_ENOUGH_MEM;
     else

@@ -399,7 +399,7 @@ typedef	struct	{
 
 #define	CADRE_RED	(1<<16)	// Cadres rouges
 
-#define	A_FLIP		(1<<31)	// Flip les boites dessinées
+#define	A_FLIP		(1U<<31)	// Flip les boites dessinées
 
 #define	ALL_ANGLES	(DRAW_SG|DRAW_IG|DRAW_ID|DRAW_SD)
 #define	ALL_ARROWS	(ARROW_SG|ARROW_IG|ARROW_ID|ARROW_SD)

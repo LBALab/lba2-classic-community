@@ -52,6 +52,17 @@ typedef void(BOX_FUNC)(T_BOX *pbox);
 #define TRUE 1
 #define FALSE 0
 
+//------------------------------------------------------------------------------
+// Marks a function that never returns (exit/abort wrappers). Lets the compiler
+// and static analyzers know control does not fall through past the call.
+#if defined(__GNUC__) || defined(__clang__)
+#define LBA_NORETURN __attribute__((noreturn))
+#elif defined(_MSC_VER)
+#define LBA_NORETURN __declspec(noreturn)
+#else
+#define LBA_NORETURN
+#endif
+
 // =============================================================================
 #ifdef __cplusplus
 }

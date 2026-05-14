@@ -34,13 +34,13 @@
 #define I_CAMERA_LEVEL_PLUS (1 << 23)  // '+'		Niveau Caméra suivant
 #define I_CAMERA_LEVEL_MOINS (1 << 24) // '-'		Niveau Caméra Precedent
 
-#define I_WEAPON_1 (1 << 25) // '1'		Arme 1 (Balle Magique)
-#define I_WEAPON_2 (1 << 26) // '2'		Arme 2 (Balle Magique)
-#define I_WEAPON_3 (1 << 27) // '3'		Arme 3 (Balle Magique)
-#define I_WEAPON_4 (1 << 28) // '4'		Arme 4 (Balle Magique)
-#define I_WEAPON_5 (1 << 29) // '5'		Arme 5 (Balle Magique)
-#define I_WEAPON_6 (1 << 30) // '6'		Arme 6 (Balle Magique)
-#define I_WEAPON_7 (1 << 31) // '7'		Arme 7 (Balle Magique)
+#define I_WEAPON_1 (1 << 25)  // '1'		Arme 1 (Balle Magique)
+#define I_WEAPON_2 (1 << 26)  // '2'		Arme 2 (Balle Magique)
+#define I_WEAPON_3 (1 << 27)  // '3'		Arme 3 (Balle Magique)
+#define I_WEAPON_4 (1 << 28)  // '4'		Arme 4 (Balle Magique)
+#define I_WEAPON_5 (1 << 29)  // '5'		Arme 5 (Balle Magique)
+#define I_WEAPON_6 (1 << 30)  // '6'		Arme 6 (Balle Magique)
+#define I_WEAPON_7 (1U << 31) // '7'		Arme 7 (Balle Magique)
 
 // Input2
 
