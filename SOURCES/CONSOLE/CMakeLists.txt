@@ -1,4 +1,4 @@
-add_library(console CONSOLE.CPP CONSOLE_STATE.CPP)
+add_library(console CONSOLE.CPP CONSOLE_STATE.CPP CONSOLE_GIVE.CPP)
 target_include_directories(console PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/..
   ${CMAKE_SOURCE_DIR}/LIB386/H
