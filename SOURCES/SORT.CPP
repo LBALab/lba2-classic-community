@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 
+#include <SVGA/SCREEN.H>
+
 S32 NbTriObj = 0;
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -206,8 +208,8 @@ S32 TreeInsert(S16 numtype, S32 posx, S32 posy, S32 posz,
     }
 
     // PreClipping
-    if ((x1 < 0) OR(x0 >= 640)
-            OR(y1 < 0) OR(y0 >= 480)) {
+    if ((x1 < 0) OR(x0 >= (S32)ModeDesiredX)
+            OR(y1 < 0) OR(y0 >= (S32)ModeDesiredY)) {
         if (!(numtype & SORT_NO_PRECLIP)) {
             return FALSE;
         }

@@ -205,6 +205,9 @@
 // SaveGame
 #define SAVE_VERSION 4
 // on stocke les sauvegardes dans BufSpeak
+// NB: literal 640*480 is intentional — partitions BufSpeak (sized to
+// RESOLUTION_X*RESOLUTION_Y in MEM.CPP). Keeping the slot count fixed avoids
+// silently growing the save list when the framebuffer is widened.
 #define MAX_PLAYER ((640 * 480) / (MAX_SIZE_PLAYER_NAME + 1 + sizeof(char *)))
 #define MAX_SIZE_PLAYER_NAME 100 // Calculé avec des ',' par Isabelle
 
