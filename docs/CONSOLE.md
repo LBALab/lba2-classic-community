@@ -57,7 +57,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **timer** [ms] | Advance in-game timer by N ms (default 200). |
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
 | **screenshot** | Save the next frame as PNG in the shoot directory without the console visible (uses SavePNG). |
-| **give** &lt;n&gt; | Play “found object” sequence for inventory entry &lt;n&gt;; some items (e.g. weapons, protopack) also update gameplay state. Mostly for visual/debug use. |
+| **give** &lt;item&gt; [count] | Grant an inventory item by name — run `give` with no args to list item names; a numeric index still works as a fallback. Writes possession, refreshes the inventory, and plays the “found object” cinematic for real inventory slots. `count` applies to countable items (darts, money, gem, penguin, clover). |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
 | **playjingle** &lt;1-26&gt; | Play jingle by number. |

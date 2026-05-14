@@ -1,5 +1,6 @@
 #include "CONSOLE.H"
 #include "CONSOLE_STATE.H"
+#include "CONSOLE_GIVE.H"
 #include "../C_EXTERN.H"
 #include "../COMMON.H"
 #include "../DIRECTORIES.H"
@@ -32,6 +33,15 @@
 #if FLAG_CHAPTER != CONSOLE_LISTVAR_FLAG_CHAPTER
 #error "CONSOLE_STATE.H CONSOLE_LISTVAR_FLAG_CHAPTER must match COMMON.H FLAG_CHAPTER"
 #endif
+#if FLAG_MONEY != CONSOLE_GIVE_IDX_MONEY
+#error "CONSOLE_GIVE.H CONSOLE_GIVE_IDX_MONEY must match COMMON.H FLAG_MONEY"
+#endif
+#if FLAG_CLOVER != CONSOLE_GIVE_IDX_CLOVER
+#error "CONSOLE_GIVE.H CONSOLE_GIVE_IDX_CLOVER must match COMMON.H FLAG_CLOVER"
+#endif
+/* MAX_INVENTORY is ((U8)40) — not a plain preprocessor constant, so it cannot
+   be checked with #if. Catch any drift at compile time instead. */
+typedef char console_give_max_inventory_check[(MAX_INVENTORY == CONSOLE_GIVE_MAX_INVENTORY) ? 1 : -1];
 
 /* Shared gate for give/savebug: user-facing reason strings (in-scene predicate). */
 static const char *console_avail_in_game_scene(void) {
@@ -264,8 +274,21 @@ static void cmd_screenshot(int argc, const char *argv[]) {
 
 static void cmd_give(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("Usage: give <inventory_index> (0..%d)", (int)(MAX_INVENTORY - 1));
+        Console_Print("Usage: give <item> [count]");
+        Console_Print("Items:");
+        for (S32 i = 0; i < Console_GiveItemRowCount(); i++)
+            Console_Print("  %s", Console_GiveItemNameByRow(i));
         return;
+    }
+
+    S32 index = -1;
+    S32 count = 1;
+    {
+        const char *err = NULL;
+        if (!Console_GiveParse(argc, argv, &index, &count, &err)) {
+            Console_Print("%s", err);
+            return;
+        }
     }
     {
         const char *why = console_avail_in_game_scene();
@@ -275,23 +298,46 @@ static void cmd_give(int argc, const char *argv[]) {
         }
     }
     Console_Close();
-    S32 numvar = (S32)strtol(argv[1], NULL, 0);
-    if (numvar < 0 || numvar >= (S32)MAX_INVENTORY) {
-        Console_Print("Invalid inventory index %d (valid 0..%d)", numvar, (int)(MAX_INVENTORY - 1));
-        return;
-    }
-    {
-        const char *tabwhy = console_give_tabinv_not_ready_reason(numvar);
+
+    if (index < (S32)MAX_INVENTORY) {
+        const char *tabwhy = console_give_tabinv_not_ready_reason(index);
         if (tabwhy) {
             Console_Print("%s", tabwhy);
             return;
         }
+        /* Grant possession, then refresh the inventory grid. For money the
+           value lives in the planet-specific gold/zlitos global — set that
+           directly, because InitTabIndir() overwrites ListVarGame[FLAG_MONEY]
+           from it (INVENT.CPP). */
+        if (index == FLAG_MONEY) {
+            if (Planet >= 2)
+                NbGoldPieces = count;
+            else
+                NbZlitosPieces = count;
+        } else {
+            if (count > MAX_S16)
+                count = MAX_S16;
+            ListVarGame[index] = (S16)count;
+        }
+        InitTabIndir();
+        /* Match script behavior: run found-object cinematic with saved timer context. */
+        SaveTimer();
+        DoFoundObj(index);
+        RestoreTimer();
+    } else if (index == FLAG_CLOVER) {
+        /* Clover boxes are a separate global with no TabInv slot, so there is
+           no found-object cinematic. Grant the boxes and fill them. */
+        if (count > MAX_CLOVER_BOX)
+            count = MAX_CLOVER_BOX;
+        NbCloverBox = (S16)count;
+        ListVarGame[FLAG_CLOVER] = (S16)count;
+        InitTabIndir();
     }
-    /* Match script behavior: run found-object cinematic with saved timer context. */
-    SaveTimer();
-    DoFoundObj(numvar);
-    RestoreTimer();
-    Console_Print("Gave inventory entry %d", numvar);
+
+    if (Console_GiveIsCountItem(index))
+        Console_Print("Gave %s x%d", Console_GiveItemName(index), (int)count);
+    else
+        Console_Print("Gave %s", Console_GiveItemName(index));
 }
 
 static void cmd_playvideo(int argc, const char *argv[]) {
@@ -882,8 +928,10 @@ void Console_RegisterAll(void) {
                               "Resolves save in save/; closes console then loads.");
     Console_RegisterCommandEx("loadbug", cmd_loadbug, "Load bug save (see listbugs)", "loadbug [name]",
                               "Loads bugs/<name>.lba (default: bug). Closes console.");
-    Console_RegisterCommandEx("give", cmd_give, "Give inventory item by flag number", "give <inventory_index>",
-                              "Requires in-game loaded cube (not during video).");
+    Console_RegisterCommandEx("give", cmd_give, "Give an inventory item by name (run 'give' to list)",
+                              "give <item> [count]",
+                              "Grants the item and plays the found-object cinematic. Count applies to "
+                              "darts/money/gem/penguin/clover. Requires in-game loaded cube (not during video).");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
     Console_RegisterCommandEx("slide", cmd_slide, "Show a distributor or bumper slide",
