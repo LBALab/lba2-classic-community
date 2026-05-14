@@ -379,7 +379,7 @@ S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
             U32 i = 0;
             if (ditherCount > 1) {
                 // Rotate dither pattern based on pixel position
-                ditherValue = ((ditherValue << (ditherCount & 31)) | (ditherValue >> (32 - (ditherCount & 31)))) & 0xFF;
+                ditherValue = ((ditherValue << (ditherCount & 31)) | (ditherValue >> ((32 - (ditherCount & 31)) & 31))) & 0xFF;
 
                 // Process pairs of pixels
                 U32 pairCount = ditherCount >> 1;
@@ -401,7 +401,7 @@ S32 Filler_DitherTable(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
                     line[i++] = color2;
 
                     ditherValue &= 0xFF;
-                    ditherValue = ((ditherValue << (ditherCount & 31)) | (ditherValue >> (32 - (ditherCount & 31)))) & 0xFF;
+                    ditherValue = ((ditherValue << (ditherCount & 31)) | (ditherValue >> ((32 - (ditherCount & 31)) & 31))) & 0xFF;
                     ditherValue += gouraudValue;
                     gouraudValue += gouraudSlope;
                 }

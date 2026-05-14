@@ -462,6 +462,34 @@ static void test_asm_random_dither_table(void) {
     }
 }
 
+/* Regression (#47): a scanline width that is a nonzero multiple of 32 makes
+ * (ditherCount & 31) == 0 in Filler_DitherTable's dither-pattern rotate, so the
+ * original `>> (32 - (ditherCount & 31))` shifted a 32-bit value by 32 — UB.
+ * Zero edge slopes keep the width constant, so widths 32 and 64 hit the rotate
+ * on every scanline. x86 masks shift counts so buggy/fixed output matches here;
+ * the case earns its keep under UBSan and on targets that don't mask. */
+static void test_asm_equiv_dither_table_width_mult_32(void) {
+    static const U32 widths[2] = {32, 64};
+    for (int w = 0; w < 2; w++) {
+        U32 xmin = 16 << 16;
+        U32 xmax = (16 + widths[w]) << 16;
+
+        setup_gouraud_table_filler(30, 4, xmin, xmax, 0x020000, 0x800);
+        Filler_DitherTable(4, xmin, xmax);
+        memcpy(gour_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        setup_gouraud_table_filler(30, 4, xmin, xmax, 0x020000, 0x800);
+        call_asm_Filler_DitherTable(4, xmin, xmax);
+        memcpy(gour_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);
+
+        char msg[96];
+        snprintf(msg, sizeof(msg),
+                 "Filler_DitherTable width=%u (dither-rotate shift-by-32 UB)",
+                 widths[w]);
+        ASSERT_ASM_CPP_MEM_EQ(gour_asm_buf, gour_cpp_buf, TEST_POLY_SIZE, msg);
+    }
+}
+
 /* ── Filler_GouraudFog ─────────────────────────────────────────── */
 
 static void test_asm_equiv_gouraud_fog(void) {
@@ -1360,6 +1388,7 @@ int main(void) {
     RUN_TEST(test_asm_random_gouraud_table);
     RUN_TEST(test_asm_equiv_dither_table);
     RUN_TEST(test_asm_random_dither_table);
+    RUN_TEST(test_asm_equiv_dither_table_width_mult_32);
     /* Filler_GouraudFog / DitherFog */
     RUN_TEST(test_asm_equiv_gouraud_fog);
     RUN_TEST(test_asm_random_gouraud_fog);
