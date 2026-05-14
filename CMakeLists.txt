@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.23)
 
 project(LBA2)
 
+# Emit compile_commands.json so clang-tidy and other tooling can analyze the
+# real build configuration. See .clang-tidy and scripts/ci/run-clang-tidy.sh.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Option to enable x86 assembly (requires UASM). Default OFF since all ASM is ported to C++.
 option(ENABLE_ASM "Enable x86 assembly (requires UASM assembler)" OFF)
 

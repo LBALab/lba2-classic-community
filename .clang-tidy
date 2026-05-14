@@ -1,0 +1,38 @@
+# clang-tidy configuration — LBA2 community fork.
+#
+# Scope: memory-safety and undefined-behaviour hunting (issue #47), NOT style.
+# The Clang Static Analyzer (clang-analyzer-*) plus bugprone-* / cert-* give
+# type-accurate, path-sensitive analysis that complements the cppcheck pass.
+#
+# modernize-* and readability-* are intentionally disabled: this is a faithful
+# C++98 + x86 ASM port, not a modernization target.
+#
+# A few bugprone-/cert-* checks are disabled because they fire constantly on
+# this codebase's deliberate 1997-era patterns (S16/S32/U32 truncations,
+# unparenthesised macros, reserved-looking identifiers) and would drown the
+# real findings. They can be re-enabled later behind a baseline.
+#
+# Run with: scripts/ci/run-clang-tidy.sh <build-dir>
+# (needs compile_commands.json — CMAKE_EXPORT_COMPILE_COMMANDS is ON by default).
+
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-macro-parentheses,
+  -bugprone-reserved-identifier,
+  -cert-dcl37-c,
+  -cert-dcl51-cpp,
+  -cert-err58-cpp
+
+WarningsAsErrors: ''
+
+# Only diagnose the project's own headers. Vendored headers (stb_*, libsmacker)
+# live outside SOURCES/ and LIB386/H/ and stay excluded.
+HeaderFilterRegex: '(SOURCES/|LIB386/H/).*'
+
+FormatStyle: file
