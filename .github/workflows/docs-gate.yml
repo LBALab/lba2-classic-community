@@ -1,0 +1,46 @@
+name: CI gate (docs-only)
+
+# Companion to linux.yml / macos.yml / windows.yml / test.yml.
+#
+# The "Protect main" ruleset requires the `build` and `test` status
+# checks. Those workflows carry a paths-ignore filter (added in #130) so
+# docs/asset-only changes don't fire a full build matrix. But a workflow
+# skipped by paths-ignore reports NO check run at all — so on a docs-only
+# PR the required `build` / `test` contexts sit at "Expected — waiting
+# for status to be reported" forever and the PR is permanently BLOCKED.
+#
+# This workflow has the inverse trigger: it runs ONLY on the paths the
+# real workflows ignore, with no-op jobs named `build` and `test`. That
+# satisfies the required contexts for docs-only changes. On a PR that
+# touches both docs and code, this and the real workflows both run; a
+# required check needs every run of that name to pass, so the real build
+# still gates the merge.
+#
+# Keep the paths list below in sync with the paths-ignore list in
+# linux.yml (mirrored in macos.yml, windows.yml, test.yml, and the
+# push: branches:[main] trigger of release-latest.yml).
+on:
+  push:
+    paths: &doc-paths
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
+      - '.editorconfig'
+      - '.git-blame-ignore-revs'
+      - 'cliff.toml'
+  pull_request:
+    paths: *doc-paths
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Docs-only change — no build required."
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Docs-only change — no tests required."
