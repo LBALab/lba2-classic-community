@@ -10,6 +10,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Debug tooling
+
+- Console `give` command now actually grants inventory items instead of
+  only playing the found-object cinematic. It takes an item name
+  (`give conch`), with the numeric index still accepted as a fallback;
+  run `give` with no arguments to list every item name. Countable items
+  accept an optional count (`give gem 5`, `give money 5000`,
+  `give clover 3`). See [docs/CONSOLE.md](docs/CONSOLE.md).
+
 ### Cross-platform & build
 
 - macOS native release artifact: a portable DMG with the `.app` bundle
