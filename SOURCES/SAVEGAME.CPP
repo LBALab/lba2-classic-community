@@ -1469,9 +1469,6 @@ void SaveContexte(S32 savetimerrefhr) {
 static S32 LoadContexteReadObjectsAtStride(S32 use_wire32) {
     S32 n;
     T_OBJET *ptrobj = ListObjet;
-#if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
-    extern S32 TempoRealAngle;
-#endif
     for (n = 0; n < NbObjets; n++, ptrobj++) {
         LbaReadByte(ptrobj->GenBody);
         LbaReadByte(ptrobj->Col);
