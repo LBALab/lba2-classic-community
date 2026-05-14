@@ -20,17 +20,14 @@ For current coverage and status, see [`ASM_VALIDATION_PROGRESS.md`](ASM_VALIDATI
 
 ## CI (GitHub Actions)
 
-Workflows under `.github/workflows/`:
+Two CI workflows exercise the test suite: the host build workflows
+(`linux.yml` / `macos.yml` / `windows.yml`) run `ctest -L host_quick`,
+and `test.yml` runs the full Docker ASM↔C++ equivalence suite. Host jobs
+need neither retail game files nor Docker; the Docker job does not run
+the host discovery tests.
 
-| Workflow | What it does |
-|----------|----------------|
-| `linux.yml` | Configure with preset `linux`, build `lba2` + `test_res_discovery` + `test_console_state` + `test_savegame_load_bounds`, run `ctest -R 'test_(res_discovery|console_state|savegame_load_bounds)'` |
-| `macos.yml` | Same host tests on `macos-latest` (preset `macos_arm64`) |
-| `windows.yml` | Same host tests on Windows MSYS2 UCRT64 (preset `windows_ucrt64`) |
-| `format.yml` | `scripts/ci/check-format.sh` (clang-format) |
-| `test.yml` | **Docker:** `./run_tests_docker.sh` — full ASM↔C++ equivalence suite (Linux only; slow) |
-
-Host jobs do not need retail game files or Docker. The Docker job does not run discovery tests; it focuses on LIB386 equivalence.
+For the full workflow map, triggers, path filtering, and branch
+protection, see [CI.md](CI.md).
 
 ## What is in scope
 
