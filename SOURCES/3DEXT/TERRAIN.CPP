@@ -828,9 +828,8 @@ void AffichageTerrainZBuf(void) {
 
                 ptrs->Zrot = zr;
 
-                // Add 0.5 bias before truncation to reduce edge artifacts from coordinate precision loss
-                ptrs->X2D = (S16)(Xp + 0.5);
-                ptrs->Y2D = (S16)(Yp + 0.5);
+                ptrs->X2D = (S16)Xp;
+                ptrs->Y2D = (S16)Yp;
 
             } else {
                 *ptra = 0;
