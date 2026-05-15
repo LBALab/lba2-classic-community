@@ -1156,6 +1156,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     U8 *ptr;
     S32 timerzoom;
     S32 timeranotherkey;
+    S32 padNavDir = 0;
     S32 timerdraw = 1;
     U32 draw = 1;
     U32 newcube = NewCube;
@@ -1249,6 +1250,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     InitDial(0);
 
     InitWaitNoKey();
+    padNavDir = JoystickMenuNavOnly();
 
     MenuMouseAcquire();
     save_press = -1;
@@ -1330,17 +1332,22 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         }
 
         /* Suppress nav keys outside the repeat window; translate gamepad
-           D-pad / stick to K_GRAY_UP/DOWN when the window is open. */
+           D-pad / stick to K_GRAY_UP/DOWN when the window is open.
+           Edge-only for gamepad: fire on direction change so a deflected
+           stick on menu entry does not auto-fire. */
         if (TimerRefHR <= timeranotherkey) {
             if (MyKey == K_GRAY_UP || MyKey == K_GRAY_DOWN)
                 MyKey = 0;
             Input &= ~(I_UP | I_DOWN);
         } else if (!MyKey) {
             S32 jdir = JoystickMenuNavOnly();
-            if (jdir == K_UP)
-                MyKey = K_GRAY_UP;
-            else if (jdir == K_DOWN)
-                MyKey = K_GRAY_DOWN;
+            if (jdir != padNavDir) {
+                padNavDir = jdir;
+                if (jdir == K_UP)
+                    MyKey = K_GRAY_UP;
+                else if (jdir == K_DOWN)
+                    MyKey = K_GRAY_DOWN;
+            }
         }
 
         if (FlagMenuMouse && MenuMouse_GetRefCount() > 0) {
