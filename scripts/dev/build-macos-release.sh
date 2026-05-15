@@ -103,11 +103,17 @@ fi
 cmake --preset "$PRESET" -DLBA2_LINK_STATIC="$LINK_STATIC"
 cmake --build --preset "$PRESET"
 
-# Resolve executable / app names (follow LBA2_EXECUTABLE_NAME overrides).
+# Resolve executable / app names (follow LBA2_EXECUTABLE_NAME and
+# LBA2_PRODUCT_NAME overrides). The bundle dir is named after the product
+# (display name shown in Finder); the inner Mach-O is named after the
+# executable (CLI-friendly, space-free).
 EXE_NAME=$(awk -F= '/^LBA2_EXECUTABLE_NAME:[^=]+=/{print $2; exit}' \
     "$BUILD_DIR/CMakeCache.txt")
 EXE_NAME="${EXE_NAME:-lba2cc}"
-APP_PATH="$BUILD_DIR/SOURCES/${EXE_NAME}.app"
+PRODUCT_NAME=$(awk -F= '/^LBA2_PRODUCT_NAME:[^=]+=/{print $2; exit}' \
+    "$BUILD_DIR/CMakeCache.txt")
+PRODUCT_NAME="${PRODUCT_NAME:-LBA2 Classic Community}"
+APP_PATH="$BUILD_DIR/SOURCES/${PRODUCT_NAME}.app"
 
 if [[ ! -d "$APP_PATH" ]]; then
     echo "[build-macos-release] expected $APP_PATH but it doesn't exist" >&2

@@ -61,9 +61,11 @@ jobs:
 
       - name: Verify Binary
         # CMake's MACOSX_BUNDLE wiring (in SOURCES/CMakeLists.txt) puts the
-        # binary inside an .app bundle. The bare build/SOURCES/lba2cc path
-        # only exists for non-Apple builds.
+        # binary inside an .app bundle. The bundle dir is named after
+        # LBA2_PRODUCT_NAME (Finder display name); the inner Mach-O keeps
+        # the terse LBA2_EXECUTABLE_NAME. The bare build/SOURCES/lba2cc
+        # path only exists for non-Apple builds.
         run: |
-          test -d build/SOURCES/lba2cc.app
-          test -x build/SOURCES/lba2cc.app/Contents/MacOS/lba2cc
+          test -d "build/SOURCES/LBA2 Classic Community.app"
+          test -x "build/SOURCES/LBA2 Classic Community.app/Contents/MacOS/lba2cc"
           echo "Build successful"
