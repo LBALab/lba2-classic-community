@@ -15,6 +15,7 @@ Index of documentation in this repository.
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 | [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |
+| [SPRITES.md](SPRITES.md) | Sprite system: UI / world-extra / 3D-anim lanes, `ScaleSprite` vs `ScaleSpriteTransp`, perspective scale (`CalculeScaleFactorSprite`), sort-tree integration. Magic-ball case study. |
 | [LBA_EDITOR.md](LBA_EDITOR.md) | What `LBA_EDITOR`/`PERSO` paths still do: editor capabilities, runtime hooks, and likely missing pieces. |
 
 ## Build & debug
