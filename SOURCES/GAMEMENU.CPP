@@ -1296,6 +1296,16 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 */
             timeranotherkey = TimerRefHR + TEMPO_REPEAT_KEY;
             Input = MyKey = 0;
+
+            // Wait for key release so a single press advances exactly one
+            // slot, matching DoGameMenu's edge-only feel.  Without this,
+            // the mouse-active MyGetInput() poll below re-samples the
+            // still-held arrow every frame and races through the list.
+            do {
+                BoxUpdate();
+                MyGetInput();
+            } while (MyKey OR Input);
+
             flag = 0;
         }
 
