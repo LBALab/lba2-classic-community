@@ -76,7 +76,7 @@ jobs:
           VERSION=$(cat "$BUILD_DIR/VERSION.txt")
           mkdir -p dist
           bash scripts/packaging/bundle-macos.sh \
-            --app "$BUILD_DIR/SOURCES/lba2cc.app" \
+            --app "$BUILD_DIR/SOURCES/LBA2 Classic Community.app" \
             --version "$VERSION" \
             --arch ${{ matrix.arch }} \
             --build-dir "$BUILD_DIR" \

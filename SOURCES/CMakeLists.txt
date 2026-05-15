@@ -55,15 +55,35 @@ add_executable(${LBA2_EXECUTABLE_NAME} ${SOURCES_FILES} ${SOURCES_FILES_ASM} ${S
 # at the configured Info.plist, and routes the .icns to Contents/Resources/.
 # Without MACOSX_BUNDLE the binary would be a bare executable in
 # build/SOURCES/, not a launchable .app.
+#
+# OUTPUT_NAME drives both the bundle directory name (<OUTPUT_NAME>.app) and
+# the inner Mach-O filename. We want them to diverge: the bundle is the
+# user-facing display name ("LBA2 Classic Community.app" — what Finder
+# shows on disk), while the inner binary stays as the terse executable
+# name ("lba2cc" — what CLI users invoke and what CFBundleExecutable points
+# at). CMake has no single property that splits these, so we set
+# OUTPUT_NAME to the product name and rename the inner binary back to
+# LBA2_EXECUTABLE_NAME with a POST_BUILD step (ordered before codesign so
+# the signature covers the final layout).
 if(APPLE)
     set_target_properties(${LBA2_EXECUTABLE_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/packaging/Info.plist
-        OUTPUT_NAME ${LBA2_EXECUTABLE_NAME})
+        OUTPUT_NAME ${LBA2_PRODUCT_NAME})
     set_source_files_properties(
         ${CMAKE_BINARY_DIR}/packaging/${LBA2_DESKTOP_ID}.icns
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
     add_dependencies(${LBA2_EXECUTABLE_NAME} lba2_icns)
+
+    # Rename Contents/MacOS/<product-name> → Contents/MacOS/<exe-name>.
+    # CFBundleExecutable in Info.plist already points at LBA2_EXECUTABLE_NAME,
+    # so after the rename macOS launches the renamed file correctly.
+    add_custom_command(TARGET ${LBA2_EXECUTABLE_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rename
+                $<TARGET_FILE:${LBA2_EXECUTABLE_NAME}>
+                $<TARGET_BUNDLE_CONTENT_DIR:${LBA2_EXECUTABLE_NAME}>/MacOS/${LBA2_EXECUTABLE_NAME}
+        COMMENT "Renaming inner binary to ${LBA2_EXECUTABLE_NAME}"
+        VERBATIM)
 
     # Ad-hoc codesign the .app post-build. Apple Silicon (macOS 11+) refuses
     # to launch unsigned binaries — Gatekeeper reports the app as "damaged"
@@ -76,7 +96,7 @@ if(APPLE)
     add_custom_command(TARGET ${LBA2_EXECUTABLE_NAME} POST_BUILD
         COMMAND codesign --force --deep --sign -
                 $<TARGET_BUNDLE_DIR:${LBA2_EXECUTABLE_NAME}>
-        COMMENT "Ad-hoc codesigning ${LBA2_EXECUTABLE_NAME}.app"
+        COMMENT "Ad-hoc codesigning ${LBA2_PRODUCT_NAME}.app"
         VERBATIM)
 endif()
 # GCC LTO mis-infers T_PLASMA::data_start size when ptrc writes into Malloc tail (see ANIMTEX.CPP plasma case).

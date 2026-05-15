@@ -48,7 +48,7 @@ chmod +x lba2cc-*-anylinux-*.AppImage
 
 ### macOS
 
-Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `lba2cc.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
+Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `LBA2 Classic Community.app` to Applications. First launch needs right-click → **Open** (macOS Gatekeeper blocks unsigned apps on double-click). The DMG ships its own README covering this — read it before the first launch.
 
 ### Windows
 

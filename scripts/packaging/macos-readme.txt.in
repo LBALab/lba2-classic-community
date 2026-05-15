@@ -7,12 +7,12 @@
 INSTALLING
 ----------
 
-Drag @LBA2_EXECUTABLE_NAME@.app onto the Applications shortcut in this
+Drag "@LBA2_PRODUCT_NAME@.app" onto the Applications shortcut in this
 window. That copies it into your /Applications folder.
 
 First launch: macOS will block the app because it isn't notarized yet
 (notarization needs an Apple Developer account; on our roadmap). To
-bypass: right-click @LBA2_EXECUTABLE_NAME@.app in /Applications and pick
+bypass: right-click "@LBA2_PRODUCT_NAME@.app" in /Applications and pick
 "Open". You'll get a "this app is from an unidentified developer" dialog
 with an Open button — click it once. After that, double-click works.
 
@@ -20,12 +20,12 @@ If macOS instead says "the app is damaged and can't be opened" with only
 a Move to Bin button, that's the quarantine attribute blocking launch
 even after our ad-hoc signature. Run this once in Terminal to clear it:
 
-    xattr -cr /Applications/@LBA2_EXECUTABLE_NAME@.app
+    xattr -cr "/Applications/@LBA2_PRODUCT_NAME@.app"
 
 Then try the right-click → Open above.
 
 On macOS Sequoia (15+), Apple changed both the wording and the recovery
-flow. You'll see "Apple could not verify '@LBA2_EXECUTABLE_NAME@' is
+flow. You'll see "Apple could not verify '@LBA2_PRODUCT_NAME@' is
 free of malware that may harm your Mac." with only a Done button. The
 right-click → Open shortcut no longer works on Sequoia; the recovery
 flow is:
@@ -33,9 +33,9 @@ flow is:
     1. Click Done.
     2. Open System Settings → Privacy & Security.
     3. Scroll to the bottom — there's a one-time notice that
-       "@LBA2_EXECUTABLE_NAME@ was blocked to protect your Mac." Click
+       "@LBA2_PRODUCT_NAME@ was blocked to protect your Mac." Click
        Open Anyway and authenticate (password / Touch ID).
-    4. Try opening @LBA2_EXECUTABLE_NAME@.app again. This time you'll
+    4. Try opening "@LBA2_PRODUCT_NAME@.app" again. This time you'll
        get a different prompt with an Open button. Click it.
     5. Subsequent launches double-click normally.
 
@@ -50,7 +50,7 @@ This is the engine only — you need a legitimate copy of Little Big
 Adventure 2 / Twinsen's Odyssey from GOG, Steam, or your original
 retail CD.
 
-The first time you launch @LBA2_EXECUTABLE_NAME@.app, a folder picker
+The first time you launch "@LBA2_PRODUCT_NAME@.app", a folder picker
 will open and ask you to point at your retail install — the folder
 that contains lba2.hqr (alongside music/, video/, vox/, etc., or
 under a Common/ or CommonClassic/ subfolder for Steam/GOG re-releases).
@@ -59,12 +59,12 @@ Your choice is remembered, so subsequent launches skip the picker.
 To re-pick later (e.g. switching between two installs), launch from
 Terminal with --pick-game-dir:
 
-    /Applications/@LBA2_EXECUTABLE_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@ \
+    "/Applications/@LBA2_PRODUCT_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@" \
         --pick-game-dir
 
 Or skip the picker entirely with an explicit path:
 
-    /Applications/@LBA2_EXECUTABLE_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@ \
+    "/Applications/@LBA2_PRODUCT_NAME@.app/Contents/MacOS/@LBA2_EXECUTABLE_NAME@" \
         --game-dir "/path/to/your/lba2/install"
 
 The remembered choice lives at:

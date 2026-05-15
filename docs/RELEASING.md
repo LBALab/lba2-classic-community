@@ -556,15 +556,20 @@ so `find_package(SDL3)` resolves cleanly on both Apple Silicon (`/opt/homebrew`)
 and Intel (`/usr/local`). CI uses `libsdl-org/setup-sdl` instead and points at
 its own prefix — different machinery, same outcome.
 
-DMG layout (mounted view):
+DMG mounts as volume "LBA2 Classic Community <version>" with the items
+at the volume root (no wrapping directory):
 
 ```
-LBA2 Classic Community <version>/
-    lba2cc.app
-    Applications -> /Applications   (drag-to-install symlink)
-    README.txt
-    LICENSE.txt
+LBA2 Classic Community.app
+Applications -> /Applications   (drag-to-install symlink)
+README.txt
+LICENSE.txt
 ```
+
+Bundle directory carries `LBA2_PRODUCT_NAME` (the Finder display name).
+The inner Mach-O at `Contents/MacOS/lba2cc` and the DMG filename both
+follow `LBA2_EXECUTABLE_NAME` — kept space-free for CLI use and to match
+the cross-platform artifact naming (`<exe>-<version>-<platform>-<arch>`).
 
 The first-launch Gatekeeper friction (right-click → Open) is documented
 in the README inside the DMG. Code signing + notarization are deferred

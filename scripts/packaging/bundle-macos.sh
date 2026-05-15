@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
-# Bundle a built lba2cc.app into a macOS DMG release artifact.
+# Bundle a built .app into a macOS DMG release artifact.
 #
 # Shared by the local dry-run script (scripts/dev/build-macos-release.sh)
 # and the CI release workflow (.github/workflows/release-macos.yml). One
 # packaging codepath; same shape as bundle-windows.sh.
 #
 # Usage:
-#   bundle-macos.sh --app <path/to/lba2cc.app> \
+#   bundle-macos.sh --app <path/to/Foo.app> \
 #                   --version <version-string> \
 #                   --arch <arm64|x86_64> \
 #                   --build-dir <cmake-build-dir> \
 #                   --output-dir <where-to-drop-the-dmg>
 #
-# Produces: <output-dir>/lba2cc-<version>-macos-<arch>.dmg
+# Produces: <output-dir>/<exe-name>-<version>-macos-<arch>.dmg
+# (exe-name = LBA2_EXECUTABLE_NAME, kept space-free for sane filenames.)
 #
-# DMG layout (mounted view):
-#   <product-name>-<version>/
-#       lba2cc.app
-#       Applications -> /Applications  (drag-to-install symlink)
-#       README.txt   (CRLF-free; macOS notepad-friendly with LF)
+# DMG mounts as volume "<product-name> <version>" with the items at the
+# volume root (no wrapping directory — hdiutil's -srcfolder packs the
+# staging dir contents flat):
+#   <product-name>.app              (bundle dir = display name)
+#   Applications -> /Applications   (drag-to-install symlink)
+#   README.txt                      (LF line endings; TextEdit-friendly)
+#   LICENSE.txt
 #
 # Requires macOS host (uses hdiutil; no cross-platform alternative that
 # produces a real DMG). Use scripts/dev/build-macos-release.sh as the
@@ -65,9 +68,16 @@ fi
 
 # Same path-derivation pattern as bundle-windows.sh (no git dependency).
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-APP_NAME="$(basename "$APP_PATH")"          # lba2cc.app (or override)
-APP_STEM="${APP_NAME%.app}"                 # lba2cc
-ARTIFACT_NAME="${APP_STEM}-${VERSION}-macos-${ARCH}"
+APP_NAME="$(basename "$APP_PATH")"          # "LBA2 Classic Community.app"
+APP_STEM="${APP_NAME%.app}"                 # "LBA2 Classic Community" (display name)
+
+# The inner Mach-O is named after LBA2_EXECUTABLE_NAME (e.g. "lba2cc"),
+# not the bundle dir. Used for the DMG filename (kept space-free) and for
+# the README's CLI examples that reach into Contents/MacOS/.
+EXE_NAME=$(awk -F= '/^LBA2_EXECUTABLE_NAME:[^=]+=/{print $2; exit}' \
+    "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || echo "lba2cc")
+
+ARTIFACT_NAME="${EXE_NAME}-${VERSION}-macos-${ARCH}"
 ARTIFACT_DMG="${OUTPUT_DIR}/${ARTIFACT_NAME}.dmg"
 STAGING_DIR="${OUTPUT_DIR}/${ARTIFACT_NAME}-staging"
 
@@ -98,7 +108,7 @@ PRODUCT_DESC=$(awk -F= '/^LBA2_PRODUCT_DESCRIPTION:[^=]+=/{print $2; exit}' \
 sed -e "s|@LBA2_PRODUCT_NAME@|${PRODUCT_NAME}|g" \
     -e "s|@LBA2_PRODUCT_DESCRIPTION@|${PRODUCT_DESC}|g" \
     -e "s|@LBA2_VERSION_STRING@|${VERSION}|g" \
-    -e "s|@LBA2_EXECUTABLE_NAME@|${APP_STEM}|g" \
+    -e "s|@LBA2_EXECUTABLE_NAME@|${EXE_NAME}|g" \
     "$REPO_ROOT/scripts/packaging/macos-readme.txt.in" \
     > "$STAGING_DIR/README.txt"
 
