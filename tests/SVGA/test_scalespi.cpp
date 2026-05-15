@@ -3,8 +3,9 @@
  * The original ASM PROC only declared `uses ebp` but clobbers esi/edi/ebx
  * (callee-saved in cdecl). Fixed by adding `uses esi edi ebx` to the proc.
  *
- * CPP implementation ignores factorx/factory (always 1:1 blit).
- * ASM does real fixed-point scaling. ASM-vs-CPP equiv only at 1:1 scale.
+ * Covers the 1:1 fast path and the 16.16 fixed-point scaled path. The CPP
+ * implementation mirrors ScaleSpriteTransp's algorithm minus the
+ * transparency-table indirection.
  */
 #include "test_harness.h"
 #include <SVGA/SCALESPI.H>
@@ -103,6 +104,39 @@ static SpriteRunResult run_asm_case(S32 num, S32 x, S32 y) {
 static void assert_case_matches(const char *label, S32 num, S32 x, S32 y) {
     SpriteRunResult cpp_result = run_cpp_case(num, x, y);
     SpriteRunResult asm_result = run_asm_case(num, x, y);
+
+    ASSERT_ASM_CPP_EQ_INT(asm_result.xmin, cpp_result.xmin, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.xmax, cpp_result.xmax, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.ymin, cpp_result.ymin, label);
+    ASSERT_ASM_CPP_EQ_INT(asm_result.ymax, cpp_result.ymax, label);
+    ASSERT_ASM_CPP_MEM_EQ(asm_framebuf, cpp_framebuf, sizeof(cpp_framebuf), label);
+}
+
+static SpriteRunResult run_cpp_case_scaled(S32 num, S32 x, S32 y, S32 factorx, S32 factory) {
+    SpriteRunResult result;
+    setup_screen(cpp_framebuf);
+    ScaleSprite(num, x, y, factorx, factory, g_bank);
+    result.xmin = ScreenXMin;
+    result.xmax = ScreenXMax;
+    result.ymin = ScreenYMin;
+    result.ymax = ScreenYMax;
+    return result;
+}
+
+static SpriteRunResult run_asm_case_scaled(S32 num, S32 x, S32 y, S32 factorx, S32 factory) {
+    SpriteRunResult result;
+    setup_screen(asm_framebuf);
+    call_asm_ScaleSprite(num, x, y, factorx, factory, g_bank);
+    result.xmin = ScreenXMin;
+    result.xmax = ScreenXMax;
+    result.ymin = ScreenYMin;
+    result.ymax = ScreenYMax;
+    return result;
+}
+
+static void assert_case_matches_scaled(const char *label, S32 num, S32 x, S32 y, S32 factorx, S32 factory) {
+    SpriteRunResult cpp_result = run_cpp_case_scaled(num, x, y, factorx, factory);
+    SpriteRunResult asm_result = run_asm_case_scaled(num, x, y, factorx, factory);
 
     ASSERT_ASM_CPP_EQ_INT(asm_result.xmin, cpp_result.xmin, label);
     ASSERT_ASM_CPP_EQ_INT(asm_result.xmax, cpp_result.xmax, label);
@@ -218,6 +252,42 @@ static void test_asm_equiv_random(void) {
     }
 }
 
+static void test_asm_equiv_scaled_basic(void) {
+    build_multi_bank(8);
+    assert_case_matches_scaled("ScaleSprite 1:1 baseline", 0, 120, 80, 0x10000, 0x10000);
+    assert_case_matches_scaled("ScaleSprite scaled up", 3, 210, 140, 0x18000, 0x14000);
+    assert_case_matches_scaled("ScaleSprite scaled down", 5, 320, 200, 0x08000, 0x0C000);
+}
+
+static void test_asm_equiv_scaled_edge(void) {
+    build_multi_bank(8);
+    assert_case_matches_scaled("ScaleSprite scaled clipped top-left", 4, -3, -2, 0x10000, 0x10000);
+    assert_case_matches_scaled("ScaleSprite scaled fully clipped right", 2, 900, 50, 0x10000, 0x10000);
+    assert_case_matches_scaled("ScaleSprite negative-factor fallback", 6, 180, 150, -3, 0x10000);
+    assert_case_matches_scaled("ScaleSprite zero-factor early exit", 1, 70, 60, 0, 0x10000);
+}
+
+static void test_asm_equiv_scaled_random(void) {
+    build_multi_bank(8);
+    rng_seed(0xC0DEC0DE);
+    int prev = test_failures;
+    for (int round = 0; round < 32 && test_failures == prev; round++) {
+        S32 num = (S32)(rng_next() % 8);
+        S32 x = (S32)(rng_next() % 700) - 30;
+        S32 y = (S32)(rng_next() % 540) - 30;
+        S32 factorx_choices[] = {0x10000, 0x08000, 0x18000, 0x14000, -5, 0};
+        S32 factory_choices[] = {0x10000, 0x0C000, 0x16000, 0x09000, -7, 0};
+        S32 factorx = factorx_choices[rng_next() % 6];
+        S32 factory = factory_choices[rng_next() % 6];
+
+        char label[128];
+        snprintf(label, sizeof(label),
+                 "ScaleSprite scaled random #%d spr=%d pos=(%d,%d) fx=%d fy=%d",
+                 round, num, x, y, factorx, factory);
+        assert_case_matches_scaled(label, num, x, y, factorx, factory);
+    }
+}
+
 int main(void) {
     RUN_TEST(test_basic);
     RUN_TEST(test_asm_minimal);
@@ -234,6 +304,9 @@ int main(void) {
     RUN_TEST(test_asm_equiv_1to1);
     RUN_TEST(test_asm_equiv_clipped);
     RUN_TEST(test_asm_equiv_random);
+    RUN_TEST(test_asm_equiv_scaled_basic);
+    RUN_TEST(test_asm_equiv_scaled_edge);
+    RUN_TEST(test_asm_equiv_scaled_random);
     TEST_SUMMARY();
     return test_failures != 0;
 }
