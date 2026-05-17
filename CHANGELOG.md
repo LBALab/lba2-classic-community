@@ -10,6 +10,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.10.0] - 2026-05-17
+
 ### New features (opt-in)
 
 - Cross-platform first-launch folder picker: when no retail game data is
@@ -66,6 +70,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Release builds
   ([#115](https://github.com/LBALab/lba2-classic-community/issues/115),
   [#132](https://github.com/LBALab/lba2-classic-community/pull/132)).
+- Terrain vertex projection: dropped the no-op / off-by-one `+0.5`
+  rounding bias that desynced terrain vertex positions from the rest
+  of the scene
+  ([#145](https://github.com/LBALab/lba2-classic-community/pull/145)).
 
 ### Refactoring
 
@@ -436,5 +444,6 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/LBALab/lba2-classic-community/compare/1f3e871...v0.9.0
