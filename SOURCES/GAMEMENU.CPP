@@ -3,6 +3,7 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #include "JOYSTICK.H"
+#include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 
 #include <SVGA/SCREEN.H>
@@ -1059,42 +1060,6 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
         }
     }
     return 0;
-}
-
-// True if `s` ends in the 19-character `dddd-dd-dd dd-dd-dd` shape used by
-// the gamepad datetime-save flow — either bare (19 chars total) or scene-
-// prefixed with " - " before it (e.g. "Citadel Island - 2026-05-17 14-30-00").
-// Reserved so the named and datetime save namespaces cannot collide — a
-// keyboard user typing such a name would otherwise be able to clobber a
-// gamepad-created file (or vice versa). A trailing word ("2026-05-17 hero")
-// or partial date ("2026-05-17") is still allowed.
-static S32 IsDatetimeReservedShape(const char *s) {
-    if (s == NULL)
-        return FALSE;
-    size_t len = strlen(s);
-    if (len < 19)
-        return FALSE;
-    const char *p = s + len - 19;
-    // If there's anything before the trailing datetime, require " - " glue —
-    // otherwise "Foo-2026-05-17 14-30-00" would be a false positive.
-    if (p != s) {
-        if (len < 22 || memcmp(p - 3, " - ", 3) != 0)
-            return FALSE;
-    }
-    // Positions in p:  0123456789012345678
-    // Expected:        dddd-dd-dd dd-dd-dd
-    static const char kDigits[19] = {1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1};
-    static const char kSeps[19] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, ' ', 0, 0, '-', 0, 0, '-', 0, 0};
-    for (int i = 0; i < 19; i++) {
-        if (kDigits[i]) {
-            if (p[i] < '0' || p[i] > '9')
-                return FALSE;
-        } else {
-            if (p[i] != kSeps[i])
-                return FALSE;
-        }
-    }
-    return TRUE;
 }
 
 // TODO(gamepad): uses GetAscii() (keyboard-only) — pure-gamepad users cannot enter
@@ -3224,6 +3189,35 @@ S32 IsFirstGameLaunched(void) {
         0, 74,  // Options
         0, 75,  // Quitter
 */
+// Post-save success cue: positive chime + brief centred message overlay.
+// Shared by the regular save (case 73) and debug bug-save (case 2001) paths
+// in MainGameMenu. Up to ~1 second on screen — skippable by any fire / action
+// / menu input. After the wait, drains those inputs (via InitWaitNoInput) so
+// the skip-press doesn't immediately re-trigger menu navigation when control
+// returns to the surrounding menu loop.
+static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
+    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+    CopyScreen(Screen, Log);
+    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+    {
+        char savedMsg[256];
+        CopyUtf8ToCp850(savedMsg, sizeof savedMsg, GetLocalizedMenuLabel(label));
+        DrawSingleString(320, 240, savedMsg);
+    }
+    BoxStaticFullflip();
+    {
+        S32 timer;
+        ManageTime();
+        timer = TimerRefHR + 1000;
+        while (TimerRefHR <= timer AND !MyKey
+                                 AND !(Input & (I_FIRE | I_ACTION | I_MENUS))) {
+            ManageTime();
+            MyGetInput();
+        }
+    }
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
+}
+
 void BuildGameMainMenu(S32 firstloop) {
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
     char memogamepathname[ADELINE_MAX_PATH];
@@ -3620,32 +3614,10 @@ S32 MainGameMenu(S32 load) {
                     HQ_ResumeSamples();
                     UnsetClipWindow();
 
-                    // Success feedback. The original "Sauvegarde en cours"
-                    // overlay inside SaveGame is /*-wrapped and runs before
-                    // the write (and is sub-frame on modern hardware); it
-                    // never confirmed success. Add a real post-save cue:
-                    // SAMPLE_FOUND_OBJ (the engine's "positive chime", used
-                    // for item pickup) plus a brief centred string for ~500ms.
-                    // The wait pattern matches the existing one at line 4116.
-                    // Benefits keyboard and gamepad flows equally.
-                    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
-                    CopyScreen(Screen, Log);
-                    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
-                    {
-                        char savedMsg[256];
-                        CopyUtf8ToCp850(savedMsg, sizeof savedMsg,
-                                        GetLocalizedMenuLabel(MENU_LABEL_GAME_SAVED));
-                        DrawSingleString(320, 240, savedMsg);
-                    }
-                    BoxStaticFullflip();
-                    {
-                        S32 timer;
-                        ManageTime();
-                        timer = TimerRefHR + 1000;
-                        while (TimerRefHR <= timer) {
-                            ManageTime();
-                        }
-                    }
+                    // Success feedback: chime + brief overlay, skippable.
+                    // See ShowSaveConfirmation. Benefits keyboard, mouse,
+                    // and gamepad flows equally — pre-PR, this was silent.
+                    ShowSaveConfirmation(MENU_LABEL_GAME_SAVED);
                 }
 
                 CopyScreen(Screen, Log);
@@ -3724,26 +3696,7 @@ S32 MainGameMenu(S32 load) {
                     SaveGame(TRUE);
                     NewCube = savenewcube;
                     HQ_ResumeSamples();
-
-                    // Same post-save feedback as case 73 (see comment there).
-                    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
-                    CopyScreen(Screen, Log);
-                    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
-                    {
-                        char savedMsg[256];
-                        CopyUtf8ToCp850(savedMsg, sizeof savedMsg,
-                                        GetLocalizedMenuLabel(MENU_LABEL_BUG_SAVED));
-                        DrawSingleString(320, 240, savedMsg);
-                    }
-                    BoxStaticFullflip();
-                    {
-                        S32 timer;
-                        ManageTime();
-                        timer = TimerRefHR + 1000;
-                        while (TimerRefHR <= timer) {
-                            ManageTime();
-                        }
-                    }
+                    ShowSaveConfirmation(MENU_LABEL_BUG_SAVED);
                 }
 
                 CopyScreen(Screen, Log);
