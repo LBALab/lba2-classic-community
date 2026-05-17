@@ -880,8 +880,16 @@ S32 FindPlayerFile() {
 
 #define DrawCursor() AffGraph(0, CursorX + 4, CursorY, HQR_Get(HQRPtrSprite, 9));
 
+// Forward refs to marquee state defined below (DrawOneChoice's neighbourhood,
+// ~line 1925). Reused here so the save-slot list can scroll overflowing names.
+extern S32 WayChoice;
+extern S32 DeltaChoice;
+extern MOVE MoveChoice;
+extern void InitShakeChoice(void);
+
 void DrawOneString(S32 x, S32 y, char *playername, S32 draw) {
     S32 x0, y0, x1, y1;
+    S32 dx;
 
     x0 = x - LargeurMenu / 2;
     x1 = x + LargeurMenu / 2;
@@ -911,9 +919,39 @@ void DrawOneString(S32 x, S32 y, char *playername, S32 draw) {
 
     RestoreAngles(x0, y0, x1, y1);
 
-    // text
+    // text — clipped to the box so long names (e.g. scene-aware gamepad
+    // saves "Désert de la Feuille Blanche - 2026-05-17 14-30-00") cannot
+    // bleed past the frame. If the text overflows the box: selected slot
+    // (draw == 1) ping-pong-scrolls via WayChoice/DeltaChoice/MoveChoice,
+    // mirroring DrawOneChoice (line ~2090); unselected slot is left-aligned
+    // and visually truncated. Caller is responsible for InitShakeChoice()
+    // on selection change so the scroll restarts from the left edge.
     ColorFont(CoulTextMenu);
-    Font(x - SizeFont(playername) / 2, y - 18, playername);
+    MemoClip();
+    SetClip(x0 + 1, y0, x1 - 1, y1);
+    dx = SizeFont(playername);
+    if (dx > LargeurMenu) {
+        if (draw != 1) {
+            Font(x0 + 8, y - 18, playername);
+        } else {
+            if (WayChoice == -1)
+                DeltaChoice -= GetDeltaMove(&MoveChoice);
+            else
+                DeltaChoice += GetDeltaMove(&MoveChoice);
+            if (DeltaChoice < LargeurMenu - dx - 8) {
+                DeltaChoice = LargeurMenu - dx - 8;
+                WayChoice = 1;
+            }
+            if (DeltaChoice > 8) {
+                DeltaChoice = 8;
+                WayChoice = -1;
+            }
+            Font(x0 + DeltaChoice, y - 18, playername);
+        }
+    } else {
+        Font(x - dx / 2, y - 18, playername);
+    }
+    RestoreClip();
 
     if (CursorActif)
         DrawCursor();
@@ -1316,6 +1354,10 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     save_prev_click = 0;
     mouse_fire = 0;
 
+    // Marquee state: starts left-aligned each time we enter the menu; reset
+    // again on every selection change via the flag==1 redraw below.
+    InitShakeChoice();
+
     while (MyKey != K_ESC AND !(Input & I_MENUS)) {
         ManageTime();
 
@@ -1325,6 +1367,9 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         }
 
         if (flag == 1) {
+            // Reset marquee so the newly-selected slot starts scrolling
+            // from the left edge — matches DrawGameMenu's pattern.
+            InitShakeChoice();
             for (n = 0; n < NB_GAME_CHOICE; n++) {
                 if (n + start >= nb)
                     break;
@@ -1358,6 +1403,22 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             timeranotherkey = TimerRefHR + TEMPO_REPEAT_KEY;
             Input = MyKey = 0;
             flag = 0;
+        }
+
+        // Per-frame: redraw the selected slot so the marquee scroll advances
+        // on long names that don't fit the box (DrawOneString does the
+        // overflow detection internally). The flag==1 path above only fires
+        // on selection change; this keeps the animation alive in between.
+        {
+            S32 sn = select - start;
+            if (sn >= 0 && sn < NB_GAME_CHOICE && (start + sn) < nb) {
+                S32 sdraw = 1;
+                if (start > 0 AND sn == 0)
+                    sdraw |= ARROW_SG;
+                else if ((start + NB_GAME_CHOICE < nb) AND(sn == NB_GAME_CHOICE - 1))
+                    sdraw |= ARROW_ID;
+                DrawOneString(320, Y_START_CHOICE + 60 * sn, ptrlist[select], sdraw);
+            }
         }
 
         if (timerdraw /*AND TimerRefHR>=timerdraw*/) {
