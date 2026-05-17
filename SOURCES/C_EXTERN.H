@@ -64,8 +64,8 @@ extern S32 MyKey;
 // 1 = the most recent user input came from a gamepad (button press or stick
 // motion past the deadzone); 0 = keyboard or mouse. Last-input-wins, updated
 // from the SDL event loop. Read by the save menu to skip text entry on
-// gamepad-only setups. Defined in GLOBAL.CPP; LIB386 consumers declare it
-// locally as extern "C" since LIB386 cannot include this header.
+// gamepad-only setups. Defined in LIB386/SYSTEM/KEYBOARD.CPP (rather than
+// GLOBAL.CPP) so the symbol is in libsys.a, which every test binary links.
 extern S32 LastInputWasGamepad;
 
 extern S32 LastJoyFlag;

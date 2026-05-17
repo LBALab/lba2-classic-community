@@ -20,11 +20,12 @@ S32 AsciiMode = FALSE;
 S32 Key;
 U8 TabKeys[TABKEYS_NUM_KEYS];
 
-// Game-side "last input was gamepad" flag, defined in SOURCES/GLOBAL.CPP and
-// declared in C_EXTERN.H (which LIB386 cannot include for layering reasons).
-// Cleared here on any keyboard activity so the save menu routes through the
-// existing named-save flow when the user is on the keyboard.
-extern "C" S32 LastInputWasGamepad;
+// Last-input-wins device flag, read by the save menu to skip text entry on
+// gamepad-only setups. Declared extern in SOURCES/C_EXTERN.H. Defined here
+// (rather than SOURCES/GLOBAL.CPP) so the symbol lives in libsys.a, which
+// every test binary links; otherwise tests that pull libsys.a but not the
+// SOURCES objects fail to link the HandleEventsXxx consumers below.
+S32 LastInputWasGamepad = 0;
 
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {

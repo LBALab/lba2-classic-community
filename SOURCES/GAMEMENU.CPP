@@ -1035,33 +1035,10 @@ static S32 IsDatetimeReservedShape(const char *s) {
     return TRUE;
 }
 
-// Gamepad-only save bypass: builds a YYYY-MM-DD_HH-MM-SS name from local
-// wall-clock time, populates PlayerName (which SaveGame writes inside the
-// file at SAVEGAME.CPP:580) and GamePathname (which Save() targets), then
-// returns TRUE. A same-second double-tap overwrites the prior file — there
-// is no suffix collision logic, matching the chosen "quick-save reflex"
-// semantics from the design doc.
-static S32 PrepareDatetimeSaveSlot(void) {
-    char tmpPlayerFilename[ADELINE_MAX_PATH];
-    char datetime[32];
-    time_t now = time(NULL);
-    struct tm *lt = localtime(&now);
-    if (lt == NULL)
-        return FALSE;
-    if (strftime(datetime, sizeof datetime, "%Y-%m-%d_%H-%M-%S", lt) != 19)
-        return FALSE;
-
-    strncpy(PlayerName, datetime, MAX_SIZE_PLAYER_NAME);
-    PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
-
-    snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", datetime);
-    GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
-    return TRUE;
-}
-
 // TODO(gamepad): uses GetAscii() (keyboard-only) — pure-gamepad users cannot enter
-// save/profile names. Pure-pad users get the datetime-save bypass in
-// MainGameMenu instead (see PrepareDatetimeSaveSlot).
+// save/profile names. Pure-pad users are routed past this function inside
+// ChoosePlayerName: new-game slot gets a datetime stem, existing slot keeps
+// its current name (overwrite). See the LastInputWasGamepad branch there.
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
     S32 flag = 1;
@@ -1722,6 +1699,51 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
                 while (Input & I_FIRE OR MyKey == K_ENTER)
                     MyGetInput();
+
+                // Gamepad routing: pure-pad users have no practical way to
+                // type a name (InputPlayerName is keyboard-only). For a
+                // "New Game" slot we synthesise a local-time datetime stem;
+                // for an existing slot we keep the slot's own name and just
+                // overwrite. Same-second collision overwrites silently —
+                // matches the quick-save reflex chosen during design. The
+                // menu UI (slot list + New Game entry) is identical to the
+                // keyboard flow; only the text-entry step is bypassed.
+                if (LastInputWasGamepad) {
+                    S32 ok = TRUE;
+                    if (select == nb - 1) {
+                        char datetime[32];
+                        time_t now = time(NULL);
+                        struct tm *lt = localtime(&now);
+                        if (lt == NULL || strftime(datetime, sizeof datetime,
+                                                   "%Y-%m-%d_%H-%M-%S", lt) != 19) {
+                            ok = FALSE;
+                        } else {
+                            strncpy(PlayerName, datetime, MAX_SIZE_PLAYER_NAME);
+                            PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
+                        }
+                    }
+                    // Existing slot: PlayerName already holds the slot name
+                    // from the strcpy earlier in this loop (around line 1660),
+                    // so nothing to fill — just resolve the path.
+                    if (ok) {
+                        char tmpPlayerFilename[ADELINE_MAX_PATH];
+                        snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA",
+                                 PlayerName);
+#ifdef DEBUG_TOOLS
+                        if (isBugMode)
+                            GetBugPath(GamePathname, ADELINE_MAX_PATH,
+                                       tmpPlayerFilename);
+                        else
+#endif
+                            GetSavePath(GamePathname, ADELINE_MAX_PATH,
+                                        tmpPlayerFilename);
+                        retval = 2;
+                        break;
+                    }
+                    // strftime is effectively infallible on real time_t; if
+                    // it does fail, fall through to the keyboard flow rather
+                    // than write a garbage filename.
+                }
 
                 if (InputPlayerName(select - start, PlayerName)) {
                     char tmpPlayerFilename[ADELINE_MAX_PATH];
@@ -3467,19 +3489,7 @@ S32 MainGameMenu(S32 load) {
             if (!firstloop) {
                 savenewcube = NewCube;
 
-                // Pure-gamepad users have no practical way to type a name
-                // (InputPlayerName is keyboard-only). Last-input-wins routes
-                // them straight to a datetime-named save and skips the
-                // name-entry menu; keyboard/mouse users keep the named flow.
-                if (LastInputWasGamepad) {
-                    if (PrepareDatetimeSaveSlot()) {
-                        NumVersion = NUM_VERSION | SAVE_COMPRESS;
-                        CopyScreen(Screen, Log);
-                        SaveGame(TRUE);
-                        HQ_ResumeSamples();
-                        UnsetClipWindow();
-                    }
-                } else if (ChoosePlayerName(42, FALSE, TRUE)) {
+                if (ChoosePlayerName(42, FALSE, TRUE)) {
                     NumVersion = NUM_VERSION | SAVE_COMPRESS;
                     CopyScreen(Screen, Log);
                     if (FileSize(OldGamePathname))
@@ -3559,20 +3569,7 @@ S32 MainGameMenu(S32 load) {
             if (!firstloop) {
                 savenewcube = NewCube;
 
-                // Mirror the case-73 routing for the debug-bug save flow.
-                // Note: PrepareDatetimeSaveSlot writes to the regular save
-                // directory via GetSavePath, not the bug directory — bug-mode
-                // gamepad saves intentionally fall back to keyboard for now
-                // (debug-only path, narrow audience).
-                if (LastInputWasGamepad) {
-                    if (PrepareDatetimeSaveSlot()) {
-                        NumVersion = NUM_VERSION | SAVE_COMPRESS;
-                        CopyScreen(Screen, Log);
-                        SaveGame(TRUE);
-                        NewCube = savenewcube;
-                        HQ_ResumeSamples();
-                    }
-                } else if (ChoosePlayerName(42 | 0x40000000, FALSE, TRUE)) {
+                if (ChoosePlayerName(42 | 0x40000000, FALSE, TRUE)) {
                     NumVersion = NUM_VERSION | SAVE_COMPRESS;
                     CopyScreen(Screen, Log);
                     SaveGame(TRUE);
