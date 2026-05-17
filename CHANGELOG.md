@@ -10,14 +10,87 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Debug tooling
+### New features (opt-in)
 
+- Cross-platform first-launch folder picker: when no retail game data is
+  found via the usual discovery paths (`./data`, `../LBA2`,
+  `LBA2_GAME_DIR`, `--game-dir`), the engine now prompts for the
+  install folder via the native system file dialog instead of exiting
+  with an error. Picked path is persisted to a user-config file for
+  next run; pass `--pick-game-dir` to force the picker again. Works on
+  Windows, macOS, and Linux (zenity / xdg-desktop-portal-* on Linux,
+  with explanatory fallback text when no backend is installed)
+  ([#107](https://github.com/LBALab/lba2-classic-community/issues/107),
+  [#111](https://github.com/LBALab/lba2-classic-community/pull/111)).
+- Save/load list now navigable with gamepad D-pad
+  ([#79](https://github.com/LBALab/lba2-classic-community/pull/79)).
+- Auto-named saves for gamepad users: gamepad input on the save-name
+  prompt skips text entry and writes a scene-aware default name
+  (`<scene> — <date> <time>`), localised across the six menu languages.
+  Long names clip with a marquee in the save list; post-save success
+  chime + "Game saved" overlay
+  ([#151](https://github.com/LBALab/lba2-classic-community/pull/151)).
 - Console `give` command now actually grants inventory items instead of
   only playing the found-object cinematic. It takes an item name
   (`give conch`), with the numeric index still accepted as a fallback;
   run `give` with no arguments to list every item name. Countable items
   accept an optional count (`give gem 5`, `give money 5000`,
-  `give clover 3`). See [docs/CONSOLE.md](docs/CONSOLE.md).
+  `give clover 3`)
+  ([#143](https://github.com/LBALab/lba2-classic-community/pull/143)) —
+  see [docs/CONSOLE.md](docs/CONSOLE.md).
+- Console `slide` command jumps directly to a distributor/bumper slide
+  (Adeline, EA, etc.); companion `distrib` command lists the available
+  slide IDs
+  ([#116](https://github.com/LBALab/lba2-classic-community/pull/116)).
+
+### Stability & fixes
+
+- `ScaleSprite` scaled path restored. A 2024 ASM→CPP port had stripped
+  the scaled-output branches, leaving the function effectively unscaled
+  for months; the regression went unnoticed because the existing test
+  only varied numerator/x/y, not the scale factor. Mirrored back from
+  `SCALESPT` ASM, and the test matrix extended to cover factor sweeps
+  ([#148](https://github.com/LBALab/lba2-classic-community/pull/148)).
+- Drop wrong-typed `extern` for `TempoRealAngle` in savegame load —
+  the conflicting declaration caused subtle angle corruption on load
+  ([#146](https://github.com/LBALab/lba2-classic-community/pull/146)).
+- `GereExtras` no longer reads uninitialised old-position memory
+  ([#142](https://github.com/LBALab/lba2-classic-community/pull/142)).
+- Undefined-behaviour hardening pass from the static-analysis sweep:
+  shift-by-32 UB in the `POLYGOUR` dither rotate, signed-overflow in
+  `I_WEAPON_7` / `A_FLIP` bit masks, and `TheEndCheckFile` marked
+  `noreturn` to close null-deref paths flagged downstream
+  ([#140](https://github.com/LBALab/lba2-classic-community/pull/140)).
+- `deffile` config parser: signed-`char` EOL desync and self-aliasing
+  `strcpy` cleaned up; both were latent UB hits surfaced by Windows
+  Release builds
+  ([#115](https://github.com/LBALab/lba2-classic-community/issues/115),
+  [#132](https://github.com/LBALab/lba2-classic-community/pull/132)).
+
+### Refactoring
+
+- Framebuffer dimensions extracted to `RESOLUTION_X` / `RESOLUTION_Y`
+  in a new `LIB386/H/SYSTEM/RESOLUTION.H`. Cinema bars and sort-tree
+  preclip now route through `ModeDesiredX/Y` instead of hardcoded
+  `640`/`480`. Foundation for the widescreen / higher-resolution
+  rendering work
+  ([#134](https://github.com/LBALab/lba2-classic-community/pull/134)).
+
+### Game data, config, and UX
+
+- `lba2.cfg` defaults modernised for the open-source era: fullscreen on
+  by default (`DisplayFullScreen=1`), Version row defaults tightened to
+  match the shipping engine
+  ([#117](https://github.com/LBALab/lba2-classic-community/pull/117)).
+
+### Tools
+
+- `scripts/dev/extract_lba2_gog_media.py` extracts the retail media tree
+  from the GOG Original Edition `LBA2.GOG` bin/cue image (ISO9660 reader
+  with no external `mount`/`isoinfo` dependency). Lets users with the
+  GOG install seed `./data` without owning the original CDs
+  ([#119](https://github.com/LBALab/lba2-classic-community/issues/119),
+  [#123](https://github.com/LBALab/lba2-classic-community/pull/123)).
 
 ### Cross-platform & build
 
@@ -29,16 +102,80 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   static-linked SDL3, no `.dylib` dependencies, ad-hoc codesigned to
   satisfy Apple Silicon's mandatory bundle integrity check. First launch
   still needs the right-click → Open Gatekeeper bypass (Developer ID +
-  notarization deferred); documented in the README inside the DMG.
-  Intel-Mac users can produce a local DMG via
+  notarization deferred); documented in the README inside the DMG, and
+  the Sequoia (15+) `xattr -dr com.apple.quarantine` recovery flow is
+  spelled out in [docs/RELEASING.md](docs/RELEASING.md). Intel-Mac users
+  can produce a local DMG via
   `scripts/dev/build-macos-release.sh --preset macos_x86_64` while
-  hosted Intel runners are unreliable.
+  hosted Intel runners are unreliable
+  ([#102](https://github.com/LBALab/lba2-classic-community/pull/102),
+  [#103](https://github.com/LBALab/lba2-classic-community/pull/103),
+  [#105](https://github.com/LBALab/lba2-classic-community/pull/105),
+  [#106](https://github.com/LBALab/lba2-classic-community/pull/106),
+  [#149](https://github.com/LBALab/lba2-classic-community/pull/149)).
+- Linux binary tarball release artifact alongside the AppImage: same
+  static-linked single-binary layout, drop-in for distros where AppImage
+  FUSE is a hassle. `libxtst-dev` added to the tarball build deps after
+  the first CI run surfaced the missing X11 link
+  ([#124](https://github.com/LBALab/lba2-classic-community/pull/124),
+  [#125](https://github.com/LBALab/lba2-classic-community/pull/125)).
+- Post-release smoke-test script (`scripts/dev/verify-release.sh`)
+  downloads each published Linux artifact, runs the discovery
+  self-tests, and reports per-asset pass/fail. Pointers added to the
+  releasing recipe and announcement steps
+  ([#126](https://github.com/LBALab/lba2-classic-community/pull/126),
+  [#127](https://github.com/LBALab/lba2-classic-community/pull/127)).
 - Rolling `latest` pre-release: every push to `main` triggers a CI build
   of all three platforms (Linux AppImages, Windows ZIP, macOS DMG) and
   force-updates a `latest`-tagged GitHub Release. Marked pre-release; the
   most recent stable tag keeps GitHub's "Latest" promotion. Lets community
-  testers grab bleeding-edge main builds without cloning + building.
-  See `docs/RELEASING.md` "Rolling latest pre-release".
+  testers grab bleeding-edge main builds without cloning + building
+  ([#108](https://github.com/LBALab/lba2-classic-community/pull/108)) —
+  see [docs/RELEASING.md](docs/RELEASING.md) "Rolling latest pre-release".
+- Release workflow hardening: low-friction release-target additions,
+  CI path filters so doc-only pushes skip the heavy matrix, pinned
+  `setup-sdl` SHA + per-arch cache discriminator after a stale-cache
+  drift incident
+  ([#129](https://github.com/LBALab/lba2-classic-community/pull/129),
+  [#130](https://github.com/LBALab/lba2-classic-community/pull/130)).
+
+### CI & developer workflow
+
+- `clang-tidy` static-analysis pass wired into CI, with a tuned
+  check-list that silences bulk-noise categories (Watcom-era idioms,
+  C-style casts in ported code) while keeping the high-signal UB /
+  memory-safety / portability checks. The first analysis pass produced
+  the UB-hardening fixes listed above
+  ([#139](https://github.com/LBALab/lba2-classic-community/pull/139),
+  [#141](https://github.com/LBALab/lba2-classic-community/pull/141)).
+- Docs-only gate for the required build/test checks so README/CHANGELOG
+  edits don't block on the full matrix
+  ([#136](https://github.com/LBALab/lba2-classic-community/pull/136)).
+- Optional `pre-commit` hook running `check-format.sh` for contributors
+  who'd rather catch clang-format mismatches locally than in CI
+  ([#133](https://github.com/LBALab/lba2-classic-community/pull/133)).
+
+### Documentation
+
+- [docs/WIDESCREEN.md](docs/WIDESCREEN.md) — phased plan (A–E) for the
+  widescreen / higher-resolution work, with the framebuffer-extraction
+  refactor above as its first landed phase
+  ([#135](https://github.com/LBALab/lba2-classic-community/pull/135)).
+- [docs/CI.md](docs/CI.md) — map of the CI workflow surface (matrix
+  builds, gates, release flow) so contributors can reason about a
+  failing job without spelunking the YAML
+  ([#137](https://github.com/LBALab/lba2-classic-community/pull/137)).
+- [docs/SPRITES.md](docs/SPRITES.md) — sprite/blit pipeline reference,
+  including the `ScaleSprite` path layout and the test gap that hid the
+  scaled-path regression for months.
+- [docs/AUDIO.md](docs/AUDIO.md) — retail audio asset inventory: what's
+  ADPCM-WAV, what's MIDI, and which backend owns which path.
+
+### Contributors
+
+Welcome to a new contributor since v0.9.0:
+[@b-tuma](https://github.com/b-tuma) — gamepad D-pad navigation for the
+save/load list ([#79](https://github.com/LBALab/lba2-classic-community/pull/79)).
 
 ## [0.9.0] - 2026-05-09
 
