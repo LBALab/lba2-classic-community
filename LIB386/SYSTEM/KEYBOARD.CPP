@@ -20,6 +20,13 @@ S32 AsciiMode = FALSE;
 S32 Key;
 U8 TabKeys[TABKEYS_NUM_KEYS];
 
+// Last-input-wins device flag, read by the save menu to skip text entry on
+// gamepad-only setups. Declared extern in SOURCES/C_EXTERN.H. Defined here
+// (rather than SOURCES/GLOBAL.CPP) so the symbol lives in libsys.a, which
+// every test binary links; otherwise tests that pull libsys.a but not the
+// SOURCES objects fail to link the HandleEventsXxx consumers below.
+S32 LastInputWasGamepad = 0;
+
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {
     ManageEvents();
@@ -89,9 +96,17 @@ void ManageKeyboard() {
 }
 
 void HandleEventsKeyboard(const void *event) {
-    // Empty
-    // New implementation using SDL does not make use of events, but this may
-    //  change in the future
+    // Keyboard *state* is read via SDL_GetKeyboardState in UpdateKeyboardState;
+    // we don't consume key events to drive TabKeys. The one thing we do here
+    // is sample SDL_EVENT_KEY_DOWN to maintain the "last input was gamepad"
+    // signal: a real key-down is unambiguous evidence the user is on the
+    // keyboard, in a way that polled state isn't (polled state reads "down"
+    // on every frame a held key is depressed and would constantly fight any
+    // gamepad signal during normal play).
+    const SDL_Event *ev = (const SDL_Event *)event;
+    if (ev->type == SDL_EVENT_KEY_DOWN) {
+        LastInputWasGamepad = 0;
+    }
 }
 
 // =============================================================================

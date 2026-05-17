@@ -3,6 +3,7 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #include "JOYSTICK.H"
+#include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 
 #include <SVGA/SCREEN.H>
@@ -20,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 /*══════════════════════════════════════════════════════════════════════════*
  *══════════════════════════════════════════════════════════════════════════*/
@@ -282,6 +284,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_CLASSIC_CAMERA,
     MENU_LABEL_CONTROLLER,
     MENU_LABEL_GAME_CONTROLLER,
+    MENU_LABEL_GAME_SAVED,
+    MENU_LABEL_BUG_SAVED,
     MENU_LABEL_COUNT,
 };
 
@@ -297,6 +301,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Classic camera",
         "Controls",
         "Configure gamepad",
+        "Game saved",
+        "Bug saved",
     },
     {
         "Choix de la langue",
@@ -309,6 +315,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Caméra classique",
         "Contrôles",
         "Configuration manette",
+        "Partie sauvegardée",
+        "Bug sauvegardé",
     },
     {
         "Sprachauswahl",
@@ -321,6 +329,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Klassische Kamera",
         "Steuerung",
         "Gamepad konfigurieren",
+        "Spiel gespeichert",
+        "Fehler gespeichert",
     },
     {
         "Elegir idioma",
@@ -333,6 +343,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Cámara clásica",
         "Controles",
         "Configurar mando",
+        "Partida guardada",
+        "Error guardado",
     },
     {
         "Scegli lingua",
@@ -345,6 +357,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Telecamera classica",
         "Controlli",
         "Configura gamepad",
+        "Partita salvata",
+        "Bug salvato",
     },
     {
         "Escolha do idioma",
@@ -357,6 +371,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Câmera clássica",
         "Controles",
         "Configurar gamepad",
+        "Jogo salvo",
+        "Erro salvo",
     },
 };
 
@@ -865,8 +881,16 @@ S32 FindPlayerFile() {
 
 #define DrawCursor() AffGraph(0, CursorX + 4, CursorY, HQR_Get(HQRPtrSprite, 9));
 
+// Forward refs to marquee state defined below (DrawOneChoice's neighbourhood,
+// ~line 1925). Reused here so the save-slot list can scroll overflowing names.
+extern S32 WayChoice;
+extern S32 DeltaChoice;
+extern MOVE MoveChoice;
+extern void InitShakeChoice(void);
+
 void DrawOneString(S32 x, S32 y, char *playername, S32 draw) {
     S32 x0, y0, x1, y1;
+    S32 dx;
 
     x0 = x - LargeurMenu / 2;
     x1 = x + LargeurMenu / 2;
@@ -896,9 +920,39 @@ void DrawOneString(S32 x, S32 y, char *playername, S32 draw) {
 
     RestoreAngles(x0, y0, x1, y1);
 
-    // text
+    // text — clipped to the box so long names (e.g. scene-aware gamepad
+    // saves "Désert de la Feuille Blanche - 2026-05-17 14-30-00") cannot
+    // bleed past the frame. If the text overflows the box: selected slot
+    // (draw == 1) ping-pong-scrolls via WayChoice/DeltaChoice/MoveChoice,
+    // mirroring DrawOneChoice (line ~2090); unselected slot is left-aligned
+    // and visually truncated. Caller is responsible for InitShakeChoice()
+    // on selection change so the scroll restarts from the left edge.
     ColorFont(CoulTextMenu);
-    Font(x - SizeFont(playername) / 2, y - 18, playername);
+    MemoClip();
+    SetClip(x0 + 1, y0, x1 - 1, y1);
+    dx = SizeFont(playername);
+    if (dx > LargeurMenu) {
+        if (draw != 1) {
+            Font(x0 + 8, y - 18, playername);
+        } else {
+            if (WayChoice == -1)
+                DeltaChoice -= GetDeltaMove(&MoveChoice);
+            else
+                DeltaChoice += GetDeltaMove(&MoveChoice);
+            if (DeltaChoice < LargeurMenu - dx - 8) {
+                DeltaChoice = LargeurMenu - dx - 8;
+                WayChoice = 1;
+            }
+            if (DeltaChoice > 8) {
+                DeltaChoice = 8;
+                WayChoice = -1;
+            }
+            Font(x0 + DeltaChoice, y - 18, playername);
+        }
+    } else {
+        Font(x - dx / 2, y - 18, playername);
+    }
+    RestoreClip();
 
     if (CursorActif)
         DrawCursor();
@@ -1009,7 +1063,9 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
 }
 
 // TODO(gamepad): uses GetAscii() (keyboard-only) — pure-gamepad users cannot enter
-// save/profile names. Needs an on-screen D-pad character grid to close the gap.
+// save/profile names. Pure-pad users are routed past this function inside
+// ChoosePlayerName: new-game slot gets a datetime stem, existing slot keeps
+// its current name (overwrite). See the LastInputWasGamepad branch there.
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
     S32 flag = 1;
@@ -1095,9 +1151,15 @@ S32 InputPlayerName(S32 choice, char *name) {
                 break;
 
             case A_RETURN:
-                if (strcmp(PlayerName, "")
-                        AND((FindPlayerFile() == FALSE)
-                                OR(!strcmp(PlayerName, memoplayername)))) {
+                if (IsDatetimeReservedShape(PlayerName)) {
+                    // Reserved shape: refuse and bounce back to the prior name.
+                    PlayErrorSample();
+                    strcpy(PlayerName, memoplayername);
+                    len = strlen(PlayerName);
+                    flag = 1;
+                } else if (strcmp(PlayerName, "")
+                               AND((FindPlayerFile() == FALSE)
+                                       OR(!strcmp(PlayerName, memoplayername)))) {
                     retval = TRUE;
                     flag = -1;
                 } else {
@@ -1257,6 +1319,10 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     save_prev_click = 0;
     mouse_fire = 0;
 
+    // Marquee state: starts left-aligned each time we enter the menu; reset
+    // again on every selection change via the flag==1 redraw below.
+    InitShakeChoice();
+
     while (MyKey != K_ESC AND !(Input & I_MENUS)) {
         ManageTime();
 
@@ -1266,6 +1332,9 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         }
 
         if (flag == 1) {
+            // Reset marquee so the newly-selected slot starts scrolling
+            // from the left edge — matches DrawGameMenu's pattern.
+            InitShakeChoice();
             for (n = 0; n < NB_GAME_CHOICE; n++) {
                 if (n + start >= nb)
                     break;
@@ -1299,6 +1368,22 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             timeranotherkey = TimerRefHR + TEMPO_REPEAT_KEY;
             Input = MyKey = 0;
             flag = 0;
+        }
+
+        // Per-frame: redraw the selected slot so the marquee scroll advances
+        // on long names that don't fit the box (DrawOneString does the
+        // overflow detection internally). The flag==1 path above only fires
+        // on selection change; this keeps the animation alive in between.
+        {
+            S32 sn = select - start;
+            if (sn >= 0 && sn < NB_GAME_CHOICE && (start + sn) < nb) {
+                S32 sdraw = 1;
+                if (start > 0 AND sn == 0)
+                    sdraw |= ARROW_SG;
+                else if ((start + NB_GAME_CHOICE < nb) AND(sn == NB_GAME_CHOICE - 1))
+                    sdraw |= ARROW_ID;
+                DrawOneString(320, Y_START_CHOICE + 60 * sn, ptrlist[select], sdraw);
+            }
         }
 
         if (timerdraw /*AND TimerRefHR>=timerdraw*/) {
@@ -1664,6 +1749,88 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
                 while (Input & I_FIRE OR MyKey == K_ENTER)
                     MyGetInput();
+
+                // Gamepad routing: pure-pad users have no practical way to
+                // type a name (InputPlayerName is keyboard-only). For a
+                // "New Game" slot we synthesise a local-time datetime stem;
+                // for an existing slot we keep the slot's own name and just
+                // overwrite. Same-second collision overwrites silently —
+                // matches the quick-save reflex chosen during design. The
+                // menu UI (slot list + New Game entry) is identical to the
+                // keyboard flow; only the text-entry step is bypassed.
+                if (LastInputWasGamepad) {
+                    S32 ok = TRUE;
+                    if (select == nb - 1) {
+                        char datetime[32];
+                        time_t now = time(NULL);
+                        struct tm *lt = localtime(&now);
+                        if (lt == NULL || strftime(datetime, sizeof datetime,
+                                                   "%Y-%m-%d %H-%M-%S", lt) != 19) {
+                            ok = FALSE;
+                        } else {
+                            // Scene-aware name: "<island> - <datetime>", with
+                            // bare datetime as fallback. Island names live in
+                            // text file 2 (gam); MainGameMenu has file 0 (sys)
+                            // loaded right now (InitDial(0) at ~line 3330), so
+                            // bracket the lookup and restore sys after — the
+                            // menu redraws on the next loop iteration assume
+                            // sys is still loaded. TabArrow defaults to zeros
+                            // before the player opens the holomap, so the
+                            // Mess > 0 guard avoids querying message 0 (which
+                            // is a real but unrelated entry in some banks).
+                            char islandName[256];
+                            islandName[0] = '\0';
+                            if (Island >= 0 && Island < MAX_ISLAND && TabArrow[Island].Mess > 0) {
+                                InitDial(2);
+                                if (GetMultiText(TabArrow[Island].Mess,
+                                                 islandName) != NULL) {
+                                    // Holomap data ships with a trailing '.'
+                                    // ("Citadel Island."); strip for a cleaner
+                                    // save name.
+                                    size_t ilen = strlen(islandName);
+                                    if (ilen > 0 && islandName[ilen - 1] == '.') {
+                                        islandName[ilen - 1] = '\0';
+                                    }
+                                }
+                                InitDial(0);
+                            }
+                            if (islandName[0]) {
+                                // %.60s caps the island portion so the format
+                                // is provably bounded (60 + 3 + 19 = 82 chars,
+                                // safely under MAX_SIZE_PLAYER_NAME = 100) and
+                                // -Wformat-truncation stays quiet. Longest
+                                // known retail island name is 29 chars.
+                                snprintf(PlayerName, MAX_SIZE_PLAYER_NAME + 1,
+                                         "%.60s - %.19s", islandName, datetime);
+                            } else {
+                                strncpy(PlayerName, datetime,
+                                        MAX_SIZE_PLAYER_NAME);
+                                PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
+                            }
+                        }
+                    }
+                    // Existing slot: PlayerName already holds the slot name
+                    // from the strcpy earlier in this loop (around line 1660),
+                    // so nothing to fill — just resolve the path.
+                    if (ok) {
+                        char tmpPlayerFilename[ADELINE_MAX_PATH];
+                        snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA",
+                                 PlayerName);
+#ifdef DEBUG_TOOLS
+                        if (isBugMode)
+                            GetBugPath(GamePathname, ADELINE_MAX_PATH,
+                                       tmpPlayerFilename);
+                        else
+#endif
+                            GetSavePath(GamePathname, ADELINE_MAX_PATH,
+                                        tmpPlayerFilename);
+                        retval = 2;
+                        break;
+                    }
+                    // strftime is effectively infallible on real time_t; if
+                    // it does fail, fall through to the keyboard flow rather
+                    // than write a garbage filename.
+                }
 
                 if (InputPlayerName(select - start, PlayerName)) {
                     char tmpPlayerFilename[ADELINE_MAX_PATH];
@@ -3022,6 +3189,35 @@ S32 IsFirstGameLaunched(void) {
         0, 74,  // Options
         0, 75,  // Quitter
 */
+// Post-save success cue: positive chime + brief centred message overlay.
+// Shared by the regular save (case 73) and debug bug-save (case 2001) paths
+// in MainGameMenu. Up to ~1 second on screen — skippable by any fire / action
+// / menu input. After the wait, drains those inputs (via InitWaitNoInput) so
+// the skip-press doesn't immediately re-trigger menu navigation when control
+// returns to the surrounding menu loop.
+static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
+    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+    CopyScreen(Screen, Log);
+    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+    {
+        char savedMsg[256];
+        CopyUtf8ToCp850(savedMsg, sizeof savedMsg, GetLocalizedMenuLabel(label));
+        DrawSingleString(320, 240, savedMsg);
+    }
+    BoxStaticFullflip();
+    {
+        S32 timer;
+        ManageTime();
+        timer = TimerRefHR + 1000;
+        while (TimerRefHR <= timer AND !MyKey
+                                 AND !(Input & (I_FIRE | I_ACTION | I_MENUS))) {
+            ManageTime();
+            MyGetInput();
+        }
+    }
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
+}
+
 void BuildGameMainMenu(S32 firstloop) {
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
     char memogamepathname[ADELINE_MAX_PATH];
@@ -3417,6 +3613,11 @@ S32 MainGameMenu(S32 load) {
                     SaveGame(TRUE);
                     HQ_ResumeSamples();
                     UnsetClipWindow();
+
+                    // Success feedback: chime + brief overlay, skippable.
+                    // See ShowSaveConfirmation. Benefits keyboard, mouse,
+                    // and gamepad flows equally — pre-PR, this was silent.
+                    ShowSaveConfirmation(MENU_LABEL_GAME_SAVED);
                 }
 
                 CopyScreen(Screen, Log);
@@ -3495,6 +3696,7 @@ S32 MainGameMenu(S32 load) {
                     SaveGame(TRUE);
                     NewCube = savenewcube;
                     HQ_ResumeSamples();
+                    ShowSaveConfirmation(MENU_LABEL_BUG_SAVED);
                 }
 
                 CopyScreen(Screen, Log);
