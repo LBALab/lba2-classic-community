@@ -1023,9 +1023,9 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
     return 0;
 }
 
-// True if `s` ends in the 19-character `dddd-dd-dd_dd-dd-dd` shape used by
+// True if `s` ends in the 19-character `dddd-dd-dd dd-dd-dd` shape used by
 // the gamepad datetime-save flow — either bare (19 chars total) or scene-
-// prefixed with " - " before it (e.g. "Citadel Island - 2026-05-17_14-30-00").
+// prefixed with " - " before it (e.g. "Citadel Island - 2026-05-17 14-30-00").
 // Reserved so the named and datetime save namespaces cannot collide — a
 // keyboard user typing such a name would otherwise be able to clobber a
 // gamepad-created file (or vice versa). A trailing word ("2026-05-17 hero")
@@ -1038,15 +1038,15 @@ static S32 IsDatetimeReservedShape(const char *s) {
         return FALSE;
     const char *p = s + len - 19;
     // If there's anything before the trailing datetime, require " - " glue —
-    // otherwise "Foo2026-05-17_14-30-00" would be a false positive.
+    // otherwise "Foo-2026-05-17 14-30-00" would be a false positive.
     if (p != s) {
         if (len < 22 || memcmp(p - 3, " - ", 3) != 0)
             return FALSE;
     }
     // Positions in p:  0123456789012345678
-    // Expected:        dddd-dd-dd_dd-dd-dd
+    // Expected:        dddd-dd-dd dd-dd-dd
     static const char kDigits[19] = {1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1};
-    static const char kSeps[19] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, '_', 0, 0, '-', 0, 0, '-', 0, 0};
+    static const char kSeps[19] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, ' ', 0, 0, '-', 0, 0, '-', 0, 0};
     for (int i = 0; i < 19; i++) {
         if (kDigits[i]) {
             if (p[i] < '0' || p[i] > '9')
@@ -1739,7 +1739,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         time_t now = time(NULL);
                         struct tm *lt = localtime(&now);
                         if (lt == NULL || strftime(datetime, sizeof datetime,
-                                                   "%Y-%m-%d_%H-%M-%S", lt) != 19) {
+                                                   "%Y-%m-%d %H-%M-%S", lt) != 19) {
                             ok = FALSE;
                         } else {
                             // Scene-aware name: "<island> - <datetime>", with
