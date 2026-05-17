@@ -3497,6 +3497,28 @@ S32 MainGameMenu(S32 load) {
                     SaveGame(TRUE);
                     HQ_ResumeSamples();
                     UnsetClipWindow();
+
+                    // Success feedback. The original "Sauvegarde en cours"
+                    // overlay inside SaveGame is /*-wrapped and runs before
+                    // the write (and is sub-frame on modern hardware); it
+                    // never confirmed success. Add a real post-save cue:
+                    // SAMPLE_FOUND_OBJ (the engine's "positive chime", used
+                    // for item pickup) plus a brief centred string for ~500ms.
+                    // The wait pattern matches the existing one at line 4116.
+                    // Benefits keyboard and gamepad flows equally.
+                    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+                    CopyScreen(Screen, Log);
+                    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                    DrawSingleString(320, 240, (char *)"Game saved");
+                    BoxStaticFullflip();
+                    {
+                        S32 timer;
+                        ManageTime();
+                        timer = TimerRefHR + 500;
+                        while (TimerRefHR <= timer) {
+                            ManageTime();
+                        }
+                    }
                 }
 
                 CopyScreen(Screen, Log);
@@ -3575,6 +3597,21 @@ S32 MainGameMenu(S32 load) {
                     SaveGame(TRUE);
                     NewCube = savenewcube;
                     HQ_ResumeSamples();
+
+                    // Same post-save feedback as case 73 (see comment there).
+                    HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
+                    CopyScreen(Screen, Log);
+                    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                    DrawSingleString(320, 240, (char *)"Bug saved");
+                    BoxStaticFullflip();
+                    {
+                        S32 timer;
+                        ManageTime();
+                        timer = TimerRefHR + 500;
+                        while (TimerRefHR <= timer) {
+                            ManageTime();
+                        }
+                    }
                 }
 
                 CopyScreen(Screen, Log);
