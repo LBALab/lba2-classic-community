@@ -3514,7 +3514,7 @@ S32 MainGameMenu(S32 load) {
                     {
                         S32 timer;
                         ManageTime();
-                        timer = TimerRefHR + 500;
+                        timer = TimerRefHR + 1000;
                         while (TimerRefHR <= timer) {
                             ManageTime();
                         }
@@ -3607,7 +3607,7 @@ S32 MainGameMenu(S32 load) {
                     {
                         S32 timer;
                         ManageTime();
-                        timer = TimerRefHR + 500;
+                        timer = TimerRefHR + 1000;
                         while (TimerRefHR <= timer) {
                             ManageTime();
                         }
