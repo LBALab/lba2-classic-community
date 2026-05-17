@@ -283,6 +283,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_CLASSIC_CAMERA,
     MENU_LABEL_CONTROLLER,
     MENU_LABEL_GAME_CONTROLLER,
+    MENU_LABEL_GAME_SAVED,
+    MENU_LABEL_BUG_SAVED,
     MENU_LABEL_COUNT,
 };
 
@@ -298,6 +300,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Classic camera",
         "Controls",
         "Configure gamepad",
+        "Game saved",
+        "Bug saved",
     },
     {
         "Choix de la langue",
@@ -310,6 +314,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Caméra classique",
         "Contrôles",
         "Configuration manette",
+        "Partie sauvegardée",
+        "Bug sauvegardé",
     },
     {
         "Sprachauswahl",
@@ -322,6 +328,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Klassische Kamera",
         "Steuerung",
         "Gamepad konfigurieren",
+        "Spiel gespeichert",
+        "Fehler gespeichert",
     },
     {
         "Elegir idioma",
@@ -334,6 +342,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Cámara clásica",
         "Controles",
         "Configurar mando",
+        "Partida guardada",
+        "Error guardado",
     },
     {
         "Scegli lingua",
@@ -346,6 +356,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Telecamera classica",
         "Controlli",
         "Configura gamepad",
+        "Partita salvata",
+        "Bug salvato",
     },
     {
         "Escolha do idioma",
@@ -358,6 +370,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Câmera clássica",
         "Controles",
         "Configurar gamepad",
+        "Jogo salvo",
+        "Erro salvo",
     },
 };
 
@@ -3509,7 +3523,12 @@ S32 MainGameMenu(S32 load) {
                     HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
                     CopyScreen(Screen, Log);
                     ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
-                    DrawSingleString(320, 240, (char *)"Game Saved");
+                    {
+                        char savedMsg[256];
+                        CopyUtf8ToCp850(savedMsg, sizeof savedMsg,
+                                        GetLocalizedMenuLabel(MENU_LABEL_GAME_SAVED));
+                        DrawSingleString(320, 240, savedMsg);
+                    }
                     BoxStaticFullflip();
                     {
                         S32 timer;
@@ -3602,7 +3621,12 @@ S32 MainGameMenu(S32 load) {
                     HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
                     CopyScreen(Screen, Log);
                     ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
-                    DrawSingleString(320, 240, (char *)"Bug Saved");
+                    {
+                        char savedMsg[256];
+                        CopyUtf8ToCp850(savedMsg, sizeof savedMsg,
+                                        GetLocalizedMenuLabel(MENU_LABEL_BUG_SAVED));
+                        DrawSingleString(320, 240, savedMsg);
+                    }
                     BoxStaticFullflip();
                     {
                         S32 timer;
