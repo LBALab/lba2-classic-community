@@ -3509,7 +3509,7 @@ S32 MainGameMenu(S32 load) {
                     HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
                     CopyScreen(Screen, Log);
                     ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
-                    DrawSingleString(320, 240, (char *)"Game saved");
+                    DrawSingleString(320, 240, (char *)"Game Saved");
                     BoxStaticFullflip();
                     {
                         S32 timer;
@@ -3602,7 +3602,7 @@ S32 MainGameMenu(S32 load) {
                     HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
                     CopyScreen(Screen, Log);
                     ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
-                    DrawSingleString(320, 240, (char *)"Bug saved");
+                    DrawSingleString(320, 240, (char *)"Bug Saved");
                     BoxStaticFullflip();
                     {
                         S32 timer;
