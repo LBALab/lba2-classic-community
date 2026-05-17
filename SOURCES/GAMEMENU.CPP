@@ -1023,26 +1023,36 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
     return 0;
 }
 
-// True if `s` is exactly the 19-character `dddd-dd-dd_dd-dd-dd` shape used by
-// the gamepad datetime-save flow. Reserved so the named and datetime save
-// namespaces cannot collide — a keyboard user typing such a name would
-// otherwise be able to clobber a gamepad-created file (or vice versa).
-// Anything else (including a date with a trailing word) is allowed.
+// True if `s` ends in the 19-character `dddd-dd-dd_dd-dd-dd` shape used by
+// the gamepad datetime-save flow — either bare (19 chars total) or scene-
+// prefixed with " - " before it (e.g. "Citadel Island - 2026-05-17_14-30-00").
+// Reserved so the named and datetime save namespaces cannot collide — a
+// keyboard user typing such a name would otherwise be able to clobber a
+// gamepad-created file (or vice versa). A trailing word ("2026-05-17 hero")
+// or partial date ("2026-05-17") is still allowed.
 static S32 IsDatetimeReservedShape(const char *s) {
     if (s == NULL)
         return FALSE;
-    if (strlen(s) != 19)
+    size_t len = strlen(s);
+    if (len < 19)
         return FALSE;
-    // Positions:    0123456789012345678
-    // Expected:     dddd-dd-dd_dd-dd-dd
+    const char *p = s + len - 19;
+    // If there's anything before the trailing datetime, require " - " glue —
+    // otherwise "Foo2026-05-17_14-30-00" would be a false positive.
+    if (p != s) {
+        if (len < 22 || memcmp(p - 3, " - ", 3) != 0)
+            return FALSE;
+    }
+    // Positions in p:  0123456789012345678
+    // Expected:        dddd-dd-dd_dd-dd-dd
     static const char kDigits[19] = {1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1};
     static const char kSeps[19] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, '_', 0, 0, '-', 0, 0, '-', 0, 0};
     for (int i = 0; i < 19; i++) {
         if (kDigits[i]) {
-            if (s[i] < '0' || s[i] > '9')
+            if (p[i] < '0' || p[i] > '9')
                 return FALSE;
         } else {
-            if (s[i] != kSeps[i])
+            if (p[i] != kSeps[i])
                 return FALSE;
         }
     }
@@ -1732,8 +1742,45 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                                                    "%Y-%m-%d_%H-%M-%S", lt) != 19) {
                             ok = FALSE;
                         } else {
-                            strncpy(PlayerName, datetime, MAX_SIZE_PLAYER_NAME);
-                            PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
+                            // Scene-aware name: "<island> - <datetime>", with
+                            // bare datetime as fallback. Island names live in
+                            // text file 2 (gam); MainGameMenu has file 0 (sys)
+                            // loaded right now (InitDial(0) at ~line 3330), so
+                            // bracket the lookup and restore sys after — the
+                            // menu redraws on the next loop iteration assume
+                            // sys is still loaded. TabArrow defaults to zeros
+                            // before the player opens the holomap, so the
+                            // Mess > 0 guard avoids querying message 0 (which
+                            // is a real but unrelated entry in some banks).
+                            char islandName[256];
+                            islandName[0] = '\0';
+                            if (Island >= 0 && Island < MAX_ISLAND && TabArrow[Island].Mess > 0) {
+                                InitDial(2);
+                                if (GetMultiText(TabArrow[Island].Mess,
+                                                 islandName) != NULL) {
+                                    // Holomap data ships with a trailing '.'
+                                    // ("Citadel Island."); strip for a cleaner
+                                    // save name.
+                                    size_t ilen = strlen(islandName);
+                                    if (ilen > 0 && islandName[ilen - 1] == '.') {
+                                        islandName[ilen - 1] = '\0';
+                                    }
+                                }
+                                InitDial(0);
+                            }
+                            if (islandName[0]) {
+                                // %.60s caps the island portion so the format
+                                // is provably bounded (60 + 3 + 19 = 82 chars,
+                                // safely under MAX_SIZE_PLAYER_NAME = 100) and
+                                // -Wformat-truncation stays quiet. Longest
+                                // known retail island name is 29 chars.
+                                snprintf(PlayerName, MAX_SIZE_PLAYER_NAME + 1,
+                                         "%.60s - %.19s", islandName, datetime);
+                            } else {
+                                strncpy(PlayerName, datetime,
+                                        MAX_SIZE_PLAYER_NAME);
+                                PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
+                            }
                         }
                     }
                     // Existing slot: PlayerName already holds the slot name
