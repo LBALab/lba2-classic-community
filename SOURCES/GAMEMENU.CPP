@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 /*══════════════════════════════════════════════════════════════════════════*
  *══════════════════════════════════════════════════════════════════════════*/
@@ -1008,8 +1009,59 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
     return 0;
 }
 
+// True if `s` is exactly the 19-character `dddd-dd-dd_dd-dd-dd` shape used by
+// the gamepad datetime-save flow. Reserved so the named and datetime save
+// namespaces cannot collide — a keyboard user typing such a name would
+// otherwise be able to clobber a gamepad-created file (or vice versa).
+// Anything else (including a date with a trailing word) is allowed.
+static S32 IsDatetimeReservedShape(const char *s) {
+    if (s == NULL)
+        return FALSE;
+    if (strlen(s) != 19)
+        return FALSE;
+    // Positions:    0123456789012345678
+    // Expected:     dddd-dd-dd_dd-dd-dd
+    static const char kDigits[19] = {1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1};
+    static const char kSeps[19] = {0, 0, 0, 0, '-', 0, 0, '-', 0, 0, '_', 0, 0, '-', 0, 0, '-', 0, 0};
+    for (int i = 0; i < 19; i++) {
+        if (kDigits[i]) {
+            if (s[i] < '0' || s[i] > '9')
+                return FALSE;
+        } else {
+            if (s[i] != kSeps[i])
+                return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+// Gamepad-only save bypass: builds a YYYY-MM-DD_HH-MM-SS name from local
+// wall-clock time, populates PlayerName (which SaveGame writes inside the
+// file at SAVEGAME.CPP:580) and GamePathname (which Save() targets), then
+// returns TRUE. A same-second double-tap overwrites the prior file — there
+// is no suffix collision logic, matching the chosen "quick-save reflex"
+// semantics from the design doc.
+static S32 PrepareDatetimeSaveSlot(void) {
+    char tmpPlayerFilename[ADELINE_MAX_PATH];
+    char datetime[32];
+    time_t now = time(NULL);
+    struct tm *lt = localtime(&now);
+    if (lt == NULL)
+        return FALSE;
+    if (strftime(datetime, sizeof datetime, "%Y-%m-%d_%H-%M-%S", lt) != 19)
+        return FALSE;
+
+    strncpy(PlayerName, datetime, MAX_SIZE_PLAYER_NAME);
+    PlayerName[MAX_SIZE_PLAYER_NAME] = '\0';
+
+    snprintf(tmpPlayerFilename, ADELINE_MAX_PATH, "%s.LBA", datetime);
+    GetSavePath(GamePathname, ADELINE_MAX_PATH, tmpPlayerFilename);
+    return TRUE;
+}
+
 // TODO(gamepad): uses GetAscii() (keyboard-only) — pure-gamepad users cannot enter
-// save/profile names. Needs an on-screen D-pad character grid to close the gap.
+// save/profile names. Pure-pad users get the datetime-save bypass in
+// MainGameMenu instead (see PrepareDatetimeSaveSlot).
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
     S32 flag = 1;
@@ -1095,9 +1147,15 @@ S32 InputPlayerName(S32 choice, char *name) {
                 break;
 
             case A_RETURN:
-                if (strcmp(PlayerName, "")
-                        AND((FindPlayerFile() == FALSE)
-                                OR(!strcmp(PlayerName, memoplayername)))) {
+                if (IsDatetimeReservedShape(PlayerName)) {
+                    // Reserved shape: refuse and bounce back to the prior name.
+                    PlayErrorSample();
+                    strcpy(PlayerName, memoplayername);
+                    len = strlen(PlayerName);
+                    flag = 1;
+                } else if (strcmp(PlayerName, "")
+                               AND((FindPlayerFile() == FALSE)
+                                       OR(!strcmp(PlayerName, memoplayername)))) {
                     retval = TRUE;
                     flag = -1;
                 } else {
@@ -3409,7 +3467,19 @@ S32 MainGameMenu(S32 load) {
             if (!firstloop) {
                 savenewcube = NewCube;
 
-                if (ChoosePlayerName(42, FALSE, TRUE)) {
+                // Pure-gamepad users have no practical way to type a name
+                // (InputPlayerName is keyboard-only). Last-input-wins routes
+                // them straight to a datetime-named save and skips the
+                // name-entry menu; keyboard/mouse users keep the named flow.
+                if (LastInputWasGamepad) {
+                    if (PrepareDatetimeSaveSlot()) {
+                        NumVersion = NUM_VERSION | SAVE_COMPRESS;
+                        CopyScreen(Screen, Log);
+                        SaveGame(TRUE);
+                        HQ_ResumeSamples();
+                        UnsetClipWindow();
+                    }
+                } else if (ChoosePlayerName(42, FALSE, TRUE)) {
                     NumVersion = NUM_VERSION | SAVE_COMPRESS;
                     CopyScreen(Screen, Log);
                     if (FileSize(OldGamePathname))
@@ -3489,7 +3559,20 @@ S32 MainGameMenu(S32 load) {
             if (!firstloop) {
                 savenewcube = NewCube;
 
-                if (ChoosePlayerName(42 | 0x40000000, FALSE, TRUE)) {
+                // Mirror the case-73 routing for the debug-bug save flow.
+                // Note: PrepareDatetimeSaveSlot writes to the regular save
+                // directory via GetSavePath, not the bug directory — bug-mode
+                // gamepad saves intentionally fall back to keyboard for now
+                // (debug-only path, narrow audience).
+                if (LastInputWasGamepad) {
+                    if (PrepareDatetimeSaveSlot()) {
+                        NumVersion = NUM_VERSION | SAVE_COMPRESS;
+                        CopyScreen(Screen, Log);
+                        SaveGame(TRUE);
+                        NewCube = savenewcube;
+                        HQ_ResumeSamples();
+                    }
+                } else if (ChoosePlayerName(42 | 0x40000000, FALSE, TRUE)) {
                     NumVersion = NUM_VERSION | SAVE_COMPRESS;
                     CopyScreen(Screen, Log);
                     SaveGame(TRUE);

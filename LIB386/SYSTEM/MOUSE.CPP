@@ -45,6 +45,12 @@ static void MousePointerMarkActivity(void) {
 // TODO: Convert the asm to .h to hold the data (currently on MOUSEDAT.ASM)
 extern U8 BinGphMouse[];
 
+// Game-side "last input was gamepad" flag, defined in SOURCES/GLOBAL.CPP and
+// declared in C_EXTERN.H (which LIB386 cannot include for layering reasons).
+// Cleared here on any mouse activity so the save menu routes through the
+// keyboard/mouse named-save flow when the user reaches for the mouse.
+extern "C" S32 LastInputWasGamepad;
+
 // --- Initialization ----------------------------------------------------------
 void InitMouse() {
     ClearMouseBox();
@@ -169,6 +175,7 @@ void HandleEventsMouse(const void *event) {
 
         MousePointerMarkActivity();
         s_mouseMotionFlag = true;
+        LastInputWasGamepad = 0;
 
         if (s_showSpriteAfterFirstMotion) {
             s_showSpriteAfterFirstMotion = false;
@@ -180,6 +187,7 @@ void HandleEventsMouse(const void *event) {
         MousePointerMarkActivity();
         Click |= (sdlEvent->button.button == 1) ? 1 : 0;
         Click |= (sdlEvent->button.button == 3) ? 2 : 0;
+        LastInputWasGamepad = 0;
         break;
 
     case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -191,6 +199,7 @@ void HandleEventsMouse(const void *event) {
     case SDL_EVENT_MOUSE_WHEEL:
         MousePointerMarkActivity();
         MouseWheelYAccum += (S32)lround((double)sdlEvent->wheel.y);
+        LastInputWasGamepad = 0;
         break;
     }
 }

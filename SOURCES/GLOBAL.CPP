@@ -37,6 +37,7 @@ U8 *BufSpeak;
 U8 *LbaFont;
 U8 PalettePcx[768 + 500];
 S32 MyKey = 0;
+S32 LastInputWasGamepad = 0;
 U8 *PtrPal;
 U8 *PtrPalNormal;
 U8 *PtrPalCurrent;
