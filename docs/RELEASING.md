@@ -41,10 +41,26 @@ These are independent:
 
 ## Cutting a release
 
-The flow differs slightly between the very first tagged release and every
-release after it. The difference is whether `git-cliff` should generate
-the section content (subsequent releases) or the existing hand-curated
-`[Unreleased]` section is the content (first release).
+Before tagging, run the **pre-tag fact-check** in
+[docs/RELEASE_TEMPLATES.md](RELEASE_TEMPLATES.md) over the
+`[Unreleased]` section. Five-minute pass per release; catches the kind
+of claim-vs-reality discrepancies that are embarrassing once they hit
+the Releases page + Discussion + Discord (e.g. v0.10.0's "six weeks
+after v0.9.0" was actually eight days).
+
+The flow differs by what's already in `[Unreleased]`:
+
+| `[Unreleased]` shape       | Flow                                                       |
+|----------------------------|------------------------------------------------------------|
+| Empty / `_Nothing yet._`   | **Subsequent release** — `git cliff --prepend`             |
+| Hand-curated narrative     | **First-release-style promote** — rename the heading       |
+
+The "promote-heading" path is also right for any release where
+`[Unreleased]` has been hand-curated since the previous tag — cliff's
+auto-generated section would either duplicate or replace that work,
+and `commit.remote.username` returns the merge-commit author rather
+than the patch author, so external-contributor attribution is lost.
+v0.10.0 took this path.
 
 ### First release (`v0.9.0`)
 
@@ -83,14 +99,34 @@ DATE=$(date +%Y-%m-%d)
 echo "0.9.0" > VERSION
 
 # 3. Review, commit, tag, push.
+#
+# Use the GitHub noreply form for user.email — otherwise GitHub rejects
+# the push with GH007 ("would publish a private email address") on
+# repos with email-privacy enabled. Find your form at
+# https://github.com/settings/emails.
 git diff CHANGELOG.md VERSION
 git add CHANGELOG.md VERSION
-git commit -m "chore(release): $VERSION"
+git -c user.email=<id>+<user>@users.noreply.github.com \
+    commit -m "chore(release): $VERSION"
 git tag -a "$VERSION" -m "Release $VERSION"
+#
+# The push to main will print a "Bypassed rule violations for
+# refs/heads/main" warning — expected, release commits skip the PR
+# gate by design.
 git push origin main
 git push origin "$VERSION"
 
 # 4. Sanity-check the binary picks it up.
+#
+# If --version still reports "<version>-dirty" after this rebuild on
+# a clean working tree, delete the cached header and rebuild:
+#
+#     rm build/VERSION_GENERATED.h build/VERSION.txt
+#     cmake --build build
+#
+# The generator's DEPENDS list doesn't include .git/HEAD or .git/index,
+# so a fresh commit doesn't invalidate the cached header on its own.
+# Tracked as #156; once that lands this note can be removed.
 cmake --build build
 ./build/SOURCES/lba2cc --version    # expect: 0.9.0
 cat build/VERSION.txt                  # expect: 0.9.0
@@ -154,36 +190,30 @@ tools only look at the latter.
 
 ### Drafting the release
 
-Two equivalent paths.
+Pushing the tag auto-creates the GitHub Release: the four per-platform
+release workflows (`release-{linux-appimage,linux-tarball,macos,windows}.yml`)
+each fire on `push: tags: ['v*']`, attach their artifact, and trigger
+`softprops/action-gh-release@v2` which materialises the Release. No
+manual `gh release create` is needed.
 
-**CLI (recommended for repeatability):**
+Two things still need maintainer action after the workflows finish:
 
-```bash
-# Extract the v0.9.0 section from CHANGELOG.md into a notes file
-sed -n '/^## \[0\.9\.0\]/,/^## \[/{/^## \[/!p;}' CHANGELOG.md > /tmp/release-notes.md
+**1. Replace the auto-generated body with the CHANGELOG section.** The
+per-platform workflows each set `generate_release_notes: true`, which
+appends the PR-title dump on every run — four runs = four duplicates
+([#153](https://github.com/LBALab/lba2-classic-community/issues/153);
+until that lands, dedup is a manual step). Extract the
+`## [<version>]` section from `CHANGELOG.md`, wrap it in a short
+header + Full Changelog footer, un-wrap to single-line bullets, and
+publish via `gh release edit --notes-file`.
 
-# Create the GitHub Release from the existing tag
-gh release create v0.9.0 --title "v0.9.0" --notes-file /tmp/release-notes.md
-```
+The extraction, un-wrap script, and wrapper template are in
+[docs/RELEASE_TEMPLATES.md](RELEASE_TEMPLATES.md). Worked example:
+the v0.10.0 body —
+<https://github.com/LBALab/lba2-classic-community/releases/tag/v0.10.0>.
 
-**Web UI:** Releases → Draft a new release → pick the `v0.9.0` tag →
-paste the v0.9.0 section from `CHANGELOG.md` as the body → Publish.
-
-For v0.9.0 there are no binary attachments yet. The release-binary
-workflow is tracked in
-[issue #46](https://github.com/LBALab/lba2-classic-community/issues/46)
-and [PR #74](https://github.com/LBALab/lba2-classic-community/pull/74)
-(Linux AppImages). Source-only releases are valid; players build from
-source per the [README](../README.md).
-
-For future releases, `gh release create --generate-notes` auto-fills
-the body from PR titles since the previous tag — useful as a sanity
-check against the cliff-generated CHANGELOG section.
-
-Once the binary attachments have landed (the per-platform release
-workflows finish on a tag in a few minutes each), run the
-[post-release smoke test](#post-release-smoke-test) before announcing
-the release. A 30-second sanity check that confirms the artifacts
+**2. Run the [post-release smoke test](#post-release-smoke-test)**
+before announcing. 30-second sanity check that confirms the artifacts
 GitHub serves are actually runnable on a clean box.
 
 ## Post-release smoke test
@@ -214,18 +244,17 @@ local verifier is safe to announce on Discord.
 ## After the release
 
 Don't announce until the [smoke test](#post-release-smoke-test) passes.
-Then tell people — a short Discord post in the LBALab community
-channel helps the release land:
+Then post to two surfaces, in order:
 
-```
-v0.9.0 is out — first tagged release of the fork.
-
-Changelog: https://github.com/LBALab/lba2-classic-community/blob/main/CHANGELOG.md
-Release: https://github.com/LBALab/lba2-classic-community/releases/tag/v0.9.0
-
-No binaries yet — that's coming via #74 (AppImages) and follow-ups for
-macOS/Windows. For now, build from source per the README.
-```
+1. **GitHub Discussions, under Announcements** — long-form post that
+   players can link to and that the Releases page can be referenced
+   from. Template + `gh api graphql createDiscussion` mutation in
+   [docs/RELEASE_TEMPLATES.md](RELEASE_TEMPLATES.md). Worked examples:
+   [v0.9.0](https://github.com/LBALab/lba2-classic-community/discussions/121),
+   [v0.10.0](https://github.com/LBALab/lba2-classic-community/discussions/154).
+2. **Discord, in the LBALab community channel** — brief post pointing
+   at the Discussion. Template in
+   [docs/RELEASE_TEMPLATES.md](RELEASE_TEMPLATES.md).
 
 ### Natural follow-ups
 
@@ -352,7 +381,7 @@ platform fires first, and adding a new platform is a copy-and-fill exercise:
 | **Triggers** | `push: tags: ['v*']` + `workflow_dispatch:`. Tags do real releases; dispatch is for validation runs. |
 | **Job structure** | Two jobs: `build` (matrix, even if 1×1) → `release`. The `build` job is a `uses:` call into `.github/workflows/reusable-build-<platform>.yml` — all toolchain setup, configure, build, and bundle steps live there so `release-latest.yml` can share them. Reusables live at the top level of `.github/workflows/`; GitHub Actions rejects `workflow_call` files in subdirectories. `fail-fast: false` so one arch failing doesn't drop others. |
 | **Artifact handoff** | Reusable build legs use `actions/upload-artifact@v7` with `name: <artifact-prefix>-<arch>`, where `artifact-prefix` is a workflow input. Tag callers leave it at the default (`AppImage`, `LinuxTarball`, `Windows`, `macOS`); `release-latest.yml` overrides to `latest-*`. The release job downloads via `pattern: '<prefix>-*' merge-multiple: true`. |
-| **Release upload** | `softprops/action-gh-release@v2` with `generate_release_notes: true`. Idempotent — first platform creates the Release, the rest attach. |
+| **Release upload** | `softprops/action-gh-release@v2` with `generate_release_notes: true`. Asset attach is idempotent across the four per-tag workflows; body is **not** — the action appends the regenerated notes on every run, so the body lands duplicated 4× and is replaced post-tag by the CHANGELOG extraction in [Drafting the release](#drafting-the-release). Tracked as [#153](https://github.com/LBALab/lba2-classic-community/issues/153). |
 | **Tag-only upload** | Release job is gated by `if: startsWith(github.ref, 'refs/tags/')`. `workflow_dispatch` produces downloadable artifacts via the build job's upload step but does not touch the Releases page (avoids creating a "release" named after a branch). |
 | **Artifact naming** | `<exe>-<version>-<platform>-<arch>.<ext>`, e.g. `lba2cc-0.9.0-windows-x64.zip`, `lba2cc-0.9.0-AppImage-x86_64.AppImage`, `lba2cc-0.9.0-linux-x86_64.tar.gz`. |
 | **Version source** | `build/VERSION.txt`, generated by `cmake/git_version.cmake` from the canonical `VERSION` file. Read once after configure. |
