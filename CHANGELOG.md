@@ -29,10 +29,12 @@ _Nothing yet._
 - Save/load list now navigable with gamepad D-pad
   ([#79](https://github.com/LBALab/lba2-classic-community/pull/79)).
 - Auto-named saves for gamepad users: gamepad input on the save-name
-  prompt skips text entry and writes a scene-aware default name
-  (`<scene> — <date> <time>`), localised across the six menu languages.
-  Long names clip with a marquee in the save list; post-save success
-  chime + "Game saved" overlay
+  prompt skips text entry and writes a scene-aware default name in the
+  form `<scene> - YYYY-MM-DD HH-MM-SS` (e.g. `Citadel Island - 2026-05-17 14-30-00`).
+  The scene portion is localised across the six menu languages (sourced
+  from the retail `TEXT.HQR` file 2); the date/time portion is fixed
+  `%Y-%m-%d %H-%M-%S`. Long names clip with a marquee in the save list;
+  post-save success chime + "Game saved" overlay
   ([#151](https://github.com/LBALab/lba2-classic-community/pull/151)).
 - Console `give` command now actually grants inventory items instead of
   only playing the found-object cinematic. It takes an item name
@@ -51,12 +53,20 @@ _Nothing yet._
 
 - `ScaleSprite` scaled path restored. A 2024 ASM→CPP port had stripped
   the scaled-output branches, leaving the function effectively unscaled
-  for months; the regression went unnoticed because the existing test
-  only varied numerator/x/y, not the scale factor. Mirrored back from
-  `SCALESPT` ASM, and the test matrix extended to cover factor sweeps
+  for months. The most visible symptom in-game: world-space sprites that
+  should shrink with distance no longer did — the magic ball, for
+  example, stayed the same size as it flew away from Twinsen in exterior
+  scenes instead of receding with distance. The regression went unnoticed
+  because the existing test only varied numerator/x/y, not the scale
+  factor. Mirrored back from `SCALESPT` ASM, and the test matrix extended
+  to cover factor sweeps
   ([#148](https://github.com/LBALab/lba2-classic-community/pull/148)).
-- Drop wrong-typed `extern` for `TempoRealAngle` in savegame load —
-  the conflicting declaration caused subtle angle corruption on load
+- `TempoRealAngle` extern conflict in savegame load: `DEBUG_TOOLS=ON`
+  builds failed to compile because PR #62's stride-retry refactor
+  introduced a wrong-typed `extern S32 TempoRealAngle` next to the
+  existing file-scope `T_REAL_VALUE_HR` definition. Default builds were
+  unaffected (the block is `#if`-gated out). Fix removes the redundant
+  extern
   ([#146](https://github.com/LBALab/lba2-classic-community/pull/146)).
 - `GereExtras` no longer reads uninitialised old-position memory
   ([#142](https://github.com/LBALab/lba2-classic-community/pull/142)).
@@ -66,8 +76,13 @@ _Nothing yet._
   `noreturn` to close null-deref paths flagged downstream
   ([#140](https://github.com/LBALab/lba2-classic-community/pull/140)).
 - `deffile` config parser: signed-`char` EOL desync and self-aliasing
-  `strcpy` cleaned up; both were latent UB hits surfaced by Windows
-  Release builds
+  `strcpy` cleaned up. Bug A was user-reported: a `lba2.cfg` containing
+  `Language: Français` (or any other Latin-1 high-bit byte) corrupted on
+  successive rewrites — 21 stray `çais` lines spliced in and all 144
+  keyboard + gamepad bindings reset to zero. Bug B was an overlapping
+  `strcpy(FileName, file)` caught by ASan against the GOG TLBA2 Classic
+  package on shutdown. Both were old, both UB. Host-only regression
+  test added under `host_quick`
   ([#115](https://github.com/LBALab/lba2-classic-community/issues/115),
   [#132](https://github.com/LBALab/lba2-classic-community/pull/132)).
 - Terrain vertex projection: dropped the no-op / off-by-one `+0.5`
@@ -176,8 +191,9 @@ _Nothing yet._
 - [docs/SPRITES.md](docs/SPRITES.md) — sprite/blit pipeline reference,
   including the `ScaleSprite` path layout and the test gap that hid the
   scaled-path regression for months.
-- [docs/AUDIO.md](docs/AUDIO.md) — retail audio asset inventory: what's
-  ADPCM-WAV, what's MIDI, and which backend owns which path.
+- [docs/AUDIO.md](docs/AUDIO.md) extended with the retail audio asset
+  inventory: what's ADPCM-WAV, what's MIDI, and which backend owns
+  which path.
 
 ### Contributors
 
