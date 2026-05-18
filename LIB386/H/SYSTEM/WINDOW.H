@@ -25,6 +25,7 @@ void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surface
 void SetWindowFullscreen(bool fullscreen);
 bool GetWindowFullscreen();
 
+void SetWindowRelativeMouse(bool enable);
 void ManageWindow();
 void HandleEventsWindow(const void *event);
 
