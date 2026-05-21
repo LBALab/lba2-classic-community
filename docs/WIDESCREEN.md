@@ -2,7 +2,7 @@
 
 The engine was authored for a fixed 4:3 framebuffer (640×480, 8-bit paletted). SDL scales and letterboxes that buffer to the window. This doc is the working plan for changing that — widescreen aspect ratios first, higher render resolutions later — and a record of what has been done so far.
 
-It supplements [issue #45](https://github.com/LBALab/lba2-classic-community/issues/45). The issue states the goal and a rough A/B/C phasing; this doc adds the architectural detail that informs *how* the phases should be cut.
+It supplements [issue #45](https://github.com/LBALab/lba2-classic-community/issues/45). The issue sketches the goal and a rough A/B/C split; the phasing here replaces that sketch with what the Phase 0 audit surfaced.
 
 ## The core idea: two coordinate spaces
 
@@ -10,30 +10,74 @@ Most of the difficulty in this work comes from one fact: the 640×480 number mea
 
 | Space | What it is | Where the literals live |
 |-------|-----------|-------------------------|
-| **Render space** | The framebuffer the engine draws into — `ModeDesiredX × ModeDesiredY`. 3D projection, the sort tree, cinema bars, fullscreen clears, buffer allocations. | A small number of sites, mostly in `SOURCES/SORT.CPP`, `SOURCES/OBJECT.CPP`, `SOURCES/MEM.CPP`, `SOURCES/INITADEL.C`. |
+| **Render space** | The framebuffer the engine draws into — `ModeDesiredX × ModeDesiredY`. 3D projection, the sort tree, brick rendering, cinema bars, fullscreen clears, buffer allocations. | A small number of sites: the projection origin in `SOURCES/EXTFUNC.CPP`, the brick clips in `SOURCES/GRILLE.CPP`, the sort preclip in `SOURCES/SORT.CPP`, cinema bars and the HUD anchor in `SOURCES/OBJECT.CPP`, allocations in `SOURCES/MEM.CPP` / `SOURCES/INITADEL.C`. |
 | **UI space** | The authored 2D layout — menus, inventory, holomap, dialogue, save screens, the HUD, pre-rendered HQR backgrounds, bitmap fonts. Pixel-positioned against a 640×480 canvas. | ~150 literal `320` / `639` / `240` sites across ~20 files in `SOURCES/`. |
 
-Render space wants to *grow* with the output. UI space was *hand-tuned* to 640×480 and either has to be re-centered, re-scaled, or left alone — that is a deliberate design choice, not a mechanical edit.
+Render space wants to *grow* with the output. UI space was *hand-tuned* to 640×480 and either has to be re-centred, re-scaled, or left alone — that is a deliberate design choice, not a mechanical edit.
 
-A change that widens the framebuffer without addressing UI space produces a working 3D view with the 2D UI left-justified and garbage in the margin. That is expected and is the boundary between the phases below.
+A change that widens the framebuffer without addressing UI space produces a working 3D view with the 2D UI left-justified and garbage in the margin. That is expected and is the boundary between the render-space and UI-space phases below.
+
+## What the Phase 0 audit found
+
+The projection audit ([WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md)) mapped every 4:3 assumption in the projection path against the `RESOLUTION_X` / `RESOLUTION_Y` work in [PR #134](https://github.com/LBALab/lba2-classic-community/pull/134). It changed the plan in four ways:
+
+- The projection origin is the primary assumption, and PR #134 did not touch it. The whole 3D world projects through one setup call, `SOURCES/EXTFUNC.CPP:93`, which passes a hardcoded screen centre of `320, 240`. With equal X and Y focal lengths, that pair *is* the 4:3 ratio. Until it derives from `ModeDesiredX / 2`, a wider framebuffer renders the world anchored left of centre rather than filling the frame.
+- The brick renderer was missed entirely. `SOURCES/GRILLE.CPP` still hardcodes 640×480 in three brick clip sites (`AffBrickBlock` / `AffBrickBlockColon` / `AffBrickBlockOnly`, each `XScreen < 640 ... YScreen < 480`) and in one isometric centre offset (`Map2Screen`, `+288` / `+226`). PR #134 routed the other render-space literals but not these.
+- Cube culling is not a concern. Exterior cube and decor visibility is gated in world space — camera distance and the near plane — not in screen space. It is width-independent and needs no change.
+- The sort preclip is routed but mis-fed. `SOURCES/SORT.CPP:211` already preclips against `ModeDesiredX` / `ModeDesiredY`, so it is wide-aware — but it operates on coordinates produced by the mis-centred projection above. It only behaves correctly once the projection origin is fixed.
+
+## Target behaviour
+
+The product goal the phases build toward:
+
+- Windowed mode keeps the original 4:3 behaviour. Nothing changes for windowed players.
+- Fullscreen detects the display's aspect ratio automatically and renders to match. There is no player-facing aspect or resolution setting.
+- 16:9 is the target. A display wider than 16:9 renders at 16:9 and pillarboxes the rest; the engine does not render arbitrarily wide.
 
 ## Phases
 
-The work splits into five phases. A, B, and D are independently shippable. C is a design fork. E only applies if native HD is a goal.
+Phase 0 is done. Phases 1–3 are the render-space core — a correct, centred wide 3D view. Phase 4 makes it reach players. Phases 5–6 are polish and lock-in.
 
-### Phase A — present-layer scaling
+### Phase 0 — research (done)
 
-User-facing options for how the existing framebuffer is shown: pillarbox, integer scale, stretch. Lives entirely in the SDL present path (`LIB386/SYSTEM/WINDOW.CPP`, `LIB386/SVGA/SDL.CPP`). No game code changes, no gameplay impact. This alone covers most "it looks wrong on my display" complaints, including Steam Deck, at native 480 height.
+The projection 4:3 audit, captured in [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md). Inventoried every render-space aspect-ratio assumption, separated render space from UI space, and established the four findings above. It is the baseline the rest of the plan is cut against.
 
-### Phase B — decouple resolution from the engine
+### Phase 1 — extend polyrec
 
-Name the render-space dimensions and route the hardcoded literals through them, so the framebuffer size is no longer baked in. This is a behaviour-preserving refactor at the default 640×480.
+Before changing projection math, give it a regression net. The polyrec harness in `tests/` records and replays the engine's draw calls for ASM↔CPP equivalence; extend it to capture the projection setup and the projected screen coordinates, so a 640×480 baseline can be snapshotted and diffed. This is what lets Phase 2 prove the default build stays byte-identical while the wide path changes.
 
-Status: **done** (`refactor/resolution-constants`, [PR #134](https://github.com/LBALab/lba2-classic-community/pull/134)). It adds `LIB386/H/SYSTEM/RESOLUTION.H` with `#ifndef`-guarded `RESOLUTION_X` / `RESOLUTION_Y`, routes the compile-time buffer allocations and the runtime render-edge literals (sort preclip, cinema bars, logo anchor) through the constants and `ModeDesiredX` / `ModeDesiredY`. Two render-space assumptions are left untouched by it: the perspective projection is still centred on a hardcoded `320, 240` (`SOURCES/EXTFUNC.CPP:93`), and the `SOURCES/GRILLE.CPP` brick renderer still clips at 640. [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md) is the full render-space site inventory. See [How to test a wider build](#how-to-test-a-wider-build).
+### Phase 2 — projection correction
 
-### Phase C — UI strategy
+Fix the projection origin and the brick renderer, the two render-space areas Phase 0 found. All of it is behaviour-preserving at the default 640×480:
 
-This is the large phase and it has two mutually exclusive flavours. Pick based on whether higher resolution (not just widescreen) is a goal.
+- Derive `XCentre` from `ModeDesiredX / 2` (keep `YCentre` at half-height) at `SOURCES/EXTFUNC.CPP:93`, so the 3D world centres on the framebuffer instead of on a fixed `320`. Because `LongProjectPoint` and `ProjectList` share these globals, the one change covers the sort tree and object drawing together.
+- Route the `SOURCES/GRILLE.CPP` brick clips (`XScreen < 640 ... YScreen < 480` in `AffBrickBlock` / `AffBrickBlockColon` / `AffBrickBlockOnly`) to the render width — mechanical edge replacements, like the sort preclip.
+- Re-centre the `Map2Screen` isometric origin (`+288` / `+226`, `GRILLE.CPP:1370`) — design work, not a find-replace. These constants fold the screen centre together with the isometric grid geometry (the `24` / `12` / `15` brick steps), so `288` is not the framebuffer centre and cannot simply become `ModeDesiredX / 2`. Widening shifts the X origin to keep the grid centred; the Y origin (`226`) holds while height stays 480. This is the one site in Phase 2 that needs working through rather than substituting.
+
+Validate against the Phase 1 baseline: at 640×480 the output must be unchanged.
+
+### Phase 3 — widen the framebuffer
+
+With projection corrected, build and run at a wider render width. The mechanics already exist from PR #134 — see [How to test a wider build](#how-to-test-a-wider-build). The 3D world now centres and fills the wider frame, bricks no longer clip, and the sort preclip is fed correct coordinates. The 2D UI is still 640-anchored (Phase 5). This is the first point at which the wide render path is genuinely correct.
+
+### Phase 4 — SDL fullscreen detection
+
+Wire the [target behaviour](#target-behaviour) into the present and window layer (`LIB386/SYSTEM/WINDOW.CPP`, `LIB386/SVGA/SDL.CPP`). Windowed stays 4:3; fullscreen reads the display aspect ratio and sets the render width to match, capped at 16:9 with pillarboxing beyond. No player-facing setting.
+
+### Phase 5 — polish
+
+The deferred, larger surface:
+
+- UI strategy — pick C1 or C2 (see [UI strategy](#ui-strategy-c1-vs-c2) below) and apply it so the 2D UI is correct in the wider frame.
+- HD-only concerns, if native high resolution is later pursued: filler precision (the `LIB386/pol_work/` fillers use 16-bit fixed-point step accumulation calibrated to 640-wide spans — the polyrec harness is the tool for measuring drift), bitmap fonts (`LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit 1:1), the 16-bit Z-buffer and `Fill_ZBuffer_Factor` (tuned for the 4:3 frustum), mouse-coordinate inversion against any UI scale, and a Smacker cutscene upscale policy.
+
+### Phase 6 — regression
+
+Run the polyrec suite and the host tests. Confirm the default 640×480 build is byte-identical to before, and check the wide build across representative scenes — exterior terrain, brick interiors, cinema bars, the HUD — for centring and clipping. Lock the result in.
+
+## UI strategy: C1 vs C2
+
+Phase 5's UI work has two mutually exclusive flavours. Pick based on whether higher resolution (not just widescreen) is a goal.
 
 | Flavour | Approach | Generalises to HD? | Cost |
 |---------|----------|--------------------|------|
@@ -41,20 +85,6 @@ This is the large phase and it has two mutually exclusive flavours. Pick based o
 | **C2 — scaled UI** | Render UI into its own 640×480 logical buffer, scale-blit it to the framebuffer at present time. UI literals stay untouched. | Yes — works at any output resolution. | More plumbing in `LIB386/SVGA/` to thread the target-buffer choice through the draw primitives. |
 
 C1 is the cheaper path if widescreen-at-480 is the only target. C2 is the correct path if the engine should run at arbitrary resolutions. Committing to C1 first is a dead end for HD.
-
-### Phase D — expose the knob
-
-Make `RESOLUTION_X` (and the Phase C UI behaviour) a build option or runtime setting with a faithful 640×480 default. Document it in [CONFIG.md](CONFIG.md).
-
-### Phase E — native HD work
-
-Only required if the 3D world should render at native high resolution rather than being upscaled from 640×480:
-
-- **Filler precision.** The `LIB386/pol_work/` fillers use 16-bit fixed-point step accumulation calibrated to 640-wide spans. Longer spans at HD may show texture wobble or edge bleeding. The polyrec equivalence harness in `tests/` is the tool for measuring this; it has not been run at HD.
-- **Fonts.** `LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit a fixed-size bitmap font 1:1. HD needs a scaler or replacement glyphs.
-- **Z-buffer.** 16-bit Z and `Fill_ZBuffer_Factor` were tuned for the 4:3 frustum; HD may introduce z-fighting.
-- **Mouse coordinates.** Input is compared against UI rects; any UI scale must be inverted on mouse input.
-- **Pre-rendered video.** Smacker cutscenes are fixed-dimension; decide an upscale policy.
 
 ## What does not need to change
 
@@ -69,11 +99,11 @@ There is an existing branch, `origin/feat/widescreen-deck`, that adds Steam Deck
 - It hardcodes the Steam Deck's 768×480 ratio everywhere as literal `+64` / `767` / `384` — no constants, no toggle.
 - It mixes in unrelated changes that look like search-and-replace overreach: a `-0x8000 → 0x8000` projection-sentinel flip in `LIB386/OBJECT/AFF_OBJ.CPP` (which would stop off-screen geometry being culled), and a `RealShifting` change in `SOURCES/PERSO.CPP` (conveyor-belt speed, a world-space value, not a pixel value).
 
-It is still useful as a **call-site map** — its diff touches most of the render-space and UI-space sites the phases above have to address. Re-implement against current `main` using the constants, do not rebase the branch.
+It is still useful as a **call-site map** — its diff touches most of the render-space and UI-space sites the phases above have to address, and the Phase 0 audit confirmed it found the same `GRILLE.CPP`, `SORT.CPP`, and cinema-bar sites. Re-implement against current `main` using the constants, do not rebase the branch.
 
 ## How to test a wider build
 
-With Phase B in place, build with an overridden `RESOLUTION_X`. Pass it to **both** the C and C++ flag sets — `SOURCES/INITADEL.C` is C and the rest of the engine is C++; overriding only one produces a build where the two halves disagree on the framebuffer size.
+With the resolution constants from PR #134 in place, build with an overridden `RESOLUTION_X`. Pass it to **both** the C and C++ flag sets — `SOURCES/INITADEL.C` is C and the rest of the engine is C++; overriding only one produces a build where the two halves disagree on the framebuffer size.
 
 ```bash
 cmake -B build-wide -G Ninja -DCMAKE_BUILD_TYPE=Debug \
@@ -83,14 +113,18 @@ cmake --build build-wide
 ./build-wide/SOURCES/lba2cc --game-dir /path/to/data
 ```
 
-Expected result with only Phase B done: cinema bars render across the full width and the sort tree preclips against the wider edge — but the 3D world is not yet correct. The perspective projection is still centred on a hardcoded `320, 240` (`SOURCES/EXTFUNC.CPP:93`), so the view is optically anchored left of centre rather than filling the frame, and the brick renderer (`SOURCES/GRILLE.CPP`) clips at x=640. The 2D UI is separately left-justified at its original 640-wide layout with uninitialised content in the right margin. Two kinds of work remain: render-space (the projection origin and the GRILLE clips) and UI-space (Phase C).
+Before Phase 2, this build shows the mis-centred world the audit describes: cinema bars and the sort preclip track the wider edge, but the projection is still anchored at `320` and the bricks clip at x=640, so the 3D view sits left of centre. After Phase 2 the world centres and fills the frame; the 2D UI stays left-justified at its 640-wide layout until Phase 5.
 
 ## Status
 
 | Phase | State |
 |-------|-------|
-| A — present-layer scaling | Not started |
-| B — decouple resolution | Done (PR #134) |
-| C — UI strategy (C1 or C2) | Not started; design fork undecided |
-| D — expose the knob | Not started |
-| E — native HD work | Not started |
+| 0 — research | Done (WIDESCREEN_PROJECTION_AUDIT.md) |
+| 1 — extend polyrec | Not started |
+| 2 — projection correction | Not started |
+| 3 — widen the framebuffer | Not started |
+| 4 — SDL fullscreen detection | Not started |
+| 5 — polish (UI + HD) | Not started |
+| 6 — regression | Not started |
+
+Foundation already in place: PR #134 (`RESOLUTION_X` / `RESOLUTION_Y` constants, and most render-space literals routed through them).
