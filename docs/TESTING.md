@@ -288,6 +288,11 @@ tests is to preserve exact behavior while the port progresses.
 
 ## Polyrec workflow
 
+For the harness internals — the `.lba2polyrec` format, the capture and replay
+pipelines, what the byte-for-byte comparison actually checks, current scope, and
+extension points — see [POLYREC.md](POLYREC.md). The rest of this section is the
+operator-facing how-to.
+
 ### What polyrec captures
 
 `LIB386/SNAPSHOT/POLY_RECORDING.CPP` records polygon rendering activity during a
@@ -365,3 +370,4 @@ test directory.
 - `tests/cmake/asm_test_helpers.cmake` defines `add_asm_cpp_test(...)`.
 - `run_tests_docker.sh` is the supported entry point for the suite.
 - `tests/SNAPSHOT/` contains the polyrec replay and comparison tooling.
+- [`POLYREC.md`](POLYREC.md) documents the polyrec harness internals: format, pipelines, scope, and extension points.
