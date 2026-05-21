@@ -34,6 +34,7 @@ Index of documentation in this repository.
 | Doc | Description |
 |-----|-------------|
 | [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and CI workflow summary. |
+| [POLYREC.md](POLYREC.md) | Polygon record/replay harness: `.lba2polyrec` format, capture and replay pipelines, what the byte-for-byte comparison checks, scope, and extension points. |
 
 ## Preservation & culture
 
