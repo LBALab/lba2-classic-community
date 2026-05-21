@@ -29,7 +29,7 @@ User-facing options for how the existing framebuffer is shown: pillarbox, intege
 
 Name the render-space dimensions and route the hardcoded literals through them, so the framebuffer size is no longer baked in. This is a behaviour-preserving refactor at the default 640×480.
 
-Status: **done** (`refactor/resolution-constants`, [PR #134](https://github.com/LBALab/lba2-classic-community/pull/134)). It adds `LIB386/H/SYSTEM/RESOLUTION.H` with `#ifndef`-guarded `RESOLUTION_X` / `RESOLUTION_Y`, routes the compile-time buffer allocations and the runtime render-edge literals (sort preclip, cinema bars, logo anchor) through the constants and `ModeDesiredX` / `ModeDesiredY`. See [How to test a wider build](#how-to-test-a-wider-build).
+Status: **done** (`refactor/resolution-constants`, [PR #134](https://github.com/LBALab/lba2-classic-community/pull/134)). It adds `LIB386/H/SYSTEM/RESOLUTION.H` with `#ifndef`-guarded `RESOLUTION_X` / `RESOLUTION_Y`, routes the compile-time buffer allocations and the runtime render-edge literals (sort preclip, cinema bars, logo anchor) through the constants and `ModeDesiredX` / `ModeDesiredY`. Two render-space assumptions are left untouched by it: the perspective projection is still centred on a hardcoded `320, 240` (`SOURCES/EXTFUNC.CPP:93`), and the `SOURCES/GRILLE.CPP` brick renderer still clips at 640. [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md) is the full render-space site inventory. See [How to test a wider build](#how-to-test-a-wider-build).
 
 ### Phase C — UI strategy
 
@@ -83,7 +83,7 @@ cmake --build build-wide
 ./build-wide/SOURCES/lba2cc --game-dir /path/to/data
 ```
 
-Expected result with only Phase B done: the 3D world and cinema bars render across the full width, the sort tree preclips correctly, and the 2D UI is left-justified at its original 640-wide layout with uninitialised content in the right margin. That is the visible boundary between Phase B and Phase C — the engine is structurally sound at the wider size, the UI layer has simply not been addressed yet.
+Expected result with only Phase B done: cinema bars render across the full width and the sort tree preclips against the wider edge — but the 3D world is not yet correct. The perspective projection is still centred on a hardcoded `320, 240` (`SOURCES/EXTFUNC.CPP:93`), so the view is optically anchored left of centre rather than filling the frame, and the brick renderer (`SOURCES/GRILLE.CPP`) clips at x=640. The 2D UI is separately left-justified at its original 640-wide layout with uninitialised content in the right margin. Two kinds of work remain: render-space (the projection origin and the GRILLE clips) and UI-space (Phase C).
 
 ## Status
 
