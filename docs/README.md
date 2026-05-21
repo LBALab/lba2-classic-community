@@ -54,6 +54,7 @@ Index of documentation in this repository.
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |
 | [GFX_OPTIONS.md](GFX_OPTIONS.md) | Variables and locations for graphical quality options. |
 | [WIDESCREEN.md](WIDESCREEN.md) | Widescreen / higher-resolution plan: render-vs-UI coordinate spaces, phased roadmap, current status. |
+| [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md) | Projection 4:3 audit: where projection hardcodes the screen centre and 640, culling/preclip sites, and what PR #134 did and did not route. |
 | [ABI.md](ABI.md) | Rule for reading 32-bit DOS-era data on 64-bit hosts; catalogue of fat types; compile-time guards. |
 | [PLATFORM.md](PLATFORM.md) | High-level map of host assumptions (pointer ABI, endianness, FP precision, ASM, OS boundary) with status badges and next-step pointers. |
 
