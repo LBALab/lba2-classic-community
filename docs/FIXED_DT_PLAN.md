@@ -70,6 +70,17 @@ void ManageTime() {
 
 ---
 
+> **Implementation correction (post-build).** The "neutralised for free" reasoning below was
+> wrong in practice: an exterior follow-cam save still leaked wall-clock under the virtual
+> clock, so the re-add was explicitly guarded off in fixed-dt mode (research option (ii)) via a
+> `Timer_FixedDtActive()` accessor — a one-line `PERSO.CPP` edit, opt-in. Two further leaks
+> surfaced and were fixed: the first-tick step (force `LastTime = FixedDtNow` in
+> `Timer_EnableFixedDt`) and boot-residual contamination of the base clock (enable fixed-dt at
+> the *top* of `Control_Begin`, before the load, so boot `ManageTime` calls freeze). With all
+> three closed, a busy exterior save is byte-identical across 10 runs **on the null sound
+> backend**; the SDL backend retains a residual audio-thread wobble (see CONTROL.md). The
+> theory below is kept for the record.
+
 ## 2. FollowCam timer re-add — neutralised for free
 
 The research's top hazard ([`PERSO.CPP:1877-1889`](../SOURCES/PERSO.CPP)):
@@ -199,9 +210,11 @@ call sites):
 
 **`SOURCES/CONTROL.H`** — extend the usage comment block (`:6-15`) with `--fixed-dt`.
 
-No edits to `PERSO.CPP` game logic: the FollowCam re-add (§2) needs none, and the hook/parse/
-boot seams already exist. This keeps the LIB386 footprint to one source line plus two small
-functions, all dead unless the harness arms them.
+One `PERSO.CPP` edit was needed after all (see §2 correction): the FollowCam re-add at
+`:1892` is guarded behind `Timer_FixedDtActive()` so it is skipped only in fixed-dt mode —
+default behaviour unchanged. The LIB386 footprint is the one `ManageTime` source line plus
+three small functions (`Timer_EnableFixedDt`, `Timer_FixedDtAdvance`, `Timer_FixedDtActive`),
+all dead unless the harness arms them.
 
 ---
 

@@ -34,6 +34,7 @@ void SetTimerHR(U32 time);
 // does not call Timer_EnableFixedDt() are byte-for-byte unaffected. See docs/CONTROL.md.
 void Timer_EnableFixedDt(U32 dt_ms); // arm fixed-dt; seeds the virtual clock to now
 void Timer_FixedDtAdvance();         // advance the virtual clock by dt_ms (once per tick)
+S32 Timer_FixedDtActive();           // non-zero while fixed-dt is armed (guards wall-clock paths)
 
 void ManageTime();
 void HandleEventsTimer(const void *event);

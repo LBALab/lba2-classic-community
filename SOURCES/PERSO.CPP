@@ -1884,7 +1884,13 @@ restartloop:
 
         if (FollowCamTerrainFrame) {
             RestoreTimer();
-            TimerRefHR += TimerSystemHR - FollowCamTimerBefore;
+            // The re-add compensates real render+vsync wall-clock so the follow-cam frame
+            // doesn't stall the game clock. Under fixed-dt that wall-clock term is exactly
+            // the nondeterminism we are pinning out, so skip it: the clock advances by the
+            // fixed step alone. Default (non-fixed-dt) behaviour is unchanged.
+            if (!Timer_FixedDtActive()) {
+                TimerRefHR += TimerSystemHR - FollowCamTimerBefore;
+            }
             FollowCamTerrainFrame = FALSE;
         }
 
