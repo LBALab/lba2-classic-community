@@ -26,6 +26,7 @@ lba2cc --load <slot>          restore a save before the loop starts
        --exec "<cmd>;<cmd>"   run console commands (';'-separated) on the first tick
        --tick <N>             advance N simulation ticks
        --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic)
+       --demo                 attract/demo mode: scripts drive the scene, modals auto-advance
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
        --polyrec <path>       record polygon draw calls of the frame (ENABLE_POLY_RECORDING builds)
@@ -94,6 +95,16 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   different but still-reproducible trajectory, so pick one and keep it. The flag is harness-only
   and has no effect on default gameplay timing. An invalid or non-positive value is ignored with
   a diagnostic.
+- **`--demo` runs attract/demo mode** (sets `DemoSlide`). It only does something on an authored
+  *demo scene* (the copies at cubes 193-221, see [SCENES.md](SCENES.md)): such a scene drives
+  itself from its Life/Track scripts with no player input, and dialogues/choices auto-advance on
+  the game clock instead of waiting — so it plays through headless instead of hanging on a prompt.
+  (On a regular scene there is no demo script, so the hero just idles.) Combined with `--fixed-dt`
+  this is a deterministic scripted playthrough; cube 193 (the retail menu attract,
+  `GAMEMENU.CPP:2435`) is exercised this way by `tests/automation/test_demo.sh`. Opt-in; default
+  gameplay is unaffected. (Note: a demo scene ends on a cutscene/`PLAY_ACF` that `--demo` does not
+  auto-advance, so it still blocks a `--exit` run — cap the tick budget before it; see the modal
+  caveat above.)
 - A bad `--load` path exits cleanly with a `save not found` diagnostic.
 
 ## `--dump-state` JSON
