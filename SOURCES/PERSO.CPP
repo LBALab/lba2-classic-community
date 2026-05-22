@@ -6,6 +6,7 @@
 #include "RES_DISCOVERY.H"
 #include "RES_PICKER.H"
 #include "INPUT.H"
+#include "CONTROL.H"
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -544,6 +545,10 @@ restartloop:
                               // cela ne pose pas de probleme !
             FlagReajustPosTwinsen = TRUE;
         }
+
+        /* CLI control harness seam: no-op until armed. Runs --exec on the first tick
+         * (scene is loaded by the block above) and finalizes after N ticks. */
+        Control_TickHook();
 
 /*-------------------------------------------------------------------------*/
 #ifdef DEBUG_TOOLS
@@ -2283,6 +2288,7 @@ int main(int argc, char *argv[]) {
     char tmpFilePath[ADELINE_MAX_PATH];
 
     parse_save_load_test_flag(&argc, argv);
+    Control_ParseArgs(&argc, argv);
 
 #ifdef DEBUG_TOOLS
     MemoMemory = AvailableMem();       // memory at start
@@ -2462,7 +2468,7 @@ int main(int argc, char *argv[]) {
 #ifndef DEBUG_TOOLS
     //-------------------   logo adeline (affiche)
 
-    if (!SaveLoadTestMode) {
+    if (!SaveLoadTestMode && !Control_IsActive()) {
         DistribLogo();
 
         Cls();
@@ -2730,6 +2736,16 @@ int main(int argc, char *argv[]) {
                     (int)NumCube, (int)NbObjets, (int)NbPatches);
         }
         fflush(stdout);
+        TheEnd(PROGRAM_OK, "");
+        return 0;
+    }
+
+    /* CLI control harness: when driven by --load/--exec/--tick/etc, bypass the menu
+     * and run the automated boot path (load -> exec -> tick -> dump/screenshot ->
+     * exit). The single Control_TickHook() in MainLoop does the per-tick work. */
+    if (Control_IsActive()) {
+        Control_Begin();
+        MainLoop();
         TheEnd(PROGRAM_OK, "");
         return 0;
     }

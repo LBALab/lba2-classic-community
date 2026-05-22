@@ -142,13 +142,17 @@ int Console_IsOpen(void) {
     return s_console_open;
 }
 
+void Console_EnsureRegistered(void) {
+    if (!s_registered) {
+        Console_RegisterAll();
+        s_registered = 1;
+    }
+}
+
 void Console_Toggle(void) {
     s_console_open = !s_console_open;
     if (s_console_open) {
-        if (!s_registered) {
-            Console_RegisterAll();
-            s_registered = 1;
-        }
+        Console_EnsureRegistered();
         s_history_index = -1;
     } else {
         /* Clear input line when closing so it doesn't persist on next open */
@@ -262,6 +266,19 @@ void Console_Print(const char *fmt, ...) {
 
 void Console_SetLineSinkForTests(Console_LineSinkFn sink) {
     s_line_sink_for_tests = sink;
+}
+
+int Console_GetScrollback(const char **out, int max) {
+    int k, i, start;
+    if (!out || max <= 0)
+        return 0;
+    k = (s_scrollback_count < max) ? s_scrollback_count : max;
+    start = s_scrollback_head - k;
+    while (start < 0)
+        start += CONSOLE_SCROLLBACK_LINES;
+    for (i = 0; i < k; i++)
+        out[i] = s_scrollback[(start + i) % CONSOLE_SCROLLBACK_LINES];
+    return k;
 }
 
 /* Helpers to sort commands/cvars alphabetically for help/cmdlist/varlist. */
