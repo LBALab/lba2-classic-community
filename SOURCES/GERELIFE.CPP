@@ -756,6 +756,16 @@ void DoLife(U8 numobj) {
 
     while (flag != -1) {
         ptrmacro = PtrPrg;
+        /* TEMP exploration: env-gated life-script trace (LBA2_TRACE_LIFE=1). Prints each
+           LM_* opcode number as DoLife interprets it; map numbers->names from COMMON.H. */
+        {
+            static int trace = -1;
+            if (trace < 0)
+                trace = getenv("LBA2_TRACE_LIFE") ? 1 : 0;
+            if (trace)
+                fprintf(stderr, "[LIFE] obj=%-3u off=%-4ld lm=%u\n", numobj,
+                        (long)(ptrmacro - ptrobj->PtrLife), *ptrmacro);
+        }
         switch (*PtrPrg++) {
             //---------------------------------------------------------------------------
         case LM_END:

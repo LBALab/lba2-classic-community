@@ -108,8 +108,8 @@ run under the harness. This shows the engine model directly.
 - **Track (`DoTrack`, `GERETRAK.CPP:140`, called per object at `PERSO.CPP:1551`)** — movement.
   Vocabulary `TM_*` (`COMMON.H:1051+`): `GOTO_POINT`, `ANGLE`, `ANIM`, `WAIT_ANIM`,
   `WAIT_NB_SECOND`, `STOP`, `SPEED`, `LABEL`/`GOTO` (loops), `SAMPLE`, doors, etc.
-- **Life (`DoLife`, `GERELIFE.CPP`)** — behaviour/AI. Vocabulary `LM_*` (commands) + `LF_*`
-  (conditions): variables, zones, dialogue, combat, state. Larger; not traced yet.
+- **Life (`DoLife`, `GERELIFE.CPP:742`)** — behaviour/AI. Vocabulary `LM_*` (148 commands) +
+  `LF_*` (46 condition functions). Traced below.
 
 **Execution model** (read off the trace). Each object has a program pointer `PtrTrack` + a
 program counter `OffsetTrack`. Per tick, `DoTrack` loops: read opcode, advance `OffsetTrack`,
@@ -135,6 +135,29 @@ waypoints, stop; wait, face an angle, walk another chain, stop. This is exactly 
 "Twinsen running around" — higher-level than controller input. The harness reaches it with
 `--exec "cube 193"`, and the hero follows his track without `DemoSlide` because the scene sets
 his `Move` to track-following.
+
+**The Life half** (traced with `LBA2_TRACE_LIFE=1` in `DoLife`, `GERELIFE.CPP:742`; opcode
+numbers mapped to names from `COMMON.H`). `DoLife` runs the object's behaviour block from
+`OffsetLife` each tick. Over a 600-tick demo, ~18k Life ops were overwhelmingly **conditions** —
+`LM_IF`/`LM_SWIF`/`LM_AND_IF`/`LM_OR_IF` (~13k) and `LM_END_COMPORTEMENT` (the behaviour-block
+terminator) — with **actions firing rarely** on state changes (`LM_SET_TRACK`,
+`LM_SET_COMPORTEMENT`, `LM_SET_VAR_GAME/CUBE`, `LM_ANIM`, `LM_BETA`, `LM_CINEMA_MODE`,
+`LM_SET_CAMERA`, `LM_CAM_FOLLOW`, `LM_SUICIDE`, …).
+
+A condition opcode calls `DoFuncLife` — evaluate one of **46 `LF_*` sensor functions** (`LF_COL`
+collision, `LF_DISTANCE`, `LF_ZONE`, `LF_CONE_VIEW` line-of-sight, `LF_HIT_BY`, `LF_ACTION`
+button, `LF_VAR_GAME`/`LF_VAR_CUBE`, `LF_BODY`/`LF_ANIM`, …) — then `DoTest` (compare), then
+branches via a 2-byte else/endif offset (`PtrPrg = PtrLife + *(s16*)PtrPrg`) if false. So Life is
+an **event-driven behaviour tree**: sensors poll game state, branches resolve, actions fire on
+change.
+
+**The two interpreters together:** Life is the brain (perceives via `LF_*`, decides, sets state),
+Track is the legs (executes movement). The link is `LM_SET_TRACK`: a Life behaviour engages a
+Track program, which then walks the actor (the `GOTO_POINT` chains above). The demo hero is set
+up this way — Life arranges the cinema camera (`LM_CINEMA_MODE`/`SET_CAMERA`/`CAM_FOLLOW`) and
+puts the hero on his track; Track does the walking. This is the whole authored-content engine,
+and it is deterministic under `--fixed-dt` except where a sensor reads the residual
+nondeterminism (the §2d bat: `LF_HIT_BY`/`LF_COL` firing — or not — on a load-jittered hit).
 
 Two caveats observed running it:
 
