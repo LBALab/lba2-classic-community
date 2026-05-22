@@ -31,8 +31,10 @@ int Control_IsActive(void);
 
 /* Set up the boot path and arm the tick hook. Call once, instead of MainGameMenu(),
    when active: applies --load (InitGame(-1) + ChangeCube while FlagLoadGame is set)
-   or a fresh InitGame(1), then arms Control_TickHook. The caller then runs MainLoop. */
-void Control_Begin(void);
+   or a fresh InitGame(1), then arms Control_TickHook. Returns 1 on success (caller
+   should run MainLoop), 0 on failure such as an unresolvable --load (caller should
+   skip MainLoop and exit). */
+int Control_Begin(void);
 
 /* Single seam invoked at the top of the MainLoop body. No-op (one flag test) until
    armed. Runs the --exec batch on the first tick (scene loaded by then), and after N

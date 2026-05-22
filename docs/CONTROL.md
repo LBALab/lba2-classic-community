@@ -60,8 +60,18 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
 - **A rendered artifact needs a tick.** `--screenshot` forces a minimum of one tick (you
   can't screenshot a frame that was never drawn). A `--dump-state` with `--tick 0` reflects
   the loaded state before any simulation step.
+- **A tick is one main-loop iteration, normally one rendered frame.** In a settled scene
+  the two are identical. The exception is a cube transition: when a script (or a `cube`
+  command) changes the scene, the loop restarts its body to load the new cube, which counts
+  as another tick without a separate rendered frame. So `--tick N` is exact for "advance N
+  frames in this scene", and an over-count by the number of cube changes when the run
+  crosses scene boundaries.
 - **`--exec` is limited to the [console commands](CONSOLE.md)** — `cube`, `give`, `timer`,
   `status`, `list*`, cvars, etc. Run `cmdlist` in the console to see them.
+- **Scene-mutating commands need an active scene.** Commands like `give` operate on the
+  loaded game and no-op (with a reason printed) outside a normal play state. From a fresh
+  start (no `--load`) the intro cube may not yet be a normal play scene, so pair such
+  commands with `--load`, or a `cube` jump plus a tick, before relying on them.
 - **Modal commands block a headless run.** Commands that open a cinematic, video, or
   dialogue wait for input to dismiss them, so a `--exit` run hangs on them. This includes
   `give <item>` (the found-object cinematic), `playvideo`, `credits`, and `slide`. Use
