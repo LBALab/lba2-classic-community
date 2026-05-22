@@ -25,6 +25,12 @@ void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surface
 void SetWindowFullscreen(bool fullscreen);
 bool GetWindowFullscreen();
 
+// Toggle renderer vsync at runtime. On (the default) paces presents to the display
+// refresh; off lets the loop run flat-out. The control harness turns it off so a
+// scripted run is not capped at ~60 fps -- presentation only, no effect on rendered
+// pixels or simulation state.
+void Window_SetVSync(int enabled);
+
 void ManageWindow();
 void HandleEventsWindow(const void *event);
 

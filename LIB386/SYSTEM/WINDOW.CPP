@@ -300,6 +300,12 @@ bool GetWindowFullscreen() {
     return windowFullscreenEnabled;
 }
 
+void Window_SetVSync(int enabled) {
+    if (sdlRenderer != NULL) {
+        SDL_SetRenderVSync(sdlRenderer, enabled ? 1 : 0);
+    }
+}
+
 void ManageWindow() {
     // Empty
 }
