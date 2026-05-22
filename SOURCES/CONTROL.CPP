@@ -393,6 +393,10 @@ void Control_TickHook(void) {
        per loop-body iteration, before this tick's ManageTime() banks the step. */
     if (s_have_fixed_dt)
         Timer_FixedDtAdvance();
+    /* TEMP exploration: per-tick RNG count + a watched actor's X, to find where runs diverge. */
+    if (getenv("LBA2_TRACE_RAND"))
+        fprintf(stderr, "[RNDCNT] tick=%ld rand=%lu timer=%u obj11x=%d\n", s_hook_calls - 1,
+                g_rand_calls, (unsigned)TimerRefHR, (int)ListObjet[11].Obj.X);
     if (s_hook_calls == 1)
         control_run_exec();
 #ifdef ENABLE_POLY_RECORDING
