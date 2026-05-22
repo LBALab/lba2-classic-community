@@ -66,10 +66,18 @@ void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, co
 /* Called from CONSOLE_CMD.CPP to register all commands/cvars */
 void Console_RegisterAll(void);
 
+/* Populate the command/cvar table once (idempotent). The console calls this on first
+   open; the CLI control harness calls it before Console_Execute. */
+void Console_EnsureRegistered(void);
+
 /* Internal command execution entry point; used by host-only parser tests. */
 void Console_Execute(const char *line);
 /* Test hook: receives each console output line after it is pushed to scrollback. */
 void Console_SetLineSinkForTests(Console_LineSinkFn sink);
+
+/* Copy up to max recent scrollback line pointers (chronological, newest last) into
+   out[]; returns the count. Pointers are valid until the next console output. */
+int Console_GetScrollback(const char **out, int max);
 
 #ifdef __cplusplus
 }
