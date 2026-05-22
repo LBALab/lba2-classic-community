@@ -96,6 +96,61 @@ script that walks him through cube 193 and the Life script for his behaviour. It
 authored movement/AI, not a controller-input stream — which is exactly why it is deterministic
 under `--fixed-dt` and a better regression fixture than raw input would be.
 
+## 2c. The scripting engine, observed live
+
+Rather than disassemble the bytecode statically, the actual interpreter was instrumented
+(temporary env-gated trace `LBA2_TRACE_TRACK=1` in `DoTrack`, `GERETRAK.CPP:140`) and cube 193
+run under the harness. This shows the engine model directly.
+
+**Two per-object interpreters, run every tick** for each live object:
+
+- **Track (`DoTrack`, `GERETRAK.CPP:140`, called per object at `PERSO.CPP:1551`)** — movement.
+  Vocabulary `TM_*` (`COMMON.H:1051+`): `GOTO_POINT`, `ANGLE`, `ANIM`, `WAIT_ANIM`,
+  `WAIT_NB_SECOND`, `STOP`, `SPEED`, `LABEL`/`GOTO` (loops), `SAMPLE`, doors, etc.
+- **Life (`DoLife`, `GERELIFE.CPP`)** — behaviour/AI. Vocabulary `LM_*` (commands) + `LF_*`
+  (conditions): variables, zones, dialogue, combat, state. Larger; not traced yet.
+
+**Execution model** (read off the trace). Each object has a program pointer `PtrTrack` + a
+program counter `OffsetTrack`. Per tick, `DoTrack` loops: read opcode, advance `OffsetTrack`,
+dispatch. **Blocking** opcodes (`GOTO_POINT`, `WAIT_*`, `STOP`) end the tick and *re-execute the
+same offset next tick* until their condition completes — e.g. `GOTO_POINT` re-runs each tick
+while the actor walks toward the waypoint, then advances. **Non-blocking** opcodes (`LABEL`,
+`ANIM`, `ANGLE`, `SPEED`, `REM`) fall through and the loop keeps executing within the same tick.
+That is why a 60-tick run showed `GOTO_POINT` 59× at one offset (still walking).
+
+**Cube 193's hero program** (`ListObjet[0]`, traced in execution order, per-tick repeats
+collapsed):
+
+```
+LABEL  ANIM  GOTO_POINT GOTO_POINT GOTO_POINT  REM
+LABEL  STOP
+LABEL  WAIT_ANIM ANIM  WAIT_NB_SECOND  REM  ANIM ANGLE ANIM  REM
+       GOTO_POINT GOTO_POINT GOTO_POINT  REM  ANIM ANGLE ANIM
+LABEL  STOP
+```
+
+So the attract "recording" is an authored movement program: set an animation, walk a chain of
+waypoints, stop; wait, face an angle, walk another chain, stop. This is exactly what drives
+"Twinsen running around" — higher-level than controller input. The harness reaches it with
+`--exec "cube 193"`, and the hero follows his track without `DemoSlide` because the scene sets
+his `Move` to track-following.
+
+Two caveats observed running it:
+
+- **The hero's scripted path is deterministic** (identical across 3 runs at 200 ticks), but a
+  *fresh-start* cube-jump (`--exec "cube N"`, no `--load`) does not pin `timer_ref_hr` as cleanly
+  as `--load` — a ~3 ms boot-timing residual remains and jitters the moving NPCs by ±1 unit. For
+  fully deterministic runs use `--load` (which restores a fixed save clock), as the corpus
+  baselines do. A scripted-playthrough fixture should therefore start from a save, not a bare
+  cube jump.
+- **A long run hangs without `DemoSlide`.** Past the walking phase, cube 193's Life script hits
+  an interactive dialogue/cinematic that waits for input, hanging a `--exit` run (the documented
+  modal caveat). The real attract framework sets `DemoSlide = TRUE` so those auto-advance on
+  `TimerRefHR`; a headless playthrough of demo content needs the same.
+
+Tooling for this lives on the branch: `scripts/dev/hqr_inspect.py` (container + LZSS) and the
+`LBA2_TRACE_TRACK` trace in `DoTrack` (temporary; useful enough to keep env-gated, or drop).
+
 ## 3. Implication for step 3 — two complementary paths
 
 Given there is no recorded-input data to replay, step 3 splits into two things that should not
