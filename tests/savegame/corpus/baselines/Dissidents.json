@@ -124,6 +124,7 @@
   },
   "schema": 1,
   "tick": 8,
+  "timer_ref_hr": 32224218,
   "vars": {
     "count": 256,
     "nonzero": {
