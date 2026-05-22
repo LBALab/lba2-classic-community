@@ -69,6 +69,33 @@ never recorded controller input.
 
 ---
 
+## 2b. The attract demo, concretely — cube 193 and the scene format
+
+The retail (non-`DEMO`) attract demo is a normal scene driven by scripts. `GAMEMENU.CPP:2432`
+(the `#else` branch) sets `DemoSlide = TRUE`, `InitGame(1)`, `NewCube = 193`, and runs
+`MainLoop()` — so "Twinsen running around" is **cube 193's scripts**, not input. (`SlideDemo()`
+cycles from cube 5.) This was confirmed by inspecting the data directly.
+
+**HQR container** (`HQFILE.CPP`, `HQR.H`): the file opens with a U32 offset table (first U32 =
+offset of entry 0, so `entries = first/4`); each slot is a byte offset to a
+`COMPRESSED_HEADER { u32 SizeFile; u32 CompressedSizeFile; s16 CompressMethod }` (0 stored, 1
+LZSS, 2 LZMIT) followed by the data. `scripts/dev/hqr_inspect.py` enumerates and decompresses
+entries (LZSS ported from `LZ.CPP`, verified: decompressed sizes match headers).
+
+`scene.hqr` holds **224 cube slots, entry N = cube N**; cube 193 is 1022 bytes (LZSS).
+
+**Scene resource layout** (`DISKFUNC.CPP`): an ambiance/sample/jingle header, then `HERO_START`
+(`CubeStartX/Y/Z`, then the hero's **Track script** and **Life script**, each `s16`-size-prefixed),
+then `NbObjets` and per object: flags, file3D index, body/anim/sprite, position, beta, `SRot`,
+`Move`, `Info0..3`, bonus, colour, armour, life — then that object's **Track + Life scripts**
+(each size-prefixed). Then a checksum, then zones/tracks/patches.
+
+So the "recording" that animates the attract demo is the **per-object Track (`TM_*`) and Life
+(`LM_*`) bytecode** authored into each cube. The hero object (`ListObjet[0]`) carries the Track
+script that walks him through cube 193 and the Life script for his behaviour. It is higher-level
+authored movement/AI, not a controller-input stream — which is exactly why it is deterministic
+under `--fixed-dt` and a better regression fixture than raw input would be.
+
 ## 3. Implication for step 3 — two complementary paths
 
 Given there is no recorded-input data to replay, step 3 splits into two things that should not
@@ -123,6 +150,14 @@ the genuinely new capability the roadmap asks for, and the determinism work was 
 - **Modal interactions.** Recorded sessions that open menus/inventory/dialogue: under
   `DemoSlide` these auto-advance on `TimerRefHR`, but normal modals wait for input — a replay
   must feed the dismiss inputs. Confirm replay drives them correctly.
+- **Disassemble cube 193's hero script.** Next concrete step: parse the decompressed cube
+  (`hqr_inspect.py --entry 193 --dump`) through the scene layout (§2b) to extract the hero's
+  Track/Life bytecode, and disassemble it with the `TM_*`/`LM_*` opcode tables (`COMMON.H`,
+  `GERETRAK.CPP`/`GERELIFE.CPP`). That reveals exactly what the "recording" instructs — the
+  authored playthrough — and validates the inspector against the engine's own parse.
+- **Or watch it run.** Drive cube 193 under the harness (`--exec "cube 193"`, `--fixed-dt`,
+  vsync-off) with `DemoSlide` enabled and dump state across ticks to observe the scripted
+  playthrough deterministically.
 - **Where IMPACT/FLOW are documented.** Neither is in `docs/` yet (only Life/Track are, in
   GLOSSARY/LIFECYCLES). If we lean on script playback for testing, a short doc of the
   effects-scripting systems is worth adding.
