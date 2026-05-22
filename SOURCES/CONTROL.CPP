@@ -72,9 +72,14 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             continue;
         }
         if (!strcmp(a, "--tick") && has_val) {
-            s_tick = strtol(argv[read + 1], NULL, 0);
-            if (s_tick < 0)
-                s_tick = 0;
+            char *end = NULL;
+            long v = strtol(argv[read + 1], &end, 0);
+            if (end == argv[read + 1] || *end != '\0' || v < 0) {
+                fprintf(stderr, "[control] --tick: invalid count '%s' (using 0)\n",
+                        argv[read + 1]);
+                v = 0;
+            }
+            s_tick = v;
             s_have_tick = 1;
             s_active = 1;
             read += 2;

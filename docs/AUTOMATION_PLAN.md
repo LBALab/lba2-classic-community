@@ -1,9 +1,12 @@
 # Automation control surface — plan
 
-Phase 2 design, built on `AUTOMATION_RESEARCH.md`. **Not yet approved — do not start
-Phase 3 until signed off.** Read the research doc first; this plan assumes its findings
-(console `Console_Execute`, the `InitGame(-1)`→`ChangeCube()` load sequence, `SavePNG`,
-the wall-clock timer, the monolithic `MainLoop`).
+> **Status: implemented in PR #162** as the `CONTROL` module. This document is the design
+> trail; for usage see [CONTROL.md](CONTROL.md), and see "As-built notes" at the end for
+> where the implementation diverged from this plan.
+
+Phase 2 design, built on `AUTOMATION_RESEARCH.md`. Read the research doc first; this plan
+assumes its findings (console `Console_Execute`, the `InitGame(-1)`→`ChangeCube()` load
+sequence, `SavePNG`, the wall-clock timer, the monolithic `MainLoop`).
 
 Target CLI (unchanged from the spec):
 
@@ -322,3 +325,39 @@ fields (`b > a`, "changed"), never exact coordinates.
 
 T1+T2+T3+T8 together exercise the full path — parse → boot → load scene → run commands →
 step N ticks of real sim+render → observe → clean exit.
+
+---
+
+## As-built notes (PR #162)
+
+Where the implementation differs from the plan above. The user guide
+[CONTROL.md](CONTROL.md) is canonical for behaviour.
+
+- **Load does its own `ChangeCube`, not via `MainLoop`'s `NewCube`.** The plan's "one code
+  path through `MainLoop`" framing was wrong on one detail: `MainLoop` clears `FlagLoadGame`
+  at its top (`PERSO.CPP:440`) *before* its first-iteration `ChangeCube`, so letting the
+  loop load the scene would not restore the saved hero position. `Control_Begin` therefore
+  runs `InitGame(-1)` then `ChangeCube()` itself (matching the menu's `load_game` path,
+  `GAMEMENU.CPP:3571`), then enters `MainLoop` with `NewCube == -1`. The fresh-start path
+  does keep the plan's approach (`InitGame(1)`; the loop's first iteration loads cube 0).
+- **Boot logos are skipped** when the harness is active (`!Control_IsActive()` added to the
+  logo gate at `PERSO.CPP:2471`), the same skip `--save-load-test` already uses. Not
+  anticipated in the plan; without it the run hangs on the distributor/Adeline logos.
+- **`Control_Begin` returns `int`** (1 ok / 0 failure) rather than `void`; `main()` skips
+  `MainLoop` on failure instead of relying on `TheEnd` being noreturn. (Review hardening.)
+- **A tick is one `MainLoop` iteration, not strictly one frame.** The two `goto startloop`
+  sites (`PERSO.CPP:1608`, `:1629`) jump above the hook, so a script-driven cube transition
+  advances the counter an extra time. Exact for advancing within a settled scene (the common
+  case); over-counts by the number of cube changes when a run crosses scenes. Documented.
+- **Modal commands hang a `--exit` run** (`give <item>` found-object cinematic, `playvideo`,
+  `credits`, `slide`) — they wait for input. Discovered in testing; documented. Tests use
+  the non-modal `give clover`.
+- **Console additions:** both `Console_EnsureRegistered` (the plan flagged the double-
+  registration risk) and `Console_GetScrollback` (the `log` field) landed; `Console_Toggle`
+  was refactored onto `Console_EnsureRegistered`.
+- **Commits:** delivered as one branch / PR (research+plan docs, the module + console hooks,
+  the test scripts, the user doc, then a review-fixups commit) rather than the 7-step split
+  sketched above — the per-flag *tests* are the artifacts that matter and they all landed.
+- **Deferred (noted on the PR):** the large `timer_ref_hr` boot baseline (cosmetic,
+  monotonic) and capping `actors[]` for pathological scenes are left open. (Warn-on-non-
+  numeric `--tick` was added.)
