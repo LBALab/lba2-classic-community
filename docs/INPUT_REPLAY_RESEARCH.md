@@ -168,31 +168,44 @@ Observations:
   (`MyRnd → Rnd(n) = rand()%n`, `LIB386/H/SYSTEM.H:59`; single seed `srand(TimerRefHR)`,
   `OBJECT.CPP:1171`). Its *first* random draw is identical across runs, so the divergence is a
   *later* RNG-driven decision, not the seed.
-- **It is load-sensitive.** Run serially, six runs were byte-identical (`bat.x=6717`). Run 8×
-  *in parallel*, the result went **bimodal** — `bat.x` was 7174 in six and 6717 in two, clock
-  still identical. CPU contention flips an RNG-consuming decision in the bat's logic.
+- **It is load-sensitive and bimodal.** Run serially, six runs were byte-identical
+  (`bat.x=6717`). Run 8–10× *in parallel*, `bat.x` went bimodal (6717 or 7174), clock identical.
 
-Mechanism (best supported): the per-tick path consumes `rand()` outside the pinned clock (the
-ambiance/sample system calls `MyRnd` heavily, and some of that is gated on wall-clock/threaded
-state). Under load the number of `rand()` calls before the bat's decision drifts by one, the
-bat flies slightly differently, and *sometimes* reaches the hero — interrupting his track. So
-the residual nondeterminism is **`rand()`-call-sequence drift under load**, not the clock.
+**The cause is not the clock and not RNG** — established by elimination with an instrumented
+`rand()` counter (a global incremented in the `Rnd` macro + the two bare `rand()&1` sites,
+`GERETRAK.CPP`/`OBJECT.CPP`) printed per tick:
 
-Two important implications:
+- *Clock:* `timer_ref_hr` is identical every tick across all runs, including divergent ones.
+- *RNG:* two runs with an **identical per-tick `rand()` count and identical clock the entire
+  run** still ended with different `bat.x`. The bat begins to diverge at **tick 141** (when its
+  `GOTO_POINT` walk starts), consuming the *same* RNG stream. So the divergence is not
+  `rand()`-call-count drift or value drift. (Separately, a minor ±2 `rand()`-count wobble was
+  seen during the `ChangeCube` load phase — real, but *not* what moves the bat, since runs with
+  identical counts still split.)
+- *Threads:* the null sound backend (`-DSOUND_BACKEND=null`, used here) creates no threads —
+  all SDL audio threads/callbacks live in the SDL backend (`AIL/SDL/SAMPLE.CPP`, `STREAM.CPP`).
 
-1. **This is the same source as the ~9 FLAKY corpus saves** — they all have RNG-driven actors.
-   `--fixed-dt` pins the clock; it does not pin the `rand()` *call sequence* against load/timing
-   perturbation.
-2. **The `--jobs` parallel harness can *induce* this flakiness** (it adds exactly the CPU
-   contention that flips the decision). A save can look deterministic serially and FLAKY in
-   parallel. The self-calibrating reproducibility check (PR #167) is therefore partly measuring
-   load sensitivity, not just intrinsic determinism — worth keeping in mind when reading FLAKY
-   counts, and an argument for a serial confirmation pass before quarantining.
+With identical clock, identical RNG, a single thread, the same binary, and the same platform, a
+divergent result can only come from **reading uninitialised memory** — a value that is normally
+stable but, under different allocation/scheduling, occasionally takes the other of two values
+(hence bimodal). The bat's move-start at tick 141 reads such a value. This matches FLAKY corpus
+pattern #2 (uninitialised per-object/extra state) in `docs/FIXED_DT_PLAN.md`; the bat is a
+concrete, reproducible instance.
 
-True determinism for RNG-driven scenes would require pinning the `rand()` stream itself —
-e.g. a deterministic per-tick reseed, or ensuring the call order is independent of wall-clock
-and thread scheduling. That is the concrete next lever beyond `--fixed-dt`, and a prerequisite
-for golden-exact long playthroughs.
+Implications:
+
+1. **The residual nondeterminism is uninitialised reads, not RNG or timing.** `--fixed-dt`
+   (clock) and even a pinned RNG stream would *not* fix it. The fix is initialising the offending
+   state.
+2. **`--jobs` parallelism induces it** by changing allocation/scheduling, so PR #167 FLAKY counts
+   partly measure load sensitivity; a serial confirmation pass would classify more honestly.
+3. **Next step to pin the exact read:** run the bat scenario under Valgrind/memcheck (or MSAN)
+   and look for an "uninitialised value" in the actor move path around the bat's tick-141
+   `GOTO_POINT` start. That gives the precise field to initialise — a real determinism fix, not
+   a workaround.
+
+(Correction: an earlier commit on this branch hypothesised "rand()-call-sequence drift"; the
+counter experiment above overturned that — same RNG stream, divergent outcome.)
 
 ## 3. Implication for step 3 — two complementary paths
 
