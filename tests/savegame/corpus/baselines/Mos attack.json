@@ -110,7 +110,7 @@
     },
     {
       "anim": 1633,
-      "beta": 424,
+      "beta": 423,
       "body": 366,
       "flags": 135168,
       "index": 9,
@@ -268,6 +268,7 @@
   },
   "schema": 1,
   "tick": 8,
+  "timer_ref_hr": 37722035,
   "vars": {
     "count": 256,
     "nonzero": {
