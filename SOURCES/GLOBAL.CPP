@@ -1,8 +1,5 @@
 #include "C_EXTERN.H"
 
-/* TEMP exploration: global RNG draw counter (see the Rnd macro in SYSTEM.H). */
-unsigned long g_rand_calls = 0;
-
 /*══════════════════════════════════════════════════════════════════════════*
 			 █▀▀▀█ █▀▀▀▀ █▀▀▀█ ██▀▀▀ █▀▀▀█
 			 ██▀▀▀ ██▀▀  ██▀█▀ ▀▀▀▀█ ██  █

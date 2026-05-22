@@ -10,6 +10,13 @@ This is findings only — no design decision, no implementation. It started from
 script/playback systems to answer it. Line numbers were verified against the working tree;
 re-grep before relying on an exact number.
 
+**Tooling note.** The committed tools from this research are the read-only data utilities under
+`scripts/dev/` (`hqr_inspect.py`, `impact_disasm.py`, `flow_dump.py`, `pof_dump.py`). The
+in-engine instrumentation referenced below — the env-gated `LBA2_TRACE_TRACK` / `LBA2_TRACE_LIFE`
+traces, the `LBA2_TRACE_RAND` per-tick `rand()` counter, and `LBA2_FORCE_DEMOSLIDE` — was
+*temporary* and is **not committed**; the cited call sites (`DoTrack`/`DoLife` dispatch,
+`Control_Begin`) let you re-add a guarded `fprintf` to reproduce any trace.
+
 ---
 
 ## 1. The question: are there canned recordings to replay?
