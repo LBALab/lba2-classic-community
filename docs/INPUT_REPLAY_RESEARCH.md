@@ -151,7 +151,7 @@ Two caveats observed running it:
 Tooling for this lives on the branch: `scripts/dev/hqr_inspect.py` (container + LZSS) and the
 `LBA2_TRACE_TRACK` trace in `DoTrack` (temporary; useful enough to keep env-gated, or drop).
 
-## 2d. The Desert Island bat — load-sensitive RNG, the real residual nondeterminism
+## 2d. The Desert Island bat — load-sensitive nondeterminism (not clock/RNG/uninit/race)
 
 A known case: on Desert Island a bat sometimes hits the hero and disrupts the scripted path,
 so the playthrough "isn't truly deterministic." Tracing it localised the cause precisely and,
@@ -185,27 +185,39 @@ Observations:
 - *Threads:* the null sound backend (`-DSOUND_BACKEND=null`, used here) creates no threads —
   all SDL audio threads/callbacks live in the SDL backend (`AIL/SDL/SAMPLE.CPP`, `STREAM.CPP`).
 
-With identical clock, identical RNG, a single thread, the same binary, and the same platform, a
-divergent result can only come from **reading uninitialised memory** — a value that is normally
-stable but, under different allocation/scheduling, occasionally takes the other of two values
-(hence bimodal). The bat's move-start at tick 141 reads such a value. This matches FLAKY corpus
-pattern #2 (uninitialised per-object/extra state) in `docs/FIXED_DT_PLAN.md`; the bat is a
-concrete, reproducible instance.
+Then two more candidates were eliminated:
 
-Implications:
+- *Uninitialised memory:* Valgrind/memcheck `--track-origins=yes` on a Debug (`-g -O0`) null
+  build, load + 160 ticks, reported **0 errors / 0 uninitialised reads**. So it is not an
+  uninitialised read (memcheck flags those regardless of whether they cause divergence).
+- *Data race:* the process is **single-threaded** under the null backend (`ps -o nlwp` = 1; all
+  SDL audio threads are SDL-backend-only). No race is possible.
 
-1. **The residual nondeterminism is uninitialised reads, not RNG or timing.** `--fixed-dt`
-   (clock) and even a pinned RNG stream would *not* fix it. The fix is initialising the offending
-   state.
-2. **`--jobs` parallelism induces it** by changing allocation/scheduling, so PR #167 FLAKY counts
-   partly measure load sensitivity; a serial confirmation pass would classify more honestly.
-3. **Next step to pin the exact read:** run the bat scenario under Valgrind/memcheck (or MSAN)
-   and look for an "uninitialised value" in the actor move path around the bat's tick-141
-   `GOTO_POINT` start. That gives the precise field to initialise — a real determinism fix, not
-   a workaround.
+So: identical clock, identical RNG stream, single thread, the same binary/platform, and no
+uninitialised reads — yet the result diverges under load (and under Valgrind the bat took a
+*third* path, never leaving its start by tick 160, so even its move-start is environment-
+sensitive). The remaining explanation is **floating-point / `long double` precision
+sensitivity**: the projection/movement math uses 80-bit x87 `long double` + `lrintl()`
+(`LPROJ3DF.CPP`/`LROT3DF.CPP`, see `docs/PLATFORM.md`), and a borderline rounding can flip
+depending on FPU/SSE environment state, which the execution context (load, Valgrind) perturbs.
+This is consistent with the documented platform-precision behaviour, but it is **not yet
+confirmed** — it is the current leading hypothesis after eliminating the others.
 
-(Correction: an earlier commit on this branch hypothesised "rand()-call-sequence drift"; the
-counter experiment above overturned that — same RNG stream, divergent outcome.)
+Implications and status:
+
+1. **Not RNG, not the clock, not uninitialised memory, not a race** — all eliminated with
+   evidence. `--fixed-dt` (clock) and a pinned RNG stream would not fix it.
+2. **`--jobs` parallelism induces it**, so PR #167 FLAKY counts partly measure load sensitivity;
+   a serial confirmation pass would classify more honestly.
+3. **Open: confirm the FP hypothesis.** Next step is to trace the bat's actual movement-math
+   inputs/outputs (`GetDeltaMove`/projection) across a divergent pair to catch the value that
+   flips, and to check the FPU control word / try an SSE-only (no-`long double`) build. Only then
+   is there a concrete fix.
+
+(Corrections, kept as a record of following the evidence: an earlier commit hypothesised
+"rand()-call-sequence drift" — overturned by the counter experiment (same RNG stream, divergent
+outcome); a second pass concluded "uninitialised memory" — overturned by the clean Valgrind run.
+The honest current state is FP-precision sensitivity, still to be confirmed.)
 
 ## 3. Implication for step 3 — two complementary paths
 
