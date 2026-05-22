@@ -11,6 +11,19 @@
 /*──────────────────────────────────────────────────────────────────────────*/
 S32 BigSampleRepeat = 1;
 
+/* TEMP exploration: env-gated track-script trace (set LBA2_TRACE_TRACK=1).
+   Logs each TM_* opcode as DoTrack interprets it. Not permanent. */
+static const char *TM_TRACE_NAMES[] = {
+    "END", "NOP", "BODY", "ANIM", "GOTO_POINT", "WAIT_ANIM", "LOOP", "ANGLE",
+    "POS_POINT", "LABEL", "GOTO", "STOP", "GOTO_SYM_POINT", "WAIT_NB_ANIM", "SAMPLE",
+    "GOTO_POINT_3D", "SPEED", "BACKGROUND", "WAIT_NB_SECOND", "NO_BODY", "BETA",
+    "OPEN_LEFT", "OPEN_RIGHT", "OPEN_UP", "OPEN_DOWN", "CLOSE", "WAIT_DOOR", "SAMPLE_RND",
+    "SAMPLE_ALWAYS", "SAMPLE_STOP", "PLAY_ACF", "REPEAT_SAMPLE", "SIMPLE_SAMPLE",
+    "FACE_TWINSEN", "ANGLE_RND", "REM", "WAIT_NB_DIZIEME", "DO", "SPRITE",
+    "WAIT_NB_SECOND_RND", "AFF_TIMER", "SET_FRAME", "SET_FRAME_3DS", "SET_START_3DS",
+    "SET_END_3DS", "START_ANIM_3DS", "STOP_ANIM_3DS", "WAIT_ANIM_3DS", "WAIT_FRAME_3DS",
+    "WAIT_NB_DIZIEME_RND", "DECALAGE", "FREQUENCE", "VOLUME"};
+
 /*══════════════════════════════════════════════════════════════════════════*/
 
 // Permet de forcer une track à un label et non à un offset (en gros, comme
@@ -158,6 +171,15 @@ void DoTrack(U8 numobj) {
 
         macro = *ptrtrack++;
         ptrobj->OffsetTrack++;
+
+        {
+            static int trace = -1;
+            if (trace < 0)
+                trace = getenv("LBA2_TRACE_TRACK") ? 1 : 0;
+            if (trace)
+                fprintf(stderr, "[TRK] obj=%-3u off=%-4d TM_%s(%u)\n", numobj,
+                        memooffsettrack, macro < 53 ? TM_TRACE_NAMES[macro] : "?", macro);
+        }
 
         switch (macro) {
             /*-------------------------------------------------------------------------*/
