@@ -219,6 +219,22 @@ Implications and status:
 outcome); a second pass concluded "uninitialised memory" — overturned by the clean Valgrind run.
 The honest current state is FP-precision sensitivity, still to be confirmed.)
 
+**Provenance: this is an original-engine bug, not a port artifact.** Per project history, the
+same nondeterminism exists in the original LBA2, and the `lba2-classic-ida` fork worked around it
+by **making the hero invincible**. That is a *symptom* fix, and it's the useful insight: the
+divergence only matters because the bat *hits the hero and interrupts his scripted track* — a
+hit knocks the hero off his `GOTO_POINT` path and the playthrough desyncs. Remove the hit
+(invincibility) and the scripted demo plays through deterministically regardless of the bat's
+own jitter. So the deep FP root cause can be left as a documented original quirk to hunt later;
+the *practical* lever for deterministic scripted playback is to neutralise the interruption.
+
+**Implication for the regression net (step 3).** An opt-in, harness-only "demo invincibility"
+(freeze hero life / ignore hits during scripted playback, mirroring the IDA fork's approach)
+would make demo/attract playthroughs deterministic enough to golden, without touching the
+underlying original bug — turning bat-afflicted scenes from FLAKY into usable fixtures. That is
+a concrete, low-risk path to a scripted-playthrough regression net, parallel to (and simpler
+than) chasing the FP precision bug to ground.
+
 ## 3. Implication for step 3 — two complementary paths
 
 Given there is no recorded-input data to replay, step 3 splits into two things that should not
