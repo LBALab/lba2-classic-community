@@ -2421,14 +2421,22 @@ int main(int argc, char *argv[]) {
         }
 
         do {
-            // pour Windows car ca prend du temps a scaner le CD
-            GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-            Load_HQR(tmpFilePath, Log, PCR_CDROM);
-            BoxStaticFullflip();
+            // The CD loading screen and its palette fade are pure presentation, and
+            // FadeToPal spins on a real wall-clock timer (FADE_DELAY ms). They make no
+            // sense for the headless control harness / save-load test: no save has loaded
+            // yet and the scene render overwrites the framebuffer anyway. Skip them there;
+            // default gameplay keeps the loading screen. InitCD still runs (cheap; it sets
+            // up the music track table).
+            if (!SaveLoadTestMode && !Control_IsActive()) {
+                // pour Windows car ca prend du temps a scaner le CD
+                GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+                Load_HQR(tmpFilePath, Log, PCR_CDROM);
+                BoxStaticFullflip();
 
-            // premiere fois
-            if (cd)
-                FadeToPal(PtrPalNormal);
+                // premiere fois
+                if (cd)
+                    FadeToPal(PtrPalNormal);
+            }
 
             if (!InitCD(volname)) {
                 // premiere fois
@@ -2444,7 +2452,8 @@ int main(int argc, char *argv[]) {
                 cd = TRUE;
         } while (!cd);
     }
-    FadeToBlack(PtrPalNormal);
+    if (!SaveLoadTestMode && !Control_IsActive())
+        FadeToBlack(PtrPalNormal);
 
 #endif
 
