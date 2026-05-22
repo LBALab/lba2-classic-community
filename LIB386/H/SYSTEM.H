@@ -56,9 +56,7 @@
 #define INIT_QUIET (1 << 18)
 
 //──────────────────────────────────────────────────────────────────────────
-// TEMP exploration: count every RNG draw to diagnose rand()-call-sequence drift.
-extern unsigned long g_rand_calls;
-#define Rnd(n) (g_rand_calls++, rand() % (n))
+#define Rnd(n) (rand() % (n))
 
 //──────────────────────────────────────────────────────────────────────────
 S32 MULDIV64(S32 x, S32 mul, S32 div); // (x*mul)/div

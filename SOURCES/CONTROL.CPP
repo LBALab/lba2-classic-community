@@ -177,11 +177,6 @@ int Control_Begin(void) {
        unchanged (verified: dumps and screenshots are identical with vsync off). */
     Window_SetVSync(0);
 
-    /* TEMP exploration: force attract/demo mode (hero follows demo tracks, modals auto-advance
-       on TimerRefHR instead of hanging), to map the demo scene sequence. */
-    if (getenv("LBA2_FORCE_DEMOSLIDE"))
-        DemoSlide = TRUE;
-
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {
             /* Report and bail without arming. The caller skips MainLoop and exits, so
@@ -398,11 +393,6 @@ void Control_TickHook(void) {
        per loop-body iteration, before this tick's ManageTime() banks the step. */
     if (s_have_fixed_dt)
         Timer_FixedDtAdvance();
-    /* TEMP exploration: per-tick RNG count + scene cube, to map demo cube transitions. */
-    if (getenv("LBA2_TRACE_RAND"))
-        fprintf(stderr, "[RNDCNT] tick=%ld rand=%lu timer=%u island=%d cube=%d hero=(%d,%d)\n",
-                s_hook_calls - 1, g_rand_calls, (unsigned)TimerRefHR, (int)Island, (int)NumCube,
-                (int)ListObjet[0].Obj.X, (int)ListObjet[0].Obj.Z);
     if (s_hook_calls == 1)
         control_run_exec();
 #ifdef ENABLE_POLY_RECORDING

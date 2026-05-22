@@ -1474,7 +1474,7 @@ void HitObj(U8 numhitter, U8 num, S32 hitforce, S32 beta) {
                                    beta);
             }
 
-            if (!((g_rand_calls++, rand()) & 1))
+            if (!(rand() & 1))
                 InitAnim(GEN_ANIM_CHOC, ANIM_ALL_THEN, num);
             else
                 InitAnim(GEN_ANIM_CHOC2, ANIM_ALL_THEN, num);
