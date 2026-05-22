@@ -2744,8 +2744,8 @@ int main(int argc, char *argv[]) {
      * and run the automated boot path (load -> exec -> tick -> dump/screenshot ->
      * exit). The single Control_TickHook() in MainLoop does the per-tick work. */
     if (Control_IsActive()) {
-        Control_Begin();
-        MainLoop();
+        if (Control_Begin())
+            MainLoop();
         TheEnd(PROGRAM_OK, "");
         return 0;
     }

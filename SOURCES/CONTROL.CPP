@@ -133,13 +133,14 @@ static int control_resolve_save(const char *name) {
     return 0;
 }
 
-void Control_Begin(void) {
+int Control_Begin(void) {
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {
+            /* Report and bail without arming. The caller skips MainLoop and exits, so
+               we don't depend on TheEnd being noreturn from inside here. */
             fprintf(stderr, "[control] load: save not found: %s\n", s_load_name);
             fflush(stderr);
-            TheEnd(PROGRAM_OK, "");
-            return;
+            return 0;
         }
         /* Restore exactly as the menu's load_game path does: ChangeCube must run
            while FlagLoadGame is still set (InitGame(-1) sets it; MainLoop clears it
@@ -156,6 +157,7 @@ void Control_Begin(void) {
     s_hook_calls = 0;
     s_finalized = 0;
     s_armed = 1;
+    return 1;
 }
 
 /* --- Tick driver ------------------------------------------------------------ */
@@ -329,7 +331,9 @@ static void control_finalize(void) {
         fflush(stdout);
         TheEnd(PROGRAM_OK, "");
     }
-    /* Not exiting: disarm and hand control back to the running game. */
+    /* Not exiting: stop mirroring console output (the game keeps running and would
+       otherwise echo every later console line), disarm, and hand control back. */
+    Console_SetLineSinkForTests(NULL);
     s_armed = 0;
 }
 
