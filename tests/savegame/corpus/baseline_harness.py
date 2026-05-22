@@ -29,6 +29,7 @@ Usage:
 Retail data (LBA2/ with lba2.hqr) is required; rendering needs a display. Local-only.
 """
 import argparse, json, os, subprocess, sys, tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -55,10 +56,15 @@ def normalize(dump):
     return d
 
 
-def run_save(lba2, game_dir, save, tick, timeout, fixed_dt, screenshot=True):
+def run_save(lba2, game_dir, save, tick, timeout, fixed_dt, screenshot=True, video_driver=None):
     """Return (outcome, normalized_dump_or_None). outcome in {ok, timeout, error:N, nodump}."""
     env = os.environ.copy()
     env.setdefault("SDL_AUDIODRIVER", "dummy")
+    if video_driver:
+        # The dummy video driver needs no display and produces byte-identical dumps; it
+        # also avoids GPU/window contention when many runs go in parallel. It cannot take
+        # screenshots, so callers only pass it on no-screenshot runs.
+        env["SDL_VIDEODRIVER"] = video_driver
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
         tmp = tf.name
     cmd = [str(lba2), "--game-dir", str(game_dir), "--load", str(save), "--tick", str(tick)]
@@ -91,7 +97,8 @@ def run_save(lba2, game_dir, save, tick, timeout, fixed_dt, screenshot=True):
     return "ok", normalize(dump)
 
 
-def run_save_reproducible(lba2, game_dir, save, tick, timeout, fixed_dt, repeats):
+def run_save_reproducible(lba2, game_dir, save, tick, timeout, fixed_dt, repeats,
+                          screenshot_first=True, video_driver=None):
     """Run a save up to `repeats` times and check it reproduces itself.
 
     Returns (outcome, dump, reproducible). `reproducible` is True only if every run
@@ -100,11 +107,15 @@ def run_save_reproducible(lba2, game_dir, save, tick, timeout, fixed_dt, repeats
     this session (a residual non-dt nondeterminism source, e.g. a dying-enemy spin angle
     or an uninitialized bodiless-extra position) is reported but never compared or stored,
     so it can neither mask a regression nor fail spuriously. Self-calibrating: no
-    hardcoded skip-list to drift out of date."""
+    hardcoded skip-list to drift out of date.
+
+    Independent processes, each deterministic, so this is safe to run in parallel across
+    saves (see --jobs)."""
     first = None
     for r in range(max(1, repeats)):
         outcome, dump = run_save(lba2, game_dir, save, tick, timeout, fixed_dt,
-                                 screenshot=(r == 0))
+                                 screenshot=(screenshot_first and r == 0),
+                                 video_driver=video_driver)
         if outcome != "ok":
             return outcome, None, False
         if first is None:
@@ -153,6 +164,12 @@ def main():
     ap.add_argument("--repeats", type=int, default=3,
                     help="runs per save to confirm it reproduces itself before asserting "
                          "exact (default %(default)s); non-reproducible saves are flagged FLAKY")
+    ap.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 4),
+                    help="parallel save runs (default %(default)s; each is an independent, "
+                         "deterministic process). Uses the dummy video driver, no screenshots.")
+    ap.add_argument("--screenshots", action="store_true",
+                    help="also write per-save screenshots; forces a serial real-video pass. "
+                         "Screenshots are gitignored human-review artifacts, off by default.")
     ap.add_argument("--update", action="store_true", help="(re)write golden baselines")
     args = ap.parse_args()
 
@@ -165,10 +182,29 @@ def main():
     saves = sorted(p for p in SAVES_DIR.iterdir()
                    if p.suffix.lower() == ".lba" and p.name.lower() not in ("current.lba", "autosave.lba"))
 
+    # Fast path: dummy video (no display, no contention, byte-identical dumps) and no
+    # screenshots. --screenshots forces a serial real-video pass for the human-review images.
+    if args.screenshots:
+        jobs, video_driver, shots = 1, None, True
+    else:
+        jobs, video_driver, shots = max(1, args.jobs), "dummy", False
+
+    def run_one(save):
+        return run_save_reproducible(
+            args.lba2, args.game_dir, save, args.tick, args.timeout, args.fixed_dt,
+            args.repeats, screenshot_first=shots, video_driver=video_driver)
+
+    # Run subprocesses in parallel; keep all golden writes / counters / printing serial
+    # in the main thread (the loop below) so there are no races.
+    if jobs > 1:
+        with ThreadPoolExecutor(max_workers=jobs) as ex:
+            outcomes = dict(zip(saves, ex.map(run_one, saves)))
+    else:
+        outcomes = {save: run_one(save) for save in saves}
+
     written = drift = passed = skipped = flaky = 0
     for save in saves:
-        outcome, dump, repro = run_save_reproducible(
-            args.lba2, args.game_dir, save, args.tick, args.timeout, args.fixed_dt, args.repeats)
+        outcome, dump, repro = outcomes[save]
         golden = BASE_DIR / (save.stem + ".json")
         if outcome != "ok":
             print(f"  SKIP  {save.stem:<32} ({outcome})")
@@ -206,7 +242,9 @@ def main():
                 passed += 1
 
     print("-" * 56)
-    mode = "wall-clock" if args.fixed_dt <= 0 else f"fixed-dt {args.fixed_dt}ms"
+    dt = "wall-clock" if args.fixed_dt <= 0 else f"fixed-dt {args.fixed_dt}ms"
+    vid = "real video + screenshots" if shots else f"dummy video, {jobs} jobs"
+    mode = f"{dt}, {vid}"
     if args.update:
         print(f"baselines: {written} written, {flaky} flaky, {skipped} skipped  ({mode})")
     else:

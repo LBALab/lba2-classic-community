@@ -89,6 +89,12 @@ LBA2_GAME_DIR=/path/to/LBA2/Common \
 ... --update --repeats 5
 ```
 
+By default the harness runs saves in parallel (`--jobs`, defaults to the CPU count capped
+at 8) under the dummy video driver and writes no screenshots — independent deterministic
+processes, so it's safe and ~5-6x faster than serial (the full corpus drops from minutes to
+~25 s here). Pass `--screenshots` for the slower serial real-video pass that also writes the
+gitignored per-save PNGs for human review.
+
 Determinism requirements (both matter — see `docs/CONTROL.md`):
 
 - **Build with `-DSOUND_BACKEND=null`.** `--fixed-dt` pins the clock, but the SDL audio
