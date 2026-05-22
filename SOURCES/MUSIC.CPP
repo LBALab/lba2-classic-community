@@ -382,6 +382,7 @@ void FadeOutVolumeMusic(void) {
         cdvolume > 0 OR
 #endif
                        jvolume > 0) {
+        Timer_FixedDtPump(); // non-presenting wait: step the virtual clock under fixed-dt
         ManageTime();
 #ifdef CDROM
         // volume du CD
@@ -434,6 +435,7 @@ void FadeInVolumeMusic(void) {
         cdvolume < CDVolume OR
 #endif
                        jvolume < JingleVolume) {
+        Timer_FixedDtPump(); // non-presenting wait: step the virtual clock under fixed-dt
         ManageTime();
 #ifdef CDROM
         // volume du CD
