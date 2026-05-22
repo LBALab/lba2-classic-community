@@ -27,6 +27,7 @@ lba2cc --load <slot>          restore a save before the loop starts
        --tick <N>             advance N simulation ticks
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
+       --polyrec <path>       record polygon draw calls of the frame (ENABLE_POLY_RECORDING builds)
        --exit                 exit cleanly after the above
 ```
 
@@ -77,6 +78,10 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   `give <item>` (the found-object cinematic), `playvideo`, `credits`, and `slide`. Use
   non-modal commands: `cube`, `give clover`, `timer`, cvars, `status`. (`give clover`
   takes a different code path with no cinematic.)
+- **`--polyrec` needs an `ENABLE_POLY_RECORDING` build.** It drives the existing polygon
+  draw-call recorder (`tests/SNAPSHOT/`) at the final tick, writing a `.lba2polyrec` file at
+  the chosen path — the scripted equivalent of the manual Alt+F9 capture. On a build without
+  the option it prints a warning and is a no-op.
 - A bad `--load` path exits cleanly with a `save not found` diagnostic.
 
 ## `--dump-state` JSON
@@ -177,6 +182,6 @@ non-deterministic base.
    gameplay-regression counterpart to the existing draw-call polyrec. Attaches at the same
    top-of-loop seam as `Control_TickHook`; depends on (2) to reproduce faithfully.
 
-Independent quick win (no dependency on the above): a `--polyrec <path>` flag that triggers
-the existing polygon draw-call recording (`tests/SNAPSHOT/`, today a manual Alt+F9) at a
-scripted `--load X --tick N` state, making ASM↔CPP captures reproducible.
+Done (independent of the above): `--polyrec <path>` triggers the existing polygon draw-call
+recording (`tests/SNAPSHOT/`, previously a manual Alt+F9) at a scripted `--load X --tick N`
+state, making ASM↔CPP captures reproducible. Requires an `ENABLE_POLY_RECORDING` build.

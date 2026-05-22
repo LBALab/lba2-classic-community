@@ -36,6 +36,8 @@ static int s_have_dump = 0;
 static char s_dump_path[ADELINE_MAX_PATH];
 static int s_have_shot = 0;
 static char s_shot_path[ADELINE_MAX_PATH];
+static int s_have_polyrec = 0;
+static char s_polyrec_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
 
 /* --- Runtime ---------------------------------------------------------------- */
@@ -95,6 +97,13 @@ void Control_ParseArgs(int *argc, char *argv[]) {
         if (!strcmp(a, "--screenshot") && has_val) {
             copy_arg(s_shot_path, sizeof(s_shot_path), argv[read + 1]);
             s_have_shot = 1;
+            s_active = 1;
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--polyrec") && has_val) {
+            copy_arg(s_polyrec_path, sizeof(s_polyrec_path), argv[read + 1]);
+            s_have_polyrec = 1;
             s_active = 1;
             read += 2;
             continue;
@@ -159,6 +168,11 @@ int Control_Begin(void) {
         InitGame(1);
     }
 
+#ifndef ENABLE_POLY_RECORDING
+    if (s_have_polyrec)
+        fprintf(stderr, "[control] --polyrec ignored: built without ENABLE_POLY_RECORDING\n");
+#endif
+
     s_hook_calls = 0;
     s_finalized = 0;
     s_armed = 1;
@@ -168,7 +182,7 @@ int Control_Begin(void) {
 /* --- Tick driver ------------------------------------------------------------ */
 static long control_effective_ticks(void) {
     long n = s_have_tick ? s_tick : 0;
-    if (s_have_shot && n < 1)
+    if ((s_have_shot || s_have_polyrec) && n < 1)
         n = 1; /* a rendered artifact needs at least one completed AffScene */
     return n;
 }
@@ -348,6 +362,14 @@ void Control_TickHook(void) {
     s_hook_calls++;
     if (s_hook_calls == 1)
         control_run_exec();
+#ifdef ENABLE_POLY_RECORDING
+    /* Arm the existing draw-call recorder for the final rendered tick, so the capture
+       reflects the same settled frame as --dump-state / --screenshot. */
+    if (s_have_polyrec && s_hook_calls == control_effective_ticks()) {
+        SnapshotName = s_polyrec_path;
+        SnapshotRequested = 1;
+    }
+#endif
     if ((s_hook_calls - 1) >= control_effective_ticks())
         control_finalize();
 }
