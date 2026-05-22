@@ -343,6 +343,7 @@ extern T_DART ListDart[];
 extern S32 NbObjets;
 #ifdef ENABLE_POLY_RECORDING
 extern S32 SnapshotRequested;
+extern const char *SnapshotName; /* control harness --polyrec: overrides the auto filename when non-empty */
 #endif
 extern T_OBJET ListObjet[];
 extern T_EXTRA ListExtra[];

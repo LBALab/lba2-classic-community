@@ -3,6 +3,9 @@
 probe.ndjson
 probe.err
 manifest.json
+# Baseline screenshots are large binaries regenerated on demand for human review;
+# the golden JSON dumps under baselines/ are the committed regression signal.
+baselines/screenshots/
 # Default: ignore any save directories under saves/ (personal save data
 # shouldn't accidentally get committed). Specific tracked corpora opt in
 # via !saves/<name>/ below.
