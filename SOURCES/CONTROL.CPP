@@ -43,6 +43,7 @@ static int s_have_polyrec = 0;
 static char s_polyrec_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
 static int s_demo = 0;
+static int s_verbose = 0;
 
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
@@ -138,6 +139,12 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--verbose")) {
+            s_verbose = 1;
+            s_active = 1;
+            read += 1;
+            continue;
+        }
 
         argv[write++] = argv[read++];
     }
@@ -147,6 +154,10 @@ void Control_ParseArgs(int *argc, char *argv[]) {
 
 int Control_IsActive(void) {
     return s_active;
+}
+
+int Control_IsVerbose(void) {
+    return s_verbose;
 }
 
 /* --- Boot ------------------------------------------------------------------- */
@@ -407,6 +418,27 @@ void Control_TickHook(void) {
        per loop-body iteration, before this tick's ManageTime() banks the step. */
     if (s_have_fixed_dt)
         Timer_FixedDtAdvance();
+    /* --verbose: log the scene/hero state to stderr when it changes, so a headless run is
+       self-explaining (which scene, what the hero is doing) and the last line before a hang
+       shows where the loop got stuck. The hook runs once per tick; a modal (cinematic/dialogue)
+       blocks the loop, so the modal markers below announce those before they hang. */
+    if (s_verbose) {
+        static S32 last_cube = -2, last_beh = -2, last_anim = -2, last_move = -2;
+        T_OBJET *h = &ListObjet[NUM_PERSO];
+        /* A periodic heartbeat (every 250 ticks) on top of the change-triggered line: it
+           proves the main loop is still ticking through a long idle/cinematic, and
+           distinguishes "loop alive but state static" from "stuck in a modal" (no hook). */
+        if (NumCube != last_cube || Comportement != last_beh || h->Obj.Anim.Num != last_anim ||
+            h->Move != last_move || ((s_hook_calls - 1) % 250) == 0) {
+            fprintf(stderr, "[control] t=%-4ld cube=%-3d beh=%d anim=%d move=%d hero=(%d,%d)\n",
+                    s_hook_calls - 1, (int)NumCube, (int)Comportement, (int)h->Obj.Anim.Num,
+                    (int)h->Move, (int)h->Obj.X, (int)h->Obj.Z);
+            last_cube = NumCube;
+            last_beh = Comportement;
+            last_anim = h->Obj.Anim.Num;
+            last_move = h->Move;
+        }
+    }
     if (s_hook_calls == 1)
         control_run_exec();
 #ifdef ENABLE_POLY_RECORDING
