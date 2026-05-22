@@ -76,11 +76,13 @@ void SetTimerHR(U32 time) {
 }
 
 void Timer_EnableFixedDt(U32 dt_ms) {
-    // Seed the virtual clock to the current system time so the first ManageTime()
-    // delta (FixedDtNow - LastTime) is ~0 and the FPS accumulator stays sane across
-    // the switch. From here the clock only moves via Timer_FixedDtAdvance().
+    // Seed the virtual clock and force LastTime to agree with it, so the first
+    // ManageTime() delta (FixedDtNow - LastTime) is exactly 0 and no residual
+    // wall-clock interval banked during boot/load leaks into the first tick. From here
+    // the clock only moves via Timer_FixedDtAdvance(). Keeps the FPS accumulator sane.
     FixedDt = dt_ms;
     FixedDtNow = TimerSystemHR;
+    LastTime = TimerSystemHR;
     FixedDtActive = 1;
 }
 
@@ -90,6 +92,10 @@ void Timer_FixedDtAdvance() {
     if (FixedDtActive) {
         FixedDtNow += FixedDt;
     }
+}
+
+S32 Timer_FixedDtActive() {
+    return FixedDtActive;
 }
 
 void ManageTime() {
