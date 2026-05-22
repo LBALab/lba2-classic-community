@@ -1,11 +1,15 @@
-# IMPACT scripts and FLOW particles — Adeline's effects-scripting system
+# IMPACT scripts, FLOW particles, POF shapes — Adeline's effects-scripting system
 
 IMPACT is the engine's small bytecode language for **visual/audio effects at a point in space**:
-explosions, hits, thrown debris, particle bursts, positional sounds. FLOW is the companion
-**particle-emitter definition** table that IMPACT (and other code) references by index. Together
-they are the effects layer — *not* gameplay or input, and distinct from the per-object Life
-(`LM_*`) and Track (`TM_*`) scripts. Reversed during the input-replay research
-(`docs/INPUT_REPLAY_RESEARCH.md`); this documents both formats and the tooling.
+explosions, hits, thrown debris, particle bursts, positional sounds. It references two companion
+resources by index: **FLOW** (particle-emitter definitions) and **POF** (2D wireframe shapes).
+Together they are the effects layer — *not* gameplay or input, and distinct from the per-object
+Life (`LM_*`) and Track (`TM_*`) scripts. Reversed during the input-replay research
+(`docs/INPUT_REPLAY_RESEARCH.md`); this documents all three formats and the tooling.
+
+The reference graph is fully resolved: an IMPACT command points at a FLOW (`flow=N`), a POF
+(`pof=N`), or a sprite/sample/body — all by index. FLOW and POF are reversed below; sprite,
+sample, and body indices address `sprites.hqr`, `samples.hqr`, and `body.hqr` respectively.
 
 ## Runtime
 
@@ -87,3 +91,35 @@ flow 81 (wide cone, 56 dots) and flow 55 (narrow, 4 dots).
 - `scripts/dev/hqr_inspect.py <hqr> --entry 45 --dump flow.bin` — extract + decompress.
 - `scripts/dev/flow_dump.py flow.bin` — decode all flows; also round-trips byte-identical
   (confirming the 36-byte layout is exact and the codec complete).
+
+## POF — wireframe shapes (`RESS_POF` = 46)
+
+`THROW_POF`/`FLOW_POF` reference a POF by index. A POF is a small **2D point-and-line wireframe**
+(a spark/star/debris outline) drawn scaled and rotated in screen space by `PofDisplay3DExt`
+(`SOURCES/POF.CPP`); `InitExtraPof` spawns a flying extra that renders it. The blob (`ress.hqr`
+resource **`RESS_POF` (46)**, loaded raw into `BufferPof`, `PERSO.CPP:2588`) uses the same
+container as IMPACT: a U32 offset table (count = first/4), each slot a byte offset to a POF.
+
+Per-POF layout (read off `POF.CPP`):
+
+```
+u8  coul                       ; line colour
+u8  nb_points
+(s16 x, s16 y) * nb_points     ; the 2D points (4 bytes each)
+u8  nb_lines
+(u8 p0, u8 p1) * nb_lines       ; each line connects two point indices
+```
+
+Retail data: **11 POFs** (slot 11 empty), e.g. pof 0 is a 10-point/10-line burst; pof 2 a
+57-point/61-line shape. Impacts reference pofs 0,3,4,5,7,8,9,10 (pof 0 most-used). All resolve
+within range.
+
+- `scripts/dev/hqr_inspect.py <hqr> --entry 46 --dump pof.bin` — extract + decompress.
+- `scripts/dev/pof_dump.py pof.bin` — decode all POFs; round-trips byte-identical (the parse
+  consumes each slot exactly), confirming the layout and a complete codec.
+
+## Status
+
+The effects subsystem is fully mapped with verified (round-trip byte-identical) codecs: IMPACT
+(42 scripts) → FLOW (96 emitters) + POF (11 shapes), plus sprite/sample/body indices into their
+HQRs. We can both read and author all three.
