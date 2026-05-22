@@ -42,6 +42,7 @@ static char s_shot_path[ADELINE_MAX_PATH];
 static int s_have_polyrec = 0;
 static char s_polyrec_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
+static int s_demo = 0;
 
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
@@ -131,6 +132,12 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--demo")) {
+            s_demo = 1;
+            s_active = 1;
+            read += 1;
+            continue;
+        }
 
         argv[write++] = argv[read++];
     }
@@ -176,6 +183,13 @@ int Control_Begin(void) {
        run flat-out. Presentation only -- the rendered pixels and simulation state are
        unchanged (verified: dumps and screenshots are identical with vsync off). */
     Window_SetVSync(0);
+
+    /* Attract/demo mode: the scene's scripts drive the hero along authored tracks (a
+       "canned playthrough"), and dialogues/choices auto-advance on the game clock instead
+       of waiting for input. Combined with --fixed-dt this is a deterministic scripted run.
+       Opt-in; default gameplay is unaffected. */
+    if (s_demo)
+        DemoSlide = TRUE;
 
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {
