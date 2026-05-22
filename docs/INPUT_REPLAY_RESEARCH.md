@@ -151,6 +151,49 @@ Two caveats observed running it:
 Tooling for this lives on the branch: `scripts/dev/hqr_inspect.py` (container + LZSS) and the
 `LBA2_TRACE_TRACK` trace in `DoTrack` (temporary; useful enough to keep env-gated, or drop).
 
+## 2d. The Desert Island bat — load-sensitive RNG, the real residual nondeterminism
+
+A known case: on Desert Island a bat sometimes hits the hero and disrupts the scripted path,
+so the playthrough "isn't truly deterministic." Tracing it localised the cause precisely and,
+unexpectedly, reframed the determinism work.
+
+Setup: load `Desert Island.LBA` (island 2, cube 65, 16 objects), run 400 fixed-dt ticks, diff.
+
+Observations:
+
+- **Only actor 11 (`body=181` — the bat) diverges**; the other 15 objects are byte-identical.
+- **The game clock is perfectly pinned** — `timer_ref_hr` is identical across every run (incl.
+  the divergent ones). So timing is *not* the cause.
+- **The bat's track uses `TM_WAIT_NB_SECOND_RND`** (`GERETRAK.CPP`), a random wait
+  (`MyRnd → Rnd(n) = rand()%n`, `LIB386/H/SYSTEM.H:59`; single seed `srand(TimerRefHR)`,
+  `OBJECT.CPP:1171`). Its *first* random draw is identical across runs, so the divergence is a
+  *later* RNG-driven decision, not the seed.
+- **It is load-sensitive.** Run serially, six runs were byte-identical (`bat.x=6717`). Run 8×
+  *in parallel*, the result went **bimodal** — `bat.x` was 7174 in six and 6717 in two, clock
+  still identical. CPU contention flips an RNG-consuming decision in the bat's logic.
+
+Mechanism (best supported): the per-tick path consumes `rand()` outside the pinned clock (the
+ambiance/sample system calls `MyRnd` heavily, and some of that is gated on wall-clock/threaded
+state). Under load the number of `rand()` calls before the bat's decision drifts by one, the
+bat flies slightly differently, and *sometimes* reaches the hero — interrupting his track. So
+the residual nondeterminism is **`rand()`-call-sequence drift under load**, not the clock.
+
+Two important implications:
+
+1. **This is the same source as the ~9 FLAKY corpus saves** — they all have RNG-driven actors.
+   `--fixed-dt` pins the clock; it does not pin the `rand()` *call sequence* against load/timing
+   perturbation.
+2. **The `--jobs` parallel harness can *induce* this flakiness** (it adds exactly the CPU
+   contention that flips the decision). A save can look deterministic serially and FLAKY in
+   parallel. The self-calibrating reproducibility check (PR #167) is therefore partly measuring
+   load sensitivity, not just intrinsic determinism — worth keeping in mind when reading FLAKY
+   counts, and an argument for a serial confirmation pass before quarantining.
+
+True determinism for RNG-driven scenes would require pinning the `rand()` stream itself —
+e.g. a deterministic per-tick reseed, or ensuring the call order is independent of wall-clock
+and thread scheduling. That is the concrete next lever beyond `--fixed-dt`, and a prerequisite
+for golden-exact long playthroughs.
+
 ## 3. Implication for step 3 — two complementary paths
 
 Given there is no recorded-input data to replay, step 3 splits into two things that should not

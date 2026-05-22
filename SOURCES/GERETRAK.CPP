@@ -345,7 +345,11 @@ void DoTrack(U8 numobj) {
             ptrobj->OffsetTrack += 5;
 
             if (*(U32 *)(ptrtrack + 1) == 0) {
-                *(U32 *)(ptrtrack + 1) = TimerRefHR + (MyRnd(*ptrtrack) * 1000);
+                S32 rndsec = MyRnd(*ptrtrack);
+                if (getenv("LBA2_TRACE_TRACK"))
+                    fprintf(stderr, "[RND] obj=%u WAIT_NB_SECOND_RND max=%u -> %d (t=%u)\n",
+                            numobj, *ptrtrack, rndsec, TimerRefHR);
+                *(U32 *)(ptrtrack + 1) = TimerRefHR + (rndsec * 1000);
             }
 
             if (TimerRefHR < *(U32 *)(ptrtrack + 1)) {
