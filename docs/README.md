@@ -12,6 +12,7 @@ Index of documentation in this repository.
 | [LIFECYCLES.md](LIFECYCLES.md) | Main loop order, scene load, object/hero/animation lifecycles and where they live in code. |
 | [INIT_RESEARCH.md](INIT_RESEARCH.md) | Initialisation path from `main` to a running scene: boot phases, new-game vs load-save, timing/speed model, cleanup candidates, verbatim TODO inventory. |
 | [SCENES.md](SCENES.md) | All 223 cubes by island with location names; interior/exterior; object and zone counts. |
+| [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md) | IMPACT effects-scripting bytecode: runtime (`DoImpact`), the compiled blob format and commands, the shipped impacts, and a disassembler/compiler (`scripts/dev/impact_disasm.py`). |
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
