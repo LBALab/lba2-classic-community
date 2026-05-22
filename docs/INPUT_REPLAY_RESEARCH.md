@@ -56,7 +56,8 @@ thing to "canned recordings that come with the game"** — every retail scene ca
 `DoImpact(num, x, y, z, owner)`, loaded from `RESS_IMPACT`
 ([`PERSO.CPP:2592`](../SOURCES/PERSO.CPP), buffer sized in `MEM.CPP:219`). It spawns particles,
 thrown extras, and positional sounds at an impact point — the *visual-effects* layer. This is
-the "impact script" Adeline used, but it plays *effects*, not gameplay or input.
+the "impact script" Adeline used, but it plays *effects*, not gameplay or input. The format is
+fully reversed (and recompilable) — see [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md).
 
 **FLOW (effects).** [`FLOW.CPP:112`](../SOURCES/FLOW.CPP) loads `RESS_FLOW`; particle-flow
 data referenced by IMPACT's `FLOW*` commands.
