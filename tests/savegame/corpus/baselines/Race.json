@@ -56,9 +56,9 @@
       "index": 4,
       "life": 255,
       "move": 0,
-      "x": 29390,
-      "y": 2629,
-      "z": 21468
+      "x": 29395,
+      "y": 2614,
+      "z": 21378
     },
     {
       "anim": 1057,
@@ -82,7 +82,7 @@
     "flags": 1050695,
     "gamma": 0,
     "gen_anim": 0,
-    "last_frame": 0,
+    "last_frame": 1,
     "life": 214,
     "move": 13,
     "nb_frames": 2,
@@ -112,6 +112,7 @@
   },
   "schema": 1,
   "tick": 8,
+  "timer_ref_hr": 9589931,
   "vars": {
     "count": 256,
     "nonzero": {

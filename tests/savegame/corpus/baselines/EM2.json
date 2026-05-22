@@ -122,7 +122,7 @@
     },
     {
       "anim": 439,
-      "beta": 2957,
+      "beta": 2991,
       "body": 80,
       "flags": 2055,
       "index": 10,
@@ -134,7 +134,7 @@
     },
     {
       "anim": 439,
-      "beta": 983,
+      "beta": 958,
       "body": 80,
       "flags": 2055,
       "index": 11,
@@ -304,6 +304,7 @@
   },
   "schema": 1,
   "tick": 8,
+  "timer_ref_hr": 25178992,
   "vars": {
     "count": 256,
     "nonzero": {
