@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "CONTROL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
@@ -1009,6 +1010,10 @@ void CheckProtoPack(void) {
 U32 NextBox = 0;
 
 void MenuInventory(U32 tempo) {
+    if (Control_IsVerbose())
+        fprintf(stderr, "[control] modal: MenuInventory (tempo=%u, DemoSlide=%d) -- "
+                        "blocks the loop until dismissed/auto-advanced\n",
+                tempo, (int)DemoSlide);
     S32 flag = 1, t, i;
     S32 flagname = 1;
     S32 oldselect;
@@ -1327,6 +1332,11 @@ extern S32 Dial_Y0;
 /*──────────────────────────────────────────────────────────────────────────*/
 void DoFoundObj(S32 numvar) {
 #ifndef COMPILATOR
+    if (Control_IsVerbose())
+        fprintf(stderr, "[control] modal: DoFoundObj(numvar=%d, DemoSlide=%d) -- found-object "
+                        "cinematic; under DemoSlide it auto-advances on a timer\n",
+                (int)numvar, (int)DemoSlide);
+
     S16 *ptr3do;
     T_OBJET *ptrobj;
     S32 x0, y0, x1, y1;
