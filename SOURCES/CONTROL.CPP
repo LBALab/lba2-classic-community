@@ -9,9 +9,10 @@
 #include "CONSOLE/CONSOLE.H"
 
 #include <FILEIO/SAVEPNG.H>
-#include <SVGA/SCREEN.H>  /* Screen, ModeDesiredX/Y */
-#include <SYSTEM/TIMER.H> /* TimerRefHR, NbFramePerSecond */
-#include <SYSTEM/FILES.H> /* ExistsFileOrDir */
+#include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
+#include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
+#include <SYSTEM/WINDOW.H> /* Window_SetVSync */
+#include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -170,6 +171,11 @@ int Control_Begin(void) {
        save value -- no boot wall-clock leaks into it. Harness-only; off by default. */
     if (s_have_fixed_dt)
         Timer_EnableFixedDt((U32)s_fixed_dt);
+
+    /* No human is watching a --exit run, so drop the ~60 fps vsync cap and let the loop
+       run flat-out. Presentation only -- the rendered pixels and simulation state are
+       unchanged (verified: dumps and screenshots are identical with vsync off). */
+    Window_SetVSync(0);
 
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {

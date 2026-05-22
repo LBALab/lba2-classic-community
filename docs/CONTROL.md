@@ -62,6 +62,10 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
 - **A rendered artifact needs a tick.** `--screenshot` forces a minimum of one tick (you
   can't screenshot a frame that was never drawn). A `--dump-state` with `--tick 0` reflects
   the loaded state before any simulation step.
+- **Vsync is off under the harness.** A `--exit` run disables the renderer's vsync cap so
+  the loop runs flat-out instead of at ~60 fps — a long `--tick N` run is ~10-14x faster
+  (e.g. 2000 ticks: ~34 s to ~2.5 s here). Presentation only: the dumped state and rendered
+  pixels are identical (verified 0 drift over the save corpus).
 - **A tick is one main-loop iteration, normally one rendered frame.** In a settled scene
   the two are identical. The exception is a cube transition: when a script (or a `cube`
   command) changes the scene, the loop restarts its body to load the new cube, which counts
