@@ -1,10 +1,11 @@
-# IMPACT scripts — Adeline's effects-scripting system
+# IMPACT scripts and FLOW particles — Adeline's effects-scripting system
 
 IMPACT is the engine's small bytecode language for **visual/audio effects at a point in space**:
-explosions, hits, thrown debris, particle bursts, positional sounds. It is *not* gameplay or
-input — it is the effects layer, distinct from the per-object Life (`LM_*`) and Track (`TM_*`)
-scripts. Reversed during the input-replay research (`docs/INPUT_REPLAY_RESEARCH.md`); this
-documents the format and the tooling.
+explosions, hits, thrown debris, particle bursts, positional sounds. FLOW is the companion
+**particle-emitter definition** table that IMPACT (and other code) references by index. Together
+they are the effects layer — *not* gameplay or input, and distinct from the per-object Life
+(`LM_*`) and Track (`TM_*`) scripts. Reversed during the input-replay research
+(`docs/INPUT_REPLAY_RESEARCH.md`); this documents both formats and the tooling.
 
 ## Runtime
 
@@ -61,3 +62,28 @@ varied angles/speeds, and finishes with an animated sprite.
   **byte-identical** to the original. This passes on the retail blob, which proves the codec is
   complete in both directions — i.e. `assemble()` is a working IMPACT compiler, so we can author
   and emit our own impact bytecode that the engine would run.
+
+## FLOW — particle-emitter definitions (`RESS_FLOW` = 45)
+
+The `FLOW`/`FLOW_SPRITE`/`FLOW_OBJ`/`FLOW_POF` commands above reference a particle emitter by
+index. Those emitters live in `ress.hqr` resource **`RESS_FLOW` (45)**, loaded raw by `Load_HQR`
+into `TabPartFlow` (`FLOW.CPP:112`) — a **flat array of `T_FLOW`**, no offset table, so flow `N`
+is simply the Nth record. `CreateParticleFlow`/`CreateExtraParticleFlow` instantiate it.
+
+`T_FLOW` (`SOURCES/FLOW.H`) is a thin fixed-width struct of **36 bytes, no padding**: fifteen
+`s16` then two `u8` then one `u32`:
+
+`Alpha Beta OuvertureAlpha OuvertureBeta XMin YMin ZMin XMax YMax ZMax Delay Speed Weight NbDot
+Bank` (s16×15), `Coul Range` (u8×2), `Flags` (u32).
+
+`Alpha`/`Beta` are the emission angles (Adeline 0–4095); `OuvertureAlpha`/`OuvertureBeta` the
+cone spread in each axis; `NbDot` the particle count (≤ 100); `Speed`/`Weight`/`Delay` the
+per-dot dynamics; `Bank`/`Coul`/`Range` select the colour ramp.
+
+Retail data: **96 flows** (3456 bytes / 36). Impacts reference flows 11–95; `flow 64` is the
+most-used (9×). Example — impact 0's burst combines flow 65 (full-360 azimuth, 100 dots),
+flow 81 (wide cone, 56 dots) and flow 55 (narrow, 4 dots).
+
+- `scripts/dev/hqr_inspect.py <hqr> --entry 45 --dump flow.bin` — extract + decompress.
+- `scripts/dev/flow_dump.py flow.bin` — decode all flows; also round-trips byte-identical
+  (confirming the 36-byte layout is exact and the codec complete).
