@@ -5323,7 +5323,12 @@ startaffscene:
     static char polyrec_pending_name[256] = {0};
     if (SnapshotRequested) {
         static int polyrec_counter = 0;
-        snprintf(polyrec_pending_name, sizeof(polyrec_pending_name), "polyrec_%04d.lba2polyrec", polyrec_counter++);
+        if (SnapshotName && SnapshotName[0]) {
+            // Control harness --polyrec: caller chose the output path.
+            snprintf(polyrec_pending_name, sizeof(polyrec_pending_name), "%s", SnapshotName);
+        } else {
+            snprintf(polyrec_pending_name, sizeof(polyrec_pending_name), "polyrec_%04d.lba2polyrec", polyrec_counter++);
+        }
         polyrec_start(polyrec_pending_name);
         // Provide RGB palette for PPM output
         {

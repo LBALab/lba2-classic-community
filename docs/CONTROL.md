@@ -27,6 +27,7 @@ lba2cc --load <slot>          restore a save before the loop starts
        --tick <N>             advance N simulation ticks
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
+       --polyrec <path>       record polygon draw calls of the frame (ENABLE_POLY_RECORDING builds)
        --exit                 exit cleanly after the above
 ```
 
@@ -77,6 +78,10 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   `give <item>` (the found-object cinematic), `playvideo`, `credits`, and `slide`. Use
   non-modal commands: `cube`, `give clover`, `timer`, cvars, `status`. (`give clover`
   takes a different code path with no cinematic.)
+- **`--polyrec` needs an `ENABLE_POLY_RECORDING` build.** It drives the existing polygon
+  draw-call recorder (`tests/SNAPSHOT/`) at the final tick, writing a `.lba2polyrec` file at
+  the chosen path — the scripted equivalent of the manual Alt+F9 capture. On a build without
+  the option it prints a warning and is a no-op.
 - A bad `--load` path exits cleanly with a `save not found` diagnostic.
 
 ## `--dump-state` JSON
@@ -122,18 +127,26 @@ Schema-versioned, hand-written, all-integer fields:
 
 ## Determinism
 
-The same `--load X --exec Y --tick N` does **not** produce a byte-identical `state.json`
-across runs today. The simulation is wall-clock driven, and the RNG is reseeded from the
-clock per cube change. For stable results:
+The same `--load X --tick N` is **more reproducible than expected**. Measured by running it
+3× and diffing dumps (null audio):
 
-- Build/run with `-DSOUND_BACKEND=null` (or `SDL_AUDIODRIVER=dummy`) to drop the audio
-  thread and sample-timed script branches.
-- Assert on **discrete** fields (cube, island, life, inventory counts, var indices),
-  **not** exact coordinates. For time/animation fields use relational checks ("advanced",
-  "changed").
+- Interior scene: 275/277 fields bit-identical; only `fps` and `timer_ref_hr` (both
+  wall-clock derived) vary.
+- Busy exterior scene (35 objects): 490/498 identical; the only state drift is the
+  position of the actors that were actively walking, and only ~0.1% — from the ±1-2 ms
+  per-tick wall-clock variance feeding movement integration. The `srand(TimerRefHR)` reseed
+  produced no observable divergence.
 
-A future deterministic mode (pinning the timer and RNG seed) can build on the existing
-timer hooks; it is out of scope here.
+So the dominant nondeterminism is **variable per-tick dt**, not RNG. Practical guidance:
+
+- Build/run with `-DSOUND_BACKEND=null` (or `SDL_AUDIODRIVER=dummy`).
+- Assert **exact** on discrete and static fields (scene, vars, hero behaviour/body/anim,
+  non-moving actors); allow a small **tolerance** on moving-actor positions; ignore `fps`
+  and `timer_ref_hr`.
+
+A future `--fixed-dt` mode (pin the timer to a constant per-tick step; reseed RNG) would
+make dumps fully reproducible and is the prerequisite for faithful input replay — see
+Roadmap. It builds on the existing `LockTimer`/`SetTimerHR` hooks.
 
 ## Tests
 
@@ -149,3 +162,26 @@ LBA2_GAME_DIR=/path/to/data tests/automation/run.sh
 The keystone is `test_tick.sh`: it loads, advances 1 vs 60 ticks, and asserts the game
 clock and the hero's idle-animation frame both advanced — proving the loop steps the
 simulation, not just a counter.
+
+## Roadmap
+
+The harness is built so these are additive, not rewrites. Ordered by dependency — each step
+makes the next more valuable, and faithful input replay must not be built on a
+non-deterministic base.
+
+1. **Baseline gallery** *(in progress)*. Golden `--dump-state` (+ screenshots) over the
+   committed save corpus, living alongside it at `tests/savegame/corpus/baselines/`. A
+   regression net for the widescreen / projection work: the world-space dump is the
+   guardrail that rendering changes don't perturb the simulation; screenshots are the
+   human-reviewed visual. See `docs/AUTOMATION_PLAN.md`.
+2. **`--fixed-dt` deterministic mode.** Pin the per-tick timer step (and reseed RNG) so the
+   simulation is independent of wall-clock. The determinism measurements point at variable
+   dt as the lever. This upgrades the baseline tolerance to exact, and is the prerequisite
+   for replay.
+3. **Input record/replay.** Capture input per tick and replay a whole session — the
+   gameplay-regression counterpart to the existing draw-call polyrec. Attaches at the same
+   top-of-loop seam as `Control_TickHook`; depends on (2) to reproduce faithfully.
+
+Done (independent of the above): `--polyrec <path>` triggers the existing polygon draw-call
+recording (`tests/SNAPSHOT/`, previously a manual Alt+F9) at a scripted `--load X --tick N`
+state, making ASM↔CPP captures reproducible. Requires an `ENABLE_POLY_RECORDING` build.
