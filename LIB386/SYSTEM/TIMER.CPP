@@ -24,6 +24,12 @@ static U32 MemoTimerRefHR;
 U32 LastTime;
 U32 LastEvaluate;
 
+// Fixed-dt deterministic clock (harness-only). Inert unless Timer_EnableFixedDt() is
+// called: while active, ManageTime() reads FixedDtNow instead of SDL_GetTicks().
+static S32 FixedDtActive = 0;
+static U32 FixedDt = 0;
+static U32 FixedDtNow = 0;
+
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
     LastTime = LastEvaluate = SDL_GetTicks();
@@ -69,8 +75,31 @@ void SetTimerHR(U32 time) {
     UnlockTimer();
 }
 
+void Timer_EnableFixedDt(U32 dt_ms) {
+    // Seed the virtual clock and force LastTime to agree with it, so the first
+    // ManageTime() delta (FixedDtNow - LastTime) is exactly 0 and no residual
+    // wall-clock interval banked during boot/load leaks into the first tick. From here
+    // the clock only moves via Timer_FixedDtAdvance(). Keeps the FPS accumulator sane.
+    FixedDt = dt_ms;
+    FixedDtNow = TimerSystemHR;
+    LastTime = TimerSystemHR;
+    FixedDtActive = 1;
+}
+
+void Timer_FixedDtAdvance() {
+    // One fixed step per tick. The next unlocked ManageTime() banks it into TimerRefHR;
+    // every other ManageTime() in the tick sees an unchanged FixedDtNow and adds nothing.
+    if (FixedDtActive) {
+        FixedDtNow += FixedDt;
+    }
+}
+
+S32 Timer_FixedDtActive() {
+    return FixedDtActive;
+}
+
 void ManageTime() {
-    TimerSystemHR = SDL_GetTicks();
+    TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
 
     if (!TimerLock) {
         TimerRefHR += TimerSystemHR - LastTime;

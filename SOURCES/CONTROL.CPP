@@ -32,6 +32,8 @@ static int s_have_exec = 0;
 static char s_exec[CONTROL_EXEC_MAX];
 static int s_have_tick = 0;
 static long s_tick = 0;
+static int s_have_fixed_dt = 0;
+static long s_fixed_dt = 0;
 static int s_have_dump = 0;
 static char s_dump_path[ADELINE_MAX_PATH];
 static int s_have_shot = 0;
@@ -83,6 +85,20 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             }
             s_tick = v;
             s_have_tick = 1;
+            s_active = 1;
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--fixed-dt") && has_val) {
+            char *end = NULL;
+            long v = strtol(argv[read + 1], &end, 0);
+            if (end == argv[read + 1] || *end != '\0' || v <= 0) {
+                fprintf(stderr, "[control] --fixed-dt: invalid step '%s' (ignoring)\n",
+                        argv[read + 1]);
+            } else {
+                s_fixed_dt = v;
+                s_have_fixed_dt = 1;
+            }
             s_active = 1;
             read += 2;
             continue;
@@ -148,6 +164,13 @@ static int control_resolve_save(const char *name) {
 }
 
 int Control_Begin(void) {
+    /* Pin the deterministic clock before the boot/load path runs. With the virtual clock
+       frozen (the hook only advances it once MainLoop starts), every ManageTime() during
+       InitGame/ChangeCube banks a zero delta, so the base clock stays exactly the restored
+       save value -- no boot wall-clock leaks into it. Harness-only; off by default. */
+    if (s_have_fixed_dt)
+        Timer_EnableFixedDt((U32)s_fixed_dt);
+
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {
             /* Report and bail without arming. The caller skips MainLoop and exits, so
@@ -360,6 +383,10 @@ void Control_TickHook(void) {
     if (!s_armed)
         return;
     s_hook_calls++;
+    /* Advance the deterministic clock one fixed step per tick. The hook runs exactly once
+       per loop-body iteration, before this tick's ManageTime() banks the step. */
+    if (s_have_fixed_dt)
+        Timer_FixedDtAdvance();
     if (s_hook_calls == 1)
         control_run_exec();
 #ifdef ENABLE_POLY_RECORDING
