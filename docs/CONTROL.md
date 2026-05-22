@@ -25,6 +25,7 @@ make build      # -> build/SOURCES/lba2cc
 lba2cc --load <slot>          restore a save before the loop starts
        --exec "<cmd>;<cmd>"   run console commands (';'-separated) on the first tick
        --tick <N>             advance N simulation ticks
+       --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic)
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
        --polyrec <path>       record polygon draw calls of the frame (ENABLE_POLY_RECORDING builds)
@@ -82,6 +83,13 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   draw-call recorder (`tests/SNAPSHOT/`) at the final tick, writing a `.lba2polyrec` file at
   the chosen path — the scripted equivalent of the manual Alt+F9 capture. On a build without
   the option it prints a warning and is a no-op.
+- **`--fixed-dt <ms>` makes the run deterministic.** It pins the per-tick clock step to a
+  constant instead of wall-clock, so `--dump-state` is reproducible run-to-run (see
+  Determinism). The step is a fixed *choice*, not a recovered constant — the canonical value
+  for golden baselines is **16 ms** (≈ the 60 fps the dump reports). A different step yields a
+  different but still-reproducible trajectory, so pick one and keep it. The flag is harness-only
+  and has no effect on default gameplay timing. An invalid or non-positive value is ignored with
+  a diagnostic.
 - A bad `--load` path exits cleanly with a `save not found` diagnostic.
 
 ## `--dump-state` JSON
@@ -137,16 +145,34 @@ The same `--load X --tick N` is **more reproducible than expected**. Measured by
   per-tick wall-clock variance feeding movement integration. The `srand(TimerRefHR)` reseed
   produced no observable divergence.
 
-So the dominant nondeterminism is **variable per-tick dt**, not RNG. Practical guidance:
+So the dominant nondeterminism is **variable per-tick dt**, not RNG. Two ways to run:
 
-- Build/run with `-DSOUND_BACKEND=null` (or `SDL_AUDIODRIVER=dummy`).
-- Assert **exact** on discrete and static fields (scene, vars, hero behaviour/body/anim,
-  non-moving actors); allow a small **tolerance** on moving-actor positions; ignore `fps`
-  and `timer_ref_hr`.
+- **Without `--fixed-dt` (variable dt):** build/run with `-DSOUND_BACKEND=null` (or
+  `SDL_AUDIODRIVER=dummy`). Assert **exact** on discrete and static fields (scene, vars, hero
+  behaviour/body/anim, non-moving actors); allow a small **tolerance** on moving-actor
+  positions; ignore `fps` and `timer_ref_hr`.
+- **With `--fixed-dt <ms>` (constant dt):** the clock advances by exactly `<ms>` per tick, so
+  `timer_ref_hr` becomes `base + N*ms` and moving-actor positions stop jittering. Measured: a
+  busy exterior save dumped 10× was byte-identical including `timer_ref_hr` and
+  `x/y/z/beta/anim/last_frame`; only `fps` and `log` stay run-specific. So under fixed-dt those
+  kinematic fields can be asserted exact, not just within tolerance. This is the prerequisite
+  for faithful input replay.
 
-A future `--fixed-dt` mode (pin the timer to a constant per-tick step; reseed RNG) would
-make dumps fully reproducible and is the prerequisite for faithful input replay — see
-Roadmap. It builds on the existing `LockTimer`/`SetTimerHR` hooks.
+  **Full exterior determinism requires the null sound backend** (`-DSOUND_BACKEND=null`), not
+  just `SDL_AUDIODRIVER=dummy`. With the SDL audio backend, voices are serviced on a wall-clock
+  callback thread and exterior ambient-sample logic (`GereAmbiance`, `IsSamplePlaying`) branches
+  the simulation nondeterministically even under the dummy *driver* — a residual ±1-unit
+  actor-position wobble remains. The null *backend* removes that path. Interior scenes are
+  deterministic either way. fixed-dt pins the clock; it does not determinise audio-thread timing.
+
+The single RNG seed (`srand(TimerRefHR)` in `ChangeCube`) is already pinned by the restored
+save clock — confirmed: under fixed-dt the dumps are identical with no explicit reseed.
+
+Caveat — exactness is **per platform/build**. `--fixed-dt` removes *temporal* nondeterminism,
+not the cross-platform coordinate differences from `long double` precision (80-bit on Linux
+x86_64, 64-bit on Windows/macOS-ARM; see [PLATFORM.md](PLATFORM.md)). Two platforms running the
+identical fixed-dt sequence can still land on slightly different positions. Keep golden
+baselines per-platform, or compare across platforms with a tolerance.
 
 ## Tests
 
@@ -174,10 +200,12 @@ non-deterministic base.
    regression net for the widescreen / projection work: the world-space dump is the
    guardrail that rendering changes don't perturb the simulation; screenshots are the
    human-reviewed visual. See `docs/AUTOMATION_PLAN.md`.
-2. **`--fixed-dt` deterministic mode.** Pin the per-tick timer step (and reseed RNG) so the
-   simulation is independent of wall-clock. The determinism measurements point at variable
-   dt as the lever. This upgrades the baseline tolerance to exact, and is the prerequisite
-   for replay.
+2. **`--fixed-dt` deterministic mode** *(done)*. Pin the per-tick timer step so the simulation
+   is independent of wall-clock — the determinism measurements pointed at variable dt as the
+   lever. No RNG reseed was needed: the only seed (`srand(TimerRefHR)`) is already pinned by the
+   restored save clock. This upgrades the baseline tolerance to exact (same-platform) and is the
+   prerequisite for replay. See `docs/FIXED_DT_PLAN.md`. Promoting the baseline harness's
+   kinematic tier to exact is the remaining follow-up.
 3. **Input record/replay.** Capture input per tick and replay a whole session — the
    gameplay-regression counterpart to the existing draw-call polyrec. Attaches at the same
    top-of-loop seam as `Control_TickHook`; depends on (2) to reproduce faithfully.
