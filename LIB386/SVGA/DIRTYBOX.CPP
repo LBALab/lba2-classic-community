@@ -12,6 +12,7 @@
 #include <SYSTEM/EVENTS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/N_MALLOC.H>
+#include <SYSTEM/TIMER.H>
 
 #include <limits.h>
 #include <stdlib.h>
@@ -396,6 +397,10 @@ void BoxBlit() {
     S32 SaveClipXMin, SaveClipYMin, SaveClipXMax, SaveClipYMax;
     /* Safe defaults if mouse cursor graphic is missing (restore block must not use garbage). */
     S32 x0 = 0, y0 = 0, x1 = -1, y1 = -1;
+
+    // One presented frame. Under fixed-dt this steps the virtual clock for modal inner
+    // loops (no-op for the main loop's own render and for non-fixed-dt runs).
+    Timer_FixedDtPresent();
 
     ManageEvents();
 

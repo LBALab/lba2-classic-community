@@ -29,6 +29,8 @@ U32 LastEvaluate;
 static S32 FixedDtActive = 0;
 static U32 FixedDt = 0;
 static U32 FixedDtNow = 0;
+static S32 FixedDtTicking = 0;     // set on the first tick advance; gates present-stepping past boot
+static S32 FixedDtSkipPresent = 0; // makes the first present after each tick advance free
 
 // --- Initialization ----------------------------------------------------------
 void InitTimer() {
@@ -84,12 +86,36 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtNow = TimerSystemHR;
     LastTime = TimerSystemHR;
     FixedDtActive = 1;
+    FixedDtTicking = 0;
+    FixedDtSkipPresent = 0;
 }
 
 void Timer_FixedDtAdvance() {
     // One fixed step per tick. The next unlocked ManageTime() banks it into TimerRefHR;
     // every other ManageTime() in the tick sees an unchanged FixedDtNow and adds nothing.
     if (FixedDtActive) {
+        FixedDtNow += FixedDt;
+        FixedDtTicking = 1;
+        // The main-loop render that follows this advance presents one frame; let it pass
+        // for free so a normal tick stays exactly +dt. Extra presents in this tick come
+        // from modal inner loops and each step the clock (see Timer_FixedDtPresent).
+        FixedDtSkipPresent = 1;
+    }
+}
+
+void Timer_FixedDtPresent() {
+    if (FixedDtActive && FixedDtTicking) {
+        if (FixedDtSkipPresent) {
+            FixedDtSkipPresent = 0;
+        } else {
+            FixedDtNow += FixedDt;
+        }
+    }
+}
+
+void Timer_FixedDtPump() {
+    // No free first step: a non-presenting wait loop owns every iteration's time.
+    if (FixedDtActive && FixedDtTicking) {
         FixedDtNow += FixedDt;
     }
 }
