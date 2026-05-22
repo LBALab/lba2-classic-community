@@ -65,6 +65,7 @@ Apply these behavior rules on every non-trivial task:
 - **Before considering done:** Run `./run_tests_docker.sh` (or N/A if docs-only). If modifying formatted files: run `bash ./scripts/ci/apply-format.sh` (or enable the pre-commit hook — see "Code conventions"); CI also runs the format check.
 - **When tests fail:** Do not relax tests. For ASM↔CPP: use `--bisect` to find first divergence, add debug traces to both ASM and CPP, extract failing inputs into a focused unit test, fix CPP to match ASM. For other bugs: read the relevant subsystem doc (AUDIO, MENU, DEBUG, etc.), map the code path, fix the bug, verify with build/tests.
 - **Minimal build** (no audio/video): `-DSOUND_BACKEND=null -DMVIDEO_BACKEND=null` for quick iteration.
+- **Drive it programmatically:** the CLI control harness boots, restores a save, runs console commands, advances N ticks, and writes a JSON state snapshot / PNG, then exits — in one invocation: `lba2cc --load <save> --tick 30 --dump-state s.json --screenshot s.png --exit`. Use it to verify a runtime change without clicking through the game (compare `--dump-state` before/after, or diff a screenshot). Needs retail data + a display; `tests/automation/run.sh` runs the suite. Modal commands (`give <item>`, `playvideo`) hang a `--exit` run — see caveats. See [docs/CONTROL.md](docs/CONTROL.md).
 
 ## When modifying X, do Y
 
@@ -76,6 +77,7 @@ Apply these behavior rules on every non-trivial task:
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update `docs/ASM_VALIDATION_PROGRESS.md`; check `docs/ASM_TEST_COVERAGE_AUDIT.md` for the coverage rubric | docs/TESTING.md, docs/ASM_TEST_COVERAGE_AUDIT.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
+| Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
 | Code that reads retail HQR data or legacy save formats | Check the rule: never `sizeof(T)`-as-stride for fat structs; use a paired `T_DISK` or field-by-field serialization | docs/ABI.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
