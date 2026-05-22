@@ -235,6 +235,32 @@ underlying original bug — turning bat-afflicted scenes from FLAKY into usable 
 a concrete, low-risk path to a scripted-playthrough regression net, parallel to (and simpler
 than) chasing the FP precision bug to ground.
 
+## 2e. Mapping the demo scenes
+
+Where the engine's demo/attract content lives, and which is usable as a deterministic fixture
+(probed via a temporary env-gated `LBA2_FORCE_DEMOSLIDE` in `Control_Begin` + the per-tick cube
+trace):
+
+- **`SlideDemo` entry = cube 5** (`GAMEMENU.CPP:4156`: `cubedeb = 5`, `DemoSlide = TRUE`). A
+  self-contained demo: the hero runs a scripted path *within* cube 5 (no cube transitions in
+  3000 ticks). **Fully deterministic** — 4 serial and 6 parallel runs at 1000 ticks were
+  byte-identical (hero ends 30956/3584/18821). So cube 5 is a ready, load-stable,
+  golden-able scripted-playthrough fixture.
+- **Menu attract = cube 193** (`GAMEMENU.CPP:2432`: `DemoSlide = TRUE`, `NewCube = 193`). The
+  hero follows a track program (traced in §2c), but the run **hangs after ~876 ticks** on a modal
+  that `DemoSlide` does not auto-advance (a cutscene/`PLAY_ACF`-class wait). Not headless-runnable
+  end-to-end without handling that modal.
+- **Desert Island (cube 65)** — has the bat (§2d): an original-engine load-sensitive
+  nondeterminism. Short runs are fine; long runs need the invincibility lever to stay
+  deterministic.
+- **Full attract cycle (`demo0/1/2.lba`)** — `#ifdef DEMO` only, and those save assets are not in
+  the repo or the retail data, so the canonical multi-scene attract cycle is not reachable here.
+
+Takeaways for the regression net: **cube 5 is an immediately usable deterministic playthrough
+fixture** (a ~16 s scripted run, golden-able under load). Cube 193 needs modal handling (or a
+shorter tick budget that stops before the cutscene). Bat-class scenes need the invincibility
+lever. The richest demo content (the demo-build cycle) is out of reach without its assets.
+
 ## 3. Implication for step 3 — two complementary paths
 
 Given there is no recorded-input data to replay, step 3 splits into two things that should not
