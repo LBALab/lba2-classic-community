@@ -358,6 +358,9 @@ Where the implementation differs from the plan above. The user guide
 - **Commits:** delivered as one branch / PR (research+plan docs, the module + console hooks,
   the test scripts, the user doc, then a review-fixups commit) rather than the 7-step split
   sketched above — the per-flag *tests* are the artifacts that matter and they all landed.
-- **Deferred (noted on the PR):** the large `timer_ref_hr` boot baseline (cosmetic,
-  monotonic) and capping `actors[]` for pathological scenes are left open. (Warn-on-non-
-  numeric `--tick` was added.)
+- **`timer_ref_hr` is the restored save clock, not boot time** (review #6, resolved). The
+  engine persists `TimerRefHR` (accumulated play time) in saves and restores it on load
+  (`SAVEGAME.CPP:558`/`:845`), so a loaded game's clock starts at the save's play-time —
+  it scales with progression (early save ~4 h, late ~12 h). Not double-counting; expected.
+- **Deferred (noted on the PR):** capping `actors[]` for pathological scenes is left open.
+  (Warn-on-non-numeric `--tick` was added.)

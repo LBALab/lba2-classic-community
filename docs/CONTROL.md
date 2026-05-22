@@ -105,7 +105,12 @@ Schema-versioned, hand-written, all-integer fields:
 ```
 
 - `tick` — completed ticks (the hook is inside the loop body, so this counts real
-  iterations). `timer_ref_hr` — the game clock in ms.
+  iterations).
+- `timer_ref_hr` — the engine's master clock in ms (accumulated play time). It is
+  persisted in saves and restored on `--load` (`SAVEGAME.CPP:845`), so a loaded game's
+  clock starts at the save's play-time, not zero — e.g. an early save reads a few hours,
+  a late one ~12 h. Expect a large value; only its monotonic advance across ticks is
+  meaningful for the harness.
 - `scene` — island/cube and live object/zone/track/patch counts.
 - `hero` — `ListObjet[0]`: world position, local angles, life, current behaviour and
   weapon, body/anim ids, animation frame, movement and zone state, flag words.
