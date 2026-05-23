@@ -8,6 +8,7 @@
 #include "DIRECTORIES.H"
 #include "CONSOLE/CONSOLE.H"
 
+#include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
@@ -41,6 +42,8 @@ static int s_have_shot = 0;
 static char s_shot_path[ADELINE_MAX_PATH];
 static int s_have_polyrec = 0;
 static char s_polyrec_path[ADELINE_MAX_PATH];
+static int s_have_projrec = 0;
+static char s_projrec_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
 static int s_demo = 0;
 static int s_verbose = 0;
@@ -127,6 +130,13 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        if (!strcmp(a, "--capture-projection") && has_val) {
+            copy_arg(s_projrec_path, sizeof(s_projrec_path), argv[read + 1]);
+            s_have_projrec = 1;
+            s_active = 1;
+            read += 2;
+            continue;
+        }
         if (!strcmp(a, "--exit")) {
             s_exit = 1;
             s_active = 1;
@@ -201,6 +211,14 @@ int Control_Begin(void) {
        Opt-in; default gameplay is unaffected. */
     if (s_demo)
         DemoSlide = TRUE;
+
+    /* Arm projection capture before any InitGame/ChangeCube path that may call
+       SetProjection. The boot path's first SetProjection (EXTFUNC.CPP at scene init)
+       lands in the capture file once this is open. Harness-only; default off. */
+    if (s_have_projrec) {
+        if (!Projrec_BeginCapture(s_projrec_path))
+            fprintf(stderr, "[control] --capture-projection: capture not armed\n");
+    }
 
     if (s_load_name) {
         if (!control_resolve_save(s_load_name)) {
@@ -401,6 +419,10 @@ static void control_capture(void) {
         control_dump_state(s_dump_path);
     if (s_have_shot)
         control_screenshot(s_shot_path);
+    /* Flush projection capture last so any final-frame SetProjection from the dump/
+       screenshot present path is included. End is idempotent; safe even if never armed. */
+    if (s_have_projrec)
+        Projrec_EndCapture();
 }
 
 static void control_finalize(void) {
