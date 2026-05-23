@@ -272,6 +272,26 @@ static void cmd_screenshot(int argc, const char *argv[]) {
     Console_Print("Screenshot (no console): %s", path);
 }
 
+/* ui <surface> <path> — open a UI modal in headless-harness mode, capture a
+   PNG of a settled frame, then auto-exit.  The first regression surface for
+   the widescreen / UI-layout work, designed so each new surface (holomap,
+   dialog, menu-options, ...) plugs in as a parallel subcommand using the
+   same composite "open / wait / screenshot / close" pattern. */
+static void cmd_ui(int argc, const char *argv[]) {
+    if (argc >= 3 && !strcmp(argv[1], "inventory")) {
+        /* MenuInventory's `tempo` argument is virtual game-ms; under fixed-dt
+           16 that's ~31 frames of modal loop -- plenty of room past the
+           5-frame capture countdown for the wheel to settle into its base
+           state.  Without input the wheel just sits on InvSelect (default 0)
+           with no per-item zoom (TIME_BEFORE_ZOOM = 1000 ms is past tempo). */
+        Inv_RequestCapture(argv[2]);
+        MenuInventory(500);
+        Console_Print("ui inventory -> %s", argv[2]);
+        return;
+    }
+    Console_Print("Usage: ui inventory <path>");
+}
+
 static void cmd_give(int argc, const char *argv[]) {
     if (argc < 2) {
         Console_Print("Usage: give <item> [count]");
@@ -965,6 +985,12 @@ void Console_RegisterAll(void) {
                               "Snapshot of current game state.");
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
+    Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
+                              "ui inventory <path>",
+                              "Composite verb for UI regression fixtures: opens the inventory wheel "
+                              "with a virtual-time auto-exit, writes the settled frame to <path> via "
+                              "SavePNG, then closes.  Compose with --load / --exec to drive headless "
+                              "captures of UI state.");
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
 
