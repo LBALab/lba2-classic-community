@@ -12,6 +12,7 @@
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
+/* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
@@ -289,7 +290,17 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui inventory -> %s", argv[2]);
         return;
     }
-    Console_Print("Usage: ui inventory <path>");
+    if (argc >= 3 && !strcmp(argv[1], "holomap")) {
+        /* HoloMap fades to black, opens HoloGlobe (the rotating planet view),
+           and runs until FlagHoloEnd.  Holo_RequestCapture arms a one-shot
+           SavePNG inside HoloGlobe's loop after the fade-in + zoom-in settle,
+           then sets FlagHoloEnd so HoloMap exits cleanly. */
+        Holo_RequestCapture(argv[2]);
+        HoloMap();
+        Console_Print("ui holomap -> %s", argv[2]);
+        return;
+    }
+    Console_Print("Usage: ui {inventory|holomap} <path>");
 }
 
 static void cmd_give(int argc, const char *argv[]) {
@@ -986,11 +997,11 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui inventory <path>",
-                              "Composite verb for UI regression fixtures: opens the inventory wheel "
-                              "with a virtual-time auto-exit, writes the settled frame to <path> via "
-                              "SavePNG, then closes.  Compose with --load / --exec to drive headless "
-                              "captures of UI state.");
+                              "ui {inventory|holomap} <path>",
+                              "Composite verb for UI regression fixtures: opens a UI modal "
+                              "with a deterministic auto-exit, writes the settled frame to <path> "
+                              "via SavePNG, then closes.  Compose with --load / --exec to drive "
+                              "headless captures of UI state.");
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
 
