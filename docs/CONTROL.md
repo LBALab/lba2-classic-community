@@ -105,6 +105,12 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   gameplay is unaffected. (Note: a demo scene ends on a cutscene/`PLAY_ACF` that `--demo` does not
   auto-advance, so it still blocks a `--exit` run — cap the tick budget before it; see the modal
   caveat above.)
+- **Natural end captures too.** If the simulation ends on its own before the `--tick`
+  budget — e.g. the `--demo` attract reel reaches `LM_THE_END` at cube 218, returning
+  from `MainLoop` — the harness still writes the configured `--dump-state` / `--screenshot`
+  before exit. So you can run `lba2cc --exec "cube 205" --demo --tick 30000 --dump-state
+  end.json --exit` and get a snapshot of the Dark Monk finale at tick ≈ 25 443 without
+  having to pre-compute the right tick.
 - A bad `--load` path exits cleanly with a `save not found` diagnostic.
 
 ## `--dump-state` JSON

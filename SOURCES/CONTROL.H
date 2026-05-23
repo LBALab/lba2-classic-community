@@ -46,6 +46,12 @@ int Control_Begin(void);
    TheEnd(). */
 void Control_TickHook(void);
 
+/* Capture final --dump-state / --screenshot when MainLoop returns naturally (e.g. the
+   demo script reaches LM_THE_END before the --tick budget). Call once between MainLoop()
+   and TheEnd() on the harness boot path. No-op if the tick-budget finalize already ran,
+   the harness is not active, or no capture flag was supplied. */
+void Control_End(void);
+
 #ifdef __cplusplus
 }
 #endif
