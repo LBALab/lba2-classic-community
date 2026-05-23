@@ -1367,9 +1367,21 @@ void DecompColonne(U8 *pts, U8 *ptd) {
 }
 
 //-------------------------------------------------------------------
+// Map a brick's (x, y, z) world position onto the screen. The 24/12/15
+// factors are the isometric step geometry: each grid step shifts the
+// brick 24 px horizontally / 12 px vertically (the 2:1 iso tile shape),
+// and each vertical world unit shifts -15 px screen-down. The constant
+// offset places brick (0, 0, 0) on screen — historically at (288, 226)
+// at the default 640×480, which is the framebuffer centre minus a
+// (32, 14) shim from the iso grid's geometry (not a derivable formula;
+// the shim is where the retail content expects the iso grid origin to
+// land relative to the projection centre at SetIsoProjection's
+// 320-9 = 311). Derive both axes from the framebuffer dimensions so the
+// iso grid stays centred at any render-space size; at 640×480 this is
+// the original (288, 226). See docs/WIDESCREEN.md Phase 2.
 void Map2Screen(S32 x, S32 y, S32 z) {
-    XScreen = 24 * (x - z) + 288;
-    YScreen = 12 * (z + x) - 15 * y + 226;
+    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
+    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
 }
 
