@@ -105,10 +105,10 @@ jget() {
 }
 
 # projrec_compare <out-file> <golden-path>
-# Byte-compares the captured projection hash to a committed golden. Set
-# LBA2_PROJECTION_REGEN=1 to copy the capture over the golden instead.
-# Callers are responsible for actually running the harness with
-# --projection-hash <out-file> before calling this.
+# Compares the captured projection hash to a committed golden, ignoring
+# leading `#`-prefixed comment lines (so the header text can evolve without
+# breaking tests — only the hashed data lines matter for regression).
+# Set LBA2_PROJECTION_REGEN=1 to copy the capture over the golden instead.
 projrec_compare() {
     local out="$1" golden="$2"
     [ -f "$out" ] || fail "no hash file written: $out"
@@ -119,7 +119,7 @@ projrec_compare() {
         pass "regenerated golden: $(basename "$golden")"
     fi
     [ -f "$golden" ] || { rm -f "$out"; fail "golden not committed yet: $golden"; }
-    if diff -q "$out" "$golden" >/dev/null; then
+    if diff <(grep -v '^#' "$out") <(grep -v '^#' "$golden") >/dev/null; then
         rm -f "$out"
         pass "projection hash matches golden ($(basename "$golden"))"
     else

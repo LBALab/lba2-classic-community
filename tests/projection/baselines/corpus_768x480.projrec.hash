@@ -1,0 +1,54 @@
+# projrec-corpus-hash v1
+# 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save,
+# at render width 768 (the binary's compiled RESOLUTION_X).
+# Regenerate with: scripts/dev/regen_projrec_baselines.sh
+Anon1.LBA                        events=8395      fnv1a=7a0bdcce5bc1d80f
+Anon2.LBA                        events=5636      fnv1a=f76f378512760258
+Ball of Sendell.LBA              events=4508      fnv1a=1b00cf41d28b2a78
+Bu.LBA                           events=8189      fnv1a=eaa0cab17cc46f6a
+DOS2.LBA                         events=5819      fnv1a=9c7c1a75f39756e6
+DT Otringal.LBA                  events=1048      fnv1a=3bbb872a26139f20
+Dark Monk.LBA                    events=3261      fnv1a=d170d7c34f0d3f64
+Desert Island.LBA                events=23071     fnv1a=7521f73b1a426601
+Desperado.LBA                    events=8317      fnv1a=0253e7c0d5f7bc3c
+Dissidents.LBA                   events=1308      fnv1a=57a92aee0b41e272
+Dome of the Slate.LBA            events=9395      fnv1a=3eafb24dcae4b191
+EM2.LBA                          events=4959      fnv1a=7b9309f7a31891f5
+Emerald Moon.LBA                 events=1393      fnv1a=27f67d95ab1fa946
+Emperor Palace.LBA               events=941       fnv1a=2c186c4b6163e51c
+End game.LBA                     events=4666      fnv1a=8b9654b9681594be
+Esmer Secret Base.LBA            events=8983      fnv1a=f6be26edb1faba1e
+Franco Elevator.LBA              events=5206      fnv1a=8ec3341885060091
+Francos.LBA                      events=1978      fnv1a=1fc6b74cbb4d05bf
+Fully loaded horn.LBA            events=11253     fnv1a=42e553604edfd99d
+Gazogem.LBA                      events=2836      fnv1a=701258e8c3ef5f4d
+Hacienda.LBA                     events=15941     fnv1a=6686763741159980
+ICX.LBA                          events=4407      fnv1a=c6ace5a88b60f033
+In the school.LBA                events=3572      fnv1a=69a795dc719baf97
+Island CX 4 Real.LBA             events=5393      fnv1a=5ad9c83aab20af72
+Island CX.LBA                    events=18114     fnv1a=501da3e32d20f4ae
+Kidnapped!.LBA                   events=1861      fnv1a=34bb9168fd402e9f
+Lazer Crystal.LBA                events=4863      fnv1a=92836872331543d3
+Lightning Spell.LBA              events=4667      fnv1a=45e917064c6cfe26
+Lucky jump.LBA                   events=11639     fnv1a=b08089f638f9588d
+Mos attack.LBA                   events=5494      fnv1a=0b86656780d8b888
+Mosquibees.LBA                   events=2054      fnv1a=a56b5aa886e6c2cb
+Oasis.LBA                        events=14053     fnv1a=929dd50fb7ed9220
+Off to be a Wizard.LBA           events=3632      fnv1a=2be68fe8af5f9401
+Otringal .LBA                    events=4716      fnv1a=354051f024e38f73
+Pearl.LBA                        events=2122      fnv1a=6317639eee52f500
+Protection Spell.LBA             events=4943      fnv1a=69eb020c38f883dc
+Race.LBA                         events=15201     fnv1a=2656aece99c0625a
+Save the Queen.LBA               events=4065      fnv1a=e40f0649dcd900ee
+School of Magic.LBA              events=15187     fnv1a=77fe5f5c0c01692e
+Spaceship.LBA                    events=1478      fnv1a=82705657708eb351
+Sword.LBA                        events=2219      fnv1a=9f143208fa389c0a
+The End almost.LBA               events=3109      fnv1a=02c0ab99ce9aabfd
+Undergas.LBA                     events=4599      fnv1a=2915d245a646e7b2
+V Jump.LBA                       events=9134      fnv1a=6a000373139159b1
+Volcano Island.LBA               events=11082     fnv1a=fb17e36a15f336f3
+Wannies fragment.LBA             events=5201      fnv1a=f535a4c8885a4c61
+Wizard outfit.LBA                events=22208     fnv1a=c0d9f579b6c34c61
+Zeelich.LBA                      events=13938     fnv1a=e75cdd89e596d3d6
+autosave.lba                     events=12445     fnv1a=d02ccc4b725e5e75
+current.lba                      events=9893      fnv1a=7ea500125979ec3e
