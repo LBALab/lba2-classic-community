@@ -1,0 +1,4 @@
+# projrec-hash v1
+# 30000-tick attract-reel snapshot (--demo --fixed-dt 16 --tick 30000).
+# Regenerate with: scripts/dev/regen_projrec_baselines.sh
+SCENE events=1776254 fnv1a=9f225b442784bb03
