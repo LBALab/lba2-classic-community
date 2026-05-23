@@ -266,6 +266,38 @@ underlying original bug — turning bat-afflicted scenes from FLAKY into usable 
 a concrete, low-risk path to a scripted-playthrough regression net, parallel to (and simpler
 than) chasing the FP precision bug to ground.
 
+> **RESOLVED (PR #175): the cause was RNG after all.** Adding to the corrections list above —
+> the "RNG ruled out" conclusion in this section was wrong. The rand-call counter compared
+> the *call sequence* across runs, which was identical, and on that basis the seed itself was
+> taken as not the variable. It was. `InitTimer()` at engine boot banks the wall-clock
+> interval since `SDL_GetTicks()`'s epoch into `TimerRefHR`. Before #175, `Timer_EnableFixedDt()`
+> seeded `FixedDtNow`/`LastTime` correctly but left `TimerRefHR`'s pre-enable value alone, so
+> `srand(TimerRefHR)` at the first `ChangeCube` saw a different seed each run on the
+> fresh-start path (typically 125-470 ms of variation). Same call sequence, different seeds →
+> different stream outputs → different bat trajectories. Under `--load`, the save's restored
+> clock overrode `TimerRefHR` after enable, so save-loaded runs already had a stable seed —
+> which is why the `Desert Island.LBA` measurement here showed "identical clock, identical
+> RNG stream" yet diverged: clock + call sequence agreed across save-loaded runs, but the
+> divergence-versus-no-divergence flip in 8-10× parallel batches was a different perturbation
+> source (likely scheduler timing affecting some other state, not the seed itself in this
+> particular setup). The simpler `--demo` fresh-start path made the seed leak visible at
+> ±300 ms scale. The fix (`TimerRefHR = 0` next to the existing `FixedDtNow`/`LastTime` seeding
+> in `Timer_EnableFixedDt()`) closes both the fresh-start divergence and the bat scene; cube
+> 65 (the canonical Desert Island bat) and cube 196 (sister wanderers in the cube-193 attract
+> reel) are byte-deterministic post-#175 across sequential and parallel runs.
+>
+> The FP-precision investigation chase was wasted effort, but the corrections trail above is
+> kept as a record of how to *not* eliminate a hypothesis: the rand-call counter measures
+> call sequences, which is one slice of "is the RNG stream identical"; the seed itself is the
+> other slice and was overlooked. Future investigations of this class should print the seed
+> at `srand` time, not just the call count.
+>
+> The "demo invincibility" idea remains useful as a *separate* concept — it would let the
+> harness golden a deterministic playthrough even if the bat *did* hit the hero — but it is
+> no longer needed to neutralise the original bug. The original bug is fixable at the source,
+> with the same `TimerRefHR`-reset mechanism extended to `DemoSlide` rather than `--fixed-dt`
+> (tracked in issue #176 for the SHIFT+D / in-game attract path).
+
 ## 2e. Mapping the demo scenes
 
 Where the engine's demo/attract content lives, and which is usable as a deterministic fixture
