@@ -50,15 +50,23 @@ The contract: every committed corpus hash at 640×480 must stay stable through P
 
 This is independent from polyrec (which keeps recording draw calls for ASM↔CPP equivalence); the two harnesses are composable.
 
-### Phase 2 — projection correction
+### Phase 2 — projection correction (done)
 
-Fix the projection origin and the brick renderer, the two render-space areas Phase 0 found. All of it is behaviour-preserving at the default 640×480:
+Routed every render-space projection constant through `ModeDesiredX/Y`. All behaviour-preserving at 640×480; validated against the Phase 1 projrec corpus + demo baselines on each PR.
 
-- Derive `XCentre` from `ModeDesiredX / 2` (keep `YCentre` at half-height) at `SOURCES/EXTFUNC.CPP:93`, so the 3D world centres on the framebuffer instead of on a fixed `320`. Because `LongProjectPoint` and `ProjectList` share these globals, the one change covers the sort tree and object drawing together.
-- Route the `SOURCES/GRILLE.CPP` brick clips (`XScreen < 640 ... YScreen < 480` in `AffBrickBlock` / `AffBrickBlockColon` / `AffBrickBlockOnly`) to the render width — mechanical edge replacements, like the sort preclip.
-- Re-centre the `Map2Screen` isometric origin (`+288` / `+226`, `GRILLE.CPP:1370`) — design work, not a find-replace. These constants fold the screen centre together with the isometric grid geometry (the `24` / `12` / `15` brick steps), so `288` is not the framebuffer centre and cannot simply become `ModeDesiredX / 2`. Widening shifts the X origin to keep the grid centred; the Y origin (`226`) holds while height stays 480. This is the one site in Phase 2 that needs working through rather than substituting.
+The three sites the Phase 0 audit called out:
 
-Validate against the Phase 1 baseline: at 640×480 the output must be unchanged.
+- **PR #199** — `SOURCES/EXTFUNC.CPP:93` `SetProjection(320, 240, ...)` → `SetProjection((S32)(ModeDesiredX/2), (S32)(ModeDesiredY/2), ...)`. Because `LongProjectPoint` and `ProjectList` share these globals, the one change covers the sort tree and object drawing together.
+- **PR #199** — `SOURCES/GRILLE.CPP` brick clips (`XScreen < 640 ... YScreen < 480` in `AffBrickBlock` / `AffBrickBlockColon` / `AffBrickBlockOnly`) routed through `(S32)ModeDesiredX/Y`. Same shape as the existing sort preclip.
+- **PR #200** — `Map2Screen` `+288` / `+226` (`GRILLE.CPP:1370`) routed through `(S32)ModeDesiredX/2 - 32` / `(S32)ModeDesiredY/2 - 14`. The `-32` and `-14` are iso-grid geometry shims (not the framebuffer centre minus a clean offset); documented inline so the next maintainer doesn't have to re-derive them. Also fixed the `test_grille` ASM-equivalence test to pin `ModeDesiredX/Y` (the ASM half still bakes in `288 / 226`).
+
+Plus one site the original audit missed, surfaced while writing #200's inline docs:
+
+- **PR #201** — iso projection-setup analog of `EXTFUNC.CPP:93`. `SetIsoProjection(320 - 8 - 1, 240)` in `SOURCES/GAMEMENU.CPP:515` (`Init3DView`, boot init) and `SOURCES/COMPORTE.CPP:351` (`DrawMenuComportement`, behaviour menu wheel) routed through `(S32)ModeDesiredX/2 - 9, (S32)ModeDesiredY/2`. The `-9` is the iso-grid horizontal shim that pairs with Map2Screen's `-32`; the two iso sites must move together to keep interior scene composition coherent.
+
+Net: eight call sites across four files, ~30 lines of code change. The corpus + demo projrec hashes stayed identical at 640×480 throughout, and `test_grille` is green again.
+
+One render-space site the original audit flagged remains open: `SOURCES/GRILLE.CPP:954-955` `xmin = 639; ymin = 479;` — bounding-box sentinel seeds in `AffOneBrick`. At 640×480 the seeds work as upper bounds; at any wider render width they'd cap `xmin` at 639 and miss bricks beyond. Two-line fix; tracked as a Phase 2 follow-up so it lands before Phase 3 widens the framebuffer.
 
 ### Phase 3 — widen the framebuffer
 
