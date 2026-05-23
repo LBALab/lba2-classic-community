@@ -46,7 +46,9 @@ precheck() {
     [ -n "$LBA2_BIN" ] && [ -x "$LBA2_BIN" ] || skip "no binary (build it, or set LBA2_BIN)"
     [ -n "$LBA2_GAME_DIR" ] || skip "LBA2_GAME_DIR unset"
     [ -e "$LBA2_GAME_DIR" ] || skip "LBA2_GAME_DIR not found: $LBA2_GAME_DIR"
-    { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } || skip "no display (engine needs a window)"
+    { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ] \
+        || [ "${SDL_VIDEODRIVER:-}" = "dummy" ]; } \
+        || skip "no display (engine needs a window, or set SDL_VIDEODRIVER=dummy)"
 }
 
 need_save() {
@@ -56,6 +58,45 @@ need_save() {
 # ctl <args...> — run the harness with null audio and a hard timeout.
 ctl() {
     SDL_AUDIODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" "$@"
+}
+
+# ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy.
+# Used by UI capture tests where the committed golden was rendered under the
+# dummy video driver, so the test must too for the byte-identical compare.
+ctl_headless() {
+    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" "$@"
+}
+
+# ui_compare <verb-args...> <golden-path>
+# Runs `ctl_headless --load $LBA2_TEST_SAVE --exec "ui <verb-args>" ...` writing
+# the capture to a temp file, then compares sha256 against the committed golden.
+# Set LBA2_UI_REGEN=1 to copy the capture over the golden instead of comparing.
+ui_compare() {
+    local args="" golden="" out= shaA shaB
+    while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
+    golden="$1"
+    out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
+    # the verb takes the capture path as its last arg
+    ctl_headless --load "$LBA2_TEST_SAVE" \
+        --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
+        || { rm -f "$out"; fail "verb 'ui $args' returned non-zero ($?)"; }
+    [ -f "$out" ] || fail "no capture written for 'ui $args'"
+    if [ "${LBA2_UI_REGEN:-}" = "1" ]; then
+        mkdir -p "$(dirname "$golden")"
+        cp "$out" "$golden"
+        rm -f "$out"
+        pass "regenerated golden: $(basename "$golden")"
+    fi
+    [ -f "$golden" ] || { rm -f "$out"; fail "golden not committed yet: $golden"; }
+    shaA=$(sha256sum "$out" | awk '{print $1}')
+    shaB=$(sha256sum "$golden" | awk '{print $1}')
+    if [ "$shaA" = "$shaB" ]; then
+        rm -f "$out"
+        pass "ui $args matches golden ($(basename "$golden"))"
+    else
+        # leave $out behind under /tmp for inspection
+        fail "ui $args diverges from golden ($shaA vs $shaB; capture at $out)"
+    fi
 }
 
 # jget <json-file> <python-expr over `d`> — print a field, e.g. jget s.json "d['scene']['cube']"
