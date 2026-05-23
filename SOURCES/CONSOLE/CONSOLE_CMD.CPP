@@ -331,11 +331,25 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui menu-main -> %s", argv[2]);
         return;
     }
+    if (argc >= 4 && !strcmp(argv[1], "found-object")) {
+        /* DoFoundObj(numvar) opens the found-object cinematic: 3D rotation
+           of the discovered item alongside a typewriter dialogue.  numvar
+           is the TabInv slot index (e.g. FLAG_BALLE_MAGIQUE).
+           DoFoundObj_RequestCapture arms a one-shot SavePNG that fires
+           after the countdown elapses; the hook sets flag=2 so the modal's
+           while-loop exits cleanly. */
+        S32 numvar = (S32)atoi(argv[2]);
+        DoFoundObj_RequestCapture(argv[3]);
+        DoFoundObj(numvar);
+        Console_Print("ui found-object %d -> %s", (int)numvar, argv[3]);
+        return;
+    }
     Console_Print("Usage: ui inventory <path>");
     Console_Print("       ui holomap <path>");
     Console_Print("       ui dialog <text-id> <path>");
     Console_Print("       ui menu-options <path>");
     Console_Print("       ui menu-main <path>");
+    Console_Print("       ui found-object <numvar> <path>");
 }
 
 static void cmd_give(int argc, const char *argv[]) {
@@ -1032,7 +1046,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main} <path> | ui dialog <text-id> <path>",
+                              "ui {inventory|holomap|menu-options|menu-main} <path> | ui {dialog|found-object} <id> <path>",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
