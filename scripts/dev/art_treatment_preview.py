@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render SCREEN.HQR bitmaps with widescreen treatments applied, as PNG previews.
 
-Implements the four runtime treatments specified in docs/widescreen/art-strategy.md:
+Implements the runtime treatments specified in docs/widescreen/art-strategy.md:
 
   letterbox     centre the 640x480 bitmap, fill margins with black (or fill_index)
   palette-fill  same, but fill margins with the dominant edge palette index
@@ -10,6 +10,11 @@ Implements the four runtime treatments specified in docs/widescreen/art-strategy
                 (per-row column stretch — preserves vertical structure)
   mirror-tile   centre the bitmap, mirror the leftmost/rightmost margin-width
                 strip into the margins
+  stretch       resample the bitmap horizontally to target width (bilinear).
+                Distorts but no margins; trades fidelity for fill.
+  gradient      ignore the bitmap, fill the canvas with a procedural vertical
+                blue gradient. Replacement treatment for PCR_MENU when no
+                derivative of the original art reads well.
 
 Output is a target_width x 480 RGB PNG. Default target width is 853 (16:9 at
 480 height, matching docs/WIDESCREEN.md target).
@@ -20,12 +25,12 @@ extractor's output — same .gitignore covers them (copyright concern).
 Usage:
   # Single entry, single treatment
   scripts/dev/art_treatment_preview.py SCREEN.HQR --entry 4 \\
-      --treatment edge-clone --out preview/menu_edge_clone.png
+      --treatment stretch --out preview/menu_stretch.png
 
   # All entries with their strategy-assigned treatments
   scripts/dev/art_treatment_preview.py SCREEN.HQR --all --outdir preview/
 
-  # Side-by-side comparison of all four treatments for one entry
+  # Side-by-side comparison of every treatment for one entry
   scripts/dev/art_treatment_preview.py SCREEN.HQR --entry 4 --compare \\
       --out preview/menu_compare.png
 """
@@ -42,48 +47,54 @@ DEFAULT_TARGET_W = 853  # 16:9 at 480 height (480 * 16/9 = 853.33)
 
 # Treatment assignments from docs/widescreen/art-strategy.md.
 # Each entry index -> (treatment, optional hint).  Hint is a short note like
-# "(white)" or "(black)" describing the expected fill colour; auto-detection
-# should land on the same index for well-formed bitmaps.
+# "(white)" describing the expected fill behaviour.
+#
+# Triage was simplified after a second round of visual review (recorded in
+# cheap-test-findings.md): letterbox is the default, palette-fill is kept
+# only for the pure-white-background distributor/dev logos where the margin
+# fill is genuinely invisible, and PCR_MENU is an open question — the
+# letterbox option here is the fallback; `stretch` and `gradient` are the
+# candidates being weighed.
 TRIAGE = {
-    0:  ("palette-fill", "white"),    # PCR_LOGO
-    2:  ("edge-clone",   "stars"),    # PCR_BUMPER
-    4:  ("palette-fill", "dark sky"), # PCR_MENU — cheap-test revised from edge-clone (stripes)
-    6:  ("palette-fill", "dark wood"),# PCR_ARDOISE
-    8:  ("edge-clone",   "wood"),     # PCR_PEGOUT
-    10: ("palette-fill", "black"),    # PCR_AEGOUT
-    12: ("edge-clone",   "wood"),     # PCR_PLABYRT
-    14: ("palette-fill", "black"),    # PCR_ALABYRT
-    16: ("edge-clone",   "wood"),     # PCR_PLUNE
-    18: ("palette-fill", "black"),    # PCR_ALUNE
+    0:  ("palette-fill", "white"),    # PCR_LOGO — white bg, invisible fill
+    2:  ("letterbox",    None),       # PCR_BUMPER
+    4:  ("letterbox",    None),       # PCR_MENU — see notes; stretch/gradient also viable
+    6:  ("letterbox",    None),       # PCR_ARDOISE
+    8:  ("letterbox",    None),       # PCR_PEGOUT
+    10: ("letterbox",    None),       # PCR_AEGOUT
+    12: ("letterbox",    None),       # PCR_PLABYRT
+    14: ("letterbox",    None),       # PCR_ALABYRT
+    16: ("letterbox",    None),       # PCR_PLUNE
+    18: ("letterbox",    None),       # PCR_ALUNE
     20: ("letterbox",    None),       # PCR_HACIENDA — baked vignette
     22: ("letterbox",    None),       # PCR_VUPHARE
     24: ("letterbox",    None),       # PCR_VUPHARE2 — porthole
-    26: ("palette-fill", "black"),    # planet + comet
+    26: ("letterbox",    None),       # planet + comet
     28: ("letterbox",    None),       # Funfrock lab
     30: ("letterbox",    None),       # picnic
     32: ("letterbox",    None),       # Emerald Moon porthole
     34: ("letterbox",    None),       # cell with orbs
-    36: ("palette-fill", "black"),    # celestial diagram
-    38: ("mirror-tile",  "wallpaper"),# Mona Lisa wallpaper
-    40: ("edge-clone",   "paper"),    # volcano paper map
-    42: ("palette-fill", "black"),    # volcano slate map
+    36: ("letterbox",    None),       # celestial diagram
+    38: ("letterbox",    None),       # Mona Lisa (mirror-tile was viable but letterbox is consistent)
+    40: ("letterbox",    None),       # volcano paper map
+    42: ("letterbox",    None),       # volcano slate map
     44: ("letterbox",    None),       # album + guard
-    46: ("edge-clone",   "smoke"),    # bust on plinth
+    46: ("letterbox",    None),       # bust on plinth
     48: ("letterbox",    None),       # musicians
     50: ("letterbox",    None),       # prison cell
     52: ("letterbox",    None),       # dragon-fire
     54: ("letterbox",    None),       # red-sky forum
-    56: ("palette-fill", "black"),    # spaceship + planet — cheap-test revised from edge-clone (nebula stripes)
-    58: ("palette-fill", "black"),    # explosion celebration
-    60: ("palette-fill", "black"),    # PCR_CDROM
-    62: ("palette-fill", "black"),    # Sendell baby orb
-    64: ("edge-clone",   "paper"),    # paper house map
-    66: ("palette-fill", "black"),    # slate house map
+    56: ("letterbox",    None),       # spaceship + planet
+    58: ("letterbox",    None),       # explosion celebration
+    60: ("letterbox",    None),       # PCR_CDROM
+    62: ("letterbox",    None),       # Sendell baby orb
+    64: ("letterbox",    None),       # paper house map
+    66: ("letterbox",    None),       # slate house map
     68: ("letterbox",    None),       # Twinsen + medallion
     70: ("letterbox",    None),       # Sendell-form Twinsen
-    72: ("palette-fill", "white"),    # PCR_ACTIVISION
-    74: ("palette-fill", "black"),    # PCR_EA
-    76: ("palette-fill", "white"),    # PCR_VIRGIN
+    72: ("palette-fill", "white"),    # PCR_ACTIVISION — white bg, invisible fill
+    74: ("letterbox",    None),       # PCR_EA — black bg, identical to letterbox
+    76: ("palette-fill", "white"),    # PCR_VIRGIN — white bg, invisible fill
 }
 
 # ---------------------------------------------------------------------------
@@ -185,11 +196,47 @@ def apply_mirror_tile(rgb, target_w):
         canvas.paste(strip, (lm + W, 0))
     return canvas
 
+def apply_stretch(rgb, target_w):
+    """Bilinear horizontal resample 640 -> target_w. Height unchanged."""
+    return rgb.resize((target_w, H), Image.BILINEAR)
+
+# Stops sampled from PCR_MENU's stormy-sky palette so the gradient feels like
+# the same world: deep midnight at top, mid blue-grey at mid-sky, slate at the
+# horizon.  Easy to retune if a different mood is wanted later.
+GRADIENT_STOPS = [
+    (0.00, (10,  16,  32)),    # near-black sky top
+    (0.55, (40,  60,  80)),    # mid blue-grey
+    (1.00, (90, 110, 130)),    # slate horizon
+]
+
+def apply_gradient(target_w):
+    """Replacement treatment: ignore the bitmap, fill with a vertical gradient."""
+    canvas = Image.new("RGB", (target_w, H))
+    px = canvas.load()
+    stops = GRADIENT_STOPS
+    for y in range(H):
+        t = y / (H - 1)
+        # find bracketing stops
+        for i in range(len(stops) - 1):
+            t0, c0 = stops[i]
+            t1, c1 = stops[i + 1]
+            if t0 <= t <= t1:
+                u = (t - t0) / (t1 - t0) if t1 > t0 else 0
+                r = round(c0[0] + (c1[0] - c0[0]) * u)
+                g = round(c0[1] + (c1[1] - c0[1]) * u)
+                b = round(c0[2] + (c1[2] - c0[2]) * u)
+                break
+        for x in range(target_w):
+            px[x, y] = (r, g, b)
+    return canvas
+
 TREATMENTS = {
     "letterbox":    lambda rgb, w, b, p, fi: apply_letterbox(rgb, w),
     "palette-fill": lambda rgb, w, b, p, fi: apply_palette_fill(rgb, w, b, p, fi),
     "edge-clone":   lambda rgb, w, b, p, fi: apply_edge_clone(rgb, w),
     "mirror-tile":  lambda rgb, w, b, p, fi: apply_mirror_tile(rgb, w),
+    "stretch":      lambda rgb, w, b, p, fi: apply_stretch(rgb, w),
+    "gradient":     lambda rgb, w, b, p, fi: apply_gradient(w),
 }
 
 # ---------------------------------------------------------------------------
@@ -204,21 +251,24 @@ def render_one(hqr_path, entry, treatment, target_w, fill_index=None):
         raise ValueError(f"unknown treatment {treatment!r}; choose from {list(TREATMENTS)}")
     return fn(rgb, target_w, bitmap, palette, fill_index)
 
+COMPARE_ORDER = ("letterbox", "palette-fill", "edge-clone", "mirror-tile",
+                 "stretch", "gradient")
+
 def render_compare(hqr_path, entry, target_w):
-    """Four treatments side by side, stacked vertically, with labels."""
+    """Every treatment stacked vertically with labels."""
     from PIL import ImageDraw
     bitmap, palette = load_bitmap_pair(hqr_path, entry)
     rgb = to_rgb_image(bitmap, palette)
     label_h = 24
     rows = []
-    for name in ("letterbox", "palette-fill", "edge-clone", "mirror-tile"):
+    for name in COMPARE_ORDER:
         img = TREATMENTS[name](rgb, target_w, bitmap, palette, None)
         labelled = Image.new("RGB", (target_w, H + label_h), (32, 32, 32))
         labelled.paste(img, (0, label_h))
         draw = ImageDraw.Draw(labelled)
         draw.text((8, 4), name, fill=(255, 255, 255))
         rows.append(labelled)
-    combined = Image.new("RGB", (target_w, (H + label_h) * 4), (0, 0, 0))
+    combined = Image.new("RGB", (target_w, (H + label_h) * len(rows)), (0, 0, 0))
     for i, row in enumerate(rows):
         combined.paste(row, (0, i * (H + label_h)))
     return combined

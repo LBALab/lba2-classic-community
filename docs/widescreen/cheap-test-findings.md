@@ -23,10 +23,42 @@ scripts/dev/art_treatment_preview.py /path/to/SCREEN.HQR --entry 4 \
 
 ## Revisions to the triage
 
-Two entries demoted from `edge-clone` to `palette-fill` after visual
-review. The script's embedded `TRIAGE` table reflects the revisions;
-[art-strategy.md](art-strategy.md) is the historical record of the initial
-call and should be updated alongside.
+Two rounds of revision after visual review of the `--all` output. The
+script's embedded `TRIAGE` table reflects the latest state;
+[art-strategy.md](art-strategy.md) was updated to match. The first round
+demoted two `edge-clone` calls; the second round simplified the whole
+table to letterbox-by-default after a broader look at what reads well at
+853-wide.
+
+### Round 2 — letterbox by default
+
+After running `--all` and reviewing the full set, the verdict is that
+`letterbox` is the right default for almost every entry. The exceptions:
+
+- **Entries 0, 72, 76** (`PCR_LOGO`, `PCR_ACTIVISION`, `PCR_VIRGIN`) —
+  pure-white backgrounds. `palette-fill` auto-detects white and the fill
+  is genuinely invisible; the logos look unaltered. Keep `palette-fill`.
+- **Entry 4** (`PCR_MENU`) — open question. The stormy sea/sky doesn't
+  letterbox well (the harsh black bars contrast badly with the dark-grey
+  sea). Two candidate treatments are tracked: `stretch` (resample the
+  bitmap horizontally to 853, accepts ~33% distortion) and `gradient`
+  (replace the bitmap entirely with a procedural blue gradient). Both
+  are implemented in the script for review.
+
+Everything else — including the entries that previously held up as
+`edge-clone` (paper-on-wood maps, bumper, smoke bust) and the Mona Lisa
+mirror-tile — is reverted to `letterbox`. The textural gains from those
+treatments were real but small, and the consistency of "every screen
+letterboxes the same way" is worth more than per-entry cleverness.
+`mirror-tile` and `edge-clone` are kept as algorithm options in the
+script for future entries (or HD-pack experimentation), but no current
+entry uses them.
+
+### Round 1 — `edge-clone` failures
+
+(Recorded first; superseded by round 2's broader simplification, but the
+underlying observation about per-row stretching is still the reason
+`edge-clone` is no longer used.)
 
 ### Entry 4 — `PCR_MENU` (main-menu stormy sky/sea)
 
@@ -59,59 +91,53 @@ the same result as `letterbox`. Visually identical, but logged as
 `palette-fill` because it's coming from the bitmap's own palette rather
 than a hardcoded RGB(0,0,0).
 
-## Confirmed picks
+### Round-1 specifics (historical)
 
-The remaining strategy calls held up under visual inspection.
+- **Entry 4** (`PCR_MENU`) `edge-clone → palette-fill`. Per-row stretching
+  produced visible vertical stripes from the cloud waves. Round 2 later
+  demoted further to `letterbox` (with `stretch`/`gradient` as candidates
+  to revisit).
+- **Entry 56** (spaceship + planet) `edge-clone → palette-fill`. Asymmetric
+  nebula trail and planet glow near the edges produced banding. Round 2
+  unified this with the rest at `letterbox`.
 
-- **`PCR_LOGO` (0) `palette-fill (white)`** — invisible fill, logo
-  perfectly centred.
-- **`PCR_BUMPER` (2) `edge-clone (stars)`** — starfield extends cleanly.
-  The bumper has no high-contrast asymmetric content near the edges,
-  unlike entry 56.
-- **`PCR_PEGOUT` (8) `edge-clone (wood)`** — wood-grain background
-  extends with mild banding that reads as weathered texture, not as a
-  rendering artifact. Same pattern for the other paper-map P entries
-  (12, 16, 40, 64).
-- **`PCR_ARDOISE` (6) `palette-fill (dark wood)`** — auto-detection lands
-  on a near-black that matches the surround. The slate frame floats
-  cleanly on the dark.
-- **Slate-grid A maps (10, 14, 18, 42, 66) `palette-fill (black)`** —
-  auto-detected black is exact.
-- **Entry 38 (Mona Lisa) `mirror-tile (wallpaper)`** — the wallpaper
-  pattern extends correctly. Side effect: the candles get duplicated. The
-  duplicate-candle artifact is recognisable as a treatment limitation
-  rather than corrupted art; preferable to `edge-clone`'s stripes or
-  `palette-fill`'s flat dark wallpaper colour. (See the `--compare` grid
-  to confirm — it's the cleanest comparison in the set.)
-- **Entry 46 (bust on plinth) `edge-clone (smoke)`** — smoke extends with
-  mild banding that reads as natural cloud variation.
-- **All `letterbox` entries** — vignettes and composed scenes look right
-  with black bars; no edge content to extend.
+## Why `edge-clone` is no longer used
 
-## Generalisation
+The per-row column-stretch algorithm amplifies any vertical structure
+near the edges into visible stripes across the margin. Even on entries
+where it "worked" (wood-grain maps, smoke, symmetric starfields), the
+result was a band of horizontal repetition that read as a render bug to a
+fresh viewer. Letterbox is honest: the eye reads black bars as
+intentional framing, not as a corrupted extension. The cost-benefit
+didn't justify per-entry treatment selection.
 
-The pattern across entries:
+## PCR_MENU candidates
 
-- **`edge-clone` works when** the edges are low-frequency continuous
-  texture (starfield, wood, smoke), regardless of what's in the centre.
-- **`edge-clone` fails when** there's high-contrast content (clouds,
-  bloom, glowing objects) anywhere near the edges. Per-row stretching
-  amplifies any vertical structure into stripes.
-- **`palette-fill` is the next-cheapest fallback** when `edge-clone`
-  fails. It loses the textural illusion but is always seam-free.
-- **`mirror-tile` works when** the bitmap has a continuous pattern at the
-  edges (wallpaper, tiled floor). Rare in this set; one entry only.
-- **`letterbox` is correct whenever** the bitmap has a baked frame
-  (vignette, decorative border) — extending edges would break the frame.
+The one entry where letterbox felt wrong is the main-menu sky/sea
+background, because the harsh black bars contrast badly with the
+dark-grey-blue of the sea. Two alternative treatments are implemented in
+the script for review:
 
-In practice: when in doubt between `edge-clone` and `palette-fill`,
-prefer `palette-fill`. The textural gain from `edge-clone` is small; the
-risk of visible stripes is real.
+- **`stretch`** — bilinear horizontal resample from 640 to 853. Keeps the
+  LBA stormy-ocean mood but visibly distorts the waves and the bloom
+  highlight by ~33%. Low engine cost (one `SDL_Surface` blit with
+  scaling); zero asset work.
+- **`gradient`** — ignore the bitmap, render a procedural blue gradient
+  (deep midnight at top → slate at the horizon). Removes the LBA art
+  entirely. Lowest engine cost (no HQR load). Most flexible (can retune
+  colours per build, can ship "dark mode" variants).
+
+Both are open candidates pending review. Render them with:
+
+```bash
+scripts/dev/art_treatment_preview.py /path/to/SCREEN.HQR --entry 4 \
+    --compare --out /tmp/menu_compare.png
+```
 
 ## What's next
 
-1. Update [art-strategy.md](art-strategy.md) to reflect the two revisions
-   (and link this doc as the validation record).
+1. Decide between `stretch` and `gradient` for `PCR_MENU`, then update
+   the triage one last time.
 2. Once the engine is widescreen-capable (Phase 3 of
    [WIDESCREEN.md](../WIDESCREEN.md)), wire `BlitFullscreenBitmap()` per
    [callsite-map.md](callsite-map.md) and integrate the triage as data.
