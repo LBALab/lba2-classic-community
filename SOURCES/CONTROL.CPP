@@ -44,6 +44,8 @@ static int s_have_polyrec = 0;
 static char s_polyrec_path[ADELINE_MAX_PATH];
 static int s_have_projrec = 0;
 static char s_projrec_path[ADELINE_MAX_PATH];
+static int s_have_projrec_hash = 0;
+static char s_projrec_hash_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
 static int s_demo = 0;
 static int s_verbose = 0;
@@ -137,6 +139,14 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        if (!strcmp(a, "--projection-hash") && has_val) {
+            copy_arg(s_projrec_hash_path, sizeof(s_projrec_hash_path),
+                     argv[read + 1]);
+            s_have_projrec_hash = 1;
+            s_active = 1;
+            read += 2;
+            continue;
+        }
         if (!strcmp(a, "--exit")) {
             s_exit = 1;
             s_active = 1;
@@ -214,10 +224,16 @@ int Control_Begin(void) {
 
     /* Arm projection capture before any InitGame/ChangeCube path that may call
        SetProjection. The boot path's first SetProjection (EXTFUNC.CPP at scene init)
-       lands in the capture file once this is open. Harness-only; default off. */
+       lands in the capture file once this is open. Hash and full-text sinks are
+       independent and composable — either flag (or both) can be given.
+       Harness-only; default off. */
     if (s_have_projrec) {
         if (!Projrec_BeginCapture(s_projrec_path))
             fprintf(stderr, "[control] --capture-projection: capture not armed\n");
+    }
+    if (s_have_projrec_hash) {
+        if (!Projrec_BeginHashCapture(s_projrec_hash_path))
+            fprintf(stderr, "[control] --projection-hash: hash capture not armed\n");
     }
 
     if (s_load_name) {
@@ -420,8 +436,9 @@ static void control_capture(void) {
     if (s_have_shot)
         control_screenshot(s_shot_path);
     /* Flush projection capture last so any final-frame SetProjection from the dump/
-       screenshot present path is included. End is idempotent; safe even if never armed. */
-    if (s_have_projrec)
+       screenshot present path is included. End is idempotent; safe even if never armed,
+       and closes both sinks in one call. */
+    if (s_have_projrec || s_have_projrec_hash)
         Projrec_EndCapture();
 }
 
