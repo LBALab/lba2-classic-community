@@ -68,15 +68,22 @@ These configure the same globals for non-gameplay views. Most are UI-space and o
 
 There is no screen-space "neighbour cube radius." Cube and decor visibility comes from the world-space camera distance, the near plane, and per-primitive screen clips (the GRILLE clips below, plus the already-fixed sort preclip).
 
-## Render-space sites still hardcoded
+## Render-space sites the audit flagged
 
-`SOURCES/GRILLE.CPP` is the render subsystem PR #134 did not cover. None of these route through the resolution constants:
+`SOURCES/GRILLE.CPP` was the render subsystem PR #134 did not cover. Status of each site after Phase 2:
 
-- `GRILLE.CPP:738`, `:819`, `:900` (`AffBrickBlock` / `AffBrickBlockColon` / `AffBrickBlockOnly`): `if (XScreen >= -24 AND XScreen < 640 AND YScreen >= -38 AND YScreen < 480)`. Bricks projecting to screen-X ≥ 640 are dropped, clipping grid scenery at x=640 on a wider canvas.
-- `GRILLE.CPP:953`: `xmin = 639; ymin = 479;` — seeds a bounding-box min-finder at the 4:3 edges.
-- `GRILLE.CPP:1370` (`Map2Screen`): `XScreen = 24 * (x - z) + 288; YScreen = 12 * (z + x) - 15 * y + 226;` — the isometric brick-to-screen centre offsets `288` / `226` are baked in.
+- `GRILLE.CPP:738`, `:819`, `:900` (`AffBrickBlock` / `AffBrickBlockColon` / `AffBrickBlockOnly`): brick clips — **closed by PR #199**. Now `XScreen < (S32)ModeDesiredX AND YScreen < (S32)ModeDesiredY`.
+- `GRILLE.CPP:953`: `xmin = 639; ymin = 479;` — bounding-box sentinel seeds in `AffOneBrick`. **Still open.** At 640×480 the seeds work as upper bounds; at any wider render width they'd cap `xmin` at 639 and miss bricks beyond. Two-line fix queued as a Phase 2 follow-up before Phase 3 widens the framebuffer.
+- `GRILLE.CPP:1370` (`Map2Screen`): iso brick-to-screen origin — **closed by PR #200**. Now `(S32)ModeDesiredX/2 - 32` / `(S32)ModeDesiredY/2 - 14`; the `-32` / `-14` are iso-grid geometry shims that pair with `SetIsoProjection`'s `-9` shim.
 
-The projection origin (`EXTFUNC.CPP:93`) is the other render-space gap; see above.
+The projection origin (`EXTFUNC.CPP:93`) was the other render-space gap; **closed by PR #199** (now derives `XCentre` / `YCentre` from `ModeDesiredX` / `ModeDesiredY`).
+
+## Reclassified during Phase 2
+
+The "Other `SetProjection` / `SetIsoProjection` callers" table above listed these as UI-space / out of scope, but writing the `Map2Screen` inline docs in PR #200 surfaced that they're the iso analog of `EXTFUNC.CPP:93` and need to move together with `Map2Screen` to keep interior scene composition coherent. **Closed by PR #201:**
+
+- `SOURCES/GAMEMENU.CPP:514` `Init3DView` — `SetIsoProjection(320 - 8 - 1, 240)` → `(S32)ModeDesiredX/2 - 9, (S32)ModeDesiredY/2`.
+- `SOURCES/COMPORTE.CPP:351` `DrawMenuComportement` — same substitution. Initial state overridden per-tile by the parameterised call at `:164`, but routed for consistency.
 
 ## Render-space sites already routed (PR #134)
 
