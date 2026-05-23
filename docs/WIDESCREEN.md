@@ -46,7 +46,7 @@ The projection 4:3 audit, captured in [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREE
 
 Before changing projection math, give it a regression net. Phase 1 added a side-channel projection-capture file format that records every projection-pipeline event during a harness run — `SetProjection`, `SetIsoProjection`, per-vertex `LongProjectPoint`, batched `ProjectList`, and isometric `Map2Screen`. Output can be either full text (one event per line, large but diff-able) or a single FNV-1a 64-bit digest (60 bytes, CI-committable). See [`docs/CONTROL.md`'s Projection capture section](CONTROL.md#projection-capture) for the workflow and [`tests/projection/`](../tests/projection/) for the committed baselines.
 
-The contract: the hash for `Downtown.LBA` at 640×480 is `f624dd8a3c79d364`. Phase 2's projection-origin changes must not disturb it.
+The contract: every committed corpus hash at 640×480 must stay stable through Phase 2. The corpus has 22 saves witnessing the exterior path, 28 saves witnessing `Map2Screen`, and all 50 touching `SetIsoProjection` — see [`tests/projection/README.md`](../tests/projection/README.md) for the coverage matrix. If any hash drifts, the failing save name points at which projection path regressed.
 
 This is independent from polyrec (which keeps recording draw calls for ASM↔CPP equivalence); the two harnesses are composable.
 
