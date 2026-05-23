@@ -22,7 +22,10 @@ precheck
 
 [ "${PROJREC_RUN_DEMO:-}" = "1" ] || skip "demo test is opt-in (set PROJREC_RUN_DEMO=1; ~35 seconds)"
 
-GOLDEN="$REPO/tests/projection/baselines/demo_640x480.projrec.hash"
+: "${LBA2_PROJREC_WIDTH:=640}"
+GOLDEN="$REPO/tests/projection/baselines/demo_${LBA2_PROJREC_WIDTH}x480.projrec.hash"
+[ -f "$GOLDEN" ] || [ "${LBA2_PROJECTION_REGEN:-}" = "1" ] \
+    || skip "no committed golden for width ${LBA2_PROJREC_WIDTH}: $(basename "$GOLDEN")"
 OUT="$(mktemp -t "${TESTNAME}.XXXXXX.hash")"
 
 ctl_headless --game-dir "$LBA2_GAME_DIR" \
@@ -36,7 +39,8 @@ ctl_headless --game-dir "$LBA2_GAME_DIR" \
 TMP="$(mktemp -t "${TESTNAME}.body.XXXXXX.hash")"
 {
     echo "# projrec-hash v1"
-    echo "# 30000-tick attract-reel snapshot (--demo --fixed-dt 16 --tick 30000)."
+    echo "# 30000-tick attract-reel snapshot (--demo --fixed-dt 16 --tick 30000)"
+    echo "# at render width ${LBA2_PROJREC_WIDTH} (the binary's compiled RESOLUTION_X)."
     echo "# Regenerate with: scripts/dev/regen_projrec_baselines.sh"
     grep '^SCENE' "$OUT" 2>/dev/null
 } > "$TMP"
