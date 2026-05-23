@@ -736,7 +736,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < 640 AND YScreen >= -38 AND YScreen < 480) {
+        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
 
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
@@ -817,7 +817,7 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < 640 AND YScreen >= -38 AND YScreen < 480) {
+        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
 
             nb = NbBrickColon[col];
@@ -898,7 +898,7 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < 640 AND YScreen >= -38 AND YScreen < 480) {
+        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
         }
     }
