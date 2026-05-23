@@ -3,11 +3,13 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <stdint.h>
+#include <string.h>
 
 #define SHADE_INVENT_LVL 8
 
@@ -1009,6 +1011,27 @@ void CheckProtoPack(void) {
 /*──────────────────────────────────────────────────────────────────────────*/
 U32 NextBox = 0;
 
+/* Harness capture state — see Inv_RequestCapture() in INVENT.H.  When the path
+   is non-empty, the next MenuInventory() call captures the rendered framebuffer
+   to that path after the wheel settles, then disarms.  The countdown picks a
+   frame past the first-iteration setup (CopyScreen Log->Screen on flagname=1)
+   but well before TIME_BEFORE_ZOOM (1000 ms) kicks in any per-item animation,
+   so the captured frame is the wheel in its base state on the default
+   selection -- the deterministic shot regression goldens want. */
+static char s_inv_capture_path[ADELINE_MAX_PATH] = "";
+static int s_inv_capture_countdown = 0;
+
+void Inv_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_inv_capture_path[0] = '\0';
+        s_inv_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_inv_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_inv_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_inv_capture_countdown = 5; /* iterations to advance before SavePNG */
+}
+
 void MenuInventory(U32 tempo) {
     if (Control_IsVerbose())
         fprintf(stderr, "[control] modal: MenuInventory (tempo=%u, DemoSlide=%d) -- "
@@ -1069,6 +1092,29 @@ void MenuInventory(U32 tempo) {
 
     InvCoul = COUL_SELECT_MENU;
 
+    /* Harness capture pre-arm.  Two things normally come from the prior frame's
+       render but aren't there yet on the first tick after --load:
+
+         * PtrMap/ObjPtrMap -- OpenInventory drills into BodyDisplay ->
+           Filler_Texture for each owned item, which dereferences PtrMap.  The
+           original code re-sets these at line 1102 below; that's late.  Hoist.
+
+         * The Screen framebuffer behind the wheel -- normal callers see the
+           live scene because the prior tick's AffScene rendered it.  Without a
+           prior frame, Screen has stale or zeroed bytes, and the captured
+           PNG shows un-rendered stripes around the wheel.  Run one AffScene
+           pass here (NO_FLIP -- we want pixels in Screen, not a BoxBlit) so
+           the wheel composites over the proper background, matching what a
+           player presses-inventory-mid-game would see.
+
+       Both are conditional on the capture being armed; normal callers see no
+       behaviour change. */
+    if (s_inv_capture_path[0]) {
+        PtrMap = ObjPtrMap = BufferTexture;
+        RepMask = 0xFFFF;
+        AffScene(AFF_ALL_NO_FLIP);
+    }
+
     OpenInventory(); // draw all
 
     InitDial(2); // game divers txt
@@ -1083,6 +1129,15 @@ void MenuInventory(U32 tempo) {
 
     InitWaitNoInput(I_INVENTORY | I_RETURN | I_MENUS); // fait dans la boucle du jeu
     InitWaitNoKey();
+
+    /* OpenInventory above runs the wheel's open animation, which under fixed-dt
+       steps the virtual clock by ~600 ms via BoxBlit's present hook (#172) before
+       the loop is reached.  For the harness capture path, that means tempo-based
+       exit doesn't work -- we extend the budget here so the capture hook gets a
+       few loop iterations before timerslide.  Existing callers (GERELIFE:276
+       passes tempo=4000) are unaffected. */
+    if (s_inv_capture_path[0] && tempo && timerslide < TimerRefHR + 1000)
+        timerslide = TimerRefHR + 1000;
 
     while (MyKey != K_ESC AND !(Input & I_MENUS)
                         AND(!tempo OR TimerRefHR <= timerslide)) {
@@ -1278,6 +1333,18 @@ void MenuInventory(U32 tempo) {
                 break;
             } else
                 PlayErrorSample();
+        }
+
+        /* Harness one-shot capture: at the configured countdown, write the
+           rendered framebuffer to the requested path then disarm and exit the
+           modal -- the loop's tempo-driven exit doesn't help here because the
+           clock stops advancing in the loop once flagname falls to 0 (no more
+           AffObjName BoxUpdate per iteration), so we break out explicitly. */
+        if (s_inv_capture_path[0] && --s_inv_capture_countdown <= 0) {
+            SavePNG(s_inv_capture_path, Screen, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_inv_capture_path[0] = '\0';
+            break;
         }
     }
 
