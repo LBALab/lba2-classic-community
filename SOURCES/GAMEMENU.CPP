@@ -6,6 +6,7 @@
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 
+#include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
@@ -2347,6 +2348,66 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
     }
 }
 
+/* Forward decl -- defined further down in this file. */
+void BuildGameMainMenu(S32 firstloop);
+
+/* Harness one-shot capture of the boot-time main game menu -- the screen a
+   player sees at launch with Resume / New Game / Load / Options / Quit.
+   The normal entry point MainGameMenu() runs a while-loop with case-driven
+   side effects (Credits, PlayAcf, save-game zoom animations) that we don't
+   want under the harness; instead, replicate just the minimal setup
+   MainGameMenu does before its DoGameMenu(GameMainMenu) call, arm the
+   capture, and call DoGameMenu directly.  The capture site inside
+   DoGameMenu (added for ui menu-options) fires and returns 1000, so this
+   function returns cleanly without entering MainGameMenu's outer loop. */
+void Menu_MainCapture(const char *path) {
+    char tmpFilePathScreen[ADELINE_MAX_PATH];
+
+    /* Setup mirrors MainGameMenu() lines 3373-3416 minus the audio start
+       (CD music) and minus the goto-load_game / firstloop logic.  All the
+       visual setup (background bitmap, plasma, palette, menu data, dial bank)
+       runs so the captured frame matches what a player sees at launch. */
+    HQ_StopSample();
+    StopMusic();
+    InitPlasmaMenu();
+    FlagShadeMenu = FALSE;
+
+    GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+    Load_HQR(tmpFilePathScreen, Screen, PCR_MENU);
+    CopyScreen(Screen, Log);
+    BoxStaticFullflip();
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+
+    BuildGameMainMenu(TRUE);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(GameMainMenu);
+    Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited without firing it */
+}
+
+/* Harness capture state — see Menu_RequestCapture() in GAMEMENU.H.  When the
+   path is non-empty, DoGameMenu's modal loop counts down per iteration;
+   on reaching zero it SavePNGs and returns 1000 (the "ESC" sentinel) so the
+   wrapping menu loop (OptionsMenu, MainGameMenu, ...) sees a clean exit.
+   The countdown gives the menu's fade-in and any per-frame text/sprite
+   animations time to settle into a steady visual state. */
+static char s_menu_capture_path[ADELINE_MAX_PATH] = "";
+static int s_menu_capture_countdown = 0;
+
+void Menu_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_menu_capture_path[0] = '\0';
+        s_menu_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_menu_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_menu_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_menu_capture_countdown = 60; /* iterations -- ~1 s at fixed-dt 16, past any
+                                      menu fade-in and dynamic-item initial draws */
+}
+
 S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
@@ -2737,6 +2798,21 @@ S32 DoGameMenu(U16 *ptrmenu) {
             return 1000;
         }
 
+        /* Harness one-shot capture: count down per iteration; on reaching
+           zero SavePNG the rendered menu and return the ESC sentinel so
+           the wrapping menu loop exits cleanly.  Read Log (back buffer),
+           not Screen -- DrawGameMenu composites the menu into Log, and the
+           BoxUpdate inside only flushes dirty regions to Screen; without a
+           prior frame populating Screen, the unflushed regions stay black.
+           The third surface to need this (after holomap and dialog). */
+        if (s_menu_capture_path[0] && --s_menu_capture_countdown <= 0) {
+            SavePNG(s_menu_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_menu_capture_path[0] = '\0';
+            AsciiMode = FALSE;
+            return 1000;
+        }
+
 #ifdef DEBUG_TOOLS
         if (ptrmenu == GameMainMenu) {
             // chargement d'un bug
@@ -2974,6 +3050,34 @@ S32 GereControllerMenu(void) {
 S32 OptionsMenu(S32 flagflip) {
     S32 select;
     S32 flag = 0;
+
+    /* Harness capture pre-pass.  The normal in-game ESC -> OptionsMenu path
+       (PERSO.CPP:846) does explicit setup before OptionsMenu that the
+       harness skips when --exec calls OptionsMenu directly:
+
+           StopSpeak()       -- terminate any active dialogue speech so its
+                                portrait / strip does not bleed through the
+                                menu (visible on saves with an active dialog).
+           InitDial(0)       -- switch the dialogue text bank to SYS (the menu
+                                strings live there).  Without this the menu's
+                                first item -- "Volume du son" -- reads junk or
+                                empty from whatever bank the save had loaded.
+           InitPlasmaMenu()  -- initialise the plasma/fire-bar texture in
+                                SkySeaTexture; otherwise the bar at the top of
+                                the menu renders whatever junk was in that
+                                texture region.
+           AffScene(NO_FLIP) -- render the live scene to Screen so the menu's
+                                ShadeBoxBlk has the player-visible background
+                                to darken.  Mirrors the inventory pre-pass.
+
+       All gated on capture-armed; non-harness callers see no behaviour
+       change. */
+    if (s_menu_capture_path[0]) {
+        StopSpeak();
+        InitDial(0);
+        InitPlasmaMenu();
+        AffScene(AFF_ALL_NO_FLIP);
+    }
 
     BackupScreen(TRUE);
 

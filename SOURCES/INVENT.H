@@ -82,6 +82,14 @@ extern void MenuInventory(U32 tempo);
 extern void Inv_RequestCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void DoFoundObj(S32 numobj);
+/* Harness hook: arm a one-shot screenshot inside the next DoFoundObj call.
+   The found-object cinematic shows a 3D rotation of the discovered item
+   alongside a typewriter-text dialogue.  After a countdown of iterations
+   (long enough for the rotation to settle into a steady frame and the text
+   to draw), SavePNG is called with the supplied path and flag=2 is set so
+   the modal loop exits cleanly without waiting for input.  Pass NULL or ""
+   to disarm.  Used by the console "ui found-object <numvar> <path>" verb. */
+extern void DoFoundObj_RequestCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void DrawArdoiseArrows(void);
 /*--------------------------------------------------------------------------*/
