@@ -294,7 +294,67 @@ Scenes connect via type-0 zones (cube-change triggers). The full game has
 
 ## Demo scenes (193-221)
 
-Copies of game scenes used for the non-interactive demo/attract mode.
+Copies of game scenes used for the non-interactive demo/attract mode. They are not 29
+isolated vignettes — most are entry points into a single scripted attract reel that tours
+the game's locations and ends with `LM_THE_END` (the opcode whose own inline comment is
+`// credits`) at cube 218 ("The Dark Monk statue (last)").
+
+### The canonical reel
+
+Rooted at cube 201, the chain visits 21 scenes in this order before exiting:
+
+```
+201 → 202 → 203 → 204 → 205 → 206 → 207 → 220 → 208 → 209 → 210 → 211 →
+      212 → 213 → 214 → 215 → 216 → 221 → 217 → 219 → 218 (LM_THE_END)
+```
+
+Total ≈ 25 000 ticks at fixed-dt 16 ms ≈ 6 m 40 s of in-game time. The hero is driven
+along authored tracks (`DemoSlide` makes dialogues auto-advance); the final tick depends
+on entry depth.
+
+### Three classes of entry point
+
+Each of the 29 demo cubes is one of:
+
+**Reel position (21 cubes)** — enters the canonical reel at its position and plays
+through to `LM_THE_END`. Entry-depth → end-cube ticks (fixed-dt 16):
+
+| Entry | Scenes to end | Ticks to `LM_THE_END` |
+|---|---|---|
+| 218 | 1 | 1 137 |
+| 219 | 2 | 2 383 |
+| 217 | 3 | 2 910 |
+| 221 | 4 | 4 446 |
+| 216 | 5 | 5 765 |
+| 215 | 6 | 6 415 |
+| 214 | 7 | 8 500 |
+| 213 | 8 | 10 429 |
+| 212 | 9 | 11 678 |
+| 211 | 10 | 14 836 |
+| 210 | 11 | 18 536 |
+| 209 | 12 | 18 903 |
+| 208 | 13 | 20 697 |
+| 220 | 14 | 21 801 |
+| 207 | 15 | 24 320 |
+| 206 | 16 | 24 677 |
+| 205 | 17 | 26 428 |
+| 204 | 18 | 26 616 |
+| 203 | 19 | 27 356 |
+| 202 | 20 | > 30 000 (didn't finish in survey budget) |
+| 201 | 21 | > 30 000 |
+
+**Pre-reel branched entries (4 cubes: 193, 194, 196, 200)** — visit 20+ scenes inside
+30 000 ticks but do not reach 218 within that budget. Cubes 193 and 194 even revisit
+themselves (`193 → 194 → 193 → 195 → …`) — an attract-menu-style loop — before joining
+the main reel via 195 → 196 → 197 → 198 → 199 → 200 → 201 → … With a larger budget they
+merge into the canonical reel near cube 201.
+
+**Standalone vignettes (4 cubes: 195, 197, 198, 199)** — stay in their own cube
+indefinitely. They are stations the reel passes through, but each transition requires
+state set up by the preceding scene; entered cold (no preceding scene), no transition
+fires. Cubes 193, 194, and 196 *do* visit these as part of their chain.
+
+Survey data + methodology: see `docs/CONTROL.md` and `docs/FIXED_DT_RESEARCH.md`.
 
 
 | Cube | Scene                                               | Mode     | Obj | Zones |

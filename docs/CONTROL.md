@@ -227,9 +227,20 @@ non-deterministic base.
    restored save clock. This upgrades the baseline tolerance to exact (same-platform) and is the
    prerequisite for replay. See `docs/FIXED_DT_PLAN.md`. Promoting the baseline harness's
    kinematic tier to exact is the remaining follow-up.
-3. **Input record/replay.** Capture input per tick and replay a whole session — the
-   gameplay-regression counterpart to the existing draw-call polyrec. Attaches at the same
-   top-of-loop seam as `Control_TickHook`; depends on (2) to reproduce faithfully.
+3. **Canned playthroughs.** Replay a whole session as a regression fixture — the
+   gameplay-regression counterpart to the existing draw-call polyrec. There are two paths:
+   - *Demo playthrough (effectively achieved).* The game's built-in attract reel is a
+     21-scene scripted tour of the game's locations rooted at cube 201 and ending with
+     `LM_THE_END` at cube 218 ("The Dark Monk statue (last)") — see
+     [SCENES.md](SCENES.md#demo-scenes-193-221). Under `--demo` + `--fixed-dt`, any of the
+     reel's entry cubes replays the same scene chain and dialogue sequence sequentially.
+     This covers the regression-fixture use case without an explicit input layer; the
+     scripted reel *is* the canned input. Parallel runs can flip a long-run script branch
+     via the FP-precision class from `FIXED_DT_RESEARCH.md` §5 — run sequentially for
+     fixture comparisons.
+   - *Explicit input capture/replay (deferred).* For sessions outside the reel — random
+     exploration, tooling-style automation — capture input per tick and replay it.
+     Attaches at the same top-of-loop seam as `Control_TickHook`; depends on (2).
 
 Done (independent of the above): `--polyrec <path>` triggers the existing polygon draw-call
 recording (`tests/SNAPSHOT/`, previously a manual Alt+F9) at a scripted `--load X --tick N`
