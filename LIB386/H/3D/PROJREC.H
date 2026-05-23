@@ -27,13 +27,22 @@
 extern "C" {
 #endif
 
-/* Open the capture file for writing. Returns 1 on success, 0 otherwise
-   (NULL path, empty path, fopen failure). Calling Begin while already
-   active flushes and reopens the file. Writes a `# projrec v1` header. */
+/* Open the full-text capture file for writing. Returns 1 on success, 0
+   otherwise (NULL path, empty path, fopen failure). Calling Begin while
+   already active closes the prior file. Writes a `# projrec v1` header.
+   Composable with Projrec_BeginHashCapture — both sinks can be active
+   simultaneously and receive the same event stream. */
 int Projrec_BeginCapture(const char *path);
 
-/* Flush and close the capture file. Idempotent; safe to call when never
-   begun. Reports the captured event count to stderr if active. */
+/* Open the hash-only capture file for writing. Same shape as BeginCapture,
+   but the file receives nothing during the run — only a single FNV-1a
+   digest line at EndCapture time. Composable with BeginCapture; what gets
+   hashed is the same line text the full sink would write. */
+int Projrec_BeginHashCapture(const char *path);
+
+/* Flush and close both sinks. Idempotent; safe to call when never begun.
+   Reports the captured event count + hash to stderr if any sink was
+   active. */
 void Projrec_EndCapture(void);
 
 /* Cheap branch predicate. Hot-path hook callers gate their formatting on
