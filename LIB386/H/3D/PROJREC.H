@@ -51,6 +51,30 @@ void Projrec_SetProjection(S32 xc, S32 yc, S32 clip, S32 fx, S32 fy);
    capturing both gives a full per-scene record. No-op when inactive. */
 void Projrec_SetIsoProjection(S32 xc, S32 yc);
 
+/* Per-point projection captures. Hot path — fired once per vertex/point per
+   frame. Each gates on the IsActive predicate before formatting.
+
+   Two variants because LongProjectPoint is a function pointer that swaps
+   between LongProjectPoint3D (perspective, with a far-clip return code)
+   and LongProjectPointIso (orthographic, always returns -1). Phase 2's
+   XCentre/YCentre change ripples through both, so both need coverage. */
+void Projrec_LongProjectPoint3D(S32 x, S32 y, S32 z, S32 ret, S32 xp, S32 yp);
+void Projrec_LongProjectPointIso(S32 x, S32 y, S32 z, S32 xp, S32 yp);
+
+/* Batched projection list captures. Called once per ProjectList3DF /
+   ProjectListIso invocation; the captured event includes the call's input
+   (NbPt + origin) but not the per-vertex output — per-vertex coverage is
+   already provided by LongProjectPoint hooks above. */
+void Projrec_ProjectList3D(S32 nbpt, S32 orgx, S32 orgy, S32 orgz);
+void Projrec_ProjectListIso(S32 nbpt, S32 orgx, S32 orgy, S32 orgz);
+
+/* Map2Screen capture. Called from SOURCES/GRILLE.CPP::Map2Screen, the
+   isometric world-to-screen translation that bakes the +288 / +226 origin
+   offsets Phase 2 will re-derive from the framebuffer width. Captures the
+   input world coords and the computed screen X/Y for byte-comparable
+   regression. */
+void Projrec_Map2Screen(S32 x, S32 y, S32 z, S32 xscreen, S32 yscreen);
+
 #ifdef __cplusplus
 }
 #endif
