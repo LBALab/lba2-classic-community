@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <3D/CAMERA.H>
+#include <3D/PROJREC.H>
 #include <SVGA/SCREENXY.H>
 #include <SYSTEM/DEBUG_TRACES.H>
 
@@ -11,6 +12,7 @@
 void ProjectList3DF(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt,
                     S32 OrgX, S32 OrgY, S32 OrgZ) {
     LIB386_TRACE_CPP("ProjectList3DF", "1", "Dst=%p Src=%p n=%d", (void *)Dst, (void *)Src, NbPt);
+    Projrec_ProjectList3D(NbPt, OrgX, OrgY, OrgZ);
     for (S32 i = 0; i < NbPt; i++) {
         S32 z = OrgZ - (S32)Src[i].Z;
 

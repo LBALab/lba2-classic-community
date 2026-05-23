@@ -69,3 +69,51 @@ void Projrec_SetIsoProjection(S32 xc, S32 yc) {
     fprintf(s_fp, "SETISO seq=%ld xc=%ld yc=%ld\n",
             s_event_count, (long)xc, (long)yc);
 }
+
+void Projrec_LongProjectPoint3D(S32 x, S32 y, S32 z, S32 ret, S32 xp, S32 yp) {
+    if (!s_fp)
+        return;
+    ++s_event_count;
+    fprintf(s_fp,
+            "PROJ seq=%ld x=%ld y=%ld z=%ld -> ret=%ld xp=%ld yp=%ld\n",
+            s_event_count, (long)x, (long)y, (long)z,
+            (long)ret, (long)xp, (long)yp);
+}
+
+void Projrec_LongProjectPointIso(S32 x, S32 y, S32 z, S32 xp, S32 yp) {
+    if (!s_fp)
+        return;
+    ++s_event_count;
+    fprintf(s_fp,
+            "PROJISO seq=%ld x=%ld y=%ld z=%ld -> xp=%ld yp=%ld\n",
+            s_event_count, (long)x, (long)y, (long)z,
+            (long)xp, (long)yp);
+}
+
+void Projrec_ProjectList3D(S32 nbpt, S32 orgx, S32 orgy, S32 orgz) {
+    if (!s_fp)
+        return;
+    ++s_event_count;
+    fprintf(s_fp,
+            "PRLI seq=%ld nbpt=%ld orgx=%ld orgy=%ld orgz=%ld\n",
+            s_event_count, (long)nbpt, (long)orgx, (long)orgy, (long)orgz);
+}
+
+void Projrec_ProjectListIso(S32 nbpt, S32 orgx, S32 orgy, S32 orgz) {
+    if (!s_fp)
+        return;
+    ++s_event_count;
+    fprintf(s_fp,
+            "PRLIISO seq=%ld nbpt=%ld orgx=%ld orgy=%ld orgz=%ld\n",
+            s_event_count, (long)nbpt, (long)orgx, (long)orgy, (long)orgz);
+}
+
+void Projrec_Map2Screen(S32 x, S32 y, S32 z, S32 xscreen, S32 yscreen) {
+    if (!s_fp)
+        return;
+    ++s_event_count;
+    fprintf(s_fp,
+            "M2S seq=%ld x=%ld y=%ld z=%ld -> xs=%ld ys=%ld\n",
+            s_event_count, (long)x, (long)y, (long)z,
+            (long)xscreen, (long)yscreen);
+}
