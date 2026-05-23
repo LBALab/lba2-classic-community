@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "CONTROL.H"
 
 #include "DIRECTORIES.H"
 
@@ -319,6 +320,8 @@ static void PushCurrentFrameVideoAudio(smk smkObject, const int *tracksToPlay, i
 //---------------------------------------------------------------------------
 
 S32 PlayAcf(const char *name) {
+    if (Control_IsVerbose())
+        fprintf(stderr, "[control] modal: PlayAcf '%s' -- cutscene, blocks --exit\n", name);
 #ifdef USE_MVIDEO_SMACKER
     {
         static int s_playacf_playing = 0;
