@@ -13,6 +13,7 @@
 
 #include "C_EXTERN.H"
 
+#include "CONTROL.H"
 #include "INPUT.H"
 
 #include <SVGA/SCREEN.H>
@@ -1868,6 +1869,13 @@ void SpeakAnimation() {
 void Dial(S32 text, S32 drawscene) {
     S32 ret = 0;
     S32 flagabort = 0;
+
+#ifndef COMPILATOR
+    if (Control_IsVerbose())
+        fprintf(stderr, "[control] modal: Dial(text=%d, DemoSlide=%d) -- dialogue; under DemoSlide "
+                        "auto-advances when TimerRefHR>=endtimer\n",
+                (int)text, (int)DemoSlide);
+#endif
 
 #ifndef LBA_EDITOR
     ClearIncrusts(INCRUST_SYS_TEXT);
