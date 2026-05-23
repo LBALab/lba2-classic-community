@@ -518,6 +518,7 @@ void FadeToBlack(U8 *ptrpal) {
     starttime = TimerSystemHR;
 
     do {
+        Timer_FixedDtPump(); // non-presenting palette-fade wait: step the virtual clock under fixed-dt
         ManageTime();
 
         delta = starttime + FADE_DELAY - TimerSystemHR;
@@ -545,6 +546,7 @@ void WhiteFade() {
     starttime = TimerSystemHR;
 
     do {
+        Timer_FixedDtPump(); // non-presenting palette-fade wait: step the virtual clock under fixed-dt
         ManageTime();
 
         delta = TimerSystemHR - starttime;
@@ -569,6 +571,7 @@ void FadeWhiteToPal(U8 *ptrpal) {
     starttime = TimerSystemHR;
 
     do {
+        Timer_FixedDtPump(); // non-presenting palette-fade wait: step the virtual clock under fixed-dt
         ManageTime();
 
         delta = TimerSystemHR - starttime;
@@ -593,6 +596,7 @@ void FadeToPal(U8 *ptrpal) {
     starttime = TimerSystemHR;
 
     do {
+        Timer_FixedDtPump(); // non-presenting palette-fade wait: step the virtual clock under fixed-dt
         ManageTime();
 
         delta = TimerSystemHR - starttime;
@@ -678,6 +682,7 @@ void FadePalToPal(U8 *ptrpal, U8 *ptrpal1) {
     do {
         S32 n;
 
+        Timer_FixedDtPump(); // non-presenting palette-fade wait: step the virtual clock under fixed-dt
         ManageTime();
 
         delta = TimerSystemHR - starttime;

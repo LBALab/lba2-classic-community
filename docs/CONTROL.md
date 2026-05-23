@@ -189,6 +189,12 @@ x86_64, 64-bit on Windows/macOS-ARM; see [PLATFORM.md](PLATFORM.md)). Two platfo
 identical fixed-dt sequence can still land on slightly different positions. Keep golden
 baselines per-platform, or compare across platforms with a tolerance.
 
+Modal and fade loops also advance the fixed-dt clock — necessary because they run between
+main-loop tick hooks and would otherwise spin forever on a clock deadline. The main loop's
+single render per tick stays free of double-counting, so non-modal ticks (including the
+whole savegame baseline corpus) are byte-identical to the merged behaviour. See
+[FIXED_DT_RESEARCH.md §7](FIXED_DT_RESEARCH.md) for the loop classes and the design.
+
 ## Tests
 
 `tests/automation/` drives the real binary and asserts on the dumped state. Local-only —
