@@ -390,7 +390,9 @@ static void control_screenshot(const char *path) {
     SavePNG((char *)path, Screen, (S32)ModeDesiredX, (S32)ModeDesiredY, PtrPal);
 }
 
-static void control_finalize(void) {
+/* The capture half of finalize: dump/screenshot only, no exit. Shared by the tick-budget
+   path (control_finalize) and the natural-return path (Control_End). Idempotent. */
+static void control_capture(void) {
     if (s_finalized)
         return;
     s_finalized = 1;
@@ -399,6 +401,10 @@ static void control_finalize(void) {
         control_dump_state(s_dump_path);
     if (s_have_shot)
         control_screenshot(s_shot_path);
+}
+
+static void control_finalize(void) {
+    control_capture();
 
     if (s_exit) {
         fflush(stdout);
@@ -408,6 +414,18 @@ static void control_finalize(void) {
        otherwise echo every later console line), disarm, and hand control back. */
     Console_SetLineSinkForTests(NULL);
     s_armed = 0;
+}
+
+void Control_End(void) {
+    /* MainLoop returned without hitting the --tick budget (e.g. LM_THE_END at cube 218
+       on the attract reel). Capture the dump/screenshot the caller asked for; main()
+       will then call TheEnd() as it does for any harness run. No-op if the tick-budget
+       path already finalized, the harness was never active, or no capture was asked. */
+    if (!s_active || s_finalized)
+        return;
+    if (!s_have_dump && !s_have_shot)
+        return;
+    control_capture();
 }
 
 void Control_TickHook(void) {
