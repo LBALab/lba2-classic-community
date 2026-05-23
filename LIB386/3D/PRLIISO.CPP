@@ -1,6 +1,7 @@
 #include <3D/LPROJ.H>
 
 #include <3D/CAMERA.H>
+#include <3D/PROJREC.H>
 #include <SVGA/SCREENXY.H>
 
 #include <string.h>
@@ -10,6 +11,7 @@
 void ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
                     S32 OrgY, S32 OrgZ) {
     LIB386_TRACE_CPP("ProjectListIso", "1", "Dst=%p Src=%p n=%d", (void *)Dst, (void *)Src, NbPt);
+    Projrec_ProjectListIso(NbPt, OrgX, OrgY, OrgZ);
     /* The original ASM walks the packed TYPE_VT16 array in place and assumes
 	   NbPt > 0. Tests intentionally keep to that valid ASM input domain. */
     for (int i = 0; i < NbPt; i++) {

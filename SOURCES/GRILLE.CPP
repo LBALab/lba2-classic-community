@@ -1,6 +1,7 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 
+#include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -1369,6 +1370,7 @@ void DecompColonne(U8 *pts, U8 *ptd) {
 void Map2Screen(S32 x, S32 y, S32 z) {
     XScreen = 24 * (x - z) + 288;
     YScreen = 12 * (z + x) - 15 * y + 226;
+    Projrec_Map2Screen(x, y, z, XScreen, YScreen);
 }
 
 //-------------------------------------------------------------------
