@@ -54,6 +54,14 @@ extern S32 OptionsMenu(S32 flagflip);
    Pass NULL or "" to disarm.  Used by the console "ui menu-options <path>"
    verb. */
 extern void Menu_RequestCapture(const char *path);
+/* Harness hook: capture the boot-time main game menu (Resume / New Game /
+   Load / Options / Quit -- the screen the player sees at launch).  Does
+   the minimal MainGameMenu setup (loads the PCR_MENU background bitmap,
+   InitPlasmaMenu, BuildGameMainMenu, InitDial(0)), arms Menu_RequestCapture,
+   then drives DoGameMenu(GameMainMenu) which captures and returns 1000.
+   Skips the surrounding MainGameMenu while-loop, fade transitions, and any
+   case-driven cinematic playback so the verb is non-blocking. */
+extern void Menu_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/
