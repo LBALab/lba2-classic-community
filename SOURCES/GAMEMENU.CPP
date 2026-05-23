@@ -3012,16 +3012,31 @@ S32 OptionsMenu(S32 flagflip) {
     S32 select;
     S32 flag = 0;
 
-    /* Harness capture pre-pass: under the harness, OptionsMenu can be opened
-       on the first tick after --load with no prior frame having rendered.
-       The options menu's normal flow ShadeBoxBlk's whatever Screen contains
-       (line ~3022) -- a player sees that as "shaded live scene" because the
-       prior tick already drew the scene; under the harness Screen is stale
-       and the player-visible scene-behind-the-menu is missing.  Run one
-       AffScene pass (NO_FLIP -- pixels in Screen, no extra BoxBlit) so the
-       menu shades a freshly-rendered scene, matching what a player who
-       presses ESC mid-game would see. */
+    /* Harness capture pre-pass.  The normal in-game ESC -> OptionsMenu path
+       (PERSO.CPP:846) does explicit setup before OptionsMenu that the
+       harness skips when --exec calls OptionsMenu directly:
+
+           StopSpeak()       -- terminate any active dialogue speech so its
+                                portrait / strip does not bleed through the
+                                menu (visible on saves with an active dialog).
+           InitDial(0)       -- switch the dialogue text bank to SYS (the menu
+                                strings live there).  Without this the menu's
+                                first item -- "Volume du son" -- reads junk or
+                                empty from whatever bank the save had loaded.
+           InitPlasmaMenu()  -- initialise the plasma/fire-bar texture in
+                                SkySeaTexture; otherwise the bar at the top of
+                                the menu renders whatever junk was in that
+                                texture region.
+           AffScene(NO_FLIP) -- render the live scene to Screen so the menu's
+                                ShadeBoxBlk has the player-visible background
+                                to darken.  Mirrors the inventory pre-pass.
+
+       All gated on capture-armed; non-harness callers see no behaviour
+       change. */
     if (s_menu_capture_path[0]) {
+        StopSpeak();
+        InitDial(0);
+        InitPlasmaMenu();
         AffScene(AFF_ALL_NO_FLIP);
     }
 
