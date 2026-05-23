@@ -6,8 +6,10 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <string.h>
 
 //────────────────────────────────────────────────────────────────────────────
 //	Concerning BODY and ANIM
@@ -946,6 +948,28 @@ S32 GoToArrow() {
     return (0);
 }
 //────────────────────────────────────────────────────────────────────────────
+/* Harness capture state — see Holo_RequestCapture() in HOLO.H.  When the path
+   is non-empty, HoloGlobe's modal loop fires a one-shot SavePNG after the
+   countdown elapses, then sets FlagHoloEnd and breaks so the wrapper HoloMap
+   exits cleanly.  The countdown gives the fade-in (~200 ms via the palette
+   fade in HoloMap) and the zoom-in animation (ZoomPlanet ramps over 500 ms
+   from ZOOM_INIT_PLANET to ZoomPlanetDest) time to settle into the steady
+   rotating-globe state regression goldens want. */
+static char s_holo_capture_path[ADELINE_MAX_PATH] = "";
+static int s_holo_capture_countdown = 0;
+
+void Holo_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_holo_capture_path[0] = '\0';
+        s_holo_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_holo_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_holo_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    /* ~500 ms of fade+zoom + a margin = 40 iterations at fixed-dt 16 ms. */
+    s_holo_capture_countdown = 40;
+}
+
 void HoloGlobe(S32 planet) {
     S32 testnofire = TRUE;
     U32 memotime;
@@ -1050,6 +1074,21 @@ void HoloGlobe(S32 planet) {
         DrawHolomap();
         BoxMovingAdd(ScreenXMin, ScreenYMin, ScreenXMax, Dial_Y0 - 1);
         AdjustZBufMinMax();
+
+        /* Harness one-shot capture.  Read from Log (the back buffer) right
+           after DrawHolomap, because something between here and the loop's
+           closing BoxUpdate clears the planet area from Log -- the late-
+           iteration Screen reflects that clear and captures black.  At this
+           point Log holds both the freshly-drawn planet and the dialogue
+           strip composited from a prior iteration's AffHoloMess, which is
+           exactly the frame a player sees. */
+        if (s_holo_capture_path[0] && --s_holo_capture_countdown <= 0) {
+            SavePNG(s_holo_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_holo_capture_path[0] = '\0';
+            FlagHoloEnd = TRUE;
+            break;
+        }
         //-------------
         PrepareObjectifPlanet(); // Must be run before DrawListHoloGlobe(1)
 
@@ -1126,6 +1165,18 @@ void HoloMap() {
     //----- DEBUG
     //	TabArrow[MAX_OBJECTIF+67].FlagHolo = 1	;//	Desert Globe
     //-----
+
+    /* Harness capture pre-arm.  Same shape as MenuInventory's: when the wheel/
+       globe is opened from the harness on the first tick after --load, no
+       prior frame has rendered, so the texture-filler globals (PtrMap,
+       ObjPtrMap) are stale and BodyDisplay -> Filler_TextureZBuf segfaults.
+       Hoist the init that AffScene normally does for us before the globe's
+       body draws kick in.  Gated on capture-armed so normal callers (player
+       pressing the holomap key after gameplay) see no behaviour change. */
+    if (s_holo_capture_path[0]) {
+        PtrMap = ObjPtrMap = BufferTexture;
+        RepMask = 0xFFFF;
+    }
 
     if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK) {
         // pour pouvoir restaurer anim marche protopack
