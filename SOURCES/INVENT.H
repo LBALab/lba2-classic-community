@@ -74,6 +74,13 @@ extern void CheckProtoPack(void);
 /*--------------------------------------------------------------------------*/
 extern void MenuInventory(U32 tempo);
 /*--------------------------------------------------------------------------*/
+/* Harness hook: arm a one-shot screenshot inside the next MenuInventory call.
+   At a settled frame inside the wheel's modal loop, SavePNG is called with the
+   supplied path and the request is cleared. Pass NULL or "" to disarm.  Used by
+   the console "ui inventory <path>" verb to drive UI-state regression fixtures
+   without a tick budget for the modal. */
+extern void Inv_RequestCapture(const char *path);
+/*--------------------------------------------------------------------------*/
 extern void DoFoundObj(S32 numobj);
 /*--------------------------------------------------------------------------*/
 extern void DrawArdoiseArrows(void);
