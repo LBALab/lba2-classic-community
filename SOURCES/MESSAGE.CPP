@@ -16,6 +16,7 @@
 #include "CONTROL.H"
 #include "INPUT.H"
 
+#include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include "DIRECTORIES.H"
@@ -1866,6 +1867,28 @@ void SpeakAnimation() {
 //────────────────────────────────────────────────────────────────────────────
 //                                 D I A L
 //────────────────────────────────────────────────────────────────────────────
+/* Harness capture state — see Dial_RequestCapture() in MESSAGE.H.  When the
+   path is non-empty, Dial's typewriter loop counts down per iteration; on
+   reaching zero it SavePNGs and sets flagabort so Dial exits cleanly without
+   waiting for input.  The countdown lets the typewriter draw substantial
+   text before the snapshot -- ~1 game-second at fixed-dt 16 is enough for
+   most LBA2 dialogue lines.  We don't gate on ret==0/2 because that fires
+   the moment NextDialCar returns "page break" or "done", which on short
+   or empty texts can be the very first iteration before any char is drawn. */
+static char s_dial_capture_path[ADELINE_MAX_PATH] = "";
+static int s_dial_capture_countdown = 0;
+
+void Dial_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_dial_capture_path[0] = '\0';
+        s_dial_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_dial_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_dial_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_dial_capture_countdown = 60; /* iterations -- ~1 game-second at dt 16 */
+}
+
 void Dial(S32 text, S32 drawscene) {
     S32 ret = 0;
     S32 flagabort = 0;
@@ -1961,6 +1984,21 @@ void Dial(S32 text, S32 drawscene) {
 
         TestSpeak();
         SpeakAnimation();
+
+        /* Harness one-shot capture.  Read Log (back buffer), not Screen --
+           Dial's typewriter renders into Log via the dialogue compositor
+           and SpeakAnimation's BoxUpdate flushes a subset to Screen; the
+           full bubble + portrait + text live in Log.  Countdown-driven so
+           the typewriter has time to draw substantial text. */
+        if (s_dial_capture_path[0]) {
+            if (--s_dial_capture_countdown <= 0 || ret == 0 || ret == 2) {
+                SavePNG(s_dial_capture_path, Log, (S32)ModeDesiredX,
+                        (S32)ModeDesiredY, PtrPal);
+                s_dial_capture_path[0] = '\0';
+                flagabort = 1;
+                break;
+            }
+        }
 
         if (ret == 2) /*      Attente de Touche       */
         {

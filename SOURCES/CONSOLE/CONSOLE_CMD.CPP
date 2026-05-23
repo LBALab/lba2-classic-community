@@ -300,7 +300,21 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui holomap -> %s", argv[2]);
         return;
     }
-    Console_Print("Usage: ui {inventory|holomap} <path>");
+    if (argc >= 4 && !strcmp(argv[1], "dialog")) {
+        /* Dial(text, drawscene) opens a dialogue bubble + portrait for the
+           given text-id in the currently-loaded dialogue bank.  Dial_Request-
+           Capture arms a one-shot SavePNG that fires the first time the
+           typewriter completes a page (ret == 0 or 2), then sets flagabort
+           so Dial exits cleanly without waiting for input. */
+        S32 text_id = (S32)atoi(argv[2]);
+        Dial_RequestCapture(argv[3]);
+        Dial(text_id, TRUE);
+        Console_Print("ui dialog %d -> %s", (int)text_id, argv[3]);
+        return;
+    }
+    Console_Print("Usage: ui inventory <path>");
+    Console_Print("       ui holomap <path>");
+    Console_Print("       ui dialog <text-id> <path>");
 }
 
 static void cmd_give(int argc, const char *argv[]) {
@@ -997,7 +1011,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap} <path>",
+                              "ui {inventory|holomap} <path> | ui dialog <text-id> <path>",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
