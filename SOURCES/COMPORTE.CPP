@@ -348,7 +348,12 @@ void DrawMenuComportement(S32 beta) {
     S32 n;
     T_MENU_COMP *ptrmcomp = &ListMenuComp[ComportementMenu];
 
-    SetIsoProjection(320 - 8 - 1, 240);
+    // Initial iso projection centre — overridden per-tile by DrawObjComportement
+    // (line 164) for each behaviour-wheel thumbnail, so this matters only as
+    // initial state. Routed through ModeDesiredX/Y to stay consistent with the
+    // other Init3DView/Map2Screen iso sites and survive any future refactor that
+    // removes the per-tile override. At 640x480 this is the original (311, 240).
+    SetIsoProjection((S32)ModeDesiredX / 2 - 9, (S32)ModeDesiredY / 2);
     SetPosCamera(0, 0, 0);
     SetAngleCamera(0, 0, 0);
     SetLightVector(AlphaLight, BetaLight, 0);
