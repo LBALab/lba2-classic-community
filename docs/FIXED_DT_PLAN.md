@@ -163,6 +163,17 @@ claim to *verify* in validation (a 3× repeat that crosses a cube boundary), not
 counterexample surfaces, the fallback is a fixed reseed in `Control_Begin`, but the research and
 the existing measurement both indicate it is unnecessary.
 
+> **As-built (PR #175):** the counterexample did surface — on the fresh-start path (`--demo`
+> without `--load`), `TimerRefHR` at engine boot already carries the wall-clock interval
+> banked by `InitTimer()`'s first `ManageTime()` since `SDL_GetTicks()`'s epoch. That residual
+> reached `srand(TimerRefHR)` and varied the seed run-to-run by however many ms elapsed
+> before the harness armed fixed-dt (measured 125-470 ms). The fix is functionally the
+> fallback this section anticipated: `Timer_EnableFixedDt()` now resets `TimerRefHR = 0`
+> alongside its `FixedDtNow`/`LastTime` seeding, so the seed is canonical on the fresh-start
+> path. The `--load` path is unaffected (the save's clock overrides `TimerRefHR` after the
+> reset). See PR #175 commit and `docs/FIXED_DT_RESEARCH.md` §7. The misdiagnosis trail is
+> recorded in `docs/INPUT_REPLAY_RESEARCH.md` §2d.
+
 ---
 
 ## 5. Files, signatures, pin sites
