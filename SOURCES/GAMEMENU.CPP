@@ -2348,6 +2348,45 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
     }
 }
 
+/* Forward decl -- defined further down in this file. */
+void BuildGameMainMenu(S32 firstloop);
+
+/* Harness one-shot capture of the boot-time main game menu -- the screen a
+   player sees at launch with Resume / New Game / Load / Options / Quit.
+   The normal entry point MainGameMenu() runs a while-loop with case-driven
+   side effects (Credits, PlayAcf, save-game zoom animations) that we don't
+   want under the harness; instead, replicate just the minimal setup
+   MainGameMenu does before its DoGameMenu(GameMainMenu) call, arm the
+   capture, and call DoGameMenu directly.  The capture site inside
+   DoGameMenu (added for ui menu-options) fires and returns 1000, so this
+   function returns cleanly without entering MainGameMenu's outer loop. */
+void Menu_MainCapture(const char *path) {
+    char tmpFilePathScreen[ADELINE_MAX_PATH];
+
+    /* Setup mirrors MainGameMenu() lines 3373-3416 minus the audio start
+       (CD music) and minus the goto-load_game / firstloop logic.  All the
+       visual setup (background bitmap, plasma, palette, menu data, dial bank)
+       runs so the captured frame matches what a player sees at launch. */
+    HQ_StopSample();
+    StopMusic();
+    InitPlasmaMenu();
+    FlagShadeMenu = FALSE;
+
+    GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+    Load_HQR(tmpFilePathScreen, Screen, PCR_MENU);
+    CopyScreen(Screen, Log);
+    BoxStaticFullflip();
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+
+    BuildGameMainMenu(TRUE);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(GameMainMenu);
+    Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited without firing it */
+}
+
 /* Harness capture state — see Menu_RequestCapture() in GAMEMENU.H.  When the
    path is non-empty, DoGameMenu's modal loop counts down per iteration;
    on reaching zero it SavePNGs and returns 1000 (the "ESC" sentinel) so the
