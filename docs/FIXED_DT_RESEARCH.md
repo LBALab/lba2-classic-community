@@ -338,6 +338,51 @@ How to *prove* fixed-dt works, using tooling that already exists:
 
 ---
 
+## 7. Post-merge finding: modal and fade loops need their own clock advance
+
+§6's validation covered the merged fixed-dt mechanism on settled-state baselines. It did
+not surface a class of loops that wait on `TimerRefHR` from inside a single main-loop tick:
+under fixed-dt the virtual clock only steps in `Timer_FixedDtAdvance()` at the tick hook
+(`PERSO.CPP:551`), so any loop that runs *between* hook calls and spins on a clock deadline
+freezes. The baseline corpus dodged this because settled saves don't enter such loops in
+their 8-tick window; the `--demo` attract path hits all three loop shapes.
+
+**Three loop shapes, three fixes** (`TIMER.CPP`).
+
+- **Modal render loops** — `DoFoundObj` (`INVENT.CPP:1541`), `Dial` SpeakAnimation loops
+  (`MESSAGE.CPP:1967, 2005`), `MenuInventory`, anything that presents a frame each iteration
+  via `BoxUpdate`→`BoxBlit`. The first present after each tick advance is the main loop's
+  own render (already paid for by the hook); every *additional* present in the same tick is
+  a modal iteration. `Timer_FixedDtPresent()` (called from `BoxBlit` in `DIRTYBOX.CPP:395`)
+  steps the clock with a skip-first guard so a non-modal tick stays exactly `+dt` and modal
+  loops advance per iteration.
+- **Music volume fades** — `FadeOutVolumeMusic`/`FadeInVolumeMusic` (`MUSIC.CPP`). A
+  `do { ManageTime(); ... } while(volume != target)` spin with no present.
+- **Palette fades** — `FadeToBlack`/`WhiteFade`/`FadeWhiteToPal`/`FadeToPal`/`FadePalToPal`
+  (`AMBIANCE.CPP`, 5 sites). Same `do { ManageTime(); delta = TimerSystemHR - start; ... }`
+  shape, no present.
+
+Both fade classes wrap in `SaveTimer`/`RestoreTimer`, so the pumped time is discarded
+when the loop returns — they don't perturb the game clock, they just need the loop to
+*exit*. `Timer_FixedDtPump()` (no skip-first; one direct step per call) sits next to the
+inner `ManageTime()` in each.
+
+**Why baselines stay byte-identical.** Non-modal ticks call `BoxBlit` exactly once (the
+main render), which consumes the skip; the fades aren't entered during settled-state
+corpus saves. Re-verified `39 ok, 0 drift` after each fix.
+
+**Demo determinism map** (cube N played under `--demo --fixed-dt 16` for 800 ticks,
+gameplay-state compared with `timer_ref_hr` dropped):
+
+- Fully byte-deterministic: 193, 194, 195, 207, 213, 220, 221.
+- Plays through, diverges only in moving-NPC lines (the long-double precision class
+  from §5): 196, 200, 208, 210, 214, 218, 219.
+
+No HANG remains. The residual run-to-run divergence is the §5 platform-precision hazard
+surfacing on action scenes with long actor trajectories — not new.
+
+---
+
 ## Summary
 
 - The whole moving-actor surface is driven by one global, `TimerRefHR`, advanced once per
