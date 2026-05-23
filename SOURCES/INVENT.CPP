@@ -1092,17 +1092,27 @@ void MenuInventory(U32 tempo) {
 
     InvCoul = COUL_SELECT_MENU;
 
-    /* PtrMap/ObjPtrMap are normally set by the prior frame's render before the
-       inventory key is pressed; the original code re-sets them at line 1102
-       below.  But OpenInventory drills into BodyDisplay -> Filler_Texture for
-       each owned item, which dereferences PtrMap.  Under the harness capture
-       path the wheel can be opened on the very first tick after a --load, with
-       no prior frame having run, so PtrMap is stale/null and the filler
-       segfaults.  Move the texture-buffer init up to cover that case; the
-       redundant re-assignment below is harmless. */
+    /* Harness capture pre-arm.  Two things normally come from the prior frame's
+       render but aren't there yet on the first tick after --load:
+
+         * PtrMap/ObjPtrMap -- OpenInventory drills into BodyDisplay ->
+           Filler_Texture for each owned item, which dereferences PtrMap.  The
+           original code re-sets these at line 1102 below; that's late.  Hoist.
+
+         * The Screen framebuffer behind the wheel -- normal callers see the
+           live scene because the prior tick's AffScene rendered it.  Without a
+           prior frame, Screen has stale or zeroed bytes, and the captured
+           PNG shows un-rendered stripes around the wheel.  Run one AffScene
+           pass here (NO_FLIP -- we want pixels in Screen, not a BoxBlit) so
+           the wheel composites over the proper background, matching what a
+           player presses-inventory-mid-game would see.
+
+       Both are conditional on the capture being armed; normal callers see no
+       behaviour change. */
     if (s_inv_capture_path[0]) {
         PtrMap = ObjPtrMap = BufferTexture;
         RepMask = 0xFFFF;
+        AffScene(AFF_ALL_NO_FLIP);
     }
 
     OpenInventory(); // draw all
