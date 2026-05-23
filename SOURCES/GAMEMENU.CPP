@@ -3012,6 +3012,19 @@ S32 OptionsMenu(S32 flagflip) {
     S32 select;
     S32 flag = 0;
 
+    /* Harness capture pre-pass: under the harness, OptionsMenu can be opened
+       on the first tick after --load with no prior frame having rendered.
+       The options menu's normal flow ShadeBoxBlk's whatever Screen contains
+       (line ~3022) -- a player sees that as "shaded live scene" because the
+       prior tick already drew the scene; under the harness Screen is stale
+       and the player-visible scene-behind-the-menu is missing.  Run one
+       AffScene pass (NO_FLIP -- pixels in Screen, no extra BoxBlit) so the
+       menu shades a freshly-rendered scene, matching what a player who
+       presses ESC mid-game would see. */
+    if (s_menu_capture_path[0]) {
+        AffScene(AFF_ALL_NO_FLIP);
+    }
+
     BackupScreen(TRUE);
 
     /*        CopyScreen( Log, Screen ) ;
