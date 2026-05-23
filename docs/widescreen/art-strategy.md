@@ -78,7 +78,7 @@ candidates for a future re-author initiative.
 |---|---|---|---|---|
 | 0  | `PCR_LOGO`       | `palette-fill` (white) |   | Pure white background; flat fill is invisible. |
 | 2  | `PCR_BUMPER`     | `edge-clone`           | ✓ | Starfield extends naturally; bumper is a one-shot intro card so HD bumps would be felt. |
-| 4  | `PCR_MENU`       | `edge-clone` (dark)    | ✓ | Stormy sea/sky; left edge clones cleanly, right has a bloom that may seam — verify in cheap test. Prominent (main menu) → HD candidate. |
+| 4  | `PCR_MENU`       | `palette-fill` (dark sky) | ✓ | Stormy sea/sky. **Revised from `edge-clone` after cheap-test review** (see [cheap-test-findings.md](cheap-test-findings.md)): per-row stretching produced visible vertical stripes from the cloud waves. Auto-detected dark blue-grey blends invisibly. Prominent (main menu) → HD candidate. |
 | 6  | `PCR_ARDOISE`    | `palette-fill` (dark wood) |   | The slate frame is the content; surrounding wood is dark and uniform. |
 | 8  | `PCR_PEGOUT`     | `edge-clone` (wood)    |   | Paper-on-wood map; wood grain extends. Orphan in current code — low priority. |
 | 10 | `PCR_AEGOUT`     | `palette-fill` (black) |   | Slate-grid sewer map on black; flat fill matches. |
@@ -104,7 +104,7 @@ candidates for a future re-author initiative.
 | 50 | —                | `letterbox`            |   | Prison cell, top-down composition. |
 | 52 | —                | `letterbox`            |   | Twinsen vs dragon, fire breath. |
 | 54 | —                | `letterbox`            |   | Forum/temple with red sky and dragon silhouette. |
-| 56 | —                | `edge-clone` (stars)   |   | Spaceship + planet on starfield; stars extend naturally. |
+| 56 | —                | `palette-fill` (black) |   | Spaceship + planet on starfield. **Revised from `edge-clone` after cheap-test review** (see [cheap-test-findings.md](cheap-test-findings.md)): asymmetric nebula trail and planet glow near the edges produced banding. Auto-detected black is visually equivalent to `letterbox` here. |
 | 58 | —                | `palette-fill` (black) |   | Coin/marble celebration centred on black. |
 | 60 | `PCR_CDROM`      | `palette-fill` (black) |   | Dancing couple on disc, pure black background. Player sees this often (CD check) — keep it crisp. |
 | 62 | —                | `palette-fill` (black) |   | Sendell-baby orb on black. |
@@ -120,9 +120,9 @@ candidates for a future re-author initiative.
 
 | Treatment | Count | Where it applies |
 |---|---|---|
-| `palette-fill` | 16 | All slate maps (black), splash logos (white/black), centred-on-black cinematic stills. The dominant treatment because LBA leans on flat backgrounds. |
+| `palette-fill` | 18 | All slate maps (black), splash logos (white/black), centred-on-black cinematic stills, plus the cheap-test-revised entries (4, 56). The dominant treatment because LBA leans on flat backgrounds. |
 | `letterbox`    | 15 | Vignetted shots, asymmetric composed scenes. The safe default. |
-| `edge-clone`   |  7 | Wood-grain map backgrounds, starfields, smoke. Where the edge is a low-frequency natural extension. |
+| `edge-clone`   |  5 | Wood-grain map backgrounds (paper P maps), symmetric starfield (bumper), smoke. Where the edge is a low-frequency natural extension. |
 | `mirror-tile`  |  1 | Mona Lisa wallpaper — the only entry with a clear tiling pattern. |
 | `hd-pack-later` (additional) | 5 | The most prominent letterboxed entries — main-menu sky, bumper, lighthouse shots, Emerald-Moon porthole. Tagged for a future re-author, not blocking. |
 
@@ -133,33 +133,25 @@ treatments. The cheapest, lowest-risk path is a host-side offline preview:
 take a bitmap + palette, apply each treatment at a target width, dump PNG.
 Visual review answers "does this look right?" before any engine plumbing.
 
-### Test 1 — treatment preview script
+### Test 1 — treatment preview script (done)
 
-Extend the existing extractor at
-[scripts/dev/art_catalog_screen.py](../../scripts/dev/art_catalog_screen.py)
-into a treatment previewer:
+[`scripts/dev/art_treatment_preview.py`](../../scripts/dev/art_treatment_preview.py)
+implements the four treatments and dumps target-width PNGs:
 
 ```bash
-scripts/dev/art_treatment_preview.py screen.hqr 4 --treatment edge-clone \
-    --width 853 --out preview/menu_edge_clone.png
+scripts/dev/art_treatment_preview.py /path/to/SCREEN.HQR --all --outdir preview/
+scripts/dev/art_treatment_preview.py /path/to/SCREEN.HQR --entry 4 --compare --out preview/menu_compare.png
 ```
 
-For each treatment, render a 853×480 PNG with the 640×480 bitmap centred
-and the chosen margin fill. The five treatments above cover the algorithm
-surface — no engine changes, just a Python loop over each entry's chosen
-treatment.
+Findings from the first pass are recorded in
+[cheap-test-findings.md](cheap-test-findings.md). Two strategy calls were
+revised after seeing 853-wide output (entries 4 and 56 — both moved from
+`edge-clone` to `palette-fill`); 37 calls held up. The script's embedded
+triage table reflects the revisions and is the source of truth for `--all`
+runs.
 
-Target entries for the first pass (one per treatment category):
-
-- `PCR_LOGO` (0) — `palette-fill` (white). Sanity: flat fill is invisible.
-- `PCR_BUMPER` (2) — `edge-clone` (stars). The starfield extension test.
-- `PCR_MENU` (4) — `edge-clone`. The interesting case: does the right-edge
-  bloom seam?
-- `entry 38` (Mona Lisa) — `mirror-tile`. The one tile candidate.
-- `PCR_HACIENDA` (20) — `letterbox`. Confirm the fallback looks acceptable.
-
-Five PNGs in five minutes. If `PCR_MENU` seams visibly, demote to
-`letterbox` and re-tag `+HD` (already tagged).
+The PNG dumps land under `docs/widescreen/catalog-dumps/` alongside the
+catalog extractor's output — same `.gitignore` covers them (copyright).
 
 ### Test 2 — palette boundary check
 
