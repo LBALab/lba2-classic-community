@@ -1092,6 +1092,19 @@ void MenuInventory(U32 tempo) {
 
     InvCoul = COUL_SELECT_MENU;
 
+    /* PtrMap/ObjPtrMap are normally set by the prior frame's render before the
+       inventory key is pressed; the original code re-sets them at line 1102
+       below.  But OpenInventory drills into BodyDisplay -> Filler_Texture for
+       each owned item, which dereferences PtrMap.  Under the harness capture
+       path the wheel can be opened on the very first tick after a --load, with
+       no prior frame having run, so PtrMap is stale/null and the filler
+       segfaults.  Move the texture-buffer init up to cover that case; the
+       redundant re-assignment below is harmless. */
+    if (s_inv_capture_path[0]) {
+        PtrMap = ObjPtrMap = BufferTexture;
+        RepMask = 0xFFFF;
+    }
+
     OpenInventory(); // draw all
 
     InitDial(2); // game divers txt
