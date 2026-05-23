@@ -228,5 +228,11 @@ extern void HoloSpace(void);
 
 extern void InitHoloMap();
 extern void HoloMap(void);
+/* Harness hook: arm a one-shot screenshot inside the next HoloMap call.
+   At a settled frame inside the HoloGlobe modal loop (past the fade-in and
+   the zoom-in animation) SavePNG is called with the supplied path, then
+   FlagHoloEnd is set so HoloMap exits cleanly.  Pass NULL or "" to disarm.
+   Used by the console "ui holomap <path>" verb. */
+extern void Holo_RequestCapture(const char *path);
 extern S32 SetHoloPos(S32 num);
 extern void ClrHoloPos(S32 num);
