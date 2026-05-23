@@ -346,18 +346,30 @@ lba2cc --load "002 Downtown.LBA" --fixed-dt 16 --tick 5 \
 
 ### Test fixtures and baselines
 
-[`tests/automation/test_projection_baseline.sh`](../tests/automation/test_projection_baseline.sh)
-runs a 5-tick Downtown replay with `--projection-hash` and byte-compares the result
-to a committed golden under [`tests/projection/baselines/`](../tests/projection/baselines/).
-Pattern-matches the UI capture tests above.
+Two committed fixtures under [`tests/projection/baselines/`](../tests/projection/baselines/),
+driven by sibling tests under [`tests/automation/`](../tests/automation/). Coverage
+matrix per save lives in [`tests/projection/README.md`](../tests/projection/README.md).
+
+| Test | Fixture | Scope | Cost |
+|---|---|---|---|
+| [`test_projection_corpus.sh`](../tests/automation/test_projection_corpus.sh) | `corpus_640x480.projrec.hash` | One line per save (50 entries) across the committed save corpus | ~7 s |
+| [`test_projection_demo.sh`](../tests/automation/test_projection_demo.sh) | `demo_640x480.projrec.hash` | 30000-tick attract-mode snapshot; cross-scene transitions saves can't reach | ~35 s, opt-in via `PROJREC_RUN_DEMO=1` |
 
 ```bash
-# Validate the projection baseline (uses LBA2_TEST_SAVE if set, else the default save).
-LBA2_GAME_DIR=/path/to/data bash tests/automation/test_projection_baseline.sh
+# Validate the corpus (covers the projection-pipeline change sites for all 50 saves).
+LBA2_GAME_DIR=/path/to/data bash tests/automation/test_projection_corpus.sh
 
-# Regenerate the golden after an intentional change.
+# Opt in to the demo snapshot too.
+LBA2_GAME_DIR=/path/to/data PROJREC_RUN_DEMO=1 \
+    bash tests/automation/test_projection_demo.sh
+
+# Regenerate everything after an intentional engine change.
+LBA2_BIN=build/SOURCES/lba2cc LBA2_GAME_DIR=/path/to/data \
+    bash scripts/dev/regen_projrec_baselines.sh
+
+# Or regenerate per-test in place.
 LBA2_GAME_DIR=/path/to/data LBA2_PROJECTION_REGEN=1 \
-    bash tests/automation/test_projection_baseline.sh
+    bash tests/automation/test_projection_corpus.sh
 ```
 
 ### Diagnosing a hash divergence
