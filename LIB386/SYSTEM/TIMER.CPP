@@ -80,11 +80,18 @@ void SetTimerHR(U32 time) {
 void Timer_EnableFixedDt(U32 dt_ms) {
     // Seed the virtual clock and force LastTime to agree with it, so the first
     // ManageTime() delta (FixedDtNow - LastTime) is exactly 0 and no residual
-    // wall-clock interval banked during boot/load leaks into the first tick. From here
-    // the clock only moves via Timer_FixedDtAdvance(). Keeps the FPS accumulator sane.
+    // wall-clock interval banked during boot/load leaks into the first tick. Also reset
+    // TimerRefHR -- the existing accumulated value before this call carries whatever
+    // wall-clock interval elapsed between InitTimer() at engine boot and the harness
+    // arming fixed-dt, and that residual would otherwise reach srand(TimerRefHR) at
+    // ChangeCube (OBJECT.CPP) and seed RNG-driven wanderers differently each run on the
+    // fresh-start path (--demo without --load). The --load path overrides TimerRefHR from
+    // the save after this, so save-loaded runs are unaffected. From here the clock only
+    // moves via Timer_FixedDtAdvance(). Keeps the FPS accumulator sane.
     FixedDt = dt_ms;
     FixedDtNow = TimerSystemHR;
     LastTime = TimerSystemHR;
+    TimerRefHR = 0;
     FixedDtActive = 1;
     FixedDtTicking = 0;
     FixedDtSkipPresent = 0;
