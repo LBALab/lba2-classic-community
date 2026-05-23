@@ -90,7 +90,13 @@ void Clear3dExt() {
 /*──────────────────────────────────────────────────────────────────────────*/
 // Positionne la caméra pour la 3d Extérieure
 void Init3DExtView(void) {
-    SetProjection(320, 240, CLIP_NEAR, ChampX, ChampZ);
+    // Derive the projection origin from the framebuffer dimensions so the 3D
+    // world centres on the rendered area for any render-space width/height.
+    // At the default 640x480 this is the original (320, 240) — the hardcoded
+    // literal Phase 0 of the widescreen plan flagged; see docs/WIDESCREEN.md
+    // and docs/WIDESCREEN_PROJECTION_AUDIT.md.
+    SetProjection((S32)(ModeDesiredX / 2), (S32)(ModeDesiredY / 2),
+                  CLIP_NEAR, ChampX, ChampZ);
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
