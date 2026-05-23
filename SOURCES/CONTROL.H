@@ -4,7 +4,7 @@
 /*
  * CLI control harness: drive the engine from outside for automation / regression.
  *
- *   lba2 --load <slot> --exec "<cmd>;<cmd>" --tick <N> --fixed-dt <ms> \
+ *   lba2 --load <slot> --exec "<cmd>;<cmd>" --tick <N> --fixed-dt <ms> --demo \
  *        --dump-state <path> --screenshot <path> --exit
  *
  * The harness reuses existing engine seams rather than adding new ones: the console
