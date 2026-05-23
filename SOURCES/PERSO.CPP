@@ -2761,6 +2761,7 @@ int main(int argc, char *argv[]) {
     if (Control_IsActive()) {
         if (Control_Begin())
             MainLoop();
+        Control_End();
         TheEnd(PROGRAM_OK, "");
         return 0;
     }
