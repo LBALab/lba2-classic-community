@@ -57,6 +57,25 @@ join is at the seam itself; the mirrored content extends outward.
 (wallpaper, dense star field, repeating texture). Rare in this set —
 mostly the Mona Lisa portrait's wallpaper qualifies.
 
+### `stretch`
+
+Resample the bitmap horizontally from 640 to the target width (bilinear).
+No margins — the whole frame is covered, but content is distorted ~33%
+wider at 16:9. Acceptable for natural imagery (sky, sea); poor for text
+or structured composition.
+
+**Use when:** letterbox feels wrong (the bitmap's content is mostly
+atmosphere not detail) and the distortion is tolerable.
+
+### `gradient`
+
+Replacement treatment: ignore the bitmap, render a procedural vertical
+gradient instead. Lowest engine cost (no HQR load), most flexible (can
+retune colours), zero fidelity to the original bitmap.
+
+**Use when:** no runtime treatment of the original art reads well and the
+backdrop's job is purely tonal (e.g. behind a menu).
+
 ### `hd-pack-later`
 
 Future re-authored bitmap shipped in a separate optional HQR. Engine prefers
@@ -70,61 +89,77 @@ treatment, not instead of it.
 
 ## Triage
 
-The runtime treatment column is what the engine should apply by default
-once Phase 5 wires up. `+HD?` flags entries that are reasonable HD-pack
-candidates for a future re-author initiative.
+After two rounds of cheap-test review (see
+[cheap-test-findings.md](cheap-test-findings.md)) the triage simplified
+to **letterbox by default**, with two narrow exceptions:
+
+- The three pure-white-background distributor/dev logos (`PCR_LOGO`,
+  `PCR_ACTIVISION`, `PCR_VIRGIN`), where `palette-fill` auto-detects
+  white and the fill is genuinely invisible.
+- `PCR_MENU`, where letterbox's harsh black bars contrast badly with the
+  dark stormy sea — an open question between `stretch` and `gradient`,
+  decided against rendered output.
+
+Earlier rounds tried per-entry `edge-clone`, `mirror-tile`, and various
+`palette-fill` (non-white) calls. None of those gains held up under a
+broader visual look — the textural illusions were small, the failure
+modes (stripes, duplicate-edge artifacts, visible non-black margin
+fills) were obvious. `letterbox` is honest: the eye reads black bars as
+intentional framing, not as a corrupted extension.
+
+`+HD?` flags entries that would benefit from a future HD-pack re-author.
 
 | #  | Entry | Treatment | +HD? | Rationale |
 |---|---|---|---|---|
-| 0  | `PCR_LOGO`       | `palette-fill` (white) |   | Pure white background; flat fill is invisible. |
-| 2  | `PCR_BUMPER`     | `edge-clone`           | ✓ | Starfield extends naturally; bumper is a one-shot intro card so HD bumps would be felt. |
-| 4  | `PCR_MENU`       | `palette-fill` (dark sky) | ✓ | Stormy sea/sky. **Revised from `edge-clone` after cheap-test review** (see [cheap-test-findings.md](cheap-test-findings.md)): per-row stretching produced visible vertical stripes from the cloud waves. Auto-detected dark blue-grey blends invisibly. Prominent (main menu) → HD candidate. |
-| 6  | `PCR_ARDOISE`    | `palette-fill` (dark wood) |   | The slate frame is the content; surrounding wood is dark and uniform. |
-| 8  | `PCR_PEGOUT`     | `edge-clone` (wood)    |   | Paper-on-wood map; wood grain extends. Orphan in current code — low priority. |
-| 10 | `PCR_AEGOUT`     | `palette-fill` (black) |   | Slate-grid sewer map on black; flat fill matches. |
-| 12 | `PCR_PLABYRT`    | `edge-clone` (wood)    |   | Same as pegout. Orphan. |
-| 14 | `PCR_ALABYRT`    | `palette-fill` (black) |   | Same as aegout. |
-| 16 | `PCR_PLUNE`      | `edge-clone` (wood)    |   | Same as pegout. Orphan. |
-| 18 | `PCR_ALUNE`      | `palette-fill` (black) |   | Same as aegout. |
-| 20 | `PCR_HACIENDA`   | `letterbox`            |   | Cliff cove inside a baked circular vignette. Orphan in current code. |
-| 22 | `PCR_VUPHARE`    | `letterbox`            | ✓ | Lighthouse + baked framed border; extending breaks the frame. Orphan, but recognisable LBA establishing shot. |
-| 24 | `PCR_VUPHARE2`   | `letterbox`            | ✓ | Porthole vignette. Same shape as 22. |
-| 26 | —                | `palette-fill` (black) |   | Planet+comet on black space; flat fill matches. |
-| 28 | —                | `letterbox`            |   | Funfrock lab interior, architectural composition. |
-| 30 | —                | `letterbox`            |   | Picnic scene, composed and dark-bordered. |
-| 32 | —                | `letterbox`            | ✓ | Emerald Moon close-up through porthole; vignette baked. |
-| 34 | —                | `letterbox`            |   | Cell with orbs, composed dark interior. |
-| 36 | —                | `palette-fill` (black) |   | Celestial diagram centred on black. |
-| 38 | —                | `mirror-tile`          |   | Blue floral wallpaper repeats; mirror-tile preserves the pattern outward from the candles. The one strong mirror-tile candidate in the set. |
-| 40 | —                | `edge-clone` (paper)   |   | Volcano paper map; wood/paper grain extends. |
-| 42 | —                | `palette-fill` (black) |   | Volcano slate map on black. |
-| 44 | —                | `letterbox`            |   | Asymmetric close-up of album + bald guard. |
-| 46 | —                | `edge-clone` (smoke)   |   | Bust on plinth with smoky background; smoke clones reasonably. `letterbox` is fine fallback. |
-| 48 | —                | `letterbox`            |   | Soldier musicians on parade, composed scene. |
-| 50 | —                | `letterbox`            |   | Prison cell, top-down composition. |
-| 52 | —                | `letterbox`            |   | Twinsen vs dragon, fire breath. |
-| 54 | —                | `letterbox`            |   | Forum/temple with red sky and dragon silhouette. |
-| 56 | —                | `palette-fill` (black) |   | Spaceship + planet on starfield. **Revised from `edge-clone` after cheap-test review** (see [cheap-test-findings.md](cheap-test-findings.md)): asymmetric nebula trail and planet glow near the edges produced banding. Auto-detected black is visually equivalent to `letterbox` here. |
-| 58 | —                | `palette-fill` (black) |   | Coin/marble celebration centred on black. |
-| 60 | `PCR_CDROM`      | `palette-fill` (black) |   | Dancing couple on disc, pure black background. Player sees this often (CD check) — keep it crisp. |
-| 62 | —                | `palette-fill` (black) |   | Sendell-baby orb on black. |
-| 64 | —                | `edge-clone` (paper)   |   | Twinsen's-house paper map on cardboard. |
-| 66 | —                | `palette-fill` (black) |   | Twinsen's-house slate-grid version on black. |
-| 68 | —                | `letterbox`            |   | Twinsen close-up with medallion, cloud-and-bloom backdrop — clone may seam, letterbox is safe. |
-| 70 | —                | `letterbox`            |   | Sendell-form Twinsen, sky+ocean backdrop — same concern as 68. |
-| 72 | `PCR_ACTIVISION` | `palette-fill` (white) |   | Pure white background. |
-| 74 | `PCR_EA`         | `palette-fill` (black) |   | Pure black background. |
-| 76 | `PCR_VIRGIN`     | `palette-fill` (white) |   | Pure white background. |
+| 0  | `PCR_LOGO`       | `palette-fill` (white) |   | Pure white background; auto-detected fill is invisible. |
+| 2  | `PCR_BUMPER`     | `letterbox`            | ✓ | One-shot intro card; HD bumps would be felt. |
+| 4  | `PCR_MENU`       | **open** — `letterbox` / `stretch` / `gradient` | ✓ | Stormy sea/sky. Letterbox is the fallback; `stretch` (resample 640→853, ~33% distortion, keeps LBA mood) and `gradient` (procedural blue replacement, no bitmap) are the candidates. Decide against rendered output. |
+| 6  | `PCR_ARDOISE`    | `letterbox`            |   | Slate frame is the content. |
+| 8  | `PCR_PEGOUT`     | `letterbox`            |   | Paper-on-wood sewer map. Orphan in current code. |
+| 10 | `PCR_AEGOUT`     | `letterbox`            |   | Slate-grid sewer map. |
+| 12 | `PCR_PLABYRT`    | `letterbox`            |   | Paper labyrinth map. Orphan. |
+| 14 | `PCR_ALABYRT`    | `letterbox`            |   | Slate-grid labyrinth map. |
+| 16 | `PCR_PLUNE`      | `letterbox`            |   | Paper moon map. Orphan. |
+| 18 | `PCR_ALUNE`      | `letterbox`            |   | Slate-grid moon map. |
+| 20 | `PCR_HACIENDA`   | `letterbox`            |   | Cliff cove with baked circular vignette. Orphan. |
+| 22 | `PCR_VUPHARE`    | `letterbox`            | ✓ | Lighthouse establishing shot, baked frame. Orphan. |
+| 24 | `PCR_VUPHARE2`   | `letterbox`            | ✓ | Lighthouse, porthole vignette. |
+| 26 | —                | `letterbox`            |   | Planet + comet on space. |
+| 28 | —                | `letterbox`            |   | Funfrock lab interior. |
+| 30 | —                | `letterbox`            |   | Picnic scene. |
+| 32 | —                | `letterbox`            | ✓ | Emerald Moon close-up through porthole. |
+| 34 | —                | `letterbox`            |   | Cell with Sendell orbs. |
+| 36 | —                | `letterbox`            |   | Celestial diagram. |
+| 38 | —                | `letterbox`            |   | Mona Lisa portrait (mirror-tile was a viable alternative but letterbox is consistent). |
+| 40 | —                | `letterbox`            |   | Volcano paper map. |
+| 42 | —                | `letterbox`            |   | Volcano slate map. |
+| 44 | —                | `letterbox`            |   | Album + guard close-up. |
+| 46 | —                | `letterbox`            |   | Bust on plinth, smoky backdrop. |
+| 48 | —                | `letterbox`            |   | Soldier musicians on parade. |
+| 50 | —                | `letterbox`            |   | Prison cell. |
+| 52 | —                | `letterbox`            |   | Twinsen vs dragon. |
+| 54 | —                | `letterbox`            |   | Red-sky forum. |
+| 56 | —                | `letterbox`            |   | Spaceship + planet on starfield. |
+| 58 | —                | `letterbox`            |   | Coin/marble celebration. |
+| 60 | `PCR_CDROM`      | `letterbox`            |   | CD insert prompt. Player sees this often. |
+| 62 | —                | `letterbox`            |   | Sendell-baby orb. |
+| 64 | —                | `letterbox`            |   | Twinsen's-house paper map. |
+| 66 | —                | `letterbox`            |   | Twinsen's-house slate-grid map. |
+| 68 | —                | `letterbox`            |   | Twinsen close-up with medallion. |
+| 70 | —                | `letterbox`            |   | Sendell-form Twinsen. |
+| 72 | `PCR_ACTIVISION` | `palette-fill` (white) |   | Pure white background; auto-detected fill is invisible. |
+| 74 | `PCR_EA`         | `letterbox`            |   | Black background; letterbox is identical to palette-fill (black). |
+| 76 | `PCR_VIRGIN`     | `palette-fill` (white) |   | Pure white background; auto-detected fill is invisible. |
 
 ### Distribution
 
 | Treatment | Count | Where it applies |
 |---|---|---|
-| `palette-fill` | 18 | All slate maps (black), splash logos (white/black), centred-on-black cinematic stills, plus the cheap-test-revised entries (4, 56). The dominant treatment because LBA leans on flat backgrounds. |
-| `letterbox`    | 15 | Vignetted shots, asymmetric composed scenes. The safe default. |
-| `edge-clone`   |  5 | Wood-grain map backgrounds (paper P maps), symmetric starfield (bumper), smoke. Where the edge is a low-frequency natural extension. |
-| `mirror-tile`  |  1 | Mona Lisa wallpaper — the only entry with a clear tiling pattern. |
-| `hd-pack-later` (additional) | 5 | The most prominent letterboxed entries — main-menu sky, bumper, lighthouse shots, Emerald-Moon porthole. Tagged for a future re-author, not blocking. |
+| `letterbox`    | 35 | Almost everything. The honest default; what the eye reads as intentional framing. |
+| `palette-fill` |  3 | Pure-white-background logos (`PCR_LOGO`, `PCR_ACTIVISION`, `PCR_VIRGIN`) where the fill is invisible. |
+| **open**       |  1 | `PCR_MENU` — choice between `letterbox` / `stretch` / `gradient` pending visual review. |
+| `edge-clone`, `mirror-tile` | 0 | Available as algorithms in the script, no current entry uses them. Kept for future entries or HD-pack experiments. |
+| `hd-pack-later` (additional) | 5 | `PCR_MENU`, `PCR_BUMPER`, `PCR_VUPHARE`, `PCR_VUPHARE2`, Emerald-Moon porthole. The prominent letterboxed entries where re-authored art would be felt. |
 
 ## Cheap tests (pre-engine validation)
 
