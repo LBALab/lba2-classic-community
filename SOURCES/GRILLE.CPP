@@ -951,8 +951,13 @@ void AffOneBrick(S32 x, S32 y, S32 z) {
     S16 zdeb;
     U8 codejeu;
 
-    xmin = 639;
-    ymin = 479;
+    // Sentinel seeds for the min-accumulator below. Must be at least as large as
+    // any ScreenXMin/YMin a drawn brick could produce, i.e. the framebuffer right
+    // and bottom edges. At 640x480 these are the original 639/479; route through
+    // ModeDesiredX/Y so wider builds catch bricks past x=640. See Phase 2 in
+    // docs/WIDESCREEN.md.
+    xmin = (S32)ModeDesiredX - 1;
+    ymin = (S32)ModeDesiredY - 1;
     xmax = 0;
     ymax = 0;
 
