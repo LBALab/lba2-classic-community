@@ -372,14 +372,20 @@ main render), which consumes the skip; the fades aren't entered during settled-s
 corpus saves. Re-verified `39 ok, 0 drift` after each fix.
 
 **Demo determinism map** (cube N played under `--demo --fixed-dt 16` for 800 ticks,
-gameplay-state compared with `timer_ref_hr` dropped):
+gameplay-state compared including `timer_ref_hr`):
 
-- Fully byte-deterministic: 193, 194, 195, 207, 213, 220, 221.
-- Plays through, diverges only in moving-NPC lines (the long-double precision class
-  from §5): 196, 200, 208, 210, 214, 218, 219.
-
-No HANG remains. The residual run-to-run divergence is the §5 platform-precision hazard
-surfacing on action scenes with long actor trajectories — not new.
+All 14 reel-position cubes surveyed (193, 194, 195, 196, 200, 207, 208, 210, 213, 214, 218,
+219, 220, 221) are byte-deterministic. No HANG remains and no run-to-run divergence
+remains. An earlier revision of this section listed seven cubes as a "plays-through but
+moving-NPC FP caveat" class; that was a misdiagnosis — the divergence was an RNG seed
+leak, not floating-point. `srand(TimerRefHR)` at `ChangeCube` (`OBJECT.CPP:1171`) was
+reading whatever wall-clock interval had elapsed between `InitTimer()` at engine boot and
+the harness arming fixed-dt, and that residual leaked into the seed only on the fresh-
+start path (`--demo` without `--load`; the `--load` path overrides `TimerRefHR` from the
+saved game's clock after enable). Closed in `Timer_EnableFixedDt()` by resetting
+`TimerRefHR` alongside `FixedDtNow`/`LastTime`. The §5 platform-precision hazard
+(`long double` 80- vs 64-bit) is a separate cross-platform concern; same-platform
+exactness is now real for moving actors too.
 
 ---
 

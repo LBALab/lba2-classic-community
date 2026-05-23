@@ -216,28 +216,27 @@ The harness is built so these are additive, not rewrites. Ordered by dependency 
 makes the next more valuable, and faithful input replay must not be built on a
 non-deterministic base.
 
-1. **Baseline gallery** *(in progress)*. Golden `--dump-state` (+ screenshots) over the
+1. **Baseline gallery** *(done)*. Golden `--dump-state` (+ screenshots) over the
    committed save corpus, living alongside it at `tests/savegame/corpus/baselines/`. A
    regression net for the widescreen / projection work: the world-space dump is the
    guardrail that rendering changes don't perturb the simulation; screenshots are the
    human-reviewed visual. See `docs/AUTOMATION_PLAN.md`.
 2. **`--fixed-dt` deterministic mode** *(done)*. Pin the per-tick timer step so the simulation
    is independent of wall-clock — the determinism measurements pointed at variable dt as the
-   lever. No RNG reseed was needed: the only seed (`srand(TimerRefHR)`) is already pinned by the
-   restored save clock. This upgrades the baseline tolerance to exact (same-platform) and is the
-   prerequisite for replay. See `docs/FIXED_DT_PLAN.md`. Promoting the baseline harness's
-   kinematic tier to exact is the remaining follow-up.
+   lever. The only RNG seed (`srand(TimerRefHR)` at `OBJECT.CPP:1171`) is pinned by the
+   restored save clock on `--load`; on the fresh-start path `Timer_EnableFixedDt()` also
+   resets `TimerRefHR` so the seed is deterministic there too. This upgrades the baseline
+   tolerance to exact (same-platform) and is the prerequisite for replay. See
+   `docs/FIXED_DT_PLAN.md`.
 3. **Canned playthroughs.** Replay a whole session as a regression fixture — the
    gameplay-regression counterpart to the existing draw-call polyrec. There are two paths:
    - *Demo playthrough (effectively achieved).* The game's built-in attract reel is a
      21-scene scripted tour of the game's locations rooted at cube 201 and ending with
      `LM_THE_END` at cube 218 ("The Dark Monk statue (last)") — see
      [SCENES.md](SCENES.md#demo-scenes-193-221). Under `--demo` + `--fixed-dt`, any of the
-     reel's entry cubes replays the same scene chain and dialogue sequence sequentially.
-     This covers the regression-fixture use case without an explicit input layer; the
-     scripted reel *is* the canned input. Parallel runs can flip a long-run script branch
-     via the FP-precision class from `FIXED_DT_RESEARCH.md` §5 — run sequentially for
-     fixture comparisons.
+     reel's entry cubes replays the same scene chain, dialogue sequence, and gameplay state
+     — sequential or parallel. This covers the regression-fixture use case without an
+     explicit input layer; the scripted reel *is* the canned input.
    - *Explicit input capture/replay (deferred).* For sessions outside the reel — random
      exploration, tooling-style automation — capture input per tick and replay it.
      Attaches at the same top-of-loop seam as `Control_TickHook`; depends on (2).
