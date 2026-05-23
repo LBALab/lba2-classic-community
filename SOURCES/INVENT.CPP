@@ -1110,6 +1110,13 @@ void MenuInventory(U32 tempo) {
        Both are conditional on the capture being armed; normal callers see no
        behaviour change. */
     if (s_inv_capture_path[0]) {
+        /* Match the normal in-game caller's pre-MenuInventory setup
+           (PERSO.CPP:1045-1048): StopSpeak terminates any active speech
+           so its overlay doesn't bleed.  Under null sound this is a no-op;
+           added for symmetry with the menu-options sweep finding so the
+           verb's frame matches what a player pressing inventory mid-game
+           sees regardless of pre-load state. */
+        StopSpeak();
         PtrMap = ObjPtrMap = BufferTexture;
         RepMask = 0xFFFF;
         AffScene(AFF_ALL_NO_FLIP);
@@ -1397,6 +1404,26 @@ void MenuInventory(U32 tempo) {
 extern S32 Dial_Y0;
 
 /*──────────────────────────────────────────────────────────────────────────*/
+/* Harness capture state — see DoFoundObj_RequestCapture() in INVENT.H.  When
+   the path is non-empty, DoFoundObj's modal loop counts down per iteration;
+   on reaching zero it SavePNGs and sets flag=2 so the loop exits cleanly
+   without waiting for input.  Countdown gives the open-rotation animation
+   and the typewriter text time to settle into the steady "item showcase"
+   state a player sees mid-cinematic. */
+static char s_found_capture_path[ADELINE_MAX_PATH] = "";
+static int s_found_capture_countdown = 0;
+
+void DoFoundObj_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_found_capture_path[0] = '\0';
+        s_found_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_found_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_found_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_found_capture_countdown = 60; /* iterations -- ~1 game-second at dt 16 */
+}
+
 void DoFoundObj(S32 numvar) {
 #ifndef COMPILATOR
     if (Control_IsVerbose())
@@ -1696,6 +1723,18 @@ void DoFoundObj(S32 numvar) {
         UnsetClip();
 
         BoxUpdate();
+
+        /* Harness one-shot capture: count down per iteration; on reaching
+           zero SavePNG (read Log -- the cinematic composites the rotating
+           item and dialogue strip there, same pattern as ui dialog and ui
+           holomap) and set flag=2 so the modal loop exits cleanly. */
+        if (s_found_capture_path[0] && --s_found_capture_countdown <= 0) {
+            SavePNG(s_found_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_found_capture_path[0] = '\0';
+            flag = 2;
+            break;
+        }
 
         MyGetInput();
 

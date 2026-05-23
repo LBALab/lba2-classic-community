@@ -47,6 +47,21 @@ extern void DrawGameMenu(U16 *ptrmenu, S32 justone);
 extern S32 DoGameMenu(U16 *ptrmenu);
 /*--------------------------------------------------------------------------*/
 extern S32 OptionsMenu(S32 flagflip);
+/* Harness hook: arm a one-shot screenshot inside the next DoGameMenu call.
+   After a countdown of iterations (long enough for the menu to fade in and
+   settle), SavePNG is called with the supplied path and DoGameMenu returns
+   1000 (the "ESC" sentinel) so the wrapping menu loop exits cleanly.
+   Pass NULL or "" to disarm.  Used by the console "ui menu-options <path>"
+   verb. */
+extern void Menu_RequestCapture(const char *path);
+/* Harness hook: capture the boot-time main game menu (Resume / New Game /
+   Load / Options / Quit -- the screen the player sees at launch).  Does
+   the minimal MainGameMenu setup (loads the PCR_MENU background bitmap,
+   InitPlasmaMenu, BuildGameMainMenu, InitDial(0)), arms Menu_RequestCapture,
+   then drives DoGameMenu(GameMainMenu) which captures and returns 1000.
+   Skips the surrounding MainGameMenu while-loop, fade transitions, and any
+   case-driven cinematic playback so the verb is non-blocking. */
+extern void Menu_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/

@@ -1900,6 +1900,16 @@ void Dial(S32 text, S32 drawscene) {
                 (int)text, (int)DemoSlide);
 #endif
 
+    /* Harness capture pre-arm.  Match the normal LM_MESSAGE caller
+       (GERELIFE.CPP:1246-1257): NumObjDial set explicitly (otherwise the
+       speaker's portrait/bubble follows whatever NumObjDial happened to be
+       at save-load time), and Palette(PtrPal) restores the palette in case
+       the save's state had an eclair-effect palette active. */
+    if (s_dial_capture_path[0]) {
+        NumObjDial = NUM_PERSO;
+        Palette(PtrPal);
+    }
+
 #ifndef LBA_EDITOR
     ClearIncrusts(INCRUST_SYS_TEXT);
     ClearIncrusts(INCRUST_TEXT);
