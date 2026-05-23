@@ -103,3 +103,26 @@ ui_compare() {
 jget() {
     python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))" "$1" "$2"
 }
+
+# projrec_compare <out-file> <golden-path>
+# Byte-compares the captured projection hash to a committed golden. Set
+# LBA2_PROJECTION_REGEN=1 to copy the capture over the golden instead.
+# Callers are responsible for actually running the harness with
+# --projection-hash <out-file> before calling this.
+projrec_compare() {
+    local out="$1" golden="$2"
+    [ -f "$out" ] || fail "no hash file written: $out"
+    if [ "${LBA2_PROJECTION_REGEN:-}" = "1" ]; then
+        mkdir -p "$(dirname "$golden")"
+        cp "$out" "$golden"
+        rm -f "$out"
+        pass "regenerated golden: $(basename "$golden")"
+    fi
+    [ -f "$golden" ] || { rm -f "$out"; fail "golden not committed yet: $golden"; }
+    if diff -q "$out" "$golden" >/dev/null; then
+        rm -f "$out"
+        pass "projection hash matches golden ($(basename "$golden"))"
+    else
+        fail "projection hash diverges from golden — see $out vs $golden"
+    fi
+}
