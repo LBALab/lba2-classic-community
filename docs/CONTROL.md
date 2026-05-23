@@ -30,6 +30,8 @@ lba2cc --load <slot>          restore a save before the loop starts
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
        --polyrec <path>       record polygon draw calls of the frame (ENABLE_POLY_RECORDING builds)
+       --capture-projection <path>   record every projection-pipeline event to a text file
+       --projection-hash <path>      record only an FNV-1a 64-bit digest of the above (CI-friendly)
        --exit                 exit cleanly after the above
 ```
 
@@ -288,6 +290,102 @@ arms a static path + iteration countdown; a capture hook in the modal's loop tha
 SavePNGs and triggers the exit sentinel; a `cmd_ui` dispatcher branch; one
 `test_ui_modal.sh` + one committed golden PNG under
 `tests/savegame/corpus/baselines/ui/`.
+
+## Projection capture
+
+Two flags record what the projection pipeline produced during a harness run, so the
+output can be byte-compared across builds. This is the regression net for Phase 1 of
+the [widescreen plan](WIDESCREEN.md) — the safety check Phase 2's projection-origin
+changes must not disturb at 640×480 before any wider frame ships.
+
+| Flag | Output | When to use |
+|---|---|---|
+| `--capture-projection <path>` | Full text — one event per line, hundreds of MB for a `--demo` replay | Local diagnosis when a hash diverges |
+| `--projection-hash <path>` | A single FNV-1a 64-bit digest line over the same content | CI baselines, the committed fixture |
+
+The two flags are composable; both can be active and they agree exactly on what was
+captured (the hash is computed over the same line text the full sink would write).
+Both are no-ops on default builds — one branch per projection call site when the
+flags aren't set.
+
+### Event opcodes
+
+Each captured line is one event. Sequence numbers are 1-based and global across the
+run, so ordering can be diffed without wall-clock state.
+
+| Opcode | Fired by | Format |
+|---|---|---|
+| `SETPROJ` | `SetProjection` (exterior 3D perspective setup) | `seq= xc= yc= clip= fx= fy=` |
+| `SETISO` | `SetIsoProjection` (interior orthographic setup) | `seq= xc= yc=` |
+| `PROJ` | `LongProjectPoint3D` (per-vertex perspective projection) | `seq= x= y= z= -> ret= xp= yp=` |
+| `PROJISO` | `LongProjectPointIso` (per-vertex orthographic projection) | `seq= x= y= z= -> xp= yp=` |
+| `PRLI` | `ProjectList3DF` (batched perspective) | `seq= nbpt= orgx= orgy= orgz=` |
+| `PRLIISO` | `ProjectListIso` (batched orthographic) | `seq= nbpt= orgx= orgy= orgz=` |
+| `M2S` | `Map2Screen` (isometric brick world-to-screen) | `seq= x= y= z= -> xs= ys=` |
+
+A 5-tick exterior replay produces ~10K events (~660 KB full text, 60 bytes as a hash).
+An interior replay is smaller (~2.5K events, dominated by `M2S` calls). A full
+`--demo` replay produces hundreds of MB of full text — use `--projection-hash` for
+that volume.
+
+### Examples
+
+```bash
+# Full text capture for local diagnosis.
+lba2cc --load "002 Downtown.LBA" --fixed-dt 16 --tick 5 \
+       --capture-projection /tmp/out.projrec --exit
+
+# Hash only — CI baseline shape.
+lba2cc --load "002 Downtown.LBA" --fixed-dt 16 --tick 5 \
+       --projection-hash /tmp/out.hash --exit
+
+# Both — full text plus its hash, with matching content.
+lba2cc --load "002 Downtown.LBA" --fixed-dt 16 --tick 5 \
+       --capture-projection /tmp/full.projrec --projection-hash /tmp/full.hash --exit
+```
+
+### Test fixtures and baselines
+
+[`tests/automation/test_projection_baseline.sh`](../tests/automation/test_projection_baseline.sh)
+runs a 5-tick Downtown replay with `--projection-hash` and byte-compares the result
+to a committed golden under [`tests/projection/baselines/`](../tests/projection/baselines/).
+Pattern-matches the UI capture tests above.
+
+```bash
+# Validate the projection baseline (uses LBA2_TEST_SAVE if set, else the default save).
+LBA2_GAME_DIR=/path/to/data bash tests/automation/test_projection_baseline.sh
+
+# Regenerate the golden after an intentional change.
+LBA2_GAME_DIR=/path/to/data LBA2_PROJECTION_REGEN=1 \
+    bash tests/automation/test_projection_baseline.sh
+```
+
+### Diagnosing a hash divergence
+
+The committed baseline is just a hash. When it differs from the build's output, the
+text isn't there to diff — you have to regenerate it:
+
+```bash
+# Current build:
+lba2cc --load "002 Downtown.LBA" --fixed-dt 16 --tick 5 \
+       --capture-projection /tmp/current.projrec --exit
+
+# Switch to the prior build (last known good), then repeat:
+lba2cc --load "002 Downtown.LBA" --fixed-dt 16 --tick 5 \
+       --capture-projection /tmp/prior.projrec --exit
+
+# First event that differs:
+diff /tmp/prior.projrec /tmp/current.projrec | head
+```
+
+The sequence number on the first divergent event tells you which projection call
+changed — `SETPROJ` for the setup, `PROJ`/`PROJISO` for individual vertices, `M2S`
+for the isometric brick origin. Cross-reference with `tests/projection/README.md`
+for the workflow notes.
+
+If the divergence is non-deterministic (same build produces different hashes), the
+problem is upstream of projection — `--fixed-dt`, RNG seed, or new global state
+leaking timing information.
 
 ## Tests
 

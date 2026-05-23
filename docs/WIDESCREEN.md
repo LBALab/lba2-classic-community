@@ -42,9 +42,13 @@ Phase 0 is done. Phases 1–3 are the render-space core — a correct, centred w
 
 The projection 4:3 audit, captured in [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md). Inventoried every render-space aspect-ratio assumption, separated render space from UI space, and established the four findings above. It is the baseline the rest of the plan is cut against.
 
-### Phase 1 — extend polyrec
+### Phase 1 — projection capture (done)
 
-Before changing projection math, give it a regression net. The polyrec harness in `tests/` records and replays the engine's draw calls for ASM↔CPP equivalence; extend it to capture the projection setup and the projected screen coordinates, so a 640×480 baseline can be snapshotted and diffed. This is what lets Phase 2 prove the default build stays byte-identical while the wide path changes.
+Before changing projection math, give it a regression net. Phase 1 added a side-channel projection-capture file format that records every projection-pipeline event during a harness run — `SetProjection`, `SetIsoProjection`, per-vertex `LongProjectPoint`, batched `ProjectList`, and isometric `Map2Screen`. Output can be either full text (one event per line, large but diff-able) or a single FNV-1a 64-bit digest (60 bytes, CI-committable). See [`docs/CONTROL.md`'s Projection capture section](CONTROL.md#projection-capture) for the workflow and [`tests/projection/`](../tests/projection/) for the committed baselines.
+
+The contract: the hash for `Downtown.LBA` at 640×480 is `f624dd8a3c79d364`. Phase 2's projection-origin changes must not disturb it.
+
+This is independent from polyrec (which keeps recording draw calls for ASM↔CPP equivalence); the two harnesses are composable.
 
 ### Phase 2 — projection correction
 
