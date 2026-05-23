@@ -1110,6 +1110,13 @@ void MenuInventory(U32 tempo) {
        Both are conditional on the capture being armed; normal callers see no
        behaviour change. */
     if (s_inv_capture_path[0]) {
+        /* Match the normal in-game caller's pre-MenuInventory setup
+           (PERSO.CPP:1045-1048): StopSpeak terminates any active speech
+           so its overlay doesn't bleed.  Under null sound this is a no-op;
+           added for symmetry with the menu-options sweep finding so the
+           verb's frame matches what a player pressing inventory mid-game
+           sees regardless of pre-load state. */
+        StopSpeak();
         PtrMap = ObjPtrMap = BufferTexture;
         RepMask = 0xFFFF;
         AffScene(AFF_ALL_NO_FLIP);
