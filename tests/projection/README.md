@@ -84,17 +84,42 @@ If the divergence is non-deterministic (same build produces different
 hashes), the problem is upstream of projection — `--fixed-dt`, RNG
 seed, or new global state leaking timing information.
 
-## Adding a wider-resolution baseline
+## Wide-resolution baselines
 
-When Phase 3 lands a wider framebuffer (~853×480 at 16:9), generate a
-parallel set:
+Phase 3 of the widescreen plan lands `corpus_768x480.projrec.hash` and
+`demo_768x480.projrec.hash` — a parallel regression net for the wide
+render path. `RESOLUTION_X` must be a multiple of 8 (compile-time check
+in `LIB386/H/SYSTEM/RESOLUTION.H`), so 768 was picked over a literal
+16:9 (853 rounds down to 856, 768 is the cleanest near-16:9 multiple of
+8 from the doc's existing example).
+
+Build wide + regenerate:
 
 ```bash
-# Future, once a wider build exists.
+cmake -B build-wide -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_C_FLAGS="-DRESOLUTION_X=768" \
+    -DCMAKE_CXX_FLAGS="-DRESOLUTION_X=768"
+cmake --build build-wide
+
 LBA2_BIN=build-wide/SOURCES/lba2cc \
+  LBA2_GAME_DIR=/path/to/data \
+  LBA2_PROJREC_WIDTH=768 \
   bash scripts/dev/regen_projrec_baselines.sh
-# (writes corpus_853x480.projrec.hash and demo_853x480.projrec.hash)
 ```
 
-That gives a second regression net specific to the wide path, separate
-from the 640×480 one this PR establishes.
+Run wide tests against the wide build:
+
+```bash
+LBA2_BIN=build-wide/SOURCES/lba2cc \
+  LBA2_GAME_DIR=/path/to/data \
+  LBA2_PROJREC_WIDTH=768 \
+  bash tests/automation/test_projection_corpus.sh
+```
+
+`LBA2_PROJREC_WIDTH` selects which committed golden to compare against;
+it must match the binary's compiled `RESOLUTION_X`.
+
+The wide hashes are necessarily different from the 640×480 ones
+(different `ModeDesiredX` → different `SETPROJ`, different `M2S`, etc.).
+What they prove is that the wide path is deterministic across runs, so
+any future drift in the wide build gets caught.

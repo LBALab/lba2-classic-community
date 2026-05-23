@@ -2,17 +2,28 @@
 # Generate projrec baseline fixtures for the committed save corpus and the
 # attract-mode demo. Local-only — needs the built binary and retail game data.
 #
-# Outputs:
-#   tests/projection/baselines/corpus_640x480.projrec.hash   (50 saves, ~3 KB)
-#   tests/projection/baselines/demo_640x480.projrec.hash     (full demo, ~70 B)
+# Outputs (filenames tagged by render width):
+#   tests/projection/baselines/corpus_${WIDTH}x480.projrec.hash   (50 saves, ~3 KB)
+#   tests/projection/baselines/demo_${WIDTH}x480.projrec.hash     (full demo, ~70 B)
 #
 # Env:
-#   LBA2_BIN          path to the built binary (required)
-#   LBA2_GAME_DIR     retail data dir (required)
-#   PROJREC_SKIP_DEMO if set, skip the demo run (which is ~2 minutes)
+#   LBA2_BIN           path to the built binary (required)
+#   LBA2_GAME_DIR      retail data dir (required)
+#   LBA2_PROJREC_WIDTH render width tag for output filenames (default 640).
+#                      Must match the binary's compiled RESOLUTION_X; the script
+#                      does not detect it, the caller knows which binary they
+#                      built. Phase 3 of the widescreen plan uses 768 against
+#                      a wide build (cmake ... -DRESOLUTION_X=768).
+#   PROJREC_SKIP_DEMO  if set, skip the demo run (which is ~35 seconds)
 #
 # Usage:
+#   # Narrow (default 640x480):
 #   LBA2_BIN=build/SOURCES/lba2cc LBA2_GAME_DIR=/path/to/data \
+#     bash scripts/dev/regen_projrec_baselines.sh
+#
+#   # Wide:
+#   LBA2_BIN=build-wide/SOURCES/lba2cc LBA2_GAME_DIR=/path/to/data \
+#     LBA2_PROJREC_WIDTH=768 \
 #     bash scripts/dev/regen_projrec_baselines.sh
 
 set -eu
@@ -24,10 +35,13 @@ BASELINES="$REPO/tests/projection/baselines"
 
 : "${LBA2_BIN:?set LBA2_BIN to the built lba2cc binary}"
 : "${LBA2_GAME_DIR:?set LBA2_GAME_DIR to the retail data dir}"
+: "${LBA2_PROJREC_WIDTH:=640}"
 
 [ -x "$LBA2_BIN" ] || { echo "no binary: $LBA2_BIN" >&2; exit 1; }
 [ -d "$LBA2_GAME_DIR" ] || { echo "no game dir: $LBA2_GAME_DIR" >&2; exit 1; }
 [ -d "$CORPUS" ] || { echo "no corpus dir: $CORPUS" >&2; exit 1; }
+
+WIDTH_TAG="${LBA2_PROJREC_WIDTH}x480"
 
 mkdir -p "$BASELINES"
 
@@ -44,9 +58,10 @@ run_one() {
         >/dev/null 2>&1
 }
 
-corpus_out="$BASELINES/corpus_640x480.projrec.hash"
+corpus_out="$BASELINES/corpus_${WIDTH_TAG}.projrec.hash"
 echo "# projrec-corpus-hash v1" > "$corpus_out"
-echo "# 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save." >> "$corpus_out"
+echo "# 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save," >> "$corpus_out"
+echo "# at render width ${LBA2_PROJREC_WIDTH} (the binary's compiled RESOLUTION_X)." >> "$corpus_out"
 echo "# Regenerate with: scripts/dev/regen_projrec_baselines.sh" >> "$corpus_out"
 
 declare -a saves=()
@@ -81,7 +96,7 @@ echo "[regen] corpus: $n / ${#saves[@]} saves -> $corpus_out" >&2
 # iso-projection sample than any single save reaches.
 if [ -z "${PROJREC_SKIP_DEMO:-}" ]; then
     echo "[regen] demo: running 30000-tick attract-reel snapshot (~35 seconds)..." >&2
-    demo_out="$BASELINES/demo_640x480.projrec.hash"
+    demo_out="$BASELINES/demo_${WIDTH_TAG}.projrec.hash"
     tmp="$(mktemp -t projrec.XXXXXX.hash)"
     # Attract mode loops in --demo (no natural LM_THE_END exit), so we cap
     # at 30000 ticks (~8 min game time at 16ms/tick). That captures 135
@@ -96,7 +111,8 @@ if [ -z "${PROJREC_SKIP_DEMO:-}" ]; then
         >/dev/null 2>&1
     {
         echo "# projrec-hash v1"
-        echo "# 30000-tick attract-reel snapshot (--demo --fixed-dt 16 --tick 30000)."
+        echo "# 30000-tick attract-reel snapshot (--demo --fixed-dt 16 --tick 30000)"
+        echo "# at render width ${LBA2_PROJREC_WIDTH} (the binary's compiled RESOLUTION_X)."
         echo "# Regenerate with: scripts/dev/regen_projrec_baselines.sh"
         grep '^SCENE' "$tmp"
     } > "$demo_out"

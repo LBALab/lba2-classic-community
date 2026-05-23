@@ -4,9 +4,12 @@
 # committed golden. Phase 1.E of the widescreen plan — comprehensive
 # regression net across 50 diverse game states.
 #
-# The corpus baseline is what Phase 2's projection-origin / brick-clip /
-# Map2Screen changes must keep stable at 640x480. Any drift on any save
-# fails the test and points at the regressed hash by save name.
+# Width selection: LBA2_PROJREC_WIDTH (default 640) picks which committed
+# golden to compare against. Set to 768 against a wide build to validate the
+# Phase 3 wide path; the binary's compiled RESOLUTION_X must match.
+#
+# Any drift on any save fails the test and points at the regressed hash by
+# save name.
 #
 # Local-only (needs retail data + game directory). ~6-10 seconds total
 # (50 saves × 5 ticks each). Regenerate with:
@@ -19,13 +22,17 @@ TESTNAME=projection_corpus
 precheck
 
 CORPUS="$REPO/tests/savegame/corpus/saves/steam_classic_2023"
-GOLDEN="$REPO/tests/projection/baselines/corpus_640x480.projrec.hash"
+: "${LBA2_PROJREC_WIDTH:=640}"
+GOLDEN="$REPO/tests/projection/baselines/corpus_${LBA2_PROJREC_WIDTH}x480.projrec.hash"
 [ -d "$CORPUS" ] || skip "corpus dir not present: $CORPUS"
+[ -f "$GOLDEN" ] || [ "${LBA2_PROJECTION_REGEN:-}" = "1" ] \
+    || skip "no committed golden for width ${LBA2_PROJREC_WIDTH}: $(basename "$GOLDEN")"
 
 OUT="$(mktemp -t "${TESTNAME}.XXXXXX.hash")"
 {
     echo "# projrec-corpus-hash v1"
-    echo "# 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save."
+    echo "# 5-tick deterministic replay (--fixed-dt 16 --tick 5) per committed save,"
+    echo "# at render width ${LBA2_PROJREC_WIDTH} (the binary's compiled RESOLUTION_X)."
     echo "# Regenerate with: scripts/dev/regen_projrec_baselines.sh"
 } > "$OUT"
 
