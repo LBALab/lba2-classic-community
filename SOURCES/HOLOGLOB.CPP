@@ -1174,6 +1174,15 @@ void HoloMap() {
        body draws kick in.  Gated on capture-armed so normal callers (player
        pressing the holomap key after gameplay) see no behaviour change. */
     if (s_holo_capture_path[0]) {
+        /* Match the normal in-game caller's pre-HoloMap setup
+           (PERSO.CPP:1405-1414): StopSpeak terminates any active speech
+           and InitWaitNoInput/NoKey clear pending input state so the
+           holomap's input handler doesn't see leftover state from before
+           the harness call.  Under null sound StopSpeak is a no-op; added
+           for symmetry with the menu-options sweep finding. */
+        StopSpeak();
+        InitWaitNoInput(I_HOLOMAP | I_MENUS | I_RETURN | I_ACTION);
+        InitWaitNoKey();
         PtrMap = ObjPtrMap = BufferTexture;
         RepMask = 0xFFFF;
     }
