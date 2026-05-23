@@ -201,6 +201,94 @@ single render per tick stays free of double-counting, so non-modal ticks (includ
 whole savegame baseline corpus) are byte-identical to the merged behaviour. See
 [FIXED_DT_RESEARCH.md §7](FIXED_DT_RESEARCH.md) for the loop classes and the design.
 
+## UI capture
+
+Six console verbs drive each modal UI surface from the harness, render a settled frame,
+write a PNG via `SavePNG`, then exit cleanly. The world-space `--dump-state` is the
+guardrail for *simulation* state; these are the guardrail for *UI* rendering — what
+widescreen, font, palette, or layout changes are most likely to disturb.
+
+| Verb | Captures |
+|---|---|
+| `ui inventory <path>` | The inventory wheel + items + scene background |
+| `ui holomap <path>` | The rotating planet globe + island name strip |
+| `ui dialog <text-id> <path>` | The dialogue bubble + portrait + typewriter text for that text-id |
+| `ui menu-options <path>` | The in-game ESC menu (Volume / Language / Advanced / Controls) over the shaded scene |
+| `ui menu-main <path>` | The boot-time main menu (Resume / New Game / Load / Options / Quit) |
+| `ui found-object <numvar> <path>` | The found-object cinematic — 3D rotation of `TabInv[numvar]`'s item + dialogue |
+
+Each verb takes the destination path as its last argument. Compose with `--load` and
+`--exec` like any other console command; the verb opens the modal, captures, and exits
+without waiting for input:
+
+```bash
+lba2cc --load mysave.lba --exec "ui inventory inv.png" --fixed-dt 16 --tick 200 --exit
+lba2cc --load mysave.lba --exec "ui menu-main main.png" --fixed-dt 16 --tick 120 --exit
+```
+
+`text-id` for `ui dialog` indexes into whichever dialogue bank the current save's island
+has loaded (`START_FILE_ISLAND + Island`); ids invalid for that bank cause `Dial` to
+return early with no capture. `numvar` for `ui found-object` is the `TabInv` slot index
+(0 is Holomap, 1 is the magic ball, etc.).
+
+### Test fixtures and goldens
+
+Six `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
+committed PNG golden under `tests/savegame/corpus/baselines/ui/`. They run in
+`tests/automation/run.sh` alongside the other harness tests and require
+`SDL_VIDEODRIVER=dummy` (the goldens were rendered under dummy, so the comparison must
+be too).
+
+```bash
+SDL_VIDEODRIVER=dummy LBA2_GAME_DIR=/path/to/data tests/automation/run.sh
+```
+
+To regenerate a golden after an intentional rendering change:
+
+```bash
+SDL_VIDEODRIVER=dummy LBA2_UI_REGEN=1 bash tests/automation/test_ui_inventory.sh
+```
+
+All fixtures use `Anon1.LBA` as their save (early-game Citadel Island state, items in
+inventory, on an island whose dialogue bank has known text-ids).
+
+### Adding a new UI surface — the family pattern
+
+Six surfaces in, the pattern is templated. Each surface adds ~50-100 lines of additive
+code touching one modal source file plus the dispatcher. The four invariants worth
+following:
+
+- **Mirror the normal-caller setup, not just the modal call.** When the menu-options
+  verb was first added, the captured menu had garbled plasma, a blank first item, and
+  dialogue text bleeding through. Root cause: the in-game ESC handler at
+  `PERSO.CPP:846` calls `StopSpeak()` / `InitDial(0)` / `InitPlasmaMenu()` *before*
+  `OptionsMenu(FALSE)`, and the harness was skipping all three. Always trace the
+  normal call site and replicate everything it does, gated on capture-armed so
+  non-harness callers see no behaviour change.
+
+- **Capture from `Log`, not `Screen`, for most modals.** `Log` is the back buffer the
+  modal composites into; `BoxUpdate` only flushes dirty regions to `Screen`, so
+  capturing `Screen` on the harness path (no prior frame populating it) leaves
+  un-flushed regions black. Five of six surfaces need `Log`. Inventory is the lone
+  exception — its render path happens to leave `Screen` valid.
+
+- **Pre-arm `PtrMap`/`ObjPtrMap`** for any modal that renders 3D bodies via
+  `BodyDisplay`. Without it the texture filler dereferences a null/stale pointer and
+  segfaults. The original code re-sets these inside the modal, but typically *after*
+  the first `BodyDisplay` call. Hoist the init for the harness path.
+
+- **Exit via the modal's own exit sentinel**, not by simulating input. Each modal
+  has its own "I'm done" signal — `flag=2` for `DoFoundObj` / `MenuInventory`,
+  `FlagHoloEnd=TRUE` for `HoloGlobe`, returning `1000` from `DoGameMenu`. Set the
+  sentinel inside the capture hook then `break` out; the surrounding wrapper exits
+  cleanly.
+
+The pieces of a new surface are: a public `Modal_RequestCapture(path)` setter that
+arms a static path + iteration countdown; a capture hook in the modal's loop that
+SavePNGs and triggers the exit sentinel; a `cmd_ui` dispatcher branch; one
+`test_ui_modal.sh` + one committed golden PNG under
+`tests/savegame/corpus/baselines/ui/`.
+
 ## Tests
 
 `tests/automation/` drives the real binary and asserts on the dumped state. Local-only —
@@ -250,3 +338,10 @@ non-deterministic base.
 Done (independent of the above): `--polyrec <path>` triggers the existing polygon draw-call
 recording (`tests/SNAPSHOT/`, previously a manual Alt+F9) at a scripted `--load X --tick N`
 state, making ASM↔CPP captures reproducible. Requires an `ENABLE_POLY_RECORDING` build.
+
+Done (UI side of the regression net): six `ui <surface>` console verbs (see "UI capture"
+above) cover every modal UI surface — inventory wheel, planet globe, dialogue bubble,
+options menu, main menu, found-object cinematic — with byte-identical PNG goldens
+committed under `tests/savegame/corpus/baselines/ui/`. Pairs with (1)'s world-space
+guardrail: that one catches simulation perturbations from rendering changes; this one
+catches UI rendering changes directly. Most useful for the widescreen work.
