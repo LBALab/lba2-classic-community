@@ -44,6 +44,14 @@ extern "C" PTR_U8 BufCube;
 extern "C" PTR_U8 BufMap;
 extern "C" PTR_U8 TabBlock;
 extern "C" PTR_U8 BufferBrick;
+/* Phase 2 of the widescreen plan routed Map2Screen's hardcoded 288/226
+   origin offsets through the framebuffer dimensions. The ASM half of the
+   equivalence test still uses the 288/226 literals, so the CPP path must
+   evaluate to the same values — i.e. ModeDesiredX/2-32 = 288 (so X=640)
+   and ModeDesiredY/2-14 = 226 (so Y=480). main() pins them before any
+   Map2Screen call. */
+extern "C" U32 ModeDesiredX;
+extern "C" U32 ModeDesiredY;
 
 extern "C" U8 asm_CodeJeu;
 extern "C" S32 asm_XMap;
@@ -462,6 +470,11 @@ static void test_grille_random_stress(void) {
 }
 
 int main(void) {
+    /* Pin render dims to the default 4:3 so Map2Screen's framebuffer-derived
+       origin offsets evaluate to the original 288/226 the ASM compares against. */
+    ModeDesiredX = 640;
+    ModeDesiredY = 480;
+
     RUN_TEST(test_getadrblock_equivalence);
     RUN_TEST(test_map2screen_equivalence);
     RUN_TEST(test_map2screen_random_stress);
