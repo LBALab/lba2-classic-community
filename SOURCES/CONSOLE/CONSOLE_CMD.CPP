@@ -312,9 +312,20 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui dialog %d -> %s", (int)text_id, argv[3]);
         return;
     }
+    if (argc >= 3 && !strcmp(argv[1], "menu-options")) {
+        /* OptionsMenu(FALSE) opens the in-game options/pause menu and drives
+           DoGameMenu.  Menu_RequestCapture arms a one-shot SavePNG inside
+           DoGameMenu's loop; on capture, DoGameMenu returns 1000 (ESC
+           sentinel) and OptionsMenu's case-1000 exits cleanly. */
+        Menu_RequestCapture(argv[2]);
+        OptionsMenu(FALSE);
+        Console_Print("ui menu-options -> %s", argv[2]);
+        return;
+    }
     Console_Print("Usage: ui inventory <path>");
     Console_Print("       ui holomap <path>");
     Console_Print("       ui dialog <text-id> <path>");
+    Console_Print("       ui menu-options <path>");
 }
 
 static void cmd_give(int argc, const char *argv[]) {
@@ -1011,7 +1022,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap} <path> | ui dialog <text-id> <path>",
+                              "ui {inventory|holomap|menu-options} <path> | ui dialog <text-id> <path>",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "

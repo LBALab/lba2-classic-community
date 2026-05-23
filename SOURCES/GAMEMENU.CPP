@@ -6,6 +6,7 @@
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 
+#include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
@@ -2347,6 +2348,27 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
     }
 }
 
+/* Harness capture state — see Menu_RequestCapture() in GAMEMENU.H.  When the
+   path is non-empty, DoGameMenu's modal loop counts down per iteration;
+   on reaching zero it SavePNGs and returns 1000 (the "ESC" sentinel) so the
+   wrapping menu loop (OptionsMenu, MainGameMenu, ...) sees a clean exit.
+   The countdown gives the menu's fade-in and any per-frame text/sprite
+   animations time to settle into a steady visual state. */
+static char s_menu_capture_path[ADELINE_MAX_PATH] = "";
+static int s_menu_capture_countdown = 0;
+
+void Menu_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_menu_capture_path[0] = '\0';
+        s_menu_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_menu_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_menu_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_menu_capture_countdown = 60; /* iterations -- ~1 s at fixed-dt 16, past any
+                                      menu fade-in and dynamic-item initial draws */
+}
+
 S32 DoGameMenu(U16 *ptrmenu) {
     S32 flag = 1;
     U32 chrono;
@@ -2733,6 +2755,21 @@ S32 DoGameMenu(U16 *ptrmenu) {
         if (MyKey == K_ESC
                          OR Input &
             I_MENUS) {
+            AsciiMode = FALSE;
+            return 1000;
+        }
+
+        /* Harness one-shot capture: count down per iteration; on reaching
+           zero SavePNG the rendered menu and return the ESC sentinel so
+           the wrapping menu loop exits cleanly.  Read Log (back buffer),
+           not Screen -- DrawGameMenu composites the menu into Log, and the
+           BoxUpdate inside only flushes dirty regions to Screen; without a
+           prior frame populating Screen, the unflushed regions stay black.
+           The third surface to need this (after holomap and dialog). */
+        if (s_menu_capture_path[0] && --s_menu_capture_countdown <= 0) {
+            SavePNG(s_menu_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_menu_capture_path[0] = '\0';
             AsciiMode = FALSE;
             return 1000;
         }
