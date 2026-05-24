@@ -56,8 +56,18 @@ static int s_verbose = 0;
 static int s_have_resolution = 0;
 static long s_res_x = 0;
 static long s_res_y = 0;
+/* Min = VGA 320x200; below this the iso projection origin (ModeDesiredX/2 - 32)
+   can go negative and the UI (authored at 640x480) clips heavily. Cheap safety
+   net against typos like `--resolution 64x48`.
+
+   Max Y is capped at ADELINE_MAX_Y_RES (1024 in LIB386/H/SYSTEM/LIMITS.H) — the
+   size of TabOffLine[]/TabOffPhysLine[]. To support 1080p+, bump ADELINE_MAX_Y_RES
+   first, then this cap. Common reachable HD-ish modes today: 1280x720, 1024x768,
+   1366x768, 1920x1024. */
+#define CONTROL_RES_MIN_X 320
+#define CONTROL_RES_MIN_Y 200
 #define CONTROL_RES_MAX_X 1920
-#define CONTROL_RES_MAX_Y 1080
+#define CONTROL_RES_MAX_Y 1024
 
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
@@ -190,7 +200,7 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 long w = strtol(val, &end_w, 10);
                 long h = strtol(xp + 1, &end_h, 10);
                 if (end_w == xp && end_h && *end_h == '\0' &&
-                    w > 0 && h > 0 &&
+                    w >= CONTROL_RES_MIN_X && h >= CONTROL_RES_MIN_Y &&
                     w <= CONTROL_RES_MAX_X && h <= CONTROL_RES_MAX_Y &&
                     (w & 7) == 0) {
                     s_have_resolution = 1;
@@ -201,9 +211,10 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             }
             if (!parsed) {
                 fprintf(stderr,
-                        "[control] --resolution: invalid '%s' (need WxH; W>0 and W%%8==0; "
-                        "max %dx%d)\n",
-                        val, CONTROL_RES_MAX_X, CONTROL_RES_MAX_Y);
+                        "[control] --resolution: invalid '%s' (need WxH; W%%8==0; "
+                        "range %dx%d - %dx%d)\n",
+                        val, CONTROL_RES_MIN_X, CONTROL_RES_MIN_Y,
+                        CONTROL_RES_MAX_X, CONTROL_RES_MAX_Y);
             }
             read += 2;
             continue;
