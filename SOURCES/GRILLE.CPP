@@ -34,6 +34,14 @@ typedef struct
     S16 Xm;
     S16 Ym;
     S16 Zm;
+    S16 Xs; /* screen X — stored explicitly so DrawOverBrick can re-blit at the exact
+              same position the original AffBrickBlock paint used. The col index
+              alone is insufficient when Map2Screen's iso origin offset is not a
+              multiple of 24 (col*24-24 then loses the remainder, off-by-up-to-23
+              from the original XScreen — manifests as iso bricks 'jittering' under
+              DrawOverBrick at non-traditional render widths). At the historical
+              640x480 the offset is 288 which is 12*24 so the legacy col*24-24
+              reconstruction was exact. */
     S16 Ys;
     S16 Brick;
     S16 Col;
@@ -577,7 +585,6 @@ void InitBufferCube() {
 
 void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     register T_COLONB *ptrlbc;
-    register S32 colscreen;
     S32 col, i;
     S32 startcol, endcol;
     S32 xw, yw, zw;
@@ -588,8 +595,6 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
 
     for (col = startcol; col <= endcol; col++) {
         ptrlbc = &ListBrickColon[col][0];
-
-        colscreen = col * 24 - 24;
 
         for (i = 0; i < NbBrickColon[col]; i++) {
             /* bricks devant */
@@ -624,7 +629,7 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                                    1
                                        //				AND WorldColBrick(xw+SIZE_BRICK_XZ,yw,zw)==1 ) )
                                        AND WorldColBrick(xw + SIZE_BRICK_XZ, yw, zw) >= 1)) {
-                        CopyMask(ptrlbc->Brick, colscreen, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
                     }
                 }
             }
@@ -638,7 +643,6 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
 
 void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     register T_COLONB *ptrlbc;
-    register S32 colscreen;
     S32 col, i;
     S32 startcol, endcol;
 
@@ -648,8 +652,6 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     for (col = startcol; col <= endcol; col++) {
         ptrlbc = &ListBrickColon[col][0];
 
-        colscreen = col * 24 - 24;
-
         for (i = 0; i < NbBrickColon[col]; i++, ptrlbc++) {
             /* bricks devant */
             if (ptrlbc->Ys + 38 > ClipYMin
@@ -657,17 +659,17 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
                 if (ptrlbc->Ym > ymax) {
                     if ((ptrlbc->Zm >= zm)
                             OR(ptrlbc->Xm >= xm)) {
-                        CopyMask(ptrlbc->Brick, colscreen, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
                     }
                 } else if (ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, colscreen, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, colscreen, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
                     }
                 }
             }
@@ -682,7 +684,6 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
 
 void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     register T_COLONB *ptrlbc;
-    register S32 colscreen;
     S32 col, i;
     S32 startcol, endcol;
 
@@ -692,8 +693,6 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     for (col = startcol; col <= endcol; col++) {
         ptrlbc = &ListBrickColon[col][0];
 
-        colscreen = col * 24 - 24;
-
         for (i = 0; i < NbBrickColon[col]; i++, ptrlbc++) {
             /* bricks devant */
             if (ptrlbc->Ys + 38 > ClipYMin
@@ -702,12 +701,12 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
                                  AND ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, colscreen, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, colscreen, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
                     }
                 }
             }
@@ -749,6 +748,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
                 ptrlbc->Xm = x;
                 ptrlbc->Ym = y;
                 ptrlbc->Zm = z;
+                ptrlbc->Xs = (S16)XScreen;
                 ptrlbc->Ys = (S16)YScreen;
                 ptrlbc->Brick = (S16)(numbrick - 1);
                 ptrlbc->Col = brickcol;
@@ -828,6 +828,7 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
                 ptrlbc->Xm = x;
                 ptrlbc->Ym = y;
                 ptrlbc->Zm = z;
+                ptrlbc->Xs = (S16)XScreen;
                 ptrlbc->Ys = (S16)YScreen;
                 ptrlbc->Brick = (S16)(numbrick - 1);
                 ptrlbc->Col = brickcol;
