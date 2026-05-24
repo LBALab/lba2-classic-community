@@ -166,7 +166,49 @@ just won't re-blit the leftmost pixel column, acceptable edge case).
 GRILLE.CPP:820) keeps `>= -24` — relaxing it would be a no-op since
 it can't bucket negative-col bricks anyway.
 
-### A8. Misc full-framebuffer allocations + sizes
+### A8. DrawOverBrick col-scan miss for south walls
+
+[`SOURCES/GRILLE.CPP:593`](../SOURCES/GRILLE.CPP) — `DrawOverBrick` is the
+per-object re-blit that paints bricks in front of an actor *over* the
+actor's already-drawn pixels (so a wall correctly occludes the lower body
+of a character standing behind it). It scans the per-col `ListBrickColon`
+buckets covering the actor's screen bounding box:
+
+```cpp
+startcol = (ClipXMin + 24) / 24 - 1;   // historical
+endcol   = (ClipXMax + 24) / 24;
+```
+
+The `-1` was meant to cover one extra col to the left so that a wall at
+the actor's iso-cube *south* neighbour (which projects to
+`XScreen = actor_iso_XScreen - 24`, i.e. `col = actor_iso_col - 1`) is
+included.
+
+That `-1` only works when the actor's iso center lands exactly on a
+col-bucket boundary — true at widths where the iso origin offset
+`(ModeDesiredX/2 - 32)` is a multiple of 24. At 640 that's
+`288 = 12 × 24`, so the actor's clip box left edge and the wall-south
+col line up such that `col(ClipXMin) - 1 == wall_south_col`. At 768 the
+offset is `352 = 14 × 24 + 16` — actor centers slide off the boundary,
+`col(ClipXMin) - 1` ends up *in the same col as the actor*, and the
+south-wall col is missed entirely. The character is then drawn on top
+of walls he should be behind.
+
+Same `(offset % 24 != 0)` alignment class as `A7` and the prior
+[T_COLONB col round-trip fix (#206)](../SOURCES/GRILLE.CPP). Confirmed
+empirically: instrumented log of 874 hero-`DrawOverBrick` calls at 768
+fired `CopyMask` exactly **0** times for walls south of the hero; an
+equivalent narrow run fired it 287 times across 82 calls.
+
+Fix: widen the bias to `-2` and clamp `startcol >= 0`. The extra col is
+a harmless scan when empty; when populated, the per-brick
+`recouvre`/`infront` filter (world-cube coords, alignment-independent)
+keeps wrong walls out of the re-blit. `DrawOverBrick3` and
+`DrawOverBrickCage` use the same `-1` formula but apply to different
+object classes (sprites and the end-of-game cage) — not yet observed to
+manifest the visual bug at any width, so left alone pending evidence.
+
+### A9. Misc full-framebuffer allocations + sizes
 
 | Site | What |
 |---|---|
