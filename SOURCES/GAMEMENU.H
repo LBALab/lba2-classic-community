@@ -18,10 +18,15 @@ extern void InitMenuIncrustText(const char *text, S32 sprite, S32 time);
 /*--------------------------------------------------------------------------*/
 extern void DrawFireBar(S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul);
 /*--------------------------------------------------------------------------*/
-#define DrawFire(y, coul) DrawFireBar(320 - LargeurMenu / 2, \
-                                      y,                     \
-                                      320 + LargeurMenu / 2, \
-                                      y + HAUTEUR_STANDARD,  \
+/* Plasma/fire highlight bar on the active menu option. Sits horizontally
+   centred on the screen, LargeurMenu wide. The bar's x-range mirrors the
+   DrawOneString/DrawOneChoice box (x ± LargeurMenu/2) — those callers
+   already centre at ModeDesiredX/2 post-C2, so this macro tracks the same
+   anchor or the highlight slides off the menu items at wider widths. */
+#define DrawFire(y, coul) DrawFireBar((S32)ModeDesiredX / 2 - LargeurMenu / 2, \
+                                      y,                                       \
+                                      (S32)ModeDesiredX / 2 + LargeurMenu / 2, \
+                                      y + HAUTEUR_STANDARD,                    \
                                       coul)
 /*--------------------------------------------------------------------------*/
 extern int my_sort_function(const void *a, const void *b);
