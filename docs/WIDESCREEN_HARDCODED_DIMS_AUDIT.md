@@ -9,6 +9,31 @@ This doc catalogues every match, categorises by impact, and proposes an
 ordering for follow-up fix PRs. **No engine changes here** — just the
 survey.
 
+## A note on what counts as a "fix"
+
+Two distinct classes of hit hide behind a literal `640`:
+
+- **Row-stride / pointer arithmetic** that addresses a buffer (Log,
+  ScreenAux, the Z-buffer): the `640` is meant to be the buffer's row
+  pitch or end-of-pixels offset. At any wider buffer it's wrong — these
+  are real bugs that need the literal routed through the buffer's
+  actual width, regardless of any UI architecture decision.
+- **2D UI layout coordinates** (text anchors, panel right edges, full-
+  screen darken rects): the `640` is the *authored canvas width* the
+  UI was designed for. Whether to route these through `ModeDesiredX`
+  depends on the UI-strategy choice from [`WIDESCREEN.md` Phase 5](WIDESCREEN.md#ui-strategy-c1-vs-c2):
+  - **C1** = render the 4:3 UI letterboxed into a centred 4:3 region.
+    Keep the `640` / `639` / `320` literals — they're correct for the
+    authored layout. The wide framebuffer just frames the UI with
+    margins, like the SCREEN.HQR letterbox treatment from
+    [`docs/widescreen/art-strategy.md`](widescreen/art-strategy.md).
+  - **C2** = re-anchor UI to scale. Route the literals through
+    `ModeDesiredX/Y` so the UI fills the wider frame.
+
+This audit doesn't pick C1 vs C2 — it surfaces what each choice would
+need to touch. The **row-stride bugs are bugs under either choice** and
+should land first.
+
 ## Method
 
 ```bash
@@ -26,25 +51,33 @@ Total: **~110 distinct sites** across **15 source files**.
 
 ## Category A — Critical: corrupts memory / breaks rendering at wider widths
 
-These sites assume the framebuffer is exactly 640×480 in a way that breaks
-the renderer when it isn't. They're the priority — they'll be visible
-artifacts (or crashes) before any UI mispositioning shows up.
+**True bugs under either C1 or C2.** These sites use `640` as a buffer
+row stride or as an end-of-pixels offset; the framebuffer is now wider
+so the literal is wrong regardless of how the UI is laid out.
 
-### A1. Pixel-shift macros use 640 as row stride
+### A1. Pixel-shift macros use 640 as Log row stride
 
 [`SOURCES/INVENT.CPP:2273-2395`](../SOURCES/INVENT.CPP) — ~24 lines inside
-`InventoryShiftPixels*` helpers do raw pixel arithmetic like:
+`BackupAngles` / `RestoreAngles` (the dialog/inventory corner-rendering
+save/restore) do raw pixel arithmetic like:
 
 ```cpp
-dest[5] = src[640];       // 2nd ligne
-dest[10] = src[640 * 3];  // 4eme ligne
-dest[640] = src[1];       // 2nd ligne, reverse direction
+src = (U8 *)Log + TabOffLine[y0] + x0;   // src points INTO Log (framebuffer)
+*(U32 *)dest = *(U32 *)src;              // 1ere ligne
+dest[5] = src[640];                      // 2nd ligne  ← assumes Log row pitch = 640
+dest[10] = src[640 * 3];                 // 4eme ligne ← same
 ```
 
-The `640 * N` factors are the row pitch of the source/dest buffer. At
-768×480 the actual pitch is 768, so every "2nd ligne" read/write lands
-128 bytes early — pulling from the wrong row entirely. The inventory's
-texture-shift animation will scramble.
+The `640 * N` factors are the row pitch of `Log` (the back-buffer being
+read). At 768-wide Log, `src[640]` lands at column `x0 + 640` on the
+*same* row — wrong source pixels copied into the backup, garbage on
+restore. **This is a bug under both C1 and C2**: even with a letterboxed
+4:3 UI, the source pointer still indexes the wider Log buffer; one row
+down is `ModeDesiredX` bytes forward, never literal 640.
+
+Fix: replace the `640` row stride with `TabOffLine[1]` (or equivalent
+`(S32)ModeDesiredX`). The destination side stays as-is — `dest` is a
+small backup region with its own tight stride, unrelated to Log.
 
 ### A2. Fixed buffer offset into per-resolution memory
 
@@ -55,9 +88,14 @@ texture-shift animation will scramble.
 ```
 
 `ScreenAux` is sized `RESOLUTION_X * RESOLUTION_Y + RECOVER_AREA` per
-[`MEM.CPP:33`](../SOURCES/MEM.CPP). At 768×480, `640*480 = 307200` lands
-*inside* the active pixel region — `PtrBackupAngles` writes corrupt the
-scene rendered behind the inventory.
+[`MEM.CPP:33`](../SOURCES/MEM.CPP). The intent of the `640 * 480` offset
+is "past the end of active pixels" — into the `RECOVER_AREA` tail. At
+768×480 the active pixels extend to byte 368639; `640 * 480 = 307200`
+is *inside* them. Writes corrupt the scene behind the inventory.
+
+Bug under both C1 and C2 — the macro wants to land past whatever the
+framebuffer-pixel area actually is. Fix: `ScreenAux + ModeDesiredX *
+ModeDesiredY` (or `RESOLUTION_X * RESOLUTION_Y` if compile-time is fine).
 
 ### A3. Z-buffer clear stride
 
@@ -113,11 +151,20 @@ These mostly affect specific subsystems (config load, video playback,
 save thumbnails). Each needs the same `RESOLUTION_X * RESOLUTION_Y`
 treatment.
 
-## Category B — Functional: UI misalignment
+## Category B — Functional: UI layout architecture choice
 
-Doesn't corrupt memory but UI is positioned for 4:3 and misaligns in
-widescreen frames. The 3D scene rendering already centres correctly per
-Phase 2; these are the 2D UI layer.
+**Architecture-dependent.** These sites are 2D UI layout coords authored
+at 640×480. Whether to route them through `ModeDesiredX/Y` depends on
+the C1/C2 choice — see [`WIDESCREEN.md` Phase 5](WIDESCREEN.md#ui-strategy-c1-vs-c2):
+
+- **Under C1 (letterbox the 4:3 UI):** *leave the literals alone.* The
+  fix lives elsewhere — composite the rendered 4:3 UI into the centre
+  of the wider Log. Most of these sites become a no-op.
+- **Under C2 (re-anchor UI):** route each literal through
+  `ModeDesiredX/Y`. The list below is the surface area.
+
+The 3D scene rendering already centres correctly per Phase 2; these are
+purely the 2D UI layer.
 
 ### B1. Full-screen shade-box (menu darkening)
 
@@ -246,16 +293,27 @@ at the current 480 render height. They become bugs only when render
 Tracked as the follow-up after #206. Order minimises visible-bug surface
 in this priority:
 
-1. **Tier 1 — wider builds corrupt or visibly break.** A1 (`INVENT.CPP`
+1. **Tier 1 — true bugs, independent of UI strategy.** A1 (`INVENT.CPP`
    row strides), A2 (`PtrBackupAngles`), A3 (Z-buffer clear stride). These
-   manifest the moment any widescreen save loads or any inventory opens.
-2. **Tier 2 — wider builds misalign UI but render correctly.** B1
-   (shade-box), B2 (centred text), B3 (inventory + dialog rect), B4
-   (holomap UI), B5 (game-over projection), B6 (fade transitions). Phase
-   5 UI work in [`WIDESCREEN.md`](WIDESCREEN.md).
-3. **Tier 3 — Misc full-buffer sizing.** A6 (save thumbnails), A7 (config
-   buffer, video playback). Each subsystem on its own.
-4. **Tier 4 — HD-only concerns.** A4, A5, C6.
+   corrupt memory or render garbage at any wider build, no matter what
+   UI strategy is chosen. Land first.
+2. **Tier 1.5 — A6/A7 buffer sizing.** Save-thumbnail buffer, config
+   loader, cinematic video. Subsystem-specific fixes; can run in parallel
+   with Tier 1.
+3. **C1 vs C2 decision** — pick the UI strategy before touching Category
+   B. The bulk of Category B (~80 sites) is either a no-op or the whole
+   surface depending on this choice; don't litigate it site-by-site.
+4. **Tier 2 — UI layout per the chosen strategy.** Category B sites.
+   Under C1: build a 4:3-render-into-wider-Log compositor. Under C2:
+   route the literals.
+5. **Tier 4 — HD-only.** A4 (terrain horizon Y=479), A5 (holomap
+   ZBufYMax=479), C6. Fine at 480 height; defer.
+
+The author's intuition that "the inventory is 4:3 and should stay that
+way" maps cleanly to C1 — and is consistent with the SCREEN.HQR
+letterbox treatment from [`docs/widescreen/art-strategy.md`](widescreen/art-strategy.md).
+That call would also retire most of Tier 2 from this audit by making
+the literals correct-as-authored.
 
 ## Cross-references
 
