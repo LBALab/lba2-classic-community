@@ -2255,14 +2255,22 @@ void GereArdoise() {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-// On se place sur la RECOVER_AREA de ScreenAux car on a besoin de 48 octets (4*12)
-#define PtrBackupAngles (ScreenAux + 640 * 480)
+// On se place sur la RECOVER_AREA de ScreenAux car on a besoin de 48 octets (4*12).
+// The offset lands past the active framebuffer pixels — routed through
+// ModeDesiredX/Y so the macro stays correct at any render-space width. At the
+// default 640x480 this evaluates to the historical (ScreenAux + 640*480).
+#define PtrBackupAngles (ScreenAux + ModeDesiredX * ModeDesiredY)
 
 //──────────────────────────────────────────────────────────────────────────
 
 void BackupAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     U8 *dest = PtrBackupAngles;
     U8 *src;
+    // Log row pitch — was hardcoded 640 (correct at the original 4:3 framebuffer);
+    // now derive from TabOffLine so the per-row arithmetic below tracks the
+    // back buffer's actual width. Phase 3 Tier-1 fix; see
+    // docs/WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
+    const S32 stride = TabOffLine[1];
 
     //----- Angle Superieur Gauche
     src = (U8 *)Log + TabOffLine[y0] + x0;
@@ -2270,29 +2278,29 @@ void BackupAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     *(U32 *)dest = *(U32 *)src; // 1ere ligne
     dest[4] = src[4];
 
-    dest[5] = src[640]; // 2nd ligne
-    *(S16 *)(dest + 6) = *(S16 *)(src + 640 + 1);
+    dest[5] = src[stride]; // 2nd ligne
+    *(S16 *)(dest + 6) = *(S16 *)(src + stride + 1);
 
-    *(S16 *)(dest + 8) = *(S16 *)(src + 640 * 2); // 3eme ligne
+    *(S16 *)(dest + 8) = *(S16 *)(src + stride * 2); // 3eme ligne
 
-    dest[10] = src[640 * 3]; // 4eme ligne
-    dest[11] = src[640 * 4]; // 5eme ligne
+    dest[10] = src[stride * 3]; // 4eme ligne
+    dest[11] = src[stride * 4]; // 5eme ligne
 
     dest += 12;
 
     //----- Angle Inferieur Gauche
     src = (U8 *)Log + TabOffLine[y1 - 4] + x0;
 
-    dest[0] = src[0];   // 1ere ligne
-    dest[1] = src[640]; // 2eme ligne
+    dest[0] = src[0];      // 1ere ligne
+    dest[1] = src[stride]; // 2eme ligne
 
-    *(S16 *)(dest + 2) = *(S16 *)(src + 640 * 2); // 3eme ligne
+    *(S16 *)(dest + 2) = *(S16 *)(src + stride * 2); // 3eme ligne
 
-    *(S16 *)(dest + 4) = *(S16 *)(src + 640 * 3); // 4eme ligne
-    dest[6] = src[640 * 3 + 2];
+    *(S16 *)(dest + 4) = *(S16 *)(src + stride * 3); // 4eme ligne
+    dest[6] = src[stride * 3 + 2];
 
-    dest[7] = src[640 * 4]; // 5eme ligne
-    *(U32 *)(dest + 8) = *(U32 *)(src + 640 * 4 + 1);
+    dest[7] = src[stride * 4]; // 5eme ligne
+    *(U32 *)(dest + 8) = *(U32 *)(src + stride * 4 + 1);
 
     dest += 12;
 
@@ -2302,29 +2310,29 @@ void BackupAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     *(U32 *)dest = *(U32 *)(src - 4); // 1ere ligne
     dest[4] = src[0];
 
-    dest[5] = src[640 - 2]; // 2nd ligne
-    *(S16 *)(dest + 6) = *(S16 *)(src + 640 - 1);
+    dest[5] = src[stride - 2]; // 2nd ligne
+    *(S16 *)(dest + 6) = *(S16 *)(src + stride - 1);
 
-    *(S16 *)(dest + 8) = *(S16 *)(src + 640 * 2 - 1); // 3eme ligne
+    *(S16 *)(dest + 8) = *(S16 *)(src + stride * 2 - 1); // 3eme ligne
 
-    dest[10] = src[640 * 3]; // 4eme ligne
-    dest[11] = src[640 * 4]; // 5eme ligne
+    dest[10] = src[stride * 3]; // 4eme ligne
+    dest[11] = src[stride * 4]; // 5eme ligne
 
     dest += 12;
 
     //----- Angle Inferieur Droit
     src = (U8 *)Log + TabOffLine[y1 - 4] + x1;
 
-    dest[0] = src[0];   // 1ere ligne
-    dest[1] = src[640]; // 2eme ligne
+    dest[0] = src[0];      // 1ere ligne
+    dest[1] = src[stride]; // 2eme ligne
 
-    *(S16 *)(dest + 2) = *(S16 *)(src + 640 * 2 - 1); // 3eme ligne
+    *(S16 *)(dest + 2) = *(S16 *)(src + stride * 2 - 1); // 3eme ligne
 
-    *(S16 *)(dest + 4) = *(S16 *)(src + 640 * 3 - 1); // 4eme ligne
-    dest[6] = src[640 * 3 - 2];
+    *(S16 *)(dest + 4) = *(S16 *)(src + stride * 3 - 1); // 4eme ligne
+    dest[6] = src[stride * 3 - 2];
 
-    dest[7] = src[640 * 4 - 4]; // 5eme ligne
-    *(U32 *)(dest + 8) = *(U32 *)(src + 640 * 4 - 3);
+    dest[7] = src[stride * 4 - 4]; // 5eme ligne
+    *(U32 *)(dest + 8) = *(U32 *)(src + stride * 4 - 3);
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -2332,6 +2340,7 @@ void BackupAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
 void RestoreAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     U8 *src = PtrBackupAngles;
     U8 *dest;
+    const S32 stride = TabOffLine[1]; // Log row pitch — see BackupAngles above.
 
     //----- Angle Superieur Gauche
     dest = (U8 *)Log + TabOffLine[y0] + x0;
@@ -2339,29 +2348,29 @@ void RestoreAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     *(U32 *)dest = *(U32 *)src; // 1ere ligne
     dest[4] = src[4];
 
-    dest[640] = src[5]; // 2nd ligne
-    *(S16 *)(dest + 640 + 1) = *(S16 *)(src + 6);
+    dest[stride] = src[5]; // 2nd ligne
+    *(S16 *)(dest + stride + 1) = *(S16 *)(src + 6);
 
-    *(S16 *)(dest + 640 * 2) = *(S16 *)(src + 8); // 3eme ligne
+    *(S16 *)(dest + stride * 2) = *(S16 *)(src + 8); // 3eme ligne
 
-    dest[640 * 3] = src[10]; // 4eme ligne
-    dest[640 * 4] = src[11]; // 5eme ligne
+    dest[stride * 3] = src[10]; // 4eme ligne
+    dest[stride * 4] = src[11]; // 5eme ligne
 
     src += 12;
 
     //----- Angle Inferieur Gauche
     dest = (U8 *)Log + TabOffLine[y1 - 4] + x0;
 
-    dest[0] = src[0];   // 1ere ligne
-    dest[640] = src[1]; // 2eme ligne
+    dest[0] = src[0];      // 1ere ligne
+    dest[stride] = src[1]; // 2eme ligne
 
-    *(S16 *)(dest + 640 * 2) = *(S16 *)(src + 2); // 3eme ligne
+    *(S16 *)(dest + stride * 2) = *(S16 *)(src + 2); // 3eme ligne
 
-    *(S16 *)(dest + 640 * 3) = *(S16 *)(src + 4); // 4eme ligne
-    dest[640 * 3 + 2] = src[6];
+    *(S16 *)(dest + stride * 3) = *(S16 *)(src + 4); // 4eme ligne
+    dest[stride * 3 + 2] = src[6];
 
-    dest[640 * 4] = src[7]; // 5eme ligne
-    *(U32 *)(dest + 640 * 4 + 1) = *(U32 *)(src + 8);
+    dest[stride * 4] = src[7]; // 5eme ligne
+    *(U32 *)(dest + stride * 4 + 1) = *(U32 *)(src + 8);
 
     src += 12;
 
@@ -2371,29 +2380,29 @@ void RestoreAngles(S32 x0, S32 y0, S32 x1, S32 y1) {
     *(U32 *)(dest - 4) = *(U32 *)src; // 1ere ligne
     dest[0] = src[4];
 
-    dest[640 - 2] = src[5]; // 2nd ligne
-    *(S16 *)(dest + 640 - 1) = *(S16 *)(src + 6);
+    dest[stride - 2] = src[5]; // 2nd ligne
+    *(S16 *)(dest + stride - 1) = *(S16 *)(src + 6);
 
-    *(S16 *)(dest + 640 * 2 - 1) = *(S16 *)(src + 8); // 3eme ligne
+    *(S16 *)(dest + stride * 2 - 1) = *(S16 *)(src + 8); // 3eme ligne
 
-    dest[640 * 3] = src[10]; // 4eme ligne
-    dest[640 * 4] = src[11]; // 5eme ligne
+    dest[stride * 3] = src[10]; // 4eme ligne
+    dest[stride * 4] = src[11]; // 5eme ligne
 
     src += 12;
 
     //----- Angle Inferieur Droit
     dest = (U8 *)Log + TabOffLine[y1 - 4] + x1;
 
-    dest[0] = src[0];   // 1ere ligne
-    dest[640] = src[1]; // 2eme ligne
+    dest[0] = src[0];      // 1ere ligne
+    dest[stride] = src[1]; // 2eme ligne
 
-    *(S16 *)(dest + 640 * 2 - 1) = *(S16 *)(src + 2); // 3eme ligne
+    *(S16 *)(dest + stride * 2 - 1) = *(S16 *)(src + 2); // 3eme ligne
 
-    *(S16 *)(dest + 640 * 3 - 1) = *(S16 *)(src + 4); // 4eme ligne
-    dest[640 * 3 - 2] = src[6];
+    *(S16 *)(dest + stride * 3 - 1) = *(S16 *)(src + 4); // 4eme ligne
+    dest[stride * 3 - 2] = src[6];
 
-    dest[640 * 4 - 4] = src[7]; // 5eme ligne
-    *(U32 *)(dest + 640 * 4 - 3) = *(U32 *)(src + 8);
+    dest[stride * 4 - 4] = src[7]; // 5eme ligne
+    *(U32 *)(dest + stride * 4 - 3) = *(U32 *)(src + 8);
 }
 
 //──────────────────────────────────────────────────────────────────────────
