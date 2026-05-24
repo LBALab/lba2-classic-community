@@ -15,6 +15,7 @@
 */
 
 #include "C_EXTERN.H"
+#include "PCX_LOAD.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
@@ -1442,7 +1443,7 @@ S32 AskForCD(void) {
     ret = ConfirmMenu(ask_txt, ok_txt, cancel_txt);
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Load_HQR(tmpFilePath, Log, PCR_CDROM);
+    Pcx_LoadCentered(tmpFilePath, Log, PCR_CDROM);
     BoxStaticFullflip();
 
     return ret;
