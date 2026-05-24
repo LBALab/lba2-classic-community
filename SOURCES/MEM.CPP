@@ -6,6 +6,7 @@
 */
 
 #include "C_EXTERN.H" // include LBA2
+#include "PCX_LOAD.H"
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/RESOLUTION.H>
@@ -38,7 +39,8 @@ T_MEM ListMem[] = {
     {(void **)&TabBlock, 0},        // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
     {(void **)&ListFlowDots, sizeof(S_ONE_DOT) * MAX_FLOW_DOTS *MAX_FLOWS},
     {(void **)&PtrXplPalette, SIZE_XPL},
-    {(void **)&BufferSmack, 100000L}, // tempo ?
+    {(void **)&BufferSmack, 100000L},                              // tempo ?
+    {(void **)&PcxStaging, (S32)PCX_STAGING_BYTES + RECOVER_AREA}, // 640x480 PCX staging
 };
 
 // Fills in the framebuffer-sized entries of ListMem before InitMemory() runs the
