@@ -1034,7 +1034,7 @@ void DrawCadreNewGame(void) {
 
     DrawCadreSave(240, 50);
 
-    x = 320 - dx / 2;
+    x = (S32)ModeDesiredX / 2 - dx / 2;
     y = 50 + (SCREEN_SAVE_HEIGHT) / 2 - dy / 2;
 
     AffGraph(0, x, y, ptr);
@@ -1047,8 +1047,8 @@ void DrawCadreNewGame(void) {
 
 static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSel) {
     S32 n;
-    S32 x0 = 320 - GM_MENU_HALF_WIDTH_SAVE;
-    S32 x1 = 320 + GM_MENU_HALF_WIDTH_SAVE;
+    S32 x0 = (S32)ModeDesiredX / 2 - GM_MENU_HALF_WIDTH_SAVE;
+    S32 x1 = (S32)ModeDesiredX / 2 + GM_MENU_HALF_WIDTH_SAVE;
 
     for (n = 0; n < NB_GAME_CHOICE; n++) {
         S32 y;
@@ -1105,7 +1105,7 @@ S32 InputPlayerName(S32 choice, char *name) {
 
     len = strlen(PlayerName);
 
-    x = 320;
+    x = (S32)ModeDesiredX / 2;
     y = Y_START_CHOICE + choice * 60;
 
     ManageTime();
@@ -1136,11 +1136,11 @@ S32 InputPlayerName(S32 choice, char *name) {
                 CursorActif = FALSE;
         }
 
-        DrawOneString(320, y, PlayerName, 1);
+        DrawOneString((S32)ModeDesiredX / 2, y, PlayerName, 1);
         BoxUpdate();
 
         if (flag == 1) {
-            x = 320 + SizeFont(PlayerName) / 2;
+            x = (S32)ModeDesiredX / 2 + SizeFont(PlayerName) / 2;
             flag = 0;
         }
 
@@ -1188,10 +1188,13 @@ S32 InputPlayerName(S32 choice, char *name) {
             default:
                 akey &= 0xFF;
 
-                if (x < 550 AND akey >= 32 AND akey <= 122) {
+                /* Max input cursor X = original 550 = centre(320) + 230 px. Keep the
+                   same 230 px half-width at any resolution so the name-entry field
+                   visible area stays at its authored 460 px width. */
+                if (x < (S32)ModeDesiredX / 2 + 230 AND akey >= 32 AND akey <= 122) {
                     PlayerName[len++] = (char)akey;
                     PlayerName[len] = '\0';
-                    x = 320 + SizeFont(PlayerName) / 2;
+                    x = (S32)ModeDesiredX / 2 + SizeFont(PlayerName) / 2;
                 }
                 break;
             }
@@ -1244,7 +1247,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     CopyScreen(Screen, Log);
 
     if (FlagShadeMenu)
-        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
 
 #ifdef DEBUG_TOOLS
     if (mess & 0x80000000) // chargement d'un bug
@@ -1334,7 +1337,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         ManageTime();
 
         if (flag == 3) {
-            DrawSingleString(320, 25, (char *)GetMultiText(mess, string));
+            DrawSingleString((S32)ModeDesiredX / 2, 25, (char *)GetMultiText(mess, string));
             flag = 1;
         }
 
@@ -1357,7 +1360,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 else if ((start + NB_GAME_CHOICE < nb) AND(n == NB_GAME_CHOICE - 1))
                     draw |= ARROW_ID;
 
-                DrawOneString(320, Y_START_CHOICE + 60 * n, ptrlist[n + start], draw);
+                DrawOneString((S32)ModeDesiredX / 2, Y_START_CHOICE + 60 * n, ptrlist[n + start], draw);
             }
 
             draw = 1;
@@ -1389,7 +1392,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     sdraw |= ARROW_SG;
                 else if ((start + NB_GAME_CHOICE < nb) AND(sn == NB_GAME_CHOICE - 1))
                     sdraw |= ARROW_ID;
-                DrawOneString(320, Y_START_CHOICE + 60 * sn, ptrlist[select], sdraw);
+                DrawOneString((S32)ModeDesiredX / 2, Y_START_CHOICE + 60 * sn, ptrlist[select], sdraw);
             }
         }
 
@@ -1505,7 +1508,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                             start++;
                         }
                     } else {
-                        DrawOneString(320, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
+                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
 
@@ -1524,7 +1527,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     if (select < start) {
                         start--;
                     } else {
-                        DrawOneString(320, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
+                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
                     if (flagnew AND select == nb - 1)
@@ -1537,7 +1540,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
             }
         }
 
-        DrawOneString(320, ys, ptrlist[select], draw);
+        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select], draw);
         BoxUpdate();
 
         if (Input & I_DOWN OR MyKey == K_GRAY_DOWN) {
@@ -1548,7 +1551,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         start++;
                     }
                 } else {
-                    DrawOneString(320, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
+                    DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select - 1], (draw & 0xFFFFFFFE));
                 }
                 flag = 1;
 
@@ -1567,7 +1570,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 if (select < start) {
                     start--;
                 } else {
-                    DrawOneString(320, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
+                    DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[select + 1], (draw & 0xFFFFFFFE));
                 }
                 flag = 1;
                 if (flagnew AND select == nb - 1)
@@ -1594,7 +1597,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         if (start >= (nb - (NB_GAME_CHOICE - 1)))
                             start = nb - NB_GAME_CHOICE;
                     } else {
-                        DrawOneString(320, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
 
@@ -1617,7 +1620,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     if (select < start) {
                         start = select;
                     } else {
-                        DrawOneString(320, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                     }
                     flag = 1;
                     if (flagnew AND select == nb - 1)
@@ -1635,7 +1638,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     select = 0;
 
                     if (start == 0) {
-                        DrawOneString(320, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                        DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                     } else
                         start = 0;
 
@@ -1656,7 +1659,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 select = nb - 1;
 
                 if (start == (nb - NB_GAME_CHOICE)) {
-                    DrawOneString(320, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
+                    DrawOneString((S32)ModeDesiredX / 2, ys, ptrlist[oldselect], (draw & 0xFFFFFFFE));
                 } else {
                     start = nb - NB_GAME_CHOICE;
                     if (start < 0)
@@ -1676,7 +1679,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         if (MyKey == K_D OR MyKey == K_BACKSPACE OR MyKey == K_GRAY_SUPPR) {
             CopyScreen(Screen, Log);
             if (FlagShadeMenu)
-                ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
             BoxStaticFullflip();
 
             if (DeleteSavedGame()) {
@@ -1705,7 +1708,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
             CopyScreen(Screen, Log);
             if (FlagShadeMenu)
-                ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
             BoxStaticFullflip();
 
             flag = 1; // redraw menu
@@ -1895,7 +1898,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
 
         for (n = 0; n < NB_GAME_CHOICE; n++) {
             if ((n + start) != select) {
-                ClearOneString(320, Y_START_CHOICE + 60 * n);
+                ClearOneString((S32)ModeDesiredX / 2, Y_START_CHOICE + 60 * n);
             }
         }
     }
@@ -1906,7 +1909,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
     if (flagflip) {
         CopyScreen(Screen, Log);
         if (FlagShadeMenu)
-            ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+            ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
         BoxStaticFullflip();
     }
 
@@ -2195,10 +2198,10 @@ void DrawGameMenu(U16 *ptrmenu, S32 justone) {
 
         if (justone) {
             if (n == selected) {
-                DrawOneChoice(320, y, type, num, TRUE);
+                DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, TRUE);
             }
         } else {
-            DrawOneChoice(320, y, type, num, (n == selected));
+            DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, (n == selected));
         }
 
         y += HAUTEUR_STANDARD + MENU_SPACE;
@@ -2856,7 +2859,7 @@ S32 GereVolumeMenu(void) {
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
     if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
     }
 
 #ifdef CDROM
@@ -2912,7 +2915,7 @@ S32 GereLanguageMenu(void) {
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
     if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
     }
 
     while (!flag) {
@@ -2956,7 +2959,7 @@ S32 GereAdvancedOptionsMenu(void) {
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
     if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
     }
 
     while (!flag) {
@@ -3019,7 +3022,7 @@ S32 GereControllerMenu(void) {
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
     if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
     }
 
     while (!flag) {
@@ -3092,7 +3095,7 @@ S32 OptionsMenu(S32 flagflip) {
 	BoxReset() ;
 */
     if (FlagShadeMenu) {
-        ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
         BoxStaticFullflip();
         PaletteSync(PtrPalNormal);
     }
@@ -3162,7 +3165,7 @@ S32 DeleteSavedGame(void) {
     S32 ret = -1;
     S32 select;
 
-    DrawOneString(320, 80, PlayerName, 2);
+    DrawOneString((S32)ModeDesiredX / 2, 80, PlayerName, 2);
     ptr = LoadGameScreen();
     if (ptr)
         DrawScreenSave(ptr, 240, 130);
@@ -3217,14 +3220,14 @@ void ZoomSavedGame(S32 x, S32 y) {
         time = TimerRefHR - savetimer;
 
         x0 = RegleTrois(x, 0, TIME_ZOOM_SAVE, time);
-        x1 = RegleTrois(x + SCREEN_SAVE_WIDTH - 1, 639, TIME_ZOOM_SAVE, time);
+        x1 = RegleTrois(x + SCREEN_SAVE_WIDTH - 1, (S32)ModeDesiredX - 1, TIME_ZOOM_SAVE, time);
         y0 = RegleTrois(y, 0, TIME_ZOOM_SAVE, time);
-        y1 = RegleTrois(y + SCREEN_SAVE_HEIGHT - 1, 479, TIME_ZOOM_SAVE, time);
+        y1 = RegleTrois(y + SCREEN_SAVE_HEIGHT - 1, (S32)ModeDesiredY - 1, TIME_ZOOM_SAVE, time);
 
-        if (x0 <= 0 OR y0 <= 0 OR x1 >= 639 OR y1 >= 479) {
+        if (x0 <= 0 OR y0 <= 0 OR x1 >= (S32)ModeDesiredX - 1 OR y1 >= (S32)ModeDesiredY - 1) {
             flag = TRUE;
         } else {
-            ScaleBox(0, 0, 639, 479, Screen, x0, y0, x1, y1, Log);
+            ScaleBox(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, Screen, x0, y0, x1, y1, Log);
             BoxStaticAdd(x0, y0, x1, y1);
             BoxUpdate();
         }
@@ -3308,11 +3311,11 @@ S32 IsFirstGameLaunched(void) {
 static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
     HQ_MixSample(SAMPLE_FOUND_OBJ, 0x1000, 0, 1, 64, 127);
     CopyScreen(Screen, Log);
-    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+    ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
     {
         char savedMsg[256];
         CopyUtf8ToCp850(savedMsg, sizeof savedMsg, GetLocalizedMenuLabel(label));
-        DrawSingleString(320, 240, savedMsg);
+        DrawSingleString((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, savedMsg);
     }
     BoxStaticFullflip();
     {
@@ -3523,7 +3526,7 @@ S32 MainGameMenu(S32 load) {
             MemoClipWindow();
             UnsetClipWindow();
 
-            ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+            ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
             BoxStaticFullflip();
 
             if (!FadeMenu)
@@ -3669,7 +3672,7 @@ S32 MainGameMenu(S32 load) {
             case 0:
                 CopyScreen(Screen, Log);
                 if (FlagShadeMenu)
-                    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                    ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
                 BoxStaticFullflip();
                 break;
 
@@ -3732,7 +3735,7 @@ S32 MainGameMenu(S32 load) {
 
                 CopyScreen(Screen, Log);
 
-                ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
                 NewCube = savenewcube;
                 BoxStaticFullflip();
                 RestoreTimer();
@@ -3759,7 +3762,7 @@ S32 MainGameMenu(S32 load) {
             case 0:
                 CopyScreen(Screen, Log);
                 if (FlagShadeMenu)
-                    ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                    ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
                 BoxStaticFullflip();
                 break;
 
@@ -3811,7 +3814,7 @@ S32 MainGameMenu(S32 load) {
 
                 CopyScreen(Screen, Log);
 
-                ShadeBoxBlk(0, 0, 639, 479, SCREEN_SHADE_LVL);
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
                 NewCube = savenewcube;
                 BoxStaticFullflip();
                 RestoreTimer();
@@ -3935,7 +3938,7 @@ void GameOver() {
 
     zoom = GAMEOVER_MINZOOM;
 
-    SetProjection(320, 240, 128, 200, 200);
+    SetProjection((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, 128, 200, 200);
     SetFollowCamera(0, 0, 0, 0, 0, 0, zoom);
     SetLightVector(0, 0, 0);
 
@@ -4029,7 +4032,7 @@ void    Help( U8 flaggame )
                 WaitInput()     ;
                 FadeToBlack( PalettePcx ) ;
                 CopyScreen( Screen, Log ) ;
-                if( FlagShadeMenu )     ShadeBoxBlk( 0, 0, 639, 479, SCREEN_SHADE_LVL ) ;
+                if( FlagShadeMenu )     ShadeBoxBlk( 0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL ) ;
                 BoxStaticFullflip() ;
                 FadeMenu = TRUE ;
                 RestoreTimer()  ;
@@ -4518,10 +4521,10 @@ void DemoLogo(void) {
     ColorFont(LBAWHITE);
 
     // cadre
-    x0 = 320 - SizeFont(string) / 2 - 50;
-    x1 = 320 + SizeFont(string) / 2 + 50;
-    y0 = 240 - 25;
-    y1 = 240 + 25;
+    x0 = (S32)ModeDesiredX / 2 - SizeFont(string) / 2 - 50;
+    x1 = (S32)ModeDesiredX / 2 + SizeFont(string) / 2 + 50;
+    y0 = (S32)ModeDesiredY / 2 - 25;
+    y1 = (S32)ModeDesiredY / 2 + 25;
     //      ShadeBoxBlk( 0, 0, 639, 479, SCREEN_SHADE_LVL ) ;
     BackupAngles(x0, y0, x1, y1);
     ShadeBoxBlk(x0, y0, x1, y1, MENU_SHADE_LVL);
@@ -4630,6 +4633,11 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
 
         PaletteSync(PalettePcx);
 
+        // TODO(pcx): venetian-blind fade reads a 640x480 PCX (`screen`) and blits
+        // into the framebuffer (Log). The 640/479/639 literals are PCX-image
+        // dimensions, not framebuffer ones. At wide widths the PCX paints only the
+        // left 640 columns of the framebuffer — fix when the PCX-resampling pass
+        // lands (Phase 5 / WIDESCREEN.md).
         for (y = 0; y <= 479; y++) {
             CopyBlock(0, y, 639, y + 4, screen, 0, y, Log);
             y += 5;
