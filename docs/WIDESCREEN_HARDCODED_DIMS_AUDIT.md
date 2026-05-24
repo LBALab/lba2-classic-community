@@ -137,7 +137,36 @@ DefFileBufferInit("…/NAME.ME", BufSpeak, 640 * 480);
 likely truncates the buffer to a 4:3 region. Save/load thumbnails may
 corrupt at wider widths.
 
-### A7. Misc full-framebuffer allocations + sizes
+### A7. Iso AffBrickBlock left clip assumes hotX=-24
+
+[`SOURCES/GRILLE.CPP:738`](../SOURCES/GRILLE.CPP) — `AffBrickBlock` was
+gated on `XScreen >= -24`. The threshold matches iso bricks with
+`hotX = -24` (half-brick centered), but many iso bricks have `hotX = 0`
+or `+24`. Their visible pixel range at `XScreen = -32` is `[0, 15]` —
+16 pixels on-screen — yet they were rejected.
+
+The historical 4:3 hid this. The iso origin offset is
+`ModeDesiredX/2 - 32 = 288 = 12 × 24` at 640, and the integer iso-diagonal
+`x - z` always lands on `XScreen` values that are exact multiples of 24
+relative to that offset — so no iso column ever falls in the "visible
+but rejected" `[-47, -24)` strip. At 768 the offset is `352 = 14 × 24 + 16`;
+the iso diagonal `x - z = -16` projects to `XScreen = -32` and the
+left-edge wall column drops.
+
+The bug pops on any width where `(ModeDesiredX/2 - 32) % 24 != 0` —
+that's 768, 800, 1280, 1366, 1920 (and similar). It silently hides on
+640, 1024, 1600 (all multiples of 48). Same projection-correct /
+consumer-broken pattern as A1/A2/A3 above and as the prior
+[T_COLONB col round-trip fix (#206)](../SOURCES/GRILLE.CPP).
+
+Fix: relax to `XScreen >= -47` and skip `ListBrickColon` bucketing for
+`XScreen < -24` (col index would go negative otherwise — DrawOverBrick
+just won't re-blit the leftmost pixel column, acceptable edge case).
+`AffBrickBlockColon` (the mask-only sibling used by labyrinth mode at
+GRILLE.CPP:820) keeps `>= -24` — relaxing it would be a no-op since
+it can't bucket negative-col bricks anyway.
+
+### A8. Misc full-framebuffer allocations + sizes
 
 | Site | What |
 |---|---|
