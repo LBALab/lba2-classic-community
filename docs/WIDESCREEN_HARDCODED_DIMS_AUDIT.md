@@ -34,6 +34,32 @@ This audit doesn't pick C1 vs C2 — it surfaces what each choice would
 need to touch. The **row-stride bugs are bugs under either choice** and
 should land first.
 
+## How to sweep for alignment-class sibling bugs
+
+A1/A7/A8 are all **alignment-class** bugs: code that mixes iso-grid arithmetic
+(multiples of 24 pixels) with screen-space thresholds. Historical 4:3 hides
+them because the iso origin offset `(ModeDesiredX/2 - 32) = 288` is a clean
+multiple of 24; widths that fall off that alignment (`% 24 != 0`) expose them.
+Likely-broken widths: 768, 800, 1280, 1366. Likely-clean widths: 640, 1024, 1600.
+
+Once an instrumentation point is set up (e.g. an env-var-gated stderr log in
+the suspect function), sweep from a single binary using the runtime
+`--resolution` flag:
+
+```bash
+for w in 640 768 800 1024 1280 1366 1600 1920; do
+    LBA2_DEBUG_<your-feature>=1 \
+        ./build/SOURCES/lba2cc --resolution ${w}x768 \
+        --demo --tick 500 --exit --screenshot /tmp/sweep_${w}.png \
+        2> /tmp/sweep_${w}.log
+done
+```
+
+Diff the logs / screenshots across widths. Any divergence that correlates with
+`(w/2 - 32) % 24 != 0` is a candidate for the same alignment-class root cause.
+Sibling fixes shipped: `#210` (A7, iso left clip), `#211` (A8, DrawOverBrick
+col scan), `#206` (T_COLONB col round-trip — pre-dates this doc).
+
 ## Method
 
 ```bash
