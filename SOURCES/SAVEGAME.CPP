@@ -532,8 +532,12 @@ void SaveGame(S32 flagmess) {
     //	char string[30] ;
     //	S32	x0, y0, x1, y1 ;
 
-    // Image 160x120
-    ScaleBox(0, 0, 639, 479, Log, 0, 0, 159, 119, BufSpeak + 50000L); // old Screen
+    // Image 160x120: capture the whole framebuffer (whatever its width) into the
+    // 160x120 save thumbnail. ScaleBox handles non-square scaling — at wider
+    // widths the captured frame is squeezed horizontally into the same 4:3
+    // thumbnail box; the result is still recognisable in the save-load list and
+    // matches the dimensions DrawScreenSave expects.
+    ScaleBox(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, Log, 0, 0, 159, 119, BufSpeak + 50000L);
     SaveBlock(BufSpeak + 50000L, BufSpeak + 150000L, 0, 0, 159, 119);
     RemapPicture(BufSpeak + 150000L, 160 * 120);
 
