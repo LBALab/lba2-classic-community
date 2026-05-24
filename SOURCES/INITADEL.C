@@ -4,6 +4,7 @@
 #include "DIRECTORIES.H"
 
 #include "AIL/COMMON.H"
+#include "CONTROL.H"
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
 #include "SVGA/VIDEO.H"
@@ -165,8 +166,14 @@ void InitAdeline(S32 argc, char *argv[]) {
         exit(1); // TODO: Implement graceful exit
     }
 
-    if (!InitGraphics(RESOLUTION_X, RESOLUTION_Y)) {
-        exit(1); // TODO: Implement graceful exit
+    {
+        /* --resolution WxH overrides the compile-time defaults. Validated by
+           Control_ParseArgs (positive, multiple of 8, within CONTROL_RES_MAX_*). */
+        U32 reqResX = Control_HasResolution() ? (U32)Control_GetResolutionX() : (U32)RESOLUTION_X;
+        U32 reqResY = Control_HasResolution() ? (U32)Control_GetResolutionY() : (U32)RESOLUTION_Y;
+        if (!InitGraphics(reqResX, reqResY)) {
+            exit(1); // TODO: Implement graceful exit
+        }
     }
 
     // ··········································································

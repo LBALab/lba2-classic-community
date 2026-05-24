@@ -33,6 +33,13 @@ int Control_IsActive(void);
    so a headless run is self-explaining and a hang shows what blocked it. */
 int Control_IsVerbose(void);
 
+/* Resolution override via --resolution WxH. Returns 1 if the flag was supplied (use
+   Control_GetResolutionX/Y), 0 otherwise (use the compile-time RESOLUTION_X/RESOLUTION_Y
+   defaults). Parsed in Control_ParseArgs; safe to call after that. */
+int Control_HasResolution(void);
+long Control_GetResolutionX(void);
+long Control_GetResolutionY(void);
+
 /* Set up the boot path and arm the tick hook. Call once, instead of MainGameMenu(),
    when active: applies --load (InitGame(-1) + ChangeCube while FlagLoadGame is set)
    or a fresh InitGame(1), then arms Control_TickHook. Returns 1 on success (caller

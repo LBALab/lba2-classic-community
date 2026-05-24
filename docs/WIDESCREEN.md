@@ -119,7 +119,18 @@ It is still useful as a **call-site map** — its diff touches most of the rende
 
 ## How to test a wider build
 
-With the resolution constants from PR #134 in place, build with an overridden `RESOLUTION_X`. Pass it to **both** the C and C++ flag sets — `SOURCES/INITADEL.C` is C and the rest of the engine is C++; overriding only one produces a build where the two halves disagree on the framebuffer size.
+**Preferred (any existing build):** pass `--resolution WxH` at launch. No rebuild needed; the framebuffer is sized at startup.
+
+```bash
+./build/SOURCES/lba2cc --resolution 768x480 --game-dir /path/to/data
+./build/SOURCES/lba2cc --resolution 1280x720 --game-dir /path/to/data
+```
+
+Range `320x200` – `1920x1024`, width must be a multiple of 8 (matches the historical `RESOLUTION.H` static check). Omit the flag for the compile-time default (`640x480` unless overridden at configure time). Useful for sweeping width-dependent bugs across many candidate resolutions from one binary — see [WIDESCREEN_HARDCODED_DIMS_AUDIT.md "How to sweep"](WIDESCREEN_HARDCODED_DIMS_AUDIT.md#how-to-sweep-for-alignment-class-sibling-bugs).
+
+After Phase 2 + 3, the resulting build shows the centred 3D world filling the wider frame; the 2D UI stays left-justified at its 640-wide layout until Phase 5.
+
+**Compile-time alternative (when you specifically want a different default):** build with an overridden `RESOLUTION_X`. Pass it to **both** the C and C++ flag sets — `SOURCES/INITADEL.C` is C and the rest of the engine is C++; overriding only one produces a build where the two halves disagree on the framebuffer size.
 
 ```bash
 cmake -B build-wide -G Ninja -DCMAKE_BUILD_TYPE=Debug \
@@ -129,7 +140,7 @@ cmake --build build-wide
 ./build-wide/SOURCES/lba2cc --game-dir /path/to/data
 ```
 
-After Phase 2 + 3, this build shows the centred 3D world filling the wider frame; the 2D UI stays left-justified at its 640-wide layout until Phase 5. `RESOLUTION_X` must be a multiple of 8 (compile-time check in `LIB386/H/SYSTEM/RESOLUTION.H`).
+`RESOLUTION_X` must be a multiple of 8 (compile-time check in `LIB386/H/SYSTEM/RESOLUTION.H`).
 
 Regenerate the wide projrec baseline against a wide build:
 
