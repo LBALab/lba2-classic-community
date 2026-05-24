@@ -7,15 +7,15 @@
 #include "LBA_EXT.H"
 #include "VAR_EXT.H"
 
+#include <SVGA/SCREEN.H>
 #include <SYSTEM/RESOLUTION.H>
 
 // One U16 entry per framebuffer pixel. The exterior renderer indexes this
 // as PtrZBuffer[Y * ModeDesiredX + X] (see LIB386/pol_work/ + GRILLE.CPP),
-// so the buffer must scale with the compiled render width — a hardcoded
-// 640x480 silently drops terrain polygons whose Y projects past
-// SIZE_Z_BUFFER/(2*ModeDesiredX) on any wider build. See Phase 3 of
-// docs/WIDESCREEN.md.
-#define SIZE_Z_BUFFER (RESOLUTION_X * RESOLUTION_Y * 2)
+// so the buffer must scale with the live render dims — evaluates at runtime
+// to track the actual ModeDesiredX/Y configured by --resolution or the
+// compile-time defaults. See Phase 3 of docs/WIDESCREEN.md.
+#define SIZE_Z_BUFFER ((S32)(ModeDesiredX * ModeDesiredY * 2))
 
 #ifdef __cplusplus
 extern "C" {
