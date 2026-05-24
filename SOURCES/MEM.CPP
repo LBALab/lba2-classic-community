@@ -29,10 +29,10 @@ struct SizeInfo {
 // penser à réaligner les pointeurs (par une macro ?)
 
 T_MEM ListMem[] = {
-    {(void **)&PtrZBuffer, SIZE_Z_BUFFER}, // Calculé dynamiquement (GRILLE.CPP) -> InitBufferCube())
-    {(void **)&ScreenAux, RESOLUTION_X *RESOLUTION_Y + RECOVER_AREA},
-    {(void **)&BufSpeak, RESOLUTION_X *RESOLUTION_Y + RECOVER_AREA},
-    {(void **)&Screen, RESOLUTION_X *RESOLUTION_Y + RECOVER_AREA},
+    {(void **)&PtrZBuffer, 0},      // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
+    {(void **)&ScreenAux, 0},       // Patché par Mem_ConfigureScreenBuffers() avant InitMemory()
+    {(void **)&BufSpeak, 0},        // idem
+    {(void **)&Screen, 0},          // idem
     {(void **)&BufferMaskBrick, 0}, // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
     {(void **)&BufMap, 0},          // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
     {(void **)&TabBlock, 0},        // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
@@ -40,6 +40,18 @@ T_MEM ListMem[] = {
     {(void **)&PtrXplPalette, SIZE_XPL},
     {(void **)&BufferSmack, 100000L}, // tempo ?
 };
+
+// Fills in the framebuffer-sized entries of ListMem before InitMemory() runs the
+// allocations. Must be called after InitAdeline() (which sets ModeDesiredX/Y via
+// CreateScreenMemory) and before InitMemory(). Sizes mirror the historical
+// `RESOLUTION_X*RESOLUTION_Y + RECOVER_AREA` formula, just driven by the runtime
+// dims instead of the compile-time literals.
+void Mem_ConfigureScreenBuffers(U32 resX, U32 resY) {
+    const S32 pixels = (S32)resX * (S32)resY;
+    ListMem[MEM_SCREEN_AUX].Size = pixels + RECOVER_AREA;
+    ListMem[MEM_BUFSPEAK].Size = pixels + RECOVER_AREA;
+    ListMem[MEM_SCREEN].Size = pixels + RECOVER_AREA;
+}
 
 S32 SizeOfMemAllocated; // calculée dynamiquement
 U8 *MainBuffer;
