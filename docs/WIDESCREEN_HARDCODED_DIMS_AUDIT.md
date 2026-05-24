@@ -271,6 +271,9 @@ purely the 2D UI layer.
 3814, 4032). At 768×480 these darken only the left 640 columns — the
 rightmost 128 columns stay un-shaded behind menus.
 
+**GAMEMENU sites resolved by C2 pass (PR #213 + follow-ups).** Other
+files (SAVEGAME, CONFIG, INVENT, MESSAGE, HOLOPLAN) still pending.
+
 ### B2. UI text centred at X=320
 
 87 occurrences of `320` as a text-anchor. The big consumers:
@@ -284,7 +287,11 @@ rightmost 128 columns stay un-shaded behind menus.
 | [`SOURCES/MESSAGE.CPP:298`](../SOURCES/MESSAGE.CPP) | `Font(320 - dx/2, …, "Please wait")` |
 | [`SOURCES/PERSO.CPP:2226-2229`](../SOURCES/PERSO.CPP) | system message at `320 - x, 236` |
 
-All need re-anchoring to `ModeDesiredX/2`.
+All need re-anchoring to `ModeDesiredX/2`. **GAMEMENU sites resolved by
+the C2 pass** (DrawOneString / DrawSingleString / ClearOneString /
+DrawOneChoice families + the (320, 240) "Saved" box). The CONFIG /
+SAVEGAME / MESSAGE / PERSO sites are still open as their own surface
+PRs.
 
 ### B3. Inventory / dialog layout
 
@@ -319,17 +326,21 @@ SetProjection(320, 240, 128, 200, 200);
 ```
 
 Game-over model rendered at hardcoded 4:3 centre. The model is a 3D
-prop; widening would centre it.
+prop; widening would centre it. **Resolved by the C2 GAMEMENU pass.**
 
 ### B6. Fade / venetian-blind transitions
 
 [`SOURCES/GAMEMENU.CPP:4633-4639`](../SOURCES/GAMEMENU.CPP) — fade-in
-animation that uses both 479 (row count) and 640 (row stride). Same
-class as A1: needs routing.
+animation that reads a 640×480 PCX into the framebuffer. The 640/479/639
+literals are PCX-image dimensions, not framebuffer ones. **Deferred** to
+the PCX-resampling pass; marked with a `TODO(pcx)` comment in-source.
+Until then the venetian fade paints only the leftmost 640 columns of the
+wider framebuffer.
 
 [`SOURCES/GAMEMENU.CPP:3220-3227`](../SOURCES/GAMEMENU.CPP) —
 `ScaleBox(0, 0, 639, 479, Screen, x0, y0, x1, y1, Log)` — save-load
-zoom animation, full-screen source rect hardcoded.
+zoom animation, full-screen source rect hardcoded. **Resolved by the
+C2 GAMEMENU pass** (source rect routed via `ModeDesiredX/Y - 1`).
 
 ### B7. AMBIANCE extended visibility
 
