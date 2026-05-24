@@ -32,3 +32,4 @@ extern U8 *MainBuffer;
 extern void AdjustLba2Mem(void);
 extern void InitMainBuffer(void);
 extern void InitMemory(void);
+extern void Mem_ConfigureScreenBuffers(U32 resX, U32 resY);

@@ -2335,6 +2335,15 @@ int main(int argc, char *argv[]) {
 
     HQRGetErrorFunc = ErrorHQRGet;
 
+    /* Configure the framebuffer-sized ListMem entries with the effective resolution
+       BEFORE InitMainBuffer() does the giant single-shot allocation. ModeDesiredX/Y
+       isn't set yet (CreateScreenMemory runs from InitAdeline below), so derive the
+       requested dims directly from the CLI override or the compile-time defaults. */
+    {
+        U32 reqResX = Control_HasResolution() ? (U32)Control_GetResolutionX() : (U32)RESOLUTION_X;
+        U32 reqResY = Control_HasResolution() ? (U32)Control_GetResolutionY() : (U32)RESOLUTION_Y;
+        Mem_ConfigureScreenBuffers(reqResX, reqResY);
+    }
     InitMainBuffer(); // Alloue gros buffer pour tous les pointeurs
 
     End_Error = PathConfigFile;

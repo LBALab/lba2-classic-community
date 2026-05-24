@@ -50,6 +50,15 @@ static int s_exit = 0;
 static int s_demo = 0;
 static int s_verbose = 0;
 
+/* --resolution WxH: override the engine's framebuffer dimensions at launch.
+   Doesn't imply harness mode — a user can pass this alone for interactive play.
+   Default (when not given) is the compile-time RESOLUTION_X/RESOLUTION_Y. */
+static int s_have_resolution = 0;
+static long s_res_x = 0;
+static long s_res_y = 0;
+#define CONTROL_RES_MAX_X 1920
+#define CONTROL_RES_MAX_Y 1080
+
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
 static int s_finalized = 0;
@@ -165,6 +174,40 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--resolution") && has_val) {
+            /* Format: WxH (or WXH). Width must be a positive multiple of 8 (matches
+               the engine's blitter / clip stride assumptions; same constraint as the
+               compile-time check in RESOLUTION.H). Height bounded by ADELINE_MAX_Y_RES
+               (=1024) via the CONTROL_RES_MAX_Y cap. */
+            const char *val = argv[read + 1];
+            const char *xp = strchr(val, 'x');
+            if (xp == NULL)
+                xp = strchr(val, 'X');
+            int parsed = 0;
+            if (xp && xp != val && xp[1] != '\0') {
+                char *end_w = NULL;
+                char *end_h = NULL;
+                long w = strtol(val, &end_w, 10);
+                long h = strtol(xp + 1, &end_h, 10);
+                if (end_w == xp && end_h && *end_h == '\0' &&
+                    w > 0 && h > 0 &&
+                    w <= CONTROL_RES_MAX_X && h <= CONTROL_RES_MAX_Y &&
+                    (w & 7) == 0) {
+                    s_have_resolution = 1;
+                    s_res_x = w;
+                    s_res_y = h;
+                    parsed = 1;
+                }
+            }
+            if (!parsed) {
+                fprintf(stderr,
+                        "[control] --resolution: invalid '%s' (need WxH; W>0 and W%%8==0; "
+                        "max %dx%d)\n",
+                        val, CONTROL_RES_MAX_X, CONTROL_RES_MAX_Y);
+            }
+            read += 2;
+            continue;
+        }
 
         argv[write++] = argv[read++];
     }
@@ -178,6 +221,18 @@ int Control_IsActive(void) {
 
 int Control_IsVerbose(void) {
     return s_verbose;
+}
+
+int Control_HasResolution(void) {
+    return s_have_resolution;
+}
+
+long Control_GetResolutionX(void) {
+    return s_res_x;
+}
+
+long Control_GetResolutionY(void) {
+    return s_res_y;
 }
 
 /* --- Boot ------------------------------------------------------------------- */
