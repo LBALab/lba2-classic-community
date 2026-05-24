@@ -39,6 +39,10 @@
 
 #define SCREEN_SAVE_WIDTH 160
 #define SCREEN_SAVE_HEIGHT 120
+/* Top-left X of the SCREEN_SAVE_WIDTH-wide save thumbnail when it should be
+   horizontally centred on the framebuffer. At 640 this resolves to 240 (the
+   historical literal); at wider widths it tracks ModeDesiredX/2. */
+#define SAVE_THUMB_X ((S32)ModeDesiredX / 2 - SCREEN_SAVE_WIDTH / 2)
 
 U8 CoulTextMenu = COUL_TEXT_MENU;
 S32 LargeurMenu = 550;
@@ -1032,7 +1036,7 @@ void DrawCadreNewGame(void) {
 
     GetDxDyGraph(0, &dx, &dy, ptr);
 
-    DrawCadreSave(240, 50);
+    DrawCadreSave(SAVE_THUMB_X, 50);
 
     x = (S32)ModeDesiredX / 2 - dx / 2;
     y = 50 + (SCREEN_SAVE_HEIGHT) / 2 - dy / 2;
@@ -1408,7 +1412,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     FindPlayerFile();
                 ptr = LoadGameScreen();
                 if (ptr)
-                    DrawScreenSave(ptr, 240, 50);
+                    DrawScreenSave(ptr, SAVE_THUMB_X, 50);
             } else // Nouvelle partie
             {
                 //                                DrawCadreSave( 240, 50 ) ;
@@ -1730,7 +1734,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         FindPlayerFile();
                     ptr = LoadGameScreen();
                     if (ptr)
-                        DrawScreenSave(ptr, 240, 50);
+                        DrawScreenSave(ptr, SAVE_THUMB_X, 50);
                 } else // Nouvelle partie
                 {
                     //					DrawCadreSave( 240, 50 ) ;
@@ -2729,7 +2733,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
                 ptr = LoadGameScreen();
                 if (ptr)
-                    DrawScreenSave(ptr, 240, 10);
+                    DrawScreenSave(ptr, SAVE_THUMB_X, 10);
 
                 strcpy(GamePathname, memogamepathname);
                 strcpy(PlayerName, memoplayername);
@@ -3168,7 +3172,7 @@ S32 DeleteSavedGame(void) {
     DrawOneString((S32)ModeDesiredX / 2, 80, PlayerName, 2);
     ptr = LoadGameScreen();
     if (ptr)
-        DrawScreenSave(ptr, 240, 130);
+        DrawScreenSave(ptr, SAVE_THUMB_X, 130);
     BoxUpdate();
 
     SavedConfirmMenu[0] = 0;
@@ -3629,7 +3633,7 @@ S32 MainGameMenu(S32 load) {
 
                     BoxReset(); // pas de flip
 
-                    ZoomSavedGame(240, 10);
+                    ZoomSavedGame(SAVE_THUMB_X, 10);
 
                     HQ_ResumeSamples();
                     RestoreTimer();
@@ -3701,7 +3705,7 @@ S32 MainGameMenu(S32 load) {
 
                 BoxReset(); // pas de flip
 
-                ZoomSavedGame(240, 50);
+                ZoomSavedGame(SAVE_THUMB_X, 50);
 
                 HQ_ResumeSamples();
                 RestoreTimer();
@@ -3786,7 +3790,7 @@ S32 MainGameMenu(S32 load) {
 
                 BoxReset(); // pas de flip
 
-                ZoomSavedGame(240, 50);
+                ZoomSavedGame(SAVE_THUMB_X, 50);
 
                 HQ_ResumeSamples();
                 RestoreTimer();
