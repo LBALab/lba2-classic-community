@@ -998,10 +998,15 @@ void HoloGlobe(S32 planet) {
         ManageTime();
         MyGetInput();
 
-        // Clear une bande du ZBuffer
+        // Clear une bande du ZBuffer. The Z-buffer is sized RESOLUTION_X *
+        // RESOLUTION_Y per PR #205 and addressed Y*ModeDesiredX+X, so the
+        // per-row stride must match the actual render width — was hardcoded
+        // 640, which left the rightmost (ModeDesiredX-640) cols of each row
+        // un-cleared and the holomap depth-tested against stale values.
+        // Phase 3 Tier-1 fix; see docs/WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
         memset((PtrZBuffer + TabOffLine[ZBufYMin]), // PtrZBuffer est un (U16 *)
                255,
-               (ZBufYMax - ZBufYMin + 1) * 640 * 2); // Clear ZBuffer
+               (ZBufYMax - ZBufYMin + 1) * ModeDesiredX * 2); // Clear ZBuffer
 
         ClearZBufMinMax();
 
