@@ -590,7 +590,23 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     S32 xw, yw, zw;
     S32 recouvre;
 
-    startcol = (ClipXMin + 24) / 24 - 1;
+    // Bias -2, not -1: a wall one iso-cube south of the actor projects to
+    // XScreen = actor_iso_XScreen - 24, i.e. col = actor_iso_col - 1. The
+    // historical -1 only catches that wall when the actor's iso center happens
+    // to land on a col-bucket boundary — true at widths where
+    // (ModeDesiredX/2 - 32) % 24 == 0 (640 / 1024 / 1600). At 768 (offset
+    // 352 = 14*24 + 16) the actor's iso center lands inside a col bucket and
+    // the clip-derived `col(ClipXMin) - 1` sits in the *same* col as the
+    // actor, missing the south-wall col entirely — DrawOverBrick never re-blits
+    // those walls and they appear under the actor. -2 reliably covers one
+    // extra col regardless of alignment. The extra col is a free harmless
+    // scan when no walls live in it; when walls do live in it but don't
+    // overlap the actor, CopyMask paints offscreen of the actor (same
+    // wasted-CPU pattern the 640 build was already doing). See
+    // WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
+    startcol = (ClipXMin + 24) / 24 - 2;
+    if (startcol < 0)
+        startcol = 0;
     endcol = (ClipXMax + 24) / 24;
 
     for (col = startcol; col <= endcol; col++) {
