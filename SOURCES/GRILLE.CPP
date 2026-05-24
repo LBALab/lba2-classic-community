@@ -735,8 +735,24 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
+        // Left clip is -47 (one full brick width minus a pixel), not -24 (half-brick).
+        // Many iso bricks have hotX=0 or +24 — their visible pixel range at XScreen=-32
+        // is [0,15], 16 pixels on screen. The historical -24 threshold assumed
+        // hotX=-24 and was silently correct only at widths where
+        // (ModeDesiredX/2 - 32) % 24 == 0 (4:3 / 640: 288 = 12*24). At wider widths
+        // the iso origin offset slides off that multiple and the rejected bricks
+        // start having visible content. See WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
+        if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
             AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+
+            // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
+            // negative below -24 and would corrupt the array. Bricks in the
+            // newly-painted [-47,-24) strip aren't bucketed for DrawOverBrick
+            // re-blits — acceptable, they sit on the leftmost pixel column and
+            // their visible pixels are already painted by AffGraph above.
+            if (XScreen < -24) {
+                return;
+            }
 
             col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
 
