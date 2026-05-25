@@ -5,6 +5,7 @@
 #include "../COMMON.H"
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
+#include "../CONFIG.H"
 #include "../GAMEMENU.H"
 #include "../MUSIC.H"
 #include "../AMBIANCE.H"
@@ -331,6 +332,15 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui menu-main -> %s", argv[2]);
         return;
     }
+    if (argc >= 3 && !strcmp(argv[1], "config")) {
+        /* Controls-remapping screen (keyboard). Config_MainCapture loads the
+           menu PCX into Screen (the background MenuConfig normally inherits
+           from its Main Menu → Options → Controls invocation chain), arms a
+           one-shot SavePNG, and calls MenuConfig directly. */
+        Config_MainCapture(argv[2]);
+        Console_Print("ui config -> %s", argv[2]);
+        return;
+    }
     if (argc >= 4 && !strcmp(argv[1], "found-object")) {
         /* DoFoundObj(numvar) opens the found-object cinematic: 3D rotation
            of the discovered item alongside a typewriter dialogue.  numvar
@@ -349,6 +359,7 @@ static void cmd_ui(int argc, const char *argv[]) {
     Console_Print("       ui dialog <text-id> <path>");
     Console_Print("       ui menu-options <path>");
     Console_Print("       ui menu-main <path>");
+    Console_Print("       ui config <path>");
     Console_Print("       ui found-object <numvar> <path>");
 }
 
@@ -1046,7 +1057,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main} <path> | ui {dialog|found-object} <id> <path>",
+                              "ui {inventory|holomap|menu-options|menu-main|config} <path> | ui {dialog|found-object} <id> <path>",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
