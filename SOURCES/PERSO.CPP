@@ -2224,10 +2224,10 @@ void Message(const char *mess, S32 flag) {
     x = (strlen(mess) * 8) / 2;
     MemoClip();
 
-    GraphPrintf(FALSE, 320 - x, 236, "%s", mess);
-    Rect(320 - x - 4, 234, 320 + x + 4, 248, LBAWHITE);
+    GraphPrintf(FALSE, (S32)ModeDesiredX / 2 - x, 236, "%s", mess);
+    Rect((S32)ModeDesiredX / 2 - x - 4, 234, (S32)ModeDesiredX / 2 + x + 4, 248, LBAWHITE);
 
-    BoxStaticAdd(320 - x - 4, 234, 320 + x + 4, 248);
+    BoxStaticAdd((S32)ModeDesiredX / 2 - x - 4, 234, (S32)ModeDesiredX / 2 + x + 4, 248);
 
     if (flag) {
         BoxUpdate();
