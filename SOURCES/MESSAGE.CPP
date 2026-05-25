@@ -108,6 +108,10 @@ U8 *PalOrg;
 /*-------------------------------------------------------------------------*/
 S32 Dial_X0 = 16;
 S32 Dial_Y0 = 334;
+/* File-scope defaults match the historical 4:3 layout (W=640, H=480); they are
+   only used transiently before NormalWinDial / BigWinDial / etc. reset them
+   from ClipWindowYMax + width-aware bounds (see the Dial_X1 = ModeDesiredX - 1
+   - N substitutions in those functions below). */
 S32 Dial_X1 = 639 - 16;
 S32 Dial_Y1 = 479 - 16;
 static S32 DialMaxSize = ((623 - 8) - (16 + 8));
@@ -296,7 +300,7 @@ void TimeBar(U32 max, U32 val) {
 
     ColorFont(LBAWHITE);
     dx = SizeFont(PleaseWait);
-    Font(320 - dx / 2, BAR_Y0, PleaseWait);
+    Font((S32)ModeDesiredX / 2 - dx / 2, BAR_Y0, PleaseWait);
 
     BoxMovingAdd(BAR_X0, BAR_Y0, BAR_X1, BAR_Y1);
     BoxUpdate();
@@ -845,7 +849,7 @@ void PlaySpeakVoc(S32 fd) {
                         ListObjet[NumObjSpeak].Obj.Z);
 
         if (CubeMode == CUBE_INTERIEUR)
-            distance = Distance2D(320, 240, Xp, Yp);
+            distance = Distance2D((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, Xp, Yp);
         else {
             distance = Distance3D(ListObjet[NumObjSpeak].Obj.X,
                                   ListObjet[NumObjSpeak].Obj.Y,
@@ -1225,7 +1229,7 @@ void TestCoulDial(S32 coul) {
 void NormalWinDial() {
     Dial_X0 = 8;
     Dial_Y0 = ClipWindowYMax - 137; // 334 lorsque ClipWindowYMax==479
-    Dial_X1 = 639 - 8;
+    Dial_X1 = (S32)ModeDesiredX - 1 - 8;
     Dial_Y1 = ClipWindowYMax - 8;
 
     MaxLineDial = 3;
@@ -1234,8 +1238,8 @@ void NormalWinDial() {
 /*-------------------------------------------------------------------------*/
 void DemoWinDial() {
     Dial_X0 = -6;
-    Dial_Y0 = 340; // 334 lorsque ClipWindowYMax==479
-    Dial_X1 = 639 + 6;
+    Dial_Y0 = 340;                       // 334 lorsque ClipWindowYMax==479
+    Dial_X1 = (S32)ModeDesiredX - 1 + 6; // demo dialog bleeds 6 px past each edge
     Dial_Y1 = 8;
 
     MaxLineDial = 3;
@@ -1245,7 +1249,7 @@ void DemoWinDial() {
 void BigWinDial() {
     Dial_X0 = 8;
     Dial_Y0 = ClipWindowYMin + 8;
-    Dial_X1 = 639 - 8;
+    Dial_X1 = (S32)ModeDesiredX - 1 - 8;
     Dial_Y1 = ClipWindowYMax - 8;
 
     MaxLineDial = (Dial_Y1 - Dial_Y0) / 42;
@@ -1255,7 +1259,7 @@ void BigWinDial() {
 void HoloWinDial() {
     Dial_X0 = 8;
     Dial_Y0 = 425;
-    Dial_X1 = 631;
+    Dial_X1 = (S32)ModeDesiredX - 1 - 8;
     Dial_Y1 = 477;
 
     MaxLineDial = 1;
