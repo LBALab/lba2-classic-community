@@ -80,6 +80,10 @@ The wide build still requires a compile-time `RESOLUTION_X` override; runtime se
 
 Wire the [target behaviour](#target-behaviour) into the present and window layer (`LIB386/SYSTEM/WINDOW.CPP`, `LIB386/SVGA/SDL.CPP`). Windowed stays 4:3; fullscreen reads the display aspect ratio and sets the render width to match, capped at 16:9 with pillarboxing beyond. No player-facing setting.
 
+#### Runtime resolution switching
+
+A separate strand of work running parallel to (and reusing) the Phase 4 plumbing: let the player change render resolution from a console verb or a Display options submenu, without relaunching. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
+
 ### Phase 5 — polish
 
 The deferred, larger surface:
