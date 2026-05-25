@@ -568,8 +568,12 @@ void InitBufferCube() {
     intmem = (BkgHeader.Max_Size_Brick_Cube + RECOVER_AREA)    // BufferBrick
              + (SIZE_CUBE_X * SIZE_CUBE_Y * SIZE_CUBE_Z * 2L); // BufCube
 
-    //	PtrZvBuffer sert aussi pour les décors intérieurs
-    ListMem[MEM_PTR_ZBUFFER].Size = ade_max(intmem, SIZE_Z_BUFFER);
+    //	PtrZBuffer sert aussi pour les décors intérieurs. The Z-buffer floor
+    //	is set by Mem_ConfigureScreenBuffers() before InitMainBuffer runs (the
+    //	SIZE_Z_BUFFER macro needs ModeDesiredX which isn't valid yet here);
+    //	only grow above that floor if the cube's brick + cube data needs more.
+    if (intmem > ListMem[MEM_PTR_ZBUFFER].Size)
+        ListMem[MEM_PTR_ZBUFFER].Size = intmem;
 
     ListMem[MEM_BUFFER_MASK_BRICK].Size = BkgHeader.Max_Size_Mask_Brick_Cube;
     ListMem[MEM_BUF_MAP].Size = BkgHeader.Max_Size_Gri + RECOVER_AREA;
