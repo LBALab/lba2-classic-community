@@ -30,7 +30,8 @@ struct SizeInfo {
 // penser à réaligner les pointeurs (par une macro ?)
 
 T_MEM ListMem[] = {
-    {(void **)&PtrZBuffer, 0},      // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
+    {(void **)&PtrZBuffer, 0},      // Plancher patché par Mem_ConfigureScreenBuffers() (taille du Z-buffer);
+                                    // InitBufferCube() agrandit pour les cubes intérieurs si nécessaire
     {(void **)&ScreenAux, 0},       // Patché par Mem_ConfigureScreenBuffers() avant InitMemory()
     {(void **)&BufSpeak, 0},        // idem
     {(void **)&Screen, 0},          // idem
@@ -43,13 +44,19 @@ T_MEM ListMem[] = {
     {(void **)&PcxStaging, (S32)PCX_STAGING_BYTES + RECOVER_AREA}, // 640x480 PCX staging
 };
 
-// Fills in the framebuffer-sized entries of ListMem before InitMemory() runs the
-// allocations. Must be called after InitAdeline() (which sets ModeDesiredX/Y via
-// CreateScreenMemory) and before InitMemory(). Sizes mirror the historical
-// `RESOLUTION_X*RESOLUTION_Y + RECOVER_AREA` formula, just driven by the runtime
-// dims instead of the compile-time literals.
+// Fills in the framebuffer-sized entries of ListMem before InitMainBuffer() runs the
+// single-shot allocation. Includes PtrZBuffer (the Z-buffer + shared interior-cube
+// staging buffer) — `SIZE_Z_BUFFER` in 3DEXT/EXTERN.H evaluates `ModeDesiredX *
+// ModeDesiredY * 2`, but ModeDesiredX isn't set yet at InitBufferCube time (which
+// runs inside InitMainBuffer, before InitAdeline → InitGraphics sets the screen
+// mode), so the macro would evaluate to 0 and the Z-buffer would never get
+// allocated — visible as a segv inside the holomap's LongInverseRotatePointF
+// when ObjTwinsen's body data lands on top of whatever bytes follow the un-sized
+// buffer. Setting the floor here (pre-InitMainBuffer) lets InitBufferCube's
+// `ade_max` still grow it for interior cubes whose `intmem` is larger.
 void Mem_ConfigureScreenBuffers(U32 resX, U32 resY) {
     const S32 pixels = (S32)resX * (S32)resY;
+    ListMem[MEM_PTR_ZBUFFER].Size = pixels * 2; // Z-buffer: 2 bytes per pixel
     ListMem[MEM_SCREEN_AUX].Size = pixels + RECOVER_AREA;
     ListMem[MEM_BUFSPEAK].Size = pixels + RECOVER_AREA;
     ListMem[MEM_SCREEN].Size = pixels + RECOVER_AREA;
