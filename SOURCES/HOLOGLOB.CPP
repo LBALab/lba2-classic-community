@@ -259,7 +259,7 @@ void AffHoloMess() {
             NextDialWindow();
 
             dx = SizeFont(PtDial);
-            X_Dial = CENTERX - dx / 2; //	Center
+            X_Dial = (S32)ModeDesiredX / 2 - dx / 2; //	Center
 
             DialStatHolo = 1;
         } else
@@ -339,7 +339,7 @@ void ComputeObjectifPlanet(S32 arrow) {
     LongWorldRotatePoint(x, y, z);
     LongProjectPoint(X0, Y0, Z0);
 
-    dist = Distance2D(Xp, Yp, CENTERX, CENTERY);
+    dist = Distance2D(Xp, Yp, (S32)ModeDesiredX / 2, CENTERY);
 
     if (dist < DistObjectif) {
         DistObjectif = dist;
@@ -834,7 +834,7 @@ void InitHoloGlobe(S32 planet) {
 
     //-----
 
-    SetProjection(CENTERX, CENTERY, 128, 1024, 1024);
+    SetProjection((S32)ModeDesiredX / 2, CENTERY, 128, 1024, 1024);
     //	SetProjection( CENTERX, CENTERY, 128,700,700 ) ;
     SetLightVector(0, 0, 0);
 
@@ -921,7 +921,7 @@ void FindAngleIsland(S32 island) {
 
             LongProjectPoint(X0, Y0, Z0);
 
-            dist = Distance2D(Xp, Yp, CENTERX, CENTERY);
+            dist = Distance2D(Xp, Yp, (S32)ModeDesiredX / 2, CENTERY);
             if (dist < min) {
                 min = dist;
                 DestAlpha = halpha;
