@@ -257,6 +257,16 @@ Discovered while testing PR for B4 routing; not blocking that PR — the
 C2 routing is a no-op at 640×480 and an independent surface to this
 stride bug.
 
+*(Resolved: `Load_HQR` swapped for `Image_LoadCentered`; Log is cleared
+to black first so sidebars are clean. The B4-routed corner brackets +
+`SetProjection` + zoom-in animation were re-anchored to **image edges**
+(not framebuffer edges) so the planet, Twinsen body, arrows, and
+brackets all line up with the centred bitmap. `BoxStaticAdd` for the
+full-screen dirty marker stays at framebuffer corners so the sidebars
+are still painted on each repaint. No-op at 640×480; X-axis widening
+verified at 768 and 1024. Y>480 still subject to the wider HD-pass — A4
+/ A5 still flag the Y-axis sites.)*
+
 ### A10. Misc full-framebuffer allocations + sizes
 
 | Site | What |
