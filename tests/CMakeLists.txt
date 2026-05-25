@@ -23,6 +23,7 @@ add_subdirectory(copymask_negx)
 add_subdirectory(version)
 add_subdirectory(savegame)
 add_subdirectory(deffile)
+add_subdirectory(image_load)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
