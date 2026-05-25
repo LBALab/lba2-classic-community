@@ -281,7 +281,7 @@ files (SAVEGAME, CONFIG, INVENT, MESSAGE, HOLOPLAN) still pending.
 | File | Sites |
 |---|---|
 | [`SOURCES/GAMEMENU.CPP`](../SOURCES/GAMEMENU.CPP) | ~30 — `DrawOneString(320, …)`, `DrawSingleString(320, 240, …)`, etc. |
-| [`SOURCES/CONFIG.CPP`](../SOURCES/CONFIG.CPP) | 7 — config-screen text centred at 320 |
+| [`SOURCES/CONFIG.CPP`](../SOURCES/CONFIG.CPP) | 7 — config-screen text centred at 320 *(resolved by C2 CONFIG.CPP pass)* |
 | [`SOURCES/SAVEGAME.CPP:544-547`](../SOURCES/SAVEGAME.CPP) | save-prompt text box centred at (320, 240) |
 | [`SOURCES/GAMEMENU.CPP:4521-4524`](../SOURCES/GAMEMENU.CPP) | "Saved" message box at (320 ± X, 240 ± 25) |
 | [`SOURCES/MESSAGE.CPP:298`](../SOURCES/MESSAGE.CPP) | `Font(320 - dx/2, …, "Please wait")` |
@@ -289,9 +289,12 @@ files (SAVEGAME, CONFIG, INVENT, MESSAGE, HOLOPLAN) still pending.
 
 All need re-anchoring to `ModeDesiredX/2`. **GAMEMENU sites resolved by
 the C2 pass** (DrawOneString / DrawSingleString / ClearOneString /
-DrawOneChoice families + the (320, 240) "Saved" box). The CONFIG /
-SAVEGAME / MESSAGE / PERSO sites are still open as their own surface
-PRs.
+DrawOneChoice families + the (320, 240) "Saved" box). **CONFIG.CPP
+resolved** (text anchors via `ModeDesiredX/2`, the 3-column `CFG_X0/X1`
+layout box re-centred via `ModeDesiredX/2 ± 310`, plus a new
+`Config_MainCapture` + `ui config` console command for headless A/B).
+The SAVEGAME / MESSAGE / PERSO sites are still open as their own
+surface PRs.
 
 ### B3. Inventory / dialog layout
 
