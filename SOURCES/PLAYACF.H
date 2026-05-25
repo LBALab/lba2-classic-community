@@ -41,6 +41,13 @@ extern S32 GetNumAcf(const char *name);
 extern void PlayAllAcf(void);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern S32 PlayAcf(const char *name);
+/* Harness hook: arm a one-shot screenshot inside the next PlayAcf call.
+   PlayAcf saves the Log buffer to <path> on the first composited cinema
+   frame and exits cleanly via its fin_play label (the normal restore of
+   the pre-cutscene scene runs unchanged afterwards). Pass NULL or "" to
+   disarm. No-op in null-video-backend builds. Used by the console
+   `ui video <name> <path>` verb. */
+extern void Video_RequestCapture(const char *path);
 
 #ifdef USE_MVIDEO_SMACKER
 void VideoLogEnable(int enable);
