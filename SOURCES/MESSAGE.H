@@ -17,6 +17,13 @@ extern S32 Dial_Y1;
    caller's responsibility. */
 extern S32 Dial_Letterbox;
 
+/* Test-only override for GereFlagDial. When non-zero, replaces the FlagDial
+   the dialog text encodes (its first byte) so the harness can force a
+   specific WinDial mode (BigWinDial, NormalWinDial, …) without needing to
+   find a text-id that's authored with that mode. Set to 0 to disable.
+   Production callers should leave at 0. */
+extern S32 Dial_ForceFlag;
+
 extern S32 FlagAnimWhoSpeak;
 
 extern S32 Language; // English
