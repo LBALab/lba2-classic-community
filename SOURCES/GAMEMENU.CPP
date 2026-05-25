@@ -5,6 +5,7 @@
 #include "JOYSTICK.H"
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
+#include "MESSAGE.H"
 #include "PCX_LOAD.H"
 
 #include <FILEIO/SAVEPNG.H>
@@ -4189,6 +4190,12 @@ S32 SlideShow(void) {
     Console_SetSlideShowActive(1);
     Bulle = FALSE;
 
+    /* The slideshow renders centred 4:3 PCX stills with story text on top.
+       Setting Dial_Letterbox keeps the dialog box inside the picture's 4:3
+       region instead of stretching into the black sidebars at wider widths. */
+    S32 memoDialLetterbox = Dial_Letterbox;
+    Dial_Letterbox = 1;
+
 #ifdef DEMO
     FlagSlideShow = TRUE; // pour les tempos des messages
 #endif
@@ -4266,6 +4273,7 @@ S32 SlideShow(void) {
 
     /* Restore normal console availability once slideshow exits. */
     Console_SetSlideShowActive(0);
+    Dial_Letterbox = memoDialLetterbox;
     return ret;
 }
 
@@ -4606,6 +4614,14 @@ void DemoBumper(void) {
 void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
     char tmpFilePath[ADELINE_MAX_PATH];
 
+    /* PCX cinematic: any dialog drawn over the centred PCX should letterbox to
+       stay inside the picture's 4:3 region. The flag is scoped to this call —
+       AffScene at the end (in the flagbcl branch) re-renders the gameplay
+       scene, and subsequent Dial calls during normal play will see the
+       restored original value. */
+    S32 memoDialLetterbox = Dial_Letterbox;
+    Dial_Letterbox = 1;
+
     SaveTimer();
 
     numpcx *= 2; // car il y a les palettes intercalées
@@ -4670,6 +4686,8 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
         FlagFade = TRUE;
     } else
         RestoreTimer();
+
+    Dial_Letterbox = memoDialLetterbox;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -4677,6 +4695,15 @@ void EffectPcxMess(U8 numpcx, U8 *screen, U8 effect, S32 mess) {
 #ifdef CDROM
     S32 memoflagdisplaytext;
 #endif
+
+    /* PCX cinematic with a dialog message overlay (scripted scene-message
+       opcodes, end-of-island stills, etc.). Letterbox the dialog so it stays
+       inside the centred PCX picture instead of bleeding into the black
+       sidebars at wider framebuffers. Encompasses EffectPcx + Dial; AffScene
+       at the end clears the cinematic and the restore returns to gameplay
+       dialog framing. */
+    S32 memoDialLetterbox = Dial_Letterbox;
+    Dial_Letterbox = 1;
 
     SaveTimer();
 
@@ -4705,6 +4732,8 @@ void EffectPcxMess(U8 numpcx, U8 *screen, U8 effect, S32 mess) {
     FlagFade = FALSE;
     AffScene(AFF_ALL_FLIP);
     FlagFade = TRUE;
+
+    Dial_Letterbox = memoDialLetterbox;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
