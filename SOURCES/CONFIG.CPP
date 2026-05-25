@@ -16,7 +16,7 @@
 
 #include "C_EXTERN.H"
 #include "CONFIG.H"
-#include "PCX_LOAD.H"
+#include "IMAGE_LOAD.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
@@ -672,7 +672,7 @@ void Config_MainCapture(const char *path) {
     char tmpFilePathScreen[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Pcx_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+    Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
     CopyScreen(Screen, Log);
     PtrPal = PtrPalNormal;
     PaletteSync(PtrPalNormal);
@@ -1498,7 +1498,7 @@ S32 AskForCD(void) {
     ret = ConfirmMenu(ask_txt, ok_txt, cancel_txt);
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Pcx_LoadCentered(tmpFilePath, Log, PCR_CDROM);
+    Image_LoadCentered(tmpFilePath, Log, PCR_CDROM);
     BoxStaticFullflip();
 
     return ret;

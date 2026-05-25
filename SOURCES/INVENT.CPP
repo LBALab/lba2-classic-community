@@ -2,7 +2,7 @@
 #include "CONTROL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
-#include "PCX_LOAD.H"
+#include "IMAGE_LOAD.H"
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
@@ -2127,11 +2127,11 @@ void ChangeArdoise(S32 left) // 0:right, 1:left
 
     // Chargement pcx
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    // Pcx_LoadCentered shifts each row of the 640x480 PCX by INV_LEFT_OFFSET
-    // so its "original column 78" content lands at framebuffer column
-    // 78 + INV_LEFT_OFFSET — which is exactly where PLAN_X0 (now offset-aware)
-    // reads from in the CopyBlockIncrust below.
-    if (!Pcx_LoadCentered(tmpFilePath, Screen, ListArdoise[CurrentArdoise] * 2)) // *2 pour compter les palettes
+    // Image_LoadCentered shifts each row of the 640x480 bitmap by
+    // INV_LEFT_OFFSET so its "original column 78" content lands at framebuffer
+    // column 78 + INV_LEFT_OFFSET — which is exactly where PLAN_X0 (now
+    // offset-aware) reads from in the CopyBlockIncrust below.
+    if (!Image_LoadCentered(tmpFilePath, Screen, ListArdoise[CurrentArdoise] * 2)) // *2 pour compter les palettes
         TheEndCheckFile(tmpFilePath);
 
     CopyBlock(PLAN_X0, PLAN_Y0, PLAN_X1, PLAN_Y1, BufSpeak,
@@ -2158,7 +2158,7 @@ void DrawArdoise() {
     char tmpFilePath[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    if (!Pcx_LoadCentered(tmpFilePath, Log, PCR_ARDOISE))
+    if (!Image_LoadCentered(tmpFilePath, Log, PCR_ARDOISE))
         TheEndCheckFile(tmpFilePath);
 
     CopyScreen(Log, BufSpeak); //	Ardoise Vierge
@@ -2168,10 +2168,10 @@ void DrawArdoise() {
 	SaveBlock( Log, BufSpeak+10000, PLAN_X0, PLAN_Y0, PLAN_X1, PLAN_Y1 ) ;
 */
     if (CurrentArdoise >= 0 AND CurrentArdoise < NbArdoise) {
-        // Chargement pcx — see ChangeArdoise above: Pcx_LoadCentered shifts the
-        // 640x480 PCX content into Screen so the offset-aware PLAN_X0 reads
-        // from the correct centred position.
-        if (!Pcx_LoadCentered(tmpFilePath, Screen, ListArdoise[CurrentArdoise] * 2)) // *2 pour compter les palettes
+        // Chargement pcx — see ChangeArdoise above: Image_LoadCentered shifts
+        // the 640x480 bitmap content into Screen so the offset-aware PLAN_X0
+        // reads from the correct centred position.
+        if (!Image_LoadCentered(tmpFilePath, Screen, ListArdoise[CurrentArdoise] * 2)) // *2 pour compter les palettes
             TheEndCheckFile(tmpFilePath);
 
         CopyBlockIncrust(PLAN_X0, PLAN_Y0, PLAN_X1, PLAN_Y1, Screen,
