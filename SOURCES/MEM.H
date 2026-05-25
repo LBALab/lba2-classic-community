@@ -17,7 +17,7 @@ enum {
     MEM_TAB_BLOCK,
     MEM_LIST_FLOW_DOTS,
     MEM_PTR_XPL_PALETTE,
-    MEM_PCX_STAGING /* 640x480 staging for stride-aware PCX loaders, see PCX_LOAD.H */
+    MEM_IMAGE_STAGING /* 640x480 staging for stride-aware image loaders, see IMAGE_LOAD.H */
 };
 
 typedef struct {

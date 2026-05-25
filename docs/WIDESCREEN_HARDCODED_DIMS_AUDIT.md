@@ -323,7 +323,7 @@ surface PRs.
 
 | File | Site | What |
 |---|---|---|
-| [`SOURCES/INVENT.CPP:1871`](../SOURCES/INVENT.CPP) | `#define PLAN_X1 (PLAN_X0 + 479)` | Slate panel right edge — slate art is 480 wide, OK as-is. *(Resolved: `PLAN_X0` now carries `INV_LEFT_OFFSET` so the slate stays inside the centred inventory region; the deferred `PCR_ARDOISE` PCX is loaded via `Pcx_LoadCentered`.)* |
+| [`SOURCES/INVENT.CPP:1871`](../SOURCES/INVENT.CPP) | `#define PLAN_X1 (PLAN_X0 + 479)` | Slate panel right edge — slate art is 480 wide, OK as-is. *(Resolved: `PLAN_X0` now carries `INV_LEFT_OFFSET` so the slate stays inside the centred inventory region; the deferred `PCR_ARDOISE` bitmap is loaded via `Image_LoadCentered`.)* |
 | [`SOURCES/INVENT.H:23,41`](../SOURCES/INVENT.H) | `INV_DELTA_X = 639 - INV_START_X*2`, `INV_NAME_X1 = 639 - INV_START_X` | Inventory panel width tied to 639. *(Resolved: centred-4:3 design — `INV_DELTA_X` is fixed 623, `INV_START_X` carries `INV_LEFT_OFFSET = (ModeDesiredX-640)/2`. Icons stay fixed-size; the rectangle slides as a unit.)* |
 | [`SOURCES/INVENT.H:34,36`](../SOURCES/INVENT.H) | `INV_ZOOM_X0 = 317 - 120`, `INV_ZOOM_X1 = 317 + 120` | Zoom box at iso projection X (`317 = 320 - 3`). *(Resolved: `(S32)ModeDesiredX / 2 - 3 ± 120`.)* |
 | [`SOURCES/MESSAGE.CPP:110, 111, 1227, 1237, 1247, 1258`](../SOURCES/MESSAGE.CPP) | `Dial_X1 = 639 - 16`, `Dial_Y1 = 479 - 16` and variants | Dialog box right/bottom margins *(resolved by C2 MESSAGE.CPP pass — NormalWinDial / DemoWinDial / BigWinDial / HoloWinDial all route Dial_X1 through `(S32)ModeDesiredX - 1 - N`; file-scope defaults left as 4:3 literals since the WinDial functions overwrite them before use)* |

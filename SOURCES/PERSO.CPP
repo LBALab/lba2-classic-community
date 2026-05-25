@@ -1,5 +1,5 @@
 #include "C_EXTERN.H"
-#include "PCX_LOAD.H"
+#include "IMAGE_LOAD.H"
 
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
 #include "INITADEL.H"
@@ -2440,7 +2440,7 @@ int main(int argc, char *argv[]) {
             if (!SaveLoadTestMode && !Control_IsActive()) {
                 // pour Windows car ca prend du temps a scaner le CD
                 GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-                Pcx_LoadCentered(tmpFilePath, Log, PCR_CDROM);
+                Image_LoadCentered(tmpFilePath, Log, PCR_CDROM);
                 BoxStaticFullflip();
 
                 // premiere fois
