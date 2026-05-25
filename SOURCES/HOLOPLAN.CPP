@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "IMAGE_LOAD.H"
 #include "INPUT.H"
 
 #include <FILEIO/SAVEPNG.H>
@@ -425,14 +426,28 @@ void InitHoloPlan() {
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, HOLO_HQR_NAME);
 
-    Load_HQR(tmpFilePath, Log, id);
+    // The planet-detail HQR entry is a 640×480 raw bitmap. A raw Load_HQR
+    // smears it diagonally into a wider Log; Image_LoadCentered blits it
+    // centred with proper row stride. Clear Log first so the sidebars are
+    // black instead of showing whatever HoloGlobe left behind.
+    memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    Image_LoadCentered(tmpFilePath, Log, id);
 
     Load_HQR(tmpFilePath, buffer, id + 1);
 
-    AffUpperLeft(0, 0, 0);
-    AffLowerLeft(0, (S32)ModeDesiredY - 1, 0);
-    AffUpperRight((S32)ModeDesiredX - 1, 0, 0);
-    AffLowerRight((S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, 0);
+    // Anchor UI to the *image* rect, not the framebuffer rect. The corner
+    // brackets sit on the image corners; the 3D projection used for arrows
+    // + Twinsen + Buggy/Dyno targets the image centre so models line up
+    // with the texture features (citadel, arrows, etc.).
+    const S32 imageX0 = ((S32)ModeDesiredX - IMAGE_AUTHORED_WIDTH) / 2;
+    const S32 imageY0 = ((S32)ModeDesiredY - IMAGE_AUTHORED_HEIGHT) / 2;
+    const S32 imageX1 = imageX0 + IMAGE_AUTHORED_WIDTH - 1;
+    const S32 imageY1 = imageY0 + IMAGE_AUTHORED_HEIGHT - 1;
+
+    AffUpperLeft(imageX0, imageY0, 0);
+    AffLowerLeft(imageX0, imageY1, 0);
+    AffUpperRight(imageX1, imageY0, 0);
+    AffLowerRight(imageX1, imageY1, 0);
 
     CopyScreen(Log, Screen);
 
@@ -467,7 +482,8 @@ void InitHoloPlan() {
     ScaleRotBody3D(BufDyno, SCALE_DYNO_PLAN, FALSE);
 
     //	SetProjection( 320, 240, 1024, 1024, 1024 ) 			;
-    SetProjection((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, 1024, 700, 700);
+    SetProjection(imageX0 + IMAGE_AUTHORED_WIDTH / 2,
+                  imageY0 + IMAGE_AUTHORED_HEIGHT / 2, 1024, 700, 700);
     SetFollowCamera(orgmx, 0, orgmz, alpha, beta, 0, distance);
     SetLightVector(lalpha, lbeta, 0);
 
@@ -833,19 +849,27 @@ void HoloPlan(S32 numplan) {
             //      HoloGlobe()
             BoxReset();
 
+            // Zoom-in animates from the reticule centre (CENTERX/Y are
+            // image-relative) out to the image rect, not the framebuffer
+            // rect — at wider widths the sidebars stay black through the
+            // whole animation.
+            const S32 anim_imageX0 = ((S32)ModeDesiredX - IMAGE_AUTHORED_WIDTH) / 2;
+            const S32 anim_imageY0 = ((S32)ModeDesiredY - IMAGE_AUTHORED_HEIGHT) / 2;
+            const S32 anim_imageX1 = anim_imageX0 + IMAGE_AUTHORED_WIDTH - 1;
+            const S32 anim_imageY1 = anim_imageY0 + IMAGE_AUTHORED_HEIGHT - 1;
             while (TRUE) {
                 ManageTime();
                 timer = TimerRefHR - MemoTimerRot;
-                x0 = BoundRegleTrois(CENTERX - 8, 0, 1000, timer);
-                y0 = BoundRegleTrois(CENTERY - 8, 0, 1000, timer);
-                x1 = BoundRegleTrois(CENTERX + 8, (S32)ModeDesiredX - 1, 1000, timer);
-                y1 = BoundRegleTrois(CENTERY + 8, (S32)ModeDesiredY - 1, 1000, timer);
+                x0 = BoundRegleTrois(CENTERX + anim_imageX0 - 8, anim_imageX0, 1000, timer);
+                y0 = BoundRegleTrois(CENTERY + anim_imageY0 - 8, anim_imageY0, 1000, timer);
+                x1 = BoundRegleTrois(CENTERX + anim_imageX0 + 8, anim_imageX1, 1000, timer);
+                y1 = BoundRegleTrois(CENTERY + anim_imageY0 + 8, anim_imageY1, 1000, timer);
 
-                if (x0 == 0) {
+                if (x0 == anim_imageX0) {
                     break; // Before Crash!
                 }
 
-                ScaleBox(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, BufSpeak, x0, y0, x1, y1, Log);
+                ScaleBox(anim_imageX0, anim_imageY0, anim_imageX1, anim_imageY1, BufSpeak, x0, y0, x1, y1, Log);
 
                 AffUpperLeft(x0, y0, 0);
                 AffLowerLeft(x0, y1, 0);
