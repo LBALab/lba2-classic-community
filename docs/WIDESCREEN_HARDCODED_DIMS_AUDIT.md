@@ -411,6 +411,14 @@ else if ((xp < -320)   OR(xp >= 640 + 320))
 These checks use 640/480 as visible-extent bounds for ambient effects.
 The `480 + 480` and `640 + 320` margins assume specific frame size.
 
+*(Resolved: `GiveBalance` re-derives the pan zones (left quarter ramps
+0→32, middle half ramps 32→96, right quarter ramps 96→127) from
+`ModeDesiredX/Y`, and the two `Distance2D(320, 240, …)` listener-centre
+sites in `HQ_3D_MixSample` / `HQ_3D_ChangePanSample` route through
+`(S32)ModeDesiredX/2, (S32)ModeDesiredY/2`. Bit-identical pan output at
+640×480; sounds at the visible-frame edges hard-pan correctly at wider
+widths.)*
+
 ## Category C — Acceptable or coincidental
 
 ### C1. Inventory slate art is 480 wide

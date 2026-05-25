@@ -8,10 +8,9 @@
 #define BCL_FADE 50
 #define FADE_DELAY 200
 
-//#define       DISTANCE_SAMPLE_MAX     963
-#define DISTANCE_SAMPLE_MAX 700
-#define DISTANCE_SAMPLE_MIN_EXT 5000L
-#define DISTANCE_SAMPLE_MAX_EXT 30000L
+/* GiveBalance (pan/volume math) lives in AUDIO_BALANCE.CPP so it can be
+   unit-tested without linking the audio backend.  The DISTANCE_SAMPLE_*
+   thresholds moved with it. */
 
 #ifdef CDROM
 extern S32 FlagVoiceCD;
@@ -174,40 +173,7 @@ void HQ_ResumeSamples(void) {
 }
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
-S32 GiveBalance(S32 xp, S32 yp, S32 distance, U32 *pan, S32 *vol) {
-    if ((yp > 480 + 480)
-            OR(yp < -480))
-        return FALSE;
-
-    if ((xp < -320)
-            OR(xp >= 640 + 320))
-        return FALSE;
-
-    if (xp < 160)
-        *pan = RegleTrois(0, 32, 160 + 319, xp + 320);
-    else if (xp > 480)
-        *pan = RegleTrois(96, 127, 640 + 319 - 480, xp - 480);
-    else
-        *pan = RegleTrois(32, 96, 480 - 160, xp - 160);
-
-    if (CubeMode == CUBE_INTERIEUR)
-        if (distance > DISTANCE_SAMPLE_MAX)
-            *vol = 0;
-        else
-            *vol = BoundRegleTrois(127, 0, DISTANCE_SAMPLE_MAX, distance);
-    else {
-        if (distance <= DISTANCE_SAMPLE_MIN_EXT)
-            *vol = 127;
-        else if (distance > DISTANCE_SAMPLE_MAX_EXT)
-            return FALSE;
-        else
-            *vol = BoundRegleTrois(127, 0,
-                                   DISTANCE_SAMPLE_MAX_EXT - DISTANCE_SAMPLE_MIN_EXT,
-                                   distance - DISTANCE_SAMPLE_MIN_EXT);
-    }
-
-    return TRUE;
-}
+/* GiveBalance moved to AUDIO_BALANCE.CPP (see test_ambiance_balance). */
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -222,7 +188,7 @@ U32 HQ_3D_MixSample(S32 numsample, S32 frequence, S32 decalage,
         PtrProjectPoint(x, y, z);
 
         if (CubeMode == CUBE_INTERIEUR)
-            distance = Distance2D(320, 240, Xp, Yp);
+            distance = Distance2D((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, Xp, Yp);
         else
             distance = Distance3D(x, y, z, CameraX, CameraY, CameraZ);
 
@@ -272,7 +238,7 @@ void HQ_3D_ChangePanSample(S32 numsample, S32 x, S32 y, S32 z) {
         PtrProjectPoint(x, y, z);
 
         if (CubeMode == CUBE_INTERIEUR)
-            distance = Distance2D(320, 240, Xp, Yp);
+            distance = Distance2D((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, Xp, Yp);
         else
             distance = Distance3D(x, y, z, CameraX, CameraY, CameraZ);
 
