@@ -4160,6 +4160,25 @@ void Credits(S32 mode) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Harness capture state — see SlideShow_RequestCapture() in GAMEMENU.H. When
+   armed, SlideShow's main loop breaks out after the first frame's Dial returns
+   (Dial itself does the SavePNG via Dial_RequestCapture, which we arm
+   alongside this flag). Same compose pattern as Menu_*Capture / Inv_*Capture. */
+static int s_slideshow_capture_active = 0;
+
+void SlideShow_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_slideshow_capture_active = 0;
+        Dial_RequestCapture(NULL);
+        return;
+    }
+    s_slideshow_capture_active = 1;
+    /* The actual SavePNG happens inside Dial's typewriter loop — same hook
+       used by `ui dialog`. We just need to break out of the slideshow loop
+       after that fires so the harness doesn't iterate the remaining shots. */
+    Dial_RequestCapture(path);
+}
+
 // SlideShow de screenshots
 S32 SlideShow(void) {
     U8 pal[768 + RECOVER_AREA];
@@ -4222,6 +4241,15 @@ S32 SlideShow(void) {
         //		AffGraph( 0, 639-105, 3, HQR_Get(HQRPtrSprite,11) ) ;
 
         Dial(START_SLIDESHOW_TEXT + n, FALSE);
+
+        /* Harness: SlideShow_RequestCapture arms a one-shot SavePNG in Dial
+           above. After it fires, exit cleanly without iterating remaining
+           shots so the harness's --exit can finish promptly. */
+        if (s_slideshow_capture_active) {
+            s_slideshow_capture_active = 0;
+            ret = FALSE;
+            break;
+        }
 
         // charge palette
         Load_HQR(tmpScrshotFilePath, pal, (n * 2) + 1);
