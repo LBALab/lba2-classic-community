@@ -15,9 +15,12 @@
 */
 
 #include "C_EXTERN.H"
+#include "CONFIG.H"
 #include "PCX_LOAD.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+
+#include <FILEIO/SAVEPNG.H>
 
 #include <stdio.h>
 
@@ -55,23 +58,29 @@
 S32 SelectConfig = 0;
 S32 SelectKey = 0;
 
-#define CFG_X0 10
+/* The config screen is a fixed 620-px-wide three-column layout (margins of
+   10 each side in the 4:3 layout). At wider framebuffers, centre the 620-px
+   region rather than letting it cling to the left edge — keeps the
+   ACTION/KEY1/KEY2 columns visually balanced and matches the rest of the
+   centred UI (menus, save-load, config text). At 640, both edges resolve to
+   the original 10 / 630 literals. */
+#define CFG_X0 ((S32)ModeDesiredX / 2 - 310)
 #define CFG_Y0 10
-#define CFG_X1 630
+#define CFG_X1 ((S32)ModeDesiredX / 2 + 310)
 #define CFG_Y1 (CFG_Y0 + MAX_INPUT * 10 + 35)
 
 #define ACTION_X (CFG_X0 + 20)
 #define KEY1_X (CFG_X0 + 371)
 #define KEY2_X (CFG_X0 + 501)
 
-#define CFG_MENU_X0 10
+#define CFG_MENU_X0 CFG_X0
 #define CFG_MENU_Y0 (CFG_Y1 + 5)
-#define CFG_MENU_X1 630
+#define CFG_MENU_X1 CFG_X1
 #define CFG_MENU_Y1 (CFG_MENU_Y0 + 10 + 3 * 10)
 
-#define CFG_TXT_X0 10
+#define CFG_TXT_X0 CFG_X0
 #define CFG_TXT_Y0 (CFG_MENU_Y1 + 5)
-#define CFG_TXT_X1 630
+#define CFG_TXT_X1 CFG_X1
 #define CFG_TXT_Y1_NORMAL (CFG_TXT_Y0 + 20)
 
 // Set while drawing / using the gamepad remap screen (footer text differs;
@@ -455,9 +464,9 @@ void DrawOneConfigMenu(S32 n) {
 
     GetMultiText(START_MENUS_TXT + CFG_TXT_DEFAUT + n, txt);
 
-    x0 = 320 - (strlen(txt) * SizeChar) / 2 - 10;
+    x0 = (S32)ModeDesiredX / 2 - (strlen(txt) * SizeChar) / 2 - 10;
     y0 = y - 2;
-    x1 = 320 + (strlen(txt) * SizeChar) / 2 + 10;
+    x1 = (S32)ModeDesiredX / 2 + (strlen(txt) * SizeChar) / 2 + 10;
     y1 = y + 8;
 
     CopyBlock(x0, y0, x1, y1, Screen, x0, y0, Log);
@@ -477,7 +486,7 @@ void DrawOneConfigMenu(S32 n) {
         CoulText(COUL_MENU, -1);
     }
 
-    GraphPrintf(FALSE, 320 - (strlen(txt) * SizeChar) / 2, y, txt);
+    GraphPrintf(FALSE, (S32)ModeDesiredX / 2 - (strlen(txt) * SizeChar) / 2, y, txt);
 
     BoxStaticAdd(x0, y0, x1, y1);
 }
@@ -552,7 +561,7 @@ void DrawStatusConfig(S32 num) {
             strcpy(kClr, "---");
 
         FormatUtf8ToCp850(lineBuf, sizeof(lineBuf), footerOneLine[lang], kExit, kSel, kClr);
-        GraphPrintf(FALSE, 320 - (strlen(lineBuf) * SizeChar) / 2, CFG_TXT_Y0 + 6, lineBuf);
+        GraphPrintf(FALSE, (S32)ModeDesiredX / 2 - (strlen(lineBuf) * SizeChar) / 2, CFG_TXT_Y0 + 6, lineBuf);
         return;
     }
 
@@ -566,7 +575,7 @@ void DrawStatusConfig(S32 num) {
         CoulText(COUL_STATUS, -1);
     }
 
-    GraphPrintf(FALSE, 320 - (strlen(txt) * SizeChar) / 2, CFG_TXT_Y0 + 7, txt);
+    GraphPrintf(FALSE, (S32)ModeDesiredX / 2 - (strlen(txt) * SizeChar) / 2, CFG_TXT_Y0 + 7, txt);
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
@@ -635,6 +644,44 @@ S32 CheckKeyConfig(S32 key) {
 #define REPEATDELAY 400
 #define REPEATRATE 40
 
+/* Harness capture state — see Config_RequestCapture() in CONFIG.H. When the
+   path is non-empty, MenuConfig's modal loop counts down per iteration; on
+   reaching zero it SavePNGs the rendered config screen and sets `ok = TRUE`
+   so the loop exits cleanly without modifying the saved key bindings.
+   Mirror of Menu_RequestCapture (GAMEMENU.CPP) / Inv_RequestCapture etc. */
+static char s_config_capture_path[ADELINE_MAX_PATH] = "";
+static int s_config_capture_countdown = 0;
+
+void Config_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_config_capture_path[0] = '\0';
+        s_config_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_config_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_config_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    s_config_capture_countdown = 60; /* ~1 s at fixed-dt 16 — past fade-in
+                                        + initial DrawScreenConfig settle */
+}
+
+/* Full harness entry: set up the screen background MenuConfig expects from
+   its in-game invocation chain (Main Menu → Options → Controls loads the
+   menu PCX into Screen), arm the capture, and call MenuConfig. Mirror of
+   GAMEMENU.CPP's Menu_MainCapture. */
+void Config_MainCapture(const char *path) {
+    char tmpFilePathScreen[ADELINE_MAX_PATH];
+
+    GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+    Pcx_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+    CopyScreen(Screen, Log);
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+
+    Config_RequestCapture(path);
+    MenuConfig();
+    Config_RequestCapture(NULL); /* disarm if MenuConfig exited some other way */
+}
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void MenuConfig(void) {
     S32 oldselect;
@@ -675,6 +722,14 @@ void MenuConfig(void) {
         DrawOneConfigMenu(SelectConfig);
 
         BoxUpdate();
+
+        if (s_config_capture_path[0] && --s_config_capture_countdown <= 0) {
+            SavePNG(s_config_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_config_capture_path[0] = '\0';
+            ok = TRUE; /* exit cleanly without restoring MemoDefKeys */
+            break;
+        }
 
         oldkey = MyKey;
         DetectJoys();
@@ -1307,8 +1362,8 @@ void DrawCadreConfirm(S32 x0, S32 y0, S32 x1, S32 y1) {
 void DrawConfirmChoice(S32 xlen, S32 y0, char *txt, S32 select) {
     S32 x0, x1, y1, coul = COUL_MENU;
 
-    x0 = 320 - xlen;
-    x1 = 320 + xlen;
+    x0 = (S32)ModeDesiredX / 2 - xlen;
+    x1 = (S32)ModeDesiredX / 2 + xlen;
     y1 = y0 + SizeChar + 3;
     y0--;
 
@@ -1322,7 +1377,7 @@ void DrawConfirmChoice(S32 xlen, S32 y0, char *txt, S32 select) {
         RestoreAngles(x0, y0, x1, y1);
     }
 
-    DetourGraphPrintf(FALSE, coul, 320 - (strlen(txt) * SizeChar) / 2, y0 + 3, txt);
+    DetourGraphPrintf(FALSE, coul, (S32)ModeDesiredX / 2 - (strlen(txt) * SizeChar) / 2, y0 + 3, txt);
     BoxStaticAdd(x0, y0, x1, y1);
 }
 
@@ -1338,10 +1393,10 @@ S32 ConfirmMenu(char *ask, char *ok, char *cancel) {
     S32 oldselect = 1;
     S32 flag = -1;
 
-    x0 = 320 - larg / 2;
-    x1 = 320 + larg / 2;
-    y0 = 240 - haut / 2;
-    y1 = 240 + haut / 2;
+    x0 = (S32)ModeDesiredX / 2 - larg / 2;
+    x1 = (S32)ModeDesiredX / 2 + larg / 2;
+    y0 = (S32)ModeDesiredY / 2 - haut / 2;
+    y1 = (S32)ModeDesiredY / 2 + haut / 2;
 
     by0 = y1 + 2;
     by1 = by0 + 4 * SizeChar;
