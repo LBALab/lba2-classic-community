@@ -9,6 +9,14 @@ extern S32 Dial_Y0;
 extern S32 Dial_X1;
 extern S32 Dial_Y1;
 
+/* When non-zero, the four *WinDial configurators clamp Dial_X0/X1 to a centred
+   4:3 region so the dialog box stays inside the centred-PCX picture instead of
+   bleeding into the black sidebars at wider framebuffers. Set/cleared by the
+   PCX-cinematic call sites (SlideShow, EffectPcx); regular gameplay dialog
+   keeps it 0 and renders full-width. Save/restore around nested sets is the
+   caller's responsibility. */
+extern S32 Dial_Letterbox;
+
 extern S32 FlagAnimWhoSpeak;
 
 extern S32 Language; // English
