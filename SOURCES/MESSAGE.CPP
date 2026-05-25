@@ -12,7 +12,7 @@
 /*-------------------------------------------------------------------------*/
 
 #include "C_EXTERN.H"
-#include "PCX_LOAD.H"
+#include "IMAGE_LOAD.H"
 
 #include "CONTROL.H"
 #include "INPUT.H"
@@ -610,7 +610,7 @@ S32 CopyFileCD_HD(char *filecd, char *filehd) {
     FadeToBlack(PtrPal);
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Pcx_LoadCentered(tmpFilePath, Log, PCR_CDROM);
+    Image_LoadCentered(tmpFilePath, Log, PCR_CDROM);
     BoxUpdate();
 
     FadeToPal(PtrPalNormal);

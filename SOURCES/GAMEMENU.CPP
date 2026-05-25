@@ -6,7 +6,7 @@
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 #include "MESSAGE.H"
-#include "PCX_LOAD.H"
+#include "IMAGE_LOAD.H"
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
@@ -2388,7 +2388,7 @@ void Menu_MainCapture(const char *path) {
     FlagShadeMenu = FALSE;
 
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Pcx_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+    Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
     CopyScreen(Screen, Log);
     BoxStaticFullflip();
     PtrPal = PtrPalNormal;
@@ -2499,7 +2499,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
                 char tmpFilePathScreen[ADELINE_MAX_PATH];
                 GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-                Pcx_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
+                Image_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
                 CopyScreen(Log, Screen);
                 BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
@@ -3457,7 +3457,7 @@ S32 MainGameMenu(S32 load) {
 #endif
 
     GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    Pcx_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+    Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
     CopyScreen(Screen, Log);
     BoxStaticFullflip();
     FadeToPal(PtrPalNormal);
@@ -3499,7 +3499,7 @@ S32 MainGameMenu(S32 load) {
                 unlink(tmpFilePathSave);
                 FlagShowEndDemo = TRUE;
 
-                Pcx_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
+                Image_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
                 CopyScreen(Log, Screen);
                 BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
@@ -3511,7 +3511,7 @@ S32 MainGameMenu(S32 load) {
 #else
                 Credits(TRUE);
                 PlayAcf("BABY");
-                Pcx_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+                Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
                 CopyScreen(Screen, Log);
                 BoxStaticFullflip();
                 EscTimer = 0;
@@ -4146,7 +4146,7 @@ void Credits(S32 mode) {
 
     if (!mode) {
         GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-        Pcx_LoadStretched(tmpFilePath, Screen, PCR_MENU);
+        Image_LoadStretched(tmpFilePath, Screen, PCR_MENU);
         CopyScreen(Screen, Log);
         BoxStaticFullflip();
     }
@@ -4234,7 +4234,7 @@ S32 SlideShow(void) {
         FadeToBlack(PtrPal);
 
         // charge image
-        Pcx_LoadCentered(tmpScrshotFilePath, Log, (n * 2));
+        Image_LoadCentered(tmpScrshotFilePath, Log, (n * 2));
 
         // on peut pas afficher le logo LBA2 car il est dans la palette
         // du jeu
@@ -4368,7 +4368,7 @@ S32 AdelineLogo(void) {
     //      S32     volume ;
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    if (!Pcx_LoadCentered(tmpFilePath, Log, PCR_LOGO))
+    if (!Image_LoadCentered(tmpFilePath, Log, PCR_LOGO))
         TheEndCheckFile(tmpFilePath);
 
     if (!Load_HQR(tmpFilePath, PalettePcx, PCR_LOGO + 1))
@@ -4451,7 +4451,7 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
     char tmpFilePath[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    if (Pcx_LoadCentered(tmpFilePath, Log, numscr)
+    if (Image_LoadCentered(tmpFilePath, Log, numscr)
             AND Load_HQR(tmpFilePath, PalettePcx, numscr + 1)) {
         WaitNoInput();
 
@@ -4666,7 +4666,7 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
 
     switch (effect) {
     case PCX_FADE:
-        if (!Pcx_LoadCentered(tmpFilePath, Log, numpcx))
+        if (!Image_LoadCentered(tmpFilePath, Log, numpcx))
             TheEndCheckFile(tmpFilePath);
 
         BoxStaticFullflip();
@@ -4680,21 +4680,21 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
            the centering offsets so the reveal lines up with the centred PCX
            content; the sidebars stay whatever was already in Log. */
         S32 x, y;
-        const S32 xOff = ((S32)ModeDesiredX - PCX_AUTHORED_WIDTH) / 2;
-        const S32 yOff = ((S32)ModeDesiredY - PCX_AUTHORED_HEIGHT) / 2;
+        const S32 xOff = ((S32)ModeDesiredX - IMAGE_AUTHORED_WIDTH) / 2;
+        const S32 yOff = ((S32)ModeDesiredY - IMAGE_AUTHORED_HEIGHT) / 2;
 
-        if (!Pcx_LoadCentered(tmpFilePath, screen, numpcx))
+        if (!Image_LoadCentered(tmpFilePath, screen, numpcx))
             TheEndCheckFile(tmpFilePath);
 
         PaletteSync(PalettePcx);
 
-        for (y = 0; y <= PCX_AUTHORED_HEIGHT - 1; y++) {
-            CopyBlock(xOff, yOff + y, xOff + PCX_AUTHORED_WIDTH - 1, yOff + y + 4,
+        for (y = 0; y <= IMAGE_AUTHORED_HEIGHT - 1; y++) {
+            CopyBlock(xOff, yOff + y, xOff + IMAGE_AUTHORED_WIDTH - 1, yOff + y + 4,
                       screen, xOff, yOff + y, Log);
             y += 5;
 
-            for (x = y; x <= PCX_AUTHORED_HEIGHT - 1; x++) {
-                CopyBlock(xOff, yOff + y, xOff + PCX_AUTHORED_WIDTH - 1, yOff + y,
+            for (x = y; x <= IMAGE_AUTHORED_HEIGHT - 1; x++) {
+                CopyBlock(xOff, yOff + y, xOff + IMAGE_AUTHORED_WIDTH - 1, yOff + y,
                           screen, xOff, yOff + x, Log);
             }
 

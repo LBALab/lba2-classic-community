@@ -370,7 +370,7 @@ static void cmd_ui(int argc, const char *argv[]) {
     }
     if (argc >= 4 && !strcmp(argv[1], "pcx-message")) {
         /* EffectPcxMess(pcx, screen, PCX_FADE, mess) — load a screen.hqr PCX
-           centred via Pcx_LoadCentered, then overlay the given dialog text-id
+           centred via Image_LoadCentered, then overlay the given dialog text-id
            from the currently-loaded dialog bank. Same Dial_Letterbox path as
            SlideShow / scripted LM_PCX_MESS_OBJ scenes; usable on standard
            retail data (screen.hqr is present everywhere).
