@@ -1854,14 +1854,18 @@ void DoFoundObj(S32 numvar) {
 
 #ifndef COMPILATOR
 
-// Coordonnees de la boite de la fleche gauche
-#define L_X0 78
+// Coordonnees de la boite de la fleche gauche.
+// X carries INV_LEFT_OFFSET so the arrows stay inside the centred slate at
+// wider framebuffers — same anchor convention as PLAN_X0 below; the 78 / 495
+// inner offsets are the historical literals against the slate's 640x480
+// authored canvas.
+#define L_X0 (78 + INV_LEFT_OFFSET)
 #define L_Y0 436
 #define L_X1 (L_X0 + 50)
 #define L_Y1 (L_Y0 + 29)
 
 // Coordonnees de la boite de la fleche droite
-#define R_X0 495
+#define R_X0 (495 + INV_LEFT_OFFSET)
 #define R_Y0 436
 #define R_X1 (R_X0 + 50)
 #define R_Y1 (R_Y0 + 29)
