@@ -75,6 +75,118 @@ like font-glyph byte patterns or angle constants.
 
 Total: **~110 distinct sites** across **15 source files**.
 
+## How the audit ages — patterns from the campaign
+
+The audit-doc-as-survey only stays useful if you remember a few things the
+campaign repeatedly demonstrated.
+
+### This doc is a survey, not a state machine
+
+Rows here capture what was true *when the row was written*, not what's true
+in the source today. Five rows in this file (A1, A2, A3, B5, the venetian-
+blind half of B6) were marked "open" in body text for months after the
+underlying code was already fixed — the fixes landed in Phase 3 Tier-1 /
+earlier C2 surfaces, and the doc just didn't get updated. PR #225 swept
+those into per-row "Resolved" annotations; the same drift will accumulate
+again unless the next sweep checks every cited file:line against current
+`main`.
+
+**Rule:** before recommending work for any row, grep the cited expression
+in the current source. If the literal is gone, the row is resolved — say
+so, propose a doc-cleanup PR if there's a batch worth bundling. Only act
+on rows that grep confirms are genuinely open.
+
+### Stride bugs come in waves of the same shape
+
+A1 (`BackupAngles` 640-stride pixel arithmetic), A9 (`Load_HQR(file, Log, id)`
+on the holomap planet image), A10 (`CopyBlock(0,0,640,480, dest, 0,0, Log)`
+on Smacker cinematic) all had the *identical* shape: a 640-wide source byte
+block consumed by a routine that read row pitch from `TabOffLine[1]` /
+`ModeDesiredX` and would shear / smear the source at any width > 640.
+
+Fix template — pick the one the surface allows:
+
+| Surface | Fix |
+|---|---|
+| Raw HQR bitmap, 640×480, destination is `Log` | Swap `Load_HQR` → `Image_LoadCentered`. Caller pre-clears `Log` if sidebars need to be black. |
+| Pre-rendered scratch buffer blitted via `CopyBlock` | Eliminate the scratch — write directly into `Log` at the centred origin with an explicit destination stride. `CopyBlock` itself reads pitch from `TabOffLine[1]` for both sides and can't be used to blit a 640-stride source into a wider `Log`. |
+| Pure pixel arithmetic on `Log` (e.g. `src[640]` for "one row down") | Replace the `640` row stride with `TabOffLine[1]` (or `(S32)ModeDesiredX`). |
+
+When you spot one stride bug, grep for sibling shapes immediately —
+`grep -rn "640 \*" SOURCES/ LIB386/` is a 30-second sweep that surfaces
+candidates. The bugs cluster in the same handful of files.
+
+### Type-B work surfaces Type-A bugs
+
+Several of the worst bugs found during this campaign were discovered
+*while testing a Type-B (UI re-anchor) PR*, not while doing dedicated
+Type-A auditing:
+
+- The Dark Monk holomap SIGSEGV (PR #220) surfaced while wiring up
+  `ui holomap` testing for the B4 HOLOPLAN routing PR — turned out
+  to be an unrelated Z-buffer init-order regression from PR #212.
+- A9 planet-image stride was spotted while capturing 768 visuals
+  for the B4 routing in PR #221 (planet rendered as a diagonal smear).
+- A10 PLAYACF `CopyBlock` stride bug only became visible after the
+  `ui video` capture verb was added for cinematic centring.
+
+**Implication:** budget time for the Type-A surface to grow during a
+Type-B sweep. Don't promise "B4 will be the last HOLOPLAN PR" — the
+testing pass for B4 is itself the discovery vector for the next
+HOLOPLAN bug. The pattern repeats.
+
+### Alignment-class sweep, in practice
+
+The "How to sweep" recipe above (the `for w in 640 768 800 1024 1280
+1366 1600 1920` loop) is the right shape, but the campaign hardened
+two practical points:
+
+- **Test widths that fall off `(MDX/2 - 32) % 24 == 0` alignment.** 768,
+  800, 1280, 1366 expose alignment-class bugs that 640, 1024, 1600
+  silently mask. A "looks fine at 1024" PR is not proof of correctness;
+  retest at 768.
+- **Visual screenshots are the diff target, not log lines.** The bugs
+  surfaced in this campaign were visible at-a-glance (diagonal smear,
+  off-centre globe, garbage sidebars), not in instrumentation output.
+  The `xdg-open /tmp/sweep_*.png` step in the recipe is the load-
+  bearing one.
+
+### Image-edge vs framebuffer-edge is a per-surface choice
+
+Centring decisions during C2 work split along a single axis: **does
+the surface have an underlying 640-wide piece of authored art?**
+
+| Surface | Anchor |
+|---|---|
+| HoloGlobe rotating planet (no underlying image) | Framebuffer centre (`MDX/2`) |
+| HoloPlan planet detail (centred 640×480 island map) | Image-edge (`xOff` / `xOff+639`) |
+| Inventory slate (centred 640×480 panel art) | Image-edge |
+| Centred PCX cinematic (CDROM splash, slideshow) | Image-edge (via `Dial_Letterbox` flag) |
+| Smacker cutscene (centred 640×480 buffer) | Image-edge (`cineX0`/`cineY0`) |
+| Full-screen menu BG / shade boxes | Framebuffer-edge |
+| Smacker cinematic dirty-box rect | Framebuffer-edge (sidebars must be painted) |
+
+The decision rule: anchor to the *frame the player perceives the
+content in*. For 4:3 authored art, that's the image. For UI that has
+no underlying art, that's the framebuffer.
+
+### Audit-row resolution requires both a grep and a behavioural check
+
+A row going from "open" to "Resolved" needs two things:
+
+1. **Grep confirms the literal is gone or routed.** Necessary, not
+   sufficient.
+2. **Behaviour verified at the canonical width + at least one wider
+   width.** A routed literal can still be wrong if the routing
+   produces the wrong destination (image-edge vs framebuffer-edge
+   choice was the recurring example).
+
+PR #221's HOLOPLAN routing satisfied (1) but not (2) for the bracket
+anchors — they were routed to `MDX-1, MDY-1` (framebuffer-edge) when
+the right answer for that surface was image-edge. PR #223 corrected
+the anchor target after the underlying image-stride fix (A9) made
+the right answer obvious.
+
 ## Category A — Critical: corrupts memory / breaks rendering at wider widths
 
 **True bugs under either C1 or C2.** These sites use `640` as a buffer

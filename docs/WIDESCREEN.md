@@ -91,6 +91,56 @@ The deferred, larger surface:
 - UI strategy — pick C1 or C2 (see [UI strategy](#ui-strategy-c1-vs-c2) below) and apply it so the 2D UI is correct in the wider frame.
 - HD-only concerns, if native high resolution is later pursued: filler precision (the `LIB386/pol_work/` fillers use 16-bit fixed-point step accumulation calibrated to 640-wide spans — the polyrec harness is the tool for measuring drift), bitmap fonts (`LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit 1:1), the 16-bit Z-buffer and `Fill_ZBuffer_Factor` (tuned for the 4:3 frustum), mouse-coordinate inversion against any UI scale, and a Smacker cutscene upscale policy.
 
+#### HD prerequisites — what the X-axis campaign settled
+
+The X-axis C2 campaign (PRs #213–#228) settled the structural prerequisites for HD. What's HD-ready vs what's still HD-only work:
+
+**HD-ready** (X-axis campaign cleared these):
+
+| Layer | Why it's ready |
+|---|---|
+| Memory pool | `Mem_ConfigureScreenBuffers(resX, resY)` sizes every framebuffer-dependent entry; `Mem_TeardownMainBuffer` (Phase 0 of runtime-res) will allow re-sizing at runtime. Z-buffer entry was the last "missing from the config sweep" bug (PR #220). |
+| Save format | `MAX_PLAYER` is keyed to literal `640×480` per [save-format invariant](#what-does-not-need-to-change); saves cross resolutions without migration. Verified across every routing PR in the campaign. |
+| Projection + isometric origin | Phase 2 routed all six call sites through `(S32)ModeDesiredX/Y/2`. `SetProjection` and `SetIsoProjection` are both width-correct at any resolution. |
+| Per-surface centring discipline | Image-edge vs framebuffer-edge is a documented decision per-surface (see [`WIDESCREEN_HARDCODED_DIMS_AUDIT.md`](WIDESCREEN_HARDCODED_DIMS_AUDIT.md) — the per-surface table is the reusable artifact). |
+| Audio panning + 2D distance | `GiveBalance` re-derived from `ModeDesiredX/Y`; pinned at the math layer by `test_ambiance_balance` (PR #228). |
+| Cinematic centring | Smacker writes directly into Log at the centred origin with proper stride (PR #226). |
+
+**Still HD-only work** (Y-axis + true high-resolution concerns):
+
+| Concern | Notes |
+|---|---|
+| Y-axis clamps | A4 (terrain horizon Y=479), A5 (holomap Z-buffer Y bounds). Same fix shape as the X-axis routing — substitute `(S32)ModeDesiredY - 1` for the literal — but exposes the next layer of bugs at Y > 480. Tracked under task #99. |
+| Holomap at Y > 480 | `ui holoplan` at `1024×768` times out (cinema-mode rendering bug independent of the planet bitmap centring). Needs the A4/A5 pass to unblock. Catch a `test_ui_holoplan_768x768.sh` once unblocked. |
+| Filler precision | `LIB386/pol_work/` step accumulators are 16-bit fixed-point calibrated to 640-wide spans. At 1920 the spans are 3× longer; accumulators may drift or overflow. **The polyrec harness is the diagnostic** — capture corpus + demo at the new width, compare per-draw-call deltas to 640. Drift points at specific fillers (texture vs gouraud vs flat). |
+| Bitmap fonts | `LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit at 1:1 pixel size. At 1920×1080 in-game text is tiny. Either pixel-scale the existing 8×N glyphs (cheap, blocky) or re-author a higher-DPI font set (slow, clean). |
+| Z-buffer precision | 16-bit Z + `Fill_ZBuffer_Factor` is tuned for the 4:3 frustum's depth range. May Z-fight at HD aspect ratios on distant geometry; the polyrec harness catches drift here too if you log Z values. |
+| Smacker upscale policy | Source is 320×200. At HD widths the existing centred-letterbox path (PR #226) preserves the cinematic feel with bigger sidebars. Alternative is to fill the frame (uglier, lossy); the current default is the right one. |
+| Mouse cursor inversion | Today mouse positions are framebuffer-pixel coords and SDL scales 1:1. Works at any framebuffer resolution. Only needs invert if we add a "render at 640, pixel-double in present" mode. |
+
+The handful of remaining open audit rows (B7 done; A4/A5 deferred; A10 PERSO cosmetic) are all in the second column.
+
+#### Testing posture, honestly
+
+What the campaign protected against, and what it didn't:
+
+**Protected** — every routing PR ships with a 640×480 byte-identical contract:
+
+- `host_quick` includes a unit test for every newly-extracted pure-math layer (`test_image_load` for the bitmap helpers, `test_ambiance_balance` for the pan/volume math). 12/12 host tests in CI.
+- The `ui_*` capture-based regressions (`ui_holomap`, `ui_holoplan`, `ui_inventory`, `ui_video`) each pin one UI surface byte-identical to its 640×480 golden. Run via `bash tests/automation/test_ui_*.sh` with `LBA2_GAME_DIR` set.
+- Per-PR visual A/B at 768 + 1024 lives in PR descriptions as embedded screenshots.
+
+**Not protected** — there is no automated regression coverage *at wider widths*:
+
+- The `ui_*` goldens are all at 640. A future PR that breaks rendering at 768 would not fail any test the CI runs.
+- The projrec harness has a `corpus_768x480.projrec.hash` baseline committed under `tests/projection/baselines/`, but it's not part of `make test` and was not exercised on any C2 routing PR in this campaign.
+- B5 (game-over `SetProjection`), B6 (venetian-blind reveal), and the menu stretch-BG path have zero automated coverage at any width — they were re-anchored without a capture verb.
+- "Verified at 768" in each PR description was an honor-system promise from the author. No machine confirms it after the fact.
+
+**The single most useful next step:** commit `_768.png` goldens alongside every existing `_640.png` golden, and run the `ui_*` suite at both widths. ~15 minutes per surface; closes the gap entirely.
+
+Until that lands, the rule of thumb is: a routing PR that *only* shows the 640 golden passing is incomplete. Visuals at 768 + 1024 belong in the PR body, and the next person on this branch should re-eyeball them before merging anything that touches the same surface.
+
 ### Phase 6 — regression
 
 Run the polyrec suite and the host tests. Confirm the default 640×480 build is byte-identical to before, and check the wide build across representative scenes — exterior terrain, brick interiors, cinema bars, the HUD — for centring and clipping. Lock the result in.
