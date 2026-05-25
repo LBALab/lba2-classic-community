@@ -234,5 +234,12 @@ extern void HoloMap(void);
    FlagHoloEnd is set so HoloMap exits cleanly.  Pass NULL or "" to disarm.
    Used by the console "ui holomap <path>" verb. */
 extern void Holo_RequestCapture(const char *path);
+/* Harness hook: arm a one-shot screenshot inside the next HoloPlan call.
+   Captures the zoomed-in planet/island view (corner brackets + 3D body) once
+   the zoom-in animation has settled, then sets FlagHoloEnd so HoloPlan exits
+   cleanly.  Pass NULL or "" to disarm.  Used by the console
+   "ui holoplan <island> <path>" verb. */
+extern void HoloPlan_RequestCapture(const char *path);
+extern int HoloPlan_IsCaptureArmed(void);
 extern S32 SetHoloPos(S32 num);
 extern void ClrHoloPos(S32 num);
