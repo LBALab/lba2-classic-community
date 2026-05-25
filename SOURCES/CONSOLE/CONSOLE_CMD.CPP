@@ -301,6 +301,18 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui holomap -> %s", argv[2]);
         return;
     }
+    if (argc >= 4 && !strcmp(argv[1], "video")) {
+        /* PlayAcf opens an ACF / Smacker cinematic by name and runs the
+           playback loop until end-of-file, ESC, or I_MENUS input.
+           Video_RequestCapture arms a one-shot SavePNG inside the loop
+           after the first composited frame, then exits via PlayAcf's
+           fin_play cleanup (which restores Log + palette).  Useful for
+           regression-testing widescreen centring of cutscenes. */
+        Video_RequestCapture(argv[3]);
+        PlayAcf(argv[2]);
+        Console_Print("ui video %s -> %s", argv[2], argv[3]);
+        return;
+    }
     if (argc >= 4 && !strcmp(argv[1], "holoplan")) {
         /* Capture the zoomed-in planet/island view for a given island index.
            Drive it through HoloMap so the same pre-render setup the normal
@@ -433,6 +445,7 @@ static void cmd_ui(int argc, const char *argv[]) {
     Console_Print("Usage: ui inventory <path>");
     Console_Print("       ui holomap <path>");
     Console_Print("       ui holoplan <island> <path>");
+    Console_Print("       ui video <name> <path>");
     Console_Print("       ui dialog <text-id> <path>");
     Console_Print("       ui menu-options <path>");
     Console_Print("       ui menu-main <path>");
@@ -1136,7 +1149,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
+                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui video <name> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
