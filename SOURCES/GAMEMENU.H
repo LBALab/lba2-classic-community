@@ -94,6 +94,11 @@ extern void Credits(S32 mode);
 /*--------------------------------------------------------------------------*/
 extern S32 SlideShow(void);
 /*--------------------------------------------------------------------------*/
+/* Arm a one-shot SavePNG inside SlideShow's first frame and exit cleanly
+   after capturing. Mirrors Inv_RequestCapture / Menu_RequestCapture /
+   Dial_RequestCapture etc. Wire into the harness via `ui slideshow <path>`. */
+extern void SlideShow_RequestCapture(const char *path);
+/*--------------------------------------------------------------------------*/
 extern void SlideDemo(int argc, char *argv[]);
 /*--------------------------------------------------------------------------*/
 extern S32 AdelineLogo(void);

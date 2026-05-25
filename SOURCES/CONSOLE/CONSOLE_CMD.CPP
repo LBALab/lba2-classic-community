@@ -332,6 +332,43 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui menu-main -> %s", argv[2]);
         return;
     }
+    if (argc >= 3 && !strcmp(argv[1], "slideshow")) {
+        /* End-of-island / end-game still-image montage. SlideShow loads
+           pre-rendered screenshots from scrshot.hqr, each shown with a story
+           caption via Dial. SlideShow_RequestCapture arms a one-shot SavePNG
+           inside the first frame's Dial typewriter loop, exits the slideshow
+           loop cleanly after the capture fires. Centred PCX + letterboxed
+           dialog flow — useful for verifying the Dial_Letterbox path.
+           NOTE: requires scrshot.hqr in the game data (typically Demo only);
+           returns silently if absent. Use `ui pcx-message` below for a path
+           that works on standard retail data. */
+        SlideShow_RequestCapture(argv[2]);
+        SlideShow();
+        SlideShow_RequestCapture(NULL); /* disarm if SlideShow exited some other way */
+        Console_Print("ui slideshow -> %s", argv[2]);
+        return;
+    }
+    if (argc >= 4 && !strcmp(argv[1], "pcx-message")) {
+        /* EffectPcxMess(pcx, screen, PCX_FADE, mess) — load a screen.hqr PCX
+           centred via Pcx_LoadCentered, then overlay the given dialog text-id
+           from the currently-loaded dialog bank. Same Dial_Letterbox path as
+           SlideShow / scripted LM_PCX_MESS_OBJ scenes; usable on standard
+           retail data (screen.hqr is present everywhere).
+           pcx-idx is an absolute PCR_ value (PCR_LOGO=0, PCR_CDROM=60,
+           PCR_ACTIVISION=72, ...). EffectPcxMess internally doubles its arg
+           to skip interleaved palettes, so we halve here before passing. */
+        S32 pcx_idx = (S32)atoi(argv[2]);
+        S32 text_id = (S32)atoi(argv[3]);
+        const char *path = (argc >= 5) ? argv[4] : NULL;
+        if (path && path[0])
+            Dial_RequestCapture(path);
+        EffectPcxMess((U8)(pcx_idx / 2), (U8 *)Screen, PCX_FADE, text_id);
+        if (path && path[0])
+            Dial_RequestCapture(NULL);
+        Console_Print("ui pcx-message pcx=%d text=%d -> %s",
+                      (int)pcx_idx, (int)text_id, path ? path : "(no path)");
+        return;
+    }
     if (argc >= 3 && !strcmp(argv[1], "config")) {
         /* Controls-remapping screen (keyboard). Config_MainCapture loads the
            menu PCX into Screen (the background MenuConfig normally inherits
@@ -360,6 +397,8 @@ static void cmd_ui(int argc, const char *argv[]) {
     Console_Print("       ui menu-options <path>");
     Console_Print("       ui menu-main <path>");
     Console_Print("       ui config <path>");
+    Console_Print("       ui slideshow <path>");
+    Console_Print("       ui pcx-message <pcx-idx> <text-id> [<path>]");
     Console_Print("       ui found-object <numvar> <path>");
 }
 
@@ -1057,7 +1096,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config} <path> | ui {dialog|found-object} <id> <path>",
+                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>]",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
