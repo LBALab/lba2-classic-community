@@ -234,7 +234,30 @@ keeps wrong walls out of the re-blit. `DrawOverBrick3` and
 object classes (sprites and the end-of-game cage) — not yet observed to
 manifest the visual bug at any width, so left alone pending evidence.
 
-### A9. Misc full-framebuffer allocations + sizes
+### A9. Holomap planet-detail image loads with no stride awareness
+
+[`SOURCES/HOLOPLAN.CPP:426`](../SOURCES/HOLOPLAN.CPP) — `InitHoloPlan` calls
+
+```cpp
+Load_HQR(tmpFilePath, Log, id);   // 640×480 raw image blob → Log
+```
+
+to drop the planet/island background image straight into the framebuffer.
+Each HQR entry is a fixed `640 × 480` byte block. At wider widths, Log's
+row stride is `ModeDesiredX`, so the source rows land on the wrong
+destination rows and the image renders as a diagonal smear (visible via
+`ui holoplan 0 …` at 768).
+
+Same shape as A1/A3: source data is correct but the consumer copies it
+with a hardcoded `640` row width. Fix needs a row-by-row copy with
+proper stride translation (or a wider centred composite if we keep the
+640-pixel image and centre it within Log).
+
+Discovered while testing PR for B4 routing; not blocking that PR — the
+C2 routing is a no-op at 640×480 and an independent surface to this
+stride bug.
+
+### A10. Misc full-framebuffer allocations + sizes
 
 | Site | What |
 |---|---|
@@ -319,6 +342,13 @@ Holomap corner decorations anchored to 4:3 corners. Also:
 - [`HOLOPLAN.CPP:468`](../SOURCES/HOLOPLAN.CPP) — `SetProjection(320, 240, 1024, 700, 700)` — holomap 3D projection centre
 - [`HOLOPLAN.CPP:747`](../SOURCES/HOLOPLAN.CPP) — `BoxStaticAdd(0, 0, 639, 479)` — full-screen dirty marker
 - [`HOLOPLAN.CPP:808-815`](../SOURCES/HOLOPLAN.CPP) — zoom-in animation bounded by 639/479
+
+*(Resolved by C2 HOLOPLAN.CPP pass — corner markers + full-screen dirty
+box + zoom-in target now route through `(S32)ModeDesiredX-1` /
+`(S32)ModeDesiredY-1`, projection centre through `(S32)ModeDesiredX/2` /
+`(S32)ModeDesiredY/2`. New `ui holoplan <island> <path>` capture verb
+guards the surface. Pre-existing planet-detail image-load stride bug at
+the same surface surfaced during testing — see A9 above.)*
 
 ### B5. Game-over 3D projection
 

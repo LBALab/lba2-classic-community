@@ -2,8 +2,10 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
+#include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <string.h>
 
 #define ZOOM_A 2048 //	Big Islands
 #define ZOOM_B 1024 //	Islands with 4 cubes
@@ -428,9 +430,9 @@ void InitHoloPlan() {
     Load_HQR(tmpFilePath, buffer, id + 1);
 
     AffUpperLeft(0, 0, 0);
-    AffLowerLeft(0, 479, 0);
-    AffUpperRight(639, 0, 0);
-    AffLowerRight(639, 479, 0);
+    AffLowerLeft(0, (S32)ModeDesiredY - 1, 0);
+    AffUpperRight((S32)ModeDesiredX - 1, 0, 0);
+    AffLowerRight((S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, 0);
 
     CopyScreen(Log, Screen);
 
@@ -465,7 +467,7 @@ void InitHoloPlan() {
     ScaleRotBody3D(BufDyno, SCALE_DYNO_PLAN, FALSE);
 
     //	SetProjection( 320, 240, 1024, 1024, 1024 ) 			;
-    SetProjection(320, 240, 1024, 700, 700);
+    SetProjection((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, 1024, 700, 700);
     SetFollowCamera(orgmx, 0, orgmz, alpha, beta, 0, distance);
     SetLightVector(lalpha, lbeta, 0);
 
@@ -723,6 +725,37 @@ void SearchObjectifIsland(S32 dir) {
     YpObjectif = y;
 }
 //════════════════════════════════════════════════════════════════════════════
+/* Harness capture state — see HoloPlan_RequestCapture() in HOLO.H.  When
+   the path is non-empty, HoloPlan's modal loop fires a one-shot SavePNG
+   once the post-fade steady state is reached, then sets FlagHoloEnd and
+   breaks so HoloPlan exits cleanly. */
+static char s_holoplan_capture_path[ADELINE_MAX_PATH] = "";
+static int s_holoplan_capture_countdown = 0;
+
+void HoloPlan_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_holoplan_capture_path[0] = '\0';
+        s_holoplan_capture_countdown = 0;
+        return;
+    }
+    strncpy(s_holoplan_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_holoplan_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+    /* The zoom-in inner loop runs for ~1000 ms of in-game time when FlagMap
+       is set; the FadeToPal pass after the first composite is another few
+       frames.  40 outer iterations at fixed-dt 16 ms gives the zoom + fade
+       time to settle before we grab the frame. */
+    s_holoplan_capture_countdown = 40;
+}
+
+/* Queried from HoloMap so the same harness pre-arm (texture-filler globals
+   etc.) that fires for HoloGlobe captures also fires when we drive a
+   HoloPlan-only capture through HoloMap (HoloMode=1 path).  Without this,
+   PtrMap/ObjPtrMap stay stale on the first tick after --load and the
+   textured planet body segfaults inside Filler_TextureGouraud. */
+int HoloPlan_IsCaptureArmed(void) {
+    return s_holoplan_capture_path[0] != '\0';
+}
+
 void HoloPlan(S32 numplan) {
     S32 x0, y0, x1, y1;
     S32 testrelease = 0;
@@ -744,7 +777,7 @@ void HoloPlan(S32 numplan) {
     InitAngleArrow();
 
     if (!FlagMap)
-        BoxStaticAdd(0, 0, 639, 479); //	Full Screen
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1); //	Full Screen
 
     while (!FlagHoloEnd) {
         ManageTime();
@@ -805,14 +838,14 @@ void HoloPlan(S32 numplan) {
                 timer = TimerRefHR - MemoTimerRot;
                 x0 = BoundRegleTrois(CENTERX - 8, 0, 1000, timer);
                 y0 = BoundRegleTrois(CENTERY - 8, 0, 1000, timer);
-                x1 = BoundRegleTrois(CENTERX + 8, 639, 1000, timer);
-                y1 = BoundRegleTrois(CENTERY + 8, 479, 1000, timer);
+                x1 = BoundRegleTrois(CENTERX + 8, (S32)ModeDesiredX - 1, 1000, timer);
+                y1 = BoundRegleTrois(CENTERY + 8, (S32)ModeDesiredY - 1, 1000, timer);
 
                 if (x0 == 0) {
                     break; // Before Crash!
                 }
 
-                ScaleBox(0, 0, 639, 479, BufSpeak, x0, y0, x1, y1, Log);
+                ScaleBox(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, BufSpeak, x0, y0, x1, y1, Log);
 
                 AffUpperLeft(x0, y0, 0);
                 AffLowerLeft(x0, y1, 0);
@@ -851,6 +884,19 @@ void HoloPlan(S32 numplan) {
             FadeToPal(PtrPal);
             SetTimerHR(MemoTimerRot);
             FlagFade = FALSE;
+        }
+
+        /* Harness one-shot capture.  Sits at the bottom of the modal loop so
+           the captured Log buffer contains the post-fade, post-zoom-in steady
+           frame: corner brackets at the four screen extents, planet body
+           centred via SetProjection, and any reticule + dialogue strip the
+           player would see at rest. */
+        if (s_holoplan_capture_path[0] && --s_holoplan_capture_countdown <= 0) {
+            SavePNG(s_holoplan_capture_path, Log, (S32)ModeDesiredX,
+                    (S32)ModeDesiredY, PtrPal);
+            s_holoplan_capture_path[0] = '\0';
+            FlagHoloEnd = TRUE;
+            break;
         }
 
         //-------------

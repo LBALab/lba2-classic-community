@@ -1178,7 +1178,7 @@ void HoloMap() {
        Hoist the init that AffScene normally does for us before the globe's
        body draws kick in.  Gated on capture-armed so normal callers (player
        pressing the holomap key after gameplay) see no behaviour change. */
-    if (s_holo_capture_path[0]) {
+    if (s_holo_capture_path[0] || HoloPlan_IsCaptureArmed()) {
         /* Match the normal in-game caller's pre-HoloMap setup
            (PERSO.CPP:1405-1414): StopSpeak terminates any active speech
            and InitWaitNoInput/NoKey clear pending input state so the
