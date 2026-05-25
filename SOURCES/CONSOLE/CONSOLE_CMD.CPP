@@ -301,6 +301,26 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui holomap -> %s", argv[2]);
         return;
     }
+    if (argc >= 4 && !strcmp(argv[1], "holoplan")) {
+        /* Capture the zoomed-in planet/island view for a given island index.
+           Drive it through HoloMap so the same pre-render setup the normal
+           code path does (PtrMap/ObjPtrMap, dialogue bank, body/anim ptrs,
+           clip window, camera save) runs before HoloPlan tries to draw the
+           textured globe — calling HoloPlan() directly would segfault inside
+           the texture filler.  HoloMode=1 tells HoloMap to dispatch straight
+           to HoloPlan(Island) instead of opening HoloGlobe. */
+        S32 island = (S32)atoi(argv[2]);
+        S32 saved_mode = HoloMode;
+        S32 saved_island = Island;
+        HoloPlan_RequestCapture(argv[3]);
+        HoloMode = 1;
+        Island = island;
+        HoloMap();
+        HoloMode = saved_mode;
+        Island = saved_island;
+        Console_Print("ui holoplan %d -> %s", (int)island, argv[3]);
+        return;
+    }
     if (argc >= 4 && !strcmp(argv[1], "dialog")) {
         /* Dial(text, drawscene) opens a dialogue bubble + portrait for the
            given text-id in the currently-loaded dialogue bank.  Dial_Request-
@@ -412,6 +432,7 @@ static void cmd_ui(int argc, const char *argv[]) {
     }
     Console_Print("Usage: ui inventory <path>");
     Console_Print("       ui holomap <path>");
+    Console_Print("       ui holoplan <island> <path>");
     Console_Print("       ui dialog <text-id> <path>");
     Console_Print("       ui menu-options <path>");
     Console_Print("       ui menu-main <path>");
@@ -1115,7 +1136,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("screenshot", cmd_screenshot, "Save next frame as PNG (no console)", "(no args)",
                               "PNG under shoot/; console closes first.");
     Console_RegisterCommandEx("ui", cmd_ui, "Open a UI modal and capture a screenshot",
-                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
+                              "ui {inventory|holomap|menu-options|menu-main|config|slideshow} <path> | ui holoplan <island> <path> | ui {dialog|found-object} <id> <path> | ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]",
                               "Composite verb for UI regression fixtures: opens a UI modal "
                               "with a deterministic auto-exit, writes the settled frame to <path> "
                               "via SavePNG, then closes.  Compose with --load / --exec to drive "
