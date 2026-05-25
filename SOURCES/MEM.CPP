@@ -30,8 +30,8 @@ struct SizeInfo {
 // penser à réaligner les pointeurs (par une macro ?)
 
 T_MEM ListMem[] = {
-    {(void **)&PtrZBuffer, 0},      // Floor patché par Mem_ConfigureScreenBuffers() (Z-buffer size);
-                                    // InitBufferCube() grandit pour les cubes intérieurs si nécessaire
+    {(void **)&PtrZBuffer, 0},      // Plancher patché par Mem_ConfigureScreenBuffers() (taille du Z-buffer);
+                                    // InitBufferCube() agrandit pour les cubes intérieurs si nécessaire
     {(void **)&ScreenAux, 0},       // Patché par Mem_ConfigureScreenBuffers() avant InitMemory()
     {(void **)&BufSpeak, 0},        // idem
     {(void **)&Screen, 0},          // idem
