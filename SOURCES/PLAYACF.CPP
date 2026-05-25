@@ -3,12 +3,17 @@
 
 #include "DIRECTORIES.H"
 
+#include "IMAGE_LOAD.H"
+
+#include <string.h>
+
 #ifdef USE_MVIDEO_SMACKER
 #include "AMBIANCE.H"
 #include "INPUT.H"
 #include "MESSAGE.H"
 #include <AIL/VIDEO_AUDIO.H>
 #include <AIL/VIDEO_AUDIO_RESAMPLE.H>
+#include <FILEIO/SAVEPNG.H>
 
 static int videoLogEnabled = 0;
 
@@ -19,6 +24,7 @@ void VideoLogEnable(int enable) {
 int VideoLogIsEnabled(void) {
     return videoLogEnabled;
 }
+
 #include <SVGA/DIRTYBOX.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -34,6 +40,22 @@ char PathAcf[ADELINE_MAX_PATH];
 
 char *ListAcf;
 char *EndListAcf;
+
+/* Harness one-shot screenshot — see Video_RequestCapture() in PLAYACF.H.
+   When the path is non-empty, PlayAcf's playback loop fires SavePNG on the
+   first composited frame and exits cleanly via the fin_play label. Stored
+   at file scope unconditionally so the Video_RequestCapture symbol is
+   available even in null-video-backend builds (where it's a no-op). */
+static char s_video_capture_path[ADELINE_MAX_PATH] = "";
+
+void Video_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_video_capture_path[0] = '\0';
+        return;
+    }
+    strncpy(s_video_capture_path, path, ADELINE_MAX_PATH - 1);
+    s_video_capture_path[ADELINE_MAX_PATH - 1] = '\0';
+}
 
 #ifdef LBA_EDITOR
 #define SIZE_BUFFER_SMACK 1000000L
@@ -216,23 +238,42 @@ void PlayAllAcf(void) {
 \***************************************************************************/
 
 #ifdef USE_MVIDEO_SMACKER
-static void ReadNextVideoFrame(smk smkObject, U8 *buffer, U8 **pal) {
+/* Decode and upscale one Smacker frame (320×200 source, nearest-neighbour
+   2× in both axes, 400 rows of video vertically centred inside a 480-row
+   "image area" — 40-row black letterbox top and bottom).
+
+   destOrigin / destStride identify the top-left of the 640×480 image area
+   inside a wider host buffer (Log).  Writing directly into Log with the
+   correct stride keeps the wider sidebars untouched.  At ModeDesiredX=640
+   this collapses to "destStride==640", matching the historical layout
+   when the buffer was a malloc'd 640×480 scratch. */
+static void ReadNextVideoFrame(smk smkObject, U8 *destOrigin, U32 destStride, U8 **pal) {
     const U32 width = 320;
     const U32 height = 200;
-    const U32 screenWidth = 640;
+    const U32 imageWidth = IMAGE_AUTHORED_WIDTH;   // 640 — upscaled video span
+    const U32 imageHeight = IMAGE_AUTHORED_HEIGHT; // 480 — image-area height
     const U32 videoStartY = 40;
     U8 *frame = (U8 *)smk_get_video(smkObject);
     *pal = (U8 *)smk_get_palette(smkObject);
-    memset(buffer, 0, screenWidth * 480);
-    U8 *targetRow = buffer + videoStartY * screenWidth;
+
+    /* Clear the 640×480 image area each frame so the letterbox bands
+       (rows 0..39 and 440..479) stay black, and any sidebar slop from
+       previous frame painting is wiped before the upscale fills the
+       central 640×400. Sidebars outside this rectangle are pre-cleared
+       once in PlayAcf before the playback loop. */
+    for (U32 y = 0; y < imageHeight; y++) {
+        memset(destOrigin + y * destStride, 0, imageWidth);
+    }
+
+    U8 *targetRow = destOrigin + videoStartY * destStride;
     for (U32 y = 0; y < height; y++) {
         const U8 *sourceRow = frame + y * width;
         for (U32 x = 0; x < width; x++) {
             targetRow[2 * x] = sourceRow[x];
             targetRow[2 * x + 1] = sourceRow[x];
         }
-        memcpy(targetRow + screenWidth, targetRow, screenWidth);
-        targetRow += screenWidth * 2;
+        memcpy(targetRow + destStride, targetRow, imageWidth);
+        targetRow += destStride * 2;
     }
 }
 
@@ -453,18 +494,6 @@ S32 PlayAcf(const char *name) {
         smk_enable_all(smkObject, SMK_VIDEO_TRACK | a_t);
         smk_first(smkObject);
 
-        U8 *dest = (U8 *)malloc(640 * 480);
-        if (!dest) {
-            StopVideoAudio();
-            smk_close(smkObject);
-            Free(decompbuf);
-            if (savedLog)
-                free(savedLog);
-            HQ_ResumeSamples();
-            s_playacf_playing = 0;
-            return 0;
-        }
-
         /* Frame interval in ms from file (usf = microseconds per frame) for accurate pacing */
         U32 frameMs = (U32)(usf / 1000.0);
         if (frameMs == 0)
@@ -491,6 +520,22 @@ S32 PlayAcf(const char *name) {
             ResumeVideoAudio();
         }
 
+        /* Cinematic letterbox: paint the wider Log to black once so the
+           sidebars at widths > 640 don't leak whatever scene rendered
+           before the cutscene started. Then each frame writes the 320×200
+           Smacker upscale (2× → 640×400) directly into Log at the centred
+           image-area origin, with proper Log row-stride. No intermediate
+           malloc'd buffer / CopyBlock — earlier versions blitted from a
+           640-stride scratch into a wider Log via CopyBlock, but
+           CopyBlock assumes the same stride for src and dst (uses
+           TabOffLine[1] both sides) and would have produced a diagonal
+           smear at any width > 640. At MDX=640 this is byte-identical
+           to the old path. */
+        const S32 cineX0 = ((S32)ModeDesiredX - IMAGE_AUTHORED_WIDTH) / 2;
+        const S32 cineY0 = ((S32)ModeDesiredY - IMAGE_AUTHORED_HEIGHT) / 2;
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        U8 *cineOrigin = (U8 *)Log + (size_t)cineY0 * (size_t)ModeDesiredX + (size_t)cineX0;
+
         U8 *pal = NULL;
         U32 videoStartTicks = 0;
         static int s_wasConsoleOpen = 0;
@@ -500,10 +545,20 @@ S32 PlayAcf(const char *name) {
                 PushCurrentFrameVideoAudio(smkObject, tracksToPlay, numTracks, a_d, a_r, a_c, usf);
             }
 
-            ReadNextVideoFrame(smkObject, dest, &pal);
-            CopyBlock(0, 0, 640, 480, dest, 0, 0, Log);
+            ReadNextVideoFrame(smkObject, cineOrigin, ModeDesiredX, &pal);
             if (pal)
                 PaletteSync(pal);
+
+            /* Harness one-shot capture — saves the first composited frame
+               and exits cleanly via fin_play. The cleanup at fin_play
+               restores Log from savedLog, but the on-disk PNG already
+               holds the cinematic frame. */
+            if (s_video_capture_path[0]) {
+                SavePNG(s_video_capture_path, Log, (S32)ModeDesiredX,
+                        (S32)ModeDesiredY, pal ? pal : PtrPal);
+                s_video_capture_path[0] = '\0';
+                goto fin_play;
+            }
             BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
             BoxUpdate();
 
@@ -549,7 +604,6 @@ S32 PlayAcf(const char *name) {
         s_wasConsoleOpen = 0;
         StopVideoAudio();
         smk_close(smkObject);
-        free(dest);
         Free(decompbuf);
 
         /* Restore screen and palette so we don't leave a black screen. */
