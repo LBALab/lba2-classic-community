@@ -122,6 +122,9 @@ static S32 DialMaxSize = ((623 - 8) - (16 + 8));
    black sidebars. Zero during normal gameplay → dialog uses the full width. */
 S32 Dial_Letterbox = 0;
 
+/* See MESSAGE.H. Test-only override for GereFlagDial. */
+S32 Dial_ForceFlag = 0;
+
 /* Horizontal inset to apply when Dial_Letterbox is set: half the gap between
    the framebuffer's width and the authored 640 px PCX width. Zero at 640. */
 static S32 DialLetterboxInset(void) {
@@ -1315,6 +1318,14 @@ void ExplainWinDial() {
 /*-------------------------------------------------------------------------*/
 S32 GereFlagDial(S32 text) {
     S32 ret = FALSE;
+
+    /* Harness override: when Dial_ForceFlag is non-zero, replace the FlagDial
+       byte read from the text bank so the test can force a specific WinDial
+       mode (BigWinDial, NormalWinDial, …) without needing a text-id that's
+       authored with that mode. No-op for production callers. */
+    if (Dial_ForceFlag) {
+        FlagDial = Dial_ForceFlag;
+    }
 
     FlagMessageShade = TRUE;
 
