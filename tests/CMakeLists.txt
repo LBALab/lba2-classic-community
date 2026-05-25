@@ -24,6 +24,7 @@ add_subdirectory(version)
 add_subdirectory(savegame)
 add_subdirectory(deffile)
 add_subdirectory(image_load)
+add_subdirectory(ambiance_balance)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
