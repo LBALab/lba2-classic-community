@@ -105,6 +105,10 @@ Fix: replace the `640` row stride with `TabOffLine[1]` (or equivalent
 `(S32)ModeDesiredX`). The destination side stays as-is — `dest` is a
 small backup region with its own tight stride, unrelated to Log.
 
+*(Resolved: `BackupAngles` / `RestoreAngles` now read `const S32 stride
+= TabOffLine[1]` and use `stride * N` for the per-row offsets. See the
+"Phase 3 Tier-1 fix" comment block at `INVENT.CPP:2284`.)*
+
 ### A2. Fixed buffer offset into per-resolution memory
 
 [`SOURCES/INVENT.CPP:2259`](../SOURCES/INVENT.CPP):
@@ -123,6 +127,9 @@ Bug under both C1 and C2 — the macro wants to land past whatever the
 framebuffer-pixel area actually is. Fix: `ScreenAux + ModeDesiredX *
 ModeDesiredY` (or `RESOLUTION_X * RESOLUTION_Y` if compile-time is fine).
 
+*(Resolved: `INVENT.CPP:2277` now reads `#define PtrBackupAngles
+(ScreenAux + ModeDesiredX * ModeDesiredY)`. Phase 3 Tier-1 fix.)*
+
 ### A3. Z-buffer clear stride
 
 [`SOURCES/HOLOGLOB.CPP:1004`](../SOURCES/HOLOGLOB.CPP):
@@ -136,6 +143,10 @@ Even with the Z-buffer correctly sized (now `RESOLUTION_X*Y*2` per #205),
 this memset uses 640 as the row stride. At 768 the clear leaves the
 rightmost 128 columns of each row uncleared — Z-test garbage persists,
 holomap renders with stale depth.
+
+*(Resolved: `HOLOGLOB.CPP:1009` now uses `ModeDesiredX * 2` as the per-row
+byte count, so the full active row width is cleared at any framebuffer
+width.)*
 
 ### A4. Terrain horizon polygons clamped to Y=479
 
@@ -162,6 +173,12 @@ DefFileBufferInit("…/NAME.ME", BufSpeak, 640 * 480);
 `BufSpeak` is sized at `RESOLUTION_X*Y+RECOVER_AREA`. Init at `640*480`
 likely truncates the buffer to a 4:3 region. Save/load thumbnails may
 corrupt at wider widths.
+
+*(Not a shipping bug: both call sites are inside `#ifdef DEBUG_TOOLS`
+blocks (Adeline-internal debug helpers reading a `C:\\DOS\\EXTEND\\NAME.ME`
+config file). The shipping binary is built without `DEBUG_TOOLS`, so
+this code path never runs. Worth tightening if a `DEBUG_TOOLS` build is
+ever revived; not a player-facing concern.)*
 
 ### A7. Iso AffBrickBlock left clip assumes hotX=-24
 
@@ -269,17 +286,12 @@ verified at 768 and 1024. Y>480 still subject to the wider HD-pass — A4
 
 ### A10. Misc full-framebuffer allocations + sizes
 
-| Site | What |
-|---|---|
-| [`SOURCES/PERSO.CPP:2008`](../SOURCES/PERSO.CPP) | `DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA))` |
-| [`SOURCES/PLAYACF.CPP:222-456`](../SOURCES/PLAYACF.CPP) | Cinematic video buffer at `screenWidth = 320` then `* 480` |
-| [`SOURCES/PLAYACF.CPP:504`](../SOURCES/PLAYACF.CPP) | `CopyBlock(0, 0, 640, 480, dest, …)` |
-| [`SOURCES/DEFINES.H:211`](../SOURCES/DEFINES.H) | `#define MAX_PLAYER ((640 * 480) / …)` |
-| [`SOURCES/CONFIG/MAIN.CPP:90`](../SOURCES/CONFIG/MAIN.CPP) | `#define ibuffersize (640 * 480 + RECOVER_AREA)` |
-
-These mostly affect specific subsystems (config load, video playback,
-save thumbnails). Each needs the same `RESOLUTION_X * RESOLUTION_Y`
-treatment.
+| Site | What | Status |
+|---|---|---|
+| [`SOURCES/PERSO.CPP:2008`](../SOURCES/PERSO.CPP) | `DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA))` | **Functional, low priority.** Tells `DefFileBufferInit` the scratch buffer is `640*480 + RECOVER_AREA` bytes; the actual `ScreenAux` is `MDX*MDY + RECOVER_AREA`. Under-declares the buffer but doesn't corrupt — `LBA2.CFG` is a small text file, never approaches 307K. Worth tightening to `ModeDesiredX * ModeDesiredY + RECOVER_AREA`. |
+| [`SOURCES/PLAYACF.CPP:222-456`](../SOURCES/PLAYACF.CPP) + [`:504`](../SOURCES/PLAYACF.CPP) | Cinematic video upscaled into a 640×480 dest buffer, then `CopyBlock(0, 0, 640, 480, dest, 0, 0, Log)` to the framebuffer. | **Open — real bug at wider widths.** The 640×480 buffer lands in the left 640 columns of Log; columns `[640, ModeDesiredX)` keep whatever Log held before the cutscene started. Visible as garbage / stale UI to the right of the Smacker frame at 768/1024. Fix shape: clear Log to black + `CopyBlock(0, 0, 640, 480, dest, (MDX-640)/2, (MDY-480)/2, Log)` for letterbox-centred cinematic. |
+| [`SOURCES/DEFINES.H:211`](../SOURCES/DEFINES.H) | `#define MAX_PLAYER ((640 * 480) / …)` | **Intentionally fixed** per [`WIDESCREEN.md`](WIDESCREEN.md#what-does-not-need-to-change) — partitions `BufSpeak`, and a silent slot-count change would walk off the end of it. Save format depends on this staying at 640*480. Do not change. |
+| [`SOURCES/CONFIG/MAIN.CPP:90`](../SOURCES/CONFIG/MAIN.CPP) | `#define ibuffersize (640 * 480 + RECOVER_AREA)` | **Not built.** `SOURCES/CONFIG/` is the original Adeline standalone config tool; it isn't referenced by any active `CMakeLists.txt`. Dormant code, not in the shipping binary. |
 
 ## Category B — Functional: UI layout architecture choice
 
@@ -373,12 +385,12 @@ prop; widening would centre it. **Resolved by the C2 GAMEMENU pass.**
 
 ### B6. Fade / venetian-blind transitions
 
-[`SOURCES/GAMEMENU.CPP:4633-4639`](../SOURCES/GAMEMENU.CPP) — fade-in
-animation that reads a 640×480 PCX into the framebuffer. The 640/479/639
-literals are PCX-image dimensions, not framebuffer ones. **Deferred** to
-the PCX-resampling pass; marked with a `TODO(pcx)` comment in-source.
-Until then the venetian fade paints only the leftmost 640 columns of the
-wider framebuffer.
+`EffectPcx` venetian-blind reveal ([`GAMEMENU.CPP:4676-4704`](../SOURCES/GAMEMENU.CPP))
+— originally read a 640×480 PCX flat into the framebuffer with no
+stride awareness, then revealed it by row-by-row copies. **Resolved by
+the `Image_LoadCentered` pass**: the PCX now loads centred with proper
+stride, and the row-by-row `CopyBlock`s use `(xOff, yOff)` offsets so
+the reveal lines up with the centred picture. Sidebars stay black.
 
 [`SOURCES/GAMEMENU.CPP:3220-3227`](../SOURCES/GAMEMENU.CPP) —
 `ScaleBox(0, 0, 639, 479, Screen, x0, y0, x1, y1, Log)` — save-load
