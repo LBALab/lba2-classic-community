@@ -284,8 +284,8 @@ files (SAVEGAME, CONFIG, INVENT, MESSAGE, HOLOPLAN) still pending.
 | [`SOURCES/CONFIG.CPP`](../SOURCES/CONFIG.CPP) | 7 — config-screen text centred at 320 *(resolved by C2 CONFIG.CPP pass)* |
 | [`SOURCES/SAVEGAME.CPP:544-547`](../SOURCES/SAVEGAME.CPP) | save-prompt text box centred at (320, 240) |
 | [`SOURCES/GAMEMENU.CPP:4521-4524`](../SOURCES/GAMEMENU.CPP) | "Saved" message box at (320 ± X, 240 ± 25) |
-| [`SOURCES/MESSAGE.CPP:298`](../SOURCES/MESSAGE.CPP) | `Font(320 - dx/2, …, "Please wait")` |
-| [`SOURCES/PERSO.CPP:2226-2229`](../SOURCES/PERSO.CPP) | system message at `320 - x, 236` |
+| [`SOURCES/MESSAGE.CPP:298`](../SOURCES/MESSAGE.CPP) | `Font(320 - dx/2, …, "Please wait")` *(resolved by C2 MESSAGE.CPP pass)* |
+| [`SOURCES/PERSO.CPP:2226-2229`](../SOURCES/PERSO.CPP) | system message at `320 - x, 236` *(resolved by C2 MESSAGE.CPP pass — PERSO sites swapped at the same time)* |
 
 All need re-anchoring to `ModeDesiredX/2`. **GAMEMENU sites resolved by
 the C2 pass** (DrawOneString / DrawSingleString / ClearOneString /
@@ -303,7 +303,7 @@ surface PRs.
 | [`SOURCES/INVENT.CPP:1871`](../SOURCES/INVENT.CPP) | `#define PLAN_X1 (PLAN_X0 + 479)` | Slate panel right edge — slate art is 480 wide, OK as-is. *(Resolved: `PLAN_X0` now carries `INV_LEFT_OFFSET` so the slate stays inside the centred inventory region; the deferred `PCR_ARDOISE` PCX is loaded via `Pcx_LoadCentered`.)* |
 | [`SOURCES/INVENT.H:23,41`](../SOURCES/INVENT.H) | `INV_DELTA_X = 639 - INV_START_X*2`, `INV_NAME_X1 = 639 - INV_START_X` | Inventory panel width tied to 639. *(Resolved: centred-4:3 design — `INV_DELTA_X` is fixed 623, `INV_START_X` carries `INV_LEFT_OFFSET = (ModeDesiredX-640)/2`. Icons stay fixed-size; the rectangle slides as a unit.)* |
 | [`SOURCES/INVENT.H:34,36`](../SOURCES/INVENT.H) | `INV_ZOOM_X0 = 317 - 120`, `INV_ZOOM_X1 = 317 + 120` | Zoom box at iso projection X (`317 = 320 - 3`). *(Resolved: `(S32)ModeDesiredX / 2 - 3 ± 120`.)* |
-| [`SOURCES/MESSAGE.CPP:110, 111, 1227, 1237, 1247, 1258, 1969, 1970`](../SOURCES/MESSAGE.CPP) | `Dial_X1 = 639 - 16`, `Dial_Y1 = 479 - 16` and variants | Dialog box right/bottom margins |
+| [`SOURCES/MESSAGE.CPP:110, 111, 1227, 1237, 1247, 1258`](../SOURCES/MESSAGE.CPP) | `Dial_X1 = 639 - 16`, `Dial_Y1 = 479 - 16` and variants | Dialog box right/bottom margins *(resolved by C2 MESSAGE.CPP pass — NormalWinDial / DemoWinDial / BigWinDial / HoloWinDial all route Dial_X1 through `(S32)ModeDesiredX - 1 - N`; file-scope defaults left as 4:3 literals since the WinDial functions overwrite them before use)* |
 
 ### B4. Holomap UI
 
