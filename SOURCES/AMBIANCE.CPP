@@ -175,20 +175,37 @@ void HQ_ResumeSamples(void) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 S32 GiveBalance(S32 xp, S32 yp, S32 distance, U32 *pan, S32 *vol) {
-    if ((yp > 480 + 480)
-            OR(yp < -480))
+    /* Stereo balance keys off the projected screen X.  The original 4:3
+       constants (-320, 160, 480, 640+320, +480/-480 for Y) are the literal
+       framebuffer geometry: pan ramps from 0 to 32 across the left "quarter"
+       of the screen, from 32 to 96 across the middle "half", and from 96 to
+       127 across the right "quarter", with off-screen tolerance of half a
+       screen X / one screen Y on each side.  Routing those through
+       ModeDesiredX/Y keeps the audio image lined up with what the player
+       actually sees at any width.  At ModeDesiredX==640 / Y==480 the math
+       is bit-identical (the historical "319" off-by-one terms reduce to
+       3*MDX/4 - 1). */
+    const S32 mdx = (S32)ModeDesiredX;
+    const S32 mdy = (S32)ModeDesiredY;
+    const S32 panLeftEnd = mdx / 4;           // 160 at 640: end of left ramp
+    const S32 panRightStart = (mdx * 3) / 4;  // 480 at 640: start of right ramp
+    const S32 outerSteps = panRightStart - 1; // 479 at 640: left/right ramp distance
+    const S32 innerSteps = mdx / 2;           // 320 at 640: middle ramp distance
+
+    if ((yp > mdy + mdy)
+            OR(yp < -mdy))
         return FALSE;
 
-    if ((xp < -320)
-            OR(xp >= 640 + 320))
+    if ((xp < -mdx / 2)
+            OR(xp >= mdx + mdx / 2))
         return FALSE;
 
-    if (xp < 160)
-        *pan = RegleTrois(0, 32, 160 + 319, xp + 320);
-    else if (xp > 480)
-        *pan = RegleTrois(96, 127, 640 + 319 - 480, xp - 480);
+    if (xp < panLeftEnd)
+        *pan = RegleTrois(0, 32, outerSteps, xp + mdx / 2);
+    else if (xp > panRightStart)
+        *pan = RegleTrois(96, 127, outerSteps, xp - panRightStart);
     else
-        *pan = RegleTrois(32, 96, 480 - 160, xp - 160);
+        *pan = RegleTrois(32, 96, innerSteps, xp - panLeftEnd);
 
     if (CubeMode == CUBE_INTERIEUR)
         if (distance > DISTANCE_SAMPLE_MAX)
@@ -222,7 +239,7 @@ U32 HQ_3D_MixSample(S32 numsample, S32 frequence, S32 decalage,
         PtrProjectPoint(x, y, z);
 
         if (CubeMode == CUBE_INTERIEUR)
-            distance = Distance2D(320, 240, Xp, Yp);
+            distance = Distance2D((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, Xp, Yp);
         else
             distance = Distance3D(x, y, z, CameraX, CameraY, CameraZ);
 
@@ -272,7 +289,7 @@ void HQ_3D_ChangePanSample(S32 numsample, S32 x, S32 y, S32 z) {
         PtrProjectPoint(x, y, z);
 
         if (CubeMode == CUBE_INTERIEUR)
-            distance = Distance2D(320, 240, Xp, Yp);
+            distance = Distance2D((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, Xp, Yp);
         else
             distance = Distance3D(x, y, z, CameraX, CameraY, CameraZ);
 
