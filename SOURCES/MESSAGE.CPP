@@ -116,6 +116,21 @@ S32 Dial_X1 = 639 - 16;
 S32 Dial_Y1 = 479 - 16;
 static S32 DialMaxSize = ((623 - 8) - (16 + 8));
 
+/* See MESSAGE.H. Set by SlideShow / EffectPcx for the duration of a
+   centred-PCX cinematic so the *WinDial configurators inset the dialog box
+   to stay inside the picture's 4:3 region instead of stretching into the
+   black sidebars. Zero during normal gameplay → dialog uses the full width. */
+S32 Dial_Letterbox = 0;
+
+/* See MESSAGE.H. Test-only override for GereFlagDial. */
+S32 Dial_ForceFlag = 0;
+
+/* Horizontal inset to apply when Dial_Letterbox is set: half the gap between
+   the framebuffer's width and the authored 640 px PCX width. Zero at 640. */
+static S32 DialLetterboxInset(void) {
+    return Dial_Letterbox ? (((S32)ModeDesiredX - 640) / 2) : 0;
+}
+
 static char BufLine[256];
 static char *PtLine;
 static S32 SizeLine;
@@ -1227,9 +1242,10 @@ void TestCoulDial(S32 coul) {
 }
 /*-------------------------------------------------------------------------*/
 void NormalWinDial() {
-    Dial_X0 = 8;
+    S32 inset = DialLetterboxInset();
+    Dial_X0 = inset + 8;
     Dial_Y0 = ClipWindowYMax - 137; // 334 lorsque ClipWindowYMax==479
-    Dial_X1 = (S32)ModeDesiredX - 1 - 8;
+    Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;
     Dial_Y1 = ClipWindowYMax - 8;
 
     MaxLineDial = 3;
@@ -1237,9 +1253,10 @@ void NormalWinDial() {
 }
 /*-------------------------------------------------------------------------*/
 void DemoWinDial() {
-    Dial_X0 = -6;
-    Dial_Y0 = 340;                       // 334 lorsque ClipWindowYMax==479
-    Dial_X1 = (S32)ModeDesiredX - 1 + 6; // demo dialog bleeds 6 px past each edge
+    S32 inset = DialLetterboxInset();
+    Dial_X0 = inset - 6; // demo dialog bleeds 6 px past each edge of the active region
+    Dial_Y0 = 340;       // 334 lorsque ClipWindowYMax==479
+    Dial_X1 = (S32)ModeDesiredX - 1 - inset + 6;
     Dial_Y1 = 8;
 
     MaxLineDial = 3;
@@ -1247,9 +1264,10 @@ void DemoWinDial() {
 }
 /*-------------------------------------------------------------------------*/
 void BigWinDial() {
-    Dial_X0 = 8;
+    S32 inset = DialLetterboxInset();
+    Dial_X0 = inset + 8;
     Dial_Y0 = ClipWindowYMin + 8;
-    Dial_X1 = (S32)ModeDesiredX - 1 - 8;
+    Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;
     Dial_Y1 = ClipWindowYMax - 8;
 
     MaxLineDial = (Dial_Y1 - Dial_Y0) / 42;
@@ -1257,9 +1275,10 @@ void BigWinDial() {
 }
 /*-------------------------------------------------------------------------*/
 void HoloWinDial() {
-    Dial_X0 = 8;
+    S32 inset = DialLetterboxInset();
+    Dial_X0 = inset + 8;
     Dial_Y0 = 425;
-    Dial_X1 = (S32)ModeDesiredX - 1 - 8;
+    Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;
     Dial_Y1 = 477;
 
     MaxLineDial = 1;
@@ -1299,6 +1318,14 @@ void ExplainWinDial() {
 /*-------------------------------------------------------------------------*/
 S32 GereFlagDial(S32 text) {
     S32 ret = FALSE;
+
+    /* Harness override: when Dial_ForceFlag is non-zero, replace the FlagDial
+       byte read from the text bank so the test can force a specific WinDial
+       mode (BigWinDial, NormalWinDial, …) without needing a text-id that's
+       authored with that mode. No-op for production callers. */
+    if (Dial_ForceFlag) {
+        FlagDial = Dial_ForceFlag;
+    }
 
     FlagMessageShade = TRUE;
 

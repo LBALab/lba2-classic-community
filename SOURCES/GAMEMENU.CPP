@@ -5,6 +5,7 @@
 #include "JOYSTICK.H"
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
+#include "MESSAGE.H"
 #include "PCX_LOAD.H"
 
 #include <FILEIO/SAVEPNG.H>
@@ -4159,6 +4160,25 @@ void Credits(S32 mode) {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Harness capture state — see SlideShow_RequestCapture() in GAMEMENU.H. When
+   armed, SlideShow's main loop breaks out after the first frame's Dial returns
+   (Dial itself does the SavePNG via Dial_RequestCapture, which we arm
+   alongside this flag). Same compose pattern as Menu_*Capture / Inv_*Capture. */
+static int s_slideshow_capture_active = 0;
+
+void SlideShow_RequestCapture(const char *path) {
+    if (!path || !path[0]) {
+        s_slideshow_capture_active = 0;
+        Dial_RequestCapture(NULL);
+        return;
+    }
+    s_slideshow_capture_active = 1;
+    /* The actual SavePNG happens inside Dial's typewriter loop — same hook
+       used by `ui dialog`. We just need to break out of the slideshow loop
+       after that fires so the harness doesn't iterate the remaining shots. */
+    Dial_RequestCapture(path);
+}
+
 // SlideShow de screenshots
 S32 SlideShow(void) {
     U8 pal[768 + RECOVER_AREA];
@@ -4189,6 +4209,12 @@ S32 SlideShow(void) {
     Console_SetSlideShowActive(1);
     Bulle = FALSE;
 
+    /* The slideshow renders centred 4:3 PCX stills with story text on top.
+       Setting Dial_Letterbox keeps the dialog box inside the picture's 4:3
+       region instead of stretching into the black sidebars at wider widths. */
+    S32 memoDialLetterbox = Dial_Letterbox;
+    Dial_Letterbox = 1;
+
 #ifdef DEMO
     FlagSlideShow = TRUE; // pour les tempos des messages
 #endif
@@ -4215,6 +4241,15 @@ S32 SlideShow(void) {
         //		AffGraph( 0, 639-105, 3, HQR_Get(HQRPtrSprite,11) ) ;
 
         Dial(START_SLIDESHOW_TEXT + n, FALSE);
+
+        /* Harness: SlideShow_RequestCapture arms a one-shot SavePNG in Dial
+           above. After it fires, exit cleanly without iterating remaining
+           shots so the harness's --exit can finish promptly. */
+        if (s_slideshow_capture_active) {
+            s_slideshow_capture_active = 0;
+            ret = FALSE;
+            break;
+        }
 
         // charge palette
         Load_HQR(tmpScrshotFilePath, pal, (n * 2) + 1);
@@ -4266,6 +4301,7 @@ S32 SlideShow(void) {
 
     /* Restore normal console availability once slideshow exits. */
     Console_SetSlideShowActive(0);
+    Dial_Letterbox = memoDialLetterbox;
     return ret;
 }
 
@@ -4606,6 +4642,14 @@ void DemoBumper(void) {
 void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
     char tmpFilePath[ADELINE_MAX_PATH];
 
+    /* PCX cinematic: any dialog drawn over the centred PCX should letterbox to
+       stay inside the picture's 4:3 region. The flag is scoped to this call —
+       AffScene at the end (in the flagbcl branch) re-renders the gameplay
+       scene, and subsequent Dial calls during normal play will see the
+       restored original value. */
+    S32 memoDialLetterbox = Dial_Letterbox;
+    Dial_Letterbox = 1;
+
     SaveTimer();
 
     numpcx *= 2; // car il y a les palettes intercalées
@@ -4670,6 +4714,8 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
         FlagFade = TRUE;
     } else
         RestoreTimer();
+
+    Dial_Letterbox = memoDialLetterbox;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -4677,6 +4723,15 @@ void EffectPcxMess(U8 numpcx, U8 *screen, U8 effect, S32 mess) {
 #ifdef CDROM
     S32 memoflagdisplaytext;
 #endif
+
+    /* PCX cinematic with a dialog message overlay (scripted scene-message
+       opcodes, end-of-island stills, etc.). Letterbox the dialog so it stays
+       inside the centred PCX picture instead of bleeding into the black
+       sidebars at wider framebuffers. Encompasses EffectPcx + Dial; AffScene
+       at the end clears the cinematic and the restore returns to gameplay
+       dialog framing. */
+    S32 memoDialLetterbox = Dial_Letterbox;
+    Dial_Letterbox = 1;
 
     SaveTimer();
 
@@ -4705,6 +4760,8 @@ void EffectPcxMess(U8 numpcx, U8 *screen, U8 effect, S32 mess) {
     FlagFade = FALSE;
     AffScene(AFF_ALL_FLIP);
     FlagFade = TRUE;
+
+    Dial_Letterbox = memoDialLetterbox;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
