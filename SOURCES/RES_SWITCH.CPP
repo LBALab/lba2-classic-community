@@ -265,10 +265,12 @@ void Res_CancelPendingRevert(void) {
 }
 
 /* Panel geometry — fixed physical size, vertically stacked buttons.
-   580x240 fits the LargeurMenu (550) wide DrawOneString buttons with
-   margin, plus 3 text lines above. */
+   580×252 fits the LargeurMenu (550) wide DrawOneString buttons with
+   matching top/bottom padding (~17 px each — the top padding is
+   determined by Font's y-18 offset, the bottom is panel height minus
+   the second button's bottom edge). */
 #define RES_DIALOG_PANEL_W 580
-#define RES_DIALOG_PANEL_H 240
+#define RES_DIALOG_PANEL_H 252
 
 typedef enum {
     RES_BTN_REVERT = 0, /* top — default focus, carries the countdown */
