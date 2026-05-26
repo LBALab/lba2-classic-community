@@ -9,6 +9,7 @@
 #include "FLOW.H"
 #include "PTRFUNC.H"
 
+#include <3D/CAMERA.H>
 #include <SVGA/CLIP.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
@@ -51,8 +52,6 @@ static bool RebuildEngineBuffers(U32 w, U32 h) {
     InitMainBuffer();
     if (!CreateScreenMemory(w, h))
         return false;
-    SetClipWindow(0, 0, (S32)w - 1, (S32)h - 1);
-    SetClip(0, 0, (S32)w - 1, (S32)h - 1);
     return true;
 }
 
@@ -65,6 +64,14 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
         return false;
     if (!ResizeVideoSurface(w, h))
         return false;
+    /* Clip window MUST be set after ResizeVideoSurface — SetClipWindow
+       clamps to ModeResX / ModeResY, which is the video-surface size, not
+       the Log size.  If we set the clip with the old ModeResX still in
+       place (as the boot path can get away with because everything inits
+       in one shot), ClipWindowXMax sticks at old_ModeResX-1 and every
+       subsequent draw is clipped to the previous resolution's width. */
+    SetClipWindow(0, 0, (S32)w - 1, (S32)h - 1);
+    SetClip(0, 0, (S32)w - 1, (S32)h - 1);
     return true;
 }
 
@@ -126,6 +133,26 @@ bool Res_Switch(U32 newW, U32 newH) {
        reload runs and PtrXplPalette gets refilled. */
     LastIdxPalette = -1;
     ChoicePalette();
+
+    /* Push the freshly-derived PtrPal into the SDL palette + paletteLUT.
+       Without this the next frame's index-to-RGB mapping uses whatever the
+       SDL palette held before the switch, which mostly works (palette data
+       is unchanged) but the dialog's text colours come out wrong until the
+       next AffScene-driven Palette() call refreshes them — visible as a
+       garbage-colour dialog that snaps to the correct palette the instant
+       the player presses Y/Enter and the main loop resumes drawing. */
+    Palette(PtrPal);
+
+    /* Re-anchor the 3D projection origin to the new framebuffer centre.
+       Init3DExtView / Init3DView read ModeDesiredX/Y to compute XCentre /
+       YCentre at scene-init time; they're not re-evaluated each frame, so
+       at runtime-switch time the camera still projects to the old (320,
+       240) and the scene renders into the left-top corner of the wider
+       framebuffer — visible as the "window grew but the game image
+       didn't". Calling the dispatch pointer re-runs whichever Init3D*View
+       matches the current cube mode (interior iso vs exterior camera). */
+    if (PtrInit3DView)
+        PtrInit3DView();
 
     /* InitPartFlow caches MAX_FLOWS pointers into ListFlowDots (also in
        MainBuffer) in ListPartFlow[i].PtrListDot at boot; those go stale
