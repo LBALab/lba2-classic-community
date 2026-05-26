@@ -15,8 +15,10 @@
 #include "../INPUT.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
+#include "../RES_SWITCH.H"
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
+#include <SYSTEM/WINDOW.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/DIRTYBOX.H>
 #include <dirent.h>
@@ -1101,6 +1103,273 @@ static void cmd_listbugs(int argc, const char *argv[]) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
+/* resolution — runtime render-resolution switch (see docs/RUNTIME_RESOLUTION.md) */
+/*──────────────────────────────────────────────────────────────────────────*/
+
+/* Same numeric guardrails as --resolution / Res_Switch. Duplicated here so
+   the verb's parser doesn't pull in CONTROL.CPP's private constants. */
+#define RES_VERB_MIN_W 320
+#define RES_VERB_MAX_W 1920
+#define RES_VERB_MIN_H 200
+#define RES_VERB_MAX_H 1024
+
+typedef struct {
+    U32 w, h;
+    const char *tag;
+} ResEntry;
+
+/* Always-present recommended modes, ordered. The console filters by display
+   ≤ at presentation time; entries that don't fit are dropped. 640x480 is
+   pinned at index 1 unconditionally. */
+static const ResEntry kRecommended[] = {
+    {640, 480, "classic"},        /* 4:3 — the authentic-mode anchor */
+    {768, 480, "recommended"},    /* 16:10 */
+    {1024, 480, "recommended"},   /* ~21:10 */
+    {1280, 720, "experimental"},  /* 16:9 — Y>480, holomap may glitch */
+    {1920, 1080, "experimental"}, /* 16:9 — same caveat */
+};
+#define kRecommendedCount ((int)(sizeof(kRecommended) / sizeof(kRecommended[0])))
+
+/* Curated "advanced" list shown behind --all. Reasonable common modes only
+   — full multiples-of-8 enumeration would emit hundreds of entries. */
+static const ResEntry kAdvanced[] = {
+    {320, 200, "advanced"},
+    {320, 240, "advanced"},
+    {400, 300, "advanced"},
+    {512, 384, "advanced"},
+    {800, 600, "advanced"},
+    {856, 480, "advanced"},
+    {960, 540, "advanced"},
+    {1024, 600, "advanced"},
+    {1024, 768, "advanced"},
+    {1152, 648, "advanced"},
+    {1280, 800, "advanced"},
+    {1280, 960, "advanced"},
+    {1280, 1024, "advanced"},
+    {1366, 768, "advanced"},
+    {1440, 900, "advanced"},
+    {1600, 900, "advanced"},
+    {1600, 1024, "advanced"},
+    {1680, 1024, "advanced"},
+};
+#define kAdvancedCount ((int)(sizeof(kAdvanced) / sizeof(kAdvanced[0])))
+
+/* GCD-reduce W,H to its aspect (e.g. 1280,720 -> 16,9). */
+static void res_aspect(U32 w, U32 h, U32 *outA, U32 *outB) {
+    U32 a = w, b = h;
+    while (b) {
+        U32 t = b;
+        b = a % b;
+        a = t;
+    }
+    if (a == 0)
+        a = 1;
+    *outA = w / a;
+    *outB = h / a;
+}
+
+static bool res_validate(U32 w, U32 h) {
+    return (w >= RES_VERB_MIN_W && w <= RES_VERB_MAX_W && h >= RES_VERB_MIN_H &&
+            h <= RES_VERB_MAX_H && (w & 7) == 0);
+}
+
+/* Snap a display width down to the nearest multiple of 8 inside the
+   supported range, so "native" works on any monitor (e.g. 1366 -> 1360).
+   Returns 0 if the result falls below the minimum width. */
+static U32 res_snap_native_w(U32 dispW) {
+    if (dispW > RES_VERB_MAX_W)
+        dispW = RES_VERB_MAX_W;
+    dispW &= ~(U32)7;
+    if (dispW < RES_VERB_MIN_W)
+        return 0;
+    return dispW;
+}
+
+static U32 res_snap_native_h(U32 dispH) {
+    if (dispH > RES_VERB_MAX_H)
+        dispH = RES_VERB_MAX_H;
+    if (dispH < RES_VERB_MIN_H)
+        return 0;
+    return dispH;
+}
+
+/* Compose the visible list (recommended ± advanced) into `out`, filtering
+   to entries ≤ display. Appends a synthetic "native" entry at the end of
+   the recommended portion. Returns count. */
+static int res_build_list(ResEntry *out, int cap, bool includeAdvanced) {
+    U32 dispW = 0, dispH = 0;
+    const bool hasDisplay = Window_GetDisplayDimensions(&dispW, &dispH);
+    int n = 0;
+
+    /* Recommended */
+    for (int i = 0; i < kRecommendedCount && n < cap; i++) {
+        if (i == 0) { /* 640x480 always present */
+            out[n++] = kRecommended[i];
+            continue;
+        }
+        if (hasDisplay && (kRecommended[i].w > dispW || kRecommended[i].h > dispH))
+            continue;
+        out[n++] = kRecommended[i];
+    }
+
+    /* Native (synthesised from current display). Only if the snapped value
+       isn't already in the list. */
+    if (hasDisplay && n < cap) {
+        U32 nw = res_snap_native_w(dispW), nh = res_snap_native_h(dispH);
+        if (nw && nh) {
+            bool dup = false;
+            for (int i = 0; i < n; i++)
+                if (out[i].w == nw && out[i].h == nh) {
+                    dup = true;
+                    break;
+                }
+            if (!dup) {
+                out[n].w = nw;
+                out[n].h = nh;
+                out[n].tag = "native";
+                n++;
+            }
+        }
+    }
+
+    if (!includeAdvanced)
+        return n;
+
+    /* Advanced — dedupe against what's already in the list. */
+    for (int i = 0; i < kAdvancedCount && n < cap; i++) {
+        if (hasDisplay && (kAdvanced[i].w > dispW || kAdvanced[i].h > dispH))
+            continue;
+        bool dup = false;
+        for (int k = 0; k < n; k++)
+            if (out[k].w == kAdvanced[i].w && out[k].h == kAdvanced[i].h) {
+                dup = true;
+                break;
+            }
+        if (dup)
+            continue;
+        out[n++] = kAdvanced[i];
+    }
+
+    return n;
+}
+
+static void res_print_list(const ResEntry *list, int count, U32 curW, U32 curH) {
+    for (int i = 0; i < count; i++) {
+        U32 a, b;
+        res_aspect(list[i].w, list[i].h, &a, &b);
+        const bool isCurrent = (list[i].w == curW && list[i].h == curH);
+        Console_Print("  %2d: %4ux%-4u  (%2u:%-2u, %-12s)%s", i + 1, list[i].w, list[i].h,
+                      a, b, list[i].tag, isCurrent ? "  <- current" : "");
+    }
+}
+
+/* Parses "WxH" / "WXH" into a validated (w, h). Returns true on success. */
+static bool res_parse_wxh(const char *s, U32 *outW, U32 *outH) {
+    const char *xp = strchr(s, 'x');
+    if (xp == NULL)
+        xp = strchr(s, 'X');
+    if (xp == NULL || xp == s || xp[1] == '\0')
+        return false;
+    char *end_w = NULL, *end_h = NULL;
+    long w = strtol(s, &end_w, 10);
+    long h = strtol(xp + 1, &end_h, 10);
+    if (end_w != xp || end_h == NULL || *end_h != '\0')
+        return false;
+    if (w <= 0 || h <= 0)
+        return false;
+    if (!res_validate((U32)w, (U32)h))
+        return false;
+    *outW = (U32)w;
+    *outH = (U32)h;
+    return true;
+}
+
+static void cmd_resolution(int argc, const char *argv[]) {
+    /* Cap intentionally generous so cap-overflow can't silently truncate the
+       advanced list as it grows over time. */
+    ResEntry list[64];
+
+    /* No-args: print the recommended-only list and current resolution. */
+    if (argc < 2) {
+        const int count = res_build_list(list, (int)(sizeof(list) / sizeof(list[0])), false);
+        Console_Print("Current: %ux%u", ModeDesiredX, ModeDesiredY);
+        Console_Print("Available:");
+        res_print_list(list, count, ModeDesiredX, ModeDesiredY);
+        Console_Print("Usage: resolution <n> | resolution WxH | resolution native | resolution --all");
+        return;
+    }
+
+    const char *arg = argv[1];
+
+    /* --all: expand to the advanced list. */
+    if (!strcmp(arg, "--all")) {
+        const int count = res_build_list(list, (int)(sizeof(list) / sizeof(list[0])), true);
+        Console_Print("Current: %ux%u", ModeDesiredX, ModeDesiredY);
+        Console_Print("Available (advanced):");
+        res_print_list(list, count, ModeDesiredX, ModeDesiredY);
+        return;
+    }
+
+    /* native: snap the current display dims to the nearest valid WxH. */
+    if (!strcmp(arg, "native")) {
+        U32 dispW = 0, dispH = 0;
+        if (!Window_GetDisplayDimensions(&dispW, &dispH)) {
+            Console_Print("resolution native: display dimensions unavailable.");
+            return;
+        }
+        U32 nw = res_snap_native_w(dispW), nh = res_snap_native_h(dispH);
+        if (!nw || !nh) {
+            Console_Print("resolution native: %ux%u out of supported range (%dx%d - %dx%d).",
+                          dispW, dispH, RES_VERB_MIN_W, RES_VERB_MIN_H,
+                          RES_VERB_MAX_W, RES_VERB_MAX_H);
+            return;
+        }
+        if (!Res_Switch(nw, nh)) {
+            Console_Print("resolution native: Res_Switch to %ux%u failed (see log).", nw, nh);
+            return;
+        }
+        Console_Print("Resolution: %ux%u", nw, nh);
+        return;
+    }
+
+    /* Numeric: pick from the recommended (no --all) list. */
+    {
+        char *end = NULL;
+        long n = strtol(arg, &end, 10);
+        if (end && *end == '\0') {
+            const int count = res_build_list(list, (int)(sizeof(list) / sizeof(list[0])), false);
+            if (n < 1 || n > count) {
+                Console_Print("resolution: index %ld out of range (1..%d). Run 'resolution' to list.",
+                              n, count);
+                return;
+            }
+            const ResEntry *e = &list[n - 1];
+            if (!Res_Switch(e->w, e->h)) {
+                Console_Print("resolution: switch to %ux%u failed (see log).", e->w, e->h);
+                return;
+            }
+            Console_Print("Resolution: %ux%u", e->w, e->h);
+            return;
+        }
+    }
+
+    /* WxH explicit. */
+    {
+        U32 w = 0, h = 0;
+        if (!res_parse_wxh(arg, &w, &h)) {
+            Console_Print("resolution: bad target '%s' (need WxH; W%%8==0; range %dx%d - %dx%d).",
+                          arg, RES_VERB_MIN_W, RES_VERB_MIN_H, RES_VERB_MAX_W, RES_VERB_MAX_H);
+            return;
+        }
+        if (!Res_Switch(w, h)) {
+            Console_Print("resolution: switch to %ux%u failed (see log).", w, h);
+            return;
+        }
+        Console_Print("Resolution: %ux%u", w, h);
+    }
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -1156,6 +1425,12 @@ void Console_RegisterAll(void) {
                               "headless captures of UI state.");
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
+    Console_RegisterCommandEx("resolution", cmd_resolution,
+                              "Switch render resolution at runtime (no args = list)",
+                              "resolution [<n> | WxH | native | --all]",
+                              "No args lists recommended modes; <n> picks by index; WxH is arbitrary "
+                              "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
+                              "--all expands the list with advanced modes. See docs/RUNTIME_RESOLUTION.md.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
