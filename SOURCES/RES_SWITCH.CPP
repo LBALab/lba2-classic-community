@@ -8,7 +8,8 @@
 #include "C_EXTERN.H"
 #include "FLOW.H"
 #include "GAMEMENU.H"
-#include "INTEXT.H" /* CameraCenter */
+#include "INTEXT.H" /* CameraCenter, SaveCamera / RestoreCamera */
+#include "INVENT.H" /* BackupScreen / RestoreScreen */
 #include "PTRFUNC.H"
 
 #include <3D/CAMERA.H>
@@ -309,10 +310,44 @@ static void RevertDialog_Draw(U32 secondsLeft) {
 ResRevertChoice Res_RunRevertDialogIfPending(void) {
     if (!s_revertPending)
         return RES_REVERT_NONE;
+    s_revertPending = false; /* claim the pending state up front so a recursive
+                                Res_Switch on revert doesn't re-trigger us */
 
-    /* Stash + restore Log so we don't permanently corrupt the post-dialog
-       frame with overlay pixels. Same shape as ShowSaveConfirmation. */
-    CopyScreen(Screen, Log);
+    /* Modal pattern lifted from MenuComportement (SOURCES/COMPORTE.CPP).
+       That's the in-game behaviour-change menu and it handles palette,
+       camera state, dirty-box invalidation, and full-screen repaint
+       correctly across both 3D and iso scenes.
+
+       Outline:
+         entry: SaveTimer / SaveCamera / UnsetClip / Palette(PtrPal)
+                paint a fresh AffScene into Log (post-switch Log is empty)
+                BackupScreen(TRUE) snapshots that frame
+         loop:  each redraw restores the background from Screen, then
+                draws darken + 5 text lines on top
+         exit:  RestoreScreen() drives a full-screen AffScene repaint,
+                so dirty-box rendering picks up cleanly on the next tick
+                RestoreCamera / RestoreTimer
+                if Revert: Res_Switch back to (prev) */
+
+    SaveTimer();
+    SaveCamera();
+    UnsetClip();
+    /* PtrPal was already pushed to SDL by Res_Switch, but Palette() also
+       triggers RebuildPaletteLUT which is cheap; belt + braces matches
+       MenuComportement's "au cas ou l'on soit appelé pendant un eclair". */
+    Palette(PtrPal);
+
+    /* Drive a full repaint into Log before BackupScreen. The post-switch
+       Log was just allocated and is zero — without this, the snapshot the
+       dialog uses as its background would be blank.  BoxStaticAdd over
+       the full frame plus AffScene(AFF_ALL_FLIP) is what MainLoop runs
+       at restartloop entry, and it's the same shape the engine uses when
+       it needs "definitely repaint everything". */
+    BoxReset();
+    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+    AffScene(AFF_ALL_FLIP);
+
+    BackupScreen(TRUE); /* Screen → ScreenAux, then Log → Screen */
 
     ManageTime();
     const U32 startMs = TimerRefHR;
@@ -349,22 +384,28 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
         const U32 remainingMs = endMs - TimerRefHR;
         const U32 secondsLeft = (remainingMs + 999u) / 1000u;
         if (secondsLeft != lastSecondsDrawn) {
-            /* Re-fill background each redraw so the previous countdown
-               digit doesn't leave ghost pixels. */
+            /* Re-fill Log from the Screen backup so the previous countdown
+               digit doesn't leave ghost pixels and the scene stays visible
+               under the darken. */
             CopyScreen(Log, Screen);
             RevertDialog_Draw(secondsLeft);
             lastSecondsDrawn = secondsLeft;
         }
     }
 
-    s_revertPending = false;
-
     LogPrintf("Res_Switch: revert dialog -> %s (target was %ux%u)\n",
               choice == RES_REVERT_KEEP ? "KEEP" : "REVERT",
               (unsigned)s_revertNewW, (unsigned)s_revertNewH);
 
+    /* Restore engine state regardless of choice. RestoreScreen drives a
+       full-screen AffScene(AFF_OBJETS_NO_FLIP) + BoxBlit so dirty-box
+       rendering picks up from a known-good frame on the next tick. */
+    RestoreScreen();
+    RestoreCamera();
+    RestoreTimer();
+
     if (choice == RES_REVERT_REVERT) {
-        /* Restoring to (prev) — recursive call into Res_Switch. The orchestrator
+        /* Recursive Res_Switch to the previous (W, H). The orchestrator
            handles the no-op case (already at prev W,H) cleanly. */
         Res_Switch(s_revertPrevW, s_revertPrevH);
     }
