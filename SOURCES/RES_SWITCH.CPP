@@ -355,9 +355,14 @@ static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
                      GetLocalizedResDialogLabel(RES_DIALOG_BTN_KEEP));
         }
         CopyUtf8ToCp850(cp850, sizeof cp850, buf);
-        /* Glyph centre at button centre; DrawSingleString uses y as the
-           top of the text raster, so -8 lifts it onto the centre line. */
-        DrawSingleString((bx0 + bx1) / 2, (by0 + by1) / 2 - 8, cp850);
+        /* DrawSingleString draws Font(..., y - 18, ...) — its y argument is
+           calibrated for HAUTEUR_STANDARD (50) menu items, where the text
+           sits in the upper portion of the box. For our shorter (42 px)
+           button, the glyph centre at the button centre needs the call's
+           y to be button_center + 10 (so Font's y - 18 lands the glyph
+           top 8 px above the button's vertical centre, which centres a
+           ~16 px-tall glyph). */
+        DrawSingleString((bx0 + bx1) / 2, (by0 + by1) / 2 + 10, cp850);
     }
 
     /* Mark only the panel rect dirty — the screen-wide darken + scene
@@ -470,9 +475,13 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
         const U32 secondsLeft = (remainingMs + 999u) / 1000u;
 
         /* Per-frame redraw so the plasma animates smoothly. DoTextureAnimation
-           advances the fire texture state; CopyScreen restores the captured
-           background before we paint the panel over it. */
-        CopyScreen(Log, Screen);
+           advances the fire texture state; CopyScreen restores Log from the
+           Screen backup so the modal paints over a clean copy of the
+           captured scene (instead of compounding the per-frame ShadeBoxBlk
+           darken on top of the previous frame's already-darkened pixels —
+           which manifested as a flickering / progressively-black panel
+           before this fix). CopyScreen(src, dst) — direction matters. */
+        CopyScreen(Screen, Log);
         DoTextureAnimation();
         RevertDialog_Draw(focused, secondsLeft);
     }
