@@ -549,11 +549,13 @@ S32 PlayAcf(const char *name) {
             if (pal)
                 PaletteSync(pal);
 
-            /* Harness one-shot capture — saves the first composited frame
-               and exits cleanly via fin_play. The cleanup at fin_play
-               restores Log from savedLog, but the on-disk PNG already
-               holds the cinematic frame. */
-            if (s_video_capture_path[0]) {
+            /* Harness one-shot capture — saves a composited frame past the
+               cinematic's initial fade-in (frame 0 is uniformly black for the
+               INTRO smk; we pick a later frame so the golden is meaningful
+               regardless of whether audio init / pre-fill is enabled). The
+               cleanup at fin_play restores Log from savedLog, but the on-disk
+               PNG already holds the cinematic frame. */
+            if (s_video_capture_path[0] && c >= 25u) {
                 SavePNG(s_video_capture_path, Log, (S32)ModeDesiredX,
                         (S32)ModeDesiredY, pal ? pal : PtrPal);
                 s_video_capture_path[0] = '\0';
