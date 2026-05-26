@@ -40,6 +40,16 @@ int Control_HasResolution(void);
 long Control_GetResolutionX(void);
 long Control_GetResolutionY(void);
 
+/* Language override via --language <name>. Returns 1 if the flag was supplied (use
+   Control_GetLanguage as a 0..5 index into MESSAGE.CPP's TabLanguage[]), 0 otherwise
+   (the engine reads the cfg's Language key as normal). Accepts full names
+   (English / Français / Deutsch / Español / Italiano / Portugues, case-insensitive on
+   ASCII letters) and 2-character codes (EN / FR / DE / SP / IT / PO). Parsed in
+   Control_ParseArgs; applied in PERSO.CPP after InitLanguage() returns. Doesn't
+   touch the cfg file. */
+int Control_HasLanguage(void);
+int Control_GetLanguage(void);
+
 /* Set up the boot path and arm the tick hook. Call once, instead of MainGameMenu(),
    when active: applies --load (InitGame(-1) + ChangeCube while FlagLoadGame is set)
    or a fresh InitGame(1), then arms Control_TickHook. Returns 1 on success (caller
