@@ -7,10 +7,13 @@
 
 #include "ANIMTEX.H" /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
 #include "C_EXTERN.H"
+#include "CONTROL.H"     /* Control_HasResolution / Get */
+#include "DIRECTORIES.H" /* CFG_NAME */
 #include "FLOW.H"
 #include "GAMEMENU.H"
 #include "INTEXT.H" /* CameraCenter, SaveCamera / RestoreCamera */
 #include "INVENT.H" /* BackupScreen / RestoreScreen / DrawCadre / ALL_ANGLES */
+#include "PERSO.H"  /* WriteConfigFile (persist on dialog Keep) */
 #include "PTRFUNC.H"
 
 #include <3D/CAMERA.H>
@@ -18,7 +21,11 @@
 #include <SVGA/DIRTYBOX.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <SYSTEM/DEFFILE.H> /* DefFileBufferInit / ReadValueDefault (boot cfg read) */
+#include <SYSTEM/EXIT.H>    /* PathConfigFile (extern char[ADELINE_MAX_PATH]) */
+#include <SYSTEM/FILES.H>   /* ExistsFileOrDir */
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/RESOLUTION.H> /* RESOLUTION_X / RESOLUTION_Y compile-time defaults */
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/WINDOW.H>
@@ -37,7 +44,7 @@
 #define RES_SWITCH_MAX_X 1920
 #define RES_SWITCH_MAX_Y 1024
 
-static bool ValidateRes(U32 w, U32 h) {
+bool Res_ValidateDimensions(U32 w, U32 h) {
     if (w < RES_SWITCH_MIN_X || w > RES_SWITCH_MAX_X)
         return false;
     if (h < RES_SWITCH_MIN_Y || h > RES_SWITCH_MAX_Y)
@@ -87,7 +94,7 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
 }
 
 bool Res_Switch(U32 newW, U32 newH) {
-    if (!ValidateRes(newW, newH)) {
+    if (!Res_ValidateDimensions(newW, newH)) {
         LogPrintf("Res_Switch: invalid target %ux%u (need %d..%dx%d..%d, W%%8==0)\n",
                   newW, newH, RES_SWITCH_MIN_X, RES_SWITCH_MAX_X,
                   RES_SWITCH_MIN_Y, RES_SWITCH_MAX_Y);
@@ -207,6 +214,55 @@ bool Res_Switch(U32 newW, U32 newH) {
                 (int)wasFullscreen, (int)isFullscreen);
     }
     return true;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*
+ *   Boot-time resolution resolution (CLI > cfg > default)                   *
+ *══════════════════════════════════════════════════════════════════════════*/
+
+void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
+    /* --resolution CLI overrides everything (one-shot launch). */
+    if (Control_HasResolution()) {
+        *outW = (U32)Control_GetResolutionX();
+        *outH = (U32)Control_GetResolutionY();
+        return;
+    }
+
+    /* lba2.cfg's ResolutionX/Y, if present and valid. Reads via a transient
+       DefFileBuffer against a static stack-of-BSS buffer so this function
+       never touches the engine heap — safe to call BEFORE
+       Mem_ConfigureScreenBuffers / InitMainBuffer, where ScreenAux isn't
+       allocated yet. The later ReadConfigFile call (post-InitProgram) does
+       its own DefFileBufferInit against ScreenAux which fully resets the
+       module state; nothing carries over from this transient init. */
+    if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
+        /* lba2.cfg is ~2.5KB at the time of writing; 8 KB is generous and
+           keeps the buffer in BSS rather than blowing main's stack. */
+        static char tmpCfgBuf[8192];
+        if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
+            const long w = DefFileBufferReadValueDefault("ResolutionX", 0);
+            const long h = DefFileBufferReadValueDefault("ResolutionY", 0);
+            if (w == 0 && h == 0) {
+                /* Neither key present — first launch / new cfg. Silent. */
+            } else if (w > 0 && h > 0 && Res_ValidateDimensions((U32)w, (U32)h)) {
+                *outW = (U32)w;
+                *outH = (U32)h;
+                return;
+            } else {
+                LogPrintf(
+                    "Res_LoadBootDimensions: ignoring invalid cfg "
+                    "ResolutionX=%ld ResolutionY=%ld (need W%%8==0, "
+                    "range %dx%d - %dx%d); falling back to %dx%d.\n",
+                    w, h, RES_SWITCH_MIN_X, RES_SWITCH_MIN_Y,
+                    RES_SWITCH_MAX_X, RES_SWITCH_MAX_Y,
+                    RESOLUTION_X, RESOLUTION_Y);
+            }
+        }
+    }
+
+    /* Compile-time fallback. */
+    *outW = RESOLUTION_X;
+    *outH = RESOLUTION_Y;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -491,7 +547,15 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
     RestoreCamera();
     RestoreTimer();
 
-    if (choice == RES_REVERT_REVERT) {
+    if (choice == RES_REVERT_KEEP) {
+        /* Player confirmed the new mode is usable. Persist to lba2.cfg
+           so the next launch boots straight at this resolution
+           (Res_LoadBootDimensions reads the same keys). WriteConfigFile
+           writes the full cfg; ModeDesiredX/Y is the source of truth at
+           this point. Don't write on Revert / timeout — the cfg should
+           keep recording the last *confirmed* resolution. */
+        WriteConfigFile();
+    } else /* RES_REVERT_REVERT */ {
         /* Recursive Res_Switch to the previous (W, H). The orchestrator
            handles the no-op case (already at prev W,H) cleanly. */
         Res_Switch(s_revertPrevW, s_revertPrevH);

@@ -2035,6 +2035,11 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
+    /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
+       compile-time default precedence) and updated here by the revert
+       dialog's Keep handler so a confirmed switch survives across launches. */
+    DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
+    DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
 
     if (FlagDisplayText)
         DefFileBufferWriteString("FlagDisplayText", "ON");
@@ -2344,15 +2349,21 @@ int main(int argc, char *argv[]) {
 
     HQRGetErrorFunc = ErrorHQRGet;
 
+    /* Resolve the cfg path early so Res_LoadBootDimensions can read
+       ResolutionX/Y BEFORE we size MainBuffer. InitAdeline re-resolves
+       the same path later (GetCfgPath is deterministic / idempotent
+       given directoriesCfgDir) and re-inits the cfg buffer against
+       ScreenAux for the main ReadConfigFile pass. */
+    GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+
     /* Configure the framebuffer-sized ListMem entries with the effective resolution
-       BEFORE InitMainBuffer() does the giant single-shot allocation. ModeDesiredX/Y
-       isn't set yet (CreateScreenMemory runs from InitAdeline below), so derive the
-       requested dims directly from the CLI override or the compile-time defaults. */
-    {
-        U32 reqResX = Control_HasResolution() ? (U32)Control_GetResolutionX() : (U32)RESOLUTION_X;
-        U32 reqResY = Control_HasResolution() ? (U32)Control_GetResolutionY() : (U32)RESOLUTION_Y;
-        Mem_ConfigureScreenBuffers(reqResX, reqResY);
-    }
+       BEFORE InitMainBuffer() does the giant single-shot allocation. Precedence:
+       --resolution CLI > lba2.cfg ResolutionX/Y > compile-time default. The cfg
+       read uses a transient stack/BSS buffer (no heap, no MainBuffer dependency),
+       so we get the right MainBuffer size in a single allocation cycle. */
+    U32 reqResX, reqResY;
+    Res_LoadBootDimensions(&reqResX, &reqResY);
+    Mem_ConfigureScreenBuffers(reqResX, reqResY);
     InitMainBuffer(); // Alloue gros buffer pour tous les pointeurs
 
     End_Error = PathConfigFile;
