@@ -48,8 +48,14 @@ function(add_asm_cpp_test)
     target_link_libraries(${ARG_NAME} PRIVATE ${ARG_LIBS})
     target_link_libraries(${ARG_NAME} PRIVATE m)  # math lib
     # Pass source root so test_harness.h can strip it from __FILE__ paths.
+    # Enable LIB386_TRACE_CPP / LIB386_TRACE_ASM so the equivalence test can
+    # diff [CPP] vs [ASM] trace lines — scoped to this test target only so
+    # the shipping engine binary doesn't get the same define (previously the
+    # define leaked into all LIB386 targets via LIB386/CMakeLists.txt's
+    # add_definitions, polluting stdout with ~22K lines per tick).
     target_compile_definitions(${ARG_NAME} PRIVATE
         "TEST_SOURCE_ROOT=\"${CMAKE_SOURCE_DIR}/\""
+        ENABLE_LIB386_DEBUG_TRACES
     )
     add_test(NAME ${ARG_NAME} COMMAND ${ARG_NAME})
 
