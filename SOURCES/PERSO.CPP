@@ -1832,8 +1832,15 @@ restartloop:
 
                 /* FollowCamera (exterior): the follow camera tracks the hero
                  * every frame — the classic off-screen snap (CameraCenter(0))
-                 * would fight it and cause jarring resets near trees / decors. */
-                if ((Xp < 80 OR Xp > 539 OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50) /*429*/)
+                 * would fight it and cause jarring resets near trees / decors.
+                 *
+                 * X margins track ClipWindowX* (the Y side already did) so the
+                 * snap follows the actual visible region. No-op at 640x480
+                 * (80/539 preserved); at wider widths it stops firing while
+                 * the hero is still well inside the right half of the screen,
+                 * which is most visible in iso scenes (iso centre shifts with
+                 * ModeDesiredX, so hero screen-X tracked the static 539). */
+                if ((Xp<(ClipWindowXMin + 80) OR Xp>(ClipWindowXMax - 100) OR Yp<(80 + ClipWindowYMin) OR Yp>(ClipWindowYMax - 50))
                         AND !(FollowCamera AND CubeMode == CUBE_EXTERIEUR)) {
                     SaveTimer();
 
