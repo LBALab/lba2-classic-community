@@ -7,6 +7,7 @@
 
 #include "C_EXTERN.H"
 #include "FLOW.H"
+#include "INTEXT.H" /* CameraCenter */
 #include "PTRFUNC.H"
 
 #include <3D/CAMERA.H>
@@ -154,6 +155,16 @@ bool Res_Switch(U32 newW, U32 newH) {
     if (PtrInit3DView)
         PtrInit3DView();
 
+    /* Init3DView (the interior dispatch) also does SetPosCamera(0, 0, 0),
+       which leaves the iso camera at the world origin instead of the
+       player's current position — visible as "characters out of position
+       vs the scene" after a switch on iso cubes. CameraCenter(0) re-
+       applies VueOffsetX/Y/Z via SetPosCamera. This is the same fixup
+       MenuComportement does on exit; exterior scenes don't need it
+       (Init3DExtView calls SetFollowCamera with the saved offsets). */
+    if (CubeMode == CUBE_INTERIEUR)
+        CameraCenter(0);
+
     /* InitPartFlow caches MAX_FLOWS pointers into ListFlowDots (also in
        MainBuffer) in ListPartFlow[i].PtrListDot at boot; those go stale
        when teardown frees the buffer.  Re-running it rewires them to the
@@ -162,6 +173,14 @@ bool Res_Switch(U32 newW, U32 newH) {
        cost (a quick flash of dust effects vanishing) for a switch
        that's expected to be rare. */
     InitPartFlow();
+
+    /* Engine renders in dirty-box mode: AffScene only redraws regions that
+       changed since the last frame, assuming the rest of Log carries over.
+       After teardown the new Log is zero-initialised, so without a full
+       redraw the next frame is mostly black. AFF_ALL_FLIP is the engine's
+       "this is the first frame, redraw everything" sentinel — same value
+       MainLoop seeds on every restartloop entry. */
+    FirstTime = AFF_ALL_FLIP;
 
     const bool isFullscreen = GetWindowFullscreen();
     LogPrintf("Res_Switch: %ux%u -> %ux%u OK (fullscreen %d -> %d)\n",
