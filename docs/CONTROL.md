@@ -261,6 +261,25 @@ SDL_VIDEODRIVER=dummy LBA2_UI_REGEN=1 bash tests/automation/test_ui_inventory.sh
 All fixtures use `Anon1.LBA` as their save (early-game Citadel Island state, items in
 inventory, on an island whose dialogue bank has known text-ids).
 
+#### Environmental hygiene
+
+The `ui_*` captures are state-sensitive in two ways the `--load` argument doesn't cover:
+
+- **Language.** The engine reads `Language` from the developer's local `lba2.cfg`. A
+  golden captured under one language doesn't match captures on a machine with any other
+  language. `ctl_headless` (in `tests/automation/lib.sh`) pins `--language English`
+  for every UI capture — matches the in-repo `LBA2.CFG` default, makes goldens portable.
+- **`current.lba` thumbnail.** `ui_menu_main` renders a small save-thumbnail at the top
+  of the main menu that the engine reads from
+  `~/.local/share/Twinsen/LBA2/save/current.lba`, *not* from `--load`. That file evolves
+  on every play session. `test_ui_menu_main.sh` wraps its run in `with_menu_main_fixture`
+  (also in `lib.sh`), which copies the corpus `Anon1.LBA` into `current.lba`, runs the
+  test, and restores the original on EXIT.
+
+If you add a new `ui_*` surface that touches `~/.local/share/Twinsen/LBA2/` for any
+reason, wrap its `ui_compare` call in `with_menu_main_fixture` or write a sibling
+helper following the same backup/restore-on-trap pattern.
+
 ### Adding a new UI surface — the family pattern
 
 Six surfaces in, the pattern is templated. Each surface adds ~50-100 lines of additive

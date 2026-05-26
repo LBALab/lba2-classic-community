@@ -60,11 +60,47 @@ ctl() {
     SDL_AUDIODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" "$@"
 }
 
-# ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy.
-# Used by UI capture tests where the committed golden was rendered under the
-# dummy video driver, so the test must too for the byte-identical compare.
+# ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy
+# and the engine's Language to English. Used by UI capture tests where the
+# committed goldens were rendered under the dummy video driver and an English
+# UI; without --language English they fail on machines whose local lba2.cfg
+# has any other Language: key (typically Français, which is also the engine's
+# default if no key is present).  English matches the in-repo LBA2.CFG default.
 ctl_headless() {
-    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" "$@"
+    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
+        "$LBA2_BIN" --language English "$@"
+}
+
+# with_menu_main_fixture <body>
+# Some ui_* tests (today: ui_menu_main) render a thumbnail that the engine
+# reads from the user's local ~/.local/share/Twinsen/LBA2/save/current.lba —
+# not from --load's argument. That file evolves on every play session, so
+# the test isn't reproducible unless the harness pins it. Copy a known
+# fixture into current.lba, run the body, restore the original on exit.
+#
+# The fixture is the same corpus Anon1.LBA the test --load's, so the
+# thumbnail in current.lba ends up matching the loaded scene.
+with_menu_main_fixture() {
+    local body="$1"
+    local save_dir current_lba backup
+    # XDG_DATA_HOME may or may not be set; fall back to the documented default.
+    save_dir="${XDG_DATA_HOME:-$HOME/.local/share}/Twinsen/LBA2/save"
+    current_lba="$save_dir/current.lba"
+    backup="$(mktemp -t current.lba.bak.XXXXXX)"
+    mkdir -p "$save_dir"
+    if [ -f "$current_lba" ]; then
+        cp "$current_lba" "$backup"
+    else
+        : > "$backup.absent"
+    fi
+    # Restore on any exit path — trap fires on EXIT regardless of pass/fail.
+    trap '
+        if [ -f "$backup.absent" ]; then rm -f "$current_lba" "$backup.absent";
+        else cp "$backup" "$current_lba"; fi
+        rm -f "$backup"
+    ' EXIT
+    cp "$LBA2_TEST_SAVE" "$current_lba"
+    eval "$body"
 }
 
 # ui_compare <verb-args...> <golden-path>
