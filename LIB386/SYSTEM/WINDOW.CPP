@@ -183,6 +183,42 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
     return true;
 }
 
+bool ResizeWindowSurface(U32 newW, U32 newH) {
+    /* No-op if the surface was never created.  Caller should fall through to
+       CreateWindowSurface in that case (boot path), not Resize. */
+    if (sdlWindow == NULL || sdlRenderer == NULL) {
+        return false;
+    }
+
+    /* In windowed mode this resizes the visible window; in fullscreen SDL
+       ignores the dimension change but the texture below still needs the new
+       size so the renderer scales the correct pixel count to fit the
+       physical display. */
+    SDL_SetWindowSize(sdlWindow, (int)newW, (int)newH);
+
+    /* The streaming texture is fixed-dimension at creation; recreate at the
+       new size.  Renderer and window survive untouched, so fullscreen state,
+       focus, and multi-monitor placement are preserved. */
+    if (sdlTexture) {
+        SDL_DestroyTexture(sdlTexture);
+        sdlTexture = NULL;
+    }
+    sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_ARGB8888,
+                                   SDL_TEXTUREACCESS_STREAMING, (int)newW, (int)newH);
+    if (sdlTexture == NULL) {
+        const char *errorMsg = SDL_GetError();
+        LogPrintf("Error: Unable to recreate SDL streaming texture at %ux%u.\n"
+                  "\tSDL message: %s\n",
+                  newW, newH, errorMsg);
+        return false;
+    }
+    SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
+
+    windowSurfaceResX = newW;
+    windowSurfaceResY = newH;
+    return true;
+}
+
 void DestroyWindowSurface() {
     if (sdlTexture) {
         SDL_DestroyTexture(sdlTexture);
