@@ -341,12 +341,16 @@ static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
         RevertDialog_ButtonRect((ResDialogBtn)b, &bx0, &by0, &bx1, &by1);
 
         if (focused == (ResDialogBtn)b) {
-            /* Full-rect plasma, no inset — matches DrawOneString in
-               GAMEMENU.CPP which paints DrawFire over the entire menu-item
-               rect and lets the cadre draw on top. Insetting the plasma
-               leaves a gap between the fire and the cadre that visually
-               misaligns (the "doesn't perfectly line up" observation). */
-            DrawFireBar(bx0, by0, bx1, by1, FIRE_SELECT_MENU);
+            /* DrawCadre(ALL_ANGLES) chamfers each corner with a 5-pixel
+               diagonal (see DrawAngles in INVENT.CPP). A full-rect
+               DrawFireBar leaves the chamfered corner triangles filled
+               with plasma OUTSIDE the visible cadre line — barely
+               noticeable on the engine's 550x50 menu items but very
+               visible on our 170x42 buttons. Inset by 4 (just inside
+               the chamfer) so the plasma matches the cadre's visible
+               interior. The remaining 1-px halo is invisible at all
+               supported scales. */
+            DrawFireBar(bx0 + 4, by0 + 4, bx1 - 4, by1 - 4, FIRE_SELECT_MENU);
         }
         DrawCadre(bx0, by0, bx1, by1, ALL_ANGLES);
 
