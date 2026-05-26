@@ -20,6 +20,12 @@ void EndVideo();
 
 // --- Interface ---------------------------------------------------------------
 bool CreateVideoSurface(U32 resX, U32 resY);
+
+/** Free the Phys buffer and the SDL palette without taking the SDL_INIT_VIDEO
+ *  subsystem down — paired with CreateVideoSurface for the runtime resolution
+ *  switcher (docs/RUNTIME_RESOLUTION.md). EndVideo() is still the lifetime
+ *  teardown called from EndAdeline. */
+void DestroyVideoSurface();
 U32 VideoSurfacePitch();
 void LockVideoSurface();
 void UnlockVideoSurface();

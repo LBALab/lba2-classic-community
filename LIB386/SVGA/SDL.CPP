@@ -57,6 +57,14 @@ bool InitVideo() {
 }
 
 void EndVideo() {
+    DestroyVideoSurface();
+}
+
+void DestroyVideoSurface() {
+    if (Phys) {
+        free(Phys);
+        Phys = NULL;
+    }
     if (sdlPalette) {
         SDL_DestroyPalette(sdlPalette);
         sdlPalette = NULL;
