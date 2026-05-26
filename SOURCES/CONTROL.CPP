@@ -539,9 +539,11 @@ static void control_dump_state(const char *path) {
 
     fprintf(f,
             "  \"scene\": { \"island\": %d, \"cube\": %d, \"cube_mode\": \"%s\", "
-            "\"num_objects\": %d, \"num_zones\": %d, \"num_tracks\": %d, \"num_patches\": %d },\n",
+            "\"num_objects\": %d, \"num_zones\": %d, \"num_tracks\": %d, \"num_patches\": %d, "
+            "\"render_w\": %u, \"render_h\": %u },\n",
             (int)Island, (int)NumCube, CubeMode == CUBE_INTERIEUR ? "interior" : "exterior",
-            (int)NbObjets, (int)NbZones, (int)NbBrickTrack, (int)NbPatches);
+            (int)NbObjets, (int)NbZones, (int)NbBrickTrack, (int)NbPatches,
+            (unsigned)ModeDesiredX, (unsigned)ModeDesiredY);
 
     fprintf(f,
             "  \"hero\": { \"x\": %d, \"y\": %d, \"z\": %d, "

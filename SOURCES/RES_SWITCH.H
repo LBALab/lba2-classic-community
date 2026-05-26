@@ -57,6 +57,23 @@ ResRevertChoice Res_RunRevertDialogIfPending(void);
    dialog stale). Idempotent; no-op when nothing is pending. */
 void Res_CancelPendingRevert(void);
 
+/* True if (w, h) is a valid render resolution: within the engine's range
+   (320..1920 × 200..1024) and W % 8 == 0. Same check Res_Switch applies to
+   its arguments. Exposed so the cfg-read path can reject corrupt or
+   out-of-range stored values without first calling Res_Switch. */
+bool Res_ValidateDimensions(U32 w, U32 h);
+
+/* Boot-time resolution resolver: writes the effective (W, H) the engine
+   should boot at, following the precedence
+       --resolution CLI  >  lba2.cfg ResolutionX/Y  >  compile-time default.
+   Reads lba2.cfg via a transient DefFileBuffer init against an internal
+   static buffer; never allocates from the engine heap, so it's safe to
+   call BEFORE Mem_ConfigureScreenBuffers / InitMainBuffer. Requires
+   PathConfigFile to be resolved first (call GetCfgPath); silently falls
+   back to the compile-time default otherwise. Logs a one-line warning if
+   the cfg held an invalid value so the player can spot a corrupted key. */
+void Res_LoadBootDimensions(U32 *outW, U32 *outH);
+
 #ifdef __cplusplus
 }
 #endif

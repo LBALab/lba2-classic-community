@@ -2,6 +2,7 @@
 
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "RES_SWITCH.H" /* Res_LoadBootDimensions — CLI > cfg > default */
 
 #include "AIL/COMMON.H"
 #include "CONTROL.H"
@@ -175,10 +176,17 @@ void InitAdeline(S32 argc, char *argv[]) {
     }
 
     {
-        /* --resolution WxH overrides the compile-time defaults. Validated by
-           Control_ParseArgs (positive, multiple of 8, within CONTROL_RES_MAX_*). */
-        U32 reqResX = Control_HasResolution() ? (U32)Control_GetResolutionX() : (U32)RESOLUTION_X;
-        U32 reqResY = Control_HasResolution() ? (U32)Control_GetResolutionY() : (U32)RESOLUTION_Y;
+        /* Same boot-resolution resolver PERSO.CPP main uses for
+           Mem_ConfigureScreenBuffers — precedence is
+              --resolution CLI > lba2.cfg ResolutionX/Y > compile-time default.
+           PERSO.CPP already called GetCfgPath / Res_LoadBootDimensions,
+           so the file read here re-reads a known-good cfg (DefFileBufferInit
+           is idempotent — module statics are fully re-anchored on re-init).
+           Both call sites MUST stay in sync or MainBuffer (sized in PERSO)
+           ends up at a different resolution than Log/Screen (sized here),
+           which makes scene rendering clip to the smaller dimensions. */
+        U32 reqResX, reqResY;
+        Res_LoadBootDimensions(&reqResX, &reqResY);
         if (!InitGraphics(reqResX, reqResY)) {
             exit(1); // TODO: Implement graceful exit
         }
