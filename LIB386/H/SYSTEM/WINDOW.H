@@ -25,6 +25,12 @@ void DestroyWindowSurface();
  *  focus, multi-monitor placement, and (in fullscreen) the fullscreen state
  *  without a destroy/recreate round-trip. Returns true on success. */
 bool ResizeWindowSurface(U32 newW, U32 newH);
+
+/** Query the current display's logical dimensions (the desktop the SDL
+ *  window is on, via SDL_GetCurrentDisplayMode). Writes both outputs and
+ *  returns true on success. Returns false if SDL hasn't initialised a
+ *  window yet; *outW and *outH are untouched in that case. */
+bool Window_GetDisplayDimensions(U32 *outW, U32 *outH);
 void PresentRendererFrame(const void *pixels, U32 pitch);
 bool LockRendererTexture(void **pixels, int *pitch);
 void UnlockAndPresentRendererTexture();

@@ -183,6 +183,23 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
     return true;
 }
 
+bool Window_GetDisplayDimensions(U32 *outW, U32 *outH) {
+    if (outW == NULL || outH == NULL || sdlWindow == NULL) {
+        return false;
+    }
+    SDL_DisplayID display = SDL_GetDisplayForWindow(sdlWindow);
+    if (display == 0) {
+        return false;
+    }
+    const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(display);
+    if (mode == NULL || mode->w <= 0 || mode->h <= 0) {
+        return false;
+    }
+    *outW = (U32)mode->w;
+    *outH = (U32)mode->h;
+    return true;
+}
+
 bool ResizeWindowSurface(U32 newW, U32 newH) {
     /* No-op if the surface was never created.  Caller should fall through to
        CreateWindowSurface in that case (boot path), not Resize. */
