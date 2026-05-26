@@ -50,6 +50,16 @@ long Control_GetResolutionY(void);
 int Control_HasLanguage(void);
 int Control_GetLanguage(void);
 
+/* --no-audio: skip InitAIL() and InitSampleDriver() at boot. Returns 1 if the flag
+   was supplied, 0 otherwise. With audio init skipped, the SDL audio subsystem
+   never opens a stream and the dummy driver's nanosleep pacing (~74% of sys time
+   in projection_demo on a WSL2 setup) doesn't run. Every audio entry point in
+   LIB386/AIL/SDL/{SAMPLE,STREAM,VIDEO_AUDIO_SDL}.CPP already gates on
+   Sample_Driver_Enabled or a non-NULL stream, so playback calls become silent
+   no-ops. Harness-only intent; players who actually want audio shouldn't pass
+   this flag. */
+int Control_NoAudio(void);
+
 /* Set up the boot path and arm the tick hook. Call once, instead of MainGameMenu(),
    when active: applies --load (InitGame(-1) + ChangeCube while FlagLoadGame is set)
    or a fresh InitGame(1), then arms Control_TickHook. Returns 1 on success (caller
