@@ -69,6 +69,19 @@ static long s_res_y = 0;
 #define CONTROL_RES_MAX_X 1920
 #define CONTROL_RES_MAX_Y 1024
 
+/* --language <name>: override the engine's Language global at boot, bypassing
+   the cfg's Language key. Doesn't write anything to disk; the cfg is not touched.
+   Index matches MESSAGE.CPP's TabLanguage[] — 0=English, 1=Français, 2=Deutsch,
+   3=Español, 4=Italiano, 5=Portugues. Applied in PERSO.CPP after InitLanguage()
+   returns. */
+static int s_have_language = 0;
+static int s_language = 0;
+#define CONTROL_LANG_COUNT 6
+static const char *kControlLanguageFull[CONTROL_LANG_COUNT] = {
+    "English", "Français", "Deutsch", "Español", "Italiano", "Portugues"};
+static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
+    "EN", "FR", "DE", "SP", "IT", "PO"};
+
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
 static int s_finalized = 0;
@@ -219,6 +232,34 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        if (!strcmp(a, "--language") && has_val) {
+            /* Accept either the full language name (English / Français / Deutsch /
+               Español / Italiano / Portugues) or the 2-character code (EN / FR /
+               DE / SP / IT / PO).  strcasecmp is byte-wise ASCII case-folding, so
+               the cedilla / tilde bytes in Français / Español compare exactly —
+               case-insensitive on the ASCII letters only, which is the same
+               behaviour InitLanguage() in MESSAGE.CPP gets from the cfg parse. */
+            const char *val = argv[read + 1];
+            int matched = -1;
+            for (int n = 0; n < CONTROL_LANG_COUNT; n++) {
+                if (!strcasecmp(val, kControlLanguageFull[n]) || !strcasecmp(val, kControlLanguageShort[n])) {
+                    matched = n;
+                    break;
+                }
+            }
+            if (matched >= 0) {
+                s_have_language = 1;
+                s_language = matched;
+            } else {
+                fprintf(stderr,
+                        "[control] --language: invalid '%s' (valid: "
+                        "English/Français/Deutsch/Español/Italiano/Portugues "
+                        "or EN/FR/DE/SP/IT/PO)\n",
+                        val);
+            }
+            read += 2;
+            continue;
+        }
 
         argv[write++] = argv[read++];
     }
@@ -244,6 +285,14 @@ long Control_GetResolutionX(void) {
 
 long Control_GetResolutionY(void) {
     return s_res_y;
+}
+
+int Control_HasLanguage(void) {
+    return s_have_language;
+}
+
+int Control_GetLanguage(void) {
+    return s_language;
 }
 
 /* --- Boot ------------------------------------------------------------------- */
