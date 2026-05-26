@@ -8,6 +8,7 @@
 #include "RES_PICKER.H"
 #include "INPUT.H"
 #include "CONTROL.H"
+#include "RES_SWITCH.H"
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -470,6 +471,13 @@ restartloop:
 
     while (TRUE) {
     startloop:
+
+        /* Runtime resolution-switch keep/revert dialog. Pending whenever
+           cmd_resolution (or a future menu path) fires a switch; runs once
+           per pending arming, then clears itself. Drives its own modal tick
+           loop, so by the time control returns the user has chosen Keep or
+           Revert (or the 15 s timeout fired). No-op when nothing is pending. */
+        Res_RunRevertDialogIfPending();
 
         /*#ifdef  THOMAS
 		if( DefKeys[0].Key1==0 )

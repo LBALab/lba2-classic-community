@@ -1284,6 +1284,28 @@ static bool res_parse_wxh(const char *s, U32 *outW, U32 *outH) {
     return true;
 }
 
+/* Shared "fire the orchestrator, then arm the keep/revert dialog" path. Pulls
+   the safety gate, captures the previous (W, H), closes the console so the
+   modal isn't occluded by it, then schedules the dialog on the next tick. */
+static void res_do_switch(U32 newW, U32 newH) {
+    const char *why = Res_SwitchAllowedReason();
+    if (why) {
+        Console_Print("%s", why);
+        return;
+    }
+    const U32 prevW = ModeDesiredX;
+    const U32 prevH = ModeDesiredY;
+    if (!Res_Switch(newW, newH)) {
+        Console_Print("resolution: switch to %ux%u failed (see log).", newW, newH);
+        return;
+    }
+    if (prevW != newW || prevH != newH) {
+        Res_BeginRevertCountdown(prevW, prevH);
+        Console_Close();
+    }
+    Console_Print("Resolution: %ux%u", newW, newH);
+}
+
 static void cmd_resolution(int argc, const char *argv[]) {
     /* Cap intentionally generous so cap-overflow can't silently truncate the
        advanced list as it grows over time. */
@@ -1324,11 +1346,7 @@ static void cmd_resolution(int argc, const char *argv[]) {
                           RES_VERB_MAX_W, RES_VERB_MAX_H);
             return;
         }
-        if (!Res_Switch(nw, nh)) {
-            Console_Print("resolution native: Res_Switch to %ux%u failed (see log).", nw, nh);
-            return;
-        }
-        Console_Print("Resolution: %ux%u", nw, nh);
+        res_do_switch(nw, nh);
         return;
     }
 
@@ -1344,11 +1362,7 @@ static void cmd_resolution(int argc, const char *argv[]) {
                 return;
             }
             const ResEntry *e = &list[n - 1];
-            if (!Res_Switch(e->w, e->h)) {
-                Console_Print("resolution: switch to %ux%u failed (see log).", e->w, e->h);
-                return;
-            }
-            Console_Print("Resolution: %ux%u", e->w, e->h);
+            res_do_switch(e->w, e->h);
             return;
         }
     }
@@ -1361,11 +1375,7 @@ static void cmd_resolution(int argc, const char *argv[]) {
                           arg, RES_VERB_MIN_W, RES_VERB_MIN_H, RES_VERB_MAX_W, RES_VERB_MAX_H);
             return;
         }
-        if (!Res_Switch(w, h)) {
-            Console_Print("resolution: switch to %ux%u failed (see log).", w, h);
-            return;
-        }
-        Console_Print("Resolution: %ux%u", w, h);
+        res_do_switch(w, h);
     }
 }
 

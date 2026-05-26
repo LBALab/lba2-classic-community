@@ -122,4 +122,19 @@ extern void EffectPcxMess(U8 numpcx, U8 *screen, U8 effect, S32 mess);
 extern void Introduction(void);
 /*--------------------------------------------------------------------------*/
 
+/* Localized labels for the runtime-resolution revert dialog (RES_SWITCH.CPP).
+   Kept as a numeric index so RES_SWITCH doesn't need to see the menu's full
+   label enum. The strings are sourced from the same 6-language table that
+   GAMEMENU's other UI text uses; format-string entries have %u/%d args
+   that the caller fills in via snprintf. */
+enum ResDialogLabel {
+    RES_DIALOG_TITLE = 0,   /* "Resolution changed" */
+    RES_DIALOG_NOW_AT,      /* "Now running at %ux%u." */
+    RES_DIALOG_KEEP_Q,      /* "Keep this resolution?" */
+    RES_DIALOG_KEEP_REVERT, /* "[Y] Keep      [N] Revert" */
+    RES_DIALOG_REVERT_IN,   /* "Reverts automatically in %ds..." */
+    RES_DIALOG_LABEL_COUNT
+};
+extern const char *GetLocalizedResDialogLabel(int which);
+
 #endif // GAMEMENU_H

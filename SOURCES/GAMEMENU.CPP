@@ -293,6 +293,11 @@ enum MenuLocalizedLabel {
     MENU_LABEL_GAME_CONTROLLER,
     MENU_LABEL_GAME_SAVED,
     MENU_LABEL_BUG_SAVED,
+    MENU_LABEL_RES_TITLE,
+    MENU_LABEL_RES_NOW_AT,
+    MENU_LABEL_RES_KEEP_Q,
+    MENU_LABEL_RES_KEEP_REVERT,
+    MENU_LABEL_RES_REVERT_IN,
     MENU_LABEL_COUNT,
 };
 
@@ -310,6 +315,11 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Configure gamepad",
         "Game saved",
         "Bug saved",
+        "Resolution changed",
+        "Now running at %ux%u.",
+        "Keep this resolution?",
+        "[Y] Keep      [N] Revert",
+        "Reverts automatically in %ds...",
     },
     {
         "Choix de la langue",
@@ -324,6 +334,11 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Configuration manette",
         "Partie sauvegardée",
         "Bug sauvegardé",
+        "Résolution modifiée",
+        "Affichage en %ux%u.",
+        "Conserver cette résolution ?",
+        "[O] Conserver   [N] Annuler",
+        "Annulation automatique dans %ds...",
     },
     {
         "Sprachauswahl",
@@ -338,6 +353,11 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Gamepad konfigurieren",
         "Spiel gespeichert",
         "Fehler gespeichert",
+        "Auflösung geändert",
+        "Läuft jetzt mit %ux%u.",
+        "Diese Auflösung beibehalten?",
+        "[J] Beibehalten   [N] Zurück",
+        "Automatischer Wechsel zurück in %ds...",
     },
     {
         "Elegir idioma",
@@ -352,6 +372,11 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Configurar mando",
         "Partida guardada",
         "Error guardado",
+        "Resolución cambiada",
+        "Funcionando a %ux%u.",
+        "¿Mantener esta resolución?",
+        "[S] Mantener   [N] Revertir",
+        "Se revertirá automáticamente en %ds...",
     },
     {
         "Scegli lingua",
@@ -366,6 +391,11 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Configura gamepad",
         "Partita salvata",
         "Bug salvato",
+        "Risoluzione modificata",
+        "In esecuzione a %ux%u.",
+        "Mantenere questa risoluzione?",
+        "[S] Mantieni   [N] Annulla",
+        "Annullamento automatico tra %ds...",
     },
     {
         "Escolha do idioma",
@@ -380,6 +410,11 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Configurar gamepad",
         "Jogo salvo",
         "Erro salvo",
+        "Resolução alterada",
+        "Em execução a %ux%u.",
+        "Manter esta resolução?",
+        "[S] Manter   [N] Reverter",
+        "Reversão automática em %ds...",
     },
 };
 
@@ -399,6 +434,19 @@ static S32 GetMenuLanguageIndex(void) {
 
 static const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
     return LocalizedMenuLabels[GetMenuLanguageIndex()][label];
+}
+
+const char *GetLocalizedResDialogLabel(int which) {
+    static const enum MenuLocalizedLabel kMap[RES_DIALOG_LABEL_COUNT] = {
+        MENU_LABEL_RES_TITLE,
+        MENU_LABEL_RES_NOW_AT,
+        MENU_LABEL_RES_KEEP_Q,
+        MENU_LABEL_RES_KEEP_REVERT,
+        MENU_LABEL_RES_REVERT_IN,
+    };
+    if (which < 0 || which >= (int)RES_DIALOG_LABEL_COUNT)
+        return "";
+    return GetLocalizedMenuLabel(kMap[which]);
 }
 
 static void BuildCustomMenuText(S32 num, char *string) {
