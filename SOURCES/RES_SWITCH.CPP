@@ -341,8 +341,12 @@ static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
         RevertDialog_ButtonRect((ResDialogBtn)b, &bx0, &by0, &bx1, &by1);
 
         if (focused == (ResDialogBtn)b) {
-            /* Inset 2px so the cadre border stays clean over the fire. */
-            DrawFireBar(bx0 + 2, by0 + 2, bx1 - 2, by1 - 2, FIRE_SELECT_MENU);
+            /* Full-rect plasma, no inset — matches DrawOneString in
+               GAMEMENU.CPP which paints DrawFire over the entire menu-item
+               rect and lets the cadre draw on top. Insetting the plasma
+               leaves a gap between the fire and the cadre that visually
+               misaligns (the "doesn't perfectly line up" observation). */
+            DrawFireBar(bx0, by0, bx1, by1, FIRE_SELECT_MENU);
         }
         DrawCadre(bx0, by0, bx1, by1, ALL_ANGLES);
 
@@ -355,14 +359,15 @@ static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
                      GetLocalizedResDialogLabel(RES_DIALOG_BTN_KEEP));
         }
         CopyUtf8ToCp850(cp850, sizeof cp850, buf);
-        /* DrawSingleString draws Font(..., y - 18, ...) — its y argument is
-           calibrated for HAUTEUR_STANDARD (50) menu items, where the text
-           sits in the upper portion of the box. For our shorter (42 px)
-           button, the glyph centre at the button centre needs the call's
-           y to be button_center + 10 (so Font's y - 18 lands the glyph
-           top 8 px above the button's vertical centre, which centres a
-           ~16 px-tall glyph). */
-        DrawSingleString((bx0 + bx1) / 2, (by0 + by1) / 2 + 10, cp850);
+        /* Pass the button vertical centre directly to DrawSingleString.
+           Its internal Font(..., y - 18, ...) is calibrated for the
+           engine's HAUTEUR_STANDARD=50 menu items, but the *visible*
+           glyph centre lands very close to the y arg in practice (as
+           ShowSaveConfirmation relies on when it passes the screen
+           centre for the "Game saved" splash). Earlier attempts at -8
+           and +10 were both wrong (text above / below) — passing the
+           plain centre is what looks right. */
+        DrawSingleString((bx0 + bx1) / 2, (by0 + by1) / 2, cp850);
     }
 
     /* Mark only the panel rect dirty — the screen-wide darken + scene
