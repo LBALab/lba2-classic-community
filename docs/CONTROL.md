@@ -28,6 +28,9 @@ lba2cc --load <slot>          restore a save before the loop starts
        --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic)
        --language <name>      override Language at boot (English | Français | Deutsch |
                               Español | Italiano | Portugues; or EN | FR | DE | SP | IT | PO)
+       --no-audio             skip InitAIL() and InitSampleDriver() at boot — bypasses
+                              the SDL dummy driver's nanosleep pacing on WSL2 setups
+                              (~58% of sys time in projection_demo without this)
        --demo                 attract/demo mode: scripts drive the scene, modals auto-advance
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
