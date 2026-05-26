@@ -1395,11 +1395,25 @@ void MenuInventory(U32 tempo) {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 /*──────────────────────────────────────────────────────────────────────────*/
-#define FOUND_X0 256
+/* Found-object animation box. Original literals were 256/48/384/178 — a
+   128×130 box at screen centre (320, 113) on the 640×480 authored canvas.
+   The cinematic plays "from the centre of the screen, then flies to the
+   inventory icon at the top-left". At wider widths the box stuck in the
+   left half (centre at 320, not ModeDesiredX/2), so the object cinema
+   appeared off-centre.
+   Re-anchor X via ModeDesiredX/2; box width 128 is preserved. The fly-
+   to destination at lines 1677-1680 (top-left "16") stays literal — that
+   is the actual position of the inventory HUD icon on screen-left and is
+   not anchored to the framebuffer centre. Y stays authored-pixel (HD work
+   tracked under Phase 5 / task #99). At ModeDesiredX==640 the math
+   collapses to the original (256, 320, 384) so the existing
+   ui_found_object golden still matches. */
+#define FOUND_BOX_W 128
+#define FOUND_X0 (((S32)ModeDesiredX - FOUND_BOX_W) / 2)
 #define FOUND_Y0 48
-#define FOUND_X1 384
+#define FOUND_X1 (FOUND_X0 + FOUND_BOX_W)
 #define FOUND_Y1 178
-#define FOUND_XO ((256 + 384) / 2)
+#define FOUND_XO (FOUND_X0 + FOUND_BOX_W / 2)
 #define FOUND_YO ((48 + 178) / 2)
 
 extern S32 Dial_Y0;
