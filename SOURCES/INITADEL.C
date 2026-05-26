@@ -154,8 +154,8 @@ void InitAdeline(S32 argc, char *argv[]) {
     /* --no-audio (harness): skip the SDL audio subsystem entirely. Avoids the
        SDL dummy driver's nanosleep pacing — ~58% of sys time in projection_demo
        on a WSL2 setup. Player builds always init audio; this gate is only
-       reached when the harness explicitly opts out. The SDL audio call sites in
-       LIB386/AIL/SDL/* gate on Sample_Driver_Enabled / non-NULL stream, so
+       reached when the harness explicitly opts out. Call sites under
+       LIB386/AIL/SDL/ gate on Sample_Driver_Enabled / non-NULL stream, so
        playback paths become silent no-ops when audio isn't up. */
     if (!Control_NoAudio()) {
         InitAIL(); // TODO: Reorganize/reposition closer to sound subsystem
