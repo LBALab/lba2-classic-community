@@ -24,6 +24,39 @@ extern "C" {
    and the previous resolution had to be restored. */
 bool Res_Switch(U32 newW, U32 newH);
 
+/* Safety gate. Returns NULL if it's safe to call Res_Switch right now, else
+   a short user-facing reason string. Refuses while a cinematic is playing
+   (FlagPlayAcf), no scene is loaded, or the holomap is open (HoloMode). The
+   string is a static literal — do not free. */
+const char *Res_SwitchAllowedReason(void);
+
+/* Begin the keep-or-revert countdown after a successful Res_Switch. The
+   modal pops up on the next MainLoop tick via Res_RunRevertDialogIfPending().
+   Caller is responsible for closing the console (or any other layer) that
+   would otherwise occlude the modal. (prevW, prevH) is what gets restored
+   on Revert or timeout. */
+void Res_BeginRevertCountdown(U32 prevW, U32 prevH);
+
+/* Returns true if a revert dialog is pending (caller about to draw should
+   defer to the modal). */
+bool Res_HasPendingRevert(void);
+
+/* Run the revert modal if one is pending; otherwise no-op. Called from the
+   top of MainLoop. Drives its own tick loop (ManageTime + MyGetInput) until
+   the user picks Keep/Revert or the timeout expires; on Revert calls
+   Res_Switch back to (prevW, prevH). Returns the choice the user made
+   (RES_REVERT_NONE if no dialog was pending). */
+typedef enum {
+    RES_REVERT_NONE = 0,
+    RES_REVERT_KEEP,
+    RES_REVERT_REVERT
+} ResRevertChoice;
+ResRevertChoice Res_RunRevertDialogIfPending(void);
+
+/* Cancel any pending revert (e.g. on game state change that would make the
+   dialog stale). Idempotent; no-op when nothing is pending. */
+void Res_CancelPendingRevert(void);
+
 #ifdef __cplusplus
 }
 #endif
