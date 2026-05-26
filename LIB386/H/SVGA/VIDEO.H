@@ -26,6 +26,12 @@ bool CreateVideoSurface(U32 resX, U32 resY);
  *  switcher (docs/RUNTIME_RESOLUTION.md). EndVideo() is still the lifetime
  *  teardown called from EndAdeline. */
 void DestroyVideoSurface();
+
+/** Resize the Phys buffer in place (free + re-malloc at newW * newH) and
+ *  recompute TabOffPhysLine. Palette stays. Used by the runtime resolution
+ *  switcher; pairs with WINDOW.H ResizeWindowSurface. Returns true on
+ *  success. */
+bool ResizeVideoSurface(U32 newW, U32 newH);
 U32 VideoSurfacePitch();
 void LockVideoSurface();
 void UnlockVideoSurface();

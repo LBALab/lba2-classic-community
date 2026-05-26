@@ -33,9 +33,7 @@ static bool ValidateRes(U32 w, U32 h) {
     return true;
 }
 
-static void TeardownFramebuffers() {
-    DestroyWindowSurface();
-    DestroyVideoSurface();
+static void TeardownEngineBuffers() {
     /* Order matters: Screen is a slice of MainBuffer (ListMem[MEM_SCREEN]),
        not an independent allocation, but EndScreen() tries to Free() it.
        Mem_TeardownMainBuffer nulls the pointer first, so EndScreen's
@@ -46,17 +44,25 @@ static void TeardownFramebuffers() {
     EndScreen();
 }
 
-static bool RebuildFramebuffers(U32 w, U32 h) {
+static bool RebuildEngineBuffers(U32 w, U32 h) {
     Mem_ConfigureScreenBuffers(w, h);
     InitMainBuffer();
-    if (!CreateWindowSurface(w, h))
-        return false;
-    if (!CreateVideoSurface(w, h))
-        return false;
     if (!CreateScreenMemory(w, h))
         return false;
     SetClipWindow(0, 0, (S32)w - 1, (S32)h - 1);
     SetClip(0, 0, (S32)w - 1, (S32)h - 1);
+    return true;
+}
+
+static bool ResizeSdlSurfaces(U32 w, U32 h) {
+    /* Resize in place rather than destroy+recreate.  The SDL window itself
+       (and therefore fullscreen state, focus, and the player's window
+       position in windowed mode) survives the switch.  Only the streaming
+       texture and the Phys present-buffer change dimensions. */
+    if (!ResizeWindowSurface(w, h))
+        return false;
+    if (!ResizeVideoSurface(w, h))
+        return false;
     return true;
 }
 
@@ -78,13 +84,13 @@ bool Res_Switch(U32 newW, U32 newH) {
     const U32 oldW = ModeDesiredX;
     const U32 oldH = ModeDesiredY;
 
-    TeardownFramebuffers();
+    TeardownEngineBuffers();
 
-    if (!RebuildFramebuffers(newW, newH)) {
+    if (!RebuildEngineBuffers(newW, newH) || !ResizeSdlSurfaces(newW, newH)) {
         LogPrintf("Res_Switch: rebuild at %ux%u failed, reverting to %ux%u\n",
                   newW, newH, oldW, oldH);
-        TeardownFramebuffers();
-        if (!RebuildFramebuffers(oldW, oldH)) {
+        TeardownEngineBuffers();
+        if (!RebuildEngineBuffers(oldW, oldH) || !ResizeSdlSurfaces(oldW, oldH)) {
             /* The previous mode worked moments ago, so this should be
                impossible.  If it does happen we have no surface to fall back
                to — the engine is wedged.  TheEnd() is the existing fail-fast
