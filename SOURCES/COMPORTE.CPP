@@ -86,9 +86,18 @@ S32 DebComportement = 110; // Espacement entre deux comportement
 S32 ComportementMenu = 0;  // menu comportement en cours
 S32 IndexComportement = 0;
 
-#define CTRL_X0 100
+/* Behaviour-modal frame. Original literals were 100, 100, 550, 290 — a
+   450×190 box positioned (mostly) centred on the 640×480 authored canvas.
+   Re-anchor X via ModeDesiredX/2 so the modal stays centred at any render
+   width (768, 1024, 1280, 1920…) rather than sticking to the top-left of
+   the wider framebuffer. Box width is preserved so the 4-tile layout +
+   info-bar geometry inside (which all derive from CTRL_X0..CTRL_X1)
+   reflows automatically. Y stays authored-pixel for now — Y-axis
+   widescreen is HD-only work tracked under Phase 5 of WIDESCREEN.md. */
+#define CTRL_BOX_W 450
+#define CTRL_X0 (((S32)ModeDesiredX - CTRL_BOX_W) / 2)
+#define CTRL_X1 (CTRL_X0 + CTRL_BOX_W)
 #define CTRL_Y0 100
-#define CTRL_X1 550
 #define CTRL_Y1 290
 
 /*══════════════════════════════════════════════════════════════════════════*/

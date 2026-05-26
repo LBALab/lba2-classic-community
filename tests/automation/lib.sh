@@ -60,12 +60,22 @@ ctl() {
     SDL_AUDIODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" "$@"
 }
 
-# ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy
-# and the engine's Language to English. Used by UI capture tests where the
-# committed goldens were rendered under the dummy video driver and an English
-# UI; without --language English they fail on machines whose local lba2.cfg
-# has any other Language: key (typically Français, which is also the engine's
-# default if no key is present).  English matches the in-repo LBA2.CFG default.
+# ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy,
+# Language to English, and the render resolution to 640x480. Used by UI
+# capture tests where the committed goldens were rendered under the dummy
+# video driver, English UI, and the engine's default 640x480 framebuffer.
+#
+# --language English: without this, tests fail on machines whose local
+# lba2.cfg has any other Language: key (typically Français, which is also
+# the engine's default if no key is present). English matches the in-repo
+# LBA2.CFG default.
+#
+# --resolution 640x480: pins the render resolution so cfg's ResolutionX/Y
+# (which now persists per the runtime-resolution-switch work in PRs
+# #237-#241/#244) doesn't shift the framebuffer dimensions out from under
+# the goldens. Without this, a developer who switched to 768x480 in their
+# own session would have ResolutionX=768 in cfg and all UI goldens would
+# fail with mismatched dimensions on their next test run.
 #
 # --no-audio skips the SDL audio subsystem entirely so the dummy driver's
 # nanosleep pacing (~74% of sys time on WSL2 per strace -c) doesn't run.
@@ -73,6 +83,15 @@ ctl() {
 # doesn't affect them — verified by re-running the suite with this in
 # place and confirming all eight ui_* goldens stay byte-identical.
 ctl_headless() {
+    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
+        "$LBA2_BIN" --language English --no-audio --resolution 640x480 "$@"
+}
+
+# ctl_headless_cfg_driven <args...> — same as ctl_headless but does NOT
+# pin --resolution. For tests that verify lba2.cfg's ResolutionX/Y is the
+# actual boot-resolution source (test_res_switch_cfg.sh). Every other
+# test should use ctl_headless so the boot resolution is deterministic.
+ctl_headless_cfg_driven() {
     SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
         "$LBA2_BIN" --language English --no-audio "$@"
 }
