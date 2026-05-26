@@ -54,17 +54,31 @@ static void ComputePresentationRect(SDL_FRect *dstRect) {
     const double surfaceAspect = (double)windowSurfaceResX / (double)windowSurfaceResY;
     const double outputAspect = (double)outputW / (double)outputH;
 
+    /* Compute as ints then promote to float. SDL_FRect + NEAREST sample mode
+       can shift the rasterised output by 1 px frame-to-frame if the dst
+       coordinates carry sub-pixel components and the window size jitters
+       slightly (Wayland compositors do this during resize settle, even
+       when the framebuffer is steady). Rounding to whole pixels here pins
+       the present rect so a still framebuffer presents identically every
+       frame — fixes a visible flicker on the runtime-resolution-switch
+       modal at non-native (non-1:1) display modes. The tiny aspect drift
+       this introduces (< 1 px in one dimension) is invisible. */
+    int dstW, dstH, dstX, dstY;
     if (outputAspect > surfaceAspect) {
-        dstRect->h = (float)outputH;
-        dstRect->w = (float)(dstRect->h * surfaceAspect);
-        dstRect->x = ((float)outputW - dstRect->w) * 0.5f;
-        dstRect->y = 0.0f;
+        dstH = outputH;
+        dstW = (int)(dstH * surfaceAspect + 0.5);
+        dstX = (outputW - dstW) / 2;
+        dstY = 0;
     } else {
-        dstRect->w = (float)outputW;
-        dstRect->h = (float)(dstRect->w / surfaceAspect);
-        dstRect->x = 0.0f;
-        dstRect->y = ((float)outputH - dstRect->h) * 0.5f;
+        dstW = outputW;
+        dstH = (int)(dstW / surfaceAspect + 0.5);
+        dstX = 0;
+        dstY = (outputH - dstH) / 2;
     }
+    dstRect->x = (float)dstX;
+    dstRect->y = (float)dstY;
+    dstRect->w = (float)dstW;
+    dstRect->h = (float)dstH;
 }
 
 static void PresentCurrentTexture() {

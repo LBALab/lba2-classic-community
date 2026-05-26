@@ -128,11 +128,11 @@ extern void Introduction(void);
    GAMEMENU's other UI text uses; format-string entries have %u/%d args
    that the caller fills in via snprintf. */
 enum ResDialogLabel {
-    RES_DIALOG_TITLE = 0,   /* "Resolution changed" */
-    RES_DIALOG_NOW_AT,      /* "Now running at %ux%u." */
-    RES_DIALOG_KEEP_Q,      /* "Keep this resolution?" */
-    RES_DIALOG_KEEP_REVERT, /* "[Y] Keep      [N] Revert" */
-    RES_DIALOG_REVERT_IN,   /* "Reverts automatically in %ds..." */
+    RES_DIALOG_TITLE = 0,      /* "Resolution changed" */
+    RES_DIALOG_NOW_AT,         /* "Now running at %ux%u." */
+    RES_DIALOG_KEEP_Q,         /* "Keep this resolution?" */
+    RES_DIALOG_BTN_KEEP,       /* "Keep" — right button label (no countdown) */
+    RES_DIALOG_BTN_REVERT_FMT, /* "Revert (%d)" — left button label, %d = seconds left */
     RES_DIALOG_LABEL_COUNT
 };
 extern const char *GetLocalizedResDialogLabel(int which);
