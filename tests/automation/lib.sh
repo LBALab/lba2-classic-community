@@ -115,7 +115,7 @@ ui_compare() {
     # the verb takes the capture path as its last arg
     ctl_headless --load "$LBA2_TEST_SAVE" \
         --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
-        || { rm -f "$out"; fail "verb 'ui $args' returned non-zero ($?)"; }
+        || { rc=$?; rm -f "$out"; fail "verb 'ui $args' returned non-zero ($rc)"; }
     [ -f "$out" ] || fail "no capture written for 'ui $args'"
     if [ "${LBA2_UI_REGEN:-}" = "1" ]; then
         mkdir -p "$(dirname "$golden")"
