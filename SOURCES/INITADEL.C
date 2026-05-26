@@ -196,7 +196,17 @@ void InitAdeline(S32 argc, char *argv[]) {
 #endif
         LogPuts("\nInitialising Sample device. Please wait...\n");
         if (!InitSampleDriver(NULL)) {
-            exit(1); // TODO: Implement graceful exit
+            /* No usable audio output (host has no audio device, SDL_AUDIODRIVER
+               points at something invalid, the audio subsystem failed to come
+               up earlier). Previously this exit(1)'d the process; now we log
+               and continue with audio disabled. Every audio entry point in
+               LIB386/AIL/SDL/{SAMPLE,STREAM,VIDEO_AUDIO_SDL}.CPP already gates
+               on Sample_Driver_Enabled / a non-NULL stream, so playback calls
+               become silent no-ops rather than UB. The harness uses this to
+               bypass the SDL dummy driver's nanosleep pacing (~58% of sys time
+               in projection_demo); a player whose audio device fails just
+               loses sound instead of being unable to launch the game. */
+            LogPuts("\nWarning: no audio output — running silently.\n");
         }
     }
 
