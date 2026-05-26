@@ -2389,6 +2389,16 @@ int main(int argc, char *argv[]) {
     //-------------------
 
     InitLanguage(); // multilangue
+    /* --language <name> override: bypass the cfg's Language key for this run.
+       Used by the test harness to pin a deterministic language regardless of
+       whatever the local cfg says, and useful for any dev wanting to spot-
+       check a language without editing their cfg. */
+    if (Control_HasLanguage()) {
+        Language = Control_GetLanguage();
+        if (Control_IsVerbose())
+            fprintf(stderr, "[control] --language: %s (index %d)\n",
+                    GetLanguageName(Language), (int)Language);
+    }
 
     BufText = (U8 *)SmartMalloc(BIG_FILE_DIA);
     if (!BufText)

@@ -26,6 +26,8 @@ lba2cc --load <slot>          restore a save before the loop starts
        --exec "<cmd>;<cmd>"   run console commands (';'-separated) on the first tick
        --tick <N>             advance N simulation ticks
        --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic)
+       --language <name>      override Language at boot (English | Français | Deutsch |
+                              Español | Italiano | Portugues; or EN | FR | DE | SP | IT | PO)
        --demo                 attract/demo mode: scripts drive the scene, modals auto-advance
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame
@@ -54,6 +56,11 @@ lba2cc --exec "cube 100" --tick 5 --screenshot shot.png --exit
 
 # Batch several commands.
 lba2cc --load mysave --exec "cube 100; give clover 3" --tick 5 --dump-state s.json --exit
+
+# Force a language for the run (bypasses the cfg's Language key — useful for
+# regression captures that should be reproducible regardless of the developer's
+# local lba2.cfg).
+lba2cc --language Français --load Anon1 --exec "ui dialog 1 /tmp/fr.png" --fixed-dt 16 --tick 200 --exit
 ```
 
 `--load` resolves its argument as a direct file path first, then as a save name in the
