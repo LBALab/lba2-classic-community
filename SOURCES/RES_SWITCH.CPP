@@ -15,6 +15,8 @@
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H>
 
+#include <stdio.h>
+
 /* Same validator the --resolution CLI uses (see CONTROL.CPP).  Kept local for
    now to avoid yet another shared header; if a third caller appears (the menu)
    we'll lift these out. */
@@ -83,6 +85,7 @@ bool Res_Switch(U32 newW, U32 newH) {
 
     const U32 oldW = ModeDesiredX;
     const U32 oldH = ModeDesiredY;
+    const bool wasFullscreen = GetWindowFullscreen();
 
     TeardownEngineBuffers();
 
@@ -133,6 +136,19 @@ bool Res_Switch(U32 newW, U32 newH) {
        that's expected to be rare. */
     InitPartFlow();
 
-    LogPrintf("Res_Switch: %ux%u -> %ux%u OK\n", oldW, oldH, newW, newH);
+    const bool isFullscreen = GetWindowFullscreen();
+    LogPrintf("Res_Switch: %ux%u -> %ux%u OK (fullscreen %d -> %d)\n",
+              oldW, oldH, newW, newH, (int)wasFullscreen, (int)isFullscreen);
+    /* Fullscreen state must round-trip cleanly; SDL_SetWindowSize on the
+       existing window doesn't take the window out of fullscreen. If this
+       assertion ever trips, the new code path destroyed the window somewhere
+       it shouldn't have. */
+    if (wasFullscreen != isFullscreen) {
+        fprintf(stderr,
+                "Res_Switch: WARNING fullscreen state changed across switch "
+                "(was=%d now=%d) -- texture resize path is supposed to "
+                "preserve it\n",
+                (int)wasFullscreen, (int)isFullscreen);
+    }
     return true;
 }
