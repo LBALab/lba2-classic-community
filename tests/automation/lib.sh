@@ -66,9 +66,15 @@ ctl() {
 # UI; without --language English they fail on machines whose local lba2.cfg
 # has any other Language: key (typically Français, which is also the engine's
 # default if no key is present).  English matches the in-repo LBA2.CFG default.
+#
+# --no-audio skips the SDL audio subsystem entirely so the dummy driver's
+# nanosleep pacing (~74% of sys time on WSL2 per strace -c) doesn't run.
+# Goldens are rendering-only (no audio sampling), so dropping audio init
+# doesn't affect them — verified by re-running the suite with this in
+# place and confirming all eight ui_* goldens stay byte-identical.
 ctl_headless() {
     SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
-        "$LBA2_BIN" --language English "$@"
+        "$LBA2_BIN" --language English --no-audio "$@"
 }
 
 # with_menu_main_fixture <body>
