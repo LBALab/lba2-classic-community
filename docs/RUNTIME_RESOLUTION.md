@@ -4,6 +4,16 @@ Design doc for letting the player change render resolution **without relaunching
 
 Supplements [`WIDESCREEN.md`](WIDESCREEN.md) (which covers the underlying widescreen rendering work). Most of the heavy lifting is already done by the existing widescreen campaign — this doc is about wrapping the boot-time `--resolution` infrastructure in a runtime-callable path and a user-facing chooser.
 
+## Status
+
+**Phase 0 is shipped.** Console-driven runtime switch + keep/revert dialog + `lba2.cfg` persistence are live on `main` (PRs #237–#241, #244). What changes vs. this doc's original Phase 0 plan:
+
+- The keep/revert dialog is **not text-mode** as the doc proposed — it's a proper engine-styled panel with a chamfered cadre, vertically-stacked `DrawOneString` buttons, and animated plasma highlight on the focused button. Same visual vocabulary as the in-game menus.
+- Persistence is live: `ResolutionX` / `ResolutionY` in `lba2.cfg`, written on dialog Keep, read at boot by `Res_LoadBootDimensions`. Self-heals on bad cfg values (warning logged, falls back to default, next clean exit overwrites the bad keys).
+- `--resolution` CLI override still wins over cfg (escape hatch for "I can't see anything, get me back").
+
+See the [Phase status](#phase-status) table at the bottom for what's still ahead.
+
 ## Motivation
 
 `--resolution WxH` works at launch and is the right thing for power users running from a terminal. For everyone else:
@@ -190,29 +200,30 @@ Write: on resolution-switch success (after the keep-confirm dialog), write the n
 
 Fullscreen and Vsync would land as separate `lba2.cfg` keys (`Fullscreen=0|1`, `Vsync=0|1`) in Phase 3, not V1.
 
-## Phases
+## Phase status
 
-| Phase | Scope | Estimate |
+| Phase | Scope | Status |
 |---|---|---|
-| **Phase 0** | `Mem_TeardownMainBuffer()`. `Res_Switch(newW, newH)` orchestrator. `cmd_resolution` console verb (list / select by number / arbitrary `WxH` / `native` / `--all`). Safety gates. **Preview / revert dialog rendered in console-mode** (text-based, 15s timeout, Y/N input). Test that exercises console-driven switch via the harness. | 2–4 days |
-| **Phase 1** | Boot-path refactor: consolidate the duplicated init sequence so the boot path and `Res_Switch` share the same orchestration. Today the boot does `Mem_ConfigureScreenBuffers → InitMainBuffer → InitAdeline → CreateScreenMemory → InitMemory` — pull the "given W, H, set everything up" body into one function callable from both. | 1 day |
-| **Phase 2** | Display options submenu in `GAMEMENU.CPP` — list with the same source the console uses, "Advanced..." sub-list, Fullscreen and Vsync siblings. Reuses the Phase 0 preview/revert dialog (rendered as a proper menu modal this time, not text). | 1–2 days |
-| **Phase 3** | Polish: keep music position across switch (save / restore stream pos), restore mouse cursor cleanly, persist Fullscreen / Vsync to `lba2.cfg`, tighten the safety-gate UI feedback. | 1 day |
-
-**Total V1**: 5–8 days.
+| **Phase 0** | `Mem_TeardownMainBuffer` + `DestroyVideoSurface`. `Res_Switch(newW, newH)` orchestrator with in-place resize (no destroy/recreate of the SDL window — fullscreen state survives). `cmd_resolution` console verb (list / select by number / arbitrary `WxH` / `native` / `--all`). Safety gate (`Res_SwitchAllowedReason`). Engine-styled keep/revert dialog: panel + chamfered cadre + two vertically-stacked `DrawOneString` buttons + animated plasma on the focused button. 15 s timeout, default focus on Revert. `lba2.cfg` `ResolutionX`/`Y` persistence — written on dialog Keep, read at boot by `Res_LoadBootDimensions` (CLI > cfg > default precedence). Self-heals on invalid cfg via warning + write-default-on-exit. Four harness tests cover orchestrator, console verb, dialog timeout, and cfg precedence. | ✅ shipped (#237–#241, #244) |
+| **Phase 1** | Boot-path consolidation: today `PERSO.CPP main` and `INITADEL.C` both call `Res_LoadBootDimensions` and `Mem_ConfigureScreenBuffers + InitMainBuffer` happens before `InitGraphics`. The "given W, H, set everything up" sequence is partially deduplicated via the shared resolver, but the surrounding init flow could be tighter. Pull the lot into one re-entrant function callable from both the boot path and `Res_Switch`. | not started |
+| **Phase 2** | Display options submenu in `GAMEMENU.CPP` — list with the same source the console uses (`Res_LoadBootDimensions`-adjacent), "Advanced..." sub-list, Fullscreen and Vsync siblings. Reuses the Phase 0 keep/revert dialog (same panel, same buttons, same plasma). Menu surface is the harder piece — gating from menu state and finding the right `Res_BeginRevertCountdown` injection point matter more than the modal itself, which is already done. | not started |
+| **Phase 3** | Polish: keep music position across switch (save / restore stream pos), restore mouse cursor cleanly across the resize, persist Fullscreen / Vsync to `lba2.cfg`, tighten the safety-gate UI feedback. Music continuity is still V1-acceptable to glitch today; the rest are quality-of-life. | not started |
 
 ## Open questions
 
-- **Music continuity** across the switch — V1 acceptable to glitch (stop / restart current track), Phase 3 saves stream position. Worth confirming before Phase 0.
-- **Linear vs nearest texture scaling** — `WINDOW.CPP:176` is `SDL_SCALEMODE_NEAREST` (pixel-art). A future Display submenu toggle could expose `LINEAR` for "soften the upscale"; not V1.
-- **Per-display memory** — single global cfg today. If the player frequently swaps monitors, they might want per-display memory. Out of scope for V1.
+- **Music continuity** across the switch — V1 is the "glitch on switch" behaviour as planned (the music track stops/restarts naturally as the scene re-init runs `ChoicePalette` and friends). Phase 3 saves stream position.
+- **Linear vs nearest texture scaling** — `WINDOW.CPP` ships `SDL_SCALEMODE_NEAREST` (pixel-art). A future Display submenu toggle could expose `LINEAR` for "soften the upscale"; not V1.
+- **Per-display memory** — single global cfg today (`ResolutionX` / `ResolutionY` in `lba2.cfg`). If the player frequently swaps monitors, they might want per-display memory. Out of scope for V1.
+- **Boot-flash at non-default cfg resolution** — *resolved.* Shape B (transient `DefFileBufferInit` against a static 8 KB BSS buffer in `Res_LoadBootDimensions`) reads the cfg before `Mem_ConfigureScreenBuffers`, so MainBuffer is sized correctly at the cfg dimensions in one shot. No boot-time `Res_Switch` cycle.
 
-## Risks
+## Risks (in retrospect, after Phase 0)
 
-1. **Pointer staleness through `MainBuffer`.** `ListMem` is a single-shot pool. Several subsystems (inventory backup, holomap arrows, etc.) cache pointers into the buffers at scene-init time. Safety gates handle most of this by refusing the switch in those states; the rest must be exercised by tests.
-2. **SDL hot-swap order matters.** `DestroyWindowSurface` before `EndScreen` before `Mem_TeardownMainBuffer`, then the inverse order on rebuild. Easy to get wrong; well-defined enough to encode in `Res_Switch`.
-3. **Cfg write fails after switch.** Resolution applied, dialog confirmed, but `WriteConfigFile` errors out — player gets the new mode this session, loses it next launch. Log it; not blocking.
-4. **Test coverage gap.** Today's `--resolution` tests cover boot-time. Runtime-switch needs its own harness test: load save, run `resolution 768x480` via the console-exec path, verify the scene re-renders correctly at the new width. New `tests/automation/test_resolution_switch.sh`.
+1. **Pointer staleness through `MainBuffer`.** *Confirmed real, fixed.* Several subsystems cached pointers into MainBuffer slices at scene-init time — `ListPartFlow[i].PtrListDot` indexes into `ListFlowDots`; `PtrNuances`/`PtrCLUTFog`/`PtrCLUTGouraud`/`PtrPalCurrent`/`PtrTransPal` all derive offsets from `PtrXplPalette`. `Res_Switch` re-runs `InitPartFlow` and `ChoicePalette` after rebuild to rewire them. Plus `ClipWindow` needed to be set *after* `ResizeVideoSurface` (the `ModeResX` clamp happens against the video-surface size, not the Log size); `XCentre`/`YCentre` needed `PtrInit3DView` + `CameraCenter(0)` for interior iso scenes (`Init3DView` resets the camera to origin); `FirstTime = AFF_ALL_FLIP` to invalidate the dirty-box state. All caught by manual testing because headless `SDL_VIDEODRIVER=dummy` papered over half of them — see [`SOURCES/RES_SWITCH.CPP`](../SOURCES/RES_SWITCH.CPP) comments.
+2. **SDL hot-swap order matters.** *Avoided.* The first cut destroyed + recreated the SDL window which would have flickered the compositor and dropped focus in fullscreen. Pivoted to in-place `SDL_SetWindowSize` + texture-only recreate; window object survives, fullscreen state survives, multi-monitor placement survives.
+3. **Cfg write fails after switch.** *Handled.* `WriteConfigFile` is best-effort; failure logs to `adeline.log` but doesn't block the player. The runtime switch already worked for this session; persistence just won't survive a relaunch. Manual recovery is `--resolution WxH` on the CLI.
+4. **Test coverage gap.** *Closed.* Four harness tests cover the surface: `test_res_switch` (orchestrator across 5 modes), `test_res_switch_console` (4 verb forms + 2 error paths), `test_res_switch_dialog` (15s timeout → auto-revert chain), `test_res_switch_cfg` (cfg precedence + invalid-value fallback, isolated via `XDG_DATA_HOME`).
+
+Net: the Phase 0 plan held up well — the actual scope landed close to estimate. The hidden iceberg was the cached-pointer story in (1), which needed live-on-engine testing because the headless harness couldn't see it. Documented in code.
 
 ## Out of scope (explicit non-features)
 
