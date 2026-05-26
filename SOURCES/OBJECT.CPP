@@ -1,5 +1,6 @@
 #include "C_EXTERN.H"
 
+#include "DEMO_SEED.H"
 #include "SAVEGAME.H"
 
 #include <stdio.h>
@@ -1167,8 +1168,17 @@ void ChangeCube() {
     oldcube = NumCube;
     NumCube = NewCube;
 
-    // reinitialisation du générateur de nombres aléatoires
-    srand(TimerRefHR);
+    // reinitialisation du générateur de nombres aléatoires.
+    // Retail seeds from TimerRefHR (a wall-clock interval). In the attract reel
+    // (DemoSlide), that made each cube reseed from a host-speed-dependent value,
+    // so the scripted demo's RNG-driven wanderers (most visibly the Desert
+    // Island bat) branched differently per host -- the bug PR #249 tried to fix
+    // by zeroing TimerRefHR in BeginDemoSlide() (works only under --fixed-dt;
+    // ManageTime inside FadeToBlack banks the clock right back in for the
+    // SHIFT+D / idle-attract path, and later cube transitions keep diverging).
+    // Demo_RngSeed swaps the source to NewCube while DemoSlide -- canonical per
+    // cube, deterministic on every host. Normal play unchanged. See issue #176.
+    srand(Demo_RngSeed(DemoSlide, TimerRefHR, NewCube));
 
     if (FlagChgCube)
         SaveTimer();

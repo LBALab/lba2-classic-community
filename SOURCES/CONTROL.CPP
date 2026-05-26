@@ -405,12 +405,12 @@ int Control_Begin(void) {
 
     /* Attract/demo mode: the scene's scripts drive the hero along authored tracks (a
        "canned playthrough"), and dialogues/choices auto-advance on the game clock instead
-       of waiting for input. BeginDemoSlide() also zeroes TimerRefHR so the srand seed at
-       ChangeCube (OBJECT.CPP:1171) is canonical and the demo reel reproduces — without it,
-       --demo without --fixed-dt would still seed RNG from boot-to-arming wall-clock and the
-       wandering creatures (the Desert Island bat being the most visible) would diverge per
-       run. The --fixed-dt path also resets the clock via Timer_EnableFixedDt() above; doing
-       it again here is idempotent. Opt-in; default gameplay is unaffected. See issue #176. */
+       of waiting for input. BeginDemoSlide() sets DemoSlide = TRUE; that flag routes
+       ChangeCube's srand through Demo_RngSeed (SOURCES/OBJECT.CPP), which seeds from the
+       cube number instead of TimerRefHR -- so the demo reel reproduces on every host
+       (Linux/macOS/Windows) regardless of how much wall-clock elapses between
+       BeginDemoSlide() and the first ChangeCube. Opt-in; default gameplay is unaffected.
+       See issue #176. */
     if (s_demo)
         BeginDemoSlide();
 

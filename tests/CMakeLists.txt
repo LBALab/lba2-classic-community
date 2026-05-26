@@ -23,6 +23,7 @@ add_subdirectory(copymask_negx)
 add_subdirectory(version)
 add_subdirectory(savegame)
 add_subdirectory(deffile)
+add_subdirectory(demo_rng_seed)
 add_subdirectory(image_load)
 add_subdirectory(ambiance_balance)
 
