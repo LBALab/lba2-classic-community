@@ -6,6 +6,7 @@
 #include "OBJECT.H" /* ChangeCube */
 #include "PATCH.H"  /* NbPatches */
 #include "DIRECTORIES.H"
+#include "RES_SWITCH.H" /* Res_Switch for --res-switch-test */
 #include "CONSOLE/CONSOLE.H"
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
@@ -87,6 +88,18 @@ static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
    that dominates sys time under SDL_AUDIODRIVER=dummy. See INITADEL.C for the
    gate. */
 static int s_no_audio = 0;
+
+/* --res-switch-test WxH@TICK: harness validation for the runtime
+   resolution-switch orchestrator (see docs/RUNTIME_RESOLUTION.md and
+   SOURCES/RES_SWITCH.CPP). Fires Res_Switch(W, H) exactly once on tick TICK
+   from inside Control_TickHook, so the engine has booted and a cube is
+   loaded by the time we tear the framebuffers down. Throwaway flag — once
+   the console verb / menu path lands, this can go. */
+static int s_have_res_switch_test = 0;
+static long s_res_switch_test_w = 0;
+static long s_res_switch_test_h = 0;
+static long s_res_switch_test_tick = 0;
+static int s_res_switch_test_fired = 0;
 
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
@@ -262,6 +275,44 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                         "English/Français/Deutsch/Español/Italiano/Portugues "
                         "or EN/FR/DE/SP/IT/PO)\n",
                         val);
+            }
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--res-switch-test") && has_val) {
+            /* Format: WxH@TICK (or WXH@TICK).  Width must satisfy the same
+               --resolution validator (W%8==0, range CONTROL_RES_*).  TICK is
+               a positive tick count; Res_Switch will fire when
+               Control_TickHook's counter passes it. */
+            const char *val = argv[read + 1];
+            const char *xp = strchr(val, 'x');
+            if (xp == NULL)
+                xp = strchr(val, 'X');
+            const char *at = strchr(val, '@');
+            int parsed = 0;
+            if (xp && at && xp < at && xp != val && xp[1] != '\0' && at[1] != '\0') {
+                char *end_w = NULL, *end_h = NULL, *end_t = NULL;
+                long w = strtol(val, &end_w, 10);
+                long h = strtol(xp + 1, &end_h, 10);
+                long t = strtol(at + 1, &end_t, 10);
+                if (end_w == xp && end_h == at && end_t && *end_t == '\0' &&
+                    w >= CONTROL_RES_MIN_X && h >= CONTROL_RES_MIN_Y &&
+                    w <= CONTROL_RES_MAX_X && h <= CONTROL_RES_MAX_Y &&
+                    (w & 7) == 0 && t > 0) {
+                    s_have_res_switch_test = 1;
+                    s_res_switch_test_w = w;
+                    s_res_switch_test_h = h;
+                    s_res_switch_test_tick = t;
+                    s_active = 1;
+                    parsed = 1;
+                }
+            }
+            if (!parsed) {
+                fprintf(stderr,
+                        "[control] --res-switch-test: invalid '%s' "
+                        "(need WxH@TICK; W%%8==0; range %dx%d - %dx%d; TICK>0)\n",
+                        val, CONTROL_RES_MIN_X, CONTROL_RES_MIN_Y,
+                        CONTROL_RES_MAX_X, CONTROL_RES_MAX_Y);
             }
             read += 2;
             continue;
@@ -634,6 +685,16 @@ void Control_TickHook(void) {
     }
     if (s_hook_calls == 1)
         control_run_exec();
+    /* --res-switch-test fires once at the requested tick.  Logged so harness
+       output captures success / failure; the orchestrator also logs internally
+       on rebuild failure. */
+    if (s_have_res_switch_test && !s_res_switch_test_fired &&
+        s_hook_calls >= s_res_switch_test_tick) {
+        s_res_switch_test_fired = 1;
+        bool ok = Res_Switch((U32)s_res_switch_test_w, (U32)s_res_switch_test_h);
+        fprintf(stderr, "[control] --res-switch-test fired at tick %ld: %s\n",
+                s_hook_calls, ok ? "OK" : "FAIL");
+    }
 #ifdef ENABLE_POLY_RECORDING
     /* Arm the existing draw-call recorder for the final rendered tick, so the capture
        reflects the same settled frame as --dump-state / --screenshot. */

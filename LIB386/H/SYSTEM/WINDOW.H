@@ -18,6 +18,13 @@ bool IsWindowInitialized();
 // --- Interface ---------------------------------------------------------------
 bool CreateWindowSurface(U32 resX, U32 resY);
 void DestroyWindowSurface();
+
+/** Resize the existing window + streaming texture in place, without
+ *  destroying the SDL window itself. Used by the runtime resolution switcher
+ *  (docs/RUNTIME_RESOLUTION.md / SOURCES/RES_SWITCH.CPP) so a switch keeps
+ *  focus, multi-monitor placement, and (in fullscreen) the fullscreen state
+ *  without a destroy/recreate round-trip. Returns true on success. */
+bool ResizeWindowSurface(U32 newW, U32 newH);
 void PresentRendererFrame(const void *pixels, U32 pitch);
 bool LockRendererTexture(void **pixels, int *pitch);
 void UnlockAndPresentRendererTexture();
