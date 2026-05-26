@@ -82,6 +82,12 @@ static const char *kControlLanguageFull[CONTROL_LANG_COUNT] = {
 static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
     "EN", "FR", "DE", "SP", "IT", "PO"};
 
+/* --no-audio: skip InitAIL() and InitSampleDriver() at engine boot. Pure boolean
+   override; the harness uses it to bypass the SDL dummy driver's nanosleep pacing
+   that dominates sys time under SDL_AUDIODRIVER=dummy. See INITADEL.C for the
+   gate. */
+static int s_no_audio = 0;
+
 /* --- Runtime ---------------------------------------------------------------- */
 static long s_hook_calls = 0;
 static int s_finalized = 0;
@@ -260,6 +266,17 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        if (!strcmp(a, "--no-audio")) {
+            /* Boolean flag — skip InitAIL() and InitSampleDriver() at boot so
+               the SDL audio subsystem never opens a stream and the dummy
+               driver's nanosleep pacing (~58% of sys time on WSL2) never
+               runs. The engine's audio playback paths already gate on
+               Sample_Driver_Enabled / non-NULL stream — every call becomes a
+               silent no-op when this is set. */
+            s_no_audio = 1;
+            read += 1;
+            continue;
+        }
 
         argv[write++] = argv[read++];
     }
@@ -293,6 +310,10 @@ int Control_HasLanguage(void) {
 
 int Control_GetLanguage(void) {
     return s_language;
+}
+
+int Control_NoAudio(void) {
+    return s_no_audio;
 }
 
 /* --- Boot ------------------------------------------------------------------- */
