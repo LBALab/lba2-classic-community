@@ -29,10 +29,15 @@ EOF
 
 dump_resolution() {
     # Run with given cfg, dump state on tick 2, print "WxH" from the JSON.
+    # Uses ctl_headless_cfg_driven (does NOT pin --resolution) so cfg's
+    # ResolutionX/Y is what drives the boot resolution — exactly what this
+    # test exists to verify. The normal ctl_headless pins --resolution
+    # 640x480 to keep the UI goldens stable against developers whose own
+    # cfg may have a non-default ResolutionX/Y.
     local xdg="$1" extra="${2:-}"
     local out
     out="$(mktemp -t res_cfg.XXXXXX.json)"
-    XDG_DATA_HOME="$xdg" ctl_headless --load "$LBA2_TEST_SAVE" \
+    XDG_DATA_HOME="$xdg" ctl_headless_cfg_driven --load "$LBA2_TEST_SAVE" \
         --fixed-dt 16 --tick 2 --dump-state "$out" --exit $extra \
         >/dev/null 2>&1 \
         || { rm -f "$out"; fail "engine non-zero exit ($?)"; }
