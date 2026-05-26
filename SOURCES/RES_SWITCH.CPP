@@ -264,18 +264,15 @@ void Res_CancelPendingRevert(void) {
     s_revertPending = false;
 }
 
-/* Panel + button geometry — fixed physical size, centred for any resolution.
-   The 520x220 panel comfortably fits 3 text lines + 2 buttons at the engine's
-   ~16px font height with breathing room. */
-#define RES_DIALOG_PANEL_W 520
-#define RES_DIALOG_PANEL_H 220
-#define RES_DIALOG_BTN_W 170
-#define RES_DIALOG_BTN_H 42
-#define RES_DIALOG_BTN_GAP 30
+/* Panel geometry — fixed physical size, vertically stacked buttons.
+   580x240 fits the LargeurMenu (550) wide DrawOneString buttons with
+   margin, plus 3 text lines above. */
+#define RES_DIALOG_PANEL_W 580
+#define RES_DIALOG_PANEL_H 240
 
 typedef enum {
-    RES_BTN_REVERT = 0, /* left, default focus (matches Windows/macOS/Steam) */
-    RES_BTN_KEEP = 1    /* right */
+    RES_BTN_REVERT = 0, /* top — default focus, carries the countdown */
+    RES_BTN_KEEP = 1    /* bottom */
 } ResDialogBtn;
 
 static void RevertDialog_PanelRect(S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
@@ -287,25 +284,28 @@ static void RevertDialog_PanelRect(S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
     *y1 = *y0 + RES_DIALOG_PANEL_H - 1;
 }
 
-static void RevertDialog_ButtonRect(ResDialogBtn b, S32 *bx0, S32 *by0, S32 *bx1, S32 *by1) {
-    const S32 cx = (S32)ModeDesiredX / 2;
-    S32 px0, py0, px1, py1;
-    RevertDialog_PanelRect(&px0, &py0, &px1, &py1);
-    const S32 by_top = py1 - 33 - RES_DIALOG_BTN_H + 1; /* 33px bottom margin */
-    if (b == RES_BTN_REVERT) {
-        *bx0 = cx - RES_DIALOG_BTN_GAP / 2 - RES_DIALOG_BTN_W;
-    } else {
-        *bx0 = cx + RES_DIALOG_BTN_GAP / 2;
-    }
-    *bx1 = *bx0 + RES_DIALOG_BTN_W - 1;
-    *by0 = by_top;
-    *by1 = by_top + RES_DIALOG_BTN_H - 1;
+/* Draws a horizontally-centred string at the engine's standard text-in-
+   menu-item offset. Mirrors DrawSingleString's drop-shadow + colour, but
+   omits the BoxUpdate present — caller batches via BoxStaticFullflip so
+   the modal doesn't trigger multiple presents per redraw. */
+static void RevertDialog_DrawCenteredText(S32 cx, S32 y, const char *utf8) {
+    char cp850[128];
+    CopyUtf8ToCp850(cp850, sizeof cp850, utf8);
+    S32 sf = SizeFont(cp850);
+    /* Drop shadow + main text — same colours and (+4, +4) shadow offset as
+       DrawSingleString. Using LBAWHITE directly instead of CoulTextMenu
+       (which isn't declared extern in GAMEMENU.H) — LBAWHITE is the default
+       menu text colour, only swapped to "disabled" grey in places we're not
+       touching. */
+    ColorFont(BLACK);
+    Font(cx - sf / 2 + 4, y - 18 + 4, cp850);
+    ColorFont(LBAWHITE);
+    Font(cx - sf / 2, y - 18, cp850);
 }
 
-/* Renders the whole modal — panel + 3 text lines + 2 buttons + plasma on the
-   focused button — into Log.  Caller is responsible for first restoring the
-   background (CopyScreen Log<-Screen) and presenting (BoxStaticFullflip)
-   after this returns. */
+/* Renders the whole modal into Log. Caller restores the background
+   (CopyScreen Screen->Log) before this runs and presents after via
+   BoxStaticFullflip. */
 static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
     /* Whole-screen darken so the panel reads on any underlying scene. */
     ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
@@ -320,63 +320,45 @@ static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
 
     const S32 cx = (S32)ModeDesiredX / 2;
     char buf[128];
-    char cp850[128];
 
-    /* Three text lines, top-aligned within the panel. */
-    CopyUtf8ToCp850(cp850, sizeof cp850, GetLocalizedResDialogLabel(RES_DIALOG_TITLE));
-    DrawSingleString(cx, py0 + 30, cp850);
+    /* Three text lines using direct Font calls (no per-call BoxUpdate). */
+    RevertDialog_DrawCenteredText(cx, py0 + 35,
+                                  GetLocalizedResDialogLabel(RES_DIALOG_TITLE));
 
     snprintf(buf, sizeof buf, GetLocalizedResDialogLabel(RES_DIALOG_NOW_AT),
              (unsigned)s_revertNewW, (unsigned)s_revertNewH);
-    CopyUtf8ToCp850(cp850, sizeof cp850, buf);
-    DrawSingleString(cx, py0 + 65, cp850);
+    RevertDialog_DrawCenteredText(cx, py0 + 68, buf);
 
-    CopyUtf8ToCp850(cp850, sizeof cp850, GetLocalizedResDialogLabel(RES_DIALOG_KEEP_Q));
-    DrawSingleString(cx, py0 + 105, cp850);
+    RevertDialog_DrawCenteredText(cx, py0 + 100,
+                                  GetLocalizedResDialogLabel(RES_DIALOG_KEEP_Q));
 
-    /* Two buttons side-by-side. Plasma highlight on the focused one
-       (drawn first so the cadre border sits on top of the fire). */
-    for (int b = 0; b < 2; b++) {
-        S32 bx0, by0, bx1, by1;
-        RevertDialog_ButtonRect((ResDialogBtn)b, &bx0, &by0, &bx1, &by1);
+    /* Two buttons stacked vertically via DrawOneString — the engine's
+       standard menu-item painter (same one MainGameMenu / OptionsMenu
+       use). Handles cadre, shading, optional plasma (draw == 1), and
+       text at the engine's calibrated y-18 offset, all matching the
+       rest of the game pixel-for-pixel. LargeurMenu (550) wide ×
+       HAUTEUR_STANDARD (50) tall, centred horizontally at cx. */
+    char cp850_revert[64], cp850_keep[64];
+    snprintf(buf, sizeof buf,
+             GetLocalizedResDialogLabel(RES_DIALOG_BTN_REVERT_FMT),
+             (int)secondsLeft);
+    CopyUtf8ToCp850(cp850_revert, sizeof cp850_revert, buf);
+    snprintf(buf, sizeof buf, "%s",
+             GetLocalizedResDialogLabel(RES_DIALOG_BTN_KEEP));
+    CopyUtf8ToCp850(cp850_keep, sizeof cp850_keep, buf);
 
-        if (focused == (ResDialogBtn)b) {
-            /* DrawCadre(ALL_ANGLES) chamfers each corner with a 5-pixel
-               diagonal (see DrawAngles in INVENT.CPP). A full-rect
-               DrawFireBar leaves the chamfered corner triangles filled
-               with plasma OUTSIDE the visible cadre line — barely
-               noticeable on the engine's 550x50 menu items but very
-               visible on our 170x42 buttons. Inset by 4 (just inside
-               the chamfer) so the plasma matches the cadre's visible
-               interior. The remaining 1-px halo is invisible at all
-               supported scales. */
-            DrawFireBar(bx0 + 4, by0 + 4, bx1 - 4, by1 - 4, FIRE_SELECT_MENU);
-        }
-        DrawCadre(bx0, by0, bx1, by1, ALL_ANGLES);
+    const S32 btn_revert_y = py0 + 150;
+    const S32 btn_keep_y = py0 + 210;
 
-        if (b == RES_BTN_REVERT) {
-            snprintf(buf, sizeof buf,
-                     GetLocalizedResDialogLabel(RES_DIALOG_BTN_REVERT_FMT),
-                     (int)secondsLeft);
-        } else {
-            snprintf(buf, sizeof buf, "%s",
-                     GetLocalizedResDialogLabel(RES_DIALOG_BTN_KEEP));
-        }
-        CopyUtf8ToCp850(cp850, sizeof cp850, buf);
-        /* Pass the button vertical centre directly to DrawSingleString.
-           Its internal Font(..., y - 18, ...) is calibrated for the
-           engine's HAUTEUR_STANDARD=50 menu items, but the *visible*
-           glyph centre lands very close to the y arg in practice (as
-           ShowSaveConfirmation relies on when it passes the screen
-           centre for the "Game saved" splash). Earlier attempts at -8
-           and +10 were both wrong (text above / below) — passing the
-           plain centre is what looks right. */
-        DrawSingleString((bx0 + bx1) / 2, (by0 + by1) / 2, cp850);
-    }
+    DrawOneString(cx, btn_revert_y, cp850_revert,
+                  focused == RES_BTN_REVERT ? 1 : 0);
+    DrawOneString(cx, btn_keep_y, cp850_keep,
+                  focused == RES_BTN_KEEP ? 1 : 0);
 
-    /* Mark only the panel rect dirty — the screen-wide darken + scene
-       backup behind it are static for the modal's lifetime, so per-frame
-       redraw doesn't have to walk the whole framebuffer. */
+    /* DrawOneString accumulates dirty rects via BoxStaticAdd but doesn't
+       present. Mark the panel + small margin too (for the cadre border
+       and text drop-shadow that extend slightly outside the buttons)
+       and flip once for the whole modal. */
     BoxStaticAdd(px0 - 1, py0 - 1, px1 + 1, py1 + 1);
     BoxStaticFullflip();
 }
@@ -438,7 +420,7 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
     /* Drain stale input so a key still held from before doesn't immediately
        pick a side or toggle focus. */
     InitWaitNoKey();
-    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS | I_LEFT | I_RIGHT);
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS | I_UP | I_DOWN);
 
     while (TimerRefHR < endMs) {
         /* Under --fixed-dt the harness pins time to the per-tick advance done
@@ -452,12 +434,13 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
         ManageTime();
         MyGetInput();
 
-        /* Directional input (D-pad on gamepad, arrow keys on keyboard, or
-           the steering keys via the engine's input remap) toggles focus
-           between the two buttons. */
-        if (Input & I_LEFT)
+        /* Directional input toggles focus between the two stacked buttons.
+           UP / DOWN matches the rest of the engine's menus (NPC choice
+           menus, options menu, save list — all vertical stacks navigated
+           with the same keys, on both keyboard and gamepad). */
+        if (Input & I_UP)
             focused = RES_BTN_REVERT;
-        if (Input & I_RIGHT)
+        if (Input & I_DOWN)
             focused = RES_BTN_KEEP;
 
         /* Confirm selected. I_FIRE covers the action / inventory / return /
