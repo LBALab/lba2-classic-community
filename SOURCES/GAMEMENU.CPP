@@ -296,8 +296,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_RES_TITLE,
     MENU_LABEL_RES_NOW_AT,
     MENU_LABEL_RES_KEEP_Q,
-    MENU_LABEL_RES_KEEP_REVERT,
-    MENU_LABEL_RES_REVERT_IN,
+    MENU_LABEL_RES_BTN_KEEP,
+    MENU_LABEL_RES_BTN_REVERT_FMT,
     MENU_LABEL_COUNT,
 };
 
@@ -318,8 +318,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolution changed",
         "Now running at %ux%u.",
         "Keep this resolution?",
-        "[Y] Keep      [N] Revert",
-        "Reverts automatically in %ds...",
+        "Keep",
+        "Revert (%d)",
     },
     {
         "Choix de la langue",
@@ -337,8 +337,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Résolution modifiée",
         "Affichage en %ux%u.",
         "Conserver cette résolution ?",
-        "[O] Conserver   [N] Annuler",
-        "Annulation automatique dans %ds...",
+        "Conserver",
+        "Annuler (%d)",
     },
     {
         "Sprachauswahl",
@@ -356,8 +356,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Auflösung geändert",
         "Läuft jetzt mit %ux%u.",
         "Diese Auflösung beibehalten?",
-        "[J] Beibehalten   [N] Zurück",
-        "Automatischer Wechsel zurück in %ds...",
+        "Beibehalten",
+        "Zurück (%d)",
     },
     {
         "Elegir idioma",
@@ -375,8 +375,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolución cambiada",
         "Funcionando a %ux%u.",
         "¿Mantener esta resolución?",
-        "[S] Mantener   [N] Revertir",
-        "Se revertirá automáticamente en %ds...",
+        "Mantener",
+        "Revertir (%d)",
     },
     {
         "Scegli lingua",
@@ -394,8 +394,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Risoluzione modificata",
         "In esecuzione a %ux%u.",
         "Mantenere questa risoluzione?",
-        "[S] Mantieni   [N] Annulla",
-        "Annullamento automatico tra %ds...",
+        "Mantieni",
+        "Annulla (%d)",
     },
     {
         "Escolha do idioma",
@@ -413,8 +413,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolução alterada",
         "Em execução a %ux%u.",
         "Manter esta resolução?",
-        "[S] Manter   [N] Reverter",
-        "Reversão automática em %ds...",
+        "Manter",
+        "Reverter (%d)",
     },
 };
 
@@ -441,8 +441,8 @@ const char *GetLocalizedResDialogLabel(int which) {
         MENU_LABEL_RES_TITLE,
         MENU_LABEL_RES_NOW_AT,
         MENU_LABEL_RES_KEEP_Q,
-        MENU_LABEL_RES_KEEP_REVERT,
-        MENU_LABEL_RES_REVERT_IN,
+        MENU_LABEL_RES_BTN_KEEP,
+        MENU_LABEL_RES_BTN_REVERT_FMT,
     };
     if (which < 0 || which >= (int)RES_DIALOG_LABEL_COUNT)
         return "";
