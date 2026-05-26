@@ -71,6 +71,28 @@ void DestroyVideoSurface() {
     }
 }
 
+bool ResizeVideoSurface(U32 newW, U32 newH) {
+    /* The palette survives a resize -- it's per-frame state, not
+       dimension-dependent. Only Phys (the present buffer) needs to change
+       size, plus TabOffPhysLine which is the per-row offset table the
+       blitter walks. */
+    if (Phys) {
+        free(Phys);
+    }
+    Phys = malloc((size_t)newW * (size_t)newH);
+    if (Phys == NULL) {
+        return false;
+    }
+    ModeResX = newW;
+    ModeResY = newH;
+    S32 off = 0;
+    for (S32 i = 0; i < ADELINE_MAX_Y_RES; i++) {
+        TabOffPhysLine[i] = off;
+        off += (S32)newW; /* VideoSurfacePitch() returns ModeResX. */
+    }
+    return true;
+}
+
 // --- Interface ---------------------------------------------------------------
 bool CreateVideoSurface(U32 resX, U32 resY) {
     assert(sdlPalette == NULL);
