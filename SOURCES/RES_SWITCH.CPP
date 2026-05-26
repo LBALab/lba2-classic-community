@@ -5,11 +5,12 @@
 
 #include "RES_SWITCH.H"
 
+#include "ANIMTEX.H" /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
 #include "C_EXTERN.H"
 #include "FLOW.H"
 #include "GAMEMENU.H"
 #include "INTEXT.H" /* CameraCenter, SaveCamera / RestoreCamera */
-#include "INVENT.H" /* BackupScreen / RestoreScreen */
+#include "INVENT.H" /* BackupScreen / RestoreScreen / DrawCadre / ALL_ANGLES */
 #include "PTRFUNC.H"
 
 #include <3D/CAMERA.H>
@@ -263,47 +264,106 @@ void Res_CancelPendingRevert(void) {
     s_revertPending = false;
 }
 
-static void RevertDialog_Draw(U32 secondsLeft) {
-    /* Full-screen darken so the message reads cleanly against the just-
-       rendered scene without needing its own panel art. Same SCREEN_SHADE_LVL
-       (8) ShowSaveConfirmation uses for the in-game "Saved" box. */
+/* Panel + button geometry — fixed physical size, centred for any resolution.
+   The 520x220 panel comfortably fits 3 text lines + 2 buttons at the engine's
+   ~16px font height with breathing room. */
+#define RES_DIALOG_PANEL_W 520
+#define RES_DIALOG_PANEL_H 220
+#define RES_DIALOG_BTN_W 170
+#define RES_DIALOG_BTN_H 42
+#define RES_DIALOG_BTN_GAP 30
+
+typedef enum {
+    RES_BTN_REVERT = 0, /* left, default focus (matches Windows/macOS/Steam) */
+    RES_BTN_KEEP = 1    /* right */
+} ResDialogBtn;
+
+static void RevertDialog_PanelRect(S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
+    const S32 cx = (S32)ModeDesiredX / 2;
+    const S32 cy = (S32)ModeDesiredY / 2;
+    *x0 = cx - RES_DIALOG_PANEL_W / 2;
+    *y0 = cy - RES_DIALOG_PANEL_H / 2;
+    *x1 = *x0 + RES_DIALOG_PANEL_W - 1;
+    *y1 = *y0 + RES_DIALOG_PANEL_H - 1;
+}
+
+static void RevertDialog_ButtonRect(ResDialogBtn b, S32 *bx0, S32 *by0, S32 *bx1, S32 *by1) {
+    const S32 cx = (S32)ModeDesiredX / 2;
+    S32 px0, py0, px1, py1;
+    RevertDialog_PanelRect(&px0, &py0, &px1, &py1);
+    const S32 by_top = py1 - 33 - RES_DIALOG_BTN_H + 1; /* 33px bottom margin */
+    if (b == RES_BTN_REVERT) {
+        *bx0 = cx - RES_DIALOG_BTN_GAP / 2 - RES_DIALOG_BTN_W;
+    } else {
+        *bx0 = cx + RES_DIALOG_BTN_GAP / 2;
+    }
+    *bx1 = *bx0 + RES_DIALOG_BTN_W - 1;
+    *by0 = by_top;
+    *by1 = by_top + RES_DIALOG_BTN_H - 1;
+}
+
+/* Renders the whole modal — panel + 3 text lines + 2 buttons + plasma on the
+   focused button — into Log.  Caller is responsible for first restoring the
+   background (CopyScreen Log<-Screen) and presenting (BoxStaticFullflip)
+   after this returns. */
+static void RevertDialog_Draw(ResDialogBtn focused, U32 secondsLeft) {
+    /* Whole-screen darken so the panel reads on any underlying scene. */
     ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
 
-    const S32 cx = (S32)ModeDesiredX / 2;
-    /* Five text lines, evenly spaced around the vertical centre. Spacing is
-       picked to match DrawSingleString's ~20px line height across the modes
-       we ship at. */
-    const S32 lineH = 28;
-    const S32 baseY = (S32)ModeDesiredY / 2 - 2 * lineH;
+    /* Panel: a second shade level for extra contrast against the scene,
+       then the rounded-corner cadre border. Same DrawCadre that
+       DrawCadreConfirm uses for in-game confirmation dialogs. */
+    S32 px0, py0, px1, py1;
+    RevertDialog_PanelRect(&px0, &py0, &px1, &py1);
+    ShadeBoxBlk(px0, py0, px1, py1, SCREEN_SHADE_LVL);
+    DrawCadre(px0, py0, px1, py1, ALL_ANGLES);
 
+    const S32 cx = (S32)ModeDesiredX / 2;
     char buf[128];
     char cp850[128];
 
-    /* "Resolution changed" */
+    /* Three text lines, top-aligned within the panel. */
     CopyUtf8ToCp850(cp850, sizeof cp850, GetLocalizedResDialogLabel(RES_DIALOG_TITLE));
-    DrawSingleString(cx, baseY + 0 * lineH, cp850);
+    DrawSingleString(cx, py0 + 30, cp850);
 
-    /* "Now running at WxH." */
     snprintf(buf, sizeof buf, GetLocalizedResDialogLabel(RES_DIALOG_NOW_AT),
              (unsigned)s_revertNewW, (unsigned)s_revertNewH);
     CopyUtf8ToCp850(cp850, sizeof cp850, buf);
-    DrawSingleString(cx, baseY + 1 * lineH, cp850);
+    DrawSingleString(cx, py0 + 65, cp850);
 
-    /* "Keep this resolution?" */
     CopyUtf8ToCp850(cp850, sizeof cp850, GetLocalizedResDialogLabel(RES_DIALOG_KEEP_Q));
-    DrawSingleString(cx, baseY + 2 * lineH, cp850);
+    DrawSingleString(cx, py0 + 105, cp850);
 
-    /* "[Y] Keep      [N] Revert" */
-    CopyUtf8ToCp850(cp850, sizeof cp850, GetLocalizedResDialogLabel(RES_DIALOG_KEEP_REVERT));
-    DrawSingleString(cx, baseY + 3 * lineH, cp850);
+    /* Two buttons side-by-side. Plasma highlight on the focused one
+       (drawn first so the cadre border sits on top of the fire). */
+    for (int b = 0; b < 2; b++) {
+        S32 bx0, by0, bx1, by1;
+        RevertDialog_ButtonRect((ResDialogBtn)b, &bx0, &by0, &bx1, &by1);
 
-    /* "Reverts automatically in Ns..." */
-    snprintf(buf, sizeof buf, GetLocalizedResDialogLabel(RES_DIALOG_REVERT_IN),
-             (int)secondsLeft);
-    CopyUtf8ToCp850(cp850, sizeof cp850, buf);
-    DrawSingleString(cx, baseY + 4 * lineH, cp850);
+        if (focused == (ResDialogBtn)b) {
+            /* Inset 2px so the cadre border stays clean over the fire. */
+            DrawFireBar(bx0 + 2, by0 + 2, bx1 - 2, by1 - 2, FIRE_SELECT_MENU);
+        }
+        DrawCadre(bx0, by0, bx1, by1, ALL_ANGLES);
 
-    BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+        if (b == RES_BTN_REVERT) {
+            snprintf(buf, sizeof buf,
+                     GetLocalizedResDialogLabel(RES_DIALOG_BTN_REVERT_FMT),
+                     (int)secondsLeft);
+        } else {
+            snprintf(buf, sizeof buf, "%s",
+                     GetLocalizedResDialogLabel(RES_DIALOG_BTN_KEEP));
+        }
+        CopyUtf8ToCp850(cp850, sizeof cp850, buf);
+        /* Glyph centre at button centre; DrawSingleString uses y as the
+           top of the text raster, so -8 lifts it onto the centre line. */
+        DrawSingleString((bx0 + bx1) / 2, (by0 + by1) / 2 - 8, cp850);
+    }
+
+    /* Mark only the panel rect dirty — the screen-wide darken + scene
+       backup behind it are static for the modal's lifetime, so per-frame
+       redraw doesn't have to walk the whole framebuffer. */
+    BoxStaticAdd(px0 - 1, py0 - 1, px1 + 1, py1 + 1);
     BoxStaticFullflip();
 }
 
@@ -349,15 +409,22 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
 
     BackupScreen(TRUE); /* Screen → ScreenAux, then Log → Screen */
 
+    /* Initialise the plasma/fire-bar texture (writes to SkySeaTexture). Without
+       this the DrawFireBar call below renders whatever bytes were in that
+       texture region. Same call MainGameMenu / OptionsMenu make before
+       showing a plasma-highlighted menu. */
+    InitPlasmaMenu();
+
     ManageTime();
     const U32 startMs = TimerRefHR;
     const U32 endMs = startMs + RES_REVERT_TIMEOUT_MS;
     ResRevertChoice choice = RES_REVERT_REVERT; /* default if we time out */
-    U32 lastSecondsDrawn = (U32)-1;
+    ResDialogBtn focused = RES_BTN_REVERT;      /* default focus: the safe one */
 
     /* Drain stale input so a key still held from before doesn't immediately
-       pick a side. */
+       pick a side or toggle focus. */
     InitWaitNoKey();
+    InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS | I_LEFT | I_RIGHT);
 
     while (TimerRefHR < endMs) {
         /* Under --fixed-dt the harness pins time to the per-tick advance done
@@ -371,26 +438,43 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
         ManageTime();
         MyGetInput();
 
-        if (MyKey == K_Y || MyKey == K_O || MyKey == K_J || MyKey == K_S ||
-            MyKey == K_ENTER || MyKey == K_SPACE) {
-            choice = RES_REVERT_KEEP;
+        /* Directional input (D-pad on gamepad, arrow keys on keyboard, or
+           the steering keys via the engine's input remap) toggles focus
+           between the two buttons. */
+        if (Input & I_LEFT)
+            focused = RES_BTN_REVERT;
+        if (Input & I_RIGHT)
+            focused = RES_BTN_KEEP;
+
+        /* Confirm selected. I_FIRE covers the action / inventory / return /
+           comportement bindings (so the gamepad's A button works regardless
+           of which keyboard mapping the player uses); Enter and Space are
+           explicit keyboard shortcuts. */
+        if ((Input & I_FIRE) || MyKey == K_ENTER || MyKey == K_SPACE) {
+            choice = (focused == RES_BTN_KEEP) ? RES_REVERT_KEEP : RES_REVERT_REVERT;
             break;
         }
-        if (MyKey == K_N || MyKey == K_ESC) {
+
+        /* Direct shortcuts (regardless of focus). Esc / B-button / N → Revert.
+           Y/O (oui)/J (ja)/S (sí/sì/sim) → Keep. */
+        if ((Input & I_MENUS) || MyKey == K_ESC || MyKey == K_N) {
             choice = RES_REVERT_REVERT;
+            break;
+        }
+        if (MyKey == K_Y || MyKey == K_O || MyKey == K_J || MyKey == K_S) {
+            choice = RES_REVERT_KEEP;
             break;
         }
 
         const U32 remainingMs = endMs - TimerRefHR;
         const U32 secondsLeft = (remainingMs + 999u) / 1000u;
-        if (secondsLeft != lastSecondsDrawn) {
-            /* Re-fill Log from the Screen backup so the previous countdown
-               digit doesn't leave ghost pixels and the scene stays visible
-               under the darken. */
-            CopyScreen(Log, Screen);
-            RevertDialog_Draw(secondsLeft);
-            lastSecondsDrawn = secondsLeft;
-        }
+
+        /* Per-frame redraw so the plasma animates smoothly. DoTextureAnimation
+           advances the fire texture state; CopyScreen restores the captured
+           background before we paint the panel over it. */
+        CopyScreen(Log, Screen);
+        DoTextureAnimation();
+        RevertDialog_Draw(focused, secondsLeft);
     }
 
     LogPrintf("Res_Switch: revert dialog -> %s (target was %ux%u)\n",
