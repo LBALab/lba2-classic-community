@@ -11,6 +11,15 @@
 # Opt-in via PROJREC_RUN_DEMO=1 — even at 35s this is the slowest test in
 # the harness suite. Skip by default.
 #
+# The "~35 seconds wall-clock" figure is from a native-Linux Release build.
+# Slower setups (Debug builds, WSL2 — where SDL syscall overhead can be
+# ~50% of total CPU time) easily stretch into 2 minutes. Bump the default
+# timeout to 240s here so opt-in runs don't get SIGTERM'd mid-capture
+# before Projrec_EndCapture() flushes the hash to disk. The caller can
+# still override (LBA2_TEST_TIMEOUT=N bash tests/automation/test_projection_demo.sh).
+: "${LBA2_TEST_TIMEOUT:=240}"
+export LBA2_TEST_TIMEOUT
+#
 # Local-only (needs retail data). Regenerate with:
 #   LBA2_PROJECTION_REGEN=1 PROJREC_RUN_DEMO=1 bash tests/automation/test_projection_demo.sh
 # or:
@@ -32,7 +41,7 @@ ctl_headless --game-dir "$LBA2_GAME_DIR" \
              --demo --fixed-dt 16 --tick 30000 \
              --projection-hash "$OUT" --exit \
              >/dev/null 2>&1 \
-    || { rm -f "$OUT"; fail "demo harness returned non-zero ($?)"; }
+    || { rc=$?; rm -f "$OUT"; fail "demo harness returned non-zero ($rc)"; }
 
 # Strip any non-SCENE lines the harness may have emitted, then format the
 # fixture body (the committed file has the same header).
