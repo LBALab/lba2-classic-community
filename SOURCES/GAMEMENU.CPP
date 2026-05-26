@@ -2553,7 +2553,7 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
                 FlagShowEndDemo = TRUE;
 #else
-                DemoSlide = TRUE;
+                BeginDemoSlide();
 
                 InitGame(1);
                 NewCube = 193;
@@ -4353,6 +4353,20 @@ S32 SlideShow(void) {
     return ret;
 }
 
+// Enter "canned demo" mode (SHIFT+D from the main menu, the idle attract trigger, the
+// SlideDemo debug entry, and the harness --demo flag all funnel through here). Zeroing
+// TimerRefHR before the first ChangeCube pins the srand seed at OBJECT.CPP:1171 to a
+// canonical value, so every player's demo run reproduces the same RNG-driven wandering
+// (most visibly the bat-vs-Twinsen outcome on the Desert Island demo scene). Without
+// this, the seed is "ms between engine boot and demo trigger", which varies per run.
+// Safe outside the harness path: every site that calls this immediately goes through
+// InitGame(1) + ChangeCube, so the clock reset doesn't bleed into ordinary gameplay
+// timers. See issue #176.
+void BeginDemoSlide(void) {
+    TimerRefHR = 0;
+    DemoSlide = TRUE;
+}
+
 void SlideDemo(int argc, char *argv[]) {
     S32 aff = TRUE;
     U32 cubedeb = 5;
@@ -4365,7 +4379,7 @@ void SlideDemo(int argc, char *argv[]) {
     argv = argv;
 #endif
 
-    DemoSlide = TRUE;
+    BeginDemoSlide();
 
     FOREVER {
         if (!BumperLogo()) {
