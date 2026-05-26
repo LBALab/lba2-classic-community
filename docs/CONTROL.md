@@ -31,6 +31,16 @@ lba2cc --load <slot>          restore a save before the loop starts
        --no-audio             skip InitAIL() and InitSampleDriver() at boot — bypasses
                               the SDL dummy driver's nanosleep pacing on WSL2 setups
                               (~58% of sys time in projection_demo without this)
+       --resolution WxH       override the boot render resolution; overrides both the
+                              compile-time default and lba2.cfg's ResolutionX/Y. Width
+                              must be a multiple of 8, range 320x200 - 1920x1024.
+                              Also the recovery escape hatch ("I can't see anything,
+                              get me back": run with --resolution 640x480).
+       --res-switch-test WxH@TICK
+                              harness validation only — fires Res_Switch(W, H) once
+                              on tick TICK from inside Control_TickHook. Exercises
+                              the runtime switch path without going through the
+                              console verb. See docs/RUNTIME_RESOLUTION.md.
        --demo                 attract/demo mode: scripts drive the scene, modals auto-advance
        --dump-state <path>    write a JSON snapshot of engine state
        --screenshot <path>    write a PNG of the rendered frame

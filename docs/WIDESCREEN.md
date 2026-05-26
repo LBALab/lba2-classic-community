@@ -82,7 +82,7 @@ Wire the [target behaviour](#target-behaviour) into the present and window layer
 
 #### Runtime resolution switching
 
-A separate strand of work running parallel to (and reusing) the Phase 4 plumbing: let the player change render resolution from a console verb or a Display options submenu, without relaunching. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
+A separate strand of work running parallel to (and reusing) the Phase 4 plumbing: let the player change render resolution from a console verb or a Display options submenu, without relaunching. **Phase 0 shipped** (PRs #237–#241, #244) — `resolution` console verb, keep/revert dialog, `lba2.cfg` persistence. The Display submenu (Phase 2) is the remaining surface for menu-driven discovery. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
 
 ### Phase 5 — polish
 
@@ -99,7 +99,7 @@ The X-axis C2 campaign (PRs #213–#228) settled the structural prerequisites fo
 
 | Layer | Why it's ready |
 |---|---|
-| Memory pool | `Mem_ConfigureScreenBuffers(resX, resY)` sizes every framebuffer-dependent entry; `Mem_TeardownMainBuffer` (Phase 0 of runtime-res) will allow re-sizing at runtime. Z-buffer entry was the last "missing from the config sweep" bug (PR #220). |
+| Memory pool | `Mem_ConfigureScreenBuffers(resX, resY)` sizes every framebuffer-dependent entry; `Mem_TeardownMainBuffer` allows re-sizing at runtime (Phase 0 of runtime-res, shipped). Z-buffer entry was the last "missing from the config sweep" bug (PR #220). |
 | Save format | `MAX_PLAYER` is keyed to literal `640×480` per [save-format invariant](#what-does-not-need-to-change); saves cross resolutions without migration. Verified across every routing PR in the campaign. |
 | Projection + isometric origin | Phase 2 routed all six call sites through `(S32)ModeDesiredX/Y/2`. `SetProjection` and `SetIsoProjection` are both width-correct at any resolution. |
 | Per-surface centring discipline | Image-edge vs framebuffer-edge is a documented decision per-surface (see [`WIDESCREEN_HARDCODED_DIMS_AUDIT.md`](WIDESCREEN_HARDCODED_DIMS_AUDIT.md) — the per-surface table is the reusable artifact). |
