@@ -211,6 +211,27 @@ void InitMainBuffer(void) {
 }
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+void Mem_TeardownMainBuffer(void) {
+    if (MainBuffer) {
+        Free(MainBuffer);
+        MainBuffer = NULL;
+    }
+    SizeOfMemAllocated = 0;
+
+    /* Null every published pointer so a stale read after teardown traps fast
+       instead of silently reading freed memory. */
+    for (S32 t = 0; t < NB_MEM_ELTS; t++) {
+        if (ListMem[t].AdrPtr) {
+            *ListMem[t].AdrPtr = NULL;
+        }
+    }
+
+    /* The two convenience aliases set up at the end of InitMainBuffer. */
+    BufCube = NULL;
+    BufferBrick = NULL;
+}
+
+//▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void InitMemory(void) {
     // Alloue Memoire DOS si possible
     SkySeaTexture = (U8 *)SmartMalloc(256 * 256L + RECOVER_AREA);

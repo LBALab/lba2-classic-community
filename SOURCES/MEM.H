@@ -34,3 +34,9 @@ extern void AdjustLba2Mem(void);
 extern void InitMainBuffer(void);
 extern void InitMemory(void);
 extern void Mem_ConfigureScreenBuffers(U32 resX, U32 resY);
+
+/* Frees the single-shot MainBuffer and nulls every ListMem AdrPtr so a fresh
+   InitMainBuffer() can run at a different resolution. Intended for the runtime
+   resolution switcher (docs/RUNTIME_RESOLUTION.md). Safe to call when
+   MainBuffer is already NULL. */
+extern void Mem_TeardownMainBuffer(void);
