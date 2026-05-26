@@ -101,6 +101,10 @@ extern void SlideShow_RequestCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void SlideDemo(int argc, char *argv[]);
 /*--------------------------------------------------------------------------*/
+/* Enter canned-demo mode: pin the RNG seed (zero TimerRefHR before the next
+   ChangeCube's srand call) and set DemoSlide = TRUE. See issue #176. */
+extern void BeginDemoSlide(void);
+/*--------------------------------------------------------------------------*/
 extern S32 AdelineLogo(void);
 /*--------------------------------------------------------------------------*/
 extern void DistribLogo(void);

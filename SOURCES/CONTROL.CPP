@@ -2,9 +2,10 @@
 
 #include "C_EXTERN.H" /* pulls DEFINES.H (T_OBJET) + game globals */
 #include "COMMON.H"
-#include "PERSO.H"  /* InitGame, MainLoop, TheEnd */
-#include "OBJECT.H" /* ChangeCube */
-#include "PATCH.H"  /* NbPatches */
+#include "PERSO.H"    /* InitGame, MainLoop, TheEnd */
+#include "OBJECT.H"   /* ChangeCube */
+#include "GAMEMENU.H" /* BeginDemoSlide */
+#include "PATCH.H"    /* NbPatches */
 #include "DIRECTORIES.H"
 #include "RES_SWITCH.H" /* Res_Switch for --res-switch-test */
 #include "CONSOLE/CONSOLE.H"
@@ -404,10 +405,14 @@ int Control_Begin(void) {
 
     /* Attract/demo mode: the scene's scripts drive the hero along authored tracks (a
        "canned playthrough"), and dialogues/choices auto-advance on the game clock instead
-       of waiting for input. Combined with --fixed-dt this is a deterministic scripted run.
-       Opt-in; default gameplay is unaffected. */
+       of waiting for input. BeginDemoSlide() also zeroes TimerRefHR so the srand seed at
+       ChangeCube (OBJECT.CPP:1171) is canonical and the demo reel reproduces — without it,
+       --demo without --fixed-dt would still seed RNG from boot-to-arming wall-clock and the
+       wandering creatures (the Desert Island bat being the most visible) would diverge per
+       run. The --fixed-dt path also resets the clock via Timer_EnableFixedDt() above; doing
+       it again here is idempotent. Opt-in; default gameplay is unaffected. See issue #176. */
     if (s_demo)
-        DemoSlide = TRUE;
+        BeginDemoSlide();
 
     /* Arm projection capture before any InitGame/ChangeCube path that may call
        SetProjection. The boot path's first SetProjection (EXTFUNC.CPP at scene init)
