@@ -14,6 +14,7 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
+#include <SYSTEM/TIMER.H>
 #include <SYSTEM/WINDOW.H>
 #include <SYSTEM/MOUSE.H>
 
@@ -3519,7 +3520,7 @@ S32 MainGameMenu(S32 load) {
 
     while (!flag) {
         if (gogame) {
-            DemoSlide = FALSE;
+            EndDemoSlide();
             GameInProgress = FALSE;
 
             ClearPlasmaMenu(); // vire plasma menu
@@ -3636,7 +3637,7 @@ S32 MainGameMenu(S32 load) {
                     char memoplayername[256];
                     char memogamepathname[256];
 
-                    DemoSlide = FALSE;
+                    EndDemoSlide();
 
                     strcpy(memoplayername, PlayerName);
                     strcpy(memogamepathname, GamePathname);
@@ -3733,7 +3734,7 @@ S32 MainGameMenu(S32 load) {
             default: // load game
             load_game:
                 firstloop = FALSE;
-                DemoSlide = FALSE;
+                EndDemoSlide();
                 StopMusic();
                 InitGame(-1);
                 ChangeCube();
@@ -3822,7 +3823,7 @@ S32 MainGameMenu(S32 load) {
 
             default: // load game
                 firstloop = FALSE;
-                DemoSlide = FALSE;
+                EndDemoSlide();
                 StopMusic();
                 InitGame(-1);
                 ChangeCube();
@@ -4353,19 +4354,46 @@ S32 SlideShow(void) {
     return ret;
 }
 
+// Demo-mode fixed-dt cadence. The reel's "bat misses Twinsen" canonical outcome at
+// cube 201 was empirically pinned at 16 ms/tick under the harness; interactive SHIFT+D
+// now matches that cadence so every player sees the same scripted run. Tuning this knob
+// changes RNG-driven actor trajectories across the reel (different dt = different number
+// of MyRnd() consumers per scripted scene) — keep it at 16 unless re-validating the reel.
+#define DEMO_FIXED_DT_MS 16
+
+// Tracks whether BeginDemoSlide() armed fixed-dt (interactive entry) vs the harness having
+// armed it first (Control_Begin --fixed-dt before --demo). Only owners disarm in
+// EndDemoSlide(); the harness's --exit tears down the process before disarm matters.
+static S32 DemoOwnsFixedDt = FALSE;
+
 // Enter "canned demo" mode (SHIFT+D from the main menu, the idle attract trigger, the
-// SlideDemo debug entry, and the harness --demo flag all funnel through here). The
-// actual RNG-seed pinning happens in ChangeCube via Demo_RngSeed(DemoSlide, ..., NewCube)
-// -- while DemoSlide is set, the cube number is the srand seed instead of TimerRefHR,
-// so the reel reproduces on every host regardless of wall-clock pace. The earlier
-// "zero TimerRefHR here" approach (PR #249) only worked under --fixed-dt because
-// ManageTime() runs between this call and the first ChangeCube on the SHIFT+D /
-// idle-attract path and banks (SDL_GetTicks() - LastTime) right back into TimerRefHR.
-// The TimerRefHR = 0 line remains as cheap defense-in-depth for any other clock-derived
-// state read during the reel (currently none we know of; cheap to keep). See issue #176.
+// SlideDemo debug entry, and the harness --demo flag all funnel through here). Two pins:
+//   1. Seed: while DemoSlide is set, ChangeCube reseeds srand from NewCube via
+//      Demo_RngSeed (canonical per cube, host-independent).
+//   2. Cadence: arm fixed-dt at DEMO_FIXED_DT_MS so the simulation advances at a constant
+//      step regardless of host wall-clock. Without this, the canonical seed still produced
+//      different bat-vs-Twinsen outcomes between fixed-dt (harness) and variable-dt
+//      (interactive SHIFT+D) — actor cycles per real second varied. PR #249 fixed only
+//      seed; this addendum fixes cadence. See issue #176.
+// Skips arming fixed-dt if it is already on (harness path with --fixed-dt set before
+// --demo) so the user's chosen step is preserved.
 void BeginDemoSlide(void) {
-    TimerRefHR = 0;
+    if (!Timer_FixedDtActive()) {
+        Timer_EnableFixedDt(DEMO_FIXED_DT_MS);
+        DemoOwnsFixedDt = TRUE;
+    }
     DemoSlide = TRUE;
+}
+
+// Exit "canned demo" mode (user pressed a key during the reel, or the menu transitioned
+// into regular gameplay via "Load Game" / "Resume"). Restores real-time pacing if we armed
+// fixed-dt in BeginDemoSlide(); leaves it alone if the harness owns it.
+void EndDemoSlide(void) {
+    if (DemoOwnsFixedDt) {
+        Timer_DisableFixedDt();
+        DemoOwnsFixedDt = FALSE;
+    }
+    DemoSlide = FALSE;
 }
 
 void SlideDemo(int argc, char *argv[]) {

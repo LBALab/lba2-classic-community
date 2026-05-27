@@ -555,6 +555,12 @@ restartloop:
             FlagReajustPosTwinsen = TRUE;
         }
 
+        /* Fixed-dt clock advance: one step per main-loop iteration, before this tick's
+         * ManageTime() banks it. No-op unless Timer_EnableFixedDt() armed the virtual clock
+         * -- either the harness's --fixed-dt or BeginDemoSlide()'s in-engine demo arming.
+         * Modal inner loops drive their own steps via Timer_FixedDtPresent / Pump. */
+        Timer_FixedDtAdvance();
+
         /* CLI control harness seam: no-op until armed. Runs --exec on the first tick
          * (scene is loaded by the block above) and finalizes after N ticks. */
         Control_TickHook();

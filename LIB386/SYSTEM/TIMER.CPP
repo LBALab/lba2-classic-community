@@ -97,6 +97,19 @@ void Timer_EnableFixedDt(U32 dt_ms) {
     FixedDtSkipPresent = 0;
 }
 
+void Timer_DisableFixedDt() {
+    // Symmetric to Timer_EnableFixedDt: stop banking virtual time and re-anchor LastTime
+    // to wall clock so the next ManageTime() banks a 0 delta into TimerRefHR (no jump from
+    // the just-frozen virtual clock back to SDL_GetTicks). Used when the attract reel exits
+    // back to interactive play -- harness --exit paths never call this since the process
+    // is going away anyway. See issue #176 (interactive SHIFT+D needs fixed-dt for canonical
+    // pacing; this restores real-time pacing when the user returns to the menu).
+    FixedDtActive = 0;
+    FixedDtTicking = 0;
+    FixedDtSkipPresent = 0;
+    LastTime = SDL_GetTicks();
+}
+
 void Timer_FixedDtAdvance() {
     // One fixed step per tick. The next unlocked ManageTime() banks it into TimerRefHR;
     // every other ManageTime() in the tick sees an unchanged FixedDtNow and adds nothing.

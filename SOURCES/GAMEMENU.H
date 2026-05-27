@@ -101,10 +101,16 @@ extern void SlideShow_RequestCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void SlideDemo(int argc, char *argv[]);
 /*--------------------------------------------------------------------------*/
-/* Enter canned-demo mode: set DemoSlide = TRUE so ChangeCube's srand is seeded
-   from the cube number via Demo_RngSeed (canonical per cube, host-independent).
-   See issue #176. */
+/* Enter canned-demo mode. Two pins to make the reel reproduce on every host:
+   (1) seed -- DemoSlide=TRUE routes ChangeCube's srand through Demo_RngSeed
+       (canonical-per-cube, host-independent);
+   (2) cadence -- arms fixed-dt at DEMO_FIXED_DT_MS so actor update rate is
+       constant regardless of wall-clock. See issue #176. */
 extern void BeginDemoSlide(void);
+/* Exit canned-demo mode, restoring real-time pacing if BeginDemoSlide() armed
+   fixed-dt (leaves harness-owned fixed-dt alone). Must be paired with
+   BeginDemoSlide(); use this in place of `DemoSlide = FALSE;`. */
+extern void EndDemoSlide(void);
 /*--------------------------------------------------------------------------*/
 extern S32 AdelineLogo(void);
 /*--------------------------------------------------------------------------*/

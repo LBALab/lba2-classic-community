@@ -311,6 +311,20 @@ than) chasing the FP precision bug to ground.
 > host-independent). Pinned by `tests/demo_rng_seed/`. The `TimerRefHR = 0` line in
 > `BeginDemoSlide()` stays as cheap defense-in-depth for any other clock-derived state read
 > during the reel.
+>
+> **Update (post-#249, second iteration):** Even with the canonical-per-cube seed, the
+> SHIFT+D reel can still produce different outcomes per host because of *cadence*, not seed.
+> Under interactive play `dt` is wall-clock-derived per frame; the same seed plus a different
+> number of MyRnd() consumers per scripted scene (driven by actor-update count, which varies
+> with framerate jitter) lands the bat on a different trajectory. Confirmed empirically: the
+> harness path (`--demo --fixed-dt 16 --exec "cube 201"`) canonically produces a "bat misses
+> Twinsen" outcome (hero life=255 throughout the reel); interactive SHIFT+D on Mac (and on
+> Linux when reproduced via a save-load + console `cube 201`) hits Twinsen. The fix extends
+> `BeginDemoSlide()` to also arm `Timer_EnableFixedDt(16)` when fixed-dt isn't already on
+> (harness with `--fixed-dt` keeps its chosen step), giving interactive SHIFT+D the same
+> canonical cadence as the harness. `EndDemoSlide()` symmetrically disarms when the user
+> exits to "Resume" / "Load Game". `Timer_FixedDtAdvance()` per-tick moved from
+> `Control_TickHook` to `MainLoop` so the in-engine demo path is covered too.
 
 ## 2e. Mapping the demo scenes
 

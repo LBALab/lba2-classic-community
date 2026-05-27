@@ -26,13 +26,17 @@ void SaveTimer();
 void RestoreTimer();
 void SetTimerHR(U32 time);
 
-// --- Fixed-dt deterministic clock (harness-only) -----------------------------
+// --- Fixed-dt deterministic clock --------------------------------------------
 // When enabled, ManageTime() advances from an internal virtual clock stepped by
 // Timer_FixedDtAdvance() instead of SDL_GetTicks(), so the per-tick dt is constant
 // and the simulation is independent of wall-clock. Off by default; the engine
 // carries no default step (the caller supplies it). Default builds and any run that
-// does not call Timer_EnableFixedDt() are byte-for-byte unaffected. See docs/CONTROL.md.
+// does not call Timer_EnableFixedDt() are byte-for-byte unaffected. Used by the CLI
+// control harness (--fixed-dt) and by the in-engine attract reel (BeginDemoSlide)
+// to give SHIFT+D the same canonical-per-host outcome the harness produces. See
+// docs/CONTROL.md and issue #176.
 void Timer_EnableFixedDt(U32 dt_ms); // arm fixed-dt; seeds the virtual clock to now
+void Timer_DisableFixedDt();         // disarm fixed-dt; re-anchors LastTime to SDL_GetTicks
 void Timer_FixedDtAdvance();         // advance the virtual clock by dt_ms (once per tick)
 S32 Timer_FixedDtActive();           // non-zero while fixed-dt is armed (guards wall-clock paths)
 // Called once per presented frame (BoxBlit). The first present after each

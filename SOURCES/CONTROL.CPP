@@ -665,10 +665,10 @@ void Control_TickHook(void) {
     if (!s_armed)
         return;
     s_hook_calls++;
-    /* Advance the deterministic clock one fixed step per tick. The hook runs exactly once
-       per loop-body iteration, before this tick's ManageTime() banks the step. */
-    if (s_have_fixed_dt)
-        Timer_FixedDtAdvance();
+    /* Timer_FixedDtAdvance() is now called once per main-loop tick from PERSO.CPP
+       MainLoop() so it also covers the interactive demo path (BeginDemoSlide arms
+       fixed-dt; the engine has no other tick hook). It's gated on Timer_FixedDtActive(),
+       so non-fixed-dt runs are unaffected. */
     /* --verbose: log the scene/hero state to stderr when it changes, so a headless run is
        self-explaining (which scene, what the hero is doing) and the last line before a hang
        shows where the loop got stuck. The hook runs once per tick; a modal (cinematic/dialogue)
