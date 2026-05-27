@@ -1460,6 +1460,16 @@ void HitObj(U8 numhitter, U8 num, S32 hitforce, S32 beta) {
         return;
     }
 
+    // Demo invincibility (cube 201 only). The Desert Island bat scene in the attract
+    // reel has two wandering body=36 bats whose RNG-driven flight paths can cross
+    // Twinsen's authored track. The bat-hits-hero outcome depends on host frame
+    // pacing -- macOS reliably hits, Linux is mixed -- and either derails the scripted
+    // run (hero recoil animation) or, in worst case, kills the demo hero outright.
+    // Same workaround pattern the IDA fork ships, scoped to the one known-bad scene
+    // so other reel cubes keep retail behaviour. See issue #176.
+    if (num == NUM_PERSO AND DemoSlide AND NumCube == 201)
+        return;
+
     ptrobjt->HitBy = numhitter;
 
     if (ptrobjt->Armure <= hitforce
@@ -1533,6 +1543,10 @@ void FoudroieObj(U8 numhitter, U8 num, S32 armure) {
     if (ptrobjt->Flags & NO_CHOC)
         return;
     if (ptrobjt->LifePoint <= 0)
+        return;
+
+    // Demo invincibility (cube 201) -- mirrors HitObj guard above. See issue #176.
+    if (num == NUM_PERSO AND DemoSlide AND NumCube == 201)
         return;
 
     ptrobjt->HitBy = numhitter;
