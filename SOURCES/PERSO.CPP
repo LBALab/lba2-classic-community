@@ -587,6 +587,29 @@ restartloop:
         ManageTime();
 
         if (DemoSlide) {
+            // Stuck-cube watchdog. The attract reel is a scripted showcase, but some scenes
+            // (cube 201's Desert Island bat sequence in particular) can derail per-host:
+            // RNG-driven wandering creatures push Twinsen off his authored track and the
+            // SET_CUBE opcode that ends the scene never fires. Bound the worst-case "stuck
+            // hero on screen" exposure by ending the reel gracefully if any one cube runs
+            // longer than CUBE_TIMEOUT_MS. CUBE_TIMEOUT_MS is ~2x the longest natural scene
+            // duration -- short enough to feel intentional, long enough that nothing
+            // legitimate trips it. Resets each time NumCube changes. See issue #176.
+            {
+                static const U32 CUBE_TIMEOUT_MS = 30000;
+                static S32 last_watchdog_cube = -1;
+                static U32 watchdog_entry_time = 0;
+                if (NumCube != last_watchdog_cube) {
+                    last_watchdog_cube = NumCube;
+                    watchdog_entry_time = TimerRefHR;
+                } else if (TimerRefHR - watchdog_entry_time > CUBE_TIMEOUT_MS) {
+                    HQ_StopSample();
+                    SavingEnable = FALSE;
+                    last_watchdog_cube = -1; // reset for the next demo entry
+                    return 0;                // graceful exit, ESC-equivalent
+                }
+            }
+
             if (MyKey
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
                     AND MyKey != K_T

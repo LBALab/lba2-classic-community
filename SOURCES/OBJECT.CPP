@@ -1460,12 +1460,6 @@ void HitObj(U8 numhitter, U8 num, S32 hitforce, S32 beta) {
         return;
     }
 
-    // Cube 201 demo bat scene -- hero is immune to hits. CheckObjCol already skips
-    // the hero as a collision target there, so this is belt-and-suspenders for any
-    // other path (script-driven LM_HIT_OBJ, area hit volumes, etc.).
-    if (num == NUM_PERSO AND NumCube == 201)
-        return;
-
     ptrobjt->HitBy = numhitter;
 
     if (ptrobjt->Armure <= hitforce
@@ -1539,10 +1533,6 @@ void FoudroieObj(U8 numhitter, U8 num, S32 armure) {
     if (ptrobjt->Flags & NO_CHOC)
         return;
     if (ptrobjt->LifePoint <= 0)
-        return;
-
-    // Cube 201 demo bat scene -- mirrors HitObj guard above.
-    if (num == NUM_PERSO AND NumCube == 201)
         return;
 
     ptrobjt->HitBy = numhitter;
@@ -1641,16 +1631,6 @@ S32 CheckObjCol(U8 numobj) {
 
     ptrobj->ObjCol = 255;
 
-    // Cube 201 is the Desert Island bat scene in the attract reel. Two wandering body=36
-    // bats (actors 16/17) whose RNG-driven flight paths cross Twinsen's authored track can
-    // collide with him -- and the per-actor push response below (Nxw/Nzw +/-= dx/dz) shoves
-    // him out of overlap, derailing the scripted run even when no damage is applied. Skip
-    // actor-vs-actor collision for the hero in this cube entirely; he passes through bats
-    // (and any other actors) without any physics response or HitObj call. Cube 201 is
-    // demo-reel-only, so regular gameplay is unaffected. See issue #176.
-    if (numobj == NUM_PERSO AND NumCube == 201)
-        return ptrobj->ObjCol;
-
     for (n = 0; n < NbObjets; n++, ptrobjt++) {
         // Je sais c'est pas optimisé mais c'est necessaire si l'une ou
         // l'autre des coordonnees a ete modifiée dans la boucle pour
@@ -1662,14 +1642,6 @@ S32 CheckObjCol(U8 numobj) {
         x1 = Nxw + ptrobj->XMax;
         z0 = Nzw + ptrobj->ZMin;
         z1 = Nzw + ptrobj->ZMax;
-
-        // Make the hero invisible to other actors' collision in cube 201 (demo bat
-        // scene). The bbox-overlap branch below sets ObjCol/Push and either pushes
-        // the colliding actor out (Nxw/Nzw +/-= dx/dz) or calls HitObj when the
-        // collider lands on top of the target -- either way the bat's collision check
-        // would derail Twinsen's authored track. See issue #176.
-        if (n == NUM_PERSO AND NumCube == 201)
-            continue;
 
         if ((n != numobj)
                 AND(ptrobjt->Obj.Body.Num != -1)
@@ -1915,10 +1887,6 @@ S32 CheckObjCol(U8 numobj) {
         ptrobjt = ListObjet;
 
         for (n = 0; n < NbObjets; n++, ptrobjt++) {
-            // Cube 201 demo bat scene: hero is invisible to OK_HIT collisions too
-            // (see top-of-CheckObjCol comment).
-            if (n == NUM_PERSO AND NumCube == 201)
-                continue;
             if ((n != numobj)
                     AND(ptrobjt->Obj.Body.Num != -1)
                         AND(!(ptrobjt->Flags & INVISIBLE))
@@ -1958,9 +1926,6 @@ S32 CheckObjCol(U8 numobj) {
         ptrobjt = ListObjet;
 
         for (n = 0; n < NbObjets; n++, ptrobjt++) {
-            // Cube 201 demo bat scene: same exclusion as OK_HIT above.
-            if (n == NUM_PERSO AND NumCube == 201)
-                continue;
             if ((n != numobj)
                     AND(ptrobjt->Obj.Body.Num != -1)
                         AND(!(ptrobjt->Flags & INVISIBLE))
