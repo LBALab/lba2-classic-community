@@ -135,7 +135,15 @@ void Timer_FixedDtPresent() {
 
 void Timer_FixedDtPump() {
     // No free first step: a non-presenting wait loop owns every iteration's time.
-    if (FixedDtActive && FixedDtTicking) {
+    // No FixedDtTicking gate either: Pump callers (FadeToBlack/WhiteFade/FadeWhiteToPal,
+    // music volume fades, Res_Switch revert dialog) can run before MainLoop has its first
+    // Timer_FixedDtAdvance() -- specifically InitGame(1)'s FadeToBlack between
+    // BeginDemoSlide() and the first MainLoop tick on the interactive SHIFT+D path. With
+    // the gate, those waits hang because the clock can't move and the wait condition (a
+    // TimerRefHR/SystemHR deadline) never resolves; without it the clock advances exactly
+    // dt per Pump as intended. Harness paths reach Pump only after MainLoop is ticking, so
+    // they are unaffected.
+    if (FixedDtActive) {
         FixedDtNow += FixedDt;
     }
 }
