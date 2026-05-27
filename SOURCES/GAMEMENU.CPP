@@ -2565,6 +2565,22 @@ S32 DoGameMenu(U16 *ptrmenu) {
                         Credits(FALSE);
 
                 UnsetClipWindow();
+
+                // MainLoop's render path overwrote Log with gameplay frames
+                // during the attract reel; restore the menu plate before
+                // CopyScreen / BoxReset / FadeToBlack below so the menu UI
+                // loop has the right background. Same image as the menu's
+                // own boot a few hundred lines down (BuildGameMainMenu /
+                // Image_LoadStretched into Screen + CopyScreen to Log).
+                // Affects every exit from MainLoop on the cold-start attract
+                // path: stuck-cube watchdog timeout (#176), mid-reel ESC,
+                // LM_THE_END natural reel end.
+                {
+                    char tmpFilePathScreen[ADELINE_MAX_PATH];
+                    GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+                    Image_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
+                }
+
                 CopyScreen(Log, Screen);
                 BoxReset();
 #endif
