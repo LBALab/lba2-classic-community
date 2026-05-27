@@ -592,14 +592,15 @@ restartloop:
             // can derail per-host: RNG-driven wandering creatures push Twinsen off his
             // authored track and the SET_CUBE opcode that ends the scene never fires. Bound
             // the worst-case "stuck hero on screen" exposure by ending the reel gracefully
-            // if any one cube runs longer than CUBE_TIMEOUT_MS. CUBE_TIMEOUT_MS is ~2x the
-            // longest natural scene duration -- short enough to feel intentional, long
-            // enough that nothing legitimate trips it. Skipped under the CLI harness so
-            // long --demo --tick runs traverse the full cube state without being cut short
-            // (cube 202 alone sits idle for ~64s of TimerRefHR before the script advances).
-            // Resets each time NumCube changes. See issue #176.
+            // if any one cube runs longer than CUBE_TIMEOUT_MS. Skipped under the CLI
+            // harness so long --demo --tick runs traverse the full cube state.
+            // Threshold tuned to 2x the longest natural scene measured under --fixed-dt 16
+            // (cube 211 = 61s; cubes 207/210/202/214/213 in the 30-42s range; everything
+            // else under 30s). 120s gives comfortable headroom for slow hosts while keeping
+            // the worst-case "stuck on screen" exposure bounded at 2 minutes. Resets each
+            // time NumCube changes. See issue #176.
             if (!Control_IsActive()) {
-                static const U32 CUBE_TIMEOUT_MS = 30000;
+                static const U32 CUBE_TIMEOUT_MS = 120000;
                 static S32 last_watchdog_cube = -1;
                 static U32 watchdog_entry_time = 0;
                 if (NumCube != last_watchdog_cube) {
