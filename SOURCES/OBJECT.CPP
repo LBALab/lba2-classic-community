@@ -1460,16 +1460,6 @@ void HitObj(U8 numhitter, U8 num, S32 hitforce, S32 beta) {
         return;
     }
 
-    // Hero invincibility in cube 201 (demo-reel-only). The Desert Island bat scene has
-    // two wandering body=36 bats whose RNG-driven flight paths can cross Twinsen's
-    // authored track. The bat-hits-hero outcome depends on host frame pacing -- macOS
-    // reliably hits, Linux is mixed -- and either derails the scripted run (hero recoil
-    // animation) or, worst case, kills the demo hero outright. Cube 201 is only visited
-    // by the attract reel so no DemoSlide gate is needed; same workaround the IDA fork
-    // ships. See issue #176.
-    if (num == NUM_PERSO AND NumCube == 201)
-        return;
-
     ptrobjt->HitBy = numhitter;
 
     if (ptrobjt->Armure <= hitforce
@@ -1543,10 +1533,6 @@ void FoudroieObj(U8 numhitter, U8 num, S32 armure) {
     if (ptrobjt->Flags & NO_CHOC)
         return;
     if (ptrobjt->LifePoint <= 0)
-        return;
-
-    // Hero invincibility in cube 201 -- mirrors HitObj guard above. See issue #176.
-    if (num == NUM_PERSO AND NumCube == 201)
         return;
 
     ptrobjt->HitBy = numhitter;
@@ -1644,6 +1630,16 @@ S32 CheckObjCol(U8 numobj) {
     ptrobjt = ListObjet;
 
     ptrobj->ObjCol = 255;
+
+    // Cube 201 is the Desert Island bat scene in the attract reel. Two wandering body=36
+    // bats (actors 16/17) whose RNG-driven flight paths cross Twinsen's authored track can
+    // collide with him -- and the per-actor push response below (Nxw/Nzw +/-= dx/dz) shoves
+    // him out of overlap, derailing the scripted run even when no damage is applied. Skip
+    // actor-vs-actor collision for the hero in this cube entirely; he passes through bats
+    // (and any other actors) without any physics response or HitObj call. Cube 201 is
+    // demo-reel-only, so regular gameplay is unaffected. See issue #176.
+    if (numobj == NUM_PERSO AND NumCube == 201)
+        return ptrobj->ObjCol;
 
     for (n = 0; n < NbObjets; n++, ptrobjt++) {
         // Je sais c'est pas optimisé mais c'est necessaire si l'une ou
