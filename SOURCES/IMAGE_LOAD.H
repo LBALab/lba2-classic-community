@@ -55,6 +55,16 @@ U32 Image_LoadCentered(const char *file, void *dest, S32 index);
    content to fill the entire (ModeDesiredX, ModeDesiredY) area of <dest>. */
 U32 Image_LoadStretched(const char *file, void *dest, S32 index);
 
+/* Same as Image_LoadCentered but fills <dest> with the loaded bitmap's
+   top-left pixel before the centred row-copy. At widescreens the result
+   is sidebars that match the PCX's authored edge colour — for the
+   Adeline bumper (PCR_LOGO / PCR_BUMPER), the white background appears
+   contiguous across the framebuffer instead of black-cropped at 640.
+   At 640x480 the memset is fully overwritten by the centred copy, so
+   this is byte-identical to Image_LoadCentered. Returns the loaded byte
+   count (0 on failure). */
+U32 Image_LoadCenteredFillFromEdge(const char *file, void *dest, S32 index);
+
 /* Row-copy the staging buffer (whatever's currently in it) centred into
    <dest>, without re-loading. Used by transitions / fades that read
    repeatedly from a previously-loaded bitmap. */
