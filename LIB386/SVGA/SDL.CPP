@@ -29,6 +29,8 @@ SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
 bool frameDirty = false;
 static PrePresentFn s_prePresent = NULL;
+static PresentTimingFn s_presentBegin = NULL;
+static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
 
 // --- Private functions -------------------------------------------------------
@@ -135,7 +137,11 @@ void UnlockVideoSurface() {
     }
 
     if (screenLockCount == 0 && frameDirty) {
+        if (s_presentBegin)
+            s_presentBegin();
         PresentFrame();
+        if (s_presentEnd)
+            s_presentEnd();
         frameDirty = false;
     }
 }
@@ -221,6 +227,11 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
 
 void SetPrePresentCallback(PrePresentFn fn) {
     s_prePresent = fn;
+}
+
+void SetPresentTimingCallbacks(PresentTimingFn begin, PresentTimingFn end) {
+    s_presentBegin = begin;
+    s_presentEnd = end;
 }
 
 static void PresentFrame() {

@@ -16,6 +16,7 @@
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
 #include "../RES_SWITCH.H"
+#include "../PERFTRACE.H"
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
@@ -1306,6 +1307,57 @@ static void res_do_switch(U32 newW, U32 newH) {
     Console_Print("Resolution: %ux%u", newW, newH);
 }
 
+static void cmd_perftrace_print_sink(const char *line) {
+    Console_Print("%s", line);
+}
+
+static void cmd_perftrace(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("perftrace: active=%d. Use start | stop | reset | status | dump [path] | autodump [path]",
+                      Perftrace_IsActive());
+        Perftrace_PrintStatus(cmd_perftrace_print_sink);
+        return;
+    }
+    const char *sub = argv[1];
+    if (!strcmp(sub, "start")) {
+        Perftrace_Reset();
+        Perftrace_Start();
+        Console_Print("perftrace: capture started.");
+        return;
+    }
+    if (!strcmp(sub, "stop")) {
+        Perftrace_Stop();
+        Console_Print("perftrace: capture stopped.");
+        Perftrace_PrintStatus(cmd_perftrace_print_sink);
+        return;
+    }
+    if (!strcmp(sub, "reset")) {
+        Perftrace_Reset();
+        Console_Print("perftrace: ring buffer cleared.");
+        return;
+    }
+    if (!strcmp(sub, "status")) {
+        Perftrace_PrintStatus(cmd_perftrace_print_sink);
+        return;
+    }
+    if (!strcmp(sub, "dump")) {
+        const char *path = (argc >= 3) ? argv[2] : "/tmp/perftrace.txt";
+        int rc = Perftrace_Dump(path, 0 /* all available */);
+        if (rc == 0)
+            Console_Print("perftrace: wrote %s", path);
+        else
+            Console_Print("perftrace: dump failed (open '%s')", path);
+        return;
+    }
+    if (!strcmp(sub, "autodump")) {
+        const char *path = (argc >= 3) ? argv[2] : "/tmp/perftrace.txt";
+        Perftrace_SetAutoDumpPath(path);
+        Console_Print("perftrace: will dump to '%s' on exit", path);
+        return;
+    }
+    Console_Print("perftrace: unknown subcommand '%s'", sub);
+}
+
 static void cmd_resolution(int argc, const char *argv[]) {
     /* Cap intentionally generous so cap-overflow can't silently truncate the
        advanced list as it grows over time. */
@@ -1441,6 +1493,15 @@ void Console_RegisterAll(void) {
                               "No args lists recommended modes; <n> picks by index; WxH is arbitrary "
                               "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
                               "--all expands the list with advanced modes. See docs/RUNTIME_RESOLUTION.md.");
+
+    Console_RegisterCommandEx("perftrace", cmd_perftrace,
+                              "Per-frame timing capture (ring buffer, no log spam)",
+                              "perftrace [start | stop | reset | status | dump [path] | autodump [path]]",
+                              "Ring buffer of the last 256 frames of (frame, scene, present) timing. "
+                              "`start` enables capture, `stop` halts it, `dump` writes a summary file "
+                              "(default /tmp/perftrace.txt) with iso vs exterior breakdown. "
+                              "`autodump` arms a dump on process exit (useful for headless --exec runs). "
+                              "Cost when active is ~1 us/frame; zero when inactive. See docs/PERFTRACE.md.");
 
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
