@@ -38,6 +38,7 @@ Index of documentation in this repository.
 |-----|-------------|
 | [TESTING.md](TESTING.md) | Test suite architecture, Docker ASM equivalence, host discovery tests, and CI workflow summary. |
 | [POLYREC.md](POLYREC.md) | Polygon record/replay harness: `.lba2polyrec` format, capture and replay pipelines, what the byte-for-byte comparison checks, scope, and extension points. |
+| [PERFTRACE.md](PERFTRACE.md) | Per-frame timing capture: console-driven ring buffer for diagnosing high-res / platform-specific frame-pacing without rebuilding. |
 
 ## Preservation & culture
 
