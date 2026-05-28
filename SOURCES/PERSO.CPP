@@ -55,15 +55,13 @@ S32 EscTimer;
 /* FollowCamera refreshes terrain with AFF_ALL_FLIP every movement frame.
  * AFF_ALL_FLIP runs the full AffScene preamble (MemoClipWindow / UnsetClipWindow
  * / ClearImpactRain) before the render, preventing black edges from active clip
- * regions.  The timer lock during render+vsync is compensated by the
- * SaveTimer/RestoreTimer + TimerSystemHR adjustment around AffScene below, so
- * game logic (hero, NPCs, rain) runs at correct wall-clock speed.
- * Vsync naturally caps terrain refreshes at the display rate (~60 Hz).
- * When the hero is idle, all work is skipped entirely. */
+ * regions. Wall-clock time during the render+vsync wait is correctly credited
+ * to TimerRefHR by ManageTime() after the LIB386/SYSTEM/TIMER.CPP generalised
+ * fix; see docs/TIMING.md. Vsync naturally caps terrain refreshes at the
+ * display rate (~60 Hz). When the hero is idle, all work is skipped entirely. */
 /* Default resting distance for the spring arm: midpoint of the two VueCamera
  * presets (DefVueDistance[0]=10500, DefVueDistance[1]=17000). */
 #define FOLLOW_CAM_INITIAL_DIST ((DefVueDistance[0] + DefVueDistance[1]) / 2)
-static S32 FollowCamTerrainFrame = FALSE;
 static S32 FollowCamPrevHeroX = 0;
 static S32 FollowCamPrevHeroY = 0;
 static S32 FollowCamPrevHeroZ = 0;
@@ -1677,12 +1675,6 @@ restartloop:
                 // AlphaCam (touches '+' et '-' *)
                 GereExtKeys(MyKey);
 
-                /* Any AFF_ALL_FLIP forced by GereExtKeys (e.g. elevation +/-)
-                 * while the follow camera is active needs timer compensation
-                 * so the vsync lock doesn't bleed into the game clock. */
-                if (FollowCamera AND CubeMode == CUBE_EXTERIEUR AND FirstTime == AFF_ALL_FLIP)
-                    FollowCamTerrainFrame = TRUE;
-
                 if (Input & I_CAMERA) {
                     SaveTimer();
                     AddBetaCam = (AddBetaCam + 1024) & 4095;
@@ -1838,7 +1830,6 @@ restartloop:
                         }
 
                         FirstTime = AFF_ALL_FLIP;
-                        FollowCamTerrainFrame = TRUE;
 
                         FollowCamPrevHeroX = ptr3d->X;
                         FollowCamPrevHeroY = ptr3d->Y;
@@ -1915,32 +1906,9 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
 
-        /* For FollowCamera AFF_ALL_FLIP frames: save the timer before the
-         * render+vsync and restore it after, then add back the real wall-clock
-         * time elapsed (TimerSystemHR is updated by ManageTime inside
-         * RestoreTimer).  This makes the full render+vsync transparent to the
-         * game clock so hero, NPCs, and rain run at correct speed. */
-        U32 FollowCamTimerBefore = 0;
-        if (FollowCamTerrainFrame) {
-            SaveTimer();
-            FollowCamTimerBefore = TimerSystemHR;
-        }
-
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
-
-        if (FollowCamTerrainFrame) {
-            RestoreTimer();
-            // The re-add compensates real render+vsync wall-clock so the follow-cam frame
-            // doesn't stall the game clock. Under fixed-dt that wall-clock term is exactly
-            // the nondeterminism we are pinning out, so skip it: the clock advances by the
-            // fixed step alone. Default (non-fixed-dt) behaviour is unchanged.
-            if (!Timer_FixedDtActive()) {
-                TimerRefHR += TimerSystemHR - FollowCamTimerBefore;
-            }
-            FollowCamTerrainFrame = FALSE;
-        }
 
         if ((FirstLoop OR RestartMusic)
                 AND !PLAY_THE_END) {
