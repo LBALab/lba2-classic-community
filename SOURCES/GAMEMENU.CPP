@@ -3,6 +3,9 @@
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #include "JOYSTICK.H"
+#include "PERSO.H" /* WriteConfigFile (persist on resolution change) */
+#include "RES_MENU.H"
+#include "RES_SWITCH.H" /* Res_Switch (apply on cycle) */
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
 #include "MESSAGE.H"
@@ -70,9 +73,12 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_FOLLOW_CAMERA 2111
 #define MENU_ID_CONTROLLER 2112
 #define MENU_ID_GAMEPAD_CONFIG 2113
+#define MENU_ID_DISPLAY 2114
+#define MENU_ID_RESOLUTION 2115
 
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
+#define MENU_TYPE_RESOLUTION 10
 
 char NewGameTxt[20]; // ATTENTION: max 19 chars
 
@@ -100,12 +106,14 @@ U16 RealGameMainMenu[] = {
 
 U16 GameOptionMenu[] = {
     0,   // selected
-    5,   // nb entries
+    6,   // nb entries
     260, // y center
     0,   // .dia num
 
     0,
     26, // menu precedent
+    0,
+    MENU_ID_DISPLAY,
     0,
     MENU_ID_SOUND_VOLUME,
     0,
@@ -114,6 +122,22 @@ U16 GameOptionMenu[] = {
     MENU_ID_ADVANCED_OPTIONS,
     0,
     MENU_ID_CONTROLLER,
+};
+
+// Display submenu: a single "Resolution: <current>" entry that cycles
+// between Classic 4:3 and the display-aspect-derived Widescreen. Same
+// shape as LanguageMenu — left/right arrows on the cyclable row, plain
+// "Back" to return to Options. See GereDisplayMenu + CycleResolution.
+U16 DisplayMenu[] = {
+    0,   // selected
+    2,   // nb entries
+    260, // y center
+    0,   // .dia num
+
+    0,
+    26, // menu precedent
+    MENU_TYPE_RESOLUTION,
+    MENU_ID_RESOLUTION,
 };
 
 // Controller submenu: split keyboard remap and gamepad remap under one parent
@@ -298,6 +322,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_RES_KEEP_Q,
     MENU_LABEL_RES_BTN_KEEP,
     MENU_LABEL_RES_BTN_REVERT_FMT,
+    MENU_LABEL_DISPLAY,
+    MENU_LABEL_RESOLUTION,
     MENU_LABEL_COUNT,
 };
 
@@ -320,6 +346,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Keep this resolution?",
         "Keep",
         "Revert (%d)",
+        "Display",
+        "Resolution: %s",
     },
     {
         "Choix de la langue",
@@ -339,6 +367,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Conserver cette résolution ?",
         "Conserver",
         "Annuler (%d)",
+        "Affichage",
+        "Résolution : %s",
     },
     {
         "Sprachauswahl",
@@ -358,6 +388,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Diese Auflösung beibehalten?",
         "Beibehalten",
         "Zurück (%d)",
+        "Anzeige",
+        "Auflösung: %s",
     },
     {
         "Elegir idioma",
@@ -377,6 +409,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "¿Mantener esta resolución?",
         "Mantener",
         "Revertir (%d)",
+        "Pantalla",
+        "Resolución: %s",
     },
     {
         "Scegli lingua",
@@ -396,6 +430,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Mantenere questa risoluzione?",
         "Mantieni",
         "Annulla (%d)",
+        "Schermo",
+        "Risoluzione: %s",
     },
     {
         "Escolha do idioma",
@@ -415,6 +451,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Manter esta resolução?",
         "Manter",
         "Reverter (%d)",
+        "Tela",
+        "Resolução: %s",
     },
 };
 
@@ -466,6 +504,18 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_CONTROLLER:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_CONTROLLER));
         break;
+
+    case MENU_ID_DISPLAY:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_DISPLAY));
+        break;
+
+    case MENU_ID_RESOLUTION: {
+        char value[64];
+        Display_FormatCurrentLabel(value, sizeof value);
+        FormatUtf8ToCp850(string, 256,
+                          GetLocalizedMenuLabel(MENU_LABEL_RESOLUTION), value);
+        break;
+    }
 
     case MENU_ID_GAMEPAD_CONFIG:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_GAME_CONTROLLER));
@@ -531,6 +581,46 @@ static void CycleTextLanguage(S32 step) {
         Language = 0;
 
     ReloadMultiTextFile(0);
+}
+
+// Cycle through the Display submenu's resolution catalog. step is ±1.
+// Calls Res_Switch directly on the new entry — no keep/revert dialog on
+// this path; the curated list (Classic + display-aspect Widescreen) is
+// inherently safe in v1, so the safety net would be friction without
+// payoff. Persists to lba2.cfg via WriteConfigFile on success so the
+// choice survives relaunch.
+static void CycleResolution(S32 step) {
+    DisplayEntry entries[DISPLAY_MENU_MAX_ENTRIES];
+    const S32 count = Display_BuildEntries(entries);
+    if (count <= 1) {
+        // Headless / display query failed → only Classic available.
+        // Nothing to cycle to.
+        return;
+    }
+
+    S32 idx = Display_FindCurrentEntry(entries, count);
+    if (idx < 0) {
+        // Current resolution isn't in the curated list (e.g. console
+        // verb picked an odd width). Treat the cycle as a jump to
+        // Classic so the player has a way back into the curated set.
+        idx = 0;
+    } else {
+        idx += step;
+        if (idx < 0)
+            idx = count - 1;
+        if (idx >= count)
+            idx = 0;
+    }
+
+    const DisplayEntry *e = &entries[idx];
+    if (e->w == ModeDesiredX && e->h == ModeDesiredY)
+        return;
+
+    if (Res_Switch(e->w, e->h)) {
+        // Persist immediately so the next launch boots at the chosen
+        // resolution. Mirrors the Phase 0 keep/revert "Keep" path.
+        WriteConfigFile();
+    }
 }
 
 #ifdef CDROM
@@ -2389,6 +2479,14 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
             applied = 1;
             break;
 
+        case MENU_TYPE_RESOLUTION:
+            CycleResolution(dir < 0 ? -1 : 1);
+            *flag = 1;
+            InitWaitNoInput(dir < 0 ? I_LEFT : I_RIGHT);
+            InitWaitNoKey();
+            applied = 1;
+            break;
+
 #ifdef CDROM
         case MENU_TYPE_VOICE_LANGUAGE:
             if (dir < 0)
@@ -2754,6 +2852,22 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
             break;
 
+        case MENU_TYPE_RESOLUTION:
+            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
+                CycleResolution(-1);
+                flag = 1;
+                InitWaitNoInput(I_LEFT);
+                InitWaitNoKey();
+            }
+
+            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)) {
+                CycleResolution(1);
+                flag = 1;
+                InitWaitNoInput(I_RIGHT);
+                InitWaitNoKey();
+            }
+            break;
+
 #ifdef CDROM
         case MENU_TYPE_VOICE_LANGUAGE:
             if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
@@ -3021,6 +3135,74 @@ S32 GereLanguageMenu(void) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+// Harness one-shot capture of the Display submenu. Mirrors
+// Menu_MainCapture's pattern: do the minimal setup the regular
+// OptionsMenu → GereDisplayMenu path does (plasma init, palette, dial
+// bank), arm the shared Menu_RequestCapture countdown, drive DoGameMenu
+// directly on DisplayMenu so the capture site inside DoGameMenu fires
+// and returns 1000. Background pixels come from whatever the caller
+// (cmd_ui) put in Log/Screen — for `ui --black-bg display` that's a
+// solid clear; otherwise the live scene.
+void Display_MainCapture(const char *path) {
+    HQ_StopSample();
+    InitPlasmaMenu();
+
+    CopyScreen(Screen, Log);
+    BoxStaticFullflip();
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+    InitDial(0);
+
+    Menu_RequestCapture(path);
+    DoGameMenu(DisplayMenu);
+    Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
+}
+
+// Display submenu — Phase 2 runtime-resolution UX. Mirrors
+// GereLanguageMenu: a self-contained submenu of OptionsMenu with one
+// cycling "Resolution: <current>" row. Selecting (Enter) or left/right-
+// cycling the row calls CycleResolution → Res_Switch → WriteConfigFile,
+// no keep/revert dialog (the two-entry curated list is inherently safe).
+S32 GereDisplayMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(DisplayMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case MENU_ID_RESOLUTION:
+            // Activation (Enter) cycles forward. Left/right cycling is
+            // handled by the MENU_TYPE_RESOLUTION dispatch above.
+            CycleResolution(1);
+            break;
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+/*══════════════════════════════════════════════════════════════════════════*/
+/*──────────────────────────────────────────────────────────────────────────*/
+
 S32 GereAdvancedOptionsMenu(void) {
     S32 select;
     S32 flag = 0;
@@ -3183,7 +3365,7 @@ S32 OptionsMenu(S32 flagflip) {
     PlayMusic(CD_TRACK_MENU, TRUE);
 #endif
 
-    GameOptionMenu[1] = 5;
+    GameOptionMenu[1] = 6;
 
     MenuMouseAcquire();
 
@@ -3212,6 +3394,10 @@ S32 OptionsMenu(S32 flagflip) {
 
         case MENU_ID_ADVANCED_OPTIONS:
             GereAdvancedOptionsMenu();
+            break;
+
+        case MENU_ID_DISPLAY:
+            GereDisplayMenu();
             break;
         }
     }

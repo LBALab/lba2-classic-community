@@ -255,7 +255,7 @@ return early with no capture. `numvar` for `ui found-object` is the `TabInv` slo
 
 ### Test fixtures and goldens
 
-Eight `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
+Nine `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
 committed PNG golden under `tests/savegame/corpus/baselines/ui/`. They run in
 `tests/automation/run.sh` alongside the other harness tests and require
 `SDL_VIDEODRIVER=dummy` (the goldens were rendered under dummy, so the comparison must
