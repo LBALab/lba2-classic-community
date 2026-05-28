@@ -620,6 +620,26 @@ static void CycleResolution(S32 step) {
         // Persist immediately so the next launch boots at the chosen
         // resolution. Mirrors the Phase 0 keep/revert "Keep" path.
         WriteConfigFile();
+
+        // Res_Switch tears down Log/Screen and the cube reload inside
+        // it may have clobbered SkySeaTexture (where the plasma fire
+        // bar lives), so the next DoGameMenu redraw would show the
+        // cycling row on bare black with a stale plasma highlight.
+        // Same post-switch repaint shape Res_RunRevertDialogIfPending
+        // uses (RES_SWITCH.CPP:472-482): scene to Log, mirror to
+        // Screen, refresh plasma, shade if the menu darken is active.
+        // The next DoGameMenu iteration then composites menu items
+        // over a state that matches the submenu's initial entry.
+        BoxReset();
+        BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+        AffScene(AFF_ALL_FLIP);
+        BackupScreen(TRUE);
+        InitPlasmaMenu();
+        if (FlagShadeMenu) {
+            ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1,
+                        (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+            BoxStaticFullflip();
+        }
     }
 }
 
