@@ -136,9 +136,16 @@ void ManageTime() {
 
     if (!TimerLock) {
         TimerRefHR += TimerSystemHR - LastTime;
+        // Only advance LastTime while unlocked. Previously LastTime advanced
+        // unconditionally, so any ManageTime() call inside a Lock/Save window
+        // (input, audio, animation -- ~100 call sites) would update LastTime
+        // to the current wall clock while skipping the TimerRefHR increment.
+        // On the next unlocked call, TimerSystemHR - LastTime was near zero
+        // and the entire locked interval was discarded from the game clock.
+        // PR #50 patched this for the FollowCamTerrainFrame path (PERSO.CPP);
+        // this generalises the fix to every Lock/Save call site.
+        LastTime = TimerSystemHR;
     }
-
-    LastTime = TimerSystemHR;
 
     // FPS Calculation
     S32 time = TimerSystemHR - LastEvaluate;
