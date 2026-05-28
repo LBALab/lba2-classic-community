@@ -255,11 +255,19 @@ return early with no capture. `numvar` for `ui found-object` is the `TabInv` slo
 
 ### Test fixtures and goldens
 
-Six `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
+Eight `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
 committed PNG golden under `tests/savegame/corpus/baselines/ui/`. They run in
 `tests/automation/run.sh` alongside the other harness tests and require
 `SDL_VIDEODRIVER=dummy` (the goldens were rendered under dummy, so the comparison must
 be too).
+
+A second tier of `test_ui_*_wide.sh` fixtures (inventory, menu-options) renders the
+same verb at a wider resolution and asserts that the centred 640×480 crop of the
+capture is byte-identical to the existing 640 golden — no per-resolution goldens,
+the 640 golden stays the single source of truth. See `ui_compare_wide` in `lib.sh`
+and `WIDESCREEN.md` for the surface-by-surface picture (only cleanroom `--black-bg`
+surfaces with width-independent UI layout qualify; the dialog strip, for example,
+intentionally scales with framebuffer width and doesn't).
 
 ```bash
 SDL_VIDEODRIVER=dummy LBA2_GAME_DIR=/path/to/data tests/automation/run.sh

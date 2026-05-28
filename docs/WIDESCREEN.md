@@ -130,16 +130,35 @@ What the campaign protected against, and what it didn't:
 - The `ui_*` capture-based regressions (`ui_holomap`, `ui_holoplan`, `ui_inventory`, `ui_video`) each pin one UI surface byte-identical to its 640×480 golden. Run via `bash tests/automation/test_ui_*.sh` with `LBA2_GAME_DIR` set. The inventory, dialog, and menu-options goldens are captured with `ui --black-bg <verb>` (CONSOLE_CMD.CPP), which clears the framebuffer to black before the UI draws, so each golden is a cleanroom UI-only frame rather than UI composited over a live (and FoV-sensitive) 3D scene. Surfaces where the scene is the test (`found-object`) keep the live render.
 - Per-PR visual A/B at 768 + 1024 lives in PR descriptions as embedded screenshots.
 
-**Not protected** — there is no automated regression coverage *at wider widths*:
+**Partial wide-width coverage** — `test_ui_inventory_wide.sh` and
+`test_ui_menu_options_wide.sh` render those two surfaces at 768×480 and assert that
+the centred 640×480 crop of the wide capture is byte-identical to the existing 640
+golden (`ui_compare_wide` in `lib.sh`). No per-resolution goldens; the 640 golden
+stays the single source of truth, which keeps the test honest against future
+projection or UI changes.
 
-- The `ui_*` goldens are all at 640. A future PR that breaks rendering at 768 would not fail any test the CI runs.
-- The projrec harness has a `corpus_768x480.projrec.hash` baseline committed under `tests/projection/baselines/`, but it's not part of `make test` and was not exercised on any C2 routing PR in this campaign.
-- B5 (game-over `SetProjection`), B6 (venetian-blind reveal), and the menu stretch-BG path have zero automated coverage at any width — they were re-anchored without a capture verb.
-- "Verified at 768" in each PR description was an honor-system promise from the author. No machine confirms it after the fact.
+**Still not protected** at wider widths:
 
-**The single most useful next step:** commit `_768.png` goldens alongside every existing `_640.png` golden, and run the `ui_*` suite at both widths. ~15 minutes per surface; closes the gap entirely.
+- Dialog. The dialog text strip is full-framebuffer-width by design (it scales with
+  the render width and text reflows within it), so a fixed centred-crop test against
+  a 640 golden doesn't apply. Whether to convert it to a centred 640-strip is a
+  separate design call.
+- `holomap`, `holoplan`, `menu-main`, `video`, `found-object`. These don't have wide
+  tests yet — some have natural fade-to-black backdrops (`holomap`, `video`) and
+  should be cheap to wire up; `found-object` composites the hero+item over the live
+  scene by design, so its golden carries FoV-sensitive content and isn't
+  centred-crop-friendly.
+- The projrec harness has a `corpus_768x480.projrec.hash` baseline committed under
+  `tests/projection/baselines/`, but it's not part of `make test` and was not
+  exercised on any C2 routing PR in this campaign.
+- B5 (game-over `SetProjection`), B6 (venetian-blind reveal), and the menu
+  stretch-BG path have zero automated coverage at any width — they were re-anchored
+  without a capture verb.
 
-Until that lands, the rule of thumb is: a routing PR that *only* shows the 640 golden passing is incomplete. Visuals at 768 + 1024 belong in the PR body, and the next person on this branch should re-eyeball them before merging anything that touches the same surface.
+Routing PRs touching a covered surface (inventory, menu-options) will fail
+`*_wide.sh` automatically if the centring breaks. For the other surfaces, the rule
+of thumb still holds: visuals at 768 + 1024 belong in the PR body, and the next
+person on the branch should re-eyeball them before merging.
 
 ### Phase 6 — regression
 
