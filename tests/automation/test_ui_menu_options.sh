@@ -13,4 +13,4 @@ GOLDEN="$REPO/tests/savegame/corpus/baselines/ui/menu_options_Anon1.png"
 
 [ -f "$LBA2_TEST_SAVE" ] || skip "fixture save missing: $LBA2_TEST_SAVE"
 
-ui_compare "menu-options" "$GOLDEN"
+ui_compare "--black-bg menu-options" "$GOLDEN"

@@ -14,4 +14,4 @@ GOLDEN="$REPO/tests/savegame/corpus/baselines/ui/dialog_Anon1_t1.png"
 
 [ -f "$LBA2_TEST_SAVE" ] || skip "fixture save missing: $LBA2_TEST_SAVE"
 
-ui_compare "dialog 1" "$GOLDEN"
+ui_compare "--black-bg dialog 1" "$GOLDEN"
