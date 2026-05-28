@@ -2565,6 +2565,22 @@ S32 DoGameMenu(U16 *ptrmenu) {
                         Credits(FALSE);
 
                 UnsetClipWindow();
+
+                // MainLoop's render path overwrote Log with gameplay frames
+                // during the attract reel; restore the menu plate before
+                // CopyScreen / BoxReset / FadeToBlack below so the menu UI
+                // loop has the right background. Same image as the menu's
+                // own boot a few hundred lines down (BuildGameMainMenu /
+                // Image_LoadStretched into Screen + CopyScreen to Log).
+                // Affects every exit from MainLoop on the cold-start attract
+                // path: stuck-cube watchdog timeout (#176), mid-reel ESC,
+                // LM_THE_END natural reel end.
+                {
+                    char tmpFilePathScreen[ADELINE_MAX_PATH];
+                    GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+                    Image_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);
+                }
+
                 CopyScreen(Log, Screen);
                 BoxReset();
 #endif
@@ -4354,14 +4370,15 @@ S32 SlideShow(void) {
 }
 
 // Enter "canned demo" mode (SHIFT+D from the main menu, the idle attract trigger, the
-// SlideDemo debug entry, and the harness --demo flag all funnel through here). Zeroing
-// TimerRefHR before the first ChangeCube pins the srand seed at OBJECT.CPP:1171 to a
-// canonical value, so every player's demo run reproduces the same RNG-driven wandering
-// (most visibly the bat-vs-Twinsen outcome on the Desert Island demo scene). Without
-// this, the seed is "ms between engine boot and demo trigger", which varies per run.
-// Safe outside the harness path: every site that calls this immediately goes through
-// InitGame(1) + ChangeCube, so the clock reset doesn't bleed into ordinary gameplay
-// timers. See issue #176.
+// SlideDemo debug entry, and the harness --demo flag all funnel through here). The
+// actual RNG-seed pinning happens in ChangeCube via Demo_RngSeed(DemoSlide, ..., NewCube)
+// -- while DemoSlide is set, the cube number is the srand seed instead of TimerRefHR,
+// so the reel reproduces on every host regardless of wall-clock pace. The earlier
+// "zero TimerRefHR here" approach (PR #249) only worked under --fixed-dt because
+// ManageTime() runs between this call and the first ChangeCube on the SHIFT+D /
+// idle-attract path and banks (SDL_GetTicks() - LastTime) right back into TimerRefHR.
+// The TimerRefHR = 0 line remains as cheap defense-in-depth for any other clock-derived
+// state read during the reel (currently none we know of; cheap to keep). See issue #176.
 void BeginDemoSlide(void) {
     TimerRefHR = 0;
     DemoSlide = TRUE;
