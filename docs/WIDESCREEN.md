@@ -127,7 +127,7 @@ What the campaign protected against, and what it didn't:
 **Protected** — every routing PR ships with a 640×480 byte-identical contract:
 
 - `host_quick` includes a unit test for every newly-extracted pure-math layer (`test_image_load` for the bitmap helpers, `test_ambiance_balance` for the pan/volume math). 12/12 host tests in CI.
-- The `ui_*` capture-based regressions (`ui_holomap`, `ui_holoplan`, `ui_inventory`, `ui_video`) each pin one UI surface byte-identical to its 640×480 golden. Run via `bash tests/automation/test_ui_*.sh` with `LBA2_GAME_DIR` set.
+- The `ui_*` capture-based regressions (`ui_holomap`, `ui_holoplan`, `ui_inventory`, `ui_video`) each pin one UI surface byte-identical to its 640×480 golden. Run via `bash tests/automation/test_ui_*.sh` with `LBA2_GAME_DIR` set. The inventory, dialog, and menu-options goldens are captured with `ui --black-bg <verb>` (CONSOLE_CMD.CPP), which clears the framebuffer to black before the UI draws, so each golden is a cleanroom UI-only frame rather than UI composited over a live (and FoV-sensitive) 3D scene. Surfaces where the scene is the test (`found-object`) keep the live render.
 - Per-PR visual A/B at 768 + 1024 lives in PR descriptions as embedded screenshots.
 
 **Not protected** — there is no automated regression coverage *at wider widths*:

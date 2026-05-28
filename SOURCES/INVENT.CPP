@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "CONSOLE/CONSOLE.H"
 #include "CONTROL.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
@@ -1120,7 +1121,16 @@ void MenuInventory(U32 tempo) {
         StopSpeak();
         PtrMap = ObjPtrMap = BufferTexture;
         RepMask = 0xFFFF;
-        AffScene(AFF_ALL_NO_FLIP);
+        if (Console_GetCaptureBlackBg()) {
+            /* Cleanroom golden — wheel composites over solid black, not
+               the live scene.  Both Log and Screen because the wheel's
+               draw path touches both; whichever the SavePNG ends up
+               reading is guaranteed scene-free. */
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        } else {
+            AffScene(AFF_ALL_NO_FLIP);
+        }
     }
 
     OpenInventory(); // draw all
