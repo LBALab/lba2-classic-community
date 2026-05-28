@@ -297,6 +297,20 @@ than) chasing the FP precision bug to ground.
 > no longer needed to neutralise the original bug. The original bug is fixable at the source,
 > with the same `TimerRefHR`-reset mechanism extended to `DemoSlide` rather than `--fixed-dt`
 > (tracked in issue #176 for the SHIFT+D / in-game attract path).
+>
+> **Update (post-#249):** The "extend the `TimerRefHR`-reset to `DemoSlide`" approach above —
+> shipped in PR #249 as `BeginDemoSlide()` zeroing `TimerRefHR` — turned out to be
+> structurally insufficient on the SHIFT+D / idle-attract path. Without `--fixed-dt`,
+> `ManageTime()` is real-time and `FadeToBlack()`'s internal `SaveTimer()` / `RestoreTimer()`
+> pair runs between `BeginDemoSlide()` and the first `ChangeCube()`; `SaveTimer()`'s
+> `ManageTime()` banks `SDL_GetTicks() - LastTime` back into `TimerRefHR`, and that interval
+> (the wall-clock work between zeroing and the fade entry) varies by host — macOS reported
+> the bat scene still diverging after #249 landed. The actual fix moves the seed source for
+> `DemoSlide` *off* the clock entirely: `ChangeCube` now calls `Demo_RngSeed(DemoSlide,
+> TimerRefHR, NewCube)`, which returns `(U32)NewCube` while in demo mode (canonical per cube,
+> host-independent). Pinned by `tests/demo_rng_seed/`. The `TimerRefHR = 0` line in
+> `BeginDemoSlide()` stays as cheap defense-in-depth for any other clock-derived state read
+> during the reel.
 
 ## 2e. Mapping the demo scenes
 
