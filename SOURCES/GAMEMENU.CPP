@@ -4674,7 +4674,12 @@ S32 AdelineLogo(void) {
     //      S32     volume ;
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    if (!Image_LoadCentered(tmpFilePath, Log, PCR_LOGO))
+    // FillFromEdge: the Adeline logo PCX has a white background that
+    // should extend across the framebuffer at widescreen, not be
+    // black-cropped to the centred 640. Sampling the PCX's top-left
+    // pixel picks up its white-index regardless of which palette
+    // entry holds white. No-op at 640x480.
+    if (!Image_LoadCenteredFillFromEdge(tmpFilePath, Log, PCR_LOGO))
         TheEndCheckFile(tmpFilePath);
 
     if (!Load_HQR(tmpFilePath, PalettePcx, PCR_LOGO + 1))
@@ -4757,7 +4762,24 @@ S32 ShowLogo(S32 numscr, S32 nsec) {
     char tmpFilePath[ADELINE_MAX_PATH];
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
-    if (Image_LoadCentered(tmpFilePath, Log, numscr)
+    // Widescreen sidebars treatment: the Adeline studio bumper PCX has
+    // a white background that should extend across the framebuffer, so
+    // the fade-in reads as one contiguous frame instead of a centred
+    // white logo with black wings. Sampling the PCX's top-left pixel
+    // via Image_LoadCenteredFillFromEdge handles this without hard-
+    // coding the palette's white-index. All other PCRs (distributor
+    // logos: Activision / EA / Virgin / publisher bumpers) pre-clear
+    // Log to 0 so the sidebars are explicit black instead of whatever
+    // leftover bytes the previous frame left behind. Both branches are
+    // no-ops at 640x480 (image fully overwrites the buffer).
+    U32 loaded;
+    if (numscr == PCR_BUMPER) {
+        loaded = Image_LoadCenteredFillFromEdge(tmpFilePath, Log, numscr);
+    } else {
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        loaded = Image_LoadCentered(tmpFilePath, Log, numscr);
+    }
+    if (loaded
             AND Load_HQR(tmpFilePath, PalettePcx, numscr + 1)) {
         WaitNoInput();
 
