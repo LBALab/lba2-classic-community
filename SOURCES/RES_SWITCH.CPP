@@ -90,6 +90,18 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
        subsequent draw is clipped to the previous resolution's width. */
     SetClipWindow(0, 0, (S32)w - 1, (S32)h - 1);
     SetClip(0, 0, (S32)w - 1, (S32)h - 1);
+    /* Dirty-box clip is a parallel system to the SVGA clip — BoxStaticFullflip
+       (which `FirstTime = AFF_ALL_FLIP` ultimately triggers a full-frame
+       redraw through) bounds its full-screen invalidation to BoxClipX/Y,
+       not ClipWindowX/Y.  Without this call after a 640->768 switch the
+       dirty-box clip stays at the old 640, the right strip [640..768) never
+       gets marked dirty + blitted + presented, and shows whatever leftover
+       pixels the SDL surface had after ResizeVideoSurface — visible as
+       trailing / smearing along the new-width strip until a relaunch.
+       The TRUE clean flag also makes the next BoxBlit zero the physical
+       surface outside the clip, closing the gap on shrinks too. Mirrors
+       the BoxInit call at DIRTYBOX.CPP:572. */
+    BoxChangeClip(0, 0, (S32)w - 1, (S32)h - 1, TRUE);
     return true;
 }
 
