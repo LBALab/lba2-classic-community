@@ -41,6 +41,19 @@ int Console_ShouldSuppressInputThisFrame(void);
 /** Set to 1 when entering demo slide show, 0 when leaving. Prevents opening console during slide (avoids segfault). */
 void Console_SetSlideShowActive(int active);
 
+/** Cleanroom UI-capture mode. When set, surfaces that normally pre-fill the Screen
+ *  buffer with the live 3D scene (so the UI overlay composites over what a player
+ *  would see mid-game — see e.g. INVENT.CPP MenuInventory pre-pass) clear it to
+ *  black instead. Used by `ui --black-bg <verb>` so the committed UI goldens are
+ *  scene-free and byte-identity actually means "the UI rendered correctly", not
+ *  "the UI + scene happened to be deterministic at this resolution".
+ *
+ *  Only meaningful while a capture is armed (Inv_/Dial_/Menu_RequestCapture);
+ *  cmd_ui clears the flag at the end of the verb so non-harness flows are
+ *  unaffected. */
+void Console_SetCaptureBlackBg(int active);
+int Console_GetCaptureBlackBg(void);
+
 /** Request a screenshot without the console. Closes the console. If \a use_png, game will save PNG (via SavePNG); else next frame is saved as PPM in PrePresent. */
 void Console_RequestScreenshot(const char *path, int use_png);
 /** If a screenshot is pending, copy path into \a path_out (max \a path_max) and set \a out_is_png. Return 1 if pending, 0 otherwise. */

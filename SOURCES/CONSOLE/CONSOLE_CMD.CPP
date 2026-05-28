@@ -281,8 +281,15 @@ static void cmd_screenshot(int argc, const char *argv[]) {
    PNG of a settled frame, then auto-exit.  The first regression surface for
    the widescreen / UI-layout work, designed so each new surface (holomap,
    dialog, menu-options, ...) plugs in as a parallel subcommand using the
-   same composite "open / wait / screenshot / close" pattern. */
-static void cmd_ui(int argc, const char *argv[]) {
+   same composite "open / wait / screenshot / close" pattern.
+
+   Optional prefix flag `--black-bg`: clear the scene to black before the UI
+   draws over it (cleanroom golden — UI overlay only, no scene bleed). Only
+   inventory, dialog and menu-options honour it; surfaces where the scene is
+   part of the captured frame (found-object, video, holomap, holoplan,
+   pcx-message, slideshow, menu-main, config) ignore it. The flag is cleared
+   at the end of the verb so non-harness callers are unaffected. */
+static void cmd_ui_dispatch(int argc, const char *argv[]) {
     if (argc >= 3 && !strcmp(argv[1], "inventory")) {
         /* MenuInventory's `tempo` argument is virtual game-ms; under fixed-dt
            16 that's ~31 frames of modal loop -- plenty of room past the
@@ -445,17 +452,37 @@ static void cmd_ui(int argc, const char *argv[]) {
         Console_Print("ui found-object %d -> %s", (int)numvar, argv[3]);
         return;
     }
-    Console_Print("Usage: ui inventory <path>");
+    Console_Print("Usage: ui [--black-bg] inventory <path>");
     Console_Print("       ui holomap <path>");
     Console_Print("       ui holoplan <island> <path>");
     Console_Print("       ui video <name> <path>");
-    Console_Print("       ui dialog <text-id> <path>");
-    Console_Print("       ui menu-options <path>");
+    Console_Print("       ui [--black-bg] dialog <text-id> <path>");
+    Console_Print("       ui [--black-bg] menu-options <path>");
     Console_Print("       ui menu-main <path>");
     Console_Print("       ui config <path>");
     Console_Print("       ui slideshow <path>");
     Console_Print("       ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]");
     Console_Print("       ui found-object <numvar> <path>");
+}
+
+/* Strip optional `--black-bg` prefix, set the capture-mode flag for the
+   duration of the verb, and clear it before returning so subsequent UI
+   calls in the same session start from a clean default. */
+static void cmd_ui(int argc, const char *argv[]) {
+    const char *shifted[16];
+    int black_bg = 0;
+    if (argc >= 2 && !strcmp(argv[1], "--black-bg")) {
+        black_bg = 1;
+        int n = argc < 16 ? argc : 16;
+        shifted[0] = argv[0];
+        for (int i = 1; i < n - 1; i++)
+            shifted[i] = argv[i + 1];
+        argv = shifted;
+        argc--;
+    }
+    Console_SetCaptureBlackBg(black_bg);
+    cmd_ui_dispatch(argc, argv);
+    Console_SetCaptureBlackBg(0);
 }
 
 static void cmd_give(int argc, const char *argv[]) {

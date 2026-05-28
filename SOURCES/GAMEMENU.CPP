@@ -3155,7 +3155,13 @@ S32 OptionsMenu(S32 flagflip) {
         StopSpeak();
         InitDial(0);
         InitPlasmaMenu();
-        AffScene(AFF_ALL_NO_FLIP);
+        if (Console_GetCaptureBlackBg()) {
+            /* Cleanroom golden — menu panel composites over solid black. */
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        } else {
+            AffScene(AFF_ALL_NO_FLIP);
+        }
     }
 
     BackupScreen(TRUE);
