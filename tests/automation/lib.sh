@@ -96,6 +96,15 @@ ctl_headless_cfg_driven() {
         "$LBA2_BIN" --language English --no-audio "$@"
 }
 
+# ctl_headless_at <WxH> <args...> — same as ctl_headless but renders at
+# the given resolution instead of 640x480. Used by ui_compare_wide to
+# capture a wider frame for centred-crop differential comparison.
+ctl_headless_at() {
+    local res="$1"; shift
+    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
+        "$LBA2_BIN" --language English --no-audio --resolution "$res" "$@"
+}
+
 # with_menu_main_fixture <body>
 # Some ui_* tests (today: ui_menu_main) render a thumbnail that the engine
 # reads from the user's local ~/.local/share/Twinsen/LBA2/save/current.lba —
@@ -157,6 +166,61 @@ ui_compare() {
     else
         # leave $out behind under /tmp for inspection
         fail "ui $args diverges from golden ($shaA vs $shaB; capture at $out)"
+    fi
+}
+
+# ui_compare_wide <WxH> <verb-args...> <golden-path>
+# Renders the same ui capture at a wider resolution and pixel-compares
+# the centred (golden_w x golden_h) crop of the wide capture to the
+# 640 golden. Strict: byte-identical in the crop region or fail.
+#
+# Only meaningful for surfaces with a cleanroom golden (captured with
+# `ui --black-bg`) — otherwise the legitimate FoV-sensitive scene render
+# at the wider width will appear as a diffuse diff in the crop. See
+# WIDESCREEN.md "Testing posture" for the surface-by-surface picture.
+#
+# Requires Pillow (`pip install Pillow`); skips if missing.
+# LBA2_UI_REGEN is a no-op — the 640 golden is the single source of
+# truth, there is no per-width golden to regenerate.
+ui_compare_wide() {
+    local res="$1"; shift
+    local args="" golden="" out= py_rc
+    while [ $# -gt 1 ]; do args="${args:+$args }$1"; shift; done
+    golden="$1"
+    python3 -c "from PIL import Image" 2>/dev/null \
+        || skip "Pillow not installed (pip install Pillow)"
+    [ -f "$golden" ] || skip "640 golden missing — run the 640 test first: $golden"
+    out="$(mktemp -t "${TESTNAME:-ui}.XXXXXX.png")"
+    ctl_headless_at "$res" --load "$LBA2_TEST_SAVE" \
+        --exec "ui $args $out" --fixed-dt 16 --tick 200 --exit >/dev/null 2>&1 \
+        || { rc=$?; rm -f "$out"; fail "verb 'ui $args' at $res returned non-zero ($rc)"; }
+    [ -f "$out" ] || fail "no capture written for 'ui $args' at $res"
+    python3 - "$golden" "$out" <<'PY'
+import sys
+from PIL import Image
+golden = Image.open(sys.argv[1]).convert("RGB")
+capture = Image.open(sys.argv[2]).convert("RGB")
+gw, gh = golden.size
+cw, ch = capture.size
+if cw < gw or ch < gh:
+    sys.stderr.write(f"capture {cw}x{ch} smaller than golden {gw}x{gh}\n")
+    sys.exit(2)
+dx, dy = (cw - gw) // 2, (ch - gh) // 2
+cropped = capture.crop((dx, dy, dx + gw, dy + gh))
+gpx = golden.tobytes()
+cpx = cropped.tobytes()
+if gpx == cpx:
+    sys.exit(0)
+diff = sum(1 for i in range(0, len(gpx), 3) if gpx[i:i+3] != cpx[i:i+3])
+sys.stderr.write(f"{diff} pixels differ in centred {gw}x{gh} crop (offset {dx},{dy})\n")
+sys.exit(1)
+PY
+    py_rc=$?
+    if [ "$py_rc" = 0 ]; then
+        rm -f "$out"
+        pass "ui $args matches centred crop of $res capture ($(basename "$golden"))"
+    else
+        fail "ui $args at $res diverges from 640 golden in centred crop (capture at $out)"
     fi
 }
 
