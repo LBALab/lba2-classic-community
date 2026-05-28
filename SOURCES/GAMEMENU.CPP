@@ -625,21 +625,36 @@ static void CycleResolution(S32 step) {
         // it may have clobbered SkySeaTexture (where the plasma fire
         // bar lives), so the next DoGameMenu redraw would show the
         // cycling row on bare black with a stale plasma highlight.
-        // Same post-switch repaint shape Res_RunRevertDialogIfPending
-        // uses (RES_SWITCH.CPP:472-482): scene to Log, mirror to
-        // Screen, refresh plasma, shade if the menu darken is active.
-        // The next DoGameMenu iteration then composites menu items
-        // over a state that matches the submenu's initial entry.
+        //
+        // Two repaint shapes depending on context:
+        //   FlagShadeMenu TRUE  → in-game (player opened Options via
+        //     ESC). Repaint the live 3D scene the same way the
+        //     keep/revert dialog does (RES_SWITCH.CPP:472-482), then
+        //     shade so the menu items pop over the dimmed scene.
+        //   FlagShadeMenu FALSE → boot main menu (player is at the
+        //     Resume / New / Load screen). The right background is
+        //     the PCR_MENU stretched PCX image, not the default cube
+        //     AffScene would paint (which would be Twinsen's house —
+        //     wrong context for the boot menu). Reload the BG using
+        //     the same Image_LoadStretched MainGameMenu uses, no
+        //     shade — the boot menu doesn't darken its own backdrop.
         BoxReset();
         BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
-        AffScene(AFF_ALL_FLIP);
+        if (FlagShadeMenu) {
+            AffScene(AFF_ALL_FLIP);
+        } else {
+            char tmpFilePathScreen[ADELINE_MAX_PATH];
+            GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+            Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+            CopyScreen(Screen, Log);
+        }
         BackupScreen(TRUE);
         InitPlasmaMenu();
         if (FlagShadeMenu) {
             ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1,
                         (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
-            BoxStaticFullflip();
         }
+        BoxStaticFullflip();
     }
 }
 
