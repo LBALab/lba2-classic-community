@@ -10,6 +10,7 @@
 #include "CONTROL.H"
 #include "RES_SWITCH.H"
 #include "CONSOLE/CONSOLE.H"
+#include "PERFTRACE.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
 #include <FILEIO/SAVEPNG.H>
@@ -471,6 +472,8 @@ restartloop:
 
     while (TRUE) {
     startloop:
+
+        Perftrace_FrameBegin();
 
         /* Runtime resolution-switch keep/revert dialog. Pending whenever
            cmd_resolution (or a future menu path) fires a switch; runs once
@@ -1896,7 +1899,9 @@ restartloop:
             FollowCamTimerBefore = TimerSystemHR;
         }
 
+        Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
+        Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
         if (FollowCamTerrainFrame) {
             RestoreTimer();
@@ -1935,6 +1940,8 @@ restartloop:
         TotalNbf += NbFramePerSecond;
         NbNbf++;
 #endif
+
+        Perftrace_FrameEnd();
     }
 
     return 0;
@@ -2380,6 +2387,11 @@ int main(int argc, char *argv[]) {
     /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
+
+    /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
+       via the `perftrace` console verb. See docs/PERFTRACE.md. */
+    Perftrace_Init();
+    SetPresentTimingCallbacks(Perftrace_PresentBegin, Perftrace_PresentEnd);
 
     atexit(TheEndInfo);
 
