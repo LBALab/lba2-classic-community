@@ -365,6 +365,21 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         Console_Print("ui menu-options -> %s", argv[2]);
         return;
     }
+    if (argc >= 3 && !strcmp(argv[1], "display")) {
+        /* Display submenu (Phase 2 runtime-resolution UX). Opens
+           DoGameMenu(DisplayMenu) directly via Display_MainCapture,
+           skipping the Options-menu detour. Mirrors menu-options's
+           pre-fill so the modal composites over a clean background;
+           on --black-bg this is solid black per the cleanroom
+           convention. */
+        if (Console_GetCaptureBlackBg()) {
+            memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+            memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        }
+        Display_MainCapture(argv[2]);
+        Console_Print("ui display -> %s", argv[2]);
+        return;
+    }
     if (argc >= 3 && !strcmp(argv[1], "menu-main")) {
         /* Boot-time main menu (Resume / New / Load / Options / Quit).
            Menu_MainCapture does the MainGameMenu setup minus the case-driven
@@ -459,6 +474,7 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
     Console_Print("       ui [--black-bg] dialog <text-id> <path>");
     Console_Print("       ui [--black-bg] menu-options <path>");
     Console_Print("       ui menu-main <path>");
+    Console_Print("       ui [--black-bg] display <path>");
     Console_Print("       ui config <path>");
     Console_Print("       ui slideshow <path>");
     Console_Print("       ui pcx-message <pcx-idx> <text-id> [<path>] [big|full|normal]");

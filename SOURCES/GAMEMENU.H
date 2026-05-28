@@ -67,6 +67,15 @@ extern void Menu_RequestCapture(const char *path);
    Skips the surrounding MainGameMenu while-loop, fade transitions, and any
    case-driven cinematic playback so the verb is non-blocking. */
 extern void Menu_MainCapture(const char *path);
+/* Harness hook: capture the Display submenu (Phase 2 runtime-resolution
+   UX). Mirrors Menu_MainCapture: does the minimal pre-pass the regular
+   OptionsMenu -> GereDisplayMenu path does (InitPlasmaMenu, palette
+   sync, dial bank), arms Menu_RequestCapture, drives DoGameMenu on the
+   DisplayMenu array. The capture site inside DoGameMenu fires and
+   returns 1000. Background pixels come from the caller's Log/Screen
+   state -- `ui --black-bg display` clears them first; the plain verb
+   composites over the live scene. */
+extern void Display_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/
