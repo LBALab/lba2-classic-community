@@ -61,6 +61,23 @@ U32 Image_LoadStretched(const char *file, void *dest, S32 index) {
     return size;
 }
 
+U32 Image_LoadCenteredFillFromEdge(const char *file, void *dest, S32 index) {
+    U32 size = Load_HQR(file, ImageStaging, index);
+    if (size == 0)
+        return 0;
+    /* Sample the loaded bitmap's top-left pixel and use it as the
+       sidebar fill. For centred-on-uniform-bg PCXs (boot bumpers, the
+       Adeline logo with its white background) the edge colour is the
+       natural background colour, so widescreen sidebars composite
+       seamlessly with the image. At 640x480 the memset is fully
+       overwritten by the centred copy, so this is byte-identical to
+       Image_LoadCentered at the canonical width. */
+    memset(dest, ImageStaging[0],
+           (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    Image_CopyCenteredFromStaging(dest);
+    return size;
+}
+
 void Image_RenderCenteredFromStaging(void *dest) {
     Image_CopyCenteredFromStaging(dest);
 }
