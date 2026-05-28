@@ -92,6 +92,17 @@ void Console_SetSlideShowActive(int active) {
     s_slide_show_active = (active != 0);
 }
 
+/* Cleanroom UI-capture-mode flag. See doc in CONSOLE.H. */
+static int s_capture_black_bg = 0;
+
+void Console_SetCaptureBlackBg(int active) {
+    s_capture_black_bg = (active != 0);
+}
+
+int Console_GetCaptureBlackBg(void) {
+    return s_capture_black_bg;
+}
+
 void Console_SetToggleScancode(int scancode) {
     if (scancode <= 0 || scancode >= SDL_SCANCODE_COUNT) {
         s_toggle_scancode = K_F12;

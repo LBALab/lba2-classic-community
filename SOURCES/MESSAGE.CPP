@@ -14,6 +14,7 @@
 #include "C_EXTERN.H"
 #include "IMAGE_LOAD.H"
 
+#include "CONSOLE/CONSOLE.H"
 #include "CONTROL.H"
 #include "INPUT.H"
 
@@ -1860,6 +1861,12 @@ void ClearWhoSpeak() {
 }
 /*-------------------------------------------------------------------------*/
 
+/* Harness capture state — declarations hoisted above SpeakAnimation so its
+   capture-armed guard can reference them. Full doc on the request API lives
+   at Dial_RequestCapture() below. */
+static char s_dial_capture_path[ADELINE_MAX_PATH] = "";
+static int s_dial_capture_countdown = 0;
+
 void SpeakAnimation() {
     S32 saveyclip;
 
@@ -1872,7 +1879,19 @@ void SpeakAnimation() {
         SetClipWindow(ClipWindowXMin, ClipWindowYMin, ClipWindowXMax, Dial_Y0 - 1);
         UnsetClip();
 
-        AffScene(AFF_OBJETS_NO_FLIP);
+        if (s_dial_capture_path[0] && Console_GetCaptureBlackBg()) {
+            /* Cleanroom golden — clear only above Dial_Y0, matching the
+               clip window set five lines up (which is what AffScene would
+               have written into). The dialog strip below Dial_Y0 holds the
+               typewriter text and bubble portrait — preserve those across
+               the loop iterations or each step wipes them out before the
+               capture countdown reaches zero. */
+            size_t bytes = (size_t)ModeDesiredX * (size_t)Dial_Y0;
+            memset(Log, 0, bytes);
+            memset(Screen, 0, bytes);
+        } else {
+            AffScene(AFF_OBJETS_NO_FLIP);
+        }
 
         if (Bulle)
             DrawBulle(NumObjDial);
@@ -1899,16 +1918,15 @@ void SpeakAnimation() {
 //────────────────────────────────────────────────────────────────────────────
 //                                 D I A L
 //────────────────────────────────────────────────────────────────────────────
-/* Harness capture state — see Dial_RequestCapture() in MESSAGE.H.  When the
-   path is non-empty, Dial's typewriter loop counts down per iteration; on
-   reaching zero it SavePNGs and sets flagabort so Dial exits cleanly without
-   waiting for input.  The countdown lets the typewriter draw substantial
-   text before the snapshot -- ~1 game-second at fixed-dt 16 is enough for
-   most LBA2 dialogue lines.  We don't gate on ret==0/2 because that fires
-   the moment NextDialCar returns "page break" or "done", which on short
-   or empty texts can be the very first iteration before any char is drawn. */
-static char s_dial_capture_path[ADELINE_MAX_PATH] = "";
-static int s_dial_capture_countdown = 0;
+/* Harness capture state — definitions hoisted above SpeakAnimation; see the
+   forward declarations there. The state machine: when the path is non-empty,
+   Dial's typewriter loop counts down per iteration; on reaching zero it
+   SavePNGs and sets flagabort so Dial exits cleanly without waiting for
+   input. The countdown lets the typewriter draw substantial text before the
+   snapshot — ~1 game-second at fixed-dt 16 is enough for most LBA2 dialogue
+   lines. We don't gate on ret==0/2 because that fires the moment NextDialCar
+   returns "page break" or "done", which on short or empty texts can be the
+   very first iteration before any char is drawn. */
 
 void Dial_RequestCapture(const char *path) {
     if (!path || !path[0]) {
@@ -1965,13 +1983,15 @@ void Dial(S32 text, S32 drawscene) {
 
     //----- Si CAM_FOLLOW juste avant MESSAGE ( cas dans grot01 )
     // Déplacé le 30/05/97
-    if (FirstTime == AFF_ALL_FLIP) // Si CAM_FOLLOW juste avant MESSAGE
-    {
+    if (s_dial_capture_path[0] && Console_GetCaptureBlackBg()) {
+        /* Cleanroom golden — dialog box composites over solid black. */
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    } else if (FirstTime == AFF_ALL_FLIP) {
         AffScene(AFF_ALL_FLIP);
     } else if (!(FlagDial & (DIAL_BIG | DIAL_FUL | DIAL_EXP | DIAL_DEM))) {
         AffScene(AFF_OBJETS_NO_FLIP);
         BoxBlit();
-        //              BoxUpdate() ;
     }
     //-----
 
@@ -2139,8 +2159,13 @@ S32 MyDial(S32 nummess) // attends une touche si autre page sinon continue
     BoxClean(); // Clean Log from last AffScene
 
     //----- Si CAM_FOLLOW juste avant MESSAGE ( cas dans grot01 )
-    if (FirstTime == AFF_ALL_FLIP) // Si CAM_FOLLOW juste avant MESSAGE
-    {
+    if (s_dial_capture_path[0] && Console_GetCaptureBlackBg()) {
+        /* Cleanroom golden — see Dial() above. Per-page redraw clears the
+           same buffers each time so the dialog box composites cleanly even
+           across multi-page advances. */
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+        memset(Screen, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
+    } else if (FirstTime == AFF_ALL_FLIP) {
         AffScene(AFF_ALL_NO_FLIP);
     } else
         AffScene(AFF_OBJETS_NO_FLIP);
