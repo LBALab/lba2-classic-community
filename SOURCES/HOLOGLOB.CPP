@@ -138,7 +138,7 @@ void ClrHoloPos(S32 num) {
 }
 //────────────────────────────────────────────────────────────────────────────
 static void ClearZBufMinMax(void) {
-    ZBufYMin = 479;
+    ZBufYMin = (S32)ModeDesiredY - 1; // shrink-wrap init: start at screen bottom
     ZBufYMax = 0;
 }
 //────────────────────────────────────────────────────────────────────────────
@@ -149,8 +149,8 @@ static void AdjustZBufMinMax(void) {
         ZBufYMax = ScreenYMax;
     if (ZBufYMin < 0)
         ZBufYMin = 0;
-    if (ZBufYMax > 479)
-        ZBufYMax = 479;
+    if (ZBufYMax > (S32)ModeDesiredY - 1)
+        ZBufYMax = (S32)ModeDesiredY - 1;
 }
 
 //────────────────────────────────────────────────────────────────────────────
@@ -992,7 +992,7 @@ void HoloGlobe(S32 planet) {
     memotime = TimerRefHR;
 
     ZBufYMin = 0;
-    ZBufYMax = 479;
+    ZBufYMax = (S32)ModeDesiredY - 1;
 
     while (!FlagHoloEnd) {
         ManageTime();
