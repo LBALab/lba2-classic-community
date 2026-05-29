@@ -110,15 +110,78 @@ The X-axis C2 campaign (PRs #213–#228) settled the structural prerequisites fo
 
 | Concern | Notes |
 |---|---|
-| Y-axis clamps | A4 (terrain horizon Y=479), A5 (holomap Z-buffer Y bounds). Same fix shape as the X-axis routing — substitute `(S32)ModeDesiredY - 1` for the literal — but exposes the next layer of bugs at Y > 480. Tracked under task #99. |
-| Holomap at Y > 480 | `ui holoplan` at `1024×768` times out (cinema-mode rendering bug independent of the planet bitmap centring). Needs the A4/A5 pass to unblock. Catch a `test_ui_holoplan_768x768.sh` once unblocked. |
-| Filler precision | `LIB386/pol_work/` step accumulators are 16-bit fixed-point calibrated to 640-wide spans. At 1920 the spans are 3× longer; accumulators may drift or overflow. **The polyrec harness is the diagnostic** — capture corpus + demo at the new width, compare per-draw-call deltas to 640. Drift points at specific fillers (texture vs gouraud vs flat). |
+| Y-axis clamps | **Done** (branch `fix/widescreen-y-clamp`). A4 (terrain horizon `Y=479`, 8 sites in `3DEXT/TERRAIN.CPP` `FillBlackPolyZBuf`) and A5 (holomap Z-buffer Y bounds, 4 sites in `HOLOGLOB.CPP`) now route through `(S32)ModeDesiredY - 1`. The literals were *not* the real pin, though: the 3D view stayed capped at 480 at any resolution because `LoadContexte` restored `ClipWindowYMax` verbatim from the save file (`SAVEGAME.CPP:2053`). `SaveContexte` persists the play clip window at its render height, so a 640×480 save carries `479`; the fix re-derives the full window from `ModeDesiredY` on load. All three changes are behavior-preserving at 640×480 (`ModeDesiredY-1 == 479`; projrec corpus hashes byte-identical with/without via git-stash A/B). Opening the view exposed the vertical-framing question — see [Vertical framing at HD](#vertical-framing-at-hd--open-question) below. |
+| Holomap at Y > 480 | A4/A5 done, but `ui holoplan` at `1024×768` still times out — a cinema-mode rendering bug independent of the Z-buffer bounds and the planet bitmap centring. The A5 fix is correct and 640-identical but **not yet verified at tall res** until this timeout is resolved. Add `test_ui_holoplan_768x768.sh` once unblocked. |
+| Filler precision | **Swept at 1920 — de-risked** (2026-05-29). Captured a 6-scene polyrec corpus at 1920-wide and replayed it under ASan+UBSan and ASM-vs-CPP. No overflow, no out-of-bounds across ~24k full-width draw calls (the feared accumulator overflow does not occur). ASM↔CPP equivalence degrades from bit-exact (640) to **118/1,966,080 pixels = 0.006%** (1–2px edge rounding on a few triangles through the FPU slope path — the long-double/x87 precision class, not overflow); cosmetically invisible. Practical consequence: the 640 ASM-equivalence corpus can't be extended to 1920 without tolerancing or pinning FP, but the fillers render correctly at HD width. |
 | Bitmap fonts | `LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit at 1:1 pixel size. At 1920×1080 in-game text is tiny. Either pixel-scale the existing 8×N glyphs (cheap, blocky) or re-author a higher-DPI font set (slow, clean). |
 | Z-buffer precision | 16-bit Z + `Fill_ZBuffer_Factor` is tuned for the 4:3 frustum's depth range. May Z-fight at HD aspect ratios on distant geometry; the polyrec harness catches drift here too if you log Z values. |
 | Smacker upscale policy | Source is 320×200. At HD widths the existing centred-letterbox path (PR #226) preserves the cinematic feel with bigger sidebars. Alternative is to fill the frame (uglier, lossy); the current default is the right one. |
 | Mouse cursor inversion | Today mouse positions are framebuffer-pixel coords and SDL scales 1:1. Works at any framebuffer resolution. Only needs invert if we add a "render at 640, pixel-double in present" mode. |
 
-The handful of remaining open audit rows (B7 done; A4/A5 deferred; A10 PERSO cosmetic) are all in the second column.
+The handful of remaining open audit rows (B7 done; A4/A5 done in `fix/widescreen-y-clamp`; A10 PERSO cosmetic) are all in the second column.
+
+#### Vertical framing at HD — open question
+
+With the Y-axis clamps and the save-clip pin fixed, the exterior 3D view fills
+the full framebuffer height. That immediately raises a composition question we
+have *not* resolved — captured here to revisit.
+
+**The mechanism.** The projection (`LPROJ3DF.CPP`) is square-pixel with a fixed
+field constant: `Xp = ModeDesiredX/2 + (x-cam)·ChampX/Z`, `Yp = ModeDesiredY/2 +
+(y-cam)·ChampZ/Z`, with `ChampX`/`ChampZ` constant. So growing the framebuffer
+*reveals more field of view* rather than scaling the image — which is exactly
+why widescreen works (wider frame → more world horizontally). It's symmetric,
+though: a taller frame reveals more world *vertically* too, and two things break
+because of it:
+
+- The character looks "zoomed out." He isn't smaller in pixels (pixels-per-world
+  unit is resolution-independent) — there's just more frame around him, so he's a
+  smaller *fraction* of it. The extra vertical FOV is spent on sky and distant
+  terrain.
+- The "sky" is a flat textured plane at a fixed world height (`DrawSky`,
+  `3DEXT/DRAWSKY.CPP`), not a full-screen backdrop. Look up far enough and the
+  camera sees past its far edge — above it there's nothing to draw, so you get the
+  clear colour (fog in-game, a void band at the top).
+
+For 16:9 1080p vs 640×480 that's roughly +200% horizontal FOV (wanted) and +125%
+vertical FOV (the liability). The vertical reveal also risks exposing authoring
+assumptions: distant cube boundaries, pop-in, and the known terrain cube-boundary
+seam (original, currently hidden by 4:3 framing).
+
+**Levers / options** (not yet decided):
+
+1. **Cap vertical FOV / letterbox.** Bound the play viewport's height relative to
+   width (e.g. ≤16:9) and bar the remainder. The engine already has the machinery —
+   `FixeCinemaMode` draws `COUL_CINEMA` bars top/bottom from `ModeDesiredX/Y`
+   (`OBJECT.CPP:4706-4707`), and the clip-window plumbing fixed above is what bounds
+   it. Art-faithful, never reveals the sky edge or map seams, small. Cost: bars (or
+   repurpose for HUD); the 3D view is a wide strip, not full-height.
+2. **Camera distance (`VueDistance`).** Pull the follow camera in so the extra
+   vertical real estate is filled by a closer, bigger view of the action instead of
+   dead sky — "recompose, not crop." `VueDistance` is already a first-class, per-zone
+   authored value (`DefVueDistance[VueCamera]`, overridable per camera-zone at
+   `OBJECT.CPP:6216`, interpolated via `RegleTrois`, saved/loaded). Caveat: it's
+   *gameplay*-tuned — a global zoom risks camera-into-geometry clipping in tight
+   scenes, reduced situational awareness, and breaking scripted camera moments, so it
+   carries a per-scene QA burden. Note it's **orthogonal to the sky reveal**: distance
+   reframes the subject but doesn't lower the angular FOV, so a closer cam reduces but
+   doesn't guarantee removal of the top void (depends on follow pitch).
+3. **Extend the sky / background.** Embrace the reveal: raise/enlarge the `DrawSky`
+   plane to cover the larger view and sky-colour the clear. Full-screen 3D, most
+   immersive, but highest risk — reveals map edges and the terrain seam, needs
+   per-scene art QA across the whole game.
+4. **Constrain offered resolutions.** Derive height from width at a fixed aspect so
+   HD means "wider, not taller." Sidesteps the issue with almost no rendering work,
+   but isn't true native tall-HD.
+
+**Leaning:** recompose rather than crop or reveal — keep the widescreen horizontal
+FOV, and treat the extra vertical with a modest aspect-proportional `VueDistance`
+adjustment (option 2) where it's safe, falling back to the letterbox cap (option 1)
+where per-scene clipping/readability makes zooming in untenable. The two blend.
+Decide the actual HD target first (specifically 16:9 1080p vs arbitrary tall
+windows) — it bounds how much vertical reveal we ever have to handle. Cheap to
+evaluate empirically: A/B Desert Island at 1920×1024 across a few `VueDistance`
+values with the polyrec capture/replay harness.
 
 #### Testing posture, honestly
 
