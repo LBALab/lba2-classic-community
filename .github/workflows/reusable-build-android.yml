@@ -100,18 +100,13 @@ jobs:
           SDL3_INSTALL="${RUNNER_TEMP}/sdl3-install"
 
           if [ ! -d "$SDL3_DIR" ]; then
-            SDL3_TARBALL="${RUNNER_TEMP}/sdl3.tar.gz"
             for i in 1 2 3; do
-              curl -fsSLo "$SDL3_TARBALL" \
-                "https://github.com/libsdl-org/SDL3/archive/refs/heads/main.tar.gz" \
-                && break
-              echo "SDL3 download attempt $i failed, retrying..."
+              git clone --depth 1 \
+                https://github.com/libsdl-org/SDL.git "$SDL3_DIR" 2>&1 && break
+              echo "SDL3 clone attempt $i failed, retrying..."
+              rm -rf "$SDL3_DIR"
               sleep 2
             done
-            mkdir -p "$SDL3_DIR"
-            tar -xzf "$SDL3_TARBALL" -C "$(dirname "$SDL3_DIR")"
-            mv "$(dirname "$SDL3_DIR")/SDL3-main"/* "$SDL3_DIR"
-            rm -rf "$SDL3_TARBALL" "$(dirname "$SDL3_DIR")/SDL3-main"
           fi
 
           cmake -S "$SDL3_DIR" -B "$SDL3_BUILD" -G Ninja \

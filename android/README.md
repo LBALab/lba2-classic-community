@@ -16,7 +16,7 @@ You need:
 
 ```bash
 # For arm64-v8a (modern phones/tablets, 64-bit Android TV)
-git clone https://github.com/libsdl-org/SDL3.git
+git clone --depth 1 https://github.com/libsdl-org/SDL.git -b main SDL3
 cd SDL3
 cmake -B build-arm64 -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DSDL_SHARED=ON -DSDL_STATIC=OFF
