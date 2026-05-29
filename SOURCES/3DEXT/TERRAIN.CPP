@@ -567,9 +567,9 @@ static inline void FillBlackPolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptr
         Tab_Points[1].Pt_XE = (S16)x1;
         Tab_Points[1].Pt_YE = (S16)z1;
         Tab_Points[2].Pt_XE = (S16)x1;
-        Tab_Points[2].Pt_YE = (S16)479;
+        Tab_Points[2].Pt_YE = (S16)((S32)ModeDesiredY - 1);
         Tab_Points[3].Pt_XE = (S16)x0;
-        Tab_Points[3].Pt_YE = (S16)479;
+        Tab_Points[3].Pt_YE = (S16)((S32)ModeDesiredY - 1);
 
         Tab_Points[0].Pt_Light = (S16)0;
         Tab_Points[1].Pt_Light = (S16)0;
@@ -590,9 +590,9 @@ static inline void FillBlackPolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptr
         Tab_Points[1].Pt_XE = (S16)x2;
         Tab_Points[1].Pt_YE = (S16)z2;
         Tab_Points[2].Pt_XE = (S16)x2;
-        Tab_Points[2].Pt_YE = (S16)479;
+        Tab_Points[2].Pt_YE = (S16)((S32)ModeDesiredY - 1);
         Tab_Points[3].Pt_XE = (S16)x1;
-        Tab_Points[3].Pt_YE = (S16)479;
+        Tab_Points[3].Pt_YE = (S16)((S32)ModeDesiredY - 1);
 
         Tab_Points[0].Pt_Light = (S16)0;
         Tab_Points[1].Pt_Light = (S16)0;
@@ -613,9 +613,9 @@ static inline void FillBlackPolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptr
         Tab_Points[1].Pt_XE = (S16)x3;
         Tab_Points[1].Pt_YE = (S16)z3;
         Tab_Points[2].Pt_XE = (S16)x3;
-        Tab_Points[2].Pt_YE = (S16)479;
+        Tab_Points[2].Pt_YE = (S16)((S32)ModeDesiredY - 1);
         Tab_Points[3].Pt_XE = (S16)x2;
-        Tab_Points[3].Pt_YE = (S16)479;
+        Tab_Points[3].Pt_YE = (S16)((S32)ModeDesiredY - 1);
 
         Tab_Points[0].Pt_Light = (S16)0;
         Tab_Points[1].Pt_Light = (S16)0;
@@ -636,9 +636,9 @@ static inline void FillBlackPolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs, U8 *ptr
         Tab_Points[1].Pt_XE = (S16)x0;
         Tab_Points[1].Pt_YE = (S16)z0;
         Tab_Points[2].Pt_XE = (S16)x0;
-        Tab_Points[2].Pt_YE = (S16)479;
+        Tab_Points[2].Pt_YE = (S16)((S32)ModeDesiredY - 1);
         Tab_Points[3].Pt_XE = (S16)x3;
-        Tab_Points[3].Pt_YE = (S16)479;
+        Tab_Points[3].Pt_YE = (S16)((S32)ModeDesiredY - 1);
 
         Tab_Points[0].Pt_Light = (S16)0;
         Tab_Points[1].Pt_Light = (S16)0;
