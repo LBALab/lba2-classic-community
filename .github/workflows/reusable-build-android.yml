@@ -35,6 +35,10 @@ jobs:
             abi: arm64-v8a
             ndk_target: aarch64-linux-android
             preset: android_arm64
+          - arch: armeabi-v7a
+            abi: armeabi-v7a
+            ndk_target: armv7a-linux-androideabi
+            preset: android_armv7a
     defaults:
       run:
         shell: bash

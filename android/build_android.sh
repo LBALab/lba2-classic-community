@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Build LBA2 Classic Community for Android (arm64-v8a)
+# Build LBA2 Classic Community for Android
+#
+# Supports arm64-v8a (default) and armeabi-v7a (via --abi armeabi-v7a).
 #
 # Prerequisites:
 #   1. Android NDK r26+  — set ANDROID_NDK or install under $HOME/Android/Sdk/ndk/
-#   2. SDL3 built for Android arm64 — set SDL3_ANDROID_DIR or run build_sdl3.sh first
+#   2. SDL3 built for the target ABI — set SDL3_ANDROID_DIR or run build_sdl3.sh first
 #   3. Ninja (build tool)
 #   4. Java 17+ and Gradle for APK packaging (optional: use android/gradlew)
 #   5. Retail game data HQR files (NOT included in the repo)
 #
 # Usage:
 #   export ANDROID_NDK=$HOME/Android/Sdk/ndk/26.1.10909125
-#   export SDL3_ANDROID_DIR=$PWD/out/android/sdl3-install
-#   bash android/build_android.sh
+#   export SDL3_ANDROID_DIR=$PWD/out/android/sdl3-install-arm64
+#   bash android/build_android.sh                         # arm64-v8a (default)
+#   bash android/build_android.sh --abi armeabi-v7a        # 32-bit
 #
 # Output:
-#   out/build/android_arm64/SOURCES/liblba2cc.so  — native game library
-#   android/app/build/outputs/apk/debug/          — APK (if gradle step runs)
+#   out/build/android_{abi}/SOURCES/liblba2cc.so  — native game library
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -26,10 +28,29 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # ---- Config ---------------------------------------------------------------
 ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/26.1.10909125}"
 SDL3_ANDROID_DIR="${SDL3_ANDROID_DIR:-${REPO_DIR}/out/android/sdl3-install}"
-BUILD_DIR="${REPO_DIR}/out/build/android_arm64"
-PRESET="android_arm64"
-ABI="arm64-v8a"
+ABI="${ABI:-arm64-v8a}"
 API_LEVEL=24
+
+# Parse --abi override
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --abi) ABI="$2"; shift 2 ;;
+        -h|--help)
+            sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
+            exit 0
+            ;;
+        *) echo "Unknown: $1" >&2; exit 2 ;;
+    esac
+done
+
+# Map ABI → preset name
+case "$ABI" in
+    arm64-v8a)   PRESET="android_arm64" ;;
+    armeabi-v7a) PRESET="android_armv7a" ;;
+    *) echo "Unsupported ABI: $ABI (use arm64-v8a or armeabi-v7a)" >&2; exit 2 ;;
+esac
+
+BUILD_DIR="${REPO_DIR}/out/build/${PRESET}"
 
 echo "=== LBA2 Android build ==="
 echo "  NDK:       ${ANDROID_NDK}"

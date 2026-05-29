@@ -401,6 +401,14 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         return true;
     }
 
+    /* External storage roots: Android /sdcard/ (scoped storage blocks
+     * Android/data/<pkg>/ on API 30+, so users must place HQR files
+     * here instead). Harmless no-op on non-Android. */
+    if (NormalizeAndTry("/sdcard/", outDir, outMax, tried, &triedCount) ||
+        NormalizeAndTry("/storage/emulated/0/", outDir, outMax, tried, &triedCount)) {
+        return true;
+    }
+
     GetCurrentRunningDir(walk);
     walk[ADELINE_MAX_PATH - 1] = '\0';
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);

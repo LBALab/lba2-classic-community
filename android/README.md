@@ -1,80 +1,89 @@
 # LBA2 Classic Community — Android
 
 This directory contains scripts and configuration for building
-LBA2 Classic Community on Android (arm64-v8a).
+LBA2 Classic Community on Android (arm64-v8a and armeabi-v7a).
 
 ## Quick start
 
 You need:
 
 1.  **Android NDK** r26 or later (recommended: r26.1.10909125).
-2.  **SDL3** built for Android arm64-v8a.
+2.  **SDL3** built for your target ABI(s).
 3.  **Ninja** build system.
 4.  Retail **game data** (HQR files) — you must provide these.
 
 ### 1. Build SDL3 for Android
 
 ```bash
+# For arm64-v8a (modern phones/tablets, 64-bit Android TV)
 git clone https://github.com/libsdl-org/SDL3.git
 cd SDL3
-cmake -B build-android -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+cmake -B build-arm64 -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DSDL_SHARED=ON -DSDL_STATIC=OFF
-cmake --build build-android
-cmake --install build-android --prefix $PWD/install-android
-export SDL3_ANDROID_DIR=$PWD/install-android
+cmake --build build-arm64
+cmake --install build-arm64 --prefix $PWD/install-arm64
+
+# For armeabi-v7a (32-bit Android TV, older devices)
+cmake -B build-armv7a -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+    -DANDROID_ABI=armeabi-v7a -DANDROID_PLATFORM=24 -DSDL_SHARED=ON -DSDL_STATIC=OFF
+cmake --build build-armv7a
+cmake --install build-armv7a --prefix $PWD/install-armv7a
 ```
 
 ### 2. Build LBA2
 
 ```bash
-# From the repo root
+# From the repo root, point SDL3_ANDROID_DIR to the install for your target ABI
 export ANDROID_NDK=/path/to/android-ndk-r26
-export SDL3_ANDROID_DIR=/path/to/sdl3-install-android
+export SDL3_ANDROID_DIR=/path/to/sdl3-install-arm64
 bash android/build_android.sh
 ```
 
 ### 3. Install on device
 
-The build script produces `out/build/android_arm64/SOURCES/liblba2cc.so`.
-To create an APK, either use the Gradle wrapper or package manually.
-
-**Manual APK (fastest):**
+The build script produces `out/build/android_arm64/SOURCES/liblba2cc.so`
+(or `armeabi-v7a` for 32-bit builds). To package into an APK, use the
+bundler script:
 
 ```bash
-# Create minimal APK structure
-mkdir -p android/apk/lib/arm64-v8a
-cp out/build/android_arm64/SOURCES/liblba2cc.so android/apk/lib/arm64-v8a/
-cp android/AndroidManifest.xml android/apk/
-
-# Package with aapt (from the Android SDK build-tools)
-aapt package -f -M android/apk/AndroidManifest.xml \
-    -S android/apk/res -I $ANDROID_SDK/platforms/android-34/android.jar \
-    -F android/apk/unsigned.apk
-
-# Align and sign
-zipalign -f 4 android/apk/unsigned.apk android/apk/aligned.apk
-apksigner sign --ks ~/.android/debug.keystore \
-    --ks-pass pass:android android/apk/aligned.apk
+bash scripts/packaging/bundle-android.sh \
+    --lib out/build/android_arm64/SOURCES/liblba2cc.so \
+    --version "$(cat out/build/android_arm64/VERSION.txt)" \
+    --arch arm64-v8a \
+    --build-dir out/build/android_arm64 \
+    --sdk-root $ANDROID_HOME \
+    --output-dir dist
 
 # Install
-adb install -r android/apk/aligned.apk
+adb install -r dist/lba2cc-*-android-arm64-v8a.apk
 ```
-
-> **Note:** Retail game data (HQR files) must be placed in a location the
-> game can find, such as `/sdcard/Android/data/org.lbalab.lba2cc/files/`
-> or an external SD card directory. The game will scan common locations
-> on first launch.
 
 ## Game data on Android
 
-Place your retail LBA2 `.HQR` files in:
+Place your retail LBA2 `.HQR` files on the device via ADB:
 
-```
-/storage/emulated/0/Android/data/org.lbalab.lba2cc/files/
+```bash
+# Android 11+ (scoped storage): file managers can't access Android/data/
+# Use ADB instead:
+adb push lba2.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
+adb push libraa.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
+
+# Or place at the SD card root — the game also probes /sdcard/ and
+# /storage/emulated/0/ on startup:
+adb push lba2.hqr /sdcard/
+adb push libraa.hqr /sdcard/
 ```
 
-Or use the `--game-dir` flag via a file manager intent (if supported)
-or by editing the lba2.cfg after first launch.
+The game's `ResolveGameDataDir` scans these paths automatically:
+
+1. `--game-dir` CLI flag
+2. `LBA2_GAME_DIR` environment variable
+3. Persisted last-used directory
+4. SDL base path and subdirs (`./data/`, `./game/`)
+5. Current directory and parent walk (up to 8 levels)
+6. **`/sdcard/`** and **`/storage/emulated/0/`** (Android external root)
+7. Parent sibling directories (e.g. `../LBA2/`, `../game/`)
+8. Folder picker fallback (if compiled with debug tools)
 
 ## Key mapping (touch overlay)
 
@@ -110,6 +119,7 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
 
 - **Software renderer**: The game uses a software 8-bit→ARGB pipeline.
   Performance on modern ARM64 devices is acceptable at 640x480.
+  On older 32-bit ARM (armeabi-v7a) devices, expect lower framerates.
 - **CD audio**: CD-ROM music tracks are not available. Use the digital
   sample backend (`SOUND_BACKEND=sdl`).
 - **Text input**: Save-game naming and console commands require a hardware
@@ -118,3 +128,6 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
   (window focus events). Surface re-creation is managed by the existing
   SDL3 infrastructure.
 - **Game data**: You must provide your own retail LBA2 data files.
+- **Android TV**: Touch overlay is automatically disabled when a TV device
+  is detected (`android.software.leanback` feature). Use a gamepad or
+  remote control instead.

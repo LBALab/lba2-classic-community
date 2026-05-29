@@ -6,6 +6,10 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
+#ifdef __ANDROID__
+#include <jni.h>
+#include <SDL3/SDL_android.h>
+#endif
 
 #include <string.h>
 #include <math.h>
@@ -135,14 +139,58 @@ static void SetButtonState(S32 idx, S32 pressed) {
 }
 
 /* ---------------------------------------------------------------------------
+ * Android TV detection (no touchscreen, skip overlay)
+ * --------------------------------------------------------------------------- */
+
+static S32 IsAndroidTVDevice(void) {
+#ifdef __ANDROID__
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    if (env == NULL) return 0;
+
+    jobject activity = (jobject)SDL_GetAndroidActivity();
+    if (activity == NULL) return 0;
+
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getPM = env->GetMethodID(activityClass, "getPackageManager",
+                                       "()Landroid/content/pm/PackageManager;");
+    if (getPM == NULL) { env->DeleteLocalRef(activityClass); return 0; }
+
+    jobject pm = env->CallObjectMethod(activity, getPM);
+    if (pm == NULL) { env->DeleteLocalRef(activityClass); return 0; }
+
+    jclass pmClass = env->GetObjectClass(pm);
+    jmethodID hasFeature = env->GetMethodID(pmClass, "hasSystemFeature",
+                                            "(Ljava/lang/String;)Z");
+    jstring feature = env->NewStringUTF("android.software.leanback");
+    S32 isTV = (hasFeature != NULL)
+               ? (S32)env->CallBooleanMethod(pm, hasFeature, feature)
+               : 0;
+
+    env->DeleteLocalRef(feature);
+    env->DeleteLocalRef(pmClass);
+    env->DeleteLocalRef(pm);
+    env->DeleteLocalRef(activityClass);
+    return isTV;
+#else
+    return 0;
+#endif
+}
+
+/* ---------------------------------------------------------------------------
  * Public API
  * --------------------------------------------------------------------------- */
 
 void TouchOverlay_Init(void) {
 #ifdef __ANDROID__
-    s_active = 1;
-    LogPrintf("TouchOverlay: initialised for Android (%d buttons)\n",
-              NUM_TOUCH_BUTTONS);
+    if (IsAndroidTVDevice()) {
+        LogPrintf("TouchOverlay: Android TV detected, overlay disabled "
+                  "(use gamepad/remote)\n");
+        s_active = 0;
+    } else {
+        s_active = 1;
+        LogPrintf("TouchOverlay: initialised for Android (%d buttons)\n",
+                  NUM_TOUCH_BUTTONS);
+    }
 #else
     s_active = 0;
 #endif
