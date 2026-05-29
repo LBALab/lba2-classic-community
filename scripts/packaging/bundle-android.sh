@@ -88,6 +88,13 @@ mkdir -p "$STAGING/res/values"
 # 1. Place native library
 cp "$LIB_PATH" "$STAGING/lib/$ARCH/$LIB_NAME"
 
+# 1b. App icon — resolvable as @mipmap/ic_launcher in the manifest
+ICON_SRC="$REPO_ROOT/packaging/lba2cc.png"
+if [[ -f "$ICON_SRC" ]]; then
+    mkdir -p "$STAGING/res/mipmap-hdpi"
+    cp "$ICON_SRC" "$STAGING/res/mipmap-hdpi/ic_launcher.png"
+fi
+
 # 2. AndroidManifest.xml — resolve @string references from the manifest
 PRODUCT_NAME="${LBA2_PRODUCT_NAME:-LBA2 Classic Community}"
 cat > "$STAGING/res/values/strings.xml" <<EOF
