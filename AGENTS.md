@@ -33,7 +33,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 Operational complements to the principles above.
 
-- **ASM is the source of truth.** All equivalence tests compare ASM vs C++ byte-for-byte. Use `ASSERT_ASM_CPP_EQ_INT` for scalars, `ASSERT_ASM_CPP_MEM_EQ` for buffers. See `docs/ASM_TEST_COVERAGE_AUDIT.md` for what "covered" means in practice (branches, side effects, edge inputs, ASM-invalid domains).
+- **ASM is the source of truth.** All equivalence tests compare ASM vs C++ byte-for-byte. Use `ASSERT_ASM_CPP_EQ_INT` for scalars, `ASSERT_ASM_CPP_MEM_EQ` for buffers. See `docs/ASM_TEST_COVERAGE_AUDIT.md` for what "covered" means in practice (branches, side effects, edge inputs, ASM-invalid domains). This applies to ported engine code (LIB386, SOURCES/3DEXT). New SOURCES infrastructure with no ASM original (e.g. console, logging, control harness) is verified by host tests, not ASM equivalence.
 - **Think like an archaeologist:** This codebase is a window into 1990s game dev at Adeline Software. Surface historical context when relevant. See `docs/FRENCH_COMMENTS.md` and `docs/ASCII_ART.md`.
 - **Search before adding:** Check for existing implementations before adding new code; avoid duplication.
 - **Pin fixes with a test or a repro hook.** When fixing a bug, first ask whether the affected logic is pure-data (parsing, serialization, math, projection, sort) — if yes, extracting it into a pure function and adding a host test is usually a small additional refactor and should be done as part of the fix. When automation is impractical (state, timing, UI), ship a manual repro hook instead (a console command, debug menu entry, or build flag). See [CONTRIBUTING.md "Doing good work here"](CONTRIBUTING.md#doing-good-work-here) for the rationale.
@@ -89,11 +89,12 @@ Apply these behavior rules on every non-trivial task:
 
 ## Code conventions
 
-- Indentation: 4 spaces (C/C++); tabs preserved in ASM
+Style rules and rationale (language dialect, indentation, types, C++98, preservation) live in [CODESTYLE.md](CODESTYLE.md) — read it before writing engine code. The agent-critical invariant: **ported original code stays C-style to mirror the ASM; new infrastructure with no ASM original may use conservative C++98 features.** Never modernize game code (see the Never list). When unsure, match the file you are editing.
+
+Formatting mechanics (agent-operational):
+
 - Formatting: clang-format with checked-in `.clang-format`; exclusions live in `.clang-format-ignore` (ASM, `LIB386/libsmacker/`, vendored `stb_*`, and a handful of legacy lookup-table files). When adding vendored third-party code or generated/hand-tuned lookup tables, add the path to `.clang-format-ignore` in the same commit — single source of truth for local scripts, CI, and the pre-commit hook.
 - Pre-commit hook (optional, recommended): `git config core.hooksPath scripts/git-hooks` once per clone. It runs clang-format `--dry-run` on staged C/C++ files (respecting `.clang-format-ignore`) and blocks commits with violations. Fix with `bash ./scripts/ci/apply-format.sh && git add -u`. Bypass with `git commit --no-verify` or `SKIP_FORMAT=1` when warranted.
-- Types: S32, U32 from `LIB386/H/SYSTEM/ADELINE_TYPES.H`
-- C++98 for game code; tests may use C11/C++11
 
 ## Editing docs
 
@@ -165,7 +166,8 @@ both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
 ## Further reading
 
 - [LICENSE](LICENSE) — GPL v2; project license
-- [CONTRIBUTING.md](CONTRIBUTING.md) — Code style, preservation, PR workflow
+- [CODESTYLE.md](CODESTYLE.md) — Canonical code-style rules: language dialect by zone, indentation, types, C++98, preservation
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Contribution workflow, formatter mechanics, PR workflow
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) — Detailed ASM↔CPP workflow, polyrec debugging, test patterns, common pitfalls
 - [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md) — Reasoning and docs for big features (console, headless, menu, camera)
 - [docs/README.md](docs/README.md) — Full documentation index
