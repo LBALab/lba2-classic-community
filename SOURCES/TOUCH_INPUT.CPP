@@ -454,6 +454,18 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
         S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
         S32 y1 = (S32)((btn->cy + btn->ry) * (float)height);
 
+        /* Clamp to framebuffer bounds */
+        if (x0 < 0)
+            x0 = 0;
+        if (y0 < 0)
+            y0 = 0;
+        if (x1 >= (S32)width)
+            x1 = (S32)width - 1;
+        if (y1 >= (S32)height)
+            y1 = (S32)height - 1;
+        if (x0 > x1 || y0 > y1)
+            continue;
+
         U8 alpha = s_pressed[i] ? 180 : 100;
         U8 r = s_pressed[i] ? 200 : 80;
         U8 g = s_pressed[i] ? 200 : 80;
