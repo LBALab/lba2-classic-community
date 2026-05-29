@@ -29,6 +29,7 @@ SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
 bool frameDirty = false;
 static PrePresentFn s_prePresent = NULL;
+static PrePresentFn s_overlayPrePresent = NULL;
 static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
@@ -229,6 +230,10 @@ void SetPrePresentCallback(PrePresentFn fn) {
     s_prePresent = fn;
 }
 
+void SetOverlayPrePresentCallback(PrePresentFn fn) {
+    s_overlayPrePresent = fn;
+}
+
 void SetPresentTimingCallbacks(PresentTimingFn begin, PresentTimingFn end) {
     s_presentBegin = begin;
     s_presentEnd = end;
@@ -264,6 +269,16 @@ static void PresentFrame() {
             paletteRgb[i * 3 + 2] = (U8)(c);
         }
         s_prePresent((U32 *)texPixels, (U32)texPitch, ModeResX, ModeResY, paletteRgb);
+    }
+    if (s_overlayPrePresent) {
+        static U8 overlayPaletteRgb[256 * 3];
+        for (int i = 0; i < 256; i++) {
+            U32 c = paletteLUT[i];
+            overlayPaletteRgb[i * 3 + 0] = (U8)(c >> 16);
+            overlayPaletteRgb[i * 3 + 1] = (U8)(c >> 8);
+            overlayPaletteRgb[i * 3 + 2] = (U8)(c);
+        }
+        s_overlayPrePresent((U32 *)texPixels, (U32)texPitch, ModeResX, ModeResY, overlayPaletteRgb);
     }
 
     UnlockAndPresentRendererTexture();

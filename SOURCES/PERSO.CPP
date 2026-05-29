@@ -11,6 +11,7 @@
 #include "RES_SWITCH.H"
 #include "CONSOLE/CONSOLE.H"
 #include "PERFTRACE.H"
+#include "TOUCH_INPUT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
 #include <FILEIO/SAVEPNG.H>
@@ -2382,6 +2383,11 @@ int main(int argc, char *argv[]) {
     /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
+
+    /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
+       timing callbacks nest correctly. No-op on non-Android builds. */
+    TouchOverlay_Init();
+    SetOverlayPrePresentCallback(TouchOverlay_Render);
 
     /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
        via the `perftrace` console verb. See docs/PERFTRACE.md. */

@@ -60,9 +60,14 @@ jobs:
     with:
       artifact-prefix: latest-macos
 
+  build-android:
+    uses: ./.github/workflows/reusable-build-android.yml
+    with:
+      artifact-prefix: latest-android
+
   release:
     name: Update rolling latest release
-    needs: [build-linux, build-linux-tarball, build-windows, build-macos]
+    needs: [build-linux, build-linux-tarball, build-windows, build-macos, build-android]
     # Run even if a build leg failed — partial release with whatever
     # platforms succeeded is more useful for community testers than
     # blocking the whole rolling release on one flaky leg. Don't run if
@@ -88,7 +93,7 @@ jobs:
           - Commit: [\`${SHA_SHORT}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
           - Built: ${TIMESTAMP}
 
-          Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release.
+          Same artifact shape as tagged releases — Linux AppImage and portable tarball (x86_64, aarch64), Windows portable ZIP (x64), macOS DMG (arm64), Android APK (arm64-v8a). May contain in-progress changes that haven't been play-tested. If you're chasing a specific bug or sharing with others, prefer a tagged release.
 
           If a particular platform's artifact is missing below, that platform's build leg failed for this commit; the other platforms still updated. Earlier rolling builds remain accessible via the [commit history](https://github.com/${{ github.repository }}/commits/main).
           EOF
@@ -105,6 +110,7 @@ jobs:
             lba2cc-*-linux-*.tar.gz
             lba2cc-*-windows-x64.zip
             lba2cc-*-macos-arm64.dmg
+            lba2cc-*-android-*.apk
           # Keep the most recent stable v0.x.y tag as GitHub's "Latest"
           # badge. This rolling release sits below it as a clearly-labeled
           # pre-release.

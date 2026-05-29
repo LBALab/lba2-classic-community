@@ -133,6 +133,23 @@
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker"
       }
+    },
+    {
+      "name": "android_arm64",
+      "inherits": "default",
+      "displayName": "Android arm64-v8a",
+      "description": "Cross-compile for Android ARM64 (requires Android NDK + SDL3 built for Android)",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK}/build/cmake/android.toolchain.cmake",
+        "CMAKE_BUILD_TYPE": "Release",
+        "ANDROID_ABI": "arm64-v8a",
+        "ANDROID_PLATFORM": "24",
+        "ANDROID_STL": "c++_shared",
+        "SOUND_BACKEND": "sdl",
+        "MVIDEO_BACKEND": "smacker",
+        "SDL3_DIR": "$env{SDL3_ANDROID_DIR}"
+      }
     }
   ],
   "buildPresets": [
@@ -171,6 +188,10 @@
     {
       "name": "windows_mingw64",
       "configurePreset": "windows_mingw64"
+    },
+    {
+      "name": "android_arm64",
+      "configurePreset": "android_arm64"
     }
   ]
 }

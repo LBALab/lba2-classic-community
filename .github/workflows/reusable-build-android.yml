@@ -1,0 +1,150 @@
+name: Build Android APK (reusable)
+
+# Reusable build steps for the Android APK target. Called by
+# release-android.yml (tag-triggered) and release-latest.yml (rolling
+# pre-release). Produces a `dist/` directory with the debug-signed APK
+# and uploads it as a workflow artifact named `<artifact-prefix>-<arch>`.
+#
+# Requires the Android SDK + NDK on the runner. The job installs them
+# via the command-line tools if not already present.
+#
+# See docs/RELEASING.md "Adding a new release target" for the recipe this
+# file follows.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        description: >-
+          Prefix for the upload-artifact name. Caller appends -<arch>.
+          Tag releases pass "Android" (default); release-latest passes
+          "latest-android" so its download-artifact pattern picks them up.
+        type: string
+        required: false
+        default: Android
+
+jobs:
+  build:
+    name: "Build ${{ matrix.arch }}"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64-v8a
+            abi: arm64-v8a
+            ndk_target: aarch64-linux-android
+            preset: android_arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Install Android SDK command-line tools
+        run: |
+          ANDROID_HOME="${ANDROID_HOME:-${HOME}/Android/Sdk}"
+          mkdir -p "${ANDROID_HOME}/cmdline-tools"
+          if [ ! -f "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ]; then
+            CLI_ZIP="${RUNNER_TEMP}/cmdline-tools.zip"
+            # Keep in sync with the AGP version used in android/build.gradle
+            # when Gradle-based packaging is enabled.
+            curl -fsSLo "$CLI_ZIP" \
+              "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            unzip -qo "$CLI_ZIP" -d "${RUNNER_TEMP}/cmdline-tools-unzip"
+            mkdir -p "${ANDROID_HOME}/cmdline-tools/latest"
+            mv "${RUNNER_TEMP}/cmdline-tools-unzip/cmdline-tools/"* \
+               "${ANDROID_HOME}/cmdline-tools/latest/"
+            rm -rf "$CLI_ZIP" "${RUNNER_TEMP}/cmdline-tools-unzip"
+          fi
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Accept SDK licenses
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;26.1.10909125" \
+            "platform-tools" \
+            2>&1
+
+      - name: Set environment
+        run: |
+          ANDROID_NDK="${ANDROID_HOME}/ndk/26.1.10909125"
+          echo "ANDROID_NDK=${ANDROID_NDK}" >> "$GITHUB_ENV"
+          echo "${ANDROID_HOME}/build-tools/34.0.0" >> "$GITHUB_PATH"
+          echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Build SDL3 for Android
+        run: |
+          SDL3_DIR="${RUNNER_TEMP}/SDL3"
+          SDL3_BUILD="${RUNNER_TEMP}/sdl3-build"
+          SDL3_INSTALL="${RUNNER_TEMP}/sdl3-install"
+
+          if [ ! -d "$SDL3_DIR" ]; then
+            git clone --depth 1 https://github.com/libsdl-org/SDL3.git "$SDL3_DIR"
+          fi
+
+          cmake -S "$SDL3_DIR" -B "$SDL3_BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=24 \
+            -DANDROID_STL=c++_shared \
+            -DSDL_SHARED=ON \
+            -DSDL_STATIC=OFF \
+            -DSDL_TEST=OFF
+
+          cmake --build "$SDL3_BUILD" -- -j$(nproc)
+          cmake --install "$SDL3_BUILD" --prefix "$SDL3_INSTALL"
+
+          echo "SDL3_ANDROID_DIR=${SDL3_INSTALL}" >> "$GITHUB_ENV"
+          echo "SDL3_DIR=${SDL3_INSTALL}" >> "$GITHUB_ENV"
+
+      - name: Configure LBA2
+        run: |
+          cmake --preset ${{ matrix.preset }} \
+                -DSOUND_BACKEND=sdl \
+                -DMVIDEO_BACKEND=smacker \
+                -DCMAKE_BUILD_TYPE=Release \
+                2>&1
+
+      - name: Build LBA2 native library
+        run: |
+          cmake --build --preset ${{ matrix.preset }} -- -j$(nproc) 2>&1
+
+      - name: Bundle APK
+        run: |
+          BUILD_DIR="out/build/${{ matrix.preset }}"
+          VERSION=$(cat "$BUILD_DIR/VERSION.txt")
+          NATIVE_LIB="$BUILD_DIR/SOURCES/liblba2cc.so"
+
+          mkdir -p dist
+
+          bash scripts/packaging/bundle-android.sh \
+            --lib "$NATIVE_LIB" \
+            --version "$VERSION" \
+            --arch "${{ matrix.abi }}" \
+            --build-dir "$BUILD_DIR" \
+            --sdk-root "$ANDROID_HOME" \
+            --output-dir dist
+
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.arch }}
+          path: dist
