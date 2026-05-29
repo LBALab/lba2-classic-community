@@ -150,7 +150,7 @@ static inline void DrawFeuillePolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs) {
         if (i3 < 0)
             i3 = 0; // groumpf
 
-    /*		i0 = i[0]*256 		;
+        /*		i0 = i[0]*256 		;
 		i1 = i[65]*256		;
 		i3 = i[1]*256 		;
 		i2 = i[65+1]*256 	;

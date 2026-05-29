@@ -542,7 +542,7 @@ void SaveGame(S32 flagmess) {
     RemapPicture(BufSpeak + 150000L, 160 * 120);
 
     if (flagmess) {
-    /*		strcpy( string, "Sauvegarde en cours ..." ) ;
+        /*		strcpy( string, "Sauvegarde en cours ..." ) ;
 		ColorFont( LBAWHITE ) ;
 		// cadre
 		x0 = 320 - SizeFont( string )/2 - 50 ;
