@@ -152,7 +152,7 @@ Please note this license only applies to **Little Big Adventure 2** engine sourc
 
 ## How can I contribute?
 
-Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-community/blob/main/CONTRIBUTING.md).
+Read our [Contribution Guidelines](https://github.com/LBALab/lba2-classic-community/blob/main/CONTRIBUTING.md) and the [Code Style](https://github.com/LBALab/lba2-classic-community/blob/main/CODESTYLE.md) reference.
 
 ## Links
 
