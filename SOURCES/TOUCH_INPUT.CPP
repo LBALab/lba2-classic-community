@@ -8,7 +8,7 @@
 #include <SDL3/SDL_events.h>
 #ifdef __ANDROID__
 #include <jni.h>
-#include <SDL3/SDL_android.h>
+#include <SDL3/SDL_system.h>
 #endif
 
 #include <string.h>
