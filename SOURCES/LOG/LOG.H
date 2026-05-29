@@ -33,6 +33,11 @@ void Log_Info(const char *fmt, ...);
 void Log_Warn(const char *fmt, ...);
 void Log_Error(const char *fmt, ...);
 
+/* Verbatim line — no severity prefix, no section idiom; sinks print it as-is.
+ * For framing/banner output (e.g. the boot header). Admitted at INFO level for
+ * per-sink filtering. */
+void Log_Raw(const char *fmt, ...);
+
 /* Section markers — sinks render the header in their own idiom (the file sink
  * uses "==== Title ===="). EndSection has no file-sink output; it exists for
  * sinks that bracket (terminal/console, later phases) and for ScopedSection. */

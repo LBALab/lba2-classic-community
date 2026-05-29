@@ -37,6 +37,18 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #endif
 #include <unistd.h>
 
+#include <SDL3/SDL_cpuinfo.h> /* SDL_GetNumLogicalCPUCores, SDL_GetSystemRAM */
+
+#if defined(_WIN32)
+#define LOG_PLATFORM_NAME "Windows"
+#elif defined(__APPLE__)
+#define LOG_PLATFORM_NAME "macOS"
+#elif defined(__linux__)
+#define LOG_PLATFORM_NAME "Linux"
+#else
+#define LOG_PLATFORM_NAME "Unknown"
+#endif
+
 // -----------------------------------------------------------------------------
 #include "BUILD_INFO.h"
 #ifdef DEMO
@@ -83,7 +95,17 @@ void InitAdeline(S32 argc, char *argv[]) {
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
         atexit(Log_Shutdown);
 
-        Log_Info("Starting game...");
+        /* Funfrock framing header — the one bit of flavour in the log path;
+           the straight-faced sections below are the contrast. */
+        Log_Raw("TWINSUN CENTRAL COMMAND -- CITIZEN ACCESS TERMINAL");
+        Log_Raw("By order of Dr. FunFrock, all activity is monitored.");
+        Log_Raw("");
+        Log_Raw("%s  %s  (built %s %s)", APPNAME, LOG_PLATFORM_NAME, __DATE__,
+                __TIME__);
+        Log_Raw("%d logical cores, %d MB RAM", SDL_GetNumLogicalCPUCores(),
+                SDL_GetSystemRAM());
+        Log_Raw("");
+
         Log_Info("Paths:");
         Log_Info("  Assets: %s", resFolderPath);
         Log_Info("  Saves:  %s", saveFolderPath);

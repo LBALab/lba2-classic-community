@@ -19,6 +19,7 @@
 #define LBA_CAT_LOG (SDL_LOG_CATEGORY_CUSTOM + 0)
 #define LBA_CAT_SECTION (SDL_LOG_CATEGORY_CUSTOM + 1)
 #define LBA_CAT_SECTION_END (SDL_LOG_CATEGORY_CUSTOM + 2)
+#define LBA_CAT_RAW (SDL_LOG_CATEGORY_CUSTOM + 3)
 #endif
 
 #define LOG_MSG_MAX 1024
@@ -32,7 +33,8 @@ namespace {
 /* Record kind, carried alongside severity through the fan-out. */
 enum { REC_NORMAL = 0,
        REC_SECTION_BEGIN = 1,
-       REC_SECTION_END = 2 };
+       REC_SECTION_END = 2,
+       REC_RAW = 3 };
 
 typedef void (*SinkWriteFn)(LogSink *sink, LogSeverity sev, int kind,
                             const char *msg);
@@ -88,6 +90,8 @@ void file_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
         fprintf(s->fp, "==== %s ====\n", msg);
     else if (kind == REC_SECTION_END)
         ; /* no closer in the file */
+    else if (kind == REC_RAW)
+        fprintf(s->fp, "%s\n", msg);
     else
         fprintf(s->fp, "[%s] %s\n", severity_tag(sev), msg);
     fflush(s->fp);
@@ -122,6 +126,8 @@ void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
         for (int i = 0; i < LOG_TERM_WIDTH; ++i)
             fputc('-', out);
         fputs("\033[0m\n", out);
+    } else if (kind == REC_RAW) {
+        fprintf(out, "%s\n", msg);
     } else {
         fprintf(out, "%s%s\033[0m\n", severity_color(sev), msg);
     }
@@ -207,6 +213,8 @@ int sdl_category_to_kind(int category) {
         return REC_SECTION_BEGIN;
     if (category == LBA_CAT_SECTION_END)
         return REC_SECTION_END;
+    if (category == LBA_CAT_RAW)
+        return REC_RAW;
     return REC_NORMAL;
 }
 
@@ -215,6 +223,8 @@ int kind_to_sdl_category(int kind) {
         return LBA_CAT_SECTION;
     if (kind == REC_SECTION_END)
         return LBA_CAT_SECTION_END;
+    if (kind == REC_RAW)
+        return LBA_CAT_RAW;
     return LBA_CAT_LOG;
 }
 
@@ -261,6 +271,7 @@ void Log_Init(void) {
     SDL_SetLogPriority(LBA_CAT_LOG, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogPriority(LBA_CAT_SECTION, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogPriority(LBA_CAT_SECTION_END, SDL_LOG_PRIORITY_DEBUG);
+    SDL_SetLogPriority(LBA_CAT_RAW, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogOutputFunction(sdl_output, 0);
 #endif
 }
@@ -305,6 +316,15 @@ void Log_Error(const char *fmt, ...) {
     va_start(ap, fmt);
     emit_va(LOG_ERROR, fmt, ap);
     va_end(ap);
+}
+
+void Log_Raw(const char *fmt, ...) {
+    char buf[LOG_MSG_MAX];
+    va_list ap;
+    va_start(ap, fmt);
+    (void)vsnprintf(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+    emit_formatted(LOG_INFO, REC_RAW, buf);
 }
 
 void Log_BeginSection(const char *title) {

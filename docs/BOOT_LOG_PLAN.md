@@ -1,6 +1,6 @@
 # Boot Log + Exit Screen
 
-**Status:** Decisions locked. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), and 4 (boot-path wiring) done; Phases 2, 5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
+**Status:** Decisions locked. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), 4 (boot-path wiring), and 5 (Funfrock header) done; Phase 2 (console sink) pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
 
 ## Goal
 
@@ -310,19 +310,31 @@ Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
 - Only the major subsystems are wrapped; minor steps (joystick, OS, CPU,
   keyboard, mouse, timer) keep their existing lines for now.
 
-### Phase 5 — Funfrock framing header
+### Phase 5 — Funfrock framing header — done
 
-- At the very top of `Log_Init()` (before any section), emit a 2-line
-  banner:
+- Emit, at the top of the log (in `InitAdeline` right after the sinks register —
+  *not* inside `Log_Init`, which runs before any sink exists), a 2-line banner:
   ```
-  TWINSUN CENTRAL COMMAND — CITIZEN ACCESS TERMINAL
+  TWINSUN CENTRAL COMMAND -- CITIZEN ACCESS TERMINAL
   By order of Dr. FunFrock, all activity is monitored.
   ```
-- Followed by the build identity line:
-  `LBA2-CE <version> <platform> <build-date>`
-- Followed by a CPU/memory line (Doom 3 convention).
-- This is the *only* flavor in the log path. Everything below is straight-faced
-  diagnostic output. The contrast is the joke.
+- Followed by the build-identity line (`<product> <version>  <platform>  (built
+  <date> <time>)`) and a CPU/memory line (`N logical cores, M MB RAM`).
+- This is the *only* flavour in the log path; the straight-faced sections below
+  are the contrast.
+
+**Decisions taken (Phase 5):**
+
+- Added a `Log_Raw()` primitive (record kind `REC_RAW`, fourth SDL category) so
+  banner lines render verbatim — no `[INFO]` prefix, no section dashes. Both
+  sinks print it as-is.
+- Banner emitted from `InitAdeline` after the sinks are added (the plan's "top
+  of `Log_Init()`" predates the sink-agnostic `Log_Init`); it is the first thing
+  in the log after CreateLog's own line.
+- Build identity uses the existing `APPNAME` (product + version) +
+  compile-time platform macro + `__DATE__`/`__TIME__`; CPU/RAM via
+  `SDL_GetNumLogicalCPUCores()` / `SDL_GetSystemRAM()` (no engine-internal
+  probing). Verified in `adeline.log` and via the boot run.
 
 ### Phase 6 — Exit screen module — done
 
