@@ -143,6 +143,7 @@ jobs:
           VERSION=$(cat "$BUILD_DIR/VERSION.txt")
           NATIVE_LIB="$BUILD_DIR/SOURCES/liblba2cc.so"
           SDL3_SRC="${RUNNER_TEMP}/SDL3"
+          SDL3_LIB="${RUNNER_TEMP}/sdl3-install/lib/libSDL3.so"
 
           mkdir -p dist
 
@@ -153,6 +154,7 @@ jobs:
             --build-dir "$BUILD_DIR" \
             --sdk-root "$ANDROID_HOME" \
             --sdl3-java-src "$SDL3_SRC" \
+            --sdl3-lib "$SDL3_LIB" \
             --output-dir dist
 
       - name: Upload temporary artifact
