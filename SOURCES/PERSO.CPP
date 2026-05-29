@@ -10,6 +10,7 @@
 #include "CONTROL.H"
 #include "RES_SWITCH.H"
 #include "CONSOLE/CONSOLE.H"
+#include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -2196,6 +2197,15 @@ void TheEndInfo() {
 #endif
 
     LogPrintf("\n");
+
+    /* Exit-screen easter egg: only on a genuine clean shutdown. End_Num is
+       PROGRAM_OK (2) only when TheEnd(PROGRAM_OK, ...) ran; crash/error paths
+       set other codes and early exits leave it at -1, so this never fires on a
+       non-clean exit. Separate module — does not touch the log; silent unless
+       stdout is a real TTY. See docs/BOOT_LOG_PLAN.md Phase 6. */
+    if (End_Num == PROGRAM_OK) {
+        PrintExitScreen();
+    }
 
     switch (End_Num) {
     case ERROR_NOT_FOUND_FILE:
