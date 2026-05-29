@@ -68,8 +68,12 @@ Place your retail LBA2 `.HQR` files on the device via ADB:
 adb push lba2.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
 adb push libraa.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
 
-# Or place at the SD card root — the game also probes /sdcard/ and
-# /storage/emulated/0/ on startup:
+# Or place under /sdcard/lba2cc/ — keeps loose files clean and the
+# game automatically probes this path on startup:
+adb push lba2.hqr /sdcard/lba2cc/
+adb push libraa.hqr /sdcard/lba2cc/
+
+# Also probes /sdcard/ directly as a fallback:
 adb push lba2.hqr /sdcard/
 adb push libraa.hqr /sdcard/
 ```

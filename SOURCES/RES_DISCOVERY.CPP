@@ -403,8 +403,11 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
 
     /* External storage roots: Android /sdcard/ (scoped storage blocks
      * Android/data/<pkg>/ on API 30+, so users must place HQR files
-     * here instead). Harmless no-op on non-Android. */
-    if (NormalizeAndTry("/sdcard/", outDir, outMax, tried, &triedCount) ||
+     * here instead). Also try /sdcard/lba2cc/ so users can keep data
+     * in a subdirectory. Harmless no-op on non-Android. */
+    if (TryJoinBaseSub("/sdcard/", "lba2cc", outDir, outMax, tried, &triedCount) ||
+        TryJoinBaseSub("/storage/emulated/0/", "lba2cc", outDir, outMax, tried, &triedCount) ||
+        NormalizeAndTry("/sdcard/", outDir, outMax, tried, &triedCount) ||
         NormalizeAndTry("/storage/emulated/0/", outDir, outMax, tried, &triedCount)) {
         return true;
     }
