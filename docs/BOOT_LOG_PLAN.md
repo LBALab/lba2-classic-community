@@ -1,6 +1,6 @@
 # Boot Log + Exit Screen
 
-**Status:** Decisions locked. Phases 6 (exit screen) and 1 (core log + file sink) done; Phases 2–5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
+**Status:** Decisions locked. Phases 6 (exit screen), 1 (core log + file sink), and 3 (terminal sink) done; Phases 2, 4, 5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
 
 ## Goal
 
@@ -148,7 +148,7 @@ void Log_Info(const char *fmt, ...);   /* and Log_Debug/Log_Warn/Log_Error */
 void Log_BeginSection(const char *title);
 void Log_EndSection(void);
 LogSink *Log_MakeConsoleBufferSink(void);
-LogSink *Log_MakeTerminalSink(void);
+LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
 LogSink *Log_MakeFileSink(const char *path, LogSeverity min_severity);
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);
@@ -253,20 +253,32 @@ Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
 - **Verification:** boot the engine, open the console (F12), scroll back,
   confirm the boot log is visible.
 
-### Phase 3 — Terminal sink
+### Phase 3 — Terminal sink — done
 
-- Implement `MakeTerminalSink()` with the rules in decision 4 (`isatty`,
-  runtime `getenv("NO_COLOR")`, Windows VT-mode enable for our ANSI). On any
-  failure, the sink registers but its `Write` is a no-op.
-- Use ANSI 16-color codes (not 256, not truecolor) for portability. Severity →
-  color: Info default, Warn yellow, Error red, Debug dim grey. Section headers
-  cyan.
-- Section header rendering: `------ Title ------` padded to ~60 chars; closer is
-  a matching all-dash line.
-- Register during `Log_Init()` (Debug+ filtering).
-- **Verification:** launch from a Linux terminal, see colored boot log on
-  stderr. Launch with `2> /tmp/x`, confirm `/tmp/x` is empty. Launch with
-  `NO_COLOR=1`, confirm no escape codes in stderr or the file.
+- Implement `Log_MakeTerminalSink(min_severity)` with the rules in decision 4
+  (`isatty(stderr)`, runtime `getenv("NO_COLOR")`, Windows VT-mode enable for
+  our ANSI). On any failure the sink registers but its write is a no-op.
+- ANSI 16-color (not 256, not truecolor). Severity → color: Info default, Warn
+  yellow, Error red, Debug dim grey. Section headers cyan.
+- Section header `------ Title ------` padded to 60 chars; closer is a matching
+  all-dash line (needs a section-end record — added to the core, see below).
+- **Verification:** pty smoke shows coloured records + section rules on stderr;
+  redirect stderr → empty; `NO_COLOR=1` → empty. Phase 1 host test still passes
+  (file sink unchanged through the new record path).
+
+**Decisions taken (Phase 3):**
+
+- Sections now carry a *kind* (normal / begin / end) through the fan-out — over
+  the SDL spine via three categories (`LBA_CAT_LOG` / `_SECTION` / `_SECTION_END`).
+  The file sink ignores the end record; the terminal sink draws the closer rule.
+- Terminal sink writes to `stderr` (not owned — never `fclose`d on shutdown; the
+  file sink keeps `owns_fp`). Gate evaluated at `Log_MakeTerminalSink` time;
+  failure swaps in a `noop_write`.
+- **Not auto-registered in `Log_Init()`** (the plan's earlier "register during
+  Log_Init" wording). Like the file sink, sinks are created via `Log_Make*Sink`
+  and added explicitly — the boot setup wires them in Phase 4. Dormant until then.
+- No host test: ANSI/TTY rendering is environmental; verified by pty smoke (the
+  shared record path stays covered by the Phase 1 file-sink test).
 
 ### Phase 4 — Wire boot path
 

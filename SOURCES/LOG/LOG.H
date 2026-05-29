@@ -44,6 +44,12 @@ void Log_EndSection(void);
  * resolved path (GetLogPath) — one log file, reused, not a second one. */
 LogSink *Log_MakeFileSink(const char *path, LogSeverity min_severity);
 
+/* Terminal sink: ANSI 16-colour records on stderr (severity-coloured, cyan
+ * "------ Title ------" section rules). Active only when stderr is a real TTY
+ * and NO_COLOR is unset (Windows: also enables VT processing); otherwise it
+ * registers but writes nothing, so redirected output never gets escape codes. */
+LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
+
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);
 
