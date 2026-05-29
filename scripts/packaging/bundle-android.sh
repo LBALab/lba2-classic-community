@@ -7,6 +7,7 @@
 #                     --arch <arm64-v8a> \
 #                     --build-dir <cmake-build-dir> \
 #                     --sdk-root <android-sdk> \
+#                     --sdl3-java-src <path-to-sdl3-java-sources> \
 #                     --output-dir <where-to-drop-the-apk>
 #
 # Produces: <output-dir>/lba2cc-<version>-android-<arch>.apk
@@ -20,6 +21,7 @@ VERSION=""
 ARCH="arm64-v8a"
 BUILD_DIR=""
 SDK_ROOT=""
+SDL3_JAVA_SRC=""
 OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
@@ -29,6 +31,7 @@ while [[ $# -gt 0 ]]; do
         --arch) ARCH="$2"; shift 2 ;;
         --build-dir) BUILD_DIR="$2"; shift 2 ;;
         --sdk-root) SDK_ROOT="$2"; shift 2 ;;
+        --sdl3-java-src) SDL3_JAVA_SRC="$2"; shift 2 ;;
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
@@ -44,6 +47,11 @@ for var in LIB_PATH VERSION BUILD_DIR SDK_ROOT OUTPUT_DIR; do
         exit 2
     fi
 done
+
+if [[ -z "$SDL3_JAVA_SRC" ]]; then
+    echo "bundle-android.sh: missing required arg: sdl3-java-src" >&2
+    exit 2
+fi
 
 if [[ ! -f "$LIB_PATH" ]]; then
     echo "bundle-android.sh: native lib not found at $LIB_PATH" >&2
@@ -107,24 +115,44 @@ EOF
 
 cp "$REPO_ROOT/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
 
-# 3. Build APK with aapt
+# 3. Compile SDL Java sources into classes.dex
+echo "[bundle-android] compiling SDL Java to DEX..."
+SDL_JAVA_DIR="${SDL3_JAVA_SRC}/android-project/app/src/main/java"
+D8="$BUILD_TOOLS/d8"
+if [[ -d "$SDL_JAVA_DIR" && -x "$D8" ]]; then
+    SDL_JAVA_FILES=$(find "$SDL_JAVA_DIR" -name '*.java')
+    if [[ -n "$SDL_JAVA_FILES" ]]; then
+        mkdir -p "$STAGING/obj"
+        javac -d "$STAGING/obj" \
+            -classpath "$SDK_ROOT/platforms/android-34/android.jar" \
+            $SDL_JAVA_FILES 2>&1
+        "$D8" --lib "$SDK_ROOT/platforms/android-34/android.jar" \
+            --output "$STAGING" $(find "$STAGING/obj" -name '*.class') 2>&1
+        rm -rf "$STAGING/obj"
+    fi
+fi
+
+# 4. Build APK with aapt
 echo "[bundle-android] packaging APK..."
 "$AAPT" package -f -M "$STAGING/AndroidManifest.xml" \
     -S "$STAGING/res" \
     -I "$SDK_ROOT/platforms/android-34/android.jar" \
     -F "$STAGING/unsigned.apk" 2>&1
 
-# 4. Add native lib to the APK
-echo "[bundle-android] adding native lib..."
+# 5. Add classes.dex and native lib to the APK (store .so uncompressed)
+echo "[bundle-android] adding native lib and DEX..."
 cd "$STAGING"
-"$AAPT" add "unsigned.apk" "lib/$ARCH/$LIB_NAME" 2>&1
+if [[ -f classes.dex ]]; then
+    "$AAPT" add "unsigned.apk" "classes.dex" 2>&1
+fi
+"$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/$LIB_NAME" 2>&1
 cd "$REPO_ROOT"
 
-# 5. Zipalign
+# 6. Zipalign
 echo "[bundle-android] aligning..."
 "$ZIPALIGN" -f -p 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk"
 
-# 6. Debug-sign with the auto-generated debug keystore
+# 7. Debug-sign with the auto-generated debug keystore
 KEYSTORE="${HOME}/.android/debug.keystore"
 KEYPASS="android"
 if [[ ! -f "$KEYSTORE" ]]; then
@@ -142,11 +170,11 @@ echo "[bundle-android] signing..."
     --key-pass "pass:${KEYPASS}" \
     --out "$ARTIFACT_APK" "$STAGING/aligned.apk"
 
-# 7. Verify
+# 8. Verify
 echo "[bundle-android] verifying..."
 "$APKSIGNER" verify "$ARTIFACT_APK" 2>&1
 
-# 8. Cleanup
+# 9. Cleanup
 rm -rf "$STAGING"
 
 APK_SIZE=$(du -h "$ARTIFACT_APK" | cut -f1)

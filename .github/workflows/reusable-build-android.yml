@@ -142,6 +142,7 @@ jobs:
           BUILD_DIR="out/build/${{ matrix.preset }}"
           VERSION=$(cat "$BUILD_DIR/VERSION.txt")
           NATIVE_LIB="$BUILD_DIR/SOURCES/liblba2cc.so"
+          SDL3_SRC="${RUNNER_TEMP}/SDL3"
 
           mkdir -p dist
 
@@ -151,6 +152,7 @@ jobs:
             --arch "${{ matrix.abi }}" \
             --build-dir "$BUILD_DIR" \
             --sdk-root "$ANDROID_HOME" \
+            --sdl3-java-src "$SDL3_SRC" \
             --output-dir dist
 
       - name: Upload temporary artifact
