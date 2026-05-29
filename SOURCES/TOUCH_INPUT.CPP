@@ -3,6 +3,8 @@
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SVGA/VIDEO.H>
+#include <SYSTEM/WINDOW.H>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_events.h>
@@ -118,6 +120,38 @@ static S32 FindFingerByTouchId(S32 touchId) {
             return i;
     }
     return -1;
+}
+
+/* Map a touch coordinate from display-normalised space (0..1 of the full
+ * screen) to game-area-normalised space (0..1 of the letterboxed 4:3
+ * region). This is the inverse of ComputePresentationRect. */
+static void MapToGameCoords(float *nx, float *ny) {
+    if (ModeResX == 0 || ModeResY == 0)
+        return;
+
+    SDL_Window **windows = SDL_GetWindows(NULL);
+    if (windows == NULL || windows[0] == NULL)
+        return;
+
+    int winW, winH;
+    SDL_GetWindowSize(windows[0], &winW, &winH);
+    if (winW <= 0 || winH <= 0)
+        return;
+
+    float pixelX = *nx *(float)winW;
+    float pixelY = *ny *(float)winH;
+
+    S32 surfX, surfY;
+    WindowToSurfaceCoords((S32)pixelX, (S32)pixelY, &surfX, &surfY);
+
+    /* Clamp to valid surface area */
+    if (surfX < 0) surfX = 0;
+    if (surfY < 0) surfY = 0;
+    if (surfX >= (S32)ModeResX) surfX = (S32)ModeResX - 1;
+    if (surfY >= (S32)ModeResY) surfY = (S32)ModeResY - 1;
+
+    *nx = (float)surfX / (float)ModeResX;
+    *ny = (float)surfY / (float)ModeResY;
 }
 
 static S32 HitTest(float nx, float ny) {
@@ -254,6 +288,7 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
             return 1;
         float nx = ev->tfinger.x;
         float ny = ev->tfinger.y;
+        MapToGameCoords(&nx, &ny);
         S32 idx = HitTest(nx, ny);
         s_fingers[slot].active = 1;
         s_fingers[slot].touchId = (S32)ev->tfinger.fingerID;
@@ -281,6 +316,7 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
             break;
         float nx = ev->tfinger.x;
         float ny = ev->tfinger.y;
+        MapToGameCoords(&nx, &ny);
         S32 newIdx = HitTest(nx, ny);
         S32 oldIdx = s_fingers[slot].buttonIndex;
         if (newIdx != oldIdx) {
@@ -392,10 +428,10 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
 
     for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
         const TouchButton *btn = &kButtons[i];
-        S32 x0 = (S32)((btn->cx - btn->rx) * (float)width);
-        S32 y0 = (S32)((btn->cy - btn->ry) * (float)height);
-        S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
-        S32 y1 = (S32)((btn->cy + btn->ry) * (float)height);
+        S32 x0 = (S32)((btn->cx - btn->rx) *(float)width);
+        S32 y0 = (S32)((btn->cy - btn->ry) *(float)height);
+        S32 x1 = (S32)((btn->cx + btn->rx) *(float)width);
+        S32 y1 = (S32)((btn->cy + btn->ry) *(float)height);
 
         U8 alpha = s_pressed[i] ? 180 : 100;
         U8 r = s_pressed[i] ? 200 : 80;
