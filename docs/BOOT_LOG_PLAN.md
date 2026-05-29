@@ -1,6 +1,6 @@
 # Boot Log + Exit Screen
 
-**Status:** Decisions locked. Phase 6 (exit screen) implemented; Phases 1–5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
+**Status:** Decisions locked. Phases 6 (exit screen) and 1 (core log + file sink) done; Phases 2–5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
 
 ## Goal
 
@@ -85,12 +85,12 @@ the question first.
    (`isatty`/`NO_COLOR`/VT-enable are all new — the only existing `NO_COLOR`
    use is the compile-time `#ifdef` in `tests/test_harness.h`; align spelling.)
 5. **File sink is always on, and reuses the existing `adeline.log`.** Path comes
-   from `SDL_GetPrefPath("Twinsen", "LBA2")` → `GetLogPath` → `CreateLog`, which
-   `InitAdeline` already calls. The file sink writes through the existing
-   `LogPrintf` path. **Do not add a second `lba2.log`.** Structured records and
-   the engine's 121 legacy `LogPrintf` lines interleave in one file. Note the
-   existing file is opened append-per-call (not truncate-per-launch); keep or
-   change that deliberately.
+   from `SDL_GetPrefPath("Twinsen", "LBA2")` → `GetLogPath`, the same path
+   `CreateLog` uses. **Do not add a second `lba2.log`.** The sink opens its own
+   `FILE*` to that path (append) and writes file-only — *not* through `LogPrintf`
+   (refined in Phase 1: routing through `LogPrintf` also echoes stdout and isn't
+   unit-testable; stdout/ANSI is the Phase-3 terminal sink's job). Structured
+   records and the engine's legacy `LogPrintf` lines still share the one file.
 6. **Console buffer sink is the universal surface.** Works on Linux, Windows,
    macOS, Steam Deck, Xbox GDK, anywhere the engine runs. Other sinks are
    bonuses on top. **v1 constraints (research A1):** the console stores plain
@@ -149,7 +149,7 @@ void Log_BeginSection(const char *title);
 void Log_EndSection(void);
 LogSink *Log_MakeConsoleBufferSink(void);
 LogSink *Log_MakeTerminalSink(void);
-LogSink *Log_MakeFileSink(void);       /* reuses adeline.log via LogPrintf */
+LogSink *Log_MakeFileSink(const char *path, LogSeverity min_severity);
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);
 #ifdef __cplusplus
@@ -201,26 +201,41 @@ of `CHEATCOD.CPP`).
 Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
 `windows_ucrt64`). **There is no MSVC preset.** No `-Werror` in the build.
 
-### Phase 1 — Core log API + file sink
+### Phase 1 — Core log API + file sink — done
 
-- Add `SOURCES/LOG/log.h` and `SOURCES/LOG/log.cpp` matching the sketched API,
+- Add `SOURCES/LOG/LOG.H` and `SOURCES/LOG/LOG.CPP` matching the sketched API,
   on the `SDL_Log` spine with the `LBA_LOG_NO_SDL` test seam (see Architecture).
 - Implement `Log_Init`, `Log_Shutdown`, severity entry points, `Log_BeginSection`/
-  `Log_EndSection`, the C++ `ScopedSection` helper, sink registry (small
-  fixed-size array — max 8 sinks), and the `SDL_SetLogOutputFunction` install +
-  trampoline. Flat `extern "C"` surface, anon-namespace internals (RES_PICKER
-  style).
+  `Log_EndSection`, the C++ `ScopedSection` helper, a fixed-size sink pool (max 8)
+  + dispatch list, and the `SDL_SetLogOutputFunction` install + trampoline. Flat
+  `extern "C"` surface, anon-namespace internals (RES_PICKER style).
 - Implement **per-sink severity filtering** with the decision-2 defaults.
-- Implement `MakeFileSink()` only — **reuse `adeline.log` via `LogPrintf`**, no
-  new file. Plain text, severity prefix `[INFO]`/`[WARN]`/etc., section headers
-  as `==== Title ====`. Flush per-line (exit-safety).
-- Add the build wiring (append to `SOURCES/CMakeLists.txt`) and ensure it
-  compiles under the `linux` (GCC) and `cross_linux2win`/`windows_ucrt64`
-  (MinGW) presets.
-- **Verification:** host unit test in `tests/logging/` (built with
-  `LBA_LOG_NO_SDL`, C++11, registered via `register_host_test`) that creates a
-  sink, calls each severity, opens/closes a section, and asserts file content.
-  Boot the engine, confirm boot records appear in `adeline.log`.
+- Implement `Log_MakeFileSink(path, min_severity)` only — own `FILE*` to the
+  `adeline.log` path (no second file; see decision 5). Plain text, severity
+  prefix `[DEBUG]`/`[INFO]`/`[WARN]`/`[ERROR]`, section headers `==== Title ====`.
+  Flush per-line (exit-safety).
+- Build wiring: `list(APPEND SOURCES_FILES LOG/LOG.CPP)` in
+  `SOURCES/CMakeLists.txt`; `add_subdirectory(logging)` for the test.
+- **Verification:** host unit test `tests/logging/` (built with `LBA_LOG_NO_SDL`,
+  C++11, `register_host_test`) creates a file sink, calls each severity, opens a
+  section, and asserts on-disk content; per-sink filtering checked too. Not wired
+  into the boot path yet (Phase 4), so `LOG.CPP` compiles into the engine but is
+  dormant.
+
+**Decisions taken (Phase 1):**
+
+- `Log_MakeFileSink(path, min_severity)` owns its own `FILE*` (file-only, no
+  stdout echo) — refines decision 5's "via `LogPrintf`": still one log file
+  (`adeline.log`), but the sink is unit-testable at a temp path and the
+  stdout/ANSI concern stays with the Phase-3 terminal sink. API sketch updated.
+- Sinks live in a fixed static pool (max 8); `Log_AddSink`/`Log_RemoveSink`
+  manage a separate dispatch list. No heap.
+- Sections ride the SDL spine via a dedicated category (`LBA_CAT_SECTION`);
+  `Log_EndSection` is a no-op for the file sink (bracketing sinks hook it later).
+- File opened append (matches `adeline.log` semantics); records flushed per line
+  so an `exit()` mid-boot still leaves them on disk.
+- Verified: host test passes; full engine compiles/links `LOG.CPP` with the SDL
+  spine. Dormant until Phase 4 wiring.
 
 ### Phase 2 — Console buffer sink
 
@@ -348,7 +363,8 @@ it before the quote, re-add the Windows VT enable
 - **Architecture:** SDL_Log spine + thin `Log_*` wrapper; single
   `SDL_SetLogOutputFunction` fan-out; `LBA_LOG_NO_SDL` seam for SDL-free host
   tests. (Resolves the build-from-scratch vs reuse question.)
-- **File sink:** reuse existing `adeline.log` via `LogPrintf`; no second file.
+- **File sink:** reuse existing `adeline.log` (own `FILE*` to that path, append,
+  file-only — refined in Phase 1 from "via `LogPrintf`"); no second file.
 - **Per-sink filtering** is v1 and required: file/terminal Debug+, console
   Warn+ (runtime-raisable). Prevents the spine's audio/SFX logs spamming the
   console.
