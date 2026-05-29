@@ -100,7 +100,13 @@ jobs:
           SDL3_INSTALL="${RUNNER_TEMP}/sdl3-install"
 
           if [ ! -d "$SDL3_DIR" ]; then
-            git clone --depth 1 https://github.com/libsdl-org/SDL3.git "$SDL3_DIR"
+            for i in 1 2 3; do
+              GIT_TERMINAL_PROMPT=0 git clone --depth 1 \
+                https://github.com/libsdl-org/SDL3.git "$SDL3_DIR" 2>&1 && break
+              echo "SDL3 clone attempt $i failed, retrying..."
+              rm -rf "$SDL3_DIR"
+              sleep 2
+            done
           fi
 
           cmake -S "$SDL3_DIR" -B "$SDL3_BUILD" -G Ninja \
