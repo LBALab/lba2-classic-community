@@ -64,7 +64,7 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PACKAGE="org.lbalab.lba2cc"
-LIB_NAME="liblba2cc.so"
+LIB_NAME="libmain.so"
 ARTIFACT_NAME="lba2cc-${VERSION}-android-${ARCH}"
 ARTIFACT_APK="${OUTPUT_DIR}/${ARTIFACT_NAME}.apk"
 
@@ -99,9 +99,16 @@ mkdir -p "$STAGING/res/values"
 
 # 1. Place native libraries
 cp "$LIB_PATH" "$STAGING/lib/$ARCH/$LIB_NAME"
-if [[ -n "$SDL3_LIB" && -f "$SDL3_LIB" ]]; then
-    cp "$SDL3_LIB" "$STAGING/lib/$ARCH/"
+# Bundle all SDL3 shared libs from the install prefix
+if [[ -n "$SDL3_LIB" ]]; then
+    SDL3_LIBDIR="$(dirname "$SDL3_LIB")"
+    if [[ -d "$SDL3_LIBDIR" ]]; then
+        for lib in "$SDL3_LIBDIR"/*.so; do
+            [[ -f "$lib" ]] && cp "$lib" "$STAGING/lib/$ARCH/"
+        done
+    fi
 fi
+# Bundle C++ runtime if not already picked up from SDL3 libdir
 if [[ -n "$CXX_SHARED_LIB" && -f "$CXX_SHARED_LIB" ]]; then
     cp "$CXX_SHARED_LIB" "$STAGING/lib/$ARCH/"
 fi
@@ -155,13 +162,9 @@ cd "$STAGING"
 if [[ -f classes.dex ]]; then
     "$AAPT" add "unsigned.apk" "classes.dex" 2>&1
 fi
-"$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/$LIB_NAME" 2>&1
-if [[ -f "lib/$ARCH/libSDL3.so" ]]; then
-    "$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/libSDL3.so" 2>&1
-fi
-if [[ -f "lib/$ARCH/libc++_shared.so" ]]; then
-    "$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/libc++_shared.so" 2>&1
-fi
+for lib in "lib/$ARCH/"*.so; do
+    [[ -f "$lib" ]] && "$AAPT" add -0 .so "unsigned.apk" "$lib" 2>&1
+done
 cd "$REPO_ROOT"
 
 # 6. Zipalign
