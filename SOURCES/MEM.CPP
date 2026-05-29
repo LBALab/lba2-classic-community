@@ -38,7 +38,7 @@ T_MEM ListMem[] = {
     {(void **)&BufferMaskBrick, 0}, // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
     {(void **)&BufMap, 0},          // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
     {(void **)&TabBlock, 0},        // Calculé dynamiquement (GRILLE.CPP -> InitBufferCube())
-    {(void **)&ListFlowDots, sizeof(S_ONE_DOT) * MAX_FLOW_DOTS *MAX_FLOWS},
+    {(void **)&ListFlowDots, sizeof(S_ONE_DOT) * MAX_FLOW_DOTS * MAX_FLOWS},
     {(void **)&PtrXplPalette, SIZE_XPL},
     {(void **)&BufferSmack, 100000L},                                  // tempo ?
     {(void **)&ImageStaging, (S32)IMAGE_STAGING_BYTES + RECOVER_AREA}, // 640x480 image staging
