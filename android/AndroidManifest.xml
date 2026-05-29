@@ -10,10 +10,15 @@
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
-    <!-- Required for reading retail game data from external storage -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Required for reading retail game data from external storage.
+         On API 30+, direct /sdcard/ access needs MANAGE_EXTERNAL_STORAGE.
+         The app-specific Android/data/<pkg>/files/ dir works without it. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
     <!-- Android TV (leanback) support — optional so phones/tablets still work -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -30,7 +35,8 @@
     <application android:label="@string/app_name"
         android:allowBackup="true"
         android:hasCode="true"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true">
 
         <!-- SDL3 provides the Java Activity wrapper -->
         <activity android:name="org.libsdl.app.SDLActivity"
