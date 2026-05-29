@@ -322,8 +322,7 @@ static bool GetAndroidExternalFilesDir(char *outPath, U16 outMax) {
     if (activityClass == NULL)
         return false;
 
-    jmethodID getExternalFilesDir = env->GetMethodID(activityClass,
-        "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
+    jmethodID getExternalFilesDir = env->GetMethodID(activityClass, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
     if (getExternalFilesDir == NULL) {
         env->DeleteLocalRef(activityClass);
         return false;
@@ -336,8 +335,7 @@ static bool GetAndroidExternalFilesDir(char *outPath, U16 outMax) {
     }
 
     jclass fileClass = env->GetObjectClass(fileObj);
-    jmethodID getAbsolutePath = env->GetMethodID(fileClass,
-        "getAbsolutePath", "()Ljava/lang/String;");
+    jmethodID getAbsolutePath = env->GetMethodID(fileClass, "getAbsolutePath", "()Ljava/lang/String;");
     if (getAbsolutePath == NULL) {
         env->DeleteLocalRef(fileClass);
         env->DeleteLocalRef(fileObj);

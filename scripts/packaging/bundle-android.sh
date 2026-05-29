@@ -132,21 +132,33 @@ EOF
 
 cp "$REPO_ROOT/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
 
-# 3. Compile SDL Java sources into classes.dex
-echo "[bundle-android] compiling SDL Java to DEX..."
+# 3. Compile SDL Java sources (plus helpers from android/src/) into classes.dex
+echo "[bundle-android] compiling Java to DEX..."
 SDL_JAVA_DIR="${SDL3_JAVA_SRC}/android-project/app/src/main/java"
+REPO_JAVA_DIR="$REPO_ROOT/android/src"
 D8="$BUILD_TOOLS/d8"
-if [[ -d "$SDL_JAVA_DIR" && -x "$D8" ]]; then
-    SDL_JAVA_FILES=$(find "$SDL_JAVA_DIR" -name '*.java')
-    if [[ -n "$SDL_JAVA_FILES" ]]; then
-        mkdir -p "$STAGING/obj"
-        javac -d "$STAGING/obj" \
-            -classpath "$SDK_ROOT/platforms/android-34/android.jar" \
-            $SDL_JAVA_FILES 2>&1
-        "$D8" --lib "$SDK_ROOT/platforms/android-34/android.jar" \
-            --output "$STAGING" $(find "$STAGING/obj" -name '*.class') 2>&1
-        rm -rf "$STAGING/obj"
-    fi
+# Gather SDL sources
+SDL_JAVA_FILES=""
+if [[ -d "$SDL_JAVA_DIR" ]]; then
+    SDL_JAVA_FILES=$(find "$SDL_JAVA_DIR" -name '*.java' 2>/dev/null | tr '\n' ' ')
+fi
+# Gather repo-local helpers
+REPO_JAVA_FILES=""
+if [[ -d "$REPO_JAVA_DIR" ]]; then
+    REPO_JAVA_FILES=$(find "$REPO_JAVA_DIR" -name '*.java' 2>/dev/null | tr '\n' ' ')
+fi
+# Merge (strip leading/trailing whitespace for -n check)
+ALL_JAVA_FILES="${SDL_JAVA_FILES} ${REPO_JAVA_FILES}"
+ALL_JAVA_FILES="${ALL_JAVA_FILES#"${ALL_JAVA_FILES%%[![:space:]]*}"}"
+ALL_JAVA_FILES="${ALL_JAVA_FILES%"${ALL_JAVA_FILES##*[![:space:]]}"}"
+if [[ -n "$ALL_JAVA_FILES" && -x "$D8" ]]; then
+    mkdir -p "$STAGING/obj"
+    javac -d "$STAGING/obj" \
+        -classpath "$SDK_ROOT/platforms/android-34/android.jar" \
+        $ALL_JAVA_FILES 2>&1
+    "$D8" --lib "$SDK_ROOT/platforms/android-34/android.jar" \
+        --output "$STAGING" $(find "$STAGING/obj" -name '*.class') 2>&1
+    rm -rf "$STAGING/obj"
 fi
 
 # 4. Build APK with aapt

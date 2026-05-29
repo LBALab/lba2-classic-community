@@ -139,7 +139,14 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
+    /* Resizable allows OS-driven window resizing on desktop. On Android,
+     * SDL translates the resizable flag into SCREEN_ORIENTATION_UNSPECIFIED,
+     * which permits portrait rotation and triggers a SDL internal
+     * use-after-free on mutex during surfaceChanged. Lock landscape via
+     * manifest + non-resizable window. */
+#if !defined(__ANDROID__)
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+#endif
     sdlWindow = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);
     if (sdlWindow == NULL) {
