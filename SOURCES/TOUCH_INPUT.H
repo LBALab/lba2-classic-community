@@ -40,6 +40,7 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
  * runtime by TouchOverlay_Enable / TouchOverlay_Disable. */
 S32 TouchOverlay_IsActive(void);
 void TouchOverlay_SetActive(S32 active);
+void ApplyVirtualKeys(void);
 
 #ifdef __cplusplus
 }

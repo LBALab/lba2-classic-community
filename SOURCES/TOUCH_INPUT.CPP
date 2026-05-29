@@ -70,22 +70,22 @@ typedef struct {
 
 static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
     /* Top-left: ESC */
-    {BTN_ESC, "ESC", 0.06f, 0.04f, 0.045f, 0.030f, K_ESC},
+    {BTN_ESC, "ESC", 0.065f, 0.045f, 0.055f, 0.038f, K_ESC},
     /* Top-right: Menu (F10) + Camera toggle */
-    {BTN_MENU, "MEN", 0.88f, 0.04f, 0.050f, 0.030f, K_F10},
-    {BTN_CAMERA, "CAM", 0.96f, 0.04f, 0.035f, 0.030f, K_BACKSPACE},
-    /* Left side: D-pad */
-    {BTN_DPAD_UP, "\xe2\x86\x91", 0.08f, 0.35f, 0.040f, 0.035f, K_UP},
-    {BTN_DPAD_DOWN, "\xe2\x86\x93", 0.08f, 0.50f, 0.040f, 0.035f, K_DOWN},
-    {BTN_DPAD_LEFT, "\xe2\x86\x90", 0.03f, 0.425f, 0.030f, 0.035f, K_LEFT},
-    {BTN_DPAD_RIGHT, "\xe2\x86\x92", 0.13f, 0.425f, 0.030f, 0.035f, K_RIGHT},
-    /* Bottom-right action cluster */
-    {BTN_CTRL, "MD", 0.70f, 0.87f, 0.045f, 0.035f, K_CTRL},
-    {BTN_SPACE, "ACT", 0.80f, 0.87f, 0.045f, 0.035f, K_SPACE},
-    {BTN_ENTER, "USE", 0.90f, 0.87f, 0.045f, 0.035f, K_ENTER},
-    {BTN_ALT, "THR", 0.70f, 0.95f, 0.045f, 0.035f, K_ALT},
-    {BTN_SHIFT, "INV", 0.80f, 0.95f, 0.045f, 0.035f, K_SHIFT},
-    {BTN_ACTION, "W", 0.90f, 0.95f, 0.045f, 0.035f, K_W},
+    {BTN_MENU, "MEN", 0.87f, 0.045f, 0.060f, 0.038f, K_F10},
+    {BTN_CAMERA, "CAM", 0.96f, 0.045f, 0.045f, 0.038f, K_BACKSPACE},
+    /* Left side: D-pad (larger touch targets) */
+    {BTN_DPAD_UP, "\xe2\x86\x91", 0.10f, 0.32f, 0.055f, 0.048f, K_UP},
+    {BTN_DPAD_DOWN, "\xe2\x86\x93", 0.10f, 0.50f, 0.055f, 0.048f, K_DOWN},
+    {BTN_DPAD_LEFT, "\xe2\x86\x90", 0.04f, 0.41f, 0.040f, 0.048f, K_LEFT},
+    {BTN_DPAD_RIGHT, "\xe2\x86\x92", 0.16f, 0.41f, 0.040f, 0.048f, K_RIGHT},
+    /* Bottom-right action cluster (larger, more spacing) */
+    {BTN_CTRL, "MD", 0.63f, 0.86f, 0.065f, 0.045f, K_CTRL},
+    {BTN_SPACE, "ACT", 0.78f, 0.86f, 0.065f, 0.045f, K_SPACE},
+    {BTN_ENTER, "USE", 0.93f, 0.86f, 0.065f, 0.045f, K_ENTER},
+    {BTN_ALT, "THR", 0.63f, 0.96f, 0.065f, 0.045f, K_ALT},
+    {BTN_SHIFT, "INV", 0.78f, 0.96f, 0.065f, 0.045f, K_SHIFT},
+    {BTN_ACTION, "W", 0.93f, 0.96f, 0.065f, 0.045f, K_W},
 };
 
 /* ---------------------------------------------------------------------------
@@ -94,6 +94,7 @@ static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
 
 static S32 s_active = 0; /* set to 1 on Android; also toggle-able */
 static S32 s_pressed[NUM_TOUCH_BUTTONS];
+static U8 s_virtual_keys[256]; /* virtual key states in 0x80-bit format */
 
 /* Per-finger tracking: which button (or -1) each finger is on. */
 static struct {
@@ -174,10 +175,25 @@ static void SetButtonState(S32 idx, S32 pressed) {
     if (s_pressed[idx] == pressed)
         return;
     s_pressed[idx] = pressed;
-    if (pressed) {
-        TabKeys[kButtons[idx].scanCode] = 1;
-    } else {
-        TabKeys[kButtons[idx].scanCode] = 0;
+    U32 sc = kButtons[idx].scanCode;
+    if (sc < 256) {
+        if (pressed) {
+            TabKeys[sc] |= 0x80;
+            s_virtual_keys[sc] = 0x80;
+        } else {
+            TabKeys[sc] &= ~0x80;
+            s_virtual_keys[sc] = 0;
+        }
+    }
+}
+
+/* Re-apply virtual key states after UpdateKeyboardState clears TabKeys[0..255].
+   Called from the weak hook in KEYBOARD.CPP:UpdateKeyboardState. */
+void ApplyVirtualKeys(void) {
+    for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
+        U32 sc = kButtons[i].scanCode;
+        if (sc < 256 && s_virtual_keys[sc])
+            TabKeys[sc] |= 0x80;
     }
 }
 
@@ -246,6 +262,7 @@ void TouchOverlay_Init(void) {
     s_active = 0;
 #endif
     memset(s_pressed, 0, sizeof(s_pressed));
+    memset(s_virtual_keys, 0, sizeof(s_virtual_keys));
     memset(s_fingers, 0, sizeof(s_fingers));
 }
 
