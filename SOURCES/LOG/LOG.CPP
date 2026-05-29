@@ -253,6 +253,14 @@ void Log_Init(void) {
     for (int i = 0; i < LOG_MAX_SINKS; ++i)
         g_pool[i].in_use = 0;
 #ifndef LBA_LOG_NO_SDL
+    /* SDL applies a per-category priority filter *before* calling the output
+       function, and custom categories default to a high threshold — so without
+       this our INFO/DEBUG records would be dropped before reaching any sink.
+       Open our categories down to DEBUG and let the per-sink min-severity do the
+       real filtering. */
+    SDL_SetLogPriority(LBA_CAT_LOG, SDL_LOG_PRIORITY_DEBUG);
+    SDL_SetLogPriority(LBA_CAT_SECTION, SDL_LOG_PRIORITY_DEBUG);
+    SDL_SetLogPriority(LBA_CAT_SECTION_END, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogOutputFunction(sdl_output, 0);
 #endif
 }

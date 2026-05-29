@@ -1,6 +1,6 @@
 # Boot Log + Exit Screen
 
-**Status:** Decisions locked. Phases 6 (exit screen), 1 (core log + file sink), and 3 (terminal sink) done; Phases 2, 4, 5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
+**Status:** Decisions locked. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), and 4 (boot-path wiring) done; Phases 2, 5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
 
 ## Goal
 
@@ -280,17 +280,35 @@ Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
 - No host test: ANSI/TTY rendering is environmental; verified by pty smoke (the
   shared record path stays covered by the Phase 1 file-sink test).
 
-### Phase 4 — Wire boot path
+### Phase 4 — Wire boot path — done
 
-- Replace ad-hoc `printf` / `SDL_Log` / `LogPrintf` calls in the boot path with
-  `Log_*` calls.
-- Add `ScopedSection` blocks around each subsystem init: SDL, file system,
-  audio, game data, input. Respect the exit-safety caveat (sections may not
-  close cleanly on `exit(1)` failure paths).
-- Each subsystem block emits *useful diagnostic detail* — versions, paths,
-  counts, sizes — not just "ok".
-- **Verification:** boot log reads coherently when scrolled back through the
-  in-engine console and in `adeline.log`.
+- `Log_Init()` + register the file sink (adeline.log) and terminal sink, and
+  `atexit(Log_Shutdown)`, in `InitAdeline` right after `CreateLog`.
+- Convert the boot banner + the major subsystem inits (event system, window,
+  video, audio) to `Log_BeginSection`/`Log_Info`/`Log_Error`/`Log_EndSection`,
+  with real detail (paths, window title, render resolution, audio status). On a
+  failed init the section stays open before `exit(1)` — informative, and the
+  per-line flush means the records are already on disk.
+- **Verification:** headless boot writes the sections to `adeline.log`,
+  interleaved with the legacy lines; a pty boot shows the cyan section rules in
+  colour on stderr (terminal sink via the real SDL spine); redirected stderr has
+  zero escapes; clean exit.
+
+**Decisions taken (Phase 4):**
+
+- **SDL filters per category before the output function.** Custom categories
+  default to a high threshold, so the first headless boot dropped every
+  INFO/DEBUG record. Fix: `Log_Init` lowers our three categories to
+  `SDL_LOG_PRIORITY_DEBUG`; the per-sink min-severity is the real filter.
+- **Legacy `LogPrintf` left in place** (the boot path still has unconverted
+  lines like "Initialising Joystick", "Platform: Linux", the version footer).
+  Only the banner + four major subsystems were converted; a full `LogPrintf`
+  purge is deferred until the system is proven. Both writers share `adeline.log`
+  (CreateLog truncates per launch; the file sink and LogPrintf both append).
+- Sinks registered inside `InitAdeline` (not `main`) so they exist before the
+  subsystem inits but after `CreateLog` truncates the file.
+- Only the major subsystems are wrapped; minor steps (joystick, OS, CPU,
+  keyboard, mouse, timer) keep their existing lines for now.
 
 ### Phase 5 — Funfrock framing header
 

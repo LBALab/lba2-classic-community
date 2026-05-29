@@ -6,6 +6,7 @@
 
 #include "AIL/COMMON.H"
 #include "CONTROL.H"
+#include "LOG/LOG.H"
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
 #include "SVGA/VIDEO.H"
@@ -72,20 +73,31 @@ void InitAdeline(S32 argc, char *argv[]) {
 
         GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
         CreateLog(logFilePath);
-        LogPuts("Starting game...");
-        LogPuts("Paths used:");
-        LogPrintf("\t* Assets:\t%s\n"
-                  "\t* Saves:\t%s\n"
-                  "\t* Config:\t%s\n",
-                  resFolderPath, saveFolderPath, cfgFolderPath);
+
+        /* Structured boot log (docs/BOOT_LOG_PLAN.md). The file sink reuses
+           adeline.log — CreateLog above truncated it for this launch, the sink
+           appends; both it and the legacy LogPrintf sites share the one file.
+           The terminal sink colours stderr when launched from a real TTY. */
+        Log_Init();
+        Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
+        Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
+        atexit(Log_Shutdown);
+
+        Log_Info("Starting game...");
+        Log_Info("Paths:");
+        Log_Info("  Assets: %s", resFolderPath);
+        Log_Info("  Saves:  %s", saveFolderPath);
+        Log_Info("  Config: %s", cfgFolderPath);
     }
 
     // ··········································································
     {
-        LogPuts("\nInitialising Event system. Please wait...\n");
+        Log_BeginSection("Initializing event system");
         if (!InitEvents()) {
+            Log_Error("event system init failed");
             exit(1); // TODO: Implement graceful exit
         }
+        Log_EndSection();
     }
 
     // ··········································································
@@ -96,10 +108,13 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // --- WINDOW ----------------------------------------------------------------
     {
-        LogPuts("\nInitialising Window. Please wait...\n");
+        Log_BeginSection("Initializing window");
+        Log_Info("title: %s", APPNAME);
         if (!InitWindow(APPNAME)) {
+            Log_Error("window init failed");
             exit(1); // TODO: Implement graceful exit
         }
+        Log_EndSection();
     }
 
     // ··········································································
@@ -165,13 +180,15 @@ void InitAdeline(S32 argc, char *argv[]) {
     // --- VIDEO
     // -------------------------------------------------------------------
 
-    LogPuts("\nInitialising Video. Please wait...\n");
+    Log_BeginSection("Initializing video");
 
     if (!InitVideo()) {
+        Log_Error("video init failed");
         exit(1); // TODO: Implement graceful exit
     }
 
     if (!InitScreen()) {
+        Log_Error("screen init failed");
         exit(1); // TODO: Implement graceful exit
     }
 
@@ -188,20 +205,26 @@ void InitAdeline(S32 argc, char *argv[]) {
         U32 reqResX, reqResY;
         Res_LoadBootDimensions(&reqResX, &reqResY);
         if (!InitGraphics(reqResX, reqResY)) {
+            Log_Error("graphics init failed");
             exit(1); // TODO: Implement graceful exit
         }
+        Log_Info("render resolution: %ux%u", reqResX, reqResY);
     }
+    Log_EndSection();
 
     // ··········································································
-    //  Midi device
+    //  Midi + Sample devices
+    Log_BeginSection("Initializing audio");
 
 #if ((inits) & INIT_MIDI)
 #ifndef LIB_AIL
 #error ADELINE: you need to include AIL.H
 #endif
-    LogPuts("\nInitialising Midi device. Please wait...\n");
-    if (!InitMidiDriver(NULL))
+    Log_Info("MIDI device");
+    if (!InitMidiDriver(NULL)) {
+        Log_Error("MIDI device init failed");
         exit(1);
+    }
 #endif
 
     // ··········································································
@@ -210,7 +233,7 @@ void InitAdeline(S32 argc, char *argv[]) {
 #ifndef LIB_AIL
 #error ADELINE: you need to include AIL.H
 #endif
-        LogPuts("\nInitialising Sample device. Please wait...\n");
+        Log_Info("sample device");
         if (!InitSampleDriver(NULL)) {
             /* No usable audio output (host has no audio device, SDL_AUDIODRIVER
                points at something invalid, the audio subsystem failed to come
@@ -222,9 +245,12 @@ void InitAdeline(S32 argc, char *argv[]) {
                bypass the SDL dummy driver's nanosleep pacing (~58% of sys time
                in projection_demo); a player whose audio device fails just
                loses sound instead of being unable to launch the game. */
-            LogPuts("\nWarning: no audio output — running silently.\n");
+            Log_Warn("no audio output -- running silently");
         }
+    } else {
+        Log_Info("audio disabled (--no-audio)");
     }
+    Log_EndSection();
 
     // ··········································································
     //  Smacker
