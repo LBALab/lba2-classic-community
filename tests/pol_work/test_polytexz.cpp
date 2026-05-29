@@ -272,18 +272,18 @@ static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
         funcname(4, 20 << 16, 50 << 16);                                  \
         memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);            \
         memcpy(texz_cpp_zbuf, g_test_zbuffer,                             \
-               TEST_POLY_SIZE *(int)sizeof(U16));                        \
+               TEST_POLY_SIZE *(int)sizeof(U16));                         \
                                                                           \
         setup_func(30, 4, 20 << 16, 50 << 16);                            \
         call_asm_##funcname(4, 20 << 16, 50 << 16);                       \
         memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);            \
         memcpy(texz_asm_zbuf, g_test_zbuffer,                             \
-               TEST_POLY_SIZE *(int)sizeof(U16));                        \
+               TEST_POLY_SIZE *(int)sizeof(U16));                         \
                                                                           \
         ASSERT_ASM_CPP_MEM_EQ(texz_asm_buf, texz_cpp_buf, TEST_POLY_SIZE, \
                               #funcname " framebuf");                     \
         ASSERT_ASM_CPP_MEM_EQ((U8 *)texz_asm_zbuf, (U8 *)texz_cpp_zbuf,   \
-                              TEST_POLY_SIZE *(int)sizeof(U16),          \
+                              TEST_POLY_SIZE *(int)sizeof(U16),           \
                               #funcname " zbuf");                         \
     }
 
@@ -314,7 +314,7 @@ static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
             funcname(h, x0 << 16, x1 << 16);                                                            \
             memcpy(texz_cpp_buf, g_poly_framebuf, TEST_POLY_SIZE);                                      \
             memcpy(texz_cpp_zbuf, g_test_zbuffer,                                                       \
-                   TEST_POLY_SIZE *(int)sizeof(U16));                                                  \
+                   TEST_POLY_SIZE *(int)sizeof(U16));                                                   \
                                                                                                         \
             setup_func(y, h, x0 << 16, x1 << 16);                                                       \
             Fill_MapU_XSlope = uslope;                                                                  \
@@ -325,7 +325,7 @@ static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
             call_asm_##funcname(h, x0 << 16, x1 << 16);                                                 \
             memcpy(texz_asm_buf, g_poly_framebuf, TEST_POLY_SIZE);                                      \
             memcpy(texz_asm_zbuf, g_test_zbuffer,                                                       \
-                   TEST_POLY_SIZE *(int)sizeof(U16));                                                  \
+                   TEST_POLY_SIZE *(int)sizeof(U16));                                                   \
                                                                                                         \
             for (int j = 0; j < TEST_POLY_SIZE; j++) {                                                  \
                 if (texz_asm_buf[j] != texz_cpp_buf[j]) {                                               \
@@ -344,7 +344,7 @@ static void setup_texz_ck_fog_zbuf_filler(U32 startY, U32 nbLines,
                                   TEST_POLY_SIZE, msg);                                                 \
             snprintf(msg, sizeof(msg), "random " #shortname " zbuf #%d", i);                            \
             ASSERT_ASM_CPP_MEM_EQ((U8 *)texz_asm_zbuf, (U8 *)texz_cpp_zbuf,                             \
-                                  TEST_POLY_SIZE *(int)sizeof(U16), msg);                              \
+                                  TEST_POLY_SIZE *(int)sizeof(U16), msg);                               \
         }                                                                                               \
     }
 

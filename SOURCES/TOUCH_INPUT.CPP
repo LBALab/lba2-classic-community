@@ -138,17 +138,21 @@ static void MapToGameCoords(float *nx, float *ny) {
     if (winW <= 0 || winH <= 0)
         return;
 
-    float pixelX = *nx *(float)winW;
-    float pixelY = *ny *(float)winH;
+    float pixelX = *nx * (float)winW;
+    float pixelY = *ny * (float)winH;
 
     S32 surfX, surfY;
     WindowToSurfaceCoords((S32)pixelX, (S32)pixelY, &surfX, &surfY);
 
     /* Clamp to valid surface area */
-    if (surfX < 0) surfX = 0;
-    if (surfY < 0) surfY = 0;
-    if (surfX >= (S32)ModeResX) surfX = (S32)ModeResX - 1;
-    if (surfY >= (S32)ModeResY) surfY = (S32)ModeResY - 1;
+    if (surfX < 0)
+        surfX = 0;
+    if (surfY < 0)
+        surfY = 0;
+    if (surfX >= (S32)ModeResX)
+        surfX = (S32)ModeResX - 1;
+    if (surfY >= (S32)ModeResY)
+        surfY = (S32)ModeResY - 1;
 
     *nx = (float)surfX / (float)ModeResX;
     *ny = (float)surfY / (float)ModeResY;
@@ -428,10 +432,10 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
 
     for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
         const TouchButton *btn = &kButtons[i];
-        S32 x0 = (S32)((btn->cx - btn->rx) *(float)width);
-        S32 y0 = (S32)((btn->cy - btn->ry) *(float)height);
-        S32 x1 = (S32)((btn->cx + btn->rx) *(float)width);
-        S32 y1 = (S32)((btn->cy + btn->ry) *(float)height);
+        S32 x0 = (S32)((btn->cx - btn->rx) * (float)width);
+        S32 y0 = (S32)((btn->cy - btn->ry) * (float)height);
+        S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
+        S32 y1 = (S32)((btn->cy + btn->ry) * (float)height);
 
         U8 alpha = s_pressed[i] ? 180 : 100;
         U8 r = s_pressed[i] ? 200 : 80;
