@@ -23,6 +23,7 @@ BUILD_DIR=""
 SDK_ROOT=""
 SDL3_JAVA_SRC=""
 SDL3_LIB=""
+CXX_SHARED_LIB=""
 OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
@@ -34,6 +35,7 @@ while [[ $# -gt 0 ]]; do
         --sdk-root) SDK_ROOT="$2"; shift 2 ;;
         --sdl3-java-src) SDL3_JAVA_SRC="$2"; shift 2 ;;
         --sdl3-lib) SDL3_LIB="$2"; shift 2 ;;
+        --cxx-shared-lib) CXX_SHARED_LIB="$2"; shift 2 ;;
         --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
         -h|--help)
             sed -n '/^# Usage:/,/^set -e/p' "$0" | sed 's/^# \?//' | head -n -1
@@ -100,6 +102,9 @@ cp "$LIB_PATH" "$STAGING/lib/$ARCH/$LIB_NAME"
 if [[ -n "$SDL3_LIB" && -f "$SDL3_LIB" ]]; then
     cp "$SDL3_LIB" "$STAGING/lib/$ARCH/"
 fi
+if [[ -n "$CXX_SHARED_LIB" && -f "$CXX_SHARED_LIB" ]]; then
+    cp "$CXX_SHARED_LIB" "$STAGING/lib/$ARCH/"
+fi
 
 # 1b. App icon — resolvable as @mipmap/ic_launcher in the manifest
 ICON_SRC="$REPO_ROOT/packaging/lba2cc.png"
@@ -153,6 +158,9 @@ fi
 "$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/$LIB_NAME" 2>&1
 if [[ -f "lib/$ARCH/libSDL3.so" ]]; then
     "$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/libSDL3.so" 2>&1
+fi
+if [[ -f "lib/$ARCH/libc++_shared.so" ]]; then
+    "$AAPT" add -0 .so "unsigned.apk" "lib/$ARCH/libc++_shared.so" 2>&1
 fi
 cd "$REPO_ROOT"
 
