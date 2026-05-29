@@ -122,8 +122,8 @@ jobs:
           cmake --build "$SDL3_BUILD" -- -j$(nproc)
           cmake --install "$SDL3_BUILD" --prefix "$SDL3_INSTALL"
 
-          echo "SDL3_ANDROID_DIR=${SDL3_INSTALL}" >> "$GITHUB_ENV"
-          echo "SDL3_DIR=${SDL3_INSTALL}" >> "$GITHUB_ENV"
+          echo "SDL3_ANDROID_DIR=${SDL3_INSTALL}/lib/cmake/SDL3" >> "$GITHUB_ENV"
+          echo "SDL3_DIR=${SDL3_INSTALL}/lib/cmake/SDL3" >> "$GITHUB_ENV"
 
       - name: Configure LBA2
         run: |
