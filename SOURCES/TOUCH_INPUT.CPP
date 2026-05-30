@@ -416,10 +416,12 @@ static void BlendPixel(U32 *pixel, U8 r, U8 g, U8 b, U8 a);
 
 /* Draw a string using the embedded Font8x8 onto the ARGB framebuffer.
    Each character is SizeChar x SizeChar pixels. The text is drawn in
-   the given colour with alpha blending. */
+   the given colour with alpha blending. Width/height are the visible
+   framebuffer dimensions — writes outside are silently dropped. */
 static void DrawStringARGB(U32 *fb, S32 pitchInPixels,
                            S32 x, S32 y, const char *str,
-                           U8 r, U8 g, U8 b, U8 a) {
+                           U8 r, U8 g, U8 b, U8 a,
+                           U32 fbW, U32 fbH) {
     U8 character;
     while ((character = (U8)*str++) != 0) {
         U8 *glyph = &Font8x8[character * SizeChar];
@@ -430,7 +432,8 @@ static void DrawStringARGB(U32 *fb, S32 pitchInPixels,
                 if (line & mask) {
                     S32 px = x + (S32)col;
                     S32 py = y + (S32)row;
-                    if (px >= 0 && py >= 0)
+                    if (px >= 0 && py >= 0
+                        && (U32)px < fbW && (U32)py < fbH)
                         BlendPixel(&fb[py * pitchInPixels + px], r, g, b, a);
                 }
                 mask >>= 1;
@@ -480,9 +483,10 @@ static void DrawFilledRoundRect(U32 *fb, S32 pitchInPixels,
         radius = (y1 - y0) / 2;
 
     S32 rsq = radius * radius;
+    S32 xlim = pitchInPixels - 1;
     for (S32 y = y0; y <= y1 && y >= 0; y++) {
         U32 *row = fb + y * pitchInPixels;
-        for (S32 x = x0; x <= x1 && x >= 0; x++) {
+        for (S32 x = x0; x <= x1 && x >= 0 && x <= xlim; x++) {
             S32 inside = 1;
             if (x < x0 + radius && y < y0 + radius) {
                 S32 dx = (x0 + radius - 1) - x;
@@ -558,7 +562,7 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
             S32 tx = ((x0 + x1) / 2) - (textW / 2);
             S32 ty = ((y0 + y1) / 2) - (textH / 2);
             DrawStringARGB(frameBuffer, pitchPixels, tx, ty, btn->label,
-                           255, 255, 255, 220);
+                           255, 255, 255, 220, width, height);
         }
     }
 }
