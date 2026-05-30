@@ -432,8 +432,7 @@ static void DrawStringARGB(U32 *fb, S32 pitchInPixels,
                 if (line & mask) {
                     S32 px = x + (S32)col;
                     S32 py = y + (S32)row;
-                    if (px >= 0 && py >= 0
-                        && (U32)px < fbW && (U32)py < fbH)
+                    if (px >= 0 && py >= 0 && (U32)px < fbW && (U32)py < fbH)
                         BlendPixel(&fb[py * pitchInPixels + px], r, g, b, a);
                 }
                 mask >>= 1;
