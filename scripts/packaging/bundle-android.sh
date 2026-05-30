@@ -108,9 +108,35 @@ if [[ -n "$SDL3_LIB" ]]; then
         done
     fi
 fi
-# Bundle C++ runtime if not already picked up from SDL3 libdir
+# Bundle C++ runtime — auto-discover from the NDK via CMakeCache.txt,
+# falling back to the explicit --cxx-shared-lib flag if provided.
 if [[ -n "$CXX_SHARED_LIB" && -f "$CXX_SHARED_LIB" ]]; then
     cp "$CXX_SHARED_LIB" "$STAGING/lib/$ARCH/"
+elif [[ -f "$BUILD_DIR/CMakeCache.txt" ]]; then
+    # Parse NDK root and ABI from the cmake cache
+    NDK_ROOT=$(grep -m1 '^CMAKE_ANDROID_NDK:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2-)
+    ABI=$(grep -m1 '^ANDROID_ABI:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2-)
+    if [[ -n "$NDK_ROOT" && -n "$ABI" ]]; then
+        case "$ABI" in
+            arm64-v8a)   NDK_TARGET="aarch64-linux-android" ;;
+            armeabi-v7a) NDK_TARGET="armv7a-linux-androideabi" ;;
+            x86_64)      NDK_TARGET="x86_64-linux-android" ;;
+            x86)         NDK_TARGET="i686-linux-android" ;;
+        esac
+        # Determine host tag
+        case "$(uname -s)" in
+            Linux)  HOST_TAG="linux-x86_64" ;;
+            Darwin) HOST_TAG="darwin-x86_64" ;;
+            *)      HOST_TAG="" ;;
+        esac
+        if [[ -n "$NDK_TARGET" && -n "$HOST_TAG" ]]; then
+            CXX_SHARED_LIB="${NDK_ROOT}/toolchains/llvm/prebuilt/${HOST_TAG}/sysroot/usr/lib/${NDK_TARGET}/libc++_shared.so"
+            if [[ -f "$CXX_SHARED_LIB" ]]; then
+                echo "[bundle-android] bundling: $CXX_SHARED_LIB"
+                cp "$CXX_SHARED_LIB" "$STAGING/lib/$ARCH/"
+            fi
+        fi
+    fi
 fi
 
 # 1b. App icon — resolvable as @mipmap/ic_launcher in the manifest
