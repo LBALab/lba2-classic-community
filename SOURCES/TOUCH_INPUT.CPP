@@ -209,35 +209,69 @@ void ApplyVirtualKeys(void) {
 
 static S32 IsAndroidTVDevice(void) {
 #ifdef __ANDROID__
+    /* Helper: check for a pending JNI exception, log and clear it. */
+    struct JniCheck {
+        static S32 Pending(JNIEnv *e) {
+            if (e->ExceptionCheck()) {
+                LogPrintf("TouchOverlay: JNI exception in TV detection, "
+                          "overlay disabled\n");
+                e->ExceptionClear();
+                return 1;
+            }
+            return 0;
+        }
+    };
     JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env == NULL)
-        return 0;
+        return 1;
 
     jobject activity = (jobject)SDL_GetAndroidActivity();
     if (activity == NULL)
-        return 0;
+        return 1;
 
     jclass activityClass = env->GetObjectClass(activity);
+    if (JniCheck::Pending(env) || activityClass == NULL)
+        return 1;
+
     jmethodID getPM = env->GetMethodID(activityClass, "getPackageManager",
                                        "()Landroid/content/pm/PackageManager;");
-    if (getPM == NULL) {
+    if (JniCheck::Pending(env) || getPM == NULL) {
         env->DeleteLocalRef(activityClass);
-        return 0;
+        return 1;
     }
 
     jobject pm = env->CallObjectMethod(activity, getPM);
-    if (pm == NULL) {
+    if (JniCheck::Pending(env) || pm == NULL) {
         env->DeleteLocalRef(activityClass);
-        return 0;
+        return 1;
     }
 
     jclass pmClass = env->GetObjectClass(pm);
+    if (JniCheck::Pending(env) || pmClass == NULL) {
+        env->DeleteLocalRef(pm);
+        env->DeleteLocalRef(activityClass);
+        return 1;
+    }
+
     jmethodID hasFeature = env->GetMethodID(pmClass, "hasSystemFeature",
                                             "(Ljava/lang/String;)Z");
+    if (JniCheck::Pending(env) || hasFeature == NULL) {
+        env->DeleteLocalRef(pmClass);
+        env->DeleteLocalRef(pm);
+        env->DeleteLocalRef(activityClass);
+        return 1;
+    }
+
     jstring feature = env->NewStringUTF("android.software.leanback");
-    S32 isTV = (hasFeature != NULL)
-                   ? (S32)env->CallBooleanMethod(pm, hasFeature, feature)
-                   : 0;
+    if (JniCheck::Pending(env) || feature == NULL) {
+        env->DeleteLocalRef(pmClass);
+        env->DeleteLocalRef(pm);
+        env->DeleteLocalRef(activityClass);
+        return 1;
+    }
+
+    S32 isTV = (S32)env->CallBooleanMethod(pm, hasFeature, feature);
+    JniCheck::Pending(env);
 
     env->DeleteLocalRef(feature);
     env->DeleteLocalRef(pmClass);

@@ -2431,9 +2431,12 @@ int main(int argc, char *argv[]) {
     SetPrePresentCallback(Console_PrePresent);
 
     /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
-       timing callbacks nest correctly. No-op on non-Android builds. */
+       timing callbacks nest correctly. No-op on non-Android builds. Only
+       register the render callback when the overlay is active so that
+       Android TV (no touchscreen) never touches the render pipeline. */
     TouchOverlay_Init();
-    SetOverlayPrePresentCallback(TouchOverlay_Render);
+    if (TouchOverlay_IsActive())
+        SetOverlayPrePresentCallback(TouchOverlay_Render);
 
     /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
        via the `perftrace` console verb. See docs/PERFTRACE.md. */
