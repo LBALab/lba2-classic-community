@@ -113,7 +113,6 @@ fi
 if [[ -n "$CXX_SHARED_LIB" && -f "$CXX_SHARED_LIB" ]]; then
     cp "$CXX_SHARED_LIB" "$STAGING/lib/$ARCH/"
 elif [[ -f "$BUILD_DIR/CMakeCache.txt" ]]; then
-    # Parse NDK root and ABI from the cmake cache
     NDK_ROOT=$(grep -m1 '^CMAKE_ANDROID_NDK:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2-)
     ABI=$(grep -m1 '^ANDROID_ABI:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2-)
     if [[ -n "$NDK_ROOT" && -n "$ABI" ]]; then
@@ -123,7 +122,6 @@ elif [[ -f "$BUILD_DIR/CMakeCache.txt" ]]; then
             x86_64)      NDK_TARGET="x86_64-linux-android" ;;
             x86)         NDK_TARGET="i686-linux-android" ;;
         esac
-        # Determine host tag
         case "$(uname -s)" in
             Linux)  HOST_TAG="linux-x86_64" ;;
             Darwin) HOST_TAG="darwin-x86_64" ;;

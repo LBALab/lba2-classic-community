@@ -2348,15 +2348,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef __ANDROID__
     /* On Android 11+ (API 30+), direct access to /sdcard/<dir>/ requires
-     * MANAGE_EXTERNAL_STORAGE. Log a hint but do NOT open the Settings
-     * intent here — startActivity is fire-and-forget and doesn't block,
-     * so execution continues past it, ResolveGameDataDir fails on
-     * permission-guarded paths, PromptForResDir fails on TV, and the app
-     * exits before the user even sees the Settings screen. Instead, let
-     * auto-discovery use the app-specific external files dir
-     * (/sdcard/Android/data/<pkg>/files/) which works without this
-     * permission. Users who want /sdcard/lba2cc/ can grant the permission
-     * manually via Android Settings → Apps → LBA2 → Permissions. */
+     * MANAGE_EXTERNAL_STORAGE. Check at startup and open Settings for it
+     * if missing, so the user can grant it and re-launch. The fallback
+     * probe in RES_DISCOVERY for App-specific external files dir
+     * (/sdcard/Android/data/<pkg>/files/) works without this permission. */
     {
         JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
         if (env != NULL) {
@@ -2365,16 +2360,26 @@ int main(int argc, char *argv[]) {
             if (permHelper != NULL) {
                 jmethodID isMgr = env->GetStaticMethodID(
                     permHelper, "isExternalStorageManager", "()Z");
+                jmethodID openMgr = env->GetStaticMethodID(
+                    permHelper, "openExternalStorageManagerSettings",
+                    "(Ljava/lang/Object;)V");
                 if (isMgr != NULL && !env->CallStaticBooleanMethod(permHelper, isMgr)) {
-                    LogPuts("MANAGE_EXTERNAL_STORAGE not granted — "
-                            "/sdcard/ paths won't be accessible. "
-                            "Use /sdcard/Android/data/org.lbalab.lba2cc/files/ "
-                            "or grant via Android Settings → Permissions.");
+                    jobject activity = (jobject)SDL_GetAndroidActivity();
+                    LogPrintf("MANAGE_EXTERNAL_STORAGE not granted. "
+                              "Opening Settings for app. "
+                              "Re-launch after granting.\n");
+                    if (openMgr != NULL && activity != NULL) {
+                        env->CallStaticVoidMethod(permHelper, openMgr, activity);
+                        /* Clear any JNI exception (e.g. ActivityNotFoundException
+                         * on Android TV which has no Settings intent handler) so
+                         * subsequent JNI calls (e.g. GetAndroidExternalFilesDir
+                         * in ResolveGameDataDir) don't fail. */
+                        if (env->ExceptionCheck())
+                            env->ExceptionClear();
+                    }
                 }
                 env->DeleteLocalRef(permHelper);
             }
-            if (env->ExceptionCheck())
-                env->ExceptionClear();
         }
     }
 #endif
@@ -2432,9 +2437,7 @@ int main(int argc, char *argv[]) {
     SetPrePresentCallback(Console_PrePresent);
 
     /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
-       timing callbacks nest correctly. No-op on non-Android builds. Only
-       register the render callback when the overlay is active so that
-       Android TV (no touchscreen) never touches the render pipeline. */
+       timing callbacks nest correctly. No-op on non-Android builds. */
     TouchOverlay_Init();
     if (TouchOverlay_IsActive())
         SetOverlayPrePresentCallback(TouchOverlay_Render);
