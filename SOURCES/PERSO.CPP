@@ -2433,7 +2433,8 @@ int main(int argc, char *argv[]) {
     /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
        timing callbacks nest correctly. No-op on non-Android builds. */
     TouchOverlay_Init();
-    SetOverlayPrePresentCallback(TouchOverlay_Render);
+    if (TouchOverlay_IsActive())
+        SetOverlayPrePresentCallback(TouchOverlay_Render);
 
     /* Perftrace: ring-buffer per-frame timing capture; off by default, opt-in
        via the `perftrace` console verb. See docs/PERFTRACE.md. */

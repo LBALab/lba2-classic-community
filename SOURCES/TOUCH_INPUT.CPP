@@ -207,8 +207,19 @@ void ApplyVirtualKeys(void) {
  * Android TV detection (no touchscreen, skip overlay)
  * --------------------------------------------------------------------------- */
 
-static S32 IsAndroidTVDevice(void) {
+S32 IsAndroidTVDevice(void) {
 #ifdef __ANDROID__
+    struct JniCheck {
+        static S32 Pending(JNIEnv *e) {
+            if (e->ExceptionCheck()) {
+                LogPrintf("TouchOverlay: JNI exception in TV detection, "
+                          "overlay disabled\n");
+                e->ExceptionClear();
+                return 1;
+            }
+            return 0;
+        }
+    };
     JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
     if (env == NULL)
         return 0;
@@ -218,26 +229,48 @@ static S32 IsAndroidTVDevice(void) {
         return 0;
 
     jclass activityClass = env->GetObjectClass(activity);
+    if (JniCheck::Pending(env) || activityClass == NULL)
+        return 0;
+
     jmethodID getPM = env->GetMethodID(activityClass, "getPackageManager",
                                        "()Landroid/content/pm/PackageManager;");
-    if (getPM == NULL) {
+    if (JniCheck::Pending(env) || getPM == NULL) {
         env->DeleteLocalRef(activityClass);
         return 0;
     }
 
     jobject pm = env->CallObjectMethod(activity, getPM);
-    if (pm == NULL) {
+    if (JniCheck::Pending(env) || pm == NULL) {
         env->DeleteLocalRef(activityClass);
         return 0;
     }
 
     jclass pmClass = env->GetObjectClass(pm);
+    if (JniCheck::Pending(env) || pmClass == NULL) {
+        env->DeleteLocalRef(pm);
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
     jmethodID hasFeature = env->GetMethodID(pmClass, "hasSystemFeature",
                                             "(Ljava/lang/String;)Z");
+    if (JniCheck::Pending(env) || hasFeature == NULL) {
+        env->DeleteLocalRef(pmClass);
+        env->DeleteLocalRef(pm);
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
     jstring feature = env->NewStringUTF("android.software.leanback");
-    S32 isTV = (hasFeature != NULL)
-                   ? (S32)env->CallBooleanMethod(pm, hasFeature, feature)
-                   : 0;
+    if (JniCheck::Pending(env) || feature == NULL) {
+        env->DeleteLocalRef(pmClass);
+        env->DeleteLocalRef(pm);
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
+    S32 isTV = (S32)env->CallBooleanMethod(pm, hasFeature, feature);
+    JniCheck::Pending(env);
 
     env->DeleteLocalRef(feature);
     env->DeleteLocalRef(pmClass);
@@ -484,26 +517,13 @@ static void DrawFilledRoundRect(U32 *fb, S32 pitchInPixels,
 void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                          const U8 *palette_rgb) {
     (void)palette_rgb;
-    if (frameBuffer == NULL || width == 0 || height == 0)
+    if (!s_active || frameBuffer == NULL || width == 0 || height == 0)
         return;
 
     S32 pitchPixels = (S32)(pitch / sizeof(U32));
 
-    /* Determine which buttons to draw */
-    S32 count;
-    S32 indices[NUM_TOUCH_BUTTONS];
-    if (!s_active) {
-        /* Only the HIDE button remains visible as a small persistent pill */
-        count = 1;
-        indices[0] = BTN_HIDE;
-    } else {
-        count = NUM_TOUCH_BUTTONS;
-        for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++)
-            indices[i] = i;
-    }
-
-    for (S32 b = 0; b < count; b++) {
-        const TouchButton *btn = &kButtons[indices[b]];
+    for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
+        const TouchButton *btn = &kButtons[i];
         S32 x0 = (S32)((btn->cx - btn->rx) * (float)width);
         S32 y0 = (S32)((btn->cy - btn->ry) * (float)height);
         S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
@@ -521,20 +541,11 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
         if (x0 > x1 || y0 > y1)
             continue;
 
-        S32 bi = indices[b];
-        U8 alpha = s_pressed[bi] ? 180 : (s_active ? 100 : 50);
-        U8 r = s_pressed[bi] ? 200 : 80;
-        U8 g = s_pressed[bi] ? 200 : 80;
-        U8 b8 = s_pressed[bi] ? 200 : 80;
+        U8 alpha = s_pressed[i] ? 180 : 100;
+        U8 r = s_pressed[i] ? 200 : 80;
+        U8 g = s_pressed[i] ? 200 : 80;
+        U8 b8 = s_pressed[i] ? 200 : 80;
         S32 radius = 6;
-
-        /* When hidden, draw the HIDE button smaller and more subtle */
-        if (!s_active && btn->id == BTN_HIDE) {
-            DrawFilledRoundRect(frameBuffer, pitchPixels,
-                                x0, y0, x1, y1,
-                                r, g, b8, alpha, 6);
-            continue;
-        }
 
         DrawFilledRoundRect(frameBuffer, pitchPixels, x0, y0, x1, y1,
                             r, g, b8, alpha, radius);

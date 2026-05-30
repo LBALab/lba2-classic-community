@@ -234,10 +234,11 @@ void GetDefaultUserDir(char *outDir) {
     static char userDir[ADELINE_MAX_PATH] = "";
     if (!initialized) {
         char *sdlUserPath = SDL_GetPrefPath("Twinsen", "LBA2");
-        strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-        userDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-        SDL_free(sdlUserPath);
-
+        if (sdlUserPath != NULL) {
+            strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
+            userDir[ADELINE_MAX_PATH - 1] = '\0';
+            SDL_free(sdlUserPath);
+        }
         initialized = true;
     }
 
