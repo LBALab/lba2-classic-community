@@ -1,0 +1,384 @@
+# Boot Log + Exit Screen
+
+**Status:** Decisions locked. Phase 6 (exit screen) implemented; Phases 1–5 pending. Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
+
+## Goal
+
+Add two small, self-contained features to LBA2-CE:
+
+1. A **structured boot log** that records each subsystem coming online during
+   engine init. Lives in the in-engine console buffer, the terminal (when
+   launched from one), and the log file (always). Modeled on the id Tech 4
+   (Doom 3) `------ Initializing X ------` convention.
+2. An **exit screen easter egg** that prints ANSI art + a rotating themed quote
+   when the game exits cleanly, *only* when stdout is a real TTY.
+
+Both serve the player who looks for them and stay invisible to everyone else.
+
+## Non-goals
+
+- **No progress bars, no `\r` animation, no carriage-return tricks.** The
+  engine loads fast and the primary sink is an append-only console buffer.
+- **No new threading.** Boot is single-threaded; the `SDL_Log` spine provides
+  thread-safety for runtime additions. Don't introduce a queue or async sink.
+- **No log categories/channels** ("renderer", "audio", etc.) as a call-site
+  concept in v1. YAGNI until proven necessary. (Internally, one SDL log
+  category is used to tag section headers — see "Architecture".)
+- **No replacement of the user-facing splash screen.** That artifact stays.
+  The boot log is a separate, developer-facing surface.
+- **The exit screen must not fire on crash paths** — only from the clean
+  shutdown path. Don't register it as an `atexit` handler.
+
+## Architecture — SDL_Log spine with a thin `Log_*` wrapper
+
+The fan-out is built on SDL3's logging, which the engine already uses in 46
+places (the whole `LIB386/AIL/SDL/` audio stack plus `PLAYACF.CPP`).
+
+- **Call sites** use `Log_Info("...")` etc. The wrapper `vsnprintf`s the
+  message, then forwards to `SDL_LogMessage(category, priority, "%s", buf)`.
+  Severity maps to SDL priority; section headers ride a dedicated SDL log
+  category so each sink can render them in its own idiom without parsing text.
+- **One `SDL_SetLogOutputFunction` callback owns the fan-out.** A small
+  trampoline maps `(category, SDL priority) → (LogSeverity, isSectionHeader)`
+  and calls a pure, SDL-free internal `log_emit(...)` (anonymous-namespace) that
+  writes to every registered sink. Installing the output function also routes
+  the engine's existing 46 `SDL_Log` sites and SDL's own internal messages
+  through these sinks (see the filtering note below — this is why per-sink
+  filtering is a v1 requirement).
+- **Host-test seam.** Only three spots touch SDL: the per-severity
+  `SDL_LogMessage` forward, the trampoline, and the install in `Log_Init()`. All
+  are behind `#ifdef LBA_LOG_NO_SDL`. Host tests define `LBA_LOG_NO_SDL`, so the
+  wrapper calls `log_emit` directly with no `SDL_Init`, and assert on sink
+  output. The core (formatting, sinks, section/severity logic) is SDL-free.
+
+## Load-bearing design decisions
+
+These are constraints, not suggestions. Don't redesign them without raising
+the question first.
+
+1. **One log call fans out to all sinks.** `Log_Info("Loaded HQR ...")`
+   writes to every registered sink. Each sink renders the same record its own
+   way. Call sites never know which sinks are present. Implemented on the
+   `SDL_Log` spine described above.
+2. **Severity belongs to the message, not the sink.** Four levels:
+   Debug / Info / Warn / Error. Call sites always state the true severity.
+   **Per-sink filtering is a v1 requirement** (not an afterthought), with these
+   defaults: **file and terminal sinks take Debug+** (we debug heavily while
+   building this), **console sink takes Warn+** so the in-game overlay stays
+   clean, with a runtime toggle to raise the console level on demand. Defaults
+   matter because the `SDL_Log` spine pulls verbose audio/SFX logs into the
+   pipeline; without filtering they would spam the console.
+3. **Sections produce visual structure.** Each subsystem init is wrapped in a
+   `BeginSection("Initializing X")` / `EndSection()` pair (or `ScopedSection`
+   RAII). Sinks render section headers in their native idiom (dashes for
+   terminal, `====` for file; console is monochrome in v1 — see decision 6).
+   **Exit-safety caveat:** the boot path calls `exit(1)` directly on init
+   failure (no C++ stack unwinding — see `INITADEL.C`), so `ScopedSection`
+   destructors are best-effort only. The file sink must persist per-line (flush
+   on each record, not at `EndSection`), and any init that can `exit()` should
+   `EndSection()` before exiting. Don't rely on RAII close for log correctness.
+4. **Terminal sink is opt-in by environment, not by code.** Activates only if
+   `isatty(stderr)` is true *and* `getenv("NO_COLOR")` is unset. On Windows,
+   calls `SetConsoleMode(ENABLE_VIRTUAL_TERMINAL_PROCESSING)` once at init for
+   our own ANSI output. If either check fails, the sink is a silent no-op —
+   never falls back to plain stderr (avoids ANSI garbage in redirected output).
+   (`isatty`/`NO_COLOR`/VT-enable are all new — the only existing `NO_COLOR`
+   use is the compile-time `#ifdef` in `tests/test_harness.h`; align spelling.)
+5. **File sink is always on, and reuses the existing `adeline.log`.** Path comes
+   from `SDL_GetPrefPath("Twinsen", "LBA2")` → `GetLogPath` → `CreateLog`, which
+   `InitAdeline` already calls. The file sink writes through the existing
+   `LogPrintf` path. **Do not add a second `lba2.log`.** Structured records and
+   the engine's 121 legacy `LogPrintf` lines interleave in one file. Note the
+   existing file is opened append-per-call (not truncate-per-launch); keep or
+   change that deliberately.
+6. **Console buffer sink is the universal surface.** Works on Linux, Windows,
+   macOS, Steam Deck, Xbox GDK, anywhere the engine runs. Other sinks are
+   bonuses on top. **v1 constraints (research A1):** the console stores plain
+   `char[256]` lines with no per-line color, so the console sink is
+   **monochrome in v1** (severity not color-coded); `CONSOLE_SCROLLBACK_LINES`
+   is **bumped from 128** so early boot lines survive in the ring; and because
+   the ring is not thread-safe, the console sink takes **main-thread records
+   only** (off-thread logs — e.g. the audio callback — are dropped from the
+   console but still reach the file/terminal sinks).
+7. **Exit screen is a totally separate module** from the log. It does not call
+   into `Log_*`. It writes raw ANSI directly to stdout (not stderr) after
+   checking `isatty(stdout)`. Lives in its own file. **Hook:** called from
+   `TheEndInfo` (`SOURCES/PERSO.CPP:2199`) guarded by `End_Num == PROGRAM_OK` —
+   verified crash-safe (`End_Num` inits to `-1`, `PROGRAM_OK == 2`, crash paths
+   set `0`/`1`/`3`, and early `exit(EXIT_FAILURE)` paths leave `-1`). There are
+   no signal handlers, so Ctrl-C never reaches this path (and never triggers it).
+
+## Reference material
+
+- **id Tech 4 / Doom 3 boot logs:** the `------ Initializing X ------`
+  section-header convention. Each subsystem owns its own block and prints
+  its own detail.
+- **Quake (id Tech 2):** the `======== Quake Initialized ========` closer and
+  the "log == runtime console buffer" insight.
+- **Existing in-engine console** (`SOURCES/CONSOLE/`, see `docs/CONSOLE.md`):
+  append via `Console_Print(const char *fmt, ...)`, read back via
+  `Console_GetScrollback(...)`. The console buffer sink integrates with these.
+- **The DOS exit-text fossil:** `V_ColorLine` (`SOURCES/PERSO.CPP:2149`) is a
+  no-op stub still called around `TheEndInfo`'s error lines — the vestige of the
+  original Watcom colored exit text, the naming precedent for exit-time framing.
+
+## API shape (target)
+
+C++98, and following the house new-infra pattern (`SOURCES/RES_PICKER.CPP`,
+`SOURCES/CONSOLE/`): a **flat `extern "C"` public surface** (`Log_*`, mirroring
+`Console_*`) with all internals — sink registry, fan-out, formatting, state — in
+an anonymous namespace, the way `RES_PICKER.CPP` keeps its `PickerState` private
+and exposes only `extern "C" PromptForResDir`. The only C++-visible type is the
+`ScopedSection` RAII helper, declared behind `#ifdef __cplusplus` for C++
+callers; C-style call sites use the explicit `Log_BeginSection`/`Log_EndSection`
+pair. Plain `enum`, no `enum class`; no named public namespace (this is why all
+callers — including the C++-compiled `INITADEL.C`/`PERSO.CPP` — can use it).
+
+```c
+/* SOURCES/LOG/log.h */
+typedef enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR } LogSeverity;
+typedef struct LogSink LogSink;   /* opaque */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+void Log_Init(void);
+void Log_Shutdown(void);
+void Log_Info(const char *fmt, ...);   /* and Log_Debug/Log_Warn/Log_Error */
+void Log_BeginSection(const char *title);
+void Log_EndSection(void);
+LogSink *Log_MakeConsoleBufferSink(void);
+LogSink *Log_MakeTerminalSink(void);
+LogSink *Log_MakeFileSink(void);       /* reuses adeline.log via LogPrintf */
+void Log_AddSink(LogSink *sink);
+void Log_RemoveSink(LogSink *sink);
+#ifdef __cplusplus
+}
+/* C++-only RAII convenience over Log_BeginSection/Log_EndSection.
+   Best-effort — exit() on init failure does not unwind (see caveat). */
+class ScopedSection {
+  public:
+    explicit ScopedSection(const char *title) { Log_BeginSection(title); }
+    ~ScopedSection() { Log_EndSection(); }
+};
+#endif
+```
+
+Sinks may be modelled as function-pointer structs (à la the console's
+`Console_CmdFn`/`Console_LineSinkFn` typedefs) rather than a virtual class
+hierarchy, to stay in the C-style house idiom (CODESTYLE: "plain structs and
+value semantics over object hierarchies"). Kept shallow either way —
+implementer's call.
+
+## How to work on this with Claude Code
+
+This is a planned-and-phased feature. The workflow is:
+
+1. **Research phase** — investigate the codebase and answer a structured set of
+   questions about the console, boot path, exit path, filesystem conventions,
+   CLI, build system, and existing terminal code. (Done.)
+2. **Report phase** — propose plan revisions based on findings; update this doc
+   before any code is written. (Done — this revision.)
+3. **Implementation phase** — one phase per PR, in the recommended order below.
+
+## Phased plan
+
+Each phase is independently mergeable. Don't combine phases into one PR.
+
+**Recommended order (from research): 6 → 1 → 3 → 4 → 5 → 2.** Phase 6 (exit
+screen) is fully self-contained and de-risks new-file / build / test / `isatty`
+wiring first; the architecture decision (a/b) isn't needed for it. The console
+sink (Phase 2) is the highest-effort surface (new attribute-free monochrome
+path, scrollback bump, thread gating) and goes last.
+
+New files live in `SOURCES/` (not `src/` — there is no `src/`; LIB386 can't
+depend on SOURCES, and the console sink forces SOURCES placement):
+`SOURCES/LOG/log.{h,cpp}` (mirrors `SOURCES/CONSOLE/` for layout; mirrors
+`SOURCES/RES_PICKER.CPP` for internal style — anon-namespace internals, flat
+`extern "C"` public surface) and `SOURCES/EXIT_SCREEN.{h,cpp}` (top-level, peer
+of `CHEATCOD.CPP`).
+
+Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
+`windows_ucrt64`). **There is no MSVC preset.** No `-Werror` in the build.
+
+### Phase 1 — Core log API + file sink
+
+- Add `SOURCES/LOG/log.h` and `SOURCES/LOG/log.cpp` matching the sketched API,
+  on the `SDL_Log` spine with the `LBA_LOG_NO_SDL` test seam (see Architecture).
+- Implement `Log_Init`, `Log_Shutdown`, severity entry points, `Log_BeginSection`/
+  `Log_EndSection`, the C++ `ScopedSection` helper, sink registry (small
+  fixed-size array — max 8 sinks), and the `SDL_SetLogOutputFunction` install +
+  trampoline. Flat `extern "C"` surface, anon-namespace internals (RES_PICKER
+  style).
+- Implement **per-sink severity filtering** with the decision-2 defaults.
+- Implement `MakeFileSink()` only — **reuse `adeline.log` via `LogPrintf`**, no
+  new file. Plain text, severity prefix `[INFO]`/`[WARN]`/etc., section headers
+  as `==== Title ====`. Flush per-line (exit-safety).
+- Add the build wiring (append to `SOURCES/CMakeLists.txt`) and ensure it
+  compiles under the `linux` (GCC) and `cross_linux2win`/`windows_ucrt64`
+  (MinGW) presets.
+- **Verification:** host unit test in `tests/logging/` (built with
+  `LBA_LOG_NO_SDL`, C++11, registered via `register_host_test`) that creates a
+  sink, calls each severity, opens/closes a section, and asserts file content.
+  Boot the engine, confirm boot records appear in `adeline.log`.
+
+### Phase 2 — Console buffer sink
+
+- Reuse the console API (`Console_Print` / `Console_GetScrollback`). Do not
+  duplicate.
+- Implement `MakeConsoleBufferSink()`. **Monochrome in v1** — the console has no
+  per-line color storage, so severity is not color-coded (adding a color
+  attribute channel to `CONSOLE.CPP`'s ring + renderer is out of scope for v1).
+- **Bump `CONSOLE_SCROLLBACK_LINES`** (currently 128) so early boot lines aren't
+  evicted before the user opens the console.
+- **Main-thread records only:** capture the main thread id in `Init()`; the
+  console sink drops records from other threads (they still hit file/terminal).
+- Register the console buffer sink during `Log_Init()`, at console-level
+  filtering (Warn+ default).
+- **Verification:** boot the engine, open the console (F12), scroll back,
+  confirm the boot log is visible.
+
+### Phase 3 — Terminal sink
+
+- Implement `MakeTerminalSink()` with the rules in decision 4 (`isatty`,
+  runtime `getenv("NO_COLOR")`, Windows VT-mode enable for our ANSI). On any
+  failure, the sink registers but its `Write` is a no-op.
+- Use ANSI 16-color codes (not 256, not truecolor) for portability. Severity →
+  color: Info default, Warn yellow, Error red, Debug dim grey. Section headers
+  cyan.
+- Section header rendering: `------ Title ------` padded to ~60 chars; closer is
+  a matching all-dash line.
+- Register during `Log_Init()` (Debug+ filtering).
+- **Verification:** launch from a Linux terminal, see colored boot log on
+  stderr. Launch with `2> /tmp/x`, confirm `/tmp/x` is empty. Launch with
+  `NO_COLOR=1`, confirm no escape codes in stderr or the file.
+
+### Phase 4 — Wire boot path
+
+- Replace ad-hoc `printf` / `SDL_Log` / `LogPrintf` calls in the boot path with
+  `Log_*` calls.
+- Add `ScopedSection` blocks around each subsystem init: SDL, file system,
+  audio, game data, input. Respect the exit-safety caveat (sections may not
+  close cleanly on `exit(1)` failure paths).
+- Each subsystem block emits *useful diagnostic detail* — versions, paths,
+  counts, sizes — not just "ok".
+- **Verification:** boot log reads coherently when scrolled back through the
+  in-engine console and in `adeline.log`.
+
+### Phase 5 — Funfrock framing header
+
+- At the very top of `Log_Init()` (before any section), emit a 2-line
+  banner:
+  ```
+  TWINSUN CENTRAL COMMAND — CITIZEN ACCESS TERMINAL
+  By order of Dr. FunFrock, all activity is monitored.
+  ```
+- Followed by the build identity line:
+  `LBA2-CE <version> <platform> <build-date>`
+- Followed by a CPU/memory line (Doom 3 convention).
+- This is the *only* flavor in the log path. Everything below is straight-faced
+  diagnostic output. The contrast is the joke.
+
+### Phase 6 — Exit screen module — done
+
+- Add `SOURCES/EXIT_SCREEN.h` and `SOURCES/EXIT_SCREEN.cpp`. Does NOT depend on
+  `log.h`.
+- Public surface: `void PrintExitScreen(void);`
+- Internal: `isatty(stdout)` check; bail silently otherwise. Otherwise pick a
+  random quote from the pool and write it, in quotation marks, to stdout, then
+  flush.
+- **Hook:** call from `TheEndInfo` (`SOURCES/PERSO.CPP`) guarded by
+  `End_Num == PROGRAM_OK`. Not registered as `atexit`. Not called on crash.
+- Quote pool: the in-source `QUOTES[]` array in `SOURCES/EXIT_SCREEN.CPP`,
+  curated from retail LBA1/LBA2 English TEXT.HQR (source tags stripped). One flat
+  pool — no variants in v1.
+
+**Parked for a follow-up:** half-block Unicode ANSI art (a Funfrock-regime
+variant and a Twinsen-friendly variant, authored from source PNGs via
+`tools/png_to_ansi/`), with the quote pool re-split into per-variant pools so the
+printed line matches the art's mood. Re-enabling means: add the art array, print
+it before the quote, re-add the Windows VT enable
+(`ENABLE_VIRTUAL_TERMINAL_PROCESSING`), and split the pool by mood.
+- **Verification:** launch and quit cleanly from a terminal — see exit screen.
+  Launch with stdout redirected — see nothing on stdout. Force a crash/error
+  exit — exit screen does NOT print.
+
+**Decisions taken (Phase 6):**
+
+- Public surface `PrintExitScreen(void)` (`extern "C"`); internals in an
+  anonymous namespace (RES_PICKER style). Kept deliberately small — the gate and
+  selection are inlined, no extracted helpers, no test target (verification is
+  manual; see below).
+- Gate: `isatty(stdout)` only. `NO_COLOR` and the Windows VT enable are dropped
+  for v1 (plain-text quote, no colour) — both return with the parked ANSI art.
+- Hook: `TheEndInfo` (`SOURCES/PERSO.CPP`), `if (End_Num == PROGRAM_OK)`, before
+  the error/OK switch. Not `atexit`; never fires on crash/error or under the
+  redirected control harness.
+- v1 is quote-only: a single flat `QUOTES[]` pool, no art and no variants. The
+  quote is printed in quotation marks. ANSI art (and per-variant mood pairing +
+  Windows VT enable) is parked — see "Parked for a follow-up" above. Quotes
+  curated from retail LBA1/LBA2 English TEXT.HQR (tags stripped) and live
+  directly in the in-source `QUOTES[]` array.
+- Rotation seeded from `time(NULL)` (only ever fires on interactive TTY exit).
+- Verified manually (no test target for a cosmetic easter egg): full engine
+  compiles/links; pty check shows the quoted line on a TTY and zero bytes when
+  stdout is redirected.
+
+## Open questions
+
+1. ~~What is the existing in-engine console's public API?~~ **Resolved (A1):**
+   `Console_Print` / `Console_GetScrollback`; 128-line × 256-char monochrome
+   ring, single-threaded. See `docs/CONSOLE.md`.
+2. ~~Where is the user data directory determined?~~ **Resolved (A4):**
+   `SDL_GetPrefPath("Twinsen", "LBA2")` → `directoriesUserDir`; log via
+   `GetLogPath` (`adeline.log`).
+3. **`--quiet` flag:** extend `Control_ParseArgs` (`SOURCES/CONTROL.CPP`, the
+   `--verbose` pattern). It is parsed at `main:2320`, *before* `CreateLog`
+   (`INITADEL.C:74`), so it can gate logger init. Want `--quiet` to disable all
+   sinks except the file sink. (`--profile-boot` similarly.)
+4. ~~Quote pool curation~~ **Resolved (Phase 6):** quotes curated from retail
+   LBA1/LBA2 English TEXT.HQR (source tags stripped) and embedded directly in the
+   in-source `QUOTES[]` array in `SOURCES/EXIT_SCREEN.CPP`. No separate doc.
+5. **Xbox GDK / Steam Deck behavior:** terminal sink is silent on both. Is the
+   on-screen overlay sink needed in v1, or can it wait? (Deferred — see Out of
+   scope.)
+
+## Decisions taken
+
+- **Architecture:** SDL_Log spine + thin `Log_*` wrapper; single
+  `SDL_SetLogOutputFunction` fan-out; `LBA_LOG_NO_SDL` seam for SDL-free host
+  tests. (Resolves the build-from-scratch vs reuse question.)
+- **File sink:** reuse existing `adeline.log` via `LogPrintf`; no second file.
+- **Per-sink filtering** is v1 and required: file/terminal Debug+, console
+  Warn+ (runtime-raisable). Prevents the spine's audio/SFX logs spamming the
+  console.
+- **Console sink:** monochrome in v1; `CONSOLE_SCROLLBACK_LINES` bumped;
+  main-thread records only (off-thread dropped from console, kept elsewhere).
+- **Exit-screen hook:** `TheEndInfo` / `PERSO.CPP:2199`, `End_Num == PROGRAM_OK`
+  (crash-safe, verified); placeholder quote pool for v1.
+- **Placement:** `SOURCES/LOG/` and `SOURCES/EXIT_SCREEN.cpp` (no `src/`).
+- **API surface:** flat `extern "C"` `Log_*` functions (mirrors `Console_*` /
+  `RES_PICKER.CPP`), anon-namespace internals, C++-only `ScopedSection` helper.
+  C++98 — plain `enum`, no `enum class`, no named public namespace. Aligns with
+  CODESTYLE's new-infra zone; callable from the C++-compiled boot path.
+- **Build/CI:** GCC (`linux`) + MinGW (`cross_linux2win`/`windows_ucrt64`); no
+  MSVC preset exists; no `-Werror`.
+- **Phase order:** 6 → 1 → 3 → 4 → 5 → 2.
+- **AGENTS.md** golden-rule carve-out added: new SOURCES infra (console,
+  logging, harness) is host-tested, not ASM-equivalence-tested.
+
+(Per-phase PRs append their own "decisions taken" notes here as they merge.)
+
+## Out of scope (explicitly)
+
+- The overlay sink (deferred — open question 5).
+- Log rotation / multiple session history.
+- Per-category channels and filtering as a call-site concept.
+- Async/queued logging.
+- Replacing the splash screen.
+- Migrating the 46 existing `SDL_Log` sites to `Log_*` (they flow through
+  the fan-out automatically once the output function is installed; explicit
+  call-site migration, if ever wanted, is a separate PR).
+- A per-line color attribute channel for the console (keeps console monochrome).
+- Auto-detection of game personality (LBA1 vs LBA2) for exit quotes — this
+  project is LBA2-specific.

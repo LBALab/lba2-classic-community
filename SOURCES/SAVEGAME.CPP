@@ -2051,7 +2051,14 @@ S32 LoadContexte(S32 *savetimerrefhr) {
 #else
         LbaReadLong(wlong);
         LbaReadLong(wlong2);
-        SetClipWindow(ClipWindowXMin, wlong, ClipWindowXMax, wlong2);
+        /* wlong/wlong2 are the play clip window Y bounds, persisted by
+           SaveContexte after RestoreClipWindow() — i.e. always the full play
+           window at the save's render height (e.g. 0..479 for a 640x480 save).
+           Applying the saved YMax verbatim would pin the 3D view to that height
+           at higher resolutions, so re-derive the full window at the current
+           height. (X already uses the current ClipWindowXMin/XMax globals.) */
+        (void)wlong2;
+        SetClipWindow(ClipWindowXMin, wlong, ClipWindowXMax, (S32)ModeDesiredY - 1);
         MemoClipWindow();
 #endif
 

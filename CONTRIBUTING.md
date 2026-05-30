@@ -65,9 +65,7 @@ To run the game you need retail data (not in the repo); see [docs/GAME_DATA.md](
 
 ### Code style
 
-The original codebase uses tabs for indentation. There is an ongoing effort to migrate to 4 spaces -- new contributions should use 4 spaces for indentation.
-
-The codebase is based on C and C++ (C++98) along with x86 assembly (UASM) for reference and equivalence tests. Please keep changes consistent with the style of the file you are modifying.
+The style rules and the reasoning behind them — language dialect (C-in-`.cpp` by zone), indentation, types, the C++98 standard, and preservation of original code — live in [CODESTYLE.md](CODESTYLE.md). Read it before writing code, and keep changes consistent with the style of the file you are modifying. The rest of this section covers the *mechanics* of running the formatter.
 
 For C and C++ files, the repository now uses `clang-format` with a checked-in style file. In VS Code, workspace settings enable format-on-save for C and C++ when the recommended `ms-vscode.cpptools` extension is installed.
 
@@ -108,12 +106,7 @@ After the bootstrap formatting commit exists, add its SHA to `.git-blame-ignore-
 
 ### Preservation of original code
 
-This project values preservation. When modifying original source files:
-
-- Do not remove original French comments -- they are part of the codebase's history
-- Do not remove or alter ASCII art banners in source files
-- If you need to add clarifying comments, add them alongside the originals rather than replacing them
-- When adding or changing documentation about history or culture, attribute to the original codebase (lba2-classic) and note when content was preserved during an ASM→C++ port in this fork
+This project values preservation: original French comments and ASCII art banners stay, clarifying comments go alongside the originals rather than replacing them, and history/culture content is attributed to the original codebase (lba2-classic). The full rules are in [CODESTYLE.md "Preservation of original code"](CODESTYLE.md#preservation-of-original-code).
 
 ## Contributing to the documentation
 
