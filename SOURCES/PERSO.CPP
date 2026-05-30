@@ -2370,6 +2370,12 @@ int main(int argc, char *argv[]) {
                               "Re-launch after granting.\n");
                     if (openMgr != NULL && activity != NULL) {
                         env->CallStaticVoidMethod(permHelper, openMgr, activity);
+                        /* Clear any JNI exception (e.g. ActivityNotFoundException
+                         * on Android TV which has no Settings intent handler) so
+                         * subsequent JNI calls (e.g. GetAndroidExternalFilesDir
+                         * in ResolveGameDataDir) don't fail. */
+                        if (env->ExceptionCheck())
+                            env->ExceptionClear();
                     }
                 }
                 env->DeleteLocalRef(permHelper);
