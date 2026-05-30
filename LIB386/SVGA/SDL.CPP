@@ -243,18 +243,22 @@ static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
 
-    void *texPixels;
-    int texPitch;
-
-    if (!LockRendererTexture(&texPixels, &texPitch)) {
+    /* Allocate our own staging buffer instead of locking the SDL texture
+       directly. On Android 16+ with MTE, SDL_LockTexture can return a
+       pointer to texture-internal memory that gets freed and reallocated
+       between frames, producing a stale pointer with a mismatched MTE tag
+       (SEGV_ACCERR). By writing to our own buffer and uploading via
+       SDL_UpdateTexture, we own the pointer and eliminate the race. */
+    U32 stagingPitch = ModeDesiredX * sizeof(U32);
+    void *stagingPixels = malloc(stagingPitch * ModeDesiredY);
+    if (stagingPixels == NULL)
         return;
-    }
 
     U8 *logMem = (U8 *)Log;
 
     for (U32 y = 0; y < ModeDesiredY; ++y) {
         U8 *srcRow = logMem + y * ModeDesiredX;
-        U32 *dstRow = (U32 *)((U8 *)texPixels + y * texPitch);
+        U32 *dstRow = (U32 *)((U8 *)stagingPixels + y * stagingPitch);
         for (U32 x = 0; x < ModeDesiredX; ++x) {
             dstRow[x] = paletteLUT[srcRow[x]];
         }
@@ -268,7 +272,7 @@ static void PresentFrame() {
             paletteRgb[i * 3 + 1] = (U8)(c >> 8);
             paletteRgb[i * 3 + 2] = (U8)(c);
         }
-        s_prePresent((U32 *)texPixels, (U32)texPitch, ModeResX, ModeResY, paletteRgb);
+        s_prePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
     }
     if (s_overlayPrePresent) {
         static U8 overlayPaletteRgb[256 * 3];
@@ -278,10 +282,11 @@ static void PresentFrame() {
             overlayPaletteRgb[i * 3 + 1] = (U8)(c >> 8);
             overlayPaletteRgb[i * 3 + 2] = (U8)(c);
         }
-        s_overlayPrePresent((U32 *)texPixels, (U32)texPitch, ModeResX, ModeResY, overlayPaletteRgb);
+        s_overlayPrePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, overlayPaletteRgb);
     }
 
-    UnlockAndPresentRendererTexture();
+    PresentRendererFrame(stagingPixels, stagingPitch);
+    free(stagingPixels);
 }
 
 void HandleEventsVideo(const void *event) {
