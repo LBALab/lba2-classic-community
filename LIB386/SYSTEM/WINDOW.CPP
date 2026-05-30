@@ -147,13 +147,12 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
 #if !defined(__ANDROID__)
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
 #endif
-    /* On Android, create the window in fullscreen mode immediately to avoid
-     * a later surface transition (e.g. 1920×984 → 1920×1080 when system UI
-     * hides on focus gain). Such transitions can invalidate the EGL display
-     * on some Mali GPU drivers, causing EGL_BAD_DISPLAY. */
-#if defined(__ANDROID__)
-    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
-#endif
+    /* Fullscreen property deliberately NOT set here. On Android TV it would
+     * prevent the nav-bar surface transition (1920×984 → 1920×1080) that
+     * triggers EGL_BAD_DISPLAY on some Mali GPUs, but on phones it causes
+     * a hwuiTask crash (pthread_mutex_lock on destroyed mutex). The TV case
+     * should be handled by the caller (e.g. via SDL_SetWindowFullscreen after
+     * creation) once IsAndroidTVDevice is exported from TOUCH_INPUT. */
     sdlWindow = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);
     if (sdlWindow == NULL) {

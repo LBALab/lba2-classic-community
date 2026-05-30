@@ -207,7 +207,7 @@ void ApplyVirtualKeys(void) {
  * Android TV detection (no touchscreen, skip overlay)
  * --------------------------------------------------------------------------- */
 
-static S32 IsAndroidTVDevice(void) {
+S32 IsAndroidTVDevice(void) {
 #ifdef __ANDROID__
     /* Helper: check for a pending JNI exception, log and clear it. */
     struct JniCheck {
