@@ -37,7 +37,7 @@ jobs:
             preset: android_arm64
           - arch: armeabi-v7a
             abi: armeabi-v7a
-            ndk_target: armv7a-linux-androideabi
+            ndk_target: arm-linux-androideabi
             preset: android_armv7a
     defaults:
       run:

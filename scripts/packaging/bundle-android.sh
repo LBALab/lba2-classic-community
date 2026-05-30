@@ -119,7 +119,7 @@ elif [[ -f "$BUILD_DIR/CMakeCache.txt" ]]; then
     if [[ -n "$NDK_ROOT" && -n "$ABI" ]]; then
         case "$ABI" in
             arm64-v8a)   NDK_TARGET="aarch64-linux-android" ;;
-            armeabi-v7a) NDK_TARGET="armv7a-linux-androideabi" ;;
+            armeabi-v7a) NDK_TARGET="arm-linux-androideabi" ;;
             x86_64)      NDK_TARGET="x86_64-linux-android" ;;
             x86)         NDK_TARGET="i686-linux-android" ;;
         esac
