@@ -16,6 +16,10 @@
 #include <string.h>
 #include <math.h>
 
+/* Embedded 8x8 bitmap font from SVGA module — used to draw button labels. */
+extern U8 Font8x8[];
+extern U32 SizeChar;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,24 +30,24 @@ extern "C" {
  * Layout constants in normalised 0..1 coordinate space.  These are tuned
  * for a ~16:9 landscape phone held in both hands, thumbs on the screen.
  *
- *    +--(ESC)----------------------------(MENU)--+
- *    |                                     (CAM)  |
- *    |                                            |
- *    |     (UP)                                   |
- *    |  (L) (D) (R)                              |
- *    |                                            |
- *    |               (CTRL) (SPACE) (ENTER)       |
- *    |               (ALT)  (SHIFT) (ACTION)      |
- *    +--------------------------------------------+
+ *    +--(ESC)---------(HIDE)---------(MEN)(CAM)-+
+ *    |                                           |
+ *    |                                           |
+ *    |                                           |
+ *    |                                           |
+ *    |      (U)               (MD) (ACT) (USE)   |
+ *    |   (L) (D) (R)          (THR) (INV) (W)    |
+ *    +-------------------------------------------+
  */
 
-#define NUM_TOUCH_BUTTONS 13
+#define NUM_TOUCH_BUTTONS 14
 
 /* Maximum simultaneous touch points we track. */
 #define MAX_FINGERS 8
 
 enum TouchButtonId {
     BTN_ESC,
+    BTN_HIDE,
     BTN_MENU,
     BTN_CAMERA,
     BTN_DPAD_UP,
@@ -71,21 +75,23 @@ typedef struct {
 static const TouchButton kButtons[NUM_TOUCH_BUTTONS] = {
     /* Top-left: ESC */
     {BTN_ESC, "ESC", 0.065f, 0.045f, 0.055f, 0.038f, K_ESC},
+    /* Top-centre: HIDE toggle */
+    {BTN_HIDE, "HIDE", 0.48f, 0.045f, 0.055f, 0.038f, 0},
     /* Top-right: Menu (F10) + Camera toggle */
-    {BTN_MENU, "MEN", 0.87f, 0.045f, 0.060f, 0.038f, K_F10},
+    {BTN_MENU, "MEN", 0.85f, 0.045f, 0.055f, 0.038f, K_F10},
     {BTN_CAMERA, "CAM", 0.96f, 0.045f, 0.045f, 0.038f, K_BACKSPACE},
-    /* Left side: D-pad (larger touch targets) */
-    {BTN_DPAD_UP, "\xe2\x86\x91", 0.10f, 0.32f, 0.055f, 0.048f, K_UP},
-    {BTN_DPAD_DOWN, "\xe2\x86\x93", 0.10f, 0.50f, 0.055f, 0.048f, K_DOWN},
-    {BTN_DPAD_LEFT, "\xe2\x86\x90", 0.04f, 0.41f, 0.040f, 0.048f, K_LEFT},
-    {BTN_DPAD_RIGHT, "\xe2\x86\x92", 0.16f, 0.41f, 0.040f, 0.048f, K_RIGHT},
-    /* Bottom-right action cluster (larger, more spacing) */
-    {BTN_CTRL, "MD", 0.63f, 0.86f, 0.065f, 0.045f, K_CTRL},
-    {BTN_SPACE, "ACT", 0.78f, 0.86f, 0.065f, 0.045f, K_SPACE},
-    {BTN_ENTER, "USE", 0.93f, 0.86f, 0.065f, 0.045f, K_ENTER},
-    {BTN_ALT, "THR", 0.63f, 0.96f, 0.065f, 0.045f, K_ALT},
-    {BTN_SHIFT, "INV", 0.78f, 0.96f, 0.065f, 0.045f, K_SHIFT},
-    {BTN_ACTION, "W", 0.93f, 0.96f, 0.065f, 0.045f, K_W},
+    /* Bottom-left: D-pad (thumb zone) */
+    {BTN_DPAD_UP, "U", 0.10f, 0.65f, 0.055f, 0.048f, K_UP},
+    {BTN_DPAD_DOWN, "D", 0.10f, 0.85f, 0.055f, 0.048f, K_DOWN},
+    {BTN_DPAD_LEFT, "L", 0.04f, 0.75f, 0.040f, 0.048f, K_LEFT},
+    {BTN_DPAD_RIGHT, "R", 0.16f, 0.75f, 0.040f, 0.048f, K_RIGHT},
+    /* Bottom-right corner: action cluster */
+    {BTN_CTRL, "MD", 0.68f, 0.84f, 0.055f, 0.045f, K_CTRL},
+    {BTN_SPACE, "ACT", 0.81f, 0.84f, 0.065f, 0.050f, K_SPACE},
+    {BTN_ENTER, "USE", 0.94f, 0.84f, 0.055f, 0.045f, K_ENTER},
+    {BTN_ALT, "THR", 0.68f, 0.95f, 0.055f, 0.045f, K_ALT},
+    {BTN_SHIFT, "INV", 0.81f, 0.95f, 0.055f, 0.045f, K_SHIFT},
+    {BTN_ACTION, "W", 0.94f, 0.95f, 0.055f, 0.045f, K_W},
 };
 
 /* ---------------------------------------------------------------------------
@@ -292,9 +298,6 @@ void TouchOverlay_SetActive(S32 active) {
 }
 
 S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
-    if (!s_active)
-        return 0;
-
 #ifdef __ANDROID__
     if (sdlEvent == NULL)
         return 0;
@@ -315,8 +318,14 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         s_fingers[slot].touchId = (S32)ev->tfinger.fingerID;
         s_fingers[slot].buttonIndex = idx;
         if (idx >= 0) {
-            SetButtonState(idx, 1);
-            consumed = 1;
+            /* HIDE button toggles visibility — always responsive */
+            if (kButtons[idx].id == BTN_HIDE) {
+                TouchOverlay_SetActive(!s_active);
+                consumed = 1;
+            } else if (s_active) {
+                SetButtonState(idx, 1);
+                consumed = 1;
+            }
         }
         break;
     }
@@ -325,7 +334,7 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         if (slot < 0)
             break;
         S32 idx = s_fingers[slot].buttonIndex;
-        if (idx >= 0)
+        if (idx >= 0 && kButtons[idx].id != BTN_HIDE)
             SetButtonState(idx, 0);
         s_fingers[slot].active = 0;
         consumed = 1;
@@ -341,9 +350,9 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         S32 newIdx = HitTest(nx, ny);
         S32 oldIdx = s_fingers[slot].buttonIndex;
         if (newIdx != oldIdx) {
-            if (oldIdx >= 0)
+            if (oldIdx >= 0 && kButtons[oldIdx].id != BTN_HIDE)
                 SetButtonState(oldIdx, 0);
-            if (newIdx >= 0)
+            if (newIdx >= 0 && kButtons[newIdx].id != BTN_HIDE && s_active)
                 SetButtonState(newIdx, 1);
             s_fingers[slot].buttonIndex = newIdx;
         }
@@ -367,6 +376,35 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
  * just before present. This runs after the 8-bit→ARGB conversion so we
  * have direct access to the final pixel buffer.
  */
+
+/* Forward declarations for helpers defined below. */
+static void BlendPixel(U32 *pixel, U8 r, U8 g, U8 b, U8 a);
+
+/* Draw a string using the embedded Font8x8 onto the ARGB framebuffer.
+   Each character is SizeChar x SizeChar pixels. The text is drawn in
+   the given colour with alpha blending. */
+static void DrawStringARGB(U32 *fb, S32 pitchInPixels,
+                           S32 x, S32 y, const char *str,
+                           U8 r, U8 g, U8 b, U8 a) {
+    U8 character;
+    while ((character = (U8)*str++) != 0) {
+        U8 *glyph = &Font8x8[character * SizeChar];
+        for (U32 row = 0; row < SizeChar; row++) {
+            U8 line = glyph[row];
+            U32 mask = 0x80;
+            for (U32 col = 0; col < SizeChar; col++) {
+                if (line & mask) {
+                    S32 px = x + (S32)col;
+                    S32 py = y + (S32)row;
+                    if (px >= 0 && py >= 0)
+                        BlendPixel(&fb[py * pitchInPixels + px], r, g, b, a);
+                }
+                mask >>= 1;
+            }
+        }
+        x += (S32)SizeChar;
+    }
+}
 
 /* Clamp integer to [0, 255]. */
 static U8 Clamp255(S32 v) {
@@ -442,13 +480,26 @@ static void DrawFilledRoundRect(U32 *fb, S32 pitchInPixels,
 void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                          const U8 *palette_rgb) {
     (void)palette_rgb;
-    if (!s_active || frameBuffer == NULL || width == 0 || height == 0)
+    if (frameBuffer == NULL || width == 0 || height == 0)
         return;
 
     S32 pitchPixels = (S32)(pitch / sizeof(U32));
 
-    for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
-        const TouchButton *btn = &kButtons[i];
+    /* Determine which buttons to draw */
+    S32 count;
+    S32 indices[NUM_TOUCH_BUTTONS];
+    if (!s_active) {
+        /* Only the HIDE button remains visible as a small persistent pill */
+        count = 1;
+        indices[0] = BTN_HIDE;
+    } else {
+        count = NUM_TOUCH_BUTTONS;
+        for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++)
+            indices[i] = i;
+    }
+
+    for (S32 b = 0; b < count; b++) {
+        const TouchButton *btn = &kButtons[indices[b]];
         S32 x0 = (S32)((btn->cx - btn->rx) * (float)width);
         S32 y0 = (S32)((btn->cy - btn->ry) * (float)height);
         S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
@@ -466,18 +517,37 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
         if (x0 > x1 || y0 > y1)
             continue;
 
-        U8 alpha = s_pressed[i] ? 180 : 100;
-        U8 r = s_pressed[i] ? 200 : 80;
-        U8 g = s_pressed[i] ? 200 : 80;
-        U8 b = s_pressed[i] ? 200 : 80;
+        S32 bi = indices[b];
+        U8 alpha = s_pressed[bi] ? 180 : (s_active ? 100 : 50);
+        U8 r = s_pressed[bi] ? 200 : 80;
+        U8 g = s_pressed[bi] ? 200 : 80;
+        U8 b8 = s_pressed[bi] ? 200 : 80;
         S32 radius = 6;
 
+        /* When hidden, draw the HIDE button smaller and more subtle */
+        if (!s_active && btn->id == BTN_HIDE) {
+            DrawFilledRoundRect(frameBuffer, pitchPixels,
+                                x0, y0, x1, y1,
+                                r, g, b8, alpha, 6);
+            continue;
+        }
+
         DrawFilledRoundRect(frameBuffer, pitchPixels, x0, y0, x1, y1,
-                            r, g, b, alpha, radius);
+                            r, g, b8, alpha, radius);
 
         /* Draw a simple outline */
         DrawFilledRoundRect(frameBuffer, pitchPixels, x0, y0, x1, y1,
                             255, 255, 255, 60, radius);
+
+        /* Draw the button label centred */
+        if (btn->label && btn->label[0]) {
+            S32 textW = (S32)(strlen(btn->label) * SizeChar);
+            S32 textH = (S32)SizeChar;
+            S32 tx = ((x0 + x1) / 2) - (textW / 2);
+            S32 ty = ((y0 + y1) / 2) - (textH / 2);
+            DrawStringARGB(frameBuffer, pitchPixels, tx, ty, btn->label,
+                           255, 255, 255, 220);
+        }
     }
 }
 

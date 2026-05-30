@@ -5,6 +5,8 @@ LBA2 Classic Community on Android (arm64-v8a and armeabi-v7a).
 
 ## Quick start
 
+Minimum Android version: **7.0 (API 24)**. The APK targets API 24 (required by SDL3) and is tested on API 24–34.
+
 You need:
 
 1.  **Android NDK** r26 or later (recommended: r26.1.10909125).
@@ -68,7 +70,7 @@ Place your retail LBA2 `.HQR` files on the device via ADB:
 adb push lba2.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
 adb push libraa.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
 
-# Or place under /sdcard/lba2cc/ — keeps loose files clean and the
+# (Recommended) place inside /sdcard/lba2cc/ — keeps loose files clean and the
 # game automatically probes this path on startup:
 adb push lba2.hqr /sdcard/lba2cc/
 adb push libraa.hqr /sdcard/lba2cc/
@@ -94,27 +96,27 @@ The game's `ResolveGameDataDir` scans these paths automatically:
 The on-screen virtual gamepad uses the following layout:
 
 ```
-+--(ESC)---------------------------(MEN)--+
-|                                   (CAM) |
-|                                          |
-|       (UP)                               |
-|  (L) (D) (R)                            |
-|                                          |
-|              (MD) (ACT) (USE)            |
-|              (THR) (INV) (W)             |
-+------------------------------------------+
++--(ESC)---------(HIDE)---------(MEN)(CAM)-+
+|                                           |
+|                                           |
+|                                           |
+|                                           |
+|      (U)               (MD) (ACT) (USE)   |
+|   (L) (D) (R)          (THR) (INV) (W)    |
++-------------------------------------------+
 ```
 
-- **ESC** — Escape (quit / back)
+- **ESC** — Escape (quit/back)
+- **HIDE** — Show or hide the overlay (persistent pill when hidden)
 - **MEN** — Menu (F10 / in-game menu)
 - **CAM** — Camera toggle (Backspace)
-- **D-pad** — Arrow keys (movement)
+- **D-pad** — U/D/L/R → Arrow keys (movement)
 - **MD** — Mode (Ctrl / behaviour mode)
-- **ACT** — Action (Space)
+- **ACT** — Action (Space / jump/interact)
 - **USE** — Use/confirm (Enter)
 - **THR** — Throw (Alt)
 - **INV** — Inventory (Shift)
-- **W** — Action (always-on action key)
+- **W** — Action (always-on action key, "W" for walk/run)
 
 The layout is defined in `SOURCES/TOUCH_INPUT.CPP` and can be customised
 by editing the `kButtons[]` table (normalised 0..1 coordinates).
