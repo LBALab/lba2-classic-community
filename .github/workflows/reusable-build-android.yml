@@ -144,7 +144,6 @@ jobs:
           NATIVE_LIB="$BUILD_DIR/SOURCES/liblba2cc.so"
           SDL3_SRC="${RUNNER_TEMP}/SDL3"
           SDL3_LIB="${RUNNER_TEMP}/sdl3-install/lib/libSDL3.so"
-          CXX_SHARED_LIB="${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/${{ matrix.ndk_target }}/libc++_shared.so"
 
           mkdir -p dist
 
@@ -156,7 +155,6 @@ jobs:
             --sdk-root "$ANDROID_HOME" \
             --sdl3-java-src "$SDL3_SRC" \
             --sdl3-lib "$SDL3_LIB" \
-            --cxx-shared-lib "$CXX_SHARED_LIB" \
             --output-dir dist
 
       - name: Upload temporary artifact

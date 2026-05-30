@@ -64,7 +64,7 @@ cmake -S "${REPO_DIR}" -B "${BUILD_DIR}" \
     -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI="${ABI}" \
     -DANDROID_PLATFORM="${API_LEVEL}" \
-    -DANDROID_STL=c++_shared \
+    -DANDROID_STL=c++_static \
     -DSDL3_DIR="${SDL3_ANDROID_DIR}/lib/cmake/SDL3" \
     -DSOUND_BACKEND=sdl \
     -DMVIDEO_BACKEND=smacker

@@ -145,7 +145,7 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK}/build/cmake/android.toolchain.cmake",
         "CMAKE_BUILD_TYPE": "Release",
         "ANDROID_PLATFORM": "24",
-        "ANDROID_STL": "c++_shared",
+        "ANDROID_STL": "c++_static",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker",
         "SDL3_DIR": "$env{SDL3_ANDROID_DIR}"
