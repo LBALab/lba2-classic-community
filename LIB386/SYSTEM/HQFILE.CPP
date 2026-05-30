@@ -63,7 +63,20 @@ U32 HQF_LoadClose(void *ptr) {
     } else if (HQF_header.CompressMethod <= 2) {
         void *ptrdecomp;
 
-        ptrdecomp = (void *)((U8 *)ptr + HQF_header.SizeFile - HQF_header.CompressedSizeFile + RECOVER_AREA);
+        /* Guard: compressed size must not exceed the recovery slack.
+         * If it does, ptrdecomp lands before or at ptr — the in-place
+         * overlap read would corrupt caller memory (or on MTE systems
+         * fault immediately with SEGV_ACCERR). */
+        if (HQF_header.CompressedSizeFile
+            > HQF_header.SizeFile + RECOVER_AREA) {
+            HQF_header.SizeFile = 0;
+            HQF_Close();
+            return 0;
+        }
+
+        ptrdecomp = (void *)((U8 *)ptr + HQF_header.SizeFile
+                             - HQF_header.CompressedSizeFile
+                             + RECOVER_AREA);
 
         Read(HQF_File, ptrdecomp, HQF_header.CompressedSizeFile);
 
