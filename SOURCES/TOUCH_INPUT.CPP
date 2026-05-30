@@ -318,7 +318,7 @@ S32 TouchOverlay_HandleEvent(const void *sdlEvent) {
         s_fingers[slot].touchId = (S32)ev->tfinger.fingerID;
         s_fingers[slot].buttonIndex = idx;
         if (idx >= 0) {
-            /* HIDE button toggles visibility — always responsive */
+            /* HIDE toggles overlay visibility */
             if (kButtons[idx].id == BTN_HIDE) {
                 TouchOverlay_SetActive(!s_active);
                 consumed = 1;
@@ -480,26 +480,13 @@ static void DrawFilledRoundRect(U32 *fb, S32 pitchInPixels,
 void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
                          const U8 *palette_rgb) {
     (void)palette_rgb;
-    if (frameBuffer == NULL || width == 0 || height == 0)
+    if (!s_active || frameBuffer == NULL || width == 0 || height == 0)
         return;
 
     S32 pitchPixels = (S32)(pitch / sizeof(U32));
 
-    /* Determine which buttons to draw */
-    S32 count;
-    S32 indices[NUM_TOUCH_BUTTONS];
-    if (!s_active) {
-        /* Only the HIDE button remains visible as a small persistent pill */
-        count = 1;
-        indices[0] = BTN_HIDE;
-    } else {
-        count = NUM_TOUCH_BUTTONS;
-        for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++)
-            indices[i] = i;
-    }
-
-    for (S32 b = 0; b < count; b++) {
-        const TouchButton *btn = &kButtons[indices[b]];
+    for (S32 i = 0; i < NUM_TOUCH_BUTTONS; i++) {
+        const TouchButton *btn = &kButtons[i];
         S32 x0 = (S32)((btn->cx - btn->rx) * (float)width);
         S32 y0 = (S32)((btn->cy - btn->ry) * (float)height);
         S32 x1 = (S32)((btn->cx + btn->rx) * (float)width);
@@ -517,20 +504,11 @@ void TouchOverlay_Render(U32 *frameBuffer, U32 pitch, U32 width, U32 height,
         if (x0 > x1 || y0 > y1)
             continue;
 
-        S32 bi = indices[b];
-        U8 alpha = s_pressed[bi] ? 180 : (s_active ? 100 : 50);
-        U8 r = s_pressed[bi] ? 200 : 80;
-        U8 g = s_pressed[bi] ? 200 : 80;
-        U8 b8 = s_pressed[bi] ? 200 : 80;
+        U8 alpha = s_pressed[i] ? 180 : 100;
+        U8 r = s_pressed[i] ? 200 : 80;
+        U8 g = s_pressed[i] ? 200 : 80;
+        U8 b8 = s_pressed[i] ? 200 : 80;
         S32 radius = 6;
-
-        /* When hidden, draw the HIDE button smaller and more subtle */
-        if (!s_active && btn->id == BTN_HIDE) {
-            DrawFilledRoundRect(frameBuffer, pitchPixels,
-                                x0, y0, x1, y1,
-                                r, g, b8, alpha, 6);
-            continue;
-        }
 
         DrawFilledRoundRect(frameBuffer, pitchPixels, x0, y0, x1, y1,
                             r, g, b8, alpha, radius);
