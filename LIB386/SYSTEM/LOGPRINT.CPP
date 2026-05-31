@@ -26,9 +26,7 @@ void CreateLog(const char *filePath) {
         fclose(logfile);
     }
 
-    if (logfile) {
-        LogPrintf("Creating log file at '%s'...\n", LogName);
-    } else {
+    if (!logfile) {
         LogPrintf("Warning: Unable to create log file at '%s', "
                   "outputting only to console...\n",
                   LogName);
