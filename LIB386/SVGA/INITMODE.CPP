@@ -13,14 +13,14 @@ extern "C" {
 #endif
 
 // --- Initialization ----------------------------------------------------------
-bool InitGraphics(U32 resX, U32 resY) {
+bool InitGraphics(U32 resX, U32 resY, bool fullscreen) {
     if (resY > ADELINE_MAX_Y_RES) {
         return false;
     }
 
     LogPrintf("\nDesired resolution: %i*%i\n", resX, resY);
 
-    if (!CreateWindowSurface(resX, resY)) {
+    if (!CreateWindowSurface(resX, resY, fullscreen)) {
         return false;
     }
 
