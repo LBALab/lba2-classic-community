@@ -129,9 +129,15 @@ bool IsWindowInitialized() {
 }
 
 // --- Interface ---------------------------------------------------------------
-bool CreateWindowSurface(U32 resX, U32 resY) {
+bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
     assert(windowSystemInitialized == true);
     assert(sdlWindow == NULL);
+
+    /* Seed the cached state from the caller's choice so a fullscreen boot is
+       fullscreen from the first frame. The create-time property below asks SDL
+       to bring the window up fullscreen directly (no windowed flash); the
+       post-create apply is kept as a fallback for backends that ignore it. */
+    windowFullscreenEnabled = fullscreen;
 
     SDL_PropertiesID props = SDL_CreateProperties();
     SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, windowTitle);
@@ -140,6 +146,7 @@ bool CreateWindowSurface(U32 resX, U32 resY) {
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, fullscreen);
     sdlWindow = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);
     if (sdlWindow == NULL) {

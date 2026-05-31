@@ -16,7 +16,10 @@ void EndWindow();
 bool IsWindowInitialized();
 
 // --- Interface ---------------------------------------------------------------
-bool CreateWindowSurface(U32 resX, U32 resY);
+/** Create the SDL window, renderer, and streaming texture at resX*resY. When
+ *  `fullscreen` is true the window is created fullscreen up front (via the
+ *  SDL create-time property), avoiding a windowed-then-flipped frame on boot. */
+bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen);
 void DestroyWindowSurface();
 
 /** Resize the existing window + streaming texture in place, without
