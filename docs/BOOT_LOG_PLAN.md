@@ -1,6 +1,6 @@
 # Boot Log + Exit Screen
 
-**Status:** Decisions locked. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), 4 (boot-path wiring), and 5 (Funfrock header) done, then reshaped to the terse Quake-style boot log + asset preflight (see "Boot-log shape" below). Phase 2 (console sink) pending; graceful optional-asset degradation is a separate PR (B). Recommended order: 6 → 1 → 3 → 4 → 5 → 2.
+**Status:** All phases done. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), 4 (boot-path wiring), 5 (Funfrock header — later dropped), and 2 (console sink) implemented, then reshaped to the terse Quake-style boot log + asset preflight (see "Boot-log shape" below). Graceful optional-asset degradation remains a separate PR (B).
 
 ## Goal
 
@@ -237,21 +237,40 @@ Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
 - Verified: host test passes; full engine compiles/links `LOG.CPP` with the SDL
   spine. Dormant until Phase 4 wiring.
 
-### Phase 2 — Console buffer sink
+### Phase 2 — Console buffer sink — done
 
-- Reuse the console API (`Console_Print` / `Console_GetScrollback`). Do not
-  duplicate.
-- Implement `MakeConsoleBufferSink()`. **Monochrome in v1** — the console has no
-  per-line color storage, so severity is not color-coded (adding a color
-  attribute channel to `CONSOLE.CPP`'s ring + renderer is out of scope for v1).
-- **Bump `CONSOLE_SCROLLBACK_LINES`** (currently 128) so early boot lines aren't
-  evicted before the user opens the console.
-- **Main-thread records only:** capture the main thread id in `Init()`; the
-  console sink drops records from other threads (they still hit file/terminal).
-- Register the console buffer sink during `Log_Init()`, at console-level
-  filtering (Warn+ default).
-- **Verification:** boot the engine, open the console (F12), scroll back,
-  confirm the boot log is visible.
+- Reuse the console API (`Console_Print`). Do not duplicate.
+- `Log_MakeConsoleBufferSink()`. **Monochrome** — the console ring stores plain
+  text with no per-line colour, so severity is a text tag (`[WARN]`), not a
+  colour. Raw lines render verbatim; sections as `== Title ==`.
+- **Bumped `CONSOLE_SCROLLBACK_LINES` 128 -> 512** so the boot log isn't evicted
+  by gameplay output before the player opens the console.
+- **Main-thread records only:** the main thread id is captured in `Log_Init()`;
+  the console sink drops records from other threads (the ring is not
+  thread-safe). They still reach the file and terminal sinks.
+- Registered during `InitAdeline` alongside the file + terminal sinks.
+
+**Decisions taken (Phase 2):**
+
+- **Default `INFO`, not `Warn+` (revises decision 2 for this sink).** Decision 2
+  chose Warn+ to keep the overlay clear of the verbose audio/SFX logs — but those
+  are already gated behind `sfxLogEnabled`/`musicLogEnabled` (both default off),
+  so at INFO the overlay is clean *and* the boot log (INFO/raw) actually lands in
+  the ring. A literal Warn+ default would have filtered the boot log out at emit
+  time, contradicting "early boot lines survive in the ring" and the verification
+  below — the lines would never be captured, so lowering the level afterwards
+  couldn't bring them back.
+- **Runtime toggle:** the `loglevel [debug|info|warn|error]` console command
+  (`Log_SetConsoleSeverity` / `Log_GetConsoleSeverity`) adjusts only this sink;
+  the file and terminal sinks are unaffected.
+- The console sink lives in `LOG.CPP` with the other sinks and calls
+  `Console_Print`; host tests that compile `LOG.CPP` standalone provide a
+  `Console_Print` stub (a recording stub in `test_log`, a no-op in
+  `test_asset_preflight`).
+- **Verification:** host test (`test_console_sink`: filtering, tags, raw
+  verbatim, section idiom, runtime severity change); live boot — the full boot
+  log appears in the scrollback via `--dump-state`'s `log` array, and `loglevel`
+  responds via `--exec`.
 
 ### Phase 3 — Terminal sink — done
 

@@ -6,10 +6,26 @@
 #include "LOG.H"
 #include "test_harness.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #define TMP "test_log_phase1.tmp"
+
+/* Recording stub for the console buffer sink (LOG.CPP -> Console_Print). The
+ * real console module isn't linked into host tests; capture the pushed lines so
+ * the sink's rendering and filtering can be asserted. */
+static char g_console_capture[4096];
+extern "C" void Console_Print(const char *fmt, ...) {
+    char line[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+    size_t used = strlen(g_console_capture);
+    snprintf(g_console_capture + used, sizeof g_console_capture - used, "%s\n", line);
+}
+static void console_capture_reset(void) { g_console_capture[0] = '\0'; }
 
 static void slurp(const char *path, char *out, int max) {
     FILE *f = fopen(path, "r");
@@ -99,11 +115,48 @@ static void test_scoped_section(void) {
     remove(TMP);
 }
 
+/* Console buffer sink: monochrome text into the scrollback, INFO default,
+ * raw verbatim, runtime severity change. (Thread gating is SDL-only and
+ * compiled out under LBA_LOG_NO_SDL, so the sink always writes here.) */
+static void test_console_sink(void) {
+    console_capture_reset();
+    Log_Init();
+    LogSink *s = Log_MakeConsoleBufferSink();
+    ASSERT_TRUE(s != NULL);
+    Log_AddSink(s);
+    ASSERT_TRUE(Log_GetConsoleSeverity() == LOG_INFO);
+
+    /* Default INFO: DEBUG dropped, INFO/WARN tagged, raw verbatim, section idiom. */
+    Log_Debug("dbg-line");
+    Log_Info("info-line");
+    Log_Warn("warn-line");
+    Log_Raw("raw-line");
+    Log_BeginSection("Boot");
+    ASSERT_TRUE(strstr(g_console_capture, "dbg-line") == NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "[INFO] info-line") != NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "[WARN] warn-line") != NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "raw-line") != NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "[INFO] raw-line") == NULL); /* verbatim */
+    ASSERT_TRUE(strstr(g_console_capture, "== Boot ==") != NULL);
+
+    /* loglevel raise to WARN now drops INFO. */
+    console_capture_reset();
+    Log_SetConsoleSeverity(LOG_WARN);
+    ASSERT_TRUE(Log_GetConsoleSeverity() == LOG_WARN);
+    Log_Info("info-after");
+    Log_Error("err-after");
+    ASSERT_TRUE(strstr(g_console_capture, "info-after") == NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "[ERROR] err-after") != NULL);
+
+    Log_Shutdown();
+}
+
 int main(void) {
     RUN_TEST(test_severity_prefixes);
     RUN_TEST(test_min_severity_filter);
     RUN_TEST(test_section_header);
     RUN_TEST(test_scoped_section);
+    RUN_TEST(test_console_sink);
     TEST_SUMMARY();
     return test_failures != 0;
 }
