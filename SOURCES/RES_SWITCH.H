@@ -74,6 +74,14 @@ bool Res_ValidateDimensions(U32 w, U32 h);
    the cfg held an invalid value so the player can spot a corrupted key. */
 void Res_LoadBootDimensions(U32 *outW, U32 *outH);
 
+/* Read the boot fullscreen choice (lba2.cfg DisplayFullScreen) the same
+   transient, heap-free way as Res_LoadBootDimensions, so the window can be
+   created fullscreen from the start instead of created windowed then flipped
+   by the later ReadConfigFile pass. Returns false (windowed) when the key is
+   absent/invalid or the cfg can't be read. Requires PathConfigFile resolved
+   first (call GetCfgPath). */
+bool Res_LoadBootFullscreen(void);
+
 #ifdef __cplusplus
 }
 #endif

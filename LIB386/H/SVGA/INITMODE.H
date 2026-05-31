@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 // --- Initialization ----------------------------------------------------------
-bool InitGraphics(U32 resX, U32 resY);
+bool InitGraphics(U32 resX, U32 resY, bool fullscreen);
 void EndGraphics();
 
 // =============================================================================
