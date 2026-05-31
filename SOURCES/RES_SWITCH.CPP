@@ -277,6 +277,28 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
     *outH = RESOLUTION_Y;
 }
 
+/*══════════════════════════════════════════════════════════════════════════*/
+bool Res_LoadBootFullscreen(void) {
+    /* Same transient, heap-free cfg read as Res_LoadBootDimensions (see the
+       rationale there). Read DisplayFullScreen so InitGraphics can create the
+       window fullscreen up front, instead of the historical "create windowed,
+       then ReadConfigFile -> SetWindowFullscreen flips it" — which flashed a
+       windowed frame on every fullscreen boot. ReadConfigFile still applies the
+       same value later; on boot that becomes a no-op since the state matches,
+       and it remains the authoritative path for the in-game menu toggle.
+
+       Default windowed, matching ReadConfigFile's DisplayFullScreen default
+       (FALSE) and its <0/>1 clamp — keep the two in sync. */
+    if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
+        static char tmpCfgBuf[8192];
+        if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
+            const long fs = DefFileBufferReadValueDefault("DisplayFullScreen", 0);
+            return fs == 1;
+        }
+    }
+    return false;
+}
+
 /*══════════════════════════════════════════════════════════════════════════*
  *   Safety gate                                                             *
  *══════════════════════════════════════════════════════════════════════════*/

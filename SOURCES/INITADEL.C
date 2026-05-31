@@ -187,7 +187,11 @@ void InitAdeline(S32 argc, char *argv[]) {
            which makes scene rendering clip to the smaller dimensions. */
         U32 reqResX, reqResY;
         Res_LoadBootDimensions(&reqResX, &reqResY);
-        if (!InitGraphics(reqResX, reqResY)) {
+        /* Read the fullscreen choice now so the window is created fullscreen up
+           front; the later ReadConfigFile -> SetWindowFullscreen pass then just
+           confirms it instead of flipping a windowed window. */
+        const bool reqFullscreen = Res_LoadBootFullscreen();
+        if (!InitGraphics(reqResX, reqResY, reqFullscreen)) {
             exit(1); // TODO: Implement graceful exit
         }
     }
