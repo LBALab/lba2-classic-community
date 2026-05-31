@@ -65,7 +65,7 @@ adb install -r dist/lba2cc-*-android-arm64-v8a.apk
 Place your retail LBA2 `.HQR` files on the device via ADB:
 
 ```bash
-# Android 11+ (scoped storage): file managers can't access Android/data/
+# Android 11+ and Android TV (scoped storage): file managers can't access Android/data/
 # Use ADB instead:
 adb push lba2.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
 adb push libraa.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
