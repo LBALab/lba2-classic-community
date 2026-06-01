@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h> /* dup/dup2 — capture stderr for the no-sink fallback test */
 
 #define TMP "test_log_phase1.tmp"
 
@@ -288,6 +289,32 @@ static void test_logprintf_early_boot_fallback(void) {
     remove("shim_fallback.tmp");
 }
 
+/* With no sink registered, Log_* must still surface — it falls back to a direct
+ * stderr write (bypassing the SDL spine). This is what keeps the pre-Log_Init
+ * game-data-directory errors visible. Capture stderr to assert it. */
+static void test_log_fallback_no_sinks(void) {
+    Log_Init(); /* no sink added -> g_active_count == 0 */
+
+    fflush(stderr);
+    int saved = dup(fileno(stderr));
+    FILE *cap = fopen("fallback_stderr.tmp", "w");
+    ASSERT_TRUE(cap != NULL);
+    dup2(fileno(cap), fileno(stderr));
+
+    Log_Error("orphan-%d", 9); /* no sinks -> direct fallback to stderr */
+
+    fflush(stderr);
+    dup2(saved, fileno(stderr)); /* restore */
+    close(saved);
+    fclose(cap);
+
+    char buf[1024];
+    slurp("fallback_stderr.tmp", buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "[ERROR] orphan-9") != NULL);
+    remove("fallback_stderr.tmp");
+    Log_Shutdown();
+}
+
 int main(void) {
     RUN_TEST(test_severity_prefixes);
     RUN_TEST(test_min_severity_filter);
@@ -302,6 +329,7 @@ int main(void) {
     RUN_TEST(test_logputs_percent_safe);
     RUN_TEST(test_logprintf_partial_line_terminated);
     RUN_TEST(test_logprintf_early_boot_fallback);
+    RUN_TEST(test_log_fallback_no_sinks);
     TEST_SUMMARY();
     return test_failures != 0;
 }

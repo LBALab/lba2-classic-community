@@ -5,6 +5,7 @@
 #include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 
 #include <SDL3/SDL.h>
@@ -105,7 +106,7 @@ bool NormalizeAndTry(const char *pathIn, char *outDir, U16 outMax,
 }
 
 void LogFailure(const char tried[][ADELINE_MAX_PATH], int triedCount) {
-    LogPrintf("Error: No valid game data directory (need lba2.hqr). Tried %d path(s).\n",
+    Log_Error("No valid game data directory (need lba2.hqr). Tried %d path(s).",
               triedCount);
     for (int i = 0; i < triedCount; i++) {
         LogPrintf("  - %s\n", tried[i]);
