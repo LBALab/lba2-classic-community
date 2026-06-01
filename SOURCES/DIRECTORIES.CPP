@@ -3,6 +3,7 @@
 #include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 
 #include <SDL3/SDL_filesystem.h>
@@ -161,21 +162,21 @@ void InitDirectories(const char *userDir, const char *resDir,
     strncpy(directoriesUserDir, userDir, ADELINE_MAX_PATH);
     directoriesUserDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
     if (!ExistsFileOrDir(directoriesUserDir)) {
-        LogPrintf("Error: Invalid user directory '%s'\n", directoriesUserDir);
+        Log_Error("Invalid user directory '%s'", directoriesUserDir);
         exit(EXIT_FAILURE);
     }
 
     strncpy(directoriesResDir, resDir, ADELINE_MAX_PATH);
     directoriesResDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
     if (!IsValidResourceDir(directoriesResDir)) {
-        LogPrintf("Error: Invalid resource directory '%s'\n", directoriesResDir);
+        Log_Error("Invalid resource directory '%s'", directoriesResDir);
         exit(EXIT_FAILURE);
     }
 
     strncpy(directoriesCfgDir, cfgDir, ADELINE_MAX_PATH);
     directoriesCfgDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
     if (!ExistsFileOrDir(directoriesCfgDir)) {
-        LogPrintf("Error: Invalid config directory '%s'\n", directoriesCfgDir);
+        Log_Error("Invalid config directory '%s'", directoriesCfgDir);
         exit(EXIT_FAILURE);
     }
 
@@ -183,8 +184,7 @@ void InitDirectories(const char *userDir, const char *resDir,
     directoriesCDPrefix[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
     if (strlen(directoriesCDPrefix) > 0) {
         if (!ExistsFileOrDir(directoriesCDPrefix)) {
-            LogPrintf("Error: Invalid CD drive or directory '%s'\n",
-                      directoriesCDPrefix);
+            Log_Error("Invalid CD drive or directory '%s'", directoriesCDPrefix);
             exit(EXIT_FAILURE);
         }
     }
@@ -213,8 +213,7 @@ void GetCurrentRunningDir(char *outDir) {
         return;
     }
     if (SDL_strlen(sdlBasePath) >= ADELINE_MAX_PATH) {
-        LogPrintf("Error: Current directory path too long (>= %d)\n",
-                  ADELINE_MAX_PATH);
+        Log_Error("Current directory path too long (>= %d)", ADELINE_MAX_PATH);
         SDL_free(sdlBasePath);
         outDir[0] = '\0';
         return;

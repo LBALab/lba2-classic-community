@@ -280,10 +280,34 @@ void SDLCALL sdl_output(void *userdata, int category, SDL_LogPriority pri,
 }
 #endif /* !LBA_LOG_NO_SDL */
 
+/* Direct fallback used when no sink is registered yet — before Log_Init /
+ * Log_AddSink (e.g. the game-data-directory checks in main, which run before
+ * InitAdeline) or after Log_Shutdown. Writes to stderr in the file sink's idiom
+ * and bypasses the SDL spine (which may not even be installed pre-Log_Init), so
+ * an early Log_Error/Log_Warn is still seen. Mirrors LogPrintf's fallback. */
+void log_fallback_write(LogSeverity sev, int kind, const char *msg) {
+    if (!msg)
+        msg = "";
+    if (kind == REC_SECTION_END)
+        return;
+    if (kind == REC_SECTION_BEGIN)
+        fprintf(stderr, "==== %s ====\n", msg);
+    else if (kind == REC_RAW)
+        fprintf(stderr, "%s\n", msg);
+    else
+        fprintf(stderr, "[%s] %s\n", severity_tag(sev), msg);
+    fflush(stderr);
+}
+
 /* Transport seam: format-then-dispatch. Under SDL the record rides the log
  * spine and comes back through sdl_output; in host tests it goes straight to
- * the fan-out, so the core needs no SDL_Init. */
+ * the fan-out, so the core needs no SDL_Init. With no sinks registered, fall
+ * back to a direct write so nothing is lost before the sinks come up. */
 void emit_formatted(LogSeverity sev, int kind, const char *msg) {
+    if (g_active_count == 0) {
+        log_fallback_write(sev, kind, msg);
+        return;
+    }
 #ifdef LBA_LOG_NO_SDL
     log_emit(sev, kind, msg);
 #else
