@@ -1,6 +1,4 @@
-#include "LOG.H"
-
-#include "../CONSOLE/CONSOLE.H" /* console buffer sink -> Console_Print */
+#include <SYSTEM/LOG.H>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -55,6 +53,8 @@ struct LogSink {
     SinkWriteFn write;
     FILE *fp;    /* file sink: owned; terminal sink: stderr (not owned) */
     int owns_fp; /* close fp on shutdown (file sink only) */
+    /* console sink: per-line print adapter, injected by the engine */
+    LogLineFn line_fn;
 };
 
 namespace {
@@ -157,7 +157,8 @@ void noop_write(LogSink *, LogSeverity, int, const char *) {}
 /* --- Console buffer sink: monochrome text into the in-engine scrollback ---- */
 
 void console_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
-    (void)s;
+    if (!s->line_fn)
+        return;
 #ifndef LBA_LOG_NO_SDL
     /* The console scrollback ring is not thread-safe — only the main thread may
      * push. Off-thread records (e.g. the audio callback) are dropped here; they
@@ -169,12 +170,14 @@ void console_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) 
         msg = "";
     if (kind == REC_SECTION_END)
         return; /* no closer line in the console */
-    else if (kind == REC_SECTION_BEGIN)
-        Console_Print("== %s ==", msg);
+    char line[LOG_MSG_MAX];
+    if (kind == REC_SECTION_BEGIN)
+        (void)snprintf(line, sizeof line, "== %s ==", msg);
     else if (kind == REC_RAW)
-        Console_Print("%s", msg); /* msg is the arg, not the format */
+        (void)snprintf(line, sizeof line, "%s", msg);
     else
-        Console_Print("[%s] %s", severity_tag(sev), msg);
+        (void)snprintf(line, sizeof line, "[%s] %s", severity_tag(sev), msg);
+    s->line_fn(line);
 }
 
 int terminal_enabled(void) {
@@ -212,6 +215,7 @@ LogSink *alloc_sink(void) {
             s->write = 0;
             s->fp = 0;
             s->owns_fp = 0;
+            s->line_fn = 0;
             return s;
         }
     }
@@ -404,7 +408,7 @@ LogSink *Log_MakeTerminalSink(LogSeverity min_severity) {
     return s;
 }
 
-LogSink *Log_MakeConsoleBufferSink(void) {
+LogSink *Log_MakeConsoleBufferSink(LogLineFn printer) {
     LogSink *s = alloc_sink();
     if (!s)
         return 0;
@@ -413,6 +417,7 @@ LogSink *Log_MakeConsoleBufferSink(void) {
      * INFO stays clean without filtering the boot log out of the ring. */
     s->min_severity = LOG_INFO;
     s->write = console_sink_write;
+    s->line_fn = printer;
     g_console_sink = s;
     return s;
 }
