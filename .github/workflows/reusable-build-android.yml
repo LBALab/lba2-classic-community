@@ -60,8 +60,6 @@ jobs:
           mkdir -p "${ANDROID_HOME}/cmdline-tools"
           if [ ! -f "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" ]; then
             CLI_ZIP="${RUNNER_TEMP}/cmdline-tools.zip"
-            # Keep in sync with the AGP version used in android/build.gradle
-            # when Gradle-based packaging is enabled.
             curl -fsSLo "$CLI_ZIP" \
               "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
             unzip -qo "$CLI_ZIP" -d "${RUNNER_TEMP}/cmdline-tools-unzip"
@@ -101,7 +99,7 @@ jobs:
 
           if [ ! -d "$SDL3_DIR" ]; then
             for i in 1 2 3; do
-              git clone --depth 1 \
+              git clone --depth 1 --branch release-3.2.16 \
                 https://github.com/libsdl-org/SDL.git "$SDL3_DIR" 2>&1 && break
               echo "SDL3 clone attempt $i failed, retrying..."
               rm -rf "$SDL3_DIR"

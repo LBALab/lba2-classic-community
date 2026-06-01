@@ -36,7 +36,7 @@ echo "  Install:   ${SDL3_INSTALL}"
 # Clone SDL3 if not present
 if [ ! -d "${SDL3_SRC}" ]; then
     echo "Cloning SDL3..."
-    git clone --depth 1 https://github.com/libsdl-org/SDL.git -b main "${SDL3_SRC}"
+    git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SDL.git "${SDL3_SRC}"
 fi
 
 # Configure

@@ -8,8 +8,7 @@
 #   1. Android NDK r26+  — set ANDROID_NDK or install under $HOME/Android/Sdk/ndk/
 #   2. SDL3 built for the target ABI — set SDL3_ANDROID_DIR or run build_sdl3.sh first
 #   3. Ninja (build tool)
-#   4. Java 17+ and Gradle for APK packaging (optional: use android/gradlew)
-#   5. Retail game data HQR files (NOT included in the repo)
+#   4. Retail game data HQR files (NOT included in the repo)
 #
 # Usage:
 #   export ANDROID_NDK=$HOME/Android/Sdk/ndk/26.1.10909125
@@ -79,30 +78,7 @@ ls -lh "${BUILD_DIR}/SOURCES/liblba2cc.so" 2>/dev/null || \
     ls -lh "${BUILD_DIR}/SOURCES/liblba2cc.so" 2>/dev/null || \
     echo "(check BUILD_DIR for output)"
 
-# ---- Step 3: (Optional) Build APK via Gradle -----------------------------
-if command -v gradle &>/dev/null || [ -f "${SCRIPT_DIR}/gradlew" ]; then
-    echo ""
-    echo "=== Packaging APK ==="
-
-    # Copy native lib to the Android project's jniLibs
-    mkdir -p "${SCRIPT_DIR}/app/src/main/jniLibs/${ABI}"
-    cp "${BUILD_DIR}/SOURCES/liblba2cc.so" \
-       "${SCRIPT_DIR}/app/src/main/jniLibs/${ABI}/"
-
-    # Build the APK
-    cd "${SCRIPT_DIR}"
-    if [ -f gradlew ]; then
-        ./gradlew assembleDebug
-    else
-        gradle assembleDebug
-    fi
-
-    echo ""
-    echo "=== APK ready ==="
-    echo "  ${SCRIPT_DIR}/app/build/outputs/apk/debug/"
-else
-    echo ""
-    echo "=== Gradle not found — native lib built, APK skipped ==="
-    echo "  To build APK: install Gradle or run gradle wrapper."
-    echo "  See android/README.md for manual APK packaging instructions."
-fi
+echo ""
+echo "=== To build APK, run: ==="
+echo "  bash scripts/packaging/bundle-android.sh ..."
+echo "  See android/README.md for instructions."

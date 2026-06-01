@@ -150,370 +150,369 @@ static inline void DrawFeuillePolyZBuf(S32 xi, S32 zi, T_SOMMET_ROT *ptrs) {
         if (i3 < 0)
             i3 = 0; // groumpf
 
-        /*		i0 = i[0]*256 		;
+/*		i0 = i[0]*256 		;
 		i1 = i[65]*256		;
 		i3 = i[1]*256 		;
 		i2 = i[65+1]*256 	;
-*/
-    }
+*/	}
 
-    if (ptrh->Sens == 0) {
-        if (ptrh->PolyFlag + ptrh->TexFlag) {
-            // type 0 triangle 0----------------------------
+if (ptrh->Sens == 0) {
+    if (ptrh->PolyFlag + ptrh->TexFlag) {
+        // type 0 triangle 0----------------------------
 
-            Tab_Points[0].Pt_XE = (S16)x0;
-            Tab_Points[0].Pt_YE = (S16)z0;
-            Tab_Points[1].Pt_XE = (S16)x1;
-            Tab_Points[1].Pt_YE = (S16)z1;
-            Tab_Points[2].Pt_XE = (S16)x2;
-            Tab_Points[2].Pt_YE = (S16)z2;
+        Tab_Points[0].Pt_XE = (S16)x0;
+        Tab_Points[0].Pt_YE = (S16)z0;
+        Tab_Points[1].Pt_XE = (S16)x1;
+        Tab_Points[1].Pt_YE = (S16)z1;
+        Tab_Points[2].Pt_XE = (S16)x2;
+        Tab_Points[2].Pt_YE = (S16)z2;
 
-            if (TestVuePoly(Tab_Points)) {
-                color = (ptrh->Bank << 4) + 11;
+        if (TestVuePoly(Tab_Points)) {
+            color = (ptrh->Bank << 4) + 11;
 
-                Tab_Points[0].Pt_Light = (S16)i0;
-                Tab_Points[1].Pt_Light = (S16)i1;
-                Tab_Points[2].Pt_Light = (S16)i2;
+            Tab_Points[0].Pt_Light = (S16)i0;
+            Tab_Points[1].Pt_Light = (S16)i1;
+            Tab_Points[2].Pt_Light = (S16)i2;
 
-                Tab_Points[0].Pt_ZO = (U16)f0;
-                Tab_Points[1].Pt_ZO = (U16)f1;
-                Tab_Points[2].Pt_ZO = (U16)f2;
+            Tab_Points[0].Pt_ZO = (U16)f0;
+            Tab_Points[1].Pt_ZO = (U16)f1;
+            Tab_Points[2].Pt_ZO = (U16)f2;
 
-                if (ptrh->PolyFlag) {
-                    if (ptrh->PolyFlag == 1) {
-                        color += ((i0 + i1 + i2) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-
-                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                              color, 3,
-                              Tab_Points);
+            if (ptrh->PolyFlag) {
+                if (ptrh->PolyFlag == 1) {
+                    color += ((i0 + i1 + i2) * 21845) >> 24; // *21845 >> 16 EQU / 3
                 }
 
-                if (ptrh->TexFlag) {
-                    T_HALF_TEX *ptrt;
-
-                    ptrt = &ListTexDef[ptrh->IndexTex];
-
-                    Tab_Points[0].Pt_MapU = ptrt->Tx0;
-                    Tab_Points[0].Pt_MapV = ptrt->Ty0;
-                    Tab_Points[1].Pt_MapU = ptrt->Tx1;
-                    Tab_Points[1].Pt_MapV = ptrt->Ty1;
-                    Tab_Points[2].Pt_MapU = ptrt->Tx2;
-                    Tab_Points[2].Pt_MapV = ptrt->Ty2;
-
-                    if (ptrh->TexFlag == 2) {
-                        color = ((i0 + i1 + i2) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-
-                    type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
-
-                    if (Fill_Poly(type, color, 3, Tab_Points)) {
-                        if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
-
-                            if (NbAniPoly < MaxPolySea - 1) {
-                                PtrAniPoly->X0 = (S16)Min3(x0, x1, x2);
-                                PtrAniPoly->Y0 = (S16)Min3(z0, z1, z2);
-                                PtrAniPoly->X1 = (S16)Max3(x0, x1, x2);
-                                PtrAniPoly->Y1 = (S16)Max3(z0, z1, z2);
-
-                                if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
-                                        AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
-                                    PtrAniPoly->Type = type;
-                                    PtrAniPoly->Color = (U8)color;
-
-                                    PtrAniPoly->Fog = fog;
-
-                                    PtrAniPoly->Tab_Points[0] = Tab_Points[0];
-                                    PtrAniPoly->Tab_Points[1] = Tab_Points[1];
-                                    PtrAniPoly->Tab_Points[2] = Tab_Points[2];
-
-                                    NbAniPoly++;
-                                    PtrAniPoly++;
-                                }
-                            }
-#ifdef DEBUG_TOOLS
-                            else {
-                                Message("MaxPolySea Atteint !", TRUE);
-                            }
-#endif
-                        }
-                    }
-                }
+                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                          color, 3,
+                          Tab_Points);
             }
-        }
-        // type 0 triangle 1----------------------------------
 
-        ptrh++;
+            if (ptrh->TexFlag) {
+                T_HALF_TEX *ptrt;
 
-        if (ptrh->PolyFlag + ptrh->TexFlag) {
-            Tab_Points[0].Pt_XE = (S16)x2;
-            Tab_Points[0].Pt_YE = (S16)z2;
-            Tab_Points[1].Pt_XE = (S16)x3;
-            Tab_Points[1].Pt_YE = (S16)z3;
-            Tab_Points[2].Pt_XE = (S16)x0;
-            Tab_Points[2].Pt_YE = (S16)z0;
+                ptrt = &ListTexDef[ptrh->IndexTex];
 
-            if (TestVuePoly(Tab_Points)) {
-                color = (ptrh->Bank << 4) + 11;
+                Tab_Points[0].Pt_MapU = ptrt->Tx0;
+                Tab_Points[0].Pt_MapV = ptrt->Ty0;
+                Tab_Points[1].Pt_MapU = ptrt->Tx1;
+                Tab_Points[1].Pt_MapV = ptrt->Ty1;
+                Tab_Points[2].Pt_MapU = ptrt->Tx2;
+                Tab_Points[2].Pt_MapV = ptrt->Ty2;
 
-                Tab_Points[0].Pt_Light = (S16)i2;
-                Tab_Points[1].Pt_Light = (S16)i3;
-                Tab_Points[2].Pt_Light = (S16)i0;
-
-                Tab_Points[0].Pt_ZO = (U16)f2;
-                Tab_Points[1].Pt_ZO = (U16)f3;
-                Tab_Points[2].Pt_ZO = (U16)f0;
-
-                if (ptrh->PolyFlag) {
-                    if (ptrh->PolyFlag == 1) {
-                        color += ((i0 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                              color, 3,
-                              Tab_Points);
+                if (ptrh->TexFlag == 2) {
+                    color = ((i0 + i1 + i2) * 21845) >> 24; // *21845 >> 16 EQU / 3
                 }
 
-                if (ptrh->TexFlag) {
-                    T_HALF_TEX *ptrt;
+                type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
 
-                    ptrt = &ListTexDef[ptrh->IndexTex];
+                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                    if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
 
-                    Tab_Points[0].Pt_MapU = ptrt->Tx0;
-                    Tab_Points[0].Pt_MapV = ptrt->Ty0;
-                    Tab_Points[1].Pt_MapU = ptrt->Tx1;
-                    Tab_Points[1].Pt_MapV = ptrt->Ty1;
-                    Tab_Points[2].Pt_MapU = ptrt->Tx2;
-                    Tab_Points[2].Pt_MapV = ptrt->Ty2;
+                        if (NbAniPoly < MaxPolySea - 1) {
+                            PtrAniPoly->X0 = (S16)Min3(x0, x1, x2);
+                            PtrAniPoly->Y0 = (S16)Min3(z0, z1, z2);
+                            PtrAniPoly->X1 = (S16)Max3(x0, x1, x2);
+                            PtrAniPoly->Y1 = (S16)Max3(z0, z1, z2);
 
-                    if (ptrh->TexFlag == 2) {
-                        color = ((i0 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
+                            if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
+                                    AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
+                                PtrAniPoly->Type = type;
+                                PtrAniPoly->Color = (U8)color;
 
-                    type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
+                                PtrAniPoly->Fog = fog;
 
-                    if (Fill_Poly(type, color, 3, Tab_Points)) {
-                        if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
-                            if (NbAniPoly < MaxPolySea - 1) {
-                                PtrAniPoly->X0 = (S16)Min3(x0, x2, x3);
-                                PtrAniPoly->Y0 = (S16)Min3(z0, z2, z3);
-                                PtrAniPoly->X1 = (S16)Max3(x0, x2, x3);
-                                PtrAniPoly->Y1 = (S16)Max3(z0, z2, z3);
+                                PtrAniPoly->Tab_Points[0] = Tab_Points[0];
+                                PtrAniPoly->Tab_Points[1] = Tab_Points[1];
+                                PtrAniPoly->Tab_Points[2] = Tab_Points[2];
 
-                                if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
-                                        AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
-                                    PtrAniPoly->Type = type;
-                                    PtrAniPoly->Color = (U8)color;
-
-                                    PtrAniPoly->Fog = fog;
-
-                                    PtrAniPoly->Tab_Points[0] = Tab_Points[0];
-                                    PtrAniPoly->Tab_Points[1] = Tab_Points[1];
-                                    PtrAniPoly->Tab_Points[2] = Tab_Points[2];
-
-                                    NbAniPoly++;
-                                    PtrAniPoly++;
-                                }
+                                NbAniPoly++;
+                                PtrAniPoly++;
                             }
-#ifdef DEBUG_TOOLS
-                            else {
-                                Message("MaxPolySea Atteint !", TRUE);
-                            }
-#endif
                         }
-                    }
-                }
-            }
-        }
-    } else // type == 1---------------------------------------------------
-    {
-        // type 1 triangle 0
-
-        if (ptrh->PolyFlag + ptrh->TexFlag) {
-            Tab_Points[0].Pt_XE = (S16)x3;
-            Tab_Points[0].Pt_YE = (S16)z3;
-            Tab_Points[1].Pt_XE = (S16)x0;
-            Tab_Points[1].Pt_YE = (S16)z0;
-            Tab_Points[2].Pt_XE = (S16)x1;
-            Tab_Points[2].Pt_YE = (S16)z1;
-
-            if (TestVuePoly(Tab_Points)) {
-                color = (ptrh->Bank << 4) + 11;
-
-                Tab_Points[0].Pt_Light = (S16)i3;
-                Tab_Points[1].Pt_Light = (S16)i0;
-                Tab_Points[2].Pt_Light = (S16)i1;
-
-                Tab_Points[0].Pt_ZO = (U16)f3;
-                Tab_Points[1].Pt_ZO = (U16)f0;
-                Tab_Points[2].Pt_ZO = (U16)f1;
-
-                if (ptrh->PolyFlag) {
-                    if (ptrh->PolyFlag == 1) {
-                        color += ((i0 + i1 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                              color, 3,
-                              Tab_Points);
-                }
-
-                if (ptrh->TexFlag) {
-                    T_HALF_TEX *ptrt;
-
-                    ptrt = &ListTexDef[ptrh->IndexTex];
-
-                    Tab_Points[0].Pt_MapU = ptrt->Tx0;
-                    Tab_Points[0].Pt_MapV = ptrt->Ty0;
-                    Tab_Points[1].Pt_MapU = ptrt->Tx1;
-                    Tab_Points[1].Pt_MapV = ptrt->Ty1;
-                    Tab_Points[2].Pt_MapU = ptrt->Tx2;
-                    Tab_Points[2].Pt_MapV = ptrt->Ty2;
-
-                    if (ptrh->TexFlag == 2) {
-                        color = ((i0 + i1 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-
-                    type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
-
-                    if (Fill_Poly(type, color, 3, Tab_Points)) {
-                        if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
-                            if (NbAniPoly < MaxPolySea - 1) {
-                                PtrAniPoly->X0 = (S16)Min3(x0, x1, x3);
-                                PtrAniPoly->Y0 = (S16)Min3(z0, z1, z3);
-                                PtrAniPoly->X1 = (S16)Max3(x0, x1, x3);
-                                PtrAniPoly->Y1 = (S16)Max3(z0, z1, z3);
-
-                                if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
-                                        AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
-                                    PtrAniPoly->Type = type;
-                                    PtrAniPoly->Color = (U8)color;
-
-                                    PtrAniPoly->Fog = fog;
-
-                                    PtrAniPoly->Tab_Points[0] = Tab_Points[0];
-                                    PtrAniPoly->Tab_Points[1] = Tab_Points[1];
-                                    PtrAniPoly->Tab_Points[2] = Tab_Points[2];
-
-                                    NbAniPoly++;
-                                    PtrAniPoly++;
-                                }
-                            }
 #ifdef DEBUG_TOOLS
-                            else {
-                                Message("MaxPolySea Atteint !", TRUE);
-                            }
-#endif
+                        else {
+                            Message("MaxPolySea Atteint !", TRUE);
                         }
-                    }
-                }
-            }
-        }
-        // type 1 triangle 1
-
-        ptrh++;
-
-        if (ptrh->PolyFlag + ptrh->TexFlag) {
-            Tab_Points[0].Pt_XE = (S16)x1;
-            Tab_Points[0].Pt_YE = (S16)z1;
-            Tab_Points[1].Pt_XE = (S16)x2;
-            Tab_Points[1].Pt_YE = (S16)z2;
-            Tab_Points[2].Pt_XE = (S16)x3;
-            Tab_Points[2].Pt_YE = (S16)z3;
-
-            if (TestVuePoly(Tab_Points)) {
-                color = (ptrh->Bank << 4) + 11;
-
-                Tab_Points[0].Pt_Light = (S16)i1;
-                Tab_Points[1].Pt_Light = (S16)i2;
-                Tab_Points[2].Pt_Light = (S16)i3;
-
-                Tab_Points[0].Pt_ZO = (U16)f1;
-                Tab_Points[1].Pt_ZO = (U16)f2;
-                Tab_Points[2].Pt_ZO = (U16)f3;
-
-                if (ptrh->PolyFlag) {
-                    if (ptrh->PolyFlag == 1) {
-                        color += ((i1 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-
-                    Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
-                              color, 3,
-                              Tab_Points);
-                }
-
-                if (ptrh->TexFlag) {
-                    T_HALF_TEX *ptrt;
-
-                    ptrt = &ListTexDef[ptrh->IndexTex];
-
-                    Tab_Points[0].Pt_MapU = ptrt->Tx0;
-                    Tab_Points[0].Pt_MapV = ptrt->Ty0;
-                    Tab_Points[1].Pt_MapU = ptrt->Tx1;
-                    Tab_Points[1].Pt_MapV = ptrt->Ty1;
-                    Tab_Points[2].Pt_MapU = ptrt->Tx2;
-                    Tab_Points[2].Pt_MapV = ptrt->Ty2;
-
-                    if (ptrh->TexFlag == 2) {
-                        color = ((i1 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
-                    }
-
-                    type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
-
-                    if (Fill_Poly(type, color, 3, Tab_Points)) {
-                        if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
-                            if (NbAniPoly < MaxPolySea - 1) {
-                                PtrAniPoly->X0 = (S16)Min3(x1, x2, x3);
-                                PtrAniPoly->Y0 = (S16)Min3(z1, z2, z3);
-                                PtrAniPoly->X1 = (S16)Max3(x1, x2, x3);
-                                PtrAniPoly->Y1 = (S16)Max3(z1, z2, z3);
-
-                                if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
-                                        AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
-                                    PtrAniPoly->Type = type;
-                                    PtrAniPoly->Color = (U8)color;
-
-                                    PtrAniPoly->Fog = fog;
-
-                                    PtrAniPoly->Tab_Points[0] = Tab_Points[0];
-                                    PtrAniPoly->Tab_Points[1] = Tab_Points[1];
-                                    PtrAniPoly->Tab_Points[2] = Tab_Points[2];
-
-                                    NbAniPoly++;
-                                    PtrAniPoly++;
-                                }
-                            }
-#ifdef DEBUG_TOOLS
-                            else {
-                                Message("MaxPolySea Atteint !", TRUE);
-                            }
 #endif
-                        }
                     }
                 }
             }
         }
     }
+    // type 0 triangle 1----------------------------------
+
+    ptrh++;
+
+    if (ptrh->PolyFlag + ptrh->TexFlag) {
+        Tab_Points[0].Pt_XE = (S16)x2;
+        Tab_Points[0].Pt_YE = (S16)z2;
+        Tab_Points[1].Pt_XE = (S16)x3;
+        Tab_Points[1].Pt_YE = (S16)z3;
+        Tab_Points[2].Pt_XE = (S16)x0;
+        Tab_Points[2].Pt_YE = (S16)z0;
+
+        if (TestVuePoly(Tab_Points)) {
+            color = (ptrh->Bank << 4) + 11;
+
+            Tab_Points[0].Pt_Light = (S16)i2;
+            Tab_Points[1].Pt_Light = (S16)i3;
+            Tab_Points[2].Pt_Light = (S16)i0;
+
+            Tab_Points[0].Pt_ZO = (U16)f2;
+            Tab_Points[1].Pt_ZO = (U16)f3;
+            Tab_Points[2].Pt_ZO = (U16)f0;
+
+            if (ptrh->PolyFlag) {
+                if (ptrh->PolyFlag == 1) {
+                    color += ((i0 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
+                }
+                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                          color, 3,
+                          Tab_Points);
+            }
+
+            if (ptrh->TexFlag) {
+                T_HALF_TEX *ptrt;
+
+                ptrt = &ListTexDef[ptrh->IndexTex];
+
+                Tab_Points[0].Pt_MapU = ptrt->Tx0;
+                Tab_Points[0].Pt_MapV = ptrt->Ty0;
+                Tab_Points[1].Pt_MapU = ptrt->Tx1;
+                Tab_Points[1].Pt_MapV = ptrt->Ty1;
+                Tab_Points[2].Pt_MapU = ptrt->Tx2;
+                Tab_Points[2].Pt_MapV = ptrt->Ty2;
+
+                if (ptrh->TexFlag == 2) {
+                    color = ((i0 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
+                }
+
+                type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
+
+                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                    if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
+                        if (NbAniPoly < MaxPolySea - 1) {
+                            PtrAniPoly->X0 = (S16)Min3(x0, x2, x3);
+                            PtrAniPoly->Y0 = (S16)Min3(z0, z2, z3);
+                            PtrAniPoly->X1 = (S16)Max3(x0, x2, x3);
+                            PtrAniPoly->Y1 = (S16)Max3(z0, z2, z3);
+
+                            if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
+                                    AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
+                                PtrAniPoly->Type = type;
+                                PtrAniPoly->Color = (U8)color;
+
+                                PtrAniPoly->Fog = fog;
+
+                                PtrAniPoly->Tab_Points[0] = Tab_Points[0];
+                                PtrAniPoly->Tab_Points[1] = Tab_Points[1];
+                                PtrAniPoly->Tab_Points[2] = Tab_Points[2];
+
+                                NbAniPoly++;
+                                PtrAniPoly++;
+                            }
+                        }
+#ifdef DEBUG_TOOLS
+                        else {
+                            Message("MaxPolySea Atteint !", TRUE);
+                        }
+#endif
+                    }
+                }
+            }
+        }
+    }
+} else // type == 1---------------------------------------------------
+{
+    // type 1 triangle 0
+
+    if (ptrh->PolyFlag + ptrh->TexFlag) {
+        Tab_Points[0].Pt_XE = (S16)x3;
+        Tab_Points[0].Pt_YE = (S16)z3;
+        Tab_Points[1].Pt_XE = (S16)x0;
+        Tab_Points[1].Pt_YE = (S16)z0;
+        Tab_Points[2].Pt_XE = (S16)x1;
+        Tab_Points[2].Pt_YE = (S16)z1;
+
+        if (TestVuePoly(Tab_Points)) {
+            color = (ptrh->Bank << 4) + 11;
+
+            Tab_Points[0].Pt_Light = (S16)i3;
+            Tab_Points[1].Pt_Light = (S16)i0;
+            Tab_Points[2].Pt_Light = (S16)i1;
+
+            Tab_Points[0].Pt_ZO = (U16)f3;
+            Tab_Points[1].Pt_ZO = (U16)f0;
+            Tab_Points[2].Pt_ZO = (U16)f1;
+
+            if (ptrh->PolyFlag) {
+                if (ptrh->PolyFlag == 1) {
+                    color += ((i0 + i1 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
+                }
+                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                          color, 3,
+                          Tab_Points);
+            }
+
+            if (ptrh->TexFlag) {
+                T_HALF_TEX *ptrt;
+
+                ptrt = &ListTexDef[ptrh->IndexTex];
+
+                Tab_Points[0].Pt_MapU = ptrt->Tx0;
+                Tab_Points[0].Pt_MapV = ptrt->Ty0;
+                Tab_Points[1].Pt_MapU = ptrt->Tx1;
+                Tab_Points[1].Pt_MapV = ptrt->Ty1;
+                Tab_Points[2].Pt_MapU = ptrt->Tx2;
+                Tab_Points[2].Pt_MapV = ptrt->Ty2;
+
+                if (ptrh->TexFlag == 2) {
+                    color = ((i0 + i1 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
+                }
+
+                type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
+
+                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                    if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
+                        if (NbAniPoly < MaxPolySea - 1) {
+                            PtrAniPoly->X0 = (S16)Min3(x0, x1, x3);
+                            PtrAniPoly->Y0 = (S16)Min3(z0, z1, z3);
+                            PtrAniPoly->X1 = (S16)Max3(x0, x1, x3);
+                            PtrAniPoly->Y1 = (S16)Max3(z0, z1, z3);
+
+                            if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
+                                    AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
+                                PtrAniPoly->Type = type;
+                                PtrAniPoly->Color = (U8)color;
+
+                                PtrAniPoly->Fog = fog;
+
+                                PtrAniPoly->Tab_Points[0] = Tab_Points[0];
+                                PtrAniPoly->Tab_Points[1] = Tab_Points[1];
+                                PtrAniPoly->Tab_Points[2] = Tab_Points[2];
+
+                                NbAniPoly++;
+                                PtrAniPoly++;
+                            }
+                        }
+#ifdef DEBUG_TOOLS
+                        else {
+                            Message("MaxPolySea Atteint !", TRUE);
+                        }
+#endif
+                    }
+                }
+            }
+        }
+    }
+    // type 1 triangle 1
+
+    ptrh++;
+
+    if (ptrh->PolyFlag + ptrh->TexFlag) {
+        Tab_Points[0].Pt_XE = (S16)x1;
+        Tab_Points[0].Pt_YE = (S16)z1;
+        Tab_Points[1].Pt_XE = (S16)x2;
+        Tab_Points[1].Pt_YE = (S16)z2;
+        Tab_Points[2].Pt_XE = (S16)x3;
+        Tab_Points[2].Pt_YE = (S16)z3;
+
+        if (TestVuePoly(Tab_Points)) {
+            color = (ptrh->Bank << 4) + 11;
+
+            Tab_Points[0].Pt_Light = (S16)i1;
+            Tab_Points[1].Pt_Light = (S16)i2;
+            Tab_Points[2].Pt_Light = (S16)i3;
+
+            Tab_Points[0].Pt_ZO = (U16)f1;
+            Tab_Points[1].Pt_ZO = (U16)f2;
+            Tab_Points[2].Pt_ZO = (U16)f3;
+
+            if (ptrh->PolyFlag) {
+                if (ptrh->PolyFlag == 1) {
+                    color += ((i1 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
+                }
+
+                Fill_Poly(ListTypePolygone[ptrh->PolyFlag],
+                          color, 3,
+                          Tab_Points);
+            }
+
+            if (ptrh->TexFlag) {
+                T_HALF_TEX *ptrt;
+
+                ptrt = &ListTexDef[ptrh->IndexTex];
+
+                Tab_Points[0].Pt_MapU = ptrt->Tx0;
+                Tab_Points[0].Pt_MapV = ptrt->Ty0;
+                Tab_Points[1].Pt_MapU = ptrt->Tx1;
+                Tab_Points[1].Pt_MapV = ptrt->Ty1;
+                Tab_Points[2].Pt_MapU = ptrt->Tx2;
+                Tab_Points[2].Pt_MapV = ptrt->Ty2;
+
+                if (ptrh->TexFlag == 2) {
+                    color = ((i1 + i2 + i3) * 21845) >> 24; // *21845 >> 16 EQU / 3
+                }
+
+                type = (U8)ListTypePTexture[ptrh->TexFlag + (ptrh->PolyFlag << 2)];
+
+                if (Fill_Poly(type, color, 3, Tab_Points)) {
+                    if (MaxPolySea AND(ptrh->CodeJeu & 12) == 12) { // hihi je suis un polygone animé...
+                        if (NbAniPoly < MaxPolySea - 1) {
+                            PtrAniPoly->X0 = (S16)Min3(x1, x2, x3);
+                            PtrAniPoly->Y0 = (S16)Min3(z1, z2, z3);
+                            PtrAniPoly->X1 = (S16)Max3(x1, x2, x3);
+                            PtrAniPoly->Y1 = (S16)Max3(z1, z2, z3);
+
+                            if (((PtrAniPoly->Y1 - PtrAniPoly->Y0) > ANI_POLY_STEP_Y)
+                                    AND((PtrAniPoly->X1 - PtrAniPoly->X0) > ANI_POLY_STEP_X)) {
+                                PtrAniPoly->Type = type;
+                                PtrAniPoly->Color = (U8)color;
+
+                                PtrAniPoly->Fog = fog;
+
+                                PtrAniPoly->Tab_Points[0] = Tab_Points[0];
+                                PtrAniPoly->Tab_Points[1] = Tab_Points[1];
+                                PtrAniPoly->Tab_Points[2] = Tab_Points[2];
+
+                                NbAniPoly++;
+                                PtrAniPoly++;
+                            }
+                        }
+#ifdef DEBUG_TOOLS
+                        else {
+                            Message("MaxPolySea Atteint !", TRUE);
+                        }
+#endif
+                    }
+                }
+            }
+        }
+    }
+}
 
 #if !(defined(DEMO) || defined(LBA_GAME))
-    if (FillFeuille & 4) {
-        DrawColFeuille3D(x0, z0,
-                         x1, z1,
-                         x2, z2,
-                         x3, z3,
-                         MapPolyGround[zi * 64 * 2 + xi * 2].Sens,
-                         CYAN,
-                         MapPolyGround[zi * 64 * 2 + xi * 2].Col,
-                         MapPolyGround[zi * 64 * 2 + xi * 2 + 1].Col);
-    }
+if (FillFeuille & 4) {
+    DrawColFeuille3D(x0, z0,
+                     x1, z1,
+                     x2, z2,
+                     x3, z3,
+                     MapPolyGround[zi * 64 * 2 + xi * 2].Sens,
+                     CYAN,
+                     MapPolyGround[zi * 64 * 2 + xi * 2].Col,
+                     MapPolyGround[zi * 64 * 2 + xi * 2 + 1].Col);
+}
 
-    if (FillFeuille & 2) {
-        DrawFeuille3D(x0, z0,
-                      x1, z1,
-                      x2, z2,
-                      x3, z3,
-                      MapPolyGround[zi * 64 * 2 + xi * 2].Sens,
-                      GREEN,
-                      FALSE);
-    }
+if (FillFeuille & 2) {
+    DrawFeuille3D(x0, z0,
+                  x1, z1,
+                  x2, z2,
+                  x3, z3,
+                  MapPolyGround[zi * 64 * 2 + xi * 2].Sens,
+                  GREEN,
+                  FALSE);
+}
 #endif
 }
 

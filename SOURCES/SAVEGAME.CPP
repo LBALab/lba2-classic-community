@@ -542,7 +542,7 @@ void SaveGame(S32 flagmess) {
     RemapPicture(BufSpeak + 150000L, 160 * 120);
 
     if (flagmess) {
-        /*		strcpy( string, "Sauvegarde en cours ..." ) ;
+/*		strcpy( string, "Sauvegarde en cours ..." ) ;
 		ColorFont( LBAWHITE ) ;
 		// cadre
 		x0 = 320 - SizeFont( string )/2 - 50 ;
@@ -556,78 +556,77 @@ void SaveGame(S32 flagmess) {
 		RestoreAngles( x0, y0, x1, y1 ) ;
 		Font( x0+50, y0+7, string ) ;
 		BoxStaticFullflip() ;
-*/
-    }
+*/	}
 
-    RestoreTimer();
-    savetimerrefhr = TimerRefHR;
-    SaveTimer();
+RestoreTimer();
+savetimerrefhr = TimerRefHR;
+SaveTimer();
 
-    PtrSave = BufSpeak + 50000L; // old Screen
+PtrSave = BufSpeak + 50000L; // old Screen
 #else
     PtrSave = (U8 *)Screen;
 #endif
 
-    if (flagmess) // non AUTOSAVE ni CURRENTSAVE
-    {
-        NumVersion &= SAVE_COMPRESS; // ecrase old num version
-        NumVersion |= NUM_VERSION;
-    }
+if (flagmess) // non AUTOSAVE ni CURRENTSAVE
+{
+    NumVersion &= SAVE_COMPRESS; // ecrase old num version
+    NumVersion |= NUM_VERSION;
+}
 
-    LbaWriteByte(NumVersion);
+LbaWriteByte(NumVersion);
 
 #ifdef EDITLBA2
-    LbaWriteLong(NewCube);
+LbaWriteLong(NewCube);
 #else
     LbaWriteLong(NumCube);
 #endif
 
-    LbaWrite(PlayerName, strlen(PlayerName) + 1);
+LbaWrite(PlayerName, strlen(PlayerName) + 1);
 
-    if (NumVersion & SAVE_COMPRESS) {
-        sizeptr = PtrSave;
-        LbaWriteLong(sizefile);
-        memoptr = PtrSave;
-    }
+if (NumVersion & SAVE_COMPRESS) {
+    sizeptr = PtrSave;
+    LbaWriteLong(sizefile);
+    memoptr = PtrSave;
+}
 
 #ifndef EDITLBA2
-    LbaWrite(BufSpeak + 150000L, 160 * 120);
+LbaWrite(BufSpeak + 150000L, 160 * 120);
 #else
     LbaWrite(PtrScreenSave, 160 * 120);
 #endif
 
 #ifdef EDITLBA2
-    SaveContexte(KeepTimerRefHR);
+SaveContexte(KeepTimerRefHR);
 #else
     SaveContexte(savetimerrefhr);
 #endif
 
-    // sauve position valide si nécessaire
-    LbaWriteLong(ValidePos);
-    LbaWriteLong(LastValidePos);
+// sauve position valide si nécessaire
+LbaWriteLong(ValidePos);
+LbaWriteLong(LastValidePos);
 
-    if (!ValidePos) {
-        LbaWriteLong(ValideCube);
-        LbaWriteLong(SizeOfBufferValidePos);
-        LbaWrite(BufferValidePos, SizeOfBufferValidePos);
-    }
+if (!ValidePos) {
+    LbaWriteLong(ValideCube);
+    LbaWriteLong(SizeOfBufferValidePos);
+    LbaWrite(BufferValidePos, SizeOfBufferValidePos);
+}
 
-    if (NumVersion & SAVE_COMPRESS) // Version compactee
-    {
-        S32 size;
+if (NumVersion & SAVE_COMPRESS) // Version compactee
+{
+    S32 size;
 
-        sizefile = PtrSave - memoptr;
+    sizefile = PtrSave - memoptr;
 
-        size = Compress_LZSS((char *)memoptr, (char *)PtrSave, sizefile);
-        memcpy(memoptr, PtrSave, size);
+    size = Compress_LZSS((char *)memoptr, (char *)PtrSave, sizefile);
+    memcpy(memoptr, PtrSave, size);
 
-        PtrSave = sizeptr;
-        LbaWriteLong(sizefile);
-        PtrSave = memoptr + size;
-    }
+    PtrSave = sizeptr;
+    LbaWriteLong(sizefile);
+    PtrSave = memoptr + size;
+}
 
 #ifndef EDITLBA2
-    Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
+Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
 #else
     Save(GamePathname, (U8 *)Screen, PtrSave - (U8 *)Screen);
 #endif

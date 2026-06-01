@@ -243,16 +243,22 @@ static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
 
-    /* Allocate our own staging buffer instead of locking the SDL texture
-       directly. On Android 16+ with MTE, SDL_LockTexture can return a
-       pointer to texture-internal memory that gets freed and reallocated
-       between frames, producing a stale pointer with a mismatched MTE tag
-       (SEGV_ACCERR). By writing to our own buffer and uploading via
-       SDL_UpdateTexture, we own the pointer and eliminate the race. */
     U32 stagingPitch = ModeDesiredX * sizeof(U32);
+#if defined(__ANDROID__)
+    /* On Android 16+ with MTE, SDL_LockTexture can return a pointer to
+       texture-internal memory that gets freed and reallocated between frames,
+       producing a stale pointer with a mismatched MTE tag (SEGV_ACCERR).
+       Use our own staging buffer and upload via SDL_UpdateTexture instead. */
     void *stagingPixels = malloc(stagingPitch * ModeDesiredY);
     if (stagingPixels == NULL)
         return;
+#else
+    void *stagingPixels;
+    int texPitch;
+    if (!LockRendererTexture(&stagingPixels, &texPitch))
+        return;
+    stagingPitch = (U32)texPitch;
+#endif
 
     U8 *logMem = (U8 *)Log;
 
@@ -285,8 +291,12 @@ static void PresentFrame() {
         s_overlayPrePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, overlayPaletteRgb);
     }
 
+#if defined(__ANDROID__)
     PresentRendererFrame(stagingPixels, stagingPitch);
     free(stagingPixels);
+#else
+    UnlockAndPresentRendererTexture();
+#endif
 }
 
 void HandleEventsVideo(const void *event) {

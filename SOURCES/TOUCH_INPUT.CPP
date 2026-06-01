@@ -24,6 +24,9 @@ extern U32 SizeChar;
 extern "C" {
 #endif
 
+/* The SDL window handle, defined in LIB386/SYSTEM/WINDOW.CPP under C linkage. */
+extern SDL_Window *sdlWindow;
+
 /* ---------------------------------------------------------------------------
  * Constants
  * ---------------------------------------------------------------------------
@@ -136,12 +139,11 @@ static void MapToGameCoords(float *nx, float *ny) {
     if (ModeResX == 0 || ModeResY == 0)
         return;
 
-    SDL_Window **windows = SDL_GetWindows(NULL);
-    if (windows == NULL || windows[0] == NULL)
+    if (sdlWindow == NULL)
         return;
 
     int winW, winH;
-    SDL_GetWindowSize(windows[0], &winW, &winH);
+    SDL_GetWindowSize(sdlWindow, &winW, &winH);
     if (winW <= 0 || winH <= 0)
         return;
 
