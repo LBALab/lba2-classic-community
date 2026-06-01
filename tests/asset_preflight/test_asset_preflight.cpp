@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <string.h>
 
+/* LOG.CPP's console buffer sink references Console_Print; this test links the
+ * log core but not the console module, so a no-op stub satisfies the linker. */
+extern "C" void Console_Print(const char *, ...) {}
+
 #define ROOT "asset_pf_testdir"
 
 static void touch(const char *rel) {

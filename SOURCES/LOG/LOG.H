@@ -10,8 +10,8 @@ extern "C" {
  * SDL_SetLogOutputFunction owns the fan-out); host tests compile with
  * -DLBA_LOG_NO_SDL to bypass SDL entirely. See docs/BOOT_LOG_PLAN.md.
  *
- * Phase 1: core API + file sink. The console (Phase 2) and ANSI terminal
- * (Phase 3) sinks, and wiring into the boot path (Phase 4), come later. */
+ * Sinks: file (always), ANSI terminal (TTY-gated), and the in-engine console
+ * buffer. The boot path wires all three in InitAdeline. */
 
 typedef enum {
     LOG_DEBUG,
@@ -54,6 +54,21 @@ LogSink *Log_MakeFileSink(const char *path, LogSeverity min_severity);
  * and NO_COLOR is unset (Windows: also enables VT processing); otherwise it
  * registers but writes nothing, so redirected output never gets escape codes. */
 LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
+
+/* Console buffer sink: pushes records into the in-engine console scrollback
+ * (Console_Print), so the boot log and warnings show on the F12 overlay.
+ * Monochrome — the console ring stores plain text with no per-line colour.
+ * Main-thread records only: the ring is not thread-safe, so off-thread records
+ * (e.g. the audio callback) are dropped here but still reach the file and
+ * terminal sinks. Defaults to INFO (the boot log is INFO/raw; the verbose
+ * audio/SFX logs are gated off by default, so INFO stays clean); adjust live
+ * with Log_SetConsoleSeverity / the `loglevel` console command. */
+LogSink *Log_MakeConsoleBufferSink(void);
+
+/* Raise/lower the console buffer sink's minimum severity at runtime. No-op if
+ * no console sink is registered. */
+void Log_SetConsoleSeverity(LogSeverity min_severity);
+LogSeverity Log_GetConsoleSeverity(void);
 
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);

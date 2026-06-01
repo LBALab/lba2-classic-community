@@ -1,9 +1,15 @@
 #include "LOG.H"
 
+#include "../CONSOLE/CONSOLE.H" /* console buffer sink -> Console_Print */
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef LBA_LOG_NO_SDL
+#include <SDL3/SDL_thread.h> /* main-thread gate for the console sink */
+#endif
 
 #if defined(_WIN32)
 #include <io.h>      /* _isatty, _fileno */
@@ -56,6 +62,16 @@ namespace {
 LogSink g_pool[LOG_MAX_SINKS];    /* storage */
 LogSink *g_active[LOG_MAX_SINKS]; /* dispatch list */
 int g_active_count = 0;
+
+/* The one console sink, if registered — so Log_SetConsoleSeverity can find it
+ * without the caller threading the handle back through. */
+LogSink *g_console_sink = 0;
+
+#ifndef LBA_LOG_NO_SDL
+/* Captured in Log_Init (on the main thread). The console sink drops records
+ * from any other thread; the ring is not thread-safe. */
+SDL_ThreadID g_main_thread = 0;
+#endif
 
 const char *severity_tag(LogSeverity sev) {
     switch (sev) {
@@ -137,6 +153,29 @@ void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
 /* Registered but inert: the terminal sink's no-op when stderr is not a TTY (or
  * NO_COLOR is set), so redirected output never gets ANSI escapes. */
 void noop_write(LogSink *, LogSeverity, int, const char *) {}
+
+/* --- Console buffer sink: monochrome text into the in-engine scrollback ---- */
+
+void console_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
+    (void)s;
+#ifndef LBA_LOG_NO_SDL
+    /* The console scrollback ring is not thread-safe — only the main thread may
+     * push. Off-thread records (e.g. the audio callback) are dropped here; they
+     * still reach the file and terminal sinks. */
+    if (g_main_thread != 0 && SDL_GetCurrentThreadID() != g_main_thread)
+        return;
+#endif
+    if (!msg)
+        msg = "";
+    if (kind == REC_SECTION_END)
+        return; /* no closer line in the console */
+    else if (kind == REC_SECTION_BEGIN)
+        Console_Print("== %s ==", msg);
+    else if (kind == REC_RAW)
+        Console_Print("%s", msg); /* msg is the arg, not the format */
+    else
+        Console_Print("[%s] %s", severity_tag(sev), msg);
+}
 
 int terminal_enabled(void) {
 #if defined(_WIN32)
@@ -260,9 +299,11 @@ extern "C" {
 
 void Log_Init(void) {
     g_active_count = 0;
+    g_console_sink = 0;
     for (int i = 0; i < LOG_MAX_SINKS; ++i)
         g_pool[i].in_use = 0;
 #ifndef LBA_LOG_NO_SDL
+    g_main_thread = SDL_GetCurrentThreadID();
     /* SDL applies a per-category priority filter *before* calling the output
        function, and custom categories default to a high threshold — so without
        this our INFO/DEBUG records would be dropped before reaching any sink.
@@ -288,6 +329,7 @@ void Log_Shutdown(void) {
         g_pool[i].in_use = 0;
     }
     g_active_count = 0;
+    g_console_sink = 0;
 }
 
 void Log_Debug(const char *fmt, ...) {
@@ -360,6 +402,28 @@ LogSink *Log_MakeTerminalSink(LogSeverity min_severity) {
     s->min_severity = min_severity;
     s->write = terminal_enabled() ? term_sink_write : noop_write;
     return s;
+}
+
+LogSink *Log_MakeConsoleBufferSink(void) {
+    LogSink *s = alloc_sink();
+    if (!s)
+        return 0;
+    /* INFO by default: shows the boot log + warnings, hides DEBUG chatter. The
+     * verbose audio/SFX logs are gated off (sfxLogEnabled/musicLogEnabled), so
+     * INFO stays clean without filtering the boot log out of the ring. */
+    s->min_severity = LOG_INFO;
+    s->write = console_sink_write;
+    g_console_sink = s;
+    return s;
+}
+
+void Log_SetConsoleSeverity(LogSeverity min_severity) {
+    if (g_console_sink)
+        g_console_sink->min_severity = min_severity;
+}
+
+LogSeverity Log_GetConsoleSeverity(void) {
+    return g_console_sink ? g_console_sink->min_severity : LOG_INFO;
 }
 
 void Log_AddSink(LogSink *sink) {
