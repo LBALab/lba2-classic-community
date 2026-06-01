@@ -17,7 +17,7 @@
 #include "../INVENT.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
-#include "../LOG/LOG.H"
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>

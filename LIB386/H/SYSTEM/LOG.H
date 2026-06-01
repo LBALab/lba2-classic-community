@@ -22,6 +22,11 @@ typedef enum {
 
 typedef struct LogSink LogSink; /* opaque handle */
 
+/* A formatted, ready-to-print line (no trailing newline). The console buffer
+ * sink calls one of these for each record — the engine passes an adapter over
+ * Console_Print, keeping this core free of any SOURCES dependency. */
+typedef void (*LogLineFn)(const char *line);
+
 /* Install the fan-out (no-op under LBA_LOG_NO_SDL) and reset the sink registry.
  * Shutdown flushes and closes sinks and uninstalls the fan-out. */
 void Log_Init(void);
@@ -55,15 +60,15 @@ LogSink *Log_MakeFileSink(const char *path, LogSeverity min_severity);
  * registers but writes nothing, so redirected output never gets escape codes. */
 LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
 
-/* Console buffer sink: pushes records into the in-engine console scrollback
- * (Console_Print), so the boot log and warnings show on the F12 overlay.
- * Monochrome — the console ring stores plain text with no per-line colour.
- * Main-thread records only: the ring is not thread-safe, so off-thread records
- * (e.g. the audio callback) are dropped here but still reach the file and
- * terminal sinks. Defaults to INFO (the boot log is INFO/raw; the verbose
+/* Console buffer sink: feeds each record to \a printer (the engine passes an
+ * adapter over Console_Print), so the boot log and warnings show on the F12
+ * overlay. Monochrome — the console ring stores plain text with no per-line
+ * colour. Main-thread records only: the ring is not thread-safe, so off-thread
+ * records (e.g. the audio callback) are dropped here but still reach the file
+ * and terminal sinks. Defaults to INFO (the boot log is INFO/raw; the verbose
  * audio/SFX logs are gated off by default, so INFO stays clean); adjust live
  * with Log_SetConsoleSeverity / the `loglevel` console command. */
-LogSink *Log_MakeConsoleBufferSink(void);
+LogSink *Log_MakeConsoleBufferSink(LogLineFn printer);
 
 /* Raise/lower the console buffer sink's minimum severity at runtime. No-op if
  * no console sink is registered. */

@@ -3,25 +3,19 @@
  * Built with -DLBA_LOG_NO_SDL, so the log core's format-then-dispatch goes
  * straight to the fan-out with no SDL_Init — the file sink is exercised
  * end-to-end and its on-disk content asserted. */
-#include "LOG.H"
+#include <SYSTEM/LOG.H>
 #include "test_harness.h"
 
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #define TMP "test_log_phase1.tmp"
 
-/* Recording stub for the console buffer sink (LOG.CPP -> Console_Print). The
- * real console module isn't linked into host tests; capture the pushed lines so
- * the sink's rendering and filtering can be asserted. */
+/* The console buffer sink calls this per line (injected via
+ * Log_MakeConsoleBufferSink) — capture the lines so the sink's rendering and
+ * filtering can be asserted without linking the real console module. */
 static char g_console_capture[4096];
-extern "C" void Console_Print(const char *fmt, ...) {
-    char line[512];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(line, sizeof line, fmt, ap);
-    va_end(ap);
+static void record_console_line(const char *line) {
     size_t used = strlen(g_console_capture);
     snprintf(g_console_capture + used, sizeof g_console_capture - used, "%s\n", line);
 }
@@ -121,7 +115,7 @@ static void test_scoped_section(void) {
 static void test_console_sink(void) {
     console_capture_reset();
     Log_Init();
-    LogSink *s = Log_MakeConsoleBufferSink();
+    LogSink *s = Log_MakeConsoleBufferSink(record_console_line);
     ASSERT_TRUE(s != NULL);
     Log_AddSink(s);
     ASSERT_TRUE(Log_GetConsoleSeverity() == LOG_INFO);
