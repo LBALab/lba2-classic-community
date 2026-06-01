@@ -12,7 +12,7 @@
 #include "CONSOLE/CONSOLE.H"
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
-#include "LOG/LOG.H"
+#include <SYSTEM/LOG.H>
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
