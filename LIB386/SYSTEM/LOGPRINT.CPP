@@ -1,5 +1,6 @@
 //----------------------------------------------------------------------------
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/LIMITS.H>
 
@@ -8,9 +9,7 @@
 #include <string.h>
 
 //----------------------------------------------------------------------------
-U32 QuietLog = FALSE;
 static char LogName[ADELINE_MAX_PATH] = "";
-static char LogStr[256];
 
 //----------------------------------------------------------------------------
 void CreateLog(const char *filePath) {
@@ -34,42 +33,68 @@ void CreateLog(const char *filePath) {
 }
 
 //----------------------------------------------------------------------------
-void LogPrintf(const char *format, ...) {
-    char *ptr;
-    va_list arglist;
+// Legacy LogPrintf/LogPuts now feed the structured log fan-out (SYSTEM/LOG) so
+// their ~100 call sites share the file/terminal/console sinks, per-sink severity
+// filtering, and TTY gating instead of writing straight to stdout + the file.
+// Lines are emitted verbatim (REC_RAW, no severity tag) to preserve their
+// original appearance. Before any sink exists (early boot: a pre-init failure,
+// or CreateLog's own warning) there is nothing to fan out to, so we fall back to
+// a direct write -- stderr plus the log file if one is open -- so nothing is lost.
 
-    va_start(arglist, format);
+// Emit one line (without its terminating newline) verbatim through the fan-out.
+static void EmitLine(const char *p, size_t len) {
+    char line[1024];
+    if (len >= sizeof(line))
+        len = sizeof(line) - 1;
+    memcpy(line, p, len);
+    line[len] = '\0';
+    Log_Raw("%s", line); // line is the argument, not the format
+}
 
-    (void)vsnprintf(LogStr, sizeof(LogStr), format, arglist);
-
-    for (ptr = LogStr; *ptr; ptr++) {
-        if (*ptr == '\n') {
-            memmove(ptr + 2, ptr + 1, strlen(ptr));
-            *ptr++ = '\r';
-            *ptr = '\n';
+// Treat '\n' as a line terminator: one record per line. Each sink appends its
+// own newline, so this avoids doubled newlines; blank lines are preserved.
+static void RouteOrFallback(const char *s) {
+    if (Log_HasSinks()) {
+        const char *p = s;
+        for (;;) {
+            const char *nl = strchr(p, '\n');
+            if (nl) {
+                EmitLine(p, (size_t)(nl - p));
+                p = nl + 1;
+            } else {
+                if (*p)
+                    EmitLine(p, strlen(p));
+                break;
+            }
         }
-    }
-
-    va_end(arglist);
-
-    if (!QuietLog) {
-        printf("%s", LogStr);
-    }
-
-    if (*LogName) {
-        FILE *logfile;
-
-        logfile = fopen(LogName, "ab+");
-        if (logfile) {
-            fprintf(logfile, "%s", LogStr);
-            fclose(logfile);
+    } else {
+        // No sinks yet -- preserve the message directly so it is not lost.
+        fputs(s, stderr);
+        if (LogName[0]) {
+            FILE *logfile = fopen(LogName, "ab+");
+            if (logfile) {
+                fputs(s, logfile);
+                fclose(logfile);
+            }
         }
     }
 }
 
 //----------------------------------------------------------------------------
+void LogPrintf(const char *format, ...) {
+    char buf[1024];
+    va_list arglist;
+
+    va_start(arglist, format);
+    (void)vsnprintf(buf, sizeof(buf), format, arglist);
+    va_end(arglist);
+
+    RouteOrFallback(buf);
+}
+
+//----------------------------------------------------------------------------
 void LogPuts(const char *string) {
-    LogPrintf("%s\n", string);
+    LogPrintf("%s\n", string); // passes the string as an argument -> '%' is safe
 }
 
 //----------------------------------------------------------------------------

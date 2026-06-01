@@ -451,4 +451,6 @@ void Log_RemoveSink(LogSink *sink) {
     }
 }
 
+int Log_HasSinks(void) { return g_active_count > 0; }
+
 } // extern "C"

@@ -4,6 +4,7 @@
  * straight to the fan-out with no SDL_Init — the file sink is exercised
  * end-to-end and its on-disk content asserted. */
 #include <SYSTEM/LOG.H>
+#include <SYSTEM/LOGPRINT.H>
 #include "test_harness.h"
 
 #include <stdio.h>
@@ -211,6 +212,82 @@ static void test_remove_sink(void) {
     remove(TMP);
 }
 
+/* --- Legacy LogPrintf/LogPuts shim (U2): routes through the fan-out --------- */
+
+/* LogPrintf reaches the sinks verbatim — no [INFO] tag, exactly one trailing
+ * newline (the sink adds it), no doubling. */
+static void test_logprintf_routes_through_fanout(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    LogPrintf("hello %d\n", 42);
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "hello 42\n") == 0);
+    remove(TMP);
+}
+
+/* A multi-line message becomes one record per line: no doubled newlines, no
+ * spurious trailing blank line. */
+static void test_logprintf_multiline_split(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    LogPrintf("a\nb\n");
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "a\nb\n") == 0);
+    remove(TMP);
+}
+
+/* LogPuts passes its string as an argument, so '%' is never a format. */
+static void test_logputs_percent_safe(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    LogPuts("100% complete");
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "100% complete\n") == 0);
+    remove(TMP);
+}
+
+/* A message with no trailing newline becomes one terminated line (the fan-out
+ * is line-oriented). Documents the one behavior change from byte-concatenation. */
+static void test_logprintf_partial_line_terminated(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    LogPrintf("partial");
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strcmp(buf, "partial\n") == 0);
+    remove(TMP);
+}
+
+/* Before any sink exists the shim must not lose the line: it falls back to a
+ * direct write to the log file (and stderr). */
+static void test_logprintf_early_boot_fallback(void) {
+    remove("shim_fallback.tmp");
+    Log_Init();                     /* resets the registry; no sink added */
+    CreateLog("shim_fallback.tmp"); /* sets the log path, truncates it */
+    LogPrintf("early-boot\n");      /* no sinks -> direct fallback to the file */
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp("shim_fallback.tmp", buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "early-boot") != NULL);
+    remove("shim_fallback.tmp");
+}
+
 int main(void) {
     RUN_TEST(test_severity_prefixes);
     RUN_TEST(test_min_severity_filter);
@@ -220,6 +297,11 @@ int main(void) {
     RUN_TEST(test_fanout_to_all_sinks);
     RUN_TEST(test_sink_pool_limit);
     RUN_TEST(test_remove_sink);
+    RUN_TEST(test_logprintf_routes_through_fanout);
+    RUN_TEST(test_logprintf_multiline_split);
+    RUN_TEST(test_logputs_percent_safe);
+    RUN_TEST(test_logprintf_partial_line_terminated);
+    RUN_TEST(test_logprintf_early_boot_fallback);
     TEST_SUMMARY();
     return test_failures != 0;
 }

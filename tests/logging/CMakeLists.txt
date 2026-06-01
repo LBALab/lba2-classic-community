@@ -1,6 +1,7 @@
 add_executable(test_log
     test_log.cpp
-    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP)
 
 target_include_directories(test_log PRIVATE
     ${CMAKE_SOURCE_DIR}/LIB386/H

@@ -462,10 +462,7 @@ void ClearVoiceFile() {
         return;
 
 #ifdef DEBUG_TOOLS
-    if (!QuietLog)
-        LogPrintf("FlagKeepVoice=0 !!!!!");
-    else
-        Message("FlagKeepVoice=0 !!!!!", TRUE);
+    LogPrintf("FlagKeepVoice=0 !!!!!");
     return;
 #else
 

@@ -78,6 +78,11 @@ LogSeverity Log_GetConsoleSeverity(void);
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);
 
+/* True once at least one sink is registered (the fan-out is live). Legacy
+ * LogPrintf/LogPuts use this to choose between routing through the fan-out and
+ * an early-boot direct write (before any sink exists). */
+int Log_HasSinks(void);
+
 #ifdef __cplusplus
 }
 
