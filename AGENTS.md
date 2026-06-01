@@ -80,6 +80,7 @@ Apply these behavior rules on every non-trivial task:
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
+| Adding a log or diagnostic line | Prefer `Log_*` (`<SYSTEM/LOG.H>`) at the true severity for committed code; `Log_Debug` lands in `adeline.log` but not the in-game console. Throwaway `printf` is fine — don't commit it | "Logging" below, LIB386/H/SYSTEM/LOG.H |
 | Code that reads retail HQR data or legacy save formats | Check the rule: never `sizeof(T)`-as-stride for fat structs; use a paired `T_DISK` or field-by-field serialization | docs/ABI.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
@@ -95,6 +96,18 @@ Formatting mechanics (agent-operational):
 
 - Formatting: clang-format with checked-in `.clang-format`; exclusions live in `.clang-format-ignore` (ASM, `LIB386/libsmacker/`, vendored `stb_*`, and a handful of legacy lookup-table files). When adding vendored third-party code or generated/hand-tuned lookup tables, add the path to `.clang-format-ignore` in the same commit — single source of truth for local scripts, CI, and the pre-commit hook.
 - Pre-commit hook (optional, recommended): `git config core.hooksPath scripts/git-hooks` once per clone. It runs clang-format `--dry-run` on staged C/C++ files (respecting `.clang-format-ignore`) and blocks commits with violations. Fix with `bash ./scripts/ci/apply-format.sh && git add -u`. Bypass with `git commit --no-verify` or `SKIP_FORMAT=1` when warranted.
+
+## Logging
+
+One pipe: every log call fans out to `adeline.log` (always), an ANSI terminal when one is attached, and the in-engine console. API in [LIB386/H/SYSTEM/LOG.H](LIB386/H/SYSTEM/LOG.H); design and history in [docs/LOGGING_UNIFICATION.md](docs/LOGGING_UNIFICATION.md). This is about ergonomics, not ceremony — it isn't meant to police throwaway debugging.
+
+- **Pick the true severity.** `Log_Info` / `Log_Warn` / `Log_Error`, plus `Log_Raw` for verbatim lines (no severity tag). Defaults: file and terminal admit `DEBUG`+, the console admits `INFO`+.
+- **`Log_Debug` is the everyday detail level.** It reaches `adeline.log` (tail it) but stays off the in-game console; `loglevel debug` surfaces it there. It's varargs like `printf`, so there's no friction reason to prefer `printf` in committed code.
+- **Throwaway debugging is your business** — a quick `printf` while iterating is fine; just don't commit it.
+- **High-frequency / per-subsystem chatter** (per-sound, per-frame): gate it behind a runtime flag toggled from the console, the way `audio` and `video log` do, rather than logging unconditionally.
+- **No log categories/channels** (deliberately — YAGNI). To filter by area, prefix the message text (`[SFX]`, `[CD]`) and grep the file.
+- `LogPrintf` / `LogPuts` are legacy shims onto the same fan-out — fine where they are; no need to add new calls.
+- **Before the sinks exist** (early boot), `Log_*` falls back to stderr so errors still surface. `stdout` is for data, never logs.
 
 ## Editing docs
 
