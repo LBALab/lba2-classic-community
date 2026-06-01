@@ -22,8 +22,6 @@ tests/SNAPSHOT/fixtures/*.ppm
 tests/SNAPSHOT/fixtures/*.raw
 
 # Android build outputs
-android/.gradle/
 android/build/
-android/app/build/
 android/apk/
 android/local.properties
