@@ -54,6 +54,10 @@ Download `lba2cc-<version>-macos-arm64.dmg`, open it, drag `LBA2 Classic Communi
 
 Download `lba2cc-<version>-windows-x64.zip`, unzip anywhere, run `lba2cc.exe`. Portable build: no installer, no DLLs needed.
 
+### Android
+
+Download the `lba2cc-<version>-android-arm64-v8a.apk` (or `armeabi-v7a`). Requires **Android 7.0 (API 24)** or later. You must provide your own retail game data (see [Game data](#game-data) and [android/README.md](android/README.md) for setup).
+
 ## Building from source quick start
 
 ### Prerequisites

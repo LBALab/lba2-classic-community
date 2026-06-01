@@ -1,0 +1,38 @@
+name: Release Android
+
+# Tag-triggered Android APK release. Build steps live in
+# .github/workflows/reusable-build-android.yml so release-latest.yml can
+# share them. See docs/RELEASING.md "Release workflow conventions" and
+# "Adding a new release target".
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build-android.yml
+
+  release:
+    name: Attach to GitHub Release
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: Android-*
+          merge-multiple: true
+
+      - name: Release Android APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            lba2cc-*-android-*.apk
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true

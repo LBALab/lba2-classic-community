@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android app manifest for LBA2 Classic Community.
+     Uses SDL3's built-in SDLActivity (org.libsdl.app.SDLActivity).
+     Build the native library separately via cmake + NDK, then package
+     via scripts/packaging/bundle-android.sh - see android/README.md. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.lbalab.lba2cc"
+    android:versionCode="1"
+    android:versionName="@string/version_name">
+
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
+    <!-- Required for reading retail game data from external storage.
+         On API 30+, direct /sdcard/ access needs MANAGE_EXTERNAL_STORAGE.
+         The app-specific Android/data/<pkg>/files/ dir works without it. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+    <!-- Android TV (leanback) support — optional so phones/tablets still work -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <!-- Game-controller / bluetooth gamepad support -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+
+    <!-- Touch input: present on phones/tablets, absent on Android TV.
+         Runtime detection in TOUCH_INPUT.CPP disables the overlay on TV. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Landscape orientation required for the game's aspect ratio -->
+    <application android:label="@string/app_name"
+        android:allowBackup="true"
+        android:hasCode="true"
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true">
+
+        <!-- SDL3 provides the Java Activity wrapper -->
+        <activity android:name="org.libsdl.app.SDLActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize"
+            android:screenOrientation="sensorLandscape"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

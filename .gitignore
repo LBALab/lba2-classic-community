@@ -20,3 +20,8 @@ __pycache__/
 tests/SNAPSHOT/fixtures/*.png
 tests/SNAPSHOT/fixtures/*.ppm
 tests/SNAPSHOT/fixtures/*.raw
+
+# Android build outputs
+android/build/
+android/apk/
+android/local.properties

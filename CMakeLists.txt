@@ -81,7 +81,12 @@ if(LBA2_NATIVE_ARCH)
 endif()
 
 # Dependencies
-if(LBA2_LINK_STATIC)
+if(ANDROID)
+    # Android: SDL3 is always shared, loaded by the Java Activity wrapper.
+    # The NDK toolchain and SDL3 CMake config handle the linking details.
+    find_package(SDL3 REQUIRED CONFIG)
+    set(LBA2_SDL3_TARGET SDL3::SDL3)
+elseif(LBA2_LINK_STATIC)
     find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3-static)
     # Be explicit: SDL3::SDL3 is an alias that resolves to the shared variant
     # when both shared and static are present in the install tree (the MSYS2
