@@ -145,12 +145,81 @@ static void test_console_sink(void) {
     Log_Shutdown();
 }
 
+/* One Log_* call fans out to every registered sink at once, and each sink's own
+ * min-severity still applies independently. */
+static void test_fanout_to_all_sinks(void) {
+    remove(TMP);
+    console_capture_reset();
+    Log_Init();
+    /* file sink admits DEBUG+, console sink admits INFO+ */
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    Log_AddSink(Log_MakeConsoleBufferSink(record_console_line));
+
+    Log_Warn("fan-%d", 7); /* one call -> both sinks (both admit WARN) */
+    Log_Debug("dbg-only"); /* one call -> file only (console drops DEBUG) */
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    /* WARN reached both sinks from a single emit. */
+    ASSERT_TRUE(strstr(buf, "[WARN] fan-7") != NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "[WARN] fan-7") != NULL);
+    /* Per-sink filtering holds inside the fan-out: DEBUG to file, not console. */
+    ASSERT_TRUE(strstr(buf, "[DEBUG] dbg-only") != NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "dbg-only") == NULL);
+    remove(TMP);
+}
+
+/* The sink pool is fixed-size: past capacity Log_Make*Sink returns NULL (drops
+ * silently, never aborts), and logging with a full pool stays safe. */
+static void test_sink_pool_limit(void) {
+    Log_Init();
+    LogSink *s = NULL;
+    int made = 0;
+    for (int i = 0; i < 64; ++i) { /* well past LOG_MAX_SINKS */
+        s = Log_MakeFileSink("pool_probe.tmp", LOG_DEBUG);
+        if (s)
+            ++made;
+    }
+    ASSERT_TRUE(made >= 1);  /* some allocations succeeded */
+    ASSERT_TRUE(s == NULL);  /* and the pool eventually said no, gracefully */
+    Log_Info("still alive"); /* emitting with a full pool must not crash */
+    Log_Shutdown();
+    remove("pool_probe.tmp");
+}
+
+/* Log_RemoveSink takes a sink off the dispatch list; others keep receiving. */
+static void test_remove_sink(void) {
+    remove(TMP);
+    console_capture_reset();
+    Log_Init();
+    LogSink *fileSink = Log_MakeFileSink(TMP, LOG_DEBUG);
+    Log_AddSink(fileSink);
+    Log_AddSink(Log_MakeConsoleBufferSink(record_console_line));
+
+    Log_Info("before-remove");
+    Log_RemoveSink(fileSink);
+    Log_Info("after-remove");
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "before-remove") != NULL);
+    /* after RemoveSink the file sink stops; the console sink keeps receiving */
+    ASSERT_TRUE(strstr(buf, "after-remove") == NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "after-remove") != NULL);
+    remove(TMP);
+}
+
 int main(void) {
     RUN_TEST(test_severity_prefixes);
     RUN_TEST(test_min_severity_filter);
     RUN_TEST(test_section_header);
     RUN_TEST(test_scoped_section);
     RUN_TEST(test_console_sink);
+    RUN_TEST(test_fanout_to_all_sinks);
+    RUN_TEST(test_sink_pool_limit);
+    RUN_TEST(test_remove_sink);
     TEST_SUMMARY();
     return test_failures != 0;
 }
