@@ -79,7 +79,7 @@ void TheEnd(char *err) {
 
 //-------------------------------------------------------------------------
 void TheEndInfo(void) {
-    LogPrintf(End_Error);
+    LogPrintf("%s", End_Error); /* End_Error is data, not a format string */
 }
 
 //-------------------------------------------------------------------------
