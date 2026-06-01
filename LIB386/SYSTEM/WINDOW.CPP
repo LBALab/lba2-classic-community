@@ -1,5 +1,6 @@
 #include <SYSTEM/WINDOW.H>
 
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 
 #include <SDL3/SDL.h>
@@ -102,8 +103,8 @@ bool InitWindow(const char *title) {
 
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to initialize SDL Window/Video subsystem.\n"
-                  "\tSDL Message: %s\n",
+        Log_Error("Unable to initialize SDL Window/Video subsystem.\n"
+                  "\tSDL Message: %s",
                   errorMsg);
 
         windowSystemInitialized = false;
@@ -151,26 +152,26 @@ bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
     SDL_DestroyProperties(props);
     if (sdlWindow == NULL) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to create SDL window.\n"
+        Log_Error("Unable to create SDL window.\n"
                   "\tResolution: %ux%u.\n"
-                  "\tSDL message: %s\n",
+                  "\tSDL message: %s",
                   resX, resY, errorMsg);
         return false;
     }
 
     if (windowFullscreenEnabled && !SDL_SetWindowFullscreen(sdlWindow, true)) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Warning: Unable to switch SDL window to fullscreen.\n"
-                  "\tSDL message: %s\n",
-                  errorMsg);
+        Log_Warn("Unable to switch SDL window to fullscreen.\n"
+                 "\tSDL message: %s",
+                 errorMsg);
         windowFullscreenEnabled = false;
     }
 
     sdlRenderer = SDL_CreateRenderer(sdlWindow, NULL);
     if (sdlRenderer == NULL) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to create SDL renderer.\n"
-                  "\tSDL message: %s\n",
+        Log_Error("Unable to create SDL renderer.\n"
+                  "\tSDL message: %s",
                   errorMsg);
         SDL_DestroyWindow(sdlWindow);
         sdlWindow = NULL;
@@ -183,9 +184,9 @@ bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
                                    SDL_TEXTUREACCESS_STREAMING, resX, resY);
     if (sdlTexture == NULL) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to create SDL streaming texture.\n"
+        Log_Error("Unable to create SDL streaming texture.\n"
                   "\tSize: %ux%u.\n"
-                  "\tSDL message: %s\n",
+                  "\tSDL message: %s",
                   resX, resY, errorMsg);
         SDL_DestroyRenderer(sdlRenderer);
         sdlRenderer = NULL;
@@ -245,8 +246,8 @@ bool ResizeWindowSurface(U32 newW, U32 newH) {
                                    SDL_TEXTUREACCESS_STREAMING, (int)newW, (int)newH);
     if (sdlTexture == NULL) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to recreate SDL streaming texture at %ux%u.\n"
-                  "\tSDL message: %s\n",
+        Log_Error("Unable to recreate SDL streaming texture at %ux%u.\n"
+                  "\tSDL message: %s",
                   newW, newH, errorMsg);
         return false;
     }
@@ -358,9 +359,9 @@ void SetWindowFullscreen(bool fullscreen) {
 
     if (!SDL_SetWindowFullscreen(sdlWindow, fullscreen)) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Warning: Unable to change SDL fullscreen state to %d.\n"
-                  "\tSDL message: %s\n",
-                  fullscreen ? 1 : 0, errorMsg);
+        Log_Warn("Unable to change SDL fullscreen state to %d.\n"
+                 "\tSDL message: %s",
+                 fullscreen ? 1 : 0, errorMsg);
         windowFullscreenEnabled = !fullscreen;
         return;
     }

@@ -2,6 +2,7 @@
 
 #include <SVGA/DIRTYBOX.H> // For BoxStaticAdd and BoxCleanClip
 #include <SVGA/SCREEN.H>   // For ModeDesiredX, ModeDesiredY and Log buffer
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -49,8 +50,8 @@ static void RebuildPaletteLUT() {
 // --- Initialization ----------------------------------------------------------
 bool InitVideo() {
     if (!IsWindowInitialized()) {
-        LogPrintf("Error: Unable to initialize Video subsystem.\n"
-                  "\tWindow subsystem was not initialized beforehand.\n");
+        Log_Error("Unable to initialize Video subsystem.\n"
+                  "\tWindow subsystem was not initialized beforehand.");
 
         return false;
     }
@@ -102,8 +103,8 @@ bool CreateVideoSurface(U32 resX, U32 resY) {
     sdlPalette = SDL_CreatePalette(PAL_MAX_COLORS);
     if (sdlPalette == NULL) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to create SDL palette.\n"
-                  "\tSDL message: %s\n",
+        Log_Error("Unable to create SDL palette.\n"
+                  "\tSDL message: %s",
                   errorMsg);
 
         return false;
@@ -173,9 +174,9 @@ void SetVideoPalette(const U8 src[], S32 startIdx, S32 count) {
 
     if (!SDL_SetPaletteColors(sdlPalette, tmpColors, startIdx, count)) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Warning: Unable to set SDL palette color.\n"
-                  "\tSDL message: %s\n",
-                  errorMsg);
+        Log_Warn("Unable to set SDL palette color.\n"
+                 "\tSDL message: %s",
+                 errorMsg);
     }
 
     RebuildPaletteLUT();
@@ -192,9 +193,9 @@ void SetVideoPaletteCol(S32 colorIdx, U8 r, U8 g, U8 b) {
 
     if (!SDL_SetPaletteColors(sdlPalette, &tmpColor, colorIdx, 1)) {
         const char *errorMsg = SDL_GetError();
-        LogPrintf("Warning: Unable to set SDL palette color.\n"
-                  "\tSDL message: %s\n",
-                  errorMsg);
+        Log_Warn("Unable to set SDL palette color.\n"
+                 "\tSDL message: %s",
+                 errorMsg);
     }
 
     paletteLUT[colorIdx] = ((U32)0xFF << 24) | ((U32)r << 16) | ((U32)g << 8) | b;
