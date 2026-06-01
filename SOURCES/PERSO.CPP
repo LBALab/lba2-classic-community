@@ -2144,12 +2144,13 @@ void TheEnd(S32 num, const char *error) {
 /*══════════════════════════════════════════════════════════════════════════*/
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
 void DebugHQR(const char *titre, T_HQR_HEADER *hqr) {
-    LogPrintf(titre);
-
+    /* One call per line: titre is a %s argument (not the format), so it is
+       safe and stays on the same line as its stats under the line-oriented
+       log fan-out (see docs/LOGGING_UNIFICATION.md). */
     if (hqr) {
-        LogPrintf(": %7ld - used: %7ld - MaxIndex: %4ld - NbIndex: %4ld\n", hqr->MaxSize, hqr->MaxSize - hqr->FreeSize, hqr->MaxIndex, hqr->NbIndex);
+        LogPrintf("%s: %7ld - used: %7ld - MaxIndex: %4ld - NbIndex: %4ld\n", titre, hqr->MaxSize, hqr->MaxSize - hqr->FreeSize, hqr->MaxIndex, hqr->NbIndex);
     } else {
-        LogPrintf(": xxxxxxx - used: xxxxxxx - MaxIndex: xxxx - NbIndex: xxxx\n");
+        LogPrintf("%s: xxxxxxx - used: xxxxxxx - MaxIndex: xxxx - NbIndex: xxxx\n", titre);
     }
 }
 #endif
