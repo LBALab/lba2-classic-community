@@ -17,6 +17,7 @@
 #include "../INVENT.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
@@ -1075,6 +1076,41 @@ static void cmd_exit(int argc, const char *argv[]) {
     TheEnd(PROGRAM_OK, "Exit from console");
 }
 
+static const char *loglevel_name(LogSeverity sev) {
+    switch (sev) {
+    case LOG_DEBUG:
+        return "debug";
+    case LOG_INFO:
+        return "info";
+    case LOG_WARN:
+        return "warn";
+    case LOG_ERROR:
+        return "error";
+    }
+    return "info";
+}
+
+static void cmd_loglevel(int argc, const char *argv[]) {
+    if (argc >= 2) {
+        LogSeverity sev;
+        if (strcmp(argv[1], "debug") == 0)
+            sev = LOG_DEBUG;
+        else if (strcmp(argv[1], "info") == 0)
+            sev = LOG_INFO;
+        else if (strcmp(argv[1], "warn") == 0)
+            sev = LOG_WARN;
+        else if (strcmp(argv[1], "error") == 0)
+            sev = LOG_ERROR;
+        else {
+            Console_Print("Unknown level '%s'. Use: debug | info | warn | error",
+                          argv[1]);
+            return;
+        }
+        Log_SetConsoleSeverity(sev);
+    }
+    Console_Print("console log level: %s", loglevel_name(Log_GetConsoleSeverity()));
+}
+
 static void cmd_listsaves(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -1515,6 +1551,10 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("buildinfo", cmd_buildinfo, "Engine version, build timestamp, and CMake flags", "(no args)",
                               "Same string as logged at startup.");
     Console_RegisterCommandEx("exit", cmd_exit, "Exit the game immediately", "(no args)", "Clean shutdown.");
+    Console_RegisterCommandEx("loglevel", cmd_loglevel,
+                              "Show or set the console log level", "loglevel [debug|info|warn|error]",
+                              "Filters what the boot/runtime log shows in this console; file + "
+                              "terminal logs are unaffected. Default info.");
     Console_RegisterCommandEx("listsaves", cmd_listsaves, "List save games (names)", "(no args)", "Reads save/ directory.");
     Console_RegisterCommandEx("listbugs", cmd_listbugs, "List bug saves in bugs directory", "(no args)", "Reads bugs/ directory.");
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");

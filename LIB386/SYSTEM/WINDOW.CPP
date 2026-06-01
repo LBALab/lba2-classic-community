@@ -390,6 +390,14 @@ bool GetWindowFullscreen() {
     return windowFullscreenEnabled;
 }
 
+/* The window's *actual* fullscreen state per SDL, rather than the cached request
+   flag above (which can disagree when a mode change fails — e.g. SDL refusing to
+   leave fullscreen). For accurate reporting / diagnostics. */
+bool Window_IsFullscreen(void) {
+    return (sdlWindow != NULL) &&
+           ((SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN) != 0);
+}
+
 void Window_SetVSync(int enabled) {
     if (sdlRenderer != NULL) {
         SDL_SetRenderVSync(sdlRenderer, enabled ? 1 : 0);

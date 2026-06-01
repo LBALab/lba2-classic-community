@@ -18,7 +18,7 @@ bool InitGraphics(U32 resX, U32 resY, bool fullscreen) {
         return false;
     }
 
-    LogPrintf("\nDesired resolution: %i*%i\n", resX, resY);
+    /* Resolution is reported by the boot log's "Render" line (see InitAdeline). */
 
     if (!CreateWindowSurface(resX, resY, fullscreen)) {
         return false;

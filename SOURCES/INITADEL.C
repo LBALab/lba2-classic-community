@@ -2,10 +2,14 @@
 
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "PERSO.H"      /* BootFatal — fatal exit for init failures */
 #include "RES_SWITCH.H" /* Res_LoadBootDimensions — CLI > cfg > default */
 
 #include "AIL/COMMON.H"
+#include "CONSOLE/CONSOLE.H" /* console buffer sink printer adapter */
 #include "CONTROL.H"
+#include "JOYSTICK.H"
+#include <SYSTEM/LOG.H>
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
 #include "SVGA/VIDEO.H"
@@ -36,6 +40,30 @@ int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
 #endif
 #include <unistd.h>
 
+#include <SDL3/SDL_cpuinfo.h> /* SDL_GetNumLogicalCPUCores, SDL_GetSystemRAM */
+
+#if defined(_WIN32)
+#define LOG_PLATFORM_NAME "Windows"
+#elif defined(__APPLE__)
+#define LOG_PLATFORM_NAME "macOS"
+#elif defined(__linux__)
+#define LOG_PLATFORM_NAME "Linux"
+#else
+#define LOG_PLATFORM_NAME "Unknown"
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64)
+#define LOG_ARCH_NAME "x86_64"
+#elif defined(__i386__) || defined(_M_IX86)
+#define LOG_ARCH_NAME "x86"
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#define LOG_ARCH_NAME "arm64"
+#elif defined(__arm__)
+#define LOG_ARCH_NAME "arm"
+#else
+#define LOG_ARCH_NAME "unknown"
+#endif
+
 // -----------------------------------------------------------------------------
 #include "BUILD_INFO.h"
 #ifdef DEMO
@@ -59,6 +87,10 @@ atexit(SafeErrorMallocMsg);
 
 // ··········································································
 
+/* Adapter handed to the console buffer sink so the log core (now in LIB386)
+   stays free of any dependency on CONSOLE (SOURCES). */
+static void ConsoleLogLine(const char *line) { Console_Print("%s", line); }
+
 void InitAdeline(S32 argc, char *argv[]) {
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
@@ -72,33 +104,50 @@ void InitAdeline(S32 argc, char *argv[]) {
 
         GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
         CreateLog(logFilePath);
-        LogPuts("Starting game...");
-        LogPuts("Paths used:");
-        LogPrintf("\t* Assets:\t%s\n"
-                  "\t* Saves:\t%s\n"
-                  "\t* Config:\t%s\n",
-                  resFolderPath, saveFolderPath, cfgFolderPath);
+
+        /* Structured boot log (docs/BOOT_LOG_PLAN.md). The file sink reuses
+           adeline.log — CreateLog above truncated it for this launch, the sink
+           appends; both it and the legacy LogPrintf sites share the one file.
+           The terminal sink colours stderr when launched from a real TTY. The
+           console sink mirrors records into the in-engine F12 overlay. */
+        Log_Init();
+        Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
+        Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
+        Log_AddSink(Log_MakeConsoleBufferSink(ConsoleLogLine));
+        atexit(Log_Shutdown);
+
+        /* Boot identity + key paths up top, so a pasted log is self-describing. */
+        Log_Raw("%s · %s %s · %d cores · %d GB RAM", APPNAME, LOG_PLATFORM_NAME,
+                LOG_ARCH_NAME, SDL_GetNumLogicalCPUCores(),
+                (SDL_GetSystemRAM() + 512) / 1024);
+        Log_Raw("Built %s %s", __DATE__, __TIME__);
+        Log_Raw("Assets: %s", resFolderPath);
+        Log_Raw("Saves:  %s", saveFolderPath);
+        Log_Raw("Config: %s", cfgFolderPath);
+        Log_Raw("Log:    %s", logFilePath);
+        Log_Raw("");
     }
 
     // ··········································································
     {
-        LogPuts("\nInitialising Event system. Please wait...\n");
         if (!InitEvents()) {
-            exit(1); // TODO: Implement graceful exit
+            BootFatal("The input/event system could not be initialized.");
         }
+        Log_Info("Events     ok");
     }
 
     // ··········································································
     {
-        LogPuts("\nInitialising Joystick. Please wait...\n");
         InitJoystick();
+        Log_Info("Joystick   %s", JoystickGetName());
     }
 
     // --- WINDOW ----------------------------------------------------------------
+    /* Window/Render status lines are emitted after InitGraphics below, once the
+       surface dimensions and mode are known. */
     {
-        LogPuts("\nInitialising Window. Please wait...\n");
         if (!InitWindow(APPNAME)) {
-            exit(1); // TODO: Implement graceful exit
+            BootFatal("The game window could not be created.");
         }
     }
 
@@ -114,16 +163,14 @@ void InitAdeline(S32 argc, char *argv[]) {
             LogPuts("Default config not in assets folder; writing embedded template...");
 
             if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
-                LogPrintf("Error: Can't write embedded default config to '%s'\n\n",
+                BootFatal("Could not write a default configuration file to '%s'.",
                           PathConfigFile);
-                exit(1);
             }
         } else {
             const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
             if (!copyResult) {
-                LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n",
-                          PathDefaultConfigFile, PathConfigFile);
-                exit(1);
+                BootFatal("Could not copy the configuration file to '%s'.",
+                          PathConfigFile);
             }
         }
     }
@@ -132,10 +179,7 @@ void InitAdeline(S32 argc, char *argv[]) {
     //  CMDLINE
     GetCmdLine(argc, argv);
 
-    // ··········································································
-    //  OS
-    LogPuts("\nIdentifying Operating System. Please wait...\n");
-    DisplayOS();
+    // OS/platform is reported in the boot header (LOG_PLATFORM_NAME).
 
     // ··········································································
     //  CPU
@@ -165,14 +209,12 @@ void InitAdeline(S32 argc, char *argv[]) {
     // --- VIDEO
     // -------------------------------------------------------------------
 
-    LogPuts("\nInitialising Video. Please wait...\n");
-
     if (!InitVideo()) {
-        exit(1); // TODO: Implement graceful exit
+        BootFatal("The video system could not be initialized.");
     }
 
     if (!InitScreen()) {
-        exit(1); // TODO: Implement graceful exit
+        BootFatal("The display surface could not be created.");
     }
 
     {
@@ -192,29 +234,33 @@ void InitAdeline(S32 argc, char *argv[]) {
            confirms it instead of flipping a windowed window. */
         const bool reqFullscreen = Res_LoadBootFullscreen();
         if (!InitGraphics(reqResX, reqResY, reqFullscreen)) {
-            exit(1); // TODO: Implement graceful exit
+            BootFatal("The graphics mode %ux%u could not be set.", reqResX,
+                      reqResY);
         }
+        /* The "Display" status line is logged from main() after InitProgram,
+           alongside the rest of the post-init summary. */
     }
 
     // ··········································································
-    //  Midi device
+    //  Midi + Sample devices
 
 #if ((inits) & INIT_MIDI)
 #ifndef LIB_AIL
 #error ADELINE: you need to include AIL.H
 #endif
-    LogPuts("\nInitialising Midi device. Please wait...\n");
-    if (!InitMidiDriver(NULL))
-        exit(1);
+    if (!InitMidiDriver(NULL)) {
+        BootFatal("The MIDI audio device could not be initialized.");
+    }
 #endif
 
     // ··········································································
     //  Sample device
-    if (!Control_NoAudio()) {
+    if (Control_NoAudio()) {
+        Log_Info("Audio      disabled (--no-audio)");
+    } else {
 #ifndef LIB_AIL
 #error ADELINE: you need to include AIL.H
 #endif
-        LogPuts("\nInitialising Sample device. Please wait...\n");
         if (!InitSampleDriver(NULL)) {
             /* No usable audio output (host has no audio device, SDL_AUDIODRIVER
                points at something invalid, the audio subsystem failed to come
@@ -226,7 +272,9 @@ void InitAdeline(S32 argc, char *argv[]) {
                bypass the SDL dummy driver's nanosleep pacing (~58% of sys time
                in projection_demo); a player whose audio device fails just
                loses sound instead of being unable to launch the game. */
-            LogPuts("\nWarning: no audio output — running silently.\n");
+            Log_Warn("Audio      none — running silently");
+        } else {
+            Log_Info("Audio      44100 Hz stereo");
         }
     }
 
