@@ -14,7 +14,9 @@
 
 #define CONSOLE_TEXT_COLOUR 15
 
-#define CONSOLE_SCROLLBACK_LINES 128
+/* Bumped from 128 so the boot log (now fed in via the Log_* console sink) isn't
+ * evicted by gameplay output before the player opens the console. */
+#define CONSOLE_SCROLLBACK_LINES 512
 #define CONSOLE_INPUT_MAX 256
 #define CONSOLE_HISTORY_SIZE 32
 #define CONSOLE_LINE_MAX 256

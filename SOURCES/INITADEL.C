@@ -103,10 +103,12 @@ void InitAdeline(S32 argc, char *argv[]) {
         /* Structured boot log (docs/BOOT_LOG_PLAN.md). The file sink reuses
            adeline.log — CreateLog above truncated it for this launch, the sink
            appends; both it and the legacy LogPrintf sites share the one file.
-           The terminal sink colours stderr when launched from a real TTY. */
+           The terminal sink colours stderr when launched from a real TTY. The
+           console sink mirrors records into the in-engine F12 overlay. */
         Log_Init();
         Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
+        Log_AddSink(Log_MakeConsoleBufferSink());
         atexit(Log_Shutdown);
 
         /* Boot identity + key paths up top, so a pasted log is self-describing. */
