@@ -2,6 +2,7 @@
 
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "PERSO.H"      /* BootFatal — fatal exit for init failures */
 #include "RES_SWITCH.H" /* Res_LoadBootDimensions — CLI > cfg > default */
 
 #include "AIL/COMMON.H"
@@ -123,8 +124,7 @@ void InitAdeline(S32 argc, char *argv[]) {
     // ··········································································
     {
         if (!InitEvents()) {
-            Log_Error("events: init failed");
-            exit(1); // TODO: Implement graceful exit
+            BootFatal("The input/event system could not be initialized.");
         }
         Log_Info("Events     ok");
     }
@@ -140,8 +140,7 @@ void InitAdeline(S32 argc, char *argv[]) {
        surface dimensions and mode are known. */
     {
         if (!InitWindow(APPNAME)) {
-            Log_Error("window: init failed");
-            exit(1); // TODO: Implement graceful exit
+            BootFatal("The game window could not be created.");
         }
     }
 
@@ -157,16 +156,14 @@ void InitAdeline(S32 argc, char *argv[]) {
             LogPuts("Default config not in assets folder; writing embedded template...");
 
             if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
-                LogPrintf("Error: Can't write embedded default config to '%s'\n\n",
+                BootFatal("Could not write a default configuration file to '%s'.",
                           PathConfigFile);
-                exit(1);
             }
         } else {
             const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
             if (!copyResult) {
-                LogPrintf("Error: Can't copy config file from '%s' to '%s'\n\n",
-                          PathDefaultConfigFile, PathConfigFile);
-                exit(1);
+                BootFatal("Could not copy the configuration file to '%s'.",
+                          PathConfigFile);
             }
         }
     }
@@ -206,13 +203,11 @@ void InitAdeline(S32 argc, char *argv[]) {
     // -------------------------------------------------------------------
 
     if (!InitVideo()) {
-        Log_Error("video: init failed");
-        exit(1); // TODO: Implement graceful exit
+        BootFatal("The video system could not be initialized.");
     }
 
     if (!InitScreen()) {
-        Log_Error("screen: init failed");
-        exit(1); // TODO: Implement graceful exit
+        BootFatal("The display surface could not be created.");
     }
 
     {
@@ -232,8 +227,8 @@ void InitAdeline(S32 argc, char *argv[]) {
            confirms it instead of flipping a windowed window. */
         const bool reqFullscreen = Res_LoadBootFullscreen();
         if (!InitGraphics(reqResX, reqResY, reqFullscreen)) {
-            Log_Error("graphics: init failed");
-            exit(1); // TODO: Implement graceful exit
+            BootFatal("The graphics mode %ux%u could not be set.", reqResX,
+                      reqResY);
         }
         /* The "Display" status line is logged from main() after InitProgram,
            alongside the rest of the post-init summary. */
@@ -247,8 +242,7 @@ void InitAdeline(S32 argc, char *argv[]) {
 #error ADELINE: you need to include AIL.H
 #endif
     if (!InitMidiDriver(NULL)) {
-        Log_Error("audio: MIDI init failed");
-        exit(1);
+        BootFatal("The MIDI audio device could not be initialized.");
     }
 #endif
 

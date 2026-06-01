@@ -31,6 +31,7 @@ static inline U32 DosAvailableMem(void) { return 0; }
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2115,7 +2116,9 @@ LBA_NORETURN void TheEndCheckFile(const char *filename) {
 
     End_Error = filename;
 
-    exit(0);
+    /* Always an error path -> non-zero so launchers/scripts/Steam can tell.
+       (The visible message for GUI launches is shown by TheEndInfo.) */
+    exit(EXIT_FAILURE);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -2129,7 +2132,8 @@ void TheEnd(S32 num, const char *error) {
     End_Num = num;
     End_Error = error;
 
-    exit(0);
+    /* Clean exit only for PROGRAM_OK; every other End_Num is a failure. */
+    exit(num == PROGRAM_OK ? 0 : EXIT_FAILURE);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -2156,6 +2160,46 @@ void V_ColorLine(U8 text, U8 back, U16 ncars) {
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
+/* Native fatal-error dialog for terminal-less launches (double-clicked
+   .app/.exe, Steam Deck), where the log/terminal is invisible. No-op on a dev
+   terminal run (the log is right there), under the control harness (never block
+   automation), or when no display is available (headless -> log only). Mirrors
+   the no-game-data dialog in RES_PICKER. */
+static void ShowFatalErrorDialog(const char *title, const char *message) {
+    if (isatty(fileno(stderr)))
+        return;
+    if (Control_IsActive())
+        return;
+    if (!SDL_WasInit(SDL_INIT_VIDEO) && !SDL_InitSubSystem(SDL_INIT_VIDEO))
+        return;
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, title, message, NULL);
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+/* Fatal exit for InitAdeline init failures -- see PERSO.H for why these can't
+   go through TheEnd/TheEndInfo. Logs the reason, surfaces the native dialog on
+   terminal-less launches, exits non-zero. No teardown: the failing subsystem
+   never finished coming up, so there is nothing safe to tear down. */
+LBA_NORETURN void BootFatal(const char *fmt, ...) {
+    char reason[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(reason, sizeof reason, fmt, ap);
+    va_end(ap);
+
+    Log_Error("%s", reason);
+
+    char logPath[ADELINE_MAX_PATH] = "";
+    GetLogPath(logPath, ADELINE_MAX_PATH, LOG_NAME);
+    char msg[ADELINE_MAX_PATH + 640];
+    snprintf(msg, sizeof msg, "%s\n\nThe game can't start.\nDetails: %s", reason,
+             logPath);
+    ShowFatalErrorDialog("LBA2 — cannot start", msg);
+
+    exit(EXIT_FAILURE);
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
 void TheEndInfo() {
     S32 err = FALSE;
 
@@ -2164,8 +2208,8 @@ void TheEndInfo() {
 #endif
     StopMusic();
 
-    LogPrintf(Version); // dans version.cpp
-    LogPrintf("%s\n", BuildInfo ? BuildInfo : "(no build info)");
+    /* No version/build footer here — the boot header already stamps version,
+       build, platform, and backends at the top of every log. */
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS)
     LogPrintf("* Start Extended Memory was %ld\n", MemoMemory);
@@ -2237,9 +2281,26 @@ void TheEndInfo() {
             LogPrintf("%s\n", End_Error);
         }
 #endif
-        LogPrintf("%s\n", End_Error);
-        LogPrintf("\nOK.\n");
+        if (End_Error && End_Error[0])
+            LogPrintf("%s\n", End_Error);
+        LogPrintf("OK.\n");
         break;
+    }
+
+    /* Make fatal errors visible when there's no terminal to read the log. */
+    if (End_Num == ERROR_NOT_FOUND_FILE || End_Num == NAME_NOT_FOUND ||
+        End_Num == NOT_ENOUGH_MEM) {
+        char logPath[ADELINE_MAX_PATH] = "";
+        GetLogPath(logPath, ADELINE_MAX_PATH, LOG_NAME);
+        const char *headline =
+            (End_Num == NOT_ENOUGH_MEM)   ? "The game ran out of memory."
+            : (End_Num == NAME_NOT_FOUND) ? "A required game object is missing."
+                                          : "Game data is missing or unreadable.";
+        char msg[ADELINE_MAX_PATH + 256];
+        snprintf(msg, sizeof msg,
+                 "%s\n\n%s\n\nThe game can't continue.\nDetails: %s", headline,
+                 End_Error ? End_Error : "", logPath);
+        ShowFatalErrorDialog("LBA2 — cannot start", msg);
     }
 
     WriteConfigFile();
@@ -2425,12 +2486,12 @@ int main(int argc, char *argv[]) {
                  Window_IsFullscreen() ? "fullscreen" : "windowed");
     }
 
-    /* Fail fast on missing required data: list it all (done inside), then abort
-       with a clear message instead of dying later at an arbitrary load — and
-       before we'd print "Ready". Exits non-zero (unlike TheEndCheckFile). */
+    /* Fail fast on missing required data: AssetPreflight has logged each missing
+       file; bail here (before any heavy load and before "Ready") via TheEnd so it
+       flows through the same fatal surface as every other error — non-zero exit
+       plus the native dialog in TheEndInfo for terminal-less launches. */
     if (AssetPreflight() > 0) {
-        Log_Error("cannot start: required game data is missing (see above)");
-        exit(EXIT_FAILURE);
+        TheEnd(ERROR_NOT_FOUND_FILE, "required game data is missing (see the log)");
     }
 
 #ifdef ONE_GAME_DIRECTORY

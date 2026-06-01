@@ -504,6 +504,58 @@ it before the quote, re-add the Windows VT enable
 
 (Per-phase PRs append their own "decisions taken" notes here as they merge.)
 
+## Fatal-error visibility on terminal-less launches
+
+The boot log + asset preflight report failures to the terminal and `adeline.log`.
+On a double-clicked `.app`/`.exe`, Steam Deck, or mobile there is no terminal and
+nobody hunts for the log, so a fatal boot error (incomplete data, missing HQR,
+out of memory) would just make the app vanish. The engine already solves the
+"no game **directory**" case with a native dialog (`RES_PICKER`, explicitly to
+avoid the log "buried in the terminal"); this extends the same treatment to the
+other fatal paths. (Its own PR — touches the `TheEnd*` family, not the sinks.)
+
+- `ShowFatalErrorDialog` (`PERSO.CPP`) wraps `SDL_ShowSimpleMessageBox`, gated so
+  it only fires on an interactive, terminal-less launch:
+  `!isatty(stderr)` (a terminal already shows the log) **and**
+  `!Control_IsActive()` (never block the automation harness) **and** a display is
+  available (`SDL_WasInit`/`SDL_InitSubSystem(SDL_INIT_VIDEO)` — headless falls
+  back to log-only). Mobile: shown where SDL supports it, else log-only — no
+  worse than today.
+- Wired into `TheEndInfo` (the `atexit` every fatal path funnels through): the
+  `ERROR_NOT_FOUND_FILE` / `NAME_NOT_FOUND` / `NOT_ENOUGH_MEM` cases build a
+  friendly message (+ the log path) and call it. One change → every fatal exit is
+  GUI-visible, not just the preflight.
+- The asset-preflight abort now calls `TheEnd(ERROR_NOT_FOUND_FILE, …)` instead
+  of `exit()`, so it flows through that same surface.
+- **Exit codes fixed:** `TheEnd`/`TheEndCheckFile` now exit non-zero on any error
+  (only `PROGRAM_OK` → 0), so launchers/scripts/Steam/CI can detect a failed
+  boot. Previously every exit was 0.
+- Verified: GUI-like run (no tty, not harness, display) blocks on the dialog;
+  harness run exits 1 with no dialog; all-present exits 0.
+
+### The `InitAdeline` gap (`BootFatal`)
+
+`TheEndInfo` only covers the fatal paths that run *after* `main` registers
+`atexit(TheEndInfo)` (`PERSO.CPP`) — which is *after* `InitAdeline` returns. The
+subsystem-init failures inside `InitAdeline` (events, window, config write/copy,
+video, screen, graphics, MIDI) used a bare `exit(1)`: no `End_Num`, no dialog,
+and registered before `atexit` anyway — so they vanished silently on a
+double-clicked launcher, exactly the "can't even open the window" case where a
+GUI user most needs to see why.
+
+- `BootFatal(fmt, …)` (`PERSO.CPP`, declared in `PERSO.H`) is the fix: it logs
+  the reason at `Error`, reuses `ShowFatalErrorDialog` (same gating), and exits
+  non-zero. Each `InitAdeline` failure now calls it with a one-line cause.
+- It deliberately skips `TheEndInfo`'s teardown (`WriteConfigFile`,
+  `Clear3dExt`): a subsystem that never finished initialising has nothing safe
+  to tear down, and those calls would touch un-anchored state.
+- A video/window-init failure can't show a graphical dialog (no display) — the
+  `SDL_InitSubSystem(VIDEO)` probe fails and it degrades to log-only. The config
+  / MIDI failures happen after the window is up, so those *do* get the dialog.
+- Verified: forcing `SDL_VIDEODRIVER=<invalid>` makes `InitWindow` fail →
+  `[ERROR] The game window could not be created.` logged, exit 1, no hang,
+  dialog correctly skipped under the harness and when video is unavailable.
+
 ## Out of scope (explicitly)
 
 - The overlay sink (deferred — open question 5).
