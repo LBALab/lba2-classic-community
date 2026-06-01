@@ -4,7 +4,7 @@
 
 #include "DIRECTORIES.H"
 #include "HQR_NAMES.H"
-#include "LOG/LOG.H"
+#include <SYSTEM/LOG.H>
 
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>

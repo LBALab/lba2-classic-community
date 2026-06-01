@@ -6,9 +6,10 @@
 #include "RES_SWITCH.H" /* Res_LoadBootDimensions — CLI > cfg > default */
 
 #include "AIL/COMMON.H"
+#include "CONSOLE/CONSOLE.H" /* console buffer sink printer adapter */
 #include "CONTROL.H"
 #include "JOYSTICK.H"
-#include "LOG/LOG.H"
+#include <SYSTEM/LOG.H>
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
 #include "SVGA/VIDEO.H"
@@ -86,6 +87,10 @@ atexit(SafeErrorMallocMsg);
 
 // ··········································································
 
+/* Adapter handed to the console buffer sink so the log core (now in LIB386)
+   stays free of any dependency on CONSOLE (SOURCES). */
+static void ConsoleLogLine(const char *line) { Console_Print("%s", line); }
+
 void InitAdeline(S32 argc, char *argv[]) {
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
@@ -108,7 +113,7 @@ void InitAdeline(S32 argc, char *argv[]) {
         Log_Init();
         Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
-        Log_AddSink(Log_MakeConsoleBufferSink());
+        Log_AddSink(Log_MakeConsoleBufferSink(ConsoleLogLine));
         atexit(Log_Shutdown);
 
         /* Boot identity + key paths up top, so a pasted log is self-describing. */

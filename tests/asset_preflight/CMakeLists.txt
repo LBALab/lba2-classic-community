@@ -2,7 +2,7 @@ add_executable(test_asset_preflight
     test_asset_preflight.cpp
     ${CMAKE_SOURCE_DIR}/SOURCES/ASSET_PREFLIGHT.CPP
     ${CMAKE_SOURCE_DIR}/SOURCES/DIRECTORIES.CPP
-    ${CMAKE_SOURCE_DIR}/SOURCES/LOG/LOG.CPP)
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP)
 
 target_include_directories(test_asset_preflight PRIVATE
     ${CMAKE_SOURCE_DIR}/SOURCES
