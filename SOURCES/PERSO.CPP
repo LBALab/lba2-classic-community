@@ -12,6 +12,8 @@
 #include "CONSOLE/CONSOLE.H"
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
+#include "LOG/LOG.H"
+#include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
 #include <FILEIO/SAVEPNG.H>
@@ -2341,6 +2343,10 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* Boot stopwatch for the "ready in Xs" closer (logged once the engine is up,
+       just before the menu/game). */
+    const U32 bootStartMs = SDL_GetTicks();
+
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char userFolderPath[ADELINE_MAX_PATH] = "";
@@ -2389,6 +2395,10 @@ int main(int argc, char *argv[]) {
 
     InitAdeline(argc, argv);
 
+    /* Split the boot time: engine subsystems (InitAdeline — SDL, audio device,
+       video) vs everything after (data loads + the intro logo splashes). */
+    const U32 subsystemsMs = SDL_GetTicks() - bootStartMs;
+
     /* Console hooks: keyboard toggle/input interception + final-frame overlay compositing. */
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
@@ -2404,6 +2414,24 @@ int main(int argc, char *argv[]) {
 
     InitProgram();
     InitMemory(); // Alloue petits buffers
+
+    /* "Display" status: WxH render resolution + the real SDL window mode
+       (Window_IsFullscreen, the actual flags — not the cached request flag).
+       Logged here in main with the rest of the post-init summary. */
+    {
+        U32 dispW = 0, dispH = 0;
+        Res_LoadBootDimensions(&dispW, &dispH);
+        Log_Info("Display    %ux%u %s", dispW, dispH,
+                 Window_IsFullscreen() ? "fullscreen" : "windowed");
+    }
+
+    /* Fail fast on missing required data: list it all (done inside), then abort
+       with a clear message instead of dying later at an arbitrary load — and
+       before we'd print "Ready". Exits non-zero (unlike TheEndCheckFile). */
+    if (AssetPreflight() > 0) {
+        Log_Error("cannot start: required game data is missing (see above)");
+        exit(EXIT_FAILURE);
+    }
 
 #ifdef ONE_GAME_DIRECTORY
     CreateLbaDirectories();
@@ -2442,6 +2470,13 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[control] --language: %s (index %d)\n",
                     GetLanguageName(Language), (int)Language);
     }
+    Log_Info("Language   %s", GetLanguageName(Language));
+
+    /* "Ready" counts engine subsystems coming up (InitAdeline: SDL, audio,
+       video, window). The intro banners/logos that follow are a timed slideshow,
+       deliberately not included. */
+    Log_Raw("");
+    Log_Raw("======== Ready in %.2fs ========", (double)subsystemsMs / 1000.0);
 
     BufText = (U8 *)SmartMalloc(BIG_FILE_DIA);
     if (!BufText)
@@ -2684,6 +2719,11 @@ int main(int argc, char *argv[]) {
 
     if (!HQR_ObjFix)
         TheEndCheckFile(tmpFilePath);
+
+    /* (No per-type asset counts here: the ressource HQRs load lazily and only
+       expose a cache-slot budget, not the file's real entry count. The asset
+       preflight above reports presence, which is the verification that matters.
+       Real entry counts would need an HQR-header reader — a future addition.) */
 
     //-------------------   buffer flows de particules
 

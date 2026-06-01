@@ -23,6 +23,9 @@ void HandleEventsJoystick(const void *event);
 // code paths; there is no separate enable flag — if a pad is connected, it's on.
 S32 JoystickIsPresent(void);
 
+// Human-readable controller name for the boot log, or "not detected".
+const char *JoystickGetName(void);
+
 // Returns a scancode for menu navigation (K_ENTER / K_UP / K_DOWN / K_LEFT /
 // K_RIGHT), or 0 if no menu-relevant input is active. Used by CONFIG.CPP.
 S32 JoystickMenuAction(void);
