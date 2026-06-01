@@ -145,8 +145,24 @@ bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, SDL_WINDOWPOS_CENTERED);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, resX);
     SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, resY);
+    /* Resizable allows OS-driven window resizing on desktop. On Android,
+     * SDL translates the resizable flag into SCREEN_ORIENTATION_UNSPECIFIED,
+     * which permits portrait rotation and triggers a SDL internal
+     * use-after-free on mutex during surfaceChanged. Lock landscape via
+     * manifest + non-resizable window. */
+#if !defined(__ANDROID__)
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
     SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, fullscreen);
+#endif
+#if defined(__ANDROID__)
+    /* Android TV: fullscreen at creation avoids a later surface transition
+     * (1920×984 → 1920×1080 when system UI hides on focus gain) that
+     * triggers EGL_BAD_DISPLAY on some Mali GPUs. Phone: skip the property
+     * here to avoid a hwuiTask crash (pthread_mutex_lock on destroyed mutex). */
+    S32 IsAndroidTVDevice(void);
+    if (IsAndroidTVDevice())
+        SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+#endif
     sdlWindow = SDL_CreateWindowWithProperties(props);
     SDL_DestroyProperties(props);
     if (sdlWindow == NULL) {

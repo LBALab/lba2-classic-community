@@ -27,6 +27,11 @@ U8 TabKeys[TABKEYS_NUM_KEYS];
 // SOURCES objects fail to link the HandleEventsXxx consumers below.
 S32 LastInputWasGamepad = 0;
 
+// Weak hook for virtual-input sources (touch overlay, etc.) to re-apply
+// their key states after UpdateKeyboardState clears TabKeys[0..255].
+void ApplyVirtualKeys(void);
+__attribute__((weak)) void ApplyVirtualKeys(void) {}
+
 // --- Private functions -------------------------------------------------------
 void UpdateKeyboardState() {
     ManageEvents();
@@ -45,6 +50,8 @@ void UpdateKeyboardState() {
             }
         }
     }
+
+    ApplyVirtualKeys();
 }
 
 // --- Initialization ----------------------------------------------------------

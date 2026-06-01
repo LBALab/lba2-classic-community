@@ -29,6 +29,7 @@ SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
 bool frameDirty = false;
 static PrePresentFn s_prePresent = NULL;
+static PrePresentFn s_overlayPrePresent = NULL;
 static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
@@ -229,6 +230,10 @@ void SetPrePresentCallback(PrePresentFn fn) {
     s_prePresent = fn;
 }
 
+void SetOverlayPrePresentCallback(PrePresentFn fn) {
+    s_overlayPrePresent = fn;
+}
+
 void SetPresentTimingCallbacks(PresentTimingFn begin, PresentTimingFn end) {
     s_presentBegin = begin;
     s_presentEnd = end;
@@ -238,18 +243,28 @@ static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
 
-    void *texPixels;
-    int texPitch;
-
-    if (!LockRendererTexture(&texPixels, &texPitch)) {
+    U32 stagingPitch = ModeDesiredX * sizeof(U32);
+#if defined(__ANDROID__)
+    /* On Android 16+ with MTE, SDL_LockTexture can return a pointer to
+       texture-internal memory that gets freed and reallocated between frames,
+       producing a stale pointer with a mismatched MTE tag (SEGV_ACCERR).
+       Use our own staging buffer and upload via SDL_UpdateTexture instead. */
+    void *stagingPixels = malloc(stagingPitch * ModeDesiredY);
+    if (stagingPixels == NULL)
         return;
-    }
+#else
+    void *stagingPixels;
+    int texPitch;
+    if (!LockRendererTexture(&stagingPixels, &texPitch))
+        return;
+    stagingPitch = (U32)texPitch;
+#endif
 
     U8 *logMem = (U8 *)Log;
 
     for (U32 y = 0; y < ModeDesiredY; ++y) {
         U8 *srcRow = logMem + y * ModeDesiredX;
-        U32 *dstRow = (U32 *)((U8 *)texPixels + y * texPitch);
+        U32 *dstRow = (U32 *)((U8 *)stagingPixels + y * stagingPitch);
         for (U32 x = 0; x < ModeDesiredX; ++x) {
             dstRow[x] = paletteLUT[srcRow[x]];
         }
@@ -263,10 +278,25 @@ static void PresentFrame() {
             paletteRgb[i * 3 + 1] = (U8)(c >> 8);
             paletteRgb[i * 3 + 2] = (U8)(c);
         }
-        s_prePresent((U32 *)texPixels, (U32)texPitch, ModeResX, ModeResY, paletteRgb);
+        s_prePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
+    }
+    if (s_overlayPrePresent) {
+        static U8 overlayPaletteRgb[256 * 3];
+        for (int i = 0; i < 256; i++) {
+            U32 c = paletteLUT[i];
+            overlayPaletteRgb[i * 3 + 0] = (U8)(c >> 16);
+            overlayPaletteRgb[i * 3 + 1] = (U8)(c >> 8);
+            overlayPaletteRgb[i * 3 + 2] = (U8)(c);
+        }
+        s_overlayPrePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, overlayPaletteRgb);
     }
 
+#if defined(__ANDROID__)
+    PresentRendererFrame(stagingPixels, stagingPitch);
+    free(stagingPixels);
+#else
     UnlockAndPresentRendererTexture();
+#endif
 }
 
 void HandleEventsVideo(const void *event) {

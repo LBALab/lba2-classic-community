@@ -48,6 +48,11 @@ void HandleEventsVideo(const void *event);
 typedef void (*PrePresentFn)(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);
 void SetPrePresentCallback(PrePresentFn fn);
 
+/** Optional overlay rendered after the main pre-present callback. Used by the
+ *  touch virtual gamepad overlay on Android so it draws on top of the console
+ *  overlay. Same signature as PrePresentFn. */
+void SetOverlayPrePresentCallback(PrePresentFn fn);
+
 /** Optional timing taps around the present path (palette LUT scan + texture upload + GL submit + vsync wait).
     Both callbacks must be set together (or both NULL); called at most once per UnlockVideoSurface. */
 typedef void (*PresentTimingFn)(void);

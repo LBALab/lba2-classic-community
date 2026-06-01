@@ -24,6 +24,14 @@ __attribute__((weak)) void HandleEventsJoystick(const void *event) {
     (void)event;
 }
 
+// Touch / virtual gamepad handler — implemented in SOURCES/TOUCH_INPUT.CPP.
+// Weak no-op default so the engine links without the touch module.
+S32 HandleEventsTouch(const void *event);
+__attribute__((weak)) S32 HandleEventsTouch(const void *event) {
+    (void)event;
+    return 0;
+}
+
 // --- Private state -----------------------------------------------------------
 bool eventSystemInitialized = false;
 static EventFilterFn s_eventFilter = NULL;
@@ -74,7 +82,9 @@ void ManageEvents() {
             HandleEventsMouse(transparentEvent);
             HandleEventsKeyboard(transparentEvent);
             HandleEventsJoystick(transparentEvent);
-            HandleEventsVideo(transparentEvent);
+            if (!HandleEventsTouch(transparentEvent)) {
+                HandleEventsVideo(transparentEvent);
+            }
             HandleEventsWindow(transparentEvent);
         }
     }
