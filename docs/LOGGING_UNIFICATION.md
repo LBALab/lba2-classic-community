@@ -1,6 +1,8 @@
 # Logging unification
 
-**Status:** Proposed (plan). The structured boot log landed on `main`
+**Status:** In progress. U1 (relocate core to `LIB386`) and U2 (shim
+`LogPrintf`/`LogPuts` onto the fan-out) merged; U3 (severity pass) and an
+SDL-spine test are in review. Builds on the structured boot log
 (#269/#270/#272 — see [BOOT_LOG_PLAN.md](BOOT_LOG_PLAN.md)). This unifies the
 legacy `LogPrintf`/`LogPuts` path into that same fan-out so there is one logging
 system, not two coexisting ones.
@@ -102,7 +104,7 @@ pointer). Injection is the minimal change.
 
 ## Phases (each its own PR)
 
-### U1 — Relocate the core to `LIB386`, inject the console printer
+### U1 — Relocate the core to `LIB386`, inject the console printer — merged
 Pure move + decouple, **behaviour identical**.
 - `SOURCES/LOG/LOG.H` → `LIB386/H/SYSTEM/LOG.H`; `SOURCES/LOG/LOG.CPP` →
   `LIB386/SYSTEM/LOG.CPP` (add to lib `sys`).
@@ -113,7 +115,7 @@ Pure move + decouple, **behaviour identical**.
 - **Verify:** all presets build (this touches LIB386 layering + includes); host
   tests; boot log byte-identical; `--dump-state` scrollback unchanged.
 
-### U2 — Shim `LogPrintf`/`LogPuts` over the fan-out
+### U2 — Shim `LogPrintf`/`LogPuts` over the fan-out — merged
 The high-leverage step — unifies routing for all 109 sites in one file.
 - `LogPrintf`/`LogPuts` `vsnprintf` (into a 1024 buffer, up from the static
   `LogStr[256]`) then emit as **`REC_RAW`** (verbatim — they are pre-formatted;
@@ -144,16 +146,22 @@ The high-leverage step — unifies routing for all 109 sites in one file.
   `\n`, no doubled blank lines); redirected stdout has no ANSI; host tests;
   `--fixed-dt` determinism unaffected.
 
-### U3 — Severity pass (gradual, per subsystem)
-Make severity meaningful now that everything flows through the fan-out.
-- Convert the `LogPrintf` sites that are truly warnings/errors to
-  `Log_Warn`/`Log_Error`; leave informational ones as raw.
-- Fix the 2 non-literal-format sites (`LogPrintf(End_Error)`, `LogPrintf(titre)`)
-  to `LogPrintf("%s", …)` — latent `%`-injection today, preserved (not worsened)
-  by the U2 shim.
-- Optionally give the 44 audio `SDL_Log` sites real severities.
-- Low-risk, file-by-file; can land in slices (start with `PERSO`, `RES_*`,
-  `WINDOW`).
+### U3 — Severity pass (gradual, per subsystem) — in review
+Make severity meaningful now that everything flows through the fan-out. Landed
+in slices rather than one sweep:
+- **Format-string fixes** (the 2 non-literal-format sites `LogPrintf(End_Error)`
+  / `LogPrintf(titre)`, plus rejoining `DebugHQR`'s two-call line).
+- **Display errors** (`WINDOW`, `SDL`) → `Log_Error`/`Log_Warn`. Safe because they
+  fire inside `InitAdeline`, after the sinks are registered.
+- **Early-boot fallback + data-dir errors.** The game-data-directory errors
+  (`RES_DISCOVERY`, `DIRECTORIES`) fire in `main()` *before* the sinks exist, so
+  converting them needed a fallback first: with no sink registered, `Log_*` now
+  writes directly to stderr (bypassing the SDL spine, which isn't installed
+  yet). Mirrors `LogPrintf`'s fallback. Only then were those errors converted.
+- **Deliberately left raw:** deep-internal diagnostics (`S_MALLOC`, `LOADSAVE`,
+  `EVENTS`, …) — low traffic, fine as text. The 44 audio `SDL_Log` sites keep
+  their text tags (`[SFX]`, `[MUSIC]`); severity-tagging them is optional and
+  not done.
 
 ## Out of scope
 
