@@ -40,6 +40,9 @@ void UnlockAndPresentRendererTexture();
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY);
 void SetWindowFullscreen(bool fullscreen);
 bool GetWindowFullscreen();
+// Actual SDL window fullscreen state (queries SDL_GetWindowFlags), not the
+// cached request flag — for accurate reporting.
+bool Window_IsFullscreen(void);
 
 // Toggle renderer vsync at runtime. On (the default) paces presents to the display
 // refresh; off lets the loop run flat-out. The control harness turns it off so a

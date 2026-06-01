@@ -360,6 +360,15 @@ S32 JoystickIsPresent(void) {
 }
 
 //***************************************************************************
+// Controller name for the boot log, or "not detected" when none is open.
+const char *JoystickGetName(void) {
+    if (s_gamepad == NULL)
+        return "not detected";
+    const char *name = SDL_GetGamepadName(s_gamepad);
+    return (name != NULL) ? name : "unknown controller";
+}
+
+//***************************************************************************
 // Legacy entry point: the call-site INPUT.CPP:170 passes &TabKeys[256], the
 // base of the extended region. UpdateJoystick writes directly into TabKeys
 // via the bit-packed virtual-scancode layout, so the bitfield parameter is
