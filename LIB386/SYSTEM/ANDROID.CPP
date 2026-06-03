@@ -1,11 +1,9 @@
 /* Android platform layer.
  *
  * One home for the engine's Android specifics — JNI, TV (leanback) detection,
- * and storage-permission prompting. Each entry point is a no-op stub
- * off-Android, so callers compile unconditionally with no #ifdef.
- *
- * The external-files-dir JNI (Android_GetExternalFilesDir) is folded in by a
- * follow-up; until then its <jni.h> stays in SOURCES/RES_DISCOVERY.CPP.
+ * storage-permission prompting, and the app-specific external-files dir. Each
+ * entry point is a no-op stub off-Android, so callers compile unconditionally
+ * with no #ifdef. <jni.h> is included here and nowhere else.
  * See docs/PLATFORM.md and docs/ANDROID.md.
  */
 #include <SYSTEM/ANDROID.H>
@@ -13,6 +11,7 @@
 
 #ifdef __ANDROID__
 #include <jni.h>
+#include <string.h>
 #include <SDL3/SDL_system.h>
 #endif
 
@@ -116,7 +115,7 @@ void Android_EnsureExternalStoragePermission(void) {
                     env->CallStaticVoidMethod(permHelper, openMgr, activity);
                     /* Clear any JNI exception (e.g. ActivityNotFoundException
                      * on Android TV which has no Settings intent handler) so
-                     * subsequent JNI calls (e.g. GetAndroidExternalFilesDir
+                     * subsequent JNI calls (e.g. Android_GetExternalFilesDir
                      * in ResolveGameDataDir) don't fail. */
                     if (env->ExceptionCheck())
                         env->ExceptionClear();
@@ -131,12 +130,71 @@ void Android_EnsureExternalStoragePermission(void) {
 }
 
 S32 Android_GetExternalFilesDir(char *out, U16 maxLen) {
+#ifdef __ANDROID__
+    /* App-specific external files dir (/sdcard/Android/data/<pkg>/files/), via
+     * Activity.getExternalFilesDir(null).getAbsolutePath(). Always accessible
+     * on API 19+ without MANAGE_EXTERNAL_STORAGE. Returns the raw path (no
+     * trailing separator); the caller normalizes. */
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    if (env == NULL)
+        return 0;
+
+    jobject activity = (jobject)SDL_GetAndroidActivity();
+    if (activity == NULL)
+        return 0;
+
+    jclass activityClass = env->GetObjectClass(activity);
+    if (activityClass == NULL)
+        return 0;
+
+    jmethodID getExternalFilesDir = env->GetMethodID(activityClass, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
+    if (getExternalFilesDir == NULL) {
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
+    jobject fileObj = env->CallObjectMethod(activity, getExternalFilesDir, NULL);
+    if (fileObj == NULL) {
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
+    jclass fileClass = env->GetObjectClass(fileObj);
+    jmethodID getAbsolutePath = env->GetMethodID(fileClass, "getAbsolutePath", "()Ljava/lang/String;");
+    if (getAbsolutePath == NULL) {
+        env->DeleteLocalRef(fileClass);
+        env->DeleteLocalRef(fileObj);
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
+    jstring pathStr = (jstring)env->CallObjectMethod(fileObj, getAbsolutePath);
+    if (pathStr == NULL) {
+        env->DeleteLocalRef(fileClass);
+        env->DeleteLocalRef(fileObj);
+        env->DeleteLocalRef(activityClass);
+        return 0;
+    }
+
+    const char *pathChars = env->GetStringUTFChars(pathStr, NULL);
+    S32 result = 0;
+    if (pathChars != NULL) {
+        size_t len = strlen(pathChars);
+        if (len + 1 < (size_t)maxLen) {
+            memcpy(out, pathChars, len + 1);
+            result = 1;
+        }
+        env->ReleaseStringUTFChars(pathStr, pathChars);
+    }
+
+    env->DeleteLocalRef(pathStr);
+    env->DeleteLocalRef(fileClass);
+    env->DeleteLocalRef(fileObj);
+    env->DeleteLocalRef(activityClass);
+    return result;
+#else
     (void)out;
     (void)maxLen;
-#ifdef __ANDROID__
-    /* Real implementation moves here in PR A'. */
-    return 0;
-#else
     return 0;
 #endif
 }
