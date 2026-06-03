@@ -12,7 +12,8 @@ format, same Life/Track script model. The long-term prospect is to understand th
 well enough that **LBA1 content could run on the lba2cc engine**. That port is not the
 immediate work; the immediate work is the *understanding* that would make it tractable —
 and which pays off now by telling us where to draw module boundaries (engine/game
-separation, strangler-fig). Architecture is the lever; comprehension is the fulcrum.
+separation, strangler-fig). Architecture is the lever; comprehension is the fulcrum. The
+concrete cost of that port is assessed in [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md).
 
 ## The three axes
 
@@ -52,20 +53,23 @@ that goes deeper. This table is the map-of-maps.
 The single most important seam. The engine runs a fixed main loop; the *game* is Life
 scripts (behaviour AI, dispatched at main-loop step 6, `DoLife`) and Track scripts
 (pathing, step 3, `DoTrack`), plus assets. `GERELIFE`/`GERETRAK`/`FUNC` implement the VM
-and are present in all three Adeline trees. If LBA1 uses the same script model, this
-interface is what lets its content run here. Detailed API spec: *forthcoming —
-ENGINE_GAME_INTERFACE.md (in progress).*
+and are present in all three Adeline trees. LBA1 uses the same VM (confirmed), so this
+interface is what lets its content run here. Detailed API spec:
+**[ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md)**.
 
-## Gaps — what still needs mapping
+## Gaps — what's mapped, what's left
 
-1. **The engine↔game interface spec** (the script-VM API: opcode catalog, the function
-   tables in `EXTFUNC`/`PTRFUNC`, what the engine exposes to scripts, script-variable
-   storage). *In progress.* This is the keystone for LBA1 portability.
-2. **The LBA1 ↔ LBA2 porting surface** (format and capability deltas: HQR, body/3D model,
-   anim, scene/grid, sprite, palette; render and audio capability gaps). *In progress.*
-3. **The call-graph / data-flow axis** — who mutates the shared-bus offenders, and from
-   where. The fourth axis; not yet mapped. Currently lives only in the code and the
-   codebase-memory graph (which is weak on exactly this — sparse function→function edges).
+1. **The engine↔game interface spec** — *mapped:* [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md).
+   The Life/Track bytecode VM: opcode tables, the `switch`-on-cursor dispatch (*not* the
+   `EXTFUNC`/`PTRFUNC` tables — those turned out to be engine-internal / editor tooling),
+   the syscall surface, and script-variable storage. The keystone for LBA1 portability.
+2. **The LBA1 ↔ LBA2 porting surface** — *mapped:* [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md).
+   Per-subsystem compatible/shim/different verdicts. Headline: the engine is a strict
+   superset, so hosting LBA1 is format transcoders + a script opcode-remap + replacing the
+   FLA/MIDI media stack — not re-architecting.
+3. **The call-graph / data-flow axis** — *not yet mapped.* Who mutates the shared-bus
+   offenders, and from where. The fourth axis; lives only in the code and the
+   codebase-memory graph (weak on exactly this — sparse function→function edges).
 
 ## Strangler-fig roadmap (understanding → action, later)
 

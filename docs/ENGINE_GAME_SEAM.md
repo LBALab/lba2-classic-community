@@ -127,7 +127,8 @@ content** — the split is rarely a whole domain, it runs *through* each one:
   (`DoTrack`, track scripts)** and **step 6 (`DoLife`, life scripts)** for every object —
   the engine drives the loop, the game's scripts are invoked. A clean boundary here is what
   makes the engine title-agnostic — the highest-leverage facade, aligned with the
-  Life/Track tooling thread (#181).
+  Life/Track tooling thread (#181). Full API spec:
+  [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md).
 - **Engine-seam facades pay off twice.** Drawing a facade around an all-three module
   (World/cube via `GRILLE`+coords, Resources via HQR/`DISKFUNC`) cleans up LBA2 now and is
   reusable for LBA1 later. Prefer these over facades around Layer-2 game content
@@ -145,7 +146,8 @@ content** — the split is rarely a whole domain, it runs *through* each one:
   more limited 3D path. Hosting LBA1 here means bringing its *content* onto this *newer*
   engine, not merging two equals.
 - **twin-e / TwinEngine** already runs both titles via reimplementation — feasibility is
-  proven. The original-source path is harder but preservation-faithful.
+  proven. The original-source path is harder but preservation-faithful. The concrete
+  per-subsystem porting cost is assessed in [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md).
 - Layer tags here are v0 judgments from module evidence; pin per-module before relying on a
   tag for a specific facade.
 
