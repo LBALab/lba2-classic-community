@@ -398,6 +398,17 @@ bool Window_IsFullscreen(void) {
            ((SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN) != 0);
 }
 
+bool Window_SupportsWindowedMode(void) {
+#if defined(__ANDROID__)
+    /* Android phones and TVs run the game fullscreen (landscape-locked via
+       manifest + non-resizable window, see CreateWindowSurface). There is no
+       windowed mode to switch to, so the fullscreen toggle is meaningless. */
+    return false;
+#else
+    return true;
+#endif
+}
+
 void Window_SetVSync(int enabled) {
     if (sdlRenderer != NULL) {
         SDL_SetRenderVSync(sdlRenderer, enabled ? 1 : 0);
