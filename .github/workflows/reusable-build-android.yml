@@ -158,6 +158,12 @@ jobs:
             --cxx-shared-lib "$CXX_SHARED_LIB" \
             --output-dir dist
 
+      - name: Verify 16 KB page alignment (arm64-v8a)
+        if: matrix.arch == 'arm64-v8a'
+        run: |
+          APK=$(ls dist/*-arm64-v8a.apk | head -1)
+          bash scripts/dev/check-16k-align.sh "$APK"
+
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
         with:
