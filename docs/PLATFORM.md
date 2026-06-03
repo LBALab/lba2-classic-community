@@ -129,6 +129,7 @@ CMake presets cover the supported targets and toolchains. Cross-compile to Windo
 - Presets (`linux`, `linux_clang`, `linux_test`, `macos_arm64`, `macos_x86_64`, `windows_ucrt64`, `windows_mingw64`, `cross_linux2win`) — `CMakePresets.json`
 - Cross-toolchain — `cmake/mingw-w64-i686.cmake`
 - `LBA2_NATIVE_ARCH` (per-arch tuning flags) — `CMakeLists.txt`
+- Android arm64 native libs are 16 KB-page aligned (NDK r28 + `max-page-size`; stored uncompressed + `zipalign -P 16`; `extractNativeLibs="false"`), verified in CI by `scripts/dev/check-16k-align.sh` — see [ANDROID.md](ANDROID.md). 16 KB pages are 64-bit-only, so armeabi-v7a stays 4 KB.
 
 **Deep dive:** [WINDOWS.md](WINDOWS.md) for the MSYS2 path; root [README](../README.md) for the broader build instructions.
 
