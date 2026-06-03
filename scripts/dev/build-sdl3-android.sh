@@ -2,10 +2,10 @@
 # ---------------------------------------------------------------------------
 # Build SDL3 for Android (arm64-v8a) and install to a known prefix.
 #
-# Prerequisites: Android NDK r26+, Ninja, git.
+# Prerequisites: Android NDK r28+, Ninja, git.
 #
 # Usage:
-#   export ANDROID_NDK=$HOME/Android/Sdk/ndk/26.1.10909125
+#   export ANDROID_NDK=$HOME/Android/Sdk/ndk/28.2.13676358
 #   bash scripts/dev/build-sdl3-android.sh
 #
 # Output:
@@ -20,7 +20,7 @@ SDL3_SRC="${OUT_DIR}/SDL3"
 SDL3_BUILD="${OUT_DIR}/sdl3-build"
 SDL3_INSTALL="${OUT_DIR}/sdl3-install"
 
-ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/26.1.10909125}"
+ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/28.2.13676358}"
 
 if [ ! -d "${ANDROID_NDK}" ]; then
     echo "ERROR: ANDROID_NDK not found at ${ANDROID_NDK}"
@@ -48,7 +48,8 @@ cmake -S "${SDL3_SRC}" -B "${SDL3_BUILD}" -G Ninja \
     -DANDROID_STL=c++_shared \
     -DSDL_SHARED=ON \
     -DSDL_STATIC=OFF \
-    -DSDL_TEST=OFF
+    -DSDL_TEST=OFF \
+    -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 
 # Build
 cmake --build "${SDL3_BUILD}" -- -j$(nproc)

@@ -5,13 +5,13 @@
 # Supports arm64-v8a (default) and armeabi-v7a (via --abi armeabi-v7a).
 #
 # Prerequisites:
-#   1. Android NDK r26+  — set ANDROID_NDK or install under $HOME/Android/Sdk/ndk/
+#   1. Android NDK r28+  — set ANDROID_NDK or install under $HOME/Android/Sdk/ndk/
 #   2. SDL3 built for the target ABI — set SDL3_ANDROID_DIR or run build-sdl3-android.sh first
 #   3. Ninja (build tool)
 #   4. Retail game data HQR files (NOT included in the repo)
 #
 # Usage:
-#   export ANDROID_NDK=$HOME/Android/Sdk/ndk/26.1.10909125
+#   export ANDROID_NDK=$HOME/Android/Sdk/ndk/28.2.13676358
 #   export SDL3_ANDROID_DIR=$PWD/out/android/sdl3-install-arm64
 #   bash scripts/dev/build-android.sh                         # arm64-v8a (default)
 #   bash scripts/dev/build-android.sh --abi armeabi-v7a        # 32-bit
@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ---- Config ---------------------------------------------------------------
-ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/26.1.10909125}"
+ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/28.2.13676358}"
 SDL3_ANDROID_DIR="${SDL3_ANDROID_DIR:-${REPO_DIR}/out/android/sdl3-install}"
 ABI="${ABI:-arm64-v8a}"
 API_LEVEL=24
@@ -66,7 +66,8 @@ cmake -S "${REPO_DIR}" -B "${BUILD_DIR}" \
     -DANDROID_STL=c++_shared \
     -DSDL3_DIR="${SDL3_ANDROID_DIR}/lib/cmake/SDL3" \
     -DSOUND_BACKEND=sdl \
-    -DMVIDEO_BACKEND=smacker
+    -DMVIDEO_BACKEND=smacker \
+    -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 
 # ---- Step 2: Build native library ----------------------------------------
 cmake --build "${BUILD_DIR}" -- -j$(nproc)

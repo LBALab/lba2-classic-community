@@ -9,7 +9,7 @@ Minimum Android version: **7.0 (API 24)**. The APK targets API 24 (required by S
 
 You need:
 
-1.  **Android NDK** r26 or later (recommended: r26.1.10909125).
+1.  **Android NDK** r28 or later (recommended: r28.2.13676358) — required for 16 KB memory-page support on arm64 (see [16 KB page support](#16-kb-page-support)).
 2.  **SDL3** built for your target ABI(s).
 3.  **Ninja** build system.
 4.  Retail **game data** (HQR files) — you must provide these.
@@ -17,28 +17,24 @@ You need:
 ### 1. Build SDL3 for Android
 
 ```bash
-# For arm64-v8a (modern phones/tablets, 64-bit Android TV)
-git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SDL.git SDL3
-cd SDL3
-cmake -B build-arm64 -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-    -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=24 -DSDL_SHARED=ON -DSDL_STATIC=OFF
-cmake --build build-arm64
-cmake --install build-arm64 --prefix $PWD/install-arm64
-
-# For armeabi-v7a (32-bit Android TV, older devices)
-cmake -B build-armv7a -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-    -DANDROID_ABI=armeabi-v7a -DANDROID_PLATFORM=24 -DSDL_SHARED=ON -DSDL_STATIC=OFF
-cmake --build build-armv7a
-cmake --install build-armv7a --prefix $PWD/install-armv7a
+# arm64-v8a: clones SDL (release-3.2.16) to out/android/SDL3, installs to
+# out/android/sdl3-install, and applies the 16 KB-page linker flags.
+bash scripts/dev/build-sdl3-android.sh
 ```
+
+The source tree it leaves under `out/android/SDL3` is also the
+`--sdl3-java-src` the bundler needs for the SDLActivity Java sources. For
+`armeabi-v7a`, configure SDL3 by hand with `-DANDROID_ABI=armeabi-v7a`
+(the script targets arm64-v8a).
 
 ### 2. Build LBA2
 
 ```bash
-# From the repo root, point SDL3_ANDROID_DIR to the install for your target ABI
-export ANDROID_NDK=/path/to/android-ndk-r26
-export SDL3_ANDROID_DIR=/path/to/sdl3-install-arm64
-bash scripts/dev/build-android.sh
+# From the repo root, point SDL3_ANDROID_DIR at the install from step 1
+export ANDROID_NDK=$HOME/Android/Sdk/ndk/28.2.13676358
+export SDL3_ANDROID_DIR=$PWD/out/android/sdl3-install
+bash scripts/dev/build-android.sh                    # arm64-v8a (default)
+bash scripts/dev/build-android.sh --abi armeabi-v7a  # 32-bit
 ```
 
 ### 3. Install on device
@@ -54,11 +50,42 @@ bash scripts/packaging/bundle-android.sh \
     --arch arm64-v8a \
     --build-dir out/build/android_arm64 \
     --sdk-root $ANDROID_HOME \
+    --sdl3-java-src out/android/SDL3 \
+    --sdl3-lib $SDL3_ANDROID_DIR/lib/libSDL3.so \
+    --cxx-shared-lib $ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so \
     --output-dir dist
 
 # Install
 adb install -r dist/lba2cc-*-android-arm64-v8a.apk
 ```
+
+`--sdl3-lib` is required — without it `libSDL3.so` is omitted from the APK
+and the app fails to load. `--cxx-shared-lib` points the bundler at the
+NDK's `libc++_shared.so`; CI passes both explicitly.
+
+## 16 KB page support
+
+Android 15+ runs 64-bit apps on 16 KB memory pages on some devices. A
+native library whose `LOAD` segments are 4 KB-aligned fails to load there
+(`... program alignment (4096) cannot be smaller than system page size
+(16384)`). The arm64-v8a build is 16 KB-safe:
+
+- **NDK r28** ships `libc++_shared.so` 16 KB-aligned and defaults the
+  linker `max-page-size` to 16384. r26 cannot be fixed by flags alone —
+  its prebuilt STL is 4 KB-aligned.
+- `-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384`, set in the
+  `android_common` preset and the build scripts, keep `liblba2cc.so` and
+  `libSDL3.so` aligned even on r27.
+- The APK stores the `.so` uncompressed and 16 KB-zipaligned with
+  `extractNativeLibs="false"`, so the loader maps them straight from the
+  APK.
+- `scripts/dev/check-16k-align.sh <apk>` verifies all of the above; CI
+  runs it on every arm64 build.
+
+Backward-compatible: `max-page-size` sets a *maximum*, so a 4 KB-page
+kernel loads the libraries normally. **armeabi-v7a is unaffected** — 16 KB
+pages are a 64-bit concern; 32-bit ARM (older devices, all current
+Android TV) is always 4 KB.
 
 ## Game data on Android
 
