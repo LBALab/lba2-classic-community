@@ -148,7 +148,8 @@
         "ANDROID_STL": "c++_shared",
         "SOUND_BACKEND": "sdl",
         "MVIDEO_BACKEND": "smacker",
-        "SDL3_DIR": "$env{SDL3_ANDROID_DIR}"
+        "SDL3_DIR": "$env{SDL3_ANDROID_DIR}",
+        "CMAKE_SHARED_LINKER_FLAGS": "-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
       }
     },
     {

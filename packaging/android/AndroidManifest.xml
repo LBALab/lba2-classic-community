@@ -36,7 +36,8 @@
         android:allowBackup="true"
         android:hasCode="true"
         android:icon="@mipmap/ic_launcher"
-        android:requestLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true"
+        android:extractNativeLibs="false">
 
         <!-- SDL3 provides the Java Activity wrapper -->
         <activity android:name="org.libsdl.app.SDLActivity"

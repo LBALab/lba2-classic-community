@@ -79,16 +79,16 @@ jobs:
         run: |
           sdkmanager --install \
             "platforms;android-34" \
-            "build-tools;34.0.0" \
-            "ndk;26.1.10909125" \
+            "build-tools;35.0.0" \
+            "ndk;28.2.13676358" \
             "platform-tools" \
             2>&1
 
       - name: Set environment
         run: |
-          ANDROID_NDK="${ANDROID_HOME}/ndk/26.1.10909125"
+          ANDROID_NDK="${ANDROID_HOME}/ndk/28.2.13676358"
           echo "ANDROID_NDK=${ANDROID_NDK}" >> "$GITHUB_ENV"
-          echo "${ANDROID_HOME}/build-tools/34.0.0" >> "$GITHUB_PATH"
+          echo "${ANDROID_HOME}/build-tools/35.0.0" >> "$GITHUB_PATH"
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
 
       - name: Build SDL3 for Android
@@ -115,7 +115,8 @@ jobs:
             -DANDROID_STL=c++_shared \
             -DSDL_SHARED=ON \
             -DSDL_STATIC=OFF \
-            -DSDL_TEST=OFF
+            -DSDL_TEST=OFF \
+            -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
 
           cmake --build "$SDL3_BUILD" -- -j$(nproc)
           cmake --install "$SDL3_BUILD" --prefix "$SDL3_INSTALL"
@@ -156,6 +157,12 @@ jobs:
             --sdl3-lib "$SDL3_LIB" \
             --cxx-shared-lib "$CXX_SHARED_LIB" \
             --output-dir dist
+
+      - name: Verify 16 KB page alignment (arm64-v8a)
+        if: matrix.arch == 'arm64-v8a'
+        run: |
+          APK=$(ls dist/*-arm64-v8a.apk | head -1)
+          bash scripts/dev/check-16k-align.sh "$APK"
 
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
