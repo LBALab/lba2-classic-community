@@ -483,8 +483,8 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
 #endif
 
     /* External storage roots: Android /sdcard/ (on API 30+ these paths
-     * may need MANAGE_EXTERNAL_STORAGE permission — see android/
-     * README). Try /sdcard/lba2cc/ first so users can keep data in a
+     * may need MANAGE_EXTERNAL_STORAGE permission — see
+     * docs/ANDROID.md). Try /sdcard/lba2cc/ first so users can keep data in a
      * subdirectory. Harmless no-op on non-Android. */
     if (TryJoinBaseSub("/sdcard/", "lba2cc", outDir, outMax, tried, &triedCount) ||
         TryJoinBaseSub("/storage/emulated/0/", "lba2cc", outDir, outMax, tried, &triedCount) ||

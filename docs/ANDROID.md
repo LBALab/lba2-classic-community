@@ -38,7 +38,7 @@ cmake --install build-armv7a --prefix $PWD/install-armv7a
 # From the repo root, point SDL3_ANDROID_DIR to the install for your target ABI
 export ANDROID_NDK=/path/to/android-ndk-r26
 export SDL3_ANDROID_DIR=/path/to/sdl3-install-arm64
-bash android/build_android.sh
+bash scripts/dev/build-android.sh
 ```
 
 ### 3. Install on device

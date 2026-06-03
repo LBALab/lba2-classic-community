@@ -56,7 +56,7 @@ Download `lba2cc-<version>-windows-x64.zip`, unzip anywhere, run `lba2cc.exe`. P
 
 ### Android
 
-Download the `lba2cc-<version>-android-arm64-v8a.apk` (or `armeabi-v7a`). Requires **Android 7.0 (API 24)** or later. You must provide your own retail game data (see [Game data](#game-data) and [android/README.md](android/README.md) for setup).
+Download the `lba2cc-<version>-android-arm64-v8a.apk` (or `armeabi-v7a`). Requires **Android 7.0 (API 24)** or later. You must provide your own retail game data (see [Game data](#game-data) and [docs/ANDROID.md](docs/ANDROID.md) for setup).
 
 ## Building from source quick start
 
