@@ -1,11 +1,12 @@
 # LBA2 Classic Community — Android
 
-This directory contains scripts and configuration for building
-LBA2 Classic Community on Android (arm64-v8a and armeabi-v7a).
+How to build, package, and run LBA2 Classic Community on Android
+(arm64-v8a and armeabi-v7a). The build and packaging scripts live under
+`scripts/dev/` and `scripts/packaging/`.
 
 ## Quick start
 
-Minimum Android version: **7.0 (API 24)**. The APK targets API 24 (required by SDL3) and is tested on API 24–34.
+Minimum Android version: **7.0 (API 24)**. The APK targets API 24 (required by SDL3) and is tested on API 24–36.
 
 You need:
 
@@ -89,34 +90,40 @@ Android TV) is always 4 KB.
 
 ## Game data on Android
 
-Place your retail LBA2 `.HQR` files on the device via ADB:
+Place your retail LBA2 `.HQR` files on the device with ADB. **Recommended:
+`/sdcard/lba2cc/`** — the game probes it ahead of the other external roots and
+it survives an uninstall/reinstall:
 
 ```bash
-# Android 11+ and Android TV (scoped storage): file managers can't access Android/data/
-# Use ADB instead:
-adb push lba2.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
-adb push libraa.hqr /sdcard/Android/data/org.lbalab.lba2cc/files/
-
-# (Recommended) place inside /sdcard/lba2cc/ — keeps loose files clean and the
-# game automatically probes this path on startup:
 adb push lba2.hqr /sdcard/lba2cc/
-adb push libraa.hqr /sdcard/lba2cc/
-
-# Also probes /sdcard/ directly as a fallback:
-adb push lba2.hqr /sdcard/
-adb push libraa.hqr /sdcard/
+adb push ress.hqr /sdcard/lba2cc/
+# ...and the rest of your retail HQR set
 ```
 
-The game's `ResolveGameDataDir` scans these paths automatically:
+`/sdcard/lba2cc/` is general external storage, so on **Android 11+ (API 30+)**
+the app needs **All Files Access** (`MANAGE_EXTERNAL_STORAGE`). The game checks
+for it on launch and opens the system Settings page if it is missing — grant it
+and relaunch. You can also pre-grant it:
 
-1. `--game-dir` CLI flag
+```bash
+adb shell appops set org.lbalab.lba2cc MANAGE_EXTERNAL_STORAGE allow
+```
+
+The **app-specific** dir `/sdcard/Android/data/org.lbalab.lba2cc/files/` needs
+no permission, but on stricter API 30+ / TV images files `adb push`ed there can
+be invisible to the app's own view, so prefer `/sdcard/lba2cc/`.
+
+`ResolveGameDataDir` (`SOURCES/RES_DISCOVERY.CPP`) scans, in order:
+
+1. `--game-dir` / `--data-dir` CLI flag
 2. `LBA2_GAME_DIR` environment variable
-3. Persisted last-used directory
-4. SDL base path and subdirs (`./data/`, `./game/`)
-5. Current directory and parent walk (up to 8 levels)
-6. **`/sdcard/`** and **`/storage/emulated/0/`** (Android external root)
-7. Parent sibling directories (e.g. `../LBA2/`, `../game/`)
-8. Folder picker fallback (if compiled with debug tools)
+3. Persisted last-used directory (from a previous picker session)
+4. SDL base path and its `data/` / `game/` subdirs
+5. Current running directory
+6. App-specific external-files dir (Android; no permission) — `/sdcard/Android/data/<pkg>/files/`
+7. **`/sdcard/lba2cc/`** and `/storage/emulated/0/lba2cc/`, then `/sdcard/` and `/storage/emulated/0/`
+8. Parent-directory walk
+9. Folder picker fallback (if compiled with debug tools)
 
 ## Key mapping (touch overlay)
 
