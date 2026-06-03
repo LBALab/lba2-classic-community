@@ -6,15 +6,15 @@
 #
 # Prerequisites:
 #   1. Android NDK r26+  — set ANDROID_NDK or install under $HOME/Android/Sdk/ndk/
-#   2. SDL3 built for the target ABI — set SDL3_ANDROID_DIR or run build_sdl3.sh first
+#   2. SDL3 built for the target ABI — set SDL3_ANDROID_DIR or run build-sdl3-android.sh first
 #   3. Ninja (build tool)
 #   4. Retail game data HQR files (NOT included in the repo)
 #
 # Usage:
 #   export ANDROID_NDK=$HOME/Android/Sdk/ndk/26.1.10909125
 #   export SDL3_ANDROID_DIR=$PWD/out/android/sdl3-install-arm64
-#   bash android/build_android.sh                         # arm64-v8a (default)
-#   bash android/build_android.sh --abi armeabi-v7a        # 32-bit
+#   bash scripts/dev/build-android.sh                         # arm64-v8a (default)
+#   bash scripts/dev/build-android.sh --abi armeabi-v7a        # 32-bit
 #
 # Output:
 #   out/build/android_{abi}/SOURCES/liblba2cc.so  — native game library
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ---- Config ---------------------------------------------------------------
 ANDROID_NDK="${ANDROID_NDK:-${HOME}/Android/Sdk/ndk/26.1.10909125}"
@@ -81,4 +81,4 @@ ls -lh "${BUILD_DIR}/SOURCES/liblba2cc.so" 2>/dev/null || \
 echo ""
 echo "=== To build APK, run: ==="
 echo "  bash scripts/packaging/bundle-android.sh ..."
-echo "  See android/README.md for instructions."
+echo "  See docs/ANDROID.md for instructions."

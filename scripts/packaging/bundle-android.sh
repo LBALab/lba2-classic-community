@@ -154,12 +154,12 @@ cat > "$STAGING/res/values/strings.xml" <<EOF
 </resources>
 EOF
 
-cp "$REPO_ROOT/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
+cp "$REPO_ROOT/packaging/android/AndroidManifest.xml" "$STAGING/AndroidManifest.xml"
 
-# 3. Compile SDL Java sources (plus helpers from android/src/) into classes.dex
+# 3. Compile SDL Java sources (plus helpers from packaging/android/java/) into classes.dex
 echo "[bundle-android] compiling Java to DEX..."
 SDL_JAVA_DIR="${SDL3_JAVA_SRC}/android-project/app/src/main/java"
-REPO_JAVA_DIR="$REPO_ROOT/android/src"
+REPO_JAVA_DIR="$REPO_ROOT/packaging/android/java"
 D8="$BUILD_TOOLS/d8"
 # Gather SDL sources
 SDL_JAVA_FILES=""

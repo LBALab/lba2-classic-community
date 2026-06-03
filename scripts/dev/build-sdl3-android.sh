@@ -6,7 +6,7 @@
 #
 # Usage:
 #   export ANDROID_NDK=$HOME/Android/Sdk/ndk/26.1.10909125
-#   bash android/build_sdl3_android.sh
+#   bash scripts/dev/build-sdl3-android.sh
 #
 # Output:
 #   out/android/sdl3-install/  — SDL3 headers, libs, and CMake config
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUT_DIR="${REPO_DIR}/out/android"
 SDL3_SRC="${OUT_DIR}/SDL3"
 SDL3_BUILD="${OUT_DIR}/sdl3-build"
@@ -59,4 +59,4 @@ cmake --install "${SDL3_BUILD}" --prefix "${SDL3_INSTALL}"
 echo ""
 echo "=== SDL3 for Android built ==="
 echo "  Export SDL3_ANDROID_DIR=${SDL3_INSTALL}"
-echo "  Then run: bash android/build_android.sh"
+echo "  Then run: bash scripts/dev/build-android.sh"
