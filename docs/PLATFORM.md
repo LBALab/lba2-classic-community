@@ -137,6 +137,23 @@ CMake presets cover the supported targets and toolchains. Cross-compile to Windo
 
 ---
 
+## 8. Android platform layer &nbsp;&nbsp;&nbsp;&nbsp; ✓ contained
+
+Android-specific behavior — JNI, TV (leanback) detection, storage-permission prompting, and the app-specific external-files dir — is concentrated behind one translation unit. Engine code calls each platform function unconditionally; off-Android each is a no-op stub, so call sites carry no `#ifdef`. `<jni.h>` is included in exactly one file. The engine→game layering inversion (`WINDOW.CPP` reaching up into `SOURCES/TOUCH_INPUT.CPP`) is gone.
+
+- Android platform unit (`extern "C"`, stub-on-desktop) — `LIB386/SYSTEM/ANDROID.{CPP,H}`
+- TV/leanback detection (`IsAndroidTVDevice`) — `LIB386/SYSTEM/ANDROID.CPP`
+- `MANAGE_EXTERNAL_STORAGE` prompt (`Android_EnsureExternalStoragePermission`) — `LIB386/SYSTEM/ANDROID.CPP`
+- App-specific external-files dir (`Android_GetExternalFilesDir`) — `LIB386/SYSTEM/ANDROID.CPP`
+- Touch overlay (mobile-only input) — `SOURCES/TOUCH_INPUT.CPP`
+- 16 KB-page packaging — see §7 and [ANDROID.md](ANDROID.md)
+
+**Deep dive:** [ANDROID.md](ANDROID.md) for build, data placement, and the touch layout.
+
+**Next:** None structural. The software-present byte path is a separate perf change with no platform-boundary impact.
+
+---
+
 ## Open questions / deeper-dive candidates
 
 These are not assumptions the doc has fully audited — they are areas worth checking when the work surfaces.
