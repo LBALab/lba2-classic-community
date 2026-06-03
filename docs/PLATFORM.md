@@ -99,6 +99,7 @@ Operating-system contact is concentrated in a thin layer. SDL3 wraps window, eve
 - SDL3 window — `LIB386/SYSTEM/WINDOW.CPP:5,89`
 - SDL3 events — `LIB386/SYSTEM/EVENTS.CPP:10,35,64,67`
 - SDL3 timer — `LIB386/SYSTEM/TIMER.CPP:5-6,29,73`
+- SDL3 present path — desktop locks the renderer texture for a zero-copy write; Android stages into a persistent buffer + `SDL_UpdateTexture` because `SDL_LockTexture` is MTE-unsafe on Android 16+ (texture-internal memory freed/realloced between frames → stale tag → `SEGV_ACCERR`). The fork is confined to a present-target acquire/commit seam — `LIB386/SVGA/SDL.CPP`
 - Asset discovery — `SOURCES/RES_DISCOVERY.CPP:238-315`
 
 **Deep dive:** [GAME_DATA.md](GAME_DATA.md) for the discovery rules and override knobs.
