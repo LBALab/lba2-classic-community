@@ -14,6 +14,7 @@
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <SYSTEM/ANDROID.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/STRING.H>
@@ -1248,10 +1249,10 @@ static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSe
     return 0;
 }
 
-// TODO(gamepad): uses GetAscii() (keyboard-only) — pure-gamepad users cannot enter
-// save/profile names. Pure-pad users are routed past this function inside
-// ChoosePlayerName: new-game slot gets a datetime stem, existing slot keeps
-// its current name (overwrite). See the LastInputWasGamepad branch there.
+// TODO(input): uses GetAscii() (keyboard-only) — non-keyboard users cannot enter
+// save/profile names. They are routed past this function inside ChoosePlayerName:
+// new-game slot gets a datetime stem, existing slot keeps its current name
+// (overwrite). See the !LastInputWasKeyboard branch there.
 S32 InputPlayerName(S32 choice, char *name) {
     char memoplayername[255];
     S32 flag = 1;
@@ -1939,15 +1940,21 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                 while (Input & I_FIRE OR MyKey == K_ENTER)
                     MyGetInput();
 
-                // Gamepad routing: pure-pad users have no practical way to
-                // type a name (InputPlayerName is keyboard-only). For a
-                // "New Game" slot we synthesise a local-time datetime stem;
-                // for an existing slot we keep the slot's own name and just
-                // overwrite. Same-second collision overwrites silently —
-                // matches the quick-save reflex chosen during design. The
-                // menu UI (slot list + New Game entry) is identical to the
-                // keyboard flow; only the text-entry step is bypassed.
-                if (LastInputWasGamepad) {
+                // Non-keyboard routing: unless the last input was a physical
+                // keyboard, the player has no practical way to type a name
+                // (InputPlayerName is keyboard-only) — this covers gamepad,
+                // touch, and mouse. Android TV is forced down this path too:
+                // there is no text keyboard on a remote, and SDL's routing of
+                // remote D-pad keys is device-dependent, so IsAndroidTVDevice()
+                // makes the choice deterministic (it is a no-op stub off
+                // Android, so desktop and phone are unaffected). For a "New
+                // Game" slot we synthesise a local-time datetime stem; for an
+                // existing slot we keep the slot's own name and just overwrite.
+                // Same-second collision overwrites silently — matches the
+                // quick-save reflex chosen during design. The menu UI (slot
+                // list + New Game entry) is identical to the keyboard flow;
+                // only the text-entry step is bypassed.
+                if (!LastInputWasKeyboard || IsAndroidTVDevice()) {
                     S32 ok = TRUE;
                     if (select == nb - 1) {
                         char datetime[32];

@@ -143,21 +143,20 @@ void HandleEventsJoystick(const void *event) {
             ClearGamepadBits();
             s_prevLeftDir = DIR_NEUTRAL;
             s_prevRightDir = DIR_NEUTRAL;
-            // Pad gone: a stale "gamepad last" flag would mislead the save
-            // menu router. Reset so the next keyboard/mouse action picks the
-            // expected named-save flow without first having to fire an event.
-            LastInputWasGamepad = 0;
+            // A device removal is not an input, so it leaves LastInputWasKeyboard
+            // alone: it is already 0 from the pad's own activity, and the next
+            // real key/mouse/pad event sets it correctly.
             OpenFirstAvailableGamepad();
         }
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-        LastInputWasGamepad = 1;
+        LastInputWasKeyboard = 0;
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION:
         // Past-deadzone test: rest-state jitter on the sticks fires constant
-        // axis events and would otherwise pin the flag to 1 forever.
+        // axis events and would otherwise pin the flag forever.
         if (ev->gaxis.value > JoystickDeadzone || ev->gaxis.value < -JoystickDeadzone) {
-            LastInputWasGamepad = 1;
+            LastInputWasKeyboard = 0;
         }
         break;
     default:

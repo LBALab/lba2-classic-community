@@ -24,6 +24,11 @@ extern "C" {
 /* The SDL window handle, defined in LIB386/SYSTEM/WINDOW.CPP under C linkage. */
 extern SDL_Window *sdlWindow;
 
+/* Last-input device flag (C linkage, defined in LIB386/SYSTEM/KEYBOARD.CPP).
+ * A touch tap is not a physical keyboard, so clear it: the save menu then uses
+ * the auto-name (controller) flow instead of a keyboard prompt we cannot fill. */
+extern S32 LastInputWasKeyboard;
+
 /* ---------------------------------------------------------------------------
  * Constants
  * ---------------------------------------------------------------------------
@@ -180,6 +185,11 @@ static void SetButtonState(S32 idx, S32 pressed) {
     if (s_pressed[idx] == pressed)
         return;
     s_pressed[idx] = pressed;
+    if (pressed) {
+        // A touch tap is not a physical keyboard; keep the save menu on the
+        // auto-name (controller) flow.
+        LastInputWasKeyboard = 0;
+    }
     U32 sc = kButtons[idx].scanCode;
     if (sc < 256) {
         if (pressed) {

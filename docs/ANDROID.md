@@ -162,8 +162,10 @@ by editing the `kButtons[]` table (normalised 0..1 coordinates).
   On older 32-bit ARM (armeabi-v7a) devices, expect lower framerates.
 - **CD audio**: CD-ROM music tracks are not available. Use the digital
   sample backend (`SOUND_BACKEND=sdl`).
-- **Text input**: Save-game naming and console commands require a hardware
-  keyboard or IME integration (future work).
+- **Text input**: Console commands still require a hardware keyboard. Save-game
+  naming no longer does — without a physical keyboard (touch, gamepad, or
+  Android TV) the save menu auto-generates a name from the date and the current
+  island instead of prompting.
 - **Save/resume**: Android lifecycle pause/resume is handled by SDL3
   (window focus events). Surface re-creation is managed by the existing
   SDL3 infrastructure.

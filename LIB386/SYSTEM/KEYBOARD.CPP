@@ -20,12 +20,14 @@ S32 AsciiMode = FALSE;
 S32 Key;
 U8 TabKeys[TABKEYS_NUM_KEYS];
 
-// Last-input-wins device flag, read by the save menu to skip text entry on
-// gamepad-only setups. Declared extern in SOURCES/C_EXTERN.H. Defined here
-// (rather than SOURCES/GLOBAL.CPP) so the symbol lives in libsys.a, which
-// every test binary links; otherwise tests that pull libsys.a but not the
-// SOURCES objects fail to link the HandleEventsXxx consumers below.
-S32 LastInputWasGamepad = 0;
+// Last-input-wins device flag: 1 = the most recent input was a physical
+// keyboard key-down, 0 = anything else (mouse, gamepad, touch). Read by the
+// save menu to offer text entry only when a real keyboard is in use. Declared
+// extern in SOURCES/C_EXTERN.H. Defined here (rather than SOURCES/GLOBAL.CPP)
+// so the symbol lives in libsys.a, which every test binary links; otherwise
+// tests that pull libsys.a but not the SOURCES objects fail to link the
+// HandleEventsXxx consumers below.
+S32 LastInputWasKeyboard = 0;
 
 // Weak hook for virtual-input sources (touch overlay, etc.) to re-apply
 // their key states after UpdateKeyboardState clears TabKeys[0..255].
@@ -105,14 +107,15 @@ void ManageKeyboard() {
 void HandleEventsKeyboard(const void *event) {
     // Keyboard *state* is read via SDL_GetKeyboardState in UpdateKeyboardState;
     // we don't consume key events to drive TabKeys. The one thing we do here
-    // is sample SDL_EVENT_KEY_DOWN to maintain the "last input was gamepad"
-    // signal: a real key-down is unambiguous evidence the user is on the
-    // keyboard, in a way that polled state isn't (polled state reads "down"
-    // on every frame a held key is depressed and would constantly fight any
-    // gamepad signal during normal play).
+    // is sample SDL_EVENT_KEY_DOWN to maintain the "last input was keyboard"
+    // signal: a real key-down is unambiguous evidence the user is on a
+    // physical keyboard, in a way that polled state isn't (polled state reads
+    // "down" on every frame a held key is depressed). The touch overlay pokes
+    // TabKeys directly and never reaches here, so touch never counts as
+    // keyboard.
     const SDL_Event *ev = (const SDL_Event *)event;
     if (ev->type == SDL_EVENT_KEY_DOWN) {
-        LastInputWasGamepad = 0;
+        LastInputWasKeyboard = 1;
     }
 }
 

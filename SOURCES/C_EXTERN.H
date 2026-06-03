@@ -61,12 +61,12 @@ extern S32 LastIdxPalette; // numéro de la palette précédente dans le HQR
 
 extern S32 MyKey;
 
-// 1 = the most recent user input came from a gamepad (button press or stick
-// motion past the deadzone); 0 = keyboard or mouse. Last-input-wins, updated
-// from the SDL event loop. Read by the save menu to skip text entry on
-// gamepad-only setups. Defined in LIB386/SYSTEM/KEYBOARD.CPP (rather than
+// 1 = the most recent user input was a physical keyboard key-down; 0 = any
+// other device (mouse, gamepad, touch). Last-input-wins, updated from the SDL
+// event loop. Read by the save menu to offer text entry only when a real
+// keyboard is in use. Defined in LIB386/SYSTEM/KEYBOARD.CPP (rather than
 // GLOBAL.CPP) so the symbol is in libsys.a, which every test binary links.
-extern S32 LastInputWasGamepad;
+extern S32 LastInputWasKeyboard;
 
 extern S32 LastJoyFlag;
 extern S32 Jumping;
