@@ -14,7 +14,8 @@ S32 DebugFps = FALSE;
 S32 DebugFps = TRUE;
 #endif
 
-S32 GodMode = FALSE; // GOD cheat: Twinsen ignores combat damage (runtime-only)
+S32 GodMode = FALSE;  // GOD cheat: Twinsen ignores combat damage (runtime-only)
+S32 OnePunch = FALSE; // SENDELL cheat: Twinsen one-shots anything he hits
 
 S32 DistribVersion = ACTIVISION_VERSION;
 
