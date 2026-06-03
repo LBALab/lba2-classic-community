@@ -23,10 +23,6 @@ extern "C" {
  * TouchOverlay_Render must be called from the PrePresent chain.
  */
 
-/* Android TV detection (1 = Android TV / leanback, 0 = phone/tablet or error).
- * Uses JNI to check android.software.leanback feature flag. */
-S32 IsAndroidTVDevice(void);
-
 void TouchOverlay_Init(void);
 void TouchOverlay_Shutdown(void);
 
