@@ -37,7 +37,7 @@ U8 *BufSpeak;
 U8 *LbaFont;
 U8 PalettePcx[768 + 500];
 S32 MyKey = 0;
-// LastInputWasGamepad is defined in LIB386/SYSTEM/KEYBOARD.CPP so libsys.a
+// LastInputWasKeyboard is defined in LIB386/SYSTEM/KEYBOARD.CPP so libsys.a
 // carries the symbol (test binaries link only LIB386 archives, not the
 // SOURCES objects). Declared extern in C_EXTERN.H.
 U8 *PtrPal;

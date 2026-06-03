@@ -30,6 +30,7 @@ add_subdirectory(image_load)
 add_subdirectory(ambiance_balance)
 add_subdirectory(timer)
 add_subdirectory(staging_buffer)
+add_subdirectory(input_device)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
