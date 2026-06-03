@@ -36,8 +36,9 @@ static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
 #if defined(__ANDROID__)
-/* Persistent staging buffer for the Android present path (see PresentFrame):
- * reused across frames, resized on demand, freed in DestroyVideoSurface. */
+/* Persistent staging buffer for the Android present path (see
+ * AcquirePresentTarget): reused across frames, resized on demand, freed in
+ * DestroyVideoSurface. */
 static StagingBuffer s_androidStaging = {NULL, 0, 0};
 #endif
 
@@ -249,28 +250,53 @@ void SetPresentTimingCallbacks(PresentTimingFn begin, PresentTimingFn end) {
     s_presentEnd = end;
 }
 
+/* --- Present target: the one real platform difference, confined --------------
+ * Desktop locks the renderer texture and writes ARGB straight into it
+ * (zero-copy), then unlocks and presents. Android can't: on Android 16+ with
+ * MTE, SDL_LockTexture can hand back texture-internal memory that is freed and
+ * reallocated between frames, so the pointer carries a stale MTE tag
+ * (SEGV_ACCERR). Android instead stages into a persistent buffer (reused across
+ * frames, reallocated only on a mode change -- no per-frame allocation) and
+ * uploads with SDL_UpdateTexture. PresentFrame itself stays platform-agnostic:
+ * acquire a write target + its pitch, fill it, commit. */
+#if defined(__ANDROID__)
+static bool AcquirePresentTarget(void **pixels, U32 *pitch) {
+    void *p = StagingBufferEnsure(&s_androidStaging, ModeDesiredX, ModeDesiredY);
+    if (p == NULL) {
+        return false;
+    }
+    *pixels = p;
+    *pitch = ModeDesiredX * sizeof(U32);
+    return true;
+}
+
+static void CommitPresentTarget(void *pixels, U32 pitch) {
+    PresentRendererFrame(pixels, pitch);
+}
+#else
+static bool AcquirePresentTarget(void **pixels, U32 *pitch) {
+    int texPitch;
+    if (!LockRendererTexture(pixels, &texPitch)) {
+        return false;
+    }
+    *pitch = (U32)texPitch;
+    return true;
+}
+
+static void CommitPresentTarget(void * /*pixels*/, U32 /*pitch*/) {
+    UnlockAndPresentRendererTexture();
+}
+#endif
+
 static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
 
-    U32 stagingPitch = ModeDesiredX * sizeof(U32);
-#if defined(__ANDROID__)
-    /* On Android 16+ with MTE, SDL_LockTexture can return a pointer to
-       texture-internal memory that gets freed and reallocated between frames,
-       producing a stale pointer with a mismatched MTE tag (SEGV_ACCERR).
-       Stage into our own persistent buffer and upload via SDL_UpdateTexture.
-       The buffer is reused across frames and only reallocated when the mode
-       changes -- no per-frame allocation. */
-    void *stagingPixels = StagingBufferEnsure(&s_androidStaging, ModeDesiredX, ModeDesiredY);
-    if (stagingPixels == NULL)
-        return;
-#else
     void *stagingPixels;
-    int texPitch;
-    if (!LockRendererTexture(&stagingPixels, &texPitch))
+    U32 stagingPitch;
+    if (!AcquirePresentTarget(&stagingPixels, &stagingPitch)) {
         return;
-    stagingPitch = (U32)texPitch;
-#endif
+    }
 
     U8 *logMem = (U8 *)Log;
 
@@ -297,12 +323,7 @@ static void PresentFrame() {
             s_overlayPrePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
     }
 
-#if defined(__ANDROID__)
-    /* Persistent staging buffer -- uploaded, not freed (see DestroyVideoSurface). */
-    PresentRendererFrame(stagingPixels, stagingPitch);
-#else
-    UnlockAndPresentRendererTexture();
-#endif
+    CommitPresentTarget(stagingPixels, stagingPitch);
 }
 
 void HandleEventsVideo(const void *event) {
