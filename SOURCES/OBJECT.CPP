@@ -1454,6 +1454,8 @@ void HitObj(U8 numhitter, U8 num, S32 hitforce, S32 beta) {
         return;
     if (ptrobjt->WorkFlags & FRAME_SHIELD)
         return;
+    if (num == NUM_PERSO AND GodMode) // GOD cheat: ignore combat damage
+        return;
 
     // Blindage MécaPingouin lorsque Twinsen est en automatique
     if (num == NUM_PERSO AND numhitter == NUM_PERSO AND ptrobjt->Move == NO_MOVE) {
@@ -1533,6 +1535,8 @@ void FoudroieObj(U8 numhitter, U8 num, S32 armure) {
     if (ptrobjt->Flags & NO_CHOC)
         return;
     if (ptrobjt->LifePoint <= 0)
+        return;
+    if (num == NUM_PERSO AND GodMode) // GOD cheat: ignore combat damage
         return;
 
     ptrobjt->HitBy = numhitter;
