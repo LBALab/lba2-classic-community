@@ -12,7 +12,7 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 
 4. **Quality over speed:** Equivalence tests must pass. Do not relax tests to unblock. Prefer smaller, well-tested changes. Fix bugs before merging.
 
-5. **Cross-platform priority:** Support Linux, macOS, and Windows. Contributors and agents may be on any of these—do not assume Linux. Avoid platform-specific assumptions (paths, case sensitivity, toolchains). Prefer portable C/C++. No inline x86 in library code. The engine builds on SDL3, which supports [many more platforms](https://github.com/libsdl-org/SDL/blob/main/docs/README-platforms.md)—writing portable code today keeps that door open.
+5. **Cross-platform priority:** Support Linux, macOS, and Windows (desktop) and Android (arm64-v8a / armeabi-v7a, mobile). Contributors and agents may be on any desktop host—do not assume Linux. Avoid platform-specific assumptions (paths, case sensitivity, toolchains). Prefer portable C/C++. No inline x86 in library code. The engine builds on SDL3, which supports [many more platforms](https://github.com/libsdl-org/SDL/blob/main/docs/README-platforms.md)—writing portable code today keeps that door open.
 
 ## Never
 
@@ -77,6 +77,7 @@ Apply these behavior rules on every non-trivial task:
 | SOURCES/3DEXT/ | Same as LIB386; check ASM_TO_CPP_REFERENCE | docs/ASM_TO_CPP_REFERENCE.md |
 | Adding ASM↔CPP test | Use `add_asm_cpp_test()`, include stress test, update `docs/ASM_VALIDATION_PROGRESS.md`; check `docs/ASM_TEST_COVERAGE_AUDIT.md` for the coverage rubric | docs/TESTING.md, docs/ASM_TEST_COVERAGE_AUDIT.md, .github/copilot-instructions.md |
 | Audio/video | AIL in LIB386/AIL/; backends SDL, Miles, null | docs/AUDIO.md |
+| Android-specific behaviour (JNI, TV detection, storage permission) | Put it behind `LIB386/SYSTEM/ANDROID.{CPP,H}` with a stub-on-desktop; keep callers `#ifdef`-free; `<jni.h>` in that TU only; LIB386 must not include `SOURCES/` | docs/ANDROID.md, docs/PLATFORM.md §8 |
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
