@@ -29,6 +29,7 @@ add_subdirectory(demo_rng_seed)
 add_subdirectory(image_load)
 add_subdirectory(ambiance_balance)
 add_subdirectory(timer)
+add_subdirectory(staging_buffer)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
