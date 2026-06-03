@@ -4531,7 +4531,9 @@ S32 SlideShow(void) {
 
         FadeToBlack(PtrPal);
 
-        // charge image
+        // charge image — clear to black first so widescreen sidebars don't keep
+        // stale pixels (FadeToBlack only fades the palette). No-op at 640x480.
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         Image_LoadCentered(tmpScrshotFilePath, Log, (n * 2));
 
         // on peut pas afficher le logo LBA2 car il est dans la palette
@@ -5001,6 +5003,11 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
 
     switch (effect) {
     case PCX_FADE:
+        /* Clear the whole framebuffer to black first: Image_LoadCentered only
+           writes the centred 640x480 region, so at widescreen the sidebars
+           keep stale pixels that FadeToPal then re-indexes under the PCX
+           palette (garbage margins). No-op at 640x480 — the image fills it. */
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
         if (!Image_LoadCentered(tmpFilePath, Log, numpcx))
             TheEndCheckFile(tmpFilePath);
 
@@ -5022,6 +5029,13 @@ void EffectPcx(U8 numpcx, U8 *screen, U8 effect, U8 flagbcl) {
             TheEndCheckFile(tmpFilePath);
 
         PaletteSync(PalettePcx);
+
+        /* The reveal below only copies the centred PCX region from <screen>
+           into Log, so clear Log to black first or the widescreen sidebars
+           show stale pixels under the new palette. At 640x480 the final frame
+           is unchanged (the reveal fills the whole frame); the un-revealed
+           bands now wipe in from black instead of the previous frame. */
+        memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
 
         for (y = 0; y <= IMAGE_AUTHORED_HEIGHT - 1; y++) {
             CopyBlock(xOff, yOff + y, xOff + IMAGE_AUTHORED_WIDTH - 1, yOff + y + 4,
