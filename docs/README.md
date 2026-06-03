@@ -26,6 +26,7 @@ Index of documentation in this repository.
 | Doc | Description |
 |-----|-------------|
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
+| [ANDROID.md](ANDROID.md) | Building, packaging, and running on Android (arm64-v8a / armeabi-v7a): NDK + SDL3 cross-build, APK bundler, 16 KB pages, game-data placement, touch overlay. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
