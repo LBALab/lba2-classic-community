@@ -23,6 +23,7 @@ enum {
     CHEAT_CLOVER,    // 5
     CHEAT_CLOVERBOX, // 6
     CHEAT_PINGOUIN,  // 7
+    CHEAT_GOD,       // 8
 };
 
 #ifdef DEBUG_TOOLS
@@ -35,6 +36,7 @@ T_CODE DefCheatCode[] = {
     {6, {K_C, K_L, K_O, K_V, K_E, K_R}},           // CLOVER
     {3, {K_B, K_O, K_X}},                          // BOX
     {8, {K_P, K_I, K_N, K_G, K_O, K_U, K_I, K_N}}, // PINGOUIN
+    {3, {K_G, K_O, K_D}},                          // GOD
 };
 #else
 T_CODE DefCheatCode[] = {
@@ -46,6 +48,7 @@ T_CODE DefCheatCode[] = {
     {6, {K_C, K_L, K_O, K_V, K_E, K_R}},           // CLOVER
     {3, {K_B, K_O, K_X}},                          // BOX
     {8, {K_P, K_I, K_N, K_G, K_O, K_U, K_I, K_N}}, // PINGOUIN
+    {3, {K_G, K_O, K_D}},                          // GOD
 };
 #endif
 
@@ -70,11 +73,13 @@ const char *CheatText[] = {
     "Frame Rate Off",
     "Clover Found",
     "CloverBox Found",
-    "MecaPingouin Found"};
+    "MecaPingouin Found",
+    "God Mode On",   // 10
+    "God Mode Off"}; // 11
 
 /* Cheat names for console (lowercase). Order must match enum. */
 static const char *CheatNames[] = {
-    "life", "magic", "full", "gold", "speed", "clover", "box", "pingouin"};
+    "life", "magic", "full", "gold", "speed", "clover", "box", "pingouin", "god"};
 
 static void tolower_str(char *dst, const char *src, size_t cap) {
     size_t i = 0;
@@ -150,6 +155,10 @@ static void ApplyCheat(S32 cheat, S32 *text, S32 *sprite) {
             ListVarGame[FLAG_MECA_PINGOUIN] += 5;
             *text = 9;
         }
+        break;
+    case CHEAT_GOD:
+        GodMode ^= 1;
+        *text = GodMode ? 10 : 11;
         break;
     }
 }

@@ -5,6 +5,8 @@ extern S32 BodyComportement;
 
 extern S32 DebugFps;
 
+extern S32 GodMode;
+
 extern S32 DistribVersion;
 
 extern const char *BuildInfo; /* Build timestamp and flags (BUILD_INFO.CPP) */
