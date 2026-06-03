@@ -44,6 +44,12 @@ bool GetWindowFullscreen();
 // cached request flag — for accurate reporting.
 bool Window_IsFullscreen(void);
 
+// Whether this platform has a meaningful windowed/fullscreen choice. True on
+// desktop; false on always-fullscreen devices (Android phones/TVs), where a
+// "Windowed" option is meaningless. Lets UI hide the fullscreen toggle without
+// platform #ifdefs at the call site.
+bool Window_SupportsWindowedMode(void);
+
 // Toggle renderer vsync at runtime. On (the default) paces presents to the display
 // refresh; off lets the loop run flat-out. The control harness turns it off so a
 // scripted run is not capped at ~60 fps -- presentation only, no effect on rendered
