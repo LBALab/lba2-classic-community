@@ -125,13 +125,15 @@ U16 GameOptionMenu[] = {
     MENU_ID_CONTROLLER,
 };
 
-// Display submenu: a single "Resolution: <current>" entry that cycles
-// between Classic 4:3 and the display-aspect-derived Widescreen. Same
-// shape as LanguageMenu — left/right arrows on the cyclable row, plain
-// "Back" to return to Options. See GereDisplayMenu + CycleResolution.
+// Display submenu: a "Resolution: <current>" row that cycles between
+// Classic 4:3 and the display-aspect-derived Widescreen, plus the
+// "Fullscreen" toggle (moved here from Advanced options — it belongs with
+// the other display settings). Same shape as LanguageMenu — left/right
+// arrows on the cyclable row, plain "Back" to return to Options. See
+// GereDisplayMenu + CycleResolution.
 U16 DisplayMenu[] = {
     0,   // selected
-    2,   // nb entries
+    3,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -139,6 +141,8 @@ U16 DisplayMenu[] = {
     26, // menu precedent
     MENU_TYPE_RESOLUTION,
     MENU_ID_RESOLUTION,
+    0,
+    MENU_ID_DISPLAY_FULLSCREEN,
 };
 
 // Controller submenu: split keyboard remap and gamepad remap under one parent
@@ -179,7 +183,7 @@ U16 LanguageMenu[] = {
 
 U16 AdvancedOptionMenu[] = {
     0,   // selected
-    8,   // nb entries
+    7,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -195,8 +199,6 @@ U16 AdvancedOptionMenu[] = {
     MENU_ID_FOLLOW_CAMERA,
     0,
     MENU_ID_VIDEO_SIZE,
-    0,
-    MENU_ID_DISPLAY_FULLSCREEN,
     0,
     MENU_ID_DISPLAY_TEXT,
 };
@@ -310,8 +312,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_ADVANCED_OPTIONS,
     MENU_LABEL_TEXT_LANGUAGE,
     MENU_LABEL_VOICE_LANGUAGE,
-    MENU_LABEL_DISPLAY_FULLSCREEN_OFF,
-    MENU_LABEL_DISPLAY_FULLSCREEN_ON,
+    MENU_LABEL_DISPLAY_WINDOWED,
+    MENU_LABEL_DISPLAY_FULLSCREEN,
     MENU_LABEL_AUTO_CAMERA,
     MENU_LABEL_CLASSIC_CAMERA,
     MENU_LABEL_CONTROLLER,
@@ -334,8 +336,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Advanced options",
         "Texts: %s",
         "Voices: %s",
-        "Fullscreen display: OFF",
-        "Fullscreen display: ON",
+        "Windowed",
+        "Fullscreen",
         "Auto camera",
         "Classic camera",
         "Controls",
@@ -355,8 +357,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Options avancées",
         "Textes : %s",
         "Voix : %s",
-        "Affichage plein écran : OFF",
-        "Affichage plein écran : ON",
+        "Fenêtré",
+        "Plein écran",
         "Caméra automatique",
         "Caméra classique",
         "Contrôles",
@@ -376,8 +378,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vorgeschlagene Optionen",
         "Texte: %s",
         "Stimmen: %s",
-        "Vollbildanzeige: OFF",
-        "Vollbildanzeige: ON",
+        "Fenster",
+        "Vollbild",
         "Automatische Kamera",
         "Klassische Kamera",
         "Steuerung",
@@ -397,8 +399,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Opciones avanzadas",
         "Textos: %s",
         "Voces: %s",
-        "Pantalla completa: OFF",
-        "Pantalla completa: ON",
+        "Ventana",
+        "Pantalla completa",
         "Cámara automática",
         "Cámara clásica",
         "Controles",
@@ -418,8 +420,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Opzioni avanzate",
         "Testi: %s",
         "Voci: %s",
-        "A schermo intero: OFF",
-        "A schermo intero: ON",
+        "Finestra",
+        "Schermo intero",
         "Telecamera automatica",
         "Telecamera classica",
         "Controlli",
@@ -439,8 +441,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Opções avançadas",
         "Texto: %s",
         "Voz: %s",
-        "Exibição em tela cheia: OFF",
-        "Exibição em tela cheia: ON",
+        "Janela",
+        "Tela cheia",
         "Câmera automática",
         "Câmera clássica",
         "Controles",
@@ -547,7 +549,7 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_DISPLAY_FULLSCREEN:
-        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayFullScreen ? MENU_LABEL_DISPLAY_FULLSCREEN_ON : MENU_LABEL_DISPLAY_FULLSCREEN_OFF));
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayFullScreen ? MENU_LABEL_DISPLAY_FULLSCREEN : MENU_LABEL_DISPLAY_WINDOWED));
         break;
 
     case MENU_ID_FOLLOW_CAMERA:
@@ -3209,6 +3211,11 @@ S32 GereDisplayMenu(void) {
     S32 select;
     S32 flag = 0;
 
+    /* The Fullscreen toggle is the last entry; drop it on always-fullscreen
+       devices (Android phones/TVs) where windowed mode does not exist, leaving
+       just Back + Resolution. nb_entries 3 = full menu, 2 = hide Fullscreen. */
+    DisplayMenu[1] = Window_SupportsWindowedMode() ? 3 : 2;
+
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 
@@ -3229,6 +3236,11 @@ S32 GereDisplayMenu(void) {
             // Activation (Enter) cycles forward. Left/right cycling is
             // handled by the MENU_TYPE_RESOLUTION dispatch above.
             CycleResolution(1);
+            break;
+
+        case MENU_ID_DISPLAY_FULLSCREEN:
+            DisplayFullScreen ^= 1;
+            SetWindowFullscreen(DisplayFullScreen != FALSE);
             break;
         }
     }
@@ -3280,11 +3292,6 @@ S32 GereAdvancedOptionsMenu(void) {
 
         case MENU_ID_VIDEO_SIZE:
             VideoFullScreen ^= 1;
-            break;
-
-        case MENU_ID_DISPLAY_FULLSCREEN:
-            DisplayFullScreen ^= 1;
-            SetWindowFullscreen(DisplayFullScreen != FALSE);
             break;
 
         case MENU_ID_DISPLAY_TEXT:
