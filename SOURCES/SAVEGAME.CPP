@@ -11,6 +11,7 @@
 
 #include <SVGA/SCREEN.H>
 #include "DIRECTORIES.H"
+#include "IMAGE_LOAD.H" // ImageStaging — scratch for the thumbnail downscale
 #include "INPUT.H"
 
 #include <limits.h>
@@ -537,8 +538,16 @@ void SaveGame(S32 flagmess) {
     // widths the captured frame is squeezed horizontally into the same 4:3
     // thumbnail box; the result is still recognisable in the save-load list and
     // matches the dimensions DrawScreenSave expects.
-    ScaleBox(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, Log, 0, 0, 159, 119, BufSpeak + 50000L);
-    SaveBlock(BufSpeak + 50000L, BufSpeak + 150000L, 0, 0, 159, 119);
+    //
+    // Scale into ImageStaging, not BufSpeak+50000: ScaleBox writes its 160-wide
+    // output at a ModeDesiredX row stride, so the scratch must hold
+    // 120*ModeDesiredX bytes. The old BufSpeak+50000 → +150000 layout left only
+    // a 100 KB gap, which overflowed once ModeDesiredX exceeded ~833 (16:9
+    // widescreen, ~848-856), corrupting the bottom rows of the thumbnail.
+    // ImageStaging (640*480) holds the scratch for every supported width and is
+    // idle during a save. See tests/save_thumbnail.
+    ScaleBox(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, Log, 0, 0, 159, 119, ImageStaging);
+    SaveBlock(ImageStaging, BufSpeak + 150000L, 0, 0, 159, 119);
     RemapPicture(BufSpeak + 150000L, 160 * 120);
 
     if (flagmess) {
