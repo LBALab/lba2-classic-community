@@ -151,7 +151,7 @@ Android-specific behavior — JNI, TV (leanback) detection, storage-permission p
 
 **Deep dive:** [ANDROID.md](ANDROID.md) for build, data placement, and the touch layout.
 
-**Next:** None structural. The software-present byte path is a separate perf change with no platform-boundary impact.
+**Next:** None structural. The software-present path carries its own MTE-driven Android fork in the SDL video TU (`LIB386/SVGA/SDL.CPP`), separate from this system/JNI layer.
 
 ---
 
