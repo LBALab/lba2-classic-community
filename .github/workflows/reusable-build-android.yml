@@ -79,7 +79,7 @@ jobs:
         run: |
           sdkmanager --install \
             "platforms;android-34" \
-            "build-tools;34.0.0" \
+            "build-tools;35.0.0" \
             "ndk;28.2.13676358" \
             "platform-tools" \
             2>&1
@@ -88,7 +88,7 @@ jobs:
         run: |
           ANDROID_NDK="${ANDROID_HOME}/ndk/28.2.13676358"
           echo "ANDROID_NDK=${ANDROID_NDK}" >> "$GITHUB_ENV"
-          echo "${ANDROID_HOME}/build-tools/34.0.0" >> "$GITHUB_PATH"
+          echo "${ANDROID_HOME}/build-tools/35.0.0" >> "$GITHUB_PATH"
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
 
       - name: Build SDL3 for Android

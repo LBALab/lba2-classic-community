@@ -199,13 +199,13 @@ if [[ -f classes.dex ]]; then
     "$AAPT" add "unsigned.apk" "classes.dex" 2>&1
 fi
 for lib in "lib/$ARCH/"*.so; do
-    [[ -f "$lib" ]] && "$AAPT" add -0 .so "unsigned.apk" "$lib" 2>&1
+    [[ -f "$lib" ]] && "$AAPT" add -0 '' "unsigned.apk" "$lib" 2>&1
 done
 cd "$REPO_ROOT"
 
-# 6. Zipalign
+# 6. Zipalign (-P 16: align uncompressed .so to 16 KB pages for 16 KB-page devices)
 echo "[bundle-android] aligning..."
-"$ZIPALIGN" -f -p 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk"
+"$ZIPALIGN" -f -P 16 4 "$STAGING/unsigned.apk" "$STAGING/aligned.apk"
 
 # 7. Debug-sign with the auto-generated debug keystore
 KEYSTORE="${HOME}/.android/debug.keystore"
