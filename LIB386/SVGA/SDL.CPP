@@ -2,6 +2,7 @@
 
 #include <SVGA/DIRTYBOX.H> // For BoxStaticAdd and BoxCleanClip
 #include <SVGA/SCREEN.H>   // For ModeDesiredX, ModeDesiredY and Log buffer
+#include <SVGA/STAGING_BUFFER.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H>
@@ -34,6 +35,11 @@ static PrePresentFn s_overlayPrePresent = NULL;
 static PresentTimingFn s_presentBegin = NULL;
 static PresentTimingFn s_presentEnd = NULL;
 static U32 paletteLUT[PAL_MAX_COLORS];
+#if defined(__ANDROID__)
+/* Persistent staging buffer for the Android present path (see PresentFrame):
+ * reused across frames, resized on demand, freed in DestroyVideoSurface. */
+static StagingBuffer s_androidStaging = {NULL, 0, 0};
+#endif
 
 // --- Private functions -------------------------------------------------------
 static void PresentFrame();
@@ -65,6 +71,9 @@ void EndVideo() {
 }
 
 void DestroyVideoSurface() {
+#if defined(__ANDROID__)
+    StagingBufferFree(&s_androidStaging);
+#endif
     if (Phys) {
         free(Phys);
         Phys = NULL;
@@ -249,8 +258,10 @@ static void PresentFrame() {
     /* On Android 16+ with MTE, SDL_LockTexture can return a pointer to
        texture-internal memory that gets freed and reallocated between frames,
        producing a stale pointer with a mismatched MTE tag (SEGV_ACCERR).
-       Use our own staging buffer and upload via SDL_UpdateTexture instead. */
-    void *stagingPixels = malloc(stagingPitch * ModeDesiredY);
+       Stage into our own persistent buffer and upload via SDL_UpdateTexture.
+       The buffer is reused across frames and only reallocated when the mode
+       changes -- no per-frame allocation. */
+    void *stagingPixels = StagingBufferEnsure(&s_androidStaging, ModeDesiredX, ModeDesiredY);
     if (stagingPixels == NULL)
         return;
 #else
@@ -271,7 +282,8 @@ static void PresentFrame() {
         }
     }
 
-    if (s_prePresent) {
+    if (s_prePresent || s_overlayPrePresent) {
+        /* Build the 256-entry RGB table once; both callbacks take the same. */
         static U8 paletteRgb[256 * 3];
         for (int i = 0; i < 256; i++) {
             U32 c = paletteLUT[i];
@@ -279,22 +291,15 @@ static void PresentFrame() {
             paletteRgb[i * 3 + 1] = (U8)(c >> 8);
             paletteRgb[i * 3 + 2] = (U8)(c);
         }
-        s_prePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
-    }
-    if (s_overlayPrePresent) {
-        static U8 overlayPaletteRgb[256 * 3];
-        for (int i = 0; i < 256; i++) {
-            U32 c = paletteLUT[i];
-            overlayPaletteRgb[i * 3 + 0] = (U8)(c >> 16);
-            overlayPaletteRgb[i * 3 + 1] = (U8)(c >> 8);
-            overlayPaletteRgb[i * 3 + 2] = (U8)(c);
-        }
-        s_overlayPrePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, overlayPaletteRgb);
+        if (s_prePresent)
+            s_prePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
+        if (s_overlayPrePresent)
+            s_overlayPrePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
     }
 
 #if defined(__ANDROID__)
+    /* Persistent staging buffer -- uploaded, not freed (see DestroyVideoSurface). */
     PresentRendererFrame(stagingPixels, stagingPitch);
-    free(stagingPixels);
 #else
     UnlockAndPresentRendererTexture();
 #endif
