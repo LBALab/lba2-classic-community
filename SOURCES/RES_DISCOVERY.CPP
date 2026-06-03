@@ -2,6 +2,7 @@
 
 #include "DIRECTORIES.H"
 
+#include <SYSTEM/ANDROID.H>
 #include <SYSTEM/ADELINE.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
@@ -10,10 +11,6 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_filesystem.h>
-#ifdef __ANDROID__
-#include <jni.h>
-#include <SDL3/SDL_system.h>
-#endif
 
 #include <dirent.h>
 
@@ -306,72 +303,6 @@ bool ReadPersistedGameDir(char *outPath, U16 outMax) {
     return outPath[0] != '\0';
 }
 
-#ifdef __ANDROID__
-/* Resolve the app-specific external files directory via JNI
- * (/sdcard/Android/data/<pkg>/files/). Always accessible on
- * API 19+ without MANAGE_EXTERNAL_STORAGE. */
-static bool GetAndroidExternalFilesDir(char *outPath, U16 outMax) {
-    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
-    if (env == NULL)
-        return false;
-
-    jobject activity = (jobject)SDL_GetAndroidActivity();
-    if (activity == NULL)
-        return false;
-
-    jclass activityClass = env->GetObjectClass(activity);
-    if (activityClass == NULL)
-        return false;
-
-    jmethodID getExternalFilesDir = env->GetMethodID(activityClass, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
-    if (getExternalFilesDir == NULL) {
-        env->DeleteLocalRef(activityClass);
-        return false;
-    }
-
-    jobject fileObj = env->CallObjectMethod(activity, getExternalFilesDir, NULL);
-    if (fileObj == NULL) {
-        env->DeleteLocalRef(activityClass);
-        return false;
-    }
-
-    jclass fileClass = env->GetObjectClass(fileObj);
-    jmethodID getAbsolutePath = env->GetMethodID(fileClass, "getAbsolutePath", "()Ljava/lang/String;");
-    if (getAbsolutePath == NULL) {
-        env->DeleteLocalRef(fileClass);
-        env->DeleteLocalRef(fileObj);
-        env->DeleteLocalRef(activityClass);
-        return false;
-    }
-
-    jstring pathStr = (jstring)env->CallObjectMethod(fileObj, getAbsolutePath);
-    if (pathStr == NULL) {
-        env->DeleteLocalRef(fileClass);
-        env->DeleteLocalRef(fileObj);
-        env->DeleteLocalRef(activityClass);
-        return false;
-    }
-
-    const char *pathChars = env->GetStringUTFChars(pathStr, NULL);
-    bool result = false;
-    if (pathChars != NULL) {
-        size_t len = strlen(pathChars);
-        if (len + 1 < (size_t)outMax) {
-            memcpy(outPath, pathChars, len + 1);
-            EnsureTrailingSeparator(outPath, outMax);
-            result = true;
-        }
-        env->ReleaseStringUTFChars(pathStr, pathChars);
-    }
-
-    env->DeleteLocalRef(pathStr);
-    env->DeleteLocalRef(fileClass);
-    env->DeleteLocalRef(fileObj);
-    env->DeleteLocalRef(activityClass);
-    return result;
-}
-#endif
-
 } // namespace
 
 #ifdef __cplusplus
@@ -472,15 +403,15 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         return true;
     }
 
-#ifdef __ANDROID__
     /* App-specific external files dir: /sdcard/Android/data/<pkg>/files/
-     * Always accessible on API 19+ without MANAGE_EXTERNAL_STORAGE.
-     * User pushes data here via: adb push file.hqr /sdcard/Android/data/<pkg>/files/ */
-    if (GetAndroidExternalFilesDir(walk, ADELINE_MAX_PATH) &&
-        NormalizeAndTry(walk, outDir, outMax, tried, &triedCount)) {
-        return true;
+     * Always accessible on API 19+ without MANAGE_EXTERNAL_STORAGE (no-op
+     * off-Android). User pushes data here via:
+     * adb push file.hqr /sdcard/Android/data/<pkg>/files/ */
+    if (Android_GetExternalFilesDir(walk, ADELINE_MAX_PATH)) {
+        EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
+        if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount))
+            return true;
     }
-#endif
 
     /* External storage roots: Android /sdcard/ (on API 30+ these paths
      * may need MANAGE_EXTERNAL_STORAGE permission — see
