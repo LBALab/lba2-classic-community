@@ -31,10 +31,7 @@ static inline U32 DosAvailableMem(void) { return 0; }
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#ifdef __ANDROID__
-#include <jni.h>
-#include <SDL3/SDL_system.h>
-#endif
+#include <SYSTEM/ANDROID.H>
 #include <ctype.h>
 #include <stdarg.h>
 #include <dirent.h>
@@ -2414,43 +2411,7 @@ int main(int argc, char *argv[]) {
        just before the menu/game). */
     const U32 bootStartMs = SDL_GetTicks();
 
-#ifdef __ANDROID__
-    /* On Android 11+ (API 30+), direct access to /sdcard/<dir>/ requires
-     * MANAGE_EXTERNAL_STORAGE. Check at startup and open Settings for it
-     * if missing, so the user can grant it and re-launch. The fallback
-     * probe in RES_DISCOVERY for App-specific external files dir
-     * (/sdcard/Android/data/<pkg>/files/) works without this permission. */
-    {
-        JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
-        if (env != NULL) {
-            jclass permHelper = env->FindClass(
-                "org/lbalab/lba2cc/PermissionHelper");
-            if (permHelper != NULL) {
-                jmethodID isMgr = env->GetStaticMethodID(
-                    permHelper, "isExternalStorageManager", "()Z");
-                jmethodID openMgr = env->GetStaticMethodID(
-                    permHelper, "openExternalStorageManagerSettings",
-                    "(Ljava/lang/Object;)V");
-                if (isMgr != NULL && !env->CallStaticBooleanMethod(permHelper, isMgr)) {
-                    jobject activity = (jobject)SDL_GetAndroidActivity();
-                    LogPrintf("MANAGE_EXTERNAL_STORAGE not granted. "
-                              "Opening Settings for app. "
-                              "Re-launch after granting.\n");
-                    if (openMgr != NULL && activity != NULL) {
-                        env->CallStaticVoidMethod(permHelper, openMgr, activity);
-                        /* Clear any JNI exception (e.g. ActivityNotFoundException
-                         * on Android TV which has no Settings intent handler) so
-                         * subsequent JNI calls (e.g. GetAndroidExternalFilesDir
-                         * in ResolveGameDataDir) don't fail. */
-                        if (env->ExceptionCheck())
-                            env->ExceptionClear();
-                    }
-                }
-                env->DeleteLocalRef(permHelper);
-            }
-        }
-    }
-#endif
+    Android_EnsureExternalStoragePermission();
 
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";

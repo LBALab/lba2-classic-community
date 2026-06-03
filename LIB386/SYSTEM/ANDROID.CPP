@@ -1,12 +1,12 @@
 /* Android platform layer.
  *
- * One home for the engine's Android specifics (JNI, TV detection, storage
- * permission, external-files dir). Every entry point is a no-op stub
- * off-Android, so callers compile unconditionally with no #ifdef. <jni.h> is
- * included here and nowhere else. See docs/PLATFORM.md and docs/ANDROID.md.
+ * One home for the engine's Android specifics — JNI, TV (leanback) detection,
+ * and storage-permission prompting. Each entry point is a no-op stub
+ * off-Android, so callers compile unconditionally with no #ifdef.
  *
- * Real implementations are migrated in one at a time (Phase 2 / A'); the
- * bodies below are placeholders that compile and link on every platform.
+ * The external-files-dir JNI (Android_GetExternalFilesDir) is folded in by a
+ * follow-up; until then its <jni.h> stays in SOURCES/RES_DISCOVERY.CPP.
+ * See docs/PLATFORM.md and docs/ANDROID.md.
  */
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/LOGPRINT.H>
@@ -93,8 +93,38 @@ S32 IsAndroidTVDevice(void) {
 
 void Android_EnsureExternalStoragePermission(void) {
 #ifdef __ANDROID__
-    /* Real implementation moves here in Phase 2c. */
-    return;
+    /* On Android 11+ (API 30+), direct access to /sdcard/<dir>/ requires
+     * MANAGE_EXTERNAL_STORAGE. Check at startup and open Settings for it
+     * if missing, so the user can grant it and re-launch. The fallback
+     * probe in RES_DISCOVERY for App-specific external files dir
+     * (/sdcard/Android/data/<pkg>/files/) works without this permission. */
+    JNIEnv *env = (JNIEnv *)SDL_GetAndroidJNIEnv();
+    if (env != NULL) {
+        jclass permHelper = env->FindClass("org/lbalab/lba2cc/PermissionHelper");
+        if (permHelper != NULL) {
+            jmethodID isMgr = env->GetStaticMethodID(
+                permHelper, "isExternalStorageManager", "()Z");
+            jmethodID openMgr = env->GetStaticMethodID(
+                permHelper, "openExternalStorageManagerSettings",
+                "(Ljava/lang/Object;)V");
+            if (isMgr != NULL && !env->CallStaticBooleanMethod(permHelper, isMgr)) {
+                jobject activity = (jobject)SDL_GetAndroidActivity();
+                LogPrintf("MANAGE_EXTERNAL_STORAGE not granted. "
+                          "Opening Settings for app. "
+                          "Re-launch after granting.\n");
+                if (openMgr != NULL && activity != NULL) {
+                    env->CallStaticVoidMethod(permHelper, openMgr, activity);
+                    /* Clear any JNI exception (e.g. ActivityNotFoundException
+                     * on Android TV which has no Settings intent handler) so
+                     * subsequent JNI calls (e.g. GetAndroidExternalFilesDir
+                     * in ResolveGameDataDir) don't fail. */
+                    if (env->ExceptionCheck())
+                        env->ExceptionClear();
+                }
+            }
+            env->DeleteLocalRef(permHelper);
+        }
+    }
 #else
     return;
 #endif
