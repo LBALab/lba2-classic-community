@@ -2,7 +2,7 @@
 <!-- Android app manifest for LBA2 Classic Community.
      Uses SDL3's built-in SDLActivity (org.libsdl.app.SDLActivity).
      Build the native library separately via cmake + NDK, then package
-     via scripts/packaging/bundle-android.sh - see android/README.md. -->
+     via scripts/packaging/bundle-android.sh - see docs/ANDROID.md. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.lbalab.lba2cc"
     android:versionCode="1"
