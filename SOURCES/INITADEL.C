@@ -177,25 +177,26 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // ··········································································
     //  Config File
+    //  First run (or the user deleted it): install a default lba2.cfg — copy the
+    //  one shipped with the game data, or fall back to the built-in template.
+    //  Logged once, after the action, so the boot log states what actually
+    //  happened: Info for the copy, Warn for the no-default-in-game-data fallback.
     GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
     if (!ExistsFileOrDir(PathConfigFile)) {
-        LogPuts("Config file not found! Copying default from assets folder...");
-
         char PathDefaultConfigFile[ADELINE_MAX_PATH];
         GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-        if (!ExistsFileOrDir(PathDefaultConfigFile)) {
-            LogPuts("Default config not in assets folder; writing embedded template...");
-
+        if (ExistsFileOrDir(PathDefaultConfigFile)) {
+            if (!Copy(PathDefaultConfigFile, PathConfigFile)) {
+                BootFatal("Could not copy the configuration file to '%s'.",
+                          PathConfigFile);
+            }
+            Log_Info("Config     created from game-data default");
+        } else {
             if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
                 BootFatal("Could not write a default configuration file to '%s'.",
                           PathConfigFile);
             }
-        } else {
-            const bool copyResult = Copy(PathDefaultConfigFile, PathConfigFile);
-            if (!copyResult) {
-                BootFatal("Could not copy the configuration file to '%s'.",
-                          PathConfigFile);
-            }
+            Log_Warn("Config     wrote built-in template (no default in game data)");
         }
     }
 
