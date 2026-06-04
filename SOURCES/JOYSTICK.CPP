@@ -2,7 +2,7 @@
 
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
-#include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/LOG.H>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_gamepad.h>
@@ -69,6 +69,9 @@ static inline void ClearGamepadBits(void) {
 }
 
 //***************************************************************************
+// Open the first available pad. Silent: at boot the structured "Joystick" line
+// (InitAdeline) reports the device, and the runtime hot-plug handlers below log
+// connect events — so this helper would only duplicate them.
 static void OpenFirstAvailableGamepad(void) {
     if (s_gamepad != NULL) {
         return;
@@ -81,7 +84,6 @@ static void OpenFirstAvailableGamepad(void) {
             if (pad != NULL) {
                 s_gamepad = pad;
                 s_gamepadId = ids[i];
-                LogPrintf("Gamepad connected: %s\n", SDL_GetGamepadName(pad));
                 break;
             }
         }
@@ -93,7 +95,7 @@ static void OpenFirstAvailableGamepad(void) {
 void InitJoystick(void) {
     if (!s_subsystemInit) {
         if (!SDL_InitSubSystem(SDL_INIT_GAMEPAD)) {
-            LogPrintf("Warning: SDL_INIT_GAMEPAD failed: %s\n", SDL_GetError());
+            Log_Warn("SDL_INIT_GAMEPAD failed: %s", SDL_GetError());
             return;
         }
         s_subsystemInit = true;
@@ -131,7 +133,7 @@ void HandleEventsJoystick(const void *event) {
             if (pad != NULL) {
                 s_gamepad = pad;
                 s_gamepadId = ev->gdevice.which;
-                LogPrintf("Gamepad hot-plugged: %s\n", SDL_GetGamepadName(pad));
+                Log_Info("Gamepad connected: %s", SDL_GetGamepadName(pad));
             }
         }
         break;
@@ -147,6 +149,8 @@ void HandleEventsJoystick(const void *event) {
             // alone: it is already 0 from the pad's own activity, and the next
             // real key/mouse/pad event sets it correctly.
             OpenFirstAvailableGamepad();
+            if (s_gamepad != NULL)
+                Log_Info("Gamepad connected: %s", SDL_GetGamepadName(s_gamepad));
         }
         break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
