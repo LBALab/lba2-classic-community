@@ -2198,7 +2198,7 @@ LBA_NORETURN void BootFatal(const char *fmt, ...) {
     char msg[ADELINE_MAX_PATH + 640];
     snprintf(msg, sizeof msg, "%s\n\nThe game can't start.\nDetails: %s", reason,
              logPath);
-    ShowFatalErrorDialog("LBA2 — cannot start", msg);
+    ShowFatalErrorDialog("LBA2: cannot start", msg);
 
     exit(EXIT_FAILURE);
 }
@@ -2304,7 +2304,7 @@ void TheEndInfo() {
         snprintf(msg, sizeof msg,
                  "%s\n\n%s\n\nThe game can't continue.\nDetails: %s", headline,
                  End_Error ? End_Error : "", logPath);
-        ShowFatalErrorDialog("LBA2 — cannot start", msg);
+        ShowFatalErrorDialog("LBA2: cannot start", msg);
     }
 
     WriteConfigFile();
