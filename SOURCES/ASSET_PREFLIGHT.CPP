@@ -10,6 +10,7 @@
 #include <SYSTEM/LIMITS.H>
 
 #include <stddef.h> /* NULL */
+#include <stdio.h>  /* snprintf */
 
 /* Internals in an anonymous namespace for internal linkage — the house
  * new-infrastructure style (see SOURCES/RES_PICKER.CPP). */
@@ -93,6 +94,31 @@ extern "C" int AssetPreflight(void) {
     if (!dirExists(path)) {
         Log_Warn("optional asset missing: vox/ (no voices)");
         ++missingOpt;
+    } else {
+        /* vox/ exists, but a bare subtree check misses an incomplete copy.
+           Each installed language has <lang>GAM.VOX (menu/common voices) plus
+           the per-scene banks <lang>000.VOX ... A GAM-only language plays menu
+           voices but goes silent for in-game dialogue, so warn per incomplete
+           language. Prefixes mirror ListLanguage in MESSAGE.CPP; "gam"/"000"
+           are case-resolved on disk by GetVoicePath (DiscoverEndingAndAppend). */
+        static const char *const kVoiceLangs[] = {"EN_", "FR_", "DE_",
+                                                  "SP_", "IT_", "PO_"};
+        const int nLang = (int)(sizeof kVoiceLangs / sizeof kVoiceLangs[0]);
+        for (i = 0; i < nLang; ++i) {
+            char voxName[64];
+            snprintf(voxName, sizeof voxName, "%sgam.VOX", kVoiceLangs[i]);
+            GetVoicePath(path, ADELINE_MAX_PATH, voxName, false);
+            if (!fileExists(path))
+                continue; /* language not installed */
+            snprintf(voxName, sizeof voxName, "%s000.VOX", kVoiceLangs[i]);
+            GetVoicePath(path, ADELINE_MAX_PATH, voxName, false);
+            if (!fileExists(path)) {
+                Log_Warn("voice data incomplete: %s per-scene banks missing "
+                         "(<lang>000.VOX ...) -- in-game dialogue will be silent",
+                         kVoiceLangs[i]);
+                ++missingOpt;
+            }
+        }
     }
 
     if (missingReq == 0 && missingOpt == 0)
