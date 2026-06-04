@@ -109,3 +109,14 @@ Looping animations restart automatically without setting `ANIM_END`.
 - Flags: `ANIM_END`, `NEW_FRAME` in `SOURCES/COMMON.H`
 - Anim engine: `LIB386/ANIM/`
 
+## Related docs
+
+This is the *temporal* view of the engine. Two companion maps give the other axes:
+
+- **[ARCHITECTURE_GLOBALS.md](ARCHITECTURE_GLOBALS.md)** — *structure*: the ~200 globals
+  grouped into eight owning domains, with the shared-bus offenders. The pivots in the
+  state machines above (`ListObjet`, `CubeMode`, `Comportement`) are its worst offenders.
+- **[ENGINE_GAME_SEAM.md](ENGINE_GAME_SEAM.md)** — *layer*: engine vs game vs platform,
+  from a three-way diff against the LBA1 source. The main-loop steps `DoTrack` (3) and
+  `DoLife` (6) are where the engine crosses into the game's Life/Track scripts.
+

@@ -1,0 +1,272 @@
+# LBA1 → lba2cc porting surface
+
+> **Status: DRAFT / living document (v0).** Companion to [ENGINE_GAME_SEAM.md](ENGINE_GAME_SEAM.md),
+> [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md), and [ARCHITECTURE.md](ARCHITECTURE.md).
+> A structure-level survey of what it would take to host **LBA1 content** on the **lba2cc
+> engine**. Confidence is high on container/struct layout (parsers read on both sides),
+> lower on exact body-record bytes and opcode operands (flagged below). Truth hierarchy:
+> code > this document.
+
+## Summary
+
+LBA1 (the `lba1-classic` community source, 1994, C+ASM) and this engine (LBA2, 1997 + port)
+are the same Adeline codebase one generation apart. That is *why* most content formats line
+up: the divergence is concentrated in **I/O wrappers, the media stack, and rendering
+capability** (and the capability gap runs the helpful direction — LBA2 is a superset). The
+work to host LBA1 is **format transcoders (bodies, scenes) + a script opcode-remap +
+integrating GPLv2 FLA/MIDI decoders** (both exist upstream — see verdict 7) — not
+re-architecting any subsystem.
+
+## Per-subsystem verdict
+
+| # | Subsystem | Verdict | Why |
+|---|---|---|---|
+| 1 | Resource container (HQR) | **Compatible as-is** | Same format; LBA2 natively reads LBA1's methods 0/1 |
+| 2 | 3D body / model | **Needs transcoder** | Same model, different on-disk encoding; LBA2 superset (textures) |
+| 3 | Animation | **Compatible as-is** | Same frame math/layout; rides on body group alignment |
+| 4 | Scene / grid / cube | **Compatible model, packaging shim** | Same brick/block payloads; LBA1 3 HQRs → LBA2 merged container |
+| 5 | Sprites / palettes | **Likely compatible, verify** | Same HQR container; sprite record header needs a byte-diff |
+| 6 | Render capability | **Free win (LBA2 superset)** | Running less-capable content on a more-capable renderer |
+| 7 | Audio + video | **Solved upstream (GPLv2)** | FLA + MIDI have GPLv2-compatible decoders in sibling LBALab projects |
+| 8 | Script VM (Life/Track) | **Opcode-remap shim** | Same VM; opcodes 0–56 identical, collisions at 57+ |
+
+### 1. HQR container — compatible as-is
+
+Same format: `[U32 total]`, a table of U32 offsets, each blob prefixed by
+`{U32 SizeFile, U32 CompressedSizeFile, U16 CompressMethod}`. LBA1 (`LIB386/LIB_SYS/HQ_RESS.C`)
+uses methods 0 (stored) / 1 (LZS); LBA2 (`LIB386/SYSTEM/HQFILE.CPP`, `HQR.H:16`: "0 stored,
+1 LZSS, 2 LZMIT") reads `method <= 2`. The buffered LRU manager (`HQR_Init_Ressource`/
+`HQR_Get`/`HQR_Del_Bloc`) is the same design on both sides. **LBA1 HQRs load on the LBA2
+engine unchanged.** **Verified (2026-06-04)** with `scripts/dev/hqr_inspect.py`: all 14
+LBA1 HQRs read with the LBA2 tool, only methods 0/1 appear (no LZMIT), and LZSS entries
+decompress to their exact declared sizes. See "Verified against LBA1 retail data" below.
+
+### 2. 3D body / model — needs a transcoder
+
+Same conceptual model (header + groups + points + normals + polys/lines/spheres), different
+encoding. LBA1 (`P_OBJET.ASM`): `Info` word + 12-byte ZV bbox + sequential blocks (polys,
+lines, spheres); three entity types; flat/gouraud/dither materials; **no textures**. LBA2
+(`AFF_OBJ.H` `T_BODY_HEADER`): an explicit offset/count table
+(`OffGroupes/OffPoints/OffNormales/OffPolys/OffLines/OffSpheres/OffTextures`) plus a full
+textured + z-buffered poly family and quad polys with UVs. LBA2 renders everything LBA1
+bodies contain (flat/gouraud/dither/line/sphere is a subset), so the LBA1 record just needs
+**transcoding** into `T_BODY_HEADER` + separated arrays. This is the dominant per-asset
+model work, and it gates animation (group indices must line up afterward).
+
+### 3. Animation — compatible as-is
+
+The strongest match. Frame math is identical: LBA2 `FRAME.CPP:46`
+`ofsFrame = (nbGroups*8 + 8)*frame + 8` equals LBA1 `P_ANIM.ASM` `SetAnimObjet`. Same header
+`[U16 nbframes][U16 nbGroups]`, same 8-byte per-frame info, same `nbGroups × 8` per-group
+keyframes (`{Type, Alpha, Beta, Gamma}`), same engine primitives (`SetAnimObjet`,
+`SetInterAnimObjet`, `GetNbFramesAnim`). LBA1 anims should drive LBA2's anim engine
+unchanged **provided the body they animate has the same group count/order** — i.e. anim
+compatibility rides on the body transcoder (#2).
+
+### 4. Scene / grid / cube — compatible model, packaging shim
+
+Same brick-isometric world model and algorithms line-for-line: `BufCube/BufMap/TabBlock`,
+`HEADER_BLOCK`, the used-block bitmap, `DecompColonne` column RLE, `LoadUsedBrick`'s
+four-pass brick renumbering. The packaging differs: LBA1 keeps three HQRs (`LBA_GRI`,
+`LBA_BLL`, `LBA_BRK`); LBA2 merges them under `T_BKG_HEADER` (index offsets into one
+container) + per-scene `T_GRI_HEADER {My_Bll, My_Grm, UsedBlock[32]}`, and raised limits
+(`NB_COLON` 28→256, `MAX_BRICK` 150→256) and added GRM overlay objects. A converter
+re-indexes LBA1's three HQRs into LBA2's merged container and synthesizes the headers; the
+brick/block payloads don't change. Medium, mechanical.
+
+### 5. Sprites / palettes — likely compatible, verify
+
+Both store sprites/inventory/font in HQR (`HQRPtrSpriteExtra`, `InventoryObj`), so the
+wrapper is solved. Both are 256-color palette-indexed (768-byte VGA tables). Unknown: the
+per-sprite record header (offset/width/height/clip) byte layout, LBA1 `INCRUST.C` vs LBA2
+`INCRUST.CPP` — same subsystem name, needs a byte-diff. Probable small shim.
+
+### 6. Render capability — free win (LBA2 is a superset)
+
+The one place the asymmetry helps. LBA1: MCGA-first (`MCGA.C`), three body entity types,
+flat/gouraud/dither, **no texture mapping, no z-buffer**, draw order via **bubble-sort
+painter's** (`BUBSORT.C`). LBA2: SVGA, the full `pol_work` filler set (flat, gouraud,
+textured, textured+z-buffer, +fog, sphere, clip), and the dependency-graph **sort tree**
+(`SORT.CPP`). No capability *gap* to fill — LBA1 bodies simply won't exercise LBA2's texture
+paths. The only consequence is cosmetic: LBA1 was authored for painter's order at 320×200,
+so verify LBA1 scenes look right under LBA2's sort tree and resolution scaling (the exterior
+draw-order quirk in the project notes could surface differently).
+
+### 7. Audio + video — different stack, but solved upstream
+
+Originally flagged as the hard wall — LBA1 uses **FLA/FLI** video (`FLA.H`, `PLAYFLA.C`) and
+**XMIDI music** (`MIXER.C` + `LIB_MIDI`, via `LM_PLAY_MIDI`), while LBA2 uses **Smacker**
+(`libsmacker`, `SMACKER.CPP`) and the `AIL/` audio abstraction with no FLA/MIDI decoder
+in-tree. But both halves have **GPLv2-compatible reference implementations in sibling LBALab
+projects**, and this repo is itself **GPLv2** (`LICENSE`), so they can be adapted/vendored
+directly rather than reverse-engineered:
+
+- **MIDI** — [lba-midi-play](https://github.com/LBALab/lba-midi-play) (GPL-2.0, C99). The LBA
+  MIDI in `MIDI_MI.HQR` / `MIDI_SB.HQR` is **XMIDI** (Miles Sound System) in the DOS versions,
+  native SMF in the Windows port. Its isolatable `xmidi.c` converts XMIDI→SMF; bundled
+  TinySoundFont + TML synthesize to float32 stereo PCM, routable through this engine's `AIL/`
+  audio path. Drop in the converter + a soft-synth/soundfont and MIDI is solved.
+- **Video** — [twin-e `flamovies.c`](https://github.com/LBALab/twin-e/blob/main/src/flamovies.c)
+  (GPLv2). A full FLA decoder: header (V1.3, 320×200, sample table), opcode dispatch
+  (`processFrame`), RLE key/delta frames (`drawKeyFrame`/`drawDeltaFrame`), palette/fade, and
+  sample playback. It leans on twin-e's screen/sample/file abstractions, so it is *adaptable,
+  not drop-in* — re-target the decode loop at this engine's framebuffer + sample systems.
+
+So the media stack is an **integration job** (wire vendored GPLv2 decoders to the
+framebuffer/audio), not a from-scratch decoder build. The genuinely from-scratch work shifts
+to the **format transcoders** (body, scene), now fully specified above.
+
+### 8. Script VM — opcode-remap shim
+
+Same VM (see [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md)): `*PtrPrg++` dispatch in
+both `GERELIFE` and `GERETRAK`, same condition opcodes (`LF_*`), comparison ops (`LT_*`),
+return widths. The command (`LM_*`) tables are **numerically identical for 0–56**.
+Divergence begins ~57:
+
+- **Renames at the same slot (semantically compatible):** `LM_SET_FLAG_CUBE`(31)→`LM_SET_VAR_CUBE`,
+  `LM_SET_FLAG_GAME`(36)→`LM_SET_VAR_GAME` (and LBA1's byte "flags" became LBA2's `S16`
+  vars — watch operand widths).
+- **True collisions (different command, same byte):** `LM_ZOOM`(57)→`LM_SHADOW_OBJ`,
+  `LM_PLAY_FLA`(64)→`LM_PLAY_ACF`, `LM_PLAY_MIDI`(65)→`LM_ECLAIR`,
+  `LM_INIT_PINGOUIN`(71)→`LM_MEMO_ARDOISE`. LBA2 then extends well past LBA1.
+
+So LBA1 scripts run on the LBA2 VM after an **opcode-remap table** — a contained shim, not a
+transpiler. Notably, the collided opcodes are largely the FLA/MIDI media opcodes, so this
+intersects the subsystem-7 media wall.
+
+## The easy part vs the hard part
+
+**Easy (shared lineage carries it):** HQR container (drop-in); animation (drop-in, rides on
+body alignment); brick/block/column world payloads (drop-in; only the multi-HQR repackaging
+is work); render capability (free — LBA2 is a strict superset); script VM model (same engine,
+opcode-remap table).
+
+**Hard (genuine divergence), now the dominant effort:**
+- **3D body transcoder** — biggest per-asset format conversion (sequential entity stream →
+  offset-table `T_BODY_HEADER` with type-grouped polys; format fully decoded above); gates
+  animation alignment.
+- **Background repackaging** — three LBA1 HQRs → one LBA2 `T_BKG_HEADER` with synthesized
+  per-scene `T_GRI_HEADER`.
+- **FLA video + MIDI music** — *no longer a from-scratch build*: GPLv2-compatible decoders
+  exist upstream (lba-midi-play, twin-e `flamovies.c`) and this repo is GPLv2, so the work is
+  integration against the framebuffer/audio, not reverse-engineering.
+
+## Dominant effort and biggest unknowns
+
+**Dominant effort:** the body/scene **format transcoders** (now fully specified — so it is
+engineering, not RE). The FLA/MIDI media stack, previously the dominant unknown, is downgraded
+to integrating existing GPLv2 decoders. Everything else is wrapper-level.
+
+**Biggest unknowns — need hands-on verification (a structure survey can't settle these):**
+
+1. **LBA1 body per-poly record** — *resolved* (see "Per-poly record" below). Both the header
+   and the polygon-record format are decoded. The remaining body-transcoder work is
+   engineering, not reverse-engineering: n-gon triangulation, type-grouping, index-stride
+   conversion, and face-normal synthesis.
+2. **LZS vs LZSS decompressor equivalence** — *substantially verified* (2026-06-04): LBA2's
+   `ExpandLZ` decompresses LBA1 method-1 blobs to their exact declared sizes (BODY/SCENE
+   samples). A direct byte-diff against LBA1's own `Expand` output would close it fully.
+3. **Shared-opcode operand encodings** — opcode numbers 0–56 align; confirm each reads the
+   same operand widths/order in both `GERELIFE`/`GERETRAK`.
+4. **Sprite record header** layout (LBA1 `INCRUST.C` vs LBA2 `INCRUST.CPP`).
+5. **Behavioural fidelity under LBA2's sort tree + SVGA** for content authored against
+   LBA1's MCGA painter's-order at 320×200.
+
+**Net:** the engine is overwhelmingly capable of hosting LBA1 content because it is the same
+codebase one generation on. The work is concentrated in **format transcoders + a script
+opcode remap + integrating GPLv2 FLA/MIDI decoders** — not in re-architecting any subsystem.
+
+## Verified against LBA1 retail data (2026-06-04)
+
+Ran `scripts/dev/hqr_inspect.py` (the lba2cc HQR reader) against the LBA1 retail archives in
+a local LBA1 install. **Every one parsed with the LBA2 tool — the container format is drop-in.**
+
+| HQR | Present | Compression | Note |
+|---|---|---|---|
+| BODY | 132 | LZSS | 3D models |
+| ANIM | 516 | LZSS | animations |
+| FILE3D | 82 | stored | |
+| INVOBJ | 28 | LZSS | inventory objects |
+| SPRITES | 118 | LZSS + stored | |
+| SCENE | 120 | LZSS | script-bearing scene blobs |
+| RESS | 53 | LZSS + stored | palette/font/etc. |
+| TEXT | 140 | LZSS + stored | |
+| SAMPLES | 230 | LZSS + stored | sound effects |
+| MIDI_MI / MIDI_SB | 33 each | LZSS + stored | MIDI music (the media wall) |
+| LBA_GRI | 134 | LZSS | scene grids |
+| LBA_BLL | 134 | LZSS | block libraries |
+| LBA_BRK | 8715 | LZSS + stored | brick atlas |
+
+- **Only methods 0 (stored) and 1 (LZSS) appear — no LZMIT (method 2) anywhere.** LZMIT was
+  an LBA2 addition, so the LBA2 reader is a strict superset for LBA1 data (verdict #1).
+- **The LZSS decompressor round-trips.** BODY entry 1 (csize 4288 → 6858) and SCENE entry 1
+  (3211 → 4247) decompress to their exact declared `SizeFile`. Moves unknown #2 from open to
+  substantially verified.
+- **The body header matches the analysis.** BODY entry 1 begins `Info=0x0003` then a 6×s16 ZV
+  bbox (`-253, 260, 0, 1240, -153, 200`) — a sane object bounding box, exactly the "Info word
+  + 12-byte ZV bbox" layout in verdict #2. The per-poly records below still want a full
+  byte-diff (unknown #1), but the format's front is confirmed.
+- The 134 / 134 / 8715 GRI / BLL / BRK split is real, with matched grid↔block-library counts —
+  the three-HQR background packaging from verdict #4.
+
+### Body header byte-diff
+
+Dumped BODY entry 1 from each game (`hqr_inspect.py --dump`) and decoded the headers against
+the two layouts (LBA1 `P_OBJET.ASM`; LBA2 `T_BODY_HEADER`, `AFF_OBJ.H:96`). Both entry-1
+bodies share `YMax`=1240 and a tall narrow footprint — almost certainly both Twinsen, three
+years apart.
+
+| Field | LBA1 | LBA2 |
+|---|---|---|
+| Info / version | `U16` (=3) | `S32` (=272) |
+| Header size | implicit (14 B) | explicit `SizeHeader`=96 + `Dummy` |
+| Bounding box | 6× **s16** (12 B): X[-253,260] Y[0,1240] Z[-153,200] | 6× **S32** (24 B): X[-250,250] Y[0,1240] Z[-250,250] |
+| Element access | **sequential** blocks (polys → lines → spheres) | explicit **count+offset table** (random access) |
+| Sections | polys, lines, spheres | groups, points, normals, normFaces, polys, lines, spheres, **textures** |
+| Compression in BODY.HQR | LZSS (method 1) | **LZMIT** (method 2) |
+
+The **transcoder's outer shape is now known**: widen the 16-bit fields to 32-bit, synthesize
+`SizeHeader` + the count/offset table, and emit groups/normals/textures sections (textures
+empty for LBA1). (LBA2's BODY.HQR is LZMIT-compressed — method 2, absent from LBA1 — and the tool decoded it,
+confirming the reader handles both.)
+
+### Per-poly record (the transcoder's inner loop)
+
+Decoded LBA1's polygon format from its actual parser (`P_OBJET.ASM:247–368` — the `lods`
+stream *is* the on-disk layout) and LBA2's from `AFF_OBJ.INC` plus a real decode of body 1.
+
+**LBA1 — one flat, material-tagged list, variable-size records:**
+
+```
+count : U16
+per poly:
+  material : U8     # 0..10; >=9 gouraud, >=7 flat, else triste/trame
+  nbpoints : U8     # vertex count — VARIABLE (n-gon)
+  colour   : U16
+  vertices : nbpoints x  pointIndex(U16)                     # flat / triste
+           | nbpoints x [normalIndex(U16), pointIndex(U16)]  # gouraud
+```
+
+Point indices are stored pre-multiplied by the point stride.
+
+**LBA2 — type-grouped, fixed-size records.** Body 1's polys block (off 3320, 281 polys)
+opens with `STRUC_POLY_HEADER{ TypePoly=0x8000, NbPoly=2, OffNextType=32 }`, then two
+`STRUC_POLY4_LIGHT` records — the first decoding cleanly as a quad
+(`P1..P4 = 162,163,164,165  Couleur=0x10c5  Normale=148`). `OffNextType=32` = 8-byte header +
+2×12-byte records. Each type group chains to the next. Record types: `POLY3/4_LIGHT` (12 B),
+`POLY3_TEXTURE` (24 B), `POLY4_TEXTURE` (32 B), plus ENV variants — material is encoded in
+the **type word**, not a per-poly byte.
+
+**The transcoder's inner loop, fully specified (engineering, not RE):**
+
+1. **Triangulate n-gons** — LBA1 polys carry a variable `nbpoints`; LBA2 records are tri or
+   quad only, so polys with >4 vertices must be split.
+2. **Group by type** — LBA1 is a flat material-tagged list; LBA2 needs type-grouped blocks
+   with `STRUC_POLY_HEADER` + `OffNextType` chaining. Map LBA1 material → LBA2 `_LIGHT` type
+   (LBA1 has no textures).
+3. **Convert index stride** — LBA1 point indices are pre-multiplied by the point stride;
+   LBA2 uses plain `P1..Pn` indices.
+4. **Synthesize face normals** — LBA2 has a separate `NormFaces` section + per-record
+   `Normale`; LBA1 carries only per-vertex normals, and only on gouraud polys.
+
+This closes porting unknown #1: the body format is decoded end to end.
