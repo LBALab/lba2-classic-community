@@ -387,6 +387,32 @@ Decisions:
 - Per-subsystem sections dropped from boot; the section primitive
   (`Log_BeginSection`/`EndSection`, terminal `------`) stays as a latent,
   tested capability (unused for now).
+- **Bookend lines tinted.** The identity header and the `Ready` closer use a new
+  `Log_Banner()` primitive (record kind `REC_BANNER`, fifth SDL category) that
+  the terminal sink draws in cyan — the section-header colour. File and console
+  sinks print it verbatim (the tint is the terminal sink's alone; `adeline.log`
+  is unchanged), so the contract "call sites never know which sinks exist" holds
+  — no ANSI is baked into the call site. The middle path lines stay plain
+  `Log_Raw`.
+- **`Config` shows the file, not the folder.** Like the `Log:` line, it now
+  resolves with `CFG_NAME` (`Config: …/lba2.cfg`). `Assets`/`Saves` stay
+  directories (they hold many files); `Config`/`Log` are single named files.
+- **Console is now colour-coded (supersedes the "monochrome v1" of decisions 2,
+  6 and Phase 2).** The console sink drops the `[INFO]`/`[WARN]`/`[ERROR]` text
+  tag and conveys the level as colour instead: `LogLineFn` carries the
+  `LogSeverity`, the engine adapter (`ConsoleLogLine`) maps it to a
+  `CONSOLE_COL_*` ink, and `Console_PrintColored` stores a per-line colour. The
+  severity inks are **palette-independent fixed RGB** resolved in the
+  compositor (scene palettes are arbitrary, so "warn is yellow" can't rely on a
+  palette index); default/info stays on the scene's palette-white, so existing
+  text is unchanged. The log core stays palette-agnostic — it passes severity,
+  not colours. `LogLineFn` also carries a `LogLineKind` so the adapter tints the
+  **banner bookends and section headers cyan** in the console too, matching the
+  terminal sink's structural colour (banner/section → cyan, normal → severity).
+- **Console renders CP437; boot text is UTF-8.** `AffStringToBuffer` is a CP437
+  bitmap font, so the `·` separator (and accented language names like
+  `Français`/`Español`) is folded UTF-8 → CP437 at draw time. Stored scrollback
+  stays UTF-8, so `Console_GetScrollback` / `--dump-state` remain valid UTF-8.
 - **Accurate `Display` line.** Fullscreen is config-driven and applied late
   (`ReadConfigFile` -> `SetWindowFullscreen`, inside `InitProgram` — *after*
   `InitAdeline`), so reading the mode in `InitAdeline` always said "windowed".

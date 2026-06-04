@@ -88,19 +88,43 @@ atexit(SafeErrorMallocMsg);
 // ··········································································
 
 /* Adapter handed to the console buffer sink so the log core (now in LIB386)
-   stays free of any dependency on CONSOLE (SOURCES). */
-static void ConsoleLogLine(const char *line) { Console_Print("%s", line); }
+   stays free of any dependency on CONSOLE (SOURCES). Maps the line's kind and
+   severity to a console colour — the in-engine console shows level/structure as
+   colour, not a text tag. Banner/section lines get the cyan structural accent
+   (matching the terminal sink's bookends); ordinary lines colour by severity. */
+static void ConsoleLogLine(const char *line, LogSeverity sev, LogLineKind kind) {
+    int colour = CONSOLE_COL_DEFAULT;
+    if (kind == LOG_LINE_BANNER || kind == LOG_LINE_SECTION) {
+        colour = CONSOLE_COL_BANNER;
+    } else {
+        switch (sev) {
+        case LOG_DEBUG:
+            colour = CONSOLE_COL_DEBUG;
+            break;
+        case LOG_WARN:
+            colour = CONSOLE_COL_WARN;
+            break;
+        case LOG_ERROR:
+            colour = CONSOLE_COL_ERROR;
+            break;
+        case LOG_INFO:
+            colour = CONSOLE_COL_DEFAULT;
+            break;
+        }
+    }
+    Console_PrintColored(colour, "%s", line);
+}
 
 void InitAdeline(S32 argc, char *argv[]) {
     {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char saveFolderPath[ADELINE_MAX_PATH] = "";
-        char cfgFolderPath[ADELINE_MAX_PATH] = "";
+        char cfgFilePath[ADELINE_MAX_PATH] = "";
         char logFilePath[ADELINE_MAX_PATH] = "";
 
         GetResPath(resFolderPath, ADELINE_MAX_PATH, NULL);
         GetSavePath(saveFolderPath, ADELINE_MAX_PATH, NULL);
-        GetCfgPath(cfgFolderPath, ADELINE_MAX_PATH, NULL);
+        GetCfgPath(cfgFilePath, ADELINE_MAX_PATH, CFG_NAME);
 
         GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
         CreateLog(logFilePath);
@@ -117,13 +141,13 @@ void InitAdeline(S32 argc, char *argv[]) {
         atexit(Log_Shutdown);
 
         /* Boot identity + key paths up top, so a pasted log is self-describing. */
-        Log_Raw("%s · %s %s · %d cores · %d GB RAM", APPNAME, LOG_PLATFORM_NAME,
-                LOG_ARCH_NAME, SDL_GetNumLogicalCPUCores(),
-                (SDL_GetSystemRAM() + 512) / 1024);
+        Log_Banner("%s · %s %s · %d cores · %d GB RAM", APPNAME, LOG_PLATFORM_NAME,
+                   LOG_ARCH_NAME, SDL_GetNumLogicalCPUCores(),
+                   (SDL_GetSystemRAM() + 512) / 1024);
         Log_Raw("Built %s %s", __DATE__, __TIME__);
         Log_Raw("Assets: %s", resFolderPath);
         Log_Raw("Saves:  %s", saveFolderPath);
-        Log_Raw("Config: %s", cfgFolderPath);
+        Log_Raw("Config: %s", cfgFilePath);
         Log_Raw("Log:    %s", logFilePath);
         Log_Raw("");
     }

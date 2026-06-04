@@ -24,6 +24,7 @@
 #define LBA_CAT_SECTION (SDL_LOG_CATEGORY_CUSTOM + 1)
 #define LBA_CAT_SECTION_END (SDL_LOG_CATEGORY_CUSTOM + 2)
 #define LBA_CAT_RAW (SDL_LOG_CATEGORY_CUSTOM + 3)
+#define LBA_CAT_BANNER (SDL_LOG_CATEGORY_CUSTOM + 4)
 #endif
 
 #define LOG_MSG_MAX 1024
@@ -38,7 +39,8 @@ namespace {
 enum { REC_NORMAL = 0,
        REC_SECTION_BEGIN = 1,
        REC_SECTION_END = 2,
-       REC_RAW = 3 };
+       REC_RAW = 3,
+       REC_BANNER = 4 };
 
 typedef void (*SinkWriteFn)(LogSink *sink, LogSeverity sev, int kind,
                             const char *msg);
@@ -106,8 +108,8 @@ void file_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
         fprintf(s->fp, "==== %s ====\n", msg);
     else if (kind == REC_SECTION_END)
         ; /* no closer in the file */
-    else if (kind == REC_RAW)
-        fprintf(s->fp, "%s\n", msg);
+    else if (kind == REC_RAW || kind == REC_BANNER)
+        fprintf(s->fp, "%s\n", msg); /* banner is colour-only; file stays plain */
     else
         fprintf(s->fp, "[%s] %s\n", severity_tag(sev), msg);
     fflush(s->fp);
@@ -142,6 +144,8 @@ void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
         for (int i = 0; i < LOG_TERM_WIDTH; ++i)
             fputc('-', out);
         fputs("\033[0m\n", out);
+    } else if (kind == REC_BANNER) {
+        fprintf(out, "\033[36m%s\033[0m\n", msg); /* cyan, like section rules */
     } else if (kind == REC_RAW) {
         fprintf(out, "%s\n", msg);
     } else {
@@ -154,7 +158,10 @@ void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
  * NO_COLOR is set), so redirected output never gets ANSI escapes. */
 void noop_write(LogSink *, LogSeverity, int, const char *) {}
 
-/* --- Console buffer sink: monochrome text into the in-engine scrollback ---- */
+/* --- Console buffer sink: text into the in-engine scrollback ---------------
+ * Severity is conveyed to the engine adapter (it colours the line), so unlike
+ * the file sink there is no "[INFO]"/"[WARN]" text tag — the message goes
+ * through verbatim and the colour carries the level. */
 
 void console_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
     if (!s->line_fn)
@@ -171,13 +178,16 @@ void console_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) 
     if (kind == REC_SECTION_END)
         return; /* no closer line in the console */
     char line[LOG_MSG_MAX];
-    if (kind == REC_SECTION_BEGIN)
+    LogLineKind lkind = LOG_LINE_NORMAL;
+    if (kind == REC_SECTION_BEGIN) {
         (void)snprintf(line, sizeof line, "== %s ==", msg);
-    else if (kind == REC_RAW)
+        lkind = LOG_LINE_SECTION;
+    } else { /* REC_NORMAL / REC_RAW / REC_BANNER: verbatim, colour carries level */
         (void)snprintf(line, sizeof line, "%s", msg);
-    else
-        (void)snprintf(line, sizeof line, "[%s] %s", severity_tag(sev), msg);
-    s->line_fn(line);
+        if (kind == REC_BANNER)
+            lkind = LOG_LINE_BANNER;
+    }
+    s->line_fn(line, sev, lkind);
 }
 
 int terminal_enabled(void) {
@@ -258,6 +268,8 @@ int sdl_category_to_kind(int category) {
         return REC_SECTION_END;
     if (category == LBA_CAT_RAW)
         return REC_RAW;
+    if (category == LBA_CAT_BANNER)
+        return REC_BANNER;
     return REC_NORMAL;
 }
 
@@ -268,6 +280,8 @@ int kind_to_sdl_category(int kind) {
         return LBA_CAT_SECTION_END;
     if (kind == REC_RAW)
         return LBA_CAT_RAW;
+    if (kind == REC_BANNER)
+        return LBA_CAT_BANNER;
     return LBA_CAT_LOG;
 }
 
@@ -292,7 +306,7 @@ void log_fallback_write(LogSeverity sev, int kind, const char *msg) {
         return;
     if (kind == REC_SECTION_BEGIN)
         fprintf(stderr, "==== %s ====\n", msg);
-    else if (kind == REC_RAW)
+    else if (kind == REC_RAW || kind == REC_BANNER)
         fprintf(stderr, "%s\n", msg);
     else
         fprintf(stderr, "[%s] %s\n", severity_tag(sev), msg);
@@ -341,6 +355,7 @@ void Log_Init(void) {
     SDL_SetLogPriority(LBA_CAT_SECTION, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogPriority(LBA_CAT_SECTION_END, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogPriority(LBA_CAT_RAW, SDL_LOG_PRIORITY_DEBUG);
+    SDL_SetLogPriority(LBA_CAT_BANNER, SDL_LOG_PRIORITY_DEBUG);
     SDL_SetLogOutputFunction(sdl_output, 0);
 #endif
 }
@@ -395,6 +410,15 @@ void Log_Raw(const char *fmt, ...) {
     (void)vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
     emit_formatted(LOG_INFO, REC_RAW, buf);
+}
+
+void Log_Banner(const char *fmt, ...) {
+    char buf[LOG_MSG_MAX];
+    va_list ap;
+    va_start(ap, fmt);
+    (void)vsnprintf(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+    emit_formatted(LOG_INFO, REC_BANNER, buf);
 }
 
 void Log_BeginSection(const char *title) {
