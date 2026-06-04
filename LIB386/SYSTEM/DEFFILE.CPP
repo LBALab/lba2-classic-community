@@ -113,6 +113,16 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
 
     Load(file, buffer);
 
+    /* Reject a blob with embedded NUL bytes as corrupt. A partial or garbage
+       write (e.g. a process killed mid-rewrite) injects NULs, and the in-place
+       load-modify-rewrite below would propagate them on every save -- sticky
+       corruption that never self-heals. Discarding it (treat as empty) makes
+       the next write regenerate a clean file from defaults. */
+    if (buffersize > 0 && memchr(buffer, 0, (size_t)buffersize) != NULL) {
+        LogPuts("Warning: DefFileBufferInit found embedded NULs (corrupt) - discarding");
+        buffersize = 0;
+    }
+
     // Re-entry from DefFileBufferWriteString passes the module-static FileName
     // back in as `file`, which aliases the strcpy destination. Self-copy is UB
     // (ASan: strcpy-param-overlap); skip the copy when source and dest alias.
