@@ -24,6 +24,20 @@ void Console_Close(void);
 void Console_Update(void);
 void Console_Print(const char *fmt, ...);
 
+/* Console text colours for Console_PrintColored. DEFAULT is a palette index
+ * (the scene's white, as plain Console_Print uses); the rest are
+ * palette-independent fixed-RGB inks resolved in the compositor, so "warn is
+ * yellow" / "banner is cyan" holds in every scene regardless of the loaded
+ * palette. BANNER matches the terminal sink's cyan for the boot bookends. */
+#define CONSOLE_COL_DEFAULT 15
+#define CONSOLE_COL_BANNER 250
+#define CONSOLE_COL_DEBUG 251
+#define CONSOLE_COL_WARN 252
+#define CONSOLE_COL_ERROR 253
+
+/** Like Console_Print, but draws the line in the given CONSOLE_COL_* colour. */
+void Console_PrintColored(int colour, const char *fmt, ...);
+
 /** Called from video layer pre-present callback. Overlays console onto ARGB frameBuffer if open. */
 void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);
 

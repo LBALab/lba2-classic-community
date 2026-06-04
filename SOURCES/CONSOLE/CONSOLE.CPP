@@ -52,6 +52,7 @@ static int s_cmd_count = 0;
 static struct cvar_entry s_cvars[CONSOLE_MAX_CVARS];
 static int s_cvar_count = 0;
 static char s_scrollback[CONSOLE_SCROLLBACK_LINES][CONSOLE_LINE_MAX];
+static U8 s_scrollback_col[CONSOLE_SCROLLBACK_LINES]; /* per-line ink (CONSOLE_COL_*) */
 static int s_scrollback_count = 0;
 static int s_scrollback_head = 0; /* next write position */
 static char s_input_line[CONSOLE_INPUT_MAX];
@@ -193,30 +194,27 @@ void Console_Close(void) {
 }
 
 /* Push one line to scrollback (no wrap). */
-static void scrollback_push_one(const char *line);
+static void scrollback_push_one(const char *line, U8 colour);
 
-static void scrollback_push(const char *line) {
-    scrollback_push_one(line);
-}
-
-static void scrollback_push_one(const char *line) {
+static void scrollback_push_one(const char *line, U8 colour) {
     size_t n = strlen(line);
     if (n >= CONSOLE_LINE_MAX)
         n = CONSOLE_LINE_MAX - 1;
     memcpy(s_scrollback[s_scrollback_head], line, n);
     s_scrollback[s_scrollback_head][n] = '\0';
+    s_scrollback_col[s_scrollback_head] = colour;
     s_scrollback_head = (s_scrollback_head + 1) % CONSOLE_SCROLLBACK_LINES;
     if (s_scrollback_count < CONSOLE_SCROLLBACK_LINES)
         s_scrollback_count++;
 }
 
 /* Break long lines at CONSOLE_WRAP_WIDTH (at space when possible) and push each. */
-static void scrollback_push_wrapped(const char *line) {
+static void scrollback_push_wrapped(const char *line, U8 colour) {
     size_t len = strlen(line);
     if (len == 0)
         return;
     if (len <= (size_t)CONSOLE_WRAP_WIDTH) {
-        scrollback_push_one(line);
+        scrollback_push_one(line, colour);
         return;
     }
     char seg[CONSOLE_LINE_MAX];
@@ -226,7 +224,7 @@ static void scrollback_push_wrapped(const char *line) {
         if (remain <= (size_t)CONSOLE_WRAP_WIDTH) {
             memcpy(seg, p, remain);
             seg[remain] = '\0';
-            scrollback_push_one(seg);
+            scrollback_push_one(seg, colour);
             break;
         }
         size_t take = CONSOLE_WRAP_WIDTH;
@@ -240,10 +238,31 @@ static void scrollback_push_wrapped(const char *line) {
         size_t n = (size_t)(br - p);
         memcpy(seg, p, n);
         seg[n] = '\0';
-        scrollback_push_one(seg);
+        scrollback_push_one(seg, colour);
         p = br;
         while (p < line + len && (*p == ' ' || *p == '\t'))
             p++;
+    }
+}
+
+/* Split buf on '\n' so callers can pass multi-line strings naturally (matches
+ * printf intuition: '\n' means "advance to a new line"). Empty segments — from
+ * leading, trailing, or repeated '\n' — are skipped (no spurious blank lines).
+ * The sink-for-tests sees exactly what gets pushed to the scrollback. */
+static void console_push_multiline(char *buf, U8 colour) {
+    char *p = buf;
+    while (*p) {
+        char *nl = strchr(p, '\n');
+        if (nl)
+            *nl = '\0';
+        if (*p) {
+            scrollback_push_wrapped(p, colour);
+            if (s_line_sink_for_tests)
+                s_line_sink_for_tests(p);
+        }
+        if (!nl)
+            break;
+        p = nl + 1;
     }
 }
 
@@ -254,27 +273,17 @@ void Console_Print(const char *fmt, ...) {
     vsnprintf(buf, CONSOLE_LINE_MAX, fmt, ap);
     va_end(ap);
     buf[CONSOLE_LINE_MAX - 1] = '\0';
+    console_push_multiline(buf, CONSOLE_COL_DEFAULT);
+}
 
-    /* Split on '\n' so callers can pass multi-line strings naturally
-     * (matches printf intuition: '\n' in the format means "advance to
-     * a new line"). Empty segments — from leading, trailing, or
-     * repeated '\n' — are skipped, matching the behavior console
-     * users expect (no spurious blank lines). The sink-for-tests
-     * sees exactly what gets pushed to the scrollback. */
-    char *p = buf;
-    while (*p) {
-        char *nl = strchr(p, '\n');
-        if (nl)
-            *nl = '\0';
-        if (*p) {
-            scrollback_push_wrapped(p);
-            if (s_line_sink_for_tests)
-                s_line_sink_for_tests(p);
-        }
-        if (!nl)
-            break;
-        p = nl + 1;
-    }
+void Console_PrintColored(int colour, const char *fmt, ...) {
+    char buf[CONSOLE_LINE_MAX];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, CONSOLE_LINE_MAX, fmt, ap);
+    va_end(ap);
+    buf[CONSOLE_LINE_MAX - 1] = '\0';
+    console_push_multiline(buf, (U8)colour);
 }
 
 void Console_SetLineSinkForTests(Console_LineSinkFn sink) {
@@ -363,6 +372,166 @@ void Console_Update(void) {
     }
 }
 
+/* Map a Unicode codepoint to its CP437 byte (the AffStringToBuffer font), or 0
+ * if CP437 has no glyph for it. Covers the printable Latin-1 range — enough for
+ * the boot log's "·" separator and accented language names (Français, Español)
+ * and any Western-European text a command might print. */
+static unsigned char cp_to_cp437(unsigned int cp) {
+    switch (cp) {
+    case 0x00B7:
+        return 0xFA; /* · middle dot (the title separator) */
+    case 0x00B0:
+        return 0xF8; /* ° */
+    case 0x00A1:
+        return 0xAD; /* ¡ */
+    case 0x00BF:
+        return 0xA8; /* ¿ */
+    case 0x00AB:
+        return 0xAE; /* « */
+    case 0x00BB:
+        return 0xAF; /* » */
+    case 0x00A3:
+        return 0x9C; /* £ */
+    case 0x00C7:
+        return 0x80; /* Ç */
+    case 0x00FC:
+        return 0x81; /* ü */
+    case 0x00E9:
+        return 0x82; /* é */
+    case 0x00E2:
+        return 0x83; /* â */
+    case 0x00E4:
+        return 0x84; /* ä */
+    case 0x00E0:
+        return 0x85; /* à */
+    case 0x00E5:
+        return 0x86; /* å */
+    case 0x00E7:
+        return 0x87; /* ç (Français) */
+    case 0x00EA:
+        return 0x88; /* ê */
+    case 0x00EB:
+        return 0x89; /* ë */
+    case 0x00E8:
+        return 0x8A; /* è */
+    case 0x00EF:
+        return 0x8B; /* ï */
+    case 0x00EE:
+        return 0x8C; /* î */
+    case 0x00EC:
+        return 0x8D; /* ì */
+    case 0x00C4:
+        return 0x8E; /* Ä */
+    case 0x00C5:
+        return 0x8F; /* Å */
+    case 0x00C9:
+        return 0x90; /* É */
+    case 0x00E6:
+        return 0x91; /* æ */
+    case 0x00C6:
+        return 0x92; /* Æ */
+    case 0x00F4:
+        return 0x93; /* ô */
+    case 0x00F6:
+        return 0x94; /* ö */
+    case 0x00F2:
+        return 0x95; /* ò */
+    case 0x00FB:
+        return 0x96; /* û */
+    case 0x00F9:
+        return 0x97; /* ù */
+    case 0x00FF:
+        return 0x98; /* ÿ */
+    case 0x00D6:
+        return 0x99; /* Ö */
+    case 0x00DC:
+        return 0x9A; /* Ü */
+    case 0x00E1:
+        return 0xA0; /* á */
+    case 0x00ED:
+        return 0xA1; /* í */
+    case 0x00F3:
+        return 0xA2; /* ó */
+    case 0x00FA:
+        return 0xA3; /* ú */
+    case 0x00F1:
+        return 0xA4; /* ñ (Español) */
+    case 0x00D1:
+        return 0xA5; /* Ñ */
+    case 0x00DF:
+        return 0xE1; /* ß */
+    default:
+        return 0;
+    }
+}
+
+/* Fold a UTF-8 string into the CP437 bytes the font draws. ASCII passes through;
+ * mapped Latin-1 chars become their CP437 byte; anything unmapped becomes '?'.
+ * Runs at draw time only — the stored scrollback stays UTF-8 so
+ * Console_GetScrollback / --dump-state remain valid UTF-8. */
+static void utf8_to_cp437(const char *src, char *dst, size_t dstsz) {
+    size_t o = 0;
+    const unsigned char *s = (const unsigned char *)src;
+    while (*s && o + 1 < dstsz) {
+        unsigned char c = *s;
+        if (c < 0x80) { /* ASCII */
+            dst[o++] = (char)c;
+            s++;
+            continue;
+        }
+        unsigned int cp = 0;
+        if ((c & 0xE0) == 0xC0 && (s[1] & 0xC0) == 0x80) {
+            cp = ((unsigned int)(c & 0x1F) << 6) | (s[1] & 0x3F);
+            s += 2;
+        } else if ((c & 0xF0) == 0xE0 && (s[1] & 0xC0) == 0x80 && (s[2] & 0xC0) == 0x80) {
+            s += 3; /* 3-byte: outside CP437's reach */
+            dst[o++] = '?';
+            continue;
+        } else {
+            s++; /* stray continuation / invalid byte */
+            dst[o++] = '?';
+            continue;
+        }
+        unsigned char mapped = cp_to_cp437(cp);
+        dst[o++] = mapped ? (char)mapped : '?';
+    }
+    dst[o] = '\0';
+}
+
+/* Palette-independent RGB for the reserved console inks (see CONSOLE_COL_*). Any
+ * other ink is drawn from the scene palette by the compositor; only these
+ * reserved values resolve here, so "warn is yellow" / "banner is cyan" holds in
+ * every scene. */
+static void console_fixed_rgb(U8 idx, U8 *r, U8 *g, U8 *b) {
+    switch (idx) {
+    case CONSOLE_COL_BANNER:
+        *r = 90;
+        *g = 215;
+        *b = 220;
+        break; /* cyan (matches the terminal sink's bookend colour) */
+    case CONSOLE_COL_DEBUG:
+        *r = 130;
+        *g = 130;
+        *b = 130;
+        break; /* dim grey */
+    case CONSOLE_COL_WARN:
+        *r = 235;
+        *g = 205;
+        *b = 50;
+        break; /* yellow */
+    case CONSOLE_COL_ERROR:
+        *r = 235;
+        *g = 70;
+        *b = 60;
+        break; /* red */
+    default:
+        *r = 255;
+        *g = 255;
+        *b = 255;
+        break;
+    }
+}
+
 /** Draw scrollback + input line into s_console_buf (call when open and buffer ready). */
 static void Console_Draw(void) {
     int i, y, start, n;
@@ -404,8 +573,10 @@ static void Console_Draw(void) {
 
         for (i = 0; i < drawLines; i++) {
             int idx = (start + i) % CONSOLE_SCROLLBACK_LINES;
-            AffStringToBuffer(s_console_buf, s_console_w, 8, y,
-                              s_scrollback[idx], CONSOLE_TEXT_COLOUR);
+            char rendered[CONSOLE_LINE_MAX];
+            utf8_to_cp437(s_scrollback[idx], rendered, sizeof rendered);
+            AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered,
+                              s_scrollback_col[idx]);
             y += CONSOLE_LINE_HEIGHT;
         }
 
@@ -418,7 +589,9 @@ static void Console_Draw(void) {
     {
         char prompt[CONSOLE_INPUT_MAX + 8];
         snprintf(prompt, sizeof(prompt), "]> %s_", s_input_line);
-        AffStringToBuffer(s_console_buf, s_console_w, 8, y, prompt, CONSOLE_TEXT_COLOUR);
+        char rendered[CONSOLE_INPUT_MAX + 8];
+        utf8_to_cp437(prompt, rendered, sizeof rendered);
+        AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, CONSOLE_TEXT_COLOUR);
     }
 }
 
@@ -487,6 +660,9 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
                 r = (U8)((br * 3) / 5);
                 g = (U8)((bg * 3) / 5);
                 b = (U8)((bb * 3) / 5);
+            } else if (idx >= CONSOLE_COL_BANNER && idx <= CONSOLE_COL_ERROR) {
+                /* Reserved console inks (banner/severity): fixed RGB. */
+                console_fixed_rgb(idx, &r, &g, &b);
             } else {
                 /* Text: solid colour from current palette. */
                 const U8 *c = palette_rgb + (idx * 3);
@@ -572,7 +748,7 @@ static void Console_SubmitLine(void) {
     if (s_input_len <= 0)
         return;
     s_input_line[s_input_len] = '\0';
-    scrollback_push(s_input_line);
+    scrollback_push_one(s_input_line, CONSOLE_COL_DEFAULT);
     /* Add to history */
     if (s_history_count < CONSOLE_HISTORY_SIZE) {
         strncpy(s_history[s_history_count], s_input_line, CONSOLE_LINE_MAX - 1);
