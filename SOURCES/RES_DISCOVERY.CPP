@@ -7,7 +7,6 @@
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOG.H>
-#include <SYSTEM/LOGPRINT.H>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_filesystem.h>
@@ -106,10 +105,10 @@ void LogFailure(const char tried[][ADELINE_MAX_PATH], int triedCount) {
     Log_Error("No valid game data directory (need lba2.hqr). Tried %d path(s).",
               triedCount);
     for (int i = 0; i < triedCount; i++) {
-        LogPrintf("  - %s\n", tried[i]);
+        Log_Error("  - %s", tried[i]);
     }
-    LogPuts("Hints: set LBA2_GAME_DIR to your install folder, or use --game-dir <path>.");
-    LogPuts("See docs/GAME_DATA.md. Retail game files are not included in this repository.");
+    Log_Error("Hints: set LBA2_GAME_DIR to your install folder, or use --game-dir <path>.");
+    Log_Error("See docs/GAME_DATA.md. Retail game files are not included in this repository.");
 }
 
 void StripGameDirArgs(int *argc, char **argv) {
@@ -317,7 +316,7 @@ bool WritePersistedGameDir(const char *path) {
 
     FILE *fp = fopen(filePath, "w");
     if (fp == NULL) {
-        LogPrintf("RES_DISCOVERY: could not write %s\n", filePath);
+        Log_Warn("RES_DISCOVERY: could not write %s", filePath);
         return false;
     }
 
@@ -354,8 +353,8 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * still win above (user passing both is asking for "use this path,
      * but if it's bad show the picker"). */
     if (forcePicker) {
-        LogPuts("RES_DISCOVERY: --pick-game-dir set; skipping persisted "
-                "and auto-discovery probes.");
+        Log_Info("RES_DISCOVERY: --pick-game-dir set; skipping persisted "
+                 "and auto-discovery probes.");
         return false;
     }
 
@@ -376,9 +375,9 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
             return true;
         }
-        LogPrintf("RES_DISCOVERY: saved game-data path %s no longer "
-                  "valid, re-prompting via picker\n",
-                  persisted);
+        Log_Warn("RES_DISCOVERY: saved game-data path %s no longer "
+                 "valid, re-prompting via picker",
+                 persisted);
     }
 
     /* SDL_Init must be done by the caller before SDL_GetBasePath / cwd helpers

@@ -1,6 +1,6 @@
 //══════════════════════════════════════════════════════════════════════════
 #include <SYSTEM/ADELINE.H>
-#include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LOADSAVE.H>
 #include <SYSTEM/ITOA.H>
@@ -102,12 +102,12 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
     OrgPtrDef = NULL;
 
     if (!buffer) {
-        LogPuts("Error: Trying to use DefFileBufferInit with a NULL pointer");
+        Log_Error("DefFileBufferInit: NULL buffer pointer");
         return FALSE;
     }
 
     if (buffersize >= maxsize - 3) {
-        LogPuts("Error: Buffer too small in DefFileBufferInit");
+        Log_Error("DefFileBufferInit: buffer too small");
         return FALSE;
     }
 
@@ -119,7 +119,7 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
        corruption that never self-heals. Discarding it (treat as empty) makes
        the next write regenerate a clean file from defaults. */
     if (buffersize > 0 && memchr(buffer, 0, (size_t)buffersize) != NULL) {
-        LogPuts("Warning: DefFileBufferInit found embedded NULs (corrupt) - discarding");
+        Log_Warn("DefFileBufferInit: config has embedded NULs (corrupt) - discarding");
         buffersize = 0;
     }
 
