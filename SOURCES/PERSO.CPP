@@ -14,6 +14,7 @@
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
 #include <SYSTEM/LOG.H>
+#include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>

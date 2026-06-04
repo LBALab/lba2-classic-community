@@ -292,7 +292,7 @@ void InitAdeline(S32 argc, char *argv[]) {
                bypass the SDL dummy driver's nanosleep pacing (~58% of sys time
                in projection_demo); a player whose audio device fails just
                loses sound instead of being unable to launch the game. */
-            Log_Warn("Audio      none — running silently");
+            Log_Warn("Audio      none - running silently");
         } else {
             Log_Info("Audio      44100 Hz stereo");
         }

@@ -307,7 +307,7 @@ const char *Res_SwitchAllowedReason(void) {
     /* Refuse mid-cinematic: the Smacker decoder owns the framebuffer and
        partial state would be lost. */
     if (FlagPlayAcf)
-        return "Not now: a cinematic is playing — wait for it to finish.";
+        return "Not now: a cinematic is playing - wait for it to finish.";
     /* Refuse before the first scene loads. PtrInitGrille has nothing to
        reload, and the engine isn't in a steady main-loop state yet. */
     if (PtrScene == NULL || NumCube < 0)
