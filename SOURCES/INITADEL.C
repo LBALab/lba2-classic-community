@@ -125,20 +125,15 @@ void InitAdeline(S32 argc, char *argv[]) {
         GetResPath(resFolderPath, ADELINE_MAX_PATH, NULL);
         GetSavePath(saveFolderPath, ADELINE_MAX_PATH, NULL);
         GetCfgPath(cfgFilePath, ADELINE_MAX_PATH, CFG_NAME);
-
         GetLogPath(logFilePath, ADELINE_MAX_PATH, LOG_NAME);
-        CreateLog(logFilePath);
 
-        /* Structured boot log (docs/BOOT_LOG_PLAN.md). The file sink reuses
-           adeline.log — CreateLog above truncated it for this launch, the sink
-           appends; both it and the legacy LogPrintf sites share the one file.
-           The terminal sink colours stderr when launched from a real TTY. The
-           console sink mirrors records into the in-engine F12 overlay. */
-        Log_Init();
-        Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
-        Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
+        /* The structured log + file/terminal sinks are already up: main() starts
+           them before game-data discovery so the discovery/picker diagnostics are
+           captured (docs/BOOT_LOG_PLAN.md). Add the in-engine F12 console sink now
+           — it has no surface until we're past early boot, so it joins here rather
+           than at Log_Init. The file sink reuses adeline.log (CreateLog truncated
+           it for this launch); both it and the legacy LogPrintf sites share it. */
         Log_AddSink(Log_MakeConsoleBufferSink(ConsoleLogLine));
-        atexit(Log_Shutdown);
 
         /* Boot identity + key paths up top, so a pasted log is self-describing. */
         Log_Banner("%s · %s %s · %d cores · %d GB RAM", APPNAME, LOG_PLATFORM_NAME,

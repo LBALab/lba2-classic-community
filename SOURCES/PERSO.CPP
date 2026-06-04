@@ -2419,6 +2419,24 @@ int main(int argc, char *argv[]) {
 
         GetDefaultUserDir(userFolderPath);
 
+        /* Bring the structured log up here — BEFORE game-data discovery and the
+           folder picker — so their diagnostics reach adeline.log and the terminal,
+           not just stderr. The "can't find game data" path is exactly when a
+           persisted log matters most, and it used to be invisible there because
+           CreateLog/Log_Init ran later, inside InitAdeline. The log file lives in
+           the user dir (known now, independent of where the game data is). Use
+           GetLogPathInDir rather than GetLogPath, which needs InitDirectories — and
+           that needs the game dir we haven't resolved yet; it derives the same path
+           from the user dir alone. The console-buffer sink joins later in
+           InitAdeline: there's no F12 overlay this early. */
+        char logFilePath[ADELINE_MAX_PATH] = "";
+        GetLogPathInDir(logFilePath, ADELINE_MAX_PATH, userFolderPath, LOG_NAME);
+        CreateLog(logFilePath);
+        Log_Init();
+        Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
+        Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
+        atexit(Log_Shutdown);
+
         if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
             /* Auto-discovery exhausted. Last fallback before exit: in a
              * windowed environment, prompt the user with a folder dialog
