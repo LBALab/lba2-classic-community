@@ -26,6 +26,11 @@ convergence.
 | **Layer** | [ENGINE_GAME_SEAM.md](ENGINE_GAME_SEAM.md) | What is engine vs game vs platform? (validated against the LBA1 source) |
 | **Time** | [LIFECYCLES.md](LIFECYCLES.md) | When is state created, mutated, destroyed? (main loop, `ChangeCube`) |
 
+Underneath all three sits the **data contract** the engine reads:
+[ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md) specs the on-disk formats (HQR, LZ, 3D body,
+animation, sprite, samples, XMIDI, the XCF cinematic codec) at engine altitude, each with its
+cross-title (LBA1/TC/LBA2) version timeline.
+
 **The convergence is the signal.** The same small set of things surfaces on all three axes:
 `ListObjet`, `CubeMode`, `Comportement`, `ChangeCube`, and the Life/Track script VM. They
 are simultaneously the shared-bus offenders (structure), the engine/game membrane and
