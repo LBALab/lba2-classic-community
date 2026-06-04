@@ -119,7 +119,7 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
        corruption that never self-heals. Discarding it (treat as empty) makes
        the next write regenerate a clean file from defaults. */
     if (buffersize > 0 && memchr(buffer, 0, (size_t)buffersize) != NULL) {
-        Log_Warn("DefFileBufferInit: config has embedded NULs (corrupt) — discarding");
+        Log_Warn("DefFileBufferInit: config has embedded NULs (corrupt) - discarding");
         buffersize = 0;
     }
 
