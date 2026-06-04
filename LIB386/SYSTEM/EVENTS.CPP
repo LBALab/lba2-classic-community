@@ -2,7 +2,7 @@
 
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD.H>
-#include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/WINDOW.H>
@@ -41,11 +41,7 @@ bool InitEvents() {
     assert(eventSystemInitialized == false);
 
     if (!SDL_InitSubSystem(SDL_INIT_EVENTS)) {
-        const char *errorMsg = SDL_GetError();
-        LogPrintf("Error: Unable to initialize SDL Events subsystem.\n"
-                  "\tSDL Message: %s\n",
-                  errorMsg);
-
+        Log_Error("Event system init failed: %s", SDL_GetError());
         eventSystemInitialized = false;
         return false;
     }
