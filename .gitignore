@@ -7,6 +7,8 @@ dist/
 
 # Local retail drop (symlink or copy classic data here; never commit assets)
 /data/
+# Scratch dir for CD-image / HQR / ACF exploration (extracted assets — never commit)
+/.tc-scratch/
 /build_test
 /build_logs/
 .tmp/
