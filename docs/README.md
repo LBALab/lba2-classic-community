@@ -21,6 +21,19 @@ Index of documentation in this repository.
 | [SPRITES.md](SPRITES.md) | Sprite system: UI / world-extra / 3D-anim lanes, `ScaleSprite` vs `ScaleSpriteTransp`, perspective scale (`CalculeScaleFactorSprite`), sort-tree integration. Magic-ball case study. |
 | [LBA_EDITOR.md](LBA_EDITOR.md) | What `LBA_EDITOR`/`PERSO` paths still do: editor capabilities, runtime hooks, and likely missing pieces. |
 
+## Architecture
+
+The engine mapped as a whole: layers, the engine/game membrane, and the on-disk data contract. Start with [ARCHITECTURE.md](ARCHITECTURE.md).
+
+| Doc | Description |
+|-----|-------------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Overview + roadmap: the three axes (structure / layer / time), the engine/game membrane, the north-star (one engine, two games). |
+| [ARCHITECTURE_GLOBALS.md](ARCHITECTURE_GLOBALS.md) | Structure axis: which of the ~200 globals each domain owns; the shared-state bus. |
+| [ENGINE_GAME_SEAM.md](ENGINE_GAME_SEAM.md) | Layer axis: engine vs game vs platform, with every module pinned (live/dormant) and the dual-path format seams. |
+| [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md) | The engine↔game membrane: the Life/Track per-object script VM. |
+| [ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md) | Data contract: the Adeline on-disk formats (HQR, LZ, body, anim, sprite, samples, XMIDI, XCF), each with its cross-title version timeline. |
+| [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md) | Per-subsystem cost of hosting LBA1 on this engine; verified against LBA1 retail data. |
+
 ## Build & debug
 
 | Doc | Description |
