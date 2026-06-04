@@ -36,9 +36,9 @@ Same format: `[U32 total]`, a table of U32 offsets, each blob prefixed by
 uses methods 0 (stored) / 1 (LZS); LBA2 (`LIB386/SYSTEM/HQFILE.CPP`, `HQR.H:16`: "0 stored,
 1 LZSS, 2 LZMIT") reads `method <= 2`. The buffered LRU manager (`HQR_Init_Ressource`/
 `HQR_Get`/`HQR_Del_Bloc`) is the same design on both sides. **LBA1 HQRs load on the LBA2
-engine unchanged.** One thing to verify: the `CompressMethod + 1` reindex in
-`HQF_LoadClose` suggests the LZ enum was renumbered — confirm LBA1 method-1 blobs decompress
-byte-identical.
+engine unchanged.** **Verified (2026-06-04)** with `scripts/dev/hqr_inspect.py`: all 14
+LBA1 HQRs read with the LBA2 tool, only methods 0/1 appear (no LZMIT), and LZSS entries
+decompress to their exact declared sizes. See "Verified against LBA1 retail data" below.
 
 ### 2. 3D body / model — needs a transcoder
 
@@ -145,8 +145,9 @@ opcode-remap table).
 
 1. **Exact LBA1 body poly-record byte layout** vs LBA2 `STRUC_POLY3` / `T_BODY_HEADER` —
    byte-diff one real body from each game. Gates models *and* anims.
-2. **LZS vs LZSS decompressor equivalence** — the `CompressMethod + 1` reindex hints at an
-   enum renumber; confirm LBA1 method-1 blobs decompress byte-identical.
+2. **LZS vs LZSS decompressor equivalence** — *substantially verified* (2026-06-04): LBA2's
+   `ExpandLZ` decompresses LBA1 method-1 blobs to their exact declared sizes (BODY/SCENE
+   samples). A direct byte-diff against LBA1's own `Expand` output would close it fully.
 3. **Shared-opcode operand encodings** — opcode numbers 0–56 align; confirm each reads the
    same operand widths/order in both `GERELIFE`/`GERETRAK`.
 4. **Sprite record header** layout (LBA1 `INCRUST.C` vs LBA2 `INCRUST.CPP`).
@@ -156,3 +157,36 @@ opcode-remap table).
 **Net:** the engine is overwhelmingly capable of hosting LBA1 content because it is the same
 codebase one generation on. The work is concentrated in **format transcoders + a script
 opcode remap + replacing the FLA/MIDI media stack** — not in re-architecting any subsystem.
+
+## Verified against LBA1 retail data (2026-06-04)
+
+Ran `scripts/dev/hqr_inspect.py` (the lba2cc HQR reader) against the LBA1 retail archives in
+`../LBA1`. **Every one parsed with the LBA2 tool — the container format is drop-in.**
+
+| HQR | Present | Compression | Note |
+|---|---|---|---|
+| BODY | 132 | LZSS | 3D models |
+| ANIM | 516 | LZSS | animations |
+| FILE3D | 82 | stored | |
+| INVOBJ | 28 | LZSS | inventory objects |
+| SPRITES | 118 | LZSS + stored | |
+| SCENE | 120 | LZSS | script-bearing scene blobs |
+| RESS | 53 | LZSS + stored | palette/font/etc. |
+| TEXT | 140 | LZSS + stored | |
+| SAMPLES | 230 | LZSS + stored | sound effects |
+| MIDI_MI / MIDI_SB | 33 each | LZSS + stored | MIDI music (the media wall) |
+| LBA_GRI | 134 | LZSS | scene grids |
+| LBA_BLL | 134 | LZSS | block libraries |
+| LBA_BRK | 8715 | LZSS + stored | brick atlas |
+
+- **Only methods 0 (stored) and 1 (LZSS) appear — no LZMIT (method 2) anywhere.** LZMIT was
+  an LBA2 addition, so the LBA2 reader is a strict superset for LBA1 data (verdict #1).
+- **The LZSS decompressor round-trips.** BODY entry 1 (csize 4288 → 6858) and SCENE entry 1
+  (3211 → 4247) decompress to their exact declared `SizeFile`. Moves unknown #2 from open to
+  substantially verified.
+- **The body header matches the analysis.** BODY entry 1 begins `Info=0x0003` then a 6×s16 ZV
+  bbox (`-253, 260, 0, 1240, -153, 200`) — a sane object bounding box, exactly the "Info word
+  + 12-byte ZV bbox" layout in verdict #2. The per-poly records below still want a full
+  byte-diff (unknown #1), but the format's front is confirmed.
+- The 134 / 134 / 8715 GRI / BLL / BRK split is real, with matched grid↔block-library counts —
+  the three-HQR background packaging from verdict #4.
