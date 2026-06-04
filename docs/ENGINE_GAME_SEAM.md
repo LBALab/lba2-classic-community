@@ -79,8 +79,10 @@ In `lba2-classic` but not `lba1-classic`. Two sub-kinds:
   `EXTFUNC`/`PTRFUNC` (script function tables), `INPUT`/`JOYSTICK`/`KEYB` (input split
   out), `MEM`, `SAVEGAME`, `CONFIG`, `FLOW`, `PLAYACF` (video), `SCAN`, `VALIDPOS`.
 - **LBA2 game content:** `BUGGY`, `WAGON`, `DART`, `INVENT`, `CHEATCOD`, `COMPORTE`,
-  `HERCULE`, `IMPACT`, `MESSTWIN`, and the holomap (`HOLO`, `HOLOBODY`, `HOLOGLOB`,
-  `HOLOPLAN` — LBA1's single `HOLOMAP` re-grown).
+  `IMPACT`, `MESSTWIN`, and the holomap (`HOLO`, `HOLOBODY`, `HOLOGLOB`,
+  `HOLOPLAN` — LBA1's single `HOLOMAP` re-grown). (`HERCULE` was grouped here in v0 but the
+  per-module pin reclassifies it as **platform / dormant** — the Hercules debug display, not
+  game content.)
 
 ### Layer 3 — community / port additions (in this fork only)
 
@@ -101,6 +103,143 @@ touched the engine core or the game — it has been building the platform layer 
 `ADFLI_A` `BALANCE` `BUBSORT` `CPYMASK` `FLA` `FLIPBOX` `HOLOMAP` `MCGA` `MIXER` `PLAYFLA` —
 old platform tech (`MCGA` display, `FLA`/`PLAYFLA` video, `MIXER`/`BALANCE` audio,
 `BUBSORT`). Confirms the churn between titles was mostly *platform*, not game logic.
+
+## Per-module label table (pinned, v1)
+
+The layer narrative above is grouped and v0; this section *pins every module* with a concrete
+label, resolving the caveat "pin per-module before relying on a tag." It uses **two axes**,
+because they are genuinely orthogonal:
+
+- **Layer** — `engine` (reusable Adeline substrate), `game` (LBA2-specific logic/content),
+  `platform` (host/OS/port abstraction). `engine·platform` marks a module that is split
+  (an engine mechanism with a platform-specific tail).
+- **Status** — `live` (built into the shipping binary and reached) or **`dormant`** (present
+  in the tree but **not built or not called**). The directory layout does not encode this —
+  a reusable *engine* codec (`DEC_XCF`) can be dormant, while a *platform* shim is live. The
+  cross-title work surfaced the dormant axis: code one game exercises and another doesn't is
+  engine **heritage**, not cruft (see the SDK timeline note below).
+
+> Verification basis: `SOURCES/CMakeLists.txt` built sets (`SOURCES_FILES`, `…_ASM`,
+> `…_WIN/_MACOS` are linked; `…_DOS`, `…_ASM_DOS` are **not**), plus a no-caller / not-included
+> check for each module. ASM↔CPP rule below.
+
+**ASM vs CPP.** Every `LIB386/**/*.ASM` and `SOURCES/*.ASM` is the original Adeline assembly,
+kept as `reference`; the live code is the same-named `.CPP` port. Exceptions where *both* are
+dormant: `COPY`, `DEC`, `DEC_XCF`, `HERCUL_A`, `KEYB`.
+
+### LIB386 — the engine kernel + platform backends
+
+| Module | Layer | Status | Role |
+|---|---|---|---|
+| `3D` | engine | live | Projection, rotation, matrices, camera |
+| `ANIM` | engine | live | Animation frames + interpolation |
+| `OBJECT` | engine | live | 3D object display (`AFF_OBJ`) |
+| `pol_work` | engine | live | Polygon fillers (flat/gouraud/textured/zbuf/fog) |
+| `SVGA` | engine·platform | live | Rasteriser (engine) + mode/screen setup (platform) |
+| `SYSTEM` | engine·platform | live | HQR + file format (engine); keyboard/mouse/timer/IO (platform) |
+| `MENU` | engine | live | Menu primitives |
+| `AIL/` (interface) | engine | live | Audio abstraction (samples/music/mixing) |
+| `AIL/SDL` | platform | live | Active audio backend (SDL3) |
+| `AIL/NULL` | platform | live | Null audio backend (stub) |
+| `AIL/MILES` | platform | dormant | DOS Miles Sound System backend |
+| `FILEIO` | platform | live | File IO + `SAVEPNG` (port infra) |
+| `SMACKER` / `libsmacker` | platform | live | Vendored Smacker decoder (LGPL) — LBA2 cinematics |
+| `VIDEO_AUDIO_RESAMPLE` | platform | live | Audio resample for video (port infra) |
+| `SNAPSHOT` | platform | live | Screenshot / test-harness capture |
+| `H` | — | — | Shared headers / type + struct contracts |
+
+### SOURCES — engine framework core (present in all three trees)
+
+| Module(s) | Layer | Status | Role |
+|---|---|---|---|
+| `GERELIFE`, `GERETRAK`, `FUNC`, `EXTFUNC` | engine | live | Life/Track **script VM** + opcode tables — the membrane |
+| `OBJECT`, `PERSO`, `EXTRA`, `FICHE` | engine | live | Entity / main-loop / projectile / object-data framework |
+| `GRILLE` | engine | live | Brick-isometric world / scene render |
+| `DISKFUNC` | engine | live | HQR resource loading |
+| `MESSAGE`, `INTEXT` | engine | live | Dialog / speech / in-game text presentation |
+| `GAMEMENU` | engine | live | Menu system |
+| `AMBIANCE` | engine | live | Ambient-audio scheduler |
+| `INCRUST`, `FIRE`, `FLOW`, `PLASMA`, `RAIN` | engine | live | Overlay / particle / effect rendering |
+| `PATCH` | engine | live | Runtime patch of compiled script/scene pointers |
+| `MEM` | engine | live | Memory management |
+| `LZSS`, `COMPRESS` | engine | live | Compression (LZSS / LZMIT) |
+| `MUSIC` | engine·platform | live | Music playback (engine logic + backend) |
+| `COMMON`, `C_EXTERN`, `DEFINES`, `GLOBAL`, `VERSION` | engine | live | Types, globals, version scaffolding (the shared bus) |
+
+### SOURCES — engine evolution (LBA2-added, engine-grade)
+
+| Module(s) | Layer | Status | Role |
+|---|---|---|---|
+| `SORT` | engine | live | Sort tree (LBA1 used `BUBSORT`) |
+| `POF`, `ZV`, `BEZIER` | engine | live | 3D model format / bounding volumes / curves |
+| `ANIMTEX` | engine | live | Animated textures |
+| `SCAN` | engine·platform | live | Key/bit-scan input helpers |
+| `VALIDPOS` | engine | live | Collision / position validation |
+| `FLOW_A`, `GRILLE_A` | engine | live | C ports of former flow / grille ASM |
+| `3DEXT/` (`TERRAIN`, `DRAWSKY`, `DECORS`, `LOADISLE`, `BOXZBUF`, `LINERAIN`, `MAPTOOLS`, `GLOBEXT`, `LBA_EXT`, `VAR_EXT`) | engine | live | Exterior 3D: terrain, sky, decor, island load, z-buffer |
+| `INITADEL` | engine | live | Engine init |
+| `PLAYACF` | engine·platform | live | Video playback — **now Smacker** (its XCF codec `DEC_XCF` is dormant) |
+| `SAVEGAME` | engine·game | live | Save system (engine mechanism + LBA2 save layout) |
+| `CONFIG` | engine·platform | live | Config load/store |
+
+### SOURCES — LBA2 game content
+
+| Module(s) | Layer | Status | Role |
+|---|---|---|---|
+| `INVENT` | game | live | Inventory |
+| `BUGGY`, `WAGON`, `DART` | game | live | Vehicles / minigames |
+| `COMPORTE` | game | live | Behaviours |
+| `CHEATCOD` | game | live | Cheat codes |
+| `IMPACT` | game | live | Impact scripts |
+| `HOLOBODY`, `HOLOGLOB`, `HOLOPLAN` | game | live | Holomap (LBA1's single `HOLOMAP`, re-grown) |
+| `MESSTWIN` | game | live | Twinsen chapter-message data tables |
+| `CREDITS`, `CREDITS_PARSE` | game | live | End credits |
+
+### SOURCES — platform / port layer (this fork)
+
+| Module(s) | Layer | Status | Role |
+|---|---|---|---|
+| `CONTROL`, `PERFTRACE`, `DEMO_SEED` | platform | live | Test harness / determinism / perf trace |
+| `RES_DISCOVERY`, `RES_MENU`, `RES_PICKER`, `RES_SWITCH`, `DIRECTORIES`, `HQR_NAMES` | platform | live | Resource discovery / data-dir routing |
+| `INPUT`, `JOYSTICK`, `TOUCH_INPUT` | platform | live | Input (SDL3 keyboard / gamepad / touch) |
+| `IMAGE_LOAD` | platform | live | Image (PCX/etc.) loading |
+| `ASSET_PREFLIGHT` | platform | live | Asset validation at boot |
+| `CONSOLE/` (`CONSOLE`, `_CMD`, `_GIVE`, `_STATE`) | platform | live | Debug console (`CONSOLE_MODULE`) |
+| `GAMEMENU_MOUSE`, `AUDIO_BALANCE`, `EXIT_SCREEN`, `FOLLOWCAM_CFG` | platform | live | QoL / port features |
+| `SAVEGAME_LOAD_BOUNDS`, `SAVENAME_VALIDATION` | platform | live | Save-path hardening |
+| `BUILD_INFO`, `EMBEDDED_CFG_WRITE` | platform | live | Build metadata / embedded default config |
+
+### Dormant register (present in tree, not in the shipping binary)
+
+The actionable cross-cut. **Do not delete without recording the heritage** — most of this is
+the Adeline engine's *other-era* surface, the evidence that LIB386 is a multi-game SDK.
+
+| Module | Would-be layer | Why dormant | Heritage |
+|---|---|---|---|
+| `DEC`, `DEC_XCF` (+`.ASM`) | engine | not built / no callers | The **XCF cinematic codec** — superseded by Smacker (`PLAYACF`→libsmacker). Decodes Time Commando `.ACF`; see [TIME_COMMANDO learning notes](TIME_COMMANDO.md). |
+| `HERCULE`, `HERCUL_A` (+`.ASM`) | platform | `…_DOS` set, not built | Hercules mono adapter (`0xB0000`) — second-monitor debug display |
+| `KEYB` (+`.ASM`) | platform | `…_ASM_DOS`, not built | DOS keyboard handler — replaced by `INPUT`/SDL3 |
+| `CRITICAL` | platform | `…_DOS` set, not built | DOS critical-error handler |
+| `COPY` (+`.ASM`) | platform | not built, source `/*`-wrapped | Frame-copy primitives — library is already pitch-aware |
+| `CONFIG/` (`MAIN`, `AFFKEY`, …) | platform | separate tool, no CMake target | Original Adeline standalone config utility |
+| `AIL/MILES` | platform | backend not selected | DOS Miles Sound System audio backend |
+| all `*.ASM` originals | (matches `.CPP`) | reference, not assembled | Original Adeline x86 — the `.CPP` port of the same name is live |
+
+### Version / dual-path seams (the SDK timeline)
+
+Several *live* modules carry **two code paths for one job** because the Adeline formats evolved
+across titles (verified against LBA1 1994 / Time Commando 1996 / LBA2 1997 retail data):
+
+| Module | Dual path | Transition it bridges |
+|---|---|---|
+| `LIB386/SYSTEM` (LZ) | LZSS **+** LZMIT | LZMIT added 1994→96 (TC already has it) |
+| `LIB386/AIL` samples | VOC **+** RIFF/WAV | VOC (LBA1) → WAV (TC, LBA2) |
+| `PLAYACF` ↔ `DEC_XCF` | Smacker (live) vs XCF (dormant) | cinematics XCF (TC) → Smacker (LBA2) |
+| `POF` / body loader | 16-bit (LBA1/TC) vs 32-bit (LBA2) coords | geometry widened 1996→97 |
+
+These seams are the SDK's backward-compatibility made physical. When labelling, a dual-path
+module is `engine` whose *liveness spans a format version boundary* — useful to flag before a
+facade assumes a single format.
 
 ## Layer tags on the eight domains
 
@@ -148,8 +287,9 @@ content** — the split is rarely a whole domain, it runs *through* each one:
 - **twin-e / TwinEngine** already runs both titles via reimplementation — feasibility is
   proven. The original-source path is harder but preservation-faithful. The concrete
   per-subsystem porting cost is assessed in [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md).
-- Layer tags here are v0 judgments from module evidence; pin per-module before relying on a
-  tag for a specific facade.
+- The domain-level tags here are coarse; the [per-module label table](#per-module-label-table-pinned-v1)
+  pins each module (layer + live/dormant) and is the authority for a specific facade. It also
+  adds the **dormant** axis the layer narrative omits.
 
 ## Related docs — the three axes
 
@@ -160,6 +300,13 @@ This map is one of three orthogonal views of the same engine; use them together:
 - **This doc** — *layer*: engine vs game vs platform (what is reusable across titles).
 - **[LIFECYCLES.md](LIFECYCLES.md)** — *time*: when state is created, mutated, destroyed
   (main-loop frame order, the `ChangeCube` phases, object/anim/behaviour state machines).
+
+And the *data contract* underneath all three:
+
+- **[ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md)** — the on-disk formats the engine reads
+  (HQR, LZ, body, anim, sprite, samples, XCF, …), at engine altitude, with the cross-title
+  version timeline. The dormant/dual-path seams in the per-module table are the codecs that
+  doc specs.
 
 The temporal axis sharpens this one twice over:
 
