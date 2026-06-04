@@ -44,6 +44,7 @@ static void test_spine_roundtrip(void) {
     Log_Warn("warn");
     Log_Error("err");
     Log_Raw("raw-line");
+    Log_Banner("banner-line");
     Log_BeginSection("Sect");
     Log_EndSection();
     Log_Shutdown();
@@ -55,6 +56,8 @@ static void test_spine_roundtrip(void) {
     ASSERT_TRUE(strstr(buf, "[WARN] warn") != NULL);
     ASSERT_TRUE(strstr(buf, "[ERROR] err") != NULL);
     ASSERT_TRUE(strstr(buf, "raw-line") != NULL);
+    ASSERT_TRUE(strstr(buf, "banner-line") != NULL);        /* LBA_CAT_BANNER round-trip */
+    ASSERT_TRUE(strstr(buf, "[INFO] banner-line") == NULL); /* verbatim, no tag */
     ASSERT_TRUE(strstr(buf, "==== Sect ====") != NULL);
     remove(TMP);
 }

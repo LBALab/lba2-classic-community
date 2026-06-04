@@ -2548,7 +2548,7 @@ int main(int argc, char *argv[]) {
        video, window). The intro banners/logos that follow are a timed slideshow,
        deliberately not included. */
     Log_Raw("");
-    Log_Raw("======== Ready in %.2fs ========", (double)subsystemsMs / 1000.0);
+    Log_Banner("======== Ready in %.2fs ========", (double)subsystemsMs / 1000.0);
 
     BufText = (U8 *)SmartMalloc(BIG_FILE_DIA);
     if (!BufText)

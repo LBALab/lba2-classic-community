@@ -22,10 +22,23 @@ typedef enum {
 
 typedef struct LogSink LogSink; /* opaque handle */
 
-/* A formatted, ready-to-print line (no trailing newline). The console buffer
- * sink calls one of these for each record — the engine passes an adapter over
- * Console_Print, keeping this core free of any SOURCES dependency. */
-typedef void (*LogLineFn)(const char *line);
+/* The kind of line reaching the console sink, so its adapter can colour
+ * structural lines (the Log_Banner bookends, section headers) distinctly from
+ * ordinary text. NORMAL lines are coloured by severity; BANNER/SECTION get the
+ * structural accent (cyan, matching the terminal sink). */
+typedef enum {
+    LOG_LINE_NORMAL = 0,
+    LOG_LINE_BANNER,
+    LOG_LINE_SECTION
+} LogLineKind;
+
+/* A formatted, ready-to-print line (no trailing newline) plus its severity and
+ * kind. The console buffer sink calls one of these for each record — the engine
+ * passes an adapter over Console_Print, keeping this core free of any SOURCES
+ * dependency. Severity/kind are handed across so the adapter can colour the line
+ * (the console shows level/structure as colour, not a text tag); the core stays
+ * palette-agnostic. */
+typedef void (*LogLineFn)(const char *line, LogSeverity sev, LogLineKind kind);
 
 /* Install the fan-out (no-op under LBA_LOG_NO_SDL) and reset the sink registry.
  * Shutdown flushes and closes sinks and uninstalls the fan-out. */
@@ -42,6 +55,11 @@ void Log_Error(const char *fmt, ...);
  * For framing/banner output (e.g. the boot header). Admitted at INFO level for
  * per-sink filtering. */
 void Log_Raw(const char *fmt, ...);
+
+/* Banner line — verbatim like Log_Raw, but the terminal sink tints it cyan (the
+ * section-header colour). For the boot log's bookend lines: the identity header
+ * and the "Ready" closer. File and console sinks print it plain. INFO level. */
+void Log_Banner(const char *fmt, ...);
 
 /* Section markers — sinks render the header in their own idiom (the file sink
  * uses "==== Title ===="). EndSection has no file-sink output; it exists for
