@@ -20,6 +20,10 @@ void GetDefaultResDir(char *outDir);     ///< Path for game resources
 /// True if \p path is a directory containing lba2.hqr (case-discovered).
 bool IsValidResourceDir(const char *path);
 
+/// True if \p path lives under the resolved resource (game-data) directory.
+/// Lets cleanup spare installed assets and only remove transient copies.
+bool Directories_IsUnderResDir(const char *path);
+
 void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);

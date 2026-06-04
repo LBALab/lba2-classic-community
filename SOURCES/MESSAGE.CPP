@@ -469,6 +469,13 @@ void ClearVoiceFile() {
     pt = TabFileOnHD;
 
     for (i = 0; i < NbFileOnHD; i++, pt++) {
+        /* Never delete installed game-data voice files: only genuine CD->HD
+           temp copies are transient. Guards the player's assets even if
+           FlagKeepVoice somehow ends up 0 (e.g. a hand-edited/corrupt cfg).
+           On an HD install every voice file lives under the resource dir, so
+           this path effectively never deletes -- the intended invariant. */
+        if (Directories_IsUnderResDir(pt->NameHD))
+            continue;
         if (FileSize(pt->NameHD)) //  On ne sait jamais,
             Delete(pt->NameHD);   // un bug est si vite arrive :-o
     }

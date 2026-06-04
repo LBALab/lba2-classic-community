@@ -148,6 +148,17 @@ bool IsValidResourceDir(const char *path) {
     return Discover(NULL, 0, path, FILE_VALID_RES_DIR);
 }
 
+bool Directories_IsUnderResDir(const char *path) {
+    // Every Get*Path under the resource tree is built by appending to
+    // directoriesResDir, so a prefix match identifies installed game data.
+    // A false positive only ever *spares* a file from deletion (the safe
+    // direction), so the simple prefix test is deliberate.
+    if (path == NULL || directoriesResDir[0] == '\0') {
+        return false;
+    }
+    return strncmp(path, directoriesResDir, strlen(directoriesResDir)) == 0;
+}
+
 // --- Initialization ----------------------------------------------------------
 void InitDirectories(const char *userDir, const char *resDir,
                      const char *cfgDir, const char *CDPrefix,
