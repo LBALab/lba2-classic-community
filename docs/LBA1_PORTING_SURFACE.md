@@ -143,10 +143,10 @@ opcode-remap table).
 
 **Biggest unknowns — need hands-on verification (a structure survey can't settle these):**
 
-1. **LBA1 body per-poly record byte layout.** The *header* is now byte-decoded (see "Body
-   header byte-diff" below) — the transcoder's outer shape is known. What remains is the
-   per-polygon record format inside the polys block (material / vertex-count / colour /
-   normal-index fields). Gates the converter's inner loop and anim group alignment.
+1. **LBA1 body per-poly record** — *resolved* (see "Per-poly record" below). Both the header
+   and the polygon-record format are decoded. The remaining body-transcoder work is
+   engineering, not reverse-engineering: n-gon triangulation, type-grouping, index-stride
+   conversion, and face-normal synthesis.
 2. **LZS vs LZSS decompressor equivalence** — *substantially verified* (2026-06-04): LBA2's
    `ExpandLZ` decompresses LBA1 method-1 blobs to their exact declared sizes (BODY/SCENE
    samples). A direct byte-diff against LBA1's own `Expand` output would close it fully.
@@ -211,6 +211,46 @@ years apart.
 
 The **transcoder's outer shape is now known**: widen the 16-bit fields to 32-bit, synthesize
 `SizeHeader` + the count/offset table, and emit groups/normals/textures sections (textures
-empty for LBA1). Remaining for unknown #1: the per-poly record bytes inside the polys block.
-(LBA2's BODY.HQR is LZMIT-compressed — method 2, absent from LBA1 — and the tool decoded it,
+empty for LBA1). (LBA2's BODY.HQR is LZMIT-compressed — method 2, absent from LBA1 — and the tool decoded it,
 confirming the reader handles both.)
+
+### Per-poly record (the transcoder's inner loop)
+
+Decoded LBA1's polygon format from its actual parser (`P_OBJET.ASM:247–368` — the `lods`
+stream *is* the on-disk layout) and LBA2's from `AFF_OBJ.INC` plus a real decode of body 1.
+
+**LBA1 — one flat, material-tagged list, variable-size records:**
+
+```
+count : U16
+per poly:
+  material : U8     # 0..10; >=9 gouraud, >=7 flat, else triste/trame
+  nbpoints : U8     # vertex count — VARIABLE (n-gon)
+  colour   : U16
+  vertices : nbpoints x  pointIndex(U16)                     # flat / triste
+           | nbpoints x [normalIndex(U16), pointIndex(U16)]  # gouraud
+```
+
+Point indices are stored pre-multiplied by the point stride.
+
+**LBA2 — type-grouped, fixed-size records.** Body 1's polys block (off 3320, 281 polys)
+opens with `STRUC_POLY_HEADER{ TypePoly=0x8000, NbPoly=2, OffNextType=32 }`, then two
+`STRUC_POLY4_LIGHT` records — the first decoding cleanly as a quad
+(`P1..P4 = 162,163,164,165  Couleur=0x10c5  Normale=148`). `OffNextType=32` = 8-byte header +
+2×12-byte records. Each type group chains to the next. Record types: `POLY3/4_LIGHT` (12 B),
+`POLY3_TEXTURE` (24 B), `POLY4_TEXTURE` (32 B), plus ENV variants — material is encoded in
+the **type word**, not a per-poly byte.
+
+**The transcoder's inner loop, fully specified (engineering, not RE):**
+
+1. **Triangulate n-gons** — LBA1 polys carry a variable `nbpoints`; LBA2 records are tri or
+   quad only, so polys with >4 vertices must be split.
+2. **Group by type** — LBA1 is a flat material-tagged list; LBA2 needs type-grouped blocks
+   with `STRUC_POLY_HEADER` + `OffNextType` chaining. Map LBA1 material → LBA2 `_LIGHT` type
+   (LBA1 has no textures).
+3. **Convert index stride** — LBA1 point indices are pre-multiplied by the point stride;
+   LBA2 uses plain `P1..Pn` indices.
+4. **Synthesize face normals** — LBA2 has a separate `NormFaces` section + per-record
+   `Normale`; LBA1 carries only per-vertex normals, and only on gouraud polys.
+
+This closes porting unknown #1: the body format is decoded end to end.
