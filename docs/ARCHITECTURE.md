@@ -65,8 +65,8 @@ interface is what lets its content run here. Detailed API spec:
    the syscall surface, and script-variable storage. The keystone for LBA1 portability.
 2. **The LBA1 ↔ LBA2 porting surface** — *mapped:* [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md).
    Per-subsystem compatible/shim/different verdicts. Headline: the engine is a strict
-   superset, so hosting LBA1 is format transcoders + a script opcode-remap + replacing the
-   FLA/MIDI media stack — not re-architecting.
+   superset, so hosting LBA1 is format transcoders + a script opcode-remap + integrating
+   GPLv2 FLA/MIDI decoders (lba-midi-play, twin-e) — not re-architecting.
 3. **The call-graph / data-flow axis** — *not yet mapped.* Who mutates the shared-bus
    offenders, and from where. The fourth axis; lives only in the code and the
    codebase-memory graph (weak on exactly this — sparse function→function edges).

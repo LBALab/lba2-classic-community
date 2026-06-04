@@ -14,7 +14,8 @@ are the same Adeline codebase one generation apart. That is *why* most content f
 up: the divergence is concentrated in **I/O wrappers, the media stack, and rendering
 capability** (and the capability gap runs the helpful direction — LBA2 is a superset). The
 work to host LBA1 is **format transcoders (bodies, scenes) + a script opcode-remap +
-replacing the FLA/MIDI media stack** — not re-architecting any subsystem.
+integrating GPLv2 FLA/MIDI decoders** (both exist upstream — see verdict 7) — not
+re-architecting any subsystem.
 
 ## Per-subsystem verdict
 
@@ -26,7 +27,7 @@ replacing the FLA/MIDI media stack** — not re-architecting any subsystem.
 | 4 | Scene / grid / cube | **Compatible model, packaging shim** | Same brick/block payloads; LBA1 3 HQRs → LBA2 merged container |
 | 5 | Sprites / palettes | **Likely compatible, verify** | Same HQR container; sprite record header needs a byte-diff |
 | 6 | Render capability | **Free win (LBA2 superset)** | Running less-capable content on a more-capable renderer |
-| 7 | Audio + video | **Fundamentally different** | FLA video + MIDI music; LBA2 has neither decoder |
+| 7 | Audio + video | **Solved upstream (GPLv2)** | FLA + MIDI have GPLv2-compatible decoders in sibling LBALab projects |
 | 8 | Script VM (Life/Track) | **Opcode-remap shim** | Same VM; opcodes 0–56 identical, collisions at 57+ |
 
 ### 1. HQR container — compatible as-is
@@ -91,17 +92,29 @@ paths. The only consequence is cosmetic: LBA1 was authored for painter's order a
 so verify LBA1 scenes look right under LBA2's sort tree and resolution scaling (the exterior
 draw-order quirk in the project notes could surface differently).
 
-### 7. Audio + video — fundamentally different (the hard wall)
+### 7. Audio + video — different stack, but solved upstream
 
-- **Video:** LBA1 = **FLA/FLI** (Autodesk-Animator-derived; `FLA.H`, `PLAYFLA.C`). LBA2 =
-  **Smacker** (`libsmacker`, `SMACKER.CPP`, `PLAYACF.CPP`). LBA2 has **no FLA decoder**.
-  LBA1 cutscenes need a new FLA player ported in, or an offline FLA→Smacker transcode.
-- **Audio:** LBA1 = DLL-driver mixer (`MIXER.C`) + separate `LIB_MIDI` and `LIB_SAMP`; uses
-  **MIDI music** (`LM_PLAY_MIDI`). LBA2 = the `AIL/` abstraction (SDL/Miles/null). Sound
-  effects live in HQR on both sides (tractable); **music + cutscenes are not drop-in**.
+Originally flagged as the hard wall — LBA1 uses **FLA/FLI** video (`FLA.H`, `PLAYFLA.C`) and
+**XMIDI music** (`MIXER.C` + `LIB_MIDI`, via `LM_PLAY_MIDI`), while LBA2 uses **Smacker**
+(`libsmacker`, `SMACKER.CPP`) and the `AIL/` audio abstraction with no FLA/MIDI decoder
+in-tree. But both halves have **GPLv2-compatible reference implementations in sibling LBALab
+projects**, and this repo is itself **GPLv2** (`LICENSE`), so they can be adapted/vendored
+directly rather than reverse-engineered:
 
-This is the biggest single chunk of net-new engine work, or it is pushed into an offline
-asset-transcode pipeline.
+- **MIDI** — [lba-midi-play](https://github.com/LBALab/lba-midi-play) (GPL-2.0, C99). The LBA
+  MIDI in `MIDI_MI.HQR` / `MIDI_SB.HQR` is **XMIDI** (Miles Sound System) in the DOS versions,
+  native SMF in the Windows port. Its isolatable `xmidi.c` converts XMIDI→SMF; bundled
+  TinySoundFont + TML synthesize to float32 stereo PCM, routable through this engine's `AIL/`
+  audio path. Drop in the converter + a soft-synth/soundfont and MIDI is solved.
+- **Video** — [twin-e `flamovies.c`](https://github.com/LBALab/twin-e/blob/main/src/flamovies.c)
+  (GPLv2). A full FLA decoder: header (V1.3, 320×200, sample table), opcode dispatch
+  (`processFrame`), RLE key/delta frames (`drawKeyFrame`/`drawDeltaFrame`), palette/fade, and
+  sample playback. It leans on twin-e's screen/sample/file abstractions, so it is *adaptable,
+  not drop-in* — re-target the decode loop at this engine's framebuffer + sample systems.
+
+So the media stack is an **integration job** (wire vendored GPLv2 decoders to the
+framebuffer/audio), not a from-scratch decoder build. The genuinely from-scratch work shifts
+to the **format transcoders** (body, scene), now fully specified above.
 
 ### 8. Script VM — opcode-remap shim
 
@@ -128,18 +141,21 @@ body alignment); brick/block/column world payloads (drop-in; only the multi-HQR 
 is work); render capability (free — LBA2 is a strict superset); script VM model (same engine,
 opcode-remap table).
 
-**Hard (genuine divergence):**
-- **FLA video + MIDI music** — LBA2 has no decoder for either. Largest net-new work, or an
-  offline transcode pipeline. *Dominant effort.*
+**Hard (genuine divergence), now the dominant effort:**
 - **3D body transcoder** — biggest per-asset format conversion (sequential entity stream →
-  offset-table `T_BODY_HEADER`); gates animation alignment.
+  offset-table `T_BODY_HEADER` with type-grouped polys; format fully decoded above); gates
+  animation alignment.
 - **Background repackaging** — three LBA1 HQRs → one LBA2 `T_BKG_HEADER` with synthesized
   per-scene `T_GRI_HEADER`.
+- **FLA video + MIDI music** — *no longer a from-scratch build*: GPLv2-compatible decoders
+  exist upstream (lba-midi-play, twin-e `flamovies.c`) and this repo is GPLv2, so the work is
+  integration against the framebuffer/audio, not reverse-engineering.
 
 ## Dominant effort and biggest unknowns
 
-**Dominant effort:** (1) the FLA/MIDI media wall (port a player or transcode offline), and
-(2) the body/scene transcoders. Everything else is wrapper-level.
+**Dominant effort:** the body/scene **format transcoders** (now fully specified — so it is
+engineering, not RE). The FLA/MIDI media stack, previously the dominant unknown, is downgraded
+to integrating existing GPLv2 decoders. Everything else is wrapper-level.
 
 **Biggest unknowns — need hands-on verification (a structure survey can't settle these):**
 
@@ -158,7 +174,7 @@ opcode-remap table).
 
 **Net:** the engine is overwhelmingly capable of hosting LBA1 content because it is the same
 codebase one generation on. The work is concentrated in **format transcoders + a script
-opcode remap + replacing the FLA/MIDI media stack** — not in re-architecting any subsystem.
+opcode remap + integrating GPLv2 FLA/MIDI decoders** — not in re-architecting any subsystem.
 
 ## Verified against LBA1 retail data (2026-06-04)
 
