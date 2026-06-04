@@ -175,6 +175,33 @@ int main() {
         CHECK(std::strcmp(target, "hello") == 0);
     }
 
+    // ── Test 5: a NUL-corrupted cfg is discarded and self-heals on write ────
+    // A partial/garbage write injects NUL bytes mid-file (the real-world repro:
+    // a process killed mid-rewrite left ~1.5 KB of NULs after the first key).
+    // The in-place load-modify-rewrite would otherwise propagate those NULs on
+    // every save — sticky corruption that never recovers. DefFileBufferInit
+    // must treat such a blob as empty so the next write regenerates a clean,
+    // NUL-free file from defaults.
+    {
+        std::string corrupt = "FlagDisplayText: ON\r\n";
+        corrupt.append(2000, '\0'); // garbage NUL block
+        corrupt += "VoiceVolume: 112\r\n";
+        WriteFile(path, corrupt);
+
+        std::vector<char> buffer(8192, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+
+        // Corrupt blob discarded -> every key reads as absent (caller defaults).
+        CHECK(DefFileBufferReadString("FlagDisplayText") == NULL);
+        CHECK(DefFileBufferReadString("VoiceVolume") == NULL);
+
+        // Next write produces a clean, NUL-free file carrying the new value.
+        CHECK(DefFileBufferWriteString("VoiceVolume", "100") == TRUE);
+        const std::string healed = ReadFile(path);
+        CHECK(healed.find('\0') == std::string::npos);
+        CHECK(healed.find("VoiceVolume: 100") != std::string::npos);
+    }
+
     std::remove(path);
     return 0;
 }
