@@ -137,13 +137,14 @@ dormant: `COPY`, `DEC`, `DEC_XCF`, `HERCUL_A`, `KEYB`.
 | `pol_work` | engine | live | Polygon fillers (flat/gouraud/textured/zbuf/fog) |
 | `SVGA` | engine·platform | live | Rasteriser (engine) + mode/screen setup (platform) |
 | `SYSTEM` | engine·platform | live | HQR + file format (engine); keyboard/mouse/timer/IO (platform) |
-| `MENU` | engine | live | Menu primitives |
+| `MENU` | engine | dormant | Menu primitives — not wired into the build (no `add_subdirectory`); superseded by `SOURCES/GAMEMENU`. Has equivalence tests. |
 | `AIL/` (interface) | engine | live | Audio abstraction (samples/music/mixing) |
 | `AIL/SDL` | platform | live | Active audio backend (SDL3) |
 | `AIL/NULL` | platform | live | Null audio backend (stub) |
 | `AIL/MILES` | platform | dormant | DOS Miles Sound System backend |
 | `FILEIO` | platform | live | File IO + `SAVEPNG` (port infra) |
-| `SMACKER` / `libsmacker` | platform | live | Vendored Smacker decoder (LGPL) — LBA2 cinematics |
+| `libsmacker` | platform | live | Vendored Smacker decoder (LGPL) — LBA2 cinematics (built when `MVIDEO_BACKEND=smacker`, the default) |
+| `SMACKER` | platform | dormant | Adeline Smacker wrapper subdir — not wired into the build |
 | `VIDEO_AUDIO_RESAMPLE` | platform | live | Audio resample for video (port infra) |
 | `SNAPSHOT` | platform | live | Screenshot / test-harness capture |
 | `H` | — | — | Shared headers / type + struct contracts |
@@ -223,7 +224,15 @@ the Adeline engine's *other-era* surface, the evidence that LIB386 is a multi-ga
 | `COPY` (+`.ASM`) | platform | not built, source `/*`-wrapped | Frame-copy primitives — library is already pitch-aware |
 | `CONFIG/` (`MAIN`, `AFFKEY`, …) | platform | separate tool, no CMake target | Original Adeline standalone config utility |
 | `AIL/MILES` | platform | backend not selected | DOS Miles Sound System audio backend |
+| `LIB386/MENU` | engine | no `add_subdirectory` | Adeline menu primitives — superseded by `SOURCES/GAMEMENU`; **has equivalence tests** |
+| `LIB386/SMACKER` | platform | no `add_subdirectory` | Adeline Smacker wrapper subdir (distinct from the live vendored `libsmacker`) |
 | all `*.ASM` originals | (matches `.CPP`) | reference, not assembled | Original Adeline x86 — the `.CPP` port of the same name is live |
+
+`LIB386/MENU` and `LIB386/SMACKER` are the two modules the Phase-0 restructure RFC
+([discussion #120](https://github.com/LBALab/lba2-classic-community/discussions/120), open question 3)
+flags for a preserve/delete/revive decision. This register is the data for that call: the
+default is **preserve** — dormant code here is the engine's other-era / other-game surface, not
+cruft (`DEC_XCF` decoding Time Commando's videos is the clearest case).
 
 ### Version / dual-path seams (the SDK timeline)
 
