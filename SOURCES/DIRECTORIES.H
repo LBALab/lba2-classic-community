@@ -36,6 +36,10 @@ void GetVoicePath(char *outPath, U16 pathMaxSize, const char *voiceFilename,
 void GetMoviePath(char *outPath, U16 pathMaxSize, const char *movieFilename);
 void GetResPath(char *outPath, U16 pathMaxSize, const char *resFilename);
 void GetLogPath(char *outPath, U16 pathMaxSize, const char *logFilename);
+/// Like GetLogPath but takes the user dir explicitly, so it works before
+/// InitDirectories (the boot log starts before game-data discovery resolves).
+void GetLogPathInDir(char *outPath, U16 pathMaxSize, const char *userDir,
+                     const char *logFilename);
 
 // =============================================================================
 #ifdef __cplusplus

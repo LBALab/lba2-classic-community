@@ -404,12 +404,17 @@ void GetResPath(char *outPath, U16 pathMaxSize, const char *resFilename) {
     DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesResDir, resFilename);
 }
 
+void GetLogPathInDir(char *outPath, U16 pathMaxSize, const char *userDir,
+                     const char *logFilename) {
+    assert((outPath != NULL) && (pathMaxSize > 0));
+    assert(userDir != NULL);
+
+    DiscoverEndingAndAppend(outPath, pathMaxSize, userDir, logFilename);
+}
+
 void GetLogPath(char *outPath, U16 pathMaxSize, const char *logFilename) {
     assert(directoriesInitialized);
-    assert((outPath != NULL) && (pathMaxSize > 0));
-
-    DiscoverEndingAndAppend(outPath, pathMaxSize, directoriesUserDir,
-                            logFilename);
+    GetLogPathInDir(outPath, pathMaxSize, directoriesUserDir, logFilename);
 }
 
 // =============================================================================
