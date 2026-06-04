@@ -228,7 +228,7 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
             return true;
         }
 
-        Log_Warn("RES_PICKER: invalid (%s) — re-prompting", state.chosen);
+        Log_Warn("RES_PICKER: invalid (%s) - re-prompting", state.chosen);
         ShowInvalidPickMessage();
         /* Loop: show picker again. */
     }
