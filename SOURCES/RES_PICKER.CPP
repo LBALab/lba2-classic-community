@@ -4,7 +4,7 @@
 #include "DIRECTORIES.H"
 
 #include "SYSTEM/LIMITS.H"
-#include "SYSTEM/LOGPRINT.H"
+#include "SYSTEM/LOG.H"
 
 #include <SDL3/SDL.h>
 
@@ -45,13 +45,12 @@ void SDLCALL OnFolderChosen(void *userdata, const char *const *filelist,
      * platform-specific quirks (trailing newlines, empty-string-on-cancel,
      * etc.) are visible in the log when something goes wrong. */
     if (filelist == NULL) {
-        LogPrintf("RES_PICKER: callback filelist=NULL, error: %s\n",
-                  SDL_GetError());
+        Log_Warn("RES_PICKER: callback filelist=NULL, error: %s", SDL_GetError());
     } else if (filelist[0] == NULL) {
-        LogPuts("RES_PICKER: callback filelist[0]=NULL (cancel)");
+        Log_Debug("RES_PICKER: callback filelist[0]=NULL (cancel)");
     } else {
-        LogPrintf("RES_PICKER: callback filelist[0]='%s' (len=%zu)\n",
-                  filelist[0], strlen(filelist[0]));
+        Log_Debug("RES_PICKER: callback filelist[0]='%s' (len=%zu)", filelist[0],
+                  strlen(filelist[0]));
     }
 
     if (filelist == NULL) {
@@ -157,8 +156,8 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
      * portal, --headless build, etc.), there's no way to show a dialog
      * and we fall back to the caller's exit. */
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
-        LogPrintf("RES_PICKER: SDL_INIT_VIDEO failed (%s); skipping picker\n",
-                  SDL_GetError());
+        Log_Warn("RES_PICKER: SDL_INIT_VIDEO failed (%s); skipping picker",
+                 SDL_GetError());
         return false;
     }
 
@@ -166,7 +165,7 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
      * folder picker pops up unannounced and feels like the app is
      * confused. The message-box-then-picker pattern matches what other
      * cross-platform games do for first-launch data discovery. */
-    LogPuts("RES_PICKER: showing 'data not found' message + folder picker...");
+    Log_Info("RES_PICKER: showing 'data not found' message + folder picker...");
     ShowDiscoveryFailedMessage();
 
     /* Default location for the picker. Home is the universal "user
@@ -197,10 +196,10 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
                  * (the "data not found" box already explained what was
                  * needed; this one explains why the picker couldn't help
                  * and what to do instead). */
-                LogPuts("RES_PICKER: dialog backend unavailable");
+                Log_Warn("RES_PICKER: dialog backend unavailable");
                 ShowDialogUnavailableMessage();
             } else {
-                LogPuts("RES_PICKER: cancelled");
+                Log_Info("RES_PICKER: cancelled");
             }
             return false;
         }
@@ -223,13 +222,13 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
          * not a special validation path; it's the same probe with a
          * different input source. */
         if (IsValidResourceDir(state.chosen)) {
-            LogPrintf("RES_PICKER: picked %s\n", state.chosen);
+            Log_Info("RES_PICKER: picked %s", state.chosen);
             strncpy(outPath, state.chosen, outMax - 1);
             outPath[outMax - 1] = '\0';
             return true;
         }
 
-        LogPrintf("RES_PICKER: invalid (%s) — re-prompting\n", state.chosen);
+        Log_Warn("RES_PICKER: invalid (%s) — re-prompting", state.chosen);
         ShowInvalidPickMessage();
         /* Loop: show picker again. */
     }
