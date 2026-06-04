@@ -8,7 +8,7 @@
 
 ## Why this axis, and why the module level
 
-The engine/game line matters because of a real prospect: `~/code/lba-hacking/lba1-classic`
+The engine/game line matters because of a real prospect: the `lba1-classic` community source
 is the **LBA1 original Adeline source** (Relentless, 1994) — same lineage as this repo,
 same `LIB386/`+`SOURCES/` layout, same HQR format. One day LBA1 content could run on this
 engine. Even before then, LBA1 is useful *now*: it tells us empirically where the

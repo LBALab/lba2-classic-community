@@ -9,7 +9,7 @@
 
 ## Summary
 
-LBA1 (`~/code/lba-hacking/lba1-classic`, 1994, C+ASM) and this engine (LBA2, 1997 + port)
+LBA1 (the `lba1-classic` community source, 1994, C+ASM) and this engine (LBA2, 1997 + port)
 are the same Adeline codebase one generation apart. That is *why* most content formats line
 up: the divergence is concentrated in **I/O wrappers, the media stack, and rendering
 capability** (and the capability gap runs the helpful direction — LBA2 is a superset). The
@@ -179,7 +179,7 @@ opcode remap + integrating GPLv2 FLA/MIDI decoders** — not in re-architecting 
 ## Verified against LBA1 retail data (2026-06-04)
 
 Ran `scripts/dev/hqr_inspect.py` (the lba2cc HQR reader) against the LBA1 retail archives in
-`../LBA1`. **Every one parsed with the LBA2 tool — the container format is drop-in.**
+a local LBA1 install. **Every one parsed with the LBA2 tool — the container format is drop-in.**
 
 | HQR | Present | Compression | Note |
 |---|---|---|---|

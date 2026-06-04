@@ -6,7 +6,7 @@
 
 ## North-star: one engine, two games
 
-`~/code/lba-hacking/lba1-classic` (LBA1, Relentless, 1994) and this repo (LBA2, 1997 +
+The LBA1 community source (`lba1-classic`, Relentless, 1994) and this repo (LBA2, 1997 +
 community port) share the Adeline lineage — same `LIB386/`+`SOURCES/` layout, same HQR
 format, same Life/Track script model. The long-term prospect is to understand the engine
 well enough that **LBA1 content could run on the lba2cc engine**. That port is not the
