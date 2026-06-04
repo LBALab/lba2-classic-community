@@ -87,8 +87,8 @@ void ShowInvalidPickMessage(void) {
         "Game data not found",
         "This folder doesn't contain lba2.hqr.\n\n"
         "Please pick the folder containing your retail Little Big "
-        "Adventure 2 install — the one with lba2.hqr, music/, video/, "
-        "vox/, etc.",
+        "Adventure 2 install (the one with lba2.hqr, music/, video/, "
+        "vox/, etc.).",
         NULL);
 }
 
@@ -120,8 +120,8 @@ void ShowDiscoveryFailedMessage(void) {
         "Game data folder not found",
         "Little Big Adventure 2 retail game data wasn't found in any of "
         "the usual places.\n\n"
-        "Please pick the folder containing your LBA2 install — the one "
-        "with lba2.hqr, music/, video/, vox/, etc.\n\n"
+        "Please pick the folder containing your LBA2 install (the one "
+        "with lba2.hqr, music/, video/, vox/, etc.).\n\n"
         "Your choice will be remembered for future launches.",
         NULL);
 }
@@ -140,7 +140,7 @@ void ShowDialogUnavailableMessage(void) {
         "    sudo apt install zenity\n"
         "    (or: pacman -S zenity / dnf install zenity)\n\n"
         "For native-styled dialogs on KDE / GNOME / Hyprland, install\n"
-        "the matching xdg-desktop-portal package — see docs/GAME_DATA.md\n"
+        "the matching xdg-desktop-portal package. See docs/GAME_DATA.md\n"
         "section 'Picker backends per environment'.\n\n"
         "Or skip the picker entirely: launch from a terminal with\n"
         "    lba2cc --game-dir /path/to/your/lba2/install\n"
