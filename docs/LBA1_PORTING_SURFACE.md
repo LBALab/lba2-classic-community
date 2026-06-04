@@ -143,8 +143,10 @@ opcode-remap table).
 
 **Biggest unknowns — need hands-on verification (a structure survey can't settle these):**
 
-1. **Exact LBA1 body poly-record byte layout** vs LBA2 `STRUC_POLY3` / `T_BODY_HEADER` —
-   byte-diff one real body from each game. Gates models *and* anims.
+1. **LBA1 body per-poly record byte layout.** The *header* is now byte-decoded (see "Body
+   header byte-diff" below) — the transcoder's outer shape is known. What remains is the
+   per-polygon record format inside the polys block (material / vertex-count / colour /
+   normal-index fields). Gates the converter's inner loop and anim group alignment.
 2. **LZS vs LZSS decompressor equivalence** — *substantially verified* (2026-06-04): LBA2's
    `ExpandLZ` decompresses LBA1 method-1 blobs to their exact declared sizes (BODY/SCENE
    samples). A direct byte-diff against LBA1's own `Expand` output would close it fully.
@@ -190,3 +192,25 @@ Ran `scripts/dev/hqr_inspect.py` (the lba2cc HQR reader) against the LBA1 retail
   byte-diff (unknown #1), but the format's front is confirmed.
 - The 134 / 134 / 8715 GRI / BLL / BRK split is real, with matched grid↔block-library counts —
   the three-HQR background packaging from verdict #4.
+
+### Body header byte-diff
+
+Dumped BODY entry 1 from each game (`hqr_inspect.py --dump`) and decoded the headers against
+the two layouts (LBA1 `P_OBJET.ASM`; LBA2 `T_BODY_HEADER`, `AFF_OBJ.H:96`). Both entry-1
+bodies share `YMax`=1240 and a tall narrow footprint — almost certainly both Twinsen, three
+years apart.
+
+| Field | LBA1 | LBA2 |
+|---|---|---|
+| Info / version | `U16` (=3) | `S32` (=272) |
+| Header size | implicit (14 B) | explicit `SizeHeader`=96 + `Dummy` |
+| Bounding box | 6× **s16** (12 B): X[-253,260] Y[0,1240] Z[-153,200] | 6× **S32** (24 B): X[-250,250] Y[0,1240] Z[-250,250] |
+| Element access | **sequential** blocks (polys → lines → spheres) | explicit **count+offset table** (random access) |
+| Sections | polys, lines, spheres | groups, points, normals, normFaces, polys, lines, spheres, **textures** |
+| Compression in BODY.HQR | LZSS (method 1) | **LZMIT** (method 2) |
+
+The **transcoder's outer shape is now known**: widen the 16-bit fields to 32-bit, synthesize
+`SizeHeader` + the count/offset table, and emit groups/normals/textures sections (textures
+empty for LBA1). Remaining for unknown #1: the per-poly record bytes inside the polys block.
+(LBA2's BODY.HQR is LZMIT-compressed — method 2, absent from LBA1 — and the tool decoded it,
+confirming the reader handles both.)
