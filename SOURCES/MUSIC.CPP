@@ -2,6 +2,8 @@
 
 #include "DIRECTORIES.H"
 
+#include <SYSTEM/LOG.H>
+
 /*══════════════════════════════════════════════════════════════════════════*
 				  █▀▀▀▀ █▀▀▀▄
 				  ██    ██  █
@@ -83,6 +85,7 @@ char ListJingle[NB_JINGLE][9] = {
 void InitJingle(void) {
     OpenStream(); // init Stream System
     SetVolumeJingle(JingleVolume);
+    InstallFocusAudioHooks(); // pause music/samples while the window is unfocused
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -232,6 +235,9 @@ void InitTabTracks(void) {
 // sur du Streaming ADPCM
 
 void PlayMusic(S32 num, S32 playit) {
+    if (MusicLogIsEnabled())
+        Log_Info("[MUSIC] PlayMusic num=%d playit=%d", (int)num, (int)playit);
+
     NextMusic = -1;
 
     if (num != -1) {
@@ -300,6 +306,8 @@ S32 GetMusic(void) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void StopMusic(void) {
+    if (MusicLogIsEnabled())
+        Log_Info("[MUSIC] StopMusic");
 #ifdef CDROM
     StopCD();
 #endif
@@ -309,6 +317,9 @@ void StopMusic(void) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void PauseMusic(S32 fade) {
+    if (MusicLogIsEnabled())
+        Log_Info("[MUSIC] PauseMusic fade=%d", (int)fade);
+
     SaveTimer();
 
     if (fade)
@@ -332,6 +343,9 @@ void PauseMusic(S32 fade) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void ResumeMusic(S32 fade) {
+    if (MusicLogIsEnabled())
+        Log_Info("[MUSIC] ResumeMusic fade=%d", (int)fade);
+
     SaveTimer();
 
     if (fade) {
@@ -341,8 +355,17 @@ void ResumeMusic(S32 fade) {
         SetVolumeJingle(0);
     }
 
+    // Pause/Resume is a reversible pair: PauseMusic() parked the CD/stream and
+    // ResumeMusic() unparks it. The matching backend Resume owns the playback
+    // position -- the SDL backend keeps the paused device stream alive, while a
+    // redbook/ISO backend re-seeks the saved sector. So the layer must NOT Stop
+    // here: a Stop is destructive on a streamed backend (it tears down the SDL
+    // stream, leaving ResumeCD/ResumeStream with nothing to resume) and buys
+    // nothing on redbook (PauseCD already halted the drive; ResumeCD replays
+    // from the saved position). The original Adeline code called StopMusic()
+    // first -- a harmless no-op on MILES redbook, but it silently killed the
+    // SDL stream, so music never came back after the in-game menu / dialogue.
 #ifdef CDROM
-    StopMusic();
     ResumeCD();
 #endif
     ResumeStream();

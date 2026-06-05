@@ -431,6 +431,7 @@ void HandleEventsWindow(const void *event) {
     switch (sdlEvent->type) {
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         AppActive = true;
+        AppFocusAudio_OnChange(true);
         if (sdlWindow != NULL) {
             ApplyGameWindowHideSystemCursor();
         }
@@ -442,6 +443,7 @@ void HandleEventsWindow(const void *event) {
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
         AppActive = false;
+        AppFocusAudio_OnChange(false);
         break;
     case SDL_EVENT_WINDOW_RESIZED:
         if ((sdlRenderer != NULL) && (sdlTexture != NULL)) {
