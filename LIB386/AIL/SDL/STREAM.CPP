@@ -12,11 +12,34 @@
 #define ADELINE_MAX_PATH 512
 #endif
 
+/* stb_vorbis seek/length entry points. The project's trimmed stb_vorbis.h only
+   exposes the decode subset; the full pulldata API (compiled in stb_vorbis.c) is
+   declared here so ResumeStream can re-seek a re-opened file. */
+extern "C" {
+int stb_vorbis_seek_frame(stb_vorbis *f, unsigned int sample_number);
+unsigned int stb_vorbis_stream_length_in_samples(stb_vorbis *f);
+}
+
 /* ── Core stream state ─────────────────────────────────────────────────── */
 
 static SDL_AudioStream *stream = NULL;
 static char streamPathName[ADELINE_MAX_PATH] = "";
 static bool streamPaused = false;
+
+/* Geometry of the source PCM currently feeding `stream`, used to convert the
+   queued-byte backlog into a frame offset (see StreamPositionFrames). */
+static int streamBytesPerFrame = 0;
+static SDL_AtomicInt streamPushedBytes; // total source bytes handed to `stream`
+
+/* Parked playback position for a pause that outlives its stream. PauseStream
+   snapshots {path, frame}; ResumeStream either cheap-unpauses the still-alive
+   stream or re-opens the file and seeks back here. Mirrors the MILES redbook
+   wrapper's Cur/End/PausedTrack (LIB386/AIL/MILES/CD.CPP): the snapshot survives
+   a StopStream/PlayStream in between (e.g. the menu theme) and is cleared only on
+   resume or OpenStream. */
+static char rememberedPath[ADELINE_MAX_PATH] = "";
+static S32 rememberedFrame = 0;
+static bool hasRemembered = false;
 
 S32 streamVolume = 0;
 static int musicLogEnabled = 0;
@@ -61,6 +84,7 @@ typedef struct {
     stb_vorbis *vorbis;
     int channels;
     int sample_rate;
+    bool cacheResult; // false when decoding from a mid-file seek (partial PCM)
     char oggPath[ADELINE_MAX_PATH];
 } DecodeThreadData;
 
@@ -79,7 +103,9 @@ static int SDLCALL DecodeThreadFunc(void *userdata) {
             break;
 
         int chunkShorts = n * d->channels;
-        SDL_PutAudioStreamData(stream, buf, chunkShorts * (int)sizeof(short));
+        int chunkBytes = chunkShorts * (int)sizeof(short);
+        SDL_PutAudioStreamData(stream, buf, chunkBytes);
+        SDL_AddAtomicInt(&streamPushedBytes, chunkBytes);
 
         if (totalShorts + chunkShorts > capacity) {
             int newCap = (capacity == 0) ? 131072 : capacity * 2;
@@ -100,7 +126,7 @@ static int SDLCALL DecodeThreadFunc(void *userdata) {
 
     stb_vorbis_close(d->vorbis);
 
-    if (!SDL_GetAtomicInt(&decodeStop) && fullPcm && totalShorts > 0) {
+    if (!SDL_GetAtomicInt(&decodeStop) && d->cacheResult && fullPcm && totalShorts > 0) {
         short *trimmed = (short *)realloc(fullPcm, (size_t)totalShorts * sizeof(short));
         ClearOggCache();
         oggCache.pcm = trimmed ? trimmed : fullPcm;
@@ -128,6 +154,22 @@ static void StopDecodeThread(void) {
     SDL_SetAtomicInt(&decodeActive, 0);
 }
 
+/* Current playback offset in source frames: everything pushed to the stream
+   minus what is still queued (not yet consumed by the device). Works while the
+   decode thread is still filling the stream because both sides count source
+   bytes. The device's own buffer makes this a slight overestimate (tens of ms),
+   which is fine for re-seeking music. */
+static S32 StreamPositionFrames(void) {
+    if (!stream || streamBytesPerFrame <= 0)
+        return 0;
+    int pushed = SDL_GetAtomicInt(&streamPushedBytes);
+    int queued = (int)SDL_GetAudioStreamQueued(stream);
+    int consumed = pushed - queued;
+    if (consumed < 0)
+        consumed = 0;
+    return (S32)(consumed / streamBytesPerFrame);
+}
+
 /* ── Init / Stop ───────────────────────────────────────────────────────── */
 
 static void StopStreamInternal(void) {
@@ -138,6 +180,10 @@ static void StopStreamInternal(void) {
     }
     streamPathName[0] = '\0';
     streamPaused = false;
+    streamBytesPerFrame = 0;
+    SDL_SetAtomicInt(&streamPushedBytes, 0);
+    /* Deliberately keep rememberedPath/Frame: a StopStream here may be the menu
+       theme replacing parked game music, which ResumeStream must still restore. */
 }
 
 void OpenStream() {
@@ -148,6 +194,11 @@ void OpenStream() {
     }
     streamPathName[0] = '\0';
     streamPaused = false;
+    streamBytesPerFrame = 0;
+    SDL_SetAtomicInt(&streamPushedBytes, 0);
+    rememberedPath[0] = '\0';
+    rememberedFrame = 0;
+    hasRemembered = false;
     pathCacheN = 0;
     ClearOggCache();
     if (musicLogEnabled)
@@ -251,8 +302,11 @@ static bool ResolveOggPath(const char *wavPath, char *resolvedPath, int pathMax)
 }
 
 /* ── PlayOggFile: cache hit -> instant, cache miss -> stream decode ───── */
+/* startFrame > 0 resumes mid-file (ResumeStream restore path): the cache hit
+   pushes from a byte offset; the cache miss seeks the decoder and skips caching
+   the resulting partial PCM. */
 
-static bool PlayOggFile(const char *oggPath) {
+static bool PlayOggFile(const char *oggPath, S32 startFrame) {
     if (oggCache.pcm && strcmp(oggCache.path, oggPath) == 0) {
         SDL_AudioSpec spec;
         SDL_zero(spec);
@@ -262,7 +316,15 @@ static bool PlayOggFile(const char *oggPath) {
         stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
         if (!stream)
             return false;
-        SDL_PutAudioStreamData(stream, oggCache.pcm, oggCache.numBytes);
+        streamBytesPerFrame = oggCache.channels * (int)sizeof(short);
+        Uint32 offsetBytes = (startFrame > 0)
+                                 ? (Uint32)startFrame * (Uint32)streamBytesPerFrame
+                                 : 0;
+        if (offsetBytes > oggCache.numBytes)
+            offsetBytes = oggCache.numBytes;
+        Uint32 playBytes = oggCache.numBytes - offsetBytes;
+        SDL_PutAudioStreamData(stream, oggCache.pcm + offsetBytes / sizeof(short), playBytes);
+        SDL_AddAtomicInt(&streamPushedBytes, (int)playBytes);
         return true;
     }
 
@@ -277,6 +339,9 @@ static bool PlayOggFile(const char *oggPath) {
         return false;
     }
 
+    if (startFrame > 0)
+        stb_vorbis_seek_frame(v, (unsigned int)startFrame);
+
     SDL_AudioSpec spec;
     SDL_zero(spec);
     spec.freq = (int)info.sample_rate;
@@ -287,6 +352,7 @@ static bool PlayOggFile(const char *oggPath) {
         stb_vorbis_close(v);
         return false;
     }
+    streamBytesPerFrame = (int)info.channels * (int)sizeof(short);
 
     DecodeThreadData *d = (DecodeThreadData *)malloc(sizeof(DecodeThreadData));
     if (!d) {
@@ -298,6 +364,7 @@ static bool PlayOggFile(const char *oggPath) {
     d->vorbis = v;
     d->channels = (int)info.channels;
     d->sample_rate = (int)info.sample_rate;
+    d->cacheResult = (startFrame == 0); // a seeked decode yields partial PCM; don't cache it
     strncpy(d->oggPath, oggPath, ADELINE_MAX_PATH - 1);
     d->oggPath[ADELINE_MAX_PATH - 1] = '\0';
 
@@ -318,7 +385,7 @@ static bool PlayOggFile(const char *oggPath) {
 
 /* ── Public API ────────────────────────────────────────────────────────── */
 
-void PlayStream(char *name) {
+static void PlayStreamInternal(const char *name, S32 startFrame) {
     if (!name || !name[0])
         return;
 
@@ -337,7 +404,15 @@ void PlayStream(char *name) {
             SDL_free(wav_data);
             return;
         }
-        SDL_PutAudioStreamData(stream, wav_data, wav_data_len);
+        streamBytesPerFrame = (int)SDL_AUDIO_BYTESIZE(spec.format) * spec.channels;
+        Uint32 offsetBytes = 0;
+        if (startFrame > 0 && streamBytesPerFrame > 0) {
+            offsetBytes = (Uint32)startFrame * (Uint32)streamBytesPerFrame;
+            if (offsetBytes > wav_data_len)
+                offsetBytes = wav_data_len;
+        }
+        SDL_PutAudioStreamData(stream, wav_data + offsetBytes, wav_data_len - offsetBytes);
+        SDL_AddAtomicInt(&streamPushedBytes, (int)(wav_data_len - offsetBytes));
         SDL_free(wav_data);
     } else {
         char resolved[ADELINE_MAX_PATH];
@@ -351,7 +426,7 @@ void PlayStream(char *name) {
             SDL_Log("SDL AIL: Could not find '%s' or OGG fallbacks", name);
             return;
         }
-        if (!PlayOggFile(resolved)) {
+        if (!PlayOggFile(resolved, startFrame)) {
             SDL_Log("SDL AIL: Failed to decode '%s'", resolved);
             return;
         }
@@ -370,6 +445,10 @@ void PlayStream(char *name) {
 
     strncpy(streamPathName, name, ADELINE_MAX_PATH - 1);
     streamPathName[ADELINE_MAX_PATH - 1] = '\0';
+}
+
+void PlayStream(char *name) {
+    PlayStreamInternal(name, 0);
 }
 
 void ChangeVolumeStream(S32 volume) {
@@ -396,19 +475,44 @@ void StopStream() {
 
 void PauseStream() {
     if (stream && !streamPaused) {
+        /* Park the position so a later Resume can restore even if a different
+           stream (e.g. the in-game menu theme) plays and tears this one down in
+           the meantime. MILES does the same in PauseCD (save Cur/End/track). */
+        strncpy(rememberedPath, streamPathName, ADELINE_MAX_PATH - 1);
+        rememberedPath[ADELINE_MAX_PATH - 1] = '\0';
+        rememberedFrame = StreamPositionFrames();
+        hasRemembered = true;
         if (musicLogEnabled)
-            SDL_Log("[MUSIC] PauseStream");
+            SDL_Log("[MUSIC] PauseStream park=%s frame=%d", rememberedPath, (int)rememberedFrame);
         SDL_PauseAudioStreamDevice(stream);
         streamPaused = true;
     }
 }
 
 void ResumeStream() {
-    if (stream && streamPaused) {
+    /* Fast path: the parked stream is still alive and paused -> just unpause the
+       device. This is the dialogue/holomap case (nothing played in between). */
+    if (stream && streamPaused && hasRemembered && strcmp(streamPathName, rememberedPath) == 0) {
         if (musicLogEnabled)
-            SDL_Log("[MUSIC] ResumeStream");
+            SDL_Log("[MUSIC] ResumeStream unpause %s", streamPathName);
         SDL_ResumeAudioStreamDevice(stream);
         streamPaused = false;
+        hasRemembered = false;
+        return;
+    }
+
+    /* Restore path: a different stream replaced the parked one (the menu theme
+       played between Pause and Resume), so re-open the parked file and seek back
+       to where it was. Mirrors MILES ResumeCD replaying from the saved Cur. */
+    if (hasRemembered && rememberedPath[0]) {
+        char path[ADELINE_MAX_PATH];
+        strncpy(path, rememberedPath, ADELINE_MAX_PATH - 1);
+        path[ADELINE_MAX_PATH - 1] = '\0';
+        S32 frame = rememberedFrame;
+        hasRemembered = false;
+        if (musicLogEnabled)
+            SDL_Log("[MUSIC] ResumeStream restore %s frame=%d", path, (int)frame);
+        PlayStreamInternal(path, frame);
     }
 }
 
