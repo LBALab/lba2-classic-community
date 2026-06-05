@@ -85,6 +85,7 @@ char ListJingle[NB_JINGLE][9] = {
 void InitJingle(void) {
     OpenStream(); // init Stream System
     SetVolumeJingle(JingleVolume);
+    InstallFocusAudioHooks(); // pause music/samples while the window is unfocused
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/

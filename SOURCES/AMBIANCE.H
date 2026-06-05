@@ -31,6 +31,8 @@ extern void HQ_PauseSamples(void);
 /*--------------------------------------------------------------------------*/
 extern void HQ_ResumeSamples(void);
 /*--------------------------------------------------------------------------*/
+extern void InstallFocusAudioHooks(void);
+/*--------------------------------------------------------------------------*/
 extern S32 GiveBalance(S32 xp, S32 yp, S32 distance, U32 *pan, S32 *vol);
 /*--------------------------------------------------------------------------*/
 extern U32 HQ_3D_MixSample(S32 numsample, S32 frequence, S32 decalage, S32 repeat, S32 x, S32 y, S32 z);

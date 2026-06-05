@@ -61,6 +61,8 @@ S32 GetVolumeStream() { return streamVolume; }
 void StopStream() {}
 void PauseStream() {}
 void ResumeStream() {}
+void SuspendStreamOutput() {}
+void ResumeStreamOutput() {}
 S32 IsStreamPlaying() { return FALSE; }
 char *StreamName() { return ""; }
 void MusicLogEnable(int enable) { (void)enable; }
