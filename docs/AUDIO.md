@@ -103,9 +103,11 @@ These are the C headers every backend must implement. They live in `LIB386/H/AIL
 | `ChangeVolumeStream` | `void ChangeVolumeStream(S32 volume)` | Set stream volume (0-127). |
 | `GetVolumeStream` | `S32 GetVolumeStream()` | Get current stream volume. |
 | `StopStream` | `void StopStream()` | Stop playing stream. |
-| `PauseStream` | `void PauseStream()` | Pause playing stream. |
-| `ResumeStream` | `void ResumeStream()` | Resume paused stream. |
-| `IsStreamPlaying` | `S32 IsStreamPlaying()` | TRUE if a stream is playing or paused. |
+| `PauseStream` | `void PauseStream()` | Pause playing stream (parks the resume position). |
+| `ResumeStream` | `void ResumeStream()` | Resume paused stream (from the parked position). |
+| `SuspendStreamOutput` | `void SuspendStreamOutput()` | Device-level pause that does not touch the parked position (window focus loss). |
+| `ResumeStreamOutput` | `void ResumeStreamOutput()` | Undo `SuspendStreamOutput`, unless the stream is logically paused. |
+| `IsStreamPlaying` | `S32 IsStreamPlaying()` | TRUE while a stream is actively playing; FALSE when stopped or paused. |
 | `StreamName` | `char *StreamName()` | Name of the current stream (empty if none). |
 | `MusicLogEnable` | `void MusicLogEnable(int enable)` | Toggle the `[MUSIC]`/`[CD]` trace channel (1=on, 0=off). |
 | `MusicLogIsEnabled` | `int MusicLogIsEnabled(void)` | Query whether the `[MUSIC]`/`[CD]` trace channel is on. |
@@ -276,6 +278,22 @@ Two notes on fidelity to the original. First, the original `ResumeMusic` called 
 The engine layer is otherwise unchanged: `PauseMusic`/`ResumeMusic` issue only `Pause{CD,Stream}` / `Resume{CD,Stream}` with no intervening Stop, and `OptionsMenu` still plays the menu theme. The faithfulness lives entirely in the backend. The console exposes `audio music pause [fade 0|1]` / `audio music resume [fade 0|1]` (`SOURCES/CONSOLE/CONSOLE_CMD.CPP`) to drive the seam under the harness; note that `--exec` fires in one batch, so a harness-driven park reads `frame=0` (no elapsed playback), whereas real Options usage parks a large frame.
 
 **For the planned ISO/BIN redbook backend:** keep the same contract -- `PauseCD` saves the sector, `ResumeCD` re-seeks it, and the snapshot survives a track change in between. The engine already assumes exactly this.
+
+### Audio pauses when the window loses focus
+
+Losing window focus pauses all audio and regaining it resumes from where it stopped (always on). This restores original behaviour the SDL port had dropped: the original `ApplicationInactive()` (WIN.CPP in the Adeline tree) paused the whole Miles output via `PauseMiles`/`ResumeMiles`, guarded by a `milespaused` flag, while it blocked the loop. The SDL port copied the timer half (`HandleEventsTimer` calls `LockTimer()` on `SDL_EVENT_WINDOW_FOCUS_LOST`, freezing the game clock) but not the audio half, so music kept playing on the independent SDL audio threads while the game was frozen.
+
+Wiring:
+
+- `HandleEventsWindow` (`LIB386/SYSTEM/WINDOW.CPP`) feeds the focus edge to `AppFocusAudio_OnChange()`.
+- That policy lives in `LIB386/SYSTEM/FOCUS_AUDIO.CPP` -- deliberately SDL-free so its once-per-cycle guard (pause once on loss, resume once on gain, ignore repeated same-kind edges, like `milespaused`) is host-tested (`tests/focus_audio`).
+- The audio layer registers the hooks (`InstallFocusAudioHooks`, called from `InitJingle`); `FocusLoseAudio`/`FocusGainAudio` (`SOURCES/AMBIANCE.CPP`) do the work.
+
+The hooks pause samples and music, matching the original's pause-the-whole-output behaviour. The key design point is that these are **device-level** pauses, not the engine's logical pause. Music uses `SuspendStreamOutput` / `ResumeStreamOutput`, which pause the audio device without touching the parked resume position, so losing focus while an outer `PauseStream` is active (gameplay music parked while the Options menu theme plays) does not clobber that single-slot snapshot. `ResumeStreamOutput` resumes only when the stream is not logically paused, so a focus blip during a dialogue- or menu-driven music pause does not un-pause it. Samples use the ref-counted `Pause`/`ResumeSamples`, which compose with a menu that already paused them.
+
+Fading is deliberately avoided (`PauseMusic(FALSE)`-style instant behaviour, never `HQ_PauseSamples` / a faded pause): focus loss locks the timer first (TIMER.CPP runs before WINDOW.CPP in the event pump), so a fade that waits on timer progress would never complete here.
+
+A **playing cutscene** is not handled by these hooks. Its playback loop (`SOURCES/PLAYACF.CPP`) is paced on wall-clock (`SDL_GetTicks`), independent of the game timer, so it keeps advancing while the rest of the game is frozen. Pausing only its audio there would desync it against the still-advancing video. Instead the cutscene loop freezes itself when the window is unfocused (or the console is open): it holds the current frame, pauses the cutscene audio, and on resume re-bases its wall-clock start so playback does not fast-forward to "catch up". Video and its audio therefore pause and resume together.
 
 ### Sample rate and buffer design
 
