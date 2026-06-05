@@ -59,7 +59,7 @@ AIL functions (LIB386/AIL/)
     +-- NULL  (LIB386/AIL/NULL/)    -- silent stubs for testing
 ```
 
-**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`; default: `sdl`) selects which implementation is linked. This backend-abstraction pattern could be applied to LBA1, though its audio interface differs (separate L/R volumes, runtime DLL loading, MIDI for music). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes-sourcessourcesambiance.cpp) below).
+**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`; default: `sdl`) selects which implementation is linked. This backend-abstraction pattern could be applied to LBA1, though its audio interface differs (separate L/R volumes, runtime DLL loading, MIDI for music). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes) below).
 
 The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`. Use `audio global status` to inspect `samplesPaused` ref-count and driver state without needing log mode.
 
@@ -313,11 +313,11 @@ Under WSL2 with WSLg, audio can stutter due to timing jitter. Known factors:
 
 ## Diagnostic logging
 
-All audio diagnostic logging lives at the AIL boundary (`LIB386/AIL/SDL/`). Engine files are not instrumented -- logging is toggled via the console and stays in the backend layer.
+Most audio diagnostic logging lives at the AIL boundary (`LIB386/AIL/SDL/`) and is toggled via the console. The one engine-layer exception is `SOURCES/MUSIC.CPP`, which emits high-level `[MUSIC]` transition lines (`PlayMusic`/`StopMusic`/`PauseMusic`/`ResumeMusic`) gated on the same `MusicLogIsEnabled()` toggle.
 
 ### Output
 
-Logging uses `SDL_Log()`, which outputs to stderr/NSLog (the timestamped console output). This is separate from the engine's `adeline.log` (`~/Library/Application Support/Twinsen/LBA2/adeline.log`), which uses `LogPrintf()`.
+Backend lines use `SDL_Log()`; the engine-layer `[MUSIC]` lines use `Log_Info()`. Both reach the unified logger -- `LIB386/SYSTEM/LOG.CPP` captures `SDL_Log` via `SDL_SetLogOutputFunction` -- so everything lands in both the timestamped console output (stderr/NSLog) and the engine's `adeline.log`.
 
 ### Toggle
 
@@ -331,7 +331,7 @@ Every public AIL function in the SDL backend is logged when enabled:
 | File | Logged functions |
 |------|-----------------|
 | **SAMPLE.CPP** | `PlaySample` (ALLOC/STEAL/REJECTED), `SetMasterVolumeSample`, `ChangeVolumePanSample`, `ChangePitchbendSample`, `StopOneSample`, `StopSamples`, `PauseSamples`, `ResumeSamples`, `FadeOutSamples`, `FadeInSamples` |
-| **STREAM.CPP** | `OpenStream`, `PlayStream`, `ChangeVolumeStream`, `StopStream`, `PauseStream`, `ResumeStream` |
+| **STREAM.CPP** | `OpenStream`, `PlayStream`, `ChangeVolumeStream`, `StopStream`, `PauseStream`, `ResumeStream`, `SuspendStreamOutput`, `ResumeStreamOutput` |
 | **CD.CPP** | `PlayCD`, `ChangeVolumeCD`, `StopCD`, `PauseCD`, `ResumeCD` |
 
 Trivial getters (`IsSamplePlaying`, `GetVolumeCD`, `GetVolumeStream`, `IsCDPlaying`, `IsStreamPlaying`) are not logged to avoid noise.
