@@ -166,6 +166,24 @@ void ResumeStream() {
 
 // ████████████████████████████████████████████████████████████████████████████
 
+// Device-level pause for window-focus loss: pause the output without saving a
+// resume position (PauseStream's PausedPos/PausedPathName stay untouched). A
+// logically paused stream has already been torn down (Stream == NULL), so these
+// are no-ops in that case, which is what we want.
+void SuspendStreamOutput() {
+    if (Stream)
+        AIL_pause_stream(Stream, TRUE);
+}
+
+// ████████████████████████████████████████████████████████████████████████████
+
+void ResumeStreamOutput() {
+    if (Stream)
+        AIL_pause_stream(Stream, FALSE);
+}
+
+// ████████████████████████████████████████████████████████████████████████████
+
 S32 IsStreamPlaying() {
     S32 playing;
 

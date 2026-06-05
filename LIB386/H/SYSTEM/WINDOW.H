@@ -59,6 +59,17 @@ void Window_SetVSync(int enabled);
 void ManageWindow();
 void HandleEventsWindow(const void *event);
 
+// Pause audio while the window is not focused. The window layer feeds focus
+// changes to AppFocusAudio_OnChange(); the audio/game layer registers what to
+// pause (on focus lost) and resume (on focus gained). A once-per-cycle guard
+// inside AppFocusAudio_OnChange ensures one pause and one resume per focus
+// cycle, mirroring the original PauseMiles/ResumeMiles + `milespaused`. The
+// policy lives in FOCUS_AUDIO.CPP (no SDL) so the guard is host-testable.
+// Either hook may be NULL.
+typedef void (*AppFocusAudioFn)(void);
+void SetAppFocusAudioHooks(AppFocusAudioFn onFocusLost, AppFocusAudioFn onFocusGained);
+void AppFocusAudio_OnChange(bool gainedFocus);
+
 // =============================================================================
 #ifdef __cplusplus
 }

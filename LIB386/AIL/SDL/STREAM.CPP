@@ -516,6 +516,28 @@ void ResumeStream() {
     }
 }
 
+void SuspendStreamOutput() {
+    /* Device-level pause for window-focus loss. Unlike PauseStream this does NOT
+       set streamPaused or snapshot a resume position, so it never disturbs an
+       outer PauseStream's parked {path, frame} (e.g. gameplay music parked while
+       the Options menu theme plays). Pausing an already-paused device is a no-op. */
+    if (stream) {
+        if (musicLogEnabled)
+            SDL_Log("[MUSIC] SuspendStreamOutput");
+        SDL_PauseAudioStreamDevice(stream);
+    }
+}
+
+void ResumeStreamOutput() {
+    /* Re-resume the device only if the stream is not logically paused; otherwise
+       a focus blip during a dialogue/menu music pause would un-pause it. */
+    if (stream && !streamPaused) {
+        if (musicLogEnabled)
+            SDL_Log("[MUSIC] ResumeStreamOutput");
+        SDL_ResumeAudioStreamDevice(stream);
+    }
+}
+
 S32 IsStreamPlaying() {
     if (!stream)
         return FALSE;

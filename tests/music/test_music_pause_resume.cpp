@@ -153,6 +153,10 @@ void Timer_FixedDtPump() { TimerRefHR += 16; }
 S32 DistribVersion = 0;
 S32 MasterVolume = 127;
 
+// InitJingle registers the window focus-pause hooks; the real impl lives in
+// AMBIANCE.CPP, which this host test does not link.
+void InstallFocusAudioHooks(void) {}
+
 void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename) {
     std::snprintf(outPath, pathMaxSize, "music/%s", jingleFilename ? jingleFilename : "");
 }

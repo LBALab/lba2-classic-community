@@ -66,9 +66,30 @@ void PauseStream();
 void ResumeStream();
 
 //--------------------------------------------------------------------------
-//	IsStreamPlaying :		return TRUE if a stream is playing
-//					or paused
-//					return FALSE otherwise
+//	SuspendStreamOutput :		pause the stream's audio OUTPUT only,
+//					without touching the logical pause state
+//					or the parked resume position. Used for
+//					window-focus loss (mirrors the original
+//					PauseMiles): a nested device pause that must
+//					not disturb an outer PauseStream/ResumeStream.
+//
+//	Returns	:			nothing
+//--------------------------------------------------------------------------
+void SuspendStreamOutput();
+
+//--------------------------------------------------------------------------
+//	ResumeStreamOutput :		undo SuspendStreamOutput, but only if the
+//					stream is not logically paused (so a focus
+//					blip during a dialogue/menu pause does not
+//					un-pause it).
+//
+//	Returns	:			nothing
+//--------------------------------------------------------------------------
+void ResumeStreamOutput();
+
+//--------------------------------------------------------------------------
+//	IsStreamPlaying :		return TRUE while a stream is actively
+//					playing; FALSE when stopped or paused
 //
 //	Returns	:			TRUE/FALSE
 //--------------------------------------------------------------------------
