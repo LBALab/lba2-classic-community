@@ -539,7 +539,9 @@ S32 PlayAcf(const char *name) {
 
         U8 *pal = NULL;
         U32 videoStartTicks = 0;
-        int videoFrozen = 0; // console open or window unfocused -> hold the frame
+        int videoFrozen = 0; // console open or focus lost -> hold the frame
+        int everFocused = 0; // set once the window is focused; a never-focused run
+                             // (e.g. a headless capture) then never freezes
         U32 freezeStart = 0; // SDL_GetTicks when the freeze began
         for (unsigned long c = 0; c < f; c++) {
             /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
@@ -576,12 +578,16 @@ S32 PlayAcf(const char *name) {
                 ManageTime();
                 if (MyKey == K_ESC || (Input & I_MENUS))
                     goto fin_play;
-                /* Freeze the cinematic while the console is open or the window is
-                   unfocused: hold the current frame and pause its audio. The frame
-                   clock is wall-clock based (SDL_GetTicks), so re-base it on resume,
-                   otherwise playback fast-forwards to catch up and the (paused, then
-                   resumed) audio lags the video. */
-                if (Console_IsOpen() || !AppActive) {
+                if (AppActive)
+                    everFocused = 1;
+                /* Freeze the cinematic while the console is open or the window has
+                   lost focus (only once it was focused: a never-focused window such
+                   as a headless capture keeps playing rather than freezing at frame
+                   0). Hold the current frame and pause its audio. The frame clock is
+                   wall-clock based (SDL_GetTicks), so re-base it on resume, otherwise
+                   playback fast-forwards to catch up and the (paused, then resumed)
+                   audio lags the video. */
+                if (Console_IsOpen() || (everFocused && !AppActive)) {
                     if (!videoFrozen) {
                         if (numTracks > 0)
                             PauseVideoAudio();

@@ -326,7 +326,13 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         Uint32 offsetBytes = (startFrame > 0)
                                  ? (Uint32)startFrame * (Uint32)streamBytesPerFrame
                                  : 0;
-        if (offsetBytes > oggCache.numBytes)
+        /* Leave at least one frame so a slightly-overestimated resume near EOF
+           replays a short tail instead of pushing zero bytes (matches the
+           decode-path seek clamp). */
+        Uint32 bpf = (Uint32)streamBytesPerFrame;
+        if (bpf > 0 && oggCache.numBytes >= bpf && offsetBytes > oggCache.numBytes - bpf)
+            offsetBytes = oggCache.numBytes - bpf;
+        else if (offsetBytes > oggCache.numBytes)
             offsetBytes = oggCache.numBytes;
         Uint32 playBytes = oggCache.numBytes - offsetBytes;
         SDL_PutAudioStreamData(stream, oggCache.pcm + offsetBytes / sizeof(short), playBytes);
