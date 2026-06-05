@@ -1,9 +1,12 @@
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "MUSIC.H"
 
+#include <AIL/STREAM.H>
 #include <SVGA/DIRTYBOX.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
+#include <SYSTEM/WINDOW.H>
 
 #define BCL_FADE 50
 #define FADE_DELAY 200
@@ -170,6 +173,36 @@ void HQ_ResumeSamples(void) {
     ResumeSamples();
     while (FadeInSamples(200) != 200)
         ; // 1/5 s
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+/* Pause all audio while the game window is not focused (samples, music, and a
+   playing cutscene), mirroring the original PauseMiles/ResumeMiles which paused
+   the whole output. Registered with the window layer (InstallFocusAudioHooks),
+   which fires these on the focus edge with a once-per-cycle guard.
+
+   These are device-level pauses, NOT the engine's logical PauseMusic/PauseSamples
+   pause. SuspendStreamOutput pauses the music output without touching the parked
+   resume position, so losing focus while an outer PauseStream is active (e.g.
+   gameplay music parked while the Options menu theme plays) does not clobber that
+   snapshot; ResumeStreamOutput resumes only if the stream is not logically paused.
+   Samples use the ref-counted Pause/ResumeSamples, which compose with a menu that
+   already paused them. A playing cutscene is handled in its own loop (PLAYACF.CPP
+   freezes the frame and its audio on focus loss), not here. Fading is deliberately
+   avoided: focus loss locks the timer first (TIMER.CPP runs before WINDOW.CPP in
+   the event pump), so a fade that waits on timer progress would never complete. */
+static void FocusLoseAudio(void) {
+    PauseSamples();
+    SuspendStreamOutput();
+}
+
+static void FocusGainAudio(void) {
+    ResumeStreamOutput();
+    ResumeSamples();
+}
+
+void InstallFocusAudioHooks(void) {
+    SetAppFocusAudioHooks(FocusLoseAudio, FocusGainAudio);
 }
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/

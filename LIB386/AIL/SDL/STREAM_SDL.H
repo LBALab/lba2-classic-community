@@ -10,8 +10,8 @@ extern "C" {
 
 extern S32 streamVolume;
 
-void MusicLogEnable(int enable);
-int MusicLogIsEnabled(void);
+/* MusicLogEnable / MusicLogIsEnabled are part of the abstract AIL API
+   (see <AIL/STREAM.H>); every backend provides them. */
 
 #ifdef __cplusplus
 }

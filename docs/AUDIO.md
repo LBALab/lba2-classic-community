@@ -59,7 +59,7 @@ AIL functions (LIB386/AIL/)
     +-- NULL  (LIB386/AIL/NULL/)    -- silent stubs for testing
 ```
 
-**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`; default: `sdl`) selects which implementation is linked. This backend-abstraction pattern could be applied to LBA1, though its audio interface differs (separate L/R volumes, runtime DLL loading, MIDI for music). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes-sourcessourcesambiance.cpp) below).
+**Key principle: engine code changes are minimised.** The AIL headers define the contract. Any backend implements those headers. The CMake `SOUND_BACKEND` option (`null`, `miles`, `sdl`; default: `sdl`) selects which implementation is linked. This backend-abstraction pattern could be applied to LBA1, though its audio interface differs (separate L/R volumes, runtime DLL loading, MIDI for music). Engine-side changes are only made when the original code contains latent bugs that interact with the new backend (see [Engine-side fixes](#engine-side-fixes) below).
 
 The debug console commands (`playsample`, `playmusic`, `audio sample/music/global`, etc.) call the same HQ/AIL/music functions the engine uses -- no wrapper layer, no indirection. Backend diagnostic logging can be toggled at runtime via `audio global log <0|1>`. Use `audio global status` to inspect `samplesPaused` ref-count and driver state without needing log mode.
 
@@ -103,10 +103,14 @@ These are the C headers every backend must implement. They live in `LIB386/H/AIL
 | `ChangeVolumeStream` | `void ChangeVolumeStream(S32 volume)` | Set stream volume (0-127). |
 | `GetVolumeStream` | `S32 GetVolumeStream()` | Get current stream volume. |
 | `StopStream` | `void StopStream()` | Stop playing stream. |
-| `PauseStream` | `void PauseStream()` | Pause playing stream. |
-| `ResumeStream` | `void ResumeStream()` | Resume paused stream. |
-| `IsStreamPlaying` | `S32 IsStreamPlaying()` | TRUE if a stream is playing or paused. |
+| `PauseStream` | `void PauseStream()` | Pause playing stream (parks the resume position). |
+| `ResumeStream` | `void ResumeStream()` | Resume paused stream (from the parked position). |
+| `SuspendStreamOutput` | `void SuspendStreamOutput()` | Device-level pause that does not touch the parked position (window focus loss). |
+| `ResumeStreamOutput` | `void ResumeStreamOutput()` | Undo `SuspendStreamOutput`, unless the stream is logically paused. |
+| `IsStreamPlaying` | `S32 IsStreamPlaying()` | TRUE while a stream is actively playing; FALSE when stopped or paused. |
 | `StreamName` | `char *StreamName()` | Name of the current stream (empty if none). |
+| `MusicLogEnable` | `void MusicLogEnable(int enable)` | Toggle the `[MUSIC]`/`[CD]` trace channel (1=on, 0=off). |
+| `MusicLogIsEnabled` | `int MusicLogIsEnabled(void)` | Query whether the `[MUSIC]`/`[CD]` trace channel is on. |
 
 ### CD.H -- CD audio
 
@@ -255,6 +259,42 @@ Without the Island check, loading or warping to Desert (or other exterior cubes)
 
 In the original Miles wrapper (`LIB386/AIL/MILES/SAMPLE.CPP`), `SetMasterVolumeSample` called `ChangeVolumeStream(GetVolumeStream())` to re-apply stream volume whenever master changed. The SDL backend does NOT do this -- master volume for streams is applied at the engine level via the `SetVolumeJingle` macro (which embeds `MasterVolume` scaling). This means any call to `SetMasterVolumeSample` must be paired with `SetVolumeJingle(JingleVolume)` at the call site, or the stream volume won't update. All current call sites are covered (`ReadVolumeSettings`, master slider in `GAMEMENU.CPP`). Adding the coupling inside the backend would require including engine headers, violating the architecture.
 
+### Music pause and resume are a reversible pair
+
+`PauseMusic()` and `ResumeMusic()` (`SOURCES/MUSIC.CPP`) form a reversible pair, and the **backend owns the playback position**. The SDL backend keeps the paused device stream alive; a redbook/ISO backend re-seeks the saved sector. The engine layer must therefore never `Stop` on the resume path.
+
+The reason is that `StopStream` is destructive on the SDL backend (`SDL_DestroyAudioStream` plus a decode-thread join), so a Stop during resume tears down the very stream it was meant to unpause, and `ResumeStream` then has nothing left to resume. The same Stop was a harmless no-op under MILES redbook -- `StopCD` only clears the track number, and `ResumeCD` replays from the saved position -- which is why the original Adeline code called `StopMusic()` first. That idiom did not survive the port: it silently killed the SDL stream, so music never came back after an in-game menu, Options screen, or dialogue cycle until the next `PlayMusic` (cube change, load, or scripted cue). See the `ResumeMusic` row under [Engine-side fixes](#engine-side-fixes).
+
+**One stream, shared by CD and jingles.** In the SDL backend there is a single music stream: `PlayCD`/`PauseCD`/`StopCD` (`LIB386/AIL/SDL/CD.CPP`) just forward to `PlayStream`/`PauseStream`/`StopStream`, and `IsCDPlaying()` is `cdPlaying && IsStreamPlaying()`. So the in-game menu theme and the gameplay music cannot coexist -- whichever plays last owns the one slot. This is why the in-game Options menu is the hard case: it plays the menu theme (`OptionsMenu`, under `#ifdef CDROM`) between the `PauseMusic` and `ResumeMusic` that bracket it (`PERSO.CPP`), so the menu theme's `PlayStream` tears down the paused gameplay stream. On a real CD the two could overlap because position lived in the drive, not in a stream object.
+
+**How resume preserves position (remembered stream).** This restores a mechanism the original Adeline source already had and the SDL port had dropped. The original stream layer (`ail/STREAM.CPP` in the upstream Adeline tree) parked `PausedPos` + `PausedPathName` in `PauseStream`, tore the stream down, and resumed via `PlayThisStream(PausedPathName, PausedPos)` -- a reopen-and-seek, with `PlayStream(name)` being just `PlayThisStream(name, 0)`. The CD layer did the same with `Cur`/`End`/`PausedTrack` (preserved in our MILES wrapper, `LIB386/AIL/MILES/CD.CPP`). The SDL backend re-implements that contract on SDL + stb_vorbis:
+
+- `PauseStream` snapshots `{streamPathName, frame}` and sets `hasRemembered`. The frame is `pushedBytes - SDL_GetAudioStreamQueued()` over `bytesPerFrame` (an approximation good to a device buffer; fine for music).
+- The snapshot deliberately survives the `StopStream`/`PlayStream` of the menu theme -- it is cleared only by `ResumeStream` or `OpenStream`, exactly as MILES clears `PausedTrack` only in `ResumeCD`/`OpenCD`.
+- `ResumeStream` has two paths: if the parked stream is still alive and paused (dialogue/holomap -- nothing played in between) it just unpauses the device; if a different stream replaced it (the Options menu theme) it re-opens the parked file and seeks back (`stb_vorbis_seek_frame` for OGG; a byte offset for a cached/WAV stream).
+
+Two notes on fidelity to the original. First, the original `ResumeMusic` called `StopMusic()` before `ResumeCD`/`ResumeStream`, and it was harmless precisely because `StopStream`/`StopCD` never cleared the parked `PausedPathName`/`PausedTrack` -- so the reopen still found its saved position. The SDL port had naive device pause/resume with no parked position, so that inherited `StopMusic()` destroyed the only stream; this backend keeps the parked snapshot alive across a Stop, which is why removing `StopMusic()` from the engine's `ResumeMusic` (see the row below) is safe. Second, one deliberate divergence: the original *always* reopened on resume, whereas this backend keeps a fast path -- when nothing replaced the parked stream (dialogue/holomap) it just unpauses the live device. Same audible result, no redundant re-decode.
+
+The engine layer is otherwise unchanged: `PauseMusic`/`ResumeMusic` issue only `Pause{CD,Stream}` / `Resume{CD,Stream}` with no intervening Stop, and `OptionsMenu` still plays the menu theme. The faithfulness lives entirely in the backend. The console exposes `audio music pause [fade 0|1]` / `audio music resume [fade 0|1]` (`SOURCES/CONSOLE/CONSOLE_CMD.CPP`) to drive the seam under the harness; note that `--exec` fires in one batch, so a harness-driven park reads `frame=0` (no elapsed playback), whereas real Options usage parks a large frame.
+
+**For the planned ISO/BIN redbook backend:** keep the same contract -- `PauseCD` saves the sector, `ResumeCD` re-seeks it, and the snapshot survives a track change in between. The engine already assumes exactly this.
+
+### Audio pauses when the window loses focus
+
+Losing window focus pauses all audio and regaining it resumes from where it stopped (always on). This restores original behaviour the SDL port had dropped: the original `ApplicationInactive()` (WIN.CPP in the Adeline tree) paused the whole Miles output via `PauseMiles`/`ResumeMiles`, guarded by a `milespaused` flag, while it blocked the loop. The SDL port copied the timer half (`HandleEventsTimer` calls `LockTimer()` on `SDL_EVENT_WINDOW_FOCUS_LOST`, freezing the game clock) but not the audio half, so music kept playing on the independent SDL audio threads while the game was frozen.
+
+Wiring:
+
+- `HandleEventsWindow` (`LIB386/SYSTEM/WINDOW.CPP`) feeds the focus edge to `AppFocusAudio_OnChange()`.
+- That policy lives in `LIB386/SYSTEM/FOCUS_AUDIO.CPP` -- deliberately SDL-free so its once-per-cycle guard (pause once on loss, resume once on gain, ignore repeated same-kind edges, like `milespaused`) is host-tested (`tests/focus_audio`).
+- The audio layer registers the hooks (`InstallFocusAudioHooks`, called from `InitJingle`); `FocusLoseAudio`/`FocusGainAudio` (`SOURCES/AMBIANCE.CPP`) do the work.
+
+The hooks pause samples and music, matching the original's pause-the-whole-output behaviour. The key design point is that these are **device-level** pauses, not the engine's logical pause. Music uses `SuspendStreamOutput` / `ResumeStreamOutput`, which pause the audio device without touching the parked resume position, so losing focus while an outer `PauseStream` is active (gameplay music parked while the Options menu theme plays) does not clobber that single-slot snapshot. `ResumeStreamOutput` resumes only when the stream is not logically paused, so a focus blip during a dialogue- or menu-driven music pause does not un-pause it. Samples use the ref-counted `Pause`/`ResumeSamples`, which compose with a menu that already paused them.
+
+Fading is deliberately avoided (`PauseMusic(FALSE)`-style instant behaviour, never `HQ_PauseSamples` / a faded pause): focus loss locks the timer first (TIMER.CPP runs before WINDOW.CPP in the event pump), so a fade that waits on timer progress would never complete here.
+
+A **playing cutscene** is not handled by these hooks. Its playback loop (`SOURCES/PLAYACF.CPP`) is paced on wall-clock (`SDL_GetTicks`), independent of the game timer, so it keeps advancing while the rest of the game is frozen. Pausing only its audio there would desync it against the still-advancing video. Instead the cutscene loop freezes itself when the window is unfocused (or the console is open): it holds the current frame, pauses the cutscene audio, and on resume re-bases its wall-clock start so playback does not fast-forward to "catch up". Video and its audio therefore pause and resume together.
+
 ### Sample rate and buffer design
 
 **Sample rate (22 vs 44.1 kHz):** The original Miles backend used 22,050 Hz (`LIB386/AIL/MILES/COMMON.CPP`: `SamplingRate = 22050`), a 1990s-era choice for CPU and memory constraints. The SDL backend uses 44,100 Hz (CD standard) to target modern hardware and sound quality: better frequency response (Nyquist ~22 kHz vs ~11 kHz), float mixing, and clean clipping. Game assets (often 22 kHz or 11 kHz) are resampled up.
@@ -273,16 +313,16 @@ Under WSL2 with WSLg, audio can stutter due to timing jitter. Known factors:
 
 ## Diagnostic logging
 
-All audio diagnostic logging lives at the AIL boundary (`LIB386/AIL/SDL/`). Engine files are not instrumented -- logging is toggled via the console and stays in the backend layer.
+Most audio diagnostic logging lives at the AIL boundary (`LIB386/AIL/SDL/`) and is toggled via the console. The one engine-layer exception is `SOURCES/MUSIC.CPP`, which emits high-level `[MUSIC]` transition lines (`PlayMusic`/`StopMusic`/`PauseMusic`/`ResumeMusic`) gated on the same `MusicLogIsEnabled()` toggle.
 
 ### Output
 
-Logging uses `SDL_Log()`, which outputs to stderr/NSLog (the timestamped console output). This is separate from the engine's `adeline.log` (`~/Library/Application Support/Twinsen/LBA2/adeline.log`), which uses `LogPrintf()`.
+Backend lines use `SDL_Log()`; the engine-layer `[MUSIC]` lines use `Log_Info()`. Both reach the unified logger -- `LIB386/SYSTEM/LOG.CPP` captures `SDL_Log` via `SDL_SetLogOutputFunction` -- so everything lands in both the timestamped console output (stderr/NSLog) and the engine's `adeline.log`.
 
 ### Toggle
 
 - **Console:** `audio global log <0|1>` toggles all backend logging at runtime.
-- **Contract surface:** Only `SfxLogEnable`/`SfxLogIsEnabled` (SAMPLE.H) are in the AIL contract. Internally, SDL's `SfxLogEnable` also toggles `musicLogEnabled` (STREAM.CPP) and CD logging via `MusicLogIsEnabled()` -- this wiring stays inside `LIB386/AIL/SDL/` and does not add functions to the contract or require stubs in other backends.
+- **Contract surface:** Two pairs gate logging, both part of the AIL contract: `SfxLogEnable`/`SfxLogIsEnabled` (SAMPLE.H) drive the `[SFX]` channel, and `MusicLogEnable`/`MusicLogIsEnabled` (STREAM.H) drive the `[MUSIC]`/`[CD]` channels. Because they are in the contract, every backend supplies them (the NULL and MILES backends provide trivial stubs). One toggle drives both: SDL's `SfxLogEnable` also calls `MusicLogEnable`, and the engine's `MUSIC.CPP` gates its own `[MUSIC]` lines on `MusicLogIsEnabled()`, so `audio global log 1` lights up the game-layer and backend lines together. The `MusicLog*` pair was promoted from SDL-private to the contract so MUSIC.CPP (engine layer) could gate its trace lines without depending on a backend-internal header.
 
 ### Coverage
 
@@ -291,7 +331,7 @@ Every public AIL function in the SDL backend is logged when enabled:
 | File | Logged functions |
 |------|-----------------|
 | **SAMPLE.CPP** | `PlaySample` (ALLOC/STEAL/REJECTED), `SetMasterVolumeSample`, `ChangeVolumePanSample`, `ChangePitchbendSample`, `StopOneSample`, `StopSamples`, `PauseSamples`, `ResumeSamples`, `FadeOutSamples`, `FadeInSamples` |
-| **STREAM.CPP** | `OpenStream`, `PlayStream`, `ChangeVolumeStream`, `StopStream`, `PauseStream`, `ResumeStream` |
+| **STREAM.CPP** | `OpenStream`, `PlayStream`, `ChangeVolumeStream`, `StopStream`, `PauseStream`, `ResumeStream`, `SuspendStreamOutput`, `ResumeStreamOutput` |
 | **CD.CPP** | `PlayCD`, `ChangeVolumeCD`, `StopCD`, `PauseCD`, `ResumeCD` |
 
 Trivial getters (`IsSamplePlaying`, `GetVolumeCD`, `GetVolumeStream`, `IsCDPlaying`, `IsStreamPlaying`) are not logged to avoid noise.
@@ -344,6 +384,7 @@ Volume options are persisted in lba2.cfg; see [CONFIG.md](CONFIG.md).
 | **`TrackCD[6]`: added `JINGLE` flag** | Entry 6 (menu theme, music number 8) had no `JINGLE` flag, routing it through `PlayCD()`. | `PlayCD` constructs `Track08.wav` using physical CD track numbers. The Steam/GOG distribution names its music files `track1.ogg`–`track6.ogg` (sequential, no zero-padding). No filename permutation bridges this numbering gap. | Added `JINGLE` flag so the menu theme routes through `PlayJingle` → `PlayStream`, which has OGG fallback. |
 | **`ListJingle[7]`: set to `"TADPCM6"`** | Empty string (`""`), because the menu theme was a physical CD audio track with no ADPCM stream. | With the `JINGLE` flag added above, `PlayJingle(8)` looks up `ListJingle[7]`, which was empty. | Set to `"TADPCM6"` following the existing TADPCM naming pattern. The stream layer's `track<N>.ogg` fallback resolves this to `track6.ogg`. |
 | **`FadeOutVolumeMusic`: use `ChangeVolumeStream` directly** | Fade-out loop called `SetVolumeJingle(jvolume)` where `jvolume` was derived from `GetVolumeStream()` (already a raw stream value). | With `SetVolumeJingle` now applying MasterVolume scaling, the intermediate fade values would be double-scaled. | Changed to `ChangeVolumeStream(jvolume)` for the fade loop and final zero-set, avoiding double scaling. |
+| **`ResumeMusic`: removed `StopMusic()`** | `ResumeMusic` called `StopMusic()` before `ResumeCD()`/`ResumeStream()` inside `#ifdef CDROM`, which the shipping build defines (`SOURCES/CMakeLists.txt`). | `StopStream` is destructive on the SDL backend (`SDL_DestroyAudioStream` + thread join), so the Stop tore down the paused stream and `ResumeStream` had nothing to resume. Music went silent after any in-game Pause/Options/dialogue cycle until the next `PlayMusic`. The Stop was a harmless no-op on MILES redbook (`ResumeCD` replays from the saved position), which is why the original code had it. | Removed `StopMusic()`; `ResumeCD()` + `ResumeStream()` alone are correct for every backend. See [Music pause and resume are a reversible pair](#music-pause-and-resume-are-a-reversible-pair). Guarded by a host-only spy-backend regression test (`tests/music/test_music_pause_resume.cpp`) that asserts `ResumeMusic` issues `Resume{CD,Stream}` and never `Stop{CD,Stream}`. |
 
 ### `SOURCES/AMBIANCE.CPP`
 
