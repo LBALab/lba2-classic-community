@@ -107,6 +107,12 @@ static int SDLCALL DecodeThreadFunc(void *userdata) {
         SDL_PutAudioStreamData(stream, buf, chunkBytes);
         SDL_AddAtomicInt(&streamPushedBytes, chunkBytes);
 
+        /* Only accumulate the full-track PCM when it will be cached (startFrame
+           == 0). A seeked restore decode yields partial PCM that is never cached
+           (see below), so building it here would be pure waste. */
+        if (!d->cacheResult)
+            continue;
+
         if (totalShorts + chunkShorts > capacity) {
             int newCap = (capacity == 0) ? 131072 : capacity * 2;
             while (newCap < totalShorts + chunkShorts)
@@ -339,8 +345,16 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         return false;
     }
 
-    if (startFrame > 0)
-        stb_vorbis_seek_frame(v, (unsigned int)startFrame);
+    if (startFrame > 0) {
+        /* Clamp a slightly-overestimated resume frame (StreamPositionFrames can
+           read a device-buffer ahead of true playback) so a seek past end-of-file
+           cannot leave the decoder at an undefined position or replay from 0. */
+        unsigned int lenFrames = stb_vorbis_stream_length_in_samples(v);
+        unsigned int seekFrame = (unsigned int)startFrame;
+        if (lenFrames > 0 && seekFrame >= lenFrames)
+            seekFrame = lenFrames - 1;
+        stb_vorbis_seek_frame(v, seekFrame);
+    }
 
     SDL_AudioSpec spec;
     SDL_zero(spec);
