@@ -873,6 +873,8 @@ static void cmd_audio_help_music(void) {
     Console_Print("audio music commands:");
     Console_Print("  audio music play <track> [loop 0|1]");
     Console_Print("  audio music stop");
+    Console_Print("  audio music pause [fade 0|1]");
+    Console_Print("  audio music resume [fade 0|1]");
 }
 
 static void cmd_audio_help_global(void) {
@@ -892,6 +894,8 @@ static void cmd_audio_help_root(void) {
     Console_Print("  audio sample stop_all");
     Console_Print("  audio music  play <track> [loop 0|1]");
     Console_Print("  audio music  stop");
+    Console_Print("  audio music  pause [fade 0|1]");
+    Console_Print("  audio music  resume [fade 0|1]");
     Console_Print("  audio global pause");
     Console_Print("  audio global resume");
     Console_Print("  audio global stop_all");
@@ -964,6 +968,24 @@ static void cmd_audio(int argc, const char *argv[]) {
         if (strcmp(action, "stop") == 0) {
             StopMusic();
             Console_Print("Music stopped");
+            return;
+        }
+        if (strcmp(action, "pause") == 0) {
+            S32 fade = 0;
+            if (argc >= 4 && argv[3][0]) {
+                fade = (S32)strtol(argv[3], NULL, 0) ? 1 : 0;
+            }
+            PauseMusic(fade);
+            Console_Print("Music paused (fade=%d)", fade);
+            return;
+        }
+        if (strcmp(action, "resume") == 0) {
+            S32 fade = 0;
+            if (argc >= 4 && argv[3][0]) {
+                fade = (S32)strtol(argv[3], NULL, 0) ? 1 : 0;
+            }
+            ResumeMusic(fade);
+            Console_Print("Music resumed (fade=%d)", fade);
             return;
         }
         cmd_audio_help_music();
