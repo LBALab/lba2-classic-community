@@ -191,3 +191,15 @@ char *StreamName() {
 }
 
 // ████████████████████████████████████████████████████████████████████████████
+
+static int musicLogEnabled = 0;
+
+void MusicLogEnable(int enable) {
+    musicLogEnabled = (enable != 0) ? 1 : 0;
+}
+
+int MusicLogIsEnabled(void) {
+    return musicLogEnabled;
+}
+
+// ████████████████████████████████████████████████████████████████████████████

@@ -63,3 +63,5 @@ void PauseStream() {}
 void ResumeStream() {}
 S32 IsStreamPlaying() { return FALSE; }
 char *StreamName() { return ""; }
+void MusicLogEnable(int enable) { (void)enable; }
+int MusicLogIsEnabled(void) { return 0; }

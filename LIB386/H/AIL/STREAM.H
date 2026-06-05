@@ -83,6 +83,28 @@ S32 IsStreamPlaying();
 char *StreamName();
 
 //--------------------------------------------------------------------------
+//	MusicLogEnable :		toggle the [MUSIC]/[CD] trace channel
+//
+//			enable:		non-zero to turn tracing on
+//
+//	A single runtime flag, flipped from the console ("audio global log 1").
+//	When on, the backend emits per-call [MUSIC]/[CD] lines and the game layer
+//	(MUSIC.CPP) emits its high-level transitions, all fanning into adeline.log.
+//	Backend-agnostic so any backend (SDL stream, redbook, future ISO) honours
+//	the same switch.
+//
+//	Returns	:			nothing
+//--------------------------------------------------------------------------
+void MusicLogEnable(int enable);
+
+//--------------------------------------------------------------------------
+//	MusicLogIsEnabled :		query the [MUSIC]/[CD] trace channel
+//
+//	Returns	:			non-zero if tracing is on
+//--------------------------------------------------------------------------
+int MusicLogIsEnabled(void);
+
+//--------------------------------------------------------------------------
 #ifdef __cplusplus
 }
 #endif
