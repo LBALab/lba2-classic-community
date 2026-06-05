@@ -14,6 +14,7 @@
 #include <AIL/VIDEO_AUDIO.H>
 #include <AIL/VIDEO_AUDIO_RESAMPLE.H>
 #include <FILEIO/SAVEPNG.H>
+#include <SYSTEM/WINDOW.H> // AppActive
 
 static int videoLogEnabled = 0;
 
@@ -538,7 +539,8 @@ S32 PlayAcf(const char *name) {
 
         U8 *pal = NULL;
         U32 videoStartTicks = 0;
-        static int s_wasConsoleOpen = 0;
+        int videoFrozen = 0; // console open or window unfocused -> hold the frame
+        U32 freezeStart = 0; // SDL_GetTicks when the freeze began
         for (unsigned long c = 0; c < f; c++) {
             /* Push this frame's audio (skip for c < prebufFrames, already in stream from pre-fill) */
             if (numTracks > 0 && c >= prebufFrames) {
@@ -574,24 +576,33 @@ S32 PlayAcf(const char *name) {
                 ManageTime();
                 if (MyKey == K_ESC || (Input & I_MENUS))
                     goto fin_play;
-                /* Pause video while console is open: keep presenting current frame until they close it.
-         * Pause video audio so the buffer doesn't drain and cause a gap when console closes. */
-                if (Console_IsOpen()) {
-                    if (!s_wasConsoleOpen && numTracks > 0) {
-                        PauseVideoAudio();
+                /* Freeze the cinematic while the console is open or the window is
+                   unfocused: hold the current frame and pause its audio. The frame
+                   clock is wall-clock based (SDL_GetTicks), so re-base it on resume,
+                   otherwise playback fast-forwards to catch up and the (paused, then
+                   resumed) audio lags the video. */
+                if (Console_IsOpen() || !AppActive) {
+                    if (!videoFrozen) {
+                        if (numTracks > 0)
+                            PauseVideoAudio();
                         if (VideoLogIsEnabled())
-                            SDL_Log("[VIDEO] Audio paused (console open)");
-                        s_wasConsoleOpen = 1;
+                            SDL_Log("[VIDEO] frozen (console open or unfocused)");
+                        freezeStart = SDL_GetTicks();
+                        videoFrozen = 1;
                     }
                     BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
                     BoxUpdate();
                     continue;
                 }
-                if (s_wasConsoleOpen && numTracks > 0) {
-                    ResumeVideoAudio();
+                if (videoFrozen) {
+                    U32 pausedMs = SDL_GetTicks() - freezeStart;
+                    videoStartTicks += pausedMs; // shift the whole schedule forward
+                    nextAt += pausedMs;
+                    if (numTracks > 0)
+                        ResumeVideoAudio();
                     if (VideoLogIsEnabled())
-                        SDL_Log("[VIDEO] Audio resumed (console closed)");
-                    s_wasConsoleOpen = 0;
+                        SDL_Log("[VIDEO] resumed (rebased +%u ms)", (unsigned)pausedMs);
+                    videoFrozen = 0;
                 }
                 now = SDL_GetTicks();
                 if (now >= nextAt)
@@ -603,7 +614,6 @@ S32 PlayAcf(const char *name) {
         }
 
     fin_play:
-        s_wasConsoleOpen = 0;
         StopVideoAudio();
         smk_close(smkObject);
         Free(decompbuf);
