@@ -835,7 +835,7 @@ restartloop:
                 RestartRainSample = TRUE;
 
                 InitPlasmaMenu();
-                //                      PauseMusic( TRUE ) ;
+                PauseMusic(TRUE);
 
                 MenuConfig();
 
@@ -844,7 +844,7 @@ restartloop:
                 InitDial(START_FILE_ISLAND + Island);
                 PaletteSync(PtrPal);
                 RestoreScreen();
-                //                      ResumeMusic( TRUE ) ;
+                ResumeMusic(TRUE);
                 RestoreTimer();
             }
 
