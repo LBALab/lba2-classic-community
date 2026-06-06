@@ -1804,9 +1804,18 @@ restartloop:
                                 if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3)
                                     dynamicDiv = FOLLOW_CAM_ROT_DIVISOR / 3;
                                 S32 step = diff / dynamicDiv;
-                                if (step > 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
-                                    step = FOLLOW_CAM_ROT_MIN_STEP;
-                                if (step<0 AND step> - FOLLOW_CAM_ROT_MIN_STEP)
+                                // Clamp to a minimum magnitude toward the target. Integer
+                                // division truncates to 0 whenever |diff| < dynamicDiv (e.g.
+                                // diff -13 / div 36 = 0), and diff is still past the snap
+                                // threshold here, so without this the camera neither steps
+                                // nor snaps: BetaCam sticks ~threshold..dynamicDiv units off
+                                // target forever, the dirty check keeps firing, and the
+                                // exterior re-renders the full terrain (AFF_ALL_FLIP) every
+                                // idle frame. Handle step == 0 too, not just the < MIN_STEP
+                                // cases, so the camera always closes the gap and settles.
+                                if (step >= 0 AND step < FOLLOW_CAM_ROT_MIN_STEP)
+                                    step = (diff > 0) ? FOLLOW_CAM_ROT_MIN_STEP : -FOLLOW_CAM_ROT_MIN_STEP;
+                                else if (step<0 AND step> - FOLLOW_CAM_ROT_MIN_STEP)
                                     step = -FOLLOW_CAM_ROT_MIN_STEP;
                                 BetaCam = (BetaCam + step) & 4095;
                             } else {
