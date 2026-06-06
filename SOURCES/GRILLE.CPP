@@ -2,6 +2,7 @@
 #include "DIRECTORIES.H"
 
 #include <3D/PROJREC.H>
+#include <3D/CAMERA.H>
 #include <SVGA/SCREEN.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -1422,8 +1423,17 @@ void DecompColonne(U8 *pts, U8 *ptd) {
 // iso grid stays centred at any render-space size; at 640×480 this is
 // the original (288, 226). See docs/WIDESCREEN.md Phase 2.
 void Map2Screen(S32 x, S32 y, S32 z) {
-    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
-    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
+    // Brick screen position, scaled by the runtime iso view scale so the floor
+    // grid tracks the models (LongProjectPointIso uses the same IsoScale). At the
+    // default ISO_SCALE_ONE the multiply/shift cancels and this is bit-for-bit the
+    // original `24*(x-z)` / `12*(z+x)-15*y`. Only the iso offset scales; the screen
+    // anchor (ModeDesiredX/2 ...) does not, so zoom stays centred on the view.
+    // Note: the brick *tile* is still blitted at native size by AffBrickBlock, so
+    // scales > 1 leave gaps between tiles. See docs/ISO_SCALE.md.
+    XScreen = (S32)(((long long)(24 * (x - z)) * IsoScale) >> ISO_SCALE_SHIFT) +
+              ((S32)ModeDesiredX / 2 - 32);
+    YScreen = (S32)(((long long)(12 * (z + x) - 15 * y) * IsoScale) >> ISO_SCALE_SHIFT) +
+              ((S32)ModeDesiredY / 2 - 14);
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
 }
 

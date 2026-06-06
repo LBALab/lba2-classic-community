@@ -17,6 +17,7 @@
 #include "../INVENT.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
+#include <3D/CAMERA.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
@@ -276,6 +277,37 @@ static void cmd_screenshot(int argc, const char *argv[]) {
     GetShootPath(path, ADELINE_MAX_PATH, filename);
     Console_RequestScreenshot(path, 1); /* 1 = PNG via SavePNG in game */
     Console_Print("Screenshot (no console): %s", path);
+}
+
+/* iso scale <factor> | iso reset: dev/experimental zoom of the isometric
+   interior projection. Sets the global IsoScale (models + brick positions).
+   1.0 is the original. Brick tiles are not stretched yet, so factors > 1 show
+   gaps between floor bricks; see docs/ISO_SCALE.md. */
+static void cmd_iso(int argc, const char *argv[]) {
+    int changed = 0;
+    if (argc >= 3 && !strcmp(argv[1], "scale")) {
+        double f = atof(argv[2]);
+        if (f <= 0.0) {
+            Console_Print("iso scale: factor must be > 0");
+            return;
+        }
+        SetIsoScale((S32)(f * ISO_SCALE_ONE + 0.5));
+        changed = 1;
+    } else if (argc >= 2 && !strcmp(argv[1], "reset")) {
+        SetIsoScale(ISO_SCALE_ONE);
+        changed = 1;
+    } else if (argc >= 2) {
+        Console_Print("Usage: iso scale <factor> | iso reset");
+        return;
+    }
+    /* The brick floor is a cached background, re-laid only on a full redraw
+       (RefreshGrille runs in AffScene's AFF_ALL_* path, not the per-frame
+       AFF_OBJETS_* path). Force one so bricks pick up the new scale instead of
+       only the per-frame 3D objects. */
+    if (changed)
+        FirstTime = AFF_ALL_FLIP;
+    Console_Print("iso scale = %.3f (raw %d/%d)", (double)IsoScale / ISO_SCALE_ONE,
+                  (int)IsoScale, (int)ISO_SCALE_ONE);
 }
 
 /* ui <surface> <path> — open a UI modal in headless-harness mode, capture a
@@ -1619,6 +1651,10 @@ void Console_RegisterAll(void) {
                               "headless captures of UI state.");
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
+    Console_RegisterCommandEx("iso", cmd_iso, "Scale the iso interior view (dev/experimental zoom)",
+                              "iso scale <factor> | iso reset",
+                              "1.0 = original (bit-exact). Scales models + brick positions; brick tiles "
+                              "do not stretch yet, so factors > 1 leave gaps. See docs/ISO_SCALE.md.");
     Console_RegisterCommandEx("resolution", cmd_resolution,
                               "Switch render resolution at runtime (no args = list)",
                               "resolution [<n> | WxH | native | --all]",

@@ -42,6 +42,15 @@ extern S32 TypeProj;
 extern float FRatioX;
 extern float FRatioY;
 
+/* Runtime isometric view scale (fixed-point, ISO_SCALE_ONE == 1.0). Multiplies the
+   iso projection of models (LongProjectPointIso) and brick positions (Map2Screen)
+   so an interior view can be zoomed or supersampled without touching world state.
+   At the default ISO_SCALE_ONE the projection is bit-for-bit identical to the
+   original, so the faithful path and the ASM equivalence tests are unaffected. */
+#define ISO_SCALE_SHIFT 8
+#define ISO_SCALE_ONE (1 << ISO_SCALE_SHIFT)
+extern S32 IsoScale;
+
 extern U64 MMX_DEMI;
 extern U64 MMX_DEMI2;
 
@@ -52,6 +61,7 @@ void SetAngleCamera(S32 alpha, S32 beta, S32 gamma);
 void SetPosCamera(S32 x, S32 y, S32 z);
 void SetFollowCamera(S32 targetx, S32 targety, S32 targetz, S32 alpha, S32 beta,
                      S32 gamma, S32 camzoom);
+void SetIsoScale(S32 scale);
 
 // =============================================================================
 #ifdef __cplusplus
