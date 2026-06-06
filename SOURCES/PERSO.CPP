@@ -2008,6 +2008,17 @@ void ReadConfigFile(void) {
 
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
+    DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
+
+    if (DisplayVSync < 0 OR DisplayVSync > 1)
+        DisplayVSync = TRUE;
+
+    /* Renderer exists by now (SetWindowFullscreen above operates on the same
+       window/renderer pair), so this applies the saved choice immediately.
+       Unlike fullscreen there's no visible boot-flash to avoid, so no early
+       Res_LoadBoot* pre-read is needed. */
+    Window_SetVSync(DisplayVSync);
+
     /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
     Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
 
@@ -2050,6 +2061,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DetailLevel", DetailLevel);
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
+    DefFileBufferWriteValue("VSync", DisplayVSync);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
        compile-time default precedence) and updated here by the revert
