@@ -210,6 +210,12 @@ int terminal_enabled(void) {
         return 0;
     if (!SetConsoleMode(h, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
         return 0;
+    /* The console's output codepage defaults to the legacy OEM page (CP437 in
+     * US locales), which renders our UTF-8 bytes as mojibake: the banner's "·"
+     * separator (U+00B7 = 0xC2 0xB7) shows up as "┬╖", and accented paths fare
+     * no better. Switch the console to UTF-8 so what we write is read back
+     * correctly. Best-effort: colour still works if this fails. */
+    SetConsoleOutputCP(CP_UTF8);
 #endif
     return 1;
 }
