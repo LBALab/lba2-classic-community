@@ -1532,6 +1532,33 @@ static void cmd_resolution(int argc, const char *argv[]) {
     }
 }
 
+/* vsync [on|off|toggle]: cap the frame rate to the display refresh. No args
+   prints the current state. Mirrors the Display-menu Vsync toggle; persists to
+   lba2.cfg (VSync key) immediately, the same way the distrib verb does. */
+static void cmd_vsync(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Vsync: %s", DisplayVSync ? "ON" : "OFF");
+        Console_Print("Usage: vsync <on|off|toggle>");
+        return;
+    }
+
+    const char *arg = argv[1];
+    if (!strcasecmp(arg, "on") || !strcmp(arg, "1")) {
+        DisplayVSync = TRUE;
+    } else if (!strcasecmp(arg, "off") || !strcmp(arg, "0")) {
+        DisplayVSync = FALSE;
+    } else if (!strcasecmp(arg, "toggle")) {
+        DisplayVSync ^= 1;
+    } else {
+        Console_Print("vsync: bad arg '%s' (use on|off|toggle).", arg);
+        return;
+    }
+
+    Window_SetVSync(DisplayVSync);
+    DefFileBufferWriteValue("VSync", DisplayVSync);
+    Console_Print("Vsync: %s", DisplayVSync ? "ON" : "OFF");
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1598,6 +1625,11 @@ void Console_RegisterAll(void) {
                               "No args lists recommended modes; <n> picks by index; WxH is arbitrary "
                               "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
                               "--all expands the list with advanced modes. See docs/RUNTIME_RESOLUTION.md.");
+
+    Console_RegisterCommandEx("vsync", cmd_vsync,
+                              "Toggle vertical sync (no args = show state)",
+                              "vsync [on|off|toggle]",
+                              "Caps the frame rate to the display refresh. Persists to lba2.cfg (VSync key).");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",

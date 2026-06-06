@@ -114,6 +114,7 @@ extern U32 ParmSampleFrequence;
 extern S32 DetailLevel;
 extern S32 VideoFullScreen;
 extern S32 DisplayFullScreen;
+extern S32 DisplayVSync;
 
 /// 1 = mouse hover / click / wheel in plasma menus (see docs/MENU.md). Read from lba2.cfg `MenuMouse`.
 extern S32 FlagMenuMouse;
