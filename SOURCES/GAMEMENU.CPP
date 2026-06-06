@@ -76,6 +76,7 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_GAMEPAD_CONFIG 2113
 #define MENU_ID_DISPLAY 2114
 #define MENU_ID_RESOLUTION 2115
+#define MENU_ID_DISPLAY_VSYNC 2116
 
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
@@ -126,14 +127,16 @@ U16 GameOptionMenu[] = {
 };
 
 // Display submenu: a "Resolution: <current>" row that cycles between
-// Classic 4:3 and the display-aspect-derived Widescreen, plus the
-// "Fullscreen" toggle (moved here from Advanced options — it belongs with
-// the other display settings). Same shape as LanguageMenu — left/right
-// arrows on the cyclable row, plain "Back" to return to Options. See
-// GereDisplayMenu + CycleResolution.
+// Classic 4:3 and the display-aspect-derived Widescreen, plus a "Vsync"
+// toggle and the "Fullscreen" toggle (moved here from Advanced options
+// because it belongs with the other display settings). Same shape as
+// LanguageMenu: left/right arrows on the cyclable row, plain "Back" to
+// return to Options. Fullscreen stays the last entry so the
+// always-fullscreen-device path in GereDisplayMenu can drop it by count.
+// See GereDisplayMenu + CycleResolution.
 U16 DisplayMenu[] = {
     0,   // selected
-    3,   // nb entries
+    4,   // nb entries
     260, // y center
     0,   // .dia num
 
@@ -141,6 +144,8 @@ U16 DisplayMenu[] = {
     26, // menu precedent
     MENU_TYPE_RESOLUTION,
     MENU_ID_RESOLUTION,
+    0,
+    MENU_ID_DISPLAY_VSYNC,
     0,
     MENU_ID_DISPLAY_FULLSCREEN,
 };
@@ -327,6 +332,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_RES_BTN_REVERT_FMT,
     MENU_LABEL_DISPLAY,
     MENU_LABEL_RESOLUTION,
+    MENU_LABEL_VSYNC_ON,
+    MENU_LABEL_VSYNC_OFF,
     MENU_LABEL_COUNT,
 };
 
@@ -351,6 +358,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Revert (%d)",
         "Display",
         "Resolution: %s",
+        "Vsync ON",
+        "Vsync OFF",
     },
     {
         "Choix de la langue",
@@ -372,6 +381,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Annuler (%d)",
         "Affichage",
         "Résolution : %s",
+        "Vsync ON",
+        "Vsync OFF",
     },
     {
         "Sprachauswahl",
@@ -393,6 +404,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Zurück (%d)",
         "Anzeige",
         "Auflösung: %s",
+        "Vsync ON",
+        "Vsync OFF",
     },
     {
         "Elegir idioma",
@@ -414,6 +427,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Revertir (%d)",
         "Pantalla",
         "Resolución: %s",
+        "Vsync ON",
+        "Vsync OFF",
     },
     {
         "Scegli lingua",
@@ -435,6 +450,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Annulla (%d)",
         "Schermo",
         "Risoluzione: %s",
+        "Vsync ON",
+        "Vsync OFF",
     },
     {
         "Escolha do idioma",
@@ -456,6 +473,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Reverter (%d)",
         "Tela",
         "Resolução: %s",
+        "Vsync ON",
+        "Vsync OFF",
     },
 };
 
@@ -550,6 +569,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_FULLSCREEN:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayFullScreen ? MENU_LABEL_DISPLAY_FULLSCREEN : MENU_LABEL_DISPLAY_WINDOWED));
+        break;
+
+    case MENU_ID_DISPLAY_VSYNC:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayVSync ? MENU_LABEL_VSYNC_ON : MENU_LABEL_VSYNC_OFF));
         break;
 
     case MENU_ID_FOLLOW_CAMERA:
@@ -3213,8 +3236,8 @@ S32 GereDisplayMenu(void) {
 
     /* The Fullscreen toggle is the last entry; drop it on always-fullscreen
        devices (Android phones/TVs) where windowed mode does not exist, leaving
-       just Back + Resolution. nb_entries 3 = full menu, 2 = hide Fullscreen. */
-    DisplayMenu[1] = Window_SupportsWindowedMode() ? 3 : 2;
+       Back + Resolution + Vsync. nb_entries 4 = full menu, 3 = hide Fullscreen. */
+    DisplayMenu[1] = Window_SupportsWindowedMode() ? 4 : 3;
 
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
@@ -3241,6 +3264,11 @@ S32 GereDisplayMenu(void) {
         case MENU_ID_DISPLAY_FULLSCREEN:
             DisplayFullScreen ^= 1;
             SetWindowFullscreen(DisplayFullScreen != FALSE);
+            break;
+
+        case MENU_ID_DISPLAY_VSYNC:
+            DisplayVSync ^= 1;
+            Window_SetVSync(DisplayVSync);
             break;
         }
     }

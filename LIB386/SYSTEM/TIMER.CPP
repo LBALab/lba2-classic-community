@@ -24,6 +24,16 @@ static U32 MemoTimerRefHR;
 U32 LastTime;
 U32 LastEvaluate;
 
+// FPS re-evaluation window (ms). The on-screen counter (AffNbFps) and the
+// --dump-state "fps" field both read NbFramePerSecond, which is recomputed
+// once per window. The original 1000 ms made the displayed number sit still
+// for a full second then jump, reading as "frozen"; 250 ms updates it ~4x/s so
+// it tracks performance changes (e.g. moving between cheap interior and the
+// render-bound exterior terrain) without being frame-to-frame jittery. The
+// result is still normalised to frames-per-second, so the value's meaning is
+// unchanged.
+#define FPS_EVAL_WINDOW_MS 250
+
 // Fixed-dt deterministic clock (harness-only). Inert unless Timer_EnableFixedDt() is
 // called: while active, ManageTime() reads FixedDtNow instead of SDL_GetTicks().
 static S32 FixedDtActive = 0;
@@ -148,11 +158,19 @@ void ManageTime() {
     }
 
     // FPS Calculation
-    S32 time = TimerSystemHR - LastEvaluate;
-    if (time >= 1000) {
+    S32 time = (S32)(TimerSystemHR - LastEvaluate);
+    if (time < 0) {
+        // The clock origin moved backwards relative to the FPS window anchor
+        // (e.g. the fixed-dt harness reseeding TimerSystemHR in
+        // Timer_EnableFixedDt). A negative delta never reaches the window test
+        // below, which would freeze NbFramePerSecond permanently. Re-anchor
+        // instead of going dormant.
+        LastEvaluate = TimerSystemHR;
+        CmptFrame = 0;
+    } else if (time >= FPS_EVAL_WINDOW_MS) {
         NbFramePerSecond = (CmptFrame * 1000 + time / 2) / time;
         CmptFrame = 0;
-        LastEvaluate += (time / 1000) * 1000;
+        LastEvaluate += (time / FPS_EVAL_WINDOW_MS) * FPS_EVAL_WINDOW_MS;
     }
 }
 

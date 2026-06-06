@@ -30,7 +30,7 @@ reproducible byte-for-byte.
 | `MemoTimerRefHR` | Snapshot of `TimerRefHR` taken by the outermost `SaveTimer()`. The outermost `RestoreTimer()` *assigns* `TimerRefHR` back to this snapshot (see below). |
 | `TimerLock` | Lock depth counter. Incremented by `LockTimer()`, decremented by `UnlockTimer()`. `ManageTime()` skips the `TimerRefHR`/`LastTime` updates while `TimerLock > 0`. |
 | `CmptMemoTimerRef` | `SaveTimer/RestoreTimer` nesting counter. Only the outermost pair runs the snapshot/restore. |
-| `LastEvaluate` | Per-second window anchor used by the FPS calc inside `ManageTime`. Independent of `LastTime`. |
+| `LastEvaluate` | Sliding-window anchor for the FPS calc inside `ManageTime` (window is `FPS_EVAL_WINDOW_MS`, 250 ms, so `NbFramePerSecond` recomputes ~4×/s). Independent of `LastTime`. A backwards clock jump relative to this anchor re-anchors it rather than freezing the counter. |
 
 `FixedDt*` state (off by default; see [FIXED_DT_PLAN.md](FIXED_DT_PLAN.md)) overlays a
 virtual clock source on `TimerSystemHR` for harness determinism.
