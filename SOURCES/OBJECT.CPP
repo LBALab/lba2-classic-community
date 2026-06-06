@@ -5307,7 +5307,11 @@ void AffNbFps(void) {
         UnsetClipWindow();
 
         CoulText(LBAWHITE, 0);
-        GraphPrintf(FALSE, 0, 472, "%d ", NbFramePerSecond);
+        // Pin to the bottom-left corner at any render height. The glyph cell is
+        // 8 px tall (GraphPrintf), so ModeDesiredY - 8 sits flush with the
+        // bottom edge; the original hardcoded 472 only matched 480-tall modes
+        // and floated mid-screen at taller resolutions.
+        GraphPrintf(FALSE, 0, ModeDesiredY - 8, "%d ", NbFramePerSecond);
 
         RestoreClipWindow();
         UnsetClip();
