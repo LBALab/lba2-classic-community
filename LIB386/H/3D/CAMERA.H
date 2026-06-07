@@ -51,6 +51,13 @@ extern float FRatioY;
 #define ISO_SCALE_ONE (1 << ISO_SCALE_SHIFT)
 extern S32 IsoScale;
 
+/* Scale a native iso pixel constant by the runtime view scale. At ISO_SCALE_ONE
+   this is the identity (n*256/256 == n) for any n, so the faithful path is
+   unchanged. Use it for every screen-pixel dimension in the iso path (clip
+   bounds, brick column granularity, sprite offsets) so they all move with one
+   factor instead of each carrying its own scaling. See docs/ISO_SPACE_AUDIT.md. */
+#define ISO_PX(n) ((S32)(((long long)(n) * IsoScale) / ISO_SCALE_ONE))
+
 extern U64 MMX_DEMI;
 extern U64 MMX_DEMI2;
 
