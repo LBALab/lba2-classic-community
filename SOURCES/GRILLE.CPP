@@ -3,6 +3,8 @@
 
 #include <3D/PROJREC.H>
 #include <3D/CAMERA.H>
+#include <SVGA/SCALESPI.H>
+#include <SVGA/GRAPH.H>
 #include <SVGA/SCREEN.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -736,6 +738,68 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
 }
 
 /*--------------------------------------------------------------------------*/
+/* Iso view scale (zoom) brick blit.  Bricks are RLE-compressed tiles drawn at
+   native size by AffGraph; under IsoScale > 1 the grid spacing (Map2Screen)
+   grows but the tiles would not, leaving gaps.  When the scale is not 1.0 we
+   decode the brick RLE into a raw Struc_Sprite buffer and let ScaleSprite (the
+   engine's tested scaled-sprite blitter, which needs raw pixels) draw it at the
+   matching factor.  At ISO_SCALE_ONE we stay on AffGraph, bit-for-bit. */
+
+/* offset table (4) + Struc_Sprite header (4) + raw pixels (deltaX*deltaY, both
+   U8 so <= 255*255). */
+static U8 s_brickRawBank[8 + 256 * 256];
+
+static void DecodeBrickToRaw(S32 numbrick) {
+    U8 *data = (U8 *)BufferBrick + ((U32 *)BufferBrick)[numbrick];
+    U8 deltaX = data[0];
+    U8 deltaY = data[1];
+    U8 *g = data + 4;
+
+    ((U32 *)s_brickRawBank)[0] = 4; /* sprite 0 starts right after the offset */
+    s_brickRawBank[4] = deltaX;
+    s_brickRawBank[5] = deltaY;
+    s_brickRawBank[6] = data[2]; /* hotX */
+    s_brickRawBank[7] = data[3]; /* hotY */
+
+    U8 *raw = s_brickRawBank + 8;
+    memset(raw, 0, (size_t)deltaX * deltaY); /* colour 0 = transparent */
+
+    for (S32 line = 0; line < deltaY; line++) {
+        U8 nbBlock = *g++;
+        U8 *row = raw + (S32)line * deltaX;
+        S32 xpix = 0;
+        for (S32 b = 0; b < nbBlock; b++) {
+            U8 control = *g;
+            U8 opCode = control >> 6;
+            S32 counter = (control & 0x3F) + 1; /* all runs are +1, as in AffGraph */
+            if (opCode == 0) {                  /* skip (transparent) */
+                g++;
+                xpix += counter;
+            } else if (opCode == 1) { /* copy literal pixels */
+                g++;
+                while (counter-- > 0)
+                    row[xpix++] = *g++;
+            } else { /* repeat one colour */
+                U8 color = g[1];
+                g += 2;
+                while (counter-- > 0)
+                    row[xpix++] = color;
+            }
+        }
+    }
+}
+
+static void BlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        AffGraph(numbrick, xs, ys, BufferBrick);
+    } else {
+        DecodeBrickToRaw(numbrick);
+        /* ScaleSprite factors are 16.16; IsoScale is 8.8 (ISO_SCALE_ONE=256). */
+        ScaleSprite(0, xs, ys, IsoScale << 8, IsoScale << 8, s_brickRawBank);
+    }
+}
+
+/*--------------------------------------------------------------------------*/
 
 void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     U8 *adr;
@@ -764,7 +828,7 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         // the iso origin offset slides off that multiple and the rejected bricks
         // start having visible content. See WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
         if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+            BlitBrickIso(numbrick - 1, XScreen, YScreen);
 
             // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
             // negative below -24 and would corrupt the array. Bricks in the
@@ -937,7 +1001,7 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
         if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+            BlitBrickIso(numbrick - 1, XScreen, YScreen);
         }
     }
 }
