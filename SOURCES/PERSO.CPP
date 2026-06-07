@@ -809,12 +809,15 @@ restartloop:
 
         CheckSavePcx(); // F9: Sauve Screen
 
-        /* Console screenshot (PNG): requested without overlay; perform here where we have Screen + PtrPal. */
+        /* Console screenshot (PNG): performed here where Log + PtrPal are valid.
+           Capture Log, the presented buffer (SDL PresentFrame uploads Log); Screen
+           is the clean-background secondary and misses the per-frame 3D models and
+           the foreground-brick re-blit. */
         {
             char shotPath[ADELINE_MAX_PATH];
             int is_png = 0;
             if (Console_HasPendingScreenshot(shotPath, sizeof(shotPath), &is_png) && is_png) {
-                SavePNG(shotPath, Screen, ModeDesiredX, ModeDesiredY, PtrPal);
+                SavePNG(shotPath, Log, ModeDesiredX, ModeDesiredY, PtrPal);
                 Console_ClearPendingScreenshot();
             }
         }
