@@ -615,7 +615,10 @@ static void control_dump_state(const char *path) {
 }
 
 static void control_screenshot(const char *path) {
-    SavePNG((char *)path, Screen, (S32)ModeDesiredX, (S32)ModeDesiredY, PtrPal);
+    /* Capture Log, the presented buffer (SDL PresentFrame uploads Log). Screen is
+       a secondary buffer that only holds the clean brick background, so it misses
+       the per-frame 3D models and the foreground-brick re-blit. */
+    SavePNG((char *)path, Log, (S32)ModeDesiredX, (S32)ModeDesiredY, PtrPal);
 }
 
 /* The capture half of finalize: dump/screenshot only, no exit. Shared by the tick-budget
