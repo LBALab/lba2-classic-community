@@ -2512,6 +2512,10 @@ int main(int argc, char *argv[]) {
     SetEventFilter(Console_FeedEvent);
     SetPrePresentCallback(Console_PrePresent);
 
+    /* EXPERIMENT (feat/iso-xbr-bricks): scene-level present pass that overwrites
+       brick pixels with the RGB-filtered composed background, under the console. */
+    SetScenePresentCallback(IsoXbrPresent);
+
     /* Touch virtual gamepad (Android / mobile). Init before Perftrace so
        timing callbacks nest correctly. No-op on non-Android builds. */
     TouchOverlay_Init();

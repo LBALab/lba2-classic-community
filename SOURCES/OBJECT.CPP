@@ -6226,6 +6226,18 @@ startaffscene:
         }
     }
 
+    /* EXPERIMENT (feat/iso-xbr-bricks): rebuild the 2x RGB brick layer from the
+       composed background. The composite over the crisp HD models happens at
+       present time (IsoXbrPresent), since the RGB-filtered bricks can't live in
+       the 8-bit Log. Only on a FULL redraw: the native AffGrille pass touches
+       shared render globals, so running it every frame corrupts the per-frame
+       object draw (moving objects render black). The brick layer is a cached
+       background anyway, re-laid only on full redraws. 2x interior only. */
+    if (BrickEpxOn && CubeMode == CUBE_INTERIEUR &&
+        (flagflip == AFF_ALL_FLIP || flagflip == AFF_ALL_NO_FLIP)) {
+        BuildEpxBrickBg();
+    }
+
 #ifdef ENABLE_POLY_RECORDING
     // Polygon call recording — stop recording and write file
     if (polyrec_pending_name[0]) {

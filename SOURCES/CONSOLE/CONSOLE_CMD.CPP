@@ -296,6 +296,13 @@ static void cmd_iso(int argc, const char *argv[]) {
     } else if (argc >= 2 && !strcmp(argv[1], "reset")) {
         SetIsoScale(ISO_SCALE_ONE);
         changed = 1;
+    } else if (argc >= 3 && !strcmp(argv[1], "epx")) {
+        extern S32 BrickEpxOn; /* GRILLE.CPP: composed-background brick filter (2x) */
+        BrickEpxOn = (S32)strtol(argv[2], NULL, 0);
+        FirstTime = AFF_ALL_FLIP;
+        Console_Print("iso epx = %d (0 off, 1 EPX-blend, 2 xBR, 3 xBR SSAA; 2x interior only)",
+                      (int)BrickEpxOn);
+        return;
     } else if (argc >= 2 && !strcmp(argv[1], "probe")) {
         /* Compare the per-brick screen delta from the model projector
            (LongProjectPointIso, world coords; 1 brick = SIZE_BRICK_XZ 512 / _Y 256)

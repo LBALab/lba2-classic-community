@@ -105,6 +105,13 @@ extern void DrawOverBrickCage(S32 xm, S32 ym, S32 zm);
 extern void BlitAnim3DSIso(U8 *buf, S32 index, S32 xs, S32 ys);
 
 //-------------------------------------------------------------------
+/* EXPERIMENT (feat/iso-xbr-bricks): composed-background brick filtering (RGB). */
+extern S32 BrickEpxOn;
+extern void BuildEpxBrickBg(void); /* build the 2x RGB brick layer (full redraw) */
+extern void IsoXbrPresent(U32 *frame, U32 pitch, U32 width, U32 height,
+                          const U8 *pal_rgb); /* scene-present composite callback */
+
+//-------------------------------------------------------------------
 extern void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z);
 
 //-------------------------------------------------------------------
