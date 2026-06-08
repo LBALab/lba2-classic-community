@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <3D/CAMERA.H> /* ISO_PX (iso view scale) */
 #include "CONFIG.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
@@ -717,13 +718,15 @@ static void CycleVoiceLanguage(S32 step) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void Init3DView(void) {
-    // Iso projection centre = framebuffer centre - 9px horizontal shim. The -9 is
-    // an iso-grid offset that pairs with Map2Screen's -32 origin shim (see
-    // GRILLE.CPP::Map2Screen) — the two iso sites must move together to keep
-    // interior scene composition coherent. Routing through ModeDesiredX/Y so
-    // iso scenes stay centred at any render-space size; at 640x480 this is the
-    // original (311, 240). See docs/WIDESCREEN.md Phase 2.
-    SetIsoProjection((S32)ModeDesiredX / 2 - 9, (S32)ModeDesiredY / 2);
+    // Iso projection centre. The -9 (X) / +0 (Y) object shims pair with
+    // Map2Screen's -32 (X) / -14 (Y) brick shims (see GRILLE.CPP::Map2Screen).
+    // Both grids must zoom about the SAME pivot or objects drift off the bricks
+    // under IsoScale > 1: the object pivot is 23px (X) / 15px (Y) from the brick
+    // pivot, and that offset has to scale. So derive the centre from the brick
+    // pivot plus the scaled object-vs-brick offset. At ISO_SCALE_ONE this is the
+    // original (ModeDesiredX/2 - 9, ModeDesiredY/2). See docs/ISO_SPACE_AUDIT.md.
+    SetIsoProjection((S32)ModeDesiredX / 2 - 32 + ISO_PX(23),
+                     (S32)ModeDesiredY / 2 - 15 + ISO_PX(15));
     SetPosCamera(0, 0, 0);
     SetAngleCamera(0, 0, 0);
     SetLightVector(AlphaLight, BetaLight, 0);

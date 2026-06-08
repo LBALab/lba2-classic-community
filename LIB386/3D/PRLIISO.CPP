@@ -35,8 +35,12 @@ void ProjectListIso(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
 		   preserve byte-for-byte behavior. */
         memcpy(&v->Z, &sortZ, sizeof(sortZ));
 
-        S32 newX = XCentre + (((x - z) * 3) >> 6);              // IsoScale
-        S32 newY = YCentre + 1 + (((x + z) * 6 - y * 15) >> 8); // IsoScale
+        // IsoScale: same runtime view scale as LongProjectPointIso. At the
+        // default ISO_SCALE_ONE the multiply/shift cancels to the original
+        // `>> 6` / `>> 8`, so test_prliiso stays bit-exact against the ASM.
+        S32 newX = XCentre + (S32)(((long long)((x - z) * 3) * IsoScale) >> (6 + ISO_SCALE_SHIFT));
+        S32 newY = YCentre + 1 +
+                   (S32)(((long long)((x + z) * 6 - y * 15) * IsoScale) >> (8 + ISO_SCALE_SHIFT));
 
         if (newX > 32767 || newX < -32767 || newY > 32767 || newY < -32767) {
             TYPE_PT *p = &Dst[i];

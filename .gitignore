@@ -27,3 +27,6 @@ tests/SNAPSHOT/fixtures/*.raw
 android/build/
 android/apk/
 android/local.properties
+
+# local dev screenshot captures
+.frames-tmp/

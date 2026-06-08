@@ -2,6 +2,9 @@
 #include "DIRECTORIES.H"
 
 #include <3D/PROJREC.H>
+#include <3D/CAMERA.H>
+#include <SVGA/SCALESPI.H>
+#include <SVGA/GRAPH.H>
 #include <SVGA/SCREEN.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -65,6 +68,12 @@ PTR_U8 TabBlock = 0;
 PTR_U8 BufferBrick = 0;
 
 extern S32 Nxw, Nyw, Nzw;
+
+/* Iso view scale (zoom) brick blit + re-blit; defined below, forward-declared so
+   the DrawOverBrick* re-blit (above their definition) can use them. */
+static void BlitBrickIso(S32 numbrick, S32 xs, S32 ys);
+static void ReBlitBrickIso(S32 numbrick, S32 xs, S32 ys);
+
 //void	ReajustPos( U8 col ) ;
 /*--------------------------------------------------------------------------*/
 typedef struct
@@ -587,6 +596,26 @@ void InitBufferCube() {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Does a stored foreground brick vertically overlap the current object clip
+   window?  At ISO_SCALE_ONE this is the original `Ys + 38 > ClipYMin && Ys <=
+   ClipYMax` (bit-exact: top=Ys, bottom=Ys+38). Under zoom the single 38px height
+   approximation under-reaches for tall/spread wall bricks, so foreground bricks
+   fail the test and never re-blit over the object (it shows through the wall).
+   Use the brick's actual scaled extent instead: top = Ys + HotY*scale,
+   bottom = top + DeltaY*scale, from the brick header. */
+static int BrickOverlapsClipY(const T_COLONB *b) {
+    S32 top, bot;
+    if (IsoScale == ISO_SCALE_ONE) {
+        top = b->Ys;
+        bot = b->Ys + 38;
+    } else {
+        U8 *data = (U8 *)BufferBrick + ((U32 *)BufferBrick)[b->Brick];
+        top = b->Ys + ISO_PX((S8)data[3]); /* HotY (signed) */
+        bot = top + ISO_PX(data[1]);       /* DeltaY */
+    }
+    return bot > ClipYMin AND top <= ClipYMax;
+}
+
 void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     register T_COLONB *ptrlbc;
     S32 col, i;
@@ -608,18 +637,21 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     // overlap the actor, CopyMask paints offscreen of the actor (same
     // wasted-CPU pattern the 640 build was already doing). See
     // WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
-    startcol = (ClipXMin + 24) / 24 - 2;
+    // Iso zoom: scale the column granularity with the view. ISO_PX(24) is the
+    // scaled half-brick column width, so the native -2 back-scan (one full brick
+    // of columns) stays correct at any scale. ISO_PX is identity at 1.0.
+    S32 isoCol = ISO_PX(24);
+    startcol = (ClipXMin + isoCol) / isoCol - 2;
     if (startcol < 0)
         startcol = 0;
-    endcol = (ClipXMax + 24) / 24;
+    endcol = (ClipXMax + isoCol) / isoCol;
 
     for (col = startcol; col <= endcol; col++) {
         ptrlbc = &ListBrickColon[col][0];
 
         for (i = 0; i < NbBrickColon[col]; i++) {
             /* bricks devant */
-            if (ptrlbc->Ys + 38 > ClipYMin
-                                      AND ptrlbc->Ys <= ClipYMax) {
+            if (BrickOverlapsClipY(ptrlbc)) {
                 recouvre = FALSE;
 
                 // essai correction bugs escaliers
@@ -649,7 +681,7 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
                                    1
                                        //				AND WorldColBrick(xw+SIZE_BRICK_XZ,yw,zw)==1 ) )
                                        AND WorldColBrick(xw + SIZE_BRICK_XZ, yw, zw) >= 1)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        ReBlitBrickIso(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
                     }
                 }
             }
@@ -666,30 +698,30 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
     S32 col, i;
     S32 startcol, endcol;
 
-    startcol = (ClipXMin + 24) / 24 - 1;
-    endcol = (ClipXMax + 24) / 24;
+    S32 isoCol = ISO_PX(24); // scaled half-brick column width
+    startcol = (ClipXMin + isoCol) / isoCol - 1;
+    endcol = (ClipXMax + isoCol) / isoCol;
 
     for (col = startcol; col <= endcol; col++) {
         ptrlbc = &ListBrickColon[col][0];
 
         for (i = 0; i < NbBrickColon[col]; i++, ptrlbc++) {
             /* bricks devant */
-            if (ptrlbc->Ys + 38 > ClipYMin
-                                      AND ptrlbc->Ys <= ClipYMax) {
+            if (BrickOverlapsClipY(ptrlbc)) {
                 if (ptrlbc->Ym > ymax) {
                     if ((ptrlbc->Zm >= zm)
                             OR(ptrlbc->Xm >= xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        ReBlitBrickIso(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
                     }
                 } else if (ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        ReBlitBrickIso(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        ReBlitBrickIso(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
                     }
                 }
             }
@@ -707,30 +739,170 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
     S32 col, i;
     S32 startcol, endcol;
 
-    startcol = (ClipXMin + 24) / 24 - 1;
-    endcol = (ClipXMax + 24) / 24;
+    S32 isoCol = ISO_PX(24); // scaled half-brick column width
+    startcol = (ClipXMin + isoCol) / isoCol - 1;
+    endcol = (ClipXMax + isoCol) / isoCol;
 
     for (col = startcol; col <= endcol; col++) {
         ptrlbc = &ListBrickColon[col][0];
 
         for (i = 0; i < NbBrickColon[col]; i++, ptrlbc++) {
             /* bricks devant */
-            if (ptrlbc->Ys + 38 > ClipYMin
-                                      AND ptrlbc->Ys <= ClipYMax) {
+            if (BrickOverlapsClipY(ptrlbc)) {
                 if (ptrlbc->Ym > 0 // diff ici avec DrawOverBrick3
                                  AND ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
                             AND(ptrlbc->Xm == xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        ReBlitBrickIso(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
                     }
 
                     if ((ptrlbc->Zm > zm)
                             OR(ptrlbc->Xm > xm)) {
-                        CopyMask(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys, BufferMaskBrick, Screen);
+                        ReBlitBrickIso(ptrlbc->Brick, ptrlbc->Xs, ptrlbc->Ys);
                     }
                 }
             }
         }
+    }
+}
+
+/*--------------------------------------------------------------------------*/
+/* Iso view scale (zoom) brick blit.  Bricks are RLE-compressed tiles drawn at
+   native size by AffGraph; under IsoScale > 1 the grid spacing (Map2Screen)
+   grows but the tiles would not, leaving gaps.  When the scale is not 1.0 we
+   decode the brick RLE into a raw Struc_Sprite buffer and let ScaleSprite (the
+   engine's tested scaled-sprite blitter, which needs raw pixels) draw it at the
+   matching factor.  At ISO_SCALE_ONE we stay on AffGraph, bit-for-bit. */
+
+/* offset table (4) + Struc_Sprite header (4) + raw pixels (deltaX*deltaY, both
+   U8 so <= 255*255). */
+static U8 s_brickRawBank[8 + 256 * 256];
+
+/* Decode one AffGraph-format RLE image (skip/copy/repeat) from any sprite bank
+   into s_brickRawBank as raw pixels (colour 0 = transparent), so it can be fed to
+   ScaleSprite. The bank layout is a U32 offset table followed by per-image data
+   {deltaX, deltaY, hotX, hotY, rows...}, shared by bricks (BufferBrick) and the
+   anim-3DS sprite objects (doors etc.), both of which AffGraph draws. */
+static void DecodeRLEToRaw(const U8 *buf, S32 index) {
+    const U8 *data = buf + ((const U32 *)buf)[index];
+    U8 deltaX = data[0];
+    U8 deltaY = data[1];
+    const U8 *g = data + 4;
+
+    ((U32 *)s_brickRawBank)[0] = 4; /* sprite 0 starts right after the offset */
+    s_brickRawBank[4] = deltaX;
+    s_brickRawBank[5] = deltaY;
+    s_brickRawBank[6] = data[2]; /* hotX */
+    s_brickRawBank[7] = data[3]; /* hotY */
+
+    U8 *raw = s_brickRawBank + 8;
+    memset(raw, 0, (size_t)deltaX * deltaY); /* colour 0 = transparent */
+
+    for (S32 line = 0; line < deltaY; line++) {
+        U8 nbBlock = *g++;
+        U8 *row = raw + (S32)line * deltaX;
+        S32 xpix = 0;
+        for (S32 b = 0; b < nbBlock; b++) {
+            U8 control = *g;
+            U8 opCode = control >> 6;
+            S32 counter = (control & 0x3F) + 1; /* all runs are +1, as in AffGraph */
+            if (opCode == 0) {                  /* skip (transparent) */
+                g++;
+                xpix += counter;
+            } else if (opCode == 1) { /* copy literal pixels */
+                g++;
+                while (counter-- > 0)
+                    row[xpix++] = *g++;
+            } else { /* repeat one colour */
+                U8 color = g[1];
+                g += 2;
+                while (counter-- > 0)
+                    row[xpix++] = color;
+            }
+        }
+    }
+}
+
+static void DecodeBrickToRaw(S32 numbrick) {
+    DecodeRLEToRaw((const U8 *)BufferBrick, numbrick);
+}
+
+/* Draw an anim-3DS sprite image (a SPRITE_3D object such as a door) scaled to the
+   iso view. At ISO_SCALE_ONE this is the original native AffGraph blit, bit-exact.
+   Under zoom the RLE image is decoded to raw and stretched with ScaleSprite so the
+   sprite tracks the scaled scene instead of staying native-size (audit group D). */
+void BlitAnim3DSIso(U8 *buf, S32 index, S32 xs, S32 ys) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        AffGraph(index, xs, ys, buf);
+    } else {
+        DecodeRLEToRaw(buf, index);
+        /* ScaleSprite factors are 16.16; IsoScale is 8.8 (ISO_SCALE_ONE=256). */
+        ScaleSprite(0, xs, ys, IsoScale << 8, IsoScale << 8, s_brickRawBank);
+    }
+}
+
+static void BlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        AffGraph(numbrick, xs, ys, BufferBrick);
+    } else {
+        DecodeBrickToRaw(numbrick);
+        /* ScaleSprite factors are 16.16; IsoScale is 8.8 (ISO_SCALE_ONE=256). */
+        ScaleSprite(0, xs, ys, IsoScale << 8, IsoScale << 8, s_brickRawBank);
+    }
+}
+
+/* Re-blit a foreground brick over a moving object.  At ISO_SCALE_ONE the
+   original CopyMask restores the brick pixels from the (clean) Screen copy into
+   Log, bit-for-bit.  Under zoom that mask blit would paint the tile at native
+   size; instead re-draw the scaled tile with BlitBrickIso, the same path the
+   initial draw uses, so the foreground brick lands exactly where it was drawn.
+   ScaleSprite skips colour-0 pixels, giving the same transparent-edge result as
+   the mask. */
+/* Scaled re-blit of a foreground brick over an object. Mirrors CopyMask: copy
+   the *composited* Screen background (where overlapping bricks already resolved
+   front-to-back) into Log, masked by the brick silhouette. Re-drawing the single
+   raw brick (BlitBrickIso) instead loses that compositing and paints the wrong
+   tile where bricks overlap. The decoded brick's non-zero pixels are the
+   silhouette; Screen already holds the brick at the scaled position, so the copy
+   is 1:1 at the scaled footprint. */
+static void ScaledReBlitFromScreen(S32 numbrick, S32 xs, S32 ys) {
+    DecodeBrickToRaw(numbrick);
+    U8 deltaX = s_brickRawBank[4];
+    U8 deltaY = s_brickRawBank[5];
+    S32 left = xs + ISO_PX((S8)s_brickRawBank[6]); /* HotX */
+    S32 top = ys + ISO_PX((S8)s_brickRawBank[7]);  /* HotY */
+    S32 sW = ISO_PX(deltaX);
+    S32 sH = ISO_PX(deltaY);
+    U8 *raw = s_brickRawBank + 8;
+    U8 *L = (U8 *)Log;
+    U8 *S = (U8 *)Screen;
+    for (S32 dy = 0; dy < sH; dy++) {
+        S32 py = top + dy;
+        if (py < ClipYMin || py > ClipYMax)
+            continue;
+        S32 sr = ((S32)dy * ISO_SCALE_ONE) / IsoScale;
+        if (sr >= deltaY)
+            sr = deltaY - 1;
+        U8 *rrow = raw + sr * deltaX;
+        S32 base = TabOffLine[py];
+        for (S32 dx = 0; dx < sW; dx++) {
+            S32 px = left + dx;
+            if (px < ClipXMin || px > ClipXMax)
+                continue;
+            S32 sc = ((S32)dx * ISO_SCALE_ONE) / IsoScale;
+            if (sc >= deltaX)
+                sc = deltaX - 1;
+            if (rrow[sc]) /* brick silhouette */
+                L[base + px] = S[base + px];
+        }
+    }
+}
+
+static void ReBlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        CopyMask(numbrick, xs, ys, BufferMaskBrick, Screen);
+    } else {
+        ScaledReBlitFromScreen(numbrick, xs, ys);
     }
 }
 
@@ -762,19 +934,24 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
         // (ModeDesiredX/2 - 32) % 24 == 0 (4:3 / 640: 288 = 12*24). At wider widths
         // the iso origin offset slides off that multiple and the rejected bricks
         // start having visible content. See WIDESCREEN_HARDCODED_DIMS_AUDIT.md.
-        if (XScreen >= -47 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+        // Clip bounds are native brick pixel dimensions (47 = full brick width-1,
+        // 38 = brick height), scaled with the iso view via ISO_PX so wider tiles
+        // at zoom are not wrongly rejected at the screen edges.
+        if (XScreen >= -ISO_PX(47) AND XScreen < (S32)ModeDesiredX AND YScreen >= -ISO_PX(38) AND
+                                                                                      YScreen < (S32)ModeDesiredY) {
+            BlitBrickIso(numbrick - 1, XScreen, YScreen);
 
-            // ListBrickColon is indexed by `col = (XScreen+24)/24`, which goes
-            // negative below -24 and would corrupt the array. Bricks in the
-            // newly-painted [-47,-24) strip aren't bucketed for DrawOverBrick
-            // re-blits — acceptable, they sit on the leftmost pixel column and
-            // their visible pixels are already painted by AffGraph above.
-            if (XScreen < -24) {
+            // ListBrickColon is indexed by `col = (XScreen + isoCol)/isoCol`,
+            // which goes negative below -isoCol and would corrupt the array.
+            // Bricks in the newly-painted [-ISO_PX(47), -isoCol) strip aren't
+            // bucketed for DrawOverBrick re-blits; acceptable, they sit on the
+            // leftmost pixel column and were already painted above.
+            S32 isoCol = ISO_PX(24); /* scaled half-brick column width (48/2 intercalée) */
+            if (XScreen < -isoCol) {
                 return;
             }
 
-            col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
+            col = (XScreen + isoCol) / isoCol;
 
             nb = NbBrickColon[col];
 
@@ -853,8 +1030,10 @@ void AffBrickBlockColon(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            col = (XScreen + 24) / 24; /* 48 / 2 colonne intercalée */
+        if (XScreen >= -ISO_PX(24) AND XScreen < (S32)ModeDesiredX AND YScreen >= -ISO_PX(38) AND
+                                                                                      YScreen < (S32)ModeDesiredY) {
+            S32 isoCol = ISO_PX(24); /* scaled half-brick column width */
+            col = (XScreen + isoCol) / isoCol;
 
             nb = NbBrickColon[col];
 
@@ -935,8 +1114,9 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
     if (numbrick AND numbrick != ForbidenBrick) {
         Map2Screen(x - StartXCube, y - StartYCube, z - StartZCube);
 
-        if (XScreen >= -24 AND XScreen < (S32)ModeDesiredX AND YScreen >= -38 AND YScreen < (S32)ModeDesiredY) {
-            AffGraph(numbrick - 1, XScreen, YScreen, BufferBrick);
+        if (XScreen >= -ISO_PX(24) AND XScreen < (S32)ModeDesiredX AND YScreen >= -ISO_PX(38) AND
+                                                                                      YScreen < (S32)ModeDesiredY) {
+            BlitBrickIso(numbrick - 1, XScreen, YScreen);
         }
     }
 }
@@ -1422,8 +1602,17 @@ void DecompColonne(U8 *pts, U8 *ptd) {
 // iso grid stays centred at any render-space size; at 640×480 this is
 // the original (288, 226). See docs/WIDESCREEN.md Phase 2.
 void Map2Screen(S32 x, S32 y, S32 z) {
-    XScreen = 24 * (x - z) + ((S32)ModeDesiredX / 2 - 32);
-    YScreen = 12 * (z + x) - 15 * y + ((S32)ModeDesiredY / 2 - 14);
+    // Brick screen position, scaled by the runtime iso view scale so the floor
+    // grid tracks the models (LongProjectPointIso uses the same IsoScale). At the
+    // default ISO_SCALE_ONE the multiply/shift cancels and this is bit-for-bit the
+    // original `24*(x-z)` / `12*(z+x)-15*y`. Only the iso offset scales; the screen
+    // anchor (ModeDesiredX/2 ...) does not, so zoom stays centred on the view.
+    // Note: the brick *tile* is still blitted at native size by AffBrickBlock, so
+    // scales > 1 leave gaps between tiles. See docs/ISO_SCALE.md.
+    XScreen = (S32)(((long long)(24 * (x - z)) * IsoScale) >> ISO_SCALE_SHIFT) +
+              ((S32)ModeDesiredX / 2 - 32);
+    YScreen = (S32)(((long long)(12 * (z + x) - 15 * y) * IsoScale) >> ISO_SCALE_SHIFT) +
+              ((S32)ModeDesiredY / 2 - 14);
     Projrec_Map2Screen(x, y, z, XScreen, YScreen);
 }
 

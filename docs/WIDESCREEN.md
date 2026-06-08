@@ -302,3 +302,5 @@ LBA2_BIN=build-wide/SOURCES/lba2cc \
 | 6 — regression | Not started |
 
 Foundation already in place: PR #134 (`RESOLUTION_X` / `RESOLUTION_Y` constants, and most render-space literals routed through them).
+
+The HD and zoom side of Phase 5 starts with a runtime iso view scale (`IsoScale`), the shared primitive for dynamic zoom, supersampled anti-aliasing, and HD model fidelity in interior scenes. See [ISO_SCALE.md](ISO_SCALE.md).
