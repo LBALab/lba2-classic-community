@@ -300,7 +300,7 @@ static void cmd_iso(int argc, const char *argv[]) {
         extern S32 BrickEpxOn; /* GRILLE.CPP: composed-background brick filter (2x) */
         BrickEpxOn = (S32)strtol(argv[2], NULL, 0);
         FirstTime = AFF_ALL_FLIP;
-        Console_Print("iso epx = %d (0 off, 1 EPX-blend, 2 xBR, 3 xBR SSAA; 2x interior only)",
+        Console_Print("iso epx = %d (0 off, 1 EPX-blend, 2 xBR, 3 xBR SSAA; interior, zoom > 1)",
                       (int)BrickEpxOn);
         return;
     } else if (argc >= 2 && !strcmp(argv[1], "probe")) {
