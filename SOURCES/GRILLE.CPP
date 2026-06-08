@@ -8,6 +8,7 @@
 #include <SVGA/SCREEN.H>
 
 #include <SDL3/SDL.h> /* threaded xBR brick filter (SDL_CreateThread, like AIL/STREAM) */
+#include <SYSTEM/LOGPRINT.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▀ █▀▀▀█  █    █     █     █▀▀▀▀
@@ -1154,6 +1155,7 @@ void BuildEpxBrickBg(void) {
     s_brickCache[v].key = key;
     s_brickCache[v].lastUsed = s_cacheTick;
     s_brickRgb = s_brickCache[v].rgb;
+    Uint64 t0 = SDL_GetPerformanceCounter(); /* time the rebuild (cache misses only) */
 
     /* 2x-downscale the cached brick background to recover the native composed bricks */
     U8 *S = (U8 *)Screen;
@@ -1194,6 +1196,11 @@ void BuildEpxBrickBg(void) {
     } else {
         EpxBlendScale2x(s_brickScratch, nw, nh, s_brickRgb, s_palLut);
     }
+
+    /* Logged only on a real rebuild (cache miss). A revisited camera view is a hit
+       and prints nothing, so on a cut you see either a rebuild cost or silence. */
+    LogPrintf("[iso-xbr] brick rebuild: mode=%d slot=%d %.1fms\n", (int)BrickEpxOn, v,
+              (double)(SDL_GetPerformanceCounter() - t0) * 1000.0 / (double)SDL_GetPerformanceFrequency());
 }
 
 /* Scene-present callback (runs after Log->ARGB, before the UI overlays): paint the
