@@ -7,6 +7,8 @@
 #include <SVGA/GRAPH.H>
 #include <SVGA/SCREEN.H>
 
+#include <SDL3/SDL.h> /* threaded xBR brick filter (SDL_CreateThread, like AIL/STREAM) */
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▀ █▀▀▀█  █    █     █     █▀▀▀▀
 		      ██ ▀█ ██▀█▀  ██   ██    ██    ██▀▀
@@ -889,21 +891,15 @@ static void EpxBlendScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pa
     }
 }
 
-/* Weighted YUV colour distance (xBR edge metric: luma dominates). */
+/* xBR edge metric. Luma-only weighted distance: the bricks are low-chroma, so
+   dropping U/V costs ~nothing visually but cuts this hot path (called ~40x/pixel)
+   to a third. The comparisons are relative, so the absolute scale is irrelevant. */
 static inline int XbrWd(U32 a, U32 b) {
     int dr = (int)((a >> 16) & 0xFF) - (int)((b >> 16) & 0xFF);
     int dg = (int)((a >> 8) & 0xFF) - (int)((b >> 8) & 0xFF);
     int db = (int)(a & 0xFF) - (int)(b & 0xFF);
     int Y = 299 * dr + 587 * dg + 114 * db;
-    int U = -169 * dr - 331 * dg + 500 * db;
-    int V = 500 * dr - 419 * dg - 81 * db;
-    if (Y < 0)
-        Y = -Y;
-    if (U < 0)
-        U = -U;
-    if (V < 0)
-        V = -V;
-    return (48 * Y + 7 * U + 6 * V) / 1000;
+    return Y < 0 ? -Y : Y;
 }
 
 /* Mix two ARGB by integer weights wa:wb. */
@@ -954,9 +950,11 @@ static void XbrCornersFromP(U32 p[5][5], U32 out[2][2]) {
     }
 }
 
-static void XbrScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pal) {
+/* xBR 2x over a row range [y0,y1). 8-bit source (pal != NULL) or RGB source. */
+static void XbrRows(const U8 *src8, const U32 *srcRgb, S32 w, S32 h, U32 *dst, const U32 *pal, S32 y0,
+                    S32 y1) {
     S32 dw = 2 * w;
-    for (S32 y = 0; y < h; y++) {
+    for (S32 y = y0; y < y1; y++) {
         for (S32 x = 0; x < w; x++) {
             U32 p[5][5];
             for (int dy = -2; dy <= 2; dy++) {
@@ -965,7 +963,7 @@ static void XbrScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pal) {
                 for (int dx = -2; dx <= 2; dx++) {
                     int sx = x + dx;
                     sx = sx < 0 ? 0 : (sx >= w ? w - 1 : sx);
-                    p[dy + 2][dx + 2] = pal[src[sy * w + sx]];
+                    p[dy + 2][dx + 2] = src8 ? pal[src8[sy * w + sx]] : srcRgb[sy * w + sx];
                 }
             }
             U32 out[2][2];
@@ -978,29 +976,65 @@ static void XbrScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pal) {
     }
 }
 
+/* Split the xBR pass across CPU cores: each thread owns a disjoint band of output
+   rows (read-only source, disjoint writes -> no locks). Mirrors the SDL thread use
+   in AIL/SDL/STREAM. Rebuilds are gated, so per-call thread spawn is negligible. */
+typedef struct {
+    const U8 *src8;
+    const U32 *srcRgb;
+    S32 w, h;
+    U32 *dst;
+    const U32 *pal;
+    S32 y0, y1;
+} XbrJob;
+
+static int SDLCALL XbrJobFn(void *data) {
+    XbrJob *j = (XbrJob *)data;
+    XbrRows(j->src8, j->srcRgb, j->w, j->h, j->dst, j->pal, j->y0, j->y1);
+    return 0;
+}
+
+#define XBR_MAX_THREADS 8
+static void XbrRunParallel(XbrJob proto, S32 h) {
+    int n = SDL_GetNumLogicalCPUCores();
+    if (n < 1)
+        n = 1;
+    if (n > XBR_MAX_THREADS)
+        n = XBR_MAX_THREADS;
+    if (n > h)
+        n = h;
+    XbrJob jobs[XBR_MAX_THREADS];
+    SDL_Thread *th[XBR_MAX_THREADS];
+    S32 chunk = (h + n - 1) / n;
+    int nt = 0;
+    for (int t = 0; t < n; t++) {
+        S32 y0 = (S32)t * chunk, y1 = y0 + chunk;
+        if (y1 > h)
+            y1 = h;
+        if (y0 >= y1)
+            break;
+        jobs[nt] = proto;
+        jobs[nt].y0 = y0;
+        jobs[nt].y1 = y1;
+        th[nt] = SDL_CreateThread(XbrJobFn, "xbr", &jobs[nt]);
+        if (!th[nt])
+            XbrJobFn(&jobs[nt]); /* spawn failed: run this band inline */
+        nt++;
+    }
+    for (int t = 0; t < nt; t++)
+        if (th[t])
+            SDL_WaitThread(th[t], NULL);
+}
+
+static void XbrScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pal) {
+    XbrJob p = {src, NULL, w, h, dst, pal, 0, h};
+    XbrRunParallel(p, h);
+}
+
 /* RGB-input xBR 2x (same core), used for the second supersample pass. */
 static void XbrScale2xRgb(const U32 *src, S32 w, S32 h, U32 *dst) {
-    S32 dw = 2 * w;
-    for (S32 y = 0; y < h; y++) {
-        for (S32 x = 0; x < w; x++) {
-            U32 p[5][5];
-            for (int dy = -2; dy <= 2; dy++) {
-                int sy = y + dy;
-                sy = sy < 0 ? 0 : (sy >= h ? h - 1 : sy);
-                for (int dx = -2; dx <= 2; dx++) {
-                    int sx = x + dx;
-                    sx = sx < 0 ? 0 : (sx >= w ? w - 1 : sx);
-                    p[dy + 2][dx + 2] = src[sy * w + sx];
-                }
-            }
-            U32 out[2][2];
-            XbrCornersFromP(p, out);
-            dst[(2 * y) * dw + 2 * x] = out[0][0];
-            dst[(2 * y) * dw + 2 * x + 1] = out[0][1];
-            dst[(2 * y + 1) * dw + 2 * x] = out[1][0];
-            dst[(2 * y + 1) * dw + 2 * x + 1] = out[1][1];
-        }
-    }
+    XbrJob p = {NULL, src, w, h, dst, NULL, 0, h};
+    XbrRunParallel(p, h);
 }
 
 /* Box-downscale 2x: average each 2x2 of an ARGB image (sw x sh) into (sw/2 x sh/2). */
@@ -1052,6 +1086,25 @@ void BuildEpxBrickBg(void) {
     }
     if (!s_brickScratch || !s_brickRgb)
         return;
+
+    /* The layer is a pure function of Screen + dims + filter mode; skip the rebuild
+       (and its filter cost) when none changed. The hash is ~0.1% of the filter. */
+    {
+        static U64 s_lastHash = 0;
+        static bool s_have = false;
+        const U8 *sc = (const U8 *)Screen;
+        U64 hh = 1469598103934665603ULL;
+        hh = (hh ^ (U64)(U32)W) * 1099511628211ULL;
+        hh = (hh ^ (U64)(U32)H) * 1099511628211ULL;
+        hh = (hh ^ (U64)(U32)BrickEpxOn) * 1099511628211ULL;
+        size_t n = (size_t)W * H;
+        for (size_t k = 0; k < n; k++)
+            hh = (hh ^ sc[k]) * 1099511628211ULL;
+        if (s_have && hh == s_lastHash)
+            return;
+        s_lastHash = hh;
+        s_have = true;
+    }
 
     /* 2x-downscale the cached brick background to recover the native composed bricks */
     U8 *S = (U8 *)Screen;
