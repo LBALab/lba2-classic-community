@@ -288,6 +288,16 @@ static void CommitPresentTarget(void * /*pixels*/, U32 /*pitch*/) {
 }
 #endif
 
+S32 ScreenZoom = ZOOM_ONE;
+
+void SetScreenZoom(S32 zoom) {
+    if (zoom < ZOOM_ONE)
+        zoom = ZOOM_ONE; /* zoom in only; no minify */
+    if (zoom > 16 * ZOOM_ONE)
+        zoom = 16 * ZOOM_ONE;
+    ScreenZoom = zoom;
+}
+
 static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
@@ -300,11 +310,38 @@ static void PresentFrame() {
 
     U8 *logMem = (U8 *)Log;
 
-    for (U32 y = 0; y < ModeDesiredY; ++y) {
-        U8 *srcRow = logMem + y * ModeDesiredX;
-        U32 *dstRow = (U32 *)((U8 *)stagingPixels + y * stagingPitch);
-        for (U32 x = 0; x < ModeDesiredX; ++x) {
-            dstRow[x] = paletteLUT[srcRow[x]];
+    if (ScreenZoom == ZOOM_ONE) {
+        for (U32 y = 0; y < ModeDesiredY; ++y) {
+            U8 *srcRow = logMem + y * ModeDesiredX;
+            U32 *dstRow = (U32 *)((U8 *)stagingPixels + y * stagingPitch);
+            for (U32 x = 0; x < ModeDesiredX; ++x) {
+                dstRow[x] = paletteLUT[srcRow[x]];
+            }
+        }
+    } else {
+        /* Nearest-neighbour magnify of a centred sub-region of Log to fill the
+           frame. srcW/srcH is the window sampled (smaller = more zoom); stepX/Y
+           are 16.16 source-pixels per destination pixel. */
+        U32 W = ModeDesiredX, H = ModeDesiredY;
+        U32 srcW = (U32)((U64)W * ZOOM_ONE / (U32)ScreenZoom);
+        U32 srcH = (U32)((U64)H * ZOOM_ONE / (U32)ScreenZoom);
+        if (srcW < 1)
+            srcW = 1;
+        if (srcH < 1)
+            srcH = 1;
+        U32 srcX0 = (W - srcW) / 2;
+        U32 srcY0 = (H - srcH) / 2;
+        U32 stepX = (srcW << 16) / W;
+        U32 stepY = (srcH << 16) / H;
+        for (U32 y = 0; y < H; ++y) {
+            U32 srcY = srcY0 + ((y * stepY) >> 16);
+            U8 *srcRow = logMem + srcY * W;
+            U32 *dstRow = (U32 *)((U8 *)stagingPixels + y * stagingPitch);
+            U32 accX = srcX0 << 16;
+            for (U32 x = 0; x < W; ++x) {
+                dstRow[x] = paletteLUT[srcRow[accX >> 16]];
+                accX += stepX;
+            }
         }
     }
 
