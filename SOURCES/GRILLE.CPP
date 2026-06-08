@@ -781,14 +781,29 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
 static U8 s_brickRawBank[8 + 256 * 256];
 /* EXPERIMENT (feat/iso-xbr-bricks): composed-background brick filtering.
    s_brickScratch = bricks composed at native scale (half the 2x view), framing the
-   same region; s_brickRgb = that, edge-filtered to 2x in RGB and aligned to
-   Log/Screen. RGB (not 8-bit) because an interpolating filter makes new colours
-   the palette can't hold, so the composite happens at present time. */
+   same region; the filtered 2x RGB layer lives in an LRU cache (s_brickCache) keyed
+   by a hash of Screen + filter mode, so snapping back to an already-built camera
+   view is instant. s_brickRgb points at the active slot (what IsoXbrPresent reads).
+   RGB (not 8-bit) because an interpolating filter makes new colours the palette
+   can't hold, so the composite happens at present time. */
 static U8 *s_brickScratch = NULL;
-static U32 *s_brickRgb = NULL;
+static U32 *s_brickRgb = NULL; /* active cache slot (current view's layer) */
 static S32 s_epxW = 0, s_epxH = 0;
 static U32 s_palLut[256]; /* current palette as ARGB (rebuilt each BuildXbrBrickBg) */
 S32 BrickEpxOn = 0;       /* console toggle (iso epx) */
+
+/* LRU cache of built brick layers (one per recently-visited camera view). Memory:
+   slots x W*H*4 (~5 MB/slot at 1280x960); the camera snaps between views, so a
+   handful of slots covers a room's worth of angles and makes revisits free. */
+#define XBR_CACHE_SLOTS 8
+typedef struct {
+    U32 *rgb;     /* W*H ARGB layer, or NULL if the slot is unallocated */
+    U64 key;      /* hash of Screen + mode that produced it (0 = empty) */
+    U32 lastUsed; /* LRU stamp */
+} XbrCacheSlot;
+static XbrCacheSlot s_brickCache[XBR_CACHE_SLOTS];
+static U32 s_cacheTick = 0;
+static S32 s_cacheW = 0, s_cacheH = 0;
 
 /* Decode one AffGraph-format RLE image (skip/copy/repeat) from any sprite bank
    into s_brickRawBank as raw pixels (colour 0 = transparent), so it can be fed to
@@ -1076,35 +1091,69 @@ void BuildEpxBrickBg(void) {
         return;
     S32 W = (S32)ModeDesiredX, H = (S32)ModeDesiredY;
     S32 nw = W / 2, nh = H / 2;
-    if (s_epxW != W || s_epxH != H) {
+
+    /* On a resolution change, resize the native scratch and drop every cached layer
+       (they were built for the old dimensions). */
+    if (s_cacheW != W || s_cacheH != H) {
         free(s_brickScratch);
-        free(s_brickRgb);
         s_brickScratch = (U8 *)malloc((size_t)nw * nh);
-        s_brickRgb = (U32 *)malloc((size_t)W * H * sizeof(U32));
+        for (int i = 0; i < XBR_CACHE_SLOTS; i++) {
+            free(s_brickCache[i].rgb);
+            s_brickCache[i].rgb = NULL;
+            s_brickCache[i].key = 0;
+        }
+        s_cacheW = W;
+        s_cacheH = H;
         s_epxW = W;
         s_epxH = H;
     }
-    if (!s_brickScratch || !s_brickRgb)
+    if (!s_brickScratch)
         return;
 
-    /* The layer is a pure function of Screen + dims + filter mode; skip the rebuild
-       (and its filter cost) when none changed. The hash is ~0.1% of the filter. */
+    /* Key the layer on Screen + filter mode (dims are constant across the cache). */
+    U64 key;
     {
-        static U64 s_lastHash = 0;
-        static bool s_have = false;
         const U8 *sc = (const U8 *)Screen;
         U64 hh = 1469598103934665603ULL;
-        hh = (hh ^ (U64)(U32)W) * 1099511628211ULL;
-        hh = (hh ^ (U64)(U32)H) * 1099511628211ULL;
         hh = (hh ^ (U64)(U32)BrickEpxOn) * 1099511628211ULL;
         size_t n = (size_t)W * H;
         for (size_t k = 0; k < n; k++)
             hh = (hh ^ sc[k]) * 1099511628211ULL;
-        if (s_have && hh == s_lastHash)
-            return;
-        s_lastHash = hh;
-        s_have = true;
+        key = hh ? hh : 1; /* reserve 0 as the empty marker */
     }
+
+    /* Cache hit: this view was already built -> point at it, no rebuild. */
+    s_cacheTick++;
+    for (int i = 0; i < XBR_CACHE_SLOTS; i++) {
+        if (s_brickCache[i].rgb && s_brickCache[i].key == key) {
+            s_brickCache[i].lastUsed = s_cacheTick;
+            s_brickRgb = s_brickCache[i].rgb;
+            return;
+        }
+    }
+
+    /* Miss: take an empty slot, else evict the least-recently-used one. */
+    int v = 0;
+    U32 oldest = 0xFFFFFFFFu;
+    for (int i = 0; i < XBR_CACHE_SLOTS; i++) {
+        if (!s_brickCache[i].rgb) {
+            v = i;
+            break;
+        }
+        if (s_brickCache[i].lastUsed < oldest) {
+            oldest = s_brickCache[i].lastUsed;
+            v = i;
+        }
+    }
+    if (!s_brickCache[v].rgb)
+        s_brickCache[v].rgb = (U32 *)malloc((size_t)W * H * sizeof(U32));
+    if (!s_brickCache[v].rgb) {
+        s_brickRgb = NULL; /* OOM: disable the composite this frame */
+        return;
+    }
+    s_brickCache[v].key = key;
+    s_brickCache[v].lastUsed = s_cacheTick;
+    s_brickRgb = s_brickCache[v].rgb;
 
     /* 2x-downscale the cached brick background to recover the native composed bricks */
     U8 *S = (U8 *)Screen;
