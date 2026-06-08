@@ -30,6 +30,7 @@ U32 TabOffPhysLine[ADELINE_MAX_Y_RES];
 SDL_Palette *sdlPalette = NULL;
 S32 screenLockCount = 0;
 bool frameDirty = false;
+static PrePresentFn s_scenePresent = NULL;
 static PrePresentFn s_prePresent = NULL;
 static PrePresentFn s_overlayPrePresent = NULL;
 static PresentTimingFn s_presentBegin = NULL;
@@ -237,6 +238,10 @@ void CopyVideoArea(void *dst, const void *src, const U32 tabOffDst[],
     }
 }
 
+void SetScenePresentCallback(PrePresentFn fn) {
+    s_scenePresent = fn;
+}
+
 void SetPrePresentCallback(PrePresentFn fn) {
     s_prePresent = fn;
 }
@@ -308,8 +313,8 @@ static void PresentFrame() {
         }
     }
 
-    if (s_prePresent || s_overlayPrePresent) {
-        /* Build the 256-entry RGB table once; both callbacks take the same. */
+    if (s_scenePresent || s_prePresent || s_overlayPrePresent) {
+        /* Build the 256-entry RGB table once; the callbacks take the same. */
         static U8 paletteRgb[256 * 3];
         for (int i = 0; i < 256; i++) {
             U32 c = paletteLUT[i];
@@ -317,6 +322,8 @@ static void PresentFrame() {
             paletteRgb[i * 3 + 1] = (U8)(c >> 8);
             paletteRgb[i * 3 + 2] = (U8)(c);
         }
+        if (s_scenePresent) /* scene composite first, under the overlays */
+            s_scenePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
         if (s_prePresent)
             s_prePresent((U32 *)stagingPixels, stagingPitch, ModeResX, ModeResY, paletteRgb);
         if (s_overlayPrePresent)

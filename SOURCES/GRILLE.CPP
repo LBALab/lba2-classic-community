@@ -777,6 +777,15 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
 /* offset table (4) + Struc_Sprite header (4) + raw pixels (deltaX*deltaY, both
    U8 so <= 255*255). */
 static U8 s_brickRawBank[8 + 256 * 256];
+/* EXPERIMENT (feat/iso-xbr-bricks): composed-background brick filtering.
+   s_brickScratch = bricks composed at native scale (half the 2x view), framing the
+   same region; s_brickRgb = that, edge-filtered to 2x in RGB and aligned to
+   Log/Screen. RGB (not 8-bit) because an interpolating filter makes new colours
+   the palette can't hold, so the composite happens at present time. */
+static U8 *s_brickScratch = NULL;
+static U32 *s_brickRgb = NULL;
+static U32 s_palLut[256]; /* current palette as ARGB (rebuilt each BuildXbrBrickBg) */
+S32 BrickEpxOn = 0;       /* console toggle (iso epx) */
 
 /* Decode one AffGraph-format RLE image (skip/copy/repeat) from any sprite bank
    into s_brickRawBank as raw pixels (colour 0 = transparent), so it can be fed to
@@ -841,13 +850,331 @@ void BlitAnim3DSIso(U8 *buf, S32 index, S32 xs, S32 ys) {
     }
 }
 
+/* Average two ARGB pixels (fast, no overflow). */
+static inline U32 BlendArgb(U32 a, U32 b) {
+    return (((a ^ b) & 0xFEFEFEFEu) >> 1) + (a & b);
+}
+
+/* EXPERIMENT (feat/iso-xbr-bricks): EPX/Scale2x edge rules, but at a detected
+   edge the output subpixel is the *blend* of the centre and the neighbour rather
+   than a hard selection. That anti-aliases the diagonals (real RGB output, new
+   colours), which is the point of going to the RGB present path. The edge test
+   still compares palette indices (equal index == equal colour). Placeholder for
+   real xBR; pluggable. src = 8-bit indices; dst = ARGB at 2x; pal = index->ARGB. */
+static void EpxBlendScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pal) {
+    S32 dw = 2 * w;
+    for (S32 y = 0; y < h; y++) {
+        for (S32 x = 0; x < w; x++) {
+            U8 P = src[y * w + x];
+            U8 A = (y > 0) ? src[(y - 1) * w + x] : P;     /* up */
+            U8 B = (x < w - 1) ? src[y * w + x + 1] : P;   /* right */
+            U8 C = (x > 0) ? src[y * w + x - 1] : P;       /* left */
+            U8 D = (y < h - 1) ? src[(y + 1) * w + x] : P; /* down */
+            U32 pP = pal[P];
+            U32 e0 = pP, e1 = pP, e2 = pP, e3 = pP;
+            if (C == A && C != D && A != B)
+                e0 = BlendArgb(pP, pal[A]);
+            if (A == B && A != C && B != D)
+                e1 = BlendArgb(pP, pal[B]);
+            if (D == C && D != B && C != A)
+                e2 = BlendArgb(pP, pal[C]);
+            if (B == D && B != A && D != C)
+                e3 = BlendArgb(pP, pal[D]);
+            dst[(2 * y) * dw + 2 * x] = e0;
+            dst[(2 * y) * dw + 2 * x + 1] = e1;
+            dst[(2 * y + 1) * dw + 2 * x] = e2;
+            dst[(2 * y + 1) * dw + 2 * x + 1] = e3;
+        }
+    }
+}
+
+/* Weighted YUV colour distance (xBR edge metric: luma dominates). */
+static inline int XbrWd(U32 a, U32 b) {
+    int dr = (int)((a >> 16) & 0xFF) - (int)((b >> 16) & 0xFF);
+    int dg = (int)((a >> 8) & 0xFF) - (int)((b >> 8) & 0xFF);
+    int db = (int)(a & 0xFF) - (int)(b & 0xFF);
+    int Y = 299 * dr + 587 * dg + 114 * db;
+    int U = -169 * dr - 331 * dg + 500 * db;
+    int V = 500 * dr - 419 * dg - 81 * db;
+    if (Y < 0)
+        Y = -Y;
+    if (U < 0)
+        U = -U;
+    if (V < 0)
+        V = -V;
+    return (48 * Y + 7 * U + 6 * V) / 1000;
+}
+
+/* Mix two ARGB by integer weights wa:wb. */
+static inline U32 XbrMix(U32 a, U32 b, int wa, int wb) {
+    int t = wa + wb;
+    int r = ((int)((a >> 16) & 0xFF) * wa + (int)((b >> 16) & 0xFF) * wb) / t;
+    int g = ((int)((a >> 8) & 0xFF) * wa + (int)((b >> 8) & 0xFF) * wb) / t;
+    int bl = ((int)(a & 0xFF) * wa + (int)(b & 0xFF) * wb) / t;
+    return 0xFF000000u | ((U32)r << 16) | ((U32)g << 8) | (U32)bl;
+}
+
+static inline void XbrRot90(U32 p[5][5]) {
+    U32 t[5][5];
+    for (int i = 0; i < 5; i++)
+        for (int j = 0; j < 5; j++)
+            t[i][j] = p[4 - j][i];
+    memcpy(p, t, sizeof(t));
+}
+
+/* EXPERIMENT (feat/iso-xbr-bricks): xBR-style 2x. For each of the 4 output
+   corners (via 4x 90-degree rotation of the neighbourhood), a 5x5 weighted edge
+   detection decides whether a diagonal line cuts the corner; if so the corner
+   subpixel blends toward the line colour, anti-aliasing the staircase. The 5x5
+   context (vs EPX's 3x3) suppresses over-filling on noisy textures. Written from
+   the published xBR edge metric, not ported from any implementation. */
+static void XbrCornersFromP(U32 p[5][5], U32 out[2][2]) {
+    for (int rot = 0; rot < 4; rot++) {
+        U32 E = p[2][2], F = p[2][3], H = p[3][2], I = p[3][3];
+        U32 C = p[1][3], G = p[3][1], B = p[1][2], D = p[2][1];
+        U32 F4 = p[2][4], H5 = p[4][2], I4 = p[3][4], I5 = p[4][3];
+        int left = XbrWd(E, C) + XbrWd(E, G) + XbrWd(I, F4) + XbrWd(I, H5) + 4 * XbrWd(F, H);
+        int right = XbrWd(F, B) + XbrWd(F, I4) + XbrWd(H, D) + XbrWd(H, I5) + 4 * XbrWd(E, I);
+        U32 res = E;
+        if (left < right) {
+            U32 px = (XbrWd(E, F) <= XbrWd(E, H)) ? F : H;
+            res = XbrMix(px, E, 3, 1); /* corner mostly the line colour, slight AA */
+        }
+        if (rot == 0)
+            out[1][1] = res; /* SE */
+        else if (rot == 1)
+            out[1][0] = res; /* SW */
+        else if (rot == 2)
+            out[0][0] = res; /* NW */
+        else
+            out[0][1] = res; /* NE */
+        if (rot < 3)
+            XbrRot90(p);
+    }
+}
+
+static void XbrScale2x(const U8 *src, S32 w, S32 h, U32 *dst, const U32 *pal) {
+    S32 dw = 2 * w;
+    for (S32 y = 0; y < h; y++) {
+        for (S32 x = 0; x < w; x++) {
+            U32 p[5][5];
+            for (int dy = -2; dy <= 2; dy++) {
+                int sy = y + dy;
+                sy = sy < 0 ? 0 : (sy >= h ? h - 1 : sy);
+                for (int dx = -2; dx <= 2; dx++) {
+                    int sx = x + dx;
+                    sx = sx < 0 ? 0 : (sx >= w ? w - 1 : sx);
+                    p[dy + 2][dx + 2] = pal[src[sy * w + sx]];
+                }
+            }
+            U32 out[2][2];
+            XbrCornersFromP(p, out);
+            dst[(2 * y) * dw + 2 * x] = out[0][0];
+            dst[(2 * y) * dw + 2 * x + 1] = out[0][1];
+            dst[(2 * y + 1) * dw + 2 * x] = out[1][0];
+            dst[(2 * y + 1) * dw + 2 * x + 1] = out[1][1];
+        }
+    }
+}
+
+/* RGB-input xBR 2x (same core), used for the second supersample pass. */
+static void XbrScale2xRgb(const U32 *src, S32 w, S32 h, U32 *dst) {
+    S32 dw = 2 * w;
+    for (S32 y = 0; y < h; y++) {
+        for (S32 x = 0; x < w; x++) {
+            U32 p[5][5];
+            for (int dy = -2; dy <= 2; dy++) {
+                int sy = y + dy;
+                sy = sy < 0 ? 0 : (sy >= h ? h - 1 : sy);
+                for (int dx = -2; dx <= 2; dx++) {
+                    int sx = x + dx;
+                    sx = sx < 0 ? 0 : (sx >= w ? w - 1 : sx);
+                    p[dy + 2][dx + 2] = src[sy * w + sx];
+                }
+            }
+            U32 out[2][2];
+            XbrCornersFromP(p, out);
+            dst[(2 * y) * dw + 2 * x] = out[0][0];
+            dst[(2 * y) * dw + 2 * x + 1] = out[0][1];
+            dst[(2 * y + 1) * dw + 2 * x] = out[1][0];
+            dst[(2 * y + 1) * dw + 2 * x + 1] = out[1][1];
+        }
+    }
+}
+
+/* Box-downscale 2x: average each 2x2 of an ARGB image (sw x sh) into (sw/2 x sh/2). */
+static void BoxDown2x(const U32 *src, S32 sw, S32 sh, U32 *dst) {
+    S32 dw = sw / 2, dh = sh / 2;
+    for (S32 j = 0; j < dh; j++) {
+        const U32 *r0 = src + (size_t)(2 * j) * sw;
+        const U32 *r1 = src + (size_t)(2 * j + 1) * sw;
+        for (S32 i = 0; i < dw; i++) {
+            U32 a = r0[2 * i], b = r0[2 * i + 1], c = r1[2 * i], d = r1[2 * i + 1];
+            int rr = (((a >> 16) & 0xFF) + ((b >> 16) & 0xFF) + ((c >> 16) & 0xFF) + ((d >> 16) & 0xFF)) / 4;
+            int gg = (((a >> 8) & 0xFF) + ((b >> 8) & 0xFF) + ((c >> 8) & 0xFF) + ((d >> 8) & 0xFF)) / 4;
+            int bb = ((a & 0xFF) + (b & 0xFF) + (c & 0xFF) + (d & 0xFF)) / 4;
+            dst[(size_t)j * dw + i] = 0xFF000000u | ((U32)rr << 16) | ((U32)gg << 8) | (U32)bb;
+        }
+    }
+}
+
+/* Bilinear resample an ARGB image (sw x sh) to (dw x dh). Maps corner to corner. */
+static void BilinearResample(const U32 *src, S32 sw, S32 sh, U32 *dst, S32 dw, S32 dh) {
+    for (S32 y = 0; y < dh; y++) {
+        S32 fy = (dh > 1) ? (S32)(((S64)y * (sh - 1) * 256) / (dh - 1)) : 0;
+        S32 sy = fy >> 8, wy = fy & 255;
+        S32 sy1 = (sy + 1 < sh) ? sy + 1 : sy;
+        const U32 *r0 = src + (size_t)sy * sw;
+        const U32 *r1 = src + (size_t)sy1 * sw;
+        U32 *drow = dst + (size_t)y * dw;
+        for (S32 x = 0; x < dw; x++) {
+            S32 fx = (dw > 1) ? (S32)(((S64)x * (sw - 1) * 256) / (dw - 1)) : 0;
+            S32 sx = fx >> 8, wx = fx & 255;
+            S32 sx1 = (sx + 1 < sw) ? sx + 1 : sx;
+            U32 a = r0[sx], b = r0[sx1], c = r1[sx], d = r1[sx1];
+            int rt = (((int)((a >> 16) & 0xFF) * (256 - wx)) + ((int)((b >> 16) & 0xFF) * wx)) >> 8;
+            int rb = (((int)((c >> 16) & 0xFF) * (256 - wx)) + ((int)((d >> 16) & 0xFF) * wx)) >> 8;
+            int gt = (((int)((a >> 8) & 0xFF) * (256 - wx)) + ((int)((b >> 8) & 0xFF) * wx)) >> 8;
+            int gb = (((int)((c >> 8) & 0xFF) * (256 - wx)) + ((int)((d >> 8) & 0xFF) * wx)) >> 8;
+            int bt = (((int)(a & 0xFF) * (256 - wx)) + ((int)(b & 0xFF) * wx)) >> 8;
+            int bb = (((int)(c & 0xFF) * (256 - wx)) + ((int)(d & 0xFF) * wx)) >> 8;
+            int r = (rt * (256 - wy) + rb * wy) >> 8;
+            int g = (gt * (256 - wy) + gb * wy) >> 8;
+            int bl = (bt * (256 - wy) + bb * wy) >> 8;
+            drow[x] = 0xFF000000u | ((U32)r << 16) | ((U32)g << 8) | (U32)bl;
+        }
+    }
+}
+
 static void BlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
     if (IsoScale == ISO_SCALE_ONE) {
         AffGraph(numbrick, xs, ys, BufferBrick);
     } else {
         DecodeBrickToRaw(numbrick);
-        /* ScaleSprite factors are 16.16; IsoScale is 8.8 (ISO_SCALE_ONE=256). */
+        /* ScaleSprite factors are 16.16; IsoScale is 8.8 (ISO_SCALE_ONE=256).
+           This nearest stretch also serves as the brick mask source for the
+           composed-background EPX path (see EpxCompositeToLog). */
         ScaleSprite(0, xs, ys, IsoScale << 8, IsoScale << 8, s_brickRawBank);
+    }
+}
+
+/* EXPERIMENT: build the seam-free RGB brick layer for any zoom > 1. Instead of a
+   second AffGrille pass (which corrupts shared render state -> moving objects
+   render black), recover the native composed bricks by downscaling the zoomed
+   brick background by the zoom factor (Screen holds it nearest-stretched, so
+   Screen[i*zoom] == native[i]), edge-filter that *composed* image to 2x native (no
+   per-tile transparent borders -> no seams), then bilinear-resample the 2x-native
+   layer to the display. At zoom == 2 the 2x-native layer already is the display, so
+   the resample is skipped and the filter writes straight into the composite buffer. */
+void BuildEpxBrickBg(void) {
+    if (IsoScale <= ISO_SCALE_ONE)
+        return; /* only when zoomed in */
+    S32 W = (S32)ModeDesiredX, H = (S32)ModeDesiredY;
+    /* native = the un-zoomed brick resolution the current zoom stretched from */
+    S32 nw = (S32)(((S64)W * ISO_SCALE_ONE) / IsoScale);
+    S32 nh = (S32)(((S64)H * ISO_SCALE_ONE) / IsoScale);
+    if (nw < 1)
+        nw = 1;
+    if (nh < 1)
+        nh = 1;
+    S32 lw = 2 * nw, lh = 2 * nh; /* the filter outputs 2x native */
+
+    static U32 *s_layer2x = NULL;
+    static S32 s_bnw = 0, s_bnh = 0, s_bW = 0, s_bH = 0;
+    if (s_bnw != nw || s_bnh != nh || s_bW != W || s_bH != H) {
+        free(s_brickScratch);
+        free(s_brickRgb);
+        free(s_layer2x);
+        s_brickScratch = (U8 *)malloc((size_t)nw * nh);
+        s_brickRgb = (U32 *)malloc((size_t)W * H * sizeof(U32));
+        s_layer2x = (U32 *)malloc((size_t)lw * lh * sizeof(U32));
+        s_bnw = nw;
+        s_bnh = nh;
+        s_bW = W;
+        s_bH = H;
+    }
+    if (!s_brickScratch || !s_brickRgb || !s_layer2x)
+        return;
+
+    /* recover the native composed bricks (downscale the zoomed Screen by the zoom) */
+    U8 *S = (U8 *)Screen;
+    for (S32 j = 0; j < nh; j++) {
+        S32 sj = (S32)(((S64)j * IsoScale) / ISO_SCALE_ONE);
+        if (sj >= H)
+            sj = H - 1;
+        U32 srow = TabOffLine[sj];
+        U8 *drow = s_brickScratch + (size_t)j * nw;
+        for (S32 i = 0; i < nw; i++) {
+            S32 si = (S32)(((S64)i * IsoScale) / ISO_SCALE_ONE);
+            if (si >= W)
+                si = W - 1;
+            drow[i] = S[srow + (U32)si];
+        }
+    }
+
+    /* current palette -> ARGB, then edge-filter to 2x native.
+       BrickEpxOn: 1 = EPX-blend (cheap), 2 = xBR, 3 = xBR supersampled (SSAA). */
+    for (S32 i = 0; i < 256; i++)
+        s_palLut[i] =
+            ((U32)0xFF << 24) | ((U32)PtrPal[i * 3] << 16) | ((U32)PtrPal[i * 3 + 1] << 8) | (U32)PtrPal[i * 3 + 2];
+
+    /* when the 2x-native layer already matches the display (zoom == 2) filter
+       straight into the composite buffer, else into the scratch layer + resample */
+    U32 *dst = (lw == W && lh == H) ? s_brickRgb : s_layer2x;
+    if (BrickEpxOn == 3) {
+        /* SSAA: native -> xBR 2x -> xBR 4x -> box-average down to 2x native. */
+        static U32 *s_buf4x = NULL;
+        static S32 s_s4w = 0, s_s4h = 0;
+        if (s_s4w != lw || s_s4h != lh) {
+            free(s_buf4x);
+            s_buf4x = (U32 *)malloc((size_t)(2 * lw) * (2 * lh) * sizeof(U32));
+            s_s4w = lw;
+            s_s4h = lh;
+        }
+        if (s_buf4x) {
+            XbrScale2x(s_brickScratch, nw, nh, dst, s_palLut); /* 8-bit -> 2x native */
+            XbrScale2xRgb(dst, lw, lh, s_buf4x);               /* 2x -> 4x native */
+            BoxDown2x(s_buf4x, 2 * lw, 2 * lh, dst);           /* 4x -> 2x averaged */
+        } else {
+            XbrScale2x(s_brickScratch, nw, nh, dst, s_palLut); /* OOM fallback */
+        }
+    } else if (BrickEpxOn == 2) {
+        XbrScale2x(s_brickScratch, nw, nh, dst, s_palLut);
+    } else {
+        EpxBlendScale2x(s_brickScratch, nw, nh, dst, s_palLut);
+    }
+
+    if (dst != s_brickRgb)
+        BilinearResample(s_layer2x, lw, lh, s_brickRgb, W, H);
+}
+
+/* Scene-present callback (runs after Log->ARGB, before the UI overlays): paint the
+   finished frame from the iso brick layer + the game palette. Brick pixels (where
+   Log==Screen, the nearest brick draw with no model on top) take the RGB-filtered
+   composed background; model pixels are re-converted from Log through PtrPal (the
+   SDL paletteLUT misses the 216-255 range some objects use, so they would otherwise
+   present black). The layer is aligned to Screen/Log, so there is no offset. */
+void IsoXbrPresent(U32 *frame, U32 pitch, U32 width, U32 height, const U8 *pal_rgb) {
+    (void)pal_rgb;
+    if (!BrickEpxOn || IsoScale <= ISO_SCALE_ONE || !s_brickRgb)
+        return;
+    S32 W = (S32)ModeDesiredX, H = (S32)ModeDesiredY;
+    if ((U32)W != width || (U32)H != height)
+        return; /* present buffer size mismatch; skip */
+    U8 *L = (U8 *)Log, *S = (U8 *)Screen;
+    for (S32 y = 0; y < H; y++) {
+        U32 lrow = TabOffLine[y];
+        U32 erow = (U32)y * (U32)W;
+        U32 *frow = (U32 *)((U8 *)frame + (U32)y * pitch);
+        for (S32 x = 0; x < W; x++) {
+            U32 idx = lrow + (U32)x;
+            if (L[idx] != S[idx])
+                frow[x] = s_palLut[L[idx]]; /* model: re-convert via PtrPal (the SDL
+                                              paletteLUT misses the 216-255 range, so
+                                              objects using it would present black) */
+            else
+                frow[x] = s_brickRgb[erow + (U32)x]; /* brick: filtered RGB (aligned) */
+        }
     }
 }
 

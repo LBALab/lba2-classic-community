@@ -48,6 +48,12 @@ void HandleEventsVideo(const void *event);
 typedef void (*PrePresentFn)(U32 *frameBuffer, U32 pitch, U32 width, U32 height, const U8 *palette_rgb);
 void SetPrePresentCallback(PrePresentFn fn);
 
+/** Optional SCENE-level pre-present pass, called BEFORE the pre-present overlay
+ *  (so it sits under the console/touch overlays). Same signature. Used by the
+ *  experimental iso xBR brick compositor to overwrite brick pixels in the
+ *  finished frame with an RGB-filtered layer. */
+void SetScenePresentCallback(PrePresentFn fn);
+
 /** Optional overlay rendered after the main pre-present callback. Used by the
  *  touch virtual gamepad overlay on Android so it draws on top of the console
  *  overlay. Same signature as PrePresentFn. */
