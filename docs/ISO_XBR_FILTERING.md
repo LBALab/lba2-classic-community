@@ -105,8 +105,11 @@ Measured rebuild cost at 1280x960 (one camera view), before and after:
 Memory: ~5 MB per built layer; SSAA adds ~25 MB of shared scratch. The LRU cache
 multiplies the layer cost by its slot count (lazy, grows only with views visited).
 
-To resume the optimisation: `git cherry-pick 441cf265 b574930b ce64f987` (or rebase
-that branch) once the scale generalisation below is settled.
+To resume the optimisation: the luma metric and the threaded filter (`XbrWd`,
+`XbrRows`/`XbrParallel`) are independent of the build function and cherry-pick
+cleanly. The skip-gate, LRU cache, and rebuild log live inside `BuildEpxBrickBg`,
+which the scale generalisation rewrote, so those need re-applying by hand on top of
+the generalised build (keep the LRU key = hash of Screen + mode + the native dims).
 
 ## Findings / gotchas worth keeping
 
