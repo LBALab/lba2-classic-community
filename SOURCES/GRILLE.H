@@ -100,6 +100,11 @@ extern void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax);
 extern void DrawOverBrickCage(S32 xm, S32 ym, S32 zm);
 
 //-------------------------------------------------------------------
+/* Draw an anim-3DS sprite image (SPRITE_3D object, e.g. a door) at the iso view
+   scale; native AffGraph at ISO_SCALE_ONE, ScaleSprite-stretched under zoom. */
+extern void BlitAnim3DSIso(U8 *buf, S32 index, S32 xs, S32 ys);
+
+//-------------------------------------------------------------------
 extern void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z);
 
 //-------------------------------------------------------------------

@@ -296,16 +296,51 @@ static void cmd_iso(int argc, const char *argv[]) {
     } else if (argc >= 2 && !strcmp(argv[1], "reset")) {
         SetIsoScale(ISO_SCALE_ONE);
         changed = 1;
+    } else if (argc >= 2 && !strcmp(argv[1], "probe")) {
+        /* Compare the per-brick screen delta from the model projector
+           (LongProjectPointIso, world coords; 1 brick = SIZE_BRICK_XZ 512 / _Y 256)
+           vs the brick projector (Map2Screen, brick-unit coords). Deltas should
+           match if models and bricks scale identically. */
+        extern S32 LongProjectPointIso(S32, S32, S32);
+        extern void Map2Screen(S32, S32, S32);
+        extern S32 Xp, Yp, XScreen, YScreen;
+        LongProjectPointIso(0, 0, 0);
+        S32 mx0 = Xp, my0 = Yp;
+        LongProjectPointIso(512, 0, 0);
+        S32 mXdx = Xp - mx0, mXdy = Yp - my0; /* +1 brick world X */
+        LongProjectPointIso(0, 256, 0);
+        S32 mYdx = Xp - mx0, mYdy = Yp - my0; /* +1 brick world Y (height) */
+        Map2Screen(0, 0, 0);
+        S32 bx0 = XScreen, by0 = YScreen;
+        Map2Screen(1, 0, 0);
+        S32 bXdx = XScreen - bx0, bXdy = YScreen - by0; /* +1 brick X */
+        Map2Screen(0, 1, 0);
+        S32 bYdx = XScreen - bx0, bYdy = YScreen - by0; /* +1 brick Y (height) */
+        Console_Print("iso probe IsoScale=%d", (int)IsoScale);
+        Console_Print("  origin(world0)  model=(%d,%d)  brick=(%d,%d)  diff=(%d,%d)", mx0, my0, bx0, by0,
+                      mx0 - bx0, my0 - by0);
+        Console_Print("  per-brick-X  model=(%d,%d)  brick=(%d,%d)", mXdx, mXdy, bXdx, bXdy);
+        Console_Print("  per-brick-Y  model=(%d,%d)  brick=(%d,%d)", mYdx, mYdy, bYdx, bYdy);
+        return;
     } else if (argc >= 2) {
-        Console_Print("Usage: iso scale <factor> | iso reset");
+        Console_Print("Usage: iso scale <factor> | iso reset | iso probe");
         return;
     }
-    /* The brick floor is a cached background, re-laid only on a full redraw
-       (RefreshGrille runs in AffScene's AFF_ALL_* path, not the per-frame
-       AFF_OBJETS_* path). Force one so bricks pick up the new scale instead of
-       only the per-frame 3D objects. */
-    if (changed)
+    if (changed) {
+        /* Re-apply the iso projection centre for the new scale so the object grid
+           zooms about the same pivot as the brick grid (mirrors Init3DView;
+           Init3DView is only re-run on cube change, not on a scale change).
+           Interior (iso) only; exterior uses the perspective projection where
+           IsoScale is a no-op. */
+        extern void SetIsoProjection(S32, S32);
+        if (CubeMode == CUBE_INTERIEUR)
+            SetIsoProjection((S32)ModeDesiredX / 2 - 32 + ISO_PX(23),
+                             (S32)ModeDesiredY / 2 - 15 + ISO_PX(15));
+        /* The brick floor is a cached background, re-laid only on a full redraw
+           (RefreshGrille runs in AffScene's AFF_ALL_* path). Force one so bricks
+           and the new centre take effect, not just the per-frame 3D objects. */
         FirstTime = AFF_ALL_FLIP;
+    }
     Console_Print("iso scale = %.3f (raw %d/%d)", (double)IsoScale / ISO_SCALE_ONE,
                   (int)IsoScale, (int)ISO_SCALE_ONE);
 }
@@ -1652,9 +1687,10 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("savebug", cmd_savebug, "Save current game to bugs dir (optional name)", "savebug [name]",
                               "Requires in-game loaded cube (not during video); writes bugs/<name>.lba.");
     Console_RegisterCommandEx("iso", cmd_iso, "Scale the iso interior view (dev/experimental zoom)",
-                              "iso scale <factor> | iso reset",
-                              "1.0 = original (bit-exact). Scales models + brick positions; brick tiles "
-                              "do not stretch yet, so factors > 1 leave gaps. See docs/ISO_SCALE.md.");
+                              "iso scale <factor> | iso reset | iso probe",
+                              "1.0 = original (bit-exact). Scales the whole interior view (bricks, models, "
+                              "sprites, particles). 'probe' prints the projector deltas. See "
+                              "docs/ISO_SCALE_FINDINGS.md.");
     Console_RegisterCommandEx("resolution", cmd_resolution,
                               "Switch render resolution at runtime (no args = list)",
                               "resolution [<n> | WxH | native | --all]",

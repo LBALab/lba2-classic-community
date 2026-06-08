@@ -424,6 +424,37 @@ U32 CreateExtraParticleFlow(S32 type, S32 owner, S32 num, S32 num2,
     return (TRUE);
 }
 
+/* Particle dot at the iso view scale. BoxFlow draws a fixed 2x2 block and is
+   ASM-equivalence tested, so it is left untouched; under zoom the dot must grow
+   with the cloud or the effect thins out as the dot spread doubles. Native
+   BoxFlow at ISO_SCALE_ONE (bit-exact).
+   BoxFlow anchors the 2x2 at the top-left (centre at x+0.5,y+0.5), so the scaled
+   NxN block is offset by (n-2)/2 to keep that same centre, otherwise the dot
+   grows down-right and the whole cloud drifts off its true position at zoom. */
+static void BoxFlowIso(S32 x, S32 y, S32 coul) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        BoxFlow(x, y, coul);
+        return;
+    }
+    S32 n = ISO_PX(2);     /* the native dot is 2x2 */
+    S32 off = (n - 2) / 2; /* re-centre the grown dot on the native centre */
+    S32 ox = x - off;
+    S32 oy = y - off;
+    U8 *L = (U8 *)Log;
+    for (S32 dy = 0; dy < n; dy++) {
+        S32 py = oy + dy;
+        if (py < ClipYMin || py >= ClipYMax)
+            continue;
+        S32 base = TabOffLine[py] + ox;
+        for (S32 dx = 0; dx < n; dx++) {
+            S32 px = ox + dx;
+            if (px < ClipXMin || px >= ClipXMax)
+                continue;
+            L[base + dx] = (U8)coul;
+        }
+    }
+}
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 S32 AffParticleFlow(S_PART_FLOW *ptrf) {
     S32 n;
@@ -445,7 +476,7 @@ S32 AffParticleFlow(S_PART_FLOW *ptrf) {
                     Plot(Xp, Yp, ptrd->Couleur);
                 else
 #endif
-                    BoxFlow(Xp, Yp, ptrd->Couleur);
+                    BoxFlowIso(Xp, Yp, ptrd->Couleur);
 
                 if (Xp < ScreenXMin)
                     ScreenXMin = Xp;

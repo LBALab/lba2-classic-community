@@ -596,6 +596,26 @@ void InitBufferCube() {
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* Does a stored foreground brick vertically overlap the current object clip
+   window?  At ISO_SCALE_ONE this is the original `Ys + 38 > ClipYMin && Ys <=
+   ClipYMax` (bit-exact: top=Ys, bottom=Ys+38). Under zoom the single 38px height
+   approximation under-reaches for tall/spread wall bricks, so foreground bricks
+   fail the test and never re-blit over the object (it shows through the wall).
+   Use the brick's actual scaled extent instead: top = Ys + HotY*scale,
+   bottom = top + DeltaY*scale, from the brick header. */
+static int BrickOverlapsClipY(const T_COLONB *b) {
+    S32 top, bot;
+    if (IsoScale == ISO_SCALE_ONE) {
+        top = b->Ys;
+        bot = b->Ys + 38;
+    } else {
+        U8 *data = (U8 *)BufferBrick + ((U32 *)BufferBrick)[b->Brick];
+        top = b->Ys + ISO_PX((S8)data[3]); /* HotY (signed) */
+        bot = top + ISO_PX(data[1]);       /* DeltaY */
+    }
+    return bot > ClipYMin AND top <= ClipYMax;
+}
+
 void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
     register T_COLONB *ptrlbc;
     S32 col, i;
@@ -631,8 +651,7 @@ void DrawOverBrick(S32 xm, S32 ym, S32 zm) {
 
         for (i = 0; i < NbBrickColon[col]; i++) {
             /* bricks devant */
-            if (ptrlbc->Ys + ISO_PX(38) > ClipYMin
-                                              AND ptrlbc->Ys <= ClipYMax) {
+            if (BrickOverlapsClipY(ptrlbc)) {
                 recouvre = FALSE;
 
                 // essai correction bugs escaliers
@@ -688,8 +707,7 @@ void DrawOverBrick3(S32 xm, S32 ym, S32 zm, S32 ymax) {
 
         for (i = 0; i < NbBrickColon[col]; i++, ptrlbc++) {
             /* bricks devant */
-            if (ptrlbc->Ys + ISO_PX(38) > ClipYMin
-                                              AND ptrlbc->Ys <= ClipYMax) {
+            if (BrickOverlapsClipY(ptrlbc)) {
                 if (ptrlbc->Ym > ymax) {
                     if ((ptrlbc->Zm >= zm)
                             OR(ptrlbc->Xm >= xm)) {
@@ -730,8 +748,7 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
 
         for (i = 0; i < NbBrickColon[col]; i++, ptrlbc++) {
             /* bricks devant */
-            if (ptrlbc->Ys + ISO_PX(38) > ClipYMin
-                                              AND ptrlbc->Ys <= ClipYMax) {
+            if (BrickOverlapsClipY(ptrlbc)) {
                 if (ptrlbc->Ym > 0 // diff ici avec DrawOverBrick3
                                  AND ptrlbc->Ym >= ym) {
                     if ((ptrlbc->Zm == zm)
@@ -761,11 +778,16 @@ void DrawOverBrickCage(S32 xm, S32 ym, S32 zm) {
    U8 so <= 255*255). */
 static U8 s_brickRawBank[8 + 256 * 256];
 
-static void DecodeBrickToRaw(S32 numbrick) {
-    U8 *data = (U8 *)BufferBrick + ((U32 *)BufferBrick)[numbrick];
+/* Decode one AffGraph-format RLE image (skip/copy/repeat) from any sprite bank
+   into s_brickRawBank as raw pixels (colour 0 = transparent), so it can be fed to
+   ScaleSprite. The bank layout is a U32 offset table followed by per-image data
+   {deltaX, deltaY, hotX, hotY, rows...}, shared by bricks (BufferBrick) and the
+   anim-3DS sprite objects (doors etc.), both of which AffGraph draws. */
+static void DecodeRLEToRaw(const U8 *buf, S32 index) {
+    const U8 *data = buf + ((const U32 *)buf)[index];
     U8 deltaX = data[0];
     U8 deltaY = data[1];
-    U8 *g = data + 4;
+    const U8 *g = data + 4;
 
     ((U32 *)s_brickRawBank)[0] = 4; /* sprite 0 starts right after the offset */
     s_brickRawBank[4] = deltaX;
@@ -801,6 +823,24 @@ static void DecodeBrickToRaw(S32 numbrick) {
     }
 }
 
+static void DecodeBrickToRaw(S32 numbrick) {
+    DecodeRLEToRaw((const U8 *)BufferBrick, numbrick);
+}
+
+/* Draw an anim-3DS sprite image (a SPRITE_3D object such as a door) scaled to the
+   iso view. At ISO_SCALE_ONE this is the original native AffGraph blit, bit-exact.
+   Under zoom the RLE image is decoded to raw and stretched with ScaleSprite so the
+   sprite tracks the scaled scene instead of staying native-size (audit group D). */
+void BlitAnim3DSIso(U8 *buf, S32 index, S32 xs, S32 ys) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        AffGraph(index, xs, ys, buf);
+    } else {
+        DecodeRLEToRaw(buf, index);
+        /* ScaleSprite factors are 16.16; IsoScale is 8.8 (ISO_SCALE_ONE=256). */
+        ScaleSprite(0, xs, ys, IsoScale << 8, IsoScale << 8, s_brickRawBank);
+    }
+}
+
 static void BlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
     if (IsoScale == ISO_SCALE_ONE) {
         AffGraph(numbrick, xs, ys, BufferBrick);
@@ -818,11 +858,51 @@ static void BlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
    initial draw uses, so the foreground brick lands exactly where it was drawn.
    ScaleSprite skips colour-0 pixels, giving the same transparent-edge result as
    the mask. */
+/* Scaled re-blit of a foreground brick over an object. Mirrors CopyMask: copy
+   the *composited* Screen background (where overlapping bricks already resolved
+   front-to-back) into Log, masked by the brick silhouette. Re-drawing the single
+   raw brick (BlitBrickIso) instead loses that compositing and paints the wrong
+   tile where bricks overlap. The decoded brick's non-zero pixels are the
+   silhouette; Screen already holds the brick at the scaled position, so the copy
+   is 1:1 at the scaled footprint. */
+static void ScaledReBlitFromScreen(S32 numbrick, S32 xs, S32 ys) {
+    DecodeBrickToRaw(numbrick);
+    U8 deltaX = s_brickRawBank[4];
+    U8 deltaY = s_brickRawBank[5];
+    S32 left = xs + ISO_PX((S8)s_brickRawBank[6]); /* HotX */
+    S32 top = ys + ISO_PX((S8)s_brickRawBank[7]);  /* HotY */
+    S32 sW = ISO_PX(deltaX);
+    S32 sH = ISO_PX(deltaY);
+    U8 *raw = s_brickRawBank + 8;
+    U8 *L = (U8 *)Log;
+    U8 *S = (U8 *)Screen;
+    for (S32 dy = 0; dy < sH; dy++) {
+        S32 py = top + dy;
+        if (py < ClipYMin || py > ClipYMax)
+            continue;
+        S32 sr = ((S32)dy * ISO_SCALE_ONE) / IsoScale;
+        if (sr >= deltaY)
+            sr = deltaY - 1;
+        U8 *rrow = raw + sr * deltaX;
+        S32 base = TabOffLine[py];
+        for (S32 dx = 0; dx < sW; dx++) {
+            S32 px = left + dx;
+            if (px < ClipXMin || px > ClipXMax)
+                continue;
+            S32 sc = ((S32)dx * ISO_SCALE_ONE) / IsoScale;
+            if (sc >= deltaX)
+                sc = deltaX - 1;
+            if (rrow[sc]) /* brick silhouette */
+                L[base + px] = S[base + px];
+        }
+    }
+}
+
 static void ReBlitBrickIso(S32 numbrick, S32 xs, S32 ys) {
     if (IsoScale == ISO_SCALE_ONE) {
         CopyMask(numbrick, xs, ys, BufferMaskBrick, Screen);
     } else {
-        BlitBrickIso(numbrick, xs, ys);
+        ScaledReBlitFromScreen(numbrick, xs, ys);
     }
 }
 
