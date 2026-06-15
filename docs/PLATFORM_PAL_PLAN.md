@@ -592,13 +592,13 @@ guard script in warn-only mode** (CI annotation, never fails) with the allow-lis
 `platform_sdl`; the `TabKeys[]` data seam and #58's virtual-scancode digitization stay
 intact (engine still asks "is scancode N down?"). Decide the `K_*≡SDL_SCANCODE_*` carve-out
 (keep + allow-list the header for v1). **Verify:** `tests/input_device`, gamepad still maps,
-demo replay identical, save-name text entry works.
+demo replay identical, save-name text entry works; record the `KEYBOARD.CPP` provenance row (§5.2).
 
 **PR-3: Ticks.** Route `ticks_ms`/`delay_ms`/`delay_until_input_ms` through `g_platform`;
 `platform_sdl.ticks_ms` wraps the `ManageTime()` clock source; the fixed-dt seam
 (`TIMER.CPP:90–138`) plugs straight into the headless backend later. Pin the
 `delay_until_input_ms` caller. **Verify:** fixed-dt determinism tests unchanged; FPS counter
-sane.
+sane; record the `TIMER.CPP` provenance row (§5.2).
 
 **PR-4: Video / present.** Move `sdlWindow/sdlRenderer/sdlTexture` ownership and the
 present path (`frame_begin`/`frame_end`/`set_palette`/`get_window_size`/`set_fullscreen`/
@@ -608,7 +608,8 @@ existing `s_prePresent`/overlay/screenshot hooks. **Verify:** the screenshot/pre
 produces identical frames; runtime resolution switch (`RES_SWITCH`) still works. ⚠ The
 screenshot harness runs on **desktop CI only**, so the Android staging-buffer present path
 (MTE-sensitive, landed in the now-merged PR [#261](https://github.com/LBALab/lba2-classic-community/pull/261)) is refactored-but-unverified by default;
-add an Android present-path check or on-device verification for this PR specifically.
+add an Android present-path check or on-device verification for this PR specifically; record the
+present-path provenance row (§5.2).
 
 **PR-5: Quit + window events + host services.** Replace `exit(0)` (`WINDOW.CPP:454`) with a
 `g_quitRequested` flag behind `should_quit()`; route focus/cursor/quit window events and the
@@ -730,6 +731,12 @@ Mechanisms (all already in place): `.git-blame-ignore-revs` exists today and gai
 SHA (§3.6), so `git blame` survives the rename; the ASM-equivalence suite is undisturbed (it
 pairs the computational modules, none of which move); the preservation rules (French comments,
 ASCII banners per `CODESTYLE.md`) ride along in the split/moved files.
+
+**Apply at split time, not retroactively.** This table is a commitment to *verify when the line
+is drawn*, not an after-the-fact label. PR-2 (input), PR-3 (ticks), and PR-4 (video) are where
+`KEYBOARD.CPP` / `TIMER.CPP` / the present path actually get cut into SDL-glue vs in-place engine
+state, so the ASM-traceable-vs-SDL-glue boundary is decided in those PRs. Fill in or confirm each
+file's row as part of that PR's review, so the provenance records the real cut.
 
 Relation to `LBA1_PORTING_SURFACE.md`: that doc is a *different axis* (hosting LBA1 *content* on
 this engine), but it already names the LBA1/LBA2 divergence as concentrated in "I/O wrappers,
