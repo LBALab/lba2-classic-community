@@ -17,6 +17,12 @@ work to host LBA1 is **format transcoders (bodies, scenes) + a script opcode-rem
 integrating GPLv2 FLA/MIDI decoders** (both exist upstream — see verdict 7) — not
 re-architecting any subsystem.
 
+**Platform-layer note.** The I/O wrappers, media stack, and rendering capability that this
+divergence concentrates in are exactly what the [Platform Abstraction Layer plan](PLATFORM_PAL_PLAN.md)
+isolates behind one seam. That work keeps its provenance back to `lba2-classic` explicit (see
+[PLATFORM_PAL_PLAN.md](PLATFORM_PAL_PLAN.md) §5.2), so this cross-title content surface and the
+upstream source lineage stay distinct concerns.
+
 ## Per-subsystem verdict
 
 | # | Subsystem | Verdict | Why |

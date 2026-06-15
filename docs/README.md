@@ -77,6 +77,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md) | Projection 4:3 audit: where projection hardcodes the screen centre and 640, culling/preclip sites, and what PR #134 did and did not route. |
 | [ABI.md](ABI.md) | Rule for reading 32-bit DOS-era data on 64-bit hosts; catalogue of fat types; compile-time guards. |
 | [PLATFORM.md](PLATFORM.md) | High-level map of host assumptions (pointer ABI, endianness, FP precision, ASM, OS boundary) with status badges and next-step pointers. |
+| [PLATFORM_PAL_PLAN.md](PLATFORM_PAL_PLAN.md) | Plan (awaiting go/no-go): in-place Platform Abstraction Layer decoupling the engine from direct SDL3. SDL-surface audit, RFC #120 contract reconciliation, and a PR-sequenced, behavior-preserving extraction plan with a headless backend. |
 
 ## External resources
 
