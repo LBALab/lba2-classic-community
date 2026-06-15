@@ -70,6 +70,20 @@ adding a headless backend. Proceed — eyes open that in-place buys the routing 
 headless backend, and a regression guard *now*; full physical SDL containment (and the RFC's
 `platform → nothing internal` dependency rule) still requires the targeted move in §3.6.
 
+**Alignment with the existing architecture docs `[verified-from-docs]`.** Cross-checked against
+the three layer/membrane docs; consistent, no load-bearing contradiction:
+- `ARCHITECTURE.md` already names the platform seam **"already underway"** (its strangler-fig
+  roadmap step 3, citing PR #284–#286) and lists *Platform / IO* as a first-class domain — this
+  plan is the **continuation** of that named work, engaging the doc's *layer* axis (the PAL) and
+  *time* axis (loop inversion).
+- `ENGINE_GAME_SEAM.md` already labels `SYSTEM`/`SVGA` + the community port layer (`CONTROL`,
+  `RES_*`, `TOUCH_INPUT`) "the PAL" (`:266`), pins `AIL/SDL` as the audio backend (confirms §1.3)
+  and the dormant register (confirms §5). Its one caveat — `engine·platform` hybrids are
+  *heritage*; move only when it "pays off twice" (`:270–287`) — is reconciled in §3.6.
+- `ENGINE_GAME_INTERFACE.md` confirms the PAL is **orthogonal** to the Life/Track script VM:
+  scripts reach the engine only through opcode handlers, never platform code, so routing
+  input/timing/present through `g_platform` never crosses the engine/game membrane.
+
 ---
 
 ## 1. Audit findings
@@ -119,7 +133,11 @@ the loop body four ways; all are mechanical to convert:
 Modal sub-menus (`MenuConfig`, `ChoosePlayerName`, …) are **already self-contained** —
 they run their own inner loop calling `MyGetInput()`/`ManageTime()`/`AffScene()` and return
 (`[verified-from-code]` corroborated by the many nested `MyGetInput()`/`ManageTime()` sites
-at `:677–1060`). They need **no** change for inversion.
+at `:677–1060`). They need **no** change for inversion. (The engine/game *membrane* runs **inside** this loop —
+the Life/Track script VM at `DoLife`/`DoTrack`, i.e. `GERELIFE`/`GERETRAK`; see
+`ENGINE_GAME_SEAM.md` and `ENGINE_GAME_INTERFACE.md`. `MainLoop()` owns the loop *structure*; the
+VM owns the engine/game seam; the PAL touches neither — it routes only the platform I/O around
+them.)
 
 **Estimate** `[assumed]`: ~250–400 lines touched in `PERSO.CPP`, zero behavior change,
 verifiable against the existing fixed-dt demo determinism tests.
@@ -506,6 +524,16 @@ Either is defensible. What is **not** defensible is the original plan's implicit
 *and* strong guard *and* clean layering" — those can't all hold. This decision changes the
 CMake source lists and the guard allow-list, so it gates PR-1.
 
+**Reconciliation with `ENGINE_GAME_SEAM.md` + why portability forces A.** That doc already calls
+`SYSTEM`/`SVGA` + the community port layer "the PAL" (`ENGINE_GAME_SEAM.md:266`) and treats the
+`engine·platform` split as acceptable *heritage*, grounding any boundary move in "strangler-fig
+boundaries that pay off twice" (`:270–287`) — i.e. don't move files for dependency-purity alone.
+**Option A clears that bar on portability grounds, not purity:** the second payoff is a build
+that links no SDL at all — the precondition for the non-SDL hosts in §5.1 (raylib; GameCube/Wii
+via libogc). So if portability to a non-SDL host is a real goal, Option A is **required**, not
+preferred; Option B yields only a cleaner desktop-SDL build, never an SDL-free one. (§3.7's
+compile/link selection is the matching half: pick one host backend at build time, never two.)
+
 ### 3.7 Contract shape × selection time — two axes, not one — decide before PR-1 `[design]`
 
 These are independent choices, easy to conflate into a false binary:
@@ -635,6 +663,38 @@ preserving scope.
     struct; paletted output (`frame_begin`/`set_palette`) maps to each framebuffer; no SDL.
     The KallistiOS Dreamcast precedent (software renderer → blit) shows the paletted-native
     path already ports without touching the engine.
+  - **raylib (peer host lib — the truest SDL swap):** `PLATFORM_RAYLIB.CPP` maps near 1:1 —
+    `WindowShouldClose()`→`should_quit`, `PollInputEvents()`→`poll_events`, `frame_end` does
+    `Log`→RGBA→`UpdateTexture`→`DrawTexture`. The one friction: raylib's `KeyboardKey` enum is
+    not SDL scancodes, so `key_down()` must reverse-map — the clearest case for pulling the
+    engine-owned-scancode work (§3.4.5) forward rather than deferring it.
+
+### 5.1 Portability validation — does the seam actually permit non-SDL hosts? `[design]`
+
+The reason any of this is feasible: rendering is a **software-rasterised 8-bit paletted
+framebuffer** (the global `Log` buffer) + a 256-entry palette — no GPU/shader API required, so
+every backend only needs "present this indexed buffer + palette." The three targets below are
+*different kinds* of thing and stress different parts of the contract:
+
+- **raylib** — a *peer host library*, the cleanest swap. Viable as `PLATFORM_RAYLIB.CPP` + an
+  `ail_raylib` AIL backend. Only wart: the SDL-scancode input vocabulary (§3.4.5).
+- **libretro** — *not* a host lib but an **inversion-of-control frontend**: the frontend owns
+  the loop and `retro_run()` == `Step_OneFrame()` (the plan is built for this). **But**
+  shippable also needs the modal-loop inversion debt cleared (a blocking modal hangs the
+  frontend — §5) *and* a libretro AIL backend (audio batch). PAL alone is necessary, not
+  sufficient.
+- **"Dolphin" is an *emulator*, not a host lib** — there is no `platform_dolphin`. The target is
+  **GameCube/Wii native** (devkitPPC + libogc + GX blit + an AESND AIL backend), which Dolphin
+  then runs. Feasible precisely because of the paletted software framebuffer; real blockers are
+  big-endian PowerPC and the software renderer's non-portable FP determinism — both already
+  tracked in `docs/PLATFORM.md`, neither a PAL concern.
+
+What the PAL does **not** provide for any of them: a per-host **AIL backend** (audio is a sibling
+contract, §1.3), the **modal-loop inversion** (libretro), and a **host-neutral input vocabulary**
+(every non-SDL backend reverse-maps into SDL scancodes until §3.4.5 lands). And critically, **all
+three require §3.6 Option A** to produce a build with no SDL linked — under Option B, SDL stays
+linked unconditionally, which is fine for desktop but a dead end for a GameCube/Wii target that
+must not link SDL at all.
 
 ---
 
@@ -658,7 +718,9 @@ preserving scope.
    *and split* — clean-move the pure-SDL glue, lift only the SDL poll from the timer/input
    files, leave engine state and the `SOURCES/` game tree in place → strong guard, honest
    layering) or **Option B** (strict no-moves → regression-only guard). Option A reopens the
-   earlier "no moves" call on purpose. *A recommended.*
+   earlier "no moves" call on purpose. **For any non-SDL host target (§5.1) Option A is
+   *required*, not preferred** — it clears `ENGINE_GAME_SEAM.md`'s "pays off twice" bar on
+   portability grounds (§3.6). *A recommended.*
 9. **Backend dispatch** (§3.7) — **gates PR-1**: confirm **keep the `g_platform` struct as the
    contract *and* select the backend at compile/link** (CMake `PLATFORM_BACKEND`, like
    `SOUND_BACKEND`). This is not struct-vs-direct-calls — keep the struct; the pointer hop is
