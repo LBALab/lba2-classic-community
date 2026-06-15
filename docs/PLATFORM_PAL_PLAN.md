@@ -515,7 +515,8 @@ Group A files still hold most of the SDL surface. Pick one resolution:
     the platform backend. **Move what's SDL; don't relocate the game tree.**
 
   Add the move SHA to `.git-blame-ignore-revs`. (The split-side files, with their SDL poll
-  lifted out, no longer trip the guard and need no allow-list entry.)
+  lifted out, no longer trip the guard and need no allow-list entry.) Provenance per moved or
+  split file, and the `lba2-classic` lineage it preserves, is tabled in §5.2.
 - **Option B: strict no-moves, downgrade the guard.** Allow-list the Group A files
   permanently; the guard then means "no *new* SDL creeps into game/engine code" (still useful
   regression-prevention), and the doc must stop claiming physical SDL containment or RFC-style
@@ -696,6 +697,43 @@ contract, §1.3), the **modal-loop inversion** (libretro), and a **host-neutral 
 three require §3.6 Option A** to produce a build with no SDL linked; under Option B, SDL stays
 linked unconditionally, which is fine for desktop but a dead end for a GameCube/Wii target that
 must not link SDL at all.
+
+### 5.2 Traceability to `lba2-classic` `[verified-from-code]` `[design]`
+
+A preservation guarantee, since this fork exists to keep the 1997 Adeline lineage legible.
+**The PAL is confined to the community SDL3 layer; the upstream-traceable core (ASM-equivalence
+pairs, the Life/Track script VM, the file-format parsers) is never moved or modified.** Two
+kinds of lineage, and the PAL touches only one:
+
+- **Line-level / ASM-equivalence lineage** (engine math, the SVGA rasteriser fillers, format
+  parsers, the script VM) traces 1:1 to the Adeline source and is pinned by
+  `ASM_TO_CPP_REFERENCE.md` + the Docker equivalence tests. The PAL touches **none** of it: it
+  moves `LIB386/SVGA/SDL.CPP` (the SDL3 present backend), not the rasteriser `.ASM`
+  (`SCALEBOX.ASM`, `COPYMASK.ASM`, `BLITBOXF.ASM`, …), which stay put with their tests.
+- **Subsystem "SDL3 replacement of upstream's DOS X" lineage** (the platform/IO layer) is what
+  the PAL reorganizes. Every file it clean-*moves* is community SDL3 code with no upstream
+  ancestry (no `.ASM` pair); the upstream DOS originals it replaced (`KEYB.ASM`,
+  `MOUSEDAT.ASM`) are dormant and untouched.
+
+Provenance per PAL-touched file (in the `LBA1_PORTING_SURFACE.md` verdict-table style):
+
+| File(s) | `lba2-classic` origin | PAL action (§3.6) | Lineage preserved by |
+|---|---|---|---|
+| `SVGA/SDL.CPP`, `WINDOW.CPP`, `EVENTS.CPP` | community SDL3 (replaces DOS VESA/event/timer); no ASM pair | clean move → `PLATFORM_*.CPP` | `.git-blame-ignore-revs` (no upstream version to diverge from) |
+| `TIMER.CPP`, `KEYBOARD.CPP`, `MOUSE.CPP` | community SDL3 rewrite of DOS originals (`KEYB.ASM`/`MOUSEDAT.ASM` dormant) | **split**: lift SDL poll, keep clock/`TabKeys[]`/state in place | engine logic + comments stay in the original file |
+| `JOYSTICK.CPP`, `TOUCH_INPUT.CPP` | community (SDL3 gamepad / Android touch) | stay in `SOURCES/`; lift SDL poll only | unchanged path |
+| SVGA rasteriser `.ASM`, script VM (`GERELIFE`/`GERETRAK`), format parsers | **verbatim Adeline lineage** | **untouched** | ASM-equivalence tests, unchanged |
+
+Mechanisms (all already in place): `.git-blame-ignore-revs` exists today and gains the move
+SHA (§3.6), so `git blame` survives the rename; the ASM-equivalence suite is undisturbed (it
+pairs the computational modules, none of which move); the preservation rules (French comments,
+ASCII banners per `CODESTYLE.md`) ride along in the split/moved files.
+
+Relation to `LBA1_PORTING_SURFACE.md`: that doc is a *different axis* (hosting LBA1 *content* on
+this engine), but it already names the LBA1/LBA2 divergence as concentrated in "I/O wrappers,
+the media stack, and rendering capability", precisely the platform/IO layer the PAL isolates. So
+the PAL *helps* both stories: quarantining the divergent layer behind one seam leaves the shared
+Adeline core (the part traceable to `lba2-classic`) cleaner and clearly delineated.
 
 ---
 
