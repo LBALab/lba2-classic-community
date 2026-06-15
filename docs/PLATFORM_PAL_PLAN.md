@@ -1,7 +1,7 @@
 # In-place Platform Abstraction Layer (PAL): Audit & Extraction Plan
 
-**Status:** Research + plan only. No code, no build changes, no file moves. Hard stop
-after this document; awaiting explicit go/no-go before any PR.
+**Status:** Research + plan only. No code, no build changes, no file moves. A proposal
+awaiting explicit go/no-go on the §6 decisions before any implementation PR.
 
 **Scope:** Ground RFC [#120](https://github.com/LBALab/lba2-classic-community/discussions/120)
 in the actual codebase and produce an in-place plan that decouples the engine from
@@ -10,9 +10,10 @@ lives in `LIB386/PLATFORM/`. The one candidate move is a *targeted* relocation o
 SDL-owning files into that directory (see §3.6), explicitly **not** the Phase 0 restructure,
 and a separate go/no-go from routing the seam.
 
-**Evidence tags:** `[verified-from-code]` (read the exact lines), `[from-RFC]` (asserted
-by Discussion #120, not yet code), `[assumed]` (inference / estimate). All `path:line`
-citations are against the tree at audit time.
+**Evidence tags:** `[verified-from-code]` (read the exact lines), `[verified-from-docs]`
+(checked against another doc in this repo), `[from-RFC]` (asserted by Discussion #120, not yet
+code), `[assumed]` (inference / estimate), `[design]` (a design choice or recommendation, not a
+code finding). All `path:line` citations are against the tree at audit time.
 
 ---
 
@@ -42,7 +43,7 @@ deterministic clock and a per-tick CLI harness seam already exist and ship today
   `LIB386/AIL/SDL/`. The RFC's "audio is not in the PAL" is already true in the code; the
   "AIL → PAL sink" retarget is **unnecessary** for behavior preservation.
 
-**Recommended sequencing decision (the chicken-and-egg in the prompt):** Prove
+**Recommended sequencing decision (the headless-stepper chicken-and-egg):** Prove
 loop-structure inversion **first** as PR-0 (extract `Step_OneFrame()`; it may still call
 SDL indirectly), because the harness already de-risks it. Land the *running*
 `platform_headless` stepper **after** the input + ticks + video subsystems are behind
@@ -126,7 +127,7 @@ the loop body four ways; all are mechanical to convert:
 | Construct | Sites | Conversion |
 |---|---|---|
 | `goto restartloop` (label at `:446`, **outside** the `while`) | `:552`, `:1010` | set `loopState=RESTART; return;` and run the restart-init block at the top of the next step |
-| `goto startloop` (label at `:479`, **inside** the loop, restart current frame) | `:1676` (per loop-audit) | stays internal to `Step_OneFrame()` (a local loop or early continue) |
+| `goto startloop` (label at `:479`, **inside** the loop, restart current frame) | `:1676` (verify exact line at implementation) | stays internal to `Step_OneFrame()` (a local loop or early continue) |
 | `break` (normal menu/ESC exit) | `:879` and a cluster `:1102–1571` | set `exitCode=…; return;` |
 | early `return` | `:520`, `:632`, `:663`, `:1646` (`return FlagTheEnd; // mmm violent`) | set `exitCode=…; return;` |
 
@@ -179,8 +180,8 @@ Authoritative set of **non-build, non-test** source/header files that reference 
 **Group E, audio (already behind its own backend seam; NOT the PAL):**
 - `LIB386/AIL/SDL/*` only. See §1.3.
 
-`WINSYS.CPP` matched the file scan via comments/includes only (no live `SDL_` symbol in the
-spot check) `[assumed]`.
+`WINSYS.CPP` matched the file scan via comments/includes only (no live `SDL_` symbol on
+inspection) `[assumed]`.
 
 **Implication for the guard ratchet:** the "no `SDL_` outside `platform_*.cpp`" rule cannot
 be literal on day one; Groups B–E legitimately touch SDL. The final guard must allow-list
@@ -520,8 +521,8 @@ Group A files still hold most of the SDL surface. Pick one resolution:
   regression-prevention), and the doc must stop claiming physical SDL containment or RFC-style
   layering until a later move.
 
-Either is defensible. What is **not** defensible is the original plan's implicit "no moves
-*and* strong guard *and* clean layering"; those can't all hold. This decision changes the
+Either is defensible. What is **not** defensible is wanting "no moves" *and* a strong guard
+*and* clean layering all at once; those can't all hold. This decision changes the
 CMake source lists and the guard allow-list, so it gates PR-1.
 
 **Reconciliation with `ENGINE_GAME_SEAM.md` + why portability forces A.** That doc already calls
@@ -561,7 +562,7 @@ Every PR: `platform_sdl` wraps today's behavior exactly; zero gameplay change; v
 against existing CI (`host_quick` tests, the fixed-dt demo determinism tests, and the
 screenshot/present harness) before merge. In-place only: `LIB386/PLATFORM/`, **no moves**.
 
-**PR-0 (GATE-0): invert the loop to `Step_OneFrame()`.** `[verified-from-code` basis]
+**PR-0 (GATE-0): invert the loop to `Step_OneFrame()`.** `[verified-from-code]`
 Hoist the `while (TRUE)` body of `MainLoop()` (`PERSO.CPP:478–~1958`) into
 `void Step_OneFrame(void)`; convert the exits in §1.1 to a `static` state flag
 (`exitCode`/`loopState`); `MainLoop()` becomes `while (exitCode<0) Step_OneFrame();`. May
