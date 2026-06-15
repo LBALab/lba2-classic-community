@@ -36,7 +36,7 @@ deterministic clock and a per-tick CLI harness seam already exist and ship today
   build-time backend seam with a complete NULL backend (`LIB386/AIL/`,
   `-DSOUND_BACKEND=null`). Time has a single seam (`ManageTime()`,
   `LIB386/SYSTEM/TIMER.CPP:144`). Input already funnels through one bit-packed array
-  (`TabKeys[]`), and PR #58 proved the "virtual scancode" pattern that lets gamepad ride
+  (`TabKeys[]`), and PR [#58](https://github.com/LBALab/lba2-classic-community/pull/58) proved the "virtual scancode" pattern that lets gamepad ride
   the same seam as keyboard.
 - `[verified-from-code]` **Audio is a non-issue for the PAL.** AIL already *is* the audio
   abstraction (SDL / NULL / MILES backends). SDL audio symbols appear **only** under
@@ -74,7 +74,7 @@ headless backend, and a regression guard *now*; full physical SDL containment (a
 **Alignment with the existing architecture docs `[verified-from-docs]`.** Cross-checked against
 the three layer/membrane docs; consistent, no load-bearing contradiction:
 - `ARCHITECTURE.md` already names the platform seam **"already underway"** (its strangler-fig
-  roadmap step 3, citing PR #284–#286) and lists *Platform / IO* as a first-class domain; this
+  roadmap step 3, citing PR [#284](https://github.com/LBALab/lba2-classic-community/pull/284)–[#286](https://github.com/LBALab/lba2-classic-community/pull/286)) and lists *Platform / IO* as a first-class domain; this
   plan is the **continuation** of that named work, engaging the doc's *layer* axis (the PAL) and
   *time* axis (loop inversion).
 - `ENGINE_GAME_SEAM.md` already labels `SYSTEM`/`SVGA` + the community port layer (`CONTROL`,
@@ -185,7 +185,7 @@ inspection) `[assumed]`.
 
 **Implication for the guard ratchet:** the "no `SDL_` outside `platform_*.cpp`" rule cannot
 be literal on day one; Groups B–E legitimately touch SDL. The final guard must allow-list
-`LIB386/PLATFORM/platform_sdl*.cpp`, `LIB386/AIL/SDL/*`, and a small, explicitly-enumerated
+`LIB386/PLATFORM/PLATFORM_SDL*.CPP`, `LIB386/AIL/SDL/*`, and a small, explicitly-enumerated
 tail (Group C/D), or those must be migrated first. This is detailed in §4 (guard ratchet).
 
 ### 1.3 Audio path `[verified-from-code]`: already solved
@@ -380,12 +380,14 @@ out of the v1 struct unless/until a feature needs raw analog; document why.
 
 ### 3.4 Sites that resist the function-pointer model
 
+(The numbered items below are referenced elsewhere as §3.4.1–§3.4.5.)
+
 1. **`present_frame()` impedance mismatch.** The RFC models present as a push of an indexed
    buffer + a single dirty `Rect`. Reality: the engine renders into a **global** paletted
    buffer (`Log`), and present is **pulled** when the lock count hits zero
    (`UnlockVideoSurface`, `SDL.CPP:146–157`, gated by `frameDirty` `:225`), with dirty
    regions tracked by the engine's own **dirty-box subsystem** (`DIRTYBOX`), not a single
-   rect. The desktop vs Android present paths differ (lock-texture vs staging-buffer). →
+   rect. The desktop vs Android present paths differ (lock-texture vs staging-buffer).
    **Reconciliation:** model present as `{ begin_frame/lock, (engine writes paletted
    buffer), end_frame/present }` plus `set_palette`, and let `platform_sdl` keep the
    dirty-box/lock-count/desktop-vs-Android details private. Do **not** force the RFC's
@@ -605,7 +607,7 @@ ARGB8888 conversion, letterboxing, and desktop-vs-Android split private. Preserv
 existing `s_prePresent`/overlay/screenshot hooks. **Verify:** the screenshot/present harness
 produces identical frames; runtime resolution switch (`RES_SWITCH`) still works. ⚠ The
 screenshot harness runs on **desktop CI only**, so the Android staging-buffer present path
-(MTE-sensitive, landed in the now-merged PR #261) is refactored-but-unverified by default;
+(MTE-sensitive, landed in the now-merged PR [#261](https://github.com/LBALab/lba2-classic-community/pull/261)) is refactored-but-unverified by default;
 add an Android present-path check or on-device verification for this PR specifically.
 
 **PR-5: Quit + window events + host services.** Replace `exit(0)` (`WINDOW.CPP:454`) with a
