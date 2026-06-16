@@ -7,6 +7,7 @@ echo "---------------------------------------------------------------"
 pacman -Syu --noconfirm \
     cmake    \
     libdecor \
+    patchelf \
     sdl3
 
 echo "Installing debloated packages..."
