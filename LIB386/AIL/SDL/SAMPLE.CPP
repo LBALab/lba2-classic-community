@@ -1,5 +1,6 @@
 #include "SAMPLE_SDL.H"
 #include "STREAM_SDL.H"
+#include "VOC_HEADER.H"
 
 #include <SDL3/SDL.h>
 
@@ -94,53 +95,8 @@ static S16 *DecodeImaAdpcm(const U8 *adpcmData, S32 adpcmSize,
 
 /* ── VOC parser ──────────────────────────────────────────────────────────── */
 
-#define VOC_HEADER_MAGIC "reative Voice File\x1A"
-
-static int ParseVocIfPresent(const U8 *buffer, S32 sizeBytes,
-                             const U8 **data, S32 *payloadSize, S32 *outHz, int *outIs8bit) {
-    if (sizeBytes < 26)
-        return 0;
-    if (buffer[0] != 'C' && buffer[0] != 'W' && buffer[0] != 0)
-        return 0;
-    if (memcmp(buffer + 1, VOC_HEADER_MAGIC, 19) != 0)
-        return 0;
-    *outHz = SAMPLE_RATE;
-    *outIs8bit = 1;
-    S32 pos = 26;
-    S32 extendedRate = 0;
-    while (pos + 4 <= sizeBytes) {
-        U8 type = buffer[pos];
-        S32 blockSize = (S32)(buffer[pos + 1] | (buffer[pos + 2] << 8) | (buffer[pos + 3] << 16));
-        if (type == 0x00)
-            break;
-        if (pos + 4 + blockSize > sizeBytes)
-            break;
-        if (type == 0x08 && blockSize >= 4) {
-            S32 freqDiv = (S32)(buffer[pos + 4] | (buffer[pos + 5] << 8));
-            int ch = (int)(buffer[pos + 7]) + 1;
-            if (ch < 1 || ch > 8)
-                ch = 1;
-            if (freqDiv != 65535 && ch > 0)
-                extendedRate = 256000000 / ((65536 - freqDiv) * ch);
-        }
-        if (type == 0x01 && blockSize >= 2) {
-            U8 freqDiv = buffer[pos + 4];
-            U8 codec = buffer[pos + 5];
-            if (extendedRate > 0)
-                *outHz = extendedRate;
-            else if (freqDiv != 255)
-                *outHz = 1000000 / (256 - (S32)freqDiv);
-            if (*outHz <= 0 || *outHz > 192000)
-                *outHz = SAMPLE_RATE;
-            *data = buffer + pos + 6;
-            *payloadSize = blockSize - 2;
-            *outIs8bit = (codec == 0) ? 1 : 0;
-            return 1;
-        }
-        pos += 4 + blockSize;
-    }
-    return 0;
-}
+/* The VOC header parser lives in VOC_HEADER.CPP (pure, SDL-free, host-tested in
+   tests/voc_header). */
 
 /* ── WAV parser ──────────────────────────────────────────────────────────── */
 
@@ -498,7 +454,7 @@ U32 PlaySample(void *buffer, S32 sizeBytes, U32 userhandle, S32 pitchbend,
     int vocIs8bit = 1;
     int hadWav = 0;
     S32 wavHz = SAMPLE_RATE, wavChannels = 1, wavBits = 16, fmtTag = 1, blkAlign = 0;
-    hadVoc = ParseVocIfPresent((const U8 *)buffer, sizeBytes, &data, &payloadSize, &vocHz, &vocIs8bit);
+    hadVoc = ParseVocHeader((const U8 *)buffer, sizeBytes, &data, &payloadSize, &vocHz, &vocIs8bit, SAMPLE_RATE);
     if (!hadVoc)
         SkipWavHeaderIfPresent((const U8 *)buffer, sizeBytes, &data, &payloadSize,
                                &hadWav, &wavHz, &wavChannels, &wavBits, &fmtTag, &blkAlign);
