@@ -33,6 +33,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md) | The engine↔game membrane: the Life/Track per-object script VM. |
 | [ENGINE_FILE_FORMATS.md](ENGINE_FILE_FORMATS.md) | Data contract: the Adeline on-disk formats (HQR, LZ, body, anim, sprite, samples, XMIDI, XCF), each with its cross-title version timeline. |
 | [LBA1_PORTING_SURFACE.md](LBA1_PORTING_SURFACE.md) | Per-subsystem cost of hosting LBA1 on this engine; verified against LBA1 retail data. |
+| [LBA1_PORT_PLAN.md](LBA1_PORT_PLAN.md) | Plan (awaiting go/no-go): how to bring LBA1 to this groundwork. Costs three paths (native port / host on lba2cc / hybrid repo), recommends hosting LBA1 content on the lba2cc engine in-repo behind a game-id, with an agnostic-menu/shell design, twin-e as oracle, and a feasibility-spike ladder. |
 
 ## Build & debug
 

@@ -124,6 +124,18 @@ to the **format transcoders** (body, scene), now fully specified above.
 
 ### 8. Script VM — opcode-remap shim
 
+> **Correction (2026-06-17, `[verified-from-code]` via `scripts/dev/lba1_script_remap.py`; see
+> `LBA1_PORT_PLAN.md` §6.4):** the claim below that the `LM_*` tables are "numerically identical
+> for 0–56" is **wrong**. Diffing `lba1-classic/SOURCES/COMMON.H` against this repo's: of LBA1's
+> 101 Life ops, 68 are identical-slot, 2 are FLAG->VAR renames (31, 36), and 30 collide, with
+> collisions **inside 0..56**: `LM_LABEL`(10)->`LM_PALETTE`, `LM_SET_LIFE`(21)->`LM_SET_CAMERA`,
+> `LM_SET_LIFE_OBJ`(22)->`LM_CAMERA_CENTER`. A by-name remap covers 71/101; the rest need a manual
+> alias (e.g. `LM_LABEL`->`LM_COMPORTEMENT`) or a handler (media ops, fades, proj). The
+> control-flow + flag spine still aligns by number, so the VM mechanism transcodes; and the
+> byte-vs-S16 flag-width seam (verified: LBA1 `RET_BYTE`/1-byte SET vs LBA2 `RET_S16`/2-byte SET,
+> with absolute jumps to recompute) is real. Net: still a contained shim, but a genuine per-op
+> remap table with operand-width rewriting, not a near-identity map.
+
 Same VM (see [ENGINE_GAME_INTERFACE.md](ENGINE_GAME_INTERFACE.md)): `*PtrPrg++` dispatch in
 both `GERELIFE` and `GERETRAK`, same condition opcodes (`LF_*`), comparison ops (`LT_*`),
 return widths. The command (`LM_*`) tables are **numerically identical for 0–56**.
