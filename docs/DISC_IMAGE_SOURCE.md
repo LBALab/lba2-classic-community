@@ -15,18 +15,31 @@ a `.cue`/`.dat`.
   seam. POSIX-open first; on miss, read from a mounted disc image. The whole HQR pipeline
   (`HQFILE.CPP HQF_Init` to `OpenRead`) and `ASSET_PREFLIGHT` inherit it. Order: extracted files,
   then disc image, then missing.
-- **Music:** a cue-aware CD-track resolver in `CD.CPP PlayCD`. Order: extracted `TrackNN.wav`, then
-  an external cue AUDIO file (`LBA2.OGG`, via `PlayStream`), then an in-BIN CD-DA track (PCM
-  passthrough, below), then silent.
-- **Readers:** an `ISO9660` reader (data reads) and a cue parser + audio-track locator (music),
-  both SDL-free engine modules under `LIB386/SYSTEM/`.
+- **Music:** all music in the SDL build funnels through `STREAM.CPP PlayStream` (jingles via
+  `MUSIC.CPP PlayJingle`; "CD" tracks via `CD.CPP PlayCD`, which just `PlayStream`s a
+  `music/TrackNN.wav`). `PlayStream` already resolves WAV first, then `.ogg`/`.OGG`/`track<N>.ogg`
+  fallbacks (full installs ship `.ogg`). The gap for a disc image is that `PlayStream` loads via
+  `SDL_LoadWAV` / `stb_vorbis_open_filename` / `fopen`, which bypass the `OpenRead` seam, so in-BIN
+  music is unreachable. The fix is to bridge the stream loader to the image (below), not to add
+  format handling.
+- **Readers:** an `ISO9660` reader (data reads). For music, a cue parser + audio-track locator is
+  needed only for a true in-BIN CD-DA source (below); both SDL-free engine modules under
+  `LIB386/SYSTEM/`.
 
-## CD music: passthrough, do not extract
-Redbook CD-DA tracks are raw 16-bit LE stereo 44.1 kHz PCM stored as 2352-byte audio sectors in the
-BIN. The in-BIN music path **streams those PCM sectors straight into the AIL audio sink on demand**
-(a raw-PCM stream source that reads the track's sectors, located via the cue `INDEX`); no `.wav`
-extraction, no temp files. The external-file case (`LBA2.OGG`) is already a stream via `PlayStream`.
-So neither music path extracts anything.
+## Music: bridge the stream loader to the image (do not extract)
+LBA2-GOG's music lives as container files inside the BIN data track (`/LBA2/MUSIC/JADPCM*.WAV`
+jingles and `TADPCM1-5.WAV` tracks), plus one external `LBA2.OGG`. Because the engine already
+requests `*.WAV` and falls back to `*.ogg`, the disc-image music path is just: when both the
+filesystem WAV and the filesystem OGG fallback miss, read the file's bytes via
+`DiscImage_OpenRead`/`Read` and decode from memory (`SDL_LoadWAV_IO` for WAV,
+`stb_vorbis_open_memory` for OGG). This reuses the data seam and the existing resolution order; no
+extraction, no temp files, no new format handling.
+
+A separate **in-BIN CD-DA passthrough** source (raw 16-bit LE stereo 44.1 kHz PCM in 2352-byte audio
+sectors, located via the cue `INDEX`, streamed straight into the audio sink, cueplay-style) is only
+needed for a true rip whose cue lists AUDIO tracks inside the BIN (a pure CD rip, and likely the
+LBA1 disc). LBA2-GOG does not use it: its cue's `LBA2.OGG` audio track is an external file, and its
+in-game music is the in-BIN WAV containers reached through the stream-loader bridge above.
 
 ## Commit sequence (one branch, one PR)
 1. **docs:** this guide.
@@ -51,8 +64,12 @@ So neither music path extracts anything.
    (`tests/disc_image`) against a synthetic nested image; verified by headless smoke against
    `../LBA2` (no image: no `Disc:` line, banner unchanged) and `../LBA2-GOG` (mounts `LBA2.GOG`,
    630 files, `Assets all present` with FMV/voices resolved from the image).
-5. **CD-music resolver:** refactor `PlayCD` into the ordered resolver; wire the external OGG (parse
-   the cue); add the in-BIN PCM-passthrough source. Boot log notes the chosen source at info level.
+5. **music from the image:** bridge `STREAM.CPP`'s loader to the disc image, so when both the
+   filesystem WAV and the filesystem OGG fallback miss, it reads the bytes via `DiscImage_OpenRead`
+   and decodes from memory (`SDL_LoadWAV_IO` / `stb_vorbis_open_memory`). The WAV/OGG resolution
+   order already exists; this only adds the image as a final source. Covers LBA2-GOG's in-BIN
+   `JADPCM*`/`TADPCM*` music. (The in-BIN CD-DA passthrough source is separate and only for a true
+   rip / LBA1; see above.) Boot log notes the chosen source at debug level.
 6. **(later) LBA1:** markers / game-id; LBA1's combined music+data image is already covered by the
    PCM-passthrough source. Orthogonal to the `GameProfile`.
 
