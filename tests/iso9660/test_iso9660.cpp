@@ -25,7 +25,12 @@
 static const char *const FILE_CONTENT = "Hello, disc!\n";
 static const uint32_t ROOT_LBA = 18;
 static const uint32_t FILE_LBA = 19;
-static const uint32_t NSECTORS = 20;
+/* A second, multi-sector file to exercise streamed/cross-sector reads. Its
+   bytes follow a known pattern: byte i == (i & 0xFF). 5000 bytes spans 3
+   sectors (LBA 20..22). */
+static const uint32_t BIG_LBA = 20;
+static const uint32_t BIG_LEN = 5000;
+static const uint32_t NSECTORS = 24;
 
 /* ISO9660 stores 32-bit fields "both-endian": LE in the first 4 bytes, BE in the
    next 4. The reader only consumes the LE half, but we write a faithful field. */
@@ -88,10 +93,14 @@ static std::vector<std::vector<uint8_t> > build_sectors() {
     o += wr_dirrec(root + o, ROOT_LBA, 2048, true, &dot, 1);
     o += wr_dirrec(root + o, ROOT_LBA, 2048, true, &dotdot, 1);
     const char *fname = "HELLO.TXT;1";
-    wr_dirrec(root + o, FILE_LBA, fileLen, false, (const uint8_t *)fname, (int)strlen(fname));
+    o += wr_dirrec(root + o, FILE_LBA, fileLen, false, (const uint8_t *)fname, (int)strlen(fname));
+    const char *bname = "BIG.BIN;1";
+    wr_dirrec(root + o, BIG_LBA, BIG_LEN, false, (const uint8_t *)bname, (int)strlen(bname));
 
-    /* File content at LBA 19. */
+    /* File content: the short file, then the patterned multi-sector file. */
     memcpy(secs[FILE_LBA].data(), FILE_CONTENT, fileLen);
+    for (uint32_t i = 0; i < BIG_LEN; i++)
+        secs[BIG_LBA + i / 2048][i % 2048] = (uint8_t)(i & 0xFF);
     return secs;
 }
 
@@ -158,12 +167,47 @@ static void check_image(bool raw) {
     sz = 0;
     ASSERT_EQ_INT(-1, iso_read(iso, "NOPE.TXT", &out, &sz));
 
-    /* iso_walk enumerates exactly the one file, as a '/'-rooted path. */
+    /* iso_walk enumerates both files, each as a '/'-rooted path. */
     std::vector<std::string> paths;
     ASSERT_EQ_INT(0, iso_walk(iso, collect_path, &paths));
-    ASSERT_EQ_INT(1, (int)paths.size());
-    if (paths.size() == 1)
-        ASSERT_TRUE(paths[0] == "/HELLO.TXT");
+    ASSERT_EQ_INT(2, (int)paths.size());
+    bool sawHello = false, sawBig = false;
+    for (size_t i = 0; i < paths.size(); i++) {
+        if (paths[i] == "/HELLO.TXT")
+            sawHello = true;
+        if (paths[i] == "/BIG.BIN")
+            sawBig = true;
+    }
+    ASSERT_TRUE(sawHello && sawBig);
+
+    /* iso_stat locates an extent without reading; iso_pread streams it. */
+    uint32_t blba = 0, bsize = 0;
+    ASSERT_EQ_INT(0, iso_stat(iso, "BIG.BIN", &blba, &bsize));
+    ASSERT_EQ_INT((int)BIG_LEN, (int)bsize);
+    ASSERT_EQ_INT(-1, iso_stat(iso, "NOPE.BIN", &blba, &bsize));
+
+    /* Full read reproduces the generated pattern. */
+    uint8_t big[BIG_LEN];
+    ASSERT_EQ_INT((int)BIG_LEN, iso_pread(iso, blba, bsize, 0, big, BIG_LEN));
+    bool patOk = true;
+    for (uint32_t i = 0; i < BIG_LEN; i++)
+        if (big[i] != (uint8_t)(i & 0xFF))
+            patOk = false;
+    ASSERT_TRUE(patOk);
+
+    /* A slice straddling the 2048-byte sector boundary reads correctly. */
+    uint8_t slice[20];
+    ASSERT_EQ_INT(20, iso_pread(iso, blba, bsize, 2040, slice, 20));
+    bool sliceOk = true;
+    for (uint32_t i = 0; i < 20; i++)
+        if (slice[i] != (uint8_t)((2040 + i) & 0xFF))
+            sliceOk = false;
+    ASSERT_TRUE(sliceOk);
+
+    /* Reads clamp at EOF; reading at/after EOF yields 0. */
+    uint8_t tail[64];
+    ASSERT_EQ_INT(10, iso_pread(iso, blba, bsize, BIG_LEN - 10, tail, 64));
+    ASSERT_EQ_INT(0, iso_pread(iso, blba, bsize, BIG_LEN, tail, 64));
 
     iso_close(iso);
     remove(path.c_str());

@@ -43,6 +43,21 @@ int iso_walk(iso9660_t *iso, iso_walk_cb cb, void *ud);
 int iso_read(iso9660_t *iso, const char *filepath, uint8_t **out, size_t *outsize);
 
 //──────────────────────────────────────────────────────────────────────────
+// Resolve a file path to its on-disc extent (start LBA + byte length) without
+// reading any data. Returns 0 on success, -1 if the path is absent or a dir.
+// Pairs with iso_pread to stream a file lazily rather than slurp it whole, the
+// way the engine reads a multi-hundred-MB VIDEO.HQR straight off the image.
+int iso_stat(iso9660_t *iso, const char *filepath, uint32_t *out_lba, uint32_t *out_size);
+
+//──────────────────────────────────────────────────────────────────────────
+// Read up to `n` bytes from a file extent (located via iso_stat) starting at
+// byte `offset` within the file. `size` is the file's length, which clamps the
+// read at EOF. Returns the number of bytes read (0 at/after EOF), or -1 on a
+// read error before any byte was delivered.
+int iso_pread(iso9660_t *iso, uint32_t lba, uint32_t size, uint32_t offset,
+              uint8_t *out, uint32_t n);
+
+//──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
 }
 #endif
