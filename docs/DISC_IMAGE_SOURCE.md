@@ -64,12 +64,16 @@ in-game music is the in-BIN WAV containers reached through the stream-loader bri
    (`tests/disc_image`) against a synthetic nested image; verified by headless smoke against
    `../LBA2` (no image: no `Disc:` line, banner unchanged) and `../LBA2-GOG` (mounts `LBA2.GOG`,
    630 files, `Assets all present` with FMV/voices resolved from the image).
-5. **music from the image:** bridge `STREAM.CPP`'s loader to the disc image, so when both the
-   filesystem WAV and the filesystem OGG fallback miss, it reads the bytes via `DiscImage_OpenRead`
-   and decodes from memory (`SDL_LoadWAV_IO` / `stb_vorbis_open_memory`). The WAV/OGG resolution
-   order already exists; this only adds the image as a final source. Covers LBA2-GOG's in-BIN
-   `JADPCM*`/`TADPCM*` music. (The in-BIN CD-DA passthrough source is separate and only for a true
-   rip / LBA1; see above.) Boot log notes the chosen source at debug level.
+5. **music from the image:** bridge `STREAM.CPP`'s loader to the disc image. When both the
+   filesystem WAV and the filesystem OGG fallback miss, `PlayWavFromImage` reads the file's bytes via
+   `DiscImage_OpenRead`/`Read` and decodes the WAV from memory (`SDL_LoadWAV_IO` over
+   `SDL_IOFromConstMem`). The WAV/OGG resolution order already exists; this only adds the image as a
+   final source. Covers LBA2-GOG's in-BIN `JADPCM*`/`TADPCM*` music, which are IMA-ADPCM WAV that
+   SDL decodes. In-BIN OGG is not needed for LBA2-GOG (its `LBA2.OGG` is an external file) and the
+   trimmed `stb_vorbis.h` exposes no memory entry point, so OGG-from-image is a deferred extension
+   (declare `stb_vorbis_open_memory` and feed the decode thread). The chosen WAV source is logged via
+   the existing `[MUSIC]` trace (gated by the audio log toggle). (The in-BIN CD-DA passthrough source
+   is separate and only for a true rip / LBA1; see above.)
 6. **(later) LBA1:** markers / game-id; LBA1's combined music+data image is already covered by the
    PCM-passthrough source. Orthogonal to the `GameProfile`.
 

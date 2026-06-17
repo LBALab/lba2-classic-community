@@ -4,6 +4,9 @@
 
 #include "stb_vorbis.h"
 
+#include <SYSTEM/DISCIMG.H>
+#include <SYSTEM/FILES.H> /* ESeekOrigin */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -403,6 +406,105 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
     return true;
 }
 
+/* ── WAV + disc-image helpers ──────────────────────────────────────────── */
+
+/* Open the device stream for a decoded WAV and queue its PCM from `startFrame`.
+   Returns false (and logs) if the device stream cannot open. Does not free
+   `wavData` (the caller owns it). */
+static bool SetupWavStream(const SDL_AudioSpec *spec, const Uint8 *wavData,
+                           Uint32 wavLen, S32 startFrame) {
+    stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, spec, NULL, NULL);
+    if (!stream) {
+        SDL_Log("SDL AIL: Could not open audio stream: %s", SDL_GetError());
+        return false;
+    }
+    streamBytesPerFrame = (int)SDL_AUDIO_BYTESIZE(spec->format) * spec->channels;
+    Uint32 offsetBytes = 0;
+    if (startFrame > 0 && streamBytesPerFrame > 0) {
+        offsetBytes = (Uint32)startFrame * (Uint32)streamBytesPerFrame;
+        if (offsetBytes > wavLen)
+            offsetBytes = wavLen;
+    }
+    SDL_PutAudioStreamData(stream, wavData + offsetBytes, wavLen - offsetBytes);
+    SDL_AddAtomicInt(&streamPushedBytes, (int)(wavLen - offsetBytes));
+    return true;
+}
+
+/* Apply the current volume, start playback, and record the source path. Common
+   tail shared by every successful source. */
+static void FinishStream(const char *name) {
+    float gain = (streamVolume <= 0) ? 0.0f : (float)streamVolume / 127.0f;
+    if (gain > 1.0f)
+        gain = 1.0f;
+    SDL_SetAudioStreamGain(stream, gain);
+
+    SDL_ResumeAudioStreamDevice(stream);
+
+    strncpy(streamPathName, name, ADELINE_MAX_PATH - 1);
+    streamPathName[ADELINE_MAX_PATH - 1] = '\0';
+}
+
+/* Read a whole file out of the mounted disc image into a malloc'd buffer (caller
+   frees). Returns NULL if no image is mounted or the file is not in it. */
+static Uint8 *ReadWholeFromImage(const char *name, Uint32 *outLen) {
+    S32 h = DiscImage_OpenRead(name);
+    if (!h)
+        return NULL;
+    S32 size = DiscImage_Seek(h, 0, SEEK_FROM_END);
+    DiscImage_Seek(h, 0, SEEK_FROM_START);
+    if (size <= 0) {
+        DiscImage_Close(h);
+        return NULL;
+    }
+    Uint8 *buf = (Uint8 *)malloc((size_t)size);
+    if (!buf) {
+        DiscImage_Close(h);
+        return NULL;
+    }
+    S32 got = 0;
+    while (got < size) {
+        S32 n = DiscImage_Read(h, buf + got, (U32)(size - got));
+        if (n <= 0)
+            break;
+        got += n;
+    }
+    DiscImage_Close(h);
+    if (got != size) {
+        free(buf);
+        return NULL;
+    }
+    *outLen = (Uint32)size;
+    return buf;
+}
+
+/* Disc-image fallback: read the file's bytes through the disc seam (the
+   filesystem lookups above already missed) and decode the WAV from memory. This
+   reaches music that ships only inside a mounted image, e.g. LBA2-GOG's in-BIN
+   JADPCM and TADPCM WAV files. Returns true with `stream` set up on success. */
+static bool PlayWavFromImage(const char *name, S32 startFrame) {
+    Uint32 rawLen = 0;
+    Uint8 *raw = ReadWholeFromImage(name, &rawLen);
+    if (!raw)
+        return false;
+
+    SDL_IOStream *io = SDL_IOFromConstMem(raw, rawLen);
+    SDL_AudioSpec spec;
+    Uint8 *wav_data = NULL;
+    Uint32 wav_data_len = 0;
+    /* closeio=true closes `io` whether or not the load succeeds; it does not own
+       `raw`, which we free below once SDL has copied the PCM into wav_data. */
+    bool loaded = io && SDL_LoadWAV_IO(io, true, &spec, &wav_data, &wav_data_len);
+    free(raw);
+    if (!loaded)
+        return false; // present in the image but not a WAV we can decode
+
+    if (musicLogEnabled)
+        SDL_Log("[MUSIC] PlayStream start WAV (disc): %s", name);
+    bool ok = SetupWavStream(&spec, wav_data, wav_data_len, startFrame);
+    SDL_free(wav_data);
+    return ok;
+}
+
 /* ── Public API ────────────────────────────────────────────────────────── */
 
 static void PlayStreamInternal(const char *name, S32 startFrame) {
@@ -411,40 +513,30 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
 
     StopStreamInternal();
 
+    /* 1) Filesystem WAV. PlayJingle/PlayCD request "*.WAV"; some installs ship it. */
     SDL_AudioSpec spec;
     Uint8 *wav_data = NULL;
     Uint32 wav_data_len = 0;
-
     if (SDL_LoadWAV(name, &spec, &wav_data, &wav_data_len)) {
         if (musicLogEnabled)
             SDL_Log("[MUSIC] PlayStream start WAV: %s", name);
-        stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
-        if (!stream) {
-            SDL_Log("SDL AIL: Could not open audio stream: %s", SDL_GetError());
-            SDL_free(wav_data);
-            return;
-        }
-        streamBytesPerFrame = (int)SDL_AUDIO_BYTESIZE(spec.format) * spec.channels;
-        Uint32 offsetBytes = 0;
-        if (startFrame > 0 && streamBytesPerFrame > 0) {
-            offsetBytes = (Uint32)startFrame * (Uint32)streamBytesPerFrame;
-            if (offsetBytes > wav_data_len)
-                offsetBytes = wav_data_len;
-        }
-        SDL_PutAudioStreamData(stream, wav_data + offsetBytes, wav_data_len - offsetBytes);
-        SDL_AddAtomicInt(&streamPushedBytes, (int)(wav_data_len - offsetBytes));
+        bool ok = SetupWavStream(&spec, wav_data, wav_data_len, startFrame);
         SDL_free(wav_data);
-    } else {
-        char resolved[ADELINE_MAX_PATH];
-        const char *cached = PathCacheGet(name);
+        if (!ok)
+            return;
+        FinishStream(name);
+        return;
+    }
+
+    /* 2) Filesystem OGG fallback (.ogg / .OGG / track<N>.ogg). */
+    char resolved[ADELINE_MAX_PATH];
+    const char *cached = PathCacheGet(name);
+    if (cached || ResolveOggPath(name, resolved, (int)sizeof(resolved))) {
         if (cached) {
             strncpy(resolved, cached, sizeof(resolved) - 1);
             resolved[sizeof(resolved) - 1] = '\0';
-        } else if (ResolveOggPath(name, resolved, (int)sizeof(resolved))) {
-            PathCachePut(name, resolved);
         } else {
-            SDL_Log("SDL AIL: Could not find '%s' or OGG fallbacks", name);
-            return;
+            PathCachePut(name, resolved);
         }
         if (!PlayOggFile(resolved, startFrame)) {
             SDL_Log("SDL AIL: Failed to decode '%s'", resolved);
@@ -452,19 +544,18 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         }
         if (musicLogEnabled)
             SDL_Log("[MUSIC] PlayStream start OGG: %s (from %s)", resolved, name);
+        FinishStream(name);
+        return;
     }
 
-    {
-        float gain = (streamVolume <= 0) ? 0.0f : (float)streamVolume / 127.0f;
-        if (gain > 1.0f)
-            gain = 1.0f;
-        SDL_SetAudioStreamGain(stream, gain);
+    /* 3) Disc image: read bytes through the seam and decode the WAV from memory.
+          Reaches music that lives only inside a mounted disc image. */
+    if (PlayWavFromImage(name, startFrame)) {
+        FinishStream(name);
+        return;
     }
 
-    SDL_ResumeAudioStreamDevice(stream);
-
-    strncpy(streamPathName, name, ADELINE_MAX_PATH - 1);
-    streamPathName[ADELINE_MAX_PATH - 1] = '\0';
+    SDL_Log("SDL AIL: Could not find '%s' (filesystem, OGG fallback, or disc image)", name);
 }
 
 void PlayStream(char *name) {
