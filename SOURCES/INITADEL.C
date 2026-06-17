@@ -151,6 +151,12 @@ void InitAdeline(S32 argc, char *argv[]) {
             S32 discFiles = 0;
             if (DiscImage_GetBannerInfo(discPath, ADELINE_MAX_PATH, &discFiles)) {
                 const char *discName = strrchr(discPath, '/');
+#ifdef _WIN32
+                /* Windows paths may use '\\'; keep whichever separator is last. */
+                const char *bs = strrchr(discPath, '\\');
+                if (bs != NULL && (discName == NULL || bs > discName))
+                    discName = bs;
+#endif
                 discName = discName ? discName + 1 : discPath;
                 Log_Raw("Disc:   mounted %s  (ISO9660, %d files)", discName, (int)discFiles);
             }

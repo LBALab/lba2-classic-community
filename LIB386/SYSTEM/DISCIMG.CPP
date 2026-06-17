@@ -174,9 +174,13 @@ extern "C" bool DiscImage_Mount(const char *assetsDir, const char *resMarker) {
     g_fileCount = ctx.count;
     memset(g_handles, 0, sizeof(g_handles));
 
-    /* The mount is reported by the boot banner's "Disc:" line (INITADEL.C), so
-       no log here: a Log_Debug would print above the banner (it runs earlier)
-       and duplicate that line. */
+    /* The boot banner's "Disc:" line (INITADEL.C) is the curated one-line report.
+       Here we add the detail it omits (the full image path and the in-image asset
+       root) at DEBUG, so it reaches adeline.log and the terminal for diagnosing
+       asset-root/path issues without touching the banner. The console sink stays at
+       INFO and is wired after this point, so the curated view is unaffected. */
+    Log_Debug("DISCIMG: mounted %s (asset root '%s', %d files)", g_imagePath,
+              g_assetRoot[0] ? g_assetRoot : "/", (int)g_fileCount);
     return true;
 }
 
