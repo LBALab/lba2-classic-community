@@ -143,13 +143,16 @@ void InitAdeline(S32 argc, char *argv[]) {
         Log_Raw("Built %s %s", __DATE__, __TIME__);
         Log_Raw("Assets: %s", resFolderPath);
         /* When a disc image is mounted, one aligned line beside Assets: naming
-           it; silent (no line) otherwise, so the banner is byte-identical to a
+           the image (basename only; it lives in the assets dir above). Silent
+           (no line) otherwise, so the banner is byte-identical to a
            filesystem-only install. */
         {
             char discPath[ADELINE_MAX_PATH] = "";
             S32 discFiles = 0;
             if (DiscImage_GetBannerInfo(discPath, ADELINE_MAX_PATH, &discFiles)) {
-                Log_Raw("Disc:   %s  (ISO9660, %d files)", discPath, (int)discFiles);
+                const char *discName = strrchr(discPath, '/');
+                discName = discName ? discName + 1 : discPath;
+                Log_Raw("Disc:   mounted %s  (ISO9660, %d files)", discName, (int)discFiles);
             }
         }
         Log_Raw("Saves:  %s", saveFolderPath);

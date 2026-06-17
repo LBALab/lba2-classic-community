@@ -174,8 +174,9 @@ extern "C" bool DiscImage_Mount(const char *assetsDir, const char *resMarker) {
     g_fileCount = ctx.count;
     memset(g_handles, 0, sizeof(g_handles));
 
-    Log_Debug("DISCIMG: mounted %s (ISO9660, %d files, asset root '%s')",
-              g_imagePath, (int)g_fileCount, g_assetRoot[0] ? g_assetRoot : "/");
+    /* The mount is reported by the boot banner's "Disc:" line (INITADEL.C), so
+       no log here: a Log_Debug would print above the banner (it runs earlier)
+       and duplicate that line. */
     return true;
 }
 
