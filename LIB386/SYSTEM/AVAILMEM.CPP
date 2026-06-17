@@ -9,8 +9,11 @@ extern "C" {
 
 // --- Interface ---------------------------------------------------------------
 U64 AvailableMem() {
-    // Not the same as available, but good enough for now...
-    return SDL_GetSystemRAM();
+    // SDL_GetSystemRAM() reports installed RAM in MiB; the engine's memory
+    // budgeting (AdjustHQRMem) works in bytes, so convert. Returning MiB here
+    // silently collapsed every HQR cache to its minimum, because the
+    // byte-fraction formulas saw a tiny number (e.g. 32768 for 32 GB).
+    return (U64)SDL_GetSystemRAM() * 1024 * 1024;
 }
 
 // =============================================================================
