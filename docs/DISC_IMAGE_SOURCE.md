@@ -35,11 +35,22 @@ filesystem WAV and the filesystem OGG fallback miss, read the file's bytes via
 `stb_vorbis_open_memory` for OGG). This reuses the data seam and the existing resolution order; no
 extraction, no temp files, no new format handling.
 
+**External cue audio (redbook track shipped as a standalone file).** GOG keeps music tracks 1-5 in
+the data image (`TADPCM1-5`) but ships track 6 as the external `LBA2.OGG`, listed in the cue
+(`LBA2.DAT`) as its one `TRACK AUDIO` entry. The engine requests `music/TADPCM6.WAV`, which is absent
+from both the filesystem and the image. So the stream loader has a final source: for a redbook
+"track" request (`TADPCM<N>`/`Track<N>`, never a jingle) that missed everywhere, it parses the
+install's cue for the first external (non-BINARY) audio file and plays it (`LBA2.OGG` is OGG, decoded
+by the existing OGG path; a WAV cue track would load via `SDL_LoadWAV`). The cue reader is a small
+SDL-free module (`LIB386/SYSTEM/CUE.CPP`, `Cue_ParseExternalAudio` / `Cue_ResolveInDir`), reused
+later by the CD-DA source. On GOG only track 6 is missing and the cue has exactly one external audio
+file, so the mapping is unambiguous.
+
 A separate **in-BIN CD-DA passthrough** source (raw 16-bit LE stereo 44.1 kHz PCM in 2352-byte audio
 sectors, located via the cue `INDEX`, streamed straight into the audio sink, cueplay-style) is only
-needed for a true rip whose cue lists AUDIO tracks inside the BIN (a pure CD rip, and likely the
-LBA1 disc). LBA2-GOG does not use it: its cue's `LBA2.OGG` audio track is an external file, and its
-in-game music is the in-BIN WAV containers reached through the stream-loader bridge above.
+needed for a true rip whose cue lists AUDIO tracks *inside* the BIN (a pure CD rip, and likely the
+LBA1 disc). The cue reader deliberately skips those (AUDIO under a BINARY file), since they are this
+separate source's job, not an external file.
 
 ## Commit sequence (one branch, one PR)
 1. **docs:** this guide.
@@ -72,9 +83,14 @@ in-game music is the in-BIN WAV containers reached through the stream-loader bri
    SDL decodes. In-BIN OGG is not needed for LBA2-GOG (its `LBA2.OGG` is an external file) and the
    trimmed `stb_vorbis.h` exposes no memory entry point, so OGG-from-image is a deferred extension
    (declare `stb_vorbis_open_memory` and feed the decode thread). The chosen WAV source is logged via
-   the existing `[MUSIC]` trace (gated by the audio log toggle). (The in-BIN CD-DA passthrough source
-   is separate and only for a true rip / LBA1; see above.)
-6. **(later) LBA1:** markers / game-id; LBA1's combined music+data image is already covered by the
+   the existing `[MUSIC]` trace (gated by the audio log toggle).
+6. **external cue audio:** a redbook track shipped as a standalone file (GOG's `LBA2.OGG` = track 6,
+   absent from the data image). Adds an SDL-free cue reader (`LIB386/SYSTEM/CUE.CPP`, host test
+   `tests/cue`) and a final stream-loader source: a redbook "track" request that missed the
+   filesystem and the image is satisfied by the cue's first external (non-BINARY) audio file. Verified
+   on `../LBA2-GOG`: `playmusic 6` resolves `music/TADPCM6.WAV` to the install's `LBA2.OGG`. (The
+   in-BIN CD-DA passthrough source is still separate and only for a true rip / LBA1; see above.)
+7. **(later) LBA1:** markers / game-id; LBA1's combined music+data image is already covered by the
    PCM-passthrough source. Orthogonal to the `GameProfile`.
 
 A remaining increment for a pure rip (only the disc image present, nothing extracted): discovery
