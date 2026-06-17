@@ -82,7 +82,10 @@ S32 InitExternalView() {
         TheEnd(NOT_ENOUGH_MEM, "PtrZvBuffer (3DExt)");
 #endif
 
-    HQR_Isle_Obj = HQR_Init_Ressource("", IsleObjMem, 200);
+    /* 1024 (was 200) LRU slots, headroom so an object-dense island's distinct
+       decor bodies stay resident rather than evicting; pairs with the larger
+       MAX_ISLE_OBJ_MEM. The block table is ~20 bytes/slot, so this is a few KB. */
+    HQR_Isle_Obj = HQR_Init_Ressource("", IsleObjMem, 1024);
     if (!HQR_Isle_Obj)
         TheEnd(NOT_ENOUGH_MEM, "HQR_Isle_Obj (3DExt)");
 
