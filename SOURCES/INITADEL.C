@@ -16,6 +16,7 @@
 #include "SYSTEM/CMDLINE.H"
 #include "SYSTEM/CPU.H"
 #include "SYSTEM/DEFFILE.H"
+#include "SYSTEM/DISCIMG.H"
 #include "SYSTEM/DISPOS.H"
 #include "SYSTEM/EVENTS.H"
 #include "SYSTEM/EXIT.H"
@@ -141,6 +142,25 @@ void InitAdeline(S32 argc, char *argv[]) {
                    (SDL_GetSystemRAM() + 512) / 1024);
         Log_Raw("Built %s %s", __DATE__, __TIME__);
         Log_Raw("Assets: %s", resFolderPath);
+        /* When a disc image is mounted, one aligned line beside Assets: naming
+           the image (basename only; it lives in the assets dir above). Silent
+           (no line) otherwise, so the banner is byte-identical to a
+           filesystem-only install. */
+        {
+            char discPath[ADELINE_MAX_PATH] = "";
+            S32 discFiles = 0;
+            if (DiscImage_GetBannerInfo(discPath, ADELINE_MAX_PATH, &discFiles)) {
+                const char *discName = strrchr(discPath, '/');
+#ifdef _WIN32
+                /* Windows paths may use '\\'; keep whichever separator is last. */
+                const char *bs = strrchr(discPath, '\\');
+                if (bs != NULL && (discName == NULL || bs > discName))
+                    discName = bs;
+#endif
+                discName = discName ? discName + 1 : discPath;
+                Log_Raw("Disc:   mounted %s  (ISO9660, %d files)", discName, (int)discFiles);
+            }
+        }
         Log_Raw("Saves:  %s", saveFolderPath);
         Log_Raw("Config: %s", cfgFilePath);
         Log_Raw("Log:    %s", logFilePath);

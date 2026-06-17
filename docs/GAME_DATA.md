@@ -98,24 +98,28 @@ Windows without Bash: configure CMake as in [WINDOWS.md](WINDOWS.md), then run `
 
 ## GOG DRM-free "Original Edition" packages
 
-The GOG DRM-free standalone product (and the equivalent content inside the GOG Galaxy "Original Edition" DLC under `Speedrun/Windows/`) ships the 1997 retail CD-ROM as a raw BIN image (`LBA2.GOG`) rather than extracted files. HQRs are duplicated at the install root so gameplay loads, but `VIDEO.HQR`, music WAVs, and `.VOX` voices live only inside the BIN. The modern engine can't see them.
+The GOG DRM-free standalone product (and the equivalent content inside the GOG Galaxy "Original Edition" DLC under `Speedrun/Windows/`) ships the 1997 retail CD-ROM as a raw BIN image (`LBA2.GOG`) rather than extracted files. HQRs are duplicated at the install root so gameplay loads, but `VIDEO.HQR`, music WAVs, and `.VOX` voices live only inside the BIN.
 
-To make our engine work against one of these installs, extract the media files once:
+**The engine reads the image directly (no extraction needed).** Point it at the install root, the folder holding both `lba2.hqr` and `LBA2.GOG`, and the disc-image source mounts the BIN and resolves the in-image assets (FMV, voices, music) through the normal file path. The image is detected by content (the ISO9660 "CD001" volume descriptor), not by name, so the `.gog` extension, a raw `.bin`/`.iso`, or a `.cue`/`.dat` pair all work. When a mount happens the boot log adds a `Disc:` line beside `Assets:`; with no image present the engine stays filesystem-only as before. See [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) for the mechanism.
+
+Discovery still validates an install dir by finding `lba2.hqr`, so a directory holding *only* the image does not yet auto-resolve; today's GOG packages ship the HQRs extracted alongside the BIN, so discovery succeeds and only the media comes from the image.
+
+**Extracting the media instead (optional).** If you would rather have loose files on disk (for modding, inspection, or to run without the image), extract them once:
 
 ```
 python3 scripts/dev/extract_lba2_gog_media.py /path/to/gog-install/
 ```
 
-This walks the ISO9660 filesystem inside `LBA2.GOG`, extracts everything under `/LBA2/VIDEO/`, `/LBA2/VOX/`, and `/LBA2/MUSIC/`, and writes them next to the existing HQRs (~522 MB total: 1× `VIDEO.HQR`, 39× `.VOX`, 24× ADPCM `.WAV`). Files extracted by this script are byte-identical to what the GOG Galaxy / Steam Classic SKUs ship in `Common/` — verified by md5.
+This walks the ISO9660 filesystem inside `LBA2.GOG`, extracts everything under `/LBA2/VIDEO/`, `/LBA2/VOX/`, and `/LBA2/MUSIC/`, and writes them next to the existing HQRs (~522 MB total: 1× `VIDEO.HQR`, 39× `.VOX`, 24× ADPCM `.WAV`). Files extracted by this script are byte-identical to what the GOG Galaxy / Steam Classic SKUs ship in `Common/`, verified by md5.
 
 The script is idempotent (re-runs skip files already at the expected size; pass `--force` to overwrite). Python 3 stdlib only, no dependencies. After extraction, point the engine at the install root as usual.
 
 Not affected by this:
 
-- GOG Galaxy or Steam buyers of *TLBA2 Classic* (with or without the Original Edition DLC) — both already ship the assets extracted under `Common/`.
-- Anyone with a 1997 LBA2 retail CD can rip it (`cdrdao read-cd …`) into a BIN/CUE pair that the same script handles.
+- GOG Galaxy or Steam buyers of *TLBA2 Classic* (with or without the Original Edition DLC): both already ship the assets extracted under `Common/`.
+- Anyone with a 1997 LBA2 retail CD can rip it (`cdrdao read-cd …`) into a BIN/CUE pair that the engine mounts directly or the script extracts.
 
-See issue [#119](https://github.com/LBALab/lba2-classic-community/issues/119) for the analysis behind this and the in-engine-reader follow-up option.
+See issue [#119](https://github.com/LBALab/lba2-classic-community/issues/119) for the analysis behind this; the in-engine disc reader it proposed is now implemented (see [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md)).
 
 ## Config file
 

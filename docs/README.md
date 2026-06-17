@@ -42,6 +42,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [WINDOWS.md](WINDOWS.md) | Building on Windows with MSYS2; game files, toolchain. |
 | [ANDROID.md](ANDROID.md) | Building, packaging, and running on Android (arm64-v8a / armeabi-v7a): NDK + SDL3 cross-build, APK bundler, 16 KB pages, game-data placement, touch overlay. |
 | [GAME_DATA.md](GAME_DATA.md) | Retail game files: `LBA2_GAME_DIR`, `--game-dir`, discovery order, dev layouts. |
+| [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) | Reading retail assets straight from a raw ISO/BIN disc image (GOG `LBA2.GOG`): ISO9660 reader, mount + `OpenRead` fallback, in-image music. |
 | [DEBUG.md](DEBUG.md) | Original Adeline debug tools (DEBUG_TOOLS=ON): overlay, F9 screenshot, bug save/load, cheats, scene selection. |
 | [CONSOLE.md](CONSOLE.md) | Quake-style debug console (always available): backtick/F12, commands and cvars. |
 | [CONTROL.md](CONTROL.md) | CLI control harness: drive the engine non-interactively (`--load`/`--exec`/`--tick`/`--dump-state`/`--screenshot`/`--exit`) for automation and regression. |

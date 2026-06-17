@@ -21,6 +21,8 @@ What the original 1997 disc (and modern re-releases) contain at the data level. 
 | SFX | ADPCM samples | `SAMPLES.HQR` | Same archive on every distribution. |
 | CD-DA track | One audio track | GOG ships as `LBA2.OGG` (track 2 of `LBA2.DAT` CUE) | The original retail CD also had this as a CD-DA track. The engine's `MUSIC.CPP` `TrackCD` table treats it as a CD-DA-style "track." |
 
+**Loading GOG's in-image audio:** no extraction is required. The engine mounts `LBA2.GOG` and serves the in-image `MUSIC/` (jingles and themes) and `VOX/` through the normal asset path, and resolves the external `LBA2.OGG` track via the install's cue. See [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) for the loader and [GAME_DATA.md](GAME_DATA.md) for where to point the engine.
+
 ### Music is ADPCM, not MIDI
 
 The `JADPCM` / `TADPCM` filename prefixes ("Jingle ADPCM", "Theme ADPCM") preserve the format lineage from 1997. Steam's `Common/Music/jadpcm01.ogg` etc. are direct OGG transcodes. Nothing in `SOURCES/MUSIC.CPP` ever invokes a MIDI playback API.

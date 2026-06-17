@@ -77,6 +77,16 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 `tests/console/test_console_commands.cpp` covers parser/output integration in `SOURCES/CONSOLE/CONSOLE.CPP` using host-only hooks: built-in `help` and `cmdlist`, unknown-command diagnostics, cvar set/get (`fps`), and a registered `status` command path that prints the same status headline format.
 
+### 6. Host tests — disc-image source (`tests/iso9660`, `tests/cue`, `tests/disc_image`)
+
+These cover the disc-image resource source ([DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md)); all are SDL-free and asset-free, run against synthetic fixtures built in-test (no retail image on disk).
+
+`tests/iso9660/test_iso9660.cpp` builds a minimal ISO9660 image in memory (PVD at LBA 16, a root directory with files), packs it both as 2352-byte raw (Mode-1) and 2048-byte cooked sectors, and proves the reader auto-detects the layout, reads a file by path (case-insensitively, ignoring the `;1` version), streams cross-sector ranges and clamps at EOF (`iso_stat` / `iso_pread`), enumerates the tree (`iso_walk`), and rejects a non-ISO file. Two hardening cases assert a malformed image (a directory record whose name runs past its extent) and a truncated one (a root extent pointing past EOF) stop cleanly instead of reading out of bounds; run them under the `linux_sanitize` preset to catch a bounds regression.
+
+`tests/cue/test_cue.cpp` exercises the cue reader (`LIB386/SYSTEM/CUE.CPP`): the first external (non-BINARY) audio track wins, a data-only cue has no external audio, and AUDIO tracks nested under a BINARY file (in-image CD-DA) are skipped.
+
+`tests/disc_image/test_disc_image.cpp` links `DISCIMG.CPP` against a synthetic nested image and checks mount + banner info, asset-root detection, path resolution under the mount base, file/dir existence, misses, and unmount.
+
 PR host jobs and `make test` build the `host_tests` aggregate target, then:
 
 ```bash

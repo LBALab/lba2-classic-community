@@ -148,6 +148,8 @@ bool IsValidResourceDir(const char *path) {
     return Discover(NULL, 0, path, FILE_VALID_RES_DIR);
 }
 
+const char *Directories_GetResMarker(void) { return FILE_VALID_RES_DIR; }
+
 bool Directories_IsUnderResDir(const char *path) {
     // Every Get*Path under the resource tree is built by appending to
     // directoriesResDir, so a prefix match identifies installed game data.

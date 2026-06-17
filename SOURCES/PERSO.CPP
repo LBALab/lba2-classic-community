@@ -13,6 +13,7 @@
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
+#include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
 #include "ASSET_PREFLIGHT.H"
@@ -2479,6 +2480,14 @@ int main(int argc, char *argv[]) {
 
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",
                         DistribVersion);
+
+        /* Mount a disc image in the install dir, if one is present, so assets
+           that ship only inside the image (FMV, voices, music) resolve through
+           the OpenRead seam with no extraction step. A pure no-op when there is
+           no image (today's filesystem-only behaviour). Done before InitAdeline
+           so the banner can show the mount, and before AssetPreflight so it
+           sees disc-backed assets. */
+        DiscImage_Mount(resFolderPath, Directories_GetResMarker());
     }
 
     HQRGetErrorFunc = ErrorHQRGet;
