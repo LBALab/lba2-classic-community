@@ -100,8 +100,9 @@ static int ParseVocIfPresent(const U8 *buffer, S32 sizeBytes,
                              const U8 **data, S32 *payloadSize, S32 *outHz, int *outIs8bit) {
     if (sizeBytes < 26)
         return 0;
-    if (buffer[0] != 'C' && buffer[0] != 'W' && buffer[0] != 0)
-        return 0;
+    /* The 19-byte signature at offset 1 is the real magic. The first byte is 'C' in a standard
+       VOC but varies across LBA voice banks (0x00, and 0x01 in some LBA1 VOX entries), so it is
+       not a reliable discriminator; gate on the signature alone. */
     if (memcmp(buffer + 1, VOC_HEADER_MAGIC, 19) != 0)
         return 0;
     *outHz = SAMPLE_RATE;
