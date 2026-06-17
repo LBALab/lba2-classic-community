@@ -1,9 +1,9 @@
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM/DISCIMG.H>
 
-#include <SYSTEM/FILES.H>   // ESeekOrigin values, IsDirectory
+#include <SYSTEM/FILES.H> // ESeekOrigin values, IsDirectory
 #include <SYSTEM/ISO9660.H>
-#include <SYSTEM/LIMITS.H>  // ADELINE_MAX_PATH
+#include <SYSTEM/LIMITS.H> // ADELINE_MAX_PATH
 #include <SYSTEM/LOG.H>
 
 #include <dirent.h>
@@ -303,6 +303,6 @@ extern "C" bool DiscImage_Exists(const char *path) {
 
     uint32_t lba = 0, size = 0;
     if (iso_stat(g_iso, img, &lba, &size) == 0)
-        return true; // a file
+        return true;                                    // a file
     return iso_list(g_iso, img, NoopListCb, NULL) == 0; // or a directory
 }

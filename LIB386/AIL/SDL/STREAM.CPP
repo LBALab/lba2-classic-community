@@ -518,7 +518,7 @@ static bool InstallDirFromMusicPath(const char *name, char *outDir, int max) {
         i--;
     if (i < 0)
         return false;
-    i--; /* step before the separator that precedes the filename */
+    i--;                                                /* step before the separator that precedes the filename */
     while (i >= 0 && name[i] != '/' && name[i] != '\\') /* skip "music" component */
         i--;
     if (i < 0)
