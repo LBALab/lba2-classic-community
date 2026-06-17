@@ -92,7 +92,15 @@ void AdjustHQRMem(void) {
     struct SizeInfo sizeinfo;
     char tmpFilePath[ADELINE_MAX_PATH];
 
-    memory = AvailableMem();
+    /* Each budget below is a byte fraction of RAM, then clamped to a MAX_*_MEM
+       ceiling. AvailableMem() is bytes; cap the base at 1 GB so memory/16 etc.
+       stay inside these U32 fields on large-RAM machines. The fractions still
+       exceed every ceiling there, so this cap never shrinks a cache: any machine
+       with more than ~1 GB lands on the MAX_*_MEM values regardless. */
+    {
+        U64 totalMem = AvailableMem();
+        memory = (totalMem > 0x40000000ULL) ? 0x40000000U : (U32)totalMem;
+    }
 
     SpriteMem = (memory / 32);
     Anim3DSMem = (memory / 16);

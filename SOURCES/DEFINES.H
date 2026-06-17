@@ -120,7 +120,10 @@
 //#define	MAX_ISLE_MEM	1500000L	// 1000000L
 
 #define MIN_ISLE_OBJ_MEM 200000L // a determiner dynamiquement par mounfrac
-#define MAX_ISLE_OBJ_MEM 800000L
+// HQR_Isle_Obj decor-body cache ceiling, raised above the original 800 KB for
+// headroom on modern RAM (heap-backed). Only takes effect with the
+// AvailableMem() byte fix, which lets these budgets reach their ceilings.
+#define MAX_ISLE_OBJ_MEM 16000000L
 
 #define MIN_CUBE_INFOS_MEM 100L
 #define MAX_CUBE_INFOS_MEM 1000L
