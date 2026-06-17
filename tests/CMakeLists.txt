@@ -34,6 +34,7 @@ add_subdirectory(focus_audio)
 add_subdirectory(timer)
 add_subdirectory(staging_buffer)
 add_subdirectory(input_device)
+add_subdirectory(voc_header)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
