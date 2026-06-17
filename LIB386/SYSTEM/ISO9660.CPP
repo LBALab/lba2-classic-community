@@ -275,3 +275,40 @@ int iso_read(iso9660_t *iso, const char *filepath, uint8_t **out, size_t *outsiz
     *outsize = len;
     return 0;
 }
+
+//──────────────────────────────────────────────────────────────────────────
+int iso_stat(iso9660_t *iso, const char *filepath, uint32_t *out_lba, uint32_t *out_size) {
+    uint32_t lba, len;
+    if (resolve(iso, filepath, 0, &lba, &len) != 0)
+        return -1;
+    if (out_lba)
+        *out_lba = lba;
+    if (out_size)
+        *out_size = len;
+    return 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+int iso_pread(iso9660_t *iso, uint32_t lba, uint32_t size, uint32_t offset,
+              uint8_t *out, uint32_t n) {
+    if (offset >= size)
+        return 0;
+    if (n > size - offset)
+        n = size - offset;
+
+    uint32_t done = 0;
+    uint8_t sec[2048];
+    while (done < n) {
+        uint32_t fileOff = offset + done;
+        uint32_t s = lba + fileOff / 2048;
+        uint32_t within = fileOff % 2048;
+        if (read_sector(iso, s, sec) != 0)
+            return done > 0 ? (int)done : -1;
+        uint32_t take = 2048 - within;
+        if (take > n - done)
+            take = n - done;
+        memcpy(out + done, sec + within, take);
+        done += take;
+    }
+    return (int)done;
+}
