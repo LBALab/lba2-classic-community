@@ -35,15 +35,32 @@ So neither music path extracts anything.
    `host_quick` test (`tests/iso9660`) against a synthetic in-test ISO9660 fixture: `iso_open`
    detects 2352-raw vs 2048-cooked, `iso_read` returns a known file by path, `iso_walk` enumerates
    it, a non-ISO file is rejected. (Mirrors the `VOC_HEADER` pure-unit + `tests/voc_header` pattern.)
-3. **mount + `OpenRead` intercept (data) + preflight + boot-log mount line.** Mount by content-probe
-   of the data dir; `iso_walk` once to build a case-insensitive basename + relative-path index;
-   tagged virtual handles dispatched in `Read/Seek/Close`; `FileSize`/`ExistsFileOrDir` (incl. the
-   `vox/` dir check) become image-aware. Smoke against `../LBA2` (FS-only regression) and
-   `../LBA2-GOG` (media resolves from the image).
-4. **CD-music resolver:** refactor `PlayCD` into the ordered resolver; wire the external OGG (parse
+3. **ISO9660 streaming reads (`iso_stat` / `iso_pread`) + host test.** Lazy extent access so a file
+   is streamed off the image rather than slurped: `iso_stat` resolves a path to its (LBA, size) with
+   no data read, `iso_pread` reads an arbitrary byte range. Needed because `VIDEO.HQR` is ~233 MB, so
+   opening it (and answering `FileSize`) must not pull the whole file into RAM. `tests/iso9660` grows
+   a multi-sector fixture covering cross-sector reads and EOF clamping.
+4. **mount + `OpenRead` intercept (data) + preflight + boot-log `Disc:` line.** A `DiscImage` manager
+   (`LIB386/SYSTEM/DISCIMG.CPP`) content-probes the install dir for an ISO9660 image, locates the
+   asset-root subtree by finding the resource marker (`lba2.hqr`) inside it (CD masters nest under a
+   volume dir, e.g. `/LBA2`), and resolves any path under the mount base by stripping the base and
+   resolving the remainder beneath that root, so it serves *all* assets (the marker HQR included),
+   not just media. `OpenRead` falls back to it (filesystem first); tagged virtual handles stream via
+   `iso_pread` and dispatch in `Read`/`Seek`/`Close`; `FileSize` (via Seek-to-end, no slurp) and
+   `ExistsFileOrDir` (incl. the `music/` and `vox/` dir checks) become image-aware. `host_quick`
+   (`tests/disc_image`) against a synthetic nested image; verified by headless smoke against
+   `../LBA2` (no image: no `Disc:` line, banner unchanged) and `../LBA2-GOG` (mounts `LBA2.GOG`,
+   630 files, `Assets all present` with FMV/voices resolved from the image).
+5. **CD-music resolver:** refactor `PlayCD` into the ordered resolver; wire the external OGG (parse
    the cue); add the in-BIN PCM-passthrough source. Boot log notes the chosen source at info level.
-5. **(later) LBA1:** markers / game-id; LBA1's combined music+data image is already covered by the
+6. **(later) LBA1:** markers / game-id; LBA1's combined music+data image is already covered by the
    PCM-passthrough source. Orthogonal to the `GameProfile`.
+
+A remaining increment for a pure rip (only the disc image present, nothing extracted): discovery
+validates the install dir by finding `lba2.hqr` *before* the mount, so a dir with only the image
+does not yet pass `IsValidResourceDir`. Making discovery probe a candidate dir's image closes that
+gap; today's target (`../LBA2-GOG`) ships the HQRs extracted, so discovery succeeds and only the
+media comes from the image.
 
 ## Boot log
 Today's happy-path banner is a header block (`Assets:/Saves:/Config:/Log:`) then an aligned status

@@ -24,6 +24,10 @@ bool IsValidResourceDir(const char *path);
 /// Lets cleanup spare installed assets and only remove transient copies.
 bool Directories_IsUnderResDir(const char *path);
 
+/// The filename that marks a valid resource directory ("lba2.hqr"). Used to
+/// locate the asset-root subtree inside a mounted disc image.
+const char *Directories_GetResMarker(void);
+
 void GetDefaultCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
 
 void GetCfgPath(char *outPath, U16 pathMaxSize, const char *cfgFilename);
