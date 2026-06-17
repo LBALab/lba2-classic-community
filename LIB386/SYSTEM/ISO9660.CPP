@@ -32,13 +32,19 @@ static int read_sector(iso9660_t *iso, uint32_t lba, uint8_t *buf2048) {
 //──────────────────────────────────────────────────────────────────────────
 // Read `length` bytes starting at logical block `lba` (rounds up to sectors).
 static uint8_t *read_extent(iso9660_t *iso, uint32_t lba, uint32_t length) {
-    uint32_t nsect = (length + 2047) / 2048;
+    // Compute in 64-bit so a garbage `length` (read straight off the image) can't
+    // wrap the +2047, and reject a sector count that would overflow the malloc
+    // size on a 32-bit size_t. An over-large length then just fails (NULL), it
+    // does not under-allocate and overrun.
+    uint64_t nsect = ((uint64_t)length + 2047) / 2048;
     if (nsect == 0)
         nsect = 1;
+    if (nsect > (uint64_t)(SIZE_MAX / 2048))
+        return NULL;
     uint8_t *buf = (uint8_t *)malloc((size_t)nsect * 2048);
     if (!buf)
         return NULL;
-    for (uint32_t s = 0; s < nsect; s++) {
+    for (uint32_t s = 0; s < (uint32_t)nsect; s++) {
         if (read_sector(iso, lba + s, buf + (size_t)s * 2048) != 0) {
             free(buf);
             return NULL;
@@ -118,10 +124,14 @@ static int find_child(iso9660_t *iso, uint32_t dlba, uint32_t dlen,
             o = ((o / 2048) + 1) * 2048;
             continue;
         }
+        if (o + 33 > dlen)
+            break; // no room for a record header: stop (don't read past the extent)
+        uint8_t nlen = buf[o + 32];
+        if (rl < 33 + (uint32_t)nlen || o + rl > dlen)
+            break; // malformed: record overruns the extent or can't hold its name
         uint32_t elba = rd32(buf + o + 2);
         uint32_t elen = rd32(buf + o + 10);
         uint8_t flags = buf[o + 25];
-        uint8_t nlen = buf[o + 32];
         const uint8_t *nm = buf + o + 33;
         int is_dir = (flags & 0x02) != 0;
         if (nlen > 1 && is_dir == want_dir && name_eq(nm, nlen, name)) {
@@ -188,9 +198,13 @@ int iso_list(iso9660_t *iso, const char *dirpath, iso_list_cb cb, void *ud) {
             o = ((o / 2048) + 1) * 2048;
             continue;
         }
+        if (o + 33 > len)
+            break;
+        uint8_t nlen = buf[o + 32];
+        if (rl < 33 + (uint32_t)nlen || o + rl > len)
+            break;
         uint32_t elen = rd32(buf + o + 10);
         uint8_t flags = buf[o + 25];
-        uint8_t nlen = buf[o + 32];
         const uint8_t *nm = buf + o + 33;
         if (nlen > 1 && !(flags & 0x02)) {
             char name[256];
@@ -223,10 +237,14 @@ static void walk_dir(iso9660_t *iso, uint32_t dlba, uint32_t dlen, char *path,
             o = ((o / 2048) + 1) * 2048;
             continue;
         }
+        if (o + 33 > dlen)
+            break;
+        uint8_t nlen = buf[o + 32];
+        if (rl < 33 + (uint32_t)nlen || o + rl > dlen)
+            break;
         uint32_t elba = rd32(buf + o + 2);
         uint32_t elen = rd32(buf + o + 10);
         uint8_t flags = buf[o + 25];
-        uint8_t nlen = buf[o + 32];
         const uint8_t *nm = buf + o + 33;
         if (nlen > 1) { // skip the '.' and '..' self/parent entries
             char name[256];

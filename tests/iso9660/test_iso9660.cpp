@@ -231,10 +231,104 @@ static void test_non_iso_rejected(void) {
     remove(path.c_str());
 }
 
+/* ── malformed / hostile image handling ────────────────────────────────── */
+/* The image is essentially user-supplied input, so the reader must not read past
+   its buffers or hang on crafted/corrupt on-disc structures. These build images
+   that would trip an unguarded parser; run under the AddressSanitizer preset to
+   catch any out-of-bounds regression. */
+
+static std::vector<uint8_t> pack_cooked(const std::vector<std::vector<uint8_t> > &sec) {
+    std::vector<uint8_t> out((size_t)sec.size() * 2048, 0);
+    for (size_t i = 0; i < sec.size(); i++)
+        memcpy(out.data() + i * 2048, sec[i].data(), 2048);
+    return out;
+}
+
+/* Root directory ends with a record header at offset 2040 whose declared name
+   would run past the 2048-byte extent. Eight rl=255 filler records push the
+   cursor there first. The reader must report the 8 fillers and then stop. */
+static std::vector<uint8_t> build_malformed_oob() {
+    std::vector<std::vector<uint8_t> > sec(NSECTORS, std::vector<uint8_t>(2048, 0));
+    uint8_t *pvd = sec[16].data();
+    pvd[0] = 0x01;
+    memcpy(pvd + 1, "CD001", 5);
+    pvd[6] = 0x01;
+    const uint8_t selfName = 0x00;
+    wr_dirrec(pvd + 156, ROOT_LBA, 2048, true, &selfName, 1);
+
+    uint8_t *root = sec[ROOT_LBA].data();
+    for (int i = 0; i < 8; i++) { // 8 * 255 = cursor reaches offset 2040
+        uint8_t *r = root + i * 255;
+        r[0] = 255;       // record length
+        r[25] = 0x00;     // file
+        wr_both16(r + 28, 1);
+        r[32] = 6;        // name length
+        memcpy(r + 33, "AAAAAA", 6);
+    }
+    root[2040] = 44; // nonzero rl: the record "starts" but runs off the extent end
+    return pack_cooked(sec);
+}
+
+/* Valid PVD, but the root directory record points at an LBA past the image. */
+static std::vector<uint8_t> build_truncated() {
+    std::vector<std::vector<uint8_t> > sec(NSECTORS, std::vector<uint8_t>(2048, 0));
+    uint8_t *pvd = sec[16].data();
+    pvd[0] = 0x01;
+    memcpy(pvd + 1, "CD001", 5);
+    pvd[6] = 0x01;
+    const uint8_t selfName = 0x00;
+    wr_dirrec(pvd + 156, NSECTORS + 50, 2048, true, &selfName, 1); // dangling extent
+    return pack_cooked(sec);
+}
+
+static void test_malformed_record_bounded(void) {
+    std::string path = std::string(TEST_TMP_DIR) + "/iso_malformed.bin";
+    if (!write_file(path, build_malformed_oob())) {
+        FAIL_MSG("could not write fixture %s", path.c_str());
+        return;
+    }
+    iso9660_t *iso = iso_open(path.c_str());
+    ASSERT_TRUE(iso != NULL);
+    if (!iso) {
+        remove(path.c_str());
+        return;
+    }
+    std::vector<std::string> paths;
+    ASSERT_EQ_INT(0, iso_walk(iso, collect_path, &paths)); // stops cleanly at the bad record
+    ASSERT_EQ_INT(8, (int)paths.size());                   // only the well-formed fillers
+    uint32_t lba = 0, size = 0;
+    ASSERT_EQ_INT(-1, iso_stat(iso, "ZZZ.ZZZ", &lba, &size));
+    iso_close(iso);
+    remove(path.c_str());
+}
+
+static void test_truncated_extent_graceful(void) {
+    std::string path = std::string(TEST_TMP_DIR) + "/iso_truncated.bin";
+    if (!write_file(path, build_truncated())) {
+        FAIL_MSG("could not write fixture %s", path.c_str());
+        return;
+    }
+    iso9660_t *iso = iso_open(path.c_str()); // PVD is valid, so the image opens
+    ASSERT_TRUE(iso != NULL);
+    if (!iso) {
+        remove(path.c_str());
+        return;
+    }
+    std::vector<std::string> paths;
+    ASSERT_EQ_INT(0, iso_walk(iso, collect_path, &paths)); // dangling root -> no entries
+    ASSERT_EQ_INT(0, (int)paths.size());
+    uint32_t lba = 0, size = 0;
+    ASSERT_EQ_INT(-1, iso_stat(iso, "ANY.THING", &lba, &size));
+    iso_close(iso);
+    remove(path.c_str());
+}
+
 int main(void) {
     RUN_TEST(test_cooked_2048);
     RUN_TEST(test_raw_2352);
     RUN_TEST(test_non_iso_rejected);
+    RUN_TEST(test_malformed_record_bounded);
+    RUN_TEST(test_truncated_extent_graceful);
     TEST_SUMMARY();
     return test_failures != 0;
 }
