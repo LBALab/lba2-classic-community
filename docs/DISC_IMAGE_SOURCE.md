@@ -18,8 +18,8 @@ a `.cue`/`.dat`.
 - **Music:** a cue-aware CD-track resolver in `CD.CPP PlayCD`. Order: extracted `TrackNN.wav`, then
   an external cue AUDIO file (`LBA2.OGG`, via `PlayStream`), then an in-BIN CD-DA track (PCM
   passthrough, below), then silent.
-- **Readers:** vendor flade's `iso9660` (data reads) and cueplay's cue parse + audio-track locate
-  (music); both SDL-free and GPLv2 (compatible with this repo).
+- **Readers:** an `ISO9660` reader (data reads) and a cue parser + audio-track locator (music),
+  both SDL-free engine modules under `LIB386/SYSTEM/`.
 
 ## CD music: passthrough, do not extract
 Redbook CD-DA tracks are raw 16-bit LE stereo 44.1 kHz PCM stored as 2352-byte audio sectors in the
@@ -30,10 +30,11 @@ So neither music path extracts anything.
 
 ## Commit sequence (one branch, one PR)
 1. **docs:** this guide.
-2. **vendor reader + host test:** flade `iso9660.{c,h}` + `util.h` into `LIB386/SYSTEM/` (GPLv2
-   attribution). A `host_quick` test against a synthetic in-test ISO9660 fixture: `iso_open` detects
-   2352-raw vs 2048-cooked, `iso_read` returns a known file. (Mirrors the `VOC_HEADER` pure-unit +
-   `tests/voc_header` pattern.)
+2. **reader + host test:** the `ISO9660` reader as a first-class engine module
+   (`LIB386/H/SYSTEM/ISO9660.H` + `LIB386/SYSTEM/ISO9660.CPP`, compiled into the `sys` library). A
+   `host_quick` test (`tests/iso9660`) against a synthetic in-test ISO9660 fixture: `iso_open`
+   detects 2352-raw vs 2048-cooked, `iso_read` returns a known file by path, `iso_walk` enumerates
+   it, a non-ISO file is rejected. (Mirrors the `VOC_HEADER` pure-unit + `tests/voc_header` pattern.)
 3. **mount + `OpenRead` intercept (data) + preflight + boot-log mount line.** Mount by content-probe
    of the data dir; `iso_walk` once to build a case-insensitive basename + relative-path index;
    tagged virtual handles dispatched in `Read/Seek/Close`; `FileSize`/`ExistsFileOrDir` (incl. the
