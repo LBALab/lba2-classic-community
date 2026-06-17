@@ -74,8 +74,8 @@ static int wr_dirrec(uint8_t *dst, uint32_t lba, uint32_t len, bool isdir,
 }
 
 /* Build the logical 2048-byte sectors of a one-file image. */
-static std::vector<std::vector<uint8_t> > build_sectors() {
-    std::vector<std::vector<uint8_t> > secs(NSECTORS, std::vector<uint8_t>(2048, 0));
+static std::vector<std::vector<uint8_t>> build_sectors() {
+    std::vector<std::vector<uint8_t>> secs(NSECTORS, std::vector<uint8_t>(2048, 0));
     const uint32_t fileLen = (uint32_t)strlen(FILE_CONTENT);
 
     /* Primary Volume Descriptor at LBA 16. */
@@ -107,7 +107,7 @@ static std::vector<std::vector<uint8_t> > build_sectors() {
 /* Pack logical sectors into a raw-2352 (Mode-1) or cooked-2048 image. In the raw
    layout the 2048 user bytes sit at offset 16; sync/header/ECC stay zero (the
    reader never touches them). */
-static std::vector<uint8_t> pack(const std::vector<std::vector<uint8_t> > &secs, bool raw) {
+static std::vector<uint8_t> pack(const std::vector<std::vector<uint8_t>> &secs, bool raw) {
     const int ss = raw ? 2352 : 2048;
     const int off = raw ? 16 : 0;
     std::vector<uint8_t> out((size_t)secs.size() * ss, 0);
@@ -237,7 +237,7 @@ static void test_non_iso_rejected(void) {
    that would trip an unguarded parser; run under the AddressSanitizer preset to
    catch any out-of-bounds regression. */
 
-static std::vector<uint8_t> pack_cooked(const std::vector<std::vector<uint8_t> > &sec) {
+static std::vector<uint8_t> pack_cooked(const std::vector<std::vector<uint8_t>> &sec) {
     std::vector<uint8_t> out((size_t)sec.size() * 2048, 0);
     for (size_t i = 0; i < sec.size(); i++)
         memcpy(out.data() + i * 2048, sec[i].data(), 2048);
@@ -248,7 +248,7 @@ static std::vector<uint8_t> pack_cooked(const std::vector<std::vector<uint8_t> >
    would run past the 2048-byte extent. Eight rl=255 filler records push the
    cursor there first. The reader must report the 8 fillers and then stop. */
 static std::vector<uint8_t> build_malformed_oob() {
-    std::vector<std::vector<uint8_t> > sec(NSECTORS, std::vector<uint8_t>(2048, 0));
+    std::vector<std::vector<uint8_t>> sec(NSECTORS, std::vector<uint8_t>(2048, 0));
     uint8_t *pvd = sec[16].data();
     pvd[0] = 0x01;
     memcpy(pvd + 1, "CD001", 5);
@@ -259,10 +259,10 @@ static std::vector<uint8_t> build_malformed_oob() {
     uint8_t *root = sec[ROOT_LBA].data();
     for (int i = 0; i < 8; i++) { // 8 * 255 = cursor reaches offset 2040
         uint8_t *r = root + i * 255;
-        r[0] = 255;       // record length
-        r[25] = 0x00;     // file
+        r[0] = 255;   // record length
+        r[25] = 0x00; // file
         wr_both16(r + 28, 1);
-        r[32] = 6;        // name length
+        r[32] = 6; // name length
         memcpy(r + 33, "AAAAAA", 6);
     }
     root[2040] = 44; // nonzero rl: the record "starts" but runs off the extent end
@@ -271,7 +271,7 @@ static std::vector<uint8_t> build_malformed_oob() {
 
 /* Valid PVD, but the root directory record points at an LBA past the image. */
 static std::vector<uint8_t> build_truncated() {
-    std::vector<std::vector<uint8_t> > sec(NSECTORS, std::vector<uint8_t>(2048, 0));
+    std::vector<std::vector<uint8_t>> sec(NSECTORS, std::vector<uint8_t>(2048, 0));
     uint8_t *pvd = sec[16].data();
     pvd[0] = 0x01;
     memcpy(pvd + 1, "CD001", 5);

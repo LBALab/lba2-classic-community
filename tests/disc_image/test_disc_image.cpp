@@ -16,7 +16,11 @@
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H>
 
+#ifdef _WIN32
+#include <direct.h>
+#else
 #include <sys/stat.h>
+#endif
 
 #include <cstdint>
 #include <cstdio>
@@ -26,6 +30,13 @@
 
 #ifndef TEST_TMP_DIR
 #define TEST_TMP_DIR "."
+#endif
+
+/* mkdir takes one arg on MinGW (io.h), two on POSIX; mirror tests/discovery. */
+#ifdef _WIN32
+static int mkdir_portable(const char *p) { return _mkdir(p); }
+#else
+static int mkdir_portable(const char *p) { return mkdir(p, 0777); }
 #endif
 
 /* ── ISO9660 fixture builder (nested directories) ──────────────────────── */
@@ -78,7 +89,7 @@ static const uint32_t LEN_HQR = 100, LEN_VID = 5000, LEN_VOXF = 50, LEN_WAV = 40
 static const uint32_t NSECTORS = 32;
 
 static std::vector<uint8_t> build_iso() {
-    std::vector<std::vector<uint8_t> > sec(NSECTORS, std::vector<uint8_t>(2048, 0));
+    std::vector<std::vector<uint8_t>> sec(NSECTORS, std::vector<uint8_t>(2048, 0));
     const uint8_t dot = 0x00, dotdot = 0x01;
     int o;
 
@@ -154,7 +165,7 @@ static std::string g_base; /* install dir (mount base), trailing slash */
 
 static void setup_mount(void) {
     std::string dir = std::string(TEST_TMP_DIR) + "/discmnt";
-    mkdir(dir.c_str(), 0777); /* ignore EEXIST */
+    mkdir_portable(dir.c_str()); /* ignore EEXIST */
     write_file(dir + "/disc.bin", build_iso());
     g_base = dir + "/";
 }
