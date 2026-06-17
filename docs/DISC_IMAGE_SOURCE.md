@@ -104,12 +104,16 @@ Today's happy-path banner is a header block (`Assets:/Saves:/Config:/Log:`) then
 block (`Events/Joystick/Audio/Display/Assets/Language`) and a `Ready in ...` line. The mount is
 **visible only when it happens, silent otherwise**:
 
-- On mount, one header line beside `Assets:`:
+- On mount, one header line beside `Assets:`, naming the image by basename (it lives in the assets
+  dir already stated above) and reporting that it is an ISO9660 image rather than a plain file:
   ```
   Assets: /path/to/install/
-  Disc:   /path/to/install/LBA2.GOG  (ISO9660, 412 files)
+  Disc:   mounted LBA2.GOG  (ISO9660, 630 files)
   ```
 - No image found: no `Disc:` line, banner unchanged (no "none" noise).
+- The full image path and the in-image asset root are logged at `DEBUG` from the mount
+  (`DISCIMG: mounted <path> (asset root '<root>', <N> files)`), so adeline.log and the terminal
+  carry that detail without touching the curated banner (the console sink stays at `INFO`).
 - The `Assets   all present` status may note disc-sourced assets only when relevant; per-resource
   source (FS vs disc) stays at debug level.
 - CD-music source is logged at info/debug, not in the concise banner.
@@ -117,9 +121,11 @@ block (`Events/Joystick/Audio/Display/Assets/Language`) and a `Ready in ...` lin
   parse) are left byte-identical.
 
 ## Testing
-- **`host_quick` (CI, no retail data):** the iso9660 reader vs a synthetic fixture; the cue parser
-  vs sample cue text; a resolution unit (FS-hit / image-fallback / miss) against a fake source. Each
-  commit ships its test.
+- **`host_quick` (CI, no retail data):** the iso9660 reader vs a synthetic fixture, including
+  malformed and truncated images (a record whose name runs off its extent, a root that points past
+  EOF) that must stop cleanly rather than read past their buffers (clean under the sanitizer preset);
+  the cue parser vs sample cue text; a resolution unit (FS-hit / image-fallback / miss) against a
+  fake source. Each commit ships its test.
 - **Retail smoke (local, opt-in, like the Docker tests):** `Control_*` headless boot of `../LBA2`
   (regression baseline, FS-only) and `../LBA2-GOG` (the new path): assert assets load and the boot
   is clean. Dev helper: extend `scripts/dev/iso_bin.py` to `iso_walk` an image and diff against
