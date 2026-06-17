@@ -4,9 +4,11 @@
 
 #include "stb_vorbis.h"
 
+#include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H> /* ESeekOrigin */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -505,6 +507,49 @@ static bool PlayWavFromImage(const char *name, S32 startFrame) {
     return ok;
 }
 
+/* ── Cue external-audio fallback ───────────────────────────────────────── */
+
+/* The install dir is the parent of the music/ subdir: Get*Path builds music as
+   "<install>/music/<file>", so strip the last two path components. Returns false
+   if `name` lacks a "<dir>/music/<file>" shape. outDir keeps the trailing sep. */
+static bool InstallDirFromMusicPath(const char *name, char *outDir, int max) {
+    int i = (int)strlen(name) - 1;
+    while (i >= 0 && name[i] != '/' && name[i] != '\\') /* skip filename */
+        i--;
+    if (i < 0)
+        return false;
+    i--; /* step before the separator that precedes the filename */
+    while (i >= 0 && name[i] != '/' && name[i] != '\\') /* skip "music" component */
+        i--;
+    if (i < 0)
+        return false;
+    int len = i + 1; /* include the separator: install dir with trailing sep */
+    if (len <= 0 || len >= max)
+        return false;
+    memcpy(outDir, name, (size_t)len);
+    outDir[len] = '\0';
+    return true;
+}
+
+/* True for the redbook "track" music (TADPCM<N> / Track<N>), the kind a cue's
+   external audio track stands in for. Excludes JADPCM jingles, which are never
+   the cue's redbook track. */
+static bool IsRedbookTrackName(const char *name) {
+    const char *base = strrchr(name, '/');
+#ifdef _WIN32
+    const char *bs = strrchr(name, '\\');
+    if (bs && (!base || bs > base))
+        base = bs;
+#endif
+    base = base ? base + 1 : name;
+    char up[64];
+    int i = 0;
+    for (; base[i] && i < (int)sizeof(up) - 1; i++)
+        up[i] = (char)toupper((unsigned char)base[i]);
+    up[i] = '\0';
+    return strstr(up, "TADPCM") != NULL || strstr(up, "TRACK") != NULL;
+}
+
 /* ── Public API ────────────────────────────────────────────────────────── */
 
 static void PlayStreamInternal(const char *name, S32 startFrame) {
@@ -555,7 +600,38 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         return;
     }
 
-    SDL_Log("SDL AIL: Could not find '%s' (filesystem, OGG fallback, or disc image)", name);
+    /* 4) Cue external audio: a redbook track shipped as a standalone file the
+          data image does not contain (GOG's LBA2.OGG = music track 6, listed in
+          LBA2.DAT). Only for redbook "track" requests, not jingles. The file is
+          on the filesystem (install root), so decode it directly: WAV via
+          SDL_LoadWAV, otherwise OGG via PlayOggFile. */
+    if (IsRedbookTrackName(name)) {
+        char installDir[ADELINE_MAX_PATH];
+        char cueAudio[ADELINE_MAX_PATH];
+        if (InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)) &&
+            Cue_ResolveInDir(installDir, cueAudio, sizeof(cueAudio))) {
+            SDL_AudioSpec cspec;
+            Uint8 *cwav = NULL;
+            Uint32 cwavLen = 0;
+            bool played;
+            if (SDL_LoadWAV(cueAudio, &cspec, &cwav, &cwavLen)) {
+                played = SetupWavStream(&cspec, cwav, cwavLen, startFrame);
+                SDL_free(cwav);
+            } else {
+                played = PlayOggFile(cueAudio, startFrame);
+            }
+            if (!played) {
+                SDL_Log("SDL AIL: Failed to decode cue audio '%s'", cueAudio);
+                return;
+            }
+            if (musicLogEnabled)
+                SDL_Log("[MUSIC] PlayStream start cue-audio: %s (from %s)", cueAudio, name);
+            FinishStream(name);
+            return;
+        }
+    }
+
+    SDL_Log("SDL AIL: Could not find '%s' (filesystem, OGG fallback, disc image, or cue audio)", name);
 }
 
 void PlayStream(char *name) {
