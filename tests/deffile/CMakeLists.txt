@@ -1,6 +1,10 @@
 add_executable(test_deffile_latin1 test_deffile_latin1.cpp
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    # FILES.CPP falls back to the disc-image source; pull in its (unexercised
+    # here) implementation and the ISO9660 reader it needs so the link resolves.
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
     ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
