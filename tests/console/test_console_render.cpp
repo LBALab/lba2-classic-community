@@ -47,6 +47,15 @@ static const DrawCall *draw_with(const char *needle) {
     return 0;
 }
 
+/* How many draws recorded the line containing needle (faux-bold = 2). */
+static int count_draws(const char *needle) {
+    int n = 0;
+    for (size_t i = 0; i < g_draws.size(); i++)
+        if (g_draws[i].str.find(needle) != std::string::npos)
+            n++;
+    return n;
+}
+
 static bool contains_byte(const std::string &s, unsigned char b) {
     return s.find((char)b) != std::string::npos;
 }
@@ -89,6 +98,12 @@ int main(void) {
     CHECK(warn && warn->ink == CONSOLE_COL_WARN);
     CHECK(err && err->ink == CONSOLE_COL_ERROR);
     CHECK(bnr && bnr->ink == CONSOLE_COL_BANNER);
+
+    /* Banner lines render faux-bold: a second 1px-shifted pass thickens the
+     * strokes, so the banner is drawn twice while ordinary lines are drawn once. */
+    CHECK(count_draws("bnr-line") == 2);
+    CHECK(count_draws("info-line") == 1);
+    CHECK(count_draws("warn-line") == 1);
 
     /* The "·" reaches the font as CP437 0xFA, never the UTF-8 bytes 0xC2/0xB7. */
     const DrawCall *dot = draw_with("LBA2 ");
