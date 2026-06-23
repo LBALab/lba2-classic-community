@@ -11,28 +11,12 @@
 
 #include "RES_MENU.H"
 
+#include "RES_SWITCH.H"    /* Res_SnapWidescreenWidth (shared with the boot path) */
 #include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY */
 #include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
 
 #include <stdio.h>
 #include <string.h>
-
-/* Snap a display W down to the nearest %8 multiple inside engine
-   bounds. Matches res_snap_native_w in CONSOLE_CMD.CPP — duplicated
-   here on purpose for the v1 to keep this module standalone. Lift
-   to a shared RES_CATALOG.{H,CPP} when both console and menu need
-   to share more. */
-static U32 snap_widescreen_width(U32 dispW, U32 dispH) {
-    if (dispW == 0 || dispH == 0)
-        return 0;
-    /* W = round_down((480 * dispW / dispH) / 8) * 8 — preserves the
-       display's aspect at our render height of 480. */
-    U32 w = (U32)(((U64)480 * (U64)dispW) / (U64)dispH);
-    w &= ~(U32)7;
-    if (w < 320 || w > 1920)
-        return 0;
-    return w;
-}
 
 /* GCD-reduce w,h to its (a:b) form. Same as res_aspect in CONSOLE_CMD.CPP. */
 static void aspect_ratio(U32 w, U32 h, U32 *outA, U32 *outB) {
@@ -61,7 +45,7 @@ S32 Display_BuildEntries(DisplayEntry *out) {
     if (!Window_GetDisplayDimensions(&dispW, &dispH))
         return n;
 
-    U32 wsW = snap_widescreen_width(dispW, dispH);
+    U32 wsW = Res_SnapWidescreenWidth(dispW, dispH);
     if (wsW == 0 || wsW <= 640)
         return n;
 

@@ -237,6 +237,37 @@ bool Window_GetDisplayDimensions(U32 *outW, U32 *outH) {
     return true;
 }
 
+bool Window_GetPrimaryDisplayDimensions(U32 *outW, U32 *outH) {
+    if (outW == NULL || outH == NULL) {
+        return false;
+    }
+    /* Boot-path query: no window exists yet, so go straight to the primary
+       display. Requires the video subsystem to be up (the caller brings it
+       up before sizing the framebuffer). */
+    if (!SDL_WasInit(SDL_INIT_VIDEO)) {
+        return false;
+    }
+    /* Never auto-detect under the headless drivers. The test harness runs
+       with SDL_VIDEODRIVER=dummy and pins --resolution, but guard anyway so a
+       stray dummy boot can't pick up the driver's synthetic display mode. */
+    const char *driver = SDL_GetCurrentVideoDriver();
+    if (driver == NULL || SDL_strcmp(driver, "dummy") == 0 ||
+        SDL_strcmp(driver, "offscreen") == 0) {
+        return false;
+    }
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    if (display == 0) {
+        return false;
+    }
+    const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(display);
+    if (mode == NULL || mode->w <= 0 || mode->h <= 0) {
+        return false;
+    }
+    *outW = (U32)mode->w;
+    *outH = (U32)mode->h;
+    return true;
+}
+
 bool ResizeWindowSurface(U32 newW, U32 newH) {
     /* No-op if the surface was never created.  Caller should fall through to
        CreateWindowSurface in that case (boot path), not Resize. */

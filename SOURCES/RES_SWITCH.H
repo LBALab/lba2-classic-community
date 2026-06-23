@@ -74,6 +74,33 @@ bool Res_ValidateDimensions(U32 w, U32 h);
    the cfg held an invalid value so the player can spot a corrupted key. */
 void Res_LoadBootDimensions(U32 *outW, U32 *outH);
 
+/* Snap a display's (W, H) to a widescreen render width that preserves the
+   display aspect at the engine's 480 render height, rounded down to the %8
+   width constraint and clamped to the supported range. Returns 0 if the
+   inputs are zero or the result falls outside the range. Shared by the boot
+   auto-detect path and the Display options submenu so both derive the same
+   widescreen entry. */
+U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH);
+
+/* Auto-detect a widescreen boot resolution from the primary display: writes
+   (snapped-width, 480) and returns true when the display is wider than 4:3.
+   Returns false (outputs untouched) on a 4:3 display or a failed/headless
+   display query, so the caller falls back to the 640×480 default. Used only
+   when neither --resolution nor a saved lba2.cfg resolution is present, so the
+   auto value is never persisted (derive-each-launch). */
+bool Res_AutoDetectDimensions(U32 *outW, U32 *outH);
+
+/* One-word provenance of the last Res_LoadBootDimensions result, for the boot
+   log: "CLI", "cfg", "auto", or "default". Static literal; never NULL. */
+const char *Res_BootDimensionsSource(void);
+
+/* True when the live resolution was auto-detected (or fell back to the
+   compile-time default) rather than chosen by the player. WriteConfigFile uses
+   this to skip persisting ResolutionX/Y, so an auto resolution re-derives from
+   the display each launch instead of freezing into the cfg. Cleared by a
+   successful Res_Switch and by a CLI/cfg value at boot. */
+bool Res_ResolutionIsAutoDerived(void);
+
 /* Read the boot fullscreen choice (lba2.cfg DisplayFullScreen) the same
    transient, heap-free way as Res_LoadBootDimensions, so the window can be
    created fullscreen from the start instead of created windowed then flipped
