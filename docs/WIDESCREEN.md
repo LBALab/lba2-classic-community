@@ -97,8 +97,39 @@ Lets the player change render resolution from a console verb or a Display option
 
 This phase had two strands. The UI strand is done; the HD strand moved to its own phase.
 
-- UI strategy: **C2 chosen and shipped.** The re-anchor campaign (PRs #213–#228, plus #260, #289, #291, #310) routed every menu, inventory, holomap, dialogue, and save surface through `ModeDesiredX/Y`, so the 2D UI is correct in a wider frame. See [UI strategy](#ui-strategy-c1-vs-c2) for why C2 over C1.
+- UI strategy: **C2 chosen and shipped.** The re-anchor campaign (PRs #213–#228, plus #260, #289, #291, #310) routed every menu, inventory, holomap, dialogue, and save surface through `ModeDesiredX/Y`, so the 2D UI is correct in a wider frame. The [vertical re-anchor](#ui-vertical-re-anchor-tall-framebuffers) below extends the same discipline to a taller frame. See [UI strategy](#ui-strategy-c1-vs-c2) for why C2 over C1.
 - HD-only concerns (filler precision, bitmap fonts, the 16-bit Z-buffer and `Fill_ZBuffer_Factor`, mouse-coordinate inversion, Smacker upscale): **moved to [Phase 7](#phase-7-native-hd).** Widescreen shipped without resolving them, so they are tracked separately as the native-HD frontier. The analysis below is the record of what the X-axis campaign settled for HD.
+
+#### UI vertical re-anchor (tall framebuffers)
+
+The C2 campaign above centred the 2D UI horizontally (`ModeDesiredX/2`) for a *wider* frame. It left UI height at the authored 480, so vertical positions stayed authored-pixel. This sweep (branch `fix/ui-vertical-centre`) does the Y axis, so the UI is also correct in a *taller* frame (`ModeDesiredY > 480`, reachable via `--resolution` and the `resolution` console verb even though the shipped widescreen modes stay 480-tall).
+
+The model is one 480-tall authored canvas floated into the live framebuffer. Two macros in `SOURCES/DEFINES.H`, both read live (never cache; they must survive a runtime `Res_Switch`) and both `0` at `ModeDesiredY == 480` so every site is behaviour-preserving at the classic resolution:
+
+- `UI_VCENTER_OFS = ((S32)ModeDesiredY - 480) / 2`, to float the canvas to the vertical middle.
+- `UI_VBOTTOM_OFS = (S32)ModeDesiredY - 480`, to pin to the bottom edge.
+
+Each surface's anchor mode mirrors how it reads on the 4:3 canvas:
+
+| Surface | Site | Anchor |
+|---|---|---|
+| Menus, save screen, ask-choice list | `GAMEMENU.CPP` (`DrawGameMenu` both branches, `Y_START_CHOICE`, `SAVE_THUMB_Y`, save title, current-save preview box) | centre |
+| Menu mouse hit-test | `GAMEMENU_MOUSE.CPP` (`GameMenuHitTestRow`) | tracks the draw (see note) |
+| Holomap planet | `HOLOGLOB.CPP` (`PLANET_CENTREY`, the three `CENTERY` sites) | centre |
+| Holomap name strip | `MESSAGE.CPP` (`HoloWinDial`) | bottom |
+| Dialogue box | `MESSAGE.CPP` (`NormalWinDial`, `BigWinDial`) | bottom, already correct via `ClipWindowYMax`; no change |
+| End-game / pcx-message text | `MESSAGE.CPP` (`DialLetterboxInsetY`) | confined to the centred backdrop |
+| Inventory wheel, slate, found-object | `INVENT.H` (`INV_TOP_OFFSET`), `INVENT.CPP` (slate `PLAN_Y0`/`L_Y0`/`R_Y0`, `FOUND_Y*`) | centre |
+| Action (behaviour) menu | `COMPORTE.CPP` (`CTRL_Y0`/`CTRL_Y1`) | centre |
+| HUD (life, magic, coins) | `OBJECT.CPP` | corner/edge, already correct |
+
+Notes:
+
+- `INV_TOP_OFFSET` is the vertical twin of the pre-existing `INV_LEFT_OFFSET`. The slate's `PLAN_Y` overlays now track the slate art, which `DrawArdoise` already loads vertically centred via `Image_LoadCentered`; previously the art floated while the overlays stayed at the top.
+- `DialLetterboxInsetY` is the vertical twin of `DialLetterboxInset`. When a centred PCX backdrop is up (`Dial_Letterbox`), the text is inset to the picture on both axes instead of spilling into the letterbox bars. The backdrop stays a 640x480 centred letterbox (the project's cinematic convention), not scaled, since a fixed 4:3 pixel-art image cannot fill a taller frame without distortion or cropping.
+- Mouse hit-test: `GameMenuHitTestRow` is a separate copy of the `DrawGameMenu` layout math. It carried a hardcoded `320` X centre (a pre-existing widescreen bug the X campaign missed, so clicks missed the menu at any width other than 640) and no Y offset. Both now mirror the draw (`ModeDesiredX/2` plus `UI_VCENTER_OFS`). When floating a menu's draw, check for a duplicate hit-test doing the same math separately.
+
+Verification: every site is `0` at 640x480 by construction and the host suite stays green. At tall res, captures confirm the menu block, holomap planet, and inventory wheel each translate by exactly `UI_VCENTER_OFS`, the holomap strip and dialogue box pin to the bottom, and the end-game text lands on its backdrop. The ask-choice list, action menu, found-object appear phase, and mouse hit-test have no headless capture path and were verified in-game.
 
 #### HD prerequisites — what the X-axis campaign settled
 
@@ -120,7 +151,7 @@ The X-axis C2 campaign (PRs #213–#228) settled the structural prerequisites fo
 | Concern | Notes |
 |---|---|
 | Y-axis clamps | **Done** (branch `fix/widescreen-y-clamp`). A4 (terrain horizon `Y=479`, 8 sites in `3DEXT/TERRAIN.CPP` `FillBlackPolyZBuf`) and A5 (holomap Z-buffer Y bounds, 4 sites in `HOLOGLOB.CPP`) now route through `(S32)ModeDesiredY - 1`. The literals were *not* the real pin, though: the 3D view stayed capped at 480 at any resolution because `LoadContexte` restored `ClipWindowYMax` verbatim from the save file (`SAVEGAME.CPP:2053`). `SaveContexte` persists the play clip window at its render height, so a 640×480 save carries `479`; the fix re-derives the full window from `ModeDesiredY` on load. All three changes are behavior-preserving at 640×480 (`ModeDesiredY-1 == 479`; projrec corpus hashes byte-identical with/without via git-stash A/B). Opening the view exposed the vertical-framing question — see [Vertical framing at HD](#vertical-framing-at-hd--open-question) below. |
-| Holomap at Y > 480 | A4/A5 done, but `ui holoplan` at `1024×768` still times out — a cinema-mode rendering bug independent of the Z-buffer bounds and the planet bitmap centring. The A5 fix is correct and 640-identical but **not yet verified at tall res** until this timeout is resolved. Add `test_ui_holoplan_768x768.sh` once unblocked. |
+| Holomap at Y > 480 | A4/A5 done, but `ui holoplan` at `1024×768` still times out, a cinema-mode rendering bug independent of the Z-buffer bounds and the planet bitmap centring. The globe holomap (`ui holomap`, the rotating planet and its name strip) is verified at 768 via the [UI vertical re-anchor](#ui-vertical-re-anchor-tall-framebuffers) above; the `ui holoplan` island zoom is the part still blocked by this timeout. The A5 Z-buffer fix itself is correct and 640-identical but **not verified at tall res** until the timeout is resolved. Add `test_ui_holoplan_768x768.sh` once unblocked. |
 | Filler precision | **Swept at 1920 — de-risked** (2026-05-29). Captured a 6-scene polyrec corpus at 1920-wide and replayed it under ASan+UBSan and ASM-vs-CPP. No overflow, no out-of-bounds across ~24k full-width draw calls (the feared accumulator overflow does not occur). ASM↔CPP equivalence degrades from bit-exact (640) to **118/1,966,080 pixels = 0.006%** (1–2px edge rounding on a few triangles through the FPU slope path — the long-double/x87 precision class, not overflow); cosmetically invisible. Practical consequence: the 640 ASM-equivalence corpus can't be extended to 1920 without tolerancing or pinning FP, but the fillers render correctly at HD width. |
 | Bitmap fonts | `LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit at 1:1 pixel size. At 1920×1080 in-game text is tiny. Either pixel-scale the existing 8×N glyphs (cheap, blocky) or re-author a higher-DPI font set (slow, clean). |
 | Z-buffer precision | 16-bit Z + `Fill_ZBuffer_Factor` is tuned for the 4:3 frustum's depth range. May Z-fight at HD aspect ratios on distant geometry; the polyrec harness catches drift here too if you log Z values. |
