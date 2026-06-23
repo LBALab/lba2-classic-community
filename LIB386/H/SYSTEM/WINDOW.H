@@ -34,6 +34,15 @@ bool ResizeWindowSurface(U32 newW, U32 newH);
  *  returns true on success. Returns false if SDL hasn't initialised a
  *  window yet; *outW and *outH are untouched in that case. */
 bool Window_GetDisplayDimensions(U32 *outW, U32 *outH);
+
+/** Query the primary display's logical dimensions WITHOUT a window, for the
+ *  boot path that needs the display size before CreateWindowSurface runs
+ *  (SDL_GetPrimaryDisplay + SDL_GetCurrentDisplayMode). Requires
+ *  SDL_INIT_VIDEO to be up. Returns false (outputs untouched) when video
+ *  isn't initialised, no display is reported, or the driver is the headless
+ *  dummy/offscreen one, so resolution auto-detection never fires under the
+ *  test harness. */
+bool Window_GetPrimaryDisplayDimensions(U32 *outW, U32 *outH);
 void PresentRendererFrame(const void *pixels, U32 pitch);
 bool LockRendererTexture(void **pixels, int *pitch);
 void UnlockAndPresentRendererTexture();

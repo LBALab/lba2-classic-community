@@ -229,14 +229,48 @@ bool Res_Switch(U32 newW, U32 newH) {
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
- *   Boot-time resolution resolution (CLI > cfg > default)                   *
+ *   Boot-time resolution resolution (CLI > cfg > auto-detect > default)     *
  *══════════════════════════════════════════════════════════════════════════*/
+
+U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
+    if (dispW == 0 || dispH == 0)
+        return 0;
+    /* W = round_down((480 * dispW / dispH) / 8) * 8, preserving the display
+       aspect at the engine's 480 render height. 64-bit intermediate so wide
+       displays don't overflow the multiply. */
+    U32 w = (U32)(((U64)480 * (U64)dispW) / (U64)dispH);
+    w &= ~(U32)7;
+    if (w < (U32)RES_SWITCH_MIN_X || w > (U32)RES_SWITCH_MAX_X)
+        return 0;
+    return w;
+}
+
+bool Res_AutoDetectDimensions(U32 *outW, U32 *outH) {
+    U32 dispW = 0, dispH = 0;
+    if (!Window_GetPrimaryDisplayDimensions(&dispW, &dispH))
+        return false;
+    const U32 w = Res_SnapWidescreenWidth(dispW, dispH);
+    /* Only override the Classic default when the display is genuinely wider
+       than 4:3; a 4:3 (or narrower) monitor keeps 640×480. No 16:9 cap: an
+       ultra-wide display gets its true aspect up to the engine's max width,
+       matching the Widescreen entry the Display options submenu offers. */
+    if (w <= 640)
+        return false;
+    *outW = w;
+    *outH = 480;
+    return true;
+}
+
+/* Provenance of the last Res_LoadBootDimensions result, for the boot log. */
+static const char *g_bootDimSource = "default";
+const char *Res_BootDimensionsSource(void) { return g_bootDimSource; }
 
 void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
     /* --resolution CLI overrides everything (one-shot launch). */
     if (Control_HasResolution()) {
         *outW = (U32)Control_GetResolutionX();
         *outH = (U32)Control_GetResolutionY();
+        g_bootDimSource = "CLI";
         return;
     }
 
@@ -259,6 +293,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
             } else if (w > 0 && h > 0 && Res_ValidateDimensions((U32)w, (U32)h)) {
                 *outW = (U32)w;
                 *outH = (U32)h;
+                g_bootDimSource = "cfg";
                 return;
             } else {
                 LogPrintf(
@@ -272,9 +307,22 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
         }
     }
 
+    /* No CLI override and no saved resolution: auto-detect a widescreen render
+       size from the display. Derive-each-launch (never persisted), so it
+       adapts if the player changes monitors, and any explicit choice (Display
+       submenu / console verb / --resolution) takes over by writing the cfg
+       keys above. Falls through to the compile-time default on a 4:3 display,
+       a failed display query, or the headless/dummy driver. See
+       docs/WIDESCREEN.md Phase 4. */
+    if (Res_AutoDetectDimensions(outW, outH)) {
+        g_bootDimSource = "auto";
+        return;
+    }
+
     /* Compile-time fallback. */
     *outW = RESOLUTION_X;
     *outH = RESOLUTION_Y;
+    g_bootDimSource = "default";
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
