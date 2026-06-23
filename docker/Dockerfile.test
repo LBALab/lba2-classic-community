@@ -23,7 +23,13 @@ RUN dpkg --add-architecture i386 \
 # 64-bit: full build with all backends for CPP tests / game build
 # 32-bit: minimal build (no graphics/audio backends) just to satisfy the linker
 #         for ASM equivalence tests that pull in SDL3 transitively
-RUN git clone --depth 1 --branch main https://github.com/libsdl-org/SDL.git /tmp/SDL \
+#
+# Pin to a release tag, not main: the image rebuilds on every CI run, so an
+# unpinned clone rides the tip of SDL's dev branch and breaks the build the
+# moment upstream regresses (e.g. SDL_UDEV=OFF no longer dropping the -ludev
+# link dep on the 32-bit build). release-3.2.16 matches the pin already used by
+# the Android and linux-tarball builds; keep the four in sync when bumping.
+RUN git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SDL.git /tmp/SDL \
     && cmake -S /tmp/SDL -B /tmp/SDL/build64 -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr/local \
