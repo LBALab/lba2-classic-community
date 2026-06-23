@@ -94,6 +94,13 @@ bool Res_AutoDetectDimensions(U32 *outW, U32 *outH);
    log: "CLI", "cfg", "auto", or "default". Static literal; never NULL. */
 const char *Res_BootDimensionsSource(void);
 
+/* True when the live resolution was auto-detected (or fell back to the
+   compile-time default) rather than chosen by the player. WriteConfigFile uses
+   this to skip persisting ResolutionX/Y, so an auto resolution re-derives from
+   the display each launch instead of freezing into the cfg. Cleared by a
+   successful Res_Switch and by a CLI/cfg value at boot. */
+bool Res_ResolutionIsAutoDerived(void);
+
 /* Read the boot fullscreen choice (lba2.cfg DisplayFullScreen) the same
    transient, heap-free way as Res_LoadBootDimensions, so the window can be
    created fullscreen from the start instead of created windowed then flipped

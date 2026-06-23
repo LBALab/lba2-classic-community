@@ -44,6 +44,16 @@
 #define RES_SWITCH_MAX_X 1920
 #define RES_SWITCH_MAX_Y 1024
 
+/* True when the live resolution came from auto-detect or the compile-time
+   default, i.e. the player never explicitly chose it. WriteConfigFile skips
+   persisting ResolutionX/Y in that case, so an auto resolution re-derives from
+   the display every launch instead of freezing into the cfg on first exit.
+   Cleared the moment the player picks a resolution explicitly: a successful
+   Res_Switch (menu / console verb), or a CLI / cfg value at boot. Defined here
+   so Res_Switch (below) and the boot resolver (further down) both see it. */
+static bool g_resIsAutoDerived = false;
+bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
+
 bool Res_ValidateDimensions(U32 w, U32 h) {
     if (w < RES_SWITCH_MIN_X || w > RES_SWITCH_MAX_X)
         return false;
@@ -117,6 +127,8 @@ bool Res_Switch(U32 newW, U32 newH) {
        everything down just to put it back wastes time and would still drop
        a frame.  The caller (console verb / menu) can rely on this. */
     if (ModeDesiredX == newW && ModeDesiredY == newH) {
+        /* Confirming the current mode is still an explicit choice. */
+        g_resIsAutoDerived = false;
         return true;
     }
 
@@ -225,6 +237,9 @@ bool Res_Switch(U32 newW, U32 newH) {
                 "preserve it\n",
                 (int)wasFullscreen, (int)isFullscreen);
     }
+    /* The switch landed: this is now an explicit player resolution, so let
+       WriteConfigFile persist it across launches. */
+    g_resIsAutoDerived = false;
     return true;
 }
 
@@ -271,6 +286,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
         *outW = (U32)Control_GetResolutionX();
         *outH = (U32)Control_GetResolutionY();
         g_bootDimSource = "CLI";
+        g_resIsAutoDerived = false;
         return;
     }
 
@@ -294,6 +310,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
                 *outW = (U32)w;
                 *outH = (U32)h;
                 g_bootDimSource = "cfg";
+                g_resIsAutoDerived = false;
                 return;
             } else {
                 LogPrintf(
@@ -316,6 +333,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
        docs/WIDESCREEN.md Phase 4. */
     if (Res_AutoDetectDimensions(outW, outH)) {
         g_bootDimSource = "auto";
+        g_resIsAutoDerived = true;
         return;
     }
 
@@ -323,6 +341,7 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
     *outW = RESOLUTION_X;
     *outH = RESOLUTION_Y;
     g_bootDimSource = "default";
+    g_resIsAutoDerived = true;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
