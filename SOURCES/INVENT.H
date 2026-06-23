@@ -30,7 +30,7 @@
    literal (10/8/0/...). The iso-relative INV_ZOOM box centres on
    ModeDesiredX/2 - 3 (matches the historical 317 anchor at 640). */
 #define INV_LEFT_OFFSET (((S32)ModeDesiredX - 640) / 2)
-#define INV_TOP_OFFSET (((S32)ModeDesiredY - 480) / 2) // vertical twin of INV_LEFT_OFFSET (== UI_VCENTER_OFS)
+#define INV_TOP_OFFSET UI_VCENTER_OFS // vertical twin of INV_LEFT_OFFSET; shared with the other UI surfaces (DEFINES.H, clamped >= 0)
 #define INV_START_X (INV_START_X_MARGIN + INV_LEFT_OFFSET)
 #define INV_START_Y (INV_START_Y_MARGIN + INV_TOP_OFFSET)
 
