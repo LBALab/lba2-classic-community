@@ -244,6 +244,21 @@
 #define SCREEN_SHADE_LVL 8 // Shade sous les menus
 
 /*──────────────────────────────────────────────────────────────────────────*/
+/* UI vertical re-anchor (widescreen / tall framebuffers)
+ *
+ * The 2D UI was authored against a 480-tall 4:3 canvas. X was already routed
+ * through ModeDesiredX/2; these do the same for Y. On a taller framebuffer
+ * (ModeDesiredY > 480) they float the authored canvas so it stays vertically
+ * centred (UI_VCENTER_OFS) or pinned to the bottom edge (UI_VBOTTOM_OFS).
+ * Both are 0 when ModeDesiredY == 480, so the classic 4:3 layout is
+ * byte-identical. These read ModeDesiredY (SVGA/SCREEN.H) live on every
+ * expansion; never cache the result, or it goes stale after a runtime
+ * resolution switch (Res_Switch). See docs/WIDESCREEN.md. */
+#define UI_CANVAS_H 480
+#define UI_VCENTER_OFS (((S32)ModeDesiredY - UI_CANVAS_H) / 2)
+#define UI_VBOTTOM_OFS ((S32)ModeDesiredY - UI_CANVAS_H)
+
+/*──────────────────────────────────────────────────────────────────────────*/
 /*──────────────────────────────────────────────────────────────────────────*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
