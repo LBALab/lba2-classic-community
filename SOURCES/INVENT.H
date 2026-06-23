@@ -10,7 +10,8 @@
 //--------------------------	Can change
 
 #define INV_START_X_MARGIN 8 //	Margin inventory screen X (from the 4:3 inner box's left edge)
-#define INV_START_Y 8        //	Margin inventory screen Y
+#define INV_START_Y_MARGIN 8 //	Margin inventory screen Y (from the 4:3 inner box's top edge)
+#define INV_NAME_Y0_RAW 429  //	Name-box top on the authored 480 canvas (size math; floated below)
 
 #define INV_NBOBJ_X 7 //	Nb Object X ex 8
 #define INV_NBOBJ_Y 5 //	Nb Object Y
@@ -29,10 +30,12 @@
    literal (10/8/0/...). The iso-relative INV_ZOOM box centres on
    ModeDesiredX/2 - 3 (matches the historical 317 anchor at 640). */
 #define INV_LEFT_OFFSET (((S32)ModeDesiredX - 640) / 2)
+#define INV_TOP_OFFSET (((S32)ModeDesiredY - 480) / 2) // vertical twin of INV_LEFT_OFFSET (== UI_VCENTER_OFS)
 #define INV_START_X (INV_START_X_MARGIN + INV_LEFT_OFFSET)
+#define INV_START_Y (INV_START_Y_MARGIN + INV_TOP_OFFSET)
 
-#define INV_DELTA_X (640 - INV_START_X_MARGIN * 2 - 1) //	Size Inventory in X (623, fixed inner width)
-#define INV_DELTA_Y (INV_NAME_Y0 - (INV_START_Y * 2))  //	            in Y
+#define INV_DELTA_X (640 - INV_START_X_MARGIN * 2 - 1)           //	Size Inventory in X (623, fixed inner width)
+#define INV_DELTA_Y (INV_NAME_Y0_RAW - (INV_START_Y_MARGIN * 2)) //	in Y (413, fixed inner height; offset-free)
 
 #define INV_END_X (INV_START_X + INV_DELTA_X)
 #define INV_END_Y (INV_START_Y + INV_DELTA_Y)
@@ -43,14 +46,14 @@
 //	Before : 317-120, 218-140, 317+120, 218+140
 
 #define INV_ZOOM_X0 ((S32)ModeDesiredX / 2 - 3 - 120)
-#define INV_ZOOM_Y0 (210 - 120)
+#define INV_ZOOM_Y0 (210 - 120 + INV_TOP_OFFSET)
 #define INV_ZOOM_X1 ((S32)ModeDesiredX / 2 - 3 + 120)
-#define INV_ZOOM_Y1 (210 + 120)
+#define INV_ZOOM_Y1 (210 + 120 + INV_TOP_OFFSET)
 
-#define INV_NAME_X0 INV_START_X //	Name Object X0
-#define INV_NAME_Y0 429         //	Name Object Y0
-#define INV_NAME_X1 INV_END_X   //	Name Object X1
-#define INV_NAME_Y1 471         //	Name Object Y1
+#define INV_NAME_X0 INV_START_X                        //	Name Object X0
+#define INV_NAME_Y0 (INV_NAME_Y0_RAW + INV_TOP_OFFSET) //	Name Object Y0
+#define INV_NAME_X1 INV_END_X                          //	Name Object X1
+#define INV_NAME_Y1 (471 + INV_TOP_OFFSET)             //	Name Object Y1
 
 extern S32 ProtectActif;
 extern S32 FlagZoomed;
