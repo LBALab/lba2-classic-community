@@ -2077,10 +2077,14 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("VSync", DisplayVSync);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
-       compile-time default precedence) and updated here by the revert
-       dialog's Keep handler so a confirmed switch survives across launches. */
-    DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
-    DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+       auto-detect > compile-time default). Persist it only when the player
+       chose it explicitly (CLI/cfg at boot, or a runtime Res_Switch); an
+       auto-detected or defaulted resolution is left out so it re-derives from
+       the display each launch instead of freezing into the cfg on first exit. */
+    if (!Res_ResolutionIsAutoDerived()) {
+        DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
+        DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+    }
 
     if (FlagDisplayText)
         DefFileBufferWriteString("FlagDisplayText", "ON");
