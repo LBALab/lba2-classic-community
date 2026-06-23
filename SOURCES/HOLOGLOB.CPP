@@ -11,6 +11,13 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <string.h>
 
+// Globe planet vertical centre. CENTERY (220) is authored on the 480-tall UI
+// canvas; UI_VCENTER_OFS floats the whole globe to the vertical middle on a
+// taller framebuffer (no-op at 480). Raw CENTERY stays put for HOLOPLAN's
+// zoom-in, which adds the same offset separately (anim_imageY0), so the plan
+// zoom starts exactly on the floated globe centre.
+#define PLANET_CENTREY (CENTERY + UI_VCENTER_OFS)
+
 //────────────────────────────────────────────────────────────────────────────
 //	Concerning BODY and ANIM
 T_OBJ_3D ObjTwinsen;
@@ -339,7 +346,7 @@ void ComputeObjectifPlanet(S32 arrow) {
     LongWorldRotatePoint(x, y, z);
     LongProjectPoint(X0, Y0, Z0);
 
-    dist = Distance2D(Xp, Yp, (S32)ModeDesiredX / 2, CENTERY);
+    dist = Distance2D(Xp, Yp, (S32)ModeDesiredX / 2, PLANET_CENTREY);
 
     if (dist < DistObjectif) {
         DistObjectif = dist;
@@ -834,7 +841,7 @@ void InitHoloGlobe(S32 planet) {
 
     //-----
 
-    SetProjection((S32)ModeDesiredX / 2, CENTERY, 128, 1024, 1024);
+    SetProjection((S32)ModeDesiredX / 2, PLANET_CENTREY, 128, 1024, 1024);
     //	SetProjection( CENTERX, CENTERY, 128,700,700 ) ;
     SetLightVector(0, 0, 0);
 
@@ -921,7 +928,7 @@ void FindAngleIsland(S32 island) {
 
             LongProjectPoint(X0, Y0, Z0);
 
-            dist = Distance2D(Xp, Yp, (S32)ModeDesiredX / 2, CENTERY);
+            dist = Distance2D(Xp, Yp, (S32)ModeDesiredX / 2, PLANET_CENTREY);
             if (dist < min) {
                 min = dist;
                 DestAlpha = halpha;

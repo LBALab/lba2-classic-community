@@ -92,13 +92,14 @@ S32 IndexComportement = 0;
    width (768, 1024, 1280, 1920…) rather than sticking to the top-left of
    the wider framebuffer. Box width is preserved so the 4-tile layout +
    info-bar geometry inside (which all derive from CTRL_X0..CTRL_X1)
-   reflows automatically. Y stays authored-pixel for now — Y-axis
-   widescreen is HD-only work tracked under Phase 5 of WIDESCREEN.md. */
+   reflows automatically. CTRL_Y0/Y1 float via UI_VCENTER_OFS so the box also
+   centres vertically on a taller framebuffer; the 190px height and the tile /
+   info-bar geometry (all derived from CTRL_Y0..CTRL_Y1) follow. No-op at 480. */
 #define CTRL_BOX_W 450
 #define CTRL_X0 (((S32)ModeDesiredX - CTRL_BOX_W) / 2)
 #define CTRL_X1 (CTRL_X0 + CTRL_BOX_W)
-#define CTRL_Y0 100
-#define CTRL_Y1 290
+#define CTRL_Y0 (100 + UI_VCENTER_OFS)
+#define CTRL_Y1 (290 + UI_VCENTER_OFS)
 
 /*══════════════════════════════════════════════════════════════════════════*/
 
