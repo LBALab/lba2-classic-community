@@ -3,6 +3,7 @@
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/PRESENT_RECT.H>
 
 #include <SDL3/SDL.h>
 #include <assert.h>
@@ -34,53 +35,34 @@ static void ApplyGameWindowHideSystemCursor(void) {
     SDL_SetCursor(NULL);
 }
 
+/* Window output size in pixels, or (0, 0) when there is no window yet. The
+   present-rect math treats a zero output size as degenerate and falls back to
+   the full surface rect, so the no-window case needs no special handling at the
+   call sites below. */
+static void GetWindowOutputSize(int *outputW, int *outputH) {
+    *outputW = 0;
+    *outputH = 0;
+    if (sdlWindow != NULL) {
+        SDL_GetWindowSize(sdlWindow, outputW, outputH);
+    }
+}
+
+/* Thin SDL-facing wrapper over ComputePresentRect: supplies the live window
+   size and copies the result into an SDL_FRect for the renderer. The geometry
+   itself lives in PRESENT_RECT.CPP (SDL-free, host-tested). */
 static void ComputePresentationRect(SDL_FRect *dstRect) {
     assert(dstRect != NULL);
 
-    dstRect->x = 0.0f;
-    dstRect->y = 0.0f;
-    dstRect->w = (float)windowSurfaceResX;
-    dstRect->h = (float)windowSurfaceResY;
+    int outputW, outputH;
+    GetWindowOutputSize(&outputW, &outputH);
 
-    if ((sdlWindow == NULL) || (windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
-        return;
-    }
+    PresentRect rect;
+    ComputePresentRect(outputW, outputH, windowSurfaceResX, windowSurfaceResY, &rect);
 
-    int outputW = (int)windowSurfaceResX;
-    int outputH = (int)windowSurfaceResY;
-    SDL_GetWindowSize(sdlWindow, &outputW, &outputH);
-    if ((outputW <= 0) || (outputH <= 0)) {
-        return;
-    }
-
-    const double surfaceAspect = (double)windowSurfaceResX / (double)windowSurfaceResY;
-    const double outputAspect = (double)outputW / (double)outputH;
-
-    /* Compute as ints then promote to float. SDL_FRect + NEAREST sample mode
-       can shift the rasterised output by 1 px frame-to-frame if the dst
-       coordinates carry sub-pixel components and the window size jitters
-       slightly (Wayland compositors do this during resize settle, even
-       when the framebuffer is steady). Rounding to whole pixels here pins
-       the present rect so a still framebuffer presents identically every
-       frame — fixes a visible flicker on the runtime-resolution-switch
-       modal at non-native (non-1:1) display modes. The tiny aspect drift
-       this introduces (< 1 px in one dimension) is invisible. */
-    int dstW, dstH, dstX, dstY;
-    if (outputAspect > surfaceAspect) {
-        dstH = outputH;
-        dstW = (int)(dstH * surfaceAspect + 0.5);
-        dstX = (outputW - dstW) / 2;
-        dstY = 0;
-    } else {
-        dstW = outputW;
-        dstH = (int)(dstW / surfaceAspect + 0.5);
-        dstX = 0;
-        dstY = (outputH - dstH) / 2;
-    }
-    dstRect->x = (float)dstX;
-    dstRect->y = (float)dstY;
-    dstRect->w = (float)dstW;
-    dstRect->h = (float)dstH;
+    dstRect->x = rect.x;
+    dstRect->y = rect.y;
+    dstRect->w = rect.w;
+    dstRect->h = rect.h;
 }
 
 static void PresentCurrentTexture() {
@@ -348,52 +330,15 @@ void UnlockAndPresentRendererTexture() {
     PresentCurrentTexture();
 }
 
+/* Thin SDL-facing wrapper over WindowPointToSurface: supplies the live window
+   size. The inverse mapping (and its agreement with the present rect above)
+   lives in PRESENT_RECT.CPP. */
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
-    assert(surfaceX != NULL);
-    assert(surfaceY != NULL);
+    int outputW, outputH;
+    GetWindowOutputSize(&outputW, &outputH);
 
-    if ((windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
-        *surfaceX = windowX;
-        *surfaceY = windowY;
-        return;
-    }
-
-    SDL_FRect dstRect;
-    float relX;
-    float relY;
-
-    ComputePresentationRect(&dstRect);
-
-    if ((dstRect.w <= 0.0f) || (dstRect.h <= 0.0f)) {
-        *surfaceX = windowX;
-        *surfaceY = windowY;
-        return;
-    }
-
-    relX = (float)windowX - dstRect.x;
-    relY = (float)windowY - dstRect.y;
-
-    if (relX < 0.0f) {
-        relX = 0.0f;
-    } else if (relX > (dstRect.w - 1.0f)) {
-        relX = dstRect.w - 1.0f;
-    }
-
-    if (relY < 0.0f) {
-        relY = 0.0f;
-    } else if (relY > (dstRect.h - 1.0f)) {
-        relY = dstRect.h - 1.0f;
-    }
-
-    *surfaceX = (S32)(relX * ((float)windowSurfaceResX / dstRect.w));
-    *surfaceY = (S32)(relY * ((float)windowSurfaceResY / dstRect.h));
-
-    if (*surfaceX >= (S32)windowSurfaceResX) {
-        *surfaceX = (S32)windowSurfaceResX - 1;
-    }
-    if (*surfaceY >= (S32)windowSurfaceResY) {
-        *surfaceY = (S32)windowSurfaceResY - 1;
-    }
+    WindowPointToSurface(windowX, windowY, outputW, outputH, windowSurfaceResX,
+                         windowSurfaceResY, surfaceX, surfaceY);
 }
 
 void SetWindowFullscreen(bool fullscreen) {
