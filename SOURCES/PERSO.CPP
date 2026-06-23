@@ -2077,10 +2077,14 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("VSync", DisplayVSync);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
-       compile-time default precedence) and updated here by the revert
-       dialog's Keep handler so a confirmed switch survives across launches. */
-    DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
-    DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+       auto-detect > compile-time default). Persist it only when the player
+       chose it explicitly (CLI/cfg at boot, or a runtime Res_Switch); an
+       auto-detected or defaulted resolution is left out so it re-derives from
+       the display each launch instead of freezing into the cfg on first exit. */
+    if (!Res_ResolutionIsAutoDerived()) {
+        DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
+        DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+    }
 
     if (FlagDisplayText)
         DefFileBufferWriteString("FlagDisplayText", "ON");
@@ -2504,6 +2508,15 @@ int main(int argc, char *argv[]) {
        --resolution CLI > lba2.cfg ResolutionX/Y > compile-time default. The cfg
        read uses a transient stack/BSS buffer (no heap, no MainBuffer dependency),
        so we get the right MainBuffer size in a single allocation cycle. */
+    /* Bring up the video subsystem now (idempotent, since InitProgram's later
+       SDL_INIT_VIDEO init is guarded by SDL_WasInit) so Res_LoadBootDimensions
+       can query the primary display for widescreen auto-detect BEFORE we size
+       the framebuffer here. Without this the early resolve would have no display
+       (windowed/640) while InitAdeline's later resolve (video up) would pick the
+       wide size, and the two MUST agree or MainBuffer and Log/Screen mismatch. */
+    if (!SDL_WasInit(SDL_INIT_VIDEO))
+        SDL_InitSubSystem(SDL_INIT_VIDEO);
+
     U32 reqResX, reqResY;
     Res_LoadBootDimensions(&reqResX, &reqResY);
     Mem_ConfigureScreenBuffers(reqResX, reqResY);
@@ -2539,13 +2552,15 @@ int main(int argc, char *argv[]) {
     InitProgram();
     InitMemory(); // Alloue petits buffers
 
-    /* "Display" status: WxH render resolution + the real SDL window mode
-       (Window_IsFullscreen, the actual flags — not the cached request flag).
-       Logged here in main with the rest of the post-init summary. */
+    /* "Display" status: WxH render resolution, where it came from (CLI / cfg /
+       auto-detect / default), and the real SDL window mode. The mode comes from
+       Window_IsFullscreen (the actual SDL flag state, not the cached request
+       flag). Logged here in main with the rest of the post-init summary. */
     {
         U32 dispW = 0, dispH = 0;
         Res_LoadBootDimensions(&dispW, &dispH);
-        Log_Info("Display    %ux%u %s", dispW, dispH,
+        Log_Info("Display    %ux%u (%s) %s", dispW, dispH,
+                 Res_BootDimensionsSource(),
                  Window_IsFullscreen() ? "fullscreen" : "windowed");
     }
 
