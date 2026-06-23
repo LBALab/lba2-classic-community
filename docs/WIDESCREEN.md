@@ -28,11 +28,14 @@ The projection audit ([WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUD
 
 ## Target behaviour
 
-The product goal the phases build toward:
+What the engine does today:
 
-- Windowed mode keeps the original 4:3 behaviour. Nothing changes for windowed players.
-- Fullscreen detects the display's aspect ratio automatically and renders to match. There is no player-facing aspect or resolution setting.
-- 16:9 is the target. A display wider than 16:9 renders at 16:9 and pillarboxes the rest; the engine does not render arbitrarily wide.
+- **First launch auto-detects.** With no `--resolution` flag and no saved `lba2.cfg` resolution, the engine reads the primary display's aspect and boots a widescreen render size at the original 480 height (for example 848×480 on a 16:9 monitor), fullscreen by default (the shipped cfg template carries `DisplayFullScreen: 1`). A 4:3 display keeps 640×480.
+- **The player stays in control.** The auto choice is re-derived each launch, never persisted, so it follows a monitor swap. Any explicit choice overrides it and sticks: the Display options submenu, the `resolution` console verb, or `--resolution` all write `lba2.cfg`. Reverting to Classic 640×480 is one toggle in the Display menu.
+- **Precedence: `--resolution` CLI > `lba2.cfg` ResolutionX/Y > auto-detect > 640×480.** A headless/dummy driver or a failed display query falls back to 640×480, which is why the test harness (always pinned to `--resolution 640x480`) is unaffected.
+- **No forced 16:9 cap.** A display wider than 16:9 renders at its true aspect up to the engine's maximum width (1920); height stays at 480. The render-space work supports arbitrary width, and SDL letterboxes/pillarboxes the framebuffer to the physical display.
+
+> Historical note: the original goal (sketched in issue #45 and the first draft of this doc) was a no-setting auto-detector tied to fullscreen, capped at 16:9. The shipped design keeps the auto-detection but makes it the *default*, not the only option, and renders true display aspect rather than a 16:9 cap. See [Phase 4](#phase-4-fullscreen-and-runtime-resolution).
 
 ## Phases
 
@@ -76,20 +79,26 @@ Verified at 768×480 via [How to test a wider build](#how-to-test-a-wider-build)
 
 The wide build still requires a compile-time `RESOLUTION_X` override; runtime selection lands in Phase 4.
 
-### Phase 4 — SDL fullscreen detection
+### Phase 4: fullscreen and runtime resolution
 
-Wire the [target behaviour](#target-behaviour) into the present and window layer (`LIB386/SYSTEM/WINDOW.CPP`, `LIB386/SVGA/SDL.CPP`). Windowed stays 4:3; fullscreen reads the display aspect ratio and sets the render width to match, capped at 16:9 with pillarboxing beyond. No player-facing setting.
+**Done.** Two strands combine into the [target behaviour](#target-behaviour): explicit player choice (the runtime-resolution work) plus first-launch auto-detection layered on top of it. The engine boots widescreen by default and the player can override or revert at any time.
+
+Boot resolution resolves in `Res_LoadBootDimensions` (`SOURCES/RES_SWITCH.CPP`) with precedence **`--resolution` CLI > `lba2.cfg` ResolutionX/Y > auto-detect > 640×480**:
+
+- **Auto-detect** (`Res_AutoDetectDimensions`) queries the primary display windowlessly (`Window_GetPrimaryDisplayDimensions`, `SDL_GetPrimaryDisplay` + `SDL_GetCurrentDisplayMode`) and snaps to a widescreen width that preserves the display aspect at 480 height (`Res_SnapWidescreenWidth`, shared with the Display submenu's catalog). It runs only when CLI and cfg are both silent, returns false on a 4:3 display or a dummy/offscreen driver, and is never persisted. The video subsystem is brought up early in `PERSO.CPP` (idempotent) so the display is queryable before the framebuffer is sized. The two boot resolves (MainBuffer in `PERSO.CPP`, Log/Screen in `INITADEL.C`) must agree, which is why the early resolve also has to see the display.
+- **Fullscreen** is an independent `DisplayFullScreen` cfg flag (`Res_LoadBootFullscreen`) plus an in-game toggle; the shipped cfg template defaults it on, so a fresh install boots fullscreen. `CreateWindowSurface` brings the window up fullscreen directly, and `WINDOW.CPP` aspect-correctly letterboxes/pillarboxes the chosen framebuffer to the physical display.
+- The boot log's `Display` line reports the chosen `WxH`, its source (`CLI` / `cfg` / `auto` / `default`), and the window mode.
 
 #### Runtime resolution switching
 
-A separate strand of work running parallel to (and reusing) the Phase 4 plumbing: let the player change render resolution from a console verb or a Display options submenu, without relaunching. **Phase 0 shipped** (PRs #237–#241, #244) — `resolution` console verb, keep/revert dialog, `lba2.cfg` persistence. The Display submenu (Phase 2) is the remaining surface for menu-driven discovery. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
+Lets the player change render resolution from a console verb or a Display options submenu without relaunching. **Shipped.** The `resolution` console verb, keep/revert dialog, and `lba2.cfg` persistence landed in PRs #237–#241, #244; the Display options submenu (a "Resolution: <current>" cycle row over the curated Classic + display-aspect Widescreen catalog, plus a "Fullscreen" toggle, `SOURCES/GAMEMENU.CPP` `GereDisplayMenu` / `CycleResolution`) landed after. The auto-detect default reuses the same catalog math, so the booted resolution is the same Widescreen entry the menu offers. See [`RUNTIME_RESOLUTION.md`](RUNTIME_RESOLUTION.md) for the design, phasing, and risks.
 
-### Phase 5 — polish
+### Phase 5: UI (C2) and HD groundwork
 
-The deferred, larger surface:
+This phase had two strands. The UI strand is done; the HD strand moved to its own phase.
 
-- UI strategy — pick C1 or C2 (see [UI strategy](#ui-strategy-c1-vs-c2) below) and apply it so the 2D UI is correct in the wider frame.
-- HD-only concerns, if native high resolution is later pursued: filler precision (the `LIB386/pol_work/` fillers use 16-bit fixed-point step accumulation calibrated to 640-wide spans — the polyrec harness is the tool for measuring drift), bitmap fonts (`LIB386/SVGA/FONT.CPP` / `AFFSTR.CPP` blit 1:1), the 16-bit Z-buffer and `Fill_ZBuffer_Factor` (tuned for the 4:3 frustum), mouse-coordinate inversion against any UI scale, and a Smacker cutscene upscale policy.
+- UI strategy: **C2 chosen and shipped.** The re-anchor campaign (PRs #213–#228, plus #260, #289, #291, #310) routed every menu, inventory, holomap, dialogue, and save surface through `ModeDesiredX/Y`, so the 2D UI is correct in a wider frame. See [UI strategy](#ui-strategy-c1-vs-c2) for why C2 over C1.
+- HD-only concerns (filler precision, bitmap fonts, the 16-bit Z-buffer and `Fill_ZBuffer_Factor`, mouse-coordinate inversion, Smacker upscale): **moved to [Phase 7](#phase-7-native-hd).** Widescreen shipped without resolving them, so they are tracked separately as the native-HD frontier. The analysis below is the record of what the X-axis campaign settled for HD.
 
 #### HD prerequisites — what the X-axis campaign settled
 
@@ -183,7 +192,7 @@ windows) — it bounds how much vertical reveal we ever have to handle. Cheap to
 evaluate empirically: A/B Desert Island at 1920×1024 across a few `VueDistance`
 values with the polyrec capture/replay harness.
 
-#### Testing posture, honestly
+#### Testing posture
 
 What the campaign protected against, and what it didn't:
 
@@ -226,6 +235,16 @@ person on the branch should re-eyeball them before merging.
 ### Phase 6 — regression
 
 Run the polyrec suite and the host tests. Confirm the default 640×480 build is byte-identical to before, and check the wide build across representative scenes — exterior terrain, brick interiors, cinema bars, the HUD — for centring and clipping. Lock the result in.
+
+### Phase 7: native HD
+
+Widescreen shipped without true high resolution: the framebuffer grows horizontally, the UI is C2-correct, and fullscreen letterboxes the chosen resolution. Native HD, meaning crisp and legible rendering at 1080p-class resolutions rather than just wider, is the remaining frontier. It is its own phase because none of it blocks widescreen and each item ships independently. The detailed engineering notes are in [HD prerequisites and Still HD-only work](#hd-prerequisites--what-the-x-axis-campaign-settled) under Phase 5; this is the actionable, priority-ordered view.
+
+1. **Bitmap fonts (open, highest player impact).** `LIB386/SVGA/FONT.CPP` and `AFFSTR.CPP` blit glyphs 1:1, so HUD, dialogue, and menu text is tiny at 1080p. Pixel-scale the 8×N glyphs by an integer factor derived from `ModeDesiredY`, scaling advance widths and line spacing with them. Nothing is in flight, so it is a clean slate.
+2. **Iso interior sharpness (experimental).** The isometric brick layer is a 640-class blit; at HD it wants scaling or edge-upscaling (xBR / EPX) so interiors stay crisp. Five unmerged branches explore this: `feat/iso-xbr-optimized` (furthest along), `feat/iso-xbr-bricks`, `feat/iso-brick-scale`, `feat/iso-scale`, and `feat/iso-zoom-screenspace`. Findings live on-branch in `ISO_SCALE_FINDINGS.md`; the on-main groundwork is [`ISO_SPACE_AUDIT.md`](ISO_SPACE_AUDIT.md). Needs triage down to one mergeable approach.
+3. **Holomap at Y > 480 (blocked).** The A4/A5 Z-buffer-bounds fix is correct and 640-identical but cannot be verified at tall resolution: `ui holoplan` at 1024×768 times out on a cinema-mode rendering bug. Resolve that, then add `test_ui_holoplan_768x768.sh`.
+4. **Vertical framing (decision pending).** A taller frame reveals more vertical field of view, exposing the sky edge and map seams. The levers and the current leaning are in [Vertical framing at HD](#vertical-framing-at-hd--open-question). Cheap to A/B with the polyrec harness.
+5. **Watch-items.** The 16-bit Z-buffer plus `Fill_ZBuffer_Factor` may Z-fight on distant geometry at HD aspect; filler precision is de-risked (swept at 1920, 0.006% sub-pixel edge drift, no overflow). Smacker centred-letterbox and 1:1 mouse coords need no action.
 
 ## UI strategy: C1 vs C2
 
@@ -293,12 +312,13 @@ LBA2_BIN=build-wide/SOURCES/lba2cc \
 
 | Phase | State |
 |-------|-------|
-| 0 — research | Done ([WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md)) |
-| 1 — projection capture | Done (#193–#198; corpus + demo baselines, see [tests/projection/](../tests/projection/)) |
-| 2 — projection correction | Done (#199–#203; eight call sites routed through `ModeDesiredX/Y`) |
-| 3 — widen the framebuffer | Done (#204; wide build verified, `corpus_768x480.projrec.hash` baseline committed) |
-| 4 — SDL fullscreen detection | Not started |
-| 5 — polish (UI + HD) | Not started |
-| 6 — regression | Not started |
+| 0 – research | Done ([WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md)) |
+| 1 – projection capture | Done (#193–#198; corpus + demo baselines, see [tests/projection/](../tests/projection/)) |
+| 2 – projection correction | Done (#199–#203; eight call sites routed through `ModeDesiredX/Y`) |
+| 3 – widen the framebuffer | Done (#204; wide build verified, `corpus_768x480.projrec.hash` baseline committed) |
+| 4 – fullscreen + runtime resolution | Done. Explicit player choice (`--resolution` / `lba2.cfg` / Display submenu / `resolution` verb) plus first-launch widescreen auto-detect; precedence CLI > cfg > auto > 640×480. Fullscreen defaults on via the cfg template. See [Phase 4](#phase-4-fullscreen-and-runtime-resolution). |
+| 5 – UI (C2) | Done for the menu/UI surfaces (#213–#228 re-anchor campaign, plus #260, #289, #291, #310). HD-only concerns split out to Phase 7. |
+| 6 – regression | Ongoing per-PR (projrec corpus, `host_quick`, and `ui_*` capture tests gate the 640×480 contract). No final lock-in pass yet. |
+| 7 – native HD | Not started. Fonts blit 1:1, iso interior sharpness (experiment branches), holomap tall-res timeout, vertical-framing decision. See [Phase 7](#phase-7-native-hd). |
 
 Foundation already in place: PR #134 (`RESOLUTION_X` / `RESOLUTION_Y` constants, and most render-space literals routed through them).
