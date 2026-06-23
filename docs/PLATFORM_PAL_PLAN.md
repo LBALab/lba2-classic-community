@@ -158,6 +158,16 @@ Authoritative set of **non-build, non-test** source/header files that reference 
   `LIB386/SYSTEM/MOUSE.CPP`, `SOURCES/JOYSTICK.CPP`, `SOURCES/TOUCH_INPUT.CPP`(+`.H`),
   headers `LIB386/H/SYSTEM/KEYBOARD_KEYS.H`, `LIB386/H/SYSTEM/KEYBWIN.H`
 
+**Video-seam halves `[design]`:** Group A's video work splits by responsibility.
+`SVGA/SDL.CPP` is the 8-bit indexed framebuffer + palette (the `Video*` API,
+`Phys`/`ModeResX`); `WINDOW.CPP` is the SDL window + renderer + present. Since
+PR #326, `WINDOW.CPP` also owns the window-to-framebuffer coordinate mapping
+(`SDL_RenderCoordinatesFromWindow` + clamp) and lets SDL own the present rect
+(`SDL_SetRenderLogicalPresentation`, letterbox). These two files are the video
+PAL seam's two halves; settle their naming and boundary at seam-definition time,
+not ad hoc. In particular, do not rename `WINDOW.CPP` to `VIDEO.CPP` standalone:
+`Video*` already denotes the framebuffer layer.
+
 **Group B, host services (one-shot, not per-frame):**
 - Paths / data discovery: `SOURCES/DIRECTORIES.CPP`, `SOURCES/RES_DISCOVERY.CPP`(+`.H`),
   `SOURCES/RES_PICKER.CPP`(+`.H`), `SOURCES/RES_SWITCH.CPP`
