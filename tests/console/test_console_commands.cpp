@@ -102,6 +102,15 @@ int main(void) {
     assert(g_lines.size() == 1);
     assert(g_lines[0] == "single line, no newline");
 
+    /* A wholly-empty message is an intentional blank-line spacer (Log_Raw("")
+     * between boot-log groups) and is preserved as one blank line, matching the
+     * terminal and file sinks. Blanks *within* a non-empty message (above) still
+     * collapse. */
+    clear_lines();
+    Console_Print("");
+    assert(g_lines.size() == 1);
+    assert(g_lines[0] == "");
+
     Console_SetLineSinkForTests(NULL);
     return 0;
 }

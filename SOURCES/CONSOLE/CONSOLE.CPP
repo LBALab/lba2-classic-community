@@ -248,8 +248,21 @@ static void scrollback_push_wrapped(const char *line, U8 colour) {
 /* Split buf on '\n' so callers can pass multi-line strings naturally (matches
  * printf intuition: '\n' means "advance to a new line"). Empty segments — from
  * leading, trailing, or repeated '\n' — are skipped (no spurious blank lines).
- * The sink-for-tests sees exactly what gets pushed to the scrollback. */
+ * The sink-for-tests sees exactly what gets pushed to the scrollback.
+ *
+ * Exception: a wholly-empty message is an intentional blank-line spacer. The
+ * boot log groups itself with Log_Raw("") (and LogPrintf's internal blanks
+ * arrive as their own empty record), which the terminal and file sinks render
+ * as a blank line; preserve it here so the F12 console keeps the same vertical
+ * rhythm. Blanks *within* a non-empty message still collapse, per the rule
+ * above. */
 static void console_push_multiline(char *buf, U8 colour) {
+    if (*buf == '\0') {
+        scrollback_push_one("", colour);
+        if (s_line_sink_for_tests)
+            s_line_sink_for_tests("");
+        return;
+    }
     char *p = buf;
     while (*p) {
         char *nl = strchr(p, '\n');
