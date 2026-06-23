@@ -132,6 +132,17 @@ static S32 DialLetterboxInset(void) {
     return Dial_Letterbox ? (((S32)ModeDesiredX - 640) / 2) : 0;
 }
 
+/* Vertical twin of DialLetterboxInset (== UI_VCENTER_OFS when letterboxed):
+   half the gap between the framebuffer height and the authored 480 px PCX
+   height. Matches Image_LoadCentered's yOffset so the dialog box stays inside
+   the centred picture instead of spilling into the black letterbox bars on a
+   taller framebuffer (e.g. the end-game story text over its backdrop). Zero at
+   480 and during normal (non-letterboxed) gameplay, so the bottom-anchored
+   play dialogue is unchanged. */
+static S32 DialLetterboxInsetY(void) {
+    return Dial_Letterbox ? UI_VCENTER_OFS : 0;
+}
+
 static char BufLine[256];
 static char *PtLine;
 static S32 SizeLine;
@@ -1248,10 +1259,11 @@ void TestCoulDial(S32 coul) {
 /*-------------------------------------------------------------------------*/
 void NormalWinDial() {
     S32 inset = DialLetterboxInset();
+    S32 insetY = DialLetterboxInsetY();
     Dial_X0 = inset + 8;
-    Dial_Y0 = ClipWindowYMax - 137; // 334 lorsque ClipWindowYMax==479
+    Dial_Y0 = ClipWindowYMax - insetY - 137; // 334 at YMax==479; insetY pins to picture bottom when letterboxed
     Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;
-    Dial_Y1 = ClipWindowYMax - 8;
+    Dial_Y1 = ClipWindowYMax - insetY - 8;
 
     MaxLineDial = 3;
     DialMaxSize = ((Dial_X1 - 8) - (Dial_X0 + 8));
@@ -1270,10 +1282,11 @@ void DemoWinDial() {
 /*-------------------------------------------------------------------------*/
 void BigWinDial() {
     S32 inset = DialLetterboxInset();
+    S32 insetY = DialLetterboxInsetY();
     Dial_X0 = inset + 8;
-    Dial_Y0 = ClipWindowYMin + 8;
+    Dial_Y0 = ClipWindowYMin + insetY + 8;
     Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;
-    Dial_Y1 = ClipWindowYMax - 8;
+    Dial_Y1 = ClipWindowYMax - insetY - 8;
 
     MaxLineDial = (Dial_Y1 - Dial_Y0) / 42;
     DialMaxSize = ((Dial_X1 - 8) - (Dial_X0 + 8));
@@ -1282,9 +1295,12 @@ void BigWinDial() {
 void HoloWinDial() {
     S32 inset = DialLetterboxInset();
     Dial_X0 = inset + 8;
-    Dial_Y0 = 425;
+    // Single-line holomap name strip. Authored at the bottom of the 480 canvas;
+    // UI_VBOTTOM_OFS pins it to the bottom edge of a taller framebuffer so it
+    // stays a bottom strip rather than drifting to mid-screen. No-op at 480.
+    Dial_Y0 = 425 + UI_VBOTTOM_OFS;
     Dial_X1 = (S32)ModeDesiredX - 1 - inset - 8;
-    Dial_Y1 = 477;
+    Dial_Y1 = 477 + UI_VBOTTOM_OFS;
 
     MaxLineDial = 1;
     DialMaxSize = ((Dial_X1 - 8) - (Dial_X0 + 8));
