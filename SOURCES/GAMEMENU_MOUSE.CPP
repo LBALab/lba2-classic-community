@@ -4,12 +4,16 @@
 
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
+#include <SVGA/SCREEN.H> /* ModeDesiredX/Y for the centred + floated hit-test */
 
 extern U16 GameMainMenu[];
 
 #define GM_HAUTEUR_STANDARD 50
 #define GM_MENU_SPACE 6
-#define GM_MENU_XMID 320
+// Menu centre X. Must track DrawGameMenu's draw (DrawOneChoice at
+// ModeDesiredX/2); was hardcoded 320, so mouse clicks missed the menu at any
+// width != 640. Matches GameMenuSaveListHitTest's ModeDesiredX/2 convention.
+#define GM_MENU_XMID ((S32)ModeDesiredX / 2)
 #define GM_MENU_HALF_WIDTH 275
 
 static int s_menuMouseRefCount = 0;
@@ -70,10 +74,11 @@ S32 GameMenuHitTestRow(const U16 *ptrmenu, U32 mx, U32 my, const U16 *gameMainMe
     if (nb <= 0)
         return -1;
 
+    // Y must track DrawGameMenu's UI_VCENTER_OFS float (both branches); no-op at 480.
     if (ycenter == 0)
-        y = GM_HAUTEUR_STANDARD / 2 + 10;
+        y = GM_HAUTEUR_STANDARD / 2 + 10 + UI_VCENTER_OFS;
     else
-        y = ycenter - (GM_HAUTEUR_STANDARD * nb + (nb - 1) * GM_MENU_SPACE) / 2;
+        y = ycenter + UI_VCENTER_OFS - (GM_HAUTEUR_STANDARD * nb + (nb - 1) * GM_MENU_SPACE) / 2;
 
     for (n = 0; n < nb; n++) {
         S32 num = ptrmenu[4 + n * 2 + 1];
