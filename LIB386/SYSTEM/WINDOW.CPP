@@ -3,7 +3,6 @@
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
-#include <SYSTEM/PRESENT_RECT.H>
 
 #include <SDL3/SDL.h>
 #include <assert.h>
@@ -35,47 +34,29 @@ static void ApplyGameWindowHideSystemCursor(void) {
     SDL_SetCursor(NULL);
 }
 
-/* Window output size in pixels, or (0, 0) when there is no window yet. The
-   present-rect math treats a zero output size as degenerate and falls back to
-   the full surface rect, so the no-window case needs no special handling at the
-   call sites below. */
-static void GetWindowOutputSize(int *outputW, int *outputH) {
-    *outputW = 0;
-    *outputH = 0;
-    if (sdlWindow != NULL) {
-        SDL_GetWindowSize(sdlWindow, outputW, outputH);
+/* Tell SDL to present the framebuffer centered and aspect-fit (letterbox /
+   pillarbox) at the given logical size. Applied whenever the renderer or
+   texture is (re)created. SDL then owns both the on-screen present rect and the
+   window<->framebuffer coordinate mapping (SDL_RenderCoordinatesFromWindow), so
+   the present and input transforms can't drift apart and high-DPI displays map
+   correctly. */
+static void SetLogicalPresentation(U32 resX, U32 resY) {
+    assert(sdlRenderer != NULL);
+    if (!SDL_SetRenderLogicalPresentation(sdlRenderer, (int)resX, (int)resY,
+                                          SDL_LOGICAL_PRESENTATION_LETTERBOX)) {
+        Log_Warn("Unable to set SDL logical presentation to %ux%u.\n"
+                 "\tSDL message: %s",
+                 resX, resY, SDL_GetError());
     }
-}
-
-/* Thin SDL-facing wrapper over ComputePresentRect: supplies the live window
-   size and copies the result into an SDL_FRect for the renderer. The geometry
-   itself lives in PRESENT_RECT.CPP (SDL-free, host-tested). */
-static void ComputePresentationRect(SDL_FRect *dstRect) {
-    assert(dstRect != NULL);
-
-    int outputW, outputH;
-    GetWindowOutputSize(&outputW, &outputH);
-
-    PresentRect rect;
-    ComputePresentRect(outputW, outputH, windowSurfaceResX, windowSurfaceResY, &rect);
-
-    dstRect->x = rect.x;
-    dstRect->y = rect.y;
-    dstRect->w = rect.w;
-    dstRect->h = rect.h;
 }
 
 static void PresentCurrentTexture() {
     assert(sdlRenderer != NULL);
     assert(sdlTexture != NULL);
 
-    SDL_FRect dstRect;
-
-    ComputePresentationRect(&dstRect);
-
     SDL_SetRenderDrawColor(sdlRenderer, 0, 0, 0, 255);
     SDL_RenderClear(sdlRenderer);
-    SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, &dstRect);
+    SDL_RenderTexture(sdlRenderer, sdlTexture, NULL, NULL);
     SDL_RenderPresent(sdlRenderer);
 }
 
@@ -195,6 +176,7 @@ bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
     SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
     windowSurfaceResX = resX;
     windowSurfaceResY = resY;
+    SetLogicalPresentation(resX, resY);
 
     /* Game draws the pointer in the framebuffer; hide the OS cursor to avoid double cursors. */
     ApplyGameWindowHideSystemCursor();
@@ -283,6 +265,7 @@ bool ResizeWindowSurface(U32 newW, U32 newH) {
 
     windowSurfaceResX = newW;
     windowSurfaceResY = newH;
+    SetLogicalPresentation(newW, newH);
     return true;
 }
 
@@ -330,15 +313,39 @@ void UnlockAndPresentRendererTexture() {
     PresentCurrentTexture();
 }
 
-/* Thin SDL-facing wrapper over WindowPointToSurface: supplies the live window
-   size. The inverse mapping (and its agreement with the present rect above)
-   lives in PRESENT_RECT.CPP. */
+/* Map a window pixel to a framebuffer pixel via SDL's logical presentation (set
+   in CreateWindowSurface / ResizeWindowSurface), then clamp to a valid index.
+   SDL extrapolates past the framebuffer for points in the letterbox / pillarbox
+   bars, so the clamp keeps callers (mouse / touch picking) in range. */
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
-    int outputW, outputH;
-    GetWindowOutputSize(&outputW, &outputH);
+    assert(surfaceX != NULL);
+    assert(surfaceY != NULL);
 
-    WindowPointToSurface(windowX, windowY, outputW, outputH, windowSurfaceResX,
-                         windowSurfaceResY, surfaceX, surfaceY);
+    if ((sdlRenderer == NULL) || (windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
+        *surfaceX = windowX;
+        *surfaceY = windowY;
+        return;
+    }
+
+    float logicalX = 0.0f;
+    float logicalY = 0.0f;
+    SDL_RenderCoordinatesFromWindow(sdlRenderer, (float)windowX, (float)windowY, &logicalX,
+                                    &logicalY);
+
+    S32 sx = (S32)logicalX;
+    S32 sy = (S32)logicalY;
+    if (sx < 0) {
+        sx = 0;
+    } else if (sx >= (S32)windowSurfaceResX) {
+        sx = (S32)windowSurfaceResX - 1;
+    }
+    if (sy < 0) {
+        sy = 0;
+    } else if (sy >= (S32)windowSurfaceResY) {
+        sy = (S32)windowSurfaceResY - 1;
+    }
+    *surfaceX = sx;
+    *surfaceY = sy;
 }
 
 void SetWindowFullscreen(bool fullscreen) {
