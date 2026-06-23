@@ -49,6 +49,12 @@
    horizontally centred on the framebuffer. At 640 this resolves to 240 (the
    historical literal); at wider widths it tracks ModeDesiredX/2. */
 #define SAVE_THUMB_X ((S32)ModeDesiredX / 2 - SCREEN_SAVE_WIDTH / 2)
+/* Top of the save thumbnail on the save/load list screen (ChoosePlayerName).
+   The historical literal is 50, on the 480-tall canvas; UI_VCENTER_OFS floats
+   it with the rest of that screen on a taller framebuffer (0 at 480). The
+   in-game save (y=10) and load-confirm (y=130) thumbnails are other screens
+   and keep their own literals. */
+#define SAVE_THUMB_Y (50 + UI_VCENTER_OFS)
 
 U8 CoulTextMenu = COUL_TEXT_MENU;
 S32 LargeurMenu = 550;
@@ -1237,17 +1243,20 @@ void DrawCadreNewGame(void) {
 
     GetDxDyGraph(0, &dx, &dy, ptr);
 
-    DrawCadreSave(SAVE_THUMB_X, 50);
+    DrawCadreSave(SAVE_THUMB_X, SAVE_THUMB_Y);
 
     x = (S32)ModeDesiredX / 2 - dx / 2;
-    y = 50 + (SCREEN_SAVE_HEIGHT) / 2 - dy / 2;
+    y = SAVE_THUMB_Y + (SCREEN_SAVE_HEIGHT) / 2 - dy / 2;
 
     AffGraph(0, x, y, ptr);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
 #define NB_GAME_CHOICE 5
-#define Y_START_CHOICE 205
+// Save/load + name-entry slot list origin (also feeds the hit-test and the
+// name-entry cursor). Authored on the 480-tall canvas; UI_VCENTER_OFS floats
+// the list to the vertical middle on a taller framebuffer (no-op at 480).
+#define Y_START_CHOICE (205 + UI_VCENTER_OFS)
 #define GM_MENU_HALF_WIDTH_SAVE 275
 
 static S32 GameMenuSaveListHitTest(U32 mx, U32 my, S32 nb, S32 start, S32 *outSel) {
@@ -1542,7 +1551,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
         ManageTime();
 
         if (flag == 3) {
-            DrawSingleString((S32)ModeDesiredX / 2, 25, (char *)GetMultiText(mess, string));
+            DrawSingleString((S32)ModeDesiredX / 2, 25 + UI_VCENTER_OFS, (char *)GetMultiText(mess, string));
             flag = 1;
         }
 
@@ -1613,7 +1622,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                     FindPlayerFile();
                 ptr = LoadGameScreen();
                 if (ptr)
-                    DrawScreenSave(ptr, SAVE_THUMB_X, 50);
+                    DrawScreenSave(ptr, SAVE_THUMB_X, SAVE_THUMB_Y);
             } else // Nouvelle partie
             {
                 //                                DrawCadreSave( 240, 50 ) ;
@@ -1935,7 +1944,7 @@ S32 ChoosePlayerName(S32 mess, S32 flagflip, S32 flagnew) {
                         FindPlayerFile();
                     ptr = LoadGameScreen();
                     if (ptr)
-                        DrawScreenSave(ptr, SAVE_THUMB_X, 50);
+                        DrawScreenSave(ptr, SAVE_THUMB_X, SAVE_THUMB_Y);
                 } else // Nouvelle partie
                 {
                     //					DrawCadreSave( 240, 50 ) ;
@@ -2388,9 +2397,16 @@ void DrawGameMenu(U16 *ptrmenu, S32 justone) {
 
     if (y == 0) // depuis le haut
     {
-        y = HAUTEUR_STANDARD / 2 + 10;
+        // Top-anchored list (the ask-choice menu, GameChoiceMenu, the only
+        // y==0 user). Float with the canvas so the choices track the rest of
+        // the UI on a taller framebuffer instead of staying stranded at the top
+        // edge while the question bubble (MyDial) bottom-anchors. No-op at 480.
+        y = HAUTEUR_STANDARD / 2 + 10 + UI_VCENTER_OFS;
     } else // centre sur y
     {
+        // The table y-centre is authored on the 480-tall canvas; float it to
+        // the vertical middle of a taller framebuffer (no-op at 480).
+        y += UI_VCENTER_OFS;
         y -= (HAUTEUR_STANDARD * nb + (nb - 1) * MENU_SPACE) / 2;
     }
 
@@ -2980,7 +2996,10 @@ S32 DoGameMenu(U16 *ptrmenu) {
 
                 ptr = LoadGameScreen();
                 if (ptr)
-                    DrawScreenSave(ptr, SAVE_THUMB_X, 10);
+                    // Main-menu current-save preview box. Float it with the menu
+                    // list (both use UI_VCENTER_OFS) so the box-to-menu gap stays
+                    // as authored on a taller framebuffer. No-op at 480.
+                    DrawScreenSave(ptr, SAVE_THUMB_X, 10 + UI_VCENTER_OFS);
 
                 strcpy(GamePathname, memogamepathname);
                 strcpy(PlayerName, memoplayername);
@@ -3504,10 +3523,12 @@ S32 DeleteSavedGame(void) {
     S32 ret = -1;
     S32 select;
 
-    DrawOneString((S32)ModeDesiredX / 2, 80, PlayerName, 2);
+    // Delete-save confirmation: float the name + preview with SavedConfirmMenu
+    // (which floats via DrawGameMenu) so the whole screen stays coherent. No-op at 480.
+    DrawOneString((S32)ModeDesiredX / 2, 80 + UI_VCENTER_OFS, PlayerName, 2);
     ptr = LoadGameScreen();
     if (ptr)
-        DrawScreenSave(ptr, SAVE_THUMB_X, 130);
+        DrawScreenSave(ptr, SAVE_THUMB_X, 130 + UI_VCENTER_OFS);
     BoxUpdate();
 
     SavedConfirmMenu[0] = 0;
@@ -3968,7 +3989,9 @@ S32 MainGameMenu(S32 load) {
 
                     BoxReset(); // pas de flip
 
-                    ZoomSavedGame(SAVE_THUMB_X, 10);
+                    // Zoom starts from the floated preview box (must match the
+                    // SAVE_THUMB_X, 10 + UI_VCENTER_OFS draw site above).
+                    ZoomSavedGame(SAVE_THUMB_X, 10 + UI_VCENTER_OFS);
 
                     HQ_ResumeSamples();
                     RestoreTimer();
@@ -4040,7 +4063,7 @@ S32 MainGameMenu(S32 load) {
 
                 BoxReset(); // pas de flip
 
-                ZoomSavedGame(SAVE_THUMB_X, 50);
+                ZoomSavedGame(SAVE_THUMB_X, SAVE_THUMB_Y);
 
                 HQ_ResumeSamples();
                 RestoreTimer();
@@ -4125,7 +4148,7 @@ S32 MainGameMenu(S32 load) {
 
                 BoxReset(); // pas de flip
 
-                ZoomSavedGame(SAVE_THUMB_X, 50);
+                ZoomSavedGame(SAVE_THUMB_X, SAVE_THUMB_Y);
 
                 HQ_ResumeSamples();
                 RestoreTimer();

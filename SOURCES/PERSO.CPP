@@ -540,7 +540,10 @@ restartloop:
 
                     BoxReset(); // pas de flip
 
-                    ZoomSavedGame(240, 10);
+                    // In-game save zoom. Float to match the menu-driven sibling
+                    // (GAMEMENU MainGameMenu): 80 = SCREEN_SAVE_WIDTH/2 so X tracks
+                    // SAVE_THUMB_X, and Y floats with the rest of the UI. No-op at 640x480.
+                    ZoomSavedGame((S32)ModeDesiredX / 2 - 80, 10 + UI_VCENTER_OFS);
 
                     FlagFade = FALSE;
                     RestartRainSample = TRUE;
@@ -998,7 +1001,10 @@ restartloop:
 
                     BoxReset(); // pas de flip
 
-                    ZoomSavedGame(240, 10);
+                    // In-game save zoom. Float to match the menu-driven sibling
+                    // (GAMEMENU MainGameMenu): 80 = SCREEN_SAVE_WIDTH/2 so X tracks
+                    // SAVE_THUMB_X, and Y floats with the rest of the UI. No-op at 640x480.
+                    ZoomSavedGame((S32)ModeDesiredX / 2 - 80, 10 + UI_VCENTER_OFS);
 
                     FlagFade = FALSE;
                     RestartRainSample = TRUE;
