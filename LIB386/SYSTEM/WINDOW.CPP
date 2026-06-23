@@ -35,19 +35,26 @@ static void ApplyGameWindowHideSystemCursor(void) {
     SDL_SetCursor(NULL);
 }
 
+/* Window output size in pixels, or (0, 0) when there is no window yet. The
+   present-rect math treats a zero output size as degenerate and falls back to
+   the full surface rect, so the no-window case needs no special handling at the
+   call sites below. */
+static void GetWindowOutputSize(int *outputW, int *outputH) {
+    *outputW = 0;
+    *outputH = 0;
+    if (sdlWindow != NULL) {
+        SDL_GetWindowSize(sdlWindow, outputW, outputH);
+    }
+}
+
 /* Thin SDL-facing wrapper over ComputePresentRect: supplies the live window
    size and copies the result into an SDL_FRect for the renderer. The geometry
-   itself lives in PRESENT_RECT.CPP (SDL-free, host-tested). When there is no
-   window yet, outputW/outputH stay 0 and ComputePresentRect yields the full
-   surface rect, matching the original behaviour. */
+   itself lives in PRESENT_RECT.CPP (SDL-free, host-tested). */
 static void ComputePresentationRect(SDL_FRect *dstRect) {
     assert(dstRect != NULL);
 
-    int outputW = 0;
-    int outputH = 0;
-    if (sdlWindow != NULL) {
-        SDL_GetWindowSize(sdlWindow, &outputW, &outputH);
-    }
+    int outputW, outputH;
+    GetWindowOutputSize(&outputW, &outputH);
 
     PresentRect rect;
     ComputePresentRect(outputW, outputH, windowSurfaceResX, windowSurfaceResY, &rect);
@@ -325,14 +332,10 @@ void UnlockAndPresentRendererTexture() {
 
 /* Thin SDL-facing wrapper over WindowPointToSurface: supplies the live window
    size. The inverse mapping (and its agreement with the present rect above)
-   lives in PRESENT_RECT.CPP. With no window, outputW/outputH stay 0 and the
-   point maps through the full surface rect unchanged, matching the original. */
+   lives in PRESENT_RECT.CPP. */
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
-    int outputW = 0;
-    int outputH = 0;
-    if (sdlWindow != NULL) {
-        SDL_GetWindowSize(sdlWindow, &outputW, &outputH);
-    }
+    int outputW, outputH;
+    GetWindowOutputSize(&outputW, &outputH);
 
     WindowPointToSurface(windowX, windowY, outputW, outputH, windowSurfaceResX,
                          windowSurfaceResY, surfaceX, surfaceY);

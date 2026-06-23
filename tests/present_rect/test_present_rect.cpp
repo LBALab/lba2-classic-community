@@ -64,6 +64,9 @@ int main() {
     /* Degenerate inputs fall back to the full surface rect. */
     checkRect("degenerate surface", 800, 600, 0, 0, 0, 0, 0, 0);
     checkRect("degenerate output", 0, 0, 640, 480, 0, 0, 640, 480);
+    /* Extreme aspect rounds a present-rect dimension to zero (here the width):
+       a 1-wide surface in a very wide, 1-tall window. */
+    checkRect("extreme aspect width->0", 640, 1, 1, 480, 320, 0, 0, 1);
 
     /* --- WindowPointToSurface: inverse mapping -------------------------- */
     /* The centre of the window maps to the centre of the framebuffer. */
@@ -78,9 +81,19 @@ int main() {
     checkPoint("pillarbox content max", 1119, 719, 1280, 720, 640, 480, 639, 479);
     checkPoint("pillarbox past right bar", 1280, 720, 1280, 720, 640, 480, 639, 479);
 
-    /* Degenerate / no-window cases pass the point straight through. */
-    checkPoint("degenerate surface", 50, 60, 800, 600, 0, 0, 50, 60);
-    checkPoint("no-window passthrough", 50, 60, 0, 0, 640, 480, 50, 60);
+    /* Negative window coords (mouse dragged outside the window) clamp to the
+       top-left framebuffer pixel rather than mapping to a negative index. */
+    checkPoint("negative coords pillarbox", -50, -50, 1280, 720, 640, 480, 0, 0);
+    checkPoint("negative coords 1:1", -10, -20, 640, 480, 640, 480, 0, 0);
+
+    /* Surface size 0 takes the early passthrough; no window (output 0x0) maps
+       through the full surface rect, which is the identity. */
+    checkPoint("degenerate surface passthrough", 50, 60, 800, 600, 0, 0, 50, 60);
+    checkPoint("no-window identity", 50, 60, 0, 0, 640, 480, 50, 60);
+
+    /* Extreme aspect collapses the present rect to zero width, so the inverse
+       takes the w<=0/h<=0 fallback and passes the point straight through. */
+    checkPoint("extreme aspect passthrough", 50, 60, 640, 1, 1, 480, 50, 60);
 
     if (failures != 0) {
         std::printf("test_present_rect: %d check(s) FAILED\n", failures);

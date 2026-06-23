@@ -22,8 +22,9 @@ typedef struct PresentRect {
  * surfaceW x surfaceH framebuffer into an outputW x outputH window (pillarbox
  * left/right when the window is wider than the framebuffer, letterbox
  * top/bottom when it is taller). Coordinates are snapped to whole pixels so a
- * static framebuffer presents identically frame-to-frame. See WINDOW.CPP for
- * the Wayland resize-jitter rationale. Falls back to the full surface rect when
+ * static framebuffer presents identically frame-to-frame. See the
+ * implementation in PRESENT_RECT.CPP for the Wayland resize-jitter rationale.
+ * Falls back to the full surface rect when
  * the surface or output size is degenerate. */
 void ComputePresentRect(int outputW, int outputH, U32 surfaceW, U32 surfaceH,
                         PresentRect *out);
