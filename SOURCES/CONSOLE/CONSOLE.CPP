@@ -532,6 +532,15 @@ static void console_fixed_rgb(U8 idx, U8 *r, U8 *g, U8 *b) {
     }
 }
 
+/* Faux-bold blit: AffStringToBuffer over-writes only set pixels (no paper), so a
+ * second pass shifted 1px right thickens every vertical stroke. Used for the cyan
+ * banner/section lines so they read as boldly in the F12 console as the terminal
+ * sink's bold-cyan bookends do (see term_sink_write in LOG.CPP). */
+static void AffStringToBufferBold(U8 *dst, U32 pitch, S32 x, S32 y, const char *str, U8 ink) {
+    AffStringToBuffer(dst, pitch, x, y, str, ink);
+    AffStringToBuffer(dst, pitch, x + 1, y, str, ink);
+}
+
 /** Draw scrollback + input line into s_console_buf (call when open and buffer ready). */
 static void Console_Draw(void) {
     int i, y, start, n;
@@ -575,8 +584,11 @@ static void Console_Draw(void) {
             int idx = (start + i) % CONSOLE_SCROLLBACK_LINES;
             char rendered[CONSOLE_LINE_MAX];
             utf8_to_cp437(s_scrollback[idx], rendered, sizeof rendered);
-            AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered,
-                              s_scrollback_col[idx]);
+            U8 col = s_scrollback_col[idx];
+            if (col == CONSOLE_COL_BANNER)
+                AffStringToBufferBold(s_console_buf, s_console_w, 8, y, rendered, col);
+            else
+                AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, col);
             y += CONSOLE_LINE_HEIGHT;
         }
 
