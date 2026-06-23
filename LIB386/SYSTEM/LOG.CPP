@@ -134,18 +134,18 @@ const char *severity_color(LogSeverity sev) {
 void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
     FILE *out = s->fp; /* stderr */
     if (kind == REC_SECTION_BEGIN) {
-        fprintf(out, "\033[36m------ %s ", msg);
-        int used = 7 + (int)strlen(msg) + 1; /* "------ " + msg + " " */
+        fprintf(out, "\033[1;36m------ %s ", msg); /* bold cyan structural accent */
+        int used = 7 + (int)strlen(msg) + 1;       /* "------ " + msg + " " */
         for (int i = used; i < LOG_TERM_WIDTH; ++i)
             fputc('-', out);
         fputs("\033[0m\n", out);
     } else if (kind == REC_SECTION_END) {
-        fputs("\033[36m", out);
+        fputs("\033[1;36m", out);
         for (int i = 0; i < LOG_TERM_WIDTH; ++i)
             fputc('-', out);
         fputs("\033[0m\n", out);
     } else if (kind == REC_BANNER) {
-        fprintf(out, "\033[36m%s\033[0m\n", msg); /* cyan, like section rules */
+        fprintf(out, "\033[1;36m%s\033[0m\n", msg); /* bold cyan, like section rules */
     } else if (kind == REC_RAW) {
         fprintf(out, "%s\n", msg);
     } else {
