@@ -1411,20 +1411,21 @@ void MenuInventory(U32 tempo) {
    inventory icon at the top-left". At wider widths the box stuck in the
    left half (centre at 320, not ModeDesiredX/2), so the object cinema
    appeared off-centre.
-   Re-anchor X via ModeDesiredX/2; box width 128 is preserved. The fly-
-   to destination at lines 1677-1680 (top-left "16") stays literal — that
-   is the actual position of the inventory HUD icon on screen-left and is
-   not anchored to the framebuffer centre. Y stays authored-pixel (HD work
-   tracked under Phase 5 / task #99). At ModeDesiredX==640 the math
-   collapses to the original (256, 320, 384) so the existing
-   ui_found_object golden still matches. */
+   Re-anchor X via ModeDesiredX/2 and Y via UI_VCENTER_OFS so the appear box
+   tracks the centre of a taller framebuffer too; box size 128×130 is preserved.
+   The fly-to destination at lines 1677-1680 (top-left "16") stays literal;
+   that is the actual position of the inventory HUD icon (corner-anchored, does
+   not float), so the item flies from its centred appear box to the HUD icon.
+   At 640×480 both offsets are 0 and the math collapses to the original
+   (256, 320, 384 / 48, 178) so the existing ui_found_object golden still
+   matches. */
 #define FOUND_BOX_W 128
 #define FOUND_X0 (((S32)ModeDesiredX - FOUND_BOX_W) / 2)
-#define FOUND_Y0 48
+#define FOUND_Y0 (48 + UI_VCENTER_OFS)
 #define FOUND_X1 (FOUND_X0 + FOUND_BOX_W)
-#define FOUND_Y1 178
+#define FOUND_Y1 (178 + UI_VCENTER_OFS)
 #define FOUND_XO (FOUND_X0 + FOUND_BOX_W / 2)
-#define FOUND_YO ((48 + 178) / 2)
+#define FOUND_YO ((FOUND_Y0 + FOUND_Y1) / 2)
 
 extern S32 Dial_Y0;
 
@@ -1884,13 +1885,13 @@ void DoFoundObj(S32 numvar) {
 // inner offsets are the historical literals against the slate's 640x480
 // authored canvas.
 #define L_X0 (78 + INV_LEFT_OFFSET)
-#define L_Y0 436
+#define L_Y0 (436 + INV_TOP_OFFSET)
 #define L_X1 (L_X0 + 50)
 #define L_Y1 (L_Y0 + 29)
 
 // Coordonnees de la boite de la fleche droite
 #define R_X0 (495 + INV_LEFT_OFFSET)
-#define R_Y0 436
+#define R_Y0 (436 + INV_TOP_OFFSET)
 #define R_X1 (R_X0 + 50)
 #define R_Y1 (R_Y0 + 29)
 
@@ -1898,9 +1899,12 @@ void DoFoundObj(S32 numvar) {
 // PLAN_X0 carries the INV_LEFT_OFFSET so the slate-plan box stays inside the
 // centred inventory region at wider framebuffers; the 78 inner offset is the
 // historical literal (matches the slate art's left margin within its 640x480
-// authored canvas). PLAN_Y stays absolute — slate art top-aligns at y=61.
+// authored canvas). PLAN_Y0 carries INV_TOP_OFFSET so the plan box tracks the
+// slate art, which DrawArdoise loads via Image_LoadCentered (centred by the
+// same (ModeDesiredY-480)/2). Without it, on a taller framebuffer the slate
+// bg would float while the plan/arrow overlays stayed at the top. No-op at 480.
 #define PLAN_X0 (78 + INV_LEFT_OFFSET)
-#define PLAN_Y0 61
+#define PLAN_Y0 (61 + INV_TOP_OFFSET)
 #define PLAN_X1 (PLAN_X0 + 479)
 #define PLAN_Y1 (PLAN_Y0 + 360)
 
