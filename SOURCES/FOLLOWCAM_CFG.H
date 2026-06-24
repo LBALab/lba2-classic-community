@@ -36,3 +36,9 @@
 #define MOUSE_CAM_DEAD_ZONE 2         /* ignore deltas smaller than this (pixels, pre-scale) */
 #define MOUSE_CAM_ZOOM_MULT 1         /* wheel zoom multiplier (applied to FOLLOW_CAM_ZOOM_STEP) */
 #define MOUSE_CAM_SENS_DEFAULT 4      /* default sensitivity (1-10 range) */
+
+/* Gamepad right-stick camera ------------------------------------------------*/
+#define GAMEPAD_CAM_SENS_DEFAULT 4 /* default right-stick sensitivity (1-10 range) */
+#define GAMEPAD_CAM_SENS_MID 4     /* sensitivity that yields the unscaled per-frame step */
+#define GAMEPAD_CAM_BETA_MAX 36    /* max orbit units per frame at full deflection (sens = mid) */
+#define GAMEPAD_CAM_ALPHA_MAX 10   /* max elevation units per frame at full deflection (sens = mid) */
