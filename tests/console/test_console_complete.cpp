@@ -15,6 +15,12 @@ extern "C" void AffStringToBuffer(U8 *dst, U32 pitch, S32 x, S32 y, const char *
     (void)str;
     (void)ink;
 }
+extern "C" void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY) {
+    if (surfaceX)
+        *surfaceX = windowX;
+    if (surfaceY)
+        *surfaceY = windowY;
+}
 void Console_RegisterAll(void) {}
 int TryExecuteCheatByName(const char *name) {
     (void)name;
