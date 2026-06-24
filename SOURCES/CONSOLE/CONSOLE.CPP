@@ -520,12 +520,114 @@ static int is_modifier_scancode(int sc) {
     }
 }
 
-/* Append one byte to a bounded buffer, folding non-ASCII to '?' so the clipboard
- * stays valid UTF-8 (the row snapshot is CP437, mostly ASCII for console text). */
-static void copybuf_putc(char *buf, size_t cap, size_t *o, char c) {
-    if (*o + 1 >= cap)
+/* Unicode codepoint for a CP437 high byte (the inverse of cp_to_cp437, for the
+ * bytes the console renders), or 0 when there is no mapping. Lets the CP437 row
+ * snapshot copy back out as proper UTF-8 (e.g. the boot log's "·" separator). */
+static unsigned int cp437_to_unicode(unsigned char b) {
+    switch (b) {
+    case 0xFA:
+        return 0x00B7; /* · */
+    case 0xF8:
+        return 0x00B0; /* ° */
+    case 0xAD:
+        return 0x00A1; /* ¡ */
+    case 0xA8:
+        return 0x00BF; /* ¿ */
+    case 0xAE:
+        return 0x00AB; /* « */
+    case 0xAF:
+        return 0x00BB; /* » */
+    case 0x9C:
+        return 0x00A3; /* £ */
+    case 0x80:
+        return 0x00C7; /* Ç */
+    case 0x81:
+        return 0x00FC; /* ü */
+    case 0x82:
+        return 0x00E9; /* é */
+    case 0x83:
+        return 0x00E2; /* â */
+    case 0x84:
+        return 0x00E4; /* ä */
+    case 0x85:
+        return 0x00E0; /* à */
+    case 0x86:
+        return 0x00E5; /* å */
+    case 0x87:
+        return 0x00E7; /* ç */
+    case 0x88:
+        return 0x00EA; /* ê */
+    case 0x89:
+        return 0x00EB; /* ë */
+    case 0x8A:
+        return 0x00E8; /* è */
+    case 0x8B:
+        return 0x00EF; /* ï */
+    case 0x8C:
+        return 0x00EE; /* î */
+    case 0x8D:
+        return 0x00EC; /* ì */
+    case 0x8E:
+        return 0x00C4; /* Ä */
+    case 0x8F:
+        return 0x00C5; /* Å */
+    case 0x90:
+        return 0x00C9; /* É */
+    case 0x91:
+        return 0x00E6; /* æ */
+    case 0x92:
+        return 0x00C6; /* Æ */
+    case 0x93:
+        return 0x00F4; /* ô */
+    case 0x94:
+        return 0x00F6; /* ö */
+    case 0x95:
+        return 0x00F2; /* ò */
+    case 0x96:
+        return 0x00FB; /* û */
+    case 0x97:
+        return 0x00F9; /* ù */
+    case 0x98:
+        return 0x00FF; /* ÿ */
+    case 0x99:
+        return 0x00D6; /* Ö */
+    case 0x9A:
+        return 0x00DC; /* Ü */
+    case 0xA0:
+        return 0x00E1; /* á */
+    case 0xA1:
+        return 0x00ED; /* í */
+    case 0xA2:
+        return 0x00F3; /* ó */
+    case 0xA3:
+        return 0x00FA; /* ú */
+    case 0xA4:
+        return 0x00F1; /* ñ */
+    case 0xA5:
+        return 0x00D1; /* Ñ */
+    case 0xE1:
+        return 0x00DF; /* ß */
+    default:
+        return 0;
+    }
+}
+
+/* Append one display cell (a CP437 byte) to the clipboard buffer as UTF-8: ASCII
+ * passes through, mapped high bytes expand to 2-byte UTF-8, anything else -> '?'. */
+static void copybuf_put_cell(char *buf, size_t cap, size_t *o, unsigned char cell) {
+    if (cell >= 0x20 && cell < 0x7F) {
+        if (*o + 1 < cap)
+            buf[(*o)++] = (char)cell;
         return;
-    buf[(*o)++] = ((unsigned char)c < 32 || (unsigned char)c >= 127) ? '?' : c;
+    }
+    unsigned int cp = cp437_to_unicode(cell);
+    if (cp == 0) {
+        if (*o + 1 < cap)
+            buf[(*o)++] = '?';
+    } else if (*o + 2 < cap) {
+        buf[(*o)++] = (char)(0xC0 | (cp >> 6));
+        buf[(*o)++] = (char)(0x80 | (cp & 0x3F));
+    }
 }
 
 /* Copy the active mouse (scrollback) selection to the clipboard as a flow: the
@@ -547,9 +649,9 @@ static void scrsel_copy(void) {
         if (c1 > s_row_len[r])
             c1 = s_row_len[r];
         for (c = c0; c < c1; c++)
-            copybuf_putc(buf, sizeof buf, &o, s_row_text[r][c]);
-        if (r != er)
-            copybuf_putc(buf, sizeof buf, &o, '\n');
+            copybuf_put_cell(buf, sizeof buf, &o, (unsigned char)s_row_text[r][c]);
+        if (r != er && o + 1 < sizeof buf)
+            buf[o++] = '\n'; /* real newline between rows (not folded) */
     }
     buf[o < sizeof buf ? o : sizeof buf - 1] = '\0';
     SDL_SetClipboardText(buf);
