@@ -18,9 +18,14 @@ The console is supported with the SDL backend (default in this project).
 - **F12** by default: open/close the console.
 - Optional override in `lba2.cfg`: set `ConsoleToggleKey=<SDL scancode int>` (for example `41` for `K_CARRE` on AZERTY layouts).
 - When the console is open, all keyboard input is consumed by the console (no game/menu input).
-- Type a line and press **Enter** to run a command or cheat.
-- **Backspace**: delete last character.
-- **Up/Down**: scroll console output; the input line stays fixed at the bottom. When you are not at the newest lines, the last visible scrollback line shows `...`.
+- Type a line and press **Enter** (or numpad Enter) to run a command or cheat.
+- **Esc**: clear the input line; pressing Esc on an already-empty line closes the console.
+- **Up/Down**: recall previous commands (input history).
+- **Page Up / Page Down** and the **mouse wheel**: scroll console output; the input line stays fixed at the bottom. When you are not at the newest lines, the last visible scrollback line shows `...`.
+- **Left/Right/Home/End**: move the edit cursor within the input line. **Backspace** deletes the character before the cursor; **Delete** the one at it.
+- **Tab**: complete the command at the prompt against the known commands, cvars and built-ins. A unique prefix completes in full (and adds a trailing space); an ambiguous prefix extends to the longest common prefix and lists the candidates.
+- **Casing and symbols**: typing goes through the OS text-input layer, so **Shift**/**Caps Lock** give capitals and shifted symbols, and non-US keyboard layouts type the right characters. The numpad types digits and `.` `/` `*` `+` `-` when **Num Lock** is on.
+- **Clipboard**: **Ctrl+C** copies the input line; **Ctrl+V** (or **Shift+Insert**) pastes into it; **Ctrl+L** clears the line.
 
 ## Discovery
 
@@ -82,13 +87,13 @@ Get/set with `varname` (print value) or `varname value` (set).
 ## Layout
 
 - Console is a panel at the top of the screen.
-- Scrollback shows recent lines; the last line is the input with a `]> ... _` prompt. When scrolled up, an ellipsis `...` appears on the last visible scrollback line to indicate older messages above.
+- Scrollback shows recent lines; the last line is the input with a `]> ` prompt and a blinking underline cursor at the edit position. When scrolled up, an ellipsis `...` appears on the last visible scrollback line to indicate older messages above.
 - Output from commands and cheats appears in the scrollback.
 
 ## Implementation notes
 
 - **Independent of game buffer**: The console uses its own 8-bit overlay buffer. It is drawn via `AffStringToBuffer` (LIB386/SVGA) and composited in the video layer’s pre-present callback (`Console_PrePresent`), so it never touches the game’s `Log` or dirty-box pipeline.
-- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). The configured toggle key is reserved from gameplay input to avoid double-handling.
+- **Event-driven input**: Keys are fed from the event loop via `Console_FeedEvent` (registered with `SetEventFilter`). When the console is open, key events are queued and processed each frame by `Console_Update()` (no arguments). The configured toggle key is reserved from gameplay input to avoid double-handling. Character entry uses SDL text input (enabled on open, disabled on close) so casing, shifted symbols and non-US layouts resolve through the OS keyboard layout; physical keys (Enter, arrows, Backspace/Delete, Tab, Esc, Home/End, Page Up/Down, the Ctrl combos) are handled by scancode. The mouse wheel scrolls the scrollback.
 - **Hooks**: `SetEventFilter(Console_FeedEvent)` and `SetPrePresentCallback(Console_PrePresent)` are registered in `main()` after `InitAdeline()`. `MyGetInput()` reserves the configured toggle key, and when the console is open calls `Console_Update()` and returns.
 - **Module**: `SOURCES/CONSOLE/` – `CONSOLE.H`, `CONSOLE.CPP` (core), `CONSOLE_CMD.CPP` (commands/cvars). Core links only LIB386 (AFFSTR for text) and SDL for events; no dependency on game `Log` or dirty-box.
 - **Gameplay integration**: Commands call existing engine functions (`LoadGameNumCube`, `PlayAcf`, `DoFoundObj`, etc.) rather than introducing console-only code paths. Cube changes no longer trigger autosave to keep debug teleports tidy; other save behavior is unchanged.
