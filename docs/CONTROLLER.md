@@ -34,8 +34,7 @@ directly in `GereExtKeys`.
 ### Mouse
 
 Right-drag (or free move) orbits and tilts, the wheel zooms, and middle-click
-recenters behind the hero. Relative mouse mode captures the cursor during a drag
-so the orbit continues past the window edge. Tunables in `lba2.cfg`:
+recenters behind the hero. Tunables in `lba2.cfg`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
