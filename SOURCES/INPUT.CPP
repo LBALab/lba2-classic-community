@@ -7,6 +7,7 @@
 
 #include "INPUT.H"
 #include "JOYSTICK.H"
+#include "FOLLOWCAM_CFG.H"
 
 #include "CONSOLE/CONSOLE.H"
 #include <SYSTEM/INPUT.H>
@@ -73,42 +74,42 @@ U32 TabInputBit[MAX_INPUT * 2 + 1];
 T_DEF_KEY GamepadKeys[MAX_INPUT];
 
 const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
-    {K_GAMEPAD_RTRIGGER, 0},                      // 0  I_UP
-    {K_GAMEPAD_LTRIGGER, 0},                      // 1  I_DOWN
-    {K_GAMEPAD_LSTICK_LEFT, 0},                   // 2  I_LEFT
-    {K_GAMEPAD_LSTICK_RIGHT, 0},                  // 3  I_RIGHT
-    {K_GAMEPAD_RSHOULDER, 0},                     // 4  I_THROW
-    {K_GAMEPAD_LSHOULDER, 0},                     // 5  I_COMPORTEMENT
-    {K_GAMEPAD_Y, 0},                             // 6  I_INVENTORY
-    {K_GAMEPAD_X, 0},                             // 7  I_ACTION_M
-    {K_GAMEPAD_A, 0},                             // 8  I_ACTION_ALWAYS
-    {K_GAMEPAD_B, 0},                             // 9  I_RETURN
-    {K_GAMEPAD_START, 0},                         // 10 I_MENUS
-    {K_GAMEPAD_BACK, 0},                          // 11 I_HOLOMAP
-    {0, 0},                                       // 12 I_PAUSE (unbound; Start opens the in-game menu)
-    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN}, // 13 I_ESQUIVE
-    {0, 0},                                       // 14 I_NORMAL
-    {0, 0},                                       // 15 I_SPORTIF
-    {0, 0},                                       // 16 I_AGRESSIF
-    {0, 0},                                       // 17 I_DISCRET
-    {0, 0},                                       // 18 I_HELP
-    {0, 0},                                       // 19 I_SAVE
-    {0, 0},                                       // 20 I_LOAD
-    {0, 0},                                       // 21 I_OPTIONS
-    {0, 0},                                       // 22 I_CAMERA (unbound; turn-camera pending auto-camera integration)
-    {K_GAMEPAD_RSTICK_UP, 0},                     // 23 I_CAMERA_LEVEL_PLUS
-    {K_GAMEPAD_RSTICK_DOWN, 0},                   // 24 I_CAMERA_LEVEL_MOINS
-    {0, 0},                                       // 25 I_WEAPON_1
-    {0, 0},                                       // 26
-    {0, 0},                                       // 27
-    {0, 0},                                       // 28
-    {0, 0},                                       // 29
-    {0, 0},                                       // 30
-    {0, 0},                                       // 31
-    {K_GAMEPAD_DPAD_RIGHT, 0},                    // 32 I_PINGOUIN
-    {K_GAMEPAD_DPAD_DOWN, 0},                     // 33 I_JETPACK
-    {K_GAMEPAD_DPAD_UP, 0},                       // 34 I_PROTECTION
-    {K_GAMEPAD_DPAD_LEFT, 0},                     // 35 I_FOUDRE
+    {K_GAMEPAD_RTRIGGER, 0},                         // 0  I_UP
+    {K_GAMEPAD_LTRIGGER, 0},                         // 1  I_DOWN
+    {K_GAMEPAD_LSTICK_LEFT, 0},                      // 2  I_LEFT
+    {K_GAMEPAD_LSTICK_RIGHT, 0},                     // 3  I_RIGHT
+    {K_GAMEPAD_RSHOULDER, 0},                        // 4  I_THROW
+    {K_GAMEPAD_LSHOULDER, 0},                        // 5  I_COMPORTEMENT
+    {K_GAMEPAD_Y, 0},                                // 6  I_INVENTORY
+    {K_GAMEPAD_X, 0},                                // 7  I_ACTION_M
+    {K_GAMEPAD_A, 0},                                // 8  I_ACTION_ALWAYS
+    {K_GAMEPAD_B, 0},                                // 9  I_RETURN
+    {K_GAMEPAD_START, 0},                            // 10 I_MENUS
+    {K_GAMEPAD_BACK, 0},                             // 11 I_HOLOMAP
+    {0, 0},                                          // 12 I_PAUSE (unbound; Start opens the in-game menu)
+    {K_GAMEPAD_LSTICK_BTN, K_GAMEPAD_RSTICK_BTN},    // 13 I_ESQUIVE
+    {0, 0},                                          // 14 I_NORMAL
+    {0, 0},                                          // 15 I_SPORTIF
+    {0, 0},                                          // 16 I_AGRESSIF
+    {0, 0},                                          // 17 I_DISCRET
+    {0, 0},                                          // 18 I_HELP
+    {0, 0},                                          // 19 I_SAVE
+    {0, 0},                                          // 20 I_LOAD
+    {0, 0},                                          // 21 I_OPTIONS
+    {K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT}, // 22 I_CAMERA (classic-mode turn; analog orbit owns Auto camera)
+    {K_GAMEPAD_RSTICK_UP, 0},                        // 23 I_CAMERA_LEVEL_PLUS
+    {K_GAMEPAD_RSTICK_DOWN, 0},                      // 24 I_CAMERA_LEVEL_MOINS
+    {0, 0},                                          // 25 I_WEAPON_1
+    {0, 0},                                          // 26
+    {0, 0},                                          // 27
+    {0, 0},                                          // 28
+    {0, 0},                                          // 29
+    {0, 0},                                          // 30
+    {0, 0},                                          // 31
+    {K_GAMEPAD_DPAD_RIGHT, 0},                       // 32 I_PINGOUIN
+    {K_GAMEPAD_DPAD_DOWN, 0},                        // 33 I_JETPACK
+    {K_GAMEPAD_DPAD_UP, 0},                          // 34 I_PROTECTION
+    {K_GAMEPAD_DPAD_LEFT, 0},                        // 35 I_FOUDRE
 };
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -210,6 +211,30 @@ void ReadGamepadConfig(void) {
     if (JoystickDeadzone > 32767)
         JoystickDeadzone = 32767;
 
+    GamepadCameraAnalog = DefFileBufferReadValueDefault("GamepadCameraAnalog", TRUE);
+    if (GamepadCameraAnalog != 0)
+        GamepadCameraAnalog = TRUE;
+    else
+        GamepadCameraAnalog = FALSE;
+
+    GamepadCameraSensX = DefFileBufferReadValueDefault("GamepadCameraSensX", GAMEPAD_CAM_SENS_DEFAULT);
+    if (GamepadCameraSensX < 1)
+        GamepadCameraSensX = 1;
+    if (GamepadCameraSensX > 10)
+        GamepadCameraSensX = 10;
+
+    GamepadCameraSensY = DefFileBufferReadValueDefault("GamepadCameraSensY", GAMEPAD_CAM_SENS_DEFAULT);
+    if (GamepadCameraSensY < 1)
+        GamepadCameraSensY = 1;
+    if (GamepadCameraSensY > 10)
+        GamepadCameraSensY = 10;
+
+    GamepadCameraInvertY = DefFileBufferReadValueDefault("GamepadCameraInvertY", FALSE);
+    if (GamepadCameraInvertY != 0)
+        GamepadCameraInvertY = TRUE;
+    else
+        GamepadCameraInvertY = FALSE;
+
     char id[32];
     for (S32 n = 0; n < MAX_INPUT; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
@@ -227,6 +252,10 @@ void WriteGamepadConfig(void) {
         return;
 
     DefFileBufferWriteValue("GamepadDeadzone", JoystickDeadzone);
+    DefFileBufferWriteValue("GamepadCameraAnalog", GamepadCameraAnalog);
+    DefFileBufferWriteValue("GamepadCameraSensX", GamepadCameraSensX);
+    DefFileBufferWriteValue("GamepadCameraSensY", GamepadCameraSensY);
+    DefFileBufferWriteValue("GamepadCameraInvertY", GamepadCameraInvertY);
 
     char id[32];
     for (S32 n = 0; n < MAX_INPUT; n++) {

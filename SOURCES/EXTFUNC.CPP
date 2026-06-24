@@ -18,6 +18,7 @@
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
 #include "FOLLOWCAM_CFG.H"
+#include "JOYSTICK.H"
 
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
@@ -1959,6 +1960,23 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
 
     return changed;
 }
+
+/* Map a right-stick axis (SDL units, -32767..32767) to a per-frame camera step.
+ * Per-axis deadzone reusing JoystickDeadzone, then a linear ramp to maxStep at
+ * full deflection, scaled by sensitivity (sens == GAMEPAD_CAM_SENS_MID leaves it
+ * unscaled). */
+static S32 StickAxisToCamStep(S16 axis, S32 sens, S32 maxStep) {
+    S32 v = axis;
+    S32 mag = (v < 0) ? -v : v;
+    if (mag <= JoystickDeadzone)
+        return 0;
+    S32 den = 32767 - JoystickDeadzone;
+    if (den < 1)
+        den = 1;
+    S32 step = (mag - JoystickDeadzone) * maxStep / den; /* 0..maxStep */
+    step = step * sens / GAMEPAD_CAM_SENS_MID;
+    return (v < 0) ? -step : step;
+}
 #endif
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2335,6 +2353,21 @@ S32 GereExtKeys(U32 key)
                 FirstTime = AFF_ALL_FLIP;
                 flag = 1;
             }
+        }
+
+        /* Gamepad right stick: analog orbit + elevation through the same nudge.
+         * UpdateJoystick suppresses the digital RSTICK scancodes while this owns
+         * the stick (Auto camera, exterior), so the two never double-drive. */
+        if (GamepadCameraAnalog AND JoystickIsPresent()) {
+            S16 rsx = 0;
+            S16 rsy = 0;
+            JoystickGetRightStick(&rsx, &rsy);
+            S32 dBeta = StickAxisToCamStep(rsx, GamepadCameraSensX, GAMEPAD_CAM_BETA_MAX);
+            S32 dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY, GAMEPAD_CAM_ALPHA_MAX);
+            if (GamepadCameraInvertY)
+                dAlpha = -dAlpha;
+            if (dBeta != 0 OR dAlpha != 0)
+                flag |= ApplyManualCameraNudge(dBeta, dAlpha, 0);
         }
     }
 #endif

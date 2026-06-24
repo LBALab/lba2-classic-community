@@ -34,6 +34,11 @@ enum StickDir {
 static StickDir s_prevLeftDir = DIR_NEUTRAL;
 static StickDir s_prevRightDir = DIR_NEUTRAL;
 
+// Raw right-stick axes from the last UpdateJoystick poll, exposed via
+// JoystickGetRightStick for the analog camera. 0,0 when no pad is open.
+static S16 s_rstickX = 0;
+static S16 s_rstickY = 0;
+
 //***************************************************************************
 S32 JoystickDeadzone = 8000;
 
@@ -274,6 +279,8 @@ void UpdateJoystick(void) {
 
     ClearGamepadBits();
     s_firstPressedThisFrame = 0;
+    s_rstickX = 0;
+    s_rstickY = 0;
 
     if (s_gamepad == NULL) {
         return;
@@ -325,12 +332,25 @@ void UpdateJoystick(void) {
     S16 lt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
     S16 rt = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
+    // Cache the raw right stick for the analog camera (EXTFUNC reads it).
+    s_rstickX = rx;
+    s_rstickY = ry;
+
     ApplyStickDirection(lx, ly, K_GAMEPAD_LSTICK_LEFT, K_GAMEPAD_LSTICK_RIGHT,
                         K_GAMEPAD_LSTICK_UP, K_GAMEPAD_LSTICK_DOWN,
                         &s_prevLeftDir);
-    ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
-                        K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
-                        &s_prevRightDir);
+
+    // Right stick stays 8-way digital for bindings, EXCEPT while the analog
+    // camera owns it (Auto camera in an exterior scene): there EXTFUNC reads the
+    // raw axes, so emitting RSTICK scancodes too would double-drive elevation
+    // and the classic camera turn.
+    if (GamepadCameraAnalog && FollowCamera && CubeMode == CUBE_EXTERIEUR) {
+        s_prevRightDir = DIR_NEUTRAL;
+    } else {
+        ApplyStickDirection(rx, ry, K_GAMEPAD_RSTICK_LEFT, K_GAMEPAD_RSTICK_RIGHT,
+                            K_GAMEPAD_RSTICK_UP, K_GAMEPAD_RSTICK_DOWN,
+                            &s_prevRightDir);
+    }
 
     S16 dz = (S16)JoystickDeadzone;
     if (lt > dz)
@@ -360,6 +380,16 @@ U32 JoystickFirstPressedScancode(void) {
 //***************************************************************************
 S32 JoystickIsPresent(void) {
     return (s_gamepad != NULL) ? 1 : 0;
+}
+
+//***************************************************************************
+// Raw right-stick axes (SDL units, -32767..32767) from the last poll. 0,0 when
+// no pad is open. The analog camera (EXTFUNC) reads these when it owns the stick.
+void JoystickGetRightStick(S16 *x, S16 *y) {
+    if (x != NULL)
+        *x = s_rstickX;
+    if (y != NULL)
+        *y = s_rstickY;
 }
 
 //***************************************************************************
