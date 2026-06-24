@@ -2,6 +2,7 @@
 #define CONSOLE_H
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <stddef.h> /* size_t */
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,6 +106,12 @@ void Console_SetLineSinkForTests(Console_LineSinkFn sink);
 /* Copy up to max recent scrollback line pointers (chronological, newest last) into
    out[]; returns the count. Pointers are valid until the next console output. */
 int Console_GetScrollback(const char **out, int max);
+
+/* Tab-completion core (also used by host tests): match \a prefix against the
+   registered commands, cvars and built-ins. \a out receives the longest common
+   prefix of all matches (the full name when unique); \a matches receives up to
+   \a max candidate name pointers. Returns the number of matches. */
+int Console_CompletePrefix(const char *prefix, char *out, size_t outsz, const char **matches, int max);
 
 #ifdef __cplusplus
 }
