@@ -113,6 +113,28 @@ int Console_GetScrollback(const char **out, int max);
    \a max candidate name pointers. Returns the number of matches. */
 int Console_CompletePrefix(const char *prefix, char *out, size_t outsz, const char **matches, int max);
 
+/* Host-test hooks for the input/selection state machine. They drive the same code
+   the live console runs after the event queue, without needing SDL scancodes. */
+typedef enum {
+    CONSOLE_TKEY_LEFT,
+    CONSOLE_TKEY_RIGHT,
+    CONSOLE_TKEY_HOME,
+    CONSOLE_TKEY_END,
+    CONSOLE_TKEY_BACKSPACE,
+    CONSOLE_TKEY_DELETE,
+    CONSOLE_TKEY_ENTER,
+    CONSOLE_TKEY_ESC,
+    CONSOLE_TKEY_TAB,
+    CONSOLE_TKEY_UP,
+    CONSOLE_TKEY_DOWN
+} Console_TestKey;
+void Console_TestType(const char *s);                     /* type printable chars */
+void Console_TestSpecial(Console_TestKey key, int shift); /* a nav/edit key, optional Shift */
+void Console_TestCtrl(char letter);                       /* Ctrl+<letter> */
+const char *Console_TestInput(void);                      /* current input line */
+int Console_TestCursor(void);                             /* cursor position */
+int Console_TestSelection(int *lo, int *hi);              /* 1 + [lo,hi) when a selection exists */
+
 #ifdef __cplusplus
 }
 #endif
