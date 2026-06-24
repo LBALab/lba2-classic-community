@@ -865,6 +865,8 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
             clipboard_paste();
         } else if (kl == 'c') {
             clipboard_copy();
+            s_scrsel_active = 0; /* copying clears the selection */
+            s_sel_anchor = -1;
         } else if (kl == 'x') {
             clipboard_copy();  /* copies the selection, or the whole line */
             if (!sel_delete()) /* delete the selection; if there was none, */
@@ -1410,15 +1412,31 @@ int Console_FeedEvent(const void *sdlEvent) {
 
     /* Mouse drag selects text in the console; the OS cursor (shown on open) is the
      * pointer. Left button down anchors, motion extends, double-click selects a word,
-     * and a click on the input row places the edit cursor. Copy with Ctrl+C. */
+     * and a click on the input row places the edit cursor. Copy with Ctrl+C; a right
+     * click copies and clears. While open the console owns the mouse. */
     if (ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-        int row, col;
+        int row, col, lo, hi;
         Uint64 now;
         int dbl;
-        if (!s_console_open || ev->button.button != SDL_BUTTON_LEFT)
+        if (!s_console_open)
             return 0;
-        if (!mouse_to_cell(ev->button.x, ev->button.y, &row, &col))
-            return 0; /* below the panel: let the click reach the game */
+        if (ev->button.button == SDL_BUTTON_RIGHT) {
+            /* Right-click copies the current selection, then clears it. */
+            if (s_scrsel_active || sel_span(&lo, &hi))
+                clipboard_copy();
+            s_scrsel_active = 0;
+            s_sel_anchor = -1;
+            return 1;
+        }
+        if (ev->button.button != SDL_BUTTON_LEFT)
+            return 1;
+        if (!mouse_to_cell(ev->button.x, ev->button.y, &row, &col)) {
+            /* Click outside the panel clears the selection. */
+            s_scrsel_active = 0;
+            s_sel_anchor = -1;
+            s_mouse_dragging = 0;
+            return 1;
+        }
         now = SDL_GetTicks();
         dbl = (now - s_last_click_ms <= CONSOLE_DBLCLICK_MS && row == s_last_click_row &&
                (col >= s_last_click_col - 1 && col <= s_last_click_col + 1));
@@ -1477,13 +1495,11 @@ int Console_FeedEvent(const void *sdlEvent) {
         return 1;
     }
     if (ev->type == SDL_EVENT_MOUSE_BUTTON_UP) {
-        if (ev->button.button != SDL_BUTTON_LEFT)
+        if (!s_console_open)
             return 0;
-        if (s_mouse_dragging) {
+        if (ev->button.button == SDL_BUTTON_LEFT)
             s_mouse_dragging = 0;
-            return 1;
-        }
-        return s_console_open ? 1 : 0;
+        return 1; /* console owns the mouse while open */
     }
 
     /* Mouse wheel scrolls the scrollback while the console is open. */
