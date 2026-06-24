@@ -24,7 +24,7 @@
 #define CONSOLE_WRAP_WIDTH 78
 #define CONSOLE_PANEL_HEIGHT 140
 #define CONSOLE_LINE_HEIGHT 9
-#define CONSOLE_MAX_CMDS 32
+#define CONSOLE_MAX_CMDS 48 /* ~27 registered today; headroom before the loud drop */
 #define CONSOLE_MAX_CVARS 16
 #define CONSOLE_MAX_ARGV 16
 #define CONSOLE_KEY_QUEUE_SIZE 32
@@ -520,96 +520,62 @@ static int is_modifier_scancode(int sc) {
     }
 }
 
-/* Unicode codepoint for a CP437 high byte (the inverse of cp_to_cp437, for the
- * bytes the console renders), or 0 when there is no mapping. Lets the CP437 row
- * snapshot copy back out as proper UTF-8 (e.g. the boot log's "·" separator). */
+/* CP437 <-> Unicode for the Latin-1 range the console actually draws (the boot
+ * log's "·" separator, accented language names, etc.). Single source of truth so
+ * the draw-time fold (cp_to_cp437) and the copy-time unfold (cp437_to_unicode)
+ * cannot disagree. All these codepoints are U+0080..U+07FF (2-byte UTF-8). */
+static const struct cp437_pair {
+    unsigned int cp; /* Unicode codepoint */
+    unsigned char b; /* CP437 byte */
+} cp437_map[] = {
+    {0x00B7, 0xFA}, /* · */ {0x00B0, 0xF8}, /* ° */ {0x00A1, 0xAD}, /* ¡ */
+    {0x00BF, 0xA8},
+    /* ¿ */ {0x00AB, 0xAE},
+    /* « */ {0x00BB, 0xAF}, /* » */
+    {0x00A3, 0x9C},
+    /* £ */ {0x00C7, 0x80},
+    /* Ç */ {0x00FC, 0x81}, /* ü */
+    {0x00E9, 0x82},
+    /* é */ {0x00E2, 0x83},
+    /* â */ {0x00E4, 0x84}, /* ä */
+    {0x00E0, 0x85},
+    /* à */ {0x00E5, 0x86},
+    /* å */ {0x00E7, 0x87}, /* ç */
+    {0x00EA, 0x88},
+    /* ê */ {0x00EB, 0x89},
+    /* ë */ {0x00E8, 0x8A}, /* è */
+    {0x00EF, 0x8B},
+    /* ï */ {0x00EE, 0x8C},
+    /* î */ {0x00EC, 0x8D}, /* ì */
+    {0x00C4, 0x8E},
+    /* Ä */ {0x00C5, 0x8F},
+    /* Å */ {0x00C9, 0x90}, /* É */
+    {0x00E6, 0x91},
+    /* æ */ {0x00C6, 0x92},
+    /* Æ */ {0x00F4, 0x93}, /* ô */
+    {0x00F6, 0x94},
+    /* ö */ {0x00F2, 0x95},
+    /* ò */ {0x00FB, 0x96}, /* û */
+    {0x00F9, 0x97},
+    /* ù */ {0x00FF, 0x98},
+    /* ÿ */ {0x00D6, 0x99}, /* Ö */
+    {0x00DC, 0x9A},
+    /* Ü */ {0x00E1, 0xA0},
+    /* á */ {0x00ED, 0xA1}, /* í */
+    {0x00F3, 0xA2},
+    /* ó */ {0x00FA, 0xA3},
+    /* ú */ {0x00F1, 0xA4}, /* ñ */
+    {0x00D1, 0xA5},
+    /* Ñ */ {0x00DF, 0xE1}, /* ß */
+};
+
+/* Unicode codepoint for a CP437 high byte, or 0 if unmapped. Turns the CP437 row
+ * snapshot back into proper UTF-8 for the clipboard. */
 static unsigned int cp437_to_unicode(unsigned char b) {
-    switch (b) {
-    case 0xFA:
-        return 0x00B7; /* · */
-    case 0xF8:
-        return 0x00B0; /* ° */
-    case 0xAD:
-        return 0x00A1; /* ¡ */
-    case 0xA8:
-        return 0x00BF; /* ¿ */
-    case 0xAE:
-        return 0x00AB; /* « */
-    case 0xAF:
-        return 0x00BB; /* » */
-    case 0x9C:
-        return 0x00A3; /* £ */
-    case 0x80:
-        return 0x00C7; /* Ç */
-    case 0x81:
-        return 0x00FC; /* ü */
-    case 0x82:
-        return 0x00E9; /* é */
-    case 0x83:
-        return 0x00E2; /* â */
-    case 0x84:
-        return 0x00E4; /* ä */
-    case 0x85:
-        return 0x00E0; /* à */
-    case 0x86:
-        return 0x00E5; /* å */
-    case 0x87:
-        return 0x00E7; /* ç */
-    case 0x88:
-        return 0x00EA; /* ê */
-    case 0x89:
-        return 0x00EB; /* ë */
-    case 0x8A:
-        return 0x00E8; /* è */
-    case 0x8B:
-        return 0x00EF; /* ï */
-    case 0x8C:
-        return 0x00EE; /* î */
-    case 0x8D:
-        return 0x00EC; /* ì */
-    case 0x8E:
-        return 0x00C4; /* Ä */
-    case 0x8F:
-        return 0x00C5; /* Å */
-    case 0x90:
-        return 0x00C9; /* É */
-    case 0x91:
-        return 0x00E6; /* æ */
-    case 0x92:
-        return 0x00C6; /* Æ */
-    case 0x93:
-        return 0x00F4; /* ô */
-    case 0x94:
-        return 0x00F6; /* ö */
-    case 0x95:
-        return 0x00F2; /* ò */
-    case 0x96:
-        return 0x00FB; /* û */
-    case 0x97:
-        return 0x00F9; /* ù */
-    case 0x98:
-        return 0x00FF; /* ÿ */
-    case 0x99:
-        return 0x00D6; /* Ö */
-    case 0x9A:
-        return 0x00DC; /* Ü */
-    case 0xA0:
-        return 0x00E1; /* á */
-    case 0xA1:
-        return 0x00ED; /* í */
-    case 0xA2:
-        return 0x00F3; /* ó */
-    case 0xA3:
-        return 0x00FA; /* ú */
-    case 0xA4:
-        return 0x00F1; /* ñ */
-    case 0xA5:
-        return 0x00D1; /* Ñ */
-    case 0xE1:
-        return 0x00DF; /* ß */
-    default:
-        return 0;
-    }
+    for (size_t i = 0; i < sizeof(cp437_map) / sizeof(cp437_map[0]); i++)
+        if (cp437_map[i].b == b)
+            return cp437_map[i].cp;
+    return 0;
 }
 
 /* Append one display cell (a CP437 byte) to the clipboard buffer as UTF-8: ASCII
@@ -995,97 +961,73 @@ void Console_Update(void) {
     }
 }
 
-/* Map a Unicode codepoint to its CP437 byte (the AffStringToBuffer font), or 0
- * if CP437 has no glyph for it. Covers the printable Latin-1 range — enough for
- * the boot log's "·" separator and accented language names (Français, Español)
- * and any Western-European text a command might print. */
-static unsigned char cp_to_cp437(unsigned int cp) {
-    switch (cp) {
-    case 0x00B7:
-        return 0xFA; /* · middle dot (the title separator) */
-    case 0x00B0:
-        return 0xF8; /* ° */
-    case 0x00A1:
-        return 0xAD; /* ¡ */
-    case 0x00BF:
-        return 0xA8; /* ¿ */
-    case 0x00AB:
-        return 0xAE; /* « */
-    case 0x00BB:
-        return 0xAF; /* » */
-    case 0x00A3:
-        return 0x9C; /* £ */
-    case 0x00C7:
-        return 0x80; /* Ç */
-    case 0x00FC:
-        return 0x81; /* ü */
-    case 0x00E9:
-        return 0x82; /* é */
-    case 0x00E2:
-        return 0x83; /* â */
-    case 0x00E4:
-        return 0x84; /* ä */
-    case 0x00E0:
-        return 0x85; /* à */
-    case 0x00E5:
-        return 0x86; /* å */
-    case 0x00E7:
-        return 0x87; /* ç (Français) */
-    case 0x00EA:
-        return 0x88; /* ê */
-    case 0x00EB:
-        return 0x89; /* ë */
-    case 0x00E8:
-        return 0x8A; /* è */
-    case 0x00EF:
-        return 0x8B; /* ï */
-    case 0x00EE:
-        return 0x8C; /* î */
-    case 0x00EC:
-        return 0x8D; /* ì */
-    case 0x00C4:
-        return 0x8E; /* Ä */
-    case 0x00C5:
-        return 0x8F; /* Å */
-    case 0x00C9:
-        return 0x90; /* É */
-    case 0x00E6:
-        return 0x91; /* æ */
-    case 0x00C6:
-        return 0x92; /* Æ */
-    case 0x00F4:
-        return 0x93; /* ô */
-    case 0x00F6:
-        return 0x94; /* ö */
-    case 0x00F2:
-        return 0x95; /* ò */
-    case 0x00FB:
-        return 0x96; /* û */
-    case 0x00F9:
-        return 0x97; /* ù */
-    case 0x00FF:
-        return 0x98; /* ÿ */
-    case 0x00D6:
-        return 0x99; /* Ö */
-    case 0x00DC:
-        return 0x9A; /* Ü */
-    case 0x00E1:
-        return 0xA0; /* á */
-    case 0x00ED:
-        return 0xA1; /* í */
-    case 0x00F3:
-        return 0xA2; /* ó */
-    case 0x00FA:
-        return 0xA3; /* ú */
-    case 0x00F1:
-        return 0xA4; /* ñ (Español) */
-    case 0x00D1:
-        return 0xA5; /* Ñ */
-    case 0x00DF:
-        return 0xE1; /* ß */
-    default:
-        return 0;
+/* --- Host-test hooks for the input/selection state machine. These drive the same
+ * Console_UpdateKey path the live console runs after draining the event queue, so
+ * tests exercise the real code without needing SDL scancode/modifier constants. --- */
+static int testkey_scancode(Console_TestKey k) {
+    switch (k) {
+    case CONSOLE_TKEY_LEFT:
+        return K_LEFT;
+    case CONSOLE_TKEY_RIGHT:
+        return K_RIGHT;
+    case CONSOLE_TKEY_HOME:
+        return K_HOME;
+    case CONSOLE_TKEY_END:
+        return K_END;
+    case CONSOLE_TKEY_BACKSPACE:
+        return K_BACKSPACE;
+    case CONSOLE_TKEY_DELETE:
+        return K_SUPPR;
+    case CONSOLE_TKEY_ENTER:
+        return K_ENTER;
+    case CONSOLE_TKEY_ESC:
+        return K_ESC;
+    case CONSOLE_TKEY_TAB:
+        return K_TAB;
+    case CONSOLE_TKEY_UP:
+        return K_UP;
+    case CONSOLE_TKEY_DOWN:
+        return K_DOWN;
     }
+    return 0;
+}
+
+void Console_TestType(const char *s) {
+    if (!s)
+        return;
+    for (; *s; s++)
+        Console_UpdateKey(CONSOLE_TEXT_CHAR, (unsigned char)*s, 0);
+}
+
+void Console_TestSpecial(Console_TestKey key, int shift) {
+    Console_UpdateKey(testkey_scancode(key), 0, shift ? SDL_KMOD_SHIFT : 0);
+}
+
+void Console_TestCtrl(char letter) {
+    Console_UpdateKey(0, (unsigned char)letter, SDL_KMOD_CTRL);
+}
+
+const char *Console_TestInput(void) {
+    return s_input_line;
+}
+
+int Console_TestCursor(void) {
+    return s_cursor_pos;
+}
+
+int Console_TestSelection(int *lo, int *hi) {
+    return sel_span(lo, hi);
+}
+
+/* Map a Unicode codepoint to its CP437 byte (the AffStringToBuffer font), or 0 if
+ * CP437 has no glyph for it. Covers the printable Latin-1 range the boot log and
+ * command output use (the "·" separator, accented language names). Shares cp437_map
+ * with cp437_to_unicode so the fold and unfold stay in lockstep. */
+static unsigned char cp_to_cp437(unsigned int cp) {
+    for (size_t i = 0; i < sizeof(cp437_map) / sizeof(cp437_map[0]); i++)
+        if (cp437_map[i].cp == cp)
+            return cp437_map[i].b;
+    return 0;
 }
 
 /* Fold a UTF-8 string into the CP437 bytes the font draws. ASCII passes through;
@@ -1575,8 +1517,11 @@ int Console_ShouldSuppressInputThisFrame(void) {
 }
 
 void Console_RegisterCommandEx(const char *name, Console_CmdFn callback, const char *help, const char *usage, const char *context) {
-    if (s_cmd_count >= CONSOLE_MAX_CMDS)
+    if (s_cmd_count >= CONSOLE_MAX_CMDS) {
+        fprintf(stderr, "console: command table full (%d), dropped '%s' (raise CONSOLE_MAX_CMDS)\n",
+                CONSOLE_MAX_CMDS, name ? name : "(null)");
         return;
+    }
     s_cmds[s_cmd_count].name = name;
     s_cmds[s_cmd_count].fn = callback;
     s_cmds[s_cmd_count].help = help;
@@ -1590,8 +1535,11 @@ void Console_RegisterCommand(const char *name, Console_CmdFn callback, const cha
 }
 
 void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, const char *help) {
-    if (s_cvar_count >= CONSOLE_MAX_CVARS)
+    if (s_cvar_count >= CONSOLE_MAX_CVARS) {
+        fprintf(stderr, "console: cvar table full (%d), dropped '%s' (raise CONSOLE_MAX_CVARS)\n",
+                CONSOLE_MAX_CVARS, name ? name : "(null)");
         return;
+    }
     s_cvars[s_cvar_count].name = name;
     s_cvars[s_cvar_count].ptr = ptr;
     s_cvars[s_cvar_count].type = type;
