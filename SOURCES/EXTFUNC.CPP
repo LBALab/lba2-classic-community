@@ -1918,11 +1918,12 @@ S32 GereMouseMovements(S32 boutons) {
 /* Apply a per-frame manual camera nudge from an analog source (mouse drag or
  * right stick).  dBeta orbits horizontally (AddBetaCam), dAlpha tilts elevation
  * (AlphaCam), dZoom dollies the arm (FollowCamBaseDist; positive zooms in).
- * Shared by every manual-camera source so they clamp and re-engage the follow
- * grace period identically.  Only horizontal orbit raises ManualCameraOrbitActive
- * (it selects the tight BetaCam lerp in PERSO.CPP); elevation and zoom do not.
- * Returns nonzero if any axis changed so the caller can flag a redraw.  The
- * caller clears ManualCameraOrbitActive once per frame before driving sources. */
+ * Shared by every manual-camera source so they clamp each axis identically.
+ * Only horizontal orbit raises ManualCameraOrbitActive (it selects the tight
+ * BetaCam lerp in PERSO.CPP) and re-engages the follow grace period; elevation
+ * and zoom leave the auto-follow tracking the hero.  Returns nonzero if any axis
+ * changed so the caller can flag a redraw.  The caller clears
+ * ManualCameraOrbitActive once per frame before driving sources. */
 static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     S32 changed = 0;
 
@@ -1941,7 +1942,9 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
         FirstTime = AFF_ALL_FLIP;
         changed = 1;
     }
-    if (dBeta != 0 OR dAlpha != 0)
+    /* Only horizontal orbit pauses the auto-recenter; elevation and zoom leave
+     * the follow tracking the hero (matches the numpad keyboard controls). */
+    if (dBeta != 0)
         FollowCamReengageDelay = FOLLOW_CAM_REENGAGE_FRAMES;
 
     if (dZoom != 0) {

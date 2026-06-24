@@ -31,6 +31,11 @@ const void *MouseSpriteGraphic = NULL;
 S32 LibMouseXDep, LibMouseYDep;
 U32 MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1;
 
+/* Cap the unconsumed wheel bank. In scenes with no wheel consumer (interiors,
+ * or exterior without the mouse camera) nothing drains MouseWheelYAccum, so an
+ * idle scroll would otherwise pile up and dump one oversized step on the next
+ * consumer. The wheel is recent intent, not a ledger. */
+#define MOUSE_WHEEL_ACCUM_CAP 8
 volatile S32 MouseWheelYAccum = 0;
 
 static bool s_showSpriteAfterFirstMotion = false;
@@ -201,6 +206,10 @@ void HandleEventsMouse(const void *event) {
     case SDL_EVENT_MOUSE_WHEEL:
         MousePointerMarkActivity();
         MouseWheelYAccum += (S32)lround((double)sdlEvent->wheel.y);
+        if (MouseWheelYAccum > MOUSE_WHEEL_ACCUM_CAP)
+            MouseWheelYAccum = MOUSE_WHEEL_ACCUM_CAP;
+        if (MouseWheelYAccum < -MOUSE_WHEEL_ACCUM_CAP)
+            MouseWheelYAccum = -MOUSE_WHEEL_ACCUM_CAP;
         LastInputWasKeyboard = 0;
         break;
     }
