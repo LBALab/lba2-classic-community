@@ -108,12 +108,25 @@ static int s_row_sel_end[CONSOLE_MAX_ROWS];
 
 /* Mouse scrollback selection in screen row/col space. Read-only: copy with Ctrl+C.
  * Mutually exclusive with the editable input-line selection (s_sel_anchor). */
-static int s_scrsel_active = 0;
-static int s_scrsel_a_row = 0, s_scrsel_a_col = 0; /* anchor cell */
-static int s_scrsel_c_row = 0, s_scrsel_c_col = 0; /* caret cell */
-static int s_mouse_dragging = 0;
-static Uint64 s_last_click_ms = 0;
-static int s_last_click_row = -1, s_last_click_col = -1;
+typedef struct {
+    int active;                         /* a scrollback selection exists */
+    int a_row, a_col;                   /* anchor cell */
+    int c_row, c_col;                   /* caret cell */
+    int dragging;                       /* left mouse button held */
+    Uint64 last_click_ms;               /* double-click timing */
+    int last_click_row, last_click_col; /* double-click target */
+} ConsoleScreenSel;
+static ConsoleScreenSel s_scrsel = {0, 0, 0, 0, 0, 0, 0, -1, -1};
+
+/* Reset to "no selection" with fresh double-click tracking. Anchor/caret are left
+ * as-is since they are only read while active. */
+static void scrsel_reset(void) {
+    s_scrsel.active = 0;
+    s_scrsel.dragging = 0;
+    s_scrsel.last_click_ms = 0;
+    s_scrsel.last_click_row = -1;
+    s_scrsel.last_click_col = -1;
+}
 
 /* Screenshot without console: path and format. PNG = game performs SavePNG; else PrePresent writes PPM. */
 #define CONSOLE_SCREENSHOT_PATH_MAX 256
@@ -189,6 +202,7 @@ void Console_RequestScreenshot(const char *path, int use_png) {
         console_set_os_cursor(0);
     }
     s_console_open = 0;
+    scrsel_reset();
     free(s_console_buf);
     s_console_buf = NULL;
     s_console_w = 0;
@@ -232,15 +246,13 @@ void Console_Toggle(void) {
         Console_EnsureRegistered();
         s_history_index = -1;
         s_sel_anchor = -1;
-        s_scrsel_active = 0;
-        s_mouse_dragging = 0;
+        scrsel_reset();
         console_set_text_input(1);
         console_set_os_cursor(1);
     } else {
         console_set_text_input(0);
         console_set_os_cursor(0);
-        s_scrsel_active = 0;
-        s_mouse_dragging = 0;
+        scrsel_reset();
         /* Clear input line when closing so it doesn't persist on next open */
         free(s_console_buf);
         s_console_buf = NULL;
@@ -258,8 +270,7 @@ void Console_Close(void) {
     s_console_open = 0;
     console_set_text_input(0);
     console_set_os_cursor(0);
-    s_scrsel_active = 0;
-    s_mouse_dragging = 0;
+    scrsel_reset();
     free(s_console_buf);
     s_console_buf = NULL;
     s_console_w = 0;
@@ -479,18 +490,18 @@ static int sel_delete(void) {
 
 /* Order the mouse-selection anchor/caret into reading order (start <= end). */
 static void scrsel_normalize(int *sr, int *sc, int *er, int *ec) {
-    int before = (s_scrsel_a_row < s_scrsel_c_row) ||
-                 (s_scrsel_a_row == s_scrsel_c_row && s_scrsel_a_col <= s_scrsel_c_col);
+    int before = (s_scrsel.a_row < s_scrsel.c_row) ||
+                 (s_scrsel.a_row == s_scrsel.c_row && s_scrsel.a_col <= s_scrsel.c_col);
     if (before) {
-        *sr = s_scrsel_a_row;
-        *sc = s_scrsel_a_col;
-        *er = s_scrsel_c_row;
-        *ec = s_scrsel_c_col;
+        *sr = s_scrsel.a_row;
+        *sc = s_scrsel.a_col;
+        *er = s_scrsel.c_row;
+        *ec = s_scrsel.c_col;
     } else {
-        *sr = s_scrsel_c_row;
-        *sc = s_scrsel_c_col;
-        *er = s_scrsel_a_row;
-        *ec = s_scrsel_a_col;
+        *sr = s_scrsel.c_row;
+        *sc = s_scrsel.c_col;
+        *er = s_scrsel.a_row;
+        *ec = s_scrsel.a_col;
     }
 }
 
@@ -603,7 +614,7 @@ static void scrsel_copy(void) {
     static char buf[CONSOLE_MAX_ROWS * CONSOLE_LINE_MAX];
     size_t o = 0;
     int sr, sc, er, ec, r;
-    if (!s_scrsel_active)
+    if (!s_scrsel.active)
         return;
     scrsel_normalize(&sr, &sc, &er, &ec);
     for (r = sr; r <= er && r < s_row_count; r++) {
@@ -627,7 +638,7 @@ static void scrsel_copy(void) {
  * active, otherwise the input-line selection (or the whole line if none). */
 static void clipboard_copy(void) {
     int lo, hi;
-    if (s_scrsel_active) {
+    if (s_scrsel.active) {
         scrsel_copy();
     } else if (sel_span(&lo, &hi)) {
         char tmp[CONSOLE_INPUT_MAX];
@@ -809,8 +820,8 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
     /* A mouse (scrollback) selection is dismissed by editing/navigation keys, but
      * not by the copy shortcut or by a bare modifier press (so Ctrl, then C, keeps
      * the selection long enough to copy it). */
-    if (s_scrsel_active && !(ctrl && kl == 'c') && !is_modifier_scancode(scancode))
-        s_scrsel_active = 0;
+    if (s_scrsel.active && !(ctrl && kl == 'c') && !is_modifier_scancode(scancode))
+        s_scrsel.active = 0;
 
     /* Text-input characters arrive already cased and layout-resolved, queued with
      * the CONSOLE_TEXT_CHAR sentinel; insert the printable ASCII ones. Physical
@@ -831,7 +842,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
             clipboard_paste();
         } else if (kl == 'c') {
             clipboard_copy();
-            s_scrsel_active = 0; /* copying clears the selection */
+            s_scrsel.active = 0; /* copying clears the selection */
             s_sel_anchor = -1;
         } else if (kl == 'x') {
             clipboard_copy();  /* copies the selection, or the whole line */
@@ -1212,7 +1223,7 @@ static void Console_Draw(void) {
         if (sel_span(&lo, &hi) && s_input_row >= 0 && s_input_row < CONSOLE_MAX_ROWS) {
             s_row_sel_start[s_input_row] = 3 + lo;
             s_row_sel_end[s_input_row] = 3 + hi;
-        } else if (s_scrsel_active) {
+        } else if (s_scrsel.active) {
             fill_scrsel_spans();
         }
     }
@@ -1364,9 +1375,9 @@ int Console_FeedEvent(const void *sdlEvent) {
             return 0;
         if (ev->button.button == SDL_BUTTON_RIGHT) {
             /* Right-click copies the current selection, then clears it. */
-            if (s_scrsel_active || sel_span(&lo, &hi))
+            if (s_scrsel.active || sel_span(&lo, &hi))
                 clipboard_copy();
-            s_scrsel_active = 0;
+            s_scrsel.active = 0;
             s_sel_anchor = -1;
             return 1;
         }
@@ -1378,11 +1389,11 @@ int Console_FeedEvent(const void *sdlEvent) {
             return 1;
         }
         now = SDL_GetTicks();
-        dbl = (now - s_last_click_ms <= CONSOLE_DBLCLICK_MS && row == s_last_click_row &&
-               (col >= s_last_click_col - 1 && col <= s_last_click_col + 1));
-        s_last_click_ms = now;
-        s_last_click_row = row;
-        s_last_click_col = col;
+        dbl = (now - s_scrsel.last_click_ms <= CONSOLE_DBLCLICK_MS && row == s_scrsel.last_click_row &&
+               (col >= s_scrsel.last_click_col - 1 && col <= s_scrsel.last_click_col + 1));
+        s_scrsel.last_click_ms = now;
+        s_scrsel.last_click_row = row;
+        s_scrsel.last_click_col = col;
         s_sel_anchor = -1; /* drop any editable input-line selection */
 
         if (dbl) {
@@ -1398,16 +1409,16 @@ int Console_FeedEvent(const void *sdlEvent) {
             } else if (col < len) {
                 e = col + 1; /* a single non-word cell */
             }
-            s_scrsel_a_row = s_scrsel_c_row = row;
-            s_scrsel_a_col = a;
-            s_scrsel_c_col = e;
-            s_scrsel_active = (e > a);
-            s_mouse_dragging = 0;
+            s_scrsel.a_row = s_scrsel.c_row = row;
+            s_scrsel.a_col = a;
+            s_scrsel.c_col = e;
+            s_scrsel.active = (e > a);
+            s_scrsel.dragging = 0;
         } else {
-            s_scrsel_a_row = s_scrsel_c_row = row;
-            s_scrsel_a_col = s_scrsel_c_col = col;
-            s_scrsel_active = 0; /* nothing until the caret moves */
-            s_mouse_dragging = 1;
+            s_scrsel.a_row = s_scrsel.c_row = row;
+            s_scrsel.a_col = s_scrsel.c_col = col;
+            s_scrsel.active = 0; /* nothing until the caret moves */
+            s_scrsel.dragging = 1;
             if (row == s_input_row) {
                 int p = col - 3; /* input text starts at column 3 ("]> ") */
                 if (p < 0)
@@ -1422,15 +1433,15 @@ int Console_FeedEvent(const void *sdlEvent) {
     if (ev->type == SDL_EVENT_MOUSE_MOTION) {
         int row, col;
         if (!s_console_open) {
-            s_mouse_dragging = 0;
+            s_scrsel.dragging = 0;
             return 0;
         }
-        if (!s_mouse_dragging)
+        if (!s_scrsel.dragging)
             return 0; /* let the game keep tracking the pointer */
         if (mouse_to_cell(ev->motion.x, ev->motion.y, &row, &col)) {
-            s_scrsel_c_row = row;
-            s_scrsel_c_col = col;
-            s_scrsel_active = !(s_scrsel_a_row == row && s_scrsel_a_col == col);
+            s_scrsel.c_row = row;
+            s_scrsel.c_col = col;
+            s_scrsel.active = !(s_scrsel.a_row == row && s_scrsel.a_col == col);
         }
         return 1;
     }
@@ -1438,7 +1449,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         if (!s_console_open)
             return 0;
         if (ev->button.button == SDL_BUTTON_LEFT)
-            s_mouse_dragging = 0;
+            s_scrsel.dragging = 0;
         return 1; /* console owns the mouse while open */
     }
 
