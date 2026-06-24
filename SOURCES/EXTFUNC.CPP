@@ -15,6 +15,8 @@
 
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/MOUSE.H>
+#include <SYSTEM/WINDOW.H>
 #include "FOLLOWCAM_CFG.H"
 
 extern S32 Nxw, Nyw, Nzw;
@@ -1912,6 +1914,51 @@ S32 GereMouseMovements(S32 boutons) {
 #endif
 
 /*──────────────────────────────────────────────────────────────────────────*/
+#ifndef LBA_EDITOR
+/* Apply a per-frame manual camera nudge from an analog source (mouse drag or
+ * right stick).  dBeta orbits horizontally (AddBetaCam), dAlpha tilts elevation
+ * (AlphaCam), dZoom dollies the arm (FollowCamBaseDist; positive zooms in).
+ * Shared by every manual-camera source so they clamp and re-engage the follow
+ * grace period identically.  Only horizontal orbit raises ManualCameraOrbitActive
+ * (it selects the tight BetaCam lerp in PERSO.CPP); elevation and zoom do not.
+ * Returns nonzero if any axis changed so the caller can flag a redraw.  The
+ * caller clears ManualCameraOrbitActive once per frame before driving sources. */
+static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
+    S32 changed = 0;
+
+    if (dBeta != 0) {
+        AddBetaCam = (AddBetaCam - dBeta) & 4095;
+        ManualCameraOrbitActive = TRUE;
+        FirstTime = AFF_ALL_FLIP;
+        changed = 1;
+    }
+    if (dAlpha != 0) {
+        AlphaCam += dAlpha;
+        if (AlphaCam < FOLLOW_CAM_ALPHA_MIN)
+            AlphaCam = FOLLOW_CAM_ALPHA_MIN;
+        if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+            AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+        FirstTime = AFF_ALL_FLIP;
+        changed = 1;
+    }
+    if (dBeta != 0 OR dAlpha != 0)
+        FollowCamReengageDelay = FOLLOW_CAM_REENGAGE_FRAMES;
+
+    if (dZoom != 0) {
+        FollowCamBaseDist -= dZoom;
+        if (FollowCamBaseDist < FOLLOW_CAM_DIST_MIN)
+            FollowCamBaseDist = FOLLOW_CAM_DIST_MIN;
+        if (FollowCamBaseDist > FOLLOW_CAM_DIST_MAX)
+            FollowCamBaseDist = FOLLOW_CAM_DIST_MAX;
+        FirstTime = AFF_ALL_FLIP;
+        changed = 1;
+    }
+
+    return changed;
+}
+#endif
+
+/*──────────────────────────────────────────────────────────────────────────*/
 // Gestion zoom/pivot du terrain et position caméra
 #ifdef LBA_EDITOR
 S32 GereExtKeys(U32 key, U32 flagmenu)
@@ -2235,6 +2282,56 @@ S32 GereExtKeys(U32 key)
                 FollowCamBaseDist += FOLLOW_CAM_ZOOM_STEP;
             FirstTime = AFF_ALL_FLIP;
             flag = 1;
+        }
+
+        /* --- Manual camera: mouse drag orbit, elevation, wheel zoom, recenter --- */
+        ManualCameraOrbitActive = FALSE;
+        {
+            /* Relative mouse mode: deltas keep flowing past window edge.
+             * Drag mode: active while right button held.
+             * Free mode: always active.
+             * Disabled when mouse camera conditions not met. */
+            static S32 prevRelative = 0;
+            S32 wantRelative = 0;
+            if (FlagMouseCamera AND CubeMode == CUBE_EXTERIEUR)
+                wantRelative = FlagMouseCameraDrag ? (Click & 2) : 1;
+            if (wantRelative != prevRelative) {
+                SetWindowRelativeMouse(wantRelative ? true : false);
+                prevRelative = wantRelative;
+            }
+        }
+        if (FlagMouseCamera AND CubeMode == CUBE_EXTERIEUR) {
+            ManageMouse();
+
+            S32 orbitActive = FlagMouseCameraDrag ? (Click & 2) : 1;
+            if (orbitActive) {
+                S32 rawX = MouseXDep;
+                S32 rawY = MouseYDep;
+
+                /* Dead zone on raw pixels before scaling */
+                if (rawX > -MOUSE_CAM_DEAD_ZONE AND rawX < MOUSE_CAM_DEAD_ZONE)
+                    rawX = 0;
+                if (rawY > -MOUSE_CAM_DEAD_ZONE AND rawY < MOUSE_CAM_DEAD_ZONE)
+                    rawY = 0;
+
+                S32 dx = rawX * MouseCameraSensX / MouseCameraDivisor;
+                S32 dy = rawY * MouseCameraSensY / MouseCameraDivisor;
+                if (MouseCameraInvertY)
+                    dy = -dy;
+
+                flag |= ApplyManualCameraNudge(dx, dy, 0);
+            }
+
+            S32 wy = ConsumeMouseWheelY();
+            if (wy != 0)
+                flag |= ApplyManualCameraNudge(
+                    0, 0, wy * FOLLOW_CAM_ZOOM_STEP * MOUSE_CAM_ZOOM_MULT);
+
+            if (Click & 4) {
+                CameraCenter(1);
+                FirstTime = AFF_ALL_FLIP;
+                flag = 1;
+            }
         }
     }
 #endif

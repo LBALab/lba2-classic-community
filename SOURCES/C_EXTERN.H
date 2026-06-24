@@ -215,6 +215,15 @@ extern S32 Planet;
 extern S32 AllCameras;
 extern S32 FollowCamera;
 extern S32 FollowCamBaseDist;
+extern S32 FlagMouseCamera;
+extern S32 FlagMouseCameraDrag;
+extern S32 MouseCameraSensX;
+extern S32 MouseCameraSensY;
+extern S32 MouseCameraInvertY;
+extern S32 MouseCameraDivisor;
+extern S32 MouseCameraSmoothing;
+extern S32 ManualCameraOrbitActive; /* raised by EXTFUNC while a manual camera source (mouse/stick) orbits */
+extern S32 FollowCamReengageDelay;
 extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;

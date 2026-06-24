@@ -65,6 +65,7 @@ bool Window_SupportsWindowedMode(void);
 // pixels or simulation state.
 void Window_SetVSync(int enabled);
 
+void SetWindowRelativeMouse(bool enable);
 void ManageWindow();
 void HandleEventsWindow(const void *event);
 
