@@ -1431,10 +1431,8 @@ int Console_FeedEvent(const void *sdlEvent) {
         if (ev->button.button != SDL_BUTTON_LEFT)
             return 1;
         if (!mouse_to_cell(ev->button.x, ev->button.y, &row, &col)) {
-            /* Click outside the panel clears the selection. */
-            s_scrsel_active = 0;
-            s_sel_anchor = -1;
-            s_mouse_dragging = 0;
+            /* Left-click below the panel (in the game area) closes the console. */
+            Console_Close();
             return 1;
         }
         now = SDL_GetTicks();
