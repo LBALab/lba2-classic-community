@@ -63,15 +63,19 @@ static char s_scrollback[CONSOLE_SCROLLBACK_LINES][CONSOLE_LINE_MAX];
 static U8 s_scrollback_col[CONSOLE_SCROLLBACK_LINES]; /* per-line ink (CONSOLE_COL_*) */
 static int s_scrollback_count = 0;
 static int s_scrollback_head = 0; /* next write position */
-static char s_input_line[CONSOLE_INPUT_MAX];
-static int s_input_len = 0;
-static int s_cursor_pos = 0;
-static int s_sel_anchor = -1; /* selection anchor in the input line; -1 = no selection */
+/* The editable input line: its text, cursor, and (Shift / Ctrl-A) selection. */
+typedef struct {
+    char line[CONSOLE_INPUT_MAX];
+    int len;
+    int cursor;
+    int sel_anchor;     /* selection anchor in the line; -1 = no selection */
+    unsigned int blink; /* cursor blink phase */
+} ConsoleInput;
+static ConsoleInput s_in = {{0}, 0, 0, -1, 0};
 static char s_history[CONSOLE_HISTORY_SIZE][CONSOLE_LINE_MAX];
 static int s_history_count = 0;
 static int s_history_index = -1; /* -1 = not browsing */
 static int s_registered = 0;
-static unsigned int s_cursor_blink = 0;
 static int s_just_closed = 0; /* suppress game input for one frame after closing */
 
 /* Own buffer for overlay (independent of game Log) */
@@ -107,7 +111,7 @@ static int s_row_sel_start[CONSOLE_MAX_ROWS];
 static int s_row_sel_end[CONSOLE_MAX_ROWS];
 
 /* Mouse scrollback selection in screen row/col space. Read-only: copy with Ctrl+C.
- * Mutually exclusive with the editable input-line selection (s_sel_anchor). */
+ * Mutually exclusive with the editable input-line selection (s_in.sel_anchor). */
 typedef struct {
     int active;                         /* a scrollback selection exists */
     int a_row, a_col;                   /* anchor cell */
@@ -135,6 +139,7 @@ static int s_screenshot_png = 0;
 static Console_LineSinkFn s_line_sink_for_tests = NULL;
 
 static void Console_SubmitLine(void);
+static void input_clear(void); /* defined with the input-editing primitives below */
 
 /* Enable/disable SDL text input so the console receives correctly-cased,
  * layout-aware characters via SDL_EVENT_TEXT_INPUT. SDL_GetKeyFromScancode does
@@ -206,9 +211,7 @@ void Console_RequestScreenshot(const char *path, int use_png) {
     free(s_console_buf);
     s_console_buf = NULL;
     s_console_w = 0;
-    s_input_len = 0;
-    s_input_line[0] = '\0';
-    s_cursor_pos = 0;
+    input_clear();
     s_just_closed = 1;
 }
 
@@ -245,7 +248,7 @@ void Console_Toggle(void) {
     if (s_console_open) {
         Console_EnsureRegistered();
         s_history_index = -1;
-        s_sel_anchor = -1;
+        s_in.sel_anchor = -1;
         scrsel_reset();
         console_set_text_input(1);
         console_set_os_cursor(1);
@@ -257,9 +260,7 @@ void Console_Toggle(void) {
         free(s_console_buf);
         s_console_buf = NULL;
         s_console_w = 0;
-        s_input_len = 0;
-        s_input_line[0] = '\0';
-        s_cursor_pos = 0;
+        input_clear();
         s_just_closed = 1;
     }
 }
@@ -274,9 +275,7 @@ void Console_Close(void) {
     free(s_console_buf);
     s_console_buf = NULL;
     s_console_w = 0;
-    s_input_len = 0;
-    s_input_line[0] = '\0';
-    s_cursor_pos = 0;
+    input_clear();
     s_just_closed = 1;
 }
 
@@ -420,57 +419,57 @@ static int cvar_index_cmp(const void *a, const void *b) {
     return strcmp(s_cvars[ia].name, s_cvars[ib].name);
 }
 
-/* --- Input-line editing primitives. All operate at s_cursor_pos so the line can
+/* --- Input-line editing primitives. All operate at s_in.cursor so the line can
  * be edited mid-string (Left/Right/Home/End/Delete), not just appended to. --- */
 static void input_insert_char(char c) {
-    if (s_input_len >= CONSOLE_INPUT_MAX - 1)
+    if (s_in.len >= CONSOLE_INPUT_MAX - 1)
         return;
-    memmove(&s_input_line[s_cursor_pos + 1], &s_input_line[s_cursor_pos],
-            (size_t)(s_input_len - s_cursor_pos));
-    s_input_line[s_cursor_pos] = c;
-    s_input_len++;
-    s_cursor_pos++;
-    s_input_line[s_input_len] = '\0';
+    memmove(&s_in.line[s_in.cursor + 1], &s_in.line[s_in.cursor],
+            (size_t)(s_in.len - s_in.cursor));
+    s_in.line[s_in.cursor] = c;
+    s_in.len++;
+    s_in.cursor++;
+    s_in.line[s_in.len] = '\0';
 }
 
 static void input_backspace(void) {
-    if (s_cursor_pos <= 0)
+    if (s_in.cursor <= 0)
         return;
-    memmove(&s_input_line[s_cursor_pos - 1], &s_input_line[s_cursor_pos],
-            (size_t)(s_input_len - s_cursor_pos));
-    s_cursor_pos--;
-    s_input_len--;
-    s_input_line[s_input_len] = '\0';
+    memmove(&s_in.line[s_in.cursor - 1], &s_in.line[s_in.cursor],
+            (size_t)(s_in.len - s_in.cursor));
+    s_in.cursor--;
+    s_in.len--;
+    s_in.line[s_in.len] = '\0';
 }
 
 static void input_delete(void) { /* delete the char *at* the cursor (Del key) */
-    if (s_cursor_pos >= s_input_len)
+    if (s_in.cursor >= s_in.len)
         return;
-    memmove(&s_input_line[s_cursor_pos], &s_input_line[s_cursor_pos + 1],
-            (size_t)(s_input_len - s_cursor_pos - 1));
-    s_input_len--;
-    s_input_line[s_input_len] = '\0';
+    memmove(&s_in.line[s_in.cursor], &s_in.line[s_in.cursor + 1],
+            (size_t)(s_in.len - s_in.cursor - 1));
+    s_in.len--;
+    s_in.line[s_in.len] = '\0';
 }
 
 static void input_clear(void) {
-    s_input_len = 0;
-    s_cursor_pos = 0;
-    s_input_line[0] = '\0';
+    s_in.len = 0;
+    s_in.cursor = 0;
+    s_in.line[0] = '\0';
     s_history_index = -1; /* a cleared line starts history browsing fresh */
-    s_sel_anchor = -1;
+    s_in.sel_anchor = -1;
 }
 
 /* Resolve the active selection into [lo, hi) input-line indices. Returns 0 when
  * there is no selection (no anchor, or anchor == cursor). */
 static int sel_span(int *lo, int *hi) {
-    if (s_sel_anchor < 0 || s_sel_anchor == s_cursor_pos)
+    if (s_in.sel_anchor < 0 || s_in.sel_anchor == s_in.cursor)
         return 0;
-    if (s_sel_anchor < s_cursor_pos) {
-        *lo = s_sel_anchor;
-        *hi = s_cursor_pos;
+    if (s_in.sel_anchor < s_in.cursor) {
+        *lo = s_in.sel_anchor;
+        *hi = s_in.cursor;
     } else {
-        *lo = s_cursor_pos;
-        *hi = s_sel_anchor;
+        *lo = s_in.cursor;
+        *hi = s_in.sel_anchor;
     }
     return 1;
 }
@@ -480,11 +479,11 @@ static int sel_delete(void) {
     int lo, hi;
     if (!sel_span(&lo, &hi))
         return 0;
-    memmove(&s_input_line[lo], &s_input_line[hi], (size_t)(s_input_len - hi));
-    s_input_len -= (hi - lo);
-    s_input_line[s_input_len] = '\0';
-    s_cursor_pos = lo;
-    s_sel_anchor = -1;
+    memmove(&s_in.line[lo], &s_in.line[hi], (size_t)(s_in.len - hi));
+    s_in.len -= (hi - lo);
+    s_in.line[s_in.len] = '\0';
+    s_in.cursor = lo;
+    s_in.sel_anchor = -1;
     return 1;
 }
 
@@ -643,11 +642,11 @@ static void clipboard_copy(void) {
     } else if (sel_span(&lo, &hi)) {
         char tmp[CONSOLE_INPUT_MAX];
         int n = hi - lo;
-        memcpy(tmp, &s_input_line[lo], (size_t)n);
+        memcpy(tmp, &s_in.line[lo], (size_t)n);
         tmp[n] = '\0';
         SDL_SetClipboardText(tmp);
     } else {
-        SDL_SetClipboardText(s_input_line);
+        SDL_SetClipboardText(s_in.line);
     }
 }
 
@@ -685,11 +684,11 @@ static void Console_HistoryRecall(int dir) {
         input_clear(); /* walked past the newest entry: restore an empty line */
         return;
     }
-    strncpy(s_input_line, s_history[s_history_index], CONSOLE_INPUT_MAX - 1);
-    s_input_line[CONSOLE_INPUT_MAX - 1] = '\0';
-    s_input_len = (int)strlen(s_input_line);
-    s_cursor_pos = s_input_len;
-    s_sel_anchor = -1; /* a recalled line carries no selection */
+    strncpy(s_in.line, s_history[s_history_index], CONSOLE_INPUT_MAX - 1);
+    s_in.line[CONSOLE_INPUT_MAX - 1] = '\0';
+    s_in.len = (int)strlen(s_in.line);
+    s_in.cursor = s_in.len;
+    s_in.sel_anchor = -1; /* a recalled line carries no selection */
 }
 
 /* Insert the printable chars of the system clipboard at the cursor (drops control
@@ -761,15 +760,15 @@ static void Console_TabComplete(void) {
     const int maxmatch = (int)(sizeof(matches) / sizeof(matches[0]));
     int nmatch, i, tlen, newlen, tail;
 
-    for (i = 0; i < s_cursor_pos; i++)
-        if (s_input_line[i] == ' ' || s_input_line[i] == '\t')
+    for (i = 0; i < s_in.cursor; i++)
+        if (s_in.line[i] == ' ' || s_in.line[i] == '\t')
             return; /* cursor is past the command word */
-    tlen = s_cursor_pos;
+    tlen = s_in.cursor;
     if (tlen <= 0)
         return;
     if (tlen >= (int)sizeof(token))
         tlen = (int)sizeof(token) - 1;
-    memcpy(token, s_input_line, (size_t)tlen);
+    memcpy(token, s_in.line, (size_t)tlen);
     token[tlen] = '\0';
 
     nmatch = Console_CompletePrefix(token, lcp, sizeof lcp, matches, maxmatch);
@@ -778,20 +777,20 @@ static void Console_TabComplete(void) {
 
     /* Replace the typed token with the common prefix (or the full unique name). */
     newlen = (int)strlen(lcp);
-    tail = s_input_len - s_cursor_pos;
+    tail = s_in.len - s_in.cursor;
     if (newlen + tail >= CONSOLE_INPUT_MAX)
         return;
-    memmove(&s_input_line[newlen], &s_input_line[s_cursor_pos], (size_t)tail);
-    memcpy(s_input_line, lcp, (size_t)newlen);
-    s_input_len = newlen + tail;
-    s_cursor_pos = newlen;
-    s_input_line[s_input_len] = '\0';
+    memmove(&s_in.line[newlen], &s_in.line[s_in.cursor], (size_t)tail);
+    memcpy(s_in.line, lcp, (size_t)newlen);
+    s_in.len = newlen + tail;
+    s_in.cursor = newlen;
+    s_in.line[s_in.len] = '\0';
 
     if (nmatch == 1) {
-        if (s_cursor_pos == s_input_len && s_input_len < CONSOLE_INPUT_MAX - 1) {
-            s_input_line[s_input_len++] = ' ';
-            s_input_line[s_input_len] = '\0';
-            s_cursor_pos = s_input_len;
+        if (s_in.cursor == s_in.len && s_in.len < CONSOLE_INPUT_MAX - 1) {
+            s_in.line[s_in.len++] = ' ';
+            s_in.line[s_in.len] = '\0';
+            s_in.cursor = s_in.len;
         }
     } else {
         /* Ambiguous: list the candidates (Quake-style). */
@@ -815,7 +814,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
     int ctrl = (mod & SDL_KMOD_CTRL) && !(mod & SDL_KMOD_ALT);
     int kl = (keycode >= 'A' && keycode <= 'Z') ? (keycode - 'A' + 'a') : keycode;
 
-    s_cursor_blink = 0; /* any keypress makes the cursor immediately visible */
+    s_in.blink = 0; /* any keypress makes the cursor immediately visible */
 
     /* A mouse (scrollback) selection is dismissed by editing/navigation keys, but
      * not by the copy shortcut or by a bare modifier press (so Ctrl, then C, keeps
@@ -843,14 +842,14 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
         } else if (kl == 'c') {
             clipboard_copy();
             s_scrsel.active = 0; /* copying clears the selection */
-            s_sel_anchor = -1;
+            s_in.sel_anchor = -1;
         } else if (kl == 'x') {
             clipboard_copy();  /* copies the selection, or the whole line */
             if (!sel_delete()) /* delete the selection; if there was none, */
                 input_clear(); /* cut the whole line we just copied */
         } else if (kl == 'a') {
-            s_sel_anchor = 0; /* select all */
-            s_cursor_pos = s_input_len;
+            s_in.sel_anchor = 0; /* select all */
+            s_in.cursor = s_in.len;
         } else if (kl == 'l') {
             input_clear();
         }
@@ -867,7 +866,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
         return;
     }
     if (scancode == K_ESC) {
-        if (s_input_len > 0)
+        if (s_in.len > 0)
             input_clear(); /* first Esc clears the line ... */
         else
             Console_Close(); /* ... Esc on an empty line closes the console */
@@ -895,51 +894,51 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
     if (scancode == K_LEFT) {
         int lo, hi;
         if (mod & SDL_KMOD_SHIFT) {
-            if (s_sel_anchor < 0)
-                s_sel_anchor = s_cursor_pos;
-            if (s_cursor_pos > 0)
-                s_cursor_pos--;
+            if (s_in.sel_anchor < 0)
+                s_in.sel_anchor = s_in.cursor;
+            if (s_in.cursor > 0)
+                s_in.cursor--;
         } else if (sel_span(&lo, &hi)) {
-            s_cursor_pos = lo;
-            s_sel_anchor = -1;
-        } else if (s_cursor_pos > 0) {
-            s_cursor_pos--;
+            s_in.cursor = lo;
+            s_in.sel_anchor = -1;
+        } else if (s_in.cursor > 0) {
+            s_in.cursor--;
         }
         return;
     }
     if (scancode == K_RIGHT) {
         int lo, hi;
         if (mod & SDL_KMOD_SHIFT) {
-            if (s_sel_anchor < 0)
-                s_sel_anchor = s_cursor_pos;
-            if (s_cursor_pos < s_input_len)
-                s_cursor_pos++;
+            if (s_in.sel_anchor < 0)
+                s_in.sel_anchor = s_in.cursor;
+            if (s_in.cursor < s_in.len)
+                s_in.cursor++;
         } else if (sel_span(&lo, &hi)) {
-            s_cursor_pos = hi;
-            s_sel_anchor = -1;
-        } else if (s_cursor_pos < s_input_len) {
-            s_cursor_pos++;
+            s_in.cursor = hi;
+            s_in.sel_anchor = -1;
+        } else if (s_in.cursor < s_in.len) {
+            s_in.cursor++;
         }
         return;
     }
     if (scancode == K_HOME) {
         if (mod & SDL_KMOD_SHIFT) {
-            if (s_sel_anchor < 0)
-                s_sel_anchor = s_cursor_pos;
+            if (s_in.sel_anchor < 0)
+                s_in.sel_anchor = s_in.cursor;
         } else {
-            s_sel_anchor = -1;
+            s_in.sel_anchor = -1;
         }
-        s_cursor_pos = 0;
+        s_in.cursor = 0;
         return;
     }
     if (scancode == K_END) {
         if (mod & SDL_KMOD_SHIFT) {
-            if (s_sel_anchor < 0)
-                s_sel_anchor = s_cursor_pos;
+            if (s_in.sel_anchor < 0)
+                s_in.sel_anchor = s_in.cursor;
         } else {
-            s_sel_anchor = -1;
+            s_in.sel_anchor = -1;
         }
-        s_cursor_pos = s_input_len;
+        s_in.cursor = s_in.len;
         return;
     }
     if (scancode == K_UP) {
@@ -964,7 +963,7 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
 }
 
 void Console_Update(void) {
-    s_cursor_blink++; /* advance the cursor-blink phase once per frame */
+    s_in.blink++; /* advance the cursor-blink phase once per frame */
     while (s_key_head != s_key_tail) {
         struct key_event *e = &s_key_queue[s_key_tail];
         Console_UpdateKey(e->scancode, e->keycode, e->mod);
@@ -1019,11 +1018,11 @@ void Console_TestCtrl(char letter) {
 }
 
 const char *Console_TestInput(void) {
-    return s_input_line;
+    return s_in.line;
 }
 
 int Console_TestCursor(void) {
-    return s_cursor_pos;
+    return s_in.cursor;
 }
 
 int Console_TestSelection(int *lo, int *hi) {
@@ -1207,7 +1206,7 @@ static void Console_Draw(void) {
     {
         char prompt[CONSOLE_INPUT_MAX + 8];
         char rendered[CONSOLE_INPUT_MAX + 8];
-        snprintf(prompt, sizeof(prompt), "]> %s", s_input_line);
+        snprintf(prompt, sizeof(prompt), "]> %s", s_in.line);
         utf8_to_cp437(prompt, rendered, sizeof rendered);
         AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, CONSOLE_TEXT_COLOUR);
         s_input_row = y / CONSOLE_LINE_HEIGHT;
@@ -1232,8 +1231,8 @@ static void Console_Draw(void) {
      * Hidden while the input row is selected (the block marks the spot). */
     {
         int sel_on_input = (s_input_row >= 0 && s_input_row < CONSOLE_MAX_ROWS && s_row_sel_start[s_input_row] >= 0);
-        if (!sel_on_input && s_input_row >= 0 && ((s_cursor_blink >> 5) & 1u) == 0u) {
-            S32 cx = 8 + (3 + s_cursor_pos) * 8;
+        if (!sel_on_input && s_input_row >= 0 && ((s_in.blink >> 5) & 1u) == 0u) {
+            S32 cx = 8 + (3 + s_in.cursor) * 8;
             S32 cy = (S32)s_input_row * CONSOLE_LINE_HEIGHT;
             if (cx + 8 <= (S32)s_console_w)
                 AffStringToBuffer(s_console_buf, s_console_w, cx, cy, "_", CONSOLE_TEXT_COLOUR);
@@ -1378,7 +1377,7 @@ int Console_FeedEvent(const void *sdlEvent) {
             if (s_scrsel.active || sel_span(&lo, &hi))
                 clipboard_copy();
             s_scrsel.active = 0;
-            s_sel_anchor = -1;
+            s_in.sel_anchor = -1;
             return 1;
         }
         if (ev->button.button != SDL_BUTTON_LEFT)
@@ -1394,7 +1393,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         s_scrsel.last_click_ms = now;
         s_scrsel.last_click_row = row;
         s_scrsel.last_click_col = col;
-        s_sel_anchor = -1; /* drop any editable input-line selection */
+        s_in.sel_anchor = -1; /* drop any editable input-line selection */
 
         if (dbl) {
             /* Select the word under the cell. */
@@ -1423,9 +1422,9 @@ int Console_FeedEvent(const void *sdlEvent) {
                 int p = col - 3; /* input text starts at column 3 ("]> ") */
                 if (p < 0)
                     p = 0;
-                if (p > s_input_len)
-                    p = s_input_len;
-                s_cursor_pos = p;
+                if (p > s_in.len)
+                    p = s_in.len;
+                s_in.cursor = p;
             }
         }
         return 1;
@@ -1561,30 +1560,26 @@ void Console_RegisterCvar(const char *name, void *ptr, Console_CvarType type, co
 void Console_Execute(const char *line);
 
 static void Console_SubmitLine(void) {
-    if (s_input_len <= 0)
+    if (s_in.len <= 0)
         return;
-    s_input_line[s_input_len] = '\0';
-    scrollback_push_one(s_input_line, CONSOLE_COL_DEFAULT);
+    s_in.line[s_in.len] = '\0';
+    scrollback_push_one(s_in.line, CONSOLE_COL_DEFAULT);
     /* Add to history, skipping a verbatim repeat of the previous entry. */
-    if (!(s_history_count > 0 && strcmp(s_history[s_history_count - 1], s_input_line) == 0)) {
+    if (!(s_history_count > 0 && strcmp(s_history[s_history_count - 1], s_in.line) == 0)) {
         if (s_history_count < CONSOLE_HISTORY_SIZE) {
-            strncpy(s_history[s_history_count], s_input_line, CONSOLE_LINE_MAX - 1);
+            strncpy(s_history[s_history_count], s_in.line, CONSOLE_LINE_MAX - 1);
             s_history[s_history_count][CONSOLE_LINE_MAX - 1] = '\0';
             s_history_count++;
         } else {
             int j;
             for (j = 0; j < CONSOLE_HISTORY_SIZE - 1; j++)
                 strcpy(s_history[j], s_history[j + 1]);
-            strncpy(s_history[CONSOLE_HISTORY_SIZE - 1], s_input_line, CONSOLE_LINE_MAX - 1);
+            strncpy(s_history[CONSOLE_HISTORY_SIZE - 1], s_in.line, CONSOLE_LINE_MAX - 1);
             s_history[CONSOLE_HISTORY_SIZE - 1][CONSOLE_LINE_MAX - 1] = '\0';
         }
     }
-    Console_Execute(s_input_line);
-    s_input_len = 0;
-    s_input_line[0] = '\0';
-    s_cursor_pos = 0;
-    s_history_index = -1;
-    s_sel_anchor = -1;
+    Console_Execute(s_in.line);
+    input_clear();
 }
 
 void Console_Execute(const char *line) {
