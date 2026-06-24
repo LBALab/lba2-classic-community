@@ -99,9 +99,9 @@ int main(void) {
     CHECK(err && err->ink == CONSOLE_COL_ERROR);
     CHECK(bnr && bnr->ink == CONSOLE_COL_BANNER);
 
-    /* Banner lines render faux-bold: a second 1px-shifted pass thickens the
-     * strokes, so the banner is drawn twice while ordinary lines are drawn once. */
-    CHECK(count_draws("bnr-line") == 2);
+    /* Every scrollback line, banner included, is drawn exactly once: the banner
+     * keeps its cyan ink but no longer gets a faux-bold second pass. */
+    CHECK(count_draws("bnr-line") == 1);
     CHECK(count_draws("info-line") == 1);
     CHECK(count_draws("warn-line") == 1);
 
