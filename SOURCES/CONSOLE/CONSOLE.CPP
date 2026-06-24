@@ -27,6 +27,8 @@
 #define CONSOLE_MAX_CVARS 16
 #define CONSOLE_MAX_ARGV 16
 #define CONSOLE_KEY_QUEUE_SIZE 32
+/* Sentinel scancode for a queued text-input character (vs a physical key). */
+#define CONSOLE_TEXT_CHAR (-1)
 
 struct cmd_entry {
     const char *name;
@@ -38,6 +40,7 @@ struct cmd_entry {
 struct key_event {
     int scancode;
     int keycode;
+    int mod; /* SDL_Keymod bitmask captured at key-down (Ctrl/Shift for clipboard) */
 };
 struct cvar_entry {
     const char *name;
@@ -91,6 +94,22 @@ static Console_LineSinkFn s_line_sink_for_tests = NULL;
 
 static void Console_SubmitLine(void);
 
+/* Enable/disable SDL text input so the console receives correctly-cased,
+ * layout-aware characters via SDL_EVENT_TEXT_INPUT. SDL_GetKeyFromScancode does
+ * not apply Shift on every platform (hence the old '-'->'_' workaround), so the
+ * keycode path alone can't produce capitals or shifted symbols. Targets the
+ * focused window to stay decoupled from the video layer; a no-op when there is
+ * no window (e.g. host tests with no SDL video). */
+static void console_set_text_input(int on) {
+    SDL_Window *w = SDL_GetKeyboardFocus();
+    if (!w)
+        return;
+    if (on)
+        SDL_StartTextInput(w);
+    else
+        SDL_StopTextInput(w);
+}
+
 void Console_SetSlideShowActive(int active) {
     s_slide_show_active = (active != 0);
 }
@@ -125,6 +144,8 @@ void Console_RequestScreenshot(const char *path, int use_png) {
     s_screenshot_png = use_png ? 1 : 0;
     strncpy(s_screenshot_path, path, CONSOLE_SCREENSHOT_PATH_MAX - 1);
     s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX - 1] = '\0';
+    if (s_console_open)
+        console_set_text_input(0);
     s_console_open = 0;
     free(s_console_buf);
     s_console_buf = NULL;
@@ -168,7 +189,9 @@ void Console_Toggle(void) {
     if (s_console_open) {
         Console_EnsureRegistered();
         s_history_index = -1;
+        console_set_text_input(1);
     } else {
+        console_set_text_input(0);
         /* Clear input line when closing so it doesn't persist on next open */
         free(s_console_buf);
         s_console_buf = NULL;
@@ -184,6 +207,7 @@ void Console_Close(void) {
     if (!s_console_open)
         return;
     s_console_open = 0;
+    console_set_text_input(0);
     free(s_console_buf);
     s_console_buf = NULL;
     s_console_w = 0;
@@ -333,54 +357,305 @@ static int cvar_index_cmp(const void *a, const void *b) {
     return strcmp(s_cvars[ia].name, s_cvars[ib].name);
 }
 
-static void Console_UpdateKey(int scancode, int keycode) {
-    (void)keycode;
+/* --- Input-line editing primitives. All operate at s_cursor_pos so the line can
+ * be edited mid-string (Left/Right/Home/End/Delete), not just appended to. --- */
+static void input_insert_char(char c) {
+    if (s_input_len >= CONSOLE_INPUT_MAX - 1)
+        return;
+    memmove(&s_input_line[s_cursor_pos + 1], &s_input_line[s_cursor_pos],
+            (size_t)(s_input_len - s_cursor_pos));
+    s_input_line[s_cursor_pos] = c;
+    s_input_len++;
+    s_cursor_pos++;
+    s_input_line[s_input_len] = '\0';
+}
+
+static void input_backspace(void) {
+    if (s_cursor_pos <= 0)
+        return;
+    memmove(&s_input_line[s_cursor_pos - 1], &s_input_line[s_cursor_pos],
+            (size_t)(s_input_len - s_cursor_pos));
+    s_cursor_pos--;
+    s_input_len--;
+    s_input_line[s_input_len] = '\0';
+}
+
+static void input_delete(void) { /* delete the char *at* the cursor (Del key) */
+    if (s_cursor_pos >= s_input_len)
+        return;
+    memmove(&s_input_line[s_cursor_pos], &s_input_line[s_cursor_pos + 1],
+            (size_t)(s_input_len - s_cursor_pos - 1));
+    s_input_len--;
+    s_input_line[s_input_len] = '\0';
+}
+
+static void input_clear(void) {
+    s_input_len = 0;
+    s_cursor_pos = 0;
+    s_input_line[0] = '\0';
+    s_history_index = -1; /* a cleared line starts history browsing fresh */
+}
+
+/* Scroll the scrollback view; delta > 0 reveals older lines. Clamped to the
+ * visible window exactly as Console_Draw clamps. Shared by PgUp/PgDn and wheel. */
+static void Console_ScrollLines(int delta) {
+    int n = (int)(s_console_h / CONSOLE_LINE_HEIGHT) - 1;
+    int maxScroll;
+    if (n < 0)
+        n = 0;
+    maxScroll = s_scrollback_count - n;
+    if (maxScroll < 0)
+        maxScroll = 0;
+    s_scroll_offset += delta;
+    if (s_scroll_offset > maxScroll)
+        s_scroll_offset = maxScroll;
+    if (s_scroll_offset < 0)
+        s_scroll_offset = 0;
+}
+
+/* Recall command history into the input line. dir < 0 = older, dir > 0 = newer.
+ * Down past the newest entry restores an empty line and stops browsing. */
+static void Console_HistoryRecall(int dir) {
+    if (s_history_count == 0)
+        return;
+    if (s_history_index < 0) {
+        if (dir >= 0)
+            return;                        /* Down with nothing recalled yet: keep the in-progress line */
+        s_history_index = s_history_count; /* step back from one-past-newest */
+    }
+    s_history_index += dir;
+    if (s_history_index < 0)
+        s_history_index = 0;
+    if (s_history_index >= s_history_count) {
+        input_clear(); /* walked past the newest entry: restore an empty line */
+        return;
+    }
+    strncpy(s_input_line, s_history[s_history_index], CONSOLE_INPUT_MAX - 1);
+    s_input_line[CONSOLE_INPUT_MAX - 1] = '\0';
+    s_input_len = (int)strlen(s_input_line);
+    s_cursor_pos = s_input_len;
+}
+
+/* Insert the printable chars of the system clipboard at the cursor (drops control
+ * chars / newlines so a multi-line paste can't smuggle a submit). */
+static void clipboard_paste(void) {
+    char *txt = SDL_GetClipboardText();
+    const char *p;
+    if (!txt)
+        return;
+    for (p = txt; *p; p++) {
+        unsigned char c = (unsigned char)*p;
+        if (c >= 32 && c < 127)
+            input_insert_char((char)c);
+    }
+    SDL_free(txt);
+}
+
+/* Accumulate one completion candidate: record the match and shrink `out` to the
+ * longest common prefix of all matches seen so far. */
+static void complete_consider(const char *name, const char *prefix, size_t plen,
+                              char *out, size_t outsz, const char **matches, int max,
+                              int *count, int *have_first) {
+    size_t k;
+    if (strncmp(name, prefix, plen) != 0)
+        return;
+    if (matches && *count < max)
+        matches[*count] = name;
+    if (!*have_first) {
+        strncpy(out, name, outsz - 1);
+        out[outsz - 1] = '\0';
+        *have_first = 1;
+    } else {
+        for (k = 0; out[k] && name[k] && out[k] == name[k]; k++)
+            ;
+        out[k] = '\0';
+    }
+    (*count)++;
+}
+
+/* Complete `prefix` against registered commands, cvars and the built-ins. `out`
+ * receives the longest common prefix of all matches (the full name for a unique
+ * match); `matches` receives up to `max` name pointers. Returns the match count.
+ * Non-static so host tests can exercise it against a registered table. */
+int Console_CompletePrefix(const char *prefix, char *out, size_t outsz, const char **matches, int max) {
+    static const char *const builtins[] = {"help", "cmdlist", "varlist"};
+    size_t plen = prefix ? strlen(prefix) : 0;
+    int count = 0;
+    int have_first = 0;
+    int i;
+    if (out && outsz)
+        out[0] = '\0';
+    if (!prefix || !out || outsz == 0)
+        return 0;
+    for (i = 0; i < s_cmd_count; i++)
+        complete_consider(s_cmds[i].name, prefix, plen, out, outsz, matches, max, &count, &have_first);
+    for (i = 0; i < s_cvar_count; i++)
+        complete_consider(s_cvars[i].name, prefix, plen, out, outsz, matches, max, &count, &have_first);
+    for (i = 0; i < (int)(sizeof(builtins) / sizeof(builtins[0])); i++)
+        complete_consider(builtins[i], prefix, plen, out, outsz, matches, max, &count, &have_first);
+    return count;
+}
+
+/* Tab-complete the command at the start of the line. Argument completion (after a
+ * space) is intentionally left for later. */
+static void Console_TabComplete(void) {
+    char token[CONSOLE_INPUT_MAX];
+    char lcp[CONSOLE_INPUT_MAX];
+    const char *matches[CONSOLE_MAX_CMDS + CONSOLE_MAX_CVARS + 4];
+    const int maxmatch = (int)(sizeof(matches) / sizeof(matches[0]));
+    int nmatch, i, tlen, newlen, tail;
+
+    for (i = 0; i < s_cursor_pos; i++)
+        if (s_input_line[i] == ' ' || s_input_line[i] == '\t')
+            return; /* cursor is past the command word */
+    tlen = s_cursor_pos;
+    if (tlen <= 0)
+        return;
+    if (tlen >= (int)sizeof(token))
+        tlen = (int)sizeof(token) - 1;
+    memcpy(token, s_input_line, (size_t)tlen);
+    token[tlen] = '\0';
+
+    nmatch = Console_CompletePrefix(token, lcp, sizeof lcp, matches, maxmatch);
+    if (nmatch <= 0)
+        return;
+
+    /* Replace the typed token with the common prefix (or the full unique name). */
+    newlen = (int)strlen(lcp);
+    tail = s_input_len - s_cursor_pos;
+    if (newlen + tail >= CONSOLE_INPUT_MAX)
+        return;
+    memmove(&s_input_line[newlen], &s_input_line[s_cursor_pos], (size_t)tail);
+    memcpy(s_input_line, lcp, (size_t)newlen);
+    s_input_len = newlen + tail;
+    s_cursor_pos = newlen;
+    s_input_line[s_input_len] = '\0';
+
+    if (nmatch == 1) {
+        if (s_cursor_pos == s_input_len && s_input_len < CONSOLE_INPUT_MAX - 1) {
+            s_input_line[s_input_len++] = ' ';
+            s_input_line[s_input_len] = '\0';
+            s_cursor_pos = s_input_len;
+        }
+    } else {
+        /* Ambiguous: list the candidates (Quake-style). */
+        char line[CONSOLE_LINE_MAX];
+        size_t off = 0;
+        line[0] = '\0';
+        for (i = 0; i < nmatch && i < maxmatch; i++) {
+            int w = snprintf(line + off, sizeof(line) - off, "%s%s", off ? "  " : "", matches[i]);
+            if (w < 0 || off + (size_t)w >= sizeof(line))
+                break;
+            off += (size_t)w;
+        }
+        Console_Print("%s", line);
+    }
+}
+
+static void Console_UpdateKey(int scancode, int keycode, int mod) {
+    /* AltGr is Ctrl+Alt on many layouts; treat Ctrl as a command modifier only
+     * when Alt is not also held so AltGr text entry still works. */
+    int ctrl = (mod & SDL_KMOD_CTRL) && !(mod & SDL_KMOD_ALT);
+
+    s_cursor_blink = 0; /* any keypress makes the cursor immediately visible */
+
+    /* Text-input characters arrive already cased and layout-resolved, queued with
+     * the CONSOLE_TEXT_CHAR sentinel; insert the printable ASCII ones. Physical
+     * keys (below) are handled by scancode and never insert text themselves. */
+    if (scancode == CONSOLE_TEXT_CHAR) {
+        if (keycode >= 32 && keycode < 127)
+            input_insert_char((char)keycode);
+        return;
+    }
+
+    /* Control combos are commands, never text: handle the few we support and
+     * swallow the rest so e.g. Ctrl+A doesn't type 'a'. */
+    if (ctrl) {
+        /* Lowercase in-range without tolower(): keycode may be a large SDL keysym
+         * (e.g. arrows), which is out of tolower()'s defined domain. */
+        int kl = (keycode >= 'A' && keycode <= 'Z') ? (keycode - 'A' + 'a') : keycode;
+        if (kl == 'v')
+            clipboard_paste();
+        else if (kl == 'c')
+            SDL_SetClipboardText(s_input_line);
+        else if (kl == 'l')
+            input_clear();
+        return;
+    }
+    /* Shift+Insert also pastes (X11/terminal convention). */
+    if (scancode == (int)SDL_SCANCODE_INSERT && (mod & SDL_KMOD_SHIFT)) {
+        clipboard_paste();
+        return;
+    }
+
     if (scancode == K_ENTER || scancode == K_NUMPAD_ENTER) {
         Console_SubmitLine();
         return;
     }
-    /* Backspace: match by scancode or keycode (8 = ASCII BS) for different layouts */
+    if (scancode == K_ESC) {
+        if (s_input_len > 0)
+            input_clear(); /* first Esc clears the line ... */
+        else
+            Console_Close(); /* ... Esc on an empty line closes the console */
+        return;
+    }
+    if (scancode == K_TAB) {
+        Console_TabComplete();
+        return;
+    }
+    /* Backspace: match by scancode or keycode (8 = ASCII BS) for different layouts. */
     if (scancode == K_BACKSPACE || keycode == 8) {
-        if (s_input_len > 0) {
-            s_input_len--;
-            s_cursor_pos = s_input_len;
-            s_input_line[s_input_len] = '\0';
-        }
+        input_backspace();
+        return;
+    }
+    if (scancode == K_SUPPR) {
+        input_delete();
+        return;
+    }
+    if (scancode == K_LEFT) {
+        if (s_cursor_pos > 0)
+            s_cursor_pos--;
+        return;
+    }
+    if (scancode == K_RIGHT) {
+        if (s_cursor_pos < s_input_len)
+            s_cursor_pos++;
+        return;
+    }
+    if (scancode == K_HOME) {
+        s_cursor_pos = 0;
+        return;
+    }
+    if (scancode == K_END) {
+        s_cursor_pos = s_input_len;
         return;
     }
     if (scancode == K_UP) {
-        /* Scroll up through scrollback. */
-        int n = (int)(s_console_h / CONSOLE_LINE_HEIGHT) - 1;
-        if (n < 0)
-            n = 0;
-        if (n < s_scrollback_count) {
-            int maxScroll = s_scrollback_count - n;
-            if (maxScroll < 0)
-                maxScroll = 0;
-            if (s_scroll_offset < maxScroll)
-                s_scroll_offset++;
-        }
+        Console_HistoryRecall(-1); /* older */
         return;
     }
     if (scancode == K_DOWN) {
-        /* Scroll down toward the newest lines. */
-        if (s_scroll_offset > 0)
-            s_scroll_offset--;
+        Console_HistoryRecall(1); /* newer */
         return;
     }
-    /* Printable character from event keycode (SDL keycode is Unicode-ish) */
-    if (keycode >= 32 && keycode < 127 && s_input_len < CONSOLE_INPUT_MAX - 1) {
-        s_input_line[s_input_len++] = (char)keycode;
-        s_input_line[s_input_len] = '\0';
-        s_cursor_pos = s_input_len;
+    if (scancode == K_PAGE_UP || scancode == K_PAGE_DOWN) {
+        int page = (int)(s_console_h / CONSOLE_LINE_HEIGHT) - 1;
+        if (page < 1)
+            page = 1;
+        Console_ScrollLines(scancode == K_PAGE_UP ? page : -page);
+        return;
     }
-    (void)s_cursor_blink;
+    /* Printable characters are not inserted here: they arrive via text input as
+     * CONSOLE_TEXT_CHAR events (handled at the top), so casing and shifted symbols
+     * are resolved by the OS keyboard layout. The keypad types digits when Num Lock
+     * is on (text input); with it off the keypad keeps its OS navigation role. */
 }
 
 void Console_Update(void) {
+    s_cursor_blink++; /* advance the cursor-blink phase once per frame */
     while (s_key_head != s_key_tail) {
         struct key_event *e = &s_key_queue[s_key_tail];
-        Console_UpdateKey(e->scancode, e->keycode);
+        Console_UpdateKey(e->scancode, e->keycode, e->mod);
         s_key_tail = (s_key_tail + 1) % CONSOLE_KEY_QUEUE_SIZE;
     }
 }
@@ -545,15 +820,6 @@ static void console_fixed_rgb(U8 idx, U8 *r, U8 *g, U8 *b) {
     }
 }
 
-/* Faux-bold blit: AffStringToBuffer over-writes only set pixels (no paper), so a
- * second pass shifted 1px right thickens every vertical stroke. Used for the cyan
- * banner/section lines so they read as boldly in the F12 console as the terminal
- * sink's bold-cyan bookends do (see term_sink_write in LOG.CPP). */
-static void AffStringToBufferBold(U8 *dst, U32 pitch, S32 x, S32 y, const char *str, U8 ink) {
-    AffStringToBuffer(dst, pitch, x, y, str, ink);
-    AffStringToBuffer(dst, pitch, x + 1, y, str, ink);
-}
-
 /** Draw scrollback + input line into s_console_buf (call when open and buffer ready). */
 static void Console_Draw(void) {
     int i, y, start, n;
@@ -598,10 +864,7 @@ static void Console_Draw(void) {
             char rendered[CONSOLE_LINE_MAX];
             utf8_to_cp437(s_scrollback[idx], rendered, sizeof rendered);
             U8 col = s_scrollback_col[idx];
-            if (col == CONSOLE_COL_BANNER)
-                AffStringToBufferBold(s_console_buf, s_console_w, 8, y, rendered, col);
-            else
-                AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, col);
+            AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, col);
             y += CONSOLE_LINE_HEIGHT;
         }
 
@@ -613,10 +876,17 @@ static void Console_Draw(void) {
     }
     {
         char prompt[CONSOLE_INPUT_MAX + 8];
-        snprintf(prompt, sizeof(prompt), "]> %s_", s_input_line);
+        snprintf(prompt, sizeof(prompt), "]> %s", s_input_line);
         char rendered[CONSOLE_INPUT_MAX + 8];
         utf8_to_cp437(prompt, rendered, sizeof rendered);
         AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, CONSOLE_TEXT_COLOUR);
+        /* Blinking underline cursor at the edit position. "]> " is a 3-char prefix
+         * and the font advances 8px/glyph; blink off for ~half of each cycle. */
+        if (((s_cursor_blink >> 5) & 1u) == 0u) {
+            S32 cx = 8 + (3 + s_cursor_pos) * 8;
+            if (cx + 8 <= (S32)s_console_w)
+                AffStringToBuffer(s_console_buf, s_console_w, cx, y, "_", CONSOLE_TEXT_COLOUR);
+        }
     }
 }
 
@@ -702,14 +972,48 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
 
 int Console_FeedEvent(const void *sdlEvent) {
     const SDL_Event *ev = (const SDL_Event *)sdlEvent;
+
+    /* Mouse wheel scrolls the scrollback while the console is open. */
+    if (ev->type == SDL_EVENT_MOUSE_WHEEL) {
+        if (!s_console_open)
+            return 0;
+        if (ev->wheel.y > 0)
+            Console_ScrollLines(3); /* wheel up -> older lines */
+        else if (ev->wheel.y < 0)
+            Console_ScrollLines(-3);
+        return 1;
+    }
+
+    /* Typed characters arrive here already cased and layout-resolved (uppercase,
+     * shifted symbols, AZERTY, numpad-with-NumLock). Queue the printable ASCII
+     * ones as CONSOLE_TEXT_CHAR events; physical keys come through KEY_DOWN below. */
+    if (ev->type == SDL_EVENT_TEXT_INPUT) {
+        const char *t;
+        if (!s_console_open)
+            return 0;
+        for (t = ev->text.text; t && *t; t++) {
+            unsigned char c = (unsigned char)*t;
+            int next;
+            if (c < 32 || c >= 127)
+                continue; /* ASCII printable only, like paste */
+            next = (s_key_head + 1) % CONSOLE_KEY_QUEUE_SIZE;
+            if (next == s_key_tail)
+                break;
+            s_key_queue[s_key_head].scancode = CONSOLE_TEXT_CHAR;
+            s_key_queue[s_key_head].keycode = (int)c;
+            s_key_queue[s_key_head].mod = 0;
+            s_key_head = next;
+        }
+        return 1;
+    }
+
     if (ev->type != SDL_EVENT_KEY_DOWN)
         return 0;
 
     SDL_Scancode scan = ev->key.scancode;
+    /* Keycode is used only for the Ctrl combos below (paste/copy/clear); character
+     * entry is handled by text input above, so no Shift/layout fix-up is needed. */
     SDL_Keycode key = SDL_GetKeyFromScancode(scan, ev->key.mod, true);
-    /* Fallback: some layouts don't report Shift; ensure minus+Shift gives underscore. */
-    if ((key == 45 || key == (SDL_Keycode)'-') && (ev->key.mod & SDL_KMOD_SHIFT))
-        key = (SDL_Keycode)'_';
 
     /* Toggle only on first key down, not key repeat. */
     if ((scan == (SDL_Scancode)s_toggle_scancode) && !ev->key.repeat) {
@@ -731,6 +1035,7 @@ int Console_FeedEvent(const void *sdlEvent) {
         return 1;
     s_key_queue[s_key_head].scancode = (int)scan;
     s_key_queue[s_key_head].keycode = (int)key;
+    s_key_queue[s_key_head].mod = (int)ev->key.mod;
     s_key_head = next;
     return 1;
 }
@@ -774,17 +1079,19 @@ static void Console_SubmitLine(void) {
         return;
     s_input_line[s_input_len] = '\0';
     scrollback_push_one(s_input_line, CONSOLE_COL_DEFAULT);
-    /* Add to history */
-    if (s_history_count < CONSOLE_HISTORY_SIZE) {
-        strncpy(s_history[s_history_count], s_input_line, CONSOLE_LINE_MAX - 1);
-        s_history[s_history_count][CONSOLE_LINE_MAX - 1] = '\0';
-        s_history_count++;
-    } else {
-        int j;
-        for (j = 0; j < CONSOLE_HISTORY_SIZE - 1; j++)
-            strcpy(s_history[j], s_history[j + 1]);
-        strncpy(s_history[CONSOLE_HISTORY_SIZE - 1], s_input_line, CONSOLE_LINE_MAX - 1);
-        s_history[CONSOLE_HISTORY_SIZE - 1][CONSOLE_LINE_MAX - 1] = '\0';
+    /* Add to history, skipping a verbatim repeat of the previous entry. */
+    if (!(s_history_count > 0 && strcmp(s_history[s_history_count - 1], s_input_line) == 0)) {
+        if (s_history_count < CONSOLE_HISTORY_SIZE) {
+            strncpy(s_history[s_history_count], s_input_line, CONSOLE_LINE_MAX - 1);
+            s_history[s_history_count][CONSOLE_LINE_MAX - 1] = '\0';
+            s_history_count++;
+        } else {
+            int j;
+            for (j = 0; j < CONSOLE_HISTORY_SIZE - 1; j++)
+                strcpy(s_history[j], s_history[j + 1]);
+            strncpy(s_history[CONSOLE_HISTORY_SIZE - 1], s_input_line, CONSOLE_LINE_MAX - 1);
+            s_history[CONSOLE_HISTORY_SIZE - 1][CONSOLE_LINE_MAX - 1] = '\0';
+        }
     }
     Console_Execute(s_input_line);
     s_input_len = 0;
