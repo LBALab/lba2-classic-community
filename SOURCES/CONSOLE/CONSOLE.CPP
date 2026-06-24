@@ -9,6 +9,7 @@
 #include <SVGA/AFFSTR.H>
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/WINDOW.H> /* WindowToSurfaceCoords for mouse selection */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_keyboard.h>
 
@@ -29,6 +30,10 @@
 #define CONSOLE_KEY_QUEUE_SIZE 32
 /* Sentinel scancode for a queued text-input character (vs a physical key). */
 #define CONSOLE_TEXT_CHAR (-1)
+/* Max console rows we snapshot for mouse selection (panel is height/2; 1024px -> ~56). */
+#define CONSOLE_MAX_ROWS 80
+/* Double-click window for word selection. */
+#define CONSOLE_DBLCLICK_MS 400
 
 struct cmd_entry {
     const char *name;
@@ -61,6 +66,7 @@ static int s_scrollback_head = 0; /* next write position */
 static char s_input_line[CONSOLE_INPUT_MAX];
 static int s_input_len = 0;
 static int s_cursor_pos = 0;
+static int s_sel_anchor = -1; /* selection anchor in the input line; -1 = no selection */
 static char s_history[CONSOLE_HISTORY_SIZE][CONSOLE_LINE_MAX];
 static int s_history_count = 0;
 static int s_history_index = -1; /* -1 = not browsing */
@@ -86,6 +92,29 @@ static int s_toggle_scancode = K_F12;
 /* Scrollback view offset: 0 = newest, >0 = scrolled up into history. */
 static int s_scroll_offset = 0;
 
+/* Snapshot of the rows as drawn (CP437 bytes, one per cell), filled by Console_Draw
+ * each frame. Row r sits at pixel y = r * CONSOLE_LINE_HEIGHT. Used to map mouse
+ * clicks to cells and to extract selected text for the clipboard. */
+static char s_row_text[CONSOLE_MAX_ROWS][CONSOLE_LINE_MAX];
+static int s_row_len[CONSOLE_MAX_ROWS];
+static int s_row_count = 0;
+static int s_input_row = -1; /* screen-row index of the input line */
+
+/* Per-row selection column span [start,end), consumed by the compositor (inverts the
+ * cells). -1 = no selection on that row. Holds either the input-line selection (one
+ * row) or a mouse scrollback selection (a flow across rows). */
+static int s_row_sel_start[CONSOLE_MAX_ROWS];
+static int s_row_sel_end[CONSOLE_MAX_ROWS];
+
+/* Mouse scrollback selection in screen row/col space. Read-only: copy with Ctrl+C.
+ * Mutually exclusive with the editable input-line selection (s_sel_anchor). */
+static int s_scrsel_active = 0;
+static int s_scrsel_a_row = 0, s_scrsel_a_col = 0; /* anchor cell */
+static int s_scrsel_c_row = 0, s_scrsel_c_col = 0; /* caret cell */
+static int s_mouse_dragging = 0;
+static Uint64 s_last_click_ms = 0;
+static int s_last_click_row = -1, s_last_click_col = -1;
+
 /* Screenshot without console: path and format. PNG = game performs SavePNG; else PrePresent writes PPM. */
 #define CONSOLE_SCREENSHOT_PATH_MAX 256
 static char s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX] = "";
@@ -108,6 +137,17 @@ static void console_set_text_input(int on) {
         SDL_StartTextInput(w);
     else
         SDL_StopTextInput(w);
+}
+
+/* The engine hides the OS cursor at window creation and draws its own software
+ * pointer sprite into the game frame, which composites *under* the console overlay.
+ * So show the OS cursor (drawn on top by the window system) while the console is
+ * open, for click/drag selection, and restore the hidden default on close. */
+static void console_set_os_cursor(int on) {
+    if (on)
+        SDL_ShowCursor();
+    else
+        SDL_HideCursor();
 }
 
 void Console_SetSlideShowActive(int active) {
@@ -144,8 +184,10 @@ void Console_RequestScreenshot(const char *path, int use_png) {
     s_screenshot_png = use_png ? 1 : 0;
     strncpy(s_screenshot_path, path, CONSOLE_SCREENSHOT_PATH_MAX - 1);
     s_screenshot_path[CONSOLE_SCREENSHOT_PATH_MAX - 1] = '\0';
-    if (s_console_open)
+    if (s_console_open) {
         console_set_text_input(0);
+        console_set_os_cursor(0);
+    }
     s_console_open = 0;
     free(s_console_buf);
     s_console_buf = NULL;
@@ -189,9 +231,16 @@ void Console_Toggle(void) {
     if (s_console_open) {
         Console_EnsureRegistered();
         s_history_index = -1;
+        s_sel_anchor = -1;
+        s_scrsel_active = 0;
+        s_mouse_dragging = 0;
         console_set_text_input(1);
+        console_set_os_cursor(1);
     } else {
         console_set_text_input(0);
+        console_set_os_cursor(0);
+        s_scrsel_active = 0;
+        s_mouse_dragging = 0;
         /* Clear input line when closing so it doesn't persist on next open */
         free(s_console_buf);
         s_console_buf = NULL;
@@ -208,6 +257,9 @@ void Console_Close(void) {
         return;
     s_console_open = 0;
     console_set_text_input(0);
+    console_set_os_cursor(0);
+    s_scrsel_active = 0;
+    s_mouse_dragging = 0;
     free(s_console_buf);
     s_console_buf = NULL;
     s_console_w = 0;
@@ -394,6 +446,232 @@ static void input_clear(void) {
     s_cursor_pos = 0;
     s_input_line[0] = '\0';
     s_history_index = -1; /* a cleared line starts history browsing fresh */
+    s_sel_anchor = -1;
+}
+
+/* Resolve the active selection into [lo, hi) input-line indices. Returns 0 when
+ * there is no selection (no anchor, or anchor == cursor). */
+static int sel_span(int *lo, int *hi) {
+    if (s_sel_anchor < 0 || s_sel_anchor == s_cursor_pos)
+        return 0;
+    if (s_sel_anchor < s_cursor_pos) {
+        *lo = s_sel_anchor;
+        *hi = s_cursor_pos;
+    } else {
+        *lo = s_cursor_pos;
+        *hi = s_sel_anchor;
+    }
+    return 1;
+}
+
+/* Delete the selected span (if any). Returns 1 if it removed something. */
+static int sel_delete(void) {
+    int lo, hi;
+    if (!sel_span(&lo, &hi))
+        return 0;
+    memmove(&s_input_line[lo], &s_input_line[hi], (size_t)(s_input_len - hi));
+    s_input_len -= (hi - lo);
+    s_input_line[s_input_len] = '\0';
+    s_cursor_pos = lo;
+    s_sel_anchor = -1;
+    return 1;
+}
+
+/* Order the mouse-selection anchor/caret into reading order (start <= end). */
+static void scrsel_normalize(int *sr, int *sc, int *er, int *ec) {
+    int before = (s_scrsel_a_row < s_scrsel_c_row) ||
+                 (s_scrsel_a_row == s_scrsel_c_row && s_scrsel_a_col <= s_scrsel_c_col);
+    if (before) {
+        *sr = s_scrsel_a_row;
+        *sc = s_scrsel_a_col;
+        *er = s_scrsel_c_row;
+        *ec = s_scrsel_c_col;
+    } else {
+        *sr = s_scrsel_c_row;
+        *sc = s_scrsel_c_col;
+        *er = s_scrsel_a_row;
+        *ec = s_scrsel_a_col;
+    }
+}
+
+/* A word char for double-click selection (letters, digits, underscore). */
+static int is_word_char(unsigned char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+/* A bare modifier / lock key, which must not dismiss a mouse selection on its own
+ * (otherwise pressing Ctrl to start Ctrl+C would clear what you mean to copy). */
+static int is_modifier_scancode(int sc) {
+    switch (sc) {
+    case SDL_SCANCODE_LCTRL:
+    case SDL_SCANCODE_RCTRL:
+    case SDL_SCANCODE_LSHIFT:
+    case SDL_SCANCODE_RSHIFT:
+    case SDL_SCANCODE_LALT:
+    case SDL_SCANCODE_RALT:
+    case SDL_SCANCODE_LGUI:
+    case SDL_SCANCODE_RGUI:
+    case SDL_SCANCODE_CAPSLOCK:
+    case SDL_SCANCODE_NUMLOCKCLEAR:
+    case SDL_SCANCODE_SCROLLLOCK:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* Unicode codepoint for a CP437 high byte (the inverse of cp_to_cp437, for the
+ * bytes the console renders), or 0 when there is no mapping. Lets the CP437 row
+ * snapshot copy back out as proper UTF-8 (e.g. the boot log's "·" separator). */
+static unsigned int cp437_to_unicode(unsigned char b) {
+    switch (b) {
+    case 0xFA:
+        return 0x00B7; /* · */
+    case 0xF8:
+        return 0x00B0; /* ° */
+    case 0xAD:
+        return 0x00A1; /* ¡ */
+    case 0xA8:
+        return 0x00BF; /* ¿ */
+    case 0xAE:
+        return 0x00AB; /* « */
+    case 0xAF:
+        return 0x00BB; /* » */
+    case 0x9C:
+        return 0x00A3; /* £ */
+    case 0x80:
+        return 0x00C7; /* Ç */
+    case 0x81:
+        return 0x00FC; /* ü */
+    case 0x82:
+        return 0x00E9; /* é */
+    case 0x83:
+        return 0x00E2; /* â */
+    case 0x84:
+        return 0x00E4; /* ä */
+    case 0x85:
+        return 0x00E0; /* à */
+    case 0x86:
+        return 0x00E5; /* å */
+    case 0x87:
+        return 0x00E7; /* ç */
+    case 0x88:
+        return 0x00EA; /* ê */
+    case 0x89:
+        return 0x00EB; /* ë */
+    case 0x8A:
+        return 0x00E8; /* è */
+    case 0x8B:
+        return 0x00EF; /* ï */
+    case 0x8C:
+        return 0x00EE; /* î */
+    case 0x8D:
+        return 0x00EC; /* ì */
+    case 0x8E:
+        return 0x00C4; /* Ä */
+    case 0x8F:
+        return 0x00C5; /* Å */
+    case 0x90:
+        return 0x00C9; /* É */
+    case 0x91:
+        return 0x00E6; /* æ */
+    case 0x92:
+        return 0x00C6; /* Æ */
+    case 0x93:
+        return 0x00F4; /* ô */
+    case 0x94:
+        return 0x00F6; /* ö */
+    case 0x95:
+        return 0x00F2; /* ò */
+    case 0x96:
+        return 0x00FB; /* û */
+    case 0x97:
+        return 0x00F9; /* ù */
+    case 0x98:
+        return 0x00FF; /* ÿ */
+    case 0x99:
+        return 0x00D6; /* Ö */
+    case 0x9A:
+        return 0x00DC; /* Ü */
+    case 0xA0:
+        return 0x00E1; /* á */
+    case 0xA1:
+        return 0x00ED; /* í */
+    case 0xA2:
+        return 0x00F3; /* ó */
+    case 0xA3:
+        return 0x00FA; /* ú */
+    case 0xA4:
+        return 0x00F1; /* ñ */
+    case 0xA5:
+        return 0x00D1; /* Ñ */
+    case 0xE1:
+        return 0x00DF; /* ß */
+    default:
+        return 0;
+    }
+}
+
+/* Append one display cell (a CP437 byte) to the clipboard buffer as UTF-8: ASCII
+ * passes through, mapped high bytes expand to 2-byte UTF-8, anything else -> '?'. */
+static void copybuf_put_cell(char *buf, size_t cap, size_t *o, unsigned char cell) {
+    if (cell >= 0x20 && cell < 0x7F) {
+        if (*o + 1 < cap)
+            buf[(*o)++] = (char)cell;
+        return;
+    }
+    unsigned int cp = cp437_to_unicode(cell);
+    if (cp == 0) {
+        if (*o + 1 < cap)
+            buf[(*o)++] = '?';
+    } else if (*o + 2 < cap) {
+        buf[(*o)++] = (char)(0xC0 | (cp >> 6));
+        buf[(*o)++] = (char)(0x80 | (cp & 0x3F));
+    }
+}
+
+/* Copy the active mouse (scrollback) selection to the clipboard as a flow: the
+ * first row from its start column, full middle rows, the last row to its end
+ * column, joined with newlines. */
+static void scrsel_copy(void) {
+    static char buf[CONSOLE_MAX_ROWS * CONSOLE_LINE_MAX];
+    size_t o = 0;
+    int sr, sc, er, ec, r;
+    if (!s_scrsel_active)
+        return;
+    scrsel_normalize(&sr, &sc, &er, &ec);
+    for (r = sr; r <= er && r < s_row_count; r++) {
+        int c0 = (r == sr) ? sc : 0;
+        int c1 = (r == er) ? ec : s_row_len[r];
+        int c;
+        if (c0 < 0)
+            c0 = 0;
+        if (c1 > s_row_len[r])
+            c1 = s_row_len[r];
+        for (c = c0; c < c1; c++)
+            copybuf_put_cell(buf, sizeof buf, &o, (unsigned char)s_row_text[r][c]);
+        if (r != er && o + 1 < sizeof buf)
+            buf[o++] = '\n'; /* real newline between rows (not folded) */
+    }
+    buf[o < sizeof buf ? o : sizeof buf - 1] = '\0';
+    SDL_SetClipboardText(buf);
+}
+
+/* Copy the selection to the clipboard: the mouse scrollback selection if one is
+ * active, otherwise the input-line selection (or the whole line if none). */
+static void clipboard_copy(void) {
+    int lo, hi;
+    if (s_scrsel_active) {
+        scrsel_copy();
+    } else if (sel_span(&lo, &hi)) {
+        char tmp[CONSOLE_INPUT_MAX];
+        int n = hi - lo;
+        memcpy(tmp, &s_input_line[lo], (size_t)n);
+        tmp[n] = '\0';
+        SDL_SetClipboardText(tmp);
+    } else {
+        SDL_SetClipboardText(s_input_line);
+    }
 }
 
 /* Scroll the scrollback view; delta > 0 reveals older lines. Clamped to the
@@ -434,6 +712,7 @@ static void Console_HistoryRecall(int dir) {
     s_input_line[CONSOLE_INPUT_MAX - 1] = '\0';
     s_input_len = (int)strlen(s_input_line);
     s_cursor_pos = s_input_len;
+    s_sel_anchor = -1; /* a recalled line carries no selection */
 }
 
 /* Insert the printable chars of the system clipboard at the cursor (drops control
@@ -554,32 +833,50 @@ static void Console_TabComplete(void) {
 
 static void Console_UpdateKey(int scancode, int keycode, int mod) {
     /* AltGr is Ctrl+Alt on many layouts; treat Ctrl as a command modifier only
-     * when Alt is not also held so AltGr text entry still works. */
+     * when Alt is not also held so AltGr text entry still works. Lowercase the
+     * keycode in-range without tolower() (it may be a large SDL keysym). */
     int ctrl = (mod & SDL_KMOD_CTRL) && !(mod & SDL_KMOD_ALT);
+    int kl = (keycode >= 'A' && keycode <= 'Z') ? (keycode - 'A' + 'a') : keycode;
 
     s_cursor_blink = 0; /* any keypress makes the cursor immediately visible */
+
+    /* A mouse (scrollback) selection is dismissed by editing/navigation keys, but
+     * not by the copy shortcut or by a bare modifier press (so Ctrl, then C, keeps
+     * the selection long enough to copy it). */
+    if (s_scrsel_active && !(ctrl && kl == 'c') && !is_modifier_scancode(scancode))
+        s_scrsel_active = 0;
 
     /* Text-input characters arrive already cased and layout-resolved, queued with
      * the CONSOLE_TEXT_CHAR sentinel; insert the printable ASCII ones. Physical
      * keys (below) are handled by scancode and never insert text themselves. */
     if (scancode == CONSOLE_TEXT_CHAR) {
-        if (keycode >= 32 && keycode < 127)
+        if (keycode >= 32 && keycode < 127) {
+            sel_delete(); /* typing over a selection replaces it */
             input_insert_char((char)keycode);
+        }
         return;
     }
 
     /* Control combos are commands, never text: handle the few we support and
      * swallow the rest so e.g. Ctrl+A doesn't type 'a'. */
     if (ctrl) {
-        /* Lowercase in-range without tolower(): keycode may be a large SDL keysym
-         * (e.g. arrows), which is out of tolower()'s defined domain. */
-        int kl = (keycode >= 'A' && keycode <= 'Z') ? (keycode - 'A' + 'a') : keycode;
-        if (kl == 'v')
+        if (kl == 'v') {
+            sel_delete(); /* paste replaces the selection */
             clipboard_paste();
-        else if (kl == 'c')
-            SDL_SetClipboardText(s_input_line);
-        else if (kl == 'l')
+        } else if (kl == 'c') {
+            clipboard_copy();
+            s_scrsel_active = 0; /* copying clears the selection */
+            s_sel_anchor = -1;
+        } else if (kl == 'x') {
+            clipboard_copy();  /* copies the selection, or the whole line */
+            if (!sel_delete()) /* delete the selection; if there was none, */
+                input_clear(); /* cut the whole line we just copied */
+        } else if (kl == 'a') {
+            s_sel_anchor = 0; /* select all */
+            s_cursor_pos = s_input_len;
+        } else if (kl == 'l') {
             input_clear();
+        }
         return;
     }
     /* Shift+Insert also pastes (X11/terminal convention). */
@@ -603,30 +900,68 @@ static void Console_UpdateKey(int scancode, int keycode, int mod) {
         Console_TabComplete();
         return;
     }
-    /* Backspace: match by scancode or keycode (8 = ASCII BS) for different layouts. */
+    /* Backspace: match by scancode or keycode (8 = ASCII BS) for different layouts.
+     * With a selection, Backspace/Delete remove the whole selection. */
     if (scancode == K_BACKSPACE || keycode == 8) {
-        input_backspace();
+        if (!sel_delete())
+            input_backspace();
         return;
     }
     if (scancode == K_SUPPR) {
-        input_delete();
+        if (!sel_delete())
+            input_delete();
         return;
     }
+    /* Left/Right/Home/End: with Shift held, extend the selection from where it
+     * started; without Shift, drop any selection (collapsing to its near edge for
+     * Left/Right) and move the cursor. */
     if (scancode == K_LEFT) {
-        if (s_cursor_pos > 0)
+        int lo, hi;
+        if (mod & SDL_KMOD_SHIFT) {
+            if (s_sel_anchor < 0)
+                s_sel_anchor = s_cursor_pos;
+            if (s_cursor_pos > 0)
+                s_cursor_pos--;
+        } else if (sel_span(&lo, &hi)) {
+            s_cursor_pos = lo;
+            s_sel_anchor = -1;
+        } else if (s_cursor_pos > 0) {
             s_cursor_pos--;
+        }
         return;
     }
     if (scancode == K_RIGHT) {
-        if (s_cursor_pos < s_input_len)
+        int lo, hi;
+        if (mod & SDL_KMOD_SHIFT) {
+            if (s_sel_anchor < 0)
+                s_sel_anchor = s_cursor_pos;
+            if (s_cursor_pos < s_input_len)
+                s_cursor_pos++;
+        } else if (sel_span(&lo, &hi)) {
+            s_cursor_pos = hi;
+            s_sel_anchor = -1;
+        } else if (s_cursor_pos < s_input_len) {
             s_cursor_pos++;
+        }
         return;
     }
     if (scancode == K_HOME) {
+        if (mod & SDL_KMOD_SHIFT) {
+            if (s_sel_anchor < 0)
+                s_sel_anchor = s_cursor_pos;
+        } else {
+            s_sel_anchor = -1;
+        }
         s_cursor_pos = 0;
         return;
     }
     if (scancode == K_END) {
+        if (mod & SDL_KMOD_SHIFT) {
+            if (s_sel_anchor < 0)
+                s_sel_anchor = s_cursor_pos;
+        } else {
+            s_sel_anchor = -1;
+        }
         s_cursor_pos = s_input_len;
         return;
     }
@@ -820,6 +1155,38 @@ static void console_fixed_rgb(U8 idx, U8 *r, U8 *g, U8 *b) {
     }
 }
 
+/* Record a drawn row (CP437 bytes) into the snapshot used for mouse selection. */
+static void record_row(int rowIdx, const char *cp437, int len) {
+    if (rowIdx < 0 || rowIdx >= CONSOLE_MAX_ROWS)
+        return;
+    if (len >= CONSOLE_LINE_MAX)
+        len = CONSOLE_LINE_MAX - 1;
+    memcpy(s_row_text[rowIdx], cp437, (size_t)len);
+    s_row_text[rowIdx][len] = '\0';
+    s_row_len[rowIdx] = len;
+}
+
+/* Fill the per-row selection spans for the active mouse (scrollback) selection. */
+static void fill_scrsel_spans(void) {
+    int sr, sc, er, ec, r;
+    scrsel_normalize(&sr, &sc, &er, &ec);
+    for (r = sr; r <= er && r < s_row_count; r++) {
+        int c0, c1;
+        if (r < 0 || r >= CONSOLE_MAX_ROWS)
+            continue;
+        c0 = (r == sr) ? sc : 0;
+        c1 = (r == er) ? ec : s_row_len[r];
+        if (c0 < 0)
+            c0 = 0;
+        if (c1 > s_row_len[r])
+            c1 = s_row_len[r];
+        if (c1 > c0) {
+            s_row_sel_start[r] = c0;
+            s_row_sel_end[r] = c1;
+        }
+    }
+}
+
 /** Draw scrollback + input line into s_console_buf (call when open and buffer ready). */
 static void Console_Draw(void) {
     int i, y, start, n;
@@ -846,6 +1213,14 @@ static void Console_Draw(void) {
             s_scroll_offset = 0;
     }
 
+    /* Reset the per-frame row snapshot and selection spans. */
+    s_row_count = 0;
+    s_input_row = -1;
+    for (i = 0; i < CONSOLE_MAX_ROWS; i++) {
+        s_row_sel_start[i] = -1;
+        s_row_sel_end[i] = -1;
+    }
+
     y = 0;
     if (n > 0) {
         /* Oldest line currently visible = (head - n - offset) modulo buffer size. */
@@ -865,27 +1240,50 @@ static void Console_Draw(void) {
             utf8_to_cp437(s_scrollback[idx], rendered, sizeof rendered);
             U8 col = s_scrollback_col[idx];
             AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, col);
+            record_row(y / CONSOLE_LINE_HEIGHT, rendered, (int)strlen(rendered));
             y += CONSOLE_LINE_HEIGHT;
         }
 
         /* Ellipsis at bottom when there are earlier lines above the current window. */
         if (showEllipsis) {
             AffStringToBuffer(s_console_buf, s_console_w, 8, y, "...", CONSOLE_TEXT_COLOUR);
+            record_row(y / CONSOLE_LINE_HEIGHT, "...", 3);
             y += CONSOLE_LINE_HEIGHT;
         }
     }
     {
         char prompt[CONSOLE_INPUT_MAX + 8];
-        snprintf(prompt, sizeof(prompt), "]> %s", s_input_line);
         char rendered[CONSOLE_INPUT_MAX + 8];
+        snprintf(prompt, sizeof(prompt), "]> %s", s_input_line);
         utf8_to_cp437(prompt, rendered, sizeof rendered);
         AffStringToBuffer(s_console_buf, s_console_w, 8, y, rendered, CONSOLE_TEXT_COLOUR);
-        /* Blinking underline cursor at the edit position. "]> " is a 3-char prefix
-         * and the font advances 8px/glyph; blink off for ~half of each cycle. */
-        if (((s_cursor_blink >> 5) & 1u) == 0u) {
+        s_input_row = y / CONSOLE_LINE_HEIGHT;
+        record_row(s_input_row, rendered, (int)strlen(rendered));
+    }
+    s_row_count = s_input_row + 1; /* rows recorded, including the input row */
+
+    /* Selection spans. The editable input-line selection ("]> " is a 3-char prefix)
+     * occupies the input row; a mouse scrollback selection (mutually exclusive)
+     * flows across its rows. The compositor inverts the cells in these spans. */
+    {
+        int lo, hi;
+        if (sel_span(&lo, &hi) && s_input_row >= 0 && s_input_row < CONSOLE_MAX_ROWS) {
+            s_row_sel_start[s_input_row] = 3 + lo;
+            s_row_sel_end[s_input_row] = 3 + hi;
+        } else if (s_scrsel_active) {
+            fill_scrsel_spans();
+        }
+    }
+
+    /* Blinking underline cursor at the edit position, off for ~half of each cycle.
+     * Hidden while the input row is selected (the block marks the spot). */
+    {
+        int sel_on_input = (s_input_row >= 0 && s_input_row < CONSOLE_MAX_ROWS && s_row_sel_start[s_input_row] >= 0);
+        if (!sel_on_input && s_input_row >= 0 && ((s_cursor_blink >> 5) & 1u) == 0u) {
             S32 cx = 8 + (3 + s_cursor_pos) * 8;
+            S32 cy = (S32)s_input_row * CONSOLE_LINE_HEIGHT;
             if (cx + 8 <= (S32)s_console_w)
-                AffStringToBuffer(s_console_buf, s_console_w, cx, y, "_", CONSOLE_TEXT_COLOUR);
+                AffStringToBuffer(s_console_buf, s_console_w, cx, cy, "_", CONSOLE_TEXT_COLOUR);
         }
     }
 }
@@ -937,6 +1335,11 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
     for (y = 0; y < s_console_h; y++) {
         U32 *dstRow = (U32 *)((U8 *)frameBuffer + y * pitch);
         U8 *srcRow = s_console_buf + y * s_console_w;
+        /* Per-row selection span (cells in [rs, re) invert). Hoisted out of the x
+         * loop because the row index is constant across the scanline. */
+        int srow = (int)(y / CONSOLE_LINE_HEIGHT);
+        int rs = (srow < s_row_count && srow < CONSOLE_MAX_ROWS) ? s_row_sel_start[srow] : -1;
+        int re = (rs >= 0) ? s_row_sel_end[srow] : -1;
         for (x = 0; x < s_console_w; x++) {
             U8 idx = srcRow[x];
             U32 base = dstRow[x];
@@ -944,12 +1347,23 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
             U8 bg = (U8)((base >> 8) & 0xFF);
             U8 bb = (U8)(base & 0xFF);
             U8 r, g, b;
+            int scol = ((S32)x >= 8) ? (int)((x - 8) / 8) : -1;
+            int selected = (rs >= 0 && scol >= rs && scol < re);
 
-            /* Bottom border line of the console panel. */
+            /* Bottom border line of the console panel (drawn first so a selection on
+             * the input row can't paint over it). */
             if (y + 1 == s_console_h) {
                 r = borderCol[0];
                 g = borderCol[1];
                 b = borderCol[2];
+            }
+            /* Selection: inverted block. Selected cells render opaque (paper bright,
+             * glyph dark), so the highlight reads the same over any scene. */
+            else if (selected) {
+                if (idx == 0)
+                    r = g = b = 230; /* selection bar (bright paper) */
+                else
+                    r = g = b = 20; /* selected glyph (dark ink) */
             } else if (idx == 0) {
                 /* Background: darken underlying game image for a translucent effect. */
                 r = (U8)((br * 3) / 5);
@@ -970,8 +1384,121 @@ void Console_PrePresent(U32 *frameBuffer, U32 pitch, U32 width, U32 height, cons
     }
 }
 
+/* Map a window-space mouse position to a console (row, col) cell. Returns 1 when
+ * the point is inside the console panel, with col clamped to the row's length. */
+static int mouse_to_cell(float winx, float winy, int *row, int *col) {
+    S32 sx, sy;
+    int r, c;
+    WindowToSurfaceCoords((S32)winx, (S32)winy, &sx, &sy);
+    if (sy < 0 || (U32)sy >= s_console_h || s_row_count <= 0)
+        return 0;
+    r = sy / CONSOLE_LINE_HEIGHT;
+    if (r >= s_row_count)
+        r = s_row_count - 1;
+    if (r < 0)
+        return 0;
+    c = (sx >= 8) ? (sx - 8) / 8 : 0;
+    if (c < 0)
+        c = 0;
+    if (c > s_row_len[r])
+        c = s_row_len[r];
+    *row = r;
+    *col = c;
+    return 1;
+}
+
 int Console_FeedEvent(const void *sdlEvent) {
     const SDL_Event *ev = (const SDL_Event *)sdlEvent;
+
+    /* Mouse drag selects text in the console; the OS cursor (shown on open) is the
+     * pointer. Left button down anchors, motion extends, double-click selects a word,
+     * and a click on the input row places the edit cursor. Copy with Ctrl+C; a right
+     * click copies and clears. While open the console owns the mouse. */
+    if (ev->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+        int row, col, lo, hi;
+        Uint64 now;
+        int dbl;
+        if (!s_console_open)
+            return 0;
+        if (ev->button.button == SDL_BUTTON_RIGHT) {
+            /* Right-click copies the current selection, then clears it. */
+            if (s_scrsel_active || sel_span(&lo, &hi))
+                clipboard_copy();
+            s_scrsel_active = 0;
+            s_sel_anchor = -1;
+            return 1;
+        }
+        if (ev->button.button != SDL_BUTTON_LEFT)
+            return 1;
+        if (!mouse_to_cell(ev->button.x, ev->button.y, &row, &col)) {
+            /* Left-click below the panel (in the game area) closes the console. */
+            Console_Close();
+            return 1;
+        }
+        now = SDL_GetTicks();
+        dbl = (now - s_last_click_ms <= CONSOLE_DBLCLICK_MS && row == s_last_click_row &&
+               (col >= s_last_click_col - 1 && col <= s_last_click_col + 1));
+        s_last_click_ms = now;
+        s_last_click_row = row;
+        s_last_click_col = col;
+        s_sel_anchor = -1; /* drop any editable input-line selection */
+
+        if (dbl) {
+            /* Select the word under the cell. */
+            const char *t = s_row_text[row];
+            int len = s_row_len[row];
+            int a = col, e = col;
+            if (col < len && is_word_char((unsigned char)t[col])) {
+                while (a > 0 && is_word_char((unsigned char)t[a - 1]))
+                    a--;
+                while (e < len && is_word_char((unsigned char)t[e]))
+                    e++;
+            } else if (col < len) {
+                e = col + 1; /* a single non-word cell */
+            }
+            s_scrsel_a_row = s_scrsel_c_row = row;
+            s_scrsel_a_col = a;
+            s_scrsel_c_col = e;
+            s_scrsel_active = (e > a);
+            s_mouse_dragging = 0;
+        } else {
+            s_scrsel_a_row = s_scrsel_c_row = row;
+            s_scrsel_a_col = s_scrsel_c_col = col;
+            s_scrsel_active = 0; /* nothing until the caret moves */
+            s_mouse_dragging = 1;
+            if (row == s_input_row) {
+                int p = col - 3; /* input text starts at column 3 ("]> ") */
+                if (p < 0)
+                    p = 0;
+                if (p > s_input_len)
+                    p = s_input_len;
+                s_cursor_pos = p;
+            }
+        }
+        return 1;
+    }
+    if (ev->type == SDL_EVENT_MOUSE_MOTION) {
+        int row, col;
+        if (!s_console_open) {
+            s_mouse_dragging = 0;
+            return 0;
+        }
+        if (!s_mouse_dragging)
+            return 0; /* let the game keep tracking the pointer */
+        if (mouse_to_cell(ev->motion.x, ev->motion.y, &row, &col)) {
+            s_scrsel_c_row = row;
+            s_scrsel_c_col = col;
+            s_scrsel_active = !(s_scrsel_a_row == row && s_scrsel_a_col == col);
+        }
+        return 1;
+    }
+    if (ev->type == SDL_EVENT_MOUSE_BUTTON_UP) {
+        if (!s_console_open)
+            return 0;
+        if (ev->button.button == SDL_BUTTON_LEFT)
+            s_mouse_dragging = 0;
+        return 1; /* console owns the mouse while open */
+    }
 
     /* Mouse wheel scrolls the scrollback while the console is open. */
     if (ev->type == SDL_EVENT_MOUSE_WHEEL) {
@@ -1098,6 +1625,7 @@ static void Console_SubmitLine(void) {
     s_input_line[0] = '\0';
     s_cursor_pos = 0;
     s_history_index = -1;
+    s_sel_anchor = -1;
 }
 
 void Console_Execute(const char *line) {
