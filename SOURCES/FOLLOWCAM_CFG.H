@@ -12,10 +12,12 @@
 #define FOLLOW_CAM_ROT_THRESHOLD 10 /* snap BetaCam when within this many units of target */
 
 /* Pan drift (AddBetaCam drift toward 0 after [ / ] released) ----------------*/
-#define FOLLOW_CAM_REENGAGE_FRAMES 60 /* grace frames before follow re-centers after a manual pan (about 1.0s at 60fps) */
-#define FOLLOW_CAM_DRIFT_DIVISOR 24   /* drift denominator: about 4% per frame (higher = gentler, slower ease-back) */
-#define FOLLOW_CAM_DRIFT_MIN_STEP 3   /* minimum AddBetaCam step per drift tick (units) */
-#define FOLLOW_CAM_DRIFT_THRESHOLD 5  /* snap AddBetaCam to 0 within this many units */
+/* Defaults for the runtime FollowCamReengageFrames / FollowCamDriftDivisor globals
+ * (cvar cam_recenter_delay / cam_recenter_drift, cfg keys of the same name). */
+#define FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT 60 /* grace frames before follow re-centers after a manual pan (about 1.0s at 60fps) */
+#define FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT 24   /* drift denominator: about 4% per frame (higher = gentler, slower ease-back) */
+#define FOLLOW_CAM_DRIFT_MIN_STEP 3           /* minimum AddBetaCam step per drift tick (units) */
+#define FOLLOW_CAM_DRIFT_THRESHOLD 5          /* snap AddBetaCam to 0 within this many units */
 
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
@@ -39,5 +41,7 @@
 
 /* Gamepad right-stick camera ------------------------------------------------*/
 #define GAMEPAD_CAM_SENS_DEFAULT 5 /* default right-stick sensitivity (1-10 range) */
-#define GAMEPAD_CAM_BETA_MAX 36    /* orbit units per frame at full deflection, sens 10 (the ceiling) */
-#define GAMEPAD_CAM_ALPHA_MAX 10   /* elevation units per frame at full deflection, sens 10 (the ceiling) */
+/* Defaults for the runtime GamepadCamMaxBeta / GamepadCamMaxAlpha globals
+ * (cvar cam_stick_max_x / cam_stick_max_y, cfg keys of the same name). */
+#define GAMEPAD_CAM_BETA_MAX_DEFAULT 36  /* orbit units per frame at full deflection, sens 10 (the ceiling) */
+#define GAMEPAD_CAM_ALPHA_MAX_DEFAULT 10 /* elevation units per frame at full deflection, sens 10 (the ceiling) */
