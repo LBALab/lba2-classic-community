@@ -1814,7 +1814,7 @@ restartloop:
                                  * Auto-follow: distance-scaled inertia for cinematic drift. */
                                 S32 dynamicDiv;
                                 if (ManualCameraOrbitActive) {
-                                    dynamicDiv = MouseCameraSmoothing;
+                                    dynamicDiv = ManualCameraSmoothing;
                                 } else {
                                     dynamicDiv = FOLLOW_CAM_ROT_DIVISOR * FollowCamEffectiveDist / FollowCamBaseDist;
                                     if (dynamicDiv < FOLLOW_CAM_ROT_DIVISOR / 3)
@@ -2100,11 +2100,11 @@ void ReadConfigFile(void) {
     if (MouseCameraDivisor > 16)
         MouseCameraDivisor = 16;
 
-    MouseCameraSmoothing = DefFileBufferReadValueDefault("MouseCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
-    if (MouseCameraSmoothing < 1)
-        MouseCameraSmoothing = 1;
-    if (MouseCameraSmoothing > 16)
-        MouseCameraSmoothing = 16;
+    ManualCameraSmoothing = DefFileBufferReadValueDefault("ManualCameraSmoothing", MOUSE_CAM_SMOOTHING_DEFAULT);
+    if (ManualCameraSmoothing < 1)
+        ManualCameraSmoothing = 1;
+    if (ManualCameraSmoothing > 16)
+        ManualCameraSmoothing = 16;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2153,7 +2153,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("MouseSensitivityY", MouseCameraSensY);
     DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
     DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
-    DefFileBufferWriteValue("MouseCameraSmoothing", MouseCameraSmoothing);
+    DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*

@@ -221,9 +221,13 @@ extern S32 MouseCameraSensX;
 extern S32 MouseCameraSensY;
 extern S32 MouseCameraInvertY;
 extern S32 MouseCameraDivisor;
-extern S32 MouseCameraSmoothing;
+extern S32 ManualCameraSmoothing;
 extern S32 ManualCameraOrbitActive; /* raised by EXTFUNC while a manual camera source (mouse/stick) orbits */
 extern S32 FollowCamReengageDelay;
+extern S32 GamepadCameraAnalog;  /* right stick drives the camera analog in Auto cam (1=on) */
+extern S32 GamepadCameraSensX;   /* right-stick orbit sensitivity (1-10) */
+extern S32 GamepadCameraSensY;   /* right-stick elevation sensitivity (1-10) */
+extern S32 GamepadCameraInvertY; /* invert right-stick elevation axis */
 extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;

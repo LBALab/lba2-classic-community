@@ -46,11 +46,23 @@ recenters behind the hero. Tunables in `lba2.cfg`:
 | `MouseCameraDivisor` | 4 | pixel-to-angle scaling (lower = faster, 1-16) |
 | `MouseCameraSmoothing` | 2 | orbit lerp (1 = snap, higher = laggier, 1-16) |
 
-### Gamepad right stick (next)
+### Gamepad right stick
 
-The gamepad stack ([SOURCES/JOYSTICK.CPP](../SOURCES/JOYSTICK.CPP)) and the
-Controller options menu already ship; today the right stick drives camera
-elevation and the classic camera turn digitally through the binding system. The
-planned step routes the raw right-stick axes through this same
-`ApplyManualCameraNudge` routine for smooth analog orbit and elevation in Auto
-camera mode, with a digital fallback in classic mode.
+In exterior Auto camera scenes the right stick orbits and tilts the camera
+through the same `ApplyManualCameraNudge` routine as the mouse. While it owns the
+stick, `UpdateJoystick` ([SOURCES/JOYSTICK.CPP](../SOURCES/JOYSTICK.CPP)) stops
+emitting the digital `RSTICK_*` scancodes so the analog path and the bindings
+never double-drive. Outside Auto camera (the classic fixed cameras) the stick
+falls back to the digital bindings: left/right cycle the camera (`I_CAMERA`),
+up/down change the camera preset (`I_CAMERA_LEVEL`). Tunables in `lba2.cfg`:
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `GamepadCameraAnalog` | 1 | analog right-stick camera in Auto cam (0 = digital bindings only) |
+| `GamepadCameraSensX` | 4 | orbit sensitivity (1-10) |
+| `GamepadCameraSensY` | 4 | elevation sensitivity (1-10) |
+| `GamepadCameraInvertY` | 0 | invert elevation axis |
+
+The deadzone is shared with the rest of the gamepad (`GamepadDeadzone`). There is
+no stick zoom: the triggers are movement and the remaining buttons are bound, so
+zoom stays on the keyboard and mouse.
