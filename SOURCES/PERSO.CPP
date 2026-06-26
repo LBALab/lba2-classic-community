@@ -1741,7 +1741,7 @@ restartloop:
                      * Only drift pan back to centre while the hero is walking.
                      * While standing still, [ / ] pan is preserved. */
                     if (manualPan) {
-                        FollowCamReengageDelay = FOLLOW_CAM_REENGAGE_FRAMES;
+                        FollowCamReengageDelay = FollowCamReengageFrames;
                     } else if (heroMoving) {
                         if (FollowCamReengageDelay > 0) {
                             FollowCamReengageDelay--;
@@ -1749,7 +1749,10 @@ restartloop:
                             S32 drift = AddBetaCam;
                             if (drift > 2048)
                                 drift -= 4096;
-                            S32 step = drift / FOLLOW_CAM_DRIFT_DIVISOR;
+                            S32 driftDiv = FollowCamDriftDivisor;
+                            if (driftDiv < 1)
+                                driftDiv = 1; /* console can set 0; never divide by zero */
+                            S32 step = drift / driftDiv;
                             if (step > 0 AND step < FOLLOW_CAM_DRIFT_MIN_STEP)
                                 step = FOLLOW_CAM_DRIFT_MIN_STEP;
                             if (step<0 AND step> - FOLLOW_CAM_DRIFT_MIN_STEP)
@@ -2105,6 +2108,18 @@ void ReadConfigFile(void) {
         ManualCameraSmoothing = 1;
     if (ManualCameraSmoothing > 16)
         ManualCameraSmoothing = 16;
+
+    FollowCamReengageFrames = DefFileBufferReadValueDefault("FollowCamReengageFrames", FOLLOW_CAM_REENGAGE_FRAMES_DEFAULT);
+    if (FollowCamReengageFrames < 0)
+        FollowCamReengageFrames = 0;
+    if (FollowCamReengageFrames > 600)
+        FollowCamReengageFrames = 600;
+
+    FollowCamDriftDivisor = DefFileBufferReadValueDefault("FollowCamDriftDivisor", FOLLOW_CAM_DRIFT_DIVISOR_DEFAULT);
+    if (FollowCamDriftDivisor < 1)
+        FollowCamDriftDivisor = 1;
+    if (FollowCamDriftDivisor > 200)
+        FollowCamDriftDivisor = 200;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2154,6 +2169,8 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("MouseInvertY", MouseCameraInvertY);
     DefFileBufferWriteValue("MouseCameraDivisor", MouseCameraDivisor);
     DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
+    DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
+    DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
