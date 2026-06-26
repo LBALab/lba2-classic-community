@@ -12,9 +12,9 @@
 #define FOLLOW_CAM_ROT_THRESHOLD 10 /* snap BetaCam when within this many units of target */
 
 /* Pan drift (AddBetaCam drift toward 0 after [ / ] released) ----------------*/
-#define FOLLOW_CAM_REENGAGE_FRAMES 15 /* grace frames before follow resumes after pan */
-#define FOLLOW_CAM_DRIFT_DIVISOR 16   /* drift denominator: 1/16 ≈ 6 % per frame */
-#define FOLLOW_CAM_DRIFT_MIN_STEP 4   /* minimum AddBetaCam step per drift tick (units) */
+#define FOLLOW_CAM_REENGAGE_FRAMES 60 /* grace frames before follow re-centers after a manual pan (about 1.0s at 60fps) */
+#define FOLLOW_CAM_DRIFT_DIVISOR 24   /* drift denominator: about 4% per frame (higher = gentler, slower ease-back) */
+#define FOLLOW_CAM_DRIFT_MIN_STEP 3   /* minimum AddBetaCam step per drift tick (units) */
 #define FOLLOW_CAM_DRIFT_THRESHOLD 5  /* snap AddBetaCam to 0 within this many units */
 
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
