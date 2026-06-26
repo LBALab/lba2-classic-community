@@ -2126,6 +2126,12 @@ void ReadConfigFile(void) {
 void WriteConfigFile(void) {
     DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA));
 
+    // Batch the whole save into one fsync + atomic rename. Without this, each of
+    // the ~30 writes below would fsync + rename on its own, which is noticeably
+    // slow on a settings change. If a batch can't start, the writes fall back to
+    // the per-call atomic path and still persist correctly.
+    S32 batched = DefFileBufferBeginBatch();
+
     WriteInputConfig();    // Sauve Config Clavier dans LBA2.CFG
     WriteGamepadConfig();  // Sauve Config Gamepad dans LBA2.CFG
     WriteVolumeSettings(); // Sauve volumes dans LBA2.CFG
@@ -2171,6 +2177,10 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
     DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
     DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
+
+    if (batched) {
+        DefFileBufferEndBatch();
+    }
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
