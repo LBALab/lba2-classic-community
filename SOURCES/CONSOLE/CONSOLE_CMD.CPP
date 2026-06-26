@@ -13,6 +13,7 @@
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
+#include "../JOYSTICK.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
 #include "../RES_SWITCH.H"
@@ -1643,4 +1644,24 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("fps", &DebugFps, CONSOLE_CVAR_BOOL, "Frame rate display");
     Console_RegisterCvar("horizon", (void *)&FlagDrawHorizon, CONSOLE_CVAR_BOOL_U8, "Draw horizon/cubes around");
     Console_RegisterCvar("zv", &DrawZVObjets, CONSOLE_CVAR_BOOL, "Draw ZV boxes");
+
+    /* Camera tuning (see docs/CONTROLLER.md). No clamp on set, so values can be
+     * pushed past the official ranges while tuning; cfg load clamps and changes
+     * persist on exit. */
+    Console_RegisterCvar("cam_stick_x", &GamepadCameraSensX, CONSOLE_CVAR_INT, "Right-stick orbit sensitivity (1-10)");
+    Console_RegisterCvar("cam_stick_y", &GamepadCameraSensY, CONSOLE_CVAR_INT, "Right-stick elevation sensitivity (1-10)");
+    Console_RegisterCvar("cam_stick_invert", &GamepadCameraInvertY, CONSOLE_CVAR_BOOL, "Invert right-stick elevation");
+    Console_RegisterCvar("cam_stick_analog", &GamepadCameraAnalog, CONSOLE_CVAR_BOOL, "Analog right-stick camera in Auto cam");
+    Console_RegisterCvar("cam_stick_max_x", &GamepadCamMaxBeta, CONSOLE_CVAR_INT, "Right-stick orbit speed ceiling (units/frame at sens 10)");
+    Console_RegisterCvar("cam_stick_max_y", &GamepadCamMaxAlpha, CONSOLE_CVAR_INT, "Right-stick elevation speed ceiling (units/frame at sens 10)");
+    Console_RegisterCvar("pad_deadzone", &JoystickDeadzone, CONSOLE_CVAR_INT, "Gamepad stick deadzone (SDL units 0-32767)");
+    Console_RegisterCvar("cam_mouse", &FlagMouseCamera, CONSOLE_CVAR_BOOL, "Mouse camera enable");
+    Console_RegisterCvar("cam_mouse_drag", &FlagMouseCameraDrag, CONSOLE_CVAR_BOOL, "Mouse camera: 1=right-drag, 0=free orbit");
+    Console_RegisterCvar("cam_mouse_x", &MouseCameraSensX, CONSOLE_CVAR_INT, "Mouse orbit sensitivity (1-10)");
+    Console_RegisterCvar("cam_mouse_y", &MouseCameraSensY, CONSOLE_CVAR_INT, "Mouse elevation sensitivity (1-10)");
+    Console_RegisterCvar("cam_mouse_invert", &MouseCameraInvertY, CONSOLE_CVAR_BOOL, "Invert mouse elevation");
+    Console_RegisterCvar("cam_mouse_div", &MouseCameraDivisor, CONSOLE_CVAR_INT, "Mouse pixel-to-angle divisor (1-16, lower = faster)");
+    Console_RegisterCvar("cam_smooth", &ManualCameraSmoothing, CONSOLE_CVAR_INT, "Manual orbit lerp divisor (1 = snap, higher = laggier)");
+    Console_RegisterCvar("cam_recenter_delay", &FollowCamReengageFrames, CONSOLE_CVAR_INT, "Frames before auto-cam re-centers after a manual pan");
+    Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
 }

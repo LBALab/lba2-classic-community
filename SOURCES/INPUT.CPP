@@ -235,6 +235,18 @@ void ReadGamepadConfig(void) {
     else
         GamepadCameraInvertY = FALSE;
 
+    GamepadCamMaxBeta = DefFileBufferReadValueDefault("GamepadCamMaxBeta", GAMEPAD_CAM_BETA_MAX_DEFAULT);
+    if (GamepadCamMaxBeta < 1)
+        GamepadCamMaxBeta = 1;
+    if (GamepadCamMaxBeta > 200)
+        GamepadCamMaxBeta = 200;
+
+    GamepadCamMaxAlpha = DefFileBufferReadValueDefault("GamepadCamMaxAlpha", GAMEPAD_CAM_ALPHA_MAX_DEFAULT);
+    if (GamepadCamMaxAlpha < 1)
+        GamepadCamMaxAlpha = 1;
+    if (GamepadCamMaxAlpha > 100)
+        GamepadCamMaxAlpha = 100;
+
     char id[32];
     for (S32 n = 0; n < MAX_INPUT; n++) {
         snprintf(id, sizeof(id), "Gamepad%d", n);
@@ -256,6 +268,8 @@ void WriteGamepadConfig(void) {
     DefFileBufferWriteValue("GamepadCameraSensX", GamepadCameraSensX);
     DefFileBufferWriteValue("GamepadCameraSensY", GamepadCameraSensY);
     DefFileBufferWriteValue("GamepadCameraInvertY", GamepadCameraInvertY);
+    DefFileBufferWriteValue("GamepadCamMaxBeta", GamepadCamMaxBeta);
+    DefFileBufferWriteValue("GamepadCamMaxAlpha", GamepadCamMaxAlpha);
 
     char id[32];
     for (S32 n = 0; n < MAX_INPUT; n++) {
