@@ -1946,7 +1946,7 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
     /* Only horizontal orbit pauses the auto-recenter; elevation and zoom leave
      * the follow tracking the hero (matches the numpad keyboard controls). */
     if (dBeta != 0)
-        FollowCamReengageDelay = FOLLOW_CAM_REENGAGE_FRAMES;
+        FollowCamReengageDelay = FollowCamReengageFrames;
 
     if (dZoom != 0) {
         FollowCamBaseDist -= dZoom;
@@ -2362,8 +2362,8 @@ S32 GereExtKeys(U32 key)
             S16 rsx = 0;
             S16 rsy = 0;
             JoystickGetRightStick(&rsx, &rsy);
-            S32 dBeta = StickAxisToCamStep(rsx, GamepadCameraSensX, GAMEPAD_CAM_BETA_MAX);
-            S32 dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY, GAMEPAD_CAM_ALPHA_MAX);
+            S32 dBeta = StickAxisToCamStep(rsx, GamepadCameraSensX, GamepadCamMaxBeta);
+            S32 dAlpha = StickAxisToCamStep(rsy, GamepadCameraSensY, GamepadCamMaxAlpha);
             if (GamepadCameraInvertY)
                 dAlpha = -dAlpha;
             if (dBeta != 0 OR dAlpha != 0)
