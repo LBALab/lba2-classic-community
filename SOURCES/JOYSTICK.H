@@ -23,6 +23,11 @@ void HandleEventsJoystick(const void *event);
 // code paths; there is no separate enable flag — if a pad is connected, it's on.
 S32 JoystickIsPresent(void);
 
+// Raw right-stick axes (SDL units, -32767..32767), cached each frame by
+// UpdateJoystick. Writes 0,0 when no pad is open. Used by the analog camera
+// (EXTFUNC) when it owns the right stick.
+void JoystickGetRightStick(S16 *x, S16 *y);
+
 // Human-readable controller name for the boot log, or "not detected".
 const char *JoystickGetName(void);
 
