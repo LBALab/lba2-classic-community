@@ -1963,8 +1963,8 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
 
 /* Map a right-stick axis (SDL units, -32767..32767) to a per-frame camera step.
  * Per-axis deadzone reusing JoystickDeadzone, then a linear ramp to maxStep at
- * full deflection, scaled by sensitivity (sens == GAMEPAD_CAM_SENS_MID leaves it
- * unscaled). */
+ * full deflection, scaled by sensitivity as a 10%-100% fraction (sens 10 = the
+ * full maxStep ceiling, sens 1 = a tenth of it). */
 static S32 StickAxisToCamStep(S16 axis, S32 sens, S32 maxStep) {
     S32 v = axis;
     S32 mag = (v < 0) ? -v : v;
@@ -1974,7 +1974,7 @@ static S32 StickAxisToCamStep(S16 axis, S32 sens, S32 maxStep) {
     if (den < 1)
         den = 1;
     S32 step = (mag - JoystickDeadzone) * maxStep / den; /* 0..maxStep */
-    step = step * sens / GAMEPAD_CAM_SENS_MID;
+    step = step * sens / 10;                             /* sens 1-10 -> 10%-100% */
     return (v < 0) ? -step : step;
 }
 #endif
