@@ -22,6 +22,13 @@ S32 DefFileReadSkipComments = TRUE;
 static S32 BufferSize;
 static char FileName[ADELINE_MAX_PATH];
 
+// Batch state. While active, FileName is redirected to a ".saving" working temp
+// and each write is an ordinary buffered write; the temp is committed once at
+// DefFileBufferEndBatch. See the API comment in DEFFILE.H.
+static S32 BatchActive = FALSE;
+static S32 BatchDirty = FALSE; // a write happened, so the temp exists to commit
+static char BatchFinalPath[ADELINE_MAX_PATH];
+
 //══════════════════════════════════════════════════════════════════════════
 static inline S32 ReadBufferString(const char *identificateur) {
     char *ptrdef;
@@ -234,7 +241,16 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
 
     result = DefFileBufferReadString(ident);
 
-    handle = OpenWrite(FileName);
+    // Atomic write: the new content is spliced into a temp file which then
+    // atomically replaces FileName. OpenWrite would truncate FileName to zero up
+    // front, so a crash/kill anywhere in the splice below (and this runs ~30
+    // times per WriteConfigFile) would leave the live config truncated. Here the
+    // config is only ever the old complete file or the new complete file.
+    //
+    // In a batch FileName already points at a private working temp, so an
+    // ordinary buffered write is enough -- the single fsync + rename happens once
+    // at DefFileBufferEndBatch instead of once per key.
+    handle = BatchActive ? OpenWrite(FileName) : OpenWriteAtomic(FileName);
     if (!handle) {
         return FALSE;
     }
@@ -273,11 +289,65 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
         Write(handle, PtrEndIdent, EndPtrDef - PtrEndIdent);
     }
 
-    Close(handle);
+    if (BatchActive) {
+        Close(handle);
+        BatchDirty = TRUE; // the working temp now holds content to commit
+    } else if (!CommitWriteAtomic(handle)) {
+        // Commit failed: the temp was cleaned up and FileName is untouched, so
+        // the in-memory buffer still matches what is on disk. Leave it as-is.
+        return FALSE;
+    }
 
     DefFileBufferInit(FileName, (void *)OrgPtrDef, BufferSize);
 
     return TRUE;
+}
+
+//══════════════════════════════════════════════════════════════════════════
+S32 DefFileBufferBeginBatch(void) {
+    if (BatchActive OR !OrgPtrDef) {
+        return FALSE;
+    }
+
+    // ".saving" + the NUL must fit. Redirect FileName to a working temp beside
+    // the real destination; the buffer already holds the destination's content
+    // (the caller DefFileBufferInit'd it), so the first splice carries it into
+    // the temp and every later key builds on the temp.
+    if (strlen(FileName) + sizeof(".saving") > ADELINE_MAX_PATH) {
+        return FALSE;
+    }
+    strcpy(BatchFinalPath, FileName);
+    strcat(FileName, ".saving");
+
+    BatchActive = TRUE;
+    BatchDirty = FALSE;
+    return TRUE;
+}
+
+//══════════════════════════════════════════════════════════════════════════
+S32 DefFileBufferEndBatch(void) {
+    char tempPath[ADELINE_MAX_PATH];
+    S32 ok = TRUE;
+
+    if (!BatchActive) {
+        return FALSE;
+    }
+    BatchActive = FALSE;
+
+    strcpy(tempPath, FileName);       // FileName currently == the working temp
+    strcpy(FileName, BatchFinalPath); // restore the real destination
+
+    if (BatchDirty) {
+        ok = CommitFileAtomic(tempPath, FileName);
+        if (!ok) {
+            Delete(tempPath); // commit failed: drop the temp, keep the old cfg
+        }
+    }
+
+    // Re-sync the buffer to the committed file so later reads/writes stay
+    // consistent with what is on disk.
+    DefFileBufferInit(FileName, (void *)OrgPtrDef, BufferSize);
+    return ok;
 }
 
 //══════════════════════════════════════════════════════════════════════════

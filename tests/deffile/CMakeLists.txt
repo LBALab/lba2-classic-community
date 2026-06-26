@@ -23,3 +23,25 @@ set_target_properties(test_deffile_latin1 PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_deffile_latin1 COMMAND test_deffile_latin1)
 
 register_host_test(test_deffile_latin1)
+
+add_executable(test_deffile_batch test_deffile_batch.cpp
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DEFFILE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/FILES.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/DISCIMG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ISO9660.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOADSAVE.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOGPRINT.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/LOG.CPP
+    ${CMAKE_SOURCE_DIR}/LIB386/SYSTEM/ITOA.CPP)
+
+target_include_directories(test_deffile_batch PRIVATE
+    ${CMAKE_SOURCE_DIR}/LIB386/H
+)
+
+target_compile_definitions(test_deffile_batch PRIVATE LBA_LOG_NO_SDL)
+
+set_target_properties(test_deffile_batch PROPERTIES CXX_STANDARD 11)
+
+add_test(NAME test_deffile_batch COMMAND test_deffile_batch)
+
+register_host_test(test_deffile_batch)
