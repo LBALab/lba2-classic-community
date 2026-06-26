@@ -311,6 +311,27 @@ S32 WriteFileAtomic(const char *finalPath, const void *buffer, U32 size) {
     return CommitWriteAtomic(handle);
 }
 
+S32 CommitFileAtomic(const char *tempPath, const char *finalPath) {
+    assert(tempPath != NULL);
+    assert(finalPath != NULL);
+
+    // Open WITHOUT O_CREAT so a missing temp fails here rather than renaming an
+    // empty file over the destination. O_RDWR yields a handle _commit accepts.
+    const int fd = open(tempPath, O_RDWR | O_BINARY);
+    if (fd == -1) {
+        return 0;
+    }
+    const int flushed = (AtomicFlush((S32)fd) == 0);
+    const int closed = (close(fd) == 0);
+    if (!flushed || !closed) {
+        return 0; // destination untouched; temp left for the caller to handle
+    }
+    if (AtomicRename(tempPath, finalPath) != 0) {
+        return 0;
+    }
+    return 1;
+}
+
 // =============================================================================
 #ifdef __cplusplus
 }

@@ -50,6 +50,14 @@ void AbortWriteAtomic(S32 handle);
 // commit, with automatic cleanup on any failure). Returns 1 on success.
 S32 WriteFileAtomic(const char *finalPath, const void *buffer, U32 size);
 
+// Atomically commit an already-written temp file onto finalPath: flush the temp
+// to disk, then rename it over the destination. The temp must already exist and
+// hold the complete content -- this never creates it. Use when many incremental
+// writes have been batched into one temp file and a single durability barrier
+// is wanted instead of one per write. Returns 1 on success (destination now
+// holds the temp's content); 0 on failure (destination untouched, temp kept).
+S32 CommitFileAtomic(const char *tempPath, const char *finalPath);
+
 U32 Delete(const char *filename);
 S32 Touch(const char *filename);
 U32 FileSize(const char *filename);
