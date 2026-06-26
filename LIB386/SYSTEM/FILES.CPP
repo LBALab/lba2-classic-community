@@ -1,12 +1,23 @@
 #include <SYSTEM/FILES.H>
 
 #include <SYSTEM/DISCIMG.H>
+#include <SYSTEM/LIMITS.H>
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <utime.h>
 #include <unistd.h>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h> // MoveFileExA (atomic replace)
+#include <io.h>      // _commit (fsync equivalent)
+#include <process.h> // _getpid
+#endif
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
@@ -135,6 +146,169 @@ bool IsDirectory(const char *path) {
 
     struct stat status = {};
     return ((stat(path, &status) == 0) && ((status.st_mode & S_IFMT) == S_IFDIR));
+}
+
+// --- Atomic (crash-safe) writes ----------------------------------------------
+// A small fixed table maps an in-flight atomic-write handle to its temp path and
+// final destination. The config writer is the only caller and never has more
+// than one write in flight, so a handful of slots is ample. A handle of 0 marks
+// a free slot -- 0 is never a valid write handle in this layer (OpenMode returns
+// 0 on failure, and the engine treats fd 0 as invalid throughout).
+#define ATOMIC_WRITE_SLOTS 4
+
+typedef struct {
+    S32 handle;
+    char finalPath[ADELINE_MAX_PATH];
+    char tempPath[ADELINE_MAX_PATH];
+} AtomicWriteSlot;
+
+static AtomicWriteSlot s_atomicWriteSlots[ATOMIC_WRITE_SLOTS];
+
+// Returns the slot index holding `handle`, or -1 if none. Pass 0 to find a free
+// slot.
+static int AtomicSlotFind(S32 handle) {
+    for (int i = 0; i < ATOMIC_WRITE_SLOTS; i++) {
+        if (s_atomicWriteSlots[i].handle == handle) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Flush a write handle's data to stable storage before the rename. Without it, a
+// crash just after the rename could expose a file the directory says is N bytes
+// but whose contents never reached the disk. Returns 0 on success.
+static int AtomicFlush(S32 handle) {
+#ifdef _WIN32
+    return _commit(handle);
+#else
+    return fsync(handle);
+#endif
+}
+
+// Atomically replace dst with tmp. POSIX rename() replaces in a single step;
+// Windows rename() fails if dst already exists, so use MoveFileEx with
+// REPLACE_EXISTING (the documented same-volume atomic replace). Returns 0 on
+// success.
+static int AtomicRename(const char *tmp, const char *dst) {
+#ifdef _WIN32
+    return MoveFileExA(tmp, dst, MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) ? 0 : -1;
+#else
+    return rename(tmp, dst);
+#endif
+}
+
+static int AtomicGetPid(void) {
+#ifdef _WIN32
+    return (int)_getpid();
+#else
+    return (int)getpid();
+#endif
+}
+
+S32 OpenWriteAtomic(const char *finalPath) {
+    assert(finalPath != NULL);
+
+    const int slot = AtomicSlotFind(0); // first free slot
+    if (slot < 0) {
+        return 0; // too many concurrent atomic writes
+    }
+
+    // Build a unique temp name alongside the target so the later rename stays on
+    // the same filesystem (a cross-filesystem rename is a copy, not atomic). The
+    // pid + a process-local counter keeps names distinct across processes;
+    // O_EXCL guards against any residual collision.
+    static int counter = 0;
+    char tempPath[ADELINE_MAX_PATH];
+    S32 handle = 0;
+    for (int attempt = 0; attempt < 64; attempt++) {
+        const int n = snprintf(tempPath, sizeof(tempPath), "%s.tmp.%d.%d",
+                               finalPath, AtomicGetPid(), ++counter);
+        if (n < 0 || (size_t)n >= sizeof(tempPath)) {
+            return 0; // path + temp suffix does not fit; fail rather than corrupt
+        }
+        const int fd = open(tempPath, O_WRONLY | O_CREAT | O_EXCL | O_BINARY,
+                            (S_IRUSR | S_IWUSR));
+        if (fd != -1) {
+            handle = fd;
+            break;
+        }
+        if (errno != EEXIST) {
+            return 0; // real error (permissions, missing directory, ...)
+        }
+        // EEXIST: a stale temp from this pid+counter; bump and retry.
+    }
+    if (!handle) {
+        return 0;
+    }
+
+    s_atomicWriteSlots[slot].handle = handle;
+    strncpy(s_atomicWriteSlots[slot].finalPath, finalPath, ADELINE_MAX_PATH - 1);
+    s_atomicWriteSlots[slot].finalPath[ADELINE_MAX_PATH - 1] = '\0';
+    strncpy(s_atomicWriteSlots[slot].tempPath, tempPath, ADELINE_MAX_PATH - 1);
+    s_atomicWriteSlots[slot].tempPath[ADELINE_MAX_PATH - 1] = '\0';
+    return handle;
+}
+
+S32 CommitWriteAtomic(S32 handle) {
+    const int slot = (handle != 0) ? AtomicSlotFind(handle) : -1;
+    if (slot < 0) {
+        return 0;
+    }
+
+    // Always close the handle (even if the flush fails) so the fd never leaks.
+    const int flushed = (AtomicFlush(handle) == 0);
+    const int closed = (close(handle) == 0);
+
+    if (!flushed || !closed) {
+        unlink(s_atomicWriteSlots[slot].tempPath);
+        s_atomicWriteSlots[slot].handle = 0;
+        return 0;
+    }
+
+    if (AtomicRename(s_atomicWriteSlots[slot].tempPath,
+                     s_atomicWriteSlots[slot].finalPath) != 0) {
+        unlink(s_atomicWriteSlots[slot].tempPath);
+        s_atomicWriteSlots[slot].handle = 0;
+        return 0;
+    }
+
+    s_atomicWriteSlots[slot].handle = 0;
+    return 1;
+}
+
+void AbortWriteAtomic(S32 handle) {
+    const int slot = (handle != 0) ? AtomicSlotFind(handle) : -1;
+    if (slot < 0) {
+        return;
+    }
+    close(handle);
+    unlink(s_atomicWriteSlots[slot].tempPath);
+    s_atomicWriteSlots[slot].handle = 0;
+}
+
+S32 WriteFileAtomic(const char *finalPath, const void *buffer, U32 size) {
+    assert(finalPath != NULL);
+    assert(buffer != NULL || size == 0);
+
+    const S32 handle = OpenWriteAtomic(finalPath);
+    if (!handle) {
+        return 0;
+    }
+
+    const U8 *p = (const U8 *)buffer;
+    U32 offset = 0;
+    while (offset < size) {
+        const U32 chunk = (size - offset > 65536U) ? 65536U : (size - offset);
+        const S32 w = Write(handle, p + offset, chunk);
+        if (w < 0 || (U32)w != chunk) {
+            AbortWriteAtomic(handle);
+            return 0;
+        }
+        offset += chunk;
+    }
+
+    return CommitWriteAtomic(handle);
 }
 
 // =============================================================================
