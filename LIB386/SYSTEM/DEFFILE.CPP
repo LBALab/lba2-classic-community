@@ -234,7 +234,12 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
 
     result = DefFileBufferReadString(ident);
 
-    handle = OpenWrite(FileName);
+    // Atomic write: the new content is spliced into a temp file which then
+    // atomically replaces FileName. OpenWrite would truncate FileName to zero up
+    // front, so a crash/kill anywhere in the splice below (and this runs ~30
+    // times per WriteConfigFile) would leave the live config truncated. Here the
+    // config is only ever the old complete file or the new complete file.
+    handle = OpenWriteAtomic(FileName);
     if (!handle) {
         return FALSE;
     }
@@ -273,7 +278,11 @@ S32 DefFileBufferWriteString(const char *ident, const char *string) {
         Write(handle, PtrEndIdent, EndPtrDef - PtrEndIdent);
     }
 
-    Close(handle);
+    if (!CommitWriteAtomic(handle)) {
+        // Commit failed: the temp was cleaned up and FileName is untouched, so
+        // the in-memory buffer still matches what is on disk. Leave it as-is.
+        return FALSE;
+    }
 
     DefFileBufferInit(FileName, (void *)OrgPtrDef, BufferSize);
 
