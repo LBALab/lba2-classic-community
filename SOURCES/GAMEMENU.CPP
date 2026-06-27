@@ -168,6 +168,12 @@ static DisplayEntry s_resMenuEntries[DISPLAY_MENU_MAX_ENTRIES];
 static S32 s_resMenuCount;
 static U16 ResolutionMenu[4 + (1 + DISPLAY_MENU_MAX_ENTRIES) * 2];
 
+// Menu row index DrawGameMenu paints with the green "active value" plasma
+// marker (distinct from the blue cursor). -1 = no marker, the default for every
+// menu except the resolution sub-page, which sets it in BuildResolutionMenu and
+// clears it on exit. See DrawOneChoice's select bitmask.
+static S32 s_menuMarkRow = -1;
+
 // Controller submenu: split keyboard remap and gamepad remap under one parent
 // so adding the pad doesn't clutter the top-level Options screen.
 U16 ControllerMenu[] = {
@@ -801,6 +807,14 @@ void InitMenuIncrustText(const char *text, S32 sprite, S32 time) {
     MenuIncrustSprite = sprite;
 }
 
+// Plasma colour banks: SelectPlasmaBank(n) ramps the fire bar through palette
+// indices n*16+0..10. 12 is the blue/cyan cursor highlight, 4 the red volume
+// slider, 8 a green band used to mark the active value distinct from the cursor
+// (see GereResolutionMenu). Palette rows verified against the menu palette.
+#define PLASMA_BANK_CURSOR 12
+#define PLASMA_BANK_SLIDER 4
+#define PLASMA_BANK_GREEN 8
+
 //──────────────────────────────────────────────────────────────────────────
 void DrawFireBar(S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul) {
     Struc_Point TabPoint[4];
@@ -830,11 +844,15 @@ void DrawFireBar(S32 xmin, S32 ymin, S32 xmax, S32 ymax, S32 coul) {
     switch (coul) {
     case FIRE_SELECT_MENU:
     case FIRE_INPUT_NAME:
-        SelectPlasmaBank(12);
+        SelectPlasmaBank(PLASMA_BANK_CURSOR);
         break;
 
     case FIRE_SLIDER_MENU:
-        SelectPlasmaBank(4);
+        SelectPlasmaBank(PLASMA_BANK_SLIDER);
+        break;
+
+    case FIRE_CURRENT_MENU:
+        SelectPlasmaBank(PLASMA_BANK_GREEN);
         break;
     }
 
@@ -2210,7 +2228,10 @@ void DrawOneChoice(S32 x, S32 y, S32 type, S32 num, S32 select) {
 
     BackupAngles(x0, y0, x1, y1);
 
-    if (select) {
+    // select is a bitmask: bit 0 = cursor row (blue plasma, the usual
+    // highlight), bit 1 = active-value marker (green plasma, e.g. the current
+    // resolution in GereResolutionMenu). Cursor wins when a row is both.
+    if (select & 1) {
         switch (type) {
         case 2: // sample volume
             value = SampleVolume;
@@ -2323,6 +2344,9 @@ void DrawOneChoice(S32 x, S32 y, S32 type, S32 num, S32 select) {
             }
         }
 
+    } else if (select & 2) {
+        // Active-value marker (not the cursor): green plasma bar.
+        DrawFire(y0, FIRE_CURRENT_MENU);
     } else {
         CopyBlock(x0, y0, x1, y1, Screen, x0, y0, Log);
         ShadeBoxBlk(x0, y0, x1, y1, MENU_SHADE_LVL);
@@ -2423,12 +2447,21 @@ void DrawGameMenu(U16 *ptrmenu, S32 justone) {
         }
 #endif
 
+        // Bit 0: cursor row. Bit 1: the green active-value marker row (only the
+        // resolution sub-page sets s_menuMarkRow; -1 elsewhere so this is a no-op).
+        S32 sel = (n == selected) ? 1 : 0;
+        if (n == s_menuMarkRow)
+            sel |= 2;
+
         if (justone) {
-            if (n == selected) {
-                DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, TRUE);
+            // Per-frame redraw animates the plasma. Refresh the cursor row and,
+            // when set, the green marker row, so the marker persists and animates
+            // between full redraws instead of being drawn once and cleared.
+            if (n == selected || n == s_menuMarkRow) {
+                DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, sel);
             }
         } else {
-            DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, (n == selected));
+            DrawOneChoice((S32)ModeDesiredX / 2, y, type, num, sel);
         }
 
         y += HAUTEUR_STANDARD + MENU_SPACE;
@@ -3238,10 +3271,15 @@ void Resolution_MainCapture(const char *path) {
     InitDial(0);
 
     BuildResolutionMenu();
+    /* Park the cursor on Back so the green "current" marker on the active
+       resolution row is visible in the capture (the live menu opens with the
+       cursor on the current row, where the blue cursor bar takes precedence). */
+    ResolutionMenu[0] = 0;
 
     Menu_RequestCapture(path);
     DoGameMenu(ResolutionMenu);
     Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
+    s_menuMarkRow = -1;        /* sub-page-local; don't leak to other menus */
 }
 
 // Rebuild the runtime ResolutionMenu array from the shared catalog: a "Back"
@@ -3263,9 +3301,12 @@ static void BuildResolutionMenu(void) {
         ResolutionMenu[4 + (1 + i) * 2 + 0] = 0;
         ResolutionMenu[4 + (1 + i) * 2 + 1] = (U16)(MENU_ID_RESOLUTION_BASE + i);
     }
-    // Land the cursor on the current resolution if it's in the list, else Back.
+    // Land the cursor on the current resolution if it's in the list, else Back;
+    // mark that same row green so it stays flagged as active once the cursor
+    // moves off it (cursor blue wins while they coincide). -1 = none.
     S32 cur = Display_FindCurrentEntry(s_resMenuEntries, s_resMenuCount);
     ResolutionMenu[0] = (cur >= 0) ? (U16)(1 + cur) : 0;
+    s_menuMarkRow = (cur >= 0) ? (1 + cur) : -1;
 }
 
 // Resolution sub-page, opened from the Display submenu's Resolution row.
@@ -3298,10 +3339,14 @@ static S32 GereResolutionMenu(void) {
             const DisplayEntry *e = &s_resMenuEntries[select - MENU_ID_RESOLUTION_BASE];
             ApplyResolutionChoice(e->w, e->h);
             // Keep the page open so the player can pick another mode (or back
-            // out). The display-derived list is stable across the switch; the
-            // cursor stays on the now-current entry.
+            // out). The display-derived list is stable across the switch; move
+            // the green marker to whatever row is current now.
+            S32 c = Display_FindCurrentEntry(s_resMenuEntries, s_resMenuCount);
+            s_menuMarkRow = (c >= 0) ? (1 + c) : -1;
         }
     }
+
+    s_menuMarkRow = -1; // marker is sub-page-local; don't leak it to other menus
 
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
