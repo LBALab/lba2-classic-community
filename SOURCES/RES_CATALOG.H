@@ -10,9 +10,9 @@
  *     aspect-matched ladder) and Res_BuildCatalog (the console verb's curated
  *     recommended + advanced tables).
  *
- * Consumers layer their own presentation on top: the console prints with tags;
- * the menu formats "WxH (aspect)" rows; RES_SWITCH validates against the same
- * bounds. See docs/RUNTIME_RESOLUTION.md.
+ * Consumers layer their own presentation on top: the console prints with aspect
+ * and tags; the menu renders bare "WxH" rows (anchor tagged "(Classic)");
+ * RES_SWITCH validates against the same bounds. See docs/RUNTIME_RESOLUTION.md.
  */
 
 #pragma once
@@ -44,13 +44,8 @@ typedef struct {
 } ResModeEntry;
 
 /* GCD-reduce (w, h) to its aspect, e.g. 1280x720 -> 16:9. Writes 1:1-style
-   fallback when h is zero. */
+   fallback when h is zero. Used by the console verb's listing. */
 void Res_Aspect(U32 w, U32 h, U32 *outA, U32 *outB);
-
-/* Write a human aspect label for (w, h) into `out`: a standard ratio name
-   ("16:9", "4:3", "16:10", ...) when within ~1.5% of one (so a %8-snapped
-   widescreen mode reads "16:9", not "53:30"), else the exact reduced ratio. */
-void Res_AspectLabel(U32 w, U32 h, char *out, int outSize);
 
 /* Snap a display dimension into the supported range. Width additionally
    rounds down to the nearest multiple of 8 (e.g. 1366 -> 1360). Both return

@@ -7,8 +7,6 @@
 
 #include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
 
-#include <stdio.h> /* snprintf (Res_AspectLabel) */
-
 /* True if (w, h) already appears in the first `n` entries of `list`. Defined
    below; forward-declared so the menu-list builder can dedup against itself. */
 static bool catalog_contains(const ResModeEntry *list, int n, U32 w, U32 h);
@@ -95,51 +93,6 @@ U32 Res_SnapAspectWidth(U32 dispW, U32 dispH, U32 targetH) {
 
 U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
     return Res_SnapAspectWidth(dispW, dispH, 480);
-}
-
-/* Common display aspect ratios, widest-name-first is irrelevant; matched by
-   nearest within ~1.5%. The %8 width snap nudges a derived mode a few pixels
-   off its exact ratio (e.g. 848x480 is 53:30, not a clean 16:9), so a snapped
-   16:9 mode still reads "16:9" instead of an unrecognisable reduced fraction. */
-static const struct {
-    const char *name;
-    U32 a, b;
-} kAspects[] = {
-    {"5:4", 5, 4},
-    {"4:3", 4, 3},
-    {"3:2", 3, 2},
-    {"16:10", 16, 10},
-    {"16:9", 16, 9},
-    {"21:10", 21, 10},
-    {"21:9", 21, 9},
-    {"32:9", 32, 9},
-};
-#define kAspectsCount ((int)(sizeof(kAspects) / sizeof(kAspects[0])))
-
-void Res_AspectLabel(U32 w, U32 h, char *out, int outSize) {
-    if (h == 0) {
-        snprintf(out, (size_t)outSize, "?");
-        return;
-    }
-    /* Nearest standard ratio within 1.5%: |w/h - a/b| / (a/b) <= 0.015, kept in
-       integers as |w*b - h*a| * 1000 <= 15 * h*a. All terms fit in S32 for the
-       supported range (w,h <= 1920; a,b <= 32). */
-    for (int i = 0; i < kAspectsCount; i++) {
-        S32 d = (S32)(w * kAspects[i].b) - (S32)(h * kAspects[i].a);
-        if (d < 0)
-            d = -d;
-        if (d * 1000 <= 15 * (S32)(h * kAspects[i].a)) {
-            snprintf(out, (size_t)outSize, "%s", kAspects[i].name);
-            return;
-        }
-    }
-    /* No standard match (an unusual panel, e.g. a 1.547:1 MacBook): a 2-decimal
-       ratio. The exact reduced fraction would be unreadable (1728:1117) and, on
-       the menu's aspect ladder, drift per rung as each width snaps to %8
-       (23:15 / 139:90 / 208:135 for the same panel). The decimal is stable and
-       legible; callers that want one label for the whole ladder pass the
-       display dimensions, not each snapped mode. */
-    snprintf(out, (size_t)outSize, "%.2f:1", (double)w / (double)h);
 }
 
 int Res_BuildMenuList(ResModeEntry *out, int cap) {

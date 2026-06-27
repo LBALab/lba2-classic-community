@@ -6,14 +6,14 @@
  * The menu offers Res_BuildMenuList: the 640x480 classic anchor plus a ladder
  * of display-aspect-matched modes computed per monitor, so every entry fills
  * the player's panel. The longer curated/advanced list stays behind the console
- * `resolution` verb. Rows are labelled "WxH (aspect)" via Res_AspectLabel.
+ * `resolution` verb. Rows are bare "WxH"; only the anchor is tagged "(Classic)"
+ * to flag the original 4:3 mode that pillarboxes on a widescreen panel.
  */
 
 #include "RES_MENU.H"
 
-#include "RES_CATALOG.H"   /* Res_BuildMenuList, Res_AspectLabel */
-#include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY */
-#include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
+#include "RES_CATALOG.H" /* Res_BuildMenuList */
+#include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
 
 #include <stdio.h>
 
@@ -21,24 +21,19 @@ S32 Display_BuildEntries(DisplayEntry *out) {
     ResModeEntry cat[DISPLAY_MENU_MAX_ENTRIES];
     const int n = Res_BuildMenuList(cat, DISPLAY_MENU_MAX_ENTRIES);
 
-    /* The ladder rungs are all matched to the panel aspect, so label them by the
-       display, not by each rung's %8-snapped dimensions (which drift: 23:15 /
-       139:90 / 208:135 for one 1.547:1 MacBook panel). The 640x480 classic
-       anchor is genuinely 4:3, so it keeps its own label. */
-    U32 dispW = 0, dispH = 0;
-    const bool haveDisp = Window_GetDisplayDimensions(&dispW, &dispH);
-
     for (int i = 0; i < n; i++) {
         out[i].w = cat[i].w;
         out[i].h = cat[i].h;
-        char aspect[16];
-        const bool isAnchor = (cat[i].w == 640 && cat[i].h == 480);
-        if (!isAnchor && haveDisp)
-            Res_AspectLabel(dispW, dispH, aspect, sizeof aspect);
+        /* Only the 640x480 anchor is tagged: it is the original 4:3 mode and
+           pillarboxes on a widescreen panel, so the "(Classic)" hint flags that
+           it behaves differently. The display-aspect ladder rows are bare WxH;
+           they all fill the panel, and the current one is already green-marked. */
+        if (cat[i].w == 640 && cat[i].h == 480)
+            snprintf(out[i].label, sizeof out[i].label, "%ux%u (Classic)",
+                     (unsigned)cat[i].w, (unsigned)cat[i].h);
         else
-            Res_AspectLabel(cat[i].w, cat[i].h, aspect, sizeof aspect);
-        snprintf(out[i].label, sizeof out[i].label, "%ux%u (%s)",
-                 (unsigned)cat[i].w, (unsigned)cat[i].h, aspect);
+            snprintf(out[i].label, sizeof out[i].label, "%ux%u",
+                     (unsigned)cat[i].w, (unsigned)cat[i].h);
     }
     return (S32)n;
 }
