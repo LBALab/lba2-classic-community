@@ -5,7 +5,8 @@
 
 #include "RES_SWITCH.H"
 
-#include "ANIMTEX.H" /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
+#include "ANIMTEX.H"     /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
+#include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "C_EXTERN.H"
 #include "CONTROL.H"     /* Control_HasResolution / Get */
 #include "DIRECTORIES.H" /* CFG_NAME */
@@ -36,13 +37,9 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Same validator the --resolution CLI uses (see CONTROL.CPP).  Kept local for
-   now to avoid yet another shared header; if a third caller appears (the menu)
-   we'll lift these out. */
-#define RES_SWITCH_MIN_X 320
-#define RES_SWITCH_MIN_Y 200
-#define RES_SWITCH_MAX_X 1920
-#define RES_SWITCH_MAX_Y 1024
+/* Bounds (RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H) and the multiple-of-8
+   width rule live in RES_CATALOG.H: the same limits the --resolution CLI, the
+   console verb, and the Display submenu all derive from. */
 
 /* True when the live resolution came from auto-detect or the compile-time
    default, i.e. the player never explicitly chose it. WriteConfigFile skips
@@ -55,9 +52,9 @@ static bool g_resIsAutoDerived = false;
 bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
 
 bool Res_ValidateDimensions(U32 w, U32 h) {
-    if (w < RES_SWITCH_MIN_X || w > RES_SWITCH_MAX_X)
+    if (w < RES_MIN_W || w > RES_MAX_W)
         return false;
-    if (h < RES_SWITCH_MIN_Y || h > RES_SWITCH_MAX_Y)
+    if (h < RES_MIN_H || h > RES_MAX_H)
         return false;
     if ((w & 7) != 0)
         return false;
@@ -118,8 +115,8 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
 bool Res_Switch(U32 newW, U32 newH) {
     if (!Res_ValidateDimensions(newW, newH)) {
         LogPrintf("Res_Switch: invalid target %ux%u (need %d..%dx%d..%d, W%%8==0)\n",
-                  newW, newH, RES_SWITCH_MIN_X, RES_SWITCH_MAX_X,
-                  RES_SWITCH_MIN_Y, RES_SWITCH_MAX_Y);
+                  newW, newH, RES_MIN_W, RES_MAX_W,
+                  RES_MIN_H, RES_MAX_H);
         return false;
     }
 
@@ -255,7 +252,7 @@ U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
        displays don't overflow the multiply. */
     U32 w = (U32)(((U64)480 * (U64)dispW) / (U64)dispH);
     w &= ~(U32)7;
-    if (w < (U32)RES_SWITCH_MIN_X || w > (U32)RES_SWITCH_MAX_X)
+    if (w < (U32)RES_MIN_W || w > (U32)RES_MAX_W)
         return 0;
     return w;
 }
@@ -317,8 +314,8 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
                     "Res_LoadBootDimensions: ignoring invalid cfg "
                     "ResolutionX=%ld ResolutionY=%ld (need W%%8==0, "
                     "range %dx%d - %dx%d); falling back to %dx%d.\n",
-                    w, h, RES_SWITCH_MIN_X, RES_SWITCH_MIN_Y,
-                    RES_SWITCH_MAX_X, RES_SWITCH_MAX_Y,
+                    w, h, RES_MIN_W, RES_MIN_H,
+                    RES_MAX_W, RES_MAX_H,
                     RESOLUTION_X, RESOLUTION_Y);
             }
         }

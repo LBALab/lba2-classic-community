@@ -1,64 +1,34 @@
 /*
- * Resolution catalog helpers for the Display options submenu. See
- * RES_MENU.H for the API summary and docs/RUNTIME_RESOLUTION.md for
- * the Phase 2 context.
+ * Resolution catalog adapter for the Display options submenu. Turns the
+ * shared RES_CATALOG mode list into labelled rows the menu can render. See
+ * RES_MENU.H and docs/RUNTIME_RESOLUTION.md.
  *
- * Two-entry shape by design — Classic + a display-aspect-derived
- * Widescreen at 480 height. HD modes deferred until A4/A5 (terrain
- * horizon + holomap Z-buffer Y clamps) land. Arbitrary widths remain
- * available via the console `resolution` verb.
+ * The menu offers the recommended tier (the modes that fit the current
+ * display, plus a synthesised native entry), HD included. The longer
+ * "advanced" list stays behind the console `resolution --all` verb. Rows are
+ * labelled "WxH (a:b)"; the catalog's provenance tags are console-only.
  */
 
 #include "RES_MENU.H"
 
-#include "RES_SWITCH.H"    /* Res_SnapWidescreenWidth (shared with the boot path) */
-#include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY */
-#include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
+#include "RES_CATALOG.H" /* ResModeEntry, Res_BuildCatalog, Res_Aspect */
+#include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
 
 #include <stdio.h>
-#include <string.h>
-
-/* GCD-reduce w,h to its (a:b) form. Same as res_aspect in CONSOLE_CMD.CPP. */
-static void aspect_ratio(U32 w, U32 h, U32 *outA, U32 *outB) {
-    U32 a = w, b = h;
-    while (b) {
-        U32 t = b;
-        b = a % b;
-        a = t;
-    }
-    if (a == 0)
-        a = 1;
-    *outA = w / a;
-    *outB = h / a;
-}
 
 S32 Display_BuildEntries(DisplayEntry *out) {
-    S32 n = 0;
+    ResModeEntry cat[DISPLAY_MENU_MAX_ENTRIES];
+    const int n = Res_BuildCatalog(cat, DISPLAY_MENU_MAX_ENTRIES, false /* recommended tier */);
 
-    /* Classic anchor — always emitted. */
-    out[n].w = 640;
-    out[n].h = 480;
-    snprintf(out[n].label, sizeof out[n].label, "Classic 4:3 (640x480)");
-    n++;
-
-    U32 dispW = 0, dispH = 0;
-    if (!Window_GetDisplayDimensions(&dispW, &dispH))
-        return n;
-
-    U32 wsW = Res_SnapWidescreenWidth(dispW, dispH);
-    if (wsW == 0 || wsW <= 640)
-        return n;
-
-    U32 ar_a, ar_b;
-    aspect_ratio(dispW, dispH, &ar_a, &ar_b);
-
-    snprintf(out[n].label, sizeof out[n].label,
-             "Widescreen %u:%u (%ux480)", ar_a, ar_b, wsW);
-    out[n].w = wsW;
-    out[n].h = 480;
-    n++;
-
-    return n;
+    for (int i = 0; i < n; i++) {
+        out[i].w = cat[i].w;
+        out[i].h = cat[i].h;
+        U32 a = 0, b = 0;
+        Res_Aspect(cat[i].w, cat[i].h, &a, &b);
+        snprintf(out[i].label, sizeof out[i].label, "%ux%u (%u:%u)",
+                 (unsigned)cat[i].w, (unsigned)cat[i].h, (unsigned)a, (unsigned)b);
+    }
+    return (S32)n;
 }
 
 S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count) {
@@ -76,9 +46,9 @@ void Display_FormatCurrentLabel(char *out, S32 outSize) {
     if (idx >= 0) {
         snprintf(out, (size_t)outSize, "%s", entries[idx].label);
     } else {
-        /* Not in the curated list — show the bare dimensions so the
-           player isn't confused by an empty value. Reachable if the
-           player launched at a console-verb resolution like 1024x480. */
+        /* Not in the curated list: show the bare dimensions so the value
+           isn't blank. Reachable if the player launched at a console-verb
+           resolution that the recommended tier doesn't enumerate. */
         snprintf(out, (size_t)outSize, "%ux%u",
                  (unsigned)ModeDesiredX, (unsigned)ModeDesiredY);
     }

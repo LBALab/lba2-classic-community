@@ -44,7 +44,7 @@ What's already in place (cite-checked against current `main`):
 | [`LIB386/SVGA/SCREEN.CPP:29`](../LIB386/SVGA/SCREEN.CPP) — `EndScreen()` | Frees `Log` and `Screen`. Already exists, currently unused. |
 | [`LIB386/SYSTEM/WINDOW.CPP:161`](../LIB386/SYSTEM/WINDOW.CPP) — `CreateWindowSurface(resX, resY)` | SDL window + renderer + streaming texture creation. |
 | [`LIB386/SYSTEM/WINDOW.CPP:186`](../LIB386/SYSTEM/WINDOW.CPP) — `DestroyWindowSurface()` | Tears down the SDL texture/renderer/window in the right order. |
-| `--resolution WxH` arg parsing | Parses to integers, validates `W % 8 == 0`, range `320×200` – `1920×1024`. Reuse the same validator for the runtime path. |
+| `--resolution WxH` arg parsing | Parses to integers, validates `W % 8 == 0`, range `320×200` – `1920×1080`. Reuse the same validator for the runtime path. |
 
 What's missing:
 
