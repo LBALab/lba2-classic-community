@@ -1,64 +1,44 @@
 /*
- * Resolution catalog helpers for the Display options submenu. See
- * RES_MENU.H for the API summary and docs/RUNTIME_RESOLUTION.md for
- * the Phase 2 context.
+ * Resolution catalog adapter for the Display options submenu. Turns the
+ * shared RES_CATALOG menu list into labelled rows the menu can render. See
+ * RES_MENU.H and docs/RUNTIME_RESOLUTION.md.
  *
- * Two-entry shape by design — Classic + a display-aspect-derived
- * Widescreen at 480 height. HD modes deferred until A4/A5 (terrain
- * horizon + holomap Z-buffer Y clamps) land. Arbitrary widths remain
- * available via the console `resolution` verb.
+ * The menu offers Res_BuildMenuList: the 640x480 classic anchor plus a ladder
+ * of display-aspect-matched modes computed per monitor, so every entry fills
+ * the player's panel. The longer curated/advanced list stays behind the console
+ * `resolution` verb. Rows are bare "WxH"; only the anchor is tagged "(Classic)"
+ * to flag the original 4:3 mode that pillarboxes on a widescreen panel.
  */
 
 #include "RES_MENU.H"
 
-#include "RES_SWITCH.H"    /* Res_SnapWidescreenWidth (shared with the boot path) */
-#include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY */
-#include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
+#include "RES_CATALOG.H" /* Res_BuildMenuList */
+#include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
 
 #include <stdio.h>
 #include <string.h>
 
-/* GCD-reduce w,h to its (a:b) form. Same as res_aspect in CONSOLE_CMD.CPP. */
-static void aspect_ratio(U32 w, U32 h, U32 *outA, U32 *outB) {
-    U32 a = w, b = h;
-    while (b) {
-        U32 t = b;
-        b = a % b;
-        a = t;
-    }
-    if (a == 0)
-        a = 1;
-    *outA = w / a;
-    *outB = h / a;
-}
-
 S32 Display_BuildEntries(DisplayEntry *out) {
-    S32 n = 0;
+    ResModeEntry cat[DISPLAY_MENU_MAX_ENTRIES];
+    const int n = Res_BuildMenuList(cat, DISPLAY_MENU_MAX_ENTRIES);
 
-    /* Classic anchor — always emitted. */
-    out[n].w = 640;
-    out[n].h = 480;
-    snprintf(out[n].label, sizeof out[n].label, "Classic 4:3 (640x480)");
-    n++;
-
-    U32 dispW = 0, dispH = 0;
-    if (!Window_GetDisplayDimensions(&dispW, &dispH))
-        return n;
-
-    U32 wsW = Res_SnapWidescreenWidth(dispW, dispH);
-    if (wsW == 0 || wsW <= 640)
-        return n;
-
-    U32 ar_a, ar_b;
-    aspect_ratio(dispW, dispH, &ar_a, &ar_b);
-
-    snprintf(out[n].label, sizeof out[n].label,
-             "Widescreen %u:%u (%ux480)", ar_a, ar_b, wsW);
-    out[n].w = wsW;
-    out[n].h = 480;
-    n++;
-
-    return n;
+    for (int i = 0; i < n; i++) {
+        out[i].w = cat[i].w;
+        out[i].h = cat[i].h;
+        /* Only the classic anchor is tagged: it is the original 4:3 mode and
+           pillarboxes on a widescreen panel, so the "(Classic)" hint flags that
+           it behaves differently. The display-aspect ladder rows are bare WxH;
+           they all fill the panel, and the current one is already green-marked.
+           Keyed on the catalog tag, so the anchor identity lives in RES_CATALOG
+           rather than a 640x480 literal duplicated here. */
+        if (strcmp(cat[i].tag, "classic") == 0)
+            snprintf(out[i].label, sizeof out[i].label, "%ux%u (Classic)",
+                     (unsigned)cat[i].w, (unsigned)cat[i].h);
+        else
+            snprintf(out[i].label, sizeof out[i].label, "%ux%u",
+                     (unsigned)cat[i].w, (unsigned)cat[i].h);
+    }
+    return (S32)n;
 }
 
 S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count) {
@@ -76,9 +56,9 @@ void Display_FormatCurrentLabel(char *out, S32 outSize) {
     if (idx >= 0) {
         snprintf(out, (size_t)outSize, "%s", entries[idx].label);
     } else {
-        /* Not in the curated list — show the bare dimensions so the
-           player isn't confused by an empty value. Reachable if the
-           player launched at a console-verb resolution like 1024x480. */
+        /* Not in the curated list: show the bare dimensions so the value
+           isn't blank. Reachable if the player launched at a console-verb
+           resolution that the recommended tier doesn't enumerate. */
         snprintf(out, (size_t)outSize, "%ux%u",
                  (unsigned)ModeDesiredX, (unsigned)ModeDesiredY);
     }

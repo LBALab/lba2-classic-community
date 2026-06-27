@@ -1342,6 +1342,7 @@ extern	T_MENU_COMP	ListMenuComp[MAX_MENUS_COMP] ;
 #define	FIRE_SELECT_MENU	0
 #define	FIRE_SLIDER_MENU	1
 #define	FIRE_INPUT_NAME		2
+#define	FIRE_CURRENT_MENU	3	//	green plasma: marks the active value (vs the cursor)
 #define	FLAG_INV_USED	1	//	Already used -> Auto Use Now
 #define	FLAG_INV_FEWER	2	//	Possibly fewer, must display quantity
 #define	FLAG_INV_VALUE	4	//	Must display value Bar

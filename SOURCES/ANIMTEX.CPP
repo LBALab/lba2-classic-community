@@ -339,11 +339,26 @@ void InitPlasmaMenu(void) {
 void SelectPlasmaBank(U8 bank) {
     S32 n;
     U8 *ptr;
+    T_PLASMA *plasma = (T_PLASMA *)TexEffectList[PlasmaMenuIndex].PtrStruct;
 
-    ptr = ((T_PLASMA *)TexEffectList[PlasmaMenuIndex].PtrStruct)->TabColors;
+    ptr = plasma->TabColors;
 
     for (n = 10; n >= 0; n--)
         *ptr++ = (U8)(n + bank * 16);
+
+    // Re-bake the plasma texture with the new colours immediately. The texture
+    // is a single shared bitmap baked from TabColors; DoTextureAnimation only
+    // re-bakes once per ~20ms, so a second fire bar in the same frame (e.g. the
+    // green "current value" marker drawn after the blue cursor) would otherwise
+    // sample the previous bar's colours. Baking here makes each bank take effect
+    // regardless of draw order.
+    //
+    // For the first fire bar of a frame this bake is then redundant with
+    // DoTextureAnimation's own bake: one extra ~64px Gouraud fill, menu-only,
+    // sub-millisecond. The redundancy-free alternative (split advance/bake out of
+    // DoTextureAnimation) would touch shared infra used by 8 gameplay/config call
+    // sites, so it isn't worth it here; the bake stays local to the colour swap.
+    Do_Plasma(plasma);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
