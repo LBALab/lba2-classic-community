@@ -169,9 +169,15 @@ static S32 s_resMenuCount;
 static U16 ResolutionMenu[4 + (1 + DISPLAY_MENU_MAX_ENTRIES) * 2];
 
 // Menu row index DrawGameMenu paints with the green "active value" plasma
-// marker (distinct from the blue cursor). -1 = no marker, the default for every
-// menu except the resolution sub-page, which sets it in BuildResolutionMenu and
-// clears it on exit. See DrawOneChoice's select bitmask.
+// marker (distinct from the blue cursor). -1 = no marker.
+//
+// A file-static rather than a per-row flag in the menu array: the U16 (type,id)
+// menu format has no spare per-row slot, and growing it for a single marker
+// isn't worth touching every menu. The contract instead: only the resolution
+// sub-page sets this (BuildResolutionMenu), and it is cleared back to -1 on
+// every exit path (GereResolutionMenu, Resolution_MainCapture), paired with
+// s_resMenuCount = 0, so no other menu can render a marker. See DrawOneChoice's
+// select bitmask.
 static S32 s_menuMarkRow = -1;
 
 // Controller submenu: split keyboard remap and gamepad remap under one parent
@@ -3279,7 +3285,19 @@ void Resolution_MainCapture(const char *path) {
     Menu_RequestCapture(path);
     DoGameMenu(ResolutionMenu);
     Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
-    s_menuMarkRow = -1;        /* sub-page-local; don't leak to other menus */
+    /* Clear the sub-page-local statics so neither the green marker nor the
+       BuildCustomMenuText range guard can affect any other menu. */
+    s_menuMarkRow = -1;
+    s_resMenuCount = 0;
+}
+
+// Write entry `row` (0-based) of a runtime-built menu array: the (type, id)
+// pair after the 4-word header. Centralises the `4 + row*2` index math the
+// menu format uses, shared by the dynamic builders (BuildResolutionMenu,
+// GameAskChoice).
+static void MenuSetEntry(U16 *menu, S32 row, U16 type, U16 id) {
+    menu[4 + row * 2 + 0] = type;
+    menu[4 + row * 2 + 1] = id;
 }
 
 // Rebuild the runtime ResolutionMenu array from the shared catalog: a "Back"
@@ -3295,12 +3313,9 @@ static void BuildResolutionMenu(void) {
     ResolutionMenu[2] = 260;
     ResolutionMenu[3] = 0;
     // Back row, then one plain-button row per catalog entry (id = base + i).
-    ResolutionMenu[4 + 0] = 0;
-    ResolutionMenu[4 + 1] = 26;
-    for (S32 i = 0; i < s_resMenuCount; i++) {
-        ResolutionMenu[4 + (1 + i) * 2 + 0] = 0;
-        ResolutionMenu[4 + (1 + i) * 2 + 1] = (U16)(MENU_ID_RESOLUTION_BASE + i);
-    }
+    MenuSetEntry(ResolutionMenu, 0, 0, 26);
+    for (S32 i = 0; i < s_resMenuCount; i++)
+        MenuSetEntry(ResolutionMenu, 1 + i, 0, (U16)(MENU_ID_RESOLUTION_BASE + i));
     // Land the cursor on the current resolution if it's in the list, else Back;
     // mark that same row green so it stays flagged as active once the cursor
     // moves off it (cursor blue wins while they coincide). -1 = none.
@@ -3346,7 +3361,11 @@ static S32 GereResolutionMenu(void) {
         }
     }
 
-    s_menuMarkRow = -1; // marker is sub-page-local; don't leak it to other menus
+    // Clear the sub-page-local statics: the green marker row, and the count the
+    // BuildCustomMenuText range guard keys on. With s_resMenuCount back to 0 the
+    // guard (num >= BASE && num < BASE + count) can't match any other menu's id.
+    s_menuMarkRow = -1;
+    s_resMenuCount = 0;
 
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
@@ -4312,10 +4331,8 @@ void GameAskChoice(S32 nummess) {
     GameChoiceMenu[1] = GameNbChoices;
     GameChoiceMenu[2] = 0;
     GameChoiceMenu[3] = (U16)(START_FILE_ISLAND + Island);
-    for (n = 0; n < GameNbChoices; n++) {
-        GameChoiceMenu[4 + n * 2 + 0] = 0;                 // type
-        GameChoiceMenu[4 + n * 2 + 1] = GameListChoice[n]; // mess
-    }
+    for (n = 0; n < GameNbChoices; n++)
+        MenuSetEntry(GameChoiceMenu, n, 0 /* plain button */, GameListChoice[n]);
 
     MyDial(nummess);
 
