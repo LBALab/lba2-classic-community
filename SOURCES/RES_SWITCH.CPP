@@ -25,6 +25,7 @@
 #include <SYSTEM/DEFFILE.H> /* DefFileBufferInit / ReadValueDefault (boot cfg read) */
 #include <SYSTEM/EXIT.H>    /* PathConfigFile (extern char[ADELINE_MAX_PATH]) */
 #include <SYSTEM/FILES.H>   /* ExistsFileOrDir */
+#include <SYSTEM/LOG.H>     /* Log_Debug (per-switch trace, off by default) */
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/RESOLUTION.H> /* RESOLUTION_X / RESOLUTION_Y compile-time defaults */
 #include <SYSTEM/STRING.H>
@@ -221,7 +222,10 @@ bool Res_Switch(U32 newW, U32 newH) {
     FirstTime = AFF_ALL_FLIP;
 
     const bool isFullscreen = GetWindowFullscreen();
-    LogPrintf("Res_Switch: %ux%u -> %ux%u OK (fullscreen %d -> %d)\n",
+    /* Per-switch trace at DEBUG so it doesn't spam normal output when a player
+       tries several resolutions in the menu; surface it with `loglevel debug`.
+       Failures below/above still log loudly via LogPrintf. */
+    Log_Debug("Res_Switch: %ux%u -> %ux%u OK (fullscreen %d -> %d)\n",
               oldW, oldH, newW, newH, (int)wasFullscreen, (int)isFullscreen);
     /* Fullscreen state must round-trip cleanly; SDL_SetWindowSize on the
        existing window doesn't take the window out of fullscreen. If this
