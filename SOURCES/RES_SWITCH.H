@@ -74,14 +74,6 @@ bool Res_ValidateDimensions(U32 w, U32 h);
    the cfg held an invalid value so the player can spot a corrupted key. */
 void Res_LoadBootDimensions(U32 *outW, U32 *outH);
 
-/* Snap a display's (W, H) to a widescreen render width that preserves the
-   display aspect at the engine's 480 render height, rounded down to the %8
-   width constraint and clamped to the supported range. Returns 0 if the
-   inputs are zero or the result falls outside the range. Shared by the boot
-   auto-detect path and the Display options submenu so both derive the same
-   widescreen entry. */
-U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH);
-
 /* Auto-detect a widescreen boot resolution from the primary display: writes
    (snapped-width, 480) and returns true when the display is wider than 4:3.
    Returns false (outputs untouched) on a 4:3 display or a failed/headless

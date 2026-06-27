@@ -244,19 +244,6 @@ bool Res_Switch(U32 newW, U32 newH) {
  *   Boot-time resolution resolution (CLI > cfg > auto-detect > default)     *
  *══════════════════════════════════════════════════════════════════════════*/
 
-U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
-    if (dispW == 0 || dispH == 0)
-        return 0;
-    /* W = round_down((480 * dispW / dispH) / 8) * 8, preserving the display
-       aspect at the engine's 480 render height. 64-bit intermediate so wide
-       displays don't overflow the multiply. */
-    U32 w = (U32)(((U64)480 * (U64)dispW) / (U64)dispH);
-    w &= ~(U32)7;
-    if (w < (U32)RES_MIN_W || w > (U32)RES_MAX_W)
-        return 0;
-    return w;
-}
-
 bool Res_AutoDetectDimensions(U32 *outW, U32 *outH) {
     U32 dispW = 0, dispH = 0;
     if (!Window_GetPrimaryDisplayDimensions(&dispW, &dispH))

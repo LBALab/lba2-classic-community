@@ -145,7 +145,9 @@ If the new mode failed to allocate (out of memory) or SDL refused to create the 
 |---|---|
 | **Classic** | Exactly `640×480`. Pinned at the top of every list. Never filtered out. The authentic-mode anchor. |
 | **Recommended** | A small fixed list of common aspect ratios, filtered to `≤ display`. Today's list: `640×480` (4:3), `768×480` (16:10), `1024×480` (~21:10), `1280×720` (16:9 — experimental), `1920×1080` (16:9 — experimental), plus a synthetic `Native` entry resolved to `display_W × display_H` snapped to `W % 8 == 0`. |
-| **Advanced** | All multiples of 8 in width from 320 to 1920, all heights from 200 to 1024, filtered to `≤ display`. Shown behind an "Advanced..." gate so the Recommended list isn't 60 entries. |
+| **Advanced** | A curated list of common modes (320×200 … 1680×1024), filtered to `≤ display`. Shown behind `resolution --all` so the default list isn't dozens of entries. |
+
+> **Menu vs console.** The two tiers above (`Res_BuildCatalog`) back the **console** `resolution` verb: a curated, power-user list plus arbitrary `WxH`. The **in-game menu** uses a different builder, `Res_BuildMenuList`: the `640×480` classic anchor plus a ladder of **display-aspect-matched** modes at 480/720/1080 render heights, computed per monitor. Every menu entry therefore fills the player's exact panel (no letterbox/pillarbox). For example, a 16:9 panel offers `640×480, 848×480, 1280×720, 1920×1080`; a 16:10 panel offers `768×480, 1152×720, 1728×1080`; an odd-aspect laptop gets its own widths. The `@480` rung equals the boot auto-detect value, so the first-launch resolution is always a listed (and markable) entry. Rungs that don't fit the panel, or whose width would exceed 1920 (ultrawide at 1080), are dropped.
 
 ### Aspect labeling
 

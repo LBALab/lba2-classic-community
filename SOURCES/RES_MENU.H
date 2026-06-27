@@ -2,14 +2,14 @@
  * Resolution catalog adapter: helpers for the Display options submenu in
  * GAMEMENU.CPP (see docs/RUNTIME_RESOLUTION.md).
  *
- * A thin labelling layer over the shared RES_CATALOG mode list: it turns the
- * recommended tier (display-fitting modes + a synthesised native entry, HD
- * included) into "WxH (a:b)" rows the resolution sub-page can render, so the
- * menu code doesn't have to query the SDL display or reduce aspect ratios.
- * The longer advanced list stays behind the console `resolution --all` verb.
+ * A thin labelling layer over RES_CATALOG's menu list (Res_BuildMenuList): it
+ * turns the 640x480 anchor plus the display-aspect-matched ladder into
+ * "WxH (aspect)" rows the resolution sub-page can render, so the menu code
+ * doesn't have to query the SDL display or compute aspect labels. The curated
+ * and advanced lists stay behind the console `resolution` verb.
  *
  * Rebuilt each time the sub-page opens, so a player who swaps monitors
- * mid-session gets a refreshed list.
+ * mid-session gets a list matched to the new panel.
  */
 
 #ifndef RES_MENU_H
@@ -21,9 +21,9 @@
 extern "C" {
 #endif
 
-/* Upper bound on rows the recommended tier can produce: the curated
-   recommended modes (currently 5) plus one synthesised native entry. Sizes
-   the catalog scratch arrays and the runtime sub-page menu buffer. */
+/* Upper bound on rows the menu list can produce: the 640x480 anchor plus the
+   aspect ladder (480/720/1080 rungs). 8 leaves generous headroom. Sizes the
+   catalog scratch arrays and the runtime sub-page menu buffer. */
 #define DISPLAY_MENU_MAX_ENTRIES 8
 
 /* A single row in the resolution sub-page. label is the rendered text,
@@ -34,9 +34,9 @@ typedef struct {
     char label[48];
 } DisplayEntry;
 
-/* Build the entry list from the shared catalog's recommended tier. Always
- * emits 640x480 at index 0; appends the display-fitting modes and a native
- * entry when the display query succeeds. Returns count (<= cap). */
+/* Build the entry list from RES_CATALOG's per-monitor menu list (the 640x480
+ * anchor plus the display-aspect ladder), labelling each "WxH (aspect)".
+ * Returns count (<= cap). */
 S32 Display_BuildEntries(DisplayEntry *out);
 
 /* Index of the entry whose (w, h) matches ModeDesiredX/Y, or -1 if

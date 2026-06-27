@@ -5,13 +5,14 @@
  * Display options submenu (RES_MENU.CPP):
  *
  *   - the canonical (W, H) bounds and the multiple-of-8 width rule,
- *   - the curated recommended / advanced mode tables,
- *   - aspect-ratio reduction and display-native snapping,
- *   - the filter-to-display, dedupe, append-native list builder.
+ *   - aspect-ratio reduction, labelling, and display-aspect / native snapping,
+ *   - two list builders: Res_BuildMenuList (the in-game menu's per-monitor
+ *     aspect-matched ladder) and Res_BuildCatalog (the console verb's curated
+ *     recommended + advanced tables).
  *
- * Consumers layer their own presentation on top: the console prints the list
- * with tags; the menu formats "WxH (a:b)" rows; RES_SWITCH validates against
- * the same bounds. See docs/RUNTIME_RESOLUTION.md.
+ * Consumers layer their own presentation on top: the console prints with tags;
+ * the menu formats "WxH (aspect)" rows; RES_SWITCH validates against the same
+ * bounds. See docs/RUNTIME_RESOLUTION.md.
  */
 
 #pragma once
@@ -46,19 +47,40 @@ typedef struct {
    fallback when h is zero. */
 void Res_Aspect(U32 w, U32 h, U32 *outA, U32 *outB);
 
+/* Write a human aspect label for (w, h) into `out`: a standard ratio name
+   ("16:9", "4:3", "16:10", ...) when within ~1.5% of one (so a %8-snapped
+   widescreen mode reads "16:9", not "53:30"), else the exact reduced ratio. */
+void Res_AspectLabel(U32 w, U32 h, char *out, int outSize);
+
 /* Snap a display dimension into the supported range. Width additionally
    rounds down to the nearest multiple of 8 (e.g. 1366 -> 1360). Both return
    0 when the snapped value falls below the minimum. */
 U32 Res_SnapNativeW(U32 dispW);
 U32 Res_SnapNativeH(U32 dispH);
 
-/* Compose the visible mode list into `out` (capacity `cap`), newest-first by
-   tier: the recommended modes that fit the current display, then a synthesised
-   "native" entry derived from the display (deduped), then (when
-   includeAdvanced is set) the advanced modes that fit (deduped). 640x480 is always
-   emitted at index 0 regardless of display query success. Returns the count
-   written (<= cap). Queries the display via Window_GetDisplayDimensions; when
-   that fails (headless), only the unconditional 640x480 is emitted. */
+/* Width that preserves the display aspect at `targetH` render height, rounded
+   down to a multiple of 8 and clamped to [RES_MIN_W, RES_MAX_W]. Returns 0 when
+   inputs are zero or the result falls outside the width range. The building
+   block for the menu's aspect ladder (Res_BuildMenuList). */
+U32 Res_SnapAspectWidth(U32 dispW, U32 dispH, U32 targetH);
+
+/* targetH = 480 shorthand: the classic-height widescreen width. Shared by the
+   boot auto-detect (Res_AutoDetectDimensions) and the menu's @480 rung, so the
+   first-launch resolution is always one the menu lists. */
+U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH);
+
+/* The in-game menu's list: the 640x480 classic anchor plus a ladder of
+   display-aspect-matched modes (at 480/720/1080 render heights) that fill this
+   exact panel, computed per monitor. Drops rungs that don't fit the display or
+   exceed the max width, and dups of the anchor. Ascending order. Returns the
+   count written (<= cap); headless yields just the anchor. Distinct from
+   Res_BuildCatalog, which is the console verb's curated/advanced list. */
+int Res_BuildMenuList(ResModeEntry *out, int cap);
+
+/* The console verb's list (recommended + native, plus advanced when set),
+   filtered to the display. A curated table of common modes for power users;
+   see Res_BuildMenuList for the per-monitor aspect-matched menu list. 640x480
+   is always emitted at index 0. Returns the count written (<= cap). */
 int Res_BuildCatalog(ResModeEntry *out, int cap, bool includeAdvanced);
 
 #ifdef __cplusplus
