@@ -11,8 +11,9 @@
 
 #include "RES_MENU.H"
 
-#include "RES_CATALOG.H" /* Res_BuildMenuList, Res_AspectLabel */
-#include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
+#include "RES_CATALOG.H"   /* Res_BuildMenuList, Res_AspectLabel */
+#include <SVGA/SCREEN.H>   /* ModeDesiredX / ModeDesiredY */
+#include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
 
 #include <stdio.h>
 
@@ -20,11 +21,22 @@ S32 Display_BuildEntries(DisplayEntry *out) {
     ResModeEntry cat[DISPLAY_MENU_MAX_ENTRIES];
     const int n = Res_BuildMenuList(cat, DISPLAY_MENU_MAX_ENTRIES);
 
+    /* The ladder rungs are all matched to the panel aspect, so label them by the
+       display, not by each rung's %8-snapped dimensions (which drift: 23:15 /
+       139:90 / 208:135 for one 1.547:1 MacBook panel). The 640x480 classic
+       anchor is genuinely 4:3, so it keeps its own label. */
+    U32 dispW = 0, dispH = 0;
+    const bool haveDisp = Window_GetDisplayDimensions(&dispW, &dispH);
+
     for (int i = 0; i < n; i++) {
         out[i].w = cat[i].w;
         out[i].h = cat[i].h;
         char aspect[16];
-        Res_AspectLabel(cat[i].w, cat[i].h, aspect, sizeof aspect);
+        const bool isAnchor = (cat[i].w == 640 && cat[i].h == 480);
+        if (!isAnchor && haveDisp)
+            Res_AspectLabel(dispW, dispH, aspect, sizeof aspect);
+        else
+            Res_AspectLabel(cat[i].w, cat[i].h, aspect, sizeof aspect);
         snprintf(out[i].label, sizeof out[i].label, "%ux%u (%s)",
                  (unsigned)cat[i].w, (unsigned)cat[i].h, aspect);
     }

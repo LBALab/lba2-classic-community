@@ -133,10 +133,13 @@ void Res_AspectLabel(U32 w, U32 h, char *out, int outSize) {
             return;
         }
     }
-    /* No standard match (an unusual panel): the exact reduced ratio. */
-    U32 a = 0, b = 0;
-    Res_Aspect(w, h, &a, &b);
-    snprintf(out, (size_t)outSize, "%u:%u", (unsigned)a, (unsigned)b);
+    /* No standard match (an unusual panel, e.g. a 1.547:1 MacBook): a 2-decimal
+       ratio. The exact reduced fraction would be unreadable (1728:1117) and, on
+       the menu's aspect ladder, drift per rung as each width snaps to %8
+       (23:15 / 139:90 / 208:135 for the same panel). The decimal is stable and
+       legible; callers that want one label for the whole ladder pass the
+       display dimensions, not each snapped mode. */
+    snprintf(out, (size_t)outSize, "%.2f:1", (double)w / (double)h);
 }
 
 int Res_BuildMenuList(ResModeEntry *out, int cap) {
