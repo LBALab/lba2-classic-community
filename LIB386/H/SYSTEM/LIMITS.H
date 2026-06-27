@@ -12,5 +12,7 @@
 /// Max char length for filename component of path
 #define ADELINE_MAX_FILENAME 256
 
-/// Maximum screen resolution of Y axis
-#define ADELINE_MAX_Y_RES 1024
+/// Maximum screen resolution of Y axis. Sizes the static TabOffLine[] /
+/// TabOffPhysLine[] line-offset tables and bounds the runtime resolution
+/// switch (see RES_MAX_H in RES_CATALOG.H, kept in sync). 1080 enables 1080p.
+#define ADELINE_MAX_Y_RES 1080

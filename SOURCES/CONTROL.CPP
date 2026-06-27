@@ -7,7 +7,8 @@
 #include "GAMEMENU.H" /* BeginDemoSlide */
 #include "PATCH.H"    /* NbPatches */
 #include "DIRECTORIES.H"
-#include "RES_SWITCH.H" /* Res_Switch for --res-switch-test */
+#include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
+#include "RES_SWITCH.H"  /* Res_Switch for --res-switch-test */
 #include "CONSOLE/CONSOLE.H"
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
@@ -58,18 +59,12 @@ static int s_verbose = 0;
 static int s_have_resolution = 0;
 static long s_res_x = 0;
 static long s_res_y = 0;
-/* Min = VGA 320x200; below this the iso projection origin (ModeDesiredX/2 - 32)
-   can go negative and the UI (authored at 640x480) clips heavily. Cheap safety
-   net against typos like `--resolution 64x48`.
-
-   Max Y is capped at ADELINE_MAX_Y_RES (1024 in LIB386/H/SYSTEM/LIMITS.H) — the
-   size of TabOffLine[]/TabOffPhysLine[]. To support 1080p+, bump ADELINE_MAX_Y_RES
-   first, then this cap. Common reachable HD-ish modes today: 1280x720, 1024x768,
-   1366x768, 1920x1024. */
-#define CONTROL_RES_MIN_X 320
-#define CONTROL_RES_MIN_Y 200
-#define CONTROL_RES_MAX_X 1920
-#define CONTROL_RES_MAX_Y 1024
+/* Resolution bounds (RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H, W%8==0) are
+   the shared limits in RES_CATALOG.H: same constants Res_ValidateDimensions and
+   the console verb use, so the CLI can't drift from what Res_Switch accepts.
+   Min = VGA 320x200 (below this the iso projection origin ModeDesiredX/2 - 32 can
+   go negative and the 640x480-authored UI clips heavily); max Y = ADELINE_MAX_Y_RES,
+   the size of TabOffLine[]/TabOffPhysLine[]. Reachable HD modes: 1280x720, 1920x1080. */
 
 /* --language <name>: override the engine's Language global at boot, bypassing
    the cfg's Language key. Doesn't write anything to disk; the cfg is not touched.
@@ -220,8 +215,8 @@ void Control_ParseArgs(int *argc, char *argv[]) {
         if (!strcmp(a, "--resolution") && has_val) {
             /* Format: WxH (or WXH). Width must be a positive multiple of 8 (matches
                the engine's blitter / clip stride assumptions; same constraint as the
-               compile-time check in RESOLUTION.H). Height bounded by ADELINE_MAX_Y_RES
-               (=1024) via the CONTROL_RES_MAX_Y cap. */
+               compile-time check in RESOLUTION.H). Height bounded by RES_MAX_H
+               (= ADELINE_MAX_Y_RES). */
             const char *val = argv[read + 1];
             const char *xp = strchr(val, 'x');
             if (xp == NULL)
@@ -233,8 +228,8 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 long w = strtol(val, &end_w, 10);
                 long h = strtol(xp + 1, &end_h, 10);
                 if (end_w == xp && end_h && *end_h == '\0' &&
-                    w >= CONTROL_RES_MIN_X && h >= CONTROL_RES_MIN_Y &&
-                    w <= CONTROL_RES_MAX_X && h <= CONTROL_RES_MAX_Y &&
+                    w >= RES_MIN_W && h >= RES_MIN_H &&
+                    w <= RES_MAX_W && h <= RES_MAX_H &&
                     (w & 7) == 0) {
                     s_have_resolution = 1;
                     s_res_x = w;
@@ -246,8 +241,8 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 fprintf(stderr,
                         "[control] --resolution: invalid '%s' (need WxH; W%%8==0; "
                         "range %dx%d - %dx%d)\n",
-                        val, CONTROL_RES_MIN_X, CONTROL_RES_MIN_Y,
-                        CONTROL_RES_MAX_X, CONTROL_RES_MAX_Y);
+                        val, RES_MIN_W, RES_MIN_H,
+                        RES_MAX_W, RES_MAX_H);
             }
             read += 2;
             continue;
@@ -282,9 +277,9 @@ void Control_ParseArgs(int *argc, char *argv[]) {
         }
         if (!strcmp(a, "--res-switch-test") && has_val) {
             /* Format: WxH@TICK (or WXH@TICK).  Width must satisfy the same
-               --resolution validator (W%8==0, range CONTROL_RES_*).  TICK is
-               a positive tick count; Res_Switch will fire when
-               Control_TickHook's counter passes it. */
+               --resolution validator (W%8==0, range RES_MIN_W..RES_MAX_W by
+               RES_MIN_H..RES_MAX_H).  TICK is a positive tick count; Res_Switch
+               will fire when Control_TickHook's counter passes it. */
             const char *val = argv[read + 1];
             const char *xp = strchr(val, 'x');
             if (xp == NULL)
@@ -297,8 +292,8 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 long h = strtol(xp + 1, &end_h, 10);
                 long t = strtol(at + 1, &end_t, 10);
                 if (end_w == xp && end_h == at && end_t && *end_t == '\0' &&
-                    w >= CONTROL_RES_MIN_X && h >= CONTROL_RES_MIN_Y &&
-                    w <= CONTROL_RES_MAX_X && h <= CONTROL_RES_MAX_Y &&
+                    w >= RES_MIN_W && h >= RES_MIN_H &&
+                    w <= RES_MAX_W && h <= RES_MAX_H &&
                     (w & 7) == 0 && t > 0) {
                     s_have_res_switch_test = 1;
                     s_res_switch_test_w = w;
@@ -312,8 +307,8 @@ void Control_ParseArgs(int *argc, char *argv[]) {
                 fprintf(stderr,
                         "[control] --res-switch-test: invalid '%s' "
                         "(need WxH@TICK; W%%8==0; range %dx%d - %dx%d; TICK>0)\n",
-                        val, CONTROL_RES_MIN_X, CONTROL_RES_MIN_Y,
-                        CONTROL_RES_MAX_X, CONTROL_RES_MAX_Y);
+                        val, RES_MIN_W, RES_MIN_H,
+                        RES_MAX_W, RES_MAX_H);
             }
             read += 2;
             continue;

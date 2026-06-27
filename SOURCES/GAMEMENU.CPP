@@ -84,9 +84,13 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
 
+// Resolution sub-page rows occupy a reserved id range: row i carries id
+// MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
+// map back to s_resMenuEntries[i]. DISPLAY_MENU_MAX_ENTRIES ids reserved.
+#define MENU_ID_RESOLUTION_BASE 2200
+
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
-#define MENU_TYPE_RESOLUTION 10
 
 char NewGameTxt[20]; // ATTENTION: max 19 chars
 
@@ -132,14 +136,12 @@ U16 GameOptionMenu[] = {
     MENU_ID_CONTROLLER,
 };
 
-// Display submenu: a "Resolution: <current>" row that cycles between
-// Classic 4:3 and the display-aspect-derived Widescreen, plus a "Vsync"
-// toggle and the "Fullscreen" toggle (moved here from Advanced options
-// because it belongs with the other display settings). Same shape as
-// LanguageMenu: left/right arrows on the cyclable row, plain "Back" to
-// return to Options. Fullscreen stays the last entry so the
-// always-fullscreen-device path in GereDisplayMenu can drop it by count.
-// See GereDisplayMenu + CycleResolution.
+// Display submenu: a "Resolution: <current>" row that opens the resolution
+// sub-page (GereResolutionMenu), plus a "Vsync" toggle and the "Fullscreen"
+// toggle (moved here from Advanced options because it belongs with the other
+// display settings). Plain "Back" returns to Options. Fullscreen stays the
+// last entry so the always-fullscreen-device path in GereDisplayMenu can drop
+// it by count. See GereDisplayMenu + GereResolutionMenu.
 U16 DisplayMenu[] = {
     0,   // selected
     4,   // nb entries
@@ -148,13 +150,23 @@ U16 DisplayMenu[] = {
 
     0,
     26, // menu precedent
-    MENU_TYPE_RESOLUTION,
+    0,
     MENU_ID_RESOLUTION,
     0,
     MENU_ID_DISPLAY_VSYNC,
     0,
     MENU_ID_DISPLAY_FULLSCREEN,
 };
+
+// Resolution sub-page, opened from the Display submenu's Resolution row.
+// Built at runtime from the shared catalog (like GameAskChoice builds
+// GameChoiceMenu): a "Back" row plus one plain-button row per resolution.
+// s_resMenuEntries / s_resMenuCount back the range-id rows; the U16 buffer
+// holds 4 header words + (Back + up to DISPLAY_MENU_MAX_ENTRIES) (type, id)
+// pairs. See GereResolutionMenu + BuildCustomMenuText.
+static DisplayEntry s_resMenuEntries[DISPLAY_MENU_MAX_ENTRIES];
+static S32 s_resMenuCount;
+static U16 ResolutionMenu[4 + (1 + DISPLAY_MENU_MAX_ENTRIES) * 2];
 
 // Controller submenu: split keyboard remap and gamepad remap under one parent
 // so adding the pad doesn't clutter the top-level Options screen.
@@ -516,6 +528,15 @@ const char *GetLocalizedResDialogLabel(int which) {
 }
 
 static void BuildCustomMenuText(S32 num, char *string) {
+    // Resolution sub-page rows: id in the reserved range maps to a catalog
+    // entry's label (e.g. "1280x720 (16:9)"). s_resMenuCount is set by
+    // GereResolutionMenu before the page is drawn.
+    if (num >= MENU_ID_RESOLUTION_BASE &&
+        num < MENU_ID_RESOLUTION_BASE + s_resMenuCount) {
+        CopyUtf8ToCp850(string, 256, s_resMenuEntries[num - MENU_ID_RESOLUTION_BASE].label);
+        return;
+    }
+
     switch (num) {
     case MENU_ID_SOUND_VOLUME:
         GetMultiText(11, string);
@@ -615,40 +636,19 @@ static void CycleTextLanguage(S32 step) {
     ReloadMultiTextFile(0);
 }
 
-// Cycle through the Display submenu's resolution catalog. step is ±1.
-// Calls Res_Switch directly on the new entry — no keep/revert dialog on
-// this path; the curated list (Classic + display-aspect Widescreen) is
-// inherently safe in v1, so the safety net would be friction without
-// payoff. Persists to lba2.cfg via WriteConfigFile on success so the
-// choice survives relaunch.
-static void CycleResolution(S32 step) {
-    DisplayEntry entries[DISPLAY_MENU_MAX_ENTRIES];
-    const S32 count = Display_BuildEntries(entries);
-    if (count <= 1) {
-        // Headless / display query failed → only Classic available.
-        // Nothing to cycle to.
-        return;
-    }
-
-    S32 idx = Display_FindCurrentEntry(entries, count);
-    if (idx < 0) {
-        // Current resolution isn't in the curated list (e.g. console
-        // verb picked an odd width). Treat the cycle as a jump to
-        // Classic so the player has a way back into the curated set.
-        idx = 0;
-    } else {
-        idx += step;
-        if (idx < 0)
-            idx = count - 1;
-        if (idx >= count)
-            idx = 0;
-    }
-
-    const DisplayEntry *e = &entries[idx];
-    if (e->w == ModeDesiredX && e->h == ModeDesiredY)
+// Apply a resolution chosen from the sub-page. Switches live via Res_Switch,
+// persists to lba2.cfg, and repaints the menu backdrop. No keep/revert dialog:
+// the catalog only offers modes that fit the current display, "resolution" here
+// is the internal render-framebuffer size (always scaled to the existing
+// window, never an OS display-mode change that could black out the screen), and
+// the open list is itself the escape hatch: the player can immediately pick
+// another mode or 640x480. The revert dialog also needs a live scene to repaint
+// over, which the boot main menu doesn't have. See GereResolutionMenu.
+static void ApplyResolutionChoice(U32 w, U32 h) {
+    if (w == ModeDesiredX && h == ModeDesiredY)
         return;
 
-    if (Res_Switch(e->w, e->h)) {
+    if (Res_Switch(w, h)) {
         // Persist immediately so the next launch boots at the chosen
         // resolution. Mirrors the Phase 0 keep/revert "Keep" path.
         WriteConfigFile();
@@ -656,7 +656,7 @@ static void CycleResolution(S32 step) {
         // Res_Switch tears down Log/Screen and the cube reload inside
         // it may have clobbered SkySeaTexture (where the plasma fire
         // bar lives), so the next DoGameMenu redraw would show the
-        // cycling row on bare black with a stale plasma highlight.
+        // row on bare black with a stale plasma highlight.
         //
         // Two repaint shapes depending on context:
         //   FlagShadeMenu TRUE  → in-game (player opened Options via
@@ -2562,14 +2562,6 @@ static void GameMenuApplyMouseWheelDoGameMenu(U16 *ptrmenu, S16 selected, S32 wy
             applied = 1;
             break;
 
-        case MENU_TYPE_RESOLUTION:
-            CycleResolution(dir < 0 ? -1 : 1);
-            *flag = 1;
-            InitWaitNoInput(dir < 0 ? I_LEFT : I_RIGHT);
-            InitWaitNoKey();
-            applied = 1;
-            break;
-
 #ifdef CDROM
         case MENU_TYPE_VOICE_LANGUAGE:
             if (dir < 0)
@@ -2935,22 +2927,6 @@ S32 DoGameMenu(U16 *ptrmenu) {
             }
             break;
 
-        case MENU_TYPE_RESOLUTION:
-            if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
-                CycleResolution(-1);
-                flag = 1;
-                InitWaitNoInput(I_LEFT);
-                InitWaitNoKey();
-            }
-
-            if ((Input & I_RIGHT OR MyKey == K_GRAY_RIGHT)) {
-                CycleResolution(1);
-                flag = 1;
-                InitWaitNoInput(I_RIGHT);
-                InitWaitNoKey();
-            }
-            break;
-
 #ifdef CDROM
         case MENU_TYPE_VOICE_LANGUAGE:
             if ((Input & I_LEFT OR MyKey == K_GRAY_LEFT)) {
@@ -3221,6 +3197,8 @@ S32 GereLanguageMenu(void) {
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+static void BuildResolutionMenu(void); /* defined below, near GereResolutionMenu */
+
 // Harness one-shot capture of the Display submenu. Mirrors
 // Menu_MainCapture's pattern: do the minimal setup the regular
 // OptionsMenu → GereDisplayMenu path does (plasma init, palette, dial
@@ -3244,11 +3222,97 @@ void Display_MainCapture(const char *path) {
     Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
 }
 
-// Display submenu — Phase 2 runtime-resolution UX. Mirrors
-// GereLanguageMenu: a self-contained submenu of OptionsMenu with one
-// cycling "Resolution: <current>" row. Selecting (Enter) or left/right-
-// cycling the row calls CycleResolution → Res_Switch → WriteConfigFile,
-// no keep/revert dialog (the two-entry curated list is inherently safe).
+// Harness one-shot capture of the resolution sub-page. Same shape as
+// Display_MainCapture but builds the runtime ResolutionMenu first (the page is
+// generated, not a static array), then drives DoGameMenu(ResolutionMenu) with
+// the capture armed. BuildResolutionMenu also sets s_resMenuCount so the
+// range-id rows resolve in BuildCustomMenuText during the capture draw.
+void Resolution_MainCapture(const char *path) {
+    HQ_StopSample();
+    InitPlasmaMenu();
+
+    CopyScreen(Screen, Log);
+    BoxStaticFullflip();
+    PtrPal = PtrPalNormal;
+    PaletteSync(PtrPalNormal);
+    InitDial(0);
+
+    BuildResolutionMenu();
+
+    Menu_RequestCapture(path);
+    DoGameMenu(ResolutionMenu);
+    Menu_RequestCapture(NULL); /* disarm if DoGameMenu somehow exited otherwise */
+}
+
+// Rebuild the runtime ResolutionMenu array from the shared catalog: a "Back"
+// row plus one plain-button row per resolution (id = MENU_ID_RESOLUTION_BASE +
+// index), cursor landing on the current resolution if present. Refreshes
+// s_resMenuEntries / s_resMenuCount, which back the range-id rows in
+// BuildCustomMenuText. Shared by GereResolutionMenu and Resolution_MainCapture.
+static void BuildResolutionMenu(void) {
+    s_resMenuCount = Display_BuildEntries(s_resMenuEntries);
+
+    // Header: selected (set below), entry count (Back + rows), y center, dia.
+    ResolutionMenu[1] = (U16)(1 + s_resMenuCount);
+    ResolutionMenu[2] = 260;
+    ResolutionMenu[3] = 0;
+    // Back row, then one plain-button row per catalog entry (id = base + i).
+    ResolutionMenu[4 + 0] = 0;
+    ResolutionMenu[4 + 1] = 26;
+    for (S32 i = 0; i < s_resMenuCount; i++) {
+        ResolutionMenu[4 + (1 + i) * 2 + 0] = 0;
+        ResolutionMenu[4 + (1 + i) * 2 + 1] = (U16)(MENU_ID_RESOLUTION_BASE + i);
+    }
+    // Land the cursor on the current resolution if it's in the list, else Back.
+    S32 cur = Display_FindCurrentEntry(s_resMenuEntries, s_resMenuCount);
+    ResolutionMenu[0] = (cur >= 0) ? (U16)(1 + cur) : 0;
+}
+
+// Resolution sub-page, opened from the Display submenu's Resolution row.
+// Builds a select-and-confirm list at runtime from the shared catalog (the
+// GameAskChoice pattern): a "Back" row plus one row per resolution, HD
+// included. The recommended tier fits the on-screen budget without scrolling.
+// Picking a row applies it immediately (ApplyResolutionChoice). Mirrors
+// GereDisplayMenu's backdrop setup so the list draws over the shaded scene
+// (in-game) or the boot-menu image.
+static S32 GereResolutionMenu(void) {
+    S32 select;
+    S32 flag = 0;
+
+    BuildResolutionMenu();
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    if (FlagShadeMenu) {
+        ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+    }
+
+    while (!flag) {
+        select = DoGameMenu(ResolutionMenu);
+
+        if (select == 26 || select == 1000) {
+            flag = 1;
+        } else if (select >= MENU_ID_RESOLUTION_BASE &&
+                   select < MENU_ID_RESOLUTION_BASE + s_resMenuCount) {
+            const DisplayEntry *e = &s_resMenuEntries[select - MENU_ID_RESOLUTION_BASE];
+            ApplyResolutionChoice(e->w, e->h);
+            // Keep the page open so the player can pick another mode (or back
+            // out). The display-derived list is stable across the switch; the
+            // cursor stays on the now-current entry.
+        }
+    }
+
+    CopyScreen(Screen, Log);
+    BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
+
+    WaitNoInput();
+
+    return FALSE;
+}
+
+// Display submenu: a self-contained submenu of OptionsMenu. The "Resolution:
+// <current>" row opens GereResolutionMenu; Vsync and Fullscreen are toggles.
 S32 GereDisplayMenu(void) {
     S32 select;
     S32 flag = 0;
@@ -3275,9 +3339,8 @@ S32 GereDisplayMenu(void) {
             break;
 
         case MENU_ID_RESOLUTION:
-            // Activation (Enter) cycles forward. Left/right cycling is
-            // handled by the MENU_TYPE_RESOLUTION dispatch above.
-            CycleResolution(1);
+            // Open the resolution list sub-page.
+            GereResolutionMenu();
             break;
 
         case MENU_ID_DISPLAY_FULLSCREEN:
