@@ -58,9 +58,10 @@ ResRevertChoice Res_RunRevertDialogIfPending(void);
 void Res_CancelPendingRevert(void);
 
 /* True if (w, h) is a valid render resolution: within the engine's range
-   (320..1920 × 200..1024) and W % 8 == 0. Same check Res_Switch applies to
-   its arguments. Exposed so the cfg-read path can reject corrupt or
-   out-of-range stored values without first calling Res_Switch. */
+   (320..1920 wide by 200..1080 tall, the RES_MIN/RES_MAX bounds in
+   RES_CATALOG.H) and W % 8 == 0. Same check Res_Switch applies to its
+   arguments. Exposed so the cfg-read path can reject corrupt or out-of-range
+   stored values without first calling Res_Switch. */
 bool Res_ValidateDimensions(U32 w, U32 h);
 
 /* Boot-time resolution resolver: writes the effective (W, H) the engine

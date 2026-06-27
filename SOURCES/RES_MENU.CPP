@@ -16,6 +16,7 @@
 #include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
 
 #include <stdio.h>
+#include <string.h>
 
 S32 Display_BuildEntries(DisplayEntry *out) {
     ResModeEntry cat[DISPLAY_MENU_MAX_ENTRIES];
@@ -24,11 +25,13 @@ S32 Display_BuildEntries(DisplayEntry *out) {
     for (int i = 0; i < n; i++) {
         out[i].w = cat[i].w;
         out[i].h = cat[i].h;
-        /* Only the 640x480 anchor is tagged: it is the original 4:3 mode and
+        /* Only the classic anchor is tagged: it is the original 4:3 mode and
            pillarboxes on a widescreen panel, so the "(Classic)" hint flags that
            it behaves differently. The display-aspect ladder rows are bare WxH;
-           they all fill the panel, and the current one is already green-marked. */
-        if (cat[i].w == 640 && cat[i].h == 480)
+           they all fill the panel, and the current one is already green-marked.
+           Keyed on the catalog tag, so the anchor identity lives in RES_CATALOG
+           rather than a 640x480 literal duplicated here. */
+        if (strcmp(cat[i].tag, "classic") == 0)
             snprintf(out[i].label, sizeof out[i].label, "%ux%u (Classic)",
                      (unsigned)cat[i].w, (unsigned)cat[i].h);
         else

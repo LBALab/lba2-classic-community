@@ -351,7 +351,13 @@ void SelectPlasmaBank(U8 bank) {
     // re-bakes once per ~20ms, so a second fire bar in the same frame (e.g. the
     // green "current value" marker drawn after the blue cursor) would otherwise
     // sample the previous bar's colours. Baking here makes each bank take effect
-    // regardless of draw order. Cheap, and a no-op visually for single-bar menus.
+    // regardless of draw order.
+    //
+    // For the first fire bar of a frame this bake is then redundant with
+    // DoTextureAnimation's own bake: one extra ~64px Gouraud fill, menu-only,
+    // sub-millisecond. The redundancy-free alternative (split advance/bake out of
+    // DoTextureAnimation) would touch shared infra used by 8 gameplay/config call
+    // sites, so it isn't worth it here; the bake stays local to the colour swap.
     Do_Plasma(plasma);
 }
 
