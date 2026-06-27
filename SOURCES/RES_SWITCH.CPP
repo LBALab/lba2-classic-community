@@ -5,7 +5,8 @@
 
 #include "RES_SWITCH.H"
 
-#include "ANIMTEX.H" /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
+#include "ANIMTEX.H"     /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
+#include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "C_EXTERN.H"
 #include "CONTROL.H"     /* Control_HasResolution / Get */
 #include "DIRECTORIES.H" /* CFG_NAME */
@@ -24,6 +25,7 @@
 #include <SYSTEM/DEFFILE.H> /* DefFileBufferInit / ReadValueDefault (boot cfg read) */
 #include <SYSTEM/EXIT.H>    /* PathConfigFile (extern char[ADELINE_MAX_PATH]) */
 #include <SYSTEM/FILES.H>   /* ExistsFileOrDir */
+#include <SYSTEM/LOG.H>     /* Log_Debug (per-switch trace, off by default) */
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/RESOLUTION.H> /* RESOLUTION_X / RESOLUTION_Y compile-time defaults */
 #include <SYSTEM/STRING.H>
@@ -36,13 +38,9 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Same validator the --resolution CLI uses (see CONTROL.CPP).  Kept local for
-   now to avoid yet another shared header; if a third caller appears (the menu)
-   we'll lift these out. */
-#define RES_SWITCH_MIN_X 320
-#define RES_SWITCH_MIN_Y 200
-#define RES_SWITCH_MAX_X 1920
-#define RES_SWITCH_MAX_Y 1024
+/* Bounds (RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H) and the multiple-of-8
+   width rule live in RES_CATALOG.H: the same limits the --resolution CLI, the
+   console verb, and the Display submenu all derive from. */
 
 /* True when the live resolution came from auto-detect or the compile-time
    default, i.e. the player never explicitly chose it. WriteConfigFile skips
@@ -55,9 +53,9 @@ static bool g_resIsAutoDerived = false;
 bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
 
 bool Res_ValidateDimensions(U32 w, U32 h) {
-    if (w < RES_SWITCH_MIN_X || w > RES_SWITCH_MAX_X)
+    if (w < RES_MIN_W || w > RES_MAX_W)
         return false;
-    if (h < RES_SWITCH_MIN_Y || h > RES_SWITCH_MAX_Y)
+    if (h < RES_MIN_H || h > RES_MAX_H)
         return false;
     if ((w & 7) != 0)
         return false;
@@ -118,8 +116,8 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
 bool Res_Switch(U32 newW, U32 newH) {
     if (!Res_ValidateDimensions(newW, newH)) {
         LogPrintf("Res_Switch: invalid target %ux%u (need %d..%dx%d..%d, W%%8==0)\n",
-                  newW, newH, RES_SWITCH_MIN_X, RES_SWITCH_MAX_X,
-                  RES_SWITCH_MIN_Y, RES_SWITCH_MAX_Y);
+                  newW, newH, RES_MIN_W, RES_MAX_W,
+                  RES_MIN_H, RES_MAX_H);
         return false;
     }
 
@@ -224,7 +222,10 @@ bool Res_Switch(U32 newW, U32 newH) {
     FirstTime = AFF_ALL_FLIP;
 
     const bool isFullscreen = GetWindowFullscreen();
-    LogPrintf("Res_Switch: %ux%u -> %ux%u OK (fullscreen %d -> %d)\n",
+    /* Per-switch trace at DEBUG so it doesn't spam normal output when a player
+       tries several resolutions in the menu; surface it with `loglevel debug`.
+       Failures below/above still log loudly via LogPrintf. */
+    Log_Debug("Res_Switch: %ux%u -> %ux%u OK (fullscreen %d -> %d)\n",
               oldW, oldH, newW, newH, (int)wasFullscreen, (int)isFullscreen);
     /* Fullscreen state must round-trip cleanly; SDL_SetWindowSize on the
        existing window doesn't take the window out of fullscreen. If this
@@ -246,19 +247,6 @@ bool Res_Switch(U32 newW, U32 newH) {
 /*══════════════════════════════════════════════════════════════════════════*
  *   Boot-time resolution resolution (CLI > cfg > auto-detect > default)     *
  *══════════════════════════════════════════════════════════════════════════*/
-
-U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
-    if (dispW == 0 || dispH == 0)
-        return 0;
-    /* W = round_down((480 * dispW / dispH) / 8) * 8, preserving the display
-       aspect at the engine's 480 render height. 64-bit intermediate so wide
-       displays don't overflow the multiply. */
-    U32 w = (U32)(((U64)480 * (U64)dispW) / (U64)dispH);
-    w &= ~(U32)7;
-    if (w < (U32)RES_SWITCH_MIN_X || w > (U32)RES_SWITCH_MAX_X)
-        return 0;
-    return w;
-}
 
 bool Res_AutoDetectDimensions(U32 *outW, U32 *outH) {
     U32 dispW = 0, dispH = 0;
@@ -317,8 +305,8 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
                     "Res_LoadBootDimensions: ignoring invalid cfg "
                     "ResolutionX=%ld ResolutionY=%ld (need W%%8==0, "
                     "range %dx%d - %dx%d); falling back to %dx%d.\n",
-                    w, h, RES_SWITCH_MIN_X, RES_SWITCH_MIN_Y,
-                    RES_SWITCH_MAX_X, RES_SWITCH_MAX_Y,
+                    w, h, RES_MIN_W, RES_MIN_H,
+                    RES_MAX_W, RES_MAX_H,
                     RESOLUTION_X, RESOLUTION_Y);
             }
         }

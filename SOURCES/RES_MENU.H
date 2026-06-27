@@ -1,17 +1,15 @@
 /*
- * Resolution catalog — helpers for the Display options submenu in
- * GAMEMENU.CPP. Phase 2 of the runtime-resolution work (see
- * docs/RUNTIME_RESOLUTION.md).
+ * Resolution catalog adapter: helpers for the Display options submenu in
+ * GAMEMENU.CPP (see docs/RUNTIME_RESOLUTION.md).
  *
- * Sibling to the console `resolution` verb (CONSOLE_CMD.CPP, which
- * builds a longer recommended-plus-advanced list). This module is
- * deliberately narrower: just the two-entry shape — Classic + a
- * display-aspect-derived Widescreen — that the in-game menu offers,
- * factored out so the menu code in GAMEMENU.CPP doesn't have to know
- * how to query the SDL display or compute aspect ratios.
+ * A thin labelling layer over RES_CATALOG's menu list (Res_BuildMenuList): it
+ * turns the 640x480 anchor plus the display-aspect-matched ladder into the
+ * "WxH" rows the resolution sub-page renders (only the anchor is tagged
+ * "(Classic)"). The curated and advanced lists stay behind the console
+ * `resolution` verb.
  *
- * The catalog is rebuilt on every CycleResolution call so a player
- * who swaps monitors mid-session gets a refreshed Widescreen entry.
+ * Rebuilt each time the sub-page opens, so a player who swaps monitors
+ * mid-session gets a list matched to the new panel.
  */
 
 #ifndef RES_MENU_H
@@ -23,19 +21,22 @@
 extern "C" {
 #endif
 
-#define DISPLAY_MENU_MAX_ENTRIES 4
+/* Upper bound on rows the menu list can produce: the 640x480 anchor plus the
+   aspect ladder (480/720/1080 rungs). 8 leaves generous headroom. Sizes the
+   catalog scratch arrays and the runtime sub-page menu buffer. */
+#define DISPLAY_MENU_MAX_ENTRIES 8
 
-/* A single row in the Display submenu. label is the full rendered
-   text (e.g. "Classic 4:3 (640x480)" or "Widescreen 16:9 (848x480)"). */
+/* A single row in the resolution sub-page. label is the rendered text,
+   e.g. "640x480 (Classic)" or "1280x720". */
 typedef struct {
     U32 w;
     U32 h;
     char label[48];
 } DisplayEntry;
 
-/* Build the entry list. Always emits Classic at index 0; appends the
- * display-derived Widescreen entry when Window_GetDisplayDimensions
- * succeeds and yields a wider-than-640 snapped width. Returns count. */
+/* Build the entry list from RES_CATALOG's per-monitor menu list (the 640x480
+ * anchor plus the display-aspect ladder); the anchor is labelled "(Classic)",
+ * the rest are bare "WxH". Returns count (<= cap). */
 S32 Display_BuildEntries(DisplayEntry *out);
 
 /* Index of the entry whose (w, h) matches ModeDesiredX/Y, or -1 if
@@ -43,9 +44,9 @@ S32 Display_BuildEntries(DisplayEntry *out);
  * with a custom --resolution / console `resolution` value). */
 S32 Display_FindCurrentEntry(const DisplayEntry *entries, S32 count);
 
-/* Convenience: write the current resolution's label (just the value
- * half — "Classic 4:3 (640x480)" etc.) into `out`. Used by the menu
- * cycle row to render "Resolution: %s". */
+/* Convenience: write the current resolution's label (the value half,
+ * "1280x720" or "640x480 (Classic)") into `out`. Used by the Display submenu
+ * row to render "Resolution: %s". */
 void Display_FormatCurrentLabel(char *out, S32 outSize);
 
 #ifdef __cplusplus

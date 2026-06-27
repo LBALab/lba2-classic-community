@@ -76,6 +76,10 @@ extern void Menu_MainCapture(const char *path);
    state -- `ui --black-bg display` clears them first; the plain verb
    composites over the live scene. */
 extern void Display_MainCapture(const char *path);
+/* Harness hook: capture the resolution sub-page (the list opened from the
+   Display submenu's Resolution row). Like Display_MainCapture but builds the
+   runtime ResolutionMenu first, then drives DoGameMenu on it. */
+extern void Resolution_MainCapture(const char *path);
 /*--------------------------------------------------------------------------*/
 extern void VolumeOptions(void);
 /*--------------------------------------------------------------------------*/

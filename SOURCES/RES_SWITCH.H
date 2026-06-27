@@ -58,9 +58,10 @@ ResRevertChoice Res_RunRevertDialogIfPending(void);
 void Res_CancelPendingRevert(void);
 
 /* True if (w, h) is a valid render resolution: within the engine's range
-   (320..1920 × 200..1024) and W % 8 == 0. Same check Res_Switch applies to
-   its arguments. Exposed so the cfg-read path can reject corrupt or
-   out-of-range stored values without first calling Res_Switch. */
+   (320..1920 wide by 200..1080 tall, the RES_MIN/RES_MAX bounds in
+   RES_CATALOG.H) and W % 8 == 0. Same check Res_Switch applies to its
+   arguments. Exposed so the cfg-read path can reject corrupt or out-of-range
+   stored values without first calling Res_Switch. */
 bool Res_ValidateDimensions(U32 w, U32 h);
 
 /* Boot-time resolution resolver: writes the effective (W, H) the engine
@@ -73,14 +74,6 @@ bool Res_ValidateDimensions(U32 w, U32 h);
    back to the compile-time default otherwise. Logs a one-line warning if
    the cfg held an invalid value so the player can spot a corrupted key. */
 void Res_LoadBootDimensions(U32 *outW, U32 *outH);
-
-/* Snap a display's (W, H) to a widescreen render width that preserves the
-   display aspect at the engine's 480 render height, rounded down to the %8
-   width constraint and clamped to the supported range. Returns 0 if the
-   inputs are zero or the result falls outside the range. Shared by the boot
-   auto-detect path and the Display options submenu so both derive the same
-   widescreen entry. */
-U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH);
 
 /* Auto-detect a widescreen boot resolution from the primary display: writes
    (snapped-width, 480) and returns true when the display is wider than 4:3.

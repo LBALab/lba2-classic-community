@@ -33,21 +33,22 @@ grep -q "^\[control\] Current: 640x480"   "$out" || fail "no-args: missing 'Curr
 grep -q "640x480"                          "$out" || fail "no-args: 640x480 must always be listed"
 grep -q "Usage:"                           "$out" || fail "no-args: missing Usage hint"
 
+# The verb's public success signal is its "Resolution: WxH" echo (Console_Print);
+# the orchestrator's per-switch line is debug-only, so assert on the echo.
+
 # 2. Numeric: switch to entry 2 in recommended list (768x480 on a >=768 display).
 run_with "resolution 2" || fail "numeric returned non-zero ($?)"
-grep -q "Res_Switch: 640x480 -> 768x480 OK" "$out" \
-    || fail "numeric: orchestrator log missing (got: $(grep -m1 Res_Switch "$out"))"
 grep -q "^\[control\] Resolution: 768x480" "$out" \
     || fail "numeric: missing success echo"
 
 # 3. WxH explicit: 800x480 (not in recommended list).
 run_with "resolution 800x480" || fail "WxH returned non-zero ($?)"
-grep -q "Res_Switch: 640x480 -> 800x480 OK" "$out" || fail "WxH: orchestrator did not fire"
+grep -q "^\[control\] Resolution: 800x480" "$out" || fail "WxH: switch did not fire"
 
 # 4. Invalid WxH (not W%8==0): rejected, no switch.
 run_with "resolution 645x480" || fail "invalid WxH returned non-zero ($?)"
-grep -q "bad target '645x480'"      "$out" || fail "invalid WxH: missing rejection echo"
-grep -qv "Res_Switch: .* -> 645x480" "$out" || fail "invalid WxH: switch ran but shouldn't"
+grep -q "bad target '645x480'"          "$out" || fail "invalid WxH: missing rejection echo"
+grep -qv "^\[control\] Resolution: 645x480" "$out" || fail "invalid WxH: switch ran but shouldn't"
 
 # 5. Out-of-range index.
 run_with "resolution 12345" || fail "bad index returned non-zero ($?)"

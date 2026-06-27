@@ -33,7 +33,7 @@ lba2cc --load <slot>          restore a save before the loop starts
                               (~58% of sys time in projection_demo without this)
        --resolution WxH       override the boot render resolution; overrides both the
                               compile-time default and lba2.cfg's ResolutionX/Y. Width
-                              must be a multiple of 8, range 320x200 - 1920x1024.
+                              must be a multiple of 8, range 320x200 - 1920x1080.
                               Also the recovery escape hatch ("I can't see anything,
                               get me back": run with --resolution 640x480).
        --res-switch-test WxH@TICK
