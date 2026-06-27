@@ -1,32 +1,32 @@
 /*
  * Resolution catalog adapter for the Display options submenu. Turns the
- * shared RES_CATALOG mode list into labelled rows the menu can render. See
+ * shared RES_CATALOG menu list into labelled rows the menu can render. See
  * RES_MENU.H and docs/RUNTIME_RESOLUTION.md.
  *
- * The menu offers the recommended tier (the modes that fit the current
- * display, plus a synthesised native entry), HD included. The longer
- * "advanced" list stays behind the console `resolution --all` verb. Rows are
- * labelled "WxH (a:b)"; the catalog's provenance tags are console-only.
+ * The menu offers Res_BuildMenuList: the 640x480 classic anchor plus a ladder
+ * of display-aspect-matched modes computed per monitor, so every entry fills
+ * the player's panel. The longer curated/advanced list stays behind the console
+ * `resolution` verb. Rows are labelled "WxH (aspect)" via Res_AspectLabel.
  */
 
 #include "RES_MENU.H"
 
-#include "RES_CATALOG.H" /* ResModeEntry, Res_BuildCatalog, Res_Aspect */
+#include "RES_CATALOG.H" /* Res_BuildMenuList, Res_AspectLabel */
 #include <SVGA/SCREEN.H> /* ModeDesiredX / ModeDesiredY */
 
 #include <stdio.h>
 
 S32 Display_BuildEntries(DisplayEntry *out) {
     ResModeEntry cat[DISPLAY_MENU_MAX_ENTRIES];
-    const int n = Res_BuildCatalog(cat, DISPLAY_MENU_MAX_ENTRIES, false /* recommended tier */);
+    const int n = Res_BuildMenuList(cat, DISPLAY_MENU_MAX_ENTRIES);
 
     for (int i = 0; i < n; i++) {
         out[i].w = cat[i].w;
         out[i].h = cat[i].h;
-        U32 a = 0, b = 0;
-        Res_Aspect(cat[i].w, cat[i].h, &a, &b);
-        snprintf(out[i].label, sizeof out[i].label, "%ux%u (%u:%u)",
-                 (unsigned)cat[i].w, (unsigned)cat[i].h, (unsigned)a, (unsigned)b);
+        char aspect[16];
+        Res_AspectLabel(cat[i].w, cat[i].h, aspect, sizeof aspect);
+        snprintf(out[i].label, sizeof out[i].label, "%ux%u (%s)",
+                 (unsigned)cat[i].w, (unsigned)cat[i].h, aspect);
     }
     return (S32)n;
 }

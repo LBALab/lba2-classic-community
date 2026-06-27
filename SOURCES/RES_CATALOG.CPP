@@ -7,6 +7,12 @@
 
 #include <SYSTEM/WINDOW.H> /* Window_GetDisplayDimensions */
 
+#include <stdio.h> /* snprintf (Res_AspectLabel) */
+
+/* True if (w, h) already appears in the first `n` entries of `list`. Defined
+   below; forward-declared so the menu-list builder can dedup against itself. */
+static bool catalog_contains(const ResModeEntry *list, int n, U32 w, U32 h);
+
 /* Always-present recommended modes, ordered. Filtered to <= display at build
    time; 640x480 is pinned at index 0 unconditionally. */
 static const ResModeEntry kRecommended[] = {
@@ -70,6 +76,109 @@ U32 Res_SnapNativeH(U32 dispH) {
     if (dispH < RES_MIN_H)
         return 0;
     return dispH;
+}
+
+U32 Res_SnapAspectWidth(U32 dispW, U32 dispH, U32 targetH) {
+    if (dispW == 0 || dispH == 0 || targetH == 0)
+        return 0;
+    /* W = round_down((targetH * dispW / dispH) / 8) * 8: the width that holds
+       the display aspect at targetH render height. 64-bit intermediate so wide
+       displays don't overflow the multiply. Returns 0 (caller drops the entry)
+       when the result falls outside [RES_MIN_W, RES_MAX_W]; e.g. an ultrawide
+       at 1080 height would need > 1920 width. */
+    U32 w = (U32)(((U64)targetH * (U64)dispW) / (U64)dispH);
+    w &= ~(U32)7;
+    if (w < (U32)RES_MIN_W || w > (U32)RES_MAX_W)
+        return 0;
+    return w;
+}
+
+U32 Res_SnapWidescreenWidth(U32 dispW, U32 dispH) {
+    return Res_SnapAspectWidth(dispW, dispH, 480);
+}
+
+/* Common display aspect ratios, widest-name-first is irrelevant; matched by
+   nearest within ~1.5%. The %8 width snap nudges a derived mode a few pixels
+   off its exact ratio (e.g. 848x480 is 53:30, not a clean 16:9), so a snapped
+   16:9 mode still reads "16:9" instead of an unrecognisable reduced fraction. */
+static const struct {
+    const char *name;
+    U32 a, b;
+} kAspects[] = {
+    {"5:4", 5, 4},
+    {"4:3", 4, 3},
+    {"3:2", 3, 2},
+    {"16:10", 16, 10},
+    {"16:9", 16, 9},
+    {"21:10", 21, 10},
+    {"21:9", 21, 9},
+    {"32:9", 32, 9},
+};
+#define kAspectsCount ((int)(sizeof(kAspects) / sizeof(kAspects[0])))
+
+void Res_AspectLabel(U32 w, U32 h, char *out, int outSize) {
+    if (h == 0) {
+        snprintf(out, (size_t)outSize, "?");
+        return;
+    }
+    /* Nearest standard ratio within 1.5%: |w/h - a/b| / (a/b) <= 0.015, kept in
+       integers as |w*b - h*a| * 1000 <= 15 * h*a. All terms fit in S32 for the
+       supported range (w,h <= 1920; a,b <= 32). */
+    for (int i = 0; i < kAspectsCount; i++) {
+        S32 d = (S32)(w * kAspects[i].b) - (S32)(h * kAspects[i].a);
+        if (d < 0)
+            d = -d;
+        if (d * 1000 <= 15 * (S32)(h * kAspects[i].a)) {
+            snprintf(out, (size_t)outSize, "%s", kAspects[i].name);
+            return;
+        }
+    }
+    /* No standard match (an unusual panel): the exact reduced ratio. */
+    U32 a = 0, b = 0;
+    Res_Aspect(w, h, &a, &b);
+    snprintf(out, (size_t)outSize, "%u:%u", (unsigned)a, (unsigned)b);
+}
+
+int Res_BuildMenuList(ResModeEntry *out, int cap) {
+    int n = 0;
+
+    /* The 640x480 classic anchor: authentic 4:3, always offered (it pillarboxes
+       on a widescreen panel, by choice). */
+    if (n < cap) {
+        out[n].w = 640;
+        out[n].h = 480;
+        out[n].tag = "classic";
+        n++;
+    }
+
+    U32 dispW = 0, dispH = 0;
+    if (!Window_GetDisplayDimensions(&dispW, &dispH))
+        return n; /* headless: classic only */
+
+    /* A ladder of display-aspect-matched modes at increasing render heights, so
+       every entry fills this exact panel (no letterbox/pillarbox) at a quality
+       the player picks by height. Computed per monitor, so an odd-aspect panel
+       gets its own widths rather than generic ones. Ascending order; the @480
+       rung is the same value the boot auto-detect picks, so the first-launch
+       resolution is always a listed entry. Heights that don't fit the panel, or
+       whose width would exceed 1920 (ultrawide at 1080), are dropped; dups
+       against the anchor (a 4:3 panel's @480 is 640x480) are skipped. */
+    static const U32 kLadderH[] = {480, 720, 1080};
+    static const char *kLadderTag[] = {"widescreen", "hd", "fhd"};
+    for (int i = 0; i < (int)(sizeof(kLadderH) / sizeof(kLadderH[0])) && n < cap; i++) {
+        const U32 h = kLadderH[i];
+        if (h > dispH)
+            continue;
+        const U32 w = Res_SnapAspectWidth(dispW, dispH, h);
+        if (w == 0 || catalog_contains(out, n, w, h))
+            continue;
+        out[n].w = w;
+        out[n].h = h;
+        out[n].tag = kLadderTag[i];
+        n++;
+    }
+
+    return n;
 }
 
 /* True if (w, h) already appears in the first `n` entries of `list`. */
