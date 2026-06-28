@@ -392,6 +392,10 @@ static void UpdateFollowCameraExt(void) {
         } else {
             VueDistance = FollowCamEffectiveDist;
             CameraCenter(3);
+            /* Clear the ground-lift keep-alive too: otherwise a lift left
+             * mid-ease when the hero enters a camera zone keeps the dirty
+             * check true forever, re-rendering the terrain every idle frame. */
+            FollowCamGroundSettling = 0;
         }
 
         FirstTime = AFF_ALL_FLIP;
@@ -1817,6 +1821,11 @@ restartloop:
                         FollowCamReengageDelay = 0;
                         FollowCamPrevBaseDist = FollowCamBaseDist;
                         FollowCamPrevAlphaCam = AlphaCam;
+                        /* Drop the smoothed ground lift so the recenter starts
+                         * from the clean reset position instead of gliding down
+                         * from a stale terrain-occluder lift. */
+                        FollowCamEyeLift = 0;
+                        FollowCamGroundSettling = 0;
                     }
 
                     RestoreTimer();
@@ -2304,6 +2313,8 @@ void ReadConfigFile(void) {
     FollowCamGroundClearance = DefFileBufferReadValueDefault("FollowCamGroundClearance", FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT);
     if (FollowCamGroundClearance < 0)
         FollowCamGroundClearance = 0;
+    if (FollowCamGroundClearance > 20000) /* keep (g+clear-hy)*100 well inside S32 in the occlusion march */
+        FollowCamGroundClearance = 20000;
     FollowCamManualHoldFrames = DefFileBufferReadValueDefault("FollowCamManualHoldFrames", FOLLOW_CAM_MANUAL_HOLD_DEFAULT);
     if (FollowCamManualHoldFrames < 0)
         FollowCamManualHoldFrames = 0;
