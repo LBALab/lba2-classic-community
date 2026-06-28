@@ -78,6 +78,7 @@ static S32 FollowCamPrevAddBeta = 0;    /* dirty check: last seen AddBetaCam */
 static S32 FollowCamEffectiveDist = 0;  /* spring arm: smoothed distance (0 = uninitialised) */
 static S32 FollowCamTargetBeta = 0;     /* rotation lag: desired BetaCam */
 S32 FollowCamReengageDelay = 0;         /* frames before auto-center resumes after manual pan */
+S32 FollowCamManualHold = 0;            /* frames the pitch/distance auto-assist yields after a manual nudge */
 static S32 FollowCamPrevBaseDist = -1;  /* dirty: zoom from GereExtKeys (numpad * /) */
 static S32 FollowCamPrevAlphaCam = -1;  /* dirty: numpad +/- elevation while follow */
 static S32 FollowCamEyeLift = 0;        /* ground clearance: eased eye lift above terrain */
@@ -1792,7 +1793,7 @@ restartloop:
                     if (catchupDiff < -2048)
                         catchupDiff += 4096;
 
-                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling) {
+                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling OR FollowCamManualHold) {
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
@@ -1801,6 +1802,22 @@ restartloop:
                          * here and the boom pull-in + pitch steepen at the apply
                          * below, so the whole recompose is a no-op at 480. */
                         S32 hdExcess = CameraZone ? 0 : FollowCamHDExcess();
+
+                        /* Manual-override fade: a manual nudge set FollowCamManualHold
+                         * (EXTFUNC), driving the auto-assist strength to 0 so the
+                         * player's tilt/orbit wins; it eases back to full as the hold
+                         * counts down. Scales the recompose pitch steepen and the
+                         * ground-lift re-aim below (the two that fight a manual tilt);
+                         * 100 (full assist) when no hold. */
+                        if (FollowCamManualHold > 0)
+                            FollowCamManualHold--;
+                        S32 autoFactor = 100;
+                        if (FollowCamManualHoldFrames > 0)
+                            autoFactor = 100 - FollowCamManualHold * 100 / FollowCamManualHoldFrames;
+                        if (autoFactor < 0)
+                            autoFactor = 0;
+                        if (autoFactor > 100)
+                            autoFactor = 100;
 
                         /* Use the camera's current angle for the forward lean,
                          * not the hero's facing.  This keeps the orbit center
@@ -1903,7 +1920,12 @@ restartloop:
                                     pull = FOLLOW_CAM_HD_DIST_MAX_PULL;
                                 renderDist = FollowCamEffectiveDist * (100 - pull) / 100;
 
-                                AlphaCam += hdExcess * FollowCamHDPitchGain / 100;
+                                /* Only the pitch steepen fades under manual control
+                                 * (autoFactor): it is what fights the player's tilt.
+                                 * The boom pull-in and lean do not fight tilt/orbit,
+                                 * so they stay put and the camera does not pop out
+                                 * when the player grabs the stick. */
+                                AlphaCam += hdExcess * FollowCamHDPitchGain / 100 * autoFactor / 100;
                                 if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
                                     AlphaCam = FOLLOW_CAM_ALPHA_MAX;
                             }
@@ -1974,8 +1996,14 @@ restartloop:
                                  * stands still (e.g. at the foot of a hill). */
                                 FollowCamGroundSettling = (FollowCamEyeLift != targetLift) ? 1 : 0;
 
-                                if (FollowCamEyeLift > 0) {
-                                    SetPosCamera(ex, ey + FollowCamEyeLift, ez);
+                                /* Fade the lift + re-aim out under manual control
+                                 * (autoFactor 0): the re-aim would otherwise pin
+                                 * the pitch to the geometry and override the
+                                 * player's tilt. At autoFactor 0 effLift is 0, so
+                                 * the player's own angle from CameraCenter stands. */
+                                S32 effLift = FollowCamEyeLift * autoFactor / 100;
+                                if (effLift > 0) {
+                                    SetPosCamera(ex, ey + effLift, ez);
                                     SetTargetCamera(VueOffsetX, VueOffsetY, VueOffsetZ, GammaCam);
                                 }
                             } else {
