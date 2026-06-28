@@ -233,6 +233,7 @@ extern S32 GamepadCamMaxAlpha;        /* right-stick elevation speed ceiling (un
 extern S32 FollowCamReengageFrames;   /* frames before auto-cam re-centers after a manual pan */
 extern S32 FollowCamDriftDivisor;     /* auto-cam re-center drift divisor (higher = gentler) */
 extern S32 FollowCamHDRecompose;      /* Auto cam: pull-in+steepen recompose at tall render heights (1=on) */
+extern S32 FollowCamHDExcessCap;      /* cap on the recompose kExcess so tall res converges (0 = no cap) */
 extern S32 FollowCamHDPitchGain;      /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
 extern S32 FollowCamHDDistGain;       /* HD recompose distance pull (% boom per 1.0 of k-1) */
 extern S32 FollowCamHDLeanGain;       /* HD recompose forward-lean cut (% per 1.0 of k-1) */

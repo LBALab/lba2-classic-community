@@ -58,6 +58,7 @@
  * 1080), so all three are exact no-ops at the original 480 height. Gains below
  * seed runtime globals; tune live via the cam_hd_* console cvars then bake. */
 #define FOLLOW_CAM_HD_RECOMPOSE_DEFAULT 1    /* master enable (cam_hd) */
+#define FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT 0   /* cap on kExcess so tall res converges (0 = no cap / pure linear, the current behavior); e.g. 70 ~= 816p */
 #define FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT 180 /* AlphaCam units added per 1.0 of (k-1) */
 #define FOLLOW_CAM_HD_DIST_GAIN_DEFAULT 27   /* % of boom pulled in per 1.0 of (k-1) */
 #define FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT 45   /* % of forward lean removed per 1.0 of (k-1) */
