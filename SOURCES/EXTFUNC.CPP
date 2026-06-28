@@ -98,8 +98,19 @@ void Init3DExtView(void) {
     // At the default 640x480 this is the original (320, 240) — the hardcoded
     // literal Phase 0 of the widescreen plan flagged; see docs/WIDESCREEN.md
     // and docs/WIDESCREEN_PROJECTION_AUDIT.md.
+    // Near clip scales down as the framebuffer grows taller. The focal is fixed
+    // (ChampX/ChampZ), so a taller frame reveals more vertical FOV, which pulls
+    // the bottom of the frustum's ground intersection closer to the camera. The
+    // terrain trivial-rejects whole cells whose depth is within the near plane
+    // (zr <= NearClip in TERRAIN.CPP MaskVisible), so a fixed plane drops near
+    // terrain/buildings that are plainly in view at HD ("clipped on the right").
+    // Scale it with height to keep the near plane at the original screen-space
+    // position. Exact CLIP_NEAR at the original 480, so 480 is unchanged.
+    S32 nearClip = CLIP_NEAR;
+    if (ModeDesiredY > 480)
+        nearClip = CLIP_NEAR * 480 / (S32)ModeDesiredY;
     SetProjection((S32)(ModeDesiredX / 2), (S32)(ModeDesiredY / 2),
-                  CLIP_NEAR, ChampX, ChampZ);
+                  nearClip, ChampX, ChampZ);
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
