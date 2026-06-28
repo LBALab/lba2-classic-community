@@ -119,6 +119,8 @@ The Auto camera answers this with a render-time recompose ("recompose, not crop"
 
 Pitch is the binding lever and saturates at the `AlphaCam` clamp (600 ≈ 53°), so on an open vista the recompose brings the subject back to a good size but leaves a natural widescreen horizon band rather than a 4:3-tight sky.
 
+**Status: tuned for ~720p; 1080p is experimental.** The strength scales linearly with render height, which over-reaches at 1080p: the subject can feel too far and terrain near-clipping is more visible (the height-scaled near clip reduces it but does not fully solve it; a per-cell near-plane clip of the terrain grid is the real fix). The `cam_hd_*` cvars (and `cam_hd_cap`, which caps the strength so tall resolutions converge) let you tune it, and `cam_hd 0` disables it. Refining the 1080p framing and the terrain near-clip is left to a focused follow-up.
+
 ### Ground / occlusion clearance
 
 A smooth port of the classic `SearchCameraPos` terrain awareness onto the follow path (`cam_ground`, default on; clearance `cam_ground_clear`). After `CameraCenter(3)` positions the eye, a few points are sampled along the eye-to-hero line (`FollowCamHDExcess`-style, in `PERSO.CPP`). Where terrain there would rise above the line of sight (a hill between the camera and the hero, or the eye sinking into rising ground), the eye is raised just enough to clear the worst occluder and re-aimed at the hero via the same `SetPosCamera` / `SetTargetCamera` calls the classic recenter uses.
