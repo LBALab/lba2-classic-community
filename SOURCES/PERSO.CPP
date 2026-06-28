@@ -95,7 +95,14 @@ static S32 FollowCamHDExcess(void) {
     if (!FollowCamHDRecompose)
         return 0;
     S32 k100 = (S32)ModeDesiredY * 100 / 480;
-    return (k100 > 100) ? (k100 - 100) : 0;
+    S32 e = (k100 > 100) ? (k100 - 100) : 0;
+    /* The correction grows linearly with render height, which over-steepens at
+     * 1080p (it reads as stronger than 720p). Cap the effective excess so tall
+     * resolutions converge to a fixed correction rather than growing without
+     * bound. cam_hd_cap 0 disables the cap (pure linear). */
+    if (FollowCamHDExcessCap > 0 AND e > FollowCamHDExcessCap)
+        e = FollowCamHDExcessCap;
+    return e;
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -2269,6 +2276,22 @@ void ReadConfigFile(void) {
         FollowCamDriftDivisor = 1;
     if (FollowCamDriftDivisor > 200)
         FollowCamDriftDivisor = 200;
+
+    /* Auto-camera HD recompose + ground-clearance + manual-override tuning. */
+    FollowCamHDRecompose = DefFileBufferReadValueDefault("FollowCamHDRecompose", FOLLOW_CAM_HD_RECOMPOSE_DEFAULT) ? TRUE : FALSE;
+    FollowCamHDExcessCap = DefFileBufferReadValueDefault("FollowCamHDExcessCap", FOLLOW_CAM_HD_EXCESS_CAP_DEFAULT);
+    if (FollowCamHDExcessCap < 0)
+        FollowCamHDExcessCap = 0;
+    FollowCamHDPitchGain = DefFileBufferReadValueDefault("FollowCamHDPitchGain", FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT);
+    FollowCamHDDistGain = DefFileBufferReadValueDefault("FollowCamHDDistGain", FOLLOW_CAM_HD_DIST_GAIN_DEFAULT);
+    FollowCamHDLeanGain = DefFileBufferReadValueDefault("FollowCamHDLeanGain", FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT);
+    FollowCamGround = DefFileBufferReadValueDefault("FollowCamGround", FOLLOW_CAM_GROUND_DEFAULT) ? TRUE : FALSE;
+    FollowCamGroundClearance = DefFileBufferReadValueDefault("FollowCamGroundClearance", FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT);
+    if (FollowCamGroundClearance < 0)
+        FollowCamGroundClearance = 0;
+    FollowCamManualHoldFrames = DefFileBufferReadValueDefault("FollowCamManualHoldFrames", FOLLOW_CAM_MANUAL_HOLD_DEFAULT);
+    if (FollowCamManualHoldFrames < 0)
+        FollowCamManualHoldFrames = 0;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2326,6 +2349,14 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("ManualCameraSmoothing", ManualCameraSmoothing);
     DefFileBufferWriteValue("FollowCamReengageFrames", FollowCamReengageFrames);
     DefFileBufferWriteValue("FollowCamDriftDivisor", FollowCamDriftDivisor);
+    DefFileBufferWriteValue("FollowCamHDRecompose", FollowCamHDRecompose);
+    DefFileBufferWriteValue("FollowCamHDExcessCap", FollowCamHDExcessCap);
+    DefFileBufferWriteValue("FollowCamHDPitchGain", FollowCamHDPitchGain);
+    DefFileBufferWriteValue("FollowCamHDDistGain", FollowCamHDDistGain);
+    DefFileBufferWriteValue("FollowCamHDLeanGain", FollowCamHDLeanGain);
+    DefFileBufferWriteValue("FollowCamGround", FollowCamGround);
+    DefFileBufferWriteValue("FollowCamGroundClearance", FollowCamGroundClearance);
+    DefFileBufferWriteValue("FollowCamManualHoldFrames", FollowCamManualHoldFrames);
 
     if (batched) {
         DefFileBufferEndBatch();
