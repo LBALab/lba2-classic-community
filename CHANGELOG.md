@@ -10,7 +10,181 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Camera
+
+The Auto camera (the opt-in `FollowCamera` third-person follow, off by
+default, exterior scenes only) got most of the attention this cycle.
+
+- Manual camera control with a mouse: right-drag orbits and tilts the
+  follow camera, the wheel zooms, and middle-click recenters behind the
+  hero. All three axes run through one shared `ApplyManualCameraNudge`
+  routine that clamps each axis and re-engages the follow grace period,
+  so the source (mouse now, stick next) doesn't matter. Supersedes the
+  earlier mouse-camera work
+  ([#337](https://github.com/LBALab/lba2-classic-community/pull/337)).
+  See [docs/CAMERA.md](docs/CAMERA.md).
+- The gamepad right stick drives that same orbit and tilt through the
+  shared routine, so the feel (clamps, tight orbit lerp, follow
+  re-engage) matches the mouse. Per-axis deadzone and sensitivity, with
+  the analog path suppressing the digital `RSTICK_*` scancodes so it
+  never double-drives the camera
+  ([#338](https://github.com/LBALab/lba2-classic-community/pull/338)).
+  See [docs/CONTROLLER.md](docs/CONTROLLER.md).
+- Auto-camera world awareness, so the follow camera reads the scene the
+  way the classic camera and a human at the stick do. An HD vertical-FOV
+  recompose pulls the boom in and steepens pitch in proportion to render
+  height, so a taller framebuffer no longer fills the frame with sky; a
+  smooth port of the classic `SearchCameraPos` lifts the eye over terrain
+  between the camera and the hero; and a manual-override fade hands
+  control back gradually after a manual pan. Scoped to the auto-cam
+  exterior path (the classic camera, the 480 path, and isometric
+  interiors are byte-identical); the 1080p recompose is flagged
+  experimental
+  ([#343](https://github.com/LBALab/lba2-classic-community/pull/343)).
+- Live camera tuning from the console: `cam_*` cvars expose the follow
+  feel constants (stick speed, re-center, distance, pitch) at runtime and
+  persist to `lba2.cfg`, so the camera can be tuned without a recompile
+  ([#339](https://github.com/LBALab/lba2-classic-community/pull/339)).
+- `FollowCamera` fixes: it no longer re-renders the full terrain on every
+  idle frame, and a rotation dead-zone gap that kept an idle exterior
+  from settling is closed
+  ([#308](https://github.com/LBALab/lba2-classic-community/pull/308)).
+- The exterior near-clip plane now scales with render height, so HD modes
+  no longer clip scene geometry early
+  ([#342](https://github.com/LBALab/lba2-classic-community/pull/342)).
+
+### Display & resolution
+
+- Resolution picker in the Display submenu, computed per monitor, lifting
+  the render-height ceiling to 1080p. The list is derived from your
+  display aspect (the `640x480` classic anchor plus a ladder of
+  aspect-matched modes at 480/720/1080 heights), so every non-anchor
+  entry fills the panel with no letterbox or pillarbox: a 16:9 panel
+  offers `640x480, 848x480, 1280x720, 1920x1080`, an odd-aspect laptop
+  its own widths. Picking one applies live and persists to `lba2.cfg`;
+  the active mode carries a green plasma marker distinct from the cursor
+  highlight
+  ([#341](https://github.com/LBALab/lba2-classic-community/pull/341)).
+  See [docs/RUNTIME_RESOLUTION.md](docs/RUNTIME_RESOLUTION.md).
+- First-launch widescreen auto-detect: with no `--resolution` and no
+  saved resolution in `lba2.cfg`, the engine boots a widescreen size at
+  the original 480 height matched to the display aspect (for example
+  `848x480` on 16:9); a 4:3 display keeps `640x480`. The auto value is
+  never persisted, so it follows a monitor swap or a dock/undock, and any
+  explicit choice (menu, console, `--resolution`) takes over
+  ([#323](https://github.com/LBALab/lba2-classic-community/pull/323)).
+- VSync toggle in the Display submenu and a `vsync [on|off|toggle]`
+  console verb, persisted via a `VSync` key in `lba2.cfg` and surviving a
+  runtime resolution switch. The on-screen FPS counter is now responsive
+  and guarded against a freeze
+  ([#307](https://github.com/LBALab/lba2-classic-community/pull/307)).
+- The 2D UI re-anchors on the Y axis as well: the authored 480-tall
+  canvas now floats into a taller framebuffer (centre, bottom, or corner
+  per surface) instead of pinning to the top, completing the vertical
+  half of the widescreen re-anchor
+  ([#328](https://github.com/LBALab/lba2-classic-community/pull/328)).
+  The FPS counter pins to the bottom corner at any resolution
+  ([#310](https://github.com/LBALab/lba2-classic-community/pull/310)).
+  See [docs/WIDESCREEN.md](docs/WIDESCREEN.md).
+- The framebuffer now presents through SDL's logical presentation
+  (LETTERBOX) instead of a hand-computed destination rect, so SDL owns
+  both the on-screen present rect and the window-to-framebuffer cursor
+  mapping. The forward and inverse transforms can no longer drift apart,
+  and the path is DPI-correct groundwork for high-density HD rendering.
+  The present geometry was first extracted into a small SDL-free,
+  host-tested module
+  ([#325](https://github.com/LBALab/lba2-classic-community/pull/325), [#326](https://github.com/LBALab/lba2-classic-community/pull/326)).
+
+### Disc image support
+
+- The engine can read retail assets straight from a raw ISO/BIN disc
+  image, so a GOG DRM-free Original Edition install (`LBA2.GOG`) plays
+  with no extraction step: `VIDEO.HQR`, the music WAVs, and the `.VOX`
+  voices that live only inside the BIN are resolved through the mounted
+  image, including the external cue audio track. The image is detected by
+  its ISO9660 content (the `CD001` volume descriptor), not by name, so a
+  `.gog`, a raw `.bin`/`.iso`, or a `.cue`/`.dat` pair all work, and the
+  reader is asset-source-agnostic for later LBA1 reuse
+  ([#322](https://github.com/LBALab/lba2-classic-community/pull/322)).
+  See [docs/DISC_IMAGE_SOURCE.md](docs/DISC_IMAGE_SOURCE.md).
+
+### Console
+
+- F12 console keyboard overhaul: command history on Up/Down, Page Up/Down
+  and the wheel for scrollback, mid-line editing (Left/Right/Home/End/
+  Delete with a blinking cursor), Tab completion over commands, cvars and
+  built-ins, clipboard shortcuts, a two-stage Esc, and character entry
+  routed through SDL text input
+  ([#331](https://github.com/LBALab/lba2-classic-community/pull/331)).
+- Text selection with copy: Shift+arrows and Ctrl+A in the input line,
+  mouse drag and double-click across the scrollback, the OS cursor shown
+  while the console is open, right-click to copy, and a click in the game
+  area closes the console
+  ([#332](https://github.com/LBALab/lba2-classic-community/pull/332)).
+- Hardening from an architecture review: a single CP437/Unicode table
+  replacing two hand-synced switch tables, a loud table-overflow, and an
+  input test seam. The mouse-selection, input-line, and render-overlay
+  statics were then grouped into structs with centralized teardown
+  ([#333](https://github.com/LBALab/lba2-classic-community/pull/333), [#334](https://github.com/LBALab/lba2-classic-community/pull/334), [#335](https://github.com/LBALab/lba2-classic-community/pull/335), [#336](https://github.com/LBALab/lba2-classic-community/pull/336)).
+- Intentional blank lines are preserved in the console output
+  ([#330](https://github.com/LBALab/lba2-classic-community/pull/330)).
+  See [docs/CONSOLE.md](docs/CONSOLE.md).
+
+### Config & stability
+
+- Atomic, crash-safe config writes. Every save funnelled through an
+  `O_TRUNC` open on the live `lba2.cfg` and re-spliced the in-memory
+  buffer back out across several writes, leaving a corruption window open
+  about 30 times per settings change. Writes now go to a temp file with
+  `fsync` and an atomic rename, batched into a single fsync and rename
+  per save, so a crash or power loss can no longer truncate the config
+  ([#340](https://github.com/LBALab/lba2-classic-community/pull/340)).
+- HQR caches are sized in bytes rather than MiB. `AvailableMem()` returns
+  MiB but `AdjustHQRMem()` treated it as bytes, so every cache clamped to
+  its minimum regardless of installed RAM. At its minimum the
+  island-object cache held about one decor body, reloading a body per
+  visible object in object-dense exterior islands
+  ([#321](https://github.com/LBALab/lba2-classic-community/pull/321)).
+- VOC detection now gates on the 19-byte signature instead of the first
+  byte, which is not a reliable discriminator (standard VOC starts with
+  `C`, LBA voice banks with `0x00`, some LBA1 entries with `0x01`). The
+  parser was extracted into a pure, SDL-free module pinned by a host test
+  ([#320](https://github.com/LBALab/lba2-classic-community/pull/320)).
+- The Windows console is set to UTF-8 so the boot banner renders
+  ([#309](https://github.com/LBALab/lba2-classic-community/pull/309)), and
+  the boot-log banner and section lines are bold cyan
+  ([#329](https://github.com/LBALab/lba2-classic-community/pull/329)).
+- Harness screenshots capture `Log` (the presented buffer) rather than
+  `Screen`
+  ([#313](https://github.com/LBALab/lba2-classic-community/pull/313)).
+
+### Build & packaging
+
+- `patchelf` added to the AppImage build
+  ([#318](https://github.com/LBALab/lba2-classic-community/pull/318) by
+  [@Samueru-sama](https://github.com/Samueru-sama)).
+- CI pins SDL3 in the test image to `release-3.2.16` after a stale-image
+  drift
+  ([#324](https://github.com/LBALab/lba2-classic-community/pull/324)).
+
+### Documentation
+
+- New references and plans: an isometric-renderer hardcoded-pixel audit
+  ([docs/ISO_SPACE_AUDIT.md](docs/ISO_SPACE_AUDIT.md)), an in-place
+  Platform Abstraction Layer audit and extraction plan
+  ([docs/PLATFORM_PAL_PLAN.md](docs/PLATFORM_PAL_PLAN.md)), a plan for
+  hosting LBA1 on the lba2cc engine
+  ([docs/LBA1_PORT_PLAN.md](docs/LBA1_PORT_PLAN.md)), the gamepad camera
+  controls ([docs/CONTROLLER.md](docs/CONTROLLER.md)), and a note on the
+  video seam's two halves
+  ([#312](https://github.com/LBALab/lba2-classic-community/pull/312), [#317](https://github.com/LBALab/lba2-classic-community/pull/317), [#319](https://github.com/LBALab/lba2-classic-community/pull/319), [#327](https://github.com/LBALab/lba2-classic-community/pull/327)).
+
+### Contributors
+
+Welcome to a new contributor since v0.11.0:
+[@Samueru-sama](https://github.com/Samueru-sama) for the `patchelf`
+addition to the AppImage build
+([#318](https://github.com/LBALab/lba2-classic-community/pull/318)).
 
 ## [0.11.0] - 2026-06-05
 
