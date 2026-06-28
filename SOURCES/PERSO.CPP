@@ -74,12 +74,14 @@ static S32 FollowCamPrevHeroX = 0;
 static S32 FollowCamPrevHeroY = 0;
 static S32 FollowCamPrevHeroZ = 0;
 static S32 FollowCamPrevHeroBeta = 0;
-static S32 FollowCamPrevAddBeta = 0;   /* dirty check: last seen AddBetaCam */
-static S32 FollowCamEffectiveDist = 0; /* spring arm: smoothed distance (0 = uninitialised) */
-static S32 FollowCamTargetBeta = 0;    /* rotation lag: desired BetaCam */
-S32 FollowCamReengageDelay = 0;        /* frames before auto-center resumes after manual pan */
-static S32 FollowCamPrevBaseDist = -1; /* dirty: zoom from GereExtKeys (numpad * /) */
-static S32 FollowCamPrevAlphaCam = -1; /* dirty: numpad +/- elevation while follow */
+static S32 FollowCamPrevAddBeta = 0;    /* dirty check: last seen AddBetaCam */
+static S32 FollowCamEffectiveDist = 0;  /* spring arm: smoothed distance (0 = uninitialised) */
+static S32 FollowCamTargetBeta = 0;     /* rotation lag: desired BetaCam */
+S32 FollowCamReengageDelay = 0;         /* frames before auto-center resumes after manual pan */
+static S32 FollowCamPrevBaseDist = -1;  /* dirty: zoom from GereExtKeys (numpad * /) */
+static S32 FollowCamPrevAlphaCam = -1;  /* dirty: numpad +/- elevation while follow */
+static S32 FollowCamEyeLift = 0;        /* ground clearance: eased eye lift above terrain */
+static S32 FollowCamGroundSettling = 0; /* ground clearance: lift still easing (keeps the dirty check live while the hero stands still) */
 
 /* HD vertical-FOV recompose strength for the Auto camera (community).  Returns
  * kExcess = ModeDesiredY*100/480 - 100: the hundredths by which the render
@@ -1790,7 +1792,7 @@ restartloop:
                     if (catchupDiff < -2048)
                         catchupDiff += 4096;
 
-                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam) {
+                    if (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Y != FollowCamPrevHeroY OR ptr3d->Z != FollowCamPrevHeroZ OR ptr3d->Beta != FollowCamPrevHeroBeta OR AddBetaCam != FollowCamPrevAddBeta OR(catchupDiff > FOLLOW_CAM_ROT_THRESHOLD OR catchupDiff < -FOLLOW_CAM_ROT_THRESHOLD) OR FollowCamBaseDist != FollowCamPrevBaseDist OR AlphaCam != FollowCamPrevAlphaCam OR FollowCamGroundSettling) {
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
@@ -1908,6 +1910,77 @@ restartloop:
                             VueDistance = renderDist;
                             CameraCenter(3);
                             AlphaCam = saveAlphaCam;
+
+                            /* Terrain occlusion clearance: a smooth port of the
+                             * classic SearchCameraPos awareness. CameraCenter(3)
+                             * left the eye at CameraX/Y/Z; march a few points
+                             * along the eye->hero line and, where terrain would
+                             * rise above the line of sight (a hill between camera
+                             * and hero, or the eye sinking into rising ground),
+                             * raise the eye just enough to clear the worst
+                             * occluder, then re-aim at the hero with the same lib
+                             * calls the classic recenter uses. The lift eases
+                             * every frame instead of snapping, so it never fights
+                             * the orbit (which is what sank the earlier always-on
+                             * attempt). Skipped out-of-cube, where
+                             * CalculAltitudeObjet is invalid. */
+                            if (FollowCamGround
+                                    AND CameraX >= 0 AND CameraX <= 32768 AND CameraZ >= 0 AND CameraZ <= 32768) {
+                                S32 hx = ptr3d->X, hy = ptr3d->Y, hz = ptr3d->Z;
+                                S32 ex = CameraX, ey = CameraY, ez = CameraZ;
+                                S32 targetEyeY = ey; /* never push the eye lower */
+
+                                /* Sample fractions along hero(0)->eye(100). Start
+                                 * past the hero so the ground it stands on is not
+                                 * read as an occluder; 100 is the under-eye case. */
+                                static const S32 marchFrac[] = {40, 55, 70, 85, 100};
+                                for (S32 mi = 0; mi < 5; mi++) {
+                                    S32 f = marchFrac[mi];
+                                    S32 sx = hx + (ex - hx) * f / 100;
+                                    S32 sz = hz + (ez - hz) * f / 100;
+                                    if (sx < 0 OR sx > 32768 OR sz < 0 OR sz > 32768)
+                                        continue;
+                                    S32 g = PtrCalculAltitudeY(sx, sz);
+                                    S32 sightY = hy + (ey - hy) * f / 100;
+                                    if (g + FollowCamGroundClearance > sightY) {
+                                        /* eye height that drops this occluder just
+                                         * under the eye->hero line (pivot at hero) */
+                                        S32 reqEyeY = hy + (g + FollowCamGroundClearance - hy) * 100 / f;
+                                        if (reqEyeY > targetEyeY)
+                                            targetEyeY = reqEyeY;
+                                    }
+                                }
+
+                                S32 targetLift = targetEyeY - ey;
+                                if (targetLift < 0)
+                                    targetLift = 0;
+                                if (targetLift > FOLLOW_CAM_GROUND_MAX_LIFT)
+                                    targetLift = FOLLOW_CAM_GROUND_MAX_LIFT;
+
+                                S32 d = targetLift - FollowCamEyeLift;
+                                if (d > FOLLOW_CAM_GROUND_SNAP OR d < -FOLLOW_CAM_GROUND_SNAP) {
+                                    S32 step = d / FOLLOW_CAM_GROUND_EASE;
+                                    if (step >= 0 AND step < FOLLOW_CAM_GROUND_MIN_STEP)
+                                        step = FOLLOW_CAM_GROUND_MIN_STEP;
+                                    else if (step<0 AND step> - FOLLOW_CAM_GROUND_MIN_STEP)
+                                        step = -FOLLOW_CAM_GROUND_MIN_STEP;
+                                    FollowCamEyeLift += step;
+                                } else {
+                                    FollowCamEyeLift = targetLift;
+                                }
+
+                                /* Keep the dirty check live until the lift
+                                 * settles, so it converges even while the hero
+                                 * stands still (e.g. at the foot of a hill). */
+                                FollowCamGroundSettling = (FollowCamEyeLift != targetLift) ? 1 : 0;
+
+                                if (FollowCamEyeLift > 0) {
+                                    SetPosCamera(ex, ey + FollowCamEyeLift, ez);
+                                    SetTargetCamera(VueOffsetX, VueOffsetY, VueOffsetZ, GammaCam);
+                                }
+                            } else {
+                                FollowCamGroundSettling = 0;
+                            }
                         } else {
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
