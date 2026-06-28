@@ -53,8 +53,19 @@ RUNNING
 
     ./@LBA2_EXECUTABLE_NAME@
 
-If it can't find game data and the picker isn't available for some
-reason, the log printed to stderr lists every directory it tried.
+If the folder picker doesn't open (common on minimal Linux setups and
+WSL, where no dialog backend is installed), either install one:
+
+    sudo apt install zenity          (Debian / Ubuntu / WSL)
+    pacman -S zenity                 (Arch)
+    dnf install zenity               (Fedora)
+
+or skip the picker entirely by passing the path:
+
+    ./@LBA2_EXECUTABLE_NAME@ --game-dir /path/to/game
+
+If it still can't find game data, the log printed to stderr lists every
+directory it tried.
 
 
 LICENSE
