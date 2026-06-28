@@ -1969,6 +1969,12 @@ static S32 ApplyManualCameraNudge(S32 dBeta, S32 dAlpha, S32 dZoom) {
         changed = 1;
     }
 
+    /* Any manual camera input yields the pitch/distance auto-assist (HD recompose
+     * + ground-lift) for a grace window; it eases back in afterward, so the
+     * assist never fights the player's tilt/zoom/orbit while they are driving. */
+    if (dBeta != 0 OR dAlpha != 0 OR dZoom != 0)
+        FollowCamManualHold = FollowCamManualHoldFrames;
+
     return changed;
 }
 

@@ -19,6 +19,14 @@
 #define FOLLOW_CAM_DRIFT_MIN_STEP 3           /* minimum AddBetaCam step per drift tick (units) */
 #define FOLLOW_CAM_DRIFT_THRESHOLD 5          /* snap AddBetaCam to 0 within this many units */
 
+/* Manual-override hold (pitch / distance auto-correction) --------------------*/
+/* The HD recompose and ground-clearance push pitch and distance on top of the
+ * player's manual tilt/zoom. Any manual camera nudge drives the auto-assist
+ * strength to 0 and it eases back to full over this many frames, so manual
+ * control wins while the player is driving and the assist fades back in after.
+ * Seeds the runtime FollowCamManualHoldFrames global (cvar cam_manual_hold). */
+#define FOLLOW_CAM_MANUAL_HOLD_DEFAULT 45 /* frames the auto-assist yields after a manual camera nudge (~0.75s) */
+
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX 600 /* maximum elevation angle */
