@@ -81,6 +81,20 @@ S32 FollowCamReengageDelay = 0;        /* frames before auto-center resumes afte
 static S32 FollowCamPrevBaseDist = -1; /* dirty: zoom from GereExtKeys (numpad * /) */
 static S32 FollowCamPrevAlphaCam = -1; /* dirty: numpad +/- elevation while follow */
 
+/* HD vertical-FOV recompose strength for the Auto camera (community).  Returns
+ * kExcess = ModeDesiredY*100/480 - 100: the hundredths by which the render
+ * height exceeds the original 480 (0 at 480, 125 at 1080).  The follow-cam apply
+ * path scales its boom pull-in, pitch steepen, and forward-lean cut by this, so
+ * every recompose term is an exact no-op at 480.  Returns 0 when the recompose
+ * is disabled (cam_hd 0); callers also pass 0 inside camera zones so authored /
+ * scripted shots are never recomposed.  Tuning in FOLLOWCAM_CFG.H. */
+static S32 FollowCamHDExcess(void) {
+    if (!FollowCamHDRecompose)
+        return 0;
+    S32 k100 = (S32)ModeDesiredY * 100 / 480;
+    return (k100 > 100) ? (k100 - 100) : 0;
+}
+
 /*══════════════════════════════════════════════════════════════════════════*/
 char NamePcxSave[ADELINE_MAX_PATH];
 S32 NumPcxSave = 0;
@@ -1780,13 +1794,28 @@ restartloop:
                         S32 newbeta = AddBetaCam + ptr3d->Beta;
                         newbeta &= 4095;
 
+                        /* HD recompose strength (kExcess): 0 in camera zones, at
+                         * 480, or when disabled. Shared by the forward-lean cut
+                         * here and the boom pull-in + pitch steepen at the apply
+                         * below, so the whole recompose is a no-op at 480. */
+                        S32 hdExcess = CameraZone ? 0 : FollowCamHDExcess();
+
                         /* Use the camera's current angle for the forward lean,
                          * not the hero's facing.  This keeps the orbit center
                          * stable when the hero turns in place — the lean point
                          * drifts smoothly as BetaCam lerps toward the target,
                          * instead of snapping with the hero's Beta. */
                         S32 leanBeta = (2048 - BetaCam) & 4095;
-                        Rotate(0, DISTANCE_VISEE, leanBeta);
+                        S32 leanDist = DISTANCE_VISEE;
+                        if (hdExcess) {
+                            /* Shorten the forward lean so the hero is not pushed
+                             * toward the bottom edge of the taller frame. */
+                            S32 cut = hdExcess * FollowCamHDLeanGain / 100;
+                            if (cut > FOLLOW_CAM_HD_LEAN_MAX_CUT)
+                                cut = FOLLOW_CAM_HD_LEAN_MAX_CUT;
+                            leanDist = DISTANCE_VISEE * (100 - cut) / 100;
+                        }
+                        Rotate(0, leanDist, leanBeta);
 
                         VueOffsetX = ptr3d->X + X0;
                         VueOffsetY = ptr3d->Y;
@@ -1858,8 +1887,27 @@ restartloop:
                                     FollowCamEffectiveDist = FollowCamBaseDist;
                             }
 
-                            VueDistance = FollowCamEffectiveDist;
+                            /* HD recompose (render-time only; logical AlphaCam and
+                             * FollowCamBaseDist are left untouched and restored
+                             * below). Pull the boom in so the subject fills the
+                             * taller frame instead of dead sky, and steepen the
+                             * pitch to trade sky for ground. No-op when hdExcess
+                             * is 0 (480 / disabled / camera zone). */
+                            S32 renderDist = FollowCamEffectiveDist;
+                            S32 saveAlphaCam = AlphaCam;
+                            if (hdExcess) {
+                                S32 pull = hdExcess * FollowCamHDDistGain / 100;
+                                if (pull > FOLLOW_CAM_HD_DIST_MAX_PULL)
+                                    pull = FOLLOW_CAM_HD_DIST_MAX_PULL;
+                                renderDist = FollowCamEffectiveDist * (100 - pull) / 100;
+
+                                AlphaCam += hdExcess * FollowCamHDPitchGain / 100;
+                                if (AlphaCam > FOLLOW_CAM_ALPHA_MAX)
+                                    AlphaCam = FOLLOW_CAM_ALPHA_MAX;
+                            }
+                            VueDistance = renderDist;
                             CameraCenter(3);
+                            AlphaCam = saveAlphaCam;
                         } else {
                             VueDistance = FollowCamEffectiveDist;
                             CameraCenter(3);
