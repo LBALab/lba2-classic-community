@@ -101,11 +101,35 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 
 ### Apply path
 
-- Uses `CameraCenter(3)` (apply current globals only; skips `SearchCameraPos`). So unlike classic exterior, the camera is not slid along the ray when decor blocks — hills and objects may occlude; that tradeoff avoids fighting the orbit every frame and matches “cinematic follow” rather than “collision camera.”
+- Uses `CameraCenter(3)` (apply current globals only; skips the classic `SearchCameraPos` snap). Terrain occlusion is instead handled by the eased ground-clearance below; decor/scenery is not yet cleared for. This keeps the orbit from being fought every frame and matches “cinematic follow” rather than a hard “collision camera.”
 
 **Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
 
 **Zoom input:** Numpad `/` and `*` update `FollowCamBaseDist` every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`).
+
+### HD recompose (tall render heights)
+
+The exterior projection has a fixed focal (`ChampX`/`ChampZ` = 600); a taller framebuffer therefore reveals more vertical field of view rather than zooming, so the frame fills with sky and the hero shrinks (see [WIDESCREEN.md](WIDESCREEN.md) "Vertical framing at HD"). At 1080p the vertical FOV roughly doubles, so the follow camera measurably mis-frames the subject: far away, with the upper third lost to sky.
+
+The Auto camera answers this with a render-time recompose ("recompose, not crop"). With `k = ModeDesiredY / 480` (so every term is an exact no-op at the original 480 height), each apply pulls the boom in, steepens the pitch, and shortens the forward lean in proportion to `k - 1`:
+
+- **Render-time only.** The player's logical `AlphaCam` and `FollowCamBaseDist` are read, adjusted for the `CameraCenter(3)` call, and restored, so manual tilt/zoom and the spring arm keep their logical values.
+- **Auto path only, never in a camera zone.** Authored / scripted shots (`CameraZone`) and the classic camera are untouched, as are isometric interiors.
+- **Tunable live**, then baked into `FOLLOWCAM_CFG.H`: `cam_hd` (master), `cam_hd_pitch`, `cam_hd_dist`, `cam_hd_lean` console cvars. `FollowCamHDExcess()` ([PERSO.CPP](../SOURCES/PERSO.CPP)) returns the `k`-excess the apply path scales by.
+
+Pitch is the binding lever and saturates at the `AlphaCam` clamp (600 ≈ 53°), so on an open vista the recompose brings the subject back to a good size but leaves a natural widescreen horizon band rather than a 4:3-tight sky.
+
+**Status: tuned for ~720p; 1080p is experimental.** The strength scales linearly with render height, which over-reaches at 1080p: the subject can feel too far and terrain near-clipping is more visible (the height-scaled near clip reduces it but does not fully solve it; a per-cell near-plane clip of the terrain grid is the real fix). The `cam_hd_*` cvars (and `cam_hd_cap`, which caps the strength so tall resolutions converge) let you tune it, and `cam_hd 0` disables it. Refining the 1080p framing and the terrain near-clip is left to a focused follow-up.
+
+### Ground / occlusion clearance
+
+A smooth port of the classic `SearchCameraPos` terrain awareness onto the follow path (`cam_ground`, default on; clearance `cam_ground_clear`). After `CameraCenter(3)` positions the eye, a few points are sampled along the eye-to-hero line (`FollowCamHDExcess`-style, in `PERSO.CPP`). Where terrain there would rise above the line of sight (a hill between the camera and the hero, or the eye sinking into rising ground), the eye is raised just enough to clear the worst occluder and re-aimed at the hero via the same `SetPosCamera` / `SetTargetCamera` calls the classic recenter uses.
+
+The difference from the classic path is that the lift **eases** toward its target every frame (`FollowCamEyeLift`, tuned by `FOLLOW_CAM_GROUND_*`) instead of snapping. An earlier always-on snap fought the orbit and was reverted; easing is what makes it safe to run every frame. A `FollowCamGroundSettling` flag keeps the dirty check live until the lift converges, so it finishes even while the hero stands still. Active at every resolution (world awareness, not HD-specific), skipped in camera zones and when the eye leaves the cube (where `CalculAltitudeObjet` is invalid). It clears terrain only; decor/scenery occlusion is not yet handled.
+
+### Manual-override fade
+
+The HD recompose steepens pitch and the ground-clearance re-aims the eye, both on top of whatever the player set. Left alone, that fights a manual tilt: the recompose offsets it and the re-aim pins pitch to the geometry. Any manual camera nudge therefore arms `FollowCamManualHold` (in `ApplyManualCameraNudge`), which drives an `autoFactor` to 0 so the **pitch** assist (recompose pitch steepen + ground-lift re-aim) yields completely while the player drives; it eases back to full over `FollowCamManualHoldFrames` (cvar `cam_manual_hold`, ~0.75 s) once they let go. This mirrors the existing azimuth re-center (`FollowCamReengageDelay`) on the pitch axis. The boom pull-in and lean are deliberately **not** faded, so grabbing the stick to orbit does not pop the camera out to full distance.
 
 **Performance:** Two optimizations keep the per-frame cost manageable:
 
@@ -118,7 +142,9 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
 - **Gamepad / rebinding:** Dual-stick camera; optional rebinding of zoom/tilt/pan (today numpad-heavy) for laptops and alternate layouts.
-- **Auto camera vs terrain / decor:** Optional collision or ground clearance for the lens was explored and removed; a future approach could revisit with clearer correction (see project history on `feature/auto-camera-center`).
+- **Auto camera vs terrain / decor:** the eased ground/occlusion clearance above now ports the terrain half of `SearchCameraPos` (an earlier always-on snap was reverted for fighting the orbit; easing fixes that). Still open: decor/scenery occlusion (the classic path also tests `TestZVDecors`), and the eye leaving the cube on far authored cameras (the clearance is skipped there, matching the classic out-of-cube guard).
+- **Decor occlusion:** the ground clearance clears terrain only; the classic path also tests scenery boxes (`TestZVDecors`). Porting that would let the camera clear buildings/props too, not just landscape.
+- **Manual camera at tall heights:** the recompose runs on every apply, including while mouse/stick-orbiting, so the manual cam inherits the HD framing fix. Widening the manual `AlphaCam`/`FollowCamBaseDist` clamps with `k` and normalizing raw mouse deltas by render height are open refinements for fine manual control at 1080p+.
 
 ## Code reference
 
@@ -135,6 +161,9 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, follow camera block                            |
 | FollowCamera state      | SOURCES/GLOBAL.CPP, PERSO  | `FollowCamera`, `FollowCamBaseDist`; `FollowCamEffectiveDist` (spring arm, static in `PERSO.CPP`) |
 | Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
+| Auto cam HD recompose   | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamHDExcess`, `FollowCamHD{Recompose,PitchGain,DistGain,LeanGain}`, `cam_hd*` cvars |
+| Ground/occlusion clearance | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamEyeLift`, `FollowCamGroundSettling`, `FollowCamGround`, `FollowCamGroundClearance`, `cam_ground*` cvars |
+| Manual-override fade    | SOURCES/PERSO.CPP, SOURCES/EXTFUNC.CPP | `FollowCamManualHold`, `FollowCamManualHoldFrames`, `autoFactor`, `cam_manual_hold` cvar |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
 

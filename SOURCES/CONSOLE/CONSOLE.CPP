@@ -24,8 +24,8 @@
 #define CONSOLE_WRAP_WIDTH 78
 #define CONSOLE_PANEL_HEIGHT 140
 #define CONSOLE_LINE_HEIGHT 9
-#define CONSOLE_MAX_CMDS 48 /* ~27 registered today; headroom before the loud drop */
-#define CONSOLE_MAX_CVARS 32
+#define CONSOLE_MAX_CMDS 48  /* ~27 registered today; headroom before the loud drop */
+#define CONSOLE_MAX_CVARS 48 /* ~28 registered today; headroom before the loud drop */
 #define CONSOLE_MAX_ARGV 16
 #define CONSOLE_KEY_QUEUE_SIZE 32
 /* Sentinel scancode for a queued text-input character (vs a physical key). */
