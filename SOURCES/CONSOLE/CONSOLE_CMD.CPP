@@ -1541,4 +1541,6 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_hd_pitch", &FollowCamHDPitchGain, CONSOLE_CVAR_INT, "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)");
     Console_RegisterCvar("cam_hd_dist", &FollowCamHDDistGain, CONSOLE_CVAR_INT, "HD recompose distance pull (% of boom per 1.0 of k-1)");
     Console_RegisterCvar("cam_hd_lean", &FollowCamHDLeanGain, CONSOLE_CVAR_INT, "HD recompose forward-lean cut (% per 1.0 of k-1)");
+    Console_RegisterCvar("cam_ground", &FollowCamGround, CONSOLE_CVAR_BOOL, "Auto cam: smooth terrain ground-clearance lift");
+    Console_RegisterCvar("cam_ground_clear", &FollowCamGroundClearance, CONSOLE_CVAR_INT, "Ground clearance: keep the eye this far above the ground under it");
 }

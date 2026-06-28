@@ -56,6 +56,22 @@
 #define FOLLOW_CAM_HD_DIST_MAX_PULL 50       /* clamp: never pull the boom in past this % */
 #define FOLLOW_CAM_HD_LEAN_MAX_CUT 70        /* clamp: never cut the forward lean past this % */
 
+/* Ground / occlusion clearance (Auto camera only; community) -----------------*/
+/* A smooth port of the classic SearchCameraPos terrain awareness onto the
+ * follow path. A few points are sampled along the eye->hero line; if terrain
+ * there would rise above the line of sight (a hill between the camera and the
+ * hero, or the eye sinking into rising ground), the eye lifts just enough to
+ * clear the worst occluder and re-aims at the hero. Unlike the classic recenter
+ * (a one-shot snap, which is why an earlier always-on attempt fought the orbit
+ * and was reverted), the lift eases toward its target every frame. Active at
+ * every resolution: this is world awareness, not HD-specific. */
+#define FOLLOW_CAM_GROUND_DEFAULT 1             /* master enable (cam_ground) */
+#define FOLLOW_CAM_GROUND_CLEARANCE_DEFAULT 600 /* keep the sight line this far above terrain */
+#define FOLLOW_CAM_GROUND_MAX_LIFT 8000         /* clamp the total eye lift (units) */
+#define FOLLOW_CAM_GROUND_EASE 8                /* lift lerp divisor (higher = lazier ease) */
+#define FOLLOW_CAM_GROUND_MIN_STEP 40           /* minimum lift change per eased frame (units) */
+#define FOLLOW_CAM_GROUND_SNAP 40               /* snap lift to target within this many units */
+
 /* Gamepad right-stick camera ------------------------------------------------*/
 #define GAMEPAD_CAM_SENS_DEFAULT 5 /* default right-stick sensitivity (1-10 range) */
 /* Defaults for the runtime GamepadCamMaxBeta / GamepadCamMaxAlpha globals
