@@ -17,6 +17,7 @@ function(register_host_test test_name)
 endfunction()
 
 add_subdirectory(discovery)
+add_subdirectory(picker)
 add_subdirectory(console)
 add_subdirectory(logging)
 add_subdirectory(asset_preflight)
