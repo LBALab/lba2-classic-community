@@ -30,6 +30,14 @@ extern "C" {
  * adapted to a synchronous loop via SDL_PumpEvents). */
 bool PromptForResDir(char *outPath, U16 outMax);
 
+/* Message-box bodies, defined in RES_PICKER.CPP and exposed so a host test can
+ * assert the wording contract (no em-dash, no unshipped .md pointer, length
+ * ceiling, recovery tokens present). Not for general use; call the picker. */
+extern const char kPickerMsgDataNotFound[];
+extern const char kPickerMsgInvalidPick[];
+extern const char kPickerMsgNoPicker[];
+extern const char kPickerMsgAndroidData[];
+
 #ifdef __cplusplus
 }
 #endif

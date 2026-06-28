@@ -3,12 +3,44 @@
 #include "RES_PICKER.H"
 #include "DIRECTORIES.H"
 
+#include "SYSTEM/ANDROID.H"
 #include "SYSTEM/LIMITS.H"
 #include "SYSTEM/LOG.H"
 
 #include <SDL3/SDL.h>
 
 #include <string.h>
+
+/* Message-box bodies live as named constants (not inline in the SDL calls) so a
+   host test can hold the line on the wording contract: no em-dash, recovery
+   tokens present, and a length ceiling -- the "don't grow a README inside a
+   modal" guard. Keep them short. The long-form setup guide is README.txt
+   (shipped next to the binary; .md docs are NOT in the release), and
+   docs/GAME_DATA.md for anyone reading the source. Declared in RES_PICKER.H.
+   File scope (not the anonymous namespace below): extern "C" external linkage
+   so the host test can reference them by name. */
+
+extern "C" const char kPickerMsgDataNotFound[] =
+    "Little Big Adventure 2 game data wasn't found.\n\n"
+    "Pick the folder that contains lba2.hqr (your retail LBA2 install).\n\n"
+    "Your choice is saved for next time.";
+
+extern "C" const char kPickerMsgInvalidPick[] =
+    "That folder doesn't contain lba2.hqr.\n\n"
+    "Pick your retail LBA2 install folder (the one with lba2.hqr).";
+
+extern "C" const char kPickerMsgNoPicker[] =
+    "The system folder picker isn't available here.\n\n"
+    "Start the game with your data folder instead:\n"
+    "    lba2cc --game-dir /path/to/your/lba2/install\n"
+    "or set the LBA2_GAME_DIR environment variable.\n\n"
+    "See README.txt for setup help.";
+
+extern "C" const char kPickerMsgAndroidData[] =
+    "Little Big Adventure 2 game data wasn't found.\n\n"
+    "Copy your retail LBA2 data (lba2.hqr, music/, video/, vox/) to:\n"
+    "    /sdcard/lba2cc/\n\n"
+    "then relaunch the app.";
 
 namespace {
 
@@ -82,14 +114,8 @@ void SDLCALL OnFolderChosen(void *userdata, const char *const *filelist,
 }
 
 void ShowInvalidPickMessage(void) {
-    SDL_ShowSimpleMessageBox(
-        SDL_MESSAGEBOX_WARNING,
-        "Game data not found",
-        "This folder doesn't contain lba2.hqr.\n\n"
-        "Please pick the folder containing your retail Little Big "
-        "Adventure 2 install (the one with lba2.hqr, music/, video/, "
-        "vox/, etc.).",
-        NULL);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Game data not found",
+                             kPickerMsgInvalidPick, NULL);
 }
 
 } // namespace
@@ -115,37 +141,28 @@ void EnsureTrailingSeparator(char *path, U16 maxLen) {
 }
 
 void ShowDiscoveryFailedMessage(void) {
-    SDL_ShowSimpleMessageBox(
-        SDL_MESSAGEBOX_INFORMATION,
-        "Game data folder not found",
-        "Little Big Adventure 2 retail game data wasn't found in any of "
-        "the usual places.\n\n"
-        "Please pick the folder containing your LBA2 install (the one "
-        "with lba2.hqr, music/, video/, vox/, etc.).\n\n"
-        "Your choice will be remembered for future launches.",
-        NULL);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
+                             "Game data folder not found",
+                             kPickerMsgDataNotFound, NULL);
 }
 
-/* The picker fired but the OS couldn't actually open a folder dialog
- * — no backend installed (common on WSL without zenity, on minimal
- * Linux containers, on locked-down corporate setups). Surface
- * actionable recovery rather than just exiting with the existing
- * "no game data" log buried in the terminal. */
+/* The picker fired but the OS couldn't actually open a folder dialog: no
+ * backend installed (common on WSL without zenity, on minimal Linux
+ * containers, on locked-down corporate setups). Point at the universal
+ * escape hatch and README.txt rather than dumping the per-distro install
+ * matrix into a modal -- that matrix lives in README.txt / docs/GAME_DATA.md.
+ * The advice is platform-neutral (no apt/pacman/dnf) so it reads correctly on
+ * every desktop, not just Linux. */
 void ShowDialogUnavailableMessage(void) {
-    SDL_ShowSimpleMessageBox(
-        SDL_MESSAGEBOX_WARNING,
-        "Couldn't open folder picker",
-        "The system folder-picker isn't available on this setup.\n\n"
-        "Quickest fix on most Linux setups (including WSL):\n"
-        "    sudo apt install zenity\n"
-        "    (or: pacman -S zenity / dnf install zenity)\n\n"
-        "For native-styled dialogs on KDE / GNOME / Hyprland, install\n"
-        "the matching xdg-desktop-portal package. See docs/GAME_DATA.md\n"
-        "section 'Picker backends per environment'.\n\n"
-        "Or skip the picker entirely: launch from a terminal with\n"
-        "    lba2cc --game-dir /path/to/your/lba2/install\n"
-        "or set the LBA2_GAME_DIR environment variable.",
-        NULL);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Couldn't open folder picker",
+                             kPickerMsgNoPicker, NULL);
+}
+
+/* Android has no usable folder picker, so instead of browsing the user is told
+ * exactly where to copy their data. Shown in place of the picker flow above. */
+void ShowAndroidDataMessage(void) {
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Game data not found",
+                             kPickerMsgAndroidData, NULL);
 }
 
 } // namespace
@@ -158,6 +175,19 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         Log_Warn("RES_PICKER: SDL_INIT_VIDEO failed (%s); skipping picker",
                  SDL_GetError());
+        return false;
+    }
+
+    /* Android has no usable folder picker: SDL's file dialog there returns
+     * content:// document URIs, not filesystem paths IsValidResourceDir can
+     * probe. So instead of browsing, tell the user where to copy their data
+     * and fall through to the caller's exit. Android_GetExternalFilesDir is a
+     * no-op returning 0 off-Android, so desktop builds skip this and reach the
+     * picker below -- the seam keeps this caller #ifdef-free. */
+    char androidProbe[ADELINE_MAX_PATH];
+    if (Android_GetExternalFilesDir(androidProbe, ADELINE_MAX_PATH)) {
+        Log_Info("RES_PICKER: Android - no folder picker; showing data-copy hint");
+        ShowAndroidDataMessage();
         return false;
     }
 
