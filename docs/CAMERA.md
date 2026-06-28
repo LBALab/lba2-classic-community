@@ -107,6 +107,18 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 
 **Zoom input:** Numpad `/` and `*` update `FollowCamBaseDist` every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`).
 
+### HD recompose (tall render heights)
+
+The exterior projection has a fixed focal (`ChampX`/`ChampZ` = 600); a taller framebuffer therefore reveals more vertical field of view rather than zooming, so the frame fills with sky and the hero shrinks (see [WIDESCREEN.md](WIDESCREEN.md) "Vertical framing at HD"). At 1080p the vertical FOV roughly doubles, so the follow camera measurably mis-frames the subject: far away, with the upper third lost to sky.
+
+The Auto camera answers this with a render-time recompose ("recompose, not crop"). With `k = ModeDesiredY / 480` (so every term is an exact no-op at the original 480 height), each apply pulls the boom in, steepens the pitch, and shortens the forward lean in proportion to `k - 1`:
+
+- **Render-time only.** The player's logical `AlphaCam` and `FollowCamBaseDist` are read, adjusted for the `CameraCenter(3)` call, and restored, so manual tilt/zoom and the spring arm keep their logical values.
+- **Auto path only, never in a camera zone.** Authored / scripted shots (`CameraZone`) and the classic camera are untouched, as are isometric interiors.
+- **Tunable live**, then baked into `FOLLOWCAM_CFG.H`: `cam_hd` (master), `cam_hd_pitch`, `cam_hd_dist`, `cam_hd_lean` console cvars. `FollowCamHDExcess()` ([PERSO.CPP](../SOURCES/PERSO.CPP)) returns the `k`-excess the apply path scales by.
+
+Pitch is the binding lever and saturates at the `AlphaCam` clamp (600 ≈ 53°), so on an open vista the recompose brings the subject back to a good size but leaves a natural widescreen horizon band rather than a 4:3-tight sky.
+
 **Performance:** Two optimizations keep the per-frame cost manageable:
 
 1. **Idle skip:** Dirty check on hero `X`, `Y`, `Z`, `Beta` skips all camera/terrain work when the hero hasn't moved. Standing still has zero extra cost.
@@ -118,7 +130,8 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
 - **Gamepad / rebinding:** Dual-stick camera; optional rebinding of zoom/tilt/pan (today numpad-heavy) for laptops and alternate layouts.
-- **Auto camera vs terrain / decor:** Optional collision or ground clearance for the lens was explored and removed; a future approach could revisit with clearer correction (see project history on `feature/auto-camera-center`).
+- **Auto camera vs terrain / decor:** Optional collision or ground clearance for the lens was explored and removed; a future approach could revisit with clearer correction (see project history on `feature/auto-camera-center`). The HD recompose above fixes *framing* at tall resolutions but not terrain occlusion. A smooth, spring-based port of `SearchCameraPos`'s ground-clearance and pitch re-derivation onto the auto path is the natural next step, with a manual-override grace window (mirroring `FollowCamReengageDelay`) so it does not fight the player's tilt.
+- **Manual camera at tall heights:** the recompose runs on every apply, including while mouse/stick-orbiting, so the manual cam inherits the HD framing fix. Widening the manual `AlphaCam`/`FollowCamBaseDist` clamps with `k` and normalizing raw mouse deltas by render height are open refinements for fine manual control at 1080p+.
 
 ## Code reference
 
@@ -135,6 +148,7 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 | Main loop follow cam    | SOURCES/PERSO.CPP          | Off-screen check, Enter key recentre, follow camera block                            |
 | FollowCamera state      | SOURCES/GLOBAL.CPP, PERSO  | `FollowCamera`, `FollowCamBaseDist`; `FollowCamEffectiveDist` (spring arm, static in `PERSO.CPP`) |
 | Follow cam tuning       | SOURCES/FOLLOWCAM_CFG.H    | All `FOLLOW_CAM_*` build-time constants                                             |
+| Auto cam HD recompose   | SOURCES/PERSO.CPP, FOLLOWCAM_CFG.H | `FollowCamHDExcess`, `FollowCamHD{Recompose,PitchGain,DistGain,LeanGain}`, `cam_hd*` cvars |
 | Config read/write       | SOURCES/PERSO.CPP          | `ReadConfigFile`, `WriteConfigFile`                                                 |
 | Menu toggle             | SOURCES/GAMEMENU.CPP       | `GereAdvancedOptionsMenu`                                                           |
 

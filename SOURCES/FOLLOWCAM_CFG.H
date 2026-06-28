@@ -39,6 +39,23 @@
 #define MOUSE_CAM_ZOOM_MULT 1         /* wheel zoom multiplier (applied to FOLLOW_CAM_ZOOM_STEP) */
 #define MOUSE_CAM_SENS_DEFAULT 4      /* default sensitivity (1-10 range) */
 
+/* HD vertical-FOV recompose (Auto camera only; community) -------------------*/
+/* The exterior projection has a fixed focal (ChampX/ChampZ = 600); a taller
+ * framebuffer therefore reveals more vertical field of view rather than zooming,
+ * so the frame fills with sky and the hero shrinks (see docs/WIDESCREEN.md
+ * "Vertical framing at HD" and docs/CAMERA.md). The follow camera answers this
+ * by pulling its boom in and steepening its pitch ("recompose, not crop").
+ * k = ModeDesiredY / 480; every lever scales with (k-1), expressed as the
+ * hundredths excess kExcess = ModeDesiredY*100/480 - 100 (0 at 480, 125 at
+ * 1080), so all three are exact no-ops at the original 480 height. Gains below
+ * seed runtime globals; tune live via the cam_hd_* console cvars then bake. */
+#define FOLLOW_CAM_HD_RECOMPOSE_DEFAULT 1    /* master enable (cam_hd) */
+#define FOLLOW_CAM_HD_PITCH_GAIN_DEFAULT 180 /* AlphaCam units added per 1.0 of (k-1) */
+#define FOLLOW_CAM_HD_DIST_GAIN_DEFAULT 27   /* % of boom pulled in per 1.0 of (k-1) */
+#define FOLLOW_CAM_HD_LEAN_GAIN_DEFAULT 45   /* % of forward lean removed per 1.0 of (k-1) */
+#define FOLLOW_CAM_HD_DIST_MAX_PULL 50       /* clamp: never pull the boom in past this % */
+#define FOLLOW_CAM_HD_LEAN_MAX_CUT 70        /* clamp: never cut the forward lean past this % */
+
 /* Gamepad right-stick camera ------------------------------------------------*/
 #define GAMEPAD_CAM_SENS_DEFAULT 5 /* default right-stick sensitivity (1-10 range) */
 /* Defaults for the runtime GamepadCamMaxBeta / GamepadCamMaxAlpha globals

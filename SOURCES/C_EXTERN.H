@@ -232,6 +232,10 @@ extern S32 GamepadCamMaxBeta;       /* right-stick orbit speed ceiling (units/fr
 extern S32 GamepadCamMaxAlpha;      /* right-stick elevation speed ceiling (units/frame at sens 10) */
 extern S32 FollowCamReengageFrames; /* frames before auto-cam re-centers after a manual pan */
 extern S32 FollowCamDriftDivisor;   /* auto-cam re-center drift divisor (higher = gentler) */
+extern S32 FollowCamHDRecompose;    /* Auto cam: pull-in+steepen recompose at tall render heights (1=on) */
+extern S32 FollowCamHDPitchGain;    /* HD recompose pitch gain (AlphaCam units per 1.0 of k-1) */
+extern S32 FollowCamHDDistGain;     /* HD recompose distance pull (% boom per 1.0 of k-1) */
+extern S32 FollowCamHDLeanGain;     /* HD recompose forward-lean cut (% per 1.0 of k-1) */
 extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;
