@@ -27,6 +27,8 @@ If none of the above resolves a valid directory, the engine falls back to the [F
 
 When all four override mechanisms above fail and the engine is running in a windowed environment, it shows the platform-native folder dialog (NSOpenPanel on macOS, IFileDialog on Windows, GTK / xdg-desktop-portal on Linux). The user picks the folder containing `lba2.hqr`; the engine validates it via `IsValidResourceDir`, persists the choice to `last_game_dir.txt`, and continues startup.
 
+Android is the exception: there is no folder picker (SDL's file dialog returns `content://` document URIs, not filesystem paths the engine can probe). When discovery fails there, the engine shows a message telling the user to copy their data to `/sdcard/lba2cc/` and relaunch, instead of opening a dialog. See [docs/ANDROID.md](ANDROID.md) for the full Android data layout.
+
 | Scenario | Behavior |
 |---|---|
 | User picks a valid folder (contains `lba2.hqr`) | Engine launches; `last_game_dir.txt` updated; subsequent launches skip the dialog. |
