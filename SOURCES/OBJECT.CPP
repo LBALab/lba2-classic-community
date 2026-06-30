@@ -4827,6 +4827,25 @@ void AfficheShadow(T_SORT *pt, S32 beta) {
     }
 }
 
+/* Draw a TYPE_OBJ_SPRITE image (e.g. a door) at the iso view scale. PtrAffGraph
+   draws goodie sprites (>=100) native via AffGraph and raw sprites (<100) via
+   ScaleSprite at ScaleFactorSprite; under iso zoom both must scale by IsoScale or
+   the sprite stays native-size while the scene grows. Delegates to PtrAffGraph at
+   ISO_SCALE_ONE so the faithful path is bit-exact. Only called from the gameplay
+   scene draw. PtrAffGraph itself is left untouched for the HUD/inventory/menus. */
+static void BlitSpriteIso(S32 sprite, S32 xp, S32 yp) {
+    if (IsoScale == ISO_SCALE_ONE) {
+        PtrAffGraph(xp, yp, sprite);
+        return;
+    }
+    if (sprite >= 100) {
+        BlitAnim3DSIso((U8 *)HQR_Get(HQRPtrSprite, sprite), 0, xp, yp);
+    } else {
+        S32 sf = (S32)(((long long)ScaleFactorSprite * IsoScale) / ISO_SCALE_ONE);
+        ScaleSprite(0, xp, yp, sf, sf, (U8 *)HQR_Get(HQRPtrSpriteRaw, sprite));
+    }
+}
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 /*──────────────────────────────────────────────────────────────────────────*/
 S32 AffOneObject(T_SORT *pt) {
@@ -5022,20 +5041,29 @@ S32 AffOneObject(T_SORT *pt) {
                          ptrobj->Obj.Y,
                          ptrobj->Obj.Z, num);
 
+        /* Sprite objects (doors etc.) are blitted native by PtrAffGraph, so under
+           iso zoom they stay native-size while the scene grows. Scale the hotspot
+           offset (PtrProjectSprite added it natively as SpriteX-Xp) and clip and
+           blit by IsoScale. Done at the gameplay call site, not in PtrAffGraph,
+           because that is shared with the HUD/inventory/menus (must not zoom).
+           Identity at ISO_SCALE_ONE. */
+        SpriteX = Xp + ISO_PX(SpriteX - Xp);
+        SpriteY = Yp + ISO_PX(SpriteY - Yp);
+
         if (ptrobj->Flags & SPRITE_CLIP) {
-            SetClip(ptrobj->Info + XpOrgw, ptrobj->Info1 + YpOrgw,
-                    ptrobj->Info2 + XpOrgw, ptrobj->Info3 + YpOrgw);
+            SetClip(ISO_PX(ptrobj->Info) + XpOrgw, ISO_PX(ptrobj->Info1) + YpOrgw,
+                    ISO_PX(ptrobj->Info2) + XpOrgw, ISO_PX(ptrobj->Info3) + YpOrgw);
 
             // A remplacer par une fonction de preClipping des
             // sprites
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
-                PtrAffGraph(SpriteX, SpriteY, num);
+                BlitSpriteIso(num, SpriteX, SpriteY);
                 UnsetClip();
                 SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
             }
         } else {
-            PtrAffGraph(SpriteX, SpriteY, num);
+            BlitSpriteIso(num, SpriteX, SpriteY);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
         }
 
@@ -5116,21 +5144,25 @@ S32 AffOneObject(T_SORT *pt) {
 
         ScaleFactorSprite = DEF_SCALE_FACTOR;
 
-        SpriteX = Xp + PtrZvAnim3DS[num * 8 + 0];
-        SpriteY = Yp + PtrZvAnim3DS[num * 8 + 1];
+        /* anim-3DS sprite objects (doors etc.) are blitted native by AffGraph, so
+           under iso zoom they must be scaled too or they stay native-size while
+           the scene grows. Scale the ZV hotspot offset, the SPRITE_CLIP window,
+           and the blit by IsoScale (all identity at ISO_SCALE_ONE). */
+        SpriteX = Xp + ISO_PX(PtrZvAnim3DS[num * 8 + 0]);
+        SpriteY = Yp + ISO_PX(PtrZvAnim3DS[num * 8 + 1]);
 
         if (ptrobj->Flags & SPRITE_CLIP) {
-            SetClip(ptrobj->Info + XpOrgw, ptrobj->Info1 + YpOrgw,
-                    ptrobj->Info2 + XpOrgw, ptrobj->Info3 + YpOrgw);
+            SetClip(ISO_PX(ptrobj->Info) + XpOrgw, ISO_PX(ptrobj->Info1) + YpOrgw,
+                    ISO_PX(ptrobj->Info2) + XpOrgw, ISO_PX(ptrobj->Info3) + YpOrgw);
 
             // A remplacer par une fonction de preClipping des
             // sprites
             if (ClipXMin <= ClipXMax
                                 AND ClipYMin <= ClipYMax) {
-                AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+                BlitAnim3DSIso(GetPtrAnim3DS(num), 0, SpriteX, SpriteY);
             }
         } else {
-            AffGraph(0, SpriteX, SpriteY, GetPtrAnim3DS(num));
+            BlitAnim3DSIso(GetPtrAnim3DS(num), 0, SpriteX, SpriteY);
             SetClip(ScreenXMin, ScreenYMin, ScreenXMax, ScreenYMax);
         }
 
@@ -5188,11 +5220,21 @@ S32 AffOneObject(T_SORT *pt) {
             AffSpecial(numobj);
         } else // sprite
         {
-            SpriteX = Xp + PtrZvExtraRaw[num * 8 + 0]; // Add Hot Spot
-            SpriteY = Yp + PtrZvExtraRaw[num * 8 + 1];
+            SpriteX = Xp + ISO_PX(PtrZvExtraRaw[num * 8 + 0]); // Add Hot Spot
+            SpriteY = Yp + ISO_PX(PtrZvExtraRaw[num * 8 + 1]);
 
             // Toujours des sprites Raw
             CalculeScaleFactorSprite(ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ, ptrextra->Scale);
+
+            /* Extras with a fixed scale (Scale==-1, e.g. the magic ball and item
+               drops) get DEF_SCALE_FACTOR from CalculeScaleFactorSprite, which
+               ignores the iso view scale; multiply it by IsoScale so they zoom
+               with the scene. The projection-derived branch (Scale>=0) already
+               scales (it measures through the scaled iso projection) so it must
+               NOT be multiplied or it would double-scale. Identity at scale 1. */
+            if (CubeMode == CUBE_INTERIEUR AND ptrextra->Scale == -1)
+                ScaleFactorSprite =
+                    (S32)(((long long)ScaleFactorSprite * IsoScale) / ISO_SCALE_ONE);
 
             if (ptrextra->Flags & EXTRA_TRANSPARENT) {
                 ScaleSpriteTransp(0, SpriteX, SpriteY,

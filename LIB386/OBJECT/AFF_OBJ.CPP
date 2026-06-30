@@ -1058,6 +1058,11 @@ S32 Sphere(U32 typePoly, void *poly) {
     if (TypeProj != TYPE_3D) {
         radius += radius + (radius << 5);
         radius >>= 9;
+        // Scale the sphere radius by the iso view scale so spheres (hands, joints,
+        // heads) grow with the zoom like the polygon body does. The point centre
+        // already scales via ProjectListIso; without this the radii stay fixed and
+        // spheres appear to shrink relative to the body. Bit-exact at ISO_SCALE_ONE.
+        radius = (S32)(((long long)radius * IsoScale) >> ISO_SCALE_SHIFT);
         radius = ~radius;
     } else {
         // @@Radius_Proj:
@@ -1113,6 +1118,11 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
     if (TypeProj != TYPE_3D) {
         radius += radius + (radius << 5);
         radius >>= 9;
+        // Scale the sphere radius by the iso view scale so spheres (hands, joints,
+        // heads) grow with the zoom like the polygon body does. The point centre
+        // already scales via ProjectListIso; without this the radii stay fixed and
+        // spheres appear to shrink relative to the body. Bit-exact at ISO_SCALE_ONE.
+        radius = (S32)(((long long)radius * IsoScale) >> ISO_SCALE_SHIFT);
         radius = ~radius;
     } else {
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
