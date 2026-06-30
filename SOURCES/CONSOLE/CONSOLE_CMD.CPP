@@ -1332,6 +1332,21 @@ static void cmd_perftrace(int argc, const char *argv[]) {
     Console_Print("perftrace: unknown subcommand '%s'", sub);
 }
 
+static void cmd_zoom(int argc, const char *argv[]) {
+    if (argc >= 2 && !strcmp(argv[1], "reset")) {
+        SetScreenZoom(ZOOM_ONE);
+    } else if (argc >= 2) {
+        double f = atof(argv[1]);
+        if (f < 1.0) {
+            Console_Print("zoom: factor must be >= 1.0");
+            return;
+        }
+        SetScreenZoom((S32)(f * ZOOM_ONE + 0.5));
+    }
+    Console_Print("zoom = %.3f (screen-space magnify of the presented frame, UI included)",
+                  (double)ScreenZoom / ZOOM_ONE);
+}
+
 static void cmd_resolution(int argc, const char *argv[]) {
     /* Cap intentionally generous so cap-overflow can't silently truncate the
        advanced list as it grows over time. */
@@ -1498,6 +1513,12 @@ void Console_RegisterAll(void) {
                               "No args lists recommended modes; <n> picks by index; WxH is arbitrary "
                               "(W%8==0, range 320x200..1920x1024); native snaps to the current display; "
                               "--all expands the list with advanced modes. See docs/RUNTIME_RESOLUTION.md.");
+
+    Console_RegisterCommandEx("zoom", cmd_zoom, "Screen-space view zoom (dev/experimental)",
+                              "zoom <factor> | zoom reset",
+                              "1.0 = no zoom (bit-identical). Magnifies a centred region of the finished "
+                              "frame at present time; cheap and smooth, but pixels are upscaled (no extra "
+                              "detail) and the whole frame including the UI zooms.");
 
     Console_RegisterCommandEx("vsync", cmd_vsync,
                               "Toggle vertical sync (no args = show state)",
