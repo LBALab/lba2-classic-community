@@ -242,6 +242,8 @@ extern S32 FollowCamGroundClearance;  /* keep the eye this far above the ground 
 extern S32 FollowCamManualHold;       /* frames the pitch/distance auto-assist yields after a manual nudge */
 extern S32 FollowCamManualHoldFrames; /* manual-override hold length (cvar cam_manual_hold) */
 extern S32 FollowCamHoldAngle;        /* free-camera mode: hold manual rotation, no auto-recenter drift (cvar cam_hold_angle) */
+extern S32 FollowCamBlend;            /* camera blend: smooth handoffs between controllers (cvar cam_blend) */
+extern S32 FollowCamBlendDur;         /* camera blend length in frames (cvar cam_blend_dur) */
 extern S32 ReverseStereo;
 
 extern S32 ScaleFactorSprite;

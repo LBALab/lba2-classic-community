@@ -34,6 +34,14 @@
  * classic lazy drift-back. cvar cam_hold_angle. */
 #define FOLLOW_CAM_HOLD_ANGLE_DEFAULT 1
 
+/* Camera blend (prototype) --------------------------------------------------*/
+/* Smooth the hard cuts between camera controllers (dynamic follow <-> scripted
+ * zone camera, manual recenter) by interpolating the presented camera params
+ * over a few frames instead of jump-cutting. See docs/CAMERA_BLEND_DESIGN.md.
+ * cvars cam_blend / cam_blend_dur. */
+#define FOLLOW_CAM_BLEND_DEFAULT 1      /* master enable */
+#define FOLLOW_CAM_BLEND_DUR_DEFAULT 30 /* blend length in frames (~0.5s at 60fps) */
+
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX 600 /* maximum elevation angle */
