@@ -71,6 +71,16 @@ T_DEF_KEY DefKeys[MAX_INPUT + 1];
 // tableau de configuration des touches utilisé au cours du jeux
 U32 TabInputBit[MAX_INPUT * 2 + 1];
 
+// Combined keyboard+gamepad key/mask table handed to GetInput(). Folding the
+// gamepad in here (instead of OR-ing it into Input afterward) makes it a
+// first-class input: it flows through the one Input rebuild + NoRepeatInput
+// edge-filter, so held pad buttons edge-detect like keyboard keys and survive a
+// mid-frame GetInput() rebuild. Only the first 32 slots map to Input bits; four
+// keys per slot (keyboard Key1/Key2 + gamepad Key1/Key2) => 32 * 4 entries.
+#define INPUT_TABLE_SLOTS 32
+static U32 CombinedInputKeys[INPUT_TABLE_SLOTS * 4];
+static U32 CombinedInputMasks[INPUT_TABLE_SLOTS * 4];
+
 T_DEF_KEY GamepadKeys[MAX_INPUT];
 
 const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
@@ -123,19 +133,26 @@ const T_DEF_KEY GamepadKeysDefault[MAX_INPUT] = {
 
 //-------------------------------------------------------------------------
 void InitInput(void) {
-    U32 mask;
-
-    for (NbInput = 0; NbInput < MAX_INPUT * 2;) {
-        mask = (1 << (NbInput / 2));
-
-        TabInputBit[NbInput++] = mask;
-        TabInputBit[NbInput++] = mask;
+    // Rebuild the combined table from the current keyboard (DefKeys) and gamepad
+    // (GamepadKeys) bindings. Call after either changes (key remap, config load,
+    // restore-defaults). Spell slots 32-35 stay out of the Input path and are
+    // read via direct CheckKey(DefKeys[..]) in PERSO.CPP.
+    S32 n = 0;
+    for (S32 i = 0; i < INPUT_TABLE_SLOTS; i++) {
+        U32 mask = (1u << i);
+        CombinedInputKeys[n] = DefKeys[i].Key1;
+        CombinedInputMasks[n++] = mask;
+        CombinedInputKeys[n] = DefKeys[i].Key2;
+        CombinedInputMasks[n++] = mask;
+        CombinedInputKeys[n] = GamepadKeys[i].Key1;
+        CombinedInputMasks[n++] = mask;
+        CombinedInputKeys[n] = GamepadKeys[i].Key2;
+        CombinedInputMasks[n++] = mask;
     }
 
-    if (NbInput > 64)
-        NbInput = 64;
+    NbInput = (U32)n;
 
-    DefineInputKeys(NbInput, (U32 *)DefKeys, TabInputBit);
+    DefineInputKeys(n, CombinedInputKeys, CombinedInputMasks);
 }
 
 //-------------------------------------------------------------------------
@@ -256,6 +273,11 @@ void ReadGamepadConfig(void) {
         GamepadKeys[n].Key2 =
             DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key2);
     }
+
+    // Fold the freshly-loaded gamepad bindings into the combined input table.
+    // Boot order runs this after ReadInputConfig()'s InitInput(), so this is
+    // the rebuild that actually captures the configured pad keys.
+    InitInput();
 }
 
 //-------------------------------------------------------------------------
@@ -281,27 +303,12 @@ void WriteGamepadConfig(void) {
 }
 
 //-------------------------------------------------------------------------
-// OR gamepad-bound contributions into the global Input bitfield. Only the
-// first 32 action slots map to bits in Input (matching the NbInput=64 clamp
-// applied by GetInput()); slots 32-35 are reserved for spells that the
-// engine never reads through the Input path.
-void ApplyGamepadBindings(void) {
-    if (!JoystickIsPresent())
-        return;
-    for (S32 n = 0; n < 32; n++) {
-        U32 k1 = GamepadKeys[n].Key1;
-        U32 k2 = GamepadKeys[n].Key2;
-        if ((k1 != 0 && CheckKey(k1)) || (k2 != 0 && CheckKey(k2))) {
-            Input |= (1u << n);
-        }
-    }
-}
-
-//-------------------------------------------------------------------------
 void MyGetInput() {
+    // GetJoys() writes the gamepad state into TabKeys; GetInput() then folds
+    // both keyboard and gamepad into Input through the combined table built by
+    // InitInput(), so the pad honours NoRepeatInput like the keyboard does.
     GetJoys((U32 *)&TabKeys[256]);
     GetInput(0); // no norepeat keys
-    ApplyGamepadBindings();
 
     MyKey = Key;
     // Gamepad "press any key" parity: if no keyboard key was pressed this
