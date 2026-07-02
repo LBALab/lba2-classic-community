@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 #include <SYSTEM/LOADSAVE.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/LZ.H>
 #include "SAVEGAME_LOAD_BOUNDS.H"
 
@@ -639,6 +640,12 @@ Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
 #else
     Save(GamePathname, (U8 *)Screen, PtrSave - (U8 *)Screen);
 #endif
+
+// Save audit trail. Debug level, so it always lands in adeline.log but stays
+// off the F12 overlay until `loglevel debug`. Covers every save path:
+// AutoSaveGame (autosave.lba), CurrentSaveGame (current.lba), and the menu's
+// named saves -- GamePathname distinguishes which, NumCube which scene.
+Log_Debug("save: wrote \"%s\" (cube %d)", GamePathname, (int)NumCube);
 }
 
 // Version 4 : LBA II only !! (LoadSize + read limit via SaveLoadFileToScreen)
