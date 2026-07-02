@@ -1275,6 +1275,12 @@ restartloop:
                         if (FileSize(OldGamePathname))
                             Delete(OldGamePathname);
                         SaveGame(TRUE);
+                        // Match the main-menu Save path: resume samples for the
+                        // chime, then show the "Game Saved" confirmation. Without
+                        // it the quick-save writes silently, so a successful save
+                        // looks identical to a failure (menu just closes).
+                        HQ_ResumeSamples();
+                        ShowGameSavedConfirmation();
                     }
                     ClearPlasmaMenu();
 #endif
