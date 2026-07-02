@@ -93,7 +93,8 @@ extern U32 TabInputBit[MAX_INPUT * 2 + 1];
 
 // Parallel gamepad binding table: Key1 / Key2 are alternate bindings (OR),
 // same semantics as DefKeys (see KEYBOARD_KEYS.H for K_GAMEPAD_*). 0 =
-// unbound. Applied by ApplyGamepadBindings() in addition to DefKeys.
+// unbound. Folded into the combined input table by InitInput() alongside
+// DefKeys, so the pad flows through GetInput()'s NoRepeatInput edge-filter.
 extern T_DEF_KEY GamepadKeys[MAX_INPUT];
 extern const T_DEF_KEY GamepadKeysDefault[MAX_INPUT];
 
@@ -124,8 +125,6 @@ extern void WaitInput(void);
 extern void ReadGamepadConfig(void);
 //-------------------------------------------------------------------------
 extern void WriteGamepadConfig(void);
-//-------------------------------------------------------------------------
-extern void ApplyGamepadBindings(void);
 //-------------------------------------------------------------------------
 
 #endif // INPUT_H
