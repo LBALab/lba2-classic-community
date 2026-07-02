@@ -135,14 +135,18 @@ static void UpdateFollowCameraExt(void) {
     }
 
     /* --- AddBetaCam drift ---
-                     * Only drift pan back to centre while the hero is walking.
-                     * While standing still, [ / ] pan is preserved. */
+                     * Auto-recenter the manual pan back to behind the hero while
+                     * walking. Disabled when FollowCamHoldAngle (cam_hold_angle,
+                     * default on): the camera then holds whatever angle the player
+                     * set until the scene changes or they hit Center camera
+                     * (both go through CameraCenter(1), which zeroes AddBetaCam),
+                     * matching a free third-person camera. */
     if (manualPan) {
         FollowCamReengageDelay = FollowCamReengageFrames;
     } else if (heroMoving) {
         if (FollowCamReengageDelay > 0) {
             FollowCamReengageDelay--;
-        } else if (AddBetaCam != 0) {
+        } else if (!FollowCamHoldAngle AND AddBetaCam != 0) {
             S32 drift = AddBetaCam;
             if (drift > 2048)
                 drift -= 4096;
@@ -2324,6 +2328,7 @@ void ReadConfigFile(void) {
     FollowCamManualHoldFrames = DefFileBufferReadValueDefault("FollowCamManualHoldFrames", FOLLOW_CAM_MANUAL_HOLD_DEFAULT);
     if (FollowCamManualHoldFrames < 0)
         FollowCamManualHoldFrames = 0;
+    FollowCamHoldAngle = DefFileBufferReadValueDefault("FollowCamHoldAngle", FOLLOW_CAM_HOLD_ANGLE_DEFAULT) ? TRUE : FALSE;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2389,6 +2394,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FollowCamGround", FollowCamGround);
     DefFileBufferWriteValue("FollowCamGroundClearance", FollowCamGroundClearance);
     DefFileBufferWriteValue("FollowCamManualHoldFrames", FollowCamManualHoldFrames);
+    DefFileBufferWriteValue("FollowCamHoldAngle", FollowCamHoldAngle);
 
     if (batched) {
         DefFileBufferEndBatch();
