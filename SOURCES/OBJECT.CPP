@@ -6148,6 +6148,17 @@ startaffscene:
     }
 
     if (FlagChgCube) {
+        // Autosave on every scene (cube) transition, as the retail game did --
+        // a fresh autosave.lba checkpoint so a crash or quit-without-saving
+        // doesn't drop the player back to a much older current.lba. Skipped for
+        // the phantom cube (a transient cutscene/holomap cube, never a save
+        // point). Genuine transitions only: FlagChgCube is set by zone
+        // crossings, Life-script CHANGE_CUBE, and the phantom teleport -- never
+        // by console warps or menu loads, so those don't clobber the autosave.
+        if (NumCube != NUM_CUBE_PHANTOM) {
+            AutoSaveGame();
+        }
+
         FlagChgCube = 0;
     }
 
