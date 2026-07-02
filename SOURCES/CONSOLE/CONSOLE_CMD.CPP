@@ -1546,4 +1546,6 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_ground_clear", &FollowCamGroundClearance, CONSOLE_CVAR_INT, "Ground clearance: keep the eye this far above the ground under it");
     Console_RegisterCvar("cam_manual_hold", &FollowCamManualHoldFrames, CONSOLE_CVAR_INT, "Frames the pitch/distance auto-assist yields after a manual camera nudge");
     Console_RegisterCvar("cam_hold_angle", &FollowCamHoldAngle, CONSOLE_CVAR_BOOL, "Hold the manual camera rotation (free-camera); off = classic auto-recenter drift");
+    Console_RegisterCvar("cam_blend", &FollowCamBlend, CONSOLE_CVAR_BOOL, "Smoothly blend camera handoffs (zones / recenter) instead of jump-cutting");
+    Console_RegisterCvar("cam_blend_dur", &FollowCamBlendDur, CONSOLE_CVAR_INT, "Camera blend length in frames (~30 = 0.5s)");
 }

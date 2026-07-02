@@ -19,6 +19,7 @@
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
+#include <3D/REGLE3.H> /* RegleTrois: camera blend interpolation */
 #include <FILEIO/SAVEPNG.H>
 
 #include <SVGA/SCREEN.H>
@@ -766,6 +767,114 @@ U8 WaitNoKey32 = FALSE;
 U8 WaitNoKey33 = FALSE;
 U8 WaitNoKey34 = FALSE;
 U8 WaitNoKey35 = FALSE;
+
+/*──────────────────────────────────────────────────────────────────────────*/
+
+/* --- Camera blend (prototype) --------------------------------------------
+ * Runs once per frame at the single camera commit point, just before AffScene.
+ * It watches the committed camera params; when they jump beyond a threshold (a
+ * handoff between controllers: dynamic follow <-> scripted zone, or a manual
+ * recenter) it presents an interpolation from the previous frame's camera
+ * toward the new target over FollowCamBlendDur frames, killing the jump cut.
+ * Scene transitions (NumCube change) and cutscenes (CinemaMode) are cut, not
+ * blended. Divergence-triggered so it needs no changes to the controllers.
+ * See docs/CAMERA_BLEND_DESIGN.md. */
+#define CAM_BLEND_POS_THRESH 2500  /* VueOffset |dx|+|dz| jump that counts as a handoff */
+#define CAM_BLEND_POS_MAX 30000    /* above this the look-at teleported: cut, do not blend */
+#define CAM_BLEND_BETA_THRESH 300  /* azimuth jump (units; 4096 = 360 deg) */
+#define CAM_BLEND_DIST_THRESH 3000 /* boom-length jump */
+#define CAM_BLEND_SETTLE_FRAMES 8  /* skip handoff detection this many frames after a cube change (let the follow settle) */
+
+static S32 CamBlendActive = 0;
+static S32 CamBlendSettle = 0;
+static S32 CamBlendElapsed = 0;
+static S32 CamBlendValid = 0;
+static S32 CamBlendCube = -1;
+static S32 CamBlendPresX = 0, CamBlendPresY = 0, CamBlendPresZ = 0;
+static S32 CamBlendPresA = 0, CamBlendPresB = 0, CamBlendPresG = 0, CamBlendPresD = 0;
+static S32 CamBlendFromX = 0, CamBlendFromY = 0, CamBlendFromZ = 0;
+static S32 CamBlendFromA = 0, CamBlendFromB = 0, CamBlendFromG = 0, CamBlendFromD = 0;
+
+static S32 CamBlendAbs(S32 v) { return v < 0 ? -v : v; }
+
+/* shortest-arc lerp of a mod-4096 angle from -> to at step/dur */
+static S32 CamBlendArc(S32 from, S32 to, S32 step, S32 dur) {
+    S32 d = (to - from) & 4095;
+    if (d > 2048)
+        d -= 4096;
+    return (from + (S32)((S64)d * step / dur)) & 4095;
+}
+
+static void CameraBlendPresent(void) {
+    S32 tX = VueOffsetX, tY = VueOffsetY, tZ = VueOffsetZ;
+    S32 tA = AlphaCam, tB = BetaCam, tG = GammaCam, tD = VueDistance;
+
+    if (NumCube != CamBlendCube)
+        CamBlendSettle = CAM_BLEND_SETTLE_FRAMES;
+
+    S32 canBlend = FollowCamBlend AND FollowCamera AND !CinemaMode AND CubeMode == CUBE_EXTERIEUR AND NumCube == CamBlendCube AND CamBlendValid AND CamBlendSettle == 0;
+
+    if (canBlend AND !CamBlendActive) {
+        S32 dpos = CamBlendAbs(tX - CamBlendPresX) + CamBlendAbs(tZ - CamBlendPresZ);
+        S32 dbeta = (tB - CamBlendPresB) & 4095;
+        if (dbeta > 2048)
+            dbeta -= 4096;
+        dbeta = CamBlendAbs(dbeta);
+        S32 ddist = CamBlendAbs(tD - CamBlendPresD);
+        if ((dpos > CAM_BLEND_POS_THRESH OR dbeta > CAM_BLEND_BETA_THRESH OR ddist > CAM_BLEND_DIST_THRESH)
+                AND dpos < CAM_BLEND_POS_MAX) {
+            CamBlendFromX = CamBlendPresX;
+            CamBlendFromY = CamBlendPresY;
+            CamBlendFromZ = CamBlendPresZ;
+            CamBlendFromA = CamBlendPresA;
+            CamBlendFromB = CamBlendPresB;
+            CamBlendFromG = CamBlendPresG;
+            CamBlendFromD = CamBlendPresD;
+            CamBlendActive = 1;
+            CamBlendElapsed = 0;
+        }
+    }
+
+    if (canBlend AND CamBlendActive) {
+        S32 dur = FollowCamBlendDur;
+        if (dur < 1)
+            dur = 1;
+        CamBlendElapsed++;
+        S32 e = CamBlendElapsed;
+        if (e > dur)
+            e = dur;
+        CamBlendPresX = RegleTrois(CamBlendFromX, tX, dur, e);
+        CamBlendPresY = RegleTrois(CamBlendFromY, tY, dur, e);
+        CamBlendPresZ = RegleTrois(CamBlendFromZ, tZ, dur, e);
+        CamBlendPresA = CamBlendArc(CamBlendFromA, tA, e, dur);
+        CamBlendPresB = CamBlendArc(CamBlendFromB, tB, e, dur);
+        CamBlendPresG = CamBlendArc(CamBlendFromG, tG, e, dur);
+        CamBlendPresD = RegleTrois(CamBlendFromD, tD, dur, e);
+        SetFollowCamera(CamBlendPresX, CamBlendPresY, CamBlendPresZ,
+                        CamBlendPresA, CamBlendPresB, CamBlendPresG, CamBlendPresD);
+        FirstTime = AFF_ALL_FLIP;
+        CamBlendCube = NumCube;
+        CamBlendValid = 1;
+        if (CamBlendElapsed >= dur)
+            CamBlendActive = 0;
+        return;
+    }
+
+    /* Not blending: leave the controller's committed camera (with its occlusion
+     * lift) untouched, and record it as the presented state for next frame. */
+    CamBlendActive = 0;
+    if (CamBlendSettle > 0)
+        CamBlendSettle--;
+    CamBlendPresX = tX;
+    CamBlendPresY = tY;
+    CamBlendPresZ = tZ;
+    CamBlendPresA = tA;
+    CamBlendPresB = tB;
+    CamBlendPresG = tG;
+    CamBlendPresD = tD;
+    CamBlendCube = NumCube;
+    CamBlendValid = (CubeMode == CUBE_EXTERIEUR);
+}
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -2132,6 +2241,11 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
 
+        /* Smooth any camera-controller handoff that just happened (zone in/out,
+         * recenter) before the scene is committed. No-op unless a handoff is in
+         * progress; see docs/CAMERA_BLEND_DESIGN.md. */
+        CameraBlendPresent();
+
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
@@ -2329,6 +2443,10 @@ void ReadConfigFile(void) {
     if (FollowCamManualHoldFrames < 0)
         FollowCamManualHoldFrames = 0;
     FollowCamHoldAngle = DefFileBufferReadValueDefault("FollowCamHoldAngle", FOLLOW_CAM_HOLD_ANGLE_DEFAULT) ? TRUE : FALSE;
+    FollowCamBlend = DefFileBufferReadValueDefault("FollowCamBlend", FOLLOW_CAM_BLEND_DEFAULT) ? TRUE : FALSE;
+    FollowCamBlendDur = DefFileBufferReadValueDefault("FollowCamBlendDur", FOLLOW_CAM_BLEND_DUR_DEFAULT);
+    if (FollowCamBlendDur < 1)
+        FollowCamBlendDur = 1;
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -2395,6 +2513,8 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FollowCamGroundClearance", FollowCamGroundClearance);
     DefFileBufferWriteValue("FollowCamManualHoldFrames", FollowCamManualHoldFrames);
     DefFileBufferWriteValue("FollowCamHoldAngle", FollowCamHoldAngle);
+    DefFileBufferWriteValue("FollowCamBlend", FollowCamBlend);
+    DefFileBufferWriteValue("FollowCamBlendDur", FollowCamBlendDur);
 
     if (batched) {
         DefFileBufferEndBatch();
