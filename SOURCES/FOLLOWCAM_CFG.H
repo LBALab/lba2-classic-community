@@ -27,6 +27,13 @@
  * Seeds the runtime FollowCamManualHoldFrames global (cvar cam_manual_hold). */
 #define FOLLOW_CAM_MANUAL_HOLD_DEFAULT 45 /* frames the auto-assist yields after a manual camera nudge (~0.75s) */
 
+/* Hold-angle (free-camera) mode ---------------------------------------------*/
+/* When on, the manual camera rotation (AddBetaCam) is never auto-recentered
+ * while walking; it holds until the scene changes or the player hits Center
+ * camera (Enter / gamepad B), like a free third-person camera. Off restores the
+ * classic lazy drift-back. cvar cam_hold_angle. */
+#define FOLLOW_CAM_HOLD_ANGLE_DEFAULT 1
+
 /* Elevation (AlphaCam) — applies when Auto camera (FollowCamera) is on -----*/
 #define FOLLOW_CAM_ALPHA_MIN 150 /* minimum elevation angle */
 #define FOLLOW_CAM_ALPHA_MAX 600 /* maximum elevation angle */
