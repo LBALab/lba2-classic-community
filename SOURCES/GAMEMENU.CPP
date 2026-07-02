@@ -3818,6 +3818,13 @@ static void ShowSaveConfirmation(enum MenuLocalizedLabel label) {
     InitWaitNoInput(I_FIRE | I_ACTION | I_MENUS);
 }
 
+// Non-static entry so the in-game quick-save (PERSO.CPP) can show the same
+// "Game Saved" chime + overlay as the main-menu Save path. Keeps the localized
+// label enum internal to this module.
+void ShowGameSavedConfirmation(void) {
+    ShowSaveConfirmation(MENU_LABEL_GAME_SAVED);
+}
+
 void BuildGameMainMenu(S32 firstloop) {
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
     char memogamepathname[ADELINE_MAX_PATH];
