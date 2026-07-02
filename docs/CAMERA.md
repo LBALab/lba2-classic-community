@@ -97,7 +97,7 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 ### Lazy orbit and pan
 
 - **Rotation lag:** `BetaCam` lerps toward “behind the hero” with distance-scaled inertia (`FollowCamEffectiveDist` / `FollowCamBaseDist` feeds the divisor) — closer zoom = snappier orbit, longer arm = lazier drift.
-- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan.
+- **Pan drift:** `[` / `]` adjust `AddBetaCam`; drift back toward center only while the hero is walking; standing still preserves pan. Disabled by **hold-angle mode** (`cam_hold_angle`, default on): the manual rotation is then held indefinitely, like a free third-person camera, and only re-centers when the scene changes or the player hits Center camera (Enter / gamepad B); both go through `CameraCenter(1)`, which zeroes `AddBetaCam`. `cam_hold_angle 0` restores the classic lazy drift-back.
 
 ### Apply path
 
