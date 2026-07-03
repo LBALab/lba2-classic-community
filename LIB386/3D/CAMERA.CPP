@@ -48,6 +48,8 @@ S32 TypeProj = TYPE_3D;
 float FRatioX = 0.0f;
 float FRatioY = 0.0f;
 
+S32 IsoScale = ISO_SCALE_ONE;
+
 U64 MMX_DEMI = (8192LL << 32) | 8192LL;
 U64 MMX_DEMI2 = (4096LL << 32) | 4096LL;
 
@@ -125,6 +127,15 @@ void SetFollowCamera(S32 targetx, S32 targety, S32 targetz, S32 alpha, S32 beta,
         CameraY = Y0;
         CameraZ = Z0;
     }
+}
+
+void SetIsoScale(S32 scale) {
+    // Clamp to a sane zoom range (1/16x .. 16x). ISO_SCALE_ONE is 1.0.
+    if (scale < ISO_SCALE_ONE / 16)
+        scale = ISO_SCALE_ONE / 16;
+    if (scale > ISO_SCALE_ONE * 16)
+        scale = ISO_SCALE_ONE * 16;
+    IsoScale = scale;
 }
 
 // =============================================================================

@@ -24,11 +24,16 @@ S32 LongProjectPointIso(S32 x, S32 y, S32 z) {
     y = y - tmpy;
     z = z * 3;
 
-    x = x >> 6; // /64 IsoScale
+    // Apply the runtime iso view scale. At the default ISO_SCALE_ONE this is
+    // (v * 2^SHIFT) >> (n + SHIFT) == v >> n, bit-for-bit the original /64 and
+    // /256 shifts; the long long intermediate keeps the scaled path from
+    // overflowing. The screen centre is added after the scale, so zoom is
+    // about XCentre/YCentre (the camera/hero point).
+    x = (S32)(((long long)x * IsoScale) >> (6 + ISO_SCALE_SHIFT)); // /64 IsoScale
     x = x + XCentre;
     z = z - y;
 
-    z = z >> 8; // /256 IsoScale
+    z = (S32)(((long long)z * IsoScale) >> (8 + ISO_SCALE_SHIFT)); // /256 IsoScale
     z = z + YCentre + 1;
 
     Xp = x;
