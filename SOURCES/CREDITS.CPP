@@ -347,8 +347,15 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
         MyKey = Key;
         GetInput(0);
+        UpdateJoystick();
 
-        if (MyKey OR Input) {
+        // Skip the credits on any keyboard key (Key is set for any key) or any
+        // deliberate gamepad button. JoystickButtonPressed() excludes the analog
+        // sticks and triggers, which drift/rest past the deadzone and would end
+        // the credits by accident. We don't test the Input bitfield here: for the
+        // keyboard it's redundant with Key, and it would fold in the pad's
+        // stick/trigger movement bits.
+        if (MyKey OR JoystickButtonPressed()) {
             player_stop = TRUE;
             goto end_credits;
         }
