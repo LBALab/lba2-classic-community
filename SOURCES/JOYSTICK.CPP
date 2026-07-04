@@ -313,17 +313,11 @@ void UpdateJoystick(void) {
         }
     }
 
-    // D-pad also lights up the LSTICK directional virtual keys, so bindings
-    // that target the left stick cover the D-pad for free (standard action-game
-    // convention where stick and D-pad are interchangeable for movement).
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_UP))
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_UP);
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN))
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_DOWN);
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_LEFT))
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_LEFT);
-    if (SDL_GetGamepadButton(s_gamepad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT))
-        SetVirtualKeyDown(K_GAMEPAD_LSTICK_RIGHT);
+    // The D-pad emits only its own K_GAMEPAD_DPAD_* scancodes (above), never
+    // the left-stick virtual keys. That keeps the D-pad and left stick as
+    // independent, separately bindable input sources (issue #360): whatever a
+    // player binds to a D-pad direction in the controls menu is all it does, no
+    // hidden aliasing onto the stick's cardinals.
 
     S16 lx = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTX);
     S16 ly = SDL_GetGamepadAxis(s_gamepad, SDL_GAMEPAD_AXIS_LEFTY);
