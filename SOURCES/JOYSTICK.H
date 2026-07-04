@@ -45,6 +45,12 @@ S32 JoystickMenuNavOnly(void);
 // waits light up on any pad input without per-callsite changes.
 U32 JoystickFirstPressedScancode(void);
 
+// True if a gamepad *button* (face, Start/Back/Guide, shoulder, D-pad,
+// stick-click) was newly pressed this frame -- excludes the analog sticks and
+// triggers, which drift/rest past the deadzone. For "press any button" prompts
+// (e.g. the credits skip) that must not fire on stick drift. Poll the pad first.
+S32 JoystickButtonPressed(void);
+
 #ifdef __cplusplus
 }
 #endif

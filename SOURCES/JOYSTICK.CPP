@@ -378,6 +378,32 @@ U32 JoystickFirstPressedScancode(void) {
 }
 
 //***************************************************************************
+// True if a gamepad *button* was newly pressed this frame -- face buttons,
+// Start/Back/Guide, shoulders, D-pad, or a stick-click. Excludes the analog
+// stick directions and the triggers: those rest/drift past the deadzone and
+// would trip a "press any button" prompt (e.g. the credits skip) by accident.
+// Reads the edge-detected first-pressed scancode, so poll the pad
+// (UpdateJoystick/GetJoys) earlier in the same frame before calling this.
+S32 JoystickButtonPressed(void) {
+    switch (s_firstPressedThisFrame) {
+    case 0: // nothing newly pressed
+    case K_GAMEPAD_LSTICK_UP:
+    case K_GAMEPAD_LSTICK_DOWN:
+    case K_GAMEPAD_LSTICK_LEFT:
+    case K_GAMEPAD_LSTICK_RIGHT:
+    case K_GAMEPAD_RSTICK_UP:
+    case K_GAMEPAD_RSTICK_DOWN:
+    case K_GAMEPAD_RSTICK_LEFT:
+    case K_GAMEPAD_RSTICK_RIGHT:
+    case K_GAMEPAD_LTRIGGER:
+    case K_GAMEPAD_RTRIGGER:
+        return 0;
+    default:
+        return 1;
+    }
+}
+
+//***************************************************************************
 S32 JoystickIsPresent(void) {
     return (s_gamepad != NULL) ? 1 : 0;
 }
