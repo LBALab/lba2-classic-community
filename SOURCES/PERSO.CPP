@@ -769,6 +769,19 @@ U8 WaitNoKey35 = FALSE;
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
+// True if the keyboard (DefKeys) OR gamepad (GamepadKeys) binding for input
+// slot n is held. The four spell/gadget slots (32-35) sit outside the Input
+// bitfield (INPUT_TABLE_SLOTS == 32, and a 1<<i mask can't reach them), so both
+// sources are polled directly here. Reading GamepadKeys too is what lets the
+// pad's D-pad bindings actually cast, now that the D-pad is its own input
+// source rather than an alias of the left stick (issue #360).
+static S32 SpellKeyDown(S32 n) {
+    return CheckKey(DefKeys[n].Key1) OR CheckKey(DefKeys[n].Key2)
+        OR CheckKey(GamepadKeys[n].Key1) OR CheckKey(GamepadKeys[n].Key2);
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
+
 S32 MainLoop() {
     S32 xm, ym, zm;
     T_OBJET *ptrobj;
@@ -1654,8 +1667,7 @@ restartloop:
                     InitWaitNoInput(I_WEAPON_7);
                 }
 
-                if (CheckKey(DefKeys[33].Key1) // ProtoPack/SuperJetPack
-                    OR CheckKey(DefKeys[33].Key2)) {
+                if (SpellKeyDown(33)) { // ProtoPack/SuperJetPack
                     if (!WaitNoKey33
                             AND ListVarGame[FLAG_PROTOPACK]) {
                         U8 comp;
@@ -1675,8 +1687,7 @@ restartloop:
                 } else
                     WaitNoKey33 = FALSE;
 
-                if (CheckKey(DefKeys[32].Key1) // NitroMecaPingouin
-                    OR CheckKey(DefKeys[32].Key2)) {
+                if (SpellKeyDown(32)) { // NitroMecaPingouin
                     if (!WaitNoKey32
                             AND ListVarGame[FLAG_MECA_PINGOUIN] > 0) {
                         SaveTimer();
@@ -1689,8 +1700,7 @@ restartloop:
                 } else
                     WaitNoKey32 = FALSE;
 
-                if (CheckKey(DefKeys[34].Key1) // Sort de Protection
-                    OR CheckKey(DefKeys[34].Key2)) {
+                if (SpellKeyDown(34)) { // Sort de Protection
                     if (!WaitNoKey34
                             AND ListVarGame[FLAG_PROTECTION] > 0 AND MagicPoint > 0) {
                         SaveTimer();
@@ -1703,8 +1713,7 @@ restartloop:
                 } else
                     WaitNoKey34 = FALSE;
 
-                if (CheckKey(DefKeys[35].Key1) // Sort de Foudre
-                    OR CheckKey(DefKeys[35].Key2)) {
+                if (SpellKeyDown(35)) { // Sort de Foudre
                     if (!WaitNoKey35
                             AND ListVarGame[FLAG_ANNEAU_FOUDRE] > 0 AND MagicPoint >= (MagicLevel * 20)) {
                         SaveTimer();
