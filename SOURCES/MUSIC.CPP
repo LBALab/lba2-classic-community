@@ -490,7 +490,13 @@ void FadeInVolumeMusic(void) {
 void CheckNextMusic(void) {
     if (NextMusic != -1) {
         if (TimerRefHR > NextMusicTimer) {
-            PlayMusic(NextMusic, FALSE);
+            // #355: force the switch (playit=TRUE) once the defer window has elapsed. A
+            // soft PlayMusic(FALSE) here re-defers whenever the current track is still
+            // playing, so with looping area music the queued track never gets to play.
+            // Forcing replaces the current track, matching the intent of the queue:
+            // defer briefly (TEST_MUSIC_TEMPO) so a quick pass-through doesn't cut the
+            // music, then take over.
+            PlayMusic(NextMusic, TRUE);
         }
     }
 }
