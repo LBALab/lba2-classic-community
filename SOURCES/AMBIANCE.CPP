@@ -613,15 +613,31 @@ void FadeToPal(U8 *ptrpal) {
 
 //──────────────────────────────────────────────────────────────────────────
 void FadeToBlackAndSamples(U8 *ptrpal) {
-    S32 delta = 0;
+    S32 starttime, delta;
 
     SaveTimer();
 
     if (!FlagBlackPal) {
+        // Visual fade timed off the managed game clock (TimerSystemHR), like
+        // FadeToBlack/FadeToPal -- NOT off the audio sample-fade countdown, whose
+        // SDL_GetTicks() baseline goes stale across the cube load and collapses the
+        // fade to a single step (#353). FadeOutSamples() still ramps the SFX volume;
+        // its return value is deliberately ignored so audio state cannot break the
+        // visual fade.
+        starttime = TimerSystemHR;
+
         do {
-            delta = FadeOutSamples(FADE_DELAY);
+            Timer_FixedDtPump();
+            ManageTime();
+
+            delta = starttime + FADE_DELAY - TimerSystemHR;
+
+            if (delta < 0)
+                delta = 0;
+
+            FadeOutSamples(FADE_DELAY);
             FadePal(0, 0, 0, ptrpal, delta);
-        } while (delta != 0);
+        } while (delta);
     }
 
     if ((CubeMode == CUBE_INTERIEUR OR TEMPETE_FINIE)
@@ -638,7 +654,7 @@ void FadeToBlackAndSamples(U8 *ptrpal) {
 
 //──────────────────────────────────────────────────────────────────────────
 void FadeToPalAndSamples(U8 *ptrpal) {
-    S32 delta = FADE_DELAY;
+    S32 starttime, delta;
 
     SaveTimer();
 
@@ -649,8 +665,20 @@ void FadeToPalAndSamples(U8 *ptrpal) {
         HQ_StopOneSample(SAMPLE_RAIN);
     }
 
+    // Visual fade timed off the managed game clock (TimerSystemHR); see the note
+    // in FadeToBlackAndSamples. FadeInSamples() still ramps the SFX volume.
+    starttime = TimerSystemHR;
+
     do {
-        delta = FadeInSamples(FADE_DELAY);
+        Timer_FixedDtPump();
+        ManageTime();
+
+        delta = TimerSystemHR - starttime;
+
+        if (delta > FADE_DELAY)
+            delta = FADE_DELAY;
+
+        FadeInSamples(FADE_DELAY);
         FadePal(0, 0, 0, ptrpal, delta);
     } while (delta != FADE_DELAY);
 
