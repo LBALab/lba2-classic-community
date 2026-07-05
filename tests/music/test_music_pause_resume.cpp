@@ -1,4 +1,5 @@
-// Host regression test for the music pause/resume path in SOURCES/MUSIC.CPP.
+// Host regression tests for the music state machine in SOURCES/MUSIC.CPP (pause/resume,
+// the PlayMusic decision matrix, the NextMusic queue, GetMusic, and the volume fades).
 //
 // The bug this guards: ResumeMusic() used to call StopMusic() before
 // ResumeCD()/ResumeStream() in the CDROM build. On a streamed backend Stop is
@@ -48,6 +49,8 @@ void ResumeMusic(S32 fade);
 void InitJingle(void);
 S32 GetMusic(void);
 void CheckNextMusic(void);
+void FadeOutVolumeMusic(void);
+void FadeInVolumeMusic(void);
 S32 InitCD(char *name);
 
 // SOURCES/DIRECTORIES.H is an extern "C" header.
@@ -268,6 +271,83 @@ int main(void) {
     CheckNextMusic();   // the per-frame queue service
     assert(called("PlayStream") && "queued track B must start once the defer elapses (#355)");
     assert(GetMusic() == 7 && "B (jingle 7) is the current music after the queue drains");
+
+    // ── Scenario 5: PlayMusic decision matrix - nothing / same / different (soft) ──
+    DistribVersion = 3;
+    InitCD(empty);
+    InitJingle();
+    spy_clear();
+    PlayMusic(14, 0); // jingle 16 into silence -> plays now
+    assert(called("PlayStream") && GetMusic() == 16 && "soft play into silence starts immediately");
+    spy_clear();
+    PlayMusic(14, 0); // SAME track, soft -> no-op (no restart, no stop)
+    assert(!called("PlayStream") && !called("StopStream") && "re-requesting the playing track is a no-op");
+    assert(GetMusic() == 16 && "still the same track after a same-track request");
+    spy_clear();
+    PlayMusic(5, 0); // DIFFERENT track, soft -> deferred, not played now
+    assert(!called("PlayStream") && GetMusic() == 16 && "a different soft request defers and keeps the current track");
+
+    // ── Scenario 6: force-play (playit=TRUE) replaces now, but never restarts the same track ──
+    DistribVersion = 3;
+    InitCD(empty);
+    InitJingle();
+    PlayMusic(14, 1); // jingle 16 playing
+    spy_clear();
+    PlayMusic(5, 1); // force a DIFFERENT track -> replaces immediately
+    assert(called("StopStream") && called("PlayStream") && "a forced different track replaces immediately");
+    assert(GetMusic() == 7 && "the forced track is now current");
+    spy_clear();
+    PlayMusic(5, 1); // force the SAME track already playing -> no restart
+    assert(!called("PlayStream") && "forcing the already-playing track does not restart it");
+
+    // ── Scenario 7: StopLastMusic - a soft request right after a force plays now, not deferred ──
+    DistribVersion = 3;
+    InitCD(empty);
+    InitJingle();
+    PlayMusic(14, 1); // force leaves StopLastMusic = TRUE
+    spy_clear();
+    PlayMusic(5, 0); // soft, but StopLastMusic short-circuits cur to 0 -> plays now
+    assert(called("PlayStream") && GetMusic() == 7 && "a soft request right after a force plays immediately");
+
+    // ── Scenario 8: CheckNextMusic timing + empty-queue edges ──
+    DistribVersion = 3;
+    InitCD(empty);
+    InitJingle();
+    PlayMusic(14, 0); // A playing (soft -> StopLastMusic = FALSE)
+    PlayMusic(5, 0);  // B deferred
+    spy_clear();
+    CheckNextMusic(); // still inside the defer window -> must not swap yet
+    assert(!called("PlayStream") && GetMusic() == 16 && "the queue must not drain before the defer window");
+    TimerRefHR += 5000;
+    CheckNextMusic(); // window elapsed -> B takes over
+    assert(GetMusic() == 7 && "B takes over once the defer window elapses");
+    spy_clear();
+    CheckNextMusic(); // NextMusic is now -1
+    assert(!called("PlayStream") && "CheckNextMusic with an empty queue does nothing");
+
+    // ── Scenario 9: GetMusic() reports CD track / jingle index / silence ──
+    DistribVersion = 2; // US layout: index 0 is a redbook CD track, not a jingle
+    InitCD(empty);
+    InitJingle();
+    PlayMusic(0, 1); // TrackCDUS[0] = 2 (no JINGLE) -> PlayCD(2)
+    assert(called("PlayCD") && GetMusic() == 2 && "GetMusic reports the CD track (num + FirstCDTrack)");
+    StopMusic();
+    assert(GetMusic() == 0 && "GetMusic is 0 when nothing is playing");
+    DistribVersion = 3;
+    InitCD(empty);
+    InitJingle();
+    PlayMusic(14, 1);
+    assert(GetMusic() == 16 && "GetMusic reports the jingle index for a playing stream");
+
+    // ── Scenario 10: volume fades converge to their targets ──
+    DistribVersion = 3;
+    InitCD(empty);
+    InitJingle();
+    PlayMusic(14, 1);
+    FadeOutVolumeMusic();
+    assert(GetVolumeStream() == 0 && "FadeOutVolumeMusic drives the stream volume to 0");
+    FadeInVolumeMusic();
+    assert(GetVolumeStream() == 127 && "FadeInVolumeMusic restores the stream volume to JingleVolume");
 
     // ── Observability: the [MUSIC] trace actually fired ──────────────────────
     bool sawResumeTrace = false;
