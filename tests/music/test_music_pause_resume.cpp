@@ -47,6 +47,7 @@ void PauseMusic(S32 fade);
 void ResumeMusic(S32 fade);
 void InitJingle(void);
 S32 GetMusic(void);
+void CheckNextMusic(void);
 S32 InitCD(char *name);
 
 // SOURCES/DIRECTORIES.H is an extern "C" header.
@@ -161,8 +162,18 @@ void GetJinglePath(char *outPath, U16 pathMaxSize, const char *jingleFilename) {
     std::snprintf(outPath, pathMaxSize, "music/%s", jingleFilename ? jingleFilename : "");
 }
 char *GetFileName(char *pathname) {
+    // Match the real LIB386 GetFileName: strip the directory *and* the extension, so
+    // GetNumJingle() can round-trip a stream path ("music/JADPCM09.WAV") back to its
+    // jingle index. The queue decision in PlayMusic() depends on this working.
+    static char fileName[64];
     char *slash = std::strrchr(pathname, '/');
-    return slash ? slash + 1 : pathname;
+    const char *start = slash ? slash + 1 : pathname;
+    std::strncpy(fileName, start, sizeof(fileName) - 1);
+    fileName[sizeof(fileName) - 1] = '\0';
+    char *dot = std::strrchr(fileName, '.');
+    if (dot)
+        *dot = '\0';
+    return fileName;
 }
 
 void Log_Info(const char *fmt, ...) {
@@ -232,6 +243,31 @@ int main(void) {
     spy_clear();
     ResumeMusic(1);
     assert_resume_never_stops();
+
+    // ── Scenario 4: #355 - a queued track must take over, not defer forever ───
+    // Field repro: area music (jingle 16 / jadpcm09) keeps playing; a scene wants a
+    // DIFFERENT track; PlayMusic(FALSE) defers it into NextMusic; CheckNextMusic() (run
+    // every frame by PERSO's main loop) must eventually PLAY it instead of re-deferring
+    // while the looping track never ends. Before the fix these asserts fail: B is queued
+    // and never starts.
+    DistribVersion = 3; // EU layout: TrackCD, every entry a jingle/stream
+    InitCD(empty);
+    InitJingle();
+
+    PlayMusic(14, 0); // TrackCD[14] = JINGLE|16 -> jingle 16 (jadpcm09) starts
+    assert(called("PlayStream") && "area track A should start");
+    assert(GetMusic() == 16 && "A (jingle 16) is the current music");
+
+    spy_clear();
+    PlayMusic(5, 0); // TrackCD[5] = JINGLE|7 -> jingle 7, a DIFFERENT track, deferred
+    assert(!called("PlayStream") && "B must be deferred while A is still playing");
+    assert(GetMusic() == 16 && "A still current right after the deferred request");
+
+    spy_clear();
+    TimerRefHR += 5000; // elapse past the 2s (TEST_MUSIC_TEMPO) defer window
+    CheckNextMusic();   // the per-frame queue service
+    assert(called("PlayStream") && "queued track B must start once the defer elapses (#355)");
+    assert(GetMusic() == 7 && "B (jingle 7) is the current music after the queue drains");
 
     // ── Observability: the [MUSIC] trace actually fired ──────────────────────
     bool sawResumeTrace = false;
