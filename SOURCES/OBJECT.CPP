@@ -4698,7 +4698,23 @@ void ResetCinemaMode(void) {
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
+static U8 PrevCinemaMode = FALSE; // #354: previous-frame CinemaMode, to detect the retract start
+
 void FixeCinemaMode(S32 flagflip) {
+    // #354: re-arm the letterbox out-ramp whenever the cutscene ends. LM_CINEMA_MODE 0
+    // re-arms it (DebCycleCinema/LastYCinema/TimerCinema/DureeCycleCinema), but
+    // ResetCinemaMode and the abrupt clears do not, leaving TimerCinema stale so the
+    // retract snaps to 0 in a single frame instead of sliding. Detect CinemaMode
+    // dropping to 0 with bars still up and restart the ramp from the current position,
+    // mirroring the slide-in.
+    if (!CinemaMode AND PrevCinemaMode AND ClipWindowYMin > 0) {
+        DebCycleCinema = ClipWindowYMin;
+        LastYCinema = ClipWindowYMin;
+        TimerCinema = TimerRefHR;
+        DureeCycleCinema = BoundRegleTrois(1, 500, 39, ClipWindowYMin);
+    }
+    PrevCinemaMode = CinemaMode;
+
     if (CinemaMode) {
         if (ClipWindowYMin < 40) {
             // Scrolle vers l'interieur
@@ -6135,7 +6151,17 @@ startaffscene:
         break;
 
     case AFF_ALL_FLIP:
-        FixeCinemaMode(FALSE); // Scrolle les bandes noires
+        // #354: while the letterbox is retracting (cutscene ended, bars still up),
+        // animate it here too (TRUE) instead of only redrawing (FALSE). Camera work
+        // (auto-cam FollowCamera lerp back behind the hero, edge-snap recenter) forces
+        // AFF_ALL_FLIP every frame while it moves; the retract otherwise only animates
+        // in AFF_OBJETS_FLIP, so the bars stick until the camera settles then snap.
+        // Restricted to the retract so the active-cutscene redraw (FALSE, the
+        // "changement de caméra" branch) is untouched.
+        if (!CinemaMode AND ClipWindowYMin > 0)
+            FixeCinemaMode(TRUE); // Scrolle les bandes noires
+        else
+            FixeCinemaMode(FALSE); // Scrolle les bandes noires
         AffNbFps();
         BoxBlit();
         UnlockTimer();
