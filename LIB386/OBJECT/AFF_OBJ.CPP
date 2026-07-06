@@ -1058,7 +1058,7 @@ S32 Sphere(U32 typePoly, void *poly) {
     if (TypeProj != TYPE_3D) {
         radius += radius + (radius << 5);
         radius >>= 9;
-        radius = ~radius;
+        radius = -radius; // ASM `neg eax`: two's-complement, not bitwise ~ (#357)
     } else {
         // @@Radius_Proj:
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
@@ -1113,7 +1113,7 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
     if (TypeProj != TYPE_3D) {
         radius += radius + (radius << 5);
         radius >>= 9;
-        radius = ~radius;
+        radius = -radius; // ASM `neg eax`: two's-complement, not bitwise ~ (#357)
     } else {
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
         radius *= LFactorX;
