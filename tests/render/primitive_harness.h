@@ -45,6 +45,20 @@ struct T_OBJ_SPHERE {
 struct T_OBJ_LINE {
     U16 Type, Coul, P1, P2;
 };
+struct Struc_Point {
+    S16 Pt_XE, Pt_YE;
+    U16 Pt_MapU, Pt_MapV, Pt_Light, Pt_ZO;
+    S32 Pt_W;
+};
+struct STRUC_POLY3_LIGHT {
+    U16 P1, P2, P3, __padding, Couleur, Normale;
+};
+struct STRUC_POLY4_LIGHT {
+    U16 P1, P2, P3, P4, Couleur, Normale;
+};
+struct STRUC_POLY3_ENV {
+    U16 P1, P2, P3, HandleEnv, Couleur, Normale, Scale, __padding;
+};
 #pragma pack(pop)
 
 enum { TYPE_3D = 0,
@@ -54,8 +68,14 @@ enum { TYPE_3D = 0,
 extern S32 Sphere(U32 typePoly, void *poly);
 extern S32 Sphere_Transp(U32 typePoly, void *poly);
 extern S32 Line(U32 typePoly, void *poly);
+extern S32 Triangle_Solid(U32 typePoly, void *poly);
+extern S32 Triangle_Flat(U32 typePoly, void *poly);
+extern S32 Quad_Solid(U32 typePoly, void *poly);
+extern bool TestVisible(STRUC_POLY3_ENV *poly);
 extern T_OBJ_POINT Obj_ListRotatedPoints[];
 extern TYPE_PT Obj_ListProjectedPoints[];
+extern Struc_Point ListFillPoly[]; // AFF_OBJ.CPP scratch: assembled poly vertices
+extern U16 ListLights[];           // per-normal light intensities
 extern S32 PosZWr;
 
 // ── Real 3D library (linked) ─────────────────────────────────────────────────
@@ -73,6 +93,7 @@ struct SpyCapture {
     int line_calls;
     S32 line_x0, line_y0, line_x1, line_y1, line_col;
     int poly_calls;
+    S32 poly_type, poly_color, poly_nb;
 };
 extern SpyCapture g_spy;
 
