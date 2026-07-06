@@ -17,6 +17,7 @@
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 #include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
+#include <SYSTEM/LOG.H>    /* LogSeverity, Log_ParseLevel for --log-level */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +53,8 @@ static char s_projrec_hash_path[ADELINE_MAX_PATH];
 static int s_exit = 0;
 static int s_demo = 0;
 static int s_verbose = 0;
+static int s_have_log_level = 0;
+static LogSeverity s_log_level = LOG_INFO;
 
 /* --resolution WxH: override the engine's framebuffer dimensions at launch.
    Doesn't imply harness mode — a user can pass this alone for interactive play.
@@ -212,6 +215,23 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 1;
             continue;
         }
+        if (!strcmp(a, "--log-level") && has_val) {
+            /* Master log level for every sink (file, terminal, F12 console).
+               Applied in PERSO.CPP right after Log_Init. Not a harness flag, so
+               it doesn't set s_active; like --resolution, it's a normal option. */
+            LogSeverity lvl;
+            if (Log_ParseLevel(argv[read + 1], &lvl)) {
+                s_log_level = lvl;
+                s_have_log_level = 1;
+            } else {
+                fprintf(stderr,
+                        "[control] --log-level: unknown level '%s' "
+                        "(use debug|info|warn|error)\n",
+                        argv[read + 1]);
+            }
+            read += 2;
+            continue;
+        }
         if (!strcmp(a, "--resolution") && has_val) {
             /* Format: WxH (or WXH). Width must be a positive multiple of 8 (matches
                the engine's blitter / clip stride assumptions; same constraint as the
@@ -337,6 +357,14 @@ int Control_IsActive(void) {
 
 int Control_IsVerbose(void) {
     return s_verbose;
+}
+
+int Control_HasLogLevel(void) {
+    return s_have_log_level;
+}
+
+int Control_GetLogLevel(void) {
+    return (int)s_log_level;
 }
 
 int Control_HasResolution(void) {

@@ -81,7 +81,7 @@ Apply these behavior rules on every non-trivial task:
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
-| Adding a log or diagnostic line | Prefer `Log_*` (`<SYSTEM/LOG.H>`) at the true severity for committed code; `Log_Debug` lands in `adeline.log` but not the in-game console. Throwaway `printf` is fine — don't commit it | "Logging" below, LIB386/H/SYSTEM/LOG.H |
+| Adding a log or diagnostic line | Prefer `Log_*` (`<SYSTEM/LOG.H>`) at the true severity for committed code; `Log_Debug` is off by default (all sinks), surfacing only at `--log-level`/`loglevel debug`. Throwaway `printf` is fine; don't commit it | "Logging" below, LIB386/H/SYSTEM/LOG.H |
 | Code that reads retail HQR data or legacy save formats | Check the rule: never `sizeof(T)`-as-stride for fat structs; use a paired `T_DISK` or field-by-field serialization | docs/ABI.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
@@ -100,15 +100,17 @@ Formatting mechanics (agent-operational):
 
 ## Logging
 
-One pipe: every log call fans out to `adeline.log` (always), an ANSI terminal when one is attached, and the in-engine console. API in [LIB386/H/SYSTEM/LOG.H](LIB386/H/SYSTEM/LOG.H); design and history in [docs/LOGGING_UNIFICATION.md](docs/LOGGING_UNIFICATION.md). This is about ergonomics, not ceremony — it isn't meant to police throwaway debugging.
+One pipe: every log call fans out to `adeline.log` (always), stderr, and the in-engine console. API in [LIB386/H/SYSTEM/LOG.H](LIB386/H/SYSTEM/LOG.H); design and history in [docs/LOGGING_UNIFICATION.md](docs/LOGGING_UNIFICATION.md). This is about ergonomics, not ceremony; it isn't meant to police throwaway debugging.
 
-- **Pick the true severity.** `Log_Info` / `Log_Warn` / `Log_Error`, plus `Log_Raw` for verbatim lines (no severity tag). Defaults: file and terminal admit `DEBUG`+, the console admits `INFO`+.
-- **`Log_Debug` is the everyday detail level.** It reaches `adeline.log` (tail it) but stays off the in-game console; `loglevel debug` surfaces it there. It's varargs like `printf`, so there's no friction reason to prefer `printf` in committed code.
+- **Pick the true severity.** `Log_Info` / `Log_Warn` / `Log_Error`, plus `Log_Raw` for verbatim lines (no severity tag).
+- **One master level gates every sink.** A single global level (default `INFO`) is checked before any sink, so it controls `adeline.log`, the terminal, and the console together. Set it with `--log-level <debug|info|warn|error>`, the `LBA2_LOG_LEVEL` env var, or the `loglevel` console command (`Log_SetLevel` in code).
+- **`Log_Debug` is for low-volume, meaningful detail** (a save written, a scene/cube change, an init result), not per-frame or per-object output. Off by default; it surfaces everywhere at once (`adeline.log`, terminal, console) when the level is lowered to `debug` (`--log-level debug` / `loglevel debug`). The test: someone who turns debug on should get signal, not a wall of text. If a line can fire many times a second it does not belong here (see the trace bullet). Varargs like `printf`, so there's no friction reason to prefer `printf` in committed code.
 - **Throwaway debugging is your business** — a quick `printf` while iterating is fine; just don't commit it.
-- **High-frequency / per-subsystem chatter** (per-sound, per-frame): gate it behind a runtime flag toggled from the console, the way `audio` and `video log` do, rather than logging unconditionally.
+- **Spammy per-frame / per-subsystem tracing is a runtime toggle, not a severity.** This is the "trace" tier: high-volume diagnostics you switch on from the console only while chasing a specific problem (the `audio` and `video log` switches are the pattern; `sfxLogEnabled` / `musicLogEnabled` guard the call sites, silent by default). There is deliberately no `TRACE` log level: such traces are usually temporary and pulled once the bug is found, so a persistent severity would be YAGNI. Don't route this kind of chatter through `Log_Debug`.
 - **No log categories/channels** (deliberately — YAGNI). To filter by area, prefix the message text (`[SFX]`, `[CD]`) and grep the file.
 - `LogPrintf` / `LogPuts` are legacy shims onto the same fan-out — fine where they are; no need to add new calls.
-- **Before the sinks exist** (early boot), `Log_*` falls back to stderr so errors still surface. `stdout` is for data, never logs.
+- **The stderr sink always emits, so headless runs are visible.** On a real TTY it's ANSI-coloured; when redirected (harness, CI, `2>file`) it falls back to plain, severity-tagged lines with the same info and no escape codes. So a piped `--load ... --tick ... --exit` run shows the boot log and any `Log_*` output inline on stderr; you don't have to open `adeline.log`. For a debug trace in the harness, add `--log-level debug`. `stdout` stays a pure data channel (`--dump-state`, `--exec` mirror), never logs.
+- **Before the sinks exist** (early boot), `Log_*` falls back to stderr so errors still surface.
 
 ## Editing docs
 

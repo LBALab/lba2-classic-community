@@ -33,6 +33,13 @@ int Control_IsActive(void);
    so a headless run is self-explaining and a hang shows what blocked it. */
 int Control_IsVerbose(void);
 
+/* Log verbosity via --log-level <debug|info|warn|error>. Control_HasLogLevel is
+   non-zero if the flag was supplied; Control_GetLogLevel returns the LogSeverity
+   value (as int) to hand to Log_SetLevel. Applied in PERSO.CPP right after
+   Log_Init; when absent the engine falls back to LBA2_LOG_LEVEL, then INFO. */
+int Control_HasLogLevel(void);
+int Control_GetLogLevel(void);
+
 /* Resolution override via --resolution WxH. Returns 1 if the flag was supplied (use
    Control_GetResolutionX/Y), 0 otherwise (use the compile-time RESOLUTION_X/RESOLUTION_Y
    defaults). Parsed in Control_ParseArgs; safe to call after that. */
