@@ -1,25 +1,26 @@
-# Host regression test for body-primitive geometry (issue #357).
+# Host regression tests for body-primitive geometry (issue #357 class).
 #
-# Compiles the real LIB386/OBJECT/AFF_OBJ.CPP and links the real 3D math library,
-# then drives Sphere()/Sphere_Transp() directly and asserts the radius they emit
-# against the original AFF_OBJ.ASM formula. The test file provides spy/stub
-# definitions for the pol_work fillers (Fill_Sphere spy, Fill_Poly/Line_A stubs)
-# so no framebuffer, palette, or game assets are needed - a self-contained host
-# build, no SDL, no Docker.
-add_executable(test_sphere_radius
-    test_sphere_radius.cpp
-    ${CMAKE_SOURCE_DIR}/LIB386/OBJECT/AFF_OBJ.CPP
-)
+# Each target compiles the real LIB386/OBJECT/AFF_OBJ.CPP + the shared harness
+# (spies for the pol_work fillers) and links the real 3D math library, then drives
+# one primitive directly and asserts the geometry it emits against the original
+# AFF_OBJ.ASM formula. No framebuffer, palette, or game assets: a self-contained
+# host build, no SDL, no Docker. See primitive_harness.h for the design.
+function(add_render_primitive_test test_name)
+    add_executable(${test_name}
+        ${test_name}.cpp
+        primitive_harness.cpp
+        ${CMAKE_SOURCE_DIR}/LIB386/OBJECT/AFF_OBJ.CPP
+    )
+    target_include_directories(${test_name} PRIVATE
+        ${CMAKE_SOURCE_DIR}/LIB386/H
+        ${CMAKE_BINARY_DIR}
+    )
+    # AFF_OBJ.CPP's rotation/projection/camera externs come from the 3D library.
+    target_link_libraries(${test_name} PRIVATE 3D)
+    set_target_properties(${test_name} PROPERTIES CXX_STANDARD 11)
+    add_test(NAME ${test_name} COMMAND ${test_name})
+    register_host_test(${test_name})
+endfunction()
 
-target_include_directories(test_sphere_radius PRIVATE
-    ${CMAKE_SOURCE_DIR}/LIB386/H
-    ${CMAKE_BINARY_DIR}
-)
-
-# AFF_OBJ.CPP's rotation/projection/camera externs come from the 3D library.
-target_link_libraries(test_sphere_radius PRIVATE 3D)
-
-set_target_properties(test_sphere_radius PROPERTIES CXX_STANDARD 11)
-
-add_test(NAME test_sphere_radius COMMAND test_sphere_radius)
-register_host_test(test_sphere_radius)
+add_render_primitive_test(test_sphere_radius)
+add_render_primitive_test(test_line_geometry)
