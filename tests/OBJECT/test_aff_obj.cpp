@@ -1951,6 +1951,70 @@ static void test_objectdisplay_visible_iso_render(void) {
                                      0, 0, 0, 64, 96, 32, 1, -1, 1);
 }
 
+// Randomised ObjectDisplay render: the fixed cases always centre the object, so
+// clipping and off-centre positions are barely exercised. This walks random
+// positions, rotations, and projection modes and asserts the CPP and ASM render
+// agree on everything (framebuffer, projected points, sort, screen box, ...).
+// The general body fixture is Solid/Flat polys - no z-buffer or perspective W
+// term - so there is no division to trip a degenerate position. A divergence at
+// any input is a real bug the centred fixtures would miss.
+static void render_fuzz_one(const char *label, void *fixture, S32 x, S32 y, S32 z,
+                            S32 alpha, S32 beta, S32 gamma, int iso) {
+    T_OBJ_3D cpp_object;
+    T_OBJ_3D asm_object;
+    RENDER_SNAPSHOT cpp_snapshot;
+    RENDER_SNAPSHOT asm_snapshot;
+    AffObjEnvironmentSetupFn setup =
+        iso ? setup_iso_aff_obj_environment : setup_common_aff_obj_environment;
+
+    build_test_object_fixture(&cpp_object, fixture, x, y, z, alpha, beta, gamma, 1, NULL);
+    build_test_object_fixture(&asm_object, fixture, x, y, z, alpha, beta, gamma, 1, NULL);
+
+    restore_cpp_3d_callbacks();
+    setup();
+    seed_cpp_aff_obj_state();
+    cpp_snapshot.Result = ObjectDisplay(&cpp_object);
+    capture_cpp_snapshot(&cpp_snapshot);
+
+    setup();
+    install_asm_compatible_3d_callbacks();
+    seed_asm_aff_obj_state();
+    asm_snapshot.Result = asm_ObjectDisplay(&asm_object);
+    capture_asm_snapshot(&asm_snapshot);
+
+    compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
+}
+
+static void test_objectdisplay_random_stress(void) {
+    TEST_BODY_FIXTURE body_fixture;
+    TEST_SPHERE_BODY_FIXTURE sphere_fixture;
+
+    build_test_body_fixture(&body_fixture);
+    build_sphere_test_body_fixture(&sphere_fixture, 0);
+
+    rng_seed(0x357A11u);
+    for (int i = 0; i < 500; i++) {
+        S32 x = (S32)(rng_next() % 1600) - 800;
+        S32 y = (S32)(rng_next() % 1600) - 800;
+        S32 z = (S32)(rng_next() % 1600) - 800;
+        S32 alpha = (S32)(rng_next() % 4096);
+        S32 beta = (S32)(rng_next() % 4096);
+        S32 gamma = (S32)(rng_next() % 4096);
+        int iso = (int)(rng_next() & 1u);
+        // Alternate the body (Solid/Flat polys) with the sphere fixture, so the
+        // fuzz also drives the sphere-radius division (the #357 primitive) across
+        // random depths in both projection modes.
+        int use_sphere = (int)(rng_next() & 1u);
+        void *fixture = use_sphere ? (void *)&sphere_fixture : (void *)&body_fixture;
+        char label[128];
+        snprintf(label, sizeof(label),
+                 "render fuzz #%d %s %s x=%d y=%d z=%d a=%d b=%d g=%d", i,
+                 use_sphere ? "sphere" : "body", iso ? "ISO" : "3D", x, y, z, alpha,
+                 beta, gamma);
+        render_fuzz_one(label, fixture, x, y, z, alpha, beta, gamma, iso);
+    }
+}
+
 static void test_bodydisplay_visible_render(void) {
     ASSERT_EQ_INT(96, (int)sizeof(T_BODY_HEADER));
     ASSERT_EQ_INT(180, (int)sizeof(TEST_BODY_FIXTURE));
@@ -2656,6 +2720,7 @@ int main(void) {
     RUN_TEST(test_objectdisplay_sphere_transp_iso_render);
     RUN_TEST(test_objectdisplay_line_iso_render);
     RUN_TEST(test_objectdisplay_visible_iso_render);
+    RUN_TEST(test_objectdisplay_random_stress);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
     RUN_TEST(test_testvisible_random_stress);
