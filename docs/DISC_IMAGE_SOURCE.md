@@ -112,10 +112,11 @@ block (`Events/Joystick/Audio/Display/Assets/Language`) and a `Ready in ...` lin
   ```
 - No image found: no `Disc:` line, banner unchanged (no "none" noise).
 - The full image path and the in-image asset root are logged at `DEBUG` from the mount
-  (`DISCIMG: mounted <path> (asset root '<root>', <N> files)`), so adeline.log and the terminal
-  carry that detail without touching the curated banner (the console sink stays at `INFO`).
+  (`DISCIMG: mounted <path> (asset root '<root>', <N> files)`). Debug is off by default, so this
+  stays out of the banner and normal output; run with `--log-level debug` (or `loglevel debug`)
+  to surface it in `adeline.log`, the terminal, and the console at once.
 - The `Assets   all present` status may note disc-sourced assets only when relevant; per-resource
-  source (FS vs disc) stays at debug level.
+  source (FS vs disc) stays at debug level (same gating).
 - CD-music source is logged at info/debug, not in the concise banner.
 - Additive only: existing discovery/preflight lines (which the `Control_*` harness and tooling may
   parse) are left byte-identical.

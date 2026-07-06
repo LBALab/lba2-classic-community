@@ -190,7 +190,9 @@ scenario as behaviour is pinned down.
 
 - `audio global log 1` (console) turns on the `[MUSIC]`/`[CD]` trace channel.
 - `cube <N>` jumps to a scene, which runs the cube-entry music path.
-- Traces land in `adeline.log` (the terminal log sink is TTY-gated, so grep the
-  file, not piped stdout).
+- Traces land in `adeline.log` and on stderr (the terminal sink emits plain,
+  tagged lines even when redirected), so grep the file or read stderr; logs never
+  go to `stdout`. (These `[MUSIC]`/`[CD]` lines are INFO, so the toggle alone
+  surfaces them; a `--log-level warn` run would suppress them.)
 
 See AUDIO.md for the full logging reference and `audio global status`.
