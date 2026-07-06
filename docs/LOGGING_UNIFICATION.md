@@ -1,5 +1,11 @@
 # Logging unification
 
+> **Superseded (2026-07-06):** the severity model here (per-sink `Debug+`
+> file/terminal defaults; a console-only `loglevel`) was reworked into a single
+> global log level that gates every sink, with `Log_Debug` off by default and the
+> stderr sink always emitting. See the AGENTS.md "Logging" section for the current
+> how-to; this doc is kept as build history.
+
 **Status:** In progress. U1 (relocate core to `LIB386`) and U2 (shim
 `LogPrintf`/`LogPuts` onto the fan-out) merged; U3 (severity pass) and an
 SDL-spine test are in review. Builds on the structured boot log

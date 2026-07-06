@@ -55,6 +55,7 @@ struct LogSink {
     SinkWriteFn write;
     FILE *fp;    /* file sink: owned; terminal sink: stderr (not owned) */
     int owns_fp; /* close fp on shutdown (file sink only) */
+    int colour;  /* terminal sink: emit ANSI colour (1) or plain tagged text (0) */
     /* console sink: per-line print adapter, injected by the engine */
     LogLineFn line_fn;
 };
@@ -65,9 +66,11 @@ LogSink g_pool[LOG_MAX_SINKS];    /* storage */
 LogSink *g_active[LOG_MAX_SINKS]; /* dispatch list */
 int g_active_count = 0;
 
-/* The one console sink, if registered — so Log_SetConsoleSeverity can find it
- * without the caller threading the handle back through. */
-LogSink *g_console_sink = 0;
+/* Global minimum severity: the master gate. Every record is tested against this
+ * before any sink's own min_severity, so one value turns debug output on or off
+ * across the file, terminal, and console at once. Log_Init seeds it permissive
+ * (LOG_DEBUG); the engine sets the real boot default (LOG_INFO) via Log_SetLevel. */
+LogSeverity g_min_severity = LOG_DEBUG;
 
 #ifndef LBA_LOG_NO_SDL
 /* Captured in Log_Init (on the main thread). The console sink drops records
@@ -89,8 +92,19 @@ const char *severity_tag(LogSeverity sev) {
     return "INFO";
 }
 
+/* Structural framing records (the identity banner, section markers) carry no real
+ * severity and always pass the global level, so a log stays self-describing even
+ * when the level is raised. Severity-carrying records (REC_NORMAL) and verbatim
+ * content (REC_RAW, which the legacy LogPrintf shim also feeds) obey the level. */
+int is_structural(int kind) {
+    return kind == REC_BANNER || kind == REC_SECTION_BEGIN ||
+           kind == REC_SECTION_END;
+}
+
 /* Fan-out: write the record to every active sink that admits this severity. */
 void log_emit(LogSeverity sev, int kind, const char *msg) {
+    if (!is_structural(kind) && sev < g_min_severity)
+        return; /* master gate (structural framing exempt): no sink sees it */
     for (int i = 0; i < g_active_count; ++i) {
         LogSink *s = g_active[i];
         if (sev < s->min_severity)
@@ -115,7 +129,12 @@ void file_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
     fflush(s->fp);
 }
 
-/* --- Terminal sink: ANSI 16-colour on stderr, TTY-gated ----------------- */
+/* --- Terminal sink: stderr; ANSI 16-colour on a TTY, plain text otherwise ---
+ * Always emits (unlike a TTY-gated no-op), so piped / harness / CI runs still see
+ * the log inline on stderr; the file sink aside, this is the only surface a
+ * headless run shows anything on. Colour is what the TTY gate controls; when
+ * redirected we fall back to plain, severity-tagged lines (the file sink's idiom)
+ * so the stream stays self-describing and carries no escape codes. */
 
 const char *severity_color(LogSeverity sev) {
     switch (sev) {
@@ -133,6 +152,20 @@ const char *severity_color(LogSeverity sev) {
 
 void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
     FILE *out = s->fp; /* stderr */
+    if (!s->colour) {
+        /* Redirected / not a TTY: mirror the file sink's plain format so a
+         * headless run's stderr is self-describing (severity tag, no ANSI). */
+        if (kind == REC_SECTION_BEGIN)
+            fprintf(out, "==== %s ====\n", msg);
+        else if (kind == REC_SECTION_END)
+            ; /* no closer */
+        else if (kind == REC_RAW || kind == REC_BANNER)
+            fprintf(out, "%s\n", msg);
+        else
+            fprintf(out, "[%s] %s\n", severity_tag(sev), msg);
+        fflush(out);
+        return;
+    }
     if (kind == REC_SECTION_BEGIN) {
         fprintf(out, "\033[1;36m------ %s ", msg); /* bold cyan structural accent */
         int used = 7 + (int)strlen(msg) + 1;       /* "------ " + msg + " " */
@@ -153,10 +186,6 @@ void term_sink_write(LogSink *s, LogSeverity sev, int kind, const char *msg) {
     }
     fflush(out);
 }
-
-/* Registered but inert: the terminal sink's no-op when stderr is not a TTY (or
- * NO_COLOR is set), so redirected output never gets ANSI escapes. */
-void noop_write(LogSink *, LogSeverity, int, const char *) {}
 
 /* --- Console buffer sink: text into the in-engine scrollback ---------------
  * Severity is conveyed to the engine adapter (it colours the line), so unlike
@@ -231,6 +260,7 @@ LogSink *alloc_sink(void) {
             s->write = 0;
             s->fp = 0;
             s->owns_fp = 0;
+            s->colour = 0;
             s->line_fn = 0;
             return s;
         }
@@ -308,6 +338,8 @@ void SDLCALL sdl_output(void *userdata, int category, SDL_LogPriority pri,
 void log_fallback_write(LogSeverity sev, int kind, const char *msg) {
     if (!msg)
         msg = "";
+    if (!is_structural(kind) && sev < g_min_severity)
+        return; /* honour the level even before sinks (structural framing exempt) */
     if (kind == REC_SECTION_END)
         return;
     if (kind == REC_SECTION_BEGIN)
@@ -347,7 +379,7 @@ extern "C" {
 
 void Log_Init(void) {
     g_active_count = 0;
-    g_console_sink = 0;
+    g_min_severity = LOG_DEBUG; /* permissive; the engine sets the boot default */
     for (int i = 0; i < LOG_MAX_SINKS; ++i)
         g_pool[i].in_use = 0;
 #ifndef LBA_LOG_NO_SDL
@@ -378,7 +410,6 @@ void Log_Shutdown(void) {
         g_pool[i].in_use = 0;
     }
     g_active_count = 0;
-    g_console_sink = 0;
 }
 
 void Log_Debug(const char *fmt, ...) {
@@ -458,7 +489,8 @@ LogSink *Log_MakeTerminalSink(LogSeverity min_severity) {
         return 0;
     s->fp = stderr; /* not owned — never closed on shutdown */
     s->min_severity = min_severity;
-    s->write = terminal_enabled() ? term_sink_write : noop_write;
+    s->colour = terminal_enabled(); /* ANSI only on a real TTY; else plain text */
+    s->write = term_sink_write;     /* always emits; plain when not colouring */
     return s;
 }
 
@@ -466,23 +498,32 @@ LogSink *Log_MakeConsoleBufferSink(LogLineFn printer) {
     LogSink *s = alloc_sink();
     if (!s)
         return 0;
-    /* INFO by default: shows the boot log + warnings, hides DEBUG chatter. The
-     * verbose audio/SFX logs are gated off (sfxLogEnabled/musicLogEnabled), so
-     * INFO stays clean without filtering the boot log out of the ring. */
-    s->min_severity = LOG_INFO;
+    /* Admit everything; the global level (Log_SetLevel) is the sole gate, so the
+     * console shows debug exactly when the file and terminal do. */
+    s->min_severity = LOG_DEBUG;
     s->write = console_sink_write;
     s->line_fn = printer;
-    g_console_sink = s;
     return s;
 }
 
-void Log_SetConsoleSeverity(LogSeverity min_severity) {
-    if (g_console_sink)
-        g_console_sink->min_severity = min_severity;
-}
+void Log_SetLevel(LogSeverity min_severity) { g_min_severity = min_severity; }
 
-LogSeverity Log_GetConsoleSeverity(void) {
-    return g_console_sink ? g_console_sink->min_severity : LOG_INFO;
+LogSeverity Log_GetLevel(void) { return g_min_severity; }
+
+int Log_ParseLevel(const char *name, LogSeverity *out) {
+    if (!name || !out)
+        return 0;
+    if (strcmp(name, "debug") == 0)
+        *out = LOG_DEBUG;
+    else if (strcmp(name, "info") == 0)
+        *out = LOG_INFO;
+    else if (strcmp(name, "warn") == 0)
+        *out = LOG_WARN;
+    else if (strcmp(name, "error") == 0)
+        *out = LOG_ERROR;
+    else
+        return 0;
+    return 1;
 }
 
 void Log_AddSink(LogSink *sink) {
