@@ -24,3 +24,4 @@ endfunction()
 
 add_render_primitive_test(test_sphere_radius)
 add_render_primitive_test(test_line_geometry)
+add_render_primitive_test(test_poly_geometry)
