@@ -1062,6 +1062,8 @@ S32 Sphere(U32 typePoly, void *poly) {
     } else {
         // @@Radius_Proj:
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
+        if (z + PosZWr == 0) // ASM @@SkipSphere: point on the camera Z plane
+            return 0;
         radius *= LFactorX;
         radius /= z + PosZWr;
     }
@@ -1116,6 +1118,8 @@ S32 Sphere_Transp(U32 typePoly, void *poly) {
         radius = -radius; // ASM `neg eax`: two's-complement, not bitwise ~ (#357)
     } else {
         S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
+        if (z + PosZWr == 0) // ASM @@SkipSphere: point on the camera Z plane
+            return 0;
         radius *= LFactorX;
         radius /= z + PosZWr;
     }
