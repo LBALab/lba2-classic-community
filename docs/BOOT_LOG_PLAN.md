@@ -274,8 +274,9 @@ Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
   below — the lines would never be captured, so lowering the level afterwards
   couldn't bring them back.
 - **Runtime toggle:** the `loglevel [debug|info|warn|error]` console command
-  (`Log_SetConsoleSeverity` / `Log_GetConsoleSeverity`) adjusts only this sink;
-  the file and terminal sinks are unaffected.
+  adjusted only the console sink; the file and terminal sinks were unaffected.
+  *(Superseded 2026-07-06: `loglevel` now sets the global level that gates every
+  sink; see the AGENTS.md "Logging" section.)*
 - The console sink lives in `LOG.CPP` with the other sinks and calls
   `Console_Print`; host tests that compile `LOG.CPP` standalone provide a
   `Console_Print` stub (a recording stub in `test_log`, a no-op in
