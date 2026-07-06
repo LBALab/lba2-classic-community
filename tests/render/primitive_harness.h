@@ -91,7 +91,7 @@ struct SpyCapture {
     int sphere_calls;
     S32 sphere_radius, sphere_cx, sphere_cy, sphere_type, sphere_col;
     int line_calls;
-    S32 line_x0, line_y0, line_x1, line_y1, line_col;
+    S32 line_x0, line_y0, line_x1, line_y1, line_col, line_z1, line_z2;
     int poly_calls;
     S32 poly_type, poly_color, poly_nb;
 };

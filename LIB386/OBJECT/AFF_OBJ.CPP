@@ -1034,7 +1034,8 @@ S32 Line(U32 typePoly, void *poly) {
         T_OBJ_POINT rotatedP1 = Obj_ListRotatedPoints[line->P1];
         T_OBJ_POINT rotatedP2 = Obj_ListRotatedPoints[line->P2];
 
-        // For some reason, z1 is calculated with p2 and z2 with p1
+        // z1/z2 are the z-buffer depths of P1/P2 (matches AFF_OBJ.ASM: esi<-P1,
+        // edi<-P2). `~z - (PosZWr-1)` is the ASM's obfuscated `-z - PosZWr`.
         z1 = Fill_ZBuffer_Factor * (~rotatedP1.Z - (PosZWr - 1)) >> 16;
         z2 = Fill_ZBuffer_Factor * (~rotatedP2.Z - (PosZWr - 1)) >> 16;
     }

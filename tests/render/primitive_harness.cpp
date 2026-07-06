@@ -33,13 +33,15 @@ void Fill_Sphere(S32 type, S32 col, S32 cx, S32 cy, S32 rayon, S32 /*z*/) {
     g_spy.sphere_radius = rayon;
 }
 
-void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 /*z1*/, S32 /*z2*/) {
+void Line_A(S32 x0, S32 y0, S32 x1, S32 y1, S32 col, S32 z1, S32 z2) {
     g_spy.line_calls++;
     g_spy.line_x0 = x0;
     g_spy.line_y0 = y0;
     g_spy.line_x1 = x1;
     g_spy.line_y1 = y1;
     g_spy.line_col = col;
+    g_spy.line_z1 = z1;
+    g_spy.line_z2 = z2;
 }
 
 S32 Fill_Poly(S32 type, S32 color, S32 nb, Struc_Point *) {
