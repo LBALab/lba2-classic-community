@@ -395,7 +395,13 @@ extern "C" void CallCppRotTransList(TYPE_MAT *mat, TYPE_VT16 *dst, TYPE_VT16 *sr
 
 extern "C" void CallCppProjectList(TYPE_PT *dst, TYPE_VT16 *src, S32 count,
                                    S32 org_x, S32 org_y, S32 org_z) {
-    ProjectList3DF(dst, src, count, org_x, org_y, org_z);
+    // Route to whichever projection the environment selected so both the CPP and
+    // ASM AFF_OBJ paths use the same one. ISO exercises the interior primitive
+    // branches (e.g. the interior sphere-radius formula behind #357).
+    if (TypeProj == TYPE_ISO)
+        ProjectListIso(dst, src, count, org_x, org_y, org_z);
+    else
+        ProjectList3DF(dst, src, count, org_x, org_y, org_z);
 }
 
 extern "C" void CallCppInitMatrixTrans(TYPE_MAT *dst, S32 tx, S32 ty, S32 tz) {
@@ -1419,6 +1425,14 @@ static void setup_common_aff_obj_environment(void) {
     Yp = 0;
 }
 
+static void setup_iso_aff_obj_environment(void) {
+    setup_common_aff_obj_environment();
+    // Override the perspective projection with the isometric (interior) one so
+    // the render drives the ISO code paths (TypeProj == TYPE_ISO), which the 3D
+    // cases never reach.
+    SetIsoProjection(TEST_POLY_W / 2, TEST_POLY_H / 2);
+}
+
 static void setup_textured_aff_obj_environment(void) {
     setup_common_aff_obj_environment();
     init_test_texture();
@@ -1871,6 +1885,52 @@ static void test_objectdisplay_sphere_transp_render(void) {
                                      &fixture, 1, NULL, NULL,
                                      setup_common_aff_obj_environment,
                                      0, 0, 0, 64, 96, 32, 1, 1, 1);
+}
+
+// ── Interior / ISO render coverage (issue #357) ─────────────────────────────
+// The 3D cases above never set TypeProj = TYPE_ISO, so the interior primitive
+// branches - most importantly the interior sphere-radius formula that #357 got
+// wrong - were never compared ASM-vs-CPP end to end. These render the same
+// fixtures through the isometric projection; a divergence shows up as a CPP/ASM
+// pixel-count mismatch. The sphere ISO case would have caught #357.
+static void test_objectdisplay_sphere_iso_render(void) {
+    TEST_SPHERE_BODY_FIXTURE fixture;
+
+    build_sphere_test_body_fixture(&fixture, 0);
+    run_objectdisplay_render_case_ex("ObjectDisplay sphere ISO render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_iso_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, -1, 1);
+}
+
+static void test_objectdisplay_sphere_transp_iso_render(void) {
+    TEST_SPHERE_BODY_FIXTURE fixture;
+
+    build_sphere_test_body_fixture(&fixture, 1);
+    run_objectdisplay_render_case_ex("ObjectDisplay sphere transparent ISO render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_iso_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, -1, 1);
+}
+
+static void test_objectdisplay_line_iso_render(void) {
+    TEST_LINE_BODY_FIXTURE fixture;
+
+    build_line_test_body_fixture(&fixture);
+    run_objectdisplay_render_case_ex("ObjectDisplay line ISO render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_iso_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, -1, 1);
+}
+
+static void test_objectdisplay_visible_iso_render(void) {
+    TEST_BODY_FIXTURE fixture;
+
+    build_test_body_fixture(&fixture);
+    run_objectdisplay_render_case_ex("ObjectDisplay visible ISO render",
+                                     &fixture, 1, NULL, NULL,
+                                     setup_iso_aff_obj_environment,
+                                     0, 0, 0, 64, 96, 32, 1, -1, 1);
 }
 
 static void test_bodydisplay_visible_render(void) {
@@ -2557,6 +2617,10 @@ int main(void) {
     RUN_TEST(test_objectdisplay_line_render);
     RUN_TEST(test_objectdisplay_sphere_render);
     RUN_TEST(test_objectdisplay_sphere_transp_render);
+    RUN_TEST(test_objectdisplay_sphere_iso_render);
+    RUN_TEST(test_objectdisplay_sphere_transp_iso_render);
+    RUN_TEST(test_objectdisplay_line_iso_render);
+    RUN_TEST(test_objectdisplay_visible_iso_render);
     RUN_TEST(test_testvisible_fixed_cases);
     RUN_TEST(test_testvisible_edge_cases);
     RUN_TEST(test_testvisible_random_stress);
