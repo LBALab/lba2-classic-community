@@ -2779,6 +2779,18 @@ int main(int argc, char *argv[]) {
         GetLogPathInDir(logFilePath, ADELINE_MAX_PATH, userFolderPath, LOG_NAME);
         CreateLog(logFilePath);
         Log_Init();
+        /* Master log level for every sink: --log-level wins, else LBA2_LOG_LEVEL,
+           else INFO (debug off by default). The floor gates the file, terminal,
+           and F12 console alike, so this one value controls all logging. */
+        {
+            LogSeverity logLevel = LOG_INFO;
+            const char *envLevel;
+            if (Control_HasLogLevel())
+                logLevel = (LogSeverity)Control_GetLogLevel();
+            else if ((envLevel = getenv("LBA2_LOG_LEVEL")) != NULL && *envLevel)
+                (void)Log_ParseLevel(envLevel, &logLevel); /* invalid -> stays INFO */
+            Log_SetLevel(logLevel);
+        }
         Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
         atexit(Log_Shutdown);

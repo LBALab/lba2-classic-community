@@ -1131,22 +1131,16 @@ static const char *loglevel_name(LogSeverity sev) {
 static void cmd_loglevel(int argc, const char *argv[]) {
     if (argc >= 2) {
         LogSeverity sev;
-        if (strcmp(argv[1], "debug") == 0)
-            sev = LOG_DEBUG;
-        else if (strcmp(argv[1], "info") == 0)
-            sev = LOG_INFO;
-        else if (strcmp(argv[1], "warn") == 0)
-            sev = LOG_WARN;
-        else if (strcmp(argv[1], "error") == 0)
-            sev = LOG_ERROR;
-        else {
+        if (!Log_ParseLevel(argv[1], &sev)) {
             Console_Print("Unknown level '%s'. Use: debug | info | warn | error",
                           argv[1]);
             return;
         }
-        Log_SetConsoleSeverity(sev);
+        /* The global level gates every sink (file, terminal, and this console),
+           so raising it to debug here reveals debug output everywhere. */
+        Log_SetLevel(sev);
     }
-    Console_Print("console log level: %s", loglevel_name(Log_GetConsoleSeverity()));
+    Console_Print("log level: %s", loglevel_name(Log_GetLevel()));
 }
 
 static void cmd_listsaves(int argc, const char *argv[]) {
@@ -1474,9 +1468,10 @@ void Console_RegisterAll(void) {
                               "Same string as logged at startup.");
     Console_RegisterCommandEx("exit", cmd_exit, "Exit the game immediately", "(no args)", "Clean shutdown.");
     Console_RegisterCommandEx("loglevel", cmd_loglevel,
-                              "Show or set the console log level", "loglevel [debug|info|warn|error]",
-                              "Filters what the boot/runtime log shows in this console; file + "
-                              "terminal logs are unaffected. Default info.");
+                              "Show or set the log level", "loglevel [debug|info|warn|error]",
+                              "Master level for all sinks (this console, adeline.log, and the "
+                              "terminal). 'loglevel debug' reveals debug output everywhere. "
+                              "Default info; set at launch with --log-level or LBA2_LOG_LEVEL.");
     Console_RegisterCommandEx("listsaves", cmd_listsaves, "List save games (names)", "(no args)", "Reads save/ directory.");
     Console_RegisterCommandEx("listbugs", cmd_listbugs, "List bug saves in bugs directory", "(no args)", "Reads bugs/ directory.");
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");
