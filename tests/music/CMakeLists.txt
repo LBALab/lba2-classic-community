@@ -39,3 +39,17 @@ set_target_properties(test_music_pause_resume PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_music_pause_resume COMMAND test_music_pause_resume)
 
 register_host_test(test_music_pause_resume)
+
+# Host unit test for the stream park/resume + focus-suspend decision logic
+# (LIB386/H/AIL/STREAM_PARK.H). Pure and SDL-free: no backend, no audio device, no assets.
+add_executable(test_music_stream_park test_music_stream_park.cpp)
+
+target_include_directories(test_music_stream_park PRIVATE
+    ${CMAKE_SOURCE_DIR}/LIB386/H
+)
+
+set_target_properties(test_music_stream_park PROPERTIES CXX_STANDARD 11)
+
+add_test(NAME test_music_stream_park COMMAND test_music_stream_park)
+
+register_host_test(test_music_stream_park)

@@ -4,6 +4,7 @@
 
 #include "stb_vorbis.h"
 
+#include <AIL/STREAM_PARK.H> /* pure park/resume/focus decision logic (host-tested) */
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H> /* ESeekOrigin */
@@ -661,7 +662,7 @@ void StopStream() {
 }
 
 void PauseStream() {
-    if (stream && !streamPaused) {
+    if (Stream_ShouldPark(stream != NULL, streamPaused)) {
         /* Park the position so a later Resume can restore even if a different
            stream (e.g. the in-game menu theme) plays and tears this one down in
            the meantime. MILES does the same in PauseCD (save Cur/End/track). */
@@ -677,21 +678,23 @@ void PauseStream() {
 }
 
 void ResumeStream() {
-    /* Fast path: the parked stream is still alive and paused -> just unpause the
-       device. This is the dialogue/holomap case (nothing played in between). */
-    if (stream && streamPaused && hasRemembered && strcmp(streamPathName, rememberedPath) == 0) {
+    switch (Stream_ResumeAction(stream != NULL, streamPaused, hasRemembered,
+                                strcmp(streamPathName, rememberedPath) == 0,
+                                rememberedPath[0] != '\0')) {
+    case STREAM_RESUME_UNPAUSE:
+        /* Fast path: the parked stream is still alive and paused -> just unpause the
+           device. This is the dialogue/holomap case (nothing played in between). */
         if (musicLogEnabled)
             SDL_Log("[MUSIC] ResumeStream unpause %s", streamPathName);
         SDL_ResumeAudioStreamDevice(stream);
         streamPaused = false;
         hasRemembered = false;
-        return;
-    }
+        break;
 
-    /* Restore path: a different stream replaced the parked one (the menu theme
-       played between Pause and Resume), so re-open the parked file and seek back
-       to where it was. Mirrors MILES ResumeCD replaying from the saved Cur. */
-    if (hasRemembered && rememberedPath[0]) {
+    case STREAM_RESUME_RESTORE: {
+        /* Restore path: a different stream replaced the parked one (the menu theme
+           played between Pause and Resume), so re-open the parked file and seek back
+           to where it was. Mirrors MILES ResumeCD replaying from the saved Cur. */
         char path[ADELINE_MAX_PATH];
         strncpy(path, rememberedPath, ADELINE_MAX_PATH - 1);
         path[ADELINE_MAX_PATH - 1] = '\0';
@@ -700,6 +703,11 @@ void ResumeStream() {
         if (musicLogEnabled)
             SDL_Log("[MUSIC] ResumeStream restore %s frame=%d", path, (int)frame);
         PlayStreamInternal(path, frame);
+        break;
+    }
+
+    case STREAM_RESUME_NONE:
+        break;
     }
 }
 
@@ -718,7 +726,7 @@ void SuspendStreamOutput() {
 void ResumeStreamOutput() {
     /* Re-resume the device only if the stream is not logically paused; otherwise
        a focus blip during a dialogue/menu music pause would un-pause it. */
-    if (stream && !streamPaused) {
+    if (Stream_ShouldResumeDeviceOnFocus(stream != NULL, streamPaused)) {
         if (musicLogEnabled)
             SDL_Log("[MUSIC] ResumeStreamOutput");
         SDL_ResumeAudioStreamDevice(stream);
