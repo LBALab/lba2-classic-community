@@ -1,5 +1,11 @@
 # Boot Log + Exit Screen
 
+> **Superseded (2026-07-06):** the severity model in this plan (per-sink `Debug+`
+> file/terminal defaults; a console-only `loglevel`) was reworked into a single
+> global log level that gates every sink, with `Log_Debug` off by default and the
+> stderr sink always emitting. See the AGENTS.md "Logging" section for the current
+> how-to; this doc is kept as build history.
+
 **Status:** All phases done. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), 4 (boot-path wiring), 5 (Funfrock header — later dropped), and 2 (console sink) implemented, then reshaped to the terse Quake-style boot log + asset preflight (see "Boot-log shape" below). Graceful optional-asset degradation remains a separate PR (B).
 
 ## Goal
