@@ -641,10 +641,11 @@ Save(GamePathname, BufSpeak + 50000L, PtrSave - (BufSpeak + 50000L));
     Save(GamePathname, (U8 *)Screen, PtrSave - (U8 *)Screen);
 #endif
 
-// Save audit trail. Debug level, so it always lands in adeline.log but stays
-// off the F12 overlay until `loglevel debug`. Covers every save path:
-// AutoSaveGame (autosave.lba), CurrentSaveGame (current.lba), and the menu's
-// named saves -- GamePathname distinguishes which, NumCube which scene.
+// Save audit trail. Debug level, so it's off by default and surfaces (in
+// adeline.log, the terminal, and the F12 overlay alike) only at `--log-level
+// debug` / `loglevel debug`. Covers every save path: AutoSaveGame
+// (autosave.lba), CurrentSaveGame (current.lba), and the menu's named saves --
+// GamePathname distinguishes which, NumCube which scene.
 Log_Debug("save: wrote \"%s\" (cube %d)", GamePathname, (int)NumCube);
 }
 

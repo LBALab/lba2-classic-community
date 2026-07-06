@@ -51,6 +51,21 @@ void Log_Info(const char *fmt, ...);
 void Log_Warn(const char *fmt, ...);
 void Log_Error(const char *fmt, ...);
 
+/* Global minimum severity: the master log level. A record below it is dropped
+ * for every sink before that sink's own min_severity is even consulted, so this
+ * is the single knob that turns debug output on or off across the file, terminal,
+ * and F12 console at once. Log_Init seeds it permissive (LOG_DEBUG); the engine
+ * raises the threshold to LOG_INFO at boot so debug is hidden unless asked for,
+ * and --log-level / LBA2_LOG_LEVEL / the `loglevel` console command move it. */
+void Log_SetLevel(LogSeverity min_severity);
+LogSeverity Log_GetLevel(void);
+
+/* Parse a level name ("debug"|"info"|"warn"|"error", lowercase) into *out.
+ * Returns 1 on success, 0 if unrecognised (*out left untouched). Shared by the
+ * --log-level flag, the LBA2_LOG_LEVEL env var, and the `loglevel` command so
+ * they all agree on the spelling. */
+int Log_ParseLevel(const char *name, LogSeverity *out);
+
 /* Verbatim line — no severity prefix, no section idiom; sinks print it as-is.
  * For framing/banner output (e.g. the boot header). Admitted at INFO level for
  * per-sink filtering. */
@@ -72,10 +87,11 @@ void Log_EndSection(void);
  * resolved path (GetLogPath) — one log file, reused, not a second one. */
 LogSink *Log_MakeFileSink(const char *path, LogSeverity min_severity);
 
-/* Terminal sink: ANSI 16-colour records on stderr (severity-coloured, cyan
- * "------ Title ------" section rules). Active only when stderr is a real TTY
- * and NO_COLOR is unset (Windows: also enables VT processing); otherwise it
- * registers but writes nothing, so redirected output never gets escape codes. */
+/* Terminal sink: always writes to stderr, so piped / harness / CI runs still see
+ * the log inline (not just in adeline.log). ANSI 16-colour (severity-coloured,
+ * cyan "------ Title ------" rules) only when stderr is a real TTY and NO_COLOR
+ * is unset (Windows: also enables VT processing); when redirected it falls back
+ * to plain, severity-tagged lines with the same info and no escape codes. */
 LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
 
 /* Console buffer sink: feeds each record to \a printer (the engine passes an
@@ -83,15 +99,10 @@ LogSink *Log_MakeTerminalSink(LogSeverity min_severity);
  * overlay. Monochrome — the console ring stores plain text with no per-line
  * colour. Main-thread records only: the ring is not thread-safe, so off-thread
  * records (e.g. the audio callback) are dropped here but still reach the file
- * and terminal sinks. Defaults to INFO (the boot log is INFO/raw; the verbose
- * audio/SFX logs are gated off by default, so INFO stays clean); adjust live
- * with Log_SetConsoleSeverity / the `loglevel` console command. */
+ * and terminal sinks. Admits every severity; the global level (Log_SetLevel,
+ * driven by the `loglevel` console command) is the sole gate, so debug output
+ * appears in the console exactly when it appears in the file and terminal. */
 LogSink *Log_MakeConsoleBufferSink(LogLineFn printer);
-
-/* Raise/lower the console buffer sink's minimum severity at runtime. No-op if
- * no console sink is registered. */
-void Log_SetConsoleSeverity(LogSeverity min_severity);
-LogSeverity Log_GetConsoleSeverity(void);
 
 void Log_AddSink(LogSink *sink);
 void Log_RemoveSink(LogSink *sink);

@@ -1,5 +1,11 @@
 # Boot Log + Exit Screen
 
+> **Superseded (2026-07-06):** the severity model in this plan (per-sink `Debug+`
+> file/terminal defaults; a console-only `loglevel`) was reworked into a single
+> global log level that gates every sink, with `Log_Debug` off by default and the
+> stderr sink always emitting. See the AGENTS.md "Logging" section for the current
+> how-to; this doc is kept as build history.
+
 **Status:** All phases done. Phases 6 (exit screen), 1 (core log + file sink), 3 (terminal sink), 4 (boot-path wiring), 5 (Funfrock header — later dropped), and 2 (console sink) implemented, then reshaped to the terse Quake-style boot log + asset preflight (see "Boot-log shape" below). Graceful optional-asset degradation remains a separate PR (B).
 
 ## Goal
@@ -268,8 +274,9 @@ Build targets: GCC (`linux` preset) and MinGW (`cross_linux2win` /
   below — the lines would never be captured, so lowering the level afterwards
   couldn't bring them back.
 - **Runtime toggle:** the `loglevel [debug|info|warn|error]` console command
-  (`Log_SetConsoleSeverity` / `Log_GetConsoleSeverity`) adjusts only this sink;
-  the file and terminal sinks are unaffected.
+  adjusted only the console sink; the file and terminal sinks were unaffected.
+  *(Superseded 2026-07-06: `loglevel` now sets the global level that gates every
+  sink; see the AGENTS.md "Logging" section.)*
 - The console sink lives in `LOG.CPP` with the other sinks and calls
   `Console_Print`; host tests that compile `LOG.CPP` standalone provide a
   `Console_Print` stub (a recording stub in `test_log`, a no-op in

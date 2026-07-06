@@ -12,6 +12,7 @@
 #include <unistd.h> /* dup/dup2 — capture stderr for the no-sink fallback test */
 
 #define TMP "test_log_phase1.tmp"
+#define TMP2 "test_log_phase1b.tmp"
 
 /* The console buffer sink calls this per line (injected via
  * Log_MakeConsoleBufferSink) — capture the lines so the sink's rendering and
@@ -157,20 +158,21 @@ static void test_scoped_section(void) {
 }
 
 /* Console buffer sink: text into the scrollback with NO severity text tag (the
- * console renders the level as colour), INFO default, raw/banner verbatim,
- * section idiom, runtime severity change. The severity still rides along to the
- * printer — asserted via console_sev_of. (Thread gating is SDL-only and compiled
- * out under LBA_LOG_NO_SDL, so the sink always writes here.) */
+ * console renders the level as colour), raw/banner verbatim, section idiom. The
+ * severity/kind still ride along to the printer, asserted via console_sev_of.
+ * Gating is by the global level (Log_SetLevel), shared with the file/terminal
+ * sinks, not a per-console knob. (Thread gating is SDL-only and compiled out
+ * under LBA_LOG_NO_SDL, so the sink always writes here.) */
 static void test_console_sink(void) {
     console_capture_reset();
     Log_Init();
     LogSink *s = Log_MakeConsoleBufferSink(record_console_line);
     ASSERT_TRUE(s != NULL);
     Log_AddSink(s);
-    ASSERT_TRUE(Log_GetConsoleSeverity() == LOG_INFO);
 
-    /* Default INFO: DEBUG dropped; INFO/WARN/raw/banner all verbatim (no tag);
-     * section idiom; severity conveyed out-of-band for the colour. */
+    /* Engine default is INFO: DEBUG dropped; INFO/WARN/raw/banner all verbatim
+     * (no tag); section idiom; severity conveyed out-of-band for the colour. */
+    Log_SetLevel(LOG_INFO);
     Log_Debug("dbg-line");
     Log_Info("info-line");
     Log_Warn("warn-line");
@@ -195,10 +197,9 @@ static void test_console_sink(void) {
     ASSERT_TRUE(console_call_of("raw-line")->kind == LOG_LINE_NORMAL);
     ASSERT_TRUE(console_call_of("== Boot ==")->kind == LOG_LINE_SECTION);
 
-    /* loglevel raise to WARN now drops INFO. */
+    /* Raising the global level to WARN drops INFO from the console too. */
     console_capture_reset();
-    Log_SetConsoleSeverity(LOG_WARN);
-    ASSERT_TRUE(Log_GetConsoleSeverity() == LOG_WARN);
+    Log_SetLevel(LOG_WARN);
     Log_Info("info-after");
     Log_Error("err-after");
     ASSERT_TRUE(strstr(g_console_capture, "info-after") == NULL);
@@ -208,31 +209,96 @@ static void test_console_sink(void) {
     Log_Shutdown();
 }
 
-/* One Log_* call fans out to every registered sink at once, and each sink's own
- * min-severity still applies independently. */
-static void test_fanout_to_all_sinks(void) {
+/* The global level (Log_SetLevel) is the master gate: it drops records for every
+ * sink before the sink's own min_severity is consulted, and it does so for the
+ * file sink too, even one opened at LOG_DEBUG. Lowering the level reveals them. */
+static void test_global_floor(void) {
     remove(TMP);
     console_capture_reset();
     Log_Init();
-    /* file sink admits DEBUG+, console sink admits INFO+ */
-    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG)); /* sink itself admits DEBUG+ */
     Log_AddSink(Log_MakeConsoleBufferSink(record_console_line));
 
-    Log_Warn("fan-%d", 7); /* one call -> both sinks (both admit WARN) */
-    Log_Debug("dbg-only"); /* one call -> file only (console drops DEBUG) */
+    /* Level at INFO: DEBUG is dropped for BOTH sinks despite the file sink's own
+     * DEBUG min: the global level wins over the per-sink setting. */
+    Log_SetLevel(LOG_INFO);
+    Log_Debug("floor-hidden");
+    Log_Info("floor-info");
+    /* Level lowered to DEBUG: a DEBUG record now reaches both sinks. */
+    Log_SetLevel(LOG_DEBUG);
+    Log_Debug("floor-shown");
+    ASSERT_TRUE(Log_GetLevel() == LOG_DEBUG); /* getter round-trips */
     Log_Shutdown();
 
     char buf[4096];
     slurp(TMP, buf, sizeof buf);
-    /* WARN reached both sinks from a single emit. The file keeps its text tag;
+    ASSERT_TRUE(strstr(buf, "floor-hidden") == NULL);        /* gated by the level */
+    ASSERT_TRUE(strstr(buf, "[INFO] floor-info") != NULL);   /* INFO passes at INFO */
+    ASSERT_TRUE(strstr(buf, "[DEBUG] floor-shown") != NULL); /* passes once lowered */
+    ASSERT_TRUE(strstr(g_console_capture, "floor-hidden") == NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "floor-info") != NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "floor-shown") != NULL);
+    remove(TMP);
+}
+
+/* Structural framing (the identity banner, section markers) bypasses the global
+ * level so a log stays self-describing even when the level is raised to its
+ * strictest; severity-carrying records and verbatim Log_Raw still obey it. */
+static void test_structural_bypasses_level(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+
+    Log_SetLevel(LOG_ERROR);  /* strictest short of silence */
+    Log_Banner("id-banner");  /* structural -> always, regardless of level */
+    Log_BeginSection("Boot"); /* structural -> always */
+    Log_Raw("raw-path");      /* verbatim content -> gated like a normal record */
+    Log_Info("info-drop");    /* REC_NORMAL below ERROR -> dropped */
+    Log_Error("err-keep");    /* REC_NORMAL at ERROR -> kept */
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "id-banner") != NULL);      /* banner survives */
+    ASSERT_TRUE(strstr(buf, "==== Boot ====") != NULL); /* section survives */
+    ASSERT_TRUE(strstr(buf, "raw-path") == NULL);       /* Log_Raw obeys the level */
+    ASSERT_TRUE(strstr(buf, "info-drop") == NULL);      /* INFO gated at ERROR */
+    ASSERT_TRUE(strstr(buf, "[ERROR] err-keep") != NULL);
+    remove(TMP);
+}
+
+/* One Log_* call fans out to every registered sink at once, and each sink's own
+ * min-severity still applies independently, shown here by a second, WARN-only
+ * file sink that drops a DEBUG record the DEBUG file sink keeps. */
+static void test_fanout_to_all_sinks(void) {
+    remove(TMP);
+    remove(TMP2);
+    console_capture_reset();
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG)); /* admits DEBUG+ */
+    Log_AddSink(Log_MakeFileSink(TMP2, LOG_WARN)); /* admits WARN+ */
+    Log_AddSink(Log_MakeConsoleBufferSink(record_console_line));
+
+    Log_Warn("fan-%d", 7); /* one call -> all three (all admit WARN) */
+    Log_Debug("dbg-only"); /* one call -> DEBUG file + console; WARN file drops it */
+    Log_Shutdown();
+
+    char buf[4096], buf2[4096];
+    slurp(TMP, buf, sizeof buf);
+    slurp(TMP2, buf2, sizeof buf2);
+    /* WARN reached every sink from a single emit. The files keep the text tag;
      * the console drops it (colour carries the level) but gets the message. */
     ASSERT_TRUE(strstr(buf, "[WARN] fan-7") != NULL);
+    ASSERT_TRUE(strstr(buf2, "[WARN] fan-7") != NULL);
     ASSERT_TRUE(strstr(g_console_capture, "fan-7") != NULL);
     ASSERT_TRUE(console_sev_of("fan-7") == LOG_WARN);
-    /* Per-sink filtering holds inside the fan-out: DEBUG to file, not console. */
+    /* Per-sink min still filters independently inside the fan-out: DEBUG reaches
+     * the DEBUG file and the console (which admits all), but not the WARN file. */
     ASSERT_TRUE(strstr(buf, "[DEBUG] dbg-only") != NULL);
-    ASSERT_TRUE(strstr(g_console_capture, "dbg-only") == NULL);
+    ASSERT_TRUE(strstr(g_console_capture, "dbg-only") != NULL);
+    ASSERT_TRUE(strstr(buf2, "dbg-only") == NULL);
     remove(TMP);
+    remove(TMP2);
 }
 
 /* The sink pool is fixed-size: past capacity Log_Make*Sink returns NULL (drops
@@ -352,6 +418,42 @@ static void test_logprintf_early_boot_fallback(void) {
     remove("shim_fallback.tmp");
 }
 
+/* Terminal sink with stderr redirected (not a TTY): it still EMITS plain,
+ * severity-tagged lines with no ANSI, so a harness / piped / CI run sees the log
+ * inline on stderr instead of only in adeline.log. The sink's own min_severity
+ * still applies. Capture stderr to assert. */
+static void test_terminal_sink_plain(void) {
+    Log_Init();
+
+    fflush(stderr);
+    int saved = dup(fileno(stderr));
+    FILE *cap = fopen("term_stderr.tmp", "w");
+    ASSERT_TRUE(cap != NULL);
+    dup2(fileno(cap), fileno(stderr));
+
+    /* Built now, with stderr pointing at the file -> not a TTY -> plain mode. */
+    Log_AddSink(Log_MakeTerminalSink(LOG_INFO));
+    Log_Info("term-info");
+    Log_Warn("term-warn");
+    Log_BeginSection("Boot");
+    Log_Debug("term-debug-drop"); /* below the sink's INFO min -> dropped */
+
+    fflush(stderr);
+    dup2(saved, fileno(stderr)); /* restore */
+    close(saved);
+    fclose(cap);
+
+    char buf[2048];
+    slurp("term_stderr.tmp", buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "[INFO] term-info") != NULL);
+    ASSERT_TRUE(strstr(buf, "[WARN] term-warn") != NULL);
+    ASSERT_TRUE(strstr(buf, "==== Boot ====") != NULL);  /* plain section idiom */
+    ASSERT_TRUE(strstr(buf, "term-debug-drop") == NULL); /* INFO sink drops DEBUG */
+    ASSERT_TRUE(strstr(buf, "\033[") == NULL);           /* no ANSI escapes piped */
+    remove("term_stderr.tmp");
+    Log_Shutdown();
+}
+
 /* With no sink registered, Log_* must still surface — it falls back to a direct
  * stderr write (bypassing the SDL spine). This is what keeps the pre-Log_Init
  * game-data-directory errors visible. Capture stderr to assert it. */
@@ -385,6 +487,8 @@ int main(void) {
     RUN_TEST(test_banner_verbatim_to_file);
     RUN_TEST(test_scoped_section);
     RUN_TEST(test_console_sink);
+    RUN_TEST(test_global_floor);
+    RUN_TEST(test_structural_bypasses_level);
     RUN_TEST(test_fanout_to_all_sinks);
     RUN_TEST(test_sink_pool_limit);
     RUN_TEST(test_remove_sink);
@@ -392,6 +496,7 @@ int main(void) {
     RUN_TEST(test_logprintf_multiline_split);
     RUN_TEST(test_logputs_percent_safe);
     RUN_TEST(test_logprintf_partial_line_terminated);
+    RUN_TEST(test_terminal_sink_plain);
     RUN_TEST(test_logprintf_early_boot_fallback);
     RUN_TEST(test_log_fallback_no_sinks);
     TEST_SUMMARY();

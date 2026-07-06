@@ -36,6 +36,11 @@ lba2cc --load <slot>          restore a save before the loop starts
                               must be a multiple of 8, range 320x200 - 1920x1080.
                               Also the recovery escape hatch ("I can't see anything,
                               get me back": run with --resolution 640x480).
+       --log-level <level>    master log verbosity for every sink (adeline.log, the
+                              terminal, and the F12 console): debug | info | warn | error.
+                              Default info, so debug output is off unless asked for. Also
+                              settable with the LBA2_LOG_LEVEL env var (the flag wins) or
+                              live via the `loglevel` console command.
        --res-switch-test WxH@TICK
                               harness validation only — fires Res_Switch(W, H) once
                               on tick TICK from inside Control_TickHook. Exercises
@@ -175,6 +180,22 @@ Schema-versioned, hand-written, all-integer fields:
 - `vars` — `ListVarGame[]` (the saved script-variable array), emitted sparsely as
   `{count, nonzero}` to keep the file small.
 - `log` — recent console scrollback lines.
+
+### Seeing the log in a harness run
+
+The stderr sink always emits, so a piped run shows the boot log and any `Log_*`
+output **inline on stderr** (plain, severity-tagged, no ANSI when redirected);
+you don't have to open `adeline.log`:
+
+```bash
+lba2cc --load X --tick 30 --exit 2>&1 1>/dev/null   # log only (stdout is data)
+```
+
+`stdout` stays a pure data channel (`--dump-state`, the `--exec` result mirror),
+so redirect the two separately. Debug lines are off by default; add
+`--log-level debug` to surface them for the run (inline on stderr and in
+`adeline.log`). The `--dump-state` `log` field still captures only the last
+handful of *console* scrollback lines; stderr is the full stream.
 
 ## Determinism
 
