@@ -1661,9 +1661,10 @@ static S32 expected_nonzero_pixels_for_label(const char *label) {
     return -1;
 }
 
-static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
-                                        S32 alpha, S32 beta, S32 gamma,
-                                        S32 expected_result, int expect_pixels) {
+static void run_bodydisplay_render_case_ex(const char *label, S32 x, S32 y, S32 z,
+                                           S32 alpha, S32 beta, S32 gamma,
+                                           AffObjEnvironmentSetupFn setup_environment,
+                                           S32 expected_result, int expect_pixels) {
     TEST_BODY_FIXTURE fixture;
     RENDER_SNAPSHOT cpp_snapshot;
     RENDER_SNAPSHOT asm_snapshot;
@@ -1671,15 +1672,67 @@ static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
     build_test_body_fixture(&fixture);
 
     restore_cpp_3d_callbacks();
-    setup_common_aff_obj_environment();
+    setup_environment();
     seed_cpp_aff_obj_state();
     cpp_snapshot.Result = BodyDisplay(x, y, z, alpha, beta, gamma, &fixture);
     capture_cpp_snapshot(&cpp_snapshot);
 
-    setup_common_aff_obj_environment();
+    setup_environment();
     install_asm_compatible_3d_callbacks();
     seed_asm_aff_obj_state();
     asm_snapshot.Result = asm_BodyDisplay(x, y, z, alpha, beta, gamma, &fixture);
+    capture_asm_snapshot(&asm_snapshot);
+
+    compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
+    ASSERT_EQ_INT(expected_result, cpp_snapshot.Result);
+    ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
+    ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
+
+    if (expect_pixels) {
+        S32 expected_nonzero = expected_nonzero_pixels_for_label(label);
+        if (expected_nonzero >= 0) {
+            ASSERT_EQ_INT(expected_nonzero, cpp_snapshot.NonZeroPixels);
+            ASSERT_EQ_INT(expected_nonzero, asm_snapshot.NonZeroPixels);
+        } else {
+            ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
+            ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
+        }
+        ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
+        ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
+    } else {
+        ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
+        ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);
+    }
+}
+
+static void run_bodydisplay_render_case(const char *label, S32 x, S32 y, S32 z,
+                                        S32 alpha, S32 beta, S32 gamma,
+                                        S32 expected_result, int expect_pixels) {
+    run_bodydisplay_render_case_ex(label, x, y, z, alpha, beta, gamma,
+                                   setup_common_aff_obj_environment,
+                                   expected_result, expect_pixels);
+}
+
+static void run_bodydisplay_alphabeta_render_case_ex(
+    const char *label, S32 x, S32 y, S32 z, S32 alpha, S32 beta, S32 gamma,
+    AffObjEnvironmentSetupFn setup_environment, S32 expected_result,
+    int expect_pixels) {
+    TEST_BODY_FIXTURE fixture;
+    RENDER_SNAPSHOT cpp_snapshot;
+    RENDER_SNAPSHOT asm_snapshot;
+
+    build_test_body_fixture(&fixture);
+
+    restore_cpp_3d_callbacks();
+    setup_environment();
+    seed_cpp_aff_obj_state();
+    cpp_snapshot.Result = BodyDisplay_AlphaBeta(x, y, z, alpha, beta, gamma, &fixture);
+    capture_cpp_snapshot(&cpp_snapshot);
+
+    setup_environment();
+    install_asm_compatible_3d_callbacks();
+    seed_asm_aff_obj_state();
+    asm_snapshot.Result = asm_BodyDisplay_AlphaBeta(x, y, z, alpha, beta, gamma, &fixture);
     capture_asm_snapshot(&asm_snapshot);
 
     compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
@@ -1708,44 +1761,9 @@ static void run_bodydisplay_alphabeta_render_case(const char *label, S32 x, S32 
                                                   S32 z, S32 alpha, S32 beta,
                                                   S32 gamma, S32 expected_result,
                                                   int expect_pixels) {
-    TEST_BODY_FIXTURE fixture;
-    RENDER_SNAPSHOT cpp_snapshot;
-    RENDER_SNAPSHOT asm_snapshot;
-
-    build_test_body_fixture(&fixture);
-
-    restore_cpp_3d_callbacks();
-    setup_common_aff_obj_environment();
-    seed_cpp_aff_obj_state();
-    cpp_snapshot.Result = BodyDisplay_AlphaBeta(x, y, z, alpha, beta, gamma, &fixture);
-    capture_cpp_snapshot(&cpp_snapshot);
-
-    setup_common_aff_obj_environment();
-    install_asm_compatible_3d_callbacks();
-    seed_asm_aff_obj_state();
-    asm_snapshot.Result = asm_BodyDisplay_AlphaBeta(x, y, z, alpha, beta, gamma, &fixture);
-    capture_asm_snapshot(&asm_snapshot);
-
-    compare_render_snapshots(label, &asm_snapshot, &cpp_snapshot);
-    ASSERT_EQ_INT(expected_result, cpp_snapshot.Result);
-    ASSERT_EQ_INT(expected_result, asm_snapshot.Result);
-    ASSERT_EQ_INT(cpp_snapshot.NonZeroPixels, asm_snapshot.NonZeroPixels);
-
-    if (expect_pixels) {
-        S32 expected_nonzero = expected_nonzero_pixels_for_label(label);
-        if (expected_nonzero >= 0) {
-            ASSERT_EQ_INT(expected_nonzero, cpp_snapshot.NonZeroPixels);
-            ASSERT_EQ_INT(expected_nonzero, asm_snapshot.NonZeroPixels);
-        } else {
-            ASSERT_TRUE(cpp_snapshot.NonZeroPixels > 0);
-            ASSERT_TRUE(asm_snapshot.NonZeroPixels > 0);
-        }
-        ASSERT_EQ_INT(1, cpp_snapshot.NbSortValue);
-        ASSERT_EQ_INT(1, asm_snapshot.NbSortValue);
-    } else {
-        ASSERT_EQ_INT(0, cpp_snapshot.NonZeroPixels);
-        ASSERT_EQ_INT(0, asm_snapshot.NonZeroPixels);
-    }
+    run_bodydisplay_alphabeta_render_case_ex(label, x, y, z, alpha, beta, gamma,
+                                             setup_common_aff_obj_environment,
+                                             expected_result, expect_pixels);
 }
 
 static void run_objectdisplay_render_case_ex(const char *label, void *fixture,
@@ -1948,6 +1966,21 @@ static void test_bodydisplay_hidden_render(void) {
 static void test_bodydisplay_alphabeta_visible_render(void) {
     run_bodydisplay_alphabeta_render_case("BodyDisplay_AlphaBeta visible render",
                                           0, 0, 0, 96, 128, 64, 1, 1);
+}
+
+// ISO variants of the two remaining body-render entry points, so all three
+// (BodyDisplay, BodyDisplay_AlphaBeta, ObjectDisplay) are compared ASM-vs-CPP in
+// interior mode - not just 3D. Drives the ISO object-position branch and the ISO
+// primitive paths end to end.
+static void test_bodydisplay_visible_iso_render(void) {
+    run_bodydisplay_render_case_ex("BodyDisplay visible ISO render", 0, 0, 0,
+                                   64, 96, 32, setup_iso_aff_obj_environment, 1, 1);
+}
+
+static void test_bodydisplay_alphabeta_visible_iso_render(void) {
+    run_bodydisplay_alphabeta_render_case_ex("BodyDisplay_AlphaBeta visible ISO render",
+                                             0, 0, 0, 96, 128, 64,
+                                             setup_iso_aff_obj_environment, 1, 1);
 }
 
 static void test_objectdisplay_visible_render(void) {
@@ -2556,6 +2589,8 @@ int main(void) {
     RUN_TEST(test_bodydisplay_visible_render);
     RUN_TEST(test_bodydisplay_hidden_render);
     RUN_TEST(test_bodydisplay_alphabeta_visible_render);
+    RUN_TEST(test_bodydisplay_visible_iso_render);
+    RUN_TEST(test_bodydisplay_alphabeta_visible_iso_render);
     RUN_TEST(test_objectdisplay_visible_render);
     RUN_TEST(test_objectdisplay_transparent_render);
     RUN_TEST(test_objectdisplay_trame_render);
