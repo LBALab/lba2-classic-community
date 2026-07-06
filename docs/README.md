@@ -71,6 +71,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [CONTROLLER.md](CONTROLLER.md) | Manual camera (orbit, elevation, zoom) and the input sources that drive it: keyboard, mouse, gamepad. |
 | [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
+| [MUSIC.md](MUSIC.md) | Music state machine: track routing, the `PlayMusic` decision + `NextMusic` deferred-switch queue, the two-layer pause/park model + `STREAM_PARK.H` seam, WAV vs OGG decode/cache, and the host test coverage. |
 | [ASM_TO_CPP_REFERENCE.md](ASM_TO_CPP_REFERENCE.md) | Which modules are ported from ASM to C++ in this fork. |
 | [ASM_VALIDATION_PROGRESS.md](ASM_VALIDATION_PROGRESS.md) | Per-pair equivalence-test status across LIB386 ASM/CPP pairs. |
 | [ASM_TEST_COVERAGE_AUDIT.md](ASM_TEST_COVERAGE_AUDIT.md) | Rubric and progress for strengthening existing equivalence-test coverage (branches, side effects, edge inputs). |
