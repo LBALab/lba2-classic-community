@@ -92,10 +92,19 @@ const char *severity_tag(LogSeverity sev) {
     return "INFO";
 }
 
+/* Structural framing records (the identity banner, section markers) carry no real
+ * severity and always pass the global level, so a log stays self-describing even
+ * when the level is raised. Severity-carrying records (REC_NORMAL) and verbatim
+ * content (REC_RAW, which the legacy LogPrintf shim also feeds) obey the level. */
+int is_structural(int kind) {
+    return kind == REC_BANNER || kind == REC_SECTION_BEGIN ||
+           kind == REC_SECTION_END;
+}
+
 /* Fan-out: write the record to every active sink that admits this severity. */
 void log_emit(LogSeverity sev, int kind, const char *msg) {
-    if (sev < g_min_severity)
-        return; /* master gate: below the global level, no sink sees it */
+    if (!is_structural(kind) && sev < g_min_severity)
+        return; /* master gate (structural framing exempt): no sink sees it */
     for (int i = 0; i < g_active_count; ++i) {
         LogSink *s = g_active[i];
         if (sev < s->min_severity)
@@ -329,8 +338,8 @@ void SDLCALL sdl_output(void *userdata, int category, SDL_LogPriority pri,
 void log_fallback_write(LogSeverity sev, int kind, const char *msg) {
     if (!msg)
         msg = "";
-    if (sev < g_min_severity)
-        return; /* honour the global level even before any sink exists */
+    if (!is_structural(kind) && sev < g_min_severity)
+        return; /* honour the level even before sinks (structural framing exempt) */
     if (kind == REC_SECTION_END)
         return;
     if (kind == REC_SECTION_BEGIN)

@@ -241,6 +241,32 @@ static void test_global_floor(void) {
     remove(TMP);
 }
 
+/* Structural framing (the identity banner, section markers) bypasses the global
+ * level so a log stays self-describing even when the level is raised to its
+ * strictest; severity-carrying records and verbatim Log_Raw still obey it. */
+static void test_structural_bypasses_level(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+
+    Log_SetLevel(LOG_ERROR);  /* strictest short of silence */
+    Log_Banner("id-banner");  /* structural -> always, regardless of level */
+    Log_BeginSection("Boot"); /* structural -> always */
+    Log_Raw("raw-path");      /* verbatim content -> gated like a normal record */
+    Log_Info("info-drop");    /* REC_NORMAL below ERROR -> dropped */
+    Log_Error("err-keep");    /* REC_NORMAL at ERROR -> kept */
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "id-banner") != NULL);      /* banner survives */
+    ASSERT_TRUE(strstr(buf, "==== Boot ====") != NULL); /* section survives */
+    ASSERT_TRUE(strstr(buf, "raw-path") == NULL);       /* Log_Raw obeys the level */
+    ASSERT_TRUE(strstr(buf, "info-drop") == NULL);      /* INFO gated at ERROR */
+    ASSERT_TRUE(strstr(buf, "[ERROR] err-keep") != NULL);
+    remove(TMP);
+}
+
 /* One Log_* call fans out to every registered sink at once, and each sink's own
  * min-severity still applies independently, shown here by a second, WARN-only
  * file sink that drops a DEBUG record the DEBUG file sink keeps. */
@@ -462,6 +488,7 @@ int main(void) {
     RUN_TEST(test_scoped_section);
     RUN_TEST(test_console_sink);
     RUN_TEST(test_global_floor);
+    RUN_TEST(test_structural_bypasses_level);
     RUN_TEST(test_fanout_to_all_sinks);
     RUN_TEST(test_sink_pool_limit);
     RUN_TEST(test_remove_sink);

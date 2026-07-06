@@ -93,10 +93,40 @@ static void test_spine_min_severity(void) {
     remove(TMP);
 }
 
+/* The structural-framing exemption holds through the REAL SDL spine. With the
+ * level raised to its strictest, the banner and section markers still clear BOTH
+ * SDL's per-category filter (opened to DEBUG in Log_Init) AND log_emit's master
+ * gate, while a same-INFO Log_Raw line -- which clears the SDL filter too -- is
+ * dropped by the gate. This guards the end-to-end path test_log (NO_SDL) can't:
+ * if the SetLogPriority opens or the category<->kind round-trip regressed, a
+ * raised level would silently swallow the boot banner and this fails. */
+static void test_spine_structural_bypasses_level(void) {
+    remove(TMP);
+    Log_Init();
+    Log_AddSink(Log_MakeFileSink(TMP, LOG_DEBUG));
+    Log_SetLevel(LOG_ERROR);      /* strictest short of silence */
+    Log_Banner("spine-banner");   /* structural -> survives via LBA_CAT_BANNER */
+    Log_BeginSection("SpineSec"); /* structural -> survives */
+    Log_Raw("spine-raw");         /* REC_RAW -> gated by the level */
+    Log_Info("spine-info");       /* REC_NORMAL below ERROR -> gated */
+    Log_Error("spine-err");       /* REC_NORMAL at ERROR -> kept */
+    Log_Shutdown();
+
+    char buf[4096];
+    slurp(TMP, buf, sizeof buf);
+    ASSERT_TRUE(strstr(buf, "spine-banner") != NULL);       /* clears SDL + gate */
+    ASSERT_TRUE(strstr(buf, "==== SpineSec ====") != NULL); /* clears SDL + gate */
+    ASSERT_TRUE(strstr(buf, "spine-raw") == NULL);          /* Log_Raw obeys level */
+    ASSERT_TRUE(strstr(buf, "spine-info") == NULL);         /* INFO gated at ERROR */
+    ASSERT_TRUE(strstr(buf, "[ERROR] spine-err") != NULL);
+    remove(TMP);
+}
+
 int main(void) {
     RUN_TEST(test_spine_roundtrip);
     RUN_TEST(test_spine_routes_bare_sdl_log);
     RUN_TEST(test_spine_min_severity);
+    RUN_TEST(test_spine_structural_bypasses_level);
     TEST_SUMMARY();
     return test_failures != 0;
 }
