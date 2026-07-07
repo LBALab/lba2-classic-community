@@ -26,6 +26,8 @@ static void test_obj3d_roundtrip(void) {
     a.NextBody.Num = 8;
     a.Anim.Num = 9;
     a.LastFrame = 42;
+    a.LastOfsFrame = (PTR_U32)(uintptr_t)0x0BADF00Du; /* preserved: low 32 bits */
+    a.NextOfsFrame = (PTR_U32)(uintptr_t)0x0000BEEFu;
     a.LoopOfsFrame = 0x1234;
     a.NbFrames = 30;
     a.Status = 0xDEADBEEF;
@@ -34,11 +36,9 @@ static void test_obj3d_roundtrip(void) {
     T_OBJ_3D_WIRE32 w;
     SavegameObj3dToWire32(&a, &w);
 
-    /* pointer slots must be zeroed on the wire, deterministic across hosts */
+    /* Discarded-on-read pointer slots are zeroed on the wire (deterministic). */
     ASSERT_EQ_UINT(0u, w.Texture);
     ASSERT_EQ_UINT(0u, w.NextTexture);
-    ASSERT_EQ_UINT(0u, w.LastOfsFrame);
-    ASSERT_EQ_UINT(0u, w.NextOfsFrame);
 
     T_OBJ_3D b;
     SavegameObj3dFromWire32(&w, &b);
@@ -50,6 +50,11 @@ static void test_obj3d_roundtrip(void) {
     ASSERT_EQ_UINT(a.LoopOfsFrame, b.LoopOfsFrame);
     ASSERT_EQ_UINT(a.Status, b.Status);
     ASSERT_EQ_UINT(a.NbGroups, b.NbGroups);
+    /* Preserved pointer-typed offsets round-trip via their low 32 bits. */
+    ASSERT_EQ_UINT(0x0BADF00Du, (uint32_t)(uintptr_t)b.LastOfsFrame);
+    ASSERT_EQ_UINT(0x0000BEEFu, (uint32_t)(uintptr_t)b.NextOfsFrame);
+    /* Discarded pointers come back NULL. */
+    ASSERT_TRUE(b.Texture == NULL);
 }
 
 static void test_extra_roundtrip(void) {

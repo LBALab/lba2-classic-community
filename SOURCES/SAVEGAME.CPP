@@ -1109,8 +1109,13 @@ void SaveContexte(S32 savetimerrefhr) {
 
         //	T_ZONE	*PtrZoneRail ;
 
-        // on ne veut pas sauver le champ CurrentFrame
-        LbaWrite(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
+        // on ne veut pas sauver le champ CurrentFrame ; the 136-byte wire form
+        // drops it and emits the 32-bit retail layout regardless of host word size.
+        {
+            T_OBJ_3D_WIRE32 w32;
+            SavegameObj3dToWire32(&(ptrobj->Obj), &w32);
+            LbaWrite(&w32, sizeof(w32));
+        }
     }
 
     //------------- PATCHES -------------
@@ -1159,7 +1164,9 @@ void SaveContexte(S32 savetimerrefhr) {
 
     for (n = 0; n < MAX_EXTRAS; n++, ptre++) {
         if (ptre->Sprite != -1) {
-            LbaWrite(ptre, sizeof(T_EXTRA));
+            T_EXTRA_WIRE32 ew32;
+            SavegameExtraToWire32(ptre, &ew32);
+            LbaWrite(&ew32, sizeof(ew32));
             wbyte++;
         }
     }
@@ -1207,7 +1214,9 @@ void SaveContexte(S32 savetimerrefhr) {
 
     for (n = 0; n < MAX_FLOWS; n++, ptrf++) {
         if (ptrf->NbDot > 0) {
-            LbaWrite(ptrf, sizeof(S_PART_FLOW));
+            S_PART_FLOW_WIRE32 fw32;
+            SavegameFlowToWire32(ptrf, &fw32);
+            LbaWrite(&fw32, sizeof(fw32));
 
             ptrpt = ptrf->PtrListDot;
             wbyte2 = 0;
