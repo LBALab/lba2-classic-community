@@ -99,6 +99,20 @@ typedef struct {
 } S_PART_FLOW_WIRE32;   /* total: 60 bytes */
 #pragma pack(pop)
 
+/* Per-object on-disk stride = the field-by-field scalar prefix + the wire Obj.
+ * The scalar prefix is the sum of the explicit-width writes in SaveContexte's
+ * object loop (140 B, host-independent by construction); the wire Obj is 136 B,
+ * so the retail per-object stride is 276 B.  Derivation and the correction of
+ * the old 142/278 figures: docs/SAVE_WIRE_PLAN.md. */
+#define SAVEGAME_OBJ_SCALAR_PREFIX 140
+
+/* Compile-time size locks: struct drift breaks the build, not a user's save.
+ * The engine is C++98, so a would-be-negative array bound stands in for
+ * static_assert. The numbers are the independently derived retail layout. */
+typedef char savewire_obj3d_size_lock[sizeof(T_OBJ_3D_WIRE32) == 136 ? 1 : -1];
+typedef char savewire_extra_size_lock[sizeof(T_EXTRA_WIRE32) == 68 ? 1 : -1];
+typedef char savewire_flow_size_lock[sizeof(S_PART_FLOW_WIRE32) == 60 ? 1 : -1];
+
 /* Readers: decode a 32-bit wire struct into the native struct.  Pointer slots
  * are dropped (Texture/PtrBody refilled from runtime tables; PtrListDot restored
  * by the caller).  Implemented in SAVEGAME_WIRE.CPP. */
