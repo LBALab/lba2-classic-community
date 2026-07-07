@@ -1426,6 +1426,40 @@ static void cmd_vsync(int argc, const char *argv[]) {
     Console_Print("Vsync: %s", DisplayVSync ? "ON" : "OFF");
 }
 
+/* fixedtimestep [on|off|toggle|<ms>]: issue #358. Throttle the simulation to advance at
+   most once per <ms> of game-time (on = 16 = ~60 Hz) so movement/animation stops speeding
+   up or freezing above 60 fps (vsync off, high-refresh). off/0 restores per-frame sim.
+   Default is on (16); persists to lba2.cfg (FixedTimestep key). See docs/MOVEMENT_FRAMERATE.md. */
+static void cmd_fixedtimestep(int argc, const char *argv[]) {
+    if (argc >= 2) {
+        const char *arg = argv[1];
+        if (!strcasecmp(arg, "on")) {
+            FixedTimestep = 16;
+        } else if (!strcasecmp(arg, "off") || !strcmp(arg, "0")) {
+            FixedTimestep = 0;
+        } else if (!strcasecmp(arg, "toggle")) {
+            FixedTimestep = FixedTimestep > 0 ? 0 : 16;
+        } else {
+            int ms = atoi(arg);
+            if (ms < 1 || ms > 100) {
+                Console_Print("fixedtimestep: bad arg '%s' (use on|off|toggle|1..100).", arg);
+                return;
+            }
+            FixedTimestep = ms;
+        }
+        DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
+    }
+
+    if (FixedTimestep > 0) {
+        Console_Print("FixedTimestep: ON (%d ms, sim <= ~%d fps)", FixedTimestep, 1000 / FixedTimestep);
+    } else {
+        Console_Print("FixedTimestep: OFF (per-frame simulation)");
+    }
+    if (argc < 2) {
+        Console_Print("Usage: fixedtimestep <on|off|toggle|MS>");
+    }
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1498,6 +1532,13 @@ void Console_RegisterAll(void) {
                               "Toggle vertical sync (no args = show state)",
                               "vsync [on|off|toggle]",
                               "Caps the frame rate to the display refresh. Persists to lba2.cfg (VSync key).");
+
+    Console_RegisterCommandEx("fixedtimestep", cmd_fixedtimestep,
+                              "Throttle the sim to ~60 Hz so movement is frame-rate independent",
+                              "fixedtimestep [on|off|toggle|MS]",
+                              "Runs the simulation at most once per MS ms of game-time (on = 16). Fixes "
+                              "movement speeding up or freezing above 60 fps (vsync off, high-refresh). "
+                              "Default on; persists to lba2.cfg (FixedTimestep key).");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
