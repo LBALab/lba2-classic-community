@@ -1534,7 +1534,7 @@ void Console_RegisterAll(void) {
                               "Caps the frame rate to the display refresh. Persists to lba2.cfg (VSync key).");
 
     Console_RegisterCommandEx("fixedtimestep", cmd_fixedtimestep,
-                              "Throttle the sim to ~60 Hz so movement is frame-rate independent (#358)",
+                              "Throttle the sim to ~60 Hz so movement is frame-rate independent",
                               "fixedtimestep [on|off|toggle|MS]",
                               "Runs the simulation at most once per MS ms of game-time (on = 16). Fixes "
                               "movement speeding up or freezing above 60 fps (vsync off, high-refresh). "
