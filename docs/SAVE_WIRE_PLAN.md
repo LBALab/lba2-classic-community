@@ -287,6 +287,24 @@ retail's (e.g. a different greedy tie-break), compressed saves will not
 round-trip at the file level even with a correct payload. The all-`0xA4` corpus
 is the direct oracle. See decision 4.
 
+### Semantic layer: the LBA file-info wiki
+
+The [LBA2:Savegame wiki](https://lbafileinfo.kaziq.net/index.php/LBA2:Savegame)
+is a **semantic** oracle, not a layout one. It names what fields mean (quest and
+story flags in `ListVarGame`, holomap room bits in `TabArrow`, inventory slots,
+behaviour mode) and is the right reference for interpreting decoded values in a
+human-readable way. It is not trustworthy for bytes: it carries documented drift
+(field offsets off by a few bytes past the variable player name, the packed
+gold/zlitos `S32` modelled as two `U16`, a `ScenePosZ`/`ScenePosY` typo, the
+`Weapon` offset off by 3). Where wiki and source disagree, source wins.
+
+Use for this task: validate that the section map's field *meanings* are right and
+name `ListVarGame` slots when we surface them; do not use it to derive or check
+byte offsets (that is the corpus + struct-source job). This split is already the
+convention in [SAVEGAME.md](SAVEGAME.md), which annotates every wiki label as
+"semantics only". The plan's byte layout comes from the frozen struct source and
+the corpus; the wiki rides alongside as the meaning layer.
+
 ### Screenshot vs LBA2R2I / I2R
 
 E5 is a raw 160x120 = 19200 B palette-indexed buffer (from `BufSpeak+150000`,
