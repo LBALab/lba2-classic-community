@@ -1,14 +1,10 @@
-/* Phase 1 crux (docs/SAVE_WIRE_PLAN.md, layer 4b): the writer-side round-trip.
- *
- * INTENTIONALLY RED. The ...ToWire32 writers do not exist yet, so this translation
- * unit fails to LINK. That is the TDD gate: Phase 2 implements the three writers
- * as exact inverses of the ...FromWire32 readers (proven trustworthy by
- * test_save_wire_from32), swaps SaveContexte's three raw struct writes to route
- * through them, and this test turns green.
+/* Writer-side round-trip (docs/SAVE_WIRE_PLAN.md, layer 4b).
  *
  * Contract exercised here:
- *   native → ...ToWire32 → ...FromWire32 → native' , with native' == native for every
- *   round-trippable field, and the wire pointer slots emitted as 0.
+ *   native -> ...ToWire32 -> ...FromWire32 -> native' , with native' == native for
+ *   every round-trippable field, and the discarded wire pointer slots emitted as 0.
+ * The ...ToWire32 writers are the exact inverses of the ...FromWire32 readers that
+ * test_save_wire_from32 pins against hand-derived golden vectors.
  */
 
 #include "SAVEGAME_WIRE.H" /* pulls native T_OBJ_3D / T_EXTRA / S_PART_FLOW */

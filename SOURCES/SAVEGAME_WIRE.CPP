@@ -1,9 +1,10 @@
 /* Wire-format converters for the save payload's pointer-bearing structs.
  * Layout and rationale: SAVEGAME_WIRE.H + docs/SAVE_WIRE_PLAN.md.
  *
- * The readers (...FromWire32) moved here verbatim from SAVEGAME.CPP so they can be
- * unit-tested in isolation against hand-derived golden byte-vectors.  The
- * writers (...ToWire32) are Phase 2 and are intentionally absent for now. */
+ * The readers (...FromWire32) decode a 32-bit wire struct into the native
+ * struct; the writers (...ToWire32) are their exact inverses.  Both are unit
+ * tested in isolation against hand-derived golden byte-vectors and a round-trip
+ * fuzz (tests/save_wire/). */
 
 #include "SAVEGAME_WIRE.H"
 
@@ -78,7 +79,10 @@ void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d) {
 }
 
 void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d) {
-    /* Caller stashes/restores PtrListDot externally; everything else copies. */
+    /* No memset here (unlike the Obj3d/Extra readers): S_PART_FLOW's only pointer,
+     * PtrListDot, is caller-managed (stashed and restored around this call), so the
+     * reader must not touch it. All 14 scalar fields are copied explicitly below;
+     * the round-trip fuzz catches any reader/writer field asymmetry. */
     d->Flag = s->Flag;
     d->Owner = s->Owner;
     d->NumPoint = s->NumPoint;
