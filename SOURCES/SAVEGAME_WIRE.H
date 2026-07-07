@@ -121,9 +121,9 @@ void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d);
 void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d);
 
 /* Writers: encode the native struct into a 32-bit wire struct, the exact inverse
- * of the readers above (pointer slots written as 0).  Phase 2 of
- * docs/SAVE_WIRE_PLAN.md - intentionally not yet defined, so the round-trip test
- * (tests/save_wire/test_save_wire_to32.cpp) fails to link until they exist. */
+ * of the readers above (discarded pointer slots written as 0; preserved offsets
+ * truncated to their low 32 bits). SaveContexte routes its three struct writes
+ * through these. */
 void SavegameObj3dToWire32(const T_OBJ_3D *s, T_OBJ_3D_WIRE32 *d);
 void SavegameExtraToWire32(const T_EXTRA *s, T_EXTRA_WIRE32 *d);
 void SavegameFlowToWire32(const S_PART_FLOW *s, S_PART_FLOW_WIRE32 *d);
