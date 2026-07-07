@@ -151,6 +151,30 @@ sees `dt=16`. So the block from ~1877 to ~2139 runs inside
 `for (step = 0; step < nSteps; step++)`, with the render and the frame-level UI outside it.
 `nSteps == 0` (render faster than 60 fps) skips the sim and re-presents the settled frame.
 
+**The catch: input re-entrancy (found during wiring).** The sim block's per-object loop
+mixes animation advancement (which we want to run `N` times) with `DoLife`, which processes
+hero input. Hero actions are level-triggered off the held input: e.g. the jump path at
+[OBJECT.CPP:4056-4090](../SOURCES/OBJECT.CPP) falls into `InitAnim(GEN_ANIM_SAUTE)` whenever
+it runs with the action button held. Running the object loop `N` times per frame re-fires
+the jump (and combat, throw) `N` times. So `N`-step sub-stepping is only safe once `DoLife`
+input/action processing is made once-per-frame (split from the per-object anim/physics
+advance, or the momentary-action input bits are masked after the first step). That is real
+surgery and its own correctness risk.
+
+**Phased delivery.**
+
+- **Phase 1 (throttle, safe, fixes the high-fps cases).** Run the sim block at most once per
+  ~16 ms of game-time: skip the sim on frames where `TimerRefHR` has advanced less than one
+  step since the last sim run (still render). The sim then sees a >= 16 ms delta instead of a
+  tiny one, so the high-frame-rate rounding loss is gone. The sim runs **0 or 1 times per
+  frame**, so there is no input re-entrancy and no object-loop restructure. Low-frame-rate
+  (arm64) is left exactly as today (a >= 16 ms frame runs every frame, unchanged), so it is
+  neither fixed nor regressed. This covers every reported desktop case (vsync-off,
+  high-refresh, M1 at Classic res).
+- **Phase 2 (sub-stepping, fixes low-fps too).** The `N`-step loop with `Timer_FixedStepCount`
+  as the driver, gated on a once-per-frame `DoLife`. Fixes the arm64 low-frame-rate overshoot
+  loss. Requires the input-once-per-frame split above.
+
 **Clock model (the sensitive part; see [TIMING.md](TIMING.md)).** Separate the game-clock
 source from `TimerSystemHR`:
 
