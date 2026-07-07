@@ -1,8 +1,26 @@
 # Save wire-format plan (bit-exact retail serialization)
 
-Status: **Phase 0 research, review-gated.** This document is the deliverable of
-Phase 0. No tests or production code have been written. Three decisions at the
-end need a human answer before Phase 1 (RED tests) begins.
+Status: **Implemented** (Phases 0-3 landed; the four decisions below are
+resolved). What shipped:
+
+- **Writer.** `SaveContexte` serializes the three pointer-bearing structs through
+  fixed 32-bit wire mirrors (`Savegame{Obj3d,Extra,Flow}ToWire32` in
+  [SOURCES/SAVEGAME_WIRE.CPP](../SOURCES/SAVEGAME_WIRE.CPP)), so a 64-bit build
+  emits the same object/extra/flow bytes a 32-bit build did.
+- **Reader.** `LoadContexte` is canonical-first (reads the 32-bit wire directly),
+  with a legacy native fallback that warns and migrates; the predictive stride
+  sniff (`SaveLoadGuessObjectWireStride`) and the wrong `142`/`278` constants are
+  gone. Per-object stride is the correct `276` (`SAVEGAME_OBJ_SCALAR_PREFIX 140` +
+  136).
+- **Tests.** `tests/save_wire/`: layout anchor + golden decode (`from32`),
+  writer round-trip (`to32`), and a converter fuzz. Compile-time size locks in
+  `SAVEGAME_WIRE.H` (136/68/60). Verified end-to-end against the local retail
+  corpus (loads `flagload=0`; forced-native rejects wire data).
+- **Not done, by decision:** the runtime `--save-fuzz` full-payload harness (the
+  converter fuzz + corpus checks cover the risk; it wasn't worth the maintained
+  surface) and the `CHANGELOG` entry.
+
+Original Phase-0 framing follows for the record.
 
 Goal: make the save serializer emit and consume bytes that are identical to what
 the retail 1997 (32-bit) engine wrote, independent of host word size. Concretely:
