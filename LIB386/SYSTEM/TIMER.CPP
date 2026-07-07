@@ -141,6 +141,33 @@ S32 Timer_FixedDtActive() {
     return FixedDtActive;
 }
 
+S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps) {
+    // Pure accumulator (issue #358). No clock read, no globals: fold the elapsed
+    // real time into the carry and hand back how many fixed dt-steps of simulation
+    // are due. The remainder stays in *accMs, so over any span of wall-time the total
+    // step count is span/dt regardless of how the elapsed time was chunked -- that is
+    // what makes movement frame-rate independent. See docs/MOVEMENT_FRAMERATE.md.
+    if (dt == 0) {
+        return 0; // guard: a zero step would divide by zero and never advance
+    }
+
+    *accMs += elapsedMs;
+
+    S32 steps = (S32)(*accMs / dt);
+
+    if (maxSteps >= 0 && steps > maxSteps) {
+        // Behind by more than we will run this frame (a long stall, or a modal that
+        // banked real time while the game clock was frozen). Run the clamp and drop
+        // the backlog so we do not spiral trying to catch up; keep the sub-dt remainder.
+        steps = maxSteps;
+        *accMs %= dt;
+    } else {
+        *accMs -= (U32)steps * dt;
+    }
+
+    return steps;
+}
+
 void ManageTime() {
     TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
 
