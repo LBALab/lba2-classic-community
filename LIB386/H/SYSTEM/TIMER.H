@@ -50,6 +50,20 @@ void Timer_FixedDtPresent();
 // Unlike Timer_FixedDtPresent() there is no free first step. Inert outside fixed-dt.
 void Timer_FixedDtPump();
 
+// --- Fixed simulation timestep (production, issue #358) ----------------------
+// Movement/animation is only correct near ~60 fps because locomotion is baked into
+// animation keyframes advanced once per rendered frame (see docs/MOVEMENT_FRAMERATE.md).
+// This scheduler decouples the simulation rate from the render rate: given the real
+// wall-clock elapsed since the last rendered frame, it returns how many fixed dt-sized
+// simulation steps to run this frame, carrying the sub-step remainder so movement over
+// game-time is invariant to the frame rate.
+//
+// Timer_FixedStepCount is the pure core (no clock, no globals): fold `elapsedMs` into
+// `*accMs` and return the step count, clamped to `maxSteps` (a spiral-of-death guard;
+// pass a negative value for no clamp). On clamp the backlog beyond the clamp is dropped,
+// keeping only the sub-dt remainder. Post-condition: `*accMs < dt`. Unit-tested directly.
+S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps);
+
 void ManageTime();
 void HandleEventsTimer(const void *event);
 

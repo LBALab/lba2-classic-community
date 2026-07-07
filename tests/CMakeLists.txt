@@ -43,6 +43,7 @@ add_subdirectory(iso9660)
 add_subdirectory(disc_image)
 add_subdirectory(cue)
 add_subdirectory(render)
+add_subdirectory(movement)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
