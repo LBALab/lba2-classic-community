@@ -1,3 +1,11 @@
+/* The predictive per-object stride sniff (SaveLoadGuessObjectWireStride /
+ * SaveLoadSniffNbPatchesAtStride) was retired when SaveContexte began writing the
+ * canonical 32-bit wire on every host: the reader now tries that layout first and
+ * only falls back to the legacy native stride on validation failure, so it no
+ * longer needs a heuristic to pick a first guess. See SAVEGAME.CPP LoadContexte
+ * and docs/SAVE_WIRE_PLAN.md. What remains here is the compressed-staging bounds
+ * validation, which is orthogonal. */
+
 #include "SAVEGAME_LOAD_BOUNDS.H"
 
 #include <SYSTEM/LZ.H>
@@ -42,61 +50,4 @@ S32 SaveLoadValidateCompressedStaging(const U8 *screen_base, U32 screen_cap,
             return FALSE;
     }
     return TRUE;
-}
-
-#define SAVEGAME_MAX_PATCHES 500
-#define SAVEGAME_MAX_OBJETS 100
-#define SAVEGAME_PER_OBJECT_PREFIX 142u
-#define SAVEGAME_OBJ_SUFFIX_32 136u
-#define SAVEGAME_STRIDE32 (SAVEGAME_PER_OBJECT_PREFIX + SAVEGAME_OBJ_SUFFIX_32)
-
-static S32 sniff_nb_patches(S32 nb_objets, const U8 *after_nb, size_t stride,
-                            const U8 *stream_end) {
-    if (nb_objets < 0 || nb_objets > SAVEGAME_MAX_OBJETS)
-        return -1000000;
-    if (!after_nb || !stream_end || stream_end < after_nb)
-        return -1000000;
-    if ((size_t)(stream_end - after_nb) < (size_t)nb_objets * stride + 4u)
-        return -1000000;
-    {
-        const U8 *p = after_nb + (size_t)nb_objets * stride;
-        S32 nb_patches;
-        memcpy(&nb_patches, p, sizeof(S32));
-        if (nb_patches < 0 || nb_patches > SAVEGAME_MAX_PATCHES)
-            return -1000000;
-        return nb_patches;
-    }
-}
-
-S32 SaveLoadSniffNbPatchesAtStride(S32 nb_objets, const U8 *after_nb_objets, const U8 *stream_end,
-                                   U32 stride_bytes) {
-    return sniff_nb_patches(nb_objets, after_nb_objets, (size_t)stride_bytes, stream_end);
-}
-
-S32 SaveLoadGuessObjectWireStride(S32 nb_objets, const U8 *after_nb_objets, const U8 *stream_end,
-                                  S32 stride64_native, S32 scene_nb_patches_hint) {
-    /* First-guess only: the LoadContexte caller validates after the read and retries the
-     * other stride on failure, so this just needs to pick the more likely candidate.
-     * Strategy:
-     *   1. If exactly one of the two offsets has a valid NbPatches sniff, pick that stride.
-     *   2. If both are valid and exactly one matches the scene's NbPatches, pick that one.
-     *   3. Otherwise return 0 — caller falls back to native and the retry handles the rest. */
-    S32 s32 = sniff_nb_patches(nb_objets, after_nb_objets, SAVEGAME_STRIDE32, stream_end);
-    S32 s64 = sniff_nb_patches(nb_objets, after_nb_objets, (size_t)stride64_native, stream_end);
-    int ok32 = (s32 > -100000);
-    int ok64 = (s64 > -100000);
-
-    if (ok32 && !ok64)
-        return (S32)SAVEGAME_STRIDE32;
-    if (ok64 && !ok32)
-        return stride64_native;
-
-    if (ok32 && ok64 && scene_nb_patches_hint >= 0 && scene_nb_patches_hint <= SAVEGAME_MAX_PATCHES) {
-        if (s32 == scene_nb_patches_hint && s64 != scene_nb_patches_hint)
-            return (S32)SAVEGAME_STRIDE32;
-        if (s64 == scene_nb_patches_hint && s32 != scene_nb_patches_hint)
-            return stride64_native;
-    }
-
-    return 0;
 }

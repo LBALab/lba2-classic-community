@@ -1675,51 +1675,48 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         if (NbObjets < 0 || NbObjets > MAX_OBJETS)
             return SAVELOAD_CTX_ERR;
         {
-            /* Match writer at SAVEGAME.CPP SaveContexte: LbaWrite(&Obj, sizeof(Obj) - sizeof(Obj.CurrentFrame)).
-             * 64-bit-host stride differs from 32-bit retail wire (278) by 28 bytes per object;
-             * picking the wrong stride misaligns the cursor and IndexFile3D ends up reading garbage,
-             * which makes InitLoadedGame's LoadFile3D(garbage) deref segv.  Strategy:
-             *   1. Pre-check the buffer fits the larger of {278, native} so neither attempt overruns.
-             *   2. Try the heuristic-picked stride; the helper validates IndexFile3D after the read.
-             *   3. On validate-fail, rewind PtrSave and try the alternate stride.
-             *   4. If both fail (or env-forced and forced fails), return SAVELOAD_CTX_ERR. */
-            S32 stride64_host = 142 + (S32)(sizeof(T_OBJ_3D) - sizeof(((T_OBJ_3D *)0)->CurrentFrame));
+            /* Canonical format is the 32-bit retail wire layout (SaveContexte emits
+             * it on every host, via SavegameObj3dToWire32).  Read it directly -- no
+             * predictive stride sniff.  A save this port wrote *before* the wire
+             * writer landed used the host-native 64-bit struct stride; detect that
+             * only as a fallback when the canonical read fails IndexFile3D
+             * validation, then warn (the save migrates to the portable layout the
+             * next time it is written).  LBA2_SAVE_LOAD_ABI forces one path for
+             * tests: "32" = wire only, "64" = native only (audit). */
+            S32 wire_stride = SAVEGAME_OBJ_SCALAR_PREFIX + (S32)sizeof(T_OBJ_3D_WIRE32);
+            S32 native_stride =
+                SAVEGAME_OBJ_SCALAR_PREFIX +
+                (S32)(sizeof(T_OBJ_3D) - sizeof(((T_OBJ_3D *)0)->CurrentFrame));
+            S32 max_stride = (native_stride > wire_stride) ? native_stride : wire_stride;
             const char *abi_env = getenv("LBA2_SAVE_LOAD_ABI");
-            S32 forced_32 = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
-            S32 first_stride;
-            S32 alt_stride;
+            S32 force_wire = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
+            S32 force_native = (abi_env AND !strcmp(abi_env, "64")) ? 1 : 0;
+            S32 used_wire = 1; /* canonical unless the legacy fallback wins */
             U8 *obj_checkpoint;
-            S32 max_stride;
             S32 r;
-
-            if (forced_32) {
-                first_stride = 278;
-            } else {
-                U8 *stream_end = g_save_read_limit;
-                if (!stream_end)
-                    stream_end = (U8 *)Screen + SaveLoadScreenBufferBytes();
-                S32 g = SaveLoadGuessObjectWireStride(NbObjets, PtrSave, stream_end,
-                                                      stride64_host, NbPatches);
-                first_stride = g ? g : stride64_host;
-            }
-            alt_stride = (first_stride == 278) ? stride64_host : 278;
-            max_stride = (stride64_host > 278) ? stride64_host : 278;
 
             if (!SaveLoadRoom((size_t)NbObjets * (size_t)max_stride))
                 return SAVELOAD_CTX_ERR;
 
             obj_checkpoint = PtrSave;
-            r = LoadContexteReadObjectsAtStride(first_stride == 278);
-            if (r == 0 && !forced_32) {
-                /* Validate failed — likely wrong stride.  Rewind and retry the alternate. */
-                PtrSave = obj_checkpoint;
-                r = LoadContexteReadObjectsAtStride(alt_stride == 278);
-                if (r == 1)
-                    first_stride = alt_stride;
+            if (force_native) {
+                r = LoadContexteReadObjectsAtStride(0 /* native */);
+                used_wire = 0;
+            } else {
+                r = LoadContexteReadObjectsAtStride(1 /* canonical wire */);
+                if (r != 1 AND !force_wire) {
+                    /* Legacy fallback: a pre-fix 64-bit-native save. */
+                    PtrSave = obj_checkpoint;
+                    r = LoadContexteReadObjectsAtStride(0 /* native */);
+                    used_wire = 0;
+                    if (r == 1)
+                        Log_Warn("Loaded a legacy 64-bit save; it will be migrated to "
+                                 "the portable format the next time you save.");
+                }
             }
             if (r != 1)
                 return SAVELOAD_CTX_ERR;
-            wire32_abi = (first_stride == 278);
+            wire32_abi = used_wire;
         }
 #endif
 
