@@ -317,13 +317,13 @@ Three payload structs contain pointers, so their raw `sizeof` differs by word si
 
 ### Recommendations
 
-- **Forward compatibility:** A newer engine can load older saves via `LoadContexte` version branches (when revisions match or debug fallback applies).
-- **Backward compatibility:** An older engine loading a newer revision misaligns the stream; avoid.
-- **Upgrade:** After loading an old save in a build that supports it, save again to rewrite the current format.
+- **Cross-word-size: automatic.** The writer emits the portable 32-bit wire on every host, so a save made by any build of this port loads on any other (32- or 64-bit), and retail 32-bit saves load directly.
+- **Older layout revisions:** A newer engine reads older `NUM_VERSION` saves via the `LoadContexte` version branches (release builds) or `LoadGameOldVersion` (DEBUG/TEST builds). An older engine loading a newer revision misaligns the stream; avoid.
+- **Legacy port-64 saves:** A save written by a pre-portable-writer 64-bit build loads via the native fallback and is rewritten to the portable layout the next time it is saved.
 
 ## Format hardening (issue #62)
 
-Goals: **no SIGSEGV on corrupt or legacy-layout streams**, and best-effort load of 32-bit retail-wire saves on 64-bit hosts. Implemented in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP) and [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP). Reference table — every guard at a glance:
+Goals: **portable saves** (a 64-bit build writes the same 32-bit wire a 32-bit build did) and **no SIGSEGV on corrupt or legacy-layout streams**. Implemented in [SOURCES/SAVEGAME.CPP](../SOURCES/SAVEGAME.CPP), [SOURCES/SAVEGAME_WIRE.CPP](../SOURCES/SAVEGAME_WIRE.CPP), and [SOURCES/SAVEGAME_LOAD_BOUNDS.CPP](../SOURCES/SAVEGAME_LOAD_BOUNDS.CPP). Reference table, every guard at a glance:
 
 | Field / region | Limit | Behavior on violation | Notes |
 |----------------|-------|------------------------|-------|
@@ -354,15 +354,16 @@ DEBUG / `NumVersion` < 34 extra fields are unchanged (still only in DEBUG / TEST
 To extend the save format with a new global / count / sub-array, the pattern is:
 
 1. **Pair the read with the existing matching write** in `SaveContexte` ↔ `LoadContexte` (same order, same widths). Reordering or inserting in the middle breaks every existing save — bump `NUM_VERSION` if the change is incompatible with the previous layout.
-2. **For counts**: add a `MAX_<THING>` constant (or reuse an existing one) and gate the loop with the matching range check immediately after `LbaReadLong(NbThing)`. Add a row to the Format-hardening table above. The bounded `LbaRead*` macros in `LoadContexte` already propagate `SAVELOAD_CTX_ERR` on overrun, so you don't need a manual room check unless you're sizing a multi-element read in advance (e.g., the per-object pre-check before the stride retry).
+2. **For counts**: add a `MAX_<THING>` constant (or reuse an existing one) and gate the loop with the matching range check immediately after `LbaReadLong(NbThing)`. Add a row to the Format-hardening table above. The bounded `LbaRead*` macros in `LoadContexte` already propagate `SAVELOAD_CTX_ERR` on overrun, so you don't need a manual room check unless you're sizing a multi-element read in advance (e.g., the per-object room pre-check before the object read).
 3. **For offset-into-buffer fields** (like patch `Offset`/`Size`): validate against the destination buffer size (e.g., `PtrSceneMem`) **before** any write into the buffer.
 4. **For pointer-bearing structs**: prefer not to `LbaRead`/`LbaWrite` whole-struct memcpy — those are exactly the fields the 32-bit-vs-64-bit ABI hazard (above) bites. If you must, document the exact field layout next to the read, like `T_OBJ_3D_WIRE32`.
-5. **Test it.** Add a Layer-1 unit case to [tests/savegame/test_load_bounds.cpp](../tests/savegame/test_load_bounds.cpp) for any new pure helper. For end-to-end, drive a real save through `lba2cc --save-load-test <path>` (see Tooling section below) before and after the change and confirm the corpus matrix is unchanged.
+5. **Test it.** For a change to one of the wire structs, add golden / round-trip coverage in [tests/save_wire/](../tests/save_wire/) (the compile-time size locks there break the build on a size drift). For a new pure bounds helper, add a Layer-1 case to [tests/savegame/test_load_bounds.cpp](../tests/savegame/test_load_bounds.cpp). For end-to-end, drive a real save through `lba2cc --save-load-test <path>` (see Tooling below) before and after the change and confirm the corpus matrix is unchanged.
 
 ### Still future / larger change
 
-- **Canonical wire format** or explicit **`NUM_VERSION` 37+** serializer that does not depend on host `sizeof` for pointer-bearing structs. Removes the need for the stride retry entirely.
-- **Layer-2 host fixture test** — synthetic `.lba` byte arrays driven through `LoadContexte` directly (no retail data, no engine boot). Closes the gap between Layer-1 (helpers only) and Layer-3 (full engine, retail-bound — see [tests/savegame/corpus/](../tests/savegame/corpus/)) so CI catches full-parse regressions.
+- **Layer-2 host fixture test**: a full-payload `SaveContexte` / `LoadContexte` round-trip driven on synthetic state (no retail data, no engine boot). The three wire converters already have unit + fuzz coverage in [tests/save_wire/](../tests/save_wire/); this would close the remaining gap between Layer-1 (helpers only) and Layer-3 (full engine, retail-bound; see [tests/savegame/corpus/](../tests/savegame/corpus/)) so CI catches whole-payload parse regressions.
+
+The portable canonical wire format that this section used to list as future work has landed; see [32-bit vs 64-bit and pointers](#32-bit-vs-64-bit-and-pointers).
 
 ## For save editors
 
