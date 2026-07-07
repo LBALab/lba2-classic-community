@@ -1111,11 +1111,15 @@ void SaveContexte(S32 savetimerrefhr) {
 
         // on ne veut pas sauver le champ CurrentFrame ; the 136-byte wire form
         // drops it and emits the 32-bit retail layout regardless of host word size.
+#ifndef EDITLBA2
         {
             T_OBJ_3D_WIRE32 w32;
             SavegameObj3dToWire32(&(ptrobj->Obj), &w32);
             LbaWrite(&w32, sizeof(w32));
         }
+#else
+        LbaWrite(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
+#endif
     }
 
     //------------- PATCHES -------------
@@ -1682,7 +1686,15 @@ S32 LoadContexte(S32 *savetimerrefhr) {
              * only as a fallback when the canonical read fails IndexFile3D
              * validation, then warn (the save migrates to the portable layout the
              * next time it is written).  LBA2_SAVE_LOAD_ABI forces one path for
-             * tests: "32" = wire only, "64" = native only (audit). */
+             * tests: "32" = wire only, "64" = native only (audit).
+             *
+             * Fallback limitation: object 0's IndexFile3D lives in the
+             * stride-independent scalar prefix, so it always validates.  A legacy
+             * native save with NbObjets <= 1 (or 0) therefore false-passes the
+             * canonical read and never falls back, failing later at NbPatches
+             * instead of migrating.  Acceptable: legacy port-64 saves are pre-v1
+             * local artifacts (docs/SAVE_WIRE_PLAN.md decision 2); multi-object
+             * saves self-correct when object 1+ fails validation. */
             S32 wire_stride = SAVEGAME_OBJ_SCALAR_PREFIX + (S32)sizeof(T_OBJ_3D_WIRE32);
             S32 native_stride =
                 SAVEGAME_OBJ_SCALAR_PREFIX +
@@ -1691,7 +1703,6 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             const char *abi_env = getenv("LBA2_SAVE_LOAD_ABI");
             S32 force_wire = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
             S32 force_native = (abi_env AND !strcmp(abi_env, "64")) ? 1 : 0;
-            S32 used_wire = 1; /* canonical unless the legacy fallback wins */
             U8 *obj_checkpoint;
             S32 r;
 
@@ -1701,14 +1712,15 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             obj_checkpoint = PtrSave;
             if (force_native) {
                 r = LoadContexteReadObjectsAtStride(0 /* native */);
-                used_wire = 0;
+                wire32_abi = 0;
             } else {
                 r = LoadContexteReadObjectsAtStride(1 /* canonical wire */);
+                wire32_abi = 1;
                 if (r != 1 AND !force_wire) {
                     /* Legacy fallback: a pre-fix 64-bit-native save. */
                     PtrSave = obj_checkpoint;
                     r = LoadContexteReadObjectsAtStride(0 /* native */);
-                    used_wire = 0;
+                    wire32_abi = 0;
                     if (r == 1)
                         Log_Warn("Loaded a legacy 64-bit save; it will be migrated to "
                                  "the portable format the next time you save.");
@@ -1716,7 +1728,6 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             }
             if (r != 1)
                 return SAVELOAD_CTX_ERR;
-            wire32_abi = used_wire;
         }
 #endif
 
