@@ -170,8 +170,9 @@ surgery and its own correctness risk.
   times per frame**, so there is no input re-entrancy and no object-loop restructure.
   Low-frame-rate (arm64) is left exactly as today (a >= 16 ms frame runs every frame,
   unchanged), so it is neither fixed nor regressed. This covers every reported desktop case
-  (vsync-off, high-refresh, M1 at Classic res), and it also stops the demo-reel cube 201
-  (Desert Island bat) derail from #255 by making the sim cadence host-independent. Default on
+  (vsync-off, high-refresh, M1 at Classic res). It also makes the sim cadence host-independent,
+  which addresses the variable-dt cadence behind #255's cube 201 (Desert Island bat) demo-reel
+  derail; the bat collision itself is unchanged, so #255 is not closed. Default on
   (16 ms), persisted to `lba2.cfg` (`FixedTimestep` key), toggleable live via the
   `fixedtimestep on|off|toggle|<ms>` console verb (the `FixedTimestep` global,
   [GLOBAL.CPP](../SOURCES/GLOBAL.CPP); the gate is in `MainLoop`,
