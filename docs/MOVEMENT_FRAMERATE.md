@@ -127,6 +127,64 @@ which is the most surgical fix but diverges from the ASM oracle and breaks the
 equivalence tests plus the golden; (b) a 60 fps frame cap only, a band-aid that still
 leaves sub-60-fps (arm64) slow and does nothing below 60.
 
+## Implementation plan (the MainLoop split)
+
+The scheduler core landed first as a pure, unit-tested function (`Timer_FixedStepCount`,
+[LIB386/SYSTEM/TIMER.CPP](../LIB386/SYSTEM/TIMER.CPP)): fold real elapsed into a carry,
+return how many fixed dt-steps are due, clamp runaway backlog. It has no caller yet. The
+rest is wiring it into `MainLoop` ([SOURCES/PERSO.CPP](../SOURCES/PERSO.CPP):785).
+
+**The loop today**, per `while(TRUE)` iteration:
+
+| lines | role | cadence under the fix |
+|---|---|---|
+| 918 `Control_TickHook` | harness seam | once per frame |
+| 944-945 `MyGetInput(); ManageTime()` | input poll + game-clock advance | input once per frame; clock becomes the step driver |
+| 947-1836 | UI, menus, pause, demo watchdog, camera setup | once per frame (input sampled once, applied to every sub-step) |
+| ~1877-2139 | simulation: global movers, `GereAmbiance`/`CheckNextMusic`, `GereExtras`, `AnimAllFlow`, the per-object physics/AI/collision/anim loop, camera centering | run 0..N times per frame |
+| 2145 `AffScene` | render | once per frame |
+
+**Why the sim block must loop.** Advancing the game clock by `N*dt` and running the sim
+once would just feed `ObjectSetInterDep` one big dt, which is the overshoot bug again. The
+sim block has to run `N` times, each after a single `dt` advance, so every animation step
+sees `dt=16`. So the block from ~1877 to ~2139 runs inside
+`for (step = 0; step < nSteps; step++)`, with the render and the frame-level UI outside it.
+`nSteps == 0` (render faster than 60 fps) skips the sim and re-presents the settled frame.
+
+**Clock model (the sensitive part; see [TIMING.md](TIMING.md)).** Separate the game-clock
+source from `TimerSystemHR`:
+
+- `TimerSystemHR` stays real (`SDL_GetTicks`) so the FPS counter, audio/sample fades
+  ([AMBIANCE.CPP](../SOURCES/AMBIANCE.CPP)), texture animation
+  ([ANIMTEX.CPP](../SOURCES/ANIMTEX.CPP)), and the HQR LRU keep real-time behaviour.
+- `TimerRefHR` (the game clock the simulation reads) advances only by explicit `dt` bumps:
+  once per sim-step in the main step-loop, and once per iteration in the modal subloops that
+  already pump the clock for the harness (`Timer_FixedDtPresent`/`Timer_FixedDtPump`, the
+  `SaveTimer`/`RestoreTimer` modals in `MESSAGE.CPP`/`INVENT.CPP`/`AMBIANCE.CPP`).
+
+This generalizes the existing fixed-dt overlay ([FIXED_DT_PLAN.md](FIXED_DT_PLAN.md)): the
+harness case is this same model with `TimerSystemHR` *also* virtual for determinism. Because
+the harness path is unchanged, `--fixed-dt 16` stays bit-identical and the projection golden
+and ASM-equivalence tests are untouched. The refactor is contained to `TIMER.CPP` (a
+game-clock source distinct from `TimerSystemHR`, banked in `ManageTime`) plus the step-loop
+in `PERSO.CPP`.
+
+**Backstops and rollout.**
+
+- Clamp catch-up steps per frame (`Timer_FixedStepCount`'s `maxSteps`) so weak/arm hardware
+  that renders slower than the sim rate cannot spiral; the dropped backlog is bounded slow-mo
+  under overload, not a freeze.
+- Add a real frame-rate limiter (sleep toward 16 ms when vsync does not block) so we do not
+  busy-render thousands of duplicate frames at very high fps, and so correctness never depends
+  on SDL vsync behaving across Metal/GL/Android.
+- Land behind a config flag (default off first), so it can be A/B'd on real hardware at 60 /
+  144 / vsync-off before becoming the default.
+
+**Open decision:** whether to enable by default in the first release or ship it opt-in for one
+cycle of field testing. This touches the game clock, which is the most bug-prone surface in
+the port (see the `ManageTime` history in [TIMING.md](TIMING.md)), so a review of the clock
+model is warranted before the `TIMER.CPP`/`PERSO.CPP` change.
+
 ## Tests
 
 Test level must match the fix level. The fix is in the main loop, so:
@@ -140,10 +198,14 @@ Test level must match the fix level. The fix is in the main loop, so:
   compares how far the scene's scripted movers travel over the same game-time at ~60 fps
   vs ~16 fps. RED today (~12% gap on Desert Island). Needs retail data, so it is
   local-only, not CI.
-- **To come with the fix.** A unit test of the fixed-timestep scheduler (given a
-  sequence of real frame times, assert the number of 16 ms sim steps and the clamp),
-  which is the clean CI GREEN gate; and re-pointing the end-to-end test at a render-rate
-  knob (varying render fps with the sim pinned) so it verifies movement invariance.
+- **Scheduler core (CI, `tests/timer/test_fixed_step.cpp`).** Drives the pure
+  `Timer_FixedStepCount` and asserts the step count over a fixed span of wall-time is
+  identical across steady / fine / coarse / jittery frame pacing (exactly 1000 steps over
+  16000 ms at dt=16), plus the clamp and guards. GREEN. This is the clean CI gate for the
+  fix's core logic.
+- **To come with the wiring.** Re-point the end-to-end test at a render-rate knob (vary
+  render fps with the sim pinned) so it verifies movement invariance after the MainLoop
+  split, rather than the `--fixed-dt` sweep (which drives the sim step directly).
 
 ## Related
 
