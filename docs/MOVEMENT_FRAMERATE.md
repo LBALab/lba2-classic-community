@@ -170,11 +170,20 @@ surgery and its own correctness risk.
   times per frame**, so there is no input re-entrancy and no object-loop restructure.
   Low-frame-rate (arm64) is left exactly as today (a >= 16 ms frame runs every frame,
   unchanged), so it is neither fixed nor regressed. This covers every reported desktop case
-  (vsync-off, high-refresh, M1 at Classic res). Opt-in and console-only (no cfg persistence):
-  `fixedtimestep on|off|toggle|<ms>` (the `FixedTimestep` global, [GLOBAL.CPP](../SOURCES/GLOBAL.CPP);
-  the gate is in `MainLoop`, [PERSO.CPP](../SOURCES/PERSO.CPP)). Off (0) is byte-for-byte the
-  historical per-frame path, verified identical to the `--fixed-dt 16` golden; at `--fixed-dt 8`
-  (~125 fps) the throttle reproduces the true dt=16 displacement.
+  (vsync-off, high-refresh, M1 at Classic res), and it also stops the demo-reel cube 201
+  (Desert Island bat) derail from #255 by making the sim cadence host-independent. Default on
+  (16 ms), persisted to `lba2.cfg` (`FixedTimestep` key), toggleable live via the
+  `fixedtimestep on|off|toggle|<ms>` console verb (the `FixedTimestep` global,
+  [GLOBAL.CPP](../SOURCES/GLOBAL.CPP); the gate is in `MainLoop`,
+  [PERSO.CPP](../SOURCES/PERSO.CPP)). Off (0) is byte-for-byte the historical per-frame path;
+  the throttle is a no-op under `--fixed-dt 16` (16 >= 16 never skips), so the projection golden
+  and the ASM-equivalence tests are unchanged, verified identical. At `--fixed-dt 8` (~125 fps)
+  the throttle reproduces the true dt=16 displacement.
+
+  Known rough edge: the skip threshold is one 16 ms step, so a display running just above 60 Hz
+  (roughly 63-75 fps) runs the sim every other frame at ~30 ms (a few % slow) rather than every
+  frame. Uncommon (most panels are 60 / 120 / 144 / 240 Hz); a lower `fixedtimestep` value (e.g.
+  13) avoids it, and phase 2's decoupled accumulator removes it.
 - **Phase 2 (sub-stepping, fixes low-fps too).** The `N`-step loop with `Timer_FixedStepCount`
   as the driver, gated on a once-per-frame `DoLife`. Fixes the arm64 low-frame-rate overshoot
   loss. Requires the input-once-per-frame split above.

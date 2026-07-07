@@ -1429,7 +1429,7 @@ static void cmd_vsync(int argc, const char *argv[]) {
 /* fixedtimestep [on|off|toggle|<ms>]: issue #358. Throttle the simulation to advance at
    most once per <ms> of game-time (on = 16 = ~60 Hz) so movement/animation stops speeding
    up or freezing above 60 fps (vsync off, high-refresh). off/0 restores per-frame sim.
-   Console-only, not persisted. See docs/MOVEMENT_FRAMERATE.md. */
+   Default is on (16); persists to lba2.cfg (FixedTimestep key). See docs/MOVEMENT_FRAMERATE.md. */
 static void cmd_fixedtimestep(int argc, const char *argv[]) {
     if (argc >= 2) {
         const char *arg = argv[1];
@@ -1447,6 +1447,7 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
             }
             FixedTimestep = ms;
         }
+        DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     }
 
     if (FixedTimestep > 0) {
@@ -1537,7 +1538,7 @@ void Console_RegisterAll(void) {
                               "fixedtimestep [on|off|toggle|MS]",
                               "Runs the simulation at most once per MS ms of game-time (on = 16). Fixes "
                               "movement speeding up or freezing above 60 fps (vsync off, high-refresh). "
-                              "Console-only, not persisted.");
+                              "Default on; persists to lba2.cfg (FixedTimestep key).");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
