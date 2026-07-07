@@ -788,6 +788,9 @@ S32 MainLoop() {
     U8 i;
     S32 pansample;
 
+    // #358 fixed-timestep throttle: game-clock time of the last simulated frame.
+    static U32 LastSimRefHR = 0;
+
     SetDetailLevel(); // prise en compte des différentes options
 
 restartloop:
@@ -1874,6 +1877,25 @@ restartloop:
 
         /*-------------------------------------------------------------------------*/
 
+        /* Fixed-timestep throttle (issue #358). When enabled (console: fixedtimestep),
+           run the simulation at most once per FixedTimestep ms of game-time. On a frame
+           where less than a step has elapsed since the last simulated frame -- i.e.
+           rendering faster than ~60 fps (vsync off, high-refresh displays) -- skip the
+           simulation and re-present the settled scene, so the animation clock never
+           advances in sub-step slivers (that is what makes movement speed up or freeze
+           above 60 fps). Rendering still runs every frame; only the simulation is gated. A
+           backward game-clock jump (a modal SaveTimer rewind, a cube change) re-anchors and
+           simulates. Off (0) is the historical per-frame path, byte-for-byte. See
+           docs/MOVEMENT_FRAMERATE.md. */
+        if (FixedTimestep > 0) {
+            S32 sinceSim = (S32)(TimerRefHR - LastSimRefHR);
+            if (sinceSim < 0 || sinceSim >= FixedTimestep) {
+                LastSimRefHR = TimerRefHR;
+            } else {
+                goto skip_simulation;
+            }
+        }
+
         /* vitesse de chute propor pour tous les objets */
         StepFalling = GetDeltaMove(&RealFalling);
         /* vitesse de decalage propor pour tous les objets */
@@ -2141,6 +2163,7 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
 
+    skip_simulation:
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);

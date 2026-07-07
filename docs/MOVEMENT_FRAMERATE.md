@@ -163,14 +163,18 @@ surgery and its own correctness risk.
 
 **Phased delivery.**
 
-- **Phase 1 (throttle, safe, fixes the high-fps cases).** Run the sim block at most once per
-  ~16 ms of game-time: skip the sim on frames where `TimerRefHR` has advanced less than one
-  step since the last sim run (still render). The sim then sees a >= 16 ms delta instead of a
-  tiny one, so the high-frame-rate rounding loss is gone. The sim runs **0 or 1 times per
-  frame**, so there is no input re-entrancy and no object-loop restructure. Low-frame-rate
-  (arm64) is left exactly as today (a >= 16 ms frame runs every frame, unchanged), so it is
-  neither fixed nor regressed. This covers every reported desktop case (vsync-off,
-  high-refresh, M1 at Classic res).
+- **Phase 1 (throttle, safe, fixes the high-fps cases), implemented.** Run the sim block at
+  most once per ~16 ms of game-time: skip the sim on frames where `TimerRefHR` has advanced
+  less than one step since the last sim run (still render). The sim then sees a >= 16 ms delta
+  instead of a tiny one, so the high-frame-rate rounding loss is gone. The sim runs **0 or 1
+  times per frame**, so there is no input re-entrancy and no object-loop restructure.
+  Low-frame-rate (arm64) is left exactly as today (a >= 16 ms frame runs every frame,
+  unchanged), so it is neither fixed nor regressed. This covers every reported desktop case
+  (vsync-off, high-refresh, M1 at Classic res). Opt-in and console-only (no cfg persistence):
+  `fixedtimestep on|off|toggle|<ms>` (the `FixedTimestep` global, [GLOBAL.CPP](../SOURCES/GLOBAL.CPP);
+  the gate is in `MainLoop`, [PERSO.CPP](../SOURCES/PERSO.CPP)). Off (0) is byte-for-byte the
+  historical per-frame path, verified identical to the `--fixed-dt 16` golden; at `--fixed-dt 8`
+  (~125 fps) the throttle reproduces the true dt=16 displacement.
 - **Phase 2 (sub-stepping, fixes low-fps too).** The `N`-step loop with `Timer_FixedStepCount`
   as the driver, gated on a once-per-frame `DoLife`. Fixes the arm64 low-frame-rate overshoot
   loss. Requires the input-once-per-frame split above.

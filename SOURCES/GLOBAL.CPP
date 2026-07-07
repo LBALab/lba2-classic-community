@@ -88,6 +88,12 @@ S32 VideoFullScreen = TRUE;
 S32 DisplayFullScreen = FALSE;
 S32 DisplayVSync = TRUE;
 
+// #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
+// When > 0 the main loop runs the simulation at most once per this many ms of game clock,
+// so movement/animation stops speeding up or freezing above ~60 fps (vsync off, high-refresh
+// displays). Opt-in, console-only via the `fixedtimestep` verb. See docs/MOVEMENT_FRAMERATE.md.
+S32 FixedTimestep = 0;
+
 S32 FlagMenuMouse = TRUE;
 
 //S32	FlagPalettePcx = FALSE ;
