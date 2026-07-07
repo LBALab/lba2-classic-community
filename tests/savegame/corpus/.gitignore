@@ -11,3 +11,4 @@ baselines/screenshots/
 # via !saves/<name>/ below.
 saves/*/
 !saves/steam_classic_2023/
+!saves/native_port64/
