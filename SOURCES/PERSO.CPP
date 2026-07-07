@@ -2270,6 +2270,13 @@ void ReadConfigFile(void) {
        Res_LoadBoot* pre-read is needed. */
     Window_SetVSync(DisplayVSync);
 
+    /* #358 fixed-timestep throttle. Default 16 ms (~60 Hz sim) so movement is frame-rate
+       independent above 60 fps; 0 restores the historical per-frame simulation. Clamp to a
+       sane range (a value near a frame time; 0 = off). See docs/MOVEMENT_FRAMERATE.md. */
+    FixedTimestep = DefFileBufferReadValueDefault("FixedTimestep", 16);
+    if (FixedTimestep < 0 OR FixedTimestep > 100)
+        FixedTimestep = 16;
+
     /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
     Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
 
@@ -2392,6 +2399,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
+    DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
        auto-detect > compile-time default). Persist it only when the player
