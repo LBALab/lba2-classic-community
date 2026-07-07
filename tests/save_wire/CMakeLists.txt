@@ -31,3 +31,15 @@ target_include_directories(test_save_wire_to32 PRIVATE
 set_target_properties(test_save_wire_to32 PROPERTIES CXX_STANDARD 11)
 add_test(NAME test_save_wire_to32 COMMAND test_save_wire_to32)
 register_host_test(test_save_wire_to32)
+
+# Fuzz: randomized write->read->write idempotency over the three converters.
+add_executable(test_save_wire_fuzz test_save_wire_fuzz.cpp
+    ${CMAKE_SOURCE_DIR}/SOURCES/SAVEGAME_WIRE.CPP)
+target_include_directories(test_save_wire_fuzz PRIVATE
+    ${CMAKE_SOURCE_DIR}/LIB386/H
+    ${CMAKE_SOURCE_DIR}/SOURCES
+    ${CMAKE_SOURCE_DIR}/tests
+)
+set_target_properties(test_save_wire_fuzz PROPERTIES CXX_STANDARD 11)
+add_test(NAME test_save_wire_fuzz COMMAND test_save_wire_fuzz)
+register_host_test(test_save_wire_fuzz)
