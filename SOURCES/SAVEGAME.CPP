@@ -1679,22 +1679,26 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         if (NbObjets < 0 || NbObjets > MAX_OBJETS)
             return SAVELOAD_CTX_ERR;
         {
-            /* Canonical format is the 32-bit retail wire layout (SaveContexte emits
-             * it on every host, via SavegameObj3dToWire32).  Read it directly -- no
-             * predictive stride sniff.  A save this port wrote *before* the wire
-             * writer landed used the host-native 64-bit struct stride; detect that
-             * only as a fallback when the canonical read fails IndexFile3D
-             * validation, then warn (the save migrates to the portable layout the
-             * next time it is written).  LBA2_SAVE_LOAD_ABI forces one path for
-             * tests: "32" = wire only, "64" = native only (audit).
+            /* SaveContexte emits the 32-bit wire layout on every host, so almost
+             * every save (retail, and everything this port writes) is wire. A save
+             * this port wrote *before* the wire writer landed used the wider
+             * host-native 64-bit struct stride. The two are not distinguishable by
+             * a version byte, so the reader picks the stride by trying one and
+             * validating per-object IndexFile3D.
              *
-             * Fallback limitation: object 0's IndexFile3D lives in the
-             * stride-independent scalar prefix, so it always validates.  A legacy
-             * native save with NbObjets <= 1 (or 0) therefore false-passes the
-             * canonical read and never falls back, failing later at NbPatches
-             * instead of migrating.  Acceptable: legacy port-64 saves are pre-v1
-             * local artifacts (docs/SAVE_WIRE_PLAN.md decision 2); multi-object
-             * saves self-correct when object 1+ fails validation. */
+             * Try the NATIVE (wider) stride first, not wire. Reading the wider
+             * record from shorter wire data over-runs into the next record, so a
+             * genuine wire save reliably fails native validation and is retried as
+             * wire; a legacy native save reads correctly here. The reverse order
+             * is unsafe: reading the shorter wire record from wider native data
+             * stops early inside still-valid bytes, so a native save can spuriously
+             * pass the wire read, commit the wrong layout, and SIGSEGV in
+             * InitLoadedGame -- including ambiguous multi-object saves the offline
+             * probe confirms pass under both hypotheses. Reading the larger record
+             * first is the robust discriminator. Verified: 237 retail-wire saves
+             * load with zero misreads, and legacy native saves (incl. 1-object)
+             * load correctly. LBA2_SAVE_LOAD_ABI forces one path for tests:
+             * "32" = wire only, "64" = native only (audit). */
             S32 wire_stride = SAVEGAME_OBJ_SCALAR_PREFIX + (S32)sizeof(T_OBJ_3D_WIRE32);
             S32 native_stride =
                 SAVEGAME_OBJ_SCALAR_PREFIX +
@@ -1710,20 +1714,23 @@ S32 LoadContexte(S32 *savetimerrefhr) {
                 return SAVELOAD_CTX_ERR;
 
             obj_checkpoint = PtrSave;
-            if (force_native) {
-                r = LoadContexteReadObjectsAtStride(0 /* native */);
-                wire32_abi = 0;
-            } else {
-                r = LoadContexteReadObjectsAtStride(1 /* canonical wire */);
+            if (force_wire) {
+                r = LoadContexteReadObjectsAtStride(1 /* wire */);
                 wire32_abi = 1;
-                if (r != 1 AND !force_wire) {
-                    /* Legacy fallback: a pre-fix 64-bit-native save. */
-                    PtrSave = obj_checkpoint;
-                    r = LoadContexteReadObjectsAtStride(0 /* native */);
+            } else {
+                r = LoadContexteReadObjectsAtStride(0 /* native first */);
+                if (r == 1) {
+                    /* Native validated: a legacy pre-portable-writer save (or a
+                     * forced-native audit). It migrates to the wire layout on the
+                     * next save. */
                     wire32_abi = 0;
-                    if (r == 1)
-                        Log_Warn("Loaded a legacy 64-bit save; it will be migrated to "
-                                 "the portable format the next time you save.");
+                    if (!force_native)
+                        Log_Warn("Loaded a legacy 64-bit save; it will be migrated "
+                                 "to the portable format the next time you save.");
+                } else if (!force_native) {
+                    PtrSave = obj_checkpoint;
+                    r = LoadContexteReadObjectsAtStride(1 /* wire */);
+                    wire32_abi = 1;
                 }
             }
             if (r != 1)

@@ -7,10 +7,13 @@ resolved). What shipped:
   fixed 32-bit wire mirrors (`Savegame{Obj3d,Extra,Flow}ToWire32` in
   [SOURCES/SAVEGAME_WIRE.CPP](../SOURCES/SAVEGAME_WIRE.CPP)), so a 64-bit build
   emits the same object/extra/flow bytes a 32-bit build did.
-- **Reader.** `LoadContexte` is canonical-first (reads the 32-bit wire directly),
-  with a legacy native fallback that warns and migrates; the predictive stride
-  sniff (`SaveLoadGuessObjectWireStride`) and the wrong `142`/`278` constants are
-  gone. Per-object stride is the correct `276` (`SAVEGAME_OBJ_SCALAR_PREFIX 140` +
+- **Reader.** `LoadContexte` is native-first: a v36 save has no wire-vs-native
+  version signal, so it reads the wider native stride first (which fails-safe on
+  shorter wire data) and retries wire, warning and migrating on a native read.
+  Wire-first was unsafe (it SIGSEGV'd on ambiguous legacy native saves). The
+  predictive stride sniff (`SaveLoadGuessObjectWireStride`) and the wrong
+  `142`/`278` constants are gone; per-object stride is `276` wire / `304` native
+  (`SAVEGAME_OBJ_SCALAR_PREFIX 140` +
   136).
 - **Tests.** `tests/save_wire/`: layout anchor + golden decode (`from32`),
   writer round-trip (`to32`), and a converter fuzz. Compile-time size locks in
