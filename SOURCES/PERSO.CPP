@@ -948,6 +948,15 @@ restartloop:
         LastInput = Input;
 
         MyGetInput();
+
+        // Console `input`: OR injected input bits into this frame's Input, so the harness can drive
+        // the hero (walk/turn/act) without a keyboard. Held for DbgInjectInputFrames frames.
+        if (DbgInjectInputFrames > 0) {
+            Input |= (U32)DbgInjectInput;
+            if (--DbgInjectInputFrames <= 0)
+                DbgInjectInput = 0;
+        }
+
         ManageTime();
 
         if (DemoSlide) {
