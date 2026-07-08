@@ -175,6 +175,7 @@ Schema-versioned, hand-written, all-integer fields:
   "actors": [ { "index": 0, "x": 5926, "y": 256, "z": 4935, "beta": 2337,
                 "life": 250, "body": 2, "anim": 66, "move": 1, "flags": 2119 } ],
   "vars": { "count": 256, "nonzero": { "0": 1, "14": 5, "88": 25 } },
+  "vars_cube": { "count": 80, "nonzero": { "0": 1 } },
   "log": [ "Cube 100 (change on next frame)" ]
 }
 ```
@@ -193,6 +194,9 @@ Schema-versioned, hand-written, all-integer fields:
 - `actors` — every live object (`0..num_objects-1`); the hero is also `actors[0]`.
 - `vars` — `ListVarGame[]` (the saved script-variable array), emitted sparsely as
   `{count, nonzero}` to keep the file small.
+- `vars_cube`: `ListVarCube[]`, the scene/cube script-variable array, same sparse shape.
+  Together `vars` + `vars_cube` are the full quest state, so dumping a save exposes which
+  quest flags it has set (e.g. a gate an NPC's script is waiting on).
 - `log` — recent console scrollback lines.
 
 ### Seeing the log in a harness run
