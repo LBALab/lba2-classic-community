@@ -3,6 +3,8 @@
 #include "DEMO_SEED.H"
 #include "SAVEGAME.H"
 
+#include <SYSTEM/LOG.H> // cubetrace
+
 #include <stdio.h>
 
 #include "INPUT.H"
@@ -1167,6 +1169,12 @@ void ChangeCube() {
 
     oldcube = NumCube;
     NumCube = NewCube;
+
+    // cubetrace: log the cube-to-cube flow as it happens, so a playthrough (or the demo reel)
+    // traces out the game's progression map. `-1` old cube is a fresh load/new game.
+    if (DbgCubeTrace)
+        Log_Info("[cube] island %d: %d -> %d%s", (int)Island, (int)oldcube, (int)NumCube,
+                 FlagLoadGame ? " (load)" : "");
 
     // reinitialisation du générateur de nombres aléatoires.
     // Retail seeds from TimerRefHR (a wall-clock interval). In the attract reel
