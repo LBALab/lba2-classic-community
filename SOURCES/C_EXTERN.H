@@ -355,6 +355,7 @@ extern U8 Weapon;
 extern U8 Bulle;
 extern U8 ActionNormal;
 extern S32 InventoryAction;
+extern S32 DbgLifeTraceObj; // console `lifetrace`: Life-script trace target object, -1 = off
 extern S32 MagicBall;
 extern U8 MagicBallType;
 extern U8 MagicBallCount;

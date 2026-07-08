@@ -311,6 +311,9 @@ U8 Weapon = FLAG_BALLE_MAGIQUE; // magicball
 U8 Bulle = TRUE;
 U8 ActionNormal = FALSE;
 S32 InventoryAction = -1;
+// Console `lifetrace <objN>`: object index whose Life script to trace (comportement/track/zone state
+// each frame + every condition it evaluates), or -1 for off. Headless-debug aid, no gameplay effect.
+S32 DbgLifeTraceObj = -1;
 S32 MagicBall = -1;
 U8 MagicBallType = 1;
 U8 MagicBallCount = 3;
