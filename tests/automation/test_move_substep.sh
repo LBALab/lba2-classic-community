@@ -9,9 +9,12 @@
 #
 # We run a scripted mover for 3200 ms of game-time at --fixed-dt 16 (200 ticks) and at
 # --fixed-dt 64 (50 ticks) and compare total actor travel. Phase 1 alone: they differ
-# (that is the low-fps loss). Phase 2: they match. RED until phase 2 lands.
+# (that is the low-fps loss). Phase 2: they match. The high-fps counterpart (dt8 vs dt16) is
+# test_move_framerate.sh.
 #
-# Local-only (needs retail data + a save); skips cleanly otherwise. Not in CI.
+# Assumes the default throttle (FixedTimestep=16); the run does not touch it, so it neither
+# depends on nor rewrites lba2.cfg. Local-only (needs retail data + a save); skips cleanly
+# otherwise. Not in CI.
 TESTNAME=move_substep
 . "$(dirname "$0")/lib.sh"
 precheck
@@ -20,12 +23,12 @@ need_save
 base="$(mktemp)"; a="$(mktemp)"; b="$(mktemp)"
 trap 'rm -f "$base" "$a" "$b"' EXIT
 
-# Same 3200 ms of game-time, stepped fine (dt=16) vs coarse (dt=64). Fixed-timestep on.
+# Same 3200 ms of game-time, stepped fine (dt=16) vs coarse (dt=64), throttle at its default.
 ctl --no-audio --load "$LBA2_TEST_SAVE" --fixed-dt 16 --tick 0   --dump-state "$base" --exit >/dev/null 2>&1 \
     || fail "baseline run: non-zero exit ($?)"
-ctl --no-audio --load "$LBA2_TEST_SAVE" --fixed-dt 16 --exec "fixedtimestep on" --tick 200 --dump-state "$a" --exit >/dev/null 2>&1 \
+ctl --no-audio --load "$LBA2_TEST_SAVE" --fixed-dt 16 --tick 200 --dump-state "$a" --exit >/dev/null 2>&1 \
     || fail "dt16 run: non-zero exit ($?)"
-ctl --no-audio --load "$LBA2_TEST_SAVE" --fixed-dt 64 --exec "fixedtimestep on" --tick 50  --dump-state "$b" --exit >/dev/null 2>&1 \
+ctl --no-audio --load "$LBA2_TEST_SAVE" --fixed-dt 64 --tick 50  --dump-state "$b" --exit >/dev/null 2>&1 \
     || fail "dt64 run: non-zero exit ($?)"
 
 read -r d16 d64 span < <(python3 - "$base" "$a" "$b" <<'PY'
@@ -42,6 +45,13 @@ PY
 )
 
 echo "  scripted actors travelled over ${span}ms: dt16=${d16}  dt64=${d64}"
+
+# Measuring invariance needs actual movement; a static scene walks 0 at both rates and would
+# pass trivially, hiding a regression -- skip instead of green-washing.
+python3 - "$d16" <<'PY' || skip "loaded scene has no scripted movement (d16=$d16); use a save with movers"
+import sys
+sys.exit(0 if float(sys.argv[1]) >= 100.0 else 1)
+PY
 
 python3 - "$d16" "$d64" <<'PY' || fail "low-fps sub-stepping mismatch: dt16=$d16 vs dt64=$d64 (issue #358 phase 2)"
 import sys
