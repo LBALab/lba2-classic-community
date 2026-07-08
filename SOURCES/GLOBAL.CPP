@@ -322,6 +322,9 @@ S32 DbgUseItemInject = -1;
 S32 DbgUseItemInjectN = 0;
 S32 DbgUseItemInjectDelay = 0;
 S32 DbgUseItemTrace = 0;
+// Console `cubetrace <0|1>`: log every cube transition (island + from -> to cube) as it happens,
+// so a playthrough or the demo reel traces out the game's cube-to-cube flow. No gameplay effect.
+S32 DbgCubeTrace = 0;
 S32 MagicBall = -1;
 U8 MagicBallType = 1;
 U8 MagicBallCount = 3;
