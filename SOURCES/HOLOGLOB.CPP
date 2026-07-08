@@ -980,6 +980,9 @@ void Holo_RequestCapture(const char *path) {
 void HoloGlobe(S32 planet) {
     S32 testnofire = TRUE;
     U32 memotime;
+    /* #358: game-clock time of the previous loop iteration, used to time-scale the manual
+       globe rotation so it spins at the same rate regardless of the frame rate. */
+    U32 holoRotTime;
 
     InitHoloGlobe(planet);
 
@@ -997,6 +1000,7 @@ void HoloGlobe(S32 planet) {
     HoloBeta = DestBeta;
 
     memotime = TimerRefHR;
+    holoRotTime = TimerRefHR;
 
     ZBufYMin = 0;
     ZBufYMax = (S32)ModeDesiredY - 1;
@@ -1004,6 +1008,18 @@ void HoloGlobe(S32 planet) {
     while (!FlagHoloEnd) {
         ManageTime();
         MyGetInput();
+
+        /* #358: game-time elapsed since the previous frame, normalised to the 16 ms
+           (~60 fps) reference, so the manual globe rotation below spins at a constant rate
+           instead of a fixed step per frame (which spun fast at high frame rates). Clamp a
+           stutter so a dropped frame does not jump the globe. */
+        S32 holoDt = (S32)(TimerRefHR - holoRotTime);
+        holoRotTime = TimerRefHR;
+        if (holoDt < 0)
+            holoDt = 0;
+        else if (holoDt > 100)
+            holoDt = 100;
+        S32 holoRotStep = 32 * holoDt / 16;
 
         // Clear une bande du ZBuffer. The Z-buffer is sized RESOLUTION_X *
         // RESOLUTION_Y per PR #205 and addressed Y*ModeDesiredX+X, so the
@@ -1029,13 +1045,13 @@ void HoloGlobe(S32 planet) {
         } else {
             if (FlagMap != 1) {
                 if (Input & I_LEFT)
-                    HoloBeta = (HoloBeta + 32) & 4095;
+                    HoloBeta = (HoloBeta + holoRotStep) & 4095;
                 if (Input & I_RIGHT)
-                    HoloBeta = (HoloBeta - 32) & 4095;
+                    HoloBeta = (HoloBeta - holoRotStep) & 4095;
                 if (Input & I_UP)
-                    HoloAlpha = (HoloAlpha - 32) & 4095;
+                    HoloAlpha = (HoloAlpha - holoRotStep) & 4095;
                 if (Input & I_DOWN)
-                    HoloAlpha = (HoloAlpha + 32) & 4095;
+                    HoloAlpha = (HoloAlpha + holoRotStep) & 4095;
 
                 if (((Input == I_ACTION_M) OR(Input == I_RETURN)) // espace
                     AND(!FlagMap)) {
