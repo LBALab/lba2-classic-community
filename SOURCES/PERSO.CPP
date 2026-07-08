@@ -788,8 +788,11 @@ S32 MainLoop() {
     U8 i;
     S32 pansample;
 
-    // #358 fixed-timestep throttle: game-clock time of the last simulated frame.
+    // #358 fixed-timestep simulation: game-clock time of the last simulated sub-step.
     static U32 LastSimRefHR = 0;
+    // Cap on sub-steps per rendered frame (spiral-of-death guard). Below ~8 fps the sim
+    // stops fully catching up and slows in a bounded way rather than freezing on catch-up.
+    const S32 FIXED_TIMESTEP_MAX_STEPS = 8;
 
     SetDetailLevel(); // prise en compte des différentes options
 
@@ -1877,23 +1880,52 @@ restartloop:
 
         /*-------------------------------------------------------------------------*/
 
-        /* Fixed-timestep throttle (issue #358). When enabled (console: fixedtimestep),
-           run the simulation at most once per FixedTimestep ms of game-time. On a frame
-           where less than a step has elapsed since the last simulated frame -- i.e.
-           rendering faster than ~60 fps (vsync off, high-refresh displays) -- skip the
-           simulation and re-present the settled scene, so the animation clock never
-           advances in sub-step slivers (that is what makes movement speed up or freeze
-           above 60 fps). Rendering still runs every frame; only the simulation is gated. A
-           backward game-clock jump (a modal SaveTimer rewind, a cube change) re-anchors and
-           simulates. Off (0) is the historical per-frame path, byte-for-byte. See
-           docs/MOVEMENT_FRAMERATE.md. */
+        /* Fixed-timestep simulation (issue #358). When enabled (console: fixedtimestep),
+           the simulation advances in fixed FixedTimestep-ms steps decoupled from the render
+           rate, so movement/animation is frame-rate independent. `elapsed` is the game-time
+           banked since the last simulated frame; we run `elapsed / FixedTimestep` sub-steps:
+             - 0 steps (rendering faster than ~60 fps): skip the sim, re-present the settled
+               scene, carry the time. High-frame-rate case (vsync off, high-refresh displays).
+             - 1 step (~60 fps): the historical per-frame path.
+             - N steps (below ~60 fps): sub-step so a long frame still advances the animation
+               the correct amount instead of losing it to the keyframe overshoot-discard.
+           Each sub-step drives TimerRefHR to its own value; the sub-step remainder carries via
+           LastSimRefHR, and TimerRefHR is restored to the frame's value afterwards. Held input
+           actions (jump, throw) would re-fire if their object-loop code ran every sub-step, so
+           after the first sub-step only movement bits (I_JOY) are kept -- InitAnim is
+           idempotent, so the walk anim does not reset. A game-clock rewind (a modal SaveTimer
+           restore, a cube change) re-anchors and skips one frame. Off (0) is the historical
+           per-frame path byte-for-byte, and at --fixed-dt 16 the on path is byte-identical too
+           (elapsed == 16 -> exactly 1 step). See docs/MOVEMENT_FRAMERATE.md. */
+        S32 nSimSteps = 1;
+        S32 simStep = 0;
+        U32 simBaseRef = LastSimRefHR;
+        U32 simFinalRef = TimerRefHR;
+        U32 simSavedInput = Input;
         if (FixedTimestep > 0) {
-            S32 sinceSim = (S32)(TimerRefHR - LastSimRefHR);
-            if (sinceSim < 0 || sinceSim >= FixedTimestep) {
-                LastSimRefHR = TimerRefHR;
-            } else {
+            S32 elapsed = (S32)(TimerRefHR - LastSimRefHR);
+            if (elapsed < 0) {
+                LastSimRefHR = TimerRefHR; // clock rewound (modal SaveTimer): re-anchor, skip this frame
                 goto skip_simulation;
             }
+            if (elapsed > FIXED_TIMESTEP_MAX_STEPS * FixedTimestep) {
+                // First frame, a load/cube clock jump, or below the ~8 fps catch-up floor:
+                // re-anchor the step grid to now and run a single step at the current clock.
+                LastSimRefHR = TimerRefHR - (U32)FixedTimestep;
+                simBaseRef = LastSimRefHR;
+                nSimSteps = 1;
+            } else {
+                nSimSteps = elapsed / FixedTimestep;
+                if (nSimSteps <= 0)
+                    goto skip_simulation; // rendering faster than the sim rate
+            }
+        }
+
+    sim_step:
+        if (FixedTimestep > 0) {
+            TimerRefHR = simBaseRef + (U32)(simStep + 1) * (U32)FixedTimestep;
+            if (simStep > 0)
+                Input = simSavedInput & I_JOY; // movement only after the first sub-step
         }
 
         /* vitesse de chute propor pour tous les objets */
@@ -2158,6 +2190,18 @@ restartloop:
                     RestoreTimer();
                 }
             }
+        }
+
+        /*-------------------------------------------------------------------------*/
+
+        if (FixedTimestep > 0 && ++simStep < nSimSteps)
+            goto sim_step; // run the next fixed sub-step of this frame
+        if (FixedTimestep > 0) {
+            // Carry the sub-step remainder into the next frame, restore the frame's clock for
+            // rendering / next frame, and undo the per-sub-step input mask.
+            LastSimRefHR = simBaseRef + (U32)nSimSteps * (U32)FixedTimestep;
+            TimerRefHR = simFinalRef;
+            Input = simSavedInput;
         }
 
         /*-------------------------------------------------------------------------*/
