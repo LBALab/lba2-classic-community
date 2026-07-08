@@ -277,6 +277,13 @@ void DoFuncLife(T_OBJET *ptrobj) {
             }
         }
 
+        // Console `useitem trace`: which object checked which item, and why it answered.
+        if (DbgUseItemTrace)
+            Log_Info("[useinv] LF_USE_INVENTORY obj=%d num=%d InvAct=%d used=%d var=%d -> %s",
+                     (int)(ptrobj - ListObjet), (int)num, (int)InventoryAction,
+                     (TabInv[num].FlagInv & FLAG_INV_USED) ? 1 : 0, (int)ListVarGame[num],
+                     Value ? "TRUE" : "false");
+
         if (DemoSlide) {
             Value = TRUE;
             InvSelect = TabInv[num].Box;

@@ -69,6 +69,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **varcube** &lt;n&gt; [value] | Read (no value) or set a scene (cube) Life variable, `n` in `0..79`. Drives quest state, e.g. arm the flag an NPC's script waits on. |
 | **vargame** &lt;n&gt; [value] | Read (no value) or set a game Life variable, `n` in `0..255`. Drives quest / inventory state. |
 | **lifetrace** &lt;objN&gt; \| off | Trace object N's Life script: its comportement/track/zone state each frame and every `LF_` condition it evaluates (with the branch `Value`). An NPC-script debugger: shows whether a script ever reaches a given check and what its gating conditions read. |
+| **useitem** &lt;n&gt; [frames] [delay] \| **useitem trace** &lt;0\|1&gt; | Inject a one-frame inventory item-use of var-game item `n` (as opening the inventory and using it would), so an NPC's give-item check (`LF_USE_INVENTORY`) can be driven headlessly. `frames` injects over N frames; `delay` waits N frames first (to land past a load's clock jump on a throttle-skip frame). `trace 1` logs each `LF_USE_INVENTORY` result. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
 | **playjingle** &lt;1-26&gt; | Play jingle by number. |

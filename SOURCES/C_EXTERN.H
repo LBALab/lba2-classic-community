@@ -355,7 +355,11 @@ extern U8 Weapon;
 extern U8 Bulle;
 extern U8 ActionNormal;
 extern S32 InventoryAction;
-extern S32 DbgLifeTraceObj; // console `lifetrace`: Life-script trace target object, -1 = off
+extern S32 DbgLifeTraceObj;       // console `lifetrace`: Life-script trace target object, -1 = off
+extern S32 DbgUseItemInject;      // console `useitem`: item number to inject, -1 = none
+extern S32 DbgUseItemInjectN;     // console `useitem`: frames to inject over
+extern S32 DbgUseItemInjectDelay; // console `useitem`: frames to wait before injecting
+extern S32 DbgUseItemTrace;       // console `useitem trace`: log each LF_USE_INVENTORY result
 extern S32 MagicBall;
 extern U8 MagicBallType;
 extern U8 MagicBallCount;
