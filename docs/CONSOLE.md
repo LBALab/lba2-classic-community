@@ -65,6 +65,10 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
 | **screenshot** | Save the next frame as PNG in the shoot directory without the console visible (uses SavePNG). |
 | **give** &lt;item&gt; [count] | Grant an inventory item by name — run `give` with no args to list item names; a numeric index still works as a fallback. Writes possession, refreshes the inventory, and plays the “found object” cinematic for real inventory slots. `count` applies to countable items (darts, money, gem, penguin, clover). |
+| **teleport** &lt;x&gt; &lt;y&gt; &lt;z&gt; [beta] \| **teleport actor** &lt;n&gt; | Reposition the hero in the current cube (sets `Obj` coords directly; the next simulated frame re-runs zone detection and collision from the new spot). `actor <n>` jumps onto actor n, the quick way to reach a zone-gated interaction without walking. Within-cube only (cross-cube needs `ChangeCube`). |
+| **varcube** &lt;n&gt; [value] | Read (no value) or set a scene (cube) Life variable, `n` in `0..79`. Drives quest state, e.g. arm the flag an NPC's script waits on. |
+| **vargame** &lt;n&gt; [value] | Read (no value) or set a game Life variable, `n` in `0..255`. Drives quest / inventory state. |
+| **lifetrace** &lt;objN&gt; \| off | Trace object N's Life script: its comportement/track/zone state each frame and every `LF_` condition it evaluates (with the branch `Value`). An NPC-script debugger: shows whether a script ever reaches a given check and what its gating conditions read. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
 | **playjingle** &lt;1-26&gt; | Play jingle by number. |
