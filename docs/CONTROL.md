@@ -79,7 +79,19 @@ lba2cc --load mysave --exec "cube 100; give clover 3" --tick 5 --dump-state s.js
 # regression captures that should be reproducible regardless of the developer's
 # local lba2.cfg).
 lba2cc --language Français --load Anon1 --exec "ui dialog 1 /tmp/fr.png" --fixed-dt 16 --tick 200 --exit
+
+# Construct a scenario without hunting for the exact save: jump the hero onto an NPC,
+# arm the quest flag its script waits on, and watch what the script does.
+lba2cc --load mysave --exec "teleport actor 2; varcube 0 1; lifetrace 2" --tick 20 --exit
 ```
+
+**Driving game state.** The harness has no movement or menu input, so state- and quest-gated
+interactions were previously unreachable headlessly. Four console commands close that gap
+(see [CONSOLE.md](CONSOLE.md)): `teleport` (position the hero / jump onto an actor), `varcube`
+/ `vargame` (read or set the scene/game Life variables that gate quest progression), and
+`lifetrace` (log an NPC's Life-script state and every condition it evaluates). Together they
+let a single `--exec` line reproduce an interaction (position, quest flags, and script
+observability) that would otherwise need a specific playthrough save.
 
 `--load` resolves its argument as a direct file path first, then as a save name in the
 save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
