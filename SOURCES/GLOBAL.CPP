@@ -325,6 +325,10 @@ S32 DbgUseItemTrace = 0;
 // Console `cubetrace <0|1>`: log every cube transition (island + from -> to cube) as it happens,
 // so a playthrough or the demo reel traces out the game's cube-to-cube flow. No gameplay effect.
 S32 DbgCubeTrace = 0;
+// Console `input <flags> [frames]`: OR these input bits (I_UP/ACTION/...) into Input for N frames,
+// so the harness can drive the hero (walk/turn/act) without a keyboard. 0 = none.
+S32 DbgInjectInput = 0;
+S32 DbgInjectInputFrames = 0;
 S32 MagicBall = -1;
 U8 MagicBallType = 1;
 U8 MagicBallCount = 3;
