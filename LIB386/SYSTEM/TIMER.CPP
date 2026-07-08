@@ -168,6 +168,42 @@ S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps) {
     return steps;
 }
 
+S32 Timer_PlanSimSteps(U32 now, U32 lastSim, S32 dt, S32 maxSteps, U32 *baseRefOut, U32 *lastSimOut) {
+    // Default: a single step anchored at the frame start (the throttle-off / per-frame path).
+    *baseRefOut = lastSim;
+    *lastSimOut = lastSim;
+    if (dt <= 0) {
+        return 1;
+    }
+
+    // Signed so a backward game-clock jump (a modal SaveTimer restore, a cube change) reads
+    // negative rather than wrapping to a huge positive gap.
+    S32 elapsed = (S32)(now - lastSim);
+    if (elapsed < 0) {
+        *lastSimOut = now; // rewind: re-anchor the step grid, run no sub-step this frame
+        return 0;
+    }
+    if (elapsed > maxSteps * dt) {
+        // First frame, a load/cube clock jump, or below the catch-up floor: drop the backlog
+        // and run a single step at the current clock (grid re-anchored to now - dt).
+        *baseRefOut = now - (U32)dt;
+        *lastSimOut = now;
+        return 1;
+    }
+
+    // Normal path. Fold the whole elapsed span through the tested accumulator: with acc seeded
+    // to 0 it returns elapsed/dt and leaves the sub-dt remainder in acc (elapsed <= maxSteps*dt
+    // here, so the clamp never fires -- the large-jump guard above owns that). lastSim advances
+    // by nSteps*dt == now - remainder, which carries the remainder into the next frame.
+    U32 acc = 0;
+    S32 nSteps = Timer_FixedStepCount(&acc, (U32)elapsed, (U32)dt, -1);
+    if (nSteps <= 0) {
+        return 0; // rendering faster than the sim rate: skip, remainder carries in the gap
+    }
+    *lastSimOut = now - acc;
+    return nSteps;
+}
+
 void ManageTime() {
     TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
 

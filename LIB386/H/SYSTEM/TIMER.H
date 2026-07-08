@@ -64,6 +64,25 @@ void Timer_FixedDtPump();
 // keeping only the sub-dt remainder. Post-condition: `*accMs < dt`. Unit-tested directly.
 S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps);
 
+// Plan one rendered frame of the production sub-step loop (SOURCES/PERSO.CPP MainLoop). Pure:
+// no clock read, no globals. Given the frame's game clock `now` (TimerRefHR) and the game-time
+// `lastSim` of the last simulated sub-step, return how many fixed `dt`-ms sub-steps to run this
+// frame and, via the out-params, the anchor and the next `lastSim`:
+//   *baseRefOut  -- sub-step k (0-based) runs at clock *baseRefOut + (k+1)*dt.
+//   *lastSimOut  -- the caller writes this back to LastSimRefHR (carries the sub-dt remainder).
+// Cases (the whole point of the fixed-timestep fix, issue #358):
+//   0 steps, lastSim unchanged  -- rendering faster than the sim rate (elapsed < dt): skip and
+//                                  re-present, the remainder carries in the lastSim gap.
+//   0 steps, lastSim = now      -- the game clock rewound (a modal SaveTimer restore): re-anchor.
+//   1 step,  grid re-anchored   -- elapsed > maxSteps*dt (first frame / load / cube jump / below
+//                                  the catch-up floor): drop the backlog, step once at `now`.
+//   N steps                     -- elapsed = N*dt (+remainder): sub-step so a long frame advances
+//                                  the animation the correct amount instead of losing it.
+// The normal-path count+carry delegates to Timer_FixedStepCount, so that tested core is the
+// engine here. At dt == 16 and elapsed == 16 this returns exactly 1 step (the historical
+// per-frame path, byte-for-byte). dt <= 0 (throttle off) returns 1 and leaves lastSim alone.
+S32 Timer_PlanSimSteps(U32 now, U32 lastSim, S32 dt, S32 maxSteps, U32 *baseRefOut, U32 *lastSimOut);
+
 void ManageTime();
 void HandleEventsTimer(const void *event);
 
