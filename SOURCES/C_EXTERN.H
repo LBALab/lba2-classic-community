@@ -361,6 +361,8 @@ extern S32 DbgUseItemInjectN;     // console `useitem`: frames to inject over
 extern S32 DbgUseItemInjectDelay; // console `useitem`: frames to wait before injecting
 extern S32 DbgUseItemTrace;       // console `useitem trace`: log each LF_USE_INVENTORY result
 extern S32 DbgCubeTrace;          // console `cubetrace`: log every cube transition
+extern S32 DbgInjectInput;        // console `input`: input bits to OR into Input while injecting
+extern S32 DbgInjectInputFrames;  // console `input`: frames left to inject
 extern S32 MagicBall;
 extern U8 MagicBallType;
 extern U8 MagicBallCount;

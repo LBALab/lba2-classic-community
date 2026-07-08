@@ -1578,6 +1578,66 @@ static void cmd_cubetrace(int argc, const char *argv[]) {
     Console_Print("cubetrace: %s", DbgCubeTrace ? "ON" : "OFF");
 }
 
+/* input <flag[,flag...]> [frames] | input off: hold the given input bits for N frames (default 1),
+   so the harness can drive the hero without a keyboard -- e.g. `input up 60` walks forward, `input
+   up,left 30` walks while turning. Flags: up down left right action search throw inventory holomap
+   (or a raw 0xNNN mask). The bits are OR'd into Input each frame; movement is held state, so a
+   multi-frame hold walks/turns. */
+static void cmd_input(int argc, const char *argv[]) {
+    static const struct {
+        const char *name;
+        U32 bit;
+    } flags[] = {
+        {"up", I_UP},
+        {"down", I_DOWN},
+        {"left", I_LEFT},
+        {"right", I_RIGHT},
+        {"action", I_ACTION_M},
+        {"search", I_ACTION_ALWAYS},
+        {"throw", I_THROW},
+        {"inventory", I_INVENTORY},
+        {"holomap", I_HOLOMAP},
+    };
+    if (argc < 2) {
+        Console_Print("Usage: input <flag[,flag...]> [frames] | input off");
+        Console_Print("Flags: up down left right action search throw inventory holomap (or 0xNNN)");
+        return;
+    }
+    if (!strcasecmp(argv[1], "off") || !strcmp(argv[1], "0")) {
+        DbgInjectInput = 0;
+        DbgInjectInputFrames = 0;
+        Console_Print("input: cleared");
+        return;
+    }
+    U32 bits = 0;
+    char *end = NULL;
+    long v = strtol(argv[1], &end, 0);
+    if (end != argv[1] && *end == '\0') {
+        bits = (U32)v; // raw mask
+    } else {
+        char buf[128];
+        snprintf(buf, sizeof(buf), "%s", argv[1]);
+        for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
+            U32 b = 0;
+            for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++)
+                if (!strcasecmp(tok, flags[i].name)) {
+                    b = flags[i].bit;
+                    break;
+                }
+            if (!b) {
+                Console_Print("input: unknown flag '%s'", tok);
+                return;
+            }
+            bits |= b;
+        }
+    }
+    DbgInjectInput = (S32)bits;
+    DbgInjectInputFrames = (argc >= 3) ? atoi(argv[2]) : 1;
+    if (DbgInjectInputFrames < 1)
+        DbgInjectInputFrames = 1;
+    Console_Print("input: 0x%X for %d frame(s)", (unsigned)bits, DbgInjectInputFrames);
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1680,6 +1740,10 @@ void Console_RegisterAll(void) {
                               "cubetrace <0|1>",
                               "Logs island + from -> to cube on each ChangeCube, tracing the game's "
                               "cube-to-cube flow across a playthrough or the demo reel.");
+    Console_RegisterCommandEx("input", cmd_input, "Inject hero input (drive movement/actions)",
+                              "input <flag[,flag...]> [frames] | input off",
+                              "Holds input bits (up/down/left/right/action/search/throw/inventory/holomap "
+                              "or 0xNNN) for N frames, so the harness can walk/turn/act the hero.");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
