@@ -1578,6 +1578,14 @@ static void cmd_cubetrace(int argc, const char *argv[]) {
     Console_Print("cubetrace: %s", DbgCubeTrace ? "ON" : "OFF");
 }
 
+/* skipmodals <0|1>: abort dialogue modals immediately so a headless run does not hang on a
+   give/talk dialog (a modal spins waiting for a keypress while the main tick loop is stalled). */
+static void cmd_skipmodals(int argc, const char *argv[]) {
+    if (argc >= 2)
+        DbgSkipModals = atoi(argv[1]) ? 1 : 0;
+    Console_Print("skipmodals: %s", DbgSkipModals ? "ON" : "OFF");
+}
+
 /* input <flag[,flag...]> [frames] | input off: hold the given input bits for N frames (default 1),
    so the harness can drive the hero without a keyboard -- e.g. `input up 60` walks forward, `input
    up,left 30` walks while turning. Flags: up down left right action search throw inventory holomap
@@ -1740,6 +1748,10 @@ void Console_RegisterAll(void) {
                               "cubetrace <0|1>",
                               "Logs island + from -> to cube on each ChangeCube, tracing the game's "
                               "cube-to-cube flow across a playthrough or the demo reel.");
+    Console_RegisterCommandEx("skipmodals", cmd_skipmodals, "Auto-advance dialogue modals (headless)",
+                              "skipmodals <0|1>",
+                              "Aborts dialogue modals immediately so a headless run does not hang on a "
+                              "give/talk dialog; the script continues past it.");
     Console_RegisterCommandEx("input", cmd_input, "Inject hero input (drive movement/actions)",
                               "input <flag[,flag...]> [frames] | input off",
                               "Holds input bits (up/down/left/right/action/search/throw/inventory/holomap "
