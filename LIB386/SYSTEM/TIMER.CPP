@@ -204,6 +204,24 @@ S32 Timer_PlanSimSteps(U32 now, U32 lastSim, S32 dt, S32 maxSteps, U32 *baseRefO
     return nSteps;
 }
 
+S32 Timer_ForceStepIfPending(S32 plannedSteps, S32 pending, U32 now, S32 dt, U32 *baseRefOut,
+                             U32 *lastSimOut) {
+    // A frame that already runs a step consumes the pending event then; nothing pending means the
+    // throttle stands (keeps the high-fps movement decoupling untouched). Only a would-skip frame
+    // with a pending event needs promoting.
+    if (plannedSteps > 0 || !pending) {
+        return plannedSteps;
+    }
+
+    // Promote the skip to a single step at `now`: anchor the sub-step grid to now - dt (so the one
+    // step runs at `now`, like a normal ~60 Hz frame) and lastSim to `now`, re-anchoring the grid
+    // so the next frame throttles cleanly from here. This is what stops the fixed-timestep throttle
+    // from swallowing a one-frame inventory-use on high-refresh displays (issue #358).
+    *baseRefOut = now - (U32)dt;
+    *lastSimOut = now;
+    return 1;
+}
+
 void ManageTime() {
     TimerSystemHR = FixedDtActive ? FixedDtNow : SDL_GetTicks();
 
