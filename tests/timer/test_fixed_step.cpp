@@ -103,11 +103,180 @@ static void test_zero_dt_guard(void) {
     ASSERT_EQ_UINT(123, acc);
 }
 
+/* Timer_PlanSimSteps is the SHIPPED per-frame planner (SOURCES/PERSO.CPP MainLoop routes
+ * through it). It layers the rewind and large-jump re-anchors over the Timer_FixedStepCount
+ * core above. `base` anchors the sub-step clocks (sub-step k runs at base + (k+1)*dt); `next`
+ * is written back to LastSimRefHR and carries the sub-dt remainder as (now - next). Pin every
+ * branch. */
+static void test_plan_sim_steps_cases(void) {
+    const S32 DT = 16, MAX = 8;
+    U32 base, next;
+
+    /* ~60 fps: exactly one step, grid advances by dt, the step runs at `now`. This is the
+     * historical per-frame path -- byte-identical to pre-throttle. */
+    ASSERT_EQ_INT(1, Timer_PlanSimSteps(116, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(100, base); /* sub-step 0 at base + dt == 116 == now */
+    ASSERT_EQ_UINT(116, next);
+
+    /* High frame rate: less than a step has elapsed -> 0 steps, lastSim unchanged, the
+     * remainder carries in the (now - next) gap. */
+    ASSERT_EQ_INT(0, Timer_PlanSimSteps(108, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(100, next);
+
+    /* Low frame rate, exact: elapsed = 4*dt -> 4 sub-steps, no remainder. */
+    ASSERT_EQ_INT(4, Timer_PlanSimSteps(164, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(100, base);
+    ASSERT_EQ_UINT(164, next);
+
+    /* Low frame rate with remainder: elapsed = 50 -> 3 steps (48 ms), 2 ms carries. */
+    ASSERT_EQ_INT(3, Timer_PlanSimSteps(150, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(100, base);
+    ASSERT_EQ_UINT(148, next); /* 100 + 3*16; the 2 ms remainder is (150 - 148) */
+
+    /* Boundary: elapsed == maxSteps*dt (128) is still the NORMAL path, not the large-jump
+     * clamp -> 8 steps, full catch-up. */
+    ASSERT_EQ_INT(8, Timer_PlanSimSteps(228, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(100, base);
+    ASSERT_EQ_UINT(228, next);
+
+    /* Just past the boundary (129 > 128): large jump -> drop the backlog, run one step, and
+     * re-anchor the grid to now - dt so the single step runs at `now`. */
+    ASSERT_EQ_INT(1, Timer_PlanSimSteps(229, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(229 - 16, base);
+    ASSERT_EQ_UINT(229, next);
+
+    /* First frame (lastSim seeded 0, now = a loaded save's large clock) is the large-jump
+     * path: one step at `now`, NOT thousands of catch-up steps. */
+    ASSERT_EQ_INT(1, Timer_PlanSimSteps(5351037, 0, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(5351037 - 16, base);
+    ASSERT_EQ_UINT(5351037, next);
+
+    /* Rewind (now < lastSim: a modal SaveTimer restore / cube change): 0 steps, re-anchor
+     * lastSim to now, skip the frame. */
+    ASSERT_EQ_INT(0, Timer_PlanSimSteps(90, 100, DT, MAX, &base, &next));
+    ASSERT_EQ_UINT(90, next);
+
+    /* Throttle off (dt <= 0): one step, lastSim untouched (per-frame path). */
+    ASSERT_EQ_INT(1, Timer_PlanSimSteps(200, 100, 0, MAX, &base, &next));
+    ASSERT_EQ_UINT(100, next);
+}
+
+/* Drive the planner like the main loop does -- TimerRefHR advances by `frameDelta` each
+ * rendered frame -- over a fixed span of game-time. Two invariants below the catch-up floor:
+ *   (1) total sub-steps == span/dt regardless of the frame pacing (frame-rate independence);
+ *   (2) the sub-step clocks tile the span contiguously -- each is exactly dt after the last
+ *       one that ran, across frame boundaries, with no gap or overlap. */
+static long plan_total_steps(U32 frameDelta, U32 span, S32 dt, S32 maxSteps) {
+    U32 lastSim = 0, prevSubClock = 0;
+    long steps = 0;
+    for (U32 now = frameDelta; now <= span; now += frameDelta) {
+        U32 base, next;
+        S32 n = Timer_PlanSimSteps(now, lastSim, dt, maxSteps, &base, &next);
+        for (S32 k = 0; k < n; k++) {
+            U32 subClock = base + (U32)(k + 1) * (U32)dt;
+            ASSERT_EQ_UINT(prevSubClock + (U32)dt, subClock); /* contiguous, exactly dt apart */
+            prevSubClock = subClock;
+        }
+        lastSim = next;
+        steps += n;
+    }
+    return steps;
+}
+
+static void test_plan_sim_steps_frame_invariance(void) {
+    const U32 SPAN = 1600; /* whole number of 16 ms steps and divisible by every frameDelta below */
+    const S32 DT = 16, MAX = 8;
+    const long IDEAL = 1600 / 16; /* 100 */
+
+    /* ~1000 / ~120 / ~60 / ~15 fps -- all at or below the ~8 fps catch-up floor. */
+    const U32 rates[] = {1, 8, 16, 64};
+    for (int i = 0; i < 4; i++) {
+        long steps = plan_total_steps(rates[i], SPAN, DT, MAX);
+        printf("  frameDelta=%2u ms -> %ld sub-steps over %u ms (ideal %ld)\n",
+               rates[i], steps, SPAN, IDEAL);
+        ASSERT_EQ_INT(IDEAL, steps);
+    }
+}
+
+/* --- Modal clock steppers under fixed-dt ---------------------------------------------
+ * Timer_FixedDtPresent()/Pump() keep the virtual clock moving inside modal inner loops so a
+ * wait on a TimerRefHR deadline cannot deadlock. They mutate the private FixedDtNow;
+ * ManageTime() copies that into the observable TimerSystemHR. Absolute values carry over
+ * between tests (Timer_EnableFixedDt seeds FixedDtNow from the current TimerSystemHR), so
+ * assert deltas against a captured base rather than literal zeros. */
+
+static void test_fixed_dt_present_first_free_then_steps(void) {
+    Timer_EnableFixedDt(16);
+    ManageTime();
+    U32 base = TimerSystemHR;
+
+    /* Before the first tick advance the present is inert: boot/load presents must not move
+     * the clock. */
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base, TimerSystemHR);
+
+    Timer_FixedDtAdvance(); /* one tick: +16, arms ticking, arms the free present */
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    /* First present after the advance is free -- it is the main-loop render the tick already
+     * paid for. */
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    /* Every additional present in the same tick steps the clock (modal inner-loop frames). */
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 32, TimerSystemHR);
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 48, TimerSystemHR);
+
+    /* A fresh tick re-arms the free present. */
+    Timer_FixedDtAdvance();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 64, TimerSystemHR);
+    Timer_FixedDtPresent();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 64, TimerSystemHR);
+}
+
+static void test_fixed_dt_pump_steps_every_call(void) {
+    Timer_EnableFixedDt(16);
+    ManageTime();
+    U32 base = TimerSystemHR;
+
+    /* Inert before the first tick advance, same as present. */
+    Timer_FixedDtPump();
+    ManageTime();
+    ASSERT_EQ_UINT(base, TimerSystemHR);
+
+    Timer_FixedDtAdvance(); /* +16, arms ticking (and the free-present flag, which Pump ignores) */
+    ManageTime();
+    ASSERT_EQ_UINT(base + 16, TimerSystemHR);
+
+    /* No free first step: a non-presenting busy-wait owns every iteration's time, so each Pump
+     * advances the clock (this is what stops the MUSIC/AMBIANCE fade loops spinning forever on
+     * a TimerRefHR deadline under fixed-dt). */
+    Timer_FixedDtPump();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 32, TimerSystemHR);
+    Timer_FixedDtPump();
+    ManageTime();
+    ASSERT_EQ_UINT(base + 48, TimerSystemHR);
+}
+
 int main(void) {
     RUN_TEST(test_step_count_is_pacing_invariant);
     RUN_TEST(test_high_and_low_frame_rate);
     RUN_TEST(test_clamp_drops_backlog);
     RUN_TEST(test_zero_dt_guard);
+    RUN_TEST(test_plan_sim_steps_cases);
+    RUN_TEST(test_plan_sim_steps_frame_invariance);
+    RUN_TEST(test_fixed_dt_present_first_free_then_steps);
+    RUN_TEST(test_fixed_dt_pump_steps_every_call);
     TEST_SUMMARY();
     return test_failures != 0;
 }

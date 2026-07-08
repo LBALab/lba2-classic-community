@@ -1903,22 +1903,17 @@ restartloop:
         U32 simFinalRef = TimerRefHR;
         U32 simSavedInput = Input;
         if (FixedTimestep > 0) {
-            S32 elapsed = (S32)(TimerRefHR - LastSimRefHR);
-            if (elapsed < 0) {
-                LastSimRefHR = TimerRefHR; // clock rewound (modal SaveTimer): re-anchor, skip this frame
-                goto skip_simulation;
-            }
-            if (elapsed > FIXED_TIMESTEP_MAX_STEPS * FixedTimestep) {
-                // First frame, a load/cube clock jump, or below the ~8 fps catch-up floor:
-                // re-anchor the step grid to now and run a single step at the current clock.
-                LastSimRefHR = TimerRefHR - (U32)FixedTimestep;
-                simBaseRef = LastSimRefHR;
-                nSimSteps = 1;
-            } else {
-                nSimSteps = elapsed / FixedTimestep;
-                if (nSimSteps <= 0)
-                    goto skip_simulation; // rendering faster than the sim rate
-            }
+            // Plan this frame's sub-steps (count + sub-step clock anchor + the next-frame carry).
+            // Timer_PlanSimSteps is the pure, unit-tested core (LIB386/SYSTEM/TIMER.CPP): it
+            // delegates the normal-path count/carry to Timer_FixedStepCount and owns the rewind
+            // and large-jump re-anchors. LastSimRefHR is advanced here (the carry), so the tail
+            // below no longer touches it.
+            U32 nextLastSim;
+            nSimSteps = Timer_PlanSimSteps(TimerRefHR, LastSimRefHR, FixedTimestep,
+                                           FIXED_TIMESTEP_MAX_STEPS, &simBaseRef, &nextLastSim);
+            LastSimRefHR = nextLastSim;
+            if (nSimSteps <= 0)
+                goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)
         }
 
     sim_step:
@@ -2197,9 +2192,8 @@ restartloop:
         if (FixedTimestep > 0 && ++simStep < nSimSteps)
             goto sim_step; // run the next fixed sub-step of this frame
         if (FixedTimestep > 0) {
-            // Carry the sub-step remainder into the next frame, restore the frame's clock for
-            // rendering / next frame, and undo the per-sub-step input mask.
-            LastSimRefHR = simBaseRef + (U32)nSimSteps * (U32)FixedTimestep;
+            // Restore the frame's clock for rendering / the next frame and undo the per-sub-step
+            // input mask. LastSimRefHR was already advanced by Timer_PlanSimSteps (the carry).
             TimerRefHR = simFinalRef;
             Input = simSavedInput;
         }
