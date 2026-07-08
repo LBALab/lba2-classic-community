@@ -2043,7 +2043,7 @@ void Dial(S32 text, S32 drawscene) {
 
         InitWhoSpeak(NumObjDial);
 
-        while ((TestSpeak())AND(MyKey != K_ESC) AND !(Input & I_MENUS)) {
+        while ((TestSpeak())AND(MyKey != K_ESC) AND !(Input & I_MENUS) AND !DbgSkipModals) {
             SpeakAnimation();
         }
         StopSpeak();
@@ -2082,7 +2082,7 @@ void Dial(S32 text, S32 drawscene) {
             }
         }
 
-        if (ret == 2) /*      Attente de Touche       */
+        if (ret == 2 && !DbgSkipModals) /*      Attente de Touche       */
         {
             while (MyKey OR Input) {
                 TestSpeak(); // Tu relaches ?
@@ -2105,7 +2105,11 @@ void Dial(S32 text, S32 drawscene) {
             DialNbLine = 0;
         }
 
-        if (MyKey == K_ESC OR Input & I_MENUS)
+        // Harness (console `skipmodals`): abort the dialog immediately, as if the player pressed
+        // Esc, so a headless run does not hang. This exits the whole typewriter loop on the first
+        // iteration (the loop otherwise depends on TimerRefHR, which is frozen while a modal spins
+        // under --fixed-dt) without changing quest state -- the script continues past the dialog.
+        if (MyKey == K_ESC OR Input & I_MENUS OR DbgSkipModals)
             flagabort = 1;
 
         if (((ret == 0) AND(!TestSpeak())) // Tout fini
