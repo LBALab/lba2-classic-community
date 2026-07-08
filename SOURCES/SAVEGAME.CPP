@@ -27,6 +27,8 @@
 
 #include <OBJECT/AFF_OBJ.H>
 
+#include "SAVEGAME_WIRE.H" // wire structs + FromWire32 / ToWire32 converters
+
 extern char PlayerName[MAX_SIZE_PLAYER_NAME + 1];
 
 extern S32 LastMyJoy;
@@ -200,167 +202,6 @@ static S32 SaveLoadDecompressIfNeeded(U8 *buf_base, U32 buf_cap, S32 loaded_byte
     return TRUE;
 }
 
-#pragma pack(push, 1)
-typedef struct {
-    S32 X;
-    S32 Y;
-    S32 Z;
-    S32 Alpha;
-    S32 Beta;
-    S32 Gamma;
-    S32 BodyNum;
-    S32 NextBodyNum;
-    S32 AnimNum;
-    U32 Texture;
-    U32 NextTexture;
-    U32 LastOfsIsPtr;
-    S32 LastFrame;
-    U32 LastOfsFrame;
-    U32 LastTimer;
-    U32 LastNbGroups;
-    S32 NextFrame;
-    U32 NextOfsFrame;
-    U32 NextTimer;
-    U32 NextNbGroups;
-    S32 LoopFrame;
-    U32 LoopOfsFrame;
-    U32 NbFrames;
-    S32 LastAnimStepX;
-    S32 LastAnimStepY;
-    S32 LastAnimStepZ;
-    S32 LastAnimStepAlpha;
-    S32 LastAnimStepBeta;
-    S32 LastAnimStepGamma;
-    U32 Interpolator;
-    U32 Time;
-    U32 Status;
-    U32 Master;
-    U32 NbGroups;
-} T_OBJ_3D_WIRE32;
-#pragma pack(pop)
-
-static void SavegameObj3dFromWire32(const T_OBJ_3D_WIRE32 *s, T_OBJ_3D *d) {
-    memset(d, 0, sizeof(*d));
-    d->X = s->X;
-    d->Y = s->Y;
-    d->Z = s->Z;
-    d->Alpha = s->Alpha;
-    d->Beta = s->Beta;
-    d->Gamma = s->Gamma;
-    d->Body.Num = s->BodyNum;
-    d->NextBody.Num = s->NextBodyNum;
-    d->Anim.Num = s->AnimNum;
-    d->Texture = NULL;
-    d->NextTexture = NULL;
-    d->LastOfsIsPtr = s->LastOfsIsPtr;
-    d->LastFrame = s->LastFrame;
-    d->LastOfsFrame = (PTR_U32)(uintptr_t)(size_t)s->LastOfsFrame;
-    d->LastTimer = s->LastTimer;
-    d->LastNbGroups = s->LastNbGroups;
-    d->NextFrame = s->NextFrame;
-    d->NextOfsFrame = (PTR_U32)(uintptr_t)(size_t)s->NextOfsFrame;
-    d->NextTimer = s->NextTimer;
-    d->NextNbGroups = s->NextNbGroups;
-    d->LoopFrame = s->LoopFrame;
-    d->LoopOfsFrame = s->LoopOfsFrame;
-    d->NbFrames = s->NbFrames;
-    d->LastAnimStepX = s->LastAnimStepX;
-    d->LastAnimStepY = s->LastAnimStepY;
-    d->LastAnimStepZ = s->LastAnimStepZ;
-    d->LastAnimStepAlpha = s->LastAnimStepAlpha;
-    d->LastAnimStepBeta = s->LastAnimStepBeta;
-    d->LastAnimStepGamma = s->LastAnimStepGamma;
-    d->Interpolator = s->Interpolator;
-    d->Time = s->Time;
-    d->Status = s->Status;
-    d->Master = s->Master;
-    d->NbGroups = s->NbGroups;
-}
-
-/* T_EXTRA carries a U8 *PtrBody — 4 bytes on 32-bit retail, 8 + 4-pad on
- * 64-bit hosts.  Reading sizeof(T_EXTRA)*N from a 32-bit-written stream
- * over-runs the cursor by 12 bytes per extra; downstream NbZones / flow-dot
- * reads then land on garbage and trip the bounds guards.  Mirror layout
- * with pack(1) so the wire shape is exactly 68 bytes. */
-#pragma pack(push, 1)
-typedef struct {
-    S32 PosX, PosY, PosZ;                /* 12 */
-    S32 U_0, U_1, U_2;                   /* 12  union { MOVE | Org } as opaque 12B */
-    S32 Info;                            /*  4 */
-    U32 PtrBody_w32;                     /*  4  32-bit pointer slot (value discarded) */
-    S16 Sprite;                          /*  2 */
-    S16 Vx, Vy, Vz;                      /*  6 */
-    U32 Flags;                           /*  4 */
-    U32 Timer;                           /*  4 */
-    S16 Body, Beta;                      /*  4 */
-    S16 TimeOut, Divers;                 /*  4 */
-    U8 Poids, HitForce, Owner, NewForce; /* 4 */
-    S32 Impact;                          /*  4 */
-    S32 Scale;                           /*  4 */
-} T_EXTRA_WIRE32;                        /* total: 68 bytes */
-#pragma pack(pop)
-
-static void SavegameExtraFromWire32(const T_EXTRA_WIRE32 *s, T_EXTRA *d) {
-    memset(d, 0, sizeof(*d));
-    d->PosX = s->PosX;
-    d->PosY = s->PosY;
-    d->PosZ = s->PosZ;
-    /* Union is 12 raw bytes either way (MOVE = 3xS32, Org = 3xS32). */
-    memcpy(&d->U, &s->U_0, 12);
-    d->Info = s->Info;
-    d->PtrBody = NULL; /* engine refills from runtime body table */
-    d->Sprite = s->Sprite;
-    d->Vx = s->Vx;
-    d->Vy = s->Vy;
-    d->Vz = s->Vz;
-    d->Flags = s->Flags;
-    d->Timer = s->Timer;
-    d->Body = s->Body;
-    d->Beta = s->Beta;
-    d->TimeOut = s->TimeOut;
-    d->Divers = s->Divers;
-    d->Poids = s->Poids;
-    d->HitForce = s->HitForce;
-    d->Owner = s->Owner;
-    d->NewForce = s->NewForce;
-    d->Impact = s->Impact;
-    d->Scale = s->Scale;
-}
-
-/* S_PART_FLOW has a trailing S_ONE_DOT *PtrListDot.  32-bit retail wrote
- * 60 bytes per flow; 64-bit native is 64 bytes.  4-byte over-run per flow
- * misaligns the per-flow NbDots byte and trips MAX_FLOW_DOTS. */
-#pragma pack(push, 1)
-typedef struct {
-    S32 Flag;
-    S32 Owner;
-    S32 NumPoint;
-    S32 NbDot;
-    S32 OrgX, OrgY, OrgZ;
-    S32 XMin, YMin, ZMin;
-    S32 XMax, YMax, ZMax;
-    U32 FlowTimerStart;
-    U32 PtrListDot_w32; /* 32-bit pointer slot (value discarded) */
-} S_PART_FLOW_WIRE32;   /* total: 60 bytes */
-#pragma pack(pop)
-
-static void SavegameFlowFromWire32(const S_PART_FLOW_WIRE32 *s, S_PART_FLOW *d) {
-    /* Caller stashes/restores PtrListDot externally; everything else copies. */
-    d->Flag = s->Flag;
-    d->Owner = s->Owner;
-    d->NumPoint = s->NumPoint;
-    d->NbDot = s->NbDot;
-    d->OrgX = s->OrgX;
-    d->OrgY = s->OrgY;
-    d->OrgZ = s->OrgZ;
-    d->XMin = s->XMin;
-    d->YMin = s->YMin;
-    d->ZMin = s->ZMin;
-    d->XMax = s->XMax;
-    d->YMax = s->YMax;
-    d->ZMax = s->ZMax;
-    d->FlowTimerStart = s->FlowTimerStart;
-}
 #endif /* !EDITLBA2 */
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1268,8 +1109,17 @@ void SaveContexte(S32 savetimerrefhr) {
 
         //	T_ZONE	*PtrZoneRail ;
 
-        // on ne veut pas sauver le champ CurrentFrame
+        // on ne veut pas sauver le champ CurrentFrame ; the 136-byte wire form
+        // drops it and emits the 32-bit retail layout regardless of host word size.
+#ifndef EDITLBA2
+        {
+            T_OBJ_3D_WIRE32 w32;
+            SavegameObj3dToWire32(&(ptrobj->Obj), &w32);
+            LbaWrite(&w32, sizeof(w32));
+        }
+#else
         LbaWrite(&(ptrobj->Obj), sizeof(ptrobj->Obj) - sizeof(ptrobj->Obj.CurrentFrame));
+#endif
     }
 
     //------------- PATCHES -------------
@@ -1318,7 +1168,9 @@ void SaveContexte(S32 savetimerrefhr) {
 
     for (n = 0; n < MAX_EXTRAS; n++, ptre++) {
         if (ptre->Sprite != -1) {
-            LbaWrite(ptre, sizeof(T_EXTRA));
+            T_EXTRA_WIRE32 ew32;
+            SavegameExtraToWire32(ptre, &ew32);
+            LbaWrite(&ew32, sizeof(ew32));
             wbyte++;
         }
     }
@@ -1366,7 +1218,9 @@ void SaveContexte(S32 savetimerrefhr) {
 
     for (n = 0; n < MAX_FLOWS; n++, ptrf++) {
         if (ptrf->NbDot > 0) {
-            LbaWrite(ptrf, sizeof(S_PART_FLOW));
+            S_PART_FLOW_WIRE32 fw32;
+            SavegameFlowToWire32(ptrf, &fw32);
+            LbaWrite(&fw32, sizeof(fw32));
 
             ptrpt = ptrf->PtrListDot;
             wbyte2 = 0;
@@ -1825,51 +1679,62 @@ S32 LoadContexte(S32 *savetimerrefhr) {
         if (NbObjets < 0 || NbObjets > MAX_OBJETS)
             return SAVELOAD_CTX_ERR;
         {
-            /* Match writer at SAVEGAME.CPP SaveContexte: LbaWrite(&Obj, sizeof(Obj) - sizeof(Obj.CurrentFrame)).
-             * 64-bit-host stride differs from 32-bit retail wire (278) by 28 bytes per object;
-             * picking the wrong stride misaligns the cursor and IndexFile3D ends up reading garbage,
-             * which makes InitLoadedGame's LoadFile3D(garbage) deref segv.  Strategy:
-             *   1. Pre-check the buffer fits the larger of {278, native} so neither attempt overruns.
-             *   2. Try the heuristic-picked stride; the helper validates IndexFile3D after the read.
-             *   3. On validate-fail, rewind PtrSave and try the alternate stride.
-             *   4. If both fail (or env-forced and forced fails), return SAVELOAD_CTX_ERR. */
-            S32 stride64_host = 142 + (S32)(sizeof(T_OBJ_3D) - sizeof(((T_OBJ_3D *)0)->CurrentFrame));
+            /* SaveContexte emits the 32-bit wire layout on every host, so almost
+             * every save (retail, and everything this port writes) is wire. A save
+             * this port wrote *before* the wire writer landed used the wider
+             * host-native 64-bit struct stride. The two are not distinguishable by
+             * a version byte, so the reader picks the stride by trying one and
+             * validating per-object IndexFile3D.
+             *
+             * Try the NATIVE (wider) stride first, not wire. Reading the wider
+             * record from shorter wire data over-runs into the next record, so a
+             * genuine wire save reliably fails native validation and is retried as
+             * wire; a legacy native save reads correctly here. The reverse order
+             * is unsafe: reading the shorter wire record from wider native data
+             * stops early inside still-valid bytes, so a native save can spuriously
+             * pass the wire read, commit the wrong layout, and SIGSEGV in
+             * InitLoadedGame -- including ambiguous multi-object saves the offline
+             * probe confirms pass under both hypotheses. Reading the larger record
+             * first is the robust discriminator. Verified: 237 retail-wire saves
+             * load with zero misreads, and legacy native saves (incl. 1-object)
+             * load correctly. LBA2_SAVE_LOAD_ABI forces one path for tests:
+             * "32" = wire only, "64" = native only (audit). */
+            S32 wire_stride = SAVEGAME_OBJ_SCALAR_PREFIX + (S32)sizeof(T_OBJ_3D_WIRE32);
+            S32 native_stride =
+                SAVEGAME_OBJ_SCALAR_PREFIX +
+                (S32)(sizeof(T_OBJ_3D) - sizeof(((T_OBJ_3D *)0)->CurrentFrame));
+            S32 max_stride = (native_stride > wire_stride) ? native_stride : wire_stride;
             const char *abi_env = getenv("LBA2_SAVE_LOAD_ABI");
-            S32 forced_32 = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
-            S32 first_stride;
-            S32 alt_stride;
+            S32 force_wire = (abi_env AND !strcmp(abi_env, "32")) ? 1 : 0;
+            S32 force_native = (abi_env AND !strcmp(abi_env, "64")) ? 1 : 0;
             U8 *obj_checkpoint;
-            S32 max_stride;
             S32 r;
-
-            if (forced_32) {
-                first_stride = 278;
-            } else {
-                U8 *stream_end = g_save_read_limit;
-                if (!stream_end)
-                    stream_end = (U8 *)Screen + SaveLoadScreenBufferBytes();
-                S32 g = SaveLoadGuessObjectWireStride(NbObjets, PtrSave, stream_end,
-                                                      stride64_host, NbPatches);
-                first_stride = g ? g : stride64_host;
-            }
-            alt_stride = (first_stride == 278) ? stride64_host : 278;
-            max_stride = (stride64_host > 278) ? stride64_host : 278;
 
             if (!SaveLoadRoom((size_t)NbObjets * (size_t)max_stride))
                 return SAVELOAD_CTX_ERR;
 
             obj_checkpoint = PtrSave;
-            r = LoadContexteReadObjectsAtStride(first_stride == 278);
-            if (r == 0 && !forced_32) {
-                /* Validate failed — likely wrong stride.  Rewind and retry the alternate. */
-                PtrSave = obj_checkpoint;
-                r = LoadContexteReadObjectsAtStride(alt_stride == 278);
-                if (r == 1)
-                    first_stride = alt_stride;
+            if (force_wire) {
+                r = LoadContexteReadObjectsAtStride(1 /* wire */);
+                wire32_abi = 1;
+            } else {
+                r = LoadContexteReadObjectsAtStride(0 /* native first */);
+                if (r == 1) {
+                    /* Native validated: a legacy pre-portable-writer save (or a
+                     * forced-native audit). It migrates to the wire layout on the
+                     * next save. */
+                    wire32_abi = 0;
+                    if (!force_native)
+                        Log_Warn("Loaded a legacy 64-bit save; it will be migrated "
+                                 "to the portable format the next time you save.");
+                } else if (!force_native) {
+                    PtrSave = obj_checkpoint;
+                    r = LoadContexteReadObjectsAtStride(1 /* wire */);
+                    wire32_abi = 1;
+                }
             }
             if (r != 1)
                 return SAVELOAD_CTX_ERR;
-            wire32_abi = (first_stride == 278);
         }
 #endif
 
