@@ -26,6 +26,8 @@ lba2cc --load <slot>          restore a save before the loop starts
        --exec "<cmd>;<cmd>"   run console commands (';'-separated) on the first tick
        --tick <N>             advance N simulation ticks
        --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic)
+       --fixed-timestep <ms>  set the sim throttle (FixedTimestep) for this run only, no cfg
+                              persist (0 = off); combine with a small --fixed-dt to force skips
        --language <name>      override Language at boot (English | Français | Deutsch |
                               Español | Italiano | Portugues; or EN | FR | DE | SP | IT | PO)
        --no-audio             skip InitAIL() and InitSampleDriver() at boot — bypasses

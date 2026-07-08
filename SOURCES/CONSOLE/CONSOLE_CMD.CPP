@@ -1546,6 +1546,30 @@ static void cmd_lifetrace(int argc, const char *argv[]) {
         Console_Print("lifetrace: off");
 }
 
+/* useitem <n> [frames] [delay] | useitem trace <0|1>: inject a one-frame inventory item-use of
+   var-game item n (as MenuInventory would), so an NPC's give-item check (LF_USE_INVENTORY) can be
+   driven headlessly. `frames` injects over N frames, `delay` waits N frames first (land past a load
+   large-jump on a throttle-skip frame). `trace 1` logs each LF_USE_INVENTORY result. */
+static void cmd_useitem(int argc, const char *argv[]) {
+    if (argc >= 2 && !strcasecmp(argv[1], "trace")) {
+        if (argc >= 3)
+            DbgUseItemTrace = atoi(argv[2]) ? 1 : 0;
+        Console_Print("useitem trace: %s", DbgUseItemTrace ? "ON" : "OFF");
+        return;
+    }
+    if (argc >= 2) {
+        DbgUseItemInject = atoi(argv[1]);
+        DbgUseItemInjectN = (argc >= 3) ? atoi(argv[2]) : 1;
+        DbgUseItemInjectDelay = (argc >= 4) ? atoi(argv[3]) : 0;
+        if (DbgUseItemInjectN < 1)
+            DbgUseItemInjectN = 1;
+        Console_Print("useitem: inject InventoryAction=%d over %d frame(s), after %d-frame delay",
+                      DbgUseItemInject, DbgUseItemInjectN, DbgUseItemInjectDelay);
+    } else {
+        Console_Print("Usage: useitem <n> [frames] [delay] | useitem trace <0|1>");
+    }
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1640,6 +1664,10 @@ void Console_RegisterAll(void) {
                               "lifetrace <objN> | lifetrace off",
                               "Logs the object's comportement/track/zone each frame and every LF_ "
                               "condition it evaluates.");
+    Console_RegisterCommandEx("useitem", cmd_useitem, "Inject an inventory item-use (headless)",
+                              "useitem <n> [frames] [delay] | useitem trace <0|1>",
+                              "Injects InventoryAction=n (drives LF_USE_INVENTORY without menu input); "
+                              "'trace 1' logs each result.");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",

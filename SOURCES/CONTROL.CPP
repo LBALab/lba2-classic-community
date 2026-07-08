@@ -40,6 +40,8 @@ static int s_have_tick = 0;
 static long s_tick = 0;
 static int s_have_fixed_dt = 0;
 static long s_fixed_dt = 0;
+static int s_have_fixed_timestep = 0;
+static long s_fixed_timestep = 0;
 static int s_have_dump = 0;
 static char s_dump_path[ADELINE_MAX_PATH];
 static int s_have_shot = 0;
@@ -156,6 +158,23 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             } else {
                 s_fixed_dt = v;
                 s_have_fixed_dt = 1;
+            }
+            s_active = 1;
+            read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--fixed-timestep") && has_val) {
+            /* Set the fixed-timestep throttle (FixedTimestep) for this run only, without
+               persisting to lba2.cfg (unlike the `fixedtimestep` console verb). Lets a test
+               force the throttle on/off + a step size regardless of the local cfg. 0 = off. */
+            char *end = NULL;
+            long v = strtol(argv[read + 1], &end, 0);
+            if (end == argv[read + 1] || *end != '\0' || v < 0 || v > 100) {
+                fprintf(stderr, "[control] --fixed-timestep: invalid value '%s' (want 0..100, ignoring)\n",
+                        argv[read + 1]);
+            } else {
+                s_fixed_timestep = v;
+                s_have_fixed_timestep = 1;
             }
             s_active = 1;
             read += 2;
@@ -691,6 +710,11 @@ void Control_TickHook(void) {
     if (!s_armed)
         return;
     s_hook_calls++;
+    /* Apply --fixed-timestep once, on the first tick: it must land after ReadConfigFile (which
+       set FixedTimestep from lba2.cfg during boot) so the flag overrides the cfg for this run
+       only, without persisting. */
+    if (s_have_fixed_timestep && s_hook_calls == 1)
+        FixedTimestep = (S32)s_fixed_timestep;
     /* Advance the deterministic clock one fixed step per tick. The hook runs exactly once
        per loop-body iteration, before this tick's ManageTime() banks the step. */
     if (s_have_fixed_dt)

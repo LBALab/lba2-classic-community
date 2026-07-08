@@ -1449,6 +1449,19 @@ restartloop:
 
             InventoryAction = -1;
 
+            // Console `useitem`: inject a one-frame inventory item-use (as MenuInventory would),
+            // before the throttle gate, so it exercises the exact drop/deliver path a real use hits.
+            // Optional delay lets the injection land past the load large-jump on a settled skip frame.
+            if (DbgUseItemInject >= 0 && DbgUseItemInjectN > 0) {
+                if (DbgUseItemInjectDelay > 0) {
+                    DbgUseItemInjectDelay--;
+                } else {
+                    InventoryAction = DbgUseItemInject;
+                    if (--DbgUseItemInjectN <= 0)
+                        DbgUseItemInject = -1;
+                }
+            }
+
             if ((Input & I_INVENTORY)
                     AND(PtrComportement->Flags & CF_INVENTORY)
                         AND(ptrobj->Obj.Body.Num != -1)
