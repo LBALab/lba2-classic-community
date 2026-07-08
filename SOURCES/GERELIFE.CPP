@@ -16,6 +16,15 @@ extern S32 InvSelect; // INVENT.CPP
 #define RET_STRING 2
 #define RET_U8 4
 
+// lifetrace action layer (console `lifetrace <objN>`): log what the traced object's script DOES --
+// the state writes, dialogs and gives -- not just the conditions it checks. Used inside DoLife, so
+// it relies on `numobj` being in scope.
+#define LIFETRACE_ACT(fmt, ...)                                       \
+    do {                                                              \
+        if (DbgLifeTraceObj >= 0 && numobj == DbgLifeTraceObj)        \
+            Log_Info("[life] obj=%d " fmt, (int)numobj, __VA_ARGS__); \
+    } while (0)
+
 #define CONE_VIEW 1024
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -1276,6 +1285,7 @@ void DoLife(U8 numobj) {
             // au cas ou l'on soit appelé pendant un eclair
             Palette(PtrPal);
 
+            LIFETRACE_ACT("MESSAGE dial=%d", (int)*(S16 *)PtrPrg);
             Dial(*(S16 *)PtrPrg, TRUE);
             PtrPrg += 2;
             break;
@@ -1314,6 +1324,7 @@ void DoLife(U8 numobj) {
         case LM_SET_VAR_CUBE:
             num = *PtrPrg++;
             ListVarCube[num] = *PtrPrg++;
+            LIFETRACE_ACT("SET cube_var[%d] = %d", (int)num, (int)ListVarCube[num]);
             break;
 
             //---------------------------------------------------------------------------
@@ -1324,6 +1335,7 @@ void DoLife(U8 numobj) {
             else
                 ListVarCube[num] = 255;
             PtrPrg++;
+            LIFETRACE_ACT("ADD cube_var[%d] -> %d", (int)num, (int)ListVarCube[num]);
             break;
 
             //---------------------------------------------------------------------------
@@ -1334,6 +1346,7 @@ void DoLife(U8 numobj) {
             else
                 ListVarCube[num] = 0;
             PtrPrg++;
+            LIFETRACE_ACT("SUB cube_var[%d] -> %d", (int)num, (int)ListVarCube[num]);
             break;
 
             //---------------------------------------------------------------------------
@@ -1349,6 +1362,7 @@ void DoLife(U8 numobj) {
             }
 
             PtrPrg += 2;
+            LIFETRACE_ACT("SET game_var[%d] = %d", (int)num, (int)ListVarGame[num]);
             break;
 
             //---------------------------------------------------------------------------
@@ -1367,6 +1381,7 @@ void DoLife(U8 numobj) {
             }
 
             PtrPrg += 2;
+            LIFETRACE_ACT("ADD game_var[%d] -> %d", (int)num, (int)ListVarGame[num]);
             break;
 
             //---------------------------------------------------------------------------
@@ -1385,6 +1400,7 @@ void DoLife(U8 numobj) {
             }
 
             PtrPrg += 2;
+            LIFETRACE_ACT("SUB game_var[%d] -> %d", (int)num, (int)ListVarGame[num]);
             break;
 
             //---------------------------------------------------------------------------
@@ -1530,6 +1546,7 @@ void DoLife(U8 numobj) {
 
             //---------------------------------------------------------------------------
         case LM_FOUND_OBJECT:
+            LIFETRACE_ACT("FOUND_OBJECT item=%d", (int)*PtrPrg);
             SaveTimer();
             DoFoundObj(*PtrPrg++);
             RestoreTimer();
