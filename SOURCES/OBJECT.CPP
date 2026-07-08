@@ -2,6 +2,7 @@
 
 #include "DEMO_SEED.H"
 #include "SAVEGAME.H"
+#include "ZONE_GEOM.H" // ZonePointInBox -- single source of truth for the zone box test
 
 #include <SYSTEM/LOG.H> // cubetrace
 
@@ -2185,12 +2186,7 @@ S32 CheckValidObjPos(U8 numobj, U8 owner) {
     ptrz = ListZone;
 
     for (n = 0; n < NbZones; n++, ptrz++) {
-        if (x0 >= ptrz->X0
-                      AND x0 < ptrz->X1
-                                   AND y0 >= ptrz->Y0
-                                                 AND y0 <= ptrz->Y1
-                                                               AND z0 >= ptrz->Z0
-                                                                             AND z0 < ptrz->Z1) {
+        if (ZonePointInBox(x0, y0, z0, ptrz->X0, ptrz->Y0, ptrz->Z0, ptrz->X1, ptrz->Y1, ptrz->Z1)) {
             switch (ptrz->Type) {
             case 0: // ChangeCube
                 if (numobj == NUM_PERSO) {
@@ -6493,12 +6489,7 @@ void CheckZoneSce(T_OBJET *ptrobj, U8 numobj) {
     for (n = 0; n < NbZones; n++, ptrz++) {
         // bug resolu en testant les x1 et z1 avec '<' et non
         // '<=' car on se retrouvait dans 2 zones en même temps !!!
-        if (x >= ptrz->X0
-                     AND x < ptrz->X1
-                                 AND y >= ptrz->Y0
-                                              AND y <= ptrz->Y1
-                                                           AND z >= ptrz->Z0
-                                                                        AND z < ptrz->Z1) {
+        if (ZonePointInBox(x, y, z, ptrz->X0, ptrz->Y0, ptrz->Z0, ptrz->X1, ptrz->Y1, ptrz->Z1)) {
             // si type test angle
 
             switch (ptrz->Type) {
@@ -6748,12 +6739,7 @@ void CheckBuggyZoneGiver(T_OBJET *ptrobj) {
 
         // bug resolu en testant les x1 et z1 avec '<' et non
         // '<=' car on se retrouvait dans 2 zones en même temps !!!
-        if (x >= ptrz->X0
-                     AND x < ptrz->X1
-                                 AND y >= ptrz->Y0
-                                              AND y <= ptrz->Y1
-                                                           AND z >= ptrz->Z0
-                                                                        AND z < ptrz->Z1) {
+        if (ZonePointInBox(x, y, z, ptrz->X0, ptrz->Y0, ptrz->Z0, ptrz->X1, ptrz->Y1, ptrz->Z1)) {
             switch (ptrz->Type) {
             case 4: // Giver
                 if (ActionNormal == 1 /*AND !ptrz->Info2*/) {
