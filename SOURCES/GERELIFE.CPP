@@ -4,6 +4,7 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOG.H> // lifetrace
 
 U8 *PtrPrg;
 U8 TypeAnswer;
@@ -34,6 +35,10 @@ void DoFuncLife(T_OBJET *ptrobj) {
     T_ZONE *ptrz;
 
     TypeAnswer = RET_S8;
+
+    // lifetrace: log every Life condition (LF_* opcode) the traced object evaluates.
+    if (DbgLifeTraceObj >= 0 && (S32)(ptrobj - ListObjet) == DbgLifeTraceObj)
+        Log_Info("[life]   obj=%d checks LF=%d", (int)(ptrobj - ListObjet), (int)*PtrPrg);
 
     switch (*PtrPrg++) /* func */
     {
@@ -242,10 +247,14 @@ void DoFuncLife(T_OBJET *ptrobj) {
         break;
 
         //---------------------------------------------------------------------------
-    case LF_VAR_CUBE:
-        Value = ListVarCube[*PtrPrg++];
+    case LF_VAR_CUBE: {
+        S32 vidx = *PtrPrg++;
+        Value = ListVarCube[vidx];
+        if (DbgLifeTraceObj >= 0 && (S32)(ptrobj - ListObjet) == DbgLifeTraceObj)
+            Log_Info("[life]   LF_VAR_CUBE[%d] = %d", (int)vidx, (int)Value); // which quest flag it reads
         TypeAnswer = RET_U8;
         break;
+    }
 
         //---------------------------------------------------------------------------
     case LF_VAR_GAME:
@@ -754,6 +763,12 @@ void DoLife(U8 numobj) {
 
     PtrPrg = ptrobj->PtrLife + ptrobj->OffsetLife;
 
+    // lifetrace: log this object's Life-script state each DoLife call.
+    if (DbgLifeTraceObj >= 0 && numobj == DbgLifeTraceObj)
+        Log_Info("[life] obj=%d DoLife off=%d comport=%d track=%d zone_sce=%d", (int)numobj,
+                 (int)ptrobj->OffsetLife, (int)ptrobj->MemoComportement, (int)ptrobj->LabelTrack,
+                 (int)ptrobj->ZoneSce);
+
     while (flag != -1) {
         ptrmacro = PtrPrg;
         switch (*PtrPrg++) {
@@ -1066,6 +1081,8 @@ void DoLife(U8 numobj) {
         case LM_IF:
         case LM_AND_IF:
             DoFuncLife(ptrobj);
+            if (DbgLifeTraceObj >= 0 && numobj == DbgLifeTraceObj)
+                Log_Info("[life]     IF -> Value=%d", (int)Value);
             if (!DoTest()) {
                 PtrPrg = ptrobj->PtrLife + *(S16 *)PtrPrg;
             } else {
