@@ -621,6 +621,20 @@ static void control_dump_state(const char *path) {
     }
     fprintf(f, " } },\n");
 
+    /* Scene (cube) Life variables. Together with the game vars above these are the quest state,
+       so a corpus of saves dumped through this is a timeline of quest progression. */
+    fprintf(f, "  \"vars_cube\": { \"count\": %d, \"nonzero\": {", (int)MAX_VARS_CUBE);
+    {
+        int i, first = 1;
+        for (i = 0; i < MAX_VARS_CUBE; i++) {
+            if (ListVarCube[i] != 0) {
+                fprintf(f, "%s \"%d\": %d", first ? "" : ",", i, (int)ListVarCube[i]);
+                first = 0;
+            }
+        }
+    }
+    fprintf(f, " } },\n");
+
     fprintf(f, "  \"log\": [");
     {
         const char *lines[16];
