@@ -1911,6 +1911,16 @@ restartloop:
             U32 nextLastSim;
             nSimSteps = Timer_PlanSimSteps(TimerRefHR, LastSimRefHR, FixedTimestep,
                                            FIXED_TIMESTEP_MAX_STEPS, &simBaseRef, &nextLastSim);
+            /* Deliver a one-frame inventory-use event even on a throttle-skip frame. InventoryAction
+               is set above this frame by MenuInventory, cleared at the top of every loop, and
+               consumed by LF_USE_INVENTORY in DoLife below. On high-refresh displays most frames
+               skip the sim, so without this the event is wiped before any simulated frame reads it
+               and a quest item-use (the ferry ticket, the Balsam flower, the Wizard Diploma)
+               silently fails (#358 regression, softlocks the Peddler). Promotes a would-skip frame
+               to a single step; a no-op when a step already runs or nothing is pending, so the
+               throttle and its --fixed-dt 16 byte-for-byte guarantee are otherwise untouched. */
+            nSimSteps = Timer_ForceStepIfPending(nSimSteps, InventoryAction >= 0, TimerRefHR,
+                                                 FixedTimestep, &simBaseRef, &nextLastSim);
             LastSimRefHR = nextLastSim;
             if (nSimSteps <= 0)
                 goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)

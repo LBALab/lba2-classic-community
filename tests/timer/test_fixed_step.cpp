@@ -198,6 +198,55 @@ static void test_plan_sim_steps_frame_invariance(void) {
     }
 }
 
+/* Timer_ForceStepIfPending is the item-use regression fix (#358). The fixed-timestep throttle
+ * skips the whole simulation on frames that render faster than one step (high-refresh displays),
+ * but a one-frame inventory-use event (InventoryAction, consumed by LF_USE_INVENTORY in DoLife
+ * and cleared every frame) is lost if its frame is skipped -- quest item-uses (ferry ticket,
+ * Balsam flower, Wizard Diploma) then fail. This promotes a skip into a single step at `now`
+ * when an event is pending, so the object loop still runs and consumes it. A frame that already
+ * runs >= 1 step needs no help -- the event is consumed then. */
+static void test_force_step_if_pending(void) {
+    const S32 DT = 16;
+    U32 base, next;
+
+    /* No event pending: a skip stays a skip. The throttle is unchanged when nothing is pending
+     * -- this is what keeps the high-fps movement decoupling (and #391's byte-for-byte gate). */
+    base = next = 0xDEAD;
+    ASSERT_EQ_INT(0, Timer_ForceStepIfPending(0, /*pending=*/0, 108, DT, &base, &next));
+    ASSERT_EQ_UINT(0xDEAD, base); /* untouched: caller keeps the planner's carry anchor */
+    ASSERT_EQ_UINT(0xDEAD, next);
+
+    /* Event pending on a skip frame: promote to one step at `now`. Re-anchor the grid to now-dt
+     * (so sub-step 0 runs at `now`) and lastSim to `now`. THIS is the fix. */
+    base = next = 0xDEAD;
+    ASSERT_EQ_INT(1, Timer_ForceStepIfPending(0, /*pending=*/1, 108, DT, &base, &next));
+    ASSERT_EQ_UINT(108 - 16, base); /* sub-step 0 at base + dt == 108 == now */
+    ASSERT_EQ_UINT(108, next);
+
+    /* Rewind skip (the planner returned 0 with a re-anchor) with an event pending is promoted the
+     * same way -- the helper is agnostic to WHY the frame was going to skip. */
+    base = next = 0xDEAD;
+    ASSERT_EQ_INT(1, Timer_ForceStepIfPending(0, /*pending=*/1, 90, DT, &base, &next));
+    ASSERT_EQ_UINT(90 - 16, base);
+    ASSERT_EQ_UINT(90, next);
+
+    /* Frame already runs steps: the pending event is consumed by the planned step(s), so no
+     * override -- return the count unchanged and leave the planner's anchors alone. */
+    base = 100;
+    next = 148;
+    ASSERT_EQ_INT(3, Timer_ForceStepIfPending(3, /*pending=*/1, 150, DT, &base, &next));
+    ASSERT_EQ_UINT(100, base);
+    ASSERT_EQ_UINT(148, next);
+
+    /* One planned step with an event pending is likewise unchanged (plannedSteps > 0 short-
+     * circuits): the historical ~60 fps path already delivers the event. */
+    base = 100;
+    next = 116;
+    ASSERT_EQ_INT(1, Timer_ForceStepIfPending(1, /*pending=*/1, 116, DT, &base, &next));
+    ASSERT_EQ_UINT(100, base);
+    ASSERT_EQ_UINT(116, next);
+}
+
 /* --- Modal clock steppers under fixed-dt ---------------------------------------------
  * Timer_FixedDtPresent()/Pump() keep the virtual clock moving inside modal inner loops so a
  * wait on a TimerRefHR deadline cannot deadlock. They mutate the private FixedDtNow;
@@ -275,6 +324,7 @@ int main(void) {
     RUN_TEST(test_zero_dt_guard);
     RUN_TEST(test_plan_sim_steps_cases);
     RUN_TEST(test_plan_sim_steps_frame_invariance);
+    RUN_TEST(test_force_step_if_pending);
     RUN_TEST(test_fixed_dt_present_first_free_then_steps);
     RUN_TEST(test_fixed_dt_pump_steps_every_call);
     TEST_SUMMARY();
