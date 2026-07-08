@@ -3,6 +3,7 @@
 #include "CONSOLE_GIVE.H"
 #include "../C_EXTERN.H"
 #include "../COMMON.H"
+#include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
 #include "../CONFIG.H"
@@ -1586,6 +1587,57 @@ static void cmd_skipmodals(int argc, const char *argv[]) {
     Console_Print("skipmodals: %s", DbgSkipModals ? "ON" : "OFF");
 }
 
+/* zonelist [type]: list the current cube's scene zones (ListZone) -- box, type, Num and Info fields.
+   Zones are invisible to --dump-state (which only reports NbZones), yet they are what drives a
+   walkthrough: type 2 (scenaric) sets the hero's ZoneSce, which his Life script reads via
+   LF_ZONE_OBJ to award a pickup/fire an event; type 4 (giver) hands an item on action inside the
+   box; type 0 changes cube. Printing the boxes turns "walk to the drawer" into a concrete
+   `teleport <x> <y> <z>` the harness can drive. Optional [type] filters to one zone type. */
+static const char *ZoneTypeName(S32 t) {
+    switch (t) {
+    case 0:
+        return "cube"; // scene transition (Info0..5 = target cube/pos)
+    case 1:
+        return "camera";
+    case 2:
+        return "scenaric"; // sets hero ZoneSce = Num -> Life LF_ZONE_OBJ
+    case 3:
+        return "grid";
+    case 4:
+        return "giver"; // gives bonus/item on action inside
+    case 5:
+        return "message";
+    case 6:
+        return "ladder";
+    case 8:
+        return "hit";
+    default:
+        return "?";
+    }
+}
+static void cmd_zonelist(int argc, const char *argv[]) {
+    if (!ListZone || NbZones <= 0) {
+        Console_Print("zonelist: no zones (load a scene first)");
+        return;
+    }
+    int filter = (argc >= 2) ? atoi(argv[1]) : -1;
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    Console_Print("zonelist: %d zone(s) in cube %d; hero @ (%d,%d,%d) ZoneSce=%d", (int)NbZones,
+                  (int)NumCube, (int)hero->Obj.X, (int)hero->Obj.Y, (int)hero->Obj.Z,
+                  (int)hero->ZoneSce);
+    T_ZONE *ptrz = ListZone;
+    for (S32 n = 0; n < NbZones; n++, ptrz++) {
+        if (filter >= 0 && ptrz->Type != filter)
+            continue;
+        int inside = ZonePointInBox(hero->Obj.X, hero->Obj.Y, hero->Obj.Z, ptrz->X0, ptrz->Y0,
+                                    ptrz->Z0, ptrz->X1, ptrz->Y1, ptrz->Z1);
+        Console_Print("  [%2d] %-8s Num=%-4d box=(%d,%d,%d)-(%d,%d,%d) info=%d,%d,%d,%d%s",
+                      (int)n, ZoneTypeName(ptrz->Type), (int)ptrz->Num, (int)ptrz->X0, (int)ptrz->Y0,
+                      (int)ptrz->Z0, (int)ptrz->X1, (int)ptrz->Y1, (int)ptrz->Z1, (int)ptrz->Info0,
+                      (int)ptrz->Info1, (int)ptrz->Info2, (int)ptrz->Info3, inside ? "  <-- HERO" : "");
+    }
+}
+
 /* input <flag[,flag...]> [frames] | input off: hold the given input bits for N frames (default 1),
    so the harness can drive the hero without a keyboard -- e.g. `input up 60` walks forward, `input
    up,left 30` walks while turning. Flags: up down left right action search throw inventory holomap
@@ -1756,6 +1808,11 @@ void Console_RegisterAll(void) {
                               "input <flag[,flag...]> [frames] | input off",
                               "Holds input bits (up/down/left/right/action/search/throw/inventory/holomap "
                               "or 0xNNN) for N frames, so the harness can walk/turn/act the hero.");
+    Console_RegisterCommandEx("zonelist", cmd_zonelist, "List the cube's scene zones (boxes+type)",
+                              "zonelist [type]",
+                              "Prints each ListZone box, Type (cube/camera/scenaric/giver/message/...), "
+                              "Num and Info fields, marking the one the hero is in. The pickup/trigger "
+                              "boxes a walkthrough needs; invisible to --dump-state. Optional type filter.");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
