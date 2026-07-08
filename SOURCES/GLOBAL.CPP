@@ -329,6 +329,9 @@ S32 DbgCubeTrace = 0;
 // so the harness can drive the hero (walk/turn/act) without a keyboard. 0 = none.
 S32 DbgInjectInput = 0;
 S32 DbgInjectInputFrames = 0;
+// Console `skipmodals <0|1>`: abort dialogue modals immediately (as if Esc) so a headless run does
+// not hang on a give/talk dialog. The script continues past the dialog; no quest-state change.
+S32 DbgSkipModals = 0;
 S32 MagicBall = -1;
 U8 MagicBallType = 1;
 U8 MagicBallCount = 3;
