@@ -1570,6 +1570,14 @@ static void cmd_useitem(int argc, const char *argv[]) {
     }
 }
 
+/* cubetrace <0|1>: log every cube transition (island + from -> to cube) as it happens. Run a
+   playthrough (or the demo reel) with it on to trace out the game's cube-to-cube flow map. */
+static void cmd_cubetrace(int argc, const char *argv[]) {
+    if (argc >= 2)
+        DbgCubeTrace = atoi(argv[1]) ? 1 : 0;
+    Console_Print("cubetrace: %s", DbgCubeTrace ? "ON" : "OFF");
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1668,6 +1676,10 @@ void Console_RegisterAll(void) {
                               "useitem <n> [frames] [delay] | useitem trace <0|1>",
                               "Injects InventoryAction=n (drives LF_USE_INVENTORY without menu input); "
                               "'trace 1' logs each result.");
+    Console_RegisterCommandEx("cubetrace", cmd_cubetrace, "Log every cube transition",
+                              "cubetrace <0|1>",
+                              "Logs island + from -> to cube on each ChangeCube, tracing the game's "
+                              "cube-to-cube flow across a playthrough or the demo reel.");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
