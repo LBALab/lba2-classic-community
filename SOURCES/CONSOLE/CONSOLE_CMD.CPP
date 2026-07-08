@@ -16,6 +16,7 @@
 #include "../JOYSTICK.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
+#include "../OBJECT.H" // SetAnim (teleport stops the hero's carried animation)
 #include "../RES_CATALOG.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
@@ -1460,6 +1461,91 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
     }
 }
 
+/* teleport <x> <y> <z> [beta] | teleport actor <n>: reposition the hero in the current cube.
+   Sets ListObjet[NUM_PERSO].Obj coords directly; the next simulated frame re-runs zone detection and
+   collision from the new spot. `teleport actor <n>` jumps onto actor n -- the quick way to reach a
+   zone-gated interaction without walking. Within-cube only (cross-cube needs ChangeCube). */
+static void cmd_teleport(int argc, const char *argv[]) {
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+
+    if (argc >= 3 && !strcasecmp(argv[1], "actor")) {
+        int n = atoi(argv[2]);
+        if (n < 0 || n >= (int)NbObjets) {
+            Console_Print("teleport: actor %d out of range (0..%d)", n, (int)NbObjets - 1);
+            return;
+        }
+        T_OBJET *t = &ListObjet[n];
+        hero->Obj.X = t->Obj.X;
+        hero->Obj.Y = t->Obj.Y;
+        hero->Obj.Z = t->Obj.Z;
+        SetAnim(NUM_PERSO, GEN_ANIM_RIEN); // stop the carried walk anim
+        Console_Print("teleport: hero -> actor %d at (%d,%d,%d)", n, (int)hero->Obj.X, (int)hero->Obj.Y,
+                      (int)hero->Obj.Z);
+        return;
+    }
+
+    if (argc >= 4) {
+        hero->Obj.X = atoi(argv[1]);
+        hero->Obj.Y = atoi(argv[2]);
+        hero->Obj.Z = atoi(argv[3]);
+        if (argc >= 5)
+            hero->Obj.Beta = (S16)atoi(argv[4]);
+        SetAnim(NUM_PERSO, GEN_ANIM_RIEN);
+        Console_Print("teleport: hero -> (%d,%d,%d) beta=%d", (int)hero->Obj.X, (int)hero->Obj.Y,
+                      (int)hero->Obj.Z, (int)hero->Obj.Beta);
+        return;
+    }
+
+    Console_Print("Usage: teleport <x> <y> <z> [beta] | teleport actor <n>");
+}
+
+/* varcube <n> [value] / vargame <n> [value]: read or set a scene (cube) or game Life variable.
+   With no value, prints the current one; with a value, sets it. Lets a console/harness session drive
+   quest state directly -- e.g. arm the flag an NPC's script waits on to reach an interaction stage. */
+static void cmd_varcube(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: varcube <n> [value]  (n = 0..%d)", MAX_VARS_CUBE - 1);
+        return;
+    }
+    S32 n = atoi(argv[1]);
+    if (n < 0 || n >= MAX_VARS_CUBE) {
+        Console_Print("varcube: index %d out of range (0..%d)", n, MAX_VARS_CUBE - 1);
+        return;
+    }
+    if (argc >= 3)
+        ListVarCube[n] = (U8)atoi(argv[2]);
+    Console_Print("varcube[%d] = %d", n, (int)ListVarCube[n]);
+}
+
+static void cmd_vargame(int argc, const char *argv[]) {
+    if (argc < 2) {
+        Console_Print("Usage: vargame <n> [value]  (n = 0..%d)", MAX_VARS_GAME - 1);
+        return;
+    }
+    S32 n = atoi(argv[1]);
+    if (n < 0 || n >= MAX_VARS_GAME) {
+        Console_Print("vargame: index %d out of range (0..%d)", n, MAX_VARS_GAME - 1);
+        return;
+    }
+    if (argc >= 3)
+        ListVarGame[n] = (S16)atoi(argv[2]);
+    Console_Print("vargame[%d] = %d", n, (int)ListVarGame[n]);
+}
+
+/* lifetrace <objN> | off: trace object N's Life script -- its comportement/track/zone state each
+   frame and every condition (LF_*) it evaluates. Reveals whether an NPC's script ever reaches a
+   given check and what its gating conditions read. */
+static void cmd_lifetrace(int argc, const char *argv[]) {
+    if (argc >= 2 && !strcasecmp(argv[1], "off"))
+        DbgLifeTraceObj = -1;
+    else if (argc >= 2)
+        DbgLifeTraceObj = atoi(argv[1]);
+    if (DbgLifeTraceObj >= 0)
+        Console_Print("lifetrace: object %d", DbgLifeTraceObj);
+    else
+        Console_Print("lifetrace: off");
+}
+
 /*──────────────────────────────────────────────────────────────────────────*/
 /* Registration */
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1539,6 +1625,21 @@ void Console_RegisterAll(void) {
                               "Runs the simulation at most once per MS ms of game-time (on = 16). Fixes "
                               "movement speeding up or freezing above 60 fps (vsync off, high-refresh). "
                               "Default on; persists to lba2.cfg (FixedTimestep key).");
+
+    Console_RegisterCommandEx("teleport", cmd_teleport, "Reposition the hero in the current cube",
+                              "teleport <x> <y> <z> [beta] | teleport actor <n>",
+                              "Sets the hero's coords directly; next frame re-runs zones/collision. "
+                              "'actor <n>' jumps onto actor n. Within-cube only.");
+    Console_RegisterCommandEx("varcube", cmd_varcube, "Read/set a scene (cube) Life variable",
+                              "varcube <n> [value]",
+                              "Reads the cube var, or sets it with a value. Drives quest state.");
+    Console_RegisterCommandEx("vargame", cmd_vargame, "Read/set a game Life variable",
+                              "vargame <n> [value]",
+                              "Reads the game var, or sets it with a value. Drives quest/inventory state.");
+    Console_RegisterCommandEx("lifetrace", cmd_lifetrace, "Trace an object's Life script",
+                              "lifetrace <objN> | lifetrace off",
+                              "Logs the object's comportement/track/zone each frame and every LF_ "
+                              "condition it evaluates.");
 
     Console_RegisterCommandEx("perftrace", cmd_perftrace,
                               "Per-frame timing capture (ring buffer, no log spam)",
