@@ -83,6 +83,18 @@ S32 Timer_FixedStepCount(U32 *accMs, U32 elapsedMs, U32 dt, S32 maxSteps);
 // per-frame path, byte-for-byte). dt <= 0 (throttle off) returns 1 and leaves lastSim alone.
 S32 Timer_PlanSimSteps(U32 now, U32 lastSim, S32 dt, S32 maxSteps, U32 *baseRefOut, U32 *lastSimOut);
 
+// Promote a throttle-skip into a single delivered step when a one-frame game event is pending
+// this frame (issue #358). `plannedSteps` is Timer_PlanSimSteps' result; `pending` is non-zero
+// when the caller has a discrete event that the object loop must consume this frame (an inventory
+// item used this frame, consumed by LF_USE_INVENTORY in DoLife). If the frame already runs a step
+// (plannedSteps > 0) or nothing is pending, the plan is returned untouched. Otherwise the skip is
+// promoted to one step at `now`: the sub-step grid is re-anchored to `now - dt` (so the step runs
+// at `now`) and `*lastSimOut` to `now`, so the event is delivered without the throttle swallowing
+// it on high-refresh displays. Pure and unit-tested; the main loop's event-delivery guard lives
+// here rather than in the throttle math. See SOURCES/PERSO.CPP and docs/MOVEMENT_FRAMERATE.md.
+S32 Timer_ForceStepIfPending(S32 plannedSteps, S32 pending, U32 now, S32 dt, U32 *baseRefOut,
+                             U32 *lastSimOut);
+
 void ManageTime();
 void HandleEventsTimer(const void *event);
 
