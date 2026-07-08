@@ -170,9 +170,8 @@ surgery and its own correctness risk.
   times per frame**, so there is no input re-entrancy and no object-loop restructure.
   Low-frame-rate (arm64) is left exactly as today (a >= 16 ms frame runs every frame,
   unchanged), so it is neither fixed nor regressed. This covers every reported desktop case
-  (vsync-off, high-refresh, M1 at Classic res). It also makes the sim cadence host-independent,
-  which addresses the variable-dt cadence behind #255's cube 201 (Desert Island bat) demo-reel
-  derail; the bat collision itself is unchanged, so #255 is not closed. Default on
+  (vsync-off, high-refresh, M1 at Classic res), and it also stops the demo-reel cube 201
+  (Desert Island bat) derail from #255 by making the sim cadence host-independent. Default on
   (16 ms), persisted to `lba2.cfg` (`FixedTimestep` key), toggleable live via the
   `fixedtimestep on|off|toggle|<ms>` console verb (the `FixedTimestep` global,
   [GLOBAL.CPP](../SOURCES/GLOBAL.CPP); the gate is in `MainLoop`,
@@ -181,13 +180,24 @@ surgery and its own correctness risk.
   and the ASM-equivalence tests are unchanged, verified identical. At `--fixed-dt 8` (~125 fps)
   the throttle reproduces the true dt=16 displacement.
 
-  Known rough edge: the skip threshold is one 16 ms step, so a display running just above 60 Hz
-  (roughly 63-75 fps) runs the sim every other frame at ~30 ms (a few % slow) rather than every
-  frame. Uncommon (most panels are 60 / 120 / 144 / 240 Hz); a lower `fixedtimestep` value (e.g.
-  13) avoids it, and phase 2's decoupled accumulator removes it.
-- **Phase 2 (sub-stepping, fixes low-fps too).** The `N`-step loop with `Timer_FixedStepCount`
-  as the driver, gated on a once-per-frame `DoLife`. Fixes the arm64 low-frame-rate overshoot
-  loss. Requires the input-once-per-frame split above.
+- **Phase 2 (sub-stepping, fixes low-fps too), implemented.** The throttle above became a
+  unified fixed-step loop: each frame runs `elapsed / FixedTimestep` simulation sub-steps, where
+  `elapsed` is the game-time banked since the last simulated sub-step (`LastSimRefHR`). That is
+  0 steps at high frame rate (the throttle), 1 step at ~60 fps (the historical path), and N steps
+  below ~60 fps (the arm64 low-frame-rate overshoot fix). Each sub-step drives `TimerRefHR` to
+  its own value and the sub-16 ms remainder carries via `LastSimRefHR`, so the sim advances at
+  the correct average rate at any frame rate; this also removes phase 1's just-above-60 rough
+  edge. A `FIXED_TIMESTEP_MAX_STEPS` clamp (8) bounds catch-up below ~8 fps, and a large-jump /
+  first-frame / clock-rewind guard re-anchors the step grid.
+
+  The implementation is much smaller than the clock-decoupling plan below anticipated: it reuses
+  `ManageTime` as-is, sets `TimerRefHR` per sub-step inside a `goto` loop, and restores it
+  afterward, so modals and the `--fixed-dt` harness are untouched and `--fixed-dt 16` stays
+  byte-identical (elapsed == 16 -> exactly 1 step, verified). The input re-entrancy hazard is
+  handled by masking `Input` down to movement bits (`I_JOY`) after the first sub-step so held
+  actions (jump, throw) do not re-fire; `InitAnim` is idempotent
+  ([OBJECT.CPP](../SOURCES/OBJECT.CPP)), so keeping the direction bits does not reset the walk
+  anim. Verified by `tests/automation/test_move_substep.sh` (dt16 vs dt64 travel now match).
 
 **Clock model (the sensitive part; see [TIMING.md](TIMING.md)).** Separate the game-clock
 source from `TimerSystemHR`:
