@@ -717,7 +717,7 @@ void FadePalToPal(U8 *ptrpal, U8 *ptrpal1) {
     do {
         S32 n;
 
-        Timer_FixedDtPump(); // non-presenting palette-fade wait: step the virtual clock under fixed-dt
+        Timer_FixedDtPump(); // step the virtual clock under fixed-dt (as the other fade loops do)
         ManageTime();
 
         delta = TimerSystemHR - starttime;
@@ -731,7 +731,14 @@ void FadePalToPal(U8 *ptrpal, U8 *ptrpal1) {
             workpal[n * 3 + 2] = (U8)RegleTrois(ptrpal[n * 3 + 2], ptrpal1[n * 3 + 2], FADE_DELAY, delta);
         }
 
+        // Present each ramp step, like FadePal. PaletteSync alone only rebuilds the
+        // palette LUT; under SDL nothing repaints until the next BoxBlit, so without
+        // this the lit-to-lit crossfade is invisible and snaps to the target palette
+        // on the next unrelated present. BoxBlit (present only, no BoxClean) keeps the
+        // composited Log intact, matching the DOS palette-write behaviour.
         PaletteSync(workpal);
+        BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
+        BoxBlit();
     } while (delta != FADE_DELAY);
 
     RestoreTimer();
