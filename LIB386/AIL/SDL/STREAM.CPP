@@ -136,6 +136,15 @@ static int SDLCALL DecodeThreadFunc(void *userdata) {
         totalShorts += chunkShorts;
     }
 
+    /* All of the track's PCM has been pushed. Signal end-of-input so SDL's
+       device-format converter emits its held tail; otherwise SDL_GetAudioStreamQueued
+       sticks a few bytes above 0 forever (the device format differs from the source,
+       so a converter sits in the path) and the stream never reports EOF -- which
+       stalls the deferred-music switch (#406). Only on a natural finish: if we were
+       stopped mid-decode the stream is being torn down anyway. */
+    if (!SDL_GetAtomicInt(&decodeStop) && stream)
+        SDL_FlushAudioStream(stream);
+
     stb_vorbis_close(d->vorbis);
 
     if (!SDL_GetAtomicInt(&decodeStop) && d->cacheResult && fullPcm && totalShorts > 0) {
@@ -343,6 +352,7 @@ static bool PlayOggFile(const char *oggPath, S32 startFrame) {
         Uint32 playBytes = oggCache.numBytes - offsetBytes;
         SDL_PutAudioStreamData(stream, oggCache.pcm + offsetBytes / sizeof(short), playBytes);
         SDL_AddAtomicInt(&streamPushedBytes, (int)playBytes);
+        SDL_FlushAudioStream(stream); // all input pushed -> let the converter drain to 0 at EOF (#406)
         return true;
     }
 
@@ -430,6 +440,7 @@ static bool SetupWavStream(const SDL_AudioSpec *spec, const Uint8 *wavData,
     }
     SDL_PutAudioStreamData(stream, wavData + offsetBytes, wavLen - offsetBytes);
     SDL_AddAtomicInt(&streamPushedBytes, (int)(wavLen - offsetBytes));
+    SDL_FlushAudioStream(stream); // all input pushed -> let the converter drain to 0 at EOF (#406)
     return true;
 }
 
@@ -740,6 +751,10 @@ S32 IsStreamPlaying() {
         return FALSE;
     if (SDL_GetAtomicInt(&decodeActive))
         return TRUE;
+    /* The stream is fully pushed and flushed (see PlayOggFile / SetupWavStream /
+       DecodeThreadFunc), so once the device has consumed everything the queue reaches
+       0 and the track is done. Without the flush the device-format converter would
+       hold a few bytes here forever and the stream would never report EOF (#406). */
     int queued = SDL_GetAudioStreamQueued(stream);
     if (queued <= 0) {
         StopStreamInternal();
