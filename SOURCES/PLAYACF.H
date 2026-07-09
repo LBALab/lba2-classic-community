@@ -40,6 +40,11 @@ extern S32 GetNumAcf(const char *name);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 extern void PlayAllAcf(void);
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+/* Contract: PlayAcf fades the video out and leaves the screen BLACK on return
+   (SetBlackPal, FlagBlackPal=TRUE). The caller must reveal the next screen --
+   in-game via FlagFade + AffScene (LM_PLAY_ACF / TM_PLAY_ACF etc.), or by its own
+   FadeToPal (menu win-screen, console preview). A caller that neither fades in nor
+   restores will sit on black. */
 extern S32 PlayAcf(const char *name);
 /* Harness hook: arm a one-shot screenshot inside the next PlayAcf call.
    PlayAcf saves the Log buffer to <path> on the first composited cinema
