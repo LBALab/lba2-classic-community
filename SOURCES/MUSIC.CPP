@@ -489,14 +489,29 @@ void FadeInVolumeMusic(void) {
 
 void CheckNextMusic(void) {
     if (NextMusic != -1) {
-        if (TimerRefHR > NextMusicTimer) {
-            // #355: force the switch (playit=TRUE) once the defer window has elapsed. A
-            // soft PlayMusic(FALSE) here re-defers whenever the current track is still
-            // playing, so with looping area music the queued track never gets to play.
-            // Forcing replaces the current track, matching the intent of the queue:
-            // defer briefly (TEST_MUSIC_TEMPO) so a quick pass-through doesn't cut the
-            // music, then take over.
-            PlayMusic(NextMusic, TRUE);
+        // Retail parity (#406): after the defer window elapses, don't hard-cut the
+        // current track -- let it play out and start the queued one only once it has
+        // finished. IsStreamPlaying() reports EOF (and detaches the spent stream), so
+        // the switch fires cleanly the moment the current track ends.
+        //
+        // Drain with playit=FALSE (soft), not TRUE. The gate already guarantees the
+        // current stream has ended, so GetMusic() is 0 and the soft path plays the
+        // queued track immediately instead of re-deferring -- it still takes over
+        // (the intent of #355). The point of FALSE is that it leaves StopLastMusic
+        // clear, marking the queued track as an ordinary (soft) cube jingle. That
+        // matters on the NEXT cube change: ChangeCube() does `if (StopLastMusic)
+        // StopMusic()` (OBJECT.CPP), so a forced (TRUE) drain would get the queued
+        // jingle hard-stopped almost immediately in the next area and the deferred
+        // "play out, then switch" chain would only ever work for the first hop.
+        //
+        // #355 forced here because a soft re-defer looped forever when GetMusic()
+        // could not observe EOF (the jingle-layout stale-StreamName bug: IsCDPlaying()
+        // short-circuits on cdPlaying==0, so the finished-stream teardown never ran and
+        // a spent jingle looked like it was still playing). The IsStreamPlaying() gate
+        // removes that reason, so FALSE is both sufficient (still plays) and correct
+        // (keeps the soft-jingle semantics ChangeCube depends on).
+        if (TimerRefHR > NextMusicTimer AND !IsStreamPlaying()) {
+            PlayMusic(NextMusic, FALSE);
         }
     }
 }
