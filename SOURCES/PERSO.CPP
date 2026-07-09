@@ -1933,16 +1933,29 @@ restartloop:
             U32 nextLastSim;
             nSimSteps = Timer_PlanSimSteps(TimerRefHR, LastSimRefHR, FixedTimestep,
                                            FIXED_TIMESTEP_MAX_STEPS, &simBaseRef, &nextLastSim);
-            /* Deliver a one-frame inventory-use event even on a throttle-skip frame. InventoryAction
-               is set above this frame by MenuInventory, cleared at the top of every loop, and
-               consumed by LF_USE_INVENTORY in DoLife below. On high-refresh displays most frames
-               skip the sim, so without this the event is wiped before any simulated frame reads it
-               and a quest item-use (the ferry ticket, the Balsam flower, the Wizard Diploma)
-               silently fails (#358 regression, softlocks the Peddler). Promotes a would-skip frame
-               to a single step; a no-op when a step already runs or nothing is pending, so the
-               throttle and its --fixed-dt 16 byte-for-byte guarantee are otherwise untouched. */
-            nSimSteps = Timer_ForceStepIfPending(nSimSteps, InventoryAction >= 0, TimerRefHR,
-                                                 FixedTimestep, &simBaseRef, &nextLastSim);
+            /* Force a real sim step on a would-skip frame when it carries a one-frame signal that a
+               later, non-skipped frame cannot recover:
+
+                 - InventoryAction: a quest item-use set by MenuInventory, cleared at the top of
+                   every loop and consumed by LF_USE_INVENTORY in DoLife below. On high-refresh
+                   displays most frames skip the sim, so without this the event is wiped before any
+                   simulated frame reads it and a quest item-use (the ferry ticket, the Balsam
+                   flower, the Wizard Diploma) silently fails (#358 regression, softlocks the Peddler).
+
+                 - FirstTime == AFF_ALL_FLIP: a full-scene flip (scene load / CAM_FOLLOW). DoLife
+                   runs this frame and reads FirstTime; AffScene(FirstTime) below then consumes it and
+                   the tail resets FirstTime to AFF_OBJETS_FLIP. If the flip frame is skipped, AffScene
+                   still runs and resets FirstTime, so the deferred DoLife reads the stale value a
+                   frame later -- e.g. the demo behaviour menu (LM_COMPORTEMENT_HERO), suppressed
+                   while FirstTime == AFF_ALL_FLIP, then leaks over scene setup. Forcing the flip
+                   frame to step keeps DoLife and AffScene on the same frame.
+
+               Promotes a would-skip frame to a single step; a no-op when a step already runs or
+               nothing is pending, so the throttle and its --fixed-dt 16 byte-for-byte guarantee are
+               otherwise untouched. */
+            nSimSteps = Timer_ForceStepIfPending(nSimSteps,
+                                                 (InventoryAction >= 0) || (FirstTime == AFF_ALL_FLIP),
+                                                 TimerRefHR, FixedTimestep, &simBaseRef, &nextLastSim);
             LastSimRefHR = nextLastSim;
             if (nSimSteps <= 0)
                 goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)
