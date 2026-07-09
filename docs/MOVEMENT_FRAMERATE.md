@@ -199,10 +199,13 @@ surgery and its own correctness risk.
   ([OBJECT.CPP](../SOURCES/OBJECT.CPP)), so keeping the direction bits does not reset the walk
   anim. Verified by `tests/automation/test_move_substep.sh` (dt16 vs dt64 travel now match).
 
-**One-frame signals on a skipped frame.** A skip runs no simulation but still presents a frame,
-so anything that must be *read by the sim on the exact frame it is set* is lost when that frame
-skips. `Timer_ForceStepIfPending` promotes a would-skip frame to a single step when such a signal
-is pending, keeping the producer and consumer on the same frame. Two known signals:
+**One-frame signals on a skipped frame -- the invariant.** A skip runs no simulation but still
+presents a frame, so anything that must be *read/observed by the sim on the exact frame it changes*
+is lost when that frame skips. The rule that keeps this class from recurring: **the throttle may
+skip a frame only when it is a true no-op for the sim** -- nothing discrete happened on it.
+`Timer_ForceStepIfPending` enforces that by promoting a would-skip frame to a single step when a
+discrete signal is pending, keeping the producer and consumer on the same frame. The pending
+conditions:
 
 - **A one-frame inventory-use** (`InventoryAction`, set by `MenuInventory`, read by
   `LF_USE_INVENTORY` in `DoLife`). Without the promotion a quest item-use is wiped before any
@@ -215,8 +218,23 @@ is pending, keeping the producer and consumer on the same frame. Two known signa
   demo's behaviour menu (`LM_COMPORTEMENT_HERO`, suppressed while `FirstTime == AFF_ALL_FLIP`)
   popping over scene setup once the throttle defaulted on. Covered by
   `tests/automation/test_demo_behaviour_menu.sh`.
+- **A hero action/fire input edge** (`(Input ^ LastInput) & I_ACTION_EDGE`). The object loop that
+  drives the hero is edge-triggered on these bits -- a melee/weapon attack starts on the *press*
+  edge, weapon fire stops on the *release* edge -- but it runs only on simulated frames, while
+  `LastInput` advances every rendered frame. A press/release landing on a skipped frame is never
+  observed, so the blowgun keeps firing on its own and melee never starts while moving (#407,
+  same class, reported on keyboard and pad alike). Promoting the edge frame keeps the transition on
+  a simulated frame. Movement (`I_JOY`) is deliberately *excluded* from `I_ACTION_EDGE`: it is held
+  state the throttle is correct to skip, and forcing a step on every walk change would defeat the
+  frame-rate fix. Covered by `tests/automation/test_blowgun_release_throttle.sh`.
 
-Both are no-ops under `--fixed-dt 16` (that path never skips), so the goldens are untouched.
+All are no-ops under `--fixed-dt 16` (that path never skips), so the goldens are untouched.
+
+> A more robust structure -- running the sim at a fixed 60 Hz and *interpolating* skipped render
+> frames, with input latched across the gap (canonical "fix your timestep") -- would end this
+> dropped-signal class outright and remove the high-refresh stutter too, but it is not byte-exact
+> and needs its own re-baselining. Tracked in #412; the force-step promotion is the low-risk,
+> byte-exact containment.
 
 **Clock model (the sensitive part; see [TIMING.md](TIMING.md)).** Separate the game-clock
 source from `TimerSystemHR`:
