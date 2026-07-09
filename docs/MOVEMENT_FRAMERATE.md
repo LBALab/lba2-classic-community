@@ -199,6 +199,25 @@ surgery and its own correctness risk.
   ([OBJECT.CPP](../SOURCES/OBJECT.CPP)), so keeping the direction bits does not reset the walk
   anim. Verified by `tests/automation/test_move_substep.sh` (dt16 vs dt64 travel now match).
 
+**One-frame signals on a skipped frame.** A skip runs no simulation but still presents a frame,
+so anything that must be *read by the sim on the exact frame it is set* is lost when that frame
+skips. `Timer_ForceStepIfPending` promotes a would-skip frame to a single step when such a signal
+is pending, keeping the producer and consumer on the same frame. Two known signals:
+
+- **A one-frame inventory-use** (`InventoryAction`, set by `MenuInventory`, read by
+  `LF_USE_INVENTORY` in `DoLife`). Without the promotion a quest item-use is wiped before any
+  simulated frame reads it (#358, softlocks the Peddler). Covered by
+  `tests/automation/test_item_use_throttle.sh`.
+- **A full-scene flip** (`FirstTime == AFF_ALL_FLIP`, set on scene load / `LM_CAM_FOLLOW`).
+  `DoLife` reads `FirstTime` this frame; `AffScene(FirstTime)` then consumes it and the loop tail
+  resets it to `AFF_OBJETS_FLIP`. If the flip frame skips, `AffScene` still resets it, so a
+  `DoLife` deferred to the next frame reads the stale value. The visible symptom was the attract
+  demo's behaviour menu (`LM_COMPORTEMENT_HERO`, suppressed while `FirstTime == AFF_ALL_FLIP`)
+  popping over scene setup once the throttle defaulted on. Covered by
+  `tests/automation/test_demo_behaviour_menu.sh`.
+
+Both are no-ops under `--fixed-dt 16` (that path never skips), so the goldens are untouched.
+
 **Clock model (the sensitive part; see [TIMING.md](TIMING.md)).** Separate the game-clock
 source from `TimerSystemHR`:
 
