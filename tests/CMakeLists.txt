@@ -45,6 +45,7 @@ add_subdirectory(disc_image)
 add_subdirectory(cue)
 add_subdirectory(render)
 add_subdirectory(movement)
+add_subdirectory(zone)
 
 if(LBA2_BUILD_ASM_EQUIV_TESTS)
 include(cmake/asm_test_helpers.cmake)
