@@ -501,8 +501,16 @@ void FadePal(U8 r, U8 v, U8 b, U8 *ptrpal, S32 scale) {
     }
 
     PaletteSync(workpal);
+    // Re-present the composited Log at the ramped palette. On DOS the palette
+    // write alone re-tinted the live framebuffer, so the fade acted on whatever
+    // was on screen (terrain + actors). Under SDL PaletteSync does not repaint,
+    // so we re-blit the whole frame. Use BoxBlit (present only), NOT BoxUpdate:
+    // BoxUpdate also runs BoxClean, whose Screen->Log restore wipes the moving
+    // (actor/object) boxes out of Log, so every fade would drop the object layer
+    // and only fade the terrain -- actors vanish at fade-out start and pop in
+    // after fade-in. The next real AffScene recycles the box lists as usual.
     BoxStaticAdd(0, 0, (S32)(ModeDesiredX - 1), (S32)(ModeDesiredY - 1));
-    BoxUpdate();
+    BoxBlit();
 }
 
 //──────────────────────────────────────────────────────────────────────────

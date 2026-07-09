@@ -88,6 +88,13 @@ S32 LoadScene(S32 numscene) {
         FadeToBlackAndSamples(PtrPal);
         HQ_StopSample();
 
+        // The fade is now a pure presenter (it no longer recycles the moving
+        // box list), so it leaves the old cube's actor boxes in pBoxMovingList.
+        // Cls() blacks Log but does not touch that list, so the BoxUpdate below
+        // would BoxClean stale old-cube rects (a Screen->Log restore at bogus
+        // coordinates). Reset the lists first: Log is about to be all black, so
+        // there is nothing dirty to preserve.
+        BoxReset();
         Cls();
         BoxUpdate();
     }
