@@ -386,23 +386,6 @@ S32 PlayAcf(const char *name) {
         StopMusic();
         HQ_PauseSamples();
 
-        /* Save current screen and palette so we can restore after playback (fix black screen). */
-        const U32 logSize = (U32)(ModeDesiredX * ModeDesiredY);
-        const U32 palSize = 768;
-        U8 *savedLog = (U8 *)malloc(logSize + palSize);
-        if (!savedLog) {
-            if (VideoLogIsEnabled())
-                SDL_Log("[VIDEO] PlayAcf: malloc failed for screen save");
-            HQ_ResumeSamples();
-            s_playacf_playing = 0;
-            return 0;
-        }
-        U8 *savedPal = savedLog + logSize;
-        if (Log && PtrPal) {
-            memcpy(savedLog, Log, logSize);
-            memcpy(savedPal, PtrPal, palSize);
-        }
-
         U8 *decompbuf = (U8 *)LoadMalloc_HQR(PathAcf, n);
         U32 size = LoadMallocFileSize;
         if (!size) {
@@ -550,15 +533,21 @@ S32 PlayAcf(const char *name) {
             }
 
             ReadNextVideoFrame(smkObject, cineOrigin, ModeDesiredX, &pal);
-            if (pal)
+            if (pal) {
+                // The video is on screen with its own palette; clear FlagBlackPal so
+                // the engine state matches (SetBlackPal at entry left it TRUE). The
+                // tail FadeToBlack() below early-returns when FlagBlackPal is set, so
+                // without this the video would cut, not fade, at its end.
+                FlagBlackPal = FALSE;
                 PaletteSync(pal);
+            }
 
             /* Harness one-shot capture — saves a composited frame past the
                cinematic's initial fade-in (frame 0 is uniformly black for the
                INTRO smk; we pick a later frame so the golden is meaningful
-               regardless of whether audio init / pre-fill is enabled). The
-               cleanup at fin_play restores Log from savedLog, but the on-disk
-               PNG already holds the cinematic frame. */
+               regardless of whether audio init / pre-fill is enabled). The PNG is
+               written here from Log, so the fade-to-black at fin_play doesn't
+               affect it. */
             if (s_video_capture_path[0] && c >= 25u) {
                 SavePNG(s_video_capture_path, Log, (S32)ModeDesiredX,
                         (S32)ModeDesiredY, pal ? pal : PtrPal);
@@ -621,19 +610,27 @@ S32 PlayAcf(const char *name) {
 
     fin_play:
         StopVideoAudio();
+
+        /* `pal` points into the smk struct (smk_get_palette returns an inline member),
+           so copy it out before smk_close frees that struct -- FadeToBlack below reads
+           all 768 bytes. Fall back to PtrPal if the first frame never decoded. */
+        U8 lastFramePal[768];
+        memcpy(lastFramePal, pal ? pal : PtrPal, sizeof(lastFramePal));
+
         smk_close(smkObject);
         Free(decompbuf);
 
-        /* Restore screen and palette so we don't leave a black screen. */
-        if (savedLog && Log && PtrPal) {
-            memcpy(Log, savedLog, logSize);
-            memcpy(PtrPal, savedLog + logSize, palSize);
-            PaletteSync(PtrPal);
-        }
-        if (savedLog)
-            free(savedLog);
-
+        /* Original contract: fade the video out to black and leave the screen black,
+           so the scene load stays hidden and the caller's fade-in (FlagFade) reveals
+           the next scene. The port used to restore the pre-video scene bright here
+           ("so we don't leave a black screen"), which un-blacked the screen under
+           every LM_PLAY_ACF / TM_PLAY_ACF / menu-FMV caller and flashed the scene one
+           frame before the fade-in (#404). */
+        FadeToBlack(lastFramePal);
+        Cls();
         BoxStaticFullflip();
+        SetBlackPal();
+
         HQ_ResumeSamples();
         InitWaitNoKey();
         InitWaitNoInput(I_MENUS);
