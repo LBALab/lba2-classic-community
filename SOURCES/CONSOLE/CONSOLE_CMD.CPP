@@ -320,9 +320,11 @@ static void cmd_ui_dispatch(int argc, const char *argv[]) {
         /* PlayAcf opens an ACF / Smacker cinematic by name and runs the
            playback loop until end-of-file, ESC, or I_MENUS input.
            Video_RequestCapture arms a one-shot SavePNG inside the loop
-           after the first composited frame, then exits via PlayAcf's
-           fin_play cleanup (which restores Log + palette).  Useful for
-           regression-testing widescreen centring of cutscenes. */
+           after the first composited frame; the PNG is written from Log
+           before PlayAcf's tail, so the capture is unaffected by it.
+           PlayAcf leaves the screen black on exit (its contract) -- fine
+           for this headless capture verb. Useful for regression-testing
+           widescreen centring of cutscenes. */
         Video_RequestCapture(argv[3]);
         PlayAcf(argv[2]);
         Console_Print("ui video %s -> %s", argv[2], argv[3]);
@@ -590,14 +592,36 @@ static void cmd_give(int argc, const char *argv[]) {
 
 static void cmd_playvideo(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("Usage: playvideo <name>");
+        Console_Print("Usage: playvideo <name>  (a video name -- see listvideos)");
         return;
     }
+    // Validate the name up front (PlayAcf returns 0 for both "not found" and normal
+    // completion, so its return can't distinguish them).
+    if (GetNumAcf(argv[1]) < 0) {
+        Console_Print("playvideo: no video named '%s' (run listvideos for names)", argv[1]);
+        return;
+    }
+    /* Preview: PlayAcf leaves the screen black on return (its contract -- callers
+       reveal via their own fade-in). A bare preview has no such caller, so it
+       snapshots the pre-video screen and fades it back, like cmd_credits. Refuse if we
+       can't snapshot rather than run PlayAcf's Cls and strand the screen on black. */
+    if (!Log) {
+        Console_Print("playvideo: no framebuffer");
+        return;
+    }
+    const U32 bufSize = (U32)(ModeDesiredX * ModeDesiredY);
+    U8 *savedLog = (U8 *)malloc(bufSize);
+    if (!savedLog) {
+        Console_Print("playvideo: out of memory for screen snapshot");
+        return;
+    }
+    memcpy(savedLog, Log, bufSize);
     Console_Close();
-    if (PlayAcf(argv[1]) >= 0)
-        Console_Print("Playing video: %s", argv[1]);
-    else
-        Console_Print("Video not found: %s", argv[1]);
+    PlayAcf(argv[1]);
+    memcpy(Log, savedLog, bufSize);
+    free(savedLog);
+    FadeToPal(PtrPal); // PtrPal is unchanged by a bare PlayAcf; fade the screen back in
+    Console_Print("Playing video: %s", argv[1]);
 }
 
 static void cmd_credits(int argc, const char *argv[]) {
