@@ -1950,11 +1950,20 @@ restartloop:
                    while FirstTime == AFF_ALL_FLIP, then leaks over scene setup. Forcing the flip
                    frame to step keeps DoLife and AffScene on the same frame.
 
+                 - A hero action/fire input EDGE ((Input ^ LastInput) & I_ACTION_EDGE): melee,
+                   weapon fire and dodge are edge-triggered by the object loop -- a new attack
+                   starts on the press edge, weapon fire stops on the release edge -- but that loop
+                   runs only on simulated frames while LastInput advances every rendered frame
+                   (above). A press/release landing on a skipped frame is never seen, so the blowgun
+                   keeps firing on its own and melee never starts while moving (#407). Movement
+                   (I_JOY) is deliberately excluded: it is held state the throttle is correct to
+                   skip, and forcing a step on every walk change would defeat the frame-rate fix.
+
                Promotes a would-skip frame to a single step; a no-op when a step already runs or
                nothing is pending, so the throttle and its --fixed-dt 16 byte-for-byte guarantee are
                otherwise untouched. */
             nSimSteps = Timer_ForceStepIfPending(nSimSteps,
-                                                 (InventoryAction >= 0) || (FirstTime == AFF_ALL_FLIP),
+                                                 (InventoryAction >= 0) || (FirstTime == AFF_ALL_FLIP) || (((Input ^ LastInput) & I_ACTION_EDGE) != 0),
                                                  TimerRefHR, FixedTimestep, &simBaseRef, &nextLastSim);
             LastSimRefHR = nextLastSim;
             if (nSimSteps <= 0)

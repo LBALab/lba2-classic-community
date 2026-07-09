@@ -55,6 +55,15 @@
 #define I_FIRE (I_ACTION_M | I_INVENTORY | I_RETURN | I_THROW | I_COMPORTEMENT)
 #define I_ACTION (I_ACTION_M | I_ACTION_ALWAYS)
 
+// Hero discrete-action input bits that the throttled object loop (OBJECT.CPP MOVE_MANUAL)
+// consumes as EDGES, not held state: a melee/weapon attack starts on the press edge and weapon
+// fire stops on the release edge. Unlike movement (I_JOY) -- held state the fixed-timestep sim
+// throttle is correct to skip -- a dropped action/fire edge sticks: the blowgun keeps firing,
+// melee never starts (#407). So the throttle must not skip a frame whose input changed here (see
+// I_ACTION_EDGE use in PERSO.CPP MainLoop). I_FIRE is included because the object loop's stop/idle
+// reset also keys off an I_FIRE change (LastMyFire).
+#define I_ACTION_EDGE (I_ACTION | I_THROW | I_ESQUIVE | I_FIRE)
+
 #define ALL_INPUTS (0xFFFFFFFFL)
 
 // Input
