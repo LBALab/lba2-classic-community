@@ -18,6 +18,7 @@ Index of documentation in this repository.
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 | [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |
 | [TIMING.md](TIMING.md) | Engine timing: TimerSystemHR vs TimerRefHR, LockTimer vs SaveTimer semantics, ManageTime call sites, fixed-dt overlay, and the 1997 `ManageTime` bug history. |
+| [TRANSITIONS.md](TRANSITIONS.md) | Scene and FMV transitions: the fade-out / load / fade-in reveal, why the palette must be black when a scene is composited, `PlayAcf`'s leave-black contract, the `FlagFade`/`FlagBlackPal` state, and the pop regression classes (#353/#404). |
 | [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md) | Why movement speed is frame-rate dependent (#358): animation-baked locomotion, the two couplings in `ObjectSetInterDep`, evidence, and the fixed-simulation-timestep fix. |
 | [SPRITES.md](SPRITES.md) | Sprite system: UI / world-extra / 3D-anim lanes, `ScaleSprite` vs `ScaleSpriteTransp`, perspective scale (`CalculeScaleFactorSprite`), sort-tree integration. Magic-ball case study. |
 | [LBA_EDITOR.md](LBA_EDITOR.md) | What `LBA_EDITOR`/`PERSO` paths still do: editor capabilities, runtime hooks, and likely missing pieces. |
