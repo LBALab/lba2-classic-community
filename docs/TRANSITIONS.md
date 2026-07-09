@@ -206,6 +206,13 @@ two failure modes are:
   collapses to one step across a load. Time fades on `TimerSystemHR`.
 - **Un-blacked screen** (#404): a caller or `PlayAcf` leaves a lit palette when the
   new scene is first composited. Keep the palette black through the composite.
+- **Object-layer wipe during a fade** (#417): `FadePal` re-presented each ramp step
+  with `BoxUpdate`, whose inner `BoxClean` restores the clean, actor-less `Screen`
+  backdrop over the moving (actor/sprite) boxes in `Log`. So the first fade step
+  erased the composited object layer and the ramp faded terrain only: actors
+  vanished at fade-out start and popped in after fade-in, on every scene load.
+  Fixed by re-presenting with `BoxBlit` (present only). The rule: a fade re-presents
+  the composited `Log`, it must never run `BoxClean` on the frame it is ramping.
 - **Letterbox timer** (#354): the cutscene black bars (`FixeCinemaMode`, a clip
   window, not a palette fade) stuck then snapped; same subsystem, different
   mechanism.
