@@ -4001,7 +4001,11 @@ S32 MainGameMenu(S32 load) {
                 PlayAcf("BABY");
                 Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
                 CopyScreen(Screen, Log);
-                BoxStaticFullflip();
+                // PlayAcf now leaves the screen black (original contract). Reveal the
+                // win screen with its palette, the same PtrPalNormal the menu is drawn
+                // with above; without this the composited image would present black.
+                PtrPal = PtrPalNormal;
+                FadeToPal(PtrPalNormal);
                 EscTimer = 0;
 #endif
                 break;
