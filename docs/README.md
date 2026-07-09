@@ -69,6 +69,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 
 | Doc | Description |
 |-----|-------------|
+| [BIT_EXACTNESS.md](BIT_EXACTNESS.md) | What "bit exact" / "byte identical" actually means here: the three kinds (format contract, ASM-parity oracle, regression tripwire), when byte-identity is the goal vs a proxy, and the rule for when a byte diff is acceptable. |
 | [CONTROLLER.md](CONTROLLER.md) | Manual camera (orbit, elevation, zoom) and the input sources that drive it: keyboard, mouse, gamepad. |
 | [FEATURE_WORKFLOW.md](FEATURE_WORKFLOW.md) | Reasoning and docs for big features: console commands, headless mode, menu changes, camera. |
 | [AUDIO.md](AUDIO.md) | Audio system: AIL contract, SDL backend, sound scripting patterns, known issues. |
