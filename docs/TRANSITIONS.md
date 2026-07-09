@@ -52,7 +52,8 @@ brightness"). Fades must ramp on `TimerSystemHR`.
 
 All ramp on `TimerSystemHR` via `Timer_FixedDtPump()` + `ManageTime()`, and drive
 `FadePal`, which builds one interpolated palette (`RegleTrois`) and pushes it with
-`PaletteSync` + `BoxUpdate` (i.e. it presents one frame per step).
+`PaletteSync` + `BoxBlit` (i.e. it presents one frame per step). `BoxBlit` is
+present-only, deliberately not `BoxUpdate` -- see the object-layer-wipe class below.
 
 | Function | Does |
 | --- | --- |
@@ -60,9 +61,9 @@ All ramp on `TimerSystemHR` via `Timer_FixedDtPump()` + `ManageTime()`, and driv
 | `FadeToPal(pal)` | Ramp black up to `pal`. Clears `FlagBlackPal`. |
 | `FadeToBlackAndSamples(pal)` | `FadeToBlack` + ramp SFX volume down + `PauseSamples`. The scene-transition / FMV variant. |
 | `FadeToPalAndSamples(pal)` | `FadeToPal` + resume/ramp SFX volume up. The reveal variant `AffScene` calls for `FlagFade`. |
-| `FadePal(r,g,b,pal,scale)` | One frame: interpolate every colour between `(r,g,b)` and `pal` at `scale/FADE_DELAY`, `PaletteSync`, present. |
+| `FadePal(r,g,b,pal,scale)` | One frame: interpolate every colour between `(r,g,b)` and `pal` at `scale/FADE_DELAY`, `PaletteSync`, then `BoxBlit` (present only). |
 | `SetBlackPal()` | Force the hardware palette to all-black immediately (no ramp) and set `FlagBlackPal`. |
-| `FadePalToPal(a,b)` | Cross-fade palette `a` to `b` (used by `FadeToPalIndex` for a lit-to-lit change). |
+| `FadePalToPal(a,b)` | Cross-fade palette `a` to `b` (used by `FadeToPalIndex` / the `LM_FADE_TO_PAL` script opcode for a lit-to-lit change). Presents each step via `BoxBlit`, like `FadePal` (#418). |
 | `WhiteFade` / `FadeWhiteToPal` | White-flash variants (special effects, not the normal transition path). |
 | `ChoicePalette()` | Load the cube's `.XPL` palette and re-point `PtrPal` to it. **Does not sync the hardware palette** and does not set `FlagPal`; the reveal that follows is expected to sync it. |
 
@@ -80,7 +81,7 @@ can never break the visual fade (part of the #353 fix).
 - `Phys` / `paletteLUT` -- the SDL present target and the active hardware palette
   (`LIB386/SVGA/SDL.CPP`).
 - `BoxBlit()` -> `PresentFrame()` -- one present. Every fade step presents (via
-  `FadePal` -> `BoxUpdate` -> `BoxBlit`), so a 200 ms fade is many presents.
+  `FadePal` -> `BoxBlit` -> `PresentFrame`), so a 200 ms fade is many presents.
 
 ## Scene transition orchestration (`ChangeCube`)
 
@@ -213,6 +214,13 @@ two failure modes are:
   vanished at fade-out start and popped in after fade-in, on every scene load.
   Fixed by re-presenting with `BoxBlit` (present only). The rule: a fade re-presents
   the composited `Log`, it must never run `BoxClean` on the frame it is ramping.
+- **Non-presenting fade** (#418): `FadePalToPal` (the lit-to-lit crossfade behind
+  `FadeToPalIndex` / the `LM_FADE_TO_PAL` script opcode) rebuilt the palette LUT each
+  step with `PaletteSync` but never re-presented, so under SDL the ramp uploaded no
+  frames and the crossfade snapped straight to the target palette. About 10 scene
+  scripts fire it on entry (island-arrival exteriors), visible in the attract reel.
+  Fixed by presenting each step (`BoxStaticAdd` + `BoxBlit`) like the rest of the
+  family. The rule: a palette ramp must re-present, not just `PaletteSync`.
 - **Letterbox timer** (#354): the cutscene black bars (`FixeCinemaMode`, a clip
   window, not a palette fade) stuck then snapped; same subsystem, different
   mechanism.
