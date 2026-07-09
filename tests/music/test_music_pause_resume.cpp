@@ -49,6 +49,7 @@ void ResumeMusic(S32 fade);
 void InitJingle(void);
 S32 GetMusic(void);
 void CheckNextMusic(void);
+extern S32 StopLastMusic; // MUSIC.CPP global (declared in MUSIC.H), C++ linkage
 void FadeOutVolumeMusic(void);
 void FadeInVolumeMusic(void);
 S32 InitCD(char *name);
@@ -84,6 +85,16 @@ static char s_streamName[ADELINE_MAX_PATH] = "";
 static bool s_streamPaused = false;
 static S32 s_cdVol = 0;
 static S32 s_streamVol = 0;
+
+// Simulate the current stream reaching its natural end. The real SDL backend's
+// IsStreamPlaying() detaches a finished stream (clears StreamName) once the
+// device buffer drains, so model EOF the same way: the stream stops "playing"
+// and StreamName() goes empty. Used to exercise the deferred-switch queue
+// waiting for the current track to finish before starting the next one (#406).
+static void spy_end_stream() {
+    s_streamName[0] = '\0';
+    s_streamPaused = false;
+}
 
 // ── Spy AIL backend (matches the extern "C" decls pulled in above) ───────────
 
@@ -134,6 +145,7 @@ void ResumeStream() {
     rec("ResumeStream");
     s_streamPaused = false;
 }
+// A stream plays until it is stopped, paused, or reaches EOF (spy_end_stream).
 S32 IsStreamPlaying() { return (s_streamName[0] && !s_streamPaused) ? TRUE : FALSE; }
 void ChangeVolumeStream(S32 volume) { s_streamVol = volume; }
 S32 GetVolumeStream() { return s_streamVol; }
@@ -247,12 +259,12 @@ int main(void) {
     ResumeMusic(1);
     assert_resume_never_stops();
 
-    // ── Scenario 4: #355 - a queued track must take over, not defer forever ───
-    // Field repro: area music (jingle 16 / jadpcm09) keeps playing; a scene wants a
-    // DIFFERENT track; PlayMusic(FALSE) defers it into NextMusic; CheckNextMusic() (run
-    // every frame by PERSO's main loop) must eventually PLAY it instead of re-deferring
-    // while the looping track never ends. Before the fix these asserts fail: B is queued
-    // and never starts.
+    // ── Scenario 4: #406/#355 - the deferred switch waits for the current track ──
+    // Retail parity (#406): area music (jingle 16 / jadpcm09) is playing; a scene wants
+    // a DIFFERENT track; PlayMusic(FALSE) defers it into NextMusic. CheckNextMusic() (run
+    // every frame by PERSO's main loop) must NOT hard-cut the current track once the
+    // defer window elapses -- it lets the current track play out, then starts the queued
+    // one (#355: which must eventually play, not defer forever).
     DistribVersion = 3; // EU layout: TrackCD, every entry a jingle/stream
     InitCD(empty);
     InitJingle();
@@ -268,9 +280,21 @@ int main(void) {
 
     spy_clear();
     TimerRefHR += 5000; // elapse past the 2s (TEST_MUSIC_TEMPO) defer window
-    CheckNextMusic();   // the per-frame queue service
-    assert(called("PlayStream") && "queued track B must start once the defer elapses (#355)");
+    CheckNextMusic();   // window elapsed, but A is still playing -> must not cut it (#406)
+    assert(!called("PlayStream") && "the queued track must not cut the current one off (#406)");
+    assert(GetMusic() == 16 && "A keeps playing until it finishes on its own");
+
+    spy_clear();
+    spy_end_stream(); // A reaches its natural end (EOF detaches the stream)
+    CheckNextMusic(); // A has finished -> the queued track finally takes over
+    assert(called("PlayStream") && "queued track B starts once the current track ends (#355)");
     assert(GetMusic() == 7 && "B (jingle 7) is the current music after the queue drains");
+    // The queue must drain SOFT (playit=FALSE): the queued track is an ordinary cube
+    // jingle, so it must leave StopLastMusic clear. A forced drain would mark it as
+    // script/menu music, and ChangeCube's `if (StopLastMusic) StopMusic()` would then
+    // hard-cut it on the next area change -- the deferred chain would break after one
+    // hop (#406).
+    assert(StopLastMusic == FALSE && "the drained cube jingle stays soft so the next ChangeCube won't cut it");
 
     // ── Scenario 5: PlayMusic decision matrix - nothing / same / different (soft) ──
     DistribVersion = 3;
@@ -319,8 +343,11 @@ int main(void) {
     CheckNextMusic(); // still inside the defer window -> must not swap yet
     assert(!called("PlayStream") && GetMusic() == 16 && "the queue must not drain before the defer window");
     TimerRefHR += 5000;
-    CheckNextMusic(); // window elapsed -> B takes over
-    assert(GetMusic() == 7 && "B takes over once the defer window elapses");
+    CheckNextMusic(); // window elapsed, but A still playing -> queue waits for it (#406)
+    assert(!called("PlayStream") && GetMusic() == 16 && "the queue waits for the current track to finish");
+    spy_end_stream(); // A ends
+    CheckNextMusic(); // A finished -> B takes over
+    assert(GetMusic() == 7 && "B takes over once the current track finishes");
     spy_clear();
     CheckNextMusic(); // NextMusic is now -1
     assert(!called("PlayStream") && "CheckNextMusic with an empty queue does nothing");

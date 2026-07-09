@@ -84,21 +84,40 @@ is to ride out a quick pass-through of an area instead of chopping its music.
 `CheckNextMusic()` (called every frame from `PERSO.CPP`) drains it:
 
 ```
-if NextMusic != -1 AND now > NextMusicTimer:
-    PlayMusic(NextMusic, TRUE)   // force the switch
+if NextMusic != -1 AND now > NextMusicTimer AND !IsStreamPlaying():
+    PlayMusic(NextMusic, FALSE)   // current track has ended -> start the queued one (soft)
 ```
 
-The `TRUE` is the #355 fix. The original `FALSE` re-deferred whenever the current
-track was still playing, so with music that outlasts the 2 s window the queued
-track never played (you kept hearing the old one until a menu toggle nudged the
-stream). Forcing takes over once the window elapses.
+The switch waits for two things: the 2 s debounce window *and* the current track
+finishing. This is retail parity (#406): scene music plays the current track out
+and only then moves to the next, instead of hard-cutting. `IsStreamPlaying()`
+reports EOF (and detaches the spent stream), so by the time the drain runs there is
+silence to play into.
 
-**Consequence: scene-music switches lag by ~2 s.** On a cube change the old jingle
-keeps playing; the new one is queued and only takes over after the defer window.
-That delay is the queue, not the codec. Levers if it feels too long: lower
-`TEST_MUSIC_TEMPO`, or make the cube-entry call in `PERSO.CPP` force
-(`PlayMusic(CubeJingle, TRUE)`) at the cost of chopping music on quick
-pass-throughs.
+The drain is **soft** (`playit = FALSE`), and that matters. Because the gate has
+already established the current stream ended (`GetMusic()` is 0), the soft path plays
+the queued track immediately rather than re-deferring, so it still takes over. The
+point of `FALSE` is that it leaves `StopLastMusic` clear, marking the queued track as
+an ordinary cube jingle. `ChangeCube()` does `if (StopLastMusic) StopMusic()`, so a
+forced (`TRUE`) drain would get the queued jingle hard-stopped almost immediately on
+the next area change, and the "play out, then switch" behaviour would only ever work
+for the first hop. Soft keeps the chain going across areas.
+
+This supersedes #355, which forced the switch the moment the window elapsed and so
+cut the current track off. It forced because a soft `PlayMusic(FALSE)` re-deferred
+forever: for the jingle layout `GetMusic()` reads `StreamName()`, which is never
+cleared at natural EOF (`IsCDPlaying()` short-circuits on `cdPlaying == 0`, so
+`IsStreamPlaying()` -- the call that tears a finished stream down -- never runs), so
+a finished jingle looked like it was still playing. Gating `CheckNextMusic` on
+`IsStreamPlaying()` reads the real playback state, which removes the reason to force:
+the queued track still takes over (the #355 intent) without chopping the current one
+(the #406 intent), and stays soft so the chain survives the next `ChangeCube`.
+
+**Consequence: the new track starts when the current one ends** (plus up to the 2 s
+window). On a cube change the old jingle plays out; the new one is queued and takes
+over once the stream reaches EOF. Lever if you want a hard cut instead: make the
+cube-entry call in `PERSO.CPP` force (`PlayMusic(CubeJingle, TRUE)`), which bypasses
+the queue -- the same path cutscenes, FMVs, and chapter transitions already take.
 
 ## GetMusic, StopMusic, fades
 
@@ -151,7 +170,7 @@ cue audio. WAV and OGG then reach the stream very differently:
 | Cache | none | one-slot decoded-PCM cache (`oggCache`), keyed by path |
 | Seek/restore | byte offset into the loaded PCM | `stb_vorbis_seek_frame` (a seeked decode is not cached), or offset on a cache hit |
 
-Two consequences worth knowing:
+Three consequences worth knowing:
 
 - **Cold-OGG first-audio gap.** `FinishStream` resumes the device right after
   `PlayOggFile` launches the decode thread, so the device can run dry for tens of
@@ -164,6 +183,15 @@ Two consequences worth knowing:
   So the cache buys nothing on queue-driven area changes, and toggling between two
   adjacent areas re-decodes each time. This is an efficiency gap, not a bug (the
   cache is path-keyed; partial/seeked decodes are correctly not cached).
+- **EOF needs a flush.** `SDL_OpenAudioDeviceStream` opens the device at its native
+  format, so SDL sits a format converter in the path. The converter holds a small
+  tail of input it will not emit until told no more is coming, so
+  `SDL_GetAudioStreamQueued` sticks a few bytes above 0 forever and the stream never
+  reports end-of-track. Each source therefore calls `SDL_FlushAudioStream` once its
+  whole PCM has been pushed (OGG decode thread on natural finish, OGG cache-hit, WAV),
+  which lets the queue drain to 0 so `IsStreamPlaying()` can report EOF. This matters
+  for the deferred-switch queue (#406): the queued track waits on `IsStreamPlaying()`
+  going false, so without the flush it would wait forever.
 
 ## Testing
 
@@ -173,7 +201,8 @@ is SDL and library territory). Two targets under `tests/music/`:
 - **`test_music_pause_resume.cpp`** compiles the real `MUSIC.CPP` against a spy AIL
   backend (records ordered calls; a small model of "what is playing" that the test
   controls). Covers pause/resume-never-Stop (CD and jingle layouts), faded resume,
-  the #355 queue drain, the full decision matrix (nothing/same/different/force/
+  the #406/#355 deferred switch (the queue waits for the current track to end, then
+  the queued one takes over), the full decision matrix (nothing/same/different/force/
   `StopLastMusic`), `CheckNextMusic` timing and empty-queue edges, the `GetMusic`
   round-trip, and fade convergence.
 - **`test_music_stream_park.cpp`** unit-tests the pure `STREAM_PARK.H` decisions:
