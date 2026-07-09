@@ -270,6 +270,32 @@ cycle of field testing. This touches the game clock, which is the most bug-prone
 the port (see the `ManageTime` history in [TIMING.md](TIMING.md)), so a review of the clock
 model is warranted before the `TIMER.CPP`/`PERSO.CPP` change.
 
+## The end-credits loop (#403)
+
+The end credits run their own loop (`GamePlayCredits`,
+[SOURCES/CREDITS.CPP](../SOURCES/CREDITS.CPP)) outside `MainLoop`, so the same
+`ObjectSetInterDep` coupling survived the fix above: the credits walkers lost distance on
+high-refresh displays while the rest of the game was already frame-rate independent. Both
+the demo/attract credits (`Credits(FALSE)`) and the final "happy end" credits
+(`Credits(TRUE)`) share this loop; `mode` only branches scene setup, not the walk.
+
+The fix is a lighter variant of Phase 1: the credits object loop advances off a game clock
+quantized to whole `FixedTimestep` steps (via the same `Timer_FixedStepCount` core), while
+input, music, and the text scroll keep the real clock. On a held-clock frame
+`ObjectSetInterDep` is a no-op (its `TimerRefHR <= obj->Time` guards), so a high-refresh
+frame simply re-presents the settled walkers instead of advancing them a sub-step. No
+sub-stepping loop is needed: the credits scene never renders below 60 fps, so the
+low-frame-rate catch-up the main loop handles does not arise. Off (`FixedTimestep == 0`) is
+the historical per-frame path.
+
+One subtlety specific to this loop: every walker heads to the same central "hello" spot, so
+their on-screen spacing comes only from the stagger between spawns. The spawn is therefore
+gated on the same step count as the travel -- spawning per render frame while moving per
+step collapses the stagger at high fps and the walkers bunch up. Note the credits have no
+collision avoidance at all, so walkers that draw near-equal spawn angles already overlap in
+the unmodified engine at 60 fps; that is pre-existing behaviour, not a frame-rate artefact,
+and is tracked as a separate enhancement.
+
 ## Tests
 
 Test level must match the fix level. The fix is in the main loop, so:

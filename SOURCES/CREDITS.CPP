@@ -338,6 +338,18 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
     timer = TimerRefHR;
     scrolltimer = TimerRefHR;
 
+    // #403: the credits run their own loop outside MainLoop's fixed-timestep
+    // simulation, so NPC locomotion (ObjectSetInterDep, driven by TimerRefHR) is
+    // otherwise coupled to the render frame rate -- too slow on high-refresh
+    // displays, exactly the coupling #358 removed everywhere else. We keep the
+    // real clock for input/music/scroll but drive the object loop off a game
+    // clock quantized to whole FixedTimestep steps, so ObjectSetInterDep never
+    // sees a sub-step delta (its <=/== guards make a held clock a no-op). Off
+    // (FixedTimestep == 0) leaves the historical per-frame path untouched.
+    U32 creditSimClock = TimerRefHR; // quantized game clock the objects advance on
+    U32 creditSimAcc = 0;            // banked real ms not yet applied as whole steps
+    U32 creditLastReal = TimerRefHR; // real clock at the previous iteration
+
     ManageSystem();
 
     Switch_Fillers(FILL_POLY_FOG_NZW);
@@ -370,7 +382,32 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
 
         InitTri();
 
-        if (NbMovingObj < 4) {
+        // #403: advance the credits object clock only in whole FixedTimestep
+        // quanta this frame. At high refresh most frames add 0 steps (the held
+        // clock no-ops ObjectSetInterDep, so walkers do not lose distance to
+        // per-frame rounding); ~60 fps adds one step (the historical path); a
+        // slow frame folds its backlog into a single clamped catch-up jump
+        // (FIXED_TIMESTEP_MAX_STEPS mirrors MainLoop's 8). The real clock is
+        // restored after the object loop so the scroll and music stay real-time.
+        U32 creditRealRef = TimerRefHR;
+        S32 creditSteps = 1; // throttle off: one step per frame, the historical path
+        if (FixedTimestep > 0) {
+            creditSteps = Timer_FixedStepCount(&creditSimAcc, creditRealRef - creditLastReal,
+                                               (U32)FixedTimestep, 8);
+            creditLastReal = creditRealRef;
+            creditSimClock += (U32)creditSteps * (U32)FixedTimestep;
+            TimerRefHR = creditSimClock;
+        }
+
+        // Spawn walkers at the sim cadence, not the render cadence. Every walker
+        // heads to the same "hello" spot, so spacing comes only from the stagger
+        // between spawns; spawning per render frame while travel advances per step
+        // (above) collapses that stagger at high fps and the walkers bunch up and
+        // clip through each other. One spawn per step (bounded by the four-slot
+        // cap) keeps the spawn-to-travel ratio frame-rate independent both ways:
+        // high refresh skips spawns on held-clock frames, and a slow frame that
+        // advances several steps spawns several so the crowd still fills up.
+        for (S32 s = 0; s < creditSteps AND NbMovingObj < 4; s++) {
             ptrobj = ptrcrdobj + nextobj;
             ptrobj->Flag = 1;
             NbMovingObj++;
@@ -506,6 +543,11 @@ S32 GamePlayCredits(const char *file_name, S32 mode) {
                 }
             }
         }
+
+        // #403: back to the real clock for the scroll, music, and ManageTime's
+        // wall-time accumulation on the next iteration.
+        if (FixedTimestep > 0)
+            TimerRefHR = creditRealRef;
 
         DoTri();
 
