@@ -831,8 +831,18 @@ void DoLife(U8 numobj) {
             InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, NUM_PERSO);
             SetComportement(*PtrPrg++);
 
-            if (DemoSlide AND(FirstTime != AFF_ALL_FLIP))
-                MenuComportement(2 * 1000);
+            // In the attract demo, a scripted behaviour change flashes the behaviour menu, except
+            // during a full-scene flip (AFF_ALL_FLIP) so it does not pop over scene setup / a
+            // cutscene. That suppression depends on reading FirstTime on the same frame AffScene
+            // consumes it, so the fixed-timestep throttle must not skip the flip frame (see the
+            // Timer_ForceStepIfPending scene-flip case in PERSO.CPP, #358).
+            if (DemoSlide) {
+                S32 showmenu = (FirstTime != AFF_ALL_FLIP);
+                Log_Debug("[demo] LM_COMPORTEMENT_HERO cube=%d FirstTime=%d menu=%d", (int)NumCube,
+                          (int)FirstTime, (int)showmenu);
+                if (showmenu)
+                    MenuComportement(2 * 1000);
+            }
             break;
 
             //---------------------------------------------------------------------------
