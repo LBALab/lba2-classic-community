@@ -364,6 +364,8 @@ enum MenuLocalizedLabel {
     MENU_LABEL_RESOLUTION,
     MENU_LABEL_VSYNC_ON,
     MENU_LABEL_VSYNC_OFF,
+    MENU_LABEL_MOVIE_ORIGINAL,
+    MENU_LABEL_MOVIE_FIT,
     MENU_LABEL_COUNT,
 };
 
@@ -390,6 +392,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolution: %s",
         "Vsync ON",
         "Vsync OFF",
+        "Movies at original size",
+        "Movies fit to screen",
     },
     {
         "Choix de la langue",
@@ -413,6 +417,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Résolution : %s",
         "Vsync ON",
         "Vsync OFF",
+        "Vidéos en taille d'origine",
+        "Vidéos ajustées à l'écran",
     },
     {
         "Sprachauswahl",
@@ -436,6 +442,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Auflösung: %s",
         "Vsync ON",
         "Vsync OFF",
+        "Videos in Originalgröße",
+        "Videos an Bildschirm angepasst",
     },
     {
         "Elegir idioma",
@@ -459,6 +467,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolución: %s",
         "Vsync ON",
         "Vsync OFF",
+        "Vídeos en tamaño original",
+        "Vídeos ajustados a pantalla",
     },
     {
         "Scegli lingua",
@@ -482,6 +492,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Risoluzione: %s",
         "Vsync ON",
         "Vsync OFF",
+        "Video in dimensione originale",
+        "Video adattati allo schermo",
     },
     {
         "Escolha do idioma",
@@ -505,6 +517,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolução: %s",
         "Vsync ON",
         "Vsync OFF",
+        "Vídeos em tamanho original",
+        "Vídeos ajustados à tela",
     },
 };
 
@@ -603,7 +617,9 @@ static void BuildCustomMenuText(S32 num, char *string) {
         break;
 
     case MENU_ID_VIDEO_SIZE:
-        GetMultiText(27 + VideoFullScreen, string);
+        CopyUtf8ToCp850(string, 256,
+                        GetLocalizedMenuLabel(VideoFullScreen ? MENU_LABEL_MOVIE_FIT
+                                                              : MENU_LABEL_MOVIE_ORIGINAL));
         break;
 
     case MENU_ID_DISPLAY_FULLSCREEN:
