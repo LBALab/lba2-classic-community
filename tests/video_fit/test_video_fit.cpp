@@ -19,7 +19,6 @@
 #include "VIDEO_FIT.H"
 
 #include <cstdio>
-#include <cstdlib>
 
 static int failures = 0;
 
@@ -45,6 +44,15 @@ static void checkInvariants(const char *name, int modeX, int modeY, int fit) {
     if (w <= 0 || h <= 0 || w > modeX || h > modeY) {
         std::printf("FAIL %s bounds (%dx%d, fit=%d): w=%d h=%d out of range\n",
                     name, modeX, modeY, fit, w, h);
+        failures++;
+    }
+    /* The memory-safety bound PLAYACF relies on: the rect must not spill past
+       the framebuffer edge. Log is modeX*modeY and the blit writes rows
+       [y0, y0+h) cols [x0, x0+w), so assert x0+w and y0+h directly rather than
+       inferring safety from w<=modeX / centring alone. */
+    if (x + w > modeX || y + h > modeY) {
+        std::printf("FAIL %s spill (%dx%d, fit=%d): x0+w=%d y0+h=%d exceed %dx%d\n",
+                    name, modeX, modeY, fit, x + w, y + h, modeX, modeY);
         failures++;
     }
     if (x != (modeX - w) / 2 || y != (modeY - h) / 2 || x < 0 || y < 0) {
