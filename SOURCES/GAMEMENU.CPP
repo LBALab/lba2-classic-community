@@ -10,6 +10,7 @@
 #include "CONSOLE/CONSOLE.H"
 #include "MESSAGE.H"
 #include "IMAGE_LOAD.H"
+#include "MENU_LABELS.H"
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
@@ -342,185 +343,8 @@ S32 MenuIncrustSprite = -1;
 
 S32 SelectPlayer = 0;
 
-enum MenuLocalizedLabel {
-    MENU_LABEL_CHOOSE_LANGUAGE,
-    MENU_LABEL_ADVANCED_OPTIONS,
-    MENU_LABEL_TEXT_LANGUAGE,
-    MENU_LABEL_VOICE_LANGUAGE,
-    MENU_LABEL_DISPLAY_WINDOWED,
-    MENU_LABEL_DISPLAY_FULLSCREEN,
-    MENU_LABEL_AUTO_CAMERA,
-    MENU_LABEL_CLASSIC_CAMERA,
-    MENU_LABEL_CONTROLLER,
-    MENU_LABEL_GAME_CONTROLLER,
-    MENU_LABEL_GAME_SAVED,
-    MENU_LABEL_BUG_SAVED,
-    MENU_LABEL_RES_TITLE,
-    MENU_LABEL_RES_NOW_AT,
-    MENU_LABEL_RES_KEEP_Q,
-    MENU_LABEL_RES_BTN_KEEP,
-    MENU_LABEL_RES_BTN_REVERT_FMT,
-    MENU_LABEL_DISPLAY,
-    MENU_LABEL_RESOLUTION,
-    MENU_LABEL_VSYNC_ON,
-    MENU_LABEL_VSYNC_OFF,
-    MENU_LABEL_MOVIE_ORIGINAL,
-    MENU_LABEL_MOVIE_FIT,
-    MENU_LABEL_COUNT,
-};
-
-static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
-    {
-        "Choose language",
-        "Advanced options",
-        "Texts: %s",
-        "Voices: %s",
-        "Windowed",
-        "Fullscreen",
-        "Auto camera",
-        "Classic camera",
-        "Controls",
-        "Configure gamepad",
-        "Game saved",
-        "Bug saved",
-        "Resolution changed",
-        "Now running at %ux%u.",
-        "Keep this resolution?",
-        "Keep",
-        "Revert (%d)",
-        "Display",
-        "Resolution: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Movies at original size",
-        "Movies fit to screen",
-    },
-    {
-        "Choix de la langue",
-        "Options avancées",
-        "Textes : %s",
-        "Voix : %s",
-        "Fenêtré",
-        "Plein écran",
-        "Caméra automatique",
-        "Caméra classique",
-        "Contrôles",
-        "Configuration manette",
-        "Partie sauvegardée",
-        "Bug sauvegardé",
-        "Résolution modifiée",
-        "Affichage en %ux%u.",
-        "Conserver cette résolution ?",
-        "Conserver",
-        "Annuler (%d)",
-        "Affichage",
-        "Résolution : %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Vidéos en taille d'origine",
-        "Vidéos ajustées à l'écran",
-    },
-    {
-        "Sprachauswahl",
-        "Vorgeschlagene Optionen",
-        "Texte: %s",
-        "Stimmen: %s",
-        "Fenster",
-        "Vollbild",
-        "Automatische Kamera",
-        "Klassische Kamera",
-        "Steuerung",
-        "Gamepad konfigurieren",
-        "Spiel gespeichert",
-        "Fehler gespeichert",
-        "Auflösung geändert",
-        "Läuft jetzt mit %ux%u.",
-        "Diese Auflösung beibehalten?",
-        "Beibehalten",
-        "Zurück (%d)",
-        "Anzeige",
-        "Auflösung: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Videos in Originalgröße",
-        "Videos an Bildschirm angepasst",
-    },
-    {
-        "Elegir idioma",
-        "Opciones avanzadas",
-        "Textos: %s",
-        "Voces: %s",
-        "Ventana",
-        "Pantalla completa",
-        "Cámara automática",
-        "Cámara clásica",
-        "Controles",
-        "Configurar mando",
-        "Partida guardada",
-        "Error guardado",
-        "Resolución cambiada",
-        "Funcionando a %ux%u.",
-        "¿Mantener esta resolución?",
-        "Mantener",
-        "Revertir (%d)",
-        "Pantalla",
-        "Resolución: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Vídeos en tamaño original",
-        "Vídeos ajustados a pantalla",
-    },
-    {
-        "Scegli lingua",
-        "Opzioni avanzate",
-        "Testi: %s",
-        "Voci: %s",
-        "Finestra",
-        "Schermo intero",
-        "Telecamera automatica",
-        "Telecamera classica",
-        "Controlli",
-        "Configura gamepad",
-        "Partita salvata",
-        "Bug salvato",
-        "Risoluzione modificata",
-        "In esecuzione a %ux%u.",
-        "Mantenere questa risoluzione?",
-        "Mantieni",
-        "Annulla (%d)",
-        "Schermo",
-        "Risoluzione: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Video in dimensione originale",
-        "Video adattati allo schermo",
-    },
-    {
-        "Escolha do idioma",
-        "Opções avançadas",
-        "Texto: %s",
-        "Voz: %s",
-        "Janela",
-        "Tela cheia",
-        "Câmera automática",
-        "Câmera clássica",
-        "Controles",
-        "Configurar gamepad",
-        "Jogo salvo",
-        "Erro salvo",
-        "Resolução alterada",
-        "Em execução a %ux%u.",
-        "Manter esta resolução?",
-        "Manter",
-        "Reverter (%d)",
-        "Tela",
-        "Resolução: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Vídeos em tamanho original",
-        "Vídeos ajustados à tela",
-    },
-};
+/* enum MenuLocalizedLabel and LocalizedMenuLabels live in MENU_LABELS.{H,CPP}
+   so the host completeness test (tests/menu_labels) links the real table. */
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -537,7 +361,16 @@ static S32 GetMenuLanguageIndex(void) {
 }
 
 static const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
-    return LocalizedMenuLabels[GetMenuLanguageIndex()][label];
+    S32 lang = GetMenuLanguageIndex();
+
+    /* GetMenuLanguageIndex() bounds against GetLanguageCount(); the table's own
+       bound is MENU_LANGUAGE_COUNT. Both are 6 today, but clamp against the array
+       actually being indexed, so adding a language to MESSAGE.CPP without a
+       matching translation row degrades to English instead of reading OOB. */
+    if (lang < 0 OR lang >= MENU_LANGUAGE_COUNT)
+        lang = 0;
+
+    return LocalizedMenuLabels[label].lang[lang];
 }
 
 const char *GetLocalizedResDialogLabel(int which) {
