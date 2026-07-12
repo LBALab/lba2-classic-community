@@ -392,8 +392,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolution: %s",
         "Vsync ON",
         "Vsync OFF",
-        "Movies: original size",
-        "Movies: fit to screen",
+        "Movies at original size",
+        "Movies fit to screen",
     },
     {
         "Choix de la langue",
@@ -417,8 +417,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Résolution : %s",
         "Vsync ON",
         "Vsync OFF",
-        "Vidéos : taille d'origine",
-        "Vidéos : ajustées à l'écran",
+        "Vidéos en taille d'origine",
+        "Vidéos ajustées à l'écran",
     },
     {
         "Sprachauswahl",
@@ -442,8 +442,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Auflösung: %s",
         "Vsync ON",
         "Vsync OFF",
-        "Videos: Originalgröße",
-        "Videos: an Bildschirm anpassen",
+        "Videos in Originalgröße",
+        "Videos an Bildschirm angepasst",
     },
     {
         "Elegir idioma",
@@ -467,8 +467,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolución: %s",
         "Vsync ON",
         "Vsync OFF",
-        "Vídeos: tamaño original",
-        "Vídeos: ajustar a pantalla",
+        "Vídeos en tamaño original",
+        "Vídeos ajustados a pantalla",
     },
     {
         "Scegli lingua",
@@ -492,8 +492,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Risoluzione: %s",
         "Vsync ON",
         "Vsync OFF",
-        "Video: dimensione originale",
-        "Video: adatta allo schermo",
+        "Video in dimensione originale",
+        "Video adattati allo schermo",
     },
     {
         "Escolha do idioma",
@@ -517,8 +517,8 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolução: %s",
         "Vsync ON",
         "Vsync OFF",
-        "Vídeos: tamanho original",
-        "Vídeos: ajustar à tela",
+        "Vídeos em tamanho original",
+        "Vídeos ajustados à tela",
     },
 };
 
