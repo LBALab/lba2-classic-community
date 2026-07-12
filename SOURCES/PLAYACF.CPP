@@ -4,6 +4,7 @@
 #include "DIRECTORIES.H"
 
 #include "IMAGE_LOAD.H"
+#include "VIDEO_FIT.H"
 
 #include <string.h>
 
@@ -239,42 +240,40 @@ void PlayAllAcf(void) {
 \***************************************************************************/
 
 #ifdef USE_MVIDEO_SMACKER
-/* Decode and upscale one Smacker frame (320×200 source, nearest-neighbour
-   2× in both axes, 400 rows of video vertically centred inside a 480-row
-   "image area" — 40-row black letterbox top and bottom).
+/* Decode one Smacker frame (320×200 source) and nearest-neighbour upscale it
+   into a dstW×dstH rectangle whose top-left is destOrigin inside the host
+   buffer (Log), with row stride destStride. PlayAcf sizes and positions that
+   rectangle once (Video_ComputeCineRect) and pre-clears the framebuffer, so
+   this only paints the video rect: everything outside it (letterbox/pillarbox
+   bands, sidebars) stays black without a per-frame re-clear.
 
-   destOrigin / destStride identify the top-left of the 640×480 image area
-   inside a wider host buffer (Log).  Writing directly into Log with the
-   correct stride keeps the wider sidebars untouched.  At ModeDesiredX=640
-   this collapses to "destStride==640", matching the historical layout
-   when the buffer was a malloc'd 640×480 scratch. */
-static void ReadNextVideoFrame(smk smkObject, U8 *destOrigin, U32 destStride, U8 **pal) {
-    const U32 width = 320;
-    const U32 height = 200;
-    const U32 imageWidth = IMAGE_AUTHORED_WIDTH;   // 640 — upscaled video span
-    const U32 imageHeight = IMAGE_AUTHORED_HEIGHT; // 480 — image-area height
-    const U32 videoStartY = 40;
+   Vertical: one divide per destination row picks the source row. Horizontal:
+   a Bresenham-style accumulator advances the source column without a divide
+   per pixel; this runs every video frame, so the per-pixel divide the
+   image-load stretch can afford would be wasteful here. Both axes use the
+   floor mapping floor(d*src/dst); at the legacy 2x (dstW=640, dstH=400) that
+   duplicates every source pixel/row exactly, byte-identical to the old fixed
+   2× loop. */
+static void ReadNextVideoFrame(smk smkObject, U8 *destOrigin, U32 destStride, S32 dstW, S32 dstH, U8 **pal) {
+    const S32 srcW = 320;
+    const S32 srcH = 200;
     U8 *frame = (U8 *)smk_get_video(smkObject);
     *pal = (U8 *)smk_get_palette(smkObject);
 
-    /* Clear the 640×480 image area each frame so the letterbox bands
-       (rows 0..39 and 440..479) stay black, and any sidebar slop from
-       previous frame painting is wiped before the upscale fills the
-       central 640×400. Sidebars outside this rectangle are pre-cleared
-       once in PlayAcf before the playback loop. */
-    for (U32 y = 0; y < imageHeight; y++) {
-        memset(destOrigin + y * destStride, 0, imageWidth);
-    }
-
-    U8 *targetRow = destOrigin + videoStartY * destStride;
-    for (U32 y = 0; y < height; y++) {
-        const U8 *sourceRow = frame + y * width;
-        for (U32 x = 0; x < width; x++) {
-            targetRow[2 * x] = sourceRow[x];
-            targetRow[2 * x + 1] = sourceRow[x];
+    for (S32 dy = 0; dy < dstH; dy++) {
+        const S32 srcY = (dy * srcH) / dstH;
+        const U8 *sourceRow = frame + srcY * srcW;
+        U8 *targetRow = destOrigin + (U32)dy * destStride;
+        S32 srcX = 0;
+        S32 acc = 0;
+        for (S32 dx = 0; dx < dstW; dx++) {
+            targetRow[dx] = sourceRow[srcX];
+            acc += srcW;
+            while (acc >= dstW) {
+                acc -= dstW;
+                srcX++;
+            }
         }
-        memcpy(targetRow + destStride, targetRow, imageWidth);
-        targetRow += destStride * 2;
     }
 }
 
@@ -504,21 +503,23 @@ S32 PlayAcf(const char *name) {
             ResumeVideoAudio();
         }
 
-        /* Cinematic letterbox: paint the wider Log to black once so the
-           sidebars at widths > 640 don't leak whatever scene rendered
-           before the cutscene started. Then each frame writes the 320×200
-           Smacker upscale (2× → 640×400) directly into Log at the centred
-           image-area origin, with proper Log row-stride. No intermediate
-           malloc'd buffer / CopyBlock — earlier versions blitted from a
-           640-stride scratch into a wider Log via CopyBlock, but
-           CopyBlock assumes the same stride for src and dst (uses
-           TabOffLine[1] both sides) and would have produced a diagonal
-           smear at any width > 640. At MDX=640 this is byte-identical
-           to the old path. */
-        const S32 cineX0 = ((S32)ModeDesiredX - IMAGE_AUTHORED_WIDTH) / 2;
-        const S32 cineY0 = ((S32)ModeDesiredY - IMAGE_AUTHORED_HEIGHT) / 2;
+        /* Cinematic framing: size and place the video rectangle once, then
+           paint the whole Log black so every band outside that rectangle
+           (letterbox/pillarbox, sidebars at widths > 640) starts and stays
+           black, and the per-frame blit only touches the video rect. The frame
+           is written directly into Log at the centred origin with proper Log
+           row-stride; no intermediate malloc'd buffer / CopyBlock (which
+           assumes equal src/dst stride and would smear at any width > 640).
+
+           VideoFullScreen selects the policy (see Video_ComputeCineRect):
+           0 = legacy centred letterbox (fixed 2× → 640×400), 1 = scale the
+           320×200 source up uniformly to fill the frame without distortion.
+           Both collapse to the identical 640×400 layout at 640×480. */
+        S32 dstW, dstH, dstX0, dstY0;
+        Video_ComputeCineRect((S32)ModeDesiredX, (S32)ModeDesiredY, VideoFullScreen,
+                              &dstW, &dstH, &dstX0, &dstY0);
         memset(Log, 0, (size_t)ModeDesiredX * (size_t)ModeDesiredY);
-        U8 *cineOrigin = (U8 *)Log + (size_t)cineY0 * (size_t)ModeDesiredX + (size_t)cineX0;
+        U8 *cineOrigin = (U8 *)Log + (size_t)dstY0 * (size_t)ModeDesiredX + (size_t)dstX0;
 
         U8 *pal = NULL;
         U32 videoStartTicks = 0;
@@ -532,7 +533,7 @@ S32 PlayAcf(const char *name) {
                 PushCurrentFrameVideoAudio(smkObject, tracksToPlay, numTracks, a_d, a_r, a_c, usf);
             }
 
-            ReadNextVideoFrame(smkObject, cineOrigin, ModeDesiredX, &pal);
+            ReadNextVideoFrame(smkObject, cineOrigin, ModeDesiredX, dstW, dstH, &pal);
             if (pal) {
                 // The video is on screen with its own palette; clear FlagBlackPal so
                 // the engine state matches (SetBlackPal at entry left it TRUE). The
