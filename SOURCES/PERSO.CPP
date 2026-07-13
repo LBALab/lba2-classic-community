@@ -7,6 +7,7 @@
 #include "RES_DISCOVERY.H"
 #include "RES_PICKER.H"
 #include "INPUT.H"
+#include "CLI_ARGS.H"
 #include "CONTROL.H"
 #include "RES_SWITCH.H"
 #include "CONSOLE/CONSOLE.H"
@@ -2855,6 +2856,17 @@ int main(int argc, char *argv[]) {
                 return 0;
             }
         }
+    }
+
+    /* --help and unknown-flag rejection, for the same reason --version is here: no SDL,
+       no retail data, no window. An unknown flag exits rather than booting, so a typo
+       can't quietly leave the run on a default. */
+    if (Cli_WantsHelp(argc, argv)) {
+        Cli_PrintUsage(argv[0]);
+        return 0;
+    }
+    if (Cli_ValidateArgs(argc, argv) != 0) {
+        return 2;
     }
 
     S32 load = FALSE;
