@@ -170,4 +170,13 @@ const struct MenuLabelRow LocalizedMenuLabels[MENU_LABEL_COUNT] = {
       "Vídeos ajustados a pantalla",
       "Video adattati allo schermo",
       "Vídeos ajustados à tela"}},
+    /* Key-config footer. The three %s are the currently-bound Exit / Select /
+       Clear keys, filled in by DrawStatusConfig (CONFIG.CPP). */
+    {MENU_LABEL_KEYCFG_FOOTER,
+     {"<%s> Exit   <%s> Select   <%s> Clear",
+      "<%s> Quitter   <%s> Touche   <%s> Effacer",
+      "<%s> Ende   <%s> Taste   <%s> Leeren",
+      "<%s> Salir   <%s> Tecla   <%s> Borrar",
+      "<%s> Esci   <%s> Tasto   <%s> Cancella",
+      "<%s> Sair   <%s> Tecla   <%s> Apagar"}},
 };
