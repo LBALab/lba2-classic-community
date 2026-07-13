@@ -55,9 +55,17 @@ need_save() {
     [ -n "$LBA2_TEST_SAVE" ] && [ -f "$LBA2_TEST_SAVE" ] || skip "no save fixture (set LBA2_TEST_SAVE)"
 }
 
-# ctl <args...> — run the harness with null audio and a hard timeout.
+# ctl <args...> — run the harness headless, with a hard timeout.
+#
+# --headless (not just SDL_AUDIODRIVER=dummy) because a visible window pauses the game
+# when it loses focus: a test that ran while you tabbed away used to get a stopped clock,
+# and several in parallel fought over focus. Six identical windowed runs produced five
+# different sim states; headless they are byte-identical. It also implies --no-audio.
+#
+# --no-autosave because an in-game scene transition writes autosave.lba, so merely running
+# the suite used to mutate the developer's own save files.
 ctl() {
-    SDL_AUDIODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" "$@"
+    timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave "$@"
 }
 
 # ctl_headless <args...> — same as ctl but also pins SDL_VIDEODRIVER=dummy,
@@ -83,8 +91,8 @@ ctl() {
 # doesn't affect them — verified by re-running the suite with this in
 # place and confirming all eight ui_* goldens stay byte-identical.
 ctl_headless() {
-    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy timeout "$LBA2_TEST_TIMEOUT" \
-        "$LBA2_BIN" --language English --no-audio --resolution 640x480 "$@"
+    timeout "$LBA2_TEST_TIMEOUT" \
+        "$LBA2_BIN" --headless --no-autosave --language English --resolution 640x480 "$@"
 }
 
 # ctl_headless_cfg_driven <args...> — same as ctl_headless but does NOT
