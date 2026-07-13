@@ -8,8 +8,17 @@ and for record/replay regression nets.
 This is an outside-in harness. It reuses existing engine seams — the
 [console command bus](CONSOLE.md) for `--exec`, the normal save-load sequence for
 `--load`, the existing `SavePNG` for `--screenshot` — rather than changing game logic. It
-is not a headless mode (the engine still opens a window), not an IPC/REPL, and not a
-scripting runtime. See `AUTOMATION_RESEARCH.md` and `AUTOMATION_PLAN.md` for the design.
+is not an IPC/REPL and not a scripting runtime. See `AUTOMATION_RESEARCH.md` and
+`AUTOMATION_PLAN.md` for the design.
+
+> **Pass `--headless` for any automated run.** Without it the engine opens a window, and
+> **the game pauses when that window loses focus** (by design, for players). A run that
+> loses focus gets a stopped clock, and several runs at once fight over it, so results stop
+> being reproducible. Six identical `--fixed-dt` runs in parallel produced five different
+> sim states; the same six with `--headless` were byte-identical. `--headless` also implies
+> `--no-audio`, since a live audio thread branches the simulation too.
+>
+> Pair it with `--no-autosave` unless you want the run writing to your save files.
 
 ## Build
 
@@ -22,10 +31,23 @@ make build      # -> build/SOURCES/lba2cc
 ## Usage
 
 ```
-lba2cc --load <slot>          restore a save before the loop starts
+lba2cc --help                 print the flag list and exit (an unknown flag is now an
+                              error, not silently ignored)
+       --headless             no window, no audio device: the supported mode for
+                              automation. See the note above.
+       --no-autosave          don't write save files during this run (an in-game scene
+                              transition otherwise rewrites autosave.lba)
+       --load <slot>          restore a save before the loop starts
        --exec "<cmd>;<cmd>"   run console commands (';'-separated) on the first tick
+       --exec-at <T> "<cmds>" run console commands at tick T; repeatable. Use this when a
+                              command depends on a scene change having settled: a `cube`
+                              change only applies on the NEXT frame, so
+                              --exec "cube 154; teleport actor 3" teleports in the OLD
+                              cube and the pending change then resets the hero. Instead:
+                              --exec "cube 154" --exec-at 10 "teleport actor 3"
        --tick <N>             advance N simulation ticks
-       --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic)
+       --fixed-dt <ms>        advance the clock by a constant <ms> per tick (deterministic,
+                              but only in a --headless run)
        --fixed-timestep <ms>  set the sim throttle (FixedTimestep) for this run only, no cfg
                               persist (0 = off); combine with a small --fixed-dt to force skips
        --language <name>      override Language at boot (English | Français | Deutsch |
@@ -69,13 +91,17 @@ advance to N ticks → `--dump-state` + `--screenshot` → `--exit`.
 export LBA2_GAME_DIR=/path/to/data
 
 # Restore a save, advance 30 ticks, snapshot state, exit.
-lba2cc --load "021 Palace" --tick 30 --dump-state state.json --exit
+lba2cc --headless --no-autosave --load "021 Palace" --tick 30 --dump-state state.json --exit
 
 # Jump to a cube from a fresh start and screenshot it.
-lba2cc --exec "cube 100" --tick 5 --screenshot shot.png --exit
+lba2cc --headless --exec "cube 100" --tick 5 --screenshot shot.png --exit
 
 # Batch several commands.
-lba2cc --load mysave --exec "cube 100; give clover 3" --tick 5 --dump-state s.json --exit
+lba2cc --headless --no-autosave --load mysave --exec "cube 100; give clover 3" \
+       --tick 5 --dump-state s.json --exit
+
+# Run a command only after the scene change has settled (--exec would race it).
+lba2cc --headless --exec "cube 154" --exec-at 10 "teleport actor 3" --tick 60 --exit
 
 # Force a language for the run (bypasses the cfg's Language key — useful for
 # regression captures that should be reproducible regardless of the developer's
@@ -125,13 +151,28 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   `give <item>` (the found-object cinematic), `playvideo`, `credits`, and `slide`. Use
   non-modal commands: `cube`, `give clover`, `timer`, cvars, `status`. (`give clover`
   takes a different code path with no cinematic.)
+- **`--exec` fires on the first tick, which races a scene change.** A `cube` change applies
+  on the *next* frame, so `--exec "cube 154; teleport actor 3"` runs the teleport in the
+  **old** cube and the pending change then resets the hero to the new cube's spawn. Nothing
+  reports this; the run just quietly doesn't do what you asked. Schedule the dependent
+  command instead: `--exec "cube 154" --exec-at 10 "teleport actor 3"`.
+- **The first frame after `--load` is a full redraw.** Anything triggered on tick 1 takes
+  the full-redraw path, which hides exactly the partial-frame rendering bugs (stale
+  background, dirty-box) the harness is good at catching. To exercise the normal path, drive
+  the hero into the event (`--exec-at`, or hold `input up N`) so it lands a few frames in.
+  This is why the first repro of the #424 ghost door came back clean.
+- **`--demo` only drives an authored demo scene** (the reel at cubes 193-221). On any other
+  scene it silently does nothing, so a long run looks like evidence of absence when it's
+  just an idle hero. The harness warns when it lands on a non-demo scene.
 - **`--polyrec` needs an `ENABLE_POLY_RECORDING` build.** It drives the existing polygon
   draw-call recorder (`tests/SNAPSHOT/`) at the final tick, writing a `.lba2polyrec` file at
   the chosen path — the scripted equivalent of the manual Alt+F9 capture. On a build without
   the option it prints a warning and is a no-op.
-- **`--fixed-dt <ms>` makes the run deterministic.** It pins the per-tick clock step to a
-  constant instead of wall-clock, so `--dump-state` is reproducible run-to-run (see
-  Determinism). The step is a fixed *choice*, not a recovered constant — the canonical value
+- **`--fixed-dt <ms>` makes the run deterministic, *if* the run is `--headless`.** It pins
+  the per-tick clock step to a constant instead of wall-clock, so `--dump-state` is
+  reproducible run-to-run (see Determinism). This holds only headless: a windowed run
+  pauses on focus loss and its audio thread branches the sim, so its clock depends on what
+  the rest of the desktop is doing. The step is a fixed *choice*, not a recovered constant. The canonical value
   for golden baselines is **16 ms** (≈ the 60 fps the dump reports). A different step yields a
   different but still-reproducible trajectory, so pick one and keep it. The flag is harness-only
   and has no effect on default gameplay timing. An invalid or non-positive value is ignored with
@@ -152,7 +193,11 @@ save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
   before exit. So you can run `lba2cc --exec "cube 205" --demo --tick 30000 --dump-state
   end.json --exit` and get a snapshot of the Dark Monk finale at tick ≈ 25 443 without
   having to pre-compute the right tick.
-- A bad `--load` path exits cleanly with a `save not found` diagnostic.
+- **A bad `--load` fails the run.** It prints `save not found`, exits non-zero, and writes
+  no `--dump-state` / `--screenshot`. It used to carry on with a fresh game and exit 0, so a
+  typo'd save name handed back plausible artifacts of the wrong scene (cube 0) and a green
+  exit code. Note that a *name* resolves against the user save directory, not the retail
+  `SAVE/` folder; pass a path if the save lives elsewhere.
 
 ## `--dump-state` JSON
 
@@ -216,6 +261,13 @@ so redirect the two separately. Debug lines are off by default; add
 handful of *console* scrollback lines; stderr is the full stream.
 
 ## Determinism
+
+**Run `--headless`, or none of this holds.** A visible window pauses the game on focus loss
+(`HandleEventsTimer` locks the clock), so a run that loses focus, or several runs competing
+for it, silently diverge. Measured: six identical `--load --fixed-dt 16 --tick 360` windowed
+processes in parallel produced **five distinct sim states** (`timer_ref_hr` spread over 5.7 s,
+one run's hero ending up in a different room). The same six with `--headless` were
+byte-identical. Everything below assumes headless.
 
 The same `--load X --tick N` is **more reproducible than expected**. Measured by running it
 3× and diffing dumps (null audio):
@@ -296,9 +348,10 @@ return early with no capture. `numvar` for `ui found-object` is the `TabInv` slo
 
 Nine `tests/automation/test_ui_*.sh` fixtures byte-compare each verb's output against a
 committed PNG golden under `tests/savegame/corpus/baselines/ui/`. They run in
-`tests/automation/run.sh` alongside the other harness tests and require
-`SDL_VIDEODRIVER=dummy` (the goldens were rendered under dummy, so the comparison must
-be too).
+`tests/automation/run.sh` alongside the other harness tests. The goldens were rendered
+under the dummy video driver, so the comparison must be too; `ctl_headless` in `lib.sh`
+passes `--headless`, which handles that (you no longer need `SDL_VIDEODRIVER=dummy` in the
+environment).
 
 A second tier of `test_ui_*_wide.sh` fixtures (inventory, menu-options) renders the
 same verb at a wider resolution and asserts that the centred 640×480 crop of the
@@ -309,13 +362,13 @@ surfaces with width-independent UI layout qualify; the dialog strip, for example
 intentionally scales with framebuffer width and doesn't).
 
 ```bash
-SDL_VIDEODRIVER=dummy LBA2_GAME_DIR=/path/to/data tests/automation/run.sh
+LBA2_GAME_DIR=/path/to/data tests/automation/run.sh
 ```
 
 To regenerate a golden after an intentional rendering change:
 
 ```bash
-SDL_VIDEODRIVER=dummy LBA2_UI_REGEN=1 bash tests/automation/test_ui_inventory.sh
+LBA2_UI_REGEN=1 bash tests/automation/test_ui_inventory.sh
 ```
 
 All fixtures use `Anon1.LBA` as their save (early-game Citadel Island state, items in

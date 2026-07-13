@@ -3464,8 +3464,15 @@ int main(int argc, char *argv[]) {
      * and run the automated boot path (load -> exec -> tick -> dump/screenshot ->
      * exit). The single Control_TickHook() in MainLoop does the per-tick work. */
     if (Control_IsActive()) {
-        if (Control_Begin())
-            MainLoop();
+        if (!Control_Begin()) {
+            /* Setup failed (a --load that resolved to nothing, say). Exit non-zero and
+               WITHOUT running Control_End: it would write --dump-state / --screenshot from
+               a game that never loaded, so a typo'd save name used to hand back plausible
+               artifacts of the wrong scene and an exit code of 0. */
+            TheEnd(PROGRAM_FAIL, "control: setup failed");
+            return 1;
+        }
+        MainLoop();
         Control_End();
         TheEnd(PROGRAM_OK, "");
         return 0;
