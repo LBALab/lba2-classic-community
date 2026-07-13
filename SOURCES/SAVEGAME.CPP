@@ -274,9 +274,23 @@ S32 SetDemoSaveGame(S32 num) {
 	  ▀▀▀▀   ▀▀   ▀▀▀▀▀ ▀▀  ▀       ▀▀    ▀▀▀▀▀ ▀▀  ▀ ▀▀▀▀▀ ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
+/* --no-autosave: a harness run must not touch the player's save files. A --load +
+   --tick run would otherwise overwrite the Resume slot (current.lba) as a side effect
+   of merely being run, which is a nasty surprise for anyone A/B-ing on their own
+   install. Gated in the three writers rather than at their call sites so no path can
+   slip through. */
+static S32 SavesDisabled = 0;
+
+void Save_SetDisabled(S32 disabled) {
+    SavesDisabled = disabled ? 1 : 0;
+}
+
 // Version Jeu uniquement
 void AutoSaveGame() {
 #ifndef DEMO
+    if (SavesDisabled)
+        return;
+
     U8 memonumversion = NumVersion;
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
     char memogamepathname[ADELINE_MAX_PATH];
@@ -322,6 +336,9 @@ void AutoSaveGame() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void CurrentSaveGame() {
+    if (SavesDisabled)
+        return;
+
     U8 memonumversion = NumVersion;
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
     char memogamepathname[ADELINE_MAX_PATH];
@@ -367,6 +384,9 @@ void CurrentSaveGame() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void SaveGame(S32 flagmess) {
+    if (SavesDisabled)
+        return;
+
     U8 *sizeptr;
     U8 *memoptr;
     S32 sizefile = 0;
