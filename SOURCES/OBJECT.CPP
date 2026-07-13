@@ -5483,6 +5483,10 @@ startaffscene:
                         OR(flagflip == AFF_OBJETS_NO_FLIP))) {
             // rustine: renseigne qd meme moteur presence sprite
             // pour obj_back si dans l'écran
+            //
+            // WAS_DRAWN is what LM_BACKGROUND / TM_BACKGROUND OFF reads to decide it must
+            // force a full redraw: the object is baked into the decor while flagged, so
+            // without that redraw the baked copy is never erased and a ghost stays behind.
             PtrProjectPoint(ptrobj->Obj.X, ptrobj->Obj.Y, ptrobj->Obj.Z);
             if ((Xp > VIEW_X0) AND(Xp < VIEW_X1) AND(Yp > VIEW_Y0) AND(Yp < VIEW_Y1)) {
                 ptrobj->WorkFlags |= WAS_DRAWN;
