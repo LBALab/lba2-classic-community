@@ -344,7 +344,14 @@ S32 MenuIncrustSprite = -1;
 S32 SelectPlayer = 0;
 
 /* enum MenuLocalizedLabel and LocalizedMenuLabels live in MENU_LABELS.{H,CPP}
-   so the host completeness test (tests/menu_labels) links the real table. */
+   so the host completeness test (tests/menu_labels) links the real table.
+
+   MENU_LABELS.H is deliberately free of engine headers (the host test links it
+   with nothing else), so it declares its own width. Bind the two together here,
+   where both headers are in scope: add a language to MESSAGE.H without adding a
+   translation column and this fails to compile, rather than silently rendering
+   the new language's menus in English. */
+typedef char MenuLabelTableCoversEveryLanguage[(MENU_LANGUAGE_COUNT == NB_LANGUAGES) ? 1 : -1];
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -360,17 +367,11 @@ static S32 GetMenuLanguageIndex(void) {
     return language;
 }
 
-static const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
-    S32 lang = GetMenuLanguageIndex();
-
-    /* GetMenuLanguageIndex() bounds against GetLanguageCount(); the table's own
-       bound is MENU_LANGUAGE_COUNT. Both are 6 today, but clamp against the array
-       actually being indexed, so adding a language to MESSAGE.CPP without a
-       matching translation row degrades to English instead of reading OOB. */
-    if (lang < 0 OR lang >= MENU_LANGUAGE_COUNT)
-        lang = 0;
-
-    return LocalizedMenuLabels[label].lang[lang];
+const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
+    /* In range by construction: GetMenuLanguageIndex() bounds against
+       GetLanguageCount() == NB_LANGUAGES, which the typedef above pins equal to
+       the table's own width. */
+    return LocalizedMenuLabels[label].lang[GetMenuLanguageIndex()];
 }
 
 const char *GetLocalizedResDialogLabel(int which) {
