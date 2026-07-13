@@ -14,6 +14,7 @@ Index of documentation in this repository.
 | [SCENES.md](SCENES.md) | All 223 cubes by island with location names; interior/exterior; object and zone counts. |
 | [IMPACT_SCRIPTS.md](IMPACT_SCRIPTS.md) | Effects subsystem: IMPACT bytecode + FLOW particle emitters + POF wireframe shapes — runtimes (`DoImpact`, `CreateParticleFlow`, `PofDisplay3DExt`), the on-disk formats, the shipped data, and decoder/compiler tools (`scripts/dev/impact_disasm.py`, `flow_dump.py`, `pof_dump.py`). |
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
+| [TEXT.md](TEXT.md) | Text and localization: the `TEXT.HQR` format (language x bank entry pairs, order/text banks, the attribute byte), id resolution, the two fonts and their codepages, the dialogue engine, and why community strings must live in source. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 | [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |

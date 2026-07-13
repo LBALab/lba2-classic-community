@@ -117,15 +117,17 @@ The main menu still uses only the six template actions (70–75). Options (74) a
 The reworked Options screen uses two sources of copy, by design:
 
 - **`text.hqr` via `GetMultiText`** — Original dialogue IDs for volume, stereo, movie camera, video size, subtitles, and other strings that already existed in the retail game.
-- **In-code `LocalizedMenuLabels`** in [SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) — UTF-8 strings (one row per `TabLanguage[]` / `NB_LANGUAGES`), converted with `CopyUtf8ToCp850` / `FormatUtf8ToCp850` for the menu font. The active row follows `Language` (same index as the UI language). Used for new submenu titles (“Choose language”, “Advanced options”, …) and the display fullscreen OFF/ON lines.
+- **In-code `LocalizedMenuLabels`** in [SOURCES/MENU_LABELS.CPP](../SOURCES/MENU_LABELS.CPP): UTF-8 strings, converted with `CopyUtf8ToCp850` / `FormatUtf8ToCp850` for the menu font. The table is **one row per label**, each row carrying its own enum id plus all six translations; the column follows `Language` (same index as the UI language). Used for new submenu titles (“Choose language”, “Advanced options”, …), the display fullscreen OFF/ON lines, and the key-config footer. Its contract (id equals index, no missing translation, matching printf specifiers across languages) is pinned by [tests/menu_labels](../tests/menu_labels).
 
 When the player changes UI language, `ReloadMultiTextFile` refreshes `text.hqr` strings and the `LocalizedMenuLabels` index updates together, so both layers stay aligned.
 
 The “Texts:” / “Voices:” lines format `GetLocalizedMenuLabel` with `GetLanguageName(Language)` / `GetLanguageName(LanguageCD)` — i.e. the canonical names from `TabLanguage[]` (English, Français, …), not per-locale translations of those names.
 
-Adding a new UI language requires both the usual `text.hqr` coverage and a new row in `LocalizedMenuLabels` (see `BuildCustomMenuText`).
+Adding a new UI language requires both the usual `text.hqr` coverage and a new translation column in every row of `LocalizedMenuLabels`. See [TEXT.md](TEXT.md) for why the `text.hqr` half of that is the hard part.
 
 For voice lines and packaged assets, see [GLOSSARY.md](GLOSSARY.md) and [CONFIG.md](CONFIG.md) (`Language`, `LanguageCD`).
+
+For the text engine underneath all of this (the `text.hqr` format, id resolution, fonts and codepages, the dialogue machine), see [TEXT.md](TEXT.md).
 
 ## Implementation notes
 
