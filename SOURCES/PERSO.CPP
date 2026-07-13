@@ -2943,11 +2943,18 @@ int main(int argc, char *argv[]) {
         atexit(Log_Shutdown);
 
         if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
-            /* Auto-discovery exhausted. Last fallback before exit: in a
-             * windowed environment, prompt the user with a folder dialog
-             * and persist their pick for next launch. Headless / no-display
-             * environments fall through to exit (PromptForResDir returns
-             * false when SDL_INIT_VIDEO can't be brought up). */
+            /* A batch or headless run must not reach the folder picker: it is modal, and
+             * --headless still brings SDL up on the dummy video driver, so the dialog does
+             * open and then waits forever for an answer nobody can give. Exit with the fix
+             * in the message instead. */
+            if (Control_IsActive() || Control_IsHeadless()) {
+                Log_Error("Game data not found. Pass --game-dir <folder containing "
+                          "LBA2.HQR> (often Common/), or set LBA2_GAME_DIR.");
+                exit(EXIT_FAILURE);
+            }
+
+            /* Interactive last fallback: prompt with a folder dialog and persist the pick
+             * for next launch. */
             if (!PromptForResDir(resFolderPath, ADELINE_MAX_PATH)) {
                 /* Do not SDL_Quit() here: SDL3 can double-free in
                  * SDL_QuitFilesystem when shutting down after early
