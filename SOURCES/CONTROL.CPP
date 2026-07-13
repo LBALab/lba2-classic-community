@@ -16,8 +16,10 @@
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
-#include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
-#include <SYSTEM/LOG.H>    /* LogSeverity, Log_ParseLevel for --log-level */
+
+#include <SDL3/SDL.h>     /* SDL_SetHint for --headless (must precede SDL_Init) */
+#include <SYSTEM/FILES.H> /* ExistsFileOrDir */
+#include <SYSTEM/LOG.H>   /* LogSeverity, Log_ParseLevel for --log-level */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,6 +91,7 @@ static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
    that dominates sys time under SDL_AUDIODRIVER=dummy. See INITADEL.C for the
    gate. */
 static int s_no_audio = 0;
+static int s_headless = 0;
 
 /* --res-switch-test WxH@TICK: harness validation for the runtime
    resolution-switch orchestrator (see docs/RUNTIME_RESOLUTION.md and
@@ -352,6 +355,23 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        if (!strcmp(a, "--headless")) {
+            /* No window and no audio device: the supported way to run automation.
+               A visible window pauses the game on focus loss (HandleEventsTimer) and a
+               live audio thread branches the sim, so a windowed run is only reproducible
+               as long as nothing else touches the desktop. Six identical windowed runs in
+               parallel produced five different sim states; headless they are identical.
+
+               The hints must be set before SDL_Init, which is why this is parsed here and
+               not later: Control_ParseArgs runs first thing in main(). */
+            SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+            SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+            s_headless = 1;
+            s_no_audio = 1;
+            s_active = 1;
+            read += 1;
+            continue;
+        }
         if (!strcmp(a, "--no-audio")) {
             /* Boolean flag — skip InitAIL() and InitSampleDriver() at boot so
                the SDL audio subsystem never opens a stream and the dummy
@@ -368,10 +388,27 @@ void Control_ParseArgs(int *argc, char *argv[]) {
     }
     argv[write] = NULL;
     *argc = write;
+
+    /* A batch run (one that advances ticks or quits on its own) has nobody watching the
+       window, so never let focus loss stop its clock. */
+    if (s_headless || s_have_tick || s_exit) {
+        Timer_SetIgnoreFocus(1);
+    }
+
+    if (!s_headless && (s_have_tick || s_exit)) {
+        fprintf(stderr,
+                "[control] warning: batch run without --headless. The window still opens, "
+                "and a live audio thread branches the simulation, so results (screenshots, "
+                "--dump-state) may not reproduce. Pass --headless.\n");
+    }
 }
 
 int Control_IsActive(void) {
     return s_active;
+}
+
+int Control_IsHeadless(void) {
+    return s_headless;
 }
 
 int Control_IsVerbose(void) {
