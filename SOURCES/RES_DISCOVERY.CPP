@@ -107,8 +107,13 @@ void LogFailure(const char tried[][ADELINE_MAX_PATH], int triedCount) {
     for (int i = 0; i < triedCount; i++) {
         Log_Error("  - %s", tried[i]);
     }
-    Log_Error("Hints: set LBA2_GAME_DIR to your install folder, or use --game-dir <path>.");
-    Log_Error("See docs/GAME_DATA.md. Retail game files are not included in this repository.");
+    /* This message reaches the reader who has the binary and no game data, which is exactly
+       the reader who cannot open a file in the source tree. Say the thing, and point at the
+       README that ships beside the binary. */
+    Log_Error("Hints: set LBA2_GAME_DIR to your install folder, or pass --game-dir <path>.");
+    Log_Error("The path is the folder holding the HQR files, often Common/.");
+    Log_Error("This is a source port: it needs the retail game files, which it does not ship. "
+              "See README.txt.");
 }
 
 void StripGameDirArgs(int *argc, char **argv) {
@@ -337,9 +342,25 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     const bool forcePicker = ExtractPickGameDirFlag(*argc, argv);
     StripGameDirArgs(argc, argv);
 
-    if (cliPath[0] != '\0' &&
-        NormalizeAndTry(cliPath, outDir, outMax, tried, &triedCount)) {
-        return true;
+    if (cliPath[0] != '\0') {
+        /* The path itself, then the subfolder a retail install keeps its data in: people
+           point this at the install root (README says so, and the Makefile forwards
+           GAME_DIR straight through), and the HQRs live one level down in Common/. */
+        if (NormalizeAndTry(cliPath, outDir, outMax, tried, &triedCount) ||
+            TryJoinBaseSub(cliPath, "Common", outDir, outMax, tried, &triedCount)) {
+            return true;
+        }
+
+        /* Neither worked, so the path is a mistake, not a hint. Falling through to the env /
+           persisted / auto-discovery probes below would boot a DIFFERENT install than the one
+           asked for and say so only in the banner: a run against assets nobody asked for that
+           still exits 0. */
+        Log_Error("RES_DISCOVERY: --game-dir '%s' does not hold the game data: no LBA2.HQR "
+                  "in it, nor in a Common/ inside it.",
+                  cliPath);
+        Log_Error("Point it at the folder with the HQR files, or at the install that "
+                  "contains it. Refusing to boot a different install instead.");
+        return false;
     }
 
     const char *env = getenv("LBA2_GAME_DIR");
