@@ -1,6 +1,8 @@
 #ifndef GAMEMENU_H
 #define GAMEMENU_H
 
+#include "MENU_LABELS.H"
+
 #ifdef DEMO
 extern S32 FlagShowEndDemo;
 #endif
@@ -156,5 +158,10 @@ enum ResDialogLabel {
     RES_DIALOG_LABEL_COUNT
 };
 extern const char *GetLocalizedResDialogLabel(int which);
+
+/* The localized in-source menu string for `label`, in the current UI language.
+   Returns UTF-8: run it through CopyUtf8ToCp850 / FormatUtf8ToCp850 before
+   handing it to the font. See docs/TEXT.md. */
+extern const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label);
 
 #endif // GAMEMENU_H
