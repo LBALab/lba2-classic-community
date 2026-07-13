@@ -6,12 +6,18 @@
    flag anywhere (CONTROL.CPP, RES_DISCOVERY.CPP, PERSO.CPP): an absent entry means
    the flag is rejected as unknown. */
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Prints the usage text to stdout. */
 void Cli_PrintUsage(const char *exeName);
+
+/* Same, to a caller-chosen stream, so a test can read the text back without hijacking
+   stdout. */
+void Cli_PrintUsageTo(FILE *out, const char *exeName);
 
 /* Returns 1 if argv contains --help or -h. */
 int Cli_WantsHelp(int argc, char *argv[]);

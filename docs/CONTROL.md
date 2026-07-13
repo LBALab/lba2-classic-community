@@ -134,6 +134,19 @@ directory, not the retail `SAVE/` folder, and that the console's own `load` comm
 resolves by player name via a separate path (`cmd_load`), so a name that works in one
 won't necessarily work in the other. Pass a path if in doubt.
 
+### Finding out what you can drive
+
+The harness tells you itself; you shouldn't need to read source or this document to start.
+
+```bash
+lba2cc --headless --exec "cmdlist"   --tick 2 --exit   # every console command
+lba2cc --headless --exec "help cube" --tick 2 --exit   # usage for one of them
+lba2cc --headless --exec "listsaves" --tick 2 --exit   # the names --load accepts
+```
+
+Console output is mirrored to stdout, so any command's output is readable from a batch run.
+`lba2cc --help` lists the flags and repeats these three lines.
+
 ### Notes and limits
 
 - **A rendered artifact needs a tick.** `--screenshot` forces a minimum of one tick (you
@@ -202,6 +215,15 @@ won't necessarily work in the other. Pass a path if in doubt.
   before exit. So you can run `lba2cc --exec "cube 205" --demo --tick 30000 --dump-state
   end.json --exit` and get a snapshot of the Dark Monk finale at tick ≈ 25 443 without
   having to pre-compute the right tick.
+- **A `--game-dir` that doesn't hold the game data fails the run.** Discovery falls back to
+  the env var, then a persisted path, then auto-discovery, so an unusable `--game-dir` would
+  otherwise boot a *different install* and mention it only in the banner: an A/B against
+  assets you never asked for, exiting 0. Point it at the folder holding the HQR files (often
+  `Common/`), which is what `LBA2_GAME_DIR` expects too.
+- **A batch or headless run never opens the game-data folder picker.** `--headless` brings SDL
+  up on the dummy video driver, so `SDL_INIT_VIDEO` succeeds and the modal picker really does
+  appear, with nobody to answer it: the run would hang forever. It exits with the fix in the
+  message instead.
 - **A bad `--load` fails the run.** It prints `save not found`, exits non-zero, and writes
   no `--dump-state` / `--screenshot`. It used to carry on with a fresh game and exit 0, so a
   typo'd save name handed back plausible artifacts of the wrong scene (cube 0) and a green

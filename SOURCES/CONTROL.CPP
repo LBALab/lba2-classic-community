@@ -41,10 +41,9 @@ static int s_have_exec = 0;
 static char s_exec[CONTROL_EXEC_MAX];
 
 /* --exec-at <tick> <cmds>: console commands scheduled for a later tick, repeatable.
-   --exec alone cannot express "after the scene has settled": it fires on the first tick,
-   and a `cube` change only applies on the NEXT frame, so `--exec "cube 154; teleport
-   actor 3"` teleports the hero in the OLD cube and the pending change then resets him.
-   That failure is silent, and it reads as "the thing I was testing didn't happen". */
+   --exec cannot express "after the scene has settled": it fires on the first tick, and a
+   `cube` change only applies on the NEXT frame, so `--exec "cube 154; teleport actor 3"`
+   teleports the hero in the OLD cube and the pending change then resets him. Silently. */
 #define CONTROL_EXEC_AT_MAX 16
 typedef struct {
     long tick;
@@ -163,11 +162,10 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             char *end = NULL;
             long t;
 
-            /* Cli_ValidateArgs has already refused a run whose --exec-at is missing a value
-               or whose value is a flag (`--exec-at 5 --tick 30` used to parse cmds="--tick"
-               and swallow the 30, leaving a run that ticked zero times and still exited 0).
-               Re-check rather than trust it: falling through to the argv passthrough below
-               would drop the flag in silence, which is the failure mode we are removing. */
+            /* Cli_ValidateArgs already refuses a run whose --exec-at is missing a value or
+               whose value is a flag. Re-check anyway: falling through to the argv passthrough
+               below would drop the flag in silence, which is the failure this flag exists to
+               avoid. */
             if (read + 2 >= *argc) {
                 fprintf(stderr, "[control] --exec-at: needs <tick> <cmds>\n");
                 read = *argc;
@@ -410,14 +408,13 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             continue;
         }
         if (!strcmp(a, "--headless")) {
-            /* No window and no audio device: the supported way to run automation.
-               A visible window pauses the game on focus loss (HandleEventsTimer) and a
-               live audio thread branches the sim, so a windowed run is only reproducible
-               as long as nothing else touches the desktop. Six identical windowed runs in
-               parallel produced five different sim states; headless they are identical.
+            /* No window and no audio device: the supported way to run automation. A visible
+               window pauses the game on focus loss (HandleEventsTimer) and a live audio thread
+               branches the sim, so a windowed run is only reproducible for as long as nothing
+               else touches the desktop.
 
-               The hints must be set before SDL_Init, which is why this is parsed here and
-               not later: Control_ParseArgs runs first thing in main(). */
+               SDL reads these hints at SDL_Init, so they must be set before it: Control_ParseArgs
+               runs first thing in main(), which is why this is parsed here rather than later. */
             SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
             SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
             s_headless = 1;
@@ -470,6 +467,12 @@ void Control_ParseArgs(int *argc, char *argv[]) {
 
 int Control_IsActive(void) {
     return s_active;
+}
+
+/* Read by PERSO.CPP: a headless run must not open the modal game-data folder picker,
+   which would hang forever with nobody to answer it. */
+int Control_IsHeadless(void) {
+    return s_headless;
 }
 
 int Control_IsVerbose(void) {
@@ -573,6 +576,11 @@ int Control_Begin(void) {
             /* Report and bail without arming. The caller skips MainLoop and exits, so
                we don't depend on TheEnd being noreturn from inside here. */
             fprintf(stderr, "[control] load: save not found: %s\n", s_load_name);
+            /* A name resolves against the user save directory, not the retail SAVE/ folder,
+               so "not found" is most often a name the engine can't see rather than a typo.
+               Name the way to list what it can. */
+            fprintf(stderr, "[control] load: a name resolves in the save directory; pass a path,\n"
+                            "[control]       or list the names with --exec \"listsaves\".\n");
             fflush(stderr);
             return 0;
         }

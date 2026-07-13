@@ -41,6 +41,20 @@ if ! timeout 10 "$LBA2_BIN" --GAME-DIR "$LBA2_GAME_DIR" --help >/dev/null 2>&1; 
     fail "'--GAME-DIR' rejected; RES_DISCOVERY accepts it case-insensitively"
 fi
 
+# --- a --game-dir that doesn't hold the data must fail, not boot another install --------
+# Discovery falls back to the persisted / auto-discovered path, so an unusable --game-dir
+# would boot a DIFFERENT install and say so only in the banner: an A/B against assets you
+# never asked for, exiting 0.
+if timeout 30 "$LBA2_BIN" --game-dir /nonexistent/path --headless --tick 1 --exit >/dev/null 2>&1; then
+    fail "an unusable --game-dir was accepted; the run booted some other install"
+fi
+
+# --- a batch run must never block on the folder picker ------------------------------
+# --headless brings SDL up on the dummy video driver, so SDL_INIT_VIDEO succeeds and the
+# modal picker really does open, with nobody to answer it.
+timeout 30 "$LBA2_BIN" --pick-game-dir --headless --tick 1 --exit >/dev/null 2>&1
+[ $? -eq 124 ] && fail "--pick-game-dir hung a headless run on the modal folder picker"
+
 need_save
 
 json="$(mktemp)"

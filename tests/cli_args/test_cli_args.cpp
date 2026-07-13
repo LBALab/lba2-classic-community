@@ -3,12 +3,12 @@
  * Every case here guards one way a run can silently do the wrong thing and still exit 0,
  * which for a harness whose output nobody watches is the worst failure mode there is:
  *
- *   - an unknown flag (a typo) used to be ignored, so `--resolutionn 1280x720` ran at the
- *     default resolution and handed back a confident, wrong answer;
- *   - a flag whose value is missing used to be dropped by its own parser's `has_val` guard,
- *     so `--tick` with no count booted and did nothing;
- *   - a flag where a value belongs used to be swallowed as that value: `--exec-at 5 --tick 30`
- *     parsed cmds="--tick", ate the 30, and produced a run that ticked zero times.
+ *   - an unknown flag (a typo) must not be ignored: `--resolutionn 1280x720` would run at
+ *     the default resolution and hand back a confident, wrong answer;
+ *   - a flag whose value is missing must not be dropped by its own parser's `has_val` guard:
+ *     `--tick` with no count would boot and do nothing;
+ *   - a flag standing where a value belongs must not be swallowed as that value:
+ *     `--exec-at 5 --tick 30` would parse cmds="--tick", eat the 30, and tick zero times.
  *
  * Cli_ValidateArgs is the single place that knows each flag's arity, so it is the only place
  * that can catch all three. It is pure argv-in / int-out with no engine state, which is why
@@ -85,6 +85,39 @@ int main() {
     REJECT("missing second value of two-value flag", "--exec-at", "5");
     REJECT("flag swallowed as a value", "--exec-at", "5", "--tick", "30");
     REJECT("flag swallowed as a one-value flag's value", "--load", "--tick", "30");
+
+    /* --- the usage text reaches people who have only the binary ---------------------- */
+    /* A player runs --help too, and a release ships README.txt next to the binary but none
+       of the repo's docs or sources. A string pointing at one of those is a dead end for
+       exactly the reader who needed it. */
+    {
+        char buf[8192];
+        std::FILE *cap = std::tmpfile();
+
+        if (cap == NULL) {
+            std::printf("FAIL could not open a temp file to capture the usage text\n");
+            failures++;
+        } else {
+            Cli_PrintUsageTo(cap, "lba2cc");
+            std::rewind(cap);
+            size_t n = std::fread(buf, 1, sizeof(buf) - 1, cap);
+            buf[n] = '\0';
+            std::fclose(cap);
+
+            static const char *const forbidden[] = {"docs/", ".md", "SOURCES/", "tests/"};
+            for (size_t i = 0; i < sizeof(forbidden) / sizeof(forbidden[0]); i++) {
+                if (std::strstr(buf, forbidden[i]) != NULL) {
+                    std::printf("FAIL usage text points at '%s', which no release ships\n",
+                                forbidden[i]);
+                    failures++;
+                }
+            }
+            if (std::strstr(buf, "README.txt") == NULL) {
+                std::printf("FAIL usage text should point at README.txt\n");
+                failures++;
+            }
+        }
+    }
 
     if (failures == 0) {
         std::printf("PASS test_cli_args\n");

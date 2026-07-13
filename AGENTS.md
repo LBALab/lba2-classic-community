@@ -17,6 +17,8 @@ This document helps AI coding assistants (Cursor, Copilot, Claude, etc.) work ef
 ## Never
 
 - Never relax equivalence tests or add approximate comparisons
+- Never point a user-facing string at the repo. Help text, console command descriptions, log lines, on-screen messages and dialogs reach people who have only the binary: no `docs/*.md`, no source paths, no issue numbers. Point at `README.txt` (it ships) or, better, say the thing itself. `--help` in particular is read by players, not only by agents driving the harness.
+- Never leak the session into a comment. Comments state the constraint or intent that outlives the merge, in the present tense, as if the code had always looked this way. No "used to", no "the old code assumed", no narrating the change you just made or the evidence that motivated it: that belongs in the commit message and the PR body, which is where a reader goes looking for it. Stripping the story must not strip the *why*, so keep the invariant, the hazard, or the non-obvious coupling the code can't show on its own. Bad: `/* a spelling that used to work would now be rejected */`. Good: `/* RES_DISCOVERY parses these with strcasecmp, so the validator must too, or it would reject a spelling that parser accepts. */`
 - Never remove French comments or ASCII art
 - Never add `__asm__` / inline x86 in LIB386 C++ files
 - Never change gameplay, timing, or feel without explicit approval

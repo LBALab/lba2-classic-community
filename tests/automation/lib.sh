@@ -57,13 +57,12 @@ need_save() {
 
 # ctl <args...> — run the harness headless, with a hard timeout.
 #
-# --headless (not just SDL_AUDIODRIVER=dummy) because a visible window pauses the game
-# when it loses focus: a test that ran while you tabbed away used to get a stopped clock,
-# and several in parallel fought over focus. Six identical windowed runs produced five
-# different sim states; headless they are byte-identical. It also implies --no-audio.
+# --headless (not just SDL_AUDIODRIVER=dummy) because a visible window pauses the game when
+# it loses focus: a windowed test gets a stopped clock the moment you tab away, and several
+# in parallel fight over focus, so results stop reproducing. It also implies --no-audio.
 #
-# --no-autosave because an in-game scene transition writes autosave.lba, so merely running
-# the suite used to mutate the developer's own save files.
+# --no-autosave because an in-game scene transition writes autosave.lba: without it, merely
+# running the suite mutates the developer's own save files.
 ctl() {
     timeout "$LBA2_TEST_TIMEOUT" "$LBA2_BIN" --headless --no-autosave "$@"
 }
