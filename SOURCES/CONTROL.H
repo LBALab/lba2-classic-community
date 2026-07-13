@@ -29,6 +29,13 @@ void Control_ParseArgs(int *argc, char *argv[]);
 /* Non-zero if any harness flag was supplied this run. */
 int Control_IsActive(void);
 
+/* Non-zero if --headless was supplied: no window, no audio device. */
+int Control_IsHeadless(void);
+
+/* Number of --exec-at entries whose tick the run never reached, reported on stderr as a
+   side effect. Non-zero means the run did not do what was asked of it. */
+int Control_UnfiredExecAt(void);
+
 /* Non-zero if --verbose was supplied: log scene/hero progress and modal entries to stderr,
    so a headless run is self-explaining and a hang shows what blocked it. */
 int Control_IsVerbose(void);
