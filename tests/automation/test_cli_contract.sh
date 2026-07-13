@@ -9,6 +9,8 @@
 #                   not parse cmds="--tick", eat the 30, and tick zero times)
 #   --exec-at       runs a command after a scene change has settled, which --exec cannot
 #   unfired exec-at exits non-zero: a command the run never reached did not happen
+#   --game-dir      an unusable path fails instead of booting some other install
+#   picker          a headless run exits instead of hanging on the modal folder dialog
 #   --no-autosave   blocks autosaves but NOT an explicit save: the console's `savebug`
 #                   writes to the bugs dir and must keep working
 TESTNAME=cli_contract
@@ -48,6 +50,30 @@ if timeout 60 "$LBA2_BIN" --headless --no-autosave --exec-at 500 "cube 100" --ti
     >/dev/null 2>&1; then
     fail "an --exec-at that never fired still exited 0"
 fi
+
+# --- a --game-dir that doesn't hold the data must fail, not boot another install --------
+# Discovery falls back to the persisted / auto-discovered path, so an unusable --game-dir
+# would boot a DIFFERENT install and say so only in the banner: an A/B against assets you
+# never asked for, exiting 0.
+if timeout 30 "$LBA2_BIN" --game-dir /nonexistent/path --headless --tick 1 --exit >/dev/null 2>&1; then
+    fail "an unusable --game-dir was accepted; the run booted some other install"
+fi
+
+# --- an install root works, since that is what the Makefile and README tell you to pass --
+# Only meaningful on a Common/ layout: a GOG tree keeps the HQRs at the root, so its parent
+# holds no game data and refusing it is correct.
+if [ "$(basename "$LBA2_GAME_DIR")" = "Common" ]; then
+    if ! timeout 45 "$LBA2_BIN" --game-dir "$(dirname "$LBA2_GAME_DIR")" --headless --tick 1 \
+        --exit >/dev/null 2>&1; then
+        fail "--game-dir <install root> rejected; it must probe <root>/Common before refusing"
+    fi
+fi
+
+# --- a batch run must never block on the folder picker ------------------------------
+# --headless brings SDL up on the dummy video driver, so SDL_INIT_VIDEO succeeds and the
+# modal picker really does open, with nobody to answer it.
+timeout 30 "$LBA2_BIN" --pick-game-dir --headless --tick 1 --exit >/dev/null 2>&1
+[ $? -eq 124 ] && fail "--pick-game-dir hung a headless run on the modal folder picker"
 
 need_save
 
