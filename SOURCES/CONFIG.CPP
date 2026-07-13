@@ -19,6 +19,7 @@
 #include "IMAGE_LOAD.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
+#include "GAMEMENU.H"
 
 #include <FILEIO/SAVEPNG.H>
 
@@ -522,19 +523,6 @@ void DrawStatusConfig(S32 num) {
         char kExit[KEY_STRING_LEN];
         char kSel[KEY_STRING_LEN];
         char kClr[KEY_STRING_LEN];
-        S32 lang = Language;
-        static const char *const footerOneLine[6] = {
-            "<%s> Exit   <%s> Select   <%s> Clear",
-            "<%s> Quitter   <%s> Touche   <%s> Effacer",
-            "<%s> Ende   <%s> Taste   <%s> Leeren",
-            "<%s> Salir   <%s> Tecla   <%s> Borrar",
-            "<%s> Esci   <%s> Tasto   <%s> Cancella",
-            "<%s> Sair   <%s> Tecla   <%s> Apagar",
-        };
-
-        if (lang < 0 OR lang >= GetLanguageCount()) {
-            lang = 1;
-        }
 
         DrawCadreConfig(CFG_TXT_X0, CFG_TXT_Y0, CFG_TXT_X1, CFG_TXT_Y1_NORMAL, TRUE);
         CoulText(COUL_STATUS, -1);
@@ -560,7 +548,8 @@ void DrawStatusConfig(S32 num) {
         else
             strcpy(kClr, "---");
 
-        FormatUtf8ToCp850(lineBuf, sizeof(lineBuf), footerOneLine[lang], kExit, kSel, kClr);
+        FormatUtf8ToCp850(lineBuf, sizeof(lineBuf),
+                          GetLocalizedMenuLabel(MENU_LABEL_KEYCFG_FOOTER), kExit, kSel, kClr);
         GraphPrintf(FALSE, (S32)ModeDesiredX / 2 - (strlen(lineBuf) * SizeChar) / 2, CFG_TXT_Y0 + 6, lineBuf);
         return;
     }
