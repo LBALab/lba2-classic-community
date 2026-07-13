@@ -98,6 +98,10 @@ S32 Timer_ForceStepIfPending(S32 plannedSteps, S32 pending, U32 now, S32 dt, U32
 void ManageTime();
 void HandleEventsTimer(const void *event);
 
+/* Keep the clock running when the window loses focus. Set by the control harness for a
+   batch run; leave off for a player, who expects the game to pause when tabbed away. */
+void Timer_SetIgnoreFocus(S32 ignore);
+
 // -----------------------------------------------------------------------------
 #define ManageSystem()  \
     {                   \

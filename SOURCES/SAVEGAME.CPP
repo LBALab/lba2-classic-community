@@ -274,9 +274,32 @@ S32 SetDemoSaveGame(S32 num) {
 	  ▀▀▀▀   ▀▀   ▀▀▀▀▀ ▀▀  ▀       ▀▀    ▀▀▀▀▀ ▀▀  ▀ ▀▀▀▀▀ ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
+/* --no-autosave: stop a run writing the player's save slots as a side effect of merely
+   being run. An in-game scene transition calls AutoSaveGame(), so a --load + --tick run that
+   walks the hero through a door rewrites autosave.lba on a real install.
+
+   Only the IMPLICIT writes are suppressed. AutoSaveGame is implicit by definition, so it
+   checks here. CurrentSaveGame is not: the menu calls it alongside a deliberate Save, and
+   suppressing that would leave the Resume slot pointing at an older game than the save the
+   player just made. Its implicit callers check Save_AutoDisabled() instead. SaveGame() is
+   always explicit (menu Save, and the console's `savebug`, which writes to the bugs
+   directory rather than a player slot), so it is never suppressed. */
+static S32 AutoSavesDisabled = 0;
+
+void Save_SetAutoDisabled(S32 disabled) {
+    AutoSavesDisabled = disabled ? 1 : 0;
+}
+
+S32 Save_AutoDisabled(void) {
+    return AutoSavesDisabled;
+}
+
 // Version Jeu uniquement
 void AutoSaveGame() {
 #ifndef DEMO
+    if (AutoSavesDisabled)
+        return;
+
     U8 memonumversion = NumVersion;
     char memoplayername[MAX_SIZE_PLAYER_NAME + 1];
     char memogamepathname[ADELINE_MAX_PATH];
