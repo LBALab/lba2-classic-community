@@ -10,6 +10,7 @@
 #include "CONSOLE/CONSOLE.H"
 #include "MESSAGE.H"
 #include "IMAGE_LOAD.H"
+#include "MENU_LABELS.H"
 
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>
@@ -342,185 +343,15 @@ S32 MenuIncrustSprite = -1;
 
 S32 SelectPlayer = 0;
 
-enum MenuLocalizedLabel {
-    MENU_LABEL_CHOOSE_LANGUAGE,
-    MENU_LABEL_ADVANCED_OPTIONS,
-    MENU_LABEL_TEXT_LANGUAGE,
-    MENU_LABEL_VOICE_LANGUAGE,
-    MENU_LABEL_DISPLAY_WINDOWED,
-    MENU_LABEL_DISPLAY_FULLSCREEN,
-    MENU_LABEL_AUTO_CAMERA,
-    MENU_LABEL_CLASSIC_CAMERA,
-    MENU_LABEL_CONTROLLER,
-    MENU_LABEL_GAME_CONTROLLER,
-    MENU_LABEL_GAME_SAVED,
-    MENU_LABEL_BUG_SAVED,
-    MENU_LABEL_RES_TITLE,
-    MENU_LABEL_RES_NOW_AT,
-    MENU_LABEL_RES_KEEP_Q,
-    MENU_LABEL_RES_BTN_KEEP,
-    MENU_LABEL_RES_BTN_REVERT_FMT,
-    MENU_LABEL_DISPLAY,
-    MENU_LABEL_RESOLUTION,
-    MENU_LABEL_VSYNC_ON,
-    MENU_LABEL_VSYNC_OFF,
-    MENU_LABEL_MOVIE_ORIGINAL,
-    MENU_LABEL_MOVIE_FIT,
-    MENU_LABEL_COUNT,
-};
+/* enum MenuLocalizedLabel and LocalizedMenuLabels live in MENU_LABELS.{H,CPP}
+   so the host completeness test (tests/menu_labels) links the real table.
 
-static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
-    {
-        "Choose language",
-        "Advanced options",
-        "Texts: %s",
-        "Voices: %s",
-        "Windowed",
-        "Fullscreen",
-        "Auto camera",
-        "Classic camera",
-        "Controls",
-        "Configure gamepad",
-        "Game saved",
-        "Bug saved",
-        "Resolution changed",
-        "Now running at %ux%u.",
-        "Keep this resolution?",
-        "Keep",
-        "Revert (%d)",
-        "Display",
-        "Resolution: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Movies at original size",
-        "Movies fit to screen",
-    },
-    {
-        "Choix de la langue",
-        "Options avancées",
-        "Textes : %s",
-        "Voix : %s",
-        "Fenêtré",
-        "Plein écran",
-        "Caméra automatique",
-        "Caméra classique",
-        "Contrôles",
-        "Configuration manette",
-        "Partie sauvegardée",
-        "Bug sauvegardé",
-        "Résolution modifiée",
-        "Affichage en %ux%u.",
-        "Conserver cette résolution ?",
-        "Conserver",
-        "Annuler (%d)",
-        "Affichage",
-        "Résolution : %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Vidéos en taille d'origine",
-        "Vidéos ajustées à l'écran",
-    },
-    {
-        "Sprachauswahl",
-        "Vorgeschlagene Optionen",
-        "Texte: %s",
-        "Stimmen: %s",
-        "Fenster",
-        "Vollbild",
-        "Automatische Kamera",
-        "Klassische Kamera",
-        "Steuerung",
-        "Gamepad konfigurieren",
-        "Spiel gespeichert",
-        "Fehler gespeichert",
-        "Auflösung geändert",
-        "Läuft jetzt mit %ux%u.",
-        "Diese Auflösung beibehalten?",
-        "Beibehalten",
-        "Zurück (%d)",
-        "Anzeige",
-        "Auflösung: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Videos in Originalgröße",
-        "Videos an Bildschirm angepasst",
-    },
-    {
-        "Elegir idioma",
-        "Opciones avanzadas",
-        "Textos: %s",
-        "Voces: %s",
-        "Ventana",
-        "Pantalla completa",
-        "Cámara automática",
-        "Cámara clásica",
-        "Controles",
-        "Configurar mando",
-        "Partida guardada",
-        "Error guardado",
-        "Resolución cambiada",
-        "Funcionando a %ux%u.",
-        "¿Mantener esta resolución?",
-        "Mantener",
-        "Revertir (%d)",
-        "Pantalla",
-        "Resolución: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Vídeos en tamaño original",
-        "Vídeos ajustados a pantalla",
-    },
-    {
-        "Scegli lingua",
-        "Opzioni avanzate",
-        "Testi: %s",
-        "Voci: %s",
-        "Finestra",
-        "Schermo intero",
-        "Telecamera automatica",
-        "Telecamera classica",
-        "Controlli",
-        "Configura gamepad",
-        "Partita salvata",
-        "Bug salvato",
-        "Risoluzione modificata",
-        "In esecuzione a %ux%u.",
-        "Mantenere questa risoluzione?",
-        "Mantieni",
-        "Annulla (%d)",
-        "Schermo",
-        "Risoluzione: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Video in dimensione originale",
-        "Video adattati allo schermo",
-    },
-    {
-        "Escolha do idioma",
-        "Opções avançadas",
-        "Texto: %s",
-        "Voz: %s",
-        "Janela",
-        "Tela cheia",
-        "Câmera automática",
-        "Câmera clássica",
-        "Controles",
-        "Configurar gamepad",
-        "Jogo salvo",
-        "Erro salvo",
-        "Resolução alterada",
-        "Em execução a %ux%u.",
-        "Manter esta resolução?",
-        "Manter",
-        "Reverter (%d)",
-        "Tela",
-        "Resolução: %s",
-        "Vsync ON",
-        "Vsync OFF",
-        "Vídeos em tamanho original",
-        "Vídeos ajustados à tela",
-    },
-};
+   MENU_LABELS.H is deliberately free of engine headers (the host test links it
+   with nothing else), so it declares its own width. Bind the two together here,
+   where both headers are in scope: add a language to MESSAGE.H without adding a
+   translation column and this fails to compile, rather than silently rendering
+   the new language's menus in English. */
+typedef char MenuLabelTableCoversEveryLanguage[(MENU_LANGUAGE_COUNT == NB_LANGUAGES) ? 1 : -1];
 
 /*──────────────────────────────────────────────────────────────────────────*/
 
@@ -536,8 +367,11 @@ static S32 GetMenuLanguageIndex(void) {
     return language;
 }
 
-static const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
-    return LocalizedMenuLabels[GetMenuLanguageIndex()][label];
+const char *GetLocalizedMenuLabel(enum MenuLocalizedLabel label) {
+    /* In range by construction: GetMenuLanguageIndex() bounds against
+       GetLanguageCount() == NB_LANGUAGES, which the typedef above pins equal to
+       the table's own width. */
+    return LocalizedMenuLabels[label].lang[GetMenuLanguageIndex()];
 }
 
 const char *GetLocalizedResDialogLabel(int which) {

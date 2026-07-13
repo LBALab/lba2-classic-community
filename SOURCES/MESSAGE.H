@@ -1,6 +1,15 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
+/* Number of UI languages, and the width of every per-language table in the
+   codebase. This is not a free parameter: it is the layout of TEXT.HQR, which
+   stores (NB_LANGUAGES * MAX_TEXT_LANG * 2) entries and which we cannot
+   regenerate. See docs/TEXT.md before changing it.
+
+   Exported so tables outside MESSAGE.CPP can bind their width to it rather than
+   restating 6 and drifting. GetLanguageCount() returns this. */
+#define NB_LANGUAGES 6
+
 //-------------------- Used by HoloGlob.cpp
 extern char *PtDial;
 extern S32 X_Dial, Y_Dial;
