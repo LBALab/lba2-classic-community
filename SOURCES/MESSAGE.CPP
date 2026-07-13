@@ -87,7 +87,8 @@ U8 *PalOrg;
 #endif
 
 //--------------------------------------------------------------
-#define NB_LANGUAGES 6
+/* NB_LANGUAGES now lives in MESSAGE.H, so the per-language tables outside this
+   file can bind their own width to it at compile time instead of restating 6. */
 #define MAX_TEXT_LANG 15                              // Attention, pour 1 langue seulement!
 #define MAX_FILE_VOICE (MAX_TEXT_LANG * NB_LANGUAGES) // ( SYS CRE GAM 0 ... 11 ) * MaxLang
 #define EXT_VOX ".VOX"

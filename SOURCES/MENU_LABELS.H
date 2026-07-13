@@ -20,7 +20,11 @@
      - a row's printf specifiers are identical in all six languages (a stray
        "%s" where the caller passes an unsigned is a crash, not a typo). */
 
-#define MENU_LANGUAGE_COUNT 6 /* must stay == GetLanguageCount() */
+/* Width of every row. This header stays free of engine includes so the host test
+   can link the table on its own, so it cannot reference NB_LANGUAGES directly.
+   GAMEMENU.CPP, which sees both headers, pins MENU_LANGUAGE_COUNT == NB_LANGUAGES
+   at compile time. */
+#define MENU_LANGUAGE_COUNT 6
 
 enum MenuLocalizedLabel {
     MENU_LABEL_CHOOSE_LANGUAGE,
@@ -46,6 +50,7 @@ enum MenuLocalizedLabel {
     MENU_LABEL_VSYNC_OFF,
     MENU_LABEL_MOVIE_ORIGINAL,
     MENU_LABEL_MOVIE_FIT,
+    MENU_LABEL_KEYCFG_FOOTER,
     MENU_LABEL_COUNT,
 };
 

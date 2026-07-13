@@ -111,8 +111,13 @@ int main() {
         }
     }
 
-    if (MENU_LANGUAGE_COUNT != 6) {
-        std::printf("FAIL: MENU_LANGUAGE_COUNT is %d, expected 6\n", MENU_LANGUAGE_COUNT);
+    /* The table's width against the engine's language count (NB_LANGUAGES) is a
+     * compile-time check in GAMEMENU.CPP, not here: this test deliberately links
+     * MENU_LABELS.CPP alone, so it cannot see the engine's constant. All it can
+     * pin is that kLangName above still describes every column. */
+    if ((int)(sizeof kLangName / sizeof kLangName[0]) != MENU_LANGUAGE_COUNT) {
+        std::printf("FAIL: kLangName has %d entries, MENU_LANGUAGE_COUNT is %d\n",
+                    (int)(sizeof kLangName / sizeof kLangName[0]), MENU_LANGUAGE_COUNT);
         failures++;
     }
 
