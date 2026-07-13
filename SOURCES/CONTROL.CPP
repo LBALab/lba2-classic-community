@@ -53,6 +53,12 @@ typedef struct {
 } T_CONTROL_EXEC_AT;
 static T_CONTROL_EXEC_AT s_exec_at[CONTROL_EXEC_AT_MAX];
 static int s_exec_at_count = 0;
+
+/* The attract/demo reel: the menu enters it at cube 193 (GAMEMENU.CPP) and the authored
+   demo copies run to 221 (docs/SCENES.md). Used only to warn that --demo is a no-op
+   elsewhere, so an off-by-one here costs a spurious warning, not behaviour. */
+#define DEMO_CUBE_FIRST 193
+#define DEMO_CUBE_LAST 221
 static int s_have_tick = 0;
 static long s_tick = 0;
 static int s_have_fixed_dt = 0;
@@ -859,6 +865,19 @@ void Control_TickHook(void) {
     if (s_hook_calls == 1)
         control_run_exec();
     control_run_exec_at(s_hook_calls - 1);
+
+    /* --demo only drives an authored demo scene (the reel the menu enters at cube 193,
+       GAMEMENU.CPP; see docs/SCENES.md). On a normal scene it silently does nothing, so a
+       long run looks like evidence when it is just an idle hero. Checked a few ticks in,
+       once an --exec "cube N" has actually applied (a cube change lands the NEXT frame). */
+    if (s_demo && s_hook_calls == 3) {
+        if (NumCube < DEMO_CUBE_FIRST || NumCube > DEMO_CUBE_LAST) {
+            fprintf(stderr,
+                    "[control] warning: --demo has no effect on cube %d. The demo reel is "
+                    "cubes %d-%d; jump to one, e.g. --exec \"cube %d\".\n",
+                    (int)NumCube, DEMO_CUBE_FIRST, DEMO_CUBE_LAST, DEMO_CUBE_FIRST);
+        }
+    }
     /* --res-switch-test fires once at the requested tick.  Logged so harness
        output captures success / failure; the orchestrator also logs internally
        on rebuild failure. */
