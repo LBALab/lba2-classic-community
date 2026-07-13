@@ -227,10 +227,11 @@
 
 /*---------------- FENETRE ------------------*/
 
+/* Mirrors COMMON.H (included above); see the note there on the mode-relative bounds. */
 #define VIEW_X0 -50
 #define VIEW_Y0 -30
-#define VIEW_X1 680
-#define VIEW_Y1 580
+#define VIEW_X1 ((S32)ModeDesiredX + 40)
+#define VIEW_Y1 ((S32)ModeDesiredY + 100)
 
 /*──────────────────────────────────────────────────────────────────────────*/
 /* type objet pour affscene */

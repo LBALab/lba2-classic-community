@@ -190,10 +190,15 @@ typedef	struct	{
 #define DEMI_BRICK_XZ   256
 #define DEMI_BRICK_Y    128
 
+/* "Is this projected point on screen?", screen rect plus the original slack.
+   The max bounds track the render mode: hardcoded 680/580 is 640x480 + that slack,
+   so at wider modes they rejected points that were plainly on screen.
+   The (S32) casts matter: ModeDesiredX/Y are unsigned, and a negative Xp/Yp
+   (legal, that is what the VIEW_X0/Y0 slack is for) would wrap past the max. */
 #define VIEW_X0         -50
 #define VIEW_Y0         -30
-#define VIEW_X1         680
-#define VIEW_Y1         580
+#define VIEW_X1         ((S32)ModeDesiredX + 40)
+#define VIEW_Y1         ((S32)ModeDesiredY + 100)
 
 // Type de cube
 #define CUBE_INTERIEUR	0
