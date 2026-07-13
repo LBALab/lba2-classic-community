@@ -39,6 +39,20 @@ static int s_armed = 0;
 static const char *s_load_name = NULL; /* --load value (NULL = none) */
 static int s_have_exec = 0;
 static char s_exec[CONTROL_EXEC_MAX];
+
+/* --exec-at <tick> <cmds>: console commands scheduled for a later tick, repeatable.
+   --exec alone cannot express "after the scene has settled": it fires on the first tick,
+   and a `cube` change only applies on the NEXT frame, so `--exec "cube 154; teleport
+   actor 3"` teleports the hero in the OLD cube and the pending change then resets him.
+   That failure is silent, and it reads as "the thing I was testing didn't happen". */
+#define CONTROL_EXEC_AT_MAX 16
+typedef struct {
+    long tick;
+    int fired;
+    char cmds[CONTROL_EXEC_MAX];
+} T_CONTROL_EXEC_AT;
+static T_CONTROL_EXEC_AT s_exec_at[CONTROL_EXEC_AT_MAX];
+static int s_exec_at_count = 0;
 static int s_have_tick = 0;
 static long s_tick = 0;
 static int s_have_fixed_dt = 0;
@@ -138,6 +152,26 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             s_have_exec = 1;
             s_active = 1;
             read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--exec-at") && has_val && (read + 2 < *argc)) {
+            char *end = NULL;
+            long t = strtol(argv[read + 1], &end, 0);
+            if (end == argv[read + 1] || *end != '\0' || t < 0) {
+                fprintf(stderr, "[control] --exec-at: invalid tick '%s' (skipping)\n",
+                        argv[read + 1]);
+            } else if (s_exec_at_count >= CONTROL_EXEC_AT_MAX) {
+                fprintf(stderr, "[control] --exec-at: at most %d entries (skipping '%s')\n",
+                        CONTROL_EXEC_AT_MAX, argv[read + 2]);
+            } else {
+                s_exec_at[s_exec_at_count].tick = t;
+                s_exec_at[s_exec_at_count].fired = 0;
+                copy_arg(s_exec_at[s_exec_at_count].cmds,
+                         sizeof(s_exec_at[s_exec_at_count].cmds), argv[read + 2]);
+                s_exec_at_count++;
+            }
+            s_active = 1;
+            read += 3;
             continue;
         }
         if (!strcmp(a, "--tick") && has_val) {
@@ -558,18 +592,18 @@ static long control_effective_ticks(void) {
     return n;
 }
 
-static void control_run_exec(void) {
+static void control_run_commands(const char *cmds) {
     char buf[CONTROL_EXEC_MAX];
     char *p, *seg;
 
-    if (!s_have_exec)
+    if (!cmds || !cmds[0])
         return;
 
     /* Mirror console output to stdout so --exec results are observable / testable. */
     Console_SetLineSinkForTests(control_console_echo);
     Console_EnsureRegistered();
 
-    copy_arg(buf, sizeof(buf), s_exec);
+    copy_arg(buf, sizeof(buf), cmds);
     p = buf;
     while (p && *p) {
         seg = p;
@@ -586,6 +620,25 @@ static void control_run_exec(void) {
         }
         if (*seg)
             Console_Execute(seg);
+    }
+}
+
+static void control_run_exec(void) {
+    if (!s_have_exec)
+        return;
+    control_run_commands(s_exec);
+}
+
+/* Fire any --exec-at whose tick has come. `tick` is 0-based, matching --verbose and
+   --dump-state, so --exec and --exec-at 0 are the same moment. Compares with >= rather
+   than == so a batch that starts past the requested tick still runs it once. */
+static void control_run_exec_at(long tick) {
+    int i;
+    for (i = 0; i < s_exec_at_count; i++) {
+        if (!s_exec_at[i].fired && tick >= s_exec_at[i].tick) {
+            s_exec_at[i].fired = 1;
+            control_run_commands(s_exec_at[i].cmds);
+        }
     }
 }
 
@@ -805,6 +858,7 @@ void Control_TickHook(void) {
     }
     if (s_hook_calls == 1)
         control_run_exec();
+    control_run_exec_at(s_hook_calls - 1);
     /* --res-switch-test fires once at the requested tick.  Logged so harness
        output captures success / failure; the orchestrator also logs internally
        on rebuild failure. */
