@@ -21,7 +21,7 @@ extern S32 SetDemoSaveGame(S32 num);
 #endif
 
 /*--------------------------------------------------------------------------*/
-extern void Save_SetDisabled(S32 disabled);
+extern void Save_SetAutoDisabled(S32 disabled);
 extern void AutoSaveGame(void);
 /*--------------------------------------------------------------------------*/
 extern void CurrentSaveGame(void);

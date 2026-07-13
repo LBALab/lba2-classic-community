@@ -274,21 +274,25 @@ S32 SetDemoSaveGame(S32 num) {
 	  ▀▀▀▀   ▀▀   ▀▀▀▀▀ ▀▀  ▀       ▀▀    ▀▀▀▀▀ ▀▀  ▀ ▀▀▀▀▀ ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
-/* --no-autosave: a harness run must not touch the player's save files. A --load +
-   --tick run would otherwise overwrite the Resume slot (current.lba) as a side effect
-   of merely being run, which is a nasty surprise for anyone A/B-ing on their own
-   install. Gated in the three writers rather than at their call sites so no path can
-   slip through. */
-static S32 SavesDisabled = 0;
+/* --no-autosave: stop a harness run writing the player's save slots as a side effect of
+   merely being run. An in-game scene transition calls AutoSaveGame(), so a --load + --tick
+   run that walks the hero through a door rewrites autosave.lba on a real install.
 
-void Save_SetDisabled(S32 disabled) {
-    SavesDisabled = disabled ? 1 : 0;
+   Gated in the two IMPLICIT writers (AutoSaveGame -> autosave.lba, CurrentSaveGame ->
+   current.lba) and deliberately NOT in SaveGame(), which is the explicit path: the menu's
+   Save and the console's `savebug` (which writes to the bugs directory, not a player slot).
+   Silently swallowing a save the user asked for would be worse than the problem this
+   solves. */
+static S32 AutoSavesDisabled = 0;
+
+void Save_SetAutoDisabled(S32 disabled) {
+    AutoSavesDisabled = disabled ? 1 : 0;
 }
 
 // Version Jeu uniquement
 void AutoSaveGame() {
 #ifndef DEMO
-    if (SavesDisabled)
+    if (AutoSavesDisabled)
         return;
 
     U8 memonumversion = NumVersion;
@@ -336,7 +340,7 @@ void AutoSaveGame() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void CurrentSaveGame() {
-    if (SavesDisabled)
+    if (AutoSavesDisabled)
         return;
 
     U8 memonumversion = NumVersion;
@@ -384,9 +388,6 @@ void CurrentSaveGame() {
 
 /*──────────────────────────────────────────────────────────────────────────*/
 void SaveGame(S32 flagmess) {
-    if (SavesDisabled)
-        return;
-
     U8 *sizeptr;
     U8 *memoptr;
     S32 sizefile = 0;

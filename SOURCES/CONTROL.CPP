@@ -9,7 +9,7 @@
 #include "DIRECTORIES.H"
 #include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "RES_SWITCH.H"  /* Res_Switch for --res-switch-test */
-#include "SAVEGAME.H"    /* Save_SetDisabled for --no-autosave */
+#include "SAVEGAME.H"    /* Save_SetAutoDisabled for --no-autosave */
 #include "CONSOLE/CONSOLE.H"
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
@@ -113,7 +113,6 @@ static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
    gate. */
 static int s_no_audio = 0;
 static int s_headless = 0;
-static int s_no_autosave = 0;
 
 /* --res-switch-test WxH@TICK: harness validation for the runtime
    resolution-switch orchestrator (see docs/RUNTIME_RESOLUTION.md and
@@ -160,9 +159,22 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
-        if (!strcmp(a, "--exec-at") && has_val && (read + 2 < *argc)) {
+        if (!strcmp(a, "--exec-at")) {
             char *end = NULL;
-            long t = strtol(argv[read + 1], &end, 0);
+            long t;
+
+            /* Cli_ValidateArgs has already refused a run whose --exec-at is missing a value
+               or whose value is a flag (`--exec-at 5 --tick 30` used to parse cmds="--tick"
+               and swallow the 30, leaving a run that ticked zero times and still exited 0).
+               Re-check rather than trust it: falling through to the argv passthrough below
+               would drop the flag in silence, which is the failure mode we are removing. */
+            if (read + 2 >= *argc) {
+                fprintf(stderr, "[control] --exec-at: needs <tick> <cmds>\n");
+                read = *argc;
+                continue;
+            }
+
+            t = strtol(argv[read + 1], &end, 0);
             if (end == argv[read + 1] || *end != '\0' || t < 0) {
                 fprintf(stderr, "[control] --exec-at: invalid tick '%s' (skipping)\n",
                         argv[read + 1]);
@@ -410,17 +422,18 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
             s_headless = 1;
             s_no_audio = 1;
-            s_active = 1;
             read += 1;
             continue;
         }
         if (!strcmp(a, "--no-autosave")) {
-            /* Stop the run writing save files. A --load + --tick run autosaves over the
-               player's Resume slot (current.lba) as a side effect of merely running, so
-               any A/B on a real install silently eats the player's save. */
-            Save_SetDisabled(1);
-            s_no_autosave = 1;
-            s_active = 1;
+            /* Stop the run autosaving over the player's slots. An in-game scene transition
+               calls AutoSaveGame(), so a --load + --tick run that walks the hero through a
+               door rewrites autosave.lba on a real install. Explicit saves (menu Save, the
+               console's `savebug`) still work: see SAVEGAME.CPP.
+
+               Like --resolution, this describes the environment rather than requesting the
+               automated boot path, so it does not set s_active. */
+            Save_SetAutoDisabled(1);
             read += 1;
             continue;
         }
@@ -457,10 +470,6 @@ void Control_ParseArgs(int *argc, char *argv[]) {
 
 int Control_IsActive(void) {
     return s_active;
-}
-
-int Control_IsHeadless(void) {
-    return s_headless;
 }
 
 int Control_IsVerbose(void) {

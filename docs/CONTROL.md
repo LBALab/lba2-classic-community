@@ -18,7 +18,7 @@ is not an IPC/REPL and not a scripting runtime. See `AUTOMATION_RESEARCH.md` and
 > sim states; the same six with `--headless` were byte-identical. `--headless` also implies
 > `--no-audio`, since a live audio thread branches the simulation too.
 >
-> Pair it with `--no-autosave` unless you want the run writing to your save files.
+> Pair it with `--no-autosave` unless you want the run rewriting your `autosave.lba`.
 
 ## Build
 
@@ -35,8 +35,10 @@ lba2cc --help                 print the flag list and exit (an unknown flag is n
                               error, not silently ignored)
        --headless             no window, no audio device: the supported mode for
                               automation. See the note above.
-       --no-autosave          don't write save files during this run (an in-game scene
-                              transition otherwise rewrites autosave.lba)
+       --no-autosave          don't write autosaves (autosave.lba / current.lba), which an
+                              in-game scene transition would otherwise rewrite on your own
+                              install. Explicit saves still work: the menu's Save, and the
+                              console's `savebug`, which writes to the bugs directory
        --load <slot>          restore a save before the loop starts
        --exec "<cmd>;<cmd>"   run console commands (';'-separated) on the first tick
        --exec-at <T> "<cmds>" run console commands at tick T; repeatable. Use this when a
@@ -79,8 +81,12 @@ lba2cc --help                 print the flag list and exit (an unknown flag is n
        --exit                 exit cleanly after the above
 ```
 
-All flags are optional and composable. With none, the game launches normally. Passing any
-of them takes the automated boot path (the distributor/Adeline logos are skipped).
+All flags are optional and composable. With none, the game launches normally. Passing a
+flag that *asks the engine to do something* (`--load`, `--exec`, `--exec-at`, `--tick`,
+`--dump-state`, `--screenshot`, `--exit`, …) takes the automated boot path and skips the
+distributor/Adeline logos. Flags that only describe the environment (`--headless`,
+`--no-autosave`, `--resolution`, `--language`, `--no-audio`) do not, so `lba2cc --headless`
+on its own is still just the game, with no window.
 
 Order of operations: `--load` (or a fresh start) → first tick runs `--exec` →
 advance to N ticks → `--dump-state` + `--screenshot` → `--exit`.
@@ -123,7 +129,10 @@ observability) that would otherwise need a specific playthrough save.
 
 `--load` resolves its argument as a direct file path first, then as a save name in the
 save directory, then with a `.lba` suffix — so both `--load "021 Palace"` and
-`--load /full/path/021 Palace.LBA` work.
+`--load /full/path/021 Palace.LBA` work. Note the *name* form looks in the user save
+directory, not the retail `SAVE/` folder, and that the console's own `load` command
+resolves by player name via a separate path (`cmd_load`), so a name that works in one
+won't necessarily work in the other. Pass a path if in doubt.
 
 ### Notes and limits
 
