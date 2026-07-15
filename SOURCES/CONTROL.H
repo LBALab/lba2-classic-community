@@ -132,6 +132,13 @@ void Control_InputFrameTick(void);
    (console `input trace <0|1>`), so a headless run can watch the hero respond. */
 void Control_InputTrace(int on);
 
+/* Render-position probe (issue #412, docs/RENDER_INTERP_PLAN.md Phase 0). Control_RenderTrace toggles
+   it (console `rendertrace <0|1>`); Control_RenderTraceFrame logs the hero's drawn position once per
+   rendered frame and must be called right before AffScene. Observes the per-frame judder staircase
+   that --dump-state (sim position) cannot show. */
+void Control_RenderTrace(int on);
+void Control_RenderTraceFrame(void);
+
 #ifdef __cplusplus
 }
 #endif

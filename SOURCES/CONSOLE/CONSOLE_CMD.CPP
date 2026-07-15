@@ -1775,6 +1775,16 @@ static int parse_and_schedule_seq(const char *spec, int frameBased) {
      input seq 0:up:60/60:up+throw:30  walk 60 ticks, then walk+fire 30 ticks
      input fseq 3:action:4           press action on rendered frames 3-6 (a skip frame at high refresh)
      input trace 1                   log injected mask + hero anim/pos each sim tick */
+/* rendertrace <0|1>: issue #412. Log the hero's drawn world position once per RENDERED frame (even
+   throttle-skipped ones) to the debug log, so the high-refresh judder staircase -- and later its
+   removal by render interpolation -- is observable per frame. --dump-state cannot show it (it reports
+   the sim position). See docs/RENDER_INTERP_PLAN.md. */
+static void cmd_rendertrace(int argc, const char *argv[]) {
+    int on = (argc >= 2) ? atoi(argv[1]) : 1;
+    Control_RenderTrace(on);
+    Console_Print("rendertrace: %s", on ? "on" : "off");
+}
+
 static void cmd_input(int argc, const char *argv[]) {
     if (argc < 2) {
         Console_Print("Usage: input <flags> [ticks] | input seq <t:flags:dur[/...]>");
@@ -1934,6 +1944,12 @@ void Console_RegisterAll(void) {
                               "holomap, combine with +) for N SIM ticks, so the harness can walk/turn/act "
                               "the hero the same way at any --fixed-timestep. seq schedules a sim-tick "
                               "timeline; fseq schedules it in rendered frames (to land an edge on a skip frame).");
+    Console_RegisterCommandEx("rendertrace", cmd_rendertrace,
+                              "Trace the hero's drawn position per rendered frame (#412 judder probe)",
+                              "rendertrace <0|1>",
+                              "Logs the hero's about-to-be-drawn world position every rendered frame "
+                              "(including throttle-skipped ones), so the high-refresh judder staircase is "
+                              "observable. --dump-state shows only the sim position. See docs/RENDER_INTERP_PLAN.md.");
     Console_RegisterCommandEx("zonelist", cmd_zonelist, "List the cube's scene zones (boxes+type)",
                               "zonelist [type]",
                               "Prints each ListZone box, Type (cube/camera/scenaric/giver/message/...), "

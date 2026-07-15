@@ -879,6 +879,35 @@ void Control_InputAdvance(int simTicks) {
         s_input_tick += (U32)simTicks;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Render-position probe (issue #412, docs/RENDER_INTERP_PLAN.md Phase 0).     */
+/* -------------------------------------------------------------------------- */
+
+static int s_render_trace = 0;
+static U32 s_render_frame = 0;
+
+/* Toggle the render-position trace. Resets the rendered-frame counter so a run's frames are numbered
+   from the toggle. */
+void Control_RenderTrace(int on) {
+    s_render_trace = on ? 1 : 0;
+    s_render_frame = 0;
+}
+
+/* Log the hero's about-to-be-drawn world position once per RENDERED frame (including throttle-skipped
+   frames), so the high-refresh judder staircase is observable per frame -- and, once render
+   interpolation lands, its removal. Call right before AffScene, after any interpolation overwrite, so
+   the logged value is the position actually projected. --dump-state cannot show this: it reports the
+   sim position, which stays a staircase because interpolation is render-only. Off by default and near
+   zero cost. */
+void Control_RenderTraceFrame(void) {
+    if (s_render_trace) {
+        T_OBJET *hero = &ListObjet[NUM_PERSO];
+        Log_Debug("[rendertrace] frame %u pos=(%d,%d,%d)",
+                  (unsigned)s_render_frame, (int)hero->Obj.X, (int)hero->Obj.Y, (int)hero->Obj.Z);
+    }
+    s_render_frame++;
+}
+
 #ifdef __cplusplus
 }
 #endif

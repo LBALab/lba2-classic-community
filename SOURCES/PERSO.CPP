@@ -2265,6 +2265,11 @@ restartloop:
         /* affiche tout */
 
     skip_simulation:
+        /* Render-position probe (#412 Phase 0): log the hero's drawn position once per rendered frame,
+           including throttle-skipped ones, so the judder staircase is observable. Placed here, right
+           before AffScene, so once render interpolation lands it captures the interpolated value. */
+        Control_RenderTraceFrame();
+
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
