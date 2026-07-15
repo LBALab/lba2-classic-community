@@ -6,14 +6,11 @@ set -euo pipefail
 # The file list is filtered through .clang-format-ignore so local formatting
 # and CI checks stay aligned on what is intentionally excluded.
 
-if command -v clang-format-17 >/dev/null 2>&1; then
-    clang_format=clang-format-17
-elif command -v clang-format >/dev/null 2>&1; then
-    clang_format=clang-format
-elif command -v xcrun >/dev/null 2>&1; then
-    clang_format="$(xcrun --find clang-format)"
-else
-    echo "clang-format is required to apply formatting." >&2
+# shellcheck source=scripts/ci/clang-format-select.sh
+. "$(dirname "${BASH_SOURCE[0]}")/clang-format-select.sh"
+if [ -z "$clang_format" ]; then
+    echo "clang-format ${CLANG_FORMAT_MAJOR} is required to apply formatting." >&2
+    echo "  Debian/Ubuntu: apt-get install clang-format-${CLANG_FORMAT_MAJOR}   macOS: brew install clang-format" >&2
     exit 1
 fi
 
