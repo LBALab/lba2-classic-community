@@ -778,6 +778,107 @@ void Control_TickHook(void) {
         control_finalize();
 }
 
+/* ===== Harness input timeline (docs/INPUT_SIM_PLAN.md) ====================== */
+
+#define CONTROL_INPUT_MAX_EVENTS 16
+
+typedef struct {
+    U32 start;      /* first clock value the event is held (inclusive) */
+    U32 end;        /* first clock value it is released (exclusive)    */
+    U32 mask;       /* input bits held over [start, end)               */
+    int frameBased; /* 0 = start/end measured in sim ticks, 1 = in rendered frames */
+} T_ControlInputEvent;
+
+static T_ControlInputEvent s_input_events[CONTROL_INPUT_MAX_EVENTS];
+static int s_input_count = 0;
+static U32 s_input_tick = 0;       /* sim-tick clock: advances only on stepped frames */
+static U32 s_input_frame = 0;      /* rendered-frame clock: advances every rendered frame */
+static U32 s_input_last = 0;       /* max end across sim-tick events */
+static U32 s_input_last_frame = 0; /* max end across rendered-frame events */
+static int s_input_trace = 0;
+
+void Control_InputClear(void) {
+    s_input_count = 0;
+    s_input_tick = 0;
+    s_input_frame = 0;
+    s_input_last = 0;
+    s_input_last_frame = 0;
+}
+
+static int control_input_schedule(U32 start, U32 dur, U32 mask, int frameBased) {
+    if (mask == 0 || dur == 0)
+        return 1; /* empty gap: nothing to hold */
+    if (s_input_count >= CONTROL_INPUT_MAX_EVENTS)
+        return 0;
+    T_ControlInputEvent *e = &s_input_events[s_input_count++];
+    e->start = start;
+    e->end = start + dur;
+    e->mask = mask;
+    e->frameBased = frameBased;
+    if (frameBased) {
+        if (e->end > s_input_last_frame)
+            s_input_last_frame = e->end;
+    } else {
+        if (e->end > s_input_last)
+            s_input_last = e->end;
+    }
+    return 1;
+}
+
+int Control_InputSchedule(U32 startTick, U32 durTicks, U32 mask) {
+    return control_input_schedule(startTick, durTicks, mask, 0);
+}
+
+int Control_InputScheduleFrame(U32 startFrame, U32 durFrames, U32 mask) {
+    return control_input_schedule(startFrame, durFrames, mask, 1);
+}
+
+void Control_InputHold(U32 mask, U32 durTicks) {
+    Control_InputClear();
+    Control_InputSchedule(0, durTicks, mask);
+}
+
+U32 Control_InputCurrentMask(void) {
+    U32 m = 0;
+    int i;
+    for (i = 0; i < s_input_count; i++) {
+        U32 clock = s_input_events[i].frameBased ? s_input_frame : s_input_tick;
+        if (clock >= s_input_events[i].start && clock < s_input_events[i].end)
+            m |= s_input_events[i].mask;
+    }
+    return m;
+}
+
+int Control_InputPending(void) {
+    if (s_input_count == 0)
+        return 0;
+    return s_input_tick < s_input_last || s_input_frame < s_input_last_frame;
+}
+
+void Control_InputTrace(int on) {
+    s_input_trace = on ? 1 : 0;
+}
+
+/* Advance the rendered-frame clock. Call once per rendered frame (including throttle-skipped ones)
+   so a frame-based event -- a press placed on a specific skip frame -- lands exactly there. */
+void Control_InputFrameTick(void) {
+    if (Control_InputPending())
+        s_input_frame++;
+}
+
+void Control_InputAdvance(int simTicks) {
+    if (!Control_InputPending())
+        return;
+    if (s_input_trace) {
+        T_OBJET *hero = &ListObjet[NUM_PERSO];
+        Log_Debug("[input] tick %u frame %u mask 0x%X hero gen_anim=%d pos=(%d,%d,%d)",
+                  (unsigned)s_input_tick, (unsigned)s_input_frame, (unsigned)Control_InputCurrentMask(),
+                  (int)hero->GenAnim, (int)hero->Obj.X, (int)hero->Obj.Y, (int)hero->Obj.Z);
+    }
+    if (simTicks > 0)
+        s_input_tick += (U32)simTicks;
+}
+
 #ifdef __cplusplus
 }
 #endif

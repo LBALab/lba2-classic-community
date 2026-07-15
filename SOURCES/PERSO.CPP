@@ -949,12 +949,15 @@ restartloop:
 
         MyGetInput();
 
-        // Console `input`: OR injected input bits into this frame's Input, so the harness can drive
-        // the hero (walk/turn/act) without a keyboard. Held for DbgInjectInputFrames frames.
-        if (DbgInjectInputFrames > 0) {
-            Input |= (U32)DbgInjectInput;
-            if (--DbgInjectInputFrames <= 0)
-                DbgInjectInput = 0;
+        // Harness input timeline (docs/INPUT_SIM_PLAN.md): OR the currently-held injected bits into
+        // this frame's Input so the harness drives the hero without a keyboard. A `seq` hold is
+        // metered in SIM ticks (Control_InputAdvance below, once per sim-running frame) so the
+        // throttle cannot gobble it; an `fseq` event is metered in RENDERED frames (the frame clock
+        // advances here, every frame) so a press can be placed on a skipped frame to reproduce the
+        // throttle edge-drop.
+        if (Control_InputPending()) {
+            Input |= Control_InputCurrentMask();
+            Control_InputFrameTick();
         }
 
         ManageTime();
@@ -1969,6 +1972,12 @@ restartloop:
             if (nSimSteps <= 0)
                 goto skip_simulation; // high-fps skip (remainder carries) or clock rewind (re-anchored)
         }
+
+        /* Advance the harness input timeline by this frame's sim ticks (docs/INPUT_SIM_PLAN.md).
+           Metered in sim ticks, not rendered frames, so a hold means the same across
+           --fixed-timestep settings; a skipped frame goto's above and never reaches here, so it
+           consumes no tick. nSimSteps is 1 when unthrottled. */
+        Control_InputAdvance(nSimSteps);
 
     sim_step:
         if (FixedTimestep > 0) {

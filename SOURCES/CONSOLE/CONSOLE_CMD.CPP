@@ -14,6 +14,7 @@
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
+#include "../CONTROL.H" // Control_Input* harness input timeline
 #include "../JOYSTICK.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
@@ -1662,12 +1663,10 @@ static void cmd_zonelist(int argc, const char *argv[]) {
     }
 }
 
-/* input <flag[,flag...]> [frames] | input off: hold the given input bits for N frames (default 1),
-   so the harness can drive the hero without a keyboard -- e.g. `input up 60` walks forward, `input
-   up,left 30` walks while turning. Flags: up down left right action search throw inventory holomap
-   (or a raw 0xNNN mask). The bits are OR'd into Input each frame; movement is held state, so a
-   multi-frame hold walks/turns. */
-static void cmd_input(int argc, const char *argv[]) {
+/* Parse a `+`/`,`-separated flag list (e.g. "up+throw") or a raw 0xNNN mask into a bitmask.
+   strtok-free so it is safe to call while the `seq` parser holds a strtok context. A "-"/"none"
+   token is an empty gap (contributes nothing), so a sequence can release everything for a span. */
+static bool parse_input_flags(const char *s, U32 *out) {
     static const struct {
         const char *name;
         U32 bit;
@@ -1679,47 +1678,148 @@ static void cmd_input(int argc, const char *argv[]) {
         {"action", I_ACTION_M},
         {"search", I_ACTION_ALWAYS},
         {"throw", I_THROW},
+        {"esquive", I_ESQUIVE},
         {"inventory", I_INVENTORY},
         {"holomap", I_HOLOMAP},
     };
+    char *end = NULL;
+    long v = strtol(s, &end, 0);
+    if (end != s && *end == '\0') {
+        *out = (U32)v; // raw mask
+        return true;
+    }
+    U32 bits = 0;
+    char tok[24];
+    size_t ti = 0;
+    for (const char *p = s;; p++) {
+        if (*p == '+' || *p == ',' || *p == '\0') {
+            tok[ti] = '\0';
+            if (ti > 0 && strcmp(tok, "-") != 0 && strcasecmp(tok, "none") != 0) {
+                U32 b = 0;
+                for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++)
+                    if (!strcasecmp(tok, flags[i].name)) {
+                        b = flags[i].bit;
+                        break;
+                    }
+                if (!b) {
+                    Console_Print("input: unknown flag '%s'", tok);
+                    return false;
+                }
+                bits |= b;
+            }
+            ti = 0;
+            if (*p == '\0')
+                break;
+        } else if (ti < sizeof(tok) - 1) {
+            tok[ti++] = *p;
+        }
+    }
+    *out = bits;
+    return true;
+}
+
+/* Parse a "start:flags:dur[/...]" timeline spec and schedule it, clearing the timeline first.
+   frameBased picks the clock: sim ticks (seq) or rendered frames (fseq). Returns the event count,
+   or -1 on a parse error (message printed, timeline left cleared). strtok on "/" is safe here
+   because parse_input_flags is strtok-free. */
+static int parse_and_schedule_seq(const char *spec, int frameBased) {
+    const char *name = frameBased ? "fseq" : "seq";
+    Control_InputClear();
+    char buf[256];
+    snprintf(buf, sizeof(buf), "%s", spec);
+    int n = 0;
+    for (char *ev = strtok(buf, "/"); ev; ev = strtok(NULL, "/")) {
+        char *c1 = strchr(ev, ':');
+        char *c2 = c1 ? strchr(c1 + 1, ':') : NULL;
+        if (!c1 || !c2) {
+            Console_Print("input %s: bad event '%s' (want start:flags:dur)", name, ev);
+            Control_InputClear();
+            return -1;
+        }
+        *c1 = '\0';
+        *c2 = '\0';
+        // strtol (not atol) so a non-numeric or empty start/dur is a reported error, not a silent 0.
+        char *e1 = NULL, *e2 = NULL;
+        long start = strtol(ev, &e1, 10);
+        long dur = strtol(c2 + 1, &e2, 10);
+        if (*ev == '\0' || *e1 != '\0' || *(c2 + 1) == '\0' || *e2 != '\0' || start < 0 || dur < 0) {
+            Console_Print("input %s: bad start/dur in event (want non-negative integers)", name);
+            Control_InputClear();
+            return -1;
+        }
+        U32 bits = 0;
+        if (!parse_input_flags(c1 + 1, &bits)) {
+            Control_InputClear();
+            return -1;
+        }
+        int ok = frameBased ? Control_InputScheduleFrame((U32)start, (U32)dur, bits)
+                            : Control_InputSchedule((U32)start, (U32)dur, bits);
+        if (!ok) {
+            Console_Print("input %s: too many events (max 16)", name);
+            Control_InputClear();
+            return -1;
+        }
+        n++;
+    }
+    return n;
+}
+
+/* input <flags> [ticks] | input seq <t:flags:dur[/...]> | input fseq <f:flags:dur[/...]>
+   | input trace <0|1> | input off
+   Drive the hero headlessly. seq durations are SIM ticks (docs/INPUT_SIM_PLAN.md) so a hold means
+   the same gameplay across --fixed-timestep settings (a throttle-skipped frame consumes no tick).
+   fseq durations are RENDERED frames, so a press can be placed on a throttle-skipped frame to
+   reproduce the input-edge drop. Flags combine with + or , (or a raw 0xNNN mask). Examples:
+     input up 120                    float/walk forward for 120 sim ticks
+     input up+throw 30               hold forward and fire together for 30 ticks
+     input seq 0:up:60/60:up+throw:30  walk 60 ticks, then walk+fire 30 ticks
+     input fseq 3:action:4           press action on rendered frames 3-6 (a skip frame at high refresh)
+     input trace 1                   log injected mask + hero anim/pos each sim tick */
+static void cmd_input(int argc, const char *argv[]) {
     if (argc < 2) {
-        Console_Print("Usage: input <flag[,flag...]> [frames] | input off");
-        Console_Print("Flags: up down left right action search throw inventory holomap (or 0xNNN)");
+        Console_Print("Usage: input <flags> [ticks] | input seq <t:flags:dur[/...]>");
+        Console_Print("       input fseq <f:flags:dur[/...]> | input trace <0|1> | input off");
+        Console_Print("Flags: up down left right action search throw esquive inventory holomap (+ , 0xNNN)");
+        Console_Print("seq durations are SIM ticks; fseq durations are RENDERED frames (edge-drop repro).");
         return;
     }
     if (!strcasecmp(argv[1], "off") || !strcmp(argv[1], "0")) {
-        DbgInjectInput = 0;
-        DbgInjectInputFrames = 0;
+        Control_InputClear();
         Console_Print("input: cleared");
         return;
     }
-    U32 bits = 0;
-    char *end = NULL;
-    long v = strtol(argv[1], &end, 0);
-    if (end != argv[1] && *end == '\0') {
-        bits = (U32)v; // raw mask
-    } else {
-        char buf[128];
-        snprintf(buf, sizeof(buf), "%s", argv[1]);
-        for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
-            U32 b = 0;
-            for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++)
-                if (!strcasecmp(tok, flags[i].name)) {
-                    b = flags[i].bit;
-                    break;
-                }
-            if (!b) {
-                Console_Print("input: unknown flag '%s'", tok);
-                return;
-            }
-            bits |= b;
-        }
+    if (!strcasecmp(argv[1], "trace")) {
+        int on = (argc >= 3) ? atoi(argv[2]) : 1;
+        Control_InputTrace(on);
+        Console_Print("input trace: %s", on ? "on" : "off");
+        return;
     }
-    DbgInjectInput = (S32)bits;
-    DbgInjectInputFrames = (argc >= 3) ? atoi(argv[2]) : 1;
-    if (DbgInjectInputFrames < 1)
-        DbgInjectInputFrames = 1;
-    Console_Print("input: 0x%X for %d frame(s)", (unsigned)bits, DbgInjectInputFrames);
+    if (!strcasecmp(argv[1], "seq") || !strcasecmp(argv[1], "fseq")) {
+        int frameBased = !strcasecmp(argv[1], "fseq");
+        if (argc < 3) {
+            Console_Print("Usage: input %s <start:flags:dur[/start:flags:dur...]>", argv[1]);
+            return;
+        }
+        int n = parse_and_schedule_seq(argv[2], frameBased);
+        if (n >= 0)
+            Console_Print("input %s: %d event(s) (%s)", argv[1], n,
+                          frameBased ? "rendered frames" : "sim ticks");
+        return;
+    }
+    // input <flags> [ticks]: single hold.
+    U32 bits = 0;
+    if (!parse_input_flags(argv[1], &bits))
+        return;
+    if (bits == 0) {
+        Control_InputClear();
+        Console_Print("input: no bits set (nothing to inject)");
+        return;
+    }
+    long ticks = (argc >= 3) ? atol(argv[2]) : 1;
+    if (ticks < 1)
+        ticks = 1;
+    Control_InputHold(bits, (U32)ticks);
+    Console_Print("input: 0x%X for %ld sim tick(s)", (unsigned)bits, ticks);
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1829,9 +1929,11 @@ void Console_RegisterAll(void) {
                               "Aborts dialogue modals immediately so a headless run does not hang on a "
                               "give/talk dialog; the script continues past it.");
     Console_RegisterCommandEx("input", cmd_input, "Inject hero input (drive movement/actions)",
-                              "input <flag[,flag...]> [frames] | input off",
-                              "Holds input bits (up/down/left/right/action/search/throw/inventory/holomap "
-                              "or 0xNNN) for N frames, so the harness can walk/turn/act the hero.");
+                              "input <flags> [ticks] | input seq <t:flags:dur/...> | input fseq <f:flags:dur/...> | input trace <0|1> | input off",
+                              "Holds input bits (up/down/left/right/action/search/throw/esquive/inventory/"
+                              "holomap, combine with +) for N SIM ticks, so the harness can walk/turn/act "
+                              "the hero the same way at any --fixed-timestep. seq schedules a sim-tick "
+                              "timeline; fseq schedules it in rendered frames (to land an edge on a skip frame).");
     Console_RegisterCommandEx("zonelist", cmd_zonelist, "List the cube's scene zones (boxes+type)",
                               "zonelist [type]",
                               "Prints each ListZone box, Type (cube/camera/scenaric/giver/message/...), "
