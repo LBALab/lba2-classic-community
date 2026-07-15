@@ -86,6 +86,52 @@ void Control_TickHook(void);
    the harness is not active, or no capture flag was supplied. */
 void Control_End(void);
 
+/* --- Harness input timeline (docs/INPUT_SIM_PLAN.md) -----------------------
+ *
+ * Drives the hero from the console `input` command / --exec with holds and sequences metered in
+ * SIM TICKS, not rendered frames. That is the point: a rendered frame the fixed-timestep throttle
+ * skips consumes no tick, so a hold means the same amount of gameplay whatever --fixed-timestep is
+ * (with the old render-frame count, `input up 30` walked full distance at --fixed-timestep 16 and
+ * zero at 100). The current mask is OR'd into Input in MainLoop, so injected input rides the same
+ * path as real input. All durations are sim ticks.
+ */
+
+/* Clear the timeline (console `input off`). */
+void Control_InputClear(void);
+
+/* Append `mask` held from sim tick `startTick` for `durTicks` ticks. Returns 1 on success, 0 if
+   the event table is full. A zero mask or zero duration is a no-op gap. Builds `input seq`. */
+int Control_InputSchedule(U32 startTick, U32 durTicks, U32 mask);
+
+/* Like Control_InputSchedule but measured in RENDERED frames, not sim ticks. This is the tool for
+   reproducing the throttle input-EDGE drop: a press placed on a throttle-skipped frame (a frame
+   the sim does not step) is never seen by the object loop, exactly as a real high-refresh display
+   drops it. Builds `input fseq`. */
+int Control_InputScheduleFrame(U32 startFrame, U32 durFrames, U32 mask);
+
+/* Replace the timeline with a single hold of `mask` for `durTicks` ticks
+   (console `input <flags> [ticks]`). */
+void Control_InputHold(U32 mask, U32 durTicks);
+
+/* OR of every event held at the current sim tick. MainLoop ORs this into Input each frame while
+   Control_InputPending(). */
+U32 Control_InputCurrentMask(void);
+
+/* Non-zero while a scheduled event has not yet elapsed. */
+int Control_InputPending(void);
+
+/* Advance the timeline by `simTicks` (the sim steps a frame ran). Call once per sim-running frame
+   in MainLoop; skipped frames must not call it. */
+void Control_InputAdvance(int simTicks);
+
+/* Advance the rendered-frame clock. Call once per rendered frame (skipped frames included) so a
+   frame-based (`fseq`) event lands on the exact frame requested. */
+void Control_InputFrameTick(void);
+
+/* Toggle a per-sim-tick trace of the injected mask + hero gen_anim/pos to the debug log
+   (console `input trace <0|1>`), so a headless run can watch the hero respond. */
+void Control_InputTrace(int on);
+
 #ifdef __cplusplus
 }
 #endif
