@@ -97,6 +97,7 @@ Style rules and rationale (language dialect, indentation, types, C++98, preserva
 Formatting mechanics (agent-operational):
 
 - Formatting: clang-format with checked-in `.clang-format`; exclusions live in `.clang-format-ignore` (ASM, `LIB386/libsmacker/`, vendored `stb_*`, and a handful of legacy lookup-table files). When adding vendored third-party code or generated/hand-tuned lookup tables, add the path to `.clang-format-ignore` in the same commit — single source of truth for local scripts, CI, and the pre-commit hook.
+- clang-format version: pinned once in `scripts/ci/clang-format-select.sh` (`CLANG_FORMAT_MAJOR`, currently 18). Install that exact version (`clang-format-18`) so local formatting matches CI; the scripts refuse to run a different major rather than silently disagreeing with CI.
 - Pre-commit hook (optional, recommended): `git config core.hooksPath scripts/git-hooks` once per clone. It runs clang-format `--dry-run` on staged C/C++ files (respecting `.clang-format-ignore`) and blocks commits with violations. Fix with `bash ./scripts/ci/apply-format.sh && git add -u`. Bypass with `git commit --no-verify` or `SKIP_FORMAT=1` when warranted.
 
 ## Logging
