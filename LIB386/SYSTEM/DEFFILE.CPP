@@ -130,6 +130,47 @@ S32 DefFileBufferInit(char *file, void *buffer, S32 maxsize) {
         buffersize = 0;
     }
 
+    /* Strip blatantly non-config lines: a run far longer than any real
+       "ident: value" pair with no ':' separator. Stale graphics bytes stamped
+       into the file by an interrupted write surface this way -- e.g. a long run
+       of one palette index left in the shared ScreenAux buffer. Such a line has
+       no ':' so the parser silently skips it on read and the writer copies it
+       back verbatim on every save: sticky corruption the NUL guard above misses
+       because the bytes are all printable. Excise only the offending line(s) and
+       compact in place, preserving every valid key, so reads are clean now and
+       the next write persists the healed file. Legitimate lines are short and
+       colon-delimited, so an over-long separator-less run can only be junk. */
+    if (buffersize > 0) {
+        const S32 maxLineLen = 512; // >> any real key:value line; << a graphics run
+        char *b = (char *)buffer;
+        S32 r = 0; // read cursor
+        S32 w = 0; // write cursor (compacted end)
+        S32 stripped = 0;
+        while (r < buffersize) {
+            const S32 lineStart = r;
+            S32 lineHasSep = FALSE;
+            while (r < buffersize && (U8)b[r] >= 32) { // a line is a run of printables
+                if (b[r] == ':')
+                    lineHasSep = TRUE;
+                r++;
+            }
+            const S32 lineLen = r - lineStart;
+            while (r < buffersize && (U8)b[r] < 32) // consume the trailing CR/LF/etc.
+                r++;
+            if (lineLen > maxLineLen && !lineHasSep) {
+                stripped++; // drop this line together with its terminator
+                continue;
+            }
+            if (w != lineStart) // keep: compact toward the front
+                memmove(b + w, b + lineStart, (size_t)(r - lineStart));
+            w += r - lineStart;
+        }
+        if (stripped) {
+            Log_Warn("DefFileBufferInit: stripped %d over-long separator-less line(s) (corrupt)", stripped);
+            buffersize = w;
+        }
+    }
+
     // Re-entry from DefFileBufferWriteString passes the module-static FileName
     // back in as `file`, which aliases the strcpy destination. Self-copy is UB
     // (ASan: strcpy-param-overlap); skip the copy when source and dest alias.

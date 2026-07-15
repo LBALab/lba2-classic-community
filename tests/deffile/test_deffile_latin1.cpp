@@ -63,6 +63,12 @@ std::string ReadFile(const char *path) {
     return out;
 }
 
+// True iff key `ident` is present and reads back exactly as `expected`.
+bool ReadEq(const char *ident, const char *expected) {
+    char *v = DefFileBufferReadString(ident);
+    return v != NULL && std::strcmp(v, expected) == 0;
+}
+
 size_t CountOccurrences(const std::string &hay, const std::string &needle) {
     size_t count = 0;
     size_t pos = 0;
@@ -200,6 +206,151 @@ int main() {
         const std::string healed = ReadFile(path);
         CHECK(healed.find('\0') == std::string::npos);
         CHECK(healed.find("VoiceVolume: 100") != std::string::npos);
+    }
+
+    // ── Test 6: leading garbage line is stripped, every real key survives ────
+    // Real-world repro (Windows): a long run of one byte (0x4C 'L' -- a stale
+    // palette index from the shared ScreenAux buffer) got stamped as line 1 of
+    // lba2.cfg by an interrupted write. It has no ':' so the parser skips it and
+    // the writer copies it back on every save -- sticky corruption the NUL guard
+    // misses because the bytes are all printable. It also inflated the file past
+    // the boot reader's scratch buffer, silently dropping ResolutionX/Y.
+    // DefFileBufferInit must EXCISE only that line and keep every valid key, so
+    // the settings read correctly immediately (before any write) and the file
+    // heals to a clean, key-preserving state on the next write.
+    {
+        std::string corrupt(3000, 'L'); // stale-graphics run, no separator
+        corrupt += "\r\n";
+        corrupt += "FixedTimestep: 16\r\n";
+        corrupt += "Input0_1: 82\r\n";
+        corrupt += "VoiceVolume: 112\r\n";
+        corrupt += "Language: Français\r\n";
+        corrupt += "ResolutionX: 640\r\n";
+        corrupt += "ResolutionY: 480\r\n";
+        WriteFile(path, corrupt);
+
+        std::vector<char> buffer(65536, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+
+        // Immediately readable -- no write needed. Every key preserved, verbatim.
+        CHECK(ReadEq("FixedTimestep", "16"));
+        CHECK(ReadEq("Input0_1", "82"));
+        CHECK(ReadEq("VoiceVolume", "112"));
+        CHECK(ReadEq("Language", "Français")); // non-ASCII value intact past the strip
+        CHECK(ReadEq("ResolutionX", "640"));   // the setting the boot read used to drop
+        CHECK(ReadEq("ResolutionY", "480"));
+
+        // A settings change persists a clean file: no 'L' run, all keys intact.
+        CHECK(DefFileBufferWriteString("ResolutionX", "1280") == TRUE);
+        const std::string healed = ReadFile(path);
+        CHECK(healed.find("LLLL") == std::string::npos);
+        CHECK(healed.find("ResolutionX: 1280") != std::string::npos);
+        CHECK(healed.find("FixedTimestep: 16") != std::string::npos);
+        CHECK(healed.find("VoiceVolume: 112") != std::string::npos);
+        CHECK(healed.find("Language: Français") != std::string::npos);
+        // Re-init the healed file: still clean, still complete.
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("ResolutionX", "1280"));
+        CHECK(ReadEq("Input0_1", "82"));
+    }
+
+    // ── Test 7: garbage line in the MIDDLE -- keys on both sides survive ──────
+    // Also pins that the parser does not desync across the excised line (the
+    // Bug-A failure mode from Test 4, but for the strip path).
+    {
+        std::string corrupt = "FixedTimestep: 16\r\n";
+        corrupt += "Shadow: 3\r\n";
+        corrupt.append(2500, 'L'); // junk between two good blocks
+        corrupt += "\r\n";
+        corrupt += "MasterVolume: 127\r\n";
+        corrupt += "DetailLevel: 3\r\n";
+        WriteFile(path, corrupt);
+
+        std::vector<char> buffer(65536, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("FixedTimestep", "16"));
+        CHECK(ReadEq("Shadow", "3"));
+        CHECK(ReadEq("MasterVolume", "127"));
+        CHECK(ReadEq("DetailLevel", "3"));
+    }
+
+    // ── Test 8: trailing garbage with no final newline -- prior keys survive ─
+    {
+        std::string corrupt = "MenuMouse: 1\r\nVSync: 0\r\n";
+        corrupt.append(1500, 'L'); // trailing junk, unterminated
+        WriteFile(path, corrupt);
+
+        std::vector<char> buffer(65536, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("MenuMouse", "1"));
+        CHECK(ReadEq("VSync", "0"));
+
+        // Heals on write: junk gone, keys kept.
+        CHECK(DefFileBufferWriteString("VSync", "1") == TRUE);
+        const std::string healed = ReadFile(path);
+        CHECK(healed.find("LLLL") == std::string::npos);
+        CHECK(healed.find("MenuMouse: 1") != std::string::npos);
+        CHECK(healed.find("VSync: 1") != std::string::npos);
+    }
+
+    // ── Test 9: several garbage lines are all stripped, all keys survive ────
+    {
+        std::string corrupt(700, 'L');
+        corrupt += "\r\n";
+        corrupt += "AllCameras: 1\r\n";
+        corrupt.append(900, 'X'); // a second junk run, different byte
+        corrupt += "\r\n";
+        corrupt += "ReverseStereo: 0\r\n";
+        corrupt.append(600, 'Z');
+        corrupt += "\r\n";
+        WriteFile(path, corrupt);
+
+        std::vector<char> buffer(65536, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("AllCameras", "1"));
+        CHECK(ReadEq("ReverseStereo", "0"));
+    }
+
+    // ── Test 10: false-positive guard -- a long value WITH a ':' is kept ──────
+    // Long lines are only junk when they lack a separator. A legitimate
+    // "ident: <long value>" has its ':' up front, so even one past the 512-char
+    // strip threshold must be kept. (Read-back can't verify the full value --
+    // DefFileBufferReadString caps at DefString's 256 bytes -- so this checks the
+    // line survives on disk and the following key still parses, i.e. no strip,
+    // no desync.)
+    {
+        const std::string longval(600, 'x'); // line length 610 > 512, but has ':'
+        std::string original = "LastSave: " + longval + "\r\nShadow: 3\r\n";
+        WriteFile(path, original);
+
+        std::vector<char> buffer(65536, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("Shadow", "3")); // key after the long line still parses
+
+        // Rewriting a *different* key copies the buffer verbatim; the long
+        // colon-bearing line must still be there -- proof it was never stripped.
+        CHECK(DefFileBufferWriteString("Shadow", "3") == TRUE);
+        CHECK(ReadFile(path).find(longval) != std::string::npos);
+    }
+
+    // ── Test 11: threshold boundary -- 512 no-':' chars kept, 513 stripped ────
+    // Guards against both a too-eager strip (eating a merely-longish odd line)
+    // and a too-lax one. 512 is the largest run treated as tolerable.
+    {
+        std::string keep = std::string(512, 'q') + "\r\nShadow: 2\r\n";
+        WriteFile(path, keep);
+        std::vector<char> buffer(65536, 0);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("Shadow", "2"));
+        CHECK(DefFileBufferWriteString("Shadow", "2") == TRUE);
+        CHECK(ReadFile(path).find(std::string(512, 'q')) != std::string::npos); // kept
+
+        std::string strip = std::string(513, 'q') + "\r\nShadow: 5\r\n";
+        WriteFile(path, strip);
+        CHECK(DefFileBufferInit(path, &buffer[0], (S32)buffer.size()) == TRUE);
+        CHECK(ReadEq("Shadow", "5"));
+        CHECK(DefFileBufferWriteString("Shadow", "5") == TRUE);
+        CHECK(ReadFile(path).find(std::string(513, 'q')) == std::string::npos); // stripped
     }
 
     std::remove(path);
