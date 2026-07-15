@@ -32,13 +32,16 @@ SAVES=("Bu" "DOS2" "Spaceship")
 
 is_firing_anim() { [ "$1" = "35" ] || [ "$1" = "45" ]; } # GEN_ANIM_SARBACANE / GEN_ANIM_SARBATRON
 
-# Fire the blowgun (hold I_THROW) for 6 frames, release, settle 40 frames, report hero gen_anim.
+# Fire the blowgun (hold I_THROW) for 6 SIM ticks, release, settle, report hero gen_anim. The
+# `input` hold is metered in sim ticks (docs/INPUT_SIM_PLAN.md), so at --fixed-timestep 100 with
+# --fixed-dt 8 one sim step is ~12 rendered frames: --tick must be large enough for the 6 fire
+# ticks plus a settle window to elapse (else the throttled run ends mid-fire and looks "stuck").
 gen_anim_after_fire() { # save-src fixedtimestep-ms
     local src="$1" fts="$2" sv dump ga
     sv="$(mktemp --suffix=.LBA)"; dump="$(mktemp)"
     cp "$src" "$sv"
     ctl_headless --load "$sv" --fixed-dt 8 --fixed-timestep "$fts" \
-        --exec "input throw 6" --tick 40 --dump-state "$dump" --exit >/dev/null 2>&1
+        --exec "input throw 6" --tick 300 --dump-state "$dump" --exit >/dev/null 2>&1
     ga="$(jget "$dump" "d['hero']['gen_anim']" 2>/dev/null)"
     rm -f "$sv" "$dump"
     echo "$ga"

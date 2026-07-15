@@ -325,10 +325,6 @@ S32 DbgUseItemTrace = 0;
 // Console `cubetrace <0|1>`: log every cube transition (island + from -> to cube) as it happens,
 // so a playthrough or the demo reel traces out the game's cube-to-cube flow. No gameplay effect.
 S32 DbgCubeTrace = 0;
-// Console `input <flags> [frames]`: OR these input bits (I_UP/ACTION/...) into Input for N frames,
-// so the harness can drive the hero (walk/turn/act) without a keyboard. 0 = none.
-S32 DbgInjectInput = 0;
-S32 DbgInjectInputFrames = 0;
 // Console `skipmodals <0|1>`: abort dialogue modals immediately (as if Esc) so a headless run does
 // not hang on a give/talk dialog. The script continues past the dialog; no quest-state change.
 S32 DbgSkipModals = 0;
