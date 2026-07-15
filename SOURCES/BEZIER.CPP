@@ -13,7 +13,12 @@
 
 #include "C_EXTERN.H"
 
-#define MAX_SCAN_LINES 480
+// One entry per screen scanline: sizes the shadow-fill span tables below and
+// bounds the fill loop. Must cover the active ModeResY, so it tracks the
+// max supported height (ADELINE_MAX_Y_RES) exactly like TabOffLine[]. Pinning
+// it to the native 480 culled every actor shadow below line 480 at above-native
+// vertical resolutions (720p dropped 240 lines, 1080p dropped 600).
+#define MAX_SCAN_LINES ADELINE_MAX_Y_RES
 
 /*──────────────────────────────────────────────────────────────────────────*/
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀

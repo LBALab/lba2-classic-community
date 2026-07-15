@@ -405,6 +405,31 @@ verified at 768 and 1024. Y>480 still subject to the wider HD-pass — A4
 | [`SOURCES/DEFINES.H:211`](../SOURCES/DEFINES.H) | `#define MAX_PLAYER ((640 * 480) / …)` | **Intentionally fixed** per [`WIDESCREEN.md`](WIDESCREEN.md#what-does-not-need-to-change) — partitions `BufSpeak`, and a silent slot-count change would walk off the end of it. Save format depends on this staying at 640*480. Do not change. |
 | [`SOURCES/CONFIG/MAIN.CPP:90`](../SOURCES/CONFIG/MAIN.CPP) | `#define ibuffersize (640 * 480 + RECOVER_AREA)` | **Not built.** `SOURCES/CONFIG/` is the original Adeline standalone config tool; it isn't referenced by any active `CMakeLists.txt`. Dormant code, not in the shipping binary. |
 
+### A11. Actor shadow scanline tables pinned to Y=480
+
+[`SOURCES/BEZIER.CPP:16-21`](../SOURCES/BEZIER.CPP) rasterises every
+actor's circular ground shadow through per-scanline span tables:
+
+```cpp
+#define MAX_SCAN_LINES 480
+S32 TabCoorPoint[MAX_SCAN_LINES][4];   // span endpoints, one row per scanline
+S32 TabNbPoint[MAX_SCAN_LINES];        // span count per scanline
+```
+
+`DrawOmbre` drops any span at `y >= MAX_SCAN_LINES` and `DrawLineShade`
+clamps its fill loop to `MAX_SCAN_LINES - 1`, so at above-native vertical
+resolutions every shadow whose projected screen-Y falls at or below line
+480 is silently never drawn. The culled band is exactly `ModeResY - 480`
+(720p drops the bottom 240 lines, 1080p the bottom 600). This is issue
+#408, field-reported once 1080p shipped (#341). Unlike A4/A5 this one is
+**not latent**: it is a real player-facing bug at a shipping resolution.
+
+*(Resolved: `MAX_SCAN_LINES` now tracks `ADELINE_MAX_Y_RES`, the same
+constant that sizes `TabOffLine[]` / `TabOffPhysLine[]`, so the span
+tables cover the full active height. The visible clamp is already handled
+upstream by `ClipYMin/ClipYMax`, which are `ModeResY`-aware, so no other
+logic changes: the fill simply no longer runs out of table.)*
+
 ## Category B — Functional: UI layout architecture choice
 
 **Architecture-dependent.** These sites are 2D UI layout coords authored
@@ -569,7 +594,10 @@ size.
 
 A4, A5 above (`Tab_Points[N].Pt_YE = 479`, `ZBufYMin/Max = 479`) work
 at the current 480 render height. They become bugs only when render
-*height* changes — Phase 5 HD work.
+*height* changes, i.e. the Phase 5 HD work. A11 was the first of this
+HD-Y class to actually surface in the field (actor shadows, once 1080p
+shipped); A4 / A5 are the same shape and should be expected to bite as
+vertical HD sees more field use.
 
 ## Recommended fix ordering
 
