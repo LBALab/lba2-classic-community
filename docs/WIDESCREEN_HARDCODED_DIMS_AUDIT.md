@@ -262,17 +262,26 @@ width.)*
 
 ### A4. Terrain horizon polygons clamped to Y=479
 
-[`SOURCES/3DEXT/TERRAIN.CPP:570-641`](../SOURCES/3DEXT/TERRAIN.CPP) — six
-sites set `Tab_Points[N].Pt_YE = (S16)479` as the bottom edge of the
+[`SOURCES/3DEXT/TERRAIN.CPP:570-641`](../SOURCES/3DEXT/TERRAIN.CPP) set eight
+sites to `Tab_Points[N].Pt_YE = (S16)479` as the bottom edge of the
 horizon polygons. If render height ever moves above 480 (future HD), the
 horizon stops at row 479. (At the current 480 height this is fine; flag
 for the Phase 5 HD pass.)
 
+*(Resolved: all eight sites now set `Pt_YE = (S16)((S32)ModeDesiredY - 1)`
+(`TERRAIN.CPP:570, 572, 593, 595, 616, 618, 639, 641`), landed in
+fix/widescreen-y-clamp, PR #262. Behavior-preserving at 480; the horizon
+reaches the true frame bottom at any height.)*
+
 ### A5. Holomap Z-buffer Y bounds
 
-[`SOURCES/HOLOGLOB.CPP:141, 152, 153, 995`](../SOURCES/HOLOGLOB.CPP) —
+[`SOURCES/HOLOGLOB.CPP:141, 152, 153, 995`](../SOURCES/HOLOGLOB.CPP) had
 `ZBufYMin/Max = 479` clamps. Same situation as A4: fine at the current
 height, breaks at HD.
+
+*(Resolved: the bounds now clamp to `(S32)ModeDesiredY - 1`
+(`HOLOGLOB.CPP:148, 159-160, 1005-1006`), same PR #262. Behavior-preserving
+at 480.)*
 
 ### A6. Save-thumbnail buffer
 
@@ -393,15 +402,16 @@ to black first so sidebars are clean. The B4-routed corner brackets +
 brackets all line up with the centred bitmap. `BoxStaticAdd` for the
 full-screen dirty marker stays at framebuffer corners so the sidebars
 are still painted on each repaint. No-op at 640×480; X-axis widening
-verified at 768 and 1024. Y>480 still subject to the wider HD-pass — A4
-/ A5 still flag the Y-axis sites.)*
+verified at 768 and 1024. The Y-axis is now handled too: A4 / A5 route
+through `ModeDesiredY - 1` (PR #262), so the holoplan image centres and
+clips correctly at tall heights.)*
 
 ### A10. Misc full-framebuffer allocations + sizes
 
 | Site | What | Status |
 |---|---|---|
 | [`SOURCES/PERSO.CPP:2008`](../SOURCES/PERSO.CPP) | `DefFileBufferInit(PathConfigFile, ScreenAux, (640 * 480 + RECOVER_AREA))` | **Functional, low priority.** Tells `DefFileBufferInit` the scratch buffer is `640*480 + RECOVER_AREA` bytes; the actual `ScreenAux` is `MDX*MDY + RECOVER_AREA`. Under-declares the buffer but doesn't corrupt — `LBA2.CFG` is a small text file, never approaches 307K. Worth tightening to `ModeDesiredX * ModeDesiredY + RECOVER_AREA`. |
-| [`SOURCES/PLAYACF.CPP:222-456`](../SOURCES/PLAYACF.CPP) + [`:504`](../SOURCES/PLAYACF.CPP) | Cinematic video upscaled into a 640×480 dest buffer, then `CopyBlock(0, 0, 640, 480, dest, 0, 0, Log)` to the framebuffer. | **Open — real bug at wider widths.** The 640×480 buffer lands in the left 640 columns of Log; columns `[640, ModeDesiredX)` keep whatever Log held before the cutscene started. Visible as garbage / stale UI to the right of the Smacker frame at 768/1024. Fix shape: clear Log to black + `CopyBlock(0, 0, 640, 480, dest, (MDX-640)/2, (MDY-480)/2, Log)` for letterbox-centred cinematic. |
+| [`SOURCES/PLAYACF.CPP:519-536`](../SOURCES/PLAYACF.CPP) | Cinematic video decoded into the framebuffer for display. | **Resolved** (PR #430, feat/fmv-widescreen-fit). Rewritten to pre-clear `Log` with `memset` and write the decoded frame directly at the centred origin with `ModeDesiredX` row stride (`Video_ComputeCineRect` + `cineOrigin`, `PLAYACF.CPP:519-536`); no intermediate 640-stride buffer and no `CopyBlock`. `VideoFullScreen` selects fit-to-screen (default, aspect-preserving) vs the classic centred letterbox. Byte-identical at 640×480. |
 | [`SOURCES/DEFINES.H:211`](../SOURCES/DEFINES.H) | `#define MAX_PLAYER ((640 * 480) / …)` | **Intentionally fixed** per [`WIDESCREEN.md`](WIDESCREEN.md#what-does-not-need-to-change) — partitions `BufSpeak`, and a silent slot-count change would walk off the end of it. Save format depends on this staying at 640*480. Do not change. |
 | [`SOURCES/CONFIG/MAIN.CPP:90`](../SOURCES/CONFIG/MAIN.CPP) | `#define ibuffersize (640 * 480 + RECOVER_AREA)` | **Not built.** `SOURCES/CONFIG/` is the original Adeline standalone config tool; it isn't referenced by any active `CMakeLists.txt`. Dormant code, not in the shipping binary. |
 
@@ -590,14 +600,16 @@ copy stride for a specific intermediate buffer. Audit independently
 if the BlitBox path ever widens; for now, it's specific to that buffer's
 size.
 
-### C6. Currently-fine 479 references (HD-only concern)
+### C6. 479 references (HD-Y class, now resolved)
 
-A4, A5 above (`Tab_Points[N].Pt_YE = 479`, `ZBufYMin/Max = 479`) work
-at the current 480 render height. They become bugs only when render
-*height* changes, i.e. the Phase 5 HD work. A11 was the first of this
-HD-Y class to actually surface in the field (actor shadows, once 1080p
-shipped); A4 / A5 are the same shape and should be expected to bite as
-vertical HD sees more field use.
+A4, A5 above (`Tab_Points[N].Pt_YE = 479`, `ZBufYMin/Max = 479`) worked
+at the native 480 height and would have broken above it. A11 (actor
+shadows) was the first of this HD-Y class to surface in the field, once
+1080p shipped. All three are now routed through `ModeDesiredY` (A4/A5 in
+PR #262, A11 in PR #443), so the class this row warned about is closed.
+A fresh HD-height sweep (2026-07) found no remaining live instance; the
+only residual literals are benign (an untriggered `CopyBlockShade` size
+guard, dead initializers, editor-only debug rects).
 
 ## Recommended fix ordering
 
@@ -617,8 +629,9 @@ in this priority:
 4. **Tier 2 — UI layout per the chosen strategy.** Category B sites.
    Under C1: build a 4:3-render-into-wider-Log compositor. Under C2:
    route the literals.
-5. **Tier 4 — HD-only.** A4 (terrain horizon Y=479), A5 (holomap
-   ZBufYMax=479), C6. Fine at 480 height; defer.
+5. **Tier 4, HD-only (done).** A4 (terrain horizon Y=479), A5 (holomap
+   ZBufYMax=479), and A11 (actor shadows) all route through `ModeDesiredY`
+   now (#262, #443); C6 closed.
 
 The author's intuition that "the inventory is 4:3 and should stay that
 way" maps cleanly to C1 — and is consistent with the SCREEN.HQR
