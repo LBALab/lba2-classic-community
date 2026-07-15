@@ -43,6 +43,10 @@ static inline U32 DosAvailableMem(void) { return 0; }
 #include <sys/stat.h>
 #include <unistd.h>
 
+// #412 render interpolation: ObjInterp_Step/Apply/Restore + the pure Render_InterpNum alpha.
+#include "OBJ_INTERP.H"
+#include <3D/RENDERINTERP.H>
+
 /*#ifndef DEMO
 #define THOMAS  1
 #endif
@@ -2252,6 +2256,11 @@ restartloop:
 
         /*-------------------------------------------------------------------------*/
 
+        /* Snapshot this sub-step's end position for render interpolation (#412): prev = cur; cur = Obj.
+           Runs once per simulated sub-step and never on a skipped frame (which goto's skip_simulation
+           above), so on skip frames prev/cur stay frozen and the render lerps between them. */
+        ObjInterp_Step();
+
         if (FixedTimestep > 0 && ++simStep < nSimSteps)
             goto sim_step; // run the next fixed sub-step of this frame
         if (FixedTimestep > 0) {
@@ -2265,14 +2274,23 @@ restartloop:
         /* affiche tout */
 
     skip_simulation:
+        /* Render interpolation (#412): overwrite each interpolated object's drawn position with a lerp
+           between its last two sim-step positions by the banked-time fraction (num/FixedTimestep), for
+           the render only. Applied before the probe and AffScene so both see the interpolated value,
+           and restored right after AffScene so the sim never does. No-op when RenderInterp is off,
+           FixedTimestep is off, or on a full-scene flip frame (a background bake would capture it). */
+        ObjInterp_Apply(Render_InterpNum(TimerRefHR, LastSimRefHR, FixedTimestep),
+                        (U32)FixedTimestep, FirstTime == AFF_ALL_FLIP);
+
         /* Render-position probe (#412 Phase 0): log the hero's drawn position once per rendered frame,
-           including throttle-skipped ones, so the judder staircase is observable. Placed here, right
-           before AffScene, so once render interpolation lands it captures the interpolated value. */
+           including throttle-skipped ones, so the judder staircase (and its removal) is observable. */
         Control_RenderTraceFrame();
 
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
+
+        ObjInterp_Restore(); // sim state back to true positions before the next step
 
         if ((FirstLoop OR RestartMusic)
                 AND !PLAY_THE_END) {
@@ -2382,6 +2400,11 @@ void ReadConfigFile(void) {
     FixedTimestep = DefFileBufferReadValueDefault("FixedTimestep", 16);
     if (FixedTimestep < 0 OR FixedTimestep > 100)
         FixedTimestep = 16;
+
+    // #412: render interpolation, default off during the campaign.
+    RenderInterp = DefFileBufferReadValueDefault("RenderInterp", 0);
+    if (RenderInterp < 0 OR RenderInterp > 1)
+        RenderInterp = 0;
 
     /* Console toggle scancode (SDL scancode integer); invalid values fall back to F12 in console module. */
     Console_SetToggleScancode(DefFileBufferReadValueDefault("ConsoleToggleKey", K_F12));
@@ -2506,6 +2529,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
+    DefFileBufferWriteValue("RenderInterp", RenderInterp);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
        auto-detect > compile-time default). Persist it only when the player

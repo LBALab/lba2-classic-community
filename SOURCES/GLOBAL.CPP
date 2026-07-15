@@ -95,6 +95,14 @@ S32 DisplayVSync = TRUE;
 // live via the `fixedtimestep` console verb. See docs/MOVEMENT_FRAMERATE.md.
 S32 FixedTimestep = 16;
 
+// #412: render interpolation. When on (and FixedTimestep > 0), the render draws each interpolated
+// object between its last two sim-step positions every frame, so held movement is smooth above the
+// ~60 Hz sim instead of staircasing on high-refresh displays. Render-only: the sim stays byte-exact
+// and it is a no-op under --fixed-dt 16 (no skip frames). Default off during the campaign; persisted
+// to lba2.cfg (RenderInterp key), toggleable via the `renderinterp` console verb. Phase 2 covers the
+// hero. See docs/RENDER_INTERP_PLAN.md.
+S32 RenderInterp = FALSE;
+
 S32 FlagMenuMouse = TRUE;
 
 //S32	FlagPalettePcx = FALSE ;

@@ -1487,6 +1487,32 @@ static void cmd_fixedtimestep(int argc, const char *argv[]) {
     }
 }
 
+/* renderinterp [on|off|toggle]: issue #412. Draw objects between sim steps every rendered frame so
+   held movement is smooth on a display faster than the ~60 Hz sim, instead of staircasing. Render-only
+   (the sim stays byte-exact); a no-op under --fixed-dt 16 and when FixedTimestep is off. Default off;
+   persists to lba2.cfg (RenderInterp key). Phase 2 covers the hero. See docs/RENDER_INTERP_PLAN.md. */
+static void cmd_renderinterp(int argc, const char *argv[]) {
+    if (argc >= 2) {
+        const char *arg = argv[1];
+        if (!strcasecmp(arg, "on") || !strcmp(arg, "1")) {
+            RenderInterp = TRUE;
+        } else if (!strcasecmp(arg, "off") || !strcmp(arg, "0")) {
+            RenderInterp = FALSE;
+        } else if (!strcasecmp(arg, "toggle")) {
+            RenderInterp = RenderInterp ? FALSE : TRUE;
+        } else {
+            Console_Print("renderinterp: bad arg '%s' (use on|off|toggle).", arg);
+            return;
+        }
+        DefFileBufferWriteValue("RenderInterp", RenderInterp);
+    }
+
+    Console_Print("RenderInterp: %s", RenderInterp ? "ON" : "OFF");
+    if (argc < 2) {
+        Console_Print("Usage: renderinterp <on|off|toggle>");
+    }
+}
+
 /* teleport <x> <y> <z> [beta] | teleport actor <n>: reposition the hero in the current cube.
    Sets ListObjet[NUM_PERSO].Obj coords directly; the next simulated frame re-runs zone detection and
    collision from the new spot. `teleport actor <n>` jumps onto actor n -- the quick way to reach a
@@ -1911,6 +1937,13 @@ void Console_RegisterAll(void) {
                               "Runs the simulation at most once per MS ms of game-time (on = 16). Fixes "
                               "movement speeding up or freezing above 60 fps (vsync off, high-refresh). "
                               "Default on; persists to lba2.cfg (FixedTimestep key).");
+
+    Console_RegisterCommandEx("renderinterp", cmd_renderinterp,
+                              "Interpolate object motion between sim steps (smooth high-refresh)",
+                              "renderinterp [on|off|toggle]",
+                              "Draws objects between their last two ~60 Hz sim positions every rendered "
+                              "frame, so held movement stops juddering on faster displays. Render-only; "
+                              "default off; persists to lba2.cfg (RenderInterp key). See docs/RENDER_INTERP_PLAN.md.");
 
     Console_RegisterCommandEx("teleport", cmd_teleport, "Reposition the hero in the current cube",
                               "teleport <x> <y> <z> [beta] | teleport actor <n>",
