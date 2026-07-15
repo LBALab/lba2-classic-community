@@ -25,3 +25,11 @@ endfunction()
 add_render_primitive_test(test_sphere_radius)
 add_render_primitive_test(test_line_geometry)
 add_render_primitive_test(test_poly_geometry)
+
+# Render-interpolation core (issue #412) -- pure math, no ASM oracle, no SDL.
+add_executable(test_render_interp test_render_interp.cpp
+    ${CMAKE_SOURCE_DIR}/LIB386/3D/RENDERINTERP.CPP)
+target_include_directories(test_render_interp PRIVATE ${CMAKE_SOURCE_DIR}/LIB386/H)
+set_target_properties(test_render_interp PROPERTIES CXX_STANDARD 11)
+add_test(NAME test_render_interp COMMAND test_render_interp)
+register_host_test(test_render_interp)
