@@ -29,7 +29,7 @@ The widescreen render path (Phases 1–3 in `WIDESCREEN.md`) is already runtime-
 
 - **Resolution-independent UI.** The 4:3 UI is C1-centred or C2-re-anchored case by case — that work belongs to the audit, not this doc.
 - **Per-display preferences.** A single global resolution stored in `lba2.cfg`; if the player moves their laptop to a 4K monitor, they pick a new one. Multi-display memory is a future enhancement.
-- **Cinematic upscale.** Smacker source is 320×200; at higher render resolutions it stays letterboxed inside the 640×480 image area (see `PLAYACF.CPP`). Render resolution does not change cinematic source quality.
+- **Cinematic upscale.** Smacker source is 320×200. `VideoFullScreen` selects the upscale policy (`Video_ComputeCineRect` in `PLAYACF.CPP`): fit-to-screen (default, aspect-preserving pillar/letterbox) or the classic centred 2× letterbox (PR #430). Render resolution does not change cinematic source quality either way.
 - **Display-mode switching.** This is the *render* resolution. SDL scales the framebuffer to the window/display. We don't change the OS display mode.
 
 ## Existing infrastructure
@@ -165,7 +165,7 @@ Display in the form `<W>x<H> (<aspect>, <tag>)`:
 | `320 ≤ W ≤ 1920` | Matches `--resolution` CLI validator. |
 | `200 ≤ H ≤ 1024` | Same. |
 | `W ≤ display_W` and `H ≤ display_H` | Don't offer modes larger than the display; SDL would still scale, but it's misleading. |
-| `Y > 480` flagged `experimental` | Until A4 (terrain horizon) and A5 (holomap Z-buffer Y bounds) are fixed (audit row in `WIDESCREEN_HARDCODED_DIMS_AUDIT.md` — task #99 / HD pass), tall modes glitch on the holomap. The player can still pick them; we tell them what to expect. |
+| `Y > 480` flagged `experimental` | A4 (terrain horizon) and A5 (holomap Z-buffer Y bounds) are now fixed (routed through `ModeDesiredY-1`, PR #262), as is the actor-shadow cull (#443). Tall modes stay flagged `experimental` for the remaining Phase 7 polish rather than correctness bugs: HUD and menu fonts blit 1:1 (tiny at 1080p), and the `ui holoplan` tall-res path is still unverified. The player can still pick them; we tell them what to expect. |
 
 ### SDL discovery
 
