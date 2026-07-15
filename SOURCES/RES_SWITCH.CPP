@@ -52,6 +52,15 @@
 static bool g_resIsAutoDerived = false;
 bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
 
+/* Scratch-buffer size for the transient, heap-free boot reads of lba2.cfg
+   (Res_LoadBootDimensions / Res_LoadBootFullscreen). A fully-populated valid
+   cfg is already ~6 KB (72 keyboard + 72 gamepad bindings from MAX_INPUT, plus
+   ~70 settings/camera/audio keys), so the old 8 KB left almost no headroom and
+   any bloat -- a corrupt over-long line, future keys -- tips DefFileBufferInit
+   into its "buffer too small" reject, dropping the cfg's ResolutionX/Y and
+   silently falling back to auto-detect. 64 KB is generous and stays in BSS. */
+#define RES_BOOT_CFG_BUFSZ (64 * 1024)
+
 bool Res_ValidateDimensions(U32 w, U32 h) {
     if (w < RES_MIN_W || w > RES_MAX_W)
         return false;
@@ -286,9 +295,8 @@ void Res_LoadBootDimensions(U32 *outW, U32 *outH) {
        its own DefFileBufferInit against ScreenAux which fully resets the
        module state; nothing carries over from this transient init. */
     if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
-        /* lba2.cfg is ~2.5KB at the time of writing; 8 KB is generous and
-           keeps the buffer in BSS rather than blowing main's stack. */
-        static char tmpCfgBuf[8192];
+        /* BSS scratch (see RES_BOOT_CFG_BUFSZ) rather than blowing main's stack. */
+        static char tmpCfgBuf[RES_BOOT_CFG_BUFSZ];
         if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
             const long w = DefFileBufferReadValueDefault("ResolutionX", 0);
             const long h = DefFileBufferReadValueDefault("ResolutionY", 0);
@@ -345,7 +353,7 @@ bool Res_LoadBootFullscreen(void) {
        Default windowed, matching ReadConfigFile's DisplayFullScreen default
        (FALSE) and its <0/>1 clamp — keep the two in sync. */
     if (PathConfigFile[0] != '\0' && ExistsFileOrDir(PathConfigFile)) {
-        static char tmpCfgBuf[8192];
+        static char tmpCfgBuf[RES_BOOT_CFG_BUFSZ];
         if (DefFileBufferInit(PathConfigFile, tmpCfgBuf, (S32)sizeof tmpCfgBuf)) {
             const long fs = DefFileBufferReadValueDefault("DisplayFullScreen", 0);
             return fs == 1;
