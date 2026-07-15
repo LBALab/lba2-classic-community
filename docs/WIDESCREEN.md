@@ -167,6 +167,12 @@ With the Y-axis clamps and the save-clip pin fixed, the exterior 3D view fills
 the full framebuffer height. That immediately raises a composition question we
 have *not* resolved — captured here to revisit.
 
+**Update (2026-07).** Two pieces of the recompose lever have since landed:
+`fix/exterior-near-clip-hd` (#342) scales the exterior near-clip with render
+height, and `feat/autocam-hd-recompose` (#343) gives the auto-camera HD
+world-awareness (the recompose direction of option 2). The framing decision
+below is still open, but option 2 is no longer hypothetical.
+
 **The mechanism.** The projection (`LPROJ3DF.CPP`) is square-pixel with a fixed
 field constant: `Xp = ModeDesiredX/2 + (x-cam)·ChampX/Z`, `Yp = ModeDesiredY/2 +
 (y-cam)·ChampZ/Z`, with `ChampX`/`ChampZ` constant. So growing the framebuffer
@@ -274,7 +280,7 @@ Widescreen shipped without true high resolution: the framebuffer grows horizonta
 
 1. **Bitmap fonts (open, highest player impact).** `LIB386/SVGA/FONT.CPP` and `AFFSTR.CPP` blit glyphs 1:1, so HUD, dialogue, and menu text is tiny at 1080p. Pixel-scale the 8×N glyphs by an integer factor derived from `ModeDesiredY`, scaling advance widths and line spacing with them. Nothing is in flight, so it is a clean slate.
 2. **Iso interior sharpness (experimental).** The isometric brick layer is a 640-class blit; at HD it wants scaling or edge-upscaling (xBR / EPX) so interiors stay crisp. Five unmerged branches explore this: `feat/iso-xbr-optimized` (furthest along), `feat/iso-xbr-bricks`, `feat/iso-brick-scale`, `feat/iso-scale`, and `feat/iso-zoom-screenspace`. Findings live on-branch in `ISO_SCALE_FINDINGS.md`; the on-main groundwork is [`ISO_SPACE_AUDIT.md`](ISO_SPACE_AUDIT.md). Needs triage down to one mergeable approach.
-3. **Holomap at Y > 480 (blocked).** The A4/A5 Z-buffer-bounds fix is correct and 640-identical but cannot be verified at tall resolution: `ui holoplan` at 1024×768 times out on a cinema-mode rendering bug. Resolve that, then add `test_ui_holoplan_768x768.sh`.
+3. **Holomap at Y > 480 (needs re-verification).** The A4/A5 Z-buffer-bounds fix is correct and 640-identical. It was flagged unverified at tall resolution because `ui holoplan` at 1024×768 reportedly timed out on a cinema-mode rendering bug. A 2026-07 code sweep found no dimension-based timeout (the zoom loop is time-driven and image-centred), so re-test `ui holoplan` at 1024×768 before assuming it is still blocked, then add `test_ui_holoplan_768x768.sh`.
 4. **Vertical framing (decision pending).** A taller frame reveals more vertical field of view, exposing the sky edge and map seams. The levers and the current leaning are in [Vertical framing at HD](#vertical-framing-at-hd--open-question). Cheap to A/B with the polyrec harness.
 5. **Watch-items.** The 16-bit Z-buffer plus `Fill_ZBuffer_Factor` may Z-fight on distant geometry at HD aspect; filler precision is de-risked (swept at 1920, 0.006% sub-pixel edge drift, no overflow). Smacker upscale is now a player option (fit-to-screen default, aspect-preserving) and 1:1 mouse coords need no action.
 
@@ -351,6 +357,6 @@ LBA2_BIN=build-wide/SOURCES/lba2cc \
 | 4 – fullscreen + runtime resolution | Done. Explicit player choice (`--resolution` / `lba2.cfg` / Display submenu / `resolution` verb) plus first-launch widescreen auto-detect; precedence CLI > cfg > auto > 640×480. Fullscreen defaults on via the cfg template. See [Phase 4](#phase-4-fullscreen-and-runtime-resolution). |
 | 5 – UI (C2) | Done for the menu/UI surfaces (#213–#228 re-anchor campaign, plus #260, #289, #291, #310). HD-only concerns split out to Phase 7. |
 | 6 – regression | Ongoing per-PR (projrec corpus, `host_quick`, and `ui_*` capture tests gate the 640×480 contract). No final lock-in pass yet. |
-| 7 – native HD | Not started. Fonts blit 1:1, iso interior sharpness (experiment branches), holomap tall-res timeout, vertical-framing decision. See [Phase 7](#phase-7-native-hd). |
+| 7 – native HD | In progress. HD-height render *correctness* is done: Y-clamps (#262), exterior near-clip scaling (#342), and actor shadows (#443) all route through `ModeDesiredY`, and auto-camera HD recompose landed (#343). Remaining is legibility and sharpness: bitmap fonts blit 1:1, iso interior sharpness (experiment branches), holomap tall-res verification, and the vertical-framing decision. See [Phase 7](#phase-7-native-hd). |
 
 Foundation already in place: PR #134 (`RESOLUTION_X` / `RESOLUTION_Y` constants, and most render-space literals routed through them).
