@@ -3,8 +3,18 @@
 Plan of record for the render-interpolation half of #412. Companion to
 [MOVEMENT_FRAMERATE.md](MOVEMENT_FRAMERATE.md) (the #358 fixed-timestep sim this builds on),
 [TIMING.md](TIMING.md) (the clocks), and [CONTROL.md](CONTROL.md) (the `--fixed-dt` harness that
-measures it). Status: **planning**. Nothing here is built yet; this is the map, phased so each step
-is independently validated and ships behind an off-by-default flag, so no phase can regress the game.
+measures it). The plan is phased so each step is independently validated and ships behind an
+off-by-default flag, so no phase can regress the game.
+
+> **Status: parked (2026-07-16).** The #358 fixed-timestep throttle already fixed the *felt*
+> high-refresh problem (movement speeding up / slow NPCs freezing at high fps -- the original M1 and
+> vsync-off reports). The residual *render staircase* this plan targets was not perceptible on any
+> tested hardware: WSL at ~300 fps, an M1/ProMotion Mac, and a **144 Hz Windows** display, all vsync
+> off. It only bites on a non-multiple-of-60 refresh with vsync genuinely off, and even there the
+> reporter could not see it. Phases 0-2 are implemented and proven in the harness on branch
+> `feat/render-interp` (the probe shows the staircase drop from ~77% to ~11% zero-delta frames, and
+> the sim `--dump-state` is byte-identical to `main` when the flag is off), kept as resumable WIP.
+> Revisit if a real, perceptible high-refresh case surfaces. Tracked in #412.
 
 ## The problem, measured
 
