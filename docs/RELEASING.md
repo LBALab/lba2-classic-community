@@ -201,8 +201,11 @@ Two things still need maintainer action after the workflows finish:
 
 **1. Replace the auto-generated body with the CHANGELOG section.** The
 per-platform workflows each set `generate_release_notes: true`, which
-appends the PR-title dump on every run, so five runs leave the body
-duplicated five times
+re-appends the PR-title dump on every run, so the body lands duplicated
+several times over and has to be replaced wholesale. Don't expect one
+copy per workflow: the runs interleave, and v0.12.0's five runs left
+four copies (a 54 KB body against the 30 KB the CHANGELOG section
+actually needs)
 ([#153](https://github.com/LBALab/lba2-classic-community/issues/153);
 until that lands, dedup is a manual step). Extract the
 `## [<version>]` section from `CHANGELOG.md`, wrap it in a short
@@ -239,6 +242,20 @@ type-2 runtime stub reliably.
 Windows ZIPs, macOS DMGs and Android APKs aren't checked. Running them
 on a Linux host needs `wine`, `qemu-system-x86`, a Mac, or an Android
 emulator, which is more machinery than the marginal signal justifies.
+
+**Docker Desktop under WSL.** If the script dies at `registering
+qemu-user-static binfmt` with `docker-credential-desktop.exe: Invalid
+argument` and exit 125, the culprit is `"credsStore": "desktop.exe"` in
+`~/.docker/config.json`: it shells out to a Windows helper that fails
+under WSL, so any Docker Hub *pull* errors out. Already-cached images
+still run, which makes it look like Docker is healthy. Point
+`DOCKER_CONFIG` at a throwaway config for the run rather than editing
+the real one:
+
+```bash
+tmpcfg=$(mktemp -d); echo '{}' > "$tmpcfg/config.json"
+DOCKER_CONFIG="$tmpcfg" bash scripts/dev/verify-release.sh v0.12.0
+```
 
 Use this as a pre-publicize gate: a tagged release that passes the
 local verifier is safe to announce on Discord.
