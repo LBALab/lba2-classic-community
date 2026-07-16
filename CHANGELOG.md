@@ -10,11 +10,103 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.12.0] - 2026-07-16
+
+### Movement & timing
+
+Movement in the engine was never speed times time. Animation keyframes
+advanced once per rendered frame, so how far Twinsen actually walked
+depended on your frame rate. This cycle decouples the simulation from
+rendering and pins it to a fixed step.
+
+- Frame-rate-independent movement, on by default at a 16 ms step (a
+  60 Hz simulation). Above roughly 60 fps (a high-refresh panel, vsync
+  off, a fast machine, even at the classic 640x480) hero walk, sneak and
+  jump and NPC patrols ran too slowly or inconsistently, and slow movers
+  could stop outright; below 60 fps the simulation lost game time and
+  movement came up short. It now advances in whole fixed steps with the
+  remainder carried, sub-stepping to catch up after a slow frame and
+  clamping at 8 steps so it stops trying below about 8 fps. At 60 fps
+  every part of this is a deliberate no-op, so a display already in the
+  sweet spot sees no change in feel. Turn it off or retune it live with
+  the `fixedtimestep` console command, persisted to `lba2.cfg`
+  ([#388](https://github.com/LBALab/lba2-classic-community/pull/388), [#389](https://github.com/LBALab/lba2-classic-community/pull/389)).
+  See [docs/MOVEMENT_FRAMERATE.md](docs/MOVEMENT_FRAMERATE.md).
+- Quest-item gives, scene flips and weapon input land reliably under the
+  throttle. A one-frame event (an inventory item-use, a full-scene flip,
+  a hero action or fire edge) promotes a frame that would have been
+  skipped into a single simulation step, so the event cannot fall into
+  the gap between steps. Held movement is deliberately excluded: that is
+  state the throttle is right to skip
+  ([#392](https://github.com/LBALab/lba2-classic-community/pull/392), [#411](https://github.com/LBALab/lba2-classic-community/pull/411), [#413](https://github.com/LBALab/lba2-classic-community/pull/413)).
+- The holomap globe rotates at a constant rate rather than one
+  proportional to frame rate, so holding a direction no longer spins it
+  away on a high-refresh display
+  ([#390](https://github.com/LBALab/lba2-classic-community/pull/390)).
+- The end-credits walkers travel at a constant rate and stay staggered
+  instead of bunching, in both the attract-reel credits and the ending
+  ([#421](https://github.com/LBALab/lba2-classic-community/pull/421)).
+
+### Transitions & fades
+
+Scene changes and full-screen videos are bracketed by a fade through
+black. Under SDL most of that had stopped working, in five separate
+ways.
+
+- Scene and FMV fades ramp again instead of cutting straight through,
+  with actors no longer popping in at full brightness. The palette ramp
+  was timed off the audio sample-fade countdown, which runs on wall-clock
+  time and keeps advancing across the synchronous scene load, so the fade
+  finished in a single step. It now runs on the managed clock
+  ([#374](https://github.com/LBALab/lba2-classic-community/pull/374)).
+- Actors, NPCs, doors and item drops fade with the scene instead of
+  snapping. On the way out they vanished the instant the fade began,
+  before the scene darkened; on the way in the terrain faded up without
+  them and they appeared at full brightness a frame after the fade
+  finished. Only the terrain was fading. One fix covers scene loads, FMV
+  reveals, menu fades and white flashes
+  ([#417](https://github.com/LBALab/lba2-classic-community/pull/417)).
+- Lit-to-lit palette crossfades ramp instead of snapping to the target
+  palette. About ten scenes fire one on entry, mostly island arrivals
+  (Citadel harbor, White Leaf Desert city center, Otringal harbor,
+  Francos), so it shows in the title-screen attract reel
+  ([#418](https://github.com/LBALab/lba2-classic-community/pull/418)).
+- The next scene no longer flashes at full brightness for a frame before
+  fading in at the end of an FMV, and the video fades out at its tail
+  again. Both were worse the higher your frame rate
+  ([#415](https://github.com/LBALab/lba2-classic-community/pull/415)).
+- The letterbox slides out at the end of a cutscene instead of sticking
+  on screen, sometimes indefinitely if you stood still, and then popping
+  ([#375](https://github.com/LBALab/lba2-classic-community/pull/375)).
+
+See [docs/TRANSITIONS.md](docs/TRANSITIONS.md).
+
+### Music
+
+- A scene's music plays out and then hands over, instead of being
+  deferred forever or cut mid-phrase. Entering an area while a different
+  track was still looping left the new area silent until a menu toggle
+  nudged it; the queued track now takes over once the current one
+  finishes, and the chain keeps working across successive areas.
+  Scripted music, cutscenes, FMVs and menus still switch immediately, as
+  before
+  ([#376](https://github.com/LBALab/lba2-classic-community/pull/376), [#420](https://github.com/LBALab/lba2-classic-community/pull/420)).
+  See [docs/MUSIC.md](docs/MUSIC.md).
+
 ### Camera
 
 The Auto camera (the opt-in `FollowCamera` third-person follow, off by
-default, exterior scenes only) got most of the attention this cycle.
+default, exterior scenes only) filled out further this cycle.
 
+- Hold-angle, on by default: the camera keeps whatever angle you set
+  with the stick or mouse instead of drifting back behind the hero once
+  the grace window expires, which is how a free third-person camera
+  behaves. It re-centres only on a scene change or an explicit Center
+  camera. `cam_hold_angle 0` restores the classic drift-back; the
+  `lba2.cfg` key is `FollowCamHoldAngle`
+  ([#348](https://github.com/LBALab/lba2-classic-community/pull/348)).
 - Manual camera control with a mouse: right-drag orbits and tilts the
   follow camera, the wheel zooms, and middle-click recenters behind the
   hero. All three axes run through one shared `ApplyManualCameraNudge`
@@ -73,6 +165,30 @@ default, exterior scenes only) got most of the attention this cycle.
   never persisted, so it follows a monitor swap or a dock/undock, and any
   explicit choice (menu, console, `--resolution`) takes over
   ([#323](https://github.com/LBALab/lba2-classic-community/pull/323)).
+- Full-screen videos scale to fit the window instead of floating small in
+  a wide black frame. The 320x200 cinematics take the largest uniform
+  scale that fills the frame, centred and boxed. At 640x480 that factor
+  is exactly 2.0, so both settings are byte-identical there and the
+  difference only shows at widescreen. A previously dead option in the
+  options menu now drives it, reading "Movies fit to screen" (the new
+  default) or "Movies at original size" (the classic 2x letterbox). One
+  tradeoff worth knowing: engine cinema mode draws 40px top and bottom
+  bars, which the original setting matches and fit does not, so bar
+  geometry changes going from a cutscene into an FMV and back
+  ([#430](https://github.com/LBALab/lba2-classic-community/pull/430)).
+- Actor shadows draw below line 480 at HD vertical resolutions. Hero and
+  NPC ground shadows vanished in a band at the bottom of the screen
+  exactly `ModeResY - 480` tall: 240 lines at 720p, 600 at 1080p. The
+  shadow span table was sized to 480
+  ([#443](https://github.com/LBALab/lba2-classic-community/pull/443)).
+- Sliding doors no longer leave a ghost of themselves behind in the
+  doorway at widescreen resolutions. The on-screen test for
+  background-baked objects used hardcoded 640x480 bounds, so an object
+  outside that rect never registered as drawn and the redraw that
+  un-bakes it never fired. The dead zone grew with width: nothing at
+  640x480, the right ~20% at 848x480, the right ~47% and bottom ~19% at
+  1280x720
+  ([#432](https://github.com/LBALab/lba2-classic-community/pull/432)).
 - VSync toggle in the Display submenu and a `vsync [on|off|toggle]`
   console verb, persisted via a `VSync` key in `lba2.cfg` and surviving a
   runtime resolution switch. The on-screen FPS counter is now responsive
@@ -95,6 +211,63 @@ default, exterior scenes only) got most of the attention this cycle.
   host-tested module
   ([#325](https://github.com/LBALab/lba2-classic-community/pull/325), [#326](https://github.com/LBALab/lba2-classic-community/pull/326)).
 
+### Render
+
+- Character eyes and other small round body features are the right size
+  in interior and isometric scenes. They rendered a pixel too big, which
+  read as oversized square billboards on Grobo and firefly-tart models
+  indoors while outdoors was correct. The isometric branch of `Sphere()`
+  had mistranslated the original assembly's negate as a bitwise NOT,
+  dropping the `+1`. The exterior path was already correct and is
+  byte-for-byte unchanged
+  ([#380](https://github.com/LBALab/lba2-classic-community/pull/380)).
+
+### Input & controller
+
+- The gamepad is a first-class input source instead of a pass bolted on
+  after the fact. It was OR'd into `Input` after `GetInput()` had already
+  rebuilt the state and applied the repeat filter, which broke two
+  things: holding camera recenter (pad B) stopped Twinsen dead, fatal in
+  the continuous protopack sections where he then drowns, and a held
+  menu, inventory or behaviour button re-opened the overlay instead of
+  closing it. Bindings now fold into the same key and mask table the
+  keyboard builds. Keyboard behaviour is unchanged
+  ([#346](https://github.com/LBALab/lba2-classic-community/pull/346)).
+- The end credits can be skipped and exited with a controller. It was
+  the last screen still blind to the pad. Sticks and triggers are
+  deliberately excluded, since a resting stick drifts past the deadzone
+  and would end the credits by accident
+  ([#367](https://github.com/LBALab/lba2-classic-community/pull/367)).
+- The D-pad is no longer aliased to the left stick and can be bound
+  independently. It no longer turns Twinsen; by default it casts the
+  four spells (Protection, Jetpack, Pingouin, Foudre). Movement stays on
+  the left stick and the triggers, and every action is rebindable to the
+  D-pad in the controls menu
+  ([#373](https://github.com/LBALab/lba2-classic-community/pull/373)).
+  See [docs/CONTROLLER.md](docs/CONTROLLER.md).
+
+### Saves
+
+- Saves are portable across 32-bit and 64-bit builds and byte-compatible
+  with retail. A 64-bit build wrote its own native struct layout, so its
+  saves did not match retail's on disk; writes now go through a fixed
+  32-bit wire layout. Nothing you already have is invalidated: retail
+  32-bit saves load directly, and existing 64-bit saves from a community
+  build load through a native-first read and migrate on the next save.
+  The on-disk format version is unchanged
+  ([#386](https://github.com/LBALab/lba2-classic-community/pull/386)).
+  See [docs/SAVEGAME.md](docs/SAVEGAME.md).
+- The per-scene autosave is back. Every genuine scene transition writes a
+  fresh `autosave.lba` checkpoint again, closing the gap where a crash or
+  a hard quit after crossing several scenes without opening the pause
+  menu dropped you back at your last menu visit. Console `cube` warps and
+  menu loads do not set it, so they cannot clobber your autosave
+  ([#349](https://github.com/LBALab/lba2-classic-community/pull/349)).
+- The in-game quick save shows the "Game saved" confirmation and plays
+  the chime. It was writing the save correctly and saying nothing about
+  it, which looked like it had done nothing
+  ([#347](https://github.com/LBALab/lba2-classic-community/pull/347)).
+
 ### Disc image support
 
 - The engine can read retail assets straight from a raw ISO/BIN disc
@@ -108,7 +281,7 @@ default, exterior scenes only) got most of the attention this cycle.
   ([#322](https://github.com/LBALab/lba2-classic-community/pull/322)).
   See [docs/DISC_IMAGE_SOURCE.md](docs/DISC_IMAGE_SOURCE.md).
 
-### Console
+### Console & harness
 
 - F12 console keyboard overhaul: command history on Up/Down, Page Up/Down
   and the wheel for scrollback, mid-line editing (Left/Right/Home/End/
@@ -128,10 +301,73 @@ default, exterior scenes only) got most of the attention this cycle.
   ([#333](https://github.com/LBALab/lba2-classic-community/pull/333), [#334](https://github.com/LBALab/lba2-classic-community/pull/334), [#335](https://github.com/LBALab/lba2-classic-community/pull/335), [#336](https://github.com/LBALab/lba2-classic-community/pull/336)).
 - Intentional blank lines are preserved in the console output
   ([#330](https://github.com/LBALab/lba2-classic-community/pull/330)).
-  See [docs/CONSOLE.md](docs/CONSOLE.md).
+- The control harness can drive and observe a playthrough headlessly,
+  which is contributor-facing tooling with no gameplay effect. It gained
+  state control (`teleport`, `varcube`, `vargame`, and cube vars in
+  `--dump-state`), observability (`lifetrace` for what a Life script
+  checks and does, `cubetrace` for scene-to-scene flow), input
+  (`useitem`, and `input` for held hero input, metered in simulation
+  ticks so a hold survives the throttle), a way past blocking dialogue
+  modals (`skipmodals`), and zone geometry (`zonelist`), so a script can
+  drive to a trigger rather than guess at it
+  ([#393](https://github.com/LBALab/lba2-classic-community/pull/393), [#395](https://github.com/LBALab/lba2-classic-community/pull/395), [#396](https://github.com/LBALab/lba2-classic-community/pull/396), [#397](https://github.com/LBALab/lba2-classic-community/pull/397), [#398](https://github.com/LBALab/lba2-classic-community/pull/398), [#399](https://github.com/LBALab/lba2-classic-community/pull/399), [#400](https://github.com/LBALab/lba2-classic-community/pull/400), [#401](https://github.com/LBALab/lba2-classic-community/pull/401), [#438](https://github.com/LBALab/lba2-classic-community/pull/438)).
+- The engine refuses a command line it would otherwise misread. A typo'd
+  flag used to fall through, boot at defaults and exit 0, handing back a
+  confident wrong answer; unknown flags and missing values now exit 2.
+  One arity-aware table drives both validation and the usage text, which
+  is split into `--help` (a short player-facing subset) and `--help-all`
+  (the full grouped list including automation and self-test flags).
+  `lba2cc --help` used to open a window and sit there
+  ([#435](https://github.com/LBALab/lba2-classic-community/pull/435)).
+- Harness runs are reproducible and no longer overwrite your saves.
+  The engine pauses on focus loss, which is right for a player and
+  silently wrong for automation: six identical parallel runs produced
+  five distinct simulation states. `--headless` pins the SDL dummy
+  drivers, `--no-autosave` suppresses the implicit save writers, and
+  `--exec-at <tick>` schedules console commands on a given tick. A
+  `--load` that resolves to nothing now fails the run instead of
+  quietly booting a fresh game
+  ([#436](https://github.com/LBALab/lba2-classic-community/pull/436)).
+  See [docs/CONSOLE.md](docs/CONSOLE.md) and
+  [docs/CONTROL.md](docs/CONTROL.md).
 
 ### Config & stability
 
+- A corrupt `lba2.cfg` no longer costs you your saved resolution. On
+  Windows a garbage run at the head of the file printed three
+  `DefFileBufferInit: buffer too small` lines at boot and dropped the
+  display back to auto-detect despite a saved `ResolutionX`/`ResolutionY`.
+  No setting was ever lost, only unread. Over-long separator-less lines
+  are now excised in place and the boot read buffer grows from 8 KB to
+  64 KB. The underlying cause, that the config buffer aliases the shared
+  graphics scratch buffer so an interrupted write can stamp graphics
+  bytes into the file, is tracked separately
+  ([#441](https://github.com/LBALab/lba2-classic-community/pull/441)).
+- An explicit `--game-dir` that doesn't hold the game data is refused
+  with a message naming what it wanted, instead of being silently
+  discarded so the engine boots a different install and mentions it only
+  in the banner. An explicit path now also probes a `Common/` inside it,
+  matching how auto-discovery already probes `data/` and `game/`.
+  Separately, a batch or headless run can no longer hang forever on the
+  folder picker, and the recovery message points at the `README.txt` a
+  release ships rather than a file that only exists in the source tree
+  ([#437](https://github.com/LBALab/lba2-classic-community/pull/437)).
+- First-launch data-discovery dialogs are shorter and correct per
+  platform. The "couldn't open folder picker" box used to dump a
+  per-distro Linux install matrix into a modal on every platform,
+  including macOS and Windows, and Android had no path through the flow
+  at all (SDL's file dialog hands back a `content://` URI, not a path).
+  Each box is now one statement plus the action, and Android gets a
+  self-contained copy-your-data message
+  ([#345](https://github.com/LBALab/lba2-classic-community/pull/345)).
+  See [docs/GAME_DATA.md](docs/GAME_DATA.md).
+- A global log level, defaulting to INFO, gates the log file, the
+  terminal and the F12 console together, set with `--log-level`, the
+  `LBA2_LOG_LEVEL` environment variable, or the `loglevel` console
+  command. Debug output used to be hardwired on. The stderr sink always
+  emits, plain and severity-tagged when redirected, so a headless or CI
+  run is legible without opening `adeline.log`
+  ([#385](https://github.com/LBALab/lba2-classic-community/pull/385)).
 - Atomic, crash-safe config writes. Every save funnelled through an
   `O_TRUNC` open on the live `lba2.cfg` and re-spliced the in-memory
   buffer back out across several writes, leaving a corruption window open
@@ -163,13 +399,53 @@ default, exterior scenes only) got most of the attention this cycle.
 - `patchelf` added to the AppImage build
   ([#318](https://github.com/LBALab/lba2-classic-community/pull/318) by
   [@Samueru-sama](https://github.com/Samueru-sama)).
+- clang-format is pinned to major 18 from a single source of truth. It
+  was pinned to 17 in four places, each silently falling back to an
+  unversioned `clang-format` (18 or newer on a current toolchain), so the
+  fallback was the common path and contributors formatted with one major,
+  passed the local hook, then failed CI. No reformatting churn: the tree
+  was already clean under 18
+  ([#444](https://github.com/LBALab/lba2-classic-community/pull/444)).
 - CI pins SDL3 in the test image to `release-3.2.16` after a stale-image
   drift
   ([#324](https://github.com/LBALab/lba2-classic-community/pull/324)).
 
 ### Documentation
 
-- New references and plans: an isometric-renderer hardcoded-pixel audit
+- New subsystem references, several written off the back of the bugs
+  they explain: the movement and frame-rate model
+  ([docs/MOVEMENT_FRAMERATE.md](docs/MOVEMENT_FRAMERATE.md)), the music
+  state machine ([docs/MUSIC.md](docs/MUSIC.md)), the scene and FMV
+  fade-in reveal system ([docs/TRANSITIONS.md](docs/TRANSITIONS.md)), and
+  the text engine ([docs/TEXT.md](docs/TEXT.md)), whose format claims are
+  verified by decoding the retail `TEXT.HQR` and which pins why that file
+  is frozen: voice lines are keyed positionally, so reordering a bank
+  desyncs every line after it across 39 voice files
+  ([#388](https://github.com/LBALab/lba2-classic-community/pull/388), [#379](https://github.com/LBALab/lba2-classic-community/pull/379), [#416](https://github.com/LBALab/lba2-classic-community/pull/416), [#431](https://github.com/LBALab/lba2-classic-community/pull/431)).
+- A shared definition of "bit exact"
+  ([docs/BIT_EXACTNESS.md](docs/BIT_EXACTNESS.md)). The phrase appeared
+  across some twenty docs with no agreed meaning, which let it both block
+  and justify changes by assumption; it now splits into three jobs with
+  different rules (format contract, ASM-parity oracle, regression
+  tripwire)
+  ([#414](https://github.com/LBALab/lba2-classic-community/pull/414)).
+- Plans of record: the portable save format
+  ([docs/SAVE_WIRE_PLAN.md](docs/SAVE_WIRE_PLAN.md)), harness input
+  simulation ([docs/INPUT_SIM_PLAN.md](docs/INPUT_SIM_PLAN.md)), and
+  render interpolation
+  ([docs/RENDER_INTERP_PLAN.md](docs/RENDER_INTERP_PLAN.md)), the last
+  parked on merge because the fixed-timestep work already fixed the
+  problem it targeted
+  ([#386](https://github.com/LBALab/lba2-classic-community/pull/386), [#438](https://github.com/LBALab/lba2-classic-community/pull/438), [#439](https://github.com/LBALab/lba2-classic-community/pull/439), [#440](https://github.com/LBALab/lba2-classic-community/pull/440)).
+- An index of the 39 tracked build, CI and packaging scripts, each row
+  naming what runs it ([scripts/README.md](scripts/README.md))
+  ([#446](https://github.com/LBALab/lba2-classic-community/pull/446)).
+- The widescreen docs are reconciled against the code after drifting
+  behind it: HD-height render correctness is closed, and the remaining
+  Phase 7 work is legibility rather than correctness
+  ([#445](https://github.com/LBALab/lba2-classic-community/pull/445)).
+- New references and plans from earlier in the cycle: an
+  isometric-renderer hardcoded-pixel audit
   ([docs/ISO_SPACE_AUDIT.md](docs/ISO_SPACE_AUDIT.md)), an in-place
   Platform Abstraction Layer audit and extraction plan
   ([docs/PLATFORM_PAL_PLAN.md](docs/PLATFORM_PAL_PLAN.md)), a plan for
@@ -180,6 +456,45 @@ default, exterior scenes only) got most of the attention this cycle.
   ([#312](https://github.com/LBALab/lba2-classic-community/pull/312), [#317](https://github.com/LBALab/lba2-classic-community/pull/317), [#319](https://github.com/LBALab/lba2-classic-community/pull/319), [#327](https://github.com/LBALab/lba2-classic-community/pull/327)).
 
 ### Contributors
+
+A huge thank you to EPmager, whose playtesting shaped most of this
+release. Thirteen of the bugs fixed here started as his reports and
+feedback on [Discord](https://discord.gg/jsTPWYXHsh), across nearly
+every area the release touches: frame-rate-dependent movement
+([#358](https://github.com/LBALab/lba2-classic-community/issues/358))
+and the held-input weapon bugs that came with the fix
+([#407](https://github.com/LBALab/lba2-classic-community/issues/407)),
+the end-credits walkers
+([#403](https://github.com/LBALab/lba2-classic-community/issues/403)),
+the mistimed scene and FMV fades
+([#404](https://github.com/LBALab/lba2-classic-community/issues/404)),
+the cutscene letterbox
+([#354](https://github.com/LBALab/lba2-classic-community/issues/354)),
+a scene's music going silent
+([#355](https://github.com/LBALab/lba2-classic-community/issues/355))
+and then hard-cutting
+([#406](https://github.com/LBALab/lba2-classic-community/issues/406)),
+oversized billboards
+([#357](https://github.com/LBALab/lba2-classic-community/issues/357)),
+ghost doors
+([#424](https://github.com/LBALab/lba2-classic-community/issues/424)),
+culled actor shadows
+([#408](https://github.com/LBALab/lba2-classic-community/issues/408)),
+FMVs not scaling to widescreen
+([#428](https://github.com/LBALab/lba2-classic-community/issues/428)),
+the D-pad mappings
+([#360](https://github.com/LBALab/lba2-classic-community/issues/360)),
+and Mr. Bazoo ignoring a Meca-Penguin set off in his shop
+([#409](https://github.com/LBALab/lba2-classic-community/issues/409)).
+He field-tested the fixes too, on Windows with an Xbox controller and on
+Android arm64. That setup is most of the point: a high frame rate with
+vsync off, a gamepad, and an arm64 handheld are exactly the conditions a
+Linux dev box and a headless CI run never reach, and most of these bugs
+are invisible without them. The follow-up regressions the fixed-timestep
+work introduced were caught the same way.
+
+Thanks to [@xesf](https://github.com/xesf) for play-testing on the Steam
+Deck.
 
 Welcome to a new contributor since v0.11.0:
 [@Samueru-sama](https://github.com/Samueru-sama) for the `patchelf`
@@ -789,7 +1104,8 @@ Special thanks to the contributors whose foundational work this fork stands on:
 A big thank you to Gwen Gourevich ([@gwen-gg](https://github.com/gwen-gg)) and [2.21](https://discord.gg/e2ZXpzrM) for open-sourcing the original code, and to the original Adeline
 Software team whose code this builds on.
 
-[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/LBALab/lba2-classic-community/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/LBALab/lba2-classic-community/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/LBALab/lba2-classic-community/compare/1f3e871...v0.9.0
