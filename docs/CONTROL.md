@@ -31,8 +31,11 @@ make build      # -> build/SOURCES/lba2cc
 ## Usage
 
 ```
-lba2cc --help                 print the flag list and exit (an unknown flag is now an
-                              error, not silently ignored)
+lba2cc --help                 print the player-facing flag list and exit (an unknown flag
+                              is now an error, not silently ignored)
+       --help-all             every flag, grouped, including the automation and engine
+                              self-test surface below; generated from the parser's own
+                              table, so it can't drift from what the engine accepts
        --headless             no window, no audio device: the supported mode for
                               automation. See the note above.
        --no-autosave          don't write autosaves (autosave.lba / current.lba), which an
