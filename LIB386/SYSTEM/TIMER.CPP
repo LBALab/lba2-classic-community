@@ -255,8 +255,22 @@ void ManageTime() {
     }
 }
 
+/* Set by the control harness: a batch run must keep ticking even when the window is
+   not focused. Pausing on focus loss is right for a player (see HandleEventsTimer) but
+   it silently makes an automated run nondeterministic, because whether the clock stops
+   depends on what else the desktop is doing. */
+static S32 TimerIgnoreFocus = 0;
+
+void Timer_SetIgnoreFocus(S32 ignore) {
+    TimerIgnoreFocus = ignore ? 1 : 0;
+}
+
 void HandleEventsTimer(const void *event) {
     assert(event != NULL);
+
+    if (TimerIgnoreFocus) {
+        return;
+    }
 
     const SDL_Event *sdlEvent = (SDL_Event *)(event);
     switch (sdlEvent->type) {
