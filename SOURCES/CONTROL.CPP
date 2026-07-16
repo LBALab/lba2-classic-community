@@ -9,6 +9,7 @@
 #include "DIRECTORIES.H"
 #include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "RES_SWITCH.H"  /* Res_Switch for --res-switch-test */
+#include "SAVEGAME.H"    /* Save_SetAutoDisabled for --no-autosave */
 #include "CONSOLE/CONSOLE.H"
 
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
@@ -16,8 +17,10 @@
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
-#include <SYSTEM/FILES.H>  /* ExistsFileOrDir */
-#include <SYSTEM/LOG.H>    /* LogSeverity, Log_ParseLevel for --log-level */
+
+#include <SDL3/SDL.h>     /* SDL_SetHint for --headless (must precede SDL_Init) */
+#include <SYSTEM/FILES.H> /* ExistsFileOrDir */
+#include <SYSTEM/LOG.H>   /* LogSeverity, Log_ParseLevel for --log-level */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +39,25 @@ static int s_armed = 0;
 static const char *s_load_name = NULL; /* --load value (NULL = none) */
 static int s_have_exec = 0;
 static char s_exec[CONTROL_EXEC_MAX];
+
+/* --exec-at <tick> <cmds>: console commands scheduled for a later tick, repeatable.
+   --exec cannot express "after the scene has settled": it fires on the first tick, and a
+   `cube` change only applies on the NEXT frame, so `--exec "cube 154; teleport actor 3"`
+   teleports the hero in the OLD cube and the pending change then resets him. Silently. */
+#define CONTROL_EXEC_AT_MAX 16
+typedef struct {
+    long tick;
+    int fired;
+    char cmds[CONTROL_EXEC_MAX];
+} T_CONTROL_EXEC_AT;
+static T_CONTROL_EXEC_AT s_exec_at[CONTROL_EXEC_AT_MAX];
+static int s_exec_at_count = 0;
+
+/* The attract/demo reel: the menu enters it at cube 193 (GAMEMENU.CPP) and the authored
+   demo copies run to 221 (docs/SCENES.md). Used only to warn that --demo is a no-op
+   elsewhere, so an off-by-one here costs a spurious warning, not behaviour. */
+#define DEMO_CUBE_FIRST 193
+#define DEMO_CUBE_LAST 221
 static int s_have_tick = 0;
 static long s_tick = 0;
 static int s_have_fixed_dt = 0;
@@ -89,6 +111,7 @@ static const char *kControlLanguageShort[CONTROL_LANG_COUNT] = {
    that dominates sys time under SDL_AUDIODRIVER=dummy. See INITADEL.C for the
    gate. */
 static int s_no_audio = 0;
+static int s_headless = 0;
 
 /* --res-switch-test WxH@TICK: harness validation for the runtime
    resolution-switch orchestrator (see docs/RUNTIME_RESOLUTION.md and
@@ -109,6 +132,7 @@ static int s_finalized = 0;
 static void control_dump_state(const char *path);
 static void control_screenshot(const char *path);
 static void control_console_echo(const char *line);
+int Control_UnfiredExecAt(void);
 
 /* --- Parsing ---------------------------------------------------------------- */
 static void copy_arg(char *dst, size_t cap, const char *src) {
@@ -133,6 +157,39 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             s_have_exec = 1;
             s_active = 1;
             read += 2;
+            continue;
+        }
+        if (!strcmp(a, "--exec-at")) {
+            char *end = NULL;
+            long t;
+
+            /* Cli_ValidateArgs already refuses a run whose --exec-at is missing a value or
+               whose value is a flag. Re-check anyway: falling through to the argv passthrough
+               below would drop the flag in silence, which is the failure this flag exists to
+               avoid. */
+            if (read + 2 >= *argc) {
+                /* Cli_ValidateArgs rejects this before boot; if it is ever reached anyway,
+                   fail rather than boot a partially-parsed command line. */
+                fprintf(stderr, "[control] --exec-at: needs <tick> <cmds>\n");
+                exit(2);
+            }
+
+            t = strtol(argv[read + 1], &end, 0);
+            if (end == argv[read + 1] || *end != '\0' || t < 0) {
+                fprintf(stderr, "[control] --exec-at: invalid tick '%s' (skipping)\n",
+                        argv[read + 1]);
+            } else if (s_exec_at_count >= CONTROL_EXEC_AT_MAX) {
+                fprintf(stderr, "[control] --exec-at: at most %d entries (skipping '%s')\n",
+                        CONTROL_EXEC_AT_MAX, argv[read + 2]);
+            } else {
+                s_exec_at[s_exec_at_count].tick = t;
+                s_exec_at[s_exec_at_count].fired = 0;
+                copy_arg(s_exec_at[s_exec_at_count].cmds,
+                         sizeof(s_exec_at[s_exec_at_count].cmds), argv[read + 2]);
+                s_exec_at_count++;
+            }
+            s_active = 1;
+            read += 3;
             continue;
         }
         if (!strcmp(a, "--tick") && has_val) {
@@ -352,6 +409,33 @@ void Control_ParseArgs(int *argc, char *argv[]) {
             read += 2;
             continue;
         }
+        if (!strcmp(a, "--headless")) {
+            /* No window and no audio device: the supported way to run automation. A visible
+               window pauses the game on focus loss (HandleEventsTimer) and a live audio thread
+               branches the sim, so a windowed run is only reproducible for as long as nothing
+               else touches the desktop.
+
+               SDL reads these hints at SDL_Init, so they must be set before it: Control_ParseArgs
+               runs first thing in main(), which is why this is parsed here rather than later. */
+            SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+            SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
+            s_headless = 1;
+            s_no_audio = 1;
+            read += 1;
+            continue;
+        }
+        if (!strcmp(a, "--no-autosave")) {
+            /* Stop the run autosaving over the player's slots. An in-game scene transition
+               calls AutoSaveGame(), so a --load + --tick run that walks the hero through a
+               door rewrites autosave.lba on a real install. Explicit saves (menu Save, the
+               console's `savebug`) still work: see SAVEGAME.CPP.
+
+               Like --resolution, this describes the environment rather than requesting the
+               automated boot path, so it does not set s_active. */
+            Save_SetAutoDisabled(1);
+            read += 1;
+            continue;
+        }
         if (!strcmp(a, "--no-audio")) {
             /* Boolean flag — skip InitAIL() and InitSampleDriver() at boot so
                the SDL audio subsystem never opens a stream and the dummy
@@ -368,10 +452,29 @@ void Control_ParseArgs(int *argc, char *argv[]) {
     }
     argv[write] = NULL;
     *argc = write;
+
+    /* A batch run (one that advances ticks or quits on its own) has nobody watching the
+       window, so never let focus loss stop its clock. */
+    if (s_headless || s_have_tick || s_exit) {
+        Timer_SetIgnoreFocus(1);
+    }
+
+    if (!s_headless && (s_have_tick || s_exit)) {
+        fprintf(stderr,
+                "[control] warning: batch run without --headless. The window still opens, "
+                "and a live audio thread branches the simulation, so results (screenshots, "
+                "--dump-state) may not reproduce. Pass --headless.\n");
+    }
 }
 
 int Control_IsActive(void) {
     return s_active;
+}
+
+/* Read by PERSO.CPP: a headless run must not open the modal game-data folder picker,
+   which would hang forever with nobody to answer it. */
+int Control_IsHeadless(void) {
+    return s_headless;
 }
 
 int Control_IsVerbose(void) {
@@ -475,6 +578,11 @@ int Control_Begin(void) {
             /* Report and bail without arming. The caller skips MainLoop and exits, so
                we don't depend on TheEnd being noreturn from inside here. */
             fprintf(stderr, "[control] load: save not found: %s\n", s_load_name);
+            /* A name resolves against the user save directory, not the retail SAVE/ folder,
+               so "not found" is most often a name the engine can't see rather than a typo.
+               Name the way to list what it can. */
+            fprintf(stderr, "[control] load: a name resolves in the save directory; pass a path,\n"
+                            "[control]       or list the names with --exec \"listsaves\".\n");
             fflush(stderr);
             return 0;
         }
@@ -509,18 +617,18 @@ static long control_effective_ticks(void) {
     return n;
 }
 
-static void control_run_exec(void) {
+static void control_run_commands(const char *cmds) {
     char buf[CONTROL_EXEC_MAX];
     char *p, *seg;
 
-    if (!s_have_exec)
+    if (!cmds || !cmds[0])
         return;
 
     /* Mirror console output to stdout so --exec results are observable / testable. */
     Console_SetLineSinkForTests(control_console_echo);
     Console_EnsureRegistered();
 
-    copy_arg(buf, sizeof(buf), s_exec);
+    copy_arg(buf, sizeof(buf), cmds);
     p = buf;
     while (p && *p) {
         seg = p;
@@ -537,6 +645,25 @@ static void control_run_exec(void) {
         }
         if (*seg)
             Console_Execute(seg);
+    }
+}
+
+static void control_run_exec(void) {
+    if (!s_have_exec)
+        return;
+    control_run_commands(s_exec);
+}
+
+/* Fire any --exec-at whose tick has come. `tick` is 0-based, matching --verbose and
+   --dump-state, so --exec and --exec-at 0 are the same moment. Compares with >= rather
+   than == so a batch that starts past the requested tick still runs it once. */
+static void control_run_exec_at(long tick) {
+    int i;
+    for (i = 0; i < s_exec_at_count; i++) {
+        if (!s_exec_at[i].fired && tick >= s_exec_at[i].tick) {
+            s_exec_at[i].fired = 1;
+            control_run_commands(s_exec_at[i].cmds);
+        }
     }
 }
 
@@ -699,8 +826,14 @@ static void control_finalize(void) {
     control_capture();
 
     if (s_exit) {
+        /* An --exec-at whose tick the run never reached did not do what the command line
+           asked for, so it must not pass for a clean run. This is where an --exit run ends,
+           so the check belongs here as well as on main()'s natural-end path. */
+        int unfired = Control_UnfiredExecAt();
+
         fflush(stdout);
-        TheEnd(PROGRAM_OK, "");
+        TheEnd(unfired > 0 ? PROGRAM_FAIL : PROGRAM_OK,
+               unfired > 0 ? "control: --exec-at never ran" : "");
     }
     /* Not exiting: stop mirroring console output (the game keeps running and would
        otherwise echo every later console line), disarm, and hand control back. */
@@ -718,6 +851,24 @@ void Control_End(void) {
     if (!s_have_dump && !s_have_shot)
         return;
     control_capture();
+}
+
+int Control_UnfiredExecAt(void) {
+    int i, n = 0;
+
+    /* An --exec-at whose tick the run never reached did not do what the command line asked
+       for, so it must not pass for a clean run. Report each one and let the caller fail. */
+    for (i = 0; i < s_exec_at_count; i++) {
+        if (!s_exec_at[i].fired) {
+            fprintf(stderr,
+                    "[control] --exec-at %ld never ran: the run ended at tick %ld. "
+                    "Raise --tick, or schedule it earlier.\n",
+                    s_exec_at[i].tick, s_hook_calls > 0 ? s_hook_calls - 1 : 0);
+            n++;
+        }
+    }
+    fflush(stderr);
+    return n;
 }
 
 void Control_TickHook(void) {
@@ -756,6 +907,20 @@ void Control_TickHook(void) {
     }
     if (s_hook_calls == 1)
         control_run_exec();
+    control_run_exec_at(s_hook_calls - 1);
+
+    /* --demo only drives an authored demo scene (the reel the menu enters at cube 193,
+       GAMEMENU.CPP; see docs/SCENES.md). On a normal scene it silently does nothing, so a
+       long run looks like evidence when it is just an idle hero. Checked a few ticks in,
+       once an --exec "cube N" has actually applied (a cube change lands the NEXT frame). */
+    if (s_demo && s_hook_calls == 3) {
+        if (NumCube < DEMO_CUBE_FIRST || NumCube > DEMO_CUBE_LAST) {
+            fprintf(stderr,
+                    "[control] warning: --demo has no effect on cube %d. The demo reel is "
+                    "cubes %d-%d; jump to one, e.g. --exec \"cube %d\".\n",
+                    (int)NumCube, DEMO_CUBE_FIRST, DEMO_CUBE_LAST, DEMO_CUBE_FIRST);
+        }
+    }
     /* --res-switch-test fires once at the requested tick.  Logged so harness
        output captures success / failure; the orchestrator also logs internally
        on rebuild failure. */

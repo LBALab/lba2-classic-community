@@ -889,7 +889,8 @@ restartloop:
                     CopyScreen(Log, Screen);
 
                     // au cas ou le mec meurre avant de faire <ESC>
-                    CurrentSaveGame();
+                    if (!Save_AutoDisabled())
+                        CurrentSaveGame();
 
                     BoxReset(); // pas de flip
 
@@ -1368,7 +1369,8 @@ restartloop:
                     CopyScreen(Log, Screen);
 
                     // au cas ou le mec meurre avant de faire <ESC>
-                    CurrentSaveGame();
+                    if (!Save_AutoDisabled())
+                        CurrentSaveGame();
 
                     BoxReset(); // pas de flip
 
@@ -2941,11 +2943,18 @@ int main(int argc, char *argv[]) {
         atexit(Log_Shutdown);
 
         if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
-            /* Auto-discovery exhausted. Last fallback before exit: in a
-             * windowed environment, prompt the user with a folder dialog
-             * and persist their pick for next launch. Headless / no-display
-             * environments fall through to exit (PromptForResDir returns
-             * false when SDL_INIT_VIDEO can't be brought up). */
+            /* A batch or headless run must not reach the folder picker: it is modal, and
+             * --headless still brings SDL up on the dummy video driver, so the dialog does
+             * open and then waits forever for an answer nobody can give. Exit with the fix
+             * in the message instead. */
+            if (Control_IsActive() || Control_IsHeadless()) {
+                Log_Error("Game data not found. Pass --game-dir <folder containing "
+                          "LBA2.HQR> (often Common/), or set LBA2_GAME_DIR.");
+                exit(EXIT_FAILURE);
+            }
+
+            /* Interactive last fallback: prompt with a folder dialog and persist the pick
+             * for next launch. */
             if (!PromptForResDir(resFolderPath, ADELINE_MAX_PATH)) {
                 /* Do not SDL_Quit() here: SDL3 can double-free in
                  * SDL_QuitFilesystem when shutting down after early
@@ -3034,7 +3043,9 @@ int main(int argc, char *argv[]) {
         Res_LoadBootDimensions(&dispW, &dispH);
         Log_Info("Display    %ux%u (%s) %s", dispW, dispH,
                  Res_BootDimensionsSource(),
-                 Window_IsFullscreen() ? "fullscreen" : "windowed");
+                 Control_IsHeadless()    ? "headless (no window)"
+                 : Window_IsFullscreen() ? "fullscreen"
+                                         : "windowed");
     }
 
     /* Fail fast on missing required data: AssetPreflight has logged each missing
@@ -3474,9 +3485,19 @@ int main(int argc, char *argv[]) {
      * and run the automated boot path (load -> exec -> tick -> dump/screenshot ->
      * exit). The single Control_TickHook() in MainLoop does the per-tick work. */
     if (Control_IsActive()) {
-        if (Control_Begin())
-            MainLoop();
+        if (!Control_Begin()) {
+            /* Setup failed (a --load that resolved to nothing, say). Exit non-zero and
+               WITHOUT Control_End: it would write --dump-state / --screenshot from a game
+               that never loaded, i.e. plausible artifacts of the wrong scene. */
+            TheEnd(PROGRAM_FAIL, "control: setup failed");
+            return 1;
+        }
+        MainLoop();
         Control_End();
+        if (Control_UnfiredExecAt() > 0) {
+            TheEnd(PROGRAM_FAIL, "control: --exec-at never ran");
+            return 1;
+        }
         TheEnd(PROGRAM_OK, "");
         return 0;
     }
