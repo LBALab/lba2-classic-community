@@ -89,6 +89,7 @@ Apply these behavior rules on every non-trivial task:
 | Code that reads retail HQR data or legacy save formats | Check the rule: never `sizeof(T)`-as-stride for fat structs; use a paired `T_DISK` or field-by-field serialization | docs/ABI.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |
 | New subsystem or doc | Create docs/<name>.md; add to docs/README.md; update in same commit | docs/README.md |
+| Adding, moving, or removing a script under scripts/ | Add or update its row in scripts/README.md in the same commit | scripts/README.md |
 | Any code that affects documented behavior | Update the doc in the same commit | Principle 1 |
 | Fixing a bug | If the affected logic is pure-data, extract it to a pure function and add a host test. Otherwise add a manual repro hook (console command, debug flag) | CONTRIBUTING.md "Doing good work here" |
 | Editing docs (any `.md`) | Sentence-case headings; bold for structure only (list-item / paragraph leads, table row labels), not mid-sentence emphasis; verify file/line refs; from `docs/`, link to source with `../SOURCES/...` / `../LIB386/...` | "Editing docs" below; CONTRIBUTING.md "Doing good work here" |
@@ -192,3 +193,4 @@ both: e.g. `fix(credits): ... (#65) (#66)`. Reference issues in the PR
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) — Detailed ASM↔CPP workflow, polyrec debugging, test patterns, common pitfalls
 - [docs/FEATURE_WORKFLOW.md](docs/FEATURE_WORKFLOW.md) — Reasoning and docs for big features (console, headless, menu, camera)
 - [docs/README.md](docs/README.md) — Full documentation index
+- [scripts/README.md](scripts/README.md) — Catalogue of developer, CI, and packaging scripts (maintained vs. spike)
