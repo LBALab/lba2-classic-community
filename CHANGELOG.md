@@ -14,6 +14,76 @@ _Nothing yet._
 
 ## [0.12.0] - 2026-07-16
 
+### Display & resolution
+
+v0.11.0 went wide. This one goes high: the render-height ceiling
+lifts from the original 480 lines to 1080p, and the rest of the
+renderer follows it up there.
+
+- Resolution picker in the Display submenu, computed per monitor, lifting
+  the render-height ceiling to 1080p. The list is derived from your
+  display aspect (the `640x480` classic anchor plus a ladder of
+  aspect-matched modes at 480/720/1080 heights), so every non-anchor
+  entry fills the panel with no letterbox or pillarbox: a 16:9 panel
+  offers `640x480, 848x480, 1280x720, 1920x1080`, an odd-aspect laptop
+  its own widths. Picking one applies live and persists to `lba2.cfg`;
+  the active mode carries a green plasma marker distinct from the cursor
+  highlight
+  ([#341](https://github.com/LBALab/lba2-classic-community/pull/341)).
+  See [docs/RUNTIME_RESOLUTION.md](docs/RUNTIME_RESOLUTION.md).
+- First-launch widescreen auto-detect: with no `--resolution` and no
+  saved resolution in `lba2.cfg`, the engine boots a widescreen size at
+  the original 480 height matched to the display aspect (for example
+  `848x480` on 16:9); a 4:3 display keeps `640x480`. The auto value is
+  never persisted, so it follows a monitor swap or a dock/undock, and any
+  explicit choice (menu, console, `--resolution`) takes over
+  ([#323](https://github.com/LBALab/lba2-classic-community/pull/323)).
+- Full-screen videos scale to fit the window instead of floating small in
+  a wide black frame. The 320x200 cinematics take the largest uniform
+  scale that fills the frame, centred and boxed. At 640x480 that factor
+  is exactly 2.0, so both settings are byte-identical there and the
+  difference only shows at widescreen. A previously dead option in the
+  options menu now drives it, reading "Movies fit to screen" (the new
+  default) or "Movies at original size" (the classic 2x letterbox). One
+  tradeoff worth knowing: engine cinema mode draws 40px top and bottom
+  bars, which the original setting matches and fit does not, so bar
+  geometry changes going from a cutscene into an FMV and back
+  ([#430](https://github.com/LBALab/lba2-classic-community/pull/430)).
+- Actor shadows draw below line 480 at HD vertical resolutions. Hero and
+  NPC ground shadows vanished in a band at the bottom of the screen
+  exactly `ModeResY - 480` tall: 240 lines at 720p, 600 at 1080p. The
+  shadow span table was sized to 480
+  ([#443](https://github.com/LBALab/lba2-classic-community/pull/443)).
+- Sliding doors no longer leave a ghost of themselves behind in the
+  doorway at widescreen resolutions. The on-screen test for
+  background-baked objects used hardcoded 640x480 bounds, so an object
+  outside that rect never registered as drawn and the redraw that
+  un-bakes it never fired. The dead zone grew with width: nothing at
+  640x480, the right ~20% at 848x480, the right ~47% and bottom ~19% at
+  1280x720
+  ([#432](https://github.com/LBALab/lba2-classic-community/pull/432)).
+- VSync toggle in the Display submenu and a `vsync [on|off|toggle]`
+  console verb, persisted via a `VSync` key in `lba2.cfg` and surviving a
+  runtime resolution switch. The on-screen FPS counter is now responsive
+  and guarded against a freeze
+  ([#307](https://github.com/LBALab/lba2-classic-community/pull/307)).
+- The 2D UI re-anchors on the Y axis as well: the authored 480-tall
+  canvas now floats into a taller framebuffer (centre, bottom, or corner
+  per surface) instead of pinning to the top, completing the vertical
+  half of the widescreen re-anchor
+  ([#328](https://github.com/LBALab/lba2-classic-community/pull/328)).
+  The FPS counter pins to the bottom corner at any resolution
+  ([#310](https://github.com/LBALab/lba2-classic-community/pull/310)).
+  See [docs/WIDESCREEN.md](docs/WIDESCREEN.md).
+- The framebuffer now presents through SDL's logical presentation
+  (LETTERBOX) instead of a hand-computed destination rect, so SDL owns
+  both the on-screen present rect and the window-to-framebuffer cursor
+  mapping. The forward and inverse transforms can no longer drift apart,
+  and the path is DPI-correct groundwork for high-density HD rendering.
+  The present geometry was first extracted into a small SDL-free,
+  host-tested module
+  ([#325](https://github.com/LBALab/lba2-classic-community/pull/325), [#326](https://github.com/LBALab/lba2-classic-community/pull/326)).
+
 ### Movement & timing
 
 Movement in the engine was never speed times time. Animation keyframes
@@ -144,72 +214,6 @@ default, exterior scenes only) filled out further this cycle.
 - The exterior near-clip plane now scales with render height, so HD modes
   no longer clip scene geometry early
   ([#342](https://github.com/LBALab/lba2-classic-community/pull/342)).
-
-### Display & resolution
-
-- Resolution picker in the Display submenu, computed per monitor, lifting
-  the render-height ceiling to 1080p. The list is derived from your
-  display aspect (the `640x480` classic anchor plus a ladder of
-  aspect-matched modes at 480/720/1080 heights), so every non-anchor
-  entry fills the panel with no letterbox or pillarbox: a 16:9 panel
-  offers `640x480, 848x480, 1280x720, 1920x1080`, an odd-aspect laptop
-  its own widths. Picking one applies live and persists to `lba2.cfg`;
-  the active mode carries a green plasma marker distinct from the cursor
-  highlight
-  ([#341](https://github.com/LBALab/lba2-classic-community/pull/341)).
-  See [docs/RUNTIME_RESOLUTION.md](docs/RUNTIME_RESOLUTION.md).
-- First-launch widescreen auto-detect: with no `--resolution` and no
-  saved resolution in `lba2.cfg`, the engine boots a widescreen size at
-  the original 480 height matched to the display aspect (for example
-  `848x480` on 16:9); a 4:3 display keeps `640x480`. The auto value is
-  never persisted, so it follows a monitor swap or a dock/undock, and any
-  explicit choice (menu, console, `--resolution`) takes over
-  ([#323](https://github.com/LBALab/lba2-classic-community/pull/323)).
-- Full-screen videos scale to fit the window instead of floating small in
-  a wide black frame. The 320x200 cinematics take the largest uniform
-  scale that fills the frame, centred and boxed. At 640x480 that factor
-  is exactly 2.0, so both settings are byte-identical there and the
-  difference only shows at widescreen. A previously dead option in the
-  options menu now drives it, reading "Movies fit to screen" (the new
-  default) or "Movies at original size" (the classic 2x letterbox). One
-  tradeoff worth knowing: engine cinema mode draws 40px top and bottom
-  bars, which the original setting matches and fit does not, so bar
-  geometry changes going from a cutscene into an FMV and back
-  ([#430](https://github.com/LBALab/lba2-classic-community/pull/430)).
-- Actor shadows draw below line 480 at HD vertical resolutions. Hero and
-  NPC ground shadows vanished in a band at the bottom of the screen
-  exactly `ModeResY - 480` tall: 240 lines at 720p, 600 at 1080p. The
-  shadow span table was sized to 480
-  ([#443](https://github.com/LBALab/lba2-classic-community/pull/443)).
-- Sliding doors no longer leave a ghost of themselves behind in the
-  doorway at widescreen resolutions. The on-screen test for
-  background-baked objects used hardcoded 640x480 bounds, so an object
-  outside that rect never registered as drawn and the redraw that
-  un-bakes it never fired. The dead zone grew with width: nothing at
-  640x480, the right ~20% at 848x480, the right ~47% and bottom ~19% at
-  1280x720
-  ([#432](https://github.com/LBALab/lba2-classic-community/pull/432)).
-- VSync toggle in the Display submenu and a `vsync [on|off|toggle]`
-  console verb, persisted via a `VSync` key in `lba2.cfg` and surviving a
-  runtime resolution switch. The on-screen FPS counter is now responsive
-  and guarded against a freeze
-  ([#307](https://github.com/LBALab/lba2-classic-community/pull/307)).
-- The 2D UI re-anchors on the Y axis as well: the authored 480-tall
-  canvas now floats into a taller framebuffer (centre, bottom, or corner
-  per surface) instead of pinning to the top, completing the vertical
-  half of the widescreen re-anchor
-  ([#328](https://github.com/LBALab/lba2-classic-community/pull/328)).
-  The FPS counter pins to the bottom corner at any resolution
-  ([#310](https://github.com/LBALab/lba2-classic-community/pull/310)).
-  See [docs/WIDESCREEN.md](docs/WIDESCREEN.md).
-- The framebuffer now presents through SDL's logical presentation
-  (LETTERBOX) instead of a hand-computed destination rect, so SDL owns
-  both the on-screen present rect and the window-to-framebuffer cursor
-  mapping. The forward and inverse transforms can no longer drift apart,
-  and the path is DPI-correct groundwork for high-density HD rendering.
-  The present geometry was first extracted into a small SDL-free,
-  host-tested module
-  ([#325](https://github.com/LBALab/lba2-classic-community/pull/325), [#326](https://github.com/LBALab/lba2-classic-community/pull/326)).
 
 ### Render
 
