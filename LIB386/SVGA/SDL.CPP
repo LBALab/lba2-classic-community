@@ -293,10 +293,6 @@ static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
 
-    /* Cheap when the tables are current; this is what lets the filter be
-       switched on mid-session without a palette reload. */
-    Poly_EnsureBlendLUT();
-
     void *stagingPixels;
     U32 stagingPitch;
     if (!AcquirePresentTarget(&stagingPixels, &stagingPitch)) {

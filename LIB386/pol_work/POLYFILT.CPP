@@ -55,11 +55,21 @@ void Poly_EnsureBlendLUT(void) {
     if (PolyTexFilter == POLY_TEX_FILTER_OFF || s_tablesBuilt || !s_paletteValid)
         return;
 
+    /* The diagonal is written first and never searched: a nearest-RGB lookup
+       can return a different index that happens to share the colour, and an
+       index that shifts under a no-op blend breaks palette effects keyed to
+       index ranges. */
+    for (a = 0; a < 256; a++) {
+        PolyBlendLUT[0][(a << 8) | a] = (U8)a;
+        PolyBlendLUT[1][(a << 8) | a] = (U8)a;
+        PolyBlendLUT[2][(a << 8) | a] = (U8)a;
+    }
+
     for (a = 0; a < 256; a++) {
         const S32 ar = pal[a * 3 + 0];
         const S32 ag = pal[a * 3 + 1];
         const S32 ab = pal[a * 3 + 2];
-        for (b = a; b < 256; b++) {
+        for (b = a + 1; b < 256; b++) {
             const S32 br = pal[b * 3 + 0];
             const S32 bg = pal[b * 3 + 1];
             const S32 bb = pal[b * 3 + 2];

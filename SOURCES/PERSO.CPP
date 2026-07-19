@@ -2312,6 +2312,12 @@ restartloop:
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* What lba2.cfg held for the texture filter, and what an LBA2_TEXFILTER
+   override forced for this run (-1 when none). WriteConfigFile needs both to
+   tell a per-run override apart from a genuine change. */
+static S32 StoredTexFilter = 0;
+static S32 EnvTexFilter = -1;
+
 void ReadConfigFile(void) {
     const char *ptr;
 
@@ -2369,14 +2375,18 @@ void ReadConfigFile(void) {
     PolyTexFilter = DefFileBufferReadValueDefault("TextureFilter", POLY_TEX_FILTER_OFF);
     if (PolyTexFilter < POLY_TEX_FILTER_OFF || PolyTexFilter > POLY_TEX_FILTER_BILINEAR)
         PolyTexFilter = POLY_TEX_FILTER_OFF;
+    StoredTexFilter = PolyTexFilter;
+    EnvTexFilter = -1;
     {
         /* Same precedence the resolution uses: an explicit request for this
            run beats the stored preference. */
         const char *env = getenv("LBA2_TEXFILTER");
         if (env != NULL) {
             const S32 v = (S32)atoi(env);
-            if (v >= POLY_TEX_FILTER_OFF && v <= POLY_TEX_FILTER_BILINEAR)
+            if (v >= POLY_TEX_FILTER_OFF && v <= POLY_TEX_FILTER_BILINEAR) {
                 PolyTexFilter = v;
+                EnvTexFilter = v;
+            }
         }
     }
 
@@ -2518,7 +2528,15 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
-    DefFileBufferWriteValue("TextureFilter", PolyTexFilter);
+    /* An environment override is for the run that asked for it: persisting the
+       live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
+       setting nobody chose. Changing it from the console afterwards IS a
+       choice, which is why the live value only loses to the stored one while
+       it still matches what the environment forced. */
+    DefFileBufferWriteValue("TextureFilter",
+                            (EnvTexFilter >= 0 && PolyTexFilter == EnvTexFilter)
+                                ? StoredTexFilter
+                                : PolyTexFilter);
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >

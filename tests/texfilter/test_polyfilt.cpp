@@ -104,9 +104,13 @@ int main(void) {
             fail("blend indices do not advance monotonically along the ramp");
     }
 
-    /* 3. Nearest, not merely near: every entry matches an exhaustive search. */
+    /* 3. Nearest, not merely near: every off-diagonal entry matches an
+          exhaustive search. The diagonal is deliberately exempt -- check 4
+          holds it to a stronger rule. */
     for (int a = 0; a < 256; a += 11) {
         for (int b = 0; b < 256; b += 13) {
+            if (a == b)
+                continue;
             const int ar = pal[a * 3 + 0], ag = pal[a * 3 + 1], ab_ = pal[a * 3 + 2];
             const int br = pal[b * 3 + 0], bg = pal[b * 3 + 1], bb = pal[b * 3 + 2];
             const int want50 = NearestReference((ar + br) >> 1, (ag + bg) >> 1,
@@ -119,15 +123,19 @@ int main(void) {
         }
     }
 
-    /* 4. Identity: blending an index with itself cannot move off that colour. */
-    for (int i = 0; i < 256; i++) {
-        const int self = (i << 8) | i;
-        const U8 got = PolyBlendLUT[1][self];
-        if (pal[got * 3 + 0] != pal[i * 3 + 0] ||
-            pal[got * 3 + 1] != pal[i * 3 + 1] ||
-            pal[got * 3 + 2] != pal[i * 3 + 2]) {
-            fail("blending an index with itself changed the colour");
-            break;
+    /* 4. Identity: blending an index with itself must return that exact index,
+          not merely one that happens to share its colour. Palettes routinely
+          contain duplicate entries -- this test palette has sixteen blacks --
+          and a no-op blend that silently moves a pixel to a different index
+          would break effects keyed to index ranges, such as fades that walk a
+          bank. */
+    for (int level = 0; level < 3; level++) {
+        for (int i = 0; i < 256; i++) {
+            if (PolyBlendLUT[level][(i << 8) | i] != (U8)i) {
+                fail("blending an index with itself did not return that index");
+                level = 3;
+                break;
+            }
         }
     }
 

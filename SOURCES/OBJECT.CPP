@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <POLYGON/POLYFILT.H>
 
 #include "DEMO_SEED.H"
 #include "SAVEGAME.H"
@@ -5342,6 +5343,11 @@ void AffNbFps(void) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void AffScene(S32 flagflip) {
+    /* Before anything rasterizes: the blend tables have to match the palette
+       this frame draws with, and turning the filter on must not let a frame
+       sample tables that were never built. */
+    Poly_EnsureBlendLUT();
+
     S32 n, c, cmpt;
     S32 dx, dy;
     T_OBJET *ptrobj;
