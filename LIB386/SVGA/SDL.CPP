@@ -3,6 +3,7 @@
 #include <SVGA/DIRTYBOX.H> // For BoxStaticAdd and BoxCleanClip
 #include <SVGA/SCREEN.H>   // For ModeDesiredX, ModeDesiredY and Log buffer
 #include <SVGA/STAGING_BUFFER.H>
+#include <POLYGON/POLYFILT.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H>
@@ -291,6 +292,10 @@ static void CommitPresentTarget(void * /*pixels*/, U32 /*pitch*/) {
 static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
+
+    /* Cheap when the tables are current; this is what lets the filter be
+       switched on mid-session without a palette reload. */
+    Poly_EnsureBlendLUT();
 
     void *stagingPixels;
     U32 stagingPitch;

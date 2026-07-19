@@ -32,10 +32,16 @@ extern "C" {
 extern S32 PolyTexFilter;         /* one of POLY_TEX_FILTER_* */
 extern U8 PolyBlendLUT[3][65536]; /* [weight][a<<8 | b] */
 
-/* Rebuild the tables for a 768-byte RGB palette. Call once per palette load,
-   never per frame. Also latches PolyTexFilter from the LBA2_TEXFILTER
-   environment variable on first use (absent/invalid = off). */
+/* Adopt a 768-byte RGB palette and mark the tables stale. Call once per
+   palette load, never per frame; the palette is copied, so the caller's
+   buffer may be freed or reused afterwards. */
 void Poly_BuildBlendLUT(const U8 *pal768);
+
+/* Build the tables if filtering is on and they are stale. One predictable
+   branch, so it is cheap to call once per frame -- which is what makes
+   turning the filter on at runtime work: the tables are not built while it
+   is off, and a palette load while it is off only records the palette. */
+void Poly_EnsureBlendLUT(void);
 
 /* Blend final palette indices a and b; q is a quantised weight 0..3 where
    0 means "pure a" and 3 means "75% toward b". */

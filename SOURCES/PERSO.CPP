@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <POLYGON/POLYFILT.H>
 #include "IMAGE_LOAD.H"
 
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
@@ -2365,6 +2366,20 @@ void ReadConfigFile(void) {
 
     DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
 
+    PolyTexFilter = DefFileBufferReadValueDefault("TextureFilter", POLY_TEX_FILTER_OFF);
+    if (PolyTexFilter < POLY_TEX_FILTER_OFF || PolyTexFilter > POLY_TEX_FILTER_BILINEAR)
+        PolyTexFilter = POLY_TEX_FILTER_OFF;
+    {
+        /* Same precedence the resolution uses: an explicit request for this
+           run beats the stored preference. */
+        const char *env = getenv("LBA2_TEXFILTER");
+        if (env != NULL) {
+            const S32 v = (S32)atoi(env);
+            if (v >= POLY_TEX_FILTER_OFF && v <= POLY_TEX_FILTER_BILINEAR)
+                PolyTexFilter = v;
+        }
+    }
+
     if (DisplayVSync < 0 OR DisplayVSync > 1)
         DisplayVSync = TRUE;
 
@@ -2503,6 +2518,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
+    DefFileBufferWriteValue("TextureFilter", PolyTexFilter);
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
