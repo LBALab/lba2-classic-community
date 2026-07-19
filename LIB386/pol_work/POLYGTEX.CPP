@@ -16,6 +16,7 @@
 */
 
 #include <POLYGON/POLYGTEX.H>
+#include <POLYGON/POLYFILT.H>
 
 #include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
@@ -657,7 +658,29 @@ S32 Filler_TextureGouraudZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
                     colorIndex = (colorIndex & 0xFFFFFF00) | (GTEX_PtrMapPatch[mask] & 0xFF);
                     GTEX_PtrZBuffer1[offset] = (decV_intZ & 0xFFFF);
                     colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrCLUT[colorIndex];
-                    GTEX_PtrLog[offset] = colorIndex & 0xFF;
+                    U8 outIdx = (U8)(colorIndex & 0xFF);
+                    if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
+                        /* Shade each tap through the CLUT first, then blend the
+                           resulting display-palette indices. gour is the light
+                           row already selected in the high byte. */
+                        const U32 gour = colorIndex & 0xFF00;
+                        const U32 qu = ((decU >> 24) & 0xFF) >> 6;
+                        const U32 iU = ((mask & 0xFF00) | ((mask + 1) & 0xFF)) &
+                                       GTEX_RepMaskPatch;
+                        const U8 bU = GTEX_PtrCLUT[gour | GTEX_PtrMapPatch[iU]];
+                        outIdx = POLY_BLEND(outIdx, bU, qu);
+                        if (PolyTexFilter == POLY_TEX_FILTER_BILINEAR) {
+                            const U32 iV = (((mask + 0x100) & 0xFF00) | (mask & 0xFF)) &
+                                           GTEX_RepMaskPatch;
+                            const U32 iUV = ((iV & 0xFF00) | (iU & 0xFF)) & GTEX_RepMaskPatch;
+                            const U8 aV = GTEX_PtrCLUT[gour | GTEX_PtrMapPatch[iV]];
+                            const U8 bV = GTEX_PtrCLUT[gour | GTEX_PtrMapPatch[iUV]];
+                            const U8 lower = POLY_BLEND(aV, bV, qu);
+                            const U32 qv = ((decV_intZ >> 24) & 0xFF) >> 6;
+                            outIdx = POLY_BLEND(outIdx, lower, qv);
+                        }
+                    }
+                    GTEX_PtrLog[offset] = outIdx;
                 }
 
                 U8 carry = ((U64)decU + (U64)GTEX_DecMapU) > 0xFFFFFFFF;
