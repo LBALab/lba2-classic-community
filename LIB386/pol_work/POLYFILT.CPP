@@ -36,6 +36,13 @@ void Poly_BuildBlendLUT(const U8 *pal768) {
     if (pal768 == NULL)
         return;
 
+    /* ChoicePalette runs on paths that do not necessarily change the palette
+       (scene re-entry, resolution switch). Comparing 768 bytes is nothing
+       against rebuilding three 64 KB tables, so only an actual colour change
+       invalidates them. */
+    if (s_paletteValid && memcmp(s_palette, pal768, sizeof(s_palette)) == 0)
+        return;
+
     memcpy(s_palette, pal768, sizeof(s_palette));
     s_paletteValid = 1;
     s_tablesBuilt = 0;

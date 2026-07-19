@@ -825,14 +825,29 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
                     if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
                         /* Only blend between opaque taps: mixing toward palette
                            entry 0 would bleed the key colour into the silhouette
-                           instead of softening the texel. */
+                           instead of softening the texel. A transparent tap
+                           therefore drops its axis rather than contributing. */
+                        const U32 gour = colorIndex & 0xFF00;
+                        const U32 qu = ((decU >> 24) & 0xFF) >> 6;
                         const U32 iU = ((mask & 0xFF00) | ((mask + 1) & 0xFF)) &
                                        GTEX_RepMaskPatch;
                         const U8 tU = GTEX_PtrMapPatch[iU];
                         if (tU != 0) {
-                            const U32 gour = colorIndex & 0xFF00;
-                            const U32 qu = ((decU >> 24) & 0xFF) >> 6;
                             outIdx = POLY_BLEND(outIdx, GTEX_PtrCLUT[gour | tU], qu);
+                        }
+                        if (PolyTexFilter == POLY_TEX_FILTER_BILINEAR) {
+                            const U32 iV = (((mask + 0x100) & 0xFF00) | (mask & 0xFF)) &
+                                           GTEX_RepMaskPatch;
+                            const U32 iUV = ((iV & 0xFF00) | (iU & 0xFF)) &
+                                            GTEX_RepMaskPatch;
+                            const U8 tV = GTEX_PtrMapPatch[iV];
+                            const U8 tUV = GTEX_PtrMapPatch[iUV];
+                            if (tV != 0 && tUV != 0) {
+                                const U8 lower = POLY_BLEND(GTEX_PtrCLUT[gour | tV],
+                                                            GTEX_PtrCLUT[gour | tUV], qu);
+                                const U32 qv = ((decV_intZ >> 24) & 0xFF) >> 6;
+                                outIdx = POLY_BLEND(outIdx, lower, qv);
+                            }
                         }
                     }
                     GTEX_PtrLog[offset] = outIdx;

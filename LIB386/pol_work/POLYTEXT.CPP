@@ -1223,14 +1223,32 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
                         if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
                             /* Only blend between opaque taps: mixing toward
                                palette entry 0 would bleed the key colour into
-                               the silhouette instead of softening the texel. */
+                               the silhouette instead of softening the texel.
+                               A transparent tap therefore drops its axis
+                               rather than contributing. */
+                            const U32 qu = ((decU_intZ >> 24) & 0xFF) >> 6;
                             const U32 iU = ((mapIndex & 0xFF00) | ((mapIndex + 1) & 0xFF)) &
                                            POLYTEXT_RepMaskPatch;
                             const U8 tU = POLYTEXT_PtrMapPatch[iU];
                             if (tU != 0) {
-                                const U32 qu = ((decU_intZ >> 24) & 0xFF) >> 6;
                                 foggedColor = POLY_BLEND(foggedColor,
                                                          Fill_Logical_Palette[tU], qu);
+                            }
+                            if (PolyTexFilter == POLY_TEX_FILTER_BILINEAR) {
+                                const U32 iV = (((mapIndex + 0x100) & 0xFF00) |
+                                                (mapIndex & 0xFF)) &
+                                               POLYTEXT_RepMaskPatch;
+                                const U32 iUV = ((iV & 0xFF00) | (iU & 0xFF)) &
+                                                POLYTEXT_RepMaskPatch;
+                                const U8 tV = POLYTEXT_PtrMapPatch[iV];
+                                const U8 tUV = POLYTEXT_PtrMapPatch[iUV];
+                                if (tV != 0 && tUV != 0) {
+                                    const U8 lower =
+                                        POLY_BLEND(Fill_Logical_Palette[tV],
+                                                   Fill_Logical_Palette[tUV], qu);
+                                    const U32 qv = ((lineVDec >> 24) & 0xFF) >> 6;
+                                    foggedColor = POLY_BLEND(foggedColor, lower, qv);
+                                }
                             }
                         }
                         POLYTEXT_PtrLog[offset] = foggedColor;
