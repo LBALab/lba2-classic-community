@@ -1220,6 +1220,19 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
                     if (textureColor != 0) {
                         POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
                         U8 foggedColor = Fill_Logical_Palette[textureColor];
+                        if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
+                            /* Only blend between opaque taps: mixing toward
+                               palette entry 0 would bleed the key colour into
+                               the silhouette instead of softening the texel. */
+                            const U32 iU = ((mapIndex & 0xFF00) | ((mapIndex + 1) & 0xFF)) &
+                                           POLYTEXT_RepMaskPatch;
+                            const U8 tU = POLYTEXT_PtrMapPatch[iU];
+                            if (tU != 0) {
+                                const U32 qu = ((decU_intZ >> 24) & 0xFF) >> 6;
+                                foggedColor = POLY_BLEND(foggedColor,
+                                                         Fill_Logical_Palette[tU], qu);
+                            }
+                        }
                         POLYTEXT_PtrLog[offset] = foggedColor;
                     }
                 }

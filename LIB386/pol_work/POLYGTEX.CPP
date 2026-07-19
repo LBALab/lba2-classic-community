@@ -821,7 +821,21 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
                 if (mapColor != 0 && GTEX_PtrZBufferPatch[offset] >= (decV_intZ & 0xFFFF)) {
                     GTEX_PtrZBuffer1[offset] = (decV_intZ & 0xFFFF);
                     colorIndex = (colorIndex & 0xFFFFFF00) | GTEX_PtrCLUT[colorIndex];
-                    GTEX_PtrLog[offset] = colorIndex & 0xFF;
+                    U8 outIdx = (U8)(colorIndex & 0xFF);
+                    if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
+                        /* Only blend between opaque taps: mixing toward palette
+                           entry 0 would bleed the key colour into the silhouette
+                           instead of softening the texel. */
+                        const U32 iU = ((mask & 0xFF00) | ((mask + 1) & 0xFF)) &
+                                       GTEX_RepMaskPatch;
+                        const U8 tU = GTEX_PtrMapPatch[iU];
+                        if (tU != 0) {
+                            const U32 gour = colorIndex & 0xFF00;
+                            const U32 qu = ((decU >> 24) & 0xFF) >> 6;
+                            outIdx = POLY_BLEND(outIdx, GTEX_PtrCLUT[gour | tU], qu);
+                        }
+                    }
+                    GTEX_PtrLog[offset] = outIdx;
                 }
 
                 U8 carry = ((U64)decU + (U64)GTEX_DecMapU) > 0xFFFFFFFF;

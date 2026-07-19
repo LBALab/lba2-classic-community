@@ -1,4 +1,5 @@
 #include <POLYGON/POLYTZF.H>
+#include <POLYGON/POLYFILT.H>
 
 #include <stdio.h>
 #include <math.h>
@@ -399,8 +400,29 @@ S32 Filler_TextureZFogSmoothZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) 
                         U32 V_int = (uvCur >> 24) & 0xFF;
                         U32 mapIndex = (V_int << 8) | U_int;
                         mapIndex &= ZBuf_RepMaskPatch;
-                        U8 texel = ZBuf_PtrMapPatch[mapIndex];
-                        ZBuf_PtrLog[pixOfs] = ZBuf_PtrCLUT[fogRow + texel];
+                        U8 outIdx = ZBuf_PtrCLUT[fogRow + ZBuf_PtrMapPatch[mapIndex]];
+                        if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
+                            /* Sea and sky stretch one 128x128 page over a whole
+                               world-sized quad, so their texels are the coarsest
+                               in the renderer. Fog row is per-pixel here, so each
+                               tap has to go through the CLUT before blending. */
+                            const U32 uNext = (U_int + 1) & 0xFF;
+                            const U32 qu = (uvCur & 0xFF) >> 6;
+                            const U32 iU = ((V_int << 8) | uNext) & ZBuf_RepMaskPatch;
+                            const U8 bU = ZBuf_PtrCLUT[fogRow + ZBuf_PtrMapPatch[iU]];
+                            outIdx = POLY_BLEND(outIdx, bU, qu);
+                            if (PolyTexFilter == POLY_TEX_FILTER_BILINEAR) {
+                                const U32 vNext = (V_int + 1) & 0xFF;
+                                const U32 iV = ((vNext << 8) | U_int) & ZBuf_RepMaskPatch;
+                                const U32 iUV = ((vNext << 8) | uNext) & ZBuf_RepMaskPatch;
+                                const U8 aV = ZBuf_PtrCLUT[fogRow + ZBuf_PtrMapPatch[iV]];
+                                const U8 bV = ZBuf_PtrCLUT[fogRow + ZBuf_PtrMapPatch[iUV]];
+                                const U8 lower = POLY_BLEND(aV, bV, qu);
+                                const U32 qv = ((uvCur >> 16) & 0xFF) >> 6;
+                                outIdx = POLY_BLEND(outIdx, lower, qv);
+                            }
+                        }
+                        ZBuf_PtrLog[pixOfs] = outIdx;
                     }
 
                     uvCur += uvInc;
