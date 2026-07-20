@@ -2366,7 +2366,10 @@ void ReadConfigFile(void) {
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
     DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
-    GfxDitherShading = DefFileBufferReadValueDefault("DitherShading", FALSE) ? TRUE : FALSE;
+
+    GfxDitherShading = DefFileBufferReadValueDefault("DitherShading", FALSE);
+    if (GfxDitherShading < 0 OR GfxDitherShading > 1)
+        GfxDitherShading = FALSE;
 
     if (DisplayVSync < 0 OR DisplayVSync > 1)
         DisplayVSync = TRUE;
