@@ -29,9 +29,9 @@ void DestroyWindowSurface();
  *  without a destroy/recreate round-trip. Returns true on success. */
 /* Resize the framebuffer the window presents. `keepWindowSize` is for render
    sizes the player did not choose (an automatic per-scene downshift): the
-   window keeps the size it has and SDL scales into it, instead of collapsing
-   around a smaller framebuffer. A player's own resolution choice passes false
-   so a windowed session can still get smaller. */
+   window is left exactly as it is, manual resizes included, and SDL logical
+   presentation scales the framebuffer into it either way. A player's own
+   resolution choice passes false and moves the window with it. */
 bool ResizeWindowSurface(U32 newW, U32 newH, bool keepWindowSize);
 
 /** Query the current display's logical dimensions (the desktop the SDL

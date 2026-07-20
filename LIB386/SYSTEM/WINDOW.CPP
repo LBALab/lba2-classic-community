@@ -245,18 +245,11 @@ bool ResizeWindowSurface(U32 newW, U32 newH, bool keepWindowSize) {
        physical display.
 
        Framebuffer size and window size are independent -- SDL logical
-       presentation owns the mapping between them. A render size the player did
-       not ask for therefore scales up inside the window they already have
-       rather than collapsing it; their own choice still resizes both, so a
-       windowed session can go back down. */
-    if (keepWindowSize) {
-        int curW = 0, curH = 0;
-        SDL_GetWindowSize(sdlWindow, &curW, &curH);
-        if ((int)newW > curW || (int)newH > curH) {
-            SDL_SetWindowSize(sdlWindow, (int)newW > curW ? (int)newW : curW,
-                              (int)newH > curH ? (int)newH : curH);
-        }
-    } else {
+       presentation owns the mapping between them and scales either way. A
+       render size the player did not ask for therefore leaves the window
+       exactly as they left it, including a manual resize; their own choice
+       still moves both. */
+    if (!keepWindowSize) {
         SDL_SetWindowSize(sdlWindow, (int)newW, (int)newH);
     }
 
