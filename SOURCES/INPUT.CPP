@@ -6,6 +6,8 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
 #include "INPUT.H"
+
+#include <SYSTEM/LOG.H>
 #include "JOYSTICK.H"
 #include "FOLLOWCAM_CFG.H"
 
@@ -185,13 +187,35 @@ void ReadInputConfig(void) {
         for (n = 0; n < MAX_INPUT; n++) {
             snprintf(id, sizeof(id), "Input%d_1", n);
             DefKeys[n].Key1 = DefFileBufferReadValueDefault(id, DEFKEYSDEFAULT[n].Key1);
-            // Blindage si les Inputs sont configurés à 0
-            //			if( !DefKeys[n].Key1 )	DefKeys[n].Key1 = DEFKEYSDEFAULT[n].Key1 ;
 
             snprintf(id, sizeof(id), "Input%d_2", n);
             DefKeys[n].Key2 = DefFileBufferReadValueDefault(id, DEFKEYSDEFAULT[n].Key2);
-            // Blindage si les Inputs sont configurés à 0
-            //			if( !DefKeys[n].Key2 )	DefKeys[n].Key2 = DEFKEYSDEFAULT[n].Key2 ;
+
+            if (DefKeys[n].Key1 OR DefKeys[n].Key2)
+                initkeys = TRUE;
+        }
+
+        /* Blindage si les Inputs sont configurés à 0.
+           A cfg with no input bindings at all leaves the game unplayable: the
+           menu still opens, because its key is not in this table, but nothing
+           moves. Clearing every keyboard binding IS reachable from the remap
+           screen, so an empty keyboard table alone is not proof of corruption
+           -- a gamepad-only layout looks exactly like that. Requiring the
+           gamepad table to be empty as well distinguishes the two, and leaves
+           a partially customised layout untouched either way. */
+        if (!initkeys) {
+            for (n = 0; n < MAX_INPUT; n++) {
+                if (GamepadKeys[n].Key1 OR GamepadKeys[n].Key2) {
+                    initkeys = TRUE;
+                    break;
+                }
+            }
+        }
+
+        if (!initkeys) {
+            Log_Warn("Keyboard bindings in the config are all unset; "
+                     "restoring the default layout.");
+            RestoreInput();
         }
     }
 
