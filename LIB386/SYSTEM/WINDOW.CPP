@@ -34,6 +34,51 @@ static void ApplyGameWindowHideSystemCursor(void) {
     SDL_SetCursor(NULL);
 }
 
+/* Scale filter applied when the framebuffer is stretched to the window,
+   selected with LBA2_SCALE_MODE=nearest|linear|pixelart.
+
+   NEAREST stays the default: it is the historical output exactly. It is also
+   uneven at a non-integer window scale -- 1728x1080 shown on 3840x2400 is 20/9,
+   so a source pixel becomes two output pixels here and three there, and that
+   irregularity is what reads as chunkiness. LINEAR removes it by softening the
+   fixed-pixel 2D layer along with everything else. PIXELART keeps texel
+   interiors crisp and interpolates only across the texel seam.
+
+   PIXELART needs SDL 3.4 at both compile and run time and degrades to NEAREST
+   rather than failing, which is why the two guards differ: the compile one
+   keeps older SDL building, the runtime one catches headers and runtime
+   disagreeing -- SDL_SetTextureScaleMode simply returns false there and would
+   otherwise leave the texture on a mode nobody chose. */
+static SDL_ScaleMode ResolveScaleMode(void) {
+    const char *mode = SDL_getenv("LBA2_SCALE_MODE");
+    if (mode == NULL) {
+        return SDL_SCALEMODE_NEAREST;
+    }
+    if (SDL_strcasecmp(mode, "linear") == 0) {
+        return SDL_SCALEMODE_LINEAR;
+    }
+#if SDL_VERSION_ATLEAST(3, 4, 0)
+    if (SDL_strcasecmp(mode, "pixelart") == 0) {
+        if (SDL_GetVersion() >= SDL_VERSIONNUM(3, 4, 0)) {
+            return SDL_SCALEMODE_PIXELART;
+        }
+        Log_Warn("The pixelart scale mode needs SDL 3.4 at runtime; this "
+                 "build is linked against an older one. Using nearest.");
+    }
+#endif
+    return SDL_SCALEMODE_NEAREST;
+}
+
+/* Apply the chosen filter and say so if the runtime refused it, rather than
+   leaving the texture on a mode nobody asked for. */
+static void ApplyScaleMode(SDL_Texture *texture) {
+    const SDL_ScaleMode mode = ResolveScaleMode();
+    if (!SDL_SetTextureScaleMode(texture, mode)) {
+        Log_Warn("Unable to set texture scale mode.\n\tSDL message: %s",
+                 SDL_GetError());
+    }
+}
+
 /* Tell SDL to present the framebuffer centered and aspect-fit (letterbox /
    pillarbox) at the given logical size. Applied whenever the renderer or
    texture is (re)created. SDL then owns both the on-screen present rect and the
@@ -173,7 +218,7 @@ bool CreateWindowSurface(U32 resX, U32 resY, bool fullscreen) {
         return false;
     }
 
-    SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
+    ApplyScaleMode(sdlTexture);
     windowSurfaceResX = resX;
     windowSurfaceResY = resY;
     SetLogicalPresentation(resX, resY);
@@ -261,7 +306,7 @@ bool ResizeWindowSurface(U32 newW, U32 newH) {
                   newW, newH, errorMsg);
         return false;
     }
-    SDL_SetTextureScaleMode(sdlTexture, SDL_SCALEMODE_NEAREST);
+    ApplyScaleMode(sdlTexture);
 
     windowSurfaceResX = newW;
     windowSurfaceResY = newH;
