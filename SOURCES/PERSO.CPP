@@ -2530,9 +2530,14 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("VSync", DisplayVSync);
     /* An environment override is for the run that asked for it: persisting the
        live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
-       setting nobody chose. Changing it from the console afterwards IS a
-       choice, which is why the live value only loses to the stored one while
-       it still matches what the environment forced. */
+       setting nobody chose, so the stored value wins while the live one still
+       matches what the environment forced.
+
+       The comparison is on the value, not on who last wrote it, because cvars
+       are registered as bare pointers with no on-change hook. Setting the same
+       value from the console during an overridden run is therefore
+       indistinguishable from not touching it, and does not persist; setting a
+       different one does. Accepted trade for not growing the cvar API. */
     DefFileBufferWriteValue("TextureFilter",
                             (EnvTexFilter >= 0 && PolyTexFilter == EnvTexFilter)
                                 ? StoredTexFilter
