@@ -3,7 +3,6 @@
 #include <SVGA/DIRTYBOX.H> // For BoxStaticAdd and BoxCleanClip
 #include <SVGA/SCREEN.H>   // For ModeDesiredX, ModeDesiredY and Log buffer
 #include <SVGA/STAGING_BUFFER.H>
-#include <POLYGON/POLYFILT.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H>
