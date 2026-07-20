@@ -1,4 +1,6 @@
 #include "C_EXTERN.H"
+
+extern "C" S32 GfxDitherShading;
 #include "IMAGE_LOAD.H"
 
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
@@ -2364,6 +2366,7 @@ void ReadConfigFile(void) {
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
     DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
+    GfxDitherShading = DefFileBufferReadValueDefault("DitherShading", FALSE) ? TRUE : FALSE;
 
     if (DisplayVSync < 0 OR DisplayVSync > 1)
         DisplayVSync = TRUE;
@@ -2503,6 +2506,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
+    DefFileBufferWriteValue("DitherShading", GfxDitherShading);
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
