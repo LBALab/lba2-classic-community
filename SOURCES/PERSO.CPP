@@ -1,6 +1,6 @@
 #include "C_EXTERN.H"
 
-extern "C" S32 GfxDitherShading;
+extern S32 GfxDitherShading;
 #include "IMAGE_LOAD.H"
 
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
