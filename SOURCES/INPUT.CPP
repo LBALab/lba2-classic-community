@@ -198,14 +198,23 @@ void ReadInputConfig(void) {
         /* Blindage si les Inputs sont configurés à 0.
            A cfg with no input bindings at all leaves the game unplayable: the
            menu still opens, because its key is not in this table, but nothing
-           moves. Clearing every keyboard binding IS reachable from the remap
-           screen, so an empty keyboard table alone is not proof of corruption
-           -- a gamepad-only layout looks exactly like that. Requiring the
-           gamepad table to be empty as well distinguishes the two, and leaves
-           a partially customised layout untouched either way. */
+           moves, and the remap screen needs the very bindings that are gone.
+
+           Clearing every keyboard binding IS reachable from the remap screen,
+           so an empty keyboard table alone is not proof of corruption -- a
+           gamepad-only layout looks exactly like that. The pad bindings decide
+           between the two, and they have to be read from the cfg here rather
+           than from GamepadKeys: ReadGamepadConfig runs after this function, so
+           the live table still holds whatever preceded it. */
         if (!initkeys) {
             for (n = 0; n < MAX_INPUT; n++) {
-                if (GamepadKeys[n].Key1 OR GamepadKeys[n].Key2) {
+                snprintf(id, sizeof(id), "Gamepad%d", n);
+                if (DefFileBufferReadValueDefault(id, 0)) {
+                    initkeys = TRUE;
+                    break;
+                }
+                snprintf(id, sizeof(id), "Gamepad%d_2", n);
+                if (DefFileBufferReadValueDefault(id, 0)) {
                     initkeys = TRUE;
                     break;
                 }
