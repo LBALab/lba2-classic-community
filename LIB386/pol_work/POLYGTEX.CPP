@@ -34,8 +34,8 @@
    level 14, so an unmasked increment would read into the next fog band. */
 S32 GfxDitherShading = 0;
 
-static const U8 GTEX_Bayer4[16] = {0,   128, 32,  160, 192, 64,  224, 96,
-                                   48,  176, 16,  144, 240, 112, 208, 80};
+static const U8 GTEX_Bayer4[16] = {0, 128, 32, 160, 192, 64, 224, 96,
+                                   48, 176, 16, 144, 240, 112, 208, 80};
 
 /* Shade row for a pixel, as it lands in bits 8..15 of the CLUT index. Bit-exact
    with the plain expression when dithering is off. */
