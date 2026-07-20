@@ -6,6 +6,7 @@
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
+#include <POLYGON/POLYFILT.H>
 #include "../CONFIG.H"
 #include "../GAMEMENU.H"
 #include "../MUSIC.H"
@@ -1289,8 +1290,11 @@ static void res_do_switch(U32 newW, U32 newH) {
         Console_Print("%s", why);
         return;
     }
-    const U32 prevW = ModeDesiredX;
-    const U32 prevH = ModeDesiredY;
+    /* Revert has to put back what the player had chosen. ModeDesiredX/Y is
+       whatever the current scene renders at, which in an interior is smaller
+       than the choice. */
+    U32 prevW = 0, prevH = 0;
+    Res_BaseDimensions(&prevW, &prevH);
     if (!Res_Switch(newW, newH)) {
         Console_Print("resolution: switch to %ux%u failed (see log).", newW, newH);
         return;
@@ -1973,6 +1977,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_recenter_delay", &FollowCamReengageFrames, CONSOLE_CVAR_INT, "Frames before auto-cam re-centers after a manual pan");
     Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
     Console_RegisterCvar("cam_follow", &FollowCamera, CONSOLE_CVAR_BOOL, "Auto camera (third-person follow) enable");
+    Console_RegisterCvar("gfx_texfilter", &PolyTexFilter, CONSOLE_CVAR_INT, "Texture filtering: 0 off, 1 horizontal, 2 bilinear");
     Console_RegisterCvar("cam_hd", &FollowCamHDRecompose, CONSOLE_CVAR_BOOL, "Auto cam HD recompose: pull in + steepen at tall render heights");
     Console_RegisterCvar("cam_hd_cap", &FollowCamHDExcessCap, CONSOLE_CVAR_INT, "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)");
     Console_RegisterCvar("cam_hd_pitch", &FollowCamHDPitchGain, CONSOLE_CVAR_INT, "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)");

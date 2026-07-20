@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <POLYGON/POLYFILT.H>
 #include "IMAGE_LOAD.H"
 
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
@@ -2311,6 +2312,12 @@ restartloop:
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+/* What lba2.cfg held for the texture filter, and what an LBA2_TEXFILTER
+   override forced for this run (-1 when none). WriteConfigFile needs both to
+   tell a per-run override apart from a genuine change. */
+static S32 StoredTexFilter = 0;
+static S32 EnvTexFilter = -1;
+
 void ReadConfigFile(void) {
     const char *ptr;
 
@@ -2364,6 +2371,24 @@ void ReadConfigFile(void) {
     SetWindowFullscreen(DisplayFullScreen != FALSE);
 
     DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
+
+    PolyTexFilter = DefFileBufferReadValueDefault("TextureFilter", POLY_TEX_FILTER_OFF);
+    if (PolyTexFilter < POLY_TEX_FILTER_OFF || PolyTexFilter > POLY_TEX_FILTER_BILINEAR)
+        PolyTexFilter = POLY_TEX_FILTER_OFF;
+    StoredTexFilter = PolyTexFilter;
+    EnvTexFilter = -1;
+    {
+        /* Same precedence the resolution uses: an explicit request for this
+           run beats the stored preference. */
+        const char *env = getenv("LBA2_TEXFILTER");
+        if (env != NULL) {
+            const S32 v = (S32)atoi(env);
+            if (v >= POLY_TEX_FILTER_OFF && v <= POLY_TEX_FILTER_BILINEAR) {
+                PolyTexFilter = v;
+                EnvTexFilter = v;
+            }
+        }
+    }
 
     if (DisplayVSync < 0 OR DisplayVSync > 1)
         DisplayVSync = TRUE;
@@ -2503,6 +2528,20 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
+    /* An environment override is for the run that asked for it: persisting the
+       live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
+       setting nobody chose, so the stored value wins while the live one still
+       matches what the environment forced.
+
+       The comparison is on the value, not on who last wrote it, because cvars
+       are registered as bare pointers with no on-change hook. Setting the same
+       value from the console during an overridden run is therefore
+       indistinguishable from not touching it, and does not persist; setting a
+       different one does. Accepted trade for not growing the cvar API. */
+    DefFileBufferWriteValue("TextureFilter",
+                            (EnvTexFilter >= 0 && PolyTexFilter == EnvTexFilter)
+                                ? StoredTexFilter
+                                : PolyTexFilter);
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
@@ -2511,8 +2550,10 @@ void WriteConfigFile(void) {
        auto-detected or defaulted resolution is left out so it re-derives from
        the display each launch instead of freezing into the cfg on first exit. */
     if (!Res_ResolutionIsAutoDerived()) {
-        DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
-        DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+        U32 baseW = 0, baseH = 0;
+        Res_BaseDimensions(&baseW, &baseH);
+        DefFileBufferWriteValue("ResolutionX", (S32)baseW);
+        DefFileBufferWriteValue("ResolutionY", (S32)baseH);
     }
 
     if (FlagDisplayText)

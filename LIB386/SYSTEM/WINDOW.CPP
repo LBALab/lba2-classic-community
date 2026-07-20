@@ -232,7 +232,7 @@ bool Window_GetPrimaryDisplayDimensions(U32 *outW, U32 *outH) {
     return true;
 }
 
-bool ResizeWindowSurface(U32 newW, U32 newH) {
+bool ResizeWindowSurface(U32 newW, U32 newH, bool keepWindowSize) {
     /* No-op if the surface was never created.  Caller should fall through to
        CreateWindowSurface in that case (boot path), not Resize. */
     if (sdlWindow == NULL || sdlRenderer == NULL) {
@@ -242,8 +242,16 @@ bool ResizeWindowSurface(U32 newW, U32 newH) {
     /* In windowed mode this resizes the visible window; in fullscreen SDL
        ignores the dimension change but the texture below still needs the new
        size so the renderer scales the correct pixel count to fit the
-       physical display. */
-    SDL_SetWindowSize(sdlWindow, (int)newW, (int)newH);
+       physical display.
+
+       Framebuffer size and window size are independent -- SDL logical
+       presentation owns the mapping between them and scales either way. A
+       render size the player did not ask for therefore leaves the window
+       exactly as they left it, including a manual resize; their own choice
+       still moves both. */
+    if (!keepWindowSize) {
+        SDL_SetWindowSize(sdlWindow, (int)newW, (int)newH);
+    }
 
     /* The streaming texture is fixed-dimension at creation; recreate at the
        new size.  Renderer and window survive untouched, so fullscreen state,

@@ -1,4 +1,6 @@
 #include "C_EXTERN.H"
+#include "RES_SWITCH.H"
+#include <POLYGON/POLYFILT.H>
 
 #include "DEMO_SEED.H"
 #include "SAVEGAME.H"
@@ -1234,6 +1236,10 @@ void ChangeCube() {
 
     // lance usine
     LoadScene(NewCube);
+
+    /* CubeMode is only known once the scene header is parsed, and the buffers
+       resized here have to be in place before InitGrille fills them below. */
+    Res_ApplySceneRenderSize();
 
     ManageSystem(); // for streaming
 
@@ -5342,6 +5348,11 @@ void AffNbFps(void) {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void AffScene(S32 flagflip) {
+    /* Before anything rasterizes: the blend tables have to match the palette
+       this frame draws with, and turning the filter on must not let a frame
+       sample tables that were never built. */
+    Poly_EnsureBlendLUT();
+
     S32 n, c, cmpt;
     S32 dx, dy;
     T_OBJET *ptrobj;
