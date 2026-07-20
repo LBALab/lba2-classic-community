@@ -208,13 +208,18 @@ void ReadInputConfig(void) {
            the live table still holds whatever preceded it. */
         if (!initkeys) {
             for (n = 0; n < MAX_INPUT; n++) {
+                /* Defaulted exactly as ReadGamepadConfig will default them, so
+                   the probe asks what the pad bindings are going to BE, not
+                   what the file happens to spell out. A cfg predating gamepad
+                   support has no Gamepad* keys at all and still ends up with
+                   the default pad layout. */
                 snprintf(id, sizeof(id), "Gamepad%d", n);
-                if (DefFileBufferReadValueDefault(id, 0)) {
+                if (DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key1)) {
                     initkeys = TRUE;
                     break;
                 }
                 snprintf(id, sizeof(id), "Gamepad%d_2", n);
-                if (DefFileBufferReadValueDefault(id, 0)) {
+                if (DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key2)) {
                     initkeys = TRUE;
                     break;
                 }
@@ -222,7 +227,7 @@ void ReadInputConfig(void) {
         }
 
         if (!initkeys) {
-            Log_Warn("Keyboard bindings in the config are all unset; "
+            Log_Warn("No usable keyboard or gamepad bindings in the config; "
                      "restoring the default layout.");
             RestoreInput();
         }
