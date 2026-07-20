@@ -1,5 +1,4 @@
-#ifndef POLYFILT_H
-#define POLYFILT_H
+#pragma once
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
@@ -55,5 +54,3 @@ void Poly_EnsureBlendLUT(void);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* POLYFILT_H */
