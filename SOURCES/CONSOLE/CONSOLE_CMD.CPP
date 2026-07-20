@@ -7,7 +7,7 @@
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
 
-extern "C" S32 GfxDitherShading;
+extern S32 GfxDitherShading;
 #include "../CONFIG.H"
 #include "../GAMEMENU.H"
 #include "../MUSIC.H"
