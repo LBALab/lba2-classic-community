@@ -24,6 +24,19 @@ extern "C" {
    and the previous resolution had to be restored. */
 bool Res_Switch(U32 newW, U32 newH);
 
+/* Re-derive the render size for the scene just loaded. Interiors may render
+   smaller than the player's resolution (LBA2_ISO_DIV): nothing in an isometric
+   scene scales with the framebuffer, so a smaller one magnifies the room
+   rather than losing detail. No-op when the target matches the live size, so
+   walking between rooms of the same kind costs nothing. Call once CubeMode is
+   known, before the grille is loaded into the resized buffers. */
+void Res_ApplySceneRenderSize(void);
+
+/* The resolution the player chose, as opposed to whatever the current scene
+   renders at. This is what gets persisted: an interior downshift is a
+   rendering detail, not a preference. */
+void Res_BaseDimensions(U32 *outW, U32 *outH);
+
 /* Safety gate. Returns NULL if it's safe to call Res_Switch right now, else
    a short user-facing reason string. Refuses while a cinematic is playing
    (FlagPlayAcf), no scene is loaded, or the holomap is open (HoloMode). The

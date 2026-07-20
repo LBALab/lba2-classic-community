@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include "RES_SWITCH.H"
 #include <POLYGON/POLYFILT.H>
 
 #include "DEMO_SEED.H"
@@ -1235,6 +1236,10 @@ void ChangeCube() {
 
     // lance usine
     LoadScene(NewCube);
+
+    /* CubeMode is only known once the scene header is parsed, and the buffers
+       resized here have to be in place before InitGrille fills them below. */
+    Res_ApplySceneRenderSize();
 
     ManageSystem(); // for streaming
 

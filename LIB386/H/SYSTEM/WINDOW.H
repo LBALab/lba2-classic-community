@@ -27,7 +27,12 @@ void DestroyWindowSurface();
  *  (docs/RUNTIME_RESOLUTION.md / SOURCES/RES_SWITCH.CPP) so a switch keeps
  *  focus, multi-monitor placement, and (in fullscreen) the fullscreen state
  *  without a destroy/recreate round-trip. Returns true on success. */
-bool ResizeWindowSurface(U32 newW, U32 newH);
+/* Resize the framebuffer the window presents. `keepWindowSize` is for render
+   sizes the player did not choose (an automatic per-scene downshift): the
+   window keeps the size it has and SDL scales into it, instead of collapsing
+   around a smaller framebuffer. A player's own resolution choice passes false
+   so a windowed session can still get smaller. */
+bool ResizeWindowSurface(U32 newW, U32 newH, bool keepWindowSize);
 
 /** Query the current display's logical dimensions (the desktop the SDL
  *  window is on, via SDL_GetCurrentDisplayMode). Writes both outputs and

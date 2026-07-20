@@ -1290,8 +1290,11 @@ static void res_do_switch(U32 newW, U32 newH) {
         Console_Print("%s", why);
         return;
     }
-    const U32 prevW = ModeDesiredX;
-    const U32 prevH = ModeDesiredY;
+    /* Revert has to put back what the player had chosen. ModeDesiredX/Y is
+       whatever the current scene renders at, which in an interior is smaller
+       than the choice. */
+    U32 prevW = 0, prevH = 0;
+    Res_BaseDimensions(&prevW, &prevH);
     if (!Res_Switch(newW, newH)) {
         Console_Print("resolution: switch to %ux%u failed (see log).", newW, newH);
         return;

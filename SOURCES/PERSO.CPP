@@ -2545,8 +2545,10 @@ void WriteConfigFile(void) {
        auto-detected or defaulted resolution is left out so it re-derives from
        the display each launch instead of freezing into the cfg on first exit. */
     if (!Res_ResolutionIsAutoDerived()) {
-        DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
-        DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+        U32 baseW = 0, baseH = 0;
+        Res_BaseDimensions(&baseW, &baseH);
+        DefFileBufferWriteValue("ResolutionX", (S32)baseW);
+        DefFileBufferWriteValue("ResolutionY", (S32)baseH);
     }
 
     if (FlagDisplayText)
