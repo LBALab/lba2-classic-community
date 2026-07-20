@@ -44,9 +44,12 @@ static U32 GTEX_ShadeRow(U32 decZ_gour, U32 px, U32 py) {
         return decZ_gour & 0xFF00;
 
     U32 level = (decZ_gour >> 8) & 0xFF;
-    if ((decZ_gour & 0xFF) > GTEX_Bayer4[((py & 3) << 2) | (px & 3)])
+    /* Saturate rather than wrap. A fully lit surface already sits on row 15,
+       the last row of the window, so promoting it and masking would land on
+       row 0 -- the opposite end of the ramp, as a 4x4 checker. */
+    if (level < 15 && (decZ_gour & 0xFF) > GTEX_Bayer4[((py & 3) << 2) | (px & 3)])
         level++;
-    return (level & 0x0F) << 8;
+    return level << 8;
 }
 
 PTR_U8 GTEX_PtrLog = (PTR_U8)0x12345678;
@@ -812,6 +815,11 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
             }
 
             U32 offset = screen - (U8 *)Log; // edi
+            /* Dither coordinates come from the framebuffer offset rather than
+               Fill_CurY, which is advanced past the whole span before the loop
+               starts and would give every scanline the same row. */
+            const U32 ditherRow = offset / ScreenPitch;
+            U32 ditherCol = offset - ditherRow * ScreenPitch;
 
             U32 mask = (decU >> 16); // eax
             mask = (mask & 0xFFFF00FF) | (((decV_intZ >> 16) & 0xFF) << 8);
@@ -823,7 +831,8 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
 
             decZ_gour = (decZ_gour >> 8) | (Fill_CurZBufMin << 24); // edx
             U32 colorIndex = 0;                                     // ebx
-            colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
+            colorIndex = (colorIndex & 0xFFFF00FF) |
+                         GTEX_ShadeRow(decZ_gour, ditherCol, ditherRow);
 
             do {
                 U8 mapColor = GTEX_PtrMapPatch[mask];
@@ -850,7 +859,9 @@ S32 Filler_TextureGouraudChromaKeyZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCur
 
                 mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry2) & 0xFF) << 8);
 
-                colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
+                ditherCol++;
+                colorIndex = (colorIndex & 0xFFFF00FF) |
+                             GTEX_ShadeRow(decZ_gour, ditherCol, ditherRow);
                 mask &= GTEX_RepMaskPatch;
                 --diffX;
             } while (diffX);
@@ -952,6 +963,11 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
             }
 
             U32 offset = screen - (U8 *)Log; // edi
+            /* Dither coordinates come from the framebuffer offset rather than
+               Fill_CurY, which is advanced past the whole span before the loop
+               starts and would give every scanline the same row. */
+            const U32 ditherRow = offset / ScreenPitch;
+            U32 ditherCol = offset - ditherRow * ScreenPitch;
 
             U32 mask = (decU >> 16); // eax
             mask = (mask & 0xFFFF00FF) | (((decV_intZ >> 16) & 0xFF) << 8);
@@ -963,7 +979,8 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
 
             decZ_gour = (decZ_gour >> 8) | (Fill_CurZBufMin << 24); // edx
             U32 colorIndex = 0;                                     // ebx
-            colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
+            colorIndex = (colorIndex & 0xFFFF00FF) |
+                         GTEX_ShadeRow(decZ_gour, ditherCol, ditherRow);
 
             do {
                 if (GTEX_PtrZBufferPatch[offset] >= (decV_intZ & 0xFFFF)) {
@@ -987,7 +1004,9 @@ S32 Filler_TextureGouraudNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
 
                 mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry2) & 0xFF) << 8);
 
-                colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
+                ditherCol++;
+                colorIndex = (colorIndex & 0xFFFF00FF) |
+                             GTEX_ShadeRow(decZ_gour, ditherCol, ditherRow);
                 mask &= GTEX_RepMaskPatch;
                 --diffX;
             } while (diffX);
@@ -1084,6 +1103,11 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
             }
 
             U32 offset = screen - (U8 *)Log; // edi
+            /* Dither coordinates come from the framebuffer offset rather than
+               Fill_CurY, which is advanced past the whole span before the loop
+               starts and would give every scanline the same row. */
+            const U32 ditherRow = offset / ScreenPitch;
+            U32 ditherCol = offset - ditherRow * ScreenPitch;
 
             U32 mask = (decU >> 16); // eax
             mask = (mask & 0xFFFF00FF) | (((decV_intZ >> 16) & 0xFF) << 8);
@@ -1095,7 +1119,8 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
 
             decZ_gour = (decZ_gour >> 8) | (Fill_CurZBufMin << 24); // edx
             U32 colorIndex = 0;                                     // ebx
-            colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
+            colorIndex = (colorIndex & 0xFFFF00FF) |
+                         GTEX_ShadeRow(decZ_gour, ditherCol, ditherRow);
 
             do {
                 U8 texel = GTEX_PtrMapPatch[mask];
@@ -1121,7 +1146,9 @@ S32 Filler_TextureGouraudChromaKeyNZW(U32 nbLines, U32 fillCurXMin, U32 fillCurX
 
                 mask = (mask & 0xFFFF00FF) | (((((mask >> 8) & 0xFF) + (GTEX_IntMapV & 0xFF) + carry2) & 0xFF) << 8);
 
-                colorIndex = (colorIndex & 0xFFFF00FF) | (decZ_gour & 0xFF00);
+                ditherCol++;
+                colorIndex = (colorIndex & 0xFFFF00FF) |
+                             GTEX_ShadeRow(decZ_gour, ditherCol, ditherRow);
                 mask &= GTEX_RepMaskPatch;
                 --diffX;
             } while (diffX);
