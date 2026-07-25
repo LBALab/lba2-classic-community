@@ -88,6 +88,11 @@ S32 VideoFullScreen = TRUE;
 S32 DisplayFullScreen = FALSE;
 S32 DisplayVSync = TRUE;
 
+#ifdef USE_GPURENDERER
+S32 GPURendererActive = FALSE;
+S32 DisplayTexFilter = TRUE; /* bilinear by default in GL mode */
+#endif
+
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).
 // When > 0 the main loop runs the simulation at most once per this many ms of game clock,
 // so movement/animation stops speeding up or freezing above ~60 fps (vsync off, high-refresh

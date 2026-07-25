@@ -58,6 +58,12 @@ void SetOverlayPrePresentCallback(PrePresentFn fn);
 typedef void (*PresentTimingFn)(void);
 void SetPresentTimingCallbacks(PresentTimingFn begin, PresentTimingFn end);
 
+/** Force-present the current Log buffer to the screen. Used by the renderer
+ *  switch (GPU/Software toggle) so the player sees the frame immediately
+ *  in the new renderer instead of a blank window until the next game-loop
+ *  present. */
+void PresentCurrentFrame(void);
+
 // -----------------------------------------------------------------------------
 #define Palette(Pal) SetVideoPalette(Pal, 0, 256)
 #define PalOne(col, r, g, b) SetVideoPaletteCol(col, r, g, b)
