@@ -2386,6 +2386,12 @@ void ReadConfigFile(void) {
     if (DisplayTexFilter < 0 OR DisplayTexFilter > 1)
         DisplayTexFilter = TRUE;
 
+    RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
+    if (RenderQuality < 1 OR RenderQuality > 4)
+        RenderQuality = 1;
+    if (RenderQuality == 3)
+        RenderQuality = 1; /* only 1, 2, 4 are valid */
+
     /* If the config wants GL, tear down the SW window that InitGraphics
        created and recreate it with GL. This mirrors the runtime toggle in
        GereDisplayMenu but runs once at boot. */
@@ -2397,6 +2403,15 @@ void ReadConfigFile(void) {
                 Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
                                            DisplayFullScreen != FALSE);
                 GPURendererActive = FALSE;
+            } else {
+                /* Re-apply VSync on the new GL context — the earlier
+                   Window_SetVSync call targeted the SW renderer which
+                   was just destroyed. */
+                Window_SetVSync(DisplayVSync);
+                /* Apply render quality from config */
+                if (RenderQuality > 1) {
+                    GL_SetRenderQuality(RenderQuality);
+                }
             }
         } else {
             GPURendererActive = FALSE;
@@ -2536,6 +2551,7 @@ void WriteConfigFile(void) {
 #ifdef USE_GPURENDERER
     DefFileBufferWriteValue("GPURenderer", GPURendererActive);
     DefFileBufferWriteValue("DisplayTexFilter", DisplayTexFilter);
+    DefFileBufferWriteValue("RenderQuality", RenderQuality);
 #endif
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());

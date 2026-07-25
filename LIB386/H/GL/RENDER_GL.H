@@ -19,6 +19,10 @@ void GL_Renderer_Shutdown(void);
 //! Notify the GL renderer of a resolution change (recreate viewport/textures).
 void GL_Renderer_Resize(U32 resX, U32 resY);
 
+//! Begin a new frame: clear the depth buffer so that GL_DEPTH_TEST starts
+//! with a clean slate. Must be called once per frame before any 3D drawing.
+void GL_BeginFrame(void);
+
 //! Present a palette-converted ARGB framebuffer via GL with optional
 //! bilinear filtering. Called from PresentFrame() when GPURendererActive.
 //! @param argbPixels  ARGB8888 pixel data (ModeDesiredX * ModeDesiredY)
@@ -33,6 +37,11 @@ void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
 //! Called from Fill_Poly() when GPURendererActive is true.
 S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
                           Struc_Point *ptrPoints);
+
+//! Set the internal render quality multiplier (1 = native, 2 = SSAA 2x, 4 = SSAA 4x).
+//! Recreates the FBO at the new internal resolution.  Safe to call at any time;
+//! takes effect on the next frame.
+void GL_SetRenderQuality(U32 quality);
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus

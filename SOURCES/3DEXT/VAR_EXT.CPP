@@ -99,4 +99,6 @@ S32 OffsetAniPoly2;
 S32 OffsetAniPoly3;
 S32 OffsetAniPoly4;
 
+S32 AtlasTextureDirty = 0;
+
 /*──────────────────────────────────────────────────────────────────────────*/

@@ -91,6 +91,9 @@ bool Window_RecreateWindowForSW(U32 resX, U32 resY, bool fullscreen);
 /** Make the GL context current on this thread. */
 bool Window_GLMakeCurrent(void);
 
+/** Resize the window to the given dimensions (works for both SW and GL). */
+void Window_SetWindowSize(U32 w, U32 h);
+
 /** Swap the GL window buffers (present). */
 void Window_GL_SwapWindow(void);
 

@@ -113,13 +113,15 @@ U32 texV = (curMapV >> 8) & ((RepMask >> 8) & 0xFF);
 
 ### CLUT (Gouraud shading lookup)
 
-The CLUT is a 16×256 table: `[intensity_level][texel] → palette_color_index`. It encodes the combination of Gouraud lighting intensity and texture color.
+The CLUT is a 256×256 table: `[gouraud_row][texel] → palette_color_index`. It encodes the combination of Gouraud lighting intensity and texture color.
 
 - Base pointer: `PtrCLUTFog` (loaded from HQR resource, `SOURCES/AMBIANCE.CPP:472`)
 - Active region: `PtrCLUTGouraud` (points into `PtrCLUTFog`, 4096 bytes = 16 rows × 256 cols)
 - Updated by `SetCLUT(U32 defaultline)` (`LIB386/pol_work/POLY.CPP:272-295`)
 
-`SetCLUT` is called **per object** based on distance fog level. The `defaultline` parameter selects which 256-byte row of the CLUT to use. `PtrCLUTGouraud` is recomputed as `PtrCLUTFog + ((defaultline << 8) & 0xF000)`.
+The CLUT index formula: `gouraudIndex = ((gouraudValue >> 8) & 0xFF00) | texel`
+
+In the GL renderer, the full 64 KB fog table is uploaded once as a 256×256 LUMINANCE texture. The gouraud value's high byte (0–255) indexes the row directly — no need to track `SetCLUT` changes, since the shader samples the correct 16-row block within the full table.
 
 ### Fill_Logical_Palette
 
@@ -127,7 +129,10 @@ A 256-byte copy of the current palette row (`POLY.CPP:251`), updated by `SetCLUT
 
 ## GLSL shader
 
-The fragment shader replicates the CLUT-based lighting:
+The CLUT fragment shader replicates the SW CLUT pipeline: atlas → CLUT → palette.
+Upload the full 64 KB fog table as a 256×256 LUMINANCE texture. The gouraud
+value's high byte indexes the correct row directly (no need to track `SetCLUT`
+changes).
 
 ```glsl
 // Vertex shader (GL 2.1 / GLES 2.0 compatible)
@@ -135,29 +140,38 @@ attribute vec2 aPos;
 attribute vec2 aTexCoord;
 attribute float aLight;
 attribute float aZ;
+uniform vec2 uScreenScale; // 2.0/resX, 2.0/resY
 varying vec2 vTexCoord;
 varying float vLight;
 
 void main() {
-    gl_Position = vec4(aPos, aZ, 1.0);
+    float cx = aPos.x * uScreenScale.x - 1.0;
+    float cy = 1.0 - aPos.y * uScreenScale.y;
+    gl_Position = vec4(cx, cy, aZ / 65535.0, 1.0);
     vTexCoord = aTexCoord;
     vLight = aLight;
 }
 
 // Fragment shader
-uniform sampler2D uAtlas;   // 256×256, 8-bit (R8 or LUMINANCE)
-uniform sampler2D uCLUT;    // 16×256 (intensity × texel → palette index)
-uniform sampler2D uPalette; // 256×1 (palette index → ARGB)
-uniform vec2 uRepMask;
+uniform sampler2D uAtlas;   // 256×256, LUMINANCE (8-bit indexed)
+uniform sampler2D uCLUT;    // 256×256, LUMINANCE (full fog table)
+uniform sampler2D uPalette; // 256×1, BGRA (paletteLUT)
+uniform vec2 uRepMask;      // (widthMask, heightMask) for UV wrapping
 
 varying vec2 vTexCoord;
 varying float vLight;
 
 void main() {
-    vec2 uv = mod(vTexCoord, uRepMask);
-    float texel = texture2D(uAtlas, uv).r;
-    float palIdx = texture2D(uCLUT, vec2(texel, vLight / 16.0)).r;
-    gl_FragColor = texture2D(uPalette, vec2(palIdx, 0.5));
+    vec2 tc = vTexCoord / 256.0;
+    float wrappedU = mod(tc.x, uRepMask.x + 1.0);
+    float wrappedV = mod(tc.y, uRepMask.y + 1.0);
+    vec2 atlasUV = vec2((wrappedU + 0.5) / 256.0, (wrappedV + 0.5) / 256.0);
+    float texel = texture2D(uAtlas, atlasUV).r * 255.0;
+    float gouraudRow = floor(vLight / 256.0);
+    vec2 clutUV = vec2((texel + 0.5) / 256.0, (gouraudRow + 0.5) / 256.0);
+    float palIdx = texture2D(uCLUT, clutUV).r * 255.0;
+    vec2 palUV = vec2((palIdx + 0.5) / 256.0, 0.5);
+    gl_FragColor = texture2D(uPalette, palUV);
 }
 ```
 
@@ -311,86 +325,90 @@ Both are runtime settings, not build-dependent. Read in `ReadConfigFile()` (`PER
 
 ### Phase 1: Build system + renderer abstraction
 
-- Add `GPURENDERER` CMake option (default ON)
-- Create `LIB386/GL/` directory with CMakeLists.txt (conditional on GPURENDERER)
-- Add `GPURendererActive` global and renderer dispatch at `Fill_Poly()`
-- Define `GL_RenderTriangleList()` stub
-- `USE_GPURENDERER` compile definition
-- Verify SW builds are unaffected when GPURENDERER=OFF
+- ✅ Add `GPURENDERER` CMake option (default ON)
+- ✅ Create `LIB386/GL/` directory with CMakeLists.txt (conditional on GPURENDERER)
+- ✅ Add `GPURendererActive` global and renderer dispatch at `Fill_Poly()`
+- ✅ Define `GL_RenderTriangleList()` stub
+- ✅ `USE_GPURENDERER` compile definition
+- ✅ Verify SW builds are unaffected when GPURENDERER=OFF
 
 ### Phase 2: GL context + basic triangle rendering
 
-- SDL3 GL context creation in `WINDOW.CPP` (lazily, on first switch to OpenGL)
+- ✅ SDL3 GL context creation in `WINDOW.CPP` (lazily, on first switch to OpenGL)
   - `SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_OPENGL_BOOLEAN, true)`
   - `SDL_GL_CreateContext()`
-- Basic GL state setup (`glViewport`, `glClearColor`, etc.)
-- Minimal vertex + fragment shader (texture sampling only, no CLUT)
-- Render a single test triangle with atlas texture
-- Verify triangle appears correctly on screen
+- ✅ Basic GL state setup (`glViewport`, `glClearColor`, etc.)
+- ✅ Minimal vertex + fragment shader (texture sampling only, no CLUT)
+- ✅ Render a single test triangle with atlas texture
+- ✅ Verify triangle appears correctly on screen
 
-### Phase 3: CLUT-based Gouraud shading
+### Phase 3: CLUT-based Gouraud shading + Z-buffer + batching
 
-- Implement the full CLUT shader (atlas + CLUT + palette textures)
-- Upload `PtrCLUTGouraud` region as 16×256 GL texture
-- Upload `paletteLUT` as 256×1 GL texture
-- Pass `Pt_Light` as vertex attribute
-- Detect `SetCLUT()` changes and re-upload CLUT texture
-- Verify Gouraud-shaded textured polygons match SW output
+- ✅ CLUT shader: atlas (256×256 LUMINANCE) → CLUT (256×256 LUMINANCE, full 64 KB fog table) → palette (256×1 BGRA)
+- ✅ Upload full fog table as CLUT texture; gouraud value's high byte indexes correct rows directly
+- ✅ Upload `paletteLUT` as 256×1 BGRA texture (palette index 0 has alpha=0 for chroma key)
+- ✅ Pass `Pt_Light` as vertex attribute; `RepMask` as uniform for UV wrapping via `mod()`
+- ✅ Pass `Pt_ZO` as vertex Z with `GL_DEPTH_TEST` / `GL_LEQUAL` (16-bit depth buffer requested at context creation)
+- ✅ Batch triangles into a dynamic VBO; flush on RepMask/type change or batch full (4096 verts)
+- ✅ End-of-frame flush in `GL_Present` before 2D overlay quad
+- ✅ Triangle fan decomposition for N-gons (N≥3)
+- ✅ `Fill_Poly` falls back to SW when `GL_RenderTriangleList` returns 0
+- ✅ `GL_GetPaletteLUT()` getter in SDL.CPP exposes palette data to the GL renderer
 
 ### Phase 4: Z-buffer + Fog
 
-- Enable `GL_DEPTH_TEST` with `GL_LEQUAL`
-- Pass `Pt_ZO` as vertex Z
-- Clear depth buffer each frame
-- Verify depth sorting matches SW Z-buffer behavior
-- Fog works via CLUT rows (no separate GL fog needed)
+- ✅ Implemented in Phase 3 (GL_DEPTH_TEST + Pt_ZO)
+- ✅ Fog works via CLUT rows (no separate GL fog needed)
 
 ### Phase 5: Texture atlas management
 
-- Upload all four 256×256 atlas pages as GL textures
-- Detect `PtrMap` page changes and switch atlas binding
-- Handle `RepMask` UV wrapping (pass as uniform, `mod()` in shader)
-- Handle animated water tile mutations in `GroundTexture`
-- Per-polygon RepMask handling for object body textures
+- ✅ Atlas pointer tracked; re-uploaded to GL when `PtrMap` changes (single 256×256 page at a time)
+- ✅ `RepMask` UV wrapping handled via per-vertex attribute in fragment shader (no batch-flush needed)
+- ✅ Handle animated water tile mutations in `GroundTexture` — dirty flag in `DoAnimatedPolys()` forces re-upload
+- ✅ Per-polygon RepMask handling for object body textures (via `Pt_RepMask` vertex attribute)
 
 ### Phase 6: Full 3D scene rendering
 
-- Wire `GL_RenderTriangleList()` to receive all `Fill_Poly()` calls
-- Handle all polygon types (flat, textured, Gouraud, fog, Z-buffer, NZW)
-- Batch triangles and flush on state changes
-- End-of-frame flush before present
-- Verify complete 3D scenes render correctly
+- ✅ `GL_RenderTriangleList()` receives all textured `Fill_Poly()` calls (types 8–24)
+- ✅ Non-textured polygon types 0/1 (SOLID/FLAT), 2/3 (TRANS/TRAME), 4/5 (GOURAUD/DITHER), 6/7 (GOURAUD_TABLE/DITHER_TABLE) in GL
+- ✅ TRANS: flat-shaded polygon with alpha blending (`GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA`)
+- ✅ TRAME: flat-shaded polygon with stipple discard pattern (50% coverage checkerboard)
+- ✅ Batch triangles and flush on state changes (type, color, batch full)
+- ✅ End-of-frame flush before present
 
 ### Phase 7: 2D/3D compositing + filtering
 
-- Composite `Log` buffer (2D sprites, UI text) as overlay quad on top of GL 3D scene
-- Bilinear filtering toggle (`GL_NEAREST` ↔ `GL_LINEAR` on atlas texture)
-- Trilinear filtering option (`glGenerateMipmap` + `GL_LINEAR_MIPMAP_LINEAR`)
-- Menu entries for Renderer and Texture Filter toggles
-- Config read/write for `Renderer` and `TextureFilter` keys
+- ✅ Composite `Log` buffer (2D sprites, UI text) as overlay quad on top of GL 3D scene
+- ✅ Bilinear filtering toggle (`GL_NEAREST` ↔ `GL_LINEAR` on overlay texture)
+- ❌ Trilinear filtering option — not viable with CLUT pipeline (indexed atlas can't be mipmapped correctly)
+- ✅ Menu entries for Renderer and Texture Filter toggles (6 languages)
+- ✅ Config read/write for `Renderer` and `TextureFilter` keys
 
 ### Phase 8: GLES 2.0 + Android + runtime switching
 
-- GLES 2.0 compatibility: `#version 100`, `GL_LUMINANCE`, header differences
-- Android GL context via SDL3 (EGL handled internally)
-- Android-specific: fullscreen creation, MTE staging buffer bypass
-- Runtime SW ↔ GL switching (tear down GL context, reinit SW present path)
-- Verify on Android arm64-v8a and armeabi-v7a
+- ✅ GLES 2.0 compatibility: `#version 100`, `GL_LUMINANCE`, header differences
+- ✅ Runtime SW ↔ GL switching (tear down GL context, reinit SW present path)
+- ❌ Android GL context via SDL3 (EGL handled internally)
+- ❌ Android-specific: fullscreen creation, MTE staging buffer bypass
+- ❌ Verify on Android arm64-v8a and armeabi-v7a
 
 ## Files to modify/create
 
 | File | Change |
 |------|--------|
 | `CMakeLists.txt` (root) | Add `GPURENDERER` option (default ON) |
-| `LIB386/GL/` (new directory) | GL renderer implementation |
+| `LIB386/GL/RENDER_GL.CPP` | GL renderer: present shader, CLUT shader, batch rendering, texture management |
+| `LIB386/GL/RENDER_GL.H` | Public interface (Init, Shutdown, Resize, Present, RenderTriangleList) |
+| `LIB386/GL/CMakeLists.txt` | `gly` library, `USE_GPURENDERER` define |
 | `LIB386/CMakeLists.txt` | Conditionally add `GL/` subdirectory |
-| `LIB386/pol_work/POLY.CPP` | Add GL dispatch branch in `Fill_Poly()` |
-| `LIB386/SYSTEM/WINDOW.CPP` | Lazy GL context creation |
-| `LIB386/SVGA/SDL.CPP` | Bypass palette-scan in GL mode |
+| `LIB386/pol_work/POLY.CPP` | GL dispatch with SW fallback in `Fill_Poly()` |
+| `LIB386/SVGA/SDL.CPP` | `GL_GetPaletteLUT()` getter; GL present path |
+| `LIB386/H/SVGA/VIDEO.H` | Declare `GL_GetPaletteLUT()` |
+| `LIB386/SYSTEM/WINDOW.CPP` | Lazy GL context creation, window recreation |
 | `SOURCES/GAMEMENU.CPP` | Add renderer + filter menu entries |
 | `SOURCES/MENU_LABELS.H` | Add new label enums |
 | `SOURCES/MENU_LABELS.CPP` | Add 6-language translations |
-| `SOURCES/PERSO.CPP` | Read/write new config keys |
+| `SOURCES/PERSO.CPP` | Read/write new config keys, boot-time GL init |
 | `SOURCES/C_EXTERN.H` | Declare `GPURendererActive`, `DisplayTexFilter` |
 | `SOURCES/LBA2.CFG` | Add default `Renderer` and `TextureFilter` keys |
 | `SOURCES/EMBEDDED_CFG_WRITE.CPP` | Include new keys in embedded default |

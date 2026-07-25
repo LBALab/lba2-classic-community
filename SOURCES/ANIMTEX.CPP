@@ -371,4 +371,5 @@ void ClearPlasmaMenu(void) {
 
 void FixePlasmaPtrMap(void) {
     PtrMap = ((T_PLASMA *)TexEffectList[PlasmaMenuIndex].PtrStruct)->TexOffset;
+    AtlasTextureDirty = 1; /* Do_Plasma() mutates the texture in-place — force GL re-upload */
 }

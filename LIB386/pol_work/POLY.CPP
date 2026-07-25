@@ -153,8 +153,14 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
 #endif
 
 #ifdef USE_GPURENDERER
-    if (GPURendererActive)
-        return GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
+    if (GPURendererActive) {
+        S32 glResult = GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points,
+                                             Ptr_Points);
+        if (glResult != 0) {
+            return glResult;
+        }
+        /* GL didn't handle this polygon type — fall through to SW. */
+    }
 #endif
 
     Fill_LeftSlope = 0;
