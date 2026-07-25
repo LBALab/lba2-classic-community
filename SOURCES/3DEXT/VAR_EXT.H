@@ -107,3 +107,5 @@ extern S32 OffsetAniPoly1;
 extern S32 OffsetAniPoly2;
 extern S32 OffsetAniPoly3;
 extern S32 OffsetAniPoly4;
+
+extern S32 AtlasTextureDirty; /* GL renderer: set when any in-place texture mutation needs GPU re-upload */

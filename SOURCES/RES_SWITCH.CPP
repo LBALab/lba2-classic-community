@@ -27,7 +27,12 @@
 #include <SYSTEM/FILES.H>   /* ExistsFileOrDir */
 #include <SYSTEM/LOG.H>     /* Log_Debug (per-switch trace, off by default) */
 #include <SYSTEM/LOGPRINT.H>
+#include <SYSTEM/MOUSE.H>   /* ClearMouseBox — re-anchor mouse limits after resolution change */
 #include <SYSTEM/RESOLUTION.H> /* RESOLUTION_X / RESOLUTION_Y compile-time defaults */
+
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H> /* GL_Renderer_Resize */
+#endif
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/TIMER.H>
 #include <SYSTEM/WINDOW.H>
@@ -95,8 +100,19 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
        (and therefore fullscreen state, focus, and the player's window
        position in windowed mode) survives the switch.  Only the streaming
        texture and the Phys present-buffer change dimensions. */
-    if (!ResizeWindowSurface(w, h))
-        return false;
+#ifdef USE_GPURENDERER
+    if (GPURendererActive) {
+        /* GL mode: no sdlRenderer, so ResizeWindowSurface would fail.
+           Use SDL_SetWindowSize to resize the window and tell the GL
+           renderer to update its internal texture + FBO dimensions. */
+        Window_SetWindowSize(w, h);
+        GL_Renderer_Resize(w, h);
+    } else
+#endif
+    {
+        if (!ResizeWindowSurface(w, h))
+            return false;
+    }
     if (!ResizeVideoSurface(w, h))
         return false;
     /* Clip window MUST be set after ResizeVideoSurface — SetClipWindow
@@ -119,6 +135,12 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
        surface outside the clip, closing the gap on shrinks too. Mirrors
        the BoxInit call at DIRTYBOX.CPP:572. */
     BoxChangeClip(0, 0, (S32)w - 1, (S32)h - 1, TRUE);
+    /* Re-anchor the mouse box to the new resolution.  ClearMouseBox reads
+       ModeDesiredX/Y which are already updated by CreateScreenMemory in
+       RebuildEngineBuffers.  Without this, the mouse box stays at the
+       boot resolution (e.g. 640x480) and clamps the cursor to the
+       top-left area after switching to a higher resolution. */
+    ClearMouseBox();
     return true;
 }
 

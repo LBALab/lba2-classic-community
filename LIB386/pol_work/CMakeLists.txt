@@ -14,6 +14,11 @@ if(ENABLE_POLY_RECORDING)
   target_compile_definitions(poly PRIVATE ENABLE_POLY_RECORDING)
 endif()
 
+# Propagate GPURENDERER so the GL intercept in Fill_Poly() compiles in
+if(GPURENDERER)
+  target_compile_definitions(poly PRIVATE USE_GPURENDERER)
+endif()
+
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)

@@ -91,6 +91,7 @@ S32 DisplayVSync = TRUE;
 #ifdef USE_GPURENDERER
 S32 GPURendererActive = FALSE;
 S32 DisplayTexFilter = TRUE; /* bilinear by default in GL mode */
+S32 RenderQuality = 1; /* native resolution by default */
 #endif
 
 // #358: min ms of game-time between simulation steps (0 = off, per-frame sim as before).

@@ -76,6 +76,7 @@ typedef struct {
     U16 Pt_Light; ///< intensity (0.8.0)
     U16 Pt_ZO;    ///< normalized Z
     S32 Pt_W;     ///< 2^31 / Z (non normalized)
+    U16 Pt_RepMask; ///< texture repeat mask (GL only; unused by SW rasterizer)
 } Struc_Point;
 #pragma pack(pop)
 

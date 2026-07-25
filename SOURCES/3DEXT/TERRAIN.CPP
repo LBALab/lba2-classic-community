@@ -1048,6 +1048,7 @@ void DoAnimatedPolys() {
                          GroundTexture + OffsetAniPoly4);
         }
 
+        AtlasTextureDirty = 1;
         RefreshAniPoly = NbAniPoly;
         NbToRefresh = NbAniPoly / 4;
     }

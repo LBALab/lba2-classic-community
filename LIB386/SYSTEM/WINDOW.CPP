@@ -6,6 +6,7 @@
 
 #ifdef USE_GPURENDERER
 #include <GL/RENDER_GL.H>
+#include <SVGA/SCREEN.H> /* ModeDesiredX, ModeDesiredY */
 extern S32 GPURendererActive;
 #endif
 
@@ -330,6 +331,46 @@ void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surface
     assert(surfaceX != NULL);
     assert(surfaceY != NULL);
 
+#ifdef USE_GPURENDERER
+    /* GL path: the renderer manages its own letterbox in GL_Present.
+       Remap window coordinates through the same viewport so mouse
+       picking stays aligned with the rendered content. */
+    if (GPURendererActive && sdlWindow != NULL &&
+        ModeDesiredX > 0 && ModeDesiredY > 0) {
+        int winW = 0, winH = 0;
+        SDL_GetWindowSize(sdlWindow, &winW, &winH);
+        if (winW > 0 && winH > 0) {
+            double windowAspect = (double)winW / (double)winH;
+            double contentAspect = (double)ModeDesiredX / (double)ModeDesiredY;
+            int vpX = 0, vpY = 0, vpW = winW, vpH = winH;
+            if (windowAspect > contentAspect) {
+                vpH = winH;
+                vpW = (int)((double)winH * contentAspect + 0.5);
+                vpW = (vpW + 1) & ~1;
+                if (vpW > winW) vpW = winW;
+                vpX = (winW - vpW) / 2;
+                vpY = 0;
+            } else {
+                vpW = winW;
+                vpH = (int)((double)winW / contentAspect + 0.5);
+                vpH = (vpH + 1) & ~1;
+                if (vpH > winH) vpH = winH;
+                vpX = 0;
+                vpY = (winH - vpH) / 2;
+            }
+            S32 sx = (S32)((double)(windowX - vpX) * (double)ModeDesiredX / (double)vpW);
+            S32 sy = (S32)((double)(windowY - vpY) * (double)ModeDesiredY / (double)vpH);
+            if (sx < 0) sx = 0;
+            else if (sx >= (S32)ModeDesiredX) sx = (S32)ModeDesiredX - 1;
+            if (sy < 0) sy = 0;
+            else if (sy >= (S32)ModeDesiredY) sy = (S32)ModeDesiredY - 1;
+            *surfaceX = sx;
+            *surfaceY = sy;
+            return;
+        }
+    }
+#endif
+
     if ((sdlRenderer == NULL) || (windowSurfaceResX == 0) || (windowSurfaceResY == 0)) {
         *surfaceX = windowX;
         *surfaceY = windowY;
@@ -407,6 +448,12 @@ bool Window_SupportsWindowedMode(void) {
 }
 
 void Window_SetVSync(int enabled) {
+    /* If the GL context is active, use GL swap interval instead of the
+       SDL renderer path (the two are mutually exclusive). */
+    if (sdlGLContext != NULL) {
+        SDL_GL_SetSwapInterval(enabled ? 1 : 0);
+        return;
+    }
     if (sdlRenderer != NULL) {
         SDL_SetRenderVSync(sdlRenderer, enabled ? 1 : 0);
     }
@@ -633,6 +680,18 @@ SDL_Window *Window_GetSDLWindow(void) {
 
 SDL_GLContext Window_GetGLContext(void) {
     return sdlGLContext;
+}
+
+void Window_SetWindowSize(U32 w, U32 h) {
+    if (sdlWindow != NULL) {
+        SDL_SetWindowSize(sdlWindow, (int)w, (int)h);
+    }
+    /* Keep cached dimensions in sync — mirrors ResizeWindowSurface (SW path).
+       Without this, windowSurfaceResX/Y stay at the old resolution after a
+       GL-path resize, causing WindowToSurfaceCoords and any other reader of
+       these variables to use stale values. */
+    windowSurfaceResX = w;
+    windowSurfaceResY = h;
 }
 #endif
 

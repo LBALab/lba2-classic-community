@@ -91,6 +91,7 @@ S32 FlagShowEndDemo = FALSE;
 #ifdef USE_GPURENDERER
 #define MENU_ID_DISPLAY_RENDERER 2117
 #define MENU_ID_DISPLAY_TEXFILTER 2118
+#define MENU_ID_DISPLAY_QUALITY 2119
 #endif
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
@@ -167,6 +168,8 @@ U16 DisplayMenu[] = {
     MENU_ID_DISPLAY_RENDERER,
     0,
     MENU_ID_DISPLAY_TEXFILTER,
+    0,
+    MENU_ID_DISPLAY_QUALITY,
 #endif
     0,
     MENU_ID_DISPLAY_VSYNC,
@@ -486,6 +489,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 
     case MENU_ID_DISPLAY_TEXFILTER:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        break;
+
+    case MENU_ID_DISPLAY_QUALITY:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(RenderQuality == 1 ? MENU_LABEL_QUALITY_NATIVE : RenderQuality == 2 ? MENU_LABEL_QUALITY_2X : MENU_LABEL_QUALITY_4X));
         break;
 #endif
 
@@ -3367,6 +3374,15 @@ S32 GereDisplayMenu(void) {
 
         case MENU_ID_DISPLAY_TEXFILTER:
             DisplayTexFilter ^= 1;
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_QUALITY:
+            if (RenderQuality < 4)
+                RenderQuality *= 2;
+            else
+                RenderQuality = 1;
+            GL_SetRenderQuality(RenderQuality);
             WriteConfigFile();
             break;
 #endif

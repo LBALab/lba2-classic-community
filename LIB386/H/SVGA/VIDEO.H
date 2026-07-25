@@ -64,6 +64,10 @@ void SetPresentTimingCallbacks(PresentTimingFn begin, PresentTimingFn end);
  *  present. */
 void PresentCurrentFrame(void);
 
+/** Return a read-only pointer to the internal palette LUT (256 × ARGB8888).
+ *  Used by the GL renderer to upload the palette as a texture. */
+const U32 *GL_GetPaletteLUT(void);
+
 // -----------------------------------------------------------------------------
 #define Palette(Pal) SetVideoPalette(Pal, 0, 256)
 #define PalOne(col, r, g, b) SetVideoPaletteCol(col, r, g, b)

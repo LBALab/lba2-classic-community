@@ -51,6 +51,10 @@ static StagingBuffer s_androidStaging = {NULL, 0, 0};
 // --- Private functions -------------------------------------------------------
 static void PresentFrame();
 
+const U32 *GL_GetPaletteLUT(void) {
+    return paletteLUT;
+}
+
 static void RebuildPaletteLUT() {
     if (!sdlPalette) {
         return;
@@ -300,6 +304,9 @@ static void PresentFrame() {
 
 #ifdef USE_GPURENDERER
     if (GPURendererActive) {
+        /* Begin new GL frame: clear depth buffer before any 3D drawing. */
+        GL_BeginFrame();
+
         /* GL path: convert 8-bit → ARGB on CPU, then upload via GL texture
            with optional bilinear filtering. The palette conversion is the
            same work as the SDL path; the difference is GL handles the
@@ -315,6 +322,11 @@ static void PresentFrame() {
         if (s_glStaging == NULL) {
             return;
         }
+
+        /* Palette index 0 is the transparent colour: the 3D FBO content
+           shows through wherever the 2D overlay has index 0.  Force alpha
+           to 0 so those pixels are fully transparent when composited. */
+        paletteLUT[0] &= 0x00FFFFFF;
 
         U8 *logMem = (U8 *)Log;
         for (U32 y = 0; y < ModeDesiredY; ++y) {
