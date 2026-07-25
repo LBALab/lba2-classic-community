@@ -53,6 +53,10 @@ if(DEBUG_TOOLS)
     add_compile_definitions(DEBUG_TOOLS=1)
 endif()
 
+# GPU renderer (OpenGL 2.1 / GLES 2.0) — always compiled when ON; user picks
+# Software vs OpenGL at runtime via the Display menu.
+option(GPURENDERER "Enable GPU renderer (OpenGL 2.1 / GLES 2.0)" ON)
+
 # Performance options
 option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
 
@@ -126,7 +130,7 @@ set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "macOS 
 
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
-set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
+set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} GPURENDERER=${GPURENDERER} ENABLE_ASM=${ENABLE_ASM}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Generate the .desktop entry and AppImage env file from the product metadata

@@ -81,6 +81,7 @@ The engine mapped as a whole: layers, the engine/game membrane, and the on-disk 
 | [ASM_TEST_COVERAGE_AUDIT.md](ASM_TEST_COVERAGE_AUDIT.md) | Rubric and progress for strengthening existing equivalence-test coverage (branches, side effects, edge inputs). |
 | [COMPILER_NOTES.md](COMPILER_NOTES.md) | Calling conventions and compiler-related notes. |
 | [GFX_OPTIONS.md](GFX_OPTIONS.md) | Variables and locations for graphical quality options. |
+| [RENDERER.md](RENDERER.md) | Optional OpenGL 2.1 / GLES 2.0 renderer: architecture, shader design, texture system, build integration, menu, and implementation phases. |
 | [WIDESCREEN.md](WIDESCREEN.md) | Widescreen / higher-resolution plan: render-vs-UI coordinate spaces, phased roadmap, current status. |
 | [WIDESCREEN_PROJECTION_AUDIT.md](WIDESCREEN_PROJECTION_AUDIT.md) | Projection 4:3 audit: where projection hardcodes the screen centre and 640, culling/preclip sites, and what PR #134 did and did not route. |
 | [ABI.md](ABI.md) | Rule for reading 32-bit DOS-era data on 64-bit hosts; catalogue of fat types; compile-time guards. |

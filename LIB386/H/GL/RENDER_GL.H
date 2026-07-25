@@ -1,0 +1,40 @@
+
+#pragma once
+#include <POLYGON/POLY.H>
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// -----------------------------------------------------------------------------
+//! Initialize the GL renderer. Creates shaders, textures, and GL state.
+//! Must be called after SDL window and GL context creation.
+//! Returns TRUE on success, FALSE if GL initialization fails.
+S32 GL_Renderer_Init(U32 resX, U32 resY);
+
+//! Shut down the GL renderer and release GL resources.
+void GL_Renderer_Shutdown(void);
+
+//! Notify the GL renderer of a resolution change (recreate viewport/textures).
+void GL_Renderer_Resize(U32 resX, U32 resY);
+
+//! Present a palette-converted ARGB framebuffer via GL with optional
+//! bilinear filtering. Called from PresentFrame() when GPURendererActive.
+//! @param argbPixels  ARGB8888 pixel data (ModeDesiredX * ModeDesiredY)
+//! @param pitch       Row pitch in bytes
+//! @param width       Framebuffer width
+//! @param height      Framebuffer height
+//! @param filterLinear  true = GL_LINEAR (bilinear), false = GL_NEAREST
+void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
+                S32 filterLinear);
+
+//! Render a list of projected triangles via OpenGL.
+//! Called from Fill_Poly() when GPURendererActive is true.
+S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
+                          Struc_Point *ptrPoints);
+
+// -----------------------------------------------------------------------------
+#ifdef __cplusplus
+}
+#endif

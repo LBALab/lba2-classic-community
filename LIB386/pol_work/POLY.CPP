@@ -12,6 +12,11 @@
 #include <SNAPSHOT/POLY_RECORDING.H>
 #endif
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+#endif
+
 #include <limits.h>
 #include <math.h>
 #include <string.h>
@@ -146,6 +151,12 @@ S32 Fill_Poly(S32 Type_Poly, S32 Color_Poly, S32 Nb_Points,
     if (g_polyrec_recording)
         polyrec_record_fill_poly(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
 #endif
+
+#ifdef USE_GPURENDERER
+    if (GPURendererActive)
+        return GL_RenderTriangleList(Type_Poly, Color_Poly, Nb_Points, Ptr_Points);
+#endif
+
     Fill_LeftSlope = 0;
     SetScreenPitch(TabOffLine);
 

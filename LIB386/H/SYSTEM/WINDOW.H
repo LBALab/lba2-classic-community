@@ -69,6 +69,35 @@ void SetWindowRelativeMouse(bool enable);
 void ManageWindow();
 void HandleEventsWindow(const void *event);
 
+#ifdef USE_GPURENDERER
+struct SDL_Window;
+
+/** Create an OpenGL 2.1 context on the existing SDL window.
+ *  Returns true on success. Safe to call multiple times (idempotent). */
+bool Window_CreateGLContext(void);
+
+/** Destroy the OpenGL context and release GL resources. */
+void Window_DestroyGLContext(void);
+
+/** Recreate the SDL window with SDL_WINDOW_OPENGL for GL renderer mode.
+ *  Tears down the SDL_Renderer and streaming texture. The GL context
+ *  must be created separately after this call. */
+bool Window_RecreateWindowForGL(U32 resX, U32 resY, bool fullscreen);
+
+/** Recreate the SDL window without OpenGL, restoring SDL_Renderer.
+ *  Called when switching back from GL to Software renderer. */
+bool Window_RecreateWindowForSW(U32 resX, U32 resY, bool fullscreen);
+
+/** Make the GL context current on this thread. */
+bool Window_GLMakeCurrent(void);
+
+/** Swap the GL window buffers (present). */
+void Window_GL_SwapWindow(void);
+
+/** Access the underlying SDL window (for GL renderer). */
+SDL_Window *Window_GetSDLWindow(void);
+#endif
+
 // Pause audio while the window is not focused. The window layer feeds focus
 // changes to AppFocusAudio_OnChange(); the audio/game layer registers what to
 // pause (on focus lost) and resume (on focus gained). A once-per-cycle guard

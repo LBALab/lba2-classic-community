@@ -37,3 +37,7 @@ endif()
 if(MVIDEO_BACKEND STREQUAL "smacker" OR LBA2_BUILD_TESTS)
   add_subdirectory(VIDEO_AUDIO_RESAMPLE)
 endif()
+
+if(GPURENDERER)
+  add_subdirectory(GL)
+endif()
