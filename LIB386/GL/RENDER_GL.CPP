@@ -913,23 +913,46 @@ static void GL_FlushBatch(void) {
     glVertexAttribPointer(s_clut_aRepMask, 1, GL_UNSIGNED_SHORT, GL_FALSE, 14,
                           (const void *)12);
 
-    /* Depth testing: the SW rasterizer uses Switch_Fillers() to route
-       ALL polygon types through Z-buffered fillers when FILL_POLY_FOG_ZBUFFER
-       or FILL_POLY_ZBUFFER is active (outside scenes).  The GL renderer
-       must honour this: enable depth testing when Fill_Flag_ZBuffer was
-       TRUE at batch start, or for types 16-24 (always Z-buffered).
-       Fill_Flag_NZW (no Z-write) is set by FILL_POLY_FOG_NZW for animated
-       polys and transparent objects that should read but not write depth.
-       INCRUST chroma key types use discard in the fragment shader instead
-       of blending, so Z-write remains enabled for opaque pixels — matching
-       the SW rasterizer which skips chroma-key pixels but still writes Z
-       for non-transparent ones. */
-    if (s_batchZBuffer || (s_currentTypePoly >= POLY_TEXTURE_Z &&
-                           s_currentTypePoly <= POLY_TEXTURE_Z_FOG)) {
+    /* Depth testing: enable for ALL valid types (0–24).
+
+       The SW rasterizer occludes non-OBJ_ZBUFFER objects (NPCs, sprites)
+       behind terrain via ZBufBoxOverWrite2(): a post-process that restores
+       closer terrain pixels over the already-rendered object.  The GL
+       equivalent is a depth test during rendering: the depth buffer still
+       holds terrain Z values from the prior AffGrilleExt() pass.
+
+       GetZO3/GetZO4 always compute Pt_ZO (regardless of
+       Fill_Flag_ZBuffer), so all body polygons have valid Z values for
+       depth comparison.  This includes FLAT/SOLID types 0–7 which are
+       common in NPC body models and decoration objects.
+
+       Depth-write is gated separately:
+       - Types 16–24 always write (they are inherently Z-buffered).
+       - Types 0–15 write only when Fill_Flag_ZBuffer was TRUE at batch
+         start (terrain overlays/base rendered under FILL_POLY_FOG_ZBUFFER).
+       - Types 0–15 without Z-buffered fillers (NPC path) Z-test only —
+         matches SW ZBufBoxOverWrite2 which reads terrain Z but never
+         writes object Z into the buffer.
+       - Fill_Flag_NZW suppresses write for animated polys and transparent
+         objects that should read but not write depth.
+       - Alpha blending suppresses write (TRANS/TRAME translucency). */
+    if (s_currentTypePoly <= POLY_TEXTURE_Z_FOG) {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_GEQUAL);
-        /* Write depth when: not NZW mode AND not blending (TRANS/TRAME) */
-        glDepthMask((!s_batchNZW && !useBlend) ? GL_TRUE : GL_FALSE);
+
+        if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z) {
+            /* Z-buffered path: write depth unless NZW or blending.
+               Includes terrain base types 0/6/7 (via s_batchZBuffer)
+               and transparent/translucent types 16–24. */
+            glDepthMask((!s_batchNZW && !useBlend) ? GL_TRUE : GL_FALSE);
+        } else {
+            /* Types 0–15 without Z-buffered fillers (NPC/sprite path):
+               Z-test only — matches SW ZBufBoxOverWrite2 which reads
+               terrain Z but never writes object Z into the buffer.
+               Types 0–7 (FLAT/SOLID) still need Z-test so they are
+               occluded by closer terrain (e.g. NPCs behind walls). */
+            glDepthMask(GL_FALSE);
+        }
     } else {
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
