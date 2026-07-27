@@ -4,6 +4,10 @@
 #include <3D/PROJREC.H>
 #include <SVGA/SCREEN.H>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
+
 /*══════════════════════════════════════════════════════════════════════════*
 		      █▀▀▀▀ █▀▀▀█  █    █     █     █▀▀▀▀
 		      ██ ▀█ ██▀█▀  ██   ██    ██    ██▀▀
@@ -799,6 +803,9 @@ void AffBrickBlock(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 /*ptc = BufCube + y*2 + (x*SIZE_CUBE_Y*2) + (z*SIZE_CUBE_X*SIZE_CUBE_Y*2) ;*/
 
 void AffGrille() {
+#ifdef USE_GPURENDERER
+    GL_ClearFBO();
+#endif
     S32 block;
     U8 *ptc;
     S16 z, y, x;
@@ -943,6 +950,9 @@ void AffBrickBlockOnly(S32 block, S32 brick, S16 x, S16 y, S16 z) {
 
 // Redessine uniquement les block n'ayant pas le code jeu Invisible
 void AffGrilleLabyrinthe() {
+#ifdef USE_GPURENDERER
+    GL_ClearFBO();
+#endif
     S32 block;
     U8 *ptc;
     U8 *adr;
