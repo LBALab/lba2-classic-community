@@ -300,6 +300,13 @@ static U32 s_fboHeight = 0;
 static U32 s_renderQuality = 1; /* 1 = native, 2 = 2x, 4 = 4x */
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
 
+/* Set to 1 by GL_ClearFBO() at the start of terrain rendering, cleared by
+   GL_BeginFrame().  Lets GL_RenderTriangleList route body/shadow polygons
+   (Fill_Flag_ZBuffer=0 or Fill_Flag_NZW=1) into the GL batch during terrain
+   rendering (correct depth testing), while still falling back to SW/Log in
+   menu/modal loops where no terrain has been drawn. */
+static S32 s_terrainRenderedThisFrame = 0;
+
 /* ── Fullscreen quad: position (x,y) + texcoord (u,v) ───────────────────── */
 
 /* 2D overlay quad — V is flipped because glTexSubImage2D uploads row 0
@@ -1025,6 +1032,8 @@ void GL_ClearFBO(void) {
     glClearDepth(0.0);
 #endif
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    s_terrainRenderedThisFrame = 1;
 }
 
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
@@ -1038,6 +1047,8 @@ void GL_BeginFrame(void) {
        (which may fire mid-frame when the batch fills) uses the
        correct bilinear/nearest mode for all batches. */
     s_bilinearCLUT = DisplayTexFilter;
+
+    s_terrainRenderedThisFrame = 0;
 }
 
 /* ── Depth readback (GL → SW Z-buffer) ──────────────────────────────────── */
@@ -1052,6 +1063,7 @@ void GL_BeginFrame(void) {
    valid aZ, so ZBufBoxOverWrite2 always keeps shadows there (correct). */
 extern "C" {
 extern U16 *PtrZBuffer;
+extern void *Screen;
 extern U32 ModeDesiredX;
 extern U32 ModeDesiredY;
 }
@@ -1061,17 +1073,41 @@ void GL_ReadbackDepthBuffer(void) {
         return;
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+    /* Flush any pending terrain batch so the FBO contains the latest
+       geometry before we read back its depth buffer. */
+    GL_FlushBatch();
+
+    /* FBO is now bound (GL_FlushBatch binds it on first use per frame,
+       or it was already bound).  No need to rebind here. */
 
     const U32 fboW = s_fboWidth;
     const U32 fboH = s_fboHeight;
     const U32 scrW = ModeDesiredX;
     const U32 scrH = ModeDesiredY;
 
-    /* Read at FBO resolution, then downsample to screen resolution */
+    /* glReadPixels returns rows bottom-to-top (Y=0 at bottom), but
+       PtrZBuffer stores rows top-to-bottom (Y=0 at top).  Flip Y when
+       writing each row so screen coordinates match. */
     if (fboW == scrW && fboH == scrH) {
+        /* 1:1 path: read into temp buffer then flip into PtrZBuffer */
+        static U16 *s_depthFlipBuf = NULL;
+        static U32 s_depthFlipBufSize = 0;
+        U32 totalPixels = scrW * scrH;
+        if (s_depthFlipBufSize < totalPixels) {
+            free(s_depthFlipBuf);
+            s_depthFlipBuf = (U16 *)malloc(totalPixels * sizeof(U16));
+            s_depthFlipBufSize = s_depthFlipBuf ? totalPixels : 0;
+        }
+        if (s_depthFlipBuf == NULL) {
+            return;
+        }
         glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
-                     GL_UNSIGNED_SHORT, PtrZBuffer);
+                     GL_UNSIGNED_SHORT, s_depthFlipBuf);
+        for (U32 sy = 0; sy < scrH; sy++) {
+            memcpy(PtrZBuffer + sy * scrW,
+                   s_depthFlipBuf + (scrH - 1 - sy) * scrW,
+                   scrW * sizeof(U16));
+        }
     } else {
         /* SSAA path: read full FBO depth, downsample by picking the
            closest terrain (minimum aZ) per screen pixel block. */
@@ -1098,7 +1134,7 @@ void GL_ReadbackDepthBuffer(void) {
             for (U32 sx = 0; sx < scrW; sx++) {
                 U16 minAZ = 0x7FFF; /* start with smallest possible aZ */
                 const U32 fx0 = sx * scaleX;
-                const U32 fy0 = sy * scaleY;
+                const U32 fy0 = (fboH - 1 - sy * scaleY) - scaleY + 1;
                 for (U32 fy = fy0; fy < fy0 + scaleY; fy++) {
                     const U16 *srcRow = s_fboDepthBuf + fy * fboW;
                     for (U32 fx = fx0; fx < fx0 + scaleX; fx++) {
@@ -1114,7 +1150,175 @@ void GL_ReadbackDepthBuffer(void) {
         }
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    /* Keep the FBO bound so subsequent GL_FlushBatch() calls (e.g. from
+       body polygons that don't go through the SW path) continue drawing
+       into the FBO rather than the default framebuffer. */
+}
+
+/* ── Color readback (FBO → SW Screen buffer as palette indices) ────────── */
+
+/* Read back the FBO color buffer and convert the ARGB pixels to 8-bit
+   palette indices, storing the result in the Screen buffer.  This is used
+   by AffGrilleExt() to copy terrain into the Log buffer so that
+   ShadeBoxBlk (shadow darkening) has real pixels to operate on.
+
+   The FBO color texture stores ARGB pixels produced by the CLUT shader,
+   which maps palette indices through paletteLUT.  To reverse this, we
+   build a sorted (ARGB → index) lookup table from paletteLUT and binary
+   search each pixel.  Handles SSAA downscaling (FBO may be larger than
+   Screen). */
+
+void GL_ReadbackColorBuffer(void) {
+    if (!s_initialized || !s_fbo || Screen == NULL) {
+        return;
+    }
+
+    /* FBO should still be bound from GL_ReadbackDepthBuffer().  Bind
+       explicitly for safety in case the caller skips the depth readback. */
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
+    const U32 fboW = s_fboWidth;
+    const U32 fboH = s_fboHeight;
+    const U32 scrW = ModeDesiredX;
+    const U32 scrH = ModeDesiredY;
+
+    /* Read FBO color into a temporary buffer */
+    const U32 totalPixels = fboW * fboH;
+    static U32 *s_fboColorBuf = NULL;
+    static U32 s_fboColorBufSize = 0;
+    if (s_fboColorBufSize < totalPixels) {
+        free(s_fboColorBuf);
+        s_fboColorBuf = (U32 *)malloc(totalPixels * sizeof(U32));
+        s_fboColorBufSize = s_fboColorBuf ? totalPixels : 0;
+    }
+    if (s_fboColorBuf == NULL) {
+        return;
+    }
+
+    /* Read as BGRA: paletteLUT is 0xAARRGGBB = [B,G,R,A] in LE memory,
+       and GL_BGRA reads bytes in B,G,R,A order → U32 = ARGB. */
+    glReadPixels(0, 0, fboW, fboH, FMT_BGRA, GL_UNSIGNED_BYTE, s_fboColorBuf);
+
+    /* Build reverse palette lookup: ARGB → palette index.
+       paletteLUT has 256 unique entries.  Sort by ARGB for binary search. */
+    const U32 *lut = GL_GetPaletteLUT();
+    if (lut == NULL) {
+        return;
+    }
+
+    struct RevEntry {
+        U32 argb;
+        U8 idx;
+    };
+    static RevEntry s_revLut[256];
+    for (U32 i = 0; i < 256; i++) {
+        s_revLut[i].argb = lut[i];
+        s_revLut[i].idx = (U8)i;
+    }
+    /* Insertion sort (256 elements — trivial) */
+    for (U32 i = 1; i < 256; i++) {
+        RevEntry key = s_revLut[i];
+        S32 j = (S32)i - 1;
+        while (j >= 0 && s_revLut[j].argb > key.argb) {
+            s_revLut[j + 1] = s_revLut[j];
+            j--;
+        }
+        s_revLut[j + 1] = key;
+    }
+
+    /* Convert FBO pixels to palette indices and write to Screen.
+       glReadPixels returns rows bottom-to-top (Y=0 at bottom), but the
+       Screen buffer stores rows top-to-bottom (Y=0 at top).  Flip Y by
+       mapping FBO row (fboH - 1 - sy) to Screen row sy. */
+    U8 *dst = (U8 *)Screen;
+
+    if (fboW == scrW && fboH == scrH) {
+        /* 1:1 mapping with Y-flip */
+        for (U32 sy = 0; sy < scrH; sy++) {
+            U8 *dstRow = dst + sy * scrW;
+            const U32 *srcRow = s_fboColorBuf + (fboH - 1 - sy) * fboW;
+            for (U32 sx = 0; sx < scrW; sx++) {
+                U32 argb = srcRow[sx];
+                S32 lo = 0, hi = 255;
+                while (lo <= hi) {
+                    S32 mid = (lo + hi) >> 1;
+                    U32 midArgb = s_revLut[mid].argb;
+                    if (midArgb == argb) {
+                        dstRow[sx] = s_revLut[mid].idx;
+                        goto next_pixel;
+                    } else if (midArgb < argb) {
+                        lo = mid + 1;
+                    } else {
+                        hi = mid - 1;
+                    }
+                }
+                /* No exact match — nearest by linear scan */
+                {
+                    U32 bestDist = 0xFFFFFFFF;
+                    U8 bestIdx = 0;
+                    for (U32 j = 0; j < 256; j++) {
+                        U32 c = lut[j];
+                        S32 dr = (S32)((c >> 16) & 0xFF) - (S32)((argb >> 16) & 0xFF);
+                        S32 dg = (S32)((c >> 8) & 0xFF) - (S32)((argb >> 8) & 0xFF);
+                        S32 db = (S32)(c & 0xFF) - (S32)(argb & 0xFF);
+                        U32 dist = (U32)(dr * dr + dg * dg + db * db);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            bestIdx = (U8)j;
+                        }
+                    }
+                    dstRow[sx] = bestIdx;
+                }
+            next_pixel:;
+            }
+        }
+    } else {
+        /* SSAA path: pick the center pixel of each screen-pixel block,
+           with Y-flip applied to the FBO source row. */
+        const U32 scaleX = fboW / scrW;
+        const U32 scaleY = fboH / scrH;
+        for (U32 sy = 0; sy < scrH; sy++) {
+            U8 *dstRow = dst + sy * scrW;
+            for (U32 sx = 0; sx < scrW; sx++) {
+                U32 fx = sx * scaleX + scaleX / 2;
+                U32 fy = (fboH - 1 - sy * scaleY - scaleY / 2);
+                U32 argb = s_fboColorBuf[fy * fboW + fx];
+                S32 lo = 0, hi = 255;
+                while (lo <= hi) {
+                    S32 mid = (lo + hi) >> 1;
+                    U32 midArgb = s_revLut[mid].argb;
+                    if (midArgb == argb) {
+                        dstRow[sx] = s_revLut[mid].idx;
+                        goto next_ssaa_pixel;
+                    } else if (midArgb < argb) {
+                        lo = mid + 1;
+                    } else {
+                        hi = mid - 1;
+                    }
+                }
+                /* Fallback: nearest by linear scan */
+                {
+                    U32 bestDist = 0xFFFFFFFF;
+                    U8 bestIdx = 0;
+                    for (U32 j = 0; j < 256; j++) {
+                        U32 c = lut[j];
+                        S32 dr = (S32)((c >> 16) & 0xFF) - (S32)((argb >> 16) & 0xFF);
+                        S32 dg = (S32)((c >> 8) & 0xFF) - (S32)((argb >> 8) & 0xFF);
+                        S32 db = (S32)(c & 0xFF) - (S32)(argb & 0xFF);
+                        U32 dist = (U32)(dr * dr + dg * dg + db * db);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            bestIdx = (U8)j;
+                        }
+                    }
+                    dstRow[sx] = bestIdx;
+                }
+            next_ssaa_pixel:;
+            }
+        }
+    }
+
+    /* Keep FBO bound for subsequent GL_FlushBatch() calls */
 }
 
 /* ── Present (extended with 3D flush) ───────────────────────────────────── */
@@ -1282,7 +1486,14 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        Body polygons rendered to the FBO outside terrain passes accumulate
        across frames (e.g. the comportement menu's spinning Twinsen models),
        producing ghosting.  Routing them to Log keeps them in the same
-       compositing layer as shadows and the 2D overlay. */
+       compositing layer as shadows and the 2D overlay.
+
+       ShadeBoxBlk (shadow darkening) operates on Log pixels via CLUT
+       lookup.  When body polygons go through the GL batch into the FBO,
+       Log is empty and ShadeBoxBlk darkens index-0 → opaque black.
+       Keeping bodies in Log ensures ShadeBoxBlk has real pixels to darken
+       (producing correct transparent shadows) and bodies remain visible
+       on top of the terrain in the final GL_Present composite. */
     if (!Fill_Flag_ZBuffer || Fill_Flag_NZW) {
         return 0;
     }
@@ -1377,6 +1588,8 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
 void GL_BeginFrame(void) {}
 void GL_ClearFBO(void) {}
 void GL_ReadbackDepthBuffer(void) {}
+void GL_ReadbackColorBuffer(void) {}
+void GL_SetRenderQuality(U32 quality) { (void)quality; }
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     (void)argbPixels; (void)pitch; (void)width; (void)height;

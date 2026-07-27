@@ -358,16 +358,21 @@ void AffGrilleExt() {
 
     Switch_Fillers(FILL_POLY_TEXTURES);
 
-    CopyScreen(Log, Screen);
-
 #ifdef USE_GPURENDERER
-    /* Read back GL depth buffer into PtrZBuffer so that shadow
-       DrawRecover() → ZBufBoxOverWrite2() can occlude shadows behind
-       terrain in GL mode.  Only shadow DrawRecover runs (body objects
-       skip it), so this correctly clears shadow pixels from Log without
-       affecting body pixels. */
-    GL_ReadbackDepthBuffer();
+    if (GPURendererActive) {
+        /* GL mode: terrain is in the FBO, not Log.
+           1. Read back depth so ZBufBoxOverWrite2 can occlude shadows.
+           2. Read back color (FBO → Screen as palette indices).
+           3. Copy Screen → Log so ShadeBoxBlk (shadow darkening) has
+              real terrain pixels to darken rather than empty buffer. */
+        GL_ReadbackDepthBuffer();
+        GL_ReadbackColorBuffer();
+        CopyScreen(Screen, Log);
+    } else
 #endif
+    {
+        CopyScreen(Log, Screen);
+    }
 
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_CAMERA) {
