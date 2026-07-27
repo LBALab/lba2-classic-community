@@ -23,6 +23,11 @@ void GL_Renderer_Resize(U32 resX, U32 resY);
 //! with a clean slate. Must be called once per frame before any 3D drawing.
 void GL_BeginFrame(void);
 
+//! Clear the FBO color and depth buffers at the start of terrain rendering.
+//! Called from AffGrilleExt() so that frames with no terrain (e.g. standing
+//! still) preserve the previous frame's 3D content in the FBO.
+void GL_ClearFBO(void);
+
 //! Present a palette-converted ARGB framebuffer via GL with optional
 //! bilinear filtering. Called from PresentFrame() when GPURendererActive.
 //! @param argbPixels  ARGB8888 pixel data (ModeDesiredX * ModeDesiredY)
@@ -42,6 +47,13 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 //! Recreates the FBO at the new internal resolution.  Safe to call at any time;
 //! takes effect on the next frame.
 void GL_SetRenderQuality(U32 quality);
+
+//! Read back the FBO depth buffer into the SW Z-buffer (PtrZBuffer) after
+//! terrain rendering.  Converts GL_DEPTH_COMPONENT16 back to the aZ format
+//! used by ZBufBoxOverWrite2() for shadow/object occlusion in GL mode.
+//! Handles SSAA downscaling (FBO may be larger than PtrZBuffer).
+//! No-op when no FBO is active (s_fbo == 0).
+void GL_ReadbackDepthBuffer(void);
 
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus

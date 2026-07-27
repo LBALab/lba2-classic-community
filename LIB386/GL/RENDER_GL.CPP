@@ -768,11 +768,10 @@ static void GL_FlushBatch(void) {
         return;
     }
 
-    /* Bind FBO and clear on the first flush of each frame.
-       Only clear when there is geometry to draw — frames with no
-       Fill_Poly calls (e.g. Twinsen standing still) must preserve the
-       previous frame's 3D content in the FBO so it remains visible
-       through the 2D overlay's transparent areas. */
+    /* Bind FBO on the first flush of each frame.  The FBO clear is now
+       done by GL_ClearFBO() at the start of terrain rendering, so that
+       frames with no terrain (e.g. Twinsen standing still) preserve the
+       previous frame's 3D content in the FBO. */
     if (!s_frameActive) {
         s_frameActive = 1;
         if (s_fbo) {
@@ -781,12 +780,6 @@ static void GL_FlushBatch(void) {
         } else {
             glViewport(0, 0, s_texWidth, s_texHeight);
         }
-#if defined(__ANDROID__)
-        glClearDepthf(0.0f);
-#else
-        glClearDepth(0.0);
-#endif
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
     /* Upload batch vertices to VBO */
@@ -1004,6 +997,36 @@ static void GL_AddTriangle(Struc_Point *p0, Struc_Point *p1,
     s_batchTriCount++;
 }
 
+/* ── FBO clear (called at start of terrain rendering) ─────────────────────── */
+
+/* Clear the FBO color and depth buffers at the start of terrain rendering.
+   This is called from AffGrilleExt() instead of GL_FlushBatch() so that
+   frames with no terrain (e.g. Twinsen standing still) preserve the
+   previous frame's 3D content in the FBO. */
+void GL_ClearFBO(void) {
+    if (!s_initialized) {
+        return;
+    }
+
+    if (!Window_GLMakeCurrent()) {
+        return;
+    }
+
+    if (s_fbo) {
+        glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+        glViewport(0, 0, s_fboWidth, s_fboHeight);
+    } else {
+        glViewport(0, 0, s_texWidth, s_texHeight);
+    }
+
+#if defined(__ANDROID__)
+    glClearDepthf(0.0f);
+#else
+    glClearDepth(0.0);
+#endif
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
 
 void GL_BeginFrame(void) {
@@ -1015,6 +1038,83 @@ void GL_BeginFrame(void) {
        (which may fire mid-frame when the batch fills) uses the
        correct bilinear/nearest mode for all batches. */
     s_bilinearCLUT = DisplayTexFilter;
+}
+
+/* ── Depth readback (GL → SW Z-buffer) ──────────────────────────────────── */
+
+/* Read back the FBO depth buffer into the SW Z-buffer (PtrZBuffer) so that
+   ZBufBoxOverWrite2() can occlude shadows/objects behind terrain in GL mode.
+   The vertex shader outputs Z = 1.0 - aZ/65535.0; after the viewport
+   transform this becomes depth = (2.0 - aZ/65535) / 2.0.  Stored as
+   GL_DEPTH_COMPONENT16: gl_depth_16 = (131070 - aZ) / 2.
+   Inverting: aZ = 131070 - 2 * gl_depth_16.
+   When the depth buffer is cleared (0.0), aZ = 131070 — larger than any
+   valid aZ, so ZBufBoxOverWrite2 always keeps shadows there (correct). */
+extern "C" {
+extern U16 *PtrZBuffer;
+extern U32 ModeDesiredX;
+extern U32 ModeDesiredY;
+}
+
+void GL_ReadbackDepthBuffer(void) {
+    if (!s_initialized || !s_fbo || PtrZBuffer == NULL) {
+        return;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
+    const U32 fboW = s_fboWidth;
+    const U32 fboH = s_fboHeight;
+    const U32 scrW = ModeDesiredX;
+    const U32 scrH = ModeDesiredY;
+
+    /* Read at FBO resolution, then downsample to screen resolution */
+    if (fboW == scrW && fboH == scrH) {
+        glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
+                     GL_UNSIGNED_SHORT, PtrZBuffer);
+    } else {
+        /* SSAA path: read full FBO depth, downsample by picking the
+           closest terrain (minimum aZ) per screen pixel block. */
+        const U32 totalPixels = fboW * fboH;
+        static U16 *s_fboDepthBuf = NULL;
+        static U32 s_fboDepthBufSize = 0;
+        if (s_fboDepthBufSize < totalPixels) {
+            free(s_fboDepthBuf);
+            s_fboDepthBuf = (U16 *)malloc(totalPixels * sizeof(U16));
+            s_fboDepthBufSize = s_fboDepthBuf ? totalPixels : 0;
+        }
+        if (s_fboDepthBuf == NULL) {
+            return;
+        }
+
+        glReadPixels(0, 0, fboW, fboH, GL_DEPTH_COMPONENT,
+                     GL_UNSIGNED_SHORT, s_fboDepthBuf);
+
+        const U32 scaleX = fboW / scrW;
+        const U32 scaleY = fboH / scrH;
+
+        for (U32 sy = 0; sy < scrH; sy++) {
+            U16 *dstRow = PtrZBuffer + sy * scrW;
+            for (U32 sx = 0; sx < scrW; sx++) {
+                U16 minAZ = 0x7FFF; /* start with smallest possible aZ */
+                const U32 fx0 = sx * scaleX;
+                const U32 fy0 = sy * scaleY;
+                for (U32 fy = fy0; fy < fy0 + scaleY; fy++) {
+                    const U16 *srcRow = s_fboDepthBuf + fy * fboW;
+                    for (U32 fx = fx0; fx < fx0 + scaleX; fx++) {
+                        U32 gl_depth_16 = srcRow[fx];
+                        U16 az = (U16)(131070u - 2u * gl_depth_16);
+                        if (az < minAZ) {
+                            minAZ = az;
+                        }
+                    }
+                }
+                dstRow[sx] = minAZ;
+            }
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 /* ── Present (extended with 3D flush) ───────────────────────────────────── */
@@ -1176,6 +1276,17 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         return 0;
     }
 
+    /* Body polygons (non-Z-buffered, non-OBJ_ZBUFFER) must fall back to
+       the SW rasterizer (Log buffer) rather than the FBO.  The FBO is
+       cleared only by GL_ClearFBO() at the start of terrain rendering.
+       Body polygons rendered to the FBO outside terrain passes accumulate
+       across frames (e.g. the comportement menu's spinning Twinsen models),
+       producing ghosting.  Routing them to Log keeps them in the same
+       compositing layer as shadows and the 2D overlay. */
+    if (!Fill_Flag_ZBuffer || Fill_Flag_NZW) {
+        return 0;
+    }
+
     /* Need at least 3 points for a triangle */
     if (nbPoints < 3) {
         return 0;
@@ -1264,6 +1375,8 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
     (void)resX; (void)resY;
 }
 void GL_BeginFrame(void) {}
+void GL_ClearFBO(void) {}
+void GL_ReadbackDepthBuffer(void) {}
 void GL_Present(const void *argbPixels, U32 pitch, U32 width, U32 height,
                 S32 filterLinear) {
     (void)argbPixels; (void)pitch; (void)width; (void)height;

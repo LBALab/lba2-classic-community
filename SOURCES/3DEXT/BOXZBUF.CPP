@@ -5,6 +5,10 @@
 
 #include <stdio.h>
 
+#ifdef USE_GPURENDERER
+extern S32 GPURendererActive;
+#endif
+
 S32 IncZ = 0;
 
 // ZBufBoxOverWrite2: Copies terrain pixels from Screen onto Log wherever the
@@ -43,6 +47,17 @@ S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
     S32 i = -deltaX;
     U8 flag = 1;
 
+#ifdef USE_GPURENDERER
+    /* GL mode: terrain lives in the FBO, not in Screen.  Where terrain is
+       closer than the object, clear the Log pixel (set to 0 = transparent)
+       so the FBO terrain shows through during GL_Present compositing.
+       In SW mode, copy the terrain pixel from Screen (unchanged behaviour).
+       Only shadow DrawRecover runs in GL mode (body objects skip it). */
+    const S32 glMode = GPURendererActive;
+#else
+    const S32 glMode = 0;
+#endif
+
     do {
         // ASM uses shr (logical/unsigned shift), not sar (arithmetic/signed shift)
         U32 z0Int = (U32)scaledZ >> 16; // esi
@@ -66,14 +81,22 @@ S32 ZBufBoxOverWrite2(S32 z0, S32 z1,
 
                     // Is our pixel hidden?
                     if (z < z0Int) {
-                        dstLog[i] = dstScreen[i]; // No: Copy it
+                        if (glMode) {
+                            dstLog[i] = 0; // GL: clear → FBO terrain shows
+                        } else {
+                            dstLog[i] = dstScreen[i]; // SW: copy terrain
+                        }
                     }
                 }
 
                 break;
             }
 
-            dstLog[i] = dstScreen[i]; // No: Copy it
+            if (glMode) {
+                dstLog[i] = 0; // GL: clear → FBO terrain shows
+            } else {
+                dstLog[i] = dstScreen[i]; // SW: copy terrain
+            }
             i++;
             if (i > 0) {
                 break;

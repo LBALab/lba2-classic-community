@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include <SVGA/SCREEN.H>
+#include <GL/RENDER_GL.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
@@ -312,6 +313,14 @@ void InitGrilleExt(U32 numcube) {
 /*──────────────────────────────────────────────────────────────────────────*/
 // Affiche la grille complète à la position actuelle de la caméra
 void AffGrilleExt() {
+#ifdef USE_GPURENDERER
+    /* Clear the FBO at the start of terrain rendering.  This is done here
+       instead of in GL_FlushBatch() so that frames with no terrain
+       (e.g. Twinsen standing still) preserve the previous frame's 3D
+       content in the FBO. */
+    GL_ClearFBO();
+#endif
+
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
@@ -350,6 +359,15 @@ void AffGrilleExt() {
     Switch_Fillers(FILL_POLY_TEXTURES);
 
     CopyScreen(Log, Screen);
+
+#ifdef USE_GPURENDERER
+    /* Read back GL depth buffer into PtrZBuffer so that shadow
+       DrawRecover() → ZBufBoxOverWrite2() can occlude shadows behind
+       terrain in GL mode.  Only shadow DrawRecover runs (body objects
+       skip it), so this correctly clears shadow pixels from Log without
+       affecting body pixels. */
+    GL_ReadbackDepthBuffer();
+#endif
 
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_CAMERA) {
