@@ -55,6 +55,13 @@ void GL_SetRenderQuality(U32 quality);
 //! No-op when no FBO is active (s_fbo == 0).
 void GL_ReadbackDepthBuffer(void);
 
+//! Read back the FBO color buffer and convert ARGB pixels to 8-bit palette
+//! indices, storing the result in the Screen buffer.  Used by AffGrilleExt()
+//! to copy terrain into Log so ShadeBoxBlk (shadow darkening) has real pixels
+//! to operate on.  Must be called after GL_ReadbackDepthBuffer() (FBO must
+//! be bound).  Handles SSAA downscaling.  No-op when no FBO is active.
+void GL_ReadbackColorBuffer(void);
+
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 }
