@@ -91,8 +91,8 @@ static void setup_dep(T_OBJ_3D *obj) {
     obj->Status = FLAG_CHANGE;
     obj->LastFrame = 0;
     obj->NextFrame = 1;
-    obj->LastOfsFrame = (PTR_U32)anim_frame_offset(3, 0);
-    obj->NextOfsFrame = (PTR_U32)anim_frame_offset(3, 1);
+    obj->LastOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 0);
+    obj->NextOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 1);
     obj->LastOfsIsPtr = 0;
     obj->LastTimer = 0;
     obj->NextTimer = 100;
@@ -155,8 +155,8 @@ static void test_cpp_loop(void) {
     setup_dep(&obj);
     obj.LastFrame = 1;
     obj.NextFrame = 2;
-    obj.LastOfsFrame = (PTR_U32)anim_frame_offset(3, 1);
-    obj.NextOfsFrame = (PTR_U32)anim_frame_offset(3, 2);
+    obj.LastOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 1);
+    obj.NextOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 2);
     obj.LastTimer = 100;
     obj.NextTimer = 200;
     /* Advance time past the last frame to trigger loopFrame=1. */
@@ -257,8 +257,8 @@ static void test_asm_equiv_with_rotation(void) {
     cpp_obj.Status = FLAG_CHANGE;
     cpp_obj.LastFrame = 0;
     cpp_obj.NextFrame = 1;
-    cpp_obj.LastOfsFrame = (PTR_U32)anim_frame_offset(3, 0);
-    cpp_obj.NextOfsFrame = (PTR_U32)anim_frame_offset(3, 1);
+    cpp_obj.LastOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 0);
+    cpp_obj.NextOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 1);
     cpp_obj.LastOfsIsPtr = 0;
     cpp_obj.LastTimer = 0;
     cpp_obj.NextTimer = 100;
@@ -272,8 +272,8 @@ static void test_asm_equiv_with_rotation(void) {
     asm_obj.Status = FLAG_CHANGE;
     asm_obj.LastFrame = 0;
     asm_obj.NextFrame = 1;
-    asm_obj.LastOfsFrame = (PTR_U32)anim_frame_offset(3, 0);
-    asm_obj.NextOfsFrame = (PTR_U32)anim_frame_offset(3, 1);
+    asm_obj.LastOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 0);
+    asm_obj.NextOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(3, 1);
     asm_obj.LastOfsIsPtr = 0;
     asm_obj.LastTimer = 0;
     asm_obj.NextTimer = 100;
