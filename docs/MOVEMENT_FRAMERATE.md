@@ -194,10 +194,23 @@ surgery and its own correctness risk.
   `ManageTime` as-is, sets `TimerRefHR` per sub-step inside a `goto` loop, and restores it
   afterward, so modals and the `--fixed-dt` harness are untouched and `--fixed-dt 16` stays
   byte-identical (elapsed == 16 -> exactly 1 step, verified). The input re-entrancy hazard is
-  handled by masking `Input` down to movement bits (`I_JOY`) after the first sub-step so held
-  actions (jump, throw) do not re-fire; `InitAnim` is idempotent
-  ([OBJECT.CPP](../SOURCES/OBJECT.CPP)), so keeping the direction bits does not reset the walk
-  anim. Verified by `tests/automation/test_move_substep.sh` (dt16 vs dt64 travel now match).
+  handled by holding the frame's input sample across the sub-steps: input is sampled once per
+  rendered frame, and a frame's sub-steps advance sim *time*, not input. Sub-step 0 sees the real
+  press/release *edge* (`LastInput` is still the previous frame's sample); sub-steps 1..N hold
+  **both** `Input` and `LastInput` at the frame's sample, so a held action reads as steady state --
+  no phantom press (`Input == LastInput`, so edge-guarded actions like the aggressive-mode combo
+  do not re-select) and no phantom release. `InitAnim` is idempotent and projectile spawns are
+  animation-frame-gated ([OBJECT.CPP](../SOURCES/OBJECT.CPP)), so re-presenting the held input each
+  sub-step does not re-fire. `LastInput` is restored after the loop.
+
+  The first cut instead *masked* `Input` down to movement bits (`I_JOY`) on sub-steps > 0. That
+  dropped the held action bits, which the hero object loop's momentary-action paths read as a
+  *release* -- `if (LastInput & I_THROW) InitAnim(GEN_ANIM_RIEN)` and the `LastMyFire` idle reset
+  in `MOVE_MANUAL` -- so below ~60 fps a held throw/attack was reset to idle every sub-step and
+  never reached its throw/hit frame: the magic ball never left Twinsen's hand and the sword combo
+  broke (#456). Verified by `tests/automation/test_move_substep.sh` (dt16 vs dt64 travel match)
+  and `tests/automation/test_action_substep.sh` (throw fires and melee holds across the rate
+  range; 60 fps unchanged).
 
 **One-frame signals on a skipped frame -- the invariant.** A skip runs no simulation but still
 presents a frame, so anything that must be *read/observed by the sim on the exact frame it changes*
