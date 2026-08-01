@@ -974,6 +974,8 @@ S32	ThrowExtra(	U8 owner,
 	{
 		if( ptrextra->Sprite != -1 ) 	continue ;	/* slot libre */
 
+		if( owner == NUM_PERSO )	DbgHeroThrows++ ;	/* harness re-fire counter (#456) */
+
 		ptrextra->Sprite = num ;
 		ptrextra->Scale  = -1 ;
 

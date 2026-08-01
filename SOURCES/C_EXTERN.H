@@ -362,6 +362,8 @@ extern S32 DbgUseItemInjectDelay; // console `useitem`: frames to wait before in
 extern S32 DbgUseItemTrace;       // console `useitem trace`: log each LF_USE_INVENTORY result
 extern S32 DbgCubeTrace;          // console `cubetrace`: log every cube transition
 extern S32 DbgSkipModals;         // console `skipmodals`: abort dialogue modals headlessly
+extern S32 DbgHeroThrows;         // harness: count of hero projectile spawns (magic ball + ThrowExtra); re-fire tests
+extern S32 DbgHeroActionResets;   // harness: hero action-anim resets by the momentary-action release/idle paths (MOVE_MANUAL); #456 tests
 extern S32 MagicBall;
 extern U8 MagicBallType;
 extern U8 MagicBallCount;

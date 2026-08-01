@@ -1558,6 +1558,31 @@ static void cmd_vargame(int argc, const char *argv[]) {
     Console_Print("vargame[%d] = %d", n, (int)ListVarGame[n]);
 }
 
+/* behaviour [n] | comportement [n]: read or set the hero behaviour (0=Normal 1=Sportif 2=Aggressive
+   3=Discreet 4=Protopack ...). Routes through SetComportement so the weapon/body side-effects match a
+   real in-game switch. Lets a headless test reach the melee (Aggressive), jump (Sportif) and hide
+   (Discreet) input paths without a save fixture in that behaviour. */
+static void cmd_behaviour(int argc, const char *argv[]) {
+    if (argc >= 2) {
+        S32 n = atoi(argv[1]);
+        if (n < 0 || n >= MAX_COMPORTEMENTS) {
+            Console_Print("behaviour: %d out of range (0..%d)", n, MAX_COMPORTEMENTS - 1);
+            return;
+        }
+        SetComportement((U8)n);
+    }
+    Console_Print("behaviour = %d", (int)Comportement);
+}
+
+/* weapon [n]: read or set the hero's active weapon global (FLAG_BALLE_MAGIQUE=1, FLAG_SABRE, FLAG_DART,
+   FLAG_SARBACANE, ...). Sets Weapon only; a weapon that is ammo- or inventory-gated may also need its
+   ListVarGame flag (use `vargame`). For reaching the various fire paths in a headless test. */
+static void cmd_weapon(int argc, const char *argv[]) {
+    if (argc >= 2)
+        Weapon = (U8)atoi(argv[1]);
+    Console_Print("weapon = %d", (int)Weapon);
+}
+
 /* lifetrace <objN> | off: trace object N's Life script -- its comportement/track/zone state each
    frame and every condition (LF_*) it evaluates. Reveals whether an NPC's script ever reaches a
    given check and what its gating conditions read. */
@@ -1906,6 +1931,10 @@ void Console_RegisterAll(void) {
                               "teleport <x> <y> <z> [beta] | teleport actor <n>",
                               "Sets the hero's coords directly; next frame re-runs zones/collision. "
                               "'actor <n>' jumps onto actor n. Within-cube only.");
+    Console_RegisterCommandEx("behaviour", cmd_behaviour, "Read/set hero behaviour (comportement)",
+                              "behaviour [0..13]", "0=Normal 1=Sportif 2=Aggressive 3=Discreet 4=Protopack. Routes through SetComportement.");
+    Console_RegisterCommandEx("weapon", cmd_weapon, "Read/set hero active weapon",
+                              "weapon [n]", "Sets the Weapon global (1=magic ball). Ammo/inventory may need vargame.");
     Console_RegisterCommandEx("varcube", cmd_varcube, "Read/set a scene (cube) Life variable",
                               "varcube <n> [value]",
                               "Reads the cube var, or sets it with a value. Drives quest state.");
