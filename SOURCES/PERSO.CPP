@@ -1930,6 +1930,7 @@ restartloop:
         U32 simBaseRef = LastSimRefHR;
         U32 simFinalRef = TimerRefHR;
         U32 simSavedInput = Input;
+        U32 simSavedLastInput = LastInput; // restored after the sub-step loop (see below)
         if (FixedTimestep > 0) {
             // Plan this frame's sub-steps (count + sub-step clock anchor + the next-frame carry).
             // Timer_PlanSimSteps is the pure, unit-tested core (LIB386/SYSTEM/TIMER.CPP): it
@@ -1985,8 +1986,26 @@ restartloop:
     sim_step:
         if (FixedTimestep > 0) {
             TimerRefHR = simBaseRef + (U32)(simStep + 1) * (U32)FixedTimestep;
-            if (simStep > 0)
-                Input = simSavedInput & I_JOY; // movement only after the first sub-step
+            if (simStep > 0) {
+                /* Input is sampled once per rendered frame; a frame's sub-steps advance sim TIME, not
+                   input. So every sub-step sees the frame's held input, and the press/release EDGE is
+                   consumed once -- on the first sub-step, where LastInput is still the previous frame's
+                   real sample. On later sub-steps we hold BOTH Input and LastInput at that sample so the
+                   held bits read as steady state: no phantom press (Input == LastInput, so the object
+                   loop's edge-guarded actions like the C_AGRESSIF MyRnd combo do not re-select) and no
+                   phantom release (the held bits are still present, so the momentary-action reset paths
+                   -- `if (LastInput & I_THROW) InitAnim(GEN_ANIM_RIEN)` and the LastMyFire idle reset in
+                   OBJECT.CPP MOVE_MANUAL -- stay put instead of cancelling an in-flight throw/attack anim
+                   before it reaches its action frame). The earlier `& I_JOY` mask dropped the held action
+                   bits, which the loop read as a release and reset the anim every sub-step, so below
+                   ~60 fps a held throw/attack never advanced to its throw/hit frame (#456). InitAnim is
+                   idempotent and projectile spawns are animation-frame-gated, so re-presenting the held
+                   input each sub-step does not re-fire. LastInput is restored after the loop.
+                   At FixedTimestep == 0 or nSimSteps == 1 (>= ~60 fps) this branch never runs, so the
+                   per-frame path is byte-for-byte unchanged. */
+                Input = simSavedInput;
+                LastInput = simSavedInput;
+            }
         }
 
         /* vitesse de chute propor pour tous les objets */
@@ -2259,9 +2278,10 @@ restartloop:
             goto sim_step; // run the next fixed sub-step of this frame
         if (FixedTimestep > 0) {
             // Restore the frame's clock for rendering / the next frame and undo the per-sub-step
-            // input mask. LastSimRefHR was already advanced by Timer_PlanSimSteps (the carry).
+            // input hold. LastSimRefHR was already advanced by Timer_PlanSimSteps (the carry).
             TimerRefHR = simFinalRef;
             Input = simSavedInput;
+            LastInput = simSavedLastInput; // undo the sub-step hold so the next frame's edge is real
         }
 
         /*-------------------------------------------------------------------------*/

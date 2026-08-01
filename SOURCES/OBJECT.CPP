@@ -4343,6 +4343,8 @@ void DoDir(U8 numobj) {
                     }
 
                     if (LastInput & I_THROW) {
+                        if (numobj == NUM_PERSO && ptrobj->GenAnim != GEN_ANIM_RIEN)
+                            DbgHeroActionResets++;
                         InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, numobj);
                     }
 
@@ -4405,6 +4407,8 @@ void DoDir(U8 numobj) {
             if ((LastJoyFlag)
                     AND(((Input & I_JOY) != LastMyJoy)
                             OR((Input & I_FIRE) != LastMyFire))) {
+                if (numobj == NUM_PERSO && ptrobj->GenAnim != GEN_ANIM_RIEN)
+                    DbgHeroActionResets++;
                 InitAnim(GEN_ANIM_RIEN, ANIM_REPEAT, numobj);
                 Pushing = FALSE;
             }
