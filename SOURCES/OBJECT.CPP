@@ -5360,6 +5360,16 @@ void AffScene(S32 flagflip) {
     S32 typeobj;
 
     char string[256];
+
+#ifdef USE_GPURENDERER
+    /* Persistent baseline for the Log-vs-FBO clearing pass.  Saved only
+       during AFF_ALL_* frames (where Screen holds clean FBO palette
+       indices) and reused for AFF_OBJETS_* frames where BoxBlit would
+       otherwise contaminate Screen. */
+    static U8 *s_fboBaseline = NULL;
+    static S32 s_baselineSize = 0;
+#endif
+
 /*------------------------------------------------------------------------*/
 startaffscene:
 
@@ -5442,6 +5452,23 @@ startaffscene:
         //			HQ_ChangeBalanceSamples( oldxporg, oldyporg ) ;
 
         CopyScreen(Log, Screen);
+
+#ifdef USE_GPURENDERER
+        /* Save the FBO palette baseline for the Log clearing pass.
+           Only updated during AFF_ALL_* frames where Screen holds the
+           clean FBO readback.  AFF_OBJETS_* frames reuse this baseline
+           (BoxBlit would otherwise contaminate Screen). */
+        if (GPURendererActive) {
+            S32 needed = (S32)ModeDesiredX * (S32)ModeDesiredY;
+            if (s_baselineSize != needed) {
+                free(s_fboBaseline);
+                s_fboBaseline = (U8 *)malloc((size_t)needed);
+                s_baselineSize = needed;
+            }
+            if (s_fboBaseline)
+                memcpy(s_fboBaseline, Screen, (size_t)needed);
+        }
+#endif
 
         if (flagflip == AFF_ALL_FLIP
                                 AND !CinemaMode AND MemoClipWindowYMin > 0) {
@@ -6147,6 +6174,62 @@ startaffscene:
     }
 
     /*-------------------------------------------------------------------------*/
+
+#ifdef USE_GPURENDERER
+    /* GL mode: the Log overlay (palette-indexed) covers the FBO (GL-rendered)
+       for every non-zero pixel, hiding the FBO's GL quality (fog, SSAA,
+       animated polys).  After all objects/shadows have rendered to Log,
+       clear any pixel that still matches the FBO baseline back to index 0
+       (transparent).  Only pixels modified by body polygons, ShadeBoxBlk
+       (shadows), or other 2D effects remain opaque.
+
+       The baseline is saved during AFF_ALL_* frames (where Screen holds
+       clean FBO palette indices).  AFF_OBJETS_* frames reuse the same
+       baseline — BoxBlit would otherwise contaminate Screen.
+
+       Excluded for interior scenes: the FBO is never populated there
+       (interiors use 2D bitmap blits, not Fill_Poly), so clearing Log
+       would expose a black FBO.
+
+       RGB comparison (not palette-index equality): the FBO→palette
+       readback is lossy, so a house polygon pixel that visually
+       differs from the terrain may quantize to the same palette index.
+       Comparing actual RGB values avoids falsely clearing object pixels
+       that coincidentally share a palette index with the terrain. */
+    if (GPURendererActive
+            && CubeMode == CUBE_EXTERIEUR
+            && s_fboBaseline) {
+        const U32 *lut = GL_GetPaletteLUT();
+        if (lut) {
+            const U32 nPixels = (U32)ModeDesiredX * (U32)ModeDesiredY;
+            const U8 *src = s_fboBaseline;
+            U8 *dst = (U8 *)Log;
+            /* Squared-distance threshold: 16 per channel ≈ tolerance
+               of 4 in each R/G/B component.  Loose enough to absorb
+               the readback quantisation gap, tight enough not to swallow
+               house polygons whose textures differ from terrain. */
+            const U32 thresh2 = 16 * 16 * 3;
+            for (U32 i = 0; i < nPixels; i++) {
+                U8 li = dst[i];
+                U8 bi = src[i];
+                if (li == bi) {
+                    /* Fast path: identical index → definitely terrain */
+                    dst[i] = 0;
+                } else if (li != 0 && bi != 0) {
+                    /* Both non-zero but different indices: compare RGB */
+                    U32 c1 = lut[li];
+                    U32 c2 = lut[bi];
+                    S32 dr = (S32)((c1 >> 16) & 0xFF) - (S32)((c2 >> 16) & 0xFF);
+                    S32 dg = (S32)((c1 >>  8) & 0xFF) - (S32)((c2 >>  8) & 0xFF);
+                    S32 db = (S32)((c1      ) & 0xFF) - (S32)((c2      ) & 0xFF);
+                    if ((U32)(dr*dr + dg*dg + db*db) < thresh2) {
+                        dst[i] = 0;
+                    }
+                }
+            }
+        }
+    }
+#endif
 
     UnsetClip();
 

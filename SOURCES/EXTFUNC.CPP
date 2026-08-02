@@ -356,6 +356,35 @@ void AffGrilleExt() {
 
     FiltreAnimatedPolys();
 
+#ifdef USE_GPURENDERER
+    /* GL mode: render all filtered animated polys into the FBO so they
+       appear in the terrain layer (visible through the Log overlay after
+       the clearing pass in AffScene).  Without this, animated polys are
+       only drawn by DrawAnimatedPolys during AFF_OBJETS_* frames where
+       the Log overlay is not cleared, so they remain hidden. */
+    if (GPURendererActive && NbAniPoly > 0) {
+        S32 savedRepMask = RepMask;
+        PTR_U8 savedPtrMap = PtrMap;
+        Switch_Fillers(FILL_POLY_FOG_NZW);
+        PtrMap = GroundTexture;
+        RepMask = 0xFFFF;
+        for (S32 iAni = 0; iAni < NbAniPoly; iAni++) {
+            S_ANI_POLY *ani = &PtrPolySea[iAni];
+            UnsetClip();
+            SetClip(ani->X0, ani->Y0, ani->X1, ani->Y1);
+            if (ClipXMin <= ClipXMax && ClipYMin <= ClipYMax) {
+                SetCLUT(ani->Fog);
+                Fill_Poly(ani->Type, ani->Color, 3, ani->Tab_Points);
+            }
+        }
+        UnsetClip();
+        Switch_Fillers(FILL_POLY_TEXTURES);
+        SetCLUT(PalLevel);
+        RepMask = savedRepMask;
+        PtrMap = savedPtrMap;
+    }
+#endif
+
     Switch_Fillers(FILL_POLY_TEXTURES);
 
 #ifdef USE_GPURENDERER
@@ -364,10 +393,15 @@ void AffGrilleExt() {
            1. Read back depth so ZBufBoxOverWrite2 can occlude shadows.
            2. Read back color (FBO → Screen as palette indices).
            3. Copy Screen → Log so ShadeBoxBlk (shadow darkening) has
-              real terrain pixels to darken rather than empty buffer. */
+              real terrain pixels to darken rather than empty buffer.
+           Body polygons (NPCs, shadows) then render to Log on top of
+           the terrain copy.  GL_Present composites FBO (terrain) +
+           Log (objects + shadows + darkened shadows) on top. */
         GL_ReadbackDepthBuffer();
         GL_ReadbackColorBuffer();
         CopyScreen(Screen, Log);
+
+
     } else
 #endif
     {
