@@ -48,6 +48,13 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
 //! takes effect on the next frame.
 void GL_SetRenderQuality(U32 quality);
 
+//! Flush any pending batch of triangles to the FBO.
+//! Must be called after mid-frame rendering (e.g. DrawAnimatedPolys) that
+//! adds geometry to the batch outside the AffGrilleExt terrain pass, so that
+//! the triangles actually reach the FBO before the next readback or present.
+//! No-op when the batch is empty.
+void GL_FlushBatch(void);
+
 //! Read back the FBO depth buffer into the SW Z-buffer (PtrZBuffer) after
 //! terrain rendering.  Converts GL_DEPTH_COMPONENT16 back to the aZ format
 //! used by ZBufBoxOverWrite2() for shadow/object occlusion in GL mode.

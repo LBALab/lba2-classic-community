@@ -28,6 +28,8 @@ extern PTR_U8 PtrMap;
 extern S32 RepMask;
 extern U8 Fill_Flag_ZBuffer;
 extern U8 Fill_Flag_NZW;
+extern U32 Fill_Fog_Factor;
+extern U32 Fill_ScaledFogNear;
 }
 
 /* ── External dirty flag (from VAR_EXT.CPP) ─────────────────────────────── */
@@ -86,6 +88,7 @@ static const char *s_clutVertSrc =
     "varying vec2 vTexCoord;\n"
     "varying float vLight;\n"
     "varying float vRepMask;\n"
+    "varying float vZ;\n"
     "void main() {\n"
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
@@ -93,6 +96,7 @@ static const char *s_clutVertSrc =
     "    vTexCoord = aTexCoord;\n"
     "    vLight = aLight;\n"
     "    vRepMask = aRepMask;\n"
+    "    vZ = aZ;\n"
     "}\n";
 
 static const char *s_clutFragSrc =
@@ -100,15 +104,18 @@ static const char *s_clutFragSrc =
     "uniform sampler2D uAtlas;\n"   /* 256×256 LUMINANCE */
     "uniform sampler2D uCLUT;\n"    /* 256×256 LUMINANCE (fog table) */
     "uniform sampler2D uPalette;\n" /* 256×1 BGRA (paletteLUT) */
-    "uniform int uPolyMode;\n"      /* 0=texture 1=flat 2=gouraud 3=gouraudTable 4=textureNoCLUT */
+    "uniform int uPolyMode;\n"      /* 0=texture 1=flat 2=gouraud 3=gouraudTable 4=textureNoCLUT 5=fogSmooth */
     "uniform float uFlatColor;\n"   /* palette index (mode 1) / CLUT column (mode 3) */
     "uniform float uCLUTBaseRow;\n" /* CLUT row offset for gouraud table (mode 3) */
+    "uniform float uScaledFogNear;\n" /* Fill_ScaledFogNear (fog-smooth distance, mode 5) */
+    "uniform float uFogRowScale;\n"   /* Fill_Fog_Factor / 65536 (fog-smooth distance, mode 5) */
     "uniform int uAlphaMode;\n"     /* 0=opaque 1=TRANS(semi) 2=TRAME(stipple) */
     "uniform int uBilinear;\n"      /* 0=nearest 1=bilinear CLUT sampling */
     "uniform int uChromaKey;\n"     /* 0=no chroma key 1=discard index 0 */
     "varying vec2 vTexCoord;\n"
     "varying float vLight;\n"
     "varying float vRepMask;\n"
+    "varying float vZ;\n"
     /* Look up a palette index through the CLUT, returning the final RGBA
        color.  `palIdx` is the raw atlas texel (palette index) and
        `gouraudRow` the CLUT row selected by the gouraud intensity. */
@@ -169,8 +176,8 @@ static const char *s_clutFragSrc =
     "        } else {\n"
     "            float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "            float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "            vec2 atlasUV = vec2((wrappedU + 0.5) / 256.0,\n"
-    "                                (wrappedV + 0.5) / 256.0);\n"
+    "            vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+    "                                (floor(wrappedV) + 0.5) / 256.0);\n"
     "            float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent (skipped by SW rasterizer
        at the Log buffer level).  Discard before CLUT so the fog table
@@ -203,14 +210,41 @@ static const char *s_clutFragSrc =
     "        float heightMask = floor(vRepMask / 256.0);\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
-    "        vec2 atlasUV = vec2((wrappedU + 0.5) / 256.0,\n"
-    "                            (wrappedV + 0.5) / 256.0);\n"
+    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+    "                            (floor(wrappedV) + 0.5) / 256.0);\n"
     "        float palIdx = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: atlas texel 0 = transparent.
        Only INCRUST types have chroma key. */
     "        if (uChromaKey != 0 && palIdx < 0.5) discard;\n"
     "        color = texture2D(uPalette,\n"
     "                 vec2((palIdx + 0.5) / 256.0, 0.5));\n"
+    "    } else if (uPolyMode == 5) {\n"
+    /* Texture Z Fog Smooth (type 24, e.g. sea/sky):
+       SW Filler_TextureZFogSmoothZBuf / ...NZW use a fixed CLUT base
+       (PtrCLUTFog + 12*256) plus a per-pixel distance-based fog row,
+       IGNORING Pt_Light entirely.  Replicating the SW math:
+       zBufVal = interpolated Pt_ZO (the batch aZ)
+       fogDist = max(zBufVal - Fill_ScaledFogNear, 0)
+       fogRow  = (fogDist * Fill_Fog_Factor) >> 8, masked & 0xF000
+       CLUT index = PtrCLUTFog + 12*256 + fogRow + texel
+       As a CLUT row: (12*256 + fogRow)/256 = 12 + fogRow/256, where
+       fogRow/256 = ((fogDist * Fill_Fog_Factor) >> 16) & 0xF0.
+       uFogRowScale = Fill_Fog_Factor / 65536, so
+       floor(zDist * uFogRowScale) = (fogDist * Fill_Fog_Factor) >> 16. */
+    "        vec2 tc = vTexCoord / 256.0;\n"
+    "        float widthMask = mod(vRepMask, 256.0);\n"
+    "        float heightMask = floor(vRepMask / 256.0);\n"
+    "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
+    "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
+    "        vec2 atlasUV = vec2((floor(wrappedU) + 0.5) / 256.0,\n"
+    "                            (floor(wrappedV) + 0.5) / 256.0);\n"
+    "        float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
+    /* Chroma key: type 24 is non-INCRUST (bit 2 clear), so index 0 is
+       written unconditionally — no discard here. */
+    "        float fogDist = max(vZ - uScaledFogNear, 0.0);\n"
+    "        float fogRow16 = floor(fogDist * uFogRowScale);\n"
+    "        float clutRow = 12.0 + floor(mod(fogRow16, 256.0) / 16.0) * 16.0;\n"
+    "        color = clutLookup(texel, clutRow);\n"
     "    } else {\n"
     /* Gouraud table (types 6/7): CLUT lookup, color = column.
        Same +128 rounding bias as polyMode 0. */
@@ -260,6 +294,8 @@ static GLint s_clut_uScreenScale = -1;
 static GLint s_clut_uPolyMode = -1;
 static GLint s_clut_uFlatColor = -1;
 static GLint s_clut_uCLUTBaseRow = -1;
+static GLint s_clut_uScaledFogNear = -1;
+static GLint s_clut_uFogRowScale = -1;
 static GLint s_clut_uAlphaMode = -1;
 static GLint s_clut_uBilinear = -1;
 static GLint s_clut_uChromaKey = -1;
@@ -287,6 +323,8 @@ static U32 s_currentTypePoly = 0;
 static U32 s_currentColorPoly = 0;
 static S32 s_bilinearCLUT = 0; /* bilinear CLUT sampling flag for 3D */
 static GLfloat s_batchCLUTBaseRow = 0.0f; /* CLUT row offset captured at batch start */
+static GLfloat s_batchScaledFogNear = 0.0f; /* Fill_ScaledFogNear captured at batch start */
+static GLfloat s_batchFogRowScale = 0.0f; /* Fill_Fog_Factor / 65536 captured at batch start */
 static const void *s_batchCLUTGouraud = NULL; /* PtrCLUTGouraud at batch start */
 static U8 s_batchZBuffer = 0;   /* Fill_Flag_ZBuffer captured at batch start */
 static U8 s_batchNZW = 0;       /* Fill_Flag_NZW captured at batch start */
@@ -301,11 +339,19 @@ static U32 s_renderQuality = 1; /* 1 = native, 2 = 2x, 4 = 4x */
 static S32 s_frameActive = 0; /* 1 between GL_BeginFrame and GL_Present */
 
 /* Set to 1 by GL_ClearFBO() at the start of terrain rendering, cleared by
-   GL_BeginFrame().  Lets GL_RenderTriangleList route body/shadow polygons
-   (Fill_Flag_ZBuffer=0 or Fill_Flag_NZW=1) into the GL batch during terrain
-   rendering (correct depth testing), while still falling back to SW/Log in
-   menu/modal loops where no terrain has been drawn. */
+   GL_BeginFrame().  Used by GL_RenderTriangleList to route body/shadow
+   polygons (Fill_Flag_ZBuffer=0) into the GL batch during terrain rendering
+   for correct depth testing. */
 static S32 s_terrainRenderedThisFrame = 0;
+
+/* Persistent flag: set to 1 after the first GL_ClearFBO(), remains set until
+   the GL renderer is shut down or resized.  Lets GL_RenderTriangleList route
+   NZW polygons (animated polys: flowers, water) through the GL batch in both
+   full redraws (AFF_ALL_*) and incremental updates (AFF_OBJETS_*), as long
+   as the FBO contains valid terrain depth.  Without a persistent flag, NZW
+   polygons in the incremental path (where GL_ClearFBO() is not called) would
+   fall back to SW/Log, losing correct depth-tested compositing with the FBO. */
+static S32 s_fboHasTerrain = 0;
 
 /* ── Fullscreen quad: position (x,y) + texcoord (u,v) ───────────────────── */
 
@@ -495,6 +541,8 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_uPolyMode = glGetUniformLocation(s_clutProgram, "uPolyMode");
     s_clut_uFlatColor = glGetUniformLocation(s_clutProgram, "uFlatColor");
     s_clut_uCLUTBaseRow = glGetUniformLocation(s_clutProgram, "uCLUTBaseRow");
+    s_clut_uScaledFogNear = glGetUniformLocation(s_clutProgram, "uScaledFogNear");
+    s_clut_uFogRowScale = glGetUniformLocation(s_clutProgram, "uFogRowScale");
     s_clut_uAlphaMode = glGetUniformLocation(s_clutProgram, "uAlphaMode");
     s_clut_uBilinear = glGetUniformLocation(s_clutProgram, "uBilinear");
     s_clut_uChromaKey = glGetUniformLocation(s_clutProgram, "uChromaKey");
@@ -659,6 +707,7 @@ void GL_Renderer_Shutdown(void) {
     s_batchZBuffer = 0;
     s_batchNZW = 0;
     s_frameActive = 0;
+    s_fboHasTerrain = 0;
     Log_Info("[GL] Renderer shut down.");
 }
 
@@ -681,6 +730,7 @@ void GL_Renderer_Resize(U32 resX, U32 resY) {
     s_texHeight = resY;
 
     /* Recreate FBO at scaled resolution (always needed) */
+    s_fboHasTerrain = 0;
     GL_CreateFBO(resX * s_renderQuality, resY * s_renderQuality);
 }
 
@@ -697,6 +747,7 @@ void GL_SetRenderQuality(U32 quality) {
     if (!Window_GLMakeCurrent()) {
         return;
     }
+    s_fboHasTerrain = 0;
     GL_CreateFBO(s_texWidth * quality, s_texHeight * quality);
     Log_Info("[GL] SetRenderQuality: FBO %s (s_fbo=%u).",
              s_fbo ? "OK" : "FAILED", s_fbo);
@@ -743,6 +794,7 @@ static void GL_UploadCLUT(void) {
 }
 
 static void GL_UploadAtlas(void) {
+    static S32 s_atlasLogCount = 0;
     if (PtrMap == NULL) {
         return;
     }
@@ -766,7 +818,7 @@ static void GL_UploadAtlas(void) {
 
 /* ── Batch management ───────────────────────────────────────────────────── */
 
-static void GL_FlushBatch(void) {
+void GL_FlushBatch(void) {
     if (!Window_GLMakeCurrent()) {
         return;
     }
@@ -835,6 +887,12 @@ static void GL_FlushBatch(void) {
            palette index directly (*line = texel) — no CLUT lookup.
            Chroma key (discard index 0) controlled by uChromaKey. */
         polyMode = 4;
+    } else if (s_currentTypePoly == POLY_TEXTURE_Z_FOG) {
+        /* Type 24 (POLY_TEXTURE_Z_FOG, e.g. sea/sky): SW
+           Filler_TextureZFogSmoothZBuf / ...NZW select the CLUT row from
+           the per-pixel Z distance to the fog near plane, ignoring
+           Pt_Light.  polyMode 5 replicates that in the fragment shader. */
+        polyMode = 5;
     } else {
         polyMode = 0; /* textured (CLUT-based) */
     }
@@ -871,6 +929,8 @@ static void GL_FlushBatch(void) {
        at the time the batch was begun. This avoids the race where SetCLUT()
        changes PtrCLUTGouraud between Fill_Poly calls within the same frame. */
     glUniform1f(s_clut_uCLUTBaseRow, s_batchCLUTBaseRow);
+    glUniform1f(s_clut_uScaledFogNear, s_batchScaledFogNear);
+    glUniform1f(s_clut_uFogRowScale, s_batchFogRowScale);
 
     /* Bind textures to units 0/1/2 */
     glActiveTexture(GL_TEXTURE0);
@@ -933,12 +993,18 @@ static void GL_FlushBatch(void) {
        - Types 0–15 without Z-buffered fillers (NPC path) Z-test only —
          matches SW ZBufBoxOverWrite2 which reads terrain Z but never
          writes object Z into the buffer.
-       - Fill_Flag_NZW suppresses write for animated polys and transparent
-         objects that should read but not write depth.
-       - Alpha blending suppresses write (TRANS/TRAME translucency). */
+        - Fill_Flag_NZW suppresses write for animated polys and transparent
+          objects that should read but not write depth.
+        - Alpha blending suppresses write (TRANS/TRAME translucency).
+
+        NZW batches (animated polys) use GL_ALWAYS: they are surface
+        decorations coplanar with the terrain, so GEQUAL at far
+        distances z-fights due to16-bit depth precision.  Objects
+        (types 0–15, non-NZW) keep GEQUAL so they are correctly
+        occluded by closer terrain. */
     if (s_currentTypePoly <= POLY_TEXTURE_Z_FOG) {
         glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_GEQUAL);
+        glDepthFunc(s_batchNZW ? GL_ALWAYS : GL_GEQUAL);
 
         if (s_batchZBuffer || s_currentTypePoly >= POLY_TEXTURE_Z) {
             /* Z-buffered path: write depth unless NZW or blending.
@@ -1034,6 +1100,7 @@ void GL_ClearFBO(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     s_terrainRenderedThisFrame = 1;
+    s_fboHasTerrain = 1;
 }
 
 /* ── Begin frame ─────────────────────────────────────────────────────────── */
@@ -1089,7 +1156,14 @@ void GL_ReadbackDepthBuffer(void) {
        PtrZBuffer stores rows top-to-bottom (Y=0 at top).  Flip Y when
        writing each row so screen coordinates match. */
     if (fboW == scrW && fboH == scrH) {
-        /* 1:1 path: read into temp buffer then flip into PtrZBuffer */
+        /* 1:1 path: read into temp buffer, invert depth, flip Y into
+           PtrZBuffer.  The vertex shader outputs
+           Z = 1.0 - aZ/65535.0; after the viewport transform
+           depth = (2.0 - aZ/65535) / 2, stored as
+           gl_depth_16 = (131070 - aZ) / 2.
+           Inverting: aZ = 131070 - 2 * gl_depth_16.
+           ZBufBoxOverWrite2 compares aZ values, so the inverse
+           mapping is required. */
         static U16 *s_depthFlipBuf = NULL;
         static U32 s_depthFlipBufSize = 0;
         U32 totalPixels = scrW * scrH;
@@ -1104,9 +1178,12 @@ void GL_ReadbackDepthBuffer(void) {
         glReadPixels(0, 0, scrW, scrH, GL_DEPTH_COMPONENT,
                      GL_UNSIGNED_SHORT, s_depthFlipBuf);
         for (U32 sy = 0; sy < scrH; sy++) {
-            memcpy(PtrZBuffer + sy * scrW,
-                   s_depthFlipBuf + (scrH - 1 - sy) * scrW,
-                   scrW * sizeof(U16));
+            const U16 *srcRow = s_depthFlipBuf + (scrH - 1 - sy) * scrW;
+            U16 *dstRow = PtrZBuffer + sy * scrW;
+            for (U32 sx = 0; sx < scrW; sx++) {
+                U32 gl_depth_16 = srcRow[sx];
+                dstRow[sx] = (U16)(131070u - 2u * gl_depth_16);
+            }
         }
     } else {
         /* SSAA path: read full FBO depth, downsample by picking the
@@ -1494,7 +1571,19 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
        Keeping bodies in Log ensures ShadeBoxBlk has real pixels to darken
        (producing correct transparent shadows) and bodies remain visible
        on top of the terrain in the final GL_Present composite. */
-    if (!Fill_Flag_ZBuffer || Fill_Flag_NZW) {
+    if (!Fill_Flag_ZBuffer) {
+        return 0;
+    }
+
+    /* NZW polygons (animated polys: flowers, water) go through the GL
+       batch when the FBO contains valid terrain depth (s_fboHasTerrain).
+       This routes them into the FBO with depth testing against terrain,
+       rather than the SW rasterizer / Log buffer.  In the FBO they are
+       properly occluded by closer terrain; in GL_Present the Log overlay
+       (objects, shadows) composites on top, so objects always appear in
+       front of animated polys.  Falls back to SW when the FBO has no
+       terrain (menu/modal loops, before the first GL_ClearFBO). */
+    if (Fill_Flag_NZW && !s_fboHasTerrain) {
         return 0;
     }
 
@@ -1549,6 +1638,12 @@ S32 GL_RenderTriangleList(S32 typePoly, S32 colorPoly, S32 nbPoints,
         s_batchCLUTBaseRow = (GLfloat)(((const U8 *)PtrCLUTGouraud -
                                         (const U8 *)PtrCLUTFog) / 256);
     }
+
+    /* Capture fog distance constants at batch start (mode 5, type 24).
+       SetFog() runs once per scene load, so these are stable across the
+       whole batch; capturing here keeps flush-time consistent. */
+    s_batchScaledFogNear = (GLfloat)Fill_ScaledFogNear;
+    s_batchFogRowScale = (GLfloat)((double)Fill_Fog_Factor / 65536.0);
 
     /* Upload textures if the underlying data has changed.
        CLUT re-uploads every frame because the game modifies the fog table
