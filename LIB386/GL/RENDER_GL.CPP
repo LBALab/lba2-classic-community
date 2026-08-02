@@ -85,18 +85,33 @@ static const char *s_clutVertSrc =
     "attribute float aZ;\n"
     "attribute float aRepMask;\n"
     "uniform vec2 uScreenScale;\n" /* 2.0/resX, 2.0/resY */
+    /* Perspective-correct interpolation: the SW rasterizer
+       (POLYTZF/POLYTEXZ, Z-textured types 16-24) interpolates
+       MapU/MapV/ZBuf over W = 1/Z.  w=1.0 in clip space makes varyings
+       interpolate affinely in screen space, so premultiply by 1/Z here
+       and divide in the fragment shader.  aZ is GET_ZO(Z0) (proportional
+       to Z0); the constant of proportionality cancels in the fragment
+       division.  uPerspCorrect selects the corrected pair; otherwise the
+       raw affine varyings are used (types 8-15, SW POLYTEXT/POLYGTEX). */
     "varying vec2 vTexCoord;\n"
+    "varying vec2 vTexCoordOverW;\n"
+    "varying float vInvW;\n"
     "varying float vLight;\n"
     "varying float vRepMask;\n"
     "varying float vZ;\n"
+    "varying float vZOverW;\n"
     "void main() {\n"
     "    float cx = aPos.x * uScreenScale.x - 1.0;\n"
     "    float cy = 1.0 - aPos.y * uScreenScale.y;\n"
     "    gl_Position = vec4(cx, cy, 1.0 - aZ / 65535.0, 1.0);\n"
+    "    float invW = 1.0 / max(aZ, 1.0);\n"
     "    vTexCoord = aTexCoord;\n"
+    "    vTexCoordOverW = aTexCoord * invW;\n"
+    "    vInvW = invW;\n"
     "    vLight = aLight;\n"
     "    vRepMask = aRepMask;\n"
     "    vZ = aZ;\n"
+    "    vZOverW = aZ * invW;\n"
     "}\n";
 
 static const char *s_clutFragSrc =
@@ -112,10 +127,14 @@ static const char *s_clutFragSrc =
     "uniform int uAlphaMode;\n"     /* 0=opaque 1=TRANS(semi) 2=TRAME(stipple) */
     "uniform int uBilinear;\n"      /* 0=nearest 1=bilinear CLUT sampling */
     "uniform int uChromaKey;\n"     /* 0=no chroma key 1=discard index 0 */
+    "uniform int uPerspCorrect;\n"  /* 1=perspective-correct UV/Z (types 16-24) */
     "varying vec2 vTexCoord;\n"
+    "varying vec2 vTexCoordOverW;\n"
+    "varying float vInvW;\n"
     "varying float vLight;\n"
     "varying float vRepMask;\n"
     "varying float vZ;\n"
+    "varying float vZOverW;\n"
     /* Look up a palette index through the CLUT, returning the final RGBA
        color.  `palIdx` is the raw atlas texel (palette index) and
        `gouraudRow` the CLUT row selected by the gouraud intensity. */
@@ -162,9 +181,15 @@ static const char *s_clutFragSrc =
     "void main() {\n"
     "    vec4 color;\n"
     "    float alphaOverride = 0.0;\n"
+    /* Select perspective-corrected or affine texture/Z varyings.
+       uPerspCorrect is 1 for Z-textured types (16-24), where the SW
+       rasterizer divides MapU/MapV/ZBuf by W = 1/Z; types 8-15
+       (SW POLYTEXT/POLYGTEX) interpolate affinely. */
+    "    vec2 tc = mix(vTexCoord, vTexCoordOverW / vInvW, float(uPerspCorrect));\n"
+    "    float vZsel = mix(vZ, vZOverW / vInvW, float(uPerspCorrect));\n"
      "    if (uPolyMode == 0) {\n"
      /* Textured: atlas → CLUT → palette */
-     "        vec2 tc = vTexCoord / 256.0;\n"
+     "        tc = tc / 256.0;\n"
      "        float widthMask = mod(vRepMask, 256.0);\n"
      "        float heightMask = floor(vRepMask / 256.0);\n"
      /* SW init: Fill_CurGouraudMin = (Pt_Light << 8) + 0x8000.
@@ -205,7 +230,7 @@ static const char *s_clutFragSrc =
        SW Filler_Texture / Filler_TextureChromaKey writes texel as palette
        index directly (*line = texel).  No CLUT lookup — the atlas texel
        IS the palette index.  Chroma key controlled by uChromaKey. */
-    "        vec2 tc = vTexCoord / 256.0;\n"
+    "        tc = tc / 256.0;\n"
     "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
@@ -230,9 +255,9 @@ static const char *s_clutFragSrc =
        As a CLUT row: (12*256 + fogRow)/256 = 12 + fogRow/256, where
        fogRow/256 = ((fogDist * Fill_Fog_Factor) >> 16) & 0xF0.
        uFogRowScale = Fill_Fog_Factor / 65536, so
-       floor(zDist * uFogRowScale) = (fogDist * Fill_Fog_Factor) >> 16. */
-    "        vec2 tc = vTexCoord / 256.0;\n"
-    "        float widthMask = mod(vRepMask, 256.0);\n"
+        floor(zDist * uFogRowScale) = (fogDist * Fill_Fog_Factor) >> 16. */
+     "        tc = tc / 256.0;\n"
+     "        float widthMask = mod(vRepMask, 256.0);\n"
     "        float heightMask = floor(vRepMask / 256.0);\n"
     "        float wrappedU = mod(tc.x, widthMask + 1.0);\n"
     "        float wrappedV = mod(tc.y, heightMask + 1.0);\n"
@@ -241,7 +266,7 @@ static const char *s_clutFragSrc =
     "        float texel = texture2D(uAtlas, atlasUV).r * 255.0;\n"
     /* Chroma key: type 24 is non-INCRUST (bit 2 clear), so index 0 is
        written unconditionally — no discard here. */
-    "        float fogDist = max(vZ - uScaledFogNear, 0.0);\n"
+     "        float fogDist = max(vZsel - uScaledFogNear, 0.0);\n"
     "        float fogRow16 = floor(fogDist * uFogRowScale);\n"
     "        float clutRow = 12.0 + floor(mod(fogRow16, 256.0) / 16.0) * 16.0;\n"
     "        color = clutLookup(texel, clutRow);\n"
@@ -299,6 +324,7 @@ static GLint s_clut_uFogRowScale = -1;
 static GLint s_clut_uAlphaMode = -1;
 static GLint s_clut_uBilinear = -1;
 static GLint s_clut_uChromaKey = -1;
+static GLint s_clut_uPerspCorrect = -1;
 
 /* ── GL state — textures ────────────────────────────────────────────────── */
 
@@ -534,6 +560,7 @@ S32 GL_Renderer_Init(U32 resX, U32 resY) {
     s_clut_aLight = glGetAttribLocation(s_clutProgram, "aLight");
     s_clut_aZ = glGetAttribLocation(s_clutProgram, "aZ");
     s_clut_aRepMask = glGetAttribLocation(s_clutProgram, "aRepMask");
+    s_clut_uPerspCorrect = glGetUniformLocation(s_clutProgram, "uPerspCorrect");
     s_clut_uAtlas = glGetUniformLocation(s_clutProgram, "uAtlas");
     s_clut_uCLUT = glGetUniformLocation(s_clutProgram, "uCLUT");
     s_clut_uPalette = glGetUniformLocation(s_clutProgram, "uPalette");
@@ -900,6 +927,15 @@ void GL_FlushBatch(void) {
     glUniform1f(s_clut_uFlatColor, flatColor);
     glUniform1i(s_clut_uAlphaMode, alphaMode);
     glUniform1i(s_clut_uBilinear, s_bilinearCLUT);
+
+    /* Z-textured types (16-24) are perspective-corrected in the SW
+       rasterizer (Filler_TextureZ / FogSmooth divide MapU, MapV, ZBuf
+       by W = 1/Z); types 8-15 (Filler_Texture / Gouraud) are affine.
+       Type 25 (POLY_FLAG_ZBUFFER) is a Z-marker polygon, not textured. */
+    GLint perspCorrect =
+        (s_currentTypePoly >= POLY_TEXTURE_Z &&
+         s_currentTypePoly <= POLY_TEXTURE_Z_FOG) ? 1 : 0;
+    glUniform1i(s_clut_uPerspCorrect, perspCorrect);
 
     /* Chroma key: only INCRUST types (12-15, 20-23) discard palette index 0.
        Non-INCRUST types (8-11, 16-19, 24) write all texels unconditionally.
