@@ -6,6 +6,8 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 
 #include "INPUT.H"
+
+#include <SYSTEM/LOG.H>
 #include "JOYSTICK.H"
 #include "FOLLOWCAM_CFG.H"
 
@@ -185,13 +187,49 @@ void ReadInputConfig(void) {
         for (n = 0; n < MAX_INPUT; n++) {
             snprintf(id, sizeof(id), "Input%d_1", n);
             DefKeys[n].Key1 = DefFileBufferReadValueDefault(id, DEFKEYSDEFAULT[n].Key1);
-            // Blindage si les Inputs sont configurés à 0
-            //			if( !DefKeys[n].Key1 )	DefKeys[n].Key1 = DEFKEYSDEFAULT[n].Key1 ;
 
             snprintf(id, sizeof(id), "Input%d_2", n);
             DefKeys[n].Key2 = DefFileBufferReadValueDefault(id, DEFKEYSDEFAULT[n].Key2);
-            // Blindage si les Inputs sont configurés à 0
-            //			if( !DefKeys[n].Key2 )	DefKeys[n].Key2 = DEFKEYSDEFAULT[n].Key2 ;
+
+            if (DefKeys[n].Key1 OR DefKeys[n].Key2)
+                initkeys = TRUE;
+        }
+
+        /* Blindage si les Inputs sont configurés à 0.
+           A cfg with no input bindings at all leaves the game unplayable: the
+           menu still opens, because its key is not in this table, but nothing
+           moves, and the remap screen needs the very bindings that are gone.
+
+           Clearing every keyboard binding IS reachable from the remap screen,
+           so an empty keyboard table alone is not proof of corruption -- a
+           gamepad-only layout looks exactly like that. The pad bindings decide
+           between the two, and they have to be read from the cfg here rather
+           than from GamepadKeys: ReadGamepadConfig runs after this function, so
+           the live table still holds whatever preceded it. */
+        if (!initkeys) {
+            for (n = 0; n < MAX_INPUT; n++) {
+                /* Defaulted exactly as ReadGamepadConfig will default them, so
+                   the probe asks what the pad bindings are going to BE, not
+                   what the file happens to spell out. A cfg predating gamepad
+                   support has no Gamepad* keys at all and still ends up with
+                   the default pad layout. */
+                snprintf(id, sizeof(id), "Gamepad%d", n);
+                if (DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key1)) {
+                    initkeys = TRUE;
+                    break;
+                }
+                snprintf(id, sizeof(id), "Gamepad%d_2", n);
+                if (DefFileBufferReadValueDefault(id, GamepadKeysDefault[n].Key2)) {
+                    initkeys = TRUE;
+                    break;
+                }
+            }
+        }
+
+        if (!initkeys) {
+            Log_Warn("No usable keyboard or gamepad bindings in the config; "
+                     "restoring the default layout.");
+            RestoreInput();
         }
     }
 

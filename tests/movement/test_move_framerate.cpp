@@ -81,8 +81,8 @@ static double run_walk(U16 dt, S32 beta) {
     obj.Status = FLAG_CHANGE;
     obj.LastFrame = 0;
     obj.NextFrame = 1;
-    obj.LastOfsFrame = (PTR_U32)anim_frame_offset(2, 0);
-    obj.NextOfsFrame = (PTR_U32)anim_frame_offset(2, 1);
+    obj.LastOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(2, 0);
+    obj.NextOfsFrame = (PTR_U32)(uintptr_t)anim_frame_offset(2, 1);
     obj.LastOfsIsPtr = 0;
     obj.LastTimer = 0;
     obj.NextTimer = 50;

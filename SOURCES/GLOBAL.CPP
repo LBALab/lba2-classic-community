@@ -334,6 +334,17 @@ S32 DbgCubeTrace = 0;
 // Console `skipmodals <0|1>`: abort dialogue modals immediately (as if Esc) so a headless run does
 // not hang on a give/talk dialog. The script continues past the dialog; no quest-state change.
 S32 DbgSkipModals = 0;
+// Harness re-fire observability: incremented once per hero projectile spawn (ThrowMagicBall and
+// ThrowExtra with owner == NUM_PERSO), surfaced in --dump-state as "throws". A held throw over one
+// animation cycle must spawn exactly one at every frame rate; a value that climbs with sub-step
+// count is the #456 re-fire regression. No gameplay effect.
+S32 DbgHeroThrows = 0;
+// Harness observability for the #456 input/frame-rate tests: counts the times the hero's
+// in-progress action animation (throw/attack) is reset to idle by a momentary-action release/idle
+// path in OBJECT.CPP MOVE_MANUAL. During a HELD action with no real release this must stay 0; a
+// value that climbs at low frame rates is the sub-step phantom-release regression. Surfaced in
+// --dump-state as "action_resets". No gameplay effect.
+S32 DbgHeroActionResets = 0;
 S32 MagicBall = -1;
 U8 MagicBallType = 1;
 U8 MagicBallCount = 3;
