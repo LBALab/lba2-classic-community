@@ -710,6 +710,8 @@ static void control_dump_state(const char *path) {
     fprintf(f, "  \"tick\": %ld,\n", ticks_done);
     fprintf(f, "  \"timer_ref_hr\": %u,\n", (unsigned int)TimerRefHR);
     fprintf(f, "  \"fps\": %d,\n", (int)NbFramePerSecond);
+    fprintf(f, "  \"throws\": %d,\n", (int)DbgHeroThrows);
+    fprintf(f, "  \"action_resets\": %d,\n", (int)DbgHeroActionResets);
 
     fprintf(f,
             "  \"scene\": { \"island\": %d, \"cube\": %d, \"cube_mode\": \"%s\", "
