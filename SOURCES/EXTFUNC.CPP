@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include <SVGA/SCREEN.H>
+#include <GL/RENDER_GL.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/MOUSE.H>
 #include <SYSTEM/WINDOW.H>
@@ -312,6 +313,14 @@ void InitGrilleExt(U32 numcube) {
 /*──────────────────────────────────────────────────────────────────────────*/
 // Affiche la grille complète à la position actuelle de la caméra
 void AffGrilleExt() {
+#ifdef USE_GPURENDERER
+    /* Clear the FBO at the start of terrain rendering.  This is done here
+       instead of in GL_FlushBatch() so that frames with no terrain
+       (e.g. Twinsen standing still) preserve the previous frame's 3D
+       content in the FBO. */
+    GL_ClearFBO();
+#endif
+
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
@@ -347,9 +356,57 @@ void AffGrilleExt() {
 
     FiltreAnimatedPolys();
 
+#ifdef USE_GPURENDERER
+    /* GL mode: render all filtered animated polys into the FBO so they
+       appear in the terrain layer (visible through the Log overlay after
+       the clearing pass in AffScene).  Without this, animated polys are
+       only drawn by DrawAnimatedPolys during AFF_OBJETS_* frames where
+       the Log overlay is not cleared, so they remain hidden. */
+    if (GPURendererActive && NbAniPoly > 0) {
+        S32 savedRepMask = RepMask;
+        PTR_U8 savedPtrMap = PtrMap;
+        Switch_Fillers(FILL_POLY_FOG_NZW);
+        PtrMap = GroundTexture;
+        RepMask = 0xFFFF;
+        for (S32 iAni = 0; iAni < NbAniPoly; iAni++) {
+            S_ANI_POLY *ani = &PtrPolySea[iAni];
+            UnsetClip();
+            SetClip(ani->X0, ani->Y0, ani->X1, ani->Y1);
+            if (ClipXMin <= ClipXMax && ClipYMin <= ClipYMax) {
+                SetCLUT(ani->Fog);
+                Fill_Poly(ani->Type, ani->Color, 3, ani->Tab_Points);
+            }
+        }
+        UnsetClip();
+        Switch_Fillers(FILL_POLY_TEXTURES);
+        SetCLUT(PalLevel);
+        RepMask = savedRepMask;
+        PtrMap = savedPtrMap;
+    }
+#endif
+
     Switch_Fillers(FILL_POLY_TEXTURES);
 
-    CopyScreen(Log, Screen);
+#ifdef USE_GPURENDERER
+    if (GPURendererActive) {
+        /* GL mode: terrain is in the FBO, not Log.
+           1. Read back depth so ZBufBoxOverWrite2 can occlude shadows.
+           2. Read back color (FBO → Screen as palette indices).
+           3. Copy Screen → Log so ShadeBoxBlk (shadow darkening) has
+              real terrain pixels to darken rather than empty buffer.
+           Body polygons (NPCs, shadows) then render to Log on top of
+           the terrain copy.  GL_Present composites FBO (terrain) +
+           Log (objects + shadows + darkened shadows) on top. */
+        GL_ReadbackDepthBuffer();
+        GL_ReadbackColorBuffer();
+        CopyScreen(Screen, Log);
+
+
+    } else
+#endif
+    {
+        CopyScreen(Log, Screen);
+    }
 
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_CAMERA) {

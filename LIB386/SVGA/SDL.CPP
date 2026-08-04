@@ -7,6 +7,12 @@
 #include <SYSTEM/LOGPRINT.H>
 #include <SYSTEM/WINDOW.H>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+extern S32 DisplayTexFilter;
+#endif
+
 #include <SDL3/SDL.h>
 #include <assert.h>
 #include <cstdlib>
@@ -44,6 +50,10 @@ static StagingBuffer s_androidStaging = {NULL, 0, 0};
 
 // --- Private functions -------------------------------------------------------
 static void PresentFrame();
+
+const U32 *GL_GetPaletteLUT(void) {
+    return paletteLUT;
+}
 
 static void RebuildPaletteLUT() {
     if (!sdlPalette) {
@@ -292,6 +302,62 @@ static void PresentFrame() {
     assert(sdlPalette != NULL);
     assert(Log != NULL);
 
+#ifdef USE_GPURENDERER
+    if (GPURendererActive) {
+        /* Begin new GL frame: clear depth buffer before any 3D drawing. */
+        GL_BeginFrame();
+
+        /* GL path: convert 8-bit → ARGB on CPU, then upload via GL texture
+           with optional bilinear filtering. The palette conversion is the
+           same work as the SDL path; the difference is GL handles the
+           upscale filtering. */
+        static U32 *s_glStaging = NULL;
+        static U32 s_glStagingSize = 0;
+        U32 needed = ModeDesiredX * ModeDesiredY;
+        if (s_glStagingSize < needed) {
+            free(s_glStaging);
+            s_glStaging = (U32 *)malloc(needed * sizeof(U32));
+            s_glStagingSize = s_glStaging ? needed : 0;
+        }
+        if (s_glStaging == NULL) {
+            return;
+        }
+
+        /* Palette index 0 is the transparent colour: the 3D FBO content
+           shows through wherever the 2D overlay has index 0.  Force alpha
+           to 0 so those pixels are fully transparent when composited. */
+        paletteLUT[0] &= 0x00FFFFFF;
+
+        U8 *logMem = (U8 *)Log;
+        for (U32 y = 0; y < ModeDesiredY; ++y) {
+            U8 *srcRow = logMem + y * ModeDesiredX;
+            U32 *dstRow = s_glStaging + y * ModeDesiredX;
+            for (U32 x = 0; x < ModeDesiredX; ++x) {
+                dstRow[x] = paletteLUT[srcRow[x]];
+            }
+        }
+
+        /* Overlay callbacks (console overlay, etc.) */
+        if (s_prePresent || s_overlayPrePresent) {
+            static U8 paletteRgb[256 * 3];
+            for (int i = 0; i < 256; i++) {
+                U32 c = paletteLUT[i];
+                paletteRgb[i * 3 + 0] = (U8)(c >> 16);
+                paletteRgb[i * 3 + 1] = (U8)(c >> 8);
+                paletteRgb[i * 3 + 2] = (U8)(c);
+            }
+            if (s_prePresent)
+                s_prePresent(s_glStaging, ModeDesiredX * 4, ModeResX, ModeResY, paletteRgb);
+            if (s_overlayPrePresent)
+                s_overlayPrePresent(s_glStaging, ModeDesiredX * 4, ModeResX, ModeResY, paletteRgb);
+        }
+
+        GL_Present(s_glStaging, ModeDesiredX * 4, ModeDesiredX, ModeDesiredY,
+                   DisplayTexFilter);
+        return;
+    }
+#endif
+
     void *stagingPixels;
     U32 stagingPitch;
     if (!AcquirePresentTarget(&stagingPixels, &stagingPitch)) {
@@ -340,6 +406,10 @@ void HandleEventsVideo(const void *event) {
     default:
         break;
     }
+}
+
+void PresentCurrentFrame(void) {
+    PresentFrame();
 }
 
 // =============================================================================

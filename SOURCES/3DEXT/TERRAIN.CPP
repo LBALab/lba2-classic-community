@@ -3,6 +3,11 @@
 
 #include <SVGA/SCREEN.H>
 
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+extern S32 GPURendererActive;
+#endif
+
 #define LIMITE_LOIN (60 * 1024)
 #define COLOR_LIMITE 255
 #define SIZE_TEXTURE 64
@@ -1048,6 +1053,7 @@ void DoAnimatedPolys() {
                          GroundTexture + OffsetAniPoly4);
         }
 
+        AtlasTextureDirty = 1;
         RefreshAniPoly = NbAniPoly;
         NbToRefresh = NbAniPoly / 4;
     }
@@ -1082,7 +1088,12 @@ void DrawAnimatedPolys() {
 
             Fill_Poly(ptr->Type, ptr->Color, 3, ptr->Tab_Points);
 
-            BoxStaticAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+#ifdef USE_GPURENDERER
+            if (!GPURendererActive)
+#endif
+            {
+                BoxStaticAdd(ClipXMin, ClipYMin, ClipXMax, ClipYMax);
+            }
         }
 
         RefreshAniPoly--;
@@ -1093,7 +1104,16 @@ void DrawAnimatedPolys() {
         RefreshAniPoly = 0;
 
     // Met a jour Screen pour recouvrements
-    BoxBlitStaticListToScreen();
+#ifdef USE_GPURENDERER
+    if (GPURendererActive)
+    {
+        GL_FlushBatch();
+    }
+    else
+#endif
+    {
+        BoxBlitStaticListToScreen();
+    }
 
     Switch_Fillers(FILL_POLY_TEXTURES);
     SetCLUT(PalLevel);

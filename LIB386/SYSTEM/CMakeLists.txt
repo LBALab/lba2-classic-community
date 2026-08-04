@@ -9,6 +9,9 @@ set(SOURCES_FILES_ASM CPU.CPP FASTCPYF.CPP LZ.CPP MOUSEDAT.CPP)
 
 add_library(sys ${SOURCES_FILES} ${SOURCES_FILES_ASM})
 target_link_libraries(sys svg)
+if(GPURENDERER)
+    target_compile_definitions(sys PRIVATE USE_GPURENDERER)
+endif()
 
 # Configure all ASM files to be recognized as such (workaround for bug where .ASM uppercase extension is not recognized)
 # foreach (FILE_ASM IN LISTS SOURCES_FILES_ASM)

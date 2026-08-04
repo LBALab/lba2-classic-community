@@ -276,7 +276,7 @@ static void SetEnvMappedQuadUvs(Struc_Point *points, const STRUC_POLY4_ENV *poly
 }
 
 void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
-    if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D) {
+    if (TypeProj != TYPE_3D) {
         return;
     }
 
@@ -290,7 +290,7 @@ void GetZO3(Struc_Point *dst, U16 index1, U16 index2, U16 index3) {
 }
 
 void GetZO4(Struc_Point *dst, U16 index1, U16 index2, U16 index3, U16 index4) {
-    if (!Fill_Flag_ZBuffer || TypeProj != TYPE_3D) {
+    if (TypeProj != TYPE_3D) {
         return;
     }
 

@@ -18,6 +18,9 @@
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
 #include "ASSET_PREFLIGHT.H"
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
 #include <FILEIO/SAVEPNG.H>
@@ -2394,6 +2397,48 @@ void ReadConfigFile(void) {
        Res_LoadBoot* pre-read is needed. */
     Window_SetVSync(DisplayVSync);
 
+#ifdef USE_GPURENDERER
+    GPURendererActive = DefFileBufferReadValueDefault("GPURenderer", FALSE);
+    if (GPURendererActive < 0 OR GPURendererActive > 1)
+        GPURendererActive = FALSE;
+
+    DisplayTexFilter = DefFileBufferReadValueDefault("DisplayTexFilter", TRUE);
+    if (DisplayTexFilter < 0 OR DisplayTexFilter > 1)
+        DisplayTexFilter = TRUE;
+
+    RenderQuality = DefFileBufferReadValueDefault("RenderQuality", 1);
+    if (RenderQuality < 1 OR RenderQuality > 4)
+        RenderQuality = 1;
+    if (RenderQuality == 3)
+        RenderQuality = 1; /* only 1, 2, 4 are valid */
+
+    /* If the config wants GL, tear down the SW window that InitGraphics
+       created and recreate it with GL. This mirrors the runtime toggle in
+       GereDisplayMenu but runs once at boot. */
+    if (GPURendererActive) {
+        if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                       DisplayFullScreen != FALSE)) {
+            if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                GL_Renderer_Shutdown();
+                Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                           DisplayFullScreen != FALSE);
+                GPURendererActive = FALSE;
+            } else {
+                /* Re-apply VSync on the new GL context — the earlier
+                   Window_SetVSync call targeted the SW renderer which
+                   was just destroyed. */
+                Window_SetVSync(DisplayVSync);
+                /* Apply render quality from config */
+                if (RenderQuality > 1) {
+                    GL_SetRenderQuality(RenderQuality);
+                }
+            }
+        } else {
+            GPURendererActive = FALSE;
+        }
+    }
+#endif
+
     /* #358 fixed-timestep throttle. Default 16 ms (~60 Hz sim) so movement is frame-rate
        independent above 60 fps; 0 restores the historical per-frame simulation. Clamp to a
        sane range (a value near a frame time; 0 = off). See docs/MOVEMENT_FRAMERATE.md. */
@@ -2523,6 +2568,11 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
+#ifdef USE_GPURENDERER
+    DefFileBufferWriteValue("GPURenderer", GPURendererActive);
+    DefFileBufferWriteValue("DisplayTexFilter", DisplayTexFilter);
+    DefFileBufferWriteValue("RenderQuality", RenderQuality);
+#endif
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >

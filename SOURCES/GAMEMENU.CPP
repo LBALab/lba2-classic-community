@@ -8,6 +8,10 @@
 #include "RES_SWITCH.H" /* Res_Switch (apply on cycle) */
 #include "SAVENAME_VALIDATION.H"
 #include "CONSOLE/CONSOLE.H"
+#ifdef USE_GPURENDERER
+#include <GL/RENDER_GL.H>
+#endif
+#include <SVGA/VIDEO.H> /* PresentCurrentFrame (renderer switch present) */
 #include "MESSAGE.H"
 #include "IMAGE_LOAD.H"
 #include "MENU_LABELS.H"
@@ -84,6 +88,11 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY 2114
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
+#ifdef USE_GPURENDERER
+#define MENU_ID_DISPLAY_RENDERER 2117
+#define MENU_ID_DISPLAY_TEXFILTER 2118
+#define MENU_ID_DISPLAY_QUALITY 2119
+#endif
 
 // Resolution sub-page rows occupy a reserved id range: row i carries id
 // MENU_ID_RESOLUTION_BASE + i, which BuildCustomMenuText and GereResolutionMenu
@@ -138,14 +147,15 @@ U16 GameOptionMenu[] = {
 };
 
 // Display submenu: a "Resolution: <current>" row that opens the resolution
-// sub-page (GereResolutionMenu), plus a "Vsync" toggle and the "Fullscreen"
-// toggle (moved here from Advanced options because it belongs with the other
-// display settings). Plain "Back" returns to Options. Fullscreen stays the
-// last entry so the always-fullscreen-device path in GereDisplayMenu can drop
-// it by count. See GereDisplayMenu + GereResolutionMenu.
+// sub-page (GereResolutionMenu), plus "Renderer" and "Filter" toggles (GL
+// only), a "Vsync" toggle, and the "Fullscreen" toggle (moved here from
+// Advanced options because it belongs with the other display settings). Plain
+// "Back" returns to Options. Fullscreen stays the last entry so the
+// always-fullscreen-device path in GereDisplayMenu can drop it by count.
+// See GereDisplayMenu + GereResolutionMenu.
 U16 DisplayMenu[] = {
     0,   // selected
-    4,   // nb entries
+    4,   // nb entries (overridden at runtime)
     260, // y center
     0,   // .dia num
 
@@ -153,6 +163,14 @@ U16 DisplayMenu[] = {
     26, // menu precedent
     0,
     MENU_ID_RESOLUTION,
+#ifdef USE_GPURENDERER
+    0,
+    MENU_ID_DISPLAY_RENDERER,
+    0,
+    MENU_ID_DISPLAY_TEXFILTER,
+    0,
+    MENU_ID_DISPLAY_QUALITY,
+#endif
     0,
     MENU_ID_DISPLAY_VSYNC,
     0,
@@ -463,6 +481,20 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_DISPLAY_VSYNC:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayVSync ? MENU_LABEL_VSYNC_ON : MENU_LABEL_VSYNC_OFF));
         break;
+
+#ifdef USE_GPURENDERER
+    case MENU_ID_DISPLAY_RENDERER:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(GPURendererActive ? MENU_LABEL_RENDERER_GL : MENU_LABEL_RENDERER_SW));
+        break;
+
+    case MENU_ID_DISPLAY_TEXFILTER:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayTexFilter ? MENU_LABEL_TEXFILTER_BILINEAR : MENU_LABEL_TEXFILTER_NEAREST));
+        break;
+
+    case MENU_ID_DISPLAY_QUALITY:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(RenderQuality == 1 ? MENU_LABEL_QUALITY_NATIVE : RenderQuality == 2 ? MENU_LABEL_QUALITY_2X : MENU_LABEL_QUALITY_4X));
+        break;
+#endif
 
     case MENU_ID_FOLLOW_CAMERA:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_AUTO_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
@@ -3226,15 +3258,23 @@ static S32 GereResolutionMenu(void) {
 }
 
 // Display submenu: a self-contained submenu of OptionsMenu. The "Resolution:
-// <current>" row opens GereResolutionMenu; Vsync and Fullscreen are toggles.
+// <current>" row opens GereResolutionMenu; Renderer and Filter are GL-only
+// toggles; Vsync and Fullscreen are toggles.
 S32 GereDisplayMenu(void) {
     S32 select;
     S32 flag = 0;
 
-    /* The Fullscreen toggle is the last entry; drop it on always-fullscreen
-       devices (Android phones/TVs) where windowed mode does not exist, leaving
-       Back + Resolution + Vsync. nb_entries 4 = full menu, 3 = hide Fullscreen. */
-    DisplayMenu[1] = Window_SupportsWindowedMode() ? 4 : 3;
+    /* Build the entry count from the components:
+       Back + Resolution + [Renderer + TexFilter if GPURENDERER] + Vsync
+       + [Fullscreen if windowed mode supported]. Fullscreen stays last
+       so the drop-by-count logic works. */
+    S32 count = 3; /* Back + Resolution + Vsync */
+#ifdef USE_GPURENDERER
+    count += 2; /* Renderer + TexFilter */
+#endif
+    if (Window_SupportsWindowedMode())
+        count++;
+    DisplayMenu[1] = count;
 
     CopyScreen(Screen, Log);
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
@@ -3266,6 +3306,86 @@ S32 GereDisplayMenu(void) {
             DisplayVSync ^= 1;
             Window_SetVSync(DisplayVSync);
             break;
+
+#ifdef USE_GPURENDERER
+        case MENU_ID_DISPLAY_RENDERER: {
+            /* Tear down current renderer, recreate window for the other
+               backend, initialize new renderer, rebuild the scene backdrop.
+               Same pattern as ApplyResolutionChoice but dimensions stay
+               the same — only the rendering backend changes. */
+            const bool wasGL = GPURendererActive != FALSE;
+            const bool wantGL = !wasGL;
+
+            if (wantGL) {
+                /* SW → GL: destroy SDL_Renderer window, create GL window */
+                GL_Renderer_Shutdown();
+                if (!Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                                DisplayFullScreen != FALSE)) {
+                    /* Window recreation failed — leave everything as-is. */
+                    break;
+                }
+                if (!GL_Renderer_Init(ModeDesiredX, ModeDesiredY)) {
+                    /* GL init failed — fall back to SW. */
+                    GL_Renderer_Shutdown();
+                    Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                               DisplayFullScreen != FALSE);
+                    break;
+                }
+                GPURendererActive = TRUE;
+            } else {
+                /* GL → SW: shut down GL, recreate SDL_Renderer window */
+                GL_Renderer_Shutdown();
+                if (!Window_RecreateWindowForSW(ModeDesiredX, ModeDesiredY,
+                                                DisplayFullScreen != FALSE)) {
+                    /* Window recreation failed — we have no renderer. Try
+                       to re-init GL as a last resort. */
+                    if (Window_RecreateWindowForGL(ModeDesiredX, ModeDesiredY,
+                                                   DisplayFullScreen != FALSE)) {
+                        GL_Renderer_Init(ModeDesiredX, ModeDesiredY);
+                    }
+                    break;
+                }
+                GPURendererActive = FALSE;
+            }
+
+            /* Rebuild the scene backdrop the same way ApplyResolutionChoice
+               does — the scene needs a full redraw after the window swap. */
+            BoxReset();
+            BoxStaticAdd(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1);
+            if (FlagShadeMenu) {
+                AffScene(AFF_ALL_FLIP);
+            } else {
+                char tmpFilePathScreen[ADELINE_MAX_PATH];
+                GetResPath(tmpFilePathScreen, ADELINE_MAX_PATH, SCREEN_HQR_NAME);
+                Image_LoadStretched(tmpFilePathScreen, Screen, PCR_MENU);
+                CopyScreen(Screen, Log);
+            }
+            BackupScreen(TRUE);
+            InitPlasmaMenu();
+            if (FlagShadeMenu) {
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1,
+                            (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+            }
+            BoxStaticFullflip();
+            PresentCurrentFrame();
+            WriteConfigFile();
+            break;
+        }
+
+        case MENU_ID_DISPLAY_TEXFILTER:
+            DisplayTexFilter ^= 1;
+            WriteConfigFile();
+            break;
+
+        case MENU_ID_DISPLAY_QUALITY:
+            if (RenderQuality < 4)
+                RenderQuality *= 2;
+            else
+                RenderQuality = 1;
+            GL_SetRenderQuality(RenderQuality);
+            WriteConfigFile();
+            break;
+#endif
         }
     }
 
