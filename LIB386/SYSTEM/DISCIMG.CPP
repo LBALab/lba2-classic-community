@@ -310,6 +310,42 @@ extern "C" bool DiscImage_GetBannerInfo(char *outPath, size_t outPathSize, S32 *
 }
 
 //──────────────────────────────────────────────────────────────────────────
+extern "C" U32 DiscImage_RawSectorCount(void) {
+    return g_iso == NULL ? 0 : (U32)iso_raw_sector_count(g_iso);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer) {
+    if (g_iso == NULL || buffer == NULL)
+        return -1;
+    return (S32)iso_read_raw(g_iso, lba, count, (uint8_t *)buffer);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_IsMountedFile(const char *name) {
+    if (g_iso == NULL || name == NULL || name[0] == '\0')
+        return false;
+
+    // Compare basenames: a cue names its image without a path, and the mount
+    // knows the full filesystem path it opened.
+    const char *mine = strrchr(g_imagePath, '/');
+#ifdef _WIN32
+    const char *bs = strrchr(g_imagePath, '\\');
+    if (bs != NULL && (mine == NULL || bs > mine))
+        mine = bs;
+#endif
+    mine = (mine != NULL) ? mine + 1 : g_imagePath;
+
+    const char *theirs = strrchr(name, '/');
+    const char *tbs = strrchr(name, '\\');
+    if (tbs != NULL && (theirs == NULL || tbs > theirs))
+        theirs = tbs;
+    theirs = (theirs != NULL) ? theirs + 1 : name;
+
+    return strcasecmp(mine, theirs) == 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" bool DiscImage_IsHandle(S32 handle) {
     return handle >= DISC_HANDLE_BASE && handle < DISC_HANDLE_BASE + DISC_MAX_HANDLES;
 }

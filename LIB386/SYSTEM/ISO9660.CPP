@@ -165,6 +165,28 @@ iso9660_t *iso_open_ex(const char *path, int allowContainerScan) {
 iso9660_t *iso_open(const char *path) { return iso_open_ex(path, 0); }
 
 //──────────────────────────────────────────────────────────────────────────
+// Whole raw sectors, contents untouched. CD audio has no user-data subset to
+// extract: an audio sector is 2352 bytes of PCM, so this deliberately bypasses
+// the data_off the filesystem reads use. Only a raw image can answer.
+int iso_read_raw(iso9660_t *iso, uint32_t lba, uint32_t count, uint8_t *out) {
+    if (iso == NULL || out == NULL || iso->sector_size != 2352)
+        return -1;
+    long pos = iso->base + (long)lba * 2352;
+    if (fseek(iso->f, pos, SEEK_SET) != 0)
+        return -1;
+    size_t want = (size_t)count * 2352;
+    size_t got = fread(out, 1, want, iso->f);
+    return (int)(got / 2352);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+uint32_t iso_raw_sector_count(iso9660_t *iso) {
+    if (iso == NULL || iso->sector_size != 2352 || iso->file_size <= iso->base)
+        return 0;
+    return (uint32_t)((iso->file_size - iso->base) / 2352);
+}
+
+//──────────────────────────────────────────────────────────────────────────
 int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase) {
     if (iso == NULL)
         return -1;

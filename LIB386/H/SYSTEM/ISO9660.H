@@ -42,6 +42,18 @@ void iso_close(iso9660_t *iso);
 int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase);
 
 //──────────────────────────────────────────────────────────────────────────
+// Read `count` whole 2352-byte sectors starting at `lba`, contents untouched.
+// This is how CD audio comes off a disc: an audio sector is 2352 bytes of PCM
+// with no user-data subset to extract, so these reads bypass the sector framing
+// the filesystem reads step over. Returns the number of sectors read, or -1 on
+// a cooked image, which has no audio to read.
+int iso_read_raw(iso9660_t *iso, uint32_t lba, uint32_t count, uint8_t *out);
+
+// Total 2352-byte sectors in the image, 0 if it is not raw. Bounds the last
+// track, whose end the cue does not state.
+uint32_t iso_raw_sector_count(iso9660_t *iso);
+
+//──────────────────────────────────────────────────────────────────────────
 // List the regular files in a directory (path uses '/', e.g. "LBA/FLA").
 // Names are reported without the ";1" ISO version suffix.
 typedef void (*iso_list_cb)(void *ud, const char *name, uint32_t size);

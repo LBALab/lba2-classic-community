@@ -5,6 +5,7 @@
 #include "stb_vorbis.h"
 
 #include <AIL/STREAM_PARK.H> /* pure park/resume/focus decision logic (host-tested) */
+#include <SYSTEM/CDTRACKS.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H> /* ESeekOrigin */
@@ -543,6 +544,36 @@ static bool InstallDirFromMusicPath(const char *name, char *outDir, int max) {
     return true;
 }
 
+/* ── Redbook tracks (a mixed-mode retail disc) ─────────────────────────── */
+
+/* Stream one CD audio track straight out of the mounted image. Audio sectors
+   are already 16-bit LE stereo 44.1 kHz PCM, so there is nothing to decode:
+   read the sector range and hand it to the same stream setup a WAV uses, which
+   is what gives it the existing volume, pause and resume behaviour. */
+static bool PlayCdAudioFromImage(uint32_t startSector, uint32_t endSector, S32 skipFrames) {
+    if (endSector <= startSector)
+        return false;
+    uint32_t sectors = endSector - startSector;
+    Uint8 *pcm = (Uint8 *)malloc((size_t)sectors * 2352);
+    if (!pcm)
+        return false;
+
+    S32 got = DiscImage_ReadRawSectors(startSector, sectors, pcm);
+    if (got <= 0) {
+        free(pcm);
+        return false;
+    }
+
+    SDL_AudioSpec spec;
+    SDL_zero(spec);
+    spec.freq = 44100;
+    spec.format = SDL_AUDIO_S16LE;
+    spec.channels = 2;
+    bool ok = SetupWavStream(&spec, pcm, (Uint32)((size_t)got * 2352), skipFrames);
+    free(pcm);
+    return ok;
+}
+
 /* True for the redbook "track" music (TADPCM<N> / Track<N>), the kind a cue's
    external audio track stands in for. Excludes JADPCM jingles, which are never
    the cue's redbook track. */
@@ -560,6 +591,88 @@ static bool IsRedbookTrackName(const char *name) {
         up[i] = (char)toupper((unsigned char)base[i]);
     up[i] = '\0';
     return strstr(up, "TADPCM") != NULL || strstr(up, "TRACK") != NULL;
+}
+
+/* Resolve a redbook track by its CD track number, reading the install's cue as
+   a real table of contents. The track may be a standalone file the cue points
+   at, or audio sectors inside the mounted image; both are addressed the same
+   way, by number.
+
+   Engages only when the cue describes two or more audio tracks, i.e. an actual
+   disc TOC. A cue with a single audio entry is left to the older rule below:
+   that is the GOG shape, where the one external file is music track 6 and
+   matching it by number would find nothing. */
+static bool PlayRedbookByNumber(const char *name, S32 startFrame) {
+    int cdTrack = CdTracks_NumberForMusicName(name);
+    if (cdTrack == 0)
+        return false;
+
+    char installDir[ADELINE_MAX_PATH];
+    if (!InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)))
+        return false;
+
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ReadTocInDir(installDir, NULL, 0, toc, CUE_MAX_TRACKS);
+    int audioCount = 0;
+    for (int i = 0; i < n; i++) {
+        if (toc[i].isAudio)
+            audioCount++;
+    }
+    if (audioCount < 2)
+        return false;
+
+    const CueTrack *t = NULL;
+    for (int i = 0; i < n; i++) {
+        if (toc[i].number == cdTrack && toc[i].isAudio) {
+            t = &toc[i];
+            break;
+        }
+    }
+    if (t == NULL)
+        return false; // this disc does not carry that track
+
+    if (!t->fileIsBinary) {
+        char path[ADELINE_MAX_PATH];
+        int w = snprintf(path, sizeof(path), "%s%s", installDir, t->file);
+        if (w < 0 || (size_t)w >= sizeof(path))
+            return false;
+        SDL_AudioSpec spec;
+        Uint8 *wav = NULL;
+        Uint32 wavLen = 0;
+        bool played;
+        if (SDL_LoadWAV(path, &spec, &wav, &wavLen)) {
+            played = SetupWavStream(&spec, wav, wavLen, startFrame);
+            SDL_free(wav);
+        } else {
+            played = PlayOggFile(path, startFrame);
+        }
+        if (played && musicLogEnabled)
+            SDL_Log("[MUSIC] PlayStream start cue track %d: %s (from %s)", cdTrack, path, name);
+        return played;
+    }
+
+    /* Inside the image. The cue's sector addresses only mean anything against
+       the file that cue describes, and only a raw image has audio sectors. */
+    if (!DiscImage_IsMountedFile(t->file))
+        return false;
+    uint32_t total = DiscImage_RawSectorCount();
+    if (total == 0 || t->startFrame >= total)
+        return false;
+
+    /* The cue states where a track starts, never where it ends: a track runs to
+       the next one, and the last runs to the end of the disc. */
+    uint32_t end = total;
+    for (int i = 0; i < n; i++) {
+        if (toc[i].fileIsBinary && toc[i].startFrame > t->startFrame && toc[i].startFrame < end)
+            end = toc[i].startFrame;
+    }
+
+    bool ok = PlayCdAudioFromImage(t->startFrame, end, startFrame);
+    if (ok && musicLogEnabled) {
+        SDL_Log("[MUSIC] PlayStream start CD-DA track %d: sectors %u..%u (from %s)", cdTrack,
+                (unsigned)t->startFrame, (unsigned)end, name);
+    }
+    return ok;
 }
 
 /* ── Public API ────────────────────────────────────────────────────────── */
@@ -612,7 +725,15 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         return;
     }
 
-    /* 4) Cue external audio: a redbook track shipped as a standalone file the
+    /* 4) Redbook by CD track number, for a disc whose cue is a real table of
+          contents: the track is either a standalone file the cue names or audio
+          sectors inside the mounted image. */
+    if (PlayRedbookByNumber(name, startFrame)) {
+        FinishStream(name);
+        return;
+    }
+
+    /* 5) Cue external audio: a redbook track shipped as a standalone file the
           data image does not contain (GOG's LBA2.OGG = music track 6, listed in
           LBA2.DAT). Only for redbook "track" requests, not jingles. The file is
           on the filesystem (install root), so decode it directly: WAV via

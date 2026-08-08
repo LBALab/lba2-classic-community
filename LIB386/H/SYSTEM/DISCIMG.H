@@ -69,6 +69,21 @@ S32 DiscImage_Close(S32 handle);
 bool DiscImage_Exists(const char *path);
 
 //──────────────────────────────────────────────────────────────────────────
+// Raw sector access, for the CD audio a mixed-mode disc carries outside its
+// filesystem. Audio sectors are 2352 bytes of PCM and belong to no file, so
+// they are reached by sector address (from the cue) rather than by path.
+//
+// Only a raw 2352 image has them: a cooked 2048 rip is data only, and so is any
+// image whose audio the container stores at a different stride. Both report a
+// sector count of 0, which is the signal to leave CD music alone.
+U32 DiscImage_RawSectorCount(void);
+S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer);
+
+// Is `name` (as a cue writes it, no path) the image we actually mounted? Sector
+// addresses from a cue only mean anything against the file that cue describes.
+bool DiscImage_IsMountedFile(const char *name);
+
+//──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
 }
 #endif
