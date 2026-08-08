@@ -82,7 +82,8 @@ static std::vector<std::vector<uint8_t>> build_sectors() {
     uint8_t *pvd = secs[16].data();
     pvd[0] = 0x01; /* descriptor type: primary */
     memcpy(pvd + 1, "CD001", 5);
-    pvd[6] = 0x01; /* version */
+    pvd[6] = 0x01;              /* version */
+    wr_both16(pvd + 128, 2048); /* logical block size */
     const uint8_t selfName = 0x00;
     wr_dirrec(pvd + 156, ROOT_LBA, 2048, true, &selfName, 1); /* root dir record */
 
@@ -231,6 +232,73 @@ static void test_non_iso_rejected(void) {
     remove(path.c_str());
 }
 
+/* ── container-wrapped images ──────────────────────────────────────────── */
+/* Some dumps put the image behind a small header, so logical sector 0 is not at
+   byte 0 and the plain probes miss it (a DAEMON Tools MDX prefixes 64 bytes).
+   iso_open_ex with the scan enabled must find the volume descriptor and derive
+   the base offset, and the plain iso_open must keep rejecting it (the scan costs
+   a read of the file's head, so callers opt in only after a cheap pass fails). */
+static void check_container(bool raw, size_t headerLen) {
+    std::string path = std::string(TEST_TMP_DIR) + "/iso_container_" +
+                       (raw ? "raw" : "cooked") + ".bin";
+    std::vector<uint8_t> data(headerLen, 0x00);
+    std::vector<uint8_t> img = pack(build_sectors(), raw);
+    data.insert(data.end(), img.begin(), img.end());
+    if (!write_file(path, data)) {
+        FAIL_MSG("could not write fixture %s", path.c_str());
+        return;
+    }
+
+    ASSERT_TRUE(iso_open(path.c_str()) == NULL); /* plain probe still says no */
+
+    iso9660_t *iso = iso_open_ex(path.c_str(), 1);
+    ASSERT_TRUE(iso != NULL);
+    if (!iso) {
+        remove(path.c_str());
+        return;
+    }
+    int ss = 0;
+    long base = 0;
+    ASSERT_EQ_INT(0, iso_layout(iso, &ss, &base));
+    ASSERT_EQ_INT(raw ? 2352 : 2048, ss);
+    ASSERT_EQ_INT((int)headerLen, (int)base);
+
+    uint8_t *out = NULL;
+    size_t sz = 0;
+    ASSERT_EQ_INT(0, iso_read(iso, "HELLO.TXT", &out, &sz));
+    ASSERT_TRUE(out != NULL && sz == strlen(FILE_CONTENT) &&
+                memcmp(out, FILE_CONTENT, sz) == 0);
+    free(out);
+    iso_close(iso);
+    remove(path.c_str());
+}
+
+static void test_container_header_cooked(void) { check_container(false, 64); }
+static void test_container_header_raw(void) { check_container(true, 64); }
+
+/* The scan must not accept a file that merely contains the descriptor signature.
+   Here the bytes are present but the volume is not: no 2048-byte logical block
+   size, no usable root extent. Both entry points must reject it. */
+static void test_container_scan_rejects_lookalike(void) {
+    std::string path = std::string(TEST_TMP_DIR) + "/iso_lookalike.bin";
+    std::vector<uint8_t> junk(256 * 1024, 0xAB);
+    const uint8_t sig[7] = {0x01, 'C', 'D', '0', '0', '1', 0x01};
+    memcpy(junk.data() + 40000, sig, sizeof(sig)); /* plausible offset for a 2048 base */
+    if (!write_file(path, junk)) {
+        FAIL_MSG("could not write fixture %s", path.c_str());
+        return;
+    }
+    iso9660_t *a = iso_open(path.c_str());
+    ASSERT_TRUE(a == NULL);
+    if (a)
+        iso_close(a);
+    iso9660_t *b = iso_open_ex(path.c_str(), 1);
+    ASSERT_TRUE(b == NULL);
+    if (b)
+        iso_close(b);
+    remove(path.c_str());
+}
+
 /* ── malformed / hostile image handling ────────────────────────────────── */
 /* The image is essentially user-supplied input, so the reader must not read past
    its buffers or hang on crafted/corrupt on-disc structures. These build images
@@ -327,6 +395,9 @@ int main(void) {
     RUN_TEST(test_cooked_2048);
     RUN_TEST(test_raw_2352);
     RUN_TEST(test_non_iso_rejected);
+    RUN_TEST(test_container_header_cooked);
+    RUN_TEST(test_container_header_raw);
+    RUN_TEST(test_container_scan_rejects_lookalike);
     RUN_TEST(test_malformed_record_bounded);
     RUN_TEST(test_truncated_extent_graceful);
     TEST_SUMMARY();

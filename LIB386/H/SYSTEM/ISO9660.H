@@ -23,7 +23,23 @@ typedef struct iso9660 iso9660_t;
 // ISO9660 "CD001" primary volume descriptor at logical sector 16. Returns NULL
 // if the file is not an ISO9660 image we understand.
 iso9660_t *iso_open(const char *path);
+
+// As iso_open, but with `allowContainerScan` also accepting an image that sits
+// behind a container header (a DAEMON Tools MDX prefixes 64 bytes, so its
+// sector 16 is not where the plain probes look). The scan searches the head of
+// the file for a primary volume descriptor and derives the base offset from it,
+// validating the descriptor before accepting: one generic rule, no per-format
+// knowledge. It costs a read of the file's head, so callers should try the
+// plain probe across all candidates first and only then rescan.
+iso9660_t *iso_open_ex(const char *path, int allowContainerScan);
+
 void iso_close(iso9660_t *iso);
+
+//──────────────────────────────────────────────────────────────────────────
+// Report the detected layout: sector stride (2352 raw or 2048 cooked) and the
+// byte offset of logical sector 0. Lets a caller rank candidate images (raw
+// carries CD audio that cooked cannot) and locate raw audio sectors.
+int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase);
 
 //──────────────────────────────────────────────────────────────────────────
 // List the regular files in a directory (path uses '/', e.g. "LBA/FLA").
