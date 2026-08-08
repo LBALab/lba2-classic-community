@@ -68,11 +68,84 @@ static void test_first_external_audio_wins(void) {
     ASSERT_TRUE(strcmp(name, "track2.wav") == 0);
 }
 
+/* A retail rip whose audio tracks live in the image. The numbering starts at 3
+   because this dump lost the disc's track 2: the engine picks its music by CD
+   track number, so the survivors must keep their true numbers and the parser
+   must not renumber them to close the hole. */
+static const char *const RETAIL_TOC_CUE =
+    "FILE \"TWINSEN.bin\" BINARY\n"
+    "  TRACK 01 MODE1/2352\n"
+    "    INDEX 01 00:00:00\n"
+    "  TRACK 03 AUDIO\n"
+    "    INDEX 00 46:03:00\n"
+    "    INDEX 01 46:04:68\n"
+    "  TRACK 04 AUDIO\n"
+    "    INDEX 01 49:50:59\n";
+
+static void test_toc_reports_every_track(void) {
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ParseToc(RETAIL_TOC_CUE, strlen(RETAIL_TOC_CUE), toc, CUE_MAX_TRACKS);
+    ASSERT_EQ_INT(3, n);
+
+    ASSERT_EQ_INT(1, toc[0].number);
+    ASSERT_EQ_INT(0, toc[0].isAudio);
+    ASSERT_EQ_INT(1, toc[0].fileIsBinary);
+    ASSERT_TRUE(strcmp(toc[0].file, "TWINSEN.bin") == 0);
+
+    /* Track numbers come from the sheet, holes and all. */
+    ASSERT_EQ_INT(3, toc[1].number);
+    ASSERT_EQ_INT(1, toc[1].isAudio);
+    ASSERT_EQ_INT(1, toc[1].fileIsBinary);
+    /* INDEX 01, not the INDEX 00 pregap: 46:04:68 = (46*60+4)*75+68. */
+    ASSERT_EQ_INT((46 * 60 + 4) * 75 + 68, (int)toc[1].startFrame);
+
+    ASSERT_EQ_INT(4, toc[2].number);
+    ASSERT_EQ_INT((49 * 60 + 50) * 75 + 59, (int)toc[2].startFrame);
+}
+
+static void test_toc_external_files(void) {
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ParseToc(MULTI_AUDIO_CUE, strlen(MULTI_AUDIO_CUE), toc, CUE_MAX_TRACKS);
+    ASSERT_EQ_INT(3, n);
+    ASSERT_EQ_INT(1, toc[0].fileIsBinary);
+    ASSERT_EQ_INT(0, toc[1].fileIsBinary);
+    ASSERT_TRUE(strcmp(toc[1].file, "track2.wav") == 0);
+    ASSERT_TRUE(strcmp(toc[2].file, "track3.wav") == 0);
+    /* No INDEX line at all: start of file, which is what an external track means. */
+    ASSERT_EQ_INT(0, (int)toc[1].startFrame);
+}
+
+static void test_toc_gog_shape(void) {
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ParseToc(GOG_CUE, strlen(GOG_CUE), toc, CUE_MAX_TRACKS);
+    ASSERT_EQ_INT(2, n);
+    ASSERT_EQ_INT(2, toc[1].number);
+    ASSERT_EQ_INT(1, toc[1].isAudio);
+    ASSERT_EQ_INT(0, toc[1].fileIsBinary);
+    ASSERT_TRUE(strcmp(toc[1].file, "LBA2.OGG") == 0);
+}
+
+/* A truncated sheet must not produce garbage tracks. */
+static void test_toc_malformed_index(void) {
+    static const char *const BAD =
+        "FILE \"d.bin\" BINARY\n"
+        "  TRACK 02 AUDIO\n"
+        "    INDEX 01 not-a-time\n";
+    CueTrack toc[CUE_MAX_TRACKS];
+    ASSERT_EQ_INT(1, Cue_ParseToc(BAD, strlen(BAD), toc, CUE_MAX_TRACKS));
+    ASSERT_EQ_INT(2, toc[0].number);
+    ASSERT_EQ_INT(0, (int)toc[0].startFrame);
+}
+
 int main(void) {
     RUN_TEST(test_gog_external_ogg);
     RUN_TEST(test_data_only_has_no_audio);
     RUN_TEST(test_inbin_cdda_skipped);
     RUN_TEST(test_first_external_audio_wins);
+    RUN_TEST(test_toc_reports_every_track);
+    RUN_TEST(test_toc_external_files);
+    RUN_TEST(test_toc_gog_shape);
+    RUN_TEST(test_toc_malformed_index);
     TEST_SUMMARY();
     return test_failures != 0;
 }

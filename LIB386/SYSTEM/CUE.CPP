@@ -7,17 +7,64 @@
 #include <string.h>
 #include <strings.h> // strncasecmp / strcasecmp
 
+// Read an unsigned decimal run, stopping at the first non-digit. Returns the
+// value and advances *p. A cue's numbers are all small and unsigned.
+static unsigned rd_uint(const char **p, const char *end) {
+    unsigned v = 0;
+    while (*p < end && **p >= '0' && **p <= '9') {
+        v = v * 10 + (unsigned)(**p - '0');
+        (*p)++;
+    }
+    return v;
+}
+
 //──────────────────────────────────────────────────────────────────────────
-// Walk the cue text line by line. Track the most recent FILE and its type; when
-// an AUDIO track appears under a non-BINARY file, that file is the external
-// audio we want. A BINARY file (the data image) with AUDIO tracks is in-image
-// CD-DA and is skipped.
-int Cue_ParseExternalAudio(const char *cueText, size_t len, char *outName, size_t outMax) {
-    if (cueText == NULL || outName == NULL || outMax == 0)
+// Parse "mm:ss:ff" into CD frames (75 per second). Returns 0 if the field is
+// not in that shape, which reads the same as a track starting at the beginning
+// of its file, the sane default for a malformed sheet.
+static uint32_t parse_msf(const char *s, size_t len) {
+    const char *p = s;
+    const char *end = s + len;
+    while (p < end && (*p == ' ' || *p == '\t'))
+        p++;
+    if (p >= end || *p < '0' || *p > '9')
+        return 0;
+    unsigned mm = rd_uint(&p, end);
+    if (p >= end || *p != ':')
+        return 0;
+    p++;
+    unsigned ss = rd_uint(&p, end);
+    if (p >= end || *p != ':')
+        return 0;
+    p++;
+    unsigned ff = rd_uint(&p, end);
+    return (uint32_t)((mm * 60 + ss) * 75 + ff);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// Does `s` (a line of `len` bytes) contain `word`, case-insensitively?
+static int line_has(const char *s, size_t len, const char *word) {
+    size_t wl = strlen(word);
+    for (size_t k = 0; k + wl <= len; k++) {
+        if (strncasecmp(s + k, word, wl) == 0)
+            return 1;
+    }
+    return 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// Walk the cue text line by line, tracking the FILE each TRACK belongs to.
+// FILE gives the owning file and whether it is the disc image (BINARY); TRACK
+// opens an entry; INDEX 01 gives its start. INDEX 00 is the pregap and is
+// deliberately ignored: what a caller wants is where the audio begins, not
+// where the silence before it does.
+int Cue_ParseToc(const char *cueText, size_t len, CueTrack *out, int maxTracks) {
+    if (cueText == NULL || out == NULL || maxTracks <= 0)
         return 0;
 
-    char curFile[512] = "";
+    char curFile[CUE_MAX_NAME] = "";
     int curBinary = 0;
+    int count = 0;
 
     size_t i = 0;
     while (i < len) {
@@ -54,25 +101,99 @@ int Cue_ParseExternalAudio(const char *cueText, size_t len, char *outName, size_
                 }
             }
         } else if (llen >= 5 && strncasecmp(s, "TRACK", 5) == 0) {
-            int isAudio = 0;
-            for (size_t k = 0; k + 5 <= llen; k++) {
-                if (strncasecmp(s + k, "AUDIO", 5) == 0) {
-                    isAudio = 1;
-                    break;
-                }
+            if (count < maxTracks) {
+                const char *p = s + 5;
+                const char *end = s + llen;
+                while (p < end && (*p == ' ' || *p == '\t'))
+                    p++;
+                CueTrack *t = &out[count];
+                t->number = (int)rd_uint(&p, end);
+                t->isAudio = line_has(s, llen, "AUDIO");
+                t->fileIsBinary = curBinary;
+                t->startFrame = 0;
+                strncpy(t->file, curFile, sizeof(t->file) - 1);
+                t->file[sizeof(t->file) - 1] = '\0';
+                count++;
             }
-            if (isAudio && curFile[0] != '\0' && !curBinary) {
-                strncpy(outName, curFile, outMax - 1);
-                outName[outMax - 1] = '\0';
-                return 1;
-            }
+        } else if (llen >= 5 && strncasecmp(s, "INDEX", 5) == 0 && count > 0) {
+            const char *p = s + 5;
+            const char *end = s + llen;
+            while (p < end && (*p == ' ' || *p == '\t'))
+                p++;
+            unsigned idx = rd_uint(&p, end);
+            if (idx == 1)
+                out[count - 1].startFrame = parse_msf(p, (size_t)(end - p));
         }
 
         i = j;
         while (i < len && (cueText[i] == '\n' || cueText[i] == '\r'))
             i++;
     }
+    return count;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// The first external (non-BINARY) AUDIO track's file. An AUDIO track under a
+// BINARY file is in-image CD-DA, located by INDEX and served by the passthrough
+// source, so it is not an answer to this question.
+int Cue_ParseExternalAudio(const char *cueText, size_t len, char *outName, size_t outMax) {
+    if (outName == NULL || outMax == 0)
+        return 0;
+
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ParseToc(cueText, len, toc, CUE_MAX_TRACKS);
+    for (int i = 0; i < n; i++) {
+        if (toc[i].isAudio && !toc[i].fileIsBinary && toc[i].file[0] != '\0') {
+            strncpy(outName, toc[i].file, outMax - 1);
+            outName[outMax - 1] = '\0';
+            return 1;
+        }
+    }
     return 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// Is this directory entry a cue sheet? GOG names theirs .dat, so both count.
+static int is_cue_name(const char *name) {
+    const char *dot = strrchr(name, '.');
+    return dot != NULL && (strcasecmp(dot, ".cue") == 0 || strcasecmp(dot, ".dat") == 0);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+int Cue_ReadTocInDir(const char *dir, char *outCuePath, size_t cuePathMax,
+                     CueTrack *out, int maxTracks) {
+    if (dir == NULL || dir[0] == '\0' || out == NULL || maxTracks <= 0)
+        return 0;
+
+    DIR *d = opendir(dir);
+    if (d == NULL)
+        return 0;
+
+    int count = 0;
+    char cuePath[1024];
+    struct dirent *ent;
+    while (count == 0 && (ent = readdir(d)) != NULL) {
+        if (!is_cue_name(ent->d_name))
+            continue;
+        int n = snprintf(cuePath, sizeof(cuePath), "%s%s", dir, ent->d_name);
+        if (n < 0 || (size_t)n >= sizeof(cuePath))
+            continue;
+
+        FILE *f = fopen(cuePath, "rb");
+        if (f == NULL)
+            continue;
+        char buf[8192];
+        size_t got = fread(buf, 1, sizeof(buf), f);
+        fclose(f);
+
+        count = Cue_ParseToc(buf, got, out, maxTracks);
+        if (count > 0 && outCuePath != NULL && cuePathMax > 0) {
+            strncpy(outCuePath, cuePath, cuePathMax - 1);
+            outCuePath[cuePathMax - 1] = '\0';
+        }
+    }
+    closedir(d);
+    return count;
 }
 
 //──────────────────────────────────────────────────────────────────────────
@@ -89,10 +210,7 @@ int Cue_ResolveInDir(const char *dir, char *outPath, size_t outMax) {
     char audioName[512];
     struct dirent *ent;
     while ((ent = readdir(d)) != NULL) {
-        const char *dot = strrchr(ent->d_name, '.');
-        if (dot == NULL)
-            continue;
-        if (strcasecmp(dot, ".cue") != 0 && strcasecmp(dot, ".dat") != 0)
+        if (!is_cue_name(ent->d_name))
             continue;
 
         int n = snprintf(cuePath, sizeof(cuePath), "%s%s", dir, ent->d_name);
