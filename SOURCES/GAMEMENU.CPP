@@ -507,7 +507,12 @@ static void CycleTextLanguage(S32 step) {
 // another mode or 640x480. The revert dialog also needs a live scene to repaint
 // over, which the boot main menu doesn't have. See GereResolutionMenu.
 static void ApplyResolutionChoice(U32 w, U32 h) {
-    if (w == ModeDesiredX && h == ModeDesiredY)
+    /* Compare against the chosen base, not the live framebuffer: inside an
+       interior the two differ, and picking the size the interior happens to be
+       rendering at is still a change of base. */
+    U32 baseW = 0, baseH = 0;
+    Res_BaseDimensions(&baseW, &baseH);
+    if (w == baseW && h == baseH)
         return;
 
     if (Res_Switch(w, h)) {

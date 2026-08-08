@@ -6,6 +6,7 @@
 #include "../ZONE_GEOM.H" // ZonePointInBox (zonelist shares the engine's zone box test)
 #include "../DIRECTORIES.H"
 #include "../PLAYACF.H"
+#include <POLYGON/POLYFILT.H>
 
 extern S32 GfxDitherShading;
 #include "../CONFIG.H"
@@ -1291,8 +1292,11 @@ static void res_do_switch(U32 newW, U32 newH) {
         Console_Print("%s", why);
         return;
     }
-    const U32 prevW = ModeDesiredX;
-    const U32 prevH = ModeDesiredY;
+    /* Revert has to put back what the player had chosen. ModeDesiredX/Y is
+       whatever the current scene renders at, which in an interior is smaller
+       than the choice. */
+    U32 prevW = 0, prevH = 0;
+    Res_BaseDimensions(&prevW, &prevH);
     if (!Res_Switch(newW, newH)) {
         Console_Print("resolution: switch to %ux%u failed (see log).", newW, newH);
         return;
@@ -1558,6 +1562,31 @@ static void cmd_vargame(int argc, const char *argv[]) {
     if (argc >= 3)
         ListVarGame[n] = (S16)atoi(argv[2]);
     Console_Print("vargame[%d] = %d", n, (int)ListVarGame[n]);
+}
+
+/* behaviour [n] | comportement [n]: read or set the hero behaviour (0=Normal 1=Sportif 2=Aggressive
+   3=Discreet 4=Protopack ...). Routes through SetComportement so the weapon/body side-effects match a
+   real in-game switch. Lets a headless test reach the melee (Aggressive), jump (Sportif) and hide
+   (Discreet) input paths without a save fixture in that behaviour. */
+static void cmd_behaviour(int argc, const char *argv[]) {
+    if (argc >= 2) {
+        S32 n = atoi(argv[1]);
+        if (n < 0 || n >= MAX_COMPORTEMENTS) {
+            Console_Print("behaviour: %d out of range (0..%d)", n, MAX_COMPORTEMENTS - 1);
+            return;
+        }
+        SetComportement((U8)n);
+    }
+    Console_Print("behaviour = %d", (int)Comportement);
+}
+
+/* weapon [n]: read or set the hero's active weapon global (FLAG_BALLE_MAGIQUE=1, FLAG_SABRE, FLAG_DART,
+   FLAG_SARBACANE, ...). Sets Weapon only; a weapon that is ammo- or inventory-gated may also need its
+   ListVarGame flag (use `vargame`). For reaching the various fire paths in a headless test. */
+static void cmd_weapon(int argc, const char *argv[]) {
+    if (argc >= 2)
+        Weapon = (U8)atoi(argv[1]);
+    Console_Print("weapon = %d", (int)Weapon);
 }
 
 /* lifetrace <objN> | off: trace object N's Life script -- its comportement/track/zone state each
@@ -1908,6 +1937,10 @@ void Console_RegisterAll(void) {
                               "teleport <x> <y> <z> [beta] | teleport actor <n>",
                               "Sets the hero's coords directly; next frame re-runs zones/collision. "
                               "'actor <n>' jumps onto actor n. Within-cube only.");
+    Console_RegisterCommandEx("behaviour", cmd_behaviour, "Read/set hero behaviour (comportement)",
+                              "behaviour [0..13]", "0=Normal 1=Sportif 2=Aggressive 3=Discreet 4=Protopack. Routes through SetComportement.");
+    Console_RegisterCommandEx("weapon", cmd_weapon, "Read/set hero active weapon",
+                              "weapon [n]", "Sets the Weapon global (1=magic ball). Ammo/inventory may need vargame.");
     Console_RegisterCommandEx("varcube", cmd_varcube, "Read/set a scene (cube) Life variable",
                               "varcube <n> [value]",
                               "Reads the cube var, or sets it with a value. Drives quest state.");
@@ -1976,6 +2009,7 @@ void Console_RegisterAll(void) {
     Console_RegisterCvar("cam_recenter_drift", &FollowCamDriftDivisor, CONSOLE_CVAR_INT, "Auto-cam re-center drift divisor (higher = gentler)");
     Console_RegisterCvar("cam_follow", &FollowCamera, CONSOLE_CVAR_BOOL, "Auto camera (third-person follow) enable");
     Console_RegisterCvar("gfx_dither", &GfxDitherShading, CONSOLE_CVAR_BOOL, "Ordered dither on Gouraud shade rows (softens 16-step banding)");
+    Console_RegisterCvar("gfx_texfilter", &PolyTexFilter, CONSOLE_CVAR_INT, "Texture filtering: 0 off, 1 horizontal, 2 bilinear");
     Console_RegisterCvar("cam_hd", &FollowCamHDRecompose, CONSOLE_CVAR_BOOL, "Auto cam HD recompose: pull in + steepen at tall render heights");
     Console_RegisterCvar("cam_hd_cap", &FollowCamHDExcessCap, CONSOLE_CVAR_INT, "Cap on recompose strength so tall res converges (0 = pure linear; 70 ~= 816p)");
     Console_RegisterCvar("cam_hd_pitch", &FollowCamHDPitchGain, CONSOLE_CVAR_INT, "HD recompose pitch gain (AlphaCam units per 1.0 of k-1)");

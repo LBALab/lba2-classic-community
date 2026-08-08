@@ -1,3 +1,4 @@
+#include <POLYGON/POLYFILT.H>
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 #include "MUSIC.H"
@@ -456,6 +457,7 @@ void ChoicePalette(void) {
     PtrXplHeader = (XPL_HEADER *)PtrXplPalette;
 
     PtrPalCurrent = PtrXplPalette + PtrXplHeader->OffsetPalette;
+    Poly_BuildBlendLUT(PtrPalCurrent); /* texture-filter tables follow the palette */
     PtrNuances = PtrXplPalette + PtrXplHeader->OffsetFog;
     PtrTransPal = PtrXplPalette + PtrXplHeader->OffsetTransp;
     FogCoul = PtrXplHeader->FogCoul;

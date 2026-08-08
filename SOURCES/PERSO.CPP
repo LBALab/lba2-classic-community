@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <POLYGON/POLYFILT.H>
 
 extern S32 GfxDitherShading;
 #include "IMAGE_LOAD.H"
@@ -1932,6 +1933,7 @@ restartloop:
         U32 simBaseRef = LastSimRefHR;
         U32 simFinalRef = TimerRefHR;
         U32 simSavedInput = Input;
+        U32 simSavedLastInput = LastInput; // restored after the sub-step loop (see below)
         if (FixedTimestep > 0) {
             // Plan this frame's sub-steps (count + sub-step clock anchor + the next-frame carry).
             // Timer_PlanSimSteps is the pure, unit-tested core (LIB386/SYSTEM/TIMER.CPP): it
@@ -1987,8 +1989,26 @@ restartloop:
     sim_step:
         if (FixedTimestep > 0) {
             TimerRefHR = simBaseRef + (U32)(simStep + 1) * (U32)FixedTimestep;
-            if (simStep > 0)
-                Input = simSavedInput & I_JOY; // movement only after the first sub-step
+            if (simStep > 0) {
+                /* Input is sampled once per rendered frame; a frame's sub-steps advance sim TIME, not
+                   input. So every sub-step sees the frame's held input, and the press/release EDGE is
+                   consumed once -- on the first sub-step, where LastInput is still the previous frame's
+                   real sample. On later sub-steps we hold BOTH Input and LastInput at that sample so the
+                   held bits read as steady state: no phantom press (Input == LastInput, so the object
+                   loop's edge-guarded actions like the C_AGRESSIF MyRnd combo do not re-select) and no
+                   phantom release (the held bits are still present, so the momentary-action reset paths
+                   -- `if (LastInput & I_THROW) InitAnim(GEN_ANIM_RIEN)` and the LastMyFire idle reset in
+                   OBJECT.CPP MOVE_MANUAL -- stay put instead of cancelling an in-flight throw/attack anim
+                   before it reaches its action frame). The earlier `& I_JOY` mask dropped the held action
+                   bits, which the loop read as a release and reset the anim every sub-step, so below
+                   ~60 fps a held throw/attack never advanced to its throw/hit frame (#456). InitAnim is
+                   idempotent and projectile spawns are animation-frame-gated, so re-presenting the held
+                   input each sub-step does not re-fire. LastInput is restored after the loop.
+                   At FixedTimestep == 0 or nSimSteps == 1 (>= ~60 fps) this branch never runs, so the
+                   per-frame path is byte-for-byte unchanged. */
+                Input = simSavedInput;
+                LastInput = simSavedInput;
+            }
         }
 
         /* vitesse de chute propor pour tous les objets */
@@ -2261,9 +2281,10 @@ restartloop:
             goto sim_step; // run the next fixed sub-step of this frame
         if (FixedTimestep > 0) {
             // Restore the frame's clock for rendering / the next frame and undo the per-sub-step
-            // input mask. LastSimRefHR was already advanced by Timer_PlanSimSteps (the carry).
+            // input hold. LastSimRefHR was already advanced by Timer_PlanSimSteps (the carry).
             TimerRefHR = simFinalRef;
             Input = simSavedInput;
+            LastInput = simSavedLastInput; // undo the sub-step hold so the next frame's edge is real
         }
 
         /*-------------------------------------------------------------------------*/
@@ -2312,6 +2333,12 @@ restartloop:
                       ▀▀▀▀▀ ▀▀▀▀▀ ▀▀  ▀ ▀▀     ▀▀   ▀▀▀▀▀
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
+
+/* What lba2.cfg held for the texture filter, and what an LBA2_TEXFILTER
+   override forced for this run (-1 when none). WriteConfigFile needs both to
+   tell a per-run override apart from a genuine change. */
+static S32 StoredTexFilter = 0;
+static S32 EnvTexFilter = -1;
 
 void ReadConfigFile(void) {
     const char *ptr;
@@ -2370,6 +2397,24 @@ void ReadConfigFile(void) {
     GfxDitherShading = DefFileBufferReadValueDefault("DitherShading", FALSE);
     if (GfxDitherShading < 0 OR GfxDitherShading > 1)
         GfxDitherShading = FALSE;
+
+    PolyTexFilter = DefFileBufferReadValueDefault("TextureFilter", POLY_TEX_FILTER_OFF);
+    if (PolyTexFilter < POLY_TEX_FILTER_OFF || PolyTexFilter > POLY_TEX_FILTER_BILINEAR)
+        PolyTexFilter = POLY_TEX_FILTER_OFF;
+    StoredTexFilter = PolyTexFilter;
+    EnvTexFilter = -1;
+    {
+        /* Same precedence the resolution uses: an explicit request for this
+           run beats the stored preference. */
+        const char *env = getenv("LBA2_TEXFILTER");
+        if (env != NULL) {
+            const S32 v = (S32)atoi(env);
+            if (v >= POLY_TEX_FILTER_OFF && v <= POLY_TEX_FILTER_BILINEAR) {
+                PolyTexFilter = v;
+                EnvTexFilter = v;
+            }
+        }
+    }
 
     if (DisplayVSync < 0 OR DisplayVSync > 1)
         DisplayVSync = TRUE;
@@ -2510,6 +2555,20 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
     DefFileBufferWriteValue("DitherShading", GfxDitherShading);
+    /* An environment override is for the run that asked for it: persisting the
+       live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
+       setting nobody chose, so the stored value wins while the live one still
+       matches what the environment forced.
+
+       The comparison is on the value, not on who last wrote it, because cvars
+       are registered as bare pointers with no on-change hook. Setting the same
+       value from the console during an overridden run is therefore
+       indistinguishable from not touching it, and does not persist; setting a
+       different one does. Accepted trade for not growing the cvar API. */
+    DefFileBufferWriteValue("TextureFilter",
+                            (EnvTexFilter >= 0 && PolyTexFilter == EnvTexFilter)
+                                ? StoredTexFilter
+                                : PolyTexFilter);
     DefFileBufferWriteValue("FixedTimestep", FixedTimestep);
     DefFileBufferWriteValue("ConsoleToggleKey", Console_GetToggleScancode());
     /* Render resolution. Read at boot by Res_LoadBootDimensions (CLI > cfg >
@@ -2518,8 +2577,10 @@ void WriteConfigFile(void) {
        auto-detected or defaulted resolution is left out so it re-derives from
        the display each launch instead of freezing into the cfg on first exit. */
     if (!Res_ResolutionIsAutoDerived()) {
-        DefFileBufferWriteValue("ResolutionX", (S32)ModeDesiredX);
-        DefFileBufferWriteValue("ResolutionY", (S32)ModeDesiredY);
+        U32 baseW = 0, baseH = 0;
+        Res_BaseDimensions(&baseW, &baseH);
+        DefFileBufferWriteValue("ResolutionX", (S32)baseW);
+        DefFileBufferWriteValue("ResolutionY", (S32)baseH);
     }
 
     if (FlagDisplayText)

@@ -1,4 +1,5 @@
 #include <POLYGON/POLYTEXT.H>
+#include <POLYGON/POLYFILT.H>
 
 #include <stdio.h>
 #include <POLYGON/POLY.H>
@@ -1090,8 +1091,27 @@ S32 Filler_TextureFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax) {
             do {
                 if ((decU_intZ & 0xFFFF) <= POLYTEXT_PtrZBufferPatch[offset]) {
                     POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
-                    U8 color = POLYTEXT_PtrMapPatch[mapIndex];
-                    POLYTEXT_PtrLog[offset] = Fill_Logical_Palette[color];
+                    U8 outIdx = Fill_Logical_Palette[POLYTEXT_PtrMapPatch[mapIndex]];
+                    if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
+                        /* U fraction lives in the top byte of decU_intZ, V in
+                           the top byte of lineVDec — both already maintained. */
+                        const U32 qu = ((decU_intZ >> 24) & 0xFF) >> 6;
+                        const U32 iU = ((mapIndex & 0xFF00) | ((mapIndex + 1) & 0xFF)) &
+                                       POLYTEXT_RepMaskPatch;
+                        const U8 bU = Fill_Logical_Palette[POLYTEXT_PtrMapPatch[iU]];
+                        outIdx = POLY_BLEND(outIdx, bU, qu);
+                        if (PolyTexFilter == POLY_TEX_FILTER_BILINEAR) {
+                            const U32 iV = (((mapIndex + 0x100) & 0xFF00) | (mapIndex & 0xFF)) &
+                                           POLYTEXT_RepMaskPatch;
+                            const U32 iUV = ((iV & 0xFF00) | (iU & 0xFF)) & POLYTEXT_RepMaskPatch;
+                            const U8 aV = Fill_Logical_Palette[POLYTEXT_PtrMapPatch[iV]];
+                            const U8 bV = Fill_Logical_Palette[POLYTEXT_PtrMapPatch[iUV]];
+                            const U8 lower = POLY_BLEND(aV, bV, qu);
+                            const U32 qv = ((lineVDec >> 24) & 0xFF) >> 6;
+                            outIdx = POLY_BLEND(outIdx, lower, qv);
+                        }
+                    }
+                    POLYTEXT_PtrLog[offset] = outIdx;
                 }
 
                 offset++;
@@ -1200,6 +1220,37 @@ S32 Filler_TextureChromaKeyFogZBuf(U32 nbLines, U32 fillCurXMin, U32 fillCurXMax
                     if (textureColor != 0) {
                         POLYTEXT_PtrZBuffer1[offset] = decU_intZ & 0xFFFF;
                         U8 foggedColor = Fill_Logical_Palette[textureColor];
+                        if (PolyTexFilter != POLY_TEX_FILTER_OFF) {
+                            /* Only blend between opaque taps: mixing toward
+                               palette entry 0 would bleed the key colour into
+                               the silhouette instead of softening the texel.
+                               A transparent tap therefore drops its axis
+                               rather than contributing. */
+                            const U32 qu = ((decU_intZ >> 24) & 0xFF) >> 6;
+                            const U32 iU = ((mapIndex & 0xFF00) | ((mapIndex + 1) & 0xFF)) &
+                                           POLYTEXT_RepMaskPatch;
+                            const U8 tU = POLYTEXT_PtrMapPatch[iU];
+                            if (tU != 0) {
+                                foggedColor = POLY_BLEND(foggedColor,
+                                                         Fill_Logical_Palette[tU], qu);
+                            }
+                            if (PolyTexFilter == POLY_TEX_FILTER_BILINEAR) {
+                                const U32 iV = (((mapIndex + 0x100) & 0xFF00) |
+                                                (mapIndex & 0xFF)) &
+                                               POLYTEXT_RepMaskPatch;
+                                const U32 iUV = ((iV & 0xFF00) | (iU & 0xFF)) &
+                                                POLYTEXT_RepMaskPatch;
+                                const U8 tV = POLYTEXT_PtrMapPatch[iV];
+                                const U8 tUV = POLYTEXT_PtrMapPatch[iUV];
+                                if (tV != 0 && tUV != 0) {
+                                    const U8 lower =
+                                        POLY_BLEND(Fill_Logical_Palette[tV],
+                                                   Fill_Logical_Palette[tUV], qu);
+                                    const U32 qv = ((lineVDec >> 24) & 0xFF) >> 6;
+                                    foggedColor = POLY_BLEND(foggedColor, lower, qv);
+                                }
+                            }
+                        }
                         POLYTEXT_PtrLog[offset] = foggedColor;
                     }
                 }

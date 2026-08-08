@@ -5,6 +5,8 @@
 
 #include "RES_SWITCH.H"
 
+#include <stdlib.h>
+
 #include "ANIMTEX.H"     /* InitPlasmaMenu, DoTextureAnimation (plasma fire bar) */
 #include "RES_CATALOG.H" /* RES_MIN_W / RES_MAX_W / RES_MIN_H / RES_MAX_H bounds */
 #include "C_EXTERN.H"
@@ -52,6 +54,59 @@
 static bool g_resIsAutoDerived = false;
 bool Res_ResolutionIsAutoDerived(void) { return g_resIsAutoDerived; }
 
+/* The resolution the player chose. Tracked apart from ModeDesiredX/Y because
+   those hold whatever the current scene renders at, and an interior downshift
+   must neither be persisted nor become the size an exterior returns to. */
+static U32 g_baseW = 0;
+static U32 g_baseH = 0;
+
+void Res_BaseDimensions(U32 *outW, U32 *outH) {
+    *outW = (g_baseW != 0) ? g_baseW : ModeDesiredX;
+    *outH = (g_baseH != 0) ? g_baseH : ModeDesiredY;
+}
+
+/* Isometric interiors are drawn from pre-rendered brick sprites, and the iso
+   projectors take no focal argument, so nothing in an interior scales with the
+   framebuffer: a bigger one only reveals more empty space around the room.
+   Rendering interiors at 1/N and letting the present stretch them is therefore
+   magnification rather than a loss of detail. 1 disables it. */
+static S32 g_isoDiv = 0; /* 0 = not yet read from the environment */
+
+static S32 Res_InteriorDivisor(void) {
+    if (g_isoDiv == 0) {
+        const char *env = getenv("LBA2_ISO_DIV");
+        S32 v = (env != NULL) ? (S32)atoi(env) : 1;
+        if (v < 1)
+            v = 1;
+        if (v > 4)
+            v = 4;
+        g_isoDiv = v;
+    }
+    return g_isoDiv;
+}
+
+static bool Res_SwitchEx(U32 newW, U32 newH, bool playerChoice);
+
+/* What a base resolution actually renders at in the current scene. Interiors
+   may render smaller; everything else renders at the base. */
+static void Res_SceneTarget(U32 baseW, U32 baseH, U32 *outW, U32 *outH) {
+    const S32 div = Res_InteriorDivisor();
+
+    *outW = baseW;
+    *outH = baseH;
+    if (div <= 1 || CubeMode != CUBE_INTERIEUR)
+        return;
+
+    {
+        const U32 w = (baseW / (U32)div) & ~7u; /* width stays a multiple of 8 */
+        const U32 h = baseH / (U32)div;
+        if (w >= RES_MIN_W && h >= RES_MIN_H) {
+            *outW = w;
+            *outH = h;
+        }
+    }
+}
+
 /* Scratch-buffer size for the transient, heap-free boot reads of lba2.cfg
    (Res_LoadBootDimensions / Res_LoadBootFullscreen). A fully-populated valid
    cfg is already ~6 KB (72 keyboard + 72 gamepad bindings from MAX_INPUT, plus
@@ -90,12 +145,12 @@ static bool RebuildEngineBuffers(U32 w, U32 h) {
     return true;
 }
 
-static bool ResizeSdlSurfaces(U32 w, U32 h) {
+static bool ResizeSdlSurfaces(U32 w, U32 h, bool keepWindowSize) {
     /* Resize in place rather than destroy+recreate.  The SDL window itself
        (and therefore fullscreen state, focus, and the player's window
        position in windowed mode) survives the switch.  Only the streaming
        texture and the Phys present-buffer change dimensions. */
-    if (!ResizeWindowSurface(w, h))
+    if (!ResizeWindowSurface(w, h, keepWindowSize))
         return false;
     if (!ResizeVideoSurface(w, h))
         return false;
@@ -123,6 +178,34 @@ static bool ResizeSdlSurfaces(U32 w, U32 h) {
 }
 
 bool Res_Switch(U32 newW, U32 newH) {
+    /* A player picks a resolution, not a framebuffer size: the pick is the new
+       base, and what the current scene renders at follows from it. Committing
+       the base only once the switch has landed keeps a rejected or failed
+       target from becoming the size everything else is derived from -- and
+       from being persisted. */
+    const U32 prevBaseW = g_baseW;
+    const U32 prevBaseH = g_baseH;
+    U32 targetW, targetH;
+
+    if (!Res_ValidateDimensions(newW, newH)) {
+        LogPrintf("Res_Switch: invalid target %ux%u (need %d..%dx%d..%d, W%%8==0)\n",
+                  newW, newH, RES_MIN_W, RES_MAX_W, RES_MIN_H, RES_MAX_H);
+        return false;
+    }
+
+    g_baseW = newW;
+    g_baseH = newH;
+    Res_SceneTarget(newW, newH, &targetW, &targetH);
+
+    if (!Res_SwitchEx(targetW, targetH, true)) {
+        g_baseW = prevBaseW;
+        g_baseH = prevBaseH;
+        return false;
+    }
+    return true;
+}
+
+static bool Res_SwitchEx(U32 newW, U32 newH, bool playerChoice) {
     if (!Res_ValidateDimensions(newW, newH)) {
         LogPrintf("Res_Switch: invalid target %ux%u (need %d..%dx%d..%d, W%%8==0)\n",
                   newW, newH, RES_MIN_W, RES_MAX_W,
@@ -135,7 +218,8 @@ bool Res_Switch(U32 newW, U32 newH) {
        a frame.  The caller (console verb / menu) can rely on this. */
     if (ModeDesiredX == newW && ModeDesiredY == newH) {
         /* Confirming the current mode is still an explicit choice. */
-        g_resIsAutoDerived = false;
+        if (playerChoice)
+            g_resIsAutoDerived = false;
         return true;
     }
 
@@ -145,11 +229,11 @@ bool Res_Switch(U32 newW, U32 newH) {
 
     TeardownEngineBuffers();
 
-    if (!RebuildEngineBuffers(newW, newH) || !ResizeSdlSurfaces(newW, newH)) {
+    if (!RebuildEngineBuffers(newW, newH) || !ResizeSdlSurfaces(newW, newH, !playerChoice)) {
         LogPrintf("Res_Switch: rebuild at %ux%u failed, reverting to %ux%u\n",
                   newW, newH, oldW, oldH);
         TeardownEngineBuffers();
-        if (!RebuildEngineBuffers(oldW, oldH) || !ResizeSdlSurfaces(oldW, oldH)) {
+        if (!RebuildEngineBuffers(oldW, oldH) || !ResizeSdlSurfaces(oldW, oldH, !playerChoice)) {
             /* The previous mode worked moments ago, so this should be
                impossible.  If it does happen we have no surface to fall back
                to — the engine is wedged.  TheEnd() is the existing fail-fast
@@ -248,9 +332,31 @@ bool Res_Switch(U32 newW, U32 newH) {
                 (int)wasFullscreen, (int)isFullscreen);
     }
     /* The switch landed: this is now an explicit player resolution, so let
-       WriteConfigFile persist it across launches. */
-    g_resIsAutoDerived = false;
+       WriteConfigFile persist it across launches. A scene-driven switch is not
+       a preference and must never freeze an interior size into the cfg. */
+    if (playerChoice)
+        g_resIsAutoDerived = false;
     return true;
+}
+
+/*══════════════════════════════════════════════════════════════════════════*/
+void Res_ApplySceneRenderSize(void) {
+    U32 targetW, targetH;
+
+    if (Res_InteriorDivisor() <= 1)
+        return;
+
+    /* First scene of the run: whatever we are at is the player's baseline. */
+    if (g_baseW == 0 || g_baseH == 0) {
+        g_baseW = ModeDesiredX;
+        g_baseH = ModeDesiredY;
+    }
+
+    Res_SceneTarget(g_baseW, g_baseH, &targetW, &targetH);
+    if (targetW == ModeDesiredX && targetH == ModeDesiredY)
+        return;
+
+    Res_SwitchEx(targetW, targetH, false);
 }
 
 /*══════════════════════════════════════════════════════════════════════════*
@@ -653,8 +759,9 @@ ResRevertChoice Res_RunRevertDialogIfPending(void) {
            keep recording the last *confirmed* resolution. */
         WriteConfigFile();
     } else /* RES_REVERT_REVERT */ {
-        /* Recursive Res_Switch to the previous (W, H). The orchestrator
-           handles the no-op case (already at prev W,H) cleanly. */
+        /* Restore the previous *base*: s_revertPrev holds what the player
+           had chosen, so reverting inside an interior must not adopt that
+           interior's reduced framebuffer as the new base. */
         Res_Switch(s_revertPrevW, s_revertPrevH);
     }
 
