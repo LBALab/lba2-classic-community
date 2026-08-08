@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
 #include <POLYGON/POLYFILT.H>
+
+extern S32 GfxDitherShading;
 #include "IMAGE_LOAD.H"
 
 #include "BUILD_INFO.h" /* LBA2_VERSION_STRING (for --version flag) */
@@ -2392,6 +2394,10 @@ void ReadConfigFile(void) {
 
     DisplayVSync = DefFileBufferReadValueDefault("VSync", TRUE);
 
+    GfxDitherShading = DefFileBufferReadValueDefault("DitherShading", FALSE);
+    if (GfxDitherShading < 0 OR GfxDitherShading > 1)
+        GfxDitherShading = FALSE;
+
     PolyTexFilter = DefFileBufferReadValueDefault("TextureFilter", POLY_TEX_FILTER_OFF);
     if (PolyTexFilter < POLY_TEX_FILTER_OFF || PolyTexFilter > POLY_TEX_FILTER_BILINEAR)
         PolyTexFilter = POLY_TEX_FILTER_OFF;
@@ -2548,6 +2554,7 @@ void WriteConfigFile(void) {
     DefFileBufferWriteValue("FullScreen", VideoFullScreen);
     DefFileBufferWriteValue("DisplayFullScreen", DisplayFullScreen);
     DefFileBufferWriteValue("VSync", DisplayVSync);
+    DefFileBufferWriteValue("DitherShading", GfxDitherShading);
     /* An environment override is for the run that asked for it: persisting the
        live value would turn `LBA2_TEXFILTER=2 ./lba2cc` into a permanent
        setting nobody chose, so the stored value wins while the live one still
