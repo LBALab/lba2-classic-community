@@ -257,6 +257,19 @@ static void test_unmount(void) {
     ASSERT_EQ_INT(0, (int)DiscImage_OpenRead((g_base + "video/VIDEO.HQR").c_str()));
 }
 
+/* Discovery has to decide whether a folder is a valid install before anything is
+   mounted. A retail CD rip is one .bin and nothing else, so the marker only
+   exists inside the image; the probe must find it there, and must still say no
+   for a folder with no image or a marker that is not present. */
+static void test_dir_holds_marker(void) {
+    ASSERT_TRUE(!DiscImage_IsMounted()); /* probing must not need, or leave, a mount */
+    ASSERT_TRUE(DiscImage_DirHoldsMarker(g_base.c_str(), "lba2.hqr"));
+    ASSERT_TRUE(DiscImage_DirHoldsMarker(g_base.c_str(), "LBA2.HQR")); /* case-insensitive */
+    ASSERT_TRUE(!DiscImage_DirHoldsMarker(g_base.c_str(), "notthere.hqr"));
+    ASSERT_TRUE(!DiscImage_DirHoldsMarker(std::string(TEST_TMP_DIR).c_str(), "lba2.hqr"));
+    ASSERT_TRUE(!DiscImage_IsMounted());
+}
+
 /* Re-pack a cooked image as raw 2352 (user data at offset 16), so one fixture
    can stand in for both on-disc layouts. */
 static std::vector<uint8_t> to_raw(const std::vector<uint8_t> &cooked) {
@@ -297,6 +310,7 @@ int main(void) {
     RUN_TEST(test_existence);
     RUN_TEST(test_misses);
     RUN_TEST(test_unmount);
+    RUN_TEST(test_dir_holds_marker);
     RUN_TEST(test_prefers_raw_over_cooked);
     TEST_SUMMARY();
     return test_failures != 0;

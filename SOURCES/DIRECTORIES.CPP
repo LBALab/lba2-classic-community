@@ -1,6 +1,7 @@
 #include "DIRECTORIES.H"
 
 #include <SYSTEM/ADELINE.H>
+#include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 #include <SYSTEM/LOG.H>
@@ -145,7 +146,15 @@ bool IsValidResourceDir(const char *path) {
     }
 
     // Check if path contain required file
-    return Discover(NULL, 0, path, FILE_VALID_RES_DIR);
+    if (Discover(NULL, 0, path, FILE_VALID_RES_DIR)) {
+        return true;
+    }
+
+    // Nothing extracted, but the data may all be inside a disc image sitting in
+    // this folder: a retail CD rip is one .bin/.cue and nothing else. The mount
+    // that follows discovery finds the marker the same way, so accepting here is
+    // the same question asked one step earlier, not a looser one.
+    return DiscImage_DirHoldsMarker(path, FILE_VALID_RES_DIR);
 }
 
 const char *Directories_GetResMarker(void) { return FILE_VALID_RES_DIR; }

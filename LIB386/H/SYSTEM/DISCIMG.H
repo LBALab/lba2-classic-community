@@ -33,6 +33,14 @@ void DiscImage_Unmount(void);
 bool DiscImage_IsMounted(void);
 
 //──────────────────────────────────────────────────────────────────────────
+// Does `dir` (with trailing separator) hold a disc image whose filesystem
+// contains `resMarker`? Answers the question discovery asks before any mount
+// has happened, so an install whose game data exists only inside the image is
+// still recognised as a valid resource directory. Probes and closes; it does
+// not mount, and it does not disturb an existing mount.
+bool DiscImage_DirHoldsMarker(const char *dir, const char *resMarker);
+
+//──────────────────────────────────────────────────────────────────────────
 // Boot-banner helper. On a mount, fills the image's filesystem path and file
 // count and returns true so the caller emits one "Disc:" line. Returns false
 // when nothing is mounted, leaving the banner unchanged.

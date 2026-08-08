@@ -127,6 +127,12 @@ static void NoopListCb(void *ud, const char *name, uint32_t size) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+// Smallest file the container scan will bother looking inside. A game CD image
+// is hundreds of megabytes; this only has to be well under that and well over
+// the config files and executables sharing the directory.
+#define DISC_MIN_IMAGE_BYTES (1024 * 1024)
+
+//──────────────────────────────────────────────────────────────────────────
 // Is `a` a better image to mount than the incumbent `b`? A raw 2352 image wins
 // over a cooked 2048 one because it is a superset: the same filesystem plus the
 // CD audio tracks a cooked image drops. Then the larger file, then the lower
@@ -169,12 +175,6 @@ static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax)
             if (IsDirectory(cand))
                 continue;
 
-            iso9660_t *iso = iso_open_ex(cand, pass == 1);
-            if (iso == NULL)
-                continue;
-
-            int sectorSize = 0;
-            iso_layout(iso, &sectorSize, NULL);
             long size = 0;
             FILE *f = fopen(cand, "rb");
             if (f != NULL) {
@@ -182,6 +182,18 @@ static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax)
                     size = ftell(f);
                 fclose(f);
             }
+            // The container scan reads each candidate's head, so on the second
+            // pass skip anything too small to be a disc image. Keeps the cost
+            // off ordinary directories full of config files and executables.
+            if (pass == 1 && size < DISC_MIN_IMAGE_BYTES)
+                continue;
+
+            iso9660_t *iso = iso_open_ex(cand, pass == 1);
+            if (iso == NULL)
+                continue;
+
+            int sectorSize = 0;
+            iso_layout(iso, &sectorSize, NULL);
 
             if (best == NULL ||
                 BetterCandidate(sectorSize, size, ent->d_name, bestSectorSize, bestSize, bestName)) {
@@ -204,6 +216,29 @@ static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax)
         closedir(dir);
     }
     return best;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_DirHoldsMarker(const char *dir, const char *resMarker) {
+    if (dir == NULL || dir[0] == '\0' || resMarker == NULL || resMarker[0] == '\0')
+        return false;
+
+    char imagePath[ADELINE_MAX_PATH] = "";
+    iso9660_t *iso = PickImage(dir, imagePath, sizeof(imagePath));
+    if (iso == NULL)
+        return false;
+
+    WalkCtx ctx;
+    ctx.marker = resMarker;
+    ctx.rootOut[0] = '\0';
+    ctx.found = 0;
+    ctx.count = 0;
+    iso_walk(iso, DiscWalkCb, &ctx);
+    iso_close(iso);
+
+    if (ctx.found)
+        Log_Debug("DISCIMG: %s holds %s, dir accepted without extracted data", imagePath, resMarker);
+    return ctx.found != 0;
 }
 
 //──────────────────────────────────────────────────────────────────────────
