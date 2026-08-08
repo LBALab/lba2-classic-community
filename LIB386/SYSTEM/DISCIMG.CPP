@@ -310,6 +310,22 @@ extern "C" bool DiscImage_GetBannerInfo(char *outPath, size_t outPathSize, S32 *
 }
 
 //──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_GetInfo(DiscImageInfo *out) {
+    if (g_iso == NULL || out == NULL)
+        return false;
+    strncpy(out->path, g_imagePath, sizeof(out->path) - 1);
+    out->path[sizeof(out->path) - 1] = '\0';
+    strncpy(out->assetRoot, g_assetRoot, sizeof(out->assetRoot) - 1);
+    out->assetRoot[sizeof(out->assetRoot) - 1] = '\0';
+    out->sectorSize = 0;
+    out->base = 0;
+    iso_layout(g_iso, &out->sectorSize, &out->base);
+    out->fileCount = g_fileCount;
+    out->rawSectors = (U32)iso_raw_sector_count(g_iso);
+    return true;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" U32 DiscImage_RawSectorCount(void) {
     return g_iso == NULL ? 0 : (U32)iso_raw_sector_count(g_iso);
 }

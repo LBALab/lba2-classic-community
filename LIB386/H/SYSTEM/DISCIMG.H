@@ -11,6 +11,7 @@
 // iso_stat/iso_pread); nothing is buffered whole.
 //──────────────────────────────────────────────────────────────────────────
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/LIMITS.H>
 
 #include <stddef.h>
 
@@ -45,6 +46,21 @@ bool DiscImage_DirHoldsMarker(const char *dir, const char *resMarker);
 // count and returns true so the caller emits one "Disc:" line. Returns false
 // when nothing is mounted, leaving the banner unchanged.
 bool DiscImage_GetBannerInfo(char *outPath, size_t outPathSize, S32 *outFileCount);
+
+//──────────────────────────────────────────────────────────────────────────
+// Everything the mount decided, for the `disc` console command. The banner is
+// deliberately one line; this is where the detail behind it lives, so a report
+// of "no music" can be answered without a debugger.
+typedef struct {
+    char path[ADELINE_MAX_PATH];      // filesystem path of the mounted image
+    char assetRoot[ADELINE_MAX_PATH]; // in-image directory holding the game data
+    int sectorSize;                   // 2352 raw or 2048 cooked
+    long base;                        // byte offset of logical sector 0
+    S32 fileCount;
+    U32 rawSectors; // 0 when the image cannot carry CD audio
+} DiscImageInfo;
+
+bool DiscImage_GetInfo(DiscImageInfo *out);
 
 //──────────────────────────────────────────────────────────────────────────
 // FILES.CPP resource-source seam.
