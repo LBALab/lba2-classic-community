@@ -127,33 +127,94 @@ static void NoopListCb(void *ud, const char *name, uint32_t size) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+// Is `a` a better image to mount than the incumbent `b`? A raw 2352 image wins
+// over a cooked 2048 one because it is a superset: the same filesystem plus the
+// CD audio tracks a cooked image drops. Then the larger file, then the lower
+// name, so the choice never depends on directory order (a dump directory often
+// holds both a .bin and a .iso of the same disc, and picking by readdir order
+// would silently lose the audio on some machines and not others).
+static bool BetterCandidate(int aSectorSize, long aSize, const char *aName,
+                            int bSectorSize, long bSize, const char *bName) {
+    if (aSectorSize != bSectorSize)
+        return aSectorSize > bSectorSize;
+    if (aSize != bSize)
+        return aSize > bSize;
+    return strcmp(aName, bName) < 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// Content-probe every file in `assetsDir` and return the best image, or NULL.
+// Two passes: the plain probe over all candidates first, and only if that finds
+// nothing, the container scan (which reads each file's head, so it is not worth
+// paying for on an install that already has an ordinary image).
+static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax) {
+    iso9660_t *best = NULL;
+    int bestSectorSize = 0;
+    long bestSize = 0;
+    char bestName[ADELINE_MAX_PATH] = "";
+
+    for (int pass = 0; pass < 2 && best == NULL; pass++) {
+        DIR *dir = opendir(assetsDir);
+        if (dir == NULL)
+            return NULL;
+
+        struct dirent *ent;
+        while ((ent = readdir(dir)) != NULL) {
+            if (ent->d_name[0] == '.')
+                continue; // skip ., .., dotfiles
+            char cand[ADELINE_MAX_PATH];
+            int n = snprintf(cand, sizeof(cand), "%s%s", assetsDir, ent->d_name);
+            if (n < 0 || (size_t)n >= sizeof(cand))
+                continue;
+            if (IsDirectory(cand))
+                continue;
+
+            iso9660_t *iso = iso_open_ex(cand, pass == 1);
+            if (iso == NULL)
+                continue;
+
+            int sectorSize = 0;
+            iso_layout(iso, &sectorSize, NULL);
+            long size = 0;
+            FILE *f = fopen(cand, "rb");
+            if (f != NULL) {
+                if (fseek(f, 0, SEEK_END) == 0)
+                    size = ftell(f);
+                fclose(f);
+            }
+
+            if (best == NULL ||
+                BetterCandidate(sectorSize, size, ent->d_name, bestSectorSize, bestSize, bestName)) {
+                if (best != NULL) {
+                    Log_Debug("DISCIMG: %s passed over for %s", bestName, ent->d_name);
+                    iso_close(best);
+                }
+                best = iso;
+                bestSectorSize = sectorSize;
+                bestSize = size;
+                strncpy(bestName, ent->d_name, sizeof(bestName) - 1);
+                bestName[sizeof(bestName) - 1] = '\0';
+                strncpy(outPath, cand, outMax - 1);
+                outPath[outMax - 1] = '\0';
+            } else {
+                Log_Debug("DISCIMG: %s passed over for %s", ent->d_name, bestName);
+                iso_close(iso);
+            }
+        }
+        closedir(dir);
+    }
+    return best;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" bool DiscImage_Mount(const char *assetsDir, const char *resMarker) {
     if (g_iso != NULL)
         return true; // already mounted
     if (assetsDir == NULL || assetsDir[0] == '\0')
         return false;
 
-    DIR *dir = opendir(assetsDir);
-    if (dir == NULL)
-        return false;
-
-    char cand[ADELINE_MAX_PATH];
-    iso9660_t *iso = NULL;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.')
-            continue; // skip ., .., dotfiles
-        int n = snprintf(cand, sizeof(cand), "%s%s", assetsDir, ent->d_name);
-        if (n < 0 || (size_t)n >= sizeof(cand))
-            continue;
-        if (IsDirectory(cand))
-            continue;
-        iso = iso_open(cand);
-        if (iso != NULL)
-            break; // first ISO9660 image wins
-    }
-    closedir(dir);
-
+    char cand[ADELINE_MAX_PATH] = "";
+    iso9660_t *iso = PickImage(assetsDir, cand, sizeof(cand));
     if (iso == NULL)
         return false;
 

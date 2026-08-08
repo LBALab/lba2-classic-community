@@ -257,6 +257,38 @@ static void test_unmount(void) {
     ASSERT_EQ_INT(0, (int)DiscImage_OpenRead((g_base + "video/VIDEO.HQR").c_str()));
 }
 
+/* Re-pack a cooked image as raw 2352 (user data at offset 16), so one fixture
+   can stand in for both on-disc layouts. */
+static std::vector<uint8_t> to_raw(const std::vector<uint8_t> &cooked) {
+    size_t n = cooked.size() / 2048;
+    std::vector<uint8_t> out(n * 2352, 0);
+    for (size_t i = 0; i < n; i++)
+        memcpy(out.data() + i * 2352 + 16, cooked.data() + i * 2048, 2048);
+    return out;
+}
+
+/* A dump directory often holds a .bin and a .iso of the same disc. The raw one
+   is a superset (it keeps the CD audio the cooked one drops), so it must win,
+   and it must win regardless of the order readdir happens to return them in. */
+static void test_prefers_raw_over_cooked(void) {
+    std::string dir = std::string(TEST_TMP_DIR) + "/discrank";
+    mkdir_portable(dir.c_str());
+    std::vector<uint8_t> cooked = build_iso();
+    /* Name the cooked one so it sorts first: if selection fell back to name or
+       to directory order, this is the one that would be picked. */
+    write_file(dir + "/aaa_disc.iso", cooked);
+    write_file(dir + "/zzz_disc.bin", to_raw(cooked));
+
+    ASSERT_TRUE(DiscImage_Mount((dir + "/").c_str(), "lba2.hqr"));
+    char path[512] = "";
+    ASSERT_TRUE(DiscImage_GetBannerInfo(path, sizeof(path), NULL));
+    ASSERT_TRUE(strstr(path, "zzz_disc.bin") != NULL);
+    DiscImage_Unmount();
+
+    remove((dir + "/aaa_disc.iso").c_str());
+    remove((dir + "/zzz_disc.bin").c_str());
+}
+
 int main(void) {
     setup_mount();
     RUN_TEST(test_mount_and_banner);
@@ -265,6 +297,7 @@ int main(void) {
     RUN_TEST(test_existence);
     RUN_TEST(test_misses);
     RUN_TEST(test_unmount);
+    RUN_TEST(test_prefers_raw_over_cooked);
     TEST_SUMMARY();
     return test_failures != 0;
 }
