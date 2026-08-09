@@ -179,6 +179,18 @@ int iso_read_raw(iso9660_t *iso, uint32_t lba, uint32_t count, uint8_t *out) {
     return (int)(got / 2352);
 }
 
+// Volume space size from the primary descriptor: how many logical blocks the
+// data filesystem occupies. On a mixed-mode disc that bounds the data track,
+// and so the earliest sector any audio track can start at.
+uint32_t iso_volume_sectors(iso9660_t *iso) {
+    if (iso == NULL)
+        return 0;
+    uint8_t s[2048];
+    if (read_sector(iso, 16, s) != 0)
+        return 0;
+    return rd32(s + 80);
+}
+
 //──────────────────────────────────────────────────────────────────────────
 uint32_t iso_raw_sector_count(iso9660_t *iso) {
     if (iso == NULL || iso->sector_size != 2352 || iso->file_size <= iso->base)

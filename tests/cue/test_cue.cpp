@@ -137,6 +137,19 @@ static void test_toc_malformed_index(void) {
     ASSERT_EQ_INT(0, (int)toc[0].startFrame);
 }
 
+/* Tracks past the caller's capacity are dropped. Their INDEX lines must be
+   dropped with them: landing on the last kept entry would silently move a real
+   track's start sector, which is the kind of wrong that plays as music. */
+static void test_toc_overflow_does_not_corrupt(void) {
+    CueTrack toc[2];
+    int n = Cue_ParseToc(RETAIL_TOC_CUE, strlen(RETAIL_TOC_CUE), toc, 2);
+    ASSERT_EQ_INT(2, n);
+    ASSERT_EQ_INT(1, toc[0].number);
+    ASSERT_EQ_INT(3, toc[1].number);
+    /* Track 4's INDEX must not have overwritten track 3's. */
+    ASSERT_EQ_INT((46 * 60 + 4) * 75 + 68, (int)toc[1].startFrame);
+}
+
 int main(void) {
     RUN_TEST(test_gog_external_ogg);
     RUN_TEST(test_data_only_has_no_audio);
@@ -146,6 +159,7 @@ int main(void) {
     RUN_TEST(test_toc_external_files);
     RUN_TEST(test_toc_gog_shape);
     RUN_TEST(test_toc_malformed_index);
+    RUN_TEST(test_toc_overflow_does_not_corrupt);
     TEST_SUMMARY();
     return test_failures != 0;
 }

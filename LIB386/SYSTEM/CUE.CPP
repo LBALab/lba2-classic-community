@@ -65,6 +65,10 @@ int Cue_ParseToc(const char *cueText, size_t len, CueTrack *out, int maxTracks) 
     char curFile[CUE_MAX_NAME] = "";
     int curBinary = 0;
     int count = 0;
+    /* Tracks past the table's capacity are dropped, and so are their INDEX
+       lines: without this the overflow track's INDEX would land on the last
+       entry we did keep and move a real track's start. */
+    int haveOpenTrack = 0;
 
     size_t i = 0;
     while (i < len) {
@@ -101,6 +105,7 @@ int Cue_ParseToc(const char *cueText, size_t len, CueTrack *out, int maxTracks) 
                 }
             }
         } else if (llen >= 5 && strncasecmp(s, "TRACK", 5) == 0) {
+            haveOpenTrack = (count < maxTracks);
             if (count < maxTracks) {
                 const char *p = s + 5;
                 const char *end = s + llen;
@@ -115,7 +120,7 @@ int Cue_ParseToc(const char *cueText, size_t len, CueTrack *out, int maxTracks) 
                 t->file[sizeof(t->file) - 1] = '\0';
                 count++;
             }
-        } else if (llen >= 5 && strncasecmp(s, "INDEX", 5) == 0 && count > 0) {
+        } else if (llen >= 5 && strncasecmp(s, "INDEX", 5) == 0 && count > 0 && haveOpenTrack) {
             const char *p = s + 5;
             const char *end = s + llen;
             while (p < end && (*p == ' ' || *p == '\t'))

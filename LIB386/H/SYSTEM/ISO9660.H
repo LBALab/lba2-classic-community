@@ -53,6 +53,12 @@ int iso_read_raw(iso9660_t *iso, uint32_t lba, uint32_t count, uint8_t *out);
 // track, whose end the cue does not state.
 uint32_t iso_raw_sector_count(iso9660_t *iso);
 
+// Logical blocks occupied by the data filesystem (the descriptor's volume space
+// size). On a mixed-mode disc this bounds the data track, so it is the earliest
+// sector an audio track can honestly claim: a cue pointing audio below it is
+// describing the data track, which must never be played as sound.
+uint32_t iso_volume_sectors(iso9660_t *iso);
+
 //──────────────────────────────────────────────────────────────────────────
 // List the regular files in a directory (path uses '/', e.g. "LBA/FLA").
 // Names are reported without the ";1" ISO version suffix.

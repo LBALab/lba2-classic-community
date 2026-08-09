@@ -82,8 +82,9 @@ static std::vector<std::vector<uint8_t>> build_sectors() {
     uint8_t *pvd = secs[16].data();
     pvd[0] = 0x01; /* descriptor type: primary */
     memcpy(pvd + 1, "CD001", 5);
-    pvd[6] = 0x01;              /* version */
-    wr_both16(pvd + 128, 2048); /* logical block size */
+    pvd[6] = 0x01;                 /* version */
+    wr_both32(pvd + 80, NSECTORS); /* volume space size, in logical blocks */
+    wr_both16(pvd + 128, 2048);    /* logical block size */
     const uint8_t selfName = 0x00;
     wr_dirrec(pvd + 156, ROOT_LBA, 2048, true, &selfName, 1); /* root dir record */
 
@@ -204,6 +205,13 @@ static void check_image(bool raw) {
         if (slice[i] != (uint8_t)((2040 + i) & 0xFF))
             sliceOk = false;
     ASSERT_TRUE(sliceOk);
+
+    /* Where the data filesystem ends. On a mixed-mode disc this bounds the data
+       track, so it is the floor for any audio track's start sector, and the
+       check that stops a bad cue playing the filesystem as sound. */
+    ASSERT_EQ_INT((int)NSECTORS, (int)iso_volume_sectors(iso));
+    /* Raw images can carry audio sectors after the data; cooked ones cannot. */
+    ASSERT_EQ_INT(raw ? (int)NSECTORS : 0, (int)iso_raw_sector_count(iso));
 
     /* Reads clamp at EOF; reading at/after EOF yields 0. */
     uint8_t tail[64];

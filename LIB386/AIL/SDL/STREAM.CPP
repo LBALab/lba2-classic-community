@@ -593,6 +593,20 @@ static bool IsRedbookTrackName(const char *name) {
     return strstr(up, "TADPCM") != NULL || strstr(up, "TRACK") != NULL;
 }
 
+/* What the cue's table of contents had to say about a music request.
+
+   The distinction that matters is HANDLED versus NO_TOC. Once a cue is a real
+   table of contents it is the authority on where the music lives, so a track it
+   does not list is absent, full stop. Falling back to "play the first external
+   audio file" there would put the wrong song on: on a rip that mixes in-image
+   and standalone tracks, a request for a track the disc lost would play some
+   other track's file. */
+typedef enum {
+    REDBOOK_NO_TOC,  /* no disc table of contents here; later rules may apply */
+    REDBOOK_PLAYED,  /* playing */
+    REDBOOK_HANDLED, /* the table of contents owns this track and it did not play */
+} RedbookOutcome;
+
 /* Resolve a redbook track by its CD track number, reading the install's cue as
    a real table of contents. The track may be a standalone file the cue points
    at, or audio sectors inside the mounted image; both are addressed the same
@@ -602,14 +616,14 @@ static bool IsRedbookTrackName(const char *name) {
    disc TOC. A cue with a single audio entry is left to the older rule below:
    that is the GOG shape, where the one external file is music track 6 and
    matching it by number would find nothing. */
-static bool PlayRedbookByNumber(const char *name, S32 startFrame) {
+static RedbookOutcome PlayRedbookByNumber(const char *name, S32 startFrame) {
     int cdTrack = CdTracks_NumberForMusicName(name);
     if (cdTrack == 0)
-        return false;
+        return REDBOOK_NO_TOC;
 
     char installDir[ADELINE_MAX_PATH];
     if (!InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)))
-        return false;
+        return REDBOOK_NO_TOC;
 
     CueTrack toc[CUE_MAX_TRACKS];
     int n = Cue_ReadTocInDir(installDir, NULL, 0, toc, CUE_MAX_TRACKS);
@@ -619,7 +633,7 @@ static bool PlayRedbookByNumber(const char *name, S32 startFrame) {
             audioCount++;
     }
     if (audioCount < 2)
-        return false;
+        return REDBOOK_NO_TOC;
 
     const CueTrack *t = NULL;
     for (int i = 0; i < n; i++) {
@@ -628,14 +642,18 @@ static bool PlayRedbookByNumber(const char *name, S32 startFrame) {
             break;
         }
     }
-    if (t == NULL)
-        return false; // this disc does not carry that track
+    if (t == NULL) {
+        /* A rip that lost a track lands here. Say which one: silence with no
+           explanation is what made this hard to diagnose in the first place. */
+        SDL_Log("SDL AIL: '%s' is CD track %d, which this disc's cue does not list", name, cdTrack);
+        return REDBOOK_HANDLED;
+    }
 
     if (!t->fileIsBinary) {
         char path[ADELINE_MAX_PATH];
         int w = snprintf(path, sizeof(path), "%s%s", installDir, t->file);
         if (w < 0 || (size_t)w >= sizeof(path))
-            return false;
+            return REDBOOK_HANDLED;
         SDL_AudioSpec spec;
         Uint8 *wav = NULL;
         Uint32 wavLen = 0;
@@ -648,16 +666,28 @@ static bool PlayRedbookByNumber(const char *name, S32 startFrame) {
         }
         if (played && musicLogEnabled)
             SDL_Log("[MUSIC] PlayStream start cue track %d: %s (from %s)", cdTrack, path, name);
-        return played;
+        return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
     }
 
     /* Inside the image. The cue's sector addresses only mean anything against
        the file that cue describes, and only a raw image has audio sectors. */
     if (!DiscImage_IsMountedFile(t->file))
-        return false;
+        return REDBOOK_HANDLED;
     uint32_t total = DiscImage_RawSectorCount();
     if (total == 0 || t->startFrame >= total)
-        return false;
+        return REDBOOK_HANDLED;
+
+    /* Audio cannot begin inside the data track. A cue that says it does is
+       wrong, and honouring it would read the filesystem as PCM and play it at
+       music volume: full-scale noise, and an allocation the size of the disc.
+       The filesystem's own volume size says where the data ends. */
+    uint32_t dataEnd = DiscImage_DataSectorCount();
+    if (t->startFrame < dataEnd) {
+        SDL_Log("SDL AIL: cue puts CD track %d at sector %u, inside the data track (ends %u); "
+                "ignoring it",
+                cdTrack, (unsigned)t->startFrame, (unsigned)dataEnd);
+        return REDBOOK_HANDLED;
+    }
 
     /* The cue states where a track starts, never where it ends: a track runs to
        the next one, and the last runs to the end of the disc. */
@@ -672,7 +702,7 @@ static bool PlayRedbookByNumber(const char *name, S32 startFrame) {
         SDL_Log("[MUSIC] PlayStream start CD-DA track %d: sectors %u..%u (from %s)", cdTrack,
                 (unsigned)t->startFrame, (unsigned)end, name);
     }
-    return ok;
+    return ok ? REDBOOK_PLAYED : REDBOOK_HANDLED;
 }
 
 /* ── Public API ────────────────────────────────────────────────────────── */
@@ -727,11 +757,15 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
 
     /* 4) Redbook by CD track number, for a disc whose cue is a real table of
           contents: the track is either a standalone file the cue names or audio
-          sectors inside the mounted image. */
-    if (PlayRedbookByNumber(name, startFrame)) {
+          sectors inside the mounted image. A real TOC is authoritative, so when
+          it owns the answer the search stops here either way. */
+    RedbookOutcome redbook = PlayRedbookByNumber(name, startFrame);
+    if (redbook == REDBOOK_PLAYED) {
         FinishStream(name);
         return;
     }
+    if (redbook == REDBOOK_HANDLED)
+        return;
 
     /* 5) Cue external audio: a redbook track shipped as a standalone file the
           data image does not contain (GOG's LBA2.OGG = music track 6, listed in

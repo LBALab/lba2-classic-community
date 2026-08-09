@@ -95,6 +95,11 @@ bool DiscImage_Exists(const char *path);
 U32 DiscImage_RawSectorCount(void);
 S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer);
 
+// Sectors the data filesystem occupies, which is where the data track ends.
+// Audio cannot start before it: a cue that says otherwise is pointing at the
+// data track, and playing that as sound is loud noise, not music.
+U32 DiscImage_DataSectorCount(void);
+
 // Is `name` (as a cue writes it, no path) the image we actually mounted? Sector
 // addresses from a cue only mean anything against the file that cue describes.
 bool DiscImage_IsMountedFile(const char *name);

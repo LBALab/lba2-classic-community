@@ -331,6 +331,11 @@ extern "C" U32 DiscImage_RawSectorCount(void) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+extern "C" U32 DiscImage_DataSectorCount(void) {
+    return g_iso == NULL ? 0 : (U32)iso_volume_sectors(g_iso);
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer) {
     if (g_iso == NULL || buffer == NULL)
         return -1;
