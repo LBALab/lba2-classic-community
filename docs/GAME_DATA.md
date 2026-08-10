@@ -127,6 +127,8 @@ See issue [#119](https://github.com/LBALab/lba2-classic-community/issues/119) fo
 
 See [CONFIG.md](CONFIG.md). If `lba2.cfg` is missing from the user config folder, the engine copies from the asset directory when present; if the asset directory has no `lba2.cfg`, an embedded template (from the build) is written instead.
 
+That copy carries more than volumes. Its `Version` key is what tells the engine which release this is, and each distribution states its own: the US retail disc says `1` (Activision), GOG says `3` (EA), and Steam Classic's `Common/` ships none, so it falls back to `0` (unknown). The value selects the distributor splash, the in-game and new-game logo sprites, the no-CD message and the CD volume label. So an install assembled by hand, or repackaged without its `lba2.cfg`, will look like an unknown release to a fresh profile even though every asset is present. Nothing audible depends on it (see [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md#which-release-the-engine-thinks-it-is)), and an existing profile keeps whatever it was first seeded with, so changing the asset directory later does not change it. `distrib` in the console reports and sets it.
+
 ## Cross-references
 
 - [CONFIG.md](CONFIG.md) — `lba2.cfg` keys and paths
