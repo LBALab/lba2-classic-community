@@ -562,7 +562,7 @@ static void ClampVoiceLanguage(void) {
     const S32 count = GetVoiceLanguageCount();
 
     if (LanguageCD < 0 OR LanguageCD >= count) {
-        LanguageCD = 1;
+        LanguageCD = 0; // English, i.e. TabLanguage[0]
     }
 }
 

@@ -23,6 +23,7 @@
 #include <SVGA/VIDEO.H>
 #include "DIRECTORIES.H"
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/STRING.H>
 
 #include <dirent.h>
@@ -166,7 +167,7 @@ U16 MaxText;
 
 static char FileText[ADELINE_MAX_PATH];
 
-S32 Language = 1; // English
+S32 Language = 0; // English, i.e. TabLanguage[0]
 S32 LastFileInit = -1;
 
 const char *TabLanguage[] = {
@@ -252,7 +253,7 @@ typedef struct
 T_FILEONHD TabFileOnHD[MAX_FILE_VOICE];
 
 U32 TotalSizeFileHD = 0;
-S32 LanguageCD = 0; // Français, a changer of course!
+S32 LanguageCD = 0; // English, i.e. TabLanguage[0]
 S32 NbFileOnHD = 0; // No File for the moment
 S32 MaxVoice = 0;
 
@@ -340,32 +341,62 @@ void TimeBar(U32 max, U32 val) {
 #endif
 /*-------------------------------------------------------------------------*/
 
+/* Index into TabLanguage, or -1 when the name is empty or unrecognised.
+   TabLanguage is UTF-8 because this source file is, while a retail LBA2.CFG is
+   CP437/CP850, where ç is one byte rather than UTF-8's two. Comparing across
+   encodings is what EqualsIgnoringCaseAndEncoding is for; a plain strcasecmp
+   missed every accented language, which is how a Spanish retail install booted
+   in French. The six names differ in their ASCII letters, so ignoring how the
+   accent is spelled cannot make two of them collide. */
+static S32 FindLanguage(const char *name) {
+    if (name == NULL) {
+        return -1;
+    }
+    for (S32 n = 0; n < NB_LANGUAGES; n++) {
+        if (EqualsIgnoringCaseAndEncoding(name, TabLanguage[n])) {
+            return n;
+        }
+    }
+    return -1;
+}
+
 void InitLanguage() {
     char string[256];
     S32 n;
 
-    // Attention: Textes toujours Valides ???
-    strcpy(string, DefFileBufferReadStringDefault("Language", TabLanguage[1]));
+    /* A missing key means English, which is what the shipped default config
+       says and what every retail LBA2.CFG we have says. Reading the default
+       through the same match keeps the two paths from drifting apart. */
+    strcpy(string, DefFileBufferReadStringDefault("Language", TabLanguage[0]));
 
-    for (n = 0; n < NB_LANGUAGES; n++) {
-        if (!strcasecmp(string, TabLanguage[n])) {
-            Language = n;
-            break;
+    n = FindLanguage(string);
+    if (n < 0) {
+        /* Say so rather than silently landing somewhere. This used to leave
+           Language at its initialiser, which was 1 and therefore French, while
+           the comment beside it claimed English. An unset key is not worth
+           reporting, a value we could not read is. */
+        if (string[0] != '\0') {
+            Log_Warn("Language   '%s' not recognised, using %s", string,
+                     TabLanguage[0]);
         }
+        n = 0;
     }
+    Language = n;
 
 #ifdef CDROM
     // Attention: Voix toujours Valides !!!
-    strcpy(string, DefFileBufferReadStringDefault("LanguageCD", TabLanguage[1]));
+    strcpy(string, DefFileBufferReadStringDefault("LanguageCD", TabLanguage[0]));
 
-    FlagSpeak = FALSE;
-
-    for (n = 0; n < NB_LANGUAGES; n++) {
-        if (!strcasecmp(string, TabLanguage[n])) {
-            LanguageCD = n;
-            FlagSpeak = TRUE;
-            break;
-        }
+    /* No usable voice language means no speech: there is no VOX prefix to pick
+       (ListLanguage is indexed by this), so it cannot be guessed. An empty
+       LanguageCD is how a release with no voices installed says so, and stays
+       silent; anything else non-empty is a config error worth reporting. */
+    n = FindLanguage(string);
+    FlagSpeak = (n >= 0);
+    if (n >= 0) {
+        LanguageCD = n;
+    } else if (string[0] != '\0') {
+        Log_Warn("LanguageCD '%s' not recognised, no speech", string);
     }
 
     if (!SamplesEnable)
@@ -393,7 +424,7 @@ S32 GetLanguageCount(void) {
 /*-------------------------------------------------------------------------*/
 const char *GetLanguageName(S32 language) {
     if (language < 0 OR language >= NB_LANGUAGES) {
-        return TabLanguage[1];
+        return TabLanguage[0]; // English
     }
 
     return TabLanguage[language];
