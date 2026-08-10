@@ -139,9 +139,17 @@ jobs:
       # A build leg that failed therefore drops its platform's download
       # instead of leaving an older version in its place, which is what the
       # release body already tells readers to expect.
+      #
+      # Janitorial only: the release is correct without it, just cluttered.
+      # Never let a prune failure stop the tag from moving.
       - name: Prune assets from earlier builds
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          # This job never checks out the repo, so `gh release` subcommands
+          # have no remote to infer the repository from and fail before they
+          # reach the API. The `gh api` calls below name it in the path.
+          GH_REPO: ${{ github.repository }}
         run: |
           keep="$RUNNER_TEMP/keep.txt"
           find . -maxdepth 1 -type f ! -name 'release-body.md' \
