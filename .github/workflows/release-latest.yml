@@ -128,6 +128,44 @@ jobs:
           # step below moves it. Body and assets do update in place.
           fail_on_unmatched_files: false
 
+      # Asset names embed the version, so an upload never collides with the
+      # previous build's files and they accumulate on the release forever.
+      # Delete whatever this run did not produce.
+      #
+      # The keep list is every file the artifact download put here rather than
+      # a copy of the upload globs above, so adding a platform cannot silently
+      # prune its own new asset.
+      #
+      # A build leg that failed therefore drops its platform's download
+      # instead of leaving an older version in its place, which is what the
+      # release body already tells readers to expect.
+      - name: Prune assets from earlier builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          keep="$RUNNER_TEMP/keep.txt"
+          find . -maxdepth 1 -type f ! -name 'release-body.md' \
+            -printf '%f\n' | sort -u > "$keep"
+
+          # Guard the all-legs-failed case: the release job runs even when
+          # every build failed, and pruning against an empty set would wipe
+          # the release. Match on extension so a new platform still counts.
+          if ! grep -qE '\.(AppImage|zsync|tar\.gz|zip|dmg|apk)$' "$keep"; then
+            echo "No release artifacts downloaded this run; leaving assets alone."
+            exit 0
+          fi
+
+          rid=$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq .id)
+          mapfile -t have < <(gh api --paginate \
+            "repos/${{ github.repository }}/releases/$rid/assets" --jq '.[].name')
+
+          for asset in "${have[@]}"; do
+            if ! grep -qxF -- "$asset" "$keep"; then
+              echo "pruning $asset"
+              gh release delete-asset latest "$asset" --yes
+            fi
+          done
+
       # Runs after the upload so the tag only ever advertises a commit whose
       # artifacts finished uploading. Two pushes back-to-back cancel the older
       # run mid-job, and a tag left behind the assets is recoverable where a
