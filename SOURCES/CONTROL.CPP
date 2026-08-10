@@ -15,6 +15,7 @@
 #include <3D/PROJREC.H> /* Projrec_BeginCapture / Projrec_EndCapture */
 #include <FILEIO/SAVEPNG.H>
 #include <SVGA/SCREEN.H>   /* Screen, ModeDesiredX/Y */
+#include <SYSTEM/STRING.H> /* EqualsIgnoringCaseAndEncoding for --language */
 #include <SYSTEM/TIMER.H>  /* TimerRefHR, NbFramePerSecond */
 #include <SYSTEM/WINDOW.H> /* Window_SetVSync */
 
@@ -346,14 +347,22 @@ void Control_ParseArgs(int *argc, char *argv[]) {
         if (!strcmp(a, "--language") && has_val) {
             /* Accept either the full language name (English / Français / Deutsch /
                Español / Italiano / Portugues) or the 2-character code (EN / FR /
-               DE / SP / IT / PO).  strcasecmp is byte-wise ASCII case-folding, so
-               the cedilla / tilde bytes in Français / Español compare exactly —
-               case-insensitive on the ASCII letters only, which is the same
-               behaviour InitLanguage() in MESSAGE.CPP gets from the cfg parse. */
+               DE / SP / IT / PO).
+
+               Matched with EqualsIgnoringCaseAndEncoding, the same comparison
+               InitLanguage() uses on the cfg, because the table above is UTF-8
+               (this source file is) while argv is in whatever the console hands
+               us: UTF-8 on a modern terminal, but the ANSI codepage from a
+               Windows cmd.exe, where Español arrives as one byte for the tilde
+               rather than two. A byte-wise strcasecmp only ever matched the
+               spelling that happened to share our encoding, which is why the
+               ASCII short codes always worked and the accented full names did
+               not. */
             const char *val = argv[read + 1];
             int matched = -1;
             for (int n = 0; n < CONTROL_LANG_COUNT; n++) {
-                if (!strcasecmp(val, kControlLanguageFull[n]) || !strcasecmp(val, kControlLanguageShort[n])) {
+                if (EqualsIgnoringCaseAndEncoding(val, kControlLanguageFull[n]) ||
+                    !strcasecmp(val, kControlLanguageShort[n])) {
                     matched = n;
                     break;
                 }

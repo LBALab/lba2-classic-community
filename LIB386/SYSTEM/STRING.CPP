@@ -303,6 +303,41 @@ void FormatUtf8ToCp850(char *dst, size_t dstSize, const char *fmt, ...) {
     SDL_free(utf8Buffer);
 }
 
+bool EqualsIgnoringCaseAndEncoding(const char *a, const char *b) {
+    if (a == NULL || b == NULL) {
+        return (a == b);
+    }
+
+    while (*a != '\0' && *b != '\0') {
+        const bool aHigh = ((unsigned char)*a >= 0x80);
+        const bool bHigh = ((unsigned char)*b >= 0x80);
+
+        if (aHigh || bHigh) {
+            // An accent must line up with an accent. How many bytes each side
+            // spends on it is the encoding's business: one in CP850, two in
+            // UTF-8, so consume the whole run on both sides and carry on.
+            if (!aHigh || !bHigh) {
+                return false;
+            }
+            while ((unsigned char)*a >= 0x80) {
+                a++;
+            }
+            while ((unsigned char)*b >= 0x80) {
+                b++;
+            }
+            continue;
+        }
+
+        if (SDL_tolower((unsigned char)*a) != SDL_tolower((unsigned char)*b)) {
+            return false;
+        }
+        a++;
+        b++;
+    }
+
+    return (*a == '\0' && *b == '\0');
+}
+
 // =============================================================================
 #ifdef __cplusplus
 }
