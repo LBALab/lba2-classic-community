@@ -150,6 +150,14 @@ lba2cc --game-dir /path/to/rip        # the folder holding disc.bin and disc.cue
 lba2cc --disc /path/to/rip/disc.cue   # names the cue directly; no --game-dir needed
 ```
 
+Or no flags at all: put the executable in the folder with the `.bin` and `.cue` and run it. The
+folder the binary sits in, and the folder you run from, are both checked for a disc image as well
+as for extracted files. The folder picker accepts one too, so browsing to a rip on first launch
+works. What is *not* checked for an image is the rest of the discovery sweep (parents of the
+working directory, sibling folders): those are guesses, there are up to 160 of them, and opening
+every file in each to look for an image is the kind of thing that hangs a machine rather than
+helping it.
+
 **Check it worked** with the `disc` console command (or `--exec "disc"` from a script). A good rip
 reports the image, its cue, and which CD track each theme will come from:
 

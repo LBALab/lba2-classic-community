@@ -413,9 +413,19 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * SDL3: SDL_GetBasePath() returns an internal cached pointer; do not SDL_free
      * it (SDL_QuitFilesystem frees it). */
 
+    /* The folder the executable sits in, and the working directory, accept a
+       disc image as well as extracted files. Dropping the binary next to a rip
+       and running it is a thing people will reasonably do, and it should work
+       without flags.
+
+       These two are safe to probe where the rest of the sweep is not: each is a
+       single directory somebody deliberately put the binary in or ran from, so
+       the cost is one directory walk, not one per candidate. The parent walk and
+       the sibling scan below stay on the cheap check, because they are guesses
+       and there are a lot of them. */
     basePath = SDL_GetBasePath();
     if (basePath != NULL) {
-        if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount) ||
+        if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount, true) ||
             TryJoinBaseSub(basePath, "data", outDir, outMax, tried, &triedCount) ||
             TryJoinBaseSub(basePath, "game", outDir, outMax, tried, &triedCount)) {
             return true;
@@ -425,7 +435,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     GetCurrentRunningDir(walk);
     walk[ADELINE_MAX_PATH - 1] = '\0';
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
-    if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount)) {
+    if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount, true)) {
         return true;
     }
 
