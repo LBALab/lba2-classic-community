@@ -270,16 +270,18 @@ void PlayMusic(S32 num, S32 playit) {
                    either way, and it is what lets a retail disc reach its CD
                    audio at all: PlayCD looked for Track<nn>.wav relative to the
                    working directory, found nothing, and returned without ever
-                   calling PlayStream. */
-                S32 musicNum = PtrTrackCD[num] & MUSIC;
-                bool cdMuted = false;
-#ifdef CDROM
-                /* A CD entry stays governed by the CD volume, as before. */
-                cdMuted = !(PtrTrackCD[num] & JINGLE) AND CDVolume <= 0;
-#endif
-                if (!cdMuted) {
-                    PlayJingle(musicNum);
-                }
+                   calling PlayStream.
+
+                   No separate CD-volume gate here. The old branch skipped
+                   playback when CDVolume was 0, which made sense when starting a
+                   track meant spinning up a drive. CDVolume is now just the
+                   music slider (GAMEMENU moves it and calls SetVolumeJingle with
+                   it), so gating on it would mean a release identified as US
+                   never starts its themes at zero volume while one identified as
+                   EU starts them silently and recovers when the slider comes
+                   back up. Volume belongs to the stream, not to whether the
+                   music begins. */
+                PlayJingle(PtrTrackCD[num] & MUSIC);
             }
         } else {
             //			if( PtrTrackCD[cur-1]&JINGLE )// on n'empile pas sur une track
