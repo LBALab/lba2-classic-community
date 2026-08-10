@@ -280,7 +280,7 @@ FILE "TWINSEN.bin" BINARY
   TRACK 01 MODE1/2352
     INDEX 01 00:00:00
   TRACK 02 AUDIO
-    INDEX 01 46:04:63        ; LBA 207363  TADPCM2
+    INDEX 01 46:04:68        ; LBA 207368  TADPCM2  (see below)
   TRACK 03 AUDIO
     INDEX 01 49:50:63        ; LBA 224313  TADPCM3
   TRACK 04 AUDIO
@@ -293,9 +293,17 @@ FILE "TWINSEN.bin" BINARY
     INDEX 01 61:11:26        ; LBA 275351  TADPCM6
 ```
 
-The cue that shipped with the dump had track 2's start right (`46:04:63`); its only fault was
-merging tracks 3 to 7 into it, which the conversion notes call out as a deliberate choice given the
-encrypted table.
+Track 2 is the one exception to "disc LBA less 150". The image keeps five sectors of data-track
+run-out (LBA 207363 to 207367) ahead of the audio, which play as a short burst of full-scale noise;
+they carry a Mode-1 payload but no detectable sync header, so nothing upstream treats them as data.
+Track 2 therefore starts at the first silent sector, 207368. The skipped sectors hold no audio: the
+music's own fade-in begins around LBA 207371, after three sectors of digital silence. The other
+five tracks start on the pregap noise floor and need no adjustment, and a five-sector difference at
+their starts (0.067 s, inside the pregap) is inaudible either way.
+
+This was audible before it was measurable, and it is worth saying how it was found: the first pass
+put track 2 at 46:04:63 purely from the arithmetic, and a listening test caught the pop. The
+sector-level RMS profile then showed exactly where the run-out ended.
 
 `TADPCM1` has no CD track, so a request for it misses. Dropping GOG's `TADPCM1.WAV` into `music/`
 supplies it: the filesystem is checked before the image, so it wins with no special case.
