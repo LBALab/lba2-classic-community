@@ -146,14 +146,25 @@ bool IsValidResourceDir(const char *path) {
     }
 
     // Check if path contain required file
-    if (Discover(NULL, 0, path, FILE_VALID_RES_DIR)) {
+    return Discover(NULL, 0, path, FILE_VALID_RES_DIR);
+}
+
+bool IsValidResourceDirOrImage(const char *path) {
+    if (IsValidResourceDir(path)) {
         return true;
     }
 
     // Nothing extracted, but the data may all be inside a disc image sitting in
-    // this folder: a retail CD rip is one .bin/.cue and nothing else. The mount
-    // that follows discovery finds the marker the same way, so accepting here is
-    // the same question asked one step earlier, not a looser one.
+    // this folder: a retail CD rip is one .bin/.cue and nothing else.
+    //
+    // Deliberately NOT folded into IsValidResourceDir. This opens every file in
+    // the directory to see whether any is an image, which is fine for a path
+    // somebody named and ruinous for the speculative sweep: discovery tries up
+    // to kMaxTried candidates, including a scan of the siblings of the parent of
+    // the working directory, and turning each of those from a stat into a
+    // directory walk is enough to hang a CI runner whose build tree happens to
+    // sit in the path. Callers on the speculative side must stay on the cheap
+    // check above.
     return DiscImage_DirHoldsMarker(path, FILE_VALID_RES_DIR);
 }
 
@@ -190,7 +201,9 @@ void InitDirectories(const char *userDir, const char *resDir,
 
     strncpy(directoriesResDir, resDir, ADELINE_MAX_PATH);
     directoriesResDir[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
-    if (!IsValidResourceDir(directoriesResDir)) {
+    // Image-aware: discovery may have accepted a folder whose data is only
+    // inside a disc image, and this runs once, on the folder already chosen.
+    if (!IsValidResourceDirOrImage(directoriesResDir)) {
         Log_Error("Invalid resource directory '%s'", directoriesResDir);
         exit(EXIT_FAILURE);
     }

@@ -7,6 +7,7 @@
 #include <SYSTEM/LOG.H>
 
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -204,13 +205,10 @@ static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax)
             if (IsDirectory(cand))
                 continue;
 
-            long size = 0;
-            FILE *f = fopen(cand, "rb");
-            if (f != NULL) {
-                if (fseek(f, 0, SEEK_END) == 0)
-                    size = ftell(f);
-                fclose(f);
-            }
+            // stat, not open-seek-tell: this runs for every file in the
+            // directory, and the probe below opens the file again anyway.
+            struct stat st;
+            long size = (stat(cand, &st) == 0) ? (long)st.st_size : 0;
             // The container scan reads each candidate's head, so on the second
             // pass skip anything too small to be a disc image. Keeps the cost
             // off ordinary directories full of config files and executables.

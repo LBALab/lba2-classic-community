@@ -18,7 +18,16 @@ void GetDefaultUserDir(char *outDir);    ///< Path for user writable data
 void GetDefaultResDir(char *outDir);     ///< Path for game resources
 
 /// True if \p path is a directory containing lba2.hqr (case-discovered).
+/// Cheap: a handful of stats. Safe to call for every speculative candidate.
 bool IsValidResourceDir(const char *path);
+
+/// As IsValidResourceDir, but also accepts a directory whose game data exists
+/// only inside a disc image sitting in it (a retail CD rip is one .bin/.cue).
+/// Costs a walk of the directory, opening each file to identify it, so use it
+/// only for a path somebody named: an explicit override, or the folder already
+/// chosen. Calling it across the speculative candidate sweep is what turns
+/// discovery from a few stats into minutes of I/O.
+bool IsValidResourceDirOrImage(const char *path);
 
 /// True if \p path lives under the resolved resource (game-data) directory.
 /// Lets cleanup spare installed assets and only remove transient copies.

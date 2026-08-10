@@ -68,8 +68,13 @@ bool AlreadyTried(const char *norm, char tried[][ADELINE_MAX_PATH], int count) {
     return false;
 }
 
+/* allowImage widens the accept to a folder whose data is only inside a disc
+   image. Off by default and on only for a path somebody named, because the
+   check walks the directory: paying that across the speculative sweep below
+   turns discovery from a few stats into minutes of I/O. */
 bool NormalizeAndTry(const char *pathIn, char *outDir, U16 outMax,
-                     char tried[][ADELINE_MAX_PATH], int *triedCount) {
+                     char tried[][ADELINE_MAX_PATH], int *triedCount,
+                     bool allowImage = false) {
     char buf[ADELINE_MAX_PATH];
 
     if (pathIn == NULL || pathIn[0] == '\0') {
@@ -92,7 +97,7 @@ bool NormalizeAndTry(const char *pathIn, char *outDir, U16 outMax,
     tried[*triedCount][ADELINE_MAX_PATH - 1] = '\0';
     (*triedCount)++;
 
-    if (!IsValidResourceDir(buf)) {
+    if (!(allowImage ? IsValidResourceDirOrImage(buf) : IsValidResourceDir(buf))) {
         return false;
     }
 
@@ -168,7 +173,8 @@ bool ExtractPickGameDirFlag(int argc, char **argv) {
 }
 
 bool TryJoinBaseSub(const char *base, const char *sub, char *outDir, U16 outMax,
-                    char tried[][ADELINE_MAX_PATH], int *triedCount) {
+                    char tried[][ADELINE_MAX_PATH], int *triedCount,
+                    bool allowImage = false) {
     char buf[ADELINE_MAX_PATH];
     char baseBuf[ADELINE_MAX_PATH];
 
@@ -180,14 +186,14 @@ bool TryJoinBaseSub(const char *base, const char *sub, char *outDir, U16 outMax,
     EnsureTrailingSeparator(baseBuf, ADELINE_MAX_PATH);
 
     if (sub == NULL || sub[0] == '\0') {
-        return NormalizeAndTry(baseBuf, outDir, outMax, tried, triedCount);
+        return NormalizeAndTry(baseBuf, outDir, outMax, tried, triedCount, allowImage);
     }
     int n = snprintf(buf, ADELINE_MAX_PATH, "%s%s%s", baseBuf, sub,
                      ADELINE_PATH_SEP);
     if (n < 0 || (size_t)n >= ADELINE_MAX_PATH) {
         return false;
     }
-    return NormalizeAndTry(buf, outDir, outMax, tried, triedCount);
+    return NormalizeAndTry(buf, outDir, outMax, tried, triedCount, allowImage);
 }
 
 /**
@@ -346,8 +352,8 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         /* The path itself, then the subfolder a retail install keeps its data in: people
            point this at the install root (README says so, and the Makefile forwards
            GAME_DIR straight through), and the HQRs live one level down in Common/. */
-        if (NormalizeAndTry(cliPath, outDir, outMax, tried, &triedCount) ||
-            TryJoinBaseSub(cliPath, "Common", outDir, outMax, tried, &triedCount)) {
+        if (NormalizeAndTry(cliPath, outDir, outMax, tried, &triedCount, true) ||
+            TryJoinBaseSub(cliPath, "Common", outDir, outMax, tried, &triedCount, true)) {
             return true;
         }
 
@@ -365,7 +371,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
 
     const char *env = getenv("LBA2_GAME_DIR");
     if (env != NULL && env[0] != '\0' &&
-        NormalizeAndTry(env, outDir, outMax, tried, &triedCount)) {
+        NormalizeAndTry(env, outDir, outMax, tried, &triedCount, true)) {
         return true;
     }
 
@@ -393,7 +399,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * silently re-appearing on a previously-persisted launch is hard
      * to diagnose. */
     if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH)) {
-        if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount)) {
+        if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount, true)) {
             return true;
         }
         Log_Warn("RES_DISCOVERY: saved game-data path %s no longer "
