@@ -232,58 +232,73 @@ All five are now closed. Listed in the order they bite a user, with the commit t
    Candidates are ranked now: raw over cooked, then larger, then lower name, with the passed-over
    ones logged at debug.
 
-## The soundtrack layout, and what this dump is missing
+## The soundtrack layout
 
-The US disc carries its themes as Red Book audio in CD tracks 2 through 8, exactly the seven
-non-`JINGLE` entries in `MUSIC.CPP`'s `TrackCDUS`. Track N there is `ListJingle[N-1]`, which pins
-the name for each. An independent CD-DA rip of the same release
-([Internet Archive](https://archive.org/details/lba2-cd-soundtrack)) gives the titles and durations,
-and they line up one to one with the ADPCM masters GOG ships:
+The US disc carries six of its themes as Red Book audio. The rule is that the CD track number is
+the music index: **track N holds `MUSIC.CPP`'s `ListJingle[N]`**. Track 1 is the data track, so the
+`ListJingle[1]` slot (`TADPCM1`) has no track of its own, and that piece of music is simply not on
+this disc.
 
-| CD track | Title | CD-DA rip | GOG asset | In this dump |
+This is read off the disc, not inferred. Mounting the `.mdx` in DAEMON Tools (which is the only
+software that can decrypt its descriptor) exposes the real table of contents to the OS, and
+`IOCTL_CDROM_READ_TOC` against the virtual drive gives:
+
+| CD track | Disc LBA | Length | Music | Confirmed by |
 | --- | --- | --- | --- | --- |
-| 2 | Song for Gabriel | 237.6 s | `TADPCM1.WAV` (234.2 s) | **absent** |
-| 3 | The Empire | 219.7 s | `TADPCM2.WAV` (225.5 s) | 0:00 |
-| 4 | Honey B. | 195.3 s | `TADPCM3.WAV` (194.1 s) | 3:45 |
-| 5 | Emerald Moon | 211.0 s | `TADPCM4.WAV` (209.6 s) | 6:59 |
-| 6 | Zeelich | 221.1 s | `TADPCM5.WAV` (220.3 s) | 10:30 |
-| 7 | Purple | 52.0 s | `JADPCM01.WAV` (49.9 s) | 14:15 |
-| 8 | LBA's Theme (1997) | 231.0 s | `LBA2.OGG` (231.3 s) | 15:06 |
+| 1 | 0 | | data | ISO9660 filesystem |
+| 2 | 207513 | 226.0 s | `TADPCM2` | length and audio content |
+| 3 | 224463 | 191.5 s | `TADPCM3` | length and audio content |
+| 4 | 238826 | 213.0 s | `TADPCM4` | length and audio content |
+| 5 | 254801 | 222.0 s | `TADPCM5` | length and audio content |
+| 6 | 271451 | 54.0 s | `JADPCM01` | length and audio content |
+| 7 | 275501 | 231.5 s | `TADPCM6` | length and audio content |
 
-Each segment was identified by envelope cross-correlation of the audio region against the decoded
-GOG masters; the five long themes plus the distinctive 52-second `Purple` land in `ListJingle`
-order, which is what makes the mapping safe rather than a guess. Tracks 3 through 8 sum to
-1130 s against the 1138 s region, the remainder being pregaps.
+Each track was matched against the decoded GOG masters by envelope cross-correlation (allowing for
+the 0 to 2.4 s of pregap the tracks carry), and independently by duration. Both agree on every
+track, and both rule out `TADPCM1`, which fits nothing.
 
-So two separate things are true, and only one of them is a dead end:
+**Two earlier conclusions here were wrong, and the TOC is what corrected them.**
 
-- **The TOC is reconstructible.** The cue's single merged audio track is a limitation of the
-  conversion (with the real table encrypted, inventing boundaries would have been worse than
-  declaring one track), not of the data. The boundaries are measurable, so a correct cue can be
-  regenerated for the tracks that are present:
+The first: this dump is *not* missing a track. Comparing the disc's lead-out (LBA 292864) with the
+`.bin`'s length (292714 sectors) shows the image is the disc shifted by exactly 150 sectors, which
+is the data track's run-out that the conversion dropped when it took the ISO volume size as the
+track length. The audio is 85351 sectors on both. Nothing was lost, and there is nothing to
+re-rip.
 
-  ```
-  TRACK 03 AUDIO  INDEX 01 46:04:68   ; LBA 207368  The Empire          TADPCM2
-  TRACK 04 AUDIO  INDEX 01 49:50:59   ; LBA 224309  Honey B.            TADPCM3
-  TRACK 05 AUDIO  INDEX 01 53:04:59   ; LBA 238859  Emerald Moon        TADPCM4
-  TRACK 06 AUDIO  INDEX 01 56:35:22   ; LBA 254647  Zeelich             TADPCM5
-  TRACK 07 AUDIO  INDEX 01 60:19:66   ; LBA 271491  Purple              JADPCM01
-  TRACK 08 AUDIO  INDEX 01 61:11:39   ; LBA 275364  LBA's Theme (1997)  TADPCM6
-  ```
+The second: the mapping is not `ListJingle[N-1]`. That reading came from lining
+`TrackCDUS` up against `ListJingle` by hand and it shifts every theme by one, which is the kind of
+error that plays perfectly and is simply the wrong song. The disc says otherwise.
 
-  Note the numbering starts at 3. Because the engine keys on the CD track *number*, renumbering
-  these 2 through 7 would shift every theme by one scene. A TOC parser must therefore trust the
-  declared track number and tolerate a gap in the sequence, rather than inferring the number from
-  position in the file. Standard burning tools will reject a cue with a hole, which is fine: this
-  cue is for the engine, not for a burner.
+## The corrected cue
 
-- **`TADPCM1` is gone.** CD track 2 is not in the `.mdx`, so it is not in the `.bin` either. The
-  best correlation for `TADPCM1` anywhere in the region is 0.48, against 0.73 to 0.86 for every
-  track that is genuinely there, and the region is short by about one `TADPCM1`. A re-rip from the
-  physical disc is the only way to recover it. Failing that, GOG's `TADPCM1.WAV` dropped into
-  `music/` is a working substitute: the filesystem is checked before the image, so it wins without
-  any special case.
+Cue `INDEX` values are offsets into the file, so these are the disc LBAs less the 150-sector shift.
+The lead-out lands exactly on the `.bin`'s length, which is the arithmetic check that the whole
+table is right:
 
+```
+FILE "TWINSEN.bin" BINARY
+  TRACK 01 MODE1/2352
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    INDEX 01 46:04:63        ; LBA 207363  TADPCM2
+  TRACK 03 AUDIO
+    INDEX 01 49:50:63        ; LBA 224313  TADPCM3
+  TRACK 04 AUDIO
+    INDEX 01 53:02:26        ; LBA 238676  TADPCM4
+  TRACK 05 AUDIO
+    INDEX 01 56:35:26        ; LBA 254651  TADPCM5
+  TRACK 06 AUDIO
+    INDEX 01 60:17:26        ; LBA 271301  JADPCM01
+  TRACK 07 AUDIO
+    INDEX 01 61:11:26        ; LBA 275351  TADPCM6
+```
+
+The cue that shipped with the dump had track 2's start right (`46:04:63`); its only fault was
+merging tracks 3 to 7 into it, which the conversion notes call out as a deliberate choice given the
+encrypted table.
+
+`TADPCM1` has no CD track, so a request for it misses. Dropping GOG's `TADPCM1.WAV` into `music/`
+supplies it: the filesystem is checked before the image, so it wins with no special case.
 
 ## How resolution works now
 
@@ -366,4 +381,4 @@ Retail smoke, local:
 | --- | --- |
 | `../LBA2` (Steam Classic) | no `Disc:` line, music from `Music/*.ogg`, unchanged |
 | `../LBA2-GOG` | `Disc: mounted LBA2.GOG (ISO9660, 630 files)`, in-image WAV music, `LBA2.OGG` for track 6, unchanged |
-| `../TWINSEN` (bin + cue only) | mounts, `Assets all present`, renders, six of seven themes play from the image |
+| `../TWINSEN` (bin + cue only) | mounts, `Assets all present`, renders, all six CD tracks play from the image |

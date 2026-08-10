@@ -8,13 +8,12 @@
 // Indexed by (track - CDTRACKS_FIRST_AUDIO). See the header for where this
 // order comes from and why it is stable.
 static const char *const CD_TRACK_NAMES[] = {
-    "TADPCM1",  // CD track 2
-    "TADPCM2",  // 3
-    "TADPCM3",  // 4
-    "TADPCM4",  // 5
-    "TADPCM5",  // 6
-    "JADPCM01", // 7
-    "TADPCM6",  // 8
+    "TADPCM2",  // CD track 2
+    "TADPCM3",  // 3
+    "TADPCM4",  // 4
+    "TADPCM5",  // 5
+    "JADPCM01", // 6
+    "TADPCM6",  // 7
 };
 
 #define CD_TRACK_COUNT ((int)(sizeof(CD_TRACK_NAMES) / sizeof(CD_TRACK_NAMES[0])))
