@@ -149,11 +149,40 @@ static bool BetterCandidate(int aSectorSize, long aSize, const char *aName,
 }
 
 //──────────────────────────────────────────────────────────────────────────
+// An explicitly named image, from --disc. Empty when the directory scan decides.
+static char g_overridePath[ADELINE_MAX_PATH] = "";
+
+extern "C" void DiscImage_SetOverride(const char *path) {
+    if (path == NULL) {
+        g_overridePath[0] = '\0';
+        return;
+    }
+    strncpy(g_overridePath, path, sizeof(g_overridePath) - 1);
+    g_overridePath[sizeof(g_overridePath) - 1] = '\0';
+}
+
+//──────────────────────────────────────────────────────────────────────────
 // Content-probe every file in `assetsDir` and return the best image, or NULL.
 // Two passes: the plain probe over all candidates first, and only if that finds
 // nothing, the container scan (which reads each file's head, so it is not worth
 // paying for on an install that already has an ordinary image).
 static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax) {
+    // Named explicitly: no ranking, and no falling back to the scan. Someone who
+    // says which disc to use is owed either that disc or an error, not a
+    // different one chosen quietly. The container scan is allowed here without a
+    // second pass, since naming the file is the opt-in.
+    if (g_overridePath[0] != '\0') {
+        const char *img = g_overridePath;
+        iso9660_t *iso = iso_open_ex(img, 1);
+        if (iso == NULL) {
+            Log_Error("DISCIMG: --disc %s is not a disc image we can read", img);
+            return NULL;
+        }
+        strncpy(outPath, img, outMax - 1);
+        outPath[outMax - 1] = '\0';
+        return iso;
+    }
+
     iso9660_t *best = NULL;
     int bestSectorSize = 0;
     long bestSize = 0;

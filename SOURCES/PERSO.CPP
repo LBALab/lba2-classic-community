@@ -17,6 +17,7 @@ extern S32 GfxDitherShading;
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
+#include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
@@ -3009,6 +3010,23 @@ int main(int argc, char *argv[]) {
         Log_AddSink(Log_MakeFileSink(logFilePath, LOG_DEBUG));
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
         atexit(Log_Shutdown);
+
+        /* --disc names the image to mount, instead of letting the game folder's
+           scan rank what it finds. Read before discovery, not just before the
+           mount, because discovery also probes for an image when the folder has
+           no extracted data, and both should be looking at the same disc. */
+        for (int i = 1; i + 1 < argc; i++) {
+            if (strcasecmp(argv[i], "--disc") != 0)
+                continue;
+            /* Accept the cue as readily as the image: pointing tools at the cue
+               is the convention, and the sheet names the image beside it. */
+            char discImage[ADELINE_MAX_PATH];
+            if (Cue_ImageForSheet(argv[i + 1], discImage, sizeof(discImage)))
+                DiscImage_SetOverride(discImage);
+            else
+                DiscImage_SetOverride(argv[i + 1]);
+            break;
+        }
 
         if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
             /* A batch or headless run must not reach the folder picker: it is modal, and

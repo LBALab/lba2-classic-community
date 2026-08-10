@@ -57,6 +57,14 @@ int Cue_ReadTocInDir(const char *dir, char *outCuePath, size_t cuePathMax,
                      CueTrack *out, int maxTracks);
 
 //──────────────────────────────────────────────────────────────────────────
+// If `path` is a cue sheet, resolve the BINARY image it describes against the
+// sheet's own directory and return 1. Returns 0 when the file is not a cue,
+// which lets a caller accept "an image or the cue that names it" without
+// sniffing extensions: a real image would have to carry a FILE/TRACK pair in
+// its first few KB to be mistaken for one.
+int Cue_ImageForSheet(const char *path, char *outImagePath, size_t outMax);
+
+//──────────────────────────────────────────────────────────────────────────
 // Parse cue-sheet text for the first external (non-BINARY) AUDIO track's file
 // name. Returns 1 and fills `outName` on success, 0 otherwise.
 int Cue_ParseExternalAudio(const char *cueText, size_t len, char *outName, size_t outMax);

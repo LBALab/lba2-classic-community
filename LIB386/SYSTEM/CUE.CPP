@@ -165,6 +165,33 @@ static int is_cue_name(const char *name) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+int Cue_ImageForSheet(const char *path, char *outImagePath, size_t outMax) {
+    if (path == NULL || outImagePath == NULL || outMax == 0)
+        return 0;
+    FILE *f = fopen(path, "rb");
+    if (f == NULL)
+        return 0;
+    char text[8192];
+    size_t got = fread(text, 1, sizeof(text), f);
+    fclose(f);
+
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ParseToc(text, got, toc, CUE_MAX_TRACKS);
+    for (int i = 0; i < n; i++) {
+        if (!toc[i].fileIsBinary || toc[i].file[0] == '\0')
+            continue;
+        size_t dirLen = 0; /* the sheet's own directory: a cue's FILE is relative to it */
+        for (size_t k = 0; path[k]; k++) {
+            if (path[k] == '/' || path[k] == '\\')
+                dirLen = k + 1;
+        }
+        int w = snprintf(outImagePath, outMax, "%.*s%s", (int)dirLen, path, toc[i].file);
+        return (w > 0 && (size_t)w < outMax) ? 1 : 0;
+    }
+    return 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 int Cue_ReadTocInDir(const char *dir, char *outCuePath, size_t cuePathMax,
                      CueTrack *out, int maxTracks) {
     if (dir == NULL || dir[0] == '\0' || out == NULL || maxTracks <= 0)

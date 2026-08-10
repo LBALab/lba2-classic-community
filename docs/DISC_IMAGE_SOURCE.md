@@ -335,6 +335,30 @@ beside the disc sources rather than in `MUSIC.CPP` because it describes a disc l
 engine's music indirection, the same reason `CD.CPP` keeps its first-track constants. Its test reads
 `MUSIC.CPP` and asserts the order still matches, so the two cannot drift apart quietly.
 
+## Choosing the image: `--disc`
+
+The ranking is right for a normal install, which makes two things unreachable: the cooked `.iso`
+sitting beside a raw `.bin`, and any container the deeper probe finds, since that pass only runs
+when the cheap one comes up empty. `--disc <file>` names the image instead.
+
+It takes an image or a cue, because pointing tools at the cue is the convention and the sheet names
+the image beside it (`Cue_ImageForSheet`, which returns "not a cue" rather than guessing, so no
+extension sniffing). It never falls back to the scan: someone who says which disc to use is owed
+that disc or an error, not a different one chosen quietly. And it is read before discovery, not just
+before the mount, because discovery also probes for an image when a folder holds no extracted data,
+and both should be looking at the same disc.
+
+```
+--disc TWINSEN.iso   mounted TWINSEN.iso  (ISO9660, 632 files)   the ranking would never pick this
+--disc TWINSEN.mdx   mounted TWINSEN.mdx  (ISO9660, 632 files)   only the container probe finds it
+--disc TWINSEN.cue   mounted TWINSEN.bin  (ISO9660, 632 files)   resolved from the sheet
+--disc /etc/hostname not a disc image we can read                no silent fallback
+```
+
+Known limit: the cue for redbook lookup is still read from the game directory, so an image mounted
+from *outside* the install gets its data served but not its CD tracks. Folder-per-dump, with
+`--game-dir` pointing at it, is the shape that works end to end.
+
 ## Diagnosability
 
 The `disc` console command (so also `--exec "disc"` headless) reports the mounted image, its sector

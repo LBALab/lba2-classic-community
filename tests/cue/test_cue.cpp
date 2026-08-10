@@ -8,7 +8,13 @@
 
 #include <SYSTEM/CUE.H>
 
+#include <stdio.h>
 #include <string.h>
+#include <string>
+
+#ifndef TEST_TMP_DIR
+#define TEST_TMP_DIR "."
+#endif
 
 /* The GOG LBA2 cue: a BINARY data track plus one standalone OGG audio track. */
 static const char *const GOG_CUE =
@@ -68,10 +74,10 @@ static void test_first_external_audio_wins(void) {
     ASSERT_TRUE(strcmp(name, "track2.wav") == 0);
 }
 
-/* A retail rip whose audio tracks live in the image. The numbering starts at 3
-   because this dump lost the disc's track 2: the engine picks its music by CD
-   track number, so the survivors must keep their true numbers and the parser
-   must not renumber them to close the hole. */
+/* A rip whose audio tracks live in the image, with a hole in the numbering (no
+   track 2). Holes happen when a rip loses a track, and the engine picks its
+   music by CD track number, so the survivors have to keep their true numbers:
+   renumbering to close the gap would shift every theme by one. */
 static const char *const RETAIL_TOC_CUE =
     "FILE \"TWINSEN.bin\" BINARY\n"
     "  TRACK 01 MODE1/2352\n"
@@ -150,6 +156,44 @@ static void test_toc_overflow_does_not_corrupt(void) {
     ASSERT_EQ_INT((46 * 60 + 4) * 75 + 68, (int)toc[1].startFrame);
 }
 
+/* --disc takes an image or the cue that names one, so the resolution has to work
+   off a real file and has to say "not a cue" rather than guess. The image path is
+   relative to the sheet, not to the working directory. */
+static void write_text(const std::string &path, const char *text) {
+    FILE *f = fopen(path.c_str(), "wb");
+    if (f) {
+        fwrite(text, 1, strlen(text), f);
+        fclose(f);
+    }
+}
+
+static void test_image_for_sheet(void) {
+    std::string dir = std::string(TEST_TMP_DIR) + "/";
+    std::string cue = dir + "cue_sheet_fixture.cue";
+    write_text(cue, RETAIL_TOC_CUE);
+
+    char out[512] = "";
+    ASSERT_EQ_INT(1, Cue_ImageForSheet(cue.c_str(), out, sizeof(out)));
+    ASSERT_TRUE(std::string(out) == dir + "TWINSEN.bin");
+
+    /* A sheet with no BINARY track names no image. */
+    std::string ext = dir + "cue_external_fixture.cue";
+    write_text(ext, "FILE \"track02.wav\" WAVE\n  TRACK 02 AUDIO\n");
+    ASSERT_EQ_INT(0, Cue_ImageForSheet(ext.c_str(), out, sizeof(out)));
+
+    /* Not a cue at all: the caller passes the path through as an image. */
+    std::string bin = dir + "cue_notacue_fixture.bin";
+    write_text(bin, "\x00\x01\x02 this is not a cue sheet at all");
+    ASSERT_EQ_INT(0, Cue_ImageForSheet(bin.c_str(), out, sizeof(out)));
+
+    ASSERT_EQ_INT(0, Cue_ImageForSheet((dir + "does_not_exist.cue").c_str(), out, sizeof(out)));
+    ASSERT_EQ_INT(0, Cue_ImageForSheet(NULL, out, sizeof(out)));
+
+    remove(cue.c_str());
+    remove(ext.c_str());
+    remove(bin.c_str());
+}
+
 int main(void) {
     RUN_TEST(test_gog_external_ogg);
     RUN_TEST(test_data_only_has_no_audio);
@@ -160,6 +204,7 @@ int main(void) {
     RUN_TEST(test_toc_gog_shape);
     RUN_TEST(test_toc_malformed_index);
     RUN_TEST(test_toc_overflow_does_not_corrupt);
+    RUN_TEST(test_image_for_sheet);
     TEST_SUMMARY();
     return test_failures != 0;
 }

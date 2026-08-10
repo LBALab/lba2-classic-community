@@ -42,6 +42,17 @@ bool DiscImage_IsMounted(void);
 bool DiscImage_DirHoldsMarker(const char *dir, const char *resMarker);
 
 //──────────────────────────────────────────────────────────────────────────
+// Name the image to mount, instead of letting the directory scan rank the
+// candidates (--disc). Takes an image or a cue sheet, since a cue names the
+// image it describes and pointing tools at the cue is the convention.
+//
+// This is how you reach an image the ranking would pass over: the cooked .iso
+// sitting beside a raw .bin, or a container that only the deeper probe finds.
+// It never falls back to the scan. Someone who says which disc to use is owed
+// that disc or an error, not a different one chosen quietly. Pass NULL to clear.
+void DiscImage_SetOverride(const char *path);
+
+//──────────────────────────────────────────────────────────────────────────
 // Boot-banner helper. On a mount, fills the image's filesystem path and file
 // count and returns true so the caller emits one "Disc:" line. Returns false
 // when nothing is mounted, leaving the banner unchanged.
