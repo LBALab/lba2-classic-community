@@ -7,9 +7,11 @@
  */
 
 #include <SYSTEM/ADELINE_TYPES.H>
+#include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
 
+#include "DIRECTORIES.H"
 #include "RES_DISCOVERY.H"
 
 #include <SDL3/SDL.h>
@@ -478,6 +480,177 @@ static bool test_persisted_last_game_dir() {
 #endif
 }
 
+/* ── An installed file beats a mounted image's copy of it (#461) ────────── */
+
+/* Minimal flat ISO9660: a root directory holding LBA2.HQR and LBA2.CFG. Same
+ * record encoding as tests/disc_image, without the nested volume directory,
+ * which this test does not need. */
+static void iso_both32(unsigned char *p, U32 v) {
+    p[0] = (unsigned char)(v & 0xFF);
+    p[1] = (unsigned char)((v >> 8) & 0xFF);
+    p[2] = (unsigned char)((v >> 16) & 0xFF);
+    p[3] = (unsigned char)((v >> 24) & 0xFF);
+    p[4] = (unsigned char)((v >> 24) & 0xFF);
+    p[5] = (unsigned char)((v >> 16) & 0xFF);
+    p[6] = (unsigned char)((v >> 8) & 0xFF);
+    p[7] = (unsigned char)(v & 0xFF);
+}
+
+static void iso_both16(unsigned char *p, unsigned v) {
+    p[0] = (unsigned char)(v & 0xFF);
+    p[1] = (unsigned char)((v >> 8) & 0xFF);
+    p[2] = (unsigned char)((v >> 8) & 0xFF);
+    p[3] = (unsigned char)(v & 0xFF);
+}
+
+static void iso_add_rec(unsigned char *sector, int *offset, U32 lba, U32 len,
+                        bool isDir, const unsigned char *name, int nameLen) {
+    int recLen = 33 + nameLen;
+    if (recLen & 1) {
+        recLen++;
+    }
+    unsigned char *r = sector + *offset;
+    memset(r, 0, (size_t)recLen);
+    r[0] = (unsigned char)recLen;
+    iso_both32(r + 2, lba);
+    iso_both32(r + 10, len);
+    r[25] = isDir ? 0x02 : 0x00;
+    iso_both16(r + 28, 1);
+    r[32] = (unsigned char)nameLen;
+    memcpy(r + 33, name, (size_t)nameLen);
+    *offset += recLen;
+}
+
+#define ISO_SECTORS 22
+#define ISO_L_PVD 16
+#define ISO_L_ROOT 18
+#define ISO_L_HQR 19
+#define ISO_L_CFG 20
+
+static const char kImageCfgBody[] = "FROM-IMAGE";
+static const char kDiskCfgBody[] = "FROM-DISK";
+
+static bool write_case_fixture_iso(const char *path) {
+    static unsigned char image[ISO_SECTORS * 2048];
+    memset(image, 0, sizeof(image));
+
+    unsigned char *pvd = image + ISO_L_PVD * 2048;
+    pvd[0] = 0x01;
+    memcpy(pvd + 1, "CD001", 5);
+    pvd[6] = 0x01;
+    const unsigned char dot = 0x00, dotdot = 0x01;
+    int o = 156; /* the root directory record lives at offset 156 of the PVD */
+    iso_add_rec(pvd, &o, ISO_L_ROOT, 2048, true, &dot, 1);
+
+    unsigned char *root = image + ISO_L_ROOT * 2048;
+    o = 0;
+    iso_add_rec(root, &o, ISO_L_ROOT, 2048, true, &dot, 1);
+    iso_add_rec(root, &o, ISO_L_ROOT, 2048, true, &dotdot, 1);
+    iso_add_rec(root, &o, ISO_L_HQR, 8, false, (const unsigned char *)"LBA2.HQR;1", 10);
+    iso_add_rec(root, &o, ISO_L_CFG, (U32)strlen(kImageCfgBody), false,
+                (const unsigned char *)"LBA2.CFG;1", 10);
+
+    memcpy(image + ISO_L_HQR * 2048, "HQRSTUB", 7);
+    memcpy(image + ISO_L_CFG * 2048, kImageCfgBody, strlen(kImageCfgBody));
+
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) {
+        return false;
+    }
+    const bool ok = fwrite(image, 1, sizeof(image), f) == sizeof(image);
+    fclose(f);
+    return ok;
+}
+
+static bool read_whole_file(const char *path, char *out, int outMax) {
+    S32 h = OpenRead(path);
+    if (!h) {
+        return false;
+    }
+    S32 n = Read(h, out, (U32)(outMax - 1));
+    Close(h);
+    if (n < 0) {
+        return false;
+    }
+    out[n] = '\0';
+    return true;
+}
+
+/* A mounted image answers case-insensitively, so a case sweep that lets it
+ * speak too early settles on a spelling only the image holds -- and OpenRead,
+ * finding nothing on disk under that spelling, then serves the image's copy
+ * even though the real file is right there. That is how a GOG install (asked
+ * for lba2.cfg, LBA2.CFG on disk, LBA2.GOG mounted) read the image's config
+ * instead of its own and came up in French. */
+static bool test_installed_file_beats_image_copy() {
+    char dir[ADELINE_MAX_PATH];
+#ifdef _WIN32
+    if (!make_temp_dir(dir, sizeof(dir), "shadow")) {
+        return false;
+    }
+#else
+    snprintf(dir, sizeof(dir), "/tmp/lba2disc_shadow_XXXXXX");
+    if (mkdtemp(dir) == NULL) {
+        return false;
+    }
+#endif
+
+    char base[ADELINE_MAX_PATH + 8];
+    char isoPath[ADELINE_MAX_PATH + 32];
+    char diskCfg[ADELINE_MAX_PATH + 32];
+    snprintf(base, sizeof(base), "%s/", dir);
+    snprintf(isoPath, sizeof(isoPath), "%sdisc.iso", base);
+    snprintf(diskCfg, sizeof(diskCfg), "%sLBA2.CFG", base);
+
+    create_marker_hqr(dir);
+    if (!write_case_fixture_iso(isoPath)) {
+        fprintf(stderr, "test_installed_file_beats_image_copy: cannot write iso\n");
+        return false;
+    }
+    FILE *f = fopen(diskCfg, "wb");
+    if (f == NULL) {
+        return false;
+    }
+    fwrite(kDiskCfgBody, 1, strlen(kDiskCfgBody), f);
+    fclose(f);
+
+    InitDirectories(base, base, base, "", 0);
+    if (!DiscImage_Mount(base, Directories_GetResMarker())) {
+        fprintf(stderr, "test_installed_file_beats_image_copy: mount failed\n");
+        return false;
+    }
+
+    bool ok = true;
+    char resolved[ADELINE_MAX_PATH];
+    char body[64];
+
+    /* Installed on disk as LBA2.CFG, asked for as lba2.cfg: the installed file
+     * wins, both in the resolved spelling and in what comes back. */
+    GetDefaultCfgPath(resolved, ADELINE_MAX_PATH, "lba2.cfg");
+    if (!read_whole_file(resolved, body, (int)sizeof(body)) ||
+        strcmp(body, kDiskCfgBody) != 0) {
+        fprintf(stderr,
+                "test_installed_file_beats_image_copy: %s served '%s', wanted '%s'\n",
+                resolved, body, kDiskCfgBody);
+        ok = false;
+    }
+
+    /* Nothing installed under any spelling: the image is then the right answer,
+     * which is how a bare disc rip (no extracted files at all) still boots. */
+    unlink_portable(diskCfg);
+    GetDefaultCfgPath(resolved, ADELINE_MAX_PATH, "lba2.cfg");
+    if (!read_whole_file(resolved, body, (int)sizeof(body)) ||
+        strcmp(body, kImageCfgBody) != 0) {
+        fprintf(stderr,
+                "test_installed_file_beats_image_copy: image fallback served '%s', wanted '%s'\n",
+                body, kImageCfgBody);
+        ok = false;
+    }
+
+    DiscImage_Unmount();
+    return ok;
+}
+
 int main() {
     if (!SDL_Init(0)) {
         return 1;
@@ -507,6 +680,11 @@ int main() {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {
+        failed++;
+    }
+    /* Last: InitDirectories asserts it runs once, and the cases above resolve
+     * paths without it. */
+    if (!test_installed_file_beats_image_copy()) {
         failed++;
     }
     SDL_Quit();

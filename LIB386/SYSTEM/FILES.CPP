@@ -131,11 +131,17 @@ U32 FileSize(const char *filename) {
     return (U32)((fsize == -1) ? 0 : fsize);
 }
 
-bool ExistsFileOrDir(const char *path) {
+bool ExistsOnFilesystem(const char *path) {
     assert(path != NULL);
 
     struct stat status = {};
-    if (stat(path, &status) == 0) {
+    return (stat(path, &status) == 0);
+}
+
+bool ExistsFileOrDir(const char *path) {
+    assert(path != NULL);
+
+    if (ExistsOnFilesystem(path)) {
         return true;
     }
     return DiscImage_Exists(path);

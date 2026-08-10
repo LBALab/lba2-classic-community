@@ -60,44 +60,64 @@ S32 directoriesDistVersion;
  * @return TRUE if discovered. When FALSE \p outFound is unchanged.
  * @note If \p foundMaxSize is 0, \p outFound will be ignored.
  */
+/* One sweep of the case variations, asking `exists` about each in turn. Leaves
+   the winning spelling in `variation`. */
+static bool DiscoverPass(char *variation, U16 variationMaxSize,
+                         const char *baseDir, const char *checkPath,
+                         bool (*exists)(const char *)) {
+    char fullPath[ADELINE_MAX_PATH];
+
+    strncpy(variation, checkPath, variationMaxSize);
+    variation[variationMaxSize - 1] = '\0'; // Guarantee
+
+    // Try as is
+    snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+    if (exists(fullPath))
+        return true;
+
+    // Try uppercase
+    SDL_strupr(variation);
+    snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+    if (exists(fullPath))
+        return true;
+
+    // Try lowercase
+    SDL_strlwr(variation);
+    snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+    if (exists(fullPath))
+        return true;
+
+    // Try title case (first letter uppercase, rest lowercase)
+    if (variation[0] >= 'a' && variation[0] <= 'z')
+        variation[0] -= 32;
+    snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
+    return exists(fullPath);
+}
+
 bool Discover(char *outFound, U16 foundMaxSize, const char *baseDir,
               const char *checkPath) {
     assert(((foundMaxSize > 0) && (outFound != NULL)) || (foundMaxSize == 0));
     assert(baseDir != NULL);
     assert(checkPath != NULL);
 
-    bool found;
-    char fullPath[ADELINE_MAX_PATH];
     char variation[ADELINE_MAX_PATH];
 
-    strncpy(variation, checkPath, ADELINE_MAX_PATH);
-    variation[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+    /* Filesystem first, across every spelling, before the disc image gets a
+       say. One pass over ExistsFileOrDir would stop at whichever spelling the
+       image happens to hold, and a mounted image answers case-insensitively, so
+       the very first probe hits and the file actually installed -- under a
+       different case -- is never tried. OpenRead then finds nothing on disk at
+       that spelling and falls through to the image's copy.
 
-    // Try as is
-    snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-    found = ExistsFileOrDir(fullPath);
-
+       That is how a GOG install came up in French: it is asked for lba2.cfg,
+       has LBA2.CFG on disk saying English, and ships LBA2.GOG, an ISO whose own
+       LBA2.CFG leaves Language empty. Installed data has to beat the image,
+       which is what OpenRead already promises one level down. */
+    bool found = DiscoverPass(variation, ADELINE_MAX_PATH, baseDir, checkPath,
+                              ExistsOnFilesystem);
     if (!found) {
-        // Try uppercase
-        SDL_strupr(variation);
-        snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-        found = ExistsFileOrDir(fullPath);
-
-        if (!found) {
-            // Try lowercase
-            SDL_strlwr(variation);
-            snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-            found = ExistsFileOrDir(fullPath);
-        }
-
-        if (!found) {
-            // Try title case (first letter uppercase, rest lowercase)
-            SDL_strlwr(variation);
-            if (variation[0] >= 'a' && variation[0] <= 'z')
-                variation[0] -= 32;
-            snprintf(fullPath, ADELINE_MAX_PATH, "%s%s", baseDir, variation);
-            found = ExistsFileOrDir(fullPath);
-        }
+        found = DiscoverPass(variation, ADELINE_MAX_PATH, baseDir, checkPath,
+                             ExistsFileOrDir);
     }
 
     // Copy to out if requested and variation was found
