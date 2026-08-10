@@ -84,9 +84,16 @@ jobs:
           merge-multiple: true
 
       - name: Compose release body
+        id: meta
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          # A release's published_at doesn't advance when the release is
+          # updated in place, so the Releases page would keep showing the
+          # date this rolling release was first published. The commit and
+          # date go in the release name, which does update.
+          echo "sha_short=${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +"%Y-%m-%d")" >> "$GITHUB_OUTPUT"
           cat > release-body.md <<EOF
           **Rolling pre-release.** Built from \`main\` on every push. For stable releases see [the Releases page](https://github.com/${{ github.repository }}/releases).
 
@@ -102,7 +109,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "Latest (rolling pre-release)"
+          name: "Latest (rolling pre-release) - ${{ steps.meta.outputs.sha_short }}, ${{ steps.meta.outputs.date }}"
           body_path: release-body.md
           files: |
             *.AppImage
@@ -116,7 +123,23 @@ jobs:
           # pre-release.
           prerelease: true
           make_latest: false
-          # softprops/action-gh-release@v2 moves the existing tag to the
-          # current commit and updates the release in place. No manual
-          # delete-then-create needed.
+          # This action creates the `latest` tag only when it's absent; an
+          # existing one is left pointing wherever it already pointed. The
+          # step below moves it. Body and assets do update in place.
           fail_on_unmatched_files: false
+
+      # Runs after the upload so the tag only ever advertises a commit whose
+      # artifacts finished uploading. Two pushes back-to-back cancel the older
+      # run mid-job, and a tag left behind the assets is recoverable where a
+      # tag ahead of them is not.
+      #
+      # Force-moves the tag, so a local `git fetch` needs --force to follow
+      # it. Nothing rebuilds in response: the tag-triggered release workflows
+      # filter `v*`, and ref updates authored by GITHUB_TOKEN don't trigger
+      # workflows at all.
+      - name: Point the latest tag at this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/latest" \
+            -f sha='${{ github.sha }}' -F force=true

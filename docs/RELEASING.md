@@ -517,6 +517,24 @@ Same packaging scripts (`make-appimage.sh`, `bundle-linux-tarball.sh`,
 naming. The rolling release is functionally a tag-release at HEAD-of-main
 with a moving tag instead of a fixed semver.
 
+**Read the name, not the timestamp.** A release's `published_at` is stamped
+once, when it is first published; updating a release in place never advances
+it. The rolling release's date on the Releases page therefore reads as the
+day this workflow first ran, however recent the build. The release *name*
+carries the short commit and build date instead:
+
+```
+Latest (rolling pre-release) - 9d91ab9, 2026-08-10
+```
+
+The body repeats both, with a link to the commit.
+
+**The tag moves, so plain `git fetch` won't follow it.** Once you hold an
+older `latest`, git rejects the update rather than clobbering your copy. Use
+`git fetch --force --tags origin`. Nothing rebuilds when the tag moves: the
+per-tag release workflows filter `v*`, and ref updates authored by
+`GITHUB_TOKEN` don't trigger workflows.
+
 **When to point users at it:** for community testers who want to
 verify a fix on `main` without building from source, or for "does this
 reproduce on the latest main?" bug-report triage. Otherwise prefer
