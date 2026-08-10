@@ -461,7 +461,12 @@ medium tells the engine which release it is:
 | --- | --- | --- |
 | Retail disc (US) | 1 | `activision` |
 | GOG | 3 | `ea` |
-| Steam Classic | none | `unknown` |
+| Steam Classic | none *beside the assets* | `unknown` |
+
+Steam is worth a footnote: it does ship a config, but in the user's Saved Games
+folder (`%USERPROFILE%\Saved Games\2point21\tlba2-classic\Settings`) rather than beside the
+assets, so the seeding never reaches it. That file carries no `Version` key either, so `unknown` is
+the answer whichever way you look, and it differs from `ea` only in the distributor splash.
 
 Two things follow. First, a retail disc correctly lands on `TrackCDUS`, which is *why* the routing
 below had to be fixed rather than worked around: the disc is not misidentified, it is identified
