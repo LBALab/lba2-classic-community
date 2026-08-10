@@ -355,11 +355,26 @@ and both should be looking at the same disc.
 --disc /etc/hostname not a disc image we can read                no silent fallback
 ```
 
-Known limit: the cue for redbook lookup is still read from the game directory, so an image mounted
-from *outside* the install gets its data served but not its CD tracks. Folder-per-dump, with
-`--game-dir` pointing at it, is the shape that works end to end.
+`--disc` on its own is enough; `--game-dir` is not required alongside it. Two things make that
+true. The cue is read from the *image's* directory first, because the sheet that describes a disc
+sits beside that disc, and external audio the cue names is resolved against the sheet rather than
+the install. And when no game folder is given explicitly, the disc's folder becomes the install.
+That last part is not cosmetic: the override makes every candidate folder look valid to discovery,
+so without it the mount base would be whichever candidate happened to be tried first, a stale file
+there would shadow the disc, and the boot banner would name a folder holding none of the assets.
+An explicit `--game-dir` still wins, for the case where extracted files and the image live apart.
 
 ## Diagnosability
+
+When a cooked image holds bytes past its filesystem, `disc` says so and how many. That is the
+difference between an `.iso`, whose audio the conversion genuinely dropped, and a container like an
+MDX that still has the whole soundtrack in it at a stride this reader does not follow:
+
+```
+TWINSEN.iso   Sectors:  cooked image, no CD audio in it
+TWINSEN.mdx   Sectors:  cooked image, and 191 MB past the filesystem this reader
+                        cannot address. If that is CD audio, convert to bin/cue.
+```
 
 The `disc` console command (so also `--exec "disc"` headless) reports the mounted image, its sector
 layout and base offset, the asset root and file count, the cue with every track in it, and then the

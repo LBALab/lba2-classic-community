@@ -625,8 +625,22 @@ static RedbookOutcome PlayRedbookByNumber(const char *name, S32 startFrame) {
     if (!InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)))
         return REDBOOK_NO_TOC;
 
+    /* The cue that describes a disc sits beside that disc, so look there first.
+       Normally the image is in the install directory and these are the same
+       place; they part company when --disc names an image elsewhere, and then
+       the image's own cue is the one that means anything. Falling back to the
+       install directory covers the reverse oddity, a cue kept with the game
+       rather than with the image. */
+    char tocDir[ADELINE_MAX_PATH];
     CueTrack toc[CUE_MAX_TRACKS];
-    int n = Cue_ReadTocInDir(installDir, NULL, 0, toc, CUE_MAX_TRACKS);
+    int n = 0;
+    if (DiscImage_GetImageDir(tocDir, sizeof(tocDir)))
+        n = Cue_ReadTocInDir(tocDir, NULL, 0, toc, CUE_MAX_TRACKS);
+    if (n == 0) {
+        strncpy(tocDir, installDir, sizeof(tocDir) - 1);
+        tocDir[sizeof(tocDir) - 1] = '\0';
+        n = Cue_ReadTocInDir(tocDir, NULL, 0, toc, CUE_MAX_TRACKS);
+    }
     int audioCount = 0;
     for (int i = 0; i < n; i++) {
         if (toc[i].isAudio)
@@ -650,8 +664,9 @@ static RedbookOutcome PlayRedbookByNumber(const char *name, S32 startFrame) {
     }
 
     if (!t->fileIsBinary) {
+        /* A cue's FILE is relative to the sheet, not to the install. */
         char path[ADELINE_MAX_PATH];
-        int w = snprintf(path, sizeof(path), "%s%s", installDir, t->file);
+        int w = snprintf(path, sizeof(path), "%s%s", tocDir, t->file);
         if (w < 0 || (size_t)w >= sizeof(path))
             return REDBOOK_HANDLED;
         SDL_AudioSpec spec;

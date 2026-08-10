@@ -339,6 +339,22 @@ extern "C" bool DiscImage_GetBannerInfo(char *outPath, size_t outPathSize, S32 *
 }
 
 //──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_GetImageDir(char *out, size_t outMax) {
+    if (g_iso == NULL || out == NULL || outMax == 0)
+        return false;
+    size_t dirLen = 0;
+    for (size_t i = 0; g_imagePath[i]; i++) {
+        if (g_imagePath[i] == '/' || g_imagePath[i] == '\\')
+            dirLen = i + 1;
+    }
+    if (dirLen == 0 || dirLen >= outMax)
+        return false;
+    memcpy(out, g_imagePath, dirLen);
+    out[dirLen] = '\0';
+    return true;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" bool DiscImage_GetInfo(DiscImageInfo *out) {
     if (g_iso == NULL || out == NULL)
         return false;
@@ -351,6 +367,20 @@ extern "C" bool DiscImage_GetInfo(DiscImageInfo *out) {
     iso_layout(g_iso, &out->sectorSize, &out->base);
     out->fileCount = g_fileCount;
     out->rawSectors = (U32)iso_raw_sector_count(g_iso);
+
+    /* Anything past the filesystem is content we are not reading. On a cooked
+       rip that is usually nothing; on a container that keeps its audio at a
+       different stride it is the whole soundtrack, and saying so is the
+       difference between "there is nothing to recover" and "convert this". */
+    out->trailingBytes = 0;
+    FILE *f = fopen(g_imagePath, "rb");
+    if (f != NULL) {
+        long size = (fseek(f, 0, SEEK_END) == 0) ? ftell(f) : 0;
+        fclose(f);
+        long used = out->base + (long)iso_volume_sectors(g_iso) * out->sectorSize;
+        if (size > used)
+            out->trailingBytes = size - used;
+    }
     return true;
 }
 

@@ -815,8 +815,15 @@ static void cmd_disc(int argc, const char *argv[]) {
     Console_Print("Asset root: /%s   (%d files)", info.assetRoot, (int)info.fileCount);
     if (info.rawSectors > 0) {
         Console_Print("Sectors:    %u raw, so in-image CD audio can be read", (unsigned)info.rawSectors);
+    } else if (info.trailingBytes > 0) {
+        /* Cooked, but with content past the filesystem. That is almost always a
+           container keeping its audio at a different stride, and saying so is
+           the difference between "nothing to recover" and "convert this". */
+        Console_Print("Sectors:    cooked image, and %ld MB past the filesystem this reader",
+                      info.trailingBytes / (1024 * 1024));
+        Console_Print("            cannot address. If that is CD audio, convert to bin/cue.");
     } else {
-        Console_Print("Sectors:    cooked image, it cannot hold CD audio");
+        Console_Print("Sectors:    cooked image, no CD audio in it");
     }
 
     /* The cue is the table of contents. Without one, in-image audio cannot be

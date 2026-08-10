@@ -53,6 +53,13 @@ bool DiscImage_DirHoldsMarker(const char *dir, const char *resMarker);
 void DiscImage_SetOverride(const char *path);
 
 //──────────────────────────────────────────────────────────────────────────
+// Directory holding the mounted image, with a trailing separator. False when
+// nothing is mounted. The cue that describes a disc sits beside that disc,
+// which stopped being the install directory the moment --disc could name an
+// image somewhere else.
+bool DiscImage_GetImageDir(char *out, size_t outMax);
+
+//──────────────────────────────────────────────────────────────────────────
 // Boot-banner helper. On a mount, fills the image's filesystem path and file
 // count and returns true so the caller emits one "Disc:" line. Returns false
 // when nothing is mounted, leaving the banner unchanged.
@@ -68,7 +75,8 @@ typedef struct {
     int sectorSize;                   // 2352 raw or 2048 cooked
     long base;                        // byte offset of logical sector 0
     S32 fileCount;
-    U32 rawSectors; // 0 when the image cannot carry CD audio
+    U32 rawSectors;     // 0 when the image cannot carry CD audio
+    long trailingBytes; // bytes past the filesystem: content this reader cannot address
 } DiscImageInfo;
 
 bool DiscImage_GetInfo(DiscImageInfo *out);
