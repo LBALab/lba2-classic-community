@@ -3070,7 +3070,9 @@ int main(int argc, char *argv[]) {
             if (dirLen > 0 && dirLen < sizeof(discDir)) {
                 memcpy(discDir, discImagePath, dirLen);
                 discDir[dirLen] = '\0';
-                if (IsValidResourceDir(discDir)) {
+                /* Image-aware: the whole point is that this folder holds the
+                   disc and nothing else, so the cheap check would reject it. */
+                if (IsValidResourceDirOrImage(discDir)) {
                     strncpy(resFolderPath, discDir, ADELINE_MAX_PATH - 1);
                     resFolderPath[ADELINE_MAX_PATH - 1] = '\0';
                 }
