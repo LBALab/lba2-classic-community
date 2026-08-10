@@ -257,16 +257,29 @@ void PlayMusic(S32 num, S32 playit) {
                     OR GetMusic() != (PtrTrackCD[num] & MUSIC)) {
                 StopMusic();
 
-                if (PtrTrackCD[num] & JINGLE) {
-                    PlayJingle(PtrTrackCD[num] & MUSIC);
-                }
+                /* Both tables hold the same music numbers; TrackCDUS differs only
+                   in clearing JINGLE on the first seven, to say "this one is CD
+                   audio on the original medium rather than a file". That was a
+                   real fork under MILES, where CD audio came off the drive and
+                   files came off disk. Here every source ends up in PlayStream,
+                   which already resolves a music name against the filesystem, a
+                   mounted disc image and the cue's CD tracks in turn, so the
+                   distinction belongs below this point, not here.
+
+                   Routing both through PlayJingle is therefore the same music
+                   either way, and it is what lets a retail disc reach its CD
+                   audio at all: PlayCD looked for Track<nn>.wav relative to the
+                   working directory, found nothing, and returned without ever
+                   calling PlayStream. */
+                S32 musicNum = PtrTrackCD[num] & MUSIC;
+                bool cdMuted = false;
 #ifdef CDROM
-                else {
-                    if (CDVolume > 0) {
-                        PlayCD((PtrTrackCD[num] & MUSIC) - FirstCDTrack);
-                    }
-                }
+                /* A CD entry stays governed by the CD volume, as before. */
+                cdMuted = !(PtrTrackCD[num] & JINGLE) AND CDVolume <= 0;
 #endif
+                if (!cdMuted) {
+                    PlayJingle(musicNum);
+                }
             }
         } else {
             //			if( PtrTrackCD[cur-1]&JINGLE )// on n'empile pas sur une track

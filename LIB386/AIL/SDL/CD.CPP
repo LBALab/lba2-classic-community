@@ -54,6 +54,14 @@ const char *OpenCD(char *volume_name) {
     return "D";
 }
 
+/* No longer on the music path. SOURCES/MUSIC.CPP PlayMusic routes CD entries
+   through PlayJingle, so they reach PlayStream and its resolution chain (files,
+   a mounted disc image, the cue's CD tracks) like every other piece of music.
+   This is kept because it is part of the AIL CD interface the MILES backend
+   also implements, but note before reviving it: the lookup below is relative to
+   the working directory rather than the install, and it adds a first-track
+   offset to a number that already carries one. Both were why a retail disc had
+   no themes. */
 void PlayCD(S32 track) {
     char path[ADELINE_MAX_PATH];
     /* track is 0-based from the game (PtrTrackCD[num]&MUSIC - FirstCDTrack). */

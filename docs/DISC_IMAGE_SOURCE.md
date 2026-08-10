@@ -346,8 +346,8 @@ That last section is the one that pays for itself. On the reference dump it prin
 
 ```
 Music:      matched by CD track number
-  TADPCM1   track 02  not in this cue
-  TADPCM2   track 03  in image at sector 207368
+  TADPCM2   track 02  in image at sector 207368
+  TADPCM3   track 03  in image at sector 224313
   ...
 ```
 
@@ -356,11 +356,12 @@ chased through sector arithmetic.
 
 ## What is not done
 
-- **Release identity from the disc.** The disc's own `LBA2.CFG` says `Version: 1`, and the engine
-  already has the concept (`DistribVersion`, the `distrib` console command). Seeding it from a
-  mounted image would spare a US-disc user running `distrib activision`. Left out because the
-  config read happens before the mount, so it is an ordering change rather than a small addition,
-  and nothing in the music path needs it: the CD-track map keys off the cue, not the release.
+- **Drive-backed CD audio.** A player can point the engine at a mounted disc (`G:\TWINSEN`, or a
+  real drive) and everything on the data side works: assets all present, jingles straight off the
+  medium. The themes are Red Book audio on the physical disc, though, and the CD-DA source reads
+  *images*, not drives. Serving them needs raw track reads per platform
+  (`IOCTL_CDROM_RAW_READ`, `CDROMREADAUDIO`, and a third answer on macOS), which is a new
+  platform-specific source rather than an extension of this one.
 - **CD-DA out of an MDX.** Its audio region uses a different stride from its data region and its
   track table is encrypted, so there is nothing to address it with. MDX support is data only, and
   the conversion to `bin`+`cue` is the answer for anyone who wants the soundtrack.
@@ -390,3 +391,33 @@ Retail smoke, local:
 | `../LBA2` (Steam Classic) | no `Disc:` line, music from `Music/*.ogg`, unchanged |
 | `../LBA2-GOG` | `Disc: mounted LBA2.GOG (ISO9660, 630 files)`, in-image WAV music, `LBA2.OGG` for track 6, unchanged |
 | `../TWINSEN` (bin + cue only) | mounts, `Assets all present`, renders, all six CD tracks play from the image |
+
+## Which release the engine thinks it is
+
+Worth recording, because it took a while to see and it is load-bearing for the music path.
+
+`DistribVersion` gates the music track table, the CD volume label, two sprites and the distributor
+splash. It is not detected: it comes from the `Version` key in `lba2.cfg`. What makes it work
+anyway is that a profile with no config is seeded from the *game directory's* `LBA2.CFG`, and with
+a disc image mounted that resolves through the disc seam to the config inside the image. So the
+medium tells the engine which release it is:
+
+| Install | `Version` in its config | Fresh profile reports |
+| --- | --- | --- |
+| Retail disc (US) | 1 | `activision` |
+| GOG | 3 | `ea` |
+| Steam Classic | none | `unknown` |
+
+Two things follow. First, a retail disc correctly lands on `TrackCDUS`, which is *why* the routing
+below had to be fixed rather than worked around: the disc is not misidentified, it is identified
+correctly and the path it selects was broken. Second, an existing profile keeps whatever it was
+first seeded with, so a profile predating a config-bearing game directory reports `unknown` and
+takes the other table. That asymmetry is why the same disc could play music on one machine and not
+another.
+
+`PlayMusic` now routes both tables through `PlayJingle`. The two tables hold identical music
+numbers and differ only in the `JINGLE` flag, which says "this one is CD audio on the original
+medium" rather than "this is different music", so the choice of table no longer changes what
+plays, only where the bytes come from. That is decided below, in the resolution order above.
+`tests/cdtracks` pins the identical-numbers invariant by reading `MUSIC.CPP`, since the routing is
+only correct while it holds.

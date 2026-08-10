@@ -1,14 +1,16 @@
 /* Host regression test for the CD-track mapping (LIB386/SYSTEM/CDTRACKS.CPP).
  *
  * On a disc that carries its soundtrack as Red Book audio (the US retail CD),
- * the first seven music entries are CD tracks 2 through 8 rather than files.
- * The mapping decides which sectors a music request plays, so getting it wrong
- * is silent: every scene gets the wrong theme and nothing errors.
+ * six of the themes are CD tracks 2 through 7 rather than files. The mapping
+ * decides which sectors a music request plays, so getting it wrong is silent:
+ * every scene gets a plausible theme, just not its own.
  *
- * Two things are pinned here. The lookup itself (names, bounds, path and case
- * handling), and that the table still agrees with SOURCES/MUSIC.CPP, which is
- * where the order comes from. The second check reads that source file rather
- * than linking it, so the table can live beside the disc code without the two
+ * Three things are pinned. The lookup itself (names, bounds, path and case
+ * handling); that the table still agrees with SOURCES/MUSIC.CPP's ListJingle,
+ * which is where the order comes from; and that MUSIC.CPP's two track tables
+ * still hold identical music numbers, which is what lets PlayMusic route both
+ * releases through one path. The last two read that source file rather than
+ * linking it, so the table can live beside the disc code without the two
  * drifting apart unnoticed.
  */
 #include "test_harness.h"
@@ -16,8 +18,10 @@
 #include <SYSTEM/CDTRACKS.H>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 static void test_names_by_number(void) {
@@ -116,11 +120,80 @@ static void test_agrees_with_music_cpp(void) {
     }
 }
 
+/* Pull a `U8 <name>[] = { ... };` initialiser out of MUSIC.CPP as (value, hasJingleFlag)
+   pairs. Entries look like "JINGLE | 9, // comment" or "3, // comment". */
+static bool read_track_table(const char *table, std::vector<std::pair<int, bool>> &out) {
+    std::string path = std::string(TEST_SOURCE_ROOT) + "SOURCES/MUSIC.CPP";
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f)
+        return false;
+    std::string text;
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0)
+        text.append(buf, n);
+    fclose(f);
+
+    size_t start = text.find(std::string("U8 ") + table + "[]");
+    if (start == std::string::npos)
+        return false;
+    start = text.find('{', start);
+    size_t end = text.find("};", start);
+    if (start == std::string::npos || end == std::string::npos)
+        return false;
+
+    std::string body = text.substr(start + 1, end - start - 1);
+    size_t i = 0;
+    while (i < body.size()) {
+        size_t comma = body.find(',', i);
+        if (comma == std::string::npos)
+            break;
+        std::string item = body.substr(i, comma - i);
+        size_t slash = item.find("//"); /* strip a trailing comment */
+        if (slash != std::string::npos)
+            item = item.substr(0, slash);
+        bool jingle = item.find("JINGLE") != std::string::npos;
+        size_t d = item.find_first_of("0123456789");
+        if (d != std::string::npos)
+            out.push_back(std::make_pair(atoi(item.c_str() + d), jingle));
+        i = comma + 1;
+    }
+    return !out.empty();
+}
+
+/* PlayMusic routes both tables through PlayJingle, which is only the same music
+   either way because TrackCD and TrackCDUS hold identical music numbers and
+   differ solely in the JINGLE flag: the flag says "this one is CD audio on the
+   original medium", not "this one is a different piece of music". If that ever
+   stops being true, the routing silently plays the wrong track, so pin it. */
+static void test_track_tables_agree_on_music_numbers(void) {
+    std::vector<std::pair<int, bool>> eu, us;
+    ASSERT_TRUE(read_track_table("TrackCD", eu));
+    ASSERT_TRUE(read_track_table("TrackCDUS", us));
+    ASSERT_EQ_INT((int)eu.size(), (int)us.size());
+    if (eu.size() != us.size())
+        return;
+
+    bool sameNumbers = true, euAllJingle = true, usHasCdEntries = false;
+    for (size_t i = 0; i < eu.size(); i++) {
+        if (eu[i].first != us[i].first)
+            sameNumbers = false;
+        if (!eu[i].second)
+            euAllJingle = false;
+        if (!us[i].second)
+            usHasCdEntries = true;
+    }
+    ASSERT_TRUE(sameNumbers);    /* same music, whichever release */
+    ASSERT_TRUE(euAllJingle);    /* the EU disc carries no CD audio at all */
+    ASSERT_TRUE(usHasCdEntries); /* the US disc does, or the fork is pointless */
+}
+
 int main(void) {
     RUN_TEST(test_names_by_number);
     RUN_TEST(test_number_by_name);
     RUN_TEST(test_round_trip);
     RUN_TEST(test_agrees_with_music_cpp);
+    RUN_TEST(test_track_tables_agree_on_music_numbers);
     TEST_SUMMARY();
     return test_failures != 0;
 }

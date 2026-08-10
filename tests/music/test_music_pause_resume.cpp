@@ -217,8 +217,13 @@ int main(void) {
     MasterVolume = 127;
     InitCD(empty);   // sets PtrTrackCD = TrackCDUS, FirstCDTrack = 0
     InitJingle();    // OpenStream
-    PlayMusic(0, 1); // TrackCDUS[0] = 2 (CD, no JINGLE bit) -> PlayCD(2)
-    assert(called("PlayCD") && "expected CD track to start");
+    PlayMusic(0, 1); // TrackCDUS[0] = 2 (CD entry, no JINGLE bit)
+    // A CD entry reaches the stream like any other music now. It used to go to
+    // PlayCD, which probed for Track<nn>.wav next to the working directory and
+    // returned silently when there was none, so a retail disc simply had no
+    // themes. Asserting PlayStream here is what says the US layout produces
+    // music at all; asserting PlayCD only said a call had been made.
+    assert(called("PlayStream") && "US layout must reach the stream, not dead-end in PlayCD");
 
     spy_clear();
     PauseMusic(0);
@@ -356,8 +361,15 @@ int main(void) {
     DistribVersion = 2; // US layout: index 0 is a redbook CD track, not a jingle
     InitCD(empty);
     InitJingle();
-    PlayMusic(0, 1); // TrackCDUS[0] = 2 (no JINGLE) -> PlayCD(2)
-    assert(called("PlayCD") && GetMusic() == 2 && "GetMusic reports the CD track (num + FirstCDTrack)");
+    PlayMusic(0, 1); // TrackCDUS[0] = 2 (no JINGLE)
+    // The number GetMusic reports is unchanged by the routing, which is the
+    // point of checking it here. It used to come from the CD backend
+    // (IsCDPlaying + FirstCDTrack); now nothing sets cdPlaying, so it comes from
+    // GetNumJingle(StreamName()) instead. TrackCDUS[0] = 2 means ListJingle[1],
+    // TADPCM1, and GetNumJingle maps that back to 1 + FIRST_JINGLE - 1 = 2. Same
+    // answer, so the "don't restack the same music" comparisons in PlayMusic
+    // keep working.
+    assert(called("PlayStream") && GetMusic() == 2 && "GetMusic still reports 2 for TrackCDUS[0]");
     StopMusic();
     assert(GetMusic() == 0 && "GetMusic is 0 when nothing is playing");
     DistribVersion = 3;
