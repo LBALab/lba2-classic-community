@@ -104,7 +104,7 @@ The GOG DRM-free standalone product (and the equivalent content inside the GOG G
 
 **The engine reads the image directly (no extraction needed).** Point it at the install root, the folder holding both `lba2.hqr` and `LBA2.GOG`, and the disc-image source mounts the BIN and resolves the in-image assets (FMV, voices, music) through the normal file path. The image is detected by content (the ISO9660 "CD001" volume descriptor), not by name, so the `.gog` extension, a raw `.bin`/`.iso`, or a `.cue`/`.dat` pair all work. When a mount happens the boot log adds a `Disc:` line beside `Assets:`; with no image present the engine stays filesystem-only as before. See [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) for the mechanism.
 
-Discovery still validates an install dir by finding `lba2.hqr`, so a directory holding *only* the image does not yet auto-resolve; today's GOG packages ship the HQRs extracted alongside the BIN, so discovery succeeds and only the media comes from the image.
+Discovery accepts a folder whose game data exists only inside the image: the `lba2.hqr` check falls through to a probe of any image sitting there. Today's GOG packages ship the HQRs extracted alongside the BIN anyway, so for them discovery succeeds on the filesystem and only the media comes from the image.
 
 **Extracting the media instead (optional).** If you would rather have loose files on disk (for modding, inspection, or to run without the image), extract them once:
 
@@ -119,9 +119,63 @@ The script is idempotent (re-runs skip files already at the expected size; pass 
 Not affected by this:
 
 - GOG Galaxy or Steam buyers of *TLBA2 Classic* (with or without the Original Edition DLC): both already ship the assets extracted under `Common/`.
-- Anyone with a 1997 LBA2 retail CD can rip it (`cdrdao read-cd …`) into a BIN/CUE pair that the engine mounts directly or the script extracts.
+- Anyone with a 1997 LBA2 retail CD can rip it into a BIN/CUE pair the engine mounts directly. See [Using your own CD](#using-your-own-cd) below.
 
 See issue [#119](https://github.com/LBALab/lba2-classic-community/issues/119) for the analysis behind this; the in-engine disc reader it proposed is now implemented (see [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md)).
+
+## Using your own CD
+
+The engine reads a CD rip directly. You do not need to extract anything, and you do not need a
+storefront copy.
+
+**Rip to BIN/CUE, not ISO.** This matters more than it sounds. A 1997 retail disc is *mixed mode*:
+one data track holding the game, then the soundtrack as Red Book audio tracks. ISO 9660 is a
+filesystem format with room for one data track and nowhere to record a table of contents, so an ISO
+of this disc either drops the music entirely or carries it as bytes nothing can address. A BIN/CUE
+pair keeps both: the BIN holds every sector, the CUE says where each track starts.
+
+| Platform | Tool |
+| --- | --- |
+| Windows | ImgBurn, *Create image file from disc*. Choose BIN/CUE as the output |
+| Linux | `cdrdao read-cd --read-raw --datafile disc.bin --device /dev/sr0 disc.toc`, then `toc2cue disc.toc disc.cue` |
+| Any, preservation-grade | DiscImageCreator (the tool Redump uses), which also writes a log of what it read |
+
+macOS has no reliable free option for mixed-mode audio extraction; rip on another machine if that is
+what you have.
+
+**Then point the engine at it.** Put the pair in a folder of its own and use either:
+
+```
+lba2cc --game-dir /path/to/rip        # the folder holding disc.bin and disc.cue
+lba2cc --disc /path/to/rip/disc.cue   # names the cue directly; no --game-dir needed
+```
+
+**Check it worked** with the `disc` console command (or `--exec "disc"` from a script). A good rip
+reports the image, its cue, and which CD track each theme will come from:
+
+```
+Image:      /path/to/rip/disc.bin
+Layout:     2352-byte sectors, data at byte 0
+Asset root: /TWINSEN   (632 files)
+Sectors:    292864 raw, so in-image CD audio can be read
+Cue:        /path/to/rip/disc.cue (7 tracks)
+Music:      matched by CD track number
+  TADPCM2   track 02  in image at sector 207513
+  ...
+```
+
+If a theme reports `not in this cue`, the rip lost that track or the cue does not describe it.
+
+**A data-only rip still plays.** If all you have is an ISO or a data-track image, the game runs
+normally and the jingles play (they are files inside the filesystem); only the Red Book themes are
+silent. `disc` will say so, and will tell you if the file has content past the filesystem that it
+cannot address, which is the signature of a container holding its audio at a different stride.
+
+**A mounted disc also plays**, with the same limitation. Point `--game-dir` at the folder holding
+the game data on the disc, which on the 1997 US disc is `<drive>:\TWINSEN` rather than the disc
+root. Assets and jingles come straight off the medium; the themes need a rip, because reading audio
+from a drive is not something the engine does (see
+[DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md#what-is-not-done)).
 
 ## Config file
 
