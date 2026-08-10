@@ -15,9 +15,9 @@ a `.cue`/`.dat`.
   seam. POSIX-open first; on miss, read from a mounted disc image. The whole HQR pipeline
   (`HQFILE.CPP HQF_Init` to `OpenRead`) and `ASSET_PREFLIGHT` inherit it. Order: extracted files,
   then disc image, then missing.
-- **Music:** all music in the SDL build funnels through `STREAM.CPP PlayStream` (jingles via
-  `MUSIC.CPP PlayJingle`; "CD" tracks via `CD.CPP PlayCD`, which just `PlayStream`s a
-  `music/TrackNN.wav`). `PlayStream` already resolves WAV first, then `.ogg`/`.OGG`/`track<N>.ogg`
+- **Music:** all music in the SDL build funnels through `STREAM.CPP PlayStream` via
+  `MUSIC.CPP PlayJingle`. (When this was written, entries the retail disc pressed as CD audio went
+  to `CD.CPP PlayCD` instead; that path is gone, see "Which release the engine thinks it is".) `PlayStream` already resolves WAV first, then `.ogg`/`.OGG`/`track<N>.ogg`
   fallbacks (full installs ship `.ogg`). The gap for a disc image is that `PlayStream` loads via
   `SDL_LoadWAV` / `stb_vorbis_open_filename` / `fopen`, which bypass the `OpenRead` seam, so in-BIN
   music is unreachable. The fix is to bridge the stream loader to the image (below), not to add

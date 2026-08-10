@@ -215,6 +215,17 @@ S32 NextMusicTimer;
 
 /*──────────────────────────────────────────────────────────────────────────*/
 #if defined(CDROM) && !defined(LBA_EDITOR)
+/* Note before changing anything here: since PlayMusic routes both tables
+   through PlayJingle, this selection no longer changes what plays. The two
+   tables hold identical music numbers and differ only in the JINGLE flag, which
+   nothing reads any more, and FirstCDTrack now only feeds GetMusic's CD branch,
+   which cannot be reached because nothing sets cdPlaying.
+
+   Kept rather than deleted: they are original data recording which entries the
+   US disc pressed as Red Book audio, which is the fact CDTRACKS depends on and
+   tests/cdtracks reads this file to check. The selection becoming inert is a
+   consequence of moving "where do the bytes come from" below PlayMusic, not a
+   sign the tables are wrong. */
 void InitTabTracks(void) {
     switch (DistribVersion) {
     case UNKNOWN_VERSION:
