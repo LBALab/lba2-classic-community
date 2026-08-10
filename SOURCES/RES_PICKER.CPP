@@ -246,12 +246,16 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
          * (which does go through NormalizeAndTry) succeeds. */
         EnsureTrailingSeparator(state.chosen, ADELINE_MAX_PATH);
 
-        /* Validation goes through the same IsValidResourceDir gate the
-         * CLI/env/auto-discovery paths use — case-folding for `lba2.hqr`
-         * (per Discover() in DIRECTORIES.CPP) included. The picker is
-         * not a special validation path; it's the same probe with a
-         * different input source. */
-        if (IsValidResourceDir(state.chosen)) {
+        /* Validation goes through the same gate the CLI and env overrides
+         * use, case-folding for `lba2.hqr` (per Discover() in
+         * DIRECTORIES.CPP) included. The picker is not a special validation
+         * path; it's the same probe with a different input source.
+         *
+         * The image-aware variant, because a folder somebody browsed to is as
+         * explicit as a path they typed, and a retail CD rip is one .bin and a
+         * .cue with no extracted lba2.hqr to find. The cheap check is for the
+         * speculative candidate sweep, which this is not. */
+        if (IsValidResourceDirOrImage(state.chosen)) {
             Log_Info("RES_PICKER: picked %s", state.chosen);
             strncpy(outPath, state.chosen, outMax - 1);
             outPath[outMax - 1] = '\0';

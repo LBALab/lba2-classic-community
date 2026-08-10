@@ -25,6 +25,9 @@ extern S32 GfxDitherShading;
 #include "../RES_CATALOG.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
+#include <SYSTEM/CDTRACKS.H>
+#include <SYSTEM/CUE.H>
+#include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/STRING.H>
@@ -788,6 +791,99 @@ static const char *distrib_name_for(S32 ver) {
             return s_distribTable[i].name;
     }
     return "?";
+}
+
+/* Report what the disc-image source is working with. The boot banner is
+   deliberately one line, which is not enough to answer the question a rip
+   actually raises: my music is silent, why? Everything the answer needs is
+   here in one place, ending with the resolution the music path will make for
+   each track the disc might carry. */
+static void cmd_disc(int argc, const char *argv[]) {
+    (void)argc;
+    (void)argv;
+
+    DiscImageInfo info;
+    if (!DiscImage_GetInfo(&info)) {
+        Console_Print("No disc image mounted.");
+        Console_Print("An image in the game folder is picked up automatically;");
+        Console_Print("an install with the files already extracted does not need one.");
+        return;
+    }
+
+    Console_Print("Image:      %s", info.path);
+    Console_Print("Layout:     %d-byte sectors, data at byte %ld", info.sectorSize, info.base);
+    Console_Print("Asset root: /%s   (%d files)", info.assetRoot, (int)info.fileCount);
+    if (info.rawSectors > 0) {
+        Console_Print("Sectors:    %u raw, so in-image CD audio can be read", (unsigned)info.rawSectors);
+    } else if (info.trailingBytes > 0) {
+        /* Cooked, but with content past the filesystem. That is almost always a
+           container keeping its audio at a different stride, and saying so is
+           the difference between "nothing to recover" and "convert this". */
+        Console_Print("Sectors:    cooked image, and %ld MB past the filesystem this reader",
+                      info.trailingBytes / (1024 * 1024));
+        Console_Print("            cannot address. If that is CD audio, convert to bin/cue.");
+    } else {
+        Console_Print("Sectors:    cooked image, no CD audio in it");
+    }
+
+    /* The cue is the table of contents. Without one, in-image audio cannot be
+       addressed at all, however much of it the image holds. */
+    char resDir[ADELINE_MAX_PATH];
+    GetResPath(resDir, ADELINE_MAX_PATH, ""); /* empty leaf yields the base dir */
+    char cuePath[ADELINE_MAX_PATH] = "";
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = Cue_ReadTocInDir(resDir, cuePath, sizeof(cuePath), toc, CUE_MAX_TRACKS);
+    if (n <= 0) {
+        Console_Print("Cue:        none found beside the image");
+    } else {
+        Console_Print("Cue:        %s (%d tracks)", cuePath, n);
+        for (int i = 0; i < n; i++) {
+            Console_Print("  track %02d  %-5s  %-20s  start %u", toc[i].number,
+                          toc[i].isAudio ? "audio" : "data", toc[i].file,
+                          (unsigned)toc[i].startFrame);
+        }
+    }
+
+    /* Which of the two redbook rules this install gets. Reporting the per-track
+       mapping unconditionally would lie about the single-file case: GOG's cue
+       numbers its one external file as track 2, but that file is music track 8,
+       and the engine reaches it by falling back rather than by number. */
+    int audioCount = 0;
+    const CueTrack *loneExternal = NULL;
+    for (int i = 0; i < n; i++) {
+        if (!toc[i].isAudio)
+            continue;
+        audioCount++;
+        if (!toc[i].fileIsBinary)
+            loneExternal = &toc[i];
+    }
+
+    if (audioCount >= 2) {
+        Console_Print("Music:      matched by CD track number");
+        for (int t = CDTRACKS_FIRST_AUDIO; t <= CDTRACKS_LAST_AUDIO; t++) {
+            const char *name = CdTracks_NameForNumber(t);
+            const CueTrack *hit = NULL;
+            for (int i = 0; i < n; i++) {
+                if (toc[i].number == t && toc[i].isAudio) {
+                    hit = &toc[i];
+                    break;
+                }
+            }
+            if (hit == NULL) {
+                Console_Print("  %-9s track %02d  not in this cue", name, t);
+            } else if (hit->fileIsBinary) {
+                Console_Print("  %-9s track %02d  in image at sector %u", name, t,
+                              (unsigned)hit->startFrame);
+            } else {
+                Console_Print("  %-9s track %02d  file %s", name, t, hit->file);
+            }
+        }
+    } else if (loneExternal != NULL) {
+        Console_Print("Music:      one external audio file, %s", loneExternal->file);
+        Console_Print("            any track request that misses everywhere else plays it");
+    } else {
+        Console_Print("Music:      no audio tracks in the cue; music comes from files");
+    }
 }
 
 static void cmd_distrib(int argc, const char *argv[]) {
@@ -1873,6 +1969,11 @@ void Console_RegisterAll(void) {
     Console_RegisterCommandEx("slide", cmd_slide, "Show a distributor or bumper slide",
                               "slide <activision|ea|virgin|bumper>",
                               "Cosmetic; restores the prior screen + palette on exit. Run with no args to list.");
+    Console_RegisterCommandEx("disc", cmd_disc, "Show the mounted disc image, its cue and its music map",
+                              "(no args)",
+                              "Says nothing is mounted on an install with the files extracted. Use it "
+                              "when a disc's music is silent: it shows which CD track each theme wants "
+                              "and whether the cue describes it.");
     Console_RegisterCommandEx("distrib", cmd_distrib, "Set distributor (Version) for next launch",
                               "distrib <activision|ea|virgin|... | 0-5>",
                               "Persists to lba2.cfg (Version key). Run with no args to show current.");

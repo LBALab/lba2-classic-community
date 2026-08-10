@@ -17,6 +17,7 @@ extern S32 GfxDitherShading;
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
+#include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
@@ -3010,6 +3011,26 @@ int main(int argc, char *argv[]) {
         Log_AddSink(Log_MakeTerminalSink(LOG_DEBUG));
         atexit(Log_Shutdown);
 
+        /* --disc names the image to mount, instead of letting the game folder's
+           scan rank what it finds. Read before discovery, not just before the
+           mount, because discovery also probes for an image when the folder has
+           no extracted data, and both should be looking at the same disc. */
+        char discImagePath[ADELINE_MAX_PATH] = "";
+        bool explicitGameDir = (getenv("LBA2_GAME_DIR") != NULL);
+        for (int i = 1; i < argc; i++) {
+            if (!strcasecmp(argv[i], "--game-dir") || !strcasecmp(argv[i], "--data-dir"))
+                explicitGameDir = true;
+            if (strcasecmp(argv[i], "--disc") != 0 || i + 1 >= argc)
+                continue;
+            /* Accept the cue as readily as the image: pointing tools at the cue
+               is the convention, and the sheet names the image beside it. */
+            if (!Cue_ImageForSheet(argv[i + 1], discImagePath, sizeof(discImagePath))) {
+                strncpy(discImagePath, argv[i + 1], sizeof(discImagePath) - 1);
+                discImagePath[sizeof(discImagePath) - 1] = '\0';
+            }
+            DiscImage_SetOverride(discImagePath);
+        }
+
         if (!ResolveGameDataDir(resFolderPath, ADELINE_MAX_PATH, &argc, argv)) {
             /* A batch or headless run must not reach the folder picker: it is modal, and
              * --headless still brings SDL up on the dummy video driver, so the dialog does
@@ -3030,6 +3051,32 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
             WritePersistedGameDir(resFolderPath);
+        }
+
+        /* --disc without an explicit game folder: the disc's own folder is the
+           install. Discovery would otherwise stop at whichever candidate it tried
+           first, since the override makes every candidate look valid, and that
+           arbitrary folder would become the mount base. Harmless for reads that
+           fall through to the image, but a stale file sitting in it would shadow
+           the disc, and the boot banner would name a folder holding none of the
+           assets. */
+        if (discImagePath[0] != '\0' && !explicitGameDir) {
+            char discDir[ADELINE_MAX_PATH];
+            size_t dirLen = 0;
+            for (size_t i = 0; discImagePath[i] != '\0'; i++) {
+                if (discImagePath[i] == '/' || discImagePath[i] == '\\')
+                    dirLen = i + 1;
+            }
+            if (dirLen > 0 && dirLen < sizeof(discDir)) {
+                memcpy(discDir, discImagePath, dirLen);
+                discDir[dirLen] = '\0';
+                /* Image-aware: the whole point is that this folder holds the
+                   disc and nothing else, so the cheap check would reject it. */
+                if (IsValidResourceDirOrImage(discDir)) {
+                    strncpy(resFolderPath, discDir, ADELINE_MAX_PATH - 1);
+                    resFolderPath[ADELINE_MAX_PATH - 1] = '\0';
+                }
+            }
         }
 
         InitDirectories(userFolderPath, resFolderPath, userFolderPath, "",

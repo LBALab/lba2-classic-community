@@ -7,6 +7,7 @@
 #include <SYSTEM/LOG.H>
 
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -127,33 +128,155 @@ static void NoopListCb(void *ud, const char *name, uint32_t size) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
+// Smallest file the container scan will bother looking inside. A game CD image
+// is hundreds of megabytes; this only has to be well under that and well over
+// the config files and executables sharing the directory.
+#define DISC_MIN_IMAGE_BYTES (1024 * 1024)
+
+//──────────────────────────────────────────────────────────────────────────
+// Is `a` a better image to mount than the incumbent `b`? A raw 2352 image wins
+// over a cooked 2048 one because it is a superset: the same filesystem plus the
+// CD audio tracks a cooked image drops. Then the larger file, then the lower
+// name, so the choice never depends on directory order (a dump directory often
+// holds both a .bin and a .iso of the same disc, and picking by readdir order
+// would silently lose the audio on some machines and not others).
+static bool BetterCandidate(int aSectorSize, long aSize, const char *aName,
+                            int bSectorSize, long bSize, const char *bName) {
+    if (aSectorSize != bSectorSize)
+        return aSectorSize > bSectorSize;
+    if (aSize != bSize)
+        return aSize > bSize;
+    return strcmp(aName, bName) < 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// An explicitly named image, from --disc. Empty when the directory scan decides.
+static char g_overridePath[ADELINE_MAX_PATH] = "";
+
+extern "C" void DiscImage_SetOverride(const char *path) {
+    if (path == NULL) {
+        g_overridePath[0] = '\0';
+        return;
+    }
+    strncpy(g_overridePath, path, sizeof(g_overridePath) - 1);
+    g_overridePath[sizeof(g_overridePath) - 1] = '\0';
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// Content-probe every file in `assetsDir` and return the best image, or NULL.
+// Two passes: the plain probe over all candidates first, and only if that finds
+// nothing, the container scan (which reads each file's head, so it is not worth
+// paying for on an install that already has an ordinary image).
+static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax) {
+    // Named explicitly: no ranking, and no falling back to the scan. Someone who
+    // says which disc to use is owed either that disc or an error, not a
+    // different one chosen quietly. The container scan is allowed here without a
+    // second pass, since naming the file is the opt-in.
+    if (g_overridePath[0] != '\0') {
+        const char *img = g_overridePath;
+        iso9660_t *iso = iso_open_ex(img, 1);
+        if (iso == NULL) {
+            Log_Error("DISCIMG: --disc %s is not a disc image we can read", img);
+            return NULL;
+        }
+        strncpy(outPath, img, outMax - 1);
+        outPath[outMax - 1] = '\0';
+        return iso;
+    }
+
+    iso9660_t *best = NULL;
+    int bestSectorSize = 0;
+    long bestSize = 0;
+    char bestName[ADELINE_MAX_PATH] = "";
+
+    for (int pass = 0; pass < 2 && best == NULL; pass++) {
+        DIR *dir = opendir(assetsDir);
+        if (dir == NULL)
+            return NULL;
+
+        struct dirent *ent;
+        while ((ent = readdir(dir)) != NULL) {
+            if (ent->d_name[0] == '.')
+                continue; // skip ., .., dotfiles
+            char cand[ADELINE_MAX_PATH];
+            int n = snprintf(cand, sizeof(cand), "%s%s", assetsDir, ent->d_name);
+            if (n < 0 || (size_t)n >= sizeof(cand))
+                continue;
+            if (IsDirectory(cand))
+                continue;
+
+            // stat, not open-seek-tell: this runs for every file in the
+            // directory, and the probe below opens the file again anyway.
+            struct stat st;
+            long size = (stat(cand, &st) == 0) ? (long)st.st_size : 0;
+            // The container scan reads each candidate's head, so on the second
+            // pass skip anything too small to be a disc image. Keeps the cost
+            // off ordinary directories full of config files and executables.
+            if (pass == 1 && size < DISC_MIN_IMAGE_BYTES)
+                continue;
+
+            iso9660_t *iso = iso_open_ex(cand, pass == 1);
+            if (iso == NULL)
+                continue;
+
+            int sectorSize = 0;
+            iso_layout(iso, &sectorSize, NULL);
+
+            if (best == NULL ||
+                BetterCandidate(sectorSize, size, ent->d_name, bestSectorSize, bestSize, bestName)) {
+                if (best != NULL) {
+                    Log_Debug("DISCIMG: %s passed over for %s", bestName, ent->d_name);
+                    iso_close(best);
+                }
+                best = iso;
+                bestSectorSize = sectorSize;
+                bestSize = size;
+                strncpy(bestName, ent->d_name, sizeof(bestName) - 1);
+                bestName[sizeof(bestName) - 1] = '\0';
+                strncpy(outPath, cand, outMax - 1);
+                outPath[outMax - 1] = '\0';
+            } else {
+                Log_Debug("DISCIMG: %s passed over for %s", ent->d_name, bestName);
+                iso_close(iso);
+            }
+        }
+        closedir(dir);
+    }
+    return best;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_DirHoldsMarker(const char *dir, const char *resMarker) {
+    if (dir == NULL || dir[0] == '\0' || resMarker == NULL || resMarker[0] == '\0')
+        return false;
+
+    char imagePath[ADELINE_MAX_PATH] = "";
+    iso9660_t *iso = PickImage(dir, imagePath, sizeof(imagePath));
+    if (iso == NULL)
+        return false;
+
+    WalkCtx ctx;
+    ctx.marker = resMarker;
+    ctx.rootOut[0] = '\0';
+    ctx.found = 0;
+    ctx.count = 0;
+    iso_walk(iso, DiscWalkCb, &ctx);
+    iso_close(iso);
+
+    if (ctx.found)
+        Log_Debug("DISCIMG: %s holds %s, dir accepted without extracted data", imagePath, resMarker);
+    return ctx.found != 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" bool DiscImage_Mount(const char *assetsDir, const char *resMarker) {
     if (g_iso != NULL)
         return true; // already mounted
     if (assetsDir == NULL || assetsDir[0] == '\0')
         return false;
 
-    DIR *dir = opendir(assetsDir);
-    if (dir == NULL)
-        return false;
-
-    char cand[ADELINE_MAX_PATH];
-    iso9660_t *iso = NULL;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_name[0] == '.')
-            continue; // skip ., .., dotfiles
-        int n = snprintf(cand, sizeof(cand), "%s%s", assetsDir, ent->d_name);
-        if (n < 0 || (size_t)n >= sizeof(cand))
-            continue;
-        if (IsDirectory(cand))
-            continue;
-        iso = iso_open(cand);
-        if (iso != NULL)
-            break; // first ISO9660 image wins
-    }
-    closedir(dir);
-
+    char cand[ADELINE_MAX_PATH] = "";
+    iso9660_t *iso = PickImage(assetsDir, cand, sizeof(cand));
     if (iso == NULL)
         return false;
 
@@ -211,6 +334,93 @@ extern "C" bool DiscImage_GetBannerInfo(char *outPath, size_t outPathSize, S32 *
     if (outFileCount != NULL)
         *outFileCount = g_fileCount;
     return true;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_GetImageDir(char *out, size_t outMax) {
+    if (g_iso == NULL || out == NULL || outMax == 0)
+        return false;
+    size_t dirLen = 0;
+    for (size_t i = 0; g_imagePath[i]; i++) {
+        if (g_imagePath[i] == '/' || g_imagePath[i] == '\\')
+            dirLen = i + 1;
+    }
+    if (dirLen == 0 || dirLen >= outMax)
+        return false;
+    memcpy(out, g_imagePath, dirLen);
+    out[dirLen] = '\0';
+    return true;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_GetInfo(DiscImageInfo *out) {
+    if (g_iso == NULL || out == NULL)
+        return false;
+    strncpy(out->path, g_imagePath, sizeof(out->path) - 1);
+    out->path[sizeof(out->path) - 1] = '\0';
+    strncpy(out->assetRoot, g_assetRoot, sizeof(out->assetRoot) - 1);
+    out->assetRoot[sizeof(out->assetRoot) - 1] = '\0';
+    out->sectorSize = 0;
+    out->base = 0;
+    iso_layout(g_iso, &out->sectorSize, &out->base);
+    out->fileCount = g_fileCount;
+    out->rawSectors = (U32)iso_raw_sector_count(g_iso);
+
+    /* Anything past the filesystem is content we are not reading. On a cooked
+       rip that is usually nothing; on a container that keeps its audio at a
+       different stride it is the whole soundtrack, and saying so is the
+       difference between "there is nothing to recover" and "convert this". */
+    out->trailingBytes = 0;
+    FILE *f = fopen(g_imagePath, "rb");
+    if (f != NULL) {
+        long size = (fseek(f, 0, SEEK_END) == 0) ? ftell(f) : 0;
+        fclose(f);
+        long used = out->base + (long)iso_volume_sectors(g_iso) * out->sectorSize;
+        if (size > used)
+            out->trailingBytes = size - used;
+    }
+    return true;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" U32 DiscImage_RawSectorCount(void) {
+    return g_iso == NULL ? 0 : (U32)iso_raw_sector_count(g_iso);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" U32 DiscImage_DataSectorCount(void) {
+    return g_iso == NULL ? 0 : (U32)iso_volume_sectors(g_iso);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" S32 DiscImage_ReadRawSectors(U32 lba, U32 count, void *buffer) {
+    if (g_iso == NULL || buffer == NULL)
+        return -1;
+    return (S32)iso_read_raw(g_iso, lba, count, (uint8_t *)buffer);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" bool DiscImage_IsMountedFile(const char *name) {
+    if (g_iso == NULL || name == NULL || name[0] == '\0')
+        return false;
+
+    // Compare basenames: a cue names its image without a path, and the mount
+    // knows the full filesystem path it opened.
+    const char *mine = strrchr(g_imagePath, '/');
+#ifdef _WIN32
+    const char *bs = strrchr(g_imagePath, '\\');
+    if (bs != NULL && (mine == NULL || bs > mine))
+        mine = bs;
+#endif
+    mine = (mine != NULL) ? mine + 1 : g_imagePath;
+
+    const char *theirs = strrchr(name, '/');
+    const char *tbs = strrchr(name, '\\');
+    if (tbs != NULL && (theirs == NULL || tbs > theirs))
+        theirs = tbs;
+    theirs = (theirs != NULL) ? theirs + 1 : name;
+
+    return strcasecmp(mine, theirs) == 0;
 }
 
 //──────────────────────────────────────────────────────────────────────────

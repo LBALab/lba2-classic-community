@@ -7,7 +7,8 @@
  * LBA2_GAME_DIR env, persisted LastGameDir, auto-discovery) all fail in a
  * windowed environment. Shows the platform-native folder dialog via
  * SDL_ShowOpenFolderDialog, validates the chosen folder against
- * IsValidResourceDir (lba2.hqr presence), re-prompts on invalid pick,
+ * IsValidResourceDirOrImage (lba2.hqr on disk, or inside a disc image
+ * in the folder), re-prompts on invalid pick,
  * returns the chosen path on success.
  *
  * Headless detection: returns false if SDL_INIT_VIDEO can't be brought
@@ -23,7 +24,7 @@ extern "C" {
 #endif
 
 /* Fills outPath with a user-chosen valid game-data directory.
- * Returns true on a successful pick (validated by IsValidResourceDir).
+ * Returns true on a successful pick (validated by IsValidResourceDirOrImage).
  * Returns false on cancel, error, or headless environment.
  *
  * Blocks until the user dismisses the dialog (callback-driven async API

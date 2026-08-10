@@ -215,6 +215,17 @@ S32 NextMusicTimer;
 
 /*──────────────────────────────────────────────────────────────────────────*/
 #if defined(CDROM) && !defined(LBA_EDITOR)
+/* Note before changing anything here: since PlayMusic routes both tables
+   through PlayJingle, this selection no longer changes what plays. The two
+   tables hold identical music numbers and differ only in the JINGLE flag, which
+   nothing reads any more, and FirstCDTrack now only feeds GetMusic's CD branch,
+   which cannot be reached because nothing sets cdPlaying.
+
+   Kept rather than deleted: they are original data recording which entries the
+   US disc pressed as Red Book audio, which is the fact CDTRACKS depends on and
+   tests/cdtracks reads this file to check. The selection becoming inert is a
+   consequence of moving "where do the bytes come from" below PlayMusic, not a
+   sign the tables are wrong. */
 void InitTabTracks(void) {
     switch (DistribVersion) {
     case UNKNOWN_VERSION:
@@ -257,16 +268,31 @@ void PlayMusic(S32 num, S32 playit) {
                     OR GetMusic() != (PtrTrackCD[num] & MUSIC)) {
                 StopMusic();
 
-                if (PtrTrackCD[num] & JINGLE) {
-                    PlayJingle(PtrTrackCD[num] & MUSIC);
-                }
-#ifdef CDROM
-                else {
-                    if (CDVolume > 0) {
-                        PlayCD((PtrTrackCD[num] & MUSIC) - FirstCDTrack);
-                    }
-                }
-#endif
+                /* Both tables hold the same music numbers; TrackCDUS differs only
+                   in clearing JINGLE on the first seven, to say "this one is CD
+                   audio on the original medium rather than a file". That was a
+                   real fork under MILES, where CD audio came off the drive and
+                   files came off disk. Here every source ends up in PlayStream,
+                   which already resolves a music name against the filesystem, a
+                   mounted disc image and the cue's CD tracks in turn, so the
+                   distinction belongs below this point, not here.
+
+                   Routing both through PlayJingle is therefore the same music
+                   either way, and it is what lets a retail disc reach its CD
+                   audio at all: PlayCD looked for Track<nn>.wav relative to the
+                   working directory, found nothing, and returned without ever
+                   calling PlayStream.
+
+                   No separate CD-volume gate here. The old branch skipped
+                   playback when CDVolume was 0, which made sense when starting a
+                   track meant spinning up a drive. CDVolume is now just the
+                   music slider (GAMEMENU moves it and calls SetVolumeJingle with
+                   it), so gating on it would mean a release identified as US
+                   never starts its themes at zero volume while one identified as
+                   EU starts them silently and recovers when the slider comes
+                   back up. Volume belongs to the stream, not to whether the
+                   music begins. */
+                PlayJingle(PtrTrackCD[num] & MUSIC);
             }
         } else {
             //			if( PtrTrackCD[cur-1]&JINGLE )// on n'empile pas sur une track

@@ -14,17 +14,18 @@ defer window run on, see [TIMING.md](TIMING.md).
 The 1997 engine mixed **redbook CD tracks** with short **streamed ADPCM jingles**.
 The SDL port keeps the `CDROM` build define on (it is set in
 `SOURCES/CMakeLists.txt`), so the CD code paths are compiled in, but there is no
-CD hardware: `LIB386/AIL/SDL/CD.CPP` maps `PlayCD(track)` to `MUSIC/Track%02d.wav`
-and hands it to `PlayStream`. So in practice **every track, CD or jingle, is one
-SDL audio stream** (a WAV or its OGG transcode). There is a single stream device
-at a time.
+CD hardware. **Every track, CD or jingle, is one SDL audio stream** (a WAV, its
+OGG transcode, or raw sectors read out of a mounted disc image), and there is a
+single stream device at a time. `PlayMusic` sends both track tables through
+`PlayJingle`, so where the bytes come from is decided below it, by
+`PlayStream`'s resolution order. `CD.CPP PlayCD` is no longer on that path.
 
 Layers:
 
 | Layer | File | Role |
 |-------|------|------|
 | Game state machine | `SOURCES/MUSIC.CPP` | routing, the `PlayMusic` decision, the `NextMusic` queue, fades, pause/resume orchestration |
-| Redbook shim | `LIB386/AIL/SDL/CD.CPP` | `PlayCD` -> `Track%02d.wav` -> `PlayStream` |
+| Redbook shim | `LIB386/AIL/SDL/CD.CPP` | `PlayCD` -> `Track%02d.wav`; off the music path, kept for the AIL interface |
 | Stream backend | `LIB386/AIL/SDL/STREAM.CPP` | one `SDL_AudioStream`, WAV/OGG decode, the park/resume model |
 | Park decision seam | `LIB386/H/AIL/STREAM_PARK.H` | the pure pause/resume/focus decisions, host-tested |
 
@@ -39,8 +40,9 @@ track/jingle number. Two layouts, selected by `DistribVersion` in `InitTabTracks
 - **US** (default) -> `TrackCDUS`: the first entries (`Track01`-`Track06`) are
   plain CD tracks, the rest are jingles. `FirstCDTrack` differs.
 
-`PlayMusic` reads `PtrTrackCD[num]`: `JINGLE` set -> `PlayJingle`, else (CDROM)
-`PlayCD`. `PlayJingle(n)` streams `ListJingle[n - FIRST_JINGLE + 1] + ".WAV"`
+`PlayMusic` reads `PtrTrackCD[num]` and calls `PlayJingle` with the music number
+either way. The `JINGLE` flag is no longer consulted: it distinguished CD audio
+from a file, which now matters only to `PlayStream`'s resolution order. `PlayJingle(n)` streams `ListJingle[n - FIRST_JINGLE + 1] + ".WAV"`
 (`FIRST_JINGLE = 2`); the `ListJingle` table holds the `JADPCM*` / `TADPCM*`
 basenames. `GetNumJingle` reverses it: it strips the path and extension from the
 playing stream name and matches it back to a `ListJingle` index, so `GetMusic`
@@ -57,7 +59,7 @@ cur = (playit OR StopLastMusic) ? 0 : GetMusic()   // what is playing now (0 = n
 StopLastMusic = playit
 if cur == 0:                                        // nothing playing (or forced)
     if !playit OR GetMusic() != this-track:         // don't restart the exact same track
-        StopMusic(); PlayJingle/PlayCD(this-track)  // play now
+        StopMusic(); PlayJingle(this-track)          // play now
 else:                                               // something else is playing
     if cur != this-track:
         NextMusic = num                             // DEFER (queue for later)

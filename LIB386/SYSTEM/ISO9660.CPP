@@ -11,6 +11,8 @@ struct iso9660 {
     FILE *f;
     int sector_size; // 2352 raw or 2048 cooked
     int data_off;    // byte offset of user data within a sector
+    long base;       // byte offset of logical sector 0 (container header, usually 0)
+    long file_size;  // total image size, for bounds-checking a probed layout
 };
 
 //──────────────────────────────────────────────────────────────────────────
@@ -23,7 +25,7 @@ static uint32_t rd32(const uint8_t *p) {
 //──────────────────────────────────────────────────────────────────────────
 // Read the 2048 user bytes of logical sector `lba` into buf.
 static int read_sector(iso9660_t *iso, uint32_t lba, uint8_t *buf2048) {
-    long pos = (long)lba * iso->sector_size + iso->data_off;
+    long pos = iso->base + (long)lba * iso->sector_size + iso->data_off;
     if (fseek(iso->f, pos, SEEK_SET) != 0)
         return -1;
     return fread(buf2048, 1, 2048, iso->f) == 2048 ? 0 : -1;
@@ -54,7 +56,86 @@ static uint8_t *read_extent(iso9660_t *iso, uint32_t lba, uint32_t length) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
-iso9660_t *iso_open(const char *path) {
+// The two ordinary on-disc layouts: raw 2352 (16-byte sync+header before the
+// user data) and cooked 2048. Both start the image at byte 0.
+static const int LAYOUTS[][2] = {{2352, 16}, {2048, 0}};
+
+//──────────────────────────────────────────────────────────────────────────
+// How far into a file we are willing to look for a container header before the
+// image proper. Real headers are tiny (a DAEMON Tools MDX puts 64 bytes there);
+// the cap keeps the fallback scan bounded and stops a large unrelated file from
+// being trawled end to end.
+#define ISO_MAX_HEADER 65536
+
+//──────────────────────────────────────────────────────────────────────────
+// Try one candidate layout. `strict` adds the checks that make a scanned-for
+// (rather than exactly-placed) descriptor trustworthy: the volume must declare
+// 2048-byte logical blocks and its root extent must lie inside the file. The
+// exact probes stay lenient so nothing that mounts today stops mounting.
+static int probe_layout(iso9660_t *iso, int sectorSize, int dataOff, long base, int strict) {
+    if (base < 0)
+        return 0;
+    iso->sector_size = sectorSize;
+    iso->data_off = dataOff;
+    iso->base = base;
+
+    uint8_t s[2048];
+    if (read_sector(iso, 16, s) != 0 || memcmp(s + 1, "CD001", 5) != 0)
+        return 0;
+    if (!strict)
+        return 1;
+
+    if (s[0] != 0x01 || s[6] != 0x01)
+        return 0; // not a primary volume descriptor, version 1
+    uint32_t logicalBlock = (uint32_t)(s[128] | ((uint32_t)s[129] << 8));
+    if (logicalBlock != 2048)
+        return 0;
+    uint32_t rootLba = rd32(s + 156 + 2);
+    long rootEnd = base + ((long)rootLba + 1) * sectorSize;
+    return (rootLba != 0 && rootEnd > 0 && rootEnd <= iso->file_size) ? 1 : 0;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+// Fallback for an image wrapped in a container header (the image starts some
+// bytes into the file, so sector 16 is not where the exact probes look). Scan
+// the first ISO_MAX_HEADER + a descriptor's worth of bytes for a primary volume
+// descriptor and work backwards to the base offset each layout would imply.
+// One generic rule rather than per-format knowledge: it recognises the layout,
+// not the container.
+static int probe_container(iso9660_t *iso) {
+    const size_t span = ISO_MAX_HEADER + 16 * 2352 + 2048;
+    if (iso->file_size <= 0)
+        return 0;
+    size_t want = (size_t)iso->file_size < span ? (size_t)iso->file_size : span;
+    uint8_t *buf = (uint8_t *)malloc(want);
+    if (!buf)
+        return 0;
+    if (fseek(iso->f, 0, SEEK_SET) != 0 || fread(buf, 1, want, iso->f) != want) {
+        free(buf);
+        return 0;
+    }
+
+    int found = 0;
+    static const uint8_t PVD_SIG[7] = {0x01, 'C', 'D', '0', '0', '1', 0x01};
+    for (size_t p = 0; !found && p + sizeof(PVD_SIG) <= want; p++) {
+        if (memcmp(buf + p, PVD_SIG, sizeof(PVD_SIG)) != 0)
+            continue;
+        for (size_t i = 0; i < sizeof(LAYOUTS) / sizeof(LAYOUTS[0]); i++) {
+            long base = (long)p - LAYOUTS[i][1] - 16L * LAYOUTS[i][0];
+            if (base < 0 || base > ISO_MAX_HEADER)
+                continue;
+            if (probe_layout(iso, LAYOUTS[i][0], LAYOUTS[i][1], base, 1)) {
+                found = 1;
+                break;
+            }
+        }
+    }
+    free(buf);
+    return found;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+iso9660_t *iso_open_ex(const char *path, int allowContainerScan) {
     FILE *f = fopen(path, "rb");
     if (!f)
         return NULL;
@@ -64,19 +145,68 @@ iso9660_t *iso_open(const char *path) {
         return NULL;
     }
     iso->f = f;
+    if (fseek(f, 0, SEEK_END) == 0)
+        iso->file_size = ftell(f);
 
     // Probe raw-2352 first (sync header is 16 bytes), then cooked-2048.
-    static const int cfg[][2] = {{2352, 16}, {2048, 0}};
-    uint8_t s[2048];
-    for (size_t i = 0; i < sizeof(cfg) / sizeof(cfg[0]); i++) {
-        iso->sector_size = cfg[i][0];
-        iso->data_off = cfg[i][1];
-        if (read_sector(iso, 16, s) == 0 && memcmp(s + 1, "CD001", 5) == 0)
+    for (size_t i = 0; i < sizeof(LAYOUTS) / sizeof(LAYOUTS[0]); i++) {
+        if (probe_layout(iso, LAYOUTS[i][0], LAYOUTS[i][1], 0, 0))
             return iso;
     }
+    if (allowContainerScan && probe_container(iso))
+        return iso;
+
     fclose(f);
     free(iso);
     return NULL;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+iso9660_t *iso_open(const char *path) { return iso_open_ex(path, 0); }
+
+//──────────────────────────────────────────────────────────────────────────
+// Whole raw sectors, contents untouched. CD audio has no user-data subset to
+// extract: an audio sector is 2352 bytes of PCM, so this deliberately bypasses
+// the data_off the filesystem reads use. Only a raw image can answer.
+int iso_read_raw(iso9660_t *iso, uint32_t lba, uint32_t count, uint8_t *out) {
+    if (iso == NULL || out == NULL || iso->sector_size != 2352)
+        return -1;
+    long pos = iso->base + (long)lba * 2352;
+    if (fseek(iso->f, pos, SEEK_SET) != 0)
+        return -1;
+    size_t want = (size_t)count * 2352;
+    size_t got = fread(out, 1, want, iso->f);
+    return (int)(got / 2352);
+}
+
+// Volume space size from the primary descriptor: how many logical blocks the
+// data filesystem occupies. On a mixed-mode disc that bounds the data track,
+// and so the earliest sector any audio track can start at.
+uint32_t iso_volume_sectors(iso9660_t *iso) {
+    if (iso == NULL)
+        return 0;
+    uint8_t s[2048];
+    if (read_sector(iso, 16, s) != 0)
+        return 0;
+    return rd32(s + 80);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+uint32_t iso_raw_sector_count(iso9660_t *iso) {
+    if (iso == NULL || iso->sector_size != 2352 || iso->file_size <= iso->base)
+        return 0;
+    return (uint32_t)((iso->file_size - iso->base) / 2352);
+}
+
+//──────────────────────────────────────────────────────────────────────────
+int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase) {
+    if (iso == NULL)
+        return -1;
+    if (outSectorSize)
+        *outSectorSize = iso->sector_size;
+    if (outBase)
+        *outBase = iso->base;
+    return 0;
 }
 
 //──────────────────────────────────────────────────────────────────────────
