@@ -62,8 +62,17 @@ U32 Delete(const char *filename);
 S32 Touch(const char *filename);
 U32 FileSize(const char *filename);
 
-/// Check if file or directory \p path exists.
+/// Check if file or directory \p path exists, on the filesystem or in a
+/// mounted disc image.
 bool ExistsFileOrDir(const char *path);
+
+/// Check if file or directory \p path exists on the filesystem alone, ignoring
+/// any mounted disc image. Use when a caller must not let the image answer for
+/// something installed: OpenRead resolves the filesystem first, so a search
+/// that settles on a name only the image holds resolves to the image's copy
+/// even when the real file is sitting there under another spelling.
+bool ExistsOnFilesystem(const char *path);
+
 bool IsDirectory(const char *path);
 
 // =============================================================================
