@@ -98,9 +98,13 @@ scripts/dev/dist_check.sh [outdir]          # defaults to ../LBA2/Common, ../LBA
 LBA2_DIST_LIST="name:/path" scripts/dev/dist_check.sh
 ```
 
-Each install gets a throwaway profile, so what is measured is the new-user path rather than the developer's own settings. One row per install: release identity, language, whether an image mounted, the asset preflight, how each of three music requests was actually served, and hashes of a gameplay frame and the main menu.
+Each install gets a throwaway profile, so what is measured is the new-user path rather than the developer's own settings. One row per install: release identity, language, whether an image mounted, the asset preflight, how each of three music requests was actually served, and pixel hashes (`scripts/dev/png_hash.py`) of six captures: an interior scene, an exterior one, three UI modals, and a demo-mode frame.
 
-Those hashes are a per-install baseline to diff against a later run. Do not compare them across installs: US and EU legitimately differ in language and logo sprite. The menu hash goes through `scripts/dev/png_hash.py`, which skips the animated plasma band, because a whole-image hash of any UI capture in this engine changes between two runs of the same build and reports a regression that is not there.
+Demo mode is in there for a reason. It is the only surface where `DistribVersion` visibly differs: the logo swapped at `OBJECT.CPP`'s "incrust logo demo" is drawn only when `DemoSlide` is set, so every other capture matches across releases even though the releases are identified differently. In a good run the demo hash agrees for the two releases that map to the same sprite and differs for the third.
+
+**Pass `--fixed-dt` to anything that captures a UI screen.** The menus animate a plasma strip on the clock, so without a pinned clock the same screen hashes differently on every run, and a comparison built on it reports regressions that are not there. This is worth knowing beyond this script: it applies to any UI capture in the engine. With `--fixed-dt` the captures are exactly reproducible and need no masking at all, which is why `png_hash.py` is a plain pixel hash.
+
+Hashes are a per-install baseline to diff against a later run (`diff a/summary.txt b/summary.txt`). Do not compare them across installs: US and EU legitimately differ in language, in volume defaults inherited from each install's config, and in that demo logo.
 
 PR host jobs and `make test` build the `host_tests` aggregate target, then:
 

@@ -16,7 +16,11 @@
 #
 # Renders are hashed, not compared across installs: US and EU legitimately draw
 # different sprites, so cross-install equality would be the wrong assertion.
-# The hashes are a per-install baseline to diff against a later run.
+# The hashes are a per-install baseline. A summary is written to <outdir>, so
+# comparing two runs is `diff a/summary.txt b/summary.txt`.
+#
+# Exits non-zero if any install fails to boot with its assets, or fails to
+# produce a capture, so it can be used as a check and not only read.
 
 set -uo pipefail
 
@@ -39,23 +43,32 @@ run() { # run <profile> <gamedir> <extra args...>
         timeout 300 "$EXE" --game-dir "$dir" --no-autosave "$@" 2>&1
 }
 
-# The menus animate a plasma strip that differs between two runs of the same
-# build, so a whole-image hash changes every time and means nothing. Skip that
-# band, as a fraction of height so it survives a resolution change.
-PLASMA_FROM=0.34
-PLASMA_TO=0.48
-hash_png() { # hash_png <png> [mask]
+hash_png() { # hash_png <png>
     [ -f "$1" ] || { echo "-"; return; }
-    if [ "${2:-}" = mask ]; then
-        python3 "$ROOT/scripts/dev/png_hash.py" "$1" "$PLASMA_FROM" "$PLASMA_TO" 2>/dev/null
-    else
-        python3 "$ROOT/scripts/dev/png_hash.py" "$1" 2>/dev/null
-    fi
+    python3 "$ROOT/scripts/dev/png_hash.py" "$1" 2>/dev/null
 }
 
-printf '%-13s %-14s %-9s %-7s %-7s %-14s %-13s %-13s\n' \
-       INSTALL DISTRIB LANGUAGE DISC ASSETS MUSIC RENDER MENU
-printf '%.0s-' {1..99}; echo
+# The menus animate a plasma strip on the clock, so a UI capture is only
+# reproducible with --fixed-dt. Without it the same screen hashes differently
+# every run; with it, no masking is needed at all.
+hash_modal() { # hash_modal <profile> <gamedir> <modal> <name>
+    local prof="$1" dir="$2" modal="$3" name="$4"
+    local png="$OUT/$name-$modal.png"
+    run "$prof" "$dir" --headless --fixed-dt 16 --exec "ui $modal $png" --tick 4 --exit >> "$log"
+    hash_png "$png"
+}
+
+SUMMARY="$OUT/summary.txt"
+: > "$SUMMARY"
+failures=0
+
+# Captured surfaces: an interior scene (the cold-boot start), an exterior one
+# (a different render path, and where the draw-order bugs have historically
+# lived), and three UI modals. Each is a chance for a change to show up.
+hdr=$(printf '%-13s %-14s %-9s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
+      INSTALL DISTRIB LANGUAGE DISC ASSETS MUSIC INTERIOR EXTERIOR MENU OPTIONS INVENTORY DEMO)
+echo "$hdr" | tee -a "$SUMMARY"
+printf '%.0s-' {1..150} | tee -a "$SUMMARY"; echo | tee -a "$SUMMARY"
 
 while IFS= read -r entry; do
     [ -n "$entry" ] || continue
@@ -101,20 +114,43 @@ while IFS= read -r entry; do
     # Spell it out rather than leaving three letters to decode.
     music="$music ($(grep -c 'PlayStream start' "$log"))"
 
-    # A settled gameplay frame, and the main menu, which is one of the surfaces
-    # whose sprite depends on the distribution.
+    # Settled frames. --fixed-dt keeps the tick budget from depending on how
+    # fast this machine is, which is what makes the hashes reproducible.
     run "$prof" "$dir" --headless --fixed-dt 16 --tick 60 --exit \
-        --screenshot "$OUT/$name-scene.png" >> "$log"
-    run "$prof" "$dir" --headless --exec "ui menu-main $OUT/$name-menu.png" \
-        --tick 4 --exit >> "$log"
+        --screenshot "$OUT/$name-interior.png" >> "$log"
+    run "$prof" "$dir" --headless --fixed-dt 16 --exec "cube 40" --tick 90 --exit \
+        --screenshot "$OUT/$name-exterior.png" >> "$log"
+    menu_main=$(hash_modal "$prof" "$dir" menu-main "$name")
+    menu_opts=$(hash_modal "$prof" "$dir" menu-options "$name")
+    inventory=$(hash_modal "$prof" "$dir" inventory "$name")
 
-    printf '%-13s %-14s %-9s %-7s %-7s %-14s %-13s %-13s\n' \
+    # Demo mode is the one surface where DistribVersion actually shows: the
+    # logo it swaps (OBJECT.CPP, "incrust logo demo", top right) is drawn only
+    # when DemoSlide is set, which is why every other capture matches across
+    # releases.
+    run "$prof" "$dir" --headless --fixed-dt 16 --demo --tick 40 --exit \
+        --screenshot "$OUT/$name-demo.png" >> "$log"
+
+    row=$(printf '%-13s %-14s %-9s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
         "$name" "${distrib:-?}" "${lang:-?}" "$disc" "$assets" "$music" \
-        "$(hash_png "$OUT/$name-scene.png")" "$(hash_png "$OUT/$name-menu.png" mask)"
+        "$(hash_png "$OUT/$name-interior.png")" \
+        "$(hash_png "$OUT/$name-exterior.png")" \
+        "$menu_main" "$menu_opts" "$inventory" \
+        "$(hash_png "$OUT/$name-demo.png")")
+    echo "$row" | tee -a "$SUMMARY"
+
+    # A verdict, so this can gate something rather than only be read.
+    [ "$assets" = ok ] || { echo "  FAIL $name: assets not all present" >&2; failures=$((failures+1)); }
+    case "$row" in *" - "*|*" -"*) echo "  FAIL $name: a capture is missing" >&2; failures=$((failures+1)) ;; esac
 done <<< "$LIST"
 
 echo
-echo "artefacts in $OUT (logs, scene and menu PNGs)"
+echo "artefacts in $OUT (logs, PNGs, summary.txt)"
+echo "compare two runs with: diff <a>/summary.txt <b>/summary.txt"
 echo "music key: c=CD audio in image, x=cue track, i=file in image, o=ogg, f=wav, -=not found"
 echo "hashes are a per-install baseline: re-run and diff. Do not compare them"
 echo "across installs, which legitimately differ in language and logo sprite."
+echo "UI captures use --fixed-dt, without which the animated plasma makes them"
+echo "hash differently every run."
+
+[ "$failures" -eq 0 ] || { echo "$failures install(s) failed" >&2; exit 1; }

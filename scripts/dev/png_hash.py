@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Short content hash of a PNG, with an optional excluded horizontal band.
+"""Short content hash of a PNG's pixels.
 
-Hashing the file bytes is not good enough for UI captures: the menus draw an
-animated plasma strip whose pixels differ between two runs of the same build, so
-a whole-image hash reports a change on every run and stops meaning anything.
-This decodes the image and hashes the pixels outside a band given as fractions
-of the height, so the stable part of the frame can be compared.
+Hashes decoded pixels rather than file bytes, so a re-encode with different
+compression settings does not read as a change.
+
+A note for anyone hashing UI captures: pass `--fixed-dt` to the engine when
+taking them. The menus animate a plasma strip on the clock, so without a pinned
+clock the same screen hashes differently every run, and any comparison built on
+it reports regressions that are not there. With `--fixed-dt` the captures are
+reproducible and need no masking.
 
 Python 3 standard library only, matching the other dev scripts.
 
-    png_hash.py shot.png                 whole image
-    png_hash.py shot.png 0.35 0.475      skip the plasma band
+    png_hash.py shot.png
 """
 import hashlib
 import struct
@@ -75,27 +77,13 @@ def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 2
-    path = argv[1]
-    skip_from = float(argv[2]) if len(argv) > 2 else None
-    skip_to = float(argv[3]) if len(argv) > 3 else None
-
     try:
-        width, height, channels, pixels = decode(path)
+        _w, _h, _c, pixels = decode(argv[1])
     except Exception as exc:  # a missing or odd capture should not abort a sweep
         print("-")
         print("png_hash: %s" % exc, file=sys.stderr)
         return 1
-
-    lo = int(height * skip_from) if skip_from is not None else -1
-    hi = int(height * skip_to) if skip_to is not None else -1
-
-    digest = hashlib.sha256()
-    stride = width * channels
-    for y in range(height):
-        if lo <= y < hi:
-            continue
-        digest.update(pixels[y * stride:(y + 1) * stride])
-    print(digest.hexdigest()[:12])
+    print(hashlib.sha256(pixels).hexdigest()[:12])
     return 0
 
 
