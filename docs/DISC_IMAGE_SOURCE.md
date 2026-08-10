@@ -356,12 +356,28 @@ chased through sector arithmetic.
 
 ## What is not done
 
-- **Drive-backed CD audio.** A player can point the engine at a mounted disc (`G:\TWINSEN`, or a
-  real drive) and everything on the data side works: assets all present, jingles straight off the
-  medium. The themes are Red Book audio on the physical disc, though, and the CD-DA source reads
-  *images*, not drives. Serving them needs raw track reads per platform
-  (`IOCTL_CDROM_RAW_READ`, `CDROMREADAUDIO`, and a third answer on macOS), which is a new
-  platform-specific source rather than an extension of this one.
+- **Drive-backed CD audio, a deliberate non-goal.** A player can point the engine at a mounted disc
+  (`G:\TWINSEN`, or a real drive) and the data side works: assets all present, jingles straight off
+  the medium. The themes are Red Book audio on the physical disc, and the CD-DA source reads
+  *images*, not drives.
+
+  SDL is no help here. SDL 1.2 had an `SDL_CDROM` API; SDL 2 removed it and SDL 3 never brought it
+  back (checked: zero cdrom symbols across SDL 3.5's headers). It would not have served anyway,
+  because it commanded the *drive* to play a track through its own output rather than handing back
+  sectors. That path needs an analogue cable from the drive to the sound card, which stopped being
+  fitted decades ago, and it bypasses the mixer entirely, so the volume slider, the pause/resume
+  parking and the fades would all be outside it. That is the two-worlds split `PlayCD` represented
+  and this work removed.
+
+  What is actually needed is digital audio extraction: read 2352-byte audio sectors and feed the
+  same stream the image path uses. That means either a `libcdio` dependency or three platform
+  backends (`IOCTL_CDROM_RAW_READ`, `CDROMREADAUDIO`, and something for macOS). Both are a lot of
+  surface for the one player who has a physical disc and will not rip it, when a single pass through
+  any imaging tool puts them on a path that already works end to end.
+
+  If it is ever wanted, the shape is carved out: a fourth source at the tail of
+  `PlayStreamInternal`, using the same `CDTRACKS` mapping, with the table of contents read from the
+  drive instead of a cue. The work is the extraction, not the plumbing.
 - **CD-DA out of an MDX.** Its audio region uses a different stride from its data region and its
   track table is encrypted, so there is nothing to address it with. MDX support is data only, and
   the conversion to `bin`+`cue` is the answer for anyone who wants the soundtrack.
