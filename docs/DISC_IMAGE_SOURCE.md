@@ -393,6 +393,30 @@ Music:      matched by CD track number
 which states the dump's actual defect in one line, instead of leaving "the music is silent" to be
 chased through sector arithmetic.
 
+## Containers other than bin/cue: kept, not extended
+
+Decided rather than drifted into, so it is not re-litigated. The container probe stays. It costs
+about 93 lines plus 68 of tests, and it buys exactly one format: MDS/MDX. Everything else is raw
+from byte 0 and needed nothing (MDF, CCD/IMG, ISO, BIN), and NRG keeps its metadata in a footer so
+the probe does not help it either.
+
+The case for keeping it is that the code is written and tested, and it means the game *runs* on a
+container it would otherwise refuse, with `disc` saying plainly what is missing. Data plus jingles
+minus themes is a playable game; a refusal to mount is not.
+
+What is deliberately not done is extending it. Serving the audio inside such a container is a real
+possibility rather than a fantasy: the offset is derivable from fields the image already carries,
+
+    audio_byte(lba) = base + volumeSectors x dataStride + (lba - volumeSectors) x 2352
+
+which is a generalisation rather than a special case, since for a raw image the terms collapse to
+today's `base + lba x 2352`. Verified against all three containers of the reference dump: same
+audio, one formula. It is not implemented because the cue's `FILE` would have to name the container
+(we refuse to apply a cue's sector addresses to a different file, and "probably the same disc" is
+not good enough when the failure mode is full-scale noise), and editing a cue to say so is about as
+much work as converting the image properly. If a second sample ever turns up, this is a small
+change with the arithmetic already checked.
+
 ## What is not done
 
 - **Drive-backed CD audio, a deliberate non-goal.** A player can point the engine at a mounted disc

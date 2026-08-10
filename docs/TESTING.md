@@ -79,13 +79,28 @@ directory contains targeted ASM-vs-CPP tests for those low-level cases.
 
 ### 6. Host tests — disc-image source (`tests/iso9660`, `tests/cue`, `tests/disc_image`)
 
-These cover the disc-image resource source ([DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md)); all are SDL-free and asset-free, run against synthetic fixtures built in-test (no retail image on disk).
+These cover the disc-image resource source ([DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md)), along with `tests/cdtracks`; all are SDL-free and asset-free, run against synthetic fixtures built in-test (no retail image on disk).
 
 `tests/iso9660/test_iso9660.cpp` builds a minimal ISO9660 image in memory (PVD at LBA 16, a root directory with files), packs it both as 2352-byte raw (Mode-1) and 2048-byte cooked sectors, and proves the reader auto-detects the layout, reads a file by path (case-insensitively, ignoring the `;1` version), streams cross-sector ranges and clamps at EOF (`iso_stat` / `iso_pread`), enumerates the tree (`iso_walk`), and rejects a non-ISO file. Two hardening cases assert a malformed image (a directory record whose name runs past its extent) and a truncated one (a root extent pointing past EOF) stop cleanly instead of reading out of bounds; run them under the `linux_sanitize` preset to catch a bounds regression.
 
-`tests/cue/test_cue.cpp` exercises the cue reader (`LIB386/SYSTEM/CUE.CPP`): the first external (non-BINARY) audio track wins, a data-only cue has no external audio, and AUDIO tracks nested under a BINARY file (in-image CD-DA) are skipped.
+`tests/cue/test_cue.cpp` exercises the cue reader (`LIB386/SYSTEM/CUE.CPP`): the first external (non-BINARY) audio track wins, a data-only cue has no external audio, and AUDIO tracks nested under a BINARY file (in-image CD-DA) are skipped. It also covers the full track table: numbers are taken from the sheet and may have holes (a rip that lost a track must still address the survivors by their true numbers), `INDEX 01` is the start rather than the `INDEX 00` pregap, tracks past the caller's capacity do not let their `INDEX` corrupt the last one kept, and `Cue_ImageForSheet` resolves the image a sheet names against the sheet's own directory while reporting "not a cue" for anything else.
 
-`tests/disc_image/test_disc_image.cpp` links `DISCIMG.CPP` against a synthetic nested image and checks mount + banner info, asset-root detection, path resolution under the mount base, file/dir existence, misses, and unmount.
+`tests/cdtracks/test_cdtracks.cpp` pins the CD-track map (`LIB386/SYSTEM/CDTRACKS.CPP`), which decides which sectors a music request plays and so fails silently when wrong: the lookup both ways, its bounds, path and case handling, and two checks that read `SOURCES/MUSIC.CPP` rather than linking it, so the table cannot drift from `ListJingle`, and so `TrackCD`/`TrackCDUS` keep the identical music numbers that let `PlayMusic` route both releases through one path.
+
+`tests/disc_image/test_disc_image.cpp` links `DISCIMG.CPP` against a synthetic nested image and checks mount + banner info, asset-root detection, path resolution under the mount base, file/dir existence, misses, and unmount. Two more: the marker probe discovery uses before anything is mounted, and that a raw image beats a cooked one regardless of name or directory order.
+
+### 6b. Retail distribution sweep (`scripts/dev/dist_check.sh`, local, opt-in)
+
+Needs real installs, so it cannot run in CI. It exists because the retail releases are not interchangeable: each states its own `Version` in the `lba2.cfg` in its install folder, a fresh profile inherits it, and that picks the music track table and two logo sprites. A change can be right on one distribution and wrong on another.
+
+```bash
+scripts/dev/dist_check.sh [outdir]          # defaults to ../LBA2/Common, ../LBA2-GOG, ../TWINSEN
+LBA2_DIST_LIST="name:/path" scripts/dev/dist_check.sh
+```
+
+Each install gets a throwaway profile, so what is measured is the new-user path rather than the developer's own settings. One row per install: release identity, language, whether an image mounted, the asset preflight, how each of three music requests was actually served, and hashes of a gameplay frame and the main menu.
+
+Those hashes are a per-install baseline to diff against a later run. Do not compare them across installs: US and EU legitimately differ in language and logo sprite. The menu hash goes through `scripts/dev/png_hash.py`, which skips the animated plasma band, because a whole-image hash of any UI capture in this engine changes between two runs of the same build and reports a regression that is not there.
 
 PR host jobs and `make test` build the `host_tests` aggregate target, then:
 
