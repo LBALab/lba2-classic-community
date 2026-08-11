@@ -49,6 +49,8 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 | LanguageCD | string | Same as Language | English | Voice CD language; only used with CDROM build |
 | FlagKeepVoice | string | ON, OFF | ON | Keep voice files on HD |
 | MenuMouse | int | 0, 1 | 1 | 1 = menu cursor, hover/left-click confirm, wheel for sliders and save list; 0 = keyboard/joystick only (classic) |
+| TextureFilter | int | 0–2 | 0 | Filtered texture sampling in the software fillers. 0=off (unchanged output), 1=horizontal 2-tap, 2=bilinear 4-tap. `LBA2_TEXFILTER` overrides for one run without persisting. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
+| DitherShading | int | 0, 1 | 0 | Ordered dither on Gouraud shade rows, softening the 16-step ramp banding. See [GFX_OPTIONS.md](GFX_OPTIONS.md) |
 
 ### Original keys (Adeline)
 
@@ -77,6 +79,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 |-----|---------|--------|------|
 | MenuMouse | Optional mouse UX in game menus (`FlagMenuMouse` in code). Default 1 (on). Set 0 to match classic keyboard/joystick-only menus. See [MENU.md](MENU.md) | ReadConfigFile / WriteConfigFile | Options → Advanced options |
 | FollowCamera | Auto camera for exterior scenes (0=classic, 1=auto). Community addition, not in original game; menu label is "Auto camera" / "Classic camera" | ReadConfigFile / WriteConfigFile | Options → Advanced options |
+| TextureFilter, DitherShading | Software-rasterizer smoothing, both off by default. Console cvars `gfx_texfilter` / `gfx_dither` | ReadConfigFile / WriteConfigFile | console only |
 
 ## Code reference
 

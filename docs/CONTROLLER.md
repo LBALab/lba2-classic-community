@@ -28,8 +28,15 @@ fixed cameras have no orbit to drive.
 
 ### Keyboard
 
-`[` / `]` orbit, numpad `+` / `-` tilt elevation, numpad `*` / `/` zoom. Handled
-directly in `GereExtKeys`.
+`[` / `]` orbit, numpad `+` / `-` (or Page Up / Page Down) tilt elevation, numpad
+`*` / `/` zoom. All are handled in `GereExtKeys`, but by two different routes:
+
+- **Elevation** arrives as the Camera-level input action, so it honours whatever
+  the player set in Options → Keyboard. Numpad `+` / `-` and Page Up / Page Down
+  are just its two default bindings.
+- **Orbit and zoom** read their scancodes directly through `CheckKey`, so they
+  are fixed. On a keyboard without a numpad there is no way to zoom from the
+  keys at all, which is what the mouse wheel is for.
 
 ### Mouse
 

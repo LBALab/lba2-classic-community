@@ -103,9 +103,11 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 
 - Uses `CameraCenter(3)` (apply current globals only; skips the classic `SearchCameraPos` snap). Terrain occlusion is instead handled by the eased ground-clearance below; decor/scenery is not yet cleared for. This keeps the orbit from being fought every frame and matches “cinematic follow” rather than a hard “collision camera.”
 
-**Camera elevation:** Numpad `+` / `-` adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt.
+**Camera elevation:** the Camera-level inputs (`I_CAMERA_LEVEL_PLUS` / `I_CAMERA_LEVEL_MOINS`, bound by default to numpad `+` / `-` with Page Up / Page Down as the second binding) adjust `AlphaCam` freely (range 150–600) instead of switching between the two fixed `VueCamera` presets. Fires every frame while held (no debounce) for smooth real-time tilt. Being an input action rather than a raw key, it follows any rebinding done in Options → Keyboard.
 
-**Zoom input:** Numpad `/` and `*` update `FollowCamBaseDist` every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`).
+**Zoom input:** numpad `/` and `*`, or the mouse wheel, update `FollowCamBaseDist` every frame while held; idle zoom/tilt still apply (dirty check includes base distance and `AlphaCam`). Unlike elevation, zoom and pan read raw scancodes through `CheckKey` in `GereExtKeys`, so they are not rebindable and the numpad is the only keyboard route to zoom.
+
+**Zoom is per-session.** `FollowCamBaseDist` is neither persisted to `lba2.cfg` nor exposed as a console cvar. Only two things write the resting value: the first-frame init, and Center camera (Enter / gamepad B), which snaps it back to `FOLLOW_CAM_INITIAL_DIST`, the midpoint of the two `DefVueDistance` presets. Walking between scenes does not reset it. Changing the resting zoom therefore means editing that constant in `PERSO.CPP`; at tall render heights the HD recompose below also pulls the boom in, and that gain *is* live and persisted (`cam_hd_dist`).
 
 ### HD recompose (tall render heights)
 
