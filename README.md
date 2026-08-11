@@ -6,14 +6,15 @@ This repository is the community fork of the classic source release — a source
 
 ## Features
 
-- **Plays the whole game** — the original 1997 engine, ported to 64-bit and modern compilers; bring your own copy of LBA2
+- **The complete game** — the original 1997 engine, ported to 64-bit and modern compilers; bring your own copy of LBA2
 - **Native builds** — Linux, macOS, Windows, and Android / Android TV (7.0+, API 24)
 - **Widescreen and HD** — render resolutions up to 1080p, offered per monitor from the Display menu; the classic 640×480 4:3 mode is still there ([docs/RUNTIME_RESOLUTION.md](docs/RUNTIME_RESOLUTION.md))
-- **Reads disc images directly** — retail assets straight out of a raw ISO/BIN or `.cue` pair, so a GOG Original Edition install needs no extraction step
+- **Reads disc images directly** — retail assets straight out of a raw ISO/BIN or `.cue` pair, so a GOG Original Edition install or a CD rip needs no extraction step
 - **Retail-compatible saves** — 1997 saves load directly, and every build of this port writes the same 32-bit save bytes
 - **Frame-rate-independent movement** — a fixed 60 Hz simulation step, so walk and jump distances no longer change with your frame rate
 - **Gamepad support** — full controller mapping, radial deadzones, and a rebindable D-pad ([docs/CONTROLLER.md](docs/CONTROLLER.md))
-- **Third-person camera** — optional follow camera in exterior scenes, orbited and zoomed with the mouse or the right stick ([docs/CAMERA.md](docs/CAMERA.md))
+- **Third-person camera** — optional follow camera in exterior scenes, orbited with the mouse or the right stick, and zoomed with the mouse wheel or the numpad ([docs/CAMERA.md](docs/CAMERA.md))
+- **Render smoothing** — optional texture filtering and dithered shading for the software rasterizer, off by default ([docs/GFX_OPTIONS.md](docs/GFX_OPTIONS.md))
 - **Modern audio backend** — SDL3 in place of the original Miles Sound System
 - **FMV playback** — via the bundled open-source libsmacker
 - **Debug console** — always-on Quake-style console ([docs/CONSOLE.md](docs/CONSOLE.md))
