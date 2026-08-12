@@ -5,14 +5,20 @@
  * decides which sectors a music request plays, so getting it wrong is silent:
  * every scene gets a plausible theme, just not its own.
  *
- * Four things are pinned. The lookup itself (names, bounds, path and case
- * handling); that the table still agrees with SOURCES/MUSIC.CPP's ListJingle,
- * which is where the order comes from; that MUSIC.CPP's two track tables
- * still hold identical music numbers, which is what lets PlayMusic route both
- * releases through one path; and that scripts/dev/disc_extract.py, which names
- * a ripper's output by this same mapping, still spells it the same way. Those
- * three read their source file rather than linking it, so the table can live
- * beside the disc code without the copies drifting apart unnoticed.
+ * That table is one pressing's numbering, not a general rule: the Brazilian
+ * Activision disc presses seven themes and numbers them differently, and the
+ * European ones press a single theme. What holds everywhere is positional, which
+ * is why the ordered theme list matters as much as the table and is pinned here
+ * too. JADPCM01 sits between TADPCM5 and TADPCM6 in it, so a tidier alphabetical
+ * list would quietly swap those two on any disc that presses both.
+ *
+ * Pinned: the lookup itself (names, bounds, path and case handling); that both
+ * the table and the theme list still agree with SOURCES/MUSIC.CPP's ListJingle,
+ * which is where the order comes from; that MUSIC.CPP's two track tables still
+ * hold identical music numbers, which is what lets PlayMusic route both releases
+ * through one path; and that scripts/dev/disc_extract.py spells both the same
+ * way. Those read their source file rather than linking it, so the tables can
+ * live beside the disc code without the copies drifting apart unnoticed.
  */
 #include "test_harness.h"
 
@@ -121,6 +127,35 @@ static void test_agrees_with_music_cpp(void) {
     }
 }
 
+/* The theme list is ListJingle minus its index-0 placeholder, in that order. The
+   order is what the positional rule walks to decide which themes a disc did not
+   ship as files, so a resorted list would rename tracks rather than fail: on any
+   disc pressing both, JADPCM01 and TADPCM6 would swap. */
+static void test_theme_list_matches_music_cpp(void) {
+    std::vector<std::string> list = read_list_jingle();
+    ASSERT_TRUE(list.size() > 1);
+    if (list.size() <= 1)
+        return;
+    ASSERT_TRUE(list[0].empty()); /* the "no track" placeholder is not a theme */
+    ASSERT_EQ_INT((int)list.size() - 1, CdTracks_ThemeCount());
+
+    bool sameOrder = true;
+    for (int i = 0; i < CdTracks_ThemeCount() && (size_t)(i + 1) < list.size(); i++) {
+        const char *theme = CdTracks_ThemeName(i);
+        if (theme == NULL || list[(size_t)i + 1] != theme)
+            sameOrder = false;
+    }
+    ASSERT_TRUE(sameOrder);
+
+    /* The one adjacency worth stating outright, because it is the one a tidy
+       alphabetical list would get wrong. */
+    ASSERT_TRUE(strcmp(CdTracks_ThemeName(5), "JADPCM01") == 0);
+    ASSERT_TRUE(strcmp(CdTracks_ThemeName(6), "TADPCM6") == 0);
+
+    ASSERT_TRUE(CdTracks_ThemeName(-1) == NULL);
+    ASSERT_TRUE(CdTracks_ThemeName(CdTracks_ThemeCount()) == NULL);
+}
+
 /* The extractor cuts CD audio out of a rip and names the files, so it carries its
    own copy of this table. A drift there is silent in a way the engine's is not:
    nothing fails, the themes just come out under each other's names. Read its
@@ -169,6 +204,145 @@ static void test_agrees_with_extractor(void) {
     /* Every audio track the engine knows has to be in the script's table too, or
        the extractor would quietly leave one theme unnamed. */
     ASSERT_EQ_INT(CDTRACKS_LAST_AUDIO - CDTRACKS_FIRST_AUDIO + 1, seen);
+}
+
+/* The extractor keeps its own ordered copy of the theme list for the same
+   positional rule, so it has to agree element for element. */
+static void test_theme_list_matches_extractor(void) {
+    std::string path = std::string(TEST_SOURCE_ROOT) + "scripts/dev/disc_extract.py";
+    FILE *f = fopen(path.c_str(), "rb");
+    ASSERT_TRUE(f != NULL);
+    if (!f)
+        return;
+    std::string text;
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0)
+        text.append(buf, n);
+    fclose(f);
+
+    /* ALL_THEMES is built from ranges, so evaluate the shape rather than parse
+       it: the script must name TADPCM1-5, then JADPCM01, then TADPCM6, then the
+       remaining jingles from 2, then LOGADPCM. Checking the pivot is what
+       matters, since that is the pair a resort would swap. */
+    size_t at = text.find("ALL_THEMES = ");
+    ASSERT_TRUE(at != std::string::npos);
+    if (at == std::string::npos)
+        return;
+    std::string decl = text.substr(at, 300);
+    ASSERT_TRUE(decl.find("range(1, 6)") != std::string::npos);
+    ASSERT_TRUE(decl.find("\"JADPCM01\", \"TADPCM6\"") != std::string::npos);
+    ASSERT_TRUE(decl.find("range(2, 19)") != std::string::npos);
+    ASSERT_TRUE(decl.find("LOGADPCM") != std::string::npos);
+
+    /* And that shape has to be this one. */
+    ASSERT_EQ_INT(25, CdTracks_ThemeCount());
+    ASSERT_TRUE(strcmp(CdTracks_ThemeName(0), "TADPCM1") == 0);
+    ASSERT_TRUE(strcmp(CdTracks_ThemeName(7), "JADPCM02") == 0);
+    ASSERT_TRUE(strcmp(CdTracks_ThemeName(24), "LOGADPCM") == 0);
+}
+
+/* Build a present-flag array with the named themes marked absent. */
+static std::vector<unsigned char> present_except(const std::vector<std::string> &missing) {
+    std::vector<unsigned char> present((size_t)CdTracks_ThemeCount(), 1);
+    for (size_t m = 0; m < missing.size(); m++) {
+        for (int i = 0; i < CdTracks_ThemeCount(); i++) {
+            if (missing[m] == CdTracks_ThemeName(i))
+                present[(size_t)i] = 0;
+        }
+    }
+    return present;
+}
+
+static std::vector<std::string> seven_missing(void) {
+    std::vector<std::string> v;
+    v.push_back("TADPCM1");
+    v.push_back("TADPCM2");
+    v.push_back("TADPCM3");
+    v.push_back("TADPCM4");
+    v.push_back("TADPCM5");
+    v.push_back("JADPCM01");
+    v.push_back("TADPCM6");
+    return v;
+}
+
+/* The positional rule, which is what names a track on every disc but one. The
+   engine and scripts/dev/disc_extract.py both apply it, so the arithmetic is
+   pinned here rather than only in the script's own selftest.
+
+   The Brazilian disc presses seven and is missing seven, so each track takes the
+   theme at its own position: track 2 is TADPCM1 and track 8 is TADPCM6, with
+   JADPCM01 between TADPCM5 and TADPCM6 because that is ListJingle order. */
+static void test_missing_theme_index_seven_pressed(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    const char *expect[] = {"TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4",
+                            "TADPCM5", "JADPCM01", "TADPCM6"};
+    for (int pos = 0; pos < 7; pos++) {
+        int missing = 0;
+        int got = CdTracks_MissingThemeIndex(expect[pos], present.data(),
+                                             (int)present.size(), &missing);
+        ASSERT_EQ_INT(pos, got);
+        ASSERT_EQ_INT(7, missing);
+    }
+}
+
+/* Both European pressings press one theme and are missing one, so it is at
+   position 0 whatever its track number says. */
+static void test_missing_theme_index_one_pressed(void) {
+    std::vector<std::string> one;
+    one.push_back("TADPCM6");
+    std::vector<unsigned char> present = present_except(one);
+
+    int missing = 0;
+    ASSERT_EQ_INT(0, CdTracks_MissingThemeIndex("music/TADPCM6.WAV", present.data(),
+                                                (int)present.size(), &missing));
+    ASSERT_EQ_INT(1, missing);
+}
+
+/* A theme that has a file is not on the list, and neither is a name that is not
+   a theme. Both must answer -1 rather than a position, or a request would be
+   answered with some other track's music. */
+static void test_missing_theme_index_rejects(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    int missing = 0;
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("JADPCM07", present.data(),
+                                                 (int)present.size(), &missing));
+    ASSERT_EQ_INT(7, missing); /* the count is still reported */
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("SPLASH", present.data(),
+                                                 (int)present.size(), NULL));
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex(NULL, present.data(),
+                                                 (int)present.size(), NULL));
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("TADPCM1", NULL, 0, NULL));
+    /* A short array is refused rather than read past. */
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("TADPCM1", present.data(), 3, NULL));
+}
+
+/* Paths, extensions and case must not defeat the match, the same way they do not
+   defeat the track table. */
+static void test_missing_theme_index_name_forms(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    ASSERT_EQ_INT(6, CdTracks_MissingThemeIndex("TADPCM6", present.data(),
+                                                (int)present.size(), NULL));
+    ASSERT_EQ_INT(6, CdTracks_MissingThemeIndex("/install/music/tadpcm6.wav", present.data(),
+                                                (int)present.size(), NULL));
+    ASSERT_EQ_INT(6, CdTracks_MissingThemeIndex("C:\\install\\music\\TADPCM6.WAV",
+                                                present.data(), (int)present.size(), NULL));
+}
+
+/* The US rip is the case the rule declines: seven themes missing, six tracks
+   pressed. The position is still reported, and it is the caller comparing the
+   counts that must refuse it, so pin that the two disagree. Applying it anyway
+   would name track 2 TADPCM1 when that disc's track 2 is TADPCM2. */
+static void test_missing_theme_index_counts_disagree(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    int missing = 0;
+    int pos = CdTracks_MissingThemeIndex("TADPCM2", present.data(), (int)present.size(),
+                                         &missing);
+    ASSERT_EQ_INT(1, pos);     /* second among the missing */
+    ASSERT_EQ_INT(7, missing); /* but the disc presses six */
+    ASSERT_TRUE(missing != CDTRACKS_LAST_AUDIO - CDTRACKS_FIRST_AUDIO + 1);
+    /* which is why the table answers instead, and it says TADPCM2 is track 2 */
+    ASSERT_EQ_INT(2, CdTracks_NumberForMusicName("TADPCM2"));
 }
 
 /* Pull a `U8 <name>[] = { ... };` initialiser out of MUSIC.CPP as (value, hasJingleFlag)
@@ -244,7 +418,14 @@ int main(void) {
     RUN_TEST(test_number_by_name);
     RUN_TEST(test_round_trip);
     RUN_TEST(test_agrees_with_music_cpp);
+    RUN_TEST(test_theme_list_matches_music_cpp);
     RUN_TEST(test_agrees_with_extractor);
+    RUN_TEST(test_theme_list_matches_extractor);
+    RUN_TEST(test_missing_theme_index_seven_pressed);
+    RUN_TEST(test_missing_theme_index_one_pressed);
+    RUN_TEST(test_missing_theme_index_rejects);
+    RUN_TEST(test_missing_theme_index_name_forms);
+    RUN_TEST(test_missing_theme_index_counts_disagree);
     RUN_TEST(test_track_tables_agree_on_music_numbers);
     TEST_SUMMARY();
     return test_failures != 0;

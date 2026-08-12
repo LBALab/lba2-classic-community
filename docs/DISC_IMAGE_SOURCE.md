@@ -417,6 +417,147 @@ not good enough when the failure mode is full-scale noise), and editing a cue to
 much work as converting the image properly. If a second sample ever turns up, this is a small
 change with the arithmetic already checked.
 
+## The pressings
+
+Four retail images exist beyond the US one, and none of them is the one GOG ships.
+They differ in sector mode, in how many themes they press, in how those tracks are
+numbered, and in one case in the byte order of the audio itself.
+
+### The two European pressings
+
+Both Electronic Arts, both `Version: 3`, both five install languages:
+
+| | EA MODE2 | EA MODE1 | GOG |
+| --- | --- | --- | --- |
+| data track | MODE2/2352, data at **24** | MODE1/2352, data at 16 | MODE1/2352 |
+| system identifier | `CD-RTOS CD-BRIDGE` | `DOS / WIN95` | `DOS / WIN95` |
+| volume space | 300029 | **296140** | **296140** |
+| ISO created | 1998-03-03 | blank | 2011-08-18 |
+
+GOG derives from the MODE1 pressing, matching it to the sector. The MODE2 one is a
+separate artefact we had not seen.
+
+**MODE2 is a real layout, not a rip artefact.** The disc is CD-ROM XA, so its user
+data sits 8 bytes further into each sector: 12 sync, 4 header, then an 8-byte
+subheader. Every sampled sector carries a valid sync and mode byte 2, and 301 of 301
+sampled Form 1 sectors have a valid EDC. Before it was listed in `LAYOUTS` the image
+still mounted, but by accident: the container scan found the descriptor and derived
+`base = 8`, and 8 + 16 happens to equal 24. Data reads were therefore right and
+`iso_read_raw`, which deliberately ignores `data_off`, was 8 bytes wrong. The `disc`
+command now names the mode rather than only the stride, since two 2352-byte raw
+images differ in nothing else.
+
+**One pressed theme, and the track number does not name it.** Both European discs
+carry `TADPCM1-5`, the jingles and `LOGADPCM` as files under `MUSIC` and press only
+LBA's Theme. That falls between the two existing rules: matching by CD track number
+engages at two or more audio tracks, and the standalone-file rule wants a file. So a
+single in-image audio track is now its own step, using the same reading the
+single-external-file rule already used. Reaching for the number here would have named
+it `TADPCM2` and played the wrong music, silently: **"CD track N holds
+ListJingle[N]" is a fact about the US Activision disc**, which pressed six.
+
+**Red Book is MSB-first, and not every ripper swaps it.** The MODE2 rip circulating
+on the Internet Archive carries raw disc order, so its theme played as full-scale
+noise. A cue sheet has no field for byte order, so it is measured, by the statistic
+that already finds run-out: bytes in the wrong order are uniform noise averaging half
+of full scale, where music averages a few per cent.
+
+| | correctly ordered | byte-swapped |
+| --- | --- | --- |
+| read little-endian | 0.06 | 0.49 |
+| read big-endian | 0.50 | 0.08 |
+
+Both readings are taken and the quieter wins, with a level floor so a silent lead-in
+cannot decide it and a factor-of-two margin so a close call cannot. `LIB386/SYSTEM/CDDA.CPP`
+holds the rule, kept SDL-free so `tests/cdda` can pin it. That direction matters:
+a needless swap would turn every working disc's theme into noise just as surely.
+
+Verified against a DiscImageCreator dump of the MODE1 pressing whose track bins
+match its own md5 and sha1. Byte-swapping the MODE2 rip's audio makes it
+**bit-identical** to that dump over 194.7 s of music, which also says the two
+pressings share one audio master. The MODE2 rip is the worse copy: outside that
+window it agrees byte for byte, but it has a damaged region from 207.127 s to
+226.034 s that the C2-checked dump does not.
+
+### The Brazilian Activision disc, and why a track number names nothing
+
+`Version: 1` like the US disc, volume `TWINSEN` like the US disc, the same `MUSIC/`
+contents as the US disc, and a CloneCD `.ccd`/`.img`/`.sub` rip. `HELPE`/`HELPP`/`HELPS`
+and `W95E`/`W95P`/`W95S` at the root give it away: English, Portuguese, Spanish.
+
+It presses **seven** audio tracks where the US disc presses six, and numbers them
+differently. Measured per track by envelope correlation against known recordings,
+not inferred:
+
+| BR track | is | correlation |
+| --- | --- | --- |
+| 2 | TADPCM1 | **0.9993** |
+| 3 | TADPCM2 | 0.985 |
+| 4 | TADPCM3 | 0.992 |
+| 5 | TADPCM4 | 0.927 |
+| 6 | TADPCM5 | 0.998 |
+| 7 | JADPCM01 | 0.967 |
+| 8 | TADPCM6 | 0.997 |
+
+That is `ListJingle[N-1]`, the shifted numbering an early version of the US table used
+and which was recorded here as the mistake not to repeat. It was wrong for the US
+disc. It is right for this one, which is the whole difficulty: the two cannot be told
+apart by anything except measurement.
+
+Track 2 is the theme the US disc does not carry at all, and it was identified
+positively rather than by elimination: the European discs ship `TADPCM1.WAV` as a
+file, so decoding that and correlating gives 0.9993 at lag 0.
+
+**The game agreed all along.** `TrackCDUS` in `SOURCES/MUSIC.CPP` clears the `JINGLE`
+flag on its first seven entries, values 2 to 8, naming them Track01 to Track06 with
+Jingle01 in the middle. That is the Brazilian layout exactly. Searching both retail
+executables for the literal table bytes finds it byte for byte in each, in both
+`TWINSEN.EXE` and `LBA2.DOS`, even though the binaries differ elsewhere. So the
+Brazilian disc needs no special awareness: it is the disc the shipped code was
+written for, and the positional rule independently rediscovers that mapping.
+
+Which makes the six-track `TWINSEN.mdx` the odd one out, since it ships that same
+executable and disagrees with it. Measured: its track 2 is `TADPCM2` (0.985 against a
+known recording, 0.33 against the real `TADPCM1`), and its audio region is 85351
+sectors against Brazil's 102897, short by 17546 where `TADPCM1` is 17696.
+
+That shortfall is not something we introduced. The cue covers all 85351 sectors with
+no gap, a scan for track joins across the whole region finds exactly the one the cue
+already names, the filesystem fills the data track exactly with audio starting
+immediately after, and the bin's audio region is md5-identical to the MDX's. The MDX
+was downloaded rather than ripped, so the loss is upstream of everything here.
+
+Most likely it lost its first audio track and renumbered what remained, rather than
+Activision pressing a disc missing a theme its own binary requests. Not proven: that
+needs a second US rip or a Redump entry. `disc_extract.py` now names any theme left
+without a file, so extracting that image says `No file for: TADPCM1` instead of
+quietly producing six.
+
+**So the mapping rule is positional.** A disc's audio tracks, in order, are the themes
+it did not ship as files, in `ListJingle` order:
+
+| disc | audio tracks | themes with no file | rule |
+| --- | --- | --- | --- |
+| Brazilian | 7 | 7 | positional |
+| European (both) | 1 | 1 | positional |
+| US Activision | 6 | 7 | the table |
+
+It engages only when the counts agree, which is what makes the correspondence
+unambiguous. The US disc is missing seven and presses six, because `TADPCM1` is not
+on it, so it falls back to the table that was measured on it.
+
+`ListJingle` order is therefore load-bearing rather than presentational. `JADPCM01`
+sits between `TADPCM5` and `TADPCM6` in it, so sorting the names would swap those two
+on any disc pressing both. `CdTracks_ThemeName` exposes the order and `tests/cdtracks`
+reads `MUSIC.CPP` to keep it honest.
+
+There is a plausible reason a disc might omit `TADPCM1` in particular.
+`TADPCM1` is music index 0, the one theme no named constant refers to
+(`CD_TRACK_MENU` is 6, `CD_TRACK_CREDITS` is 2, and there is no define for 0), and the
+intro is `PlayAcf("INTRO")`, an FMV carrying its own audio. If `TADPCM1` duplicates
+what the intro video already plays, dropping it from the US pressing costs nothing.
+Not confirmed: that would need the FMV's audio decoded and compared.
+
 ## Extraction
 
 `scripts/dev/disc_extract.py` writes a rip out to loose files: the asset root's subtree, plus the
@@ -502,17 +643,25 @@ place.
 
 `host_quick`, no retail data needed:
 
-- `tests/iso9660`: both layouts, a container-prefixed image that the plain probe must still reject
-  and the scan must find, a signature look-alike that neither may accept, plus the existing
+- `tests/iso9660`: all three layouts (MODE1 raw, MODE2 raw, cooked) including that each reports
+  the data offset it was found at, a container-prefixed image that the plain probe must still
+  reject and the scan must find, a signature look-alike that neither may accept, plus the existing
   malformed and truncated cases. Clean under `linux_sanitize`.
 - `tests/cue`: the TOC parser over a retail in-image shape (with a hole in the track numbering, and
   an `INDEX 00` pregap that must not be mistaken for the start), a multi-file external rip, GOG's
   two-track shape, and a malformed `INDEX`. The original external-audio cases are unchanged.
-- `tests/cdtracks`: the mapping both ways, its bounds, path and case handling, the check that
-  reads `MUSIC.CPP` to confirm the order still agrees, and the one that reads `disc_extract.py` so
-  the extractor cannot name a theme differently from the engine.
+- `tests/cdtracks`: the mapping both ways, its bounds, path and case handling, the checks that
+  read `MUSIC.CPP` to confirm both the track table and the ordered theme list still agree with
+  `ListJingle`, and the ones that read `disc_extract.py` so the extractor cannot name a theme
+  differently from the engine. Swapping `JADPCM01` and `TADPCM6` in the theme list fails three
+  assertions, which is the resort that would silently rename tracks on any disc pressing both.
 - `tests/disc_image`: the marker probe discovery uses, and that a raw image beats a cooked one
   regardless of name or directory order.
+- `tests/cdda`: the byte-order rule, in both directions. That correctly ordered audio is left
+  alone matters as much as that swapped audio is caught, since a needless swap breaks every disc
+  that works today. Also loud music (which must not be mistaken for noise), silence and short
+  buffers (which decide nothing), uniform noise (which has no preferred order), and that applying
+  the swap settles rather than oscillating.
 
 Retail smoke, local:
 
@@ -521,6 +670,12 @@ Retail smoke, local:
 | `../LBA2` (Steam Classic) | no `Disc:` line, music from `Music/*.ogg`, unchanged |
 | `../LBA2-GOG` | `Disc: mounted LBA2.GOG (ISO9660, 630 files)`, in-image WAV music, `LBA2.OGG` for track 6, unchanged |
 | `../TWINSEN` (bin + cue only) | mounts, `Assets all present`, renders, all six CD tracks play from the image |
+| EA MODE2 (Internet Archive) | mounts as `MODE2 raw (data at 24)`, `iic`, the one theme byte-swapped on the way out |
+| EA MODE1 (DiscImageCreator / `lba-2_202507`) | mounts, `iic`, the one theme straight from the image |
+| Brazilian Activision (CloneCD) | mounts, `ccc`, seven tracks named positionally including `TADPCM1` |
+
+`scripts/dev/dist_check.sh` covers all of these in one sweep; its music column reads `iic` for
+either European pressing, `ccc` for both Activision discs, `iix` for GOG and `ooo` for Steam.
 
 ## Which release the engine thinks it is
 

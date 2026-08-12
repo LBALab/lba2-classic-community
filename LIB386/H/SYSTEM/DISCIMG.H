@@ -74,6 +74,7 @@ typedef struct {
     char assetRoot[ADELINE_MAX_PATH]; // in-image directory holding the game data
     int sectorSize;                   // 2352 raw or 2048 cooked
     long base;                        // byte offset of logical sector 0
+    int dataOffset;                   // user data within a sector: 16 MODE1, 24 MODE2, 0 cooked
     S32 fileCount;
     U32 rawSectors;     // 0 when the image cannot carry CD audio
     long trailingBytes; // bytes past the filesystem: content this reader cannot address

@@ -5,6 +5,7 @@
 #include "stb_vorbis.h"
 
 #include <AIL/STREAM_PARK.H> /* pure park/resume/focus decision logic (host-tested) */
+#include <SYSTEM/CDDA.H>
 #include <SYSTEM/CDTRACKS.H>
 #include <SYSTEM/CUE.H>
 #include <SYSTEM/DISCIMG.H>
@@ -547,9 +548,28 @@ static bool InstallDirFromMusicPath(const char *name, char *outDir, int max) {
 /* ── Redbook tracks (a mixed-mode retail disc) ─────────────────────────── */
 
 /* Stream one CD audio track straight out of the mounted image. Audio sectors
-   are already 16-bit LE stereo 44.1 kHz PCM, so there is nothing to decode:
-   read the sector range and hand it to the same stream setup a WAV uses, which
-   is what gives it the existing volume, pause and resume behaviour. */
+   are already 16-bit stereo 44.1 kHz PCM, so there is nothing to decode beyond
+   putting the bytes in the order the mixer wants: read the sector range and hand
+   it to the same stream setup a WAV uses, which is what gives it the existing
+   volume, pause and resume behaviour. */
+static bool PlayCdAudioBuffer(Uint8 *pcm, size_t pcmBytes, uint32_t startSector, S32 skipFrames) {
+    /* Red Book is MSB-first and a ripper is meant to swap it; some do not, so
+       the order is measured rather than assumed. See LIB386/SYSTEM/CDDA.CPP. */
+    if (CdDa_NeedsByteSwap(pcm, pcmBytes)) {
+        CdDa_ByteSwap(pcm, pcmBytes);
+        if (musicLogEnabled)
+            SDL_Log("[MUSIC] CD audio at sector %u is big-endian, byte-swapped it",
+                    (unsigned)startSector);
+    }
+
+    SDL_AudioSpec spec;
+    SDL_zero(spec);
+    spec.freq = 44100;
+    spec.format = SDL_AUDIO_S16LE;
+    spec.channels = 2;
+    return SetupWavStream(&spec, pcm, (Uint32)pcmBytes, skipFrames);
+}
+
 static bool PlayCdAudioFromImage(uint32_t startSector, uint32_t endSector, S32 skipFrames) {
     if (endSector <= startSector)
         return false;
@@ -564,12 +584,54 @@ static bool PlayCdAudioFromImage(uint32_t startSector, uint32_t endSector, S32 s
         return false;
     }
 
-    SDL_AudioSpec spec;
-    SDL_zero(spec);
-    spec.freq = 44100;
-    spec.format = SDL_AUDIO_S16LE;
-    spec.channels = 2;
-    bool ok = SetupWavStream(&spec, pcm, (Uint32)((size_t)got * 2352), skipFrames);
+    bool ok = PlayCdAudioBuffer(pcm, (size_t)got * 2352, startSector, skipFrames);
+    free(pcm);
+    return ok;
+}
+
+/* How many whole 2352-byte audio sectors a file holds. */
+static uint32_t RawSectorsInFile(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return 0;
+    uint32_t sectors = 0;
+    if (fseek(f, 0, SEEK_END) == 0) {
+        long size = ftell(f);
+        if (size > 0)
+            sectors = (uint32_t)(size / 2352);
+    }
+    fclose(f);
+    return sectors;
+}
+
+/* Raw audio sectors out of a BINARY file the cue names but the mount does not
+   cover. A rip that splits every track into its own file is still bin+cue, and
+   is what DiscImageCreator and EAC produce by default; the bytes are the same
+   raw sectors an in-image track holds, addressed in a file of their own. Track
+   addresses in such a cue are relative to the file that carries the track. */
+static bool PlayCdAudioFromFile(const char *path, uint32_t startSector, uint32_t endSector,
+                                S32 skipFrames) {
+    if (endSector <= startSector)
+        return false;
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return false;
+
+    size_t want = (size_t)(endSector - startSector) * 2352;
+    Uint8 *pcm = (Uint8 *)malloc(want);
+    if (!pcm) {
+        fclose(f);
+        return false;
+    }
+    bool read = (fseek(f, (long)startSector * 2352, SEEK_SET) == 0) &&
+                (fread(pcm, 1, want, f) == want);
+    fclose(f);
+    if (!read) {
+        free(pcm);
+        return false;
+    }
+
+    bool ok = PlayCdAudioBuffer(pcm, want, startSector, skipFrames);
     free(pcm);
     return ok;
 }
@@ -607,10 +669,201 @@ typedef enum {
     REDBOOK_HANDLED, /* the table of contents owns this track and it did not play */
 } RedbookOutcome;
 
-/* Resolve a redbook track by its CD track number, reading the install's cue as
-   a real table of contents. The track may be a standalone file the cue points
-   at, or audio sectors inside the mounted image; both are addressed the same
-   way, by number.
+/* Read the disc's table of contents. The cue that describes a disc sits beside
+   that disc, so look there first. Normally the image is in the install directory
+   and these are the same place; they part company when --disc names an image
+   elsewhere, and then the image's own cue is the one that means anything.
+   Falling back to the install directory covers the reverse oddity, a cue kept
+   with the game rather than with the image. */
+static int LoadDiscToc(const char *name, char *tocDir, size_t tocDirMax, CueTrack *toc,
+                       int maxTracks) {
+    char installDir[ADELINE_MAX_PATH];
+    if (!InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)))
+        return 0;
+    int n = 0;
+    if (DiscImage_GetImageDir(tocDir, tocDirMax))
+        n = Cue_ReadTocInDir(tocDir, NULL, 0, toc, maxTracks);
+    if (n == 0) {
+        strncpy(tocDir, installDir, tocDirMax - 1);
+        tocDir[tocDirMax - 1] = '\0';
+        n = Cue_ReadTocInDir(tocDir, NULL, 0, toc, maxTracks);
+    }
+    return n;
+}
+
+/* Play one track the table of contents names, wherever it lives: a standalone
+   file the cue points at, or audio sectors inside the mounted image. `label` is
+   only for the log line, since a track's number does not name its music. */
+static RedbookOutcome PlayTocTrack(const CueTrack *t, const CueTrack *toc, int n,
+                                   const char *tocDir, const char *name, const char *label,
+                                   S32 startFrame) {
+    if (!t->fileIsBinary) {
+        /* A cue's FILE is relative to the sheet, not to the install. */
+        char path[ADELINE_MAX_PATH];
+        int w = snprintf(path, sizeof(path), "%s%s", tocDir, t->file);
+        if (w < 0 || (size_t)w >= sizeof(path))
+            return REDBOOK_HANDLED;
+        SDL_AudioSpec spec;
+        Uint8 *wav = NULL;
+        Uint32 wavLen = 0;
+        bool played;
+        if (SDL_LoadWAV(path, &spec, &wav, &wavLen)) {
+            played = SetupWavStream(&spec, wav, wavLen, startFrame);
+            SDL_free(wav);
+        } else {
+            played = PlayOggFile(path, startFrame);
+        }
+        if (played && musicLogEnabled)
+            SDL_Log("[MUSIC] PlayStream start cue track %s: %s (from %s)", label, path, name);
+        return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
+    }
+
+    /* A BINARY file the mount does not cover: a rip that gave every track its own
+       file, which DiscImageCreator and EAC both do by default. Still bin+cue, and
+       the bytes are the same raw sectors. Addresses in such a cue are relative to
+       the file carrying the track, so a track ends at the next track in that same
+       file, or at its end. */
+    if (!DiscImage_IsMountedFile(t->file)) {
+        char path[ADELINE_MAX_PATH];
+        int w = snprintf(path, sizeof(path), "%s%s", tocDir, t->file);
+        if (w < 0 || (size_t)w >= sizeof(path))
+            return REDBOOK_HANDLED;
+        uint32_t fileSectors = RawSectorsInFile(path);
+        if (fileSectors == 0 || t->startFrame >= fileSectors)
+            return REDBOOK_HANDLED;
+        uint32_t stop = fileSectors;
+        for (int i = 0; i < n; i++) {
+            if (strcmp(toc[i].file, t->file) == 0 && toc[i].startFrame > t->startFrame &&
+                toc[i].startFrame < stop)
+                stop = toc[i].startFrame;
+        }
+        bool played = PlayCdAudioFromFile(path, t->startFrame, stop, startFrame);
+        if (played && musicLogEnabled) {
+            SDL_Log("[MUSIC] PlayStream start CD-DA track %s: sectors %u..%u of %s (from %s)",
+                    label, (unsigned)t->startFrame, (unsigned)stop, t->file, name);
+        }
+        return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
+    }
+
+    /* Inside the image. The cue's sector addresses only mean anything against
+       the file that cue describes, and only a raw image has audio sectors. */
+    uint32_t total = DiscImage_RawSectorCount();
+    if (total == 0 || t->startFrame >= total)
+        return REDBOOK_HANDLED;
+
+    /* Audio cannot begin inside the data track. A cue that says it does is
+       wrong, and honouring it would read the filesystem as PCM and play it at
+       music volume: full-scale noise, and an allocation the size of the disc.
+       The filesystem's own volume size says where the data ends. */
+    uint32_t dataEnd = DiscImage_DataSectorCount();
+    if (t->startFrame < dataEnd) {
+        SDL_Log("SDL AIL: cue puts CD track %s at sector %u, inside the data track (ends %u); "
+                "ignoring it",
+                label, (unsigned)t->startFrame, (unsigned)dataEnd);
+        return REDBOOK_HANDLED;
+    }
+
+    /* The cue states where a track starts, never where it ends: a track runs to
+       the next one, and the last runs to the end of the disc. */
+    uint32_t end = total;
+    for (int i = 0; i < n; i++) {
+        if (toc[i].fileIsBinary && toc[i].startFrame > t->startFrame && toc[i].startFrame < end)
+            end = toc[i].startFrame;
+    }
+
+    bool ok = PlayCdAudioFromImage(t->startFrame, end, startFrame);
+    if (ok && musicLogEnabled) {
+        SDL_Log("[MUSIC] PlayStream start CD-DA track %s: sectors %u..%u (from %s)", label,
+                (unsigned)t->startFrame, (unsigned)end, name);
+    }
+    return ok ? REDBOOK_PLAYED : REDBOOK_HANDLED;
+}
+
+/* Which themes this install has no file for, and where `name` sits among them.
+   The arithmetic lives in CdTracks_MissingThemeIndex, which tests/cdtracks pins;
+   what belongs here is only the question of what counts as having a file.
+
+   Cached, because it is one existence check per theme and several of them go to
+   the disc image, while the answer cannot change while the game is running. The
+   cache is keyed on the music directory, so pointing at a different install
+   inside one process recomputes rather than answering from the old one. */
+static int ThemePositionAmongMissing(const char *name, const char *musicDir, int *outMissing) {
+    static char cachedDir[ADELINE_MAX_PATH] = "";
+    static unsigned char cachedPresent[64];
+    static bool cachedValid = false;
+
+    int themes = CdTracks_ThemeCount();
+    if (themes > (int)sizeof(cachedPresent))
+        return -1;
+
+    if (!cachedValid || strcmp(cachedDir, musicDir) != 0) {
+        for (int i = 0; i < themes; i++) {
+            char path[ADELINE_MAX_PATH];
+            int w = snprintf(path, sizeof(path), "%s%s.WAV", musicDir, CdTracks_ThemeName(i));
+            /* A path too long to build is treated as present: claiming a theme is
+               missing is what moves a track onto it, so the safe answer is no. */
+            cachedPresent[i] =
+                (w > 0 && (size_t)w < sizeof(path)) ? (ExistsFileOrDir(path) ? 1 : 0) : 1;
+        }
+        strncpy(cachedDir, musicDir, sizeof(cachedDir) - 1);
+        cachedDir[sizeof(cachedDir) - 1] = '\0';
+        cachedValid = true;
+    }
+
+    return CdTracks_MissingThemeIndex(name, cachedPresent, themes, outMissing);
+}
+
+/* The rule that holds across every pressing: the audio tracks, in order, are the
+   themes with no file, in ListJingle order.
+
+   A track number does not name a theme by itself. The US Activision disc presses
+   six themes as tracks 2..7 and its numbering is ListJingle[N]; the Brazilian
+   Activision disc presses seven as tracks 2..8 and is ListJingle[N-1]; both
+   European pressings press one. Reading a number on the wrong disc plays a
+   plausible piece of music that is simply not the right one.
+
+   This engages only when the two counts agree, which is what makes the
+   correspondence unambiguous. The US disc is missing seven themes and presses
+   six, because TADPCM1 is not on it at all, so it declines here and falls
+   through to the table, which is exactly the disc that table was measured on. */
+static RedbookOutcome PlayRedbookByPosition(const char *name, S32 startFrame) {
+    char musicDir[ADELINE_MAX_PATH];
+    int cut = (int)strlen(name) - 1;
+    while (cut >= 0 && name[cut] != '/' && name[cut] != '\\')
+        cut--;
+    if (cut < 0 || (size_t)(cut + 1) >= sizeof(musicDir))
+        return REDBOOK_NO_TOC;
+    memcpy(musicDir, name, (size_t)cut + 1);
+    musicDir[cut + 1] = '\0';
+
+    char tocDir[ADELINE_MAX_PATH];
+    CueTrack toc[CUE_MAX_TRACKS];
+    int n = LoadDiscToc(name, tocDir, sizeof(tocDir), toc, CUE_MAX_TRACKS);
+    if (n == 0)
+        return REDBOOK_NO_TOC;
+
+    const CueTrack *audio[CUE_MAX_TRACKS];
+    int audioCount = 0;
+    for (int i = 0; i < n; i++) {
+        if (toc[i].isAudio)
+            audio[audioCount++] = &toc[i];
+    }
+    if (audioCount == 0)
+        return REDBOOK_NO_TOC;
+
+    int missing = 0;
+    int pos = ThemePositionAmongMissing(name, musicDir, &missing);
+    if (pos < 0 || missing != audioCount)
+        return REDBOOK_NO_TOC;
+
+    char label[32];
+    snprintf(label, sizeof(label), "%d (%d of %d pressed)", audio[pos]->number, pos + 1, missing);
+    return PlayTocTrack(audio[pos], toc, n, tocDir, name, label, startFrame);
+}
+
+/* Resolve a redbook track by its CD track number, using the US disc's table.
+   The fallback for a disc whose pressed count does not match its missing count,
+   which in practice means the US Activision disc.
 
    Engages only when the cue describes two or more audio tracks, i.e. an actual
    disc TOC. A cue with a single audio entry is left to the older rule below:
@@ -621,26 +874,9 @@ static RedbookOutcome PlayRedbookByNumber(const char *name, S32 startFrame) {
     if (cdTrack == 0)
         return REDBOOK_NO_TOC;
 
-    char installDir[ADELINE_MAX_PATH];
-    if (!InstallDirFromMusicPath(name, installDir, (int)sizeof(installDir)))
-        return REDBOOK_NO_TOC;
-
-    /* The cue that describes a disc sits beside that disc, so look there first.
-       Normally the image is in the install directory and these are the same
-       place; they part company when --disc names an image elsewhere, and then
-       the image's own cue is the one that means anything. Falling back to the
-       install directory covers the reverse oddity, a cue kept with the game
-       rather than with the image. */
     char tocDir[ADELINE_MAX_PATH];
     CueTrack toc[CUE_MAX_TRACKS];
-    int n = 0;
-    if (DiscImage_GetImageDir(tocDir, sizeof(tocDir)))
-        n = Cue_ReadTocInDir(tocDir, NULL, 0, toc, CUE_MAX_TRACKS);
-    if (n == 0) {
-        strncpy(tocDir, installDir, sizeof(tocDir) - 1);
-        tocDir[sizeof(tocDir) - 1] = '\0';
-        n = Cue_ReadTocInDir(tocDir, NULL, 0, toc, CUE_MAX_TRACKS);
-    }
+    int n = LoadDiscToc(name, tocDir, sizeof(tocDir), toc, CUE_MAX_TRACKS);
     int audioCount = 0;
     for (int i = 0; i < n; i++) {
         if (toc[i].isAudio)
@@ -663,61 +899,9 @@ static RedbookOutcome PlayRedbookByNumber(const char *name, S32 startFrame) {
         return REDBOOK_HANDLED;
     }
 
-    if (!t->fileIsBinary) {
-        /* A cue's FILE is relative to the sheet, not to the install. */
-        char path[ADELINE_MAX_PATH];
-        int w = snprintf(path, sizeof(path), "%s%s", tocDir, t->file);
-        if (w < 0 || (size_t)w >= sizeof(path))
-            return REDBOOK_HANDLED;
-        SDL_AudioSpec spec;
-        Uint8 *wav = NULL;
-        Uint32 wavLen = 0;
-        bool played;
-        if (SDL_LoadWAV(path, &spec, &wav, &wavLen)) {
-            played = SetupWavStream(&spec, wav, wavLen, startFrame);
-            SDL_free(wav);
-        } else {
-            played = PlayOggFile(path, startFrame);
-        }
-        if (played && musicLogEnabled)
-            SDL_Log("[MUSIC] PlayStream start cue track %d: %s (from %s)", cdTrack, path, name);
-        return played ? REDBOOK_PLAYED : REDBOOK_HANDLED;
-    }
-
-    /* Inside the image. The cue's sector addresses only mean anything against
-       the file that cue describes, and only a raw image has audio sectors. */
-    if (!DiscImage_IsMountedFile(t->file))
-        return REDBOOK_HANDLED;
-    uint32_t total = DiscImage_RawSectorCount();
-    if (total == 0 || t->startFrame >= total)
-        return REDBOOK_HANDLED;
-
-    /* Audio cannot begin inside the data track. A cue that says it does is
-       wrong, and honouring it would read the filesystem as PCM and play it at
-       music volume: full-scale noise, and an allocation the size of the disc.
-       The filesystem's own volume size says where the data ends. */
-    uint32_t dataEnd = DiscImage_DataSectorCount();
-    if (t->startFrame < dataEnd) {
-        SDL_Log("SDL AIL: cue puts CD track %d at sector %u, inside the data track (ends %u); "
-                "ignoring it",
-                cdTrack, (unsigned)t->startFrame, (unsigned)dataEnd);
-        return REDBOOK_HANDLED;
-    }
-
-    /* The cue states where a track starts, never where it ends: a track runs to
-       the next one, and the last runs to the end of the disc. */
-    uint32_t end = total;
-    for (int i = 0; i < n; i++) {
-        if (toc[i].fileIsBinary && toc[i].startFrame > t->startFrame && toc[i].startFrame < end)
-            end = toc[i].startFrame;
-    }
-
-    bool ok = PlayCdAudioFromImage(t->startFrame, end, startFrame);
-    if (ok && musicLogEnabled) {
-        SDL_Log("[MUSIC] PlayStream start CD-DA track %d: sectors %u..%u (from %s)", cdTrack,
-                (unsigned)t->startFrame, (unsigned)end, name);
-    }
-    return ok ? REDBOOK_PLAYED : REDBOOK_HANDLED;
+    char label[16];
+    snprintf(label, sizeof(label), "%d", cdTrack);
+    return PlayTocTrack(t, toc, n, tocDir, name, label, startFrame);
 }
 
 /* ── Public API ────────────────────────────────────────────────────────── */
@@ -770,11 +954,20 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         return;
     }
 
-    /* 4) Redbook by CD track number, for a disc whose cue is a real table of
-          contents: the track is either a standalone file the cue names or audio
-          sectors inside the mounted image. A real TOC is authoritative, so when
-          it owns the answer the search stops here either way. */
-    RedbookOutcome redbook = PlayRedbookByNumber(name, startFrame);
+    /* 4) Redbook by position, the rule that holds across every pressing: the
+          disc's audio tracks, in order, are the themes it did not ship as
+          files. Tried before the number table because a track number means
+          different music on different pressings, and this does not. */
+    RedbookOutcome redbook = PlayRedbookByPosition(name, startFrame);
+    if (redbook == REDBOOK_PLAYED) {
+        FinishStream(name);
+        return;
+    }
+
+    /* 5) Redbook by CD track number, for the one disc whose pressed count and
+          missing count disagree. A real TOC is authoritative, so when it owns
+          the answer the search stops here either way. */
+    redbook = PlayRedbookByNumber(name, startFrame);
     if (redbook == REDBOOK_PLAYED) {
         FinishStream(name);
         return;
@@ -782,7 +975,7 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
     if (redbook == REDBOOK_HANDLED)
         return;
 
-    /* 5) Cue external audio: a redbook track shipped as a standalone file the
+    /* 6) Cue external audio: a redbook track shipped as a standalone file the
           data image does not contain (GOG's LBA2.OGG = music track 6, listed in
           LBA2.DAT). Only for redbook "track" requests, not jingles. The file is
           on the filesystem (install root), so decode it directly: WAV via
@@ -813,7 +1006,9 @@ static void PlayStreamInternal(const char *name, S32 startFrame) {
         }
     }
 
-    SDL_Log("SDL AIL: Could not find '%s' (filesystem, OGG fallback, disc image, or cue audio)", name);
+    SDL_Log("SDL AIL: Could not find '%s' (filesystem, OGG fallback, disc image, cue audio, "
+            "or the disc's own audio track)",
+            name);
 }
 
 void PlayStream(char *name) {

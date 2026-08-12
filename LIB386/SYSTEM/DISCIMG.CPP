@@ -220,7 +220,7 @@ static iso9660_t *PickImage(const char *assetsDir, char *outPath, size_t outMax)
                 continue;
 
             int sectorSize = 0;
-            iso_layout(iso, &sectorSize, NULL);
+            iso_layout(iso, &sectorSize, NULL, NULL);
 
             if (best == NULL ||
                 BetterCandidate(sectorSize, size, ent->d_name, bestSectorSize, bestSize, bestName)) {
@@ -362,7 +362,7 @@ extern "C" bool DiscImage_GetInfo(DiscImageInfo *out) {
     out->assetRoot[sizeof(out->assetRoot) - 1] = '\0';
     out->sectorSize = 0;
     out->base = 0;
-    iso_layout(g_iso, &out->sectorSize, &out->base);
+    iso_layout(g_iso, &out->sectorSize, &out->base, &out->dataOffset);
     out->fileCount = g_fileCount;
     out->rawSectors = (U32)iso_raw_sector_count(g_iso);
 

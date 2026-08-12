@@ -12,11 +12,19 @@ shape this script is optional. It exists for the cases the engine cannot serve:
     CCD. Convert or rip the audio separately, then use `--tracks-from`.
   * Wanting loose files on disk for modding or inspection.
 
-What only this repo can tell you is the naming. Every ripper hands back
-`track02.wav`; nothing else knows that CD track 6 is JADPCM01 rather than
-TADPCM6, or that the ListJingle[1] theme is not pressed on the US disc at all.
-That mapping is CD_TRACK_NAMES below, kept in step with LIB386/SYSTEM/CDTRACKS.CPP
-by tests/cdtracks.
+What only this repo can tell you is the naming, and it depends on the disc. What
+holds everywhere is positional: a disc's audio tracks, in order, are the themes
+it did not ship as files, in ListJingle order. The Brazilian Activision disc
+presses seven as tracks 2..8, both European pressings press one; all are named
+that way. See themes_for_tracks.
+
+CD_TRACK_NAMES below is the exception, and only for one artifact: the widely
+circulated TWINSEN.mdx, which carries six audio tracks starting at TADPCM2. It
+disagrees with the TrackCDUS table in the executable on its own image, which
+expects seven starting at TADPCM1, so that rip has most likely lost a track and
+renumbered. The table names its six for what they actually hold. Kept in step
+with LIB386/SYSTEM/CDTRACKS.CPP by tests/cdtracks; see the header there before
+changing it.
 
 Usage:
   disc_extract.py SOURCE OUTDIR [--from-drive [DEV]] [--tracks-from DIR]
@@ -39,6 +47,7 @@ left alone unless you pass --force. `--selftest` checks the cue rules against
 fixtures and needs no disc.
 """
 import argparse
+import array
 import os
 import re
 import shutil
@@ -70,10 +79,30 @@ MARKER = "LBA2.HQR"
 MUSIC_DIR = "music"
 MUSIC_SPELLINGS = ("music", "MUSIC", "Music")
 
-RAW_SECTOR = 2352  # a CD-DA sector: 588 stereo frames of 16-bit LE PCM
+# Every theme the game asks for, in SOURCES/MUSIC.CPP's ListJingle order. The
+# order is load-bearing, not cosmetic: the audio tracks of a disc map onto the
+# themes it did not ship as files, in this order, and JADPCM01 sits between
+# TADPCM5 and TADPCM6 here rather than with the other jingles. Sorting the names
+# instead swaps those two on any disc that presses both. Mirrors THEME_NAMES in
+# LIB386/SYSTEM/CDTRACKS.CPP; tests/cdtracks reads both.
+ALL_THEMES = (["TADPCM%d" % n for n in range(1, 6)] + ["JADPCM01", "TADPCM6"] +
+              ["JADPCM%02d" % n for n in range(2, 19)] + ["LOGADPCM"])
+
+RAW_SECTOR = 2352  # a CD-DA sector: 588 stereo frames of 16-bit PCM
 CDDA_RATE = 44100
 CDDA_CHANNELS = 2
 CDDA_WIDTH = 2
+
+# A cue's FILE type says how to read what it names. BINARY and MOTOROLA are raw
+# sectors, MOTOROLA declaring the big-endian order Red Book uses on the disc
+# itself; WAVE, MP3 and AIFF are decodable audio files. LIB386/SYSTEM/CUE.CPP
+# draws the same line, and the two must agree or the engine and this script will
+# read the same cue differently.
+RAW_FILE_TYPES = ("BINARY", "MOTOROLA")
+
+# What the engine resolves for a music request: NAME.WAV, then .ogg/.OGG. A file
+# copied under any other extension is one nothing will ever load.
+ENGINE_AUDIO_EXTS = (".wav", ".ogg")
 
 IMAGE_EXTS = (".bin", ".iso", ".img", ".gog", ".dot", ".mdf", ".raw")
 CUE_EXTS = (".cue", ".dat", ".toc")
@@ -81,10 +110,13 @@ CUE_EXTS = (".cue", ".dat", ".toc")
 
 # --- cue sheet ---------------------------------------------------------------
 class CueTrack(object):
-    def __init__(self, number, mode, source):
+    def __init__(self, number, mode, source, source_type="BINARY"):
         self.number = number
         self.mode = mode  # AUDIO, MODE1/2352, ...
         self.source = source  # the FILE this track lives in
+        # BINARY means raw sectors, whether that file is the whole disc or just
+        # this track. WAVE/MP3/AIFF mean a decodable audio file.
+        self.source_type = source_type
         self.indexes = {}  # index number -> LBA within that file
 
     @property
@@ -106,6 +138,7 @@ def parse_cue(path):
     """Return the cue's tracks in file order. Raises ValueError on a bad INDEX."""
     tracks = []
     source = None
+    source_type = "BINARY"
     current = None
     with open(path, "r", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
@@ -114,13 +147,14 @@ def parse_cue(path):
                 continue
             head = line.split(None, 1)[0].upper()
             if head == "FILE":
-                m = re.match(r'FILE\s+"([^"]+)"|FILE\s+(\S+)', line, re.I)
+                m = re.match(r'FILE\s+"([^"]+)"\s*(\S+)?|FILE\s+(\S+)\s*(\S+)?', line, re.I)
                 if m:
-                    source = m.group(1) or m.group(2)
+                    source = m.group(1) or m.group(3)
+                    source_type = (m.group(2) or m.group(4) or "BINARY").upper()
             elif head == "TRACK":
                 parts = line.split()
                 if len(parts) >= 3:
-                    current = CueTrack(int(parts[1]), parts[2].upper(), source)
+                    current = CueTrack(int(parts[1]), parts[2].upper(), source, source_type)
                     tracks.append(current)
             elif head == "INDEX" and current is not None:
                 parts = line.split()
@@ -264,14 +298,47 @@ def music_dir_in(outdir):
     return os.path.join(outdir, MUSIC_DIR)
 
 
-def themes_without_a_file(outdir, stems):
-    """CD track numbers whose theme has no file in the output, in track order."""
+def themes_without_files(outdir, stems):
+    """The themes this tree has no file for, in ListJingle order."""
     have = set(stems)
     target = music_dir_in(outdir)
     if os.path.isdir(target):
         for name in os.listdir(target):
             have.add(os.path.splitext(name)[0].upper())
-    return [n for n in sorted(CD_TRACK_NAMES) if CD_TRACK_NAMES[n].upper() not in have]
+    return [t for t in ALL_THEMES if t.upper() not in have]
+
+
+def themes_for_tracks(spans, outdir, plan):
+    """Name every audio track, in one pass. Its number names nothing on its own.
+
+    The rule that holds across every pressing is positional. A disc's audio
+    tracks, in order, are the themes it did not ship as files, in ListJingle
+    order. The Brazilian Activision disc presses seven as tracks 2..8, the US
+    Activision disc presses six as tracks 2..7 with a different numbering, and
+    both European pressings press one; only the position is common to all.
+
+    It engages when the counts agree, which is what makes the correspondence
+    unambiguous. The US disc is missing seven and presses six, since TADPCM1 is
+    not on it at all, so it falls through to the table that was measured on it.
+
+    Named all at once, and this is not a stylistic choice: every track written
+    adds a file, so asking per track would shorten the missing list as it went
+    and slide every later track onto the wrong theme."""
+    missing = themes_without_files(outdir, plan.stems)
+    if len(missing) == len(spans):
+        return missing, "position"
+    return [CD_TRACK_NAMES.get(number) for number, _, _ in spans], "the US track table"
+
+
+def themes_without_a_file(outdir, stems):
+    """Every theme with no file in the output, in ListJingle order.
+
+    All of them, not just the ones the US table happens to name. A rip that lost
+    an audio track leaves a theme with nowhere to come from, and saying which one
+    is the difference between a silent theme and a diagnosis: the widely
+    circulated TWINSEN.mdx is short its first audio track, so extracting it
+    yields no TADPCM1 and nothing used to mention it."""
+    return themes_without_files(outdir, stems)
 
 
 def track_number_of(filename):
@@ -330,13 +397,19 @@ def write_wav_from_drive(drive, dest, first_sector, sectors, plan):
     if plan.dry_run:
         return 0
     retries = 0
+    swap = None
     with open_wav(dest) as wf:
         done = 0
         while done < sectors:
             count = min(MAX_SECTORS_PER_READ, sectors - done)
             for attempt in range(3):
                 try:
-                    wf.writeframes(drive.read_audio(first_sector + done, count))
+                    pcm = drive.read_audio(first_sector + done, count)
+                    if swap is None:
+                        swap = needs_byte_swap(pcm)
+                        if swap:
+                            print("            (big-endian audio, byte-swapping it)")
+                    wf.writeframes(byte_swap(pcm) if swap else pcm)
                     break
                 except DriveError:
                     retries += 1
@@ -358,12 +431,19 @@ def write_wav_from_sectors(src, dest, first_sector, sectors, plan):
         return
     with open(src, "rb") as fh, open_wav(dest) as wf:
         fh.seek(first_sector * RAW_SECTOR)
+        # Decide the byte order once, from the head of the track, then hold it:
+        # a decision taken per chunk could flip on a quiet passage.
+        probe = fh.read(min(payload, RAW_SECTOR * 64))
+        swap = needs_byte_swap(probe)
+        if swap:
+            print("            (big-endian audio, byte-swapping it)")
+        fh.seek(first_sector * RAW_SECTOR)
         left = payload
         while left > 0:
             chunk = fh.read(min(left, RAW_SECTOR * 512))
             if not chunk:
                 break
-            wf.writeframes(chunk)
+            wf.writeframes(byte_swap(chunk) if swap else chunk)
             left -= len(chunk)
 
 
@@ -422,11 +502,14 @@ def copy_data_tree(srcdir, outdir, plan):
             shutil.copyfile(src, dest)
 
 
-def copy_ripped(sources, outdir, plan):
-    """Name a ripper's output the way the engine asks for it."""
+def copy_ripped(sources, outdir, plan, force_name=None):
+    """Name a ripper's output the way the engine asks for it.
+
+    `force_name` overrides the track-number lookup, for a caller that has already
+    worked out which theme this is."""
     target = music_dir_in(outdir)
     for number, path in sorted(sources):
-        name = CD_TRACK_NAMES.get(number)
+        name = force_name if force_name else CD_TRACK_NAMES.get(number)
         if name is None:
             print("  skipping %s: track %s carries no music on this disc"
                   % (os.path.basename(path), number))
@@ -694,12 +777,37 @@ RUNOUT_TAIL = 0.05  # keep skipping while the noise fades out
 RUNOUT_MAX_SECTORS = MAX_SECTORS_PER_READ  # one transport read, ~360 ms, is plenty
 
 
-def mean_magnitude(sector):
+def mean_magnitude(sector, big_endian=False):
     """Mean absolute sample value of one CD-DA sector, as a fraction of full scale."""
-    samples = struct.unpack("<%dh" % (len(sector) // 2), sector)
+    fmt = "%s%dh" % (">" if big_endian else "<", len(sector) // 2)
+    samples = struct.unpack(fmt, sector)
     if not samples:
         return 0.0
     return sum(abs(v) for v in samples) / float(len(samples) * 32768)
+
+
+# Red Book stores samples MSB-first and a ripper is meant to swap them into the
+# little-endian order every player expects. Some do not: the European MODE2 rip
+# on the Internet Archive carries raw disc order, and played as it stands it is
+# full-scale noise. A cue has no field for this, so it is measured, by the same
+# statistic that finds run-out: bytes in the wrong order are uniform noise
+# averaging half of full scale, and music averages a few per cent.
+def needs_byte_swap(pcm):
+    """Whether this raw CD audio reads as noise one way round and music the other."""
+    if len(pcm) < 4:
+        return False
+    le = mean_magnitude(pcm)
+    be = mean_magnitude(pcm, big_endian=True)
+    if le < 0.25:
+        return False  # already quiet enough to be music, or too quiet to judge
+    return be * 2 < le
+
+
+def byte_swap(pcm):
+    a = array.array("h")
+    a.frombytes(pcm[:len(pcm) // 2 * 2])
+    a.byteswap()
+    return a.tobytes() + pcm[len(pcm) // 2 * 2:]
 
 
 def runout_sectors(head):
@@ -778,6 +886,27 @@ FILE "LBA2.OGG" MP3
       INDEX 01 00:00:00
 """
 
+# Every FILE type a cue can name, since how each is read differs and the engine
+# has to draw the same line. MOTOROLA is the trap: raw sectors like BINARY, but
+# big-endian, so treating it as a decodable file copies noise under a name
+# nothing loads.
+FILE_TYPES_CUE = """FILE "data.bin" BINARY
+  TRACK 01 MODE1/2352
+    INDEX 01 00:00:00
+FILE "t2.bin" MOTOROLA
+  TRACK 02 AUDIO
+    INDEX 01 00:00:00
+FILE "t3.wav" WAVE
+  TRACK 03 AUDIO
+    INDEX 01 00:00:00
+FILE "t4.ogg" MP3
+  TRACK 04 AUDIO
+    INDEX 01 00:00:00
+FILE "t5.aiff" AIFF
+  TRACK 05 AUDIO
+    INDEX 01 00:00:00
+"""
+
 PER_TRACK_CUE = """FILE "data.bin" BINARY
   TRACK 01 MODE1/2352
     INDEX 01 00:00:00
@@ -843,6 +972,36 @@ def selftest():
     check("per-track cue maps by number", external_audio(per_track),
           [(2, "track02.wav"), (3, "track03.wav")])
 
+    # FILE types. Raw-versus-decodable is what picks how a track is read, and
+    # MOTOROLA has to land with BINARY or its audio comes out as noise.
+    types = parse_cue(cue_of(FILE_TYPES_CUE))
+    check("file types parsed", [t.source_type for t in types],
+          ["BINARY", "MOTOROLA", "WAVE", "MP3", "AIFF"])
+    check("raw types", [t.source_type in RAW_FILE_TYPES for t in types],
+          [True, True, False, False, False])
+    # Where each audio track can be read from. The trap is a track inside an
+    # image that cannot carry audio: deciding on the FILE type alone sends the
+    # image itself down the raw-sector path and cuts its filesystem out as PCM.
+    cooked = parse_cue(cue_of(RETAIL_CUE))          # audio tracks inside one BINARY
+    check("in-image track needs a usable image",
+          [audio_source_kind(t, cooked, False) for t in cooked if t.mode == "AUDIO"],
+          [None, None])
+    check("in-image track with a usable image",
+          [audio_source_kind(t, cooked, True) for t in cooked if t.mode == "AUDIO"],
+          ["image", "image"])
+    mixed = parse_cue(cue_of(FILE_TYPES_CUE))       # MOTOROLA, WAVE, MP3, AIFF
+    check("separate files by type",
+          [audio_source_kind(t, mixed, True) for t in mixed if t.mode == "AUDIO"],
+          ["raw", "file", "file", "file"])
+    # A separate file does not care whether the image is usable: it is not the image.
+    check("separate files ignore the image",
+          [audio_source_kind(t, mixed, False) for t in mixed if t.mode == "AUDIO"],
+          ["raw", "file", "file", "file"])
+
+    check("engine can decode wav and ogg",
+          [e in ENGINE_AUDIO_EXTS for e in (".wav", ".ogg", ".aiff", ".bin")],
+          [True, True, False, False])
+
     check("track number from cdparanoia", track_number_of("track02.cdda.wav"), 2)
     check("track number from a space", track_number_of("Track 7.wav"), 7)
     check("track number from none", track_number_of("purple.wav"), None)
@@ -879,6 +1038,17 @@ def selftest():
     def level_sector(amplitude):
         return struct.pack("<h", amplitude) * (RAW_SECTOR // 2)
 
+    def wave_sector(amplitude):
+        """A triangle wave: a real waveform, with the crest factor music has."""
+        out = bytearray()
+        v, step = 0, max(1, amplitude // 64)
+        for _ in range(RAW_SECTOR // 2):
+            v += step
+            if v > amplitude or v < -amplitude:
+                step = -step
+            out += struct.pack("<h", v)
+        return bytes(out)
+
     silence = level_sector(0)
     quiet = level_sector(160)  # about what the music measures
     noise = noise_sector()
@@ -892,6 +1062,48 @@ def selftest():
     check("trim on nothing", runout_sectors([]), 0)
     check("trim is capped", runout_sectors([noise] * 100), RUNOUT_MAX_SECTORS)
 
+    # Byte order. Music the right way round must be left alone, since that is the
+    # path every working disc takes; the same music swapped has to be caught.
+    music = wave_sector(2500) * 4
+    check("correct order left alone", needs_byte_swap(music), False)
+    check("swapped music detected", needs_byte_swap(byte_swap(music)), True)
+    check("swap settles", needs_byte_swap(byte_swap(byte_swap(music))), False)
+    check("loud music is still music", needs_byte_swap(wave_sector(30000) * 4), False)
+    check("silence decides nothing", needs_byte_swap(silence), False)
+    check("byte_swap round trips", byte_swap(byte_swap(music)), music)
+
+    # Naming a disc that pressed one theme. Every other theme is a file; the one
+    # that is not is the track. Reading its number instead would say TADPCM2.
+    plan = Plan(False, True)
+    # ListJingle order is the whole point: JADPCM01 comes before TADPCM6.
+    check("theme order", ALL_THEMES[:7],
+          ["TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"])
+
+    def spans_of(*numbers):
+        return [(n, 0, 1) for n in numbers]
+
+    # A European pressing: one track, one theme with no file.
+    plan.stems = set(t for t in ALL_THEMES if t != "TADPCM6")
+    check("europe names its one track",
+          themes_for_tracks(spans_of(2), "/nonexistent", plan), (["TADPCM6"], "position"))
+
+    # The Brazilian disc: seven pressed, seven missing, so positional throughout.
+    br = set(ALL_THEMES) - {"TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5",
+                            "JADPCM01", "TADPCM6"}
+    plan.stems = br
+    check("brazil maps tracks 2..8",
+          themes_for_tracks(spans_of(2, 3, 4, 5, 6, 7, 8), "/nonexistent", plan),
+          (["TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"],
+           "position"))
+
+    # The US disc presses six of the same seven, so the counts disagree and the
+    # table takes over. Positional would have named track 2 TADPCM1.
+    plan.stems = br
+    check("us falls back to the table",
+          themes_for_tracks(spans_of(2, 3, 4, 5, 6, 7), "/nonexistent", plan),
+          (["TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"],
+           "the US track table"))
+
     for line in failures:
         print("FAIL %s" % line)
     print("%d check(s), %d failed" % (checks[0], len(failures)))
@@ -899,44 +1111,101 @@ def selftest():
 
 
 # --- music sources -----------------------------------------------------------
+def audio_track_extent(track, tracks, file_sectors):
+    """(first sector, sector count) of one audio track inside its own FILE.
+
+    A cue's addresses are relative to the file carrying the track, so a track
+    runs to the next one in that same file and the last runs to its end. A
+    pregap belongs to the track that follows it, as Red Book defines it."""
+    end = file_sectors
+    for other in tracks:
+        if other.source != track.source or other.first_index is None:
+            continue
+        if track.start < other.first_index < end:
+            end = other.first_index
+    return track.start, max(0, end - track.start)
+
+
+def audio_source_kind(track, tracks, image_usable):
+    """Where one cue audio track can be read from, or None when it cannot be.
+
+    The question is which file the track names, not which type the cue gave it.
+    A track inside the image is readable only when the image can carry audio at
+    all: a cooked 2048-byte image holds no audio sectors, and a cue naming some
+    other file is not describing this one. Deciding on the type alone treats the
+    image itself as a raw per-track file and cuts the filesystem out of it as
+    PCM, which is silent and sounds like noise."""
+    if track.source == tracks[0].source:
+        return "image" if image_usable else None
+    if track.source_type in RAW_FILE_TYPES:
+        return "raw"
+    return "file"
+
+
 def music_from_cue(image, cue, raw, outdir, plan):
     tracks = parse_cue(cue)
     print("Cue:        %s (%d tracks)" % (cue, len(tracks)))
-    loose = external_audio(tracks)
-    if loose:
-        base = os.path.dirname(os.path.abspath(cue))
-        print("Music:      one file per track, named by the cue")
-        copy_ripped([(n, os.path.join(base, f)) for n, f in loose
-                     if os.path.isfile(os.path.join(base, f))], outdir, plan)
-    elif not cue_names(cue, tracks, image):
-        # A cue's INDEX addresses belong to the file it names. Applying them to a
-        # different one lands mid-sector and plays as full-scale noise, so
-        # "probably the same disc" is not enough.
-        print("Music:      %s describes %r, not this image"
-              % (os.path.basename(cue), tracks[0].source))
-    elif not raw:
-        print("Music:      image is cooked (2048), so it carries no CD audio")
-    else:
-        spans = audio_spans(tracks, os.path.getsize(image) // RAW_SECTOR)
-        if spans:
-            print("Music:      matched by CD track number")
-            target = music_dir_in(outdir)
-            if not plan.dry_run:
-                os.makedirs(target, exist_ok=True)
-            for number, first, count in spans:
-                name = CD_TRACK_NAMES.get(number)
-                if name is None:
-                    print("  track %02d carries no music on this disc" % number)
-                    continue
-                write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
-                                       first, count, plan)
-        elif single_external(tracks):
-            print("Music:      one external audio file (%s), whose cue number is not "
-                  "a CD track number" % single_external(tracks))
-            print("            The engine plays it as it stands; leave it where it "
-                  "is rather than renaming it here.")
+    base = os.path.dirname(os.path.abspath(cue))
+    audio = [t for t in tracks if t.mode == "AUDIO" and t.start is not None]
+    if not audio:
+        print("Music:      the cue lists no audio tracks")
+        return
+
+    # A cue's INDEX addresses belong to the file it names. Applying them to a
+    # different one lands mid-sector and plays as full-scale noise, so "probably
+    # the same disc" is not enough to read sectors out of the mounted image.
+    image_usable = raw and cue_names(cue, tracks, image)
+    unusable_why = None
+    if not image_usable:
+        unusable_why = ("the image is cooked (2048), so it carries no CD audio" if not raw
+                        else "%s describes %r, not this image"
+                             % (os.path.basename(cue), tracks[0].source))
+
+    names, rule = themes_for_tracks([(t.number, t.start, 0) for t in audio], outdir, plan)
+    print("Music:      %d audio track(s), named by %s" % (len(audio), rule))
+    target = music_dir_in(outdir)
+    if not plan.dry_run:
+        os.makedirs(target, exist_ok=True)
+
+    for track, name in zip(audio, names):
+        if name is None:
+            print("  track %02d: cannot tell which theme this is" % track.number)
+            continue
+        path = os.path.join(base, track.source) if track.source else None
+        kind = audio_source_kind(track, tracks, image_usable)
+
+        if kind is None:
+            print("  track %02d: %s" % (track.number, unusable_why))
+            continue
+        if kind == "image":
+            # Audio sectors inside the mounted image.
+            first, count = audio_track_extent(
+                track, tracks, os.path.getsize(image) // RAW_SECTOR)
+            write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
+                                   first, count, plan)
+        elif kind == "raw":
+            # Its own raw-sector file: a rip that split every track, which is what
+            # DiscImageCreator and EAC produce. MOTOROLA lands here too, and the
+            # byte-order check turns it the right way round on the way out.
+            if not path or not os.path.isfile(path):
+                print("  track %02d: %r is not beside the cue" % (track.number, track.source))
+                continue
+            first, count = audio_track_extent(
+                track, tracks, os.path.getsize(path) // RAW_SECTOR)
+            write_wav_from_sectors(path, os.path.join(target, name + ".WAV"),
+                                   first, count, plan)
         else:
-            print("Music:      the cue lists no audio tracks in this image")
+            # A decodable audio file the cue names (GOG ships its one theme as
+            # LBA2.OGG). Copied under the theme's name, keeping its own
+            # extension so the engine's OGG fallback still finds it.
+            if not path or not os.path.isfile(path):
+                print("  track %02d: %r is not beside the cue" % (track.number, track.source))
+                continue
+            if os.path.splitext(path)[1].lower() not in ENGINE_AUDIO_EXTS:
+                print("  track %02d: %s is a %s file, which the engine cannot decode"
+                      % (track.number, track.source, track.source_type))
+                continue
+            copy_ripped([(track.number, path)], outdir, plan, force_name=name)
 
 
 def music_from_drive(drive, outdir, plan):
@@ -962,8 +1231,8 @@ def music_from_drive(drive, outdir, plan):
         os.makedirs(target, exist_ok=True)
 
     retries = 0
-    for number, first, count in spans:
-        name = CD_TRACK_NAMES.get(number)
+    names, _ = themes_for_tracks(spans, outdir, plan)
+    for (number, first, count), name in zip(spans, names):
         if name is None:
             print("  track %02d is audio, but no theme is mapped to it" % number)
             continue
@@ -1097,8 +1366,9 @@ def main():
     # has them all.
     missing = themes_without_a_file(a.outdir, plan.stems)
     if missing:
-        print("No file for: %s" % ", ".join(
-            "%s (track %02d)" % (CD_TRACK_NAMES[n], n) for n in missing))
+        print("No file for: %s" % ", ".join(missing))
+        print("             That music has nowhere to come from. If the disc should "
+              "have pressed it, the rip is short a track.")
     print("%d file(s) written, %d already there, %.1f MB"
           % (plan.written, plan.skipped, plan.bytes / 1048576.0))
     if not a.dry_run and (image is not None or datadir is not None):

@@ -19,6 +19,41 @@ static const char *const CD_TRACK_NAMES[] = {
 #define CD_TRACK_COUNT ((int)(sizeof(CD_TRACK_NAMES) / sizeof(CD_TRACK_NAMES[0])))
 
 //──────────────────────────────────────────────────────────────────────────
+// Every theme, in SOURCES/MUSIC.CPP's ListJingle order (its index 0 is the
+// "no track" placeholder and is not a theme, so it is not here). Note where
+// JADPCM01 falls: between TADPCM5 and TADPCM6, not with the other jingles.
+// tests/cdtracks reads MUSIC.CPP and fails if this drifts.
+static const char *const THEME_NAMES[] = {
+    "TADPCM1",
+    "TADPCM2",
+    "TADPCM3",
+    "TADPCM4",
+    "TADPCM5",
+    "JADPCM01",
+    "TADPCM6",
+    "JADPCM02",
+    "JADPCM03",
+    "JADPCM04",
+    "JADPCM05",
+    "JADPCM06",
+    "JADPCM07",
+    "JADPCM08",
+    "JADPCM09",
+    "JADPCM10",
+    "JADPCM11",
+    "JADPCM12",
+    "JADPCM13",
+    "JADPCM14",
+    "JADPCM15",
+    "JADPCM16",
+    "JADPCM17",
+    "JADPCM18",
+    "LOGADPCM",
+};
+
+#define THEME_COUNT ((int)(sizeof(THEME_NAMES) / sizeof(THEME_NAMES[0])))
+
+//──────────────────────────────────────────────────────────────────────────
 // Reduce a path to the uppercased stem of its last component, which is the form
 // the table stores: "…/music/TADPCM3.WAV" becomes "TADPCM3".
 static void music_stem(const char *pathOrName, char *out, size_t outMax) {
@@ -53,4 +88,47 @@ extern "C" int CdTracks_NumberForMusicName(const char *pathOrName) {
 extern "C" const char *CdTracks_NameForNumber(int track) {
     int i = track - CDTRACKS_FIRST_AUDIO;
     return (i >= 0 && i < CD_TRACK_COUNT) ? CD_TRACK_NAMES[i] : NULL;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" int CdTracks_ThemeCount(void) { return THEME_COUNT; }
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" int CdTracks_MissingThemeIndex(const char *pathOrName, const unsigned char *present,
+                                          int presentCount, int *outMissing) {
+    if (outMissing != NULL)
+        *outMissing = 0;
+    if (present == NULL || presentCount < THEME_COUNT)
+        return -1;
+
+    char stem[32];
+    int wanted = -1;
+    if (pathOrName != NULL && pathOrName[0] != '\0') {
+        music_stem(pathOrName, stem, sizeof(stem));
+        for (int i = 0; i < THEME_COUNT; i++) {
+            if (strcmp(stem, THEME_NAMES[i]) == 0) {
+                wanted = i;
+                break;
+            }
+        }
+    }
+
+    int missing = 0;
+    int position = -1;
+    for (int i = 0; i < THEME_COUNT; i++) {
+        if (present[i])
+            continue;
+        if (i == wanted)
+            position = missing;
+        missing++;
+    }
+
+    if (outMissing != NULL)
+        *outMissing = missing;
+    return position;
+}
+
+//──────────────────────────────────────────────────────────────────────────
+extern "C" const char *CdTracks_ThemeName(int index) {
+    return (index >= 0 && index < THEME_COUNT) ? THEME_NAMES[index] : NULL;
 }

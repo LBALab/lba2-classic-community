@@ -56,9 +56,19 @@ static uint8_t *read_extent(iso9660_t *iso, uint32_t lba, uint32_t length) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
-// The two ordinary on-disc layouts: raw 2352 (16-byte sync+header before the
-// user data) and cooked 2048. Both start the image at byte 0.
-static const int LAYOUTS[][2] = {{2352, 16}, {2048, 0}};
+// The ordinary on-disc layouts, all starting the image at byte 0:
+//
+//   2352/16  MODE1 raw: 12 sync + 4 header, then the user data.
+//   2352/24  MODE2 Form 1 raw (CD-ROM XA / CD-Bridge): the same 16 bytes plus
+//            an 8-byte subheader. The European EA pressing of LBA2 is one of
+//            these, mastered as CD-RTOS CD-BRIDGE.
+//   2048/0   cooked, data track only.
+//
+// MODE2 is listed after MODE1 and before cooked so raw layouts are tried
+// together. It cannot steal a MODE1 image: probing a MODE1 sector 16 at offset
+// 24 lands 8 bytes into the user data, where "CD001" would have to appear
+// inside the system identifier field.
+static const int LAYOUTS[][2] = {{2352, 16}, {2352, 24}, {2048, 0}};
 
 //──────────────────────────────────────────────────────────────────────────
 // How far into a file we are willing to look for a container header before the
@@ -199,13 +209,15 @@ uint32_t iso_raw_sector_count(iso9660_t *iso) {
 }
 
 //──────────────────────────────────────────────────────────────────────────
-int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase) {
+int iso_layout(iso9660_t *iso, int *outSectorSize, long *outBase, int *outDataOff) {
     if (iso == NULL)
         return -1;
     if (outSectorSize)
         *outSectorSize = iso->sector_size;
     if (outBase)
         *outBase = iso->base;
+    if (outDataOff)
+        *outDataOff = iso->data_off;
     return 0;
 }
 
