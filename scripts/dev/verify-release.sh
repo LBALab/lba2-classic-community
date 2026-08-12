@@ -9,6 +9,15 @@
 # system, with the executable bit preserved and the static linking
 # claim holding.
 #
+# Two metadata checks ride along, because both failure modes are silent
+# until a user reports a confusing version number:
+#
+#   * `--version` agrees with the version in the filename, so a
+#     mislabelled artifact can't reach the Releases page.
+#   * The AppImage's baked-in self-update channel matches the release it
+#     was attached to. This one needs no container, so it covers the
+#     cross-arch AppImages the run check has to skip.
+#
 # Windows ZIPs and macOS DMGs aren't checked — running them on a Linux
 # host needs wine / qemu-system-x86 / a Mac, which is more machinery
 # than the marginal signal justifies. CI already builds and packages
@@ -28,6 +37,19 @@
 set -euo pipefail
 
 TAG="${1:-latest}"
+
+# Self-update channel each AppImage on this release should carry. In
+# gh-releases-zsync the tag field is a reserved keyword rather than a tag
+# name: `latest` means newest non-prerelease, `latest-pre` newest
+# prerelease. The rolling release is tagged `latest` *and* flagged
+# prerelease, so a rolling AppImage left on `latest` resolves to the newest
+# stable tag and overwrites itself with it on first run, keeping its own
+# rolling filename, so its banner then reports an older version than the
+# name promises. See docs/RELEASING.md "Rolling latest pre-release".
+case "$TAG" in
+    latest) EXPECT_CHANNEL="latest-pre" ;;
+    *)      EXPECT_CHANNEL="latest" ;;
+esac
 
 for tool in gh docker tar; do
     if ! command -v "$tool" >/dev/null 2>&1; then
@@ -93,8 +115,41 @@ PASS=0
 FAIL=0
 declare -a RESULTS
 
+# Version embedded in an artifact filename, which is always
+# lba2cc-<version>-<platform>-<arch>.<ext>. Strip the prefix and the two
+# trailing fields. <version> itself contains dashes (`0.13.0-dev`), so peel
+# from the right rather than splitting on the first one.
+version_from_name() {
+    local stem="${1%.tar.gz}"
+    stem="${stem%.AppImage}"
+    stem="${stem#lba2cc-}"
+    stem="${stem%-*}"
+    printf '%s' "${stem%-*}"
+}
+
+# The update information is a plain string in the AppImage's .upd_info ELF
+# section. grep it out rather than making binutils a host requirement.
+check_update_channel() {
+    local label="$1" aimg="$2"
+    local upd channel
+    upd=$( grep -a -o -m1 'gh-releases-zsync|[^|]*|[^|]*|[^|]*|' "$aimg" || true )
+    if [[ -z "$upd" ]]; then
+        RESULTS+=( "FAIL  $label  carries no gh-releases-zsync update information" )
+        FAIL=$(( FAIL + 1 ))
+        return
+    fi
+    channel=$( printf '%s' "$upd" | cut -d'|' -f4 )
+    if [[ "$channel" == "$EXPECT_CHANNEL" ]]; then
+        RESULTS+=( "PASS  $label  update-channel=$channel" )
+        PASS=$(( PASS + 1 ))
+    else
+        RESULTS+=( "FAIL  $label  update-channel=$channel, expected $EXPECT_CHANNEL on tag $TAG" )
+        FAIL=$(( FAIL + 1 ))
+    fi
+}
+
 run_check() {
-    local label="$1" platform="$2" mount_mode="$3" cmd="$4"
+    local label="$1" platform="$2" mount_mode="$3" cmd="$4" expected="$5"
     local out rc version
     # Guard against set -e propagating from $() when docker exits
     # non-zero — we want to record the failure as a FAIL row, not abort
@@ -110,12 +165,15 @@ run_check() {
     # "Cannot find CA Certificates" notice) folded in via 2>&1. The
     # real version is the last non-empty line.
     version=$( echo "$out" | awk 'NF{last=$0} END{print last}' )
-    if [[ $rc -eq 0 && -n "$version" ]]; then
-        RESULTS+=( "PASS  $label  --version=$version" )
-        PASS=$(( PASS + 1 ))
-    else
+    if [[ $rc -ne 0 || -z "$version" ]]; then
         RESULTS+=( "FAIL  $label  rc=$rc out=$out" )
         FAIL=$(( FAIL + 1 ))
+    elif [[ "$version" != "$expected" ]]; then
+        RESULTS+=( "FAIL  $label  --version=$version but the filename says $expected" )
+        FAIL=$(( FAIL + 1 ))
+    else
+        RESULTS+=( "PASS  $label  --version=$version" )
+        PASS=$(( PASS + 1 ))
     fi
 }
 
@@ -133,7 +191,8 @@ for tgz in "${TARBALLS[@]}"; do
         "tarball $stem" \
         "$platform" \
         "ro" \
-        "/test/$stem/lba2cc --version"
+        "/test/$stem/lba2cc --version" \
+        "$( version_from_name "$tgz" )"
 done
 
 # AppImage verification has a cross-arch limitation: the AppImage type-2
@@ -152,6 +211,9 @@ for aimg in "${APPIMAGES[@]}"; do
         *x86_64*)  aimg_arch="x86_64";  platform="linux/amd64" ;;
         *)         aimg_arch="unknown"; platform="linux/amd64" ;;
     esac
+    # Reads the file directly, so it runs for every AppImage including the
+    # cross-arch ones skipped below.
+    check_update_channel "appimage $stem" "$WORK_DIR/$aimg"
     if [[ "$aimg_arch" != "$HOST_ARCH" ]]; then
         RESULTS+=( "SKIP  appimage $stem  cross-arch AppImage (host=$HOST_ARCH, image=$aimg_arch) — qemu-user can't run AppImage runtime stub" )
         continue
@@ -172,7 +234,8 @@ for aimg in "${APPIMAGES[@]}"; do
         "appimage $stem" \
         "$platform" \
         "ro" \
-        "/test/$extract_dir/squashfs-root/AppRun --version"
+        "/test/$extract_dir/squashfs-root/AppRun --version" \
+        "$( version_from_name "$aimg" )"
 done
 
 echo

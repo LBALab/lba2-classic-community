@@ -20,6 +20,15 @@ on:
         type: string
         required: false
         default: AppImage
+      update-channel:
+        description: >-
+          gh-releases-zsync tag keyword the bundled self-updater follows.
+          Tag releases pass "latest" (default, newest stable); release-latest
+          passes "latest-pre" so a rolling build tracks the rolling channel
+          instead of replacing itself with the newest stable release.
+        type: string
+        required: false
+        default: latest
 
 jobs:
   build:
@@ -40,6 +49,8 @@ jobs:
       - name: Preparing Container
         uses: pkgforge-dev/anylinux-setup-action@v2
       - name: Make AppImage
+        env:
+          LBA2_UPDATE_CHANNEL: ${{ inputs.update-channel }}
         run: /bin/sh ./scripts/packaging/make-appimage.sh
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7

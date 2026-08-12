@@ -37,7 +37,16 @@ read -r VERSION < ./dist/VERSION.txt
 export ARCH VERSION
 export OUTPATH=./dist
 export ADD_HOOKS="self-updater.hook"
-export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|*$ARCH.AppImage.zsync"
+# Release channel the bundled self-updater follows. In gh-releases-zsync the
+# tag field is a reserved keyword, not a tag name: "latest" means newest
+# non-prerelease, "latest-pre" means newest prerelease. This repo's rolling
+# release is tagged `latest` *and* flagged prerelease, so a rolling build left
+# on the default channel resolves to the newest stable tag and overwrites
+# itself with it on first run, keeping its own rolling filename, so the
+# banner then reports an older version than the name promises. Callers
+# building the rolling artifact pass latest-pre; tagged builds take the
+# default and stay on stable.
+export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|${LBA2_UPDATE_CHANNEL:-latest}|*$ARCH.AppImage.zsync"
 # quick-sharun reads APPNAME to construct the AppImage filename. Use the
 # short executable name (lba2cc) rather than the human product name
 # ("LBA2 Classic Community") so the artifact matches the cross-platform
