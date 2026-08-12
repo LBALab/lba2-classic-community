@@ -93,6 +93,17 @@ CDDA_RATE = 44100
 CDDA_CHANNELS = 2
 CDDA_WIDTH = 2
 
+# A cue's FILE type says how to read what it names. BINARY and MOTOROLA are raw
+# sectors, MOTOROLA declaring the big-endian order Red Book uses on the disc
+# itself; WAVE, MP3 and AIFF are decodable audio files. LIB386/SYSTEM/CUE.CPP
+# draws the same line, and the two must agree or the engine and this script will
+# read the same cue differently.
+RAW_FILE_TYPES = ("BINARY", "MOTOROLA")
+
+# What the engine resolves for a music request: NAME.WAV, then .ogg/.OGG. A file
+# copied under any other extension is one nothing will ever load.
+ENGINE_AUDIO_EXTS = (".wav", ".ogg")
+
 IMAGE_EXTS = (".bin", ".iso", ".img", ".gog", ".dot", ".mdf", ".raw")
 CUE_EXTS = (".cue", ".dat", ".toc")
 
@@ -875,6 +886,27 @@ FILE "LBA2.OGG" MP3
       INDEX 01 00:00:00
 """
 
+# Every FILE type a cue can name, since how each is read differs and the engine
+# has to draw the same line. MOTOROLA is the trap: raw sectors like BINARY, but
+# big-endian, so treating it as a decodable file copies noise under a name
+# nothing loads.
+FILE_TYPES_CUE = """FILE "data.bin" BINARY
+  TRACK 01 MODE1/2352
+    INDEX 01 00:00:00
+FILE "t2.bin" MOTOROLA
+  TRACK 02 AUDIO
+    INDEX 01 00:00:00
+FILE "t3.wav" WAVE
+  TRACK 03 AUDIO
+    INDEX 01 00:00:00
+FILE "t4.ogg" MP3
+  TRACK 04 AUDIO
+    INDEX 01 00:00:00
+FILE "t5.aiff" AIFF
+  TRACK 05 AUDIO
+    INDEX 01 00:00:00
+"""
+
 PER_TRACK_CUE = """FILE "data.bin" BINARY
   TRACK 01 MODE1/2352
     INDEX 01 00:00:00
@@ -939,6 +971,17 @@ def selftest():
     per_track = parse_cue(cue_of(PER_TRACK_CUE))
     check("per-track cue maps by number", external_audio(per_track),
           [(2, "track02.wav"), (3, "track03.wav")])
+
+    # FILE types. Raw-versus-decodable is what picks how a track is read, and
+    # MOTOROLA has to land with BINARY or its audio comes out as noise.
+    types = parse_cue(cue_of(FILE_TYPES_CUE))
+    check("file types parsed", [t.source_type for t in types],
+          ["BINARY", "MOTOROLA", "WAVE", "MP3", "AIFF"])
+    check("raw types", [t.source_type in RAW_FILE_TYPES for t in types],
+          [True, True, False, False, False])
+    check("engine can decode wav and ogg",
+          [e in ENGINE_AUDIO_EXTS for e in (".wav", ".ogg", ".aiff", ".bin")],
+          [True, True, False, False])
 
     check("track number from cdparanoia", track_number_of("track02.cdda.wav"), 2)
     check("track number from a space", track_number_of("Track 7.wav"), 7)
@@ -1101,9 +1144,10 @@ def music_from_cue(image, cue, raw, outdir, plan):
                 track, tracks, os.path.getsize(image) // RAW_SECTOR)
             write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
                                    first, count, plan)
-        elif track.source_type == "BINARY":
-            # Its own BINARY file: a rip that split every track, which is what
-            # DiscImageCreator and EAC produce. Same raw sectors, own file.
+        elif track.source_type in RAW_FILE_TYPES:
+            # Its own raw-sector file: a rip that split every track, which is what
+            # DiscImageCreator and EAC produce. MOTOROLA lands here too, and the
+            # byte-order check turns it the right way round on the way out.
             if not path or not os.path.isfile(path):
                 print("  track %02d: %r is not beside the cue" % (track.number, track.source))
                 continue
@@ -1117,6 +1161,10 @@ def music_from_cue(image, cue, raw, outdir, plan):
             # extension so the engine's OGG fallback still finds it.
             if not path or not os.path.isfile(path):
                 print("  track %02d: %r is not beside the cue" % (track.number, track.source))
+                continue
+            if os.path.splitext(path)[1].lower() not in ENGINE_AUDIO_EXTS:
+                print("  track %02d: %s is a %s file, which the engine cannot decode"
+                      % (track.number, track.source, track.source_type))
                 continue
             copy_ripped([(track.number, path)], outdir, plan, force_name=name)
 
