@@ -336,6 +336,23 @@ bool WritePersistedGameDir(const char *path) {
     return true;
 }
 
+/* The probe that won, for the boot banner. Set before each attempt rather than
+   on success: whatever was set last when a probe returns true is that probe's
+   label, and a failed attempt's label is overwritten by the next one before
+   anyone reads it. */
+static char s_discoverySource[64] = "";
+
+void Res_SetDiscoverySource(const char *label) {
+    if (label == NULL) {
+        s_discoverySource[0] = '\0';
+        return;
+    }
+    strncpy(s_discoverySource, label, sizeof(s_discoverySource) - 1);
+    s_discoverySource[sizeof(s_discoverySource) - 1] = '\0';
+}
+
+const char *Res_GetDiscoverySource(void) { return s_discoverySource; }
+
 bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     char tried[kMaxTried][ADELINE_MAX_PATH];
     int triedCount = 0;
@@ -352,8 +369,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         /* The path itself, then the subfolder a retail install keeps its data in: people
            point this at the install root (README says so, and the Makefile forwards
            GAME_DIR straight through), and the HQRs live one level down in Common/. */
-        if (NormalizeAndTry(cliPath, outDir, outMax, tried, &triedCount, true) ||
-            TryJoinBaseSub(cliPath, "Common", outDir, outMax, tried, &triedCount, true)) {
+        Res_SetDiscoverySource("--game-dir");
+        if (NormalizeAndTry(cliPath, outDir, outMax, tried, &triedCount, true)) {
+            return true;
+        }
+        Res_SetDiscoverySource("--game-dir, Common/");
+        if (TryJoinBaseSub(cliPath, "Common", outDir, outMax, tried, &triedCount, true)) {
             return true;
         }
 
@@ -382,8 +403,12 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
        when headless), which is loud and recoverable. */
     const char *env = getenv("LBA2_GAME_DIR");
     if (env != NULL && env[0] != '\0') {
-        if (NormalizeAndTry(env, outDir, outMax, tried, &triedCount, true) ||
-            TryJoinBaseSub(env, "Common", outDir, outMax, tried, &triedCount, true)) {
+        Res_SetDiscoverySource("LBA2_GAME_DIR");
+        if (NormalizeAndTry(env, outDir, outMax, tried, &triedCount, true)) {
+            return true;
+        }
+        Res_SetDiscoverySource("LBA2_GAME_DIR, Common/");
+        if (TryJoinBaseSub(env, "Common", outDir, outMax, tried, &triedCount, true)) {
             return true;
         }
 
@@ -419,6 +444,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * silently re-appearing on a previously-persisted launch is hard
      * to diagnose. */
     if (ReadPersistedGameDir(persisted, ADELINE_MAX_PATH)) {
+        Res_SetDiscoverySource("last_game_dir.txt");
         if (NormalizeAndTry(persisted, outDir, outMax, tried, &triedCount, true)) {
             return true;
         }
@@ -445,9 +471,16 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
        and there are a lot of them. */
     basePath = SDL_GetBasePath();
     if (basePath != NULL) {
-        if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount, true) ||
-            TryJoinBaseSub(basePath, "data", outDir, outMax, tried, &triedCount) ||
-            TryJoinBaseSub(basePath, "game", outDir, outMax, tried, &triedCount)) {
+        Res_SetDiscoverySource("next to the binary");
+        if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount, true)) {
+            return true;
+        }
+        Res_SetDiscoverySource("next to the binary, data/");
+        if (TryJoinBaseSub(basePath, "data", outDir, outMax, tried, &triedCount)) {
+            return true;
+        }
+        Res_SetDiscoverySource("next to the binary, game/");
+        if (TryJoinBaseSub(basePath, "game", outDir, outMax, tried, &triedCount)) {
             return true;
         }
     }
@@ -455,6 +488,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     GetCurrentRunningDir(walk);
     walk[ADELINE_MAX_PATH - 1] = '\0';
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
+    Res_SetDiscoverySource("working directory");
     if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount, true)) {
         return true;
     }
@@ -465,6 +499,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * adb push file.hqr /sdcard/Android/data/<pkg>/files/ */
     if (Android_GetExternalFilesDir(walk, ADELINE_MAX_PATH)) {
         EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
+        Res_SetDiscoverySource("Android app files dir");
         if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount))
             return true;
     }
@@ -473,10 +508,20 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
      * may need MANAGE_EXTERNAL_STORAGE permission — see
      * docs/ANDROID.md). Try /sdcard/lba2cc/ first so users can keep data in a
      * subdirectory. Harmless no-op on non-Android. */
-    if (TryJoinBaseSub("/sdcard/", "lba2cc", outDir, outMax, tried, &triedCount) ||
-        TryJoinBaseSub("/storage/emulated/0/", "lba2cc", outDir, outMax, tried, &triedCount) ||
-        NormalizeAndTry("/sdcard/", outDir, outMax, tried, &triedCount) ||
-        NormalizeAndTry("/storage/emulated/0/", outDir, outMax, tried, &triedCount)) {
+    Res_SetDiscoverySource("/sdcard/lba2cc");
+    if (TryJoinBaseSub("/sdcard/", "lba2cc", outDir, outMax, tried, &triedCount)) {
+        return true;
+    }
+    Res_SetDiscoverySource("/storage/emulated/0/lba2cc");
+    if (TryJoinBaseSub("/storage/emulated/0/", "lba2cc", outDir, outMax, tried, &triedCount)) {
+        return true;
+    }
+    Res_SetDiscoverySource("/sdcard");
+    if (NormalizeAndTry("/sdcard/", outDir, outMax, tried, &triedCount)) {
+        return true;
+    }
+    Res_SetDiscoverySource("/storage/emulated/0");
+    if (NormalizeAndTry("/storage/emulated/0/", outDir, outMax, tried, &triedCount)) {
         return true;
     }
 
@@ -488,6 +533,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
             break;
         }
         EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
+        Res_SetDiscoverySource("parent walk");
         if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount)) {
             return true;
         }
@@ -501,6 +547,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         int n = snprintf(rel, ADELINE_MAX_PATH, "%s%s%s", walk, "data",
                          ADELINE_PATH_SEP);
         if (n > 0 && (size_t)n < ADELINE_MAX_PATH) {
+            Res_SetDiscoverySource("working directory, data/");
             if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
                 return true;
             }
@@ -515,6 +562,7 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         int n = snprintf(rel, ADELINE_MAX_PATH, "%s..%s%s%s", walk,
                          ADELINE_PATH_SEP, "LBA2", ADELINE_PATH_SEP);
         if (n > 0 && (size_t)n < ADELINE_MAX_PATH) {
+            Res_SetDiscoverySource("../LBA2/ beside the working directory");
             if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
                 return true;
             }
@@ -529,12 +577,14 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         int n = snprintf(rel, ADELINE_MAX_PATH, "%s..%s%s%s", walk,
                          ADELINE_PATH_SEP, "game", ADELINE_PATH_SEP);
         if (n > 0 && (size_t)n < ADELINE_MAX_PATH) {
+            Res_SetDiscoverySource("../game/ beside the working directory");
             if (NormalizeAndTry(rel, outDir, outMax, tried, &triedCount)) {
                 return true;
             }
         }
     }
 
+    Res_SetDiscoverySource("sibling scan");
     if (TryParentSiblingScan(outDir, outMax, tried, &triedCount)) {
         return true;
     }

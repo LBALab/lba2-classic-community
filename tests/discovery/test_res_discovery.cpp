@@ -248,6 +248,16 @@ static bool test_env_lba2_game_dir_common_join() {
                 out, root);
         return false;
     }
+    /* The banner has to name the probe that won, and this is the case that
+     * catches a mislabel: the env branch makes two attempts, so a label set
+     * once for the pair would report the wrong one for whichever hit second. */
+    const char *via = Res_GetDiscoverySource();
+    if (strcmp(via, "LBA2_GAME_DIR, Common/") != 0) {
+        fprintf(stderr,
+                "test_env_lba2_game_dir_common_join: labelled '%s', wanted 'LBA2_GAME_DIR, Common/'\n",
+                via);
+        return false;
+    }
     return true;
 }
 
@@ -308,7 +318,15 @@ static bool test_argv_game_dir() {
     if (!ok || argc != 1) {
         return false;
     }
-    return strstr(out, tmpl_ptr) != NULL;
+    if (strstr(out, tmpl_ptr) == NULL) {
+        return false;
+    }
+    const char *via = Res_GetDiscoverySource();
+    if (strcmp(via, "--game-dir") != 0) {
+        fprintf(stderr, "test_argv_game_dir: labelled '%s', wanted '--game-dir'\n", via);
+        return false;
+    }
+    return true;
 }
 
 /**
