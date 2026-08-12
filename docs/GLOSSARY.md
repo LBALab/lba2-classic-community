@@ -24,7 +24,7 @@ LBA File Info omits `video.hqr`; the list below is complete per the source code.
 
 | File | Purpose |
 |------|---------|
-| `lba2.hqr` | Ending credits data |
+| `LBA2.HQR` | Ending credits data |
 | `scene.hqr` | Scripts defining active scene content |
 | `body.hqr` | 3D models of characters |
 | `anim.hqr` | Animations for 3D models |

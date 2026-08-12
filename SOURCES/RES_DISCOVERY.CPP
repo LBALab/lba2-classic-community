@@ -107,7 +107,7 @@ bool NormalizeAndTry(const char *pathIn, char *outDir, U16 outMax,
 }
 
 void LogFailure(const char tried[][ADELINE_MAX_PATH], int triedCount) {
-    Log_Error("No valid game data directory (need lba2.hqr). Tried %d path(s).",
+    Log_Error("No valid game data directory (need LBA2.HQR). Tried %d path(s).",
               triedCount);
     for (int i = 0; i < triedCount; i++) {
         Log_Error("  - %s", tried[i]);

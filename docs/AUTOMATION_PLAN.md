@@ -264,7 +264,7 @@ time.
    The only platform-sensitive surface is the file writes (`SavePNG`, JSON `fopen`); when
    an Xbox build appears, guard those two — not the whole feature.
 6. **Tests can't run in host-only CI.** The harness must boot the real engine (needs retail
-   `lba2.hqr`, and a save for `--load`), absent from the repo and from `make test`. The
+   `LBA2.HQR`, and a save for `--load`), absent from the repo and from `make test`. The
    `tests/automation/*.sh` scripts gate on data presence and skip cleanly when absent (like
    the Docker ASM tests need Docker). They're runnable usage docs locally, not CI gates.
 

@@ -66,7 +66,7 @@ separate source's job, not an external file.
    a multi-sector fixture covering cross-sector reads and EOF clamping.
 4. **mount + `OpenRead` intercept (data) + preflight + boot-log `Disc:` line.** A `DiscImage` manager
    (`LIB386/SYSTEM/DISCIMG.CPP`) content-probes the install dir for an ISO9660 image, locates the
-   asset-root subtree by finding the resource marker (`lba2.hqr`) inside it (CD masters nest under a
+   asset-root subtree by finding the resource marker (`LBA2.HQR`) inside it (CD masters nest under a
    volume dir, e.g. `/LBA2`), and resolves any path under the mount base by stripping the base and
    resolving the remainder beneath that root, so it serves *all* assets (the marker HQR included),
    not just media. `OpenRead` falls back to it (filesystem first); tagged virtual handles stream via
@@ -94,7 +94,7 @@ separate source's job, not an external file.
    PCM-passthrough source. Orthogonal to the `GameProfile`.
 
 A remaining increment for a pure rip (only the disc image present, nothing extracted): discovery
-validates the install dir by finding `lba2.hqr` *before* the mount, so a dir with only the image
+validates the install dir by finding `LBA2.HQR` *before* the mount, so a dir with only the image
 does not yet pass `IsValidResourceDir`. Making discovery probe a candidate dir's image closes that
 gap; today's target (`../LBA2-GOG`) ships the HQRs extracted, so discovery succeeds and only the
 media comes from the image.
@@ -202,7 +202,7 @@ because the root is found by marker rather than by name.
 
 All five are now closed. Listed in the order they bite a user, with the commit that fixes each.
 
-1. **Discovery rejected a pure dump.** `IsValidResourceDir` required `lba2.hqr` on the filesystem
+1. **Discovery rejected a pure dump.** `IsValidResourceDir` required `LBA2.HQR` on the filesystem
    and ran before `DiscImage_Mount`, so a directory holding only the image was refused with
    "does not hold the game data". It now falls through to `DiscImage_DirHoldsMarker`, which probes
    the folder for an image and looks for the marker inside it: the same question the mount answers

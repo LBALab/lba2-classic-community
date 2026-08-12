@@ -6,7 +6,7 @@ lba2.cfg stores user preferences and last-save info. Read at startup, written at
 
 - Filename: `lba2.cfg` ([SOURCES/COMMON.H](../SOURCES/COMMON.H) line 83: `CFG_NAME`)
 - User config path: `GetCfgPath(PathConfigFile, ..., CFG_NAME)` → `directoriesCfgDir` + filename ([SOURCES/DIRECTORIES.CPP](../SOURCES/DIRECTORIES.CPP))
-- Default (assets): `GetDefaultCfgPath()` → `directoriesResDir` + filename (same folder as `lba2.hqr`, i.e. the game assets directory)
+- Default (assets): `GetDefaultCfgPath()` → `directoriesResDir` + filename (same folder as `LBA2.HQR`, i.e. the game assets directory)
 - If user config missing: copy from assets to config dir ([SOURCES/INITADEL.C](../SOURCES/INITADEL.C)). If the assets folder has no `lba2.cfg`, the engine writes an embedded copy (generated at build time from [SOURCES/LBA2.CFG](../SOURCES/LBA2.CFG) via [cmake/embed_lba2_cfg.cmake](../cmake/embed_lba2_cfg.cmake)) into the user config path instead of exiting.
 - **Default config source**: Prefer the file in the asset directory (`directoriesResDir`). The repo has `SOURCES/LBA2.CFG` and `SOURCES/CONFIG/LBA2.CFG` as reference/templates. See [GAME_DATA.md](GAME_DATA.md) for where assets live.
 

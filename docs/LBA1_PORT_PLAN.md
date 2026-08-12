@@ -230,7 +230,7 @@ behaviour selector (LBA1 CTRL+arrows overlay vs **none in LBA2's menu UI**), hol
 single `HOLOMAP.C` vs LBA2's four `HOLO*` modules).
 
 **The keystone is a game-id, which does not exist yet** `[verified-from-code]`:
-`RES_DISCOVERY` only knows `lba2.hqr`; `DistribVersion` is publisher-logo only; `Version` is a
+`RES_DISCOVERY` only knows `LBA2.HQR`; `DistribVersion` is publisher-logo only; `Version` is a
 build string. A `GameId`/`GameProfile` is foundational: it is the **one dispatch point** that
 selects the per-game **native-format asset loaders/resolvers** (the in-engine adaptation of §7
 decision 9: body loader, background grid/block/brick resolver, sprite/palette reader, script VM
@@ -238,7 +238,7 @@ mode), plus the opcode-remap table, asset-name map, menu descriptor, and save sc
 "reading LBA1 assets unmodified" is not a separate mechanism: it *is* the `GameProfile` choosing
 LBA1 loaders. The retail files stay native on disk; only the in-memory structures are shared. **The game-select menu is its natural first
 consumer and belongs to the boot shell, not either game:** boot → `RES_DISCOVERY` finds data →
-if both an LBA1 marker (`lba.hqr`/`ress.hqr`) and `lba2.hqr` are present, show a 2-entry
+if both an LBA1 marker (`lba.hqr`/`ress.hqr`) and `LBA2.HQR` are present, show a 2-entry
 chooser on the existing `DoGameMenu`; single-game installs auto-select (today's LBA2 UX
 preserved); `--game lba1` forces it. This reframes the work as **"an Adeline engine shell that
 discovers data, picks a GameProfile, and runs"**: the north-star at the boot/UX layer.

@@ -95,7 +95,7 @@ Place your retail LBA2 `.HQR` files on the device with ADB. **Recommended:
 it survives an uninstall/reinstall:
 
 ```bash
-adb push lba2.hqr /sdcard/lba2cc/
+adb push LBA2.HQR /sdcard/lba2cc/
 adb push ress.hqr /sdcard/lba2cc/
 # ...and the rest of your retail HQR set
 ```
