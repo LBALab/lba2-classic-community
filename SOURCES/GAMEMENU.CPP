@@ -3839,7 +3839,7 @@ S32 MainGameMenu(S32 load) {
                 SlideShow();
                 //                                        DemoBumper() ;
                 GetSavePath(tmpFilePathSave, ADELINE_MAX_PATH, CURRENTSAVE_FILENAME);
-                Delete(tmpFilePathSave); // was unlink(); Delete() is the portable wrapper
+                Delete(tmpFilePathSave);
                 FlagShowEndDemo = TRUE;
 
                 Image_LoadStretched(tmpFilePathScreen, Log, PCR_MENU);

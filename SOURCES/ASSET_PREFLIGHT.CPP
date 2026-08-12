@@ -65,13 +65,13 @@ extern "C" int AssetPreflight(void) {
         }
     }
 
-    /* video.hqr lives in video/ (GetMoviePath), not the root. It is loaded at
-     * boot by InitAcf(), which hard-fails without it — so it is required today.
-     * (When cutscene playback degrades gracefully it moves to the optional set.) */
+    /* video.hqr lives in video/ (GetMoviePath), not the root. Required in a
+     * retail build, where InitAcf() hard-fails without it. (When retail
+     * cutscene playback degrades gracefully it moves to the optional set.) */
     GetMoviePath(path, ADELINE_MAX_PATH, VIDEO_HQR_NAME);
     if (!fileExists(path)) {
 #ifdef DEMO
-        /* The demo has no cutscenes -- InitAcf() degrades instead of dying. */
+        /* No demo install has cutscenes, so InitAcf() degrades instead. */
         Log_Warn("optional asset missing: %s (no cutscenes)", VIDEO_HQR_NAME);
         ++missingOpt;
 #else

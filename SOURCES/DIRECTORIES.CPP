@@ -35,15 +35,16 @@ extern "C" {
 #define DIR_NAME_VOICE_HD "vox" ADELINE_PATH_SEP
 #define DIR_NAME_VOICE_CD "lba2" ADELINE_PATH_SEP "vox" ADELINE_PATH_SEP
 #define DIR_NAME_VOICE_CD_US "twinsen" ADELINE_PATH_SEP "vox" ADELINE_PATH_SEP
-/* Spelled the way every distribution ships it. Discover() probes as-is, upper,
-   lower and title case, so the set of names accepted is the same either way --
-   but the as-is probe is the one that hits on a real install, and the constant
-   is what the "we could not find your game data" messages quote back at the
-   player. Naming a spelling nobody has sends them off renaming files. */
+/* Both spellings below are the way their distribution ships the file.
+   Discover() probes as-is, upper, lower and title case, so the set of names
+   accepted is the same either way -- but the as-is probe is the one that hits
+   on a real install, and the constant is what the "we could not find your game
+   data" messages quote back at the player. Naming a spelling nobody has sends
+   them off renaming files. */
 #ifdef DEMO
-/* The demo ships no LBA2.HQR -- that bank holds the credits reel, which the
-   demo does not have. RESS.HQR is the first thing the demo loads and is
-   present in every demo install, so it is the marker for this build. */
+/* No demo install ships LBA2.HQR: that bank holds the credits reel, which the
+   demo does not have. RESS.HQR is the first bank the demo loads and is present
+   in every demo install. */
 #define FILE_VALID_RES_DIR "RESS.HQR"
 #else
 #define FILE_VALID_RES_DIR "LBA2.HQR"

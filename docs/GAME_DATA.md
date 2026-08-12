@@ -287,18 +287,19 @@ What the data holds, against the retail CD:
 
 | | Demo | Retail |
 |---|---|---|
-| Islands | `CITADEL` only | 17 `.ILE`/`.OBL` pairs |
+| Islands | `CITADEL` only | 14 `.ILE`/`.OBL` pairs |
 | `LBA2.HQR` (credits) | absent | present |
 | `ANIM3DS.HQR` | absent | present |
 | `VIDEO/VIDEO.HQR` | absent | 231 MB |
 | `VOX/` | absent | 39 banks across 3 languages |
-| Music | `MUSIC/*.WAV`, 9 tracks | 24 tracks |
+| Music | 9 tracks | 25 tracks (all of `ListJingle`) |
 | `SCRSHOT.HQR` | present | absent |
 
 The HQR container is the same format throughout, same LZSS and LZMIT codecs and the same header
 layout, so every bank the demo does ship loads unmodified. The banks are subsets: 743 animations
-against 2084, 129 bodies against 470, 1243 background chunks against 18101. Music filenames are a
-subset of `ListJingle`, so the normal music path plays them with no special case. `SCRSHOT.HQR` is
+against 2084, 129 bodies against 470, 1243 background chunks against 18101. The demo ships its music
+as `MUSIC/*.WAV` where a modern retail tree ships `.ogg`, but the filenames are a subset of
+`ListJingle` either way, so the normal music path plays them with no special case. `SCRSHOT.HQR` is
 the one bank the demo adds, holding the marketing stills its slideshow shows.
 
 Two of those gaps are load-bearing and the demo build accounts for them: `LBA2.HQR` is the marker
