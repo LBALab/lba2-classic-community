@@ -12,6 +12,8 @@ Use the directory that contains `LBA2.HQR` (and the other `.hqr` files, `music/`
 
 **Sibling scan:** If the fixed paths above fail, the engine looks at siblings of the parent of the current working directory (for example the folder that contains both your clone and a retail install). For each immediate subdirectory, it tries that folder and `CommonClassic`, `common`, `Common`, and `Classic` under it. Only bounded scans (entry and directory-count limits); see `TryParentSiblingScan` in `SOURCES/RES_DISCOVERY.CPP`.
 
+This is the one probe that boots an install nobody named: it enumerates the parent and takes what it finds. That is wanted for a clone sitting beside a retail copy, and unwanted when the folder you launched from is itself an install this build cannot read, such as a demo next to a retail one. Discovery cannot tell those apart, so it stays a fallback and logs a warning naming the install it settled on. An unexpected `Assets:` line with that warning above it means the folder you ran from had nothing usable in it.
+
 ## Overrides (highest priority first)
 
 | Mechanism | Example |

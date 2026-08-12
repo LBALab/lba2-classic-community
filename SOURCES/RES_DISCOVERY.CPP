@@ -608,6 +608,20 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
 
     Res_SetDiscoverySource("sibling scan");
     if (TryParentSiblingScan(outDir, outMax, tried, &triedCount)) {
+        /* Every other probe checks a place the caller implied: the folder they
+           ran from, one they named, a fixed relative path. This one enumerates
+           the parent and takes whatever install turns up, so a folder holding
+           no usable data boots the neighbour instead. Right-looking launch,
+           different distribution, exit 0, and the only tell is the Assets line.
+           A demo folder beside a retail one does exactly this.
+
+           The clone-beside-an-install layout it exists for is legitimate, so
+           this stays a fallback rather than becoming a refusal like the
+           --game-dir and LBA2_GAME_DIR mismatches. It just has to say so. */
+        Log_Warn("RES_DISCOVERY: no game data in the folder this was run from. "
+                 "Using a neighbouring install: %s",
+                 outDir);
+        Log_Warn("Name the one you want with --game-dir if that is not it.");
         return true;
     }
 

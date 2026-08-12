@@ -12,6 +12,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Booting a different install than the one you launched from now says so.
+  When the folder you run from holds no usable data, discovery scans the
+  parent directory and takes whatever install turns up next door. That is
+  what makes a clone beside a retail copy work, and it also meant a demo
+  folder sitting beside a retail one silently loaded the retail data:
+  right-looking launch, wrong distribution, exit 0, and the only tell was
+  the `Assets:` line. It still falls back, and now warns and names the
+  install it settled on.
 - Running the game from inside an install whose data sits in `Common/` now
   finds it without `--game-dir`. Auto-discovery joined `Common/` only for
   paths you named explicitly, so an unflagged run depended on the sibling
