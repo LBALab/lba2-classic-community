@@ -53,10 +53,24 @@ RUN git clone --depth 1 --branch release-3.2.16 https://github.com/libsdl-org/SD
     && cmake --install /tmp/SDL/build32 \
     && rm -rf /tmp/SDL
 
-# NOTE: UASM is installed at container runtime (not during build) because UASM
-# is an x86_64 Linux binary that cannot execute under Rosetta during
-# `docker build --platform linux/amd64` on macOS ARM64.  QEMU emulation at
-# `docker run` time handles it correctly.
+# ── UASM assembler ────────────────────────────────────────────────────────────
+# Fetched here rather than at container runtime so a test run never depends on
+# GitHub's release CDN being reachable. A 503 from that download has failed the
+# whole suite before a single test compiled.
+#
+# Unpacking a binary does not execute it, so this still works during
+# `docker build --platform linux/amd64` on macOS ARM64. The earlier
+# runtime-install note was about *running* uasm, which the build never does;
+# the version check in run_tests_docker.sh runs under QEMU at `docker run`
+# time, where emulation handles it.
+ARG UASM_VERSION=2.57r
+ARG UASM_ARCHIVE=uasm257_linux64.zip
+RUN curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
+        -o /tmp/uasm.zip \
+        "https://github.com/Terraspace/UASM/releases/download/v${UASM_VERSION}/${UASM_ARCHIVE}" \
+    && unzip -oq /tmp/uasm.zip -d /usr/local/bin \
+    && chmod +x /usr/local/bin/uasm \
+    && rm -f /tmp/uasm.zip
 
 # ── Verify base tools ────────────────────────────────────────────────────────
 RUN cmake --version | head -1 && objcopy --version | head -1
