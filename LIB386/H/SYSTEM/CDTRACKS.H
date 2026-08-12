@@ -6,27 +6,42 @@
 // Which CD track holds which music, on a disc that carries its soundtrack as
 // Red Book audio rather than as files.
 //
-// There is no single answer, which took three pressings to learn. Each presses a
-// different number of themes, and the track numbering follows:
+// There is no single answer. Three known artifacts, three layouts:
 //
-//   US Activision      6 audio tracks, 2..7   track N holds ListJingle[N]
-//   Brazilian Activision  7 audio tracks, 2..8   track N holds ListJingle[N-1]
-//   European EA        1 audio track          it is TADPCM6
+//   Brazilian Activision  7 audio tracks, 2..8   TADPCM1..5, JADPCM01, TADPCM6
+//   European EA           1 audio track          it is TADPCM6
+//   TWINSEN.mdx rip       6 audio tracks, 2..7   the same seven less TADPCM1
 //
-// So a track number does not name a theme by itself. What does hold across all
-// of them is positional: the audio tracks, in order, are the themes that have no
+// So a track number does not name a theme by itself. What holds across all of
+// them is positional: the audio tracks, in order, are the themes that have no
 // file under MUSIC, in ListJingle order. The Brazilian disc presses seven and is
 // missing seven; the European discs press one and are missing one; both map
-// straight across. The US disc is the exception that needs the table below,
-// because it is missing seven themes and presses only six: TADPCM1 is not on it
-// at all, so its tracks start at the second missing theme.
+// straight across, and the Brazilian result reproduces SOURCES/MUSIC.CPP's own
+// TrackCDUS exactly, which is a useful check on the rule.
+//
+// The table below is for the third case, and it is worth being precise about
+// what it describes. TrackCDUS clears the JINGLE flag on its first seven
+// entries, values 2 to 8, so the shipped game expects seven audio tracks and
+// track 2 to be TADPCM1. Both retail executables carry that table byte for byte,
+// the Brazilian one and the one on the six-track rip alike. That rip therefore
+// disagrees with the binary sitting beside it on the same image: its track 2 is
+// TADPCM2, measured at 0.985 against a known recording and 0.33 against the real
+// TADPCM1, and its audio region is short by almost exactly one TADPCM1.
+//
+// The likeliest reading is that the rip lost its first audio track and renumbered
+// what was left, rather than that Activision pressed a disc missing a theme its
+// own executable asks for. Either way the table stays, because that image is the
+// one in circulation and its six tracks have to be named for what they actually
+// hold. Do not "correct" it to match TrackCDUS: it is not describing the same
+// disc. If a seven-track US rip turns up, the positional rule names it with no
+// table at all.
 //
 // Read off real discs rather than inferred. Each mapping comes from a mounted
 // disc's own table of contents plus a per-track match of length and audio
-// content against a known recording. An early version of the US table shifted
-// everything by one, which is the kind of mistake that plays perfectly and is
-// simply the wrong song, and the Brazilian disc turns out to use exactly that
-// shifted numbering, so the two cannot be told apart by anything but measurement.
+// content against a known recording. Measurement is the only way to tell these
+// layouts apart: the Brazilian numbering and a one-off-by-one error in this
+// table are the same numbering, and both play perfectly while being the wrong
+// song throughout.
 //
 // It lives here, beside the disc sources, because it describes the layout of a
 // disc rather than the engine's music indirection, the same way CD.CPP keeps

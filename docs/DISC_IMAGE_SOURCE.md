@@ -419,9 +419,9 @@ change with the arithmetic already checked.
 
 ## The pressings
 
-Added after the fact, because these turned up later and between them broke four
-assumptions this document had been making. Three discs beyond the US one, and none of
-them is the one GOG ships.
+Four retail images exist beyond the US one, and none of them is the one GOG ships.
+They differ in sector mode, in how many themes they press, in how those tracks are
+numbered, and in one case in the byte order of the audio itself.
 
 ### The two European pressings
 
@@ -508,6 +508,31 @@ Track 2 is the theme the US disc does not carry at all, and it was identified
 positively rather than by elimination: the European discs ship `TADPCM1.WAV` as a
 file, so decoding that and correlating gives 0.9993 at lag 0.
 
+**The game agreed all along.** `TrackCDUS` in `SOURCES/MUSIC.CPP` clears the `JINGLE`
+flag on its first seven entries, values 2 to 8, naming them Track01 to Track06 with
+Jingle01 in the middle. That is the Brazilian layout exactly. Searching both retail
+executables for the literal table bytes finds it byte for byte in each, in both
+`TWINSEN.EXE` and `LBA2.DOS`, even though the binaries differ elsewhere. So the
+Brazilian disc needs no special awareness: it is the disc the shipped code was
+written for, and the positional rule independently rediscovers that mapping.
+
+Which makes the six-track `TWINSEN.mdx` the odd one out, since it ships that same
+executable and disagrees with it. Measured: its track 2 is `TADPCM2` (0.985 against a
+known recording, 0.33 against the real `TADPCM1`), and its audio region is 85351
+sectors against Brazil's 102897, short by 17546 where `TADPCM1` is 17696.
+
+That shortfall is not something we introduced. The cue covers all 85351 sectors with
+no gap, a scan for track joins across the whole region finds exactly the one the cue
+already names, the filesystem fills the data track exactly with audio starting
+immediately after, and the bin's audio region is md5-identical to the MDX's. The MDX
+was downloaded rather than ripped, so the loss is upstream of everything here.
+
+Most likely it lost its first audio track and renumbered what remained, rather than
+Activision pressing a disc missing a theme its own binary requests. Not proven: that
+needs a second US rip or a Redump entry. `disc_extract.py` now names any theme left
+without a file, so extracting that image says `No file for: TADPCM1` instead of
+quietly producing six.
+
 **So the mapping rule is positional.** A disc's audio tracks, in order, are the themes
 it did not ship as files, in `ListJingle` order:
 
@@ -526,8 +551,8 @@ sits between `TADPCM5` and `TADPCM6` in it, so sorting the names would swap thos
 on any disc pressing both. `CdTracks_ThemeName` exposes the order and `tests/cdtracks`
 reads `MUSIC.CPP` to keep it honest.
 
-One aside worth recording, since it explains the asymmetry rather than just
-documenting it: `TADPCM1` is music index 0, the one theme no named constant refers to
+There is a plausible reason a disc might omit `TADPCM1` in particular.
+`TADPCM1` is music index 0, the one theme no named constant refers to
 (`CD_TRACK_MENU` is 6, `CD_TRACK_CREDITS` is 2, and there is no define for 0), and the
 intro is `PlayAcf("INTRO")`, an FMV carrying its own audio. If `TADPCM1` duplicates
 what the intro video already plays, dropping it from the US pressing costs nothing.
