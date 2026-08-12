@@ -480,6 +480,13 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
         if (TryJoinBaseSub(basePath, "", outDir, outMax, tried, &triedCount, true)) {
             return true;
         }
+        /* Common/ before data/ and game/: it is where a retail install
+           actually keeps the HQRs, which is why --game-dir joins it too. The
+           other two are guesses kept for layouts people have built by hand. */
+        Res_SetDiscoverySource("next to the binary, Common/");
+        if (TryJoinBaseSub(basePath, "Common", outDir, outMax, tried, &triedCount)) {
+            return true;
+        }
         Res_SetDiscoverySource("next to the binary, data/");
         if (TryJoinBaseSub(basePath, "data", outDir, outMax, tried, &triedCount)) {
             return true;
@@ -495,6 +502,16 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
     EnsureTrailingSeparator(walk, ADELINE_MAX_PATH);
     Res_SetDiscoverySource("working directory");
     if (NormalizeAndTry(walk, outDir, outMax, tried, &triedCount, true)) {
+        return true;
+    }
+
+    /* The retail layout, one level down from where you ran the game. Without
+       this, an install whose HQRs sit in Common/ was only ever found by the
+       sibling scan below reaching it from the parent, which is capped at
+       kMaxSiblingEntries in readdir order: a Steam library with more folders
+       than that cap dropped the very directory the user was standing in. */
+    Res_SetDiscoverySource("working directory, Common/");
+    if (TryJoinBaseSub(walk, "Common", outDir, outMax, tried, &triedCount)) {
         return true;
     }
 

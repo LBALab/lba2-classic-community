@@ -12,6 +12,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Running the game from inside an install whose data sits in `Common/` now
+  finds it without `--game-dir`. Auto-discovery joined `Common/` only for
+  paths you named explicitly, so an unflagged run depended on the sibling
+  scan reaching that same folder from the parent directory. The scan stops
+  after 24 entries in filesystem order, so on a Steam library with more
+  games than that, the install the player was standing in could be dropped
+  and discovery gave up after 138 candidates. Reported from a Steam Deck.
 - Rolling `latest` AppImages no longer replace themselves with the newest
   stable release on first run. The `latest` keyword in the bundled
   self-updater's update information means "newest non-prerelease", not the

@@ -19,9 +19,9 @@ Use the directory that contains `LBA2.HQR` (and the other `.hqr` files, `music/`
 | Command line | `./lba2cc --game-dir /path/to/game` or `--data-dir` (alias) |
 | Environment | `export LBA2_GAME_DIR=/path/to/game` |
 | Persisted choice | `last_game_dir.txt` in the user-prefs folder, written automatically the first time you pick a folder via the launch dialog (see [First-launch folder picker](#first-launch-folder-picker) below) |
-| Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory, current working directory, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
+| Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory and a `Common/` under it, current working directory and a `Common/` under it, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
-Both `--game-dir` and `LBA2_GAME_DIR` also try a `Common/` inside the path you give, so pointing either at an install root works as well as pointing it at the data folder.
+Every root the engine probes also tries a `Common/` inside it, because that is where a retail install keeps the HQRs. So `--game-dir` and `LBA2_GAME_DIR` work pointed at either the install root or the data folder, and running the binary from inside an install root finds the data without any flag.
 
 **Naming a path that holds no game data stops the run.** Neither override falls through to the probes below it: an override that names the wrong place is a mistake, and continuing would boot whatever discovery turns up next. That is a launch against assets nobody asked for, reported only by the `Assets:` line and still exiting 0. You get the picker instead (or a clean error when headless).
 
@@ -92,7 +92,7 @@ If you want to force a specific backend even when both are installed, set `SDL_F
 
 **Explicit path (recommended for anything non-local):** Use `--game-dir` or `LBA2_GAME_DIR` when the install is not next to your working tree (another drive, `~/Games/…`, CI, etc.). That is the stable, portable option.
 
-**What “adjacent” means in discovery:** Heuristics only look at predictable relative locations (cwd, parents of cwd, `../LBA2`, `./data`, SDL binary dir, then siblings of the parent of cwd with a small set of subfolder names). There is no full-disk or deep recursive search. “Adjacent” here means *often the same parent folder as your clone* when you run from the repo root — not “any path on the machine.”
+**What “adjacent” means in discovery:** Heuristics only look at predictable relative locations (cwd and `./Common`, parents of cwd, `../LBA2`, `./data`, SDL binary dir and a `Common/` under it, then siblings of the parent of cwd with a small set of subfolder names). There is no full-disk or deep recursive search. “Adjacent” here means *often the same parent folder as your clone* when you run from the repo root, not “any path on the machine.”
 
 **Safety:** Every candidate is accepted only if `IsValidResourceDir` succeeds (`LBA2.HQR` present). There is no execution of paths from untrusted config beyond what you pass on the command line or in the environment.
 

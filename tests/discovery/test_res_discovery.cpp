@@ -434,6 +434,163 @@ static bool test_sibling_commonclassic_nested() {
     return strstr(out, "CommonClassic") != NULL;
 }
 
+/**
+ * Steam-library regression: cwd is the install, HQRs are in its Common/, and
+ * the parent holds more folders than the sibling scan's kMaxSiblingEntries
+ * cap. Reported from a Deck with 25+ games in steamapps/common/, where the
+ * install the user was standing in fell off the end of the scan in readdir
+ * order and discovery gave up after 138 candidates.
+ *
+ * The cwd Common/ join has to be what answers this, so assert the discovery
+ * source and not just the result: the sibling scan can also reach
+ * <cwd>/Common/ from the parent, and whether it does depends on readdir
+ * order, which is exactly the non-determinism this test exists to rule out.
+ */
+static bool test_cwd_common_join_beats_sibling_cap() {
+    unsetenv_portable("LBA2_GAME_DIR");
+#ifndef _WIN32
+    char parent[] = "/tmp/lba2cwdcommon_XXXXXX";
+    if (mkdtemp(parent) == NULL) {
+        return false;
+    }
+#else
+    char parent[512];
+    if (!make_temp_dir(parent, sizeof(parent), "cwdc")) {
+        return false;
+    }
+#endif
+    char path[512];
+
+    /* Decoys: enough to exceed kMaxSiblingEntries (24). None of them hold
+       game data, so any of them matching would be a bug in its own right. */
+    for (int i = 0; i < 30; i++) {
+        snprintf(path, sizeof(path), "%s/Decoy Game %02d", parent, i);
+        if (mkdir_portable(path) != 0) {
+            return false;
+        }
+    }
+
+    snprintf(path, sizeof(path), "%s/Little Big Adventure 2", parent);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "%s/Little Big Adventure 2/Common", parent);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    create_marker_hqr(path);
+
+    char oldcwd[4096];
+    if (getcwd_portable(oldcwd, sizeof(oldcwd)) == NULL) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "%s/Little Big Adventure 2", parent);
+    if (chdir_portable(path) != 0) {
+        return false;
+    }
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+    const char *source = Res_GetDiscoverySource();
+    char sourceCopy[128];
+    snprintf(sourceCopy, sizeof(sourceCopy), "%s", source != NULL ? source : "");
+    chdir_portable(oldcwd);
+
+    if (!ok) {
+        fprintf(stderr,
+                "test_cwd_common_join_beats_sibling_cap: discovery failed to "
+                "find Common/ in the working directory\n");
+        return false;
+    }
+    if (strstr(out, "Common") == NULL) {
+        fprintf(stderr,
+                "test_cwd_common_join_beats_sibling_cap: resolved '%s', "
+                "expected the Common/ subdirectory\n",
+                out);
+        return false;
+    }
+    if (strcmp(sourceCopy, "working directory, Common/") != 0) {
+        fprintf(stderr,
+                "test_cwd_common_join_beats_sibling_cap: matched via '%s', "
+                "expected 'working directory, Common/'\n",
+                sourceCopy);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Common/ outranks the data/ and game/ joins under the same root. A folder
+ * holding two valid installs is ambiguous either way, so this pins the answer
+ * rather than leaving it to the order the probes happen to be written in:
+ * Common/ is the layout a retail install actually ships, data/ and game/ are
+ * conventions people built by hand.
+ */
+static bool test_cwd_common_outranks_data() {
+    unsetenv_portable("LBA2_GAME_DIR");
+#ifndef _WIN32
+    char root[] = "/tmp/lba2prec_XXXXXX";
+    if (mkdtemp(root) == NULL) {
+        return false;
+    }
+#else
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "prec")) {
+        return false;
+    }
+#endif
+    char path[512];
+    snprintf(path, sizeof(path), "%s/install", root);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "%s/install/Common", root);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    create_marker_hqr(path);
+    snprintf(path, sizeof(path), "%s/install/data", root);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    create_marker_hqr(path);
+
+    char oldcwd[4096];
+    if (getcwd_portable(oldcwd, sizeof(oldcwd)) == NULL) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "%s/install", root);
+    if (chdir_portable(path) != 0) {
+        return false;
+    }
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+    const char *via = Res_GetDiscoverySource();
+    char viaCopy[128];
+    snprintf(viaCopy, sizeof(viaCopy), "%s", via != NULL ? via : "");
+    chdir_portable(oldcwd);
+
+    if (!ok) {
+        fprintf(stderr, "test_cwd_common_outranks_data: nothing resolved\n");
+        return false;
+    }
+    if (strcmp(viaCopy, "working directory, Common/") != 0) {
+        fprintf(stderr,
+                "test_cwd_common_outranks_data: resolved '%s' via '%s', "
+                "expected the Common/ join to win\n",
+                out, viaCopy);
+        return false;
+    }
+    return true;
+}
+
 static bool test_embedded_cfg_write() {
 #ifndef _WIN32
     char dir[] = "/tmp/lba2emb_XXXXXX";
@@ -767,6 +924,12 @@ int main() {
         failed++;
     }
     if (!test_sibling_commonclassic_nested()) {
+        failed++;
+    }
+    if (!test_cwd_common_join_beats_sibling_cap()) {
+        failed++;
+    }
+    if (!test_cwd_common_outranks_data()) {
         failed++;
     }
     if (!test_env_lba2_game_dir()) {
