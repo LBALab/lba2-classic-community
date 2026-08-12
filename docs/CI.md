@@ -152,7 +152,7 @@ Three rules follow from that, and the workflows apply them:
 |---|---|---|---|
 | SDL3 build | `libsdl-org/setup-sdl` (built in) | resolved SDL git hash + `runner.os`/`arch` | ~2 MB prefix, seconds |
 | MSYS2 install + pacman packages | `msys2/setup-msys2` (`cache: true` default) | package list + config hash | ~177 MB |
-| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content | the whole image |
+| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content | the whole image, ~300 MB; written by `main` only |
 | SDL3 for Android | `actions/cache` | ABI + SDL tag + NDK version | source tree + install prefix |
 
 The ASM test image is the one that matters most. `run_tests_docker.sh`
@@ -160,10 +160,20 @@ builds it whenever it is not already in the local daemon, which on a
 fresh runner is *every* run: apt, two SDL3 source builds, and the UASM
 download, about 2m10s of a 2m45s job. `test.yml` builds it through buildx
 with the Actions cache backend first, so `run_tests_docker.sh` finds the
-image already loaded and skips its own build. That step is
+image already loaded and skips its own build. Measured: 24s to restore
+against 131s to build, taking the job from 165s to 67s. That step is
 `continue-on-error`: if buildx or the cache service is unavailable,
 nothing is loaded and `run_tests_docker.sh` builds the image itself, so
 the job is slower but not red.
+
+Only `main` writes that cache. Actions cache scopes are per-ref, and a
+`pull_request` run reads its own scope plus the base branch, never a
+sibling topic branch. A topic branch exporting the image therefore writes
+a ~300 MB copy no other run can restore, and pays about 80s for the
+export on exactly the runs that missed. Read-only elsewhere keeps a hit at 24s
+and a miss at plain build cost. The practical consequence: a PR that
+edits `docker/Dockerfile.test` rebuilds the image on every run until it
+merges, because nothing on `main` matches its key yet.
 
 Note that the image's 64-bit SDL3 install is unused by CI: the
 `linux_test` preset is `-m32` throughout and points `SDL3_DIR` at

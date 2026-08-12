@@ -93,7 +93,13 @@ jobs:
           tags: lba2-test:latest
           load: true
           cache-from: type=gha,scope=asm-test-image
-          cache-to: type=gha,scope=asm-test-image
+          # Export from main only. Actions cache scopes are per-ref: a
+          # pull_request run reads its own scope and the base branch, never a
+          # sibling topic branch, so exporting anywhere else writes a copy
+          # nothing will ever restore. Worse, the export costs ~80s on top of
+          # the build, which lands entirely on the miss path. Read-only
+          # everywhere else keeps a hit at ~25s and a miss at plain build cost.
+          cache-to: ${{ github.ref == 'refs/heads/main' && 'type=gha,scope=asm-test-image' || '' }}
 
       - name: Run ASM vs C++ equivalence tests in Docker
         run: ./run_tests_docker.sh
