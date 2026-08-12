@@ -10,6 +10,7 @@
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H>
 #include <SYSTEM/LIMITS.H>
+#include <SYSTEM/LOG.H>
 
 #include "DIRECTORIES.H"
 #include "RES_DISCOVERY.H"
@@ -113,6 +114,18 @@ static int chdir_portable(const char *p) {
 }
 
 #endif
+
+/** Reads a whole file into `buf`, NUL-terminated; empty string if unreadable. */
+static void slurp_file(const char *path, char *buf, size_t cap) {
+    buf[0] = '\0';
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        return;
+    }
+    const size_t n = fread(buf, 1, cap - 1, f);
+    buf[n] = '\0';
+    fclose(f);
+}
 
 static void create_marker_hqr(const char *dir) {
     char marker[512];
@@ -335,6 +348,12 @@ static bool test_argv_game_dir() {
 /**
  * Simulates: clone at parent/repo_clone, retail at parent/RetailGame/lba2.hqr.
  * Discovery scans siblings of parent(repo_clone) and finds RetailGame.
+ *
+ * Also the substitution case: the run boots an install the caller never named,
+ * picked by enumerating the parent. That is wanted here and unwanted when the
+ * folder you are standing in is itself an install this build cannot read (a
+ * demo beside a retail copy), and discovery cannot tell those apart. So it
+ * stays a fallback and has to announce itself; this asserts it does.
  */
 static bool test_sibling_direct_next_to_cwd() {
     unsetenv_portable("LBA2_GAME_DIR");
@@ -369,6 +388,15 @@ static bool test_sibling_direct_next_to_cwd() {
         return false;
     }
 
+    /* File sinks flush per write, so the warning can be read back without
+       Log_Shutdown tearing logging down for every test that runs after.
+       Log_Init is what routes records to sinks at all; until it runs they go
+       to SDL's default stderr and no sink sees them. */
+    char logPath[600];
+    snprintf(logPath, sizeof(logPath), "%s/sibling.log", parent);
+    LogSink *fileSink = Log_MakeFileSink(logPath, LOG_WARN);
+    Log_AddSink(fileSink);
+
     char out[ADELINE_MAX_PATH];
     int argc = 1;
     char arg0[] = "lba2";
@@ -378,7 +406,22 @@ static bool test_sibling_direct_next_to_cwd() {
     if (!ok) {
         return false;
     }
-    return strstr(out, "RetailGame") != NULL;
+    if (strstr(out, "RetailGame") == NULL) {
+        fprintf(stderr, "test_sibling_direct_next_to_cwd: resolved '%s'\n", out);
+        return false;
+    }
+
+    char logBuf[4096];
+    slurp_file(logPath, logBuf, sizeof(logBuf));
+    Log_RemoveSink(fileSink);
+    if (strstr(logBuf, "neighbouring install") == NULL) {
+        fprintf(stderr,
+                "test_sibling_direct_next_to_cwd: booted an install the caller "
+                "never named without saying so; log was:\n%s\n",
+                logBuf);
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -911,6 +954,12 @@ int main() {
     if (!SDL_Init(0)) {
         return 1;
     }
+
+    /* Route records through the sink layer rather than SDL's default stderr,
+       so a test can read back what the engine logged. The terminal sink keeps
+       the diagnostics these tests print on failure visible. */
+    Log_Init();
+    Log_AddSink(Log_MakeTerminalSink(LOG_INFO));
 
     /* Move the user's real persisted last_game_dir.txt aside (if any)
      * so it doesn't interfere with the sibling-scan tests, which
