@@ -1,6 +1,7 @@
 # Host regression test for the CD-track mapping (LIB386/SYSTEM/CDTRACKS.CPP).
 # Pins which CD track carries which music on a disc that keeps its soundtrack as
-# Red Book audio, and that the mapping stays in step with SOURCES/MUSIC.CPP.
+# Red Book audio, and that the mapping stays in step with SOURCES/MUSIC.CPP and
+# with the copy scripts/dev/disc_extract.py names its output by.
 # Pure table lookup: no SDL, no filesystem, no disc image.
 add_executable(test_cdtracks
     test_cdtracks.cpp
