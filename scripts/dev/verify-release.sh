@@ -32,13 +32,17 @@
 # Exit codes:
 #   0  everything checked passed
 #   1  a check failed
-#   2  metadata passed but the run checks never executed (no container
-#      runtime), so the result is not a release gate
+#   2  the metadata checks passed but nothing was run in a clean container
+#      (no container runtime), so the result is not a release gate
 #
 # Requirements:
 #   - gh (authenticated), tar
-#   - docker, for the run checks only. Without a reachable daemon the
-#     metadata checks still run and the exit code is 2.
+#   - docker, for the clean-system claim only. Without a reachable daemon
+#     both metadata checks still run: the update channel is read from the
+#     file, and `--version` is taken by running same-arch artifacts on this
+#     host instead. Cross-arch artifacts are then not run at all. Exit 2
+#     either way, because "runs with none of its build deps installed" is
+#     what only a container can show.
 #   - aarch64 leg auto-registers qemu-user-static binfmt via
 #     tonistiigi/binfmt if not already set up
 set -euo pipefail
@@ -74,6 +78,7 @@ done
 #
 # Without a daemon the metadata checks still carry their full weight, so the
 # run proceeds; the run checks become SKIP rows and the exit code says so.
+HOST_ARCH="$(uname -m)"
 DOCKER_OK=1
 SKIPPED_NO_DOCKER=0
 if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
@@ -181,21 +186,41 @@ check_update_channel() {
 
 run_check() {
     local label="$1" platform="$2" mount_mode="$3" cmd="$4" expected="$5"
-    local out rc version
-    if (( ! DOCKER_OK )); then
-        RESULTS+=( "SKIP  $label  no container runtime — clean-system run not verified" )
+    local out rc version note=""
+    local want_arch="x86_64"
+    [[ "$platform" == "linux/arm64" ]] && want_arch="aarch64"
+
+    if (( ! DOCKER_OK )) && [[ "$want_arch" != "$HOST_ARCH" ]]; then
+        RESULTS+=( "SKIP  $label  no container runtime and cross-arch: not run at all" )
         SKIPPED_NO_DOCKER=$(( SKIPPED_NO_DOCKER + 1 ))
         return
     fi
-    # Guard against set -e propagating from $() when docker exits
-    # non-zero — we want to record the failure as a FAIL row, not abort
-    # the whole script and leave the rest of the artifacts unchecked.
-    if out=$( docker run --rm --platform "$platform" \
-        -v "$WORK_DIR:/test:$mount_mode" debian:stable-slim \
-        sh -c "$cmd" 2>&1 ); then
-        rc=0
+
+    if (( DOCKER_OK )); then
+        # Guard against set -e propagating from $() when docker exits
+        # non-zero — we want to record the failure as a FAIL row, not abort
+        # the whole script and leave the rest of the artifacts unchecked.
+        if out=$( docker run --rm --platform "$platform" \
+            -v "$WORK_DIR:/test:$mount_mode" debian:stable-slim \
+            sh -c "$cmd" 2>&1 ); then
+            rc=0
+        else
+            rc=$?
+        fi
     else
-        rc=$?
+        # No daemon, but the artifact is this host's architecture, so the
+        # version-vs-filename half of the check is still reachable: run it
+        # here instead. What is lost is the clean-system claim, since this
+        # box has the build deps installed, so the row says so and the run
+        # still exits 2. A mislabelled artifact is caught either way, which
+        # is the failure that otherwise reaches the Releases page unseen.
+        SKIPPED_NO_DOCKER=$(( SKIPPED_NO_DOCKER + 1 ))
+        note="  (host run; clean-system NOT verified)"
+        if out=$( sh -c "${cmd//\/test\//$WORK_DIR/}" 2>&1 ); then
+            rc=0
+        else
+            rc=$?
+        fi
     fi
     # --version may be preceded by stderr warnings (e.g. AppRun's
     # "Cannot find CA Certificates" notice) folded in via 2>&1. The
@@ -208,7 +233,7 @@ run_check() {
         RESULTS+=( "FAIL  $label  --version=$version but the filename says $expected" )
         FAIL=$(( FAIL + 1 ))
     else
-        RESULTS+=( "PASS  $label  --version=$version" )
+        RESULTS+=( "PASS  $label  --version=$version$note" )
         PASS=$(( PASS + 1 ))
     fi
 }
@@ -239,7 +264,6 @@ done
 # code works in the same container, which is what isolates the cause
 # to the AppImage runtime stub specifically). Skip cross-arch AppImages
 # and verify only AppImages whose arch matches the host.
-HOST_ARCH="$(uname -m)"
 for aimg in "${APPIMAGES[@]}"; do
     stem="${aimg%.AppImage}"
     case "$aimg" in
@@ -291,8 +315,9 @@ fi
 # worse than the FAIL rows this replaced. Distinct code so a caller that only
 # wants the metadata checks can choose to ignore it.
 if (( SKIPPED_NO_DOCKER > 0 )); then
-    echo "[verify-release] $SKIPPED_NO_DOCKER run check(s) never executed: no container runtime."
-    echo "[verify-release] metadata passed, but this run did NOT verify the artifacts"
+    echo "[verify-release] $SKIPPED_NO_DOCKER artifact(s) not run in a clean container: no container runtime."
+    echo "[verify-release] update channel and version-vs-filename were checked;"
+    echo "[verify-release] this run did NOT verify the artifacts"
     echo "[verify-release] execute on a clean system. Not a release gate as it stands."
     exit 2
 fi
