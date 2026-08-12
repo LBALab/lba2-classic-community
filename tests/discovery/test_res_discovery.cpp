@@ -522,6 +522,75 @@ static bool test_cwd_common_join_beats_sibling_cap() {
     return true;
 }
 
+/**
+ * Common/ outranks the data/ and game/ joins under the same root. A folder
+ * holding two valid installs is ambiguous either way, so this pins the answer
+ * rather than leaving it to the order the probes happen to be written in:
+ * Common/ is the layout a retail install actually ships, data/ and game/ are
+ * conventions people built by hand.
+ */
+static bool test_cwd_common_outranks_data() {
+    unsetenv_portable("LBA2_GAME_DIR");
+#ifndef _WIN32
+    char root[] = "/tmp/lba2prec_XXXXXX";
+    if (mkdtemp(root) == NULL) {
+        return false;
+    }
+#else
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "prec")) {
+        return false;
+    }
+#endif
+    char path[512];
+    snprintf(path, sizeof(path), "%s/install", root);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "%s/install/Common", root);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    create_marker_hqr(path);
+    snprintf(path, sizeof(path), "%s/install/data", root);
+    if (mkdir_portable(path) != 0) {
+        return false;
+    }
+    create_marker_hqr(path);
+
+    char oldcwd[4096];
+    if (getcwd_portable(oldcwd, sizeof(oldcwd)) == NULL) {
+        return false;
+    }
+    snprintf(path, sizeof(path), "%s/install", root);
+    if (chdir_portable(path) != 0) {
+        return false;
+    }
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+    const char *via = Res_GetDiscoverySource();
+    char viaCopy[128];
+    snprintf(viaCopy, sizeof(viaCopy), "%s", via != NULL ? via : "");
+    chdir_portable(oldcwd);
+
+    if (!ok) {
+        fprintf(stderr, "test_cwd_common_outranks_data: nothing resolved\n");
+        return false;
+    }
+    if (strcmp(viaCopy, "working directory, Common/") != 0) {
+        fprintf(stderr,
+                "test_cwd_common_outranks_data: resolved '%s' via '%s', "
+                "expected the Common/ join to win\n",
+                out, viaCopy);
+        return false;
+    }
+    return true;
+}
+
 static bool test_embedded_cfg_write() {
 #ifndef _WIN32
     char dir[] = "/tmp/lba2emb_XXXXXX";
@@ -858,6 +927,9 @@ int main() {
         failed++;
     }
     if (!test_cwd_common_join_beats_sibling_cap()) {
+        failed++;
+    }
+    if (!test_cwd_common_outranks_data()) {
         failed++;
     }
     if (!test_env_lba2_game_dir()) {
