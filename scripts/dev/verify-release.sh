@@ -104,8 +104,15 @@ if (( need_aarch64 )); then
     if ! docker run --rm --platform linux/arm64 debian:stable-slim \
             true >/dev/null 2>&1; then
         echo "[verify-release] registering qemu-user-static binfmt..."
-        docker run --privileged --rm tonistiigi/binfmt --install arm64 \
-            >/dev/null 2>&1
+        # Unguarded, this aborts the whole run under `set -e` on any host
+        # that can't register binfmt (no privileged containers, rootless
+        # podman, no network for the binfmt image), taking the x86_64
+        # results and the whole summary table down with it. Same reasoning
+        # as run_check: record what fails, keep checking the rest.
+        if ! docker run --privileged --rm tonistiigi/binfmt --install arm64 \
+                >/dev/null 2>&1; then
+            echo "[verify-release] binfmt registration failed; aarch64 legs will be reported as failures" >&2
+        fi
     fi
 fi
 

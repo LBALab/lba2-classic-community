@@ -25,6 +25,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `scripts/dev/verify-release.sh` now checks that each artifact's
   `--version` matches the version in its filename, and that each AppImage
   carries the self-update channel belonging to the release it hangs off.
+- `scripts/dev/verify-release.sh` no longer aborts with no results at all
+  when it cannot register qemu binfmt for the aarch64 legs. It reports the
+  aarch64 failures and checks the rest.
 
 ## [0.12.0] - 2026-07-16
 
