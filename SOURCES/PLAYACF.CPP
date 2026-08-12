@@ -15,6 +15,7 @@
 #include <AIL/VIDEO_AUDIO.H>
 #include <AIL/VIDEO_AUDIO_RESAMPLE.H>
 #include <FILEIO/SAVEPNG.H>
+#include <SYSTEM/LOG.H>
 #include <SYSTEM/WINDOW.H> // AppActive
 
 static int videoLogEnabled = 0;
@@ -80,7 +81,15 @@ void InitAcf(void) {
 
     GetMoviePath(PathAcf, ADELINE_MAX_PATH, VIDEO_HQR_NAME);
     if (!ExistsFileOrDir(PathAcf)) {
+#ifdef DEMO
+        /* The demo install ships no video/ -- retail's bank alone is bigger
+           than the whole demo. Run without cutscenes rather than refusing to
+           boot; PlayAcf() below no-ops while PathAcf is empty. */
+        Log_Warn("no %s: the demo runs without cutscenes", VIDEO_HQR_NAME);
+        PathAcf[0] = '\0';
+#else
         TheEndCheckFile(PathAcf);
+#endif
     }
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
@@ -361,6 +370,9 @@ static void PushCurrentFrameVideoAudio(smk smkObject, const int *tracksToPlay, i
 //---------------------------------------------------------------------------
 
 S32 PlayAcf(const char *name) {
+    if (!PathAcf[0])
+        return 0; /* no movie bank installed -- see InitAcf() */
+
     if (Control_IsVerbose())
         fprintf(stderr, "[control] modal: PlayAcf '%s' -- cutscene, blocks --exit\n", name);
 #ifdef USE_MVIDEO_SMACKER

@@ -40,7 +40,14 @@ extern "C" {
    but the as-is probe is the one that hits on a real install, and the constant
    is what the "we could not find your game data" messages quote back at the
    player. Naming a spelling nobody has sends them off renaming files. */
+#ifdef DEMO
+/* The demo ships no LBA2.HQR -- that bank holds the credits reel, which the
+   demo does not have. RESS.HQR is the first thing the demo loads and is
+   present in every demo install, so it is the marker for this build. */
+#define FILE_VALID_RES_DIR "RESS.HQR"
+#else
 #define FILE_VALID_RES_DIR "LBA2.HQR"
+#endif
 
 // --- Private state -----------------------------------------------------------
 bool directoriesInitialized = false;

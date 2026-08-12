@@ -70,8 +70,14 @@ extern "C" int AssetPreflight(void) {
      * (When cutscene playback degrades gracefully it moves to the optional set.) */
     GetMoviePath(path, ADELINE_MAX_PATH, VIDEO_HQR_NAME);
     if (!fileExists(path)) {
+#ifdef DEMO
+        /* The demo has no cutscenes -- InitAcf() degrades instead of dying. */
+        Log_Warn("optional asset missing: %s (no cutscenes)", VIDEO_HQR_NAME);
+        ++missingOpt;
+#else
         Log_Error("missing required asset: %s", VIDEO_HQR_NAME);
         ++missingReq;
+#endif
     }
 
     const int nOpt = (int)(sizeof kOptionalHqr / sizeof kOptionalHqr[0]);
