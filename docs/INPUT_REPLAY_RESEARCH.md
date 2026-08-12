@@ -90,7 +90,7 @@ offset of entry 0, so `entries = first/4`); each slot is a byte offset to a
 LZSS, 2 LZMIT) followed by the data. `scripts/dev/hqr_inspect.py` enumerates and decompresses
 entries (LZSS ported from `LZ.CPP`, verified: decompressed sizes match headers).
 
-`scene.hqr` holds **224 cube slots, entry N = cube N**; cube 193 is 1022 bytes (LZSS).
+`SCENE.HQR` holds **224 cube slots, entry N = cube N**; cube 193 is 1022 bytes (LZSS).
 
 **Scene resource layout** (`DISKFUNC.CPP`): an ambiance/sample/jingle header, then `HERO_START`
 (`CubeStartX/Y/Z`, then the hero's **Track script** and **Life script**, each `s16`-size-prefixed),

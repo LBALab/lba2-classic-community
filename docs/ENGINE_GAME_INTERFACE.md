@@ -114,7 +114,7 @@ Each opcode body calls engine C functions directly. Categories:
 
 **Storage:** scripts are not a dedicated resource — they are embedded inline in the
 per-cube scene blob. `LoadScene(numscene)` (`SOURCES/DISKFUNC.CPP:50`) loads the scene from
-`scene.hqr` into `PtrScene`, then walks the blob with a byte cursor, reading for the hero
+`SCENE.HQR` into `PtrScene`, then walks the blob with a byte cursor, reading for the hero
 and each object a length-prefixed Track stream then a Life stream:
 
 ```c

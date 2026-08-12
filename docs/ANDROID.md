@@ -96,7 +96,7 @@ it survives an uninstall/reinstall:
 
 ```bash
 adb push LBA2.HQR /sdcard/lba2cc/
-adb push ress.hqr /sdcard/lba2cc/
+adb push RESS.HQR /sdcard/lba2cc/
 # ...and the rest of your retail HQR set
 ```
 

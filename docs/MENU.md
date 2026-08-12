@@ -71,9 +71,9 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 ## Submenus
 
-- **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `text.hqr` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
+- **Options** (`OptionsMenu`): top-level submenu for Sound volume, Choose language, Advanced options, and Keyboard Config. Reuses original `TEXT.HQR` labels where they already exist and keeps custom localized labels only for the new submenu concepts. Calls `GereVolumeMenu()`, `GereLanguageMenu()`, `GereAdvancedOptionsMenu()`, and `MenuConfig()`. Calls `SetDetailLevel()` on exit.
 - **Volume** (`GereVolumeMenu`): `VolumeMenuVoice` / `VolumeMenuNoVoice` depending on `FlagSpeak`. Sliders for Sample, Voice, Music, and General volume. Persisted via [CONFIG.md](CONFIG.md).
-- **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `text.hqr` immediately; voice changes update the active `LanguageCD` setting.
+- **Language** (`GereLanguageMenu`): cycles text language and voice language independently. Text changes reload `TEXT.HQR` immediately; voice changes update the active `LanguageCD` setting.
 - **Advanced options** (`GereAdvancedOptionsMenu`): toggles stereo handling, movie cameras, follow camera, video playback size, window fullscreen mode, and subtitle display; includes the existing Detail Level slider.
 - **Save/Load** (`SavedGameManagement`, `ChoosePlayerName`): Player name selection, save slots, `GameChoiceMenu[]`, `SavedConfirmMenu[]` for delete
 - **Keyboard config** (`MenuConfig`): standalone config tool in [SOURCES/CONFIG/](../SOURCES/CONFIG/) or in-game `ReadInputConfig`/`WriteInputConfig`
@@ -82,7 +82,7 @@ Flow: `RealGameMainMenu` (template) → `BuildGameMainMenu(firstloop)` → `Game
 
 - `U16 *ptrmenu`: `[selected, nb_entries, y_center, dia_num, (type, text_id)*]`
 - `DrawGameMenu()`, `DoGameMenu()` in GAMEMENU.CPP (lines 1760, 1823)
-- Text IDs from `text.hqr` / dialogue system (`GetMultiText`), plus synthetic IDs (e.g. `MENU_ID_*` in the 2100 range) resolved in `BuildCustomMenuText()`
+- Text IDs from `TEXT.HQR` / dialogue system (`GetMultiText`), plus synthetic IDs (e.g. `MENU_ID_*` in the 2100 range) resolved in `BuildCustomMenuText()`
 - Type in each entry: 0 = plain text/toggle, 2–6 = volume sliders, 7 = Detail Level slider, 8 = text language cycle, 9 = voice language cycle
 
 ## Menu layout
@@ -116,18 +116,18 @@ The main menu still uses only the six template actions (70–75). Options (74) a
 
 The reworked Options screen uses two sources of copy, by design:
 
-- **`text.hqr` via `GetMultiText`** — Original dialogue IDs for volume, stereo, movie camera, video size, subtitles, and other strings that already existed in the retail game.
+- **`TEXT.HQR` via `GetMultiText`** — Original dialogue IDs for volume, stereo, movie camera, video size, subtitles, and other strings that already existed in the retail game.
 - **In-code `LocalizedMenuLabels`** in [SOURCES/MENU_LABELS.CPP](../SOURCES/MENU_LABELS.CPP): UTF-8 strings, converted with `CopyUtf8ToCp850` / `FormatUtf8ToCp850` for the menu font. The table is **one row per label**, each row carrying its own enum id plus all six translations; the column follows `Language` (same index as the UI language). Used for new submenu titles (“Choose language”, “Advanced options”, …), the display fullscreen OFF/ON lines, and the key-config footer. Its contract (id equals index, no missing translation, matching printf specifiers across languages) is pinned by [tests/menu_labels](../tests/menu_labels).
 
-When the player changes UI language, `ReloadMultiTextFile` refreshes `text.hqr` strings and the `LocalizedMenuLabels` index updates together, so both layers stay aligned.
+When the player changes UI language, `ReloadMultiTextFile` refreshes `TEXT.HQR` strings and the `LocalizedMenuLabels` index updates together, so both layers stay aligned.
 
 The “Texts:” / “Voices:” lines format `GetLocalizedMenuLabel` with `GetLanguageName(Language)` / `GetLanguageName(LanguageCD)` — i.e. the canonical names from `TabLanguage[]` (English, Français, …), not per-locale translations of those names.
 
-Adding a new UI language requires both the usual `text.hqr` coverage and a new translation column in every row of `LocalizedMenuLabels`. See [TEXT.md](TEXT.md) for why the `text.hqr` half of that is the hard part.
+Adding a new UI language requires both the usual `TEXT.HQR` coverage and a new translation column in every row of `LocalizedMenuLabels`. See [TEXT.md](TEXT.md) for why the `TEXT.HQR` half of that is the hard part.
 
 For voice lines and packaged assets, see [GLOSSARY.md](GLOSSARY.md) and [CONFIG.md](CONFIG.md) (`Language`, `LanguageCD`).
 
-For the text engine underneath all of this (the `text.hqr` format, id resolution, fonts and codepages, the dialogue machine), see [TEXT.md](TEXT.md).
+For the text engine underneath all of this (the `TEXT.HQR` format, id resolution, fonts and codepages, the dialogue machine), see [TEXT.md](TEXT.md).
 
 ## Implementation notes
 
@@ -136,7 +136,7 @@ For the text engine underneath all of this (the `text.hqr` format, id resolution
 - **DEMO build**: Save/Load (72, 73) are disabled (greyed out, skipped by Up/Down). After ~50 min idle (or Shift+D), `SlideShow()` runs; returns `9999` to trigger credits.
 - **Volume sliders**: Type 2–6 map to globals; left/right adjust with `VOLUME_TIMER_KEY` (5 ticks) debounce. Sample and General volume sliders play random SFX preview when focused.
 - **DetailLevel → Shadow**: `SetDetailLevel()` (GAMEMENU.CPP line 458) derives Shadow, RainEnable, MaxPolySea, FlagDrawHorizon from DetailLevel. Shadow in config is read at startup but overwritten when leaving Options.
-- **Localized custom labels**: See "Mixed localization (new Options strings)" above — split between `text.hqr` and `LocalizedMenuLabels` / CP850.
+- **Localized custom labels**: See "Mixed localization (new Options strings)" above — split between `TEXT.HQR` and `LocalizedMenuLabels` / CP850.
 - **Options entry count**: Top-level `GameOptionMenu[1]` is 5 in `OptionsMenu()`. Nested volume/language/advanced menus set their own entry counts per `DEMO` / `FlagSpeak` / CDROM.
 
 ## Limitations
@@ -168,9 +168,9 @@ Set `MenuMouse: 0` in `lba2.cfg` for keyboard/joystick-only menus.
 
 ### Why the menu pointer matches the game (`SPRITE_CURSOR`)
 
-Retail LBA2 almost never needed a mouse in the main menus (keyboard/joystick first), so the shipped menus used a tiny embedded bitmap (`BinGphMouse` in the engine). Separately, the data tables in [SOURCES/COMMON.H](../SOURCES/COMMON.H) already name a `SPRITE_CURSOR` index (173) next to other UI chrome (`SPRITE_DISK`, ardoise corners, etc.). That entry lives in `sprites.hqr` and was meant for in-game UI pointer use, not for the classic menu loop—easy to miss if you never played with the mouse in contexts that draw it.
+Retail LBA2 almost never needed a mouse in the main menus (keyboard/joystick first), so the shipped menus used a tiny embedded bitmap (`BinGphMouse` in the engine). Separately, the data tables in [SOURCES/COMMON.H](../SOURCES/COMMON.H) already name a `SPRITE_CURSOR` index (173) next to other UI chrome (`SPRITE_DISK`, ardoise corners, etc.). That entry lives in `SPRITES.HQR` and was meant for in-game UI pointer use, not for the classic menu loop—easy to miss if you never played with the mouse in contexts that draw it.
 
-The community menu mouse path simply loads `HQR_Get(HQRPtrSprite, SPRITE_CURSOR)` ([SOURCES/DEFINES.H](../SOURCES/DEFINES.H) → `MENU_MOUSE_SPRITE_HQR_INDEX`). So the pointer is original art already on the disc; we are not inventing new pixels. If `sprites.hqr` is missing or the entry fails to load, [SOURCES/GAMEMENU_MOUSE.CPP](../SOURCES/GAMEMENU_MOUSE.CPP) falls back to `BinGphMouse` like the DOS build.
+The community menu mouse path simply loads `HQR_Get(HQRPtrSprite, SPRITE_CURSOR)` ([SOURCES/DEFINES.H](../SOURCES/DEFINES.H) → `MENU_MOUSE_SPRITE_HQR_INDEX`). So the pointer is original art already on the disc; we are not inventing new pixels. If `SPRITES.HQR` is missing or the entry fails to load, [SOURCES/GAMEMENU_MOUSE.CPP](../SOURCES/GAMEMENU_MOUSE.CPP) falls back to `BinGphMouse` like the DOS build.
 
 **Implementation:** [SOURCES/GAMEMENU_MOUSE.CPP](../SOURCES/GAMEMENU_MOUSE.CPP), [SOURCES/GAMEMENU.CPP](../SOURCES/GAMEMENU.CPP) (`DoGameMenu`, `ChoosePlayerName`).
 

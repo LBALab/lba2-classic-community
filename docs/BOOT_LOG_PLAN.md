@@ -433,14 +433,14 @@ Decisions:
 - **Asset preflight** — dedicated module `SOURCES/ASSET_PREFLIGHT.{H,CPP}`
   (`int AssetPreflight()`), called from `main` after `InitDirectories`/`Log_Init`,
   before any heavy load. Checks each expected asset with the **correct
-  per-category resolver**: root `.hqr` via `GetResPath`, `video.hqr` via
+  per-category resolver**: root `.hqr` via `GetResPath`, `VIDEO.HQR` via
   `GetMoviePath` (it lives in `video/`, not the root — `GetResPath` gave a false
   "missing"), and the `music/` and `vox/` subtrees via
   `GetJinglePath`/`GetVoicePath` (subtree presence — those are per-track /
   per-language collections the audio modules enumerate). Case-folding discovery
   handles `VIDEO/`/`Music/`/`VOX/`.
 - **Classification by actual boot-fatality.** Required = the root HQRs **and
-  `video.hqr`** (loaded at boot by `InitAcf`, which hard-fails without it today).
+  `VIDEO.HQR`** (loaded at boot by `InitAcf`, which hard-fails without it today).
   Optional = `holomap`/`scene`/`screen`/`lba_bkg`/`music`/`vox` (loaded on
   demand; missing only matters if that feature is used).
 - **Fail fast.** `AssetPreflight` returns the missing-*required* count; `main`
@@ -450,10 +450,10 @@ Decisions:
   load, and exits **non-zero** (unlike `TheEndCheckFile`, which exits 0).
   Optional missing → `Log_Warn`, boot continues, `Assets N missing (0 required)`.
   (Making the optional set degrade gracefully *at use time* — e.g. skip cutscenes
-  when `video.hqr` is absent, which would move it back to optional — is PR B.)
+  when `VIDEO.HQR` is absent, which would move it back to optional — is PR B.)
 - **Test:** `tests/asset_preflight/` (integration; builds a fake game tree,
   links DIRECTORIES + sys + SDL like `tests/discovery`) asserts the
-  required/optional verdicts, the fail-fast count, and the `video.hqr`-in-`video/`
+  required/optional verdicts, the fail-fast count, and the `VIDEO.HQR`-in-`video/`
   resolver (the regression that shipped once). The `*_HQR_NAME` defines were
   split into `SOURCES/HQR_NAMES.H` so the module + test skip the `C_EXTERN.H`
   prelude.
@@ -470,7 +470,7 @@ Decisions:
   budget (`MaxIndex = maxrsrc`), not the file's entry count; real counts need an
   HQR-header reader — deferred. The preflight presence check covers verification.
 - Graceful runtime degradation for missing optional assets (don't crash on
-  `video.hqr` at cutscene time) is **PR B**, separate from this shape work.
+  `VIDEO.HQR` at cutscene time) is **PR B**, separate from this shape work.
 
 ### Phase 6 — Exit screen module — done
 
