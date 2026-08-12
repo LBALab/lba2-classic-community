@@ -20,14 +20,32 @@
    File scope (not the anonymous namespace below): extern "C" external linkage
    so the host test can reference them by name. */
 
+/* The marker this build validates against, spelled for a message body. A demo
+   build looks for RESS.HQR (FILE_VALID_RES_DIR in DIRECTORIES.CPP), and a modal
+   naming a file the reader's install cannot have is what sends them renaming
+   things. test_res_picker checks both bodies against Directories_GetResMarker(),
+   so the two spellings cannot drift apart. */
+#ifdef DEMO
+#define PICKER_MARKER "RESS.HQR"
+#define PICKER_INSTALL "your LBA2 demo install"
+/* A demo install carries no video/ and no vox/, and spells its music folder
+   MUSIC. Listing folders it cannot have would be the same wrong-file trap in
+   another form. */
+#define PICKER_DATA_SET "your LBA2 demo data (RESS.HQR, MUSIC/)"
+#else
+#define PICKER_MARKER "LBA2.HQR"
+#define PICKER_INSTALL "your retail LBA2 install"
+#define PICKER_DATA_SET "your retail LBA2 data (LBA2.HQR, music/, video/, vox/)"
+#endif
+
 extern "C" const char kPickerMsgDataNotFound[] =
     "Little Big Adventure 2 game data wasn't found.\n\n"
-    "Pick the folder that contains LBA2.HQR (your retail LBA2 install).\n\n"
+    "Pick the folder that contains " PICKER_MARKER " (" PICKER_INSTALL ").\n\n"
     "Your choice is saved for next time.";
 
 extern "C" const char kPickerMsgInvalidPick[] =
-    "That folder doesn't contain LBA2.HQR.\n\n"
-    "Pick your retail LBA2 install folder (the one with LBA2.HQR).";
+    "That folder doesn't contain " PICKER_MARKER ".\n\n"
+    "Pick " PICKER_INSTALL " folder (the one with " PICKER_MARKER ").";
 
 extern "C" const char kPickerMsgNoPicker[] =
     "The system folder picker isn't available here.\n\n"
@@ -38,7 +56,7 @@ extern "C" const char kPickerMsgNoPicker[] =
 
 extern "C" const char kPickerMsgAndroidData[] =
     "Little Big Adventure 2 game data wasn't found.\n\n"
-    "Copy your retail LBA2 data (LBA2.HQR, music/, video/, vox/) to:\n"
+    "Copy " PICKER_DATA_SET " to:\n"
     "    /sdcard/lba2cc/\n\n"
     "then relaunch the app.";
 
