@@ -85,6 +85,7 @@ Apply these behavior rules on every non-trivial task:
 | Debug tools | DEBUG_TOOLS (console is always available) | docs/DEBUG.md, docs/CONSOLE.md |
 | Verifying a runtime change (scene, hero, inventory, render) | Drive the engine non-interactively and assert on dumped state / a screenshot instead of manual play | docs/CONTROL.md |
 | Config / lba2.cfg | Keys, persistence, installer vs game, embedded default | docs/CONFIG.md, docs/GAME_DATA.md |
+| Anything named `*Version*` | Five unrelated fields share the name; check which one before touching. `DistribVersion` (cfg `Version`) is release identity, `NumVersion` is save layout, `Version_US` is dead | docs/VERSIONS.md, docs/SAVEGAME.md |
 | Adding a log or diagnostic line | Prefer `Log_*` (`<SYSTEM/LOG.H>`) at the true severity for committed code; `Log_Debug` is off by default (all sinks), surfacing only at `--log-level`/`loglevel debug`. Throwaway `printf` is fine; don't commit it | "Logging" below, LIB386/H/SYSTEM/LOG.H |
 | Code that reads retail HQR data or legacy save formats | Check the rule: never `sizeof(T)`-as-stride for fat structs; use a paired `T_DISK` or field-by-field serialization | docs/ABI.md |
 | File with French comments or ASCII art | Preserve; add new comments alongside | docs/FRENCH_COMMENTS.md, docs/ASCII_ART.md |

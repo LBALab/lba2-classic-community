@@ -16,6 +16,7 @@ Index of documentation in this repository.
 | [MENU.md](MENU.md) | Game menu flow, layout, localization, submenus, and entry points. |
 | [TEXT.md](TEXT.md) | Text and localization: the `TEXT.HQR` format (language x bank entry pairs, order/text banks, the attribute byte), id resolution, the two fonts and their codepages, the dialogue engine, and why community strings must live in source. |
 | [CONFIG.md](CONFIG.md) | lba2.cfg lifecycle, keys, and what each does (original vs community). |
+| [VERSIONS.md](VERSIONS.md) | Every "version" field in the engine and what it does: `DistribVersion` (the `Version` config key) and its eight branch sites, the dead `Version_US`, installer-only keys, save-layout `NUM_VERSION`, and what the pressed discs actually declare. |
 | [SAVEGAME.md](SAVEGAME.md) | .lba save format: lifecycle, binary layout, version compatibility, save editors, LBALab tools. |
 | [CAMERA.md](CAMERA.md) | Camera system: interior (iso) vs exterior (perspective), CameraCenter, Auto camera (`FollowCamera`, community addition). |
 | [TIMING.md](TIMING.md) | Engine timing: TimerSystemHR vs TimerRefHR, LockTimer vs SaveTimer semantics, ManageTime call sites, fixed-dt overlay, and the 1997 `ManageTime` bug history. |
