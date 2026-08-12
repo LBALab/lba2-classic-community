@@ -29,9 +29,16 @@
 # Default tag: `latest` (the rolling pre-release). Pass a versioned tag
 # (e.g. `v0.9.0`) as a pre-publicize gate before announcing a release.
 #
+# Exit codes:
+#   0  everything checked passed
+#   1  a check failed
+#   2  metadata passed but the run checks never executed (no container
+#      runtime), so the result is not a release gate
+#
 # Requirements:
-#   - gh (authenticated)
-#   - docker
+#   - gh (authenticated), tar
+#   - docker, for the run checks only. Without a reachable daemon the
+#     metadata checks still run and the exit code is 2.
 #   - aarch64 leg auto-registers qemu-user-static binfmt via
 #     tonistiigi/binfmt if not already set up
 set -euo pipefail
@@ -51,12 +58,29 @@ case "$TAG" in
     *)      EXPECT_CHANNEL="latest" ;;
 esac
 
-for tool in gh docker tar; do
+for tool in gh tar; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "verify-release: required tool not found: $tool" >&2
         exit 1
     fi
 done
+
+# Docker is checked by reachability, not by presence on PATH. Docker Desktop
+# drops a `docker` shim into WSL distros that resolves fine and then fails at
+# exec time, so `command -v` answers yes on exactly the hosts where nothing
+# can run — and every run check then reports FAIL with the shim's help text
+# folded into the row, which reads as a broken release rather than a broken
+# workstation.
+#
+# Without a daemon the metadata checks still carry their full weight, so the
+# run proceeds; the run checks become SKIP rows and the exit code says so.
+DOCKER_OK=1
+SKIPPED_NO_DOCKER=0
+if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    DOCKER_OK=0
+    echo "verify-release: no reachable container runtime — the clean-system run" >&2
+    echo "                checks will be skipped; metadata checks still run." >&2
+fi
 
 # Resolve the repo for gh from the script's location, not the caller's
 # cwd. The script downloads into a mktemp dir, so gh would otherwise
@@ -100,7 +124,7 @@ need_aarch64=0
 for f in "${TARBALLS[@]}" "${APPIMAGES[@]}"; do
     [[ "$f" == *aarch64* ]] && need_aarch64=1 && break
 done
-if (( need_aarch64 )); then
+if (( need_aarch64 && DOCKER_OK )); then
     if ! docker run --rm --platform linux/arm64 debian:stable-slim \
             true >/dev/null 2>&1; then
         echo "[verify-release] registering qemu-user-static binfmt..."
@@ -158,6 +182,11 @@ check_update_channel() {
 run_check() {
     local label="$1" platform="$2" mount_mode="$3" cmd="$4" expected="$5"
     local out rc version
+    if (( ! DOCKER_OK )); then
+        RESULTS+=( "SKIP  $label  no container runtime — clean-system run not verified" )
+        SKIPPED_NO_DOCKER=$(( SKIPPED_NO_DOCKER + 1 ))
+        return
+    fi
     # Guard against set -e propagating from $() when docker exits
     # non-zero — we want to record the failure as a FAIL row, not abort
     # the whole script and leave the rest of the artifacts unchecked.
@@ -254,4 +283,16 @@ echo "[verify-release] $PASS passed, $FAIL failed, $SKIP skipped"
 
 if (( FAIL > 0 )); then
     exit 1
+fi
+
+# "Could not check" must not exit like "checked and fine". The run checks are
+# the only thing here that proves a served artifact executes on a system with
+# none of its build deps; a gate that quietly drops them while returning 0 is
+# worse than the FAIL rows this replaced. Distinct code so a caller that only
+# wants the metadata checks can choose to ignore it.
+if (( SKIPPED_NO_DOCKER > 0 )); then
+    echo "[verify-release] $SKIPPED_NO_DOCKER run check(s) never executed: no container runtime."
+    echo "[verify-release] metadata passed, but this run did NOT verify the artifacts"
+    echo "[verify-release] execute on a clean system. Not a release gate as it stands."
+    exit 2
 fi
