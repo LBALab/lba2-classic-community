@@ -134,17 +134,27 @@ while IFS= read -r entry; do
     run "$prof" "$dir" --headless --fixed-dt 16 --demo --tick 40 --exit \
         --screenshot "$OUT/$name-demo.png" >> "$log"
 
+    interior=$(hash_png "$OUT/$name-interior.png")
+    exterior=$(hash_png "$OUT/$name-exterior.png")
+    demo=$(hash_png "$OUT/$name-demo.png")
+
     row=$(printf '%-13s %-14s %-9s %-7s %-7s %-9s %-13s %-13s %-13s %-13s %-13s %-13s' \
         "$name" "${distrib:-?}" "${lang:-?}" "$disc" "$assets" "$music" \
-        "$(hash_png "$OUT/$name-interior.png")" \
-        "$(hash_png "$OUT/$name-exterior.png")" \
-        "$menu_main" "$menu_opts" "$inventory" \
-        "$(hash_png "$OUT/$name-demo.png")")
+        "$interior" "$exterior" "$menu_main" "$menu_opts" "$inventory" "$demo")
     echo "$row" | tee -a "$SUMMARY"
 
     # A verdict, so this can gate something rather than only be read.
     [ "$assets" = ok ] || { echo "  FAIL $name: assets not all present" >&2; failures=$((failures+1)); }
-    case "$row" in *" - "*|*" -"*) echo "  FAIL $name: a capture is missing" >&2; failures=$((failures+1)) ;; esac
+    # Test the hashes themselves, not the printed row. A data-only image serves no
+    # CD audio, so its music column reads "---", and matching a dash anywhere in
+    # the line reported that as a missing screenshot on an install where all six
+    # captures were present.
+    for h in "$interior" "$exterior" "$menu_main" "$menu_opts" "$inventory" "$demo"; do
+        [ "$h" = "-" ] || continue
+        echo "  FAIL $name: a capture is missing" >&2
+        failures=$((failures+1))
+        break
+    done
 done <<< "$LIST"
 
 echo
