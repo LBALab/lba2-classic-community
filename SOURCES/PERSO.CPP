@@ -3051,6 +3051,10 @@ int main(int argc, char *argv[]) {
                 exit(EXIT_FAILURE);
             }
             WritePersistedGameDir(resFolderPath);
+            /* The banner labels which probe resolved the assets, and this one
+               lives outside ResolveGameDataDir. Only for the run the picker
+               fires on; the next launch reports last_game_dir.txt. */
+            Res_SetDiscoverySource("first-launch picker");
         }
 
         /* --disc without an explicit game folder: the disc's own folder is the

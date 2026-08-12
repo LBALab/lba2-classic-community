@@ -22,12 +22,12 @@
 
 extern "C" const char kPickerMsgDataNotFound[] =
     "Little Big Adventure 2 game data wasn't found.\n\n"
-    "Pick the folder that contains lba2.hqr (your retail LBA2 install).\n\n"
+    "Pick the folder that contains LBA2.HQR (your retail LBA2 install).\n\n"
     "Your choice is saved for next time.";
 
 extern "C" const char kPickerMsgInvalidPick[] =
-    "That folder doesn't contain lba2.hqr.\n\n"
-    "Pick your retail LBA2 install folder (the one with lba2.hqr).";
+    "That folder doesn't contain LBA2.HQR.\n\n"
+    "Pick your retail LBA2 install folder (the one with LBA2.HQR).";
 
 extern "C" const char kPickerMsgNoPicker[] =
     "The system folder picker isn't available here.\n\n"
@@ -38,7 +38,7 @@ extern "C" const char kPickerMsgNoPicker[] =
 
 extern "C" const char kPickerMsgAndroidData[] =
     "Little Big Adventure 2 game data wasn't found.\n\n"
-    "Copy your retail LBA2 data (lba2.hqr, music/, video/, vox/) to:\n"
+    "Copy your retail LBA2 data (LBA2.HQR, music/, video/, vox/) to:\n"
     "    /sdcard/lba2cc/\n\n"
     "then relaunch the app.";
 
@@ -59,7 +59,7 @@ struct PickerState {
 /* Strip trailing whitespace/newlines from a path. Some dialog backends
  * (notably zenity in some configurations) return the path with a
  * trailing newline; without trimming, IsValidResourceDir would look for
- * `lba2.hqr` at the wrong-named directory and silently fail. */
+ * `LBA2.HQR` at the wrong-named directory and silently fail. */
 void TrimTrailingWhitespace(char *s) {
     size_t len = strlen(s);
     while (len > 0 &&
@@ -237,7 +237,7 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
         /* Apply trailing-separator normalization BEFORE validation.
          * Discover() in DIRECTORIES.CPP does `snprintf("%s%s", baseDir,
          * checkPath)` without injecting a separator, so a baseDir
-         * without a trailing slash gives "Commonlba2.hqr"-style joined
+         * without a trailing slash gives "CommonLBA2.HQR"-style joined
          * paths that always miss. The auto-discovery probe chain calls
          * EnsureTrailingSeparator pre-validation in NormalizeAndTry;
          * the picker has to do the same. Without this, picking a
@@ -247,13 +247,13 @@ extern "C" bool PromptForResDir(char *outPath, U16 outMax) {
         EnsureTrailingSeparator(state.chosen, ADELINE_MAX_PATH);
 
         /* Validation goes through the same gate the CLI and env overrides
-         * use, case-folding for `lba2.hqr` (per Discover() in
+         * use, case-folding for `LBA2.HQR` (per Discover() in
          * DIRECTORIES.CPP) included. The picker is not a special validation
          * path; it's the same probe with a different input source.
          *
          * The image-aware variant, because a folder somebody browsed to is as
          * explicit as a path they typed, and a retail CD rip is one .bin and a
-         * .cue with no extracted lba2.hqr to find. The cheap check is for the
+         * .cue with no extracted LBA2.HQR to find. The cheap check is for the
          * speculative candidate sweep, which this is not. */
         if (IsValidResourceDirOrImage(state.chosen)) {
             Log_Info("RES_PICKER: picked %s", state.chosen);

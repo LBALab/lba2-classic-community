@@ -48,7 +48,7 @@ These types contain pointer-sized fields and are larger on 64-bit than on 32-bit
 
 | Struct | File | File-backed? | Status |
 |--------|------|--------------|--------|
-| `S_CRED_OBJ_2` | [`SOURCES/CREDITS.H`](../SOURCES/CREDITS.H) | Yes — `lba2.hqr` index 0 | Fixed (#65). On-disk variant `S_CRED_OBJ_2_DISK` exists; runtime parser uses it. |
+| `S_CRED_OBJ_2` | [`SOURCES/CREDITS.H`](../SOURCES/CREDITS.H) | Yes — `LBA2.HQR` index 0 | Fixed (#65). On-disk variant `S_CRED_OBJ_2_DISK` exists; runtime parser uses it. |
 | `T_OBJET` | [`SOURCES/DEFINES.H:387`](../SOURCES/DEFINES.H) | No — runtime only; save uses field-by-field | Safe. |
 | `T_OBJET` (3DEXT MOUNFRAC) | [`SOURCES/3DEXT/DEFINES.H:26`](../SOURCES/3DEXT/DEFINES.H) | No — gated `#ifdef MOUNFRAC` | Safe. |
 

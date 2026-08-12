@@ -18,6 +18,8 @@
 
 #include "RES_PICKER.H"
 
+#include "DIRECTORIES.H" /* Directories_GetResMarker: the spelling to quote */
+
 #include <SYSTEM/ANDROID.H>
 #include <SYSTEM/LIMITS.H>
 
@@ -67,11 +69,18 @@ int main(void) {
     check_message("NoPicker", kPickerMsgNoPicker);
     check_message("AndroidData", kPickerMsgAndroidData);
 
-    /* Each message must carry the action it promises. */
-    check(strstr(kPickerMsgDataNotFound, "lba2.hqr") != NULL,
-          "DataNotFound: names lba2.hqr");
-    check(strstr(kPickerMsgInvalidPick, "lba2.hqr") != NULL,
-          "InvalidPick: names lba2.hqr");
+    /* Each message must carry the action it promises.
+     *
+     * Checked against the engine's own marker constant rather than a literal,
+     * and case-sensitively. A player reading "pick the folder with X" goes
+     * looking for exactly X, so the message has to quote the spelling the
+     * engine considers canonical, which is the spelling every distribution
+     * ships. Hard-coding it here let the two drift apart once already. */
+    const char *marker = Directories_GetResMarker();
+    check(strstr(kPickerMsgDataNotFound, marker) != NULL,
+          "DataNotFound: names the resource marker");
+    check(strstr(kPickerMsgInvalidPick, marker) != NULL,
+          "InvalidPick: names the resource marker");
     check(strstr(kPickerMsgNoPicker, "--game-dir") != NULL,
           "NoPicker: offers --game-dir");
     check(strstr(kPickerMsgNoPicker, "LBA2_GAME_DIR") != NULL,

@@ -39,7 +39,7 @@ All releases: [Releases page](https://github.com/LBALab/lba2-classic-community/r
 
 You need a legitimate copy of LBA2 ([GOG](https://www.gog.com/game/little_big_adventure_2), [Steam](https://store.steampowered.com/app/398000/Little_Big_Adventure_2/), or your retail CD) — the engine doesn't ship assets.
 
-On first launch a folder picker opens; point it at the directory containing `lba2.hqr` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder for Steam/GOG re-releases). Your choice is remembered.
+On first launch a folder picker opens; point it at the directory containing `LBA2.HQR` (alongside `music/`, `video/`, `vox/`, …, or under a `Common/` / `CommonClassic/` subfolder for Steam/GOG re-releases). Your choice is remembered.
 
 To skip the picker, pass an explicit path:
 
@@ -90,8 +90,8 @@ On macOS, install with `brew install ninja sdl3`.
 
 1. `make` or `make help` — lists convenience targets (`build`, `run`, `clean`, `test`, …).
 2. `make build` — configures `build/` (Ninja, Debug) and compiles `lba2cc`. Or plain CMake: `cmake -B build && cmake --build build`.
-3. Point the engine at your game data — `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery (the `lba2.hqr` marker is the only special-cased file). See [docs/GAME_DATA.md](docs/GAME_DATA.md).
-4. `make run` or `./scripts/dev/build-and-run.sh` — build if needed, then run. `make run` sets `LBA2_GAME_DIR` automatically if `./data` or `../LBA2` contains `lba2.hqr`; otherwise pass `--game-dir /path/to/classic/install` to the binary.
+3. Point the engine at your game data — `export LBA2_GAME_DIR=/path`, `./data/` (gitignored), `--game-dir`, or bounded automatic discovery (the `LBA2.HQR` marker is the only special-cased file). See [docs/GAME_DATA.md](docs/GAME_DATA.md).
+4. `make run` or `./scripts/dev/build-and-run.sh` — build if needed, then run. `make run` sets `LBA2_GAME_DIR` automatically if `./data` or `../LBA2` contains `LBA2.HQR`; otherwise pass `--game-dir /path/to/classic/install` to the binary.
 5. `make test` — host-only tests (path resolution, parsers, ABI bounds, version checks); no retail files or Docker required.
 
 **Windows:** Use MSYS2 (recommended; see [docs/WINDOWS.md](docs/WINDOWS.md)). Discovery and the game work the same (`LBA2_GAME_DIR`, `--game-dir`, paths with `\` or `/`). The root `Makefile` and `scripts/dev/*.sh` need a Unix-like shell (MSYS2 UCRT64, Git Bash, or WSL); alternatively run `cmake` and `build/SOURCES/lba2cc.exe` from cmd.exe / PowerShell and set the env var with `set LBA2_GAME_DIR=...`.

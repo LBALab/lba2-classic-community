@@ -33,6 +33,28 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv);
  */
 bool WritePersistedGameDir(const char *path);
 
+/**
+ * Which probe produced the directory ResolveGameDataDir returned, as a short
+ * label for the boot banner ("LBA2_GAME_DIR", "sibling scan", ...).
+ *
+ * The probe list runs silently, so a run that resolves the "wrong" folder for a
+ * good reason is indistinguishable from one that is simply broken: a forgotten
+ * LBA2_GAME_DIR outranking the picker looks identical to the picker not working.
+ * Naming the winning probe next to the path turns that into a one-line
+ * diagnosis.
+ *
+ * Never NULL. Reads "" before discovery has run, and stays valid for the
+ * process lifetime (points at static storage).
+ */
+const char *Res_GetDiscoverySource(void);
+
+/**
+ * Record the probe that resolved the directory. Called by ResolveGameDataDir
+ * for its own probes; exposed so the caller can label what it resolved outside
+ * them, which today is the first-launch picker.
+ */
+void Res_SetDiscoverySource(const char *label);
+
 #ifdef __cplusplus
 }
 #endif

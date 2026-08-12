@@ -4,11 +4,11 @@ The engine needs the original Little Big Adventure 2 data files. They are not in
 
 ## What to point the engine at
 
-Use the directory that contains `lba2.hqr` (and the other `.hqr` files, `music/`, `video/`, `vox/`, etc.). On Steam, classic data may live under a Classic-related install path; remastered or other editions may use a different layout — this fork targets classic data only.
+Use the directory that contains `LBA2.HQR` (and the other `.hqr` files, `music/`, `video/`, `vox/`, etc.). On Steam, classic data may live under a Classic-related install path; remastered or other editions may use a different layout — this fork targets classic data only.
 
-**Validation:** discovery and overrides only succeed when the chosen path is a directory that contains `lba2.hqr` (that is the required marker; see `IsValidResourceDir` / `FILE_VALID_RES_DIR` in `SOURCES/DIRECTORIES.CPP`). The filename is matched with the same case-folding logic as other asset files.
+**Validation:** discovery and overrides only succeed when the chosen path is a directory that contains `LBA2.HQR` (that is the required marker; see `IsValidResourceDir` / `FILE_VALID_RES_DIR` in `SOURCES/DIRECTORIES.CPP`). The filename is matched with the same case-folding logic as other asset files.
 
-**Single asset root:** Once that directory is chosen, `GetResPath`, `GetJinglePath`, `GetMoviePath`, and related APIs resolve files relative to that same `directoriesResDir` (see `InitDirectories` / `GetResPath` in `SOURCES/DIRECTORIES.CPP`). The engine does not look for `music/`, `video/`, `vox/`, or other `.hqr` files on separate paths; finding `lba2.hqr` establishes the one root for classic data.
+**Single asset root:** Once that directory is chosen, `GetResPath`, `GetJinglePath`, `GetMoviePath`, and related APIs resolve files relative to that same `directoriesResDir` (see `InitDirectories` / `GetResPath` in `SOURCES/DIRECTORIES.CPP`). The engine does not look for `music/`, `video/`, `vox/`, or other `.hqr` files on separate paths; finding `LBA2.HQR` establishes the one root for classic data.
 
 **Sibling scan:** If the fixed paths above fail, the engine looks at siblings of the parent of the current working directory (for example the folder that contains both your clone and a retail install). For each immediate subdirectory, it tries that folder and `CommonClassic`, `common`, `Common`, and `Classic` under it. Only bounded scans (entry and directory-count limits); see `TryParentSiblingScan` in `SOURCES/RES_DISCOVERY.CPP`.
 
@@ -21,17 +21,32 @@ Use the directory that contains `lba2.hqr` (and the other `.hqr` files, `music/`
 | Persisted choice | `last_game_dir.txt` in the user-prefs folder, written automatically the first time you pick a folder via the launch dialog (see [First-launch folder picker](#first-launch-folder-picker) below) |
 | Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory, current working directory, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
+Both `--game-dir` and `LBA2_GAME_DIR` also try a `Common/` inside the path you give, so pointing either at an install root works as well as pointing it at the data folder.
+
+**Naming a path that holds no game data stops the run.** Neither override falls through to the probes below it: an override that names the wrong place is a mistake, and continuing would boot whatever discovery turns up next. That is a launch against assets nobody asked for, reported only by the `Assets:` line and still exiting 0. You get the picker instead (or a clean error when headless).
+
 If none of the above resolves a valid directory, the engine falls back to the [First-launch folder picker](#first-launch-folder-picker). On a headless system (no display, CI runner, etc.), the picker can't open and the process exits with a log listing candidates tried and hints.
+
+## Which probe matched
+
+The boot banner names the probe that resolved the assets, after the path:
+
+```
+Assets: /home/user/GOG/tlba2-classic/Common/  (--game-dir, Common/)
+Assets: /home/user/LBA2-GOG/                  (sibling scan)
+```
+
+The probes run silently and in priority order, so without this a run that picks an unexpected folder for a good reason (a forgotten `LBA2_GAME_DIR`, a stale `last_game_dir.txt`) looks the same as one that is simply broken. The label is the difference between reading a bug report and guessing at one. Labels name the mechanism, not the code: `--game-dir`, `LBA2_GAME_DIR`, `last_game_dir.txt`, `next to the binary`, `working directory`, `parent walk`, `sibling scan`, `first-launch picker`, and the Android storage roots.
 
 ## First-launch folder picker
 
-When all four override mechanisms above fail and the engine is running in a windowed environment, it shows the platform-native folder dialog (NSOpenPanel on macOS, IFileDialog on Windows, GTK / xdg-desktop-portal on Linux). The user picks the folder containing `lba2.hqr`; the engine validates it via `IsValidResourceDir`, persists the choice to `last_game_dir.txt`, and continues startup.
+When all four override mechanisms above fail and the engine is running in a windowed environment, it shows the platform-native folder dialog (NSOpenPanel on macOS, IFileDialog on Windows, GTK / xdg-desktop-portal on Linux). The user picks the folder containing `LBA2.HQR`; the engine validates it via `IsValidResourceDir`, persists the choice to `last_game_dir.txt`, and continues startup.
 
 Android is the exception: there is no folder picker (SDL's file dialog returns `content://` document URIs, not filesystem paths the engine can probe). When discovery fails there, the engine shows a message telling the user to copy their data to `/sdcard/lba2cc/` and relaunch, instead of opening a dialog. See [docs/ANDROID.md](ANDROID.md) for the full Android data layout.
 
 | Scenario | Behavior |
 |---|---|
-| User picks a valid folder (contains `lba2.hqr`) | Engine launches; `last_game_dir.txt` updated; subsequent launches skip the dialog. |
+| User picks a valid folder (contains `LBA2.HQR`) | Engine launches; `last_game_dir.txt` updated; subsequent launches skip the dialog. |
 | User picks an invalid folder | Engine shows a "Game data not found" message and re-opens the dialog. |
 | User cancels the dialog | Engine exits cleanly (same exit code as the headless no-data case). |
 | Persisted path no longer valid (game install moved/deleted) | Engine silently falls through to auto-discovery, then the picker. The next valid pick rewrites `last_game_dir.txt`. |
@@ -79,14 +94,14 @@ If you want to force a specific backend even when both are installed, set `SDL_F
 
 **What “adjacent” means in discovery:** Heuristics only look at predictable relative locations (cwd, parents of cwd, `../LBA2`, `./data`, SDL binary dir, then siblings of the parent of cwd with a small set of subfolder names). There is no full-disk or deep recursive search. “Adjacent” here means *often the same parent folder as your clone* when you run from the repo root — not “any path on the machine.”
 
-**Safety:** Every candidate is accepted only if `IsValidResourceDir` succeeds (`lba2.hqr` present). There is no execution of paths from untrusted config beyond what you pass on the command line or in the environment.
+**Safety:** Every candidate is accepted only if `IsValidResourceDir` succeeds (`LBA2.HQR` present). There is no execution of paths from untrusted config beyond what you pass on the command line or in the environment.
 
 ## Developer layout
 
 Common choices:
 
 - Symlink or copy retail files into `data/` at the repo root (that directory is gitignored in this repo so retail files are not committed by mistake).
-- One directory up: `../LBA2/` (or `../game/`) with `lba2.hqr` inside.
+- One directory up: `../LBA2/` (or `../game/`) with `LBA2.HQR` inside.
 
 From any directory in the clone you can use:
 
@@ -102,9 +117,9 @@ Windows without Bash: configure CMake as in [WINDOWS.md](WINDOWS.md), then run `
 
 The GOG DRM-free standalone product (and the equivalent content inside the GOG Galaxy "Original Edition" DLC under `Speedrun/Windows/`) ships the 1997 retail CD-ROM as a raw BIN image (`LBA2.GOG`) rather than extracted files. HQRs are duplicated at the install root so gameplay loads, but `VIDEO.HQR`, music WAVs, and `.VOX` voices live only inside the BIN.
 
-**The engine reads the image directly (no extraction needed).** Point it at the install root, the folder holding both `lba2.hqr` and `LBA2.GOG`, and the disc-image source mounts the BIN and resolves the in-image assets (FMV, voices, music) through the normal file path. The image is detected by content (the ISO9660 "CD001" volume descriptor), not by name, so the `.gog` extension, a raw `.bin`/`.iso`, or a `.cue`/`.dat` pair all work. When a mount happens the boot log adds a `Disc:` line beside `Assets:`; with no image present the engine stays filesystem-only as before. See [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) for the mechanism.
+**The engine reads the image directly (no extraction needed).** Point it at the install root, the folder holding both `LBA2.HQR` and `LBA2.GOG`, and the disc-image source mounts the BIN and resolves the in-image assets (FMV, voices, music) through the normal file path. The image is detected by content (the ISO9660 "CD001" volume descriptor), not by name, so the `.gog` extension, a raw `.bin`/`.iso`, or a `.cue`/`.dat` pair all work. When a mount happens the boot log adds a `Disc:` line beside `Assets:`; with no image present the engine stays filesystem-only as before. See [DISC_IMAGE_SOURCE.md](DISC_IMAGE_SOURCE.md) for the mechanism.
 
-Discovery accepts a folder whose game data exists only inside the image: the `lba2.hqr` check falls through to a probe of any image sitting there. Today's GOG packages ship the HQRs extracted alongside the BIN anyway, so for them discovery succeeds on the filesystem and only the media comes from the image.
+Discovery accepts a folder whose game data exists only inside the image: the `LBA2.HQR` check falls through to a probe of any image sitting there. Today's GOG packages ship the HQRs extracted alongside the BIN anyway, so for them discovery succeeds on the filesystem and only the media comes from the image.
 
 **Extracting the media instead (optional).** If you would rather have loose files on disk (for modding, inspection, or to run without the image), extract them once:
 

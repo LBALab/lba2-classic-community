@@ -9,6 +9,7 @@
 #include "CONSOLE/CONSOLE.H" /* console buffer sink printer adapter */
 #include "CONTROL.H"
 #include "JOYSTICK.H"
+#include "RES_DISCOVERY.H" /* Res_GetDiscoverySource for the Assets banner line */
 #include <SYSTEM/LOG.H>
 #include "SVGA/INITMODE.H"
 #include "SVGA/SCREEN.H"
@@ -141,7 +142,18 @@ void InitAdeline(S32 argc, char *argv[]) {
                    LOG_ARCH_NAME, SDL_GetNumLogicalCPUCores(),
                    (SDL_GetSystemRAM() + 512) / 1024);
         Log_Raw("Built %s %s", __DATE__, __TIME__);
-        Log_Raw("Assets: %s", resFolderPath);
+        /* Which probe found the assets, in parentheses after the path. The probe
+           list runs silently, so "the engine booted the wrong install" and "the
+           engine ignored what I set" look identical in a bug report. Naming the
+           winner makes a pasted banner enough to tell them apart. */
+        {
+            const char *foundVia = Res_GetDiscoverySource();
+            if (foundVia != NULL && foundVia[0] != '\0') {
+                Log_Raw("Assets: %s  (%s)", resFolderPath, foundVia);
+            } else {
+                Log_Raw("Assets: %s", resFolderPath);
+            }
+        }
         /* When a disc image is mounted, one aligned line beside Assets: naming
            the image (basename only; it lives in the assets dir above). Silent
            (no line) otherwise, so the banner is byte-identical to a
