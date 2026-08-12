@@ -12,17 +12,19 @@ shape this script is optional. It exists for the cases the engine cannot serve:
     CCD. Convert or rip the audio separately, then use `--tracks-from`.
   * Wanting loose files on disk for modding or inspection.
 
-What only this repo can tell you is the naming, and it depends on the pressing.
-The US Activision disc pressed six themes, and there CD track N holds
-ListJingle[N]: track 6 is JADPCM01 rather than TADPCM6, and the ListJingle[1]
-theme is not on the disc at all. That mapping is CD_TRACK_NAMES below, kept in
-step with LIB386/SYSTEM/CDTRACKS.CPP by tests/cdtracks.
+What only this repo can tell you is the naming, and it depends on the disc. What
+holds everywhere is positional: a disc's audio tracks, in order, are the themes
+it did not ship as files, in ListJingle order. The Brazilian Activision disc
+presses seven as tracks 2..8, both European pressings press one; all are named
+that way. See themes_for_tracks.
 
-That is one pressing's numbering, not a general rule. The Brazilian Activision
-disc presses seven themes as tracks 2..8 and is ListJingle[N-1]; both European
-pressings press one, where a number means nothing at all. What holds everywhere
-is positional: a disc's audio tracks, in order, are the themes it did not ship
-as files, in ListJingle order. See theme_for_track.
+CD_TRACK_NAMES below is the exception, and only for one artifact: the widely
+circulated TWINSEN.mdx, which carries six audio tracks starting at TADPCM2. It
+disagrees with the TrackCDUS table in the executable on its own image, which
+expects seven starting at TADPCM1, so that rip has most likely lost a track and
+renumbered. The table names its six for what they actually hold. Kept in step
+with LIB386/SYSTEM/CDTRACKS.CPP by tests/cdtracks; see the header there before
+changing it.
 
 Usage:
   disc_extract.py SOURCE OUTDIR [--from-drive [DEV]] [--tracks-from DIR]
@@ -313,13 +315,14 @@ def themes_for_tracks(spans, outdir, plan):
 
 
 def themes_without_a_file(outdir, stems):
-    """CD track numbers whose theme has no file in the output, in track order."""
-    have = set(stems)
-    target = music_dir_in(outdir)
-    if os.path.isdir(target):
-        for name in os.listdir(target):
-            have.add(os.path.splitext(name)[0].upper())
-    return [n for n in sorted(CD_TRACK_NAMES) if CD_TRACK_NAMES[n].upper() not in have]
+    """Every theme with no file in the output, in ListJingle order.
+
+    All of them, not just the ones the US table happens to name. A rip that lost
+    an audio track leaves a theme with nowhere to come from, and saying which one
+    is the difference between a silent theme and a diagnosis: the widely
+    circulated TWINSEN.mdx is short its first audio track, so extracting it
+    yields no TADPCM1 and nothing used to mention it."""
+    return themes_without_files(outdir, stems)
 
 
 def track_number_of(filename):
@@ -1234,8 +1237,9 @@ def main():
     # has them all.
     missing = themes_without_a_file(a.outdir, plan.stems)
     if missing:
-        print("No file for: %s" % ", ".join(
-            "%s (track %02d)" % (CD_TRACK_NAMES[n], n) for n in missing))
+        print("No file for: %s" % ", ".join(missing))
+        print("             That music has nowhere to come from. If the disc should "
+              "have pressed it, the rip is short a track.")
     print("%d file(s) written, %d already there, %.1f MB"
           % (plan.written, plan.skipped, plan.bytes / 1048576.0))
     if not a.dry_run and (image is not None or datadir is not None):
