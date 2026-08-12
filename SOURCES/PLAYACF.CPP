@@ -370,9 +370,6 @@ static void PushCurrentFrameVideoAudio(smk smkObject, const int *tracksToPlay, i
 //---------------------------------------------------------------------------
 
 S32 PlayAcf(const char *name) {
-    if (!PathAcf[0])
-        return 0; /* no movie bank installed -- see InitAcf() */
-
     if (Control_IsVerbose())
         fprintf(stderr, "[control] modal: PlayAcf '%s' -- cutscene, blocks --exit\n", name);
 #ifdef USE_MVIDEO_SMACKER
@@ -393,6 +390,16 @@ S32 PlayAcf(const char *name) {
         }
 
         ListVarGame[FLAG_ACF + (n / 16)] |= (S16)(1 << (n & 15));
+
+        if (!PathAcf[0]) {
+            /* No movie bank installed (InitAcf() leaves the path empty when
+               there is no video/). The flag above is already set, so scripts
+               see the cutscene the way they would one the player skipped. */
+            if (VideoLogIsEnabled())
+                SDL_Log("[VIDEO] PlayAcf: no movie bank, skipping '%s'", name);
+            s_playacf_playing = 0;
+            return 0;
+        }
 
         StopMusic();
         HQ_PauseSamples();
