@@ -116,7 +116,10 @@ static int chdir_portable(const char *p) {
 
 static void create_marker_hqr(const char *dir) {
     char marker[512];
-    snprintf(marker, sizeof(marker), "%s/lba2.hqr", dir);
+    /* The engine's own marker, not a literal: a demo build gates on RESS.HQR,
+       and a fixture spelling the retail name would build a tree that build
+       cannot discover. */
+    snprintf(marker, sizeof(marker), "%s/%s", dir, Directories_GetResMarker());
     FILE *f = fopen(marker, "wb");
     if (f) {
         fclose(f);
@@ -637,7 +640,12 @@ static bool write_case_fixture_iso(const char *path) {
     o = 0;
     iso_add_rec(root, &o, ISO_L_ROOT, 2048, true, &dot, 1);
     iso_add_rec(root, &o, ISO_L_ROOT, 2048, true, &dotdot, 1);
-    iso_add_rec(root, &o, ISO_L_HQR, 8, false, (const unsigned char *)"LBA2.HQR;1", 10);
+    /* Same reason as create_marker_hqr: the in-image marker has to be the one
+       this build looks for. ISO9660 identifiers carry the ";1" version suffix. */
+    char isoMarker[32];
+    snprintf(isoMarker, sizeof isoMarker, "%s;1", Directories_GetResMarker());
+    iso_add_rec(root, &o, ISO_L_HQR, 8, false, (const unsigned char *)isoMarker,
+                (unsigned char)strlen(isoMarker));
     iso_add_rec(root, &o, ISO_L_CFG, (U32)strlen(kImageCfgBody), false,
                 (const unsigned char *)"LBA2.CFG;1", 10);
 
