@@ -254,6 +254,15 @@ Windows ZIPs, macOS DMGs and Android APKs aren't checked. Running them
 on a Linux host needs `wine`, `qemu-system-x86`, a Mac, or an Android
 emulator, which is more machinery than the marginal signal justifies.
 
+**Without a container runtime** the script still runs both metadata checks
+and exits 2 rather than 0. The channel is read straight out of the file, and
+`--version` is taken by running same-arch artifacts on the host, marked
+`(host run; clean-system NOT verified)` in the row. Cross-arch artifacts are
+not run at all. What a host run cannot show is the part only a container
+can: that the artifact executes on a machine with none of the build deps
+installed. So exit 2 means "a mislabelled artifact would have been caught,
+but this was not a release gate".
+
 **Docker Desktop under WSL.** If the script dies at `registering
 qemu-user-static binfmt` with `docker-credential-desktop.exe: Invalid
 argument` and exit 125, the culprit is `"credsStore": "desktop.exe"` in

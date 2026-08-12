@@ -12,6 +12,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `scripts/dev/verify-release.sh` keeps checking `--version` against the
+  filename on a host with no container runtime, by running same-arch
+  artifacts directly instead of skipping them. Only the clean-system claim
+  needs a container, so only that is lost, and the run still exits 2 to say
+  so. Previously both metadata checks were advertised as surviving while one
+  of them silently did not.
+
 - Booting a different install than the one you launched from now says so.
   When the folder you run from holds no usable data, discovery scans the
   parent directory and takes whatever install turns up next door. That is
