@@ -57,6 +57,9 @@ char directoriesResDir[ADELINE_MAX_PATH] = "";
 char directoriesCfgDir[ADELINE_MAX_PATH] = "";
 char directoriesCDPrefix[ADELINE_MAX_PATH] = "";
 S32 directoriesDistVersion;
+/* Set from the command line before anything asks for a path; empty means the
+   environment, then the per-user default, decide. See GetDefaultUserDir. */
+static char directoriesUserDirOverride[ADELINE_MAX_PATH] = "";
 
 // --- Private functions -------------------------------------------------------
 /**
@@ -296,15 +299,75 @@ void GetCurrentRunningDir(char *outDir) {
 #endif
 }
 
+void Directories_SetUserDirOverride(const char *path) {
+    if (path == NULL) {
+        directoriesUserDirOverride[0] = '\0';
+        return;
+    }
+    strncpy(directoriesUserDirOverride, path, ADELINE_MAX_PATH);
+    directoriesUserDirOverride[ADELINE_MAX_PATH - 1] = '\0'; // Guarantee
+}
+
+bool Directories_ResolveUserDir(char *outDir, U16 outMax,
+                                const char *overridePath, const char *envPath) {
+    assert((outDir != NULL) && (outMax > 0));
+
+    const char *chosen = NULL;
+    if ((overridePath != NULL) && (overridePath[0] != '\0')) {
+        chosen = overridePath;
+    } else if ((envPath != NULL) && (envPath[0] != '\0')) {
+        chosen = envPath;
+    }
+    if (chosen == NULL) {
+        return false;
+    }
+
+    strncpy(outDir, chosen, outMax);
+    outDir[outMax - 1] = '\0'; // Guarantee
+
+    /* Every Get*Path builds its result as baseDir + name with no separator of
+       its own, and SDL_GetPrefPath always hands back a trailing one, so a path
+       typed without it has to be brought to the same shape or the first append
+       lands a sibling file instead of a child.
+
+       A path with no room left for the separator is returned as it stands. It
+       cannot be made to work, and returning it verbatim means the boot error
+       quotes back what was actually asked for. */
+    const size_t len = strlen(outDir);
+    if ((len > 0) && (len + 1 < (size_t)outMax) && (outDir[len - 1] != '/') &&
+        (outDir[len - 1] != ADELINE_PATH_SEP_CHAR)) {
+        outDir[len] = ADELINE_PATH_SEP_CHAR;
+        outDir[len + 1] = '\0';
+    }
+    return true;
+}
+
 void GetDefaultUserDir(char *outDir) {
     static bool initialized = false;
     static char userDir[ADELINE_MAX_PATH] = "";
     if (!initialized) {
-        char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-        if (sdlUserPath != NULL) {
-            strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
-            userDir[ADELINE_MAX_PATH - 1] = '\0';
-            SDL_free(sdlUserPath);
+        /* Explicit override first, environment second, per-user default last:
+           the same CLI > env > default order the resolution and game-data paths
+           already follow.
+
+           A named directory is created rather than required to exist, matching
+           SDL_GetPrefPath, which creates its own. That is what makes
+           `--user-dir <fresh path>` an empty profile in one step, with no mkdir
+           on the caller. Creation failure is deliberately not papered over with
+           a fall back to the default: a run that quietly wrote somewhere other
+           than where it was told is the failure this flag exists to prevent, so
+           the unusable path stays and InitDirectories stops the boot naming it. */
+        if (Directories_ResolveUserDir(userDir, ADELINE_MAX_PATH,
+                                       directoriesUserDirOverride,
+                                       getenv("LBA2_USER_DIR"))) {
+            SDL_CreateDirectory(userDir);
+        } else {
+            char *sdlUserPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
+            if (sdlUserPath != NULL) {
+                strncpy(userDir, sdlUserPath, ADELINE_MAX_PATH);
+                userDir[ADELINE_MAX_PATH - 1] = '\0';
+                SDL_free(sdlUserPath);
+            }
         }
         initialized = true;
     }

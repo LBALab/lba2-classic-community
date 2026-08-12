@@ -316,18 +316,21 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
  * at picker-success time, before InitDirectories / InitAdeline have set
  * up the lba2.cfg buffer machinery. Written via stdio; read via stdio.
  *
- * Org/app naming comes from ADELINE_PREF_ORG / ADELINE_PREF_APP in
- * SOURCES/DIRECTORIES.H, so this pointer lands in the same folder as the
- * saves and cfg it belongs with, and a demo build never reads a retail
- * build's pick. */
+ * Asks GetDefaultUserDir rather than reaching for SDL_GetPrefPath itself, so
+ * this pointer lands in the same folder as the saves and cfg it belongs with:
+ * the demo SKU's own (ADELINE_PREF_ORG / ADELINE_PREF_APP in DIRECTORIES.H, so
+ * a demo build never reads a retail build's pick), and whatever --user-dir or
+ * LBA2_USER_DIR names. A second reader of the raw pref path would be a run
+ * whose remembered game folder sits outside the profile the rest of it writes
+ * to. One resolver, one answer. */
 bool BuildPersistedGameDirPath(char *outPath, size_t outMax) {
-    char *prefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
-    if (prefPath == NULL) {
+    char userDir[ADELINE_MAX_PATH] = "";
+    GetDefaultUserDir(userDir);
+    if (userDir[0] == '\0') {
         return false;
     }
-    /* SDL_GetPrefPath always returns a path with a trailing separator. */
-    int written = snprintf(outPath, outMax, "%slast_game_dir.txt", prefPath);
-    SDL_free(prefPath);
+    /* GetDefaultUserDir guarantees a trailing separator. */
+    int written = snprintf(outPath, outMax, "%slast_game_dir.txt", userDir);
     return written > 0 && static_cast<size_t>(written) < outMax;
 }
 

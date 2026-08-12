@@ -27,6 +27,33 @@ void InitDirectories(const char *userDir, const char *resDir,
                      const char *cfgDir, const char *CDPrefix, S32 distVersion);
 void EndDirectories();
 
+/// Point the user directory somewhere other than the per-user default, for the
+/// whole run: saves, lba2.cfg, adeline.log and the remembered game-data path
+/// all follow it. Precedence is this override, then LBA2_USER_DIR, then the
+/// per-user path SDL picks.
+///
+/// Call before the first GetDefaultUserDir: the resolved root is cached on that
+/// first call, and a later override would leave the two halves of a run writing
+/// to different folders.
+///
+/// The directory is created if it does not exist, parents included, so naming a
+/// fresh one is enough to get an empty profile. A path that cannot be created
+/// is left in place rather than silently swapped for the default; the boot then
+/// stops in InitDirectories naming the path that failed.
+void Directories_SetUserDirOverride(const char *path);
+
+/// The precedence rule behind GetDefaultUserDir, without the caching or the
+/// directory creation, so it can be exercised directly: \p overridePath (the
+/// command line) beats \p envPath (LBA2_USER_DIR), and an empty string counts
+/// as absent.
+///
+/// Returns false when neither names anything, leaving \p outDir untouched;
+/// that is the caller's signal to use the per-user path SDL picks. Otherwise
+/// writes the winner with a trailing separator, or verbatim when there is no
+/// room left for one.
+bool Directories_ResolveUserDir(char *outDir, U16 outMax,
+                                const char *overridePath, const char *envPath);
+
 // --- Interface ---------------------------------------------------------------
 void GetCurrentRunningDir(char *outDir); ///< Path where application was run
 void GetDefaultUserDir(char *outDir);    ///< Path for user writable data

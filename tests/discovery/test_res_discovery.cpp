@@ -6,6 +6,7 @@
  * Tests here only assert `lba2.hqr` presence as the discovery gate.
  */
 
+#include <SYSTEM/ADELINE.H>
 #include <SYSTEM/ADELINE_TYPES.H>
 #include <SYSTEM/DISCIMG.H>
 #include <SYSTEM/FILES.H>
@@ -671,6 +672,83 @@ static bool test_embedded_cfg_write() {
     unlink_portable(dest);
     rmdir_portable(dir);
     return sz == g_embeddedLba2CfgBytesSize;
+}
+
+/* User-directory precedence: --user-dir beats LBA2_USER_DIR, an empty string
+ * counts as nothing set, and whatever wins comes back with exactly one trailing
+ * separator. That last part is what keeps a path typed without one from making
+ * every Get*Path append a sibling instead of a child.
+ *
+ * Exercises Directories_ResolveUserDir rather than GetDefaultUserDir: the
+ * latter resolves once and caches, so a process can only ask it a single
+ * question, which is the same wall the persisted-path test below runs into. */
+static bool test_user_dir_precedence() {
+    char out[ADELINE_MAX_PATH];
+    int bad = 0;
+
+    /* Nothing named: report that, and leave the buffer alone so the caller's
+     * platform default is not quietly overwritten with a partial answer. */
+    strcpy(out, "untouched");
+    if (Directories_ResolveUserDir(out, ADELINE_MAX_PATH, NULL, NULL) ||
+        strcmp(out, "untouched") != 0) {
+        printf("FAIL user_dir: both absent should resolve nothing\n");
+        bad++;
+    }
+    if (Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "", "")) {
+        printf("FAIL user_dir: empty strings should count as absent\n");
+        bad++;
+    }
+
+    /* Precedence, including an empty override falling through to the env. */
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "/cli", "/env") ||
+        strncmp(out, "/cli", 4) != 0) {
+        printf("FAIL user_dir: command line should beat the environment\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "", "/env") ||
+        strncmp(out, "/env", 4) != 0) {
+        printf("FAIL user_dir: empty override should fall through to the environment\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, NULL, "/env") ||
+        strncmp(out, "/env", 4) != 0) {
+        printf("FAIL user_dir: null override should fall through to the environment\n");
+        bad++;
+    }
+
+    /* Exactly one trailing separator, whether or not one was typed, and
+     * whichever of the two spellings this platform accepts. */
+    char want[ADELINE_MAX_PATH];
+    snprintf(want, sizeof want, "/a/b%c", ADELINE_PATH_SEP_CHAR);
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "/a/b", NULL) ||
+        strcmp(out, want) != 0) {
+        printf("FAIL user_dir: missing separator should be appended\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, "/a/b/", NULL) ||
+        strcmp(out, "/a/b/") != 0) {
+        printf("FAIL user_dir: an existing '/' should not be doubled\n");
+        bad++;
+    }
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, want, NULL) ||
+        strcmp(out, want) != 0) {
+        printf("FAIL user_dir: an existing native separator should not be doubled\n");
+        bad++;
+    }
+
+    /* No room for a separator: the path comes back as it stands rather than
+     * truncated to make space, so the boot error quotes what was asked for.
+     * The buffer must survive intact either way. */
+    char longPath[ADELINE_MAX_PATH];
+    memset(longPath, 'a', ADELINE_MAX_PATH - 1);
+    longPath[ADELINE_MAX_PATH - 1] = '\0';
+    if (!Directories_ResolveUserDir(out, ADELINE_MAX_PATH, longPath, NULL) ||
+        strcmp(out, longPath) != 0) {
+        printf("FAIL user_dir: an unseparable path should come back verbatim\n");
+        bad++;
+    }
+
+    return bad == 0;
 }
 
 /* Persisted-LastGameDir probe: a previous picker session wrote
@@ -1436,6 +1514,9 @@ int main() {
         failed++;
     }
     if (!test_embedded_cfg_write()) {
+        failed++;
+    }
+    if (!test_user_dir_precedence()) {
         failed++;
     }
     if (!test_persisted_last_game_dir()) {

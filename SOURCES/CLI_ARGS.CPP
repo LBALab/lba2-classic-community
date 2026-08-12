@@ -46,6 +46,9 @@ static const T_CLI_FLAG CliFlags[] = {
     {"--game-dir", 1, 1, 1, NULL, "<dir>", "folder holding the game data, the one with the\n"
                                            "HQR files in it (often Common/)"},
     {"--data-dir", 1, 1, 0, NULL, "<dir>", "same as --game-dir"},
+    {"--user-dir", 1, 0, 1, NULL, "<dir>", "folder for this run's saves, settings and log,\n"
+                                           "created if missing. Use it to keep two installs\n"
+                                           "apart, or to run against a fresh folder"},
     {"--disc", 1, 1, 0, NULL, "<file>", "mount this disc image instead of picking one\n"
                                         "from the game folder. Takes an image or a cue\n"
                                         "(the cue names its image). Use it when a folder\n"

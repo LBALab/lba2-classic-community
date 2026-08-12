@@ -2979,6 +2979,15 @@ int main(int argc, char *argv[]) {
         char resFolderPath[ADELINE_MAX_PATH] = "";
         char userFolderPath[ADELINE_MAX_PATH] = "";
 
+        /* --user-dir has to be read before the first GetDefaultUserDir, which is
+           the next line: that call resolves the root once and caches it, so an
+           override arriving later would leave the log in one folder and the
+           saves in another. Last spelling wins, as it does for --disc. */
+        for (int i = 1; i + 1 < argc; i++) {
+            if (!strcmp(argv[i], "--user-dir"))
+                Directories_SetUserDirOverride(argv[i + 1]);
+        }
+
         GetDefaultUserDir(userFolderPath);
 
         /* Bring the structured log up here — BEFORE game-data discovery and the
