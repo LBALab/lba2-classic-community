@@ -14,6 +14,10 @@ bytes, so the ISO9660 filesystem is walked in place — no need to materialize a
 plain `.iso`. Verified against the Adeline CD dumps for LBA1 (`LBA.DOT`), Time
 Commando (`GAME.GOG`), and LBA2 (`LBA2.GOG`).
 
+A cooked image (2048 bytes/sector, data track only, what a `.iso` usually is) reads
+the same way with the stride and header offset changed, so `open_image` accepts
+either. Only a raw one carries the audio tracks.
+
 This also doubles as the working spec for an in-engine ISO9660-from-image reader that
 could let the engine load media directly from a GOG package without an extraction step
 (see issue #119). For bulk extraction of LBA2's missing media into an install dir, use
@@ -32,15 +36,40 @@ SECTOR = 2352
 USER = 2048
 HDR = 16  # 12 sync + 4 header before the 2048 user bytes (Mode1/2352)
 
+# Raw first: a cooked image has no sync pattern, so it can only be read one way,
+# while a raw one read as cooked lands mid-sector and matches nothing.
+LAYOUTS = ((SECTOR, HDR), (USER, 0))
+
 class Image:
-    def __init__(self, path):
+    def __init__(self, path, stride=SECTOR, hdr=HDR):
         self.f = open(path, "rb")
+        self.stride = stride
+        self.hdr = hdr
     def read_lba(self, lba, count=1):
         out = bytearray()
         for i in range(count):
-            self.f.seek((lba + i) * SECTOR + HDR)
+            self.f.seek((lba + i) * self.stride + self.hdr)
             out += self.f.read(USER)
         return bytes(out)
+    @property
+    def is_raw(self):
+        return self.stride == SECTOR
+
+def open_image(path):
+    """Open an image whichever layout it uses, or return None if it is not ISO9660.
+
+    Raw (2352) carries the CD-DA audio tracks alongside the filesystem; cooked
+    (2048) is the data track alone. Both are readable here, but only a raw image
+    has audio to extract."""
+    for stride, hdr in LAYOUTS:
+        img = Image(path, stride, hdr)
+        try:
+            if img.read_lba(16)[1:6] == b"CD001":
+                return img
+        except OSError:
+            pass
+        img.f.close()
+    return None
 
 def parse_dir_records(data):
     """Yield (name, lba, size, is_dir) from a directory extent's bytes."""
@@ -123,7 +152,9 @@ def main():
     ap.add_argument("--tree", action="store_true", help="recursive listing from root")
     ap.add_argument("--extract", nargs=2, metavar=("ISOPATH", "OUT"))
     a = ap.parse_args()
-    img = Image(a.image)
+    img = open_image(a.image)
+    if img is None:
+        raise SystemExit("not an ISO9660 image (no CD001 at LBA 16, either layout)")
     pvd = get_pvd(img)
     rlba, rsize = root_record(pvd)
     volid = pvd[40:72].decode("latin-1").strip()
