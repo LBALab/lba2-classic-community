@@ -979,6 +979,25 @@ def selftest():
           ["BINARY", "MOTOROLA", "WAVE", "MP3", "AIFF"])
     check("raw types", [t.source_type in RAW_FILE_TYPES for t in types],
           [True, True, False, False, False])
+    # Where each audio track can be read from. The trap is a track inside an
+    # image that cannot carry audio: deciding on the FILE type alone sends the
+    # image itself down the raw-sector path and cuts its filesystem out as PCM.
+    cooked = parse_cue(cue_of(RETAIL_CUE))          # audio tracks inside one BINARY
+    check("in-image track needs a usable image",
+          [audio_source_kind(t, cooked, False) for t in cooked if t.mode == "AUDIO"],
+          [None, None])
+    check("in-image track with a usable image",
+          [audio_source_kind(t, cooked, True) for t in cooked if t.mode == "AUDIO"],
+          ["image", "image"])
+    mixed = parse_cue(cue_of(FILE_TYPES_CUE))       # MOTOROLA, WAVE, MP3, AIFF
+    check("separate files by type",
+          [audio_source_kind(t, mixed, True) for t in mixed if t.mode == "AUDIO"],
+          ["raw", "file", "file", "file"])
+    # A separate file does not care whether the image is usable: it is not the image.
+    check("separate files ignore the image",
+          [audio_source_kind(t, mixed, False) for t in mixed if t.mode == "AUDIO"],
+          ["raw", "file", "file", "file"])
+
     check("engine can decode wav and ogg",
           [e in ENGINE_AUDIO_EXTS for e in (".wav", ".ogg", ".aiff", ".bin")],
           [True, True, False, False])
@@ -1107,6 +1126,22 @@ def audio_track_extent(track, tracks, file_sectors):
     return track.start, max(0, end - track.start)
 
 
+def audio_source_kind(track, tracks, image_usable):
+    """Where one cue audio track can be read from, or None when it cannot be.
+
+    The question is which file the track names, not which type the cue gave it.
+    A track inside the image is readable only when the image can carry audio at
+    all: a cooked 2048-byte image holds no audio sectors, and a cue naming some
+    other file is not describing this one. Deciding on the type alone treats the
+    image itself as a raw per-track file and cuts the filesystem out of it as
+    PCM, which is silent and sounds like noise."""
+    if track.source == tracks[0].source:
+        return "image" if image_usable else None
+    if track.source_type in RAW_FILE_TYPES:
+        return "raw"
+    return "file"
+
+
 def music_from_cue(image, cue, raw, outdir, plan):
     tracks = parse_cue(cue)
     print("Cue:        %s (%d tracks)" % (cue, len(tracks)))
@@ -1120,11 +1155,11 @@ def music_from_cue(image, cue, raw, outdir, plan):
     # different one lands mid-sector and plays as full-scale noise, so "probably
     # the same disc" is not enough to read sectors out of the mounted image.
     image_usable = raw and cue_names(cue, tracks, image)
-    if not image_usable and any(t.source == tracks[0].source for t in audio):
-        why = ("image is cooked (2048), so it carries no CD audio" if not raw else
-               "%s describes %r, not this image"
-               % (os.path.basename(cue), tracks[0].source))
-        print("Music:      %s" % why)
+    unusable_why = None
+    if not image_usable:
+        unusable_why = ("the image is cooked (2048), so it carries no CD audio" if not raw
+                        else "%s describes %r, not this image"
+                             % (os.path.basename(cue), tracks[0].source))
 
     names, rule = themes_for_tracks([(t.number, t.start, 0) for t in audio], outdir, plan)
     print("Music:      %d audio track(s), named by %s" % (len(audio), rule))
@@ -1137,14 +1172,18 @@ def music_from_cue(image, cue, raw, outdir, plan):
             print("  track %02d: cannot tell which theme this is" % track.number)
             continue
         path = os.path.join(base, track.source) if track.source else None
+        kind = audio_source_kind(track, tracks, image_usable)
 
-        if track.source == tracks[0].source and image_usable:
+        if kind is None:
+            print("  track %02d: %s" % (track.number, unusable_why))
+            continue
+        if kind == "image":
             # Audio sectors inside the mounted image.
             first, count = audio_track_extent(
                 track, tracks, os.path.getsize(image) // RAW_SECTOR)
             write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
                                    first, count, plan)
-        elif track.source_type in RAW_FILE_TYPES:
+        elif kind == "raw":
             # Its own raw-sector file: a rip that split every track, which is what
             # DiscImageCreator and EAC produce. MOTOROLA lands here too, and the
             # byte-order check turns it the right way round on the way out.

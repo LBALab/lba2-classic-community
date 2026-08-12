@@ -85,6 +85,22 @@ int CdTracks_ThemeCount(void);
 const char *CdTracks_ThemeName(int index);
 
 //──────────────────────────────────────────────────────────────────────────
+// Where `pathOrName` sits among the themes that have no file, and how many such
+// themes there are. `present` holds one flag per theme in CdTracks_ThemeName
+// order, so deciding what counts as "has a file" stays with the caller and the
+// arithmetic that names a track stays testable on its own.
+//
+// Returns the 0-based position among the missing, or -1 when the name is not a
+// theme or does have a file. `outMissing` may be NULL.
+//
+// The caller applies the rule: when the count of missing themes equals the
+// number of audio tracks the disc presses, the track at this position is this
+// theme. When they differ, the correspondence is not established and the track
+// table above is the fallback.
+int CdTracks_MissingThemeIndex(const char *pathOrName, const unsigned char *present,
+                               int presentCount, int *outMissing);
+
+//──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus
 }
 #endif

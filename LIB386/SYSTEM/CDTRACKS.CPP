@@ -94,6 +94,41 @@ extern "C" const char *CdTracks_NameForNumber(int track) {
 extern "C" int CdTracks_ThemeCount(void) { return THEME_COUNT; }
 
 //──────────────────────────────────────────────────────────────────────────
+extern "C" int CdTracks_MissingThemeIndex(const char *pathOrName, const unsigned char *present,
+                                          int presentCount, int *outMissing) {
+    if (outMissing != NULL)
+        *outMissing = 0;
+    if (present == NULL || presentCount < THEME_COUNT)
+        return -1;
+
+    char stem[32];
+    int wanted = -1;
+    if (pathOrName != NULL && pathOrName[0] != '\0') {
+        music_stem(pathOrName, stem, sizeof(stem));
+        for (int i = 0; i < THEME_COUNT; i++) {
+            if (strcmp(stem, THEME_NAMES[i]) == 0) {
+                wanted = i;
+                break;
+            }
+        }
+    }
+
+    int missing = 0;
+    int position = -1;
+    for (int i = 0; i < THEME_COUNT; i++) {
+        if (present[i])
+            continue;
+        if (i == wanted)
+            position = missing;
+        missing++;
+    }
+
+    if (outMissing != NULL)
+        *outMissing = missing;
+    return position;
+}
+
+//──────────────────────────────────────────────────────────────────────────
 extern "C" const char *CdTracks_ThemeName(int index) {
     return (index >= 0 && index < THEME_COUNT) ? THEME_NAMES[index] : NULL;
 }

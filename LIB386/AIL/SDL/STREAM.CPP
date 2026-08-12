@@ -779,54 +779,38 @@ static RedbookOutcome PlayTocTrack(const CueTrack *t, const CueTrack *toc, int n
     return ok ? REDBOOK_PLAYED : REDBOOK_HANDLED;
 }
 
-/* Which themes this install has no file for, and where `name` sits among them,
-   in ListJingle order. Returns that 0-based position, or -1 when the request is
-   not a theme or does have a file. `outMissing` receives the total.
+/* Which themes this install has no file for, and where `name` sits among them.
+   The arithmetic lives in CdTracks_MissingThemeIndex, which tests/cdtracks pins;
+   what belongs here is only the question of what counts as having a file.
 
-   Cached, because it is 25 existence checks and several of them go to the disc
-   image, while the answer cannot change while the game is running. */
+   Cached, because it is one existence check per theme and several of them go to
+   the disc image, while the answer cannot change while the game is running. The
+   cache is keyed on the music directory, so pointing at a different install
+   inside one process recomputes rather than answering from the old one. */
 static int ThemePositionAmongMissing(const char *name, const char *musicDir, int *outMissing) {
     static char cachedDir[ADELINE_MAX_PATH] = "";
-    static int cachedPos[64];
-    static int cachedMissing = 0;
+    static unsigned char cachedPresent[64];
     static bool cachedValid = false;
 
     int themes = CdTracks_ThemeCount();
-    if (themes > (int)(sizeof(cachedPos) / sizeof(cachedPos[0])))
+    if (themes > (int)sizeof(cachedPresent))
         return -1;
 
     if (!cachedValid || strcmp(cachedDir, musicDir) != 0) {
-        cachedMissing = 0;
         for (int i = 0; i < themes; i++) {
             char path[ADELINE_MAX_PATH];
             int w = snprintf(path, sizeof(path), "%s%s.WAV", musicDir, CdTracks_ThemeName(i));
-            bool present = (w > 0 && (size_t)w < sizeof(path)) ? ExistsFileOrDir(path) : true;
-            cachedPos[i] = present ? -1 : cachedMissing++;
+            /* A path too long to build is treated as present: claiming a theme is
+               missing is what moves a track onto it, so the safe answer is no. */
+            cachedPresent[i] =
+                (w > 0 && (size_t)w < sizeof(path)) ? (ExistsFileOrDir(path) ? 1 : 0) : 1;
         }
         strncpy(cachedDir, musicDir, sizeof(cachedDir) - 1);
         cachedDir[sizeof(cachedDir) - 1] = '\0';
         cachedValid = true;
     }
 
-    if (outMissing)
-        *outMissing = cachedMissing;
-
-    /* Match the request against a theme by its stem, the same way the track
-       table does, so a path or an extension does not defeat it. */
-    const char *base = strrchr(name, '/');
-#ifdef _WIN32
-    const char *bs = strrchr(name, '\\');
-    if (bs && (!base || bs > base))
-        base = bs;
-#endif
-    base = base ? base + 1 : name;
-    for (int i = 0; i < themes; i++) {
-        const char *theme = CdTracks_ThemeName(i);
-        size_t len = strlen(theme);
-        if (SDL_strncasecmp(base, theme, len) == 0 && (base[len] == '.' || base[len] == '\0'))
-            return cachedPos[i];
-    }
-    return -1;
+    return CdTracks_MissingThemeIndex(name, cachedPresent, themes, outMissing);
 }
 
 /* The rule that holds across every pressing: the audio tracks, in order, are the

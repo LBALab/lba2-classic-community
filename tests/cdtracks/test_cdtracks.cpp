@@ -242,6 +242,109 @@ static void test_theme_list_matches_extractor(void) {
     ASSERT_TRUE(strcmp(CdTracks_ThemeName(24), "LOGADPCM") == 0);
 }
 
+/* Build a present-flag array with the named themes marked absent. */
+static std::vector<unsigned char> present_except(const std::vector<std::string> &missing) {
+    std::vector<unsigned char> present((size_t)CdTracks_ThemeCount(), 1);
+    for (size_t m = 0; m < missing.size(); m++) {
+        for (int i = 0; i < CdTracks_ThemeCount(); i++) {
+            if (missing[m] == CdTracks_ThemeName(i))
+                present[(size_t)i] = 0;
+        }
+    }
+    return present;
+}
+
+static std::vector<std::string> seven_missing(void) {
+    std::vector<std::string> v;
+    v.push_back("TADPCM1");
+    v.push_back("TADPCM2");
+    v.push_back("TADPCM3");
+    v.push_back("TADPCM4");
+    v.push_back("TADPCM5");
+    v.push_back("JADPCM01");
+    v.push_back("TADPCM6");
+    return v;
+}
+
+/* The positional rule, which is what names a track on every disc but one. The
+   engine and scripts/dev/disc_extract.py both apply it, so the arithmetic is
+   pinned here rather than only in the script's own selftest.
+
+   The Brazilian disc presses seven and is missing seven, so each track takes the
+   theme at its own position: track 2 is TADPCM1 and track 8 is TADPCM6, with
+   JADPCM01 between TADPCM5 and TADPCM6 because that is ListJingle order. */
+static void test_missing_theme_index_seven_pressed(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    const char *expect[] = {"TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4",
+                            "TADPCM5", "JADPCM01", "TADPCM6"};
+    for (int pos = 0; pos < 7; pos++) {
+        int missing = 0;
+        int got = CdTracks_MissingThemeIndex(expect[pos], present.data(),
+                                             (int)present.size(), &missing);
+        ASSERT_EQ_INT(pos, got);
+        ASSERT_EQ_INT(7, missing);
+    }
+}
+
+/* Both European pressings press one theme and are missing one, so it is at
+   position 0 whatever its track number says. */
+static void test_missing_theme_index_one_pressed(void) {
+    std::vector<std::string> one;
+    one.push_back("TADPCM6");
+    std::vector<unsigned char> present = present_except(one);
+
+    int missing = 0;
+    ASSERT_EQ_INT(0, CdTracks_MissingThemeIndex("music/TADPCM6.WAV", present.data(),
+                                                (int)present.size(), &missing));
+    ASSERT_EQ_INT(1, missing);
+}
+
+/* A theme that has a file is not on the list, and neither is a name that is not
+   a theme. Both must answer -1 rather than a position, or a request would be
+   answered with some other track's music. */
+static void test_missing_theme_index_rejects(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    int missing = 0;
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("JADPCM07", present.data(),
+                                                 (int)present.size(), &missing));
+    ASSERT_EQ_INT(7, missing); /* the count is still reported */
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("SPLASH", present.data(),
+                                                 (int)present.size(), NULL));
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex(NULL, present.data(),
+                                                 (int)present.size(), NULL));
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("TADPCM1", NULL, 0, NULL));
+    /* A short array is refused rather than read past. */
+    ASSERT_EQ_INT(-1, CdTracks_MissingThemeIndex("TADPCM1", present.data(), 3, NULL));
+}
+
+/* Paths, extensions and case must not defeat the match, the same way they do not
+   defeat the track table. */
+static void test_missing_theme_index_name_forms(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    ASSERT_EQ_INT(6, CdTracks_MissingThemeIndex("TADPCM6", present.data(),
+                                                (int)present.size(), NULL));
+    ASSERT_EQ_INT(6, CdTracks_MissingThemeIndex("/install/music/tadpcm6.wav", present.data(),
+                                                (int)present.size(), NULL));
+    ASSERT_EQ_INT(6, CdTracks_MissingThemeIndex("C:\\install\\music\\TADPCM6.WAV",
+                                                present.data(), (int)present.size(), NULL));
+}
+
+/* The US rip is the case the rule declines: seven themes missing, six tracks
+   pressed. The position is still reported, and it is the caller comparing the
+   counts that must refuse it, so pin that the two disagree. Applying it anyway
+   would name track 2 TADPCM1 when that disc's track 2 is TADPCM2. */
+static void test_missing_theme_index_counts_disagree(void) {
+    std::vector<unsigned char> present = present_except(seven_missing());
+    int missing = 0;
+    int pos = CdTracks_MissingThemeIndex("TADPCM2", present.data(), (int)present.size(),
+                                         &missing);
+    ASSERT_EQ_INT(1, pos);     /* second among the missing */
+    ASSERT_EQ_INT(7, missing); /* but the disc presses six */
+    ASSERT_TRUE(missing != CDTRACKS_LAST_AUDIO - CDTRACKS_FIRST_AUDIO + 1);
+    /* which is why the table answers instead, and it says TADPCM2 is track 2 */
+    ASSERT_EQ_INT(2, CdTracks_NumberForMusicName("TADPCM2"));
+}
+
 /* Pull a `U8 <name>[] = { ... };` initialiser out of MUSIC.CPP as (value, hasJingleFlag)
    pairs. Entries look like "JINGLE | 9, // comment" or "3, // comment". */
 static bool read_track_table(const char *table, std::vector<std::pair<int, bool>> &out) {
@@ -318,6 +421,11 @@ int main(void) {
     RUN_TEST(test_theme_list_matches_music_cpp);
     RUN_TEST(test_agrees_with_extractor);
     RUN_TEST(test_theme_list_matches_extractor);
+    RUN_TEST(test_missing_theme_index_seven_pressed);
+    RUN_TEST(test_missing_theme_index_one_pressed);
+    RUN_TEST(test_missing_theme_index_rejects);
+    RUN_TEST(test_missing_theme_index_name_forms);
+    RUN_TEST(test_missing_theme_index_counts_disagree);
     RUN_TEST(test_track_tables_agree_on_music_numbers);
     TEST_SUMMARY();
     return test_failures != 0;
