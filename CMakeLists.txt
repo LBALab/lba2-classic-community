@@ -53,6 +53,16 @@ if(DEBUG_TOOLS)
     add_compile_definitions(DEBUG_TOOLS=1)
 endif()
 
+# The 1997 playable demo. A separate SKU, not a mode: the demo build has three
+# fixed save slots instead of free saves, chains them on cube exit, permanently
+# overlays the title logo, and ships neither voices nor cutscenes. Its data set
+# is a different install (one island), so a demo binary cannot run retail data
+# or the reverse. See docs/GAME_DATA.md.
+option(LBA2_BUILD_DEMO "Build the 1997 playable-demo SKU (needs demo game data)" OFF)
+if(LBA2_BUILD_DEMO)
+    add_compile_definitions(DEMO=1)
+endif()
+
 # Performance options
 option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
 
