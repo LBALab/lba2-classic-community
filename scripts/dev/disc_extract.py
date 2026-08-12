@@ -12,11 +12,17 @@ shape this script is optional. It exists for the cases the engine cannot serve:
     CCD. Convert or rip the audio separately, then use `--tracks-from`.
   * Wanting loose files on disk for modding or inspection.
 
-What only this repo can tell you is the naming. Every ripper hands back
-`track02.wav`; nothing else knows that CD track 6 is JADPCM01 rather than
-TADPCM6, or that the ListJingle[1] theme is not pressed on the US disc at all.
-That mapping is CD_TRACK_NAMES below, kept in step with LIB386/SYSTEM/CDTRACKS.CPP
-by tests/cdtracks.
+What only this repo can tell you is the naming, and it depends on the pressing.
+The US Activision disc pressed six themes, and there CD track N holds
+ListJingle[N]: track 6 is JADPCM01 rather than TADPCM6, and the ListJingle[1]
+theme is not on the disc at all. That mapping is CD_TRACK_NAMES below, kept in
+step with LIB386/SYSTEM/CDTRACKS.CPP by tests/cdtracks.
+
+That is one pressing's numbering, not a general rule. The Brazilian Activision
+disc presses seven themes as tracks 2..8 and is ListJingle[N-1]; both European
+pressings press one, where a number means nothing at all. What holds everywhere
+is positional: a disc's audio tracks, in order, are the themes it did not ship
+as files, in ListJingle order. See theme_for_track.
 
 Usage:
   disc_extract.py SOURCE OUTDIR [--from-drive [DEV]] [--tracks-from DIR]
@@ -39,6 +45,7 @@ left alone unless you pass --force. `--selftest` checks the cue rules against
 fixtures and needs no disc.
 """
 import argparse
+import array
 import os
 import re
 import shutil
@@ -70,7 +77,16 @@ MARKER = "LBA2.HQR"
 MUSIC_DIR = "music"
 MUSIC_SPELLINGS = ("music", "MUSIC", "Music")
 
-RAW_SECTOR = 2352  # a CD-DA sector: 588 stereo frames of 16-bit LE PCM
+# Every theme the game asks for, in SOURCES/MUSIC.CPP's ListJingle order. The
+# order is load-bearing, not cosmetic: the audio tracks of a disc map onto the
+# themes it did not ship as files, in this order, and JADPCM01 sits between
+# TADPCM5 and TADPCM6 here rather than with the other jingles. Sorting the names
+# instead swaps those two on any disc that presses both. Mirrors THEME_NAMES in
+# LIB386/SYSTEM/CDTRACKS.CPP; tests/cdtracks reads both.
+ALL_THEMES = (["TADPCM%d" % n for n in range(1, 6)] + ["JADPCM01", "TADPCM6"] +
+              ["JADPCM%02d" % n for n in range(2, 19)] + ["LOGADPCM"])
+
+RAW_SECTOR = 2352  # a CD-DA sector: 588 stereo frames of 16-bit PCM
 CDDA_RATE = 44100
 CDDA_CHANNELS = 2
 CDDA_WIDTH = 2
@@ -264,6 +280,38 @@ def music_dir_in(outdir):
     return os.path.join(outdir, MUSIC_DIR)
 
 
+def themes_without_files(outdir, stems):
+    """The themes this tree has no file for, in ListJingle order."""
+    have = set(stems)
+    target = music_dir_in(outdir)
+    if os.path.isdir(target):
+        for name in os.listdir(target):
+            have.add(os.path.splitext(name)[0].upper())
+    return [t for t in ALL_THEMES if t.upper() not in have]
+
+
+def themes_for_tracks(spans, outdir, plan):
+    """Name every audio track, in one pass. Its number names nothing on its own.
+
+    The rule that holds across every pressing is positional. A disc's audio
+    tracks, in order, are the themes it did not ship as files, in ListJingle
+    order. The Brazilian Activision disc presses seven as tracks 2..8, the US
+    Activision disc presses six as tracks 2..7 with a different numbering, and
+    both European pressings press one; only the position is common to all.
+
+    It engages when the counts agree, which is what makes the correspondence
+    unambiguous. The US disc is missing seven and presses six, since TADPCM1 is
+    not on it at all, so it falls through to the table that was measured on it.
+
+    Named all at once, and this is not a stylistic choice: every track written
+    adds a file, so asking per track would shorten the missing list as it went
+    and slide every later track onto the wrong theme."""
+    missing = themes_without_files(outdir, plan.stems)
+    if len(missing) == len(spans):
+        return missing
+    return [CD_TRACK_NAMES.get(number) for number, _, _ in spans]
+
+
 def themes_without_a_file(outdir, stems):
     """CD track numbers whose theme has no file in the output, in track order."""
     have = set(stems)
@@ -330,13 +378,19 @@ def write_wav_from_drive(drive, dest, first_sector, sectors, plan):
     if plan.dry_run:
         return 0
     retries = 0
+    swap = None
     with open_wav(dest) as wf:
         done = 0
         while done < sectors:
             count = min(MAX_SECTORS_PER_READ, sectors - done)
             for attempt in range(3):
                 try:
-                    wf.writeframes(drive.read_audio(first_sector + done, count))
+                    pcm = drive.read_audio(first_sector + done, count)
+                    if swap is None:
+                        swap = needs_byte_swap(pcm)
+                        if swap:
+                            print("            (big-endian audio, byte-swapping it)")
+                    wf.writeframes(byte_swap(pcm) if swap else pcm)
                     break
                 except DriveError:
                     retries += 1
@@ -358,12 +412,19 @@ def write_wav_from_sectors(src, dest, first_sector, sectors, plan):
         return
     with open(src, "rb") as fh, open_wav(dest) as wf:
         fh.seek(first_sector * RAW_SECTOR)
+        # Decide the byte order once, from the head of the track, then hold it:
+        # a decision taken per chunk could flip on a quiet passage.
+        probe = fh.read(min(payload, RAW_SECTOR * 64))
+        swap = needs_byte_swap(probe)
+        if swap:
+            print("            (big-endian audio, byte-swapping it)")
+        fh.seek(first_sector * RAW_SECTOR)
         left = payload
         while left > 0:
             chunk = fh.read(min(left, RAW_SECTOR * 512))
             if not chunk:
                 break
-            wf.writeframes(chunk)
+            wf.writeframes(byte_swap(chunk) if swap else chunk)
             left -= len(chunk)
 
 
@@ -694,12 +755,37 @@ RUNOUT_TAIL = 0.05  # keep skipping while the noise fades out
 RUNOUT_MAX_SECTORS = MAX_SECTORS_PER_READ  # one transport read, ~360 ms, is plenty
 
 
-def mean_magnitude(sector):
+def mean_magnitude(sector, big_endian=False):
     """Mean absolute sample value of one CD-DA sector, as a fraction of full scale."""
-    samples = struct.unpack("<%dh" % (len(sector) // 2), sector)
+    fmt = "%s%dh" % (">" if big_endian else "<", len(sector) // 2)
+    samples = struct.unpack(fmt, sector)
     if not samples:
         return 0.0
     return sum(abs(v) for v in samples) / float(len(samples) * 32768)
+
+
+# Red Book stores samples MSB-first and a ripper is meant to swap them into the
+# little-endian order every player expects. Some do not: the European MODE2 rip
+# on the Internet Archive carries raw disc order, and played as it stands it is
+# full-scale noise. A cue has no field for this, so it is measured, by the same
+# statistic that finds run-out: bytes in the wrong order are uniform noise
+# averaging half of full scale, and music averages a few per cent.
+def needs_byte_swap(pcm):
+    """Whether this raw CD audio reads as noise one way round and music the other."""
+    if len(pcm) < 4:
+        return False
+    le = mean_magnitude(pcm)
+    be = mean_magnitude(pcm, big_endian=True)
+    if le < 0.25:
+        return False  # already quiet enough to be music, or too quiet to judge
+    return be * 2 < le
+
+
+def byte_swap(pcm):
+    a = array.array("h")
+    a.frombytes(pcm[:len(pcm) // 2 * 2])
+    a.byteswap()
+    return a.tobytes() + pcm[len(pcm) // 2 * 2:]
 
 
 def runout_sectors(head):
@@ -879,6 +965,17 @@ def selftest():
     def level_sector(amplitude):
         return struct.pack("<h", amplitude) * (RAW_SECTOR // 2)
 
+    def wave_sector(amplitude):
+        """A triangle wave: a real waveform, with the crest factor music has."""
+        out = bytearray()
+        v, step = 0, max(1, amplitude // 64)
+        for _ in range(RAW_SECTOR // 2):
+            v += step
+            if v > amplitude or v < -amplitude:
+                step = -step
+            out += struct.pack("<h", v)
+        return bytes(out)
+
     silence = level_sector(0)
     quiet = level_sector(160)  # about what the music measures
     noise = noise_sector()
@@ -891,6 +988,46 @@ def selftest():
     check("trim needs the gate to open", runout_sectors([quiet, noise, noise]), 0)
     check("trim on nothing", runout_sectors([]), 0)
     check("trim is capped", runout_sectors([noise] * 100), RUNOUT_MAX_SECTORS)
+
+    # Byte order. Music the right way round must be left alone, since that is the
+    # path every working disc takes; the same music swapped has to be caught.
+    music = wave_sector(2500) * 4
+    check("correct order left alone", needs_byte_swap(music), False)
+    check("swapped music detected", needs_byte_swap(byte_swap(music)), True)
+    check("swap settles", needs_byte_swap(byte_swap(byte_swap(music))), False)
+    check("loud music is still music", needs_byte_swap(wave_sector(30000) * 4), False)
+    check("silence decides nothing", needs_byte_swap(silence), False)
+    check("byte_swap round trips", byte_swap(byte_swap(music)), music)
+
+    # Naming a disc that pressed one theme. Every other theme is a file; the one
+    # that is not is the track. Reading its number instead would say TADPCM2.
+    plan = Plan(False, True)
+    # ListJingle order is the whole point: JADPCM01 comes before TADPCM6.
+    check("theme order", ALL_THEMES[:7],
+          ["TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"])
+
+    def spans_of(*numbers):
+        return [(n, 0, 1) for n in numbers]
+
+    # A European pressing: one track, one theme with no file.
+    plan.stems = set(t for t in ALL_THEMES if t != "TADPCM6")
+    check("europe names its one track",
+          themes_for_tracks(spans_of(2), "/nonexistent", plan), ["TADPCM6"])
+
+    # The Brazilian disc: seven pressed, seven missing, so positional throughout.
+    br = set(ALL_THEMES) - {"TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5",
+                            "JADPCM01", "TADPCM6"}
+    plan.stems = br
+    check("brazil maps tracks 2..8",
+          themes_for_tracks(spans_of(2, 3, 4, 5, 6, 7, 8), "/nonexistent", plan),
+          ["TADPCM1", "TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"])
+
+    # The US disc presses six of the same seven, so the counts disagree and the
+    # table takes over. Positional would have named track 2 TADPCM1.
+    plan.stems = br
+    check("us falls back to the table",
+          themes_for_tracks(spans_of(2, 3, 4, 5, 6, 7), "/nonexistent", plan),
+          ["TADPCM2", "TADPCM3", "TADPCM4", "TADPCM5", "JADPCM01", "TADPCM6"])
 
     for line in failures:
         print("FAIL %s" % line)
@@ -923,10 +1060,10 @@ def music_from_cue(image, cue, raw, outdir, plan):
             target = music_dir_in(outdir)
             if not plan.dry_run:
                 os.makedirs(target, exist_ok=True)
-            for number, first, count in spans:
-                name = CD_TRACK_NAMES.get(number)
+            names = themes_for_tracks(spans, outdir, plan)
+            for (number, first, count), name in zip(spans, names):
                 if name is None:
-                    print("  track %02d carries no music on this disc" % number)
+                    print("  track %02d: cannot tell which theme this is" % number)
                     continue
                 write_wav_from_sectors(image, os.path.join(target, name + ".WAV"),
                                        first, count, plan)
@@ -962,8 +1099,8 @@ def music_from_drive(drive, outdir, plan):
         os.makedirs(target, exist_ok=True)
 
     retries = 0
-    for number, first, count in spans:
-        name = CD_TRACK_NAMES.get(number)
+    names = themes_for_tracks(spans, outdir, plan)
+    for (number, first, count), name in zip(spans, names):
         if name is None:
             print("  track %02d is audio, but no theme is mapped to it" % number)
             continue
