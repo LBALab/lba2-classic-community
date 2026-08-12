@@ -72,8 +72,13 @@ jobs:
   # default build never touches. That is exactly how it silently stopped
   # compiling between 1997 and the LBA2_BUILD_DEMO option, so an edit to the
   # files it shares with retail (GAMEMENU, PERSO, SAVEGAME, OBJECT) can break it
-  # against a green matrix. Compile-and-link only: no demo game data on a runner,
-  # and this catches the whole class regardless.
+  # against a green matrix.
+  #
+  # The host tests run here too. They need no game data, and several of them
+  # assert against build-dependent values -- test_res_picker checks the picker
+  # modals quote Directories_GetResMarker(), which the demo build changes. A
+  # compile-only job stays green while those messages send a demo player after
+  # a file no demo install has.
   build-demo:
     runs-on: ubuntu-latest
 
@@ -98,11 +103,17 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
             -DLBA2_BUILD_DEMO=ON \
+            -DLBA2_BUILD_TESTS=ON \
             -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
             --preset linux
 
       - name: Build
-        run: cmake --build build-demo --target lba2cc
+        run: |
+          cmake --build build-demo --target lba2cc
+          cmake --build build-demo --target host_tests
+
+      - name: Host tests
+        run: cd build-demo && ctest -L host_quick --output-on-failure
 
       - name: Verify Binary
         run: test -f build-demo/SOURCES/lba2cc && echo "Demo build successful"
