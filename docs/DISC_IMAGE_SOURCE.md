@@ -425,8 +425,30 @@ deliberately does not serve, not as an alternative to mounting. A `bin`+`cue` al
 and extracting it costs 535 MB to gain nothing.
 
 What it is for is a physical disc, whose themes the engine will not read (below), and a container
-that mounts data-only. Rip the audio with any tool and the script names the files; it takes the
-track number from the filename, so `track02.cdda.wav` and `Track 2.wav` both land right.
+that mounts data-only. Either rip the audio with any tool and let the script name the files, taking
+the track number from the filename so `track02.cdda.wav` and `Track 2.wav` both land right, or hand
+it the drive with `--from-drive` and let it read the disc itself.
+
+`--from-drive` reads the table of contents and the audio sectors directly: `IOCTL_CDROM_READ_TOC`
+and `IOCTL_CDROM_RAW_READ` on Windows, `CDROMREADTOCENTRY` and `CDROMREADAUDIO` on Linux. Reads are
+chunked at 27 sectors, which is the ATAPI ceiling of 63504 bytes; 64 comes back as "the parameter is
+incorrect". The Windows path is verified end to end against a real mixed-mode disc, the Linux one is
+written from the kernel headers with the struct layouts checked against the compiler but never run
+against a device, and macOS has no backend and says so.
+
+The one thing a table of contents cannot express that a cue can is where the music actually starts.
+The data track's run-out bleeds into the front of the first audio track, five sectors of it on the
+US disc, and a drive hands that back as audio. So the script finds the join by distribution rather
+than level: data read as audio is uniform noise averaging half of full scale, where the music after
+it averages 0.005. The trim only engages when the first sector is at or above a quarter of full
+scale, which no music reaches, so a track that merely starts loud is left alone. Run against the
+retail disc it independently lands on the same sector the corrected cue names by hand, and touches
+none of the other five tracks.
+
+Where this leaves quality: audio sectors carry no error correction, so a damaged disc gives clicks
+that `cdparanoia` would re-read and interpolate away and this will not. That is the price of no
+dependency, it is bounded, and the retry count is printed so it is visible rather than silent. A
+disc that reports retries is a disc to rip properly and bring back through `--tracks-from`.
 
 The naming is the whole contribution. A ripper knows track numbers and nothing else; that track 6
 holds `JADPCM01` rather than `TADPCM6` is this repo's finding, from the disc's own table of
@@ -460,8 +482,14 @@ place.
   backends (`IOCTL_CDROM_RAW_READ`, `CDROMREADAUDIO`, and something for macOS). Both are a lot of
   surface for the one player who has a physical disc and will not rip it, when a single pass through
   any imaging tool puts them on a path that already works end to end. That player now has a second
-  route as well: keep playing off the mounted disc and rip only the audio, which
-  `disc_extract.py --tracks-from` names into place (above).
+  route as well: keep playing off the mounted disc and take the themes off it once with
+  `disc_extract.py --from-drive` (above).
+
+  Note what that does *not* change. The extraction happening in a script is exactly why it is
+  allowed to be a dependency-free best effort: it runs once, its output is checked by ear, and a bad
+  read is visible as a retry count. The same code inside the engine would sit in the audio path,
+  where it would have to be right every time, on every drive, with no chance to inspect the result.
+  The shape carved out below is still the shape.
 
   If it is ever wanted, the shape is carved out: a fourth source at the tail of
   `PlayStreamInternal`, using the same `CDTRACKS` mapping, with the table of contents read from the
