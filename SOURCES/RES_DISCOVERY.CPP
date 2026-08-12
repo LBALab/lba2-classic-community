@@ -361,18 +361,38 @@ bool ResolveGameDataDir(char *outDir, U16 outMax, int *argc, char **argv) {
            persisted / auto-discovery probes below would boot a DIFFERENT install than the one
            asked for and say so only in the banner: a run against assets nobody asked for that
            still exits 0. */
-        Log_Error("RES_DISCOVERY: --game-dir '%s' does not hold the game data: no LBA2.HQR "
+        Log_Error("RES_DISCOVERY: --game-dir '%s' does not hold the game data: no %s "
                   "in it, nor in a Common/ inside it.",
-                  cliPath);
+                  cliPath, Directories_GetResMarker());
         Log_Error("Point it at the folder with the HQR files, or at the install that "
                   "contains it. Refusing to boot a different install instead.");
         return false;
     }
 
+    /* Same deal as --game-dir above, for the same reasons: the Common/ join,
+       because people point this at the install root too, and the refusal to
+       fall through, because an env var that names the wrong place should say so
+       rather than quietly boot whatever auto-discovery turns up.
+
+       That second half is the one that bites. LBA2_GAME_DIR gets exported in a
+       shell profile and forgotten, and without this the run continues down the
+       probe list and can land on a different install entirely: right-looking
+       boot, wrong assets, exit 0, and the only clue is the Assets path in the
+       banner. Returning false hands the caller its picker (or a clean error
+       when headless), which is loud and recoverable. */
     const char *env = getenv("LBA2_GAME_DIR");
-    if (env != NULL && env[0] != '\0' &&
-        NormalizeAndTry(env, outDir, outMax, tried, &triedCount, true)) {
-        return true;
+    if (env != NULL && env[0] != '\0') {
+        if (NormalizeAndTry(env, outDir, outMax, tried, &triedCount, true) ||
+            TryJoinBaseSub(env, "Common", outDir, outMax, tried, &triedCount, true)) {
+            return true;
+        }
+
+        Log_Error("RES_DISCOVERY: LBA2_GAME_DIR '%s' does not hold the game data: no "
+                  "%s in it, nor in a Common/ inside it.",
+                  env, Directories_GetResMarker());
+        Log_Error("Point it at the folder with the HQR files, or unset it. Refusing to "
+                  "boot a different install instead.");
+        return false;
     }
 
     /* --pick-game-dir bails out of the implicit-discovery chain and

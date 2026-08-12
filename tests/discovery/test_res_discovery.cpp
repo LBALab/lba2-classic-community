@@ -205,6 +205,79 @@ static bool test_env_lba2_game_dir() {
     return strstr(out, tmpl_ptr) != NULL;
 }
 
+/* People point LBA2_GAME_DIR at the install root, same as --game-dir, so it
+ * gets the same Common/ join. */
+static bool test_env_lba2_game_dir_common_join() {
+    unsetenv_portable("LBA2_GAME_DIR");
+#ifndef _WIN32
+    char root[] = "/tmp/lba2disc_envc_XXXXXX";
+    if (mkdtemp(root) == NULL) {
+        return false;
+    }
+#else
+    char root[512];
+    if (!make_temp_dir(root, sizeof(root), "envc")) {
+        return false;
+    }
+#endif
+    char common[ADELINE_MAX_PATH + 16];
+    snprintf(common, sizeof(common), "%s/Common", root);
+    if (mkdir_portable(common) != 0) {
+        return false;
+    }
+    create_marker_hqr(common);
+
+    if (setenv_portable("LBA2_GAME_DIR", root) != 0) {
+        return false;
+    }
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+    unsetenv_portable("LBA2_GAME_DIR");
+
+    if (!ok) {
+        fprintf(stderr, "test_env_lba2_game_dir_common_join: did not resolve\n");
+        return false;
+    }
+    if (strstr(out, "Common") == NULL) {
+        fprintf(stderr,
+                "test_env_lba2_game_dir_common_join: got %s, wanted the Common/ inside %s\n",
+                out, root);
+        return false;
+    }
+    return true;
+}
+
+/* A stale LBA2_GAME_DIR must stop the run, not fall through to auto-discovery.
+ * Falling through boots whatever else is lying around: right-looking launch,
+ * assets nobody asked for, exit 0. The caller turns this false into its picker,
+ * or a clean error when headless. */
+static bool test_env_lba2_game_dir_no_fallthrough() {
+    unsetenv_portable("LBA2_GAME_DIR");
+    if (setenv_portable("LBA2_GAME_DIR", "/nonexistent/lba2disc_stale") != 0) {
+        return false;
+    }
+
+    char out[ADELINE_MAX_PATH];
+    int argc = 1;
+    char arg0[] = "lba2";
+    char *argv[] = {arg0, NULL};
+    out[0] = '\0';
+    const bool ok = ResolveGameDataDir(out, ADELINE_MAX_PATH, &argc, argv);
+    unsetenv_portable("LBA2_GAME_DIR");
+
+    if (ok) {
+        fprintf(stderr,
+                "test_env_lba2_game_dir_no_fallthrough: resolved %s from a bad env var\n",
+                out);
+        return false;
+    }
+    return true;
+}
+
 static bool test_argv_game_dir() {
     unsetenv_portable("LBA2_GAME_DIR");
 #ifndef _WIN32
@@ -671,6 +744,12 @@ int main() {
         failed++;
     }
     if (!test_env_lba2_game_dir()) {
+        failed++;
+    }
+    if (!test_env_lba2_game_dir_common_join()) {
+        failed++;
+    }
+    if (!test_env_lba2_game_dir_no_fallthrough()) {
         failed++;
     }
     if (!test_argv_game_dir()) {
