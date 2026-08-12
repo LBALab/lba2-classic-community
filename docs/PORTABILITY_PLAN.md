@@ -174,20 +174,24 @@ to diagnose the first reports.
 `scripts/dev/dist_check.sh` already sweeps the installs, gives each a throwaway profile, and writes a
 diffable summary. Extend it rather than building a second harness. Four checks:
 
-| Check | Asserts | Today |
+| Check | Asserts | Reported as |
 |---|---|---|
-| `IDENTITY` | a fresh profile resolves the install's declared `Version` | holds, but only reported |
-| `ISOLATION` | the developer's own user directory is byte-identical before and after the sweep | untested |
-| `NOPOLLUTE` | nothing under the game directory is written | untested |
-| `REBIND` | a profile seeded from one install, re-run against another, reports the second one's `Version` | **fails** |
+| `IDENTITY` | the release the engine reports matches the `Version` the install's own config declares | a column, `-` for a disc image |
+| `WROTE` | nothing under the game directory is written | a column |
+| `ISOLATION` | the developer's own user directory is byte-identical before and after the sweep | one line after the table |
+| `REBIND` | a profile seeded from one install, re-run against another, reports the second one's `Version` | one line after the table |
 
-`REBIND` is measured, not inferred. A fresh profile pointed at a medium declaring `Version: 1`
-reports `1 (activision)` and writes 1 into its config, so first-run seeding works. Take a profile
-already seeded from an install declaring 3, point it at that same medium, and it still reports
-`3 (ea)` while booting data that declares 1. The config is copied once and never revisited, so the
-release identity and the medium disagree and nothing notices.
+`REBIND` is what motivated layer 2, and it was measured rather than inferred. A profile seeded from
+an install declaring 3, pointed at a medium declaring 1, kept reporting `3 (ea)` while booting data
+that declares 1, because the config was copied on first run and never revisited. The layered read
+closes it: the same profile now reports 1 there and 3 back on the first install.
 
-That is the assertion motivating layer 2: it lands red, and the layer-2 commit turns it green.
+`WROTE` found something nobody was looking for. On an install whose voices sit on the filesystem
+rather than inside a disc image, playing one updates its mtime:
+[MESSAGE.CPP:857](../SOURCES/MESSAGE.CPP#L857) touches a voice file already on the hard disk, under
+`ONE_GAME_DIRECTORY`. That is the 1997 CD cache keeping an LRU stamp so the oldest copy could be
+evicted when the disk filled, and with the voices installed there is nothing to evict. Content is
+untouched, only the timestamp. Unfixed, and it keeps that row red.
 
 ### What stays out of the repo
 

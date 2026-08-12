@@ -36,6 +36,22 @@ S32 DefFileBufferReadValueDefault(const char *ident, S32 def);
 S32 DefFileBufferReadValue2(const char *ident, S32 *result);
 
 //****************************************************************************
+// Layered reads. After DefFileBufferInit has loaded the file a run owns, these
+// append lower-priority sources to the same buffer: a config shipped with the
+// game data, and a built-in default. Reads scan forward and stop at the first
+// match, so a key the owned file defines shadows the same key underneath, while
+// a key only a lower layer defines is still found.
+//
+// Both return FALSE when the layer is absent, empty, corrupt, or will not fit,
+// which simply leaves the buffer as it was. An absent layer is ordinary.
+//
+// Read-only: DefFileBufferWriteString refuses while layers are attached, since
+// rewriting the buffer would persist them into the owned file. Any writer must
+// DefFileBufferInit on its own file first, which clears them.
+S32 DefFileBufferAppendFile(const char *file);
+S32 DefFileBufferAppendMem(const void *bytes, S32 size);
+
+//****************************************************************************
 S32 DefFileBufferWriteString(const char *ident, const char *string);
 
 //****************************************************************************

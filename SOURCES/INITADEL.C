@@ -36,7 +36,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-int WriteEmbeddedDefaultLba2Cfg(const char *destPath);
+/* The built-in lba2.cfg, generated into the binary by the build. It is the
+   bottom layer of the config stack below: the answer when neither the run's own
+   config nor the one beside the game data defines a key. */
+extern const unsigned char g_embeddedLba2CfgBytes[];
+extern const U32 g_embeddedLba2CfgBytesSize;
 #ifdef __cplusplus
 }
 #endif
@@ -204,28 +208,10 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // ··········································································
     //  Config File
-    //  First run (or the user deleted it): install a default lba2.cfg — copy the
-    //  one shipped with the game data, or fall back to the built-in template.
-    //  Logged once, after the action, so the boot log states what actually
-    //  happened: Info for the copy, Warn for the no-default-in-game-data fallback.
+    //  Nothing is created here. The config a run reads is three sources stacked
+    //  (see the DefFile section below), and the file this run owns is written
+    //  the first time a setting changes.
     GetCfgPath(PathConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-    if (!ExistsFileOrDir(PathConfigFile)) {
-        char PathDefaultConfigFile[ADELINE_MAX_PATH];
-        GetDefaultCfgPath(PathDefaultConfigFile, ADELINE_MAX_PATH, CFG_NAME);
-        if (ExistsFileOrDir(PathDefaultConfigFile)) {
-            if (!Copy(PathDefaultConfigFile, PathConfigFile)) {
-                BootFatal("Could not copy the configuration file to '%s'.",
-                          PathConfigFile);
-            }
-            Log_Info("Config     created from game-data default");
-        } else {
-            if (!WriteEmbeddedDefaultLba2Cfg(PathConfigFile)) {
-                BootFatal("Could not write a default configuration file to '%s'.",
-                          PathConfigFile);
-            }
-            Log_Warn("Config     wrote built-in template (no default in game data)");
-        }
-    }
 
     // ··········································································
     //  CMDLINE
@@ -362,8 +348,37 @@ void InitAdeline(S32 argc, char *argv[]) {
 
     // ··········································································
     //  DefFile
+    //
+    //  Three layers, highest priority first: the config this run owns, the one
+    //  shipped beside the game data, then the built-in template. A key is taken
+    //  from the first layer that defines it.
+    //
+    //  This replaced copying the game-data config into a fresh profile. A copy
+    //  is a snapshot: whichever install a profile first booted against decided
+    //  its release, language and key bindings for good, and pointing that same
+    //  profile at another release left it announcing the first one's publisher
+    //  while reading the second one's data. Layering keeps the game data's keys
+    //  answering for the game data, every boot, while the keys the player has
+    //  actually changed stay theirs -- WriteConfigFile writes only those, into
+    //  the owned file alone.
+    //
+    //  Nothing writes through this buffer: DefFileBufferWriteString refuses
+    //  while layers are attached, and WriteConfigFile re-loads the owned file
+    //  first.
+    {
+        char PathDataConfigFile[ADELINE_MAX_PATH];
+        S32 fromData, fromBuiltin;
 
-    DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
+        DefFileBufferInit(PathConfigFile, (void *)(ibuffer), ibuffersize);
+
+        GetDefaultCfgPath(PathDataConfigFile, ADELINE_MAX_PATH, CFG_NAME);
+        fromData = DefFileBufferAppendFile(PathDataConfigFile);
+        fromBuiltin = DefFileBufferAppendMem(g_embeddedLba2CfgBytes,
+                                             (S32)g_embeddedLba2CfgBytesSize);
+
+        Log_Info("Config     %s%s%s", ExistsFileOrDir(PathConfigFile) ? "own" : "own (none yet)",
+                 fromData ? " + game data" : "", fromBuiltin ? " + built-in" : "");
+    }
 
     // ··········································································
 }
