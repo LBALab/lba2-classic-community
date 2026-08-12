@@ -550,6 +550,9 @@ first seeded with, so a profile predating a config-bearing game directory report
 takes the other table. That asymmetry is why the same disc could play music on one machine and not
 another.
 
+[VERSIONS.md](VERSIONS.md) carries the rest of the story: the other six sites the value branches at,
+and the config and volume label read off each pressing.
+
 `PlayMusic` now routes both tables through `PlayJingle`. The two tables hold identical music
 numbers and differ only in the `JINGLE` flag, which says "this one is CD audio on the original
 medium" rather than "this is different music", so the choice of table no longer changes what

@@ -428,6 +428,7 @@ A complete save format doc enables console commands such as:
 
 - [MENU.md](MENU.md) for Save/Load menu flow and screenshot display
 - [CONFIG.md](CONFIG.md) for LastSave and CompressSave
+- [VERSIONS.md](VERSIONS.md) for the other fields named *version* in the engine; `NumVersion` here is save layout, `DistribVersion` is release identity, and the two are unrelated
 - [DEBUG.md](DEBUG.md) for DEBUG_TOOLS bug save/load (G/L keys, menu cases 2000/2001)
 - [CONSOLE.md](CONSOLE.md) for `savebug` / `loadbug` / `listbugs`
 - [GLOSSARY.md](GLOSSARY.md) for Comportement, GenBody, GenAnim
