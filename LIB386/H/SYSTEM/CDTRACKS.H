@@ -6,20 +6,27 @@
 // Which CD track holds which music, on a disc that carries its soundtrack as
 // Red Book audio rather than as files.
 //
-// The US retail CD ("Twinsen's Odyssey") is that disc: six of its themes are
-// audio tracks 2 through 7, and the jingles are WAVs in MUSIC/. The EU release
-// streams all of them from files instead, which is why nothing needs this
-// mapping until a mixed-mode rip turns up.
+// There is no single answer, which took three pressings to learn. Each presses a
+// different number of themes, and the track numbering follows:
 //
-// The rule is simply that the CD track number is the music index:
-// track N holds SOURCES/MUSIC.CPP's ListJingle[N]. Track 2 is TADPCM2, and
-// track 1 is the data track, so the ListJingle[1] slot (TADPCM1) has no CD
-// track: that piece of music is not on this disc at all.
+//   US Activision      6 audio tracks, 2..7   track N holds ListJingle[N]
+//   Brazilian Activision  7 audio tracks, 2..8   track N holds ListJingle[N-1]
+//   European EA        1 audio track          it is TADPCM6
 //
-// Read off a real disc rather than inferred. The mounted CD's table of contents
-// gives tracks 2..7, and each track's length and audio content match the named
-// piece. An earlier version of this table shifted everything by one, which is
-// the kind of mistake that plays perfectly and is simply the wrong song.
+// So a track number does not name a theme by itself. What does hold across all
+// of them is positional: the audio tracks, in order, are the themes that have no
+// file under MUSIC, in ListJingle order. The Brazilian disc presses seven and is
+// missing seven; the European discs press one and are missing one; both map
+// straight across. The US disc is the exception that needs the table below,
+// because it is missing seven themes and presses only six: TADPCM1 is not on it
+// at all, so its tracks start at the second missing theme.
+//
+// Read off real discs rather than inferred. Each mapping comes from a mounted
+// disc's own table of contents plus a per-track match of length and audio
+// content against a known recording. An early version of the US table shifted
+// everything by one, which is the kind of mistake that plays perfectly and is
+// simply the wrong song, and the Brazilian disc turns out to use exactly that
+// shifted numbering, so the two cannot be told apart by anything but measurement.
 //
 // It lives here, beside the disc sources, because it describes the layout of a
 // disc rather than the engine's music indirection, the same way CD.CPP keeps
@@ -45,7 +52,22 @@ int CdTracks_NumberForMusicName(const char *pathOrName);
 // The music name a CD track carries ("TADPCM2" for track 2), or NULL if the
 // track number is outside the audio range. For diagnostics and for walking the
 // mapping without duplicating its bounds.
+//
+// This is the US disc's numbering. Use it only as the fallback for a disc whose
+// pressed-theme count does not match its audio-track count; otherwise the
+// positional rule above is what names a track.
 const char *CdTracks_NameForNumber(int track);
+
+//──────────────────────────────────────────────────────────────────────────
+// Every theme the game can ask for, in SOURCES/MUSIC.CPP's ListJingle order.
+// That order is load-bearing rather than cosmetic: the positional rule walks it
+// to work out which themes a disc did not ship as files, and JADPCM01 sits
+// between TADPCM5 and TADPCM6 there. Sorting the names instead would swap those
+// two on any disc that presses both.
+//
+// `CdTracks_ThemeName` returns NULL for an index outside 0..count-1.
+int CdTracks_ThemeCount(void);
+const char *CdTracks_ThemeName(int index);
 
 //──────────────────────────────────────────────────────────────────────────
 #ifdef __cplusplus

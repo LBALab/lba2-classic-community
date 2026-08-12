@@ -102,7 +102,10 @@ while IFS= read -r entry; do
     for want in TADPCM2 JADPCM01 TADPCM6; do
         line=$(grep -E "PlayStream start .*${want}\.WAV" "$log" | head -1)
         case "$line" in
-            *"CD-DA track"*)     music+="c" ;;
+            # Matched loosely: a disc whose cue is a real table of contents logs
+            # "CD-DA track N", and one that pressed a single theme logs "CD-DA
+            # (the disc's only audio track)". Both are audio out of the image.
+            *"CD-DA"*)           music+="c" ;;
             *"cue track"*)       music+="x" ;;
             *"cue-audio"*)       music+="x" ;;
             *"WAV (disc)"*)      music+="i" ;;
