@@ -21,7 +21,22 @@ Use the directory that contains `LBA2.HQR` (and the other `.hqr` files, `music/`
 | Persisted choice | `last_game_dir.txt` in the user-prefs folder, written automatically the first time you pick a folder via the launch dialog (see [First-launch folder picker](#first-launch-folder-picker) below) |
 | Discovery | See [SOURCES/RES_DISCOVERY.CPP](../SOURCES/RES_DISCOVERY.CPP): SDL binary directory, current working directory, parents of cwd, `./data`, `../LBA2`, `../game`, sibling scan of parent-of-cwd |
 
+Both `--game-dir` and `LBA2_GAME_DIR` also try a `Common/` inside the path you give, so pointing either at an install root works as well as pointing it at the data folder.
+
+**Naming a path that holds no game data stops the run.** Neither override falls through to the probes below it: an override that names the wrong place is a mistake, and continuing would boot whatever discovery turns up next. That is a launch against assets nobody asked for, reported only by the `Assets:` line and still exiting 0. You get the picker instead (or a clean error when headless).
+
 If none of the above resolves a valid directory, the engine falls back to the [First-launch folder picker](#first-launch-folder-picker). On a headless system (no display, CI runner, etc.), the picker can't open and the process exits with a log listing candidates tried and hints.
+
+## Which probe matched
+
+The boot banner names the probe that resolved the assets, after the path:
+
+```
+Assets: /home/user/GOG/tlba2-classic/Common/  (--game-dir, Common/)
+Assets: /home/user/LBA2-GOG/                  (sibling scan)
+```
+
+The probes run silently and in priority order, so without this a run that picks an unexpected folder for a good reason (a forgotten `LBA2_GAME_DIR`, a stale `last_game_dir.txt`) looks the same as one that is simply broken. The label is the difference between reading a bug report and guessing at one. Labels name the mechanism, not the code: `--game-dir`, `LBA2_GAME_DIR`, `last_game_dir.txt`, `next to the binary`, `working directory`, `parent walk`, `sibling scan`, `first-launch picker`, and the Android storage roots.
 
 ## First-launch folder picker
 
