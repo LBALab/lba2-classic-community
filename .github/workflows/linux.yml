@@ -86,6 +86,7 @@ jobs:
   # a file no demo install has.
   build-demo:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Code Checkout
@@ -99,9 +100,7 @@ jobs:
           version: 3-latest
           build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Install latest CMake and ninja
-        uses: lukka/get-cmake@latest
-
+      # No CMake/ninja install step, for the reason given on the build job.
       - name: Configure
         run: |
           cmake -S . -B build-demo \
