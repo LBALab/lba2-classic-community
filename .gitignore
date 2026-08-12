@@ -3,6 +3,8 @@
 CMakeUserPresets.json
 out/
 build/
+# Demo SKU: a separate configure, so a second tree beside build/ (GAME_DATA.md)
+build-demo/
 dist/
 
 # Local retail drop (symlink or copy classic data here; never commit assets)

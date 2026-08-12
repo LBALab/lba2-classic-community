@@ -116,7 +116,10 @@ static int chdir_portable(const char *p) {
 
 static void create_marker_hqr(const char *dir) {
     char marker[512];
-    snprintf(marker, sizeof(marker), "%s/lba2.hqr", dir);
+    /* The engine's own marker, not a literal: a demo build gates on RESS.HQR,
+       and a fixture spelling the retail name would build a tree that build
+       cannot discover. */
+    snprintf(marker, sizeof(marker), "%s/%s", dir, Directories_GetResMarker());
     FILE *f = fopen(marker, "wb");
     if (f) {
         fclose(f);
@@ -134,7 +137,7 @@ static bool had_persisted = false;
 static char persisted_path[ADELINE_MAX_PATH];
 
 static void compute_persisted_path() {
-    char *prefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *prefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (prefPath == NULL) {
         persisted_path[0] = '\0';
         return;
@@ -482,7 +485,7 @@ static bool test_persisted_last_game_dir() {
     unsetenv_portable("LBA2_GAME_DIR");
 
     /* Snapshot the un-overridden pref path. */
-    char *originalPrefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *originalPrefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (originalPrefPath == NULL) {
         return false;
     }
@@ -500,7 +503,7 @@ static bool test_persisted_last_game_dir() {
     /* Did the env override actually take? SDL3 may have cached the
      * pref path during an earlier call (e.g. from another test in
      * this same process), in which case our setenv is a no-op. */
-    char *overriddenPrefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *overriddenPrefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (overriddenPrefPath == NULL) {
         SDL_free(originalPrefPath);
         unsetenv_portable("XDG_DATA_HOME");
@@ -637,7 +640,12 @@ static bool write_case_fixture_iso(const char *path) {
     o = 0;
     iso_add_rec(root, &o, ISO_L_ROOT, 2048, true, &dot, 1);
     iso_add_rec(root, &o, ISO_L_ROOT, 2048, true, &dotdot, 1);
-    iso_add_rec(root, &o, ISO_L_HQR, 8, false, (const unsigned char *)"LBA2.HQR;1", 10);
+    /* Same reason as create_marker_hqr: the in-image marker has to be the one
+       this build looks for. ISO9660 identifiers carry the ";1" version suffix. */
+    char isoMarker[32];
+    snprintf(isoMarker, sizeof isoMarker, "%s;1", Directories_GetResMarker());
+    iso_add_rec(root, &o, ISO_L_HQR, 8, false, (const unsigned char *)isoMarker,
+                (unsigned char)strlen(isoMarker));
     iso_add_rec(root, &o, ISO_L_CFG, (U32)strlen(kImageCfgBody), false,
                 (const unsigned char *)"LBA2.CFG;1", 10);
 

@@ -3038,7 +3038,8 @@ int main(int argc, char *argv[]) {
              * in the message instead. */
             if (Control_IsActive() || Control_IsHeadless()) {
                 Log_Error("Game data not found. Pass --game-dir <folder containing "
-                          "LBA2.HQR> (often Common/), or set LBA2_GAME_DIR.");
+                          "%s> (often Common/), or set LBA2_GAME_DIR.",
+                          Directories_GetResMarker());
                 exit(EXIT_FAILURE);
             }
 

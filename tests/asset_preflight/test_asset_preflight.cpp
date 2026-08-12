@@ -61,7 +61,7 @@ static int run_preflight(char *log, int max) {
 
 static void make_complete_tree(void) {
     SDL_CreateDirectory(ROOT);
-    touch("lba2.hqr"); /* IsValidResourceDir marker */
+    touch(Directories_GetResMarker()); /* IsValidResourceDir marker */
     touch(RESS_HQR_NAME);
     touch(SPRITES_HQR_NAME);
     touch(SPRIRAW_HQR_NAME);
@@ -101,9 +101,16 @@ static void test_required_missing(void) {
     del(SPRITES_HQR_NAME);
     del("video/" VIDEO_HQR_NAME);
     int r = run_preflight(g_log, sizeof g_log);
+#ifdef DEMO
+    /* No demo install ships cutscenes, so a missing video.hqr is a warning and
+       sprites.hqr is the only thing that blocks the boot. */
+    ASSERT_EQ_INT(1, r);
+    ASSERT_TRUE(strstr(g_log, "optional asset missing: video.hqr") != NULL);
+#else
     ASSERT_EQ_INT(2, r);
-    ASSERT_TRUE(strstr(g_log, "missing required asset: sprites.hqr") != NULL);
     ASSERT_TRUE(strstr(g_log, "missing required asset: video.hqr") != NULL);
+#endif
+    ASSERT_TRUE(strstr(g_log, "missing required asset: sprites.hqr") != NULL);
     touch(SPRITES_HQR_NAME); /* restore (video restored by next test) */
 }
 

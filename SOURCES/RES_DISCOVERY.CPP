@@ -107,8 +107,11 @@ bool NormalizeAndTry(const char *pathIn, char *outDir, U16 outMax,
 }
 
 void LogFailure(const char tried[][ADELINE_MAX_PATH], int triedCount) {
-    Log_Error("No valid game data directory (need LBA2.HQR). Tried %d path(s).",
-              triedCount);
+    /* Quote the marker this build actually looks for. A demo build wants
+       RESS.HQR, and naming a file the reader's install cannot have is what
+       sends them renaming things. */
+    Log_Error("No valid game data directory (need %s). Tried %d path(s).",
+              Directories_GetResMarker(), triedCount);
     for (int i = 0; i < triedCount; i++) {
         Log_Error("  - %s", tried[i]);
     }
@@ -273,10 +276,12 @@ bool TryParentSiblingScan(char *outDir, U16 outMax, char tried[][ADELINE_MAX_PAT
  * at picker-success time, before InitDirectories / InitAdeline have set
  * up the lba2.cfg buffer machinery. Written via stdio; read via stdio.
  *
- * Org/app naming ("Twinsen", "LBA2") matches the existing convention in
- * SOURCES/DIRECTORIES.CPP for SDL_GetPrefPath. */
+ * Org/app naming comes from ADELINE_PREF_ORG / ADELINE_PREF_APP in
+ * SOURCES/DIRECTORIES.H, so this pointer lands in the same folder as the
+ * saves and cfg it belongs with, and a demo build never reads a retail
+ * build's pick. */
 bool BuildPersistedGameDirPath(char *outPath, size_t outMax) {
-    char *prefPath = SDL_GetPrefPath("Twinsen", "LBA2");
+    char *prefPath = SDL_GetPrefPath(ADELINE_PREF_ORG, ADELINE_PREF_APP);
     if (prefPath == NULL) {
         return false;
     }

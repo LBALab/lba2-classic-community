@@ -67,3 +67,53 @@ jobs:
 
       - name: Verify Binary
         run: test -f build/SOURCES/lba2cc && echo "Build successful"
+
+  # The demo SKU compiles a different set of sources: ~60 #ifdef DEMO sites the
+  # default build never touches. That is exactly how it silently stopped
+  # compiling between 1997 and the LBA2_BUILD_DEMO option, so an edit to the
+  # files it shares with retail (GAMEMENU, PERSO, SAVEGAME, OBJECT) can break it
+  # against a green matrix.
+  #
+  # The host tests run here too. They need no game data, and several of them
+  # assert against build-dependent values -- test_res_picker checks the picker
+  # modals quote Directories_GetResMarker(), which the demo build changes. A
+  # compile-only job stays green while those messages send a demo player after
+  # a file no demo install has.
+  build-demo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SDL3
+        uses: libsdl-org/setup-sdl@4ebea449684c989388fe6bcea0460e300d13a5ae # main @ 2025-12-20
+        id: sdl
+        with:
+          install-linux-dependencies: true
+          version: 3-latest
+          build-type: ${{ env.BUILD_TYPE }}
+
+      - name: Install latest CMake and ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-demo \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH="${{ steps.sdl.outputs.prefix }}" \
+            -DLBA2_BUILD_DEMO=ON \
+            -DLBA2_BUILD_TESTS=ON \
+            -DLBA2_BUILD_ASM_EQUIV_TESTS=OFF \
+            --preset linux
+
+      - name: Build
+        run: |
+          cmake --build build-demo --target lba2cc
+          cmake --build build-demo --target host_tests
+
+      - name: Host tests
+        run: cd build-demo && ctest -L host_quick --output-on-failure
+
+      - name: Verify Binary
+        run: test -f build-demo/SOURCES/lba2cc && echo "Demo build successful"

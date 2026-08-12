@@ -2,6 +2,21 @@
 
 #include <SYSTEM/ADELINE_TYPES.H>
 
+/// Org and app passed to SDL_GetPrefPath, so every user-writable path (saves,
+/// lba2.cfg, adeline.log, last_game_dir.txt) agrees on one folder.
+///
+/// The demo SKU takes its own. Its marker, RESS.HQR, is present in retail
+/// installs too, so a demo binary handed a retail path validates it; sharing
+/// last_game_dir.txt would hand it exactly that path the moment a retail build
+/// ran first. Separate folders keep the two SKUs from pointing each other at
+/// data neither can use, and keep demo saves out of a retail profile.
+#define ADELINE_PREF_ORG "Twinsen"
+#ifdef DEMO
+#define ADELINE_PREF_APP "LBA2-Demo"
+#else
+#define ADELINE_PREF_APP "LBA2"
+#endif
+
 // -----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
