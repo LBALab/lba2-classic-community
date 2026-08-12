@@ -31,6 +31,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Code Checkout
@@ -45,9 +46,13 @@ jobs:
           build-type: ${{ env.BUILD_TYPE }}
 
       # UASM is not required for this job (game + host tests: discovery + console state). ASM equivalence uses test.yml + Docker.
-      - name: Install latest CMake and ninja
-        uses: lukka/get-cmake@latest
-
+      #
+      # No CMake/ninja install step: the ubuntu-latest runner image ships
+      # CMake 3.31 and Ninja 1.13, both well past the 3.23 floor in
+      # CMakePresets.json. Fetching a newer pair on every run bought nothing
+      # and put a third-party action plus a release download on the critical
+      # path. The linux-tarball release job builds the same presets against
+      # apt's older CMake, so this floor has cover.
       - name: Configure
         run: |
           cmake -S . -B build \
@@ -81,6 +86,7 @@ jobs:
   # a file no demo install has.
   build-demo:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Code Checkout
@@ -94,9 +100,7 @@ jobs:
           version: 3-latest
           build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Install latest CMake and ninja
-        uses: lukka/get-cmake@latest
-
+      # No CMake/ninja install step, for the reason given on the build job.
       - name: Configure
         run: |
           cmake -S . -B build-demo \

@@ -43,15 +43,34 @@ jobs:
           - runs-on: ubuntu-24.04-arm
             arch: aarch64
     container: ghcr.io/pkgforge-dev/archlinux:latest
+    timeout-minutes: 45
     steps:
       - name: Code Checkout
         uses: actions/checkout@v6
       - name: Preparing Container
         uses: pkgforge-dev/anylinux-setup-action@v2
+      # The script pulls from Arch mirrors and downloads appimagetool from a
+      # GitHub release; both have failed a leg outright when upstream returned
+      # 5xx. Retry the whole script rather than any one fetch: pacman and the
+      # CMake build are both incremental, so a second attempt costs seconds,
+      # and appimagetool's own internal retries are already exhausted by then.
       - name: Make AppImage
         env:
           LBA2_UPDATE_CHANNEL: ${{ inputs.update-channel }}
-        run: /bin/sh ./scripts/packaging/make-appimage.sh
+        run: |
+          for attempt in 1 2 3; do
+            # Start each attempt from a clean AppDir: a run that died inside
+            # quick-sharun leaves a half-populated tree behind, and the next
+            # attempt would then fail on that rather than on the real cause.
+            rm -rf ./AppDir ./dist
+            if /bin/sh ./scripts/packaging/make-appimage.sh; then
+              exit 0
+            fi
+            echo "AppImage build attempt ${attempt} failed; retrying in 15s"
+            sleep 15
+          done
+          echo "AppImage build failed after 3 attempts" >&2
+          exit 1
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
         with:

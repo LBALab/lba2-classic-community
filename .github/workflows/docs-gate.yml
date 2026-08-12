@@ -37,10 +37,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - run: echo "Docs-only change — no build required."
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - run: echo "Docs-only change — no tests required."

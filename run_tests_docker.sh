@@ -131,11 +131,18 @@ docker run --rm \
     bash -c '
         set -e
 
-        echo "--- Installing UASM ---"
-        curl -fsSL https://github.com/Terraspace/UASM/releases/download/v2.57r/uasm257_linux64.zip \
-            -o /tmp/uasm.zip
-        unzip -oq /tmp/uasm.zip -d /usr/local/bin
-        chmod +x /usr/local/bin/uasm
+        if [ -x /usr/local/bin/uasm ]; then
+            echo "--- UASM (baked into the image) ---"
+        else
+            # Only reached with an image built before UASM moved into the
+            # Dockerfile. Retries so a flaky CDN costs seconds, not the run.
+            echo "--- Installing UASM (stale image; rebuild with --rebuild) ---"
+            curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
+                https://github.com/Terraspace/UASM/releases/download/v2.57r/uasm257_linux64.zip \
+                -o /tmp/uasm.zip
+            unzip -oq /tmp/uasm.zip -d /usr/local/bin
+            chmod +x /usr/local/bin/uasm
+        fi
         uasm -? </dev/null 2>&1 | head -1 || true
 
         cp -a ${CONTAINER_SRC} /tmp/lba2

@@ -27,6 +27,7 @@ env:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 30
 
     steps:
       - name: Code Checkout
@@ -39,9 +40,8 @@ jobs:
           version: 3-latest
           build-type: ${{ env.BUILD_TYPE }}
 
-      - name: Install latest CMake and ninja
-        uses: lukka/get-cmake@latest
-
+      # See linux.yml: the macos-latest runner image already ships CMake and
+      # Ninja well past the 3.23 floor, so there is no toolchain fetch here.
       - name: Configure
         run: |
           cmake -S . -B build \

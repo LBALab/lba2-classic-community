@@ -120,6 +120,99 @@ When you change the shared `paths-ignore` set, change `docs-gate.yml`'s
 `paths:` list to match. They are inverses of the same set and drift
 between them reopens the blocked-PR hole.
 
+## Caching and upstream dependencies
+
+Nothing in this repo is vendored: every run rebuilds its toolchain from
+somewhere else on the internet. That makes third-party availability the
+single largest source of red CI, ahead of actual test failures. Both
+failures in the recent run history were upstream 5xx responses, not code:
+
+- `curl` of the UASM release zip returned 503, failing the ASM suite
+  before a single test compiled.
+- `appimagetool`'s download exhausted its own five internal retries,
+  failing an AppImage release leg.
+
+Three rules follow from that, and the workflows apply them:
+
+1. **Bake, don't fetch.** Anything that can live in a cached image or a
+   cached prefix goes there. UASM is unpacked in `docker/Dockerfile.test`
+   rather than downloaded on each `docker run`; SDL3 for Android is built
+   once per `(ABI, tag, NDK)` and restored from the Actions cache after.
+2. **Retry what must be fetched.** `curl --retry 5 --retry-all-errors`,
+   `apt-get -o Acquire::Retries=5`, and a three-attempt loop around the
+   whole AppImage script (which fetches from Arch mirrors and a GitHub
+   release through tooling we do not control).
+3. **Bound every job.** All jobs carry `timeout-minutes`. Without it a
+   hung mirror connection burns the six-hour default before the job is
+   marked failed.
+
+### What is cached
+
+| Cache | Owner | Key | Restores |
+|---|---|---|---|
+| SDL3 build | `libsdl-org/setup-sdl` (built in) | resolved SDL git hash + `runner.os`/`arch` | ~2 MB prefix, seconds |
+| MSYS2 install + pacman packages | `msys2/setup-msys2` (`cache: true` default) | package list + config hash | ~177 MB |
+| ASM test image layers | `docker/build-push-action`, `type=gha` | `docker/Dockerfile.test` content | the whole image, ~300 MB; written by `main` only |
+| SDL3 for Android | `actions/cache` | ABI + SDL tag + NDK version | source tree + install prefix |
+
+The ASM test image is the one that matters most. `run_tests_docker.sh`
+builds it whenever it is not already in the local daemon, which on a
+fresh runner is *every* run: apt, two SDL3 source builds, and the UASM
+download, about 2m10s of a 2m45s job. `test.yml` builds it through buildx
+with the Actions cache backend first, so `run_tests_docker.sh` finds the
+image already loaded and skips its own build. Measured: 24s to restore
+against 131s to build, taking the job from 165s to 67s. That step is
+`continue-on-error`: if buildx or the cache service is unavailable,
+nothing is loaded and `run_tests_docker.sh` builds the image itself, so
+the job is slower but not red.
+
+Only `main` writes that cache. Actions cache scopes are per-ref, and a
+`pull_request` run reads its own scope plus the base branch, never a
+sibling topic branch. A topic branch exporting the image therefore writes
+a ~300 MB copy no other run can restore, and pays about 80s for the
+export on exactly the runs that missed. Read-only elsewhere keeps a hit at 24s
+and a miss at plain build cost. The practical consequence: a PR that
+edits `docker/Dockerfile.test` rebuilds the image on every run until it
+merges, because nothing on `main` matches its key yet.
+
+Note that the image's 64-bit SDL3 install is unused by CI: the
+`linux_test` preset is `-m32` throughout and points `SDL3_DIR` at
+`/usr/local/sdl3-32`. It is kept for interactive use of the image. With
+the layers cached its build cost is only paid when the Dockerfile
+changes.
+
+**ccache is deliberately absent.** The compile steps are 14 s (macOS),
+18 s (Linux) and 70 s (Windows); only Windows is worth attacking, and a
+ccache directory that churns on every run would compete with the image
+layers for the repository's 10 GB Actions cache budget. Revisit if the
+Windows build grows or the cache budget frees up.
+
+### Where the toolchain still floats
+
+Two versions are resolved at run time rather than pinned:
+
+- `libsdl-org/setup-sdl` is called with `version: 3-latest` in
+  `linux.yml`, `macos.yml`, `reusable-build-linux-tarball.yml`, and
+  `reusable-build-macos.yml`, while `docker/Dockerfile.test`,
+  `reusable-build-android.yml`, and the `scripts/dev/` helpers pin
+  `release-3.2.16`. A new SDL3 release therefore invalidates the setup-sdl
+  cache and changes what CI links against with no commit in this repo.
+- `msys2/setup-msys2` runs with `update: true`, so the MinGW toolchain
+  advances whenever MSYS2 publishes.
+
+Both are deliberate, in that they surface upstream breakage early rather
+than letting it accumulate, but they are the reason a green run yesterday
+is not proof of a green run today.
+
+### Action pinning
+
+`libsdl-org/setup-sdl` is pinned to a commit SHA. Everything else uses a
+mutable major tag (`@v2`…`@v7`), and the container image for the AppImage
+build is `ghcr.io/pkgforge-dev/archlinux:latest`. That is the usual
+trade-off between supply-chain exposure and maintenance load; if it is
+ever tightened, do it with Dependabot's `github-actions` ecosystem so the
+pins have something keeping them current.
+
 ## Release tier
 
 The release workflows are documented in full in
