@@ -105,6 +105,17 @@ if [ ${#TEST_NAMES[@]} -gt 0 ]; then
 fi
 
 # ── Run tests ─────────────────────────────────────────────────────────────────
+# The runtime fallback below needs the UASM release to fetch, but the version
+# belongs to the image. Read it out of the Dockerfile rather than repeating it:
+# two copies drift, and the failure is a stale image quietly assembling with a
+# different UASM than the one the Dockerfile declares.
+UASM_VERSION=$(sed -n 's/^ARG UASM_VERSION=//p' "${SCRIPT_DIR}/docker/Dockerfile.test")
+UASM_ARCHIVE=$(sed -n 's/^ARG UASM_ARCHIVE=//p' "${SCRIPT_DIR}/docker/Dockerfile.test")
+if [ -z "${UASM_VERSION}" ] || [ -z "${UASM_ARCHIVE}" ]; then
+    echo "ERROR: could not read ARG UASM_VERSION/UASM_ARCHIVE from docker/Dockerfile.test" >&2
+    exit 1
+fi
+
 TEST_LOG="${LOG_DIR}/test_run_$(date +%Y%m%d_%H%M%S).log"
 echo "==> Running tests (preset: ${PRESET}) …"
 # For render mode, we need read-write access to copy output files back
@@ -127,6 +138,8 @@ docker run --rm \
     -e "POLYREC_NAME=${POLYREC_NAME}" \
     -e "REPLAY_ARGS_STR=${REPLAY_ARGS[*]+"${REPLAY_ARGS[*]}"}" \
     -e "POLYREC_DEBUG_SLOPES=${POLYREC_DEBUG_SLOPES:-}" \
+    -e "UASM_VERSION=${UASM_VERSION}" \
+    -e "UASM_ARCHIVE=${UASM_ARCHIVE}" \
     "${IMAGE_NAME}" \
     bash -c '
         set -e
@@ -136,9 +149,9 @@ docker run --rm \
         else
             # Only reached with an image built before UASM moved into the
             # Dockerfile. Retries so a flaky CDN costs seconds, not the run.
-            echo "--- Installing UASM (stale image; rebuild with --rebuild) ---"
+            echo "--- Installing UASM ${UASM_VERSION} (stale image; rebuild with --rebuild) ---"
             curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors \
-                https://github.com/Terraspace/UASM/releases/download/v2.57r/uasm257_linux64.zip \
+                "https://github.com/Terraspace/UASM/releases/download/v${UASM_VERSION}/${UASM_ARCHIVE}" \
                 -o /tmp/uasm.zip
             unzip -oq /tmp/uasm.zip -d /usr/local/bin
             chmod +x /usr/local/bin/uasm

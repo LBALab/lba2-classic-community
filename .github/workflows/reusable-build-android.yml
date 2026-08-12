@@ -93,19 +93,27 @@ jobs:
           echo "${ANDROID_HOME}/build-tools/35.0.0" >> "$GITHUB_PATH"
           echo "${ANDROID_HOME}/platform-tools" >> "$GITHUB_PATH"
 
-      # SDL3 is built from source per ABI, and the result only moves when the
-      # pinned tag or the NDK does. Cache the checkout (the APK bundler reads
-      # SDL's Java sources out of it) alongside the install prefix, so a run
-      # that changes neither pays a cache restore instead of a clone plus a
-      # full SDL build. RUNNER_TEMP is a fixed path on hosted runners, so the
+      # SDL3 is built from source per ABI. Cache the checkout (the APK bundler
+      # reads SDL's Java sources out of it) alongside the install prefix, so a
+      # run that changes neither pays a restore instead of a clone plus a full
+      # SDL build. RUNNER_TEMP is a fixed path on hosted runners, so the
       # absolute paths baked into SDL3Config.cmake stay valid across runs.
+      #
+      # The key hashes this whole file rather than naming the inputs, because
+      # everything that changes the output lives here: the SDL tag, the NDK
+      # version, ANDROID_PLATFORM, ANDROID_STL, the SHARED/STATIC split and the
+      # 16 KB page-size linker flags. A hand-written list would be a second
+      # thing to keep in sync, and forgetting to extend it links a stale SDL3
+      # into a shipped APK rather than merely wasting time. An unrelated edit
+      # to this file costs one 45s rebuild per ABI, which is the right way
+      # round to be wrong.
       - name: Cache SDL3 for Android
         uses: actions/cache@v6
         with:
           path: |
             ${{ runner.temp }}/SDL3
             ${{ runner.temp }}/sdl3-install
-          key: sdl3-android-${{ matrix.abi }}-release-3.2.16-ndk-28.2.13676358
+          key: sdl3-android-${{ matrix.abi }}-${{ hashFiles('.github/workflows/reusable-build-android.yml') }}
 
       - name: Build SDL3 for Android
         run: |
