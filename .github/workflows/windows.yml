@@ -27,6 +27,7 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    timeout-minutes: 30
 
     defaults:
       run:
@@ -38,8 +39,14 @@ jobs:
         with:
           msystem: UCRT64
           update: true
+          # Name the compiler package rather than the `-toolchain` group.
+          # The group also drags in gdb, gdb-multiarch, python, tcl and tk,
+          # about 320 MiB that nothing in this job uses, paid for on every run
+          # in unpack time and in the size of the pacman cache the action
+          # stores in the Actions cache. Same package set as
+          # reusable-build-windows.yml, minus the packaging-only `zip`.
           install: >-
-            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-sdl3
