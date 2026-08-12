@@ -6,7 +6,7 @@ The engine needs the original Little Big Adventure 2 data files. They are not in
 
 Use the directory that contains `LBA2.HQR` (and the other `.hqr` files, `music/`, `video/`, `vox/`, etc.). On Steam, classic data may live under a Classic-related install path; remastered or other editions may use a different layout — this fork targets classic data only.
 
-**Validation:** discovery and overrides only succeed when the chosen path is a directory that contains `LBA2.HQR` (that is the required marker; see `IsValidResourceDir` / `FILE_VALID_RES_DIR` in `SOURCES/DIRECTORIES.CPP`). The filename is matched with the same case-folding logic as other asset files.
+**Validation:** discovery and overrides only succeed when the chosen path is a directory that contains `LBA2.HQR` (that is the required marker; see `IsValidResourceDir` / `FILE_VALID_RES_DIR` in `SOURCES/DIRECTORIES.CPP`). The filename is matched with the same case-folding logic as other asset files. A demo build marks on `RESS.HQR` instead, because no demo install ships `LBA2.HQR`; see [The 1997 playable demo](#the-1997-playable-demo).
 
 **Single asset root:** Once that directory is chosen, `GetResPath`, `GetJinglePath`, `GetMoviePath`, and related APIs resolve files relative to that same `directoriesResDir` (see `InitDirectories` / `GetResPath` in `SOURCES/DIRECTORIES.CPP`). The engine does not look for `music/`, `video/`, `vox/`, or other `.hqr` files on separate paths; finding `LBA2.HQR` establishes the one root for classic data.
 
@@ -272,7 +272,9 @@ external audio track whose number is not a CD track number, is reported rather t
 
 The demo that shipped on magazine cover discs is a separate SKU, not a mode. Its data set is a
 different install and its behaviour lives behind `#ifdef DEMO` in the original sources, so a demo
-binary cannot run retail data and a retail binary cannot run demo data. Build it with:
+binary cannot run retail data and a retail binary cannot run demo data. It is a compile-time release
+axis rather than a `Version` key, alongside the other build variants in
+[VERSIONS.md](VERSIONS.md#build-variants). Build it with:
 
 ```bash
 cmake -S . -B build-demo -G Ninja -DLBA2_BUILD_DEMO=ON

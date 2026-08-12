@@ -273,7 +273,7 @@ For completeness, the release axes that are compile-time rather than config-driv
 | Macro | Set by | Effect |
 |-------|--------|--------|
 | `CDROM` | [SOURCES/CMakeLists.txt:149](../SOURCES/CMakeLists.txt#L149) | Compiles the CD paths, so the volume-label and voice-folder branches are live |
-| `DEMO` | not set by this build | Three-cube demo: replaces `DistribLogo`'s switch, adds the demo bumper, forces the corner logo on |
+| `DEMO` | `LBA2_BUILD_DEMO` CMake option (default OFF) | The 1997 playable demo: replaces `DistribLogo`'s switch, adds the demo bumper, forces the corner logo on, and swaps free saves for three fixed slots. Needs demo game data; see [GAME_DATA.md](GAME_DATA.md#the-1997-playable-demo) |
 | `DEBUG_TOOLS` | CMake option | Skips the whole boot logo sequence, so no splash regardless of `DistribVersion` |
 | `DEBUG_TOOLS`, `TEST_TOOLS` | CMake options | Enable the stale-save fallback to `LoadGameOldVersion` at [OBJECT.CPP:1373](../SOURCES/OBJECT.CPP#L1373) |
 | `LBA_EDITOR`, `EDITLBA2` | editor build | Compiles the editor paths out of the game build |
