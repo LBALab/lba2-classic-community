@@ -9,13 +9,13 @@ Life (`LM_*`) and Track (`TM_*`) scripts. Reversed during the input-replay resea
 
 The reference graph is fully resolved: an IMPACT command points at a FLOW (`flow=N`), a POF
 (`pof=N`), or a sprite/sample/body — all by index. FLOW and POF are reversed below; sprite,
-sample, and body indices address `sprites.hqr`, `samples.hqr`, and `body.hqr` respectively.
+sample, and body indices address `SPRITES.HQR`, `SAMPLES.HQR`, and `BODY.HQR` respectively.
 
 ## Runtime
 
 `DoImpact(num, x, y, z, owner)` (`SOURCES/IMPACT.CPP`) executes impact `num` at world position
 `(x,y,z)`, walking a compiled command stream and spawning the effects. The compiled blob is
-loaded once from `ress.hqr` resource **`RESS_IMPACT` (47)** into `BufferImpact`
+loaded once from `RESS.HQR` resource **`RESS_IMPACT` (47)** into `BufferImpact`
 (`PERSO.CPP:2592`). The `THROW`/`FLOW` commands feed the extra/particle systems
 (`ThrowExtra*`, `CreateExtraParticleFlow`, `InitExtraPof`); `SAMPLE` plays a positional sound;
 `SPRITE` spawns an animated sprite. The editor-only `CompileImpact()` turns human-readable
@@ -51,7 +51,7 @@ Operand layouts (`h` = s16, `i` = s32, `B` = u8), taken from `DoImpact`'s runtim
 
 ## The shipped impacts (retail data)
 
-The retail `ress.hqr` blob is 2160 bytes, **42 impacts** (slot 42 empty). Command frequency:
+The retail `RESS.HQR` blob is 2160 bytes, **42 impacts** (slot 42 empty). Command frequency:
 `THROW_OBJ` 56, `SAMPLE` 34, `FLOW` 25, `FLOW_SPRITE` 20, `SPRITE` 13, `FLOW_OBJ`/`FLOW_POF` 8
 each, `THROW` 8, `THROW_POF` 3. They read as hit/explosion effects — e.g. impact 0 plays a
 sound, emits a sprite flow and two particle flows, hurls seven copies of body 62 (debris) at
@@ -60,7 +60,7 @@ varied angles/speeds, and finishes with an animated sprite.
 ## Tooling
 
 - `scripts/dev/hqr_inspect.py <hqr> --entry 47 --dump impact.bin` — extract + decompress the
-  blob from `ress.hqr`.
+  blob from `RESS.HQR`.
 - `scripts/dev/impact_disasm.py impact.bin` — disassemble all impacts.
 - `scripts/dev/impact_disasm.py impact.bin --check` — round-trip: reassemble and verify
   **byte-identical** to the original. This passes on the retail blob, which proves the codec is
@@ -70,7 +70,7 @@ varied angles/speeds, and finishes with an animated sprite.
 ## FLOW — particle-emitter definitions (`RESS_FLOW` = 45)
 
 The `FLOW`/`FLOW_SPRITE`/`FLOW_OBJ`/`FLOW_POF` commands above reference a particle emitter by
-index. Those emitters live in `ress.hqr` resource **`RESS_FLOW` (45)**, loaded raw by `Load_HQR`
+index. Those emitters live in `RESS.HQR` resource **`RESS_FLOW` (45)**, loaded raw by `Load_HQR`
 into `TabPartFlow` (`FLOW.CPP:112`) — a **flat array of `T_FLOW`**, no offset table, so flow `N`
 is simply the Nth record. `CreateParticleFlow`/`CreateExtraParticleFlow` instantiate it.
 
@@ -96,7 +96,7 @@ flow 81 (wide cone, 56 dots) and flow 55 (narrow, 4 dots).
 
 `THROW_POF`/`FLOW_POF` reference a POF by index. A POF is a small **2D point-and-line wireframe**
 (a spark/star/debris outline) drawn scaled and rotated in screen space by `PofDisplay3DExt`
-(`SOURCES/POF.CPP`); `InitExtraPof` spawns a flying extra that renders it. The blob (`ress.hqr`
+(`SOURCES/POF.CPP`); `InitExtraPof` spawns a flying extra that renders it. The blob (`RESS.HQR`
 resource **`RESS_POF` (46)**, loaded raw into `BufferPof`, `PERSO.CPP:2588`) uses the same
 container as IMPACT: a U32 offset table (count = first/4), each slot a byte offset to a POF.
 

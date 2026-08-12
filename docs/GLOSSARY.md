@@ -14,32 +14,32 @@ Truth hierarchy: code > this document > external sources.
 | BufCube | Collision grid | 64x64x25 cell grid loaded per interior scene. Each cell holds a collision value. | `SOURCES/GRILLE.CPP` | -- |
 | Zone | Trigger zone | Axis-aligned bounding box that triggers an action when the hero enters it. | `SOURCES/COMMON.H` (`T_ZONE`), `SOURCES/OBJECT.CPP` (`CheckZoneSce`) | -- |
 | Zone type | -- | Numeric 0-9 (`MAX_TYPES_ZONE=10`). Type 0 = cube change, type 1 = camera, type 6 = ladder. No named constants in source. | `SOURCES/COMMON.H`, `SOURCES/OBJECT.CPP` | -- |
-| HQR | -- | Archive file format used for all game resources. | `SOURCES/COMMON.H` (file name constants) | [LBA File Info](https://lbafileinfo.kaziq.net/index.php/LBA_2_files) (incomplete; missing video.hqr) |
+| HQR | -- | Archive file format used for all game resources. | `SOURCES/COMMON.H` (file name constants) | [LBA File Info](https://lbafileinfo.kaziq.net/index.php/LBA_2_files) (incomplete; missing VIDEO.HQR) |
 
 ## HQR resource files
 
 Purposes sourced from [LBA File Info](https://lbafileinfo.kaziq.net/index.php/LBA_2_files),
 verified against `#define` constants in `SOURCES/COMMON.H` (lines 66-80).
-LBA File Info omits `video.hqr`; the list below is complete per the source code.
+LBA File Info omits `VIDEO.HQR`; the list below is complete per the source code.
 
 | File | Purpose |
 |------|---------|
 | `LBA2.HQR` | Ending credits data |
-| `scene.hqr` | Scripts defining active scene content |
-| `body.hqr` | 3D models of characters |
-| `anim.hqr` | Animations for 3D models |
-| `anim3ds.hqr` | 3DS-format animations |
-| `objfix.hqr` | 3D models of fixed objects |
-| `samples.hqr` | Sound samples (excluding voices) |
-| `text.hqr` | In-game dialogue text |
-| `screen.hqr` | Full-screen images |
-| `sprites.hqr` | Compressed sprites; see [MENU.md](MENU.md) for **`SPRITE_CURSOR`** (173) and the menu pointer |
-| `spriraw.hqr` | Raw-format sprites |
-| `ress.hqr` | Miscellaneous resources |
-| `lba_bkg.hqr` | Isometric background maps, bricks, objects |
-| `holomap.hqr` | Holomap data and textures |
-| `video.hqr` | Video/cinematic data |
-| `scrshot.hqr` | Demo screenshot images |
+| `SCENE.HQR` | Scripts defining active scene content |
+| `BODY.HQR` | 3D models of characters |
+| `ANIM.HQR` | Animations for 3D models |
+| `ANIM3DS.HQR` | 3DS-format animations |
+| `OBJFIX.HQR` | 3D models of fixed objects |
+| `SAMPLES.HQR` | Sound samples (excluding voices) |
+| `TEXT.HQR` | In-game dialogue text |
+| `SCREEN.HQR` | Full-screen images |
+| `SPRITES.HQR` | Compressed sprites; see [MENU.md](MENU.md) for **`SPRITE_CURSOR`** (173) and the menu pointer |
+| `SPRIRAW.HQR` | Raw-format sprites |
+| `RESS.HQR` | Miscellaneous resources |
+| `LBA_BKG.HQR` | Isometric background maps, bricks, objects |
+| `HOLOMAP.HQR` | Holomap data and textures |
+| `VIDEO.HQR` | Video/cinematic data |
+| `SCRSHOT.HQR` | Demo screenshot images |
 
 ### ILE/OBL pairs (exterior island surfaces)
 

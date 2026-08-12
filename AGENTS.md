@@ -98,6 +98,8 @@ Apply these behavior rules on every non-trivial task:
 
 Style rules and rationale (language dialect, indentation, types, C++98, preservation) live in [CODESTYLE.md](CODESTYLE.md) — read it before writing engine code. The agent-critical invariant: **ported original code stays C-style to mirror the ASM; new infrastructure with no ASM original may use conservative C++98 features.** Never modernize game code (see the Never list). When unsure, match the file you are editing.
 
+**Resolving an asset path: never hand-roll filename spellings.** Retail files are uppercase while the engine asks in lower case, and the only thing bridging that is `Discover` in [SOURCES/DIRECTORIES.CPP](SOURCES/DIRECTORIES.CPP), which probes as-is, upper, lower and title case. Build every asset path through `GetResPath` / `GetJinglePath` / `GetMoviePath` / `GetVoicePath` so it inherits those probes. Writing your own `snprintf` of a candidate name works on the install you tested and silently misses on another: `STREAM.CPP`'s `track<N>.ogg` fallback hand-rolls two spellings and loses every theme track on an all-uppercase install while the jingles keep playing, which reads as "some music is missing" rather than a filename problem.
+
 Formatting mechanics (agent-operational):
 
 - Formatting: clang-format with checked-in `.clang-format`; exclusions live in `.clang-format-ignore` (ASM, `LIB386/libsmacker/`, vendored `stb_*`, and a handful of legacy lookup-table files). When adding vendored third-party code or generated/hand-tuned lookup tables, add the path to `.clang-format-ignore` in the same commit — single source of truth for local scripts, CI, and the pre-commit hook.
@@ -134,6 +136,9 @@ For tone and engineering principles, see [CONTRIBUTING.md "Doing good work here"
 
 **Accuracy (always pair with formatting):**
 
+- Retail asset files are **UPPERCASE**: `LBA2.HQR`, `RESS.HQR`, `TEXT.HQR`, and so on, in every distribution (Steam, both GOG builds, the retail disc). Name them that way in docs, in user-facing strings, and in shell commands a reader will paste. Lower case is easy to type and names a file nobody has, which sends a stuck player renaming files instead of fixing the real problem. Two deliberate exceptions, both kept lower case on purpose: the token list in [docs/RELEASING.md](docs/RELEASING.md) that exists to show grep false positives, and LBA1 markers in [docs/LBA1_PORT_PLAN.md](docs/LBA1_PORT_PLAN.md).
+- Quoting a C identifier or string literal is different from naming a file. `HQR_NAMES.H` spells its constants lower case (`RESS_HQR_NAME "ress.hqr"`), and a doc quoting that source should match the source. Upper case is for "this file is on your disk"; the literal's own case is for "this is what the code says".
+- Directory names have no single truth, so leave them alone: Steam ships `Music/` but `VIDEO/` and `VOX/`, and other installs differ. Case discovery handles it.
 - Verify file paths, line numbers, function names, and command flags against the working tree before believing them.
 - From `docs/`, links to `SOURCES/` or `LIB386/` need the `../` prefix (`[…](../SOURCES/X.CPP)`). Common breakage spot.
 - Cross-check claims about CMake options, presets, and CI workflows against `CMakeLists.txt`, `CMakePresets.json`, and `.github/workflows/`.

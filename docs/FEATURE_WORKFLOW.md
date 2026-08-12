@@ -66,7 +66,7 @@ Truth hierarchy: code > this document > external sources.
    - `BuildGameMainMenu` — filters by runtime state
    - `GameOptionMenu` — Options submenu (text IDs 11–47)
    - `DoGameMenu` — generic driver; handles sliders (type 2–7)
-   - Text IDs from `text.hqr`; need to add new string if new label
+   - Text IDs from `TEXT.HQR`; need to add new string if new label
 
 4. **Docs to update:**
    - MENU.md — update menu tree, add new entry to Options if applicable
